@@ -44,10 +44,9 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 4. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — seit 07-13 bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
 5. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
 6. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): 37 Skill-/Label-Kandidaten aus 07-13 — Einzelfall-Rückbau-Entscheidung weiterhin offen
-7. Orchestrator-MCP „Invalid Bearer Token" (seit 07-13 unbearbeitet) — Memory-Warm-Start/Recurring-Errors tot; Token gegen Secrets-Ablage prüfen
-8. Haupt-Retro [#1162](https://github.com/achimdehnert/platform/pull/1162) reviewen/mergen — einziger PR dieser Session, der noch offen ist
-9. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Stichprobe unter 57 ADRs + 19 KONZ-Dokumenten mit Phasen-/Akzeptanzkriterien-Struktur
+7. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Stichprobe unter 57 ADRs + 19 KONZ-Dokumenten mit Phasen-/Akzeptanzkriterien-Struktur
 
+> **Erledigt 2026-07-18 (Session-Start-Reconciliation, keine neue Arbeit):** Orchestrator-MCP wieder funktional — „Invalid Bearer Token" nicht mehr reproduzierbar, live verifiziert per 3 erfolgreichen Tool-Calls (`agent_memory_search` + `check_recurring_errors` + Outline-Search) am 2026-07-18; Ursache des Wieder-Funktionierens unbekannt (nicht untersucht) · Haupt-Retro [#1162](https://github.com/achimdehnert/platform/pull/1162) ist MERGED + APPROVED (war als „offen" geführt, Handover war stale).
 > **Erledigt 2026-07-15:** cad-hub#42 (war schon vor Session-Start gemergt, Handover war stale) · trading-hub#150 · coach-hub#40 · ADR-270-Vorbedingung (#1152) · Increment-Retro (#1165) · session-start-Checkliste-Nachbesserung (#1166).
 > **Erledigt 2026-07-13 (nachgezogen, war nur in PR #1122 unmerged dokumentiert):** KONZ-017 W1 sync-drift-meter #998 (#1009 gemergt) · usage_sweep.py (#1116 gemergt) · trading-hub Deploy-403 (#1070 zu) · PyPI-OIDC-Readiness codeguard/ingest (#1118 gemergt) · trading-hub PR #130 (README-Fix, inzwischen gemergt).
 
