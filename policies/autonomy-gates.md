@@ -93,6 +93,16 @@ Signal G (unten) je Klasse.
   nachvollziehbar bleibt. Realfall 2026-07-15 (KD-Sitemap-Rollout, 9 Repos, 6 echte
   Prod-Deploys): ein späteres Retro (`c25d21`) konnte anhand der Artefakte keine Freigabe
   für den Batch finden — nach Nutzerangabe war er freigegeben, nur nirgends vermerkt.
+- **Tier-A-PRs bekommen Auto-Merge beim Anlegen** (Owner-Weisung 2026-07-18, deckt sich mit
+  ADR-270 Tier A): Ein PR OHNE Prod-Deploy-on-main UND OHNE Governance-Inhalt (also Tools,
+  Doku, Meta, Konzepte — nicht ADRs/Policies/Rulesets/Charta/Permissions) wird beim Erstellen
+  mit GitHub-**Auto-Merge** versehen (`gh pr merge <N> --auto --squash|--merge`). Dann ist die
+  **Owner-/Windsurf-Approval der einzige verbleibende Schritt** — GitHub merged selbst, sobald
+  die Required Checks grün sind. Kein manueller Merge-Klick, KEIN Agent-Merge (der Classifier
+  blockt Agent-Merges auf platform hart; Auto-Merge umgeht das sauber, weil GitHub merged, nicht
+  der Agent). **Governance-PRs bleiben ausdrücklich manuell** — dort ist der bewusste menschliche
+  Merge-Griff der Sinn des Gates (diese Policy-Änderung selbst ist so ein Fall: manuell gemergt).
+  Voraussetzung repo-seitig: `allow_auto_merge=true` (bei achimdehnert/platform verifiziert 2026-07-18).
 
 ## Effectiveness test (binding — falsify or cut)
 
