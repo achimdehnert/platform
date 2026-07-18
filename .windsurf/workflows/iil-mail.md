@@ -30,7 +30,8 @@ Tokens in `~/.claude/graph-mail-tokens/` (600). Kunden-Ordner-Zuordnung lokal, N
 python3 tools/mail_agent/graph_mail.py --login achim.dehnert@iil.gmbh   # einmalig, Browser
 python3 tools/mail_agent/graph_mail.py --list-folders
 python3 tools/mail_agent/graph_mail.py --scan-senders --days 180        # Domains vorschlagen
-python3 tools/mail_agent/graph_mail.py --create-path "DSGVO/Groeger"
+python3 tools/mail_agent/graph_mail.py --create-path "IIL.Kunden/Marold"
+python3 tools/mail_agent/graph_mail.py --move-folder "Gröger" --to-parent "IIL.Kunden"
 python3 tools/mail_agent/graph_mail.py --move --from "groeger-recycling.de" --to "DSGVO/Groeger"
 # Antwort-Entwurf (threadet, wenn --reply-to eine Message-ID bekommt):
 python3 tools/mail_agent/graph_mail.py --draft --reply-to <messageId> --body-file antwort.txt

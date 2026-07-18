@@ -208,6 +208,19 @@ def cmd_list_folders(tok: str) -> None:
         print(f["path"])
 
 
+def cmd_move_folder(tok: str, src_path: str, dest_parent_path: str) -> None:
+    """Verschiebt einen ganzen Ordner (mit Inhalt) unter einen anderen Elternordner."""
+    src_id = find_folder(tok, src_path)
+    if not src_id:
+        sys.exit(f"FEHLER: Ordner '{src_path}' nicht gefunden.")
+    dest_id = ensure_path(tok, dest_parent_path)
+    r = _http("POST", f"{GRAPH}/me/mailFolders/{src_id}/move", headers=_auth(tok),
+              json_body={"destinationId": dest_id})
+    if r.status_code not in (200, 201):
+        sys.exit(f"FEHLER: Ordner verschieben fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}")
+    print(f"OK: Ordner '{src_path}' → '{dest_parent_path}/' verschoben (Inhalt bleibt erhalten).")
+
+
 def cmd_create_path(tok: str, path: str) -> None:
     ensure_path(tok, path)
     print(f"OK: Ordnerpfad '{path}' vorhanden/angelegt.")
@@ -309,7 +322,9 @@ def main() -> None:
     g.add_argument("--create-path", metavar="PFAD")
     g.add_argument("--scan-senders", action="store_true")
     g.add_argument("--move", action="store_true")
+    g.add_argument("--move-folder", metavar="QUELLPFAD", help="ganzen Ordner unter --to-parent verschieben")
     g.add_argument("--draft", action="store_true")
+    ap.add_argument("--to-parent", help="Ziel-Elternordner bei --move-folder")
     ap.add_argument("--account")
     ap.add_argument("--days", type=int, default=180)
     ap.add_argument("--from", dest="from_sub")
@@ -340,6 +355,10 @@ def main() -> None:
         if not (args.from_sub and args.to):
             ap.error("--move braucht --from und --to")
         cmd_move(tok, args.from_sub, args.to, args.source, args.yes)
+    elif args.move_folder:
+        if not args.to_parent:
+            ap.error("--move-folder braucht --to-parent ZIEL-ELTERNORDNER")
+        cmd_move_folder(tok, args.move_folder, args.to_parent)
     else:  # --draft
         if not args.body_file:
             ap.error("--draft braucht --body-file (und --to ODER --reply-to)")
