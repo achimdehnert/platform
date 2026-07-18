@@ -53,6 +53,7 @@ def _http(method: str, url: str, *, headers=None, data=None, json_body=None, tim
     elif data is not None:
         body = urllib.parse.urlencode(data).encode()
         h.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    url = url.replace(" ", "%20")  # OData-Filter enthalten Leerzeichen ('… ge …'); urllib lehnt rohe ab
     req = urllib.request.Request(url, data=body, headers=h, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
