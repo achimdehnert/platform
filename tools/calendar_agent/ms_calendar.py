@@ -24,9 +24,57 @@ import json
 import stat
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
-import requests
+
+class _Resp:
+    """Minimales requests-artiges Ergebnis (stdlib-only, kein Fremd-Paket im CI nötig)."""
+
+    def __init__(self, status: int, text: str):
+        self.status_code = status
+        self.text = text
+
+    def json(self) -> dict:
+        return json.loads(self.text) if self.text else {}
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise urllib.error.HTTPError(None, self.status_code, self.text, None, None)
+
+
+def _http(method: str, url: str, *, headers=None, data=None, json_body=None, timeout=30) -> _Resp:
+    h = dict(headers or {})
+    body = None
+    if json_body is not None:
+        body = json.dumps(json_body).encode()
+        h.setdefault("Content-Type", "application/json")
+    elif data is not None:
+        body = urllib.parse.urlencode(data).encode()
+        h.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    req = urllib.request.Request(url, data=body, headers=h, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return _Resp(r.status, r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        return _Resp(e.code, e.read().decode("utf-8", "replace"))
+
+
+class _Requests:
+    """Dünner Shim — Aufrufstellen und Test-Monkeypatch (mc.requests.get) bleiben unverändert."""
+
+    @staticmethod
+    def get(url, *, headers=None, timeout=30):
+        return _http("GET", url, headers=headers, timeout=timeout)
+
+    @staticmethod
+    def post(url, *, data=None, json=None, headers=None, timeout=30):
+        return _http("POST", url, headers=headers, data=data, json_body=json, timeout=timeout)
+
+
+requests = _Requests()
 
 CONFIG_FILE = Path.home() / ".claude" / "calendar.env"
 DEFAULT_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e"  # MS Graph Command Line Tools (public)
