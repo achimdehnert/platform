@@ -147,6 +147,7 @@ mode: read-only
 | Reference-Docs für ALLE Repos generieren | `/docu-repo-all` |
 | Markdown → PDF (Design-Switcher meiki/iil/ttz) | `/create-pdf` |
 | E-Mail mit Anhängen über Maschinen-SMTP versenden | `/send-mail` |
+| E-Mails über Maschinen-IMAP lesen (read-only) | `/read-mail` |
 
 ### Klickdummy & Secrets
 
