@@ -33,7 +33,10 @@ DEFAULT_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e"  # MS Graph Command L
 # Per-Konto-Override: GRAPH_CLIENT_ID_<DOMAIN mit _ statt .> — z. B. GRAPH_CLIENT_ID_HNU_DE.
 # Grund: Conditional-Access mancher Mandanten (Realfall HNU 2026-07-17) blockt einzelne
 # Public Clients; ein anderer Microsoft-Standard-Client ist oft freigeschaltet.
-SCOPES = "Calendars.Read offline_access openid profile"
+# Calendars.ReadWrite (Stufe A, Owner-Entscheid 2026-07-18): der Lotse darf in den
+# EIGENEN Kalender schreiben. Einladungen an Dritte (Stufe B) sind bewusst NICHT gebaut —
+# cmd_create verweigert jeden Teilnehmer hart (Außenwirkung = eigenes Gate, Art. 7).
+SCOPES = "Calendars.ReadWrite offline_access openid profile"
 TIMEZONE = "W. Europe Standard Time"
 
 
@@ -289,6 +292,59 @@ def cmd_list(cfg: dict, days: int) -> None:
         print(line)
 
 
+def parse_local(s: str) -> str:
+    """'YYYY-MM-DD HH:MM' (Europe/Berlin) → Graph-dateTime-String (ohne Zone; TZ via Objekt)."""
+    s = s.strip().replace("T", " ")
+    dt.datetime.strptime(s, "%Y-%m-%d %H:%M")  # validiert; wirft bei Unfug
+    return s.replace(" ", "T") + ":00"
+
+
+def build_event_body(subject: str, start: str, end: str, location: str, note: str) -> dict:
+    body = {
+        "subject": subject,
+        "start": {"dateTime": parse_local(start), "timeZone": TIMEZONE},
+        "end": {"dateTime": parse_local(end), "timeZone": TIMEZONE},
+    }
+    if location:
+        body["location"] = {"displayName": location}
+    if note:
+        body["body"] = {"contentType": "text", "content": note}
+    # Stufe-A-Riegel: niemals Teilnehmer setzen — das wäre Außenwirkung (Stufe B, Art. 7).
+    body["attendees"] = []
+    return body
+
+
+def cmd_create(cfg: dict, account: str, args) -> None:
+    if account not in cfg["accounts"]:
+        sys.exit(f"FEHLER: {account} steht nicht in GRAPH_ACCOUNTS")
+    tok = get_access_token(cfg, account)
+    if not tok:
+        sys.exit(f"FEHLER: {account} nicht angemeldet — erst: --login {account}")
+    body = build_event_body(args.subject, args.start, args.end, args.location or "", args.note or "")
+    # Bestätigungs-Anzeige (auch bei Eigen-Kalender — es ist ein Schreibvorgang)
+    print("Anzulegen im EIGENEN Kalender (keine Einladung an Dritte):")
+    print(f"  Wann:    {args.start} – {args.end}  ({TIMEZONE})")
+    print(f"  Betreff: {args.subject}")
+    if args.location:
+        print(f"  Ort:     {args.location}")
+    if not args.yes:
+        try:
+            if input("Anlegen? [j/N] ").strip().lower() not in ("j", "ja", "y", "yes"):
+                sys.exit("Abgebrochen — nichts angelegt.")
+        except EOFError:
+            sys.exit("Kein --yes und keine Eingabe möglich — abgebrochen.")
+    r = requests.post("https://graph.microsoft.com/v1.0/me/events",
+                      headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+                      json=body, timeout=30)
+    if r.status_code == 403:
+        sys.exit("FEHLER: nur Lese-Recht vorhanden — bitte einmal neu anmelden (--login "
+                 f"{account}), damit das erweiterte Schreib-Recht erteilt wird.")
+    if r.status_code not in (200, 201):
+        sys.exit(f"FEHLER: Anlegen fehlgeschlagen HTTP {r.status_code} — {r.text[:200]}")
+    ev = r.json()
+    print(f"OK: Termin angelegt — '{ev.get('subject')}' am {args.start} (nur dein Kalender, niemand eingeladen)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -296,6 +352,15 @@ def main() -> None:
     g.add_argument("--status", action="store_true", help="Anmeldestatus beider Konten")
     g.add_argument("--today", action="store_true", help="heutige Termine beider Konten")
     g.add_argument("--list", type=int, metavar="TAGE", help="Termine der nächsten N Tage")
+    g.add_argument("--create", action="store_true",
+                   help="Termin im EIGENEN Kalender anlegen (Stufe A, keine Einladung an Dritte)")
+    ap.add_argument("--account", help="Zielkonto (Default: erstes in GRAPH_ACCOUNTS)")
+    ap.add_argument("--subject", help="Betreff (bei --create)")
+    ap.add_argument("--start", help="Start 'YYYY-MM-DD HH:MM' (Europe/Berlin)")
+    ap.add_argument("--end", help="Ende 'YYYY-MM-DD HH:MM'")
+    ap.add_argument("--location", help="Ort (optional)")
+    ap.add_argument("--note", help="Notiz im Termin-Text (optional)")
+    ap.add_argument("--yes", action="store_true", help="ohne Rückfrage anlegen (Gate-Anzeige aus)")
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(line_buffering=True)
@@ -308,6 +373,10 @@ def main() -> None:
         cmd_status(cfg)
     elif args.today:
         cmd_list(cfg, 1)
+    elif args.create:
+        if not (args.subject and args.start and args.end):
+            ap.error("--create braucht --subject, --start und --end")
+        cmd_create(cfg, args.account or cfg["accounts"][0], args)
     else:
         cmd_list(cfg, args.list)
 
