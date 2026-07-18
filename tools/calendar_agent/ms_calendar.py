@@ -81,7 +81,99 @@ def save_tokens(path: Path, tokens: dict) -> None:
     path.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
+# ---------- ICS-Abo (Plan C, z. B. HNU: Conditional Access 53003 blockt Public Clients) ----------
+
+BERLIN = None
+try:
+    from zoneinfo import ZoneInfo
+    BERLIN = ZoneInfo("Europe/Berlin")
+except Exception:  # pragma: no cover
+    BERLIN = dt.timezone(dt.timedelta(hours=2))
+
+WEEKDAYS = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+
+
+def ics_path(cfg: dict, account: str) -> Path:
+    return cfg["token_dir"] / (account.replace("@", "_at_") + ".ics_url")
+
+
+def _parse_ics_dt(val: str) -> tuple[dt.datetime, bool]:
+    """ICS-Zeit → (aware datetime Europe/Berlin, ganztags?). TZID wird als Berlin gelesen
+    (ehrliche Vereinfachung für die HNU; abweichende TZIDs wären hier falsch verortet)."""
+    if len(val) == 8:  # VALUE=DATE
+        d = dt.datetime.strptime(val, "%Y%m%d").replace(tzinfo=BERLIN)
+        return d, True
+    if val.endswith("Z"):
+        d = dt.datetime.strptime(val, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+        return d.astimezone(BERLIN), False
+    return dt.datetime.strptime(val, "%Y%m%dT%H%M%S").replace(tzinfo=BERLIN), False
+
+
+def _unfold(text: str) -> list[str]:
+    lines: list[str] = []
+    for raw in text.replace("\r\n", "\n").split("\n"):
+        if raw[:1] in (" ", "\t") and lines:
+            lines[-1] += raw[1:]
+        else:
+            lines.append(raw)
+    return lines
+
+
+def ics_events(url: str, win_start: dt.datetime, win_end: dt.datetime):
+    """Liefert (start, ende, titel, ort, ganztags) im Fenster. Serien: FREQ=DAILY/WEEKLY
+    (INTERVAL/BYDAY/UNTIL/COUNT) werden expandiert; andere FREQ nur als Erst-Termin —
+    bewusste v1-Grenze, im Output nicht markiert erscheinende Folgetermine möglich."""
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    for block in r.text.split("BEGIN:VEVENT")[1:]:
+        body = block.split("END:VEVENT")[0]
+        props: dict[str, str] = {}
+        for line in _unfold(body):
+            if ":" not in line:
+                continue
+            key, _, val = line.partition(":")
+            props.setdefault(key.split(";")[0].upper(), val.strip())
+        if "DTSTART" not in props:
+            continue
+        start, allday = _parse_ics_dt(props["DTSTART"])
+        dur = dt.timedelta(hours=1)
+        if "DTEND" in props:
+            end_dt, _ = _parse_ics_dt(props["DTEND"])
+            dur = end_dt - start
+        title = props.get("SUMMARY", "(ohne Titel)").replace("\\,", ",").replace("\\n", " · ")
+        loc = props.get("LOCATION", "").replace("\\,", ",")
+        rrule = dict(p.split("=", 1) for p in props.get("RRULE", "").split(";") if "=" in p)
+        freq = rrule.get("FREQ", "")
+        if freq not in ("DAILY", "WEEKLY"):
+            if win_start <= start < win_end:
+                yield start, start + dur, title, loc, allday
+            continue
+        interval = int(rrule.get("INTERVAL", "1"))
+        until = None
+        if "UNTIL" in rrule:
+            until, _ = _parse_ics_dt(rrule["UNTIL"])
+        count = int(rrule["COUNT"]) if "COUNT" in rrule else None
+        bydays = {WEEKDAYS[d] for d in rrule.get("BYDAY", "").split(",") if d in WEEKDAYS} \
+                 or {start.weekday()}
+        occ, made, day = 0, 0, start
+        while day < win_end and made < 500:
+            fits_interval = (freq == "DAILY" and ((day - start).days % interval == 0)) or \
+                            (freq == "WEEKLY" and (((day - start).days // 7) % interval == 0))
+            if day.weekday() in bydays and fits_interval and day >= start:
+                occ += 1
+                if count and occ > count:
+                    break
+                if until and day > until:
+                    break
+                if day >= win_start:
+                    yield day, day + dur, title, loc, allday
+                made += 1
+            day += dt.timedelta(days=1)
+
+
 def cmd_login(cfg: dict, account: str) -> None:
+    if ics_path(cfg, account).exists():
+        sys.exit(f"{account} läuft über den Abo-Link (ICS) — keine Anmeldung nötig/möglich.")
     if account not in cfg["accounts"]:
         sys.exit(f"FEHLER: {account} steht nicht in GRAPH_ACCOUNTS")
     base = f"https://login.microsoftonline.com/{cfg['tenant']}/oauth2/v2.0"
@@ -141,6 +233,9 @@ def get_access_token(cfg: dict, account: str) -> str | None:
 
 def cmd_status(cfg: dict) -> None:
     for acc in cfg["accounts"]:
+        if ics_path(cfg, acc).exists():
+            print(f"{acc}: ✔ Abo-Link (ICS, nur lesend)")
+            continue
         tok = get_access_token(cfg, acc)
         print(f"{acc}: {'✔ angemeldet' if tok else '✘ nicht angemeldet — --login ' + acc}")
 
@@ -150,6 +245,21 @@ def cmd_list(cfg: dict, days: int) -> None:
     end = start + dt.timedelta(days=days)
     rows = []
     for acc in cfg["accounts"]:
+        tag = "IIL" if "iil" in acc else ("HNU" if "hnu" in acc else acc.split("@")[1][:3].upper())
+        ipath = ics_path(cfg, acc)
+        if ipath.exists():
+            try:
+                url = ipath.read_text().strip()
+                b_start = start.astimezone(BERLIN)
+                b_end = end.astimezone(BERLIN)
+                for s, e, title, loc, allday in ics_events(url, b_start, b_end):
+                    extras = f" · {loc}" if loc else ""
+                    when = s.strftime("%Y-%m-%d") + " ganztags" if allday else \
+                        s.strftime("%Y-%m-%d %H:%M") + "–" + e.strftime("%H:%M")
+                    rows.append((s.isoformat(), f"[{tag}] {when}  {title}{extras}"))
+            except Exception as exc:
+                print(f"({acc}: Abo-Link-Abruf fehlgeschlagen — {type(exc).__name__})", file=sys.stderr)
+            continue
         tok = get_access_token(cfg, acc)
         if not tok:
             print(f"({acc}: nicht angemeldet — überspringe; --login {acc})", file=sys.stderr)
