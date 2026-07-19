@@ -54,15 +54,15 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 ## Nächste Schritte (kompakt)
 
-1. Portfolio-Entscheidungssession [#1268](https://github.com/achimdehnert/platform/issues/1268): Low-Consumer-Pakete (riskfw/gaeb-toolkit/iil-django-commons/…) weiter/einfrieren/sunset/mergen
-2. Fleet-Follow-up [#1158](https://github.com/achimdehnert/platform/issues/1158): `secrets: inherit` cross-org im `ci:`-Job fixen (mind. coach-hub + risk-hub betroffen)
-3. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
-4. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): 37 Skill-/Label-Kandidaten — Einzelfall-Rückbau-Entscheidung weiterhin offen
-5. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Stichprobe unter 57 ADRs + 19 KONZ-Dokumenten mit Phasen-/Akzeptanzkriterien-Struktur
-6. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
-7. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
+1. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
+2. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): Entscheid 2026-07-19 — Labels behalten, Skills 4 keep; die 3 „toten" (agent-session-start/claude-orchestrator/cascade-auftraege) blockiert durch cc-skill-dist-Drift [#1271](https://github.com/achimdehnert/platform/issues/1271)
+3. cc-skill-dist Source↔Distribution-Drift [#1271](https://github.com/achimdehnert/platform/issues/1271) (NEU): 29 quellenlose Commands (54 Source vs 83 distribuiert) reconcilen — Voraussetzung für #1115-Teardown
+4. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Audit gelaufen (~8 aktive KONZ/ADR ohne Tracking-Tabelle, u.a. KONZ-004 prod/überfällig) — Checklisten-Ergänzung (Muster #1170) offen; Nebenfund Namenskollision KONZ-platform-001
+5. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
+6. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 
 > **Erledigt 2026-07-19:** Owner-Block #1094 komplett + geschlossen (7/7 OIDC-Bindungen, 3 Pakete live, 4 Alt-Dubletten geyankt, 2. Owner) · ADR-278 accepted (#1266) · codeguard/ingest OIDC (#1267) · django-commons#12 + learnfw#9 Auth-Fixes · shared-ci publish-auth-guard v1.0.13 · #1265 zu, #1268 (Portfolio) ausgelagert · Handover-PR #1171 (stale) geschlossen · **Guard Block-Flip scharf** (shared-ci#33) + v1.0.14 fleet-weit gebumpt (promptfw#32/outlinefw#19) → ADR-278-Enforcement komplett.
+> **Erledigt 2026-07-19 (Session-Start-Folgesession):** #1268 geschlossen (Portfolio: alle 6 Pakete behalten) · #1158 geschlossen (`secrets:inherit`: coach-hub bereits auf origin/main gefixt, risk-hub **False Positive** — same-org `iilgmbh` + keine private git-Dep) · #1115 Sweep-Entscheid (Labels behalten; Skill-„tot"-Signal via cc-skill-dist-Drift widerlegt → #1271) · #1167 Stichproben-Audit fortgesetzt (~8 Fix-Kandidaten). **Lehre:** #1 (Guard) + coach-hub-Teil von #2 waren bereits erledigt — nur sichtbar durch konsequente origin/main- statt lokale-Klon-Prüfung.
 > **Erledigt 2026-07-18 (Session-Start-Reconciliation, keine neue Arbeit):** Orchestrator-MCP wieder funktional — „Invalid Bearer Token" nicht mehr reproduzierbar, live verifiziert per 3 erfolgreichen Tool-Calls (`agent_memory_search` + `check_recurring_errors` + Outline-Search) am 2026-07-18; Ursache des Wieder-Funktionierens unbekannt (nicht untersucht) · Haupt-Retro [#1162](https://github.com/achimdehnert/platform/pull/1162) ist MERGED + APPROVED (war als „offen" geführt, Handover war stale).
 > **Erledigt 2026-07-15:** cad-hub#42 (war schon vor Session-Start gemergt, Handover war stale) · trading-hub#150 · coach-hub#40 · ADR-270-Vorbedingung (#1152) · Increment-Retro (#1165) · session-start-Checkliste-Nachbesserung (#1166).
 > **Erledigt 2026-07-13 (nachgezogen, war nur in PR #1122 unmerged dokumentiert):** KONZ-017 W1 sync-drift-meter #998 (#1009 gemergt) · usage_sweep.py (#1116 gemergt) · trading-hub Deploy-403 (#1070 zu) · PyPI-OIDC-Readiness codeguard/ingest (#1118 gemergt) · trading-hub PR #130 (README-Fix, inzwischen gemergt).
