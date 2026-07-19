@@ -10,7 +10,23 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-15 — Deploy-Health-Triage gelöst · ADR-270-Vorbedingung gefixt · 2 adversariale Retros (c494a2 + Increment) · Ausführungstreue-Programm gestartet)
+## ⚡ Aktueller Stand (2026-07-19 — OIDC-Publishing-Fleet-Umstieg: ADR-278 accepted, 7/7 Repos migriert, Enforcement-Gate live, #1094 geschlossen)
+
+**Diese Session (2026-07-19, Opus):** reaktive Deploy-Triage → kompletter OIDC-Publishing-Umstieg der iil-Paket-Fleet; Owner-Block #1094 vollständig abgearbeitet + geschlossen.
+
+- **Deploy-Triage:** billing-hub + trading-hub letzter Deploy `failure` = buildkit-Timeout auf `docker.sock` (transient, Runner-Kontention) → gestaffelter Re-Run beider, beide live. `error_pattern` geloggt (`error:self-hosted-runner:4e52af0faded`).
+- **ADR-278 accepted ([#1266](https://github.com/achimdehnert/platform/pull/1266) gemergt):** iil-Pakete publizieren **ausschließlich via OIDC Trusted Publishing**; `password:`-basiertes PyPI-Publishing verboten + Enforcement-Gate `tools/check_publish_oidc_auth.py`.
+- **3 Pakete live via OIDC publiziert:** iil-promptfw 0.8.1, iil-outlinefw 0.3.2, iil-weltenfw 0.4.1 (je Token→OIDC-Fix + Trusted-Publisher-Bindung).
+- **7/7 Nicht-pur-OIDC-Repos umgestellt:** django-commons/aifw/learnfw (eigene publish.yml) + codeguard/ingest (zentral aus platform, [#1267](https://github.com/achimdehnert/platform/pull/1267) gemergt, Bindung auf `repo=platform`). 2 versteckte Auth-Defekte durch echtes Verifizieren gefunden+gefixt (django-commons#12, learnfw#9: `publish-pypi`-Job ohne `id-token`/`environment`). **Lehre:** id-token/environment **job-level** prüfen, nicht file-level (file-Grep zählt TestPyPI-Job mit).
+- **Enforcement-Gate fleet-weit:** shared-ci `publish-auth-guard` (warn-first) → **v1.0.13** getaggt, tag-gepinnte Consumer (promptfw/outlinefw) gebumpt, Guard grün auf Consumer verifiziert. **Offen: Block-Flip** (`continue-on-error` raus + in `gate.needs`) nach warn-freier Phase.
+- **4 Pre-Rename-Alt-Dubletten geyankt** (aifw/promptfw/weltenfw/authoringfw) — Yank statt Delete (Name reserviert, kein Squatting). Trusted-Publisher-Bindung gehört auf **Repo-Namen**, nie Dist-Namen (`aifw`, nicht `iil-aifw`).
+- **#1094 + #1265 geschlossen; [#1268](https://github.com/achimdehnert/platform/issues/1268) (Portfolio-Session) ausgelagert.** 2. Owner via per-Projekt-Collaborator (keine PyPI-Org `iil` vorhanden).
+- **Memory:** MEMORY.md kompaktiert (128 Einträge, 16.9 KB); Session-Summary `session:platform:20260719` + Lehren gesichert.
+- **Handover-Hygiene:** stale/konfliktbehafteter Handover-PR #1171 (07-16-Stand, „alles gemergt") geschlossen — dieser 07-19-Stand ersetzt ihn.
+
+*(Zwischen 07-15 und heute, nicht in diesem Handover detailliert: 07-16 `/repo-optimize`-Vollzyklus (alles gemergt), 07-18 graph-mail-move-folder.)*
+
+## ⚡ Vorheriger Stand (2026-07-15 — Deploy-Health-Triage gelöst · ADR-270-Vorbedingung gefixt · 2 adversariale Retros (c494a2 + Increment) · Ausführungstreue-Programm gestartet)
 
 **Diese Session (2026-07-15):** Session-Start-Reconciliation fand Prio 1 (cad-hub#42) bereits erledigt (Handover war stale). Danach: reaktive Deploy-Health-Triage + ADR-270-Nacharbeit + Owner-Block-#1094-Experiment, gefolgt von zwei adversarialen Retros (Haupt-Retro + Same-Day-Increment) und einem daraus abgeleiteten Ausführungstreue-Programm.
 
@@ -24,7 +40,7 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 - **Ausführungstreue-Programm gestartet:** neue Hausregel in `~/.claude/CLAUDE.md` (lange Multi-Phasen-Dokumente brauchen eine Abschluss-Checkliste, sonst sind Pflicht-Phasen strukturell überspringbar) + Memory `feedback_execution_fidelity_long_documents` + Tracking-Issue [#1167](https://github.com/achimdehnert/platform/issues/1167) (57 ADRs + 19 KONZ-Dokumente auf dasselbe Muster noch ungeprüft).
 - **Reviewer-Engpass sichtbar geworden:** 28-30 offene platform-PRs hängen `REVIEW_REQUIRED` auf demselben Einzel-Reviewer (`wirdigital`). #1159/#1163/#1165/#1166 per Auto-Merge gequeued, alle 4 nach Freigabe gemergt — #1162 (Haupt-Retro) bleibt als einziger PR dieser Session offen.
 
-## ⚡ Vorheriger Stand (2026-07-13 — usage_sweep.py (#1076) shipped + erster Lauf · trading-hub Deploy-403 gefixt · KONZ-017 #998 gemergt · PyPI-OIDC-Readiness codeguard/ingest · App-Repo-Scope-Grenze geklärt)
+## Älterer Stand (2026-07-13 — Archiv-Kandidat, → AGENT_HANDOVER_ARCHIVE.md) — usage_sweep.py (#1076) shipped + erster Lauf · trading-hub Deploy-403 gefixt · KONZ-017 #998 gemergt · PyPI-OIDC-Readiness codeguard/ingest · App-Repo-Scope-Grenze geklärt
 
 **Diese Session (2026-07-13, Sonnet 5):** `/issues-offen`-Lauf + Owner-Block-Nacharbeit + neues Tool. Wichtigster Prozess-Fund: eigener stale lokaler Klon (iil-codeguard/iil-ingest, 5 Commits alt) fast in eine Migration auf eine bereits gelöschte Datei gelaufen — vor dem Bauen gegen origin/main geprüft, Kurs korrigiert.
 
@@ -38,14 +54,16 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 ## Nächste Schritte (kompakt)
 
-1. Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) abarbeiten — Mail-Digest raus (07-15), Antwort/Fortschritt noch zu prüfen
-2. Fleet-Follow-up [#1158](https://github.com/achimdehnert/platform/issues/1158): `secrets: inherit` cross-org im `ci:`-Job fixen (mind. coach-hub + risk-hub betroffen)
-3. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
-4. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — seit 07-13 bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
-5. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
-6. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): 37 Skill-/Label-Kandidaten aus 07-13 — Einzelfall-Rückbau-Entscheidung weiterhin offen
-7. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Stichprobe unter 57 ADRs + 19 KONZ-Dokumenten mit Phasen-/Akzeptanzkriterien-Struktur
+1. **Guard Block-Flip** (ADR-278): shared-ci `publish-auth-guard` nach warn-freier Phase scharf schalten — `continue-on-error` raus + Job in `gate.needs` aufnehmen
+2. Portfolio-Entscheidungssession [#1268](https://github.com/achimdehnert/platform/issues/1268): Low-Consumer-Pakete (riskfw/gaeb-toolkit/iil-django-commons/…) weiter/einfrieren/sunset/mergen
+3. Fleet-Follow-up [#1158](https://github.com/achimdehnert/platform/issues/1158): `secrets: inherit` cross-org im `ci:`-Job fixen (mind. coach-hub + risk-hub betroffen)
+4. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
+5. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): 37 Skill-/Label-Kandidaten — Einzelfall-Rückbau-Entscheidung weiterhin offen
+6. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Stichprobe unter 57 ADRs + 19 KONZ-Dokumenten mit Phasen-/Akzeptanzkriterien-Struktur
+7. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
+8. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 
+> **Erledigt 2026-07-19:** Owner-Block #1094 komplett + geschlossen (7/7 OIDC-Bindungen, 3 Pakete live, 4 Alt-Dubletten geyankt, 2. Owner) · ADR-278 accepted (#1266) · codeguard/ingest OIDC (#1267) · django-commons#12 + learnfw#9 Auth-Fixes · shared-ci publish-auth-guard v1.0.13 · #1265 zu, #1268 (Portfolio) ausgelagert · Handover-PR #1171 (stale) geschlossen.
 > **Erledigt 2026-07-18 (Session-Start-Reconciliation, keine neue Arbeit):** Orchestrator-MCP wieder funktional — „Invalid Bearer Token" nicht mehr reproduzierbar, live verifiziert per 3 erfolgreichen Tool-Calls (`agent_memory_search` + `check_recurring_errors` + Outline-Search) am 2026-07-18; Ursache des Wieder-Funktionierens unbekannt (nicht untersucht) · Haupt-Retro [#1162](https://github.com/achimdehnert/platform/pull/1162) ist MERGED + APPROVED (war als „offen" geführt, Handover war stale).
 > **Erledigt 2026-07-15:** cad-hub#42 (war schon vor Session-Start gemergt, Handover war stale) · trading-hub#150 · coach-hub#40 · ADR-270-Vorbedingung (#1152) · Increment-Retro (#1165) · session-start-Checkliste-Nachbesserung (#1166).
 > **Erledigt 2026-07-13 (nachgezogen, war nur in PR #1122 unmerged dokumentiert):** KONZ-017 W1 sync-drift-meter #998 (#1009 gemergt) · usage_sweep.py (#1116 gemergt) · trading-hub Deploy-403 (#1070 zu) · PyPI-OIDC-Readiness codeguard/ingest (#1118 gemergt) · trading-hub PR #130 (README-Fix, inzwischen gemergt).
