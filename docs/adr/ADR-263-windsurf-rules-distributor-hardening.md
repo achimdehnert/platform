@@ -1,14 +1,14 @@
 ---
 status: proposed
-date: 2026-07-02
-decision-makers: Achim Dehnert
+decision_date: 2026-07-02
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: not-started
 domains: [security, ci-cd, tooling, drift-prevention]
 scope: platform
 amends: [ADR-229]
-relates_to: [ADR-230]
+related: [ADR-230]
 tags: [windsurf, rules-distribution, push-to-main, supply-chain, repository-dispatch, least-privilege]
 ---
 

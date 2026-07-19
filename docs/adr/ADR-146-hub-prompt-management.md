@@ -10,7 +10,6 @@ implementation_evidence:
   - research-hub commit 683271d (Phase 4 partial — 2 inline prompts extracted)
 tags: [promptfw, prompt-management, cross-hub, database, django, CRUD]
 related: [ADR-083, ADR-089, ADR-093, ADR-121, ADR-133]
-review: reviews/review-adr-146.md
 review_status: accepted
 ---
 

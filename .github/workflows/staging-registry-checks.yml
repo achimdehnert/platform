@@ -1,0 +1,105 @@
+# Staging/DNS/Registry-Konsistenzchecks (KONZ-platform-015 REC-1 — wire-or-delete).
+#
+# Verdrahtet die 8 scripts/checks/staging_*.sh, die seit ihrer Entstehung (ADR-210
+# R1-R8) in keinem CI-Trigger hingen (dritter Zustand, Kill-Gate-Bedingung b).
+# Manueller Erstlauf 2026-07-17 zeigt: alle 8 sind funktionsfähig und liefern
+# reale Befunde (R2/R6/R7/R8) — keines wird gelöscht (M28-1: Obsoleszenz vor
+# Löschung beweisen, nicht vermuten).
+#
+# Bewusst NICHT auf push/pull_request: mehrere Checks brauchen SSH zu
+# dev-desktop/staging-platform/prod (Live-Zustand) und würden sonst PRs an
+# unrelated Drift blocken (Alarm-Müdigkeits-Vermeidung, wie registry-consistency.yml).
+# Scheduled + workflow_dispatch = sichtbar, nicht blockierend, bis die aktuell
+# offenen Funde (#1227 R2/R8, #1228 R6/R7) abgearbeitet sind.
+#
+# ⚠️ run-conclusion ≠ Tool-Health (CC-Memory): ein roter Check ist ein FUND
+# (reale Drift), kein Workflow-Defekt.
+name: Staging-Registry-Checks (KONZ-015 REC-1)
+
+on:
+  schedule:
+    - cron: '43 5 * * *'        # täglich 05:43 UTC (versetzt zu registry-live-reconcile)
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/checks/staging_*.sh'
+      - '.github/workflows/staging-registry-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  r1-dns-schema:
+    name: "R1 DNS-Schema (Cloudflare)"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checks/staging_dns_schema.sh
+
+  r2-host-locality:
+    name: "R2 Staging-Container nur auf staging-platform"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checks/staging_host_locality.sh
+
+  r3-naming:
+    name: "R3 Staging-Container-Naming"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checks/staging_naming.sh
+
+  r4-port-range:
+    name: "R4 Staging-Port-Range + Uniqueness"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
+      - run: bash scripts/checks/staging_port_range.sh
+
+  r5-tunnel-ingress:
+    name: "R5 bf-staging Tunnel-Ingress"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checks/staging_tunnel_ingress.sh
+
+  r6-oidc-redirects:
+    name: "R6 Authentik-Staging-Redirects"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checks/staging_oidc_redirects.sh
+
+  r7-generated-drift:
+    name: "R7 Generierte Staging-Artefakte byte-identisch"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
+      - run: bash scripts/checks/staging_generated_drift.sh
+
+  r8-devdesktop-clean:
+    name: "R8 dev-desktop staging-frei"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checks/staging_devdesktop_clean.sh

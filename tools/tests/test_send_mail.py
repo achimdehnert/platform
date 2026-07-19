@@ -105,3 +105,45 @@ def test_should_attach_markdown_as_text_markdown(tmp_path):
     assert len(parts) == 1
     assert parts[0].get_content_type() == "text/markdown"
     assert parts[0].get_filename() == "doc.md"
+
+
+# --- find_sent_folder (Sent-Kopie, kein Netz — s. append_to_sent Docstring) ---
+
+class _FakeImap:
+    def __init__(self, list_response):
+        self._list_response = list_response
+
+    def list(self):
+        return "OK", self._list_response
+
+
+def test_should_prefer_special_use_sent_flag_over_name_heuristic():
+    # Realer Server-Output (dogfood 2026-07-17): Name unquoted, \Sent-Flag gesetzt.
+    imap = _FakeImap([
+        b'(\\HasNoChildren \\UnMarked \\Trash) "." INBOX.Trash',
+        b'(\\HasNoChildren \\UnMarked \\Sent) "." INBOX.Sent',
+    ])
+    assert sm.find_sent_folder(imap, None) == "INBOX.Sent"
+
+
+def test_should_prefer_configured_folder_when_it_exists_and_no_special_use_flag():
+    imap = _FakeImap([b'(\\HasNoChildren) "." "INBOX.Sent"', b'(\\HasNoChildren) "." "Sent"'])
+    assert sm.find_sent_folder(imap, "Sent") == "Sent"
+
+
+def test_should_fall_back_to_name_heuristic_when_configured_is_absent():
+    imap = _FakeImap([b'(\\HasNoChildren) "." "INBOX.Sent"', b'(\\HasNoChildren) "." "INBOX.Trash"'])
+    assert sm.find_sent_folder(imap, "Sent") == "INBOX.Sent"
+
+
+def test_should_return_configured_when_list_has_no_sent_candidate():
+    imap = _FakeImap([b'(\\HasNoChildren) "." "INBOX"', b'(\\HasNoChildren) "." "INBOX.Trash"'])
+    assert sm.find_sent_folder(imap, "Sent") == "Sent"
+
+
+def test_should_return_none_when_list_fails_and_nothing_configured():
+    class _FailingImap:
+        def list(self):
+            return "NO", []
+
+    assert sm.find_sent_folder(_FailingImap(), None) is None
