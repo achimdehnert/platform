@@ -1,0 +1,20 @@
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  GENERATED — NICHT VON HAND EDITIEREN (ADR-234 P0).                    ║
+# ║  Kanonische Quelle: registry/canonical.yaml                           ║
+# ║  Regenerieren:  python3 tools/registry-canonical.py flip               ║
+# ║  CI-Drift-Gate (registry-consistency.yml) failt bei Divergenz.        ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+
+archived:
+  adr-doctor:
+    github: achimdehnert/adr-doctor
+    description: Surgical healing tool for ADR supersession hygiene (archiviert)
+    lifecycle: archived
+  bfagent:
+    github: achimdehnert/bfagent
+    description: Book Factory Agent — AI-assisted book creation
+    lifecycle: archived
+  testkit:
+    github: achimdehnert/testkit
+    description: iil-testkit — Shared Test Factory Package (ADR-100, archiviert)
+    lifecycle: archived

@@ -46,6 +46,20 @@ GLOBAL_RULES = [
 
 # ── Registry ─────────────────────────────────────────────────────────────────
 
+def _origin_is_platform(repo_path) -> bool:
+    """True, wenn das Repo ein platform-Checkout/-Worktree ist (origin endet auf /platform[.git]) —
+    dann keine Rules-Symlinks setzen (ADR-265-SSoT-Guard, Retro d2522c M3)."""
+    import subprocess
+    try:
+        url = subprocess.run(
+            ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+    except Exception:
+        return False
+    return url.endswith("/platform") or url.endswith("/platform.git")
+
+
 def load_registry() -> dict:
     with open(REGISTRY_FILE) as f:
         return yaml.safe_load(f)
@@ -147,10 +161,14 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
             if src.exists() and not dst.is_symlink():
                 shutil.copy2(src, dst)
 
-    # Symlink global rules to every repo (except platform itself)
+    # Symlink global rules to every repo (except platform itself).
+    # SSoT-Guard (ADR-265, analog sync-workflows.sh): Repos, deren origin auf
+    # platform.git zeigt (z. B. der platform-pinned-Worktree), sind selbst
+    # SSoT-Kopien — Symlinks dort machen sie dauerhaft dirty und blockieren
+    # den Session-Start-Policy-Refresh (Retro d2522c #1/#2, perma-dirty-loop).
     rules_dest = repo_path / ".windsurf" / "rules"
     rules_dest.mkdir(parents=True, exist_ok=True)
-    if repo != "platform" and RULES_SRC.is_dir():
+    if repo != "platform" and RULES_SRC.is_dir() and not _origin_is_platform(repo_path):
         for rule in GLOBAL_RULES:
             src = RULES_SRC / rule
             link = rules_dest / rule

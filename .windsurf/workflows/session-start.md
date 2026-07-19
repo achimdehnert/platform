@@ -42,201 +42,73 @@ Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sy
 ```
 
 > **GitHub ist die einzige Source of Truth.**
-> Phase 0.2 + 0.3 sind kein Optional — sie sind das Herzstück des Loops.
+> Der Sync-Loop (Runner-Phase 0.2) ist kein Optional — er ist das Herzstück des Loops.
 > Nur so profitieren ALLE Repos von Verbesserungen der letzten Session.
 
 ---
 
 ## Phase 0: Tool-Health + Umgebung synchronisieren (IMMER zuerst)
 
-### 0.0 GITHUB_DIR sicherstellen + Version-Banner (PFLICHT — allererster Schritt)
+> **Deterministischer Runner (NEU 2026-07-18 — Ausführungstreue-Programm, platform#1167):**
+> Die mechanischen Unterphasen 0.0–0.9 (außer 0.4.3 Worktree-Modus + 0.8 Modell-Tier,
+> beides Judgment) laufen in **einem** Skript-Aufruf. Einzelne Phasen sind damit
+> strukturell nicht mehr überspringbar — das Skript läuft immer bis zur Summary durch.
+> Die Einzel-Befehle leben in `platform/tools/session_start_checks.sh` (dort gepflegt,
+> hier NICHT duplizieren — Retro c494a2: lange Phasenlisten werden überflogen).
+
+### 0.R Runner ausführen (PFLICHT — ersetzt 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9)
 
 // turbo
 ```bash
-# GITHUB_DIR in ~/.bashrc eintragen falls noch nicht vorhanden
-if ! grep -q "GITHUB_DIR" ~/.bashrc 2>/dev/null; then
-  echo "" >> ~/.bashrc
-  echo "# Platform: Repo-Basisverzeichnis (Single Source of Truth)" >> ~/.bashrc
-  echo "export GITHUB_DIR=\"\$HOME/github\"" >> ~/.bashrc
-  echo "⚙️  GITHUB_DIR in ~/.bashrc eingetragen (Wert: \$HOME/github)"
-  echo "   → Anpassen falls Repos woanders liegen, z.B.: GITHUB_DIR=\$HOME/code"
-fi
-export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
-
-PLATFORM_DIR="${GITHUB_DIR}/platform"
-VERSION_BEFORE=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
-COMMIT_BEFORE=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
-echo ""
-echo "┌─────────────────────────────────────────┐"
-echo "│  🚀 SESSION START                       │"
-echo "│  Platform v${VERSION_BEFORE} (${COMMIT_BEFORE})        │"
-echo "│  $(date '+%Y-%m-%d %H:%M')                       │"
-echo "└─────────────────────────────────────────┘"
-echo "shell-alive-$(date +%s)"
+bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
+  "${TARGET_REPO:-$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null || echo platform)}"
 ```
 
-> **Wenn dieser Befehl hängt (>5s):** Shell ist blockiert!
-> → In CC: Session neu starten; in Windsurf: `/windsurf-clean`.
-> → Bis dahin: NUR `Read`/`Write`/`Edit` + die stabilen MCP-Tools
->   `mcp__github__*` (GitHub) und `mcp__outline-knowledge__*` (Outline) nutzen.
-> → **Lesson Learned 2026-04-05:** Shell-Hang kann ganze Sessions blockieren.
->   Edit-Tools können ebenfalls betroffen sein (zeigen "empty file").
->   `mcp__github__get_file_contents` + `mcp__github__push_files` als Workaround für Git-Operationen.
+→ Ende = Summary-Tabelle `| Phase | Status | Note |` + `RESULT: OK|FAIL`.
+→ **RESULT: FAIL** (einziger Hard-FAIL: pgvector-Tunnel, Phase 0.5) → Session NICHT
+  fortsetzen, bis behoben — **kein** Fallback auf lokales Memory (ADR-154).
+→ **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
+  - `0.4 … GUARD(dirty/branch=…)`: fremde Session möglich — Repo NICHT stashen/switchen
+    (ADR-233 + 🌀 Shared-Worktree-Kollision), read-only weiterarbeiten.
+  - `0.7 failure:<repos>`: je Repo Deploy-Log lesen + User informieren —
+    🌀 `feedback_deploy_green_not_change_live`: run-conclusion allein belegt nicht,
+    dass die Änderung live ist. Optional als error_pattern sichern (/session-ende Phase 2).
+  - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
-### 0.1 Server-Erreichbarkeit prüfen (PFLICHT — vor allen MCP/SSH-Calls)
+**Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
 
-⚠️ **NIEMALS `ping` verwenden** — Hetzner-Server blockieren ICMP (100% packet loss ist NORMAL).
-TCP-Probe auf SSH (22), HTTP (80), HTTPS (443) stattdessen:
+- **Runner hängt >5s vor der ersten Ausgabe-Zeile:** Shell blockiert! In CC: Session neu
+  starten; in Windsurf: `/windsurf-clean`. Bis dahin NUR `Read`/`Write`/`Edit` + stabile
+  MCP-Tools (`mcp__github__*`, `mcp__outline-knowledge__*`) nutzen;
+  `mcp__github__get_file_contents` + `mcp__github__push_files` als Git-Workaround
+  (Lesson 2026-04-05: Shell-Hang kann ganze Sessions blockieren, Edit-Tools zeigen
+  dann ggf. "empty file").
+- **NIEMALS `ping`** für Server-Checks — Hetzner blockt ICMP (100% packet loss ist
+  NORMAL); der Runner nutzt `server_probe.py` (TCP 22/80/443). Server trotzdem nicht
+  erreichbar → `ssh -o ConnectTimeout=10 -o BatchMode=yes root@88.198.191.108 "uptime"`;
+  scheitert auch das: Hetzner Cloud Console → Server-Status (Lesson 2026-04-03:
+  Ping-Diagnose führte zu Fehldiagnose "Server down").
+- **pgvector-Tunnel:** devuser hat KEIN sudo-Passwort (AGENT_HANDOVER §2) — der Runner
+  versucht erst `sudo -n systemctl start ssh-tunnel-postgres`, dann den direkten
+  ssh-Tunnel (Ziel-Port aus AGENT_HANDOVER §7). Beides scheitert → mit sudo-Rechten:
+  `sudo systemctl start ssh-tunnel-postgres`.
+- **Stash-Semantik (0.4):** Der Runner stasht grundsätzlich NICHT (Guard statt Stash) —
+  die alte Auto-Stash-Logik poppte 2× fremde Stash-Einträge (Drift 2026-06-10 +
+  2026-06-22, untracked-only-Falle). Dirty Target-Repo = bewusste Handentscheidung.
+- **ADR-156 rot (0.6):** MCP-Server neustarten, dann `verify-adr156.sh` erneut prüfen.
+- **Neues Repo erkannt** → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
 
-// turbo
-```bash
-python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --host 88.198.191.108
-```
+### Architecture Context laden (ex-0.4.2, environment-abhängig)
 
-→ **Server erreichbar**: Normal weiter mit Phase 0.2
-→ **Server NICHT erreichbar**: Alle MCP-Calls und SSH-Befehle werden hängen!
-  Fallback: `ssh -o ConnectTimeout=10 -o BatchMode=yes root@88.198.191.108 "uptime"`
-  Wenn auch SSH scheitert: Hetzner Cloud Console → Server Status prüfen
-→ Lesson Learned 2026-04-03: Ping-basierte Diagnose führte zu Fehldiagnose "Server down"
-
-### 0.2 Platform-Repo pullen + Workflows deployen (PFLICHT — GitHub → lokal → alle Repos)
-
-> ⚠️ **Nicht überspringen.** Dieser 3-Schritt-Block ist der Platform Sync Loop.
-
-// turbo
-```bash
-# Schritt 1: GitHub → lokal (neueste Rules, Workflows, Scripts)
-git -C "${GITHUB_DIR:-$HOME/github}/platform" pull --rebase --quiet && echo "✅ platform aktuell"
-
-# Schritt 2: lokal → alle Repos (Symlinks aktualisieren)
-GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
-  bash "${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh" \
-  2>&1 | grep -cE "LINK|REPLACE" | xargs -I{} echo "{} Workflow-Symlinks deployed"
-
-# Schritt 3: project-facts.md für alle Repos regenerieren
-python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
-  2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
-```
-→ Ab jetzt gelten die neuesten ADRs, Rules und Workflows plattformweit.
-
-// turbo
-```bash
-PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
-VERSION_AFTER=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
-COMMIT_AFTER=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
-if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] || [ "$COMMIT_BEFORE" != "$COMMIT_AFTER" ]; then
-  echo ""
-  echo "┌─────────────────────────────────────────┐"
-  echo "│  ✅ SYNC ERFOLGREICH                    │"
-  echo "│  v${VERSION_BEFORE} → v${VERSION_AFTER}                │"
-  echo "│  Commit: ${COMMIT_BEFORE} → ${COMMIT_AFTER}             │"
-  echo "└─────────────────────────────────────────┘"
-else
-  echo ""
-  echo "┌─────────────────────────────────────────┐"
-  echo "│  ✅ BEREITS AKTUELL                     │"
-  echo "│  Platform v${VERSION_AFTER} (${COMMIT_AFTER})       │"
-  echo "└─────────────────────────────────────────┘"
-fi
-```
-→ Neues Repo erkannt? → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
-
-### 0.4 Target-Repo bestimmen + synchronisieren
-
-// turbo
-```bash
-# PARALLEL-SESSION-GUARD (ADR-233 + 🌀 feedback_shared_worktree_multisession_git_collision):
-# Der geteilte Haupt-Tree kann von MEHREREN Sessions genutzt werden. Vor jedem
-# pull/stash prüfen, ob eine fremde Session den Tree verändert hat:
-CUR_BRANCH=$(git branch --show-current 2>/dev/null)
-if [ -n "$CUR_BRANCH" ] && [ "$CUR_BRANCH" != "main" ]; then
-  echo "⛔ Haupt-Tree steht auf '$CUR_BRANCH' (nicht main) — vermutlich fremde Session aktiv."
-  echo "   NICHT pullen/stashen/switchen. Read-only weiterarbeiten oder eigenen Worktree nutzen (0.4.3)."
-fi
-FOREIGN_WT=$(git worktree list 2>/dev/null | grep -c "session/$(date +%Y-%m-%d)")
-[ "$FOREIGN_WT" -gt 0 ] && echo "ℹ️  $FOREIGN_WT aktive Session-Worktrees heute — Kollisions-Check bei Branch-Arbeit."
-
-# TARGET_REPO: explizit angegeben oder aus Git-Root
-if [ -n "${TARGET_REPO:-}" ]; then
-  echo "Target Repo (explizit): $TARGET_REPO"
-  cd ${GITHUB_DIR:-$HOME/github}/$TARGET_REPO
-elif git rev-parse --show-toplevel &>/dev/null; then
-  TARGET_REPO=$(basename $(git rev-parse --show-toplevel))
-  echo "Target Repo (auto-detect): $TARGET_REPO"
-else
-  TARGET_REPO="platform"
-  echo "Target Repo (fallback): $TARGET_REPO"
-  cd ${GITHUB_DIR:-$HOME/github}/$TARGET_REPO
-fi
-export TARGET_REPO
-
-# Aktuelles Repo synchronisieren
-# Stash nur poppen wenn WIR etwas gestasht haben — sonst poppt `git stash pop`
-# einen FREMDEN alten Stash-Eintrag (Drift 2026-06-10).
-# ACHTUNG: `git status --porcelain` ist auch bei NUR untracked files non-empty,
-# aber `git stash` (ohne -u) stasht die dann NICHT und exitet trotzdem 0 → der alte
-# `... && STASHED=1`-Guard schlug fälschlich an und poppte einen fremden Stash
-# (Drift 2026-06-22, reproduziert). Darum nur auf TRACKED-Änderungen stashen:
-STASHED=0
-if ! git diff --quiet HEAD 2>/dev/null; then   # tracked changes (staged ODER unstaged) vorhanden?
-  git stash --quiet 2>/dev/null && STASHED=1
-fi
-git pull --rebase --quiet
-[ "$STASHED" -eq 1 ] && git stash pop --quiet 2>/dev/null
-
-# Kern-Repos (MCP-Infrastruktur)
-for repo in mcp-hub platform risk-hub; do
-  (cd ${GITHUB_DIR:-$HOME/github}/$repo && git pull --rebase --quiet 2>/dev/null) &
-done
-wait
-echo "Git Sync done"
-```
-→ Stellt sicher, dass WSL ↔ Dev Desktop synchron sind.
-→ Bei Konflikten: `git stash pop` manuell lösen, NICHT force-pushen.
-
-### 0.4.1 REFLEX aktualisieren + Workspace-Repo prüfen (ADR-165)
-
-// turbo
-```bash
-# REFLEX auf aktuelle Version bringen
-cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && git pull --rebase --quiet 2>/dev/null
-REFLEX_VER=$(cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
-echo "REFLEX v${REFLEX_VER}"
-
-# Aktuelles Workspace-Repo prüfen (nur wenn reflex.yaml vorhanden)
-REPO_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null)
-if [ -f ${GITHUB_DIR:-$HOME/github}/${REPO_NAME}/reflex.yaml ]; then
-  cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all ${REPO_NAME} --fail-on block --emit-metrics 2>&1 | tail -8
-else
-  echo "ℹ️  ${REPO_NAME}: kein reflex.yaml — übersprungen"
-fi
-```
-→ Stellt sicher, dass immer die aktuelle REFLEX-Version läuft.
-→ Zeigt neue BLOCKs sofort am Session-Start an.
-→ Wenn `--fail-on block` fehlschlägt: Findings zuerst fixen bevor weitergearbeitet wird.
-
-### 0.4.2 ADR Schema Validation + Architecture Context (iil-adrfw)
-
-// turbo
-```bash
-# Schnell-Check: ADR-Frontmatter gegen Schema v3 validieren
-if command -v iil-adrfw &>/dev/null; then
-  iil-adrfw validate ${GITHUB_DIR:-$HOME/github}/platform/docs/adr/ 2>&1 | tail -3
-else
-  echo "⚠️  iil-adrfw nicht installiert — pip install iil-adrfw>=0.4.0"
-fi
-```
-→ Zeigt sofort wenn ein ADR kaputtes Frontmatter hat.
-→ Fängt Drift nach Schema-Updates oder manuellen Edits.
-
-**Architecture Context laden** (environment-abhängig — Signaturen VOR Nutzung via
-`ToolSearch` verifizieren, Policy claude-skills §MCP-Signaturen):
+Der Schema-Validate-Teil läuft im Runner (Phase 0.4.2); das Kontext-Laden bleibt
+Modell-Arbeit (Signaturen VOR Nutzung via `ToolSearch` verifizieren, Policy
+claude-skills §MCP-Signaturen):
 
 - **Wenn adrfw-MCP-Tools gebunden sind** (`adr_staleness`/`adr_audit`/`adr_query`/
   `adr_freshness` — Prefix aus `project-facts.md`): Staleness (6 Monate), Health-Score
   (warnen bei < 0.95) und Repo-Constraints laden; Ergebnis in 1 Satz zusammenfassen.
 - **CC-Standard-Fallback (keine adrfw-MCP-Tools gebunden):** CLI + Skills nutzen —
-  `iil-adrfw validate docs/adr/` läuft bereits in 0.4.2; für tiefe Audits `/adr-health`
+  `iil-adrfw validate docs/adr/` läuft bereits im Runner; für tiefe Audits `/adr-health`
   aufrufen; Repo-Constraints aus `docs/adr/index.json` (maschinenlesbar) + CORE_CONTEXT.
 - **Weekly-Diff** (1×/Woche): `git -C "$PLATFORM_DIR" log --since="7 days ago" --oneline -- docs/adr/ | head`
   genügt als billigster Check; bei vielen Änderungen `/adr-health` empfehlen.
@@ -260,76 +132,6 @@ fi
 > wenn die branch-switchenden Skills (`hotfix`, `issues-abarbeiten`, `ship`) + lebende Sessions migriert
 > sind — sonst bricht er laufende Abläufe. Bis dahin: Konvention + `repo-session` als Einstieg.
 
-### 0.5 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
-
-// turbo
-```bash
-if ! ss -tlnp | grep -q 15435; then
-  echo "⚠️ SSH-Tunnel nicht aktiv — starte..."
-  # devuser hat KEIN sudo-Passwort (AGENT_HANDOVER §2) → erst sudo-frei versuchen:
-  if sudo -n systemctl start ssh-tunnel-postgres 2>/dev/null; then
-    sleep 2
-  else
-    # Fallback ohne sudo: Tunnel direkt aufbauen (Ziel-Port aus AGENT_HANDOVER §7)
-    (ssh -f -N -L 15435:localhost:15435 -o BatchMode=yes -o ConnectTimeout=5 \
-       -i ~/.ssh/id_ed25519 root@88.198.191.108 2>/dev/null) && sleep 1
-  fi
-fi
-if ss -tlnp | grep -q 15435; then
-  echo "✅ pgvector Tunnel aktiv (localhost:15435)"
-else
-  echo "❌ FEHLER: pgvector Tunnel nicht erreichbar! Memory funktioniert NICHT."
-  echo "   Fix (mit sudo-Rechten): sudo systemctl start ssh-tunnel-postgres"
-  echo "   ABBRUCH — pgvector ist Pflicht, kein Fallback erlaubt."
-fi
-```
-→ **KEIN Fallback auf agent memory erlaubt.** pgvector MUSS laufen.
-
-### 0.5.1 Secret-Drop-Zone-Guard (KONZ-platform-010, warn)
-
-// turbo
-```bash
-# ~/shared ist Wegwerf-Scratch; Secrets gehören NUR nach ~/.secrets (SSoT, 0700).
-# ~/shared/inbox/secrets ist world-writable (0777) → nie dauerhaft Secrets dort lagern.
-if [ -d ~/shared/inbox/secrets ] && [ -n "$(ls -A ~/shared/inbox/secrets 2>/dev/null)" ]; then
-  n=$(ls -A ~/shared/inbox/secrets 2>/dev/null | wc -l)
-  echo "⚠️  $n Secret(s) in ~/shared/inbox/secrets — gehören nach ~/.secrets (KONZ-010)."
-  echo "   Reconcile: byte-identische Dubletten löschen, Unikate verschieben, divergente prüfen."
-fi
-```
-→ Warn, kein Hard-Fail (legitime Zwischen-Drops nicht blockieren). Wiederholungs-Bremse gegen
-  das Drift-Muster (inbox driftete schon 1× nach der 2026-05-30-Konsolidierung, KONZ-010 B5).
-→ Bei Fehler: Session NICHT fortsetzen bis Tunnel steht.
-
-### 0.6 Deploy-Infrastruktur prüfen (ADR-156)
-
-// turbo
-```bash
-bash ${GITHUB_DIR:-$HOME/github}/mcp-hub/scripts/verify-adr156.sh
-```
-→ Muss `ALL 21 CHECKS PASSED` zeigen.
-→ Bei Fehlern: MCP-Server neustarten, dann erneut prüfen.
-
-### 0.7 Deploy-Status aller Apps scannen (ADR-156)
-
-Prüfe ob kürzlich fehlgeschlagene Deploys vorliegen — **zwei Wege, je nach Umgebung**:
-
-- **CC-Standard (immer verfügbar):** letzten Deploy-Run je Prod-Repo via GitHub:
-  ```bash
-  for r in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do
-    gh run list -R "$(git -C ${GITHUB_DIR:-$HOME/github}/platform remote get-url origin | sed -E 's#.*[:/]([^/]+)/.*#\1#')/$r" \
-      --workflow Deploy --limit 1 --json conclusion --jq '.[0].conclusion // "none"' 2>/dev/null \
-      | xargs -I{} echo "$r: {}"
-  done
-  ```
-- **Mit deployment-MCP gebunden** (Prefix aus project-facts.md): `ssh_manage exec` mit
-  `/opt/deploy-core/deploy-status.sh <repo>` je Prod-Repo.
-
-→ Für jedes Repo mit `failure`/`FAILED`: Deploy-Log lesen und User informieren —
-  🌀 `feedback_deploy_green_not_change_live`: run-conclusion allein belegt nicht,
-  dass die Änderung live ist.
-→ Optional als Memory-Entry sichern (siehe `/session-ende` Phase 2 — `error_pattern`).
-
 ### 0.8 Modell-Tier für die Session wählen (policies/session-routing.md)
 
 **Vor dem ersten Arbeits-Schritt einmal bewusst routen** — nicht per Default auf dem
@@ -345,33 +147,6 @@ teuersten Modell bleiben (Policy-Realfall: $1577 in 48h für Tier-3-Arbeit auf T
 → Mid-Session runterschalten, wenn der anspruchsvolle Teil erledigt ist (`/model`).
 → Faustregel: **Fable orchestriert, delegiert Mechanik als Sonnet-Subagents/-Issues** —
   nicht Fable die Mechanik selbst tippen lassen.
-
-### 0.9 Staging-Health-Check (ADR-157)
-
-Prüfe ob Staging-Services auf Dev Desktop (88.99.38.75) erreichbar sind:
-
-// turbo
-```bash
-python -c "
-import yaml, urllib.request, socket
-from pathlib import Path
-import os
-gh = os.environ.get('GITHUB_DIR') or f\"{os.environ['HOME']}/github\"
-d = yaml.safe_load(Path(f'{gh}/platform/infra/ports.yaml').read_text())
-ok = fail = skip = 0
-for name, cfg in sorted(d.get('services',{}).items()):
-    if not cfg or not cfg.get('staging'): continue
-    port = cfg['staging']
-    try:
-        s = socket.create_connection(('88.99.38.75', port), timeout=2)
-        s.close()
-        ok += 1
-    except (socket.timeout, ConnectionRefusedError, OSError):
-        skip += 1
-print(f'Staging: {ok} up, {skip} nicht erreichbar (normal wenn nicht deployed)')
-"
-```
-→ Informativ, kein Blocker. Zeigt welche Hubs auf Staging laufen.
 
 ---
 
@@ -490,6 +265,38 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 
 ---
 
+## Startklar-Checkliste (PFLICHT — NEU 2026-07-15, Ausführungstreue-Gate)
+
+> **Lesson 2026-07-15 (Retro c494a2):** `session-ende.md` bekam 2026-07-14 eine neue
+> Pflicht-Phase (0a-handover-pr), die in derselben Session, die sie brauchte, trotz
+> vorliegender Skill-Kopie NICHT ausgeführt wurde — ein langes Multi-Phasen-Dokument
+> wird überflogen statt Phase für Phase abgehakt. `session-start.md` hatte bis hierhin
+> **gar keine** Abschluss-Checkliste trotz 14 Unterphasen (0.0–0.9) + 3 weiteren Phasen —
+> das größte Ausführungstreue-Risiko dieses Skills, weil es JEDE Session zuerst durchläuft.
+
+| # | Check | Status |
+|---|-------|--------|
+| 1 | Runner `tools/session_start_checks.sh` gelaufen, Summary-Tabelle gezeigt (0.R) | ☐ |
+| 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt (0.R) | ☐ |
+| 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
+| 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
+| 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
+| 6 | Recurring-Errors geprüft, Handover↔Memory-Reconciliation gemacht (2.5/2.6) | ☐ |
+| 7 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3, ADR-233-Kill-Gate) | ☐ |
+| 8 | Arbeitsplan aufgestellt (Phase 3) | ☐ |
+
+**Pflicht-Selbstcheck (2-Schritt, NEU 2026-07-15 — Retro c494a2-incr Befund #3):** Diese
+Checkliste selbst ließ bei ihrer Erstellung 0.4.3 und Phase 3 aus, weil beide keine
+wörtliche "PFLICHT"/"NEU"-Markierung im Titel tragen, obwohl beide faktisch mandatorisch
+sind (0.4.3 = ADR-233-Kill-Gate, Phase 3 = das eigentliche Ergebnis des Skills). Reines
+Filtern nach dem Stichwort "PFLICHT" übersieht genau solche Phasen. Richtiger Ablauf:
+(1) ALLE `##`/`###`-Überschriften oben mechanisch auflisten (`grep -n "^## \|^### "`),
+(2) DANN jede einzeln beurteilen, ob sie faktisch mandatorisch ist — nicht nur nach dem
+Wort im Titel filtern. Bei einer neuen Pflicht-Phase diese Tabelle im selben PR erweitern,
+nicht in einem Folge-Commit "irgendwann".
+
+---
+
 ## MCP-Server Quick-Reference
 
 > ⚠️ **Prefix ist environment-spezifisch** — immer `project-facts.md` als Quelle nehmen!
@@ -533,6 +340,26 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 
 ## Changelog
 
+- 2026-07-18: v3 — Deterministischer Runner `tools/session_start_checks.sh` ersetzt die
+  mechanischen Einzel-Blöcke 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9
+  (Ausführungstreue-Programm #1167, Retro c494a2: lange Phasenlisten werden beim
+  Ausführen überflogen — ein Skript-Lauf ist nicht überspringbar und endet mit
+  maschinenlesbarer Summary + RESULT). Judgment-Phasen (0.4.3 Worktree, 0.8 Modell-Tier,
+  Architecture Context, Phasen 1–3) bleiben im Skill. Troubleshooting-Lessons der
+  Alt-Phasen in 0.R konsolidiert, kein Inhalt ersatzlos gelöscht (Lehre #1122/#1165).
+  Startklar-Checkliste 12→8 Rows (alte Rows 1–7 = jetzt Runner-Summary). Runner real
+  verifiziert (Lauf 2026-07-18: reproduzierte die Live-Befunde der manuellen Session).
+- 2026-07-15 (Nachtrag, Retro c494a2-incr): die frisch angelegte Startklar-Checkliste ließ
+  selbst 2 faktisch mandatorische Phasen aus (0.4.3 Worktree-Gate, Phase 3 Arbeitsplan) —
+  beide ohne wörtliche "PFLICHT"-Markierung im Titel, weshalb der reine Stichwort-Filter
+  sie überging. Rows 11+12 ergänzt, Pflicht-Selbstcheck auf 2-Schritt-Verfahren (erst alle
+  Überschriften auflisten, dann einzeln beurteilen) umgestellt.
+- 2026-07-15: Neue "Startklar-Checkliste" ergänzt — der Skill hatte trotz 14 Unterphasen
+  (0.0–0.9) + 3 weiteren Phasen bisher KEINE Abschluss-Checkliste (anders als
+  session-ende.md). Aus Retro `session-retro-2026-07-15-platform-c494a2`: eine lange,
+  rein prosaische Phasenliste wird beim Ausführen überflogen statt Zeile für Zeile
+  abgehakt, besonders am Session-Anfang unter Zeitdruck. Höchster Hebel aller drei
+  session-xxx-Skills, weil er jede Session zuerst durchläuft.
 - 2026-07-02: v2.1 — CC-first-Call-Sites vollendet: Phase 1/2/2.5 riefen noch
   Windsurf-Prefix-Tools (`mcp__platform-context__get_context_for_task`, `mcp__deployment-mcp__system_manage`,
   `mcp__outline-knowledge__search_knowledge`, `mcp__orchestrator__agent_memory`, `<orc>_`/`<gh>_`-Platzhalter) — auf

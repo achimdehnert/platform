@@ -126,6 +126,16 @@ PR der eine neue Skill enthält oder eine bestehende ändert:
    bewusst aus — dieser Punkt ist die manuelle Pflicht, die diese Lücke deckt.)
 6. **Tracking-Anker bei substanzieller Arbeit (session-retro 2026-06-05, F-F):** Mehrstündige oder cross-concern Skill-/Tooling-Arbeit bekommt einen GitHub-Issue als Anker — ODER der PR-Body verlinkt die externen Belege (z. B. `~/shared`-Reviews, Dogfood-Reports) **explizit**. Sonst ist die Arbeit nur über PR-Body + lokale Artefakte rekonstruierbar und für Außenstehende unsichtbar.
 
+## Lifecycle
+
+Skills werden nicht nur gebaut, sondern auch wieder abgebaut. `tools/usage_sweep.py`
+(Issue #1076, Owner-Entscheid 2026-07-11) läuft quartalsweise (bewusst KEIN
+Standing-Agent) und misst Skill-Aufrufe aus lokalen CC-Transkripten gegen das
+Inventar `.windsurf/workflows/*.md` — 0 Aufrufe im Zeitfenster landet als
+Rückbau-**Kandidat** in einem `[usage-sweep]`-Issue (Label `usage-sweep`), nie als
+Auto-Löschung. Kill-Kriterium: zwei aufeinanderfolgende Sweeps ohne einen einzigen
+vollzogenen Rückbau stellen den Sweep ein.
+
 ## Verteilung (ADR-230 CC-first)
 
 `cc-skill-dist` kennt zwei Lanes über `--kind`:

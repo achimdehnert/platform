@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-10",
-  "total": 217,
-  "next_free": 272,
+  "generated": "2026-07-19",
+  "total": 225,
+  "next_free": 280,
   "adrs": [
     {
       "number": 7,
@@ -5005,6 +5005,181 @@
         "ADR-046",
         "ADR-056",
         "ADR-059"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 272,
+      "id": "ADR-272",
+      "file": "ADR-272-distribution-contract-bounded-latency.md",
+      "title": "Adopt a machine-readable distribution contract with bounded redistribution latency",
+      "status": "proposed",
+      "date": "2026-07-11",
+      "domains": [
+        "governance",
+        "tooling",
+        "distribution"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-229",
+        "ADR-230",
+        "ADR-234",
+        "ADR-258",
+        "ADR-263",
+        "ADR-265"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 273,
+      "id": "ADR-273",
+      "file": "ADR-273-writing-hub-composition-ssot.md",
+      "title": "writing-hub as composition SSoT for generative long-form authoring; facts and structured templates via shared iil-* packages",
+      "status": "proposed",
+      "date": "2026-07-13",
+      "domains": [
+        "architecture",
+        "authoring",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-155",
+        "ADR-169",
+        "ADR-170",
+        "ADR-253",
+        "ADR-254",
+        "ADR-274"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 274,
+      "id": "ADR-274",
+      "file": "ADR-274-iil-doc-templates-adoption.md",
+      "title": "Adopt iil-doc-templates as the reusable structured-document template engine (Django-app tier)",
+      "status": "accepted",
+      "date": "2026-07-13",
+      "domains": [
+        "architecture",
+        "tooling"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-169",
+        "ADR-170",
+        "ADR-273"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 275,
+      "id": "ADR-275",
+      "file": "ADR-275-registry-ssot-consolidation.md",
+      "title": "Registry-SSoT-Konsolidierung — canonical.yaml als einzige Quelle, github_repos.yaml stilllegen",
+      "status": "accepted",
+      "date": "2026-07-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022",
+        "ADR-157",
+        "ADR-234"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 276,
+      "id": "ADR-276",
+      "file": "ADR-276-cross-repo-document-classification-routing.md",
+      "title": "Cross-Repo-Dokumenten-Klassifikation & Routing — selbstlernender Platform Agent in dev-hub, Geschwister-Architektur zum mPA/Voice-Agent",
+      "status": "proposed",
+      "date": "2026-07-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-050",
+        "ADR-170",
+        "ADR-249",
+        "ADR-274"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 277,
+      "id": "ADR-277",
+      "file": "ADR-277-dokument-manifest-cross-system-deskriptor.md",
+      "title": "Dokument-Manifest — sprachneutraler Cross-System-Deskriptor (Datenvertrag, nicht Zugriffsprotokoll)",
+      "status": "proposed",
+      "date": "2026-07-16",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "dms-hub:KONZ-dms-hub-001",
+        "meiki:ADR-015",
+        "platform:ADR-149",
+        "platform:ADR-261"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 278,
+      "id": "ADR-278",
+      "file": "ADR-278-oidc-trusted-publishing-only.md",
+      "title": "OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate",
+      "status": "proposed",
+      "date": "2026-07-19",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-255",
+        "ADR-266"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 279,
+      "id": "ADR-279",
+      "file": "ADR-279-adaptive-text-feedback-loop-promptfw.md",
+      "title": "Anchor the adaptive text-improvement feedback loop in iil-promptfw",
+      "status": "proposed",
+      "date": "2026-07-11",
+      "domains": [
+        "shared-packages",
+        "llm",
+        "prompt-management"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-146",
+        "ADR-188",
+        "ADR-259"
       ],
       "implementation_status": ""
     },

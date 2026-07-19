@@ -174,6 +174,13 @@ primäre Entscheidung**, nginx-Map als Backup für Defense-in-Depth.
 - **OPA-Integration** wenn Policy-Komplexität wächst (>20 Pattern)
 - **Magic-Link für Externe** wenn Authentik-User-Mgmt zu schwer wird
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 (heute, ADR-217) | unklar | Item 1 done, Items 2-7 laut Liste "⏳"; ADR-216 (Iter. 32) behauptet, Items 4/5 seien via BasicAuth+htpasswd (statt Authentik-Gruppen) funktional erreicht — anderer Mechanismus als hier spezifiziert. `## Status`: "Tritt in Kraft nach Pilot-Feedback Phase 1" — noch nicht aktiviert |
+| Phase 3 (Backlog, nicht in dieser ADR) | offen | per Definition an künftige Trigger geknüpft, nicht begonnen |
+
 ## Konsequenzen
 
 ### Positiv

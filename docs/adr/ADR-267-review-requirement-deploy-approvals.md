@@ -2,7 +2,7 @@
 id: ADR-267
 title: Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)
 status: accepted
-date: 2026-07-08
+decision_date: 2026-07-08
 deciders: [achim]
 informed: [all-repos]
 domains: [security, process, governance, deployment, drift-prevention]

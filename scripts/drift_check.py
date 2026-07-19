@@ -40,7 +40,21 @@ except ImportError:
 
 PLATFORM_ROOT = Path(__file__).parent.parent
 REGISTRY_FILE = PLATFORM_ROOT / "scripts" / "repo-registry.yaml"
-GITHUB_ORG = "achimdehnert"
+GITHUB_ORG = "achimdehnert"  # Fallback-Default für Repos ohne canonical.yaml-Eintrag
+
+# Owner-Auflösung aus der kanonischen Registry (ADR-234/255) statt Fleet-weitem
+# Hardcode — iilgmbh-Repos (risk-hub, ausschreibungs-hub, ...) und meiki-lra/
+# ttz-lif-Repos haben ein eigenes `github:`-Feld in registry/canonical.yaml,
+# das bislang ignoriert wurde (FUNC-1, #1202).
+sys.path.insert(0, str(PLATFORM_ROOT / "tools"))
+import registry_api as reg  # noqa: E402
+
+
+def _repo_owner(repo: str) -> str:
+    """GitHub-Owner für EIN Fleet-Repo, mit Fallback auf GITHUB_ORG (F-5: owner()
+    liefert None für unbekannte/nicht-registrierte Namen — kein harter Fail hier,
+    da drift_check.py auch mit Repo-Namen außerhalb der Registry aufgerufen wird."""
+    return reg.owner(repo) or GITHUB_ORG
 
 # ── Drift-Regeln (erweiterbar ohne Code-Änderung) ─────────────────────────────
 
@@ -176,7 +190,7 @@ def _api_get(path: str, token: str) -> dict | list | None:
 
 
 def _get_file_content(repo: str, path: str, token: str) -> str | None:
-    data = _api_get(f"/repos/{GITHUB_ORG}/{repo}/contents/{path}", token)
+    data = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token)
     if not isinstance(data, dict) or "content" not in data:
         return None
     try:
@@ -186,7 +200,7 @@ def _get_file_content(repo: str, path: str, token: str) -> str | None:
 
 
 def _get_dir_files(repo: str, path: str, token: str) -> list[str]:
-    items = _api_get(f"/repos/{GITHUB_ORG}/{repo}/contents/{path}", token)
+    items = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token)
     if not isinstance(items, list):
         return []
     return [i["name"] for i in items if isinstance(i, dict) and i.get("type") == "file"]
@@ -483,7 +497,7 @@ def check_repo(repo: str, repo_type: str, token: str,
     drift = RepoDrift(repo=repo, repo_type=repo_type)
 
     # Repo erreichbar?
-    if _api_get(f"/repos/{GITHUB_ORG}/{repo}", token) is None:
+    if _api_get(f"/repos/{_repo_owner(repo)}/{repo}", token) is None:
         drift.error = "Repo nicht gefunden oder privat"
         return drift
 

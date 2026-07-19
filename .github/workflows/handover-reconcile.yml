@@ -1,0 +1,45 @@
+# handover-reconcile.yml — Nightly-Reconciler AGENT_HANDOVER.md ↔ GitHub-Live-State.
+#
+# STUFE 1: strikt read-only (permissions unten: nur read). Der Report landet in der
+# Job-Summary — kein Kommentar, kein Issue, kein Schreibzugriff. Das Scharfschalten
+# einer Schreib-Aktion (z. B. Kommentar auf ein Tracking-Issue) ist per Org-Gate
+# `autonomous-no-human-review` separat gegated: erst nach mehreren grünen
+# Nightly-Läufen + False-Positive-Triage (Follow-up-Issue, s. PR).
+#
+# Der pull_request-Trigger auf die eigenen Pfade ist der erzwungene
+# Dry-Run-in-CI: Er beweist die Verdrahtung (Checkout, Token, gh api) schon im
+# einführenden PR — ein lokaler Skript-Lauf zählt laut Gate nicht als Beweis.
+name: handover-reconcile
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/handover-reconcile.yml"
+      - "scripts/checks/handover_refs.py"
+      - "scripts/checks/agent_handover_reconcile.py"
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: handover-reconcile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconcile AGENT_HANDOVER.md (Stufe 1, report-only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/checks/agent_handover_reconcile.py AGENT_HANDOVER.md \
+            --repo-slug "$GITHUB_REPOSITORY" \
+            --summary "$GITHUB_STEP_SUMMARY"
