@@ -159,6 +159,21 @@ Break-Glass = Protection temporär DELETE + Audit-Log).
 - **REC-5:** R2-Reconciler (`plan/apply/rollback`) bauen, der den Interim-Pilot **übernimmt** und auf
   quarantine-fähige Hubs ausweitet — gekoppelt an F4-Konvergenz (`/ci-green-program`).
 
+### Umsetzungs-Status — REC→Status (Stand 2026-07-19, #1167)
+
+> Nachgezogen im Ausführungstreue-Audit ([#1167](https://github.com/achimdehnert/platform/issues/1167)). `pipeline_status: prod`, Mechanismus (Ebene A) via **ADR-242** gemergt — der REC-1..5-Stand war aber nicht konsolidiert (strukturell überspringbar, Hausregel „Ausführungstreue"). Geerdet je Zeile (billigster Check).
+
+| REC / Kill-Gate | Status | Beleg / billigster Check |
+|---|---|---|
+| REC-1 — ADR-174 `implementation_evidence` um Drift-Vermerk (Bestand 0/14, trading-hub#13) ergänzen | **offen** | `grep "0/14\|trading-hub#13" ADR-174` → leer; „1 Edit sofort" nie ausgeführt |
+| REC-2 — Interim-Pilot Protection auf Prod-Subset | **erfüllt** (anders realisiert: native Rulesets via ADR-242) | `gh api repos/achimdehnert/{platform,risk-hub}/rulesets` → `main-required-checks` `enforcement:active`; Prod-Subset in `governance/rulesets/wave1-repos.json`, trading-hub in wave2 |
+| REC-3 — Coverage-Job stabil benennen + ins Required-Set | **unklar** (Ansatz gewechselt) | Required-Check je Repo = Aggregator (`ci / gate`, `🚦 Quality Gate`), nicht der Coverage-Job direkt; kein Beleg, dass Coverage als eigener required Check stabilisiert wurde |
+| REC-4 — ADR-234 R2 um G1 (`deploy/*` nie required) + G2 amenden | **offen** | `grep "deploy/\*\|G1\|G2" ADR-234` → leer; Single-Required-Check-Template vermeidet `deploy/*` faktisch, ADR aber nicht amendiert |
+| REC-5 — R2-Reconciler (plan/apply/rollback) bauen | **erfüllt** (via ADR-242) — Lücke: **rollback** | plan=`dry_run`-Input, apply=`apply-branch-protection.yml`, Audit/Drift=`branch-protection-meter.yml` (wöchentl. → `protection-violation`-Issue); `grep "rollback\|DELETE"` im apply-Skript → leer (kein Rollback-Pfad) |
+| Kill-Gate — 2-Wo-Pilot: mehr legit-grün als rot blockiert / ≥1 Break-Glass/Wo → rückrollen | **offen (nicht gemessen)** | Meter prüft Soll/Ist-Ruleset-Präsenz, **nicht** die Kill-Gate-Metrik (legit-blockiert vs. rot-verhindert, Break-Glass-Rate); kein 2-Wochen-Pilot-Auswertungs-Artefakt gefunden |
+
+**Kern:** Mechanismus (REC-2/REC-5) real gebaut + live via **ADR-242** — deckt „Ebene A gemergt". Offen bleiben die billigen/steuernden Teile: REC-1 (Drift-Vermerk), REC-4 (ADR-234-Amendment), die explizite Kill-Gate-Messung sowie ein Rollback-Pfad innerhalb REC-5. REC-3 vermutlich durch den Gate-Aggregator-Ansatz obsolet, aber undokumentiert.
+
 ## 13. Entscheidung + Kill-Gate + 30/60/90
 
 **Offene Toggles (User-Entscheidung — kippen die Umsetzung, nicht das Konzept):**

@@ -601,6 +601,20 @@ Zombie-Programm. Re-Review-Pflicht spätestens **+90 Tage**.
   als alleinige Reconciler-Quelle; Kill-Gate-Check (a–e: Registry konsolidiert? Reconciler? Injection-Test
   grün? Runtime-Probe live? Quelle = canonical?).
 
+### Umsetzungs-Status — Kill-Gate (a–e) → Status (Stand 2026-07-19, #1167)
+
+> Nachgezogen im Ausführungstreue-Audit ([#1167](https://github.com/achimdehnert/platform/issues/1167)): die Kill-Gate-Kriterien (a–e) standen bis dahin nur als Prosa im Fließtext, ohne konsolidierten Erledigt-Abgleich — damit strukturell überspringbar (Hausregel „Ausführungstreue"). Geerdet je Zeile (billigster Check); „offen (teil)" = Baustein vorhanden, Kriterium aber nicht voll erfüllt.
+
+| Kill-Gate-Kriterium | Status | Beleg / billigster Check |
+|---|---|---|
+| (a) Registries zu **einer** SSoT (`canonical.yaml`) konsolidiert | **erfüllt** | `registry/canonical.yaml` trägt `_note: KANONISCHE SSoT (ADR-234 P0, Flip 2026-06-01)`; `registry/repos.yaml` daraus generiert; CI-Gate `registry-consistency.yml` |
+| (b) Branch-Protection-Reconciler **läuft** (Dry-Run, Drift, setzt `required`, auditiert Bypass/Direct-Push/Default-Drift) | **offen (teil)** | `apply-branch-protection.{sh,yml}` (nur `workflow_dispatch`) + wöchentl. `branch-protection-meter.yml`; **kein** Bypass/Direct-Push/Default-Drift-Audit im Code (`grep` → 0 Treffer) |
+| (c) **Jedes** required Gate mit pos.+neg. Fault-Injection-Test + dok. Defektklasse | **offen (teil)** | nur 2/51 Testdateien in `tools/tests/` tragen den `Fault-Injection`-Marker; keine flächige „jedes Gate"-Abdeckung |
+| (d) Runtime-Reality-Probe (R6) **täglich** gegen **alle** `deploy:`-Repos (HTTP + Container-Presence) | **offen (teil)** | `staging-registry-checks.yml` R6-Job läuft täglich, deckt aber nur „Authentik-Staging-Redirects" ab, nicht alle `deploy:`-Repos ([#1228](https://github.com/achimdehnert/platform/issues/1228) offen) |
+| (e) `drift_check.py`/`registry_coverage_drift` lesen `canonical.yaml` als Quelle | **offen (teil)** | nur `registry_coverage_drift.py` nutzt `parse_canonical`; `drift_check.py:42` + `gen_project_facts.py` + `audit_platform.py` lesen noch `scripts/repo-registry.yaml` |
+
+**Stand: 1/5 erfüllt, 4/5 offen** (Bausteine je teilweise angebaut). Kill-Gate-Frist **2026-09-01**; bei unverändertem Stand greift der oben definierte **Teil-Sunset** (a/b erfüllt → Detektions-Hälfte bleibt, Enforcement-Hälfte entfällt). Pilot-Referenz: [#488](https://github.com/achimdehnert/platform/issues/488).
+
 ---
 
 ## Anhang — Off-Ramp dieses Docs
