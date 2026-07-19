@@ -254,7 +254,7 @@ jobs:
           fi
 
       - name: Sync deploy script to VM
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
@@ -265,7 +265,7 @@ jobs:
 
       - name: Execute deploy
         id: run
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ github.token }}
           PROJECT_PAT: ${{ secrets.PROJECT_PAT }}

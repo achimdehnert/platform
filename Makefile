@@ -128,7 +128,6 @@ test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro
 		tests/doc_profile_check/ \
 		tools/claude-hooks/tests/ \
 		agents/tests/ \
-		--ignore=agents/tests/test_adr_scribe.py \
 		-q
 
 lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)

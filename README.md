@@ -73,7 +73,7 @@ platform/
 ├── .github/workflows/     # Reusable CI/CD Workflows (_ci-python, _build-docker, _deploy-*)
 ├── .windsurf/workflows/   # Skill-Quelle (CC-first, ADR-230) — Windsurf selbst nur Review-only
 ├── scripts/                # Ops-Scripts (gen_project_facts.py, sync-workflows.sh, ship.sh, ...)
-├── agents/                 # Governance-Agents (guardian, adr_scribe, context_reviewer)
+├── agents/                 # Governance-Agents (guardian, context_reviewer, onboarding_coach)
 ├── infra/, deployment/     # Infrastruktur-Konfiguration
 ├── registry/                # SSoT canonical.yaml (Repo-Registry, ADR-234)
 ├── shared_contracts/        # Cross-Repo Python Contracts (Events, Schemas)
