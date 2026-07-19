@@ -561,6 +561,15 @@ echo "=== All smoke tests passed ==="
 
 ---
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 — Test Infrastructure | erledigt | "Phase 1 + Phase 2 complete for all 7 service repos" (Last-updated-Notiz) |
+| Phase 2 — Model + View Tests | **Widerspruch im Dokument** | dieselbe Notiz behauptet "complete", aber die Tabelle zeigt "Coverage target 50% reached — 🔴" für alle 7 Repos |
+| Phase 3 — Contract Tests (pending) | offen | Heading trägt bereits "(pending)"; 5 von 7 Items "🔴 Not started" |
+| Phase 4 — Hardening (pending) | offen | Heading "(pending)"; Coverage Gate 70% + pytest-xdist/-randomly "🔴 Not started" |
+
 ## 4. Review Amendments (2026-02-20)
 
 Applied after deep review against `docs/templates/adr-review-checklist.md` + established best practices:

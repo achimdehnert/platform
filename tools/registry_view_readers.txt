@@ -22,5 +22,7 @@ scripts/gen_project_facts.sh
 scripts/list_megatest_repos.py
 scripts/render_staging.py
 scripts/setup_repo.py
+scripts/sync-workflows.sh
 tests/megatest/test_meta.py
 tools/repo_checker.py
+tools/tests/test_sync_workflows.py

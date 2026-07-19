@@ -89,6 +89,30 @@ gh run list --repo <owner>/<repo> --workflow=Deploy --limit 1 \
 - `failure` → **nicht** als „fertig" melden. Entweder: (a) bei transientem Flake (GHCR-403/registry-unauthorized beim Pull, siehe Memory `*-deploy-smoke-unauthorized`) `gh run rerun <id> --failed` und Erfolg verifizieren; ODER (b) explizit als offenes To-do mit Run-ID ins `AGENT_HANDOVER.md` (Phase 0b).
 - kein Deploy-Workflow im Repo → Schritt entfällt.
 
+### 0a-handover-pr: Offene AGENT_HANDOVER.md-PRs gegenchecken (PFLICHT — NEU 2026-07-14)
+
+> **Lesson 2026-07-14:** Eine Session öffnete einen PR mit neuem Handover-Stand,
+> ließ ihn aber offen (kein Merge). Die nächste Session schrieb — ohne diesen Check —
+> einen **zweiten**, konkurrierenden Handover-Stand, der den ersten PR sofort veraltete.
+> Der User musste die Duplikat-PR manuell entdecken und schließen lassen. Ein einfacher
+> PR-Suchlauf vor dem Schreiben hätte das verhindert.
+
+Bevor `AGENT_HANDOVER.md` in dieser Session verändert wird:
+
+```bash
+gh pr list --repo <owner>/<repo> --search "AGENT_HANDOVER.md in:body" --state open \
+  --json number,title,updatedAt -q '.[] | "\(.number)\t\(.updatedAt[:10])\t\(.title)"'
+# Fallback falls die Suche nichts findet (Titel/Body nennen die Datei nicht explizit):
+gh pr list --repo <owner>/<repo> --state open --json number,title,files \
+  -q '.[] | select(.files[]?.path == "AGENT_HANDOVER.md") | "\(.number)\t\(.title)"'
+```
+
+- **Treffer gefunden** → NICHT blind einen neuen Stand parallel schreiben. Entweder
+  (a) den bestehenden PR-Branch übernehmen/aktualisieren statt einen neuen zu öffnen,
+  oder (b) falls der bestehende PR durch zwischenzeitliche Merges bereits veraltet ist,
+  ihn explizit als „ersetzt durch PR #N" schließen, **bevor** der neue Stand gepusht wird.
+- **Kein Treffer** → normal weiter mit 0b.
+
 ### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
 
 Falls uncommitted changes, offene Tasks oder abgebrochene Implementierungen existieren:
@@ -531,6 +555,15 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 9 | Docu-Drift-Check: Issue erstellt falls nötig (Phase 1b) | ☐ |
 | 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
 | 11 | Erledigte/verschobene Prios im Handover UND Memory nachgezogen (Phase 0c) | ☐ |
+| 12 | Offene AGENT_HANDOVER.md-PRs gegengecheckt vor eigenem Schreiben (Phase 0a-handover-pr) | ☐ |
+
+> **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
+> oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
+> Pflicht-Phase braucht eine eigene Zeile hier. Diese Checkliste selbst driftete bereits
+> einmal aus dem Takt: Phase 0a-handover-pr wurde am 2026-07-14 ergänzt, aber erst am
+> 2026-07-15 (Retro c494a2, Befund #8) als fehlende Checklisten-Zeile bemerkt — eine
+> Session hatte die Phase im Dokument vorliegen, aber nicht ausgeführt, weil die
+> Abschluss-Checkliste sie nicht abfragte.
 
 ---
 
@@ -561,6 +594,13 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 
 ## Changelog
 
+- 2026-07-15: Abschluss-Checkliste um Zeile 12 (Phase 0a-handover-pr) ergänzt + Pflicht-
+  Selbstcheck-Hinweis. Aus Retro `session-retro-2026-07-15-platform-c494a2` (Befund #8):
+  Phase 0a-handover-pr wurde 07-14 ergänzt, war in der verteilten Skill-Kopie vorhanden,
+  wurde aber in derselben Session nicht ausgeführt — die Checkliste fragte sie nicht ab.
+  Allgemeine Lehre (auch außerhalb dieses Skills): eine neue PFLICHT-Phase ohne
+  Checklisten-Zeile ist strukturell überspringbar, egal wie deutlich sie im Fließtext
+  markiert ist.
 - 2026-07-02: v2 — Phase 3.1 komplett überarbeitet: kein `git add -A` mehr (🌀
   swept-artifacts), Branch-Re-Check + Session-Attribution-Filter (🌀 #734), Branch-
   Protection-aware Push (ADR-242: geschützte mains → Worktree-Branch + PR),

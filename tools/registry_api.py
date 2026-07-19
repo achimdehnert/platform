@@ -53,6 +53,30 @@ def gen_rich(canon: dict) -> dict:
     return {"domains": [{"name": d, "systems": by_dom[d]} for d in by_dom if by_dom[d]]}
 
 
+def _lifecycle(e: dict) -> str | None:
+    """Lifecycle eines Eintrags — Top-Level bevorzugt, sonst aus dem rich-Block
+    (bfagent trägt es historisch unter rich.lifecycle)."""
+    return e.get("lifecycle") or (e.get("rich") or {}).get("lifecycle")
+
+
+def gen_archived(canon: dict) -> dict:
+    """Projiziert die Archiv-View (registry/archived-repos.yaml) — ALLE Einträge mit
+    lifecycle=='archived', unabhängig von in_flat/in_rich (ADR-275 P0). Bewusst schlank:
+    nur github/description/lifecycle — genug für validate_repos-Cross-Check + Doku,
+    ohne Deploy-Metadaten toter Repos mitzuschleppen."""
+    out: dict[str, dict] = {}
+    for n, e in sorted(canon["repos"].items()):
+        if _lifecycle(e) != "archived":
+            continue
+        rich = e.get("rich") or {}
+        out[n] = {
+            "github": e.get("github") or rich.get("github"),
+            "description": e.get("description") or rich.get("description"),
+            "lifecycle": "archived",
+        }
+    return {"archived": out}
+
+
 # ── Convenience-Accessoren für neuen Code ──────────────────────────────────────
 
 def flat() -> dict:

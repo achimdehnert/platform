@@ -3,6 +3,11 @@
 <!-- 2026-07-02 (session-retro R-2/SI-1): 3 Sektionen mit inzwischen gelöschten/archivierten Quell-Pfaden manuell entfernt nach PR #829. Ein voller /session-docu-Regen ist die kanonische Auffrischung. -->
 <!-- Generated for: platform -->
 
+> ⚠️ **ARCHIVIERT/VERALTET** — die `docs/reference`-Regen-Pipeline ist tot (`docs_agent`
+> archiviert). Der Inhalt unten beschreibt Code, der vollständig nach `_ARCHIVED/`
+> verschoben wurde (u. a. Commit `2cc7289`, PR #829) und **existiert nicht mehr aktiv im
+> Repo**. Nicht als aktuelle Referenz verwenden — nur historischer Wert (Issue #1201).
+
 # API / URL Reference
 
 **29 endpoints** across 5 URL modules.

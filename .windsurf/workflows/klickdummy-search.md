@@ -107,9 +107,15 @@ Schützt vor versehentlicher Re-Implementation existierender Konzepte.
     Title:    <title>
     Tags:     <gefilterte tag-liste>
     Snippet:  <erste 200 Zeichen content>
+    Stand:    <Sync-Zeit aus Content-Zeile "Sync-Zeit:"; fehlt sie: "unbekannt">
     Score:    <relevance, falls verfügbar>
 
 [2] ...
+
+⚠ Freshness (KONZ-risk-hub-008 R1/K2): Treffer sind ein abgeleiteter Cache — SoR ist
+  die Spec im Repo. Ist der älteste "Stand" >7 Tage alt, Hinweis ausgeben:
+  „Cache ggf. stale — /klickdummy-pgvector-sync laufen lassen"; Treffer IMMER mit
+  Repo+Spec-Pfad zitieren (Verweis, nie Kopie als Wahrheit).
 
 ⚠ Drift-Hinweise (falls vorhanden):
   - <repo_a> + <repo_b> ähneln sich semantisch
@@ -124,7 +130,7 @@ Schützt vor versehentlicher Re-Implementation existierender Konzepte.
 
 - ❌ **Hardcoded Org-Liste** im Skill — Tags werden zur Laufzeit gefiltert; neue Orgs (z. B. ein zukünftiges 4. Repo) brauchen keine Skill-Änderung.
 - ❌ **Search ohne `klickdummy`-Tag-Pre-Filter** — Memory enthält auch ADRs/Tasks anderer Themen; ohne Pre-Filter Output verrauscht.
-- ❌ **Schreibender Zugriff** (`agent_memory_upsert` etc.) — Skill ist `mode: read-only`. Schreibender Sync ist Sache von `iil-klickdummy` v1.2 `klickdummy-sync`.
+- ❌ **Schreibender Zugriff** (`agent_memory_upsert` etc.) — Skill ist `mode: read-only`. Schreibender Sync = `/klickdummy-pgvector-sync` (Konsument der `iil-klickdummy` `klickdummy-sync`-CLI).
 - ❌ **Drift-Hinweis ohne Schwellwert** — nur bei ≥2 cross-repo-Hits ausgeben, sonst False-Positive-Rauschen.
 - ❌ **Limit ohne Cap** — UI-Outputs >20 sind unlesbar; Default 5, Cap 20.
 - ❌ **Gov-Daten leaken** — wenn Treffer das Tag `gov-data` haben (ttz-lif, meiki-lra), Output nur an autorisierte User; Hinweis im Output-Footer („enthält Gov-Workload-Daten, vertraulich").

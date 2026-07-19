@@ -122,6 +122,14 @@ Die anderen 22 `*.iil.pet` Vhosts werden NICHT in dieser PR migriert. Reihenfolg
 
 Jede Phase: ein Vhost migrieren, 24h beobachten, dann weiter. Bei Issues: Rollback aus dem `.bak`-Verzeichnis.
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 — Low-Risk Static / Internal (Wave 1) | offen | nur `docs` trägt "(✅ pilot)"; die übrigen 6 Vhosts unmarkiert; 22 weitere Vhosts explizit NICHT in dieser PR migriert |
+| Phase 2 — Medium-Risk Internal Tools | offen | keine ✅-Markierungen; `illustration` war bereits vorher i.O. (kein ADR-Verdienst) |
+| Phase 3 — Active Internal Apps | offen | keine Markierungen; Frontmatter `implementation_status: partial`; hängt sequenziell von Phase 1/2 ab |
+
 ## Endzustand-Definition
 
 Migration als "implementation_status: implemented" gilt sobald:

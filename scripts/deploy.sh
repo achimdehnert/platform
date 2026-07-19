@@ -259,6 +259,45 @@ else
   echo "✅ Container läuft"
 fi
 
+# ── Crashloop-Gate (platform#1124): ein Web-livez-200 beweist NICHT, dass
+# Sidecar-Container (beat, worker) gesund sind. Ein Crashloop zyklt durch
+# "Up (healthy)" und entgeht jeder Momentaufnahme (`ps | grep` oben) — daher
+# RestartCount über ein Grace-Fenster VERGLEICHEN statt einmal messen. Ein
+# langsamer Cold-Start (der bis hierher schon durch den Health-Check-Retry
+# stabilisiert ist) hat Δ=0; nur ein echter Loop wächst weiter.
+# Realfall trading-hub 2026-07-12: beat crashloopte 5h18min hinter grünen
+# Deploys, weil nur livez geprüft wurde (Retro platform#1123 C3/C4).
+if [[ "${SKIP_CRASHLOOP_GATE:-0}" != "1" ]]; then
+  CRASHLOOP_GRACE="${CRASHLOOP_GRACE:-45}"
+  _cids=$(docker compose -f "$COMPOSE_FILE" ps -q 2>/dev/null || true)
+  if [[ -n "$_cids" ]]; then
+    echo "Crashloop-Gate: RestartCount-Delta über ${CRASHLOOP_GRACE}s …"
+    declare -A _rc0
+    for _c in $_cids; do
+      _rc0["$_c"]=$(docker inspect -f '{{.RestartCount}}' "$_c" 2>/dev/null || echo 0)
+    done
+    sleep "$CRASHLOOP_GRACE"
+    _bad=""
+    for _c in $_cids; do
+      _name=$(docker inspect -f '{{.Name}}' "$_c" 2>/dev/null | sed 's#^/##')
+      _rc1=$(docker inspect -f '{{.RestartCount}}' "$_c" 2>/dev/null || echo 0)
+      _state=$(docker inspect -f '{{.State.Status}}' "$_c" 2>/dev/null || echo unknown)
+      if (( _rc1 > ${_rc0["$_c"]:-0} )); then
+        echo "❌ $_name crashloopt: RestartCount ${_rc0["$_c"]} → $_rc1 im Grace-Fenster"
+        _bad="$_bad $_name"
+      elif [[ "$_state" == "restarting" || "$_state" == "exited" || "$_state" == "dead" ]]; then
+        echo "❌ $_name im Zustand '$_state'"
+        _bad="$_bad $_name"
+      fi
+    done
+    if [[ -n "$_bad" ]]; then
+      echo "❌ Crashloop-Gate fehlgeschlagen:$_bad — Deploy gilt als NICHT gesund."
+      exit 6
+    fi
+    echo "✅ Crashloop-Gate OK — kein Container crashloopt (Δ RestartCount = 0)"
+  fi
+fi
+
 # Cleanup: nur dangling (ungetaggte) Images — nicht zu aggressiv
 docker image prune -f 2>/dev/null || true
 

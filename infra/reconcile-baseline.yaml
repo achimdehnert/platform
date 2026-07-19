@@ -36,7 +36,3 @@ known_drift:
     owner: achim
     expires_at: 2026-08-08
 
-  - id: "C5:staging:8099"
-    reason: "risk-hub + tax-hub deklarieren beide staging:8099. risk-hub-Staging läuft real auf 8099 (dev-desktop), ADR-210-Zielbild sagt 19001 — Teil der Zwei-Staging-Server-Drift, User-Entscheid 2026-07-09: analysieren, noch nicht fixen."
-    owner: achim
-    expires_at: 2026-08-08

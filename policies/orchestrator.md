@@ -61,6 +61,23 @@ merged via platform#190; `~/.claude/bin/claude-policy` should symlink there).
 The legacy `memory_get/set/list` API it once stubbed no longer exists —
 irrelevant now, the CLI targets `agent_memory_*`/`store`. See dev-hub#51.
 
+## Schlüssel-Rotation (Pflichtweg — Lehre aus mcp-hub#179)
+
+Der API-Schlüssel des Orchestrators existiert an genau **zwei** Orten:
+Schlüsselkasten (`~/.secrets/orchestrator_mcp_api_key`, **kanonisch**) und
+Server-Schloss (`hetzner-prod:/opt/mcp-hub/.env.prod`, `ORCHESTRATOR_MCP_API_KEY`).
+
+**Regel:** Eine Rotation ändert IMMER beide Orte im selben Arbeitsgang —
+Schlüsselkasten zuerst (kanonisch), dann Server + Container-Recreate. Ein Tausch
+nur auf dem Server ist die Fehlerklasse, die den Orchestrator vom
+13.–17.07.2026 vier Tage still lahmlegte (Rotation am 12.07. ohne
+Heimat-Nachzug; Chronik: mcp-hub#179).
+
+**Wächter:** `platform/tools/orchestrator_key_sync_check.sh` vergleicht beide
+Orte per Prüfsumme (Werte erscheinen nie; `--selftest` beweist die
+Rot-Fixture). Empfohlen: bei Session-Start in Orchestrator-nahen Repos und
+nach jeder Rotation einmal laufen lassen. Exit 1 = Drift-Alarm.
+
 ## Changelog
 
 - 2026-05-11: Initial reference. Documented after session miss where I should
