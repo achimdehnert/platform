@@ -1,8 +1,8 @@
 ---
 status: proposed
-date: 2026-07-16
+decision_date: 2026-07-16
 revision: 2
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 scope: platform
 implementation_status: none
 ai_sparring_by:
