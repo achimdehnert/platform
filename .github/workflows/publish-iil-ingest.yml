@@ -18,6 +18,15 @@ jobs:
   publish:
     name: Build and publish iil-ingest
     runs-on: ubuntu-latest
+    # ADR-278: OIDC Trusted Publishing. id-token:write für den OIDC-Austausch;
+    # environment pypi passend zur PyPI-Trusted-Publisher-Bindung
+    # (repo=achimdehnert/platform, workflow=publish-iil-ingest.yml, env=pypi).
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/iil-ingest/
     steps:
       - name: Checkout iil-ingest
         uses: actions/checkout@v6
@@ -54,9 +63,9 @@ jobs:
           context_label: "pre-publish: iil-ingest"
           triage_hint: "A secret is in the artifact about to be published to PyPI (irreversible). ROTATE it and exclude it from the build (MANIFEST.in / package_data / [tool.setuptools] exclude). NOT suppressible — the artifact must not ship it."
 
-      - name: Upload to PyPI
+      - name: Publish to PyPI (OIDC Trusted Publishing)
         if: ${{ !inputs.dry_run }}
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          print-hash: true
