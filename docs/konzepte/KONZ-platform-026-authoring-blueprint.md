@@ -67,7 +67,7 @@ verbesserte sich im ersten Lauf aus echtem Gebrauch.
 | Stufe | Vorhaben | beweist | Status |
 |---|---|---|---|
 | Pilot 1 | zimmer7 (fertiges Buch) | Plumbing/Round-Trip + Verify | ✅ bewiesen |
-| Pilot 2 | „Das Erwachen" Band 1 (Konzept) | generative Hälfte + Welten-*Systeme* (stresst `World.systems_data`-Lücke, KONZ-weltenhub-001) | offen |
+| Pilot 2 | „Das Erwachen" Band 1 (Konzept) | generative Hälfte + Welten-*Systeme* gegen den **bestehenden** `weltenhub World.systems_data`-Vertrag (ADR-095; nicht writing-hub) | angefangen |
 | Tier 3 | 137-Ökosystem | Protokoll **über Hubs** (Buch→writing-hub, Community→137-hub, Web→design-hub) | später |
 
 ## Adversarial / Risiken (Right-Sizing)
@@ -83,5 +83,6 @@ Trade-off — `adr-threshold.md`). Lebende Detailtiefe (Contracts je Schritt, ko
 `~/shared/books/zimmer7/_blueprint/` (Arbeits-Artefakte); dieser KONZ ist die durable Konzept-Schicht.
 
 ## Nächster Schritt
-Pilot 2 („Das Erwachen" Band 1) fährt die generative Hälfte + treibt `World.systems_data`. Fällt dort das
+Pilot 2 („Das Erwachen" Band 1) fährt die generative Hälfte + mappt die Welten-Systeme auf den bestehenden
+weltenhub-`WorldSystems`-Vertrag (ADR-095). Fällt dort das
 Fünf-Schritt-Protokoll ohne domänen-spezifischen Umbau durch, ist die Blaupause bestätigt (sonst: Kill).
