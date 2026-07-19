@@ -14,6 +14,13 @@ on:
         type: boolean
         default: false
 
+# CI-5 (#1202): cancel superseded runs on rapid pushes to the same
+# ref — avoids self-overlap when several commits land in quick
+# succession on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Workflow-level default (least privilege, #818 permissions sweep); the
 # megatest job below already declares its own permissions (contents:
 # write for --update-budgets, issues: write for the failure report) and

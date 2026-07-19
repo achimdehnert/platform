@@ -1,8 +1,27 @@
 """F6 + Cleanup: ADR-Decisions soft-deleten, alte Sessions deaktivieren."""
 import os
+import sys
+
 import psycopg
 
-DB_URL = os.environ.get("MEM_DB_URL", "postgresql://orchestrator:change-me-in-production@localhost:15435/orchestrator_mcp")
+# SEC-5 (Issue #1198): kein stillschweigender Passwort-Fallback mehr. Der alte
+# Default deckte sich zufällig mit dem lokalen docker-compose-Default
+# (POSTGRES_PASSWORD:-change-me-in-production, mcp-hub/docker-compose.yml) —
+# bleibt als EXPLIZITER Dev-Only-Opt-in erhalten (ALLOW_DEV_DB_FALLBACK=1),
+# statt automatisch/leise verwendet zu werden.
+_DEV_FALLBACK_DB_URL = "postgresql://orchestrator:change-me-in-production@localhost:15435/orchestrator_mcp"
+
+DB_URL = os.environ.get("MEM_DB_URL")
+if not DB_URL:
+    if os.environ.get("ALLOW_DEV_DB_FALLBACK") == "1":
+        DB_URL = _DEV_FALLBACK_DB_URL
+        print("⚠ MEM_DB_URL fehlt — nutze Dev-Only-Fallback (ALLOW_DEV_DB_FALLBACK=1).", file=sys.stderr)
+    else:
+        sys.exit(
+            "❌ MEM_DB_URL fehlt. Setze die Env-Var, oder für lokale Dev-Umgebungen "
+            "explizit ALLOW_DEV_DB_FALLBACK=1 (nutzt dann den bekannten "
+            "localhost-Dev-Connection-String)."
+        )
 
 with psycopg.connect(DB_URL) as conn, conn.cursor() as cur:
     print("=== STEP 1: Identify candidates ===\n")

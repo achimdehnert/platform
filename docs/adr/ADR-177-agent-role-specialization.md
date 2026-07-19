@@ -587,6 +587,18 @@ Neues Dashboard `Agent-Team-Specialization`:
 | Phase-5-Saving ≥ 20 % netto (oder Rollback via Phase 6) | `llm_calls` pre/post Diff |
 | ADR-177 Status `accepted` | Front-Matter |
 
+## Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167)
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 0 (Baseline-Messung) | offen | Frontmatter `implementation_status: none`; nur die Voraussetzung (mcp-hub#13) ist erledigt, der Goldset-Lauf (0a) und die 14-Tage-Realdaten (0b) selbst sind nicht belegt |
+| Phase 1 (Code-Struktur) | offen | Frontmatter `implementation_status: none`; kein Beleg für `orchestrator_mcp/agents/`-Struktur |
+| Phase 2 (Migration, Strangler-Pattern) | offen | Frontmatter `implementation_status: none`; Rollout-Plan nennt nur geplante Woche 2–3 |
+| Phase 3 (Tests) | offen | Frontmatter `implementation_status: none`; keine CI-Job-Ergebnisse referenziert |
+| Phase 4 (Dokumentation) | offen | Frontmatter `implementation_status: none`; keine Erwähnung von `agent-team.md`-Update |
+| Phase 5 (Validierung) | offen | Frontmatter `implementation_status: none`; Cost-Saving-Ziel als Kriterium formuliert, nicht als erreicht |
+| Phase 6 (Rollback-Pfad) | offen | Frontmatter `implementation_status: none`; nur Trigger-Fall beschrieben, keine Ausführung belegt |
+
 ## Consequences
 
 ### Positive

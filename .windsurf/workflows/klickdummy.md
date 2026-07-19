@@ -49,7 +49,7 @@ Aus `.windsurf/rules/project-facts.md` (always_on) im aktuellen Repo lesen:
 - KLICKDUMMY_PATH (z.B. "klickdummy")  # Default
 ```
 
-Fehlt project-facts.md ⇒ STOP, User auf `agent-session-start.md`-Workflow verweisen.
+Fehlt project-facts.md ⇒ STOP, User auf `session-start.md`-Workflow verweisen.
 
 ## Step 0.5: Klasse validieren (I2 4-Pattern, Rev 11/13)
 

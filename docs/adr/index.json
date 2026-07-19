@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-14",
-  "total": 221,
-  "next_free": 276,
+  "generated": "2026-07-19",
+  "total": 224,
+  "next_free": 279,
   "adrs": [
     {
       "number": 7,
@@ -5087,7 +5087,7 @@
       "id": "ADR-275",
       "file": "ADR-275-registry-ssot-consolidation.md",
       "title": "Registry-SSoT-Konsolidierung — canonical.yaml als einzige Quelle, github_repos.yaml stilllegen",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-14",
       "domains": [],
       "supersedes": [],
@@ -5098,6 +5098,65 @@
         "ADR-022",
         "ADR-157",
         "ADR-234"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 276,
+      "id": "ADR-276",
+      "file": "ADR-276-cross-repo-document-classification-routing.md",
+      "title": "Cross-Repo-Dokumenten-Klassifikation & Routing — selbstlernender Platform Agent in dev-hub, Geschwister-Architektur zum mPA/Voice-Agent",
+      "status": "proposed",
+      "date": "2026-07-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-050",
+        "ADR-170",
+        "ADR-249",
+        "ADR-274"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 277,
+      "id": "ADR-277",
+      "file": "ADR-277-dokument-manifest-cross-system-deskriptor.md",
+      "title": "Dokument-Manifest — sprachneutraler Cross-System-Deskriptor (Datenvertrag, nicht Zugriffsprotokoll)",
+      "status": "proposed",
+      "date": "2026-07-16",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "dms-hub:KONZ-dms-hub-001",
+        "meiki:ADR-015",
+        "platform:ADR-149",
+        "platform:ADR-261"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 278,
+      "id": "ADR-278",
+      "file": "ADR-278-oidc-trusted-publishing-only.md",
+      "title": "OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate",
+      "status": "proposed",
+      "date": "2026-07-19",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-255",
+        "ADR-266"
       ],
       "implementation_status": ""
     },

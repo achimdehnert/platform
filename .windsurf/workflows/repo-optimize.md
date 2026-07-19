@@ -63,7 +63,10 @@ unabhängige 8-Finder-Läufe auf demselben Commit hatten nur ~30 % Befund-Overla
 RCE-Befund kam aus dem Zweitlauf → ein Einzel-Lauf ist nie erschöpfend, Disclaimer in Fußzeile):
 Architektur · Funktionalität · Tests · Dokumentation · Developer-Experience ·
 LLM-/Agenten-Tauglichkeit · CI/CD · Sicherheit/Robustheit.
-Je Befund: `ID · Kategorie · Reichweiten-Label · Beobachtung · Evidenz (Datei:Zeile) · Schweregrad · Maßnahme · GitHub-Aktion`.
+Je Befund: `ID · Kategorie · Reichweiten-Label · Beobachtung · Evidenz (Datei:Zeile) · Schweregrad · Maßnahme · Komplexitäts-Bilanz (entfernt/hinzugefügt/netto) · GitHub-Aktion`.
+**Komplexitäts-Bilanz (Pflicht je Maßnahme):** Netto muss „entfernt ≥ hinzugefügt" sein — sonst
+den Funktions-Zuwachs explizit rechtfertigen oder als „nicht sofort ändern" führen. Löschen >
+Refactor > Hinzufügen (SSoT: `docs/prompts/repo-enterprise-optimization.md`).
 **Reichweiten-Label (Pflicht):**
 - `[REPO-LOCAL]` — Ursache + Fix allein in diesem Repo.
 - `[FLEET-PATTERN]` — plausibel über mehrere Repos → Ursache an die QUELLE (platform/shared-ci/
@@ -90,6 +93,7 @@ Spalten `# | Item | Repo | PR/Issue/ADR | Status | Next Step` (stabile IDs) — 
 Spalten, keine „Headline-Befunde" als Ersatz** (Compliance-Messung 2026-07: nur 2/17 konform). Dann:
 Repo-Landkarte · Befund-Tabelle · **LLM-Readiness-Review** (mit Datei/Modulbezug) ·
 Roadmap (Quick Wins · 1–2 Wochen · Monat · Architektur; **`[FLEET-PATTERN]` = Kandidaten für `/platform-audit`**) ·
+**Kreative Weiterentwicklung** (≥1 nicht-offensichtlicher Zuwachs-Vorschlag, als KREATIV markiert, mit Bilanz) ·
 Nicht-sofort-ändern · memory_candidates (Pflichtsektion, ggf. „keine").
 **Report-Datei (kanonisch, self-contained — nie „siehe Chat"):**
 `~/shared/repo-optimize-<repo>-<YYYY-MM-DD>.md` (repo-zuerst; Zweitlauf am selben Tag: Suffix `-runB`).
@@ -159,11 +163,12 @@ Spalten: # | Item | Repo | PR/Issue/ADR | Status | Next Step   (# = stabile ID, 
 
 ## Carry-over             (nur bei Re-Run: Stand der Vor-Report-Items + nie-angelegte Artefakte)
 ## Befund-Tabelle
-# | Kategorie | Reichweite([REPO-LOCAL]/[FLEET-PATTERN]/[LLM-READINESS]) | Beobachtung | Evidenz(Datei:Zeile) | Schwere(H/M/N) | Maßnahme | GitHub-Aktion
+# | Kategorie | Reichweite([REPO-LOCAL]/[FLEET-PATTERN]/[LLM-READINESS]) | Beobachtung | Evidenz(Datei:Zeile) | Schwere(H/M/N) | Maßnahme | Komplexitäts-Bilanz(entf/hinzu/netto) | GitHub-Aktion
 
 ## LLM-Readiness-Verdikt   (mit Datei/Modulbezug)
 ## Falsifikation          (High-Befunde: SURVIVES/SURVIVES-EINGESCHRÄNKT/REFUTED, Skeptiker-Beleg zitiert)
 ## Roadmap                (Quick Wins · 1–2 Wochen · Monat · Architektur; [FLEET-PATTERN] markiert)
+## Kreative Weiterentwicklung (≥1 nicht-offensichtlicher Zuwachs, KREATIV markiert, mit Bilanz)
 ## Nicht sofort ändern    (mit Grund)
 ## memory_candidates      (Pflicht, ggf. „keine")
 
@@ -190,8 +195,15 @@ Fußzeile: Commit-SHA · n Finder · Falsifikations-Bilanz · Coverage-Disclaime
 - ❌ Delegierte PRs ungeprüft übernehmen — Abnahme/Review bleibt beim Orchestrator.
 - ❌ „🟢 dein Zug"-/T-HIGH-Entscheidungspunkte nur im `~/shared/`-Report lassen statt als
   GitHub-Issue anzulegen — sie gehen zwischen Sessions unter (`planned-phase-no-issue`, Step 5).
+- ❌ Maßnahme ohne Komplexitäts-Bilanz (entfernt/hinzugefügt/netto) oder Lauf ohne mind. einen
+  kreativen Zuwachs-Vorschlag — beides Pflicht (Step 1/Step 3, SSoT `repo-enterprise-optimization.md`).
 
 ## Changelog
+- 2026-07-15: Komplexitäts-Bilanz (entfernt/hinzugefügt/netto, Pflicht je Maßnahme) + kreativer
+  Zuwachs (≥1 Vorschlag je Lauf) als Kern eingezogen — spiegelt die SSoT-Methode
+  `docs/prompts/repo-enterprise-optimization.md`. Motiv: „optimieren + Komplexität senken" und
+  „kreativ Funktionalität ausbauen" in EINER Entscheidung erzwingen statt gegeneinander laufen zu
+  lassen; verhindert ein separates `/continuous-optimization`-Duplikat-Skill.
 - 2026-06-30: Initial. Aus der Stufe-1/-2-Methode der Session 2026-06-30 codifiziert.
   Dogfood: `/repo-optimize ~/github/ttz-hub` → 26 geerdete Befunde (3 Finder + Falsifikation),
   Headline data-sovereignty (OpenAI-Default in ttz-lif-Repo) cross-finder-konvergent + confirmed.

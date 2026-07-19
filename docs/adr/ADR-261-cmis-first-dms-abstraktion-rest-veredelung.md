@@ -1,8 +1,8 @@
 ---
 status: proposed
-date: 2026-06-29
+decision_date: 2026-06-29
 revision: 2
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 scope: platform
 implementation_status: none
 related: [meiki:ADR-001, meiki:ADR-002, meiki:ADR-003, meiki:ADR-015]

@@ -7,6 +7,12 @@
 #     with:
 #       odoo_image: "odoo:18.0"
 #       modules_to_test: "reporting_core,reporting_sales"
+#
+# Caller needs only `permissions: { contents: read }` — this job only checks
+# out the repo, runs ruff + the Odoo test binary inside the container; zero
+# GitHub-API calls. Deliberately NO job-level `permissions:` block here: a
+# called reusable workflow can only NARROW the caller's GITHUB_TOKEN, never
+# grant (see #191/#198 — same convention as _ci-pypi.yml/_ci-python.yml).
 # =============================================================================
 name: _CI Odoo (Reusable)
 

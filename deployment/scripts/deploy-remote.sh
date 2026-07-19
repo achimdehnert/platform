@@ -158,6 +158,22 @@ else
 fi
 
 # ─── 4. Pull new image ────────────────────────────────────────────────────────
+# GHCR-Self-Login vor dem Pull. `docker compose pull` nutzt die Registry-Credentials
+# aus dem ~/.docker/config.json des Deploy-Users — NICHT das ENV_FILE. Ohne expliziten
+# Login zieht der Pull privater Images mit ambient/stale Login → "denied" (wiederkehrender
+# Drift, Memory ghcr-pull-classic-pat). Das CI injiziert GHCR_TOKEN ins ENV_FILE → damit
+# meldet sich der Deploy je Lauf selbst an, im richtigen User-Kontext. Backward-compat:
+# fehlt der Token, bleibt das alte Verhalten (bestehender Host-Login).
+GHCR_TOKEN=$(grep -oP '^GHCR_TOKEN=\K.*' "$ENV_FILE" 2>/dev/null | head -1 | tr -d '\r\n' || true)
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+    GHCR_OWNER=$(grep -oP 'image:\s*ghcr\.io/\K[^/]+' "$COMPOSE_FILE" 2>/dev/null | head -1 || true)
+    if printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_OWNER:-x}" --password-stdin >/dev/null 2>&1; then
+        info "GHCR-Login ok (Deploy-User-Kontext)"
+    else
+        warn "GHCR-Login fehlgeschlagen — Pull versucht es mit bestehendem Host-Login"
+    fi
+fi
+
 log "Pulling images..."
 compose pull "$WEB_SERVICE" || die "Image pull failed for tag ${IMAGE_TAG}" 1
 

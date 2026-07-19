@@ -2,6 +2,15 @@
 # ║  REUSABLE WORKFLOW: Hetzner VM Deployment (v2)                             ║
 # ║  Uses deploy-remote.sh on VM — migration gate, healthcheck, auto-rollback ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+# ║                                                                              ║
+# ║  Caller needs `permissions: { contents: read, packages: read }` — the      ║
+# ║  `deploy` job forwards `github.token` to the remote host as GHCR_TOKEN for ║
+# ║  `docker login`/`compose pull` of the app image (packages: read). Callers  ║
+# ║  granting only `contents: read` will see GHCR pulls fail on private        ║
+# ║  images. Deliberately NO job-level `permissions:` block here: a called     ║
+# ║  reusable workflow can only NARROW the caller's GITHUB_TOKEN, never grant  ║
+# ║  (see #191/#198) — adding `{contents: read}` here would silently drop the  ║
+# ║  packages scope for every caller and break GHCR auth fleet-wide.           ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Deploy to Hetzner
@@ -245,7 +254,7 @@ jobs:
           fi
 
       - name: Sync deploy script to VM
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
@@ -256,7 +265,7 @@ jobs:
 
       - name: Execute deploy
         id: run
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ github.token }}
           PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
