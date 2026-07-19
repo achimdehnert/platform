@@ -5,7 +5,11 @@ revision: 2
 decision-makers: [Achim Dehnert]
 scope: platform
 implementation_status: none
-external_sparring_by: [extern-llm-review-1@2026-07-16, extern-llm-review-2@2026-07-16]
+ai_sparring_by:
+  - tool: other
+    date: 2026-07-16
+    role: adversarial-review
+    summary: "Zwei unabhängige externe LLM-Reviews (extern-llm-review-1, extern-llm-review-2) am 2026-07-16."
 related: [platform:ADR-149, platform:ADR-261, meiki:ADR-015, dms-hub:KONZ-dms-hub-001]
 supersedes: []
 ---
