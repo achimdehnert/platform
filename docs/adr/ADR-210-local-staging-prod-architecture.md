@@ -68,13 +68,13 @@ A rule without a passing check is a **strategy violation**.
 | # | Rule | Check (file in `scripts/checks/`) |
 |---|---|---|
 | R1 | Staging hostname(s) = the repo's `registry.staging.hostnames` (SSoT); default `staging-{repo}.iil.pet` when unspecified, custom/collapsed domains allowed **iff registry-declared** (e.g. `risk-hub` → `staging.schutztat.de`) | `staging_dns_schema.sh` — asserts every CF staging record matches a `registry.staging.hostnames` entry; fails on orphans |
-| R2 | All staging containers run on `staging-platform` only | `staging_host_locality.sh` — SSH all known hosts, fails if `*_staging_*` containers found outside staging-platform |
+| R2 | **REVIDIERT 2026-07-17** (KONZ-platform-015, #1227): staging containers run on `staging-platform` by default, OR on a registry-declared `staging.host` override — never on prod, never undeclared. Original ("staging-platform only, no exceptions") was falsified by live evidence: risk-hub/tax-hub have run staging on dev-desktop, without incident, since before this check existed. | `staging_host_locality.sh` — SSH all known hosts; prod always fails on any `*_staging_*` container; dev-desktop only fails for containers whose repo does not declare `staging.host: dev-desktop` in `registry/canonical.yaml` |
 | R3 | Staging container naming is `{repo}_staging_{role}` | `staging_naming.sh` — parses `docker ps`, regex-asserts |
 | R4 | Staging port = `19000 + index(repo)` from `repos.yaml` (dedicated range, collision-free) | `staging_port_range.sh` — asserts every staging port ∈ `[19000..19999]` and unique |
 | R5 | bf-staging tunnel ingress is catch-all `https://localhost:443` | `staging_tunnel_ingress.sh` — SSH staging-platform, parses cloudflared config |
 | R6 | Each staging Authentik provider redirect == the repo's `registry.staging.oidc.staging_redirect` (SSoT); provider `name` == `registry.staging.oidc.staging_app_slug` exactly | `staging_oidc_redirects.sh` — Authentik API, asserts each `*-staging` provider's redirect == its registry `staging_redirect` |
 | R7 | `docker-compose.staging.yml`, `nginx-staging-vhost.conf`, `.env.staging.example` are byte-identical to renderer output | `staging_generated_drift.sh` — re-renders, diffs, exits 1 on diff |
-| R8 | dev-desktop has no `staging-*.conf` in nginx and no `*_staging_*` containers | `staging_devdesktop_clean.sh` — SSH check |
+| R8 | **REVIDIERT 2026-07-17** (KONZ-platform-015, #1227): dev-desktop nginx vhosts/containers must each correspond to a repo with `staging.host: dev-desktop` in the registry — not "must be empty". At revision time only risk-hub + tax-hub are registered this way (SSH-verified); ~19 further `staging-*.conf` vhosts on dev-desktop are unverified residue (unknown: live-with-missing-registration vs. orphaned dead config) — tracked, not resolved, in #1227. | `staging_devdesktop_clean.sh` — SSH check, fails only on vhosts/containers without a matching registry declaration |
 
 ### Single Source of Truth
 

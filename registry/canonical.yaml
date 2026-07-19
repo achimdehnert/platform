@@ -824,6 +824,14 @@ repos:
         web_service: risk-hub-staging-web
         migrate_cmd: python manage.py migrate --noinput
         port: 19001
+        # host: dev-desktop nachgetragen 2026-07-17 (KONZ-platform-015, #1227) —
+        # `docker ps` auf 88.99.38.75 bestaetigt risk_hub_staging_{web,worker,
+        # celery,redis,litellm_proxy,db,minio} live dort, NICHT auf
+        # staging-platform (178.104.184.168, dort nur dev-hub). Ungeklaert
+        # (nicht in dieser Session verifiziert): staging.schutztat.de taucht
+        # auch in staging-platforms nginx-vhost-Liste auf — moeglicher
+        # Reverse-Proxy/Tunnel oder eigenstaendige Drift, nicht aufgeloest.
+        host: dev-desktop
         hostnames:
         - staging.schutztat.de
         - staging-riskhub.iil.pet
@@ -864,6 +872,18 @@ repos:
         web_container: tax_hub_web
         web_service: web
         port: 8099
+      # staging nachgetragen 2026-07-17 (KONZ-platform-015, #1227) — `docker ps`
+      # auf dev-desktop (88.99.38.75) bestaetigt tax_hub_staging_{web,worker,
+      # beat,db,redis} live dort; vorher KEIN staging-Eintrag in der Registry
+      # (Registrierungsluecke, nicht nur Host-Frage). NUR die per SSH direkt
+      # verifizierten Felder eingetragen (host, web_container, hostnames) —
+      # port/image/server_path bewusst NICHT geraten, folgt bei Bedarf per
+      # eigenem Check (kein Blindflug-Claim).
+      staging:
+        host: dev-desktop
+        web_container: tax_hub_staging_web
+        hostnames:
+        - staging-tax.iil.pet
       notes: "GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix) — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed. Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung: Re-Deploy nötig, bevor 8104 hier eingetragen wird."
   trading-hub:
     in_flat: true

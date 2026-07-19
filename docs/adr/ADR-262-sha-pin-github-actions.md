@@ -1,14 +1,14 @@
 ---
 status: proposed
-date: 2026-07-02
-decision-makers: Achim Dehnert
+decision_date: 2026-07-02
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: not-started
 domains: [security, ci-cd, supply-chain, infra]
 scope: platform
 amends: []
-relates_to: [ADR-209, ADR-226, ADR-229]
+related: [ADR-209, ADR-226, ADR-229]
 tags: [supply-chain, github-actions, sha-pinning, dependabot, oidc, secrets, ci-hardening]
 ---
 
