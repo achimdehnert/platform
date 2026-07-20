@@ -1,7 +1,8 @@
 ---
-status: proposed
-date: 2026-04-02
-decision-makers: [Achim Dehnert]
+status: superseded
+superseded_by: ADR-264
+decision_date: 2026-04-02
+deciders: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
 supersedes: []
@@ -764,3 +765,5 @@ wird nach mehreren Calls "vergiftet" — auch nachfolgende READ-Ops hängen.
 | v3.3 | 2026-04-02 | Phase 2+3 implementiert: estimate_job(), job_catalog.yaml, record_measurement(), analyze_task() erweitert um Executor/Schätzung/Background — 15 Tests, alle passed |
 | v3.4 | 2026-04-02 | Phase 2+3 komplett: /ship Workflow mit estimate_job + Discord-Notification, LLM-Routing aus Katalog, alle Checklisten-Punkte erledigt |
 | v3.5 | 2026-04-03 | §8 MCP Reliability Pattern: 3-Tier Tool-Klassifikation, Write-Ops via Local Scripts statt MCP, Regeln für CF-API-Calls |
+| v3.6 | 2026-07-20 | **Nachtrag: Prefix-Drift-Fehldiagnose korrigiert.** Commit `496a35c` (2026-04-29, „P0 mcp2_ → mcp1_ Migration — dead tools removed") erklärte `estimate_job`, `discord_notify` und `deploy_check` für entfernt und ersetzte die Tool-Aufrufe in `/ship`, `/backup` und `/ship-staging` durch Prosa-Hinweise „existiert nicht mehr (Issue #80)". Alle drei Tools existierten weiterhin — nur unter dem stabilen Namen `mcp__orchestrator__*` statt unter dem environment-volatilen `mcp2_`-Prefix. Belegt 2026-07-20 durch Live-Aufruf von `mcp__orchestrator__estimate_job(deploy, risk-hub)` (liefert 135s-Schätzung + Job-Katalog-Schritte) sowie Registrierung in `orchestrator_mcp/tools/job_tools.py:19`. **Folgeschaden:** die ADR-156-Verifikation `mcp-hub/scripts/verify-adr156.sh` prüfte per nacktem `grep "estimate_job"` — dieser Grep matchte den Verneinungssatz und meldete `/ship` + `/backup` **~3 Monate falsch-grün**. Behoben: Tool-Aufrufe in `/ship` + `/backup` restauriert, Check auf die Aufruf-Form `^mcp__orchestrator__estimate_job:` verschärft (matcht keine Prosa-Erwähnung mehr), `/deploy-check`-Check gestrichen (Skill per usage-sweep `#1115`/`cfa9c0f` bewusst entfernt). **Lehre:** ein Verifikations-Grep, der denselben String sucht, den auch eine Verneinung enthält, ist kein Check — die Assertion muss auf die Aufruf-Form zielen, nicht auf das Vorkommen des Namens. |
+| — | 2026-07-20 | *Offen (nicht in diesem Nachtrag gefixt):* (a) `discord_notify` bleibt bewusst ungenutzt — ob Deploy-Meldungen wieder nach Discord gehen sollen, ist eine Entscheidung, kein Defekt; (b) `mcp__orchestrator__deploy_check(action=targets)` existiert, scheitert aber server-seitig an fehlender `ports.yaml` (sucht `/root/github/platform/infra/ports.yaml`, `/opt/platform/infra/ports.yaml`) — echter Defekt, separat zu tracken. |

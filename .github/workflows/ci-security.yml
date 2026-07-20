@@ -1,0 +1,55 @@
+# CI Security Gate — gitleaks (Issue #818, S-5)
+#
+# platform had NO CI-level gitleaks gate for its own pushes/PRs — only a
+# bypassable pre-commit hook (S-5 finding, /repo-optimize 2026-07-02;
+# explains how the PAT in REVIEW-ADR-022.md previously got through).
+#
+# This is a deliberately light, standalone workflow — no dependency on
+# _ci-python.yml (that reusable workflow's secrets-scan job is for Python
+# package consumers, not for gating platform's own history/diff).
+#
+# Action pin note: the task asked for gitleaks/gitleaks-action@v2, but as of
+# 2026-06-02 GitHub switched GitHub-hosted runners to default Node 24 —
+# v2 (Node 20) now needs ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true to run
+# at all, and stops working outright on 2026-09-16. v3 is a drop-in
+# replacement (same inputs/outputs/behavior, verified via the action's own
+# README migration note) that just bumps the runtime, so this pins v3
+# instead. Pinned to the v3.0.0 release commit SHA, not a floating tag.
+#
+# PR comments are left disabled (GITLEAKS_ENABLE_COMMENTS=false): this job
+# intentionally only holds contents: read (least privilege per the #818
+# permissions sweep), so it does not carry pull-requests: write for the
+# action's optional PR-comment feature. The blocking gate itself (job
+# fails on a found secret) does not need that permission.
+
+name: "CI Security Gate"
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: "gitleaks secret scan"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        # Pinned to the gitleaks/gitleaks-action v3.0.0 release commit.
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"

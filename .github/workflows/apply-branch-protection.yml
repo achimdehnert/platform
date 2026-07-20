@@ -20,6 +20,12 @@ on:
         type: choice
         options: ["false", "true"]
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# job below already declares its own permissions explicitly (contents:
+# read — admin actions use PROJECT_PAT, not GITHUB_TOKEN).
+permissions:
+  contents: read
+
 jobs:
   apply-rulesets:
     name: "Branch-Protection Rulesets anlegen/aktualisieren"
@@ -95,16 +101,30 @@ jobs:
               return 0
             fi
 
+            # SEC-1 (Issue #1198): Exit-Code des curl-Aufrufs (api_patch/api_post,
+            # beide `-f`) explizit festhalten statt implizit vom letzten Befehl
+            # (immer erfolgreichem `echo`) bestimmen zu lassen — sonst meldet
+            # die Funktion auch bei einem fehlgeschlagenen API-Call fälschlich
+            # Erfolg (return 0), weil `set -e` innerhalb einer im `if`-Test
+            # aufgerufenen Funktion wirkungslos ist.
+            local rc=0
             if [ -n "$existing_id" ]; then
               api_patch "${API}/repos/${owner}/${repo}/rulesets/${existing_id}" \
                 -d "$ruleset" > /dev/null
-              echo "✅ ${repo}: Ruleset #${existing_id} aktualisiert (check=${check})"
+              rc=$?
+              if [ "$rc" -eq 0 ]; then
+                echo "✅ ${repo}: Ruleset #${existing_id} aktualisiert (check=${check})"
+              fi
             else
               local new_id
               new_id=$(api_post "${API}/repos/${owner}/${repo}/rulesets" \
                 -d "$ruleset" | jq -r '.id')
-              echo "✅ ${repo}: Ruleset #${new_id} angelegt (check=${check})"
+              rc=$?
+              if [ "$rc" -eq 0 ]; then
+                echo "✅ ${repo}: Ruleset #${new_id} angelegt (check=${check})"
+              fi
             fi
+            return "$rc"
           }
 
           ok=0 fail=0

@@ -1,12 +1,27 @@
 # cc-skill-dist — CC-Skill-Distribution-Tooling (platform:ADR-230)
 
 Werkzeuge zur deterministischen Verteilung aus der **einen kanonischen Quelle** (platform `main`)
-— gemäß ADR-230 (CC-first). Zwei Lanes über `--kind`:
+— gemäß ADR-230 (CC-first). Drei Lanes über `--kind`:
 
 | `--kind` | Quelle (platform) | Live-Ziel | Form |
 |----------|-------------------|-----------|------|
 | `commands` (Default) | `.windsurf/workflows/*.md` | `~/.claude/commands/` | flach (Slash-Commands) |
 | `skills` | `skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | verschachtelt (Anthropic Agent Skills) |
+| `hooks` (ADR-258) | `tools/hooks/*.sh` | `~/.claude/hooks/managed/` | flach, ausführbar (0755), Shell-#-Footer |
+
+> **Warum `managed/`-Unterverzeichnis:** `generate.py` macht einen atomaren Verzeichnis-**Swap**.
+> `~/.claude/hooks/` enthält auch hand-gepflegte Hooks (PreToolUse/SessionStart/…) — ein Swap dort
+> würde sie wegwischen. Die Lane besitzt darum exklusiv `~/.claude/hooks/managed/`; settings.json
+> verweist auf `~/.claude/hooks/managed/reap_worktrees.sh`.
+
+**Hooks: Verteilung ≠ Enforcement (ADR-258).** Die `hooks`-Lane verteilt nur das Skript;
+ein Hook feuert erst, wenn `~/.claude/settings.json` ihn als Event-Eintrag (z. B. `SessionEnd`)
+verdrahtet. Das Wiring bleibt ein **bewusster Akt pro Maschine** (settings.json ist secret-haltig,
+keine Org-Automatik schreibt rein). Aktivierung vorbereiten:
+```bash
+python3 tools/cc-skill-dist/bootstrap-hook.py      # zeigt den exakten settings-Patch, schreibt NIE
+python3 tools/cc-skill-dist/doctor.py --kind hooks # prüft Datei + verpflichtendes settings-Wiring (REC-3)
+```
 
 **Enterprise-weit = user-level Install pro Maschine, NICHT Kopie in N Repos.** CC lädt
 `~/.claude/skills` + `~/.claude/commands` in jeder Session/jedem Repo/jeder Org — ein Install

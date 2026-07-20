@@ -111,18 +111,30 @@ apply_ruleset() {
   existing_id=$(gh api "repos/$owner/$repo/rulesets" \
     --jq '.[] | select(.name == "main-required-checks") | .id' 2>/dev/null || true)
 
+  # SEC-1 (Issue #1198): Exit-Code des API-Calls explizit festhalten statt den
+  # Funktions-Rückgabewert implizit vom letzten Befehl (immer erfolgreichem
+  # `echo`) bestimmen zu lassen — sonst meldet die Funktion auch bei einem
+  # fehlgeschlagenen `gh api`-Aufruf fälschlich Erfolg (return 0).
+  local rc=0
   if [ -n "$existing_id" ]; then
     # Update via PATCH
     echo "$ruleset_json" | gh api "repos/$owner/$repo/rulesets/$existing_id" \
       -X PATCH --input - > /dev/null
-    echo "✅ $repo: Ruleset aktualisiert (ID $existing_id, check: $required_check)"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      echo "✅ $repo: Ruleset aktualisiert (ID $existing_id, check: $required_check)"
+    fi
   else
     # Anlegen via POST
     local new_id
     new_id=$(echo "$ruleset_json" | gh api "repos/$owner/$repo/rulesets" \
       -X POST --input - --jq '.id' 2>/dev/null)
-    echo "✅ $repo: Ruleset angelegt (ID $new_id, check: $required_check)"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      echo "✅ $repo: Ruleset angelegt (ID $new_id, check: $required_check)"
+    fi
   fi
+  return "$rc"
 }
 
 # ---------------------------------------------------------------------------

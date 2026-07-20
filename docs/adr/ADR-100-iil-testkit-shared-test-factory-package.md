@@ -2,11 +2,10 @@
 id: ADR-100
 title: "iil-testkit — Shared Test Factory Package für alle Platform-Repos"
 status: accepted
-date: 2026-03-05
+decision_date: 2026-03-05
 reviewed: 2026-03-05
-author: Achim Dehnert
 owner: Achim Dehnert
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: [bfagent, travel-beat, weltenhub, risk-hub, coach-hub, dev-hub, pptx-hub, trading-hub, billing-hub, illustration-hub, odoo-hub]
 scope: alle Django-Hub-Repos der Platform
@@ -14,7 +13,7 @@ tags: [testing, factory-boy, pytest, testkit, shared-package, pypi]
 related: [ADR-057, ADR-084, ADR-096]
 supersedes: []
 amends: [ADR-057]
-last_verified: 2026-03-05
+last_reviewed: 2026-03-05
 implementation_status: implemented
 implementation_evidence:
   - "testkit: iil-testkit v0.1.0 on PyPI"

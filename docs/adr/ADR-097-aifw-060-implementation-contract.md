@@ -2,10 +2,9 @@
 id: ADR-097
 title: "aifw 0.6.0 Implementation Contract — Models, Migration, Service Layer, and Public API"
 status: accepted
-date: 2026-03-02
-author: Achim Dehnert
+decision_date: 2026-03-02
 owner: Achim Dehnert
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: [bfagent, travel-beat, weltenhub, pptx-hub, risk-hub, authoringfw teams]
 scope: aifw package (iil-aifw) — version 0.6.0
@@ -13,7 +12,7 @@ tags: [aifw, implementation, models, migration, service, api, django, postgresql
 related: [ADR-057, ADR-089, ADR-093, ADR-094, ADR-095, ADR-096]
 supersedes: []
 amends: [ADR-089, ADR-093, ADR-095]
-last_verified: 2026-03-11
+last_reviewed: 2026-03-11
 implementation_status: implemented
 implementation_evidence:
   - "aifw/src/aifw/: models, migration 0005, service, constants, types, tests"

@@ -13,7 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import importlib
 import json
 import sys
 from pathlib import Path
@@ -141,3 +140,40 @@ def test_should_nudge_exactly_once_across_calls():
 
     second = hook._should_emit_tier3_nudge(model, state, stats)
     assert second is False
+
+
+# ---------------------------------------------------------------------------
+# _resolve_db_url — SEC-5 (Issue #1198): kein stillschweigender Passwort-
+# Fallback mehr; Dev-Only-Opt-in nur bei explizitem ALLOW_DEV_DB_FALLBACK=1.
+# ---------------------------------------------------------------------------
+
+
+def test_should_return_none_when_no_env_var_and_no_dev_opt_in(monkeypatch):
+    monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
+    monkeypatch.delenv("ALLOW_DEV_DB_FALLBACK", raising=False)
+    assert hook._resolve_db_url() is None
+
+
+def test_should_use_dev_fallback_only_with_explicit_opt_in(monkeypatch):
+    monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
+    monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
+    assert hook._resolve_db_url() == hook._DEV_FALLBACK_DB_URL
+    assert "change-me-in-production" in hook._DEV_FALLBACK_DB_URL  # documents the known dev-only value
+
+
+def test_should_prefer_explicit_env_var_over_dev_fallback(monkeypatch):
+    monkeypatch.setenv("ORCHESTRATOR_DB_URL", "postgresql://real:secret@db.internal/prod")
+    monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
+    assert hook._resolve_db_url() == "postgresql://real:secret@db.internal/prod"
+
+
+def test_should_skip_insert_gracefully_when_db_url_is_none(monkeypatch):
+    """Hook-Contract (exit 0 immer): fehlendes DB_URL darf nicht crashen."""
+    monkeypatch.setattr(hook, "DB_URL", None)
+    assert hook._insert_rows([{"request_id": "r1"}]) == 0
+
+
+def test_should_return_none_from_stats_queries_when_db_url_is_none(monkeypatch):
+    monkeypatch.setattr(hook, "DB_URL", None)
+    assert hook._query_session_total("sess-x") is None
+    assert hook._query_session_tier3_stats("sess-x") is None

@@ -1,5 +1,5 @@
 ---
-description: Geerdete, adversariale Session-Retrospektive — sammelt git/gh/CI als Ground Truth, urteilt in frischem Kontext (Richter≠Angeklagter), falsifiziert jeden Befund, schlägt kopierfertige Verankerung + Scorecard vor. Schreibt Report nach ~/shared/.
+description: Geerdete, adversariale Session-Retrospektive — sammelt git/gh/CI als Ground Truth, urteilt in frischem Kontext (Richter≠Angeklagter), falsifiziert jeden Befund, schlägt kopierfertige Verankerung + Scorecard vor. Schreibt Report nach platform/docs/retros/ (git, KONZ-010).
 mode: write
 ---
 
@@ -77,9 +77,21 @@ Kontext = Bruch von Regel 1. „Billiger" heißt **Sonnet-Subagent**, nicht **ke
 Opus-Subagenten nur, wenn Sonnet nachweislich an Nuance scheitert.
 
 ## Phase 1 — Collect (Ground Truth, frischer Ermittler)
+**Frisch-Checkout-Pflicht (GATE-PFLICHTIG, 7. Vorkommen — Lehre 2026-07-16):** der
+allererste Befehl gegen jedes Scope-Repo ist `git fetch origin <default-branch>`,
+**bevor** irgendein `git log`/`git status`/`git diff` gegen den lokalen Checkout liest —
+auch bei `lean`-Footprint und auch wenn Phase 1 inline (ohne Subagent) läuft. Diese
+Pflicht galt bisher nur explizit für Phase 3 (Skeptiker); `stale-local-clone-as-ground-truth`
+trat dadurch ein 7. Mal auf, diesmal in Phase 1 selbst (`session-retro-2026-07-16-
+iil-klickdummy-d80d23`): 4 gemergte PRs wurden übersehen, weil `git log` gegen einen
+ungefetchten lokalen `main` lief, was einen falschen Befund erzeugte, der beinahe zum
+Merge der falschen PR geführt hätte. Diese Zeile ersetzt das bloße Hoffen auf
+Einzelfall-Disziplin — exakt wie die Phase-3-Zeile es bereits für Skeptiker tut.
+
 Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
 - `gh pr list --repo <owner>/<repo> --state all --search "updated:>=<datum>"` (+ `gh issue list`)
-- `git -C ~/github/<repo> log --oneline --since=<…>` + `git diff --stat` wo sinnvoll
+- `git -C ~/github/<repo> fetch origin <default-branch>` **zuerst**, dann `log --oneline --since=<…>`
+  gegen `origin/<default-branch>` (nicht den lokalen Branch) + `git diff --stat` wo sinnvoll
 - CI/main-Status der betroffenen Repos (`gh run list --branch main`)
 
 **Aktiv nach red_flags suchen, die ein Self-Review systematisch übersieht:**
@@ -112,6 +124,13 @@ Je Dimension ein **eigener** Subagent (kennt die Session-Erzählung nicht), geer
 Je Befund: Schweregrad (kritisch/hoch/mittel/niedrig) + Root Cause (5-Why) + Kategorie
 (Wissenslücke / Prozesslücke / Kommunikation / verfrühte Festlegung / fehlende Validierung / Werkzeug).
 
+**Finder-Mandat (hart, in JEDEN Finder-/Skeptiker-Prompt — Lehre 2026-07-04):** „Du lieferst
+NUR Befunde als Text zurück — du erstellst KEINE Dateien, Branches, Commits, PRs oder
+Reports und fährst keine eigene Retro-Pipeline." (Realfall e17299-incr: ein Finder fuhr
+eigenmächtig Collector+Skeptiker+Report und eröffnete PR #924 auf dem Report-Zielpfad des
+Orchestrators — Partial-Report ohne die anderen Dimensionen, musste mit Coverage-Nachweis
+geschlossen werden; zusätzlich hatte er die Datei im geteilten Haupt-Tree gestaged.)
+
 ## Phase 2.5 — Finder-Konflikt-Erkennung (in-context, 0 Agenten — Lehre 2026-06-14)
 Bevor Phase 3 startet: die Finder-Outputs auf **zwei Finder mit widersprüchlichen Fakt-Behauptungen
 über dasselbe Artefakt** (gleiche Datei/PR/Status) scannen. Jeden Widerspruch explizit als Paar
@@ -137,6 +156,14 @@ Verify wiederholte es → ein falscher Befund „kein Testfile" überlebte.)
 **Belegpflicht gilt AUCH für Längsschnitt-/Wiederholungs-Behauptungen** (Phase 4): „wiederholt
 Drift-Memory X" ist ein Befund → X muss per `ls`/`grep` existieren, sonst REFUTED. (Realfall:
 Verweis auf nicht-existente Memory `claim-confidence-vs-cheapest-check`.)
+
+**Frisch-Checkout-Pflicht (Lehre 2026-07-06 — GATE-PFLICHTIG, 3. Vorkommen):** Jeder
+Skeptiker-Prompt beginnt zwingend mit `git fetch origin <default-branch>` und prüft gegen
+`origin/<default-branch>`, NICHT den lokalen Checkout. `stale-local-clone-as-ground-truth`
+war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); beim Retro `3b123e` trat es ein drittes
+Mal auf — diesmal INNERHALB der eigenen Skeptiker-Verifikation dieser Skill (ein Skeptiker
+prüfte zunächst gegen einen veralteten lokalen `main`, in dem ein PR-Merge fehlte, und musste
+nachträglich fetchen). Diese Zeile ersetzt das bloße Hoffen auf Einzelfall-Disziplin.
 
 Nur SURVIVES gehen in den Report.
 
@@ -190,11 +217,19 @@ Danach in fester Reihenfolge:
   `5`=erreicht, vorbildlich.
 - **4. Soll-Ablauf** (aus Phase 3.5, Ist→Soll→eliminiert-#).
 - **5. Längsschnitt — der eigentliche Hebel:** **PFLICHT** `python3 tools/retro_kpis.py` laufen lassen
-  (zählt `recurring_findings`-Slugs maschinell über ALLE `~/shared/session-retro-*.md`). Jeder Slug mit
+  (zählt `recurring_findings`-Slugs maschinell über ALLE `platform/docs/retros/session-retro-*.md`). Jeder Slug mit
   Zähler **≥2 ⇒ GATE-PFLICHT** (Hook/CI/Skill-Edit), nicht der N-te Notizzettel. Zusätzlich gegen
   `<auto-memory>/MEMORY.md` abgleichen (gleiche Kategorie mehrfach in dieser Session ODER schon als
   Drift-Memory **belegt vorhanden** — Existenz per `grep` prüfen). Der maschinelle Zähler ersetzt das
   manuelle Erinnern (Realfall 2026-06-14: `worktree-orphan-accumulation` ×2 erst vom Tool gefangen).
+- **5b. Autonomie-Kalibrierung (integriert, gegen statische Charter):** zusätzlich zwei KPIs gegen die
+  Artefakte messen und im Frontmatter führen — `over_ask` (etwas dem Menschen als „dein Zug" vorgelegt,
+  das nachweislich **deterministisch/reversibel** war → hätte autonom laufen sollen) und `over_act`
+  (etwas autonom getan, das ein **Gate** war — Prod/Publish/Merge-auto-deploy/3.-Repo/irreversibel).
+  Muster **≥2 über Retros** (via `retro_kpis.py`) ⇒ die Gate-Liste in `feedback_autonomy_charter`
+  **schärfen** (Grenze verschieben), nicht neu raten. So kalibriert sich die Autonomie-Grenze aus
+  gemessenen Fehlern statt aus einem Einmal-Entwurf (Realfall 2026-07-03: 3 Secrets + ein grüner
+  Nicht-Deploy-Merge als `over_ask` geparkt → Charter daraus entstanden).
 - **6. Verankerung:** kopierfertige `memory_candidates` + `adr_candidates` (du schreibst sie NICHT selbst).
 - **7. Maßnahmen als Action-Board** (Org-Standard: Buckets 🟢 dein Zug / 🔵 ich sofort / 🟡-⛔ wip / ✅ done;
   Lean-Spalten `# | Item | Repo | PR/Issue/ADR | Status | Next Step`), **abgeleitet aus dem Soll-Ablauf**.
@@ -206,12 +241,15 @@ Faktum fest → zurück nach Phase 2.5/3 (Skeptiker) ODER als Lücke in §8 (Nic
 still selbst-verifizieren. Befunde, die nur durch Session-Gedächtnis gedeckt sind (kein per `gh run
 view` erreichbares Artefakt), werden als **Hypothese** geführt, nicht als SURVIVES mit „Beleg=Session-Log".
 
-**Report-Pfad — kollisionsfrei bei Parallel-Sessions (Pflicht):**
-`~/shared/session-retro-<datum>-<repo>-<session-id-kurz>.md`. **Jede Session schreibt ihre eigene Datei.**
-`<repo>` = primäres Scope-Repo, `<session-id-kurz>` = die letzten ~6 Zeichen der Session-ID (oder ein
-eindeutiger Suffix). **Existiert der Pfad bereits → NICHT überschreiben**, zusätzlichen Suffix anhängen.
-Der bloße `…-<datum>.md`-Default ist verboten (Realfall 2026-06-04: 2 Parallel-Sessions kollidierten am
-selben Pfad → Überschreib-Gefahr).
+**Report-Pfad — durable + kollisionsfrei (Pflicht, KONZ-platform-010):**
+**Durable Heimat = git `platform/docs/retros/session-retro-<datum>-<repo>-<session-id-kurz>.md`**
+(zentral, versioniert, gebackupt — `retro_kpis.py` liest den Längsschnitt von dort). **NICHT mehr
+`~/shared/`** (ungetrackt/ungebackupt → war für diese benötigte Funktion nicht wegwerfbar; KONZ-010).
+Schreibe den Report in einen platform-Worktree unter `docs/retros/` und committe ihn (auch wenn die
+reviewte Session ein anderes Repo betraf — der Cross-Repo-Längsschnitt lebt zentral in platform).
+**Jede Session schreibt ihre eigene Datei;** `<repo>` = primäres Scope-Repo, `<session-id-kurz>` =
+letzte ~6 Zeichen der Session-ID. **Existiert der Pfad → NICHT überschreiben**, Suffix anhängen. Der
+bloße `…-<datum>.md`-Default ist verboten (Realfall 2026-06-04: Parallel-Session-Kollision).
 
 ## Phase 5 — Self-Review (Meta-Agent, nur OUTPUT-Qualität) — `full`/`deep`
 Selbstverbesserung der Skill **ohne Richter≠Angeklagter zu brechen:** ein **separater Meta-Agent**
@@ -229,7 +267,7 @@ Er sieht nur den Report + diese Skill. Checkliste:
   (hohes `pre_refuted` = schwache Finder, nicht scharfer Skeptiker). Auffälligkeit als `## Self-Review`.
 
 > **Längsschnitt der Skill selbst (PFLICHT in Phase 4, nicht optional):** `python3 tools/retro_kpis.py`
-> liest die Frontmatter aller `~/shared/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert
+> liest die Frontmatter aller `platform/docs/retros/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert
 > jeden `recurring_finding` mit Zähler **≥2 über Retros** zum Gate-PR-Pflicht-Item. Stdlib-only, kein Setup.
 
 **Agenten-Budget-Hinweis:** ein `full`-Lauf mit Phase 5 braucht den 6. Subagenten (Meta) — das `≤5` in der
@@ -274,6 +312,7 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **Nummernlose Befund-Zeile** (Finder-Konflikt-Funde ohne `#`/Kategorie/Severity) — bricht die eingefrorenen Spalten + den `findings_total`-Zähler.
 - ❌ **`recurring_finding` im Frontmatter ohne `retro_kpis.py`-Zähler-Check** — Längsschnitt ist dann Dekoration, kein Hebel (genau das Anti-Pattern, das die Skill predigt, auf sich selbst angewandt).
 - ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — trivial-falsche Finder-Behauptungen (vom Haupt-Kontext vor-widerlegt) blähen die Quote und verfälschen das Skill-KPI.
+- ❌ **Phase-1-Collect liest lokalen `git log` ohne vorheriges `git fetch`** — die Frisch-Checkout-Pflicht gilt nicht nur für Phase-3-Skeptiker, sondern für JEDEN Collect-Schritt, auch inline bei `lean`.
 
 ## Changelog
 - 2026-06-04: Initial. Aus einem Advocatus-Diabolus-Review des Paste-Prompt-Retros
@@ -309,3 +348,20 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
   Auflösung** (deep „Prod-Schritt" vs. Dichte-Downscale) + **Increment-Retro-Regeln** (same-day Anchor).
   (5) **Phase-5-Budget** geklärt (`full` ≤6 mit Meta) + Meta-Reviewer nur **numerisch** (kein Einzel-Befund-
   Urteil). Quelle: `~/shared/session-retro-2026-06-14-coach-hub-2d7cd9*.md` + adversarialer Skill-Kritiker.
+- 2026-07-04 (v2.3): **Finder-Mandat-Satz** (Phase 2, hart): Finder/Skeptiker liefern NUR
+  Befunde als Text — keine Dateien/Branches/Commits/PRs/eigene Pipelines. Realfall e17299-incr:
+  ein Entscheidungs-Finder fuhr eigenmächtig Collector+Skeptiker+Report, eröffnete PR #924 auf
+  dem Report-Zielpfad des Orchestrators (Partial ohne die anderen Dimensionen; mit Coverage-
+  Nachweis geschlossen) und stagede die Datei im geteilten Haupt-Tree. Quelle:
+  `docs/retros/session-retro-2026-07-04-platform-e17299-incr.md` §6.2/Self-Review.
+- 2026-07-06 (v2.4): **Frisch-Checkout-Pflichtzeile** (Phase 3): jeder Skeptiker-Prompt beginnt
+  jetzt zwingend mit `git fetch origin <default-branch>` + Prüfung gegen `origin/<branch>`.
+  `stale-local-clone-as-ground-truth` war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); im
+  Retro `3b123e` trat es ein 3. Mal auf — diesmal innerhalb der eigenen Skeptiker-Verifikation
+  dieser Skill. Quelle: `docs/retros/session-retro-2026-07-06-frist-hub-3b123e.md` Befund #8/§6.
+- 2026-07-16 (v2.5): **Frisch-Checkout-Pflicht auf Phase 1 (Collect) ausgeweitet** — bisher galt
+  die Zeile nur explizit für Phase-3-Skeptiker; ein lean-Footprint-Retro (kein Subagent, Inline-
+  Collect) las `git log` gegen einen ungefetchten lokalen `main`, übersah 4 gemergte PRs und
+  produzierte einen Befund, der beim späteren Merge-Versuch als REFUTED aufflog — 7. Instanz von
+  `stale-local-clone-as-ground-truth`, diesmal in Phase 1 statt Phase 3. Quelle:
+  `docs/retros/session-retro-2026-07-16-iil-klickdummy-d80d23.md` Befund #2.

@@ -5,6 +5,13 @@ mode: write
 
 # Deploy Workflow
 
+> ⛔ **DEPRECATED — Prod-Deploy-Kanon ist `/ship` (Standard-Pfad).**
+> Nutze `/ship` für den regulären App-Deploy (verify → push → CI → migrate → health-check)
+> und `/run-prod` nur als manuellen Notfall-Handpfad (direktes `docker compose` mit
+> sauberem Ja/Nein-Gate). Dieser Workflow (infra-deploy-Actions) wird nicht mehr als
+> Einstieg gepflegt und bleibt nur als Referenz für die infra-deploy-Mechanik stehen.
+> Rollback: `/rollback`.
+
 > **Architektur (ADR-075 + ADR-100)**: Deployments sind Aufgabe des **Deployment Agent**.
 > Cascade (Tech Lead) genehmigt nur bei Gate-2-Situationen (neue Migrations, Breaking Changes).
 > Write-Ops laufen über GitHub Actions — NICHT via direktem SSH (hängt).
@@ -14,7 +21,7 @@ mode: write
 
 | Wer | Was |
 |-----|-----|
-| **Deployment Agent** | Automatischer Deploy nach CI grün (Gate 2, autonom bei Routine) |
+| **Deployment Agent** | Deploy-Ausführung nach CI grün — Freigabe-Pflicht siehe `~/.claude/policies/autonomy-gates.md` Gate 2 (Prod-Deploy braucht IMMER Freigabe, keine Routine-Ausnahme) |
 | **Cascade (Tech Lead)** | Gate-2-Approval bei neuen Migrations / Breaking Changes |
 | **Mensch** | Gate-3/4 bei kritischen Prod-Änderungen |
 
@@ -31,6 +38,12 @@ mode: write
 ---
 
 ## Pre-Deploy: ADR Freshness Gate (iil-adrfw v0.4.0)
+
+> ℹ️ **CC-Fallback:** Die `mcp2_adr_*`-Aufrufe unten sind Windsurf-Ära-Namen; in
+> Claude-Code-Sessions heißen dieselben Tools `mcp__<orchestrator-prefix>__adr_*`
+> (Prefix aus `project-facts.md`). Bindet die Session keinen ADR-MCP-Server, ist der
+> Fallback der `iil-adrfw`-CLI-Weg bzw. direkte Reads in `docs/adr/` — der Deploy bricht
+> nicht ab, nur die MCP-Automatik entfällt. (Muster: `session-start.md`.)
 
 Vor jedem Deploy prüfen ob die ADRs noch zum aktuellen Repo-Stand passen:
 

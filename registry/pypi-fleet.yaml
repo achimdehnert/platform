@@ -1,0 +1,357 @@
+_meta:
+  generated_at: '2026-07-04T09:18:01Z'
+  generated_by: tools/pypi_fleet_inventory.py (ADR-266 Stufe 1)
+  note: Reiner Ground-Truth-Scan — nicht von Hand editieren. Entscheidungen, Owner-Aktionen und Stufen-Status
+    leben in docs/adr/ADR-266.
+  regenerate: python3 tools/pypi_fleet_inventory.py
+dead_platform_publish_workflows: []
+packages:
+  aifw:
+    dist_name: iil-aifw
+    findings:
+    - hybrid_auth
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: hybrid
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-06-23T11:59:12.616040Z'
+      version: 0.11.5
+    pyproject_version: 0.11.5
+    registry_pypi_name: aifw
+    repo: aifw
+  authoringfw:
+    dist_name: iil-authoringfw
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-07-01T21:08:16.180815Z'
+      version: 0.11.5
+    pyproject_version: 0.11.5
+    registry_pypi_name: authoringfw
+    repo: authoringfw
+  gaeb-toolkit:
+    dist_name: gaeb-toolkit
+    findings:
+    - not_on_pypi_or_offline
+    in_registry: true
+    publishers: []
+    pypi: {}
+    pyproject_version: 0.2.0
+    registry_pypi_name: gaeb-toolkit
+    repo: gaeb-toolkit
+  iil-adrfw:
+    dist_name: iil-adrfw
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-06-22T11:40:10.230690Z'
+      version: 0.6.0
+    pyproject_version: 0.6.0
+    registry_pypi_name: iil-adrfw
+    repo: iil-adrfw
+  iil-codeguard:
+    dist_name: iil-codeguard
+    findings:
+    - token_auth
+    in_registry: true
+    publishers:
+    - kind: platform-remote
+      workflows:
+      - auth: token
+        file: publish-iil-codeguard.yml
+        remote_repo: achimdehnert/iil-codeguard
+        reusable: false
+    pypi:
+      last_upload: '2026-05-10T09:08:37.770568Z'
+      version: 2026.5.1
+    pyproject_version: null
+    registry_pypi_name: iil-codeguard
+    repo: iil-codeguard
+  iil-django-commons:
+    dist_name: iil-django-commons
+    findings:
+    - token_auth
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: token
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-03-24T15:56:10.939862Z'
+      version: 0.3.0
+    pyproject_version: 0.3.0
+    registry_pypi_name: iil-django-commons
+    repo: iil-django-commons
+  iil-enrichment:
+    dist_name: iil-enrichment
+    findings:
+    - not_on_pypi_or_offline
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi: {}
+    pyproject_version: 0.2.0
+    registry_pypi_name: iil-enrichment
+    repo: iil-enrichment
+  iil-fieldprefill:
+    dist_name: iil-fieldprefill
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-04-08T17:45:36.971692Z'
+      version: 0.2.0
+    pyproject_version: 0.2.0
+    registry_pypi_name: iil-fieldprefill
+    repo: iil-fieldprefill
+  iil-ingest:
+    dist_name: iil-ingest
+    findings:
+    - token_auth
+    in_registry: true
+    publishers:
+    - kind: platform-remote
+      workflows:
+      - auth: token
+        file: publish-iil-ingest.yml
+        remote_repo: achimdehnert/iil-ingest
+        reusable: false
+    pypi:
+      last_upload: '2026-05-05T11:57:55.711633Z'
+      version: 0.1.0
+    pyproject_version: 0.1.0
+    registry_pypi_name: iil-ingest
+    repo: iil-ingest
+  iil-klickdummy:
+    dist_name: iil-klickdummy
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish-pypi.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-07-03T08:20:27.316838Z'
+      version: 1.30.1
+    pyproject_version: 1.30.1
+    registry_pypi_name: iil-klickdummy
+    repo: iil-klickdummy
+  iil-reflex:
+    dist_name: iil-reflex
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-06-14T12:51:51.634567Z'
+      version: 0.6.0
+    pyproject_version: 0.6.0
+    registry_pypi_name: iil-reflex
+    repo: iil-reflex
+  iil-testkit:
+    dist_name: iil-testkit
+    findings:
+    - repo_not_cloned_locally
+    - token_auth
+    in_registry: true
+    publishers:
+    - kind: platform-remote
+      workflows:
+      - auth: token
+        file: publish-iil-testkit.yml
+        remote_repo: achimdehnert/iil-testkit
+        reusable: false
+    pypi:
+      last_upload: '2026-05-14T14:48:12.138957Z'
+      version: 0.5.3
+    pyproject_version: null
+    registry_pypi_name: iil-testkit
+    repo: iil-testkit
+  illustration-fw:
+    dist_name: iil-illustrationfw
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-06-19T16:09:37.428806Z'
+      version: 0.4.0
+    pyproject_version: 0.4.0
+    registry_pypi_name: illustration-fw
+    repo: illustration-fw
+  learnfw:
+    dist_name: iil-learnfw
+    findings:
+    - hybrid_auth
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: hybrid
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-04-29T14:50:14.771955Z'
+      version: 0.5.4
+    pyproject_version: 0.5.4
+    registry_pypi_name: learnfw
+    repo: learnfw
+  nl2cad:
+    dist_name: iil-nl2cadfw
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-06-14T14:32:59.978077Z'
+      version: 0.2.1
+    pyproject_version: 0.2.1
+    registry_pypi_name: nl2cad
+    repo: nl2cad
+  outlinefw:
+    dist_name: iil-outlinefw
+    findings:
+    - version_drift_pyproject_vs_pypi
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-04-17T05:49:00.574239Z'
+      version: 0.3.1
+    pyproject_version: 0.3.2
+    registry_pypi_name: outlinefw
+    repo: outlinefw
+  promptfw:
+    dist_name: iil-promptfw
+    findings:
+    - hybrid_auth
+    - version_drift_pyproject_vs_pypi
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: hybrid
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-04-04T12:38:00.951363Z'
+      version: 0.8.0
+    pyproject_version: 0.8.1
+    registry_pypi_name: promptfw
+    repo: promptfw
+  researchfw:
+    dist_name: iil-researchfw
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-04-17T05:50:22.925068Z'
+      version: 0.6.0
+    pyproject_version: 0.6.0
+    registry_pypi_name: researchfw
+    repo: researchfw
+  riskfw:
+    dist_name: riskfw
+    findings: []
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-03-03T09:19:38.239730Z'
+      version: 0.1.0
+    pyproject_version: 0.1.0
+    registry_pypi_name: riskfw
+    repo: riskfw
+  testkit:
+    dist_name: iil-testkit
+    findings:
+    - registry_missing
+    - token_auth
+    in_registry: false
+    publishers:
+    - kind: self
+      workflows:
+      - auth: token
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-05-14T14:48:12.138957Z'
+      version: 0.5.3
+    pyproject_version: 0.5.3
+    registry_pypi_name: null
+    repo: testkit
+  weltenfw:
+    dist_name: iil-weltenfw
+    findings:
+    - hybrid_auth
+    - version_drift_pyproject_vs_pypi
+    in_registry: true
+    publishers:
+    - kind: self
+      workflows:
+      - auth: hybrid
+        file: publish.yml
+        reusable: false
+    pypi:
+      last_upload: '2026-03-10T13:35:05.311028Z'
+      version: 0.4.0
+    pyproject_version: 0.4.1
+    registry_pypi_name: weltenfw
+    repo: weltenfw
+platform_packages_without_publisher:
+- packages/adr-review
+registry_orphans_without_publisher: []

@@ -1,7 +1,7 @@
 ---
 status: proposed
-date: 2026-05-30
-decision-makers: Achim Dehnert
+decision_date: 2026-05-30
+deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, infra]
 supersedes: []
 amends: []

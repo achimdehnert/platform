@@ -93,6 +93,40 @@ def lease_for(path: str) -> dict | None:
     return None
 
 
+def close_lease_for(path: str) -> bool:
+    """Lease eines entfernten Worktrees auf .closed setzen (Lease- an Worktree-Lifecycle koppeln).
+    Verhindert verwaiste offene Leases (Lease-Friedhof, Retro 2026-06-24)."""
+    if not LEASE_DIR.is_dir():
+        return False
+    for f in LEASE_DIR.glob("*.json"):
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if d.get("worktree") == path:
+            f.rename(f.with_suffix(".json.closed"))
+            return True
+    return False
+
+
+def close_orphan_leases() -> int:
+    """Offene Leases schließen, deren Worktree-Verzeichnis nicht mehr existiert
+    (Backlog-Cleanup + Selbstheilung bei manuell entfernten Worktrees)."""
+    if not LEASE_DIR.is_dir():
+        return 0
+    closed = 0
+    for f in LEASE_DIR.glob("*.json"):
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        wt = d.get("worktree")
+        if wt and not Path(wt).is_dir():
+            f.rename(f.with_suffix(".json.closed"))
+            closed += 1
+    return closed
+
+
 def lease_expired(lease: dict) -> bool | None:
     """True/False ob expires_at überschritten; None wenn nicht parsebar."""
     exp = lease.get("expires_at")
@@ -216,10 +250,13 @@ def main() -> int:
             if rc == 0:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 removed += 1
-                print(f"entfernt: {wt['branch']}  (restore: git worktree add {wt['path']} {wt['branch']})")
+                lease_note = " + Lease geschlossen" if close_lease_for(wt["path"]) else ""
+                print(f"entfernt: {wt['branch']}{lease_note}  (restore: git worktree add {wt['path']} {wt['branch']})")
             else:
                 print(f"FEHLER beim Entfernen {wt['path']}: {out}", file=sys.stderr)
-    print(f"\n{removed} entfernt · Restore-Manifest: {mf}")
+    orphaned = close_orphan_leases()
+    extra = f" · {orphaned} verwaiste Lease(s) geschlossen" if orphaned else ""
+    print(f"\n{removed} entfernt · Restore-Manifest: {mf}{extra}")
     return 0
 
 

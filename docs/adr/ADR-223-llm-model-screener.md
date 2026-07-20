@@ -1,11 +1,11 @@
 ---
 status: proposed
-date: 2026-05-08
+decision_date: 2026-05-08
 amended: 2026-05-08
-decision-makers:
+deciders:
   - Achim Dehnert
-reviewed-by: Cascade Senior Architecture Reviewer
-depends-on:
+reviewed_by: Cascade Senior Architecture Reviewer
+depends_on:
   - ADR-178 (LLM Gateway Consolidation)
   - ADR-115 (LLM Usage Logging)
   - ADR-009 (Service Layer Pattern)
@@ -123,6 +123,11 @@ Weiter manuell Models zuweisen, bei Ausfall manuell umschalten.
 - **Con:** Skaliert nicht bei steigender Action-Code-Anzahl (aktuell 14, Tendenz steigend)
 
 ### Option D: LiteLLM Proxy (self-hosted)
+
+> **Amendment 2026-06-30 (ADR-260):** Option D wurde hier zugunsten Option A verworfen,
+> aber **teilweise revidiert** durch **ADR-260** (Per-Host-LiteLLM-Proxy als zentraler
+> Provider-Key-Halter) — mit neuer Evidenz (Fleet-weiter Key-Sprawl, Vision-Bedarf, Pilot-Beleg).
+> Proxy (Transport/Keys) und Model-Screener (Option A, Modellwahl) sind komplementär, aifw bleibt Router.
 
 Self-hosted LiteLLM Proxy mit Load-Balancing und Caching.
 

@@ -2,7 +2,7 @@
 id: ADR-218
 title: "Adopt projekttyp-spezifisches Doc-Profile mit plattform-globalem Pflicht-Katalog-Schema"
 status: proposed
-date: 2026-05-21
+decision_date: 2026-05-21
 amended: 2026-05-25
 deciders: [Achim Dehnert]
 consulted: [self-advocatus-diabolus, /adr-challenger, /adr-review]

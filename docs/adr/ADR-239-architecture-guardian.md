@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-06-06
-decision-makers: Achim Dehnert
+decision_date: 2026-06-06
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: implemented
@@ -11,7 +11,7 @@ implementation_evidence:
   - "Als CI-Check 'guardian' auf allen platform-PRs sichtbar (required check)."
 domains: [governance, ci-cd, architecture, agents]
 scope: platform
-relates_to: [ADR-056, ADR-057, ADR-058, ADR-059, ADR-061, ADR-177, ADR-184, ADR-223, ADR-231]
+related: [ADR-056, ADR-057, ADR-058, ADR-059, ADR-061, ADR-177, ADR-184, ADR-223, ADR-231]
 tags: [architecture-guardian, ci-gate, compliance, pr-review, agent, renumbering-fix]
 ---
 

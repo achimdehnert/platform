@@ -2,7 +2,7 @@
 id: ADR-215
 title: "Klickdummy Discovery via Orchestrator pgvector (Stage 1.5)"
 status: accepted
-date: 2026-05-21
+decision_date: 2026-05-21
 deciders: ["Achim Dehnert"]
 tags: ["klickdummy", "discovery", "pgvector", "orchestrator", "stage-1.5"]
 related:

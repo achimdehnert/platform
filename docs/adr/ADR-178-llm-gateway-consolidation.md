@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-05-05
-decision-makers: [Achim Dehnert]
+decision_date: 2026-05-05
+deciders: [Achim Dehnert]
 ---
 # ADR-178: LLM Gateway Consolidation
 
@@ -107,6 +107,14 @@ Keep both running, document clearly, address later.
 1. Update CORS origins in orchestrator referencing old container name
 2. Update `platform/docs/mcp/SERVERS.md`
 3. Close Issue #12 Task 1
+
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1: Cleanup (no downtime) | erledigt | alle Items "— done" inkl. Commit-Hashes (`43fa59e`, `ddb17af`), V0-Container gestoppt |
+| Phase 2: Rename | **offen trotz "✅ done"-Heading** | Items 1-6 done inkl. Commit `5929e60`, ABER Item 7 "Rebuild image + deploy — pending (next deploy)" widerlegt die Heading-Annotation |
+| Phase 3: Naming alignment | unklar | reine 3-Punkte-ToDo-Liste ohne jeden Status-Indikator |
 
 ## Consequences
 

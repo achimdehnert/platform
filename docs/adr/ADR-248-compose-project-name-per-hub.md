@@ -2,7 +2,7 @@
 id: ADR-248
 title: "COMPOSE_PROJECT_NAME pro Hub fixieren + --remove-orphans scopen (Multi-Hub-Host)"
 status: proposed
-date: 2026-06-17
+decision_date: 2026-06-17
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, meiki-lra, ttz-lif]

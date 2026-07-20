@@ -3,6 +3,13 @@ name: Architecture Guardian
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  merge_group:
+
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# guardian job below already declares its own permissions
+# (pull-requests: write for the PR comment) and overrides this.
+permissions:
+  contents: read
 
 jobs:
   guardian:
@@ -28,7 +35,15 @@ jobs:
 
       - name: Get PR diff
         run: |
-          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+          # github.base_ref is only populated for pull_request events; merge_group
+          # carries the base ref as a full refs/heads/... path instead (ADR-270
+          # merge-queue precondition: this workflow must also run on merge_group).
+          BASE_REF="${{ github.base_ref }}"
+          if [ -z "$BASE_REF" ]; then
+            BASE_REF="${{ github.event.merge_group.base_ref }}"
+            BASE_REF="${BASE_REF#refs/heads/}"
+          fi
+          git diff "origin/${BASE_REF}...HEAD" > /tmp/pr.diff
 
       - name: Run Architecture Guardian
         id: guardian

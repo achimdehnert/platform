@@ -1,0 +1,112 @@
+name: "ADR-265 REC-3: Sync-Drift Meter"
+
+# Read-only Drift-Melder (Issue #949, Option 1 aus #947): schliesst die
+# Sichtbarkeitsluecke "nie geoeffnete Repos behalten veraltete Workflows
+# unbemerkt" (AD-4) OHNE Cross-Repo-Write. Laeuft woechentlich
+# `scripts/sync-workflows.sh --dry-run --strict` gegen die Fleet-Checkouts
+# unter ~/github (geklont wie in megatest.yml) und meldet SKIP-REPO/
+# SKIP-TRACKED/STALE als EIN Issue im eigenen (platform-)Repo.
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # montags 07:00 UTC
+  workflow_dispatch:
+
+# Workflow-level default (least privilege, #818 permissions sweep); der
+# meter-Job unten deklariert seine eigenen Permissions (issues: write fuer
+# den Drift-Issue-Upsert) und ueberschreibt dies.
+permissions:
+  contents: read
+
+jobs:
+  meter:
+    name: "Fleet-Drift-Scan (sync-workflows.sh --dry-run --strict)"
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v6
+
+      - name: "Ensure HOME + GITHUB_DIR (self-hosted Service-Env)"
+        # HOME kann leer sein (Runner-Service liefert es seit ~2026-06-24
+        # nicht mehr, s. megatest.yml). GITHUB_DIR wird HIER einmalig
+        # dynamisch aus dem tatsaechlich aufgeloesten HOME berechnet und per
+        # GITHUB_ENV an alle folgenden Steps durchgereicht — nie /root/...
+        # hartkodieren (Issue #998: hartkodiertes GITHUB_DIR=/root/github
+        # driftete vom real aufgeloesten $HOME/github auseinander).
+        run: |
+          resolved_home="${HOME:-$(getent passwd "$(id -u)" | cut -d: -f6)}"
+          if [ -z "${HOME:-}" ]; then
+            echo "HOME=${resolved_home}" >> "$GITHUB_ENV"
+          fi
+          echo "GITHUB_DIR=${resolved_home}/github" >> "$GITHUB_ENV"
+
+      - name: Install pyyaml
+        run: pip install pyyaml --quiet --break-system-packages
+
+      - name: "Checkout alle Repos unter ~/github (read-only, shallow)"
+        run: |
+          set -euo pipefail
+          REPOS=$(python3 scripts/list_megatest_repos.py)
+          mkdir -p ~/github
+          # list_megatest_repos.py klammert "platform" bewusst aus (eigene
+          # _SKIP-Liste dort) — dieser Checkout HIER ist bereits platform.
+          # list_megatest_repos.py + sync-workflows.sh (via sync_drift_meter.py)
+          # erwarten die generierte Flat-View von registry/canonical.yaml unter
+          # $GITHUB_DIR/platform/ (ADR-275: konkreter Pfad in list_megatest_repos.py;
+          # die frühere manuell gepflegte registry/github_repos.yaml ist nicht mehr
+          # die Quelle, Datei-Retire folgt in ADR-275 P5).
+          # Ein alter, von GitHub abgekoppelter Klon dort (Issue #998) war
+          # monatelang stale und hatte die Registry-Datei gar nicht
+          # -> "ERROR: Registry nicht gefunden". Fix: immer frisch auf den
+          # aktuellen (garantiert aktuellen) Checkout symlinken, nie einen
+          # zweiten Klon pflegen.
+          if [ -e "$GITHUB_DIR/platform" ] && [ ! -L "$GITHUB_DIR/platform" ]; then
+            rm -rf "$GITHUB_DIR/platform"
+          fi
+          ln -sfn "$GITHUB_WORKSPACE" "$GITHUB_DIR/platform"
+          for repo in $REPOS; do
+            if [ ! -d "$HOME/github/$repo" ]; then
+              git clone --depth=1 \
+                "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/achimdehnert/$repo.git" \
+                "$HOME/github/$repo" 2>/dev/null || echo "WARN: $repo not found"
+            fi
+          done
+
+      - name: "Meter ausführen (read-only: --dry-run --strict)"
+        id: meter
+        continue-on-error: true
+        run: |
+          python3 tools/sync_drift_meter.py --report /tmp/sync-drift-report.md
+
+      - name: "Issue bei Drift (Label sync-drift)"
+        if: steps.meter.outputs.drift == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="sync-drift" -f color="fbca04" \
+            -f description="ADR-265 REC-3 Meter: Workflow-Sync-Drift in der Fleet" \
+            >/dev/null 2>&1 || true
+
+          existing=$(gh issue list --label sync-drift --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/sync-drift-report.md
+            echo "Kommentar an bestehendes Issue #$existing"
+          else
+            gh issue create \
+              --title "[sync-drift] sync-drift-meter: Workflow-Drift in der Fleet ($(date -u +%Y-%m-%d))" \
+              --label sync-drift \
+              --body-file /tmp/sync-drift-report.md
+          fi
+
+      - name: "Gate: Meter-Ergebnis durchreichen"
+        if: steps.meter.outcome == 'failure'
+        run: |
+          echo "❌ sync-drift-meter meldet Drift oder Aufruffehler (Report siehe Step 'Meter ausführen')"
+          exit 1

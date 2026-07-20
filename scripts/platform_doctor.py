@@ -216,8 +216,8 @@ def main() -> int:
             msg = "; ".join(m for _, m in r["findings"]) or "—"
             print(f"| {icon} | {r['repo']} | {r['category']} "
                   f"| {r['pushedAt']} | {msg} |")
-        print(f"\n_read-only · ADR-209 D5 · keine Schreib-Ops · "
-              f"Discovery dynamisch, kein hartkodiertes Inventar_")
+        print("\n_read-only · ADR-209 D5 · keine Schreib-Ops · "
+              "Discovery dynamisch, kein hartkodiertes Inventar_")
 
     if a.strict and any(r["status"] == "red" for r in results):
         return 1

@@ -1,6 +1,8 @@
 # platform - Code Owners
-* @achimdehnert
+# Bus-Faktor-Redundanz (KONZ-012 Phase A R-0): zweiter Reviewer wirdigital,
+# als Collaborator (write) verifiziert 2026-07-05 (gh collaborators → 204).
+* @achimdehnert @wirdigital
 
-/.github/ @achimdehnert
-/registry/ @achimdehnert
-/packages/ @achimdehnert
+/.github/ @achimdehnert @wirdigital
+/registry/ @achimdehnert @wirdigital
+/packages/ @achimdehnert @wirdigital

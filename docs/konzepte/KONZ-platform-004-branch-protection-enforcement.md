@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-004
 title: Branch-Protection-Enforcement schließen — ADR-174-Drift via ADR-234 R2
-pipeline_status: idea
+pipeline_status: prod
 tier: T3
 owner: achimdehnert
 spec_refs: []   # kein Klickdummy/Spec-Bezug (ADR-211) — reine CI-Governance; bewusst leer
@@ -21,6 +21,9 @@ created: 2026-06-09
 ---
 
 # KONZ-platform-004 — Branch-Protection-Enforcement schließen
+
+> **Status-Update (2026-07-08):** Realisiert durch ADR-242 (Wave 1+2 live) + ADR-257
+> (Ebene A gemergt); `review_by 2026-07-09` gegenstandslos.
 
 ## 1. Executive Summary
 
@@ -156,6 +159,21 @@ Break-Glass = Protection temporär DELETE + Audit-Log).
 - **REC-5:** R2-Reconciler (`plan/apply/rollback`) bauen, der den Interim-Pilot **übernimmt** und auf
   quarantine-fähige Hubs ausweitet — gekoppelt an F4-Konvergenz (`/ci-green-program`).
 
+### Umsetzungs-Status — REC→Status (Stand 2026-07-19, #1167)
+
+> Nachgezogen im Ausführungstreue-Audit ([#1167](https://github.com/achimdehnert/platform/issues/1167)). `pipeline_status: prod`, Mechanismus (Ebene A) via **ADR-242** gemergt — der REC-1..5-Stand war aber nicht konsolidiert (strukturell überspringbar, Hausregel „Ausführungstreue"). Geerdet je Zeile (billigster Check).
+
+| REC / Kill-Gate | Status | Beleg / billigster Check |
+|---|---|---|
+| REC-1 — ADR-174 `implementation_evidence` um Drift-Vermerk (Bestand 0/14, trading-hub#13) ergänzen | **offen** | `grep "0/14\|trading-hub#13" ADR-174` → leer; „1 Edit sofort" nie ausgeführt |
+| REC-2 — Interim-Pilot Protection auf Prod-Subset | **erfüllt** (anders realisiert: native Rulesets via ADR-242) | `gh api repos/achimdehnert/{platform,risk-hub}/rulesets` → `main-required-checks` `enforcement:active`; Prod-Subset in `governance/rulesets/wave1-repos.json`, trading-hub in wave2 |
+| REC-3 — Coverage-Job stabil benennen + ins Required-Set | **unklar** (Ansatz gewechselt) | Required-Check je Repo = Aggregator (`ci / gate`, `🚦 Quality Gate`), nicht der Coverage-Job direkt; kein Beleg, dass Coverage als eigener required Check stabilisiert wurde |
+| REC-4 — ADR-234 R2 um G1 (`deploy/*` nie required) + G2 amenden | **offen** | `grep "deploy/\*\|G1\|G2" ADR-234` → leer; Single-Required-Check-Template vermeidet `deploy/*` faktisch, ADR aber nicht amendiert |
+| REC-5 — R2-Reconciler (plan/apply/rollback) bauen | **erfüllt** (via ADR-242) — Lücke: **rollback** | plan=`dry_run`-Input, apply=`apply-branch-protection.yml`, Audit/Drift=`branch-protection-meter.yml` (wöchentl. → `protection-violation`-Issue); `grep "rollback\|DELETE"` im apply-Skript → leer (kein Rollback-Pfad) |
+| Kill-Gate — 2-Wo-Pilot: mehr legit-grün als rot blockiert / ≥1 Break-Glass/Wo → rückrollen | **offen (nicht gemessen)** | Meter prüft Soll/Ist-Ruleset-Präsenz, **nicht** die Kill-Gate-Metrik (legit-blockiert vs. rot-verhindert, Break-Glass-Rate); kein 2-Wochen-Pilot-Auswertungs-Artefakt gefunden |
+
+**Kern:** Mechanismus (REC-2/REC-5) real gebaut + live via **ADR-242** — deckt „Ebene A gemergt". Offen bleiben die billigen/steuernden Teile: REC-1 (Drift-Vermerk), REC-4 (ADR-234-Amendment), die explizite Kill-Gate-Messung sowie ein Rollback-Pfad innerhalb REC-5. REC-3 vermutlich durch den Gate-Aggregator-Ansatz obsolet, aber undokumentiert.
+
 ## 13. Entscheidung + Kill-Gate + 30/60/90
 
 **Offene Toggles (User-Entscheidung — kippen die Umsetzung, nicht das Konzept):**
@@ -175,3 +193,35 @@ Exception-Budget: 1 dokumentiertes Break-Glass im Pilotfenster, danach Re-Evalua
 
 > **Ehrliche Enforcement-Grenze:** Dieses Konzept *schreibt* Felder, *erzwingt* sie nicht.
 > `review_by`/`kill_criteria` wirken erst, wenn ein Lifecycle-Gate sie liest. Bis dahin = Review-Gate.
+
+## 14. Kill-Gate-Messung — Instrument nachgerüstet (2026-07-20)
+
+**Befund beim überfälligen Review (`review_by` war 2026-07-09, 11 Tage überschritten):**
+Die Break-Glass-Hälfte des Kill-Gates (`≥1 Break-Glass/Woche`) hatte **kein Messinstrument**.
+`tools/branch_protection_meter.py` prüft, ob das Ruleset *existiert und aktiv* ist — also
+Break-Glass in der Form „Schutz abgeschaltet". Der Regelfall ist aber die andere Form: ein
+aktives Ruleset wird für einen einzelnen Merge **umgangen** (`gh pr merge --admin` bzw.
+`bypass_actor`). Diese Ereignisse wurden nirgends gezählt. Das Kill-Gate konnte also seit
+Pilotbeginn nicht feuern — nicht weil alles gut lief, sondern weil niemand maß.
+
+**Instrument:** `tools/break_glass_meter.py`, verdrahtet als eigener Step in
+`.github/workflows/branch-protection-meter.yml` (montags, gleicher Lauf wie der Soll/Ist-Meter,
+aber eigenes Label `break-glass` — ein umgangenes Ruleset ist ein Kill-Gate-Signal, keine
+Ruleset-Verletzung). Datenquelle: `GET /repos/{owner}/{repo}/rulesets/rule-suites` mit
+`rule_suite_result=bypass`; gezählt wird über Wave 1+2, Fenster 2 Wochen, Schwelle 1/Woche.
+
+**Erstmessung 2026-07-20 (Echtlauf, nicht simuliert):** 11 Repos gelesen, **0 Break-Glass**
+in 2 Wochen → Kill-Gate feuert nicht. Der Nullwert ist falsifiziert: derselbe Filter liefert
+mit `rule_suite_result=pass` 11 Treffer für `platform`, ungefiltert sind alle 11 Suites `pass`.
+
+**Grenzen (bewusst nicht behauptet):**
+- Die `rule-suites`-Historie ist **kein Vollarchiv seit Pilotbeginn**. 11 Suites für `platform`
+  sind wenig für die Repo-Lebenszeit — das Ergebnis heißt „0 im gelesenen Fenster", nicht
+  „seit Pilotstart nie ein Break-Glass". Die Retention des Endpoints ist ungeprüft.
+- Gemessen wird **nur** die Break-Glass-Hälfte des Kill-Gates. Die erste Hälfte („mehr legitime
+  grün-werdende Merges blockiert als rote verhindert") hat weiterhin **kein** Instrument und
+  bleibt ein manuelles Urteil.
+- Am 2026-07-20 entstand ein realer Break-Glass-Bedarf außerhalb der Messmenge: `mcp-hub` PR #180
+  war strukturell nicht mergebar (1 Collaborator, Ruleset verlangt 1 Approval, GitHub verbietet
+  Self-Approval). Sobald dieser Merge per `--admin` erfolgt, sollte ihn der nächste Lauf zählen —
+  das ist zugleich der erste echte Funktionsbeweis des Zählers.

@@ -1,11 +1,11 @@
 ---
 status: proposed
-date: 2026-05-11
-decision-makers:
+decision_date: 2026-05-11
+deciders:
   - Achim Dehnert
-reviewed-by:
+reviewed_by:
   - Claude Opus 4.7 (Sparring Review, 2026-05-11) — REVISIONS REQUIRED, see reviews/ADR-195-review.md
-depends-on:
+depends_on:
   - ADR-115 (Grafana Agent Controlling Dashboard — llm_calls table)
   - ADR-116 (Dynamic Model Router — budget-aware routing)
   - ADR-178 (LLM Gateway Consolidation — V2 as canonical)

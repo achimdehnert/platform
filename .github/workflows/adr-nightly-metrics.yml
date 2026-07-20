@@ -10,13 +10,25 @@
 #   - ai_interactions_90d shows activity per ADR
 #   - ttr_days measures review quality lag
 #   - Audit Issues become the backlog for next agent session
+#
+# STILLGELEGT (Issue #818, 2026-07-02): schedule-Trigger entfernt, nur noch
+# workflow_dispatch. Grund: 30/30 Nächte rot, DREI gestapelte Ursachen —
+#   1. iil-adrfw-CLI kennt das Subkommando 'metrics' nicht mehr (CLI-Drift,
+#      Exit 2 vor jedem Push) — bis 2026-06-22 (20/30 Nächte).
+#   2. Ab 2026-06-23: ADRLoadError — docs/adr/ADR-007-FINAL-PRODUCTION.md
+#      Frontmatter-Validierung schlägt fehl.
+#   3. Danach: Direct-Push auf main (Zeile ~94) scheitert an Branch-Protection
+#      (GH013, required check 'guardian') — der Workflow committet direkt auf
+#      main statt über einen PR.
+# Das Abschalten des Schedules ist die risikofreie Sofortmaßnahme, die die
+# 30 roten Nächte stoppt. Die eigentliche Reparatur (CLI-Pin/Anpassung +
+# ADR-007-Frontmatter-Fix + Push→PR-Flow) ist als Checkliste in Issue #818
+# kommentiert und NICHT Teil dieser Änderung — bis dahin nur manuell via
+# workflow_dispatch ausführen (und dann Fehler erwarten).
 
 name: "📊 ADR Nightly Metrics"
 
 on:
-  schedule:
-    - cron: "0 2 * * *"
-
   workflow_dispatch:
     inputs:
       write_metrics:
@@ -31,6 +43,13 @@ on:
         default: "false"
         type: choice
         options: ["true", "false"]
+
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# metrics job below already declares its own permissions (contents:
+# write for the metrics commit, issues: write for audit-finding issues)
+# and overrides this.
+permissions:
+  contents: read
 
 jobs:
   metrics:
@@ -47,7 +66,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -105,7 +124,10 @@ jobs:
             echo "[WARN] pgvector sync failed (DB unreachable?) — continuing"
 
       - name: Run audit + create issues for errors
-        if: inputs.create_issues == 'true' || github.event_name == 'schedule'
+        # NOTE: schedule trigger removed (see header) — this workflow now
+        # only runs via workflow_dispatch, so the former
+        # `|| github.event_name == 'schedule'` fallback is dead and dropped.
+        if: inputs.create_issues == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IIL_ADRFW_ADRS_DIR: docs/adr

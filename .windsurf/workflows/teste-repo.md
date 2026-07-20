@@ -5,7 +5,7 @@ description: Kompletter Test-Run für ein Repo — Lint, Django Check, Migration
 # /teste-repo — Vollständiger Test-Run
 
 **Aufruf:**
-- `/teste-repo` → aktives Repo im Workspace (Cascade ermittelt aus Kontext)
+- `/teste-repo` → aktives Repo im Workspace (der Agent ermittelt aus Kontext)
 - `/teste-repo xyz` → explizites Repo `xyz`
 
 **Was geprüft wird:**
@@ -24,10 +24,10 @@ kein `$1`-Problem, keine Silent-Fails.
 
 ## Schritt 0: Repo-Pfad bestimmen
 
-**Cascade: Ermittle REPO_ARG jetzt:**
+**Der Agent: Ermittle REPO_ARG jetzt:**
 - Slash-Command mit Argument (`/teste-repo coach-hub`) → REPO_ARG = `coach-hub`
 - Slash-Command ohne Argument (`/teste-repo`) → REPO_ARG = Name des aktiven Workspace-Repos
-- Absoluter Pfad möglich: `/teste-repo /home/adehnert/CascadeProjects/coach-hub`
+- Absoluter Pfad möglich: `/teste-repo $HOME/github/coach-hub`
 
 Setze REPO_ARG in Schritt 1 ein.
 
@@ -38,13 +38,13 @@ Setze REPO_ARG in Schritt 1 ein.
 // turbo
 ```bash
 set -euo pipefail
-PLATFORM_DIR="${GITHUB_DIR:-$HOME/CascadeProjects}/platform"
-[ -d "$HOME/CascadeProjects/platform" ] && PLATFORM_DIR="$HOME/CascadeProjects/platform"
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+[ -d "$HOME/github/platform" ] && PLATFORM_DIR="$HOME/github/platform"
 
 python3 "$PLATFORM_DIR/scripts/teste_repo.py" "<REPO_ARG>"
 ```
 
-> Cascade: Ersetze `<REPO_ARG>` mit dem in Schritt 0 ermittelten Wert
+> Der Agent: Ersetze `<REPO_ARG>` mit dem in Schritt 0 ermittelten Wert
 > (Name relativ zu `$GITHUB_DIR` oder absoluter Pfad).
 
 ---

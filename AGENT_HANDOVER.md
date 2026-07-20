@@ -3,171 +3,100 @@
 **Pflicht-Lektüre beim Session-Start jedes Coding-Agents.**
 Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referenz.
 
-> **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
+<!-- Konvention: dieser Abschnitt hält NUR den "## ⚡ Aktueller Stand" + max. EINEN
+     "## ⚡ Vorheriger Stand" (den jeweils jüngsten). Alles Ältere wandert nach
+     AGENT_HANDOVER_ARCHIVE.md (siehe Verweis unten) — nicht hier anhäufen. -->
 
-## ⚡ Aktueller Stand (2026-06-20 — F4 geschlossen + ADR-242 Wave 2 live; Wave 3 vorbereitet)
+**Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
+(Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-**Diese Session (2026-06-20):** Handover-Prio #1 (F4) abgeschlossen → entsperrte ADR-242
-Wave 2, beide Programme sauber verzahnt.
+## ⚡ Aktueller Stand (2026-07-19 — OIDC-Publishing-Fleet-Umstieg: ADR-278 accepted, 7/7 Repos migriert, Enforcement-Gate live, #1094 geschlossen)
 
-**F4 CI-grün = als code-CI-Programm GESCHLOSSEN.** Fleet-Survey (last push-run/default,
-API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — NULL code-CI
-(Lint/Test/Coverage). Restrot = Deploy-Health (separates Programm, nie autonom).
-6 `update-project-facts.yml`-Retire-PRs alle gemergt. Detail: CC-Memory
-`project_f4_ci_green_program`.
+**Diese Session (2026-07-19, Opus):** reaktive Deploy-Triage → kompletter OIDC-Publishing-Umstieg der iil-Paket-Fleet; Owner-Block #1094 vollständig abgearbeitet + geschlossen.
 
-**ADR-242 Branch-Protection — Wave 2 LIVE, jetzt 11 Repos geschützt:**
-- **Wave 1 (7):** platform, risk-hub, mcp-hub, billing-hub, cad-hub, coach-hub, dev-hub.
-- **Wave 2 (4, neu 2026-06-20):** ausschreibungs-hub, trading-hub, wedding-hub, writing-hub
-  — Rulesets #17924045/46/47/49, `enforcement=active`, bypass leer, required check
-  **`ci / gate`**. Config-PR **#607** (wave2-repos.json + `apply-branch-protection.yml`
-  auf `wave`-Input generalisiert); Apply via Dispatch (dry-run 4/0 → scharf 4/4).
-- **Negativ-Test bestanden** (Confirmation §3): ausschreibungs-hub#127 (absichtl.
-  Syntax-Fehler) → `ci / gate` FAILURE → `mergeStateStatus=BLOCKED` → Merge-API abgelehnt
-  → PR geschlossen + Branch gelöscht.
-- **Meter deckt jetzt Wave 1+2** (#611): `branch_protection_meter.py --expected` nimmt
-  mehrere Wave-Dateien; Mo 06:00 UTC; Live-Smoke `11 konform · 0 Verletzungen`.
+- **Deploy-Triage:** billing-hub + trading-hub letzter Deploy `failure` = buildkit-Timeout auf `docker.sock` (transient, Runner-Kontention) → gestaffelter Re-Run beider, beide live. `error_pattern` geloggt (`error:self-hosted-runner:4e52af0faded`).
+- **ADR-278 accepted ([#1266](https://github.com/achimdehnert/platform/pull/1266) gemergt):** iil-Pakete publizieren **ausschließlich via OIDC Trusted Publishing**; `password:`-basiertes PyPI-Publishing verboten + Enforcement-Gate `tools/check_publish_oidc_auth.py`.
+- **3 Pakete live via OIDC publiziert:** iil-promptfw 0.8.1, iil-outlinefw 0.3.2, iil-weltenfw 0.4.1 (je Token→OIDC-Fix + Trusted-Publisher-Bindung).
+- **7/7 Nicht-pur-OIDC-Repos umgestellt:** django-commons/aifw/learnfw (eigene publish.yml) + codeguard/ingest (zentral aus platform, [#1267](https://github.com/achimdehnert/platform/pull/1267) gemergt, Bindung auf `repo=platform`). 2 versteckte Auth-Defekte durch echtes Verifizieren gefunden+gefixt (django-commons#12, learnfw#9: `publish-pypi`-Job ohne `id-token`/`environment`). **Lehre:** id-token/environment **job-level** prüfen, nicht file-level (file-Grep zählt TestPyPI-Job mit).
+- **Enforcement-Gate fleet-weit SCHARF:** shared-ci `publish-auth-guard` von warn-first auf **block** geschaltet (shared-ci#33, v1.0.14) — `continue-on-error` raus + in `gate.needs`. Alle 10 `_ci-pypi`-Consumer vorab safe-verifiziert; ein `password:`-Input im PyPI-Upload lässt `ci/gate` jetzt fleet-weit rot werden. **ADR-278-Strang damit komplett** (Regel + Detektion + Prävention scharf).
+- **4 Pre-Rename-Alt-Dubletten geyankt** (aifw/promptfw/weltenfw/authoringfw) — Yank statt Delete (Name reserviert, kein Squatting). Trusted-Publisher-Bindung gehört auf **Repo-Namen**, nie Dist-Namen (`aifw`, nicht `iil-aifw`).
+- **#1094 + #1265 geschlossen; [#1268](https://github.com/achimdehnert/platform/issues/1268) (Portfolio-Session) ausgelagert.** 2. Owner via per-Projekt-Collaborator (keine PyPI-Org `iil` vorhanden).
+- **Memory:** MEMORY.md kompaktiert (128 Einträge, 16.9 KB); Session-Summary `session:platform:20260719` + Lehren gesichert.
+- **Handover-Hygiene:** stale/konfliktbehafteter Handover-PR #1171 (07-16-Stand, „alles gemergt") geschlossen — dieser 07-19-Stand ersetzt ihn.
 
-**→ WAVE 3 — Voraussetzung + Worklist (erster Zug eines neuen Strangs):**
-- **Gate (ADR-242 §Entscheidung-1):** required check MUSS der stabile Aggregat-Job
-  **`ci / gate`** sein — fragile per-Job-Namen sind verboten. Deshalb war Wave 2 nur
-  4 Repos: von ~30 grünen unprotected Repos hatten nur diese den Aggregat-Gate.
-- **Wave-3-Kandidaten = ~26 grüne Repos OHNE stabilen `ci / gate`** (Snapshot 2026-06-20,
-  bei Ausführung neu scannen): aifw, apo-hub*, authoringfw, bahn-hub, decks-hub, design-hub,
-  gaeb-toolkit, iil-adrfw, iil-codeguard, iil-demo-fixture, iil-django-commons, iil-ingest,
-  iil-reflex, iil-testkit, lastwar-bot, learn-hub, learnfw, nl2cad, odoo-hub, outlinefw,
-  promptfw, recruiting-hub, researchfw, riskfw, travel-beat, weltenfw.
-  (*apo-hub hat nur den fragilen `Coverage Gate (≥0%)`-Namen — kein Kandidat ohne Fix.)
-- **Voraussetzung vor Apply = shared-ci-`ci / gate`-Konvergenz** (ADR-209-Programm, NICHT
-  diese Session): die shared-ci-Consumer (learn-hub/recruiting-hub/travel-beat emittieren
-  `ci / *` aber kein `ci / gate` → shared-ci-Version ohne Aggregat-Job; bump nötig); die
-  Standalone-CI-Libs (iil-*, *fw mit `test (3.12)`/`lint`-Jobs) brauchen Konvergenz auf
-  `_ci-python.yml` ODER einen eigenen Aggregat-Gate-Job. Erst danach `wave3-repos.json`
-  anlegen + `apply-branch-protection.yml wave=3` dispatchen + Negativ-Test + Meter-Liste
-  erweitern.
-- **Artefakte:** `governance/rulesets/{wave1,wave2}-repos.json`,
-  `main-required-checks-template.json`, `.github/workflows/apply-branch-protection.yml`
-  (`wave`-Input), `tools/branch_protection_meter.py` (`--expected` multi-file),
-  `.github/workflows/branch-protection-meter.yml`. Pre-Flight-Pflicht je Repo (Lehre
-  `feedback_adr242_wave1_doc_vs_reality`): Check-Name auf PR-Head + grüne main-CI +
-  `ci / gate` läuft auf `pull_request` (sonst PR-Deadlock).
+*(Zwischen 07-15 und heute, nicht in diesem Handover detailliert: 07-16 `/repo-optimize`-Vollzyklus (alles gemergt), 07-18 graph-mail-move-folder.)*
 
-## ⚡ Vorheriger Stand (2026-06-19 — comic-hub ADR-252: ADR→Code, end-to-end live verifiziert)
+### ⚡ Abend-Session 2026-07-19 (Opus, dritte Session des Tages) — #1167-Umsetzung + Review-Stau vollständig entrotet
 
-**Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis zum **lauffähigen,
-released, end-to-end verifizierten Produktionspfad** durchgezogen.
+- **#1167 Ausführungstreue — Umsetzungsschritt geliefert ([#1275](https://github.com/achimdehnert/platform/pull/1275), offen):** geerdete Kriterium→Status-Tabellen (Muster #1169/#1170) für **KONZ-001** (pilot, review 07-20; Kill-Gate a–e: **1/5 erfüllt**, 4/5 offen-teilweise) und **KONZ-004** (prod; REC-2/REC-5 via ADR-242 live erfüllt, REC-1/REC-4/Kill-Gate-Messung/Rollback offen). **Korrektur am 07-19-Vormittags-Befund:** KONZ-016 ist **kein** Fix-Kandidat (hat bereits Decision-Ledger mit Status-Spalte — der Befund zählte nur `- [ ]`-Checkboxen); KONZ-018 bewusst ausgelassen (maschinen-`kill_criteria` + W2-5-Reminder-Issue = designierter Tracker, In-Doc-Tabelle wäre Doppelquelle). Beides durabel im #1167-Kommentar.
+- **🌀 Systemischer ADR-validate-Blocker gefunden + gefixt ([#1276](https://github.com/achimdehnert/platform/pull/1276) GEMERGT):** 6 aktive ADRs (146/261/262/263/267/277) trugen deprecated Frontmatter-Keys (`date`→`decision_date`, `decision-makers`→`deciders`, `relates_to`→`related`, `review`→`review_status`). Weil `iil-adrfw validate docs/adr/` **alle** ADRs scannt, rötete **ein einziges** Alt-Key-ADR **jede** ADR-berührende PR. Reine KONZ-/Doc-PRs waren wegen Pfad-Filter nicht betroffen → fiel lange durch. Verifiziert `224/224`→`225/225`. Memory `reference_adr_frontmatter_schema_strict` korrigiert (listete `date`/`decision-makers` fälschlich als *erlaubt*) + 🌀-markiert.
+- **ADR-272-Nummernkollision aufgelöst:** zwei **verschiedene** ADRs beanspruchten 272. `ADR-272-distribution-contract` liegt auf main → [#1086](https://github.com/achimdehnert/platform/pull/1086) behält 272; der promptfw-Text-Loop in [#1077](https://github.com/achimdehnert/platform/pull/1077) auf **ADR-279** umnummeriert (Datei+`id:`+H1, INDEX per `gen_adr_index.py` regeneriert = löste zugleich den Merge-Konflikt). `adr_open_pr_guard.py` hat die Kollision korrekt gefangen — das Gate funktioniert.
+- **Review-Stau: 0 rote PRs übrig** (vorher 6). Gemergt: #1027 + #1026 (waren approved+grün, nur ungemergt). Grün gezogen: #1112 (stale ADR-INDEX), #1231 + #1141 (Symptom des #1276-Blockers, **nicht** stale-Index — Erst-Diagnose war falsch), #1086 + #1077 (Kollision), #1225 (`context-review` 503 = transient; der base64-Log-Blob war nur die HTML-Fehlerseite). **8 PRs mit Auto-Merge gequeued** — laufen bei Approval durch.
+- **Engpass-Befund:** ~33 der ~40 offenen platform-PRs sind CI-grün und warten ausschließlich auf den 2.-Owner-Review. Der Stau ist ein **Review-Durchsatz**-Problem, kein technisches.
 
-**Architektur (platform ADR-252, proposed + 4 Amendments, alle auf main):**
-- Thin-Composer über weltenfw/authoringfw/illustration-fw, **gegated**. PRs #597/#598/#599/#604.
-  2 externe Cross-Provider-Reviews + `/adr-challenger` eingearbeitet.
-- **Gate 0a** (Spike, fal ~$1) = **CONDITIONAL PASS**: Einzelidentität (D1) stark; Multi-Ref-Co-Gen
-  (D4) untauglich (1/6) → **Compositing** (empirisch 2/2 belegt). Engine **Qwen-Image-Edit** (Apache-2.0).
-- **Gate 1** Klickdummy **live**: https://iil.pet/kd/comic-hub/klickdummy/comic-lifecycle/ (CF-Access).
-- **Hub-vs-View ENTSCHIEDEN = O1-B** (Modul in illustration-hub; Produkt-Input: Experiment +
-  persistente Projekte + mandantenfähig).
+## ⚡ Vorheriger Stand (2026-07-15 — Deploy-Health-Triage gelöst · ADR-270-Vorbedingung gefixt · 2 adversariale Retros (c494a2 + Increment) · Ausführungstreue-Programm gestartet)
 
-**Code (auf main, getestet):**
-- **comics-Modul** illustration-hub `apps/comics/` (ComicProject/Page/Panel/PanelCharacter/
-  SpeechBubble/GenerationManifest) — PR #12.
-- **ConsistentSequenceAgent** illustration-fw — **PyPI 0.3.0** (OIDC Trusted Publishing, PR #14+#15).
-- **FalSequenceBackend** + **render_panel** (Persistenz: Asset+Manifest, Panel.render_asset) —
-  illustration-hub PR #13+#14.
-- **Live-E2E verifiziert**: render_panel gegen echtes fal → echtes Mehrpersonen-Panel + persistiert
-  (gegateter Test `RUN_LIVE_FAL=1`; Bild `~/shared/comic-spike/out/E2E_render_panel.png`).
+**Diese Session (2026-07-15):** Session-Start-Reconciliation fand Prio 1 (cad-hub#42) bereits erledigt (Handover war stale). Danach: reaktive Deploy-Health-Triage + ADR-270-Nacharbeit + Owner-Block-#1094-Experiment, gefolgt von zwei adversarialen Retros (Haupt-Retro + Same-Day-Increment) und einem daraus abgeleiteten Ausführungstreue-Programm.
 
-**Offen (bewusst, keine offenen PRs):**
-- **illustration-fw #10** typisierter Capability-Vertrag (Post-Gate-0).
-- **Gate 0b** Self-Host auf RTX 4090 (beim cloud→lokal-Switch; Qwen ist Brückenmodell).
-- ~~finale menschliche Rubrik-Bewertung der Spike-Bilder~~ → **2026-06-20 PASS bestätigt** (Achim):
-  Gate 0a final bestanden, kein Vorbehalt offen (`~/shared/comic-spike/gate-0a-result-2026-06-19.md`).
-- **Nachschärfen = laufzeit-Optimierungs-Funktion** in ADR-252 verankert (`Review→Retry`-Kante der
-  State-Machine: (a) identitätserhaltender Re-Roll im MVP-Review · (b) gegatete Quality-Escalation
-  Relight/Upscale/Engine-Switch/LoRA). Umsetzungs-Detail → illustration-hub Use-Case.
-- Detail-CC-Memory: `project_comic_hub_adr252`. pgvector-Session-Summary war 404 (MCP-Flapping) → nachtragen.
+- **ADR-270-Vorbedingung gefixt ([#1152](https://github.com/achimdehnert/platform/pull/1152) gemergt):** `guardian.yml` + `ci-security.yml` triggerten nur auf `pull_request`, nicht auf `merge_group` — hätte beim ersten Merge-Queue-Einsatz ALLE Merges eingefroren (ADR-270 harte Vorbedingung). Jetzt behoben, präventiv (platform hat noch keine Merge-Queue aktiv).
+- **trading-hub#150 gemergt:** Docker-Build-Smoke-Test brauchte `DB_PASSWORD` zusätzlich zu `DJANGO_SECRET_KEY` (SEC-2-Guard aus #108 vergessen) — PR existierte schon vorbereitet, nur verifiziert+gemergt.
+- **coach-hub Deploy gelöst (PR [#40](https://github.com/achimdehnert/coach-hub/pull/40) gemergt, live verifiziert `/livez/` 200):** Root Cause war **NICHT** `PROJECT_PAT` wie am 07-12 vermutet, sondern zwei gestapelte Ursachen: (1) transiente Runner-Kontention beim gitleaks-Checkout (Re-Run bewies es), (2) coach-hub war auf `shared-ci@v1.0.5` gepinnt — der Git-Auth-Fix für private Deps kam erst in v1.0.6. Bump auf v1.0.11 (existierender PR #40 war bereits vorbereitet, nur stale/unrebased — rebased statt dupliziert).
+- **Neuer Fund, getrackt statt gefixt ([#1158](https://github.com/achimdehnert/platform/issues/1158)):** `secrets: inherit` liefert cross-org (shared-ci in `iilgmbh`, Consumer in `achimdehnert`) für den **`ci:`-Job** kein Secret (bestätigt leer trotz vorhandenem Repo-Secret) — derselbe Bug wie #1067, dort aber nur für den `deploy:`-Job gefixt. Betrifft mind. coach-hub + risk-hub identisch unfixed. Non-blocking (pip-audit `continue-on-error`), Scope-Checkpoint statt Sofort-Fix (User-Entscheid: Fleet-Issue statt Einzel-Repo-Patch).
+- **Owner-Block #1094 — Mail-Digest-Experiment:** 6 offene Punkte (PyPI-Owner, 7×Trusted-Publisher, aifw-Yank-Entscheid, 2 Releases, Portfolio-Termin) als Mail an pg@dehnert.team gesendet statt auf eine Sync-Session zu warten — v2 mit Direkt-Links (GitHub-Release-Prefill für outlinefw/weltenfw, PyPI-Settings-Links unverifiziert). Antwort noch nicht geprüft — Follow-through braucht Text-Paste in eine Session (kein Mailbox-Zugriff hier).
+- **Adversarialer Retro `session-retro-2026-07-15-platform-c494a2` ([#1162](https://github.com/achimdehnert/platform/pull/1162), noch offen):** 9 Befunde, 8 überlebten Falsifikation. Kern: 2 bereits Gate-pflichtige Muster (`claim-before-cheapest-check`, `scope-checkpoint-not-durably-recorded`) reproduziert — u. a. ein Root-Cause-Satz ("transiente Kontention") mit mehr Bestimmtheit formuliert als die Log-Beleglage trug.
+- **Same-Day-Increment-Retro ([#1165](https://github.com/achimdehnert/platform/pull/1165) gemergt):** prüfte die Follow-through-Arbeit des Haupt-Retros. Fand: die #1122-Handover-Konsolidierung hatte real 4 Inhalte verloren trotz „kein Inhalt verloren"-Behauptung (durch 2 unabhängige Finder bestätigt) — beide Gate-pflichtigen Muster recurrierten **innerhalb desselben Tages**, in dem sie benannt wurden. Alle 5 identifizierten Sofort-Fixes umgesetzt: Inhalt in diesem PR restauriert, `session-start.md`-Checkliste um 2 selbst ausgelassene Phasen ergänzt ([#1166](https://github.com/achimdehnert/platform/pull/1166) gemergt), `~/.claude/CLAUDE.md` committed (war uncommitted trotz echtem Git-Repo), Nachtrags-Kommentare mit Autorisierungs-Zitat auf #1079/#1122/#1164.
+- **Ausführungstreue-Programm gestartet:** neue Hausregel in `~/.claude/CLAUDE.md` (lange Multi-Phasen-Dokumente brauchen eine Abschluss-Checkliste, sonst sind Pflicht-Phasen strukturell überspringbar) + Memory `feedback_execution_fidelity_long_documents` + Tracking-Issue [#1167](https://github.com/achimdehnert/platform/issues/1167) (57 ADRs + 19 KONZ-Dokumente auf dasselbe Muster noch ungeprüft).
+- **Reviewer-Engpass sichtbar geworden:** 28-30 offene platform-PRs hängen `REVIEW_REQUIRED` auf demselben Einzel-Reviewer (`wirdigital`). #1159/#1163/#1165/#1166 per Auto-Merge gequeued, alle 4 nach Freigabe gemergt — #1162 (Haupt-Retro) bleibt als einziger PR dieser Session offen.
 
-> Lehren (Drift-vermeidend): genesor-Quelle = **iil-pet-portal** (nicht `~/github/genesor`) ·
-> `fal_client.subscribe()` hängt → `submit()`+poll · `password:` + `id-token:write` zusammen =
-> OIDC aus (403) · Merge-/Publish-Claims gegen GitHub/PyPI-Simple-Index verifizieren (Aggregat-JSON laggt) ·
-> ein D4-Panel war zu wenig (Härtetest falsifizierte optimistisches PASS) · pgrep self-match → `ps|grep '[d]'`.
+## Älterer Stand (2026-07-13 — Archiv-Kandidat, → AGENT_HANDOVER_ARCHIVE.md) — usage_sweep.py (#1076) shipped + erster Lauf · trading-hub Deploy-403 gefixt · KONZ-017 #998 gemergt · PyPI-OIDC-Readiness codeguard/ingest · App-Repo-Scope-Grenze geklärt
 
-## ⚡ Vorheriger Stand (2026-06-12 — T5-Programm: ADR-243/244/245 proposed + 7-Issue-Sonnet-Queue)
+**Diese Session (2026-07-13, Sonnet 5):** `/issues-offen`-Lauf + Owner-Block-Nacharbeit + neues Tool. Wichtigster Prozess-Fund: eigener stale lokaler Klon (iil-codeguard/iil-ingest, 5 Commits alt) fast in eine Migration auf eine bereits gelöschte Datei gelaufen — vor dem Bauen gegen origin/main geprüft, Kurs korrigiert.
 
-**Diese Session (2026-06-12, Fable/Tier-4-5):**
-- **Tier-4/5-Codebase-Analyse** (platform + 17 PyPI-Pakete, 6 parallele Agents; 3 falsifizierte
-  Agent-Claims dokumentiert in CC-Memory `t5-optimierungsprogramm`).
-- **PR #551 gemergt** (squash `bcdb910`): **ADR-243** iil-corefw (Shared Runtime Core) ·
-  **ADR-244** Rule-Lifecycle-Loop (4 Engines inkl. Guardian!) · **ADR-245** Provider-Policy-Engine
-  (free-tier-first als Code) — **alle `proposed`**, je `/adr-review`-t (4.2/3.8/3.7) + Findings
-  als Fixups drin. Dazu **ADR-234 §11.2** (P0-Restschuld Verteilungs-Schicht) + INDEX-Reparatur
-  (237–242 nachgetragen, **241 = reservierte Nummer ohne Datei**).
-- **Sonnet-Queue erstellt** (alle `ai-assignable`): platform#552 shared-ci-Sweep (Tag-vs-main-Check
-  Pflicht!) · platform#553 Pipeline-Doku · iil-testkit#6 Gotcha-Fixtures · iil-codeguard#2
-  Suppression (Marker-Dialekte beachten, s. Issue-Kommentar) · iil-enrichment#2 + gaeb-toolkit#7
-  publish.yml · risk-hub#177 (blocked by enrichment#2) · riskfw#4 (Owner-Entscheid Rename).
+- **usage_sweep.py gebaut + gemergt ([#1116](https://github.com/achimdehnert/platform/pull/1116), schließt [#1076](https://github.com/achimdehnert/platform/issues/1076)):** Quartals-Nutzungs-Sweep (4 Messungen, n/m/k-Konvention). Erster echter Lauf → [#1115](https://github.com/achimdehnert/platform/issues/1115) (46 Skill- + 56 Label-Kandidaten). Nachtriage fand Methodik-Lücke: lokale Transkripte reichen nur 30 Tage zurück, nicht 180 wie im Default-Fenster behauptet — als Korrektur im Issue dokumentiert. Engere Liste (37) nach Ausschluss von Sub-Referenz-Fragmenten + Notfall-Skills (hotfix/rollback/backup by-design selten genutzt). Rückbau-Entscheidung bleibt beim Owner (bewusst kein Auto-Delete).
+- **trading-hub Deploy-403 diagnostiziert + gefixt:** GHCR-403 beim Import-Smoke-Pull direkt nach erfolgreichem Push (Propagations-Lag, nicht die bekannte Package-Actions-Access-Klasse). `gh run rerun --failed` → grün, `/livez` 200 verifiziert. Deploy-Health-Issue [#1070](https://github.com/achimdehnert/platform/issues/1070) mit Root-Cause geschlossen.
+- **KONZ-017 W1 (sync-drift-meter #998) gemergt via [#1009](https://github.com/achimdehnert/platform/pull/1009):** self-hosted GITHUB_DIR-Pfad-Mismatch behoben (dynamische Auflösung + platform-Symlink-Fix). PR lag 5 Tage `REVIEW_REQUIRED` — nach Freigabe via Auto-Merge gemergt.
+- **Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) nachgearbeitet:** stale shared-ci#20-Checkbox korrigiert (war schon CLOSED, Zeile nicht abgehakt). Diagnose der „7 Nicht-pur-OIDC-Repos": 5 sind pypa-Action-ready (nur PyPI-UI-Bindung fehlt), 2 (iil-codeguard/iil-ingest) publizierten noch über `twine`+Token OHNE `id-token:write` — UND der reale Publish-Workflow liegt zentral in `platform` (`publish-iil-{codeguard,ingest}.yml`, PAT-Checkout), nicht im Paket-Repo (eigenes `publish.yml` war am 2026-06-30 bewusst als ungegateter Zweitpfad entfernt worden — mein lokaler Klon war stale und zeigte noch die gelöschte Datei). Fix: [#1118](https://github.com/achimdehnert/platform/pull/1118) (id-token:write + pypa-Action, additiv, Token bleibt bis Binding-Beweis) — **wichtig für später: Trusted-Publisher-Binding muss auf `repo=platform` + Workflow-Dateiname zeigen, nicht auf das Paket-Repo.**
+- **App-Repo-Scope-Grenze geklärt (User-Korrektur mitten in der Session):** „arbeite an platform/mcp/dev, nicht an apps" — trading-hub-Branch-Protection-Vorschlag ([#1117](https://github.com/achimdehnert/platform/issues/1117)) und PR [#130](https://github.com/achimdehnert/trading-hub/pull/130) (README-Fix, grün/mergefähig) bewusst zurückgestellt, nicht ausgeführt.
+- **2 False-Positive-docu-quality-Issues geschlossen** (dev-hub [#1107](https://github.com/achimdehnert/platform/issues/1107)/[#1101](https://github.com/achimdehnert/platform/issues/1101), alle Findings gegen aktuellen Code verifiziert widerlegt) + Befund zur docu-update-agent-False-Positive-Rate getrackt ([#1114](https://github.com/achimdehnert/platform/issues/1114)).
+- **Governance-Detail geklärt:** 2. Owner-Review-Pflicht macht Sinn (required checks sind eng: nur guardian+gitleaks, nicht der volle Testlauf — Review ist die einzige menschliche Instanz vor Governance-SSoT). Auto-Merge auf #1116/#1009/#1118 aktiviert, damit Review der einzige verbleibende manuelle Schritt ist.
 
-**Offen — erster Zug nächste Session:**
-- **Externes ADR-243-Review einarbeiten:** Briefing liegt in
-  `~/shared/adr-handoff-ADR-243-2026-06-12.md` (wartet auf GPT-Antwort vom User) →
-  Step-5-Rückfluss-Gate (ID-Tagging `[valid]`/…), dann Accept-Entscheide 243→244/245
-  (Sequenz: 245 braucht 243-Fehlerkategorien; 244-Severity-Heimat hängt an 243-Status).
-- **Knowledge-Capture nachholen:** Outline-MCP war in dieser Session nicht gebunden —
-  Session-Wissen liegt nur in pgvector (`session:platform:20260612*`) + CC-Memory.
-- Plus unverändert: ADR-242 Phase 3/4, coach-hub#28, F4-Breite (s. Vorheriger Stand).
+## Nächste Schritte (kompakt)
 
-## ⚡ Vorheriger Stand (2026-06-11 — M6 ✅, ADR-242 accepted + Phase-2-Rollout ✅)
+1. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
+2. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): Entscheid 2026-07-19 — Labels behalten, Skills 4 keep; die 3 „toten" (agent-session-start/claude-orchestrator/cascade-auftraege) blockiert durch cc-skill-dist-Drift [#1271](https://github.com/achimdehnert/platform/issues/1271)
+3. cc-skill-dist Source↔Distribution-Drift [#1271](https://github.com/achimdehnert/platform/issues/1271) (NEU): 29 quellenlose Commands (54 Source vs 83 distribuiert) reconcilen — Voraussetzung für #1115-Teardown
+4. **Review-Durchsatz (NEU, größter Hebel):** ~33 offene platform-PRs sind CI-grün und warten nur auf den 2.-Owner-Review; 8 davon mit Auto-Merge gequeued. 0 rote PRs. → [PR-Liste](https://github.com/achimdehnert/platform/pulls)
+5. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Checklisten-Ergänzung für die 2 echten Kandidaten **geliefert** ([#1275](https://github.com/achimdehnert/platform/pull/1275), offen). Rest-Strang: „lügender Index" ADR-072 + ADR-158 (Tabelle vorhanden, aber veraltet — Nachzieh-Welle wie #1170, Owner-Entscheid); Nebenfund Namenskollision KONZ-platform-001 weiterhin offen
+6. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
+7. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 
-**Diese Session (2026-06-11):**
-- **M6 Profil-B ✅ abgeschlossen** — PR #536 gemergt; bashrc-Block gesetzt; App public; Tokens iilgmbh+bahn-sqf grün.
-- **ADR-242 accepted** — PR #535 gemergt; `status: accepted`, `implementation_status: in_progress`.
-- **Rollout Phase 2 ✅** — 3 PRs parallel gemergt:
-  - #540: `ci / gate` Aggregat-Job in `platform/_ci-python.yml` (required-check-Basis)
-  - #541: `governance/rulesets/` — Template + Wave-1-Liste (7 Repos) + `tools/apply-branch-protection.sh`
-  - #542: `workflow_dispatch`-Workflow `apply-branch-protection.yml` — Pilot über GitHub Actions UI
-- **Permission** `Bash(gh api repos/*/rulesets*)` in `.claude/settings.local.json` gesetzt (ab nächster Session wirksam für direkten Script-Run).
+> **Erledigt 2026-07-19:** Owner-Block #1094 komplett + geschlossen (7/7 OIDC-Bindungen, 3 Pakete live, 4 Alt-Dubletten geyankt, 2. Owner) · ADR-278 accepted (#1266) · codeguard/ingest OIDC (#1267) · django-commons#12 + learnfw#9 Auth-Fixes · shared-ci publish-auth-guard v1.0.13 · #1265 zu, #1268 (Portfolio) ausgelagert · Handover-PR #1171 (stale) geschlossen · **Guard Block-Flip scharf** (shared-ci#33) + v1.0.14 fleet-weit gebumpt (promptfw#32/outlinefw#19) → ADR-278-Enforcement komplett.
+> **Erledigt 2026-07-19 (Abend-Session):** #1167-Umsetzungsschritt geliefert (#1275: KONZ-001 + KONZ-004 Kriterium→Status-Tabellen; KONZ-016/018 begründet ausgelassen) · **#1276 GEMERGT** — systemischer ADR-Frontmatter-Blocker (6 ADRs, deprecated Keys) fleet-weit gefixt, `validate` 225/225 · ADR-272-Nummernkollision gelöst (#1077 → ADR-279 umnummeriert, #1086 behält 272) · **Review-Stau von 6 auf 0 rote PRs** (#1027/#1026 gemergt; #1112/#1231/#1141/#1086/#1077/#1225 grün gezogen). **Lehre:** „stale-Index" war bei #1231/#1141 die *falsche* Erst-Diagnose — echter Root-Cause war der repo-weite Schema-Verstoß; ein Log-Blob (base64-HTML) verdeckte bei #1225 einen simplen transienten 503.
+> **Erledigt 2026-07-19 (Session-Start-Folgesession):** #1268 geschlossen (Portfolio: alle 6 Pakete behalten) · #1158 geschlossen (`secrets:inherit`: coach-hub bereits auf origin/main gefixt, risk-hub **False Positive** — same-org `iilgmbh` + keine private git-Dep) · #1115 Sweep-Entscheid (Labels behalten; Skill-„tot"-Signal via cc-skill-dist-Drift widerlegt → #1271) · #1167 Stichproben-Audit fortgesetzt (~8 Fix-Kandidaten). **Lehre:** #1 (Guard) + coach-hub-Teil von #2 waren bereits erledigt — nur sichtbar durch konsequente origin/main- statt lokale-Klon-Prüfung.
+> **Erledigt 2026-07-18 (Session-Start-Reconciliation, keine neue Arbeit):** Orchestrator-MCP wieder funktional — „Invalid Bearer Token" nicht mehr reproduzierbar, live verifiziert per 3 erfolgreichen Tool-Calls (`agent_memory_search` + `check_recurring_errors` + Outline-Search) am 2026-07-18; Ursache des Wieder-Funktionierens unbekannt (nicht untersucht) · Haupt-Retro [#1162](https://github.com/achimdehnert/platform/pull/1162) ist MERGED + APPROVED (war als „offen" geführt, Handover war stale).
+> **Erledigt 2026-07-15:** cad-hub#42 (war schon vor Session-Start gemergt, Handover war stale) · trading-hub#150 · coach-hub#40 · ADR-270-Vorbedingung (#1152) · Increment-Retro (#1165) · session-start-Checkliste-Nachbesserung (#1166).
+> **Erledigt 2026-07-13 (nachgezogen, war nur in PR #1122 unmerged dokumentiert):** KONZ-017 W1 sync-drift-meter #998 (#1009 gemergt) · usage_sweep.py (#1116 gemergt) · trading-hub Deploy-403 (#1070 zu) · PyPI-OIDC-Readiness codeguard/ingest (#1118 gemergt) · trading-hub PR #130 (README-Fix, inzwischen gemergt).
 
-**Offen — direkt umsetzbar (erster Zug nächste Session):**
-- **ADR-242 Phase 3 (Pilot):** Workflow via GitHub Actions UI triggern: Actions → "ADR-242: Apply Branch Protection (Wave 1)" → `dry_run: true` → dann live. ODER: `bash tools/apply-branch-protection.sh` direkt (Permission in settings.local.json ab nächster Session).
-- **ADR-242 Phase 4:** `branch-protection-meter` Workflow + Discord-Alert (ADR-242 §Rollout 4)
-- **coach-hub #28**: STOP — `django-lms-lite` privater Repo, kein CI-Zugriff. Dep-Entscheid.
-- **F4 CI-grün-Programm (Breite):** ~34 Repos rote main-CI; nächste Welle = Ruff/Config-Drift an der Quelle.
+> **Ältere Stände** (2026-07-10 Mail-Skill, 2026-06-20 F4/Wave-2 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Vorheriger Stand (2026-06-10 — ref-sweep abgeschlossen; nur coach-hub#28 offen)
-
-**Diese Session (2026-06-10, später):** **research-hub#6 gemergt** (squash, `7b3260d`). Zwei
-unabhängige teardown-Bugs gefixt (beide mit Standalone-Repro reproduziert, dann CI-grün):
-(1) async-ORM leakt worker-thread-DB-Connection (`asyncio.run` schließt sie nie) →
-`being accessed by other users` — Fix `await sync_to_async(connections.close_all)()` im
-Service; (2) `transaction=True`-flush-TRUNCATE ohne CASCADE scheitert an
-`tenancy_module_membership` (django_tenancy FK→auth_user, ADR-130) — Fix conftest-Fixture
-`sql_flush allow_cascade=True`. ⚠️ **Vorherige Diagnose „django-tenancy nicht für 3.12
-verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern → Memory
-`feedback_transaction_true_async_test_teardown`. Nur noch **coach-hub#28** offen (Dep-Entscheid).
-
-**Diese Session (2026-06-10):** weltenhub#16 verifiziert gemergt (2026-06-09 16:46 UTC) → **ref-sweep 12/12 ✅ komplett**.
-
-**Vorherige Session (2026-06-09 — F4-Fixes + Ref-Sweep-Abschluss):** `shared-ci v1.0.3` trägt `pg_isready -U test_user`-Fix. 5 multi-layer F4-Fixes für weltenhub, 3 für wedding-hub, 1 für onboarding-hub. Alle 12 Sweep-PRs gemergt (illustration#8, wedding#19, onboarding#2, travel-beat#38, tax-hub#4, recruiting-hub#7, dms-hub#3, cad-hub#23, billing-hub#6, mcp-hub#106/trading-hub#14, **weltenhub#16**). coach-hub#28 + research-hub#6 = STOP (research-hub#6 inzwischen gefixt+gemergt, s.o.).
-
-**Davor (2026-06-09 — shared-ci v1.0.2):** `deploy_runs_on`-Fix → v1.0.2; mcp-hub + trading-hub forward-gefixt; alle 12 Sweep-PRs auf @v1.0.2 re-pointet. Drift: `feedback_sharedci_tag_stale_vs_platform_main`.
-
-**Davor (2026-06-08):** F4-acute ✅, ADR-212 Phase-1 ✅, F1 .windsurf-Untrack ✅.
-
-**Offen — direkt umsetzbar (erster Zug nächste Session):**
-- **coach-hub #28**: STOP — `django-lms-lite` ist privater GitHub-Repo, kein CI-Zugriff (Test + Security Scan scheitern an `git clone … Authentication failed`). Entscheiden: Dep öffentlich machen / mirror / als Wheel vendoren / PAT-Zugriff fixen. = einzige offene ref-sweep-PR; Dep-Architektur-Entscheid, kein Test-Fix.
-- **M6 Profil B fertig:** nur noch manuell: App auf **„Any account"** + Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
-- **Branch-Protection-Lücke:** 0/14 Hubs haben required-status-checks auf `main` → no-bypass unenforced. ADR-Kandidat.
-- **#7 risk-hub→Enterprise-Transfer:** deferred (gegated hinter KONZ-002 S2).
-- **shared-ci Issue #3:** eigene CI (actionlint) für die reusable Workflows.
-
-**Kontext-Memories (auto-load):** 🌀 `feedback_sharedci_tag_stale_vs_platform_main` · `project_profile_b_app_state` · `project_riskhub_prod_launch` · 🌀 `feedback_commit_on_main_recurs` · 🌀 `feedback_merge_to_main_triggers_deploy`.
-
----
-
-## 0. Aktuelle Prioritäten (2026-06-24 — verifiziert via API/Fleet-Scan)
+## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz (ADR-209-Programm, NICHT ad-hoc); erst danach `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter erweitern. Worklist/Voraussetzung s. „Aktueller Stand 2026-06-20". | `[du/Sonnet]` |
-| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra): onboarding-hub = leeres `STAGING_HOST`-Secret (Deploy/Staging) · 137-hub = Docker-Build-Fail · dms/tax = `cancelled` (Concurrency, benign) · weltenhub = Docker build. | `[du/Owner]` |
+| 1 | **ADR-242 Wave 3** — Tracking **[#811](https://github.com/achimdehnert/platform/issues/811)**. **Realer Stand 2026-07-10 (gegen #811+Retro abgeglichen, weiter als der Issue selbst zeigt):** Phase 1 (learn-hub, recruiting-hub, travel-beat) komplett, gemergt UND live Wave-3-geschützt. Zusätzlich 3 Repos außerhalb der ursprünglichen Worklist live geschützt (weltenhub, illustration-hub, research-hub) — **nachträglich offiziell in #811 aufgenommen** (Entscheid Achim 07-10). Phase 2 (~23 Standalone-Libs): 13/23 verifiziert+gemergt; Rest-Kohorte in **[#987](https://github.com/achimdehnert/platform/issues/987)** (Task A: gaeb-toolkit/riskfw/weltenfw nur PR-Head-Verify; Task B: outlinefw/promptfw gated auf shared-ci#20); 5 strukturell exkludiert. Formales Phase-3-Apply-Artefakt (`wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter) **existiert noch nicht** — die 6 Live-Rulesets liefen ad-hoc außerhalb dieses Prozesses. | `[Sonnet, via #811]` |
+| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra). **Re-Check 2026-07-02: weitgehend geheilt** — onboarding-hub grün (seit 06-24), 137-hub grün (seit 06-21), weltenhub grün (07-01, cancelled=Concurrency benign); dms-hub weiter `cancelled` (benign, letzte Runs 06-09). **tax-hub „Issue Triage" 3× failure (07-01/02)** — Root-Cause `Input required and not supplied: github-token` (Repo hat 0 Secrets, `PROJECT_PAT` fehlt; risk-/coach-hub identisches Muster + PAT = grün). **Fix-PR iilgmbh/tax-hub#20 offen** (Fallback `PROJECT_PAT \|\| github.token`; Self-Approval-Block → wartet auf Owner-Merge; bei Merge `[skip ci]` beachten — deploy.yml feuert auf push:main ohne paths-Filter). Alternative: PROJECT_PAT als Secret setzen (Owner). | `[du/Owner]` |
+
+> **Fortschritt 2026-07-03 (Session 54a76c):** Prio 1 (Wave 3): Scope +„Registry-Konsistenz required machen" (#811-Kommentar — Check ist heute NICHT required, nur `guardian`; Realfall #883/#884/#885 mergten rot). Prio 2 (Deploy-Health): **ADR-264 accepted** = strategischer Rahmen steht; travel-beat-Deploy wieder grün (#57); mcp-hub `/mcp` live; Rest-Item = shared-ci#17-Rollout.
+>
+> **Fortschritt 2026-07-06 (ERLEDIGT):** **Prio 1 — Wave-3 Phase 1 KOMPLETT** (alle 3 gemergt, `ci / gate` real grün verifiziert): learn-hub#25 (`name:"CI"`-Override raus) · recruiting-hub#13 + travel-beat#62 (**Option A1 = additiver `ci`-Job neben bestehender bespoke Test-CI**, kein Coverage-Verlust — der ursprüngliche #811-Befund „KEIN PR-getriggertes ci.yml" war für beide veraltet). recruiting#10/travel#55/learn#23 auto-closed. **Nächster Wave-3-Schritt = Phase 2** (~23 Standalone-Libs, Worklist in #811), dann Apply. **Prio 2 — Deploy-Health geheilt + live:** billing-hub 403 = **Package-`Manage Actions access` fehlte dem Repo** (NICHT Workflow — identische deploy.yml wie cad-hub, das grün pushte); Owner-Fix im Package-Setting → Rerun grün, `billing.iil.pet/healthz` 200. cad-hub = transienter GHA-Cache-Timeout → Rerun grün, `nl2cad.de/healthz` 200. **Neu: Runbook `docs/runbooks/ghcr-403-push-actions-access.md` (#967) + CC-Memory `reference_ghcr_403_push_package_actions_access`.**
+
+> **Fortschritt 2026-07-08 (unmerged geblieben, PR #985, jetzt konsolidiert):** Phase 2 zu 13/23 verifiziert+gemergt; shared-ci#20-Blocker gefunden; Rest-Kohorte in #987 aufgeteilt (Task A/B). Details: s. Aktueller Stand.
+>
+> **Fortschritt 2026-07-09/10 (ABGEGLICHEN gegen #811 + Retro, 2026-07-10):** Wave-3-Ruleset live auf 6 Repos (nicht 9 — Memory-Zahl war falsch, korrigiert gegen Retro-Ground-Truth), davon 3 außerhalb der #811-Worklist (weltenhub/illustration-hub/research-hub, jetzt nachträglich aufgenommen) + Live-Incident selbst behoben; ADR-270 accepted. **Formales Phase-3-Apply-Artefakt fehlt weiterhin.** Details: s. Aktueller Stand + #811-Kommentar.
+>
+> **Fortschritt 2026-07-10 (NEU, offen):** weltenhub-Redis-Incident gelöst (s. Aktueller Stand). Drei Folge-Items offen, alle Human-Decision/Freigabe, keine autonome Ausführung: (1) `ausschreibungs-hub-staging` authentik-Provider/-Application vorbereitet (client_id/signing_key/scopes/redirect geklärt gegen risk-hub-Referenz-Pattern), Freigabe-Block gestellt, Session endete vor Bestätigung — nächste Session kann direkt ausführen, kein erneutes Research nötig. (2) `staging-demo.schutztat.de` DNS-Record (→178.104.184.168) — Entscheid offen. (3) "platform"-Governance-DB (`PLATFORM_DB_HOST=bfagent_db`, degradiert aifw-AI-Features) — Entscheid offen, braucht erst Konsumenten-Inventar. (4) KONZ-platform-015 liegt lokal in `platform` (untracked, main geschützt) — braucht Worktree+PR zum Mergen, dann User-Accept-Entscheid für die Empfehlungen REC-1..REC-7. (5) **Deploy-Health-Scan (session-start) fand 3 neue `failure`** auf coach-hub/trading-hub/pptx-hub, nicht triagiert — s. Aktueller Stand.
+
+> **PR-Hygiene (erledigt 2026-07-02, Freigabe Achim):** #753 + #746 geschlossen (Duplikate von gemergtem #808) · **#760 gemergt** (Registry iil-adrfw/codeguard — Registry-Lücke zu) · **#759 gemergt** (gen_adr_index.py; Rebase-Konflikt in INDEX.md durch Generator-Lauf gelöst, 206 aktive + 48 archivierte ADRs indiziert).
 
 > **✅ Retired/erledigt (2026-06-24, hart verifiziert — billigster Check gemacht):**
 > - **F4 CI-grün** als Code-CI-Programm GESCHLOSSEN (Fleet-Scan: 0 Lint/Test/Coverage-Rot; alle Roten = Deploy-Stage). **Kein Sonnet-Material mehr** — nicht erneut als Sonnet-Queue listen.
@@ -183,29 +112,36 @@ verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern �
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
-**CC-Skill-Dist** (platform): `doctor.py` DRIFT-SCORE 0 ✓ (74 Skills, 2026-06-01)
+**CC-Skill-Dist** (platform): Drift-Score live prüfen — `python3 tools/cc-skill-dist/doctor.py` (Zahl driftet mit jedem neuen/geänderten Skill, hier nicht einfrieren)
 
 ---
 
-## 1. MCP-Server & Prefixes (aktuell)
+## 1. MCP-Server & Tool-Calls
 
-| Prefix | MCP-Server | Zweck |
-|--------|-----------|-------|
-| `mcp0_` | **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
-| `mcp1_` | **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
-| `mcp2_` | **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
-| `mcp3_` | **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
-| `mcp4_` | **paperless-docs** | Dokumente, Rechnungen, Archive |
-| `mcp5_` | **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
-| `mcp6_` | **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
-
-**Wichtigste Tool-Calls (Claude Code — `mcp__<server>__<tool>` Format):**
+**Claude Code (aktuell, `mcp__<server>__<tool>` Format) — wichtigste Tool-Calls:**
 - GitHub: `mcp__github__create_issue`, `mcp__github__get_pull_request`
 - Memory: `mcp__orchestrator__agent_memory_context(task_description, top_k=5)`
 - Deploy-Status: `mcp__orchestrator__deploy_check(action="health", repo=...)`
 - Browser: `mcp__playwright__browser_navigate`, `mcp__playwright__browser_snapshot`
 
-> Windsurf-Agents nutzen `mcp0_`–`mcp6_`-Prefixe — aber Windsurf wird seit ADR-230 nicht mehr zum Coden eingesetzt (nur ADR-Review-Subset).
+**Server-Übersicht (7):**
+
+| Server | Zweck |
+|--------|-------|
+| **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
+| **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
+| **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
+| **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
+| **paperless-docs** | Dokumente, Rechnungen, Archive |
+| **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
+| **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
+
+### Windsurf-Legacy (kein Coding mehr, ADR-230)
+
+Windsurf-Agents nutzten die o. g. Server über numerische Prefixe (`mcp0_`–`mcp6_` in
+derselben Reihenfolge wie oben). Seit ADR-230 wird Windsurf **nicht mehr zum Coden**
+eingesetzt (nur ADR-Review-Subset) — die Prefix-Tabelle ist nur noch für das Lesen
+alter Sessions/Logs relevant, kein aktives Interface mehr.
 
 ---
 
@@ -251,7 +187,7 @@ verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern �
 
 ## 4. Master Repo Identifier
 
-**Alle 41 Repos in einer Registry:**
+**Alle Repos in einer Registry** (Anzahl live: `python3 -c "import yaml; print(len(yaml.safe_load(open('registry/canonical.yaml'))['repos']))"`):
 
 ```bash
 # project-facts.md für alle Repos generieren (nur fehlende)
@@ -297,9 +233,12 @@ python3 ~/github/platform/scripts/gen_project_facts.py --force  # alle
 **Reusable Workflows:** `achimdehnert/platform/.github/workflows/_ci-python.yml` etc.
 
 **Repo-Kategorien:**
-- **Django Hubs** (22): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, mcp-hub, 137-hub, bfagent, tax-hub
+- **Django Hubs** (21): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, 137-hub, bfagent, tax-hub
 - **Python Libraries** (14): aifw, authoringfw, promptfw, illustration-fw, learnfw, weltenfw, outlinefw, researchfw, testkit, iil-reflex, iil-ingest, iil-enrichment, iil-fieldprefill, nl2cad
 - **Infra** (5): platform, mcp-hub, infra-deploy, iil-relaunch, lastwar-bot
+
+(Diese Kategorien sind kein vollständiges Abbild von `registry/canonical.yaml` — Gesamtzahl
+live siehe oben unter §4; bei Abweichung ist die Registry maßgeblich, nicht diese Liste.)
 
 ---
 
