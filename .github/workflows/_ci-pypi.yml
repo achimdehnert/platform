@@ -85,6 +85,16 @@ on:
         required: false
         default: '-r src'
         type: string
+      bandit_blocking:
+        description: >-
+          Make the bandit SAST job blocking — a finding fails CI and the
+          aggregate gate. Default false = advisory (continue-on-error), the
+          historical iil-adrfw behaviour. Mirrors mypy_blocking; opt in once
+          a repo's bandit run is green so a permanently-red advisory check
+          can't hide a real future finding (Retro e17299 F6 / alert-fatigue).
+        required: false
+        default: false
+        type: boolean
       enable_build:
         description: >-
           Build the distribution (python -m build), validate metadata
@@ -299,14 +309,16 @@ jobs:
               || echo "⚠️  CVEs found — see output above (non-blocking per caller opt-out)"
           fi
 
-  # ── SAST (bandit, advisory) ───────────────────────────────────────────────
+  # ── SAST (bandit) ─────────────────────────────────────────────────────────
   # Retro e17299 F6: iil-adrfws Vorgänger-CI hatte bandit (advisory); die
   # 2b-Konvergenz ließ es ersatzlos entfallen. Opt-in-Wiederherstellung.
+  # Advisory by default (continue-on-error); a caller flips bandit_blocking=true
+  # to make findings fail CI + gate, once its bandit run is green.
   bandit:
-    name: "SAST (bandit, non-blocking)"
+    name: "SAST (bandit, ${{ inputs.bandit_blocking && 'blocking' || 'advisory' }})"
     if: ${{ inputs.enable_bandit }}
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true
+    continue-on-error: ${{ !inputs.bandit_blocking }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -322,8 +334,9 @@ jobs:
   # Python-Version) in den Vertrag — ändert der Caller python_versions,
   # blockt main dauerhaft. Muster aus _ci-python.yml:gate übernommen:
   # Protections zeigen NUR auf "<caller-job> / gate" (stabil, matrix-frei).
-  # skipped zählt als ok (opt-in-Jobs); mypy zählt nur bei mypy_blocking,
-  # weil continue-on-error=true das Ergebnis ohnehin auf success setzt.
+  # skipped zählt als ok (opt-in-Jobs); mypy/bandit zählen nur bei
+  # mypy_blocking/bandit_blocking, weil continue-on-error=true das Ergebnis
+  # sonst ohnehin auf success setzt.
   gate:
     name: "gate"
     runs-on: ${{ inputs.runs_on }}

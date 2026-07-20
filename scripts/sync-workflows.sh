@@ -20,7 +20,14 @@ set -euo pipefail
 GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 PLATFORM_WF="${GITHUB_DIR}/platform/.windsurf/workflows"
 DRY_RUN=false
+STRICT=false
 SINGLE_REPO=""
+
+# SKIP-Längsaggregation (ADR-265 REC-1): sammelt Repo-Namen, die SKIP-REPO
+# (Ignore-Guard) bzw. SKIP-TRACKED (Tracked-Guard) ausgelöst haben, für die
+# Schluss-Summary-Zeile. Rein additiv — ändert das Guard-Verhalten selbst nicht.
+SKIP_REPO_NAMES=()
+SKIP_TRACKED_NAMES=()
 
 # --- Workflow-Kategorien ---
 
@@ -92,29 +99,34 @@ PACKAGE=(
 # cascade-auftraege, idea-intake, agent-review, workflow-review,
 # docu-repo-all, platform-audit, onboard-stack
 
-# --- Repo-Typen (SSoT: registry/github_repos.yaml) ---
+# --- Repo-Typen (SSoT: registry/repos.yaml → generierte Flat-View der canonical.yaml) ---
+# ADR-275 P1: Migriert von der manuell gepflegten, stalen registry/github_repos.yaml
+# auf die gegatete Flat-View (scripts/repo-registry.yaml, aus canonical.yaml generiert).
+# Klassifikation nach `type`: django → DJANGO_HUBS, library/framework → PACKAGES.
+# Die Zuordnung ist total (unbekannte Typen → weder django noch package = 'other',
+# unverändertes bestehendes Verhalten).
 
-REGISTRY="${GITHUB_DIR}/platform/registry/github_repos.yaml"
+REGISTRY="${GITHUB_DIR}/platform/scripts/repo-registry.yaml"
 
 if [[ ! -f "$REGISTRY" ]]; then
     echo "ERROR: Registry nicht gefunden: $REGISTRY" >&2
     exit 1
 fi
 
-# Aus github_repos.yaml lesen: django_apps + org_django_apps → DJANGO_HUBS, frameworks → PACKAGES
 read -r -a DJANGO_HUBS <<< "$(python3 -c "
-import yaml, sys
+import yaml
 with open('${REGISTRY}') as f:
     data = yaml.safe_load(f)
-apps = list(data.get('django_apps', {}).keys()) + list(data.get('org_django_apps', {}).keys())
-print(' '.join(apps))
+repos = data.get('repos', {})
+print(' '.join(n for n, v in repos.items() if (v or {}).get('type') == 'django'))
 ")"
 
 read -r -a PACKAGES <<< "$(python3 -c "
-import yaml, sys
+import yaml
 with open('${REGISTRY}') as f:
     data = yaml.safe_load(f)
-print(' '.join(data.get('frameworks', {}).keys()))
+repos = data.get('repos', {})
+print(' '.join(n for n, v in repos.items() if (v or {}).get('type') in ('library', 'framework')))
 ")"
 
 # --- Parse Args ---
@@ -122,11 +134,13 @@ print(' '.join(data.get('frameworks', {}).keys()))
 for arg in "$@"; do
     case "$arg" in
         --dry-run) DRY_RUN=true ;;
+        --strict) STRICT=true ;;
         --help|-h)
-            echo "Usage: $0 [--dry-run] [repo-name]"
+            echo "Usage: $0 [--dry-run] [--strict] [repo-name]"
             echo ""
             echo "Sync platform workflows as symlinks to all repos."
             echo "  --dry-run   Show what would be done, don't change anything"
+            echo "  --strict    Exit 1 if any repo was skipped (SKIP-REPO/SKIP-TRACKED)"
             echo "  repo-name   Only sync a single repo"
             exit 0
             ;;
@@ -238,6 +252,7 @@ sync_repo() {
     if ! git -C "$repo_dir" check-ignore -q ".windsurf/workflows/__adr265_probe__.md" 2>/dev/null; then
         echo "📦 ${repo_name}"
         echo "  SKIP-REPO: '.windsurf/' nicht in .gitignore — Zeile committen, dann sync (ADR-265)"
+        SKIP_REPO_NAMES+=("$repo_name")
         return
     fi
 
@@ -252,6 +267,10 @@ sync_repo() {
     $is_package && type_label="package"
 
     local changes=0
+    # SKIP-Längsaggregation (ADR-265 REC-1): merkt sich nur, OB dieses Repo
+    # mindestens einen SKIP-TRACKED-Treffer hatte (nicht welche Workflows) —
+    # additive Auswertung des ohnehin schon geechoten Guard-Outputs.
+    local tracked_hit=false
 
     # Universal Workflows
     for wf in "${UNIVERSAL[@]}"; do
@@ -263,6 +282,7 @@ sync_repo() {
             fi
             echo "$before"
             changes=$((changes + 1))
+            [[ "$before" == *"SKIP-TRACKED"* ]] && tracked_hit=true
         fi
     done
 
@@ -277,6 +297,7 @@ sync_repo() {
                 fi
                 echo "$before"
                 changes=$((changes + 1))
+                [[ "$before" == *"SKIP-TRACKED"* ]] && tracked_hit=true
             fi
         done
     fi
@@ -292,9 +313,16 @@ sync_repo() {
                 fi
                 echo "$before"
                 changes=$((changes + 1))
+                [[ "$before" == *"SKIP-TRACKED"* ]] && tracked_hit=true
             fi
         done
     fi
+
+    $tracked_hit && SKIP_TRACKED_NAMES+=("$repo_name")
+    # Expliziter Erfolgs-Return: unter `set -e` würde sonst der obige `&&`-
+    # Ausdruck mit tracked_hit=false (Exit 1, kein Guard-Fehler) als
+    # sync_repo()-Exit-Status durchschlagen und den ganzen Lauf abbrechen.
+    return 0
 }
 
 # --- Main ---
@@ -320,3 +348,18 @@ fi
 
 echo ""
 echo "=== Done ==="
+
+# SKIP-Längsaggregation (ADR-265 REC-1): Schluss-Summary über den Lauf, damit
+# ein dauerhaft übersprungenes Repo nicht unbemerkt von Workflow-Updates
+# abgeschnitten bleibt. Rein additiv — die Per-Lauf-Echos oben bleiben
+# unverändert; --strict nutzt dieselbe Aggregation für einen CI-Fallback.
+TOTAL_SKIPS=$((${#SKIP_REPO_NAMES[@]} + ${#SKIP_TRACKED_NAMES[@]}))
+if [[ $TOTAL_SKIPS -gt 0 ]]; then
+    echo "SKIP-SUMMARY: ${TOTAL_SKIPS} Repo(s) übersprungen (SKIP-REPO: $(IFS=,; echo "${SKIP_REPO_NAMES[*]-}"); SKIP-TRACKED: $(IFS=,; echo "${SKIP_TRACKED_NAMES[*]-}"))"
+else
+    echo "SKIP-SUMMARY: 0 Repos übersprungen"
+fi
+
+if $STRICT && [[ $TOTAL_SKIPS -gt 0 ]]; then
+    exit 1
+fi

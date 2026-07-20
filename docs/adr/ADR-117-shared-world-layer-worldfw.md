@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-03-10
+decision_date: 2026-03-10
 updated: 2026-07-01
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: Cascade
 implementation_status: implemented
 implementation_evidence:

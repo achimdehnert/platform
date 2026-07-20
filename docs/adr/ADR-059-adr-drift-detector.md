@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-02-21
+decision_date: 2026-02-21
 amended: 2026-02-24
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: implemented

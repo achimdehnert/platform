@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-04",
-  "total": 209,
-  "next_free": 267,
+  "generated": "2026-07-19",
+  "total": 224,
+  "next_free": 279,
   "adrs": [
     {
       "number": 7,
@@ -1446,7 +1446,9 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022, ADR-042, ADR-054, ADR-056, ADR-057, ADR-061, ADR-071, ADR-089"
+      ],
       "implementation_status": "implemented"
     },
     {
@@ -1802,7 +1804,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-269"
+      ],
       "related": [],
       "implementation_status": "partial"
     },
@@ -2587,7 +2591,10 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022 (Platform Consistency Standard — BigAutoField)",
+        "ADR-035 (Shared Django Tenancy)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -2602,7 +2609,14 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-040",
+        "ADR-041",
+        "ADR-050",
+        "ADR-051",
+        "ADR-058",
+        "ADR-059"
+      ],
       "implementation_status": ""
     },
     {
@@ -2757,7 +2771,12 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-113 (pgvector Agent Memory Store)",
+        "ADR-161 (Two-Layer-Schema with Supersession Chain for SDS)",
+        "ADR-170 (iil-ingest Document Ingestion Package)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -2772,7 +2791,13 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-010 (MCP Tool Governance)",
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-113 (pgvector — bestehende Infrastruktur)",
+        "ADR-170 (iil-ingest — Text-Extraktion)",
+        "ADR-171 (Temporal RAG Infrastructure — Schema)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -3069,7 +3094,15 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-087 (Hybrid Search Architecture — platform-search Package)",
+        "ADR-170 (iil-ingest — Document Ingestion Package)",
+        "ADR-171 (Temporal RAG Infrastructure — Schema)",
+        "ADR-172 (rag-mcp Server — Platform-Wide RAG API)",
+        "ADR-173 (Document Intake Routing Pattern)",
+        "ADR-187 (Document Intelligence Pipeline)"
+      ],
       "implementation_status": "partial"
     },
     {
@@ -3106,8 +3139,10 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-059 (Automated ADR Drift Detection)",
         "ADR-065 (Filesystem-first ADR numbering)",
         "ADR-071 (Code Quality Tooling)",
+        "ADR-083 (Hybrid ADR Governance)",
         "ADR-138 (Implementation Tracking Standard)"
       ],
       "implementation_status": "implemented"
@@ -3130,7 +3165,13 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-010 (MCP Tool Governance)",
+        "ADR-048 (HTMX Playbook)",
+        "ADR-056 (Deployment Pre-Flight Validation)",
+        "ADR-075 (Read-Only MCP / Write via GitHub Actions)",
+        "ADR-190 (iil-adrfw Tooling Framework)"
+      ],
       "implementation_status": "verified"
     },
     {
@@ -3150,7 +3191,12 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-043 (Database-First Conventions)",
+        "ADR-048 (HTMX Playbook)",
+        "ADR-057 (Four-Level Test Strategy)",
+        "ADR-191 (iil-codeguard Library-First Tooling)"
+      ],
       "implementation_status": "verified"
     },
     {
@@ -3170,7 +3216,13 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-021 (Unified Deployment Pipeline)",
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-056 (Deployment Pre-Flight Validation)",
+        "ADR-094 (Migration Conflict Resolution)",
+        "ADR-191 (iil-codeguard Library-First Tooling)"
+      ],
       "implementation_status": "verified"
     },
     {
@@ -3190,7 +3242,11 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-115 (Grafana Agent Controlling Dashboard — llm_calls table)",
+        "ADR-116 (Dynamic Model Router — budget-aware routing)",
+        "ADR-178 (LLM Gateway Consolidation — V2 as canonical)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -3212,7 +3268,11 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-115 (Grafana Agent Controlling Dashboard — llm_calls table)",
+        "ADR-116 (Dynamic Model Router — budget-aware routing)",
+        "ADR-178 (LLM Gateway Consolidation — V2 as canonical)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -3255,6 +3315,9 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-113 (Agent Memory — pgvector store + temporal decay)",
+        "ADR-176 (MCP Server SSoT — templates + sync-mcp-config.sh)",
+        "ADR-186 (Headless Agent Pipeline — tool-usage telemetry source)",
         "PR #131 (fix(session-ende): correct MCP prefixes + agent_memory API for WSL)",
         "docs/concepts/token-reduction-strategy.md"
       ],
@@ -3799,10 +3862,15 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-009 (Service Layer Pattern)",
+        "ADR-022 (BigAutoField Platform Standard)",
         "ADR-023 (Shared Scoring & Routing Engine)",
         "ADR-028 (Platform Context)",
         "ADR-045 (SOPS Secrets Management)",
-        "ADR-059 (Drift-Detector)"
+        "ADR-059 (Drift-Detector)",
+        "ADR-072 (Multi-Tenancy Schema Isolation)",
+        "ADR-115 (LLM Usage Logging)",
+        "ADR-178 (LLM Gateway Consolidation)"
       ],
       "implementation_status": "none"
     },
@@ -3939,7 +4007,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-263"
+      ],
       "related": [],
       "implementation_status": ""
     },
@@ -4346,7 +4416,7 @@
         "ADR-216",
         "ADR-225"
       ],
-      "implementation_status": ""
+      "implementation_status": "implemented"
     },
     {
       "number": 247,
@@ -4602,7 +4672,7 @@
         "ADR-224",
         "ADR-238"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial"
     },
     {
       "number": 257,
@@ -4682,6 +4752,74 @@
       "implementation_status": "pilot"
     },
     {
+      "number": 261,
+      "id": "ADR-261",
+      "file": "ADR-261-cmis-first-dms-abstraktion-rest-veredelung.md",
+      "title": "CMIS-first DMS-Abstraktion mit optionaler native-REST-Veredelung",
+      "status": "proposed",
+      "date": "2026-06-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "meiki:ADR-001",
+        "meiki:ADR-002",
+        "meiki:ADR-003",
+        "meiki:ADR-015"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 262,
+      "id": "ADR-262",
+      "file": "ADR-262-sha-pin-github-actions.md",
+      "title": "— GitHub-Actions per SHA pinnen (Supply-Chain-Härtung, fleet-weit)",
+      "status": "proposed",
+      "date": "2026-07-02",
+      "domains": [
+        "security",
+        "ci-cd",
+        "supply-chain",
+        "infra"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-226",
+        "ADR-229"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 263,
+      "id": "ADR-263",
+      "file": "ADR-263-windsurf-rules-distributor-hardening.md",
+      "title": "— `receive-windsurf-rules.yml`: PR statt Push-to-main, Typ-Filter, Least-Privilege",
+      "status": "proposed",
+      "date": "2026-07-02",
+      "domains": [
+        "security",
+        "ci-cd",
+        "tooling",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-229"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-230"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
       "number": 264,
       "id": "ADR-264",
       "file": "ADR-264-canonical-deployment-strategy-and-supersession-gate.md",
@@ -4747,6 +4885,280 @@
         "ADR-265"
       ],
       "implementation_status": "partial"
+    },
+    {
+      "number": 267,
+      "id": "ADR-267",
+      "file": "ADR-267-review-requirement-deploy-approvals.md",
+      "title": "Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)",
+      "status": "accepted",
+      "date": "2026-07-08",
+      "domains": [
+        "security",
+        "process",
+        "governance",
+        "deployment",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-268",
+        "KONZ-platform-014"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 268,
+      "id": "ADR-268",
+      "file": "ADR-268-projekt-assurance-tiers.md",
+      "title": "Projekt-Assurance-Tiers — Projektart × Reife-Phase als plattformweite Risiko-Achse (Cross-Repo)",
+      "status": "accepted",
+      "date": "2026-07-09",
+      "domains": [
+        "governance",
+        "process",
+        "security",
+        "deployment",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "KONZ-platform-009"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 269,
+      "id": "ADR-269",
+      "file": "ADR-269-tenant-scoping-fail-closed-contract.md",
+      "title": "— Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein",
+      "status": "proposed",
+      "date": "2026-07-02",
+      "domains": [
+        "architecture",
+        "multi-tenancy",
+        "security",
+        "data-sovereignty"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-109"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-035",
+        "ADR-072",
+        "ADR-137",
+        "ADR-237"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 270,
+      "id": "ADR-270",
+      "file": "ADR-270-merge-automation-fleet-tiered.md",
+      "title": "Merge-Automatisierung fleet-weit einführen — risiko-getiert (Tier A: strict=false + Auto-Merge · Tier B: Merge-Queue)",
+      "status": "accepted",
+      "date": "2026-07-09",
+      "domains": [
+        "architecture",
+        "ci-cd",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-046",
+        "ADR-234",
+        "ADR-242",
+        "ADR-264"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 271,
+      "id": "ADR-271",
+      "file": "ADR-271-adr-scaffold-madr4-unification.md",
+      "title": "Adopt MADR 4.0 section structure for the /adr skill scaffold",
+      "status": "accepted",
+      "date": "2026-07-10",
+      "domains": [
+        "governance",
+        "documentation",
+        "adr-process"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-046",
+        "ADR-056",
+        "ADR-059"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 272,
+      "id": "ADR-272",
+      "file": "ADR-272-distribution-contract-bounded-latency.md",
+      "title": "Adopt a machine-readable distribution contract with bounded redistribution latency",
+      "status": "proposed",
+      "date": "2026-07-11",
+      "domains": [
+        "governance",
+        "tooling",
+        "distribution"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-229",
+        "ADR-230",
+        "ADR-234",
+        "ADR-258",
+        "ADR-263",
+        "ADR-265"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 273,
+      "id": "ADR-273",
+      "file": "ADR-273-writing-hub-composition-ssot.md",
+      "title": "writing-hub as composition SSoT for generative long-form authoring; facts and structured templates via shared iil-* packages",
+      "status": "proposed",
+      "date": "2026-07-13",
+      "domains": [
+        "architecture",
+        "authoring",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-155",
+        "ADR-169",
+        "ADR-170",
+        "ADR-253",
+        "ADR-254",
+        "ADR-274"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 274,
+      "id": "ADR-274",
+      "file": "ADR-274-iil-doc-templates-adoption.md",
+      "title": "Adopt iil-doc-templates as the reusable structured-document template engine (Django-app tier)",
+      "status": "accepted",
+      "date": "2026-07-13",
+      "domains": [
+        "architecture",
+        "tooling"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-169",
+        "ADR-170",
+        "ADR-273"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 275,
+      "id": "ADR-275",
+      "file": "ADR-275-registry-ssot-consolidation.md",
+      "title": "Registry-SSoT-Konsolidierung — canonical.yaml als einzige Quelle, github_repos.yaml stilllegen",
+      "status": "accepted",
+      "date": "2026-07-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022",
+        "ADR-157",
+        "ADR-234"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 276,
+      "id": "ADR-276",
+      "file": "ADR-276-cross-repo-document-classification-routing.md",
+      "title": "Cross-Repo-Dokumenten-Klassifikation & Routing — selbstlernender Platform Agent in dev-hub, Geschwister-Architektur zum mPA/Voice-Agent",
+      "status": "proposed",
+      "date": "2026-07-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-050",
+        "ADR-170",
+        "ADR-249",
+        "ADR-274"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 277,
+      "id": "ADR-277",
+      "file": "ADR-277-dokument-manifest-cross-system-deskriptor.md",
+      "title": "Dokument-Manifest — sprachneutraler Cross-System-Deskriptor (Datenvertrag, nicht Zugriffsprotokoll)",
+      "status": "proposed",
+      "date": "2026-07-16",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "dms-hub:KONZ-dms-hub-001",
+        "meiki:ADR-015",
+        "platform:ADR-149",
+        "platform:ADR-261"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 278,
+      "id": "ADR-278",
+      "file": "ADR-278-oidc-trusted-publishing-only.md",
+      "title": "OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate",
+      "status": "proposed",
+      "date": "2026-07-19",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-255",
+        "ADR-266"
+      ],
+      "implementation_status": ""
     },
     {
       "number": 400,

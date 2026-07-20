@@ -17,6 +17,11 @@ repos:
     staging_url: staging.137herz.de
     port: 8095
     health: /livez/
+  apo-hub:
+    type: django
+    prod_url: apo.iil.pet
+    port: 8042
+    health: /livez/
   aifw:
     type: library
     pypi: aifw
@@ -52,7 +57,7 @@ repos:
   decks-hub:
     type: static
     prod_url: decks-hub.iil.pet
-    port: 8111
+    port: 8112
     health: /healthz/
   dev-hub:
     type: django
@@ -105,6 +110,10 @@ repos:
     type: library
     pypi: iil-testkit
     note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
+  iil-voice-agent:
+    type: library
+    note: Souveräner Telefon-/Sprachagent (mPA/Telefonagent, iilgmbh) — Hexagonal-Core mit swappable LLM/Voice/Knowledge-Ports
+      (platform:ADR-249). Scaffold/MVP, kein Deploy.
   illustration-fw:
     type: library
     pypi: illustration-fw
@@ -129,15 +138,18 @@ repos:
     pypi: learnfw
   mcp-hub:
     type: infra
-    prod_url: mcp.iil.pet
+    prod_url: orchestrator.iil.pet
     port: 3000
-    note: MCP Orchestrator Server
+    note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
+      C4:8000)
+  meiki-hub:
+    type: django
   nl2cad:
     type: library
     pypi: nl2cad
   odoo-hub:
     type: infra
-    prod_url: odoo-hub.iil.pet
+    prod_url: odoo.iil.pet
     port: 8069
     health: /web/health
   onboarding-hub:
@@ -199,10 +211,12 @@ repos:
     port: 8088
     db: tradinghub
     health: /livez/
+  ttz-hub:
+    type: django
   travel-beat:
     type: django
-    prod_url: travel-beat.iil.pet
-    staging_url: staging.travel-beat.iil.pet
+    prod_url: drifttales.app
+    staging_url: staging.drifttales.com
     port: 8089
     health: /livez/
   wedding-hub:

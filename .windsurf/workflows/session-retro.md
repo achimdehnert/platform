@@ -77,9 +77,21 @@ Kontext = Bruch von Regel 1. „Billiger" heißt **Sonnet-Subagent**, nicht **ke
 Opus-Subagenten nur, wenn Sonnet nachweislich an Nuance scheitert.
 
 ## Phase 1 — Collect (Ground Truth, frischer Ermittler)
+**Frisch-Checkout-Pflicht (GATE-PFLICHTIG, 7. Vorkommen — Lehre 2026-07-16):** der
+allererste Befehl gegen jedes Scope-Repo ist `git fetch origin <default-branch>`,
+**bevor** irgendein `git log`/`git status`/`git diff` gegen den lokalen Checkout liest —
+auch bei `lean`-Footprint und auch wenn Phase 1 inline (ohne Subagent) läuft. Diese
+Pflicht galt bisher nur explizit für Phase 3 (Skeptiker); `stale-local-clone-as-ground-truth`
+trat dadurch ein 7. Mal auf, diesmal in Phase 1 selbst (`session-retro-2026-07-16-
+iil-klickdummy-d80d23`): 4 gemergte PRs wurden übersehen, weil `git log` gegen einen
+ungefetchten lokalen `main` lief, was einen falschen Befund erzeugte, der beinahe zum
+Merge der falschen PR geführt hätte. Diese Zeile ersetzt das bloße Hoffen auf
+Einzelfall-Disziplin — exakt wie die Phase-3-Zeile es bereits für Skeptiker tut.
+
 Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
 - `gh pr list --repo <owner>/<repo> --state all --search "updated:>=<datum>"` (+ `gh issue list`)
-- `git -C ~/github/<repo> log --oneline --since=<…>` + `git diff --stat` wo sinnvoll
+- `git -C ~/github/<repo> fetch origin <default-branch>` **zuerst**, dann `log --oneline --since=<…>`
+  gegen `origin/<default-branch>` (nicht den lokalen Branch) + `git diff --stat` wo sinnvoll
 - CI/main-Status der betroffenen Repos (`gh run list --branch main`)
 
 **Aktiv nach red_flags suchen, die ein Self-Review systematisch übersieht:**
@@ -144,6 +156,14 @@ Verify wiederholte es → ein falscher Befund „kein Testfile" überlebte.)
 **Belegpflicht gilt AUCH für Längsschnitt-/Wiederholungs-Behauptungen** (Phase 4): „wiederholt
 Drift-Memory X" ist ein Befund → X muss per `ls`/`grep` existieren, sonst REFUTED. (Realfall:
 Verweis auf nicht-existente Memory `claim-confidence-vs-cheapest-check`.)
+
+**Frisch-Checkout-Pflicht (Lehre 2026-07-06 — GATE-PFLICHTIG, 3. Vorkommen):** Jeder
+Skeptiker-Prompt beginnt zwingend mit `git fetch origin <default-branch>` und prüft gegen
+`origin/<default-branch>`, NICHT den lokalen Checkout. `stale-local-clone-as-ground-truth`
+war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); beim Retro `3b123e` trat es ein drittes
+Mal auf — diesmal INNERHALB der eigenen Skeptiker-Verifikation dieser Skill (ein Skeptiker
+prüfte zunächst gegen einen veralteten lokalen `main`, in dem ein PR-Merge fehlte, und musste
+nachträglich fetchen). Diese Zeile ersetzt das bloße Hoffen auf Einzelfall-Disziplin.
 
 Nur SURVIVES gehen in den Report.
 
@@ -292,6 +312,7 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **Nummernlose Befund-Zeile** (Finder-Konflikt-Funde ohne `#`/Kategorie/Severity) — bricht die eingefrorenen Spalten + den `findings_total`-Zähler.
 - ❌ **`recurring_finding` im Frontmatter ohne `retro_kpis.py`-Zähler-Check** — Längsschnitt ist dann Dekoration, kein Hebel (genau das Anti-Pattern, das die Skill predigt, auf sich selbst angewandt).
 - ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — trivial-falsche Finder-Behauptungen (vom Haupt-Kontext vor-widerlegt) blähen die Quote und verfälschen das Skill-KPI.
+- ❌ **Phase-1-Collect liest lokalen `git log` ohne vorheriges `git fetch`** — die Frisch-Checkout-Pflicht gilt nicht nur für Phase-3-Skeptiker, sondern für JEDEN Collect-Schritt, auch inline bei `lean`.
 
 ## Changelog
 - 2026-06-04: Initial. Aus einem Advocatus-Diabolus-Review des Paste-Prompt-Retros
@@ -333,3 +354,14 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
   dem Report-Zielpfad des Orchestrators (Partial ohne die anderen Dimensionen; mit Coverage-
   Nachweis geschlossen) und stagede die Datei im geteilten Haupt-Tree. Quelle:
   `docs/retros/session-retro-2026-07-04-platform-e17299-incr.md` §6.2/Self-Review.
+- 2026-07-06 (v2.4): **Frisch-Checkout-Pflichtzeile** (Phase 3): jeder Skeptiker-Prompt beginnt
+  jetzt zwingend mit `git fetch origin <default-branch>` + Prüfung gegen `origin/<branch>`.
+  `stale-local-clone-as-ground-truth` war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); im
+  Retro `3b123e` trat es ein 3. Mal auf — diesmal innerhalb der eigenen Skeptiker-Verifikation
+  dieser Skill. Quelle: `docs/retros/session-retro-2026-07-06-frist-hub-3b123e.md` Befund #8/§6.
+- 2026-07-16 (v2.5): **Frisch-Checkout-Pflicht auf Phase 1 (Collect) ausgeweitet** — bisher galt
+  die Zeile nur explizit für Phase-3-Skeptiker; ein lean-Footprint-Retro (kein Subagent, Inline-
+  Collect) las `git log` gegen einen ungefetchten lokalen `main`, übersah 4 gemergte PRs und
+  produzierte einen Befund, der beim späteren Merge-Versuch als REFUTED aufflog — 7. Instanz von
+  `stale-local-clone-as-ground-truth`, diesmal in Phase 1 statt Phase 3. Quelle:
+  `docs/retros/session-retro-2026-07-16-iil-klickdummy-d80d23.md` Befund #2.

@@ -41,7 +41,7 @@
 #   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
 #   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
 #
-# Nächster freier Port: 8111  (berechnet: port_audit.py --next-free)
+# Nächster freier Port: 8113  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -216,14 +216,8 @@ services:
     repo: iilgmbh/risk-hub
     compose_drift: "docker-compose.yml uses 8001:8000 — must change to 8090:8000"
 
-  bfagent:
-    prod: 8091
-    staging: 8091
-    dev: 8091
-    container_name: bfagent_web
-    domain_prod: iil.pet
-    domain_staging: staging.iil.pet
-    repo: achimdehnert/bfagent
+  # bfagent entfernt (ADR-275 Hygiene, #1143): decommissioned 2026-06-03
+  # (bfagent#44), in canonical.yaml lifecycle:archived. Port 8091 wieder frei.
 
   billing-hub:
     prod: 8092
@@ -262,7 +256,15 @@ services:
     domain_staging: staging.137herz.ai
     domain_aliases:
       - 137herz.de
-    repo: achimdehnert/137-hub
+
+  apo-hub:
+    prod: 8042
+    staging: 8042
+    dev: 8042
+    container_name: apo_hub_web
+    domain_prod: apo.iil.pet
+    note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
+    repo: achimdehnert/apo-hub
 
   illustration-hub:
     prod: 8096
@@ -294,13 +296,24 @@ services:
 
   tax-hub:
     prod: 8099
-    staging: 8099
+    # staging war 8099 — Kollision mit risk-hub.staging (dort bewusst 8099,
+    # bereits aktiv gebunden auf demselben Host 88.99.38.75). Erster echter
+    # tax-hub-Staging-Deploy scheiterte real mit "port is already allocated"
+    # (2026-07-14). Auf 8105 geändert (Lücke 8104-8106 frei), analog zum
+    # bestehenden risk-hub-Muster (dort ist Staging ebenfalls der Sonderfall,
+    # nicht prod/dev). repo: achimdehnert/platform#1033 (Muster, 2. Instanz).
+    staging: 8105
     dev: 8099
     container_name: tax_hub_web
     domain_prod: tax.iil.pet
     domain_staging: staging-tax.iil.pet
-    repo: achimdehnert/tax-hub
-    compose_drift: "docker-compose.prod.yml uses 8104:8000 — must change to 8099:8000"
+    repo: iilgmbh/tax-hub
+    # Live-Verifikation 2026-07-14: Prod-Container läuft bereits konfliktfrei
+    # auf 8099 (bestätigt via ss/docker ps auf 88.198.191.108) — die Datei
+    # docker-compose.prod.yml sagt weiterhin 8104 (unverändert seit #31).
+    # Datei-vs-Live-Drift bleibt bestehen, hier NICHT angefasst (kein
+    # Prod-Redeploy in diesem Zug) — separat zu klären.
+    compose_drift: "docker-compose.prod.yml uses 8104:8000 — live container runs 8099 (verified 2026-07-14); file still needs reconciling with either 8099 or the running value"
 
   learn-hub:
     prod: 8100
@@ -321,6 +334,9 @@ services:
     repo: iilgmbh/ausschreibungs-hub
     compose_drift: "docker-compose.prod.yml uses 8095 — must change to 8101 (conflicts with 137-hub)"
 
+  # doc-hub: repo-loser Service (docs.iil.pet) — kein eigenes GitHub-Repo, steht
+  # daher bewusst NICHT in registry/canonical.yaml (Repo-SSoT). ADR-275 Hygiene
+  # (#1143): repo:null ist gewollt, kein fehlender Eintrag.
   doc-hub:
     prod: 8102
     staging: 8102
@@ -328,7 +344,7 @@ services:
     container_name: iil_dochub_web
     domain_prod: docs.iil.pet
     domain_staging: staging-docs.iil.pet
-    repo: null
+    repo: null  # bewusst repo-los, s. Kommentar oben
 
   recruiting-hub:
     prod: 8103
@@ -366,3 +382,12 @@ services:
     domain_staging: staging-bahn.iil.pet
     repo: achimdehnert/bahn-hub
     note: "FastAPI + DuckDB — kein Django"
+
+  decks-hub:
+    prod: 8112
+    staging: 8112
+    dev: 8112
+    container_name: decks_hub_web
+    domain_prod: decks-hub.iil.pet
+    repo: achimdehnert/decks-hub
+    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. Noch nicht deployed (deploy.yml ist workflow_dispatch-only)."

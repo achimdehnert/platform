@@ -25,10 +25,28 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_URL = os.environ.get(
-    "ORCHESTRATOR_DB_URL",
-    "postgresql://orchestrator:change-me-in-production@127.0.0.1:15435/orchestrator_mcp",
+# SEC-5 (Issue #1198): kein stillschweigender Passwort-Fallback mehr. Der alte
+# Default deckte sich zufällig mit dem lokalen docker-compose-Default
+# (POSTGRES_PASSWORD:-change-me-in-production, mcp-hub/docker-compose.yml) —
+# bleibt als EXPLIZITER Dev-Only-Opt-in erhalten (ALLOW_DEV_DB_FALLBACK=1),
+# statt automatisch/leise verwendet zu werden. `None` heißt "DB-Write aus" und
+# wird von _insert_rows/_query_* genauso fail-silent behandelt wie ein
+# fehlendes psycopg (Hook-Contract: exit 0 immer, s. Docstring oben).
+_DEV_FALLBACK_DB_URL = (
+    "postgresql://orchestrator:change-me-in-production@127.0.0.1:15435/orchestrator_mcp"
 )
+
+
+def _resolve_db_url() -> str | None:
+    url = os.environ.get("ORCHESTRATOR_DB_URL")
+    if url:
+        return url
+    if os.environ.get("ALLOW_DEV_DB_FALLBACK") == "1":
+        return _DEV_FALLBACK_DB_URL
+    return None
+
+
+DB_URL = _resolve_db_url()
 STATE_DIR = Path.home() / ".claude" / "hooks" / "state"
 LOG_FILE = Path.home() / ".claude" / "hooks" / "log_llm_call.log"
 
@@ -227,6 +245,9 @@ def _insert_rows(rows: list[dict]) -> int:
     """
     if not rows:
         return 0
+    if DB_URL is None:
+        _log("ORCHESTRATOR_DB_URL fehlt (und ALLOW_DEV_DB_FALLBACK != 1) — DB-Write übersprungen.")
+        return 0
     try:
         import psycopg  # noqa: PLC0415
     except ImportError:
@@ -247,6 +268,8 @@ def _insert_rows(rows: list[dict]) -> int:
 
 def _query_session_total(session_id: str) -> float | None:
     """Tiny DB query for session-total in $. Direct psycopg, fail-silent."""
+    if DB_URL is None:
+        return None
     try:
         import psycopg  # noqa: PLC0415
     except ImportError:
@@ -269,6 +292,8 @@ def _query_session_tier3_stats(session_id: str) -> tuple[int, float, float] | No
     cheap_ratio = fraction of turns with cost_usd < TIER3_CHEAP_MAX ($0.10).
     Uses PERCENTILE_CONT for median — available in all supported Postgres versions.
     """
+    if DB_URL is None:
+        return None
     try:
         import psycopg  # noqa: PLC0415
     except ImportError:

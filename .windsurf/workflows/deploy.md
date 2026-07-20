@@ -39,6 +39,12 @@ mode: write
 
 ## Pre-Deploy: ADR Freshness Gate (iil-adrfw v0.4.0)
 
+> ℹ️ **CC-Fallback:** Die `mcp2_adr_*`-Aufrufe unten sind Windsurf-Ära-Namen; in
+> Claude-Code-Sessions heißen dieselben Tools `mcp__<orchestrator-prefix>__adr_*`
+> (Prefix aus `project-facts.md`). Bindet die Session keinen ADR-MCP-Server, ist der
+> Fallback der `iil-adrfw`-CLI-Weg bzw. direkte Reads in `docs/adr/` — der Deploy bricht
+> nicht ab, nur die MCP-Automatik entfällt. (Muster: `session-start.md`.)
+
 Vor jedem Deploy prüfen ob die ADRs noch zum aktuellen Repo-Stand passen:
 
 ```

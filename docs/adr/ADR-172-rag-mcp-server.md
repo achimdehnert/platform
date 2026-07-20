@@ -1,11 +1,11 @@
 ---
 status: proposed
-date: 2026-04-26
+decision_date: 2026-04-26
 amended: 2026-04-26
-decision-makers:
+deciders:
   - Achim Dehnert
-reviewed-by: Principal IT-Architect
-depends-on:
+reviewed_by: Principal IT-Architect
+depends_on:
   - ADR-171 (Temporal RAG Infrastructure — Schema)
   - ADR-170 (iil-ingest — Text-Extraktion)
   - ADR-113 (pgvector — bestehende Infrastruktur)

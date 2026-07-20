@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""session-leases — zeigt, welche Sessions gerade an welchem Repo arbeiten (C1).
+
+Liest die Lease-Dateien, die `tools/repo-session.sh start` je Session-Worktree
+schreibt (ADR-233 §2.4), und beantwortet die eine Frage, die beim Start einer
+zweiten Session am selben Repo zaehlt: **was macht die andere Session gerade?**
+
+Baut nichts Neues — die Leases existieren bereits, sie wurden nur nirgends
+angezeigt. Reine Sichtbarkeit, kein Lock: dieses Tool blockiert nichts und
+entscheidet nichts, es macht den Parallelbetrieb nur beobachtbar.
+
+Usage:
+    python3 tools/session-leases                 # alle offenen Leases
+    python3 tools/session-leases --repo platform # nur ein Repo
+    python3 tools/session-leases --json          # maschinenlesbar
+
+Exit-Codes: 0 = immer (reines Anzeige-Tool, nie ein Gate)
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import sys
+from pathlib import Path
+
+LEASE_DIR = Path(os.environ.get("REPO_SESSION_DIR", Path.home() / ".repo-session")) / "leases"
+
+
+def _parse(ts: str) -> dt.datetime | None:
+    if not ts:
+        return None
+    try:
+        return dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def load_leases(lease_dir: Path) -> list[dict]:
+    """Liest alle .json-Leases. Kaputte Dateien werden gemeldet, nicht verschluckt."""
+    if not lease_dir.is_dir():
+        return []
+    leases = []
+    for path in sorted(lease_dir.glob("*.json")):
+        try:
+            leases.append(json.loads(path.read_text()))
+        except (OSError, json.JSONDecodeError) as exc:
+            leases.append({"session_id": path.stem, "_error": str(exc)})
+    return leases
+
+
+def classify(lease: dict, now: dt.datetime, fresh_hours: int = 24) -> str:
+    """aktiv | ruhend | abgelaufen | defekt.
+
+    Die Unterscheidung aktiv/ruhend kam aus dem ersten Echtlauf (2026-07-20):
+    die TTL der Leases ist mehrere Tage lang, also galten 10 Leases als
+    'aktiv' — darunter welche vom 13. Juli. Fuer die Frage 'wer arbeitet
+    GERADE am selben Repo' ist das unbrauchbar; nur die Antwort auf genau
+    diese Frage ist der Zweck des Tools. Massgeblich ist daher `last_touch`,
+    nicht `expires_at`: nicht abgelaufen + innerhalb `fresh_hours` beruehrt
+    = aktiv, alles andere nicht abgelaufene = ruhend.
+    """
+    if lease.get("_error"):
+        return "defekt"
+    expires = _parse(lease.get("expires_at", ""))
+    if expires and expires < now:
+        return "abgelaufen"
+    touched = _parse(lease.get("last_touch", "") or lease.get("created_at", ""))
+    if touched and (now - touched) > dt.timedelta(hours=fresh_hours):
+        return "ruhend"
+    return "aktiv"
+
+
+def render(leases: list[dict], now: dt.datetime, repo_filter: str | None,
+           fresh_hours: int = 24, show_all: bool = False) -> str:
+    rows = []
+    for lease in leases:
+        if repo_filter and lease.get("repo") != repo_filter:
+            continue
+        rows.append((classify(lease, now, fresh_hours), lease))
+
+    if not rows:
+        scope = f" fuer Repo '{repo_filter}'" if repo_filter else ""
+        return f"Keine offenen Session-Leases{scope}.\n"
+
+    active = [r for r in rows if r[0] == "aktiv"]
+    dormant = [r for r in rows if r[0] == "ruhend"]
+    broken = [r for r in rows if r[0] == "defekt"]
+    expired = [r for r in rows if r[0] == "abgelaufen"]
+
+    lines = [
+        f"Session-Leases: {len(active)} aktiv (<{fresh_hours}h) · "
+        f"{len(dormant)} ruhend · {len(expired)} abgelaufen · {len(broken)} defekt",
+        "",
+    ]
+    if active:
+        lines.append(f"AKTIV — arbeitet parallel (letzte {fresh_hours}h):")
+        for _, lease in active:
+            lines.append(
+                f"  * {lease.get('repo', '?')} | {lease.get('owner', '?')} "
+                f"| {lease.get('branch', '?')}"
+            )
+            lines.append(
+                f"      seit {lease.get('last_touch') or lease.get('created_at') or '?'}"
+                f" | {lease.get('worktree', '?')}"
+            )
+        lines.append("")
+    if broken:
+        lines.append("DEFEKT — nicht lesbar (kein Freispruch):")
+        for _, lease in broken:
+            lines.append(f"  ! {lease.get('session_id')}: {lease['_error']}")
+        lines.append("")
+    # Ruhend/abgelaufen sind Aufraeum-Themen (worktree-reaper), nicht die Frage
+    # 'wer arbeitet gerade' — daher nur auf Wunsch ausfuehrlich.
+    if show_all:
+        for label, group in (("RUHEND", dormant), ("ABGELAUFEN", expired)):
+            if not group:
+                continue
+            lines.append(f"{label}:")
+            for _, lease in group:
+                lines.append(
+                    f"  - {lease.get('repo', '?')} | {lease.get('branch', '?')}"
+                    f" | seit {lease.get('last_touch') or '?'}"
+                )
+            lines.append("")
+    elif dormant or expired:
+        lines.append(
+            f"({len(dormant)} ruhende + {len(expired)} abgelaufene Leases verborgen — "
+            "--all zeigt sie; Aufraeumen: tools/worktree-reaper.py)"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_brief(leases: list[dict], now: dt.datetime, fresh_hours: int = 24) -> str:
+    """Eine Zeile je AKTIVER Lease — leere Ausgabe heisst 'niemand sonst da'.
+
+    Eigener Modus, damit einbettende Skripte kein JSON durch eine verschachtelte
+    Shell-Quoting-Kette parsen muessen. Genau daran scheiterte der erste Versuch:
+    der eingebettete Python-Einzeiler meldete 'keine aktive Session', waehrend
+    vier liefen — ein stiller Falsch-Negativ, also die gefaehrlichste Fehlerform
+    fuer ein Sichtbarkeits-Tool.
+    """
+    lines = [
+        f"    - {lease.get('branch', '?')} (seit {lease.get('last_touch') or '?'})"
+        for lease in leases
+        if classify(lease, now, fresh_hours) == "aktiv"
+    ]
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--repo", default=None, help="nur Leases dieses Repos")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    parser.add_argument("--lease-dir", default=str(LEASE_DIR))
+    parser.add_argument("--fresh-hours", type=int, default=24,
+                        help="ab wann eine Lease als 'ruhend' statt 'aktiv' gilt (default 24)")
+    parser.add_argument("--all", action="store_true", dest="show_all",
+                        help="auch ruhende + abgelaufene Leases auflisten")
+    parser.add_argument("--brief", action="store_true",
+                        help="nur aktive Leases, eine Zeile je Session (fuer Skript-Einbettung; "
+                             "leere Ausgabe = keine parallele Session)")
+    args = parser.parse_args()
+
+    now = dt.datetime.now(dt.timezone.utc)
+    leases = load_leases(Path(args.lease_dir))
+    if args.repo:
+        leases = [lease for lease in leases if lease.get("repo") == args.repo]
+
+    if args.brief:
+        print(render_brief(leases, now, args.fresh_hours), end="")
+    elif args.as_json:
+        print(json.dumps(
+            [{**lease, "_status": classify(lease, now, args.fresh_hours)} for lease in leases],
+            indent=2,
+        ))
+    else:
+        print(render(leases, now, args.repo, args.fresh_hours, args.show_all), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

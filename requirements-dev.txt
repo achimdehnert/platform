@@ -2,9 +2,16 @@
 # Install: make setup   (oder: pip install -r requirements-dev.txt)
 # CI-Referenz: .github/workflows/tools-tests.yml installiert pytest+pyyaml;
 # diese Datei ist die lokale SSoT dafür (repo-optimize X-3, 2026-07-02).
-pytest>=8
-pyyaml>=6
-ruff>=0.4
-pre-commit>=3
-# ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI:
+#
+# Pin-Style (==) statt >=-Range seit CI-4 (Issue #1202): dependabot/fetch-metadata@v2
+# kann bei >=-Range-Constraints previous-version/new-version nicht auflösen
+# (update-type bleibt null → dependabot-automerge.yml greift nie). Bei exakten
+# Pins liefert der Dependabot-PR-Diff konkrete Alt-/Neu-Version, wodurch die
+# semver-Klassifizierung (patch/minor/major) wieder funktioniert.
+pytest==9.1.1
+pyyaml==6.0.3
+ruff==0.15.20
+pre-commit==4.6.0
+# ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI. Bewusst
+# ungepinnt gelassen (kein >=-Range-Constraint vorher, anderer Fall als CI-4):
 iil-adrfw

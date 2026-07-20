@@ -6,7 +6,7 @@ tier: T3
 owner: Achim Dehnert
 spec_refs: []
 adr_threshold: Amendment an ADR-045 (Operationalisierung + secrets-drift-Gate + Key-Custody)
-review_by: 2026-07-15
+review_by: 2026-08-15   # rescoped 2026-07-12 (Entscheid Achim, via KONZ-017 W0-1): Entscheid wartet auf PAT-Inventar (§14) statt still zu verfallen
 kill_criteria: "Wenn nach dem Pilot-Repo das secrets-drift-Gate nicht GRÜN beweisen kann, dass das Repo keinen .env.prod-Bezug mehr hat, ODER ein Cutover einen Prod-Secret-Read-Fehler verursacht → Rollout ABBRECHEN, kein Customer-Data-Repo anfassen. Exception-Budget 2 Wochen."
 superseded_by_spec: null
 evidence_manifest:
@@ -118,3 +118,31 @@ Diabolus' schärfster Punkt: die Mechanik lag **Monate dormant** (ADR-045 §7: �
 **90 Tage:** Rest-Repos (coach/billing/recruiting + ~18) rollen; `secrets-drift` als required-CI; ADR-159 → superseded, ADR-045-Amendment.
 
 > **Ehrliche Enforcement-Grenze:** Dieses Konzept *schreibt* Kill-Gate/`review_by`; sie wirken erst, wenn ein Lifecycle-Gate sie liest. Bis das `secrets-drift`-Gate gebaut ist (REC-1), ist „migriert" Review-behauptet, nicht maschinen-bewiesen — genau die Lücke, die REC-1 schließt.
+
+## 14. Nachtrag 2026-07-12 — Rescope (Entscheid Achim, via KONZ-017 W0-1)
+
+**Entscheid:** `review_by` von 2026-07-15 auf **2026-08-15** verlängert. Der Accept/Reject-Entscheid
+wartet auf das **PAT-Inventar** (KONZ-017 W1-4) als Input — kein stilles Verfallen, kein
+vorschneller Accept ohne Scope-Bild.
+
+**Erster Inventar-Lauf (2026-07-12, read-only grep über ~/github/*, lokale Klone — Caveat:
+stale möglich, vor Entscheid gegen origin re-verifizieren):** Die PAT-Klasse zerfällt in drei
+Nutzungs-Klassen mit unterschiedlichem Risiko und unterschiedlicher Ziel-Lösung:
+
+| Klasse | Repos | Risiko | Ziel-Kandidat |
+|---|---|---|---|
+| K1: `issue-triage.yml` `github-token` | ~20 Repos (137, ausschreibungs, bfagent, billing, cad, coach, dev, dms, illustration, infra-deploy, mcp, meiki-dms, pptx, recruiting, tax, testkit, trading, travel-beat, wedding, welten, writing) | niedrig (read/label) | GitHub-App-Token (Profil-B) oder `GITHUB_TOKEN` |
+| K2: **Build-zeitliche PAT-Injektion im Dockerfile** (private git-Deps via `--mount=type=secret`) | **5 Repos: coach-hub, research-hub, risk-hub, travel-beat, writing-hub** | **hoch** — die Klasse des coach-hub-Incidents (`secret PROJECT_PAT: not found`, Run 28778482259) und des Org-Transfer-Ausfalls (django-lms-lite) | vendored Wheels / GitHub-App-Installation-Token / SOPS-Pfad dieses Konzepts |
+| K3: shared-ci-Reusable-Pfade (`_deploy-unified` Buildx-Passthrough + opt-in `ghcr_push_token`, `_ci-python`, `_deploy-hetzner`) | zentral, 1 Repo (shared-ci) | mittel — Single Point, aber versioniert | bleibt; Konsument-Seite folgt K2-Lösung |
+
+Dazu Einzelfälle: decks-hub `deploy.yml`, iil-fieldprefill `publish.yml`/`ci.yml`, apo-hub
+`ci.yml`, mcp-hub Agent-Workflows (4 Dateien), platform-eigene Automations-Workflows (5).
+
+**Konsequenz für den §13-Entscheid:** K2 ist der eigentliche Treiber — dieselben 5 Repos, die
+Build-Secrets brauchen, sind Kandidaten für die SOPS-/run-secrets-Mechanik ODER für die
+GitHub-App-Route; der Entscheid sollte beide Klassen (Laufzeit-Secrets = dieses Konzept,
+Build-Secrets = K2) in einem Zug klären statt nur die `.env.prod`-Frage. K1 ist mechanisch
+(Sonnet-delegierbar) und hängt nicht an SOPS.
+
+**Nächster Schritt vor 2026-08-15:** Inventar gegen origin re-verifizieren + K2-Detailblick
+(welche private Dep je Repo, Org-Zugehörigkeit nach iilgmbh-Migration ADR-255) → dann §13-Entscheid.

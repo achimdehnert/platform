@@ -1,6 +1,6 @@
 ---
 title: "ADR-174 — Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy"
-date: 2026-04-29
+decision_date: 2026-04-29
 status: accepted
 deciders: achimdehnert
 implementation_status: partial

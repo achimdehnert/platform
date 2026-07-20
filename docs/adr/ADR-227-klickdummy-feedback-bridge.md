@@ -2,7 +2,7 @@
 id: ADR-227
 title: "Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT"
 status: draft
-date: 2026-05-29
+decision_date: 2026-05-29
 deciders: [Achim Dehnert]
 consulted: []
 informed: [iilgmbh, meiki-lra, bahn-sqf, ttz-lif]

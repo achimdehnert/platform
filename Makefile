@@ -36,7 +36,8 @@ help: ## Diese Hilfe anzeigen
 	@echo "$(CYAN)Dieses Makefile läuft lokal (WSL) und steuert Remote-Server via SSH.$(RESET)"
 	@echo ""
 	@echo "$(BOLD)Schnellstart:$(RESET)"
-	@echo "  $(GREEN)make menu$(RESET)            Interaktives Hauptmenü"
+	@echo "  $(GREEN)make help$(RESET)            Alle Targets (setup/test/lint/check-push siehe unten)"
+	@echo "  $(GREEN)make menu$(RESET)            Interaktives Hauptmenü (nur Windsurf/SSH — DEVX-3)"
 	@echo ""
 	@echo "$(BOLD)━━━ SERVER (hetzner-dev) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
 	@echo ""
@@ -121,8 +122,13 @@ setup: ## Dev-Dependencies + Hooks installieren (einmalig nach Clone)
 	@$(MAKE) install-push-hook
 	@echo "$(GREEN)Setup fertig — 'make test' für den lokalen Testlauf.$(RESET)"
 
-test: ## CI-relevante Test-Suite (identisch zu tools-tests.yml)
-	@python3 -m pytest tools/tests/ -q
+test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro f4a546-incr #1)
+	@python3 -m pytest tools/tests/ \
+		tests/test_render_staging.py \
+		tests/doc_profile_check/ \
+		tools/claude-hooks/tests/ \
+		agents/tests/ \
+		-q
 
 lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
 	@ruff check tools/ scripts/

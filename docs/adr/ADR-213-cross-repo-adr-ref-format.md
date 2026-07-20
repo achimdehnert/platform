@@ -2,7 +2,7 @@
 id: ADR-213
 title: Cross-Repo-ADR-Referenz-Format — `repo:ADR-NNN` (plattformweit)
 status: proposed
-date: 2026-05-20
+decision_date: 2026-05-20
 deciders: [achim]
 informed: [all-repos]
 domains: [governance, documentation, drift-prevention]

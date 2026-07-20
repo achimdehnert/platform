@@ -56,9 +56,12 @@ on:
         default: '>=0.7.0'
         type: string
       pytest_workers:
-        description: 'Number of parallel pytest workers (default: auto)'
+        # Spiegel von iilgmbh/shared-ci (PR #24): 'auto' = 12 Worker auf dem
+        # geteilten 12-Core/22GB-Host mit 25 Repo-Runnern — memcg-OOM-Klasse
+        # (weltenhub 2026-07-10, cad-hub Run 29101278323). KONZ-017 W0-3.
+        description: 'Number of parallel pytest workers (default: 4 — host-safe on shared runners)'
         required: false
-        default: 'auto'
+        default: '4'
         type: string
       run_migrations:
         description: 'Run unit tests WITH migrations (drop --no-migrations). Required for django-tenants repos — Tenant-Schema-Tabellen entstehen nur per migrate_schemas.'
@@ -318,7 +321,7 @@ jobs:
               -n "$WORKERS" \
               --dist=loadscope
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
           path: ${{ inputs.src_dir }}/coverage-unit.xml
@@ -327,7 +330,6 @@ jobs:
     name: "Integration Tests"
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
-    continue-on-error: true
     services:
       postgres:
         image: ${{ inputs.postgres_image }}
@@ -396,13 +398,20 @@ jobs:
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           set +e
+          # --cov-fail-under=0: die repo-eigene pyproject-Schwelle (z. B. 80%) darf
+          # den Integration-Lauf NICHT self-gaten — Integration-Coverage allein
+          # erreicht die Gesamtschwelle nie; die kombinierte Schranke zieht der
+          # coverage-report-Job (Union Unit+Integration). Ohne dies schlug der Job
+          # bei 0 Integration-Tests dauerhaft rot (platform#846 / frist-hub#6).
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "integration" \
               --cov \
+              --cov-fail-under=0 \
               --cov-report=xml:coverage-integration.xml
           else
             pytest -m "integration" \
               --cov \
+              --cov-fail-under=0 \
               --cov-report=xml:coverage-integration.xml \
               -n "$WORKERS" \
               --dist=loadscope
@@ -420,7 +429,7 @@ jobs:
           if [ ! -f ${{ inputs.src_dir }}/coverage-integration.xml ]; then
             echo '<?xml version="1.0" ?><coverage version="7.0" timestamp="0" lines-valid="1" lines-covered="1" line-rate="1.0" branches-covered="0" branches-valid="0" branch-rate="0" complexity="0"><packages></packages></coverage>' > ${{ inputs.src_dir }}/coverage-integration.xml
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-integration
@@ -440,10 +449,45 @@ jobs:
         with:
           name: coverage-integration
       - name: Merge and enforce coverage gate
+        env:
+          COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold }}
         run: |
-          pip install coverage --break-system-packages || pip install coverage
-          python3 -m coverage combine coverage-unit.xml coverage-integration.xml 2>/dev/null || true
-          python3 -m coverage report --fail-under=${{ inputs.coverage_threshold }} 2>/dev/null || echo "Coverage data unavailable — skipping gate (threshold=${{ inputs.coverage_threshold }}%)"
+          # Kombiniert Unit- + Integration-Coverage aus den beiden Cobertura-XML-
+          # Artefakten (echte Zeilen-Union) und erzwingt die Schwelle. Früher lief
+          # hier `coverage combine` auf XML — ein No-Op, weil combine .coverage-
+          # Binaerdaten erwartet; das Gate war dadurch IMMER gruen (platform#846).
+          python3 - "$COVERAGE_THRESHOLD" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+
+          threshold = float(sys.argv[1])
+          # filename -> {lineno: hits}; Union ueber beide Laeufe (max der hits).
+          hits: dict[str, dict[int, int]] = {}
+          for path in ("coverage-unit.xml", "coverage-integration.xml"):
+              try:
+                  root = ET.parse(path).getroot()
+              except (FileNotFoundError, ET.ParseError):
+                  continue
+              for cls in root.iter("class"):
+                  bucket = hits.setdefault(cls.get("filename") or "", {})
+                  for ln in cls.iter("line"):
+                      no = int(ln.get("number", "0"))
+                      bucket[no] = max(bucket.get(no, 0), int(ln.get("hits", "0")))
+
+          valid = sum(len(b) for b in hits.values())
+          covered = sum(1 for b in hits.values() for h in b.values() if h > 0)
+          if valid == 0:
+              print("::warning::Coverage gate: keine messbaren Zeilen in den "
+                    "Artefakten — Gate uebersprungen (CI-Artefakte pruefen).")
+              sys.exit(0)
+          pct = covered / valid * 100
+          print(f"Combined coverage (unit+integration): {covered}/{valid} lines = "
+                f"{pct:.2f}% (threshold {threshold:.0f}%)")
+          if pct + 1e-9 < threshold:
+              print(f"::error::Coverage {pct:.2f}% liegt unter der geforderten "
+                    f"Schwelle {threshold:.0f}%.")
+              sys.exit(1)
+          print("Coverage gate passed.")
+          PY
 
   test-contract:
     name: "Contract Tests"
@@ -486,6 +530,12 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
           POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
+        # Exit 5 (pytest: keine Tests eingesammelt) wird bewusst als grün behandelt —
+        # nicht jedes Repo hat schon Contract-Tests (analog zum Integration-Job).
+        # Anders als das entfernte `continue-on-error` oben maskiert das KEINE echte
+        # Testassertion: ein tatsächlich fehlgeschlagener Contract-Test bricht mit
+        # einem Exit-Code ≠ 0/5 ab und propagiert normal (platform#846, "dokumentieren
+        # statt härten" — Repos ohne Contract-Tests sollen nicht deswegen rot werden).
         run: pytest -m "contract" -v || ([ $? -eq 5 ] && echo "No contract tests found, skipping." && exit 0)
 
   architecture-guardian:

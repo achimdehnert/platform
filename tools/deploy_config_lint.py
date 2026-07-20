@@ -54,6 +54,9 @@ def lint_dir(d: pathlib.Path) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
+        return 0
     d = pathlib.Path(argv[1] if len(argv) > 1 else ".github/workflows")
     if not d.is_dir():
         print(f"✅ Deploy-Config-Lint: kein Verzeichnis {d} — nichts zu pruefen.")

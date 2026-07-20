@@ -49,7 +49,7 @@ Aus `.windsurf/rules/project-facts.md` (always_on) im aktuellen Repo lesen:
 - KLICKDUMMY_PATH (z.B. "klickdummy")  # Default
 ```
 
-Fehlt project-facts.md ⇒ STOP, User auf `agent-session-start.md`-Workflow verweisen.
+Fehlt project-facts.md ⇒ STOP, User auf `session-start.md`-Workflow verweisen.
 
 ## Step 0.5: Klasse validieren (I2 4-Pattern, Rev 11/13)
 
@@ -362,6 +362,28 @@ KLICKDUMMIES := \
   <KLICKDUMMY_PATH>/<name>/screens-spec.yaml:<KLICKDUMMY_PATH>/<name>/screens-spec.schema.json
 ```
 
+**Bei Erstadoption (erster `KLICKDUMMIES`-Eintrag im Repo):** prüfen ob
+bereits ein CI-Job existiert, der `make klickdummy` bei jedem PR ausführt
+(`grep -rn "make klickdummy" .github/workflows/`). Falls nicht, im selben
+PR ergänzen — analog `frist-hub/.github/workflows/ci.yml:56-68`:
+
+```yaml
+klickdummy:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: make klickdummy-install
+    - run: make klickdummy
+```
+
+Ohne diesen Gate bleibt Klickdummy-Drift (Namespace-Kollisionen, kaputte
+Specs) bei jeder späteren PR unentdeckt — genau der Regressionstyp, den
+`frist-hub` bereits einmal real erlebt hatte (Session-Retro 2026-07-13,
+`04b5ac`), bevor der Gate dort eingeführt wurde.
+
 ## Step 9: I1-I4 grün stellen
 
 ```bash
@@ -425,6 +447,7 @@ PR-Body sollte enthalten: Screen-Liste, Klassen-Begründung, Datenschutz-Hinweis
 [4] shell.html:           <pfad>
 [5] ADR:                  <ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md
 [6] Makefile erweitert:   KLICKDUMMIES += <eintrag>
+[6b] CI-Job (bei Erstadoption): <wired|already present>
 
 == Tests ==
   I1 → <PASS|FAIL>
@@ -432,10 +455,24 @@ PR-Body sollte enthalten: Screen-Liste, Klassen-Begründung, Datenschutz-Hinweis
   I3 → <PASS|FAIL>
   I4 → <PASS|FAIL>
 
+== KD-Referenz ==
+  Name:    <name>
+  Spec:    <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
+  Lokal:   <KLICKDUMMY_PATH>/<name>/shell.html?feedback=on
+  GitHub:  — (noch kein Commit auf main — s. Nächste Schritte)
+  iil.pet: — (noch nicht deployed — separater iil-pet-portal-Regen-Schritt nach Merge)
+
 == Nächste Schritte ==
   - Live-Test: python3 -m http.server 8765 → ?feedback=on
   - Commit + PR: feat/klickdummy-<name>
 ```
+
+**KD-Referenz-Feldkonvention** (gleiches Schema wie `/kd-scout` Step 3.5 und `/kd-review`, damit die
+Pipeline durchgängig dieselben vier Felder trägt): `Spec`/`Lokal` sind direkt nach Step 3/6 bekannt.
+`GitHub` wird erst mit einem Commit auf `origin/main` auflösbar — bis Step 11 (PR) daher immer `—`
+mit Grund, nie geraten. `iil.pet` erst nach einem separaten `iil-pet-portal`-Regen-Lauf (Memory
+`genesor-deploy-simple`) — an dieser Stelle im Skill praktisch immer `—`, das ist **erwartetes**
+Verhalten direkt nach dem Bau, kein Fehler.
 
 ## Anti-Patterns
 
@@ -480,3 +517,6 @@ Bewährt in:
 
 - 2026-05-21: Initial. Aus `platform:ADR-211` Rev 13 §Migrations-Cookbook + ttz-hub-Erst-Adoption-Empirie abgeleitet. 11 Steps + 9 Anti-Patterns + 2 Dogfood-Empirie-Punkte.
 - 2026-05-21: Rev 2 — Interview-Modus (Step 0.7) ergänzt. Bei `/klickdummy` ohne Args läuft strukturierter 5-Phasen-Dialog (Pflicht-Variablen / adaptive Klassen-Folgen / Screens-Loop / Optionals mit Smart-Defaults / YAML-Konfirmation), bevor Bau-Steps 1-11 starten. 2 neue Anti-Patterns (Phase-5-Bypass, leere parity_acceptance). Cross-Tool kompatibel (CC + Windsurf), kein separater Sub-Agent nötig.
+- 2026-07-06: **KD-Referenz** im Output-Format ergänzt (Spec/Lokal/GitHub/iil.pet, gleiches Schema
+  wie `/kd-scout`/`/kd-review`) — konsistente Pipeline-Darstellung, Lücken (GitHub/iil.pet direkt
+  nach Bau immer `—`) explizit mit Grund statt stillschweigend.

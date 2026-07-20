@@ -2,7 +2,7 @@
 id: ADR-266
 title: "PyPI-Fleet: Paket-Lifecycle, Publishing-Konvergenz und Health-Mechanismus (Programm)"
 status: accepted
-date: 2026-07-04
+decision_date: 2026-07-04
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]

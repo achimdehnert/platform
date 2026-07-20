@@ -92,6 +92,9 @@ def count_or_gap(st, items):
 
 
 def main() -> int:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return 0
     if not TOKEN:
         print("::error:: GH_TOKEN not set", file=sys.stderr)
         return 2

@@ -449,8 +449,13 @@ on:
 
 jobs:
   ci:
-    name: "CI"
-    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main
+    # KEIN name:-Override — die Job-ID `ci` muss der Display-Name bleiben, damit
+    # der Check-Kontext exakt `ci / gate` heißt (ADR-242-Ruleset; Lesson
+    # weltenhub 9326e49 / learn-hub#25: `name: "CI"` erzeugte `CI / gate` →
+    # jeder PR unmergebar).
+    # Versionierte shared-ci-Referenz statt floating platform@main (KONZ-017
+    # W0-2): neue Repos werden auf der Paved Road geboren, nicht daneben.
+    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.10
     with:
       python_version: "3.12"
       coverage_threshold: 80
@@ -466,7 +471,7 @@ jobs:
     name: "Build"
     needs: [ci]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.0.10
     with:
       dockerfile: "docker/app/Dockerfile"
       scan_image: true
@@ -476,7 +481,7 @@ jobs:
     name: "Deploy"
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.0.10
     with:
       app_name: <REPO_NAME>
       deploy_path: /opt/<REPO_NAME>
