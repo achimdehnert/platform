@@ -116,11 +116,48 @@ def _read_content(arg: str | None, content_file: str | None) -> str:
     return arg
 
 
+def _free_key(base: str) -> str:
+    """Erste freie Variante von base: base, base-2, base-3, ...
+
+    Motiv (Parallel-Session-Kollision A1, 2026-07-20): der Default-Key
+    `session:<repo>:<YYYYMMDD>` ist pro Repo und Tag eindeutig — zwei Sessions
+    am selben Tag im selben Repo upserten also auf denselben Key, und die
+    zweite ueberschreibt die erste lautlos. Realfall: der Eintrag
+    `session:platform:20260719` musste aus AGENT_HANDOVER.md rekonstruiert
+    werden, weil genau das passiert war.
+
+    Statt zu ueberschreiben wird auf den naechsten freien Suffix ausgewichen.
+    Datenverlust ist damit strukturell ausgeschlossen; wohin geschrieben wurde,
+    steht im `entry_key`-Feld der Ausgabe.
+    """
+    if _orch_get(base) is None:
+        return base
+    for n in range(2, 100):
+        candidate = f"{base}-{n}"
+        if _orch_get(candidate) is None:
+            return candidate
+    sys.exit(f"session-memory: keine freie Key-Variante fuer '{base}' (>99 Kollisionen).")
+
+
 def cmd_write(a: argparse.Namespace) -> int:
     content = _read_content(a.content, a.content_file).strip()
     if not content:
         sys.exit("session-memory: leerer Content — nichts zu schreiben.")
-    key = a.key or f"session:{a.repo}:{date.today():%Y%m%d}"
+
+    if a.key:
+        # Expliziter Key = bewusste Ansage des Aufrufers, inkl. Ueberschreiben.
+        key = a.key
+    else:
+        base = f"session:{a.repo}:{date.today():%Y%m%d}"
+        if a.session_id:
+            # Mit Session-ID ist der Key by construction eindeutig; ein zweiter
+            # Lauf DERSELBEN Session aktualisiert korrekt seinen eigenen Eintrag.
+            key = f"{base}:{a.session_id}"
+        elif a.allow_overwrite:
+            key = base
+        else:
+            key = _free_key(base)
+
     tags = a.tag or ["session", a.repo]
     written = _orch_upsert({
         "entry_key": key,
@@ -160,6 +197,14 @@ def main() -> int:
                         "error_pattern|open_task|repo_context|agent_handoff)")
     w.add_argument("--key", default=None,
                    help="entry_key override (default session:<repo>:<YYYYMMDD>)")
+    w.add_argument("--session-id", default=os.environ.get("SESSION_ID"),
+                   help="Session-Discriminator; macht den Default-Key eindeutig "
+                        "(session:<repo>:<YYYYMMDD>:<sid>). Default aus $SESSION_ID. "
+                        "Empfohlen, sobald mehrere Sessions parallel am selben Repo arbeiten.")
+    w.add_argument("--allow-overwrite", action="store_true",
+                   help="Default-Key auch dann verwenden, wenn er belegt ist "
+                        "(ueberschreibt den fremden Eintrag — bewusst zu setzen). "
+                        "Ohne dieses Flag weicht der Schreiber auf <key>-2, -3, ... aus.")
     w.add_argument("--agent", default="claude-code")
     w.add_argument("--tag", action="append", help="Tag (mehrfach); default [session, <repo>]")
     w.add_argument("--content", default=None, help="Inline-Content; '-' oder weglassen = stdin")

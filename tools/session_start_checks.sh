@@ -89,6 +89,14 @@ sync_repo() { # sync_repo <pfad> — pullt nur, wenn kein Guard greift; meldet G
 }
 FOREIGN_WT=$(git -C "$PLATFORM_DIR" worktree list 2>/dev/null | grep -c "session/$(date +%Y-%m-%d)")
 [ "$FOREIGN_WT" -gt 0 ] && GUARD_NOTE="${FOREIGN_WT} Session-Worktree(s) heute aktiv · "
+
+# C1 (2026-07-20): WER arbeitet gerade parallel — nicht nur WIE VIELE.
+# Der Worktree-Zähler oben sagt "3 Worktrees", beantwortet aber nicht die Frage,
+# die beim Start einer zweiten Session zählt: welches Thema hält die andere
+# Session? Die Leases (ADR-233 §2.4) enthalten das längst, wurden nur nie gezeigt.
+# Reine Sichtbarkeit, kein Lock — blockiert nichts, entscheidet nichts.
+PARALLEL_SESSIONS=$(python3 "$PLATFORM_DIR/tools/session-leases" \
+  --repo "$TARGET_REPO" --brief 2>/dev/null)
 SYNC_RESULTS=""
 for repo in "$TARGET_REPO" mcp-hub risk-hub; do
   [ -d "$GITHUB_DIR/$repo" ] || continue
@@ -98,6 +106,14 @@ if echo "$SYNC_RESULTS" | grep -q "GUARD\|pull-fail"; then
   record "0.4 repo-sync" "WARN" "${GUARD_NOTE}${SYNC_RESULTS# } (GUARD = nicht angefasst, fremde Session möglich)"
 else
   record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }"
+fi
+
+if [ -n "$PARALLEL_SESSIONS" ]; then
+  n=$(printf '%s\n' "$PARALLEL_SESSIONS" | grep -c .)
+  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen"
+  printf '%s\n' "$PARALLEL_SESSIONS"
+else
+  record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO"
 fi
 
 # ── 0.4.1 REFLEX aktualisieren + Review (nur wenn reflex.yaml im Target) ────
