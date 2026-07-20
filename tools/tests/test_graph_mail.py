@@ -68,3 +68,37 @@ def test_should_parse_env_ignoring_comments_and_quotes(tmp_path):
     v = mod.parse_env(f)
     assert v["GRAPH_ACCOUNTS"] == "a@b.c,d@e.f"
     assert v["GRAPH_TENANT"] == "organizations"
+
+
+def test_should_filter_find_hits_by_from_and_subject(monkeypatch):
+    import json as _json
+    mod = _load()
+    page = {"value": [
+        {"id": "m1", "subject": "Re: Owner-Block Digest",
+         "receivedDateTime": "2026-07-16T08:00:00Z",
+         "from": {"emailAddress": {"address": "pg@dehnert.team", "name": "Achim"}}},
+        {"id": "m2", "subject": "Newsletter KW29",
+         "receivedDateTime": "2026-07-16T07:00:00Z",
+         "from": {"emailAddress": {"address": "noreply@shop.example", "name": "Shop"}}},
+        {"id": "m3", "subject": "Owner-Block Nachtrag",
+         "receivedDateTime": "2026-07-15T09:00:00Z",
+         "from": {"emailAddress": {"address": "achim.dehnert@iil.gmbh", "name": ""}}},
+    ]}
+    monkeypatch.setattr(mod, "_http", lambda *a, **k: mod._Resp(200, _json.dumps(page)))
+
+    hits = mod._match_messages("tok", from_sub="dehnert.team", subject_sub="owner-block",
+                               days=7, source_path="inbox")
+    assert [m["id"] for m in hits] == ["m1"]
+
+    # Name-Match zählt wie Adress-Match; ohne subject-Filter beide dehnert.team-Treffer
+    hits = mod._match_messages("tok", from_sub="achim", days=7, source_path="inbox")
+    assert [m["id"] for m in hits] == ["m1", "m3"]
+
+
+def test_should_strip_html_to_readable_text():
+    mod = _load()
+    html = ("<html><style>p{color:red}</style><body><p>Zeile&nbsp;1</p>"
+            "<div>Zeile 2 &amp; mehr</div><script>alert(1)</script></body></html>")
+    text = mod._strip_html(html)
+    assert "Zeile\xa01" in text and "Zeile 2 & mehr" in text
+    assert "alert" not in text and "color" not in text

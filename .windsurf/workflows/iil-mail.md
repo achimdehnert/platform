@@ -33,6 +33,8 @@ python3 tools/mail_agent/graph_mail.py --scan-senders --days 180        # Domain
 python3 tools/mail_agent/graph_mail.py --create-path "IIL.Kunden/Marold"
 python3 tools/mail_agent/graph_mail.py --move-folder "Gröger" --to-parent "IIL.Kunden"
 python3 tools/mail_agent/graph_mail.py --move --from "groeger-recycling.de" --to "DSGVO/Groeger"
+python3 tools/mail_agent/graph_mail.py --find --subject "Owner-Block" --days 7   # suchen, read-only
+python3 tools/mail_agent/graph_mail.py --show latest --from "dehnert.team"       # eine Mail lesen
 # Antwort-Entwurf (threadet, wenn --reply-to eine Message-ID bekommt):
 python3 tools/mail_agent/graph_mail.py --draft --reply-to <messageId> --body-file antwort.txt
 python3 tools/mail_agent/graph_mail.py --draft --to kunde@x.de --subject "..." --body-file f.txt
@@ -48,3 +50,5 @@ python3 tools/mail_agent/graph_mail.py --draft --to kunde@x.de --subject "..." -
 ## Changelog
 
 - 2026-07-18: Initial (v1). Owner-Entscheid 168 „ja" + Draft-first-Weisung. stdlib-only.
+- 2026-07-18: `--find`/`--show` (E2, Owner „go"): formalisierte Read-Ops statt Ad-hoc-Scripts;
+  keine Scope-Änderung (Mail.ReadWrite konnte lesen — jetzt getestet + auditierbar).

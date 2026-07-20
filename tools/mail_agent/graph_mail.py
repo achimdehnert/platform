@@ -19,15 +19,19 @@ Kommandos:
   --create-path "DSGVO/Groeger"          # legt Ober- + Unterordner an (idempotent)
   --scan-senders [--days N]              # Absender-Domains + Häufigkeit (Mapping-Vorschlag)
   --move --from "<domain-oder-substr>" --to "DSGVO/Groeger" [--yes]
+  --find [--from S] [--subject S] [--days N] [--source PFAD]     # suchen, read-only
+  --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N]
   --draft --to a@b.c --subject "..." --body-file f.txt [--reply-to <messageId>]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import stat
 import sys
 import time
+from html import unescape
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -246,6 +250,89 @@ def cmd_scan(tok: str, days: int) -> None:
         print(f"  {n:>4}  {d}")
 
 
+# ---------- Suchen / Lesen (read-only) ----------
+
+def _match_messages(tok: str, *, from_sub: str = "", subject_sub: str = "",
+                    days: int = 30, source_path: str = "inbox") -> list[dict]:
+    """Substring-Filter client-seitig wie bei --move ($search braucht
+    ConsistencyLevel-Header und liefert instabile Treffer-Reihenfolge)."""
+    src = "inbox" if source_path.lower() in ("inbox", "") else find_folder(tok, source_path)
+    if not src:
+        sys.exit(f"FEHLER: Quellordner '{source_path}' nicht gefunden.")
+    since = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() - days * 86400))
+    hits, url = [], (f"{GRAPH}/me/mailFolders/{src}/messages?$top=100"
+                     "&$select=id,subject,from,receivedDateTime"
+                     f"&$filter=receivedDateTime ge {since}"
+                     "&$orderby=receivedDateTime desc")
+    while url:
+        r = _http("GET", url, headers=_auth(tok))
+        j = r.json()
+        for m in j.get("value", []):
+            em = (m.get("from") or {}).get("emailAddress") or {}
+            hay_from = (em.get("address", "") + " " + em.get("name", "")).lower()
+            subj = m.get("subject") or ""
+            if from_sub and from_sub.lower() not in hay_from:
+                continue
+            if subject_sub and subject_sub.lower() not in subj.lower():
+                continue
+            hits.append(m)
+        url = j.get("@odata.nextLink")
+    return hits
+
+
+def cmd_find(tok: str, from_sub: str, subject_sub: str, days: int, source_path: str) -> None:
+    hits = _match_messages(tok, from_sub=from_sub, subject_sub=subject_sub,
+                           days=days, source_path=source_path)
+    if not hits:
+        print(f"Keine Treffer in '{source_path or 'inbox'}' (letzte {days} Tage).")
+        return
+    print(f"{len(hits)} Treffer in '{source_path or 'inbox'}' (letzte {days} Tage), neueste zuerst:")
+    for m in hits:
+        em = (m.get("from") or {}).get("emailAddress") or {}
+        print(f"  · {m.get('receivedDateTime', '')[:16]}  {em.get('address', '')[:38]:<38} "
+              f"{(m.get('subject') or '')[:60]}")
+        print(f"    id: {m['id']}")
+
+
+def _strip_html(html_text: str) -> str:
+    text = re.sub(r"<(script|style)\b.*?</\1>", "", html_text, flags=re.S | re.I)
+    text = re.sub(r"<br\s*/?>|</p>|</div>|</tr>", "\n", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", "", text)
+    return unescape(text)
+
+
+def cmd_show(tok: str, which: str, from_sub: str, subject_sub: str, days: int,
+             source_path: str, max_chars: int) -> None:
+    if which == "latest":
+        hits = _match_messages(tok, from_sub=from_sub, subject_sub=subject_sub,
+                               days=days, source_path=source_path)
+        if not hits:
+            sys.exit("FEHLER: kein Treffer für --show latest mit diesen Filtern.")
+        mid = hits[0]["id"]
+    else:
+        mid = which
+    r = _http("GET", f"{GRAPH}/me/messages/{urllib.parse.quote(mid, safe='')}"
+                     "?$select=subject,from,toRecipients,receivedDateTime,body",
+              headers=_auth(tok))
+    if r.status_code != 200:
+        sys.exit(f"FEHLER: Nachricht nicht lesbar HTTP {r.status_code} — {r.text[:150]}")
+    m = r.json()
+    em = (m.get("from") or {}).get("emailAddress") or {}
+    tos = ", ".join(((t.get("emailAddress") or {}).get("address", ""))
+                    for t in m.get("toRecipients", []))
+    body = (m.get("body") or {})
+    text = body.get("content", "")
+    if (body.get("contentType") or "").lower() == "html":
+        text = _strip_html(text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    print(f"Von:     {em.get('name', '')} <{em.get('address', '')}>")
+    print(f"An:      {tos}")
+    print(f"Datum:   {m.get('receivedDateTime', '')}")
+    print(f"Betreff: {m.get('subject', '')}")
+    print("--- Body ---")
+    print(text[:max_chars] + ("\n[… gekürzt, --max-chars erhöhen]" if len(text) > max_chars else ""))
+
+
 # ---------- Verschieben ----------
 
 def _find_messages(tok: str, from_sub: str, source_path: str):
@@ -323,6 +410,8 @@ def main() -> None:
     g.add_argument("--scan-senders", action="store_true")
     g.add_argument("--move", action="store_true")
     g.add_argument("--move-folder", metavar="QUELLPFAD", help="ganzen Ordner unter --to-parent verschieben")
+    g.add_argument("--find", action="store_true", help="Mails suchen (read-only)")
+    g.add_argument("--show", metavar="ID|latest", help="eine Mail vollständig lesen (read-only)")
     g.add_argument("--draft", action="store_true")
     ap.add_argument("--to-parent", help="Ziel-Elternordner bei --move-folder")
     ap.add_argument("--account")
@@ -333,6 +422,7 @@ def main() -> None:
     ap.add_argument("--subject", default="")
     ap.add_argument("--body-file")
     ap.add_argument("--reply-to")
+    ap.add_argument("--max-chars", type=int, default=2000, help="Body-Kürzung bei --show")
     ap.add_argument("--yes", action="store_true")
     args = ap.parse_args()
     try:
@@ -359,6 +449,13 @@ def main() -> None:
         if not args.to_parent:
             ap.error("--move-folder braucht --to-parent ZIEL-ELTERNORDNER")
         cmd_move_folder(tok, args.move_folder, args.to_parent)
+    elif args.find:
+        if not (args.from_sub or args.subject):
+            ap.error("--find braucht --from und/oder --subject")
+        cmd_find(tok, args.from_sub or "", args.subject, args.days, args.source)
+    elif args.show:
+        cmd_show(tok, args.show, args.from_sub or "", args.subject, args.days,
+                 args.source, args.max_chars)
     else:  # --draft
         if not args.body_file:
             ap.error("--draft braucht --body-file (und --to ODER --reply-to)")
