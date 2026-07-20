@@ -218,5 +218,13 @@ primäre Entscheidung**, nginx-Map als Backup für Defense-in-Depth.
 ## Open Loops
 
 1. **Wann aktivieren?** — nicht in dieser ADR. Trigger: erster Stakeholder fragt nach Owner-Trennung, oder erste Klickdummy mit Pilot-Daten geht auf staging.
+   - **Konkreter Trigger-Kandidat 2026-07-14:** vier neu adoptierte Klickdummies
+     (tax-hub, dev-hub, weltenhub, dms-hub — alle `achimdehnert`/`iilgmbh`
+     intern) wollten auf `staging-klickdummy.iil.pet`, wurden aber bewusst
+     NICHT registriert — die aktuell flache `klickdummy-viewers`-Gruppe
+     würde interne Tools und die 5 bestehenden externen Stakeholder-Pilots
+     (`bahn-sqf`, `meiki-lra`, `ttz-lif`) gegenseitig sichtbar machen. User
+     hat sich für "lokal testen statt freischalten" entschieden, bis diese
+     ADR umgesetzt ist. Nächster PR, der das anfasst: startet hier.
 2. **Authentik-Bindings vs. nginx-Map Default**: heute defensiv beide (Defense-in-Depth). Entscheidung welcher der Primary-Path ist, fällt nach erstem Pilot.
 3. **Session-TTL für Group-Changes**: 24h Standard ist akzeptabel; falls nicht, in Authentik-Application-Settings auf 1h tunbar.
