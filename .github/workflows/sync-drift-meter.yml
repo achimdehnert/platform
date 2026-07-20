@@ -22,6 +22,7 @@ jobs:
   meter:
     name: "Fleet-Drift-Scan (sync-workflows.sh --dry-run --strict)"
     runs-on: self-hosted
+    timeout-minutes: 15
     permissions:
       contents: read
       issues: write

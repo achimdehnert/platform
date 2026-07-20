@@ -25,7 +25,12 @@ VOCAB = {
 
 def pdate(s):
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", s or "")
-    return datetime.date(*map(int, m.groups())) if m else None
+    if not m:
+        return None
+    try:
+        return datetime.date(*map(int, m.groups()))
+    except ValueError:
+        return None
 
 
 by_repo = collections.defaultdict(list)
