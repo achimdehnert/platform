@@ -43,9 +43,13 @@ Proceed? [Ja/Nein]
 
 ## Step 2.5: Job-Schätzung (ADR-156)
 
-DB-Backup typischerweise 5-30s pro Repo, je nach DB-Größe.
+```
+mcp__orchestrator__estimate_job:
+  job_type: db_backup
+  repo: {app}
+```
 
-> ℹ️ `mcp__orchestrator__estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrungswerten.
+> Fallback ohne gebundenen orchestrator-MCP: DB-Backup typischerweise 5-30s pro Repo, je nach DB-Größe.
 
 Ausgabe: geschätzte Dauer + Modus an den User kommunizieren.
 

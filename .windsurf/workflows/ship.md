@@ -79,9 +79,15 @@ python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --hos
 
 ## Schritt 0.6 — Job-Schätzung ausgeben (ADR-156)
 
-**Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren (Erfahrungswerte: 60-180s).
+**Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren.
 
-> ℹ️ `mcp__orchestrator__estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrung.
+```
+mcp__orchestrator__estimate_job:
+  job_type: deploy
+  repo: {scope}
+```
+
+> Fallback ohne gebundenen orchestrator-MCP: Erfahrungswerte 60-180s.
 
 Ausgabe an den User im Format:
 > Deploy {scope}: ~{estimated_seconds}s ({estimated_seconds_min}–{estimated_seconds_max}s)
@@ -157,7 +163,10 @@ mcp__deployment-mcp__ssh_manage:
 
 Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
 
-> ℹ️ `mcp__orchestrator__discord_notify` existiert nicht mehr (Issue #80) — Notifications jetzt im Cascade-Output, nicht mehr in Discord.
+> ℹ️ Deploy-Meldung geht in den Session-Output, nicht nach Discord.
+> (`mcp__orchestrator__discord_notify` **existiert weiterhin** — der frühere Hinweis
+> „existiert nicht mehr" war eine Prefix-Drift-Fehldiagnose, siehe ADR-156-Nachtrag.
+> Ob Discord wieder aktiv werden soll, ist eine offene Entscheidung, kein Defekt.)
 
 **Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
 
