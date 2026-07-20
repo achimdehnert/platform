@@ -28,10 +28,10 @@ Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-07-12, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste (Stand 2026-07-15, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
 
 ```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,pptx-hub,dev-hub,iil-klickdummy,sqf-hub
+risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,pptx-hub,dev-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -89,3 +89,4 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
 ## Changelog
 
 - 2026-07-12: Initial (KONZ-risk-hub-008 MVC Schritt 1; Backfill-Baseline 125 Entries/14 Repos).
+- 2026-07-15: Repo-Liste +tax-hub +trading-hub (Discovery-Fund; 139 Entries/16 Repos). ttz-hub hat jetzt auch `klickdummy/` — bleibt gov-ausgeschlossen (E3).
