@@ -1,7 +1,7 @@
 ---
 id: ADR-272
-title: "Adopt a machine-readable distribution contract with bounded redistribution latency"
-status: proposed
+title: "Adopt a machine-readable distribution contract with bounded drift-detection latency"
+status: accepted
 decision_date: 2026-07-11
 deciders:
   - "Achim Dehnert"
@@ -27,17 +27,19 @@ related:
   Strategie: techdocs-first, dev-hub-sync, Drift-Detector-kompatibel
 -->
 
-# ADR-272: Adopt a machine-readable distribution contract with bounded redistribution latency
+# ADR-272: Adopt a machine-readable distribution contract with bounded drift-detection latency
+
+*(v1.1, REC-1: „redistribution latency" → „drift-detection latency" — der ADR begrenzt nachweislich nur die Detektion, nicht die Aktualisierung selbst; Definitionen in §3.1. Dateiname bleibt unverändert, Links stabil.)*
 
 ## Metadaten
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted (2026-07-11, Owner-Go auf Basis v1.1 — §External Sparring)  |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-07-11                                                           |
 | **Autor**       | Achim Dehnert                                                        |
-| **Reviewer**    | –                                                                    |
+| **Reviewer**    | wirdigital (PR #1072) · intern: deep-review · extern: GPT-5.5        |
 | **Supersedes**  | –                                                                    |
 | **Superseded by** | –                                                                  |
 | **Relates to**  | ADR-230 (cc-first-skill-distribution), ADR-234 (clean-state-invariant), ADR-258 (cc-hook-distribution), ADR-263 (windsurf-rules-distributor-hardening), ADR-265 (untrack-distributed-symlink-targets), ADR-229 (windsurf-distribution-single-source) |
@@ -153,6 +155,26 @@ Muster bei Auftreten per Sweep beheben (wie 2026-07-04).
 **Cons:**
 - Empirisch widerlegt: drei Rückfall-Instanzen binnen einer Woche nach dem letzten Sweep → **Abgelehnt weil:** wiederkehrende Instanz-Kosten ohne Klassen-Fix; genau die Drift-Historie, die dieses ADR motiviert.
 
+### Option D: Pull-basierte, versionierte Distributions-Bundles *(ergänzt v1.1, REC-11)*
+
+CI erzeugt aus den Quellen ein unveränderliches, gehashtes Bundle mit Versionskennung; Ziele ziehen eine explizite Version und melden ihren Ist-Stand.
+
+**Pros:**
+- Soll/Ist als eindeutige Versionsdifferenz statt heterogener Dateivergleiche; saubere Trennung Veröffentlichung/Bezug/Aktivierung
+
+**Cons:**
+- Neues Release-/Packaging-Konzept quer über alle Lanes; löst inaktive Maschinen ebenfalls nicht → **Nicht jetzt:** als spätere Zielarchitektur notiert (Konzept-Kandidat), ändert die heutige Entscheidung nicht.
+
+### Option E: Selbstbeschreibende Verteiler (describe-Modus) *(ergänzt v1.1, REC-11)*
+
+`distribution.yaml` wird aus maschinenlesbaren Selbstbeschreibungen der Verteiler generiert statt manuell gepflegt.
+
+**Pros:**
+- Reduziert die häufigste Driftklasse des Vertrags selbst (fehlender/veralteter Inventareintrag)
+
+**Cons:**
+- Adapter für heterogene Alt-Mechanismen nötig → **Teilübernahme:** describe-Pflicht gilt ab P2 für **neu eingeführte** Verteiler; der Alt-Bestand bleibt manuelles Inventar.
+
 ---
 
 ## 3. Decision Outcome
@@ -169,10 +191,29 @@ wo eine Lücke belegt ist.
 
 | # | Invariante | Adressiertes Muster |
 |---|---|---|
-| **I1** | Jedes verteilte Artefakt ist Symlink **oder** trägt einen generated/MANAGED-BY-Marker mit Quelle + content_hash. Regelinhalte werden verwiesen (Pointer), nie kopiert. | Regel-Kopie |
-| **I2** | Je Artefakt-Typ genau **eine** kanonische Quelle, deklariert in `registry/distribution.yaml`; Konsumenten (Skripte, Skills) lesen Listen aus der Registry statt sie zu hartkodieren. | Kanon-Konflikt |
-| **I3** | Jede Zustands-Behauptung über Verteilung (Rollout-Checkboxen, Indizes, Manifeste) ist entweder **generiert + CI-gegated** oder trägt ein Stand-Datum. | Lügender Index |
-| **I4** | Redistribution-Latenz ist **gemessen und begrenzt**: Live-Drift-Check im Session-Start (fail-loud, wie Policy-Refresh), Schwelle 7 Tage bzw. Content-Delta. | Redistribution-Latenz |
+| **I1** | Jedes verteilte Artefakt ist (a) **Symlink/Pointer** oder (b) **deterministisch generierte Kopie** mit MANAGED-BY-Marker (Quelle + content_hash) und Drift-Gate — beide Formen sind zulässig (ADR-230). Verboten ist allein die dritte Form: **manuell duplizierter Regeltext** ohne Marker. *(v1.1, REC-6)* | Regel-Kopie |
+| **I2** | Je Artefakt-Typ (= Lane in `registry/distribution.yaml`) genau **eine** deklarierte kanonische Quelle bzw. Quellen-Liste (§3.1); Konsumenten (Skripte, Skills) lesen Listen aus der Registry statt sie zu hartkodieren. *(v1.1, REC-7)* | Kanon-Konflikt |
+| **I3** | Behauptungen über den **aktuellen** Verteil-Zustand (Rollout-Checkboxen, Indizes, Manifeste) sind **generiert + CI-gegated** oder werden automatisiert als veraltet markiert; ein bloßes Stand-Datum genügt nur für explizit als **Snapshot** gekennzeichnete historische Aussagen. *(v1.1, REC-8)* | Lügender Index |
+| **I4** | **Drift-Detektions-Latenz** ist gemessen und begrenzt — auf Maschinen nur während aktiver Sessions (WARN-Banner, laut aber nicht blockierend); Meldesemantik nach Risikoklasse, Eskalation und Mess-Felder in §3.1. Für nie gestartete Maschinen existiert **keine** Obergrenze (ehrliche Grenze). *(v1.1, REC-1/2)* | Redistribution-Latenz |
+
+### 3.1 Begriffs- und Mess-Definitionen *(v1.1, aus externem Review)*
+
+**Latenz-Begriffe (REC-1):** *Detektions-Latenz* = Zeit von kanonischer Änderung bis zur ersten Meldung · *Remediations-Latenz* = bis zur tatsächlichen Aktualisierung des Ziels · *Redistributions-Latenz* = Summe beider. Dieser ADR begrenzt **nur die Detektions-Latenz**, und auf Maschinen nur während aktiver Sessions; Remediation bleibt ein manueller Akt mit Eskalationsregel (unten).
+
+**Risikoklassen (REC-2, bewusst nur zwei — YAGNI):**
+
+| Klasse | Artefakte | Meldesemantik |
+|---|---|---|
+| A (kritisch) | `policies/`, `tools/hooks/`, Workflow-Quellen | jedes Content-Delta → Meldung beim nächsten Check |
+| B (Komfort) | commands-/skills-Kopien, `project-facts.md` | Meldung erst bei Freshness > 7 Tage |
+
+**Artefakttyp / kanonische Quelle (REC-7):** Ein *Artefakttyp* ist eine Lane in `registry/distribution.yaml`; seine *kanonische Quelle* ist die dort deklarierte `source`-Liste. Zusammengesetzte Artefakte (z.B. `project-facts.md`) sind deterministische Ableitungen aus **mehreren** Inputs — jeder Input ist für seine Fakten kanonisch, die Ableitung selbst ist nie Quelle. *Zwischenzustand bis ADR-273 (M28-6):* `canonical.yaml` führt für Repo-Fakten; `github_repos.yaml` ist geduldeter, in der Lane sichtbar deklarierter Zusatz-Input.
+
+**Mess-Definition (REC-14):** Jede Detektion erzeugt eine grep-bare `DIST-DRIFT`-Zeile mit: Lane · Quell-Commit-Delta · `first_detected_at` · nach Behebung `remediated_at` + Status. Implementierung: P2 (#1073).
+
+**Eskalationsregel (REC-10):** Ein WARN, das >14 Tage unbehoben bleibt, führt der tägliche fleet-drift-Report als Zeile im rollenden Sammel-Issue — der persistente, abfragbare Zustand existiert damit bereits, es wird kein neuer Mechanismus gebaut.
+
+**Wirksamkeits-Zählung (REC-9, right-sized):** Für §8.3 zählen **deduplizierte** Defekt-Ereignisse (dasselbe Ereignis = 1), belegt aus zwei Quellen: Session-Retros **und** `DIST-DRIFT`-Zeilen. Eine vollwertige Event-Datenbank ist bewusst nicht Scope.
 
 ---
 
@@ -194,7 +235,9 @@ Fremd-Repos bzw. Skripte, die nach `~/.claude` schreiben).
   Alarm-Müdigkeits-Lehre aus dem Advisory-Scanner-Fall).
 - `gen_project_facts.py` schreibt einen generated-Header (Quelle, Commit,
   `do_not_edit`) in jede `project-facts.md` (I1-Lücke aus §1.1).
-- Contract-Lint als Job in `validate-workflows.yml`.
+- Contract-Lint als Job in `validate-workflows.yml` — geprüft wird nicht nur Existenz, sondern **referenzielle und operative Konsistenz**: das deklarierte Gate muss den Verteilweg nachweisbar beobachten und als blockierend/beobachtend klassifiziert sein *(v1.1, REC-4)*.
+- **describe-Pflicht für neue Verteiler** *(v1.1, REC-11/Option E)*: neu eingeführte Verteilmechanismen liefern eine maschinenlesbare Selbstbeschreibung, gegen die ihr Lane-Eintrag geprüft wird.
+- Erkennung **nicht deklarierter** Verteilwege wird verbindlicher Confirmation-Mechanismus *(v1.1, REC-5)*: Heuristik über typische Primitive (cross-repo `contents:write`, Schreibziele `~/.claude/*`), dokumentierte Falschpositiv-Regel + gegatete Ausnahmen.
 
 ### 4.3 P3 — Kanon-Konsolidierung der Repo-Listen
 
@@ -217,7 +260,7 @@ Merge des Versions-Fixes). Beides kleine, getrennte PRs.
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
-| `platform`     | P1 Vertrag + ADR | 🔄 In Progress | 2026-07-11 | dieser PR |
+| `platform`     | P1 Vertrag + ADR | ✅ Abgeschlossen | 2026-07-11 | PR #1072, merged `be0ec47` |
 | `platform`     | P2 Latenz + Header + Lint | ⬜ Ausstehend | – | Issue folgt (model:sonnet-5) |
 | `platform`     | P3 Repo-Listen-Kanon | ⬜ Ausstehend | – | Issue folgt (model:sonnet-5) |
 | `platform`     | P4 Index-Reconciliation | ⬜ Ausstehend | – | ADR-230-Amendment |
@@ -242,6 +285,8 @@ Merge des Versions-Fixes). Beides kleine, getrennte PRs.
 - Härtung/Stilllegung von `receive-windsurf-rules.yml` — bleibt ADR-263 (dieser ADR erhöht nur die Priorität)
 - Konsolidierung `canonical.yaml` vs. `github_repos.yaml` als SSoT-Frage (eigene Entscheidung, Kandidat ADR-273; §4.3 migriert nur Konsumenten auf canonical)
 - Auto-Push auf Maschinen oder Repos (bewusst verworfen, Option B)
+- Pull-Bundle-Zielarchitektur (Option D) — als Konzept-Kandidat notiert, nicht Teil dieser Entscheidung
+- Garantierte **Remediations**-Latenz (§3.1) — nur Detektion wird begrenzt; alles Weitere wäre Option B durch die Hintertür
 
 ---
 
@@ -258,9 +303,39 @@ Merge des Versions-Fixes). Beides kleine, getrennte PRs.
 ## 8. Confirmation
 
 1. **Contract-Lint (ab P2)**: CI-Job in `validate-workflows.yml` — jede `source` in `registry/distribution.yaml` existiert, jedes deklarierte Gate existiert; rot bei Verstoß.
-2. **Latenz-Banner (ab P2)**: `doctor.py --live --quick` im Session-Start; Befund-Zeile im Transkript ist grep-bar (`DIST-DRIFT`), Messung analog `measure-evidence-discipline.py`.
-3. **Wirksamkeits-Test (bindend, falsifizierbar)**: Bis **2026-10-15** gilt — tauchen in Session-Retros erneut ≥2 Instanzen der Muster 1–4 auf, die eine Invariante hätte verhindern müssen, wird die betroffene Invariante nachgeschärft oder dieses ADR als gescheitert markiert. Meldet umgekehrt der Latenz-Check bis dahin nie ein Delta >7 Tage, wird der Check auf wöchentlich reduziert (kein Selbstzweck).
-4. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft — Staleness-Schwelle: 6 Monate.
+2. **Detektions-Banner (ab P2)**: `doctor.py --live --quick` im Session-Start; `DIST-DRIFT`-Zeile mit Mess-Feldern nach §3.1, Messung analog `measure-evidence-discipline.py`.
+3. **Wirksamkeits-Test (bindend, falsifizierbar)**: Bis **2026-10-15** gilt — tauchen in Session-Retros oder `DIST-DRIFT`-Zeilen erneut **≥2 unabhängige, deduplizierte Instanzen** (§3.1) der Muster 1–4 auf, die eine Invariante hätte verhindern müssen, wird die betroffene Invariante nachgeschärft oder dieses ADR als gescheitert markiert. Meldet umgekehrt der Detektions-Check bis dahin nie ein Delta über Schwelle, wird der Check auf wöchentlich reduziert (kein Selbstzweck).
+4. **Verteiler-Vollständigkeit (ab P2)**: Heuristik-Scan auf nicht deklarierte Verteilwege (§4.2) läuft als Teil des Contract-Lint; Fund ohne Lane-Eintrag = rot *(v1.1, REC-5)*.
+5. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft — Staleness-Schwelle: 6 Monate.
+
+---
+
+## External Sparring (Audit, Step-5-Nachweis)
+
+`external_sparring_by: openai/gpt-5.5 @ 2026-07-11` *(im Body statt Frontmatter — Schema v3 strikt; Präzedenz ADR-267)* · Transport: `/adr-handoff-extern`, manuell, 1 Runde · Externe Empfehlung: **Überarbeiten** → umgesetzt als v1.1, danach Accept (Owner-Go 2026-07-11). Intern zusätzlich: deep-review-Routine fand vor dem P1-Merge einen CONFIRMED-BLOCKER (unparsebares `distribution.yaml`) — dieser Vorfall belegt **ausschließlich** die Notwendigkeit eines Parse-/Beobachtungs-Gates, nicht die Validierung des Gesamtvertrags *(REC-13)*.
+
+Rückfluss-Tag-Tabelle (nur `[valid]` floss ein, als eigene Formulierung):
+
+| REC | Verdikt | Umsetzung |
+|---|---|---|
+| 1 Titel/I4 = Detektion | valid | Titel, I4, §3.1 |
+| 2 Melde-Semantik | valid (right-sized) | §3.1: 2 Risikoklassen |
+| 3 Schema versioniert | valid | → #1073 |
+| 4 Lint: Gate-Wirkung | valid | §4.2 + #1073 |
+| 5 Verteiler-Detektion | valid | §4.2, §8.4 + #1073 |
+| 6 I1 vs. ADR-230 | valid | I1 Dreiteilung |
+| 7 Artefakttyp-Definition | valid | §3.1 + Zwischenzustand |
+| 8 I3 Snapshot-Regel | valid | I3 neu |
+| 9 Messbasis | teil-valid | §3.1 Dedup + DIST-DRIFT; Event-DB verworfen (YAGNI) |
+| 10 Eskalation/Persistenz | valid (right-sized) | §3.1: >14 Tage → fleet-drift-Issue |
+| 11 Optionen D/E | valid | §2 ergänzt; describe-Pflicht → §4.2 |
+| 12 P1-vor-Accept transparent | valid | Absatz unten; Befund AD-13 selbst: [missversteht-Kontext] — merged-proposed ist der gewollte Status-Lifecycle |
+| 13 Vorfall nicht überdehnen | valid | Formulierung oben |
+| 14 Mess-Definition | valid (minimal) | §3.1; Implementierung #1073 |
+
+Out-of-scope getaggt: Pull-Bundle-Modell als sofortiger Ersatz (bleibt Konzept-Kandidat, §2 Option D).
+
+**Transparenz (REC-12):** P1 (`distribution.yaml` + Parse-Gate) wurde am 2026-07-11 **vor** dem Accept gemergt (PR #1072). Der Merge ist reversibel (eine YAML-Datei, ein CI-Step, dieses Dokument); der Owner war dadurch weder fachlich noch prozessual auf Annahme festgelegt. Der Accept erfolgte erst nach internem + externem Review auf Basis dieser v1.1.
 
 ---
 
@@ -275,7 +350,8 @@ Merge des Versions-Fixes). Beides kleine, getrennte PRs.
 | **Symlink** | Dateisystem-Verweis auf die Originaldatei statt einer Kopie |
 | **Drift** | Schleichendes Auseinanderlaufen von Kopie und Quelle |
 | **CI / Gate** | Continuous Integration / automatische Prüfung, die einen Merge blockieren kann |
-| **Redistribution-Latenz** | Zeit zwischen Änderung der Quelle und Aktualisierung der verteilten Kopien |
+| **Redistribution-Latenz** | Zeit zwischen Änderung der Quelle und Aktualisierung der verteilten Kopien (= Detektions- + Remediations-Latenz, §3.1) |
+| **Detektions-Latenz** | Zeit zwischen Änderung der Quelle und der ersten Meldung der Abweichung — das, was dieser ADR begrenzt |
 | **Context and Problem Statement / Considered Options / Decision Outcome / Confirmation** | MADR-4.0-Standardabschnitte: Problem / geprüfte Optionen / Entscheidung / Einhaltungs-Prüfung |
 
 ---
@@ -295,3 +371,4 @@ Merge des Versions-Fixes). Beides kleine, getrennte PRs.
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-07-11 | Achim Dehnert | Initial: Status Proposed |
+| 2026-07-11 | Achim Dehnert | v1.1 (externes Sparring GPT-5.5, 14 RECs getaggt, 13 valid): Titel + I4 auf **Detektions**-Latenz präzisiert, I1/I3 nachgeschärft, §3.1 Definitionen (Risikoklassen, Mess-Felder, Eskalation), Optionen D/E, §8.4 Verteiler-Vollständigkeit, Audit-Abschnitt. Status → **Accepted** (Owner-Go auf Basis v1.1) |

@@ -237,7 +237,7 @@
 | 269 | — Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein | Proposed | ⬜ | [ADR-269](ADR-269-tenant-scoping-fail-closed-contract.md) |
 | 270 | Merge-Automatisierung fleet-weit einführen — risiko-getiert (Tier A: strict=false + Auto-Merge · Tier B: Merge-Queue) | Accepted | ⬜ | [ADR-270](ADR-270-merge-automation-fleet-tiered.md) |
 | 271 | Adopt MADR 4.0 section structure for the /adr skill scaffold | Accepted | ⬜ | [ADR-271](ADR-271-adr-scaffold-madr4-unification.md) |
-| 272 | Adopt a machine-readable distribution contract with bounded redistribution latency | Proposed | ⬜ | [ADR-272](ADR-272-distribution-contract-bounded-latency.md) |
+| 272 | Adopt a machine-readable distribution contract with bounded drift-detection latency | Accepted | ⬜ | [ADR-272](ADR-272-distribution-contract-bounded-latency.md) |
 | 273 | writing-hub as composition SSoT for generative long-form authoring; facts and structured templates via shared iil-* packages | Proposed | ⬜ | [ADR-273](ADR-273-writing-hub-composition-ssot.md) |
 | 274 | Adopt iil-doc-templates as the reusable structured-document template engine (Django-app tier) | Accepted | ✅ | [ADR-274](ADR-274-iil-doc-templates-adoption.md) |
 | 275 | Registry-SSoT-Konsolidierung — canonical.yaml als einzige Quelle, github_repos.yaml stilllegen | Accepted | ✅ | [ADR-275](ADR-275-registry-ssot-consolidation.md) |
