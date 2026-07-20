@@ -2,9 +2,11 @@
 
 Dies ist das **Plattform-Repo** der iil-Org-Familie:
 
-- **ADRs**: alle Architektur-Entscheidungen (ADR-001…ADR-211ff.)
+- **ADRs**: alle Architektur-Entscheidungen (Bestand live: `ls docs/adr/ADR-*.md | wc -l`;
+  höchste Nr.: `ls docs/adr/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -V | tail -1`)
 - **Policies**: `policies/*.md` für Cross-Repo-Konventionen
-- **Workflows**: `.windsurf/workflows/` für Claude-Code/Cascade-Skills
+- **Workflows**: `.windsurf/workflows/` — Quelle der Claude-Code-Skills (Windsurf selbst
+  nur noch ADR-Review-Subset, kein Coding mehr, ADR-230)
 - **Scripts/Checks**: `scripts/checks/*.sh`
 - **Schemas**: `schemas/*.json`
 
@@ -18,7 +20,7 @@ konkretes Repo betrifft:
 | `iil-klickdummy` Bug/Feature | [`iilgmbh/iil-klickdummy`](https://github.com/iilgmbh/iil-klickdummy/issues) |
 | Klickdummy-spezifisch in meiki-hub | [`meiki-lra/meiki-hub`](https://github.com/meiki-lra/meiki-hub/issues) |
 | Klickdummy-spezifisch in writing-hub | [`achimdehnert/writing-hub`](https://github.com/achimdehnert/writing-hub/issues) |
-| Klickdummy-spezifisch in risk-hub | [`achimdehnert/risk-hub`](https://github.com/achimdehnert/risk-hub/issues) |
+| Klickdummy-spezifisch in risk-hub | [`iilgmbh/risk-hub`](https://github.com/iilgmbh/risk-hub/issues) |
 | Klickdummy-spezifisch in ttz-hub | [`ttz-lif/ttz-hub`](https://github.com/ttz-lif/ttz-hub/issues) |
 | **Cross-Repo-Konvention / ADR** | hier (platform) ✅ |
 | **Plattform-Skill / Workflow** | hier (platform) ✅ |

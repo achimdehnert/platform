@@ -1,0 +1,142 @@
+name: "Prod-Uptime-Canary"
+
+# Externe Outage-Detektion für Prod-Hubs (session-retro 2026-06-17, P2).
+# Hintergrund: risk-hub-Web war 2026-06-15 ~25h down (schutztat.de 502) und blieb
+# UNBEMERKT — es gab kein externes Monitoring (Uptime-Kuma nur geplant, nie deployed).
+#
+# Läuft bewusst auf ubuntu-latest = GitHub-hosted, AUSSERHALB unserer Hetzner-Infra.
+# Ein Monitor, der auf derselben Infra läuft wie das Überwachte, ist bei Host-Down
+# blind — genau das hätte die 25h-Outage verschluckt.
+#
+# Überwacht nur bekannt-gute (200) Prod-/livez/-Endpoints (Baseline 2026-06-17).
+# Origin-Down-Signale (5xx/52x/Timeout/Conn-Fail) → Issue + roter Run (Notification).
+# 403/401/3xx (Cloudflare-Access o.ä.) gelten NICHT als down.
+#
+# Pflege: neue Live-Hubs / aktuell 502/000-Hubs nach Triage in URLS aufnehmen.
+# Robustere 1-Min-Variante optional via Betterstack (/uptime-monitoring-Skill).
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # alle 15 min (GitHub-Cron-Minimum 5 min; 15 reicht für Outage-Klasse)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    name: "Prod /livez/ Health"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Probe Prod-Endpoints"
+        id: probe
+        run: |
+          set -uo pipefail
+          URLS="
+          https://schutztat.de/livez/
+          https://137herz.de/livez/
+          https://bieterpilot.de/livez/
+          https://billing.iil.pet/livez/
+          https://dev-hub.iil.pet/livez/
+          https://dms.iil.pet/livez/
+          https://kiohnerisiko.de/livez/
+          https://learn.iil.pet/livez/
+          https://nl2cad.de/livez/
+          https://prezimo.com/livez/
+          https://tax.iil.pet/livez/
+          https://trading-hub.iil.pet/livez/
+          https://wedding-hub.iil.pet/livez/
+          https://weltenforger.com/livez/
+          https://writing-hub.iil.pet/livez/
+          https://travel-beat.iil.pet/livez/
+          https://research.iil.pet/healthz/
+          "
+          down=""
+          for u in $URLS; do
+            [ -z "$u" ] && continue
+            # Retry/Backoff je Hub: ein transienter 000/5xx (Netz-Blip, Runner-Überlast —
+            # Realfall 2026-07-03: Canary meldete 14 Hubs 000000, die live 200 waren) darf
+            # NICHT als Outage durchgehen. Bis 3 Versuche; bei settled-Code (up/geschützt/
+            # redirect) sofort raus. Nur wenn ALLE 3 transient/down bleiben → als down werten.
+            code=000
+            for attempt in 1 2 3; do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$u" 2>/dev/null || echo "000")
+              case "$code" in 200|204|401|403|301|302|307|308) break ;; esac
+              [ "$attempt" -lt 3 ] && sleep 5
+            done
+            case "$code" in
+              200|204) echo "✅ $code  $u" ;;
+              401|403|301|302|307|308) echo "🔒 $code  $u (geschützt/redirect — kein Down-Signal)" ;;
+              *) echo "❌ $code  $u"; down="${down}- ${u} → HTTP ${code}\n" ;;
+            esac
+          done
+          if [ -n "$down" ]; then
+            {
+              echo "## 🚨 Prod-Hub(s) nicht erreichbar"
+              echo ""
+              printf "%b" "$down"
+            } >> "$GITHUB_STEP_SUMMARY"
+            printf "%b" "$down" > /tmp/down.txt
+            echo "has_down=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_down=false" >> "$GITHUB_OUTPUT"
+            echo "Alle überwachten Prod-Endpoints 200." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: "Issue öffnen/aktualisieren bei Down"
+        if: steps.probe.outputs.has_down == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LABEL="prod-uptime-canary"
+          TITLE="🚨 Prod-Uptime-Canary: Hub(s) nicht erreichbar"
+          BODY=$(printf "Canary-Lauf %s meldet nicht erreichbare Prod-Hubs:\n\n%s\n\nRun: %s/%s/actions/runs/%s\n\n_Auto-erzeugt vom Prod-Uptime-Canary. Wird automatisch geschlossen, sobald wieder grün._" \
+            "$(date -u +%FT%TZ)" "$(cat /tmp/down.txt)" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
+          # Label idempotent sicherstellen — deterministische Suche statt fragiler Emoji-Titel-Volltextsuche.
+          gh label create "$LABEL" --repo "$GITHUB_REPOSITORY" --color b60205 \
+            --description "Auto: Prod-Uptime-Canary Outage-Tracking" --force >/dev/null 2>&1 || true
+          # Primär: existierendes Issue per LABEL finden (deterministisch, kein Volltext-Index).
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          # Fallback einmalig: Alt-Issues ohne Label per Titel adoptieren (kollabiert die vor diesem Fix
+          # entstandenen Duplikate auf ein kanonisches Issue).
+          if [ -z "$existing" ]; then
+            existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          fi
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --add-label "$LABEL" >/dev/null 2>&1 || true
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+            echo "Kommentar an kanonisches Issue #$existing"
+            # Legacy-Duplikate desselben Outages auf das kanonische Issue konsolidieren.
+            for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[].number' 2>/dev/null); do
+              [ "$n" = "$existing" ] && continue
+              gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Dedup → #$existing (Prod-Uptime-Canary konsolidiert dasselbe Outage)." >/dev/null 2>&1 || true
+              echo "Duplikat #$n → #$existing geschlossen"
+            done
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY" --label "$LABEL"
+          fi
+
+      - name: "Issue schließen bei wieder-grün (Loop schließen)"
+        if: steps.probe.outputs.has_down == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LABEL="prod-uptime-canary"
+          TITLE="🚨 Prod-Uptime-Canary: Hub(s) nicht erreichbar"
+          # Sowohl gelabelte als auch etwaige Alt-Issues (Titel) schließen — Loop schließt sich selbst.
+          nums=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --json number --jq '.[].number' 2>/dev/null; \
+                 gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[].number' 2>/dev/null)
+          for n in $(printf "%s\n" $nums | sort -u); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" \
+              --comment "✅ Alle überwachten Prod-Endpoints wieder 200 (Run $GITHUB_RUN_ID) — automatisch geschlossen." >/dev/null 2>&1 || true
+            echo "Issue #$n geschlossen (wieder grün)"
+          done
+
+      - name: "Run rot machen bei Down (Notification)"
+        if: steps.probe.outputs.has_down == 'true'
+        run: |
+          echo "::error::Prod-Uptime-Canary: mindestens ein Hub nicht erreichbar — siehe Issue + Summary."
+          exit 1

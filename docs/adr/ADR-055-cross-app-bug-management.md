@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-21
-decision-makers: Achim Dehnert
+decision_date: 2026-02-21
+deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
   - "GitHub Issues: cross-app bug management active"
@@ -191,7 +191,7 @@ Analysiere den Bug, finde die Ursache in `{repo_path}` und behebe ihn minimal.
 
 - **Implements**: ADR-015 (Platform Governance System)
 - **Extends**: ADR-049 (App Identity Standard)
-- **References**: ADR-054 (Deployment Pre-Flight Validation)
+- **References**: ADR-056 (Deployment Pre-Flight Validation & Pipeline Hardening)
 
 ---
 

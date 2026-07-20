@@ -1,94 +1,169 @@
-# =============================================================================
-# MASTER REPO REGISTRY
-# Single source of truth for all repos on this Hetzner server.
-# Auto-detection fills missing values from docker-compose files.
-# Manual overrides here take precedence over auto-detection.
-#
-# Run: bash /home/devuser/github/platform/scripts/gen_project_facts.sh
-# =============================================================================
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  GENERATED — NICHT VON HAND EDITIEREN (ADR-234 P0).                    ║
+# ║  Kanonische Quelle: registry/canonical.yaml                           ║
+# ║  Regenerieren:  python3 tools/registry-canonical.py flip               ║
+# ║  CI-Drift-Gate (registry-consistency.yml) failt bei Divergenz.        ║
+# ╚══════════════════════════════════════════════════════════════════════╝
 
 server:
   github_base: /home/devuser/github
   github_org: achimdehnert
-  ssh_root: "ssh -o StrictHostKeyChecking=no root@localhost"
-  devuser_sudo: false   # devuser has NO sudo password — always use ssh_root
-
+  ssh_root: ssh -o StrictHostKeyChecking=no root@localhost
+  devuser_sudo: false
 repos:
-
-  # ── Django Hub Apps ─────────────────────────────────────────────────────────
-
   137-hub:
     type: django
     prod_url: 137herz.de
     staging_url: staging.137herz.de
     port: 8095
     health: /livez/
-
+  apo-hub:
+    type: django
+    prod_url: apo.iil.pet
+    port: 8042
+    health: /livez/
+  aifw:
+    type: library
+    pypi: aifw
   ausschreibungs-hub:
     type: django
     prod_url: bieterpilot.de
     staging_url: staging.bieterpilot.de
     port: 8101
     health: /livez/
-
+  authoringfw:
+    type: library
+    pypi: authoringfw
+  bfagent:
+    type: agent
+    archived: true
   billing-hub:
     type: django
     prod_url: billing.iil.pet
     port: 8092
     health: /livez/
-
   cad-hub:
     type: django
     prod_url: nl2cad.de
     staging_url: staging.nl2cad.de
     port: 8094
     health: /livez/
-
   coach-hub:
     type: django
     prod_url: kiohnerisiko.de
     staging_url: staging.kiohnerisiko.de
     port: 8007
     health: /livez/
-
+  decks-hub:
+    type: static
+    prod_url: decks-hub.iil.pet
+    port: 8112
+    health: /healthz/
   dev-hub:
     type: django
     prod_url: dev-hub.iil.pet
     port: 8085
     health: /livez/
-
   dms-hub:
     type: django
     prod_url: dms.iil.pet
     port: 8107
     db: dms_hub
     health: /livez/
-
+  frist-hub:
+    type: django
+    port: 8111
+    health: /livez/
+  gaeb-toolkit:
+    type: library
+    pypi: gaeb-toolkit
+  iil-adrfw:
+    type: library
+    pypi: iil-adrfw
+  iil-codeguard:
+    type: library
+    pypi: iil-codeguard
+  iil-django-commons:
+    type: library
+    pypi: iil-django-commons
+  iil-enrichment:
+    type: library
+    pypi: iil-enrichment
+  iil-fieldprefill:
+    type: library
+    pypi: iil-fieldprefill
+  iil-ingest:
+    type: library
+    pypi: iil-ingest
+    note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
+  iil-klickdummy:
+    type: library
+    pypi: iil-klickdummy
+  iil-reflex:
+    type: library
+    pypi: iil-reflex
+    note: Web/PDF provider library — HttpxWebProvider, PubChemAdapter, GESTISAdapter
+  iil-relaunch:
+    type: infra
+    note: Website relaunch assets
+  iil-testkit:
+    type: library
+    pypi: iil-testkit
+    note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
+  iil-voice-agent:
+    type: library
+    note: Souveräner Telefon-/Sprachagent (mPA/Telefonagent, iilgmbh) — Hexagonal-Core mit swappable LLM/Voice/Knowledge-Ports
+      (platform:ADR-249). Scaffold/MVP, kein Deploy.
+  illustration-fw:
+    type: library
+    pypi: illustration-fw
   illustration-hub:
     type: django
-    prod_url: illustration-hub.iil.pet
+    prod_url: illustration.iil.pet
     port: 8096
     health: /livez/
-
+  infra-deploy:
+    type: infra
+    note: Deployment scripts and Ansible playbooks
+  lastwar-bot:
+    type: bot
+    note: Telegram/Discord bot
   learn-hub:
     type: django
     prod_url: learn.iil.pet
     port: 8100
     health: /livez/
-
+  learnfw:
+    type: library
+    pypi: learnfw
+  mcp-hub:
+    type: infra
+    prod_url: orchestrator.iil.pet
+    port: 3000
+    note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
+      C4:8000)
+  meiki-hub:
+    type: django
+  nl2cad:
+    type: library
+    pypi: nl2cad
   odoo-hub:
     type: infra
-    prod_url: odoo-hub.iil.pet
+    prod_url: odoo.iil.pet
     port: 8069
-    health: /web/health  # Odoo-native health endpoint (kein Django /livez/)
-
+    health: /web/health
   onboarding-hub:
     type: django
     prod_url: schulungspass.de
     staging_url: staging.schulungspass.de
     port: 8108
     health: /livez/
-
+  outlinefw:
+    type: library
+    pypi: outlinefw
+  platform:
+    type: infra
+    note: ADRs, architecture docs, shared workflows, repo-registry
   pptx-hub:
     type: django
     prod_url: prezimo.com
@@ -96,19 +171,25 @@ repos:
     port: 8020
     db: pptx_hub
     health: /livez/
-
+  promptfw:
+    type: library
+    pypi: promptfw
   recruiting-hub:
     type: django
     prod_url: recruiting.iil.pet
     port: 8103
     health: /livez/
-
   research-hub:
     type: django
     prod_url: research.iil.pet
-    port: 8104
+    port: 8098
     health: /livez/
-
+  researchfw:
+    type: library
+    pypi: researchfw
+  riskfw:
+    type: library
+    pypi: riskfw
   risk-hub:
     type: django
     prod_url: schutztat.de
@@ -116,14 +197,13 @@ repos:
     port: 8090
     db: risk_hub
     health: /livez/
-    extra_containers: [minio]
-
+    extra_containers:
+    - minio
   tax-hub:
     type: django
     prod_url: tax.iil.pet
     port: 8099
     health: /livez/
-
   trading-hub:
     type: django
     prod_url: trading-hub.iil.pet
@@ -131,21 +211,23 @@ repos:
     port: 8088
     db: tradinghub
     health: /livez/
-
+  ttz-hub:
+    type: django
   travel-beat:
     type: django
-    prod_url: travel-beat.iil.pet
-    staging_url: staging.travel-beat.iil.pet
+    prod_url: drifttales.app
+    staging_url: staging.drifttales.com
     port: 8089
     health: /livez/
-
   wedding-hub:
     type: django
     prod_url: wedding-hub.iil.pet
     staging_url: staging.wedding-hub.iil.pet
     port: 8093
     health: /livez/
-
+  weltenfw:
+    type: library
+    pypi: weltenfw
   weltenhub:
     type: django
     prod_url: weltenforger.com
@@ -153,112 +235,9 @@ repos:
     port: 8081
     db: weltenhub_db
     health: /health/
-
   writing-hub:
     type: django
     prod_url: writing-hub.iil.pet
     staging_url: staging.writing-hub.iil.pet
     port: 8097
     health: /livez/
-
-  # ── Python Libraries ────────────────────────────────────────────────────────
-
-  iil-enrichment:
-    type: library
-    pypi: iil-enrichment
-
-  iil-fieldprefill:
-    type: library
-    pypi: iil-fieldprefill
-
-  iil-ingest:
-    type: library
-    pypi: iil-ingest
-    note: "PDF/OCR extraction — PDFExtractor(ocr_fallback=True)"
-
-  iil-reflex:
-    type: library
-    pypi: iil-reflex
-    note: "Web/PDF provider library — HttpxWebProvider, PubChemAdapter, GESTISAdapter"
-
-  aifw:
-    type: library
-    pypi: aifw
-
-  authoringfw:
-    type: library
-    pypi: authoringfw
-
-  illustration-fw:
-    type: library
-    pypi: illustration-fw
-
-  learnfw:
-    type: library
-    pypi: learnfw
-
-  nl2cad:
-    type: library
-    pypi: nl2cad
-
-  outlinefw:
-    type: library
-    pypi: outlinefw
-
-  promptfw:
-    type: library
-    pypi: promptfw
-
-  researchfw:
-    type: library
-    pypi: researchfw
-
-  weltenfw:
-    type: library
-    pypi: weltenfw
-
-  gaeb-toolkit:
-    type: library
-    pypi: gaeb-toolkit
-
-  # ── Agents / Bots ───────────────────────────────────────────────────────────
-
-  bfagent:
-    type: agent
-    prod_url: bfagent.iil.pet
-    port: 8091
-    health: /livez/
-
-  lastwar-bot:
-    type: bot
-    note: "Telegram/Discord bot"
-
-  # ── Infrastructure ──────────────────────────────────────────────────────────
-
-  mcp-hub:
-    type: infra
-    prod_url: mcp.iil.pet
-    port: 3000
-    note: "MCP Orchestrator Server"
-
-  infra-deploy:
-    type: infra
-    note: "Deployment scripts and Ansible playbooks"
-
-  platform:
-    type: infra
-    note: "ADRs, architecture docs, shared workflows, repo-registry"
-
-  iil-relaunch:
-    type: infra
-    note: "Website relaunch assets"
-
-  iil-ingest:
-    type: library
-    pypi: iil-ingest
-    note: "Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)"
-
-  iil-testkit:
-    type: library
-    pypi: iil-testkit
-    note: "Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057"

@@ -1,0 +1,123 @@
+name: "ADR-242: Branch-Protection Meter"
+
+# Enforcement der Enforcement (ADR-242 §Rollout 5 / §Confirmation 1):
+# wöchentlich prüfen, ob jedes Soll-Repo ein aktives Ruleset mit dem
+# erwarteten required check trägt. Verletzung/disabled (Break-Glass offen)
+# → Issue (Label protection-violation) + Discord.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # montags 06:00 UTC
+  workflow_dispatch:
+
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# meter job below already declares its own permissions (issues: write
+# for the violation-issue upsert) and overrides this.
+permissions:
+  contents: read
+
+jobs:
+  meter:
+    name: "Soll/Ist-Abgleich Rulesets (Wave 1+2)"
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: "Meter ausführen"
+        id: meter
+        continue-on-error: true
+        env:
+          # PROJECT_PAT = cross-repo PAT (GITHUB_TOKEN liest fremde Repo-Rulesets nicht)
+          TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/branch_protection_meter.py \
+            --expected governance/rulesets/wave1-repos.json \
+                       governance/rulesets/wave2-repos.json \
+            --report /tmp/meter-report.md
+
+      - name: "Break-Glass-Zähler (KONZ-004 Kill-Gate)"
+        id: breakglass
+        continue-on-error: true
+        env:
+          TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/break_glass_meter.py \
+            --expected governance/rulesets/wave1-repos.json \
+                       governance/rulesets/wave2-repos.json \
+            --weeks 2 --threshold-per-week 1 \
+            --report /tmp/break-glass-report.md
+
+      - name: "Break-Glass-Report an Issue anhängen"
+        if: steps.breakglass.outputs.breached != '0' && steps.breakglass.outputs.breached != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Eigenes Label: Break-Glass ist ein Kill-Gate-Signal für KONZ-004,
+          # keine Ruleset-Verletzung — nicht in denselben Topf wie den Soll/Ist-Meter.
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="break-glass" -f color="d93f0b" \
+            -f description="KONZ-004: Ruleset wurde umgangen (Kill-Gate-Signal)" \
+            >/dev/null 2>&1 || true
+
+          existing=$(gh issue list --label break-glass --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/break-glass-report.md
+          else
+            gh issue create \
+              --title "[break-glass] KONZ-004 Kill-Gate: Schwelle gerissen ($(date -u +%Y-%m-%d))" \
+              --label break-glass \
+              --body-file /tmp/break-glass-report.md
+          fi
+
+      - name: "Issue bei Verletzung (Label protection-violation)"
+        if: steps.meter.outputs.violations != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Label idempotent sicherstellen (422 = existiert schon)
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="protection-violation" -f color="b60205" \
+            -f description="ADR-242 Meter: Branch-Protection-Soll verletzt" \
+            >/dev/null 2>&1 || true
+
+          existing=$(gh issue list --label protection-violation --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/meter-report.md
+            echo "Kommentar an bestehendes Issue #$existing"
+          else
+            gh issue create \
+              --title "[protection-violation] branch-protection-meter: Soll-Zustand verletzt ($(date -u +%Y-%m-%d))" \
+              --label protection-violation \
+              --body-file /tmp/meter-report.md
+          fi
+
+      - name: "Discord-Alert bei Verletzung"
+        if: steps.meter.outputs.violations != '0'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK}" ]; then
+            echo "⚠️ DISCORD_WEBHOOK nicht gesetzt — Alert übersprungen"
+            exit 0
+          fi
+          count="${{ steps.meter.outputs.violations }}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload=$(python3 -c "import json,sys; print(json.dumps({'content': sys.argv[1]}))" \
+            "🚨 **branch-protection-meter (ADR-242)**: ${count} Verletzung(en) — ${run_url}")
+          curl -sf -X POST -H "Content-Type: application/json" \
+            -d "$payload" "$DISCORD_WEBHOOK" > /dev/null
+
+      - name: "Gate: Meter-Ergebnis durchreichen"
+        if: steps.meter.outcome == 'failure'
+        run: |
+          echo "❌ Meter meldet Verletzungen (Report siehe Step 'Meter ausführen')"
+          exit 1

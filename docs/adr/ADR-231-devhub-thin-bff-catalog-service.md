@@ -1,9 +1,9 @@
 ---
 id: ADR-231
 status: accepted
-date: 2026-05-30
+decision_date: 2026-05-30
 amended: 2026-05-30
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 implementation_status: none
 domains: [dev-hub, architecture, ssot, portal, drift-prevention]
 supersedes: []
@@ -52,7 +52,7 @@ größtenteils nicht besitzen sollte. Diese Besitz-Entscheidung ist die Bruchfl�
 **ADR-158 hat den richtigen Mechanismus bereits benannt** (Source-of-Truth-Matrix, „link-not-copy",
 D-5 „KEINE bidirektionalen Syncs"). dev-hub erfüllt ihn für die *Fremdsysteme* (Outline/Paperless:
 nur Deep-Links — `portal/services.py:resolve_outline_links` „KEIN Content-Copy") — **verletzt ihn
-aber für die In-House-Quellen** (Orchestrator/git/Runs forken Tabellen). ADR-230 zieht ADR-158 zu
+aber für die In-House-Quellen** (Orchestrator/git/Runs forken Tabellen). ADR-231 zieht ADR-158 zu
 Ende: dieselbe Disziplin für *alle* Spokes, plus die strukturelle Konsequenz (Entkernung des
 zustandsbehafteten Kerns).
 
@@ -200,7 +200,7 @@ Eine cross-provider-Review (Steelman → Advocatus Diabolus → Maintainer-2028)
 - `catalog`-Service = neuer Deploy-Artefakt (kleiner Service mehr).
 
 ### Confirmation
-1. **SSoT-Pointer-Guardian** (ADR-054-kompatibel): eine dev-hub-Tabelle ohne Pointer-Spalte/Sync-Timestamp, die nicht in der KEEP-Whitelist (catalog/portal-config/audit/outbox) steht, ist ein Verstoß.
+1. **SSoT-Pointer-Guardian** (ADR-239-kompatibel): eine dev-hub-Tabelle ohne Pointer-Spalte/Sync-Timestamp, die nicht in der KEEP-Whitelist (catalog/portal-config/audit/outbox) steht, ist ein Verstoß.
 2. **Dogfood-Doc-Health-Gate** (Phase 1, live): jede Welle muss durch dev-hubs eigenen Audit.
 3. **Pro Welle:** kein Netto-Zuwachs an Migrationen im BFF; ai_config-DB-Keys = 0 nach Welle 1.
 

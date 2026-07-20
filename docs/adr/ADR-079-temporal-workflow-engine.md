@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-02-23
+decision_date: 2026-02-23
 amended: 2026-02-24
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: none
@@ -12,6 +12,8 @@ implementation_evidence:
 ---
 
 # ADR-079: Adopt Temporal Self-Hosted as Primary Durable Workflow Engine
+
+> **Korrektur-Hinweis (ADR-Full-Scan 2026-06-06):** Frontmatter und §5 Migration-Tracking widersprechen sich zum Implementierungsstand. Vor Nutzung als implementiert den realen Temporal-Stand verifizieren.
 
 ## Metadaten
 

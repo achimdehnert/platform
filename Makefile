@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu windsurf-clean windsurf-status windsurf-force windsurf-install
+.PHONY: help menu test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -36,7 +36,8 @@ help: ## Diese Hilfe anzeigen
 	@echo "$(CYAN)Dieses Makefile läuft lokal (WSL) und steuert Remote-Server via SSH.$(RESET)"
 	@echo ""
 	@echo "$(BOLD)Schnellstart:$(RESET)"
-	@echo "  $(GREEN)make menu$(RESET)            Interaktives Hauptmenü"
+	@echo "  $(GREEN)make help$(RESET)            Alle Targets (setup/test/lint/check-push siehe unten)"
+	@echo "  $(GREEN)make menu$(RESET)            Interaktives Hauptmenü (nur Windsurf/SSH — DEVX-3)"
 	@echo ""
 	@echo "$(BOLD)━━━ SERVER (hetzner-dev) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
 	@echo ""
@@ -58,7 +59,13 @@ help: ## Diese Hilfe anzeigen
 	@grep -E '^(backup|logs)-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
+	@echo "$(BOLD)Entwicklung & Sonstiges:$(RESET)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		grep -vE '^(help|menu|windsurf-[a-zA-Z_-]+|ssh-[a-zA-Z_-]+|deploy-[a-zA-Z_-]+|backup-[a-zA-Z_-]+|logs-[a-zA-Z_-]+):' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
+	@echo ""
 	@echo "$(CYAN)Tipp: Tab-Completion funktioniert! make wind<TAB>$(RESET)"
+	@echo "$(CYAN)Neue Targets zeigen sich hier automatisch — einfach '## Beschreibung' anhängen.$(RESET)"
 	@echo ""
 
 menu: ## Interaktives Hauptmenü
@@ -105,9 +112,26 @@ windsurf-force: ## ALLE Windsurf-Prozesse killen (Notfall)
 		ssh $(DEV_SERVER) 'bash ~/fix-windsurf-remote.sh --force' || \
 		echo "Abgebrochen."
 
-windsurf-install: ## Vollständige Windsurf-Stabilisierung installieren
-	@scp docs/adr/inputs/fix-windsurf-remote.sh $(DEV_SERVER):~/
-	@ssh $(DEV_SERVER) 'bash ~/fix-windsurf-remote.sh'
+# =============================================================================
+# ENTWICKLUNG (lokaler Einstieg — SSoT für den Testbefehl dieses Repos)
+# =============================================================================
+
+setup: ## Dev-Dependencies + Hooks installieren (einmalig nach Clone)
+	@pip install -r requirements-dev.txt --quiet
+	@pre-commit install
+	@$(MAKE) install-push-hook
+	@echo "$(GREEN)Setup fertig — 'make test' für den lokalen Testlauf.$(RESET)"
+
+test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro f4a546-incr #1)
+	@python3 -m pytest tools/tests/ \
+		tests/test_render_staging.py \
+		tests/doc_profile_check/ \
+		tools/claude-hooks/tests/ \
+		agents/tests/ \
+		-q
+
+lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
+	@ruff check tools/ scripts/
 
 # =============================================================================
 # DEPLOYMENT (Platzhalter für zukünftige Erweiterung)
@@ -145,4 +169,57 @@ lint-registry: ## Vollständige Registry-Validierung (ports + tenancy)
 	@python3 infra/scripts/validate_repos.py
 	@python3 infra/scripts/validate_tenancy.py
 
+check-push: ## Lokale platform-Hard-Gates vor dem Push spiegeln (view-reader + publish-gate-invariant + check_publish_gate)
+	@bash scripts/checks/pre_push_platform_gates.sh
+
+install-push-hook: ## check-push als nativen pre-push-Hook installieren
+	@bash scripts/checks/pre_push_platform_gates.sh --install-hook
+
 .PHONY: lint-tenancy lint-registry
+
+exit-plan: ## Exit-/Portability-Runbook für ORG=<org> aus Live-GitHub-Zustand (KONZ-002 OOTB-4; braucht GH_TOKEN mit repo+admin:org)
+	@python3 tools/exit-plan.py $(ORG)
+
+.PHONY: exit-plan
+
+# =============================================================================
+# REGISTRY (ADR-234 P0 — canonical.yaml ist die SSoT, Views sind generiert)
+# Achtung: `registry-canonical.py build` (Views→canonical) ist die PRE-Flip-
+# Bootstrap-Richtung und würde canonical-Edits aus den Views überschreiben —
+# deshalb bewusst KEIN make-Target dafür. Schreibpfad ist flip (canonical→Views).
+# =============================================================================
+
+registry-flip: ## Views (repos.yaml + scripts/repo-registry.yaml) aus canonical.yaml regenerieren + verify (tools/registry-canonical.py flip)
+	@python3 tools/registry-canonical.py flip
+
+registry-verify: ## Round-trip prüfen: Views aus canonical.yaml regenerieren + gegen Altdateien vergleichen
+	@python3 tools/registry-canonical.py verify
+
+.PHONY: registry-flip registry-verify
+
+# =============================================================================
+# WORKFLOW-LINT (X-11 — lokales Preflight zu validate-workflows.yml)
+# =============================================================================
+
+workflow-lint: ## yamllint+actionlint lokal (Convenience-Preflight, Configs = validate-workflows.yml; KEIN Hard-Gate, CI bleibt maßgeblich)
+	@if command -v yamllint >/dev/null 2>&1; then \
+		yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" .github/workflows/*.yml \
+			&& echo "$(GREEN)yamllint: keine Funde.$(RESET)"; \
+	else \
+		echo "$(YELLOW)yamllint nicht installiert — Installation: pip install yamllint$(RESET)"; \
+	fi
+	@if command -v actionlint >/dev/null 2>&1; then \
+		ACTIONLINT_BIN=actionlint; \
+	elif [ -x ./actionlint ]; then \
+		ACTIONLINT_BIN=./actionlint; \
+	else \
+		ACTIONLINT_BIN=""; \
+		echo "$(YELLOW)actionlint nicht gefunden — Installation: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)$(RESET)"; \
+	fi; \
+	if [ -n "$$ACTIONLINT_BIN" ]; then \
+		$$ACTIONLINT_BIN -config-file .github/actionlint.yaml -ignore "shellcheck reported issue" .github/workflows/*.yml \
+			&& echo "$(GREEN)actionlint: keine Funde.$(RESET)"; \
+	fi
+	@echo "$(CYAN)Hinweis: Convenience-Preflight, kein Hard-Gate — maßgeblich bleibt CI (.github/workflows/validate-workflows.yml).$(RESET)"
+
+.PHONY: workflow-lint

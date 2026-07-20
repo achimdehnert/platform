@@ -1,8 +1,8 @@
 ---
 id: ADR-227
 title: "Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT"
-status: proposed
-date: 2026-05-29
+status: draft
+decision_date: 2026-05-29
 deciders: [Achim Dehnert]
 consulted: []
 informed: [iilgmbh, meiki-lra, bahn-sqf, ttz-lif]
@@ -18,6 +18,8 @@ scope:
 ---
 
 # ADR-227 — Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT
+
+> WARNUNG **Korrektur erforderlich (Auth-Substrat falsch, 2026-06-06):** Diese ADR baut auf der Annahme, iil.pet liege hinter **Cloudflare Access** (ADR-216) — das ist **faktisch falsch**. ADR-216 etabliert **Authentik forwardAuth** (verifiziert: `platform/infra/klickdummy-host/` nutzt `klickdummy-sso`-Middleware + `outpost.goauthentik.io`; die Cloudflare-Praesenz ist ein *Tunnel* fuer Ingress, **nicht** *Access* fuer Auth). Zudem **architektonisch inkompatibel**: ein CF-Worker am Edge sieht die origin-seitige Authentik-Identitaet nicht (Cf-Access-Jwt-Assertion existiert nicht). **Redesign noetig** (Bridge-Auth auf Authentik-Identitaet neu aufsetzen) — daher Status `draft`. Loest den Full-Scan-Konflikt 227<->216.
 
 | Attribut       | Wert                                             |
 |----------------|--------------------------------------------------|

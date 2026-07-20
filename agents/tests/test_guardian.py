@@ -132,7 +132,10 @@ class TestG003ModelWithoutTenantId:
         violations = check_g003_model_without_tenant_id(files)
         assert len(violations) == 1
         assert violations[0].rule == "G-003"
-        assert violations[0].gate == Gate.HUMAN_APPROVAL
+        # G-003 ist Gate 1 (AUTO_WARN): tenant_id nur für Multi-Tenant-Repos
+        # Pflicht — #833 dokumentierte diese Erwartung als vorbestehend rot
+        # (agents/tests lief in keiner CI und konnte nie beißen).
+        assert violations[0].gate == Gate.AUTO_WARN
         assert "tenant_id" in violations[0].suggestion
 
     def test_should_pass_when_no_new_models(self):
@@ -180,3 +183,41 @@ class TestAnalyzeDiff:
         assert "violations" in d
         assert "passed" in d
         assert "blocking" in d
+
+
+DIFF_CLEANUP_DELETE_CONCEPTS = """\
+diff --git a/concepts/pptx-hub/src/pptx_hub/django/api/serializers.py b/concepts/pptx-hub/src/pptx_hub/django/api/serializers.py
+deleted file mode 100644
+--- a/concepts/pptx-hub/src/pptx_hub/django/api/serializers.py
++++ /dev/null
+@@ -1,4 +0,0 @@
+-class DeckSerializer(serializers.ModelSerializer):
+-    class Meta:
+-        model = Deck
+-        fields = "__all__"
+"""
+
+
+class TestG002NonLiveExclusion:
+    """Regression platform#829: Aufräum-Löschungen ≠ API-Breaking."""
+
+    def test_should_not_flag_deletion_under_concepts(self):
+        files = parse_diff(DIFF_CLEANUP_DELETE_CONCEPTS)
+        assert check_g002_api_signature_changed(files) == []
+
+    def test_should_parse_path_with_b_in_dirname(self):
+        # Regression: r"b/(.+)$" matchte das "b/" in "pptx-hub/" →
+        # kaputter Doppelpfad. Fix: \s vor b/ verlangen.
+        files = parse_diff(DIFF_CLEANUP_DELETE_CONCEPTS)
+        assert files[0]["path"] == (
+            "concepts/pptx-hub/src/pptx_hub/django/api/serializers.py"
+        )
+
+    def test_should_still_flag_live_code_deletion(self):
+        live = DIFF_CLEANUP_DELETE_CONCEPTS.replace(
+            "concepts/pptx-hub/src/pptx_hub/django/", "apps/core/"
+        )
+        files = parse_diff(live)
+        violations = check_g002_api_signature_changed(files)
+        assert len(violations) == 1
+        assert violations[0].rule == "G-002"

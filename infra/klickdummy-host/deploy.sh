@@ -164,7 +164,7 @@ setup_ssh_key() {
 # ============================================================================
 install_files() {
   log "Files installieren…"
-  cp -v "$BUNDLE_DIR"/{docker-compose.yml,nginx.conf,sync.sh,repos.yaml,generate_landing.py} "$OPT_DIR/"
+  cp -v "$BUNDLE_DIR"/{docker-compose.yml,nginx.conf,sync.sh,repos.yaml,generate_landing.py,widget.js} "$OPT_DIR/"
   chown -R "$SYNC_USER:$SYNC_USER" "$OPT_DIR"
   chmod +x "$OPT_DIR/sync.sh" "$OPT_DIR/generate_landing.py"
   ok "Files in $OPT_DIR installiert"

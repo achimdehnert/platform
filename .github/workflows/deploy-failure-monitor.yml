@@ -1,0 +1,48 @@
+name: "Deploy Failure Monitor"
+
+# Gate gegen `deploy-failures-no-fix` (session-retro 2026-06-22, ≥2 Retro-Vorkommen).
+# Scannt je django-Repo (Registry-SSoT) die main-Deploy-Historie und eskaliert ≥2
+# konsekutive Fehlschläge zu einem dedup-ten Tracking-Issue IM Ziel-Repo — statt nur
+# der per-Run-Discord-Nachricht, die 13 Tage rotes Deploy unbemerkt ließ.
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # alle 6h
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Nur prüfen, keine Issues anlegen"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+      threshold:
+        description: "Konsekutive Fehler bis Eskalation"
+        required: false
+        default: "2"
+      only:
+        description: "Nur dieses eine Repo (Debug)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: "Deploy Failure Monitor"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Scan deploy history + escalate"
+        env:
+          # PLATFORM_GITHUB_TOKEN trägt cross-repo issues:write (wie runner-health.yml).
+          GH_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+        run: |
+          pip install pyyaml -q
+          # schedule (inputs leer) → LIVE eskalieren; manueller dispatch → Default dry-run='true'.
+          python3 tools/deploy_failure_monitor.py \
+            --threshold "${{ inputs.threshold || '2' }}" \
+            ${{ (inputs.only != '' && format('--only {0}', inputs.only)) || '' }} \
+            ${{ (inputs.dry_run == 'true' && '--dry-run') || '' }}

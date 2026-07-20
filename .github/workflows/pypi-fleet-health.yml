@@ -1,0 +1,119 @@
+# pypi-fleet-health.yml — ADR-266 Stufe 3: wöchentlicher PyPI-Fleet-Health-Report.
+#
+# Read-only Detektor, NIE Akteur: erhebt Fleet-Findings (Auth-Modus,
+# Doppel-Publisher, Registry-Drift, Versions-Drift, Totes-Paket-Signal) über
+# tools/pypi_fleet_inventory.py --remote und pflegt EIN Tracking-Issue.
+# Kein Auto-Publish, kein Auto-Fix, keine LLM-Urteile (ADR-266 Nicht-Ziele).
+#
+# Namensregel: bewusst NICHT publish-*.yml — publish_gate_invariant.sh globt
+# darauf und verlangt gitleaks (dieser Workflow publiziert nichts).
+# Ergänzt pypi-gate-meter.yml (K2-Gate-Backlog); dieser hier deckt K3–K6 + 3c.
+
+name: PyPI Fleet Health
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"   # Mo 06:30 UTC — nach pypi-gate-meter (06:00)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Nur Report ins Log, kein Issue-Write"
+        required: false
+        default: false
+        type: boolean
+  # Wiring-Beweis by-construction (Gate autonomous-no-human-review): jede
+  # Änderung an Workflow/Tool läuft im PR als ERZWUNGENER Dry-Run (s. unten,
+  # pull_request ⇒ nie Issue-Write) — kein lokaler Lauf zählt als Beweis.
+  pull_request:
+    paths:
+      - ".github/workflows/pypi-fleet-health.yml"
+      - "tools/pypi_fleet_inventory.py"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install pyyaml
+
+      - name: Fleet-Scan (remote, read-only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 tools/pypi_fleet_inventory.py --remote --downloads --check \
+            | tee fleet-findings.txt
+
+      # Retro e17299-incr B2/B5 + Gate critical-alert-no-ticket (×2): der Report
+      # hält (a) offene Bot-PRs und (b) rote Checks auf main je Paket-Repo sichtbar —
+      # damit ist die ADR-266-Zusage real und ein dauerroter Check fällt spätestens
+      # im Wochen-Report auf (Regel: jeder dauerrote Check braucht einen Issue-Link).
+      - name: Bot-PRs + rote main-Checks je Paket-Repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "== Offene Bot-PRs + rote main-Checks (Gate critical-alert-no-ticket) =="
+            REPOS=$(python3 -c "import sys; sys.path.insert(0,'tools'); import registry_api; repos=registry_api.flat().get('repos',{}); print(' '.join(sorted(n for n,e in repos.items() if (e or {}).get('pypi') and n!='platform')))")
+            for repo in $REPOS; do
+              for org in achimdehnert iilgmbh ttz-lif meiki-lra; do
+                if gh api "repos/$org/$repo" --jq .name >/dev/null 2>&1; then
+                  bots=$(gh pr list --repo "$org/$repo" --author app/dependabot --state open --json number --jq 'length' 2>/dev/null || echo "?")
+                  sha=$(gh api "repos/$org/$repo/commits/main" --jq .sha 2>/dev/null || true)
+                  red=$(gh api "repos/$org/$repo/commits/$sha/check-runs" --jq '[.check_runs[]|select(.conclusion=="failure")|.name]|join("; ")' 2>/dev/null || echo "")
+                  if [ "$bots" != "0" ] || [ -n "$red" ]; then
+                    echo "$repo: bot-PRs=$bots rote-main-checks=[${red}]"
+                  fi
+                  break
+                fi
+              done
+            done
+            echo "(Repos ohne Zeile: 0 Bot-PRs, 0 rote Checks)"
+          } | tee -a fleet-findings.txt
+
+      - name: Report-Issue pflegen (ein Tracking-Issue, Label pypi-fleet-health)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          TITLE="PyPI-Fleet-Health: offene Findings (ADR-266 K1–K7)"
+          {
+            echo "Wöchentlicher read-only Scan (\`tools/pypi_fleet_inventory.py --remote --downloads --check\`)."
+            echo "Programm + Kriterien: docs/adr/ADR-266. Regenerieren lokal: \`python3 tools/pypi_fleet_inventory.py\`."
+            echo ""
+            echo '```'
+            cat fleet-findings.txt
+            echo '```'
+            echo ""
+            echo "_Letzter Lauf: ${{ github.run_id }} ($(date -u +%Y-%m-%dT%H:%M:%SZ))_"
+          } > issue-body.md
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${DRY_RUN}" = "true" ]; then
+            echo "=== DRY RUN — Issue-Body (kein Write): ==="
+            cat issue-body.md
+            exit 0
+          fi
+          existing=$(gh issue list --repo "${{ github.repository }}" \
+            --label pypi-fleet-health --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "${{ github.repository }}" \
+              --title "$TITLE" --body-file issue-body.md
+            echo "Issue #$existing aktualisiert."
+          else
+            gh label create pypi-fleet-health --repo "${{ github.repository }}" \
+              --description "ADR-266 Stufe-3 Health-Report" --color 1D76DB 2>/dev/null || true
+            gh issue create --repo "${{ github.repository }}" \
+              --title "$TITLE" --body-file issue-body.md --label pypi-fleet-health
+          fi

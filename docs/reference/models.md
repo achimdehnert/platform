@@ -2,6 +2,11 @@
 <!-- Generated: 2026-04-03T07:51:57Z | Version: 1 -->
 <!-- Generated for: platform -->
 
+> ⚠️ **ARCHIVIERT/VERALTET** — die `docs/reference`-Regen-Pipeline ist tot (`docs_agent`
+> archiviert). Der Inhalt unten beschreibt Code, der vollständig nach `_ARCHIVED/`
+> verschoben wurde (u. a. Commit `2cc7289`, PR #829) und **existiert nicht mehr aktiv im
+> Repo**. Nicht als aktuelle Referenz verwenden — nur historischer Wert (Issue #1201).
+
 # Models Reference
 
 **23 models** found.

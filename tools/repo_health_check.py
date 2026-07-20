@@ -159,7 +159,7 @@ def _check_readme_content(path: Path) -> tuple[bool, str]:
     has_h1 = any(line.startswith("# ") for line in text.splitlines())
     content_len = len(text.strip())
     if not has_h1:
-        return False, f"README.md lacks H1 heading (# Title)"
+        return False, "README.md lacks H1 heading (# Title)"
     if content_len < 100:
         return False, f"README.md too short ({content_len} chars, need >= 100)"
     return True, f"README.md OK ({content_len} chars, H1 present)"
@@ -308,6 +308,17 @@ def check_python_package(path: Path) -> HealthReport:
     passed, detail = _check_readme_content(path)
     add(CheckResult("README.md content", "SUGGEST", passed, detail))
 
+    # gitignore deckt generierte/Editor-Cruft ab (ADR-230, platform convention)
+    gi = (path / ".gitignore").read_text(encoding="utf-8") if (path / ".gitignore").exists() else ""
+    gi_lines = {line.strip() for line in gi.splitlines()}
+    for entry in ("NEXT.md", ".windsurfignore", ".windsurf/"):
+        add(CheckResult(
+            f"gitignore:{entry}",
+            "SUGGEST",
+            entry in gi_lines,
+            "" if entry in gi_lines else f"{entry} nicht in .gitignore",
+        ))
+
     # ── CI Workflows ──
     workflows_dir = path / ".github" / "workflows"
     add(CheckResult(
@@ -405,6 +416,17 @@ def check_django_app(path: Path) -> HealthReport:
     add(CheckResult("catalog-info.yaml", "SUGGEST", passed, detail))
     passed, detail = _check_readme_content(path)
     add(CheckResult("README.md content", "SUGGEST", passed, detail))
+
+    # gitignore deckt generierte/Editor-Cruft ab (ADR-230, platform convention)
+    gi = (path / ".gitignore").read_text(encoding="utf-8") if (path / ".gitignore").exists() else ""
+    gi_lines = {line.strip() for line in gi.splitlines()}
+    for entry in ("NEXT.md", ".windsurfignore", ".windsurf/"):
+        add(CheckResult(
+            f"gitignore:{entry}",
+            "SUGGEST",
+            entry in gi_lines,
+            "" if entry in gi_lines else f"{entry} nicht in .gitignore",
+        ))
 
     # Makefile contains DJANGO_SETTINGS_MODULE
     if _file_exists(path, "Makefile"):
@@ -583,9 +605,9 @@ def main() -> None:
     _render_report(report, fmt=args.format)
 
     if args.owner and args.repo:
-        print(f"NOTE: GitHub Repo description check requires manual verification:")
+        print("NOTE: GitHub Repo description check requires manual verification:")
         print(f"  https://github.com/{args.owner}/{args.repo}")
-        print(f"  Repo > Settings ⚙️ > About > Description (must not be empty)")
+        print("  Repo > Settings ⚙️ > About > Description (must not be empty)")
 
     sys.exit(0 if report.ok else 1)
 

@@ -2,13 +2,12 @@
 id: ADR-050
 title: "Platform Decomposition — Hub Landscape & Developer Portal"
 status: accepted
-date: 2026-02-19
-author: Achim Dehnert
+decision_date: 2026-02-19
 owner: Achim Dehnert
 scope: Platform-wide (all repositories)
 tags: [architecture, decomposition, multi-tenancy, developer-portal, migration]
 related: [ADR-021, ADR-035, ADR-041, ADR-044, ADR-047, ADR-048, ADR-049, ADR-054]
-last_verified: 2026-02-19
+last_reviewed: 2026-02-19
 implementation_status: implemented
 implementation_evidence:
   - "29 repos: hub landscape decomposed per ADR-050"

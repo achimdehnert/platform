@@ -1,9 +1,9 @@
 ---
 status: accepted
-date: 2026-05-08
-decision-makers:
+decision_date: 2026-05-08
+deciders:
   - Achim Dehnert
-depends-on:
+depends_on:
   - ADR-083 (Hybrid ADR Governance)
   - ADR-059 (Automated ADR Drift Detection)
 related:

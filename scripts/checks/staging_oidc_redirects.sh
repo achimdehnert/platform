@@ -19,10 +19,13 @@ print(\"@@@\"+json.dumps(out)+\"@@@\")" 2>/dev/null')
 
 DATA=$(echo "$RAW" | python3 -c "import sys,re; m=re.search(r'@@@(.*?)@@@', sys.stdin.read(), re.S); print(m.group(1) if m else '[]')")
 
-python3 <<PY
-import yaml, json, sys
-data = json.loads('''$DATA''')
-with open("$REG") as f:
+# DATA/REG via Env statt String-Interpolation ins Heredoc (Bug: JSON-Escapes wie
+# \/ sind keine gueltigen Python-String-Escapes -> "Invalid \escape" bei jedem
+# echten Redirect-URI-Fund; deshalb lief dieses Skript nie durch).
+DATA="$DATA" REG="$REG" python3 <<'PY'
+import yaml, json, os, sys
+data = json.loads(os.environ["DATA"])
+with open(os.environ["REG"]) as f:
     reg = yaml.safe_load(f)
 
 # Build allowed hostnames per repo

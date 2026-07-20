@@ -1,12 +1,12 @@
 ---
 status: accepted
-date: 2026-03-11
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-11
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []
 amends: []
-related: ["ADR-022-platform-consistency-standard.md", "ADR-041-service-layer-pattern.md"]
+related: ["ADR-022-platform-consistency-standard.md", "ADR-192-django-service-layer-htmx-compliance-scanner.md"]
 implementation_status: implemented
 implementation_evidence:
   - "Own repo: https://github.com/achimdehnert/iil-django-commons (v0.3.0)"

@@ -46,21 +46,26 @@ jobs:
           MAIN_ORG = "achimdehnert"
 
           # --- Load repo list from registry (SSoT) ---
-          # NOTE: github_repos.yaml is manually maintained — NOT nightly auto-updated.
-          # The drift-detection section below catches repos NOT yet in the registry.
-          with open("registry/github_repos.yaml") as f:
-              registry = yaml.safe_load(f)
+          # ADR-275 P2: migriert von der stalen, manuell gepflegten github_repos.yaml
+          # auf die kanonische canonical.yaml (via tools/registry_api-Accessor — ADR-234
+          # §11.1: neuer Code liest über den Accessor, nicht die generierten Views direkt).
+          # Semantik unverändert: deployed-Repos mit github-Feld (org/repo). Ein 7B-teures
+          # 'manually maintained'-Caveat entfällt — canonical ist generiert + drift-gegatet.
+          import sys
+          sys.path.insert(0, "tools")
+          import registry_api
+          canon = registry_api.load_canonical()
 
           REPOS = []
           registry_repos = set()
-          for section in ("django_apps", "org_django_apps"):
-              for name, meta in registry.get(section, {}).items():
-                  if meta.get("deployed") and meta.get("github"):
-                      org, repo = meta["github"].split("/")
-                      REPOS.append((org, repo))
-                      registry_repos.add(repo)
+          for name, entry in canon["repos"].items():
+              rich = entry.get("rich") or {}
+              if rich.get("deployed") and rich.get("github"):
+                  org, repo = rich["github"].split("/")
+                  REPOS.append((org, repo))
+                  registry_repos.add(repo)
           REPOS.sort()
-          print(f"Repos from registry (django_apps + org_django_apps): {len(REPOS)}")
+          print(f"Repos from registry (deployed + github, via canonical.yaml): {len(REPOS)}")
 
           def api(method, path, body=None, base="https://api.github.com"):
               url = f"{base}{path}"
@@ -156,7 +161,7 @@ jobs:
                               stuck_restarted.append(f"{repo} — fresh deploy dispatched")
 
           # --- 3. Drift detection: find runners NOT in registry ---
-          # github_repos.yaml is manually maintained — this catches new repos missing from it.
+          # Fängt Repos mit Runner, die (noch) nicht in canonical.yaml stehen.
           org_repos = api("GET", f"/orgs/{MAIN_ORG}/repos?per_page=100&type=all")
           if "_error" not in org_repos and isinstance(org_repos, list):
               for repo_meta in org_repos:
@@ -170,7 +175,7 @@ jobs:
                       if runner.get("name") == REQUIRED_LABEL:
                           unregistered.append(
                               f"{repo_name} (runner {runner['id']}) — "
-                              f"WARN: not in registry/github_repos.yaml!"
+                              f"WARN: not in registry/canonical.yaml!"
                           )
 
           # --- Report ---
@@ -192,7 +197,7 @@ jobs:
               print(f"\nFresh deploys TRIGGERED ({len(stuck_restarted)}):")
               for r in stuck_restarted: print(f"  🚀 {r}")
           if unregistered:
-              print(f"\nUNREGISTERED RUNNERS — add to registry/github_repos.yaml ({len(unregistered)}):")
+              print(f"\nUNREGISTERED RUNNERS — add to registry/canonical.yaml ({len(unregistered)}):")
               for r in unregistered: print(f"  ⚠️  {r}")
           if errors:
               print(f"\nERRORS ({len(errors)}):")

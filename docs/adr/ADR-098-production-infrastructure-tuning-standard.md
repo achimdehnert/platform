@@ -1,9 +1,9 @@
 ---
 id: ADR-098
 title: "Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure"
-status: Accepted
-date: 2026-03-04
-decision-makers: Achim Dehnert
+status: accepted
+decision_date: 2026-03-04
+deciders: Achim Dehnert
 consulted: –
 informed: –
 tags: [infrastructure, docker, performance, hetzner, gunicorn, postgresql, redis, sysctl]

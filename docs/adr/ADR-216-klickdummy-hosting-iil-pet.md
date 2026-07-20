@@ -2,7 +2,7 @@
 id: ADR-216
 title: "Klickdummy-Hosting auf iil.pet (Self-Hosted Stakeholder-Demos)"
 status: proposed
-date: 2026-05-21
+decision_date: 2026-05-21
 deciders: [Achim Dehnert]
 consulted: []
 informed: [meiki-lra, bahn-sqf, ttz-lif, iilgmbh]
@@ -228,7 +228,12 @@ Klickdummies bleiben `class: mock`. **Aber:** `staging-klickdummy.iil.pet` ist e
 - Klickdummies sind self-contained Mock-Renderer, kein Code-Pfad in eine
   Produktiv-App (siehe `class: mock` Definition: separater Wegwerf-Code-Pfad)
 - `klickdummy_prod_guard.sh` (`platform:ADR-211` I2-Probe) prüft `mock`
-  als **N/A** — Klickdummies dürfen public sein
+  als **N/A** — Klickdummies dürfen public sein.
+- *(Status 2026-06-04, wortgleich zu ADR-211 I2(b)/Rev 20 — SSoT):*
+  `klickdummy_prod_guard.sh` (F11) ist derzeit **unimplementiert/dormant**
+  (ADR-211 Rev 20, #255 geparkt); bis zu seiner Implementierung ist ausschließlich
+  die repo-lokale Pattern-Deklaration aktiv und es existiert **kein bindendes
+  Cross-Repo-Prod-Probe-Signal**. Für `mock`=N/A ohne Belang (Konsistenz-Vermerk).
 - DSFA-Klärung 2026-05-21 (User): nicht kritisch (nur Funktionsrollen-Namen
   öffentlich, synthetische Operativ-Daten)
 
@@ -341,6 +346,13 @@ traefik.http.routers.klickdummy-sqf.middlewares=klickdummy-sso,klickdummy-sqf-gr
 Phase 2 ist eine separate ADR (ADR-217 oder Erweiterung dieser ADR) und
 folgt nach Phase-1-Pilot.
 
+**Phasen-Status Outline A (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 (heute, deploy-fertig): Authentik-OIDC + Traefik forwardAuth | offen | Abschnitt "Klausel-2-Übergangs-Variante": ADR-212/ADR-142 "beide nicht deployed" (Stand 2026-05-21), Initial-Pfad bricht im Preflight ab — durch BasicAuth-Interim ersetzt |
+| Phase 2 (Folge-Iteration): Owner-spezifischer Login via Authentik-Gruppen | unklar (funktional erreicht, anderer Mechanismus) | Abschnitt "Per-Repo-Auth ohne Authentik": Ziel via BasicAuth+htpasswd erreicht, nicht via Authentik-Gruppen wie hier spezifiziert |
+
 ### Warum SSO statt BasicAuth
 
 | Punkt | BasicAuth | SSO (Authentik) |
@@ -413,6 +425,13 @@ User-Compliance-Zustimmung der 4 Stakeholder (siehe oben) erlaubt
 6. Auth via Traefik forwardAuth (für pg-hub Sperrvermerk-Compliance)
 7. Webhook-Trigger statt Cron (post-merge in jedem Klickdummy-Repo)
 8. Sub-Domains pro Org (`sqf.staging-klickdummy.iil.pet`, `meiki.staging-klickdummy.iil.pet`)
+
+**Phasen-Status Outline B (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 (heute, ADR-216 Initial) | erledigt (Checkliste selbst veraltet) | Item 1 done; Items 2-5 tragen im Text noch "⏳", aber "Live-State (deployed 2026-05-21)" belegt Infra/DNS/Deployment/Sync liefen — via Klausel-2-Patch |
+| Phase 2 (optional, nach Stakeholder-Review) | offen | Item 6 hängt an Outline-A-Phase-1 (nicht deployed); Item 7 widerlegt durch "Cron */15 läuft"; Item 8 laut ADR-217 "Kandidat für Phase 3", nicht begonnen |
 
 ## Alternativen
 

@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-04-21
-decision-makers: [Achim Dehnert, Cascade AI]
+decision_date: 2026-04-21
+deciders: [Achim Dehnert, Cascade AI]
 consulted: []
 informed: []
 implementation_status: partial
@@ -273,7 +273,7 @@ Compliance wird verifiziert durch:
 ## More Information
 
 - **ADR-021 (amended by this ADR):** Health Probes Convention.
-- **ADR-056:** Multi-Tenancy — `TenantPropagationMiddleware` für Service-zu-Service-Aufrufe.
+- **ADR-072:** Multi-Tenancy — `TenantPropagationMiddleware` für Service-zu-Service-Aufrufe.
 - **ADR-072:** Schema Isolation — `django-tenants` für Tier-3-Repos.
 - **ADR-146:** Platform Packages — `iil-platform-context` als Shared Package.
 - **ADR-161:** RLS Policies — Row-Level-Security für Tier-2-Repos.

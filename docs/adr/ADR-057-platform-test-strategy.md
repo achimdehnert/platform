@@ -1,8 +1,8 @@
 ---
-status: "accepted"
-date: 2026-02-20
+status: accepted
+decision_date: 2026-02-20
 amended: 2026-02-20
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 implementation_status: partial
@@ -69,7 +69,7 @@ Compliance is verified by:
 2. **Coverage merge**: Unit and integration jobs upload separate `.xml` artifacts; `coverage-report` job merges via `coverage combine`.
 3. **Coverage gate**: 30% (Phase 1, report only) → 50% (Phase 2, warning) → 70% (Phase 3, CI gate) → 80% (long-term).
 4. **Contract spec freshness**: Scheduled weekly workflow checks consumer-side OpenAPI spec copies against provider.
-5. **ADR-054 Architecture Guardian**: Verifies `pytest.ini_options` in `pyproject.toml`, `DJANGO_SETTINGS_MODULE = "config.settings.test"`, and `--dist=loadscope` present when `pytest-xdist` is used.
+5. **ADR-239 Architecture Guardian**: Verifies `pytest.ini_options` in `pyproject.toml`, `DJANGO_SETTINGS_MODULE = "config.settings.test"`, and `--dist=loadscope` present when `pytest-xdist` is used.
 
 ### Consequences
 
@@ -129,7 +129,7 @@ Compliance is verified by:
 ## More Information
 
 - **Input document**: `docs/adr/inputs/ADR-057-teststrategie-konzeptpapier.md`
-- **Related ADRs**: ADR-022 (code quality tooling — ruff, pip-audit already in CI), ADR-056 (CI/CD pipeline hardening), ADR-054 (architecture guardian)
+- **Related ADRs**: ADR-022 (code quality tooling — ruff, pip-audit already in CI), ADR-056 (CI/CD pipeline hardening), ADR-239 (architecture guardian)
 - **Deferred**: ADR-05x — Pact Consumer-Driven Contract Testing (evaluate when team > 5 people)
 - **Schemathesis docs**: https://schemathesis.readthedocs.io/
 - **Reference**: Harry Percival, "Test-Driven Development with Python" — https://www.obeythetestinggoat.com/
@@ -560,6 +560,15 @@ echo "=== All smoke tests passed ==="
 | **bfagent** | Standard Django auth; kein HTMX; `src/`-Layout mit `apps/bfagent/` |
 
 ---
+
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 — Test Infrastructure | erledigt | "Phase 1 + Phase 2 complete for all 7 service repos" (Last-updated-Notiz) |
+| Phase 2 — Model + View Tests | **Widerspruch im Dokument** | dieselbe Notiz behauptet "complete", aber die Tabelle zeigt "Coverage target 50% reached — 🔴" für alle 7 Repos |
+| Phase 3 — Contract Tests (pending) | offen | Heading trägt bereits "(pending)"; 5 von 7 Items "🔴 Not started" |
+| Phase 4 — Hardening (pending) | offen | Heading "(pending)"; Coverage Gate 70% + pytest-xdist/-randomly "🔴 Not started" |
 
 ## 4. Review Amendments (2026-02-20)
 

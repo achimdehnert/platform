@@ -1,9 +1,10 @@
 ---
-status: accepted
-date: 2026-03-11
+status: superseded
+superseded_by: ADR-264
+decision_date: 2026-03-11
 updated: 2026-03-11
-decision-makers: Achim Dehnert
-supersedes: ADR-009 (GitHub Actions Reusable Workflows) — wird erweitert
+deciders: Achim Dehnert
+supersedes: []
 related: ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)
 implementation_status: implemented
 implementation_evidence:
@@ -11,6 +12,8 @@ implementation_evidence:
 ---
 
 # ADR-120: Unified Multi-Repo Deployment Pipeline mit Staging
+
+> **Historie:** Ersetzte ADR-009 (GitHub Actions Reusable Workflows — wird erweitert) — archiviert unter `docs/adr/archive/`.
 
 ## Status
 

@@ -1,9 +1,9 @@
 ---
 status: proposed
-date: 2026-04-30
+decision_date: 2026-04-30
 version: 1.4
 deciders: [achimdehnert, cascade]
-related: [ADR-068, ADR-077, ADR-138, ADR-173, ADR-174]
+related: [ADR-068, ADR-077, ADR-138, ADR-224, ADR-174]
 amends: [ADR-066]
 implementation_status: none
 last_reviewed: 2026-05-08
@@ -561,7 +561,7 @@ Neues Dashboard `Agent-Team-Specialization`:
    - Misclassification-Rate < 10 % über AuditStore-Query
    - Cache-Hit-Rate-Targets erreicht (DocBot/TestBot ≥ 60 %)
    - Cost-Saving ≥ 20 % netto vs Phase-0-Baseline
-3. **Architecture Guardian** (ADR-054):
+3. **Architecture Guardian** (ADR-239):
    - `mcp5_check_violations` gegen neuen Bot-Code — 0 Verstöße
    - Banned Patterns (`hx-boost`, hardcoded Secrets) bleiben weg
 4. **Drift-Detector** (ADR-059):
@@ -586,6 +586,18 @@ Neues Dashboard `Agent-Team-Specialization`:
 | `/agentic-coding` v7 + `/process-agent-queue` v2 mergen | PR Approval |
 | Phase-5-Saving ≥ 20 % netto (oder Rollback via Phase 6) | `llm_calls` pre/post Diff |
 | ADR-177 Status `accepted` | Front-Matter |
+
+## Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167)
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 0 (Baseline-Messung) | offen | Frontmatter `implementation_status: none`; nur die Voraussetzung (mcp-hub#13) ist erledigt, der Goldset-Lauf (0a) und die 14-Tage-Realdaten (0b) selbst sind nicht belegt |
+| Phase 1 (Code-Struktur) | offen | Frontmatter `implementation_status: none`; kein Beleg für `orchestrator_mcp/agents/`-Struktur |
+| Phase 2 (Migration, Strangler-Pattern) | offen | Frontmatter `implementation_status: none`; Rollout-Plan nennt nur geplante Woche 2–3 |
+| Phase 3 (Tests) | offen | Frontmatter `implementation_status: none`; keine CI-Job-Ergebnisse referenziert |
+| Phase 4 (Dokumentation) | offen | Frontmatter `implementation_status: none`; keine Erwähnung von `agent-team.md`-Update |
+| Phase 5 (Validierung) | offen | Frontmatter `implementation_status: none`; Cost-Saving-Ziel als Kriterium formuliert, nicht als erreicht |
+| Phase 6 (Rollback-Pfad) | offen | Frontmatter `implementation_status: none`; nur Trigger-Fall beschrieben, keine Ausführung belegt |
 
 ## Consequences
 
@@ -637,7 +649,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 - ADR-068 — AuditStore (Logging-Pflicht)
 - ADR-077 — Catalog & Temporal
 - ADR-138 — Implementation Tracking
-- ADR-173 — Orchestrator MCP Server
+- ADR-224 — Orchestrator MCP Server
 - ADR-174 — QM Gate (ASSUMPTION[unverified] = 0)
 - `/agentic-coding` Workflow v6 → v7 (Wave 1)
 - `/session-start` Phase 2.5 (Wave 2)

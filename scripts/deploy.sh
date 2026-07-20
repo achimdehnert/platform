@@ -2,8 +2,9 @@
 # /opt/scripts/deploy.sh — iil-Platform Unified Deploy Script (ADR-120, ADR-166)
 # Auf PROD (88.198.191.108) und DEV/Staging (88.99.38.75) installieren
 #
-# Usage: deploy.sh <APP_NAME> <APP_PATH> <IMAGE_TAG> <ENVIRONMENT> [HEALTH_CHECK_URL]
+# Usage: deploy.sh <APP_NAME> <APP_PATH> <IMAGE_TAG> <ENVIRONMENT> [HEALTH_CHECK_URL] [--break-glass "REASON"]
 # Example: deploy.sh risk-hub /opt/risk-hub v1.4.2 production https://schutztat.de/livez/
+# Manual:  deploy.sh risk-hub /opt/risk-hub latest production "" --break-glass "hotfix: rollback nginx config"
 set -euo pipefail
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
@@ -11,6 +12,19 @@ APP_PATH="${2:?'APP_PATH fehlt'}"
 IMAGE_TAG="${3:?'IMAGE_TAG fehlt'}"
 ENVIRONMENT="${4:?'ENVIRONMENT fehlt (staging|production)'}"
 HEALTH_CHECK_URL="${5:-}"
+
+# ADR-021 §2.20 — Intent-Token / break-glass flag
+BREAK_GLASS_REASON=""
+for _i in "${@:6}"; do
+  if [[ "$_i" == "--break-glass" ]]; then
+    _next=false
+    for _j in "${@:6}"; do
+      [[ "$_next" == "true" ]] && { BREAK_GLASS_REASON="$_j"; break; }
+      [[ "$_j" == "--break-glass" ]] && _next=true
+    done
+    break
+  fi
+done
 
 # ADR-160: log to file only if writable — never break deploy for logging
 LOG_DIR="/var/log/iil-deploys"
@@ -44,9 +58,46 @@ elif [[ "$ENVIRONMENT" == "staging" && -f "$APP_PATH/docker-compose.staging.yml"
   COMPOSE_FILE="docker-compose.staging.yml"
 fi
 
-# Staging: eigenes Compose-Projekt um DEV-Container nicht zu überschreiben
+# ADR-021 §2.19 — pin COMPOSE_PROJECT_NAME explicitly for both environments.
+# Previously only staging was pinned; prod relied on Docker Compose's implicit
+# directory-derived name. Ground-truth audit (2026-06-01): all prod projects
+# already use NAME == APP_NAME (verified via `docker compose ls` on prod —
+# mcp-hub→mcp-hub, dev-hub→dev-hub, risk-hub→risk-hub etc). Pinning to the
+# same value makes the contract explicit and causes deploy.sh to hard-fail if
+# the running project name ever diverges (instead of silently managing the
+# wrong project, stranding old containers that --remove-orphans can't find).
 if [[ "$ENVIRONMENT" == "staging" ]]; then
   export COMPOSE_PROJECT_NAME="staging-${APP_NAME}"
+else
+  export COMPOSE_PROJECT_NAME="${APP_NAME}"
+fi
+
+# Safety check: if a running project with a DIFFERENT name owns containers in
+# APP_PATH, warn loudly — this indicates a project-name migration is needed
+# before this deploy can safely use --remove-orphans.
+_running_proj=$(docker compose -f "$APP_PATH/$COMPOSE_FILE" ls --format json 2>/dev/null \
+  | python3 -c "import sys,json; rows=json.load(sys.stdin); print(rows[0]['Name'] if rows else '')" 2>/dev/null || true)
+if [[ -n "$_running_proj" && "$_running_proj" != "$COMPOSE_PROJECT_NAME" ]]; then
+  echo "::warning::COMPOSE_PROJECT_NAME mismatch — running='$_running_proj' expected='$COMPOSE_PROJECT_NAME'. --remove-orphans will not see the old containers. Continuing, but inspect manually."
+fi
+
+# ADR-021 §2.18 — Container Ownership Labels. Generate an override that stamps
+# every service with iil.* provenance labels so audits/health key on labels,
+# not container-name guessing (the name-only heuristic hid the orphaned
+# Discord-Bot). Best-effort: on any failure we deploy without labels rather
+# than break the deploy.
+LABEL_ARGS=()
+cd "$APP_PATH"
+if _svcs=$(docker compose -f "$COMPOSE_FILE" config --services 2>/dev/null); then
+  _lf="$APP_PATH/.deploy-labels.override.yml"
+  {
+    echo "services:"
+    for _s in $_svcs; do
+      printf '  %s:\n    labels:\n' "$_s"
+      printf '      iil.repo: "%s"\n      iil.service: "%s"\n      iil.environment: "%s"\n      iil.image_tag: "%s"\n      iil.deployed_at: "%s"\n' \
+        "$APP_NAME" "$_s" "$ENVIRONMENT" "$IMAGE_TAG" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    done
+  } > "$_lf" && LABEL_ARGS=(-f "$_lf")
 fi
 
 # Rollback-Funktion
@@ -56,7 +107,8 @@ rollback() {
     echo "❌ Deploy fehlgeschlagen (exit $ec) — Rollback auf $PREVIOUS_TAG"
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
-    docker compose -f "$COMPOSE_FILE" up -d --force-recreate 2>&1 || {
+    export _ROLLBACK_MODE=1  # bypass manifest/sha check during rollback
+    docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
       echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose -f $COMPOSE_FILE up -d" >&2
       exit 10
     }
@@ -81,13 +133,52 @@ else
   echo "IMAGE_TAG=${IMAGE_TAG}" >> "$APP_PATH/.env"
 fi
 
-# GHCR Login (Token aus /opt/scripts/.ghcr_token falls vorhanden)
-if [[ -f "/opt/scripts/.ghcr_token" ]]; then
+# GHCR Login — bevorzugt kurzlebigen Workflow-Token (GHCR_TOKEN env), sonst Host-Datei.
+# shared-ci _deploy-unified.yml reicht GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }} + GHCR_USER durch
+# (shared-ci#10 Facette A): so loggt JEDER Deploy mit eigenem ephemeren Token ein und hängt
+# nicht mehr an der manuell gepflegten /opt/scripts/.ghcr_token, die unbemerkt ablaufen kann.
+# Fallback auf die Host-Datei bleibt → rückwärtskompatibel für Konsumenten auf altem shared-ci-Ref.
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin
+elif [[ -f "/opt/scripts/.ghcr_token" ]]; then
   docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
 fi
 
 # Deploy
 cd "$APP_PATH"
+
+# ADR-021 §2.17 + §2.20 — manifest verify + intent-token check (prod only).
+# Rollbacks bypass the check so a failing deploy can always be rolled back.
+_ROLLBACK_MODE="${_ROLLBACK_MODE:-0}"
+if [[ "$ENVIRONMENT" == "production" && "$_ROLLBACK_MODE" != "1" ]]; then
+  _MANIFEST="$APP_PATH/.deploy-manifest.json"
+
+  # §2.20 Intent-Token: CI must have written a manifest; manual deploys require --break-glass.
+  if [[ ! -f "$_MANIFEST" ]]; then
+    if [[ -n "$BREAK_GLASS_REASON" ]]; then
+      _BG_LOG="/var/log/iil-deploys/break-glass.log"
+      mkdir -p "$(dirname "$_BG_LOG")" 2>/dev/null || true
+      printf '%s [break-glass] app=%s image=%s reason="%s"\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$APP_NAME" "$IMAGE_TAG" "$BREAK_GLASS_REASON" \
+        >> "$_BG_LOG" 2>/dev/null || true
+      echo "⚠️  break-glass: proceeding without manifest. Reason: $BREAK_GLASS_REASON"
+    else
+      echo "::error::ADR-021 §2.20: No .deploy-manifest.json found. Production deploys require a CI-issued intent manifest. For manual deploys use: --break-glass \"REASON\""
+      exit 6
+    fi
+  else
+    # §2.17 compose_sha verify — fail-closed if on-host compose was tampered with.
+    _EXPECTED_SHA=$(python3 -c "import json; d=json.load(open('$_MANIFEST')); print(d.get('compose_sha',''))" 2>/dev/null || true)
+    if [[ -n "$_EXPECTED_SHA" && -f "$APP_PATH/$COMPOSE_FILE" ]]; then
+      _ACTUAL_SHA=$(sha256sum "$APP_PATH/$COMPOSE_FILE" | awk '{print $1}')
+      if [[ "$_ACTUAL_SHA" != "$_EXPECTED_SHA" ]]; then
+        echo "::error::ADR-021 §2.17: compose sha256 mismatch. expected=$_EXPECTED_SHA actual=$_ACTUAL_SHA. Host compose may have been modified after CI sync. Aborting (fail-closed)."
+        exit 7
+      fi
+      echo "✅ compose sha256 verified: $_ACTUAL_SHA"
+    fi
+  fi
+fi
 
 # Staging: vor dem Hochfahren den Altstack sauber abräumen.
 # `up -d --remove-orphans` entfernt nur Orphans DESSELBEN Compose-Projekts;
@@ -102,7 +193,7 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
 fi
 
 docker compose -f "$COMPOSE_FILE" pull
-docker compose -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans
+docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
 
 # Health-Check
 # Staging: derive local URL from the WEB service's host-port mapping.
@@ -166,6 +257,45 @@ else
     exit 5
   }
   echo "✅ Container läuft"
+fi
+
+# ── Crashloop-Gate (platform#1124): ein Web-livez-200 beweist NICHT, dass
+# Sidecar-Container (beat, worker) gesund sind. Ein Crashloop zyklt durch
+# "Up (healthy)" und entgeht jeder Momentaufnahme (`ps | grep` oben) — daher
+# RestartCount über ein Grace-Fenster VERGLEICHEN statt einmal messen. Ein
+# langsamer Cold-Start (der bis hierher schon durch den Health-Check-Retry
+# stabilisiert ist) hat Δ=0; nur ein echter Loop wächst weiter.
+# Realfall trading-hub 2026-07-12: beat crashloopte 5h18min hinter grünen
+# Deploys, weil nur livez geprüft wurde (Retro platform#1123 C3/C4).
+if [[ "${SKIP_CRASHLOOP_GATE:-0}" != "1" ]]; then
+  CRASHLOOP_GRACE="${CRASHLOOP_GRACE:-45}"
+  _cids=$(docker compose -f "$COMPOSE_FILE" ps -q 2>/dev/null || true)
+  if [[ -n "$_cids" ]]; then
+    echo "Crashloop-Gate: RestartCount-Delta über ${CRASHLOOP_GRACE}s …"
+    declare -A _rc0
+    for _c in $_cids; do
+      _rc0["$_c"]=$(docker inspect -f '{{.RestartCount}}' "$_c" 2>/dev/null || echo 0)
+    done
+    sleep "$CRASHLOOP_GRACE"
+    _bad=""
+    for _c in $_cids; do
+      _name=$(docker inspect -f '{{.Name}}' "$_c" 2>/dev/null | sed 's#^/##')
+      _rc1=$(docker inspect -f '{{.RestartCount}}' "$_c" 2>/dev/null || echo 0)
+      _state=$(docker inspect -f '{{.State.Status}}' "$_c" 2>/dev/null || echo unknown)
+      if (( _rc1 > ${_rc0["$_c"]:-0} )); then
+        echo "❌ $_name crashloopt: RestartCount ${_rc0["$_c"]} → $_rc1 im Grace-Fenster"
+        _bad="$_bad $_name"
+      elif [[ "$_state" == "restarting" || "$_state" == "exited" || "$_state" == "dead" ]]; then
+        echo "❌ $_name im Zustand '$_state'"
+        _bad="$_bad $_name"
+      fi
+    done
+    if [[ -n "$_bad" ]]; then
+      echo "❌ Crashloop-Gate fehlgeschlagen:$_bad — Deploy gilt als NICHT gesund."
+      exit 6
+    fi
+    echo "✅ Crashloop-Gate OK — kein Container crashloopt (Δ RestartCount = 0)"
+  fi
 fi
 
 # Cleanup: nur dangling (ungetaggte) Images — nicht zu aggressiv

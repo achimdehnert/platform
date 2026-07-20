@@ -40,8 +40,20 @@ except ImportError:
 
 PLATFORM_ROOT = Path(__file__).parent.parent
 REGISTRY_FILE = PLATFORM_ROOT / "scripts" / "repo-registry.yaml"
-GITHUB_ORG = "achimdehnert"
+GITHUB_ORG = "achimdehnert"  # Fallback-Default für Repos ohne canonical.yaml-Eintrag
 GITHUB_DIR = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
+
+# Owner-Auflösung aus der kanonischen Registry (ADR-234/255) statt Fleet-weitem
+# Hardcode — iilgmbh-/meiki-lra-/ttz-lif-Repos haben ein eigenes `github:`-Feld
+# in registry/canonical.yaml, das bislang ignoriert wurde (FUNC-1, #1202).
+sys.path.insert(0, str(PLATFORM_ROOT / "tools"))
+import registry_api as reg  # noqa: E402
+
+
+def _repo_owner(repo: str) -> str:
+    """GitHub-Owner für EIN Fleet-Repo, mit Fallback auf GITHUB_ORG (F-5: owner()
+    liefert None für unbekannte/nicht-registrierte Namen)."""
+    return reg.owner(repo) or GITHUB_ORG
 
 SCAFFOLD_TYPES = {"django", "agent", "bot"}
 HEALTH_TIMEOUT = 5
@@ -130,12 +142,12 @@ def _api_get(path: str, token: str) -> dict | list | None:
 
 def _file_exists(repo: str, path: str, token: str) -> bool:
     return _api_get(
-        f"/repos/{GITHUB_ORG}/{repo}/contents/{path}", token
+        f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token
     ) is not None
 
 
 def _count_files(repo: str, path: str, pattern: str, token: str) -> int:
-    items = _api_get(f"/repos/{GITHUB_ORG}/{repo}/contents/{path}", token)
+    items = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token)
     if not isinstance(items, list):
         return 0
     return sum(1 for i in items if isinstance(i, dict) and i.get("name", "").endswith(pattern))
@@ -143,9 +155,9 @@ def _count_files(repo: str, path: str, pattern: str, token: str) -> int:
 
 def _count_url_lines(repo: str, token: str) -> int:
     """Zählt urls.py Zeilen als Proxy für URL-Pattern-Anzahl."""
-    content = _api_get(f"/repos/{GITHUB_ORG}/{repo}/contents/config/urls.py", token)
+    content = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/config/urls.py", token)
     if not content or not isinstance(content, dict):
-        content = _api_get(f"/repos/{GITHUB_ORG}/{repo}/contents/urls.py", token)
+        content = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/urls.py", token)
     if not content or not isinstance(content, dict):
         return 0
     import base64
@@ -160,7 +172,7 @@ def scan_via_api(repo: str, repo_type: str, prod_url: str, token: str) -> RepoAu
     audit = RepoAudit(repo=repo, repo_type=repo_type, prod_url=prod_url)
 
     # Repo existiert?
-    meta = _api_get(f"/repos/{GITHUB_ORG}/{repo}", token)
+    meta = _api_get(f"/repos/{_repo_owner(repo)}/{repo}", token)
     if meta is None:
         audit.error = "Repo nicht gefunden (private oder gelöscht)"
         return audit
@@ -173,7 +185,7 @@ def scan_via_api(repo: str, repo_type: str, prod_url: str, token: str) -> RepoAu
     audit.url_count = _count_url_lines(repo, token)
 
     # services.py zählen — apps/*/services.py
-    apps_dir = _api_get(f"/repos/{GITHUB_ORG}/{repo}/contents/apps", token)
+    apps_dir = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/apps", token)
     if isinstance(apps_dir, list):
         for app in apps_dir:
             if isinstance(app, dict) and app.get("type") == "dir":
@@ -206,7 +218,7 @@ def scan_local(repo_dir: Path, repo: str, repo_type: str, prod_url: str) -> Repo
     for urls_path in [repo_dir / "config" / "urls.py", repo_dir / "urls.py"]:
         if urls_path.exists():
             text = urls_path.read_text(errors="replace")
-            audit.url_count = sum(1 for l in text.splitlines() if "path(" in l or "re_path(" in l)
+            audit.url_count = sum(1 for line in text.splitlines() if "path(" in line or "re_path(" in line)
             break
 
     # services.py zählen

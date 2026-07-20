@@ -1,8 +1,8 @@
 ---
 id: ADR-225
 title: "genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan"
-status: proposed
-date: 2026-05-29
+status: accepted
+decision_date: 2026-05-29
 deciders: [Achim Dehnert]
 consulted: []
 informed: [iilgmbh, meiki-lra, bahn-sqf, ttz-lif]
@@ -21,7 +21,7 @@ scope:
 
 | Attribut       | Wert                                             |
 |----------------|--------------------------------------------------|
-| **Status**     | Proposed                                         |
+| **Status**     | Accepted                                         |
 | **Scope**      | platform (cross-cutting: alle KD-Repos)          |
 | **Repo**       | platform                                         |
 | **Erstellt**   | 2026-05-29                                       |
@@ -184,3 +184,4 @@ diese Felder werden genutzt, keine neue State-Maschine in genesor.
 
 - 2026-05-29: Initial (Proposed). Aus Vorfall „design-hub-KD fehlt in genesor" + Durchlauf-Evidenz abgeleitet.
 - 2026-05-29: Seed-vs-Live-Gate (Entscheidung Pkt. 5) ergänzt — entdeckt bei Migrationsstart: risk-hubs KD-Branch enthält realen Mandanten „Gröger GmbH" (dutzende Treffer); Veröffentlichung nach genesor/iil.pet wäre Daten-Souveränitäts-Verstoß. Synthetische-Daten-Pflicht ist nun Teil des Contracts.
+- 2026-06-16: **Accepted** (gemeinsam mit ADR-246). Stufe-1-Ingest in Betrieb (`regen-genesor-main.sh`; apo-hub:apocenna-portale verifiziert live auf iil.pet/genesor). Stufe 2 (dev-host-freier CI-Auto-Ingest) ausgestaltet in **ADR-246** (amends).

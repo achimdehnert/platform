@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-22
-decision-makers: Achim Dehnert
+decision_date: 2026-02-22
+deciders: Achim Dehnert
 consulted: []
 informed: []
 implementation_status: partial
@@ -237,6 +237,17 @@ browser = [                        # ~1.2GB
 ---
 
 ## Implementierungsplan
+
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 0 (Crawl4AI Spike) | offen | Entscheidungstext im Futur ("wird durchgeführt"); Code-Kommentar zeigt Provider-Wahl noch offen ("nach Spike") |
+| Phase 1a (Minimal Viable MCP) | unklar | Frontmatter nennt nur pauschal "basic … implemented", keine Zuordnung zu 1a/1b/1c |
+| Phase 1b (Cache + Wikipedia) | unklar | kein phasenspezifischer Beleg im Dokument |
+| Phase 1c (Extraktion + Compliance) | unklar | kein phasenspezifischer Beleg im Dokument |
+| Phase 2 (Erweiterung) | unklar | Frontmatter "advanced features pending" ohne eindeutige Phasen-Zuordnung |
+| Phase 3 (Browser-Rendering) | offen | explizit "(bei Bedarf)", hängt an unentschiedener Phase-0-Provider-Wahl |
 
 ### Phase 0 — Crawl4AI Spike (1 Tag)
 

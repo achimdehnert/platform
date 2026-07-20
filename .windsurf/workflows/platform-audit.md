@@ -12,6 +12,21 @@ description: Cross-Repo Platform Audit — Schwachstellen, Inkonsistenzen und Ve
 
 ---
 
+## Phase 0: Inbox-Intake (FLEET-Handoffs aus /repo-optimize)
+
+```bash
+ls ~/shared/platform-audit-inbox-*.md 2>/dev/null | grep -v processed
+```
+
+- Jede Inbox-Datei enthält vor-falsifizierte `[FLEET-PATTERN]`-Befunde (`FP-n · Label ·
+  BEOBACHTUNG · EVIDENZ · SOURCE-FIX`) aus einem `/repo-optimize`-Einzellauf.
+- Items als **vor-geseedete Pattern-Kandidaten** in Phase 4.2 übernehmen; Ein-Repo-Beleg
+  bleibt Hypothese, bis der Cross-Repo-Check (>2 Repos) sie bestätigt.
+- Verarbeitete Inbox-Dateien im Report referenzieren und nach `*-processed.md` umbenennen
+  (verhindert Doppel-Intake in der nächsten Runde).
+
+---
+
 ## Bekannte Repos (alle auditieren)
 
 ### Django-Apps (21)
@@ -154,7 +169,7 @@ done
 
 ### 2.1 Platform-Context Violations
 
-Für jedes Django-Repo: `mcp14_get_context_for_task` aufrufen und bekannte Violations prüfen.
+Für jedes Django-Repo: `mcp__platform-context__get_context_for_task` aufrufen und bekannte Violations prüfen.
 
 Prüfe insbesondere:
 - **BigAutoField vs. UUIDField** — `grep -r 'UUIDField(primary_key=True)' src/ apps/ --include='*.py' -l`
@@ -216,7 +231,7 @@ done
 Via deployment-mcp:
 
 ```
-mcp6_docker_manage(action="container_list", host="88.198.191.108")
+mcp__deployment-mcp__docker_manage(action="container_list", host="88.198.191.108")
 ```
 
 Erfasse:
@@ -227,28 +242,28 @@ Erfasse:
 ### 3.2 Health-Endpoints aller Prod-URLs
 
 ```
-mcp6_system_manage(action="health_dashboard", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="health_dashboard", host="88.198.191.108")
 ```
 
 Oder manuell:
 ```
-mcp6_ssh_manage(action="http_check", url="https://bfagent.iil.pet/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://drifttales.app/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://weltenforger.com/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://schutztat.de/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://prezimo.com/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://bfagent.iil.pet/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://drifttales.app/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://weltenforger.com/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://schutztat.de/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://prezimo.com/livez/", host="88.198.191.108")
 ```
 
 ### 3.3 SSL-Zertifikate
 
 ```
-mcp6_network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
+mcp__deployment-mcp__network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
 ```
 
 ### 3.4 Disk + Memory
 
 ```
-mcp6_system_manage(action="info", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="info", host="88.198.191.108")
 ```
 
 ---
@@ -268,7 +283,7 @@ Ordne jedes Finding in eine Kategorie ein:
 
 ### 4.2 Cross-Repo Patterns erkennen
 
-Suche nach **systematischen** Problemen:
+Suche nach **systematischen** Problemen (Startpunkt: die `FP-n`-Kandidaten aus Phase 0):
 - Gleicher Fehler in >2 Repos → Pattern → Platform-weite Lösung
 - Fehlende Standardisierung → neuer ADR nötig?
 - Drift zwischen Repos → Tooling oder Template aktualisieren
@@ -375,7 +390,7 @@ ${GITHUB_DIR:-$HOME/github}/platform/audits/platform-audit-{YYYY-MM-DD}.md
 
 Für jedes CRITICAL oder HIGH Finding:
 ```
-mcp8_create_issue(
+mcp__github__create_issue(
     owner="achimdehnert",
     repo="{betroffenes-repo}",
     title="[Platform Audit] {Finding}",

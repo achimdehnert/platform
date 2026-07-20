@@ -10,8 +10,9 @@ Verzeichnis-Karte, Tech-Stack, **Konventionen**, Pflicht-Lesestoff und Infra
 stehen dort und werden **nur dort** gepflegt. Diese Datei dupliziert das nicht,
 sondern wird von Claude Code automatisch geladen und zeigt auf die SSoT.
 
-Vor dem ersten Keystroke zusätzlich: `AGENT_HANDOVER.md` (aktueller Stand) und
-`AGENT_MEMORY.md` (Drift-Episoden & Lessons).
+Vor dem ersten Keystroke zusätzlich: `AGENT_HANDOVER.md` (aktueller Stand).
+Drift-Episoden & Lessons leben im **CC-Memory-Index** (auto-geladen) + pgvector —
+**nicht** mehr in `AGENT_MEMORY.md` (Cascade-Ära, deprecated, alle Einträge expired).
 
 ## Precedence (höchste gewinnt)
 
@@ -24,7 +25,4 @@ Vor dem ersten Keystroke zusätzlich: `AGENT_HANDOVER.md` (aktueller Stand) und
 - **Brauche ich ein ADR?** → `~/.claude/policies/adr-threshold.md` ist maßgeblich.
   Reine Ergänzung nach bestehendem Muster = **kein** ADR (CHANGELOG/PR genügt);
   ADR nur bei echter Architektur-Entscheidung. Nicht überschießend gaten.
-- **ADR-Nummern**: zur Merge-Zeit allokiert (ADR-228, amends ADR-065), monoton,
-  nie wiederverwendet. Bestand live: `ls docs/adr/ADR-*.md | wc -l`.
-- **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`.
-- **Secrets** nie ins Repo — immer `~/.secrets/`.
+- **Konventionen** (ADR-Nummern, Commit-Scopes, Secrets, …): siehe `CORE_CONTEXT.md` §Konventionen.

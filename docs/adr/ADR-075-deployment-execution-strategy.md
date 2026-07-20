@@ -1,10 +1,11 @@
 ---
-status: "accepted"
-date: 2026-02-23
-decision-makers: [Achim Dehnert]
+status: superseded
+superseded_by: ADR-264
+decision_date: 2026-02-23
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
-supersedes: ["ADR-053-deployment-mcp-robustness.md"]
+supersedes: []
 amends: ["ADR-021-unified-deployment-pattern.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md"]
 related: ["ADR-021-unified-deployment-pattern.md", "ADR-045-secrets-management.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md", "ADR-066-ai-engineering-team.md", "ADR-156-reliable-deployment-pipeline.md"]
 implementation_status: implemented
@@ -12,6 +13,8 @@ amended: 2026-04-02
 ---
 
 # Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows
+
+> **Historie:** Ersetzte ADR-053 (Deployment MCP Robustness) — archiviert unter `docs/adr/archive/`.
 
 ---
 

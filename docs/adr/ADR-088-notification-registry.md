@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-26
-decision-makers: [Platform Team]
+decision_date: 2026-02-26
+deciders: [Platform Team]
 implementation_status: implemented
 implementation_evidence:
   - "Phase 1 Package: platform/packages/platform-notifications/ — 21 Tests passed"
@@ -86,7 +86,7 @@ Dies ist eine bewusste Ausnahme, dokumentiert in Übereinstimmung mit ADR-072 §
 3. Service dispatcht **einen Celery-Task pro Channel** (`dispatch_notification_task.delay(log_id)`)
 4. Celery-Task führt `channel.deliver()` aus und aktualisiert Log-Status + `retry_count`
 
-Dadurch wird kein `async_to_sync` benötigt (vgl. ADR-062 §Content Store Pattern).
+Dadurch wird kein `async_to_sync` benötigt (vgl. ADR-130 §Content Store Pattern).
 
 ### Retry-Policy
 
@@ -624,7 +624,7 @@ Compliance wird verifiziert durch:
 - **ADR-021**: Platform Infrastructure — Zero Breaking Changes (§6.3)
 - **ADR-035**: Shared Django Tenancy Package — `TenantModel` base class
 - **ADR-045**: Secret Management — Twilio/Discord/Telegram Secrets via SOPS
-- **ADR-062**: Content Store — Sync-Pattern Referenz (kein async_to_sync)
+- **ADR-130**: Content Store — Sync-Pattern Referenz (kein async_to_sync)
 - **ADR-072**: Multi-Tenancy Schema-Isolation — begründete Abweichung (Row-Level)
 
 ### External References

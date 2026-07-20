@@ -2,13 +2,12 @@
 id: ADR-099
 title: "dev-hub Release Management UI — PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet"
 status: accepted
-date: 2026-03-04
-author: Achim Dehnert
+decision_date: 2026-03-04
 owner: Achim Dehnert
 scope: dev-hub, platform, nl2cad, all Python package repos
 tags: [dev-hub, release-management, pypi, github-actions, ui, management-console]
 related: [ADR-050, ADR-077, ADR-086, ADR-090, ADR-100]
-last_verified: 2026-03-08
+last_reviewed: 2026-03-08
 implementation_status: verified
 implementation_evidence:
   - "https://devhub.iil.pet/releases/: Release Management UI live"

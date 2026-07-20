@@ -79,7 +79,7 @@ def build_auto(root, today, no_orch, ref):
         manage = run(["bash", "-c", "git ls-tree -r --name-only {0} | grep -E '(^|/)manage\\.py$' | head -1".format(ref)], root)
         log5 = run(["git", "log", "-5", "--format=%ad %s", "--date=short", ref], root) or ""
         adr_listing = run(["bash", "-c", "git ls-tree --name-only {0}:{1} 2>/dev/null".format(ref, adr_path)], root) or ""
-        adr_files = [l for l in adr_listing.splitlines() if re.match(r"ADR-\d+", l)]
+        adr_files = [line for line in adr_listing.splitlines() if re.match(r"ADR-\d+", line)]
     else:
         branch = run(["git", "branch", "--show-current"], root) or "main"
         last = run(["git", "log", "-1", "--format=%h %s"], root) or "?"
@@ -108,7 +108,7 @@ def build_auto(root, today, no_orch, ref):
     else:
         mig_val, mig_cmd = "n/a (kein Django/manage.py)", "—"
 
-    recent = "\n".join("- " + l for l in log5.splitlines()) or "- (keine Commits gelesen)"
+    recent = "\n".join("- " + line for line in log5.splitlines()) or "- (keine Commits gelesen)"
 
     adr_files = adr_files[:6]
     if adr_files:

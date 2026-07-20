@@ -1,0 +1,108 @@
+name: "ADR-241: Backup Meter"
+
+# Confirmation der Backup-Baseline (ADR-241 §4 / §Confirmation):
+# täglich prüfen, ob je Soll-App ein restic-Offsite-Snapshot < 26 h existiert
+# + ein Restore-Feuerübungs-Protokoll < 100 Tage alt vorliegt.
+# Verletzung → Issue (Label backup-violation) + Discord.
+#
+# SCAFFOLD-MODUS: Solange RESTIC_REPOSITORY/RESTIC_PASSWORD_FILE auf dem Runner
+# nicht gesetzt sind (Offsite noch nicht provisioniert, ADR-241 §2 offen), wird
+# OHNE --snapshots gemessen → alle Apps `deferred`, Meter grün, aber sichtbar
+# "noch nicht scharf". Sobald die Storage Box + Key-Escrow stehen, liefert
+# `restic snapshots --json` echte Daten und der Meter wird automatisch scharf.
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # täglich 05:00 UTC (nach den nächtlichen Offsite-Pushes)
+  workflow_dispatch:
+
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# meter job below already declares its own permissions (issues: write
+# for the violation-issue upsert) and overrides this.
+permissions:
+  contents: read
+
+jobs:
+  meter:
+    name: "Soll/Ist-Abgleich Offsite-Snapshots"
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: "Snapshots erheben (nur wenn restic provisioniert)"
+        id: snap
+        run: |
+          set -euo pipefail
+          if command -v restic >/dev/null 2>&1 && [ -f /etc/offsite-backup.env ]; then
+            set -a; . /etc/offsite-backup.env; set +a
+            if restic snapshots --json > /tmp/snapshots.json 2>/dev/null; then
+              echo "args=--snapshots /tmp/snapshots.json" >> "$GITHUB_OUTPUT"
+              echo "✓ restic-Snapshots erhoben (Meter scharf)"
+            else
+              echo "args=" >> "$GITHUB_OUTPUT"
+              echo "⚠️ restic-Repo nicht erreichbar — Scaffold-Modus"
+            fi
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ restic/Env fehlt — Scaffold-Modus (alle Apps deferred)"
+          fi
+
+      - name: "Meter ausführen"
+        id: meter
+        continue-on-error: true
+        run: |
+          python3 tools/backup_meter.py \
+            --expected governance/backup/expected-apps.json \
+            --drills-dir docs/runbooks/restore-drills \
+            ${{ steps.snap.outputs.args }} \
+            --report /tmp/backup-meter-report.md
+
+      - name: "Issue bei Verletzung (Label backup-violation)"
+        if: steps.meter.outputs.violations != '0' && steps.meter.outputs.violations != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="backup-violation" -f color="b60205" \
+            -f description="ADR-241 Meter: Backup-Soll verletzt" \
+            >/dev/null 2>&1 || true
+
+          existing=$(gh issue list --label backup-violation --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/backup-meter-report.md
+            echo "Kommentar an bestehendes Issue #$existing"
+          else
+            gh issue create \
+              --title "[backup-violation] backup-meter: Backup-Soll verletzt ($(date -u +%Y-%m-%d))" \
+              --label backup-violation \
+              --body-file /tmp/backup-meter-report.md
+          fi
+
+      - name: "Discord-Alert bei Verletzung"
+        if: steps.meter.outputs.violations != '0' && steps.meter.outputs.violations != ''
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK}" ]; then
+            echo "⚠️ DISCORD_WEBHOOK nicht gesetzt — Alert übersprungen"
+            exit 0
+          fi
+          count="${{ steps.meter.outputs.violations }}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload=$(python3 -c "import json,sys; print(json.dumps({'content': sys.argv[1]}))" \
+            "🚨 **backup-meter (ADR-241)**: ${count} Verletzung(en) — ${run_url}")
+          curl -sf -X POST -H "Content-Type: application/json" \
+            -d "$payload" "$DISCORD_WEBHOOK" > /dev/null
+
+      - name: "Gate: Meter-Ergebnis durchreichen"
+        if: steps.meter.outcome == 'failure'
+        run: |
+          echo "❌ backup-meter meldet Verletzungen (Report siehe Step 'Meter ausführen')"
+          exit 1

@@ -1,7 +1,7 @@
 ---
-status: proposed
-date: 2026-02-28
-decision-makers: Achim Dehnert
+status: accepted
+decision_date: 2026-02-28
+deciders: Achim Dehnert
 ---
 
 # ADR-133: Shared AI Services als wiederverwendbare Python-Pakete
@@ -13,7 +13,7 @@ decision-makers: Achim Dehnert
 | **Status** | Proposed |
 | **Date** | 2026-02-28 |
 | **Author** | Achim Dehnert |
-| **Related** | ADR-089 (LiteLLM DB-driven), ADR-093 (AI Config App), ADR-091 (Shared Backend Services) |
+| **Related** | ADR-089 (LiteLLM DB-driven), ADR-093 (AI Config App), ADR-131 (Shared Backend Services) |
 
 ---
 

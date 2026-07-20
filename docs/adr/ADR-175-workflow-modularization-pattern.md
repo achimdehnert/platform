@@ -1,8 +1,8 @@
 ---
 title: "ADR-175 — Adopt selective modularization for .windsurf/workflows/ files"
-date: 2026-04-29
+decision_date: 2026-04-29
 amended: 2026-05-31
-status: Accepted
+status: accepted
 deciders: achimdehnert
 implementation_status: implemented
 implementation_evidence:

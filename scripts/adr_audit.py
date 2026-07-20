@@ -56,7 +56,6 @@ def build_report(fix_hints: bool = False) -> dict:
     if fix_hints and conflicts:
         for num, files in sorted(conflicts.items()):
             # Keep the first file (alphabetically), rename others
-            keeper = files[0]
             for duplicate in files[1:]:
                 # Determine which repo the file belongs to based on content hint
                 # Default: use platform next free

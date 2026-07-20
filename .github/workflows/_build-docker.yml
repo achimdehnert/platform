@@ -85,7 +85,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
@@ -113,7 +113,9 @@ jobs:
 
       - name: Trivy vulnerability scan
         if: ${{ inputs.scan_image }}
-        uses: aquasecurity/trivy-action@master
+        # SEC-3 (Issue #1198): war @master (floatender Branch, schlechtestes
+        # Pinning-Muster im Repo) — auf festen Versions-Tag umgestellt.
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.image.outputs.name }}:${{ steps.meta.outputs.version }}
           format: 'sarif'

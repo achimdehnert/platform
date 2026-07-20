@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-02-21
+decision_date: 2026-02-21
 amended: 2026-02-24
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: implemented
@@ -13,6 +13,13 @@ implementation_evidence:
 
 # ADR-074: Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates
 
+> **Geltungsbereich präzisiert durch [ADR-237].** Die Anti-Pattern-Regel in §4.6
+> (`filter(tenant_id=...)` verboten) gilt **ausschließlich in `TENANT_APPS` von
+> schema-per-tenant-Repos** (travel-beat, tax-hub). Im Plattform-**Default** (row-level
+> `tenant_id`, ADR-035/109/137) ist der explizite tenant-Filter bzw. ein erzwingender
+> Manager/RLS der **vorgeschriebene** Pfad — dort gilt diese Regel **nicht**. Hinweis:
+> der in §4.6 skizzierte CI-Linter ist derzeit **nicht implementiert** (Stand 2026-06-06).
+
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
 | **Status**     | Accepted                                                             |
@@ -22,7 +29,7 @@ implementation_evidence:
 | **Autor**      | Achim Dehnert                                                        |
 | **Reviewer**   | –                                                                    |
 | **Supersedes** | –                                                                    |
-| **Relates to** | ADR-056 (Multi-Tenancy Schema Isolation), ADR-035 (Shared Django Tenancy), ADR-021 (Unified Deployment) |
+| **Relates to** | ADR-072 (Multi-Tenancy Schema Isolation), ADR-035 (Shared Django Tenancy), ADR-021 (Unified Deployment) |
 
 ---
 
@@ -69,7 +76,7 @@ Aktuell haben die Services keine Tenant-Isolation-Tests. ADR-035 hat Tenancy-Inf
 ### 1.3 Constraints
 
 - **`django-tenants>=3.6`** — `TenantTestCase` und `TenantClient` verfügbar
-- **`pytest-django`** — Standard in allen Services (ADR-056 §6)
+- **`pytest-django`** — Standard in allen Services (ADR-072 §6)
 - **Self-Hosted Runner** auf VPS — keine parallelen DB-Connections über Limits
 - **`platform_context`** als vendored Shared Library — Fixtures gehören hierhin
 - **PostgreSQL** in CI via GitHub Actions Service Container
@@ -509,7 +516,7 @@ with schema_context("public"): ...      # Expliziter public-Schema-Zugriff
 
 ### 7.3 Nicht in Scope
 
-- Performance-Tests / Load-Tests (ADR-056 §6, Phase 4)
+- Performance-Tests / Load-Tests (ADR-072 §6, Phase 4)
 - End-to-End-Tests mit echten Subdomains (Selenium/Playwright) — separates ADR
 - Contract-Tests zwischen Services — separates ADR
 
@@ -530,7 +537,7 @@ Compliance wird wie folgt verifiziert:
 
 - [django-tenants Test-Dokumentation](https://django-tenants.readthedocs.io/en/latest/test.html)
 - [pytest-django `transaction=True`](https://pytest-django.readthedocs.io/en/latest/database.html#transaction-tests)
-- ADR-056: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy
+- ADR-072: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy
 - ADR-035: Shared Django Tenancy Package
 
 ---

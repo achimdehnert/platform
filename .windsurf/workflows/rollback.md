@@ -101,7 +101,7 @@ curl -sf "https://${REPO}.iil.pet/healthz/" | python3 -m json.tool
 
 ```bash
 # GitHub Issue erstellen
-mcp0_create_issue(
+mcp__github__create_issue(
   owner: "achimdehnert", repo: "${REPO}",
   title: "[incident] Rollback $(date +%Y-%m-%d) — <Grund>",
   body: "## Incident Report\n\n**Zeitpunkt:** $(date)\n**Dauer:** ?\n**Ursache:** \n**Fix:** Rollback auf <SHA>\n**Prävention:** ",

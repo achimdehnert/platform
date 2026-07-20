@@ -1,0 +1,58 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  Publish-Gate-Meter (Phase 2a des ADR-226-Recurrence-Guards)              ║
+# ║                                                                           ║
+# ║  Enumeriert die Registry-`library`-Repos, prüft ihre Default-Branch-      ║
+# ║  Workflows mit tools/check_publish_gate.py (Invariante (c): Test- ODER    ║
+# ║  Secret-Scan-Gate vor jedem PyPI-Upload) und pflegt EIN Tracking-Issue,   ║
+# ║  dessen Body der schrumpfende Backlog ist. BEWUSST informativ — bricht    ║
+# ║  NIE eine CI (sonst wird der Meter selbst zum Rauschen). Per-Repo-        ║
+# ║  Blocking ist Phase 2b, erst nach 0-FP-Beweis + gedraintem Backlog.       ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: Publish-Gate Meter
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Täglich 06:00 UTC (schnelle Zyklen → ≤1 Tag Drift-Latenz; Upsert idempotent + only-on-change, kein Issue-Spam)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Nur Report in die Job-Summary, KEIN Issue schreiben'
+        type: boolean
+        default: false
+      all_types:
+        description: 'Alle Repo-Typen statt nur library'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: publish-gate-meter
+  cancel-in-progress: true
+
+jobs:
+  meter:
+    name: Measure publish-gate backlog
+    runs-on: ubuntu-latest
+    env:
+      # Cross-repo content read + Issue-Upsert im platform-Repo. PROJECT_PAT
+      # sieht auch evtl. private Paket-Repos; GITHUB_TOKEN als Fallback.
+      GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+      OWNER: achimdehnert
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install pyyaml --quiet
+
+      - name: Run publish-gate meter
+        run: |
+          python3 tools/publish_gate_meter.py \
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }} \
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.all_types) && '--all-types' || '' }} \
+            | tee -a "$GITHUB_STEP_SUMMARY"

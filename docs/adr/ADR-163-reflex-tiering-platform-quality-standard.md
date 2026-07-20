@@ -3,7 +3,7 @@ parent: Decisions
 nav_order: 163
 title: "ADR-163: Adopt Three-Tier REFLEX Quality Standard for All Platform Repositories"
 status: accepted
-date: 2026-04-17
+decision_date: 2026-04-17
 amended: 2026-04-18
 deciders: Achim Dehnert
 consulted: Cascade AI

@@ -1,17 +1,27 @@
 ---
-status: "accepted"
-date: 2026-02-10
-amended: 2026-02-22
-decision-makers: [Achim Dehnert]
+status: accepted
+decision_date: 2026-02-10
+amended: 2026-06-01
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 implementation_status: implemented
+implementation_evidence:
+  - "Base pipeline (Option 2+3, §2.1–2.16): implemented since 2026-02, in production on the Hetzner VM."
+  - "§2.17 fail-loud (platform #391, main f29590a, 2026-06-01): _deploy-unified.yml hard-fails on absent docker-compose.prod.yml."
+  - "§2.17 atomic sync + compose_sha verify (platform #399, main 891c803, 2026-06-01): CI writes .deploy-manifest.json; deploy.sh verifies sha256 before compose up (fail-closed)."
+  - "§2.18 ownership labels (platform #395, main 0de5934, 2026-06-01): deploy.sh stamps iil.* labels on all containers."
+  - "§2.19 prod COMPOSE_PROJECT_NAME pin (platform #398, main 0e979a5, 2026-06-01): explicit pin matches pre-existing implicit value (verified via docker compose ls on prod)."
+  - "§2.20 intent-token + break-glass (platform #399, main 891c803, 2026-06-01): prod deploys require CI manifest; manual deploys need --break-glass with audit log."
+  - "deploy.sh synced to /opt/scripts/deploy.sh on prod 88.198.191.108 (2026-06-01, md5 fc4da539)."
+  - "Deferred (§5 backlog, not part of accepted amendment): atomic host-state reconcile / retire-tombstones (§2.20 REC-5)."
 ---
 
 # Adopt unified single-service deployment pipeline for all platform projects
 
 > **Amendment 2026-02-20**: Added §2.14 (`infra-deploy` repo as Agent-API), §2.15 (Fast-Deploy Override), §2.16 (Expand-Contract Migrations Convention), updated §2.3 (dev-hub added), §2.9 (port registry updated), §4 (current state updated).
 > **Amendment 2026-02-22**: Added coach-hub to §2.3 (port 8007, domain kiohnerisiko.de), §4 current state updated.
+> **Amendment 2026-06-01 (accepted; source KONZ-platform-001):** Added §2.17 (Verified Deploy-Bundle Contract — fail-closed config sync), §2.18 (Container Ownership Labels), §2.19 (Compose Project-Name Pinning for prod), §2.20 (Single Enforced Deploy Path). Closes the **silent-config-sync drift class**: `_deploy-unified.yml` syncs the compose file only `if hashFiles('docker-compose.prod.yml') != ''`; when absent the step is silently skipped and `deploy.sh` runs against the stale host compose — a service removed in the repo survives on prod (Discord-Bot crash-loop incident 2026-06-01).
 
 ---
 
@@ -67,7 +77,7 @@ Compliance is verified by:
 1. **CI check**: Each service repo's `ci-cd.yml` references `achimdehnert/platform/.github/workflows/_ci-python.yml@v1` — reviewable in GitHub Actions tab.
 2. **Migration table**: §5 tracks each project's migration status; items are closed when the PR merges.
 3. **Health endpoint test**: `curl -sf https://<domain>/healthz/` returns `{"status": "ok"}` — verified post-deploy by `deploy-remote.sh`.
-4. **ADR-054 Architecture Guardian**: The agent checks new workflow files for platform-workflow usage on every PR.
+4. **Architecture Guardian** (`.github/workflows/guardian.yml`): checks new workflow files for platform-workflow usage on every PR.
 
 ### Consequences
 
@@ -127,7 +137,7 @@ Compliance is verified by:
 
 ## More Information
 
-- **Related ADRs**: ADR-008 (infrastructure), ADR-022 (code quality tooling), ADR-042 (dev environment deploy workflow), ADR-045 (secrets/SOPS), ADR-054 (LLM Agent Ecosystem / Architecture Guardian)
+- **Related ADRs**: ADR-008 (infrastructure), ADR-022 (code quality tooling), ADR-042 (dev environment deploy workflow), ADR-045 (secrets/SOPS)
 - **Traefik decision**: Deferred to a future ADR. Nginx retained consciously (see §2.10).
 - **SSH as root**: Conscious decision documented in §2.1.
 - **Migration tracking**: §5 lists all open migration tasks with priority.
@@ -179,7 +189,7 @@ Compliance is verified by:
 | `web_service` | `bfagent-web` | `risk-hub-web` | `web` ¹ | `weltenhub-web` | `web` | `devhub-web` | `coach-hub-web` |
 | `extra_services` | — | `risk-hub-worker` | `celery` | `weltenhub-celery weltenhub-beat` | `worker` | `devhub-celery devhub-beat` | `coach-hub-worker coach-hub-beat` |
 | `container` | `bfagent_web` | `risk_hub_web` | `travelbeat_web` | `weltenhub_web` | `pptx_hub_web` | `devhub_web` | `coach_hub_web` |
-| `host_port` | 8088 | 8090 | 8002 | 8081 | 8020 | 8085 | 8007 |
+| `host_port` | 8091 | 8090 | 8002 | 8081 | 8020 | 8085 | 8007 |
 | `database` | shared (`bfagent_db`) | own stack | own stack | shared (`bfagent_db`) | own stack | shared (`bfagent_db`) | own stack |
 | `python` | 3.11 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 |
 | `source_dir` | `.` | `src` | `apps` | `apps` | `src` | `.` | `apps` |
@@ -403,6 +413,43 @@ jobs:
 
 ---
 
+### 2.17 Verified Deploy-Bundle Contract (Amendment 2026-06-01)
+
+> Closes the silent-config-sync drift class. Source: KONZ-platform-001 REC-1'.
+
+The deployed compose state on the host MUST be a verified copy of the CI-built artifact — never "whatever stale file is on the server".
+
+- **One shared resolution.** The reusable workflow and `deploy.sh` MUST select the compose file via the **same** resolution logic. Divergent fallbacks are forbidden.
+- **No silent fallback in prod.** A prod deploy REQUIRES an explicit `docker-compose.prod.yml` (staging: `docker-compose.staging.yml`). If it is absent, the deploy **fails loud** — it MUST NOT silently fall back to the host's existing compose file. (Current bug: `_deploy-unified.yml` sync step is guarded by `if hashFiles('docker-compose.prod.yml') != ''`, which silently no-ops.) Staging and prod topologies MAY legitimately differ; each environment resolves its own env-specific file and fails loud if that file is absent — never cross-falling-back to the other or to the bare `docker-compose.yml`. *(External review round 2, AD-12.)*
+- **Transition / fallback policy (gated rollout).** The fail-loud switch MUST NOT break repos that currently rely on the `docker-compose.yml` fallback in prod. Before flipping enforcement: (1) a migration sweep adds an explicit `docker-compose.prod.yml` to every prod-deploying repo (tracked in §5), OR (2) the rollout explicitly decides the bare `docker-compose.yml` remains a permitted prod source and is then *synced like* the env-specific file (same bundle contract). Enforcement is gated on that decision + the sweep — not flipped unilaterally. *(External review round 2, AD-2 — the one finding beyond round 1.)*
+- **Atomic sync.** Upload to a temp path → verify `sha256` → atomic `rename`. No partial/in-place overwrite.
+- **Fail-closed host verify.** Before `docker compose up`, `deploy.sh` MUST verify the on-host compose `sha256` equals the `compose_sha` of the current CI bundle. Mismatch ⇒ abort (fail-closed), no deploy.
+- **Bundle completeness.** Referenced side-artifacts (`env_file`, override/include/profile files, build context) are part of the bundle, OR the bundle manifest marks each explicitly as host-owned.
+
+### 2.18 Container Ownership Labels (Amendment 2026-06-01)
+
+> Source: KONZ-platform-001 REC-NEU-A. Makes the host auditable without name-guessing.
+
+Every container created by `deploy.sh` MUST carry labels: `iil.repo`, `iil.service`, `iil.environment`, `iil.commit_sha`, `iil.compose_sha`, `iil.deploy_run_id`, `iil.deployed_at`. Audits, health checks and any future reconcile MUST key on these labels — never on container-name heuristics (the name-only heuristic is exactly what hid the orphaned Discord-Bot).
+
+### 2.19 Compose Project-Name Pinning for Prod (Amendment 2026-06-01)
+
+> Source: KONZ-platform-001 REC-NEU-B.
+
+`--remove-orphans` only removes containers of the **same** `COMPOSE_PROJECT_NAME`. `deploy.sh` currently sets `COMPOSE_PROJECT_NAME` only for staging (`staging-${APP_NAME}`); prod relies on the implicit directory-derived name. **Prod MUST pin `COMPOSE_PROJECT_NAME` explicitly** (e.g. `${APP_NAME}`) and the script MUST fail if the running project name diverges from the expected one — otherwise a path/project-name change strands old containers despite a fresh compose.
+
+### 2.20 Single Enforced Deploy Path (Amendment 2026-06-01)
+
+> Source: KONZ-platform-001 REC-3'. Convention alone is insufficient (a manual SSH deploy bypasses Branch Protection).
+
+- The canonical reusable workflow is the **only** sanctioned prod deploy path. Bespoke per-repo deploy jobs are retired, OR lifted into a **certified multi-service profile** — which MUST define: allowed compose files, project-name rule, service ownership, retire process, health checks, and a **re-certification expiry** (no permanent exception drawer).
+- **Host-side enforcement:** `deploy.sh` runs prod only with a fresh CI-issued deploy-intent (`commit` + `run_id` + `compose_sha`). Manual deploys require `--break-glass` with a reason, expiry and audit-log entry.
+- **Explicitly out of scope:** a standalone drift-detection dashboard (it would become a second source of truth competing with the host). **Deferred:** continuous host-state reconcile (an `expected-services` set *derived* from the last accepted bundle, never hand-maintained) — see KONZ-platform-001 REC-5' and its Kill-Gate.
+
+**Implementation note (v1 spine first):** §2.17 + §2.18 + §2.19 are the structural v1; §2.20 host-intent-token and the broadened state safety-net follow; reconcile/tombstones stay deferred. Status of this amendment: **Accepted 2026-06-01**; implementation pending (§5 Priority-0).
+
+---
+
 ## 3. What Is Legitimately Project-Specific
 
 | Aspect | Example | Why |
@@ -457,6 +504,18 @@ jobs:
 - [ ] coach-hub: Nginx config + SSL for `kiohnerisiko.de`
 - [ ] coach-hub: CI/CD pipeline setup (`ci-cd.yml`)
 - [ ] coach-hub: Register in Windsurf `/deploy` workflow
+
+### Priority 0 — Amendment 2026-06-01 (new — Verified Deploy-Bundle Contract)
+
+> v1 spine first (§2.17 + §2.18 + §2.19); §2.20 host-intent-token follows. Source: KONZ-platform-001.
+
+- [ ] **Migration sweep (gate for fail-loud, §2.17):** add an explicit `docker-compose.prod.yml` to every prod-deploying repo, OR decide per-repo that the bare `docker-compose.yml` stays a permitted, synced prod source. mcp-hub first (it has none → triggered the Discord-Bot incident).
+- [ ] `_deploy-unified.yml`: replace the silent `if hashFiles('docker-compose.prod.yml')` skip with fail-loud when the required env compose is absent (§2.17)
+- [ ] `_deploy-unified.yml` + `deploy.sh`: one shared compose-resolution; atomic sync (temp → sha256 verify → rename) (§2.17)
+- [ ] `deploy.sh`: fail-closed host verify — on-host compose `sha256` must equal the CI bundle's `compose_sha` before `docker compose up` (§2.17)
+- [ ] `deploy.sh`: stamp ownership labels `iil.{repo,service,environment,commit_sha,compose_sha,deploy_run_id,deployed_at}` on every container (§2.18)
+- [ ] `deploy.sh`: pin `COMPOSE_PROJECT_NAME` for **prod** (currently staging-only) + fail on project-name mismatch (§2.19)
+- [ ] §2.20 (follow-up): host-side deploy-intent token + `--break-glass`; broadened `docker inspect` state safety-net
 
 ### Priority 1 — Functional gaps
 

@@ -1,8 +1,8 @@
 ---
 id: ADR-207
 title: "Cross-Repo Ingest- & Doku-Konvention (tiered, opt-in)"
-status: Accepted
-date: 2026-05-16
+status: accepted
+decision_date: 2026-05-16
 deciders: Plattform-Governance
 ---
 

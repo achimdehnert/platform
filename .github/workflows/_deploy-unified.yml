@@ -44,6 +44,18 @@ on:
         required: false
         type: string
         default: "Dockerfile"
+      import_smoke:
+        description: >-
+          Shell-Kommando, das NACH dem Build IM frisch gebauten Image läuft, BEVOR
+          deployt wird. Non-zero exit lässt den build-Job scheitern → alle Deploys
+          (needs: build) werden geskippt → ein nicht-startbares Image erreicht Prod
+          nie. Fängt Import-Contract-Drift (ModuleNotFoundError/ImportError), die
+          erst zur Laufzeit zuschlägt (z.B. nach Paket-Restructure).
+          Leer (default) = Gate aus, Verhalten unverändert.
+          Django-Beispiel: "SECRET_KEY=ci-smoke DJANGO_SETTINGS_MODULE=config.settings.test python manage.py check"
+        required: false
+        type: string
+        default: ""
       notify_discord:
         description: "Discord Deploy-Notification senden"
         required: false
@@ -54,6 +66,17 @@ on:
         required: false
         type: string
         default: "self-hosted"
+      deploy_runs_on:
+        description: >-
+          Runner label for the HOST-BOUND deploy jobs (staging/production). These do
+          atomic-sync to /opt/<app> on the target host, so they MUST run on that host —
+          a generic 'self-hosted' label can land the job on the WRONG runner (e.g. a dev
+          box without /opt/<app> writable) -> 'cp: ... Permission denied' and no deploy.
+          Set to the deploy host's UNIQUE label (e.g. 'prod-server'). Empty (default) =
+          fall back to runs_on, behaviour unchanged.
+        required: false
+        type: string
+        default: ""
     secrets:
       DEPLOY_SSH_KEY:
         description: "SSH Key für Production (vorhandener Secret-Name)"
@@ -173,10 +196,32 @@ jobs:
           secrets: |
             PROJECT_PAT=${{ secrets.PROJECT_PAT }}
 
+      # Gate: ein nicht-startbares Image darf nicht deployt werden. Läuft das
+      # consumer-definierte import_smoke-Kommando IM frisch gebauten Image; bei
+      # non-zero exit fällt dieser build-Job → deploy-* (needs: build) skippen.
+      # Fängt Import-Contract-Drift (ModuleNotFoundError/ImportError), die sonst
+      # erst Wochen später als Prod-Crash-Loop sichtbar wird. Opt-in (leer = aus).
+      - name: Import smoke (gate deploy on a runnable image)
+        if: ${{ inputs.import_smoke != '' }}
+        env:
+          SMOKE_CMD: ${{ inputs.import_smoke }}
+        run: |
+          IMG="ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}"
+          echo "::group::Import smoke on $IMG"
+          echo "cmd: $SMOKE_CMD"
+          docker pull "$IMG"
+          # --entrypoint sh: das App-Entrypoint (z.B. /entrypoint.sh mit
+          # "DJANGO_SETTINGS_MODULE must be set"-Guard) überspringen — die Smoke
+          # testet den IMPORT-Graph, nicht das Entrypoint. Env setzt der Consumer
+          # inline im SMOKE_CMD. Ohne den Bypass false-failt das Gate an
+          # entrypoint-geguardeten Images (cad-hub#21-Deploy, run 26946093189).
+          docker run --rm --entrypoint sh "$IMG" -c "$SMOKE_CMD"
+          echo "::endgroup::"
+
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
   deploy-staging:
     name: "🧪 Staging"
-    runs-on: ${{ inputs.runs_on }}
+    runs-on: ${{ inputs.deploy_runs_on || inputs.runs_on }}
     needs: [resolve, build]
     if: |
       always() &&
@@ -197,7 +242,7 @@ jobs:
       # removed service / wrong image path / outdated port mapping).
       - name: Sync docker-compose.staging.yml to host
         if: hashFiles('docker-compose.staging.yml') != ''
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
@@ -211,7 +256,7 @@ jobs:
           overwrite: true
 
       - name: Deploy to staging
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         timeout-minutes: 15
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -232,7 +277,7 @@ jobs:
   # Falls back to SSH if runs_on != self-hosted (e.g. ubuntu-latest).
   deploy-production:
     name: "🚀 Production"
-    runs-on: ${{ inputs.runs_on }}
+    runs-on: ${{ inputs.deploy_runs_on || inputs.runs_on }}
     needs: [resolve, build]
     if: |
       always() &&
@@ -246,27 +291,68 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # Sync production compose file from the consuming repo to the host.
-      # Self-hosted runners run on the prod server itself — direct cp works.
-      # Without this step deploy.sh works against a stale compose file
-      # (e.g. wrong image path after a path-refactor in the repo).
-      - name: Sync docker-compose.prod.yml to app path (self-hosted)
-        if: ${{ !startsWith(inputs.runs_on, 'ubuntu') && hashFiles('docker-compose.prod.yml') != '' }}
+      # ADR-021 §2.17 — fail-loud + atomic sync + compose_sha verify.
+      # ADR-021 §2.20 — deploy-intent manifest (Intent-Token).
+      #
+      # 1. Assert docker-compose.prod.yml present (fail-loud — no silent fallback).
+      # 2. Compute SHA-256 of the compose file.
+      # 3. Write .deploy-manifest.json: commit + run_id + compose_sha + timestamp.
+      #    deploy.sh reads this manifest as the CI Intent-Token (§2.20) and verifies
+      #    the on-host sha256 matches before running `docker compose up` (§2.17).
+      # 4. Atomic sync: copy compose to temp path, verify sha, rename atomically.
+      - name: Assert compose + write manifest + atomic sync (ADR-021 §2.17/§2.20)
+        id: compose_sync
         run: |
           set -euo pipefail
-          cp docker-compose.prod.yml "${{ inputs.app_path }}/docker-compose.prod.yml"
-          echo "✅ Compose file synced to ${{ inputs.app_path }}/docker-compose.prod.yml"
 
-      - name: Sync docker-compose.prod.yml to host (remote runner)
-        if: startsWith(inputs.runs_on, 'ubuntu') && hashFiles('docker-compose.prod.yml') != ''
-        uses: appleboy/scp-action@v0.1.7
+          # §2.17 fail-loud
+          if [ ! -f docker-compose.prod.yml ]; then
+            echo "::error title=ADR-021 §2.17::docker-compose.prod.yml absent — refusing to deploy against stale host compose."
+            exit 1
+          fi
+
+          # compute sha256
+          COMPOSE_SHA=$(sha256sum docker-compose.prod.yml | awk '{print $1}')
+          echo "compose_sha=${COMPOSE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "✅ compose sha256: ${COMPOSE_SHA}"
+
+          # write intent manifest (§2.20)
+          cat > .deploy-manifest.json <<JSON
+          {
+            "app":         "${{ inputs.app_name }}",
+            "commit":      "${{ github.sha }}",
+            "run_id":      "${{ github.run_id }}",
+            "compose_sha": "${COMPOSE_SHA}",
+            "written_at":  "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+
+          # atomic sync — self-hosted runner runs ON the prod server
+          if [ "${{ inputs.runs_on }}" != "ubuntu-latest" ]; then
+            TMP="${{ inputs.app_path }}/docker-compose.prod.yml.tmp$$"
+            cp docker-compose.prod.yml "$TMP"
+            # verify copy is intact before rename
+            COPY_SHA=$(sha256sum "$TMP" | awk '{print $1}')
+            if [ "$COPY_SHA" != "$COMPOSE_SHA" ]; then
+              rm -f "$TMP"
+              echo "::error::sha256 mismatch after copy (corrupt transfer)"
+              exit 1
+            fi
+            mv -f "$TMP" "${{ inputs.app_path }}/docker-compose.prod.yml"
+            cp .deploy-manifest.json "${{ inputs.app_path }}/.deploy-manifest.json"
+            echo "✅ atomic sync complete (self-hosted)"
+          fi
+
+      - name: Sync compose + manifest to host (remote runner)
+        if: startsWith(inputs.runs_on, 'ubuntu')
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
-          source: "docker-compose.prod.yml"
-          target: "${{ inputs.app_path }}/docker-compose.prod.yml"
+          source: "docker-compose.prod.yml,.deploy-manifest.json"
+          target: "${{ inputs.app_path }}/"
           overwrite: true
 
       - name: Deploy to production (direct — self-hosted runner)
@@ -283,7 +369,7 @@ jobs:
 
       - name: Deploy to production (SSH — remote runner)
         if: startsWith(inputs.runs_on, 'ubuntu')
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         timeout-minutes: 15
         with:
           host: ${{ secrets.DEPLOY_HOST }}

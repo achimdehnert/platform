@@ -1,0 +1,131 @@
+# governance/exit-classes.yaml
+#
+# SSoT für Org-Portabilität (ADR-236 Entscheidung 5 · KONZ-002 OOTB-8).
+# Eine Org wird GENAU EINER exit_class zugeordnet; die Klasse definiert die Policy.
+# placement / allowed_features / required_checks / exit_tests / teardown_authority-Regeln
+# werden aus `classes` ABGELEITET, nicht pro Org dupliziert (SSoT — vermeidet die
+# "zweite Wahrheit", vor der OOTB-8 warnt). Pro Org nur: Klasse + Begründung + Owner
+# + review_by + tatsächliche teardown_authority + Abweichungen.
+#
+# Konsumenten: tools/exit-plan.py (Placement-Gate D3, CI-Gleichheits-Audit) —
+#   KONSUMIERT diese Datei (verifiziert 2026-06-08: load_exit_classes() +
+#   Invarianten-Check teardown_authority≠none für exit-likely/must-stay-local).
+#   ADR-236 §2.5 Follow-up damit erledigt (vormals „liest noch NICHT" — stale).
+#
+# Faktenbasis (Live-API, 2026-06-03): Rolle achimdehnert je Org via
+#   `gh api orgs/<org>/memberships/achimdehnert --jq .role`
+#   → iilgmbh/ttz-lif/meiki-lra/bahn-sqf = admin; pactive-de = member.
+#   Owner-Listen via `gh api orgs/<org>/members?role=admin`. Zahlen sind Stand,
+#   nicht eingefroren — bei Drift Datei aktualisieren (review_by erzwingt das).
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Klassen-Policy (einmal definiert; Orgs referenzieren via exit_class)
+# ---------------------------------------------------------------------------
+classes:
+
+  central-ok:
+    description: >
+      Eigene, nicht-staatliche Org ohne erwarteten Austritt. Darf voll in die
+      Enterprise; volle Feature-Suite erlaubt.
+    placement: in-enterprise
+    allowed_features: [emu, sso, enterprise-only-apps, enterprise-secrets, all]
+    forbidden_features: []
+    required_checks: [secret-scanning, push-protection]
+    exit_tests: []                       # kein Exit erwartet
+    teardown_authority_rule: any         # none zulässig (kein Exit-Anspruch)
+
+  exit-likely:
+    description: >
+      Kundenprojekt mit absehbarer ÜBERGABE. In der Enterprise OK, portabel halten
+      — KEINE nicht-exportierbaren Kopplungen. **Datenprämisse (2026-06-04, Owner):**
+      diese Repos enthalten nur Quellcode + Demo-Daten, KEINE realen Personendaten;
+      reale Daten + Datensouveränität entstehen erst nach Übergabe im Rechenzentrum
+      des Auftraggebers (außerhalb GitHub). Übergabe = Code-Portierung ins Kunden-RZ,
+      KEIN GitHub-Org-Transfer an den Träger. Daher: kein AVV/keine Souveränitäts-
+      Gating auf GitHub-Ebene; Leitplanke = „nur Demo-Daten" halten (Push-Protection
+      schützt zusätzlich gegen versehentliche Daten-/Secret-Commits).
+    placement: in-enterprise-portable
+    allowed_features: [secret-scanning, push-protection]
+    forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling]   # REC-9
+    required_checks: [secret-scanning, push-protection, exit-plan-clean]
+    exit_tests: [exit-plan-runbook, teardown-fire-drill]
+    teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
+
+  must-stay-local:
+    # DERZEIT UNGENUTZT (2026-06-04): griffe nur, falls jemals REALE Souveränitäts-/
+    # Personendaten in eine GitHub-Org gelangen. Aktuelle Kundenprojekte halten nur
+    # Code+Demo-Daten → exit-likely. Diese Klasse bleibt als Fallback dokumentiert.
+    description: >
+      Behörden-/Souveränitäts-Workload mit REALEN Daten. Bleibt STANDALONE (nie in die Enterprise);
+      Security-Posture wird gespiegelt + per CI-Gleichheits-Audit geprüft.
+      Mirror ≠ Compliance (KONZ D2) — zentrale Audit-/Eingriffsrolle braucht
+      formalen Träger-Sign-off (ADR-236 §6/§8b).
+    placement: standalone-mirrored
+    allowed_features: [secret-scanning, push-protection]
+    forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling, central-ownership]
+    required_checks: [secret-scanning, push-protection, mirror-equality-audit]
+    exit_tests: [exit-plan-runbook, handover-readiness]
+    teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
+
+  # central-gov: RETIRED 2026-06-04. Die Klasse entstand für die Annahme „reale
+  # Behörden-/Bürgerdaten liegen in der Enterprise". Owner-Klarstellung (2026-06-04):
+  # die Behörden-Repos (ttz-lif/meiki-lra) sind Kundenprojekte mit nur Code+Demo-Daten,
+  # reale Daten erst post-Übergabe im Kunden-RZ → sie sind `exit-likely` wie bahn-sqf.
+  # Wieder einführen NUR, falls jemals reale Souveränitäts-Daten in eine GitHub-Org
+  # gelangen sollen (dann eher `must-stay-local`/eigene GOV-Klammer, nicht in-enterprise).
+
+# ---------------------------------------------------------------------------
+# Org → Klasse (Stand 2026-06-03)
+# teardown_authority ∈ {self-owner | contractual-clause | none}
+# ---------------------------------------------------------------------------
+orgs:
+
+  iilgmbh:
+    exit_class: central-ok
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03)
+    teardown_authority: self-owner
+    review_by: 2026-09-15
+    rationale: Eigene Kern-Org, kein Austritt erwartet → S1-Konsolidierungsziel.
+    deviations: []
+
+  pactive-de:
+    exit_class: central-ok
+    owner: [DasRed, ghry5, philipp-eicher, ratpic83]   # Dritt-Owner
+    teardown_authority: none       # achimdehnert nur role=member (admin=false, verifiziert)
+    review_by: 2026-09-15
+    rationale: >
+      Nicht-staatlich, grundsätzlich central-ok — ABER Dritt-Org. Konsolidierung
+      nur mit Owner-Zustimmung. Bis dahin GESPERRT (ADR-236 §5/§7.3, Runbook).
+    deviations:
+      - "teardown_authority=none ist hier toleriert (central-ok hat keinen Exit-Anspruch), markiert aber Fremd-Eigentum: kein einseitiger Move/Teardown möglich."
+
+  ttz-lif:
+    exit_class: exit-likely        # reklassifiziert 2026-06-04 (Owner-Datenprämisse): Kundenprojekt (Landratsamt Traunstein), nur Code+Demo-Daten → wie bahn-sqf, NICHT central-gov
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member
+    teardown_authority: self-owner # Übergabe = Code-Portierung ins Kunden-RZ (kein GitHub-Org-Transfer); Dev-Org-Rückbau durch Owner
+    review_by: 2026-09-15
+    rationale: Kundenprojekt Landratsamt Traunstein. Repos = Code + Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität entstehen post-Übergabe im Kunden-RZ (außerhalb GitHub).
+    deviations:
+      - "Leitplanke: nur Demo-Daten in diese Repos (keine realen Personendaten). Push-Protection schützt zusätzlich gegen versehentliche Daten-/Secret-Commits. Ein versehentl. Echt-Datensatz würde die Datenschutz-Bewertung reaktivieren."
+      - "REC-9: Push-Protection geht beim Exit aus der Enterprise verloren/nicht per Toggle reaktivierbar → keine enterprise-only-Kopplung; Übergabe-Deliverable ist der Code (git), nicht die GitHub-Org."
+
+  meiki-lra:
+    exit_class: exit-likely        # reklassifiziert 2026-06-04 (Owner-Datenprämisse): Kundenprojekt (Landratsamt Günzburg), nur Code+Demo-Daten → wie bahn-sqf
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member
+    teardown_authority: self-owner # wie ttz-lif: Übergabe = Code-Portierung ins Kunden-RZ
+    review_by: 2026-09-15
+    rationale: Kundenprojekt Landratsamt Günzburg. Repos = Code + Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität post-Übergabe im Kunden-RZ.
+    deviations:
+      - "Wie ttz-lif: Leitplanke nur Demo-Daten; REC-9 Exit-Kosten; Deliverable = Code (git), nicht die GitHub-Org."
+
+  bahn-sqf:
+    exit_class: exit-likely
+    owner: achimdehnert            # role=admin; bereits Enterprise-Member (verifiziert)
+    teardown_authority: self-owner
+    review_by: 2026-09-15
+    rationale: Kundenprojekt (DB) → in Enterprise (Posture by construction), aber portabel halten. Code + Demo-Daten, KEINE realen Personendaten (Owner-Datenprämisse 2026-06-04).
+    deviations:
+      - "Leitplanke: nur Demo-Daten (keine realen Personendaten)."
+      - "REC-9: Push-Protection geht beim Exit aus der Enterprise verloren und ist extern nicht per Toggle reaktivierbar → Exit-Kosten einplanen, keine enterprise-only-Kopplung aufbauen."

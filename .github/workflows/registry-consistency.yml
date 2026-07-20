@@ -1,0 +1,59 @@
+# Registry-Konsistenz (ADR-234 P0) — macht die Dual-SSoT-Divergenz sichtbar.
+# INFORMATIONAL: schlägt CI nie fehl (kann so nicht zu Lärm werden, der abgeschaltet
+# wird) — Muster wie ADR-226 Adoption-Gate. Hard-Gate (--strict) erst nach der
+# Union-Canonical-Migration (ADR-234 P0), wenn Divergenz==0 erreichbar ist.
+name: Registry-Konsistenz (ADR-234 P0)
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'        # Montags 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: 'Exit non-zero bei Divergenz (Default: informational)'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/repo-registry.yaml'
+      - 'registry/repos.yaml'
+      - 'tools/registry-consistency-check.py'
+  pull_request:
+    branches: [main]        # REC-4 View-Reader-Guard fängt NEUE Direct-Reads vor dem Merge
+
+permissions:
+  contents: read
+
+jobs:
+  consistency:
+    name: Registry-Konsistenz prüfen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml --quiet
+      - name: Konsistenz-Check (informational)
+        run: |
+          python3 tools/registry-consistency-check.py \
+            ${{ inputs.strict && '--strict' || '' }}
+      - name: Drift-Gate — Views == canonical (HARTES GATE, ADR-234 P0 Flip)
+        run: |
+          # Nach dem Flip sind beide Altdateien generiert. Dieser Schritt FAILT,
+          # wenn jemand eine View von Hand editiert oder canonical.yaml ändert
+          # ohne `flip` neu laufen zu lassen (committet ≠ generiert).
+          python3 tools/registry-canonical.py verify
+      - name: View-Reader-Guard (HARTES GATE, ADR-234 §11.1 REC-4)
+        run: |
+          # FAILT, wenn NEUER Code die generierten Views direkt liest statt
+          # tools/registry_api.py — verhindert, dass die Views wieder SSoT werden.
+          python3 tools/check_registry_view_readers.py
+      - name: Verteil-Vertrag parsebar (HARTES GATE, ADR-272 — Vorstufe zum P2-Lint)
+        run: |
+          # FAILT, wenn registry/distribution.yaml kein valides YAML ist. Der
+          # volle Contract-Lint kommt mit P2 (#1073); Parse-Fähigkeit ist ab
+          # sofort Pflicht (Deep-Review-BLOCKER auf PR #1072: Datei war unparsebar
+          # gemergt worden, weil kein Workflow sie beobachtete).
+          python3 -c "import yaml; d = yaml.safe_load(open('registry/distribution.yaml')); assert d.get('lanes'), 'lanes fehlt/leer'; print(f'OK: {len(d[\"lanes\"])} Lanes parsebar')"

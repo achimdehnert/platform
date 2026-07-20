@@ -1,7 +1,7 @@
 ---
-status: "accepted"
-date: 2026-03-13
-decision-makers: [Achim Dehnert]
+status: accepted
+decision_date: 2026-03-13
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []
@@ -528,6 +528,14 @@ Bei Registrierung über billing-hub wird ein authentik-User via API erstellt. **
 ---
 
 ## 5. Implementierungsplan
+
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1: Interne Tools | offen | Frontmatter zeigt mehrere deployte Tools (docs/Outline/Grafana/dev-hub), aber listet explizit "Pending: Portainer Proxy-Auth (Outpost), MFA-Policy, remaining Phase 2 Customer-Hubs" |
+| Phase 2: Kunden-Hubs | offen | Frontmatter: nur cad-hub deployed & verified; "Pending: … remaining Phase 2 Customer-Hubs" |
+| Phase 3: Erweitert (Optional) | offen | Keine Erwähnung von SCIM/Social Login/Passwordless im Dokument; Phase explizit "(Optional, nach Bedarf)" |
 
 ### Phase 1: Interne Tools (Woche 1-2)
 

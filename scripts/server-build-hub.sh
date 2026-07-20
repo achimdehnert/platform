@@ -34,7 +34,7 @@ HUBS[illustration-hub]="/opt/illustration-hub|ghcr.io/achimdehnert/illustration-
 HUBS[137-hub]="/opt/137-hub|ghcr.io/achimdehnert/137-hub:latest|docker/app/Dockerfile|137-hub-web"
 HUBS[ausschreibungs-hub]="/opt/ausschreibungs-hub|ghcr.io/achimdehnert/ausschreibungs-hub:latest|docker/app/Dockerfile|ausschreibungs-hub-web"
 HUBS[billing-hub]="/opt/billing-hub|ghcr.io/achimdehnert/billing-hub:latest|docker/app/Dockerfile|billing-hub-web"
-HUBS[risk-hub]="/opt/risk-hub|ghcr.io/achimdehnert/risk-hub/risk-hub-web:latest|docker/app/Dockerfile|risk-hub-web"
+HUBS[risk-hub]="/opt/risk-hub|ghcr.io/iilgmbh/risk-hub/risk-hub-web:latest|docker/app/Dockerfile|risk-hub-web"
 HUBS[trading-hub]="/opt/trading-hub|ghcr.io/achimdehnert/trading-hub/trading-hub-web:latest|docker/app/Dockerfile|trading-hub-web"
 HUBS[pptx-hub]="/opt/pptx-hub|ghcr.io/achimdehnert/pptx-hub/pptx-hub-web:latest|docker/app/Dockerfile|pptx-hub-web"
 

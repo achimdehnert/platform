@@ -1,7 +1,8 @@
 ---
 status: accepted
-date: 2026-03-11
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-11
+deciders: [Achim Dehnert]
+amends: [ADR-035]
 implementation_status: implemented
 implementation_evidence:
   - "Phase 1 (TenantManager + Lifecycle): DONE — risk-hub packages/django-tenancy/ v0.2.0"
@@ -153,6 +154,8 @@ class TenantManager(models.Manager):
 ```
 
 **Begründung**: ADR-035 entschied sich gegen auto-filter wegen Celery/Management-Command-Problemen. Dieser Entwurf löst das durch Fallback: ohne Context-Variable kein Filter. Admin-Queries nutzen `.unscoped()` explizit.
+
+> **Amends ADR-035 §2.2** (siehe `amends`-Frontmatter): kehrt dessen Entscheidung gegen automatisches tenant_id-Filtering bewusst um. Die Reversal ist damit im Frontmatter auffindbar, nicht nur in dieser Prosa.
 
 **Django Admin**: Der auto-filter Manager betrifft auch den Django Admin. Damit Staff-User alle Tenants sehen können, stellt das Package eine `TenantModelAdmin` Base-Class bereit:
 

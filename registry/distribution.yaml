@@ -1,0 +1,117 @@
+# Verteil-Vertrag (ADR-272) — maschinenlesbares Inventar aller Verteilwege.
+# Jeder Mechanismus, der Artefakte aus platform an Repos oder Maschinen verteilt,
+# MUSS hier einen Eintrag haben (Invariante I2). Contract-Lint: ADR-272 §4.1 (P2).
+#
+# Feld-Kontrakt (maschinenparsebar — Deep-Review 2026-07-11, PR #1072):
+#   source:    LISTE von Pfaden relativ zum platform-Repo (Invariante I2)
+#   targets:   LISTE von Zielen (Pfade/Globs als Strings; Maschinen-Pfade mit ~)
+#   mechanism: EIN Pfad zum ausführenden Skript/Workflow
+#   trigger:   Freitext — was die Verteilung auslöst
+#   gate:      EIN Pfad zum prüfenden Workflow/Skript oder "none"
+#   header:    Drift-Marker der Ziele: managed-by | symlink | none
+#   owner_adr: ADR, das den Mechanismus verantwortet
+#   note:      Freitext-Anmerkungen (NUR hier, nie in anderen Feldwerten)
+
+version: 1
+updated: 2026-07-11
+
+lanes:
+  cc-skill-dist-commands:
+    source: [".windsurf/workflows/"]
+    targets: ["~/.claude/commands/"]
+    mechanism: tools/cc-skill-dist/generate.py
+    trigger: "manuell pro Maschine (--kind commands --allow-live)"
+    gate: .github/workflows/cc-skill-dist-doctor.yml
+    header: managed-by
+    owner_adr: ADR-230
+    note: "Gate ist Round-Trip auf HEAD, prüft NICHT den Live-Zustand der Maschinen"
+
+  cc-skill-dist-skills:
+    source: ["skills/"]
+    targets: ["~/.claude/skills/"]
+    mechanism: tools/cc-skill-dist/generate.py
+    trigger: "manuell pro Maschine (--kind skills --allow-live)"
+    gate: .github/workflows/cc-skill-dist-doctor.yml
+    header: managed-by
+    owner_adr: ADR-230
+    note: "Gate ist Round-Trip auf HEAD, prüft NICHT den Live-Zustand der Maschinen"
+
+  cc-skill-dist-hooks:
+    source: ["tools/hooks/"]
+    targets: ["~/.claude/hooks/managed/"]
+    mechanism: tools/cc-skill-dist/generate.py
+    trigger: "manuell pro Maschine (--kind hooks --allow-live); Wiring in settings.json manuell"
+    gate: .github/workflows/cc-skill-dist-doctor.yml
+    header: managed-by
+    owner_adr: ADR-258
+    note: "doctor.py enthält zusätzlich Wiring-Check"
+
+  sync-workflows:
+    source: [".windsurf/workflows/"]
+    targets: ["~/github/*/.windsurf/workflows/"]
+    mechanism: scripts/sync-workflows.sh
+    trigger: "manuell + /session-start Phase 0.2"
+    gate: none
+    header: symlink
+    owner_adr: ADR-229
+    note: "interne SKIP-Guards, kein CI-Gate (ADR-272 §1.1)"
+
+  claude-policy-orchestrator:
+    source: ["policies/"]
+    targets: ["orchestrator-pgvector-memory"]
+    mechanism: tools/claude-policy/claude-policy
+    trigger: ".github/workflows/sync-policies-to-orchestrator.yml bei Merge auf main (policies/**)"
+    gate: none
+    header: none
+    owner_adr: ADR-230
+    note: "idempotenter content_hash-Sync; Datei bleibt maßgeblich, Memory ist Suchindex"
+
+  platform-pinned-policies:
+    source: ["policies/"]
+    targets: ["~/.claude/policies"]
+    mechanism: "~/.claude/hooks/refresh_pinned_policies.sh"
+    trigger: "SessionStart-Hook"
+    gate: none
+    header: symlink
+    owner_adr: ADR-265
+    note: "fail-soft mit lautem Banner; friert bei DIRTY ein (ADR-265-Realfall). BEFUND (Vertrags-Erstbefüllung): Skript ist NUR maschinen-lokal, nicht platform-versioniert — Kandidat für die hooks-Lane (ADR-258), aufgenommen in P2 #1073"
+
+  windsurf-review-subset:
+    source: [".windsurf/workflows/"]
+    targets: ["~/.codeium/windsurf/windsurf/workflows/"]
+    mechanism: tools/cc-skill-dist/windsurf-subset.py
+    trigger: "manuell (Prototyp, staging-only)"
+    gate: none
+    header: managed-by
+    owner_adr: ADR-230
+    note: "Auswahl via Frontmatter tool_targets: windsurf-review, Fallback kuratierte Liste"
+
+  receive-windsurf-rules:
+    source: [".windsurf/rules/"]
+    targets: ["19-consumer-repos-push-auf-main"]
+    mechanism: .github/workflows/receive-windsurf-rules.yml
+    trigger: "repository_dispatch (extern feuerbar)"
+    gate: none
+    header: none
+    owner_adr: ADR-263
+    note: "umgeht CI per [skip ci]; Härtung/Stilllegung = ADR-263. OFFEN (Deep-Review-Frage 2026-07-11): Dispatch-SENDER in platform nicht auffindbar — Sende-Seite ungeklärt, bei Klärung eigene Lane ergänzen"
+
+  project-facts:
+    source: ["registry/canonical.yaml"]
+    targets: ["~/github/*/project-facts.md"]
+    mechanism: scripts/gen_project_facts.py
+    trigger: "manuell + /session-start Phase 0.2"
+    gate: none
+    header: none
+    owner_adr: ADR-272
+    note: "generated-Header fehlt noch — Nachrüstung ADR-272 P2 (#1073)"
+
+  ship-workflow-repo-list:
+    source: ["scripts/ship-workflow.sh"]
+    targets: ["deploy-targets"]
+    mechanism: scripts/ship-workflow.sh
+    trigger: "manuell (/ship)"
+    gate: none
+    header: none
+    owner_adr: ADR-272
+    note: "HARTKODIERTE Liste = Verstoß gegen I2; Migration auf Registry-Reader = ADR-272 P3 (#1074)"

@@ -70,6 +70,49 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 > Lesson Learned: Wenn Tools blockiert sind, ist es besser die Lösung in einer
 > .fixed-Datei zu hinterlegen als die Session ergebnislos zu beenden.
 
+### 0a-deploy: Deploy-Status der gemergten Code-/Migration-PRs prüfen (PFLICHT)
+
+> **Lesson 2026-06-22 (trading-hub Retro, Längsschnitt `deploy-failures-no-fix` ×2):**
+> Eine Session mergte den B1(b)-Fix, der Prod-Deploy scheiterte an transientem GHCR-403
+> (Build-Step, vor Migrate) — `/session-ende` meldete „alles grün", weil der Deploy-Status
+> nie geprüft wurde. Die Kern-Errungenschaft war nicht live. „main grün" ≠ „Prod aktuell".
+
+Für **jedes** Repo dieser Session, das Code/Migrationen (nicht nur Docs) auf `main` gemergt hat:
+
+```bash
+# letzten Deploy-Run prüfen (Owner/Repo aus git-Remote, nicht hardcoden)
+gh run list --repo <owner>/<repo> --workflow=Deploy --limit 1 \
+  --json conclusion,headSha,databaseId -q '.[] | "\(.conclusion) sha=\(.headSha[0:7]) id=\(.databaseId)"'
+```
+
+- `success` → ok, weiter.
+- `failure` → **nicht** als „fertig" melden. Entweder: (a) bei transientem Flake (GHCR-403/registry-unauthorized beim Pull, siehe Memory `*-deploy-smoke-unauthorized`) `gh run rerun <id> --failed` und Erfolg verifizieren; ODER (b) explizit als offenes To-do mit Run-ID ins `AGENT_HANDOVER.md` (Phase 0b).
+- kein Deploy-Workflow im Repo → Schritt entfällt.
+
+### 0a-handover-pr: Offene AGENT_HANDOVER.md-PRs gegenchecken (PFLICHT — NEU 2026-07-14)
+
+> **Lesson 2026-07-14:** Eine Session öffnete einen PR mit neuem Handover-Stand,
+> ließ ihn aber offen (kein Merge). Die nächste Session schrieb — ohne diesen Check —
+> einen **zweiten**, konkurrierenden Handover-Stand, der den ersten PR sofort veraltete.
+> Der User musste die Duplikat-PR manuell entdecken und schließen lassen. Ein einfacher
+> PR-Suchlauf vor dem Schreiben hätte das verhindert.
+
+Bevor `AGENT_HANDOVER.md` in dieser Session verändert wird:
+
+```bash
+gh pr list --repo <owner>/<repo> --search "AGENT_HANDOVER.md in:body" --state open \
+  --json number,title,updatedAt -q '.[] | "\(.number)\t\(.updatedAt[:10])\t\(.title)"'
+# Fallback falls die Suche nichts findet (Titel/Body nennen die Datei nicht explizit):
+gh pr list --repo <owner>/<repo> --state open --json number,title,files \
+  -q '.[] | select(.files[]?.path == "AGENT_HANDOVER.md") | "\(.number)\t\(.title)"'
+```
+
+- **Treffer gefunden** → NICHT blind einen neuen Stand parallel schreiben. Entweder
+  (a) den bestehenden PR-Branch übernehmen/aktualisieren statt einen neuen zu öffnen,
+  oder (b) falls der bestehende PR durch zwischenzeitliche Merges bereits veraltet ist,
+  ihn explizit als „ersetzt durch PR #N" schließen, **bevor** der neue Stand gepusht wird.
+- **Kein Treffer** → normal weiter mit 0b.
+
 ### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
 
 Falls uncommitted changes, offene Tasks oder abgebrochene Implementierungen existieren:
@@ -105,6 +148,24 @@ claude --resume <session-id>
 → Dann `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update AGENT_HANDOVER"`
 → Wird von `session-start Phase 1` automatisch gelesen: *"Repo-Kontext laden — AGENT_HANDOVER.md"*
 
+### 0c: Erledigte/verschobene Prioritäten im Handover nachziehen (PFLICHT — NEU 2026-06-24)
+
+> **Unabhängig von WIP** (Phase 0b feuert nur bei uncommitted Stand — eine
+> *abgeschlossene* Prio hinterlässt aber oft gar keine dirty Files und fiel
+> bisher durchs Raster). Lesson 2026-06-24 (iil-klickdummy): siehe
+> session-start Phase 2.6.
+
+Falls diese Session eine Aufgabe aus der `## Prioritäten`-Tabelle des
+`AGENT_HANDOVER.md` **erledigt oder verschoben** hat:
+
+1. Tabelle aktualisieren — erledigte Zeile entfernen, Rest neu nummerieren, und
+   eine `> **Erledigt <Datum>:** …`-Notiz unter die Tabelle setzen; zusätzlich
+   einen Stichpunkt in `## ⚡ Aktueller Stand`.
+2. **Beides aktualisieren — Handover UND Memory (Phase 2), nie nur eins.**
+   Cross-Host-Sessions (iPad/claude.ai) updaten typischerweise nur das geteilte
+   pgvector-Memory → der git-getrackte Handover driftet. Der Start-seitige
+   Drift-Guard (`session-start` Phase 2.6) fängt nur, was beide Quellen abgleicht.
+
 ---
 
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
@@ -132,13 +193,18 @@ redundant zu `/knowledge-capture` und `/session-docu`).
 ### Schritt 1: Alle angefassten Repos der Session ermitteln
 
 ```bash
-# Alle Repos mit Commits in den letzten 8h (= diese Session)
+# Alle Repos mit Commits in den letzten 8h (= KANDIDATEN für diese Session)
 for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
   [[ "$(basename $repo)" == *.* ]] && continue
   last=$(git -C "$repo" log --since="8 hours ago" --oneline 2>/dev/null | wc -l)
   [ "$last" -gt 0 ] && echo "$(basename $repo)"
 done
 ```
+
+> ⚠️ 🌀 `feedback_session_attribution_by_conversation_not_date`: Die 8h-Heuristik
+> sammelt bei parallelen Sessions auch FREMDE Commits/Repos ein. Die Liste gegen die
+> **eigene Turn-Historie** filtern — nur Repos behalten, die diese Session wirklich
+> bearbeitet hat. Fremd-Aktivität nicht doppelt dokumentieren.
 
 → Ergibt Liste aller aktiven Repos dieser Session, z.B.:
 ```
@@ -243,61 +309,111 @@ fi
 
 ## Phase 2: pgvector Memory schreiben (ADR-154)
 
-> Tools in CC: `mcp__orchestrator__agent_memory_upsert` / `…_search`. **Flache**
-> Parameter (verifiziert gegen das Schema): `entry_key`, `entry_type` (enum),
-> `title`, `content`, optional `agent` (default `cascade`) + `tags`. **Kein**
-> verschachteltes `entry: {…}}` und **kein** `entry_id` — das war die alte
-> Windsurf-Signatur. Vor Änderungen an diesen Calls die Signatur erneut prüfen
-> (`ToolSearch select:mcp__orchestrator__agent_memory_upsert`).
+> **Primärer Pfad = die CLI `platform/tools/session-memory` — NICHT der MCP.**
+> Die frühere MCP-only-Variante (`mcp__orchestrator__agent_memory_upsert`) übersprang
+> Phase 2 still, sobald der Orchestrator-MCP in der Session **nicht gebunden** war
+> (häufig ausserhalb dev-hub/mcp-hub) → Summary ging verloren, nur „später nachziehen".
+> Die CLI nutzt denselben gesegneten Transport wie `claude-policy` (SSH + `docker exec`
+> in `mcp_hub_orchestrator_http`, ADR-209) und den **authoritativen** container-seitigen
+> `store.upsert` (Embedding + content_hash-Dedup macht der Container). Sie funktioniert
+> **unabhängig von der MCP-Bindung** in JEDEM Repo. Ist der MCP ausnahmsweise gebunden,
+> darf `mcp__orchestrator__agent_memory_upsert` als Beschleuniger genutzt werden — die
+> CLI bleibt der verlässliche Default.
 
-7. **Session-Summary speichern:**
-```
-mcp__orchestrator__agent_memory_upsert(
-  agent: "claude-code",
-  entry_key: "session:<repo>:<YYYYMMDD>",
-  entry_type: "context",     // enum: open_task|decision|context|lesson_learned|error_pattern|repo_context|agent_handoff
-  title: "Session <date> — <repo>: <1-Zeile Summary>",
-  content: "<Was erledigt, welche Entscheidungen, welche Dateien; Verweis auf Outline-Doc aus Phase 1>",
-  tags: ["session", "<repo>", "<task-type>"]
-)
-```
-
-8. **Error-Patterns erfassen** (nur bei Bug-Fixes):
-```
-mcp__orchestrator__agent_memory_upsert(
-  agent: "claude-code",
-  entry_key: "error:<repo>:<YYYYMMDD>-<shortid>",
-  entry_type: "error_pattern",
-  title: "<symptom 1-Zeile>",
-  content: "Repo: <repo>\nSymptom: …\nRoot Cause: …\nFix: …\nPrevention: …",
-  tags: ["error", "<repo>"]
-)
+7. **Session-Summary speichern** (CLI, MCP-unabhängig):
+```bash
+# Content in eine Datei (Multi-Line/Markdown sicher via base64-inline im Transport):
+cat > /tmp/session-summary.md <<'SUMEOF'
+# Session <date> — <repo>
+## Erledigt … ## Entscheidungen … ## Offen …
+SUMEOF
+python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/session-memory" write \
+  --repo <repo> --title "Session <date> — <repo>: <1-Zeile>" \
+  --session-id <kurz-slug>  # z.B. der --task-Slug des Worktrees; siehe Hinweis unten \
+  --tag session --tag <repo> --tag <task-type> \
+  --content-file /tmp/session-summary.md
+# → {"ok": true, "written": true, "entry_key": "session:<repo>:<YYYYMMDD>:<sid>", ...}
+# Verifizieren (Evidenz vor „gesichert"): session-memory get --key <entry_key aus der Ausgabe>
 ```
 
-> ℹ️ Pattern-Recall läuft über `mcp__orchestrator__agent_memory_search(query: "…")`.
+> **`--session-id` bei Parallelbetrieb (A1, seit 2026-07-20):** Der Default-Key
+> `session:<repo>:<YYYYMMDD>` ist pro Repo und Tag eindeutig — zwei Sessions am
+> selben Tag im selben Repo schrieben früher auf denselben Key, die zweite
+> überschrieb die erste **lautlos** (Realfall: `session:platform:20260719` musste
+> aus `AGENT_HANDOVER.md` rekonstruiert werden). Zwei Absicherungen:
+> - **`--session-id <slug>`** macht den Key eindeutig (empfohlen, sobald du weißt,
+>   dass parallel gearbeitet wird — `tools/session-leases --repo <repo>` zeigt es).
+> - **Ohne** `--session-id` überschreibt die CLI **nicht mehr**, sondern weicht auf
+>   `<key>-2`, `-3`, … aus. Der tatsächliche Key steht im `entry_key`-Feld der
+>   Ausgabe — beim Verifizieren diesen nehmen, nicht den erwarteten.
+>
+> `--allow-overwrite` erzwingt das alte Verhalten (bewusst zu setzen).
+entry_type default `context` (`--type` override: open_task|decision|lesson_learned|error_pattern|repo_context|agent_handoff). Bei Prod-Exec-Block im Auto-Mode: User um Freigabe bitten oder via `!` ausführen.
+
+8. **Error-Patterns erfassen** (nur bei Bug-Fixes) — gleiche CLI, anderer Typ/Key:
+```bash
+python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/session-memory" write \
+  --repo <repo> --type error_pattern \
+  --key "error:<repo>:<YYYYMMDD>-<shortid>" \
+  --title "<symptom 1-Zeile>" --tag error --tag <repo> \
+  --content "Repo: <repo>\nSymptom: …\nRoot Cause: …\nFix: …\nPrevention: …"
+```
+
+> ℹ️ Pattern-Recall: `session-memory get --key <key>` (exakt) bzw. bei gebundenem MCP
+> `mcp__orchestrator__agent_memory_search(query: "…")` (semantisch).
 
 ---
 
 ## Phase 3: Git Sync — WSL ↔ Dev Desktop (IMMER am Ende)
 
-### 3.1 Alle geänderten Repos committen + pushen
+### 3.1 Alle geänderten Repos committen + pushen (Session-Attribution + Protection-aware)
+
+> 🌀 **Drei harte Lehren fließen hier ein:**
+> 1. `feedback_git_add_all_swept_artifacts` — pauschales `git add -A` schwemmte `.pyc`/
+>    `.coverage`/Editor-Artefakte in Commits → **nie ungefiltert `add -A`**.
+> 2. `feedback_session_attribution_by_conversation_not_date` — im geteilten Tree können
+>    dirty Files von PARALLELEN Sessions stammen → nur committen, was DIESE Session
+>    nachweislich angefasst hat (eigene Turn-Historie); Fremdes dem User melden.
+> 3. **ADR-242 Branch-Protection:** `main` ist in etlichen Repos geschützt (`ci / gate` /
+>    `guardian` required) — ein Direkt-Push auf main scheitert dort mit GH013.
+
+Pro dirty Repo:
 
 ```bash
-for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
-  cd "$repo"
-  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-    repo_name=$(basename "$repo")
-    # Spezifische Commit-Message statt generisch
-    changes=$(git diff --stat --cached 2>/dev/null; git diff --stat 2>/dev/null)
-    echo "PUSH $repo_name..."
-    git add -A
-    git commit -m "session-ende($repo_name): $(date +%Y-%m-%d) — $(git diff --cached --stat | tail -1)"
+cd "$repo"
+BR=$(git branch --show-current)                      # 🌀 feedback_commit_on_main_recurs: Branch IMMER re-checken
+git status --porcelain                                # sichten: gehört jede Datei zu DIESER Session?
+# Nur session-eigene Dateien EXPLIZIT stagen (keine Artefakte, kein add -A):
+git add <datei1> <datei2> ...
+git commit -m "session-ende($(basename $repo)): $(date +%Y-%m-%d) — <kurze Beschreibung>"
+
+# Push-Ziel bestimmen:
+if [ "$BR" = "main" ]; then
+  # Ist main geschützt? (Ruleset-Check, billig)
+  if gh api "repos/{owner}/$(basename $repo)/rules/branches/main" --jq 'length' 2>/dev/null | grep -qv '^0$'; then
+    echo "⛔ main geschützt — Direkt-Push scheitert. Worktree-Branch + PR nutzen:"
+    echo "   bash platform/tools/repo-session.sh start . --task session-ende-sync && cherry-pick"
+  else
     git push
   fi
-done
+else
+  git push -u origin "$BR"   # Session-Branch → danach PR erstellen/verlinken
+fi
 ```
-→ Commit-Message enthält **Repo-Name + Änderungsstatistik** statt nur `auto-sync`.
+
+**PR-Kadenz-Hygiene (session-retro 2026-07-02, PK-3/PK-4):**
+- **Rebase-on-ready (R-6):** `gh pr update-branch` erst **unmittelbar vor** dem finalen
+  Push/Merge, nicht früh — verkürzt das Konflikt-Fenster gegen zwischenzeitlich gemergte
+  main-Änderungen (Realfall: 2 manuelle Textkonflikte #829/#832).
+- **Bündeln statt Kleinst-PR-Schwarm (R-7):** thematisch gekoppelte Kleinfixes in **wenige,
+  breitere** PRs zusammenfassen, wo sie nicht kollidieren — 11/17 PRs dieser Session trugen
+  Catch-up-Merge-Tax durch sequenzielles Selbst-Mergen gegen den wandernden eigenen main.
+
+→ Docs-only-Änderung in einem Deploy-on-push-Repo? **`[skip ci]` in die Commit-Message**
+  (🌀 `feedback_skip_ci_uniform_on_docs_merges` — sonst kickt ein README-Commit Prod).
 → **NICHT ausführen** wenn der User explizit sagt "nicht pushen" oder ein PR-Review läuft.
+→ Fremde dirty Files (andere Session/unbekannte Herkunft): **liegen lassen + melden**,
+  nicht einsammeln.
 
 ### 3.1b Cleanup: Temporäre Dateien entfernen
 
@@ -307,6 +423,27 @@ find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 -name "*.fixed" -o -name "*.update
 ```
 → Falls vorhanden: Prüfen ob übernommen, dann löschen. Falls NICHT übernommen → User warnen.
 
+### 3.1c Worktree-Reaper: gemergte Session-Worktrees abräumen (ADR-233, PFLICHT)
+
+> Ohne diesen Schritt akkumulieren Orphan-Worktrees über Tage (Retro 2026-06-14:
+> 9 dangling, davon 3 am selben Tag erzeugt + gemergt, nie gereapt). Der Reaper ist
+> **squash-merge-aware** und schützt DIRTY- + offene-PR-Worktrees selbst (kein Datenverlust).
+
+// turbo
+```bash
+# Jedes Repo mit Session-Worktrees abräumen. --apply, aber tool-interne Guards
+# lassen dirty / offene-PR-Worktrees absichtlich stehen. Restore-Manifest je Repo.
+for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
+  # NUR Haupt-Checkouts: .git ist ein Verzeichnis. Linked-Worktrees (z.B.
+  # *-pinned) haben .git als DATEI → überspringen, sonst Doppel-Durchlauf.
+  [ -d "$repo/.git" ] || continue
+  summary=$(cd "$repo" && python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/worktree-reaper.py --apply 2>/dev/null | grep -oE "[0-9]+ entfernt")
+  [ -n "$summary" ] && [ "${summary%% *}" != "0" ] && echo "$(basename "$repo"): $summary"
+done
+echo "✅ Worktree-Reaper durchgelaufen (ADR-233)"
+```
+→ Wiederherstellung jederzeit via `worktree-reaper-manifest.jsonl` (pro Repo geschrieben).
+
 ### 3.2 Platform-Workflows + project-facts verteilen (IMMER — kein Conditional)
 
 > ⚠️ **PFLICHT — nicht überspringen.** Dieser Schritt stellt sicher, dass Verbesserungen
@@ -314,13 +451,14 @@ find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 -name "*.fixed" -o -name "*.update
 
 // turbo
 ```bash
-# 1. Platform-Repo committen + pushen (falls geändert)
+# 1. Platform-Repo: main ist SEIT ADR-242 GESCHÜTZT (required check guardian) —
+#    Direkt-Push scheitert mit GH013. Änderungen gehen via Session-Branch + PR:
 cd ${GITHUB_DIR:-$HOME/github}/platform
 if [ -n "$(git status --porcelain)" ]; then
-  git add -A
-  git commit -m "chore(platform): session-ende $(date +%Y-%m-%d) — rules/workflows sync"
-  git push
-  echo "✅ platform gepusht"
+  echo "⚠️ platform dirty — Direkt-Push auf main ist geblockt (ADR-242)."
+  echo "   → Dateien sichten (Session-Attribution!), dann via Worktree-Branch + PR:"
+  echo "     bash tools/repo-session.sh start . --task session-ende-platform-sync"
+  echo "   → Dateien EXPLIZIT (kein add -A) in den Worktree übernehmen, PR erstellen."
 else
   echo "ℹ️  platform: kein Commit nötig"
 fi
@@ -401,7 +539,13 @@ mcp__github__push_files(owner: <OWNER>, repo: "<repo>", branch: "main",
 - ❌ Outline-Schreiben hier inline duplizieren — an `/knowledge-capture` delegieren
   und **Erfolg prüfen** (Redundanz zu `/session-docu` vermeiden).
 - ❌ `git push` ausführen, wenn der User „nicht pushen" sagt oder ein PR-Review
-  läuft (Phase 3.1) — und nie ungeprüft `git add -A` über fremde dirty Repos.
+  läuft (Phase 3.1).
+- ❌ **`git add -A` — in keiner Phase.** Immer explizite Pfade nach Sichtung
+  (🌀 `feedback_git_add_all_swept_artifacts`: .pyc/.coverage landeten in Commits).
+- ❌ Fremd-Session-Artefakte einsammeln — dirty Files/Commits ohne Bezug zur eigenen
+  Turn-Historie melden statt committen (🌀 Session-Attribution, Realfall #734).
+- ❌ Direkt-Push auf geschützte `main`-Branches versuchen (ADR-242: platform + 10
+  weitere Repos haben required checks) — Session-Branch + PR ist der Pfad.
 - ❌ Memory-Calls mit der alten Windsurf-Signatur (`entry: {entry_id…}}`) — die
   CC-Signatur ist flach mit `entry_key`.
 
@@ -424,6 +568,16 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 8 | Blockierte Arbeit dokumentiert | ☐ |
 | 9 | Docu-Drift-Check: Issue erstellt falls nötig (Phase 1b) | ☐ |
 | 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
+| 11 | Erledigte/verschobene Prios im Handover UND Memory nachgezogen (Phase 0c) | ☐ |
+| 12 | Offene AGENT_HANDOVER.md-PRs gegengecheckt vor eigenem Schreiben (Phase 0a-handover-pr) | ☐ |
+
+> **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
+> oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
+> Pflicht-Phase braucht eine eigene Zeile hier. Diese Checkliste selbst driftete bereits
+> einmal aus dem Takt: Phase 0a-handover-pr wurde am 2026-07-14 ergänzt, aber erst am
+> 2026-07-15 (Retro c494a2, Befund #8) als fehlende Checklisten-Zeile bemerkt — eine
+> Session hatte die Phase im Dokument vorliegen, aber nicht ausgeführt, weil die
+> Abschluss-Checkliste sie nicht abfragte.
 
 ---
 
@@ -448,3 +602,26 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
 | `mcp4_` | paperless-docs | Dokumente, Rechnungen |
 | `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
+
+> **Claude Code:** stabile Namen `mcp__github__*` / `mcp__orchestrator__*` verwenden —
+> `mcpN_`-Nummern sind Windsurf-Ära und environment-volatil.
+
+## Changelog
+
+- 2026-07-15: Abschluss-Checkliste um Zeile 12 (Phase 0a-handover-pr) ergänzt + Pflicht-
+  Selbstcheck-Hinweis. Aus Retro `session-retro-2026-07-15-platform-c494a2` (Befund #8):
+  Phase 0a-handover-pr wurde 07-14 ergänzt, war in der verteilten Skill-Kopie vorhanden,
+  wurde aber in derselben Session nicht ausgeführt — die Checkliste fragte sie nicht ab.
+  Allgemeine Lehre (auch außerhalb dieses Skills): eine neue PFLICHT-Phase ohne
+  Checklisten-Zeile ist strukturell überspringbar, egal wie deutlich sie im Fließtext
+  markiert ist.
+- 2026-07-02: v2 — Phase 3.1 komplett überarbeitet: kein `git add -A` mehr (🌀
+  swept-artifacts), Branch-Re-Check + Session-Attribution-Filter (🌀 #734), Branch-
+  Protection-aware Push (ADR-242: geschützte mains → Worktree-Branch + PR),
+  `[skip ci]` bei docs-only auf Deploy-Repos; Phase 3.2 platform-Push auf PR-Pfad
+  umgestellt (Direkt-Push auf main scheitert seit Wave 1 an guardian — Realfall:
+  adr-nightly-metrics 30 Nächte rot an genau dieser Wand); Phase 1b mit
+  Attribution-Warnung; Anti-Patterns erweitert; Changelog-Sektion ergänzt
+  (claude-skills-Policy-Pflicht).
+- ≤2026-06-24: Phase 0c (Handover-Prio-Nachzug), 0a-deploy (Deploy-Status-Pflicht),
+  Worktree-Reaper 3.1c — Historie siehe git log.

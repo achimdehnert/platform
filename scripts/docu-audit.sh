@@ -294,7 +294,11 @@ echo ""
 printf "${BOLD}🚫 ADR-046 Violations${NC}\n"
 violations=0
 if [[ -d "$REPO_PATH/docs" ]]; then
-    py_in_docs=$(find "$REPO_PATH/docs" -name "*.py" ! -name "conf.py" 2>/dev/null | wc -l)
+    # R-04-Ausnahmen (ADR-046 Amendment 2026-07-09): Vorlagen unter docs/templates/
+    # und konsumierte ADR-Inputs unter docs/adr/inputs/ — konsistent mit
+    # scripts/hardcode_scanner.py (exclude_dirs). conf.py bleibt die Alt-Ausnahme.
+    py_in_docs=$(find "$REPO_PATH/docs" -name "*.py" ! -name "conf.py" \
+        -not -path "*/templates/*" -not -path "*/adr/inputs/*" 2>/dev/null | wc -l)
     bin_in_docs=$(find "$REPO_PATH/docs" -name "*.pdf" -o -name "*.docx" -o -name "*.zip" 2>/dev/null | wc -l)
     build_in_docs=$(find "$REPO_PATH/docs" -type d -name "_build" -o -name "build" 2>/dev/null | wc -l)
     violations=$((py_in_docs + bin_in_docs + build_in_docs))

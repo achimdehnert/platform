@@ -1,13 +1,14 @@
 # CORE_CONTEXT — platform
 
 > Pflicht-Lektüre für jeden Coding-Agent vor dem ersten Keystroke.
-> Aktualisiert: 2026-05-30
+> Aktualisiert: 2026-07-08
 
 ## Was ist platform?
 
 **Meta-Repo** des IIL-Ökosystems. Enthält **keine ausführbare App**, sondern
 ist die Single-Source-of-Truth für plattformweite Entscheidungen, Conventions
-und geteilte Werkzeuge der 45+ Hub-Repos.
+und geteilte Werkzeuge der Hub-Repos (Anzahl live:
+`python3 -c "import yaml; print(len(yaml.safe_load(open('registry/canonical.yaml'))['repos']))"`).
 
 **GitHub:** https://github.com/achimdehnert/platform
 **ADR-Verzeichnis:** `docs/adr/` (Bestand live: `ls docs/adr/ADR-*.md | wc -l`; höchste Nr.: `ls docs/adr/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -V | tail -1`)
@@ -25,19 +26,45 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 | Pfad | Zweck |
 |---|---|
 | `docs/adr/` | Architecture Decision Records (SSoT; live: `ls docs/adr/ADR-*.md | wc -l`) |
-| `docs/concepts/` | Konzeptpapiere vor ADRs |
+| `docs/konzepte/` | **Aktive** Konzept-Artefakte (KONZ-platform-NNN, via `/konzept`-Skill) |
+| `docs/concepts/` | Legacy-CONCEPT-Dateien (Vor-`/konzept`-Ära, nur lesen) |
 | `docs/templates/` | ADR-, Use-Case-, Settings-Templates für neue Repos |
 | `docs/reference/` | Reference-Docs (audit/health-Checker, …) |
 | `docs/guides/` | How-to-Guides (CI, Deploy, Multi-Env) |
-| `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge |
-| `registry/` | `repos.yaml` + `sync_registry.py` (drift-check liest hier) |
-| `governance-deploy/` | Governance-Automation für Deploys |
-| `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF) |
-| `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py` |
+| `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge (Status/Konsumenten: Issue #820) |
+| `registry/` | **SSoT `canonical.yaml`** (ADR-234) → Views `repos.yaml`/`scripts/repo-registry.yaml` (generiert, gate-erzwungen); Accessor `tools/registry_api.py`. Owner-Auflösung: `registry_api.owner(repo)` |
+| `governance/` | Policy-Konfiguration: `rulesets/` (ADR-242 Branch-Protection), `exit-classes.yaml`, `backup/` |
+| `_ARCHIVED/governance-deploy/` | Archivierte tote Django-Alt-App (via #829 aus dem Root verschoben, Issue #817) |
+| `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF), `registry_api.py` |
+| `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py`, `gen_adr_index.py` |
+| `packages/` | Eigenständige Sub-Packages (z. B. `adr-review` — eigene pyproject/tests) |
+| `orchestrator_mcp/` | Gespiegelter Code des extern laufenden Orchestrator-Service (ADR-256) — kein hier deploybares Django |
 | `bootstrap.sh` | Public Setup-Script (verteilt Symlinks in alle Repos) |
 | `.windsurf/workflows/` | Workflow-SSoT (wird über Symlinks in alle Repos verteilt) |
 | `agents/` | Platform-Agent-Definitionen |
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
+| `skills/` | **Aktive zweite Distributions-Lane** (neben `.windsurf/workflows/`): `skills/<name>/SKILL.md` → `tools/cc-skill-dist/generate.py --kind skills` verteilt nach `~/.claude/skills/<name>/SKILL.md` (Anthropic Agent Skills, user-level, gilt in jeder Session/jedem Repo/jeder Org) |
+| `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
+
+**Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-flip`
+regeneriert beide Views + verify) — nie die generierten Views
+(`repos.yaml`/`scripts/repo-registry.yaml`) von Hand anfassen, das `verify`-Gate schlägt
+sonst fehl. (`registry-canonical.py build` ist die Pre-Flip-Bootstrap-Richtung
+Views→canonical und würde canonical-Edits überschreiben — nicht benutzen.)
+
+## Lokales Setup & Testbefehl (SSoT)
+
+```bash
+make setup   # requirements-dev.txt + pre-commit install + install-push-hook (einmalig)
+make test    # = pytest tools/tests/ (ruff läuft separat über `make lint`)
+```
+
+`make test` deckt **nicht** die volle CI-Testfläche ab: `.github/workflows/tools-tests.yml`
+ist die SSoT für den CI-relevanten Gate-Umfang (aktuell zusätzlich `tests/test_render_staging.py`,
+`tests/doc_profile_check/`, `tools/claude-hooks/tests/` — Datei live prüfen statt diese Liste
+zu vertrauen, sie ändert sich unabhängig von hier). `ruff` ist **kein** CI-Gate, nur lokales
+`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (nur noch `megatest`, kein
+Altbestand mehr — self-hosted-Runner-gebunden, teils rot; Triage-Historie: Issue #819).
 
 ## Tech Stack
 
@@ -58,16 +85,68 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 ## Pflicht-Lesestoff vor Änderungen
 
 1. **`AGENT_HANDOVER.md`** — aktueller Stand, MCP-Tool-Mapping, Infra-Zugänge
-2. **`AGENT_MEMORY.md`** — Drift-Episoden & Lessons Learned
+2. **CC-Memory-Index** (auto-geladen) — Drift-Episoden & Lessons Learned.
+   ⚠️ **`AGENT_MEMORY.md` ist deprecated** (Cascade-Ära, alle Einträge expired,
+   Stand 2026-05-05) — nicht mehr als Lessons-Quelle lesen.
 3. **Letzte ADRs**: `ls docs/adr/ADR-*.md | sort -V | tail -5`
 
 ## Konventionen (Repo-spezifisch — schlagen Global)
 
+- **Optimierung = Komplexitäts-Bilanz + kreativer Zuwachs (stehende Erwartung, jede Session):**
+  Jede vorgeschlagene Änderung/Optimierung trägt eine Netto-Bilanz — `entfernt ≥ hinzugefügt`,
+  sonst den Funktions-Zuwachs explizit rechtfertigen oder „bewusst nicht ändern"; Löschen >
+  Refactor > Hinzufügen. Optimierungs*läufe* liefern zusätzlich ≥1 als KREATIV markierten
+  Fähigkeits-Zuwachs. Voll ausgearbeitet + erzwungen in `/repo-optimize` (Fleet: `/platform-audit`),
+  SSoT `docs/prompts/repo-enterprise-optimization.md`. Hartes CI-Gate ist getrackt (Issue #1173).
+- **ADRs: Fakten in Tabellen, Prosa nur für das Warum.** Phasen, Umsetzungs-Status,
+  Abweichungen, Sparring-Verdikte gehören in eine Tabelle (kürzer, diffbar, nicht
+  interpretierbar) — nicht in Fließtext. Prosa bleibt reserviert für Context/Decision-Outcome
+  (das *Warum*, das ein künftiger Challenger braucht) und lässt sich nicht verlustfrei in
+  Zeilen pressen. Gilt vor allem beim Nachschärfen bereits `accepted`/`implemented`er ADRs
+  (Dogfood: ADR-275, 314→161 Zeilen, kein Fakt/PR entfernt). Analog zur Ledger-Pflicht für
+  T1/T2-Konzepte (`/konzept`-Skill, Entscheidung 2026-06-01) — kein neues Prinzip, dieselbe
+  Logik auf ADRs übertragen.
 - **ADR-Nummern monoton steigend** — nie wiederverwenden, auch nach Rejection
 - **`shared_contracts/`-Änderungen** triggern Downstream-Builds → erst ADR, dann Code
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
 - **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`
-- **Workflows in `.windsurf/workflows/`**: Änderungen brauchen `/workflow-review` vor Merge
+- **Org-Resolution & neue iil-* Pakete (ADR-255)**: Der GitHub-Org-Ziel für die
+  `iil-*` PyPI-Familie ist **`iilgmbh`** (PyPI-Org **`iil`**, nicht `iilgmbh` —
+  Trusted Publishing matcht den GitHub-Owner). **Jedes _neue_ `iil-*` Paket wird
+  org-native angelegt**: Repo direkt unter `iilgmbh`, hardened OIDC `publish.yml`
+  (REC-7), Eintrag in `registry/iil-migration.yaml` ab Tag 1 (REC-14). Org-Auflösung
+  ist **explizit, kein stiller `achimdehnert`-Fallback** für `iil-*` (REC-4). Der
+  **Ist-Owner** steht in `tools/registry-canonical.py` `repo_owner` (nur Repos, die
+  _wirklich_ schon dort liegen); der **Ziel-Owner** der laufenden Migration steht
+  ausschließlich in `registry/iil-migration.yaml` (SSoT, REC-3) — Reality-Check:
+  `python3 tools/iil_migration_check.py`.
+- **Workflows in `.windsurf/workflows/`**: **substanzielle** Änderungen brauchen `/workflow-review`
+  vor Merge (neue/geänderte Schritte, Logik, Tool-Calls, Steuerfluss, semantische Edits) — Ergebnis
+  im PR-Body zitieren. **Ausnahme (session-retro 2026-07-02, EF-4/R-5):** rein **mechanische,
+  deterministische** Änderungen (Prefix-/Token-Sweep, Umbenennung nach fixem Muster, Refresh
+  generierten Contents) brauchen **kein** manuelles `/workflow-review`, wenn (a) der PR-Body sie
+  ausdrücklich als mechanisch kennzeichnet und (b) die automatisierten Gates greifen
+  (`skill-mcp-signatures.yml` = MCP-Signatur-Lint, `cc-skill-dist-doctor.yml` = Distributions-
+  Determinismus). Im Zweifel gilt `/workflow-review` — die Ausnahme ist eng und muss begründet werden,
+  nicht stillschweigend angenommen.
+- **Parallele Sessions — Haupt-Tree heilig (ADR-233)**: der geteilte Checkout `~/github/platform`
+  bleibt auf `main`; **kein** Branch-Switch im Haupt-Tree. Editierende Arbeit läuft in einem eigenen
+  Worktree via `tools/repo-session.sh start <repo> --task <slug>` (Branch `session/<date>/<owner>/<slug>`
+  von `origin/main` + Lease). Aufräumen: `tools/worktree-reaper.py` (dry-run default, squash-aware,
+  Dirty-Guard). Read-only-Analyse darf im Haupt-Tree bleiben.
+
+### Parallel-Session-Hygiene (ADR-233) — Werkzeuge
+
+| Werkzeug | Zweck |
+|---|---|
+| `tools/repo-session.sh` | verbindlicher Entry Point: `start`/`list`/`end` — Worktree von `origin/main`, Branch-Schema, Lease |
+| `tools/worktree-reaper.py` | GC gemergter/stale Worktrees (dry-run default; `--apply`; entfernt nie einen Branch) |
+| `tools/main-tree-guard.sh` | `install` = Snap-back-Hook (aktiv erst nach Skill-Migration); `report` = `unauthorized_head_flips/30d` (Kill-Gate-Metrik) |
+
+> **Rollout-Hinweis:** Der harte `main-tree-guard` (Snap-back) wird **erst aktiviert**, wenn die
+> Session-Skills den geteilten Tree nicht mehr per `git switch` umschalten — sonst bricht er
+> bestehende Abläufe. Bis dahin: Konvention als Lesestoff + `repo-session` als empfohlener Einstieg;
+> `main-tree-guard.sh report` misst Verstöße. Kill-Gate-Termin: 2026-09-01.
 
 ## Verwandte Skills
 
@@ -76,6 +155,7 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 | `/adr`, `/adr-review`, `/adr-health` | ADR-Lifecycle |
 | `/workflow-review`, `/workflow-index` | Workflow-Qualität |
 | `/onboard-repo` | neues Repo ins Ökosystem |
+| `/repo-optimize` | Ein Repo tief optimieren (Komplexitäts-Bilanz + kreativer Zuwachs) |
 | `/platform-audit`, `/repo-health-check` | Cross-Repo-Schwachstellen |
 | `/governance-check` | vor neuer Funktionalität |
 | `/session-docu` | Dokumentations-Audit (dieser hier) |
@@ -84,5 +164,6 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 
 - **Prod-Server**: `88.198.191.108`
 - **Staging-Server**: `88.99.38.75`
-- **Orchestrator MCP**: `https://orchestrator.iil.pet/sse`
+- **Orchestrator MCP**: `https://orchestrator.iil.pet/sse` (aktiv) — Ziel-Endpoint
+  ist `/mcp` (ADR-256, accepted); Übergang läuft, `/sse` noch nicht abgeschaltet.
 - **Dev-Hub Cockpit**: `https://devhub.iil.pet`

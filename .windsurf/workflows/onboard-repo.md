@@ -18,6 +18,17 @@ User says one of:
 - "Reflex review fixen für [name]"
 - "Compliance-Onboarding für [name]"
 
+## Wann `/onboard-repo` — und wann nicht?
+
+- **Wann:** vollständiges **technisches** Onboarding — Projektstruktur, CI/CD, Docker,
+  Health-Endpoints, Server-Infra, Nginx, SSL, DB, project-facts.
+- **Wann NICHT / stattdessen:**
+  - Nur **Dokumentations-/Template-Infrastruktur** (Issue Forms, ADR, Use Cases,
+    CORE_CONTEXT, AGENT_HANDOVER, Perfect Prompt) → **`/new-github-project`**. Beide
+    ergänzen sich; für ein frisches Repo idealerweise beide ausführen.
+  - `/onboarding-new-repo` (nur `.windsurf`-Config) ist **deprecated** → dessen Aufgaben
+    sind in diesem Workflow enthalten; nicht mehr separat verwenden.
+
 ## Mode Detection
 
 Determine the mode based on whether the repo already exists:
@@ -152,6 +163,11 @@ CLOUDFLARE_API_TOKEN=<token> python ${GITHUB_DIR:-$HOME/github}/platform/infra/s
 - `python infra/scripts/validate_repos.py` — Konsistenz prüfen
 
 ## Step 0.9: Architecture Context laden (iil-adrfw v0.4.0)
+
+> ℹ️ **CC-Fallback:** Die `mcp2_adr_*`-Aufrufe unten sind Windsurf-Ära-Namen; in
+> Claude-Code-Sessions heißen dieselben Tools `mcp__<orchestrator-prefix>__adr_*`. Bindet die
+> Session keinen ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw. der
+> `iil-adrfw`-CLI-Weg — das Onboarding bricht nicht ab, nur die MCP-Automatik entfällt.
 
 Bevor das Repo strukturiert wird — welche ADRs gelten?
 
@@ -433,8 +449,13 @@ on:
 
 jobs:
   ci:
-    name: "CI"
-    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main
+    # KEIN name:-Override — die Job-ID `ci` muss der Display-Name bleiben, damit
+    # der Check-Kontext exakt `ci / gate` heißt (ADR-242-Ruleset; Lesson
+    # weltenhub 9326e49 / learn-hub#25: `name: "CI"` erzeugte `CI / gate` →
+    # jeder PR unmergebar).
+    # Versionierte shared-ci-Referenz statt floating platform@main (KONZ-017
+    # W0-2): neue Repos werden auf der Paved Road geboren, nicht daneben.
+    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.10
     with:
       python_version: "3.12"
       coverage_threshold: 80
@@ -450,7 +471,7 @@ jobs:
     name: "Build"
     needs: [ci]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.0.10
     with:
       dockerfile: "docker/app/Dockerfile"
       scan_image: true
@@ -460,7 +481,7 @@ jobs:
     name: "Deploy"
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.0.10
     with:
       app_name: <REPO_NAME>
       deploy_path: /opt/<REPO_NAME>
@@ -479,6 +500,24 @@ jobs:
 | `DEPLOY_HOST` | `88.198.191.108` |
 | `DEPLOY_USER` | `root` |
 | `DEPLOY_SSH_KEY` | SSH Private Key |
+
+### Step 2b: Secret-Scan Gate (ADR-235 — PFLICHT, jedes Repo)
+
+Scaffold `.github/workflows/secret-scan.yml` aus der kanonischen Vorlage —
+**unabhängig vom Repo-Typ**. Damit erhält **jedes** neu angelegte Repo den
+serverseitigen gitleaks-Gate **by construction** (ADR-235 Layer 2, P2). Django-
+Apps bekommen den Scan transitiv über `_ci-python.yml` zusätzlich; dieser
+Standalone-Gate deckt auch Nicht-Django-/Nicht-CI-Repos ab (sonst wiederholt
+sich die ADR-226-Lehre „Mandat ohne Mechanismus" — private Repos ohne GitHub
+Advanced Security haben keinen nativen Push-Protection-Gate).
+
+```bash
+mkdir -p .github/workflows
+cp "$PLATFORM_DIR/docs/templates/secret-scan.yml" .github/workflows/secret-scan.yml
+```
+
+> Die Vorlage ruft die geteilte `achimdehnert/platform/.github/actions/gitleaks-scan@main`-Action
+> (ein Versions-Pin, ADR-226). Nichts zu parametrisieren.
 
 ## Step 3: Docker Setup
 
@@ -897,6 +936,7 @@ Repo-Struktur:
   [ ] docker/app/entrypoint.sh existiert (chmod +x, mit beat-Case + chown /celerybeat)
   [ ] docker-compose.prod.yml existiert
   [ ] .github/workflows/ci-cd.yml existiert (coverage_threshold: 80)
+  [ ] .github/workflows/secret-scan.yml existiert (ADR-235 Layer 2 — jedes Repo)
   [ ] .env.example existiert
   [ ] /livez/ Health-Endpoint existiert (csrf_exempt, require_GET)
   [ ] pyproject.toml mit [tool.pytest.ini_options]
@@ -910,7 +950,7 @@ Testing (ADR-058):
   [ ] tests/conftest.py importiert platform_context.testing.fixtures
   [ ] tests/factories.py mit UserFactory
   [ ] config/settings/test.py mit WHITENOISE_MANIFEST_STRICT=False
-  [ ] pytest tests/ -v läuft lokal ohne Fehler
+  [ ] `make test` läuft lokal ohne Fehler (Fallback nur falls kein Makefile-Target `test` existiert: `pytest tests/ -v`)
 
 Platform-Integration:
   [ ] platform/registry/repos.yaml Eintrag hinzugefügt

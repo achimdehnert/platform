@@ -1,8 +1,8 @@
 ---
-status: Accepted
-date: 2026-04-23
+status: accepted
+decision_date: 2026-04-23
 amended: 2026-04-23
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
   - "iil-ingest v0.1.0 auf PyPI publiziert (pip install iil-ingest[pdf])"

@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-08
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-08
+deciders: [Achim Dehnert]
 implementation_status: implemented
 ---
 
@@ -13,7 +13,7 @@ Accepted
 
 ## Context
 
-Das AI Engineering Squad (ADR-100) führt Tasks über 25 Repos aus und nutzt den LLM Gateway (ADR-114) für alle LLM-Calls. Bisher gibt es kein zentrales Controlling für:
+Das AI Engineering Squad (ADR-107) führt Tasks über 25 Repos aus und nutzt den LLM Gateway (ADR-114) für alle LLM-Calls. Bisher gibt es kein zentrales Controlling für:
 
 - **Kosten**: Tatsächliche LLM-Token-Kosten pro Task, Repo, Model
 - **Dauer**: Wie lange dauern Tasks und einzelne LLM-Calls?
@@ -140,7 +140,7 @@ Preise werden als Konfiguration gepflegt (OpenRouter-Preise, Stand 2026-03):
 
 ## References
 
-- ADR-100: Extended Agent Team + Deployment Agent
+- ADR-107: Extended Agent Team + Deployment Agent
 - ADR-112: Agent Skill Registry + Persistent Context
 - ADR-113: pgvector Memory Store
 - ADR-114: Discord IDE-like Communication Gateway + LLM Gateway

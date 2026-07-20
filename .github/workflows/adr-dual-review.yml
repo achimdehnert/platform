@@ -44,6 +44,12 @@ concurrency:
   group: adr-dual-review-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# dual-review job below declares its own elevated (write) permissions
+# and overrides this for jobs that actually need it.
+permissions:
+  contents: read
+
 jobs:
   dual-review:
     name: "🤖 Dual-Tool Review"
@@ -60,7 +66,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip

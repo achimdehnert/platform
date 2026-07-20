@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-07
-decision-makers: Achim Dehnert
+decision_date: 2026-03-07
+deciders: Achim Dehnert
 consulted: Cascade (Senior Architect), Claude (Principal IT Architect — Review v1+v2)
 informed: billing-hub, mcp-hub, platform-team
 implementation_status: partial
@@ -12,6 +12,8 @@ implementation_evidence:
 <!-- Drift-Detector: staleness_months=6, drift_check_paths=["apps/", "pyproject.toml"] -->
 
 # ADR-103: ausschreibungs-hub — KI-gestützte Ausschreibungs- und Angebotsplattform
+
+> **Re-Eval-Trigger (ADR-Full-Scan 2026-06-06):** Embedding-Dimension 1536 ist hart kodiert (pgvector-Spalten + HNSW). Bei Wechsel des Embedding-Modells (naechste LLM-Generation) re-evaluieren.
 
 ## Metadaten
 

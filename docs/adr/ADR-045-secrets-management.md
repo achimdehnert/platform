@@ -1,13 +1,15 @@
 ---
 status: accepted
-date: 2026-02-21
-decision-makers: Achim Dehnert
-implementation_status: implemented
+decision_date: 2026-02-21
+deciders: Achim Dehnert
+implementation_status: partial
 implementation_evidence:
   - "all hubs: decouple.config() for secrets"
 ---
 
 # ADR-045: Secrets & Environment Management
+
+> **Kanonisches Ziel (Secrets-Reconciliation 2026-06-06):** SOPS + `/run/secrets` (diese ADR) ist die beschlossene **Ziel-Architektur** fuer Plattform-Secrets — sicherer als plaintext `.env.prod` (relevant seit risk-hub/tax-hub Prod mit Kundendaten). **Status-Ehrlichkeit:** die Migration ist noch **unvollstaendig** (Phase 2/3/7 ausstehend, nur bfagent+dev-hub umgestellt) — die gelebte Realitaet laeuft derzeit ueber ADR-159 (`.env.prod`+decouple). Die Fertigstellung ist ein **gegateter Prod-/Mehr-Repo-Strang** (eigener Plan), kein Auto-Rollout. Loest den Full-Scan-Konflikt 045<->159 (Owner-Entscheidung: SOPS wiederbeleben).
 
 | Metadata | Value |
 |----------|-------|
@@ -17,9 +19,9 @@ implementation_evidence:
 | **Author** | Achim Dehnert |
 | **Reviewers** | ADR Board |
 | **Supersedes** | — |
-| **Related** | ADR-021 (Unified Deployment), ADR-022 (Platform Consistency), ADR-044 (MCP-Hub Architecture), ADR-056 (Multi-Tenancy) |
+| **Related** | ADR-021 (Unified Deployment), ADR-022 (Platform Consistency), ADR-044 (MCP-Hub Architecture), ADR-072 (Multi-Tenancy) |
 | **Based on** | `konzept-env-secrets-management.md`, `review-secrets-management.md` |
-| **Version** | 3 (2026-02-21: implementation status review, ADR-056 gap added) |
+| **Version** | 3 (2026-02-21: implementation status review, ADR-072 gap added) |
 
 ---
 
@@ -60,9 +62,9 @@ All apps currently use `.env.prod` files on the Hetzner server (`88.198.191.108`
 `/run/secrets/` existiert noch nicht — wird beim ersten SOPS-Deploy erstellt.
 `.env.prod` bleibt als Fallback aktiv bis Phase 7 abgeschlossen ist.
 
-### Gap: ADR-056 Multi-Tenancy (travel-beat)
+### Gap: ADR-072 Multi-Tenancy (travel-beat)
 
-ADR-056 introduced `apps.tenants` with `Client` and `Domain` models in travel-beat.
+ADR-072 introduced `apps.tenants` with `Client` and `Domain` models in travel-beat.
 The tenant provisioning step (creating the default `drifttales` tenant) currently runs
 as an inline `manage.py shell` command in `deploy-remote.sh`. This is acceptable for
 Phase 1 but must be revisited in ADR-045 Phase 5:
@@ -343,6 +345,18 @@ class AmadeusSettings(BaseSettings):
 
 ## 3. Implementation Plan
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 (SOPS + age Setup) | erledigt | `age`/`sops` auf dev-server installiert (Implementation-Status-Tabelle unten) |
+| Phase 2 (Migrate Existing Secrets) | offen | Notiz 2026-06-06: "Migration ist noch unvollstaendig (Phase 2/3/7 ausstehend)" |
+| Phase 3 (read_secret() in Django Apps) | unklar | Widerspruch im Dokument: ältere Notiz sagt bfagent+dev-hub umgestellt, neuere Notiz zählt Phase 3 weiter zu "ausstehend" |
+| Phase 4 (MCP Server Settings) | offen | "❌ Pending" (Implementation-Status-Tabelle) |
+| Phase 5 (CI/CD Pipeline Update) | erledigt | `_deploy-hetzner.yml` secrets-Job vor deploy, skip-Logik implementiert |
+| Phase 6 (Reboot Resilience) | unklar | systemd-Unit committed, aber laut Text "noch nicht auf Server installiert" |
+| Phase 7 (Cleanup) | offen | "❌ Pending — nach erstem erfolgreichen SOPS-Deploy"; bestätigt durch Notiz 2026-06-06 |
+
 ### Phase 1: SOPS + age Setup (Day 1)
 
 ```bash
@@ -457,7 +471,7 @@ Add SOPS decrypt step to GitHub Actions deploy workflow (`_deploy-hetzner.yml`):
     echo "All required secrets verified."'
 ```
 
-**Note (ADR-056 interaction):** For travel-beat, the SOPS decrypt step must run
+**Note (ADR-072 interaction):** For travel-beat, the SOPS decrypt step must run
 **before** `migrate_schemas`, as the DB connection requires `DATABASE_URL` from
 `/run/secrets/`. The tenant provisioning step in `deploy-remote.sh` is unaffected
 (it runs after container start, which reads from `/run/secrets/` via `read_secret()`).
@@ -596,7 +610,7 @@ when a concrete use case arises. This ADR focuses strictly on secrets.
    declare its required secrets (for Phase 5 verification step). Format TBD
    (e.g., `REQUIRED_SECRETS` list in `config/secrets.py` or `.secrets-manifest`).
 
-4. **ADR-056 interaction**: travel-beat uses `django-tenants` — the `DATABASE_URL`
+4. **ADR-072 interaction**: travel-beat uses `django-tenants` — the `DATABASE_URL`
    secret must be available before `migrate_schemas --shared` runs. The ordering
    in `_deploy-hetzner.yml` (SOPS decrypt → migrate → tenant provision) must be
    validated when Phase 5 is implemented.
@@ -609,4 +623,4 @@ when a concrete use case arises. This ADR focuses strictly on secrets.
 |---------|------|--------|
 | 1 | 2026-02-18 | Initial draft |
 | 2 | 2026-02-18 | Incorporates critical review R-01 through A-06 |
-| 3 | 2026-02-21 | Implementation status review: all phases still pending. `.sops.yaml` committed to `platform`. ADR-056 gap documented. Open Question 4 added. |
+| 3 | 2026-02-21 | Implementation status review: all phases still pending. `.sops.yaml` committed to `platform`. ADR-072 gap documented. Open Question 4 added. |

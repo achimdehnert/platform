@@ -1,11 +1,11 @@
 ---
-status: Proposed
-date: 2026-05-08
+status: proposed
+decision_date: 2026-05-08
 amended: 2026-05-08
-decision-makers:
+deciders:
   - Achim Dehnert
-reviewed-by: Cascade Senior Architecture Reviewer
-depends-on:
+reviewed_by: Cascade Senior Architecture Reviewer
+depends_on:
   - ADR-178 (LLM Gateway Consolidation)
   - ADR-115 (LLM Usage Logging)
   - ADR-009 (Service Layer Pattern)
@@ -123,6 +123,11 @@ Weiter manuell Models zuweisen, bei Ausfall manuell umschalten.
 - **Con:** Skaliert nicht bei steigender Action-Code-Anzahl (aktuell 14, Tendenz steigend)
 
 ### Option D: LiteLLM Proxy (self-hosted)
+
+> **Amendment 2026-06-30 (ADR-260):** Option D wurde hier zugunsten Option A verworfen,
+> aber **teilweise revidiert** durch **ADR-260** (Per-Host-LiteLLM-Proxy als zentraler
+> Provider-Key-Halter) — mit neuer Evidenz (Fleet-weiter Key-Sprawl, Vision-Bedarf, Pilot-Beleg).
+> Proxy (Transport/Keys) und Model-Screener (Option A, Modellwahl) sind komplementär, aifw bleibt Router.
 
 Self-hosted LiteLLM Proxy mit Load-Balancing und Caching.
 
@@ -489,7 +494,7 @@ Begründung der Gewichtung wie v2 (Quality² überproportional, Cost linear, Lat
 - Auto-Routing ist opt-in per Action Code (`auto_route = models.BooleanField(default=False)`)
 - **Sicherheitskritische Action Codes** (markiert als `is_safety_critical=True`, z.B. `hazard_analysis`) sind von Auto-Routing AUSGESCHLOSSEN — nur manuelle Model-Wahl
 - Jede Auto-Route-Änderung generiert Discord-Notification (max. 1×/Stunde aggregiert) + Audit-Log
-- Architecture Guardian (ADR-054) wird über Auto-Route-Wechsel via `aifw_route_changed` Signal informiert
+- Architecture Guardian (ADR-239) wird über Auto-Route-Wechsel via `aifw_route_changed` Signal informiert
 
 ### Confirmation
 
@@ -665,7 +670,7 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 - **ADR-022** (BigAutoField) — Alle neuen Models nutzen BigAutoField.
 - **ADR-072** (Multi-Tenancy Schema Isolation) — `aifw`-Tabellen explizit im `public` Schema (siehe Datenbank-Architektur).
 - **ADR-045** (SOPS) — N/A: Provider-Keys über GitHub Secrets, nicht SOPS.
-- **ADR-054** (Architecture Guardian) — Phase-4-Auto-Routing benachrichtigt Guardian via Signal.
+- **ADR-239** (Architecture Guardian) — Phase-4-Auto-Routing benachrichtigt Guardian via Signal.
 - **ADR-059** (Drift-Detector) — Felder `staleness_months`, `drift_check_paths` im Frontmatter.
 
 ## Glossar

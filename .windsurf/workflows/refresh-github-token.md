@@ -106,7 +106,7 @@ Erwartete Ausgabe: `achimdehnert`
 ## Schritt 4 — Windsurf MCP neustarten
 
 1. **Windsurf komplett neustarten** (Cmd+Shift+P → "Reload Window" reicht NICHT für MCP)
-2. Nach Neustart testen: beliebiges `mcp8_*` Tool aufrufen, z.B. `mcp8_list_issues`
+2. Nach Neustart testen: beliebiges `mcp8_*` Tool aufrufen, z.B. `mcp__github__list_issues`
 
 ## Schritt 5 — Deployment-MCP neustarten (optional)
 

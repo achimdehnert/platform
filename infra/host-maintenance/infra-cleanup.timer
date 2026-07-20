@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily host disk cleanup (prevention — keeps disk off 100%)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

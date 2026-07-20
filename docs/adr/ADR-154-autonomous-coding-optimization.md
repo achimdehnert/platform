@@ -1,7 +1,7 @@
 ---
-status: "accepted"
-date: 2026-03-31
-decision-makers: [Achim Dehnert]
+status: accepted
+decision_date: 2026-03-31
+deciders: [Achim Dehnert]
 consulted: [Cascade AI]
 informed: []
 implementation_status: complete

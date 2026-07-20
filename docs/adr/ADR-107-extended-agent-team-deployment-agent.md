@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-08
-decision-makers: Achim Dehnert
+decision_date: 2026-03-08
+deciders: Achim Dehnert
 consulted: Cascade (Tech Lead)
 informed: –
 supersedes: –
@@ -13,6 +13,8 @@ implementation_evidence:
 ---
 
 # ADR-107: Erweitertes Agent-Team — Cascade als Tech Lead, Deployment Agent, Review Agent und explizite Rollenentlastung
+
+> **Korrektur-Hinweis (ADR-Full-Scan 2026-06-06):** Autonome Gate-2-Prod-Deploys widersprechen der live geltenden No-Auto-Prod-Invariante (deploy.yml; vgl. ADR-066/185 Gate-4 Human-Only). Bei Konflikt gilt No-Auto-Prod; Reconciliation offen.
 
 | Feld | Wert |
 |------|------|

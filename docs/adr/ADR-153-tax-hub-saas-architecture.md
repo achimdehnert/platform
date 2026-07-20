@@ -1,7 +1,7 @@
 ---
-status: "accepted"
-date: 2026-03-25
-decision-makers: [Achim Dehnert]
+status: accepted
+decision_date: 2026-03-25
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []  # ADR-152 (tax-hub Pilot) never published — see related
@@ -891,7 +891,7 @@ apps/workflows/
 | **Domain (Public)** | `tax.iil.pet` (Landing + Registrierung) |
 | **Cloudflare DNS** | CNAME `*.tax` → Tunnel (proxied) + CNAME `tax` → Tunnel (proxied) |
 | **Wildcard-SSL** | Cloudflare Universal SSL (automatisch bei Proxy-Modus) |
-| **Nginx** | `server_name *.tax.iil.pet;` → `proxy_pass http://127.0.0.1:8096;` |
+| **Nginx** | `server_name *.tax.iil.pet;` → `proxy_pass http://127.0.0.1:8099;` |
 
 ### 7.4 Health & Monitoring (ADR-021 §2.2, ADR-078)
 
@@ -945,6 +945,17 @@ Trigger: Push auf `main` → Auto-Deploy auf Prod-Server (`88.198.191.108`).
 
 ## 8. Rollout-Phasen
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):** die ✅/□-Häkchen
+innerhalb der Phasen-Blöcke unten markieren nur Scope-Zugehörigkeit, nicht Fertigstellung
+— Umsetzungsstand siehe Abschnitt 9 "Migration Tracking".
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 — Pilot | offen | Abschnitt 9 Migration Tracking: alle Zeilen außer "ADR-153 erstellt" auf "⬜ Pending" |
+| Phase 2 — SaaS-Unterbau | offen | Abschnitt 9: django-tenants, ModuleRegistry, Stripe, Trial-Provisionierung alle "⬜ Pending" |
+| Phase 3 — Vollständiger Modul-Katalog | offen | Abschnitt 9: BELEGE/ERECHNUNG-Module, PORTAL/API, Workflows, Konnektoren alle "⬜ Pending" |
+| Phase 4 — Go-to-Market | offen | Abschnitt 9: Landing Page, n8n Bridge-Handler beide "⬜ Pending" |
+
 ### Phase 1 — Pilot (4 Wochen)
 
 Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
@@ -996,7 +1007,7 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 |-------|---------|--------|-------|
 | 1 | ADR-153 erstellt | ✅ Done | 2026-03-25 |
 | 1 | ADR-152 als superseded markieren | ⬜ Pending | – |
-| 1 | Port 8096 in ADR-021 §2.9 Port-Registry eintragen | ⬜ Pending | – |
+| 1 | Port 8099 in ADR-021 §2.9 Port-Registry eintragen | ⬜ Pending | – |
 | 1 | Health-Endpoints `/livez/` + `/healthz/` implementieren | ⬜ Pending | – |
 | 1 | Django-Skeleton + Split Settings | ⬜ Pending | – |
 | 1 | apps/tenant/ + apps/billing/ Grundgerüst | ⬜ Pending | – |
@@ -1066,7 +1077,7 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 4. Schema-Isolation: Kanzlei A kann keine Mandanten von Kanzlei B sehen
 5. Stripe-Webhook: `checkout.session.completed` → Module aktiviert
 6. Trial: 30 Tage → automatisch `status="trial"`, dann Downgrade-Warning
-7. Port 8096 in ADR-021 §2.9 eintragen (**noch offen** — Migration Tracking Phase 1)
+7. Port 8099 in ADR-021 §2.9 eintragen (**noch offen** — Migration Tracking Phase 1)
 8. `catalog-info.yaml` vorhanden, `lifecycle: production` nach Phase 4
 9. `HandlerRegistry.get_handler_class("apps.workflows.handlers.email.SendEmailHandler")` liefert registrierten Handler
 10. `ExecutionLog.objects.filter(execution_id=X)` zeigt vollständiges Audit-Log mit Input/Output pro Action
