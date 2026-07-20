@@ -426,6 +426,15 @@ The deployed compose state on the host MUST be a verified copy of the CI-built a
 - **Fail-closed host verify.** Before `docker compose up`, `deploy.sh` MUST verify the on-host compose `sha256` equals the `compose_sha` of the current CI bundle. Mismatch ⇒ abort (fail-closed), no deploy.
 - **Bundle completeness.** Referenced side-artifacts (`env_file`, override/include/profile files, build context) are part of the bundle, OR the bundle manifest marks each explicitly as host-owned.
 
+**§2.17-Delta (proposed, 2026-07-17 — KONZ-platform-015 REC-6, normativ in ADR-264 D2-Delta):**
+§2.17 verifies byte-identity of the compose file against git but does not by construction see
+out-of-band host-only override files (the exact gap that let an untracked
+`docker-compose.override.yml` bypass this guard, KONZ-platform-015 §5.2). Delta: bundle
+completeness (above) is extended by an **Override-Manifest check** — any host-only override file
+MUST be declared in `registry/canonical.yaml` `overrides:` ({repo, path, reason, owner,
+expires_at}, D1-Waiver pattern) or the deploy aborts fail-closed. Same check, normatively defined
+in ADR-264 D2-Delta — this note exists so this file doesn't drift from that decision (E6).
+
 ### 2.18 Container Ownership Labels (Amendment 2026-06-01)
 
 > Source: KONZ-platform-001 REC-NEU-A. Makes the host auditable without name-guessing.

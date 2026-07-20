@@ -180,3 +180,46 @@ Rollback-/Gate-Erzwingung statt Pipeline-Absicht). Eingearbeitet in D1–D4 oben
 | PRO-1…6 (Proponent) | valid-affirmation | keine Änderung — bestätigen die Stoßrichtung |
 | OOTB-2 (zentraler Deploy-Service) | out-of-scope | vom Reviewer selbst verworfen (Overkill für ~50 Repos) |
 | OOTB-3 (Progressive Delivery/Flags) | valid-ergänzend | als Option für riskante Migrationen in Build-Phase prüfen (nicht Ersatz) |
+
+## Amendment 2026-07-17 — D2-Delta (KONZ-platform-015): Dead-Reference-Gate + Override-Manifest
+
+**Status: PROPOSED** (dieser Amendment-Abschnitt, nicht der Rest des ADR) — durch `/adr-review`
++ `adr-challenger` + Ruleset-Zweit-Review (E6) zu bestätigen, bevor er als Teil des `accepted`-ADR
+gilt. Herkunft: KONZ-platform-015 (Registry↔Live-Drift-Fehlerklasse, drei Live-Incidents
+2026-07-09/10), REC-6. Diese Erweiterung ist bewusst als **Delta an D2** eingehängt, nicht als
+eigenes ADR — genau das, was D1 (Supersession-Gate) nach fünf konkurrierenden Deploy-ADRs
+verhindern soll (Anlauf #7 statt Anlauf #6).
+
+**Ergänzung zu D2 (Promotion-Pipeline):** Der Promotion-/Deploy-Pfad prüft zusätzlich zwei
+Bedingungen, bevor `compose up` läuft — beide fail-closed, keine Warnung/Erinnerung:
+
+- **Dead-Reference-Check:** Der aufgelöste Runtime-Zustand eines Deploys (Env-Werte,
+  Connection-Strings, Hostnamen) darf keinen Eintrag aus `registry/canonical.yaml`
+  `decommissioned:` treffen (Schema: `{name, date, dead_hostnames[], dead_ips[]}`, PR #1230).
+  Scope bewusst eng: nur runtime-aufgelöste Referenzen, kosmetische Treffer (z. B. Netznamen)
+  laufen über eine separate, datierte Allowlist — nicht dieselbe Liste.
+- **Override-Manifest-Check:** Eine git-unsichtbare Host-Override-Datei (z. B.
+  `docker-compose.override.yml` außerhalb des Repos) blockt den Deploy, wenn sie nicht in
+  `registry/canonical.yaml` `overrides:` deklariert ist — Schema `{repo, path, reason, owner,
+  expires_at}`, **identisches Waiver-Muster wie D1** ("ohne Ablaufdatum → blockiert", hier
+  zusätzlich: abgelaufen → blockiert, keine Gnadenfrist).
+
+**Wire-before-extend (KONZ-015-Lehre, hier bewusst wiederholt, weil sie im Repo empirisch der
+Median ist, nicht die Ausnahme):** Diese Erweiterung gilt erst als existent, wenn (a) der
+Validator (`tools/validate_registry.py`, PR #1230) als hartes CI-Gate läuft — **umgesetzt, PR
+#1230**; (b) der Gate-Modus (`tools/decommission_check.py`) einmal auf **einem** Pilot-Hub
+(weltenhub, Replay des `.env.prod`/`bfagent_redis`-Incidents als Akzeptanztest) fail-closed
+verdrahtet ist und einen absichtlich roten Testlauf in CI nachweist — **noch offen**; (c) ein
+Fleet-Rollout erst nach 30 Tagen grünem Pilot ohne False-Positive-Vorfall erfolgt. Bis (b)
+erfüllt ist, ist dieser Amendment-Abschnitt Dokumentation einer Absicht, kein wirksames Gate —
+das wird hier nicht als „fertig" verkauft (Gate `claim-before-cheapest-check`).
+
+**§2.17-Delta an ADR-021 (Compose-Sync-Guard):** ADR-021 §2.17 prüft heute Byte-Identität von
+`docker-compose.prod.yml` gegen git, sieht aber konstruktionsbedingt keine Out-of-band-Host-Dateien
+(exakt die Lücke, die das git-unsichtbare `docker-compose.override.yml` in weltenhub durchließ,
+KONZ-015 §5.2). Delta: §2.17 wird um den Override-Manifest-Check (s. o.) ergänzt — dieselbe
+Prüfung, zwei Referenzpunkte (D2 hier normativ, §2.17 der ursprüngliche Erzwingungsort im
+Deploy-Skript). Kein neuer Mechanismus, eine Prüfung, zwei Dokumentationsstellen.
+
+**Betroffen/nicht betroffen:** Kein Statusflip für ADR-021 oder andere `related:`-ADRs; keine neue
+Supersession. Rein additiv zu D2, konsistent mit der Supersession-Matrix oben.
