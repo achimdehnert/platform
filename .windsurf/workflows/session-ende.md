@@ -329,11 +329,25 @@ cat > /tmp/session-summary.md <<'SUMEOF'
 SUMEOF
 python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/session-memory" write \
   --repo <repo> --title "Session <date> — <repo>: <1-Zeile>" \
+  --session-id <kurz-slug>  # z.B. der --task-Slug des Worktrees; siehe Hinweis unten \
   --tag session --tag <repo> --tag <task-type> \
   --content-file /tmp/session-summary.md
-# → {"ok": true, "written": true, "entry_key": "session:<repo>:<YYYYMMDD>", ...}
-# Verifizieren (Evidenz vor „gesichert"): session-memory get --key session:<repo>:<YYYYMMDD>
+# → {"ok": true, "written": true, "entry_key": "session:<repo>:<YYYYMMDD>:<sid>", ...}
+# Verifizieren (Evidenz vor „gesichert"): session-memory get --key <entry_key aus der Ausgabe>
 ```
+
+> **`--session-id` bei Parallelbetrieb (A1, seit 2026-07-20):** Der Default-Key
+> `session:<repo>:<YYYYMMDD>` ist pro Repo und Tag eindeutig — zwei Sessions am
+> selben Tag im selben Repo schrieben früher auf denselben Key, die zweite
+> überschrieb die erste **lautlos** (Realfall: `session:platform:20260719` musste
+> aus `AGENT_HANDOVER.md` rekonstruiert werden). Zwei Absicherungen:
+> - **`--session-id <slug>`** macht den Key eindeutig (empfohlen, sobald du weißt,
+>   dass parallel gearbeitet wird — `tools/session-leases --repo <repo>` zeigt es).
+> - **Ohne** `--session-id` überschreibt die CLI **nicht mehr**, sondern weicht auf
+>   `<key>-2`, `-3`, … aus. Der tatsächliche Key steht im `entry_key`-Feld der
+>   Ausgabe — beim Verifizieren diesen nehmen, nicht den erwarteten.
+>
+> `--allow-overwrite` erzwingt das alte Verhalten (bewusst zu setzen).
 entry_type default `context` (`--type` override: open_task|decision|lesson_learned|error_pattern|repo_context|agent_handoff). Bei Prod-Exec-Block im Auto-Mode: User um Freigabe bitten oder via `!` ausführen.
 
 8. **Error-Patterns erfassen** (nur bei Bug-Fixes) — gleiche CLI, anderer Typ/Key:
