@@ -10,32 +10,18 @@
 
 # API / URL Reference
 
-**29 endpoints** across 5 URL modules.
+> **Hinweis (2026-07-08):** Die automatische Regen-Pipeline (`docs-agent`) ist archiviert
+> (`_ARCHIVED/packages/docs-agent`) und nicht lauffähig. Diese Datei ist bis auf Weiteres
+> **handgepflegt** — Inhalte können veralten, ohne dass ein Regen-Lauf das korrigiert.
+> Owner-Entscheid: platform#995 (Option b).
 
-## django_module_shop
-
-**Source:** `/home/devuser/github/platform/packages/django-module-shop/django_module_shop/urls.py`
-
-| Route | View | Name |
-|-------|------|------|
-| `` | `ModuleCatalogueView` | `module-catalogue` |
-| `toggle/` | `ModuleToggleView` | `module-toggle` |
-
-## tests
-
-**Source:** `/home/devuser/github/platform/packages/django-tenancy/tests/urls.py`
-
-| Route | View | Name |
-|-------|------|------|
-| `livez/` | `liveness` | `health-liveness` |
-| `healthz/` | `readiness` | `health-readiness` |
-| `health/` | `readiness` | `health-compat` |
+**15 endpoints** across 2 URL modules. (Ursprünglich 29 Endpoints über 5 Module dokumentiert — 3 Module mit toten Quell-Pfaden entfernt, siehe Hinweis oben.)
 
 ## doc_templates
 
 **app_name:** `doc_templates`
 
-**Source:** `/home/devuser/github/platform/packages/doc-templates/doc_templates/urls.py`
+**Source:** `/home/devuser/github/platform/packages/doc-templates/doc_templates/urls.py` (lebt jetzt im eigenen Repo `iil-doc-templates`, Pfad `doc_templates/urls.py`, nicht mehr in platform/packages/)
 
 | Route | View | Name |
 |-------|------|------|
@@ -53,7 +39,7 @@
 
 ## health
 
-**Source:** `/home/devuser/github/platform/packages/iil-django-commons/src/iil_commons/health/urls.py`
+**Source:** `/home/devuser/github/platform/packages/iil-django-commons/src/iil_commons/health/urls.py` (lebt jetzt im eigenen Repo `iil-django-commons`, Pfad `src/iil_commons/health/urls.py`, nicht mehr in platform/packages/)
 
 | Route | View | Name |
 |-------|------|------|
@@ -61,21 +47,3 @@
 | `healthz/` | `readiness` | `iil_healthz` |
 | `readyz/` | `readiness` | `iil_readyz` |
 | `health/` | `readiness` | `iil_health_compat` |
-
-## sphinx_export
-
-**app_name:** `sphinx_export`
-
-**Source:** `/home/devuser/github/platform/packages/sphinx-export/urls.py`
-
-| Route | View | Name |
-|-------|------|------|
-| `` | `views.dashboard` | `dashboard` |
-| `export/` | `views.export_project` | `export` |
-| `download/` | `views.download_export` | `download` |
-| `download/file/` | `views.download_file` | `download_file` |
-| `sync/` | `views.run_sync` | `sync` |
-| `sync/report/` | `views.sync_report` | `sync_report` |
-| `api/documents/` | `views.list_documents` | `api_documents` |
-| `api/validate/` | `views.validate_project` | `api_validate` |
-| `api/sync-status/` | `views.sync_status` | `api_sync_status` |
