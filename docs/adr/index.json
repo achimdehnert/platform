@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-19",
-  "total": 224,
-  "next_free": 279,
+  "total": 225,
+  "next_free": 280,
   "adrs": [
     {
       "number": 7,
@@ -5157,6 +5157,29 @@
         "ADR-209",
         "ADR-255",
         "ADR-266"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 279,
+      "id": "ADR-279",
+      "file": "ADR-279-adaptive-text-feedback-loop-promptfw.md",
+      "title": "Anchor the adaptive text-improvement feedback loop in iil-promptfw",
+      "status": "proposed",
+      "date": "2026-07-11",
+      "domains": [
+        "shared-packages",
+        "llm",
+        "prompt-management"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-146",
+        "ADR-188",
+        "ADR-259"
       ],
       "implementation_status": ""
     },
