@@ -29,7 +29,7 @@ jobs:
       url: https://pypi.org/project/iil-codeguard/
     steps:
       - name: Checkout iil-codeguard
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: achimdehnert/iil-codeguard
           token: ${{ secrets.PROJECT_PAT }}

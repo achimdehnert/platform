@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout platform (registry SSoT)"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Check + fix runner labels and stuck deploys"
         env:

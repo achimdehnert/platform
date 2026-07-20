@@ -26,7 +26,7 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Validate registry
         # --break-system-packages: PEP-668-Guard des self-hosted Runners; ohne

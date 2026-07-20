@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: bash scripts/checks/staging_dns_schema.sh
 
   r2-host-locality:
@@ -45,7 +45,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: bash scripts/checks/staging_host_locality.sh
 
   r3-naming:
@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: bash scripts/checks/staging_naming.sh
 
   r4-port-range:
@@ -63,7 +63,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
       - run: bash scripts/checks/staging_port_range.sh
 
@@ -73,7 +73,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: bash scripts/checks/staging_tunnel_ingress.sh
 
   r6-oidc-redirects:
@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: bash scripts/checks/staging_oidc_redirects.sh
 
   r7-generated-drift:
@@ -91,7 +91,7 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
       - run: bash scripts/checks/staging_generated_drift.sh
 
@@ -101,5 +101,5 @@ jobs:
     timeout-minutes: 5
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: bash scripts/checks/staging_devdesktop_clean.sh
