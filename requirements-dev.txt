@@ -10,7 +10,7 @@
 # semver-Klassifizierung (patch/minor/major) wieder funktioniert.
 pytest==9.1.1
 pyyaml==6.0.3
-ruff==0.15.20
+ruff==0.15.21
 pre-commit==4.6.0
 # ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI. Bewusst
 # ungepinnt gelassen (kein >=-Range-Constraint vorher, anderer Fall als CI-4):
