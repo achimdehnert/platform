@@ -139,7 +139,9 @@ Bei HTTP 200 → Staging-Deploy erfolgreich.
 
 → Im Cascade-Output melden: `🧪 Staging Deploy: {scope} | 88.99.38.75:{staging_port} | Domain: {domain_staging}`
 
-> ℹ️ `mcp__orchestrator__discord_notify` existiert nicht mehr (Issue #80).
+> ℹ️ Staging-Meldung geht in den Session-Output, nicht nach Discord.
+> (`mcp__orchestrator__discord_notify` **existiert weiterhin** — der frühere Hinweis
+> „existiert nicht mehr" war eine Prefix-Drift-Fehldiagnose, siehe ADR-156-Nachtrag.)
 
 ---
 
