@@ -178,3 +178,35 @@ Exception-Budget: 1 dokumentiertes Break-Glass im Pilotfenster, danach Re-Evalua
 
 > **Ehrliche Enforcement-Grenze:** Dieses Konzept *schreibt* Felder, *erzwingt* sie nicht.
 > `review_by`/`kill_criteria` wirken erst, wenn ein Lifecycle-Gate sie liest. Bis dahin = Review-Gate.
+
+## 14. Kill-Gate-Messung — Instrument nachgerüstet (2026-07-20)
+
+**Befund beim überfälligen Review (`review_by` war 2026-07-09, 11 Tage überschritten):**
+Die Break-Glass-Hälfte des Kill-Gates (`≥1 Break-Glass/Woche`) hatte **kein Messinstrument**.
+`tools/branch_protection_meter.py` prüft, ob das Ruleset *existiert und aktiv* ist — also
+Break-Glass in der Form „Schutz abgeschaltet". Der Regelfall ist aber die andere Form: ein
+aktives Ruleset wird für einen einzelnen Merge **umgangen** (`gh pr merge --admin` bzw.
+`bypass_actor`). Diese Ereignisse wurden nirgends gezählt. Das Kill-Gate konnte also seit
+Pilotbeginn nicht feuern — nicht weil alles gut lief, sondern weil niemand maß.
+
+**Instrument:** `tools/break_glass_meter.py`, verdrahtet als eigener Step in
+`.github/workflows/branch-protection-meter.yml` (montags, gleicher Lauf wie der Soll/Ist-Meter,
+aber eigenes Label `break-glass` — ein umgangenes Ruleset ist ein Kill-Gate-Signal, keine
+Ruleset-Verletzung). Datenquelle: `GET /repos/{owner}/{repo}/rulesets/rule-suites` mit
+`rule_suite_result=bypass`; gezählt wird über Wave 1+2, Fenster 2 Wochen, Schwelle 1/Woche.
+
+**Erstmessung 2026-07-20 (Echtlauf, nicht simuliert):** 11 Repos gelesen, **0 Break-Glass**
+in 2 Wochen → Kill-Gate feuert nicht. Der Nullwert ist falsifiziert: derselbe Filter liefert
+mit `rule_suite_result=pass` 11 Treffer für `platform`, ungefiltert sind alle 11 Suites `pass`.
+
+**Grenzen (bewusst nicht behauptet):**
+- Die `rule-suites`-Historie ist **kein Vollarchiv seit Pilotbeginn**. 11 Suites für `platform`
+  sind wenig für die Repo-Lebenszeit — das Ergebnis heißt „0 im gelesenen Fenster", nicht
+  „seit Pilotstart nie ein Break-Glass". Die Retention des Endpoints ist ungeprüft.
+- Gemessen wird **nur** die Break-Glass-Hälfte des Kill-Gates. Die erste Hälfte („mehr legitime
+  grün-werdende Merges blockiert als rote verhindert") hat weiterhin **kein** Instrument und
+  bleibt ein manuelles Urteil.
+- Am 2026-07-20 entstand ein realer Break-Glass-Bedarf außerhalb der Messmenge: `mcp-hub` PR #180
+  war strukturell nicht mergebar (1 Collaborator, Ruleset verlangt 1 Approval, GitHub verbietet
+  Self-Approval). Sobald dieser Merge per `--admin` erfolgt, sollte ihn der nächste Lauf zählen —
+  das ist zugleich der erste echte Funktionsbeweis des Zählers.
