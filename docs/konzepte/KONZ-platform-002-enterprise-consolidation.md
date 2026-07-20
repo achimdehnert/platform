@@ -197,3 +197,35 @@ Erste reale Exit-Feuerübung (Gate (c) Teil 2). Wegwerf-Repo `exit-drill-src` in
 **Gate (c)-Status:** ✅ **voll grün.** Teil 1 (vollständiger Runbook) bewiesen; Teil 2 (Feuerübung) real geprobt, 2 Annahmen falsifiziert, Lessons als REC-8/-9 + Tool-Fix (PR #426) zurückgeflossen. Kill-Kriterium **D1** verlangt für die Feuerübung „Rückbau **dokumentiert**" (nicht „ausgeführt") — und der Rückbau-*Versuch* ist hier der schärfste Befund, nicht ein offener Rest: `exit-drill-src` wurde `bahn-sqf → pactive-de` transferiert, wodurch `achimdehnert` auf die Ziel-Rolle `member` (push/triage, **kein admin**) fiel; Org-Owner sind Dritte (`DasRed`/`ghry5`/`philipp-eicher`/`ratpic83`). **Verifiziert 2026-06-03:** `repos/pactive-de/exit-drill-src.permissions.admin = false`. Einseitiger Rückbau ist damit *strukturell* unmöglich — das **ist** der Exit-Lesson. Residual (kein Gate-Blocker): physische Löschung des 1-KB-Throwaway ist nur durch einen `pactive-de`-Owner möglich; sie fügt dem Konzept keinerlei Erkenntnis hinzu.
 
 > **Lesson → REC-8 (verschärft):** Bei `must-stay-local`/`exit-likely`-Orgs (OOTB-8) muss Rückbau-Berechtigung *vorab* gesichert sein — eigene Owner-Rolle **oder** vertragliche Lösch-/Rückgabe-Klausel. Ein Transfer in eine Fremd-Org ohne Owner-Rolle ist ein **Einbahn-Exit** (Kontrollverlust by construction). Das `exit_class`-Policy-Schema (OOTB-8) erhält dafür ein Pflichtfeld `teardown_authority: {self-owner | contractual-clause | none}` — `none` ist für portabilitäts-relevante Orgs (`exit-likely`/`must-stay-local`) unzulässig.
+
+## 16. Kill-Gate-Abgleich beim überfälligen Review (2026-07-20)
+
+`review_by` war 2026-07-15, beim Review 5 Tage überschritten. Kill-Deadline ist **2026-08-15**.
+Owner-Entscheidungen aus der Session vom 2026-07-20 (wörtlich eingeholt, hier durabel vermerkt):
+
+| Bedingung | Stand | Grundlage |
+|---|---|---|
+| (a) Kostenneutralität (Seats=Personen) | ✅ **bestätigt** | **Owner-Attestierung Achim Dehnert, 2026-07-20** |
+| (b) Daten-Souveränitäts-Sign-off ttz-lif / meiki-lra | ⏸ **ausgesetzt** | Owner-Entscheid 2026-07-20, mündliche Zusage |
+| (c) Portabilität bewiesen | ✅ grün seit 2026-06-03 | §15 Feuerübung Runde 1 |
+
+**Zu (a) — ehrliche Abweichung vom Wortlaut:** Das Kill-Kriterium verlangt, dass „das
+GitHub-Account-Team die Kostenneutralität **schriftlich** bestätigt". Vorliegend ist eine
+**Owner-Attestierung**, keine schriftliche Bestätigung von GitHub. Der Owner ersetzt damit
+bewusst die Beweisform; die Bedingung gilt als erfüllt, aber **nicht auf dem im Kriterium
+vorgesehenen Weg**. Wer später auditiert, findet hier keine GitHub-Korrespondenz — das ist
+kein Versäumnis, sondern diese Entscheidung.
+
+**Zu (b) — Aussetzung mit Wiederaufnahme-Trigger:** Der Sign-off wird **nicht** eingeholt,
+solange in `ttz-lif`/`meiki-lra` **keine echten Kundendaten** verarbeitet werden. Grundlage ist
+eine **mündliche** Zusage (nicht verschriftlicht — bewusst so vermerkt, nicht zur schriftlichen
+Zusage aufgewertet).
+
+> **Wiederaufnahme-Trigger (verbindlich):** Sobald in `ttz-lif` **oder** `meiki-lra` reale
+> Kundendaten/Bürgerdaten verarbeitet werden, lebt Bedingung (b) **sofort** wieder auf und ist
+> vor der Org-Aufnahme schriftlich zu klären. Die Aussetzung ist an diesen Zustand gebunden,
+> **nicht** an ein Datum — sie läuft also nicht still ab, sondern endet mit dem ersten Kundendatum.
+
+**Folge für das Kill-Gate:** Mit (a) attestiert, (b) ausgesetzt und (c) grün steht dem
+2026-08-15-Termin keine offene Bedingung mehr entgegen. Der Sunset-Pfad („keine Org-Aufnahme;
+Migrationsspur sunset") greift damit nach heutigem Stand **nicht**.
