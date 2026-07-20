@@ -56,6 +56,37 @@ meta:
     flip`). Union aus scripts/repo-registry.yaml + registry/repos.yaml; beide Altdateien
     sind jetzt generierte, gate-erzwungene Views (verify-Gate in registry-consistency.yml).
     Edits nur hier, nie in den Views. Accessor: tools/registry_api.py.'
+
+# DECOMMISSIONED (KONZ-platform-015 REC-2, 2026-07-17) — Registry der abgeschalteten
+# Apps/Hosts, aus denen tote Runtime-Referenzen (Env-Werte, Hostnamen, IPs) entstehen
+# können, die kein anderes Gate sieht. Wird von tools/validate_registry.py gegen
+# {name, date, dead_hostnames|dead_ids} geprüft — dead_hostnames/dead_ips zusammen
+# dürfen nicht beide leer sein. Konsument (Gate-Modus, REC-3, noch nicht scharf):
+# tools/decommission_check.py prüft aufgelöste Compose-/Env-Werte eines Deploys
+# gegen diese Liste, fail-closed vor `compose up`.
+decommissioned:
+  - name: bfagent
+    date: "2026-07-09"
+    dead_hostnames: [bfagent_redis, bfagent_db]
+    dead_ips: []
+    note: "Import-only eingefroren (#bfagent_frozen_function_store); Referenzen fanden sich noch in weltenhub/.env.prod (Incident, KONZ-015 §5.2)."
+  - name: staging-platform-legacy-host-adr210
+    date: "2026-07-09"
+    dead_hostnames: []
+    dead_ips: ["178.104.184.168"]
+    note: "ADR-210-Ära-Host 'staging-platform'; staging-demo.schutztat.de zeigte per DNS-A-Record noch darauf (#1043, entschieden). ACHTUNG: staging_naming.sh/staging_tunnel_ingress.sh (REC-1) haben denselben Host 2026-07-17 weiterhin mit aktiven, korrekt benannten Staging-Containern vorgefunden — Host ist NICHT vollständig tot, nur der DNS-Record war es. Vor jeder Automatisierung gegen diese IP: Doppelbedeutung auflösen (Host lebt weiter, nur der spezifische DNS-Zeiger war stale)."
+
+# OVERRIDE-MANIFEST (KONZ-platform-015 REC-2/E2, 2026-07-17) — Host-only Compose-
+# Override-Dateien (git-unsichtbar) MÜSSEN hier deklariert sein, sonst fail-closed
+# im Deploy-Gate (REC-3, noch nicht scharf). Schema pro Eintrag: {repo, path, reason,
+# owner, expires_at} — Vorbild ADR-264-D1-Waiver ("ohne Ablaufdatum -> blockiert").
+# Noch keine Einträge: der aus KONZ-015 §2 bekannte Fall
+# (/opt/hub-builds/weltenhub/docker-compose.override.yml) braucht eine frische
+# Live-Verifikation (Stand 2026-07-09, nicht in dieser Session erneut geprüft),
+# bevor er hier eingetragen wird — sonst würde eine evtl. bereits aufgeräumte
+# Override-Datei fälschlich als "bekannt+erlaubt" fortgeschrieben.
+overrides: []
+
 repos:
   137-hub:
     in_flat: true
