@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout platform
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: "Ensure HOME + GITHUB_DIR (self-hosted Service-Env)"
         # HOME kann leer sein (Runner-Service liefert es seit ~2026-06-24

@@ -27,12 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout caller repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Checkout platform (check script)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: achimdehnert/platform
           ref: main

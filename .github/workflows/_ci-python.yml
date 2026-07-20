@@ -105,7 +105,7 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     if: ${{ inputs.enable_qm_gate && github.event.pull_request.draft == false }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Block unverified assumptions
         run: |
           set -euo pipefail
@@ -141,7 +141,7 @@ jobs:
     # │ writing-hub 73003f. Full fleet rollout tracked via onboard-repo.          │
     # └───────────────────────────────────────────────────────────────────────────┘
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -173,7 +173,7 @@ jobs:
     # (rule allowlist), auto-honored and echoed by the action. Template:
     # platform docs/templates/.gitleaks.toml.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Secret scan (git history)
@@ -189,7 +189,7 @@ jobs:
     if: ${{ inputs.enable_security_scan }}
     continue-on-error: true        # Job blockiert Deploy nicht — aber Output ist sichtbar
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -281,7 +281,7 @@ jobs:
         ports:
           - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -345,7 +345,7 @@ jobs:
         ports:
           - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -441,7 +441,7 @@ jobs:
     needs: [test-unit, test-integration]
     if: ${{ !inputs.skip_tests }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: coverage-unit
@@ -509,7 +509,7 @@ jobs:
         ports:
           - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -544,7 +544,7 @@ jobs:
     needs: [lint]
     if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -595,7 +595,7 @@ jobs:
     # ALLE risk-hub-Merges. Konvention/SoT: platform/infra/hosts.yaml.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python_version }}
