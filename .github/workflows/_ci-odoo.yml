@@ -56,6 +56,33 @@ on:
         required: false
 
 jobs:
+  # ── Secret Detection ──────────────────────────────────────────────────────
+  # Same shared control as _ci-python.yml / _ci-pypi.yml (ADR-226 DRY
+  # extraction, composite action `gitleaks-scan`) — odoo consumers previously
+  # had zero automated leak detection (Issue #1000, repo-optimize C-18).
+  secrets-scan:
+    name: "Secret Detection (gitleaks)"
+    runs-on: ubuntu-latest
+    # Blocking gate: a secrets scanner that silently goes green helps no one.
+    # NOTE: deliberately NO job-level `permissions:` block and NO GitHub API
+    # call. A called reusable workflow can only NARROW the caller's
+    # GITHUB_TOKEN, never grant — requesting a scope the caller's run-token
+    # lacks rejects the whole run at startup (startup_failure, no jobs, no
+    # annotation) for every consumer repo (see #191/#198). The shared
+    # `gitleaks-scan` composite action runs the gitleaks CLI against full
+    # local history — zero GitHub API, zero token/permission coupling,
+    # immune to caller config.
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Secret scan (git history)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: history
+          source: .
+          context_label: "git history"
+
   lint_test:
     runs-on: ubuntu-latest
 
