@@ -99,6 +99,24 @@ jobs:
         # Makefile-Target gewandert.
         run: make test
 
+      # Dateien im PR-Diff ohne semantische Änderung — SUGGEST / non-gating
+      # (repo-health-rule-discipline). Anlass 2026-07-21: ein `ruff format tools/`
+      # plus `git add -A tools/` schleuste 95 fremde Dateien mit 4.912 Zeilen reiner
+      # Reformatierung in einen PR, der 4 Dateien ändern sollte; aufgefallen erst am
+      # Rebase-Konflikt. Baseline über alle 40 damals offenen PRs der Org: 0 Findings,
+      # Positivkontrolle am Anlass-Commit: 93 von 95 erkannt.
+      # Angekündigte Formatter-Sweeps sind legitim — der Check fragt, er verbietet nicht.
+      # Grenze: greift nur, wenn dieser Workflow triggert (paths-Filter oben), also
+      # nicht für Sweeps, die ausschließlich orchestrator_mcp/ oder packages/ treffen.
+      - name: Rein formale Änderungen im Diff (SUGGEST, non-gating)
+        if: github.event_name == 'pull_request'
+        run: |
+          set +e
+          git fetch -q origin "${{ github.base_ref }}"
+          python3 tools/check_noop_changes.py \
+            --range "origin/${{ github.base_ref }}...HEAD" --format github
+          exit 0
+
       - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
         # Jeder Skill in .windsurf/workflows/ muss in workflow-index.md stehen
         # (oder distribute:false / Allowlist). Struktureller Gate, keine LLM.
