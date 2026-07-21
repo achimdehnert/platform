@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -45,20 +46,6 @@ GLOBAL_RULES = [
 
 
 # ── Registry ─────────────────────────────────────────────────────────────────
-
-def _origin_is_platform(repo_path) -> bool:
-    """True, wenn das Repo ein platform-Checkout/-Worktree ist (origin endet auf /platform[.git]) —
-    dann keine Rules-Symlinks setzen (ADR-265-SSoT-Guard, Retro d2522c M3)."""
-    import subprocess
-    try:
-        url = subprocess.run(
-            ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=10,
-        ).stdout.strip()
-    except Exception:
-        return False
-    return url.endswith("/platform") or url.endswith("/platform.git")
-
 
 def load_registry() -> dict:
     with open(REGISTRY_FILE) as f:
@@ -141,41 +128,127 @@ def detect_pypi_name(repo_path: Path) -> str:
     return ""
 
 
+# ── ADR-265 Guards (1:1-Muster aus scripts/sync-workflows.sh, #907/#950) ──────
+#
+# gen_facts() ist neben sync-workflows.sh ein zweiter Distributor von
+# GLOBAL_RULES-Symlinks + Workflow-Kopien. Ohne dieselben drei Guards
+# reproduziert er dieselben Schäden: Typechanges in platform-Pins/-Worktrees
+# (SSoT-Skip), ??-Symlink-Noise in Repos ohne .windsurf-Ignore (Ignore-Guard),
+# und permanenten Typechange-Dirt beim Ersetzen getrackter Dateien durch
+# Symlinks (Tracked-Guard). project-facts.md selbst ist legitimer Per-Repo-
+# Inhalt und bleibt außerhalb des SSoT-Skips von diesen Guards unberührt.
+
+
+def _repo_origin_url(repo_path: Path) -> str:
+    """Git-Remote-URL von `origin`, leer wenn nicht auflösbar (kein Repo/kein Remote)."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
+            capture_output=True, text=True, check=False,
+        )
+        return result.stdout.strip()
+    except OSError:
+        return ""
+
+
+def _is_platform_ssot(repo_path: Path) -> bool:
+    """SSoT-Skip (ADR-265): über den git-ORIGIN, nicht den Repo-Namen.
+
+    Deckt sowohl `platform` selbst als auch Pins/Worktrees (z. B.
+    `platform-pinned`) ab, die ein reiner Namensvergleich `repo != "platform"`
+    verfehlt (Realfall: 8 T-Typechanges in platform-pinned, #931).
+    """
+    origin = _repo_origin_url(repo_path)
+    return origin.endswith("/platform") or origin.endswith("/platform.git")
+
+
+def _distribution_allowed(repo_path: Path) -> bool:
+    """Ignore-Guard (ADR-265): Distribution nur, wenn `.windsurf/` im Ziel-Repo
+    wirksam git-ignored ist — sonst erzeugt jeder neue Symlink/jede neue Kopie
+    ??-Dirt im Ziel-Repo (Realfall: 6 Repos mit ??-rules-Symlinks, #931).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "check-ignore", "-q",
+             ".windsurf/workflows/__adr265_probe__.md"],
+            capture_output=True, check=False,
+        )
+        return result.returncode == 0
+    except OSError:
+        return False
+
+
+def _is_tracked(repo_path: Path, relpath: str) -> bool:
+    """Tracked-Guard (ADR-265): True wenn `relpath` im Ziel-Repo-Index steht —
+    eine getrackte Datei darf nie durch einen Symlink ersetzt werden (das
+    erzeugt permanenten Typechange-Dirt)."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "ls-files", "--error-unmatch", relpath],
+            capture_output=True, check=False,
+        )
+        return result.returncode == 0
+    except OSError:
+        return False
+
+
 # ── Generate project-facts.md ────────────────────────────────────────────────
 
-def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
+def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = False) -> str:
     repo_path = GITHUB / repo
     if not repo_path.is_dir():
         return f"❌ NOT FOUND: {repo}"
 
+    # SSoT-Skip (ADR-265) — vor JEDEM mkdir/Schreiben: Repo komplett
+    # überspringen, nichts anfassen (auch kein leeres .windsurf/ erzeugen).
+    if _is_platform_ssot(repo_path):
+        return f"SKIP (platform SSoT): {repo}"
+
     facts_file = repo_path / ".windsurf" / "rules" / "project-facts.md"
-    facts_file.parent.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        facts_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Copy workflows to every repo (except platform itself)
-    wf_dest = repo_path / ".windsurf" / "workflows"
-    wf_dest.mkdir(parents=True, exist_ok=True)
-    if repo != "platform" and WORKFLOWS_SRC.is_dir():
-        for wf in ["run-local.md", "run-staging.md", "run-prod.md"]:
-            src = WORKFLOWS_SRC / wf
-            dst = wf_dest / wf
-            if src.exists() and not dst.is_symlink():
-                shutil.copy2(src, dst)
+    # Distribution (Workflow-Kopien + Rules-Symlinks) nur mit Ignore-Guard
+    # (ADR-265). project-facts.md (oben) ist legitimer Per-Repo-Inhalt und
+    # bleibt von diesem Guard unberührt. Unter --dry-run: keinerlei
+    # Schreib-/mkdir-/Symlink-Operation (der ganze Block wird übersprungen).
+    if not dry_run and _distribution_allowed(repo_path):
+        # Copy workflows to every repo
+        wf_dest = repo_path / ".windsurf" / "workflows"
+        wf_dest.mkdir(parents=True, exist_ok=True)
+        if WORKFLOWS_SRC.is_dir():
+            for wf in ["run-local.md", "run-staging.md", "run-prod.md"]:
+                src = WORKFLOWS_SRC / wf
+                dst = wf_dest / wf
+                # Tracked-Guard (ADR-265) auch auf dem Kopie-Pfad: eine getrackte
+                # reguläre run-*.md NICHT überschreiben (sonst git-Dirt) — genau
+                # dieser Pfad überschrieb im Incident 2026-07-05 billing-hub.
+                if src.exists() and not dst.is_symlink() \
+                        and not _is_tracked(repo_path, f".windsurf/workflows/{wf}"):
+                    shutil.copy2(src, dst)
 
-    # Symlink global rules to every repo (except platform itself).
-    # SSoT-Guard (ADR-265, analog sync-workflows.sh): Repos, deren origin auf
-    # platform.git zeigt (z. B. der platform-pinned-Worktree), sind selbst
-    # SSoT-Kopien — Symlinks dort machen sie dauerhaft dirty und blockieren
-    # den Session-Start-Policy-Refresh (Retro d2522c #1/#2, perma-dirty-loop).
-    rules_dest = repo_path / ".windsurf" / "rules"
-    rules_dest.mkdir(parents=True, exist_ok=True)
-    if repo != "platform" and RULES_SRC.is_dir() and not _origin_is_platform(repo_path):
-        for rule in GLOBAL_RULES:
-            src = RULES_SRC / rule
-            link = rules_dest / rule
-            if src.exists():
+        # Symlink global rules to every repo.
+        # Der frühere Einzel-Guard `repo != "platform" and not _origin_is_platform(...)`
+        # (Retro d2522c M3, 0c2f607) ist hier entbehrlich: der SSoT-Skip oben
+        # (`_is_platform_ssot`) greift bereits vor JEDEM Schreibzugriff und deckt
+        # platform selbst wie auch Pins/Worktrees ab.
+        rules_dest = facts_file.parent  # .windsurf/rules — bereits angelegt
+        if RULES_SRC.is_dir():
+            for rule in GLOBAL_RULES:
+                src = RULES_SRC / rule
+                link = rules_dest / rule
+                if not src.exists():
+                    continue
                 if link.is_symlink():
                     link.unlink()
-                elif link.exists():
+                    link.symlink_to(src)
+                    continue
+                if link.exists():
+                    # Tracked-Guard (ADR-265): getrackte Datei nie durch
+                    # Symlink ersetzen — diese Datei überspringen.
+                    rel = str(link.relative_to(repo_path))
+                    if _is_tracked(repo_path, rel):
+                        continue
                     link.unlink()  # replace stale copy with symlink
                 link.symlink_to(src)
 
@@ -307,15 +380,40 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
         "- **Secrets**: `.env` (nicht in Git) — Template: `.env.example`",
     ]
 
+    if dry_run:
+        return f"DRY-RUN (würde schreiben): {repo} (type={rtype}, port={port}, prod={prod_url})"
     facts_file.write_text("\n".join(lines) + "\n")
     return f"✅ {repo} (type={rtype}, port={port}, prod={prod_url})"
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+USAGE = """gen_project_facts.py — Master Repo Identifier / project-facts-Generator
+
+Usage:
+  python3 gen_project_facts.py [repo] [--force] [--dry-run]
+
+  (kein Arg)   alle Repos aus der Registry + unregistrierte auf Disk
+  repo         nur dieses eine Repo
+  --force      bestehende project-facts.md überschreiben
+  --dry-run    NUR anzeigen, was generiert/verteilt würde — KEIN Schreiben,
+               kein mkdir, keine Symlinks (safe gegen versehentliche Fleet-Writes)
+  -h, --help   diese Hilfe
+
+Achtung: OHNE --dry-run schreibt ein Lauf real in ALLE Repos unter $GITHUB_DIR.
+"""
+
+
 def main():
     args = sys.argv[1:]
+    # --help/-h VOR jeder Registry-/Schreiboperation abfangen: früher fiel ein
+    # `--help` mangels Handler auf einen echten Fleet-Vollauf durch (Incident
+    # 2026-07-05, ADR-265 #931-Abnahme).
+    if "-h" in args or "--help" in args:
+        print(USAGE)
+        return
     force = "--force" in args
+    dry_run = "--dry-run" in args
     target = next((a for a in args if not a.startswith("-")), "")
 
     registry = load_registry()
@@ -325,6 +423,7 @@ def main():
     print("=== gen_project_facts.py — Master Repo Identifier ===")
     print(f"Registry: {REGISTRY_FILE}")
     print(f"Force:    {force}")
+    print(f"Dry-Run:  {dry_run}" + ("  (KEIN Schreiben)" if dry_run else ""))
     print(f"Server:   {server_cfg.get('github_base', GITHUB)}")
     print()
 
@@ -332,11 +431,11 @@ def main():
 
     if target:
         entry = reg_repos.get(target, {})
-        results.append(gen_facts(target, entry, force=force))
+        results.append(gen_facts(target, entry, force=force, dry_run=dry_run))
     else:
         # 1. All repos from registry (with overrides)
         for repo, entry in reg_repos.items():
-            results.append(gen_facts(repo, entry or {}, force=force))
+            results.append(gen_facts(repo, entry or {}, force=force, dry_run=dry_run))
 
         # 2. Unregistered repos on disk
         print("\n--- Scanning for unregistered repos ---")
@@ -348,7 +447,7 @@ def main():
                 continue
             if repo not in reg_repos:
                 print(f"⚠️  UNREGISTERED: {repo} — add to repo-registry.yaml")
-                results.append(gen_facts(repo, {}, force=force))
+                results.append(gen_facts(repo, {}, force=force, dry_run=dry_run))
 
     print("\n".join(results))
     print(f"\n=== Done ({sum(1 for r in results if r.startswith('✅'))} generated, "
