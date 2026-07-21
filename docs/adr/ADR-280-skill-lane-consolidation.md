@@ -11,6 +11,11 @@ tags: [skills, commands, workflows, distribution, claude-code, windsurf, consoli
 
 # ADR-280: Konsolidiere die Skill-Verteilung auf eine Lane — `skills/` wird einzige Kanonik, `commands`-Lane und `.windsurf`-Pfad werden zurückgebaut
 
+> **Rev 2 (2026-07-21).** Die Erstfassung ruhte auf einer **falschen** technischen
+> Prämisse. Zwei unabhängige externe Zweitmeinungen haben sie widerlegt, die Nachprüfung
+> gegen die laufende Umgebung hat das bestätigt. §2, §3, §4.2 und §8 sind **neu
+> geschrieben**, nicht nachgebessert. Was sich geändert hat: §11.
+
 ## Metadaten
 
 | Attribut          | Wert                                                                 |
@@ -19,10 +24,10 @@ tags: [skills, commands, workflows, distribution, claude-code, windsurf, consoli
 | **Scope**         | platform                                                             |
 | **Erstellt**      | 2026-07-21                                                           |
 | **Autor**         | Achim Dehnert                                                        |
-| **Reviewer**      | –                                                                    |
-| **Supersedes**    | ADR-229 (Kanonische `.windsurf`-Distribution — Single Global Source) |
+| **Externes Sparring** | 2 unabhängige externe LLM-Zweitmeinungen, 2026-07-21 — Verdikt **beide „überarbeiten"**; Tag-Bilanz in §12 |
+| **Supersedes**    | ADR-229 — **erst bei Acceptance**, s. §9                             |
 | **Superseded by** | –                                                                    |
-| **Relates to**    | ADR-230 (CC-first Skill-Distribution), ADR-233 (Clean-State / Worktree-Konvention) |
+| **Relates to**    | ADR-230 (CC-first Skill-Distribution), ADR-233 (Worktree-Konvention) |
 
 ## Repo-Zugehörigkeit
 
@@ -31,139 +36,182 @@ tags: [skills, commands, workflows, distribution, claude-code, windsurf, consoli
 | `platform`     | Primär     | `skills/`, `.windsurf/workflows/`, `tools/cc-skill-dist/`, `tools/check_workflow_index.py`, `.github/workflows/tools-tests.yml` |
 | *(alle Maschinen)* | Sekundär | `~/.claude/skills/`, `~/.claude/commands/` — Installationsziele, kein Repo |
 
-> **Kein Fleet-Claim.** Diese Entscheidung betrifft **ein** Repo (`platform`) plus
-> die Installationsziele je Entwicklermaschine. Sie berührt **keine** App-Hubs:
-> deren `.windsurf/`-Inhalte stammen aus einem separaten Verteilpfad
-> (`scripts/gen_project_facts.py`) und sind hier ausdrücklich **nicht** in Scope
-> (siehe §6.3).
+> **Kein Fleet-Claim.** Ein Repo plus die Installationsziele je Maschine. App-Hubs sind
+> nicht betroffen (§6.3).
+
+---
+
+## Verifikationsstand
+
+Diese Entscheidung hängt an fremdbestimmter Werkzeug-Semantik. Ohne benannte Version wäre
+alles Weitere Behauptung — Rev 1 hat genau diesen Block vermissen lassen und ist deshalb
+auf eine falsche Annahme gebaut.
+
+| | |
+|---|---|
+| Werkzeug | Claude Code |
+| Version | **2.1.216** (`claude --version`, 2026-07-21) |
+| Quelle | `code.claude.com/docs/en/slash-commands`, abgerufen 2026-07-21 |
+| Nachprüfpflicht | Bei jeder Änderung an §2/§4.2 erneut prüfen |
+
+**Verifizierte Aussagen:**
+
+1. *„Custom commands have been merged into skills. A file at `.claude/commands/deploy.md`
+   and a skill at `.claude/skills/deploy/SKILL.md` both create `/deploy` and **work the
+   same way**."*
+2. Skills unterstützen `$ARGUMENTS`, `$ARGUMENTS[N]`, `$N` sowie benannte `$name` über
+   `arguments:` im Frontmatter.
+3. `$N` ist **0-basiert** (`$0` = erstes Argument); klassische Slash-Commands waren 1-basiert.
+4. Bei Namensgleichheit: *„if a skill and a command share the same name, **the skill takes
+   precedence**."*
+5. Ein Eintrag unter `~/.claude/skills/<name>` **darf ein Symlink** auf ein Verzeichnis
+   anderswo sein; Claude Code folgt ihm und lädt dasselbe Ziel nur einmal.
+6. Cowork- und Cloud-Sessions **inklusive Routinen lesen `~/.claude/skills/` nicht**. Sie
+   laden account-seitig aktivierte Skills und — nur Cloud — Projekt-Skills aus
+   `.claude/skills/` des geklonten Repos.
+7. Skill-Verzeichnisse dürfen **Supporting Files** enthalten, die bei Bedarf geladen werden
+   und selbst keine Skills sind.
+
+**Ausdrücklich NICHT belegt:** dass `.claude/commands/` deprecated, „legacy" oder ein
+bloßer Alias sei. Die Doku sagt *„Your existing `.claude/commands/` files keep working."*
+Eine Suche nach `deprecat|legacy|no longer|will be removed|sunset` liefert dazu **keinen**
+Treffer. Eine der beiden Reviews wollte die Entscheidung genau darauf umankern — das wäre
+eine zweite unbelegte Prämisse gewesen und ist abgelehnt (§12).
 
 ---
 
 ## Decision Drivers
 
-- **Zwei Lanes, eine Nutzungsstelle:** Beide Verzeichnisse werden zur Laufzeit in
-  **einer** Skill-Liste angeboten. Die Trennung kostet Pflege, ist beim Aufruf aber
-  unsichtbar — sie erzeugt Aufwand ohne Gegenwert.
-- **Ein Verzeichnisname, der lügt:** `.windsurf/workflows/` speist zu 100 %
-  Claude Code. Laut ADR-230 §2.3 ist Windsurf **kein Coding-Ziel mehr**.
-- **ADR-230 hat die Umbenennung selbst schon vorgesehen** (§2.1, REC-3: „den
-  Windsurf-benannten Pfad in einen tool-neutralen `skills/`-Pfad umbenennen") und
-  ausdrücklich auf Phase 2 vertagt. Diese Phase ist seit 2026-05-30 offen.
-- **Die Zweitlane war für Gates unsichtbar:** `check_workflow_index.py` scannte
-  `skills/` nie; `tools-tests.yml` triggerte nicht auf `skills/**`. Der einzige
-  Agent-Skill stand seit dem 2026-06-05 in keinem Index, ohne dass ein Gate anschlug.
-- **Owner-Weisung 2026-07-21:** keine Parallelexistenz von `.claude`/`.windsurf`
-  bzw. `commands`/`skills`.
+- **Zwei Quellverzeichnisse für Artefakte, die am Aufrufpunkt identisch sind.** Nach
+  Verifikation 1 ist das keine Typunterscheidung, sondern Duplizierung.
+- **Ein Verzeichnisname, der ein Werkzeug nennt, das dafür nicht mehr benutzt wird.**
+- **ADR-230 hat die Umbenennung selbst vorgesehen** (§2.1, REC-3), vertagt seit 2026-05-30.
+- **Die Zweitlane war für beide Gates unsichtbar** (bis #1290); ein Skill lag seit
+  2026-06-05 un-indiziert, ohne dass etwas anschlug.
+- **Der dritte Artefakttyp hat keine saubere Heimat** (§4.4).
+- **Owner-Weisung 2026-07-21:** keine Parallelexistenz.
 
 ---
 
 ## 1. Context and Problem Statement
 
-Skill-artige Artefakte in `platform` existieren in zwei parallelen Lanes mit zwei
-Quellverzeichnissen, zwei Installationszielen und zwei Generator-Modi
-(`cc-skill-dist --kind commands|skills`). Beide liefern dasselbe Nutzungsbild:
-ein per `/name` aufrufbares, agenten-lesbares Markdown-Dokument.
-
-Die Trennung war 2026-06-05 als Unterscheidung zweier *Artefakttypen* gedacht
-(Slash-Command vs. Anthropic Agent Skill). In der Praxis ist ein Typ auf **einen**
-Vertreter geblieben, während der andere auf 51 gewachsen ist — und die
-Unterscheidung ist am Nutzungsort nicht mehr sichtbar.
-
 ### 1.1 Ist-Zustand
 
-Gemessen gegen `main` @ `cf3e08a` (2026-07-21):
+Gemessen gegen `main` @ `805ee5d` (2026-07-21):
 
 | | Lane `commands` | Lane `skills` |
 |---|---|---|
 | Quelle | `.windsurf/workflows/*.md` | `skills/<name>/SKILL.md` |
-| Quell-Dateien (getrackt) | 55 | 1 |
+| Quell-Dateien (getrackt) | 52 | 4 |
 | davon `distribute: false` | 3 | 0 |
 | Installationsziel | `~/.claude/commands/` (flach) | `~/.claude/skills/` (verschachtelt) |
-| installiert | 51 | 1 |
-| Vollständigkeits-Gate | ja | **nein** (bis #1290) |
-| CI-`paths`-Trigger | ja | **nein** (bis #1290) |
+| Vollständigkeits-Gate | ja | ja (seit #1290) |
+| CI-`paths`-Trigger | ja | ja (seit #1290) |
 
-Die Zahlen gehen auf: 55 − 3 (`distribute: false`) − 1 (`delete-repo`, am
-2026-07-21 gemergt, noch nicht regeneriert) = 51. Ein Gegencheck auf Ziel-Dateien
-ohne Quelle ist leer — es gibt keine verwaisten Installationsartefakte.
-
-**Ein dritter Artefakttyp liegt mit im selben Verzeichnis.** Drei Dateien
-(`adr-handoff-extern-reviewer{,-blind,-premortem}.md`) tragen `distribute: false`
-und im Frontmatter `provider: openai` / `model: openai/o3`. Es sind Persona-/
-System-Prompts, die `/adr-handoff-extern` als **Daten** liest — keine Skills,
-weder für Claude Code noch als Agent Skill. Der Generator filtert sie heute
-korrekt, aber **nur in der `commands`-Lane** (`if args.kind == "commands" and
-DISTRIBUTE_FALSE.search(src)`).
+**Dritter Artefakttyp im selben Verzeichnis:** drei Dateien
+(`adr-handoff-extern-reviewer{,-blind,-premortem}.md`) tragen `distribute: false` sowie
+`provider: openai` / `model: openai/o3`. Es sind Persona-Prompts, die
+`/adr-handoff-extern` als **Daten** liest — keine Skills. Der Generator filtert sie, aber
+**nur** in der `commands`-Lane (`if args.kind == "commands" and DISTRIBUTE_FALSE.search(src)`).
 
 ### 1.2 Warum jetzt
 
-Auslöser war eine unentscheidbare Frage bei laufender Arbeit: beim Rebase von
-[#1013](https://github.com/achimdehnert/platform/pull/1013) (neuer Skill
-`/delete-repo`) gab es kein Kriterium dafür, in welche der beiden Lanes ein
-**neuer** Skill gehört. Beide Antworten waren begründbar. Eine Konvention, die bei
-jedem neuen Artefakt eine Ad-hoc-Entscheidung erzwingt, ist keine Konvention.
-
-Verschärfend: die Zweitlane war bis
-[#1290](https://github.com/achimdehnert/platform/pull/1290) für beide relevanten
-Gates unsichtbar. Der Vollständigkeits-Gate lief grün, **ohne** die Lane zu
-prüfen — die Deckungslücke war strukturell nicht bemerkbar.
+Auslöser war eine unentscheidbare Frage im laufenden Betrieb: beim Rebase von
+[#1013](https://github.com/achimdehnert/platform/pull/1013) gab es kein Kriterium dafür,
+in welche Lane ein **neuer** Skill gehört. Beide Antworten waren begründbar. Eine
+Konvention, die bei jedem neuen Artefakt eine Ad-hoc-Entscheidung erzwingt, ist keine.
 
 ---
 
 ## 2. Considered Options
 
+> **Was sich gegenüber Rev 1 geändert hat:** Rev 1 verglich A und B unter der Annahme,
+> Migration koste inhaltliche Überarbeitung (falsch, Verifikation 2), und schrieb A
+> „Progressive Disclosure" als Vorteil gut (falsch, Verifikation 1 — beide Formen
+> verhalten sich gleich). Beide Optionen sind **neu bewertet**, drei weitere kamen dazu.
+
 ### Option A: `skills/` wird die einzige Lane ✅
 
-Alle Slash-Commands wandern nach `skills/<name>/SKILL.md`; `.windsurf/workflows/`
-und `~/.claude/commands/` werden zurückgebaut; `cc-skill-dist` verliert die Lane
-`commands`.
-
 **Pros:**
-- Tool-neutraler Pfadname — löst den in ADR-230 §2.1/REC-3 selbst benannten Tool-Leak ein.
-- Ein Verzeichnis je Skill erlaubt gebündelte Referenzen (Assets, Teilprompts) beim
-  Skill — genau das, was der dritte Artefakttyp (§1.1) braucht.
-- Progressive Disclosure: die Beschreibung wird gelistet, der Body erst beim Aufruf
-  geladen. Bei ~50 Einträgen ist das der günstigere Kontextpfad.
-- Nur **ein** Generator-Modus, **ein** Gate-Scan, **ein** Installationsziel.
+- **Supporting Files** (Verifikation 7) — die einzige verifizierte Fähigkeit, die die
+  flache Form **nicht** hat. Löst §4.4 ohne Sonderlogik.
+- Tool-neutraler Pfadname; löst den in ADR-230 §2.1 selbst benannten Tool-Leak.
+- Ein Generator-Modus, ein Gate-Scan, ein Installationsziel.
+- Migrationskosten sind **mechanisch**: `git mv` plus Frontmatter-Kopf. Keine inhaltliche
+  Überarbeitung (Verifikation 2 — das war Rev 1s Fehler).
 
 **Cons:**
-- `$ARGUMENTS`-Textsubstitution entfällt — 3 Dateien brauchen echte Überarbeitung.
-- Rückbau von `~/.claude/commands/` betrifft jede Maschine; zu früh ausgeführt
-  nimmt er Nutzern laufende Slash-Commands weg.
+- Der Rückbau von `~/.claude/commands/` betrifft jede Maschine und ist der einzige nicht
+  per Repo-Revert reversible Schritt.
+- Bindet die Kanonik an eine **Herstellerbezeichnung**. `skills/` ist neutraler als
+  `.windsurf/`, aber nicht neutral.
 
-### Option B: `commands/` wird die einzige Lane (Quellverzeichnis nur umbenannt)
-
-`.windsurf/workflows/` → `commands/`, Ziel bleibt `~/.claude/commands/`; der eine
-Agent-Skill wandert zurück.
+### Option B: `commands/` wird die einzige Lane (nur Umbenennung)
 
 **Pros:**
-- Minimales Risiko: `$ARGUMENTS` und Frontmatter funktionieren unverändert,
-  **0** Dateien brauchen inhaltliche Überarbeitung.
 - Beseitigt den `.windsurf`-Fehlnamen ebenfalls vollständig.
+- Denkbar geringstes Risiko.
 
 **Cons:**
-- Verzichtet auf Progressive Disclosure und auf gebündelte Skill-Verzeichnisse —
-  der dritte Artefakttyp bliebe heimatlos im selben flachen Verzeichnis.
-  → **Abgelehnt weil:** die Lane, auf die man sich festlegt, wäre die ältere
-  Ausdrucksform; der strukturelle Mangel (flach, keine Bündelung) bliebe bestehen.
+- Keine Supporting Files → der dritte Artefakttyp bleibt auf `distribute: false`-Sonderlogik
+  angewiesen, die heute schon lane-spezifisch und damit fragil ist.
+  → **Abgelehnt weil:** der einzige verifizierte Unterschied zwischen den Formen ist genau
+  die Fähigkeit, die wir brauchen. B verzichtet darauf, ohne dafür etwas zu gewinnen —
+  seit A's Kosten (Verifikation 2) auf mechanisch geschrumpft sind.
 
-### Option C: beide Lanes behalten, aber ein hartes Zuordnungskriterium schreiben
+### Option C: beide Lanes behalten, plus hartes Zuordnungskriterium
 
-Status quo plus eine Regel, wann ein Artefakt in welche Lane gehört, plus
-Gate-Abdeckung für beide.
+**Cons:** dauerhaft zwei Generator-Modi und zwei Scans für eine Unterscheidung, die am
+Aufrufpunkt nicht existiert.
+→ **Abgelehnt weil:** widerspricht der Owner-Vorgabe. Wird in §8.5 **nicht mehr** als
+Rückfall geführt — ein Rückfall, den die Vorgabe verbietet, ist keiner (Review-Befund).
+
+### Option D: beide Verzeichnisse behalten, weil der Hersteller sie vereint hat 🆕
+
+Aus externer Review. `.windsurf/workflows/` → `.claude/commands/` umbenennen, beide Formen
+weiter erzeugen, **ein** Gate über beide, Policy „`skills/` nur, wenn Supporting Files
+gebraucht werden".
 
 **Pros:**
-- Kein Migrationsaufwand, keine `$ARGUMENTS`-Umbauten.
-- Erhält die konzeptuelle Unterscheidung, die die Policy `claude-skills.md` zieht.
+- Nahezu null Migration, kein Maschinen-Rückbau.
+- Nutzt die Herstellerhaltung (beide gleichwertig), statt gegen sie zu arbeiten.
+- **Ist die risikoärmste aller Optionen.**
 
 **Cons:**
-- Jedes neue Artefakt braucht weiter eine Zuordnungsentscheidung, jetzt nur
-  regelbasiert statt ad hoc.
-- Zwei Generator-Modi, zwei Ziele, zwei Scans dauerhaft zu pflegen — bei einem
-  Lane-Verhältnis von 51 : 1.
-  → **Abgelehnt weil:** die Regel würde eine Unterscheidung zementieren, die am
-  Nutzungsort nicht existiert. Die Kosten sind dauerhaft, der Nutzen ist die
-  Erhaltung einer Kategorie, die niemand beim Aufruf sieht.
+- Zwei Quellformen bleiben — der Zustand, den die Owner-Vorgabe beendet.
+- Verschiebt die Lane-Frage vom Anlegen auf den Moment, in dem ein Skill *später*
+  Supporting Files braucht; dann ist doch ein Move fällig.
+  → **Abgelehnt weil:** löst das Auslöseproblem aus §1.2 nicht, sondern vertagt es.
+  **Ehrlich vermerkt:** ohne die Owner-Vorgabe wäre D die richtige Wahl. D bleibt der
+  definierte Rückfall (§8.5).
+
+### Option E: Symlink statt generierter Kopie 🆕
+
+`~/.claude/skills/<name>` → Symlink auf `<repo>/skills/<name>` (Verifikation 5).
+
+**Pros:**
+- **Drift wird strukturell unmöglich** statt detektiert: Quelle *ist* Ziel. Manifest,
+  Content-Hash, MANAGED-Footer und Round-Trip-Gate werden für diese Lane überflüssig.
+- Kein Regenerate nach jedem Merge.
+
+**Cons:**
+- **Kehrt ADR-230 §2.2 um** („keine Symlinks auf volatilen Checkout"; der historische
+  Hybrid wurde bewusst aufgelöst).
+- Ein Checkout auf einem Feature-Branch verändert das Verhalten der laufenden Session.
+  → **Nicht hier entschieden** — verdient ein eigenes ADR, weil es den Kern einer
+  akzeptierten Entscheidung umkehrt. Tracking: §10.
+
+### Option F: repo-lokale `.claude/skills/` 🆕
+
+**Pros:**
+- Schließt eine Lücke, die **alle** anderen Optionen offenlassen: Cowork-/Cloud-Sessions
+  inklusive Routinen lesen `~/.claude/skills/` **nicht** (Verifikation 6). Nur
+  repo-committete `.claude/skills/` erreichen Cloud-Sessions.
+
+**Cons:**
+- Repo-lokal heißt: nur in *diesem* Repo verfügbar, nicht maschinenweit.
+  → **Nicht hier entschieden**, aber der Befund ist unabhängig von dieser Entscheidung
+  gravierend. Tracking: §10.
 
 ---
 
@@ -171,15 +219,26 @@ Gate-Abdeckung für beide.
 
 **Gewählte Option: Option A — `skills/` wird die einzige Lane.**
 
-Ausschlaggebend ist nicht die Ersparnis an Verzeichnissen, sondern dass Option A
-die einzige ist, die alle drei Probleme gleichzeitig löst: den Tool-Leak im
-Pfadnamen (den ADR-230 selbst als offene Phase 2 führt), die dauerhafte
-Zuordnungsfrage bei neuen Artefakten, und die fehlende Heimat des dritten
-Artefakttyps — für den ein Skill-**Verzeichnis** die passende Struktur bietet,
-ein flaches Command-Verzeichnis nicht.
+Die Begründung ist gegenüber Rev 1 **vollständig ausgetauscht**:
 
-Option B wäre risikoärmer und ist ausdrücklich die Rückfalloption, falls die
-Pilotphase die `$ARGUMENTS`-Semantik nicht sauber ersetzbar zeigt (§8).
+Nach Verifikation sind beide Formen in allem gleich — Aufruf, Argumente, Frontmatter,
+Ladeverhalten — **mit genau einer Ausnahme:** nur die Verzeichnisform trägt Supporting
+Files. Das ist keine theoretische Eleganz, sondern die Antwort auf ein bestehendes
+Problem: die drei Persona-Prompts sind heute allein durch lane-spezifische Sonderlogik
+davor geschützt, versehentlich als Skills verteilt zu werden. Als Supporting Files ihres
+konsumierenden Skills sind sie **per Konstruktion** keine Skills — die Sonderlogik
+entfällt ersatzlos.
+
+Gleichzeitig ist A's Preis stark gesunken: Rev 1 rechnete mit inhaltlicher Überarbeitung,
+die es nicht gibt. Übrig bleibt ein mechanischer `git mv` plus Frontmatter-Kopf.
+
+**Ehrlich benannt, was diese Entscheidung *nicht* trägt:**
+- **kein** Hersteller-Trend — dafür fehlt der Beleg (Verifikationsstand),
+- **kein** Kontextvorteil — beide Formen laden gleich,
+- **keine** Argument-Migration — die gibt es nicht.
+
+Die Entscheidung ruht damit auf **einem** Argument statt auf vieren. Das ist schmaler als
+Rev 1 suggerierte, aber es ist geprüft.
 
 ---
 
@@ -189,57 +248,80 @@ Pilotphase die `$ARGUMENTS`-Semantik nicht sauber ersetzbar zeigt (§8).
 
 | Phase | Inhalt | Zustand |
 |---|---|---|
-| 0 | Dieses ADR + Policy `claude-skills.md` nachziehen | dieser PR |
-| 1 | Pilot: 3 Skills migrieren, Gate auf beide Lanes erweitern | [#1290](https://github.com/achimdehnert/platform/pull/1290), CI grün |
-| 2 | Live-Rollout des Pilots + Betriebsnachweis in echter Session | offen |
-| 3 | Bulk-Move der restlichen Skills; Zielort für Typ 3 entscheiden | offen |
-| 4 | Lane `commands` aus `cc-skill-dist` entfernen; `~/.claude/commands/` gegated zurückbauen | offen |
+| 0 | Dieses ADR (Rev 2) | dieser PR |
+| 1 | Pilot: 3 Skills migriert, Gate auf beide Lanes erweitert | [#1290](https://github.com/achimdehnert/platform/pull/1290) gemergt |
+| 1b | Rev-1-Regression zurückgenommen (`$ARGUMENTS` wiederhergestellt) | [#1294](https://github.com/achimdehnert/platform/pull/1294) |
+| 2 | Betriebsnachweis nach den Muss-Kriterien §8.1 | offen |
+| 3a | Typ-3-Zielort umsetzen (§4.4) — **vor** dem Bulk-Move | offen |
+| 3b | Bulk-Move der restlichen Skills | offen |
+| 4 | Lane `commands` entfernen; `~/.claude/commands/` gegated zurückbauen | offen |
+| 5 | **Bei Acceptance, gebündelt:** ADR-229-Status + Policy `claude-skills.md` | offen |
 
-Phase 1 lief **vor** Phase 0 bewusst vor: die Entscheidung hängt an einer
-technischen Frage (§4.2), die sich nur durch Ausprobieren beantworten lässt.
-Ein ADR, das diese Frage als beantwortet unterstellt, wäre eine Behauptung.
+> Phase 0 umfasst **nur** dieses ADR. Rev 1 nannte hier zusätzlich das Policy-Update und
+> widersprach damit dem eigenen §5 — von einer externen Review gefunden, hier bereinigt.
 
-### 4.2 `$ARGUMENTS` — der eigentliche Migrationspunkt
+### 4.2 Argument-Substitution — Korrektur der Rev-1-Prämisse
 
-Textsubstitution (`$ARGUMENTS`, `$1`) ist ein Slash-Command-Feature. Agent Skills
-erhalten ihre Argumente über den Aufruf, nicht durch Ersetzung im Dateitext. Ein
-unaufgelöst stehengebliebener Platzhalter wäre ein stiller Semantikfehler.
+Rev 1 behauptete, `$ARGUMENTS` entfalle unter Skills und drei Dateien bräuchten echte
+Überarbeitung. **Das ist falsch** (Verifikation 2). Die Fehlannahme hatte drei Folgen:
 
-Betroffen sind **3** Dateien:
+1. Die Migrationskosten von Option A waren zu hoch angesetzt — was den A/B-Vergleich verzerrte.
+2. Der „Pilot zuerst"-Grund war eine Scheinbegründung: die Frage war nicht offen, sondern
+   in der Doku beantwortet. Der Pilot war trotzdem nützlich — er hat die Gate-Lücken
+   gefunden —, aber nicht aus dem angegebenen Grund.
+3. Im Pilot wurde in `issues-offen` funktionierendes `$ARGUMENTS` durch Prosa **ersetzt**.
+   Laut Doku hängt die Laufzeit das Argument dann nur noch als `ARGUMENTS: <value>` an,
+   statt es an der richtigen Stelle einzusetzen. Zurückgenommen in #1294.
 
-| Datei | Vorkommen |
+**Was real zu prüfen ist**, statt der erfundenen Migration: `$N` ist 0-basiert, klassische
+Slash-Commands waren 1-basiert. Wo eine Datei **positionale** Argumente nutzt, verschiebt
+sich die Bedeutung still.
+
+Bestandsprüfung über beide Lanes (2026-07-21):
+
+| Datei | Form |
 |---|---|
-| `infra-cleanup.md` | Zeile 38 |
-| `issues-abarbeiten.md` | Zeilen 10, 19 |
-| `issues-offen.md` | Zeilen 29, 35 — im Pilot bereits umgestellt |
+| `infra-cleanup.md:38` | ganzes `$ARGUMENTS` |
+| `issues-abarbeiten.md:10,19` | ganzes `$ARGUMENTS` |
+| `skills/issues-offen/SKILL.md` | ganzes `$ARGUMENTS` (nach #1294) |
 
-> **Korrektur zur ersten Schätzung.** Ein erster `grep -l` meldete **8** Dateien.
-> Fünf davon waren Fehlalarme: Dollarbeträge (`~$0.001`), Prosa („kein
-> `$1`-Problem") und ein `case "$1" in` **innerhalb** eines Bash-Snippets, das der
-> Skill erzeugt. Die Zahl im Fließtext ist geprüft, nicht geschätzt.
+**Keine Datei nutzt positionale Argumente in Substitutions-Position.** Der Indexwechsel ist
+real, trifft unseren Bestand aber nicht. Fünf weitere `grep`-Treffer waren Fehlalarme
+(Dollarbeträge, Prosa, ein `case "$1" in` **innerhalb** eines erzeugten Bash-Snippets).
 
-`provider:`/`model:`-Frontmatter erzeugt **keine** Reibung: die drei Treffer sind
-genau die `distribute: false`-Dateien aus §1.1 und beschreiben ein externes
-Review-LLM, nicht Claude Code.
+> Diese Tabelle ist ein **Messwert mit Verfallsdatum**. Jeder neue Skill mit `$1`/`$2`
+> fällt darunter — deshalb der Gate in §8.2.
 
 ### 4.3 Gates wachsen mit der Lane
 
-Verbindlich (Konvention F-A aus `claude-skills.md`): eine Lane ohne mitwachsenden
-Gate ist eine Schein-Garantie. In [#1290](https://github.com/achimdehnert/platform/pull/1290) umgesetzt:
+Umgesetzt in #1290: `check_workflow_index.py` scannt beide Lanes; `tools-tests.yml`
+triggert auf `skills/**`; fünf Tests decken Lane 2 ab; der Live-Test prüft sie mit.
 
-- `check_workflow_index.py` scannt beide Lanes (`skills/<name>/SKILL.md`).
-- `tools-tests.yml` triggert zusätzlich auf `skills/**` — ohne diesen Trigger liefe
-  der Gate bei einer reinen `skills/`-Änderung nicht und bliebe fälschlich grün.
-- Der Live-Test prüft die zweite Lane mit; fünf Tests decken sie ab.
+**Nachzuziehen (Rev 2, §8.3):** der Duplikat-Test zählte einen in beiden Lanes vorhandenen
+Namen **einmal** und maskierte damit genau die Kollision, die er hätte melden sollen — ein
+Test, den ich selbst so geschrieben habe. Die Laufzeitwirkung ist zwar definiert (bei
+Namensgleichheit gewinnt der Skill, Verifikation 4), aber „definiert" heißt nicht
+„gewollt": eine stillschweigend gewinnende Kopie ist ein Drift-Vektor.
 
-### 4.4 Dritter Artefakttyp
+### 4.4 Dritter Artefakttyp — durch die Verzeichnisform gelöst
 
-`distribute: false` wird heute **nur** in der `commands`-Lane ausgewertet. Ein
-unveränderter Move der drei Reviewer-Prompts nach `skills/` würde sie als Agent
-Skills verteilen. Vor Phase 3 ist daher zu entscheiden, ob sie als gebündelte
-Referenz beim konsumierenden Skill liegen
-(`skills/adr-handoff-extern/prompts/…`) oder in einem eigenen `prompts/`-Baum —
-und der Filter entsprechend zu ziehen.
+Die drei Persona-Prompts werden **Supporting Files** ihres konsumierenden Skills:
+
+    skills/adr-handoff-extern/
+    ├── SKILL.md
+    └── prompts/
+        ├── reviewer.md
+        ├── reviewer-blind.md
+        └── reviewer-premortem.md
+
+Damit sind sie per Konstruktion keine Skills — kein Filter, kein `distribute: false`, keine
+lane-spezifische Sonderlogik. Der Generator braucht **keine** Ausnahme mehr.
+
+**Die Reihenfolge ist bindend:** Phase 3a kommt **vor** 3b. Ein Move der drei Dateien nach
+`skills/` ohne diesen Schritt würde sie als aufrufbare Skills verteilen, weil
+`distribute: false` heute nur in der `commands`-Lane ausgewertet wird. Rev 1 hatte das
+erkannt, aber auf „vor Phase 3" terminiert — was denselben PR zuließ. Jetzt ist es eine
+eigene, vorgelagerte Phase mit Negativtest (§8.2).
 
 ---
 
@@ -247,25 +329,14 @@ und der Filter entsprechend zu ziehen.
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
-| `platform` | 0 — ADR + Policy | 🔄 In Progress | 2026-07-21 | dieser PR |
-| `platform` | 1 — Pilot (3 Skills) + Gates | ✅ Abgeschlossen | 2026-07-21 | #1290, CI grün, Drift 0 |
-| *(Maschinen)* | 2 — Live-Rollout Pilot | ⬜ Ausstehend | – | Betriebsnachweis offen |
-| `platform` | 3 — Bulk-Move + Typ-3-Zielort | ⬜ Ausstehend | – | 49 Skills, 2 × `$ARGUMENTS` |
-| `platform` | 4 — `commands`-Lane entfernen | ⬜ Ausstehend | – | gegatet, s. §8 |
-| `platform` | bei Acceptance — ADR-229 auf `superseded` setzen | ⬜ Ausstehend | – | bewusst **nicht** jetzt, s. u. |
-| `platform` | bei Acceptance — `policies/claude-skills.md` nachziehen | ⬜ Ausstehend | – | bewusst **nicht** jetzt, s. u. |
-
-**Zwei Änderungen sind bewusst aufgeschoben, nicht vergessen.** Solange dieses ADR
-`proposed` ist, wäre beides eine Falschaussage:
-
-- **ADR-229 bleibt vorerst `proposed`.** Ein ADR als „superseded by" einen erst
-  vorgeschlagenen Nachfolger zu markieren, behauptet eine Ablösung, die noch nicht
-  beschlossen ist. Der Statuswechsel gehört in denselben Zug wie die Acceptance
-  dieses ADRs.
-- **`policies/claude-skills.md` bleibt vorerst unverändert.** Die Policy beschreibt
-  den geltenden Zustand — und der ist bis zur Acceptance die Zwei-Lane-Welt. Eine
-  Policy, die eine geplante Welt beschreibt, ist genau die Sorte „Deklaration ≠
-  Realität", die ADR-230 §2.4 abstellen wollte.
+| `platform` | 0 — ADR Rev 2 | 🔄 In Progress | 2026-07-21 | dieser PR |
+| `platform` | 1 — Pilot + Gates | ✅ Abgeschlossen | 2026-07-21 | #1290 |
+| `platform` | 1b — Regression zurück | 🔄 In Progress | 2026-07-21 | #1294 |
+| *(Maschinen)* | 2 — Betriebsnachweis | ⬜ Ausstehend | – | Muss-Kriterien §8.1 |
+| `platform` | 3a — Typ-3-Zielort | ⬜ Ausstehend | – | **vor** 3b, §4.4 |
+| `platform` | 3b — Bulk-Move | ⬜ Ausstehend | – | Mengenidentität §8.3 |
+| `platform` | 4 — `commands`-Lane entfernen | ⬜ Ausstehend | – | Transaktion §8.4 |
+| `platform` | 5 — ADR-229-Status + Policy | ⬜ Ausstehend | – | gebündelt bei Acceptance |
 
 ---
 
@@ -276,28 +347,23 @@ und der Filter entsprechend zu ziehen.
 - Ein Quellverzeichnis, ein Installationsziel, ein Generator-Modus, ein Gate-Scan.
 - Der Pfadname nennt kein Werkzeug mehr, das nicht mehr benutzt wird.
 - Neue Skills brauchen keine Lane-Entscheidung — die Frage aus §1.2 entfällt.
-- Gebündelte Skill-Verzeichnisse geben dem dritten Artefakttyp eine Heimat.
+- Der dritte Artefakttyp verliert seine Sonderlogik ersatzlos.
 
 ### 6.2 Bad
 
-- Drei Dateien verlieren `$ARGUMENTS` und brauchen eine inhaltliche Umformulierung;
-  jede davon ist eine mögliche Verhaltensänderung.
-- Der Rückbau von `~/.claude/commands/` ist ein Eingriff je Maschine und nicht
-  durch einen Repo-Merge erledigt.
-- Bis Phase 4 existieren beide Lanes **gleichzeitig** — der Zustand, den dieses
-  ADR beendet, besteht während der Umsetzung fort. Deshalb der Doppelscan aus §4.3.
+- Der Maschinen-Rückbau ist der einzige nicht per Repo-Revert reversible Schritt.
+- Bis Phase 4 existieren beide Lanes gleichzeitig — der Zustand, den dieses ADR beendet.
+- **Die Kanonik hängt an einer Herstellerbezeichnung.** Benennt der Hersteller um,
+  wiederholt sich exakt das `.windsurf`-Muster. Einstiegspunkt für die Neubewertung: §8.6.
+- Die Entscheidung ruht auf **einem** Argument. Fällt Supporting-Files als Bedarf weg,
+  fällt die Begründung.
 
 ### 6.3 Nicht in Scope
 
-- **`.windsurf/`-Verzeichnisse in App-Hubs.** Die werden von
-  `scripts/gen_project_facts.py` befüllt (Workflow-Kopien + Rules-Symlinks) und
-  folgen ADR-265, nicht dieser Entscheidung. Ob deren Existenz zur Prämisse von
-  ADR-229 passt, ist eine **offene, hier nicht geprüfte Frage** (§9).
-- **`windsurf-subset.py`.** Das Review-Subset für Windsurf ist heute in keinem
-  CI-Workflow verdrahtet (`grep -rn 'windsurf-subset' .github/workflows/` → 0
-  Treffer). Sein Schicksal wird in Phase 3 entschieden, nicht hier.
-- **Anthropic-seitige Semantik.** Ob `~/.claude/commands/` künftig unterstützt
-  bleibt, ist keine Entscheidung dieses Repos und wird hier nicht behauptet.
+- **`.windsurf/`-Verzeichnisse in App-Hubs** (von `gen_project_facts.py` befüllt, ADR-265).
+- **`windsurf-subset.py`** — in keinem CI-Workflow verdrahtet
+  (`grep -rn 'windsurf-subset' .github/workflows/` → 0 Treffer); Schicksal in Phase 3b.
+- **Optionen E und F** — eigene Entscheidungen, §10.
 
 ---
 
@@ -305,31 +371,86 @@ und der Filter entsprechend zu ziehen.
 
 | Risiko | W'keit | Impact | Mitigation |
 |--------|--------|--------|-----------|
-| Migrierter Skill verhält sich im Betrieb anders (Argumente, Auffindbarkeit) | Mittel | Mittel | Phase 2 ist ein reiner Betriebsnachweis vor dem Bulk-Move; Rückfall auf Option B bleibt offen |
-| Rückbau von `~/.claude/commands/` entzieht laufenden Sessions Slash-Commands | Mittel | Hoch | Phase 4 erst nach Phase 2/3; Rückbau je Maschine, Rollback über vorheriges Manifest (ADR-230 REC-18) |
-| Typ-3-Prompts werden versehentlich als Skills verteilt | Mittel | Mittel | §4.4 — Zielort und Filter **vor** Phase 3 festlegen |
-| Doppelphase (beide Lanes gleichzeitig) erzeugt Namenskollisionen | Niedrig | Niedrig | Gate zählt einen Namen einmal, auch wenn er in beiden Lanes liegt (Test vorhanden) |
-| ADR bleibt „accepted" ohne Umsetzung | Mittel | Mittel | §5 Migration Tracking + Kill-Gate §8.4 |
+| Migrierter Skill verhält sich im Betrieb anders | Niedrig | Mittel | §8.1 Muss-Kriterien; Rückfall D |
+| Maschinen-Rückbau entzieht laufenden Sessions Commands | Mittel | Hoch | §8.4 als getestete Transaktion mit Inventar + Restore |
+| Typ-3-Prompts werden als Skills verteilt | Mittel | Mittel | Phase 3a vorgelagert + Negativtest §8.2 |
+| Namenskollision während der Doppelphase | Mittel | Niedrig | Verhalten definiert (Skill gewinnt); Gate meldet Duplikate §8.3 |
+| Neuer Skill nutzt `$1` 1-basiert gedacht | Mittel | Mittel | Gate §8.2 |
+| Herstellersemantik ändert sich | Niedrig | Hoch | Versionspin + Kompatibilitätstest §8.6 |
+| ADR bleibt „accepted" ohne Umsetzung | Mittel | Mittel | §8.5 Kill-Gate **mit Auslöser** |
 
 ---
 
 ## 8. Confirmation
 
-1. **Vollständigkeits-Gate über beide Lanes:** `tools/check_workflow_index.py`
-   läuft in `tools-tests.yml` und scannt `.windsurf/workflows/*.md` **und**
-   `skills/*/SKILL.md`. Prüfbar: ein `skills/`-Eintrag ohne Index-Zeile liefert
-   `rc=1` (Negativtest ist Teil der Suite).
-2. **Round-Trip-Gate je Lane:** `cc-skill-dist-doctor.yml` erzeugt beide Lanes mit
-   `generate.py` und verlangt von `doctor.py` DRIFT-SCORE 0. Nach Phase 4 muss der
-   `commands`-Schritt **entfallen**, nicht dauergrün mitlaufen.
-3. **Bilanzprüfung beim Bulk-Move:** Summe aus beiden Lanes bleibt vor und nach
-   jeder Migrations-PR konstant (Pilot: 49 + 3 = 52).
-4. **Kill-Gate:** Ist Phase 4 am **2026-12-31** nicht abgeschlossen, gilt die
-   Konsolidierung als gescheitert; dann wird entweder auf Option B umgeschwenkt
-   oder Option C bewusst als Dauerzustand akzeptiert — mit dann verbindlichem
-   Zuordnungskriterium. Kein stilles Weiterlaufen im Doppelzustand.
-5. **Drift-Detector:** Dieses ADR wird von ADR-059 auf Aktualität geprüft —
-   Staleness-Schwelle: 6 Monate (kurz, weil es einen Übergangszustand beschreibt).
+### 8.1 Muss-Kriterien für Phase 2 (binär, kein Ermessen)
+
+Bestanden nur, wenn **alle** zutreffen. Scheitert eines, gilt **ohne neue
+Grundsatzdebatte** Option D:
+
+1. Skill erscheint im `/`-Menü unter unverändertem Namen.
+2. Aufruf **ohne** Argument verhält sich wie vorher.
+3. Aufruf mit **einwortigem** Argument setzt es an der `$ARGUMENTS`-Stelle ein.
+4. Aufruf mit **mehrwortigem, gequotetem** Argument ebenso.
+5. Beschreibung ist gelistet, Body lädt erst beim Aufruf.
+6. Verhalten in einer **neu gestarteten** Session, nicht nur der laufenden.
+
+Ergebnis wird als versioniertes Artefakt im Repo abgelegt (Werkzeugversion, Ausgangscommit,
+Testfälle, Beobachtung, Entscheid „A bestanden" / „Fallback D") — nicht als Chat-Notiz.
+
+### 8.2 Automatisierte Gates
+
+- **Index-Vollständigkeit** über beide Lanes (`check_workflow_index.py` in
+  `tools-tests.yml`), Negativtest vorhanden.
+- **Round-Trip je Lane** (`cc-skill-dist-doctor.yml`), DRIFT-SCORE 0. Nach Phase 4 muss der
+  `commands`-Schritt **entfallen**, nicht dauergrün mitlaufen.
+- **NEU — Positional-Argument-Gate:** ein Skill mit `$1`/`$2` in Substitutions-Position
+  ohne `arguments:`-Frontmatter lässt den Build fehlschlagen.
+- **NEU — Typ-3-Negativtest:** eine als nicht-invocable markierte Datei darf **nie** einen
+  installierten Skill erzeugen.
+
+### 8.3 Migrationsprüfung — Mengenidentität statt Bilanz
+
+Rev 1 prüfte nur die **Summe** (49 + 3 = 52). Das ist unzureichend: ein verlorener und ein
+doppelter Skill heben sich auf. Ersetzt durch **Mengenidentität der Namen** vor/nach jeder
+Migrations-PR plus ein Migrationsmanifest (Quelle → Ziel → Inhalts-Hash oder ausdrücklich
+genehmigte Transformation). Lane-übergreifende Duplikate lassen den Gate **fehlschlagen**
+statt einmal gezählt zu werden; während eines Moves nur über eine befristete Allowlist mit
+Ablaufdatum.
+
+### 8.4 Phase 4 als getestete Transaktion + Invariante
+
+Kein blindes Löschen: Dry-Run, Inventarliste **nicht-generierter** Nutzerdateien unter
+`~/.claude/commands/`, deterministische Wiederherstellung aus einem gepinnten Commit
+(ADR-230 REC-18), Prüfung nach dem Restore, klare Anweisung für laufende Sessions.
+
+**Invariante danach:** auf jeder betroffenen Maschine liegen unter `~/.claude/commands/`
+**keine** generierten oder verwaisten Dateien mehr. Prüfbar, nicht „wird beachtet".
+
+### 8.5 Kill-Gate — mit Auslöser, nicht nur mit Datum
+
+Rev 1 nannte ein Datum und Rückfalloptionen, aber weder Auslöser noch Verantwortlichen.
+Beide Reviews stuften das übereinstimmend als Vorsatz statt Gate ein. Ersetzt durch:
+
+- **Owner:** Achim Dehnert.
+- **Tracking-Artefakt:** Issue [#1287](https://github.com/achimdehnert/platform/issues/1287),
+  Fälligkeit **2026-12-31**.
+- **Maschineller Auslöser:** geplanter CI-Job, der ab 2026-12-31 fehlschlägt, solange Phase
+  4 offen ist. Ein Gate, das niemand auslöst, ist keines — dieselbe Regel, die dieses Repo
+  unter „neue Lane ⇒ Gate wächst mit" längst auf Tooling anwendet.
+- **Rückfall bei Auslösung:** Option **D** (nicht C — ein Rückfall, den die Owner-Vorgabe
+  verbietet, ist keiner).
+
+### 8.6 Vorausschauende Wartung
+
+- Der **Verifikationsstand** trägt Werkzeugversion und Abrufdatum. Ein kleiner
+  wiederholbarer Kompatibilitätstest deckt die vier tragenden Semantiken ab
+  (Merge-Äquivalenz, `$ARGUMENTS`, Supporting Files, Namenspräzedenz) — ohne daraus eine
+  Zukunftsgarantie abzuleiten.
+- **Drift-Detector** (ADR-059), Staleness-Schwelle **6 Monate** — kurz, weil dieses ADR
+  einen Übergangszustand beschreibt.
+- **Frühwarnung:** ändert der Hersteller die Verzeichnissemantik, ist §6.2 der
+  Einstiegspunkt für die Neubewertung, nicht ein erneutes Aufrollen der Grundsatzfrage.
 
 ---
 
@@ -337,43 +458,83 @@ und der Filter entsprechend zu ziehen.
 
 | Abkürzung / Begriff | Bedeutung |
 |-----------|-----------|
-| **ADR** | Architecture Decision Record — schriftlich festgehaltene Architektur-Entscheidung mit Begründung und Alternativen |
-| **Lane** | Hier: ein vollständiger Verteilpfad von einer Quelle über einen Generator zu einem Installationsziel |
-| **Slash-Command** | Per `/name` aufrufbares Markdown-Dokument; sein Text wird beim Aufruf direkt eingesetzt |
-| **Agent Skill** | Verzeichnis mit `SKILL.md`; die Beschreibung wird gelistet, der Inhalt erst beim Aufruf geladen |
-| **Progressive Disclosure** | Prinzip, zunächst nur Kurzbeschreibungen bereitzustellen und Details erst bei Bedarf nachzuladen |
+| **ADR** | Architecture Decision Record — festgehaltene Architektur-Entscheidung mit Begründung und Alternativen |
+| **Lane** | Vollständiger Verteilpfad von einer Quelle über einen Generator zu einem Installationsziel |
+| **Supporting Files** | Zusatzdateien im Skill-Verzeichnis, die kein eigener Skill sind und nur bei Bedarf geladen werden |
+| **Substitution** | Ersetzen eines Platzhalters wie `$ARGUMENTS` durch den beim Aufruf übergebenen Text |
 | **Drift** | Auseinanderlaufen von Quelle und installierter Kopie |
 | **Gate** | Automatischer Prüfschritt in der CI, der einen Merge blockieren kann |
 | **CI** | Continuous Integration — automatische Prüfläufe bei jeder Änderung |
 | **Frontmatter** | YAML-Kopfblock am Dateianfang zwischen zwei `---`-Zeilen |
+| **Cowork / Cloud-Session** | Ausführungsumgebungen außerhalb der lokalen Maschine, die lokale Installationsverzeichnisse nicht lesen |
 
 ---
 
 ## 9. More Information
 
-- ADR-230: CC-first Skill-Distribution — **amendiert**; dieses ADR führt den dort
-  in §2.1 (REC-3) benannten und vertagten Phase-2-Watchpoint aus und geht über ihn
-  hinaus, indem es die `commands`-Lane ganz zurückbaut.
-- ADR-229: Kanonische `.windsurf`-Distribution — **superseded**. Das ADR war nie
-  über `proposed` hinausgekommen; seine Namensprämisse (`.windsurf` als Kanonik)
-  entfällt mit dieser Entscheidung. Seine noch gültige Aussage (kein zweiter
-  Wahrheitsstand neben `platform`) wird hier fortgeschrieben. **Offen und hier
-  nicht geprüft:** ob die von `gen_project_facts.py` in App-Hubs angelegten
-  `.windsurf/`-Inhalte dieser Aussage widersprechen.
-- ADR-233: Worktree-Konvention — Umsetzungsarbeit zu diesem ADR läuft in
-  per-Session-Worktrees.
-- Issue [#1287](https://github.com/achimdehnert/platform/issues/1287) — Anker mit
-  Messwerten und zwei protokollierten Korrekturen eigener Zahlen.
-- PR [#1290](https://github.com/achimdehnert/platform/pull/1290) — Phase 1.
-- Policy `~/.claude/policies/claude-skills.md` — wird mit diesem ADR nachgezogen.
+- **ADR-230** — amendiert; dieses ADR führt den dort in §2.1 (REC-3) vertagten
+  Phase-2-Watchpoint aus und geht darüber hinaus, indem es die `commands`-Lane zurückbaut.
+- **ADR-229** — **würde bei Acceptance dieses ADRs `superseded`**. Solange dieses ADR
+  `proposed` ist, bleibt ADR-229 unverändert; die Relation ist maschinenlesbar in
+  `docs/adr/index.json`. *(Rev 1 formulierte hier „superseded" als Tatsache — von einer
+  externen Review als Widerspruch zum eigenen §5 gefunden.)*
+- **ADR-233** — Umsetzungsarbeit läuft in per-Session-Worktrees.
+- Issue [#1287](https://github.com/achimdehnert/platform/issues/1287) — Anker.
+- PRs [#1290](https://github.com/achimdehnert/platform/pull/1290) (Pilot),
+  [#1294](https://github.com/achimdehnert/platform/pull/1294) (Regression zurück).
 
 ---
 
-## 10. Changelog
+## 10. Aufgeschobene Entscheidungen mit Tracking-Pflicht
+
+Beide Punkte sind **nicht** Teil dieser Entscheidung, aber zu wertvoll zum Vergessen.
+Aufgeschobene Restarbeit ohne Artefakt gilt in diesem Repo als nicht existent.
+
+1. **Symlink statt Kopie (Option E).** Würde Manifest, Content-Hash und Round-Trip-Gate für
+   diese Lane überflüssig machen, weil Drift strukturell unmöglich wird. Kehrt ADR-230 §2.2
+   um → eigenes ADR.
+2. **Reichweite über die lokale Maschine hinaus (Option F).** Cowork-/Cloud-Sessions
+   inklusive Routinen lesen `~/.claude/skills/` **nicht**. Das gesamte Verteilmodell —
+   `commands` wie `skills` — endet an der Maschinengrenze. Unabhängig von dieser
+   Entscheidung ein offener Befund.
+
+---
+
+## 11. Changelog
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-21 | Achim Dehnert | **Rev 2** nach zwei externen Zweitmeinungen (beide „überarbeiten"). Verifikationsstand mit Versionspin ergänzt. §4.2 korrigiert: `$ARGUMENTS` entfällt **nicht**. §2 neu: A/B neu bewertet, Optionen D/E/F ergänzt. §3 Begründung vollständig ausgetauscht (Supporting Files statt Kontext-/Migrationsargumenten). §8 Kill-Gate mit Owner + maschinellem Auslöser, Muss-Kriterien für Phase 2, Mengenidentität statt Bilanz, zwei neue Gates, Phase 4 als Transaktion. Phase 3a vorgelagert. Widersprüche §4.1/§5 und §9 bereinigt. §10 Tracking für E/F. Abgelehnt: Umankern auf „Hersteller macht `commands/` zur Altlast" — nicht belegbar. |
 | 2026-07-21 | Achim Dehnert | Initial: Status Proposed |
+
+---
+
+## 12. Externes Sparring — Rückfluss-Tagging
+
+Zwei unabhängige externe Zweitmeinungen am 2026-07-21, beide mit Verdikt **„überarbeiten"**.
+Jeder Befund einzeln getaggt; nur `[valid]` ist eingeflossen, und zwar als Änderung mit
+eigener Begründung, nicht als übernommene Prosa.
+
+| Befund | Verdikt | Wirkung |
+|---|---|---|
+| `$ARGUMENTS` entfällt nicht | `[valid]` | §4.2 neu; Regression #1294 |
+| `$N` 0-basiert, Off-by-one | `[valid]`, Bestand nicht betroffen | §4.2 Bestandstabelle + Gate §8.2 |
+| Progressive Disclosure ist kein A-vs-B-Vorteil | `[valid]` | aus §2 entfernt |
+| A-vs-B-Bilanz schrumpft | `[valid]` | §3 auf ein Argument reduziert, offen benannt |
+| Vierte Option „beide behalten" fehlt | `[valid]` | Option D ergänzt, als Rückfall verankert |
+| Kill-Gate ohne Auslöser/Owner | `[valid]` | §8.5 |
+| Option C als Rückfall widerspricht der Vorgabe | `[valid]` | C als Rückfall entfernt, D ersetzt sie |
+| Duplikat-Test maskiert Kollision | `[valid]` | §8.3 |
+| Bilanzprüfung beweist nichts | `[valid]` | §8.3 Mengenidentität |
+| Rollback Phase 4 nicht belastbar | `[valid]` | §8.4 |
+| Widerspruch §4.1 vs. §5, §9-Wortlaut | `[valid]` | beide bereinigt |
+| `distribute: false` lane-gebunden | `[valid]` | Phase 3a vorgelagert + Negativtest |
+| Keine Muss-Kriterien für Phase 2 | `[valid]` | §8.1 |
+| Kein Versionspin / Kompatibilitätsvertrag | `[valid]` | Verifikationsstand + §8.6 |
+| Typ-3-Heimat sei kein tragfähiges A-Argument | `[missversteht-Kontext]` | Verifikation 7 belegt Supporting Files als exklusive Fähigkeit der Verzeichnisform — nach Wegfall aller anderen Argumente ist es das **einzige** tragende |
+| Umankern auf „Hersteller macht `skills/` kanonisch, `commands/` Alias" | `[missversteht-Kontext]` | Doku sagt „keep working"; Suche nach `deprecat\|legacy\|no longer\|will be removed\|sunset` ohne Treffer. Hätte eine falsche Prämisse durch eine zweite ersetzt |
+| Plugin-/Marketplace-Distribution | `[out-of-scope]` | eigene Re-Architektur; verwandter Befund als Option F in §10 getrackt |
+| Tool-neutrale „capabilities/"-Abstraktion | `[out-of-scope]` | bei 52 Markdown-Dateien Über-Abstraktion; §6.2 hält den Auslöser fest, falls `skills/` mehrere Artefaktklassen aufnehmen müsste |
 
 ---
 
