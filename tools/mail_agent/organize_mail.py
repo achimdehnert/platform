@@ -17,6 +17,7 @@ Kommandos:
   --move --from "antonela" --to "INBOX.Trash" [--source INBOX] [--subject "..."] [--yes]
   --to-trash --from "antonela"                # Kurzform: in den Papierkorb
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,18 +41,27 @@ def _decode(v: str | None) -> str:
         return ""
     out = []
     for chunk, cs in decode_header(v):
-        out.append(chunk.decode(cs or "utf-8", errors="replace") if isinstance(chunk, bytes) else chunk)
+        out.append(
+            chunk.decode(cs or "utf-8", errors="replace")
+            if isinstance(chunk, bytes)
+            else chunk
+        )
     return "".join(out).replace("\n", " ").replace("\r", "").strip()
 
 
-def connect() -> tuple[imaplib.IMAP4_SSL, dict]:
-    if not CONFIG_FILE.exists():
-        sys.exit(f"FEHLER: {CONFIG_FILE} fehlt — Maschine ist für Mail nicht freigegeben (Capability-Profil)")
-    cfg = parse_env(CONFIG_FILE)
+def connect(config_file: Path | None = None) -> tuple[imaplib.IMAP4_SSL, dict]:
+    cfg_file = config_file or CONFIG_FILE
+    if not cfg_file.exists():
+        sys.exit(
+            f"FEHLER: {cfg_file} fehlt — Maschine ist für Mail nicht freigegeben (Capability-Profil)"
+        )
+    cfg = parse_env(cfg_file)
     for k in ("SMTP_HOST", "MAIL_FROM", "MAIL_CREDS_FILE"):
         if k not in cfg:
-            sys.exit(f"FEHLER: {k} fehlt in {CONFIG_FILE}")
-    user, password = load_credentials(Path(cfg["MAIL_CREDS_FILE"]).expanduser(), cfg["MAIL_FROM"])
+            sys.exit(f"FEHLER: {k} fehlt in {cfg_file}")
+    user, password = load_credentials(
+        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), cfg["MAIL_FROM"]
+    )
     host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     port = int(cfg.get("IMAP_PORT", "993"))
     imap = imaplib.IMAP4_SSL(host, port, timeout=30)
@@ -99,7 +109,9 @@ def cmd_create_folder(imap: imaplib.IMAP4_SSL, name: str) -> None:
     print(f"OK: Ordner '{name}' angelegt.")
 
 
-def _matches(imap: imaplib.IMAP4_SSL, source: str, from_sub: str | None, subj_sub: str | None):
+def _matches(
+    imap: imaplib.IMAP4_SSL, source: str, from_sub: str | None, subj_sub: str | None
+):
     imap.select(source, readonly=True)
     typ, data = imap.search(None, "ALL")
     if typ != "OK":
@@ -135,33 +147,62 @@ def _move(imap: imaplib.IMAP4_SSL, source: str, target: str, uids: list[bytes]) 
     if "UIDPLUS" in caps:
         imap.uid("EXPUNGE", uid_set)  # nur die betroffenen UIDs
     else:
-        print("Hinweis: Server ohne UIDPLUS — Quell-Mails sind als gelöscht MARKIERT und "
-              "verschwinden beim nächsten Client-Sync; ordner-weites EXPUNGE wird bewusst NICHT ausgeführt.",
-              file=sys.stderr)
+        print(
+            "Hinweis: Server ohne UIDPLUS — Quell-Mails sind als gelöscht MARKIERT und "
+            "verschwinden beim nächsten Client-Sync; ordner-weites EXPUNGE wird bewusst NICHT ausgeführt.",
+            file=sys.stderr,
+        )
 
 
-def cmd_move(imap: imaplib.IMAP4_SSL, source: str, target: str,
-             from_sub: str | None, subj_sub: str | None, yes: bool) -> None:
+def cmd_move(
+    imap: imaplib.IMAP4_SSL,
+    source: str,
+    target: str,
+    from_sub: str | None,
+    subj_sub: str | None,
+    yes: bool,
+) -> None:
     if target not in list_folders(imap):
-        sys.exit(f"FEHLER: Zielordner '{target}' existiert nicht — erst --create-folder \"{target}\".")
+        sys.exit(
+            f"FEHLER: Zielordner '{target}' existiert nicht — erst --create-folder \"{target}\"."
+        )
     hits = _matches(imap, source, from_sub, subj_sub)
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
         return
-    krit = " & ".join(filter(None, [f'Absender~"{from_sub}"' if from_sub else None,
-                                     f'Betreff~"{subj_sub}"' if subj_sub else None])) or "ALLE"
-    print(f"Verschieben aus '{source}' nach '{target}'  (Kriterium: {krit}) — reversibel:")
+    krit = (
+        " & ".join(
+            filter(
+                None,
+                [
+                    f'Absender~"{from_sub}"' if from_sub else None,
+                    f'Betreff~"{subj_sub}"' if subj_sub else None,
+                ],
+            )
+        )
+        or "ALLE"
+    )
+    print(
+        f"Verschieben aus '{source}' nach '{target}'  (Kriterium: {krit}) — reversibel:"
+    )
     for _, date, frm, subj in hits:
         print(f"  · {date:<22} {frm:<40} {subj}")
     print(f"  = {len(hits)} Mail(s)")
     if not yes:
         try:
-            if input("Verschieben? [j/N] ").strip().lower() not in ("j", "ja", "y", "yes"):
+            if input("Verschieben? [j/N] ").strip().lower() not in (
+                "j",
+                "ja",
+                "y",
+                "yes",
+            ):
                 sys.exit("Abgebrochen — nichts verschoben.")
         except EOFError:
             sys.exit("Kein --yes und keine Eingabe möglich — abgebrochen.")
     _move(imap, source, target, [u for u, *_ in hits])
-    print(f"OK: {len(hits)} Mail(s) nach '{target}' verschoben (im Zielordner wiederherstellbar).")
+    print(
+        f"OK: {len(hits)} Mail(s) nach '{target}' verschoben (im Zielordner wiederherstellbar)."
+    )
 
 
 def main() -> None:
@@ -170,19 +211,31 @@ def main() -> None:
     g.add_argument("--list-folders", action="store_true")
     g.add_argument("--create-folder", metavar="NAME")
     g.add_argument("--move", action="store_true", help="Mails nach --to verschieben")
-    g.add_argument("--to-trash", action="store_true", help="Kurzform: passende Mails in den Papierkorb")
+    g.add_argument(
+        "--to-trash",
+        action="store_true",
+        help="Kurzform: passende Mails in den Papierkorb",
+    )
     ap.add_argument("--source", default="INBOX", help="Quellordner (Default: INBOX)")
     ap.add_argument("--to", help="Zielordner (bei --move)")
     ap.add_argument("--from", dest="from_sub", help="Absender-Substring")
     ap.add_argument("--subject", dest="subj_sub", help="Betreff-Substring")
-    ap.add_argument("--yes", action="store_true", help="ohne Rückfrage (Anzeige-Gate aus)")
+    ap.add_argument(
+        "--yes", action="store_true", help="ohne Rückfrage (Anzeige-Gate aus)"
+    )
+    ap.add_argument(
+        "--config",
+        metavar="ENV",
+        default=None,
+        help="alternative Mail-Config (Default: ~/.claude/mail.env), z.B. ~/.claude/mail-hnu.env",
+    )
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except AttributeError:
         pass
 
-    imap, _ = connect()
+    imap, _ = connect(Path(args.config).expanduser() if args.config else None)
     try:
         if args.list_folders:
             cmd_list_folders(imap)
@@ -190,7 +243,9 @@ def main() -> None:
             cmd_create_folder(imap, args.create_folder)
         elif args.to_trash:
             if not (args.from_sub or args.subj_sub):
-                ap.error("--to-trash braucht --from und/oder --subject (Sicherheit: kein Pauschal-Papierkorb)")
+                ap.error(
+                    "--to-trash braucht --from und/oder --subject (Sicherheit: kein Pauschal-Papierkorb)"
+                )
             trash = resolve_trash(imap)
             if not trash:
                 sys.exit("FEHLER: kein Papierkorb-Ordner gefunden.")
@@ -199,7 +254,9 @@ def main() -> None:
             if not args.to:
                 ap.error("--move braucht --to ZIELORDNER")
             if not (args.from_sub or args.subj_sub):
-                ap.error("--move braucht --from und/oder --subject (Sicherheit: kein Pauschal-Verschieben)")
+                ap.error(
+                    "--move braucht --from und/oder --subject (Sicherheit: kein Pauschal-Verschieben)"
+                )
             cmd_move(imap, args.source, args.to, args.from_sub, args.subj_sub, args.yes)
     finally:
         try:
