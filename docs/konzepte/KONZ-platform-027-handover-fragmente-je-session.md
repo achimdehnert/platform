@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-027
 title: Handover-Fragmente je Session statt geteilter Prosa-Region
-pipeline_status: idea
+pipeline_status: pilot   # 2026-07-21: Owner-Freigabe „idea→pilot go" — A/B-Pilot #1302 (merge=union vs. Fragment-Maschinerie) ist damit entsperrt
 tier: T2
 owner: Achim Dehnert
 spec_refs: []          # keine Klickdummy/Spec — reine Repo-Prozess-Konvention (ADR-233-Folge)
