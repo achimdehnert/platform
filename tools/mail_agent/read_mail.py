@@ -9,6 +9,7 @@ Entstanden, nachdem dieselbe IMAP-Logik 4x ad-hoc in Sessions gebaut wurde
 (2026-07-17) — Wachstums-Pipeline Ad-hoc -> Skill. Capability-Profil: nutzbar
 nur auf Maschinen mit ~/.claude/mail.env (Maschinen-Gate, kein Org-Default).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,7 +43,9 @@ def extract_text(msg: Message, max_chars: int = 4000) -> str:
             payload = part.get_payload(decode=True)
             if payload is None:
                 continue
-            text = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+            text = payload.decode(
+                part.get_content_charset() or "utf-8", errors="replace"
+            )
             if len(text) > max_chars:
                 return text[:max_chars] + f"\n[... gekürzt, {len(text)} Zeichen gesamt]"
             return text
@@ -76,13 +79,17 @@ def matches_from(msg: Message, needle: str | None) -> bool:
 def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
     host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     port = int(cfg.get("IMAP_PORT", "993"))
-    user, password = load_credentials(Path(cfg["MAIL_CREDS_FILE"]).expanduser(), cfg["MAIL_FROM"])
+    user, password = load_credentials(
+        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), cfg["MAIL_FROM"]
+    )
     imap = imaplib.IMAP4_SSL(host, port, timeout=30)
     imap.login(user, password)
     return imap
 
 
-def cmd_list(imap: imaplib.IMAP4_SSL, folder: str, count: int, from_filter: str | None) -> None:
+def cmd_list(
+    imap: imaplib.IMAP4_SSL, folder: str, count: int, from_filter: str | None
+) -> None:
     imap.select(folder, readonly=True)
     typ, data = imap.search(None, "ALL")
     ids = data[0].split()
@@ -92,8 +99,10 @@ def cmd_list(imap: imaplib.IMAP4_SSL, folder: str, count: int, from_filter: str 
         msg = email.message_from_bytes(md[0][1])
         if not matches_from(msg, from_filter):
             continue
-        print(f"#{i.decode():>5}  {decode_hdr(msg.get('Date'))[:22]:<22}  "
-              f"{decode_hdr(msg.get('From'))[:38]:<38}  {decode_hdr(msg.get('Subject'))[:60]}")
+        print(
+            f"#{i.decode():>5}  {decode_hdr(msg.get('Date'))[:22]:<22}  "
+            f"{decode_hdr(msg.get('From'))[:38]:<38}  {decode_hdr(msg.get('Subject'))[:60]}"
+        )
         shown += 1
         if shown >= count:
             break
@@ -101,8 +110,14 @@ def cmd_list(imap: imaplib.IMAP4_SSL, folder: str, count: int, from_filter: str 
         print("keine Treffer")
 
 
-def cmd_fetch(imap: imaplib.IMAP4_SSL, folder: str, which: str,
-              from_filter: str | None, save_dir: str | None, max_chars: int) -> None:
+def cmd_fetch(
+    imap: imaplib.IMAP4_SSL,
+    folder: str,
+    which: str,
+    from_filter: str | None,
+    save_dir: str | None,
+    max_chars: int,
+) -> None:
     imap.select(folder, readonly=True)
     typ, data = imap.search(None, "ALL")
     ids = data[0].split()
@@ -134,28 +149,55 @@ def cmd_fetch(imap: imaplib.IMAP4_SSL, folder: str, which: str,
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--folder", default="INBOX")
-    ap.add_argument("--from-filter", default=None, help="Substring-Match auf From-Header")
-    ap.add_argument("--max-chars", type=int, default=4000, help="Body-Kürzung bei --fetch")
+    ap.add_argument(
+        "--from-filter", default=None, help="Substring-Match auf From-Header"
+    )
+    ap.add_argument(
+        "--max-chars", type=int, default=4000, help="Body-Kürzung bei --fetch"
+    )
     group = ap.add_mutually_exclusive_group(required=True)
-    group.add_argument("--list", type=int, metavar="N", help="letzte N Mails listen (neueste zuerst)")
-    group.add_argument("--fetch", metavar="NUM|latest", help="eine Mail vollständig lesen")
-    ap.add_argument("--save-attachments", metavar="DIR", default=None,
-                    help="bei --fetch: Anhänge in DIR speichern")
+    group.add_argument(
+        "--list", type=int, metavar="N", help="letzte N Mails listen (neueste zuerst)"
+    )
+    group.add_argument(
+        "--fetch", metavar="NUM|latest", help="eine Mail vollständig lesen"
+    )
+    ap.add_argument(
+        "--save-attachments",
+        metavar="DIR",
+        default=None,
+        help="bei --fetch: Anhänge in DIR speichern",
+    )
+    ap.add_argument(
+        "--config",
+        metavar="ENV",
+        default=None,
+        help="alternative Mail-Config (Default: ~/.claude/mail.env), z.B. ~/.claude/mail-hnu.env",
+    )
     args = ap.parse_args()
 
-    if not CONFIG_FILE.exists():
-        sys.exit(f"FEHLER: {CONFIG_FILE} fehlt — Maschine ist für Mail nicht freigegeben (Capability-Profil)")
-    cfg = parse_env(CONFIG_FILE)
+    cfg_file = Path(args.config).expanduser() if args.config else CONFIG_FILE
+    if not cfg_file.exists():
+        sys.exit(
+            f"FEHLER: {cfg_file} fehlt — Maschine ist für Mail nicht freigegeben (Capability-Profil)"
+        )
+    cfg = parse_env(cfg_file)
     missing = [k for k in ("SMTP_HOST", "MAIL_FROM", "MAIL_CREDS_FILE") if k not in cfg]
     if missing:
-        sys.exit(f"FEHLER: Keys fehlen in {CONFIG_FILE}: {', '.join(missing)}")
+        sys.exit(f"FEHLER: Keys fehlen in {cfg_file}: {', '.join(missing)}")
 
     with connect(cfg) as imap:
         if args.list is not None:
             cmd_list(imap, args.folder, args.list, args.from_filter)
         else:
-            cmd_fetch(imap, args.folder, args.fetch, args.from_filter,
-                      args.save_attachments, args.max_chars)
+            cmd_fetch(
+                imap,
+                args.folder,
+                args.fetch,
+                args.from_filter,
+                args.save_attachments,
+                args.max_chars,
+            )
 
 
 if __name__ == "__main__":
