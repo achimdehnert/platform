@@ -2,15 +2,11 @@
 #
 # Format: <pfad> in <ADR-NNN>     (ein Eintrag pro Zeile, # = Kommentar)
 #
-# Hier gehoeren NUR Faelle hinein, die der Check strukturell nicht erkennen kann —
-# nicht echte Alt-Funde. Echte tote Pfade werden korrigiert, nicht geparkt
-# (sonst meldet der Check gruen, waehrend der ADR weiter falsch behauptet).
-
-# ADR-246 (genesor-ingest Stufe 2): beide Evidence-Pfade liegen im Repo
-# iil-pet-portal, tragen aber kein Repo-Praefix. Weil `.github/workflows/` und
-# `scripts/` auch in platform existieren, greift die Fremd-Root-Heuristik nicht.
-# Verifiziert 2026-07-21: iil-pet-portal/.github/workflows/genesor-ingest.yml und
-# iil-pet-portal/scripts/genesor_diff_gate.py existieren beide.
-# Dauerhafter Fix waere ein qualifiziertes Praefix im ADR (`iil-pet-portal/...`).
-.github/workflows/genesor-ingest.yml in ADR-246
-scripts/genesor_diff_gate.py in ADR-246
+# Hier gehoeren NUR Faelle hinein, die der Check strukturell nicht erkennen kann.
+# Echte Alt-Funde werden korrigiert, nicht geparkt — sonst meldet der Check gruen,
+# waehrend der ADR weiter falsch behauptet.
+#
+# Aktuell leer: die urspruenglich hier geparkten ADR-246-Eintraege wurden in #1311
+# stattdessen im ADR selbst qualifiziert (`iil-pet-portal/.github/workflows/...`),
+# womit die normale Fremd-Root-Heuristik greift. Das ist der bevorzugte Weg —
+# ein qualifizierter Pfad ist auch fuer Menschen die bessere Evidence.
