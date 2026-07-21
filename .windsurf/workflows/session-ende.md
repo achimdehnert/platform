@@ -148,6 +148,13 @@ claude --resume <session-id>
 → Dann `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update AGENT_HANDOVER"`
 → Wird von `session-start Phase 1` automatisch gelesen: *"Repo-Kontext laden — AGENT_HANDOVER.md"*
 
+> **Merge=union-Konvention (NEU 2026-07-21, KONZ-027 Alt-3 / Pilot #1302, platform-lokal):**
+> Ist `merge=union` für `AGENT_HANDOVER.md` aktiv (siehe `.gitattributes`), **nur anhängen**
+> an die "Aktueller Stand"-/Erledigt-Region — bestehende Zeilen NIE mitten drin editieren,
+> sonst interleavt der Union-Merge die beiden Seiten unlesbar. Widersprüche (z.B. zwei
+> "Stand: fertig"-Zeilen) bleiben bewusst als Doppelzeilen stehen (dumb-but-robust); das ist
+> der bekannte Trade-off dieses Pilot-Arms, nicht ein Bug.
+
 ### 0c: Erledigte/verschobene Prioritäten im Handover nachziehen (PFLICHT — NEU 2026-06-24)
 
 > **Unabhängig von WIP** (Phase 0b feuert nur bei uncommitted Stand — eine
