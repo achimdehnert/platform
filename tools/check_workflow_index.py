@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """check_workflow_index.py — Vollständigkeits-Gate für den Workflow-Index.
 
-Stellt sicher, dass **jeder** Skill unter `.windsurf/workflows/*.md` im zentralen
-`workflow-index.md` als `/<name>` referenziert wird (K-44, repo-optimize Spec B / #901).
+Stellt sicher, dass **jeder** Skill im zentralen `workflow-index.md` als `/<name>`
+referenziert wird (K-44, repo-optimize Spec B / #901) — über **beide** Lanes:
+`.windsurf/workflows/*.md` (Slash-Commands) und `skills/<name>/SKILL.md`
+(Agent-Skills, Lane ergänzt mit der Konsolidierung #1287).
 Ohne dieses Gate driftet der Index still: neue Skills bleiben unsichtbar, tote Verweise
 fallen niemandem auf. Deterministisch, strukturell, keine LLM.
 
@@ -51,10 +53,29 @@ def command_indexed(name: str, index_text: str) -> bool:
     return bool(pattern.search(index_text))
 
 
+def skill_names(skills_dir: str) -> list[str]:
+    """Namen der Agent-Skills: `skills/<name>/SKILL.md` → `<name>`.
+
+    Zweite Lane des Vollständigkeits-Gates (Konvention „neue Lane ⇒ Gate wächst
+    mit", policy claude-skills.md F-A). Ohne diesen Scan wäre jeder nach
+    `skills/` migrierte Skill für den Index unsichtbar — der Gate-Name bliebe
+    grün, die Deckung wäre still weg. Genau die Schein-Garantie, die F-A verbietet.
+    Fehlendes Verzeichnis ist kein Fehler: leere Lane = nichts zu prüfen.
+    """
+    if not os.path.isdir(skills_dir):
+        return []
+    return [
+        entry
+        for entry in sorted(os.listdir(skills_dir))
+        if os.path.isfile(os.path.join(skills_dir, entry, "SKILL.md"))
+    ]
+
+
 def check(
     workflows_dir: str,
     index_path: str,
     allowlist: set[str],
+    skills_dir: str | None = None,
 ) -> tuple[list[str], list[str]]:
     """Gibt (missing, checked_names) zurück."""
     if not os.path.isdir(workflows_dir):
@@ -82,6 +103,16 @@ def check(
         checked.append(name)
         if not command_indexed(name, index_text):
             missing.append(name)
+
+    # Lane 2: Agent-Skills. `distribute: false` gibt es hier nicht — die Lane
+    # kennt keine internen System-Prompts (die bleiben Content, kein Skill).
+    for name in skill_names(skills_dir) if skills_dir else []:
+        if name in allowlist or name in checked:
+            continue
+        checked.append(name)
+        if not command_indexed(name, index_text):
+            missing.append(name)
+
     return missing, checked
 
 
@@ -99,6 +130,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Pfad zur workflow-index.md",
     )
     parser.add_argument(
+        "--skills-dir",
+        default=os.path.join(root, "skills"),
+        help="Verzeichnis der Agent-Skills (Default: <repo>/skills, je Skill <name>/SKILL.md)",
+    )
+    parser.add_argument(
         "--allowlist",
         default="onboard-repo-testing-addendum",
         help="Kommagetrennte Skill-Namen, die bewusst NICHT indexiert sein müssen.",
@@ -108,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     allowlist = {n.strip() for n in args.allowlist.split(",") if n.strip()}
 
     try:
-        missing, checked = check(args.workflows_dir, args.index, allowlist)
+        missing, checked = check(args.workflows_dir, args.index, allowlist, args.skills_dir)
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

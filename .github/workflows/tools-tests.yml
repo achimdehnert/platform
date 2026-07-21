@@ -48,6 +48,10 @@ on:
       # #901 Spec B: check_workflow_index.py gatet den Workflow-Index gegen die
       # .windsurf/workflows/-Quelle — bei Skill-Änderungen muss der Gate laufen.
       - ".windsurf/workflows/**"
+      # #1287: seit der Lane-Konsolidierung scannt derselbe Gate auch skills/.
+      # Ohne diesen Trigger liefe er bei einer reinen skills/-Änderung NICHT —
+      # der Gate-Name bliebe grün, die Deckung wäre still weg (Konvention F-A).
+      - "skills/**"
   pull_request:
     paths:
       - "tools/**"
@@ -55,6 +59,7 @@ on:
       - "shared_contracts/**"
       - "agents/**"
       - ".windsurf/workflows/**"
+      - "skills/**"
 
 # CI-5 (#1202): cancel superseded runs on rapid pushes to the same
 # ref/PR — avoids self-overlap when several commits land in quick

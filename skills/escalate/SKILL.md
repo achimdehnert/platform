@@ -1,6 +1,9 @@
 ---
+name: escalate
 description: Eskaliert eine Aufgabe an ein höheres Modell-Tier (Sonnet → Opus, oder Stop+Refactor)
-mode: read-only
+metadata:
+  mode: read-only
+  migrated_from: .windsurf/workflows/escalate.md
 ---
 
 # /escalate — Tier-Mismatch-Signal
