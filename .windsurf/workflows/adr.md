@@ -140,9 +140,58 @@ Wenn `scripts/adr_next_number.py` nicht existiert (z.B. Docs-Repos, externe Repo
 > **NIEMALS** manuelle Zählung oder Schätzung aus Gedächtnis.
 > Script-Fallback auf GitHub API ist explizit erlaubt wenn Script fehlt.
 
-### 3.3 INDEX.md sofort aktualisieren
+### 3.3 Index NEU GENERIEREN — niemals von Hand ergänzen
 
-Nach dem Erstellen der ADR-Datei **sofort** INDEX.md ergänzen (falls vorhanden).
+> ⛔ **`docs/adr/INDEX.md` ist eine generierte Datei** (Zeile 1: `AUTO-GENERATED
+> by scripts/gen_adr_index.py — do not edit manually`). Eine Zeile von Hand
+> einzutragen ist **kein** gültiger Abschluss — der CI-Gate „ADR index freshness
+> (gating)" regeneriert den Index und diffed gegen den Commit.
+
+Nach dem Erstellen der ADR-Datei (Step 4), **nicht davor** — der Generator liest
+die fertige Datei:
+
+```bash
+python3 scripts/gen_adr_index.py
+```
+
+Erzeugt **zwei** Artefakte, beide gehören in den Commit:
+
+| Datei | Inhalt |
+|---|---|
+| `docs/adr/INDEX.md` | Tabellenzeile, Kopfzeile „Next free ADR number", Datum |
+| `docs/adr/index.json` | maschinenlesbar; trägt Rückreferenzen `superseded_by` / `amended_by` automatisch in die *referenzierten* ADRs nach |
+
+**Warum Handarbeit hier zuverlässig fehlschlägt** (Realfall ADR-280, 2026-07-21 —
+alle drei Abweichungen in einem einzigen handgepflegten Eintrag):
+
+1. Der Titel in der Index-Zeile wird aus der **H1-Überschrift** des ADR abgeleitet.
+   Eine sinngemäß gleiche, aber nicht zeichengleiche Formulierung ⇒ Diff ⇒ rot.
+2. `> **Next free ADR number:**` im Index-Kopf wird **nicht** mitgezählt.
+3. `docs/adr/index.json` wird komplett vergessen — sie steht in keiner Anleitung,
+   die von „INDEX.md ergänzen" spricht.
+
+**Fallback ohne Generator** (Docs-/Fremd-Repos ohne `scripts/gen_adr_index.py`):
+dort ist der Index handgepflegt und Handarbeit korrekt. Vorher prüfen:
+`ls scripts/gen_adr_index.py` bzw. Zeile 1 von `INDEX.md` auf den
+`AUTO-GENERATED`-Marker lesen.
+
+### 3.4 Frontmatter lokal validieren (vor dem Push)
+
+```bash
+iil-adrfw validate docs/adr
+```
+
+Erwartet: `N/N (100.0%) ✓ All ADRs valid`.
+
+> Der Validator scannt **alle** ADRs, nicht nur den neuen. Ein einziger Alt-Key
+> (`date:`, `decision-makers:`, `relates_to:`) in irgendeiner Datei rötet die
+> **gesamte** ADR-Pipeline — der Fehler sieht dann so aus, als läge er am neuen
+> ADR. Schema aus einer aktuellen Nachbar-ADR abschauen, nicht aus dem Gedächtnis.
+
+**Merge-Konflikt in `INDEX.md`/`index.json`?** Nicht von Hand mergen — auf
+`origin/main` rebasen, `gen_adr_index.py` erneut laufen lassen, das Ergebnis
+committen. Zwei parallele ADR-PRs kollidieren in diesen generierten Dateien
+zwangsläufig; die Auflösung ist immer Neugenerierung, nie Hand-Merge.
 
 ## Step 4: Create ADR File
 
@@ -208,7 +257,8 @@ Nach dem Erstellen der ADR-Datei **sofort** in pgvector speichern:
 
 ```text
 ADR-[NNN] erstellt: [Title]
-INDEX.md aktualisiert
+Index regeneriert: INDEX.md + index.json (gen_adr_index.py)
+Frontmatter validiert: N/N gültig (iil-adrfw validate docs/adr)
 pgvector Memory: gespeichert unter adr:{REPO_NAME}:ADR-[NNN]
 
 Status: Proposed → Review erforderlich
@@ -237,13 +287,38 @@ Review gegen diese Kriterien:
 
 Wenn ein ADR seinen Status ändert (z.B. `Proposed` → `Accepted`):
 
-### 8.1 ADR-Datei + INDEX.md aktualisieren
+### 8.1 ADR-Datei ändern, Index regenerieren
 
-```markdown
-| **Status**     | Accepted    |
+Der Status steht an **zwei** Stellen in der ADR-Datei — beide ändern:
+
+```yaml
+---
+status: accepted        # ← Frontmatter: DAS liest der Generator
+---
 ```
 
-Changelog-Eintrag ergänzen.
+```markdown
+| **Status**     | Accepted    |   ← Metadaten-Tabelle: das liest der Mensch
+```
+
+Changelog-Eintrag ergänzen, dann:
+
+```bash
+python3 scripts/gen_adr_index.py     # INDEX.md + index.json ziehen den Status nach
+```
+
+> ⛔ **`INDEX.md` nicht von Hand anfassen** — siehe Step 3.3. Die Status-Spalte
+> im Index ist abgeleitet, keine eigene Wahrheit.
+
+**Regel für Supersession/Amendment — Relation ≠ Statuswechsel:**
+Trägt das neue ADR `supersedes: [ADR-X]`, wird der Status von ADR-X **erst dann**
+auf `superseded` gesetzt, wenn das **neue** ADR selbst `accepted` ist. Ein
+„superseded by" auf einen erst *vorgeschlagenen* Nachfolger behauptet eine
+Ablösung, die niemand beschlossen hat. Die Relation ist trotzdem sofort
+festgehalten: `gen_adr_index.py` trägt `superseded_by`/`amended_by` automatisch
+in `index.json` nach. Der aufgeschobene Statuswechsel gehört als Zeile ins
+Migration Tracking des neuen ADR — sonst geht er verloren.
+(Realfall ADR-280 → ADR-229, 2026-07-21.)
 
 ### 8.2 pgvector Memory aktualisieren (gleicher entry_id = Update)
 
@@ -268,8 +343,8 @@ Changelog-Eintrag ergänzen.
 ADR-[NNN] Status aktualisiert: [Alt] → [Neu]
 
 Geändert in:
-- {ADR_PATH}/ADR-[NNN]-[slug].md  (Status-Feld + Changelog)
-- INDEX.md                        (Status-Spalte + Datum)
+- {ADR_PATH}/ADR-[NNN]-[slug].md  (Frontmatter status: + Metadaten-Tabelle + Changelog)
+- INDEX.md + index.json           (regeneriert via gen_adr_index.py)
 - pgvector Memory                 (entry_id: ADR-{REPO-UPPERCASE}-[NNN])
 ```
 
@@ -278,7 +353,48 @@ Geändert in:
 ```
 Proposed --> Accepted     (nach positivem Review)
 Proposed --> Draft        (nach Review mit Änderungsbedarf)
+Proposed --> Superseded   (nie beschlossen, aber vom Nachfolger mit abgeräumt —
+                           NUR wenn der Nachfolger selbst accepted ist, s. 8.1)
 Draft    --> Proposed     (nach Überarbeitung)
 Accepted --> Deprecated   (veraltet, kein direkter Nachfolger)
 Accepted --> Superseded   (abgelöst durch ADR-NNN)
 ```
+
+---
+
+## Abschluss-Checkliste (PFLICHT — vor „fertig")
+
+Diese Liste existiert, weil ein langes Schritt-für-Schritt-Dokument beim Lesen
+überflogen statt abgearbeitet wird. Jede Zeile einmal aktiv gegenprüfen; ein
+bewusstes „übersprungen, weil X" ist in Ordnung, ein stilles Auslassen nicht.
+
+- [ ] Nummer aus `scripts/adr_next_number.py` (Step 3.1) — **nicht** geschätzt
+- [ ] ADR-Datei aus `docs/templates/adr-template.md` (Step 4), Struktur nicht neu erfunden
+- [ ] `python3 scripts/gen_adr_index.py` gelaufen — **`INDEX.md` UND `index.json`** im Commit (Step 3.3)
+- [ ] `iil-adrfw validate docs/adr` grün, `N/N (100.0%)` (Step 3.4)
+- [ ] Alle im ADR referenzierten `ADR-NNN` existieren wirklich (`ls docs/adr/ADR-NNN-*`)
+- [ ] Bei `supersedes:`/`amends:` — Statuswechsel des Vorgängers bewusst **jetzt oder aufgeschoben**, und wenn aufgeschoben: als Zeile im Migration Tracking (Step 8.1)
+- [ ] §8 Confirmation hat mindestens 2 **prüfbare** Mechanismen, kein „wird beachtet"
+- [ ] pgvector-Upsert abgesetzt (Step 5)
+
+---
+
+## Anti-Patterns
+
+- ❌ `INDEX.md` von Hand ergänzen — sie ist generiert, der CI-Gate diffed dagegen
+- ❌ `index.json` vergessen — sie ist Teil desselben Generator-Laufs
+- ❌ ADR-Nummer aus dem Gedächtnis oder aus einem älteren Branch übernehmen
+- ❌ Vorgänger-ADR auf `superseded` setzen, während der Nachfolger noch `proposed` ist
+- ❌ Merge-Konflikt in `INDEX.md`/`index.json` von Hand auflösen statt neu generieren
+- ❌ §8 Confirmation mit unprüfbaren Zusagen füllen („wird im Review beachtet")
+
+---
+
+## Changelog
+
+- 2026-07-21: **Step 3.3 korrigiert** — „INDEX.md ergänzen" war irreführend und
+  führte direkt in den roten Gate „ADR index freshness (gating)". Jetzt:
+  `gen_adr_index.py` als Pflichtschritt, mit den drei konkreten Fehlerarten aus
+  dem Realfall ADR-280. Neu: Step 3.4 (lokales `iil-adrfw validate`),
+  Supersession-Regel in 8.1, Abschluss-Checkliste, Anti-Patterns, dieser
+  Changelog. Auslöser: platform#1291 — die Anleitung selbst war die Fehlerquelle.
