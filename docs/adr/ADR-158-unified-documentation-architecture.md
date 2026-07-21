@@ -15,16 +15,15 @@ related:
   - ADR-144-doc-hub-paperless-ngx.md
   - ADR-154-autonomous-coding-optimization.md
   - ADR-156-reliable-deployment-pipeline.md
-implementation_status: implemented
+implementation_status: partial
 implementation_evidence:
+  - "KORREKTUR 2026-07-21: implementation_status von 'implemented' auf 'partial' gesetzt. D-1 (Audience Navigator) und D-3 (Doc Health) leben in dev-hub (Pfade unten verifiziert), D-2 (Reference-Doc-Generator) ging nie in Betrieb."
   - "dev-hub/apps/portal/models.py: AudienceConfig, AudienceSource, DocHealthMetric, DocHealthProfile"
   - "dev-hub/apps/portal/services.py: AudienceService, CrossLinkService, DocHealthService"
   - "dev-hub/apps/portal/views.py: AudienceNavigatorView, AudienceRoleDetailView, DocHealthDashboardView"
   - "dev-hub/apps/portal/tasks.py: scan_repo_doc_health, scan_all_doc_health"
   - "dev-hub/apps/portal/migrations/0002_audience_dochealth.py"
-  - "platform/packages/docs-agent/src/docs_agent/extractors/"
-  - "platform/packages/docs-agent/src/docs_agent/git_utils.py"
-  - "platform/packages/docs-agent/src/docs_agent/cli.py: reference()"
+  - "TOT seit 2026-04-23 (Commit 2cc7289): platform/packages/docs-agent/ → _ARCHIVED/packages/docs-agent/. Betraf extractors/, git_utils.py, cli.py: reference(). Der Reference-Doc-Generator aus D-2 wurde nie in Betrieb genommen; docs/reference/{api,config,models}.md sind seither Handpflege."
 ---
 
 # ADR-158: Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs
@@ -36,7 +35,7 @@ staleness_months: 3
 drift_check_paths:
   - .windsurf/workflows/session-docu.md
   - platform/scripts/docu-audit.sh
-  - packages/docs-agent/
+  # packages/docs-agent/ entfernt 2026-07-21 — Pfad tot seit 2026-04-23 (→ _ARCHIVED/)
 supersedes_check: ADR-020 (superseded), ADR-046 (amends)
 -->
 
@@ -68,6 +67,10 @@ Die Platform-Dokumentation ist über **6 unverbundene Systeme** verstreut. Keine
 
 ### Bestehende Bausteine (was funktioniert)
 
+> **Stand dieser Tabelle: 2026-04-03 (Entscheidungszeitpunkt).** Eine Zeile ist inzwischen
+> überholt — `docs-agent` wurde am 2026-04-23 nach `_ARCHIVED/` verschoben (siehe unten
+> und `implementation_evidence`). Die übrigen Zeilen sind seither **nicht** nachgeprüft.
+
 | Baustein | Status | Stärke |
 |----------|--------|--------|
 | dev-hub TechDocs Sync | ✅ Deployed | GitHub → DB, Celery Beat, 389 Seiten |
@@ -76,7 +79,7 @@ Die Platform-Dokumentation ist über **6 unverbundene Systeme** verstreut. Keine
 | dev-hub Software Catalog | ✅ Deployed | 16 Components, 6 Domains |
 | Outline Wiki | ✅ Deployed | Runbooks, Konzepte, fulltext Search |
 | Paperless DMS | ✅ Deployed | OCR, Auto-Tagging, MCP-Integration |
-| docs-agent (AST Scanner) | ⚠️ Existiert | Docstring-Coverage, DIATAXIS-Classifier |
+| docs-agent (AST Scanner) | ❌ **archiviert 2026-04-23** (war: ⚠️ Existiert) | Docstring-Coverage, DIATAXIS-Classifier |
 | platform-context MCP | ✅ Deployed | Rules, Facts, Violations |
 | pgvector Memory | ✅ Deployed | Session-Context, Error-Patterns |
 | DIATAXIS-Struktur | ⚠️ Definiert | In ADR-046, nicht enforced |
@@ -246,6 +249,18 @@ audiences:
 **Schema-Isolation (ADR-072):** Neue portal-Models sind `django_tenants`-kompatibel (dev-hub nutzt Schema-Isolation). `tenant_id` dient als Fallback-Filter für shared-Schema-Queries.
 
 ### D-2: Reference-Doc Generator (docs-agent Integration)
+
+> **⚠️ Nicht umgesetzt — entstalt 2026-07-21.** Die untenstehende Generator-Tabelle
+> beschreibt einen **Soll-Zustand, der nie in Betrieb ging**. `docs-agent` liegt seit
+> 2026-04-23 (Commit `2cc7289`) in `_ARCHIVED/packages/docs-agent/`; ein Regen-Lauf ist
+> nicht mehr möglich. `docs/reference/{api,config,models}.md` existieren zwar, sind aber
+> seit 2026-04-03 **Handpflege** — belegt durch die manuellen Korrekturen vom 2026-07-02
+> (dokumentiert im Kopf von `api.md`) und PR #1004 (2026-07-20).
+>
+> Damit ist auch der `<!-- AUTO-GENERATED … DO NOT EDIT MANUALLY -->`-Header dieser
+> Dateien (unten, nach der Tabelle) faktisch überholt: er verbietet genau die Pflege,
+> die tatsächlich stattfindet. Wer D-2 reaktivieren will, muss den Generator zuerst aus
+> `_ARCHIVED/` zurückholen oder neu bauen — **bis dahin ist diese Tabelle Planung, kein Ist-Zustand.**
 
 AI-generierte Reference-Docs für jedes Repo, basierend auf Code-Introspection:
 

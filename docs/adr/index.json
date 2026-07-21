@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-19",
+  "generated": "2026-07-21",
   "total": 225,
   "next_free": 280,
   "adrs": [
@@ -2547,7 +2547,7 @@
         "ADR-154-autonomous-coding-optimization.md",
         "ADR-156-reliable-deployment-pipeline.md"
       ],
-      "implementation_status": "implemented"
+      "implementation_status": "partial"
     },
     {
       "number": 159,
