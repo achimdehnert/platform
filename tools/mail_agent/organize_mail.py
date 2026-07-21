@@ -112,22 +112,47 @@ def cmd_create_folder(imap: imaplib.IMAP4_SSL, name: str) -> None:
 def _matches(
     imap: imaplib.IMAP4_SSL, source: str, from_sub: str | None, subj_sub: str | None
 ):
+    # WICHTIG: UID-basiert suchen UND holen, damit die zurückgegebenen IDs echte
+    # UIDs sind — _move() verschiebt mit UID MOVE. Sequenz-Nummern (imap.search/
+    # imap.fetch) fallen nur bei lückenlosen Postfächern mit UIDs zusammen; auf
+    # Exchange traf UID MOVE sonst ins Leere und meldete trotzdem OK (still 0 verschoben).
     imap.select(source, readonly=True)
-    typ, data = imap.search(None, "ALL")
-    if typ != "OK":
+    typ, data = imap.uid("SEARCH", "ALL")
+    if typ != "OK" or not data or not data[0]:
         return []
+    all_uids = data[0].split()
     hits = []
-    for uid in data[0].split():
-        typ, md = imap.fetch(uid, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])")
-        if typ != "OK" or not md or not md[0]:
+    # In Blöcken holen (ein FETCH je Block) — sonst ein Round-Trip je Mail (bei
+    # 1000+ Mails > 2 min). UID FETCH liefert je Treffer "<seq> (UID <n> BODY...)".
+    for i in range(0, len(all_uids), 500):
+        block = all_uids[i : i + 500]
+        typ, md = imap.uid(
+            "FETCH",
+            b",".join(block),
+            "(UID BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])",
+        )
+        if typ != "OK" or not md:
             continue
-        msg = email.message_from_bytes(md[0][1])
-        frm, subj = _decode(msg.get("From")), _decode(msg.get("Subject"))
-        if from_sub and from_sub.lower() not in frm.lower():
-            continue
-        if subj_sub and subj_sub.lower() not in subj.lower():
-            continue
-        hits.append((uid, _decode(msg.get("Date"))[:22], frm[:40], subj[:55]))
+        for idx, part in enumerate(md):
+            if not isinstance(part, tuple):
+                continue
+            # UID steht je nach Server in part[0] (Dovecot) ODER im nachfolgenden
+            # Separator (Exchange: b" UID 147004)"). Beide Stellen absuchen.
+            blob = part[0] or b""
+            nxt = md[idx + 1] if idx + 1 < len(md) else b""
+            if isinstance(nxt, (bytes, bytearray)):
+                blob += nxt
+            m = re.search(rb"UID (\d+)", blob)
+            if not m:
+                continue
+            uid = m.group(1)
+            msg = email.message_from_bytes(part[1])
+            frm, subj = _decode(msg.get("From")), _decode(msg.get("Subject"))
+            if from_sub and from_sub.lower() not in frm.lower():
+                continue
+            if subj_sub and subj_sub.lower() not in subj.lower():
+                continue
+            hits.append((uid, _decode(msg.get("Date"))[:22], frm[:40], subj[:55]))
     return hits
 
 
