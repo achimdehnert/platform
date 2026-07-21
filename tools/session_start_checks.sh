@@ -169,16 +169,41 @@ else
 fi
 
 # ── 0.7 Deploy-Status aller Prod-Apps (gh, CC-Standard-Weg) ─────────────────
+# Zwei Befund-Klassen pro Repo, nicht nur eine (Lehre 2026-07-21, ausschreibungs-hub):
+#   a) letzter Run `conclusion: failure` — der offensichtliche Fall.
+#   b) IRGENDEIN Run auf `status: waiting` — haengt an einem Environment-
+#      Approval-Gate und belegt die Concurrency-Group `deploy-<app>-<ref>`
+#      weiter. `cancel-in-progress` greift dort NICHT, `gh run cancel` ebenso
+#      wenig. Folge: jeder spaetere Deploy steht als `pending` mit 0 Jobs und
+#      erreicht Prod nie — ohne dass irgendein Check rot wird. Realfall: Merge
+#      #159 (ausschreibungs-hub) war 9 Tage nicht live, 0.7 meldete PASS, weil
+#      `conclusion` eines waiting-Runs null ist. Aufloesung: pending_deployments
+#      des ALTEN Runs mit state=rejected beantworten, nicht den neuen anfassen.
 OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.*#\1#')
-DEPLOY_FAILS=""
-for r in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do
-  C=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 --json conclusion --jq '.[0].conclusion // "none"' 2>/dev/null)
+# ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
+# ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
+DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
+DEPLOY_FAILS=""; DEPLOY_WAITING=""
+WAIT_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+for r in $DEPLOY_REPOS; do
+  # EINE Abfrage, zwei Werte: "<conclusion-des-letzten> <aeltester-waiting-createdAt>"
+  OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 20 --json status,conclusion,createdAt \
+        --jq '"\(.[0].conclusion // "none") \([.[]|select(.status=="waiting")|.createdAt]|min // "none")"' 2>/dev/null)
+  [ -z "$OUT" ] && continue
+  C=${OUT%% *}; W=${OUT##* }
   [ "$C" = "failure" ] && DEPLOY_FAILS="$DEPLOY_FAILS $r"
+  # erst ab 24h melden: ein frisches Gate ist der Normalfall, kein Befund
+  if [ "$W" != "none" ] && [ -n "$WAIT_CUTOFF" ] && [[ "$W" < "$WAIT_CUTOFF" ]]; then
+    DEPLOY_WAITING="$DEPLOY_WAITING $r"
+  fi
 done
-if [ -n "$DEPLOY_FAILS" ]; then
+N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
+if [ -n "$DEPLOY_WAITING" ]; then
+  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS}"
+elif [ -n "$DEPLOY_FAILS" ]; then
   record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live)"
 else
-  record "0.7 deploy-scan" "PASS" "kein failure im letzten Deploy-Run (9 Repos)"
+  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${N_DEPLOY_REPOS} Repos)"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────

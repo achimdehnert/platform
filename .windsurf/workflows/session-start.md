@@ -73,6 +73,12 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   - `0.7 failure:<repos>`: je Repo Deploy-Log lesen + User informieren —
     🌀 `feedback_deploy_green_not_change_live`: run-conclusion allein belegt nicht,
     dass die Änderung live ist. Optional als error_pattern sichern (/session-ende Phase 2).
+  - `0.7 waiting>24h:<repos>`: **stiller Prod-Blocker** — ein Run haengt an einem
+    Environment-Approval-Gate und belegt die Concurrency-Group weiter; jeder spaetere
+    Deploy steht als `pending` mit 0 Jobs und erreicht Prod nie, ohne dass ein Check
+    rot wird. `gh run cancel` wirkt dort NICHT. Aufloesen ueber das Gate des ALTEN Runs:
+    `gh api repos/<o>/<r>/actions/runs/<id>/pending_deployments -X POST -F 'environment_ids[]=<envid>' -f state=rejected`
+    (Realfall 2026-07-21 ausschreibungs-hub: Merge #159 war 9 Tage nicht live).
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
