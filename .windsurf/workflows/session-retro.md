@@ -77,16 +77,20 @@ Kontext = Bruch von Regel 1. „Billiger" heißt **Sonnet-Subagent**, nicht **ke
 Opus-Subagenten nur, wenn Sonnet nachweislich an Nuance scheitert.
 
 ## Phase 1 — Collect (Ground Truth, frischer Ermittler)
-**Frisch-Checkout-Pflicht (GATE-PFLICHTIG, 7. Vorkommen — Lehre 2026-07-16):** der
+**Frisch-Checkout-Pflicht (GATE-PFLICHTIG, 8. Vorkommen — Lehre 2026-07-16, geschärft 2026-07-21):** der
 allererste Befehl gegen jedes Scope-Repo ist `git fetch origin <default-branch>`,
 **bevor** irgendein `git log`/`git status`/`git diff` gegen den lokalen Checkout liest —
-auch bei `lean`-Footprint und auch wenn Phase 1 inline (ohne Subagent) läuft. Diese
+auch bei `lean`-Footprint und auch wenn Phase 1 inline (ohne Subagent) läuft. **`fetch` ALLEIN
+reicht NICHT: es aktualisiert `origin/<default-branch>`, NICHT den Working-Tree — wer danach die
+Working-Tree-Datei grept/liest (`grep pattern <datei>`, `cat`), liest weiter stale. Verifikations-Reads
+MÜSSEN aus dem Ref kommen: `git show origin/<default-branch>:<pfad>` bzw. `git diff origin/<default-branch>
+-- <pfad>`, NIE die lokale Datei nach dem Fetch.** Diese
 Pflicht galt bisher nur explizit für Phase 3 (Skeptiker); `stale-local-clone-as-ground-truth`
-trat dadurch ein 7. Mal auf, diesmal in Phase 1 selbst (`session-retro-2026-07-16-
-iil-klickdummy-d80d23`): 4 gemergte PRs wurden übersehen, weil `git log` gegen einen
-ungefetchten lokalen `main` lief, was einen falschen Befund erzeugte, der beinahe zum
-Merge der falschen PR geführt hätte. Diese Zeile ersetzt das bloße Hoffen auf
-Einzelfall-Disziplin — exakt wie die Phase-3-Zeile es bereits für Skeptiker tut.
+trat trotz „fetch first" ein 7. Mal (Phase 1, `session-retro-2026-07-16-iil-klickdummy-d80d23`:
+4 gemergte PRs übersehen) und ein 8. Mal (`8d663b-incr` I2: `grep` auf lokalem mcp-hub-Tree HEAD
+`c092cb8` zeigte alte Check-Zeilen, obwohl origin/main `15a1fc7` sie verankert hatte — nur durch
+Content-Smell gefangen) auf — beide belegen: die Lücke ist die **Lesequelle**, nicht der Fetch.
+Diese Zeile ersetzt das bloße Hoffen auf Einzelfall-Disziplin — exakt wie die Phase-3-Zeile es bereits für Skeptiker tut.
 
 Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
 - `gh pr list --repo <owner>/<repo> --state all --search "updated:>=<datum>"` (+ `gh issue list`)
@@ -159,7 +163,9 @@ Verweis auf nicht-existente Memory `claim-confidence-vs-cheapest-check`.)
 
 **Frisch-Checkout-Pflicht (Lehre 2026-07-06 — GATE-PFLICHTIG, 3. Vorkommen):** Jeder
 Skeptiker-Prompt beginnt zwingend mit `git fetch origin <default-branch>` und prüft gegen
-`origin/<default-branch>`, NICHT den lokalen Checkout. `stale-local-clone-as-ground-truth`
+`origin/<default-branch>`, NICHT den lokalen Checkout. **Konkret heißt „gegen origin prüfen":
+aus dem Ref LESEN (`git show origin/<default-branch>:<pfad>`), nicht die Working-Tree-Datei nach
+dem Fetch greppen — Fetch bewegt `origin/<default-branch>`, nicht den Tree (Schärfung 2026-07-21, s. Phase 1).** `stale-local-clone-as-ground-truth`
 war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); beim Retro `3b123e` trat es ein drittes
 Mal auf — diesmal INNERHALB der eigenen Skeptiker-Verifikation dieser Skill (ein Skeptiker
 prüfte zunächst gegen einen veralteten lokalen `main`, in dem ein PR-Merge fehlte, und musste
@@ -365,3 +371,12 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
   produzierte einen Befund, der beim späteren Merge-Versuch als REFUTED aufflog — 7. Instanz von
   `stale-local-clone-as-ground-truth`, diesmal in Phase 1 statt Phase 3. Quelle:
   `docs/retros/session-retro-2026-07-16-iil-klickdummy-d80d23.md` Befund #2.
+- 2026-07-21 (v2.6): **Frisch-Checkout-Pflicht präzisiert (Phase 1 + Phase 3): „fetch first" reicht
+  NICHT — nach dem Fetch aus dem REF lesen** (`git show origin/<branch>:<pfad>`), nicht die
+  Working-Tree-Datei greppen. Fetch bewegt `origin/<branch>`, nicht den Tree; ein grep auf die lokale
+  Datei liest danach weiter stale. 8. Instanz von `stale-local-clone-as-ground-truth`, diesmal INNERHALB
+  eines lean-Increment-Retros dieser Skill (`8d663b-incr` I2): `grep` auf lokalem mcp-hub-Tree (HEAD
+  `c092cb8`) zeigte alte Check-Zeilen trotz vorherigem `fetch`, weil origin/main (`15a1fc7`) nur den Ref
+  bewegte — nur durch Content-Smell gefangen. Die bestehende Zeile („fetch first") war unvollständig:
+  die Lücke ist die Lesequelle, nicht der Fetch. Memory `feedback_stale_clone_read_from_ref_not_tree_after_fetch`.
+  Quelle: `docs/retros/session-retro-2026-07-21-platform-8d663b-incr.md` Befund I2.
