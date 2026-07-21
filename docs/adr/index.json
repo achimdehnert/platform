@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-21",
-  "total": 226,
-  "next_free": 281,
+  "total": 227,
+  "next_free": 282,
   "adrs": [
     {
       "number": 7,
@@ -4034,7 +4034,8 @@
         "claude-skills.md"
       ],
       "amended_by": [
-        "ADR-280"
+        "ADR-280",
+        "ADR-281"
       ],
       "related": [
         "ADR-229"
@@ -5213,6 +5214,33 @@
         "ADR-229",
         "ADR-230",
         "ADR-233"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 281,
+      "id": "ADR-281",
+      "file": "ADR-281-skill-distribution-symlink.md",
+      "title": "Verteile Skills als Symlinks auf den Repo-Checkout statt als generierte Kopien",
+      "status": "proposed",
+      "date": "2026-07-21",
+      "domains": [
+        "tooling",
+        "dx",
+        "drift-prevention",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-230"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-229",
+        "ADR-230",
+        "ADR-233",
+        "ADR-280"
       ],
       "implementation_status": ""
     },
