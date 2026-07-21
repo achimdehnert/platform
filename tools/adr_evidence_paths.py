@@ -35,6 +35,12 @@ Pfad-Heuristik — bewusst konservativ, Ziel sind 0 Falsch-Positive
      `models/qa_log.py`, `models/cost_log.py`, `headless/`) existieren in
      mcp-hub@main — die Evidence stimmt, nur dieser Checkout kann sie nicht sehen.
 
+Dokumentierte Archivierung (kein Finding):
+  Ein Eintrag, der neben dem alten Pfad ein EXISTIERENDES `_ARCHIVED/...`-Ziel nennt
+  ("packages/docs-agent/ -> _ARCHIVED/packages/docs-agent/, seither Handpflege"), gilt
+  als korrekt nachgezogen — der tote Pfad steht dort absichtlich als Historie. Zeigt
+  der Archiv-Verweis selbst ins Leere, bleibt das Finding bestehen.
+
 Whitelist fuer bekannte Alt-Funde:
   docs/adr/.adr-evidence-ignore — ein Eintrag pro Zeile, Format:
 
@@ -250,6 +256,7 @@ def run(
         "skipped_unknown_root": 0,
         "skipped_partial_mirror": 0,
         "ignored": 0,
+        "documented_archival": 0,
     }
     repo_names = load_repo_names(repo_root)
     ignore_pairs = load_ignore_pairs(adr_dir)
@@ -263,7 +270,19 @@ def run(
         adr_num = adr.name[:7]  # "ADR-158"
         for line_no, entry in entries:
             stats["entries"] += 1
-            for candidate in path_candidates(entry):
+            candidates = path_candidates(entry)
+            # Ein Eintrag, der die Archivierung selbst dokumentiert ("X → _ARCHIVED/X,
+            # Commit abc, seither Handpflege"), ist kein Defekt, sondern die gewuenschte
+            # Schreibweise — der tote Pfad steht dort absichtlich als Historie. Erkannt
+            # an einem existierenden _ARCHIVED/-Ziel im selben Eintrag.
+            if any(
+                c.lstrip("/").startswith("_ARCHIVED/")
+                and (repo_root / c.lstrip("/")).exists()
+                for c in candidates
+            ):
+                stats["documented_archival"] += 1
+                continue
+            for candidate in candidates:
                 stats["candidates"] += 1
                 verdict, target = resolve(candidate, repo_root, repo_names)
                 if verdict.startswith("skipped_"):
@@ -345,6 +364,7 @@ def emit(findings: list[Finding], stats: dict[str, int], fmt: str) -> None:
         f"  fremder Root    : {stats['skipped_unknown_root']}\n"
         f"  Teilspiegel     : {stats['skipped_partial_mirror']}\n"
         f"  via ignore-Datei: {stats['ignored']}\n"
+        f"Archiv dokumentiert: {stats['documented_archival']} Eintraege\n"
         f"Findings          : {len(findings)}"
     )
 

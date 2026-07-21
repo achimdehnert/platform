@@ -167,6 +167,33 @@ def test_should_leave_entry_untouched_without_braces(tmp_path):
     assert aep.expand_braces("tools/a.py: helper") == ["tools/a.py: helper"]
 
 
+def test_should_accept_entry_documenting_its_own_archival(tmp_path):
+    """`X -> _ARCHIVED/X (Commit)` ist die gewuenschte Schreibweise, kein Defekt."""
+    adr_dir = _mk_repo(
+        tmp_path,
+        [
+            "TOT seit 2026-04-23 (2cc7289): packages/docs-agent/ -> _ARCHIVED/packages/docs-agent/"
+        ],
+        extra_dirs=["packages"],
+        extra_files=["_ARCHIVED/packages/docs-agent/cli.py"],
+    )
+    findings, stats = aep.run(adr_dir, tmp_path)
+    assert findings == []
+    assert stats["documented_archival"] == 1
+
+
+def test_should_still_flag_when_archive_target_does_not_exist(tmp_path):
+    """Ein _ARCHIVED-Verweis ins Leere darf den Eintrag NICHT freistellen."""
+    adr_dir = _mk_repo(
+        tmp_path,
+        ["packages/gone/ -> _ARCHIVED/packages/gone/"],
+        extra_dirs=["packages"],
+    )
+    findings, stats = aep.run(adr_dir, tmp_path)
+    assert findings
+    assert stats["documented_archival"] == 0
+
+
 def test_should_respect_ignore_file(tmp_path):
     adr_dir = _mk_repo(tmp_path, ["tools/gone.py: helper"], extra_dirs=["tools"])
     (adr_dir / ".adr-evidence-ignore").write_text(
