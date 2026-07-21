@@ -40,7 +40,13 @@ jobs:
           https://billing.iil.pet/livez/
           https://dev-hub.iil.pet/livez/
           https://dms.iil.pet/livez/
-          https://kiohnerisiko.de/livez/
+          # kiohnerisiko.de: 2026-07-21 auf Owner-Weisung stillgelegt (Entwicklung
+          # ruht) — nginx-vhost deaktiviert, die Domain antwortet bewusst nicht
+          # mehr. Ohne diese Streichung meldet der Canary alle 15 min einen
+          # Ausfall, der keiner ist. Wiederaufnahme: Zeile reaktivieren, sobald
+          # der vhost zurueck ist. Freeze-Register: #1314.
+          # Die Anwendung dahinter (coach-hub) laeuft weiter und bleibt ueber
+          # coach-hub.iil.pet erreichbar — hier ruht nur die Domain.
           https://learn.iil.pet/livez/
           https://nl2cad.de/livez/
           https://prezimo.com/livez/
