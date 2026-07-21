@@ -156,10 +156,32 @@ def extract_evidence(text: str) -> list[tuple[int, str]]:
     return out
 
 
+def expand_braces(entry: str) -> list[str]:
+    """Brace-Listen aufloesen: `docs/x/{a,b}.md` → `docs/x/a.md`, `docs/x/b.md`.
+
+    In dieser Codebase eine gaengige Kurzschreibweise (ADR-175 nutzt sie zweimal).
+    Ohne Expansion bricht der Pfad-Kandidat vor der Klammer ab und der Check prueft
+    nur das Elternverzeichnis — verifiziert 2026-07-21: drei tote Pfade unter
+    `docs/governance/` blieben so unentdeckt. Nur eine Klammer-Ebene, das genuegt
+    fuer alle real vorkommenden Faelle.
+    """
+    m = re.search(r"\{([^{}]+)\}", entry)
+    if not m or "," not in m.group(1):
+        return [entry]
+    return [
+        entry[: m.start()] + alt.strip() + entry[m.end() :]
+        for alt in m.group(1).split(",")
+        if alt.strip()
+    ]
+
+
 def path_candidates(entry: str) -> list[str]:
     """Pfad-artige Tokens eines Evidence-Eintrags (Heuristik-Regeln 1–2)."""
     found: list[str] = []
-    for raw in PATH_CANDIDATE_RE.findall(entry):
+    tokens: list[str] = []
+    for variant in expand_braces(entry):
+        tokens.extend(PATH_CANDIDATE_RE.findall(variant))
+    for raw in tokens:
         token = raw.strip().rstrip(",;.)")
         if not token or "/" not in token:
             continue

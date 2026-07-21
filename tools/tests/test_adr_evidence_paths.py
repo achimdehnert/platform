@@ -151,6 +151,22 @@ def test_should_still_flag_adr_reference_without_matching_file(tmp_path):
     assert findings[0].category == "dead_path"
 
 
+def test_should_expand_brace_lists(tmp_path):
+    """`docs/gov/{a,b}.md` — ohne Expansion wuerde nur docs/gov/ geprueft."""
+    adr_dir = _mk_repo(
+        tmp_path,
+        ["platform/docs/gov/{alive,gone}.md — Lookups"],
+        extra_files=["docs/gov/alive.md"],
+    )
+    findings, _ = aep.run(adr_dir, tmp_path)
+    assert len(findings) == 1
+    assert findings[0].candidate == "platform/docs/gov/gone.md"
+
+
+def test_should_leave_entry_untouched_without_braces(tmp_path):
+    assert aep.expand_braces("tools/a.py: helper") == ["tools/a.py: helper"]
+
+
 def test_should_respect_ignore_file(tmp_path):
     adr_dir = _mk_repo(tmp_path, ["tools/gone.py: helper"], extra_dirs=["tools"])
     (adr_dir / ".adr-evidence-ignore").write_text(
