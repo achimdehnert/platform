@@ -29,13 +29,13 @@ metadata:
 /issues-offen org:<org> repo:<r1>,<r2>   # Cross-Repo, aber nur diese Repos
 ```
 
-**Argument dieses Aufrufs** (das, was nach dem Skill-Namen übergeben wurde — leer, wenn nichts übergeben):
+`$ARGUMENTS`:
 - **kein `org:`-Präfix** → Single-Repo-Modus (Repo-Kurzname oder cwd). Verhalten unverändert.
 - **`org:<org>`** → Cross-Repo-Modus (Step 0b). `<org>` ist die GitHub-Org.
 
 ## Step 0: Repo-Kontext (NICHT hardcoden)
 
-1. Repo bestimmen: das übergebene Argument → `<repo>`; sonst Basename von `git rev-parse --show-toplevel`.
+1. Repo bestimmen: `$ARGUMENTS` → `<repo>`; sonst Basename von `git rev-parse --show-toplevel`.
 2. Owner/Org + Konventionen NICHT raten — **stabile Quelle zuerst, Live nur als Fallback:**
    - **Primär (kein API-Call):** `~/github/<repo>/project-facts.md` lesen. Owner/Repo
      steckt in der `GitHub:`-Zeile (`https://github.com/<owner>/<repo>`); Stack/Settings/
