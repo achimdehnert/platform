@@ -351,18 +351,32 @@ pgbouncer:
 
 ## 5. Migration Tracking
 
-Status pro Service — wird bei jedem Phase-Abschluss aktualisiert:
+> **⚠️ Entstalt 2026-07-21.** Diese Tabelle stammt aus der Erstfassung (2026-02-21) und
+> wurde durch den ADR-237-Audit (2026-06-06, siehe `implementation_evidence` im
+> Frontmatter) teilweise **widerlegt**: real schema-per-tenant sind nur `travel-beat`
+> und `tax-hub`; `tax-hub` fehlte hier ganz. Die ursprüngliche Phasen-Planung wurde
+> zudem durch ADR-237 re-scoped (schema-per-tenant = Ausnahme, nicht Default), d. h.
+> „Ausstehend" bedeutet hier **nicht** mehr „noch zu tun".
+>
+> Die Zeilen unten sind auf den *belegten* Stand zurückgesetzt. Wo der ADR-237-Audit
+> nichts gemessen hat, steht ausdrücklich **nicht nachgemessen** — bewusst kein
+> geschätzter Status. Wer die Tabelle vervollständigen will, muss die betroffenen
+> Repos einzeln nachmessen (`django_tenants` vs. row-level `tenant_id`).
 
-| Service | Phase | Status | Datum | Notizen |
-|---------|-------|--------|-------|---------|
-| `travel-beat` | Phase 0 (Vorbereitung) | ✅ Abgeschlossen | 2026-02-21 | `platform_context[tenants]>=0.4.0` verfügbar |
-| `travel-beat` | Phase 1 (Pilot) | In Arbeit | – | Pilot-Service bestätigt |
-| `risk-hub` | Phase 2 | ⬜ Ausstehend | – | Hat bereits Tenancy-Infrastruktur (ADR-035) |
-| `weltenhub` | Phase 1.5 (DB-Trennung) | ⬜ Ausstehend | – | Voraussetzung für bfagent |
-| `bfagent` | Phase 2 | ⬜ Ausstehend | – | Erst nach weltenhub DB-Trennung |
-| `trading-hub` | Out of Scope | ➖ | – | Internes Tool, kein SaaS-Bedarf Phase 1 |
-| `mcp-hub` | Out of Scope | ➖ | – | Internes Tool |
-| `dev-hub` | Out of Scope | ➖ | – | Internes Tool |
+| Service | Phase (Erstplanung) | Belegter Stand | Quelle / Datum |
+|---------|---------------------|----------------|----------------|
+| `travel-beat` | Phase 0 (Vorbereitung) | ✅ abgeschlossen | Erstfassung, 2026-02-21 |
+| `travel-beat` | Phase 1 (Pilot) | ✅ real schema-per-tenant | ADR-237-Audit, 2026-06-06 |
+| `tax-hub` | *in Erstplanung nicht geführt* | ✅ real schema-per-tenant | ADR-237-Audit, 2026-06-06 |
+| `risk-hub` | Phase 2 | ❔ nicht nachgemessen | – |
+| `weltenhub` | Phase 1.5 (DB-Trennung) | ❔ nicht nachgemessen | ADR-237-Audit nennt es explizit als ungemessen |
+| `cad-hub` | *in Erstplanung nicht geführt* | ❔ nicht nachgemessen | ADR-237-Audit nennt es explizit als ungemessen |
+| `bfagent` | Phase 2 | ❔ nicht nachgemessen | – |
+| `coach-hub` | *in Erstplanung nicht geführt* | ➖ row-level, **nicht** `django_tenants` | ADR-237-Audit, 2026-06-06 |
+| `billing-hub` | *in Erstplanung nicht geführt* | ➖ row-level, **nicht** `django_tenants` | ADR-237-Audit, 2026-06-06 |
+| `dev-hub` | Out of Scope | ➖ row-level, **nicht** `django_tenants` | ADR-237-Audit, 2026-06-06 |
+| `trading-hub` | Out of Scope | ➖ internes Tool, kein SaaS-Bedarf | Erstfassung, 2026-02-21 |
+| `mcp-hub` | Out of Scope | ➖ internes Tool | Erstfassung, 2026-02-21 |
 
 ---
 
