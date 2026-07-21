@@ -4,7 +4,7 @@ decision_date: 2026-02-26
 deciders: [Platform Team]
 implementation_status: implemented
 implementation_evidence:
-  - "Phase 1 Package: platform/packages/platform-notifications/ — 21 Tests passed"
+  - "Phase 1 Package: packages/platform-notifications/ → _ARCHIVED/packages/platform-notifications/ (2cc7289, 2026-04-23); 21 Tests passed; lebt als Dist iil-platform-notifications 0.1.0 auf PyPI (2026-03-24)"
   - "5 Channels: EmailChannel, SmsChannel, WebhookChannel, DiscordChannel, TelegramChannel"
   - "ChannelRegistry: thread-safe Singleton, auto-registration via AppConfig.ready()"
   - "NotificationService: send() (Celery-async) + send_sync() + health_check()"
@@ -14,7 +14,7 @@ implementation_evidence:
   - "Noch offen: Phase 2-4 Consumer-Migrations (wedding-hub, bfagent, risk-hub, weltenhub)"
 ---
 
-<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-notifications/**, supersedes_check: none -->
+<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: _ARCHIVED/packages/platform-notifications/**, supersedes_check: none -->
 
 # ADR-088: Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System
 

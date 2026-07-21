@@ -14,7 +14,7 @@ implementation_evidence:
   - "Phase 3 (Collections) completed: 6 Collections in Outline angelegt — 2026-03-14"
   - "Phase 4 (Runbooks) completed: 2 Runbooks + 1 Lesson Learned erstellt — 2026-03-14"
   - "Phase 5 (API-Token) completed: platform-mcp Token (scope /api/*.*) — 2026-03-14"
-  - "Phase 6 (outline_mcp) completed: packages/outline-mcp/, 6 tools, 7 tests green — 2026-03-14"
+  - "Phase 6 (outline_mcp) completed: packages/outline-mcp/ → _ARCHIVED/packages/outline-mcp/ (2cc7289, 2026-04-23), 6 tools, 7 tests green — 2026-03-14; lebt als Dist iil-outline-mcp 0.2.0 auf PyPI"
   - "Phase 7 (Windsurf) completed: mcp_config.json, live-tested search+get+list — 2026-03-14"
   - "Phase 8 (Workflows) completed: /knowledge-capture + /agent-session-start Step 6 — 2026-03-14"
   - "Phase 9 (KnowledgeDocument) completed: apps/knowledge/ in research-hub, HMAC webhook, Celery tasks, 19 tests — 2026-03-14"

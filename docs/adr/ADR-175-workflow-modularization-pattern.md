@@ -4,16 +4,12 @@ decision_date: 2026-04-29
 amended: 2026-05-31
 status: accepted
 deciders: achimdehnert
-implementation_status: implemented
+implementation_status: partial
 implementation_evidence:
-  - "platform/.windsurf/workflows/onboard-repo.md — Step 7 + Refs ausgelagert (1175→1041 LOC, -11%)"
-  - "platform/.windsurf/workflows/new-github-project.md — Verifikation ausgelagert (701→664 LOC, -5%)"
-  - "platform/.windsurf/workflows/platform-audit.md — Report-Skeleton ausgelagert (420→367 LOC, -13%)"
-  - "platform/.windsurf/workflows/agentic-coding.md — Diagramm + ADR-Refs ausgelagert (372→351 LOC, -6%)"
-  - "platform/.windsurf/workflows/session-ende.md — Checkliste + MCP-Tabelle ausgelagert (365→346 LOC, -5%)"
-  - "platform/docs/onboarding/{onboard-repo,new-github-project}-checklist.md — onboarding-Lookups"
-  - "platform/docs/governance/{agentic-coding-reference,session-ende-checklist,platform-audit-report-template}.md — governance-Lookups"
-  - "Gesamt: 3033→2769 LOC (-9%, 264 LOC ausgelagert auf 5 Workflows)"
+  - "Stand 2026-04-29 (Umsetzung): 5 Workflows refaktoriert, 3033→2769 LOC (-9%, 264 LOC ausgelagert)"
+  - "heute noch vorhanden: .windsurf/workflows/onboard-repo.md, platform-audit.md, session-ende.md"
+  - "zurückgebaut: new-github-project.md + agentic-coding.md (cfa9c0f, usage-sweep #1115, 2026-07-20)"
+  - "zurückgebaut: alle 5 Lookup-Dateien (docs/onboarding/, docs/governance/) — bereits im Amendment 2026-05-31 entschieden und vollzogen (docs/onboarding/ via 0f31287, #361); die Auslagerungs-REGELN bleiben gültig, nur die physische Auslagerung ist zurückgenommen"
 implementation_done_when:
   - "Sync-CI verteilt docs/<topic>/ Dateien zu allen Repos die den Workflow nutzen (Issue offen)"
   - "Modularisierungs-Regeln in workflow-review.md ergänzt (Pattern-Doku)"

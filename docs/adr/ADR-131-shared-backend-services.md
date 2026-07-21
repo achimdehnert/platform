@@ -10,7 +10,7 @@ related: ["ADR-022-platform-consistency-standard.md", "ADR-192-django-service-la
 implementation_status: implemented
 implementation_evidence:
   - "Own repo: https://github.com/achimdehnert/iil-django-commons (v0.3.0)"
-  - "Mirror: platform/packages/iil-django-commons/ (Monorepo)"
+  - "Monorepo-Mirror packages/iil-django-commons/ → _ARCHIVED/packages/iil-django-commons/ (2cc7289, 2026-04-23); kanonisch ist seither das eigene Repo (Zeile darüber)"
   - "8 Module: logging, health, cache, ratelimit, security, email, tasks, monitoring"
   - "31 Tests (30 passed, 1 skipped), CI Pipeline Python 3.11+3.12"
   - "Consumer 1: billing-hub (LIVE billing.iil.pet) — INSTALLED_APPS, Middleware, Health, IIL_COMMONS"
@@ -67,8 +67,13 @@ Ziel ist eine wiederverwendbare Library, die diese Cross-Cutting Concerns zentra
 
 Ein eigenständiges Python-Package, gehostet als privates GitHub-Repository mit pip-Install via Git-URL. Semantic Versioning, eigene CI/CD-Pipeline, klare API.
 
-Projekte installieren via: `pip install -e platform/packages/iil-django-commons` (Monorepo)
-oder `pip install git+https://github.com/achimdehnert/platform.git@main#subdirectory=packages/iil-django-commons` (pinned)
+Projekte installieren via: `pip install iil-django-commons` (PyPI) oder gepinnt aus dem
+eigenen Repo `git+https://github.com/achimdehnert/iil-django-commons@v0.3.0`.
+
+> **Stand 2026-07-21:** Die ursprünglich hier dokumentierten Monorepo-Installationswege
+> (`pip install -e platform/packages/iil-django-commons` bzw. `subdirectory=`-Install aus
+> platform) funktionieren seit `2cc7289` (2026-04-23) nicht mehr — das Verzeichnis liegt
+> unter `_ARCHIVED/`. Nachgezogen im Zuge von platform#1311.
 
 ### 3.2 Option B: Git Submodule
 

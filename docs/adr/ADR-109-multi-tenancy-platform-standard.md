@@ -4,7 +4,7 @@ decision_date: 2026-03-08
 deciders: [Achim Dehnert]
 implementation_status: partial
 implementation_evidence:
-  - "Referenz-Implementierungen: coach-hub, risk-hub (packages/django-tenancy/), research-hub"
+  - "Referenz-Implementierungen: coach-hub, risk-hub (risk-hub/packages/django-tenancy/), research-hub"
   - "Rollout done: weltenhub, cad-hub, travel-beat, billing-hub (TENANCY_MODE=disabled), dev-hub (disabled)"
   - "pptx-hub: tenant_id in Models vorhanden, aber kein django_tenancy Package"
   - "Fehlend: trading-hub (kein tenant_id, kein django_tenancy)"
