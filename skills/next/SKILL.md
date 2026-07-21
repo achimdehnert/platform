@@ -1,6 +1,9 @@
 ---
+name: next
 description: Zeigt die 3 sinnvollsten nächsten Schritte für den aktuellen Repo (mit Tier-Tag)
-mode: read-only
+metadata:
+  mode: read-only
+  migrated_from: .windsurf/workflows/next.md
 ---
 
 # /next — Schnell-Orientierung

@@ -27,6 +27,7 @@ mode: read-only
 | Repo-Reference-Doku generieren/syncen (README/CHANGELOG/API) | `/session-docu` |
 | Die 3 sinnvollsten nächsten Schritte fürs Repo | `/next` |
 | Handoff fortsetzen / offene Issues weiterbearbeiten | `/issues-abarbeiten` |
+| Antwort-Format auf Kompakt-/Struktur-Modus umstellen | `/antwort-modus-schablone` |
 
 ### Coding-Flow
 
