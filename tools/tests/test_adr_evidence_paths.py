@@ -194,6 +194,29 @@ def test_should_still_flag_when_archive_target_does_not_exist(tmp_path):
     assert stats["documented_archival"] == 0
 
 
+def test_should_accept_documented_removal_with_commit(tmp_path):
+    """Geloescht statt archiviert: Marker-Wort + Commit-Hash ist der Beleg."""
+    adr_dir = _mk_repo(
+        tmp_path,
+        ["packages/platform-search/ am 2026-03-25 als Orphan zurueckgebaut (4cd39b4)"],
+        extra_dirs=["packages"],
+    )
+    findings, stats = aep.run(adr_dir, tmp_path)
+    assert findings == []
+    assert stats["documented_archival"] == 1
+
+
+def test_should_flag_removal_marker_without_commit_hash(tmp_path):
+    """Ein Marker-Wort allein ist kein Beleg — der Commit fehlt."""
+    adr_dir = _mk_repo(
+        tmp_path,
+        ["packages/platform-search/ wurde zurueckgebaut"],
+        extra_dirs=["packages"],
+    )
+    findings, _ = aep.run(adr_dir, tmp_path)
+    assert len(findings) == 1
+
+
 def test_should_respect_ignore_file(tmp_path):
     adr_dir = _mk_repo(tmp_path, ["tools/gone.py: helper"], extra_dirs=["tools"])
     (adr_dir / ".adr-evidence-ignore").write_text(

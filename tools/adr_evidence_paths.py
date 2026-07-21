@@ -35,11 +35,17 @@ Pfad-Heuristik — bewusst konservativ, Ziel sind 0 Falsch-Positive
      `models/qa_log.py`, `models/cost_log.py`, `headless/`) existieren in
      mcp-hub@main — die Evidence stimmt, nur dieser Checkout kann sie nicht sehen.
 
-Dokumentierte Archivierung (kein Finding):
+Dokumentierter Rueckbau / dokumentierte Archivierung (kein Finding):
   Ein Eintrag, der neben dem alten Pfad ein EXISTIERENDES `_ARCHIVED/...`-Ziel nennt
   ("packages/docs-agent/ -> _ARCHIVED/packages/docs-agent/, seither Handpflege"), gilt
   als korrekt nachgezogen — der tote Pfad steht dort absichtlich als Historie. Zeigt
   der Archiv-Verweis selbst ins Leere, bleibt das Finding bestehen.
+
+  Nicht jede Datei wird archiviert; manche werden geloescht. Dafuer greift dieselbe
+  Logik ueber ein Marker-Wort (zurueckgebaut/entfernt/geloescht/TOT/...) plus einen
+  belegenden Commit-Hash im selben Eintrag ("packages/platform-search/ am 2026-03-25
+  als Orphan zurueckgebaut (4cd39b4)"). Beides zusammen ist der Beleg — ein Marker
+  allein oder ein Hash allein genuegt nicht.
 
 Whitelist fuer bekannte Alt-Funde:
   docs/adr/.adr-evidence-ignore — ein Eintrag pro Zeile, Format:
@@ -81,6 +87,16 @@ DOMAIN_RE = re.compile(r"\A[A-Za-z0-9\-]+\.(de|com|net|org|pet|io|dev|eu)(/|\Z)"
 # Verzeichnisse, die in platform nur als Teilspiegel eines anderen Repos liegen.
 # Ein fehlender Pfad darunter beweist nichts — die Quelle lebt woanders (ADR-256).
 PARTIAL_MIRROR_ROOTS = {"orchestrator_mcp"}
+
+# Dokumentierter Rueckbau: ein Marker-Wort UND ein belegender Commit-Hash im selben
+# Eintrag. Nicht jede Datei wird archiviert — manche werden geloescht; dann gibt es
+# kein _ARCHIVED/-Ziel, wohl aber den Commit. Bewusst KEINE git-Pruefung des Hashes:
+# der CI-Checkout ist shallow (fetch-depth 1), eine cat-file-Pruefung wuerde dort
+# anders ausfallen als lokal.
+DOCUMENTED_REMOVAL_RE = re.compile(
+    r"(?i)(zur(?:ü|ue|u)ckgebaut|entfernt|gel(?:ö|oe|o)scht|archiviert|TOT\b"
+    r"|retired|removed)[^\n]*\b[0-9a-f]{7,40}\b"
+)
 
 
 @dataclass
@@ -279,7 +295,7 @@ def run(
                 c.lstrip("/").startswith("_ARCHIVED/")
                 and (repo_root / c.lstrip("/")).exists()
                 for c in candidates
-            ):
+            ) or DOCUMENTED_REMOVAL_RE.search(entry):
                 stats["documented_archival"] += 1
                 continue
             for candidate in candidates:
