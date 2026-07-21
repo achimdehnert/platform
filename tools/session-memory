@@ -126,9 +126,16 @@ def _free_key(base: str) -> str:
     `session:platform:20260719` musste aus AGENT_HANDOVER.md rekonstruiert
     werden, weil genau das passiert war.
 
-    Statt zu ueberschreiben wird auf den naechsten freien Suffix ausgewichen.
-    Datenverlust ist damit strukturell ausgeschlossen; wohin geschrieben wurde,
-    steht im `entry_key`-Feld der Ausgabe.
+    Statt zu ueberschreiben wird auf den naechsten freien Suffix ausgewichen;
+    wohin geschrieben wurde, steht im `entry_key`-Feld der Ausgabe.
+
+    GRENZE (kein Overclaim — Retro 8d663b, B1): dieser Read-dann-Write ist NICHT
+    atomar (kein Lock/CAS im Store, upsert = Last-Write-Wins). Zwei parallele
+    Sessions OHNE `--session-id`, die _free_key im selben Fenster durchlaufen,
+    bevor eine schreibt, sehen beide denselben Key als frei und kollidieren
+    trotzdem. Strukturell kollisionsfrei ist NUR der `--session-id`-Pfad (Key
+    by construction eindeutig); der Suffix-Fallback ist best-effort gegen den
+    haeufigen, nicht gegen den echt-gleichzeitigen Fall.
     """
     if _orch_get(base) is None:
         return base
