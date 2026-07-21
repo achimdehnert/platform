@@ -90,6 +90,7 @@ mode: read-only
 |-----------|---------------|
 | Single-Pane-Infra-Übersicht (Ports, Drift) | `/infra-overview` |
 | Host-Ressourcen sicher zurückgewinnen (Disk/Docker) | `/infra-cleanup` |
+| Repo stilllegen (archive-first, DELETE Human-Only) | `/delete-repo` |
 | DB-Backup für beliebige App | `/backup` |
 | Uptime-Monitoring einrichten (Betterstack) | `/uptime-monitoring` |
 | Stale Windsurf-Server-Prozesse killen | `/windsurf-clean` |
