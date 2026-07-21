@@ -245,3 +245,4 @@
 | 277 | Dokument-Manifest — sprachneutraler Cross-System-Deskriptor (Datenvertrag, nicht Zugriffsprotokoll) | Proposed | ⬜ | [ADR-277](ADR-277-dokument-manifest-cross-system-deskriptor.md) |
 | 278 | OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate | Proposed | ⬜ | [ADR-278](ADR-278-oidc-trusted-publishing-only.md) |
 | 279 | Anchor the adaptive text-improvement feedback loop in iil-promptfw | Proposed | ⬜ | [ADR-279](ADR-279-adaptive-text-feedback-loop-promptfw.md) |
+| 280 | Skill-Verteilung auf eine Lane konsolidieren — `skills/` einzige Kanonik, `commands`-Lane und `.windsurf`-Pfad zurückbauen | Proposed | ⬜ | [ADR-280](ADR-280-skill-lane-consolidation.md) |
