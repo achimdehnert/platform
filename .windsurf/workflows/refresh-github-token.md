@@ -1,5 +1,5 @@
 ---
-description: GitHub Personal Access Token (PAT) erneuern — alle 3 Stellen aktualisieren + MCP-Server neustarten
+description: GitHub Personal Access Token (PAT) erneuern — lokale Dateien UND Server-Kopien, mit Verifikation
 ---
 
 # Refresh GitHub Token
@@ -10,7 +10,7 @@ als invalid anzeigt, muss der PAT erneuert werden.
 ## Voraussetzungen
 
 - Browser-Zugang zu https://github.com/settings/tokens
-- Windsurf IDE läuft
+- SSH-Zugang zu prod (88.198.191.108) und staging-platform (178.104.184.168)
 
 ## Symptome
 
@@ -18,14 +18,35 @@ als invalid anzeigt, muss der PAT erneuert werden.
 - `gh auth status` zeigt `X Failed to log in to github.com using token (GITHUB_TOKEN)`
 - `GITHUB_TOKEN= gh auth status` funktioniert aber (gh CLI hat eigenen Token)
 
-## Token-Stellen (3 Dateien + 1 CLI)
+## Token-Stellen (Inventar, verifiziert 2026-07-22)
 
-| # | Datei | Geladen von | Konsument |
-|---|-------|-------------|-----------|
-| 1 | `~/.github_token` | `.bashrc` → `$GITHUB_TOKEN` | Shell, `gh` CLI (überschreibt gh login) |
-| 2 | `~/.secrets/github_token` | `start-deployment-mcp.sh` | deployment-mcp (CI/CD Actions) |
-| 3 | `~/.codeium/windsurf/mcp_config.json` | Windsurf direkt | GitHub MCP Server (`@modelcontextprotocol/server-github`) |
-| 4 | `~/.config/gh/hosts.yml` | `gh auth login` | gh CLI (nur wenn `$GITHUB_TOKEN` nicht gesetzt) |
+**Lokal — dieselbe Datei dreimal:** `~/.github_token`, `~/.secrets/github_PAT` und
+`~/.secrets/github_token` waren am 2026-07-22 **byte-identisch** (gleicher SHA256). Es ist
+EIN Token in drei Dateien; wer nur eine erneuert, hinterlässt zwei stille Altbestände.
+
+| # | Ort | Konsument | Status |
+|---|-----|-----------|--------|
+| 1 | `~/.secrets/github_PAT` | GitHub-MCP-Server (`mcp-hub/scripts/start-github-mcp.sh`, primär) | **lebend** |
+| 2 | `~/.secrets/github_token` | dasselbe Skript als Fallback + `platform/bootstrap.sh` | **lebend** |
+| 3 | **prod** `/root/.secrets/github_token` | `/opt/dev-hub/ghcr-login.sh` (GHCR-Login), `/opt/platform/bootstrap.sh` | **lebend** |
+| 4 | **staging-platform** `/root/.secrets/github_token` | vorhanden; Zweck nicht abschließend geprüft | **lebend** |
+| 5 | `~/.github_token` | **kein lebender Leser gefunden** — `.bashrc` referenziert die Datei nicht | Karteileiche |
+| 6 | `~/.codeium/windsurf/mcp_config.json` | Windsurf-MCP | enthielt 2026-07-22 **keinen** `GITHUB_PERSONAL_ACCESS_TOKEN` |
+
+**Nicht betroffen — bewusst nicht mitrotieren:**
+- `~/.config/gh/hosts.yml` — die `gh`-CLI hat einen eigenen OAuth-Token (`gho_…`) aus
+  `gh auth login`, unabhängig vom PAT.
+- **prod-b** (`89.167.43.30`) — dessen GHCR-Login läuft über `~/.secrets/github_write_packages`,
+  ein separater Token mit eigenem Ablaufdatum.
+- Pulls **innerhalb** von GitHub Actions — die nutzen den `GITHUB_TOKEN` des Workflows.
+
+**Ungeklärt (Werte sind von aussen nicht lesbar):** die Repo-Secrets `PLATFORM_DEPLOY_TOKEN`,
+`PLATFORM_GITHUB_TOKEN` und `PROJECT_PAT` in `achimdehnert/platform`. Ob eines davon denselben
+PAT enthält, lässt sich nicht prüfen — im Zweifel bei der Rotation mit erneuern.
+
+> **Warum dieses Inventar so ausführlich ist:** Die frühere Fassung nannte vier Stellen, von
+> denen drei nicht mehr stimmten (`.bashrc`-Ladepfad, Windsurf-Config, gh-CLI), und die beiden
+> Server-Kopien fehlten ganz. Wer danach vorging, aktualisierte Phantome und übersah prod.
 
 ## Schritt 0 — Token aus laufendem MCP-Prozess holen (schnellster Weg)
 
@@ -44,7 +65,8 @@ echo -n "$TOKEN" > ~/.secrets/github_PAT   && chmod 600 ~/.secrets/github_PAT
 echo -n "$TOKEN" > ~/.secrets/github_token && chmod 600 ~/.secrets/github_token
 ```
 
-Wenn Login = `achimdehnert` → fertig. Schritt 1-4 nicht nötig.
+Wenn Login = `achimdehnert` → der alte Token lebt noch. **Schritt 3 (Server-Kopien) trotzdem
+prüfen** — die laufen auseinander, wenn sie einmal vergessen wurden.
 
 ---
 
@@ -56,59 +78,62 @@ Wenn Login = `achimdehnert` → fertig. Schritt 1-4 nicht nötig.
 3. Expiration: **90 Tage** (Kalendereintrag setzen!)
 4. Token kopieren (beginnt mit `ghp_`)
 
-## Schritt 2 — Alle 3 Dateien aktualisieren
-
-Ersetze `NEW_TOKEN_HERE` mit dem neuen Token:
+## Schritt 2 — Lokale Dateien aktualisieren
 
 ```bash
-# Variablen
-NEW_TOKEN="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+umask 077
+read -rsp "Neuer PAT: " NEW_TOKEN; echo
 
-# 1. Shell-Token
-echo -n "$NEW_TOKEN" > ~/.github_token
-chmod 600 ~/.github_token
-
-# 2. Secrets-Token (deployment-mcp)
-echo -n "$NEW_TOKEN" > ~/.secrets/github_token
-chmod 600 ~/.secrets/github_token
-
-# 3. Windsurf MCP Config (JSON — Token-Wert ersetzen)
-python3 -c "
-import json
-p = '$HOME/.codeium/windsurf/mcp_config.json'
-with open(p) as f:
-    d = json.load(f)
-d['mcpServers']['github']['env']['GITHUB_PERSONAL_ACCESS_TOKEN'] = '$NEW_TOKEN'
-with open(p, 'w') as f:
-    json.dump(d, f, indent=2)
-print('mcp_config.json updated')
-"
-
-# 4. Aktuelle Shell-Session aktualisieren
-export GITHUB_TOKEN="$NEW_TOKEN"
+printf '%s' "$NEW_TOKEN" > ~/.secrets/github_PAT
+printf '%s' "$NEW_TOKEN" > ~/.secrets/github_token
+printf '%s' "$NEW_TOKEN" > ~/.github_token      # Karteileiche, aber konsistent halten
+chmod 600 ~/.secrets/github_PAT ~/.secrets/github_token ~/.github_token
 ```
 
-## Schritt 3 — Verifizieren
+`read -rsp` statt `NEW_TOKEN="ghp_…"` im Klartext: so landet der Token nicht in der
+Shell-History und nicht im Terminal-Scrollback.
+
+## Schritt 3 — Server-Kopien aktualisieren (WIRD LEICHT VERGESSEN)
+
+Ohne diesen Schritt scheitert der GHCR-Login auf prod, sobald der alte Token abläuft —
+und das fällt erst beim nächsten Image-Pull auf.
 
 ```bash
-# Shell-Token prüfen
-echo "GITHUB_TOKEN starts with: $(echo $GITHUB_TOKEN | head -c 10)..."
+for H in root@88.198.191.108 root@178.104.184.168; do
+  printf '%s' "$NEW_TOKEN" | ssh "$H" 'umask 077; cat > /root/.secrets/github_token'
+done
 
-# gh CLI prüfen (sollte GITHUB_TOKEN nutzen)
-gh auth status
-
-# API-Call testen
-gh api user --jq '.login'
+# GHCR-Login auf prod scharf ziehen
+ssh root@88.198.191.108 'bash /opt/dev-hub/ghcr-login.sh'
 ```
 
-Erwartete Ausgabe: `achimdehnert`
+## Schritt 4 — Verifizieren
 
-## Schritt 4 — Windsurf MCP neustarten
+```bash
+# 1. Token gültig + Scopes + Ablaufdatum (ohne den Wert auszugeben)
+curl -s -D - -o /dev/null -H "Authorization: Bearer $(tr -d '\n' < ~/.secrets/github_PAT)" \
+  https://api.github.com/user | grep -iE "^HTTP|^x-oauth-scopes|^github-authentication-token-expiration"
+
+# 2. Alle drei lokalen Dateien identisch?
+sha256sum ~/.github_token ~/.secrets/github_PAT ~/.secrets/github_token | awk '{print $1}' | sort -u | wc -l
+#   Erwartung: 1
+
+# 3. gh CLI (nutzt eigenen OAuth-Token, muss weiter gruen sein)
+GITHUB_TOKEN= gh auth status
+
+# 4. GHCR auf prod
+ssh root@88.198.191.108 'docker pull -q ghcr.io/achimdehnert/illustration-hub:main-f2a4345 >/dev/null && echo "GHCR-Pull ok"'
+```
+
+Erwartet: `HTTP/2 200`, Scopes enthalten `repo` und `write:packages`, ein einziger Hash,
+`gh auth status` gruen, `GHCR-Pull ok`.
+
+## Schritt 5 — MCP-Server neustarten
 
 1. **Windsurf komplett neustarten** (Cmd+Shift+P → "Reload Window" reicht NICHT für MCP)
 2. Nach Neustart testen: beliebiges `mcp8_*` Tool aufrufen, z.B. `mcp__github__list_issues`
 
-## Schritt 5 — Deployment-MCP neustarten (optional)
+## Schritt 6 — Deployment-MCP neustarten (optional)
 
 Falls deployment-mcp CI/CD Tools auch betroffen:
 
@@ -120,15 +145,39 @@ pkill -f "start-deployment-mcp"
 
 ## Checkliste
 
-- [ ] Neuer PAT erstellt (90 Tage Expiry)
-- [ ] `~/.github_token` aktualisiert
+- [ ] Neuer PAT erstellt, Scopes `repo` + `write:packages` (+ `read:org`, `gist`, `project`)
+- [ ] `~/.secrets/github_PAT` aktualisiert
 - [ ] `~/.secrets/github_token` aktualisiert
-- [ ] `mcp_config.json` aktualisiert
-- [ ] `gh auth status` zeigt ✓
-- [ ] `gh api user` gibt `achimdehnert` zurück
-- [ ] Windsurf neugestartet
-- [ ] `mcp8_*` Tool funktioniert
-- [ ] Kalendereintrag für Token-Ablauf gesetzt
+- [ ] `~/.github_token` aktualisiert (oder bewusst gelöscht — siehe Inventar #5)
+- [ ] **prod** `/root/.secrets/github_token` aktualisiert
+- [ ] **staging-platform** `/root/.secrets/github_token` aktualisiert
+- [ ] `ghcr-login.sh` auf prod gelaufen
+- [ ] Verifikation: HTTP 200 + Scopes + genau **ein** SHA256 über die drei lokalen Dateien
+- [ ] Verifikation: GHCR-Pull auf prod erfolgreich
+- [ ] `GITHUB_TOKEN= gh auth status` weiterhin grün (eigener OAuth-Token, darf sich nicht ändern)
+- [ ] Repo-Secrets geprüft: `PLATFORM_DEPLOY_TOKEN`, `PLATFORM_GITHUB_TOKEN`, `PROJECT_PAT`
+- [ ] MCP-Server neugestartet, ein `mcp__github__*`-Tool getestet
+- [ ] Kalendereintrag für das nächste Ablaufdatum gesetzt
+
+## Was NICHT mitrotiert wird
+
+- `~/.config/gh/hosts.yml` — eigener `gho_`-OAuth-Token der `gh`-CLI.
+- **prod-b** — nutzt `~/.secrets/github_write_packages` mit eigenem Ablaufdatum.
+- Actions-interne Pulls — laufen über den `GITHUB_TOKEN` des Workflows.
+
+## Tote Token erkennen, bevor sie Zeit kosten
+
+Zwei Dateien im Bestand waren am 2026-07-22 unbrauchbar (`GHCR_pull`,
+`github_read_packages_PAT` — beide HTTP 401) und haben in einer Session zwei Anläufe
+gekostet, bevor der Grund klar war. Der Schnelltest über alle Token-Dateien:
+
+```bash
+for f in ~/.secrets/*PAT* ~/.secrets/github_* ~/.secrets/GHCR*; do
+  [ -f "$f" ] || continue
+  H=$(curl -s -D - -o /dev/null -H "Authorization: Bearer $(tr -d '\n' < "$f")" https://api.github.com/user)
+  printf "%-40s %s\n" "$(basename "$f")" "$(echo "$H" | head -1)"
+done
+```
 
 ## Verbesserungsvorschlag
 
