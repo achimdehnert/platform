@@ -2,6 +2,7 @@
 stdlib-only-Import (kein requests), _http-Body-Aufbau, Config-Parsing.
 Graph-Aufrufe (login/move/draft/folders) bleiben Dogfood/Integration.
 """
+
 import importlib.util
 import pathlib
 import sys
@@ -36,10 +37,13 @@ def test_should_build_json_and_form_bodies(monkeypatch):
 
     class _FakeConn:
         status = 200
+
         def read(self):
             return b'{"ok": true}'
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             return False
 
@@ -72,22 +76,45 @@ def test_should_parse_env_ignoring_comments_and_quotes(tmp_path):
 
 def test_should_filter_find_hits_by_from_and_subject(monkeypatch):
     import json as _json
+
     mod = _load()
-    page = {"value": [
-        {"id": "m1", "subject": "Re: Owner-Block Digest",
-         "receivedDateTime": "2026-07-16T08:00:00Z",
-         "from": {"emailAddress": {"address": "pg@dehnert.team", "name": "Achim"}}},
-        {"id": "m2", "subject": "Newsletter KW29",
-         "receivedDateTime": "2026-07-16T07:00:00Z",
-         "from": {"emailAddress": {"address": "noreply@shop.example", "name": "Shop"}}},
-        {"id": "m3", "subject": "Owner-Block Nachtrag",
-         "receivedDateTime": "2026-07-15T09:00:00Z",
-         "from": {"emailAddress": {"address": "achim.dehnert@iil.gmbh", "name": ""}}},
-    ]}
+    page = {
+        "value": [
+            {
+                "id": "m1",
+                "subject": "Re: Owner-Block Digest",
+                "receivedDateTime": "2026-07-16T08:00:00Z",
+                "from": {
+                    "emailAddress": {"address": "pg@dehnert.team", "name": "Achim"}
+                },
+            },
+            {
+                "id": "m2",
+                "subject": "Newsletter KW29",
+                "receivedDateTime": "2026-07-16T07:00:00Z",
+                "from": {
+                    "emailAddress": {"address": "noreply@shop.example", "name": "Shop"}
+                },
+            },
+            {
+                "id": "m3",
+                "subject": "Owner-Block Nachtrag",
+                "receivedDateTime": "2026-07-15T09:00:00Z",
+                "from": {
+                    "emailAddress": {"address": "achim.dehnert@iil.gmbh", "name": ""}
+                },
+            },
+        ]
+    }
     monkeypatch.setattr(mod, "_http", lambda *a, **k: mod._Resp(200, _json.dumps(page)))
 
-    hits = mod._match_messages("tok", from_sub="dehnert.team", subject_sub="owner-block",
-                               days=7, source_path="inbox")
+    hits = mod._match_messages(
+        "tok",
+        from_sub="dehnert.team",
+        subject_sub="owner-block",
+        days=7,
+        source_path="inbox",
+    )
     assert [m["id"] for m in hits] == ["m1"]
 
     # Name-Match zählt wie Adress-Match; ohne subject-Filter beide dehnert.team-Treffer
@@ -97,6 +124,7 @@ def test_should_filter_find_hits_by_from_and_subject(monkeypatch):
 
 def test_should_build_file_attachment_payload(tmp_path):
     import base64 as _b64
+
     mod = _load()
     f = tmp_path / "Anhang.pdf"
     f.write_bytes(b"%PDF-1.4 fake bytes")
@@ -110,8 +138,11 @@ def test_should_build_file_attachment_payload(tmp_path):
 def test_should_attach_files_posts_to_attachments_endpoint(monkeypatch):
     mod = _load()
     calls = []
-    monkeypatch.setattr(mod, "_file_attachment_payload",
-                        lambda p: {"name": "x.pdf", "contentType": "application/pdf"})
+    monkeypatch.setattr(
+        mod,
+        "_file_attachment_payload",
+        lambda p: {"name": "x.pdf", "contentType": "application/pdf"},
+    )
 
     def fake_http(method, url, **k):
         calls.append((method, url))
@@ -124,8 +155,61 @@ def test_should_attach_files_posts_to_attachments_endpoint(monkeypatch):
 
 def test_should_strip_html_to_readable_text():
     mod = _load()
-    html = ("<html><style>p{color:red}</style><body><p>Zeile&nbsp;1</p>"
-            "<div>Zeile 2 &amp; mehr</div><script>alert(1)</script></body></html>")
+    html = (
+        "<html><style>p{color:red}</style><body><p>Zeile&nbsp;1</p>"
+        "<div>Zeile 2 &amp; mehr</div><script>alert(1)</script></body></html>"
+    )
     text = mod._strip_html(html)
     assert "Zeile\xa01" in text and "Zeile 2 & mehr" in text
     assert "alert" not in text and "color" not in text
+
+
+# --- Anhänge herunterladen (--save-attachments) ------------------------------
+# Netzfrei: nur die reinen Teile (Namens-Entschärfung, base64-Dekodierung).
+# download_attachments selbst bleibt Dogfood/Integration wie die übrigen Graph-Calls.
+
+
+def test_should_strip_directory_traversal_from_attachment_name():
+    mod = _load()
+    assert mod._safe_filename("../../.ssh/authorized_keys") == "authorized_keys"
+    assert mod._safe_filename("C:\\temp\\rechnung.pdf") == "rechnung.pdf"
+
+
+def test_should_fall_back_when_attachment_name_is_empty_or_dots():
+    mod = _load()
+    assert mod._safe_filename("") == "anhang.bin"
+    assert mod._safe_filename("   ") == "anhang.bin"
+    assert mod._safe_filename("..") == "anhang.bin"
+
+
+def test_should_decode_file_attachment_to_name_and_bytes():
+    mod = _load()
+    att = {
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        "name": "Zahlungsaufforderung.pdf",
+        "contentBytes": "SGFsbG8=",  # "Hallo"
+    }
+    assert mod._decode_attachment(att) == ("Zahlungsaufforderung.pdf", b"Hallo")
+
+
+def test_should_skip_non_file_attachments():
+    mod = _load()
+    assert (
+        mod._decode_attachment({"@odata.type": "#microsoft.graph.itemAttachment"})
+        is None
+    )
+    assert (
+        mod._decode_attachment(
+            {
+                "@odata.type": "#microsoft.graph.referenceAttachment",
+                "name": "cloud.docx",
+            }
+        )
+        is None
+    )
+
+
+def test_should_skip_file_attachment_without_content():
+    mod = _load()
+    att = {"@odata.type": "#microsoft.graph.fileAttachment", "name": "leer.pdf"}
+    assert mod._decode_attachment(att) is None

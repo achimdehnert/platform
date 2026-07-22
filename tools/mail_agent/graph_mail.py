@@ -20,7 +20,7 @@ Kommandos:
   --scan-senders [--days N]              # Absender-Domains + Häufigkeit (Mapping-Vorschlag)
   --move --from "<domain-oder-substr>" --to "DSGVO/Groeger" [--yes]
   --find [--from S] [--subject S] [--days N] [--source PFAD]     # suchen, read-only
-  --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N]
+  --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N] [--save-attachments DIR]
   --draft --to a@b.c --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
   --attach-to <messageId> --attach PFAD [--attach PFAD ...]   # Datei(en) an bestehenden Entwurf hängen
 """
@@ -399,6 +399,64 @@ def _strip_html(html_text: str) -> str:
     return unescape(text)
 
 
+_UNSAFE_NAME_CHARS = re.compile(r"[\x00-\x1f/\\:*?\"<>|]")
+
+
+def _safe_filename(name: str) -> str:
+    """Anhangsnamen entschärfen — sie kommen vom Absender, nicht von uns.
+
+    Verzeichnisanteile, Steuerzeichen und `..` fallen weg, damit ein Anhang
+    namens `../../.ssh/authorized_keys` nicht aus dem Zielordner ausbricht.
+    """
+    base = re.split(r"[\\/]", (name or "").strip())[-1]  # Basename ZUERST, sonst
+    base = _UNSAFE_NAME_CHARS.sub("_", base)  # maskiert das Ersetzen die Trenner
+    base = base.lstrip(". ").strip()
+    return base or "anhang.bin"
+
+
+def _decode_attachment(att: dict) -> tuple[str, bytes] | None:
+    """(Dateiname, Bytes) für einen fileAttachment; None für item-/reference-Anhänge.
+
+    Netzfrei und damit unit-testbar — der HTTP-Teil steckt in download_attachments.
+    """
+    if att.get("@odata.type") != "#microsoft.graph.fileAttachment":
+        return None
+    content = att.get("contentBytes")
+    if content is None:
+        return None
+    return _safe_filename(att.get("name") or ""), base64.b64decode(content)
+
+
+def download_attachments(
+    tok: str, msg_id: str, target_dir: str
+) -> list[tuple[str, int]]:
+    """Alle Datei-Anhänge einer Nachricht in target_dir schreiben.
+
+    Gibt [(Dateiname, Bytes)] zurück. Nicht-Datei-Anhänge (eingebettete Mails,
+    Cloud-Verweise) werden gemeldet, aber nicht geschrieben — ihr Inhalt liegt
+    nicht als contentBytes vor.
+    """
+    r = _http(
+        "GET",
+        f"{GRAPH}/me/messages/{urllib.parse.quote(msg_id, safe='')}/attachments",
+        headers=_auth(tok),
+    )
+    if r.status_code != 200:
+        sys.exit(f"FEHLER: Anhänge nicht lesbar HTTP {r.status_code} — {r.text[:150]}")
+    out = Path(target_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+    saved: list[tuple[str, int]] = []
+    for att in r.json().get("value", []):
+        decoded = _decode_attachment(att)
+        if decoded is None:
+            print(f"  ~ übersprungen (kein Datei-Anhang): {att.get('name', '?')}")
+            continue
+        name, raw = decoded
+        (out / name).write_bytes(raw)
+        saved.append((name, len(raw)))
+    return saved
+
+
 def cmd_show(
     tok: str,
     which: str,
@@ -407,6 +465,7 @@ def cmd_show(
     days: int,
     source_path: str,
     max_chars: int,
+    save_attachments: str | None = None,
 ) -> None:
     if which == "latest":
         hits = _match_messages(
@@ -424,7 +483,7 @@ def cmd_show(
     r = _http(
         "GET",
         f"{GRAPH}/me/messages/{urllib.parse.quote(mid, safe='')}"
-        "?$select=subject,from,toRecipients,receivedDateTime,body",
+        "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
         headers=_auth(tok),
     )
     if r.status_code != 200:
@@ -451,6 +510,15 @@ def cmd_show(
         text[:max_chars]
         + ("\n[… gekürzt, --max-chars erhöhen]" if len(text) > max_chars else "")
     )
+    if save_attachments:
+        saved = download_attachments(tok, mid, save_attachments)
+        print(f"--- Anhänge ({len(saved)}) -> {save_attachments} ---")
+        for name, size in saved:
+            print(f"  · {name} ({size} Bytes)")
+    elif m.get("hasAttachments"):
+        # Ohne diesen Hinweis bleibt der eigentliche Inhalt unsichtbar: Rechnungen,
+        # Zahlungsaufforderungen o.ä. stehen im PDF, nicht im Mailtext.
+        print("--- Anhänge vorhanden — mit --save-attachments DIR herunterladen ---")
 
 
 # ---------- Verschieben ----------
@@ -673,6 +741,11 @@ def main() -> None:
     ap.add_argument(
         "--max-chars", type=int, default=2000, help="Body-Kürzung bei --show"
     )
+    ap.add_argument(
+        "--save-attachments",
+        metavar="DIR",
+        help="bei --show: Datei-Anhänge in DIR speichern (read-only auf dem Postfach)",
+    )
     ap.add_argument("--yes", action="store_true")
     args = ap.parse_args()
     try:
@@ -712,6 +785,7 @@ def main() -> None:
             args.days,
             args.source,
             args.max_chars,
+            args.save_attachments,
         )
     elif args.attach_to:
         if not args.attach:

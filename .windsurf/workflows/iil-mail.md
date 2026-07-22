@@ -35,6 +35,8 @@ python3 tools/mail_agent/graph_mail.py --move-folder "Gröger" --to-parent "IIL.
 python3 tools/mail_agent/graph_mail.py --move --from "groeger-recycling.de" --to "DSGVO/Groeger"
 python3 tools/mail_agent/graph_mail.py --find --subject "Owner-Block" --days 7   # suchen, read-only
 python3 tools/mail_agent/graph_mail.py --show latest --from "dehnert.team"       # eine Mail lesen
+# Anhänge holen — bei Rechnungen/Mahnungen steht der Inhalt im PDF, nicht im Mailtext:
+python3 tools/mail_agent/graph_mail.py --show <messageId> --save-attachments ./anhaenge
 # Antwort-Entwurf (threadet, wenn --reply-to eine Message-ID bekommt):
 python3 tools/mail_agent/graph_mail.py --draft --reply-to <messageId> --body-file antwort.txt
 python3 tools/mail_agent/graph_mail.py --draft --to kunde@x.de --subject "..." --body-file f.txt
