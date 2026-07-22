@@ -159,7 +159,9 @@ zählt ihn unter `extra`, nicht unter `Symlinks ok` — die Symlink-Zählung erf
 mit kanonischer Quelle.
 - **ADR-280:** Betriebsnachweis **weiterhin offen**, Ursache benannt und behebbar. Kein
   Anlass für den Rückfall auf Option D, weil kein Kriterium *geprüft und gescheitert* ist.
-- Beide ADRs bleiben damit vorerst auf `status: proposed`.
+- ~~Beide ADRs bleiben damit vorerst auf `status: proposed`.~~ **Überholt:** ADR-281 ist am
+  2026-07-22 auf `accepted` gesetzt (Owner-Entscheid, gestützt auf §8.1 6/6 unten).
+  ADR-280 bleibt `proposed`.
 
 ---
 
@@ -247,8 +249,10 @@ Beide Testlinks wurden unmittelbar nach dem Lauf entfernt; `~/.claude/skills/` e
 danach wieder nur `antwort-modus-schablone`, `MANAGED_BY`, `manifest.json`.
 
 **Stand ADR-281 nach diesem Nachtrag:** §8.1 6/6, §8.2 bestanden. Aus Sicht der in §8
-geforderten Nachweise ist der ADR damit **accept-reif** — der Accept selbst bleibt
-Owner-Entscheid.
+geforderten Nachweise ist der ADR damit accept-reif. **Der Owner hat den Accept am
+2026-07-22 erteilt** — `status: accepted`, im selben PR wie dieses Artefakt.
+Offen bleiben Phase 2–4 (Tooling, Umstellung, Rückbau) und der Rollback-Nachweis §8.3;
+der Accept schaltet sie frei, er ersetzt sie nicht.
 
 ## Reproduktion
 

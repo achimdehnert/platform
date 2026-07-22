@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-21",
+  "generated": "2026-07-22",
   "total": 227,
   "next_free": 282,
   "adrs": [
@@ -5223,7 +5223,7 @@
       "id": "ADR-281",
       "file": "ADR-281-skill-distribution-symlink.md",
       "title": "Verteile Skills als Symlinks auf den Repo-Checkout statt als generierte Kopien",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-21",
       "domains": [
         "tooling",
