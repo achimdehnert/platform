@@ -201,14 +201,25 @@ OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
 DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
-DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""
+DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; N_SCANNED=0
+# Leerer Cutoff (kein GNU-date) wuerde die waiting-Erkennung still abschalten —
+# das Ergebnis waere ein PASS, das eine nie gelaufene Pruefung als bestanden
+# ausgibt. Deshalb wird der Zustand unten als degraded gemeldet, nicht verschluckt.
 WAIT_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 for r in $DEPLOY_REPOS; do
   # (1) Letzter Run: conclusion + id. `--limit 1` genuegt, seit die waiting-Suche
   #     nicht mehr aus diesem Fenster gesiebt wird.
   OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 --json databaseId,conclusion \
         --jq '"\(.[0].conclusion // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
-  [ -z "$OUT" ] && continue
+  # Leere Antwort = Repo nicht abfragbar (umbenannt, uebertragen ohne Redirect,
+  # Token-Scope, API-Fehler). Frueher wurde still weitergesprungen, waehrend die
+  # Erfolgsmeldung weiter die volle Repo-Zahl nannte — ein Repo konnte damit aus
+  # der Abdeckung fallen, ohne dass die Ausgabe sich aenderte. Jetzt namentlich.
+  if [ -z "$OUT" ]; then
+    DEPLOY_SKIPPED="$DEPLOY_SKIPPED $r"
+    continue
+  fi
+  N_SCANNED=$((N_SCANNED + 1))
   read -r C ID <<EOF
 $OUT
 EOF
@@ -236,12 +247,19 @@ EOF
   fi
 done
 N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
+# Abdeckung immer mitschreiben (gescannt/gesamt) statt nur die Soll-Zahl zu nennen.
+COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfragbar:$DEPLOY_SKIPPED}"
 if [ -n "$DEPLOY_WAITING" ]; then
-  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS}"
+  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS} (${COVERAGE})"
 elif [ -n "$DEPLOY_FAILS" ]; then
-  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live)"
+  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live) (${COVERAGE})"
+elif [ -z "$WAIT_CUTOFF" ]; then
+  # F3: ohne Cutoff lief die waiting-Pruefung gar nicht — kein PASS behaupten.
+  record "0.7 deploy-scan" "WARN" "degraded: WAIT_CUTOFF leer (kein GNU-date?) — haengende Approval-Gates wurden NICHT geprueft; kein failure in ${COVERAGE}"
+elif [ -n "$DEPLOY_SKIPPED" ]; then
+  record "0.7 deploy-scan" "WARN" "unvollstaendig: ${COVERAGE} — kein failure/waiting in den geprueften, die uebrigen sind ungeprueft${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 else
-  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${N_DEPLOY_REPOS} Repos)${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
+  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
