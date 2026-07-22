@@ -57,6 +57,11 @@ _PRIORITY_TRIGGER = re.compile(
     re.I,
 )
 
+# Marker, die eine Überschrift als ARCHIVIERT kennzeichnen — auch wenn sie zusätzlich
+# ein Prio-Trigger-Wort enthält (z.B. '### Prioritäten vom 2026-07-08 — erledigt').
+# Eine solche Überschrift darf die Prio-Sektion nicht (erneut) einleiten (platform#1323).
+_ARCHIVE_MARKER = re.compile(r"erledigt|abgeschlossen|archiv|✅", re.I)
+
 
 def _heading(line: str) -> Optional[tuple[int, str]]:
     """(level, text) wenn die Zeile eine Markdown-Überschrift ist, sonst None."""
@@ -80,6 +85,11 @@ def _find_section_start(lines: list[str]) -> Optional[int]:
 
     Vorrang: exakt '## Prioritäten' (kanonische CC-Konvention, ADR-230).
     Fallback: erste Überschrift, deren erste Wörter ein Trigger sind.
+
+    Überschriften mit einem Archiv-Marker (erledigt/abgeschlossen/Archiv/✅) werden
+    IGNORIERT, auch wenn sie zusätzlich wie ein Prio-Trigger aussehen — sonst
+    reaktiviert z.B. '### Prioritäten vom 2026-07-08 — erledigt' die Sektion und
+    längst erledigte Items werden als aktuell gespiegelt (platform#1323).
     """
     heuristic: Optional[int] = None
     for i, line in enumerate(lines):
@@ -87,6 +97,8 @@ def _find_section_start(lines: list[str]) -> Optional[int]:
         if h is None:
             continue
         level, htext = h
+        if _ARCHIVE_MARKER.search(htext):
+            continue  # archivierte/erledigte Überschrift reaktiviert die Sektion nicht
         if level == 2 and htext.lower().rstrip(":").strip() == "prioritäten":
             return i  # exakter Treffer schlägt alles
         if heuristic is None and _is_priority_heading(htext):
@@ -94,11 +106,29 @@ def _find_section_start(lines: list[str]) -> Optional[int]:
     return heuristic
 
 
+def _is_table_separator(cells: list[str]) -> bool:
+    """True für eine Markdown-Trennzeile wie '|---|:---:|---|'."""
+    return bool(cells) and all(re.fullmatch(r":?-{2,}:?", c) for c in cells if c)
+
+
+def _find_column(header_cells: list[str], *names: str) -> Optional[int]:
+    """Index der ersten Header-Zelle, deren Name (case-insensitiv) in `names` liegt."""
+    wanted = {n.lower() for n in names}
+    for idx, cell in enumerate(header_cells):
+        if cell.lower().strip() in wanted:
+            return idx
+    return None
+
+
 def _read_handover(path: Path) -> Optional[list[str]]:
     """Top-Items aus AGENT_HANDOVER.md extrahieren.
 
     Wählt die Prioritäten-Sektion via _find_section_start (exakt '## Prioritäten'
     bevorzugt) und sammelt deren nummerierte/bullet/Tabellen-/'### Slice'-Items.
+
+    Tabellenspalten werden per Header-Name aufgelöst (`Item`/`Task` für den
+    Aufgabentext, `Tier` für das Tier-Tag) — Position (Spalte 2 / Spalte 3) ist nur
+    Fallback, wenn kein passender Header gefunden wird (platform#1323, Ursache 2).
     """
     handover = path / "AGENT_HANDOVER.md"
     if not handover.exists():
@@ -111,6 +141,9 @@ def _read_handover(path: Path) -> Optional[list[str]]:
         return None
 
     items: list[str] = []
+    task_idx: Optional[int] = None
+    tier_idx: Optional[int] = None
+    header_seen = False
     for line in lines[start + 1:]:
         stripped = line.strip()
         if not stripped:
@@ -118,18 +151,34 @@ def _read_handover(path: Path) -> Optional[list[str]]:
         # Neue Haupt-Überschrift beendet den Abschnitt
         if stripped.startswith("## ") or stripped.startswith("# "):
             break
-        # Markdown-Tabellenzeile: | Prio | Task | Tier |  (führende Spalte = Zahl)
+        # Markdown-Tabellenzeile: | # | Item | Tier | … |  (führende Spalte = Zahl)
         if stripped.startswith("|"):
             cells = [c.strip() for c in stripped.strip("|").split("|")]
+            if _is_table_separator(cells):
+                continue  # |---|---|---| fällt durch, verwirft den Header nicht
+            if not header_seen and cells and not cells[0].isdigit():
+                # Erste Nicht-Trenn-/Nicht-Datenzeile der Tabelle = Header
+                header_seen = True
+                task_idx = _find_column(cells, "item", "task")
+                tier_idx = _find_column(cells, "tier")
+                continue
             if len(cells) >= 2 and cells[0].isdigit():
-                task = cells[1]
+                header_seen = True
+                if task_idx is not None and task_idx < len(cells):
+                    task = cells[task_idx]
+                else:
+                    task = cells[1]  # Fallback: Position, kein passender Header
                 mb = re.search(r"\*\*([^*]+)\*\*", task)  # fetten Titel bevorzugen
                 if mb:
                     task = mb.group(1).strip()
-                tier = cells[2].strip(" `") if len(cells) >= 3 else ""
+                if tier_idx is not None and tier_idx < len(cells):
+                    tier = cells[tier_idx].strip(" `")
+                elif len(cells) >= 3:
+                    tier = cells[2].strip(" `")  # Fallback: Position
+                else:
+                    tier = ""
                 # Tier-Tag erhalten, damit _write_next ihn nicht überschreibt
                 items.append(f"{tier} {task}".strip() if tier.startswith("[") else task)
-            # Header-/Separator-Zeilen (| Prio |, |---|) fallen durch
             if len(items) >= 6:
                 break
             continue
