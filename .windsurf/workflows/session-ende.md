@@ -148,6 +148,24 @@ claude --resume <session-id>
 → Dann `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update AGENT_HANDOVER"`
 → Wird von `session-start Phase 1` automatisch gelesen: *"Repo-Kontext laden — AGENT_HANDOVER.md"*
 
+> **Zwei Ziele, zwei Regeln (NEU 2026-07-22, KONZ-027 Arm A / Pilot #1302, platform-lokal):**
+>
+> - **`AGENT_HANDOVER_LOG.md`** — der Session-Stand kommt als **neuer Block ans Ende**.
+>   Bestehende Einträge nie ändern, auch Korrekturen nur als neuer Eintrag darunter.
+>   Diese Datei trägt `merge=union`, damit zwei parallele Sessions gleichzeitig anhängen
+>   können. Der CI-Check `handover-append-only` blockt Verstöße.
+> - **`AGENT_HANDOVER.md`** — Prio-Tabelle und laufender Stand, hier wird wie bisher
+>   **umgeschrieben** (Phase 0c unten verlangt genau das). Kein `merge=union`, Konflikte
+>   bleiben laut und werden von Hand aufgelöst.
+>
+> **Was Arm A leistet und was nicht** (gemessen 2026-07-22, Beleg im Kommentar an #1319):
+> GitHub wendet `merge=union` **serverseitig nicht** an — ein zweiter PR bleibt
+> `CONFLICTING`, auch "Update branch" hilft nicht. Der Gewinn liegt allein in der
+> **lokalen** Auflösung: `git pull` im Worktree führt beide Stände still zusammen, danach
+> genügt ein Push. Aus "von Hand auflösen" wird "pullen und pushen" — mehr nicht.
+> Widersprüche (z.B. zwei "Stand: fertig"-Zeilen) bleiben bewusst als Doppelzeilen stehen
+> (dumb-but-robust); das ist der Trade-off dieses Arms, kein Bug.
+
 ### 0c: Erledigte/verschobene Prioritäten im Handover nachziehen (PFLICHT — NEU 2026-06-24)
 
 > **Unabhängig von WIP** (Phase 0b feuert nur bei uncommitted Stand — eine

@@ -169,7 +169,10 @@ teuersten Modell bleiben (Policy-Realfall: $1577 in 48h für Tier-3-Arbeit auf T
 
 ## Phase 1: Kontext laden
 
-1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index; falls
+1. **Repo-Kontext laden** — AGENT_HANDOVER.md (Prio-Tabelle + Stand) **und die letzten
+   Einträge aus `AGENT_HANDOVER_LOG.md`** (append-only Session-Log, neueste stehen
+   **unten** — `tail -60` genügt; seit KONZ-027 Arm A schreiben Sessions ihren Stand
+   dorthin), CORE_CONTEXT.md, ADR-Index; falls
    platform-context-MCP gebunden: `mcp__platform-context__get_context_for_task()`
 2. **Health Dashboard** (bei Infra/Deploy-Sessions) — falls deployment-MCP gebunden:
    `mcp__deployment-mcp__system_manage(action: health_dashboard)`
