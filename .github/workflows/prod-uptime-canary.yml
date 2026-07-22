@@ -56,9 +56,15 @@ jobs:
           #   kiohnerisiko.de   nginx-vhost deaktiviert, Entwicklung ruht. Die
           #                     Anwendung (coach-hub) läuft weiter und bleibt
           #                     über coach-hub.iil.pet erreichbar.
-          #   learn.iil.pet     learn-hub stillgelegt.
-          #   wedding-hub.iil.pet
-          # Wiederaufnahme: die jeweilige URL unten wieder eintragen.
+          # Wiederaufnahme: die URL unten wieder eintragen.
+          #
+          # learn.iil.pet und wedding-hub.iil.pet standen hier ebenfalls als
+          # "stillgelegt, siehe #1314" — das war FALSCH und ist am 2026-07-22
+          # zurueckgenommen: #1314 nennt beide nicht (sein Umfang ist
+          # onboarding-hub, kiohnerisiko.de nur-Domain, odoo.iil.pet), ein
+          # zweites Freeze-Artefakt existiert nicht, und beide /livez/
+          # antworteten bei der Pruefung mit 200. Wer sie kuenftig streichen
+          # will: zuerst Eintrag in #1314, dann hier.
           URLS="
           https://schutztat.de/livez/
           https://137herz.de/livez/
@@ -66,10 +72,12 @@ jobs:
           https://billing.iil.pet/livez/
           https://dev-hub.iil.pet/livez/
           https://dms.iil.pet/livez/
+          https://learn.iil.pet/livez/
           https://nl2cad.de/livez/
           https://prezimo.com/livez/
           https://tax.iil.pet/livez/
           https://trading-hub.iil.pet/livez/
+          https://wedding-hub.iil.pet/livez/
           https://weltenforger.com/livez/
           https://writing-hub.iil.pet/livez/
           https://writing-hub.iil.pet/readyz/
