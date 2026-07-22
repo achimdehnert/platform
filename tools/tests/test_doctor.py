@@ -128,13 +128,14 @@ def _git(root, *args):
     subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
 
 
-def _make_repo(root):
+def _make_repo(root, names=("bar",)):
     root.mkdir(parents=True)
     _git(root, "init", "-b", "main")
     _git(root, "config", "user.email", "t@t.t")
     _git(root, "config", "user.name", "t")
-    (root / "skills" / "bar").mkdir(parents=True)
-    (root / "skills" / "bar" / "SKILL.md").write_text("---\nname: bar\n---\n# bar\n")
+    for n in names:
+        (root / "skills" / n).mkdir(parents=True)
+        (root / "skills" / n / "SKILL.md").write_text(f"---\nname: {n}\n---\n# {n}\n")
     _git(root, "add", "-A")
     _git(root, "commit", "-m", "init")
     _git(root, "remote", "add", "origin", str(root))
@@ -142,11 +143,23 @@ def _make_repo(root):
     return root
 
 
-def _doctor_skills(repo, skills_dir):
+def _doctor_skills(repo, skills_dir, *extra_args):
     return subprocess.run(
         [sys.executable, str(_DOC), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--skills-dir", str(skills_dir)],
+         "--ref", "HEAD", "--skills-dir", str(skills_dir), *extra_args],
         capture_output=True, text=True)
+
+
+def _score(stdout):
+    """DRIFT-SCORE als int aus der Doctor-Ausgabe."""
+    line = next(ln for ln in stdout.splitlines() if "DRIFT-SCORE:" in ln)
+    return int(line.split("DRIFT-SCORE:")[1].split()[0])
+
+
+def _dangling(stdout):
+    """DANGLING-Zaehler als int aus der eigenen, maschinenlesbaren Zeile (#1368)."""
+    line = next(ln for ln in stdout.splitlines() if ln.startswith("=== DANGLING:"))
+    return int(line.split("DANGLING:")[1].split()[0])
 
 
 def _make_commands_repo(root):
@@ -224,6 +237,87 @@ def test_should_report_dangling_directory_symlink_as_drift(tmp_path):
     assert r.returncode == 1, r.stdout + r.stderr
     assert "dangling=1" in r.stdout, r.stdout
     assert "DRIFT-SCORE: 0" not in r.stdout
+
+
+# ------------------------------------------------ ADR-281 §8.2 / #1368: die zwei Kanten
+def test_should_report_noncanonical_dangling_symlink_as_dangling_not_extra(tmp_path):
+    """#1368 Kante 1: ein gebrochener Link unter einem der Quelle UNBEKANNTEN Namen.
+
+    Bis 2026-07-22 stand `name not in canon` vor der dangling-Pruefung und beendete die
+    Klassifikation per `continue` — der Link kam als `extra` heraus, nie als `dangling`.
+    Erkannt wurde er (Drift +1), aber unter dem falschen Etikett, und ADR-281 §8.2 gatet
+    ausdruecklich auf `dangling`. Real gemessen am 2026-07-22 mit `adr281-dangling`.
+    """
+    repo = _make_repo(tmp_path / "repo")
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
+         "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    assert _score(_doctor_skills(repo, dist).stdout) == 0
+
+    # Name existiert in der Quelle NICHT — genau der Fall, der frueher durchrutschte
+    (dist / "fremder-skill").symlink_to(tmp_path / "ziel-existiert-nicht")
+
+    r = _doctor_skills(repo, dist)
+    assert r.returncode == 1, r.stdout + r.stderr
+    # Etikett-Assertions ZUERST: sie sind der eigentliche Regressionsschutz. Stuenden die
+    # DANGLING-Zeilen-Assertions davor, schluege der Test ohne den Fix schon an der fehlenden
+    # Zeile fehl und bewiese ueber die Fehlklassifikation nichts.
+    assert "[dangling] fremder-skill" in r.stdout, r.stdout
+    assert "[extra] fremder-skill" not in r.stdout, r.stdout
+    assert "nicht in der Quelle" in r.stdout, r.stdout   # Zusatz bleibt sichtbar
+    assert "dangling=1" in r.stdout, r.stdout
+    assert _dangling(r.stdout) == 1, r.stdout
+    # Die Umstellung verschiebt nur das Etikett, sie darf den Score nicht veraendern
+    assert _score(r.stdout) == 1, r.stdout
+
+
+def test_should_move_dangling_counter_even_when_drift_score_stays_equal(tmp_path):
+    """#1368 Kante 2: der kaputte Link ersetzt einen zuvor FEHLENDEN Skill.
+
+    `missing` sinkt um 1, `dangling` steigt um 1 — die DRIFT-SCORE-Summe bleibt gleich.
+    Ein Monitor, der auf die Score-Zahl schaut, sieht dann nichts. Die eigene
+    DANGLING-Zeile muss sich trotzdem bewegen; genau darauf soll das Phase-2-Gate triggern.
+    """
+    repo = _make_repo(tmp_path / "repo", names=("bar", "baz"))
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
+         "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    shutil.rmtree(dist / "baz")                       # baz fehlt → Grund-Drift 1
+
+    vorher = _doctor_skills(repo, dist).stdout
+    assert _score(vorher) == 1 and _dangling(vorher) == 0, vorher
+
+    (dist / "baz").symlink_to(tmp_path / "ziel-existiert-nicht")
+
+    nachher = _doctor_skills(repo, dist).stdout
+    assert _score(nachher) == _score(vorher), "Score-Neutralitaet ist die Voraussetzung des Tests"
+    assert _dangling(nachher) == 1, nachher            # … und genau deshalb braucht es diese Zeile
+
+
+def test_should_gate_on_dangling_only_when_flag_set(tmp_path):
+    """#1368 Kante 2: `--fail-on-dangling` ignoriert uebrige Drift.
+
+    Auf einer Maschine mit akzeptierter Grund-Drift ist der normale Exit-Code dauerhaft 1
+    und unterscheidet nichts. Das Gate braucht ein Signal, das nur auf gebrochene Links
+    reagiert — sonst ist es entweder dauerrot oder es schaut auf die Score-Summe (Kante 2).
+    """
+    repo = _make_repo(tmp_path / "repo", names=("bar", "baz"))
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
+         "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    shutil.rmtree(dist / "baz")                       # Grund-Drift, aber kein dangling
+
+    assert _doctor_skills(repo, dist).returncode == 1                        # normal: rot
+    assert _doctor_skills(repo, dist, "--fail-on-dangling").returncode == 0  # Gate: gruen
+
+    (dist / "baz").symlink_to(tmp_path / "ziel-existiert-nicht")
+    assert _doctor_skills(repo, dist, "--fail-on-dangling").returncode == 1  # Gate: rot
 
 
 def _make_commands_repo_with_content(root, workflow_content):

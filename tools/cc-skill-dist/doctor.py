@@ -13,6 +13,12 @@ Zwei Lanes (`--kind`):
 
 Usage: doctor.py [--kind commands|skills] [--platform ~/github/platform]
                  [--commands ~/.claude/commands] [--skills-dir ~/.claude/skills] [--ref origin/main]
+                 [--fail-on-dangling]
+
+Exit-Codes: 0 = sauber · 1 = Drift · 2 = keine kanonische Quelle gefunden.
+Mit `--fail-on-dangling` spiegelt der Exit-Code ausschliesslich gebrochene Symlinks
+(ADR-281 §8.2, #1368) — gedacht als Gate auf Maschinen mit akzeptierter Grund-Drift,
+wo der normale Exit-Code dauerhaft 1 ist und deshalb nichts unterscheidet.
 """
 import argparse
 import os
@@ -139,6 +145,14 @@ def main():
     ap.add_argument("--skills-dir", default=os.path.expanduser("~/.claude/skills"))
     ap.add_argument("--hooks-dir", default=os.path.expanduser("~/.claude/hooks/managed"))
     ap.add_argument("--ref", default="origin/main")
+    ap.add_argument(
+        "--fail-on-dangling", action="store_true",
+        help="Exit-Code spiegelt AUSSCHLIESSLICH dangling (0 = kein gebrochener Link, "
+             "1 = mindestens einer) — uebrige Drift wird weiterhin berichtet, aber nicht "
+             "gegatet. Fuer das ADR-281-§8.2-Gate (#1368, Kante 2): auf Maschinen mit "
+             "akzeptierter Grund-Drift ist der normale Exit-Code dauerhaft 1 und traegt "
+             "keine Information; und die Score-SUMME kann trotz gebrochenem Link gleich "
+             "bleiben, wenn dieser einen zuvor 'fehlenden' Skill ersetzt.")
     a = ap.parse_args()
 
     if a.kind == "commands":
@@ -180,10 +194,20 @@ def main():
         if not os.path.islink(path) and os.path.normpath(parent) != os.path.normpath(target_dir):
             entry = parent
         is_link = os.path.islink(entry)
+        # REIHENFOLGE IST TRAGEND (#1368, Kante 1): die dangling-Pruefung steht VOR der
+        # canon-Pruefung. Umgekehrt — so bis 2026-07-22 — beendete `name not in canon` die
+        # Klassifikation per `continue`, und ein gebrochener Link unter einem der Quelle
+        # unbekannten Namen erreichte den dangling-Zweig NIE: er kam als `extra` heraus.
+        # Erkannt wurde er (Drift +1), aber unter dem falschen Etikett — und ADR-281 §8.2
+        # gatet ausdruecklich auf `dangling`, nicht auf die Score-Summe. Beide Faelle zaehlen
+        # weiterhin genau 1 Drift-Punkt; die Summe aendert sich durch die Umstellung nicht.
+        if is_link and not os.path.exists(path):
+            why = "Symlink ins Leere → " + os.readlink(entry)
+            if name not in canon:
+                why += " (zudem nicht in der Quelle)"
+            sym_dangling += 1; issues.append(("dangling", name, why)); continue
         if name not in canon:
             extra += 1; issues.append(("extra", name, "im Ziel, aber nicht in der Quelle")); continue
-        if is_link and not os.path.exists(path):
-            sym_dangling += 1; issues.append(("dangling", name, "Symlink ins Leere → " + os.readlink(entry))); continue
         try:
             disk = open(path, encoding="utf-8", errors="ignore").read()
         except Exception as e:
@@ -230,6 +254,14 @@ def main():
         print(f"  Wiring-Befunde (settings.json SessionEnd)={len(wiring_issues)}")
     drift = sym_stale + sym_dangling + copy_stale + extra + len(missing) + rel_links + len(wiring_issues)
     print(f"=== DRIFT-SCORE: {drift} (0 = sauber) ===")
+    # Eigene, maschinenlesbare Zeile statt nur eines Summanden in DRIFT-SCORE (#1368, Kante 2):
+    # ersetzt ein gebrochener Link einen zuvor 'fehlenden' Skill, sinkt `missing` um 1 waehrend
+    # `dangling` um 1 steigt — die Summe bleibt unveraendert und ein auf die Score-Zahl
+    # schauender Monitor sieht nichts. Diese Zeile bewegt sich in dem Fall trotzdem.
+    print(f"=== DANGLING: {sym_dangling} ===")
+    if sym_dangling:
+        print("  ⚠ mindestens ein Symlink zeigt ins Leere — betroffene Skills sind still weg "
+              "(ADR-281 §7/§8.2). Details in den Befunden oben.")
 
     # SUGGEST-lint: mcp[0-9]_token in distributed commands (advisory, not in DRIFT-SCORE)
     if a.kind == "commands":
@@ -270,6 +302,8 @@ def main():
             else:
                 print("  --- SUGGEST: 0 Skills mit unvollständigem KD-Referenz-Schema ---")
 
+    if a.fail_on_dangling:
+        sys.exit(1 if sym_dangling else 0)
     sys.exit(1 if drift else 0)
 
 if __name__ == "__main__":
