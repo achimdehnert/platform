@@ -14,7 +14,7 @@
 #   Runner prüfen:  gh api repos/<owner>/<repo>/actions/runners
 #   Ports:          siehe infra/ports.yaml (eigene SoT)
 #
-# Ground-Truth-Stand: 2026-06-17 (verifiziert per SSH + gh api; siehe `verified`).
+# Ground-Truth-Stand: 2026-07-22 (verifiziert per SSH-Probe + Hetzner-Cloud-API; siehe `verified`).
 # ═══════════════════════════════════════════════════════════════════════════════
 
 hosts:
@@ -22,7 +22,13 @@ hosts:
     ip: 88.198.191.108
     ssh: root@88.198.191.108
     ssh_alias: hetzner-prod            # ~/.ssh/config
-    hostname: ubuntu-8gb-nbg1-1
+    hostname: ubuntu-8gb-nbg1-1        # ⚠ LEGACY-NAME, LÜGT: die Box wurde vergrößert.
+    # Real (API + on-host, 2026-07-22): Hetzner Cloud `cpx52` = 12 vCPU / 24 GB / 480 GB,
+    # AMD EPYC-Genoa, Rechenzentrum nbg1-dc3, Cloud-Name `iilgmbh-prod` (id 114710083).
+    # Dazu Volume `iilgbmh-docker` (350 GB, id 105908261) gemountet als /var/lib/docker.
+    cloud_name: iilgmbh-prod
+    server_type: cpx52                 # 12 vCPU / 24 GB / 480 GB
+    datacenter: nbg1-dc3
     os: Ubuntu 24.04.3 LTS
     provider: Hetzner (nbg1)
     role: >
@@ -30,14 +36,45 @@ hosts:
       (risk-hub→schutztat.de, billing-hub, trading-hub, …) als getrennte
       docker-compose-Projekte auf EINER Engine. Multi-Hub-Host → COMPOSE_PROJECT_NAME
       pro Hub pinnen (ADR-248), sonst Cross-Projekt-Orphan-Removal.
+      ⚠ SPEICHERNOTLAGE (#1303): 113 Container, Swap dauerhaft 100 %, 9 OOM-Kills in
+      16 Tagen Uptime bei 94 % CPU-Idle — das Problem ist RAM, nicht CPU. Entlastung
+      läuft über `prod-b` (unten) + Runner-Verlagerung (ADR-257) + Freeze #1314.
     hosts_runners: [prod-server]
-    verified: 2026-06-17
+    verified: 2026-07-22               # SSH-Probe + Hetzner-Cloud-API
+
+  prod-b:
+    ip: 89.167.43.30
+    ssh: root@89.167.43.30
+    cloud_name: iilgmbh-prod-b         # id 123575372, vormals `lastwar-bot`
+    server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
+    datacenter: hel1-dc2               # Finnland — siehe Standort-Auflage unten
+    os: Ubuntu 24.04.4 LTS
+    provider: Hetzner (hel1)
+    firewall: prod-b-web               # id 11351382 — nur 22/80/443 + ICMP
+    role: >
+      Zweiter Prod-Host, angelegt 2026-07-22 durch Rebuild der zuvor ungenutzten
+      Maschine `lastwar-bot` (89 Tage Uptime, Load 0,00, 0,3 GB Traffic) — daher
+      0 EUR Mehrkosten (grandfathered cpx42) statt Neukauf. Trägt den Long Tail der
+      Hubs, die von `prod` wegwandern. Docker 29.6.2 + Compose v5.3.1.
+      STANDORT-AUFLAGE: Hetzner-Standort ist Helsinki. Der Owner hat hel1 für alles
+      AUSSER Gov-Workloads freigegeben (2026-07-22). Einziger echter Gov-/Sozialdaten-
+      Workload ist meiki-lra/frist-hub — der gehört NICHT hierher. `ttz` und
+      `writing-hub` sind ausdrücklich unkritisch (keine Personendaten, kein Public
+      Sector) und dürfen hier laufen.
+      Archiv des Vorzustands: Snapshot `lastwar-bot-archive-20260722` (id 411324113,
+      7,8 GB) — Android-SDK/Emulator-Projekt, auf einen Server mit >=301 GB Disk
+      wiederherstellbar.
+    hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
+    verified: 2026-07-22               # SSH + docker --version on-host
 
   staging:
     ip: 88.99.38.75
     ssh: root@88.99.38.75              # Admin/Deploy-Zugang
     ssh_interactive: devuser@88.99.38.75  # interaktiver Dev-Account — Default für Dev-Arbeit auf diesem Host
     hostname: dev-desktop              # Label in infra-Skripten; OS-Hostname real: ubuntu-32gb-fsn1-1
+    cloud_name: moonlight-sunshine     # id 125584724 — Name kommt vom Sunshine/Moonlight-
+    server_type: cpx62                 # Desktop-Streaming, das hier zusätzlich läuft
+    datacenter: fsn1-dc8               # 16 vCPU / 32 GB / 640 GB
     # ⚠ NAMENS-DRIFT (2026-07-02): ports.yaml nennt diesen Host "dev"
     #   (servers.dev), diese Datei "staging" — real spielt er BEIDE Rollen
     #   (siehe role). Empfohlene ~/.ssh/config-Aliase: fsn1 / hetzner-devuser.
@@ -58,20 +95,37 @@ hosts:
   staging-dedicated:
     ip: 178.104.184.168
     ssh: root@178.104.184.168
+    cloud_name: staging-platform       # id 127038422
+    server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
+    datacenter: fsn1-dc8
     role: >
-      Laut ports.yaml (servers.staging) der dedizierte Staging-Server.
-      TCP 22/80/443 erreichbar (Probe 2026-07-02). Widerspricht dem
-      "staging"-Eintrag oben (88.99.38.75) — Rollen-Klärung offen:
-      welche Staging-Workloads laufen hier vs. auf dem Dev Desktop?
+      ROLLEN-KLÄRUNG ERLEDIGT (2026-07-22, on-host verifiziert): dedizierter
+      Staging-Host. Trägt 12 Container — risk-hub-Staging (risk_hub_web/db/redis/
+      minio/celery/worker/celery_beat), dev-hub-Staging (dev_hub_staging_*) und
+      klickdummy; /opt hält dev-hub-staging, klickdummy, risk-hub, scripts,
+      shared-secrets. Deutlich unterausgelastet: 3,6 von 16 GB belegt, Disk 6,2 von
+      301 GB, Uptime 97 Tage.
+      ⚠ Doppelung mit `staging` (88.99.38.75): risk-hub-Staging und dev-hub-Staging
+      existieren auf BEIDEN Hosts. Konsolidierung ist offen.
     hosts_runners: []
-    verified: 2026-07-02               # nur TCP-Probe; on-host nicht verifiziert
+    verified: 2026-07-22               # SSH-Probe on-host
 
   odoo:
     ip: 46.225.127.211
     ssh_alias: hetzner-odoo            # ~/.ssh/config
-    role: "Odoo-Host (Details nicht in dieser Session verifiziert)."
+    os: Ubuntu (4 vCPU / 8 GB / 150 GB)
+    role: >
+      Odoo-Host, NICHT im selben Hetzner-Cloud-Projekt wie die vier Hosts oben
+      (taucht unter dem Projekt-Token nicht auf) — eigenes Konto/Projekt.
+      Trägt odoo_web/odoo_db plus einen vollständigen Monitoring-Stack
+      (traefik, prometheus, grafana, loki, promtail, node_exporter,
+      postgres_exporter). Uptime 159 Tage, 1,5 von 7,7 GB belegt.
+      💡 Dieser Stack ist der einzige im Bestand — `prod` hat KEIN Monitoring, was
+      der Grund war, dass der OOM-Ausfall am 2026-07-20 16 h unbemerkt blieb.
+      Naheliegend: prod per node_exporter/cadvisor hier anmelden (0 EUR).
+      Bekannter Defekt: `aifw_service` in Restart-Schleife.
     hosts_runners: []
-    verified: false                    # nur aus ~/.ssh/config, nicht geprüft
+    verified: 2026-07-22               # SSH-Probe on-host
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
