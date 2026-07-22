@@ -21,12 +21,15 @@ Kommandos:
   --move --from "<domain-oder-substr>" --to "DSGVO/Groeger" [--yes]
   --find [--from S] [--subject S] [--days N] [--source PFAD]     # suchen, read-only
   --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N]
-  --draft --to a@b.c --subject "..." --body-file f.txt [--reply-to <messageId>]
+  --draft --to a@b.c --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
+  --attach-to <messageId> --attach PFAD [--attach PFAD ...]   # Datei(en) an bestehenden Entwurf hängen
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import mimetypes
 import re
 import stat
 import sys
@@ -380,7 +383,40 @@ def cmd_move(tok: str, from_sub: str, target_path: str, source_path: str, yes: b
 
 # ---------- Entwurf ----------
 
-def cmd_draft(tok: str, to: str, subject: str, body: str, reply_to: str | None) -> None:
+def _file_attachment_payload(path: str) -> dict:
+    """Graph-fileAttachment-JSON für eine lokale Datei (netzfrei, unit-testbar).
+
+    Kleine Anhänge (<3 MB) gehen inline als base64 contentBytes — für die
+    TOM-/Report-Dateien dieses Tools reicht das; große Uploads (Upload-Session)
+    sind bewusst nicht abgedeckt.
+    """
+    p = Path(path)
+    if not p.is_file():
+        sys.exit(f"FEHLER: Anhang nicht gefunden: {path}")
+    raw = p.read_bytes()
+    if len(raw) >= 3 * 1024 * 1024:
+        sys.exit(f"FEHLER: Anhang {p.name} ist >3 MB — Inline-Anhang nicht unterstützt.")
+    ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+    return {
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        "name": p.name,
+        "contentType": ctype,
+        "contentBytes": base64.b64encode(raw).decode("ascii"),
+    }
+
+
+def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
+    for path in paths:
+        payload = _file_attachment_payload(path)
+        r = _http("POST", f"{GRAPH}/me/messages/{msg_id}/attachments",
+                  headers=_auth(tok), json_body=payload)
+        if r.status_code not in (200, 201):
+            sys.exit(f"FEHLER: Anhang {payload['name']} fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}")
+        print(f"  + Anhang: {payload['name']} ({payload['contentType']})")
+
+
+def cmd_draft(tok: str, to: str, subject: str, body: str, reply_to: str | None,
+              attach: list[str] | None = None) -> None:
     if reply_to:
         r = _http("POST", f"{GRAPH}/me/messages/{reply_to}/createReply", headers=_auth(tok), json_body={})
         if r.status_code not in (200, 201):
@@ -390,6 +426,8 @@ def cmd_draft(tok: str, to: str, subject: str, body: str, reply_to: str | None) 
         if subject:
             patch["subject"] = subject
         _http("PATCH", f"{GRAPH}/me/messages/{did}", headers=_auth(tok), json_body=patch)
+        if attach:
+            _attach_files(tok, did, attach)
         print(f"OK: Antwort-Entwurf im Drafts-Ordner abgelegt (Reply auf {reply_to[:12]}…). "
               "Prüfe und sende ihn selbst aus Outlook.")
         return
@@ -398,7 +436,16 @@ def cmd_draft(tok: str, to: str, subject: str, body: str, reply_to: str | None) 
     r = _http("POST", f"{GRAPH}/me/messages", headers=_auth(tok), json_body=body_json)
     if r.status_code not in (200, 201):
         sys.exit(f"FEHLER: Entwurf anlegen fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}")
+    if attach:
+        _attach_files(tok, r.json()["id"], attach)
     print("OK: Entwurf im Drafts-Ordner abgelegt (NICHT gesendet). Prüfe und sende ihn selbst aus Outlook.")
+
+
+def cmd_attach_to(tok: str, msg_id: str, attach: list[str]) -> None:
+    """Datei(en) an einen bestehenden Entwurf hängen (in-place, kein Duplikat)."""
+    _attach_files(tok, msg_id, attach)
+    print(f"OK: {len(attach)} Anhang/Anhänge an Entwurf {msg_id[:12]}… gehängt (NICHT gesendet). "
+          "Prüfe und sende ihn selbst aus Outlook.")
 
 
 def main() -> None:
@@ -413,6 +460,10 @@ def main() -> None:
     g.add_argument("--find", action="store_true", help="Mails suchen (read-only)")
     g.add_argument("--show", metavar="ID|latest", help="eine Mail vollständig lesen (read-only)")
     g.add_argument("--draft", action="store_true")
+    g.add_argument("--attach-to", metavar="messageId",
+                   help="Anhang/Anhänge an einen bestehenden Entwurf hängen")
+    ap.add_argument("--attach", action="append", metavar="PFAD", default=[],
+                    help="Datei anhängen (wiederholbar) — mit --draft oder --attach-to")
     ap.add_argument("--to-parent", help="Ziel-Elternordner bei --move-folder")
     ap.add_argument("--account")
     ap.add_argument("--days", type=int, default=180)
@@ -456,13 +507,17 @@ def main() -> None:
     elif args.show:
         cmd_show(tok, args.show, args.from_sub or "", args.subject, args.days,
                  args.source, args.max_chars)
+    elif args.attach_to:
+        if not args.attach:
+            ap.error("--attach-to braucht mindestens ein --attach PFAD")
+        cmd_attach_to(tok, args.attach_to, args.attach)
     else:  # --draft
         if not args.body_file:
             ap.error("--draft braucht --body-file (und --to ODER --reply-to)")
         if not (args.to or args.reply_to):
             ap.error("--draft braucht --to ODER --reply-to")
         body = Path(args.body_file).read_text()
-        cmd_draft(tok, args.to or "", args.subject, body, args.reply_to)
+        cmd_draft(tok, args.to or "", args.subject, body, args.reply_to, args.attach)
 
 
 if __name__ == "__main__":
