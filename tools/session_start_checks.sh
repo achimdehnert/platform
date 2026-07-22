@@ -190,6 +190,13 @@ fi
 #      #159 (ausschreibungs-hub) war 9 Tage nicht live, 0.7 meldete PASS, weil
 #      `conclusion` eines waiting-Runs null ist. Aufloesung: pending_deployments
 #      des ALTEN Runs mit state=rejected beantworten, nicht den neuen anfassen.
+#      WICHTIG: die waiting-Suche laeuft server-seitig ueber `--status waiting`,
+#      NICHT durch Sieben eines Fensters der letzten N Runs. Ein Fenster ist an
+#      die Deploy-Frequenz gekoppelt, der zu findende Zustand aber an Kalender-
+#      zeit — gemessen 2026-07-22: risk-hub >=100, trading-hub 81 Deploy-Runs in
+#      30 Tagen, d.h. 20 Runs decken dort nur ~6-7 Tage ab, waehrend der Realfall
+#      9 Tage hing. Ein Fenster-Filter haette den eigenen Anlassfall auf genau
+#      den aktivsten Repos verfehlt und wieder PASS gemeldet.
 OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.*#\1#')
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
@@ -197,13 +204,21 @@ DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat wel
 DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""
 WAIT_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 for r in $DEPLOY_REPOS; do
-  # EINE Abfrage, drei Werte: "<conclusion> <aeltester-waiting-createdAt> <run-id>"
-  OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 20 --json databaseId,status,conclusion,createdAt \
-        --jq '"\(.[0].conclusion // "none") \([.[]|select(.status=="waiting")|.createdAt]|min // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
+  # (1) Letzter Run: conclusion + id. `--limit 1` genuegt, seit die waiting-Suche
+  #     nicht mehr aus diesem Fenster gesiebt wird.
+  OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 --json databaseId,conclusion \
+        --jq '"\(.[0].conclusion // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
   [ -z "$OUT" ] && continue
-  read -r C W ID <<EOF
+  read -r C ID <<EOF
 $OUT
 EOF
+  # (2) Haengende Gates server-seitig, fenster- und frequenzunabhaengig.
+  #     `waiting` ist ein von gh validierter --status-Wert (geprueft 2026-07-22:
+  #     ein ungueltiger Wert bricht mit "invalid argument ... valid values are
+  #     {...|waiting|...}" ab). Leeres Ergebnis -> "none".
+  W=$(gh run list -R "$OWNER/$r" --workflow Deploy --status waiting --limit 100 \
+      --json createdAt --jq '[.[].createdAt]|min // "none"' 2>/dev/null)
+  [ -z "$W" ] && W="none"
   if [ "$C" = "failure" ] && [ "$ID" != "none" ]; then
     # Zweiter Call nur im failure-Fall (nicht pro Repo) — abgelehnte Freigabe
     # vom echten Fehlschlag trennen, s. Kommentar oben.
