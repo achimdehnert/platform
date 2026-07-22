@@ -8,6 +8,7 @@ Run: `python3 -m pytest tools/tests/test_doctor.py -q`
 """
 import importlib.util
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -39,6 +40,32 @@ def test_should_enumerate_only_dirs_with_skill_md(tmp_path):
     (tmp_path / "beta" / "SKILL.md").write_text("y")
     (tmp_path / "nope").mkdir()                              # kein SKILL.md
     assert set(doc.enumerate_skills(str(tmp_path))) == {"alpha", "beta"}
+
+
+def test_should_enumerate_dangling_directory_symlink(tmp_path):
+    """ADR-281 §8.2 / #1332 — Form A: das Skill-VERZEICHNIS ist ein Symlink ins Leere.
+
+    Genau die Form, die ADR-281 verwendet. Sie wurde vor dem Fix gar nicht erfasst,
+    fiel damit aus target_files heraus und erreichte die dangling-Behandlung nie —
+    der geforderte Negativtest waere stillschweigend durchgefallen.
+    """
+    (tmp_path / "alpha").mkdir()
+    (tmp_path / "alpha" / "SKILL.md").write_text("x")
+    (tmp_path / "kaputt").symlink_to(tmp_path / "gibt-es-nicht")
+    assert set(doc.enumerate_skills(str(tmp_path))) == {"alpha", "kaputt"}
+
+
+def test_should_enumerate_dangling_skill_md_symlink(tmp_path):
+    """#1332 — Form B: die SKILL.md selbst ist ein toter Symlink (war schon vorher erfasst)."""
+    (tmp_path / "gamma").mkdir()
+    (tmp_path / "gamma" / "SKILL.md").symlink_to(tmp_path / "weg.md")
+    assert set(doc.enumerate_skills(str(tmp_path))) == {"gamma"}
+
+
+def test_should_not_enumerate_plain_dir_without_skill_md(tmp_path):
+    """Gegenprobe zum Fix: ein normales Verzeichnis ohne SKILL.md bleibt draussen."""
+    (tmp_path / "leer").mkdir()
+    assert doc.enumerate_skills(str(tmp_path)) == {}
 
 
 def test_should_enumerate_flat_md_only(tmp_path):
@@ -172,6 +199,31 @@ def test_should_report_drift_zero_then_detect_tamper(tmp_path):
     r2 = _doctor_skills(repo, dist)
     assert r2.returncode == 1
     assert "DRIFT-SCORE: 0" not in r2.stdout
+
+
+def test_should_report_dangling_directory_symlink_as_drift(tmp_path):
+    """ADR-281 §8.2 Negativtest (#1332): ein gebrochener Verzeichnis-Symlink MUSS rot werden.
+
+    Vor dem Fix blieb dieser Fall vollstaendig unsichtbar — dangling=0, DRIFT-SCORE
+    unveraendert, exit 0. Ein Gate darauf haette eine Garantie getragen, die er nicht
+    einloest. Der Test deckt genau die von ADR-281 verwendete Symlink-Form ab.
+    """
+    repo = _make_repo(tmp_path / "repo")
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
+         "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    assert "DRIFT-SCORE: 0" in _doctor_skills(repo, dist).stdout
+
+    # kanonischen Skill durch einen Verzeichnis-Symlink ins Leere ersetzen
+    shutil.rmtree(dist / "bar")
+    (dist / "bar").symlink_to(tmp_path / "ziel-existiert-nicht")
+
+    r = _doctor_skills(repo, dist)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "dangling=1" in r.stdout, r.stdout
+    assert "DRIFT-SCORE: 0" not in r.stdout
 
 
 def _make_commands_repo_with_content(root, workflow_content):
