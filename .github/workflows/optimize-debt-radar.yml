@@ -23,15 +23,15 @@ on:
   schedule:
     - cron: "15 7 * * 1,4" # Mo+Do 07:15 UTC — 2x/Woche (Entscheidung 2026-07-16: höhere Entwicklungsgeschwindigkeit)
   workflow_dispatch:
-    inputs:
-      commit_baseline:
-        description: "Neue Baseline committen (schedule tut dies immer; manueller Testlauf default false)"
-        type: boolean
-        default: false
 
+# contents auf read verengt (2026-07-22, #1338): der Workflow committet nichts mehr,
+# die Baseline liegt als Artefakt. Die frueher hier per Named-Approval erteilte
+# contents:write-Berechtigung wird damit nicht mehr gebraucht — Rechte-Reduktion,
+# keine Erweiterung. Der Input commit_baseline entfaellt aus demselben Grund.
 permissions:
-  contents: write
+  contents: read
   issues: write
+  actions: read # gh run download aus dem vorherigen Lauf
 
 concurrency:
   group: optimize-debt-radar
@@ -84,13 +84,40 @@ jobs:
           done < /tmp/targets.txt
           echo "clone_failures=$fail" >> "$GITHUB_OUTPUT"
 
+      # Baseline aus dem letzten erfolgreichen Lauf holen — als Artefakt, nicht als
+      # Commit (#1338 Weg 3: ein Push auf main wird vom Ruleset abgelehnt, GH013).
+      # Fehlt das Artefakt (erster Lauf nach dieser Umstellung, abgelaufene Retention),
+      # laeuft der Radar ohne Baseline und meldet Absolutwerte statt Delta — und sagt
+      # das im Log, statt es zu verschweigen.
+      - name: Baseline des letzten erfolgreichen Laufs holen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/baseline
+          PREV=$(gh run list --workflow optimize-debt-radar --status success \
+                   --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$PREV" ]; then
+            echo "Kein vorheriger erfolgreicher Lauf — Radar laeuft ohne Baseline."
+            exit 0
+          fi
+          gh run download "$PREV" --name optimize-debt-radar-baseline --dir /tmp/baseline \
+            || echo "Artefakt aus Lauf $PREV nicht verfuegbar — Radar laeuft ohne Baseline."
+
       - name: Radar laufen lassen
         run: |
           NAMES=$(cut -f1 /tmp/targets.txt | paste -sd, -)
+          BASELINE_ARG=""
+          if [ -f /tmp/baseline/radar_result.json ]; then
+            BASELINE_ARG="--baseline /tmp/baseline/radar_result.json"
+            echo "Baseline: aus dem vorherigen Lauf (Artefakt)."
+          else
+            echo "Baseline: keine — Delta bleibt leer, Werte sind absolut."
+          fi
           python3 tools/optimize_debt_radar.py \
             --github-dir "$RUNNER_TEMP/fleet" \
             --repos "$NAMES" \
-            --baseline tools/.optimize_debt_radar_baseline.json \
+            $BASELINE_ARG \
             --out /tmp/radar_result.json \
             --format text | tee /tmp/radar_text.txt
 
@@ -113,12 +140,23 @@ jobs:
             gh issue comment "$ISSUE" --body-file /tmp/issue_body.txt
           fi
 
-      - name: Baseline aktualisieren + committen
-        if: github.event_name == 'schedule' || inputs.commit_baseline == true
+      # Neue Baseline als Artefakt ablegen statt zu committen (#1338 Weg 3). Der
+      # Folge-Lauf zieht sie oben wieder heraus. Retention 90 Tage deckt die Kadenz
+      # (2x/Woche) mit grossem Abstand ab.
+      - name: Neue Baseline als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimize-debt-radar-baseline
+          path: /tmp/radar_result.json
+          retention-days: 90
+          overwrite: true
+
+      - name: Ergebnis in die Job-Summary schreiben
         run: |
-          cp /tmp/radar_result.json tools/.optimize_debt_radar_baseline.json
-          git config user.name "platform-bot"
-          git config user.email "platform-bot@users.noreply.github.com"
-          git add tools/.optimize_debt_radar_baseline.json
-          git diff --cached --quiet || git commit -m "chore(radar): optimize-debt-radar baseline $(date -u +%F)"
-          git push
+          {
+            echo "## optimize-debt-radar — $(date -u +%F)"
+            echo
+            echo '```'
+            cat /tmp/radar_text.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

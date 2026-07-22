@@ -25,6 +25,20 @@
 # ADR-007-Frontmatter-Fix + Push→PR-Flow) ist als Checkliste in Issue #818
 # kommentiert und NICHT Teil dieser Änderung — bis dahin nur manuell via
 # workflow_dispatch ausführen (und dann Fehler erwarten).
+#
+# STAND 2026-07-22 (#1338) — alle drei Ursachen einzeln nachgeprüft:
+#   1. CLI-Drift: ERLEDIGT. `iil-adrfw metrics` existiert wieder (lokal 0.3.1
+#      geprüft, und der Lauf vom 2026-07-02 scheiterte bereits NICHT mehr am
+#      Subkommando, sondern erst danach).
+#   2. ADR-007-Frontmatter: ERLEDIGT. `iil-adrfw validate docs/adr` meldet
+#      227/227 (100 %) — vermutlich mit der Frontmatter-Welle in #1276 behoben.
+#   3. Direct-Push auf main: HIER BEHOBEN, nach Weg 3 aus #1338 — der Job
+#      committet nichts mehr, Ergebnis geht in Job-Summary + Artefakt.
+#      Bewusste Folge: die Metriken landen NICHT mehr in den ADR-Frontmattern.
+#
+# Der schedule-Trigger bleibt bewusst AUS. Ihn wieder scharf zu schalten ist eine
+# eigene Entscheidung (nächtliche Läufe + Issue-Erzeugung) und gehört nicht in
+# einen Reparatur-PR — als Folgefrage in #1338 vermerkt.
 
 name: "📊 ADR Nightly Metrics"
 
@@ -45,9 +59,9 @@ on:
         options: ["true", "false"]
 
 # Workflow-level default (least privilege, #818 permissions sweep); the
-# metrics job below already declares its own permissions (contents:
-# write for the metrics commit, issues: write for audit-finding issues)
-# and overrides this.
+# metrics job below already declares its own permissions (issues: write
+# for audit-finding issues) and overrides this. contents:write wurde am
+# 2026-07-22 entfernt (#1338) — kein Commit mehr, Ergebnis als Artefakt.
 permissions:
   contents: read
 
@@ -56,7 +70,8 @@ jobs:
     name: "📊 Compute & Write Metrics"
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      # contents:write entfaellt (#1338 Weg 3) — der Job committet nichts mehr.
+      contents: read
       issues: write
 
     steps:
@@ -80,14 +95,19 @@ jobs:
           IIL_ADRFW_ADRS_DIR: docs/adr
         run: |
           set -euo pipefail
-          WRITE="${{ inputs.write_metrics || 'true' }}"
-          WRITE_FLAG=""
-          [[ "$WRITE" == "true" ]] && WRITE_FLAG="--write"
-
+          # --write entfaellt (2026-07-22, #1338 Weg 3): die berechneten Werte wurden
+          # per `git push` in die ADR-Dateien geschrieben, und dieser Push wird vom
+          # Ruleset auf main abgelehnt (GH013). Der Lauf war deshalb 4/4 rot und KEIN
+          # einziger Metrik-Commit ist je auf main angekommen.
+          #
+          # BEWUSSTE FOLGE, nicht ein Nebeneffekt: die Metriken werden nicht mehr in
+          # den ADR-Frontmattern persistiert. Der Workflow ist damit ein Bericht
+          # (Job-Summary + JSON-Artefakt), keine Schreib-Automatik mehr. Wer die Werte
+          # dauerhaft in den ADRs braucht, muss auf Weg 1 (Bypass-Actor) oder Weg 2
+          # (Ergebnis per PR) umstellen — beides in #1338 beschrieben.
           iil-adrfw metrics \
             --adr-dir docs/adr \
-            --report \
-            $WRITE_FLAG | tee /tmp/metrics_report.txt
+            --report | tee /tmp/metrics_report.txt
 
           # Also emit JSON for downstream steps
           iil-adrfw metrics --adr-dir docs/adr --json > /tmp/metrics.json || true
@@ -97,22 +117,18 @@ jobs:
           echo "## 📊 ADR Controlling — $(date -u +%Y-%m-%d)" >> "$GITHUB_STEP_SUMMARY"
           cat /tmp/metrics_report.txt >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit metrics updates
-        if: inputs.write_metrics != 'false'
-        run: |
-          set -euo pipefail
-          git config user.name  "ADR Metrics Bot"
-          git config user.email "adr-bot@iil.gmbh"
-
-          if git diff --quiet docs/adr/; then
-            echo "[INFO] No metric changes to commit"
-          else
-            CHANGED=$(git diff --name-only docs/adr/ | wc -l)
-            git add docs/adr/
-            git commit -m "chore(adr): nightly metrics update (${CHANGED} files) [skip ci]"
-            git push
-            echo "[OK] Metrics committed for ${CHANGED} ADRs"
-          fi
+      # Ersetzt den frueheren "Commit metrics updates"-Step (#1338 Weg 3). Der Push
+      # auf main war vom Ruleset ausgeschlossen; das Ergebnis liegt jetzt als
+      # Artefakt statt als Commit.
+      - name: Metriken als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: adr-metrics
+          path: |
+            /tmp/metrics_report.txt
+            /tmp/metrics.json
+          retention-days: 90
+          overwrite: true
 
       - name: Sync ADR graph → pgvector (Orchestrator Memory)
         env:
