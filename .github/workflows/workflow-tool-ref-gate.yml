@@ -1,0 +1,67 @@
+name: Workflow-Tool-Ref-Gate
+
+# Gate `workflow-tool-ref` (Issue #1310, Retro session-retro-2026-07-21-platform-8d663b
+# Befund B2, SURVIVES-Klasse).
+#
+# Problem: der estimate_job-Falsch-grün-Bug (mcp-hub#180) überlebte ~3 Monate, weil
+# `scripts/verify-adr156.sh` (mcp-hub) nur lokal beim Session-Start läuft und bei
+# Nicht-Grün lediglich WARN (nicht blockierend) ist. Das Skript selbst ist CI-untauglich
+# (SSH auf den Prod-Host + cross-repo lokale Pfade unter ~/github) — ein naives „Skript
+# in CI aufrufen" scheitert strukturell. Die eigentliche Fehlerklasse ist aber eine
+# reine platform-interne Invariante: `.windsurf/workflows/ship.md` und `backup.md`
+# müssen den Tool-Aufruf `mcp__orchestrator__estimate_job:` in Aufruf-Form tragen, nicht
+# nur den nackten String irgendwo erwähnen (eine Verneinungs-Prosa-Zeile wie „estimate_job
+# existiert nicht mehr" hätte einen naiven grep -q genauso grün gemacht — genau das war
+# der ~3-Monate-Bug). Dieser Check läuft rein gegen Dateien in DIESEM Repo — keine
+# SSH-/Cross-Repo-Abhängigkeit, daher CI-tauglich als blockierendes Gate.
+#
+# Nicht in Scope (siehe Issue #1310): der SSH-Server-Teil von verify-adr156.sh bleibt
+# lokal-only — Deploy-Core-Präsenz auf dem Prod-Host ist per Definition nicht in
+# GitHub Actions prüfbar. mcp-hub#<folge-pr> härtet separat die 9 .py-Symbol-Checks.
+
+on:
+  pull_request:
+    paths:
+      - '.windsurf/workflows/ship.md'
+      - '.windsurf/workflows/backup.md'
+      - 'scripts/checks/workflow_tool_ref_check.py'
+      - '.github/workflows/workflow-tool-ref-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.windsurf/workflows/ship.md'
+      - '.windsurf/workflows/backup.md'
+      - 'scripts/checks/workflow_tool_ref_check.py'
+      - '.github/workflows/workflow-tool-ref-gate.yml'
+
+# Least privilege (#818 permissions sweep) — nur lesen, kein Kommentar/Write nötig.
+permissions:
+  contents: read
+
+jobs:
+  workflow-tool-ref:
+    name: "estimate_job-Aufruf-Form in ship.md/backup.md"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Aufruf-Form prüfen (blockierend)
+        run: |
+          python3 scripts/checks/workflow_tool_ref_check.py \
+            .windsurf/workflows/ship.md \
+            .windsurf/workflows/backup.md
+
+      - name: Golden-Test — Verneinungs-Prosa darf NICHT grün werden
+        # Beweist bei jedem Lauf, dass der FAIL-Pfad weiterhin greift (nicht nur der
+        # PASS-Pfad über die realen Dateien oben) — genau die Regression aus dem
+        # ~3-Monate-Bug (naiver grep -q hätte auch die Verneinung getroffen).
+        run: |
+          tmp="$(mktemp -d)"
+          printf '## Hinweis\n\nestimate_job existiert nicht mehr in diesem Workflow.\n' \
+            > "$tmp/ship-negation.md"
+          if python3 scripts/checks/workflow_tool_ref_check.py "$tmp/ship-negation.md"; then
+            echo "::error::Golden-Test: Verneinungs-Prosa wurde fälschlich als PASS gewertet"
+            exit 1
+          fi
+          echo "Golden-Test OK: Verneinungs-Prosa bleibt FAIL."
