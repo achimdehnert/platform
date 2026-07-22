@@ -10,7 +10,77 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-22 — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
+## ⚡ Aktueller Stand (2026-07-22 Abend — ADR-281 §8.1 auf 6/6 komplettiert, ADR-281 `accepted`, §8.2-Negativtest gemessen + beide Kanten gefixt)
+
+**Kern in einem Satz:** Kriterium 5 war die letzte offene Prämisse von ADR-281 — diese
+Session *war* die frische Session, die er brauchte; er trägt, der ADR steht auf `accepted`,
+und der §8.2-Negativtest ist gemessen statt vorausgesetzt.
+
+**ADR-281 §8.1 Kriterium 5 — bestanden.** Der am Nachmittag vorbereitete Symlink
+(`~/.claude/skills/adr281-k5` → `~/shared/adr281-k5`, gesetzt 16:23) lag beim Start dieser
+Session bereits da: der Skill stand **vor jeder Dateisystem-Aktion** im Roster, der Body lud
+inklusive `MARKER-K5-V1`, das Argument-Echo stimmte. Werkzeugversion **2.1.217** — identisch
+zum Erstlauf, der Vergleich ist also nicht von einem Harness-Upgrade verfälscht. Damit ist
+der Erstlauf-Verdacht widerlegt, Symlinks würden nur *dynamisch* aufgelöst: **beide Ladewege
+funktionieren.** §8.1 steht auf **6/6**.
+
+**ADR-281 auf `accepted`** ([#1366](https://github.com/achimdehnert/platform/pull/1366), offen,
+CI grün). Accept-Bedingung des ADR ist §8.1 (binäre Muss-Kriterien, „scheitert eines →
+`rejected`"); §8.2/§8.3 sind Phase-2/3-Gates und keine Accept-Vorbedingungen. Nachgeführt
+wurde nicht nur der Status: der Verifikationsstand-Block „**NICHT verifiziert: dass ein
+symlinkter Skill tatsächlich lädt**" — die tragende offene Prämisse des ADR — ist als überholt
+markiert, §8.1 hat eine Ergebnistabelle je Kriterium, Migration-Tracking Phase 0+1 auf ✅, und
+das Risiko „Symlink lädt doch nicht" ist als gemessen widerlegt entfernt.
+
+**Der §8.2-Negativtest brauchte zwei Läufe — und das war der Fund.** Mit dem in §8.2
+vorgeschlagenen Namen `adr281-dangling`: `dangling=0`, scheinbar derselbe Fehlschlag wie im
+Erstlauf. Mit dem kanonischen Namen `next`: `dangling=1`, korrekte Befund-Zeile. Ursache aus
+dem Code belegt, nicht vermutet — in `doctor.py` beendete die `name not in canon`-Prüfung die
+Klassifikation per `continue`, **bevor** der dangling-Zweig erreicht wurde. Der Fix aus
+[#1332](https://github.com/achimdehnert/platform/issues/1332)/[#1335](https://github.com/achimdehnert/platform/pull/1335)
+zielte auf die kanonische Form und tut dort, was er soll.
+
+**Beide Kanten sind gefixt, nicht wegdokumentiert** ([#1369](https://github.com/achimdehnert/platform/pull/1369),
+offen, CI grün — schließt [#1368](https://github.com/achimdehnert/platform/issues/1368)):
+- **Kante 1:** dangling-Prüfung vor die canon-Prüfung gezogen; Zusatz „(zudem nicht in der
+  Quelle)" hält die zweite Eigenschaft sichtbar. Drift-Score unverändert — beide Fälle zählen 1.
+- **Kante 2:** eigene maschinenlesbare Zeile `=== DANGLING: N ===` plus `--fail-on-dangling`.
+  Hintergrund: ersetzt ein kaputter Link einen zuvor `fehlenden` Skill, sinkt `missing` um 1
+  während `dangling` um 1 steigt — die **Score-Summe bleibt gleich**. Auf dieser Maschine ist
+  der normale Exit-Code wegen Grund-Drift 3 ohnehin dauerhaft `1` und taugt als Gate nicht;
+  mit dem Flag ist er 0 im Normalfall und 1 nur bei gebrochenem Link. Die Auflage „das
+  Phase-2-Gate triggert auf die Befund-Liste, nicht auf die Score-Summe" steht in ADR-281 §8.2
+  selbst, nicht nur im Issue.
+- **Drei Regressionstests, alle drei ohne den Fix rot verifiziert.** Beim Kante-1-Test stehen
+  die Etikett-Assertions bewusst vor den Zeilen-Assertions — sonst wäre er ohne den Fix schon
+  an der fehlenden Ausgabezeile gescheitert und hätte über die Fehlklassifikation nichts
+  bewiesen. Zusätzlich live gegengeprüft, nicht nur synthetisch; Testlinks danach entfernt,
+  `doctor.py` zurück auf DRIFT-SCORE 3.
+
+**Format-Gate-Kollision, bewusst entschieden statt umgangen:** Der lokale Push-Gate
+`block_unformatted_push.sh` verlangt `ruff format` für geänderte `.py`; das Repo ist aber zu
+**475 von 749 Dateien** unformatiert, und genau gegen solche Sweeps existiert
+`check_noop_changes.py` in `tools-tests.yml`. Formatieren hätte 135 geänderte Zeilen auf 598
+aufgebläht. Owner-Entscheid: **zwei Commits** — `e647d05` (Fix, allein reviewbar) und
+`9ac001a` (reines `ruff format`). Der SUGGEST-Check wird den zweiten melden; das ist der
+erwartete Preis der Trennung. Platform-CI selbst prüft `ruff format` für diese Dateien nicht.
+
+**⚠️ Am Session-Ende aufgefallen — hetzner-prod SSH ist zu** ([#1370](https://github.com/achimdehnert/platform/issues/1370)):
+`ssh root@88.198.191.108` liefert **Connection refused** auf Port 22, wodurch `session-memory`
+(Phase 2) und `claude-policy` — beide über denselben Transport — **nicht laufen**. Die
+pgvector-Summary dieser Session wurde deshalb **nicht geschrieben**; ihr Inhalt steht
+redundant in diesem Block, ist aber nicht semantisch durchsuchbar. **Kein Prod-Ausfall,
+geprüft statt vermutet:** `risk-hub.iil.pet/livez/` und `trading-hub.iil.pet/livez/` liefern
+beide **200**, `orchestrator.iil.pet` antwortet (404 auf geratenem Pfad) — der Host routet
+HTTP, nur `sshd` nimmt nichts an. Ob das mit der Speicherlage aus
+[#1303](https://github.com/achimdehnert/platform/issues/1303) zusammenhängt, ist
+**Hypothese, nicht geprüft**.
+
+**Nicht verifiziert / bewusst offen:** ADR-280 §8.1 unverändert blockiert (Owner-Entscheid
+`--allow-live`) · beide PRs dieser Session warten auf 2.-Owner-Review, nichts davon ist auf
+`main`.
+
+## ⚡ Vorheriger Stand (2026-07-22 Nachmittag — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
 
 **Kern in einem Satz:** Die beiden Skill-Lane-ADRs liegen auf `main`, der ADR-281-Ladetest
 wurde **real ausgeführt** statt weiter vorausgesetzt — er trägt, deckt aber zwei Lücken auf,
@@ -122,18 +192,17 @@ kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieb
 
 > **⚠️ Vor allem anderen — hetzner-prod Speicherlage ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** Swap **4095/4095 MB belegt (0 frei)**, 3,4 GB RAM verfügbar. Der OOM vom 20.07. hat trading-hub 16 h offline genommen; der nächste trifft irgendein anderes Hub. Zusätzlich ungeklärt, **warum** die Container entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). Beides ist Prod-Risiko, kein Aufräumthema — die Nummerierung unten bleibt davon unberührt.
 
-1. **ADR-280 §8.1 Betriebsnachweis — blockiert, Ursache benannt:** die 3 migrierten Piloten sind live nicht installiert, es läuft weiter die verwaiste `commands`-Lane. Entsperrender Schritt ist `generate.py --kind skills --allow-live` (ADR-230 §8, Gate mit 8 offenen Checkboxen). **Owner-Entscheid nötig**, weil er die Skill-Installation der Maschine verändert.
-2. **ADR-281 §8.1 — durchgeführt, trägt** ([Artefakt](docs/verifications/2026-07-22-adr281-symlink-ladetest.md)): 1/2/3/6 bestanden, Kriterium 4 als Testfall untauglich (misst den Harness-Cache, nicht den Symlink — Neufassung im Artefakt), Kriterium 5 (frische Session) offen. **Kein Anlass für `rejected`.** **Kriterium 5 ist vorbereitet — die NÄCHSTE frisch gestartete Session führt es aus:** `~/.claude/skills/adr281-k5` → `~/shared/adr281-k5` liegt seit 2026-07-22 16:23 als Symlink bereit (Kriterium 5 ist nicht spontan nachholbar, es braucht einen *vorher* gesetzten Link). **Auszuführen:** prüfen, ob `adr281-k5` **schon beim Session-Start** im `/`-Menü steht, den Skill mit einem Argument aufrufen, Marker + Argument-Echo gegen die Auswertungsregeln im Skill-Body halten, Ergebnis in der Tabelle des Artefakts nachtragen — **danach Link und Quelle löschen** (`rm ~/.claude/skills/adr281-k5 && rm -rf ~/shared/adr281-k5`). Solange der Link liegt, meldet `doctor.py --kind skills` ihn als `extra` und der DRIFT-SCORE steht auf **4 statt 3** — das ist erwartet und kein Befund.
-3. **Beide ADRs bleiben `status: proposed`** — Accept erst, wenn ADR-280 §8.1 gelaufen und ADR-281 Kriterium 5 in einer frischen Session bestätigt ist.
-4. **Cloud-Reichweiten-Lücke ohne eigenes Artefakt:** Cowork-/Cloud-Sessions inkl. Routinen lesen `~/.claude/skills/` **nicht** — das gesamte Verteilmodell endet an der Maschinengrenze, unabhängig von der Lane-Entscheidung. Getrackt als [#1298](https://github.com/achimdehnert/platform/issues/1298) (+ Option F in ADR-280 §10).
-5. **Print-Agent ruft bei JEDEM PDF einen externen US-LLM** ([#1297](https://github.com/achimdehnert/platform/issues/1297)) — Defaults `cerebras`/`groq` hart im Code (`print_agent.py:268/269`), kein Guard, kein Hinweis. Realer Abfluss am 2026-07-21: Kundenanschrift ging an Groq. Lokales Ollama gemessen ausreichend (3B: 18 s, valides JSON). Kein PR, weil Richtungsentscheid nötig (externe Anbieter künftig nur per Opt-in?).
-6. **Review-Stau: 12 offene PRs warten auf 2.-Owner-Review, 0 rot** (gemessen 2026-07-22 16:00 via `gh pr list`, alle `REVIEW_REQUIRED`). Die frühere Angabe „5 Reste, alle CONFLICTING/DIRTY, brauchen Rebase" ist **überholt**: [#892](https://github.com/achimdehnert/platform/pull/892)/[#893](https://github.com/achimdehnert/platform/pull/893) sind CLOSED, [#986](https://github.com/achimdehnert/platform/pull/986)/[#1005](https://github.com/achimdehnert/platform/pull/1005)/[#1007](https://github.com/achimdehnert/platform/pull/1007) sind rebased und MERGEABLE. Sie brauchen **Review**, nicht Rebase. Einzige Ausnahme: [#1319](https://github.com/achimdehnert/platform/pull/1319) steht auf `DIRTY`. Merkposten zur Methode: `mergeable` liefert erst `UNKNOWN`, GitHub rechnet lazy — Re-Poll nötig.
-7. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
-8. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Nebenfund Namenskollision KONZ-platform-001 weiterhin offen
-9. Gate für tote `implementation_evidence`-Pfade ([#1289](https://github.com/achimdehnert/platform/issues/1289)) — erst SUGGEST/non-gating, Baseline sichten vor Gating (sonst Alarm-Müdigkeit).
-10. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
-11. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
+1. **Zwei PRs dieser Session warten auf 2.-Owner-Review, beide CI-grün und MERGEABLE:** [#1366](https://github.com/achimdehnert/platform/pull/1366) (ADR-281 auf `accepted` + §8.1/§8.2-Messung im Verifikationsartefakt) und [#1369](https://github.com/achimdehnert/platform/pull/1369) (doctor.py-Fix, schließt [#1368](https://github.com/achimdehnert/platform/issues/1368)). Technisch unabhängig, beliebige Merge-Reihenfolge. Bei #1369 den **ersten** Commit `e647d05` reviewen — der zweite (`9ac001a`) ist reines `ruff format` und bewusst getrennt.
+2. **ADR-280 §8.1 Betriebsnachweis — blockiert, Ursache benannt:** die 3 migrierten Piloten sind live nicht installiert, es läuft weiter die verwaiste `commands`-Lane. Entsperrender Schritt ist `generate.py --kind skills --allow-live` (ADR-230 §8, Gate mit 8 offenen Checkboxen). **Owner-Entscheid nötig**, weil er die Skill-Installation der Maschine verändert.
+3. **Cloud-Reichweiten-Lücke ohne eigenes Artefakt:** Cowork-/Cloud-Sessions inkl. Routinen lesen `~/.claude/skills/` **nicht** — das gesamte Verteilmodell endet an der Maschinengrenze, unabhängig von der Lane-Entscheidung. Getrackt als [#1298](https://github.com/achimdehnert/platform/issues/1298) (+ Option F in ADR-280 §10).
+4. **Print-Agent ruft bei JEDEM PDF einen externen US-LLM** ([#1297](https://github.com/achimdehnert/platform/issues/1297)) — Defaults `cerebras`/`groq` hart im Code (`print_agent.py:268/269`), kein Guard, kein Hinweis. Realer Abfluss am 2026-07-21: Kundenanschrift ging an Groq. Lokales Ollama gemessen ausreichend (3B: 18 s, valides JSON). Kein PR, weil Richtungsentscheid nötig (externe Anbieter künftig nur per Opt-in?).
+5. **Review-Stau praktisch abgebaut: 3 offene PRs, 0 nicht-MERGEABLE** (gemessen 2026-07-22 21:31 via `gh pr list`). Zwei davon sind die aus Prio 1; der dritte ist [#1367](https://github.com/achimdehnert/platform/pull/1367) (ports.yaml, fremde Session). Die Vorgänger-Angabe „12 offene PRs" ist damit **überholt** — im Lauf des 22.07. wurde der Stau von anderen Sessions abgearbeitet, [#1319](https://github.com/achimdehnert/platform/pull/1319) ist nicht mehr unter den offenen. Merkposten zur Methode: `mergeable` liefert erst `UNKNOWN`, GitHub rechnet lazy — Re-Poll nötig.
+6. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
+7. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Nebenfund Namenskollision KONZ-platform-001 weiterhin offen
+8. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
+9. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 
+> **Erledigt 2026-07-22 (Abend-Session — ADR-281 abgeschlossen):** **Alt-Prio 2 (ADR-281 §8.1 Kriterium 5) ist ausgeführt und bestanden** — diese Session fand den am Nachmittag vorbereiteten Symlink beim Start vor, Marker + Argument-Echo korrekt, Werkzeugversion unverändert 2.1.217; §8.1 steht auf 6/6, Testartefakte entfernt, DRIFT-SCORE zurück auf 3. **Alt-Prio 3 („beide ADRs bleiben `proposed`") ist damit für ADR-281 überholt** — der ADR steht auf `accepted` ([#1366](https://github.com/achimdehnert/platform/pull/1366)); ADR-280 bleibt `proposed`. **Alt-Prio 9 entfernt:** [#1289](https://github.com/achimdehnert/platform/issues/1289) ist **CLOSED** (gegen die API geprüft, nicht gefolgert) — die Zeile widersprach ohnehin dem Erledigt-Block vom 21.07. **Alt-Prio 6 neu gemessen:** 12 → **3** offene PRs, 0 nicht-MERGEABLE. Zusätzlich neu: der §8.2-Negativtest wurde vorgezogen, gemessen und die dabei gefundenen zwei Kanten gefixt ([#1369](https://github.com/achimdehnert/platform/pull/1369) schließt [#1368](https://github.com/achimdehnert/platform/issues/1368)). Liste dadurch 11 → 9 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen).
 > **Erledigt 2026-07-22 (Session-Start-Reconciliation, keine neue Arbeit):** Zwei „Nächste Schritte"-Zeilen waren **stale** und sind entfernt — beide gegen die API geprüft, nicht gefolgert. (a) Alt-Prio 1 führte [#1293](https://github.com/achimdehnert/platform/pull/1293) als `REVIEW_REQUIRED`; der PR ist **MERGED** (2026-07-22 14:35 UTC, Commit `cbc7204` auf `main`) → [#1287](https://github.com/achimdehnert/platform/issues/1287) ist PR-seitig abgeschlossen. (b) Alt-Prio 4 („`doctor.py` meldet dangling Symlink nicht, §8.2-Negativtest würde durchfallen") ist behoben durch [#1335](https://github.com/achimdehnert/platform/pull/1335) **MERGED** (09:59 UTC), Issue [#1332](https://github.com/achimdehnert/platform/issues/1332) **CLOSED**. Liste dadurch 13 → 11 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen). Restliche Zeilen inhaltlich unverändert bis auf Prio 6 (PR-Zahl neu gemessen) und Prio 2 (Kriterium 5 braucht Vorbereitung).
 > **Erledigt 2026-07-21 (Vormittag, Aufräum- + Infra-Session — Parallel-Session, nicht diese):** **Prio „lügender Index" abgeschlossen** ([#1288](https://github.com/achimdehnert/platform/pull/1288) GEMERGT) — ADR-158 `implementation_status` von `implemented` auf `partial` korrigiert (3 tote Evidence-Pfade unter `packages/docs-agent/`, seit 2026-04-23 in `_ARCHIVED/`), ADR-072-Rollout-Tabelle auf belegten Stand zurückgesetzt. **Bewusst nicht nachgemessen** (wäre Scope-Eskalation in 4 App-Repos) → ungemessene Repos tragen jetzt explizit `❔ nicht nachgemessen`. Gate-Lücke getrackt ([#1289](https://github.com/achimdehnert/platform/issues/1289)) · **Branch-Hygiene: 442 lokale Branches gelöscht (512 → 47)**, Restore-Manifest `~/shared/branch-cleanup-platform-2026-07-21.txt`. **Lehre:** der erste Durchlauf stufte 51 gemergte Branches falsch als „lokal voraus" ein — nicht wegen Divergenz, sondern weil der gemergte `headRefOid` lokal fehlte und der Ancestor-Check scheiterte. Nach `git fetch origin <oid>` waren alle 51 sauber entscheidbar; echte Divergenz lag bei 7, nicht 56.
 > **Erledigt 2026-07-21 (Infra-Entscheid GPU, kein Code — Parallel-Session):** Recherche + eigene Messung → **kein GPU-Server gemietet**. illustration-hub läuft auf der vorhandenen RTX 4090, meiki-Pilot + Dokumentenlast auf CPU des Dev-Servers. Gemessen auf 88.99.38.75 (16 Kerne, geteilte Last), Print-Agent-Prompt: `qwen2.5:3b` 7,3 tok/s / 18 s · `7b` 3,6 tok/s / 51 s · `14b` 1,1 tok/s / 153 s — alle valides JSON. Gegenrechnung: Hetzner GEX44 hat **20 GB** (weniger als die 4090; Primärquelle, keine Mindestlaufzeit, FSN1), VRAM-gleicher Scaleway L4 kostet 575 €/Mon netto bei ~⅓ Speicherbandbreite. **Nicht belegt geblieben:** GEX44-Monatspreis (Seite rendert clientseitig), Stromkosten, Preisknick Consumer↔Datacenter — 14 von 25 Recherche-Claims adversarial verworfen. **Auflage für meiki:** gegen austauschbaren OpenAI-kompatiblen Endpunkt bauen, sonst wird der spätere Umzug ins LRA-RZ zum Umbau.
