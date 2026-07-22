@@ -17,9 +17,13 @@ estimate_job mehr nötig" enthält den nackten String, aber NICHT die Aufruf-For
 darf das Gate nicht grün machen (das war der Kern des ~3-Monate-Bugs: ein naiver
 `grep -q estimate_job` hätte auch die Verneinung als Treffer gezählt).
 
-Aufruf:  workflow_tool_ref_check.py <datei> [<datei> ...]
+Aufruf:  workflow_tool_ref_check.py [--allow-missing] <datei> [<datei> ...]
 Exit 0 = alle geprüften Dateien tragen die Aufruf-Form · Exit 1 = mindestens eine ohne
-Exit 2 = Usage-Fehler (keine Argumente). Nur stdlib, kein Netz.
+Aufruf-Form ODER namentlich verlangt, aber nicht vorhanden · Exit 2 = Usage-Fehler.
+Eine fehlende Datei ist bewusst ein FAIL: verschwindet die Datei (Umbenennung,
+Lane-Wechsel nach skills/), verschwindet die Invariante — ein Skip machte das Gate
+genau dann still grün. --allow-missing ist der Opt-out für Aufrufer, die bereits eine
+diff-gefilterte Liste übergeben. Nur stdlib, kein Netz.
 Verdrahtet in .github/workflows/workflow-tool-ref-gate.yml;
 Tests: tools/tests/test_workflow_tool_ref_check.py.
 """
@@ -43,6 +47,14 @@ FAIL_HINT = (
     "  'mcp__orchestrator__estimate_job:' als eigene (ggf. eingerückte) Zeile enthält."
 )
 
+MISS_HINT = (
+    "die Datei wurde vermutlich umbenannt oder verschoben (z.B. Lane-Wechsel nach\n"
+    "  skills/ gemäß ADR-280/281). Das Gate meldet das absichtlich als Fehler statt\n"
+    "  still grün zu werden — die Invariante ist mit der Datei verschwunden.\n"
+    "  Fix: den Pfad in .github/workflows/workflow-tool-ref-gate.yml nachziehen\n"
+    "  (Aufruf-Argumente UND paths:-Filter), nicht --allow-missing setzen."
+)
+
 
 def has_tool_call(path: Path) -> bool:
     """True, wenn die Datei die Aufruf-Form des estimate_job-Tool-Aufrufs enthält."""
@@ -51,30 +63,45 @@ def has_tool_call(path: Path) -> bool:
 
 
 def main(argv: list[str]) -> int:
-    if not argv:
+    allow_missing = "--allow-missing" in argv
+    names = [a for a in argv if a != "--allow-missing"]
+    if not names:
         print(
-            "usage: workflow_tool_ref_check.py <ship.md|backup.md> [...]",
+            "usage: workflow_tool_ref_check.py [--allow-missing] <ship.md|backup.md> [...]",
             file=sys.stderr,
         )
         return 2
     failed: list[str] = []
-    for name in argv:
+    missing: list[str] = []
+    for name in names:
         path = Path(name)
         if not path.is_file():
-            # Gelöschte/umbenannte Dateien sind kein Gate-Fall (Caller filtert i.d.R.
-            # per --diff-filter=ACMR; hier defensiv doppelt abgesichert).
-            print(f"SKIP  {name} (existiert nicht — vermutlich gelöscht)")
+            # Eine namentlich verlangte, aber fehlende Datei ist ein Gate-Fall, KEIN
+            # Skip: sonst wird das Gate genau in dem Moment still grün, in dem die
+            # Invariante verschwindet — der Falsch-grün-Modus, gegen den es gebaut ist.
+            # Realfall in Sicht: ADR-280/281 verschieben ship.md/backup.md nach
+            # skills/; der fest verdrahtete Aufruf im Workflow zeigte danach ins
+            # Leere und hätte weiter PASS gemeldet.
+            # Aufrufer, die ohnehin eine diff-gefilterte Liste (--diff-filter=ACMR)
+            # übergeben, schalten das mit --allow-missing bewusst ab.
+            if allow_missing:
+                print(f"SKIP  {name} (existiert nicht, --allow-missing gesetzt)")
+                continue
+            print(f"MISS  {name} — verlangte Datei existiert nicht (umbenannt/verschoben?)")
+            missing.append(name)
             continue
         if has_tool_call(path):
             print(f"PASS  {name} (Aufruf-Form mcp__orchestrator__estimate_job: vorhanden)")
         else:
             print(f"FAIL  {name} — Aufruf-Form mcp__orchestrator__estimate_job: fehlt")
             failed.append(name)
+    if missing:
+        print(f"\n⛔ Gate workflow-tool-ref: {len(missing)} verlangte Datei(en) nicht vorhanden —")
+        print(MISS_HINT)
     if failed:
         print(f"\n⛔ Gate workflow-tool-ref: {len(failed)} Datei(en) ohne Aufruf-Form —")
         print(FAIL_HINT)
-        return 1
-    return 0
+    return 1 if (failed or missing) else 0
 
 
 if __name__ == "__main__":

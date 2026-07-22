@@ -85,10 +85,29 @@ def test_should_fail_when_tool_reference_missing_entirely(tmp_path):
     assert "FAIL" in res.stdout
 
 
-def test_should_skip_missing_files_instead_of_crashing(tmp_path):
-    res = _run(str(tmp_path / "ship-geloescht.md"))
+def test_should_fail_when_requested_file_is_missing(tmp_path):
+    # Regression: ein SKIP hier machte das Gate still grün, sobald ship.md/backup.md
+    # umbenannt oder (ADR-280/281) nach skills/ verschoben werden — der Workflow ruft
+    # feste Pfade auf, nicht eine diff-gefilterte Liste.
+    res = _run(str(tmp_path / "ship-verschoben.md"))
+    assert res.returncode == 1
+    assert "MISS" in res.stdout
+
+
+def test_should_skip_missing_file_only_with_allow_missing(tmp_path):
+    res = _run("--allow-missing", str(tmp_path / "ship-geloescht.md"))
     assert res.returncode == 0
     assert "SKIP" in res.stdout
+
+
+def test_should_still_check_existing_files_with_allow_missing(tmp_path):
+    ok = tmp_path / "ship.md"
+    ok.write_text("mcp__orchestrator__estimate_job:\n  job_type: deploy\n", encoding="utf-8")
+    bad = tmp_path / "backup.md"
+    bad.write_text("estimate_job existiert nicht mehr.\n", encoding="utf-8")
+    res = _run("--allow-missing", str(ok), str(bad), str(tmp_path / "weg.md"))
+    assert res.returncode == 1
+    assert "PASS" in res.stdout and "FAIL" in res.stdout and "SKIP" in res.stdout
 
 
 def test_should_exit_usage_error_without_args():
