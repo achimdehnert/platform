@@ -65,16 +65,29 @@ aufgebläht. Owner-Entscheid: **zwei Commits** — `e647d05` (Fix, allein review
 `9ac001a` (reines `ruff format`). Der SUGGEST-Check wird den zweiten melden; das ist der
 erwartete Preis der Trennung. Platform-CI selbst prüft `ruff format` für diese Dateien nicht.
 
-**⚠️ Am Session-Ende aufgefallen — hetzner-prod SSH ist zu** ([#1370](https://github.com/achimdehnert/platform/issues/1370)):
-`ssh root@88.198.191.108` liefert **Connection refused** auf Port 22, wodurch `session-memory`
-(Phase 2) und `claude-policy` — beide über denselben Transport — **nicht laufen**. Die
-pgvector-Summary dieser Session wurde deshalb **nicht geschrieben**; ihr Inhalt steht
-redundant in diesem Block, ist aber nicht semantisch durchsuchbar. **Kein Prod-Ausfall,
-geprüft statt vermutet:** `risk-hub.iil.pet/livez/` und `trading-hub.iil.pet/livez/` liefern
-beide **200**, `orchestrator.iil.pet` antwortet (404 auf geratenem Pfad) — der Host routet
-HTTP, nur `sshd` nimmt nichts an. Ob das mit der Speicherlage aus
+**⚠️ hetzner-prod SSH war ~15 Minuten weg — transient, Ursache unbekannt**
+([#1370](https://github.com/achimdehnert/platform/issues/1370)): gegen 21:35 lieferte Port 22
+**Connection refused**, gegen 21:50 war er wieder offen, ohne dass am Host etwas getan wurde.
+In dem Fenster liefen weder `session-memory` (Phase 2) noch `claude-policy` — beide nutzen
+denselben Transport. **Nachgeholt und verifiziert:** `session:platform:20260722:adr281-k5-abend`
+und `error:platform:20260722-doctor-dangling-canon-order` sind geschrieben, beide per
+`session-memory get` mit `found: true` bestätigt. Es ist also **nichts verloren**.
+**Kein Prod-Ausfall, geprüft statt vermutet:** `risk-hub.iil.pet/livez/` und
+`trading-hub.iil.pet/livez/` lieferten während des Ausfalls beide **200** — der Host routete
+HTTP durchgehend, nur `sshd` nahm nichts an. Ob das mit der Speicherlage aus
 [#1303](https://github.com/achimdehnert/platform/issues/1303) zusammenhängt, ist
-**Hypothese, nicht geprüft**.
+**Hypothese, nicht geprüft**; billigster Check ist das Host-Journal um 21:35 ohne Namensfilter.
+
+**Werkzeug-Befund am Session-Ende** ([#1372](https://github.com/achimdehnert/platform/issues/1372)):
+der Push-Gate `block_unformatted_push.sh` hat **dreimal** falsch blockiert, aus zwei
+unabhängigen Gründen. (a) Sind `add`/`commit`/Push in einem Bash-Aufruf verkettet, läuft der
+Hook vor dem Commit, findet `origin/main...HEAD` leer und fällt auf `HEAD~1` zurück — er misst
+dann die `.py`-Dateien des **vorherigen, fremden** Commits. Traf einmal eine reine
+Markdown-Änderung. (b) Die Trigger-Erkennung grept den **gesamten** Kommandotext inklusive
+Heredoc — der Versuch, #1372 selbst per Heredoc-Body anzulegen, wurde blockiert, weil der
+Fließtext die gesuchte Zeichenfolge enthielt. Workarounds (getrennte Aufrufe, `--body-file`)
+sind verifiziert; brisant ist, dass der Hook im Fehlerfall zu `ruff format .` rät — genau der
+Repo-weite Sweep, gegen den `check_noop_changes.py` gebaut wurde.
 
 **Nicht verifiziert / bewusst offen:** ADR-280 §8.1 unverändert blockiert (Owner-Entscheid
 `--allow-live`) · beide PRs dieser Session warten auf 2.-Owner-Review, nichts davon ist auf
