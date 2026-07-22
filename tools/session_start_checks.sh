@@ -170,7 +170,18 @@ fi
 
 # ── 0.7 Deploy-Status aller Prod-Apps (gh, CC-Standard-Weg) ─────────────────
 # Zwei Befund-Klassen pro Repo, nicht nur eine (Lehre 2026-07-21, ausschreibungs-hub):
-#   a) letzter Run `conclusion: failure` — der offensichtliche Fall.
+#   a) letzter Run `conclusion: failure` — der offensichtliche Fall. ABER: eine
+#      bewusst abgelehnte Environment-Freigabe zaehlt GitHub ebenfalls als
+#      `failure` (eigenen Status dafuer gibt es nicht). Genau das ist hier der
+#      Normalbetrieb: docs-only-Merges bekommen das Prod-Gate mit `rejected`
+#      geschlossen, damit die Concurrency-Group frei bleibt (siehe b). Ohne
+#      Unterscheidung meldet dieser Scan jede solche Ablehnung als Ausfall —
+#      Alarm-Muedigkeit, gegen die advisory_scanner_reactivation_needs_baseline
+#      steht. Unterscheidungsmerkmal: der Run traegt einen Approval-Eintrag mit
+#      state=rejected; echte Fehlschlaege haben gar keinen. Gemessen 2026-07-22
+#      an einem Positiv- (ausschreibungs-hub 29872512109: 1 rejected) und drei
+#      Negativbeispielen (trading-hub 29507615298, risk-hub 29185036817,
+#      coach-hub 28778482259: je 0 Approval-Eintraege).
 #   b) IRGENDEIN Run auf `status: waiting` — haengt an einem Environment-
 #      Approval-Gate und belegt die Concurrency-Group `deploy-<app>-<ref>`
 #      weiter. `cancel-in-progress` greift dort NICHT, `gh run cancel` ebenso
@@ -183,15 +194,27 @@ OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
 DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
-DEPLOY_FAILS=""; DEPLOY_WAITING=""
+DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""
 WAIT_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 for r in $DEPLOY_REPOS; do
-  # EINE Abfrage, zwei Werte: "<conclusion-des-letzten> <aeltester-waiting-createdAt>"
-  OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 20 --json status,conclusion,createdAt \
-        --jq '"\(.[0].conclusion // "none") \([.[]|select(.status=="waiting")|.createdAt]|min // "none")"' 2>/dev/null)
+  # EINE Abfrage, drei Werte: "<conclusion> <aeltester-waiting-createdAt> <run-id>"
+  OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 20 --json databaseId,status,conclusion,createdAt \
+        --jq '"\(.[0].conclusion // "none") \([.[]|select(.status=="waiting")|.createdAt]|min // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
   [ -z "$OUT" ] && continue
-  C=${OUT%% *}; W=${OUT##* }
-  [ "$C" = "failure" ] && DEPLOY_FAILS="$DEPLOY_FAILS $r"
+  read -r C W ID <<EOF
+$OUT
+EOF
+  if [ "$C" = "failure" ] && [ "$ID" != "none" ]; then
+    # Zweiter Call nur im failure-Fall (nicht pro Repo) — abgelehnte Freigabe
+    # vom echten Fehlschlag trennen, s. Kommentar oben.
+    REJ=$(gh api "repos/$OWNER/$r/actions/runs/$ID/approvals" \
+          --jq '[.[]|select(.state=="rejected")]|length' 2>/dev/null)
+    if [ "${REJ:-0}" -gt 0 ] 2>/dev/null; then
+      DEPLOY_REJECTED="$DEPLOY_REJECTED $r"
+    else
+      DEPLOY_FAILS="$DEPLOY_FAILS $r"
+    fi
+  fi
   # erst ab 24h melden: ein frisches Gate ist der Normalfall, kein Befund
   if [ "$W" != "none" ] && [ -n "$WAIT_CUTOFF" ] && [[ "$W" < "$WAIT_CUTOFF" ]]; then
     DEPLOY_WAITING="$DEPLOY_WAITING $r"
@@ -203,7 +226,7 @@ if [ -n "$DEPLOY_WAITING" ]; then
 elif [ -n "$DEPLOY_FAILS" ]; then
   record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live)"
 else
-  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${N_DEPLOY_REPOS} Repos)"
+  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${N_DEPLOY_REPOS} Repos)${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────

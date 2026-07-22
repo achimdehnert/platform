@@ -79,6 +79,11 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     rot wird. `gh run cancel` wirkt dort NICHT. Aufloesen ueber das Gate des ALTEN Runs:
     `gh api repos/<o>/<r>/actions/runs/<id>/pending_deployments -X POST -F 'environment_ids[]=<envid>' -f state=rejected`
     (Realfall 2026-07-21 ausschreibungs-hub: Merge #159 war 9 Tage nicht live).
+  - `0.7 … bewusst abgelehnte Freigabe (kein Befund):<repos>`: **kein Handlungsbedarf.**
+    Eine mit `rejected` geschlossene Environment-Freigabe zaehlt GitHub als `failure`;
+    bei docs-only-Merges ist genau das der gewollte Weg (Gate zu, Concurrency-Group
+    frei). Der Scan trennt das ueber den Approval-Eintrag des Runs — echte Fehlschlaege
+    haben keinen. Nur wenn eine Ablehnung *nicht* beabsichtigt war, ist sie ein Befund.
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
