@@ -176,7 +176,7 @@ erneut einen Per-Repo-Mirror/Subtree einführt.**
 | **Doctor** | Diagnose-Befehl: Quelle/Location/Anzahl/Checksums/Merge-Verhalten prüfen |
 
 ## 12. Referenzen
-- Platform-Audit 2026-05-30 (`platform/audits/platform-audit-2026-05-30.md`), Finding F1.
+- Platform-Audit 2026-05-30 (`platform/_ARCHIVED/audits/platform-audit-2026-05-30.md`), Finding F1.
 - `~/.claude/policies/claude-skills.md` (SSoT + `~/.claude/commands/`-Muster).
 - Session-PRs: learn-hub #4, recruiting-hub #2, research-hub #4, writing-hub #26, learnfw #1, outlinefw #1, researchfw #2.
 

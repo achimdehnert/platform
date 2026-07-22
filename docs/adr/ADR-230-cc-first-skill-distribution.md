@@ -107,7 +107,7 @@ existiert — jede Einzeländerung erzeugt nur eine weitere driftende Kopie oder
 | **Subset** | kuratierte ~9 ADR/Review-Workflows für Windsurf |
 
 ## 10. Referenzen
-- Platform-Audit 2026-05-30 (`platform/audits/platform-audit-2026-05-30.md`).
+- Platform-Audit 2026-05-30 (`platform/_ARCHIVED/audits/platform-audit-2026-05-30.md`).
 - Policy `claude-skills.md` (wird durch diesen ADR amendiert).
 - ADR-229 (`.windsurf`-Distribution right-sized — Schritt 1 = Untrack erledigt).
 

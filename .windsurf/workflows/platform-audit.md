@@ -374,7 +374,7 @@ Template kopieren, Variablen ersetzen, Ergebnis in `docs/audits/YYYY-MM-DD-platf
 
 Speichere den Report als:
 ```
-${GITHUB_DIR:-$HOME/github}/platform/audits/platform-audit-{YYYY-MM-DD}.md
+${GITHUB_DIR:-$HOME/github}/platform/docs/audits/{YYYY-MM-DD}-platform-audit.md
 ```
 
 ### 5.2 In Outline sichern
