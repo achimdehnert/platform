@@ -37,9 +37,26 @@ if [ -f "${HANDOVER}" ]; then
     ITEMS="$(awk '
         # Archiv-/Erledigt-Ueberschrift zuerst pruefen — reaktiviert die Sektion NICHT,
         # auch wenn sie zusaetzlich ein Prio-Trigger-Wort enthaelt (platform#1323 U1).
-        /^#{1,4}[ \t]/ && /([Ee]rledigt|[Aa]bgeschlossen|[Aa]rchiv|✅)/ {
-            if (insec) insec=0
-            next
+        # Praezisiert nach Retro 2026-07-22 Befund B1: das Teilstring-Match verschluckte
+        # auch TEILerledigung ("## Prioritaeten — 2 von 5 erledigt") und liess offene
+        # Items still verschwinden. Regel jetzt identisch zum Python-Pendant
+        # (_is_archive_heading in tools/next-sync/claude-next-sync):
+        # Mengen-/Teil-Qualifier => KEIN Archiv; sonst Marker am ENDE oder am ANFANG.
+        /^#{1,4}[ \t]/ {
+            htext = $0
+            sub(/^#+[ \t]+/, "", htext)
+            partial = (htext ~ /[0-9]+[ \t]*(von|\/|of)[ \t]*[0-9]+/) ||
+                      (htext ~ /[Tt]eilweise|[Tt]eils|[Tt]lw\./) ||
+                      (htext ~ /[0-9]+[ \t]*%/)
+            is_archive = 0
+            if (!partial) {
+                if (htext ~ /([ \t]|—|–|-|\(|\[)([Ee]rledigt|[Aa]bgeschlossen|[Aa]rchiv(iert)?|✅)[ \t]*[)\]]?[ \t]*$/) is_archive = 1
+                if (htext ~ /^([Aa]rchiv|[Ee]rledigt|[Aa]bgeschlossen|✅)/) is_archive = 1
+            }
+            if (is_archive) {
+                if (insec) insec=0
+                next
+            }
         }
         /^#{1,4}[ \t].*([Pp]riorit|[Pp]riorisiert|[Nn][aä]chste|[Oo]ffene)/ {
             insec=1; header_done=0; item_col=0; tier_col=0; next

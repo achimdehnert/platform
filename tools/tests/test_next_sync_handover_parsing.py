@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import pytest
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_loader(
@@ -215,3 +216,51 @@ def test_should_extract_real_active_items_end_to_end_from_pre_fix_full_handover(
         assert vocab not in [i.strip() for i in items]
     assert "Referenz-Pflege-Erweiterung" not in joined
     assert "Mandant-Onboarding-KD" not in joined
+
+
+# ---------------------------------------------------------------------------
+# Retro 2026-07-22, Befund B1: der Archiv-Marker matchte als TEILSTRING irgendwo im
+# Heading und verschluckte damit auch TEILerledigung — "## Prioritäten — 2 von 5
+# erledigt" liess die komplette Sektion verschwinden, offene Items wurden still nicht
+# mehr gespiegelt (Fallback auf git-log, ohne Warnung). Dieselbe Fallmatrix prueft
+# test_handover_prio_mirror.py fuer die awk-Implementierung — die beiden Tabellen
+# muessen identisch bleiben, sonst driften die Implementierungen erneut auseinander.
+
+_PARTIAL_HEADINGS = [
+    "## Prioritäten — 2 von 5 erledigt",
+    "## Prioritäten — teilweise erledigt",
+    "## Prioritäten — 40 % erledigt",
+    "## Prioritäten — 3/7 erledigt",
+]
+
+_ARCHIVE_HEADINGS = [
+    "### Prioritäten vom 2026-07-08 — erledigt",
+    "### Archiv 2026-07-08 — abgeschlossen",
+    "### Erledigt 2026-07-08",
+]
+
+
+def _doc_with_heading(heading: str) -> str:
+    return (
+        "# AGENT_HANDOVER · demo\n\n"
+        f"{heading}\n\n"
+        "| # | Item | Tier |\n|---|------|------|\n"
+        "| 1 | Item Alpha | [Sonnet] |\n"
+    )
+
+
+@pytest.mark.parametrize("heading", _PARTIAL_HEADINGS)
+def test_should_still_read_items_under_partially_done_heading(tmp_path, heading):
+    """Teilerledigung ist KEIN Archiv — offene Items muessen erhalten bleiben."""
+    repo = _write_handover(tmp_path, _doc_with_heading(heading))
+    items = cns._read_handover(repo)
+    assert items is not None, f"Sektion faelschlich als Archiv verworfen: {heading}"
+    assert any("Item Alpha" in i for i in items)
+
+
+@pytest.mark.parametrize("heading", _ARCHIVE_HEADINGS)
+def test_should_still_ignore_fully_archived_heading(tmp_path, heading):
+    """Regression zu platform#1323: echte Archiv-Sektionen bleiben unsichtbar."""
+    repo = _write_handover(tmp_path, _doc_with_heading(heading))
+    items = cns._read_handover(repo)
+    assert items is None or not any("Item Alpha" in i for i in items)

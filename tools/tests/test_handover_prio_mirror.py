@@ -104,3 +104,46 @@ def test_should_not_reopen_section_on_archive_heading_variants(
     doc = CANONICAL_HANDOVER + f"\n### {heading}\n\n| # | Item | Tier |\n|---|---|---|\n| 1 | Alt-Item | [Sonnet] |\n"
     out = _run(_repo(tmp_path, doc))
     assert "Alt-Item" not in out
+
+
+# --- Retro 2026-07-22, Befund B1 -------------------------------------------------
+# Ein Archiv-Marker, der als Teilstring irgendwo im Heading matchte, verschluckte auch
+# Ueberschriften mit TEILerledigung. Offene Items verschwanden still. Die Faelle unten
+# sind die Fallmatrix, gegen die Python- und awk-Implementierung gemeinsam geprueft
+# werden (siehe test_next_sync_handover_parsing.py, gleiche Tabelle).
+
+PARTIAL_HEADINGS = [
+    "## Prioritäten — 2 von 5 erledigt",
+    "## Prioritäten — teilweise erledigt",
+    "## Prioritäten — 40 % erledigt",
+    "## Prioritäten — 3/7 erledigt",
+]
+
+ARCHIVE_HEADINGS = [
+    "### Prioritäten vom 2026-07-08 — erledigt",
+    "### Archiv 2026-07-08 — abgeschlossen",
+    "### Erledigt 2026-07-08",
+]
+
+
+def _doc(heading: str) -> str:
+    return (
+        "# AGENT_HANDOVER · demo\n\n"
+        f"{heading}\n\n"
+        "| # | Item | Tier |\n|---|------|------|\n"
+        "| 1 | Item Alpha | [Sonnet] |\n"
+    )
+
+
+@pytest.mark.parametrize("heading", PARTIAL_HEADINGS)
+def test_should_still_mirror_items_under_partially_done_heading(
+    tmp_path: Path, heading: str
+) -> None:
+    """Teilerledigung ist KEIN Archiv — die offenen Items muessen sichtbar bleiben."""
+    assert "Item Alpha" in _run(_repo(tmp_path, _doc(heading)))
+
+
+@pytest.mark.parametrize("heading", ARCHIVE_HEADINGS)
+def test_should_ignore_fully_archived_heading(tmp_path: Path, heading: str) -> None:
+    """Regression zu platform#1323: echte Archiv-Sektionen bleiben unsichtbar."""
+    assert "Item Alpha" not in _run(_repo(tmp_path, _doc(heading)))
