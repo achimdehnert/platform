@@ -104,7 +104,11 @@ cmd_start() {
   done
   [ -n "$repo" ] || die "repo-path fehlt"
   [ -n "$task" ] || die "--task <slug> fehlt"
-  [ -d "$repo/.git" ] || repo="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" || die "kein git-Repo: $repo"
+  # Immer kanonisieren (#1360): vorher nur im Fallback-Zweig, wenn "$repo/.git"
+  # fehlte. Aufruf mit "." aus dem Haupt-Tree traf den Fallback NIE (".git"
+  # existiert ja) und liess $repo="." stehen -> "repo": "." im Lease + "/./"
+  # im Worktree-Pfad (basename "." == ".").
+  repo="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" || die "kein git-Repo: $repo"
 
   # Haupt-Tree heilig: muss auf main stehen, bevor wir abzweigen.
   local cur; cur="$(git -C "$repo" rev-parse --abbrev-ref HEAD)"
@@ -203,12 +207,35 @@ cmd_end() {
   if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
     die "Worktree $wt ist DIRTY — erst committen/pushen (Guard)."
   fi
+  # Kanonischer Pfad fuer den Lease-Match (#1360): wt selbst kann bereits
+  # kanonisch sein (git worktree list liefert kanonische Pfade), aber der im
+  # Lease gespeicherte Pfad kann eine nicht-kanonische Variante enthalten
+  # (z.B. ".../worktrees/./<sid>" aus einem "start ." vor diesem Fix). Vor
+  # dem Entfernen auflösen, weil "$wt" danach nicht mehr existiert und
+  # realpath dann fehlschlaegt.
+  local wt_canon; wt_canon="$(realpath "$wt" 2>/dev/null || readlink -f "$wt" 2>/dev/null || printf '%s' "$wt")"
   git -C "$wt" worktree remove "$wt" 2>/dev/null || git worktree remove "$wt"
-  # Lease schliessen
+  # Lease schliessen — Pfade auf beiden Seiten kanonisieren statt exaktem
+  # String-Vergleich (#1360 Defekt 2): der im Lease gespeicherte Pfad kann
+  # z.B. "/./" enthalten (Defekt 1, vor diesem Fix geschriebene Leases) und
+  # traf den bisherigen "grep -q" nie, ohne dass das sichtbar wurde.
+  local closed=0
   for l in "$LEASE_DIR"/*.json; do
     [ -e "$l" ] || continue
-    grep -q "\"worktree\": \"$wt\"" "$l" && mv "$l" "$l.closed" && echo "Lease geschlossen: $l.closed"
+    local lease_wt lease_wt_canon
+    lease_wt="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('worktree',''))" "$l" 2>/dev/null)" || continue
+    [ -n "$lease_wt" ] || continue
+    # realpath auf einen bereits entfernten Pfad schlaegt fehl -> textuell normalisieren (Doppel-Slash, "/./" raus) als Fallback.
+    lease_wt_canon="$(realpath -m "$lease_wt" 2>/dev/null || readlink -f "$lease_wt" 2>/dev/null || printf '%s' "$lease_wt")"
+    if [ "$lease_wt_canon" = "$wt_canon" ]; then
+      mv "$l" "$l.closed" && echo "Lease geschlossen: $l.closed"
+      closed=$((closed+1))
+    fi
   done
+  if [ "$closed" -eq 0 ]; then
+    echo "⚠ Kein Lease geschlossen — kein Lease unter $LEASE_DIR passt auf Worktree-Pfad: $wt_canon" >&2
+    echo "  Der Worktree ist bereits entfernt. Pruefe 'repo-session.sh list' und schliesse den passenden Lease manuell (mv <lease>.json <lease>.json.closed)." >&2
+  fi
   echo "Worktree entfernt: $wt (Branch bleibt erhalten)"
 }
 
