@@ -169,16 +169,97 @@ else
 fi
 
 # ── 0.7 Deploy-Status aller Prod-Apps (gh, CC-Standard-Weg) ─────────────────
+# Zwei Befund-Klassen pro Repo, nicht nur eine (Lehre 2026-07-21, ausschreibungs-hub):
+#   a) letzter Run `conclusion: failure` — der offensichtliche Fall. ABER: eine
+#      bewusst abgelehnte Environment-Freigabe zaehlt GitHub ebenfalls als
+#      `failure` (eigenen Status dafuer gibt es nicht). Genau das ist hier der
+#      Normalbetrieb: docs-only-Merges bekommen das Prod-Gate mit `rejected`
+#      geschlossen, damit die Concurrency-Group frei bleibt (siehe b). Ohne
+#      Unterscheidung meldet dieser Scan jede solche Ablehnung als Ausfall —
+#      Alarm-Muedigkeit, gegen die advisory_scanner_reactivation_needs_baseline
+#      steht. Unterscheidungsmerkmal: der Run traegt einen Approval-Eintrag mit
+#      state=rejected; echte Fehlschlaege haben gar keinen. Gemessen 2026-07-22
+#      an einem Positiv- (ausschreibungs-hub 29872512109: 1 rejected) und drei
+#      Negativbeispielen (trading-hub 29507615298, risk-hub 29185036817,
+#      coach-hub 28778482259: je 0 Approval-Eintraege).
+#   b) IRGENDEIN Run auf `status: waiting` — haengt an einem Environment-
+#      Approval-Gate und belegt die Concurrency-Group `deploy-<app>-<ref>`
+#      weiter. `cancel-in-progress` greift dort NICHT, `gh run cancel` ebenso
+#      wenig. Folge: jeder spaetere Deploy steht als `pending` mit 0 Jobs und
+#      erreicht Prod nie — ohne dass irgendein Check rot wird. Realfall: Merge
+#      #159 (ausschreibungs-hub) war 9 Tage nicht live, 0.7 meldete PASS, weil
+#      `conclusion` eines waiting-Runs null ist. Aufloesung: pending_deployments
+#      des ALTEN Runs mit state=rejected beantworten, nicht den neuen anfassen.
+#      WICHTIG: die waiting-Suche laeuft server-seitig ueber `--status waiting`,
+#      NICHT durch Sieben eines Fensters der letzten N Runs. Ein Fenster ist an
+#      die Deploy-Frequenz gekoppelt, der zu findende Zustand aber an Kalender-
+#      zeit — gemessen 2026-07-22: risk-hub >=100, trading-hub 81 Deploy-Runs in
+#      30 Tagen, d.h. 20 Runs decken dort nur ~6-7 Tage ab, waehrend der Realfall
+#      9 Tage hing. Ein Fenster-Filter haette den eigenen Anlassfall auf genau
+#      den aktivsten Repos verfehlt und wieder PASS gemeldet.
 OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.*#\1#')
-DEPLOY_FAILS=""
-for r in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do
-  C=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 --json conclusion --jq '.[0].conclusion // "none"' 2>/dev/null)
-  [ "$C" = "failure" ] && DEPLOY_FAILS="$DEPLOY_FAILS $r"
+# ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
+# ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
+DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
+DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; N_SCANNED=0
+# Leerer Cutoff (kein GNU-date) wuerde die waiting-Erkennung still abschalten —
+# das Ergebnis waere ein PASS, das eine nie gelaufene Pruefung als bestanden
+# ausgibt. Deshalb wird der Zustand unten als degraded gemeldet, nicht verschluckt.
+WAIT_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+for r in $DEPLOY_REPOS; do
+  # (1) Letzter Run: conclusion + id. `--limit 1` genuegt, seit die waiting-Suche
+  #     nicht mehr aus diesem Fenster gesiebt wird.
+  OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 --json databaseId,conclusion \
+        --jq '"\(.[0].conclusion // "none") \(.[0].databaseId // "none")"' 2>/dev/null)
+  # Leere Antwort = Repo nicht abfragbar (umbenannt, uebertragen ohne Redirect,
+  # Token-Scope, API-Fehler). Frueher wurde still weitergesprungen, waehrend die
+  # Erfolgsmeldung weiter die volle Repo-Zahl nannte — ein Repo konnte damit aus
+  # der Abdeckung fallen, ohne dass die Ausgabe sich aenderte. Jetzt namentlich.
+  if [ -z "$OUT" ]; then
+    DEPLOY_SKIPPED="$DEPLOY_SKIPPED $r"
+    continue
+  fi
+  N_SCANNED=$((N_SCANNED + 1))
+  read -r C ID <<EOF
+$OUT
+EOF
+  # (2) Haengende Gates server-seitig, fenster- und frequenzunabhaengig.
+  #     `waiting` ist ein von gh validierter --status-Wert (geprueft 2026-07-22:
+  #     ein ungueltiger Wert bricht mit "invalid argument ... valid values are
+  #     {...|waiting|...}" ab). Leeres Ergebnis -> "none".
+  W=$(gh run list -R "$OWNER/$r" --workflow Deploy --status waiting --limit 100 \
+      --json createdAt --jq '[.[].createdAt]|min // "none"' 2>/dev/null)
+  [ -z "$W" ] && W="none"
+  if [ "$C" = "failure" ] && [ "$ID" != "none" ]; then
+    # Zweiter Call nur im failure-Fall (nicht pro Repo) — abgelehnte Freigabe
+    # vom echten Fehlschlag trennen, s. Kommentar oben.
+    REJ=$(gh api "repos/$OWNER/$r/actions/runs/$ID/approvals" \
+          --jq '[.[]|select(.state=="rejected")]|length' 2>/dev/null)
+    if [ "${REJ:-0}" -gt 0 ] 2>/dev/null; then
+      DEPLOY_REJECTED="$DEPLOY_REJECTED $r"
+    else
+      DEPLOY_FAILS="$DEPLOY_FAILS $r"
+    fi
+  fi
+  # erst ab 24h melden: ein frisches Gate ist der Normalfall, kein Befund
+  if [ "$W" != "none" ] && [ -n "$WAIT_CUTOFF" ] && [[ "$W" < "$WAIT_CUTOFF" ]]; then
+    DEPLOY_WAITING="$DEPLOY_WAITING $r"
+  fi
 done
-if [ -n "$DEPLOY_FAILS" ]; then
-  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live)"
+N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
+# Abdeckung immer mitschreiben (gescannt/gesamt) statt nur die Soll-Zahl zu nennen.
+COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfragbar:$DEPLOY_SKIPPED}"
+if [ -n "$DEPLOY_WAITING" ]; then
+  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS} (${COVERAGE})"
+elif [ -n "$DEPLOY_FAILS" ]; then
+  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live) (${COVERAGE})"
+elif [ -z "$WAIT_CUTOFF" ]; then
+  # F3: ohne Cutoff lief die waiting-Pruefung gar nicht — kein PASS behaupten.
+  record "0.7 deploy-scan" "WARN" "degraded: WAIT_CUTOFF leer (kein GNU-date?) — haengende Approval-Gates wurden NICHT geprueft; kein failure in ${COVERAGE}"
+elif [ -n "$DEPLOY_SKIPPED" ]; then
+  record "0.7 deploy-scan" "WARN" "unvollstaendig: ${COVERAGE} — kein failure/waiting in den geprueften, die uebrigen sind ungeprueft${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 else
-  record "0.7 deploy-scan" "PASS" "kein failure im letzten Deploy-Run (9 Repos)"
+  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
