@@ -348,6 +348,9 @@ Flotte, die nicht aus `canonical.yaml` gespeist werden:
 3. **Dual-Generator** `scripts/gen_project_facts.py` (11 KB, liest flat-View) vs.
    `scripts/generate_project_facts.py` (18 KB, GitHub-API + rich-View) — zwei Implementierungen
    erzeugen `project-facts` mit unterschiedlichen Input-Quellen und Defaults.
+   → **Teilweise widerlegt (2026-07-21, s. §11.3):** die beiden schreiben nicht dasselbe
+   Artefakt, sondern verschiedene Ziele in verschiedenem Format — „Dublette" trifft nur die
+   Input-, nicht die Output-Seite.
 
 **Amendment-Entscheidung (P0-Schlussstein, gleiche Logik wie der Registry-Flip):**
 
@@ -372,8 +375,69 @@ project-facts-Generator-Entry-Point.
 
 ---
 
+### 11.3 Amendment (2026-07-08) — A3 revidiert
+
+§11.2 A3 (`generate_project_facts.py` kanonisch, `gen_project_facts.py` Deprecation) wurde nie
+umgesetzt (Umsetzungs-PR existierte nie, Status blieb „proposed bis PR-Merge"). Realität lief
+entgegengesetzt: `gen_project_facts.py` ist seit 06-30/07-04 aktiv gepflegt (bootstrap.sh, 6
+Skill-Referenzen, eigene Tests); `generate_project_facts.py` hat seit 06-12 keinen Commit, einzige
+Referenz war der bereits deprecatete Workflow `onboarding-new-repo.md`.
+
+**Revidierter Beschluss:** `gen_project_facts.py` wird hiermit kanonisch bestätigt.
+`generate_project_facts.py` wird nach `scripts/_ARCHIVED/` verschoben.
+
+**Präzisierung 2026-07-21 — die beiden Generatoren sind keine Dubletten.**
+§11.2 Befund 3 nannte sie „Dual-Generator … zwei Implementierungen erzeugen `project-facts`
+mit unterschiedlichen Input-Quellen und Defaults". Das trifft die Input-Seite, verfehlt aber
+die Output-Seite: sie schreiben **verschiedene Artefakte an verschiedene Orte**:
+
+| Skript | Output | Frontmatter | Erzeugt |
+|---|---|---|---|
+| `gen_project_facts.py` | `<repo>/.windsurf/rules/project-facts.md` | `trigger: always_on` | eine Datei **pro Repo, im Repo** |
+| `generate_project_facts.py` | `platform/.windsurf/project-facts/<repo>.md` | keins | 77 Dateien **zentral in platform** |
+
+Nur das erste Artefakt hat lebende Konsumenten (`bootstrap.sh`, `tools/session_start_checks.sh`,
+Skills `issues-offen`/`kd-scout` — sie alle meinen `.windsurf/rules/project-facts.md`, wenn sie
+„project-facts.md lesen" sagen). Das zweite wird von Windsurf mangels `trigger` nicht geladen und
+nie über `sync-repo.sh` verteilt.
+
+**Konsequenz für die Begründung von A3 und dieses Amendments:** „genau ein Generator" war insofern
+nie eine Deduplizierung — es gab keine zwei Wege zum selben Ergebnis, sondern zwei Werkzeuge für
+zwei Zwecke. Der revidierte Beschluss (`gen_project_facts.py` kanonisch) bleibt trotzdem richtig,
+aber aus einem anderen Grund als 2026-06-12 angenommen: nicht weil `generate_project_facts.py`
+redundant wäre, sondern weil **sein Output keine Leser hat**. Der Output wird deshalb zusammen mit
+ihm archiviert (platform#1306, Beleg dort); die Fleet-Übersicht als Funktion entfällt damit
+bewusst und ersatzlos — sie ist bei Bedarf aus dem Archiv reproduzierbar (GitHub-API +
+`ports.yaml` + `repos.yaml`).
+
+**Nachtrag beim Rebase 2026-07-21** (zwei Randbedingungen hatten sich seit 07-08 geändert):
+
+- Der Archiv-Zielname ist `scripts/_ARCHIVED/generate_project_facts_api.py`, **nicht**
+  `generate_project_facts.py` — unter diesem Namen liegt dort bereits der ältere
+  ADR-094-Vorgänger (Django-project-facts, archiviert in `56c1bba`). Ein gleichnamiger
+  Move hätte ihn überschrieben.
+- Der ursprünglich vorgesehene Redirect in `.windsurf/workflows/onboarding-new-repo.md`
+  entfällt: die Datei wurde inzwischen im Zuge der Skill-Lane-Konsolidierung (ADR-280)
+  von `main` gelöscht.
+- **Offener Rest:** 76 Dateien unter `.windsurf/project-facts/` nennen im Header weiter
+  `scripts/generate_project_facts.py` als Regenerier-Befehl → platform#1304.
+
+Ref: platform#994, repo-optimize 2026-07-08-runB (Befunde L-13/X-15).
+
+---
+
 ## 12. Changelog
 
+- **2026-07-08:** **Amendment §11.3 — A3 revidiert.** §11.2 A3 nie umgesetzt (keine PR, Uhr lief
+  nie); Realität entgegengesetzt (`gen_project_facts.py` aktiv, `generate_project_facts.py` seit
+  06-12 unverändert). Revidiert: `gen_project_facts.py` kanonisch, `generate_project_facts.py` →
+  `scripts/_ARCHIVED/generate_project_facts_api.py` (Namenskollision mit dem ADR-094-Vorgänger).
+  Redirect in `onboarding-new-repo.md` entfällt (Datei via ADR-280 gelöscht). Ref: #994, #1304.
+- **2026-07-21:** **Präzisierung §11.3** — der „Dual-Generator"-Befund aus §11.2 ist auf der
+  Output-Seite widerlegt: die beiden Skripte erzeugen verschiedene Artefakte (`<repo>/.windsurf/
+  rules/project-facts.md` mit `trigger: always_on` vs. 77 zentrale Dateien ohne Frontmatter).
+  A3 war damit nie eine Deduplizierung. Beschluss bleibt, Begründung korrigiert: der Output des
+  archivierten Generators hat 0 Konsumenten und wird mit ihm archiviert. Ref: #1304, #1306.
 - **2026-06-12:** **Amendment §11.2 — P0-Restschuld Verteilungs-Schicht** (Codebase-Analyse
   2026-06-12): `github_repos.yaml` als vierte Quelle, stale Hand-Arrays in `sync-repo.sh`
   (Stand 2026-03-05), Dual-Generator project-facts. Entscheidung A1–A3: Distributions-Felder in

@@ -955,7 +955,9 @@ def format_report_json(reports: list[RepoReport]) -> str:
 
 def run_check(
     repo: str = "all",
-    repos_dir: str = "/home/dehnert/github",
+    repos_dir: str = os.environ.get(
+        "GITHUB_DIR", os.environ.get("REPOS_DIR", str(Path.home() / "github"))
+    ),
     output_format: str = "text",
 ) -> str:
     """
@@ -998,8 +1000,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--repos-dir",
-        default=os.environ.get("REPOS_DIR", "/home/dehnert/github"),
-        help="Base directory containing repos (default: /home/dehnert/github)",
+        default=os.environ.get(
+            "GITHUB_DIR", os.environ.get("REPOS_DIR", str(Path.home() / "github"))
+        ),
+        help="Base directory containing repos (default: $GITHUB_DIR oder ~/github)",
     )
     parser.add_argument(
         "--json",
