@@ -95,6 +95,33 @@ def test_should_filter_find_hits_by_from_and_subject(monkeypatch):
     assert [m["id"] for m in hits] == ["m1", "m3"]
 
 
+def test_should_build_file_attachment_payload(tmp_path):
+    import base64 as _b64
+    mod = _load()
+    f = tmp_path / "Anhang.pdf"
+    f.write_bytes(b"%PDF-1.4 fake bytes")
+    payload = mod._file_attachment_payload(str(f))
+    assert payload["@odata.type"] == "#microsoft.graph.fileAttachment"
+    assert payload["name"] == "Anhang.pdf"
+    assert payload["contentType"] == "application/pdf"
+    assert _b64.b64decode(payload["contentBytes"]) == b"%PDF-1.4 fake bytes"
+
+
+def test_should_attach_files_posts_to_attachments_endpoint(monkeypatch):
+    mod = _load()
+    calls = []
+    monkeypatch.setattr(mod, "_file_attachment_payload",
+                        lambda p: {"name": "x.pdf", "contentType": "application/pdf"})
+
+    def fake_http(method, url, **k):
+        calls.append((method, url))
+        return mod._Resp(201, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    mod._attach_files("tok", "MSG123", ["/tmp/x.pdf"])
+    assert calls == [("POST", f"{mod.GRAPH}/me/messages/MSG123/attachments")]
+
+
 def test_should_strip_html_to_readable_text():
     mod = _load()
     html = ("<html><style>p{color:red}</style><body><p>Zeile&nbsp;1</p>"
