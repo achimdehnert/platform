@@ -90,11 +90,15 @@ jobs:
       # Anlass platform#1289: ADR-158 trug `implemented` + vier Evidence-Pfade unter
       # packages/docs-agent/, das seit 2026-04-23 in _ARCHIVED/ liegt — knapp drei Monate
       # unbemerkt, weil `validate` nur das Schema prueft und die Werte wohlgeformt sind.
-      # Baseline 2026-07-21: 13 Findings, jedes einzeln gegen git-Historie bzw. Ziel-Repo
-      # verifiziert (0 bekannte Falsch-Positive). Promotion zu gating (`--gate` setzen,
-      # `exit 0` entfernen) erst nach Bereinigung dieser 13 — vgl.
-      # feedback_advisory_scanner_reactivation_needs_baseline (dauerroter non-blocking
-      # Check = Alarm-Muedigkeit).
+      # Baseline gegen main nachgemessen am 2026-07-22: 18 Findings (nicht 13 — die
+      # frueher hier genannte Zahl stammte von einem aelteren main-Stand). Verteilung
+      # ueber 10 ADRs: ADR-175 sieben · ADR-137 und ADR-246 je zwei · ADR-049, ADR-087,
+      # ADR-088, ADR-109, ADR-130, ADR-131, ADR-145 je eins; jedes gegen git-Historie
+      # bzw. Ziel-Repo verifiziert (0 bekannte Falsch-Positive).
+      # platform#1318 raeumt genau diese 10 ADRs auf — auf dessen Stand gemessen:
+      # 0 Findings. Promotion zu gating (`--gate` setzen, `exit 0` entfernen) erst
+      # nach Merge von #1318 — vgl. feedback_advisory_scanner_reactivation_needs_baseline
+      # (dauerroter non-blocking Check = Alarm-Muedigkeit).
       - name: ADR implementation_evidence-Pfade (SUGGEST, non-gating)
         run: |
           set +e
