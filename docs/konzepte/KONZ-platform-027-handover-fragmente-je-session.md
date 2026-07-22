@@ -41,7 +41,7 @@ Der Beweis, dass das Muster trägt, steht schon im Repo: der Auto-Block zwischen
 | L4 | Disziplin-Absicherungen (Phase 0a-handover-pr) **verhindern die Kollision nicht** | Annahme→belegt | C5 + C4 | belegt |
 | L5 | Fragmente lösen A2-**Kollision**, NICHT A2-**Omission** (vergessenes Fragment) | Risiko (ehrliche Grenze) | Design; Omission bleibt session-ende-Checkliste | offen |
 | L6 | **Vollständigkeit vor Kürze:** die gerenderte Region MUSS *alle nicht-konsumierten* Fragmente enthalten, kein festes `N`-Fenster (sonst still verlorene Arbeit am 3-Session-Tag) | Entscheidung (Kern-Revision) | Externes Sparring AD-1/AD-3 doppelt bestätigt; falsifiziert das ursprüngliche `N=2` | **neu (R1)** |
-| L7 | **Nur EIN Schreiber der gerenderten Region:** ein Post-Merge-Job auf `main` (bzw. render-on-read), NIE ein Session-Branch — sonst re-kollidiert die Region + Byte-Gate | Entscheidung (Kern-Revision) | Externes Sparring AD-4/OOTB-3 doppelt bestätigt; falsifiziert „session-ende committet die Region" | **neu (R1)** |
+| L7 | **Nur EIN Schreiber der gerenderten Region — und zwar `render-on-read`** (Owner-Entscheid 2026-07-22, s. §Entscheid unten): NIE ein Session-Branch, aber auch **kein** Post-Merge-Job auf `main`, der ist hier gemessen unmöglich — sonst re-kollidiert die Region + Byte-Gate | Entscheidung (Kern-Revision) | Externes Sparring AD-4/OOTB-3 doppelt bestätigt; falsifiziert „session-ende committet die Region" | **neu (R1)** |
 | L8 | **Freshness ≠ Vollständigkeit:** getrennte Invarianten. Freshness = Zeit-Signal (Datum); Vollständigkeit = Manifest erwarteter Fragment-IDs | Entscheidung | Externes Sparring AD-5/AD-7 | **neu (R1)** |
 | L9 | Fragmente sind **post-merge immutable**; Korrektur via neues referenzierendes Fragment, nie rückwirkender Edit | Entscheidung | Externes Sparring AD-9/AD-7 | **neu (R1)** |
 | L10 | Reversibilität „durch Entfernen EINER Sache" = **ein Feature-Flag** im Generator (`narrative-assembler: off` → Fallback geteilte Region) | Entscheidung | Externes Sparring M28-2 | **neu (R1)** |
@@ -50,9 +50,43 @@ Der Beweis, dass das Muster trägt, steht schon im Repo: der Auto-Block zwischen
 
 1. **Fragment-Verzeichnis** `docs/handover.d/`. Eine Session schreibt genau eine Datei `YYYY-MM-DDTHH-MM-SSZ-<session-id>.md` — **UTC-Zeitstempel** (nicht nur Tag, denn „Same-Day" IST die Kollisionseinheit) + `session-id` als stabiler Tiebreaker (derselbe Diskriminator wie Worktree/Lease/Memory-Key aus A1). Zweiter Schreibvorgang derselben session-id → **Suffix, kein Overwrite** (L9). Fragment trägt minimale Struktur: `Scope · Erledigt · Offen · Risiken · beanspruchte Zustände (Deploy/Migration/Version)`.
 2. **Assembler** = Erweiterung `tools/agent-handover/generate.py` (C1): markierter Block `<!-- HANDOVER:NARRATIVE START/END -->`. Konkateniert **ALLE nicht-konsumierten** Fragmente (nicht `N`-Fenster, L6), sortiert nach `(timestamp, session-id)`. Rendert je Fragment eine `## ⚡ Aktueller Stand (<ts> — <sid>)`-Überschrift; widersprüchliche `beanspruchte Zustände` werden **explizit als Konflikt markiert**, nicht stumm konkateniert (AD-7). Header trägt **getrennte** Felder: „zuletzt gerendert", „neuestes Fragment", „Anzahl nicht-konsumierter Fragmente" (L8).
-3. **Ort des Laufs (Kern-Revision, L7):** die NARRATIVE-Region wird **NICHT** von Session-Branches committet. Stattdessen EIN Post-Merge-Job auf `main` (oder render-on-read beim session-start). Session-PRs fügen **nur** ihr Fragment hinzu — reines Add, nie Edit der Region → genau ein Schreiber → keine Region-Re-Kollision.
+3. **Ort des Laufs (Kern-Revision, L7 — festgelegt 2026-07-22):** die NARRATIVE-Region wird **gar nicht committet**, sondern beim `session-start` gerendert (`render-on-read`). Der in R1 alternativ genannte Post-Merge-Job auf `main` **entfällt**: er ist in diesem Repo nicht implementierbar (s. §Entscheid). Session-PRs fügen **nur** ihr Fragment hinzu — reines Add, nie Edit der Region → genau ein Schreiber → keine Region-Re-Kollision.
 4. **Konsum-/Checkpoint-Mechanik** (towncrier-Muster, ersetzt Zeit-Archivierung): ein Fragment verlässt die Region erst, wenn eine Folge-Session/ein Checkpoint es nachweislich **konsumiert** hat → dann nach `docs/handover.d/archive/`. Archivierung **ausschließlich post-merge/im Checkpoint**, nie im Session-PR (AD-5-alt / L6). Kein `N` schneidet still ab.
 5. **CI-Gate** (Erweiterung `handover-stale-vor-merge`, C3), **drei getrennte Invarianten**: (a) **Freshness** wie gehabt (Zeit); (b) **Vollständigkeit** — Manifest/Hash aller erwarteten nicht-konsumierten Fragment-IDs, geprüft gegen **main-HEAD nach Merge**, nicht den PR-Branch (AD-4); (c) **Provenienz** — kein Hand-Edit der markierten Region ohne passendes Fragment. Golden-Master-Tests für Sortierung, gleiche Zeitstempel, Zeilenenden, Unicode, leere/überzählige Fragmente.
+
+## Entscheid 2026-07-22 — Arm A gemessen, Arm B auf `render-on-read` festgelegt
+
+Der A/B-Pilot (#1302) hat seinen ersten Check beantwortet, und die Antwort verschiebt
+beide Arme. Messungen und Belege: Kommentare an #1302 und #1319.
+
+**Arm A — `merge=union`:** Die tragende Annahme ist widerlegt. GitHub wendet
+`.gitattributes`-Merge-Driver **serverseitig nicht** an (Sonde 2026-07-22: `POST /merges`
+→ 409, PR `mergeable=false/dirty`; lokal derselbe Fall konfliktfrei). Der zweite PR bleibt
+`CONFLICTING`, „Update branch" hilft nicht. Der Nutzen beschränkt sich auf die **lokale**
+Auflösung: pullen, pushen.
+
+Zweitens hält die append-only-Voraussetzung für `AGENT_HANDOVER.md` nicht: von den letzten
+25 Commits hängte **einer** ausschließlich an, 15 änderten Bestandszeilen ohne Archiv-Bezug
+— weil `session-ende` Phase 0c das als PFLICHT vorschreibt. Arm A ist deshalb in #1319 auf
+eine neue, echt append-only Datei `AGENT_HANDOVER_LOG.md` zurückgezogen worden, mit
+durchsetzendem CI-Gate. Kosten damit ~400 Zeilen statt der veranschlagten ~5.
+
+**Arm B — Ort des Renderns ist entschieden:** `render-on-read`. Der in R1 gleichwertig
+genannte **Post-Merge-Job auf `main` entfällt ersatzlos**, weil er in diesem Repo nicht
+implementierbar ist: das Ruleset `main-required-checks` führt `required_status_checks` +
+`pull_request` bei **leerer** `bypass_actors`-Liste, jeder Direkt-Push wird mit `GH013`
+abgelehnt. Live belegt an zwei bestehenden Workflows, die seit Wochen genau daran
+scheitern (#1338).
+
+Damit ist auch AD-2 („Tool wird Boundary, Region wird stale") gegenstandslos: `render-on-read`
+hat keine committete Region, die stale werden könnte. Wer den Post-Merge-Job doch will,
+braucht zuerst einen Bypass-Actor im Ruleset — eine Governance-Entscheidung mit
+Audit-Pflicht, die **vor** dem Bau fällt, nicht während.
+
+**Was das für die Adoptionsfrage bedeutet:** Auf der Achse „Server-side-Robustheit" versagt
+A und B nicht — nach der Regel des Pilots ein Argument für B. Die Achsen Wachstum und
+Widerspruchs-Sichtbarkeit bleiben **unbelegt** und brauchen Laufzeit mit dem LOG aus #1319,
+bevor B gebaut wird.
 
 ## Kill-Gate + Threshold
 
@@ -64,7 +98,7 @@ Siehe Frontmatter `kill_criteria` (jetzt widerspruchsfrei + um Kriterium **(d) V
 |---|---|---|
 | (a) ≤1 Same-Day-Handover-Kollision im Pilot (1. = Exception-Budget) | offen | Pilot noch nicht gestartet (idea) |
 | (b) Assembler braucht 0× manuelle Konfliktauflösung | offen | — |
-| (c) session-start liest nie stale assemblierte Region | offen | render-on-read/post-merge (L7) |
+| (c) session-start liest nie stale assemblierte Region | offen | **render-on-read** (L7, festgelegt 2026-07-22) — post-merge entfällt, s. §Entscheid |
 | (d) Vollständigkeit: Region enthält je alle nicht-konsumierten Fragmente | offen | Manifest-Check gegen main-HEAD (MVC-5b) |
 
 ## Befunde inkl. Advocatus Diabolus (T2, R1-aktualisiert)
