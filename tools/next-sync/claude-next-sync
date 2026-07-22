@@ -60,7 +60,35 @@ _PRIORITY_TRIGGER = re.compile(
 # Marker, die eine Überschrift als ARCHIVIERT kennzeichnen — auch wenn sie zusätzlich
 # ein Prio-Trigger-Wort enthält (z.B. '### Prioritäten vom 2026-07-08 — erledigt').
 # Eine solche Überschrift darf die Prio-Sektion nicht (erneut) einleiten (platform#1323).
-_ARCHIVE_MARKER = re.compile(r"erledigt|abgeschlossen|archiv|✅", re.I)
+#
+# Teuer erkaufte Präzisierung (Retro 2026-07-22, Befund B1): ein Marker, der als
+# TEILSTRING irgendwo im Heading matcht, verschluckt auch TEILerledigung —
+# '## Prioritäten — 2 von 5 erledigt' ließ die komplette Sektion verschwinden, offene
+# Items wurden still nicht mehr gespiegelt (Fallback auf git-log, ohne Warnung). Das ist
+# dieselbe Fehlerklasse wie der von #1323 behobene Bug, nur mit umgekehrtem Vorzeichen.
+# Deshalb zwei Bedingungen statt einer:
+#   1. Ein Mengen-/Teil-Qualifier ('2 von 5', '3/7', '40 %', 'teilweise') schließt Archiv
+#      aus — die Sektion ist dann ausdrücklich noch nicht fertig.
+#   2. Sonst gilt Archiv nur, wenn der Marker die Überschrift ABSCHLIESST ('… — erledigt')
+#      oder sie ERÖFFNET ('### Archiv 2026-07-08').
+_PARTIAL_QUALIFIER = re.compile(
+    r"(?:\d+\s*(?:von|/|of)\s*\d+|teilweise|teils|tlw\.?|\d+\s*%)", re.I
+)
+_ARCHIVE_TAIL = re.compile(
+    r"(?:^|[\s—–\-(\[])(?:erledigt|abgeschlossen|archiv(?:iert)?|✅)\s*[)\]]?\s*$", re.I
+)
+_ARCHIVE_HEAD = re.compile(r"^\s*(?:archiv|erledigt|abgeschlossen|✅)", re.I)
+
+
+def _is_archive_heading(text: str) -> bool:
+    """True, wenn die Überschrift eine ABGESCHLOSSENE (archivierte) Sektion einleitet.
+
+    Eine Teilerledigung ('2 von 5 erledigt') ist ausdrücklich KEIN Archiv — dort stehen
+    noch offene Items, die gespiegelt werden müssen (Retro 2026-07-22, Befund B1).
+    """
+    if _PARTIAL_QUALIFIER.search(text):
+        return False
+    return bool(_ARCHIVE_TAIL.search(text) or _ARCHIVE_HEAD.search(text))
 
 
 def _heading(line: str) -> Optional[tuple[int, str]]:
@@ -97,7 +125,7 @@ def _find_section_start(lines: list[str]) -> Optional[int]:
         if h is None:
             continue
         level, htext = h
-        if _ARCHIVE_MARKER.search(htext):
+        if _is_archive_heading(htext):
             continue  # archivierte/erledigte Überschrift reaktiviert die Sektion nicht
         if level == 2 and htext.lower().rstrip(":").strip() == "prioritäten":
             return i  # exakter Treffer schlägt alles
