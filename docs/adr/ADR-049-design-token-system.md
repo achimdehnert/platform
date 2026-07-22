@@ -4,8 +4,8 @@ decision_date: 2026-02-21
 deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
-  - "platform/static/css/tokens.css: CSS custom properties defined"
-  - "all new hubs: Tailwind bridge via semantic token classes"
+  - "static/platform/css/pui-tokens.css: CSS Custom Properties (Layer 1, runtime), Prefix --pui-"
+  - "shared/tailwind/tailwind.config.shared.js: Tailwind-Bridge (Layer 2, build-time)"
 ---
 
 # ADR-049: Design Token System -- CSS Custom Properties + Tailwind Bridge

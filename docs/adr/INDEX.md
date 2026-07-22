@@ -72,7 +72,7 @@
 | 084 | Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung | Accepted | ✅ | [ADR-084](ADR-084-model-registry-dynamic-llm-routing.md) |
 | 085 | Use Case Pipeline — Natural Language → Structured TaskGraph | Accepted | ✅ | [ADR-085](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
 | 086 | Agent Team Workflow — Cross-Repo Sprint Execution Pattern | Accepted | ✅ | [ADR-086](ADR-086-agent-team-workflow.md) |
-| 087 | Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine | Accepted | ✅ | [ADR-087](ADR-087-hybrid-search-architecture.md) |
+| 087 | Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine | Accepted | 🔶 | [ADR-087](ADR-087-hybrid-search-architecture.md) |
 | 088 | Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System | Accepted | ✅ | [ADR-088](ADR-088-notification-registry.md) |
 | 089 | bfagent-llm — LiteLLM-Backend + DB-driven Model-Routing | Accepted | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Use Hybrid Matrix CI/CD Pipeline for Python + PostgreSQL → Docker Deploy | Accepted | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
@@ -145,7 +145,7 @@
 | 172 | rag-mcp Server — Platform-Wide RAG API | Proposed | ⬜ | [ADR-172](ADR-172-rag-mcp-server.md) |
 | 173 | Document Intake Routing Pattern | Proposed | ⬜ | [ADR-173](ADR-173-document-intake-routing-pattern.md) |
 | 174 | ADR-174 — Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy | Accepted | 🔶 | [ADR-174](ADR-174-workflow-enforcement-ci-gate.md) |
-| 175 | ADR-175 — Adopt selective modularization for .windsurf/workflows/ files | Accepted | ✅ | [ADR-175](ADR-175-workflow-modularization-pattern.md) |
+| 175 | ADR-175 — Adopt selective modularization for .windsurf/workflows/ files | Accepted | 🔶 | [ADR-175](ADR-175-workflow-modularization-pattern.md) |
 | 176 | — MCP-Server SSoT: platform = Konfig, mcp-hub = Code | Accepted | ⬜ | [ADR-176](ADR-176-mcp-server-ssot.md) |
 | 177 | — Agent Role Specialization | Proposed | ⬜ | [ADR-177](ADR-177-agent-role-specialization.md) |
 | 178 | LLM Gateway Consolidation | Accepted | ⬜ | [ADR-178](ADR-178-llm-gateway-consolidation.md) |

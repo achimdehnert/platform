@@ -5,7 +5,7 @@ deciders: [Achim Dehnert]
 amends: [ADR-035]
 implementation_status: implemented
 implementation_evidence:
-  - "Phase 1 (TenantManager + Lifecycle): DONE — risk-hub packages/django-tenancy/ v0.2.0"
+  - "Phase 1 (TenantManager + Lifecycle): DONE — risk-hub/packages/django-tenancy/ v0.2.0"
   - "1.1 TenantManager Dual-Mode: managers.py (auto-filter, for_tenant, unscoped, TenantQuerySet)"
   - "1.2 TenantModelAdmin: admin.py (get_queryset → unscoped)"
   - "1.3 TenantLifecycleMiddleware: lifecycle.py (suspended/trial-expired → 403, EXEMPT_PATHS)"
@@ -16,7 +16,7 @@ implementation_evidence:
   - "2.1 enable_rls: Cast-Introspection (UUID→uuid, BigInt→bigint), --dry-run, --disable, --table"
   - "2.3 setup_rls_roles: App-User vs Migrations-User (Table Owner = RLS-exempt)"
   - "Bonus: module_access.py — ModuleAccessMiddleware + require_module() Decorator + Role-Hierarchy"
-  - "Phase 3 (Self-Service Module-Shop): DONE — packages/django-module-shop/ in risk-hub"
+  - "Phase 3 (Self-Service Module-Shop): DONE — risk-hub/packages/django-module-shop/"
   - "3.1 Views: catalogue_view, detail_view, activate_view, cancel_view (login_required)"
   - "3.1 Templates: catalogue.html, detail.html"
   - "3.1 Catalogue-Service: catalogue.py (enrich mit ModuleSubscription-Status pro Tenant)"

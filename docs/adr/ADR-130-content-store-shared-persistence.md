@@ -10,7 +10,7 @@ amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-037-chat-conversation-logging.md"]
 implementation_status: implemented
 implementation_evidence:
-  - "packages/content-store/: Django App mit Models, Router, Services, Admin, 15 Tests"
+  - "packages/content-store/ → _ARCHIVED/packages/content-store/ (2cc7289, 2026-04-23): Django App mit Models, Router, Services, Admin, 15 Tests; lebt als Dist iil-content-store 0.1.0 auf PyPI"
   - "Prod DB: content_store auf devhub_db (88.198.191.108), 3 Tabellen + 9 Indizes"
   - "dev-hub: 1. Consumer (INSTALLED_APPS, DATABASES, DATABASE_ROUTERS)"
   - "research-hub: 2. Consumer via extra_hosts→172.17.0.1:15432 (devhub_db bridge port)"

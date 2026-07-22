@@ -2,10 +2,10 @@
 status: accepted
 decision_date: 2026-02-26
 deciders: [Platform Team]
-implementation_status: implemented
+implementation_status: partial
 superseded_by_planned: ADR-188 (Unified Vector Store — Deprecation-Timeline Phase D-4, frühestens 8 Wochen nach Migration)
 implementation_evidence:
-  - "Phase 1 Package: platform/packages/platform-search/ — 10 Tests passed"
+  - "Phase 1 Package: 10 Tests passed; packages/platform-search/ am 2026-03-25 als Orphan zurückgebaut (4cd39b4, ADR-146 Phase 1.1 — 0 Konsumenten), NICHT archiviert; Dist iil-platform-search auf PyPI vorhanden"
   - "SearchService: hybrid search (pgvector + FTS), index_chunks, delete_chunks, health_check"
   - "EmbeddingService: OpenAI text-embedding-3-small, batched, sync-safe"
   - "RRF: reciprocal_rank_fusion() mit konfigurierbaren Gewichten"
@@ -18,7 +18,7 @@ implementation_evidence:
   - "Noch offen: Phase 4 Consumer-Integration (dev-hub, risk-hub, weltenhub)"
 ---
 
-<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->
+<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: (Package zurückgebaut 4cd39b4 — kein Pfad mehr), supersedes_check: none -->
 
 # ADR-087: Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine
 
