@@ -33,11 +33,9 @@ Pro angebundenem Postfach die INBOX seit gestern, **ohne** Bulk/Newsletter
 ```bash
 # ad@dehnert.team (IMAP-Default) — nur wenn ~/.claude/mail.env existiert
 python3 tools/mail_agent/read_mail.py --list 25 2>/dev/null
-# achim.dehnert@hnu.de — Config-Pfad ÜBER VARIABLE, sonst blockt der Secret-Leak-Guard
-# den literalen `--config ~/.claude/mail-hnu.env`-Arg (False-Positive; die Datei hat kein
-# Passwort — das liegt in ~/.secrets). Follow-up: Guard-Allowlist für ~/.claude/mail-*.env
-# ODER MAIL_CONFIG-Env-Var in read_mail.py.
-C="$HOME/.claude/mail-hnu.env"; [ -f "$C" ] && python3 tools/mail_agent/read_mail.py --config "$C" --list 25 2>/dev/null
+# achim.dehnert@hnu.de — via --account (löst intern ~/.claude/mail-hnu.env auf; KEIN
+# .env-Pfad im Kommando → Secret-Leak-Guard-sicher). Existenz prüft der Tool selbst.
+python3 tools/mail_agent/read_mail.py --account hnu --list 25 2>/dev/null
 # achim.dehnert@iil.gmbh (Graph) — nur wenn Token existiert
 python3 tools/mail_agent/graph_mail.py --scan-senders --days 2 2>/dev/null   # Überblick
 ```

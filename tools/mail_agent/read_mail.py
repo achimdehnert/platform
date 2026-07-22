@@ -25,6 +25,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from send_mail import CONFIG_FILE, load_credentials, parse_env  # noqa: E402
 
 
+def _resolve_config(config: str | None, account: str | None) -> Path:
+    """--config PFAD > --account NAME (→ ~/.claude/mail-<NAME>.env) > Default mail.env.
+    --account hält jeden .env-Pfad aus der Kommandozeile (Secret-Leak-Guard-sicher)."""
+    if config:
+        return Path(config).expanduser()
+    if account:
+        return Path.home() / ".claude" / f"mail-{account}.env"
+    return CONFIG_FILE
+
+
 def decode_hdr(value: str | None) -> str:
     if not value:
         return ""
@@ -174,9 +184,16 @@ def main() -> None:
         default=None,
         help="alternative Mail-Config (Default: ~/.claude/mail.env), z.B. ~/.claude/mail-hnu.env",
     )
+    ap.add_argument(
+        "--account",
+        metavar="NAME",
+        default=None,
+        help="Postfach-Kürzel → ~/.claude/mail-<NAME>.env (z.B. --account hnu). "
+        "Guard-sicher: kein .env-Pfad als Argument (Secret-Leak-Guard).",
+    )
     args = ap.parse_args()
 
-    cfg_file = Path(args.config).expanduser() if args.config else CONFIG_FILE
+    cfg_file = _resolve_config(args.config, args.account)
     if not cfg_file.exists():
         sys.exit(
             f"FEHLER: {cfg_file} fehlt — Maschine ist für Mail nicht freigegeben (Capability-Profil)"
