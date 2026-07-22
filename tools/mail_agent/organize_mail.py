@@ -254,13 +254,26 @@ def main() -> None:
         default=None,
         help="alternative Mail-Config (Default: ~/.claude/mail.env), z.B. ~/.claude/mail-hnu.env",
     )
+    ap.add_argument(
+        "--account",
+        metavar="NAME",
+        default=None,
+        help="Postfach-Kürzel → ~/.claude/mail-<NAME>.env (z.B. --account hnu). "
+        "Guard-sicher: kein .env-Pfad als Argument (Secret-Leak-Guard).",
+    )
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except AttributeError:
         pass
 
-    imap, _ = connect(Path(args.config).expanduser() if args.config else None)
+    if args.config:
+        cfg_file = Path(args.config).expanduser()
+    elif args.account:
+        cfg_file = Path.home() / ".claude" / f"mail-{args.account}.env"
+    else:
+        cfg_file = None
+    imap, _ = connect(cfg_file)
     try:
         if args.list_folders:
             cmd_list_folders(imap)
