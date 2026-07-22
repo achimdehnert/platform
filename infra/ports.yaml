@@ -36,10 +36,25 @@
 #        nur host-gemappte Web-Ports
 #     6. Compose-Files MÜSSEN diesen Port verwenden (drift = deploy-blocker)
 #
-# REGEL: Staging-Domains unter iil.pet MUESSEN single-level sein!
+# REGEL: Staging-Domains unter iil.pet sind per DEFAULT single-level!
 #   OK: staging-writing.iil.pet   (1 Level = CF Universal SSL deckt ab)
-#   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
+#   NICHT ohne Weiteres: staging.writing.iil.pet   (2 Level = Universal SSL deckt NICHT ab)
 #   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
+#
+#   AUSNAHME (praezisiert 2026-07-22): Mehrstufig IST zulaessig, wenn fuer den
+#   Wildcard ein AKTIVES Cloudflare Certificate Pack existiert — dann faellt der
+#   einzige Grund der Regel (Universal SSL deckt nur ein Level) weg.
+#   Live-Beispiel: *.staging.risk-hub.iil.pet — Certificate Pack type=total_tls
+#   status=active, DNS-Wildcard auf den Staging-Tunnel, verifiziert mit
+#   staging-demo.staging.risk-hub.iil.pet -> HTTP 302 (iilgmbh/risk-hub#443).
+#
+#   Pruefen, BEVOR man die Regel fuer verletzt haelt (beides noetig):
+#     curl -s -H "Authorization: Bearer $(tr -d '\n' < ~/.secrets/cloudflare_write_token)" \
+#       "https://api.cloudflare.com/client/v4/zones/<zone>/ssl/certificate_packs" | grep -o '<host>'
+#     curl -o /dev/null -w '%{http_code}\n' https://<slug>.<mehrstufiger-host>/
+#   Achtung Messfehler: den WILDCARD testen, nicht den nackten Basis-Host. Der
+#   Basis-Host hat oft bewusst keinen DNS-Record (er dient nur der Slug-Aufloesung)
+#   und liefert NXDOMAIN — daraus folgt NICHT, dass der Zweig fehlt.
 #
 # Nächster freier Port: 8113  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
