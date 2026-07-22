@@ -33,6 +33,21 @@ jobs:
         id: probe
         run: |
           set -uo pipefail
+          # ACHTUNG: In URLS gehören ausschließlich URLs — KEINE Kommentarzeilen.
+          # Innerhalb der Zuweisung ist "#" kein Kommentarzeichen; die Schleife
+          # unten zerlegt den String an jedem Leerzeichen, jedes Wort einer
+          # Kommentarzeile würde also als eigenes Probe-Ziel gecurlt und als
+          # Ausfall gezählt (gemessen 2026-07-22: 3 auskommentierte Domains
+          # ergaben 81 Fake-Ziele). Begründungen deshalb hier oben ablegen.
+          #
+          # Stillgelegt am 2026-07-21 (Owner-Weisung, Freeze-Register #1314) —
+          # die Domains antworten bewusst nicht mehr, ein Alarm wäre keiner:
+          #   kiohnerisiko.de   nginx-vhost deaktiviert, Entwicklung ruht. Die
+          #                     Anwendung (coach-hub) läuft weiter und bleibt
+          #                     über coach-hub.iil.pet erreichbar.
+          #   learn.iil.pet     learn-hub stillgelegt.
+          #   wedding-hub.iil.pet
+          # Wiederaufnahme: die jeweilige URL unten wieder eintragen.
           URLS="
           https://schutztat.de/livez/
           https://137herz.de/livez/
@@ -40,21 +55,10 @@ jobs:
           https://billing.iil.pet/livez/
           https://dev-hub.iil.pet/livez/
           https://dms.iil.pet/livez/
-          # kiohnerisiko.de: 2026-07-21 auf Owner-Weisung stillgelegt (Entwicklung
-          # ruht) — nginx-vhost deaktiviert, die Domain antwortet bewusst nicht
-          # mehr. Ohne diese Streichung meldet der Canary alle 15 min einen
-          # Ausfall, der keiner ist. Wiederaufnahme: Zeile reaktivieren, sobald
-          # der vhost zurueck ist. Freeze-Register: #1314.
-          # Die Anwendung dahinter (coach-hub) laeuft weiter und bleibt ueber
-          # coach-hub.iil.pet erreichbar — hier ruht nur die Domain.
-          # learn.iil.pet (learn-hub): 2026-07-21 stillgelegt, siehe #1314.
-          # https://learn.iil.pet/livez/
           https://nl2cad.de/livez/
           https://prezimo.com/livez/
           https://tax.iil.pet/livez/
           https://trading-hub.iil.pet/livez/
-          # wedding-hub.iil.pet: 2026-07-21 stillgelegt, siehe #1314.
-          # https://wedding-hub.iil.pet/livez/
           https://weltenforger.com/livez/
           https://writing-hub.iil.pet/livez/
           https://travel-beat.iil.pet/livez/
