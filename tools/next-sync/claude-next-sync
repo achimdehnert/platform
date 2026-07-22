@@ -179,6 +179,17 @@ def _read_handover(path: Path) -> Optional[list[str]]:
         # Neue Haupt-Überschrift beendet den Abschnitt
         if stripped.startswith("## ") or stripped.startswith("# "):
             break
+        # Eine ARCHIV-Unterüberschrift beendet ihn ebenfalls (Retro 2026-07-22, B2).
+        # `_find_section_start` überspringt Archiv-Überschriften bei der SUCHE nach dem
+        # Sektionsanfang — innerhalb einer bereits laufenden Sektion war
+        # `### Prioritäten vom … — erledigt` aber nur eine Unterüberschrift: sein Titel
+        # UND seine Items landeten in der Ausgabe. Also genau die Archiv-Items, die
+        # platform#1323 aus der Spiegelung verbannen sollte. Gefunden hat das erst der
+        # gemeinsame Paritätstest gegen die awk-Implementierung, die hier korrekt stoppt.
+        if stripped.startswith("#") and _is_archive_heading(
+            stripped.lstrip("# ").strip()
+        ):
+            break
         # Markdown-Tabellenzeile: | # | Item | Tier | … |  (führende Spalte = Zahl)
         if stripped.startswith("|"):
             cells = [c.strip() for c in stripped.strip("|").split("|")]

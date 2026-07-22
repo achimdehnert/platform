@@ -42,25 +42,64 @@ if [ -f "${HANDOVER}" ]; then
         # Items still verschwinden. Regel jetzt identisch zum Python-Pendant
         # (_is_archive_heading in tools/next-sync/claude-next-sync):
         # Mengen-/Teil-Qualifier => KEIN Archiv; sonst Marker am ENDE oder am ANFANG.
-        /^#{1,4}[ \t]/ {
-            htext = $0
-            sub(/^#+[ \t]+/, "", htext)
-            partial = (htext ~ /[0-9]+[ \t]*(von|\/|of)[ \t]*[0-9]+/) ||
-                      (htext ~ /[Tt]eilweise|[Tt]eils|[Tt]lw\./) ||
-                      (htext ~ /[0-9]+[ \t]*%/)
-            is_archive = 0
-            if (!partial) {
-                if (htext ~ /([ \t]|—|–|-|\(|\[)([Ee]rledigt|[Aa]bgeschlossen|[Aa]rchiv(iert)?|✅)[ \t]*[)\]]?[ \t]*$/) is_archive = 1
-                if (htext ~ /^([Aa]rchiv|[Ee]rledigt|[Aa]bgeschlossen|✅)/) is_archive = 1
-            }
-            if (is_archive) {
-                if (insec) insec=0
-                next
-            }
+        # ZWEI DURCHLAEUFE ueber dieselbe Datei (Retro 2026-07-22, Befund B2).
+        # Vorher lief awk sequenziell und sammelte JEDE Trigger-Sektion ein — bei einem
+        # Dokument mit "## Naechste Schritte" VOR "## Prioritaeten" gab der Hook die Items
+        # BEIDER Sektionen aus, das Python-Pendant nur die der exakten "## Prioritaeten".
+        # Reproduziert: awk 4 Items, Python 2. Ursache: awk kannte keine Vorrang-Logik.
+        # Pass 1 bestimmt die Start-Zeile nach denselben Regeln wie _find_section_start:
+        #   exakt "## Prioritaeten" (Level 2) schlaegt alles, sonst erste Heuristik-
+        #   Ueberschrift; Archiv-Ueberschriften zaehlen nie.
+        # Pass 2 gibt NUR diese eine Sektion aus.
+        function heading_text(line,   t) {
+            t = line; sub(/^#+[ \t]+/, "", t); return t
         }
-        /^#{1,4}[ \t].*([Pp]riorit|[Pp]riorisiert|[Nn][aä]chste|[Oo]ffene)/ {
-            insec=1; header_done=0; item_col=0; tier_col=0; next
+        function heading_level(line,   m) {
+            match(line, /^#+/); return RLENGTH
         }
+        function is_archive(h,   partial) {
+            partial = (h ~ /[0-9]+[ \t]*(von|\/|of)[ \t]*[0-9]+/) ||
+                      (h ~ /[Tt]eilweise|[Tt]eils|[Tt]lw\./) ||
+                      (h ~ /[0-9]+[ \t]*%/)
+            if (partial) return 0
+            if (h ~ /([ \t]|—|–|-|\(|\[)([Ee]rledigt|[Aa]bgeschlossen|[Aa]rchiv(iert)?|✅)[ \t]*[)\]]?[ \t]*$/) return 1
+            if (h ~ /^([Aa]rchiv|[Ee]rledigt|[Aa]bgeschlossen|✅)/) return 1
+            return 0
+        }
+        # Trigger-Woerter und die "nur unter den ersten ZWEI Woertern"-Regel gespiegelt
+        # von _is_priority_heading/_PRIORITY_TRIGGER. Der awk-Regex kannte frueher nur
+        # vier Woerter (Priorit/Priorisiert/Naechste/Offene) und pruefte sie irgendwo im
+        # Heading — beides wich vom Python-Pendant ab (Befund B2, zweiter Teil).
+        function is_prio(h,   w, n, i) {
+            n = split(h, w, /[ \t—–:\/-]+/)
+            for (i = 1; i <= n && i <= 2; i++) {
+                if (w[i] ~ /^([Pp]riorit|[Oo]ffen|[Nn][aä]chst|[Nn]aechst|[Nn]ext|[Tt][Oo][Dd][Oo]|[Ss]lice|[Oo]pen|[Bb]acklog|[Kk]nown|[Aa]ufgaben)/) return 1
+            }
+            return 0
+        }
+        function is_exact_prio(h,   t) {
+            t = h; gsub(/[ \t]+$/, "", t); sub(/:$/, "", t); gsub(/[ \t]+$/, "", t)
+            return (t ~ /^[Pp]riorit(ä|ae)ten$/)
+        }
+        # ---- Pass 1: Start-Zeile bestimmen ----
+        NR == FNR {
+            if ($0 ~ /^#{1,4}[ \t]/) {
+                h = heading_text($0)
+                if (!is_archive(h)) {
+                    if (heading_level($0) == 2 && is_exact_prio(h)) {
+                        if (!exact) exact = FNR
+                    } else if (!heuristic && is_prio(h)) {
+                        heuristic = FNR
+                    }
+                }
+            }
+            next
+        }
+        # ---- Pass 2: nur die gewaehlte Sektion ausgeben ----
+        FNR == 1 { start = exact ? exact : heuristic }
+        !start { next }
+        FNR < start { next }
+        FNR == start { insec=1; header_done=0; item_col=0; tier_col=0; next }
         /^#{1,4}[ \t]/ { if (insec) insec=0 }
         insec && /^\|/ {
             n = split($0, a, "|")
@@ -99,7 +138,7 @@ if [ -f "${HANDOVER}" ]; then
             if (tier == "") { printf "  %s. %s\n", prio, task } else { printf "  %s. %s  %s\n", prio, task, tier }
         }
         insec && /^([-*][ \t]|[0-9]+\.[ \t])/ { line=$0; sub(/^[ \t]+/, "", line); print "  " line }
-    ' "${HANDOVER}")"
+    ' "${HANDOVER}" "${HANDOVER}")"
     [ -n "${ITEMS}" ] && SRC="AGENT_HANDOVER.md (kuratiert)"
 fi
 
