@@ -33,7 +33,7 @@ Der Test-Skill enthält einen Versions-Marker im Body und ein Argument-Echo
 | 2 | Aufruf funktioniert, Body wird geladen | ✅ bestanden | `Skill(adr281-ladetest)` lieferte den Body samt Marker; `Base directory` zeigte auf den Symlink-Pfad. |
 | 3 | `$ARGUMENTS` wird korrekt eingesetzt | ✅ bestanden | Einwortig und mehrwortig-gequotet: `>>>hallo welt<<<` bzw. `>>>"mehrwortiges gequotetes argument"<<<`. |
 | 4 | Änderung an der Quelldatei wirkt ohne Neustart | ⚠️ **Testfall untauglich** | siehe unten — misst den Harness-Cache, nicht den Symlink. |
-| 5 | Verhalten in frisch gestarteter Session | ⏳ offen, **vorbereitet** (s. Nachtrag) | In dieser Session nicht erzeugbar. Kriterium 1 trat allerdings **dynamisch** ein, was den Verdacht entkräftet, dass Symlinks nur beim Start gelesen werden. Link für den Nachlauf liegt seit 2026-07-22 16:23 bereit. |
+| 5 | Verhalten in frisch gestarteter Session | ✅ bestanden (Nachlauf 2026-07-22 19:0x, s. zweiten Nachtrag) | `adr281-k5` stand **beim Start** im Roster, Body inkl. `MARKER-K5-V1` geladen, Argument-Echo korrekt. |
 | 6 | Entfernen des Symlinks entfernt den Skill sauber | ✅ bestanden | `rm` des Links entfernte den Eintrag; die **Quelldatei überlebte** unverändert. |
 
 ### Kriterium 4 im Detail — warum der Testfall nicht misst, was er soll
@@ -120,6 +120,8 @@ Owner-Entscheid, verändert die Skill-Installation der Maschine über einen Test
 - **ADR-281:** §8.1 trägt — 5 von 6 Kriterien bestanden, das sechste nach Korrektur der
   Formulierung ebenfalls. **Kein** Anlass für `rejected`. Offen bleibt Kriterium 5
   (frische Session); der Negativtest aus §8.2 (Nebenbefund 1) ist seit #1335 behoben.
+  → **Überholt durch den Nachlauf vom 2026-07-22 19:0x: Kriterium 5 ist bestanden,
+  §8.1 damit vollständig (6/6, Kriterium 4 in der korrigierten Fassung).**
 
 ---
 
@@ -158,6 +160,53 @@ mit kanonischer Quelle.
 - **ADR-280:** Betriebsnachweis **weiterhin offen**, Ursache benannt und behebbar. Kein
   Anlass für den Rückfall auf Option D, weil kein Kriterium *geprüft und gescheitert* ist.
 - Beide ADRs bleiben damit vorerst auf `status: proposed`.
+
+---
+
+## Nachtrag 2 — 2026-07-22, ~19:06: Kriterium 5 **gemessen und bestanden**
+
+**Messende Session:** frisch gestartet auf `dev-desktop`, `main` @ `a80e02b`,
+Werkzeugversion unverändert **2.1.217 (Claude Code)** — der Vergleich zum Erstlauf ist
+damit versionsgleich und nicht von einem Harness-Upgrade verfälscht.
+
+Die Session hat den Symlink **nicht selbst gesetzt** (er lag seit 16:23), womit der
+Selbstwiderspruch des Erstlaufs aufgelöst ist.
+
+| Auswertungsregel (aus dem Skill-Body) | Beobachtung | Ergebnis |
+|---|---|---|
+| Skill **schon beim Session-Start** im Roster | `adr281-k5` stand in der Skill-Liste des Session-Starts, vor jeder Dateisystem-Aktion dieser Session | ✅ |
+| Body vollständig geladen, inkl. `MARKER-K5-V1` | `Skill(adr281-k5)` lieferte den Body samt Marker; `Base directory: /home/devuser/.claude/skills/adr281-k5` (der Symlink-Pfad) | ✅ |
+| Argument-Echo korrekt | `>>>K5-PROBE-2026-07-22-fresh-session<<<` | ✅ |
+
+**Damit ist ADR-281 §8.1 vollständig durchgeprüft: 6/6** (Kriterium 4 in der oben
+begründeten Neufassung). Der Erstlauf-Verdacht — Symlinks würden womöglich nur *dynamisch*,
+nicht beim Start aufgelöst — ist widerlegt: **beide** Ladewege funktionieren.
+
+**Zustand vor dem Aufräumen** (bestätigt die Vorhersage des ersten Nachtrags exakt):
+
+```
+python3 tools/cc-skill-dist/doctor.py --kind skills
+  → Symlinks ok=0  symlink-stale=0  dangling=0
+  → extra (nicht in Quelle)=1   [extra] adr281-k5
+  → DRIFT-SCORE: 4
+```
+
+Der Link wurde anschließend gemäß Testprotokoll entfernt
+(`rm ~/.claude/skills/adr281-k5 && rm -rf ~/shared/adr281-k5`); der Nachlauf von `doctor.py`
+zeigt `extra=0` und **DRIFT-SCORE 3** — der Testaufbau ist rückstandsfrei abgebaut, die
+verbleibende 3 sind die drei nicht installierten Piloten aus Teil B (ADR-280), nicht dieser
+Test.
+
+**Was das für die ADR-Stände heißt:**
+
+- **ADR-281:** §8.1 ist erledigt. Vor `accepted` bleibt nur §8.2 — der Negativtest
+  (dangling ⇒ rot), zu dem Nebenbefund 1 den Bau und #1335 den Fix nennt; ob er heute
+  wirklich feuert, ist **in diesem Lauf nicht** nachgemessen worden (`dangling=0` oben
+  stammt aus einem Lauf **ohne** gebrochenen Link und beweist nichts über den Negativtest).
+  Billigster Check: `ln -s /nonexistent ~/.claude/skills/adr281-dangling`, `doctor.py`,
+  `dangling>0` erwarten, danach `rm`.
+- **ADR-280:** unverändert offen — der Betriebsnachweis hängt weiter an
+  `generate.py --kind skills --allow-live` (Owner-Entscheid, ADR-230 §8).
 
 ## Reproduktion
 
