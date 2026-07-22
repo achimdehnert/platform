@@ -12,8 +12,19 @@ name: "Prod-Uptime-Canary"
 # Origin-Down-Signale (5xx/52x/Timeout/Conn-Fail) → Issue + roter Run (Notification).
 # 403/401/3xx (Cloudflare-Access o.ä.) gelten NICHT als down.
 #
+# Einzelne Hubs werden zusätzlich auf /readyz/ geprüft (seit 2026-07-22). Der
+# Unterschied ist beabsichtigt: /livez/ sagt "Prozess lebt", /readyz/ sagt
+# "Prozess lebt UND Stammdaten sind vollständig". Ein Hub mit fehlgeschlagenem
+# Seed liefert 200 auf /livez/ und 503 auf /readyz/ — ohne die zweite Zeile
+# bliebe genau diese Fehlerklasse unsichtbar (writing-hub#317/#318/#319).
+# Nur für Hubs eintragen, die /readyz/ auch wirklich bedienen; wo es fehlt,
+# antwortet Django 404 und das wäre ein Dauer-Fehlalarm.
+#
 # Pflege: neue Live-Hubs / aktuell 502/000-Hubs nach Triage in URLS aufnehmen.
 # Robustere 1-Min-Variante optional via Betterstack (/uptime-monitoring-Skill).
+# Betterstack ist eine Verfeinerung (3-min-Takt, Multi-Region, E-Mail/SMS),
+# KEINE Voraussetzung — dieser Canary ist die kostenlose Basisabdeckung und
+# überwacht mehr Endpoints als das dortige Kontingent hergibt.
 
 on:
   schedule:
@@ -49,6 +60,7 @@ jobs:
           https://wedding-hub.iil.pet/livez/
           https://weltenforger.com/livez/
           https://writing-hub.iil.pet/livez/
+          https://writing-hub.iil.pet/readyz/
           https://travel-beat.iil.pet/livez/
           https://research.iil.pet/healthz/
           "
