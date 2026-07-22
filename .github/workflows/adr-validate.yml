@@ -6,12 +6,14 @@ on:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "tools/adr_evidence_paths.py"
       - "scripts/gen_adr_index.py"
   pull_request:
     paths:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "tools/adr_evidence_paths.py"
       - "scripts/gen_adr_index.py"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
@@ -82,6 +84,25 @@ jobs:
           set +e
           python3 tools/adr_citation_lint.py --format github
           python3 tools/adr_index_check.py --format github
+          exit 0
+
+      # implementation_evidence-Pfade — SUGGEST / non-gating (repo-health-rule-discipline).
+      # Anlass platform#1289: ADR-158 trug `implemented` + vier Evidence-Pfade unter
+      # packages/docs-agent/, das seit 2026-04-23 in _ARCHIVED/ liegt — knapp drei Monate
+      # unbemerkt, weil `validate` nur das Schema prueft und die Werte wohlgeformt sind.
+      # Baseline gegen main nachgemessen am 2026-07-22: 18 Findings (nicht 13 — die
+      # frueher hier genannte Zahl stammte von einem aelteren main-Stand). Verteilung
+      # ueber 10 ADRs: ADR-175 sieben · ADR-137 und ADR-246 je zwei · ADR-049, ADR-087,
+      # ADR-088, ADR-109, ADR-130, ADR-131, ADR-145 je eins; jedes gegen git-Historie
+      # bzw. Ziel-Repo verifiziert (0 bekannte Falsch-Positive).
+      # platform#1318 raeumt genau diese 10 ADRs auf — auf dessen Stand gemessen:
+      # 0 Findings. Promotion zu gating (`--gate` setzen, `exit 0` entfernen) erst
+      # nach Merge von #1318 — vgl. feedback_advisory_scanner_reactivation_needs_baseline
+      # (dauerroter non-blocking Check = Alarm-Muedigkeit).
+      - name: ADR implementation_evidence-Pfade (SUGGEST, non-gating)
+        run: |
+          set +e
+          python3 tools/adr_evidence_paths.py --format github
           exit 0
 
       # ADR Index frisch? (gating) — regeneriert index.json + INDEX.md und vergleicht

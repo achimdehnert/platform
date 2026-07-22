@@ -1,0 +1,12 @@
+# .adr-evidence-ignore — Whitelist fuer tools/adr_evidence_paths.py
+#
+# Format: <pfad> in <ADR-NNN>     (ein Eintrag pro Zeile, # = Kommentar)
+#
+# Hier gehoeren NUR Faelle hinein, die der Check strukturell nicht erkennen kann.
+# Echte Alt-Funde werden korrigiert, nicht geparkt — sonst meldet der Check gruen,
+# waehrend der ADR weiter falsch behauptet.
+#
+# Aktuell leer: die urspruenglich hier geparkten ADR-246-Eintraege wurden in #1311
+# stattdessen im ADR selbst qualifiziert (`iil-pet-portal/.github/workflows/...`),
+# womit die normale Fremd-Root-Heuristik greift. Das ist der bevorzugte Weg —
+# ein qualifizierter Pfad ist auch fuer Menschen die bessere Evidence.
