@@ -468,13 +468,19 @@ GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
   bash "${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh" \
   2>&1 | grep -cE "LINK|REPLACE" | xargs -I{} echo "{} Workflow-Symlinks aktualisiert"
 
-# 3. project-facts.md für alle Repos aktualisieren
-python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
-  2>&1 | grep -E "✅|⚠️" | head -10
+# 3. project-facts.md wird hier NICHT mehr lokal regeneriert.
+#    Owner ist der CI-Cron `gen-project-facts.yml` (Mo 04:00 UTC, wöchentlich)
+#    + on-demand `workflow_dispatch`. Der frühere Lokal-Lauf schrieb bei JEDEM
+#    Session-Ende nur einen frischen Timestamp in die (getrackte) Datei → ließ
+#    ALLE Repos dirty, konnte sie aber wegen Branch-Protection nie committen.
+#    Zwei Erzeuger für dasselbe Artefakt = SSoT-Verletzung; der Lokal-Lauf war
+#    der redundante. Gezielte On-demand-Regen für EIN Repo bleibt möglich:
+#      python3 platform/scripts/gen_project_facts.py --repo <name>
 ```
 
 → **Ergebnis**: Nächster `session-start` auf JEDER Maschine hat automatisch die aktuellen Rules + Workflows.
-→ Unregistrierte Repos (⚠️) → in `platform/scripts/repo-registry.yaml` eintragen.
+→ project-facts.md aktualisiert der wöchentliche CI-Cron (`gen-project-facts.yml`) — kein Dirty-State am Session-Ende mehr.
+→ Unregistrierte Repos → in `platform/scripts/repo-registry.yaml` eintragen (Warnung erscheint im CI-Cron-Log).
 
 > ℹ️ **ADR-230 (CC-first):** `sync-workflows.sh` ist der **Windsurf-Ära**-Symlink-Pfad.
 > Für **CC-Skills** ist die kanonische Verteilung `platform/tools/cc-skill-dist/`
