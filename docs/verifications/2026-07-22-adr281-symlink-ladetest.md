@@ -199,14 +199,56 @@ Test.
 
 **Was das für die ADR-Stände heißt:**
 
-- **ADR-281:** §8.1 ist erledigt. Vor `accepted` bleibt nur §8.2 — der Negativtest
-  (dangling ⇒ rot), zu dem Nebenbefund 1 den Bau und #1335 den Fix nennt; ob er heute
-  wirklich feuert, ist **in diesem Lauf nicht** nachgemessen worden (`dangling=0` oben
-  stammt aus einem Lauf **ohne** gebrochenen Link und beweist nichts über den Negativtest).
-  Billigster Check: `ln -s /nonexistent ~/.claude/skills/adr281-dangling`, `doctor.py`,
-  `dangling>0` erwarten, danach `rm`.
+- **ADR-281:** §8.1 ist erledigt. Vor `accepted` bleibt §8.2 — der Negativtest
+  (dangling ⇒ rot). **Direkt im Anschluss nachgemessen, siehe Nachtrag 3.**
 - **ADR-280:** unverändert offen — der Betriebsnachweis hängt weiter an
   `generate.py --kind skills --allow-live` (Owner-Entscheid, ADR-230 §8).
+
+---
+
+## Nachtrag 3 — 2026-07-22: §8.2 Negativtest nachgemessen — **besteht**, mit zwei Kanten
+
+Ausgeführt gegen `main` @ `a80e02b` (enthält den Fix aus #1335 zu #1332). Zwei Läufe, weil
+der erste ein unerwartetes Ergebnis lieferte und die Ursache erst der zweite entscheidet.
+
+| Lauf | Linkname | Klassifikation | Befund-Zeile | DRIFT-SCORE |
+|---|---|---|---|---|
+| A | `adr281-dangling` (**nicht** kanonisch) | `extra=1`, `dangling=0` | `[extra] adr281-dangling` | 3 → **4** |
+| B | `next` (**kanonisch**, war zuvor `fehlend`) | `dangling=1`, `extra=0` | `[dangling] next — Symlink ins Leere → …` | 3 → **3** |
+
+**Ursache, aus dem Code statt geraten** (`tools/cc-skill-dist/doctor.py`): die
+`name not in canon`-Prüfung steht **vor** der dangling-Prüfung und beendet die
+Klassifikation mit `continue`. Ein gebrochener Link unter einem Namen, den die kanonische
+Quelle nicht kennt, erreicht den dangling-Zweig also nie. Genau dieses Zusammenspiel
+dokumentiert der Docstring von `enumerate_skills()` bereits — der Fix aus #1332 zielte auf
+die *kanonische* Form und tut dort, was er soll.
+
+**Verdikt zu §8.2 („ein absichtlich gebrochener Link **muss** rot werden"):**
+**bestanden.** In beiden Läufen erscheint der kaputte Link als Befund und erhöht die
+Drift-Zählung — die frühere Beobachtung aus Nebenbefund 1 (`dangling=0`, DRIFT-SCORE
+unverändert) ist mit #1335 **erledigt** und nicht mehr reproduzierbar.
+
+**Zwei Kanten, beide dokumentiert, keine davon ein Blocker:**
+
+1. **Falsches Etikett bei nicht-kanonischen Namen** (Lauf A): erkannt wird der Link, aber
+   als `extra`, nicht als `dangling`. Für den Drift-Score gleichwertig (beide zählen 1),
+   für die Diagnose irreführend. Kosmetisch, sofern niemand auf das Etikett gatet.
+2. **Score-Neutralität im Sonderfall** (Lauf B): war der Skill vorher `fehlend`, ersetzt der
+   kaputte Link ein `fehlend` durch ein `dangling` — Summe unverändert, hier 3 → 3. Das
+   ist ein **Artefakt der Ausgangslage dieser Maschine** (3 nicht installierte
+   ADR-280-Piloten), kein allgemeiner Fehler: auf einer Maschine, auf der der Skill korrekt
+   installiert ist und der Link *danach* bricht, geht `fehlend` nicht herunter und der Score
+   steigt um 1. Relevant nur, wenn ein Gate auf die **Score-Zahl** statt auf die
+   Befund-Liste triggert. Der heutige CI-Gate (`.github/workflows/cc-skill-dist-doctor.yml`)
+   tut das nicht — er prüft einen frisch generierten Roundtrip-Baum auf Drift 0 und ist von
+   dieser Kante nicht betroffen.
+
+Beide Testlinks wurden unmittelbar nach dem Lauf entfernt; `~/.claude/skills/` enthält
+danach wieder nur `antwort-modus-schablone`, `MANAGED_BY`, `manifest.json`.
+
+**Stand ADR-281 nach diesem Nachtrag:** §8.1 6/6, §8.2 bestanden. Aus Sicht der in §8
+geforderten Nachweise ist der ADR damit **accept-reif** — der Accept selbst bleibt
+Owner-Entscheid.
 
 ## Reproduktion
 
