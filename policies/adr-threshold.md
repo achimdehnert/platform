@@ -32,9 +32,15 @@ For these → **CHANGELOG entry + PR description** is enough.
 `~/github/platform/docs/adr/ADR-NNN-*.md`. Get next number:
 
 ```bash
-python3 scripts/adr_next_number.py          # → ADR-281
-python3 scripts/adr_next_number.py --check  # Konflikt-Check
+P="${GITHUB_DIR:-$HOME/github}/platform"
+python3 "$P/scripts/adr_next_number.py"          # → ADR-281 (Stand 2026-07-22)
+python3 "$P/scripts/adr_next_number.py" --check  # Konflikt-Check
 ```
+
+> Absolute Pfade mit Absicht: diese Policy wird in **jeder** Session geladen,
+> auch wenn das Arbeitsverzeichnis ein anderes Repo ist. Ein relatives
+> `scripts/adr_next_number.py` schlägt dort fehl — und die alte Zeile, die es
+> ersetzt, war absolut.
 
 > ⚠️ Die früher hier dokumentierte Zeile `ls ~/github/platform/docs/adr/ | sort |
 > tail -1` ist **kaputt**, nicht bloß umständlich. `docs/adr/` enthält neben den
@@ -46,8 +52,10 @@ python3 scripts/adr_next_number.py --check  # Konflikt-Check
 **Index nach dem Anlegen regenerieren, nicht von Hand pflegen:**
 
 ```bash
-python3 scripts/gen_adr_index.py    # schreibt docs/adr/INDEX.md UND docs/adr/index.json
-iil-adrfw validate docs/adr         # Frontmatter-Schema, erwartet N/N (100.0%)
+# --adr-dir/--root sind cwd-relativ vorbelegt — aus einem anderen Repo heraus
+# beide setzen, sonst schreibt der Generator ins falsche Verzeichnis:
+python3 "$P/scripts/gen_adr_index.py" --adr-dir "$P/docs/adr" --root "$P"
+iil-adrfw validate "$P/docs/adr"        # Frontmatter-Schema, erwartet N/N (100.0%)
 ```
 
 `INDEX.md` trägt in Zeile 1 `AUTO-GENERATED … do not edit manually`; der CI-Gate
