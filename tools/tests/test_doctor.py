@@ -6,6 +6,7 @@ plus Drift-Erkennung bei manipulierter Kopie. Schließt F-A (skills-Lane war CI-
 
 Run: `python3 -m pytest tools/tests/test_doctor.py -q`
 """
+
 import importlib.util
 import pathlib
 import shutil
@@ -18,9 +19,11 @@ _spec = importlib.util.spec_from_file_location("doctor", _DOC)
 doc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(doc)
 
-MARK_FOOTER = ("\n\n<!-- MANAGED-BY: platform/tools/cc-skill-dist · generated=true · "
-               "source=skills/bar/SKILL.md · source_commit=abc123def456 · "
-               "content_hash=sha256:0123456789abcdef · do_not_edit -->\n")
+MARK_FOOTER = (
+    "\n\n<!-- MANAGED-BY: platform/tools/cc-skill-dist · generated=true · "
+    "source=skills/bar/SKILL.md · source_commit=abc123def456 · "
+    "content_hash=sha256:0123456789abcdef · do_not_edit -->\n"
+)
 
 
 # ---------------------------------------------------------------- reine Helfer
@@ -38,7 +41,7 @@ def test_should_enumerate_only_dirs_with_skill_md(tmp_path):
     (tmp_path / "alpha" / "SKILL.md").write_text("x")
     (tmp_path / "beta").mkdir()
     (tmp_path / "beta" / "SKILL.md").write_text("y")
-    (tmp_path / "nope").mkdir()                              # kein SKILL.md
+    (tmp_path / "nope").mkdir()  # kein SKILL.md
     assert set(doc.enumerate_skills(str(tmp_path))) == {"alpha", "beta"}
 
 
@@ -80,14 +83,16 @@ def test_should_return_empty_for_missing_dir():
 
 # ---------------------------------------------------------------- ADR-258 hooks-Lane
 def test_should_strip_shell_footer_for_hooks():
-    sh_footer = ("#!/bin/sh\nexit 0\n\n# MANAGED-BY: platform/tools/cc-skill-dist · "
-                 "generated=true · source=tools/hooks/x.sh · do_not_edit\n")
+    sh_footer = (
+        "#!/bin/sh\nexit 0\n\n# MANAGED-BY: platform/tools/cc-skill-dist · "
+        "generated=true · source=tools/hooks/x.sh · do_not_edit\n"
+    )
     assert doc.strip_managed_footer(sh_footer).rstrip("\n") == "#!/bin/sh\nexit 0"
 
 
 def test_should_enumerate_hooks_flat_sh(tmp_path):
     (tmp_path / "reap.sh").write_text("x")
-    (tmp_path / "notes.md").write_text("y")           # nicht .sh
+    (tmp_path / "notes.md").write_text("y")  # nicht .sh
     assert set(doc.enumerate_hooks(str(tmp_path))) == {"reap.sh"}
 
 
@@ -95,8 +100,21 @@ def _wire_settings(home, command):
     (home / ".claude").mkdir(parents=True, exist_ok=True)
     sj = home / ".claude" / "settings.json"
     import json as _json
-    sj.write_text(_json.dumps({"hooks": {"SessionEnd": [
-        {"matcher": "", "hooks": [{"type": "command", "command": command}]}]}}))
+
+    sj.write_text(
+        _json.dumps(
+            {
+                "hooks": {
+                    "SessionEnd": [
+                        {
+                            "matcher": "",
+                            "hooks": [{"type": "command", "command": command}],
+                        }
+                    ]
+                }
+            }
+        )
+    )
 
 
 def test_should_flag_missing_hook_wiring(tmp_path, monkeypatch):
@@ -106,7 +124,7 @@ def test_should_flag_missing_hook_wiring(tmp_path, monkeypatch):
     managed.mkdir(parents=True)
     (managed / "reap_worktrees.sh").write_text("#!/bin/sh\n")
     (managed / "reap_worktrees.sh").chmod(0o755)
-    _wire_settings(tmp_path, "/somewhere/else/other.sh")    # falscher Pfad
+    _wire_settings(tmp_path, "/somewhere/else/other.sh")  # falscher Pfad
     issues = doc.check_hook_wiring(str(managed))
     assert any(k == "settings-wiring-missing" for k, _, _ in issues)
 
@@ -118,7 +136,7 @@ def test_should_pass_when_hook_wired_to_managed_path(tmp_path, monkeypatch):
     hook = managed / "reap_worktrees.sh"
     hook.write_text("#!/bin/sh\n")
     hook.chmod(0o755)
-    _wire_settings(tmp_path, str(hook))                     # exakter managed-Pfad
+    _wire_settings(tmp_path, str(hook))  # exakter managed-Pfad
     issues = doc.check_hook_wiring(str(managed))
     assert not any(k == "settings-wiring-missing" for k, _, _ in issues)
 
@@ -145,9 +163,22 @@ def _make_repo(root, names=("bar",)):
 
 def _doctor_skills(repo, skills_dir, *extra_args):
     return subprocess.run(
-        [sys.executable, str(_DOC), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--skills-dir", str(skills_dir), *extra_args],
-        capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_DOC),
+            "--kind",
+            "skills",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--skills-dir",
+            str(skills_dir),
+            *extra_args,
+        ],
+        capture_output=True,
+        text=True,
+    )
 
 
 def _score(stdout):
@@ -170,7 +201,8 @@ def _make_commands_repo(root):
     (root / ".windsurf" / "workflows").mkdir(parents=True)
     (root / ".windsurf" / "workflows" / "foo.md").write_text("# foo\nbody\n")
     (root / ".windsurf" / "workflows" / "_reviewer.md").write_text(
-        "---\nprovider: openai\ndistribute: false\n---\n# reviewer\nsystem prompt\n")
+        "---\nprovider: openai\ndistribute: false\n---\n# reviewer\nsystem prompt\n"
+    )
     _git(root, "add", "-A")
     _git(root, "commit", "-m", "init")
     _git(root, "remote", "add", "origin", str(root))
@@ -184,12 +216,36 @@ def test_should_not_count_distribute_false_as_missing_drift(tmp_path):
     repo = _make_commands_repo(tmp_path / "repo")
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     r = subprocess.run(
-        [sys.executable, str(_DOC), "--kind", "commands", "--platform", str(repo),
-         "--ref", "HEAD", "--commands", str(dist)],
-        capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_DOC),
+            "--kind",
+            "commands",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--commands",
+            str(dist),
+        ],
+        capture_output=True,
+        text=True,
+    )
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DRIFT-SCORE: 0" in r.stdout
 
@@ -198,9 +254,22 @@ def test_should_report_drift_zero_then_detect_tamper(tmp_path):
     repo = _make_repo(tmp_path / "repo")
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--kind",
+            "skills",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
     # frisch generiert → Drift 0
     r = _doctor_skills(repo, dist)
@@ -224,9 +293,22 @@ def test_should_report_dangling_directory_symlink_as_drift(tmp_path):
     repo = _make_repo(tmp_path / "repo")
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--kind",
+            "skills",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     assert "DRIFT-SCORE: 0" in _doctor_skills(repo, dist).stdout
 
     # kanonischen Skill durch einen Verzeichnis-Symlink ins Leere ersetzen
@@ -251,9 +333,22 @@ def test_should_report_noncanonical_dangling_symlink_as_dangling_not_extra(tmp_p
     repo = _make_repo(tmp_path / "repo")
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--kind",
+            "skills",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     assert _score(_doctor_skills(repo, dist).stdout) == 0
 
     # Name existiert in der Quelle NICHT — genau der Fall, der frueher durchrutschte
@@ -266,7 +361,7 @@ def test_should_report_noncanonical_dangling_symlink_as_dangling_not_extra(tmp_p
     # Zeile fehl und bewiese ueber die Fehlklassifikation nichts.
     assert "[dangling] fremder-skill" in r.stdout, r.stdout
     assert "[extra] fremder-skill" not in r.stdout, r.stdout
-    assert "nicht in der Quelle" in r.stdout, r.stdout   # Zusatz bleibt sichtbar
+    assert "nicht in der Quelle" in r.stdout, r.stdout  # Zusatz bleibt sichtbar
     assert "dangling=1" in r.stdout, r.stdout
     assert _dangling(r.stdout) == 1, r.stdout
     # Die Umstellung verschiebt nur das Etikett, sie darf den Score nicht veraendern
@@ -283,10 +378,23 @@ def test_should_move_dangling_counter_even_when_drift_score_stays_equal(tmp_path
     repo = _make_repo(tmp_path / "repo", names=("bar", "baz"))
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
-    shutil.rmtree(dist / "baz")                       # baz fehlt → Grund-Drift 1
+        [
+            sys.executable,
+            str(_GEN),
+            "--kind",
+            "skills",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    shutil.rmtree(dist / "baz")  # baz fehlt → Grund-Drift 1
 
     vorher = _doctor_skills(repo, dist).stdout
     assert _score(vorher) == 1 and _dangling(vorher) == 0, vorher
@@ -294,8 +402,12 @@ def test_should_move_dangling_counter_even_when_drift_score_stays_equal(tmp_path
     (dist / "baz").symlink_to(tmp_path / "ziel-existiert-nicht")
 
     nachher = _doctor_skills(repo, dist).stdout
-    assert _score(nachher) == _score(vorher), "Score-Neutralitaet ist die Voraussetzung des Tests"
-    assert _dangling(nachher) == 1, nachher            # … und genau deshalb braucht es diese Zeile
+    assert _score(nachher) == _score(vorher), (
+        "Score-Neutralitaet ist die Voraussetzung des Tests"
+    )
+    assert _dangling(nachher) == 1, (
+        nachher
+    )  # … und genau deshalb braucht es diese Zeile
 
 
 def test_should_gate_on_dangling_only_when_flag_set(tmp_path):
@@ -308,13 +420,28 @@ def test_should_gate_on_dangling_only_when_flag_set(tmp_path):
     repo = _make_repo(tmp_path / "repo", names=("bar", "baz"))
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--kind", "skills", "--platform", str(repo),
-         "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
-    shutil.rmtree(dist / "baz")                       # Grund-Drift, aber kein dangling
+        [
+            sys.executable,
+            str(_GEN),
+            "--kind",
+            "skills",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    shutil.rmtree(dist / "baz")  # Grund-Drift, aber kein dangling
 
-    assert _doctor_skills(repo, dist).returncode == 1                        # normal: rot
-    assert _doctor_skills(repo, dist, "--fail-on-dangling").returncode == 0  # Gate: gruen
+    assert _doctor_skills(repo, dist).returncode == 1  # normal: rot
+    assert (
+        _doctor_skills(repo, dist, "--fail-on-dangling").returncode == 0
+    )  # Gate: gruen
 
     (dist / "baz").symlink_to(tmp_path / "ziel-existiert-nicht")
     assert _doctor_skills(repo, dist, "--fail-on-dangling").returncode == 1  # Gate: rot
@@ -336,21 +463,45 @@ def _make_commands_repo_with_content(root, workflow_content):
 
 def _doctor_commands(repo, dist):
     return subprocess.run(
-        [sys.executable, str(_DOC), "--kind", "commands", "--platform", str(repo),
-         "--ref", "HEAD", "--commands", str(dist)],
-        capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_DOC),
+            "--kind",
+            "commands",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--commands",
+            str(dist),
+        ],
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_should_suggest_legacy_mcp_tokens_without_affecting_drift_score(tmp_path):
     """SUGGEST-lint: mcp[0-9]_ in verteiltem Skill → SUGGEST im Output, DRIFT-SCORE bleibt 0."""
     repo = _make_commands_repo_with_content(
         tmp_path / "repo",
-        "# foo\nmcp1_create_issue(owner=x, repo=y)\nmcp2_agent_plan_task(task=z)\n"
+        "# foo\nmcp1_create_issue(owner=x, repo=y)\nmcp2_agent_plan_task(task=z)\n",
     )
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     r = _doctor_commands(repo, dist)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DRIFT-SCORE: 0" in r.stdout
@@ -362,12 +513,24 @@ def test_should_not_suggest_when_no_legacy_mcp_tokens(tmp_path):
     """SUGGEST-lint: keine mcp[0-9]_ → '0 legacy' Meldung, DRIFT-SCORE 0."""
     repo = _make_commands_repo_with_content(
         tmp_path / "repo",
-        "# foo\nmcp__github__create_issue(owner=x, repo=y)\nmcp__orchestrator__deploy_check()\n"
+        "# foo\nmcp__github__create_issue(owner=x, repo=y)\nmcp__orchestrator__deploy_check()\n",
     )
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     r = _doctor_commands(repo, dist)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DRIFT-SCORE: 0" in r.stdout
@@ -378,12 +541,24 @@ def test_should_suggest_incomplete_kd_referenz_schema(tmp_path):
     DRIFT-SCORE bleibt unberuehrt."""
     repo = _make_commands_repo_with_content(
         tmp_path / "repo",
-        "# foo\n## KD-Referenz\nSpec: x\nLokal: y\n"  # GitHub/iil.pet fehlen
+        "# foo\n## KD-Referenz\nSpec: x\nLokal: y\n",  # GitHub/iil.pet fehlen
     )
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     r = _doctor_commands(repo, dist)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DRIFT-SCORE: 0" in r.stdout
@@ -395,12 +570,24 @@ def test_should_not_suggest_when_kd_referenz_complete(tmp_path):
     """SUGGEST-lint (Issue #970): alle 4 Felder vorhanden → '0 Skills' Meldung."""
     repo = _make_commands_repo_with_content(
         tmp_path / "repo",
-        "# foo\n## KD-Referenz\nSpec: x\nLokal: y\nGitHub: z\niil.pet: w\n"
+        "# foo\n## KD-Referenz\nSpec: x\nLokal: y\nGitHub: z\niil.pet: w\n",
     )
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     r = _doctor_commands(repo, dist)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DRIFT-SCORE: 0" in r.stdout
@@ -412,8 +599,20 @@ def test_should_not_mention_kd_referenz_when_not_declared(tmp_path):
     repo = _make_commands_repo_with_content(tmp_path / "repo", "# foo\nplain content\n")
     dist = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
-        check=True, capture_output=True, text=True)
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(dist),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     r = _doctor_commands(repo, dist)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "KD-Referenz-Schema" not in r.stdout
