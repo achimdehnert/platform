@@ -110,7 +110,16 @@ def enumerate_commands(root):
     return {f: os.path.join(root, f) for f in os.listdir(root) if f.endswith(".md")}
 
 def enumerate_skills(root):
-    """Verzeichnis-Ziel: name -> Pfad zur <name>/SKILL.md."""
+    """Verzeichnis-Ziel: name -> Pfad zur <name>/SKILL.md.
+
+    Ein Skill-Verzeichnis, das selbst ein Symlink ins Leere ist (die von ADR-281
+    verwendete Form), wird ausdrücklich MIT erfasst: sein <name>/SKILL.md laesst
+    sich nicht aufloesen, weshalb isfile/islink beide False liefern. Ohne diesen
+    Zweig faellt der Eintrag aus target_files heraus und erreicht die
+    dangling-Behandlung in main() nie — der Negativtest aus ADR-281 §8.2
+    ("ein gebrochener Link MUSS rot werden") wuerde dann stillschweigend
+    durchfallen. Siehe #1332.
+    """
     if not os.path.isdir(root):
         return {}
     out = {}
@@ -118,6 +127,8 @@ def enumerate_skills(root):
         p = os.path.join(root, d, "SKILL.md")
         if os.path.isfile(p) or os.path.islink(p):
             out[d] = p
+        elif os.path.islink(os.path.join(root, d)):
+            out[d] = p          # toter Verzeichnis-Symlink → main() stuft ihn als dangling ein
     return out
 
 def main():
@@ -160,11 +171,19 @@ def main():
     sym_ok = sym_stale = sym_dangling = copy_fresh = copy_stale = extra = 0
     issues = []
     for name, path in sorted(target_files.items()):
-        is_link = os.path.islink(path)
+        # Der Link kann auf der Datei ODER auf dem Skill-Verzeichnis sitzen (ADR-281
+        # verlinkt das Verzeichnis). Beide Formen muessen dangling erkennen koennen (#1332).
+        # Das Wurzelverzeichnis selbst zaehlt NICHT als Skill-Eintrag — sonst wuerde ein
+        # symlinktes ~/.claude/commands (die Alt-Verdrahtung) jede Kopie als Symlink melden.
+        parent = os.path.dirname(path)
+        entry = path
+        if not os.path.islink(path) and os.path.normpath(parent) != os.path.normpath(target_dir):
+            entry = parent
+        is_link = os.path.islink(entry)
         if name not in canon:
             extra += 1; issues.append(("extra", name, "im Ziel, aber nicht in der Quelle")); continue
         if is_link and not os.path.exists(path):
-            sym_dangling += 1; issues.append(("dangling", name, "Symlink ins Leere → " + os.readlink(path))); continue
+            sym_dangling += 1; issues.append(("dangling", name, "Symlink ins Leere → " + os.readlink(entry))); continue
         try:
             disk = open(path, encoding="utf-8", errors="ignore").read()
         except Exception as e:
