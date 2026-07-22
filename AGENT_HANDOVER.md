@@ -70,6 +70,12 @@ Issue vorschlug**: der dort empfohlene mechanische Header-Sweep hätte auf einen
 gezeigt, der die Zieldatei gar nicht erzeugt.
 
 ## ⚡ Vorheriger Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
+**Laufender Session-Log:** [`AGENT_HANDOVER_LOG.md`](AGENT_HANDOVER_LOG.md) — append-only,
+neueste Einträge unten. Dort schreiben Sessions seit KONZ-027 Arm A ihren Stand hin, damit
+parallele Sessions sich nicht gegenseitig blockieren. **Diese** Datei hier bleibt die
+kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieben.
+
+## ⚡ Aktueller Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
 
 **Auslöser war ein Nebenbefund**, kein geplanter Strang: beim Rebase von #1013 war nicht entscheidbar, in welche der zwei Skill-Lanes (`.windsurf/workflows/` → `~/.claude/commands/` vs. `skills/` → `~/.claude/skills/`) ein **neuer** Skill gehört. Owner-Weisung 2026-07-21: keine Parallelexistenz.
 

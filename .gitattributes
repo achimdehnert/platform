@@ -1,5 +1,15 @@
-# KONZ-platform-027 Arm A (Issue #1302): append-only Union-Merge auf
-# AGENT_HANDOVER.md, damit parallele Session-Handover-Writes nicht mehr
-# kollidieren. Voraussetzung: Sessions editieren nur additiv (siehe
-# .windsurf/workflows/session-ende.md Phase 0b/0c).
-AGENT_HANDOVER.md merge=union
+# KONZ-platform-027 Arm A (Issue #1302): append-only Union-Merge, damit parallele
+# Session-Handover-Writes nicht mehr kollidieren.
+#
+# Bewusst NUR auf AGENT_HANDOVER_LOG.md, nicht auf AGENT_HANDOVER.md:
+# Union ist gutartig, solange ausschliesslich angehaengt wird, und gefaehrlich,
+# sobald bestehende Zeilen geaendert werden — es mischt dann beide Fassungen still
+# ineinander. Gemessen am 2026-07-22 ueber die letzten 25 Commits an
+# AGENT_HANDOVER.md: nur EINER haengte ausschliesslich an; 15 aenderten bestehende
+# Zeilen ohne Archiv-Bezug, weil `session-ende` Phase 0c genau das vorschreibt
+# ("erledigte Zeile entfernen, Rest neu nummerieren"). Die Prio-Tabelle gehoert
+# deshalb NICHT unter Union; dort bleiben Konflikte laut und sichtbar.
+#
+# AGENT_HANDOVER_LOG.md ist per Konstruktion append-only (neue Eintraege ans Ende,
+# bestehende nie anfassen); durchgesetzt vom Gate handover-append-only.
+AGENT_HANDOVER_LOG.md merge=union

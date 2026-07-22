@@ -1,0 +1,70 @@
+# handover-append-only.yml — Durchsetzer der append-only-Konvention (KONZ-027 Arm A).
+#
+# merge=union auf AGENT_HANDOVER_LOG.md (.gitattributes) ist nur so lange gutartig, wie
+# Sessions ausschliesslich anhaengen. Aendert jemand eine bestehende Zeile, mischt der
+# Union-Treiber beide Fassungen still ineinander. Die Konvention allein reicht dafuer
+# nicht: sie stand am 2026-07-21 im Skill session-ende und wurde am 2026-07-22 von
+# PR #1317 gebrochen — durch denselben Ablauf, der sie tragen sollte.
+#
+# Blockierend mit sichtbarem Opt-out: das Label handover-rewrite erlaubt Loeschungen
+# (Archiv-Rotation nach AGENT_HANDOVER_ARCHIVE.md, laut Dateikopf vorgeschrieben).
+name: handover-append-only
+
+on:
+  pull_request:
+    paths:
+      - "AGENT_HANDOVER_LOG.md"
+      - "scripts/checks/handover_append_only.py"
+      - ".github/workflows/handover-append-only.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  append-only:
+    name: "AGENT_HANDOVER_LOG.md nur ergaenzt"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Drei-Punkt-Diff braucht die Merge-Base — flacher Checkout hat sie nicht,
+          # der Check wuerde dann mit Exit 2 abbrechen statt falsch-gruen zu melden.
+          fetch-depth: 0
+
+      - name: Append-only pruefen
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -uo pipefail
+          OPT=""
+          if printf '%s' "$LABELS" | grep -q '"handover-rewrite"'; then
+            echo "Label handover-rewrite gesetzt — Loeschungen erlaubt (Archiv-Rotation)."
+            OPT="--allow-removals"
+          fi
+          python3 scripts/checks/handover_append_only.py \
+            --base "origin/${{ github.base_ref }}" --head HEAD $OPT
+
+      - name: Golden-Test — eine geaenderte Bestandszeile muss FAIL ergeben
+        # Beweist bei jedem Lauf, dass der FAIL-Pfad greift und nicht nur der
+        # PASS-Pfad oben (derselbe Gedanke wie im estimate_job-Gate, #1320):
+        # ein Gate, das nur gruen gesehen wurde, ist nicht als Gate belegt.
+        run: |
+          set -uo pipefail
+          tmp="$(mktemp -d)"
+          git -C "$tmp" init -q .
+          git -C "$tmp" config user.email ci@example.invalid
+          git -C "$tmp" config user.name ci
+          printf 'Stand A\nStand B\n' > "$tmp/AGENT_HANDOVER_LOG.md"
+          git -C "$tmp" add -A && git -C "$tmp" commit -qm base
+          # Base als SHA festhalten — der Default-Branchname von `git init` ist
+          # umgebungsabhaengig (main/master), ein SHA ist es nicht.
+          base_sha="$(git -C "$tmp" rev-parse HEAD)"
+          printf 'Stand A GEAENDERT\nStand B\n' > "$tmp/AGENT_HANDOVER_LOG.md"
+          git -C "$tmp" commit -qam probe
+          if (cd "$tmp" && python3 "$GITHUB_WORKSPACE/scripts/checks/handover_append_only.py" \
+                --base "$base_sha" --head HEAD); then
+            echo "::error::Golden-Test: geaenderte Bestandszeile wurde faelschlich als PASS gewertet"
+            exit 1
+          fi
+          echo "Golden-Test OK: geaenderte Bestandszeile bleibt FAIL."
