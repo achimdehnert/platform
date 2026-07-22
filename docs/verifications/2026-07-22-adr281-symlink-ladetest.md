@@ -230,7 +230,8 @@ die *kanonische* Form und tut dort, was er soll.
 Drift-Zählung — die frühere Beobachtung aus Nebenbefund 1 (`dangling=0`, DRIFT-SCORE
 unverändert) ist mit #1335 **erledigt** und nicht mehr reproduzierbar.
 
-**Zwei Kanten, beide dokumentiert, keine davon ein Blocker:**
+**Zwei Kanten, beide dokumentiert, keine davon ein Blocker — getrackt als
+[#1368](https://github.com/achimdehnert/platform/issues/1368):**
 
 1. **Falsches Etikett bei nicht-kanonischen Namen** (Lauf A): erkannt wird der Link, aber
    als `extra`, nicht als `dangling`. Für den Drift-Score gleichwertig (beide zählen 1),

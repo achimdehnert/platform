@@ -244,7 +244,7 @@ zurückgebaut.
 |----------------|-------|--------|-------|---------|
 | `platform` | 0 — dieses ADR | ✅ Done | 2026-07-22 | `accepted` nach §8.1 6/6 |
 | *(1 Maschine)* | 1 — Einzel-Symlink-Nachweis | ✅ Done | 2026-07-22 | §8.1 **6/6**; Artefakt `docs/verifications/2026-07-22-adr281-symlink-ladetest.md` |
-| `platform` | 2 — `--link` + `doctor`-Umbau + Gate | ⬜ Ausstehend | – | §4.1/§4.2 |
+| `platform` | 2 — `--link` + `doctor`-Umbau + Gate | ⬜ Ausstehend | – | §4.1/§4.2; Gate-Vorbedingung: [#1368](https://github.com/achimdehnert/platform/issues/1368) |
 | *(alle Maschinen)* | 3 — Umstellung je Maschine | ⬜ Ausstehend | – | gegatet |
 | `platform` | 4 — Kopier-Apparat für die skills-Lane entfernen | ⬜ Ausstehend | – | erst nach §8.4 |
 
@@ -331,6 +331,10 @@ Artefakt: [`docs/verifications/2026-07-22-adr281-symlink-ladetest.md`](../verifi
   DRIFT-SCORE-Summe gleich, weil ein `fehlend` durch ein `dangling` ersetzt wird.
   Beides ist vor dem **Scharfschalten** des Gates zu bereinigen, blockiert den Accept
   dieses ADR aber nicht — §8.2 ist ein Phase-2-Gate, keine Accept-Vorbedingung.
+  **Getrackt als [#1368](https://github.com/achimdehnert/platform/issues/1368)** (Folge von
+  #1332/#1335), mit Reproduktion, Code-Ursache und Akzeptanzkriterien. Phase 2 gilt erst als
+  erfüllt, wenn #1368 geschlossen ist — insbesondere muss das Gate auf `dangling > 0` aus der
+  Befund-Liste triggern, nicht auf die DRIFT-SCORE-Summe.
 - Der bisherige Round-Trip-Schritt für die skills-Lane **entfällt**, statt dauergrün
   mitzulaufen.
 
