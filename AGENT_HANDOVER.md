@@ -10,7 +10,66 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
+## ⚡ Aktueller Stand (2026-07-22 — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
+
+**Kern in einem Satz:** Die beiden Skill-Lane-ADRs liegen auf `main`, der ADR-281-Ladetest
+wurde **real ausgeführt** statt weiter vorausgesetzt — er trägt, deckt aber zwei Lücken auf,
+die vor dem Scharfschalten der Gates zu schließen sind. Beide ADRs bleiben bewusst auf
+`status: proposed`.
+
+**Gemergt (alle CI-grün, Head-OIDs vor dem Merge gegen `git ls-remote` geprüft):**
+- [#1295](https://github.com/achimdehnert/platform/pull/1295) ADR-280 Rev 2 · [#1296](https://github.com/achimdehnert/platform/pull/1296) ADR-281 Symlink-Verteilung
+- [#1321](https://github.com/achimdehnert/platform/pull/1321) session-start Phase 0.7 erkennt hängende Deploy-Gates
+- [#1294](https://github.com/achimdehnert/platform/pull/1294) lief über auto-merge durch (`$ARGUMENTS`-Regression zurückgenommen)
+
+**ADR-281 §8.1 Symlink-Ladetest — durchgeführt, Artefakt [`docs/verifications/2026-07-22-adr281-symlink-ladetest.md`](docs/verifications/2026-07-22-adr281-symlink-ladetest.md):**
+Ein handgesetzter Symlink unter unbenutztem Namen, Werkzeugversion **2.1.217**, Ausgangscommit `ef4d190`.
+- **Bestanden 1, 2, 3, 6:** Skill erschien **ohne Session-Neustart** im Menü (Roster-Refresh
+  kam als `system-reminder` Sekunden nach dem `ln -s`), Body lud über den Symlink,
+  `$ARGUMENTS` wurde ein- und mehrwortig-gequotet korrekt eingesetzt, `rm` des Links
+  entfernte den Skill sauber und ließ die Quelldatei unberührt.
+- **Kriterium 4 ist als Testfall untauglich** — nicht der Symlink versagt: Nach Änderung der
+  Quelle lieferte die Re-Invocation weiter den alten Body, ein **frischer Skill-Name** auf
+  denselben Inhalt aber sofort den neuen. Ursache ist der **Session-Cache des Harness** für
+  bereits geladene Skills; eine generierte Kopie verhielte sich identisch. Kriterium 4
+  unterscheidet Symlink und Kopie also gar nicht. Neufassung im Artefakt vorgeschlagen.
+- **Offen:** Kriterium 5 (frisch gestartete Session) — aus einer laufenden Session nicht erzeugbar.
+
+**Zwei Werkzeug-Befunde aus demselben Lauf:**
+- **`doctor.py` erkennt einen dangling Symlink NICHT.** `ln -s /nonexistent …` ließ
+  `dangling=0` und den DRIFT-SCORE unverändert. Der von ADR-281 §8.2 geforderte Negativtest
+  („ein gebrochener Link **muss** rot werden") würde heute **nicht** bestehen. Zu fixen,
+  bevor der Gate scharf geht — sonst trägt der Gate-Name eine Garantie, die er nicht einlöst.
+- **Die Symlink-Klassifikation existiert bereits** (`Symlinks ok/symlink-stale/dangling`),
+  muss also nicht neu gebaut, nur scharf gemacht werden.
+
+**ADR-280 §8.1 Betriebsnachweis konnte NICHT beginnen — Ursache benannt:** Die drei
+migrierten Piloten sind live **nicht installiert** (`doctor.py --kind skills` →
+`fehlend: escalate, issues-offen, next`). Belegt in dieser Session: `/issues-offen` und
+`/next` liefen und trugen den Footer `source=.windsurf/workflows/<name>.md` — ein Pfad, den
+`main` seit #1290 nicht mehr enthält. Es lief also die **alte, verwaiste `commands`-Lane**.
+Der nötige Schritt ist `generate.py --kind skills --allow-live` (gegateter Live-Rollout,
+ADR-230 §8, Gate mit 8 offenen Checkboxen) — **bewusst nicht ausgeführt**.
+
+**Aufräumen:** Worktree-Bestand **30 → 23**. 3 gemergte + 4 stale entfernt; für jeden stale
+Worktree vorher belegt, dass sein Inhalt anderswo liegt oder verworfen wurde (u.a.
+`ci-union-gate-warnfirst` = geschlossener [#893](https://github.com/achimdehnert/platform/pull/893),
+auf `main` durch das strengere [#963](https://github.com/achimdehnert/platform/pull/963) ersetzt;
+`oidc-ready-codeguard-ingest` trug noch `password:`, `main` ist reines OIDC). Branches leben
+weiter, Restore-Manifest in `.git/worktree-reaper-manifest.jsonl`. **5 dirty Worktrees**
+schützte der Guard — unangetastet.
+
+**Session-Start-Reconciliation fand eine falsche Handover-Prio:** „5 PRs, alle
+CONFLICTING/DIRTY, brauchen Rebase" stimmte nicht mehr — [#892](https://github.com/achimdehnert/platform/pull/892)/[#893](https://github.com/achimdehnert/platform/pull/893)
+sind CLOSED, die übrigen drei MERGEABLE. Sie brauchten Review, nicht Rebase.
+
+**`/issues-offen` lief mit Nullbefund** (0 neue PRs) — der einzige DO-NOW-Kandidat
+[#1304](https://github.com/achimdehnert/platform/issues/1304) war bereits durch
+[#1306](https://github.com/achimdehnert/platform/pull/1306) gelöst, und zwar **anders als das
+Issue vorschlug**: der dort empfohlene mechanische Header-Sweep hätte auf einen Befehl
+gezeigt, der die Zieldatei gar nicht erzeugt.
+
+## ⚡ Vorheriger Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
 
 **Auslöser war ein Nebenbefund**, kein geplanter Strang: beim Rebase von #1013 war nicht entscheidbar, in welche der zwei Skill-Lanes (`.windsurf/workflows/` → `~/.claude/commands/` vs. `skills/` → `~/.claude/skills/`) ein **neuer** Skill gehört. Owner-Weisung 2026-07-21: keine Parallelexistenz.
 
@@ -53,37 +112,18 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 - **Restrisiko unverändert dünn:** nach dem Restart 3,4 GB verfügbar, **Swap 4095/4095 MB — 0 MB frei**. `swapoff -a` ist in dieser Lage keine Option (zöge 4 GB zurück ins RAM). Vorbereitetes Freimachen (Restart von `iil_authentik_worker` 485/512, `hub137_worker` 305/512, `dms_hub_worker` 137/512 — alle **unhealthy**) wurde **nicht** ausgeführt: der Permission-Classifier blockte den Container-Restart, Owner entschied „direkt deployen". Der Deploy gelang ohne, die Marge blieb damit unangetastet.
 - **Handover-Kollision aufgelöst:** [#1299](https://github.com/achimdehnert/platform/pull/1299) und [#1300](https://github.com/achimdehnert/platform/pull/1300) entstanden 99 Sekunden auseinander aus zwei Parallel-Sessions, beide auf `AGENT_HANDOVER.md`. #1299 hatte den Vorab-Check korrekt ausgeführt und nichts gefunden — #1300 existierte da noch nicht. #1299 ist Träger (nur dort die Block-Rotation), #1300 geschlossen. Die strukturelle Lösung dazu liegt bereits als [#1301](https://github.com/achimdehnert/platform/pull/1301) (KONZ-027, Handover-Fragmente je Session) vor.
 
-## ⚡ Vorheriger Stand (2026-07-20/21 — zwei Parallel-Sessions: Mail/Postfach-Strukturierung + Tools-Strang (estimate_job-Fehldiagnose, break-glass-meter, Parallel-Session-Fixes A1/C1))
-
-**Zwei Sessions liefen am 2026-07-20 parallel im selben Repo** (bewusster Provokations-/Härtungstest der Parallel-Session-Mechanik). Beide Stränge hier zusammengeführt — genau der A2-Deckungs-Verlust, der dabei sichtbar wurde: #1283 (Mail-Session-Handover) entstalte nur die Nächste-Schritte-Liste, schrieb aber **keinen** neuen Aktueller-Stand; der Tools-Strang fehlte danach ganz. Dieser Block schließt die Lücke sequenziell (Mail-Session war fertig → kein Parallel-Konflikt mehr).
-
-**Strang A — Mail/Postfach (eigene Session, Memory `session:platform:20260721:mail-struct-ollama-0720`):**
-- Postfach achim.dehnert@iil.gmbh strukturiert: Posteingang 2.852 → 1.461, ~1.391 Mails in 4 verifizierten Wellen (Read-back je Welle) in 3-Ebenen-Ordnermodell (kunde/partner/altkunde, Top-Level-Präfix `IIL.*`).
-- Ollama auf dev (88.99.38.75) installiert: systemd, bindet **nur** 127.0.0.1:11434, Modell qwen2.5:3b, CPU. Zugriff via SSH-Tunnel.
-- **Dienst H (LLM ordnet Partner-Mail dem Kundenprojekt zu) FALSIFIZIERT:** qwen2.5:3b Betreff-Klassifikation 10/10 unklar, Kundendomain in To/CC nur 9% → Partnerordner bleiben Heimat, LLM-Routing verworfen.
-- Kundenmail-Draft-Stil-Korrektur (Owner, „weniger KI-like"): erster Satz = Empfehlung, keine „Warum:"-Marker, Bestätigung eingebettet → Memory `feedback_client_mail_style_no_ai_preamble`.
-- **Offen:** [#1281](https://github.com/achimdehnert/platform/issues/1281) (graph_mail: `--subject` als UND-Filter zu `--move` + `--draft`-Read-back). Rest-Posteingang ~1.461 schrittweise; 2 Fach-Entwürfe (AVV/Dillingen) als Draft, Owner sendet selbst. Kunden-/Ordner-Zuordnung liegt lokal (`~/.claude/mail-folders.env`, DSGVO, nicht im Repo).
-
-**Strang B — Tools (diese Session, reaktiv aus Session-Start-Findings):**
-- **ADR-156-Fehldiagnose korrigiert ([#1278](https://github.com/achimdehnert/platform/pull/1278) gemergt):** Commit `496a35c` (04-29) erklärte `estimate_job`/`discord_notify`/`deploy_check` fälschlich für „existiert nicht mehr (Issue #80)" — reine Prefix-Drift (`mcp2_` → `mcp__orchestrator__`), die Tools leben. `/ship`+`/backup` restauriert, ADR-156 §v3.6-Nachtrag. Live-Beleg: `estimate_job(deploy, risk-hub)` liefert 135s-Schätzung.
-- **verify-adr156 falsch-grün gefixt ([mcp-hub#180](https://github.com/achimdehnert/mcp-hub/pull/180), OFFEN — braucht `--admin`):** der Check grepte den nackten String `estimate_job` und matchte damit den Verneinungssatz → `/ship`+`/backup` ~3 Monate falsch-grün. Assertion jetzt auf Aufruf-Form `^mcp__orchestrator__estimate_job:`. **Merge blockiert:** mcp-hub hat 1 Collaborator + Ruleset „1 Approval", GitHub verbietet Self-Approval → Sackgasse, Admin-Bypass nötig (`gh pr merge 180 --admin --squash`, `[skip ci]` da deploy.yml auf push:main triggert).
-- **deploy_check-Defekt getrackt ([mcp-hub#181](https://github.com/achimdehnert/mcp-hub/issues/181)):** Tool existiert, scheitert aber server-seitig an fehlender `ports.yaml` — echter Defekt, Server-Pfad, nicht in dieser Session gefixt.
-- **break-glass-meter gebaut ([#1279](https://github.com/achimdehnert/platform/pull/1279) gemergt):** KONZ-004 (branch-protection, prod, review_by 11 Tage überfällig) hatte für seine Kill-Gate-Hälfte „≥1 Break-Glass/Woche" **kein Messinstrument** — der bestehende Meter prüft nur Ruleset-Existenz, nicht Umgehungen (`rule-suites?result=bypass`). Zähler + Workflow-Step + Label `break-glass`; Erstmessung 0 Break-Glass (falsifiziert gegen `result=pass`=11). Grenze: rule-suites ist kein Vollarchiv.
-- **KONZ-002 §16 (Owner-Entscheidungen 2026-07-20, im selben PR):** (a) Kostenneutralität **Owner-attestiert** (Kriterium verlangt schriftliche GitHub-Bestätigung — Abweichung vermerkt, nicht geglättet); (b) Souveränitäts-Sign-off ttz-lif/meiki-lra **ausgesetzt** bis erste echte Kundendaten (mündliche Zusage, zustandsgebundener Wiederaufnahme-Trigger); (c) Portabilität war seit 06-03 grün (§15). Sunset-Pfad greift nach heutigem Stand nicht.
-- **Parallel-Session-Fixes A1+C1 ([#1280](https://github.com/achimdehnert/platform/pull/1280) gemergt):** A1 = `session-memory` überschreibt fremde Session nicht mehr (`--session-id` macht Key eindeutig, sonst Ausweichen auf `-2`); C1 = `tools/session-leases` zeigt im Session-Start-Runner, wer parallel arbeitet. **A1 unter echter Doppellast bewiesen:** die Mail-Session nutzte auf dem frisch gemergten Code das `--session-id`-Flag → eindeutiger Key, keine Kollision.
-- **Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167) triagiert (Kommentar):** ADR-Seite ohne Retrofit schließbar (kein aktives Doku belegt Umsetzung — 07-09-Datum war 194-Datei-Frontmatter-Sweep, kein Aktivitätssignal); KONZ-Seite verengt auf 4 fällige review_by-Termine (alle 26 haben `kill_criteria`, es fehlt nur Status je Bedingung — Muster #1275/#1169). [#1275](https://github.com/achimdehnert/platform/pull/1275) gemergt.
-
-**Beobachtung Parallel-Session-Mechanik (für spätere solide Lösung, KONZ-Kandidat):** A1 (Memory-Key) hat funktioniert. A2 (Handover) verlor real Deckung — nicht durch konkurrierende PRs (die verhinderte die Disziplin), sondern durch **disjunkte Handover, keiner vollständig**. Das ist „signifikant" i.S. der Beobachtungs-Ansage → solide Lösung (Handover-Fragmente je Session, beim Lesen zusammengeführt) lohnt jetzt. B1 (Merge-Lease) weiter offen.
-
 ## Nächste Schritte (kompakt)
 
 > **⚠️ Vor allem anderen — hetzner-prod Speicherlage ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** Swap **4095/4095 MB belegt (0 frei)**, 3,4 GB RAM verfügbar. Der OOM vom 20.07. hat trading-hub 16 h offline genommen; der nächste trifft irgendein anderes Hub. Zusätzlich ungeklärt, **warum** die Container entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). Beides ist Prod-Risiko, kein Aufräumthema — die Nummerierung unten bleibt davon unberührt.
 
-1. **Skill-Lane-Konsolidierung [#1287](https://github.com/achimdehnert/platform/issues/1287) — 4 PRs warten auf 2.-Owner-Review:** [#1294](https://github.com/achimdehnert/platform/pull/1294) (Regression zurück), [#1295](https://github.com/achimdehnert/platform/pull/1295) (ADR-280 Rev 2), [#1296](https://github.com/achimdehnert/platform/pull/1296) (ADR-281 Symlink), [#1293](https://github.com/achimdehnert/platform/pull/1293) (Policy, auto-merge gequeued). Alle CI-grün, 0 rot.
-2. **Zwei Nachweise stehen aus, beide bewusst nicht vorweggenommen:** ADR-280 §8.1 Betriebsnachweis der migrierten Skills (6 binäre Muss-Kriterien, definiert nicht durchlaufen) · ADR-281 §8.1 Symlink-Ladetest (verändert die Live-Skill-Installation der Maschine → eigener, gegateter Schritt).
+1. **Skill-Lane-Konsolidierung [#1287](https://github.com/achimdehnert/platform/issues/1287) — noch offen ist nur [#1293](https://github.com/achimdehnert/platform/pull/1293)** (adr-threshold-Policy, `REVIEW_REQUIRED`). #1294/#1295/#1296 sind am 2026-07-22 gemergt.
+2. **ADR-280 §8.1 Betriebsnachweis — blockiert, Ursache benannt:** die 3 migrierten Piloten sind live nicht installiert, es läuft weiter die verwaiste `commands`-Lane. Entsperrender Schritt ist `generate.py --kind skills --allow-live` (ADR-230 §8, Gate mit 8 offenen Checkboxen). **Owner-Entscheid nötig**, weil er die Skill-Installation der Maschine verändert.
+2b. **ADR-281 §8.1 — durchgeführt, trägt** ([Artefakt](docs/verifications/2026-07-22-adr281-symlink-ladetest.md)): 1/2/3/6 bestanden, Kriterium 4 als Testfall untauglich (misst den Harness-Cache, nicht den Symlink — Neufassung im Artefakt), Kriterium 5 (frische Session) offen. **Kein Anlass für `rejected`.**
+2c. **Vor dem Scharfschalten der ADR-281-Gates:** `doctor.py` meldet einen **dangling** Symlink nicht (`dangling=0` trotz gebrochenem Link, DRIFT-SCORE unverändert) — der in §8.2 geforderte Negativtest würde heute durchfallen. Die Klassifikation existiert bereits, sie feuert nur nicht.
+2d. **Beide ADRs bleiben `status: proposed`** — Accept erst, wenn ADR-280 §8.1 gelaufen und ADR-281 Kriterium 5 in einer frischen Session bestätigt ist.
 3. **Cloud-Reichweiten-Lücke ohne eigenes Artefakt:** Cowork-/Cloud-Sessions inkl. Routinen lesen `~/.claude/skills/` **nicht** — das gesamte Verteilmodell endet an der Maschinengrenze, unabhängig von der Lane-Entscheidung. Getrackt als [#1298](https://github.com/achimdehnert/platform/issues/1298) (+ Option F in ADR-280 §10).
 4. **Print-Agent ruft bei JEDEM PDF einen externen US-LLM** ([#1297](https://github.com/achimdehnert/platform/issues/1297)) — Defaults `cerebras`/`groq` hart im Code (`print_agent.py:268/269`), kein Guard, kein Hinweis. Realer Abfluss am 2026-07-21: Kundenanschrift ging an Groq. Lokales Ollama gemessen ausreichend (3B: 18 s, valides JSON). Kein PR, weil Richtungsentscheid nötig (externe Anbieter künftig nur per Opt-in?).
-5. **Review-Stau abgebaut — die 5 Reste sind ROT, nicht wartend:** nur noch [#892](https://github.com/achimdehnert/platform/pull/892)/[#893](https://github.com/achimdehnert/platform/pull/893)/[#986](https://github.com/achimdehnert/platform/pull/986)/[#1005](https://github.com/achimdehnert/platform/pull/1005)/[#1007](https://github.com/achimdehnert/platform/pull/1007) offen — **alle 5 `CONFLICTING`/`DIRTY`** (verifiziert 2026-07-21 via `gh pr view --json mergeable`; Achtung: liefert erst `UNKNOWN`, GitHub rechnet lazy — Re-Poll nötig). Sie brauchen **Rebase**, nicht Review. Ältester Stand 07-11.
+5. **Review-Stau: ~11 PRs warten auf 2.-Owner-Review, 0 rot.** Die frühere Angabe „5 Reste, alle CONFLICTING/DIRTY, brauchen Rebase" ist **überholt** (Stand 2026-07-22): [#892](https://github.com/achimdehnert/platform/pull/892)/[#893](https://github.com/achimdehnert/platform/pull/893) sind CLOSED, [#986](https://github.com/achimdehnert/platform/pull/986)/[#1005](https://github.com/achimdehnert/platform/pull/1005)/[#1007](https://github.com/achimdehnert/platform/pull/1007) wurden in der Abend-Session rebased und sind MERGEABLE. Sie brauchen **Review**, nicht Rebase. Merkposten zur Methode: `mergeable` liefert erst `UNKNOWN`, GitHub rechnet lazy — Re-Poll nötig.
 6. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
 7. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Nebenfund Namenskollision KONZ-platform-001 weiterhin offen
 8. Gate für tote `implementation_evidence`-Pfade ([#1289](https://github.com/achimdehnert/platform/issues/1289)) — erst SUGGEST/non-gating, Baseline sichten vor Gating (sonst Alarm-Müdigkeit).
