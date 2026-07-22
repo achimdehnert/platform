@@ -33,7 +33,7 @@ Der Test-Skill enthält einen Versions-Marker im Body und ein Argument-Echo
 | 2 | Aufruf funktioniert, Body wird geladen | ✅ bestanden | `Skill(adr281-ladetest)` lieferte den Body samt Marker; `Base directory` zeigte auf den Symlink-Pfad. |
 | 3 | `$ARGUMENTS` wird korrekt eingesetzt | ✅ bestanden | Einwortig und mehrwortig-gequotet: `>>>hallo welt<<<` bzw. `>>>"mehrwortiges gequotetes argument"<<<`. |
 | 4 | Änderung an der Quelldatei wirkt ohne Neustart | ⚠️ **Testfall untauglich** | siehe unten — misst den Harness-Cache, nicht den Symlink. |
-| 5 | Verhalten in frisch gestarteter Session | ⏳ offen | In dieser Session nicht erzeugbar. Kriterium 1 trat allerdings **dynamisch** ein, was den Verdacht entkräftet, dass Symlinks nur beim Start gelesen werden. |
+| 5 | Verhalten in frisch gestarteter Session | ⏳ offen, **vorbereitet** (s. Nachtrag) | In dieser Session nicht erzeugbar. Kriterium 1 trat allerdings **dynamisch** ein, was den Verdacht entkräftet, dass Symlinks nur beim Start gelesen werden. Link für den Nachlauf liegt seit 2026-07-22 16:23 bereit. |
 | 6 | Entfernen des Symlinks entfernt den Skill sauber | ✅ bestanden | `rm` des Links entfernte den Eintrag; die **Quelldatei überlebte** unverändert. |
 
 ### Kriterium 4 im Detail — warum der Testfall nicht misst, was er soll
@@ -119,7 +119,42 @@ Owner-Entscheid, verändert die Skill-Installation der Maschine über einen Test
 
 - **ADR-281:** §8.1 trägt — 5 von 6 Kriterien bestanden, das sechste nach Korrektur der
   Formulierung ebenfalls. **Kein** Anlass für `rejected`. Offen bleibt Kriterium 5
-  (frische Session) und der Negativtest aus §8.2 (Nebenbefund 1).
+  (frische Session); der Negativtest aus §8.2 (Nebenbefund 1) ist seit #1335 behoben.
+
+---
+
+## Nachtrag 2026-07-22 (Session-Start-Session) — Kriterium 5 vorbereitet
+
+Kriterium 5 lässt sich **nicht spontan nachholen**: die frische Session muss den Symlink
+bereits beim Start vorfinden, und die Test-Artefakte des Erstlaufs waren bewusst entfernt
+worden. Deshalb wurde der Link *vorbereitend* gesetzt statt in einer Session gemessen, die
+ihn selbst erzeugt — dieser Selbstwiderspruch war der Grund, warum Kriterium 5 am 22.07.
+offen blieb.
+
+```
+~/.claude/skills/adr281-k5  ->  ~/shared/adr281-k5      (gesetzt 2026-07-22 16:23)
+```
+
+**Abweichung zur Reproduktion oben, bewusst:** Die Quelle liegt außerhalb eines
+Repo-Worktrees. Ein Session-Worktree kann vom `worktree-reaper` entfernt werden, bevor die
+nächste Session startet; der Link wäre dann tot und das Ergebnis sähe wie ein
+**gescheitertes** Kriterium 5 aus, obwohl nur die Quelle fehlt. Für die gemessene
+Eigenschaft — löst der Harness einen Verzeichnis-Symlink beim Session-Start auf? — ist die
+Herkunft des Ziels ohne Belang; git-Verwaltung des Zielverzeichnisses geht in die Frage
+nicht ein.
+
+**Auswertungsregeln** stehen im Body des Testskills selbst (`~/shared/adr281-k5/SKILL.md`),
+damit die auswertende Session sie nicht aus diesem Dokument rekonstruieren muss:
+bestanden = im `/`-Menü **schon beim Start** vorhanden + Body inkl. `MARKER-K5-V1` geladen +
+Argument-Echo korrekt; gescheitert = beim Start abwesend, obwohl `ls -l` einen intakten
+Symlink zeigt.
+
+**Aufräumen ist Teil des Tests, nicht Nacharbeit:** `rm ~/.claude/skills/adr281-k5 &&
+rm -rf ~/shared/adr281-k5`. Solange der Link liegt, weist `doctor.py --kind skills` ihn als
+`extra` aus (nicht in der kanonischen Quelle) und der **DRIFT-SCORE steht auf 4 statt 3** —
+verifiziert, erwartet, und ausdrücklich **kein** Drift-Befund. Nebenbeobachtung: `doctor.py`
+zählt ihn unter `extra`, nicht unter `Symlinks ok` — die Symlink-Zählung erfasst nur Links
+mit kanonischer Quelle.
 - **ADR-280:** Betriebsnachweis **weiterhin offen**, Ursache benannt und behebbar. Kein
   Anlass für den Rückfall auf Option D, weil kein Kriterium *geprüft und gescheitert* ist.
 - Beide ADRs bleiben damit vorerst auf `status: proposed`.
