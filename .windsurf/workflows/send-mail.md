@@ -23,6 +23,26 @@ steht in dieser Skill-Datei** (Hardcoding-Verbot).
 ⚠️ **Nicht idempotent** — jeder Aufruf verschickt real eine Mail. Bei Wiederholung nach Fehler zuerst
 prüfen, ob die erste Mail nicht doch rausging (Sent-Ordner / Empfänger fragen).
 
+## Entwurf statt Versand (Draft-first)
+
+Soll die Mail **nicht** rausgehen, sondern zur Prüfung im Postfach landen:
+`tools/mail_agent/draft_mail.py` legt sie per IMAP-APPEND im Drafts-Ordner ab — für **jedes**
+per `~/.claude/mail[-<account>].env` konfigurierte Postfach, nicht nur für das IIL-Postfach
+(das deckt `graph_mail.py --draft` über Graph ab).
+
+```
+python3 tools/mail_agent/draft_mail.py --account hnu \
+  --to a@b.de --cc c@d.de --subject "..." --html-file mail.html --signature-file sig.html
+```
+
+- **`--html-file` ist der Normalfall**: reine Text-Entwürfe bricht Outlook selbst um und
+  erzeugt unerwünschte Zeilenumbrüche. Absätze als `<p>`, keine harten Umbrüche im Absatz.
+- **`--signature-file` nicht vergessen** — ein per APPEND abgelegter Entwurf bekommt keine
+  Signatur aus dem Mail-Client.
+- Ordner wird automatisch erkannt (SPECIAL-USE `\Drafts`, sonst Namensheuristik de/en);
+  `--folder` erzwingt einen bestimmten.
+- Draft-first ist der bevorzugte Außen-Weg: gesendet wird vom Menschen (Lotsen-Charta Art. 2).
+
 ---
 
 ## Step 0 — Maschinen-Config prüfen (Bootstrap)
