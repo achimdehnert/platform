@@ -21,6 +21,7 @@ mode: read-only
 | Situation | Slash-Command |
 |-----------|---------------|
 | **Session starten** (kanonisch, ADR-233-Worktree, Modell-Tier) | `/session-start` |
+| Morgen-/Session-Briefing (Mail+Kalender+PRs+Retro-Follow-ups als Action-Board) | `/briefing` |
 | Session beenden — Wissen sichern, Memory, committen/pushen | `/session-ende` |
 | Session-Retrospektive (geerdet, adversarial → `docs/retros/`) | `/session-retro` |
 | Session-Wissen in Outline sichern (Lessons, Runbooks) | `/knowledge-capture` |

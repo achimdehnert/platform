@@ -64,24 +64,34 @@ Zeigen: (a) PRs mit deinem Review angefragt, (b) eigene PRs APPROVED+offen (ein 
 `AGENT_HANDOVER.md` des aktuellen Repos (falls vorhanden) — Top-3 der `## Prioritäten`/
 `⚡ Aktueller Stand`-Sektion, knapp.
 
-## Ausgabe: Briefing-Board (Org-Standard)
-
-Kompakt, **Board zuerst**, in dieser Reihenfolge — leere Blöcke weglassen:
+### 5. 🔁 Offene Retro-Follow-ups (schließt den Retro→Dialog-Loop)
+Damit Session-Retros nicht in git versanden, sondern dich morgens abholen:
+```bash
+# jüngster Retro-Report + dessen offene 🟢-Action-Items
+ls -t docs/retros/session-retro-*.md 2>/dev/null | head -1
+# maschinelle Längsschnitt-Eskalationen (recurring ≥2 = Gate-Pflicht)
+python3 tools/retro_kpis.py 2>/dev/null | grep -iE 'Gate-PR-Pflicht|≥2' | head -3
 ```
-🌅 Briefing <Datum>  ·  <Maschine/Konten verfügbar>
+Zeigen: die **offenen** 🟢/🔵-Items aus dem jüngsten Retro (nicht die erledigten) +
+etwaige neue Gate-Pflicht-Slugs. Max. 3 — der Rest lebt im Report.
 
-📬 Mail (N neu, relevant)
-  · <Konto> — <From> | <Betreff>
-📅 Heute
-  · <HH:MM> <Termin>
-🔀 Wartet auf dich
-  · PR #N <repo> — <Titel>  [Review nötig | mergebar]
-🎯 Prios
-  1. <aus Handover>
+## Ausgabe: **Action Board** (Org-Standard, CLAUDE.md)
 
-⚠️ Nicht verfügbar: <Konten/Quellen ohne Zugang auf dieser Maschine>
-```
-Danach 1 Satz: der **eine** naheliegendste erste Schritt.
+Die substanzielle Ausgabe ist ein **Action Board** (≥3 Items → Pflicht). **Board zuerst**,
+max. 1 Info-Kopfzeile davor, dann die Bucket-Tabellen in dieser Reihenfolge (leere weglassen):
+
+**Kopf (1 Zeile, informativ):** `🌅 <Datum> · <Konten verfügbar> · 📅 <N Termine heute> · 📬 <N relevante Mails>`
+
+**Buckets** (feste Lean-Spalten `# | Item | Quelle | Ref | Status | Next Step`; `#` durchgezählt):
+- 🟢 **Dein Zug** — Mail die Antwort braucht · PR die dein Review braucht · offene Retro-Follow-ups · Termin-Vorbereitung
+- 🔵 **Ich sofort** — eigene PRs APPROVED+offen (ein Merge) · Entwürfe die ich vorbereiten kann
+- 🎯 **Heute/Prios** — Termine + Handover-Top-3 (rein informativ, wenn kein Action-Item)
+
+Regeln wie im Org-Standard: Zellen **lean** (2–6 Wörter), echte klickbare Links bei PR/Issue
+(bei >78 Zeichen Zeile → nummerierte Liste statt Tabelle), Status-Emoji 🟢🔵🟡⛔✅.
+`⚠️ Nicht verfügbar: <Konten ohne Zugang>` als letzte Zeile, wenn Blöcke fehlten.
+
+Danach **1 Satz**: der **eine** naheliegendste erste Schritt.
 
 ## Anti-Patterns
 - ❌ Newsletter/Bulk als „wichtige Mail" zeigen (List-Unsubscribe = raus).
@@ -98,3 +108,8 @@ Danach 1 Satz: der **eine** naheliegendste erste Schritt.
   Postfächer (ad@/hnu/iil) + Kalender + wartende PRs + Handover-Prios. Graceful
   Degradation je Credential (Portabilität über SSH ohne Secret-Spreading). Entstanden
   nach dem großen Postfach-Aufräumen (Mail-Zugänge frisch verfügbar).
+- 2026-07-22 (v2): Ausgabe auf **Action-Board-Format** umgestellt (Org-Standard, CLAUDE.md:
+  Buckets 🟢 dein Zug / 🔵 ich sofort / 🎯 heute, Lean-Spalten, echte Links). **Neuer Block 5
+  „Offene Retro-Follow-ups"** — schließt den Retro→Dialog-Loop: die offenen 🟢-Items des
+  jüngsten `docs/retros/`-Reports + Gate-Pflicht-Slugs aus `retro_kpis.py` erscheinen im
+  Morgen-Board, statt in git zu versanden (User-Ziel „Retro automatisch im Dialog").
