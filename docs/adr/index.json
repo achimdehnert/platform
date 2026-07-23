@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-23",
-  "total": 228,
-  "next_free": 283,
+  "total": 229,
+  "next_free": 284,
   "adrs": [
     {
       "number": 7,
@@ -5270,6 +5270,31 @@
         "ADR-233",
         "ADR-280",
         "ADR-281"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 283,
+      "id": "ADR-283",
+      "file": "ADR-283-korrespondenz-vorgangsspeicher.md",
+      "title": "Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest",
+      "status": "proposed",
+      "date": "2026-07-23",
+      "domains": [
+        "data",
+        "correspondence",
+        "dsgvo",
+        "tooling",
+        "infrastructure"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-154",
+        "ADR-233",
+        "ADR-238"
       ],
       "implementation_status": ""
     },
