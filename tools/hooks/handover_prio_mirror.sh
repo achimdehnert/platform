@@ -150,6 +150,39 @@ fi
 
 [ -z "${ITEMS}" ] && exit 0   # nichts dokumentiert -> still
 
+# Staleness-Warnung (platform#1378, Realfall 2026-07-23): gespiegelt wird die Datei
+# aus dem WORKING TREE. Hing der Haupt-Tree hinter origin/main, spiegelte der Hook
+# stumm einen ueberholten Stand — eine Session lief auf "12 offene PRs" los, real war
+# es einer, und ein als "vorbereitet" gemeldeter Testlauf war laengst bestanden.
+#
+# Bewusst OHNE `git fetch`: der Hook laeuft mit 5 s Timeout, ein Netzcall waere
+# unzuverlaessig und wuerde genau dann still degradieren, wenn er gebraucht wird.
+# Geprueft wird gegen den bereits bekannten Remote-Ref — der genuegt, weil die
+# Ref-DB ueber alle Worktrees geteilt ist und u.a. refresh_pinned_policies.sh sie
+# fortschreibt (im Realfall war origin/main lokal aktuell, nur HEAD lag zurueck).
+# Umkehrschluss gilt NICHT, und die Ausgabe sagt das auch: keine Warnung ist kein
+# Frischebeweis.
+#
+# Gewarnt wird nur, wenn AGENT_HANDOVER.md SELBST abweicht — "N Commits hinter"
+# allein ist Alltag und erzeugte nur Alarm-Muedigkeit.
+case "${SRC}" in
+  AGENT_HANDOVER.md*)
+    if git -C "${CWD}" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+        BEHIND="$(git -C "${CWD}" rev-list --count HEAD..origin/main 2>/dev/null || echo 0)"
+        case "${BEHIND}" in
+          ''|*[!0-9]*) BEHIND=0 ;;
+        esac
+        if [ "${BEHIND}" -gt 0 ] \
+           && ! git -C "${CWD}" diff --quiet HEAD origin/main -- AGENT_HANDOVER.md 2>/dev/null; then
+            echo "⚠️  VERALTET: AGENT_HANDOVER.md liegt ${BEHIND} Commits hinter origin/main"
+            echo "    und wurde dort geändert — die folgende Prio ist überholt."
+            echo "    Erst: git merge --ff-only origin/main"
+            echo "    (lokal geprüft, ohne fetch — keine Warnung heißt nicht zwingend aktuell)"
+        fi
+    fi
+    ;;
+esac
+
 echo "⚑ HANDOVER-PRIO (${REPO_NAME}) — Quelle: ${SRC}"
 echo "${ITEMS}"
 echo "→ Diese Prio zuerst spiegeln. Bei Abweichung (anderes Thema / Mehrstunden-"
