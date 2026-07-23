@@ -5194,7 +5194,7 @@
       "id": "ADR-280",
       "file": "ADR-280-skill-lane-consolidation.md",
       "title": "Konsolidiere die Skill-Verteilung auf eine Lane — `skills/` wird einzige Kanonik, `commands`-Lane und `.windsurf`-Pfad werden zurückgebaut",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-21",
       "domains": [
         "tooling",

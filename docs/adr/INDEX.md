@@ -245,6 +245,6 @@
 | 277 | Dokument-Manifest — sprachneutraler Cross-System-Deskriptor (Datenvertrag, nicht Zugriffsprotokoll) | Proposed | ⬜ | [ADR-277](ADR-277-dokument-manifest-cross-system-deskriptor.md) |
 | 278 | OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate | Proposed | ⬜ | [ADR-278](ADR-278-oidc-trusted-publishing-only.md) |
 | 279 | Anchor the adaptive text-improvement feedback loop in iil-promptfw | Proposed | ⬜ | [ADR-279](ADR-279-adaptive-text-feedback-loop-promptfw.md) |
-| 280 | Konsolidiere die Skill-Verteilung auf eine Lane — `skills/` wird einzige Kanonik, `commands`-Lane und `.windsurf`-Pfad werden zurückgebaut | Proposed | ⬜ | [ADR-280](ADR-280-skill-lane-consolidation.md) |
+| 280 | Konsolidiere die Skill-Verteilung auf eine Lane — `skills/` wird einzige Kanonik, `commands`-Lane und `.windsurf`-Pfad werden zurückgebaut | Accepted | ⬜ | [ADR-280](ADR-280-skill-lane-consolidation.md) |
 | 281 | Verteile Skills als Symlinks auf den Repo-Checkout statt als generierte Kopien | Accepted | ⬜ | [ADR-281](ADR-281-skill-distribution-symlink.md) |
 | 282 | Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern | Accepted | ⬜ | [ADR-282](ADR-282-skill-workflow-taxonomy-governance-lifecycle.md) |
