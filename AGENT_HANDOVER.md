@@ -10,7 +10,67 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-22 Abend — ADR-281 §8.1 auf 6/6 komplettiert, ADR-281 `accepted`, §8.2-Negativtest gemessen + beide Kanten gefixt)
+## ⚡ Aktueller Stand (2026-07-23 früh — ADR-280 §8.1 auf 5/6 gemessen, Print-Agent-Datenschutz vollständig, Start-Hook warnt künftig bei veralteter Prio)
+
+**Kern in einem Satz:** Die Session begann mit einem **stumm veralteten Handover** — der
+Haupt-Tree hing 11 Commits hinter `origin/main` — und dieser Befund wurde zum eigenen
+Arbeitsstrang; daneben ist ADR-280 §8.1 erstmals messbar geworden und der Print-Agent-
+Datenschutz aus #1297 vollständig.
+
+**⚠️ Der Start-Handover war stale, und niemand hätte es gemerkt.** `handover_prio_mirror.sh`
+spiegelt `${CWD}/AGENT_HANDOVER.md` **ohne `fetch` und ohne Behind-Zähler**. Die gespiegelte
+Prio behauptete „12 offene PRs" (real: einer) und „ADR-281 Kriterium 5 ist vorbereitet, die
+NÄCHSTE Session führt es aus" (real: am Vorabend bestanden, ADR `accepted`). Aufgefallen ist
+es nur, weil aus anderem Grund gefetcht wurde. Getrackt als
+[#1378](https://github.com/achimdehnert/platform/issues/1378), gefixt in
+[#1382](https://github.com/achimdehnert/platform/pull/1382) (offen).
+
+**ADR-280 §8.1 steht auf 5/6** ([Artefakt](docs/verifications/2026-07-23-adr280-betriebsnachweis.md),
+[#1379](https://github.com/achimdehnert/platform/pull/1379) gemergt). Die Blockade des
+Vortags entfiel, weil eine **Parallel-Session** `generate.py --kind skills --allow-live` mit
+Owner-Freigabe ausführte (06:14:08 UTC, `doctor.py --kind skills` = DRIFT-SCORE 0, keine
+Lane-Dublette). Kriterien 1–5 gemessen und bestanden, Lane-Beweis je Aufruf über den
+`MANAGED-BY`-Footer (`source=skills/<name>/SKILL.md`). **Kriterium 6 ist die letzte offene
+Prämisse** und braucht nur den nächsten Session-Start — anders als bei ADR-281 Kriterium 5
+liegt **nichts** vorbereitet, die Installation ist persistent. ADR-280 bleibt `proposed`:
+kein „A bestanden", aber auch **kein** Fallback D, weil kein Kriterium geprüft und
+gescheitert ist.
+
+**Print-Agent: #1297 ist inhaltlich vollständig, das Issue bleibt offen bis
+[#1381](https://github.com/achimdehnert/platform/pull/1381) gemergt ist.**
+[#1377](https://github.com/achimdehnert/platform/pull/1377) ist gemergt — nach einem Review,
+der drei Befunde fand:
+- **Der Datenschutz-Test lief in CI nie.** `tools/print_agent/tests/` steht in keinem
+  Workflow, und selbst mit Pfad-Eintrag hätten die `importorskip`-Zeilen alle Fälle still
+  übersprungen (CI installiert nur `pytest pyyaml pydantic`). Gelöst über importfreie Module
+  (`llm_gate.py`, `profile_policy.py`), geprüft aus `tools/tests/` — dem Ort, den `make test`
+  ohnehin ausführt.
+- **`ollama/` heißt nicht „auf dieser Maschine".** Mit `OLLAMA_HOST` auf einem entfernten
+  Ollama verließ der Auszug die Maschine, das Opt-in-Gate feuerte nicht, und die Ausgabe
+  behauptete „bleibt lokal". Jetzt entscheidet `leaves_machine()`.
+- **Die ursprünglichen Privacy-Tests waren vakuum** — der Negativtest lief grün durch,
+  obwohl der Fix entfernt war: `_try_completion` schluckt jede Exception, eine werfende
+  Wächter-Attrappe wurde damit zu einem stillen `None`. Alle Fälle prüfen jetzt
+  `assert calls == []`.
+
+**#1381 (offen)** liefert die beiden Restpunkte aus #1297: Hinweiszeile mit Ziel **und**
+Zeichenzahl vor einem *erlaubten* Abfluss (real gemessen: `📤 504 Zeichen verlassen diese
+Maschine → …`), und `--profile iil-extern` ohne KI-Kasten sowie ohne den falschen Untertitel
+„Internes Dokument" (per `pdftotext` gegengelesen). Für extern gerichtete Dokumente wird
+**kein** Typ mehr geraten — ein falsches Etikett ist schlechter als keines. `design-hub` blieb
+unangetastet; die Regel liest vorhandene Profil-Daten (`authorship.recipient`).
+
+**Merge-Disziplin, zweimal dokumentiert statt stillschweigend:** #1379 lief über eine echte
+Zweit-Approval von @wirdigital. Bei #1377 war die Approval **älter** (06:34:32) als der
+Nachbesserungs-Commit (07:05:21); das Ruleset dismisst sie nicht, gemergt wurde auf
+Owner-Freigabe hin — als Audit-Kommentar am PR festgehalten, damit die Historie das später
+nicht für ein Vier-Augen-Ergebnis hält.
+
+**Nicht verifiziert / bewusst offen:** #1381 und #1382 warten auf 2.-Owner-Review · der
+Mirror-Fix wirkt erst nach Regeneration der `hooks`-Lane (generierte Kopie unter
+`~/.claude/hooks/managed/`, `do_not_edit`) · ADR-280 Kriterium 6 offen.
+
+## ⚡ Vorheriger Stand (2026-07-22 Abend — ADR-281 §8.1 auf 6/6 komplettiert, ADR-281 `accepted`, §8.2-Negativtest gemessen + beide Kanten gefixt)
 
 **Kern in einem Satz:** Kriterium 5 war die letzte offene Prämisse von ADR-281 — diese
 Session *war* die frische Session, die er brauchte; er trägt, der ADR steht auf `accepted`,
@@ -93,113 +153,10 @@ Repo-weite Sweep, gegen den `check_noop_changes.py` gebaut wurde.
 `--allow-live`) · beide PRs dieser Session warten auf 2.-Owner-Review, nichts davon ist auf
 `main`.
 
-## ⚡ Vorheriger Stand (2026-07-22 Nachmittag — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
-
-**Kern in einem Satz:** Die beiden Skill-Lane-ADRs liegen auf `main`, der ADR-281-Ladetest
-wurde **real ausgeführt** statt weiter vorausgesetzt — er trägt, deckt aber zwei Lücken auf,
-die vor dem Scharfschalten der Gates zu schließen sind. Beide ADRs bleiben bewusst auf
-`status: proposed`.
-
-**Gemergt (alle CI-grün, Head-OIDs vor dem Merge gegen `git ls-remote` geprüft):**
-- [#1295](https://github.com/achimdehnert/platform/pull/1295) ADR-280 Rev 2 · [#1296](https://github.com/achimdehnert/platform/pull/1296) ADR-281 Symlink-Verteilung
-- [#1321](https://github.com/achimdehnert/platform/pull/1321) session-start Phase 0.7 erkennt hängende Deploy-Gates
-- [#1294](https://github.com/achimdehnert/platform/pull/1294) lief über auto-merge durch (`$ARGUMENTS`-Regression zurückgenommen)
-
-**ADR-281 §8.1 Symlink-Ladetest — durchgeführt, Artefakt [`docs/verifications/2026-07-22-adr281-symlink-ladetest.md`](docs/verifications/2026-07-22-adr281-symlink-ladetest.md):**
-Ein handgesetzter Symlink unter unbenutztem Namen, Werkzeugversion **2.1.217**, Ausgangscommit `ef4d190`.
-- **Bestanden 1, 2, 3, 6:** Skill erschien **ohne Session-Neustart** im Menü (Roster-Refresh
-  kam als `system-reminder` Sekunden nach dem `ln -s`), Body lud über den Symlink,
-  `$ARGUMENTS` wurde ein- und mehrwortig-gequotet korrekt eingesetzt, `rm` des Links
-  entfernte den Skill sauber und ließ die Quelldatei unberührt.
-- **Kriterium 4 ist als Testfall untauglich** — nicht der Symlink versagt: Nach Änderung der
-  Quelle lieferte die Re-Invocation weiter den alten Body, ein **frischer Skill-Name** auf
-  denselben Inhalt aber sofort den neuen. Ursache ist der **Session-Cache des Harness** für
-  bereits geladene Skills; eine generierte Kopie verhielte sich identisch. Kriterium 4
-  unterscheidet Symlink und Kopie also gar nicht. Neufassung im Artefakt vorgeschlagen.
-- **Offen:** Kriterium 5 (frisch gestartete Session) — aus einer laufenden Session nicht erzeugbar.
-
-**Zwei Werkzeug-Befunde aus demselben Lauf:**
-- **`doctor.py` erkennt einen dangling Symlink NICHT.** `ln -s /nonexistent …` ließ
-  `dangling=0` und den DRIFT-SCORE unverändert. Der von ADR-281 §8.2 geforderte Negativtest
-  („ein gebrochener Link **muss** rot werden") würde heute **nicht** bestehen. Zu fixen,
-  bevor der Gate scharf geht — sonst trägt der Gate-Name eine Garantie, die er nicht einlöst.
-- **Die Symlink-Klassifikation existiert bereits** (`Symlinks ok/symlink-stale/dangling`),
-  muss also nicht neu gebaut, nur scharf gemacht werden.
-
-**ADR-280 §8.1 Betriebsnachweis konnte NICHT beginnen — Ursache benannt:** Die drei
-migrierten Piloten sind live **nicht installiert** (`doctor.py --kind skills` →
-`fehlend: escalate, issues-offen, next`). Belegt in dieser Session: `/issues-offen` und
-`/next` liefen und trugen den Footer `source=.windsurf/workflows/<name>.md` — ein Pfad, den
-`main` seit #1290 nicht mehr enthält. Es lief also die **alte, verwaiste `commands`-Lane**.
-Der nötige Schritt ist `generate.py --kind skills --allow-live` (gegateter Live-Rollout,
-ADR-230 §8, Gate mit 8 offenen Checkboxen) — **bewusst nicht ausgeführt**.
-
-**Aufräumen:** Worktree-Bestand **30 → 23**. 3 gemergte + 4 stale entfernt; für jeden stale
-Worktree vorher belegt, dass sein Inhalt anderswo liegt oder verworfen wurde (u.a.
-`ci-union-gate-warnfirst` = geschlossener [#893](https://github.com/achimdehnert/platform/pull/893),
-auf `main` durch das strengere [#963](https://github.com/achimdehnert/platform/pull/963) ersetzt;
-`oidc-ready-codeguard-ingest` trug noch `password:`, `main` ist reines OIDC). Branches leben
-weiter, Restore-Manifest in `.git/worktree-reaper-manifest.jsonl`. **5 dirty Worktrees**
-schützte der Guard — unangetastet.
-
-**Session-Start-Reconciliation fand eine falsche Handover-Prio:** „5 PRs, alle
-CONFLICTING/DIRTY, brauchen Rebase" stimmte nicht mehr — [#892](https://github.com/achimdehnert/platform/pull/892)/[#893](https://github.com/achimdehnert/platform/pull/893)
-sind CLOSED, die übrigen drei MERGEABLE. Sie brauchten Review, nicht Rebase.
-
-**`/issues-offen` lief mit Nullbefund** (0 neue PRs) — der einzige DO-NOW-Kandidat
-[#1304](https://github.com/achimdehnert/platform/issues/1304) war bereits durch
-[#1306](https://github.com/achimdehnert/platform/pull/1306) gelöst, und zwar **anders als das
-Issue vorschlug**: der dort empfohlene mechanische Header-Sweep hätte auf einen Befehl
-gezeigt, der die Zieldatei gar nicht erzeugt.
-
-## ⚡ Vorheriger Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
 **Laufender Session-Log:** [`AGENT_HANDOVER_LOG.md`](AGENT_HANDOVER_LOG.md) — append-only,
 neueste Einträge unten. Dort schreiben Sessions seit KONZ-027 Arm A ihren Stand hin, damit
 parallele Sessions sich nicht gegenseitig blockieren. **Diese** Datei hier bleibt die
 kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieben.
-
-## ⚡ Aktueller Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
-
-**Auslöser war ein Nebenbefund**, kein geplanter Strang: beim Rebase von #1013 war nicht entscheidbar, in welche der zwei Skill-Lanes (`.windsurf/workflows/` → `~/.claude/commands/` vs. `skills/` → `~/.claude/skills/`) ein **neuer** Skill gehört. Owner-Weisung 2026-07-21: keine Parallelexistenz.
-
-**Geliefert:**
-- **#1290 gemergt** — Phase 1: 3 Piloten (`next`, `escalate`, `issues-offen`) nach `skills/`; `check_workflow_index.py` scannt jetzt **beide** Lanes, `tools-tests.yml` triggert auf `skills/**`, 5 neue Tests. Nebenbefund dabei: `antwort-modus-schablone` stand seit 2026-06-05 in **keinem** Index — die Lane war für den Vollständigkeits-Gate schlicht unsichtbar.
-- **#1291 gemergt** — ADR-280 (Rev 1). **#1295 offen** — ADR-280 **Rev 2**, ergebnisoffene Neubewertung.
-- **#1296 offen** — ADR-281: Skills als **Symlink** statt generierter Kopie (amendiert ADR-230 §2.2).
-- **#1292 gemergt** — `/adr`-Skill: `gen_adr_index.py` als Pflichtschritt, Abschluss-Checkliste, Anti-Patterns, Changelog (alle drei fehlten).
-- **#1293 auto-merge gequeued** — `policies/adr-threshold.md`.
-- **#1294 offen** — Regression aus #1290 zurückgenommen.
-- **#1118 geschlossen** — superseded, OIDC lag längst auf main.
-
-**Der zentrale Befund — meine Prämisse war falsch:** Rev 1 behauptete, `$ARGUMENTS` entfalle unter Agent Skills. Geprüft gegen die laufende Umgebung (`claude --version` = **2.1.216**, Doku 2026-07-21): *„Custom commands **have been merged into skills** … both create `/deploy` and **work the same way**."* Skills unterstützen `$ARGUMENTS`, `$ARGUMENTS[N]`, `$N`, benannte `$name`. Folgen: Migrationskosten von Option A waren zu hoch angesetzt, „Pilot zuerst" war eine Scheinbegründung, und im Pilot wurde funktionierendes `$ARGUMENTS` durch Prosa **ersetzt** (→ #1294). Zwei unabhängige externe Zweitmeinungen fanden das; beide empfahlen „überarbeiten".
-
-**ADR-280 Rev 2 ruht jetzt auf EINEM geprüften Argument** statt auf vieren: nur die Verzeichnisform trägt **Supporting Files** — damit werden die drei `distribute: false`-Persona-Prompts (Typ 3) per Konstruktion zu Nicht-Skills, die lane-spezifische Sonderlogik entfällt. Nicht tragend und offen so benannt: kein Hersteller-Trend (nicht belegbar — die Doku sagt „keep working", `deprecat|legacy|sunset` liefert **keinen** Treffer), kein Kontextvorteil, keine Argument-Migration.
-
-**Zwei Funde, die keine der Reviews hatte:**
-- **Symlinks sind offiziell unterstützt** (`~/.claude/skills/<name>` darf ins Repo zeigen) → Drift wird **strukturell unmöglich** statt detektiert. Manifest, Content-Hash, MANAGED-Footer und Round-Trip-Gate würden für diese Lane entfallen. → ADR-281.
-- **Cowork-/Cloud-Sessions inkl. Routinen lesen `~/.claude/skills/` NICHT.** Das gesamte Verteilmodell endet an der Maschinengrenze — unabhängig davon, welche Lane gewinnt. Getrackt als [#1298](https://github.com/achimdehnert/platform/issues/1298) + Option F in ADR-280 §10.
-
-**ADR-281-Belege:** ADR-230 verwarf Symlinks wegen „volatilem Checkout" — der Einwand galt der Volatilität. **ADR-233 (`2026-06-01`) ist jünger als ADR-230 (`2026-05-30`)** und der Guard **erzwingt** nachweislich (`.git/iil-guard-events.log`: 2 `unauthorized_head_flip` vom 2026-07-21, beide zurückgesetzt — aus dieser Session, ich bin selbst hineingelaufen). Dazu: **ADR-230s Rollout-Gate hat 8 offene Checkboxen, 0 abgehakt** — inkl. „Rollback getestet". Es stehen sich zwei *unbelegte* Zusagen gegenüber; gewählt wurde die mit weniger beweglichen Teilen. Eigene Idee (gepinnter Worktree als Symlink-Ziel) an der Faktenprüfung gescheitert: `platform-pinned` ist 11 Commits hinter main und hat **kein** Pflege-Tooling.
-
-**Zwei Werkzeug-Reparaturen, beide durch eigene Fehler ausgelöst:**
-- `/adr` Step 3.3 sagte „INDEX.md ergänzen", die Datei trägt aber `AUTO-GENERATED … do not edit manually`. Wer der Anleitung folgt, landet im roten Gate — passiert bei ADR-280. Der Skill hatte **keine Abschluss-Checkliste**; genau die Lücke, durch die ein Pflichtschritt still überspringbar ist.
-- `policies/adr-threshold.md` empfahl `ls docs/adr/ | sort | tail -1`. Real ausgeführt liefert das **`reviews`** (ein Unterverzeichnis) statt `ADR-281` — kein Fehler, sondern ein plausibel aussehendes falsches Ergebnis.
-
-**Wissen gesichert (Outline).** Achtung: `search_knowledge` findet beide Dokumente **nicht** (leeres Ergebnis trotz erfolgreicher Anlage, per `get_document` mit Volltext verifiziert) — Discovery läuft daher über den Memory-Eintrag `lesson:platform:20260721-tool-semantics`, nicht über die Outline-Suche:
-> - Lesson: `/doc/2026-07-21-werkzeug-semantik-behauptet-statt-in-der-doku-des-laufenden-werkzeugs-nachgeschlagen-vKYm65cvo7`
-> - Konzept: `/doc/skill-verteilung-platform-lane-konsolidierung-auf-skills-symlink-statt-kopie-9gcVWVwDIv`
-
-**⚠️ Live-Kopien dieser Maschine sind seit dieser Session von `main` abgewichen** (`doctor.py --kind commands`, 2026-07-21): `copy-stale=4` · `extra=3` · `fehlend=1`. Konkret: **`/adr` läuft live noch mit der kaputten Step-3.3-Anleitung** (`grep -c gen_adr_index.py ~/.claude/commands/adr.md` = **0**, Quelle = **11**); `escalate`/`next`/`issues-offen` liegen als Leichen im `commands`-Ziel, obwohl sie in #1290 nach `skills/` gewandert sind; `delete-repo.md` fehlt seit #1013. Behebung ist `generate.py --allow-live` — das ist der **gegatete** Live-Rollout aus ADR-230 §8, dessen Gate 8 offene Checkboxen hat. **Bewusst nicht ausgeführt** (Owner-Entscheid, verändert die Skill-Installation der Maschine). Bis dahin nutzt jede Session auf dieser Maschine die alte `/adr`-Anleitung.
-
-**Nicht verifiziert:** kein Betriebsnachweis der migrierten Skills (ADR-280 §8.1, sechs Muss-Kriterien definiert, nicht durchlaufen) · kein Symlink-Ladetest (ADR-281 §8.1 — bewusst nicht vorweggenommen, er verändert die Live-Skill-Installation dieser Maschine).
-
-### ⚡ Nachmittag-Session 2026-07-21 (Opus, reaktiv) — trading-hub Prod-Ausfall behoben, Host-Speicherlage getrackt
-
-- **trading-hub war ~16 h mit HTTP 502 offline** ([#1282](https://github.com/achimdehnert/platform/issues/1282)) und ist wiederhergestellt: `https://trading-hub.iil.pet/livez/` **200**, Root **200**, alle fünf Container laufen. Behebung per `workflow_dispatch` auf dem gepinnten Image `main-9411bda` ([run 29829380875](https://github.com/achimdehnert/trading-hub/actions/runs/29829380875), `completed/success`) — bewusst über den ADR-021-Pfad (Compose-SHA-Manifest + atomarer Sync) statt per Hand-`docker compose up`, um die bekannte `-f`-Ketten-Falle zu meiden. Postgres-Volume `trading-hub_trading_hub_pgdata` durchgehend intakt, kein Zustandsverlust.
-- **Ursache war kein Deploy-Fehler, sondern eine Speicher-Notlage auf hetzner-prod** am 2026-07-20 18:26–18:48 UTC: cgroup-OOM auf `python` und `gunicorn`, earlyoom bei `mem avail 5,82 %` und `swap free 0,02 %`. Der erste Canary-Alarm (18:42) liegt mitten in diesem Fenster. Der letzte reguläre Deploy lag am 07-16 — die Kiste ist also *von selbst* gestorben, nicht durch eine Änderung.
-- **Offen und getrackt ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** **warum die Container entfernt statt neu gestartet wurden, ist ungeklärt** — alle fünf tragen `restart: unless-stopped`, `docker compose ps -a` war trotzdem leer. Ausgeschlossen: `server-maintenance.sh` (prunet nur Builder/Images), `healthcheck.sh` (kein Docker), `docker-cleanup.sh` (So 03:00, vor dem Start am 19.07.), Actions (kein Worker-Log seit 19.07. 05:50), `deploy.sh` (kein Log seit 13.07.). Billigster nächster Check: dockerd-Journal des 20.07. **ohne** Namensfilter.
-- **Restrisiko unverändert dünn:** nach dem Restart 3,4 GB verfügbar, **Swap 4095/4095 MB — 0 MB frei**. `swapoff -a` ist in dieser Lage keine Option (zöge 4 GB zurück ins RAM). Vorbereitetes Freimachen (Restart von `iil_authentik_worker` 485/512, `hub137_worker` 305/512, `dms_hub_worker` 137/512 — alle **unhealthy**) wurde **nicht** ausgeführt: der Permission-Classifier blockte den Container-Restart, Owner entschied „direkt deployen". Der Deploy gelang ohne, die Marge blieb damit unangetastet.
-- **Handover-Kollision aufgelöst:** [#1299](https://github.com/achimdehnert/platform/pull/1299) und [#1300](https://github.com/achimdehnert/platform/pull/1300) entstanden 99 Sekunden auseinander aus zwei Parallel-Sessions, beide auf `AGENT_HANDOVER.md`. #1299 hatte den Vorab-Check korrekt ausgeführt und nichts gefunden — #1300 existierte da noch nicht. #1299 ist Träger (nur dort die Block-Rotation), #1300 geschlossen. Die strukturelle Lösung dazu liegt bereits als [#1301](https://github.com/achimdehnert/platform/pull/1301) (KONZ-027, Handover-Fragmente je Session) vor.
 
 ## Nächste Schritte (kompakt)
 
@@ -207,13 +164,14 @@ kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieb
 
 1. **ADR-280 §8.1 Kriterium 6 — erster Handgriff der nächsten Session, keine Vorbereitung nötig:** §8.1 steht seit dem Live-Rollout auf **5/6** ([`docs/verifications/2026-07-23-adr280-betriebsnachweis.md`](docs/verifications/2026-07-23-adr280-betriebsnachweis.md)). Offen ist nur „Verhalten in einer **neu gestarteten** Session": die messende Session muss die vier Skills **vor jeder Dateisystem-Aktion** im `/`-Menü vorfinden und den Footer eines Aufrufs gegen `source=skills/<name>/SKILL.md` halten. Anders als bei ADR-281 Kriterium 5 liegt **nichts** vorbereitet bereit — die Installation ist persistent. Bei ✅ ist §8.1 6/6 und ADR-280 geht von `proposed` auf `accepted`; bei ❌ gilt laut §8.1 ohne neue Grundsatzdebatte **Option D**.
 2. **Cloud-Reichweiten-Lücke [#1298](https://github.com/achimdehnert/platform/issues/1298):** Richtungsempfehlung liegt seit 2026-07-23 als Kommentar am Issue (Option 1 „repo-lokale `.claude/skills/`" vor Option 2 „Account-Skills"). Der im Issue genannte billigste Check ist **lokal nicht durchführbar** — die vier Cloud-Routinen sind keine Repo-Dateien, sie leben cloud-seitig. Nächster Schritt ist ein Listing der tatsächlichen Routinen (`/schedule` bzw. `CronList`) + Prüfung, ob eine davon einen `/`-Skill referenziert. **Bis dahin nichts bauen** — beide Optionen führen eine neue Verteil-Route ein und sind owner-/ADR-gegatet (ADR-280 §10 Option F).
-3. **Print-Agent externer US-LLM ([#1297](https://github.com/achimdehnert/platform/issues/1297)) — PR liegt vor:** [#1377](https://github.com/achimdehnert/platform/pull/1377) stellt das LLM-Enrichment auf lokales Ollama um, extern nur per Opt-in; wartet auf 2.-Owner-Review. Hintergrund unverändert: Defaults `cerebras`/`groq` hart im Code (`print_agent.py:268/269`), realer Abfluss am 2026-07-21 (Kundenanschrift an Groq).
-4. **Review-Stau: 1 offener PR** (gemessen 2026-07-23 06:20 via `gh pr list`) — [#1377](https://github.com/achimdehnert/platform/pull/1377). [#1366](https://github.com/achimdehnert/platform/pull/1366) und [#1369](https://github.com/achimdehnert/platform/pull/1369) sind **MERGED** (06:05/06:06 UTC), [#1367](https://github.com/achimdehnert/platform/pull/1367) ebenfalls. Merkposten zur Methode: `mergeable` liefert erst `UNKNOWN`, GitHub rechnet lazy — Re-Poll nötig.
+3. **Zwei PRs warten auf 2.-Owner-Review, beide CI-grün und MERGEABLE:** [#1381](https://github.com/achimdehnert/platform/pull/1381) (Print-Agent: Abfluss-Hinweis mit Ziel + Zeichenzahl, `--profile iil-extern` ohne KI-Kasten und ohne falschen Untertitel — schließt inhaltlich [#1297](https://github.com/achimdehnert/platform/issues/1297)) und [#1382](https://github.com/achimdehnert/platform/pull/1382) (Start-Hook warnt bei veralteter Prio — [#1378](https://github.com/achimdehnert/platform/issues/1378)). Technisch unabhängig, beliebige Reihenfolge.
+4. **[#1378](https://github.com/achimdehnert/platform/issues/1378) bleibt nach dem Merge von #1382 noch offen:** die live laufende Kopie `~/.claude/hooks/managed/handover_prio_mirror.sh` ist generiert (`do_not_edit`) — der Fix wirkt erst nach Regeneration der `hooks`-Lane. Das ist ein gegateter Eingriff in die Maschinen-Installation (analog zum `skills`-Rollout heute früh), also **Owner-Entscheid**.
 5. trading-hub Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — bewusst zurückgestellt (App-Repo-Scope), weiterhin offen
 6. Ausführungstreue-Audit [#1167](https://github.com/achimdehnert/platform/issues/1167): Nebenfund Namenskollision KONZ-platform-001 weiterhin offen
 7. KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
 8. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 
+> **Erledigt 2026-07-23 (Vormittag, Print-Agent-Datenschutz + Mirror-Befund — dieselbe Session):** **Alt-Prio 3 ist erledigt** — [#1377](https://github.com/achimdehnert/platform/pull/1377) **gemergt** (`a4115b2`), nach einem Review mit drei Befunden: der Datenschutz-Test lief in CI nie (Testort in keinem Workflow **und** `importorskip` ohne die Deps), `ollama/` galt unabhängig vom `OLLAMA_HOST` als „lokal", und die ursprünglichen Privacy-Tests waren **vakuum** (`_try_completion` schluckt jede Exception, die Wächter-Attrappe wurde zu einem stillen `None` — ohne Fix liefen sie grün). Alles drei gefixt und mit ohne-Fix-rot-Gegenprobe belegt. Die beiden Restpunkte aus #1297 (Abfluss-Hinweis, `--profile iil-extern`) liegen als [#1381](https://github.com/achimdehnert/platform/pull/1381); [#1297](https://github.com/achimdehnert/platform/issues/1297) bleibt bis zu dessen Merge offen — der PR-Text sagte „Behebt", kein Closing-Keyword, und das war richtig. **Alt-Prio 4 (Review-Stau) durch die neue Prio 3 ersetzt.** Liste bleibt bei 8 Einträgen, lückenlos durchnummeriert.
 > **Erledigt 2026-07-23 (früh, ADR-280-Betriebsnachweis — diese Session):** **Alt-Prio 1 entfällt** — [#1366](https://github.com/achimdehnert/platform/pull/1366) und [#1369](https://github.com/achimdehnert/platform/pull/1369) sind **MERGED** (06:05/06:06 UTC, gegen die API geprüft, nicht gefolgert). **Alt-Prio 2 ist entsperrt und zu 5/6 gemessen:** eine Parallel-Session hat `generate.py --kind skills --allow-live` mit Owner-Freigabe ausgeführt (06:14:08 UTC, `manifest.json` → `source_commit=9371148`, 4 Skills, `doctor.py --kind skills` = DRIFT-SCORE 0, keine Lane-Dublette); darauf wurden §8.1 Kriterien 1–5 gemessen und bestanden, Artefakt [`docs/verifications/2026-07-23-adr280-betriebsnachweis.md`](docs/verifications/2026-07-23-adr280-betriebsnachweis.md). Kriterium 6 bleibt als **neue Prio 1** stehen. **Alt-Prio 4 hat jetzt einen PR** ([#1377](https://github.com/achimdehnert/platform/pull/1377), Parallel-Session). Liste dadurch 9 → 8 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen). **Methoden-Befund derselben Session:** der Start-Hook `handover_prio_mirror.sh` spiegelt `${CWD}/AGENT_HANDOVER.md` **ohne `fetch` und ohne Behind-Zähler** (Zeilen 30/36) — der lokale Haupt-Tree hing 11 Commits zurück, die gespiegelte Prio war dadurch stumm veraltet (u.a. „12 offene PRs", „Kriterium 5 vorbereitet"). Getrackt als [#1378](https://github.com/achimdehnert/platform/issues/1378).
 > **Erledigt 2026-07-22 (Abend-Session — ADR-281 abgeschlossen):** **Alt-Prio 2 (ADR-281 §8.1 Kriterium 5) ist ausgeführt und bestanden** — diese Session fand den am Nachmittag vorbereiteten Symlink beim Start vor, Marker + Argument-Echo korrekt, Werkzeugversion unverändert 2.1.217; §8.1 steht auf 6/6, Testartefakte entfernt, DRIFT-SCORE zurück auf 3. **Alt-Prio 3 („beide ADRs bleiben `proposed`") ist damit für ADR-281 überholt** — der ADR steht auf `accepted` ([#1366](https://github.com/achimdehnert/platform/pull/1366)); ADR-280 bleibt `proposed`. **Alt-Prio 9 entfernt:** [#1289](https://github.com/achimdehnert/platform/issues/1289) ist **CLOSED** (gegen die API geprüft, nicht gefolgert) — die Zeile widersprach ohnehin dem Erledigt-Block vom 21.07. **Alt-Prio 6 neu gemessen:** 12 → **3** offene PRs, 0 nicht-MERGEABLE. Zusätzlich neu: der §8.2-Negativtest wurde vorgezogen, gemessen und die dabei gefundenen zwei Kanten gefixt ([#1369](https://github.com/achimdehnert/platform/pull/1369) schließt [#1368](https://github.com/achimdehnert/platform/issues/1368)). Liste dadurch 11 → 9 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen).
 > **Erledigt 2026-07-22 (Session-Start-Reconciliation, keine neue Arbeit):** Zwei „Nächste Schritte"-Zeilen waren **stale** und sind entfernt — beide gegen die API geprüft, nicht gefolgert. (a) Alt-Prio 1 führte [#1293](https://github.com/achimdehnert/platform/pull/1293) als `REVIEW_REQUIRED`; der PR ist **MERGED** (2026-07-22 14:35 UTC, Commit `cbc7204` auf `main`) → [#1287](https://github.com/achimdehnert/platform/issues/1287) ist PR-seitig abgeschlossen. (b) Alt-Prio 4 („`doctor.py` meldet dangling Symlink nicht, §8.2-Negativtest würde durchfallen") ist behoben durch [#1335](https://github.com/achimdehnert/platform/pull/1335) **MERGED** (09:59 UTC), Issue [#1332](https://github.com/achimdehnert/platform/issues/1332) **CLOSED**. Liste dadurch 13 → 11 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen). Restliche Zeilen inhaltlich unverändert bis auf Prio 6 (PR-Zahl neu gemessen) und Prio 2 (Kriterium 5 braucht Vorbereitung).

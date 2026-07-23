@@ -12,6 +12,112 @@
 > 07-03→07-05), 2026-07-02 (Issue #821, Teil 2), 2026-07-21 (Handover-Refresh
 > 07-15/07-13→07-20/21; ausgelagert im Zuge des Tools-Strang-Nachzugs, siehe Text unten).
 
+
+<!-- Ausgelagert 2026-07-23 (Handover-Refresh 07-22→07-23) -->
+
+## ⚡ Vorheriger Stand (2026-07-22 Nachmittag — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
+
+**Kern in einem Satz:** Die beiden Skill-Lane-ADRs liegen auf `main`, der ADR-281-Ladetest
+wurde **real ausgeführt** statt weiter vorausgesetzt — er trägt, deckt aber zwei Lücken auf,
+die vor dem Scharfschalten der Gates zu schließen sind. Beide ADRs bleiben bewusst auf
+`status: proposed`.
+
+**Gemergt (alle CI-grün, Head-OIDs vor dem Merge gegen `git ls-remote` geprüft):**
+- [#1295](https://github.com/achimdehnert/platform/pull/1295) ADR-280 Rev 2 · [#1296](https://github.com/achimdehnert/platform/pull/1296) ADR-281 Symlink-Verteilung
+- [#1321](https://github.com/achimdehnert/platform/pull/1321) session-start Phase 0.7 erkennt hängende Deploy-Gates
+- [#1294](https://github.com/achimdehnert/platform/pull/1294) lief über auto-merge durch (`$ARGUMENTS`-Regression zurückgenommen)
+
+**ADR-281 §8.1 Symlink-Ladetest — durchgeführt, Artefakt [`docs/verifications/2026-07-22-adr281-symlink-ladetest.md`](docs/verifications/2026-07-22-adr281-symlink-ladetest.md):**
+Ein handgesetzter Symlink unter unbenutztem Namen, Werkzeugversion **2.1.217**, Ausgangscommit `ef4d190`.
+- **Bestanden 1, 2, 3, 6:** Skill erschien **ohne Session-Neustart** im Menü (Roster-Refresh
+  kam als `system-reminder` Sekunden nach dem `ln -s`), Body lud über den Symlink,
+  `$ARGUMENTS` wurde ein- und mehrwortig-gequotet korrekt eingesetzt, `rm` des Links
+  entfernte den Skill sauber und ließ die Quelldatei unberührt.
+- **Kriterium 4 ist als Testfall untauglich** — nicht der Symlink versagt: Nach Änderung der
+  Quelle lieferte die Re-Invocation weiter den alten Body, ein **frischer Skill-Name** auf
+  denselben Inhalt aber sofort den neuen. Ursache ist der **Session-Cache des Harness** für
+  bereits geladene Skills; eine generierte Kopie verhielte sich identisch. Kriterium 4
+  unterscheidet Symlink und Kopie also gar nicht. Neufassung im Artefakt vorgeschlagen.
+- **Offen:** Kriterium 5 (frisch gestartete Session) — aus einer laufenden Session nicht erzeugbar.
+
+**Zwei Werkzeug-Befunde aus demselben Lauf:**
+- **`doctor.py` erkennt einen dangling Symlink NICHT.** `ln -s /nonexistent …` ließ
+  `dangling=0` und den DRIFT-SCORE unverändert. Der von ADR-281 §8.2 geforderte Negativtest
+  („ein gebrochener Link **muss** rot werden") würde heute **nicht** bestehen. Zu fixen,
+  bevor der Gate scharf geht — sonst trägt der Gate-Name eine Garantie, die er nicht einlöst.
+- **Die Symlink-Klassifikation existiert bereits** (`Symlinks ok/symlink-stale/dangling`),
+  muss also nicht neu gebaut, nur scharf gemacht werden.
+
+**ADR-280 §8.1 Betriebsnachweis konnte NICHT beginnen — Ursache benannt:** Die drei
+migrierten Piloten sind live **nicht installiert** (`doctor.py --kind skills` →
+`fehlend: escalate, issues-offen, next`). Belegt in dieser Session: `/issues-offen` und
+`/next` liefen und trugen den Footer `source=.windsurf/workflows/<name>.md` — ein Pfad, den
+`main` seit #1290 nicht mehr enthält. Es lief also die **alte, verwaiste `commands`-Lane**.
+Der nötige Schritt ist `generate.py --kind skills --allow-live` (gegateter Live-Rollout,
+ADR-230 §8, Gate mit 8 offenen Checkboxen) — **bewusst nicht ausgeführt**.
+
+**Aufräumen:** Worktree-Bestand **30 → 23**. 3 gemergte + 4 stale entfernt; für jeden stale
+Worktree vorher belegt, dass sein Inhalt anderswo liegt oder verworfen wurde (u.a.
+`ci-union-gate-warnfirst` = geschlossener [#893](https://github.com/achimdehnert/platform/pull/893),
+auf `main` durch das strengere [#963](https://github.com/achimdehnert/platform/pull/963) ersetzt;
+`oidc-ready-codeguard-ingest` trug noch `password:`, `main` ist reines OIDC). Branches leben
+weiter, Restore-Manifest in `.git/worktree-reaper-manifest.jsonl`. **5 dirty Worktrees**
+schützte der Guard — unangetastet.
+
+**Session-Start-Reconciliation fand eine falsche Handover-Prio:** „5 PRs, alle
+CONFLICTING/DIRTY, brauchen Rebase" stimmte nicht mehr — [#892](https://github.com/achimdehnert/platform/pull/892)/[#893](https://github.com/achimdehnert/platform/pull/893)
+sind CLOSED, die übrigen drei MERGEABLE. Sie brauchten Review, nicht Rebase.
+
+**`/issues-offen` lief mit Nullbefund** (0 neue PRs) — der einzige DO-NOW-Kandidat
+[#1304](https://github.com/achimdehnert/platform/issues/1304) war bereits durch
+[#1306](https://github.com/achimdehnert/platform/pull/1306) gelöst, und zwar **anders als das
+Issue vorschlug**: der dort empfohlene mechanische Header-Sweep hätte auf einen Befehl
+gezeigt, der die Zieldatei gar nicht erzeugt.
+
+## ⚡ Vorheriger Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
+## ⚡ Aktueller Stand (2026-07-21 — Skill-Lane-Konsolidierung: ADR-280 Rev 2 nach externem Sparring, ADR-281 Symlink-Verteilung, /adr-Skill + adr-threshold-Policy repariert)
+
+**Auslöser war ein Nebenbefund**, kein geplanter Strang: beim Rebase von #1013 war nicht entscheidbar, in welche der zwei Skill-Lanes (`.windsurf/workflows/` → `~/.claude/commands/` vs. `skills/` → `~/.claude/skills/`) ein **neuer** Skill gehört. Owner-Weisung 2026-07-21: keine Parallelexistenz.
+
+**Geliefert:**
+- **#1290 gemergt** — Phase 1: 3 Piloten (`next`, `escalate`, `issues-offen`) nach `skills/`; `check_workflow_index.py` scannt jetzt **beide** Lanes, `tools-tests.yml` triggert auf `skills/**`, 5 neue Tests. Nebenbefund dabei: `antwort-modus-schablone` stand seit 2026-06-05 in **keinem** Index — die Lane war für den Vollständigkeits-Gate schlicht unsichtbar.
+- **#1291 gemergt** — ADR-280 (Rev 1). **#1295 offen** — ADR-280 **Rev 2**, ergebnisoffene Neubewertung.
+- **#1296 offen** — ADR-281: Skills als **Symlink** statt generierter Kopie (amendiert ADR-230 §2.2).
+- **#1292 gemergt** — `/adr`-Skill: `gen_adr_index.py` als Pflichtschritt, Abschluss-Checkliste, Anti-Patterns, Changelog (alle drei fehlten).
+- **#1293 auto-merge gequeued** — `policies/adr-threshold.md`.
+- **#1294 offen** — Regression aus #1290 zurückgenommen.
+- **#1118 geschlossen** — superseded, OIDC lag längst auf main.
+
+**Der zentrale Befund — meine Prämisse war falsch:** Rev 1 behauptete, `$ARGUMENTS` entfalle unter Agent Skills. Geprüft gegen die laufende Umgebung (`claude --version` = **2.1.216**, Doku 2026-07-21): *„Custom commands **have been merged into skills** … both create `/deploy` and **work the same way**."* Skills unterstützen `$ARGUMENTS`, `$ARGUMENTS[N]`, `$N`, benannte `$name`. Folgen: Migrationskosten von Option A waren zu hoch angesetzt, „Pilot zuerst" war eine Scheinbegründung, und im Pilot wurde funktionierendes `$ARGUMENTS` durch Prosa **ersetzt** (→ #1294). Zwei unabhängige externe Zweitmeinungen fanden das; beide empfahlen „überarbeiten".
+
+**ADR-280 Rev 2 ruht jetzt auf EINEM geprüften Argument** statt auf vieren: nur die Verzeichnisform trägt **Supporting Files** — damit werden die drei `distribute: false`-Persona-Prompts (Typ 3) per Konstruktion zu Nicht-Skills, die lane-spezifische Sonderlogik entfällt. Nicht tragend und offen so benannt: kein Hersteller-Trend (nicht belegbar — die Doku sagt „keep working", `deprecat|legacy|sunset` liefert **keinen** Treffer), kein Kontextvorteil, keine Argument-Migration.
+
+**Zwei Funde, die keine der Reviews hatte:**
+- **Symlinks sind offiziell unterstützt** (`~/.claude/skills/<name>` darf ins Repo zeigen) → Drift wird **strukturell unmöglich** statt detektiert. Manifest, Content-Hash, MANAGED-Footer und Round-Trip-Gate würden für diese Lane entfallen. → ADR-281.
+- **Cowork-/Cloud-Sessions inkl. Routinen lesen `~/.claude/skills/` NICHT.** Das gesamte Verteilmodell endet an der Maschinengrenze — unabhängig davon, welche Lane gewinnt. Getrackt als [#1298](https://github.com/achimdehnert/platform/issues/1298) + Option F in ADR-280 §10.
+
+**ADR-281-Belege:** ADR-230 verwarf Symlinks wegen „volatilem Checkout" — der Einwand galt der Volatilität. **ADR-233 (`2026-06-01`) ist jünger als ADR-230 (`2026-05-30`)** und der Guard **erzwingt** nachweislich (`.git/iil-guard-events.log`: 2 `unauthorized_head_flip` vom 2026-07-21, beide zurückgesetzt — aus dieser Session, ich bin selbst hineingelaufen). Dazu: **ADR-230s Rollout-Gate hat 8 offene Checkboxen, 0 abgehakt** — inkl. „Rollback getestet". Es stehen sich zwei *unbelegte* Zusagen gegenüber; gewählt wurde die mit weniger beweglichen Teilen. Eigene Idee (gepinnter Worktree als Symlink-Ziel) an der Faktenprüfung gescheitert: `platform-pinned` ist 11 Commits hinter main und hat **kein** Pflege-Tooling.
+
+**Zwei Werkzeug-Reparaturen, beide durch eigene Fehler ausgelöst:**
+- `/adr` Step 3.3 sagte „INDEX.md ergänzen", die Datei trägt aber `AUTO-GENERATED … do not edit manually`. Wer der Anleitung folgt, landet im roten Gate — passiert bei ADR-280. Der Skill hatte **keine Abschluss-Checkliste**; genau die Lücke, durch die ein Pflichtschritt still überspringbar ist.
+- `policies/adr-threshold.md` empfahl `ls docs/adr/ | sort | tail -1`. Real ausgeführt liefert das **`reviews`** (ein Unterverzeichnis) statt `ADR-281` — kein Fehler, sondern ein plausibel aussehendes falsches Ergebnis.
+
+**Wissen gesichert (Outline).** Achtung: `search_knowledge` findet beide Dokumente **nicht** (leeres Ergebnis trotz erfolgreicher Anlage, per `get_document` mit Volltext verifiziert) — Discovery läuft daher über den Memory-Eintrag `lesson:platform:20260721-tool-semantics`, nicht über die Outline-Suche:
+> - Lesson: `/doc/2026-07-21-werkzeug-semantik-behauptet-statt-in-der-doku-des-laufenden-werkzeugs-nachgeschlagen-vKYm65cvo7`
+> - Konzept: `/doc/skill-verteilung-platform-lane-konsolidierung-auf-skills-symlink-statt-kopie-9gcVWVwDIv`
+
+**⚠️ Live-Kopien dieser Maschine sind seit dieser Session von `main` abgewichen** (`doctor.py --kind commands`, 2026-07-21): `copy-stale=4` · `extra=3` · `fehlend=1`. Konkret: **`/adr` läuft live noch mit der kaputten Step-3.3-Anleitung** (`grep -c gen_adr_index.py ~/.claude/commands/adr.md` = **0**, Quelle = **11**); `escalate`/`next`/`issues-offen` liegen als Leichen im `commands`-Ziel, obwohl sie in #1290 nach `skills/` gewandert sind; `delete-repo.md` fehlt seit #1013. Behebung ist `generate.py --allow-live` — das ist der **gegatete** Live-Rollout aus ADR-230 §8, dessen Gate 8 offene Checkboxen hat. **Bewusst nicht ausgeführt** (Owner-Entscheid, verändert die Skill-Installation der Maschine). Bis dahin nutzt jede Session auf dieser Maschine die alte `/adr`-Anleitung.
+
+**Nicht verifiziert:** kein Betriebsnachweis der migrierten Skills (ADR-280 §8.1, sechs Muss-Kriterien definiert, nicht durchlaufen) · kein Symlink-Ladetest (ADR-281 §8.1 — bewusst nicht vorweggenommen, er verändert die Live-Skill-Installation dieser Maschine).
+
+### ⚡ Nachmittag-Session 2026-07-21 (Opus, reaktiv) — trading-hub Prod-Ausfall behoben, Host-Speicherlage getrackt
+
+- **trading-hub war ~16 h mit HTTP 502 offline** ([#1282](https://github.com/achimdehnert/platform/issues/1282)) und ist wiederhergestellt: `https://trading-hub.iil.pet/livez/` **200**, Root **200**, alle fünf Container laufen. Behebung per `workflow_dispatch` auf dem gepinnten Image `main-9411bda` ([run 29829380875](https://github.com/achimdehnert/trading-hub/actions/runs/29829380875), `completed/success`) — bewusst über den ADR-021-Pfad (Compose-SHA-Manifest + atomarer Sync) statt per Hand-`docker compose up`, um die bekannte `-f`-Ketten-Falle zu meiden. Postgres-Volume `trading-hub_trading_hub_pgdata` durchgehend intakt, kein Zustandsverlust.
+- **Ursache war kein Deploy-Fehler, sondern eine Speicher-Notlage auf hetzner-prod** am 2026-07-20 18:26–18:48 UTC: cgroup-OOM auf `python` und `gunicorn`, earlyoom bei `mem avail 5,82 %` und `swap free 0,02 %`. Der erste Canary-Alarm (18:42) liegt mitten in diesem Fenster. Der letzte reguläre Deploy lag am 07-16 — die Kiste ist also *von selbst* gestorben, nicht durch eine Änderung.
+- **Offen und getrackt ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** **warum die Container entfernt statt neu gestartet wurden, ist ungeklärt** — alle fünf tragen `restart: unless-stopped`, `docker compose ps -a` war trotzdem leer. Ausgeschlossen: `server-maintenance.sh` (prunet nur Builder/Images), `healthcheck.sh` (kein Docker), `docker-cleanup.sh` (So 03:00, vor dem Start am 19.07.), Actions (kein Worker-Log seit 19.07. 05:50), `deploy.sh` (kein Log seit 13.07.). Billigster nächster Check: dockerd-Journal des 20.07. **ohne** Namensfilter.
+- **Restrisiko unverändert dünn:** nach dem Restart 3,4 GB verfügbar, **Swap 4095/4095 MB — 0 MB frei**. `swapoff -a` ist in dieser Lage keine Option (zöge 4 GB zurück ins RAM). Vorbereitetes Freimachen (Restart von `iil_authentik_worker` 485/512, `hub137_worker` 305/512, `dms_hub_worker` 137/512 — alle **unhealthy**) wurde **nicht** ausgeführt: der Permission-Classifier blockte den Container-Restart, Owner entschied „direkt deployen". Der Deploy gelang ohne, die Marge blieb damit unangetastet.
+- **Handover-Kollision aufgelöst:** [#1299](https://github.com/achimdehnert/platform/pull/1299) und [#1300](https://github.com/achimdehnert/platform/pull/1300) entstanden 99 Sekunden auseinander aus zwei Parallel-Sessions, beide auf `AGENT_HANDOVER.md`. #1299 hatte den Vorab-Check korrekt ausgeführt und nichts gefunden — #1300 existierte da noch nicht. #1299 ist Träger (nur dort die Block-Rotation), #1300 geschlossen. Die strukturelle Lösung dazu liegt bereits als [#1301](https://github.com/achimdehnert/platform/pull/1301) (KONZ-027, Handover-Fragmente je Session) vor.
+
 ## ⚡ Vorheriger Stand (2026-07-20/21 — zwei Parallel-Sessions: Mail/Postfach-Strukturierung + Tools-Strang (estimate_job-Fehldiagnose, break-glass-meter, Parallel-Session-Fixes A1/C1))
 
 **Zwei Sessions liefen am 2026-07-20 parallel im selben Repo** (bewusster Provokations-/Härtungstest der Parallel-Session-Mechanik). Beide Stränge hier zusammengeführt — genau der A2-Deckungs-Verlust, der dabei sichtbar wurde: #1283 (Mail-Session-Handover) entstalte nur die Nächste-Schritte-Liste, schrieb aber **keinen** neuen Aktueller-Stand; der Tools-Strang fehlte danach ganz. Dieser Block schließt die Lücke sequenziell (Mail-Session war fertig → kein Parallel-Konflikt mehr).
