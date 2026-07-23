@@ -86,6 +86,23 @@ def matches_from(msg: Message, needle: str | None) -> bool:
     return needle.lower() in decode_hdr(msg.get("From")).lower()
 
 
+def matches_to(msg: Message, needle: str | None) -> bool:
+    """Substring-Match auf To **und** Cc — nötig, um im Gesendete-Ordner nach
+    Empfänger zu filtern (dort ist der Absender immer man selbst)."""
+    if not needle:
+        return True
+    hay = (decode_hdr(msg.get("To")) + " " + decode_hdr(msg.get("Cc"))).lower()
+    return needle.lower() in hay
+
+
+def _mailbox_arg(folder: str) -> str:
+    """Ordnernamen mit Leerzeichen für IMAP quoten (z.B. 'Gesendete Objekte').
+    imaplib quotet nicht selbst — ein unquoted Name mit Space bricht SELECT."""
+    if " " in folder and not (folder.startswith('"') and folder.endswith('"')):
+        return '"%s"' % folder
+    return folder
+
+
 def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
     host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     port = int(cfg.get("IMAP_PORT", "993"))
@@ -98,16 +115,20 @@ def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
 
 
 def cmd_list(
-    imap: imaplib.IMAP4_SSL, folder: str, count: int, from_filter: str | None
+    imap: imaplib.IMAP4_SSL,
+    folder: str,
+    count: int,
+    from_filter: str | None,
+    to_filter: str | None = None,
 ) -> None:
-    imap.select(folder, readonly=True)
+    imap.select(_mailbox_arg(folder), readonly=True)
     typ, data = imap.search(None, "ALL")
     ids = data[0].split()
     shown = 0
     for i in reversed(ids):
-        typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])")
+        typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)])")
         msg = email.message_from_bytes(md[0][1])
-        if not matches_from(msg, from_filter):
+        if not matches_from(msg, from_filter) or not matches_to(msg, to_filter):
             continue
         print(
             f"#{i.decode():>5}  {decode_hdr(msg.get('Date'))[:22]:<22}  "
@@ -127,15 +148,17 @@ def cmd_fetch(
     from_filter: str | None,
     save_dir: str | None,
     max_chars: int,
+    to_filter: str | None = None,
 ) -> None:
-    imap.select(folder, readonly=True)
+    imap.select(_mailbox_arg(folder), readonly=True)
     typ, data = imap.search(None, "ALL")
     ids = data[0].split()
     target_id = None
     if which == "latest":
         for i in reversed(ids):
-            typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
-            if matches_from(email.message_from_bytes(md[0][1]), from_filter):
+            typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
+            hmsg = email.message_from_bytes(md[0][1])
+            if matches_from(hmsg, from_filter) and matches_to(hmsg, to_filter):
                 target_id = i
                 break
     else:
@@ -161,6 +184,11 @@ def main() -> None:
     ap.add_argument("--folder", default="INBOX")
     ap.add_argument(
         "--from-filter", default=None, help="Substring-Match auf From-Header"
+    )
+    ap.add_argument(
+        "--to-filter",
+        default=None,
+        help="Substring-Match auf To+Cc-Header (z.B. Empfänger im Gesendete-Ordner)",
     )
     ap.add_argument(
         "--max-chars", type=int, default=4000, help="Body-Kürzung bei --fetch"
@@ -205,7 +233,7 @@ def main() -> None:
 
     with connect(cfg) as imap:
         if args.list is not None:
-            cmd_list(imap, args.folder, args.list, args.from_filter)
+            cmd_list(imap, args.folder, args.list, args.from_filter, args.to_filter)
         else:
             cmd_fetch(
                 imap,
@@ -214,6 +242,7 @@ def main() -> None:
                 args.from_filter,
                 args.save_attachments,
                 args.max_chars,
+                args.to_filter,
             )
 
 
