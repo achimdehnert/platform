@@ -8,10 +8,11 @@
 Parallel-Session `2f30b5aa` (`generate.py --kind skills --allow-live`, Owner-Freigabe im
 Chat) — `manifest.json` weist `source_commit=9371148`, `target_type=copy`, `skill_count=4`.
 
-**Ergebnis in einem Satz:** **5 von 6 Muss-Kriterien gemessen und bestanden**; Kriterium 6
-(neu gestartete Session) ist konstruktionsbedingt erst in der **nächsten** Session messbar —
-damit steht noch **kein** Entscheid „A bestanden", aber auch **kein** Fallback-D-Auslöser,
-weil kein Kriterium *geprüft und gescheitert* ist.
+**Ergebnis in einem Satz:** **6 von 6 Muss-Kriterien gemessen und bestanden** — Kriterien 1–5
+in Session `4bacc290` (2026-07-23 früh), Kriterium 6 nachgetragen in einer **frisch
+gestarteten** Session am 2026-07-23 11:07 UTC (s. Nachtrag unten); damit fällt der Entscheid
+**„A bestanden"**, ADR-280 geht von `proposed` auf `accepted`. **Kein** Fallback D, weil kein
+Kriterium *geprüft und gescheitert* ist.
 
 ---
 
@@ -43,7 +44,7 @@ Aufruf nicht eindeutig einer Lane zugeordnet werden können.
 | 3 | **Einwortiges** Argument an der `$ARGUMENTS`-Stelle | ✅ bestanden | `Skill(issues-offen, "platform")` → beide Substitutionsstellen ersetzt (`` `platform`: `` und `Repo bestimmen: `platform` → `<repo>``). |
 | 4 | **Mehrwortiges, gequotetes** Argument ebenso | ✅ bestanden | `"org:achimdehnert repo:platform,dev-hub"` wörtlich eingesetzt — **inklusive** der Anführungszeichen (Nebenbefund 2). |
 | 5 | Beschreibung gelistet, Body lädt **erst beim Aufruf** | ✅ bestanden | Roster zeigt nur die `description:` aus dem Frontmatter; der Body erschien erst mit dem `Skill(...)`-Aufruf. |
-| 6 | Verhalten in einer **neu gestarteten** Session | ⏳ offen | Diese Session startete **06:13:56**, die Installation endete **06:14:08** — der Session-Start liegt 12 s *vor* dem Rollout. Nicht nachholbar, s.u. |
+| 6 | Verhalten in einer **neu gestarteten** Session | ✅ bestanden | Nachgetragen 2026-07-23 11:07 UTC in Session `7abe26f0` (Start Stunden *nach* dem 06:14-Rollout). Alle vier Skills schon beim Start im `/`-Menü, `commands`-Lane leer → Menü kann nur aus der Skills-Lane stammen; `Skill(escalate)`-Footer `source=skills/escalate/SKILL.md`. S. Nachtrag. |
 
 **Lane-Beweis für die Kriterien 2–4:** jeder geladene Body trug den Footer
 `MANAGED-BY: platform/tools/cc-skill-dist · source=skills/<name>/SKILL.md ·
@@ -60,21 +61,31 @@ folgenlos (beide Lanes verwenden dieselben), aber es beweist nicht, dass der
 (Base directory + Footer). Kriterium 6 schließt genau diese Lücke — es ist damit nicht
 nur formal, sondern inhaltlich der letzte offene Punkt.
 
-### Warum Kriterium 6 nicht nachholbar ist
+### Kriterium 6 — Nachtrag 2026-07-23 (bestanden)
 
-Dieselbe Struktur wie bei ADR-281 Kriterium 5: eine laufende Session kann ihren eigenen
-Startzustand nicht rückwirkend herstellen. **Anders als dort ist jedoch keine
-Vorbereitung nötig** — die Installation ist persistent, es braucht nur den nächsten
-Session-Start. Auszuführen von der nächsten Session:
+Warum es in Session `4bacc290` nicht messbar war, bleibt korrekt: eine laufende Session
+kann ihren eigenen Startzustand nicht rückwirkend herstellen (dieselbe Struktur wie
+ADR-281 Kriterium 5), und diese Session startete 12 s *vor* dem Rollout. **Anders als bei
+ADR-281 war jedoch keine Vorbereitung nötig** — die Installation ist persistent, es
+brauchte nur den nächsten echten Session-Start.
 
-1. Vor jeder Dateisystem-Aktion prüfen, ob `next`, `escalate`, `issues-offen`,
-   `antwort-modus-schablone` **schon beim Start** im `/`-Menü stehen.
-2. Einen davon aufrufen und den Footer gegen `source=skills/<name>/SKILL.md` halten.
-3. Ergebnis in der Tabelle oben nachtragen; bei ✅ ist §8.1 **6/6** und der Entscheid
-   „**A bestanden**" fällig (ADR-280 von `proposed` auf `accepted`).
+Dieser Start erfolgte am **2026-07-23 11:07 UTC** in Session `7abe26f0` (Werkzeugversion
+`claude --version` = **2.1.218**), Stunden nach dem 06:14-Rollout. Beobachtungen:
 
-Scheitert Schritt 1 oder 2, gilt laut §8.1 ohne neue Grundsatzdebatte **Option D** —
-dann gehört das ebenfalls hier hinein, nicht in eine Chat-Notiz.
+1. **`/`-Menü beim Start:** Alle vier Skills (`next`, `escalate`, `issues-offen`,
+   `antwort-modus-schablone`) standen bereits im Session-Roster, das vor der ersten
+   Dateisystem-Aktion aufgebaut wurde. Die Kriterien 1/5 sind damit *bei Start* erfüllt,
+   nicht nur nach einem Aufruf.
+2. **`commands`-Lane leer:** `ls ~/.claude/commands/ | grep -E '^(next|escalate|issues-offen|antwort-modus-schablone)\.md$'`
+   → leer; `doctor.py --kind skills` → DRIFT-SCORE 0, DANGLING 0, `Hybrid? nein`. Da keine
+   zweite Lane existiert, kann der Menü-Eintrag beim Start **nur** aus der Skills-Lane
+   stammen — genau die Lücke, die Kriterium 1 in Session `4bacc290` offen ließ.
+3. **Lane-Beweis am Aufruf:** `Skill(escalate)` lud den Body aus
+   `Base directory: /home/devuser/.claude/skills/escalate`, Footer
+   `MANAGED-BY: … source=skills/escalate/SKILL.md · source_commit=9371148f567d`.
+
+→ Schritte 1 und 2 bestanden, kein Fallback D. **§8.1 steht auf 6/6, Entscheid „A
+bestanden"** — ADR-280 geht von `proposed` auf `accepted` (dieser PR).
 
 ## Testabdeckung — Restlücke benannt
 
@@ -117,11 +128,14 @@ Werkzeugversionen (2.1.217 → 2.1.218) und beide Verteilformen.
 
 ## Entscheid
 
-- **ADR-280 bleibt vorerst `status: proposed`.** §8.1 steht auf **5/6**; der Entscheid
-  „A bestanden" ist an Kriterium 6 gebunden und wird von der nächsten Session gefällt.
+- **ADR-280 geht auf `status: accepted`.** §8.1 steht nach dem Kriterium-6-Nachtrag vom
+  2026-07-23 auf **6/6** → Entscheid **„A bestanden"** (die im ADR §8.1 vorab festgelegte
+  Konsequenz, keine neue Grundsatzdebatte). Umgesetzt in diesem PR.
 - **Kein Fallback D.** Kein Kriterium wurde geprüft und gescheitert.
-- **Phase 4** (Entfernen der `commands`-Lane) ist von diesem Nachweis unberührt und
-  weiterhin über [#1287](https://github.com/achimdehnert/platform/issues/1287) gegatet.
+- **Accept ≠ Rollout fertig:** Die Execution-Phasen 3a (Typ-3-Zielort), 3b (Bulk-Move der
+  restlichen Skills), 4 (Entfernen der `commands`-Lane) und 5 (ADR-229-Status + Policy)
+  bleiben offen und weiter über [#1287](https://github.com/achimdehnert/platform/issues/1287)
+  gegatet. Bisher sind nur die 4 Piloten in der Skills-Lane.
 
 ## Reproduktion
 
