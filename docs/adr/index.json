@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-23",
-  "total": 229,
-  "next_free": 284,
+  "total": 230,
+  "next_free": 285,
   "adrs": [
     {
       "number": 7,
@@ -5295,6 +5295,32 @@
         "ADR-154",
         "ADR-233",
         "ADR-238"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 284,
+      "id": "ADR-284",
+      "file": "ADR-284-mail-intelligence-action-system.md",
+      "title": "Mail-Intelligence-&-Action-System — Postgres-Mail-Index, 100 %-Übersicht, gegatete Verschiebe-/Lösch-Strategien",
+      "status": "proposed",
+      "date": "2026-07-23",
+      "domains": [
+        "mail",
+        "data",
+        "dsgvo",
+        "tooling",
+        "infrastructure",
+        "dx"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-154",
+        "ADR-238",
+        "ADR-283"
       ],
       "implementation_status": ""
     },
