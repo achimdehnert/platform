@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-22",
-  "total": 227,
-  "next_free": 282,
+  "generated": "2026-07-23",
+  "total": 228,
+  "next_free": 283,
   "adrs": [
     {
       "number": 7,
@@ -5242,6 +5242,34 @@
         "ADR-230",
         "ADR-233",
         "ADR-280"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 282,
+      "id": "ADR-282",
+      "file": "ADR-282-skill-workflow-taxonomy-governance-lifecycle.md",
+      "title": "Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern",
+      "status": "accepted",
+      "date": "2026-07-23",
+      "domains": [
+        "tooling",
+        "dx",
+        "governance",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "claude-skills.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-229",
+        "ADR-230",
+        "ADR-233",
+        "ADR-280",
+        "ADR-281"
       ],
       "implementation_status": ""
     },
