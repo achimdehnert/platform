@@ -88,6 +88,24 @@ allein (iii) fängt Teile, aber ohne Tiefe/Kalibrierung. **Caveats (Ehrlichkeit)
 Lauf (LLM-Varianz nicht gemittelt); (ii) hatte einen Scope-Drift-Confound (las das Repo-KD statt nur
 den Handout-Text) — der Kernbefund (P1 verfehlt) hält aber. Cross-Domain-Läufe (2/3) bleiben offen.
 
+## Pilot-Betrieb: Kalibrier-Loop (Betriebsmodell)
+
+**Der Pilot ist kein Einmal-Test, sondern ein Loop:** *Experte läuft → Ergebnis bewerten → Experten
+anpassen → wiederholen.* Jeder Reallauf verbessert Persona/Kontrakt — genau das ist der Wert gegenüber
+einem Ad-hoc-Prompt (A3). Jede Anpassung wird im Skill (`/fach-review`) + hier festgehalten.
+
+**Zyklus 1 — Run #2 (UX-Domäne, 2026-07-23):**
+- **Lief:** UX-Fachexperte auf 2 Klickdummies (Adjudikation „welche Komplexität ist vertretbar").
+- **Bewertet:** Kernbefund korrekt (Wohngeld überfrachtet: 0× `<details>`, 20 Dauer-Boxen → gefixt). ABER
+  ein `belegt`-Befund (BRMS „10529-Zeichen-Monster") war **methodisch überzeichnet** — gemessen via
+  `textLen`, das eingeklappten `<details>`-Inhalt mitzählt; sichtbar waren 4422 (58 % schon collapsed).
+  Fristenmanagement wurde deshalb bewusst **nicht** umgebaut.
+- **Experten angepasst:** Mess-Disziplin in den Skill gezogen — Dichte/Sichtbarkeit **content-visibility-bewusst**
+  messen (`checkVisibility`), NIE `textLen`/`offsetParent` allein; Dichte-`belegt` ohne solche Messung ⇒ `Hypothese`.
+- **Meta:** validiert **D2** (belegt braucht eine *valide Methode*, nicht nur einen Locator) und **R1**
+  (Scheinkompetenz). Positiver Kill-Gate-Datenpunkt: der Verify-Loop hat einen Reviewer-Fehler gefangen
+  UND den Reviewer verbessert; die Persona generalisierte fachlich sauber in eine nicht-juristische Domäne (n=2).
+
 ## Adversariale Analyse (T2)
 
 **Steelman:** Der fixe Kontrakt (D2) ist die eigentliche Invariante, billig über Domänen wiederverwendbar; es *komponiert* statt zu ersetzen; geerdet an einem realen Lauf, der einen belegten P1-Rechtsfehler fand, den die UX-Prüfung strukturell nicht finden konnte.
