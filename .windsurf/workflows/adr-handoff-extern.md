@@ -215,10 +215,23 @@ als Nachweis fest.
 **5b — Durabler Audit-Nachweis (`~/shared` ist Wegwerf, KONZ-platform-010).** Briefing + Response
 bleiben Scratch in `~/shared` (s. Anti-Pattern — kein Briefing ins Repo). Aber der **Audit selbst**
 — welcher Anbieter, wann, Verdikt-Bilanz + die `[valid]`-Tag-Tabelle — muss ein **durables** Zuhause
-haben, sonst verdampft er beim `rm -rf ~/shared`. Halte ihn im **ADR** (git) fest, analog dem
-`ai_sparring_by` der automatischen Dual-Review: setze `external_sparring_by: <provider>@<JJJJ-MM-TT>`
-ins ADR-Frontmatter und die Tag-Tabelle als kurzen Abschnitt in den ADR-Body. Nur der ephemere
-Transport bleibt in `~/shared`; der Nachweis, dass extern reviewt wurde, lebt in der Versionshistorie.
+haben, sonst verdampft er beim `rm -rf ~/shared`. Halte ihn im **ADR** (git) fest über den
+**vom Schema erlaubten** Key `ai_sparring_by` (ein externer LLM-Review IST ein AI-Tool-Beitrag;
+das strikte Frontmatter-Schema kennt **kein** `external_sparring_by` — Realfall ADR-283/platform#1394).
+Ein Eintrag je Runde als Objekt (`$defs/AISparring`), Provider in `summary`, weil das `tool`-Enum
+externe Anbieter nicht führt:
+```yaml
+ai_sparring_by:
+  - tool: other                 # externer Anbieter (GPT/Gemini) → 'other'; Enum: cascade|claude-code|copilot|other
+    date: <JJJJ-MM-TT>
+    role: adversarial-review    # Enum: compliance-check|adversarial-review|drafting
+    summary: "<provider>: <1-Satz-Bilanz + Verweis auf die Tag-Tabelle im Body>"
+```
+und die `[valid]`-Tag-Tabelle als kurzen Abschnitt in den ADR-**Body**. `ai_sparring_by` ist
+bewusst *non-accountable* (erfüllt **nicht** `reviewed_by`) — ein externer KI-Review ersetzt keine
+menschliche Owner-Review. **Nach dem Setzen `iil-adrfw validate` prüfen** (muss 100 % bleiben).
+Nur der ephemere Transport bleibt in `~/shared`; der Nachweis, dass extern reviewt wurde, lebt in
+der Versionshistorie.
 
 ## Anti-Patterns (darf NICHT)
 
@@ -294,3 +307,9 @@ Transport bleibt in `~/shared`; der Nachweis, dass extern reviewt wurde, lebt in
   konkreten `workflow_execute("adr-handoff-extern-reviewer…")`-Call festgezogen. Distributor
   (`tools/cc-skill-dist/generate.py`+`doctor.py`) überspringt `distribute: false` → kein toter
   Slash-Command.
+- 2026-07-23: **Step 5b Audit-Key korrigiert (platform#1394, Realfall ADR-283).** Der bisher
+  instruierte Frontmatter-Key `external_sparring_by` existiert im **strikten** ADR-Frontmatter-Schema
+  (iil-adrfw) nicht → `iil-adrfw validate` fiel auf FAILED. Umgestellt auf den **vorhandenen**
+  `ai_sparring_by` (Array von `$defs/AISparring`: `tool: other` für externe Anbieter, `role:
+  adversarial-review`, Provider in `summary`), plus Pflicht-`validate` nach dem Setzen. Kein
+  Schema-Change nötig; `ai_sparring_by` ist bewusst non-accountable (ersetzt keine Owner-Review).
