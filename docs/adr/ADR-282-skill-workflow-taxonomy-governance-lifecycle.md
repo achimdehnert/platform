@@ -4,7 +4,7 @@ decision_date: 2026-07-23
 deciders: Achim Dehnert
 domains: [tooling, dx, governance, drift-prevention]
 supersedes: []
-amends: [claude-skills.md, platform-agents.md]
+amends: [claude-skills.md]
 related: [ADR-229, ADR-230, ADR-233, ADR-280, ADR-281]
 tags: [skills, workflows, governance, taxonomy, lifecycle, registry, retirement, sprawl]
 ---
@@ -27,8 +27,9 @@ tags: [skills, workflows, governance, taxonomy, lifecycle, registry, retirement,
 | **Erstellt** | 2026-07-23 |
 | **Autor** | Achim Dehnert |
 | **Externes Sparring** | 1 strukturiertes Owner-Review, 2026-07-23 — 5 Punkte, alle übernommen; Rückfluss in §Externes Sparring |
-| **Amends** | Policies `claude-skills.md`, `platform-agents.md` — **erst bei Acceptance** |
-| **Relates to** | ADR-229/230 (Skill-Distribution), ADR-233 (Worktree), ADR-280 (Lane-Konsolidierung), ADR-281 (Symlink) |
+| **Amends** | Policy `claude-skills.md` (Achsen + Registry) — **erst bei Acceptance**. `platform-agents.md` wird nur **referenziert**, nicht geändert. |
+| **Depends on (Sequencing)** | **ADR-280 muss Option A erreichen** (accepted, §8.1 6/6) **vor** Accept dieser ADR — sonst kippt die Heimat-Matrix §2.1 (Rückfall Option D = zwei Lanes). Symlink-Heimat setzt ADR-281 voraus. |
+| **Relates to** | ADR-229/230 (Skill-Distribution), ADR-233 (Worktree). **Adressiert ADR-280 §10 Option F / #1298** (Reichweite repo-lokaler Skills). |
 
 ## Repo-Zugehörigkeit
 
@@ -91,14 +92,14 @@ Kein generisches Workflow-Substrat wird jetzt gebaut (YAGNI). **Schwelle für ei
 ### 2.3 Governance-Regeln (Entstehung)
 
 - **R1 — Scope-Entscheidung bei Anlage:** beide Achsen (§2.1) explizit benennen → Heimat folgt daraus.
-- **R2 — Promotions-Schwelle:** erst Ad-hoc, Skill **nur bei Wiederholung** (Präzedenz: `read-mail` nach 4× Ad-hoc). Einmaliges wird nicht skill-ifiziert.
+- **R2 — Promotions-Schwelle:** die **bestehende** `claude-skills.md`-Regel (wiederkehrender Workflow >3×/Woche manuell → Skill-Kandidat) gilt unverändert — hier nur eingeordnet, nicht neu erfunden. Präzedenz: `read-mail` nach 4× Ad-hoc.
 - **R3 — Dedup-Check gegen die Registry** vor jeder Anlage (setzt §2.4 voraus).
 
 ### 2.4 (d) Registry — Mechanismus, nicht Wunsch
 
 | Frage | Festlegung |
 |---|---|
-| **Woraus generiert?** | Aus dem **Frontmatter** jeder Skill-/Workflow-/Agent-Datei (Name, Achsen, `owner_repo`, `state_backend` bei Prozessen) **plus** Repo-Scan aller `.claude/`-Verzeichnisse der Flotte. Keine Handpflege. |
+| **Woraus generiert?** | Aus dem **Frontmatter** jeder Skill-/Workflow-/Agent-Datei (Name, Achsen, `owner_repo`, `state_backend` bei Prozessen). **Zunächst nur `platform/`** — der cross-repo `.claude/`-Flotten-Scan kommt erst, wenn es reale repo-lokale Konsumenten gibt (heute ~0, Option F unimplementiert). Keine Handpflege. |
 | **Wer verifiziert?** | Ein **CI-Gate** in `platform` (`tools/cc-skill-dist/` erweitert): erzeugt die Registry deterministisch und **bricht den Build bei Drift** (Katalog ≠ Realität) — analog `doctor.py`. Kein manueller Review als Wahrheit. |
 | **Wo lebt sie?** | **Zentral im `platform`-Repo** (eine generierte Datei, z.B. `docs/registry/skills.json` + `.md`), damit **cross-repo** dedupt werden kann. Repo-lokale Skills melden sich über ihr Frontmatter, werden aber zentral katalogisiert. |
 
@@ -106,7 +107,7 @@ Damit hat R3 (Dedup) etwas Abfragbares; „lügender Index" (bekannter Drift) wi
 
 ### 2.5 (e) Retirement — R4, nutzungsbasiert
 
-- **R4 — Retirement-Scan:** periodisch (z.B. monatlich, non-blocking) wertet Nutzung aus; **kein Aufruf seit N Monaten → Archiv-Kandidat** (N Startwert = 6, kalibrierbar). Archivierung/Löschung bleibt **human-gated** (kein Auto-Delete). Datenquelle: vorhandene Aufruf-Telemetrie (`llm_calls`/Session-Logs) bzw. ein leichter Nutzungszähler; die konkrete Quelle wird in der Umsetzung festgelegt, nicht hier erfunden.
+- **R4 — Retirement nutzt den bestehenden `tools/usage_sweep.py`** (Issue #1076, Owner-Entscheid 2026-07-11, **quartalsweise**, misst Skill-Aufrufe aus CC-Transkripten; 0 Aufrufe → `[usage-sweep]`-Rückbau-Kandidat, human-gated, Kill nach 2 Sweeps ohne Rückbau). **Kein neuer, konkurrierender Mechanismus, keine abweichende Kadenz** (Rev nach adr-challenger — die frühere „monatlich/N=6"-Formulierung war ein Doppler zur gemergten Policy). ADR-282 erweitert `usage_sweep.py` ausschließlich um die neuen Artefakttypen (repo-lokale Skills, Prozess-Treiber) im Registry-Inventar; Kadenz und Gating bleiben wie in `claude-skills.md` §Lifecycle.
 
 ### 2.6 (Erfolgsmaß) Woran man in 6 Monaten misst
 
@@ -124,13 +125,13 @@ Damit hat R3 (Dedup) etwas Abfragbares; „lügender Index" (bekannter Drift) wi
 | Phase | Inhalt | Gate |
 |---|---|---|
 | 0 | Diese ADR (Taxonomie + Governance + Lifecycle) | dieser PR |
-| 1 | Registry-Generator + zentraler Katalog (`docs/registry/`) aus Frontmatter + Repo-Scan | CI grün, Katalog = Realität |
+| 1 | Registry-Generator + zentraler Katalog (`docs/registry/`) **nur aus `platform/skills/`-Frontmatter** (SUGGEST) | Katalog = platform-Realität |
 | 2 | CI-Gate „Registry-Drift bricht Build" (analog `doctor.py`) | Negativtest: künstlicher Drift rötet |
 | 3 | Frontmatter-Erweiterung (`axes`, `owner_repo`, `state_backend`) an Bestands-Skills nachziehen | Schema-Validate grün |
 | 4 | Retirement-Scan (non-blocking, monatlich) + erster Bericht | Bericht liegt vor, 0 Auto-Deletes |
 | 5 | **Bei Acceptance:** `claude-skills.md` + `platform-agents.md` um die zwei Achsen + Lifecycle ergänzen | Policies aktualisiert |
 
-Aufgeschobenes bekommt je ein Tracking-Issue **im selben Zug** (House-Rule); Phasen 1–4 werden als Issues angelegt, nicht im ADR-Text „versprochen".
+Aufgeschobenes bekommt je ein Tracking-Issue **im selben Zug** (House-Rule); Phasen 1–4 werden als Issues angelegt, nicht im ADR-Text „versprochen". Der **cross-repo `.claude/`-Scan** ist bewusst **nicht** in Phase 1 — eigenes Issue, Start erst hinter dem ersten realen repo-lokalen Konsumenten (🌀 `feedback_fleet_adr_scan_before_accept`: nicht für ~0 Inputs bauen).
 
 ## 4. Consequences
 
@@ -164,6 +165,28 @@ Diese ADR ist das direkte Ergebnis eines strukturierten Owner-Reviews (2026-07-2
 | 4 | Substrat-Schwelle unbegründet („3–4") | §2.2 — duplikatsbasiert (2 State-Machines mit identischer Struktur) |
 | 5 | Kein Erfolgsmaß | §2.6 — 4 Kennzahlen mit Quelle |
 
+### 7.1 Zweite Sparring-Runde — adr-challenger (2026-07-23)
+
+Ein **unabhängiger** adr-challenger-Subagent (Richter ≠ Angeklagter, KONZ-010) prüfte den Entwurf. Verdikt „tragfähig mit 4 Änderungen". Übernommen:
+
+| Befund (verifiziert) | Wirkung |
+|---|---|
+| R4 dupliziert die **gemergte** `usage_sweep.py` (quartalsweise) | §2.5 auf `usage_sweep.py` reconciliert — kein neuer Mechanismus |
+| R2 restated `claude-skills.md` „>3×/Woche" | §2.3 als Referenz gekennzeichnet |
+| ADR-280/281 nur `related` trotz Sequencing-Abhängigkeit | Metadaten: **Depends-on** + Option-F/#1298-Link |
+| Fleet-`.claude/`-Scan für ~0 Repos in Phase 1 | §2.4/§3: platform-only zuerst, cross-repo hinter 1. Konsument |
+| Split/Narrow (Taxonomie≈Policy vs Registry=ADR-Kern) | **offen — Owner-Entscheid**, §9 |
+
+## 9. Offene Entscheidung — Scope (Owner)
+
+Der Challenger nennt als stärkstes Gegenargument (Conf. 78): der genuine ADR-Kern ist der **generierte, CI-drift-gegatete Registry-Mechanismus** (§2.4); Taxonomie (§2.1) + R2 + R4 sind überwiegend **Klärung/Referenz** bestehender Policy (`claude-skills.md`) und damit per `adr-threshold.md` eher Policy-Edit als ADR-Stoff. Zwei Wege:
+
+- **(A) Eine ADR behalten**, aber Taxonomie/R2/R4 klar als „referenziert/eingeordnet, nicht neu" markieren (bereits umgesetzt) — Vorteil: ein Lese-Ort für den vollen Lebenszyklus.
+- **(B) Splitten:** ADR-282 auf den Registry-Mechanismus verengen; die 2-Achsen-Taxonomie + Promotions-Regel als `claude-skills.md`-Edit. Näher an `adr-threshold.md`, kleinerer Blast-Radius.
+
+**Empfehlung:** (A) für den ersten Durchlauf (Taxonomie profitiert von der ADR-Sichtbarkeit + Challenge-Historie), Split (B) erst, falls das Review ihn verlangt. Entscheidung liegt beim Owner — bis dahin `status: proposed`.
+
 ## 8. Changelog
 
 - 2026-07-23: Initial (proposed). Taxonomie (2 Achsen) + Prozess-Muster (State/Treiber/Registry) + Governance R1–R4 + Registry-Mechanismus + Retirement + Erfolgsmaße. Basiert auf Owner-Review (§7). Referenz-Implementierung Betroffenenrechte: risk-hub `DeletionRequest` (#449) + `/mailcheck` (#1383).
+- 2026-07-23 (Rev, nach adr-challenger §7.1): R4 auf `usage_sweep.py` reconciliert (war Doppler zur gemergten Policy), R2 als Policy-Referenz markiert, ADR-280/281-**Depends-on** + Option-F/#1298-Link ergänzt, cross-repo-Scan aus Phase 1 in eigenes Issue vertagt, `amends: platform-agents.md` gestrichen (nur referenziert). Offen: Scope-Split (§9, Owner).
