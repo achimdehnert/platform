@@ -7,11 +7,12 @@ supersedes: []
 amends: []
 related: [ADR-238, ADR-154, ADR-233]
 tags: [mail, correspondence, vorgang, dsgvo, pii, data-home, risk-hub, ledger]
+ai_sparring_by:
+  - tool: other
+    date: 2026-07-23
+    role: adversarial-review
+    summary: "2 externe Runden (Provider extern): fanden unabhängig den pointer-first-Umbau; Verdikt-Bilanz + [valid]-Tags in §11."
 ---
-<!-- external_sparring_by: extern-2runden@2026-07-23 (2 Runden) — Audit-Bilanz in §11.
-     Kein Frontmatter-Key: das strikte ADR-Schema erlaubt ihn (noch) nicht; der durable
-     Nachweis lebt im git-versionierten §11-Body. Folgefrage: Schema-Key ergänzen oder
-     Skill /adr-handoff-extern Step 5b anpassen. -->
 
 
 # ADR-283: Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest
