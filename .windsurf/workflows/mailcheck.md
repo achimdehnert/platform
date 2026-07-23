@@ -30,16 +30,54 @@ selbst** schon **gesendet**? Daraus leitet er die **jeweils nächste** Aktion ab
 
 ## Ablauf
 
-1. **Zeitfenster wählen** — Default „seit dem letzten Briefing" bzw. `--days 2`. Bei Bedarf weiter zurück.
-2. **Je Konto** neue Eingänge listen **und** die eigenen gesendeten Mails im selben Fenster
+1. **Vorgangs-Speicher laden** (s.u. „Ledger") — was ist als offen getrackt?
+2. **Zeitfenster wählen** — Default „seit dem letzten Briefing" bzw. `--days 2`. Bei Bedarf weiter zurück.
+3. **Je Konto** neue Eingänge listen **und** die eigenen gesendeten Mails im selben Fenster
    holen (Tabelle oben). Threads über Betreff/Absender zuordnen.
-3. **Offene Vorgänge korrelieren** — jede offene Position aus dem letzten Briefing/Board
-   gegen Eingang **und** Gesendetes prüfen: erledigt? Antwort da? weiter wartend?
-4. **Zustandsabhängige Prozesse auflösen** (s.u.) — den aktuellen Zustand aus der
-   **jüngsten** Nachricht des Threads bestimmen, dann **genau die eine** nächste Aktion vorschlagen.
-5. **Als Action Board ausgeben** (Regeln: `feedback_reporting_table_format`). Auf „go":
+4. **Rauschen erkennen + wegräumen** (s.u.) — offensichtlich unwichtige Mails verschieben,
+   damit sie die offene Liste nicht zumüllen.
+5. **Offene Vorgänge korrelieren** — jede getrackte Position gegen Eingang **und** Gesendetes
+   prüfen: **gesendet → Status fortschreiben / Punkt schließen**; Antwort da → nächster Schritt;
+   sonst weiter wartend.
+6. **Zustandsabhängige Prozesse auflösen** (s.u.) — aktuellen Zustand aus der **jüngsten**
+   Nachricht bestimmen, dann **genau die eine** nächste Aktion vorschlagen/anlegen.
+7. **Ledger zurückschreiben** — neue Zustände speichern, geschlossene Punkte entfernen.
+8. **Als Action Board ausgeben** (Regeln: `feedback_reporting_table_format`). Auf „go":
    den nächsten Draft mit `graph_mail.py --draft` anlegen (IIL) bzw. den HNU-Draft per
    IMAP-Append (siehe `/iil-mail`-Werkzeuglücke: HNU-Drafts nur via IMAP-Append) — **nie senden**.
+
+## Vorgangs-Speicher (Ledger)
+
+Damit „Status fortschreiben" und „automatisch aus der Liste entfernen" verlässlich sind,
+braucht `/mailcheck` einen **dauerhaften** Zustand — das Postfach allein sagt nicht, *welche*
+Punkte du verfolgst. Zwei Ebenen:
+
+- **DSGVO-Löschprozess → risk-hub ist die Quelle der Wahrheit.** Der Vorgang lebt als
+  `DeletionRequest` (Status-State-Machine + 1-Monats-Frist). Anlegen headless via
+  `manage.py create_deletion_request --mandate … --subject-name … --subject-email …`
+  (risk-hub); fortschreiben über die bestehende `advance_workflow`-Logik. `/mailcheck`
+  erkennt den Auslöser (z.B. Authentifizierungs-Antwort des Betroffenen) und schreibt den
+  Status dort fort — **nicht** in einer Parallelliste.
+- **Einfache Punkte (Antwort geschickt / erledigt) → lokales Ledger** `~/.claude/mail-vorgaenge.json`
+  (nur lokal, **nie** Repo/Memory — enthält Adressen/Betreffs, Charta 2). Je Eintrag:
+  `{konto, thread_key, gegenueber, typ, zustand, next_trigger, angelegt, letzte_pruefung}`.
+  `/briefing` legt neue offene Punkte an; `/mailcheck` aktualisiert/entfernt sie:
+  **im Ordner „Gesendete Elemente" gefunden → Punkt als erledigt schließen und aus der
+  offenen Liste nehmen.**
+
+## Rauschen erkennen + wegräumen
+
+Offensichtlich unwichtige Mails gehören nicht in die offene Liste — erkennen und in einen
+Sammel-/Archiv-Ordner verschieben (reversibel):
+
+- **Klar unwichtig:** automatische `noreply@…`-Benachrichtigungen (z.B. `noreply@hnu.de`),
+  Marketing/Newsletter (xlinesoft, DTEN, Wispr, Plaud, Expo-Einladungen) — Absender-basiert.
+- **Verschieben, nicht löschen:** IIL (Graph) `graph_mail.py --move --from "<absender>" --to "<Ordner>"`;
+  HNU/AD (IMAP) über `/organize-mail` (read-mail ist read-only). Ziel = ein „Unwichtig"/Archiv-Ordner.
+- **Sicherheits-Leitplanken:** nur nach **benanntem Absender-Kriterium** verschieben (keine
+  Pauschal-Moves nach Betreff-Rätselraten); im Zweifel **liegen lassen** und im Board als
+  „unklar" listen; nie in den Papierkorb, wenn Aufbewahrung denkbar ist. Der Owner bestätigt
+  neue „unwichtig"-Absender einmal, dann dürfen sie stehen.
 
 ## Zustandsabhängige Prozesse (der eigentliche Grund für /mailcheck)
 
@@ -51,7 +89,7 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 
 | Zustand (jüngste Nachricht) | Nächste Aktion, die /mailcheck vorschlägt |
 |---|---|
-| Löschwunsch eingegangen (z.B. Firma leitet weiter) | Draft **Authentifizierungs-Mail** an den Betroffenen |
+| Löschwunsch eingegangen (z.B. Firma leitet weiter) | `create_deletion_request` (risk-hub) anlegen + Draft **Authentifizierungs-Mail** an den Betroffenen |
 | Betroffener hat Identität **bestätigt** | Draft **Löschauftrag** an die Firma (Reply im Thread) |
 | Firma meldet **Löschung vollzogen** | Draft **Löschbestätigung** an den Betroffenen |
 | — | Vorgang schließen (in risk-hub `DeletionRequest` fortschreiben, 1-Monats-Frist) |
@@ -86,4 +124,8 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
   „aktiv angestoßenen Mailcheck", nachdem ein DSGVO-Löschprozess fälschlich mit allen drei
   Stufen vorab als Draft angelegt worden war — der Skill kodifiziert die zustandsabhängige,
   auslöser-getriebene Abarbeitung. Nutzt `graph_mail.py --trash` (neu) zum Zurücknehmen
-  superseded Drafts. Reine Orchestrierung bestehender Tools, stdlib-only.
+  superseded Drafts. Enthält: Vorgangs-Speicher (risk-hub `DeletionRequest` als Quelle der
+  Wahrheit für Löschungen via `create_deletion_request`, risk-hub#449; lokales Ledger für
+  einfache Punkte), Abgleich gegen „Gesendete Elemente" (erledigte Punkte automatisch
+  schließen) und Rauschen-Erkennung + Verschieben (unwichtige Absender via
+  `graph_mail --move`/`organize-mail`). Reine Orchestrierung bestehender Tools, stdlib-only.
