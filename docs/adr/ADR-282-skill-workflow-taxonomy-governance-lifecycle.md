@@ -7,6 +7,9 @@ supersedes: []
 amends: [claude-skills.md]
 related: [ADR-229, ADR-230, ADR-233, ADR-280, ADR-281]
 tags: [skills, workflows, governance, taxonomy, lifecycle, registry, retirement, sprawl]
+ai_sparring_by:
+    date: 2026-07-23
+    summary: "Zwei unabhängige externe LLM-Reviews via /adr-handoff-extern (manueller Handoff, PII-frei); beide Verdikt 'überarbeiten', stark konvergent auf: Achse vermischt Statefulness/Trigger, 4 Artefakttypen nicht gemappt, Selbst-Widersprüche (Phase-4-Kadenz, Phase-5-Policy, zirkuläre Acceptance, §2.4↔Phase-1), Registry-Souveränität (föderiert), schwache Kennzahlen, Registry-SSoT, Substrat-Schwelle unscharf. 14x valid eingearbeitet; Rückfluss-Tag-Tabelle in §7.2."
 ---
 
 # ADR-282: Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern
@@ -15,8 +18,9 @@ tags: [skills, workflows, governance, taxonomy, lifecycle, registry, retirement,
 > Betroffenenrechte), keine zustandslosen Skills; manche Skills sind repo-spezifisch. Heute
 > liegen alle ~52 Skills zentral und maschinenweit verteilt — ohne Achsen-Trennung, ohne
 > abfragbare Registry, ohne Retirement. Diese ADR macht Taxonomie **und** Governance **und**
-> Lebenszyklus verbindlich. Sie ruht auf einem detaillierten externen Review (§Externes
-> Sparring), das die Erstskizze in fünf Punkten korrigiert hat.
+> Lebenszyklus verbindlich. Sie ist durch **drei Review-Runden** gehärtet (§7): Owner-Review,
+> interner `adr-challenger`, **zwei unabhängige externe Provider** (beide „überarbeiten") — alle
+> Verdikte getaggt und adressiert.
 
 ## Metadaten
 
@@ -35,7 +39,7 @@ tags: [skills, workflows, governance, taxonomy, lifecycle, registry, retirement,
 
 | Repo | Rolle | Betroffene Pfade / Komponenten |
 |---|---|---|
-| `platform` | Primär | `docs/adr/`, `tools/cc-skill-dist/`, neue Registry-Generierung + CI-Gate, `~/.claude/policies/claude-skills.md`, `platform-agents.md` |
+| `platform` | Primär | `docs/adr/`, `tools/cc-skill-dist/`, neue Registry-Generierung + CI-Gate, `~/.claude/policies/claude-skills.md` (`platform-agents.md` nur referenziert) |
 | `dev-hub` | Sekundär | Heimat headless/plattformweiter Agenten (`apps/<agent>/`) — unverändert, nur eingeordnet |
 | *(Domänen-Hubs)* | Sekundär | Heimat repo-spezifischer Skills (`.claude/`) + stateful Prozess-State-Machines |
 
@@ -62,22 +66,29 @@ Die Erstskizze beantwortete (1) mit einer Vier-Zeilen-Lookup-Tabelle und (2) mit
 
 ## 2. Decision Outcome
 
-### 2.1 Zwei orthogonale Achsen — Heimat ist ihre *Funktion*, keine Zeile
+### 2.1 Drei unabhängige Merkmale — Heimat ist ihre *Funktion*, keine Matrix-Zeile
 
-Die frühere „vier sich ausschließende Fälle"-Tabelle wird ersetzt durch zwei unabhängige Dimensionen:
+**Rev nach externem Sparring (§7.2, AD-1/AD-2/M28-1):** die frühere „Ausführungsmodus"-Achse war **nicht trennscharf** — ein `scheduled` Agent kann zugleich zustandsbehaftet sein und fiel damit in zwei Zeilen. Ersetzt durch **drei unabhängige Merkmale** je Fähigkeit (im Frontmatter gesetzt):
 
-- **Geltungsbereich:** *plattformweit* ↔ *repo-spezifisch*
-- **Ausführungsmodus:** *interaktiv-zustandslos* ↔ *stateful/langlebig* ↔ *headless/scheduled*
+- **`scope`:** `plattformweit` · `geteilt` (n>1, aber nicht alle Repos) · `repo-spezifisch`
+- **`statefulness`:** `zustandslos` · `zustandsbehaftet` (Status/Frist/Audit über die Zeit)
+- **`trigger`:** `interaktiv` (Mensch ruft) · `scheduled` (cron) · `event` (Auslöser)
 
-Die Heimat ergibt sich aus **beiden**:
+**Heimat-Ableitungsregel (Priorität, erste zutreffende gewinnt):**
+1. `statefulness = zustandsbehaftet` → **State-Machine in der Domänen-App** (Prozess-Muster §2.2), *unabhängig* vom `trigger`. Der zusätzliche Treiber-Artefakttyp folgt dann aus `trigger`+`scope`.
+2. sonst `trigger ∈ {scheduled, event}` → **headless Agent**: `scope=plattformweit` → dev-hub Platform-Agent (`platform-agents.md`); `scope=repo-spezifisch` → Domänen-Hub Celery-Task/Command.
+3. sonst (`zustandslos` + `interaktiv`) → **Skill**: `plattformweit` → zentral `platform/skills/` (`cc-skill-dist`); `geteilt` → zentral, aber im Frontmatter auf die Ziel-Repos begrenzt; `repo-spezifisch` → `<repo>/.claude/skills/` (committed, erreicht Cloud-Sessions).
 
-| Modus \ Geltungsbereich | **plattformweit** | **repo-spezifisch** |
-|---|---|---|
-| **interaktiv-zustandslos** (Skill) | zentral `platform/skills/` → `cc-skill-dist` | `<repo>/.claude/skills/` (committed, nur dort aktiv; erreicht Cloud-Sessions) |
-| **stateful/langlebig** (Prozess) | State-Machine in gemeinsamer App (dev-hub) **+** Treiber-Skill (zentral) **+** Registry | State-Machine in der Domänen-App (das Repo) **+** Treiber-Skill (repo-lokal) **+** Registry |
-| **headless/scheduled** (Agent) | dev-hub Platform-Agent (`platform-agents.md`) | Domänen-Hub Celery-Task/Command |
+**Zuordnung der vier `claude-skills.md`-Artefakttypen** (Bestand — hier nur eingeordnet, AD-2):
 
-Damit sind die vom Review benannten Mischfälle sauber abbildbar: ein **stateful Prozess kann repo-spezifisch** sein (Zeile 2, rechts), ein **headless Agent plattformweit** (Zeile 3, links).
+| Artefakttyp (Bestand) | statefulness | trigger | Heimat-Regel |
+|---|---|---|---|
+| Slash-Command / CC-Skill | zustandslos | interaktiv | Regel 3 (Skill) |
+| Anthropic Agent Skill | zustandslos | interaktiv | Regel 3 (`~/.claude/skills/` bzw. repo-lokal) |
+| Django Platform-Agent | oft zustandsbehaftet | scheduled/event | Regel 1/2 (App/Agent) |
+| CC-Sub-Agent | zustandslos | interaktiv (delegiert) | Regel 3, aber Claude-only |
+
+**Merkmalswechsel (R2-Promotion, AD-5 rev1):** ändert eine Fähigkeit ihr `scope` (repo-lokal → plattformweit) oder ihre `statefulness`, ist das ein **bewusster Umzug** — Frontmatter aktualisieren, Artefakt an die neue Heimat verschieben, Registry-Eintrag neu ableiten; im PR dokumentiert, nicht still.
 
 ### 2.2 Prozess-Muster: State · Treiber · Registry (drei Rollen, kein Prompt-Text)
 
@@ -87,7 +98,7 @@ Eine zustandsbehaftete Fähigkeit wird **nie** als Skill nachgebildet, sondern i
 2. **Treiber** — ein **dünner** Skill, der den Zustand über eine programmatische Schnittstelle (Management-Command/API) anlegt/fortschreibt. Referenz: `create_deletion_request` + `/mailcheck`.
 3. **Registry-Eintrag** — der Prozess ist im Katalog geführt (§2.4), damit er auffindbar ist und nicht ad hoc neu erfunden wird.
 
-Kein generisches Workflow-Substrat wird jetzt gebaut (YAGNI). **Schwelle für ein gemeinsames Substrat — duplikatsbasiert, nicht prozess-gezählt:** sobald **zwei** State-Machines nahezu identische Struktur (Frist-Feld, Auslöser, Akteure, Audit-Trail) duplizieren, ist die Extraktion einer geteilten Basis zu erwägen. Nicht „ab Prozess Nr. 3".
+Kein generisches Workflow-Substrat wird jetzt gebaut (YAGNI). **Schwelle für ein gemeinsames Substrat — duplikatsbasiert, prüfbar (M28-4):** sobald **zwei produktive** State-Machines in **allen vier** Merkmalen übereinstimmen — gleiche **Transitionstopologie**, gleiches **Fristenmodell**, gleiches **Rollenmodell**, gleiches **Audit-Trail-Verhalten** — ist die Extraktion einer geteilten Basis zu erwägen. Nicht „ab Prozess Nr. 3", nicht „gefühlt ähnlich".
 
 ### 2.3 Governance-Regeln (Entstehung)
 
@@ -95,15 +106,19 @@ Kein generisches Workflow-Substrat wird jetzt gebaut (YAGNI). **Schwelle für ei
 - **R2 — Promotions-Schwelle:** die **bestehende** `claude-skills.md`-Regel (wiederkehrender Workflow >3×/Woche manuell → Skill-Kandidat) gilt unverändert — hier nur eingeordnet, nicht neu erfunden. Präzedenz: `read-mail` nach 4× Ad-hoc.
 - **R3 — Dedup-Check gegen die Registry** vor jeder Anlage (setzt §2.4 voraus).
 
-### 2.4 (d) Registry — Mechanismus, nicht Wunsch
+### 2.4 (d) Registry — Mechanismus, nicht Wunsch (föderiert, souveränitäts-sicher)
+
+**Rev nach externem Sparring (§7.2):** SSoT geklärt, V1-Scope präzisiert, Cross-Repo **föderiert** statt zentraler Scanner.
 
 | Frage | Festlegung |
 |---|---|
-| **Woraus generiert?** | Aus dem **Frontmatter** jeder Skill-/Workflow-/Agent-Datei (Name, Achsen, `owner_repo`, `state_backend` bei Prozessen). **Zunächst nur `platform/`** — der cross-repo `.claude/`-Flotten-Scan kommt erst, wenn es reale repo-lokale Konsumenten gibt (heute ~0, Option F unimplementiert). Keine Handpflege. |
-| **Wer verifiziert?** | Ein **CI-Gate** in `platform` (`tools/cc-skill-dist/` erweitert): erzeugt die Registry deterministisch und **bricht den Build bei Drift** (Katalog ≠ Realität) — analog `doctor.py`. Kein manueller Review als Wahrheit. |
-| **Wo lebt sie?** | **Zentral im `platform`-Repo** (eine generierte Datei, z.B. `docs/registry/skills.json` + `.md`), damit **cross-repo** dedupt werden kann. Repo-lokale Skills melden sich über ihr Frontmatter, werden aber zentral katalogisiert. |
+| **SSoT?** | Das **Frontmatter** der Artefakt-Datei ist die **alleinige Quelle der Wahrheit** (M28-3). Die Registry (`docs/registry/skills.{json,md}`) ist eine **reproduzierbare Projektion** — bei Bedarf als menschenlesbarer `.md`-Nachweis eingecheckt, aber **nie** von Hand editiert; das CI-Gate regeneriert und diffed sie (analog `INDEX.md`). |
+| **V1-Scope** | **Nur `platform/skills/`-Frontmatter** (AD-3 rev2: §2.4 und Phase 1 synchron — V1 ist eine *platform-Skill-Registry*, **nicht** schon eine vollständige Skill-/Workflow-/Agent-/Prozess-Registry). |
+| **Cross-repo (später, föderiert)** | **Kein** zentraler Scanner, der fremde Repos ausliest. Jedes Repo generiert + validiert sein eigenes Capability-Manifest **lokal** (eigene CI); `platform` **aggregiert nur veröffentlichte Manifeste** (AD-3 rev1 / M28-2 / Out-of-the-Box #1). **Souveräne Orgs (`ttz-lif`/`meiki-lra`) werden nie zentral gescannt** — sie publizieren höchstens ein PII-freies Manifest oder opten aus. |
+| **Wer verifiziert?** | Ein **CI-Gate** in `platform`, das die platform-Registry deterministisch erzeugt und **bei Drift den Build bricht** (analog `doctor.py`); für föderierte Manifeste Schema-Validierung im jeweiligen Repo, Aggregation nur über gültige. |
+| **Schema-Versionierung** | Neue Frontmatter-Felder (`scope`,`statefulness`,`trigger`,`owner_repo`,`state_backend`) tragen eine **`schema_version`** (M28-3), damit spätere Erweiterungen einen Migrationspfad haben statt das Gate zu brechen. |
 
-Damit hat R3 (Dedup) etwas Abfragbares; „lügender Index" (bekannter Drift) wird durch die Generierung + das Gate strukturell verhindert.
+Damit hat R3 (Dedup) etwas Abfragbares; der „lügende Index" wird durch Generierung + Gate strukturell verhindert — **ohne** einen zentralen Cross-Repo-Scanner, der die Souveränitäts-Grenze verletzt.
 
 ### 2.5 (e) Retirement — R4, nutzungsbasiert
 
@@ -111,12 +126,17 @@ Damit hat R3 (Dedup) etwas Abfragbares; „lügender Index" (bekannter Drift) wi
 
 ### 2.6 (Erfolgsmaß) Woran man in 6 Monaten misst
 
+**Rev nach externem Sparring (§7.2, AD-8/AD-9):** keine Kennzahl, die Zentralisierung belohnt oder deren Nullwert mehrdeutig ist.
+
 | Kennzahl | Richtung | Quelle |
 |---|---|---|
-| Skills pro Repo (Verteilung) | stabil/sinkend, nicht monoton wachsend | Registry |
-| Dedup-Trefferrate bei Anlage (R3) | > 0 heißt: Governance greift real | CI-Gate-Log |
-| Ad-hoc → Skill-Promotions (R2) | dokumentiert, nicht 0 (sonst wird R2 umgangen) | PR-Historie |
-| Unused-Count (R4-Kandidaten) | sinkend nach erstem Scan | Retirement-Scan |
+| Aktive Artefakte gesamt · Neuanlagen · Retirements | erklärbar, nicht monoton wachsend | Registry |
+| **Anteil korrekt klassifizierter** Artefakte (Merkmale gesetzt, Heimat = Regel) | steigend → 100 % | Registry-Gate |
+| **Dedup-Quote** = Anlagen mit dokumentiertem Registry-Check / alle Anlagen; **plus** verhinderte/zusammengeführte Duplikate | Quote → 100 %; **0 verhinderte ≠ automatisch Misserfolg** (AD-8) | CI-Gate-Log |
+| Ad-hoc → Skill-Promotions (R2) | dokumentiert, nicht 0 | PR-Historie |
+| Unused-Count (R4-Kandidaten) | sinkend nach erstem Sweep | `usage_sweep.py` |
+
+> **Nicht** „Skills pro Repo sinkend" (AD-9) — das belohnte künstliche Zentralisierung und widerspräche der bewussten Entscheidung für sinnvolle repo-lokale Skills. Repo-lokale Verlagerungen werden **nicht** negativ bewertet.
 
 ---
 
@@ -127,9 +147,9 @@ Damit hat R3 (Dedup) etwas Abfragbares; „lügender Index" (bekannter Drift) wi
 | 0 | Diese ADR (Taxonomie + Governance + Lifecycle) | dieser PR |
 | 1 | Registry-Generator + zentraler Katalog (`docs/registry/`) **nur aus `platform/skills/`-Frontmatter** (SUGGEST) | Katalog = platform-Realität |
 | 2 | CI-Gate „Registry-Drift bricht Build" (analog `doctor.py`) | Negativtest: künstlicher Drift rötet |
-| 3 | Frontmatter-Erweiterung (`axes`, `owner_repo`, `state_backend`) an Bestands-Skills nachziehen | Schema-Validate grün |
-| 4 | Retirement-Scan (non-blocking, monatlich) + erster Bericht | Bericht liegt vor, 0 Auto-Deletes |
-| 5 | **Bei Acceptance:** `claude-skills.md` + `platform-agents.md` um die zwei Achsen + Lifecycle ergänzen | Policies aktualisiert |
+| 3 | Frontmatter-Erweiterung (`scope`,`statefulness`,`trigger`,`owner_repo`,`state_backend`,`schema_version`) an Bestands-Skills nachziehen | Schema-Validate grün |
+| 4 | Retirement via bestehendem `usage_sweep.py` (**quartalsweise**, non-blocking) auf neue Artefakttypen erweitern + erster Bericht | Bericht liegt vor, 0 Auto-Deletes |
+| 5 | **Bei Acceptance (atomar):** `claude-skills.md` um Merkmale + Registry-Verweis ergänzen **und** Statuswechsel (§6) | Policy-Edit + Accept im selben PR |
 
 Aufgeschobenes bekommt je ein Tracking-Issue **im selben Zug** (House-Rule); Phasen 1–4 werden als Issues angelegt, nicht im ADR-Text „versprochen". Der **cross-repo `.claude/`-Scan** ist bewusst **nicht** in Phase 1 — eigenes Issue, Start erst hinter dem ersten realen repo-lokalen Konsumenten (🌀 `feedback_fleet_adr_scan_before_accept`: nicht für ~0 Inputs bauen).
 
@@ -147,11 +167,16 @@ Aufgeschobenes bekommt je ein Tracking-Issue **im selben Zug** (House-Rule); Pha
 
 ## 6. Confirmation / Rollout-Gate
 
-- [ ] Registry deterministisch generiert; Katalog = Realität (Phase 1).
+**Technische Vorbedingungen (vor Acceptance):**
+- [ ] platform-Registry deterministisch generiert; Katalog = platform-Realität (Phase 1).
 - [ ] CI-Gate rötet bei künstlichem Drift (Negativtest, Phase 2).
-- [ ] Retirement-Scan liefert ersten Bericht, **0 Auto-Deletes** (Phase 4).
+- [ ] Retirement (`usage_sweep.py`) liefert ersten Bericht, **0 Auto-Deletes** (Phase 4).
 - [ ] Erfolgsmaße (§2.6) sind erhebbar (Kennzahl-Quellen existieren).
-- [ ] Policies aktualisiert (Phase 5, erst bei Acceptance).
+- [ ] **Sequencing:** ADR-280 hat Option A erreicht (accepted).
+
+**Acceptance-Aktion (atomar, AD-7):** Der `claude-skills.md`-Edit **und** der Statuswechsel `proposed → accepted` erfolgen **gemeinsam im Acceptance-PR** — die Policy-Änderung ist *kein* vorgelagertes Gate (sonst zirkulär).
+
+**Re-Review-Trigger (AD-2/REC-5 rev1):** Fällt ADR-280 auf Option D (zwei Lanes) zurück, wird §2.1 (Skill-Heimat) re-opened — nicht still veraltet.
 
 ## 7. Externes Sparring — Rückfluss-Tagging
 
@@ -177,6 +202,30 @@ Ein **unabhängiger** adr-challenger-Subagent (Richter ≠ Angeklagter, KONZ-010
 | Fleet-`.claude/`-Scan für ~0 Repos in Phase 1 | §2.4/§3: platform-only zuerst, cross-repo hinter 1. Konsument |
 | Split/Narrow (Taxonomie≈Policy vs Registry=ADR-Kern) | Owner wählte **(A) eine ADR** (2026-07-23), §9 |
 
+### 7.2 Dritte + vierte Runde — zwei externe Provider (cross-provider, 2026-07-23)
+
+Zwei **unabhängige** externe LLM-Reviews via `/adr-handoff-extern` (manueller Handoff, PII-frei, `ai_sparring_by` im Frontmatter). **Beide Verdikt „überarbeiten"**, stark konvergent. Rückfluss-Tagging — nur `[valid]` fließt als begründete Änderung ein:
+
+| Befund (extern) | Verdikt | Aktion |
+|---|---|---|
+| Achse „Ausführungsmodus" vermischt Statefulness & Trigger (scheduled Agent kann stateful sein) | **[valid]** | §2.1 in **drei Merkmale** (`scope`/`statefulness`/`trigger`) + Ableitungsregel zerlegt |
+| 4 `claude-skills.md`-Artefakttypen nicht gemappt | **[valid]** | §2.1 Zuordnungstabelle ergänzt |
+| Phase 4 „monatlich" ↔ §2.5 „quartalsweise" (Selbst-Widerspruch) | **[valid]** | Phase 4 auf quartalsweise `usage_sweep.py` korrigiert |
+| Phase 5 `platform-agents.md` ↔ Metadaten „nur referenziert" | **[valid]** | Phase 5 + §6 + Repo-Tabelle: nur `claude-skills.md` |
+| Zirkuläre Acceptance (Policy erst bei Acceptance, Status hängt am Gate) | **[valid]** | §6: Policy-Edit + Statuswechsel **atomar** im Acceptance-PR |
+| §2.4 verspricht „alle Dateien", Phase 1 nur `platform/skills/` | **[valid]** | §2.4 als V1 = platform-Skill-Registry präzisiert |
+| Zentrale Registry scannt souveräne Org-Repos (ttz-lif/meiki-lra) | **[valid]** | §2.4 **föderiert** — Repos publizieren eigenes Manifest, souverän nie zentral gescannt |
+| Kennzahl „Dedup > 0" mehrdeutig; „Skills/Repo sinkend" belohnt Zentralisierung | **[valid]** | §2.6 Quote + verhinderte Dups; „Skills/Repo" entfernt |
+| Registry-SSoT unklar (JSON vs Frontmatter vs Build-Artefakt) | **[valid]** | §2.4: Frontmatter = SSoT, Registry = reproduzierbare Projektion |
+| Substrat-Schwelle „nahezu identisch" subjektiv | **[valid]** | §2.2 vier prüfbare Kriterien (Topologie/Fristen/Rollen/Audit) |
+| Binäre Scope-Achse ohne „geteilt (n>1)"; R2-Zellwechsel unspezifiziert | **[valid]** | §2.1 `scope=geteilt` + Merkmalswechsel-Regel |
+| Re-Review-Trigger falls ADR-280→D | **[valid]** | §6 Re-Review-Trigger ergänzt |
+| Schema-Versionierung neuer Frontmatter-Felder fehlt | **[valid]** | §2.4 `schema_version` ergänzt |
+| „Volle Maschinerie für 0 repo-lokale Skills / 1 Prozess = Über-Engineering" | **[teilweise]** | 52 Skills rechtfertigen die platform-Registry (der andere Provider bestätigt das, PRO-2); cross-repo bleibt an 1. Konsument gekoppelt — Kern verteidigt, Trigger-Kopplung präzisiert |
+| „Bestehendes Katalog-Tool statt Eigenbau" | **[kontext]** | Frontmatter ist Claude-Code-spezifisch; Eigenbau = ein dünner Generator, Fremdtool-Integration teurer |
+
+**Bilanz:** 13× `[valid]` eingearbeitet, 1× `[teilweise]` (Kern verteidigt, Trigger-Kopplung präzisiert), 1× `[kontext]`. Beide „überarbeiten"-Verdikte adressiert; tiefste Änderung = Zerlegung der Achse (§2.1). Provider/Datum durabel in `ai_sparring_by` (Frontmatter).
+
 ## 9. Offene Entscheidung — Scope (Owner)
 
 Der Challenger nennt als stärkstes Gegenargument (Conf. 78): der genuine ADR-Kern ist der **generierte, CI-drift-gegatete Registry-Mechanismus** (§2.4); Taxonomie (§2.1) + R2 + R4 sind überwiegend **Klärung/Referenz** bestehender Policy (`claude-skills.md`) und damit per `adr-threshold.md` eher Policy-Edit als ADR-Stoff. Zwei Wege:
@@ -191,3 +240,4 @@ Der Challenger nennt als stärkstes Gegenargument (Conf. 78): der genuine ADR-Ke
 - 2026-07-23: Initial (proposed). Taxonomie (2 Achsen) + Prozess-Muster (State/Treiber/Registry) + Governance R1–R4 + Registry-Mechanismus + Retirement + Erfolgsmaße. Basiert auf Owner-Review (§7). Referenz-Implementierung Betroffenenrechte: risk-hub `DeletionRequest` (#449) + `/mailcheck` (#1383).
 - 2026-07-23 (Rev, nach adr-challenger §7.1): R4 auf `usage_sweep.py` reconciliert (war Doppler zur gemergten Policy), R2 als Policy-Referenz markiert, ADR-280/281-**Depends-on** + Option-F/#1298-Link ergänzt, cross-repo-Scan aus Phase 1 in eigenes Issue vertagt, `amends: platform-agents.md` gestrichen (nur referenziert). Offen: Scope-Split (§9, Owner).
 - 2026-07-23 (Owner-Entscheid §9): **Option A** — eine ADR, kein Split; Taxonomie/R2/R4 als Referenz belassen. Bleibt `proposed` bis Sequencing (ADR-280 Option A) + Rollout-Gate §6.
+- 2026-07-23 (Rev, nach 2 externen Cross-Provider-Reviews §7.2): beide Verdikt „überarbeiten". **§2.1 Achse in drei Merkmale zerlegt** (`scope`/`statefulness`/`trigger` + Ableitungsregel + 4-Artefakttyp-Mapping); §2.4 **föderiert + SSoT-geklärt + souveränitäts-sicher**; §2.6 Kennzahlen entschärft (keine Zentralisierungs-Belohnung, Dedup als Quote); §2.2 Substrat-Schwelle mit 4 prüfbaren Kriterien; Selbst-Widersprüche behoben (Phase-4-Kadenz, Phase-5-Policy, zirkuläre Acceptance → §6 atomar); Re-Review-Trigger + `schema_version` ergänzt. `ai_sparring_by` im Frontmatter.
