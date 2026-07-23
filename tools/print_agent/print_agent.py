@@ -265,8 +265,23 @@ def get_secret(name: str) -> str | None:
     return None
 
 
-_DEFAULT_PRIMARY = "cerebras/llama3.1-8b"
-_DEFAULT_FALLBACK = "groq/llama-3.1-8b-instant"
+# Datenschutz-Default (#1297): lokales Ollama, kein Dokument-Abfluss an externe Anbieter.
+# Externe Modelle laufen nur mit ausdrücklichem Opt-in (PRINT_AGENT_ALLOW_EXTERNAL=1).
+_DEFAULT_PRIMARY = "ollama/qwen2.5:3b"
+_DEFAULT_FALLBACK = ""  # kein externer Fallback per Default
+_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+
+
+def _is_local_model(model: str) -> bool:
+    """True für lokal laufende Modelle (Ollama) — kein Datenabfluss nach außen."""
+    return model.lower().startswith(("ollama/", "ollama_chat/"))
+
+
+def _external_allowed() -> bool:
+    """Externe LLM-Anbieter (Cerebras/Groq/OpenAI/…) nur mit ausdrücklichem Opt-in."""
+    return os.environ.get("PRINT_AGENT_ALLOW_EXTERNAL", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
 
 
 def _secret_name_for_model(model: str) -> str | None:
@@ -288,21 +303,40 @@ def _secret_name_for_model(model: str) -> str | None:
 
 
 def _try_completion(model: str, prompt: str) -> dict | None:
-    """Ein LLM-Versuch — gibt {} bei No-Key zurück, None bei Fehler, dict bei Erfolg."""
-    secret_name = _secret_name_for_model(model)
-    api_key = get_secret(secret_name) if secret_name else None
-    if not api_key:
-        print(f"⚠️  Kein API-Key für {model} ({secret_name}) — übersprungen")
-        return None
+    """Ein LLM-Versuch — None bei Skip/Fehler, dict bei Erfolg.
+
+    Lokale Modelle (Ollama) laufen ohne API-Key gegen ``_OLLAMA_HOST``.
+    Externe Anbieter werden ohne Opt-in (PRINT_AGENT_ALLOW_EXTERNAL=1)
+    übersprungen — der Dokumentinhalt verlässt die Maschine dann nicht (#1297).
+    """
+    is_local = _is_local_model(model)
+    api_key = None
+    if not is_local:
+        if not _external_allowed():
+            print(
+                f"⛔ Externer LLM {model} übersprungen — Opt-in nötig "
+                f"(PRINT_AGENT_ALLOW_EXTERNAL=1). Dokumentinhalt bleibt lokal."
+            )
+            return None
+        secret_name = _secret_name_for_model(model)
+        api_key = get_secret(secret_name) if secret_name else None
+        if not api_key:
+            print(f"⚠️  Kein API-Key für {model} ({secret_name}) — übersprungen")
+            return None
     try:
-        response = litellm.completion(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.3,
-            api_key=api_key,
-            timeout=15,
-        )
+        kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 300,
+            "temperature": 0.3,
+            # Ollama auf CPU braucht mehr Zeit (gemessen ~18 s für qwen2.5:3b, #1297).
+            "timeout": 60 if is_local else 15,
+        }
+        if is_local:
+            kwargs["api_base"] = _OLLAMA_HOST
+        else:
+            kwargs["api_key"] = api_key
+        response = litellm.completion(**kwargs)
         raw = response.choices[0].message.content.strip()
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         if m:
@@ -314,11 +348,16 @@ def _try_completion(model: str, prompt: str) -> dict | None:
 
 
 def llm_enrich(title: str, md_text: str, design: dict) -> dict:
-    """Executive Summary + Keywords. Default Cerebras Llama-3.3-70b → Groq 8B-Fallback.
+    """Executive Summary + Keywords. Default lokales Ollama (kein Datenabfluss, #1297).
 
     ENV-Overrides:
-      PRINT_AGENT_LLM_PRIMARY   (Default: cerebras/llama3.1-8b)
-      PRINT_AGENT_LLM_FALLBACK  (Default: groq/llama-3.1-8b-instant, leer = aus)
+      PRINT_AGENT_LLM_PRIMARY    (Default: ollama/qwen2.5:3b)
+      PRINT_AGENT_LLM_FALLBACK   (Default: leer = aus)
+      PRINT_AGENT_ALLOW_EXTERNAL (1/true = externe Anbieter erlauben; sonst übersprungen)
+      OLLAMA_HOST                (Default: http://127.0.0.1:11434)
+
+    Ohne Opt-in werden externe Modelle übersprungen; schlägt lokal alles fehl,
+    wird das PDF ohne Summary erzeugt (llm_enrich gibt {} zurück).
     """
     primary = os.environ.get("PRINT_AGENT_LLM_PRIMARY", _DEFAULT_PRIMARY).strip()
     fallback = os.environ.get("PRINT_AGENT_LLM_FALLBACK", _DEFAULT_FALLBACK).strip()
