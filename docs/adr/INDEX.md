@@ -249,4 +249,4 @@
 | 281 | Verteile Skills als Symlinks auf den Repo-Checkout statt als generierte Kopien | Accepted | ⬜ | [ADR-281](ADR-281-skill-distribution-symlink.md) |
 | 282 | Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern | Accepted | ⬜ | [ADR-282](ADR-282-skill-workflow-taxonomy-governance-lifecycle.md) |
 | 283 | Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest | Proposed | ⬜ | [ADR-283](ADR-283-korrespondenz-vorgangsspeicher.md) |
-| 284 | Mail-Intelligence-&-Action-System — Postgres-Mail-Index, 100 %-Übersicht, gegatete Verschiebe-/Lösch-Strategien | Proposed | ⬜ | [ADR-284](ADR-284-mail-intelligence-action-system.md) |
+| 284 | Mail-Intelligence-&-Action-System — Coverage-Contract + Triage-Ledger (Phase 1 verbindlich) | Proposed | ⬜ | [ADR-284](ADR-284-mail-intelligence-action-system.md) |
