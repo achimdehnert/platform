@@ -136,6 +136,25 @@ Rückbau-**Kandidat** in einem `[usage-sweep]`-Issue (Label `usage-sweep`), nie 
 Auto-Löschung. Kill-Kriterium: zwei aufeinanderfolgende Sweeps ohne einen einzigen
 vollzogenen Rückbau stellen den Sweep ein.
 
+## Taxonomie & Governance (ADR-282, accepted 2026-07-23)
+
+**Wo eine neue Fähigkeit lebt**, folgt aus **drei unabhängigen Merkmalen** (im Frontmatter):
+
+- `scope`: `plattformweit` · `geteilt` (n>1 Repos) · `repo-spezifisch`
+- `statefulness`: `zustandslos` · `zustandsbehaftet` (Status/Frist/Audit über die Zeit)
+- `trigger`: `interaktiv` · `scheduled` · `event`
+
+**Heimat-Ableitung** (erste zutreffende gewinnt): `zustandsbehaftet` → State-Machine in der
+Domänen-App (Muster **State · Treiber · Registry**); sonst `scheduled`/`event` → **headless Agent**
+(dev-hub bzw. Domänen-Hub, s. `platform-agents.md`); sonst → **Skill** (zentral `platform/skills/`
+bzw. repo-lokal `.claude/skills/`). Die vier Artefakttypen oben mappen darauf.
+
+**Governance:** Promotions-Schwelle = die >3×/Woche-Regel oben (R2); Retirement = `usage_sweep.py`
+(R4, quartalsweise); Dedup gegen die generierte, CI-drift-gegatete Registry (R3) — **föderiert,
+souveränitäts-sicher** (souveräne Orgs nie zentral gescannt). **SSoT bleibt das Frontmatter**,
+die Registry ist eine reproduzierbare Projektion. Vollständige Ableitungsregel, Erfolgsmaße und
+Lebenszyklus: **ADR-282** (dieser Abschnitt ist der Pointer, nicht die SSoT).
+
 ## Verteilung (ADR-230 CC-first)
 
 `cc-skill-dist` kennt zwei Lanes über `--kind`:
@@ -165,4 +184,5 @@ Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Cod
 - 2026-06-05: **Agent-Skill-Lane ergänzt.** Anthropic Agent Skills (`~/.claude/skills/<name>/SKILL.md`) als eigener Artefakttyp mit Kanonik `platform main skills/` + `cc-skill-dist --kind skills` (generate+doctor verzeichnis-basiert, Generator 0.2.0). „Enterprise-weit = user-level Install pro Maschine, nicht Kopie in N Repos" als Leitsatz verankert. Erster Konsument: `antwort-modus-schablone` v2.3. Folgt dem bestehenden cc-skill-dist-Muster → kein ADR (Policy-Update genügt, `adr-threshold`).
 - 2026-06-05: **Konventionen aus session-retro** (`~/shared/session-retro-2026-06-05-platform-fde7ff.md`): Review-Gate §6 Tracking-Anker (F-F); Tooling-Konventionen Lane⇒Gate-wächst-mit (F-A), kein `-prototype` im Live-Output (F-C), Tooling-PR getrennt von Content/Policy (F-H). F-A bereits umgesetzt (PR #480: beide Lanes + Unit-Tests im Gate).
 - 2026-07-10 (2): **Registry-Schwelle für Maschinen-Configs** (retro f4a546-incr #7, `machine-config-no-registry`): ab der 2. `~/.claude/<topic>.env` wird `~/.claude/machine-configs.yaml` Pflicht — definierter Kipp-Punkt statt unbegrenzter Changelog-Prosa.
+- 2026-07-23: **Taxonomie & Governance verankert (ADR-282 accepted)** — 3 Merkmale (`scope`/`statefulness`/`trigger`) + Heimat-Ableitung + Registry/Retirement-Pointer. Atomar mit dem ADR-282-Accept (Owner-Override über die Sequencing-Vorbedingung). Detail-SSoT = ADR-282.
 - 2026-07-10: **Maschinen-level-Config-Ausnahme + Review-Gate 5b** (aus `docs/retros/session-retro-2026-07-10-platform-f4a546.md`, Befunde #5/#6): Skills ohne Repo-Bezug dürfen `~/.claude/<topic>.env` als Config-Quelle nutzen (Hardcoding-Verbot für den Skill-Text unverändert; jede neue Quelle wird hier vermerkt). Review-Gate 5b: lokaler `make test`/`pytest tools/tests/`-Lauf vor dem ersten Push. Präzedenz-Konsument: `/send-mail` (PR #1039, Härtung PR #1050).

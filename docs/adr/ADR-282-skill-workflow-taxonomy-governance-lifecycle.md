@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-07-23
 deciders: Achim Dehnert
 domains: [tooling, dx, governance, drift-prevention]
@@ -26,7 +26,7 @@ ai_sparring_by:
 
 | Attribut | Wert |
 |---|---|
-| **Status** | Proposed |
+| **Status** | **Accepted** (Owner-Override 2026-07-23 über die §6-Sequencing/Rollout-Vorbedingungen — s. §9) |
 | **Scope** | platform (+ Konvention für alle Repos) |
 | **Erstellt** | 2026-07-23 |
 | **Autor** | Achim Dehnert |
@@ -178,6 +178,8 @@ Aufgeschobenes bekommt je ein Tracking-Issue **im selben Zug** (House-Rule); Pha
 
 **Re-Review-Trigger (AD-2/REC-5 rev1):** Fällt ADR-280 auf Option D (zwei Lanes) zurück, wird §2.1 (Skill-Heimat) re-opened — nicht still veraltet.
 
+**Owner-Override (2026-07-23, §9):** Der Owner ratifiziert die **Entscheidung** jetzt bewusst, obwohl (a) ADR-280 noch `proposed` ist und (b) die technischen Phasen 1/2/4 offen sind. Die Vorbedingungen oben werden damit von *Accept-Blockern* zu **Implementierungs-Follow-ups** (getrackte Issues); der **Re-Review-Trigger** bleibt das Sicherheitsnetz für einen ADR-280→D-Rückfall. Bewusst getauscht: frühere Verbindlichkeit/Sichtbarkeit der Taxonomie gegen ein Rest-Risiko am ADR-280-Ausgang.
+
 ## 7. Externes Sparring — Rückfluss-Tagging
 
 Diese ADR ist das direkte Ergebnis eines strukturierten Owner-Reviews (2026-07-23). Fünf Punkte, alle übernommen:
@@ -233,7 +235,9 @@ Der Challenger nennt als stärkstes Gegenargument (Conf. 78): der genuine ADR-Ke
 - **(A) Eine ADR behalten**, aber Taxonomie/R2/R4 klar als „referenziert/eingeordnet, nicht neu" markieren (bereits umgesetzt) — Vorteil: ein Lese-Ort für den vollen Lebenszyklus.
 - **(B) Splitten:** ADR-282 auf den Registry-Mechanismus verengen; die 2-Achsen-Taxonomie + Promotions-Regel als `claude-skills.md`-Edit. Näher an `adr-threshold.md`, kleinerer Blast-Radius.
 
-**Owner-Entscheid (2026-07-23): Option A** — eine ADR; Taxonomie/R2/R4 bleiben als „referenziert/eingeordnet, nicht neu" markiert (§2.1/§2.3/§2.5). Split (B) bleibt dokumentierte Rückfalloption, falls das Code-Owner-Review ihn verlangt. `status: proposed` bis das Sequencing (ADR-280 → Option A accepted) **und** das Rollout-Gate (§6) erfüllt sind.
+**Owner-Entscheid (2026-07-23): Option A** — eine ADR; Taxonomie/R2/R4 bleiben als „referenziert/eingeordnet, nicht neu" markiert (§2.1/§2.3/§2.5). Split (B) bleibt dokumentierte Rückfalloption, falls das Code-Owner-Review ihn verlangt.
+
+**Owner-Override → Acceptance (2026-07-23):** Auf ausdrückliche Owner-Weisung wird ADR-282 **jetzt accepted** — bewusst über die §6-Sequencing- und Rollout-Vorbedingungen hinweg (ADR-280 noch `proposed`, Phasen 1/2/4 offen). Diese werden zu Implementierungs-Follow-ups; der Re-Review-Trigger (§6) fängt einen ADR-280→D-Rückfall ab. Die `claude-skills.md`-Taxonomie-Verankerung erfolgt atomar im selben (Acceptance-)PR. `status: accepted`.
 
 ## 8. Changelog
 
@@ -241,3 +245,4 @@ Der Challenger nennt als stärkstes Gegenargument (Conf. 78): der genuine ADR-Ke
 - 2026-07-23 (Rev, nach adr-challenger §7.1): R4 auf `usage_sweep.py` reconciliert (war Doppler zur gemergten Policy), R2 als Policy-Referenz markiert, ADR-280/281-**Depends-on** + Option-F/#1298-Link ergänzt, cross-repo-Scan aus Phase 1 in eigenes Issue vertagt, `amends: platform-agents.md` gestrichen (nur referenziert). Offen: Scope-Split (§9, Owner).
 - 2026-07-23 (Owner-Entscheid §9): **Option A** — eine ADR, kein Split; Taxonomie/R2/R4 als Referenz belassen. Bleibt `proposed` bis Sequencing (ADR-280 Option A) + Rollout-Gate §6.
 - 2026-07-23 (Rev, nach 2 externen Cross-Provider-Reviews §7.2): beide Verdikt „überarbeiten". **§2.1 Achse in drei Merkmale zerlegt** (`scope`/`statefulness`/`trigger` + Ableitungsregel + 4-Artefakttyp-Mapping); §2.4 **föderiert + SSoT-geklärt + souveränitäts-sicher**; §2.6 Kennzahlen entschärft (keine Zentralisierungs-Belohnung, Dedup als Quote); §2.2 Substrat-Schwelle mit 4 prüfbaren Kriterien; Selbst-Widersprüche behoben (Phase-4-Kadenz, Phase-5-Policy, zirkuläre Acceptance → §6 atomar); Re-Review-Trigger + `schema_version` ergänzt. `ai_sparring_by` im Frontmatter.
+- 2026-07-23 (Owner-Override → **accepted**): Status `proposed → accepted` auf ausdrückliche Owner-Weisung, bewusst über die §6-Sequencing/Rollout-Vorbedingungen hinweg (ADR-280 noch `proposed`, Phasen 1/2/4 offen → Implementierungs-Follow-ups); Re-Review-Trigger als Sicherheitsnetz. Atomar mit der `claude-skills.md`-Taxonomie-Verankerung.
