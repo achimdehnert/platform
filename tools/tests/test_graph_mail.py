@@ -213,3 +213,78 @@ def test_should_skip_file_attachment_without_content():
     mod = _load()
     att = {"@odata.type": "#microsoft.graph.fileAttachment", "name": "leer.pdf"}
     assert mod._decode_attachment(att) is None
+
+
+# --- cmd_mark: Flag / Wichtigkeit (PATCH-Body + Auswahl-Gate) ----------------
+
+
+def _mark_capture(monkeypatch, mod, hits):
+    """cmd_mark verdrahten: _match_messages liefert `hits`, _http fängt PATCHes."""
+    calls = []
+    monkeypatch.setattr(mod, "_match_messages", lambda *a, **k: hits)
+
+    def fake_http(method, url, *, headers=None, json_body=None, **kw):
+        calls.append({"method": method, "url": url, "json": json_body})
+        return mod._Resp(200, '{"ok": true}')
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    return calls
+
+
+def test_should_patch_followup_flag_on_matched_messages(monkeypatch):
+    mod = _load()
+    hits = [{"id": "AAA", "from": {"emailAddress": {"address": "a@x.de"}}}]
+    calls = _mark_capture(monkeypatch, mod, hits)
+    mod.cmd_mark(
+        "tok",
+        from_sub="a@x",
+        subject_sub="",
+        source_path="inbox",
+        days=30,
+        yes=True,
+        patch={"flag": {"flagStatus": "flagged"}},
+        label="Zur Nachverfolgung markieren",
+    )
+    assert len(calls) == 1
+    assert calls[0]["method"] == "PATCH"
+    assert calls[0]["url"].endswith("/me/messages/AAA")
+    assert calls[0]["json"] == {"flag": {"flagStatus": "flagged"}}
+
+
+def test_should_patch_importance_on_each_matched_message(monkeypatch):
+    mod = _load()
+    hits = [
+        {"id": "M1", "from": {"emailAddress": {"address": "a@x.de"}}},
+        {"id": "M2", "from": {"emailAddress": {"address": "b@x.de"}}},
+    ]
+    calls = _mark_capture(monkeypatch, mod, hits)
+    mod.cmd_mark(
+        "tok",
+        from_sub="",
+        subject_sub="Rechnung",
+        source_path="inbox",
+        days=30,
+        yes=True,
+        patch={"importance": "high"},
+        label="Wichtigkeit=high setzen",
+    )
+    assert [c["json"] for c in calls] == [
+        {"importance": "high"},
+        {"importance": "high"},
+    ]
+
+
+def test_should_not_patch_when_no_matches(monkeypatch):
+    mod = _load()
+    calls = _mark_capture(monkeypatch, mod, [])
+    mod.cmd_mark(
+        "tok",
+        from_sub="niemand",
+        subject_sub="",
+        source_path="inbox",
+        days=30,
+        yes=True,
+        patch={"flag": {"flagStatus": "flagged"}},
+        label="Zur Nachverfolgung markieren",
+    )
+    assert calls == []

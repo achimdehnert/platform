@@ -16,6 +16,13 @@ Kommandos:
   --create-folder "INBOX.Studenten"
   --move --from "antonela" --to "INBOX.Trash" [--source INBOX] [--subject "..."] [--yes]
   --to-trash --from "antonela"                # Kurzform: in den Papierkorb
+  --flag   --from "antonela" [--subject "..."] [--source INBOX] [--yes]   # \\Flagged setzen
+  --unflag --from "antonela" [--subject "..."] [--yes]                    # \\Flagged entfernen
+
+Hinweis: Eine echte Wichtigkeitsstufe (hoch/normal/niedrig) ist über IMAP nachträglich
+NICHT setzbar — sie steckt in Kopfzeilen des Absenders. \\Flagged (das „Fähnchen" in
+Outlook/Thunderbird) ist die IMAP-Entsprechung der Nachverfolgung. Wer echte Importance
+braucht, nutzt das M365-Postfach über graph_mail.py --importance.
 """
 
 from __future__ import annotations
@@ -230,6 +237,65 @@ def cmd_move(
     )
 
 
+def _set_flagged(
+    imap: imaplib.IMAP4_SSL, source: str, uids: list[bytes], add: bool
+) -> None:
+    """\\Flagged auf den UIDs setzen (+FLAGS) oder entfernen (-FLAGS) — kein EXPUNGE."""
+    imap.select(source)  # read-write
+    op = "+FLAGS" if add else "-FLAGS"
+    typ, resp = imap.uid("STORE", b",".join(uids), op, r"(\Flagged)")
+    if typ != "OK":
+        sys.exit(f"FEHLER: STORE {op} \\Flagged fehlgeschlagen: {resp}")
+
+
+def cmd_flag(
+    imap: imaplib.IMAP4_SSL,
+    source: str,
+    from_sub: str | None,
+    subj_sub: str | None,
+    yes: bool,
+    add: bool,
+) -> None:
+    hits = _matches(imap, source, from_sub, subj_sub)
+    if not hits:
+        print("Keine passenden Mails gefunden — nichts geändert.")
+        return
+    krit = (
+        " & ".join(
+            filter(
+                None,
+                [
+                    f'Absender~"{from_sub}"' if from_sub else None,
+                    f'Betreff~"{subj_sub}"' if subj_sub else None,
+                ],
+            )
+        )
+        or "ALLE"
+    )
+    label = (
+        "Zur Nachverfolgung markieren (\\Flagged)"
+        if add
+        else "Nachverfolgungs-Markierung (\\Flagged) entfernen"
+    )
+    print(f"{label} in '{source}'  (Kriterium: {krit}) — reversibel:")
+    for _, date, frm, subj in hits:
+        print(f"  · {date:<22} {frm:<40} {subj}")
+    print(f"  = {len(hits)} Mail(s)")
+    if not yes:
+        try:
+            if input(f"{label}? [j/N] ").strip().lower() not in (
+                "j",
+                "ja",
+                "y",
+                "yes",
+            ):
+                sys.exit("Abgebrochen — nichts geändert.")
+        except EOFError:
+            sys.exit("Kein --yes und keine Eingabe möglich — abgebrochen.")
+    _set_flagged(imap, source, [u for u, *_ in hits], add)
+    print(f"OK: {len(hits)} Mail(s) — {label}.")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -240,6 +306,16 @@ def main() -> None:
         "--to-trash",
         action="store_true",
         help="Kurzform: passende Mails in den Papierkorb",
+    )
+    g.add_argument(
+        "--flag",
+        action="store_true",
+        help="passende Mails zur Nachverfolgung markieren (\\Flagged)",
+    )
+    g.add_argument(
+        "--unflag",
+        action="store_true",
+        help="Nachverfolgungs-Markierung (\\Flagged) wieder entfernen",
     )
     ap.add_argument("--source", default="INBOX", help="Quellordner (Default: INBOX)")
     ap.add_argument("--to", help="Zielordner (bei --move)")
@@ -288,6 +364,14 @@ def main() -> None:
             if not trash:
                 sys.exit("FEHLER: kein Papierkorb-Ordner gefunden.")
             cmd_move(imap, args.source, trash, args.from_sub, args.subj_sub, args.yes)
+        elif args.flag or args.unflag:
+            if not (args.from_sub or args.subj_sub):
+                ap.error(
+                    "--flag/--unflag braucht --from und/oder --subject (Sicherheit: kein Pauschal-Zug)"
+                )
+            cmd_flag(
+                imap, args.source, args.from_sub, args.subj_sub, args.yes, add=args.flag
+            )
         else:  # --move
             if not args.to:
                 ap.error("--move braucht --to ZIELORDNER")

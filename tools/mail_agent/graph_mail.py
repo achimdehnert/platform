@@ -19,6 +19,9 @@ Kommandos:
   --create-path "DSGVO/Groeger"          # legt Ober- + Unterordner an (idempotent)
   --scan-senders [--days N]              # Absender-Domains + Häufigkeit (Mapping-Vorschlag)
   --move --from "<domain-oder-substr>" --to "DSGVO/Groeger" [--yes]
+  --flag   --from S [--subject S] [--source PFAD] [--yes]        # zur Nachverfolgung markieren
+  --unflag --from S [--subject S] [--source PFAD] [--yes]        # Markierung wieder entfernen
+  --importance high|normal|low --from S [--subject S] [--yes]    # Wichtigkeit setzen
   --find [--from S] [--subject S] [--days N] [--source PFAD]     # suchen, read-only
   --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N] [--save-attachments DIR]
   --draft --to a@b.c --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
@@ -595,6 +598,85 @@ def cmd_move(
     print(f"OK: {len(hits)} Mail(s) nach '{target_path}' verschoben.")
 
 
+# ---------- Markieren: Nachverfolgung (Flag) + Wichtigkeit ----------
+
+
+def cmd_mark(
+    tok: str,
+    *,
+    from_sub: str,
+    subject_sub: str,
+    source_path: str,
+    days: int,
+    yes: bool,
+    patch: dict,
+    label: str,
+) -> None:
+    """Setzt Follow-up-Flag oder Wichtigkeit auf die per Kriterium getroffenen Mails.
+
+    Kein Pauschal-Zug: die Auswahl kommt aus _match_messages (--from/--subject),
+    und ohne --yes gilt dasselbe Anzeige-Gate wie bei --move. PATCH ist reversibel
+    (--unflag bzw. --importance normal) — es wird nichts verschoben oder gelöscht.
+    """
+    hits = _match_messages(
+        tok,
+        from_sub=from_sub,
+        subject_sub=subject_sub,
+        days=days,
+        source_path=source_path,
+    )
+    if not hits:
+        print("Keine passenden Mails gefunden — nichts geändert.")
+        return
+    krit = (
+        " & ".join(
+            filter(
+                None,
+                [
+                    f'Absender~"{from_sub}"' if from_sub else None,
+                    f'Betreff~"{subject_sub}"' if subject_sub else None,
+                ],
+            )
+        )
+        or "ALLE"
+    )
+    print(f"{label} in '{source_path or 'inbox'}'  (Kriterium: {krit}) — reversibel:")
+    for m in hits:
+        em = (m.get("from") or {}).get("emailAddress") or {}
+        print(
+            f"  · {m.get('receivedDateTime', '')[:10]}  {em.get('address', '')[:38]:<38} "
+            f"{(m.get('subject') or '')[:50]}"
+        )
+    print(f"  = {len(hits)} Mail(s)")
+    if not yes:
+        try:
+            if input(f"{label}? [j/N] ").strip().lower() not in (
+                "j",
+                "ja",
+                "y",
+                "yes",
+            ):
+                sys.exit("Abgebrochen — nichts geändert.")
+        except EOFError:
+            sys.exit("Kein --yes und keine Eingabe — abgebrochen.")
+    ok = 0
+    for m in hits:
+        r = _http(
+            "PATCH",
+            f"{GRAPH}/me/messages/{urllib.parse.quote(m['id'], safe='')}",
+            headers=_auth(tok),
+            json_body=patch,
+        )
+        if r.status_code in (200, 201):
+            ok += 1
+        else:
+            print(
+                f"  ! Fehler bei einer Mail: HTTP {r.status_code} — {r.text[:120]}",
+                file=sys.stderr,
+            )
+    print(f"OK: {ok}/{len(hits)} Mail(s) — {label}.")
+
+
 def cmd_trash(tok: str, msg_id: str) -> None:
     """Verschiebt EINE Nachricht (per ID) in den Papierkorb — reversibel, kein Hard-Delete.
 
@@ -609,7 +691,9 @@ def cmd_trash(tok: str, msg_id: str) -> None:
         json_body={"destinationId": "deleteditems"},
     )
     if r.status_code in (200, 201):
-        print("OK: Nachricht in den Papierkorb (Gelöschte Elemente) verschoben — reversibel.")
+        print(
+            "OK: Nachricht in den Papierkorb (Gelöschte Elemente) verschoben — reversibel."
+        )
     else:
         sys.exit(f"Fehler: HTTP {r.status_code} — {r.text[:200]}")
 
@@ -727,6 +811,21 @@ def main() -> None:
     g.add_argument("--scan-senders", action="store_true")
     g.add_argument("--move", action="store_true")
     g.add_argument(
+        "--flag",
+        action="store_true",
+        help="passende Mails zur Nachverfolgung markieren (Follow-up-Flag)",
+    )
+    g.add_argument(
+        "--unflag",
+        action="store_true",
+        help="Nachverfolgungs-Markierung wieder entfernen",
+    )
+    g.add_argument(
+        "--importance",
+        choices=["high", "normal", "low"],
+        help="Wichtigkeit passender Mails setzen (nur M365/Graph)",
+    )
+    g.add_argument(
         "--move-folder",
         metavar="QUELLPFAD",
         help="ganzen Ordner unter --to-parent verschieben",
@@ -792,6 +891,38 @@ def main() -> None:
         if not (args.from_sub and args.to):
             ap.error("--move braucht --from und --to")
         cmd_move(tok, args.from_sub, args.to, args.source, args.yes)
+    elif args.flag or args.unflag:
+        if not (args.from_sub or args.subject):
+            ap.error("--flag/--unflag braucht --from und/oder --subject")
+        status = "flagged" if args.flag else "notFlagged"
+        label = (
+            "Zur Nachverfolgung markieren"
+            if args.flag
+            else "Nachverfolgungs-Markierung entfernen"
+        )
+        cmd_mark(
+            tok,
+            from_sub=args.from_sub or "",
+            subject_sub=args.subject,
+            source_path=args.source,
+            days=args.days,
+            yes=args.yes,
+            patch={"flag": {"flagStatus": status}},
+            label=label,
+        )
+    elif args.importance:
+        if not (args.from_sub or args.subject):
+            ap.error("--importance braucht --from und/oder --subject")
+        cmd_mark(
+            tok,
+            from_sub=args.from_sub or "",
+            subject_sub=args.subject,
+            source_path=args.source,
+            days=args.days,
+            yes=args.yes,
+            patch={"importance": args.importance},
+            label=f"Wichtigkeit={args.importance} setzen",
+        )
     elif args.move_folder:
         if not args.to_parent:
             ap.error("--move-folder braucht --to-parent ZIEL-ELTERNORDNER")

@@ -16,8 +16,12 @@ Tokens in `~/.claude/graph-mail-tokens/` (600). Kunden-Ordner-Zuordnung lokal, N
 
 ## Sicherheits-Design (Lotsen-Charta KONZ-025)
 
-- **Scope Mail.ReadWrite** — lesen, verschieben, Ordner anlegen, Entwürfe schreiben.
-  **Kein Senden** (Scope kann es nicht → Außenwirkung bleibt beim Menschen, Art. 7).
+- **Scope Mail.ReadWrite** — lesen, verschieben, Ordner anlegen, Entwürfe schreiben,
+  zur Nachverfolgung markieren (Flag), Wichtigkeit setzen. **Kein Senden** (Scope kann es
+  nicht → Außenwirkung bleibt beim Menschen, Art. 7).
+- **Flag/Wichtigkeit sind reversibel** und bleiben im Postfach (kein Abfluss): `--flag`/
+  `--unflag` setzen den Follow-up-Status, `--importance high|normal|low` die Wichtigkeit —
+  beide nur mit `--from`/`--subject`-Kriterium und Anzeige-Gate wie `--move`.
 - **Draft-first:** Vorschläge landen als Entwurf im Drafts-Ordner; der Kapitän prüft und sendet
   selbst aus Outlook. Der bevorzugte Außen-Weg des Lotsen.
 - **Kein hartes Löschen** — Verschieben (auch nach Papierkorb) ist die Grenze.
@@ -33,6 +37,10 @@ python3 tools/mail_agent/graph_mail.py --scan-senders --days 180        # Domain
 python3 tools/mail_agent/graph_mail.py --create-path "IIL.Kunden/Marold"
 python3 tools/mail_agent/graph_mail.py --move-folder "Gröger" --to-parent "IIL.Kunden"
 python3 tools/mail_agent/graph_mail.py --move --from "groeger-recycling.de" --to "DSGVO/Groeger"
+# Nachverfolgung (Follow-up-Flag) + Wichtigkeit — reversibel, gleiches Anzeige-Gate wie --move:
+python3 tools/mail_agent/graph_mail.py --flag --from "groeger-recycling.de" --subject "Frist"
+python3 tools/mail_agent/graph_mail.py --unflag --from "groeger-recycling.de"       # Flag zurücknehmen
+python3 tools/mail_agent/graph_mail.py --importance high --subject "Mahnung"         # high|normal|low
 python3 tools/mail_agent/graph_mail.py --find --subject "Owner-Block" --days 7   # suchen, read-only
 python3 tools/mail_agent/graph_mail.py --show latest --from "dehnert.team"       # eine Mail lesen
 # Anhänge holen — bei Rechnungen/Mahnungen steht der Inhalt im PDF, nicht im Mailtext:
@@ -54,3 +62,6 @@ python3 tools/mail_agent/graph_mail.py --draft --to kunde@x.de --subject "..." -
 - 2026-07-18: Initial (v1). Owner-Entscheid 168 „ja" + Draft-first-Weisung. stdlib-only.
 - 2026-07-18: `--find`/`--show` (E2, Owner „go"): formalisierte Read-Ops statt Ad-hoc-Scripts;
   keine Scope-Änderung (Mail.ReadWrite konnte lesen — jetzt getestet + auditierbar).
+- 2026-07-23: `--flag`/`--unflag`/`--importance` (Owner-Wunsch „Mails kennzeichnen/priorisieren").
+  Keine Scope-Änderung (Mail.ReadWrite konnte es → jetzt getestet + auditierbar), reversibel,
+  gleiches Kriterium+Gate wie `--move`, kein Abfluss.

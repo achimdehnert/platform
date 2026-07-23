@@ -141,3 +141,58 @@ def test_should_move_via_uid_move_with_those_uids():
     imap = _FakeUidImap(b"", [])
     om._move(imap, "INBOX", "Ziel/2020", [b"1001", b"1002"])
     assert imap.moved == (b"1001,1002", "Ziel/2020")
+
+
+# --- _set_flagged / cmd_flag: \Flagged setzen & entfernen --------------------
+
+
+class _FlagImap:
+    """Fake, der select + uid(STORE|SEARCH|FETCH) bedient und STORE mitschneidet."""
+
+    def __init__(self, search_uids=b"", fetch_resp=None):
+        self._search, self._fetch = search_uids, fetch_resp or []
+        self.stored = None
+        self.selected_readonly = None
+
+    def select(self, folder, readonly=False):
+        self.selected_readonly = readonly
+        return "OK", [b"1"]
+
+    def uid(self, cmd, *args):
+        if cmd == "SEARCH":
+            return "OK", [self._search]
+        if cmd == "FETCH":
+            return "OK", self._fetch
+        if cmd == "STORE":
+            self.stored = args  # (uid_set, op, flags)
+            return "OK", [b"1 (UID 1 FLAGS (\\Flagged))"]
+        return "OK", [b""]
+
+
+def test_should_store_add_flagged_flag():
+    imap = _FlagImap()
+    om._set_flagged(imap, "INBOX", [b"1001", b"1002"], add=True)
+    assert imap.stored == (b"1001,1002", "+FLAGS", r"(\Flagged)")
+    assert imap.selected_readonly is False  # write-select vor STORE
+
+
+def test_should_store_remove_flagged_flag():
+    imap = _FlagImap()
+    om._set_flagged(imap, "INBOX", [b"1001"], add=False)
+    assert imap.stored == (b"1001", "-FLAGS", r"(\Flagged)")
+
+
+def test_should_flag_matched_messages_via_cmd_flag():
+    fetch = _fetch_exchange(1001, "alice@x.de", "Frist") + _fetch_exchange(
+        1002, "bob@y.de", "Egal"
+    )
+    imap = _FlagImap(b"1001 1002", fetch)
+    om.cmd_flag(imap, "INBOX", "alice", None, yes=True, add=True)
+    # nur die alice-Mail wird geflaggt, nicht bob
+    assert imap.stored == (b"1001", "+FLAGS", r"(\Flagged)")
+
+
+def test_should_not_store_when_no_matches():
+    imap = _FlagImap(b"1001", _fetch_exchange(1001, "alice@x.de", "Frist"))
+    om.cmd_flag(imap, "INBOX", "niemand", None, yes=True, add=True)
+    assert imap.stored is None
