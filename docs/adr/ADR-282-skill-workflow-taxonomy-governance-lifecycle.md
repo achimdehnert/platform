@@ -175,7 +175,7 @@ Ein **unabhängiger** adr-challenger-Subagent (Richter ≠ Angeklagter, KONZ-010
 | R2 restated `claude-skills.md` „>3×/Woche" | §2.3 als Referenz gekennzeichnet |
 | ADR-280/281 nur `related` trotz Sequencing-Abhängigkeit | Metadaten: **Depends-on** + Option-F/#1298-Link |
 | Fleet-`.claude/`-Scan für ~0 Repos in Phase 1 | §2.4/§3: platform-only zuerst, cross-repo hinter 1. Konsument |
-| Split/Narrow (Taxonomie≈Policy vs Registry=ADR-Kern) | **offen — Owner-Entscheid**, §9 |
+| Split/Narrow (Taxonomie≈Policy vs Registry=ADR-Kern) | Owner wählte **(A) eine ADR** (2026-07-23), §9 |
 
 ## 9. Offene Entscheidung — Scope (Owner)
 
@@ -184,9 +184,10 @@ Der Challenger nennt als stärkstes Gegenargument (Conf. 78): der genuine ADR-Ke
 - **(A) Eine ADR behalten**, aber Taxonomie/R2/R4 klar als „referenziert/eingeordnet, nicht neu" markieren (bereits umgesetzt) — Vorteil: ein Lese-Ort für den vollen Lebenszyklus.
 - **(B) Splitten:** ADR-282 auf den Registry-Mechanismus verengen; die 2-Achsen-Taxonomie + Promotions-Regel als `claude-skills.md`-Edit. Näher an `adr-threshold.md`, kleinerer Blast-Radius.
 
-**Empfehlung:** (A) für den ersten Durchlauf (Taxonomie profitiert von der ADR-Sichtbarkeit + Challenge-Historie), Split (B) erst, falls das Review ihn verlangt. Entscheidung liegt beim Owner — bis dahin `status: proposed`.
+**Owner-Entscheid (2026-07-23): Option A** — eine ADR; Taxonomie/R2/R4 bleiben als „referenziert/eingeordnet, nicht neu" markiert (§2.1/§2.3/§2.5). Split (B) bleibt dokumentierte Rückfalloption, falls das Code-Owner-Review ihn verlangt. `status: proposed` bis das Sequencing (ADR-280 → Option A accepted) **und** das Rollout-Gate (§6) erfüllt sind.
 
 ## 8. Changelog
 
 - 2026-07-23: Initial (proposed). Taxonomie (2 Achsen) + Prozess-Muster (State/Treiber/Registry) + Governance R1–R4 + Registry-Mechanismus + Retirement + Erfolgsmaße. Basiert auf Owner-Review (§7). Referenz-Implementierung Betroffenenrechte: risk-hub `DeletionRequest` (#449) + `/mailcheck` (#1383).
 - 2026-07-23 (Rev, nach adr-challenger §7.1): R4 auf `usage_sweep.py` reconciliert (war Doppler zur gemergten Policy), R2 als Policy-Referenz markiert, ADR-280/281-**Depends-on** + Option-F/#1298-Link ergänzt, cross-repo-Scan aus Phase 1 in eigenes Issue vertagt, `amends: platform-agents.md` gestrichen (nur referenziert). Offen: Scope-Split (§9, Owner).
+- 2026-07-23 (Owner-Entscheid §9): **Option A** — eine ADR, kein Split; Taxonomie/R2/R4 als Referenz belassen. Bleibt `proposed` bis Sequencing (ADR-280 Option A) + Rollout-Gate §6.
