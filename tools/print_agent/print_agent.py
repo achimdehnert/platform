@@ -4,10 +4,12 @@ IIL Print Agent — LLM-gestützter PDF-Generator mit Design-Switcher
 Usage: python3 print_agent.py <input.md> [output_dir] [--design meiki|iil]
 
 Designs: meiki (Standard), iil (IIL GmbH Corporate)
-LLM (Default): cerebras/llama3.1-8b (schnell+günstig), Fallback groq/llama-3.1-8b-instant.
+LLM (Default): ollama/qwen2.5:3b gegen den lokalen Ollama — kein Fallback (#1297).
   Override via ENV PRINT_AGENT_LLM_PRIMARY und PRINT_AGENT_LLM_FALLBACK
   (litellm-Modellstring; leerer Fallback = kein Fallback).
-  Für höhere Qualität auf Cerebras: PRINT_AGENT_LLM_PRIMARY=cerebras/qwen-3-235b-a22b-instruct-2507
+  Jedes Ziel außerhalb dieser Maschine — externer Anbieter ODER ein Ollama auf
+  entferntem OLLAMA_HOST — braucht PRINT_AGENT_ALLOW_EXTERNAL=1, sonst wird der
+  Versuch übersprungen und der Dokumentinhalt bleibt hier. Regeln: llm_gate.py.
 Fallback: Ohne LLM direkt PDF erzeugen
 """
 
@@ -26,6 +28,8 @@ import yaml
 import litellm
 import markdown
 from weasyprint import HTML, CSS
+
+import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
@@ -265,23 +269,15 @@ def get_secret(name: str) -> str | None:
     return None
 
 
-# Datenschutz-Default (#1297): lokales Ollama, kein Dokument-Abfluss an externe Anbieter.
-# Externe Modelle laufen nur mit ausdrücklichem Opt-in (PRINT_AGENT_ALLOW_EXTERNAL=1).
-_DEFAULT_PRIMARY = "ollama/qwen2.5:3b"
-_DEFAULT_FALLBACK = ""  # kein externer Fallback per Default
-_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+# Datenschutz-Gate (#1297) — die Regeln liegen in llm_gate.py, weil dieses Modul beim
+# Import litellm/markdown/weasyprint zieht und ein Test dagegen in CI still übersprungen
+# würde. Namen hier bleiben als dünne Aliase erhalten (Aufrufer/Tests unverändert).
+_DEFAULT_PRIMARY = llm_gate.DEFAULT_PRIMARY
+_DEFAULT_FALLBACK = llm_gate.DEFAULT_FALLBACK
+_OLLAMA_HOST = llm_gate.ollama_host()
 
-
-def _is_local_model(model: str) -> bool:
-    """True für lokal laufende Modelle (Ollama) — kein Datenabfluss nach außen."""
-    return model.lower().startswith(("ollama/", "ollama_chat/"))
-
-
-def _external_allowed() -> bool:
-    """Externe LLM-Anbieter (Cerebras/Groq/OpenAI/…) nur mit ausdrücklichem Opt-in."""
-    return os.environ.get("PRINT_AGENT_ALLOW_EXTERNAL", "").strip().lower() in {
-        "1", "true", "yes", "on",
-    }
+_is_local_model = llm_gate.is_local_model
+_external_allowed = llm_gate.external_allowed
 
 
 def _secret_name_for_model(model: str) -> str | None:
@@ -305,19 +301,19 @@ def _secret_name_for_model(model: str) -> str | None:
 def _try_completion(model: str, prompt: str) -> dict | None:
     """Ein LLM-Versuch — None bei Skip/Fehler, dict bei Erfolg.
 
-    Lokale Modelle (Ollama) laufen ohne API-Key gegen ``_OLLAMA_HOST``.
-    Externe Anbieter werden ohne Opt-in (PRINT_AGENT_ALLOW_EXTERNAL=1)
-    übersprungen — der Dokumentinhalt verlässt die Maschine dann nicht (#1297).
+    Ollama-Modelle laufen ohne API-Key gegen ``OLLAMA_HOST``. Jeder Aufruf, der
+    den Inhalt von dieser Maschine wegtrüge, wird ohne Opt-in
+    (``PRINT_AGENT_ALLOW_EXTERNAL=1``) übersprungen — das gilt für externe
+    Anbieter **und** für einen Ollama auf einem entfernten Host (#1297).
     """
+    host = llm_gate.ollama_host()
     is_local = _is_local_model(model)
+    reason = llm_gate.skip_reason(model, host)
+    if reason:
+        print(reason)
+        return None
     api_key = None
     if not is_local:
-        if not _external_allowed():
-            print(
-                f"⛔ Externer LLM {model} übersprungen — Opt-in nötig "
-                f"(PRINT_AGENT_ALLOW_EXTERNAL=1). Dokumentinhalt bleibt lokal."
-            )
-            return None
         secret_name = _secret_name_for_model(model)
         api_key = get_secret(secret_name) if secret_name else None
         if not api_key:
@@ -333,7 +329,7 @@ def _try_completion(model: str, prompt: str) -> dict | None:
             "timeout": 60 if is_local else 15,
         }
         if is_local:
-            kwargs["api_base"] = _OLLAMA_HOST
+            kwargs["api_base"] = host
         else:
             kwargs["api_key"] = api_key
         response = litellm.completion(**kwargs)
