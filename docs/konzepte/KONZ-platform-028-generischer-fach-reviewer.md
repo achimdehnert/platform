@@ -35,7 +35,7 @@ Reviewer-Ökosystem und **komponiert** mit den bestehenden achsen-spezifischen R
 |----|---------|-----|-------------------------|--------|
 | A1 | Es gibt keine *Fachlichkeits-/Domänen*-Reviewachse — alle bestehenden Reviewer sind achsen-spezifisch | Annahme | C1: `kd-review`=UX, `agent-review`=PR/ADR (ADR-100), `adr-review`, `security-review`, `platform-audit` — kein Domänen-Persona-Reviewer | belegt |
 | A2 | LLM-Fachkritik liefert **Hypothesen**, keine Ratifizierung; final entscheidet die Fachstelle | Annahme | C3: Fachaudit trennte belegt/Hypothese; Finding #2 ging an Rechtsamt (PR #5) | belegt |
-| A3 | Der Mehrwert entsteht aus **Persona + fixem Kontrakt**, nicht aus Modellstärke/Einzelprompt | Annahme | C3 nur *indikativ* — **noch NICHT belegt** (kein Ablationslauf); genau das ist der erste Kill-Gate-Test (extern: M1-AD-2, M2-AD-1) | **unbelegt bis Ablation** |
+| A3 | Der Mehrwert entsteht aus **Persona + fixem Kontrakt**, nicht aus Modellstärke/Einzelprompt | Annahme | 3-Wege-Ablation 2026-07-23 (§Ablation): **Persona = aktiver Wirkstoff** — nur-Kontrakt verfehlte das Rechts-P1 (Scope-Drift), Ad-hoc fing es gehedged/ohne Tiefe; Persona+Kontrakt am tiefsten | **gestützt (n=1 Domäne)** |
 | D1 | **Read-only**, ratifiziert nie; Output ephemer; **kein neues Scoreboard/SSoT** | Entscheidung | SSoT-Prüfung: keine zweite Wahrheitsquelle | gesetzt |
 | D2 | Ausgabe-Kontrakt: Findings **P1/P2/P3 · belegt‖Hypothese · verify-against**. **„belegt" nur mit überprüfbarem Quellen-Locator + Anwendbarkeits-Begründung; fehlt/ungültig ⇒ Auto-Downgrade auf Hypothese. „belegt" ≠ ratifiziert.** | Entscheidung | extern M1-AD-3/M2-AD-3: sonst vergibt dasselbe Modell sich selbst „Wahrheit" | gesetzt (verschärft) |
 | D3 | Form = **Skill** (`distribute:false` bis ADR), spawnt pro Lauf einen **Sub-Agenten** mit Persona + Modell. **Persona-Library verpflichtend für Recht/Security/Datenschutz** (versioniert: owner, Geltung, Nicht-Geltung, zugelassene Quellen, verbotene Autoritätsbehauptungen, Ablauf); freie `--persona` nur für explizit explorative Niedrigrisiko-Läufe | Entscheidung | C2 (`agents/` leer); extern M1-AD-5/M2-AD-13/M28-1 (Persona-Wildwuchs) | gesetzt (verschärft) |
@@ -66,10 +66,27 @@ Reviewer-Ökosystem und **komponiert** mit den bestehenden achsen-spezifischen R
 
 | Kriterium | Status | Beleg |
 |-----------|--------|-------|
-| Ablation zeigt Persona/Kontrakt-Vorsprung | offen | vor Lauf 2/3 |
+| Ablation zeigt Persona-Vorsprung (Wohngeld) | ✅ erfüllt (n=1 Domäne) | 3-Wege-Ablation 2026-07-23, §Ablation |
 | belegt-Präzision ≥ 50 % (menschlich bestätigt) | offen | nach 3 Läufen |
 | kein falsch-autoritatives P1 ohne Locator | offen | laufend |
 | Souveränitäts-Klärung Lauf 2 dokumentiert | offen | vor Lauf 2 |
+
+## Ablation (Kill-Gate Lauf 1b, 2026-07-23)
+
+Drei Varianten, **gleiches Artefakt** (Vor-Audit-Wohngeld-Handout), **gleiches Modell** (Opus),
+read-only — isoliert Persona+Kontrakt gegen Modellstärke:
+
+| Variante | §66 Abs.3-P1 (Ground Truth) | Tiefe |
+|----------|------------------------------|-------|
+| (i) Persona + Kontrakt | ✅ gefunden + 5 weitere tiefe [belegt] (Wiedereinsetzung=falsches Instrument bei behördl. Frist, §66 Abs.1 Kausalität/§20 Amtsermittlung, RBB→1-Jahres-Frist, §16 Abs.2 Weiterleitung, §7/§8 WoGG) | am tiefsten, P1 zuerst, sauber kalibriert |
+| (ii) nur Kontrakt (keine Persona) | ❌ verfehlt — Scope-Drift auf Konsistenz/Hosting (falsche Achse) | flach/generisch |
+| (iii) Ad-hoc (nichts) | ⚠️ gefunden, aber gehedged, mit Oberfläche vermischt | mittel, ohne Priorisierung |
+
+**Verdikt: A3 gestützt (n=1 Domäne).** Die **Persona** ist der aktive Wirkstoff der Fachlichkeits-Achse:
+der Kontrakt allein (ii) genügt nicht (verfehlte das Rechts-P1, prüfte die falsche Achse); Modellstärke
+allein (iii) fängt Teile, aber ohne Tiefe/Kalibrierung. **Caveats (Ehrlichkeit):** nur 1 Domäne; je 1
+Lauf (LLM-Varianz nicht gemittelt); (ii) hatte einen Scope-Drift-Confound (las das Repo-KD statt nur
+den Handout-Text) — der Kernbefund (P1 verfehlt) hält aber. Cross-Domain-Läufe (2/3) bleiben offen.
 
 ## Adversariale Analyse (T2)
 
