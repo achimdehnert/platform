@@ -106,6 +106,12 @@ einem Ad-hoc-Prompt (A3). Jede Anpassung wird im Skill (`/fach-review`) + hier f
   (Scheinkompetenz). Positiver Kill-Gate-Datenpunkt: der Verify-Loop hat einen Reviewer-Fehler gefangen
   UND den Reviewer verbessert; die Persona generalisierte fachlich sauber in eine nicht-juristische Domäne (n=2).
 
+**Zyklus 2 — Run #3 (Datenschutz-/Sozialdatenschutz-Domäne, 2026-07-23):**
+- **Lief:** DSGVO/Sozialdatenschutz-Jurist:in auf 2 real relevante ADRs (frist-hub ADR-005 Hosting-Sozialdaten, ADR-006 Tenant-Lifecycle).
+- **Bewertet:** sauberer Durchlauf — belegte P1/P2 mit Norm-Locator (z. B. ADR-005: Prod-Gate ohne DSFA/DSB-Bedingung, Art. 35 DSGVO; ADR-006: Löschung vor archivrechtlicher Anbietung, Art. 6 BayArchivG). **Locator-Genauigkeit stichprobenartig gegen den ADR-Text verifiziert** (Zeilen-/Abschnittsangaben akkurat, F1 inhaltlich bestätigt). belegt/Hypothese korrekt getrennt, Achsen-Abgrenzung zu Security beachtet.
+- **Experten angepasst:** **keine Anpassung nötig** — kein Methoden-Fehler, kein Fehl-`belegt`. (Content-visibility-Mess-Disziplin aus Zyklus 1 hier nicht einschlägig, da Text-Artefakt ohne Progressive Disclosure.)
+- **Meta:** dritte distinkte Domäne (Recht-Verfahren · UX · Datenschutz) → **Persona generalisiert n=3**; erster sauberer Zyklus ohne Kalibrierbedarf. Nebennutzen: die Findings sind für ADR-005/006 (Proposed) real verwertbar (F1/G1 vor Accepted).
+
 ## Adversariale Analyse (T2)
 
 **Steelman:** Der fixe Kontrakt (D2) ist die eigentliche Invariante, billig über Domänen wiederverwendbar; es *komponiert* statt zu ersetzen; geerdet an einem realen Lauf, der einen belegten P1-Rechtsfehler fand, den die UX-Prüfung strukturell nicht finden konnte.
