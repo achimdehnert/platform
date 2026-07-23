@@ -5,10 +5,11 @@ pipeline_status: idea
 tier: T2
 owner: Achim Dehnert (pg@dehnert.team)
 spec_refs: []                 # keine KD-Spec — Reviewer-Capability, kein Klickdummy
-adr_threshold: kein ADR für den Pilot (1 Skill, reversibel) · org-weite Distribution via cc-skill-dist ⇒ Amendment ADR-100-Reviewer-Familie / ADR-211
+adr_threshold: kein ADR für den Pilot (1 Skill, `distribute:false`, reversibel) · org-weite Distribution ⇒ EIGENER ADR (Cross-Repo + Datensouveränität + Security-Perimeter, adr-threshold.md), NICHT bloß Amendment
 review_by: 2026-10-23
-kill_criteria: "Nach 3 realen Einsätzen: wenn die belegt-Findings-Trefferquote (durch menschlichen Fachprüfer bestätigt) < 50 % ODER die Persona-Parametrisierung in ≥2 Domänen keinen Mehrwert über einen Ad-hoc-Subagent-Prompt zeigt ⇒ verworfen."
+kill_criteria: "Nach den 3 Realläufen (inkl. Pflicht-Ablation, s. §Kill-Gate): wenn im verblindeten A/B (mit vs. ohne Persona+Kontrakt vs. Ad-hoc-Prompt) kein signifikanter Vorsprung ODER die menschlich bestätigte belegt-Präzision (bestätigt / (bestätigt+widerlegt), Null-Finding-Läufe separat) < 50 % ODER ≥1 falsch-autoritatives P1 ohne Locator ⇒ verworfen. Verbindliche Ja/Nein-Auswertung am review_by-Termin."
 superseded_by_spec: null
+external_sparring_by: "extern, 2 unabhängige LLM-Anbieter @2026-07-23 (Meinung 1 + Meinung 2) — Verdikt beide: Überarbeiten; Tag-Tabelle s. §Externe Zweitmeinung"
 created: 2026-07-23
 evidence_manifest:
   - {claim_id: C1, source_path: "platform/.windsurf/workflows/{kd-review,agent-review,adr-review}.md + ls workflows/*review*", commit_or_pr: "grep 2026-07-23", opened_in_session: true}
@@ -19,9 +20,8 @@ evidence_manifest:
 # KONZ-platform-028 — Generischer Fach-/Experten-Reviewer
 
 > **Cross-cutting Reviewer-Capability · Heimat platform** (Org `achimdehnert`). Geerdet am
-> frist-hub-Fachaudit des Wohngeld-Handouts (`meiki-lra/frist-hub#74`); hierher graduiert, weil
-> die Capability fleet-weit gilt — und weil das Souveränitäts-Gate ein in `meiki-lra` liegendes
-> Konzept von externer Zweitmeinung ausschließt, in `platform` aber nicht (kein Bürgerdaten-Inhalt).
+> frist-hub-Fachaudit des Wohngeld-Handouts (`meiki-lra/frist-hub#74`). Externe Zweitmeinung
+> eingeholt (2 Anbieter, beide „Überarbeiten") und eingearbeitet — s. §Externe Zweitmeinung.
 
 ## Kernthese
 
@@ -33,51 +33,82 @@ Reviewer-Ökosystem und **komponiert** mit den bestehenden achsen-spezifischen R
 
 | id | Aussage | Typ | Evidenz / Falsifikation | Status |
 |----|---------|-----|-------------------------|--------|
-| A1 | Es gibt keine *Fachlichkeits-/Domänen*-Reviewachse — alle bestehenden Reviewer sind achsen-spezifisch (UX/Code/ADR/Security/Fleet) | Annahme | C1: `kd-review`=UX, `agent-review`=PR-vs-ADR/Ruff/Bandit (ADR-100), `adr-review`=ADR-Checklist, `adr-handoff-extern-reviewer*`=externe Zweitmeinung, `platform-audit`=Fleet — kein Domänen-Persona-Reviewer | belegt |
-| A2 | LLM-Fachkritik liefert **Hypothesen**, keine Ratifizierung; final entscheidet die Fachstelle | Annahme | C3: Fachaudit trennte belegt/Hypothese; Finding #2 (§84 SGG→§70 VwGO) ging an Rechtsamt (frist-hub PR #5), Finding #1 (§66 Abs.3) war belegt+umgesetzt | belegt |
-| A3 | Der eigentliche Mehrwert ist der **erzwungene Kontrakt**, nicht der Freitext-Prompt | Annahme | C3: derselbe Auditor re-derivte unabhängig die PR-#5-Korrektur — reproduzierbare Tiefe kam aus Persona+Kontrakt, nicht Zufall | plausibel |
-| D1 | **Read-only**, ratifiziert nie; Output ephemer (Issue/PR-Kommentar/Handover), **kein neues Scoreboard/SSoT** | Entscheidung | SSoT-Prüfung: keine zweite Wahrheitsquelle, Findings sind Vorschläge | gesetzt |
-| D2 | Fixer Ausgabe-Kontrakt: Findings **P1/P2/P3 · belegt‖Hypothese · „gegen was verifizieren"** | Entscheidung | Invariante über alle Läufe; Persona/Maßstab variabel | gesetzt |
-| D3 | Form = **Skill**, der pro Lauf einen **Sub-Agenten** mit gesetzter Persona + Modell-Tier spawnt — **nicht** ein statisches CC-Sub-Agent-File | Entscheidung | C2: `~/.claude/agents` leer; Persona wechselt pro Einsatz → statisches File zu starr; `kd-review` spawnt bereits Sonnet-Subagent | gesetzt |
-| D4 | Modell-Tier **pro Einsatz**: Domänen-Korrektheit mit rechtlichen/Sicherheits-Einsätzen ⇒ **Opus**; reine Verständlichkeit/Stil ⇒ **Sonnet** | Entscheidung | C1/C3: `kd-review`-UX lief Sonnet; Wohngeld-Fachaudit lief Opus (rechtliche Einsätze) — Ergebnis rechtfertigte die Tier-Wahl | gesetzt |
-| R1 | **Scheinkompetenz** — klingt autoritativ, liegt falsch (falsch-autoritatives P1 kostet Vertrauen) | Risiko | Mitigation D2 (belegt/Hypothese + verify-against); Restrisiko → Kill-Gate misst Trefferquote | offen |
-| R2 | Overlap/Verwirrung mit bestehenden Reviewern → Doppelarbeit | Risiko | Mitigation: Achsen-Abgrenzung dokumentiert (s. MVC); Persona/Maßstab machen die Achse explizit | offen |
-| R3 | Org-weite Distribution ohne Governance (cc-skill-dist) = Cross-Repo-Impact | Risiko | Mitigation: Distribution ist eigenes Gate (ADR-Amendment), **nicht** Teil des T2-Pilots | offen |
+| A1 | Es gibt keine *Fachlichkeits-/Domänen*-Reviewachse — alle bestehenden Reviewer sind achsen-spezifisch | Annahme | C1: `kd-review`=UX, `agent-review`=PR/ADR (ADR-100), `adr-review`, `security-review`, `platform-audit` — kein Domänen-Persona-Reviewer | belegt |
+| A2 | LLM-Fachkritik liefert **Hypothesen**, keine Ratifizierung; final entscheidet die Fachstelle | Annahme | C3: Fachaudit trennte belegt/Hypothese; Finding #2 ging an Rechtsamt (PR #5) | belegt |
+| A3 | Der Mehrwert entsteht aus **Persona + fixem Kontrakt**, nicht aus Modellstärke/Einzelprompt | Annahme | C3 nur *indikativ* — **noch NICHT belegt** (kein Ablationslauf); genau das ist der erste Kill-Gate-Test (extern: M1-AD-2, M2-AD-1) | **unbelegt bis Ablation** |
+| D1 | **Read-only**, ratifiziert nie; Output ephemer; **kein neues Scoreboard/SSoT** | Entscheidung | SSoT-Prüfung: keine zweite Wahrheitsquelle | gesetzt |
+| D2 | Ausgabe-Kontrakt: Findings **P1/P2/P3 · belegt‖Hypothese · verify-against**. **„belegt" nur mit überprüfbarem Quellen-Locator + Anwendbarkeits-Begründung; fehlt/ungültig ⇒ Auto-Downgrade auf Hypothese. „belegt" ≠ ratifiziert.** | Entscheidung | extern M1-AD-3/M2-AD-3: sonst vergibt dasselbe Modell sich selbst „Wahrheit" | gesetzt (verschärft) |
+| D3 | Form = **Skill** (`distribute:false` bis ADR), spawnt pro Lauf einen **Sub-Agenten** mit Persona + Modell. **Persona-Library verpflichtend für Recht/Security/Datenschutz** (versioniert: owner, Geltung, Nicht-Geltung, zugelassene Quellen, verbotene Autoritätsbehauptungen, Ablauf); freie `--persona` nur für explizit explorative Niedrigrisiko-Läufe | Entscheidung | C2 (`agents/` leer); extern M1-AD-5/M2-AD-13/M28-1 (Persona-Wildwuchs) | gesetzt (verschärft) |
+| D4 | Modell-Parameter als **abstrakte Klassen** `standard`/`frontier`, aufgelöst über zentrale Policy zu **zugelassenen Endpoints**. **Fail-closed:** souveräner Artefakt-*Inhalt* (nicht nur Skill-Standort) auf nicht-souveränitätskonformer Route ⇒ Abbruch ohne Override | Entscheidung | extern M1-AD-7/M2-AD-4/AD-15: Standort ≠ Daten; Provider-Namen im CLI-Vertrag vermeiden | gesetzt (verschärft) |
+| D5 | Org-weite Distribution ⇒ **eigener ADR** (nicht Amendment): Cross-Repo-Scope, Daten-/Egress-Grenzen, Modellrouting, Ownership, Evaluations-Anforderungen, Rollback/Abschaltung. Pilot-Skill bleibt bis dahin `distribute:false` | Entscheidung | adr-threshold.md (Cross-Repo+Souveränität+Security); extern M1-AD-6 (cc-skill-dist verteilt sonst sofort org-weit) | **NEU** |
+| D6 | **Komposition:** feste Abgrenzungsregel (fach-review kommentiert NUR fachlich-inhaltliche Korrektheit, nicht Code/ADR-Schema/Security); ephemerer **Review-Plan** je Artefakt (1 primärer Reviewer default, weitere nur per expliziten Trigger, Laufbudget); Findings-Schema `Achse · Artefakt-Locator · Claim · Evidenz-Locator · verify-against` für Dedup; Widersprüche als **ungelöste Konfliktgruppe** (kein Auto-LLM-Schiedsspruch) | Entscheidung | extern M1-AD-9/M2-AD-10..12/M28-5 (R2 war benannt, nicht geregelt) | **NEU** |
+| D7 | **Run-Manifest** je Output: Skill-/Vertragsversion, Persona-Version, Modellklasse+Endpoint, Hash/Snapshot der geprüften Artefakte+Standards, Zeitpunkt — **ohne** separates Scoreboard | Entscheidung | extern M2-AD-14/M28-6/M28-3 (Reproduzierbarkeit/Provenienz) | **NEU** |
+| D8 | **P1-Governance:** regulatorische/rechtliche/Security-P1 werden als „dringend, unratifiziert" ausgegeben und erfordern eine benannte menschliche Fachstelle **oder** einen unabhängigen zweiten Prüfpfad | Entscheidung | extern M2-M28-8/REC-13 (falsch-autoritatives P1 verbrennt Vertrauen) | **NEU** |
+| R1 | Scheinkompetenz — klingt autoritativ, liegt falsch | Risiko | Mitigation D2/D8; Rest → Kill-Gate misst Präzision + Quarantäne bei falsch-P1 | offen |
+| R2 | Overlap/Reviewer-Müdigkeit | Risiko | Mitigation D6 (Abgrenzung + Review-Plan + Budget) | offen (gemildert) |
+| R3 | Prompt-Injection aus Artefakt/Quellen trotz read-only | Risiko | Mitigation: strikte Kanaltrennung Instruktion/Artefakt/Quelle für Hochrisiko (D3/D6); extern M2-AD-6 | **NEU** |
 
 ## MVC (Minimal Viable Concept — konkret)
 
-- **1 Skill** `/fach-review` (Arbeitsname) in `platform/.windsurf/workflows/`, verteilt via `cc-skill-dist`.
-- **Parameter:** `--persona <lens>` · `--artefakt <pfad|url>` · `--standard <ADR/Norm/Quellen>` · `--modell <opus|sonnet>` (Default per D4-Heuristik) · optional `--persona-lib <name>` (wiederverwendbare Persona-Bausteine, z. B. `wohngeld-sb+verwaltungsrecht`, `datenschutz`, `klinik`).
-- **Ablauf:** Skill spawnt einen Agenten, dessen System-Prompt = Persona + 4 Prüf-Dimensionen (Tiefe/Vollständigkeit · Korrektheit · Verständlichkeit · Konventionen/Standards) + fixer Ausgabe-Kontrakt (D2) + read-only. Rückgabe = Findings-Liste; bei ≥3 Findings Issue-Vorschlag (nicht selbst anlegen).
-- **Abgrenzung (gegen R2), fest im Skill dokumentiert:** Fachlichkeit/Domäne — **nicht** UX (`/kd-review`), **nicht** Code/PR-vs-ADR (`/agent-review`), **nicht** ADR-Schema (`/adr-review`), **nicht** Security-Perimeter (`/security-review`). Komposition: dieselbe Artefakt-Instanz kann mehrere Achsen-Reviewer nacheinander durchlaufen.
-- **Kill-Gate-Datenbasis = erste 3 Realläufe:** (1) Wohngeld-Handout = **Referenzlauf, bereits erfolgt** (fand belegtes P1 §66 Abs.3), (2) ein Datenschutz-Artefakt, (3) ein ADR/Konzept.
+- **1 Skill** `/fach-review` in `platform/.windsurf/workflows/`, **`distribute:false`** bis zum ADR (D5).
+- **Parameter:** `--persona-lib <name@version>` (Pflicht für Hochrisiko) bzw. `--persona <lens>` (nur explorativ) · `--artefakt <pfad|url>` (mit Snapshot/Hash) · `--standard <ADR/Norm/Quellen>` (versionsgebunden) · `--modell <standard|frontier>` (Policy→Endpoint, fail-closed) · `--achse fach` (fix).
+- **Ablauf:** Skill spawnt Agenten, System-Prompt = Persona + 4 Prüf-Dimensionen (Tiefe/Vollständigkeit · Korrektheit · Verständlichkeit · Konventionen) + fixer Kontrakt (D2) + read-only; strikte Kanaltrennung (R3). Rückgabe = Findings-Liste (D6-Schema) + Run-Manifest (D7); bei ≥3 Findings Issue-Vorschlag.
+- **Ownership (extern M2-AD-7/M28-7):** Code-Heimat platform, aber **je Pilotdomäne eine benannte Fach-Owner-Rolle** (verantwortet Persona, Quellenpaket, Ergebnisbewertung, Ausmusterung).
+- **Abgrenzung (D6):** Fachlichkeit — nicht UX (`/kd-review`), nicht Code/PR-vs-ADR (`/agent-review`), nicht ADR-Schema (`/adr-review`), nicht Security-Perimeter (`/security-review`).
+
+## Kill-Gate (verschärft nach externer Zweitmeinung)
+
+- **Lauf 1 (erfolgt):** Wohngeld-Handout — belegtes P1 (§66 Abs.3 SGB I) gefunden. Trägt allein **nicht** die Generalisierung (extern M1-AD-1).
+- **Pflicht-Ablation VOR Lauf 2/3:** verblindeter A/B am selben Artefakt — (i) Persona+Kontrakt, (ii) nur Kontrakt ohne Persona, (iii) Ad-hoc-Einzelprompt. Ohne signifikanten Vorsprung von (i) ⇒ A3 falsifiziert ⇒ verworfen.
+- **Lauf 2 (Datenschutz-Artefakt) — Vorbedingung:** dokumentierte Souveränitäts-Klärung des Artefakt-*Inhalts* (D4 fail-closed) **bevor** der Lauf startet (extern M1-AD-7/M2-AD-4).
+- **Metriken (extern M2-AD-2):** `bestätigte Findings`, `falsch-P1`, `nützliche Findings/Lauf`, `Null-Finding-Läufe`, Kosten, Laufzeit — getrennt. Menschliche Bestätigung mit definiertem Verfahren (auch Teil-/Grauzone).
+- **Verbindliche Entscheidung** am `review_by`-Termin 2026-10-23 (Ja/Nein, nicht implizit verstreichen — extern M2-M28-... / M1-M28-2).
+
+| Kriterium | Status | Beleg |
+|-----------|--------|-------|
+| Ablation zeigt Persona/Kontrakt-Vorsprung | offen | vor Lauf 2/3 |
+| belegt-Präzision ≥ 50 % (menschlich bestätigt) | offen | nach 3 Läufen |
+| kein falsch-autoritatives P1 ohne Locator | offen | laufend |
+| Souveränitäts-Klärung Lauf 2 dokumentiert | offen | vor Lauf 2 |
 
 ## Adversariale Analyse (T2)
 
-**Steelman:** Der Kontrakt (D2) ist die eigentliche Invariante und billig über Domänen wiederverwendbar; Persona/Maßstab sind reine Parameter; es *komponiert* statt zu ersetzen; und es ist an einem realen Lauf geerdet, der einen echten, belegten P1-Rechtsfehler fand, den die UX-Prüfung strukturell nicht finden konnte.
+**Steelman:** Der fixe Kontrakt (D2) ist die eigentliche Invariante, billig über Domänen wiederverwendbar; es *komponiert* statt zu ersetzen; geerdet an einem realen Lauf, der einen belegten P1-Rechtsfehler fand, den die UX-Prüfung strukturell nicht finden konnte.
 
-| Befund | Quelle | Antwort / Restrisiko |
-|--------|--------|----------------------|
-| AD-1: „Ein generischer Reviewer ist nur ein Prompt-Template — braucht es dafür einen Skill?" | Advocatus Diabolus | Wert = erzwungener Kontrakt (D2) + Persona-Lib + Modell-Routing (D4); ohne Skill driftet jeder Ad-hoc-Lauf (A3). Rest: gering. |
-| AD-2: Scheinkompetenz — falsch-autoritatives P1 | Advocatus Diabolus | D2 mildert; **Restrisiko real** (R1) → Kill-Gate misst Trefferquote, Findings nie Freigabe |
-| AD-3: Erzeugt es eine zweite Wahrheitsquelle? | Advocatus Diabolus | Nein — Output ephemer, kein Scoreboard (D1) |
-| AD-4: Wird das „Tool" faktisch zur Boundary/zum Gate? | Advocatus Diabolus | Nein — read-only, kein Enforcement; „sichtbar machen", nicht „verhindern" |
-| AD-5 (Maintainer-2028): Persona-Bibliothek veraltet (Normen ändern sich) | Maintainer-2028 | Persona/Standard sind Pro-Lauf-Parameter, keine eingefrorene Wahrheit; Norm-Quelle wird pro Lauf zitiert (verify-against) |
+**Verworfene/ergänzende Alternativen (inkl. externer OOTB):**
 
-**2 Alternativen**
-
-| Alt | Beschreibung | Warum nicht (allein) |
-|-----|--------------|----------------------|
-| Alt-1: Status quo (Ad-hoc-Subagent-Prompts) | Pro Bedarf einen Prompt schreiben | Billiger, aber kein Kontrakt, driftet, nicht wiederverwendbar, kein Modell-Routing (A3) |
-| Alt-2: Je Domäne ein eigener Spezial-Skill (wie `kd-review` für UX) | N domänenspezifische Reviewer | Präziser je Domäne, aber Achsen-Explosion + N-facher Pflegeaufwand; nur lohnend bei dauerhaft hoher Frequenz einer Domäne |
+| Alt | Idee | Rolle |
+|-----|------|-------|
+| Ad-hoc-Subagent-Prompts (Status quo) | Pro Bedarf ein Prompt | Baseline im Ablationstest; kein Kontrakt, driftet |
+| N Domänen-Spezial-Skills | je Domäne ein Reviewer | Achsen-Explosion; nur bei dauerhaft hoher Frequenz; Re-Check falls generisch stark domänenabhängige Fehlerraten |
+| **Evidenz-first-Prüfer** (extern) | Anforderungen aus freigegebenen Normen extrahieren, LLM lokalisiert/vergleicht nur | **Challenger im Ablationstest** + bevorzugt für wiederkehrende Hochrisiko-Prüfungen |
+| **Regel-as-Code + LLM-Erklärung** (extern) | harte Regeln deterministisch, LLM nur Kontext/Erklärung | für stabile Muss-Kriterien kombinieren |
+| **Menschliche Fach-Review-Queue** (extern) | LLM sortiert vor, Mensch entscheidet | **Pflicht-Eskalationsweg für regulatorische P1** (D8) |
 
 ## Empfehlung & Entscheidung
 
-**Bauen als T2-Pilot:** 1 Skill `/fach-review`, Referenzlauf (Wohngeld, erledigt) + 2 weitere Realläufe (Datenschutz, ADR/Konzept), dann Kill-Gate-Auswertung. **Org-weite Distribution** via cc-skill-dist erst **nach** ADR-Amendment (ADR-100-Reviewer-Familie / ADR-211). Spezial-Skills (Alt-2) nur ergänzend, wo eine Domäne dauerhaft hohe Frequenz zeigt.
+**Überarbeiten (extern bestätigt) + T2-Pilot durchführen** — mit den oben eingearbeiteten Verschärfungen: Pflicht-Ablation, „belegt"-Locator (D2), fail-closed Modellrouting (D4), Persona-Registry (D3), Review-Plan (D6), Run-Manifest (D7), P1-Governance (D8). **Org-weite Distribution NICHT freigeben** bis eigener ADR (D5); Pilot-Skill `distribute:false`. Die durchgängige, erzwingbare Vertrauensgrenze (zugelassene Quelle → souveränes Routing → menschliche Bestätigung) ist die eine Bedingung, die vor der Verbreitung stehen muss.
 
-**Kill-Gate:** siehe `kill_criteria` (Frontmatter). Exception-Budget: bis `review_by` 2026-10-23; bei Nichterreichen der 3 Realläufe bis dahin ⇒ `sunset` mit Begründung.
+## Externe Zweitmeinung — Rückfluss (Step 5)
 
-## Externe Zweitmeinung (Audit-Nachweis)
+Zwei unabhängige LLM-Anbieter, 2026-07-23. Beide Verdikt: **Überarbeiten**. Refutation ≈ 0 (Briefing war vollständig) — die Befunde sind Schärfungen unterspezifizierter Achsen, keine Widerlegungen der Kernthese. Konsolidiert (Finding-/REC-IDs beider Meinungen → Verdikt → Aktion):
 
-- `external_sparring_by:` _(nach Rückfluss gesetzt — Provider@Datum)_
-- Tag-Tabelle (AD-/REC-ID → Verdikt → Aktion): _folgt nach Step-5-Rückfluss._
+| Thema | IDs (M1 / M2) | Verdikt | Eingearbeitet als |
+|-------|---------------|---------|-------------------|
+| Ablation/blind A/B vor Lauf 2/3 | AD-2,REC-1 / AD-1,REC-1,M28-4 | [valid] | Kill-Gate (Pflicht-Ablation) + A3=unbelegt |
+| „belegt" braucht Locator, sonst Hypothese | AD-3,REC-3 / AD-3,REC-2,M28-8 | [valid] | D2 verschärft |
+| Kill-Gate-Metriken + verbindlicher Termin | AD-4,REC-7 / AD-2,REC-1 | [valid] | Kill-Gate + kill_criteria |
+| Souveränität Artefakt-*Daten* bei Routing, fail-closed | AD-7,REC-2 / AD-4,REC-3 | [valid] | D4 verschärft + Lauf-2-Vorbedingung |
+| Persona versioniert/registriert, Pflicht bei Hochrisiko | AD-5,REC-4 / AD-13,REC-9,M28-1 | [valid] | D3 verschärft |
+| Org-weit = eigener ADR; `distribute:false` | AD-6,REC-6 / AD-9,REC-6 | [valid] | D5 (neu) |
+| Komposition: Abgrenzung+Review-Plan+Budget+Dedup | AD-9,REC-5 / AD-10..12,REC-7/8,M28-5 | [valid] | D6 (neu) |
+| Abstrakte Modellklassen statt Provider-Namen | — / AD-15,REC-3,M28-2 | [valid] | D4 |
+| Prompt-Injection / Kanaltrennung | — / AD-6,REC-10 | [valid] | R3 (neu) + D3/D6 |
+| Run-Provenienz/Manifest | — / AD-14,M28-6,M28-3,REC-11 | [valid] | D7 (neu) |
+| P1-Governance (Eskalationspfad) | — / M28-8,REC-13 | [valid] | D8 (neu) |
+| Fach-Owner je Domäne (Placement platform bleibt) | M28-5 / AD-7,M28-7,REC-4,PRO-5 | [valid] | MVC-Ownership; (a)-Placement bestätigt |
+| Vertrag tool-neutral vom CC-Shell trennen | — / AD-8,REC-5 | [valid, Design-Prinzip] | D6/Portabilität (Pilotform D3 bleibt) |
+| Kontinuierliche Kalibrierung/Quarantäne | — / REC-12,M28-4 | [valid, post-pilot] | Lifecycle/Kill-Gate-Quarantäne |
+| OOTB-Alternativen als Komplemente | OOTB / OOTB | [valid] | Alternativen-Tabelle erweitert |
+
+Kein Befund als `[missversteht-Kontext]`/`[out-of-scope]` getaggt — beide Meinungen waren kontext-treu (vollständiges Briefing). Genau das ist der Grund, das Konzept vor jedem weiteren Lauf zu härten.
