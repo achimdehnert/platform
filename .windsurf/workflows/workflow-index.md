@@ -120,6 +120,7 @@ mode: read-only
 | E-Mails über Maschinen-IMAP lesen (read-only) | `/read-mail` |
 | Postfach aufräumen: Mails in Ordner verschieben, Spam→Papierkorb | `/organize-mail` |
 | IIL-Geschäftspostfach (Graph): sortieren + Antwort-Entwürfe | `/iil-mail` |
+| Mail-Fortschritts-Check nach dem Briefing (Antworten + Gesendetes → nächste Schritte) | `/mailcheck` |
 
 ### Klickdummy & Secrets
 
