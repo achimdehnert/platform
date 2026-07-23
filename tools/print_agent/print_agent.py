@@ -30,6 +30,7 @@ import markdown
 from weasyprint import HTML, CSS
 
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
+import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
 
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
@@ -164,7 +165,12 @@ def _profile_to_design(profile_name: str) -> dict:
         "footer_suffix": prof.get("footer", {}).get("suffix", ""),
         "llm_context":  prof.get("llm_context", "Technologie und KI"),
         "es_label_text": prof.get("es_label_text", "Zusammenfassung"),
-        "meta_template": "db",
+        # #1297 (zweiter Befund): Publikum steuert Anreicherung + Untertitel-Default.
+        # meta_template bleibt bei "db", solange das Profil nichts anderes sagt —
+        # die Meta-Tabelle umzubauen war nicht Gegenstand des Befunds.
+        "meta_template": prof.get("meta_template", "db"),
+        "audience": profile_policy.audience(prof),
+        "llm_enrichment": profile_policy.enrichment_enabled(prof),
         "_text_color":  c.get("text", "#1F2937"),
         "mermaid_classes": {
             "primary": {"fill": c.get("primary", "#000"),     "stroke": c.get("primary_dark", "#000"), "color": "#FFFFFF"},
@@ -319,6 +325,11 @@ def _try_completion(model: str, prompt: str) -> dict | None:
         if not api_key:
             print(f"⚠️  Kein API-Key für {model} ({secret_name}) — übersprungen")
             return None
+    # Sichtbarkeit vor dem Abfluss (#1297): der ursprüngliche Vorfall fiel nur auf,
+    # weil jemand die Konsole las — und dort stand nichts über Ziel und Umfang.
+    notice = llm_gate.egress_notice(model, len(prompt), host)
+    if notice:
+        print(f"   {notice}")
     try:
         kwargs = {
             "model": model,
@@ -946,8 +957,10 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
 
     if template in ("iil", "db"):
         # Document type drives the cover subtitle line.
-        # Priority: explicit Typ: > explicit Status: > Default je Template.
-        _default_type = "Internes Dokument" if template == "db" else "Angebot"
+        # Priority: explicit Typ: > explicit Status: > Default je Template/Publikum.
+        # #1297: extern gerichtete Profile raten KEINEN Typ mehr — ein Angebot trug
+        # sonst den Untertitel „Internes Dokument".
+        _default_type = profile_policy.default_doc_type(design.get("audience", ""), template)
         doc_type = meta.get("doc_type") or meta.get("status") or _default_type
         datum = meta.get("datum", "")
         date_line = f"{doc_type} · {datum}".strip(" ·")
@@ -976,7 +989,9 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
     return tpl.render(**ctx)
 
 
-def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extra_css: str = "", profile: str | None = None) -> Path:
+def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extra_css: str = "",
+            profile: str | None = None, enrich: bool | None = None) -> Path:
+    """``enrich``: ``None`` = Profil entscheidet, sonst CLI-Vorrang (--enrich/--no-enrich)."""
     if profile:
         design = _profile_to_design(profile)
     else:
@@ -1008,8 +1023,17 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     title = m.group(1) if m else input_path.stem
     body_html = re.sub(r"<h1[^>]*>.*?</h1>", "", body_html, count=1)
 
-    print("🤖 LLM-Anreicherung …")
-    enrichment = llm_enrich(title, md_text, design)
+    # #1297 (zweiter Befund): für extern gerichtete Profile ist die Anreicherung aus —
+    # ein KI-Kasten über die eigenen Vertragsbedingungen gehört nicht ungefragt in ein
+    # Angebot mit Unterschriftsfeld. CLI sticht das Profil.
+    do_enrich = design.get("llm_enrichment", True) if enrich is None else enrich
+    if not do_enrich:
+        why = "--no-enrich" if enrich is False else f"Profil ist {design.get('audience', 'extern')} gerichtet"
+        print(f"⏭️  LLM-Anreicherung aus ({why}) — mit --enrich erzwingbar")
+        enrichment = {}
+    else:
+        print("🤖 LLM-Anreicherung …")
+        enrichment = llm_enrich(title, md_text, design)
     if enrichment.get("summary"):
         print(f"   ✅ Summary: {enrichment['summary'][:80]}…")
         print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
@@ -1035,6 +1059,10 @@ def main():
                         help="design-hub Brand-Profil (db-intern|db-hybrid|iil-extern) — volle CI inkl. Logo/Fonts; prüft allowed_assets")
     parser.add_argument("--extra-css", default=None,
                         help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)")
+    parser.add_argument("--enrich", dest="enrich", action="store_true", default=None,
+                        help="LLM-Anreicherung erzwingen, auch bei extern gerichtetem Profil (#1297)")
+    parser.add_argument("--no-enrich", dest="enrich", action="store_false",
+                        help="LLM-Anreicherung unterdrücken (kein Zusammenfassungs-Kasten)")
     args = parser.parse_args()
     if args.designs:
         global DESIGNS
@@ -1047,7 +1075,8 @@ def main():
 
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else OUTPUT_DIR
     extra_css = Path(args.extra_css).read_text(encoding="utf-8") if args.extra_css and Path(args.extra_css).exists() else ""
-    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css, profile=args.profile)
+    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css,
+                  profile=args.profile, enrich=args.enrich)
     print(f"✅ PDF erstellt: {out}  ({out.stat().st_size // 1024} KB)")
 
 
