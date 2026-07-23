@@ -398,6 +398,24 @@ Grundsatzdebatte** Option D:
 Ergebnis wird als versioniertes Artefakt im Repo abgelegt (Werkzeugversion, Ausgangscommit,
 Testfälle, Beobachtung, Entscheid „A bestanden" / „Fallback D") — nicht als Chat-Notiz.
 
+#### Messstand 2026-07-23 — 5/6, Kriterium 6 offen
+
+Artefakt: [`docs/verifications/2026-07-23-adr280-betriebsnachweis.md`](../verifications/2026-07-23-adr280-betriebsnachweis.md)
+(Werkzeugversion 2.1.218, Ausgangscommit `9371148`).
+
+| # | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Ergebnis | ✅ | ✅ | ✅ | ✅ | ✅ | ⏳ offen |
+
+Die Blockade aus dem Handover vom 2026-07-22 („Piloten live nicht installiert, es lief die
+verwaiste `commands`-Lane") ist mit dem Live-Rollout am 2026-07-23 06:14 UTC entfallen;
+`doctor.py --kind skills` meldet DRIFT-SCORE 0 ohne Lane-Dublette. **Kriterium 6 ist
+konstruktionsbedingt erst in der nächsten Session messbar** — eine laufende Session kann
+ihren eigenen Startzustand nicht rückwirkend herstellen. Vorbereitung ist dafür *nicht*
+nötig (die Installation ist persistent); die Schritte stehen im Artefakt. Bis dahin bleibt
+dieses ADR `proposed`: **kein** Entscheid „A bestanden", aber auch **kein** Fallback D,
+weil kein Kriterium geprüft und gescheitert ist.
+
 ### 8.2 Automatisierte Gates
 
 - **Index-Vollständigkeit** über beide Lanes (`check_workflow_index.py` in
