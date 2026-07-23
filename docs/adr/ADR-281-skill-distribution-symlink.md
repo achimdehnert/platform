@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-07-21
 deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, governance]
@@ -15,7 +15,7 @@ tags: [skills, distribution, symlink, drift-prevention, claude-code, cc-skill-di
 
 | Attribut          | Wert                                                                 |
 |-------------------|----------------------------------------------------------------------|
-| **Status**        | Proposed                                                             |
+| **Status**        | Accepted (2026-07-22, nach §8.1 6/6 — Nachweis s. §8.1)              |
 | **Scope**         | platform                                                             |
 | **Erstellt**      | 2026-07-21                                                           |
 | **Autor**         | Achim Dehnert                                                        |
@@ -67,10 +67,15 @@ sie Behauptung — dieselbe Lehre, die ADR-280 Rev 2 erzwungen hat.
    und wird von keinem Tooling gepflegt: die einzigen Fundstellen in `tools/` und
    `scripts/` behandeln es als etwas zum **Überspringen**.
 
-**NICHT verifiziert:** dass ein symlinkter Skill in dieser Umgebung tatsächlich lädt. Die
-Aussage stammt aus der Dokumentation, nicht aus einem Lauf. Der billigste Check ist ein
-einzelner Symlink unter einem noch unbenutzten Namen plus Aufruf in einer frischen Session
-— das ist Phase 1 (§8.1), nicht eine Annahme dieses ADR.
+**~~NICHT verifiziert~~ → verifiziert am 2026-07-22 (Nachtrag, Werkzeugversion 2.1.217):**
+dass ein symlinkter Skill in dieser Umgebung tatsächlich lädt. Zum Zeitpunkt der
+Erstfassung stammte die Aussage aus der Dokumentation, nicht aus einem Lauf. Phase 1
+(§8.1) ist inzwischen vollständig durchgeführt — **6/6**, inklusive des Ladeverhaltens in
+einer frisch gestarteten Session. Belegt in
+[`docs/verifications/2026-07-22-adr281-symlink-ladetest.md`](../verifications/2026-07-22-adr281-symlink-ladetest.md).
+
+Die Prämisse dieses ADR ist damit nicht mehr angenommen, sondern gemessen — das ist der
+Grund, warum es von `proposed` auf `accepted` wechseln konnte.
 
 ---
 
@@ -237,9 +242,9 @@ zurückgebaut.
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
-| `platform` | 0 — dieses ADR | 🔄 In Progress | 2026-07-21 | – |
-| *(1 Maschine)* | 1 — Einzel-Symlink-Nachweis | ⬜ Ausstehend | – | Muss-Kriterien §8.1 |
-| `platform` | 2 — `--link` + `doctor`-Umbau + Gate | ⬜ Ausstehend | – | §4.1/§4.2 |
+| `platform` | 0 — dieses ADR | ✅ Done | 2026-07-22 | `accepted` nach §8.1 6/6 |
+| *(1 Maschine)* | 1 — Einzel-Symlink-Nachweis | ✅ Done | 2026-07-22 | §8.1 **6/6**; Artefakt `docs/verifications/2026-07-22-adr281-symlink-ladetest.md` |
+| `platform` | 2 — `--link` + `doctor`-Umbau + Gate | ⬜ Ausstehend | – | §4.1/§4.2; Gate-Vorbedingung: [#1368](https://github.com/achimdehnert/platform/issues/1368) |
 | *(alle Maschinen)* | 3 — Umstellung je Maschine | ⬜ Ausstehend | – | gegatet |
 | `platform` | 4 — Kopier-Apparat für die skills-Lane entfernen | ⬜ Ausstehend | – | erst nach §8.4 |
 
@@ -278,7 +283,7 @@ zurückgebaut.
 | Dangling Symlink nach Repo-Umzug ⇒ Skills still weg | Mittel | Hoch | `doctor.py`-Auflösungsprüfung (§4.2) + Session-Start-Check |
 | Kein Rollback auf Installations-Ebene | Mittel | Mittel | `git revert` ist der Rückweg; §8.3 verlangt einen Nachweis, dass er trägt |
 | `git pull` ändert Skills mitten in einer Session | Mittel | Niedrig | Verifikation 2 ist dokumentiertes Verhalten; Guard hält den Haupt-Tree auf `main` |
-| Symlink lädt in dieser Umgebung doch nicht | **Niedrig** | Hoch | §8.1 ist ein Nachweis, keine Annahme — scheitert er, endet dieses ADR als `rejected` |
+| ~~Symlink lädt in dieser Umgebung doch nicht~~ **entfallen 2026-07-22** | – | – | §8.1 durchgeführt: **6/6**. Das Risiko ist keine Prognose mehr, sondern gemessen widerlegt (Artefakt `docs/verifications/2026-07-22-adr281-symlink-ladetest.md`). |
 | Guard fällt aus, Haupt-Tree wandert auf einen Branch | Niedrig | Mittel | ADR-233 `report` zählt Flips; §8.4 macht Nicht-Null zum Blocker |
 
 ---
@@ -300,12 +305,36 @@ nichts überdeckt wird:
 Scheitert eines, wird dieses ADR **`rejected`** und ADR-230 §2.2 bleibt unverändert.
 Ergebnis als versioniertes Artefakt im Repo, nicht als Chat-Notiz.
 
+**Ergebnis (2026-07-22, Werkzeugversion 2.1.217) — 6/6, kein Kriterium gescheitert.**
+Artefakt: [`docs/verifications/2026-07-22-adr281-symlink-ladetest.md`](../verifications/2026-07-22-adr281-symlink-ladetest.md).
+
+| # | Ergebnis | Kurzbeleg |
+|---|---|---|
+| 1 | ✅ | erscheint im `/`-Menü, sogar **ohne** Neustart (dynamisch nachgeladen) |
+| 2 | ✅ | Body inkl. Versions-Marker geladen; `Base directory` = Symlink-Pfad |
+| 3 | ✅ | Argument-Echo ein- und mehrwortig korrekt |
+| 4 | ✅ | **nach Neufassung** — der ursprüngliche Wortlaut maß den Session-Cache des Harness, nicht den Symlink, und traf für Kopie und Link gleichermaßen zu. Neufassung: *„Ein erstmals geladener Skill löst über den Symlink den aktuellen Dateiinhalt auf."* Diskriminierender Gegentest bestanden. |
+| 5 | ✅ | frisch gestartete Session, die den Link **nicht selbst gesetzt** hat: beim Start im Roster, Body + Argument-Echo korrekt |
+| 6 | ✅ | `rm` des Links entfernt den Skill; die Quelldatei überlebt unverändert |
+
 ### 8.2 Automatisierte Gates nach Phase 2
 
 - `doctor.py --kind skills` prüft **Auflösbarkeit statt Hashes** (§4.2); ein dangling Link
   lässt den Job fehlschlagen.
 - Negativtest: ein absichtlich gebrochener Link **muss** rot werden — sonst ist der
   Gate-Name eine Schein-Garantie.
+  **Vorgezogen und bestanden am 2026-07-22** (der Test brauchte kein Phase-2-Tooling):
+  ein gebrochener Link unter kanonischem Namen wird als `[dangling]` gemeldet. Zwei
+  dokumentierte Kanten, beide unkritisch und im Verifikationsartefakt (Nachtrag 3)
+  festgehalten: nicht-kanonische Namen erhalten das Etikett `extra` statt `dangling`
+  (erkannt, nur falsch benannt), und war der Skill zuvor `fehlend`, bleibt die
+  DRIFT-SCORE-Summe gleich, weil ein `fehlend` durch ein `dangling` ersetzt wird.
+  Beides ist vor dem **Scharfschalten** des Gates zu bereinigen, blockiert den Accept
+  dieses ADR aber nicht — §8.2 ist ein Phase-2-Gate, keine Accept-Vorbedingung.
+  **Getrackt als [#1368](https://github.com/achimdehnert/platform/issues/1368)** (Folge von
+  #1332/#1335), mit Reproduktion, Code-Ursache und Akzeptanzkriterien. Phase 2 gilt erst als
+  erfüllt, wenn #1368 geschlossen ist — insbesondere muss das Gate auf `dangling > 0` aus der
+  Befund-Liste triggern, nicht auf die DRIFT-SCORE-Summe.
 - Der bisherige Round-Trip-Schritt für die skills-Lane **entfällt**, statt dauergrün
   mitzulaufen.
 
@@ -372,6 +401,7 @@ festgehaltener Dauer. Ohne diesen Nachweis bleibt Phase 3 gesperrt.
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-07-21 | Achim Dehnert | Initial: Status Proposed |
+| 2026-07-22 | Achim Dehnert | **Status → Accepted.** Phase 1 (§8.1) vollständig durchgeführt: 6/6, Kriterium 4 in korrigierter Fassung (der ursprüngliche Wortlaut maß den Harness-Cache, nicht den Symlink), Kriterium 5 in einer frischen Session gemessen, die den Link nicht selbst gesetzt hat. Der §8.2-Negativtest wurde vorgezogen und besteht ebenfalls, mit zwei dokumentierten Kanten. Verifikationsstand, Migration-Tracking (Phase 0+1 ✅) und Risiko-Tabelle entsprechend nachgeführt. Artefakt: `docs/verifications/2026-07-22-adr281-symlink-ladetest.md`. Offen bleiben Phase 2–4 sowie der Rollback-Nachweis §8.3. |
 
 ---
 
