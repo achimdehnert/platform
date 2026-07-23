@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-07-21
 deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, governance]
@@ -20,7 +20,7 @@ tags: [skills, commands, workflows, distribution, claude-code, windsurf, consoli
 
 | Attribut          | Wert                                                                 |
 |-------------------|----------------------------------------------------------------------|
-| **Status**        | Proposed                                                             |
+| **Status**        | Accepted (2026-07-23, nach §8.1 6/6 — Nachweis s. §8.1)              |
 | **Scope**         | platform                                                             |
 | **Erstellt**      | 2026-07-21                                                           |
 | **Autor**         | Achim Dehnert                                                        |
@@ -251,7 +251,7 @@ Rev 1 suggerierte, aber es ist geprüft.
 | 0 | Dieses ADR (Rev 2) | dieser PR |
 | 1 | Pilot: 3 Skills migriert, Gate auf beide Lanes erweitert | [#1290](https://github.com/achimdehnert/platform/pull/1290) gemergt |
 | 1b | Rev-1-Regression zurückgenommen (`$ARGUMENTS` wiederhergestellt) | [#1294](https://github.com/achimdehnert/platform/pull/1294) |
-| 2 | Betriebsnachweis nach den Muss-Kriterien §8.1 | offen |
+| 2 | Betriebsnachweis nach den Muss-Kriterien §8.1 | ✅ 6/6 (Nachweis 2026-07-23) |
 | 3a | Typ-3-Zielort umsetzen (§4.4) — **vor** dem Bulk-Move | offen |
 | 3b | Bulk-Move der restlichen Skills | offen |
 | 4 | Lane `commands` entfernen; `~/.claude/commands/` gegated zurückbauen | offen |
@@ -332,7 +332,7 @@ eigene, vorgelagerte Phase mit Negativtest (§8.2).
 | `platform` | 0 — ADR Rev 2 | 🔄 In Progress | 2026-07-21 | dieser PR |
 | `platform` | 1 — Pilot + Gates | ✅ Abgeschlossen | 2026-07-21 | #1290 |
 | `platform` | 1b — Regression zurück | 🔄 In Progress | 2026-07-21 | #1294 |
-| *(Maschinen)* | 2 — Betriebsnachweis | ⬜ Ausstehend | – | Muss-Kriterien §8.1 |
+| *(Maschinen)* | 2 — Betriebsnachweis | ✅ Abgeschlossen | 2026-07-23 | §8.1 6/6, „A bestanden" |
 | `platform` | 3a — Typ-3-Zielort | ⬜ Ausstehend | – | **vor** 3b, §4.4 |
 | `platform` | 3b — Bulk-Move | ⬜ Ausstehend | – | Mengenidentität §8.3 |
 | `platform` | 4 — `commands`-Lane entfernen | ⬜ Ausstehend | – | Transaktion §8.4 |
@@ -398,22 +398,27 @@ Grundsatzdebatte** Option D:
 Ergebnis wird als versioniertes Artefakt im Repo abgelegt (Werkzeugversion, Ausgangscommit,
 Testfälle, Beobachtung, Entscheid „A bestanden" / „Fallback D") — nicht als Chat-Notiz.
 
-#### Messstand 2026-07-23 — 5/6, Kriterium 6 offen
+#### Messstand 2026-07-23 — 6/6, „A bestanden"
 
 Artefakt: [`docs/verifications/2026-07-23-adr280-betriebsnachweis.md`](../verifications/2026-07-23-adr280-betriebsnachweis.md)
-(Werkzeugversion 2.1.218, Ausgangscommit `9371148`).
+(Kriterien 1–5: Werkzeugversion 2.1.218, Ausgangscommit `9371148`; Kriterium 6 nachgetragen
+2026-07-23 in einer frisch gestarteten Session, Werkzeugversion 2.1.218).
 
 | # | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
-| Ergebnis | ✅ | ✅ | ✅ | ✅ | ✅ | ⏳ offen |
+| Ergebnis | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Die Blockade aus dem Handover vom 2026-07-22 („Piloten live nicht installiert, es lief die
 verwaiste `commands`-Lane") ist mit dem Live-Rollout am 2026-07-23 06:14 UTC entfallen;
-`doctor.py --kind skills` meldet DRIFT-SCORE 0 ohne Lane-Dublette. **Kriterium 6 ist
-konstruktionsbedingt erst in der nächsten Session messbar** — eine laufende Session kann
-ihren eigenen Startzustand nicht rückwirkend herstellen. Vorbereitung ist dafür *nicht*
-nötig (die Installation ist persistent); die Schritte stehen im Artefakt. Bis dahin bleibt
-dieses ADR `proposed`: **kein** Entscheid „A bestanden", aber auch **kein** Fallback D,
+`doctor.py --kind skills` meldet DRIFT-SCORE 0 ohne Lane-Dublette. **Kriterium 6 wurde am
+2026-07-23 nachgetragen:** eine Session, die um 11:07 UTC — Stunden *nach* dem Rollout —
+startete, fand alle vier Skills (`next`, `escalate`, `issues-offen`,
+`antwort-modus-schablone`) schon beim Start im `/`-Menü vor, bevor irgendeine
+Dateisystem-Aktion lief; die `commands`-Lane war leer (`grep` = 0), sodass der Menü-Eintrag
+nur aus der Skills-Lane stammen konnte. Der Aufruf `Skill(escalate)` lud den Body aus
+`Base directory: /home/devuser/.claude/skills/escalate` mit Footer
+`source=skills/escalate/SKILL.md · source_commit=9371148f567d`. Damit steht §8.1 auf
+**6/6** → Entscheid **„A bestanden"**, dieses ADR wird `accepted`. **Kein** Fallback D,
 weil kein Kriterium geprüft und gescheitert ist.
 
 ### 8.2 Automatisierte Gates
@@ -522,6 +527,7 @@ Aufgeschobene Restarbeit ohne Artefakt gilt in diesem Repo als nicht existent.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-23 | Claude Code (Opus 4.8) | **Status `proposed` → `accepted`.** §8.1 Kriterium 6 in einer frisch gestarteten Session (11:07 UTC, nach dem 06:14-Rollout) nachgetragen und bestanden → §8.1 6/6, Entscheid „A bestanden". Messstand-Block §8.1 auf 6/6 aktualisiert; Nachtrag im Verifikationsartefakt. Kein Fallback D. |
 | 2026-07-21 | Achim Dehnert | **Rev 2** nach zwei externen Zweitmeinungen (beide „überarbeiten"). Verifikationsstand mit Versionspin ergänzt. §4.2 korrigiert: `$ARGUMENTS` entfällt **nicht**. §2 neu: A/B neu bewertet, Optionen D/E/F ergänzt. §3 Begründung vollständig ausgetauscht (Supporting Files statt Kontext-/Migrationsargumenten). §8 Kill-Gate mit Owner + maschinellem Auslöser, Muss-Kriterien für Phase 2, Mengenidentität statt Bilanz, zwei neue Gates, Phase 4 als Transaktion. Phase 3a vorgelagert. Widersprüche §4.1/§5 und §9 bereinigt. §10 Tracking für E/F. Abgelehnt: Umankern auf „Hersteller macht `commands/` zur Altlast" — nicht belegbar. |
 | 2026-07-21 | Achim Dehnert | Initial: Status Proposed |
 
