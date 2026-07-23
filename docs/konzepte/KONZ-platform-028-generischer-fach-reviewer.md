@@ -88,6 +88,36 @@ allein (iii) fängt Teile, aber ohne Tiefe/Kalibrierung. **Caveats (Ehrlichkeit)
 Lauf (LLM-Varianz nicht gemittelt); (ii) hatte einen Scope-Drift-Confound (las das Repo-KD statt nur
 den Handout-Text) — der Kernbefund (P1 verfehlt) hält aber. Cross-Domain-Läufe (2/3) bleiben offen.
 
+## Pilot-Betrieb: Kalibrier-Loop (Betriebsmodell)
+
+**Der Pilot ist kein Einmal-Test, sondern ein Loop:** *Experte läuft → Ergebnis bewerten → Experten
+anpassen → wiederholen.* Jeder Reallauf verbessert Persona/Kontrakt — genau das ist der Wert gegenüber
+einem Ad-hoc-Prompt (A3). Jede Anpassung wird im Skill (`/fach-review`) + hier festgehalten.
+
+**Zyklus 1 — Run #2 (UX-Domäne, 2026-07-23):**
+- **Lief:** UX-Fachexperte auf 2 Klickdummies (Adjudikation „welche Komplexität ist vertretbar").
+- **Bewertet:** Kernbefund korrekt (Wohngeld überfrachtet: 0× `<details>`, 20 Dauer-Boxen → gefixt). ABER
+  ein `belegt`-Befund (BRMS „10529-Zeichen-Monster") war **methodisch überzeichnet** — gemessen via
+  `textLen`, das eingeklappten `<details>`-Inhalt mitzählt; sichtbar waren 4422 (58 % schon collapsed).
+  Fristenmanagement wurde deshalb bewusst **nicht** umgebaut.
+- **Experten angepasst:** Mess-Disziplin in den Skill gezogen — Dichte/Sichtbarkeit **content-visibility-bewusst**
+  messen (`checkVisibility`), NIE `textLen`/`offsetParent` allein; Dichte-`belegt` ohne solche Messung ⇒ `Hypothese`.
+- **Meta:** validiert **D2** (belegt braucht eine *valide Methode*, nicht nur einen Locator) und **R1**
+  (Scheinkompetenz). Positiver Kill-Gate-Datenpunkt: der Verify-Loop hat einen Reviewer-Fehler gefangen
+  UND den Reviewer verbessert; die Persona generalisierte fachlich sauber in eine nicht-juristische Domäne (n=2).
+
+**Zyklus 2 — Run #3 (Datenschutz-/Sozialdatenschutz-Domäne, 2026-07-23):**
+- **Lief:** DSGVO/Sozialdatenschutz-Jurist:in auf 2 real relevante ADRs (frist-hub ADR-005 Hosting-Sozialdaten, ADR-006 Tenant-Lifecycle).
+- **Bewertet:** sauberer Durchlauf — belegte P1/P2 mit Norm-Locator (z. B. ADR-005: Prod-Gate ohne DSFA/DSB-Bedingung, Art. 35 DSGVO; ADR-006: Löschung vor archivrechtlicher Anbietung, Art. 6 BayArchivG). **Locator-Genauigkeit stichprobenartig gegen den ADR-Text verifiziert** (Zeilen-/Abschnittsangaben akkurat, F1 inhaltlich bestätigt). belegt/Hypothese korrekt getrennt, Achsen-Abgrenzung zu Security beachtet.
+- **Experten angepasst:** **keine Anpassung nötig** — kein Methoden-Fehler, kein Fehl-`belegt`. (Content-visibility-Mess-Disziplin aus Zyklus 1 hier nicht einschlägig, da Text-Artefakt ohne Progressive Disclosure.)
+- **Meta:** dritte distinkte Domäne (Recht-Verfahren · UX · Datenschutz) → **Persona generalisiert n=3**; erster sauberer Zyklus ohne Kalibrierbedarf. Nebennutzen: die Findings sind für ADR-005/006 (Proposed) real verwertbar (F1/G1 vor Accepted).
+
+**Zyklus 3 — Run #4 (Barrierefreiheit/BITV-Domäne, 2026-07-23):**
+- **Lief:** BITV-2.0/WCAG-2.1-AA-Prüfer:in auf den Wohngeld-KD (Playwright: Tastatur-Live-Test, ARIA-Baum, gemessene Kontraste). **Bewusst auf `standard`-Tier (Sonnet) statt `frontier`** — D4-Test.
+- **Bewertet:** sauberer Durchlauf — präzise belegte P1/P2 mit Selektor + WCAG-SC + **gemessenen** Werten (Amber-Chips 3.35–3.42:1, `--pui-muted` 4.32:1 gegen 1.4.3; `tr[role=button]` bricht Tabellen-Semantik 1.3.1/4.1.2; Fokus-Management-Lücke 4.1.3). Einen Kontrastwert gegengerechnet (akkurat). belegt/Hypothese sauber, Abgrenzung zu UX beachtet, Gutes gelobt (das `<details>`-Muster + `role=checkbox`-Widget).
+- **D4 bestätigt:** der `standard`-Tier genügte für die Standards-Compliance-Domäne vollständig — die D4-Heuristik (regulatorisch=frontier, Standards/Stil=standard) hält empirisch. **Experten angepasst:** keine Methoden-Anpassung nötig.
+- **Meta:** vierte distinkte Domäne → **n=4**; zweiter sauberer Zyklus in Folge. Nebennutzen: reale BITV-Fixes für den KD (Kontrast-Token `--pui-*` fleet-weit, `tr[role=button]`, Fokus/`aria-current`) + Drift-Fund (3 divergente Datei-Kopien Worktree/kd-serve/Haupt-Tree).
+
 ## Adversariale Analyse (T2)
 
 **Steelman:** Der fixe Kontrakt (D2) ist die eigentliche Invariante, billig über Domänen wiederverwendbar; es *komponiert* statt zu ersetzen; geerdet an einem realen Lauf, der einen belegten P1-Rechtsfehler fand, den die UX-Prüfung strukturell nicht finden konnte.
