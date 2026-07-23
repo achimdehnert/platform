@@ -30,8 +30,8 @@ Korrespondenz über drei Postfächer (IIL/Graph, HNU/IMAP, AD/IMAP) ist geschäf
 aber es fehlt eine **verlässliche Übersicht** und ein **präziser Aktionsweg**. Der Auslöser
 ist ein realer Fehler: Beim `/mailcheck IIL` am 2026-07-23 wurde per `--scan-senders` nur nach
 **Absender-Domains** geprüft und ganze Domains **ungelesen als „Rauschen" abgetan** — dabei
-gingen ein aktiver Kundenvorgang (**Zinser/Amos, Aufwandsschätzung**) und eine Security-Frist
-(**Azure Copilot, 1. Aug**) unter. **Weniger als 100 % geprüft ist inakzeptabel.**
+gingen ein **aktiver Kundenvorgang** (eine Aufwands-Rückfrage) und eine **Security-Frist mit
+Stichtag** unter. **Weniger als 100 % geprüft ist inakzeptabel.**
 
 Der Owner will: **perfekte Übersicht über alle Mails**, **präzise und fehlerfreie
 Reaktion**, und die Fähigkeit, **Lösch- und Verschiebe-Strategien präzise zu bewerten und
@@ -41,7 +41,7 @@ umzusetzen.** Dieser ADR entscheidet das System dahinter.
 
 1. **100 %-Abdeckung by construction** — jede Mail ist erfasst; kein Sampling, keine ungelesen
    verworfene Kategorie.
-2. **Threading** — zusammengehörige Mails sind ein Vorgang (Zinsers Problem-Mail + Rückfrage).
+2. **Threading** — zusammengehörige Mails sind ein Vorgang (z. B. eine Problem-Mail + die zugehörige Rückfrage).
 3. **Signalbasierte Klassifikation** — Spam/NL/wichtig aus Kopfzeilen-Signalen, nicht geraten;
    Ambiguität → „prüfen", nie stumm droppen.
 4. **Präzise Aktion** — draft-first Antworten, Flag/Prio, Vorgangs-Zustand.
@@ -152,4 +152,4 @@ Gates.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
-| 2026-07-23 | Claude Code (Opus 4.8) | Initial (proposed). Anlass: `/mailcheck`-Domain-Sampling übersah reale Mail (Zinser/Azure). Sechs Schichten (Index→Klassifikation→Übersicht/nl2sql→Reagieren→Verschieben→Löschen), Kern-Prinzip „Regeln = Abfragen (bewerten vor umsetzen)", Sicherheitsmodell (nie Hard-Delete, dry-run+Bestätigung, konservativ, Audit, 100 %-Invariant), nl2sql-read/action-Grenze, ADR-283 als Schicht 4 eingebettet, dev-hub-Postgres, Phasing, offene Fragen für externe Zweitmeinung. |
+| 2026-07-23 | Claude Code (Opus 4.8) | Initial (proposed). Anlass: `/mailcheck`-Domain-Sampling übersah reale Mail (Kundenvorgang + Security-Frist). Sechs Schichten (Index→Klassifikation→Übersicht/nl2sql→Reagieren→Verschieben→Löschen), Kern-Prinzip „Regeln = Abfragen (bewerten vor umsetzen)", Sicherheitsmodell (nie Hard-Delete, dry-run+Bestätigung, konservativ, Audit, 100 %-Invariant), nl2sql-read/action-Grenze, ADR-283 als Schicht 4 eingebettet, dev-hub-Postgres, Phasing, offene Fragen für externe Zweitmeinung. |
