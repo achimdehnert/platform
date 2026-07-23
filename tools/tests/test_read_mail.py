@@ -76,3 +76,25 @@ def test_should_match_from_substring_case_insensitive():
     assert rm.matches_from(m, "ilja")
     assert not rm.matches_from(m, "achim")
     assert rm.matches_from(m, None)
+
+
+# --- matches_to --------------------------------------------------------------
+
+def test_should_match_to_and_cc_substring_case_insensitive():
+    m = EmailMessage()
+    m["From"] = "achim@iil.gmbh"  # Gesendete: Absender ist man selbst
+    m["To"] = "Anna Martinkat <A.Martinkat@landkreis-guenzburg.de>"
+    m["Cc"] = "Wibke Michalk <wibke.michalk@th-rosenheim.de>"
+    m.set_content("x")
+    assert rm.matches_to(m, "martinkat")   # Treffer im To-Header
+    assert rm.matches_to(m, "michalk")     # Treffer im Cc-Header
+    assert not rm.matches_to(m, "brandl")
+    assert rm.matches_to(m, None)          # kein Filter -> True
+
+
+def test_should_handle_missing_to_and_cc_headers():
+    m = EmailMessage()
+    m["From"] = "achim@iil.gmbh"
+    m.set_content("x")
+    assert rm.matches_to(m, None)
+    assert not rm.matches_to(m, "irgendwer")
