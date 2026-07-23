@@ -147,3 +147,82 @@ def test_should_still_mirror_items_under_partially_done_heading(
 def test_should_ignore_fully_archived_heading(tmp_path: Path, heading: str) -> None:
     """Regression zu platform#1323: echte Archiv-Sektionen bleiben unsichtbar."""
     assert "Item Alpha" not in _run(_repo(tmp_path, _doc(heading)))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Staleness-Warnung (platform#1378)
+#
+# Realfall 2026-07-23: der Haupt-Tree hing 11 Commits hinter origin/main, der Hook
+# spiegelte die alte AGENT_HANDOVER.md — ohne jeden Hinweis. Die Session lief auf
+# "12 offene PRs" los (real: einer) und wollte einen Testlauf vorbereiten, der am
+# Vorabend bestanden worden war.
+#
+# Die Tests bauen ein echtes Repo und setzen refs/remotes/origin/main von Hand —
+# kein Netz, kein fetch, deterministisch.
+# ─────────────────────────────────────────────────────────────────────────────
+
+WARN_MARKER = "VERALTET"
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo, capture_output=True, text=True, check=True, timeout=30
+    ).stdout.strip()
+
+
+def _real_repo(tmp_path: Path, *, handover: str = CANONICAL_HANDOVER) -> Path:
+    repo = tmp_path / "real"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@example.org")
+    _git(repo, "config", "user.name", "T")
+    (repo / "AGENT_HANDOVER.md").write_text(handover, encoding="utf-8")
+    (repo / "other.txt").write_text("v1\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "base")
+    return repo
+
+
+def _advance_origin(repo: Path, *, touch: str, content: str) -> None:
+    """Zweiten Commit bauen, origin/main darauf zeigen lassen, HEAD zurueckdrehen."""
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / touch).write_text(content, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "remote-side")
+    ahead = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "update-ref", "refs/remotes/origin/main", ahead)
+    _git(repo, "reset", "-q", "--hard", base)
+
+
+def test_should_warn_when_handover_is_behind_origin_main(tmp_path: Path) -> None:
+    repo = _real_repo(tmp_path)
+    _advance_origin(
+        repo,
+        touch="AGENT_HANDOVER.md",
+        content=CANONICAL_HANDOVER.replace("Preview-Tunnel starten", "Ganz andere Prio"),
+    )
+    out = _run(repo)
+    assert WARN_MARKER in out
+    assert "1 Commits hinter origin/main" in out
+    # Die veraltete Prio wird trotzdem gezeigt — die Warnung ersetzt sie nicht.
+    assert "Preview-Tunnel starten" in out
+
+
+def test_should_stay_quiet_when_only_other_files_changed(tmp_path: Path) -> None:
+    """"N Commits hinter" allein ist Alltag — sonst Alarm-Muedigkeit."""
+    repo = _real_repo(tmp_path)
+    _advance_origin(repo, touch="other.txt", content="v2\n")
+    assert WARN_MARKER not in _run(repo)
+
+
+def test_should_stay_quiet_when_up_to_date(tmp_path: Path) -> None:
+    repo = _real_repo(tmp_path)
+    _git(repo, "update-ref", "refs/remotes/origin/main", _git(repo, "rev-parse", "HEAD"))
+    assert WARN_MARKER not in _run(repo)
+
+
+def test_should_stay_quiet_without_origin_main_ref(tmp_path: Path) -> None:
+    """Frischer Klon ohne Remote-Ref: kein Rauschen, kein Fehler."""
+    out = _run(_real_repo(tmp_path))
+    assert WARN_MARKER not in out
+    assert "Preview-Tunnel starten" in out
