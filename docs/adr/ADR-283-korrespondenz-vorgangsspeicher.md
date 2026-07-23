@@ -63,12 +63,18 @@ Korrespondenz-Vorgänge leben.
 Die Optionen werden **nach** der pointer-first-Weiche (§5) bewertet — sie verschiebt das
 Gewicht von Anforderung 3.
 
-### Option A — Dateien (lokales JSON, Status quo) / **A+ gehärtet**
-Rohes JSON erfüllt nur **1 (dünn)** und **3 (weil lokal)**. Reißt bei **2/4/5**. Aber:
-eine **gehärtete Variante A+** — verschlüsselte **SQLite hinter einer schmalen
-authentisierten API** auf einem kontrollierten Host — erfüllt **1/2/4/5** bei minimaler
-Wartung und **3 in Kombination mit pointer-first**. A+ ist damit **kein bloßer Stopgap
-mehr**, sondern ein ernstzunehmender Kandidat für den synthetischen Pilot (Zwei-Personen-Team).
+### Option A — Dateien (lokales JSON, Status quo) / **A+ gehärtet (verworfen, s. u.)**
+Rohes JSON erfüllt nur **1 (dünn)** und **3 (weil lokal)**. Reißt bei **2/4/5**. Die
+Reviews schlugen eine **gehärtete Variante A+** vor — verschlüsselte **SQLite hinter einer
+schmalen authentisierten API** — als wartungsarmen Kandidaten für ein Zwei-Personen-Team.
+**Dieses Argument trägt aber nur, wenn die Alternative bedeutet, eine *neue* Datenbank
+aufzusetzen.** Bei Heimat = `dev-hub` gilt das nicht: dev-hub **läuft bereits auf Postgres**.
+SQLite würde dann nichts einsparen, sondern eine **zweite Engine + Django-Multi-DB-Routing +
+separaten Backup-/Verschlüsselungspfad** *hinzufügen* — mehr Komplexität, nicht weniger; und
+für den späteren Umzug ins Behörden-RZ (ebenfalls Postgres) einen unnötigen Engine-Wechsel.
+**A+/SQLite ist damit verworfen** (Owner-Entscheid 2026-07-23, §8); der Pilot nutzt die
+**bereits kontrollierte dev-hub-Postgres**. Der PII-Schutz hängt an *pointer-first*, nicht an
+der Engine.
 
 ### Option B — Geteilte Vektor-Memory (Orchestrator/pgvector)
 Scheitert an **3 und 4**: breit lesbarer, semantischer Speicher (ADR-238 „untrusted
@@ -120,8 +126,9 @@ je Hoheitsbereich getrennt deploybar).
 - **Damit schrumpft Anforderung 3 drastisch** (nicht auf null — `thema` + Hoheitsbereich +
   Datum + opake Keys behalten Rest-Bezug; das ist der einzuhegende Rest, nicht die Hauptmasse).
   **Ohne PII-Kopie entfällt die PII-Vorbedingung großteils** → die C⟂D-Achse entspannt sich,
-  und ein **leichter Store (A+ SQLite-hinter-API oder kleines dev-hub-Schema)** schlägt die
-  risk-hub-Kopplung für den Pilot.
+  und ein **schlankes Schema auf der bereits vorhandenen dev-hub-Postgres** schlägt die
+  risk-hub-Kopplung für den Pilot — konsistent bis zum Behörden-RZ-Postgres (Live), ohne
+  Engine-Wechsel.
 - **Jedes personenbezogene Feld ist eine begründungspflichtige Ausnahme** (dokumentierter
   Zweck + Aufbewahrungsregel + Löschstrategie), technisch abgesichert durch einen Lint/Check,
   der PII-Felder in der *allgemeinen* Heimat verbietet. Die Pointer-vs-Copy-Regel ist
@@ -166,23 +173,26 @@ des allgemeinen Kerns.
 
 ## 8. Owner-Entscheid & verbleibende Build-Time-Fragen
 
-> **Owner-Entscheid 2026-07-23 (Achim Dehnert):** **Heimat = `dev-hub` + A+/SQLite für den
-> Piloten, pointer-first**; risk-hub nur als Rückfall, Migrationspfad ins Behörden-RZ für
-> LRA-Live. Umsetzung als **[dev-hub#148](https://github.com/achimdehnert/dev-hub/issues/148)**
-> (`model:sonnet-5`, execution-ready). Damit sind Q1 und Q4 entschieden; Q2/Q3 sind
-> Build-Time-Auflagen, keine Blocker mehr.
+> **Owner-Entscheid 2026-07-23 (Achim Dehnert):** **Heimat = `dev-hub`, physische Ablage =
+> die bereits vorhandene dev-hub-Postgres** (konsistent bis Behörden-RZ-Postgres für LRA-Live),
+> pointer-first; risk-hub nur als Rückfall. **A+/SQLite verworfen** — in einem Postgres-Projekt
+> würde es eine zweite Engine addieren, nicht Wartung sparen (§3A). Umsetzung als
+> **[dev-hub#148](https://github.com/achimdehnert/dev-hub/issues/148)** (`model:sonnet-5`,
+> gebaut als [dev-hub#149](https://github.com/achimdehnert/dev-hub/pull/149), CI grün).
+> Damit sind Q1 und Q4 entschieden; Q2/Q3 sind Build-Time-Auflagen, keine Blocker mehr.
 
-1. **Heimat** je Achse (§4): Code = `dev-hub`? Physische Daten-Heimat = A+/SQLite (Pilot) mit
-   Migrationspfad ins Behörden-RZ (LRA-Live)? risk-hub nur noch als Rückfall? — **✅ entschieden:
-   dev-hub + A+/SQLite Pilot, risk-hub Rückfall.**
+1. **Heimat** je Achse (§4): Code = `dev-hub`, physische Daten-Heimat, risk-hub nur Rückfall? —
+   **✅ entschieden: dev-hub-Code + dev-hub-Postgres-Ablage (konsistent), risk-hub Rückfall,
+   Behörden-RZ-Postgres für LRA-Live.**
 2. **PII-Readiness-Gate** vor Live-Cutover: benannte Kriterien + Verantwortliche für Zweck/
    Hoheit je Konto, Rollen/Least-Privilege, Verschlüsselung/Secrets, Audit, Aufbewahrung,
    Auskunft, Löschung inkl. Backup-Regel, Restore-Test, Datenstandort, Incident-Prozess —
    **testbar**, nicht als Adjektiv „DSGVO-fest". — **⏳ Build-Time, vor Live-Cutover (dev-hub#148).**
 3. **Re-ID-Test** für „vorgangs-abgeleitet ins Issue" scharf genug? (Rev-1-Antwort: Default
    **geschützt**, Issue nur nach bestandenem Test.) — **⏳ Build-Time (dev-hub#148).**
-4. **Über-Engineering:** Reicht **A+ (SQLite-hinter-API) + pointer-first** für Pilot und ggf.
-   Live? — **✅ für den Pilot bejaht (A+/SQLite gewählt); LRA-Live evtl. Postgres im Behörden-RZ.**
+4. **Über-Engineering:** Reicht ein schlankes **pointer-first-Schema** für Pilot und ggf. Live? —
+   **✅ ja; Ablage = bestehende dev-hub-Postgres (kein neuer Dienst, keine zweite Engine).
+   A+/SQLite wäre in einem Postgres-Projekt der Umweg, nicht der schlanke Weg — daher verworfen.**
 
 **Status bleibt `proposed`** bis zum formalen Owner-Accept — die Heimat ist entschieden und der
 Bau läuft über dev-hub#148, aber die Accept-Bedingungen (Q2/Q3 als testbare Gates) werden erst
@@ -196,7 +206,8 @@ an vermiedenen Doppelaktionen, eingehaltenen Fristen, erfolgreichen Übergaben, 
 Verfügbarkeit, Fallzahl. **Automatischer Trigger** (Vorgangs-Zähler + Datum als CI-Check),
 damit das Gate nicht an Trägheit scheitert. **Rückfall NICHT auf rohes lokales JSON** nach
 erstem echten PII-Betrieb — sondern auf die kleinste weiterhin **kontrollierte und
-maschinen-übergreifende** Variante (A+).
+maschinen-übergreifende** Variante (z. B. read-only-Export des Postgres-Schemas), nie zurück
+in einen unkontrollierten lokalen Store.
 
 ## 10. Nicht-Ziele (Scope-Zaun, dauerhaft)
 
@@ -222,7 +233,7 @@ Reviews waren hochwertig und konvergent.
 | `deletion_ref` = verteilte/dangling Referenz → weich entkoppeln | R1 AD-5/REC-4 · R2 AD-7/REC-4 | **[valid]** | §5, §6 |
 | `thread_key` ≠ Vorgangs-Identität | R1 AD-10/M28-3/REC-8 | **[valid]** | §6 |
 | Broad-Read auf API-Ebene / Zugriffskontrolle | R1 AD-4/REC-3 | **[valid]** | §5 |
-| A+ (SQLite-hinter-API) ernstnehmen | R1 OOB4 · R2 OOB2 | **[valid]** | §3A, §8-Q4 |
+| A+ (SQLite-hinter-API) ernstnehmen | R1 OOB4 · R2 OOB2 | **[valid, später revidiert]** | §3A/§8-Q4: in Rev 1 aufgenommen, dann verworfen — bei Heimat=dev-hub (schon Postgres) addiert SQLite eine 2. Engine statt Wartung zu sparen (Owner-Entscheid 2026-07-23) |
 | Föderiert je Hoheitsbereich / LRA→Behörden-RZ | R1 OOB3/AD-8 · R2 AD-5 | **[valid]** | §4 |
 | Non-Ziele (kein CRM/Archiv/…) | R1 REC-14/M28-1 · R2 M28-2 | **[valid]** | §10 |
 | Cutover-Plan (Dry-Run/Rollback/sichere Löschung) | R1 AD-15/M28-5/REC-12 | **[valid]** | §7 |
@@ -234,6 +245,7 @@ Reviews waren hochwertig und konvergent.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-23 | Achim Dehnert (Entscheid) / Claude Code (Protokoll) | **A+/SQLite verworfen → dev-hub-Postgres, konsistent.** Owner-Rückfrage „wieso nicht Postgres?": das SQLite-Wartungsargument trägt nur bei einer *neuen* DB — dev-hub läuft schon auf Postgres, SQLite hätte eine 2. Engine + Multi-DB-Routing + separaten Backup/Encryption-Pfad addiert und einen Engine-Wechsel vor dem Behörden-RZ-Umzug erzwungen. §3A/§5/§8/§9 nachgezogen; §11-Audit „A+ ernstnehmen" als *später revidiert* markiert. Code (dev-hub#149) war ohnehin schon Postgres — keine Code-Änderung. |
 | 2026-07-23 | Achim Dehnert (Entscheid) / Claude Code (Protokoll) | **Owner-Entscheid protokolliert:** Heimat = dev-hub + A+/SQLite Pilot, pointer-first; risk-hub Rückfall. §8 von „offene Fragen" auf Entscheid-Banner umgestellt (Q1/Q4 ✅, Q2/Q3 Build-Time), Umsetzung dev-hub#148. Status bleibt `proposed` bis formaler Accept. |
 | 2026-07-23 | Claude Code (Opus 4.8) | **Rev 1** nach zwei externen Zweitmeinungen (§11). Kern-Umbau auf **pointer-first** (Referenzen statt PII-Kopie) → C⟂D-Dilemma großteils entschärft. Heimat in vier Achsen zerlegt (§4); A+ (SQLite-hinter-API) als ernster Kandidat (§3A); `deletion_ref` weich entkoppelt (§5/§6); `case_id` ≠ Thread (§6); Zugriffskontrolle by-construction (§5); Daten-Klassen-Trennung verschärft, „ins Issue" nur nach Re-ID-Test (§5/§8); Kill-Gate-Datum korrigiert + automatischer Trigger + Rückfall auf A+ statt JSON (§9); Non-Ziele ergänzt (§10); Cutover-Plan (§7). |
 | 2026-07-23 | Claude Code (Opus 4.8) | Initial (proposed, Rev 0). Anforderungen, Optionen A–D, Achse C⟂D, Empfehlung D-mit-Synthese + offene Frage §8. |
