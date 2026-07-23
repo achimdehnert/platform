@@ -21,12 +21,17 @@ selbst** schon **gesendet**? Daraus leitet er die **jeweils nächste** Aktion ab
 | Konto | Zugang | Neue Antworten | Eigene gesendete Mails |
 |---|---|---|---|
 | **IIL** (achim.dehnert@iil.gmbh) | Graph | `graph_mail.py --scan-senders --days N`, `--find` | `--find … --source "Gesendete Elemente"` |
-| **HNU** (achim.dehnert@hnu.de) | IMAP | `read_mail.py --account hnu --list N` | `--account hnu --folder "Gesendete Elemente" --list N` |
-| **AD** (Default) | IMAP | `read_mail.py --list N` | `--folder "Gesendete Elemente" --list N` |
+| **HNU** (achim.dehnert@hnu.de) | IMAP | `read_mail.py --account hnu --list N` | `--account hnu --folder "Gesendete Objekte" --to-filter <empf> --list N` |
+| **AD** (Default) | IMAP | `read_mail.py --list N` | `--folder <Sent> --to-filter <empf> --list N` (Ordnername server-abhängig, s.u.) |
 
 > **Beide Seiten prüfen ist Pflicht.** Wer nur den Posteingang liest, schlägt Aktionen vor,
 > die längst per gesendeter Mail erledigt sind (Doppelvorschlag). Der Abgleich gegen
 > „Gesendete Elemente" IST der Kern dieses Skills.
+
+> **Sent-Ordnername ist server-abhängig** (verifiziert 2026-07-23): IIL/Graph `Gesendete Elemente`,
+> HNU `Gesendete Objekte`. Im Zweifel den `\Sent`-Special-Use-Ordner aus `imap.list()` nehmen,
+> nicht den Namen raten. **Empfänger-Filterung im Sent-Ordner via `--to-filter`** (nicht
+> `--from-filter` — dort bist der Absender immer du selbst; `read_mail --to-filter` matcht To+Cc, #1387).
 
 ## Ablauf
 
