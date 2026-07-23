@@ -101,3 +101,29 @@ def skip_reason(model: str, host: str | None = None) -> str | None:
         f"⛔ Externer LLM {model} übersprungen — Opt-in nötig "
         f"(PRINT_AGENT_ALLOW_EXTERNAL=1). Dokumentinhalt bleibt lokal."
     )
+
+
+def egress_target(model: str, host: str | None = None) -> str | None:
+    """Wohin ein *erlaubter* Aufruf den Inhalt trägt — ``None``, wenn er hier bleibt.
+
+    Bei Ollama der konkrete Endpunkt, sonst der Anbieter-Präfix des
+    litellm-Modellstrings (``groq/llama-…`` → ``groq``).
+    """
+    if not leaves_machine(model, host):
+        return None
+    if is_local_model(model):
+        return host if host is not None else ollama_host()
+    return model.split("/", 1)[0] if "/" in model else model
+
+
+def egress_notice(model: str, chars: int, host: str | None = None) -> str | None:
+    """Hinweiszeile **vor** einem erlaubten Abfluss — ``None``, wenn nichts abfließt.
+
+    #1297 verlangt ausdrücklich, dass Ziel **und** übertragene Zeichenzahl
+    genannt werden: der ursprüngliche Vorfall fiel nur auf, weil jemand die
+    Konsolenausgabe las — und dort stand nichts über den Umfang.
+    """
+    target = egress_target(model, host)
+    if target is None:
+        return None
+    return f"📤 {chars} Zeichen verlassen diese Maschine → {target} ({model})"
