@@ -5277,7 +5277,7 @@
       "number": 283,
       "id": "ADR-283",
       "file": "ADR-283-korrespondenz-vorgangsspeicher.md",
-      "title": "Zentraler Korrespondenz-Vorgangs-Speicher — strukturierte, DSGVO-feste Heimat für themenübergreifende Mail-Vorgänge",
+      "title": "Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest",
       "status": "proposed",
       "date": "2026-07-23",
       "domains": [

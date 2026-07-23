@@ -248,4 +248,4 @@
 | 280 | Konsolidiere die Skill-Verteilung auf eine Lane — `skills/` wird einzige Kanonik, `commands`-Lane und `.windsurf`-Pfad werden zurückgebaut | Accepted | ⬜ | [ADR-280](ADR-280-skill-lane-consolidation.md) |
 | 281 | Verteile Skills als Symlinks auf den Repo-Checkout statt als generierte Kopien | Accepted | ⬜ | [ADR-281](ADR-281-skill-distribution-symlink.md) |
 | 282 | Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern | Accepted | ⬜ | [ADR-282](ADR-282-skill-workflow-taxonomy-governance-lifecycle.md) |
-| 283 | Zentraler Korrespondenz-Vorgangs-Speicher — strukturierte, DSGVO-feste Heimat für themenübergreifende Mail-Vorgänge | Proposed | ⬜ | [ADR-283](ADR-283-korrespondenz-vorgangsspeicher.md) |
+| 283 | Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest | Proposed | ⬜ | [ADR-283](ADR-283-korrespondenz-vorgangsspeicher.md) |
