@@ -164,18 +164,29 @@ des allgemeinen Kerns.
   aller lokalen JSON-/Backup-/Entwicklerkopien (sonst kennt bei Auskunft/Löschung niemand mehr
   alle Datenorte).
 
-## 8. Offene Fragen für die Owner-Entscheidung
+## 8. Owner-Entscheid & verbleibende Build-Time-Fragen
+
+> **Owner-Entscheid 2026-07-23 (Achim Dehnert):** **Heimat = `dev-hub` + A+/SQLite für den
+> Piloten, pointer-first**; risk-hub nur als Rückfall, Migrationspfad ins Behörden-RZ für
+> LRA-Live. Umsetzung als **[dev-hub#148](https://github.com/achimdehnert/dev-hub/issues/148)**
+> (`model:sonnet-5`, execution-ready). Damit sind Q1 und Q4 entschieden; Q2/Q3 sind
+> Build-Time-Auflagen, keine Blocker mehr.
 
 1. **Heimat** je Achse (§4): Code = `dev-hub`? Physische Daten-Heimat = A+/SQLite (Pilot) mit
-   Migrationspfad ins Behörden-RZ (LRA-Live)? risk-hub nur noch als Rückfall?
+   Migrationspfad ins Behörden-RZ (LRA-Live)? risk-hub nur noch als Rückfall? — **✅ entschieden:
+   dev-hub + A+/SQLite Pilot, risk-hub Rückfall.**
 2. **PII-Readiness-Gate** vor Live-Cutover: benannte Kriterien + Verantwortliche für Zweck/
    Hoheit je Konto, Rollen/Least-Privilege, Verschlüsselung/Secrets, Audit, Aufbewahrung,
    Auskunft, Löschung inkl. Backup-Regel, Restore-Test, Datenstandort, Incident-Prozess —
-   **testbar**, nicht als Adjektiv „DSGVO-fest".
+   **testbar**, nicht als Adjektiv „DSGVO-fest". — **⏳ Build-Time, vor Live-Cutover (dev-hub#148).**
 3. **Re-ID-Test** für „vorgangs-abgeleitet ins Issue" scharf genug? (Rev-1-Antwort: Default
-   **geschützt**, Issue nur nach bestandenem Test.)
+   **geschützt**, Issue nur nach bestandenem Test.) — **⏳ Build-Time (dev-hub#148).**
 4. **Über-Engineering:** Reicht **A+ (SQLite-hinter-API) + pointer-first** für Pilot und ggf.
-   Live? (Rev-1-Tendenz: für den Pilot **ja**; LRA-Live braucht evtl. Postgres im Behörden-RZ.)
+   Live? — **✅ für den Pilot bejaht (A+/SQLite gewählt); LRA-Live evtl. Postgres im Behörden-RZ.**
+
+**Status bleibt `proposed`** bis zum formalen Owner-Accept — die Heimat ist entschieden und der
+Bau läuft über dev-hub#148, aber die Accept-Bedingungen (Q2/Q3 als testbare Gates) werden erst
+im Zuge der Umsetzung erfüllt.
 
 ## 9. Kill-Gate (korrigiert)
 
@@ -223,5 +234,6 @@ Reviews waren hochwertig und konvergent.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-23 | Achim Dehnert (Entscheid) / Claude Code (Protokoll) | **Owner-Entscheid protokolliert:** Heimat = dev-hub + A+/SQLite Pilot, pointer-first; risk-hub Rückfall. §8 von „offene Fragen" auf Entscheid-Banner umgestellt (Q1/Q4 ✅, Q2/Q3 Build-Time), Umsetzung dev-hub#148. Status bleibt `proposed` bis formaler Accept. |
 | 2026-07-23 | Claude Code (Opus 4.8) | **Rev 1** nach zwei externen Zweitmeinungen (§11). Kern-Umbau auf **pointer-first** (Referenzen statt PII-Kopie) → C⟂D-Dilemma großteils entschärft. Heimat in vier Achsen zerlegt (§4); A+ (SQLite-hinter-API) als ernster Kandidat (§3A); `deletion_ref` weich entkoppelt (§5/§6); `case_id` ≠ Thread (§6); Zugriffskontrolle by-construction (§5); Daten-Klassen-Trennung verschärft, „ins Issue" nur nach Re-ID-Test (§5/§8); Kill-Gate-Datum korrigiert + automatischer Trigger + Rückfall auf A+ statt JSON (§9); Non-Ziele ergänzt (§10); Cutover-Plan (§7). |
 | 2026-07-23 | Claude Code (Opus 4.8) | Initial (proposed, Rev 0). Anforderungen, Optionen A–D, Achse C⟂D, Empfehlung D-mit-Synthese + offene Frage §8. |
