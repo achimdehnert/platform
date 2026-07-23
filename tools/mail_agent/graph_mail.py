@@ -595,6 +595,25 @@ def cmd_move(
     print(f"OK: {len(hits)} Mail(s) nach '{target_path}' verschoben.")
 
 
+def cmd_trash(tok: str, msg_id: str) -> None:
+    """Verschiebt EINE Nachricht (per ID) in den Papierkorb — reversibel, kein Hard-Delete.
+
+    Nötig, um einen einzelnen Entwurf gezielt zurückzunehmen (z.B. einen verfrüht
+    oder falsch angelegten Draft): --move filtert nur nach Absender und träfe alle
+    eigenen Entwürfe zugleich. Ziel ist der well-known-Ordner 'deleteditems'.
+    """
+    r = _http(
+        "POST",
+        f"{GRAPH}/me/messages/{msg_id}/move",
+        headers=_auth(tok),
+        json_body={"destinationId": "deleteditems"},
+    )
+    if r.status_code in (200, 201):
+        print("OK: Nachricht in den Papierkorb (Gelöschte Elemente) verschoben — reversibel.")
+    else:
+        sys.exit(f"Fehler: HTTP {r.status_code} — {r.text[:200]}")
+
+
 # ---------- Entwurf ----------
 
 
@@ -722,6 +741,11 @@ def main() -> None:
         metavar="messageId",
         help="Anhang/Anhänge an einen bestehenden Entwurf hängen",
     )
+    g.add_argument(
+        "--trash",
+        metavar="messageId",
+        help="eine bestimmte Mail/Entwurf per ID in den Papierkorb verschieben (reversibel)",
+    )
     ap.add_argument(
         "--attach",
         action="append",
@@ -791,6 +815,8 @@ def main() -> None:
         if not args.attach:
             ap.error("--attach-to braucht mindestens ein --attach PFAD")
         cmd_attach_to(tok, args.attach_to, args.attach)
+    elif args.trash:
+        cmd_trash(tok, args.trash)
     else:  # --draft
         if not args.body_file:
             ap.error("--draft braucht --body-file (und --to ODER --reply-to)")
