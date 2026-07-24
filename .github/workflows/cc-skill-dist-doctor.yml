@@ -39,7 +39,7 @@ jobs:
         with:
           fetch-depth: 0   # ls-tree/cat-file gegen den vollen Baum
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 

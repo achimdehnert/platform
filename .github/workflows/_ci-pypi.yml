@@ -133,7 +133,7 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ inputs.python_version }}
       - name: Install ruff
@@ -180,7 +180,7 @@ jobs:
         python: ${{ fromJSON(inputs.python_versions) }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Resolve install extra (fail loud on wrong extra name)
@@ -228,7 +228,7 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ inputs.python_version }}
       - name: Build sdist + wheel
@@ -259,7 +259,7 @@ jobs:
     continue-on-error: ${{ !inputs.mypy_blocking }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ inputs.python_version }}
       - name: Resolve install extra
@@ -282,7 +282,7 @@ jobs:
     # published package) is always blocking.
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ inputs.python_version }}
       - name: Resolve install extra
@@ -321,7 +321,7 @@ jobs:
     continue-on-error: ${{ !inputs.bandit_blocking }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ inputs.python_version }}
       - name: bandit
