@@ -107,6 +107,38 @@ def test_should_attach_markdown_as_text_markdown(tmp_path):
     assert parts[0].get_filename() == "doc.md"
 
 
+# --- HTML-Body (multipart/alternative) ---------------------------------------
+
+def test_should_build_multipart_alternative_with_html_and_text(tmp_path):
+    hf = tmp_path / "mail.html"
+    hf.write_text("<p>Hallo <strong>Ilja</strong></p>")
+    msg = sm.build_message("a@b.c", _args(body="text-fallback", body_file=None, html_file=str(hf)))
+    assert msg.get_content_type() == "multipart/alternative"
+    types = {p.get_content_type() for p in msg.iter_parts()}
+    assert types == {"text/plain", "text/html"}
+    html_part = next(p for p in msg.iter_parts() if p.get_content_type() == "text/html")
+    assert "<strong>Ilja</strong>" in html_part.get_content()
+    text_part = next(p for p in msg.iter_parts() if p.get_content_type() == "text/plain")
+    assert "text-fallback" in text_part.get_content()
+
+
+def test_should_derive_text_fallback_from_html_when_no_body(tmp_path):
+    hf = tmp_path / "mail.html"
+    hf.write_text("<p>Hallo Ilja</p><p>Zeile zwei</p>")
+    msg = sm.build_message("a@b.c", _args(body=None, body_file=None, html_file=str(hf)))
+    assert msg.get_content_type() == "multipart/alternative"
+    text_part = next(p for p in msg.iter_parts() if p.get_content_type() == "text/plain")
+    txt = text_part.get_content()
+    assert "Hallo Ilja" in txt and "Zeile zwei" in txt
+    assert "<p>" not in txt
+
+
+def test_should_strip_tags_and_unescape_in_html_to_text():
+    out = sm.html_to_text("<style>x{color:red}</style><p>Guten Tag &amp; hallo</p><br>Ende")
+    assert "Guten Tag & hallo" in out
+    assert "<" not in out and "color:red" not in out
+
+
 # --- find_sent_folder (Sent-Kopie, kein Netz — s. append_to_sent Docstring) ---
 
 class _FakeImap:
