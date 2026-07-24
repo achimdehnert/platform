@@ -123,7 +123,12 @@ jobs:
         run: python3 tools/check_workflow_index.py
 
       - name: Install ruff
-        run: pip install ruff --quiet --break-system-packages
+        # Pin (2026-07-24): unpinned `pip install ruff` zog eine neuere Ruff-Version als der
+        # lokale/pyproject-Stand -> RUF059/RUF100 feuerten repo-weit ueber Alt-Dateien und
+        # faerbten JEDEN tools/-PR rot (belegt: main lokal @0.15.4 = 0 Verstoesse; #1420 mit
+        # ruff-sauberen Eigen-Dateien scheiterte identisch). _ci-python.yml predigt Pinning
+        # bereits -- hier nachgezogen. B) (Ruff-Bump + repo-weiter Fix) folgt separat.
+        run: pip install "ruff==0.15.4" --quiet --break-system-packages
 
       - name: Lint (ruff check tools/ scripts/)
         # X-9: eigener Step NACH dem pytest-Step (Test-Failures sollen zuerst sichtbar
