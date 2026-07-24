@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-24",
-  "total": 230,
-  "next_free": 286,
+  "total": 231,
+  "next_free": 287,
   "adrs": [
     {
       "number": 7,
@@ -5328,6 +5328,21 @@
         "ADR-258",
         "ADR-280"
       ],
+      "implementation_status": ""
+    },
+    {
+      "number": 286,
+      "id": "ADR-286",
+      "file": "ADR-286-mail-agent-crypto-shredding-derived-index.md",
+      "title": "Adopt a crypto-shredded derived-index architecture for the Postgres mail agent",
+      "status": "proposed",
+      "date": "2026-07-24",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
       "implementation_status": ""
     },
     {
