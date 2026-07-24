@@ -38,7 +38,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from send_mail import CONFIG_FILE, load_credentials, parse_env  # noqa: E402
 
-TRASH_CANDIDATES = ("INBOX.Trash", "Trash", "INBOX.Papierkorb", "Deleted Items")
+TRASH_CANDIDATES = (
+    "INBOX.Trash",
+    "Trash",
+    "INBOX.Papierkorb",
+    "Deleted Items",
+    # Deutsches Exchange/M365 — sowohl Klartext als auch die Form, in der der
+    # Server sie über LIST meldet (IMAP modified UTF-7, RFC 3501 §5.1.3).
+    "Gelöschte Objekte",
+    "Gel&APY-schte Objekte",
+)
+# Marker für die Heuristik, wenn kein Kandidat exakt passt. "schte objekte" trifft
+# absichtlich BEIDE Schreibweisen von "Gelöschte Objekte" (Klartext + UTF-7),
+# ohne dass dafür ein UTF-7-Decoder nötig wäre.
+_TRASH_MARKERS = ("trash", "papierkorb", "deleted", "schte objekte")
 # LIST-Zeile: (flags) "delim" name — name nur gequotet bei Sonderzeichen (RFC 3501 §7.2.2).
 _LIST_LINE_RE = re.compile(r'^\((?P<flags>[^)]*)\)\s+(?:"[^"]*"|NIL)\s+(?P<name>.+)$')
 
@@ -89,13 +102,23 @@ def list_folders(imap: imaplib.IMAP4_SSL) -> list[str]:
     return names
 
 
+def _mailbox_arg(folder: str) -> str:
+    """Ordnernamen mit Leerzeichen für IMAP quoten (z.B. 'Gesendete Objekte').
+    imaplib quotet nicht selbst — ein unquoted Name mit Space bricht SELECT und
+    lässt UID MOVE/COPY mit 'BAD Command Argument Error' scheitern.
+    Identisch zu read_mail._mailbox_arg (dort seit jeher vorhanden)."""
+    if " " in folder and not (folder.startswith('"') and folder.endswith('"')):
+        return '"%s"' % folder
+    return folder
+
+
 def resolve_trash(imap: imaplib.IMAP4_SSL) -> str | None:
     names = list_folders(imap)
     for c in TRASH_CANDIDATES:
         if c in names:
             return c
     for n in names:
-        if "trash" in n.lower() or "papierkorb" in n.lower():
+        if any(m in n.lower() for m in _TRASH_MARKERS):
             return n
     return None
 
@@ -123,7 +146,7 @@ def _matches(
     # UIDs sind — _move() verschiebt mit UID MOVE. Sequenz-Nummern (imap.search/
     # imap.fetch) fallen nur bei lückenlosen Postfächern mit UIDs zusammen; auf
     # Exchange traf UID MOVE sonst ins Leere und meldete trotzdem OK (still 0 verschoben).
-    imap.select(source, readonly=True)
+    imap.select(_mailbox_arg(source), readonly=True)
     typ, data = imap.uid("SEARCH", "ALL")
     if typ != "OK" or not data or not data[0]:
         return []
@@ -164,15 +187,15 @@ def _matches(
 
 
 def _move(imap: imaplib.IMAP4_SSL, source: str, target: str, uids: list[bytes]) -> None:
-    imap.select(source)  # read-write
+    imap.select(_mailbox_arg(source))  # read-write
     uid_set = b",".join(uids)
     caps = getattr(imap, "capabilities", ())
     if "MOVE" in caps:
-        typ, resp = imap.uid("MOVE", uid_set, target)
+        typ, resp = imap.uid("MOVE", uid_set, _mailbox_arg(target))
         if typ != "OK":
             sys.exit(f"FEHLER: MOVE fehlgeschlagen: {resp}")
         return
-    typ, resp = imap.uid("COPY", uid_set, target)
+    typ, resp = imap.uid("COPY", uid_set, _mailbox_arg(target))
     if typ != "OK":
         sys.exit(f"FEHLER: COPY nach {target} fehlgeschlagen: {resp}")
     imap.uid("STORE", uid_set, "+FLAGS", r"(\Deleted)")
@@ -241,7 +264,7 @@ def _set_flagged(
     imap: imaplib.IMAP4_SSL, source: str, uids: list[bytes], add: bool
 ) -> None:
     """\\Flagged auf den UIDs setzen (+FLAGS) oder entfernen (-FLAGS) — kein EXPUNGE."""
-    imap.select(source)  # read-write
+    imap.select(_mailbox_arg(source))  # read-write
     op = "+FLAGS" if add else "-FLAGS"
     typ, resp = imap.uid("STORE", b",".join(uids), op, r"(\Flagged)")
     if typ != "OK":
