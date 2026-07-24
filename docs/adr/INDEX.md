@@ -250,4 +250,4 @@
 | 282 | Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern | Accepted | ⬜ | [ADR-282](ADR-282-skill-workflow-taxonomy-governance-lifecycle.md) |
 | 283 | Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest | Proposed | ⬜ | [ADR-283](ADR-283-korrespondenz-vorgangsspeicher.md) |
 | 285 | Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel | Proposed | ⬜ | [ADR-285](ADR-285-skill-lane-consolidation.md) |
-| 286 | Adopt a crypto-shredded derived-index architecture for the Postgres mail agent | Proposed | ⬜ | [ADR-286](ADR-286-mail-agent-crypto-shredding-derived-index.md) |
+| 286 | Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence | Proposed | ⬜ | [ADR-286](ADR-286-mail-agent-crypto-shredding-derived-index.md) |
