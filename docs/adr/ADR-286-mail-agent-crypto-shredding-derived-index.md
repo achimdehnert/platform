@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-07-24
 deciders: Achim Dehnert
 consulted: –
@@ -21,11 +21,11 @@ ai_sparring_by:
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted                                                             |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-07-24                                                           |
 | **Autor**       | Achim Dehnert                                                        |
-| **Reviewer**    | – (2× externe KI-Zweitmeinung, non-accountable, s. §11)             |
+| **Reviewer**    | Achim Dehnert (approved 2026-07-24) · 2× externe KI-Zweitmeinung (non-accountable, §11)             |
 | **Supersedes**  | –                                                                    |
 | **Superseded by** | –                                                                  |
 | **Relates to**  | KONZ-platform-034 (Postgres-Mailagent), KONZ-033 (Rollen-Mail-Identität) |
@@ -338,3 +338,4 @@ Zwei externe adversariale Reviews (non-accountable, ersetzen keine Owner-Review)
 | 2026-07-24 | Achim Dehnert | Initial: Status Proposed (crypto-geschredderter Voll-Index) |
 | 2026-07-24 | Achim Dehnert | v2 nach 2× externer KI-Zweitmeinung: Option D (Metadaten-first) primär, Erasure-Ledger, Envelope-Encryption, transport-spezifische Identität, Löschumfang-Matrix, MEiKI-deny-by-default, DSFA-Gate, Delta-Sync; Tag-Tabelle §11 |
 | 2026-07-24 | Achim Dehnert | §4.8 ergänzt (Owner-Frage): Darstellung komplexer Sachverhalte unter Option D — Metadaten-Skelett / JIT-Inhalt / Vorgang-Promotion + ehrliche Grenzen |
+| 2026-07-24 | Achim Dehnert | Status **Proposed → Accepted** (Owner reviewed + approved) |

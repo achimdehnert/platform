@@ -5335,7 +5335,7 @@
       "id": "ADR-286",
       "file": "ADR-286-mail-agent-crypto-shredding-derived-index.md",
       "title": "Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-24",
       "domains": [],
       "supersedes": [],
