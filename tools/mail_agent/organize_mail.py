@@ -108,7 +108,7 @@ def _mailbox_arg(folder: str) -> str:
     lässt UID MOVE/COPY mit 'BAD Command Argument Error' scheitern.
     Identisch zu read_mail._mailbox_arg (dort seit jeher vorhanden)."""
     if " " in folder and not (folder.startswith('"') and folder.endswith('"')):
-        return '"%s"' % folder
+        return f'"{folder}"'
     return folder
 
 
