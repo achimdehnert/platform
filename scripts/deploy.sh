@@ -225,6 +225,28 @@ fi
 docker compose "${COMPOSE_ARGS[@]}" pull
 docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
 
+# ── Django-Migrationen (fail-closed; No-op für Nicht-Django-Stacks) ───────────
+# Root-Cause illustration-hub#66: dieses Skript lief bisher OHNE migrate-Schritt →
+# gemergte Migrationen erreichten die Prod-DB nie ("Deploy grün ≠ Schema aktuell").
+# Gemessen 2026-07-24: jobs.0002 lag nach grünem Deploy [ ] unapplied auf Prod.
+# set -euo pipefail + `trap rollback ERR` (oben) machen ein migrate-Scheitern
+# fail-closed. Nicht-Django-Repos (kein *web-Service mit manage.py) bleiben No-op.
+_MIGRATE_WEB=$(docker compose "${COMPOSE_ARGS[@]}" ps --services 2>/dev/null | grep -E 'web$' | head -1 || true)
+if [[ -n "$_MIGRATE_WEB" ]] && docker compose "${COMPOSE_ARGS[@]}" exec -T "$_MIGRATE_WEB" test -f manage.py 2>/dev/null; then
+  echo "--- Django-Migrationen ($_MIGRATE_WEB) ---"
+  docker compose "${COMPOSE_ARGS[@]}" exec -T "$_MIGRATE_WEB" python manage.py migrate --noinput
+  # Verifikation: nach 'migrate' darf KEINE Migration mehr pending sein — fängt
+  # Teil-Apply / --fake-Artefakte (der 0002-half-applied-Zustand aus #66).
+  if docker compose "${COMPOSE_ARGS[@]}" exec -T "$_MIGRATE_WEB" \
+       python manage.py showmigrations --plan 2>/dev/null | grep -q '^\[ \]'; then
+    echo "FATAL: pending Migrationen nach 'migrate' — Schema-Drift, Deploy abgebrochen." >&2
+    echo "       (Kein Auto-Rollback: Teil-Migrationen lassen sich nicht sicher zurückrollen — manuell prüfen.)" >&2
+    exit 2
+  fi
+else
+  echo "--- Kein '*web'-Service mit manage.py — Django-Migrate übersprungen (Nicht-Django-Stack) ---"
+fi
+
 # Health-Check
 # Staging: derive local URL from the WEB service's host-port mapping.
 # We must NOT just take the first 127.0.0.1:PORT line in the compose
