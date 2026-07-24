@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-019
+concept_id: KONZ-platform-032
 title: "Agenten-Autonomie ohne Standing-Bypass: Pfad-gescopte Review + Standing-Authorization-Klassen + Merge-Entkopplung"
 pipeline_status: idea
 tier: T3
@@ -25,7 +25,7 @@ evidence_manifest:
 created: "2026-07-12"
 ---
 
-# KONZ-platform-019 — Agenten-Autonomie ohne Standing-Bypass
+# KONZ-platform-032 — Agenten-Autonomie ohne Standing-Bypass
 
 > Auslöser (Achim, 2026-07-12): *"wir haben mit den Secrets und den unterschiedlichen Token immer
 > wieder Probleme, insbesondere da du wegen Sicherheits-Gates nicht ungehindert agieren kannst.

@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-014
+concept_id: KONZ-platform-031
 title: Deploy-Freigabe nach Schutzklassen — Post-Verification statt Pre-Approval + Approvals-Board
 pipeline_status: idea
 tier: T2
@@ -21,7 +21,7 @@ evidence_manifest:
 created: 2026-07-08
 ---
 
-# KONZ-platform-014 — Deploy-Freigabe nach Schutzklassen
+# KONZ-platform-031 — Deploy-Freigabe nach Schutzklassen
 
 ## 1 Executive Summary
 

@@ -104,3 +104,19 @@ nicht das Urteil.
 **Pilot empfohlen** als T2-MVC (Flag + Hard-Gate + Single-Call + manueller Rückfluss). **Vorbedingung:**
 RISK-1 (ADR-Threshold) vor Bau einmal explizit auflösen, da der Egress-Charakter die „kein ADR"-Einstufung
 kippen könnte. Kein Voll-Automatik (ALT-1). Review bis 2026-07-20.
+
+## Umsetzungs-Status (Abschluss-Checkliste)
+
+> Ergänzt 2026-07-24 (#1167, Muster PR #1275): macht den Ausführungsstand jeder
+> Empfehlung + des Kill-Gates explizit, damit das Dokument abgearbeitet statt
+> überflogen wird. Stand: `pipeline_status: idea` — noch nichts gebaut.
+
+| Bedingung / REC | Status | Beleg / nächster Schritt |
+|---|---|---|
+| **Vorbedingung** RISK-1 (ADR-Threshold) explizit aufgelöst | ✅ erledigt | „AUFGELÖST 2026-06-20 → kein ADR" (§Top-Risiken); Hard-Gate-Test trägt die Einstufung |
+| **REC-1** Souveränitäts-Gate = programmatischer Hard-Abort + Marker-Test, VOR Call-Pfad | ⬜ offen | kein `--auto` ohne grünen Gate-Test; `test_should_abort_auto_for_sovereign_org` |
+| **REC-2** Ziel-Modell aus `model_registry.py` (reasoning-tier) + `GET /v1/models`-Preflight | ⬜ offen | nicht gebaut |
+| **REC-3** Policy `llm-routing.md` + CLAUDE.md korrigieren (Key-Pfad, aifw-Repo-Name) | ⬜ offen | nicht verifiziert |
+| **REC-4** Step 5 manuell + `[valid]`-Quote ab Lauf 1 mitführen | ⬜ offen | Kill-Gate-Messgrundlage |
+| **Kill-Gate** 3 reale `--auto`-Läufe ohne Mehrwert → `--auto` entfernen | ⬜ nicht erreicht | 0 Läufe (MVC nicht gebaut) |
+| **Exception-Budget** grünes Signal bis `review_by` 2026-07-20 | ⛔ überschritten | 2026-07-24: kein Bau, kein Lauf → **Entscheidung fällig:** REC-1 bauen **oder** laut eigenem Kill-Gate auf `sunset` |
