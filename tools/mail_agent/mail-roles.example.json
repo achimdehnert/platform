@@ -1,0 +1,53 @@
+{
+  "_readme": "Vorlage für die Rollen-Registry (KONZ-platform-033). Die ECHTE Datei mit realen Adressen/Signaturpfaden liegt personenbezogen unter ~/.claude/mail-roles.json (NICHT im Repo, wie mail.env). transport ist nur ein Key (smtp | graph_draft | imap_append) — Credentials/Hosts bleiben in mail*.env / ~/.secrets. requires_legal_footer=true blockt den Versand, wenn legal_footer_file fehlt/leer ist.",
+  "roles": {
+    "iil": {
+      "display_name": "Prof. Dr. <Name>",
+      "role_line": "Leiter · IIL GmbH",
+      "from": "<name>@iil.example",
+      "transport": "graph_draft",
+      "accent": "#1F3A5F",
+      "monogram": "iil",
+      "tone": "geschäftlich, Empfehlung zuerst, keine KI-Vorrede",
+      "signature_file": "~/.claude/mail-sig/iil.txt",
+      "legal_footer_file": "~/.claude/mail-sig/iil-footer.txt",
+      "requires_legal_footer": true
+    },
+    "hnu": {
+      "display_name": "Prof. Dr. <Name>",
+      "role_line": "Hochschule <Ort>",
+      "from": "<name>@hnu.example",
+      "transport": "imap_append",
+      "accent": "#7A1F2B",
+      "monogram": "HNU",
+      "tone": "akademisch, sachlich",
+      "signature_file": "~/.claude/mail-sig/hnu.txt",
+      "legal_footer_file": null,
+      "requires_legal_footer": false
+    },
+    "dsb": {
+      "display_name": "Prof. Dr. <Name>",
+      "role_line": "Datenschutzbeauftragter · IIL GmbH",
+      "from": "<name>@iil.example",
+      "transport": "graph_draft",
+      "accent": "#1F5C3A",
+      "monogram": "DSB",
+      "tone": "formal, rechtssicher, vertraulich",
+      "signature_file": "~/.claude/mail-sig/dsb.txt",
+      "legal_footer_file": "~/.claude/mail-sig/dsb-footer.txt",
+      "requires_legal_footer": true
+    },
+    "dehnert_team": {
+      "display_name": "KI-Assistent von <Name>",
+      "role_line": "LUCA-Werkbank · dehnert.team",
+      "from": "<name>@dehnert.example",
+      "transport": "smtp",
+      "accent": "#12626B",
+      "monogram": "d.",
+      "tone": "knapp, transparent (KI-Assistent), lösungsorientiert",
+      "signature_file": "~/.claude/mail-sig/dehnert.txt",
+      "legal_footer_file": null,
+      "requires_legal_footer": false
+    }
+  }
+}
