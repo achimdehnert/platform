@@ -48,6 +48,18 @@
       "signature_file": "~/.claude/mail-sig/dehnert.txt",
       "legal_footer_file": null,
       "requires_legal_footer": false
+    },
+    "private": {
+      "display_name": "<Name>",
+      "role_line": "privat",
+      "from": "<name>@iil.example",
+      "transport": "graph_draft",
+      "accent": "#574B6E",
+      "monogram": "AD",
+      "tone": "persönlich, direkt, ohne Formalia",
+      "signature_file": "~/.claude/mail-sig/private.txt",
+      "legal_footer_file": null,
+      "requires_legal_footer": false
     }
   }
 }
