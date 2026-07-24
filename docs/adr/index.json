@@ -5154,7 +5154,7 @@
       "id": "ADR-278",
       "file": "ADR-278-oidc-trusted-publishing-only.md",
       "title": "OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-19",
       "domains": [],
       "supersedes": [],

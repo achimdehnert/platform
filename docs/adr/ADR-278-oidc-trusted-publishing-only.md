@@ -1,7 +1,7 @@
 ---
 id: ADR-278
 title: "OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate"
-status: proposed
+status: accepted
 decision_date: 2026-07-19
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -94,3 +94,15 @@ definiert — Repos konnten still auf Token zurückfallen.
 Review-Termin **2026-10-19** (T+90): Ist das Gate in der shared-CI aktiv (block) und sind alle 7
 Repos token-frei? Wenn nach 90 Tagen noch Token-Publishing existiert, das das Gate nicht fängt,
 ist die Enforcement-Verdrahtung zu überarbeiten (nicht das Prinzip).
+
+## Changelog
+
+- **2026-07-24: `proposed` → `accepted`** (Owner Achim Dehnert). Damit ist der im
+  Abschnitt *Enforcement-Gate* vorgesehene Folgeschritt freigegeben: die
+  `publish-auth-guard`-Verdrahtung (warn → **block**) in die CI. shared-ci hat den
+  Guard bereits (shared-ci#33); platforms aktiv von 19 Repos genutztes
+  `_ci-pypi.yml` bekommt ihn als Sync nachgezogen (Tracking #1423). **Blast-Radius-
+  Preflight (2026-07-24):** die 19 `_ci-pypi.yml`-Consumer auf `password:`-Inputs
+  gescannt — **0 würden rot** (13 OIDC-clean, 5 ohne publish-Workflow, 1
+  TestPyPI-only/ausgenommen). Der blockierende Guard schreibt also den bereits
+  erreichten OIDC-Stand fest, statt neue Rot-Fälle zu erzeugen.
