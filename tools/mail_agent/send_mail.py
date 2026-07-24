@@ -65,13 +65,40 @@ def load_credentials(creds_file: Path, sender: str) -> tuple[str, str]:
     return match
 
 
+def html_to_text(html: str) -> str:
+    """Minimaler Text-Fallback für den text/plain-Teil einer multipart/alternative-Mail.
+
+    Kein vollwertiger HTML-Renderer — echte Clients zeigen ohnehin den HTML-Teil;
+    dieser Fallback ist nur für reine Text-Clients und für die Sent-Kopie lesbar.
+    """
+    import html as _htmlmod
+
+    text = re.sub(r"(?is)<(script|style|head|title)[^>]*>.*?</\1>", "", html)
+    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?i)</(p|div|tr|h[1-6])\s*>", "\n\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = _htmlmod.unescape(text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n[ \t]+", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip() + "\n"
+
+
 def build_message(sender: str, args: argparse.Namespace) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = ", ".join(args.to)
     msg["Subject"] = args.subject
-    body = Path(args.body_file).read_text() if args.body_file else args.body
-    msg.set_content(body)
+    text = Path(args.body_file).read_text() if args.body_file else args.body
+    html_file = getattr(args, "html_file", None)
+    html = Path(html_file).read_text() if html_file else None
+    if html is not None:
+        # multipart/alternative: Text-Teil zuerst (Fallback), dann HTML — Clients
+        # bevorzugen den zuletzt hinzugefügten passenden Teil (RFC 2046 §5.1.4).
+        msg.set_content(text if text is not None else html_to_text(html))
+        msg.add_alternative(html, subtype="html")
+    else:
+        msg.set_content(text)
     for att in args.attach:
         p = Path(att).expanduser()
         maintype, subtype = ("text", "plain")
@@ -149,12 +176,19 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--to", action="append", required=True, help="Empfänger (mehrfach möglich)")
     ap.add_argument("--subject", required=True)
-    body_group = ap.add_mutually_exclusive_group(required=True)
-    body_group.add_argument("--body", help="Mailtext direkt")
-    body_group.add_argument("--body-file", help="Mailtext aus Datei")
+    body_group = ap.add_mutually_exclusive_group(required=False)
+    body_group.add_argument("--body", help="Mailtext direkt (text/plain)")
+    body_group.add_argument("--body-file", help="Mailtext aus Datei (text/plain)")
+    ap.add_argument(
+        "--html-file",
+        help="HTML-Body aus Datei (multipart/alternative). Text-Fallback aus "
+        "--body/--body-file, sonst automatisch aus dem HTML abgeleitet.",
+    )
     ap.add_argument("--attach", action="append", default=[], help="Anhang-Pfad (mehrfach möglich)")
     ap.add_argument("--from", dest="sender", default=None, help="Absender-Override (Default: MAIL_FROM)")
     args = ap.parse_args()
+    if not (args.body or args.body_file or args.html_file):
+        ap.error("mindestens eine Body-Quelle nötig: --body, --body-file oder --html-file")
 
     if not CONFIG_FILE.exists():
         sys.exit(f"FEHLER: {CONFIG_FILE} fehlt — Bootstrap siehe /send-mail Step 0")
