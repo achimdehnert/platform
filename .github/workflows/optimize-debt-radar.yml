@@ -144,7 +144,7 @@ jobs:
       # Folge-Lauf zieht sie oben wieder heraus. Retention 90 Tage deckt die Kadenz
       # (2x/Woche) mit grossem Abstand ab.
       - name: Neue Baseline als Artefakt ablegen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: optimize-debt-radar-baseline
           path: /tmp/radar_result.json
