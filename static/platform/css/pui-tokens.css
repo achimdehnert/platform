@@ -26,6 +26,7 @@
   --pui-green-500: #22c55e;
   --pui-red-500:   #ef4444;
   --pui-amber-500: #f59e0b;
+  --pui-amber-700: #b45309;   /* dunkles Amber für Warn-TEXT (AA ≥ 4.5:1 auf hellem Grund) */
 }
 
 /* ========================================================================
@@ -40,7 +41,8 @@
   /* Status */
   --pui-success: var(--pui-green-500);
   --pui-danger:  var(--pui-red-500);
-  --pui-warning: var(--pui-amber-500);
+  --pui-warning: var(--pui-amber-500);       /* Akzent: Hintergrund/Rahmen/Icon (UI 3:1) — NICHT als Textfarbe */
+  --pui-warning-text: var(--pui-amber-700);  /* Warn-TEXT auf hellem Grund (AA ≥ 4.5:1) */
 
   /* Text */
   --pui-foreground: var(--pui-gray-900);
