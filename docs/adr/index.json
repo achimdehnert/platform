@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-23",
-  "total": 229,
-  "next_free": 284,
+  "generated": "2026-07-24",
+  "total": 230,
+  "next_free": 286,
   "adrs": [
     {
       "number": 7,
@@ -4007,7 +4007,8 @@
       ],
       "supersedes": [],
       "superseded_by": [
-        "ADR-280"
+        "ADR-280",
+        "ADR-285"
       ],
       "amends": [],
       "amended_by": [
@@ -4036,7 +4037,8 @@
       ],
       "amended_by": [
         "ADR-280",
-        "ADR-281"
+        "ADR-281",
+        "ADR-285"
       ],
       "related": [
         "ADR-229"
@@ -5295,6 +5297,36 @@
         "ADR-154",
         "ADR-233",
         "ADR-238"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 285,
+      "id": "ADR-285",
+      "file": "ADR-285-skill-lane-consolidation.md",
+      "title": "Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel",
+      "status": "proposed",
+      "date": "2026-07-24",
+      "domains": [
+        "tooling",
+        "dx",
+        "drift-prevention",
+        "governance"
+      ],
+      "supersedes": [
+        "ADR-229"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-230",
+        "claude-skills.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-229",
+        "ADR-230",
+        "ADR-258",
+        "ADR-280"
       ],
       "implementation_status": ""
     },
