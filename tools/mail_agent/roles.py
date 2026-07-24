@@ -166,10 +166,15 @@ $legal_footer</td></tr>
 def _hex_soft(accent: str) -> str:
     """Sehr helle Tönung des Akzents für die Monogramm-Fläche (deterministisch, ohne Deps)."""
     try:
-        r = int(accent[1:3], 16); g = int(accent[3:5], 16); b = int(accent[5:7], 16)
+        r = int(accent[1:3], 16)
+        g = int(accent[3:5], 16)
+        b = int(accent[5:7], 16)
     except (ValueError, IndexError):
         return "#E3EEEE"
-    mix = lambda c: round(c + (255 - c) * 0.88)
+
+    def mix(c: int) -> int:
+        return round(c + (255 - c) * 0.88)
+
     return f"#{mix(r):02X}{mix(g):02X}{mix(b):02X}"
 
 
