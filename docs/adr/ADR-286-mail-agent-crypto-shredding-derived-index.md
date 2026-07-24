@@ -196,6 +196,26 @@ lebender DEKs; sichere Cache-Invalidierung; Schlüsselvernichtungs-Nachweis.
 - **JSON-Migration**: `mail-vorgaenge.json` bekommt **Cutover-Datum + Migrationsschritt**; danach
   read-only, kein Parallelbetrieb (SSoT).
 
+### 4.8 Darstellung komplexer Sachverhalte (drei Ebenen)
+
+Option D verbietet **nicht** die inhaltliche Analyse komplexer, mailübergreifender Sachverhalte —
+sie staffelt sie nach Zweck:
+
+1. **Metadaten-Skelett (immer):** `thread_key`, Beteiligte, Zeitachse, Betreffe, Cross-Postfach-
+   Verknüpfungen bilden die *Struktur* eines Sachverhalts ab (Timeline-/Thread-/Beteiligten-Ansicht)
+   ohne Body-Persistenz.
+2. **Just-in-time-Inhalt (ad hoc):** Der Index bestimmt, welche Mails den Sachverhalt bilden; deren
+   Bodies werden **live aus dem Postfach** geholt, im Speicher/TTL-Cache zum Sachverhalt montiert,
+   dargestellt und verworfen. Volle inhaltliche Darstellung ohne Dauer-Store.
+3. **Vorgang-Promotion (tiefe/lange Sachverhalte):** Wird ein Sachverhalt zum **Vorgang** erklärt,
+   werden seine Thread-Bodies zweckgebunden persistiert (Envelope-Encryption, Crypto-Shredding,
+   Retention + Delete-Cascade) → Offline-Analyse, reproduzierbar, aifw-Reasoning (Phase 3, draft-first).
+
+**Ehrliche Grenzen:** Ad-hoc-Volltextsuche über *nicht* persistierte Bodies existiert nicht (→ Vorgang
+promoten); JIT bringt Latenz + Postfach-Verfügbarkeits-Abhängigkeit; eine vor dem Fetch gelöschte Mail
+ist inhaltlich weg (korrektes SoT-Verhalten). Der Vorteil ggü. Option B: ein erklärter Vorgang trägt
+Zweck, Frist und Löschpfad, statt jeden Inhalt unbefristet vorzuhalten.
+
 ---
 
 ## 5. Migration Tracking
@@ -317,3 +337,4 @@ Zwei externe adversariale Reviews (non-accountable, ersetzen keine Owner-Review)
 |-------|-------|----------|
 | 2026-07-24 | Achim Dehnert | Initial: Status Proposed (crypto-geschredderter Voll-Index) |
 | 2026-07-24 | Achim Dehnert | v2 nach 2× externer KI-Zweitmeinung: Option D (Metadaten-first) primär, Erasure-Ledger, Envelope-Encryption, transport-spezifische Identität, Löschumfang-Matrix, MEiKI-deny-by-default, DSFA-Gate, Delta-Sync; Tag-Tabelle §11 |
+| 2026-07-24 | Achim Dehnert | §4.8 ergänzt (Owner-Frage): Darstellung komplexer Sachverhalte unter Option D — Metadaten-Skelett / JIT-Inhalt / Vorgang-Promotion + ehrliche Grenzen |
