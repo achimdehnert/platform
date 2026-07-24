@@ -52,8 +52,8 @@
     "private": {
       "display_name": "<Name>",
       "role_line": "privat",
-      "from": "<name>@iil.example",
-      "transport": "graph_draft",
+      "from": "<name>@dehnert.example",
+      "transport": "smtp",
       "accent": "#574B6E",
       "monogram": "AD",
       "tone": "persönlich, direkt, ohne Formalia",
