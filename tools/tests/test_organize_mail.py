@@ -87,8 +87,10 @@ class _FakeUidImap:
     def __init__(self, search_uids, fetch_resp, caps=("MOVE",)):
         self._search, self._fetch, self.capabilities = search_uids, fetch_resp, caps
         self.moved = None
+        self.selected = None
 
     def select(self, folder, readonly=False):
+        self.selected = folder
         return "OK", [b"2"]
 
     def uid(self, cmd, *args):
@@ -141,6 +143,54 @@ def test_should_move_via_uid_move_with_those_uids():
     imap = _FakeUidImap(b"", [])
     om._move(imap, "INBOX", "Ziel/2020", [b"1001", b"1002"])
     assert imap.moved == (b"1001,1002", "Ziel/2020")
+
+
+# --- Ordner-Namen mit Leerzeichen quoten (Regression 2026-07-24) -------------
+# Realfall: `--move --source "Entw&APw-rfe" --to "Gel&APY-schte Objekte"` schlug mit
+# `BAD [Command Argument Error. 12]` fehl. Ursache: organize_mail reichte Ordner-
+# namen ROH an select()/UID MOVE durch — read_mail hatte den Quoting-Helper längst,
+# organize_mail nicht. Umlaute bleiben Sache des Aufrufers (IMAP modified UTF-7);
+# hier geht es ausschliesslich um das Quoting von Leerzeichen.
+
+
+def test_should_quote_folder_name_with_spaces():
+    assert om._mailbox_arg("Gel&APY-schte Objekte") == '"Gel&APY-schte Objekte"'
+
+
+def test_should_leave_folder_name_without_spaces_unquoted():
+    assert om._mailbox_arg("INBOX.Trash") == "INBOX.Trash"
+
+
+def test_should_not_double_quote_already_quoted_folder():
+    assert om._mailbox_arg('"Deleted Items"') == '"Deleted Items"'
+
+
+def test_should_quote_move_target_with_spaces():
+    imap = _FakeUidImap(b"", [])
+    om._move(imap, "Entw&APw-rfe", "Gel&APY-schte Objekte", [b"1001"])
+    assert imap.moved == (b"1001", '"Gel&APY-schte Objekte"')
+
+
+def test_should_quote_source_folder_on_select():
+    imap = _FakeUidImap(b"", [])
+    om._move(imap, "Gesendete Objekte", "INBOX.Trash", [b"1001"])
+    assert imap.selected == '"Gesendete Objekte"'
+
+
+# --- Papierkorb-Erkennung: deutsches Exchange/M365 ---------------------------
+# Realfall: HNU-Postfach meldet den Papierkorb als "Gel&APY-schte Objekte"
+# (= "Gelöschte Objekte"). Weder "trash" noch "papierkorb" kommt darin vor →
+# `--to-trash` brach mit "kein Papierkorb-Ordner gefunden" ab.
+
+
+def test_should_resolve_german_exchange_trash_utf7():
+    imap = _FakeImap([b'(\\HasNoChildren) "." "Gel&APY-schte Objekte"'])
+    assert om.resolve_trash(imap) == "Gel&APY-schte Objekte"
+
+
+def test_should_resolve_german_exchange_trash_plaintext():
+    imap = _FakeImap(['(\\HasNoChildren) "." "Gelöschte Objekte"'.encode()])
+    assert om.resolve_trash(imap) == "Gelöschte Objekte"
 
 
 # --- _set_flagged / cmd_flag: \Flagged setzen & entfernen --------------------
