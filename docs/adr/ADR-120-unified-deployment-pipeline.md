@@ -196,6 +196,11 @@ jobs:
 > **CI bei Tags:** Bei `git tag v*` wird CI übersprungen (`if: startsWith(github.ref, 'refs/heads/')`) —
 > der Code wurde bereits auf `main` getestet.
 
+> ℹ️ **Pfad-Hinweis (nachgetragen 2026-07-25, #1438):** Der `ci`-Job zeigt auf
+> `achimdehnert/platform/.github/workflows/_ci-python.yml@v1` — diesen Pfad gibt es nicht mehr
+> (platform-Kopie retired via #1437, SSoT ist `iilgmbh/shared-ci`). `_deploy-unified.yml` liegt
+> weiterhin in platform. Kopierfertig ist `docs/templates/ci.yml`.
+
 ### Zentrales Reusable Workflow
 
 ```yaml

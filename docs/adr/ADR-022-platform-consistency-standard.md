@@ -369,6 +369,12 @@ jobs:
       HETZNER_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 ```
 
+> ℹ️ **Pfad-Hinweis (nachgetragen 2026-07-25, #1438):** Der `ci`-Job zeigt hier auf
+> `achimdehnert/platform/.github/workflows/_ci-python.yml@v1` — diesen Pfad gibt es nicht mehr
+> (platform-Kopie retired via #1437, SSoT ist `iilgmbh/shared-ci`). Das Snippet bleibt als
+> Entscheidungsstand stehen; kopierfertig ist `docs/templates/ci.yml`
+> (dort `iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.14`).
+
 ---
 
 ## 4. Delta-Matrix: IST zu SOLL pro Repo

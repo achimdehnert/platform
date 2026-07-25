@@ -12,7 +12,7 @@ superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: .github/workflows/megatest.yml, commit_or_pr: "line 60", opened_in_session: true}
   - {claim_id: C2, source_path: .github/workflows/platform-audit.yml, commit_or_pr: "line 87", opened_in_session: true}
-  - {claim_id: C3, source_path: .github/workflows/_ci-python.yml, commit_or_pr: "workflow_call line 11", opened_in_session: true}
+  - {claim_id: C3, source_path: "iilgmbh/shared-ci/.github/workflows/_ci-python.yml", commit_or_pr: "workflow_call; Pfad 2026-07-25 nachgezogen (#1438), zuvor platform/.github/workflows/_ci-python.yml line 11 — dort retired via #1437", opened_in_session: true}
   - {claim_id: C4, source_path: .github/workflows/pypi-ci-adoption-gate.yml, commit_or_pr: "lines 86-161", opened_in_session: true}
   - {claim_id: C5, source_path: scripts/ship.sh, commit_or_pr: "promote lines 119-124", opened_in_session: true}
   - {claim_id: C6, source_path: scripts/repo-registry.yaml, commit_or_pr: "line 2-3 'Single source of truth'", opened_in_session: true}
@@ -212,7 +212,7 @@ Registry abgeleitet):
 clean_state:
   repo: achimdehnert/<name>
   default_branch_sha: "<sha>"
-  workflow_ref: "platform/.github/workflows/_ci-python.yml@v1.2.3"
+  workflow_ref: "iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.14"   # Beispielwert; Pfad 2026-07-25 nachgezogen (#1438), zuvor platform/… — dort retired via #1437
   constraints_sha256: "<sha>"          # welcher iil-*-Cohort wurde aufgelöst
   last_default_branch_green_at: "..."
   green_runs_30d: 4                    # Frische-Quorum, nicht passive Zeit

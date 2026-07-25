@@ -127,6 +127,11 @@ Alle korrigierten Dateien liegen produktionsreif vor:
 | `_ci-python.yml` (Snippet) | `platform/.github/workflows/_ci-python.yml` | `ADR 115 input/ci_contract_jobs.yml` | 106 |
 | `pyproject.toml` (Snippet) | `<hub>/pyproject.toml` | `ADR 115 input/pyproject_mypy_snippet.toml` | 47 |
 
+> ℹ️ **Pfad-Hinweis (nachgetragen 2026-07-25, #1438):** Die Zeile `_ci-python.yml` nennt
+> `platform/.github/workflows/_ci-python.yml` — den Stand zum Review-Zeitpunkt. Die platform-Kopie
+> ist am 2026-07-25 retired worden (#1437); der Workflow liegt seither in
+> `iilgmbh/shared-ci/.github/workflows/`. Die Tabelle bleibt als Review-Protokoll unverändert.
+
 ---
 
 ## 5. Architektur-Diagramm — Contract-Test-Schichten
