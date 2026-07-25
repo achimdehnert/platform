@@ -23,15 +23,15 @@ mode: write
 
 ## Step 1 — gov-Ausschluss (KONZ-008 E3, PFLICHT)
 
-Gov-Workloads (Orgs `ttz-lif`, `meiki-lra` → Repos wie `ttz-hub`, `meiki-hub`) sind vom
+Gov-Workloads (Orgs `ttz-lif`, `meiki-lra` → Repos wie `ttz-hub`, `meiki-hub`, `frist-hub`) sind vom
 Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage auf dem
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-07-15, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste (Stand 2026-07-24, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
 
 ```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,pptx-hub,dev-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub
+risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -90,3 +90,4 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
 
 - 2026-07-12: Initial (KONZ-risk-hub-008 MVC Schritt 1; Backfill-Baseline 125 Entries/14 Repos).
 - 2026-07-15: Repo-Liste +tax-hub +trading-hub (Discovery-Fund; 139 Entries/16 Repos). ttz-hub hat jetzt auch `klickdummy/` — bleibt gov-ausgeschlossen (E3).
+- 2026-07-24: Repo-Liste +coach-hub +dms-hub +onboarding-hub +research-hub (Discovery), −pptx-hub −dev-hub (kein `klickdummy/` mehr); frist-hub (meiki-lra) neu mit KD → gov-ausgeschlossen (E3). 143 Entries/18 Repos; Producer-Duplikat-Bug gemeldet iilgmbh/iil-klickdummy#188.
