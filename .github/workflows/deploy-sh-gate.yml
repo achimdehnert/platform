@@ -1,0 +1,49 @@
+name: "deploy.sh Gate"
+
+# scripts/deploy.sh ist der Deploy-Entrypoint ALLER Hubs (ADR-120/166) und hatte
+# bis illustration-hub#66 weder Test noch Lint — ein Bruch darin fällt erst beim
+# nächsten Prod-Deploy auf, und zwar als Ausfall. Dieses Gate hält die Zusagen des
+# Migrations-Blocks fest (fail-closed bei Migrations-Fehler/pending, No-op für
+# Nicht-Django-Stacks) und prüft die Syntax der Deploy-Werkzeuge.
+#
+# Läuft auf ubuntu-latest: der Test arbeitet mit einem docker-Stub und braucht
+# weder Docker noch Host-Zugang — ein Gate für den Deploy darf nicht selbst von
+# der Deploy-Infrastruktur abhängen (gleiche Begründung wie infra-hosts-audit.yml).
+
+on:
+  push:
+    paths:
+      - "scripts/deploy.sh"
+      - "tools/deploy-script-drift.sh"
+      - "tests/test_deploy_migrate_gate.sh"
+      - ".github/workflows/deploy-sh-gate.yml"
+  pull_request:
+    paths:
+      - "scripts/deploy.sh"
+      - "tools/deploy-script-drift.sh"
+      - "tests/test_deploy_migrate_gate.sh"
+      - ".github/workflows/deploy-sh-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-sh-gate:
+    name: Syntax + Migrations-Vertrag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Syntax (bash -n)
+        run: |
+          bash -n scripts/deploy.sh
+          bash -n tools/deploy-script-drift.sh
+          bash -n tests/test_deploy_migrate_gate.sh
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning scripts/deploy.sh tools/deploy-script-drift.sh
+
+      - name: Vertragstest Migrations-Gate
+        run: bash tests/test_deploy_migrate_gate.sh
