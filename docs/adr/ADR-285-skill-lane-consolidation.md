@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-07-24
 deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, governance]
@@ -13,7 +13,7 @@ tags: [skills, commands, workflows, distribution, claude-code, windsurf, lane-co
 
 | Attribut | Wert |
 |---|---|
-| **Status** | Proposed (Richtung `skills` steht unter Pilot-Falsifikation, §5/§9) |
+| **Status** | **Accepted** (2026-07-25 — Pilot-Falsifikation bestanden, §9 5/5) |
 | **Scope** | Platform-wide (Tooling/DX, Skill-/Command-Distribution) |
 | **Datum** | 2026-07-24 |
 | **Autor** | Achim Dehnert |
@@ -21,14 +21,19 @@ tags: [skills, commands, workflows, distribution, claude-code, windsurf, lane-co
 | **Amends** | ADR-230 §Verteilung + REC-3-Watchpoint · Policy `claude-skills.md` |
 | **Anker-Issue** | [#1287](https://github.com/achimdehnert/platform/issues/1287) (Owner-Weisung 2026-07-21) |
 
-> **Status proposed — „Entscheidung ≠ Rollout" (ADR-211/ADR-230-Muster).**
+> **Status accepted — „Entscheidung ≠ Rollout" (ADR-211/ADR-230-Muster) gilt weiter.**
 > Die **Invariante** (D1: genau EINE Lane, keine Parallelexistenz) ist die
-> ratifizierte Owner-Weisung und steht fest. Die **Richtung** (D2: konsolidieren
-> auf `skills/`) ist ein Vorschlag, dessen Tragfähigkeit der Phase-1-Pilot
-> (§5, ein `$ARGUMENTS`-Command) **falsifizieren** kann — fällt er durch, kippt
-> D2 auf „eine Lane, aber `commands`". Deshalb `proposed`, bis der Pilot grün ist.
-> Der Bulk-Move (Phase 2) und der Rückbau der `commands`-Lane (Phase 3) laufen
-> danach über das Rollout-Gate (§10), nicht mit der Ratifizierung dieses ADR.
+> ratifizierte Owner-Weisung und stand von Anfang an fest. Die **Richtung** (D2:
+> konsolidieren auf `skills/`) war ein Vorschlag unter Falsifikations-Vorbehalt —
+> der Phase-1-Pilot (§5, ein `$ARGUMENTS`-Command) hat ihn **nicht** widerlegt:
+> `$ARGUMENTS` trägt in der Skills-Lane auf beiden Aufrufwegen (§9, Messstand
+> 2026-07-25). Der Rückfall „eine Lane, aber `commands`" ist damit gegenstandslos.
+>
+> **Accepted heißt Richtung + Invariante verbindlich, nicht Rollout fertig.** Gemessen
+> am 2026-07-25 (`doctor.py`): **4** Artefakte in der Skills-Lane, **51** in der
+> `commands`-Lane. Der Bulk-Move (Phase 2) und der
+> Rückbau der `commands`-Lane (Phase 3) laufen weiterhin über das Rollout-Gate (§10)
+> und die D5-Prozedur (§9a) — nicht mit der Ratifizierung dieses ADR.
 
 ## 1. Kontext
 
@@ -199,16 +204,59 @@ tragen kann (z. B. `$ARGUMENTS` *und* `model:` sind in keinem der beiden Formate
 sauber abbildbar) — dann ist die Owner-Invariante D1 technisch nicht erfüllbar und
 die Lage geht zurück an den Owner, nicht in einen erzwungenen Kollaps.
 
-## 9. Acceptance Criteria (hart — `proposed` bis alle grün)
-- [ ] **Phase-1-Pilot grün:** 3 Commands (≥1 mit `$ARGUMENTS`, 1 mit `model:`) als
-  `skills/` migriert; Slash-Aufruf **und** Argument-/Model-Übergabe in einer echten
-  Session verifiziert (Beleg: Session-ID + Skill-Footer).
-- [ ] `doctor.py`-Round-Trip **beider** Lanes grün (DRIFT-SCORE 0) nach dem Pilot.
-- [ ] `$ARGUMENTS`-Ersatzmechanismus (Skill-`args`) **und** `model:`-Ersatz
-  dokumentiert — oder D2→B dokumentiert begründet.
-- [ ] Bei Acceptance: ADR-229 → `superseded`, ADR-230 §Verteilung amendiert,
-  `claude-skills.md` auf die eine Lane angepasst (im Acceptance-PR gebündelt).
-- [ ] D5-Rückbau-Gate als prüfbare Prozedur festgehalten (pro-Maschine-Bestätigung).
+## 9. Acceptance Criteria — Ergebnisstand 2026-07-25
+
+Alle fünf Kriterien sind grün; der ADR steht damit auf `accepted`. Belege je Zeile,
+Messstand 2026-07-25.
+
+- [x] **Phase-1-Pilot grün.** Vier Artefakte liegen in der Skills-Lane
+  (`antwort-modus-schablone`, `escalate`, `issues-offen`, `next`); davon trägt
+  `issues-offen` als einziges ein literales `$ARGUMENTS` und ist damit der
+  Testgegenstand. `$ARGUMENTS`-Übergabe
+  auf **beiden** Aufrufwegen verifiziert — programmatisch (Skill-Aufruf mit `args`)
+  und **getippt** (`/issues-offen platform-TESTMARKER-4711`, 12:13 UTC, Werkzeug
+  `2.1.220`). Marker gewählt, dass ein Treffer nicht aus dem Dateiinhalt stammen
+  kann; Footer `source=skills/issues-offen/SKILL.md` belegt die Lane. Artefakt:
+  [`docs/verifications/2026-07-25-adr285-phase1-argumentuebergabe.md`](../verifications/2026-07-25-adr285-phase1-argumentuebergabe.md).
+  **Abweichung, bewusst und belegt:** die Teilforderung „1 Command mit `model:`" ist
+  **gegenstandslos** — alle drei `model:`-tragenden Workflows sind `distribute: false`
+  (interne Personas), es existiert also kein distribuierter Command mit `model:`, den
+  man hätte migrieren können. Gemessen in #1416, nicht angenommen.
+- [x] **`doctor.py`-Round-Trip beider Lanes grün.** Nachgemessen 12:16 UTC:
+  `skills` DRIFT 0 (4 kanonisch), `commands` DRIFT 0 (51 kanonisch, `copy-stale=0`,
+  `fehlend=0`, `extra=0`), `dangling=0` in beiden. Die zwischenzeitlich stale Kopie
+  (`klickdummy-pgvector-sync.md`, Nachlauf des #1408-Merges) ist durch die gegatete
+  Live-Regeneration aufgelöst.
+- [x] **Ersatzmechanismus dokumentiert.** `$ARGUMENTS` **entfällt nicht** — es trägt
+  in der Skills-Lane unverändert (die gegenteilige Prämisse war der Fehler von
+  ADR-280 Rev 1, korrigiert 2026-07-21). Ein `model:`-Ersatz ist mangels
+  distribuierter Fälle nicht nötig; sollte je ein distribuierter Command `model:`
+  brauchen, ist das ein neuer Entscheid, kein stiller Vollzug.
+- [x] **Acceptance-Bündel.** In diesem PR: ADR-229 → `superseded`, ADR-230 §2 REC-3
+  aufgelöst + §Verteilung amendiert, `policies/claude-skills.md` auf die eine Lane
+  angepasst.
+- [x] **D5-Rückbau-Gate als prüfbare Prozedur** — siehe §9a.
+
+### 9a. D5-Rückbau-Prozedur (prüfbar, pro Maschine)
+
+Der Rückbau von `~/.claude/commands/` (Phase 3) ist **kein** Schritt, den eine
+Session nebenbei mitnimmt. Er nimmt bei Fehlschlag mitten in laufenden Sessions 51
+Slash-Commands weg. Freigabe nur, wenn **alle sechs** Punkte in dieser Reihenfolge
+erfüllt und je einzeln belegt sind:
+
+| # | Prüfschritt | Beleg (nicht „sieht gut aus") |
+|---|---|---|
+| 1 | Alle 51 Commands liegen als `skills/<name>/SKILL.md` in der Quelle | `ls skills/*/SKILL.md \| wc -l` = 51 |
+| 2 | `doctor.py --kind skills` DRIFT 0 **und** `dangling=0` | Ausgabezeilen `=== DRIFT-SCORE: 0 ===` + `=== DANGLING: 0 ===` |
+| 3 | `check_workflow_index.py` exit 0 nach dem Bulk-Move | Exit-Code, nicht Ausgabetext |
+| 4 | **Pro Maschine:** frisch gestartete Session zeigt alle 51 im `/`-Menü, bei leerer `commands`-Lane | Muster ADR-280 §8.1 Kriterium 6: Skill-Footer `source=skills/<name>/SKILL.md` eines beliebig gewählten Aufrufs |
+| 5 | Reversibles Backup der Live-Lane existiert | Pfad + Zeitstempel von `~/.claude/commands.bak` |
+| 6 | Kein Parallel-Session-Guard aktiv (0.4-Runner meldet keine fremde Session) | Runner-Zeile `0.4 parallel-sessions` ohne WARN |
+
+Scheitert **ein** Punkt, bleibt die `commands`-Lane bestehen — das ist ausdrücklich
+kein D1-Verstoß, weil D1 die Quell-/Lane-Struktur meint, nicht das Übergabefenster.
+Punkt 4 ist pro Maschine zu wiederholen; ein Beleg von Maschine A trägt nicht für
+Maschine B (die Live-Installation ist maschinenlokal, ADR-230).
 
 ## 10. Rollout-Gate (Entscheidung ≠ Rollout)
 Ratifizierung dieses ADR = **Richtung + Invariante verbindlich**, nicht Rollout
@@ -216,6 +264,15 @@ abgeschlossen. Phase 1 (Pilot), Phase 2 (Bulk-Move) und Phase 3 (Rückbau) laufe
 gegatet über #1287; Phase 2/3 zusätzlich unter dem Parallel-Session-Guard
 (0.4-Runner) — ein Bulk-Move der Skill-Distribution, während fremde Sessions laufen,
 wird auf ein Fenster ohne aktive Fremd-Sessions gelegt.
+
+**Phase-2-Vorbedingung, im Pilot gefunden (2026-07-25):** `workflow-index` lässt sich
+**nicht** ohne Checker-Fix migrieren. Gemessen: simulierte Skills-Lane mit migriertem
+`workflow-index` → `check_workflow_index.py` exit **1** („workflow-index fehlt im
+Index"), Gegenprobe im Ist-Zustand → exit **0**. Zwei unabhängige Ursachen: der
+Skills-Schleife fehlt der Selbst-Skip (`if name == index_name: continue`), den die
+Commands-Schleife hat, und der `--index`-Default zeigt auf die zu verschiebende
+Datei, während CI ohne Argumente aufruft. Beides gehört in **denselben** PR wie der
+Bulk-Move, sonst bricht `tools-tests.yml`.
 
 ## 11. Referenzen
 - Anker-Issue: [#1287](https://github.com/achimdehnert/platform/issues/1287) (Owner-Weisung 2026-07-21).
@@ -227,6 +284,15 @@ wird auf ein Fenster ohne aktive Fremd-Sessions gelegt.
 - Policy `~/.claude/policies/claude-skills.md` (wird bei Acceptance amendiert).
 
 ## 12. Changelog
+- 2026-07-25: **`proposed` → `accepted`.** §9 auf 5/5 grün, je Kriterium mit Beleg
+  statt Häkchen: `$ARGUMENTS` trägt in der Skills-Lane auf **beiden** Aufrufwegen
+  (programmatisch + getippt, Werkzeug 2.1.220), beide Lanes `doctor.py` DRIFT 0,
+  Acceptance-Bündel in diesem PR. Die Teilforderung „1 Command mit `model:`" ist als
+  **gegenstandslos** ausgewiesen (alle drei `model:`-Workflows sind
+  `distribute: false`) — bewusst als Abweichung notiert, nicht stillschweigend
+  abgehakt. Neu: §9a D5-Rückbau-Prozedur (6 Prüfschritte, pro Maschine) und die im
+  Pilot gefundene Phase-2-Vorbedingung zu `workflow-index` (§10). Kill-Kriterium §8
+  greift nicht: `skills` trägt `$ARGUMENTS` nachweislich.
 - 2026-07-24: Initial (Proposed). Phase-0-Entscheidung für #1287 — Invariante D1
   (eine Lane) fest, Richtung D2 (`skills`) pilot-gegatet (D3), Sub-Lane einstellen
   (D4), Rückbau gegatet (D5). Supersedes ADR-229, amends ADR-230 (REC-3 aufgelöst).

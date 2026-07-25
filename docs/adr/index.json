@@ -3997,7 +3997,7 @@
       "id": "ADR-229",
       "file": "ADR-229-windsurf-distribution-single-source.md",
       "title": "Kanonische `.windsurf`-Distribution — Single Global Source, consumed not mirrored",
-      "status": "proposed",
+      "status": "superseded",
       "date": "2026-05-30",
       "domains": [
         "tooling",
@@ -4041,7 +4041,8 @@
         "ADR-285"
       ],
       "related": [
-        "ADR-229"
+        "ADR-229",
+        "ADR-285"
       ],
       "implementation_status": ""
     },
@@ -5331,7 +5332,7 @@
       "id": "ADR-285",
       "file": "ADR-285-skill-lane-consolidation.md",
       "title": "Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-24",
       "domains": [
         "tooling",
