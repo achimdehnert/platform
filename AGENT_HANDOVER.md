@@ -55,7 +55,34 @@ zusätzlich eine 8er-Prio-Liste vom 23.07. einsetzen, die #1378/#1298/#1167 als 
 main. Dadurch berührt der PR nur noch den Historien-Abschnitt und kollidierte nicht mehr
 mit dem parallelen Handover-PR.
 
-**Nicht verifiziert / bewusst offen:** Ob die 3 Fremd-Repos ihre veralteten Banner
+**⚙️ Maschinen-Änderung dieser Session (`~/.claude/commands` neu geschrieben).** Auf
+Owner-Freigabe hin wurde die `commands`-Lane live regeneriert
+(`generate.py --kind commands --target ~/.claude/commands --allow-live`, resolved commit
+`7ffb8f1e`). Beide Lanes stehen danach auf **DRIFT 0**. Backup des vorigen Stands:
+`~/.claude/commands.bak` (Rollback möglich). Auslöser war ADR-285 §9 Kriterium 2, der
+eigentliche Gewinn ist aber ein anderer: die live installierte Kopie von
+`klickdummy-pgvector-sync` kannte **`frist-hub` (Org `meiki-lra`) nicht als
+Gov-Ausschluss** — wer den Skill vorher ausführte, bekam eine Anweisung ohne diesen
+Ausschluss. Jetzt korrigiert und verifiziert.
+
+**ADR-285 Phase-1-Pilot ist gemessen — die Anlage von
+[#1416](https://github.com/achimdehnert/platform/issues/1416) war in drei Punkten falsch.**
+`$ARGUMENTS` **wird** in der Skills-Lane substituiert (Marker-Test an `issues-offen`,
+Artefakt [#1441](https://github.com/achimdehnert/platform/pull/1441)) → Kill-Kriterium
+ADR-285 §8 greift nicht. Aber: (a) der als „eigentlicher `$ARGUMENTS`-Fall" benannte
+`teste-repo` enthält **kein** literales `$ARGUMENTS` — der echte Testgegenstand
+(`issues-offen`) war längst migriert und live, der Pilot war faktisch gelaufen und nur nie
+gemessen; (b) `workflow-index` lässt sich **nicht** ohne Fix an `check_workflow_index.py`
+migrieren (getestet: exit 1 vs. exit 0 in der Gegenprobe — Lane 2 fehlt der Selbst-Skip,
+und der `--index`-Default zeigt auf die zu verschiebende Datei, während CI ohne Argumente
+aufruft); (c) Kriterium 2 war rot durch eine stale Kopie aus dem #1408-Merge, nicht durch
+den Pilot. **Bewusst keine weiteren Skills migriert** — Bulk-Move ist Phase 2 und laut
+#1416 erst nach grünem Pilot.
+
+**Nicht verifiziert / bewusst offen:** Der **CLI-Pfad** der Argument-Übergabe — gemessen
+ist der programmatische Skill-Aufruf mit `args`; ob ein **getipptes** `/issues-offen xyz`
+dieselbe Substitution erzeugt, ist offen und nur vom Owner auslösbar (billigster Check:
+einmal tippen, Marker im Body suchen) · ob die 3 Fremd-Repos ihre veralteten Banner
 korrigieren (App-Repo-Scope, in
 [#1438](https://github.com/achimdehnert/platform/issues/1438)) · die stale gewordenen
 ADR-Evidenzpfade nach dem Retire sind bewusst **nicht** im Aufräum-PR überschrieben worden
@@ -154,7 +181,7 @@ kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieb
 
 > **⚠️ Vor allem anderen — hetzner-prod Speicherlage ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** Swap **4095/4095 MB belegt (0 frei)**, 3,8 GB RAM verfügbar — **nachgemessen 2026-07-25 10:28 UTC** (`free -m` auf 88.198.191.108, unverändert gegenüber dem Befund vom 20.07.). Der OOM vom 20.07. hat trading-hub 16 h offline genommen; der nächste trifft irgendein anderes Hub. Zusätzlich ungeklärt, **warum** die Container entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). Beides ist Prod-Risiko, kein Aufräumthema — die Nummerierung unten bleibt davon unberührt.
 
-1. ADR-285 Phase-1-Pilot [#1416](https://github.com/achimdehnert/platform/issues/1416) — `teste-repo` (`$ARGUMENTS`) + `workflow-index` → `skills/`; **muss in einer frischen Session laufen** (Skills laden beim Start), entscheidet ADR-285 `accepted` vs. Fallback B
+1. ADR-285 Phase-1-Pilot [#1416](https://github.com/achimdehnert/platform/issues/1416) — **Falsifikation bestanden:** `$ARGUMENTS` wird in der Skills-Lane substituiert (Beleg [#1441](https://github.com/achimdehnert/platform/pull/1441)), §9-Kriterium 2 grün (beide Lanes DRIFT 0). **Einziger offener Punkt: einmal `/issues-offen <arg>` TIPPEN** — gemessen ist der programmatische Pfad (Skill-Aufruf mit `args`), nicht der CLI-Pfad. Danach: Acceptance-PR (ADR-229 → `superseded`, ADR-230-Amendment, `claude-skills.md`) + D5-Rückbau-Prozedur.
 2. **Owner-Entscheid** [#1414](https://github.com/achimdehnert/platform/issues/1414) — `pytest tools/tests/ + CI-tote Testorte` **required** schalten? Der Check ist seit dem Ruff-Pin ([#1425](https://github.com/achimdehnert/platform/pull/1425)) stabil grün, die Vorbedingung „erst grün, dann required" ist damit erfüllt. Ruleset `main-required-checks` verlangt heute nur `guardian` + `gitleaks secret scan` (gegen die API geprüft). Branch-Protection-Änderung → nicht autonom.
 3. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 4. Nachlauf [#1438](https://github.com/achimdehnert/platform/issues/1438) — stale ADR-Evidenzpfade nach dem `_ci-python`-Retire (ADR-174-Frontmatter + KONZ-021 `source_path` behaupten Gegenwart, die Beispiel-Snippets in ADR-021/022/120 dürfen historisch bleiben), veraltete Banner-Kommentare in 3 Fremd-Repos, 2 tote `validate-workflows`-Jobs
