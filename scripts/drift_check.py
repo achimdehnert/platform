@@ -70,8 +70,11 @@ REQUIRED_FILES_DJANGO = [
 ]
 
 REQUIRED_FILE_CONTENT_CHECKS = [
+    # Das Muster ist owner-agnostisch und trifft weiterhin, seit platforms Kopie
+    # retired ist (#1423) — die Fleet ruft iilgmbh/shared-ci/..._ci-python.yml.
+    # Nur der Meldungstext nannte platform noch als Quelle.
     (".github/workflows/ci.yml",         r"_ci-python\.yml",  "warn",
-     "CI nutzt nicht platform/_ci-python.yml (reusable workflow)"),
+     "CI nutzt nicht shared-ci/_ci-python.yml (reusable workflow)"),
     ("Dockerfile",                        r"python:3\.12",     "warn",
      "Dockerfile nutzt nicht Python 3.12"),
     ("docker-compose.prod.yml",           r"env_file",         "error",

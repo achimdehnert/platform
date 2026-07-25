@@ -30,7 +30,15 @@ permissions:
 
 jobs:
   ci:
-    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main
+    # SSoT ist iilgmbh/shared-ci (#1423 — platforms Kopie war consumer-los und wurde
+    # retired). Auf einen Tag pinnen, nicht @main: Fleet-Konvention, und der
+    # shared-ci-Tag-Drift-Check in scripts/drift_check.py meldet veraltete Pins.
+    # Cross-Org-Hinweis: liegt das Consumer-Repo NICHT in iilgmbh, liefert
+    # `secrets: inherit` keine Caller-Secrets (platform#1158). Wer private
+    # git+https-Deps zieht, muss PROJECT_PAT explizit mappen:
+    #   secrets:
+    #     PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
+    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.14
     with:
       python_version: "3.12"
       django_settings_module: "config.settings.test"   # ← anpassen

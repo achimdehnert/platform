@@ -80,18 +80,8 @@ jobs:
       - name: ADR-226 publish-gate invariant + #191/#198 API-free guard
         run: bash scripts/checks/publish_gate_invariant.sh
 
-  test-ci:
-    name: "Test CI Workflow"
-    runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.changed_files, '_ci-python.yml')
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Dry-run CI workflow logic
-        run: |
-          echo "Testing CI workflow..."
-          # Basic syntax validation passed if we get here
-          echo "✅ CI workflow syntax valid"
+  # test-ci entfernt (#1423): der Job war an `_ci-python.yml` gebunden, das mit
+  # diesem PR retired wurde (0 echte Consumer org-weit, SSoT ist iilgmbh/shared-ci).
 
   test-build:
     name: "Test Build Workflow"

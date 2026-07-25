@@ -34,7 +34,10 @@ env:
 jobs:
   # ── Lint + Security ────────────────────────────────────────────
   lint:
-    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main
+    # SSoT ist iilgmbh/shared-ci (#1423 — platforms Kopie war consumer-los und
+    # wurde retired). Cross-Org-Caveat zu `secrets: inherit` siehe
+    # docs/templates/ci.yml.
+    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.14
     with:
       python_version: "3.12"
       requirements_file: requirements.txt
