@@ -349,7 +349,9 @@ python3 ~/github/platform/scripts/gen_project_facts.py --force  # alle
 
 **Account:** `achimdehnert`
 **MCP:** `mcp1_*` für alle GitHub-Operationen
-**Reusable Workflows:** `achimdehnert/platform/.github/workflows/_ci-python.yml` etc.
+**Reusable Workflows:** SSoT ist `iilgmbh/shared-ci/.github/workflows/` (auf Tags gepinnt).
+platform hält nur noch `_ci-pypi.yml` selbst (19 Consumer, ADR-226); `_ci-python.yml`/`_ci-odoo.yml`
+sind retired (#1423).
 
 **Repo-Kategorien:**
 - **Django Hubs** (21): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, 137-hub, bfagent, tax-hub
