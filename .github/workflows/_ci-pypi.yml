@@ -329,6 +329,69 @@ jobs:
           pip install -q bandit
           bandit ${{ inputs.bandit_args }}
 
+  publish-auth-guard:
+    # ADR-278 (accepted 2026-07-24): iil-Pakete publizieren ausschliesslich via
+    # OIDC Trusted Publishing. SCHARF/block: kein continue-on-error + in
+    # gate.needs -> ein password-Input im PyPI-Upload-Step laesst ci/gate rot
+    # werden. Vorab verifiziert (Blast-Radius-Preflight 2026-07-24): alle 19
+    # _ci-pypi-Consumer sind guard-safe (0 non-TestPyPI-password). Portiert aus
+    # iilgmbh/shared-ci (#33) zur Konvergenz (platform#1423). Kanonische
+    # Check-Quelle: platform/tools/check_publish_oidc_auth.py (Logik hier inline,
+    # damit der Consumer-Checkout sie ohne zusaetzliche Datei ausfuehren kann).
+    name: "Publish-Auth Guard (ADR-278)"
+    runs-on: ${{ inputs.runs_on }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: PyPI-Publish muss OIDC sein (kein password-Input)
+        shell: bash
+        run: |
+          pip install -q pyyaml
+          python3 - <<'PY'
+          import glob, sys, yaml
+          PYPA = "pypa/gh-action-pypi-publish"
+          def is_test(w):
+              url = str(w.get("repository-url") or w.get("repository_url") or "")
+              return "test.pypi.org" in url
+          files = sorted(set(glob.glob(".github/workflows/*publish*.yml")
+                             + glob.glob(".github/workflows/*publish*.yaml")))
+          if not files:
+              print("Keine publish-Workflows gefunden - ok.")
+              sys.exit(0)
+          viol = []
+          for f in files:
+              try:
+                  doc = yaml.safe_load(open(f, encoding="utf-8"))
+              except Exception as e:
+                  viol.append(f"{f}: YAML nicht parsebar ({e})")
+                  continue
+              if not isinstance(doc, dict):
+                  continue
+              for jn, job in (doc.get("jobs") or {}).items():
+                  if not isinstance(job, dict):
+                      continue
+                  for st in job.get("steps") or []:
+                      if not isinstance(st, dict):
+                          continue
+                      if PYPA not in str(st.get("uses") or ""):
+                          continue
+                      w = st.get("with") or {}
+                      if isinstance(w, dict) and "password" in w and not is_test(w):
+                          nm = st.get("name") or PYPA
+                          viol.append(f"{f}: Job '{jn}' Step '{nm}' nutzt password-Input "
+                                      f"im PyPI-Upload -> OIDC deaktiviert (ADR-278).")
+          if viol:
+              print("::error::ADR-278: token-basiertes PyPI-Publishing gefunden:")
+              for v in viol:
+                  print("  -", v)
+              sys.exit(1)
+          print(f"OK ADR-278: {len(files)} publish-Workflow(s) sind OIDC-only.")
+          PY
+
   # ── Aggregat-Gate ─────────────────────────────────────────────────────────
   # Retro e17299 F5: Branch-Protections banden Matrix-Jobnamen (inkl.
   # Python-Version) in den Vertrag — ändert der Caller python_versions,
@@ -340,7 +403,7 @@ jobs:
   gate:
     name: "gate"
     runs-on: ${{ inputs.runs_on }}
-    needs: [lint, secrets-scan, test, build, mypy, security, bandit]
+    needs: [lint, secrets-scan, test, build, mypy, security, bandit, publish-auth-guard]
     if: always()
     steps:
       - name: "All CI jobs passed or skipped"

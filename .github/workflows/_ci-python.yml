@@ -287,7 +287,7 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
       - name: Install iil-packages + deps
-        uses: achimdehnert/platform/.github/actions/install-iil-packages@main
+        uses: iilgmbh/shared-ci/.github/actions/install-iil-packages@main
         with:
           project_pat: ${{ secrets.PROJECT_PAT }}
           requirements_file: ${{ inputs.requirements_file }}
@@ -351,7 +351,7 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
       - name: Install iil-packages + deps
-        uses: achimdehnert/platform/.github/actions/install-iil-packages@main
+        uses: iilgmbh/shared-ci/.github/actions/install-iil-packages@main
         with:
           project_pat: ${{ secrets.PROJECT_PAT }}
           requirements_file: ${{ inputs.requirements_file }}
@@ -515,7 +515,7 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
       - name: Install iil-packages + deps
-        uses: achimdehnert/platform/.github/actions/install-iil-packages@main
+        uses: iilgmbh/shared-ci/.github/actions/install-iil-packages@main
         with:
           project_pat: ${{ secrets.PROJECT_PAT }}
           requirements_file: ${{ inputs.requirements_file }}
