@@ -6,7 +6,7 @@ deciders: achimdehnert
 implementation_status: partial
 implementation_evidence:
   - "risk-hub/.github/workflows/ci.yml — qm-gate Job implementiert (pilot)"
-  - "platform/.github/workflows/_ci-python.yml — enable_qm_gate Input (alle Repos)"
+  - "iilgmbh/shared-ci/.github/workflows/_ci-python.yml — enable_qm_gate Input (alle Repos; bis 2026-07-25 platform/.github/workflows/_ci-python.yml, dort retired via #1437)"
   - "risk-hub/.github/PULL_REQUEST_TEMPLATE/agent-pr.md — Self-Review Gate"
   - "platform/.windsurf/workflows/workflow-index.md — Symlink-Policy + Rule #13"
   - "platform/.windsurf/workflows/onboard-repo.md — Step 6.9 Branch Protection"
@@ -56,7 +56,10 @@ Option 1 bleibt advisory. Option 2 greift nur lokal — kein Schutz bei Remote-A
 
 ### Maßnahme 1 — CI Gate: `ASSUMPTION[unverified]` blockiert Merge (alle Repos)
 
-Reusable Workflow in `platform/.github/workflows/_ci-python.yml` (Input: `enable_qm_gate`).
+Reusable Workflow in `iilgmbh/shared-ci/.github/workflows/_ci-python.yml` (Input: `enable_qm_gate`).
+Zum Entscheidungszeitpunkt (2026-04-29) lag dieser Workflow unter
+`platform/.github/workflows/_ci-python.yml`; die platform-Kopie ist am 2026-07-25
+retired worden (#1437), SSoT ist seither `iilgmbh/shared-ci`.
 Direkte Integration in Repo-spezifische `ci.yml` als `qm-gate` Job.
 **Rollout:** via `/onboard-repo` Step 6.9 bei jedem Repo-Onboarding.
 
@@ -162,7 +165,8 @@ Diese Maßnahme ist Teil von `/onboard-repo` Step 6.9 (PFLICHT für alle Repos).
 
 ## Implementation
 
-- `platform/.github/workflows/_ci-python.yml` — `enable_qm_gate` Input + `qm-gate` Job
+- `iilgmbh/shared-ci/.github/workflows/_ci-python.yml` — `enable_qm_gate` Input + `qm-gate` Job
+  (bis 2026-07-25 `platform/.github/workflows/_ci-python.yml`, dort retired via #1437)
 - `risk-hub/.github/workflows/ci.yml` — `qm-gate` Job direkt integriert (pilot)
 - `risk-hub/.github/PULL_REQUEST_TEMPLATE/agent-pr.md` — Self-Review Gate Block
 - `platform/.windsurf/workflows/workflow-index.md` — Symlink-Policy Abschnitt

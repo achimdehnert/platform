@@ -79,6 +79,11 @@ Compliance is verified by:
 3. **Health endpoint test**: `curl -sf https://<domain>/healthz/` returns `{"status": "ok"}` — verified post-deploy by `deploy-remote.sh`.
 4. **Architecture Guardian** (`.github/workflows/guardian.yml`): checks new workflow files for platform-workflow usage on every PR.
 
+> ℹ️ **Pfad-Hinweis (nachgetragen 2026-07-25, #1438):** `achimdehnert/platform/.github/workflows/_ci-python.yml`
+> gibt es nicht mehr — die platform-Kopie wurde am 2026-07-25 retired (#1437), SSoT ist
+> `iilgmbh/shared-ci/.github/workflows/_ci-python.yml`. Der Text oben bleibt als
+> Entscheidungsstand von 2025 stehen; wer Punkt 1 heute nachprüft, prüft gegen den shared-ci-Pfad.
+
 ### Consequences
 
 * Good, because a single platform workflow fix propagates to all projects automatically.
@@ -224,6 +229,11 @@ jobs:
     needs: [build]
     uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
 ```
+
+> ℹ️ **Pfad-Hinweis (nachgetragen 2026-07-25, #1438):** Das Snippet zeigt den Stand von 2025.
+> `_ci-python.yml` liegt inzwischen unter `iilgmbh/shared-ci/.github/workflows/` (platform-Kopie
+> retired via #1437); `_build-docker.yml` und `_deploy-hetzner.yml` liegen weiterhin in platform.
+> Nicht als kopierfertige Vorlage verwenden — aktuelle Vorlage ist `docs/templates/ci.yml`.
 
 ### 2.6 Secrets Inventory
 

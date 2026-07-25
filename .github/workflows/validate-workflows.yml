@@ -82,34 +82,16 @@ jobs:
 
   # test-ci entfernt (#1423): der Job war an `_ci-python.yml` gebunden, das mit
   # diesem PR retired wurde (0 echte Consumer org-weit, SSoT ist iilgmbh/shared-ci).
-
-  test-build:
-    name: "Test Build Workflow"
-    runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.changed_files, '_build-docker.yml')
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Validate Dockerfile reference
-        run: |
-          echo "Testing Build workflow..."
-          echo "✅ Build workflow syntax valid"
-
-  test-deploy:
-    name: "Test Deploy Workflow"
-    runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.changed_files, '_deploy-hetzner.yml')
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Validate deploy workflow
-        run: |
-          echo "Testing Deploy workflow..."
-          # Check for required secrets
-          if grep -q "HETZNER_HOST" .github/workflows/_deploy-hetzner.yml; then
-            echo "  ✅ HETZNER_HOST secret referenced"
-          fi
-          if grep -q "HETZNER_SSH_KEY" .github/workflows/_deploy-hetzner.yml; then
-            echo "  ✅ HETZNER_SSH_KEY secret referenced"
-          fi
-          echo "✅ Deploy workflow syntax valid"
+  #
+  # test-build + test-deploy entfernt (#1438): beide standen auf
+  #   if: contains(github.event.pull_request.changed_files, '<datei>.yml')
+  # `github.event.pull_request.changed_files` ist im Webhook-Payload ein Integer
+  # (Anzahl geaenderter Dateien), keine Liste — `contains(<int>, <string>)` kann
+  # nie wahr werden. Beide Jobs waren damit seit ihrer Einfuehrung tot und sind in
+  # jedem PR als "skipping" gelaufen. Ersatzlos entfernt statt repariert, weil ihr
+  # Inhalt ausschliesslich `echo` war: test-build gab zwei Zeilen aus, test-deploy
+  # grepte nach zwei Secret-Namen, ohne bei Fehlen den Job rot zu machen. Ein
+  # korrekter paths-filter haette also nur zwei immer-gruene Checks wiederbelebt.
+  # Der Syntax-/Struktur-Check der Reusables liegt im `validate`-Job oben.
+  # Keiner der beiden war Required Check (Ruleset `main-required-checks` verlangt
+  # guardian, gitleaks secret scan, pytest tools/tests/ — API-geprueft 2026-07-25).
