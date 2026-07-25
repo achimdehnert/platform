@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-001
+concept_id: KONZ-platform-029
 title: Deployment-Zuverlässigkeit — Konvergenz auf ADR-021 + Fail-Loud-Config-Sync statt Detektion
 pipeline_status: idea
 tier: T3
@@ -24,7 +24,7 @@ evidence_manifest:
 created: 2026-06-01
 ---
 
-# KONZ-platform-001: Deployment-Zuverlässigkeit
+# KONZ-platform-029: Deployment-Zuverlässigkeit
 
 > **✅ AKZEPTIERT 2026-06-01.** Die Diagnose + Empfehlungs-Spine (REC-1'/NEU-A/NEU-B/REC-3') ist angenommen. Off-Ramp = verbindlicher Decision-Record im **ADR-021 Amendment §2.17–2.20** (platform PR #388). Implementierung folgt dem v1-Spine *nach* Amendment-Acceptance. Dieses Doc bleibt die Analyse-Quelle.
 
@@ -134,7 +134,7 @@ Drei unabhängige Agenten (Steelman / Advocatus Diabolus / Maintainer-2028), die
 
 ## 14. Externe Zweitmeinung — Rückfluss-Gate (2026-06-01)
 
-Cross-Provider-Review (Briefing `~/shared/adr-handoff-KONZ-platform-001-2026-06-01.md`). Jede ID getaggt; nur `[valid]` fließt ein, als Änderung mit eigener Begründung (nicht GPT-Prosa). Zwei Review-Behauptungen selbst nachverifiziert: AD-18 (GHA-Concurrency-Groups existieren pro App, `_deploy-unified.yml:185-243` → CI-Pfad gesperrt, Residual host-manuell) und AD-5 (`scripts/deploy.sh:49` setzt `COMPOSE_PROJECT_NAME` nur für staging, prod implizit verzeichnis-basiert → Risiko real).
+Cross-Provider-Review (Briefing `~/shared/adr-handoff-KONZ-platform-029-2026-06-01.md`). Jede ID getaggt; nur `[valid]` fließt ein, als Änderung mit eigener Begründung (nicht GPT-Prosa). Zwei Review-Behauptungen selbst nachverifiziert: AD-18 (GHA-Concurrency-Groups existieren pro App, `_deploy-unified.yml:185-243` → CI-Pfad gesperrt, Residual host-manuell) und AD-5 (`scripts/deploy.sh:49` setzt `COMPOSE_PROJECT_NAME` nur für staging, prod implizit verzeichnis-basiert → Risiko real).
 
 ### Kern-Erkenntnis (angenommen)
 Die Review verschiebt die Wurzel von **„fail-loud bei fehlender Compose"** zu **„CI-Sync, `deploy.sh`-Compose-Detection und Host-Ist-Zustand teilen keinen verifizierten Vertrag"**. REC-1 wird entsprechend von einem Skip-Fix zu einem **Deploy-Bundle-Vertrag mit Host-seitigem Verify** aufgewertet. Das trifft F1 (Fail-Loud allein ist Symptom-nah) und schärft F2 (Eigentums-Grenze statt Zeitpunkt-Grenze).
