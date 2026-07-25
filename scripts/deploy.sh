@@ -7,6 +7,12 @@
 # Manual:  deploy.sh risk-hub /opt/risk-hub latest production "" --break-glass "hotfix: rollback nginx config"
 set -euo pipefail
 
+# Version-Stempel der Git-Quelle. Wird im Deploy-Banner ausgegeben und von
+# tools/deploy-script-drift.sh gegen die Host-Kopien geprüft — die Host-Kopie
+# wird von Hand verteilt und lief messbar auseinander (Prod hing am 2026-07-25
+# eine Revision hinter Git+Staging, u.a. ohne den override-Fix aus platform#1075).
+DEPLOY_SH_VERSION="2026-07-25.1"
+
 APP_NAME="${1:?'APP_NAME fehlt'}"
 APP_PATH="${2:?'APP_PATH fehlt'}"
 IMAGE_TAG="${3:?'IMAGE_TAG fehlt'}"
@@ -118,6 +124,16 @@ if _svcs=$(docker compose "${COMPOSE_ARGS[@]}" config --services 2>/dev/null); t
   } > "$_lf" && LABEL_ARGS=(-f "$_lf")
 fi
 
+# Setzt IMAGE_TAG in der .env auf den tatsächlich laufenden Stand zurück.
+# Nötig, wenn wir VOR `up -d` abbrechen (Migrations-Gate): die .env trägt dann
+# schon den neuen Tag, deployt ist aber weiterhin der alte — ein späteres
+# manuelles `docker compose up` würde sonst ungewollt den neuen Code starten.
+_restore_image_tag() {
+  [[ -n "$PREVIOUS_TAG" && -f "$APP_PATH/.env" ]] || return 0
+  sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${PREVIOUS_TAG}|" "$APP_PATH/.env" 2>/dev/null || true
+  echo "↩️  .env IMAGE_TAG auf laufenden Stand zurückgesetzt: $PREVIOUS_TAG"
+}
+
 # Rollback-Funktion
 rollback() {
   local ec=$?
@@ -137,7 +153,7 @@ rollback() {
 trap rollback ERR
 
 echo "═══════════════════════════════════════════════════"
-echo "iil-Platform Deploy — ADR-120"
+echo "iil-Platform Deploy — ADR-120 (deploy.sh $DEPLOY_SH_VERSION)"
 echo "App:  $APP_NAME"
 echo "Env:  $ENVIRONMENT"
 echo "Tag:  $IMAGE_TAG"
@@ -223,29 +239,92 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
 fi
 
 docker compose "${COMPOSE_ARGS[@]}" pull
-docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
 
-# ── Django-Migrationen (fail-closed; No-op für Nicht-Django-Stacks) ───────────
-# Root-Cause illustration-hub#66: dieses Skript lief bisher OHNE migrate-Schritt →
+# ── Schema-Migrationen — VOR dem Traffic-Switch, fail-closed ──────────────────
+# Root-Cause illustration-hub#66: dieses Skript lief ohne migrate-Schritt →
 # gemergte Migrationen erreichten die Prod-DB nie ("Deploy grün ≠ Schema aktuell").
-# Gemessen 2026-07-24: jobs.0002 lag nach grünem Deploy [ ] unapplied auf Prod.
-# set -euo pipefail + `trap rollback ERR` (oben) machen ein migrate-Scheitern
-# fail-closed. Nicht-Django-Repos (kein *web-Service mit manage.py) bleiben No-op.
-_MIGRATE_WEB=$(docker compose "${COMPOSE_ARGS[@]}" ps --services 2>/dev/null | grep -E 'web$' | head -1 || true)
-if [[ -n "$_MIGRATE_WEB" ]] && docker compose "${COMPOSE_ARGS[@]}" exec -T "$_MIGRATE_WEB" test -f manage.py 2>/dev/null; then
-  echo "--- Django-Migrationen ($_MIGRATE_WEB) ---"
-  docker compose "${COMPOSE_ARGS[@]}" exec -T "$_MIGRATE_WEB" python manage.py migrate --noinput
-  # Verifikation: nach 'migrate' darf KEINE Migration mehr pending sein — fängt
-  # Teil-Apply / --fake-Artefakte (der 0002-half-applied-Zustand aus #66).
-  if docker compose "${COMPOSE_ARGS[@]}" exec -T "$_MIGRATE_WEB" \
-       python manage.py showmigrations --plan 2>/dev/null | grep -q '^\[ \]'; then
-    echo "FATAL: pending Migrationen nach 'migrate' — Schema-Drift, Deploy abgebrochen." >&2
-    echo "       (Kein Auto-Rollback: Teil-Migrationen lassen sich nicht sicher zurückrollen — manuell prüfen.)" >&2
-    exit 2
+# Gemessen 2026-07-24: assets.0004 (is_active) fehlte auf Prod; der erste echte
+# Render starb an `column "is_active" does not exist` — bei durchweg grünen Deploys.
+#
+# Reihenfolge mit Absicht VOR `up -d`: die Migration läuft in einem Wegwerf-
+# Container des BEREITS GEPULLTEN neuen Images, während der alte Stack noch
+# Traffic bedient.
+#   migrate scheitert → alter Code + altes Schema laufen unberührt weiter; es
+#                       entsteht kein Fenster "neuer Code auf altem Schema"
+#   migrate ok        → `up -d` schaltet auf den neuen Code um
+# `exec` in den laufenden Container (Vorgänger-Ansatz) kann das nicht leisten:
+# vor `up` läuft dort das ALTE Image (Migration fehlt), nach `up` bedient der
+# neue Code bereits Traffic gegen das alte Schema.
+#
+# Voraussetzung ist die übliche expand/contract-Disziplin: eine Migration muss
+# zum ALTEN Code rückwärtskompatibel sein (additive Spalten; Löschen/Umbenennen
+# erst im Folge-Release). Siehe docs/conventions/deploy-migrations.md.
+#
+# Opt-out für Stacks, die bewusst anders migrieren:  DEPLOY_MIGRATE=0
+# Override, falls die Service-Heuristik danebengreift: DEPLOY_MIGRATE_SERVICE=<name>
+if [[ "${DEPLOY_MIGRATE:-1}" == "1" ]]; then
+  _MIG_SVC="${DEPLOY_MIGRATE_SERVICE:-}"
+  if [[ -z "$_MIG_SVC" ]]; then
+    _MIG_SVC=$(docker compose "${COMPOSE_ARGS[@]}" config --services 2>/dev/null \
+      | grep -E '(^|[-_])web$' | head -1 || true)
+  fi
+
+  if [[ -z "$_MIG_SVC" ]]; then
+    echo "ℹ️  Migrate: kein '*web'-Service deklariert — übersprungen (Nicht-Django-Stack)."
+  elif ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
+         "$_MIG_SVC" -c 'test -f manage.py' >/dev/null 2>&1; then
+    # Laut, nicht still: ein falsch-negatives Skippen ist genau die Fehlerklasse
+    # aus #66 (Migration bleibt unbemerkt aus). Override via DEPLOY_MIGRATE_SERVICE.
+    echo "::warning::Migrate: '$_MIG_SVC' hat kein manage.py im WORKDIR — übersprungen. Falls doch Django: DEPLOY_MIGRATE_SERVICE setzen."
+  else
+    echo "--- Migrationen ($_MIG_SVC, Image $IMAGE_TAG) ---"
+
+    # Deklarierte Abhängigkeiten (db/redis) hochziehen, ohne laufende Container
+    # anzufassen. Nötig, weil die Migration gleich mit --no-deps läuft:
+    # `run` OHNE --no-deps startet die Deps nicht nur, es RECREATED sie
+    # (gemessen 2026-07-25 auf risk-hub-staging: db + redis wurden neu erstellt) —
+    # das wäre ein DB-Neustart bei JEDEM Prod-Deploy. `up -d --no-recreate` ist
+    # idempotent und lässt bereits laufende Container in Ruhe; auf Staging, wo
+    # dieses Skript vorher `down` fährt, zieht es db/redis überhaupt erst hoch.
+    _MIG_DEPS=$(docker compose "${COMPOSE_ARGS[@]}" config --format json 2>/dev/null \
+      | python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join((d.get('services',{}).get('$_MIG_SVC') or {}).get('depends_on') or {}))" 2>/dev/null || true)
+    if [[ -n "$_MIG_DEPS" ]]; then
+      echo "    Abhängigkeiten bereitstellen: $_MIG_DEPS"
+      # Wortsplitting ist hier gewollt: $_MIG_DEPS ist eine Service-Liste.
+      # shellcheck disable=SC2086
+      docker compose "${COMPOSE_ARGS[@]}" up -d --no-recreate $_MIG_DEPS
+    fi
+
+    # --entrypoint sh ist Pflicht, kein Stilmittel: die App-Images haben einen
+    # eigenen ENTRYPOINT (z.B. `/entrypoint.sh [web|worker|celery]`). Ohne
+    # Override kommt "python manage.py migrate" nur als dessen ARGUMENT an, der
+    # Container antwortet mit Usage-Text und Exit 1 — die Migration liefe nie,
+    # der Deploy bräche mit irreführender Meldung ab (gemessen 2026-07-25).
+    if ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
+           "$_MIG_SVC" -c 'python manage.py migrate --noinput'; then
+      _restore_image_tag
+      echo "::error::Migration fehlgeschlagen — Deploy abgebrochen. Der ALTE Stack läuft unverändert weiter." >&2
+      echo "         DB kann teilmigriert sein: 'manage.py showmigrations' prüfen." >&2
+      echo "         KEIN blindes '--fake' — genau das erzeugte den half-applied-Zustand aus #66." >&2
+      exit 2
+    fi
+    # Verifikation: nach 'migrate' darf nichts mehr pending sein. Fängt
+    # Teil-Applies und --fake-Artefakte (assets.0002 aus #66), die 'migrate'
+    # selbst mit Exit 0 hinterlassen kann.
+    if ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
+           "$_MIG_SVC" -c 'python manage.py migrate --check --noinput' >/dev/null 2>&1; then
+      _restore_image_tag
+      echo "::error::Nach 'migrate' sind weiter Migrationen pending — Schema-Drift, Deploy abgebrochen." >&2
+      echo "         Kein Auto-Rollback: Teil-Migrationen lassen sich nicht sicher zurückrollen." >&2
+      exit 2
+    fi
+    echo "✅ Schema aktuell ('migrate --check' sauber)"
   fi
 else
-  echo "--- Kein '*web'-Service mit manage.py — Django-Migrate übersprungen (Nicht-Django-Stack) ---"
+  echo "ℹ️  Migrate: per DEPLOY_MIGRATE=0 deaktiviert."
 fi
+
+docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
 
 # Health-Check
 # Staging: derive local URL from the WEB service's host-port mapping.
