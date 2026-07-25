@@ -425,3 +425,88 @@ released, end-to-end verifizierten Produktionspfad** durchgezogen.
 - **ADR-272-Nummernkollision aufgelöst:** zwei **verschiedene** ADRs beanspruchten 272. `ADR-272-distribution-contract` liegt auf main → [#1086](https://github.com/achimdehnert/platform/pull/1086) behält 272; der promptfw-Text-Loop in [#1077](https://github.com/achimdehnert/platform/pull/1077) auf **ADR-279** umnummeriert (Datei+`id:`+H1, INDEX per `gen_adr_index.py` regeneriert = löste zugleich den Merge-Konflikt). `adr_open_pr_guard.py` hat die Kollision korrekt gefangen — das Gate funktioniert.
 - **Review-Stau: 0 rote PRs übrig** (vorher 6). Gemergt: #1027 + #1026 (waren approved+grün, nur ungemergt). Grün gezogen: #1112 (stale ADR-INDEX), #1231 + #1141 (Symptom des #1276-Blockers, **nicht** stale-Index — Erst-Diagnose war falsch), #1086 + #1077 (Kollision), #1225 (`context-review` 503 = transient; der base64-Log-Blob war nur die HTML-Fehlerseite). **8 PRs mit Auto-Merge gequeued** — laufen bei Approval durch.
 - **Engpass-Befund:** ~33 der ~40 offenen platform-PRs sind CI-grün und warten ausschließlich auf den 2.-Owner-Review. Der Stau ist ein **Review-Durchsatz**-Problem, kein technisches.
+
+---
+
+## ⚡ Vorheriger Stand (2026-07-22 Abend — ADR-281 §8.1 auf 6/6 komplettiert, ADR-281 `accepted`, §8.2-Negativtest gemessen + beide Kanten gefixt)
+
+**Kern in einem Satz:** Kriterium 5 war die letzte offene Prämisse von ADR-281 — diese
+Session *war* die frische Session, die er brauchte; er trägt, der ADR steht auf `accepted`,
+und der §8.2-Negativtest ist gemessen statt vorausgesetzt.
+
+**ADR-281 §8.1 Kriterium 5 — bestanden.** Der am Nachmittag vorbereitete Symlink
+(`~/.claude/skills/adr281-k5` → `~/shared/adr281-k5`, gesetzt 16:23) lag beim Start dieser
+Session bereits da: der Skill stand **vor jeder Dateisystem-Aktion** im Roster, der Body lud
+inklusive `MARKER-K5-V1`, das Argument-Echo stimmte. Werkzeugversion **2.1.217** — identisch
+zum Erstlauf, der Vergleich ist also nicht von einem Harness-Upgrade verfälscht. Damit ist
+der Erstlauf-Verdacht widerlegt, Symlinks würden nur *dynamisch* aufgelöst: **beide Ladewege
+funktionieren.** §8.1 steht auf **6/6**.
+
+**ADR-281 auf `accepted`** ([#1366](https://github.com/achimdehnert/platform/pull/1366), offen,
+CI grün). Accept-Bedingung des ADR ist §8.1 (binäre Muss-Kriterien, „scheitert eines →
+`rejected`"); §8.2/§8.3 sind Phase-2/3-Gates und keine Accept-Vorbedingungen. Nachgeführt
+wurde nicht nur der Status: der Verifikationsstand-Block „**NICHT verifiziert: dass ein
+symlinkter Skill tatsächlich lädt**" — die tragende offene Prämisse des ADR — ist als überholt
+markiert, §8.1 hat eine Ergebnistabelle je Kriterium, Migration-Tracking Phase 0+1 auf ✅, und
+das Risiko „Symlink lädt doch nicht" ist als gemessen widerlegt entfernt.
+
+**Der §8.2-Negativtest brauchte zwei Läufe — und das war der Fund.** Mit dem in §8.2
+vorgeschlagenen Namen `adr281-dangling`: `dangling=0`, scheinbar derselbe Fehlschlag wie im
+Erstlauf. Mit dem kanonischen Namen `next`: `dangling=1`, korrekte Befund-Zeile. Ursache aus
+dem Code belegt, nicht vermutet — in `doctor.py` beendete die `name not in canon`-Prüfung die
+Klassifikation per `continue`, **bevor** der dangling-Zweig erreicht wurde. Der Fix aus
+[#1332](https://github.com/achimdehnert/platform/issues/1332)/[#1335](https://github.com/achimdehnert/platform/pull/1335)
+zielte auf die kanonische Form und tut dort, was er soll.
+
+**Beide Kanten sind gefixt, nicht wegdokumentiert** ([#1369](https://github.com/achimdehnert/platform/pull/1369),
+offen, CI grün — schließt [#1368](https://github.com/achimdehnert/platform/issues/1368)):
+- **Kante 1:** dangling-Prüfung vor die canon-Prüfung gezogen; Zusatz „(zudem nicht in der
+  Quelle)" hält die zweite Eigenschaft sichtbar. Drift-Score unverändert — beide Fälle zählen 1.
+- **Kante 2:** eigene maschinenlesbare Zeile `=== DANGLING: N ===` plus `--fail-on-dangling`.
+  Hintergrund: ersetzt ein kaputter Link einen zuvor `fehlenden` Skill, sinkt `missing` um 1
+  während `dangling` um 1 steigt — die **Score-Summe bleibt gleich**. Auf dieser Maschine ist
+  der normale Exit-Code wegen Grund-Drift 3 ohnehin dauerhaft `1` und taugt als Gate nicht;
+  mit dem Flag ist er 0 im Normalfall und 1 nur bei gebrochenem Link. Die Auflage „das
+  Phase-2-Gate triggert auf die Befund-Liste, nicht auf die Score-Summe" steht in ADR-281 §8.2
+  selbst, nicht nur im Issue.
+- **Drei Regressionstests, alle drei ohne den Fix rot verifiziert.** Beim Kante-1-Test stehen
+  die Etikett-Assertions bewusst vor den Zeilen-Assertions — sonst wäre er ohne den Fix schon
+  an der fehlenden Ausgabezeile gescheitert und hätte über die Fehlklassifikation nichts
+  bewiesen. Zusätzlich live gegengeprüft, nicht nur synthetisch; Testlinks danach entfernt,
+  `doctor.py` zurück auf DRIFT-SCORE 3.
+
+**Format-Gate-Kollision, bewusst entschieden statt umgangen:** Der lokale Push-Gate
+`block_unformatted_push.sh` verlangt `ruff format` für geänderte `.py`; das Repo ist aber zu
+**475 von 749 Dateien** unformatiert, und genau gegen solche Sweeps existiert
+`check_noop_changes.py` in `tools-tests.yml`. Formatieren hätte 135 geänderte Zeilen auf 598
+aufgebläht. Owner-Entscheid: **zwei Commits** — `e647d05` (Fix, allein reviewbar) und
+`9ac001a` (reines `ruff format`). Der SUGGEST-Check wird den zweiten melden; das ist der
+erwartete Preis der Trennung. Platform-CI selbst prüft `ruff format` für diese Dateien nicht.
+
+**⚠️ hetzner-prod SSH war ~15 Minuten weg — transient, Ursache unbekannt**
+([#1370](https://github.com/achimdehnert/platform/issues/1370)): gegen 21:35 lieferte Port 22
+**Connection refused**, gegen 21:50 war er wieder offen, ohne dass am Host etwas getan wurde.
+In dem Fenster liefen weder `session-memory` (Phase 2) noch `claude-policy` — beide nutzen
+denselben Transport. **Nachgeholt und verifiziert:** `session:platform:20260722:adr281-k5-abend`
+und `error:platform:20260722-doctor-dangling-canon-order` sind geschrieben, beide per
+`session-memory get` mit `found: true` bestätigt. Es ist also **nichts verloren**.
+**Kein Prod-Ausfall, geprüft statt vermutet:** `risk-hub.iil.pet/livez/` und
+`trading-hub.iil.pet/livez/` lieferten während des Ausfalls beide **200** — der Host routete
+HTTP durchgehend, nur `sshd` nahm nichts an. Ob das mit der Speicherlage aus
+[#1303](https://github.com/achimdehnert/platform/issues/1303) zusammenhängt, ist
+**Hypothese, nicht geprüft**; billigster Check ist das Host-Journal um 21:35 ohne Namensfilter.
+
+**Werkzeug-Befund am Session-Ende** ([#1372](https://github.com/achimdehnert/platform/issues/1372)):
+der Push-Gate `block_unformatted_push.sh` hat **dreimal** falsch blockiert, aus zwei
+unabhängigen Gründen. (a) Sind `add`/`commit`/Push in einem Bash-Aufruf verkettet, läuft der
+Hook vor dem Commit, findet `origin/main...HEAD` leer und fällt auf `HEAD~1` zurück — er misst
+dann die `.py`-Dateien des **vorherigen, fremden** Commits. Traf einmal eine reine
+Markdown-Änderung. (b) Die Trigger-Erkennung grept den **gesamten** Kommandotext inklusive
+Heredoc — der Versuch, #1372 selbst per Heredoc-Body anzulegen, wurde blockiert, weil der
+Fließtext die gesuchte Zeichenfolge enthielt. Workarounds (getrennte Aufrufe, `--body-file`)
+sind verifiziert; brisant ist, dass der Hook im Fehlerfall zu `ruff format .` rät — genau der
+Repo-weite Sweep, gegen den `check_noop_changes.py` gebaut wurde.
+
+**Nicht verifiziert / bewusst offen:** ADR-280 §8.1 unverändert blockiert (Owner-Entscheid
+`--allow-live`) · beide PRs dieser Session warten auf 2.-Owner-Review, nichts davon ist auf
+`main`.

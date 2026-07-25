@@ -10,7 +10,65 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-23 spät — Mail-System-Governance: ADR-283 gebaut (dev-hub#149) + ADR-284 zweifach extern gehärtet; ADR-280 `accepted`)
+## ⚡ Aktueller Stand (2026-07-25 — Wartungs-/Hygiene-Session: `_ci-python`/`_ci-odoo` retired, Handover-Prio reconcilt, PR-Stau von 9 auf 3 abgebaut)
+
+**Kern in einem Satz:** Keine neue Architektur — diese Session hat aufgeräumt, und der
+Ertrag steckt weniger im Gelöschten als in **zwei falschen Prämissen, die vor dem Handeln
+gekippt sind**.
+
+**Die „0 Consumer"-Prämisse hätte fast zu einem falschen Löschvorgang geführt.**
+[#1423](https://github.com/achimdehnert/platform/issues/1423) behauptete, das
+Reusable-Triplett sei consumer-los — eine Behauptung, die dort schon einmal falsch war
+(die erste Zählung übersah 19 `_ci-pypi`-Consumer). Deshalb neu gemessen, und dabei **zwei
+eigene Fehlläufe** gefunden, bevor ein Ergebnis behauptet wurde: (a) `/users/<user>/repos`
+liefert nur **öffentliche** Repos — 32 statt 48, **16 private ungescannt**, darunter
+`gaeb-toolkit` als echter `_ci-pypi`-Consumer; korrekt ist `/user/repos?affiliation=owner`.
+(b) Banner-Kommentare wurden als Consumer gezählt und meldeten `_ci-python.yml` fälschlich
+mit 2 externen Nutzern — `learn-hub`, `weltenhub` und `ausschreibungs-hub` tragen nur eine
+**veraltete Kommentarzeile**, ihr echtes `uses:` zeigt auf `iilgmbh/shared-ci@v1.0.11`.
+Der belastbare Scan (63 non-archived Repos, 33 privat, 0 Tree-Fails, `uses:` von Kommentar
+getrennt) bestätigte dann: `_ci-pypi` **19**, `_ci-python`/`_ci-odoo` **0**.
+
+**Der Retire war kein `git rm`.** [#1437](https://github.com/achimdehnert/platform/pull/1437)
+musste zwei Templates (`docs/templates/ci.yml`, `deployment/workflows/ci.yml`) mitziehen —
+sie verwiesen **neue** Repos auf die gelöschte Datei, jedes daraus onboardete Repo hätte
+eine unauflösbare Workflow-Referenz bekommen. Ziel ist jetzt
+`iilgmbh/shared-ci/.../_ci-python.yml@v1.0.14` (Tag statt `@main`, Fleet-Konvention).
+Nebenaspekt dokumentiert: der Wechsel macht aus einem Same-Org- einen **Cross-Org**-Call,
+wo `secrets: inherit` keine Caller-Secrets liefert (platform#1158) — `PROJECT_PAT` muss
+dann explizit gemappt werden.
+
+**Die zweite gekippte Prämisse: [#1414](https://github.com/achimdehnert/platform/issues/1414)
+beschrieb Lint-Schuld, die es nicht gibt.** Mit dem gepinnten `ruff 0.15.4` meldet
+`ruff check tools/ scripts/` **„All checks passed!"** — die 402 Fehler kamen vollständig aus
+einer ungepinnten neueren Ruff-Version. Damit sind „111 Auto-Fixes anwenden" und „~291
+Restbefunde triagieren" gegenstandslos; übrig bleibt allein der Entscheid, den Check
+**required** zu schalten (jetzt gefahrlos möglich, weil er stabil grün ist).
+
+**PR-Stau abgebaut, 9 → 3 offen.** #1418/#1408 standen rot, weil sie **vor** dem Ruff-Pin
+([#1425](https://github.com/achimdehnert/platform/pull/1425)) abgezweigt waren —
+`gh pr update-branch` genügte, kein inhaltlicher Eingriff. #1401 hatte Konflikte in den
+**generierten** ADR-Index-Dateien → mains Version genommen und `gen_adr_index.py` laufen
+lassen statt von Hand gemergt. #1404 war der einzige inhaltliche Fall: sein PR wollte
+zusätzlich eine 8er-Prio-Liste vom 23.07. einsetzen, die #1378/#1298/#1167 als offen führte
+— alle drei CLOSED. Übernommen wurde nur der Session-Bericht, die Prio-Liste blieb bei
+main. Dadurch berührt der PR nur noch den Historien-Abschnitt und kollidierte nicht mehr
+mit dem parallelen Handover-PR.
+
+**Nicht verifiziert / bewusst offen:** Ob die 3 Fremd-Repos ihre veralteten Banner
+korrigieren (App-Repo-Scope, in
+[#1438](https://github.com/achimdehnert/platform/issues/1438)) · die stale gewordenen
+ADR-Evidenzpfade nach dem Retire sind bewusst **nicht** im Aufräum-PR überschrieben worden
+(ADRs sind historische Dokumente, gehört pro Dokument beurteilt — #1438) · zwei weitere
+tote Jobs in `validate-workflows.yml` (`test-build`/`test-deploy`, `if:`-Bedingung prüft
+`contains()` auf einem **Integer**) sind vorbestehend und nicht angefasst.
+
+**Prod-Randnotiz:** hetzner-prod-Speicherlage
+([#1303](https://github.com/achimdehnert/platform/issues/1303)) am 25.07. um 10:28 UTC
+nachgemessen statt fortgeschrieben — Swap unverändert **4095/4095 (0 frei)**, 3,8 GB
+verfügbar, uptime 19 Tage. Die Warnung oben trägt jetzt ein Messdatum.
+
+## ⚡ Vorheriger Stand (2026-07-23 spät — Mail-System-Governance: ADR-283 gebaut (dev-hub#149) + ADR-284 zweifach extern gehärtet; ADR-280 `accepted`)
 
 **Kern in einem Satz (Spät-Session):** Aus einem realen `/mailcheck`-Fehler (Domain-Sampling
 übersah Kunden- + Security-Mail) wurde ein ganzer Governance-Bogen: **ADR-283**
@@ -87,89 +145,6 @@ nicht für ein Vier-Augen-Ergebnis hält.
 Mirror-Fix wirkt erst nach Regeneration der `hooks`-Lane (generierte Kopie unter
 `~/.claude/hooks/managed/`, `do_not_edit`) · ADR-280 Kriterium 6 offen.
 
-## ⚡ Vorheriger Stand (2026-07-22 Abend — ADR-281 §8.1 auf 6/6 komplettiert, ADR-281 `accepted`, §8.2-Negativtest gemessen + beide Kanten gefixt)
-
-**Kern in einem Satz:** Kriterium 5 war die letzte offene Prämisse von ADR-281 — diese
-Session *war* die frische Session, die er brauchte; er trägt, der ADR steht auf `accepted`,
-und der §8.2-Negativtest ist gemessen statt vorausgesetzt.
-
-**ADR-281 §8.1 Kriterium 5 — bestanden.** Der am Nachmittag vorbereitete Symlink
-(`~/.claude/skills/adr281-k5` → `~/shared/adr281-k5`, gesetzt 16:23) lag beim Start dieser
-Session bereits da: der Skill stand **vor jeder Dateisystem-Aktion** im Roster, der Body lud
-inklusive `MARKER-K5-V1`, das Argument-Echo stimmte. Werkzeugversion **2.1.217** — identisch
-zum Erstlauf, der Vergleich ist also nicht von einem Harness-Upgrade verfälscht. Damit ist
-der Erstlauf-Verdacht widerlegt, Symlinks würden nur *dynamisch* aufgelöst: **beide Ladewege
-funktionieren.** §8.1 steht auf **6/6**.
-
-**ADR-281 auf `accepted`** ([#1366](https://github.com/achimdehnert/platform/pull/1366), offen,
-CI grün). Accept-Bedingung des ADR ist §8.1 (binäre Muss-Kriterien, „scheitert eines →
-`rejected`"); §8.2/§8.3 sind Phase-2/3-Gates und keine Accept-Vorbedingungen. Nachgeführt
-wurde nicht nur der Status: der Verifikationsstand-Block „**NICHT verifiziert: dass ein
-symlinkter Skill tatsächlich lädt**" — die tragende offene Prämisse des ADR — ist als überholt
-markiert, §8.1 hat eine Ergebnistabelle je Kriterium, Migration-Tracking Phase 0+1 auf ✅, und
-das Risiko „Symlink lädt doch nicht" ist als gemessen widerlegt entfernt.
-
-**Der §8.2-Negativtest brauchte zwei Läufe — und das war der Fund.** Mit dem in §8.2
-vorgeschlagenen Namen `adr281-dangling`: `dangling=0`, scheinbar derselbe Fehlschlag wie im
-Erstlauf. Mit dem kanonischen Namen `next`: `dangling=1`, korrekte Befund-Zeile. Ursache aus
-dem Code belegt, nicht vermutet — in `doctor.py` beendete die `name not in canon`-Prüfung die
-Klassifikation per `continue`, **bevor** der dangling-Zweig erreicht wurde. Der Fix aus
-[#1332](https://github.com/achimdehnert/platform/issues/1332)/[#1335](https://github.com/achimdehnert/platform/pull/1335)
-zielte auf die kanonische Form und tut dort, was er soll.
-
-**Beide Kanten sind gefixt, nicht wegdokumentiert** ([#1369](https://github.com/achimdehnert/platform/pull/1369),
-offen, CI grün — schließt [#1368](https://github.com/achimdehnert/platform/issues/1368)):
-- **Kante 1:** dangling-Prüfung vor die canon-Prüfung gezogen; Zusatz „(zudem nicht in der
-  Quelle)" hält die zweite Eigenschaft sichtbar. Drift-Score unverändert — beide Fälle zählen 1.
-- **Kante 2:** eigene maschinenlesbare Zeile `=== DANGLING: N ===` plus `--fail-on-dangling`.
-  Hintergrund: ersetzt ein kaputter Link einen zuvor `fehlenden` Skill, sinkt `missing` um 1
-  während `dangling` um 1 steigt — die **Score-Summe bleibt gleich**. Auf dieser Maschine ist
-  der normale Exit-Code wegen Grund-Drift 3 ohnehin dauerhaft `1` und taugt als Gate nicht;
-  mit dem Flag ist er 0 im Normalfall und 1 nur bei gebrochenem Link. Die Auflage „das
-  Phase-2-Gate triggert auf die Befund-Liste, nicht auf die Score-Summe" steht in ADR-281 §8.2
-  selbst, nicht nur im Issue.
-- **Drei Regressionstests, alle drei ohne den Fix rot verifiziert.** Beim Kante-1-Test stehen
-  die Etikett-Assertions bewusst vor den Zeilen-Assertions — sonst wäre er ohne den Fix schon
-  an der fehlenden Ausgabezeile gescheitert und hätte über die Fehlklassifikation nichts
-  bewiesen. Zusätzlich live gegengeprüft, nicht nur synthetisch; Testlinks danach entfernt,
-  `doctor.py` zurück auf DRIFT-SCORE 3.
-
-**Format-Gate-Kollision, bewusst entschieden statt umgangen:** Der lokale Push-Gate
-`block_unformatted_push.sh` verlangt `ruff format` für geänderte `.py`; das Repo ist aber zu
-**475 von 749 Dateien** unformatiert, und genau gegen solche Sweeps existiert
-`check_noop_changes.py` in `tools-tests.yml`. Formatieren hätte 135 geänderte Zeilen auf 598
-aufgebläht. Owner-Entscheid: **zwei Commits** — `e647d05` (Fix, allein reviewbar) und
-`9ac001a` (reines `ruff format`). Der SUGGEST-Check wird den zweiten melden; das ist der
-erwartete Preis der Trennung. Platform-CI selbst prüft `ruff format` für diese Dateien nicht.
-
-**⚠️ hetzner-prod SSH war ~15 Minuten weg — transient, Ursache unbekannt**
-([#1370](https://github.com/achimdehnert/platform/issues/1370)): gegen 21:35 lieferte Port 22
-**Connection refused**, gegen 21:50 war er wieder offen, ohne dass am Host etwas getan wurde.
-In dem Fenster liefen weder `session-memory` (Phase 2) noch `claude-policy` — beide nutzen
-denselben Transport. **Nachgeholt und verifiziert:** `session:platform:20260722:adr281-k5-abend`
-und `error:platform:20260722-doctor-dangling-canon-order` sind geschrieben, beide per
-`session-memory get` mit `found: true` bestätigt. Es ist also **nichts verloren**.
-**Kein Prod-Ausfall, geprüft statt vermutet:** `risk-hub.iil.pet/livez/` und
-`trading-hub.iil.pet/livez/` lieferten während des Ausfalls beide **200** — der Host routete
-HTTP durchgehend, nur `sshd` nahm nichts an. Ob das mit der Speicherlage aus
-[#1303](https://github.com/achimdehnert/platform/issues/1303) zusammenhängt, ist
-**Hypothese, nicht geprüft**; billigster Check ist das Host-Journal um 21:35 ohne Namensfilter.
-
-**Werkzeug-Befund am Session-Ende** ([#1372](https://github.com/achimdehnert/platform/issues/1372)):
-der Push-Gate `block_unformatted_push.sh` hat **dreimal** falsch blockiert, aus zwei
-unabhängigen Gründen. (a) Sind `add`/`commit`/Push in einem Bash-Aufruf verkettet, läuft der
-Hook vor dem Commit, findet `origin/main...HEAD` leer und fällt auf `HEAD~1` zurück — er misst
-dann die `.py`-Dateien des **vorherigen, fremden** Commits. Traf einmal eine reine
-Markdown-Änderung. (b) Die Trigger-Erkennung grept den **gesamten** Kommandotext inklusive
-Heredoc — der Versuch, #1372 selbst per Heredoc-Body anzulegen, wurde blockiert, weil der
-Fließtext die gesuchte Zeichenfolge enthielt. Workarounds (getrennte Aufrufe, `--body-file`)
-sind verifiziert; brisant ist, dass der Hook im Fehlerfall zu `ruff format .` rät — genau der
-Repo-weite Sweep, gegen den `check_noop_changes.py` gebaut wurde.
-
-**Nicht verifiziert / bewusst offen:** ADR-280 §8.1 unverändert blockiert (Owner-Entscheid
-`--allow-live`) · beide PRs dieser Session warten auf 2.-Owner-Review, nichts davon ist auf
-`main`.
-
 **Laufender Session-Log:** [`AGENT_HANDOVER_LOG.md`](AGENT_HANDOVER_LOG.md) — append-only,
 neueste Einträge unten. Dort schreiben Sessions seit KONZ-027 Arm A ihren Stand hin, damit
 parallele Sessions sich nicht gegenseitig blockieren. **Diese** Datei hier bleibt die
@@ -179,11 +154,12 @@ kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieb
 
 > **⚠️ Vor allem anderen — hetzner-prod Speicherlage ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** Swap **4095/4095 MB belegt (0 frei)**, 3,8 GB RAM verfügbar — **nachgemessen 2026-07-25 10:28 UTC** (`free -m` auf 88.198.191.108, unverändert gegenüber dem Befund vom 20.07.). Der OOM vom 20.07. hat trading-hub 16 h offline genommen; der nächste trifft irgendein anderes Hub. Zusätzlich ungeklärt, **warum** die Container entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). Beides ist Prod-Risiko, kein Aufräumthema — die Nummerierung unten bleibt davon unberührt.
 
-1. KONZ-018 W1 Workflow-Ebene [#1423](https://github.com/achimdehnert/platform/issues/1423) — `_ci-python.yml`/`_ci-odoo.yml` retiren (org-weit 0 Consumer); ADR-278-Guard-Sync für `_ci-pypi.yml` erledigt ([#1431](https://github.com/achimdehnert/platform/pull/1431) MERGED, Preflight 0/19 rot)
-2. ADR-285 Phase-1-Pilot [#1416](https://github.com/achimdehnert/platform/issues/1416) — `teste-repo` (`$ARGUMENTS`) + `workflow-index` → `skills/`; **muss in einer frischen Session laufen** (Skills laden beim Start), entscheidet ADR-285 `accepted` vs. Fallback B
+1. ADR-285 Phase-1-Pilot [#1416](https://github.com/achimdehnert/platform/issues/1416) — `teste-repo` (`$ARGUMENTS`) + `workflow-index` → `skills/`; **muss in einer frischen Session laufen** (Skills laden beim Start), entscheidet ADR-285 `accepted` vs. Fallback B
+2. **Owner-Entscheid** [#1414](https://github.com/achimdehnert/platform/issues/1414) — `pytest tools/tests/ + CI-tote Testorte` **required** schalten? Der Check ist seit dem Ruff-Pin ([#1425](https://github.com/achimdehnert/platform/pull/1425)) stabil grün, die Vorbedingung „erst grün, dann required" ist damit erfüllt. Ruleset `main-required-checks` verlangt heute nur `guardian` + `gitleaks secret scan` (gegen die API geprüft). Branch-Protection-Änderung → nicht autonom.
 3. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
-4. Repo-Health [#1414](https://github.com/achimdehnert/platform/issues/1414) — `tools-tests.yml`: 402 Ruff-Fehler, non-required (silent-red), nur bei `.py`-PRs sichtbar
+4. Nachlauf [#1438](https://github.com/achimdehnert/platform/issues/1438) — stale ADR-Evidenzpfade nach dem `_ci-python`-Retire (ADR-174-Frontmatter + KONZ-021 `source_path` behaupten Gegenwart, die Beispiel-Snippets in ADR-021/022/120 dürfen historisch bleiben), veraltete Banner-Kommentare in 3 Fremd-Repos, 2 tote `validate-workflows`-Jobs
 
+> **Erledigt 2026-07-25 (Session-Ende — diese Session):** **Alt-Prio 1 ([#1423](https://github.com/achimdehnert/platform/issues/1423)) ist CLOSED** — `_ci-python.yml`/`_ci-odoo.yml` sind via [#1437](https://github.com/achimdehnert/platform/pull/1437) retired, gegen `main` (`7ffb8f1e`) verifiziert: beide Dateien weg, `_ci-pypi.yml` (19 Consumer, ADR-226) unangetastet, CI auf main durchgehend grün inkl. `Validate Workflows` auf dem Retire-Commit. **Die „0 Consumer"-Prämisse wurde vor dem Löschen neu gemessen** (63 non-archived Repos, davon 33 privat, alle `.github/workflows/*.yml`, echtes `uses:` von Kommentaren getrennt) — und dabei zwei eigene Fehlläufe korrigiert: `/users/<u>/repos` liefert nur **öffentliche** Repos (16 private fehlten, darunter ein echter `_ci-pypi`-Consumer), und Banner-Kommentare wurden zunächst als Consumer gezählt. **Alt-Prio 4 ([#1414](https://github.com/achimdehnert/platform/issues/1414)) inhaltlich umgedreht:** die vermutete Lint-Schuld existiert **nicht** — mit dem gepinnten `ruff 0.15.4` meldet `ruff check tools/ scripts/` „All checks passed!"; die 402 Fehler kamen vollständig aus einer ungepinnten neueren Ruff-Version. Übrig bleibt nur der Required-Entscheid (neue Prio 2). **PR-Hygiene abgeräumt:** #1418/#1408 waren nur vor dem Ruff-Pin abgezweigt (`update-branch` genügte), #1404/#1401 hatten Merge-Konflikte — bei #1404 wurde die dort vorgeschlagene 8er-Prio-Liste bewusst **nicht** übernommen (führte #1378/#1298/#1167 als offen, alle CLOSED), bei #1401 wurde der generierte ADR-Index regeneriert statt von Hand gemergt. Liste bleibt bei 4 Einträgen, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen).
 > **Reconciliation 2026-07-25 (Session-Start, keine neue Feature-Arbeit):** Die Liste war **zwei Tage stale** — die Vorsession hat sie am 24.07. bewusst nicht angefasst (Parallel-Session-PR [#1404](https://github.com/achimdehnert/platform/pull/1404) berührte die Datei) und die Nacharbeit an die nächste reconcilende Session übergeben; das ist diese. Änderungen, alle gegen die API geprüft, nicht gefolgert: **Alt-Prio 1 ([#1117](https://github.com/achimdehnert/platform/issues/1117)) entfällt — CLOSED** (stale-closed am 24.07.: das trading-hub-Ruleset emittiert `ci / gate` längst, der 404 kam vom Legacy-Endpoint). **Alt-Prio 2 ist zu neuer Prio 1 geschärft:** [#1258](https://github.com/achimdehnert/platform/issues/1258) ist CLOSED, und der ADR-278-Guard-Sync ist seit [#1431](https://github.com/achimdehnert/platform/pull/1431) (MERGED) erledigt — die Restarbeit an [#1423](https://github.com/achimdehnert/platform/issues/1423) ist nur noch das Retiren von `_ci-python.yml`/`_ci-odoo.yml`. **Zwei getrackte Offene aus dem Log vom 24.07. in die Liste gezogen:** [#1416](https://github.com/achimdehnert/platform/issues/1416) (neue Prio 2, gatet den ADR-285-Entscheid) und [#1414](https://github.com/achimdehnert/platform/issues/1414) (neue Prio 4). **Prod-Warnblock nachgemessen** statt fortgeschrieben (`free -m`, 10:28 UTC: Swap unverändert 4095/4095). Liste dadurch 3 → 4 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen). **Nicht verifiziert:** die „0 Consumer"-Prämisse für `_ci-python`/`_ci-odoo` wurde aus #1423 übernommen, nicht neu gemessen — sie wird vor dem Löschen erneut geprüft (dieselbe Behauptung war in #1423 schon einmal falsch, siehe dortige Korrektur vom 24.07.).
 > **Erledigt 2026-07-24 (diese Session):** **Alt-Prio 1 ([#1298](https://github.com/achimdehnert/platform/issues/1298)), 2 ([#1378](https://github.com/achimdehnert/platform/issues/1378)) und 4 ([#1167](https://github.com/achimdehnert/platform/issues/1167)) sind alle CLOSED** (gegen die API geprüft, nicht gefolgert): #1298 wurde bereits am 2026-07-23 als **Option 4** geschlossen — der im Handover als „lokal nicht durchführbar" markierte Check wurde diese Session via `RemoteTrigger list` **nachgeholt** und bestätigt den Schließungsbefund (0 aktive Cloud-Routinen referenzieren einen `/`-Skill, der genannte Reopen-Kandidat „morning-briefing" existiert gar nicht als Routine); #1378 CLOSED nach Merge von [#1382](https://github.com/achimdehnert/platform/pull/1382) (10:31 UTC); #1167 CLOSED (KONZ-platform-001-Namenskollision via #1410 aufgelöst, KONZ-Nummern-Guard #1413 live). **KONZ-018 W1 (Alt-Prio 5, jetzt Prio 2) vorangebracht:** [#1258](https://github.com/achimdehnert/platform/issues/1258) (platform-Kopie `install-iil-packages` stale ggü. shared-ci) via [#1419](https://github.com/achimdehnert/platform/pull/1419) **MERGED** — platform-Action gelöscht, 3 Call-Sites in `_ci-python.yml` auf `iilgmbh/shared-ci/.github/actions/install-iil-packages@main`, Kontrakt verifiziert identisch (kein Consumer-Break); der Workflow-Ebenen-Rest (consumer-loses Spiegel-Triplett `_ci-python`/`_ci-pypi`/`_ci-odoo`, 63 Repos autoritativ geprüft: 0 externe Consumer) als [#1423](https://github.com/achimdehnert/platform/issues/1423) getrackt. Liste dadurch 6 → 3 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen).
 > **Erledigt 2026-07-23 (Spät, Mail-System-Governance — diese Session):** Aus einem realen `/mailcheck`-Fehler (Domain-Sampling per `--scan-senders` übersah Kunden- + Security-Mail) wurde ein Governance-Bogen. **ADR-283** Rev 1 (pointer-first, [#1392](https://github.com/achimdehnert/platform/pull/1392) MERGED) + Owner-Entscheid **dev-hub-Postgres statt A+/SQLite** ([#1397](https://github.com/achimdehnert/platform/pull/1397) inzwischen MERGED, [#1398](https://github.com/achimdehnert/platform/pull/1398) offen); **MVP-Kern gebaut** ([dev-hub#149](https://github.com/achimdehnert/dev-hub/pull/149), CI grün, pointer-first Modelle + PII-Lint-Test). **ADR-284** (Mail-Intelligence-&-Action-System) nach **2 externen Reviews** auf Rev 1 ([#1401](https://github.com/achimdehnert/platform/pull/1401) offen): nur Phase 1 verbindlich, Coverage-Contract + Triage-Ledger („indexiert ≠ geprüft"), ephemerer purgebarer Index, nl2sql-Sicherheit korrigiert. **Skill-Fix** [#1395](https://github.com/achimdehnert/platform/pull/1395) MERGED (`ai_sparring_by` statt ungültigem `external_sparring_by`) + Live-Regen. **#1298 CLOSED** (Option 4, 6 Cloud-Routinen geprüft, 0 nutzen `/`-Skill). Mailcheck-Lehre als CC-Memory + pgvector-error_pattern. Operativ: Zinser-Draft in IIL-Entwürfen, scheppach-Löschung offen (Owner-Gate), Azure-Frist [#1400](https://github.com/achimdehnert/platform/issues/1400). **Die damals hier vorgeschlagene Prio-Liste (6 → 8, Mail-Strang vorangestellt) ist beim Konflikt-Auflösen bewusst NICHT übernommen worden** — sie führte #1378/#1298/#1167 als offen, die alle inzwischen CLOSED sind. Maßgeblich ist die Liste oben.
