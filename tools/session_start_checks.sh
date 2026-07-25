@@ -262,6 +262,20 @@ else
   record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 fi
 
+# ── 0.7.1 deploy.sh Git↔Host-Drift ──────────────────────────────────────────
+# Die Host-Kopie /opt/scripts/deploy.sh wird von Hand verteilt und lief messbar
+# auseinander (2026-07-25: prod eine Revision hinter Git+Staging, u.a. ohne den
+# override-Fix aus platform#1075). Ein grüner Deploy beweist NICHT, dass der Host
+# das aktuelle Skript ausführt — und das Skript kann sich nicht selbst prüfen,
+# der Check muss von außen kommen. Deshalb hier, wo er jede Session einmal läuft.
+DRIFT_OUT=$("$PLATFORM_DIR/tools/deploy-script-drift.sh" --quiet 2>/dev/null | tail -1 || true)
+case "$DRIFT_OUT" in
+  "RESULT: OK"*)         record "0.7.1 deploy-script" "PASS" "${DRIFT_OUT#RESULT: OK — }" ;;
+  "RESULT: DRIFT"*)      record "0.7.1 deploy-script" "WARN" "${DRIFT_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.1 deploy-script" "WARN" "${DRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.1 deploy-script" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/deploy-script-drift.sh" ;;
+esac
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys

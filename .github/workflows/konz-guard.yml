@@ -1,0 +1,23 @@
+name: KONZ Number Guard
+
+on:
+  push:
+    paths:
+      - "docs/konzepte/KONZ-*.md"
+  pull_request:
+    paths:
+      - "docs/konzepte/KONZ-*.md"
+
+# Least privilege (analog adr-guard.yml) — kein GITHUB_TOKEN-Write nötig.
+permissions:
+  contents: read
+
+jobs:
+  konz-guard:
+    name: Check KONZ number uniqueness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run KONZ Number Guard
+        run: python3 scripts/konz_number_check.py --check

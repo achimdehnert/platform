@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-23",
-  "total": 230,
-  "next_free": 285,
+  "generated": "2026-07-25",
+  "total": 232,
+  "next_free": 287,
   "adrs": [
     {
       "number": 7,
@@ -4007,7 +4007,8 @@
       ],
       "supersedes": [],
       "superseded_by": [
-        "ADR-280"
+        "ADR-280",
+        "ADR-285"
       ],
       "amends": [],
       "amended_by": [
@@ -4036,7 +4037,8 @@
       ],
       "amended_by": [
         "ADR-280",
-        "ADR-281"
+        "ADR-281",
+        "ADR-285"
       ],
       "related": [
         "ADR-229"
@@ -5152,7 +5154,7 @@
       "id": "ADR-278",
       "file": "ADR-278-oidc-trusted-publishing-only.md",
       "title": "OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete; API-Token-Publishing verboten + CI-Enforcement-Gate",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-19",
       "domains": [],
       "supersedes": [],
@@ -5322,6 +5324,51 @@
         "ADR-238",
         "ADR-283"
       ],
+      "implementation_status": ""
+    },
+    {
+      "number": 285,
+      "id": "ADR-285",
+      "file": "ADR-285-skill-lane-consolidation.md",
+      "title": "Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel",
+      "status": "proposed",
+      "date": "2026-07-24",
+      "domains": [
+        "tooling",
+        "dx",
+        "drift-prevention",
+        "governance"
+      ],
+      "supersedes": [
+        "ADR-229"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-230",
+        "claude-skills.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-229",
+        "ADR-230",
+        "ADR-258",
+        "ADR-280"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 286,
+      "id": "ADR-286",
+      "file": "ADR-286-mail-agent-crypto-shredding-derived-index.md",
+      "title": "Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence",
+      "status": "accepted",
+      "date": "2026-07-24",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
       "implementation_status": ""
     },
     {

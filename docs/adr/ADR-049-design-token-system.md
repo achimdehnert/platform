@@ -495,3 +495,23 @@ Migration path:
    compilation step
 5. **Design token libraries (Style Dictionary, Theo)** -- Overkill for
    10 semantic colors + a few layout tokens
+
+## Amendment 2026-07-23 — Warn-Text-Token (Barrierefreiheit / BITV)
+
+Aus einem BITV/WCAG-2.1-AA-Fachreview (Fach-Reviewer `/fach-review`, KONZ-platform-028):
+**Akzentfarben sind keine Textfarben.** `--pui-warning` (= `--pui-amber-500` `#f59e0b`)
+ist als Hintergrund-/Rahmen-/Icon-Akzent gedacht (UI-Kontrast 3:1) — als **Textfarbe**
+auf hellem Grund erreicht es nur ~2.15:1 und verletzt WCAG 1.4.3 (4.5:1).
+
+- **Neu:** Primitive `--pui-amber-700 #b45309` + semantisch `--pui-warning-text`
+  (= amber-700, ≥ 4.5:1 auf hellem Grund) für Warn-**Text**. `--pui-warning` bleibt
+  für Flächen/Akzente.
+- **Regel:** Warn-Text nutzt `--pui-warning-text`, nie `--pui-warning`.
+- **Kontext:** `--pui-gray-500 #6b7280` (= `--pui-muted`) ist mit 4.83:1 bereits konform
+  — die früheren KD-Kontrast-Findings kamen aus einem **veralteten Fallback-Hex** in den
+  Klickdummies (`#6b7c88`, 4.32:1), nicht aus dem Token; dort reconciled (meiki-lra/frist-hub#75).
+  Anmerkung: `#6b7280` ist auf hellgrauem Grund grenzwertig (~4.53:1) — bei künftigem
+  Palette-Review als Kandidat für eine leichte Abdunklung vormerken.
+- **Cookbook:** Das barrierefreie „clickable row"-Muster (natives `<tr>` + Link in der
+  Zelle statt `role=button` auf der Zeile, WCAG 1.3.1/4.1.2) gehört als Snippet in den
+  KD-Cookbook (platform:ADR-211); Referenz-Umsetzung in frist-hub#75.

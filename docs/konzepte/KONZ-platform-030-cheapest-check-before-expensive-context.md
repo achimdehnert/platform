@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-009
+concept_id: KONZ-platform-030
 title: Cheapest-Check-Before-Expensive-Context — wiederkehrendes Gate-Muster verankern
 pipeline_status: idea
 tier: T3
@@ -19,7 +19,7 @@ evidence_manifest:
 created: 2026-06-24
 ---
 
-# KONZ-platform-009 — Cheapest-Check-Before-Expensive-Context
+# KONZ-platform-030 — Cheapest-Check-Before-Expensive-Context
 
 **Tier: T3** — auto-eskaliert: das Konzept berührt eine **neue Boundary (ein Gate)**, ist
 **cross-repo/org-weit** wirksam und schlägt einen Enforcement-Mechanismus vor. Damit greift die
