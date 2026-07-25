@@ -52,14 +52,19 @@ on:
       # Ohne diesen Trigger liefe er bei einer reinen skills/-Änderung NICHT —
       # der Gate-Name bliebe grün, die Deckung wäre still weg (Konvention F-A).
       - "skills/**"
+  # #1414: KEIN `paths`-Filter auf pull_request — bewusst.
+  #
+  # Ein *required* Check mit paths-Filter läuft auf PRs, die keinen der Pfade
+  # berühren, gar nicht; GitHub hält ihn dort dauerhaft auf `pending` und
+  # blockiert damit ausgerechnet die PRs, die er nicht prüft. Der Job läuft
+  # deshalb IMMER (meldet also immer seinen Check-Namen) und entscheidet als
+  # ersten Schritt selbst, ob die teuren Steps nötig sind ("Zwilling-Muster").
+  #
+  # Die Pfad-Liste bleibt SSoT in `on.push.paths` oben — `ci_relevant_paths.py`
+  # liest genau diesen Block. Eine zweite, komplementäre `paths-ignore`-Liste
+  # wäre die naheliegende Alternative gewesen und genau die Drift-Falle: zwei
+  # Listen, die exakte Komplemente bleiben müssten.
   pull_request:
-    paths:
-      - "tools/**"
-      - "scripts/**"
-      - "shared_contracts/**"
-      - "agents/**"
-      - ".windsurf/workflows/**"
-      - "skills/**"
 
 # CI-5 (#1202): cancel superseded runs on rapid pushes to the same
 # ref/PR — avoids self-overlap when several commits land in quick
@@ -86,11 +91,33 @@ jobs:
         with:
           python-version: "3.12"
 
+      # #1414 Zwilling-Muster: der Job laeuft immer, entscheidet aber selbst,
+      # ob die teuren Steps noetig sind. Dieser Step ist der einzige, der auf
+      # jedem PR laeuft (~15 s) — alles Weitere haengt an seinem Output.
+      - name: Relevanz bestimmen (Zwilling, #1414)
+        id: relevanz
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "push-Event — bereits durch on.push.paths gefiltert, alle Steps laufen."
+            exit 0
+          fi
+          pip install pyyaml --quiet --break-system-packages
+          git fetch -q origin "${{ github.base_ref }}"
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed-files.txt
+          python3 tools/ci_relevant_paths.py \
+            --workflow .github/workflows/tools-tests.yml \
+            --changed-file changed-files.txt \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Install test deps
+        if: steps.relevanz.outputs.relevant == 'true'
         # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
         run: pip install pytest pyyaml pydantic --quiet --break-system-packages
 
       - name: Run all tools tests
+        if: steps.relevanz.outputs.relevant == 'true'
         # SSoT = Makefile `test`-Target (retro f4a546-incr #1: lokal liefen 388,
         # CI 486 Tests, weil beide Seiten eigene pytest-Listen pflegten — der
         # Makefile-Kommentar "identisch zu tools-tests.yml" war falsch). Jetzt
@@ -109,7 +136,7 @@ jobs:
       # Grenze: greift nur, wenn dieser Workflow triggert (paths-Filter oben), also
       # nicht für Sweeps, die ausschließlich orchestrator_mcp/ oder packages/ treffen.
       - name: Rein formale Änderungen im Diff (SUGGEST, non-gating)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.relevanz.outputs.relevant == 'true'
         run: |
           set +e
           git fetch -q origin "${{ github.base_ref }}"
@@ -118,11 +145,13 @@ jobs:
           exit 0
 
       - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
+        if: steps.relevanz.outputs.relevant == 'true'
         # Jeder Skill in .windsurf/workflows/ muss in workflow-index.md stehen
         # (oder distribute:false / Allowlist). Struktureller Gate, keine LLM.
         run: python3 tools/check_workflow_index.py
 
       - name: Install ruff
+        if: steps.relevanz.outputs.relevant == 'true'
         # Pin (2026-07-24): unpinned `pip install ruff` zog eine neuere Ruff-Version als der
         # lokale/pyproject-Stand -> RUF059/RUF100 feuerten repo-weit ueber Alt-Dateien und
         # faerbten JEDEN tools/-PR rot (belegt: main lokal @0.15.4 = 0 Verstoesse; #1420 mit
@@ -131,6 +160,17 @@ jobs:
         run: pip install "ruff==0.15.4" --quiet --break-system-packages
 
       - name: Lint (ruff check tools/ scripts/)
+        if: steps.relevanz.outputs.relevant == 'true'
         # X-9: eigener Step NACH dem pytest-Step (Test-Failures sollen zuerst sichtbar
         # sein); per-file-ignores mit Begründung stehen in pyproject.toml.
         run: ruff check tools/ scripts/
+
+      # Sichtbarkeit: ohne diesen Step sieht ein uebersprungener Lauf aus wie ein
+      # Lauf, der nichts getan hat — der Grund muss im Log stehen, sonst wirkt der
+      # gruene Check wie eine Aussage ueber Code, die er nicht ist.
+      - name: Nicht relevant — teure Steps übersprungen
+        if: steps.relevanz.outputs.relevant != 'true'
+        run: |
+          echo "Kein geänderter Pfad trifft on.push.paths dieses Workflows."
+          echo "Der Check meldet grün, hat den Code aber NICHT geprüft —"
+          echo "genau dafür ist das Zwilling-Muster da (#1414)."
