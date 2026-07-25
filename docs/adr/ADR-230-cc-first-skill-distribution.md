@@ -4,7 +4,7 @@ decision_date: 2026-05-30
 deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, governance]
 amends: [claude-skills.md]
-related: [ADR-229]
+related: [ADR-229, ADR-285]
 tags: [skills, workflows, distribution, claude-code, windsurf, cross-repo]
 ---
 
@@ -43,6 +43,16 @@ Coding läuft **nur über CC**; **Windsurf nur für ADR/Review**. Die Cross-Tool
 
 ## 2. Entscheidung (Vorschlag): CC-first
 1. **Eine kanonische Quelle, auf konkreten Commit aufgelöst (REC-2):** platform `main` `.windsurf/workflows/` — der Generator liest `main`, **installiert aber den resolved Commit** und hält ihn im Manifest fest (nicht „semantisch main"). *Phase-2-Watchpoint (REC-3): den Windsurf-benannten Pfad in einen **tool-neutralen `skills/`-Pfad** umbenennen (Tool-Leak vermeiden) — nicht Voraussetzung für ADR-230.*
+   > **REC-3 ist aufgelöst — amendiert durch [ADR-285](ADR-285-skill-lane-consolidation.md) (accepted 2026-07-25).**
+   > Das kanonische Quellverzeichnis ist ab sofort **`skills/<name>/SKILL.md`** in
+   > platform `main`, nicht mehr `.windsurf/workflows/`. Der Watchpoint ist damit
+   > entschieden, nicht mehr offen. **Vollzug ist gestaffelt:** gemessen am
+   > 2026-07-25 (`doctor.py`) liegen **4** Artefakte in der Skills-Lane und **51** in
+   > der `commands`-Lane; der Bulk-Move (Phase 2) und der Rückbau der `commands`-Lane
+   > (Phase 3) laufen über ADR-285 §10 + §9a, nicht automatisch mit dieser
+   > Amendment-Zeile. Bis dahin bleibt `.windsurf/workflows/` die faktische Quelle der
+   > noch nicht migrierten Artefakte — **Deklaration ≠ Realität wäre hier der
+   > Fehler**, deshalb steht der Ist-Stand ausdrücklich dabei.
 2. **Deterministische CC-Distribution — EINE Form, kein Hybrid (REC-1):** Default = **generierte Kopien** in `~/.claude/commands/`, jede mit Header `generated: true / source_commit / source_path / content_hash / do_not_edit` (REC-14). Erzeugung **atomar + gelockt** (Staging → validieren → Rename/Swap, REC-6), globaler Write **serialisiert** (REC-19); Ziel trägt **`MANAGED_BY`** (erlaubter Writer, Commit, Regen-Kommando, REC-5). Der **historische Hybrid wird aufgelöst** (keine statischen stale-Kopien, keine Symlinks auf volatilen Checkout); **fail-closed** (REC-4): bis Hybrid aufgelöst + Quelle branch-stabil gilt der Installer **nicht** als akzeptiert.
 3. **Windsurf = generiertes ADR-Review-Subset über Frontmatter-Tags** (`tool_targets: [windsurf-review]`), **nicht** Dateinamen-Globs (REC-10) → Windsurfs globale Location, kein per-Repo. **Windsurf ist kein Coding-Ziel mehr** (REC-15 — schützt ADR-229 vor Rückabwicklung).
 4. **Policy-Kollaps:** `claude-skills.md` auf **eine** kanonische Kopie; übrige Duplikate → **Pointer-Stubs/Weiterleitungen** statt stilles Löschen (REC-11), damit alte Links/gepinnte Worktrees nicht brechen. Deklaration = Realität.
@@ -119,6 +129,14 @@ Kernschärfungen: generierte-Kopien-mit-Header statt „Symlink ODER Kopie"; res
 Manifest + Integrität + Drift-Doctor; Subset via Frontmatter-Tags; Policy-Kollaps via Pointer-Stubs; R1 fail-closed-Gate.
 
 ## 11. Changelog
+- 2026-07-25: **Amendiert durch ADR-285 (accepted).** §2 Punkt 1: der offene
+  Phase-2-Watchpoint **REC-3** ist aufgelöst — kanonisches Quellverzeichnis ist
+  `skills/<name>/SKILL.md` statt `.windsurf/workflows/`. Entscheidung ratifiziert,
+  **Vollzug gestaffelt**: Stand 2026-07-25 liegen 4 Artefakte in der Skills-Lane und
+  51 in der `commands`-Lane; Bulk-Move und Rückbau laufen über ADR-285 §10/§9a. Der
+  Ist-Stand steht bewusst im Text — eine Amendment-Zeile, die Vollzug suggeriert, wäre
+  genau der „Deklaration ≠ Realität"-Fehler, den §2 Punkt 4 selbst verbietet. ADR-230
+  bleibt im Übrigen die tragende Entscheidung (`accepted`, §8-Rollout-Gate gültig).
 - 2026-05-30: Initial (Proposed). Aus Audit-Analyse auf neuer Basis (Windsurf nur ADR/Review). Zur externen Zweitmeinung via `/adr-handoff-extern` vorgesehen.
 - 2026-05-30: **R1-Korrektur** (Forensik) — „unidentifizierter Live-Rewriter (Blocker)“ war ein `find`-Messartefakt; Ist = statische-Kopie-Hybrid + branch-volatile Symlinks (kein rogue Mutator) → R1 von „Blocker“ auf „verstanden“ herabgestuft.
 - 2026-05-30: Externe Review (20 RECs, alle `[valid]`) über Rückfluss-Gate eingearbeitet → **Betriebsvertrag** (§2a): generierte Kopien+Header, resolved-Commit-Pin, atomic/lock/`MANAGED_BY`, Manifest+Integrität+Drift-Doctor, Frontmatter-Tag-Subset, Pointer-Stub-Kollaps, R1 fail-closed; Acceptance verschärft. Bleibt `proposed`.

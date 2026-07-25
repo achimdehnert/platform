@@ -195,7 +195,7 @@
 | 226 | Library CI reusable (`_ci-pypi.yml`) with a mandatory blocking secret-scan for all PyPI-published packages | Accepted | 🔶 | [ADR-226](ADR-226-library-ci-reusable-mandatory-secret-scan.md) |
 | 227 | Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT | Draft | ⬜ | [ADR-227](ADR-227-klickdummy-feedback-bridge.md) |
 | 228 | Amendment: Merge-time ADR number allocation (amends ADR-065) | Accepted | ⬜ | [ADR-228](ADR-228-amendment-merge-time-adr-number-allocation.md) |
-| 229 | Kanonische `.windsurf`-Distribution — Single Global Source, consumed not mirrored | Proposed | ⬜ | [ADR-229](ADR-229-windsurf-distribution-single-source.md) |
+| 229 | Kanonische `.windsurf`-Distribution — Single Global Source, consumed not mirrored | Superseded | — | [ADR-229](ADR-229-windsurf-distribution-single-source.md) |
 | 230 | CC-first Skill-Distribution — eine kanonische Quelle, deterministische Verteilung, Windsurf = generiertes ADR-Subset | Accepted | ⬜ | [ADR-230](ADR-230-cc-first-skill-distribution.md) |
 | 231 | dev-hub 2.0 — Entkernung zu Thin BFF + Catalog-Service (Read-Projektionen statt geforkter Tabellen) | Accepted | ⬜ | [ADR-231](ADR-231-devhub-thin-bff-catalog-service.md) |
 | 233 | Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln | Proposed | ⬜ | [ADR-233](ADR-233-parallel-session-worktree-convention.md) |
@@ -250,5 +250,5 @@
 | 282 | Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern | Accepted | ⬜ | [ADR-282](ADR-282-skill-workflow-taxonomy-governance-lifecycle.md) |
 | 283 | Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest | Proposed | ⬜ | [ADR-283](ADR-283-korrespondenz-vorgangsspeicher.md) |
 | 284 | Mail-Intelligence-&-Action-System — Coverage-Contract + Triage-Ledger (Phase 1 verbindlich) | Proposed | ⬜ | [ADR-284](ADR-284-mail-intelligence-action-system.md) |
-| 285 | Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel | Proposed | ⬜ | [ADR-285](ADR-285-skill-lane-consolidation.md) |
+| 285 | Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel | Accepted | ⬜ | [ADR-285](ADR-285-skill-lane-consolidation.md) |
 | 286 | Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence | Accepted | ⬜ | [ADR-286](ADR-286-mail-agent-crypto-shredding-derived-index.md) |

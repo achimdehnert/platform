@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: superseded
+superseded_by: [ADR-285]
 decision_date: 2026-05-30
 deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, infra]
@@ -12,13 +13,22 @@ tags: [windsurf, skills, workflows, distribution, cross-repo]
 
 | Attribut | Wert |
 |---|---|
-| **Status** | Proposed |
+| **Status** | **Superseded** durch [ADR-285](ADR-285-skill-lane-consolidation.md) (2026-07-25) |
 | **Scope** | Platform-wide (~30 Repos) |
 | **Datum** | 2026-05-30 |
 | **Autor** | Achim Dehnert |
 | **Relates to** | `~/.claude/policies/claude-skills.md`, ADR-065 (Filesystem-first ADR-Numbering) |
 
-> **Status proposed.** **Right-Sizing-Nachtrag 2026-05-30:** Aktuelle Nutzung = Coding **nur mit CC**
+> **⚠️ Superseded durch [ADR-285](ADR-285-skill-lane-consolidation.md) (accepted 2026-07-25).**
+> Die tragende Prämisse — Windsurf als Coding-IDE über alle Repos — ist tot, und mit
+> ADR-285 D2 entfällt zusätzlich das Quellverzeichnis `.windsurf/workflows/`.
+> **Gültig bleibt ausdrücklich Schritt 1** (Untrack/Cleanup der per-Repo
+> `.windsurf`-Mirror, ~32 Repos, `.gitignore`-regressionsgeschützt): er war
+> nutzungsunabhängig richtig, ist erledigt und wird von ADR-285 **nicht** rückgängig
+> gemacht. Endgültig vom Tisch sind nur die Schritte 2–4. Der Text unten bleibt als
+> historischer Stand stehen.
+>
+> **Status proposed (historisch).** **Right-Sizing-Nachtrag 2026-05-30:** Aktuelle Nutzung = Coding **nur mit CC**
 > (bereits gelöst via `~/.claude/commands/`); **Windsurf nur für ADR-Review**, nicht als Coding-IDE.
 > Damit ist die globale Windsurf-Workflow-Distribution (**Schritt 2–4**) **YAGNI → zurückgestellt**.
 > Nur **Schritt 1 (Untrack/Cleanup)** war nutzungsunabhängig richtig und ist **erledigt**; der

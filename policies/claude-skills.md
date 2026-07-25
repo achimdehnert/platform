@@ -155,16 +155,28 @@ souveränitäts-sicher** (souveräne Orgs nie zentral gescannt). **SSoT bleibt d
 die Registry ist eine reproduzierbare Projektion. Vollständige Ableitungsregel, Erfolgsmaße und
 Lebenszyklus: **ADR-282** (dieser Abschnitt ist der Pointer, nicht die SSoT).
 
-## Verteilung (ADR-230 CC-first)
+## Verteilung (ADR-230 CC-first, amendiert durch ADR-285)
+
+> **Zielbild seit ADR-285 (accepted 2026-07-25): genau EINE Lane — `skills`.**
+> Kanonische Quelle ist `platform main skills/<name>/SKILL.md`; `.windsurf/workflows/`
+> als Quellverzeichnis entfällt. **Neue Artefakte werden ausschließlich als
+> `skills/<name>/SKILL.md` angelegt** — kein neuer `.windsurf/workflows/`-Eintrag,
+> auch nicht „nur schnell".
+>
+> **Übergangsstand, gemessen 2026-07-25 (`doctor.py`):** 4 Artefakte in der
+> Skills-Lane, 51 in der `commands`-Lane. Beide Lanes laufen gegatet parallel weiter,
+> bis der Bulk-Move (ADR-285 Phase 2) und der Rückbau (Phase 3, D5-Prozedur in
+> ADR-285 §9a) durch sind. Die Beschreibung beider Lanes unten bleibt deshalb
+> gültig — sie beschreibt den Ist-Zustand, nicht das Zielbild.
 
 `cc-skill-dist` kennt zwei Lanes über `--kind`:
 
-**Lane `commands` (Default) — Slash-Commands.** Quelle = `platform main .windsurf/workflows/` → `~/.claude/commands/` (flach):
+**Lane `commands` (auslaufend, ADR-285 Phase 3) — Slash-Commands.** Quelle = `platform main .windsurf/workflows/` → `~/.claude/commands/` (flach). Trägt die noch nicht migrierten Artefakte; **nichts Neues hier anlegen**:
 - `generate.py` — deterministische Kopien mit MANAGED-Footer (`source_commit`/`content_hash`/`do_not_edit`) + `manifest.json`; atomarer Swap mit `.bak`; Live nur mit `--allow-live` (gegatet, ADR-230 §8).
 - `doctor.py` — read-only Drift-Diagnose Quelle ↔ `~/.claude/commands` (footer-aware; CI-Round-Trip-Gate `cc-skill-dist-doctor.yml`).
 - Windsurf-Review-Subset: `windsurf-subset.py` (`tool_targets: [windsurf-review]`).
 
-**Lane `skills` — Anthropic Agent Skills.** Quelle = `platform main skills/<name>/SKILL.md` → `~/.claude/skills/<name>/SKILL.md` (verschachtelt, ein Verzeichnis je Skill):
+**Lane `skills` (kanonisch, Zielzustand ADR-285 D2).** Quelle = `platform main skills/<name>/SKILL.md` → `~/.claude/skills/<name>/SKILL.md` (verschachtelt, ein Verzeichnis je Skill). Trägt sowohl Anthropic Agent Skills als auch die migrierten Slash-Commands — `$ARGUMENTS` funktioniert hier unverändert (auf beiden Aufrufwegen gemessen, ADR-285 §9):
 - `generate.py --kind skills --target ~/.claude/skills` (Live nur mit `--allow-live`) — gleicher MANAGED-Footer/Manifest/Swap; Quelle ist die **nackte** `SKILL.md` (kein Footer), die Kopie trägt ihn.
 - `doctor.py --kind skills` — Drift-Diagnose Quelle ↔ `~/.claude/skills` (verzeichnis-basiert; Relativlink-Guard greift hier NICHT, da Skill-Verzeichnisse gebündelte Referenzen tragen dürfen).
 - ChatGPT/Gemini: **kein** Verteil-Tooling (kein Datei-Konsum-Mechanismus) — paste-aus-der-Kanonik bzw. einmalig als Custom GPT / Gem. Bewusst aus dem Verteil-Scope.
@@ -185,4 +197,5 @@ Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Cod
 - 2026-06-05: **Konventionen aus session-retro** (`~/shared/session-retro-2026-06-05-platform-fde7ff.md`): Review-Gate §6 Tracking-Anker (F-F); Tooling-Konventionen Lane⇒Gate-wächst-mit (F-A), kein `-prototype` im Live-Output (F-C), Tooling-PR getrennt von Content/Policy (F-H). F-A bereits umgesetzt (PR #480: beide Lanes + Unit-Tests im Gate).
 - 2026-07-10 (2): **Registry-Schwelle für Maschinen-Configs** (retro f4a546-incr #7, `machine-config-no-registry`): ab der 2. `~/.claude/<topic>.env` wird `~/.claude/machine-configs.yaml` Pflicht — definierter Kipp-Punkt statt unbegrenzter Changelog-Prosa.
 - 2026-07-23: **Taxonomie & Governance verankert (ADR-282 accepted)** — 3 Merkmale (`scope`/`statefulness`/`trigger`) + Heimat-Ableitung + Registry/Retirement-Pointer. Atomar mit dem ADR-282-Accept (Owner-Override über die Sequencing-Vorbedingung). Detail-SSoT = ADR-282.
+- 2026-07-25: **Eine Lane — `skills` ist kanonisch (ADR-285 accepted).** Quellverzeichnis für neue Artefakte ist ausschließlich `skills/<name>/SKILL.md`; `.windsurf/workflows/` ist auslaufend und nimmt nichts Neues mehr auf. `$ARGUMENTS` trägt in der Skills-Lane unverändert — auf beiden Aufrufwegen gemessen (programmatisch + getippt), die gegenteilige Prämisse aus ADR-280 Rev 1 ist widerlegt. **Übergang läuft:** Stand 2026-07-25 4 Artefakte in `skills`, 51 in `commands`; beide Lanes bleiben gegatet parallel, bis Bulk-Move (ADR-285 Phase 2) und Rückbau (Phase 3, D5-Prozedur ADR-285 §9a) durch sind. Der Ist-Stand steht bewusst neben dem Zielbild — Deklaration ≠ Realität ist hier die Fehlerquelle, nicht die Unschärfe.
 - 2026-07-10: **Maschinen-level-Config-Ausnahme + Review-Gate 5b** (aus `docs/retros/session-retro-2026-07-10-platform-f4a546.md`, Befunde #5/#6): Skills ohne Repo-Bezug dürfen `~/.claude/<topic>.env` als Config-Quelle nutzen (Hardcoding-Verbot für den Skill-Text unverändert; jede neue Quelle wird hier vermerkt). Review-Gate 5b: lokaler `make test`/`pytest tools/tests/`-Lauf vor dem ersten Push. Präzedenz-Konsument: `/send-mail` (PR #1039, Härtung PR #1050).
