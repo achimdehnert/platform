@@ -2,8 +2,8 @@
 
 **Datum:** 2026-07-25
 **Anlass:** [#1416](https://github.com/achimdehnert/platform/issues/1416) (Falsifikations-Gate für ADR-285 D2/D3)
-**Ergebnis:** `$ARGUMENTS` wird in der Skills-Lane **substituiert** — D2 technisch bestätigt.
-**Status des ADR:** bleibt `proposed`; zwei Acceptance-Kriterien aus §9 sind noch offen (siehe unten).
+**Ergebnis:** `$ARGUMENTS` wird in der Skills-Lane **substituiert** — D2 technisch bestätigt, auf **beiden** Aufrufwegen (programmatisch und getippt).
+**Status des ADR:** bleibt `proposed`; §9-Kriterien 1–3 sind grün, 4 und 5 stehen aus (siehe unten).
 
 ---
 
@@ -40,6 +40,33 @@ Substitution an **beiden** Fundstellen. Lane-Beleg aus dem Footer derselben Ausg
 
 Der Skill-Body wurde nur beobachtet, **nicht ausgeführt** (keine Issue-Triage, keine PRs).
 
+### 1.1 Nachtrag: der getippte Slash-Befehl (2026-07-25, 12:13 UTC)
+
+Der oben als offen ausgewiesene CLI-Pfad ist inzwischen gemessen. Der Owner hat in einer
+frisch gestarteten Session `/issues-offen platform-TESTMARKER-4711` **getippt** —
+derselbe Marker, dieselbe Prüffrage, aber der Weg über den Slash-Parser statt über den
+programmatischen Skill-Aufruf.
+
+Ergebnis identisch: der geladene Body enthielt `platform-TESTMARKER-4711` an **beiden**
+`$ARGUMENTS`-Fundstellen (Verwendungs-Block und Step 0.1), Footer wieder
+`source=skills/issues-offen/SKILL.md`. Damit liefern beide Aufrufwege dieselbe
+Substitution.
+
+**Verifikationsstand:** Werkzeugversion `2.1.220` (`claude --version`, abgerufen
+2026-07-25 12:17 UTC), Messung ~12:13 UTC desselben Tages. Für die Erstmessung oben
+wurde **keine** Version festgehalten — ob beide Aufrufwege auf exakt derselben
+Werkzeugversion liefen, ist damit nicht belegt. Für die Aussage „beide Wege
+substituieren" ist das unschädlich: jeder Weg ist für sich auf einer benannten
+Version gemessen.
+
+**Abgrenzung — was hier ausgeführt wurde:** anders als bei der Erstmessung blieb es nicht
+beim Beobachten. Step 0 des Skills (Repo-Auflösung) lief real und **brach ab**: der Marker
+ist bewusst kein existierendes Repo, weder lokal noch in einer der drei Orgs
+(`achimdehnert`, `ttz-lif`, `meiki-lra`, je „Could not resolve to a Repository"). Der Lauf
+endete damit vor Phase 1 — keine Issue-Triage, keine Branches, keine PRs. Der Marker
+erfüllt hier zwei Zwecke zugleich: er kann nicht aus dem Dateiinhalt stammen, **und** er
+lässt den Skill folgenlos auslaufen.
+
 ## 2. Was das belegt — und was nicht
 
 | | Status |
@@ -47,11 +74,11 @@ Der Skill-Body wurde nur beobachtet, **nicht ausgeführt** (keine Issue-Triage, 
 | `$ARGUMENTS` wird im Skill-Body durch das übergebene Argument ersetzt | ✅ verifiziert |
 | Die Ausgabe stammt aus der Skills-Lane (Footer) | ✅ verifiziert |
 | Argument-Übergabe über den **Skill-Aufruf mit `args`** | ✅ verifiziert |
-| Argument-Übergabe über den **getippten Slash-Befehl** `/issues-offen <arg>` | ❌ **nicht verifiziert** |
+| Argument-Übergabe über den **getippten Slash-Befehl** `/issues-offen <arg>` | ✅ verifiziert (§1.1, Nachtrag 12:13 UTC) |
 
-Die letzte Zeile ist die ehrliche Lücke. §9 verlangt „Slash-Aufruf **und** Argument-Übergabe". Verifiziert ist der programmatische Pfad; ob der CLI-Parser beim getippten `/issues-offen xyz` dieselbe Substitution erzeugt, ist damit **nicht** gezeigt — diesen Pfad kann nur der Owner auslösen.
+Die letzte Zeile war die ehrliche Lücke dieses Dokuments und ist mit dem Nachtrag in §1.1 geschlossen. §9 verlangt „Slash-Aufruf **und** Argument-Übergabe" — beide Aufrufwege liefern dieselbe Substitution, gemessen mit demselben Marker.
 
-**Billigster verbleibender Check:** einmal `/issues-offen platform-TESTMARKER-4711` tippen und prüfen, ob der Marker im geladenen Body steht.
+**Was weiterhin nicht gezeigt ist:** dass die Substitution für *jede* Argumentform trägt (mehrere Wörter, `$1`/`$2`, benannte Argumente). Gemessen ist ein einzelnes Argument ohne Leerzeichen — genau der Fall, den §9 verlangt, nicht mehr.
 
 ## 3. Drei Befunde, die die Pilot-Anlage aus #1416 verändern
 
@@ -84,7 +111,7 @@ Zwei unabhängige Ursachen:
 
 Beides gehört in **denselben** PR wie die Migration — sonst bricht `tools-tests.yml`.
 
-### 3.3 Kriterium 2 ist heute rot, unabhängig vom Pilot
+### 3.3 Kriterium 2 war rot, unabhängig vom Pilot — inzwischen aufgelöst
 
 `doctor.py`-Round-Trip beider Lanes:
 
@@ -97,23 +124,43 @@ Der eine Befund: `[copy-stale] klickdummy-pgvector-sync.md — Kopie ≠ Quelle 
 
 Das ist kein Pilot-Problem, sondern der normale Nachlauf eines Merges — aufzulösen nur durch eine **gegatete** Live-Regeneration der `commands`-Lane (Maschinen-Installation, Owner-Freigabe).
 
+**Nachtrag (2026-07-25, 12:16 UTC): erledigt.** Die Regeneration ist mit Owner-Freigabe
+gelaufen; nachgemessen sind jetzt **beide** Lanes sauber:
+
+| Lane | kanonisch | DRIFT-SCORE | dangling |
+|---|---|---|---|
+| `skills` | 4 | **0** ✅ | 0 |
+| `commands` | 51 | **0** ✅ (`copy-stale=0`, `fehlend=0`, `extra=0`) | 0 |
+
+Damit ist §9-Kriterium 2 grün. Die Messung stammt aus diesem Nachtrag
+(`doctor.py --kind skills|commands`), die Freigabe der Live-Regeneration aus der
+vorangegangenen Session — der Regenerationslauf selbst ist hier **nicht** nachgeprüft,
+nur sein Ergebnis.
+
 ## 4. Stand der Acceptance-Kriterien (ADR-285 §9)
 
 | # | Kriterium | Stand |
 |---|---|---|
-| 1 | Pilot: ≥3 Commands migriert, ≥1 mit `$ARGUMENTS`, 1 mit `model:`; Slash-Aufruf + Übergabe verifiziert | 🟡 **teilweise** — 4 migriert, `$ARGUMENTS` bestätigt, `model:` gegenstandslos (alle 3 `model:`-Workflows sind `distribute: false`, #1416); **Slash-Pfad offen** |
-| 2 | `doctor.py`-Round-Trip beider Lanes DRIFT 0 | ❌ **rot** — `commands` = 1 (stale Kopie aus #1408), Fix ist gegatet |
+| 1 | Pilot: ≥3 Commands migriert, ≥1 mit `$ARGUMENTS`, 1 mit `model:`; Slash-Aufruf + Übergabe verifiziert | ✅ **grün** — 4 migriert, `$ARGUMENTS` auf beiden Aufrufwegen bestätigt (§1.1), `model:` gegenstandslos (alle 3 `model:`-Workflows sind `distribute: false`, #1416) |
+| 2 | `doctor.py`-Round-Trip beider Lanes DRIFT 0 | ✅ **grün** — nachgemessen 2026-07-25 12:16 UTC: `skills` 0, `commands` 0 (siehe §3.3) |
 | 3 | `$ARGUMENTS`-Ersatzmechanismus + `model:`-Ersatz dokumentiert | ✅ **dieses Dokument** + #1416 (`model:` gegenstandslos begründet) |
 | 4 | Acceptance-Bündel (ADR-229 → `superseded`, ADR-230 amendiert, `claude-skills.md`) | ⬜ erst bei Acceptance |
 | 5 | D5-Rückbau-Gate als prüfbare Prozedur | ⬜ offen |
 
 **Kill-Kriterium (§8) greift nicht.** Es fordert, dass *weder* `skills` *noch* `commands` die Artefakte ohne Funktionsverlust tragen kann. `skills` trägt `$ARGUMENTS` nachweislich; `model:` ist bei distribuierten Commands nicht im Spiel. Der ADR ist damit **nicht** zurückzuziehen.
 
-## 5. Was als Nächstes nötig ist — beides Owner-Aktionen
+## 5. Was als Nächstes nötig ist
 
-1. **Slash-Pfad prüfen:** einmal `/issues-offen platform-TESTMARKER-4711` tippen (schließt Kriterium 1).
-2. **`commands`-Lane live regenerieren:** `generate.py --kind commands … --allow-live` (schließt Kriterium 2). Maschinen-Installation ⇒ Freigabe.
+Die beiden ursprünglich hier stehenden Owner-Aktionen sind **beide erledigt**:
 
-Danach sind 1–3 grün und der Acceptance-PR (Kriterium 4) + die D5-Prozedur (Kriterium 5) sind die verbleibende Arbeit.
+1. ~~Slash-Pfad prüfen~~ → getippt am 2026-07-25 12:13 UTC, Kriterium 1 grün (§1.1).
+2. ~~`commands`-Lane live regenerieren~~ → mit Freigabe gelaufen, beide Lanes DRIFT 0, Kriterium 2 grün (§3.3-Nachtrag).
+
+**Kriterien 1–3 sind damit grün.** Verbleibende Arbeit für den Accept:
+
+3. **Acceptance-Bündel** (Kriterium 4): ADR-229 → `superseded`, ADR-230 REC-3 amendieren, `claude-skills.md` nachziehen.
+4. **D5-Rückbau-Gate** (Kriterium 5): die Rückbau-Prozedur als prüfbare Schrittfolge festschreiben.
+
+Der Bulk-Move weiterer Skills (Phase 2) bleibt davon getrennt und ist laut #1416 erst nach dem Accept dran.
 
 **Bewusst nicht gemacht:** keine weiteren Skills nach `skills/` migriert. Der Bulk-Move ist Phase 2 und laut #1416 „erst nach grünem Pilot" — vorzuziehen wäre genau die „Entscheidung ≠ Rollout"-Verwechslung, vor der ADR-285 selbst warnt.
