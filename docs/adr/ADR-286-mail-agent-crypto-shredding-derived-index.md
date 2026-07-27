@@ -216,6 +216,132 @@ promoten); JIT bringt Latenz + Postfach-Verfügbarkeits-Abhängigkeit; eine vor 
 ist inhaltlich weg (korrektes SoT-Verhalten). Der Vorteil ggü. Option B: ein erklärter Vorgang trägt
 Zweck, Frist und Löschpfad, statt jeden Inhalt unbefristet vorzuhalten.
 
+### 4.9 Vorgangs-Graph — Struktur *zwischen* Sachverhalten (Amendment 2026-07-27)
+
+§4.8 strukturiert **einen** Sachverhalt: `thread_key`, Beteiligte, Zeitachse. Was fehlt, ist die
+Beziehung **zwischen** Sachverhalten. Realfall, der das Amendment ausgelöst hat: Die Antwort in
+Thread A beantwortet zugleich einen Punkt aus Thread B mit einem **anderen** Gegenüber. Header-
+Threading (`References`/`In-Reply-To`) kann das nicht sehen — es kennt nur die Antwortkette. Ordner
+können es nicht abbilden, weil eine Nachricht dort nur **einem** Vorgang zugeordnet werden kann;
+der Regelfall ist aber die Mehrfachzugehörigkeit.
+
+**Ziel:** die korrekte und verbindliche Wiedergabe eines Sachverhalts — einschließlich der daraus
+folgenden Empfehlungen und Schlüsse.
+
+**Ausdrückliches Nicht-Ziel:** die Profilierung von Personen. Das ist keine Absichtserklärung,
+sondern wird unten im Schema erzwungen.
+
+#### Zwei Knotentypen, unterschiedliche Regeln
+
+Ein früherer Entwurf verbot Personen-Knoten vollständig. Das war zu grob: Es hätte genau die
+Vorgänge unmöglich gemacht, um die es im Datenschutz-Alltag geht — ein Betroffener mit einem
+Löschbegehren **ist** der Vorgang, und seine Frist zu verfolgen ist Pflicht, nicht Profilbildung.
+
+| | **Sachvorgang** | **Anspruchsvorgang** |
+|---|---|---|
+| Beispiele | technische Klärung, Angebot, Ausschreibung | Löschbegehren, Auskunftsersuchen, Fristanfrage |
+| Personenbezug | keiner | Betroffener **verlinkt**, nicht kopiert |
+| Rechtsgrundlage | Art. 6 Abs. 1 lit. f | **Art. 6 Abs. 1 lit. c** |
+| Frist | fachlich | gesetzlich, überwachungspflichtig |
+| Aggregation über die Person | ausgeschlossen | **ebenfalls ausgeschlossen** |
+| Löschung | nach Aufbewahrungsklasse | erst nach Nachweiszeitraum (Art. 5 Abs. 2) |
+
+Die vorletzte Zeile hält beides zusammen: Auch beim Anspruchsvorgang wird **nicht über die Person
+ausgewertet**. Verfolgt wird ein Anspruch mit einer Frist, nicht ein Mensch mit einer Historie —
+der Unterschied zwischen Fristenkalender und Personenakte.
+
+#### Regeln
+
+1. **Knoten tragen Sachstand, keinen Personenbezug.** Die Grenze ist *kein Personenbezug*, nicht
+   *kein Inhalt* — „die Rechenlogik braucht eine Entscheidung zur Zurechnung" ist zulässig,
+   „Frau X antwortet nicht" nicht. Ein rein zeigerbasierter Knoten wäre korrekt und unbrauchbar.
+2. **Keine Kante zwischen zwei Anspruchsvorgängen derselben Person.** Sonst entsteht die
+   Personenakte durch die Hintertür. Diese Regel ist im Schema durchsetzbar und gehört dorthin.
+3. **Keine Aggregation und kein Zähler je Person** — in keiner Ansicht, keinem Export.
+4. **Kanten tragen Herkunft und Status:** vom Menschen gesetzt / Zitat-Übereinstimmung / gleicher
+   Anhangs-Hash / gemeinsame Beteiligung — und *bestätigt* vs. *vermutet*. Eine vermutete Zuordnung
+   ist eine Behauptung und wird als solche ausgewiesen (§7-Prinzip „nie stumm weg").
+5. **Stufe 1 nutzt ausschließlich deterministische Signale.** Semantische Verknüpfung durch
+   Modelle bleibt außen vor — sie verknüpft still falsch und wäre die systematische
+   Inhaltsauswertung, die die Art.-14-Ausnahme der DSFA ausdrücklich **nicht** deckt.
+6. **Zeiger statt Kopien.** Der Graph hält keine Bodies. Löschung im Postfach ist damit Löschung
+   im Graphen: Der Zeiger löst nicht mehr auf, ein knotenloser Rest verschwindet. Die Löschkaskade
+   nach §4.4 ist damit **by design** erfüllt, nicht nachgebaut.
+7. **Toter Zeiger ist nicht gleich toter Zeiger.** Mit `ErasureTombstone` (§4.3) ist es eine
+   korrekte Löschung — erwartbar, dokumentiert. Ohne Tombstone ist es ungeklärt und ein **Befund,
+   der gemeldet wird**. Ein System, das beides gleich behandelt, meldet entweder überall Alarm
+   oder nirgends.
+8. **Aufbewahrung über den vorhandenen Katalog.** Ein Knoten verweist auf `RetentionRule` /
+   `StandardRetentionPeriod` (risk-hub) statt eine eigene Frist zu führen — zwei Fristenwerke
+   driften auseinander.
+9. **Der Graph schlägt Löschung vor, er vollzieht sie nicht.** Löschen ist irreversibel und wirkt
+   nach außen; der Vollzug bleibt beim Menschen. Geliefert wird die begründete Liste: welche
+   Nachrichten, zu welchem Vorgang, seit wann abgeschlossen, nach welcher Regel fällig.
+10. **Anspruchsvorgänge werden dort geführt, wo der jeweilige Verantwortliche sitzt.** Für
+    DSGVO-Löschbegehren ist das `DeletionRequest` in risk-hub; der Graph verlinkt und dupliziert
+    nicht. **Fehlt ein solches System — heute für HNU und MEiKI — ist das ein benannter Mangel und
+    keine stillschweigende Übernahme durch IIL.** Eine Fristenverfolgung für Studierende oder
+    Bürger im IIL-Graphen wäre eine Verarbeitung im Namen eines fremden Verantwortlichen ohne
+    Grundlage.
+
+#### Zwei Annahmen, die nicht tragen und hier korrigiert werden
+
+**„Anonymisiert" trifft nicht zu.** Ein Knoten, der auf eine Postfach-Nachricht verweist, erlaubt
+die Re-Identifikation per Konstruktion — dem Zeiger zu folgen *ist* der Zweck. Nach Erwägungsgrund
+26 ist der Graph damit **pseudonym** und weiterhin personenbezogen (Art. 4 Nr. 5). Das ist kein
+K.-o., aber die Konstruktion darf nicht auf der Anonymitäts-Annahme aufsetzen. Ergänzend gilt:
+Struktur re-identifiziert auch ohne Namen — bei kleinen Grundgesamtheiten genügt die Form.
+
+**„Vergessen ausgeschlossen" heißt nicht „Löschen unmöglich".** Die Garantie ist die
+**Vollständigkeit der Sicht zum Zeitpunkt der Frage** — dass kein offener Vorgang aus dem Blick
+fällt. Löschen muss möglich sein und ist spätestens nach Fortfall des Zwecks Pflicht
+(Art. 5 Abs. 1 lit. e). Der Graph ist dafür das **Instrument**, nicht das Hindernis: Er weiß als
+einziger, welche Nachrichten zu einem abgeschlossenen Vorgang gehören — und genau dieses Wissen
+fehlt heute, weshalb Löschkonzepte in Postfächern regelmäßig unvollzogen bleiben.
+
+#### Benannte Nicht-Ziele mit Kompensation
+
+**Art.-15-Auskunft ist strukturell nicht möglich.** „Alle Daten zu Person X" ist personenzentriert
+— genau das, was Regel 2 und 3 verhindern. Die Auskunft ist trotzdem gedeckt, aber durch das
+**Postfach** (Suche nach Adresse), nicht durch den Graphen. Wer den Graphen später für ein
+Auskunftsinstrument hält, irrt; das steht hier, damit niemand darauf baut.
+
+**Kein Erstlauf über den Altbestand.** Ein initialer Durchlauf über Jahre Postfach wäre selbst die
+systematische Inhaltsauswertung, die vermieden werden soll. Der Graph wächst **vorwärts**, aus
+laufender Zuordnung.
+
+#### Stufen
+
+**Stufe 1 — Zuordnung (klein, sofort umsetzbar).** Vorgänge als **Kategorien** im Postfach
+(Graph-`categories`, mehrfach je Nachricht möglich — Ordner können das nicht) plus eine flache
+Vorgangsliste mit Zustand, Abschlussdatum und Aufbewahrungsklasse. Werkzeugseitig fehlt dafür
+heute alles: `graph_mail` kennt weder `categories` noch `conversationId` noch `References`.
+
+**Stufe 2 — Struktur.** Der Graph entsteht aus Stufe 1, wenn die flache Liste die Querbezüge nicht
+mehr trägt. Ob und wann das eintritt, ist eine Messfrage, keine Entwurfsfrage — bei einer
+zweistelligen Zahl offener Vorgänge ist ein Graph Überbau.
+
+#### Prüffälle (Falsifikation, nicht Illustration)
+
+Beide Fälle sind real und **genericisiert** — ein ADR über Personenbezug trägt keine Namen ins
+Repository (vgl. Changelog-Eintrag Rev 0).
+
+**Prüffall A — wiederkehrendes Gegenüber über Monate.** Eine Person schreibt über einen längeren
+Zeitraum mehrfach zum selben Anliegen, teils mit geändertem Betreff, teils in neuen Threads.
+*Erwartung:* vollständiger Stand des Vorgangs inklusive noch offener eigener Zusagen — ohne dass
+über die Person aggregiert oder ihr Verhalten bewertet wird. *Der Fall existiert, weil eine
+Antwort ohne Kenntnis des Verlaufs bereits zu einer doppelten Anfrage an einen Betroffenen
+geführt hat.*
+
+**Prüffall B — Antwort quer zum Thread.** Eine Antwort in Thread A beantwortet zugleich einen
+Punkt aus Thread B mit einem anderen Gegenüber. *Erwartung:* beide Vorgänge werden erkannt, die
+Verbindung wird mit ihrer Herkunft ausgewiesen (Zitat-Übereinstimmung, gemeinsame Beteiligung),
+und sie ist als bestätigt oder vermutet unterscheidbar.
+
+**Kill-Kriterium:** Lässt sich Prüffall A oder B **nur** über systematische Inhaltsauswertung
+lösen, ist dieser Entwurf gescheitert. Dann wird er **verworfen, nicht geflickt** — denn die
+Inhaltsauswertung ist genau die Grenze, deren Einhaltung ihn rechtfertigt.
+
 ---
 
 ## 5. Migration Tracking
@@ -271,6 +397,13 @@ Zweck, Frist und Löschpfad, statt jeden Inhalt unbefristet vorzuhalten.
    (Zusammenführung mehrerer Quellen + KI-Auswertung ab Phase 3 → DSFA-Prüfpflicht).
 7. **Art. 14**: Informationspflicht ggü. Dritten dokumentiert (oder Ausnahme Art. 14 Abs. 5 lit. b begründet).
 8. **Drift-Detector** (ADR-059): Staleness 12 Monate.
+9. **Graph-Schema-Gate** (§4.9): kein Personen-Knoten im Sachvorgang; keine Kante zwischen
+   zwei Anspruchsvorgängen derselben Person; kein Zähler/keine Aggregation je Person — im
+   Schema erzwungen, nicht per Konvention.
+10. **Toter-Zeiger-Test** (§4.9): ein aufgelöster Zeiger OHNE `ErasureTombstone` erzeugt einen
+    gemeldeten Befund, kein stilles Beschneiden.
+11. **Prüffälle A und B** (§4.9) lösbar **ohne** systematische Inhaltsauswertung — sonst gilt
+    das Kill-Kriterium und §4.9 wird verworfen.
 
 ---
 
@@ -335,6 +468,7 @@ Zwei externe adversariale Reviews (non-accountable, ersetzen keine Owner-Review)
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-27 | Claude Code (Opus 5) | **Amendment §4.9 Vorgangs-Graph** + §8.9–§8.11. Anlass: Header-Threading erkennt Querbezüge nicht (eine Antwort beantwortet zugleich einen Punkt aus einem anderen Thread mit anderem Gegenüber), Ordner können Mehrfachzugehörigkeit nicht abbilden. Kernpunkte: zwei Knotentypen (Sachvorgang / Anspruchsvorgang) mit unterschiedlicher Rechtsgrundlage — ein früherer Entwurf verbot Personen-Knoten vollständig und hätte damit die Fristenverfolgung nach Art. 6 Abs. 1 lit. c unmöglich gemacht; keine Kante zwischen Anspruchsvorgängen derselben Person (Personenakte durch die Hintertür); Grenze ist *kein Personenbezug*, nicht *kein Inhalt*; Zeiger statt Kopien, damit die Löschkaskade §4.4 by design greift; toter Zeiger mit Tombstone = korrekte Löschung, ohne = gemeldeter Befund; Aufbewahrung über den vorhandenen Katalog (`RetentionRule`/`StandardRetentionPeriod`) statt zweitem Fristenwerk. Zwei Annahmen korrigiert: der Graph ist **pseudonym, nicht anonym** (EG 26), und „Vergessen ausgeschlossen" heißt Vollständigkeit der Sicht, **nicht** Löschverbot — Löschen ist spätestens nach Fortfall des Zwecks Pflicht (Art. 5 Abs. 1 lit. e), und der Graph ist dafür das Instrument. Benannte Nicht-Ziele: Art.-15-Auskunft (kompensiert durch die Postfach-Suche), kein Erstlauf über den Altbestand. Zwei genericisierte Prüffälle mit Kill-Kriterium: nur über systematische Inhaltsauswertung lösbar → verwerfen, nicht flicken. |
 | 2026-07-24 | Achim Dehnert | Initial: Status Proposed (crypto-geschredderter Voll-Index) |
 | 2026-07-24 | Achim Dehnert | v2 nach 2× externer KI-Zweitmeinung: Option D (Metadaten-first) primär, Erasure-Ledger, Envelope-Encryption, transport-spezifische Identität, Löschumfang-Matrix, MEiKI-deny-by-default, DSFA-Gate, Delta-Sync; Tag-Tabelle §11 |
 | 2026-07-24 | Achim Dehnert | §4.8 ergänzt (Owner-Frage): Darstellung komplexer Sachverhalte unter Option D — Metadaten-Skelett / JIT-Inhalt / Vorgang-Promotion + ehrliche Grenzen |
