@@ -463,9 +463,9 @@ läuft in platform#1492 (REC-1/2/3/4/7/9); REC-6 bleibt vertagt, REC-10 steht au
 | K3 Mindestens zwei **verschiedenartige** Retrievalpfade mit getrennter Trefferzahl | erfüllt | `pfad_server_suche` / `pfad_client_filter`, `divergenz()` (#1492) |
 | K4 Kalibrierung je Pfad; Vollständigkeitsaussage nur bei allen Pfaden grün | erfüllt | `kalibriere_pfade()`, `unkalibrierte_pfade()` (#1492) |
 | K5 **KG-RECALL** grün auf der Referenzmenge (0 False Negatives) | erfüllt | `referenzpostfach.py --recall`, Lauf 2026-07-27: 10/10 Soll-Nachrichten gefunden, 0 False Positives (#1492). Der Lauf davor war **rot** und deckte einen echten Fehler auf (Umlaut-Suche brach ab). |
-| K6 Garantiegrenze (§7.2) steht im Ausweis-Text, nicht nur im Konzept | offen | — |
+| K6 Garantiegrenze (§7.2) steht im Ausweis-Text, nicht nur im Konzept | erfüllt | Konstante `GARANTIEGRENZE`, in jedem Rendering — auch im grünen Fall, wo die Verwechslung naheliegt |
 | K7 `source_watermark`, `scan_started_at`/`_finished_at`, `tool_version`, `query_fingerprint` in jedem Ausweis | erfüllt | Pflichtfelder in `Ausweis` (#1492) |
-| K8 Exit-Code-Hook prüft die Bedingungskette aus §6.1 | offen | REC-8 nicht gebaut |
+| K8 Exit-Code-Hook prüft die Bedingungskette aus §6.1 | erfüllt | `deckungsausweis.py --pruefen` liest den Ausweis als JSON von stdin: 0 eingehalten, 1 verletzt, 2 unlesbar. Beide Ausgänge real geprüft, nicht nur der rote |
 | K9 Scope-Abweichung ≤ 1/3 der Darlegungen | offen | Pilot läuft erst an — Messung ab jetzt bis 2026-09-30 |
 | K10 Unabhängige Zweitzählung läuft und bricht bei Abweichung ab | teilweise | `nenner_pruefen()` läuft und sperrt die Aussage; ein *Abbruch* ist es nicht (#1492) |
 

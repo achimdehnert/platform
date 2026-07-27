@@ -177,6 +177,74 @@ def test_should_block_completeness_claim_when_the_denominator_is_disputed():
     assert "Server 46065" in da.rendern(a)
 
 
+def test_should_state_the_guarantee_limit_in_the_certificate_itself():
+    """K6: sonst liest sich 'Deckung vollständig' als 'alles Relevante gefunden'."""
+    text = da.rendern(_vollstaendig())
+    assert da.GARANTIEGRENZE in text
+    assert "nicht die Relevanz" in text
+
+
+def test_should_state_the_guarantee_limit_even_when_coverage_is_complete():
+    """Gerade im grünen Fall ist die Grenze nötig — dort liegt die Verwechslung nahe."""
+    zulaessig, _ = da.vollstaendigkeitsaussage_zulaessig(_vollstaendig())
+    assert zulaessig
+    assert da.GARANTIEGRENZE in da.rendern(_vollstaendig())
+
+
+def test_should_pass_the_procedure_check_for_a_complete_certificate():
+    ok, fehler = da.pruefkette(_vollstaendig())
+    assert ok
+    assert fehler == []
+
+
+def test_should_accept_a_narrow_scope_when_it_is_declared():
+    """Ein knapper Scope ist zulässig — aber nur benannt und begründet (§6.1)."""
+    a = _vollstaendig(
+        konten_durchsucht=1,
+        nicht_gedeckt=(("Konto hnu", "Owner-Entscheid: nichts speichern"),),
+    )
+    ok, fehler = da.pruefkette(a)
+    assert ok, fehler
+
+
+def test_should_reject_a_narrow_scope_that_is_not_declared():
+    """Derselbe Scope ohne Eintrag — genau diesen Unterschied misst K8."""
+    ok, fehler = da.pruefkette(_vollstaendig(konten_durchsucht=1))
+    assert not ok
+    assert any("Konten 1/3" in f for f in fehler)
+
+
+def test_should_reject_unreadable_folders_that_are_not_declared():
+    ok, fehler = da.pruefkette(_vollstaendig(ordner_fehlgeschlagen=3))
+    assert not ok
+    assert any("unlesbare Ordner" in f for f in fehler)
+
+
+def test_should_reject_a_certificate_produced_by_hand():
+    ok, _ = da.pruefkette(_vollstaendig(erzeuger="manuell"))
+    assert not ok
+
+
+def test_should_reject_missing_mandatory_fields():
+    ok, fehler = da.pruefkette(_vollstaendig(source_watermark="", query_fingerprint=""))
+    assert not ok
+    assert any("source_watermark" in f and "query_fingerprint" in f for f in fehler)
+
+
+def test_should_survive_a_round_trip_through_the_serialised_form():
+    """Der Hook prüft, was ein anderer Prozess geschrieben hat — das muss zurückgehen."""
+    original = _vollstaendig(
+        konten_durchsucht=2,
+        nicht_gedeckt=(("Konto hnu", "nicht abgefragt"),),
+        nenner_divergenz=(("INBOX", 46065, 500),),
+    )
+    zurueck = da.aus_dict(da.als_dict(original))
+    assert zurueck.nicht_gedeckt == original.nicht_gedeckt
+    assert zurueck.nenner_divergenz == original.nenner_divergenz
+    assert zurueck.retrievalpfade == original.retrievalpfade
+    assert da.pruefkette(zurueck) == da.pruefkette(original)
+
+
 def test_should_produce_a_stable_fingerprint_regardless_of_set_order():
     a = da.fingerprint("postsortierung", {"INBOX", "Gesendete Objekte"})
     b = da.fingerprint("postsortierung", {"Gesendete Objekte", "INBOX"})

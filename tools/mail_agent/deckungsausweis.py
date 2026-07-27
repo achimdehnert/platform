@@ -19,12 +19,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from typing import NamedTuple
 
 FORMAT_VERSION = "deckungsausweis.v1"
 
 #: Wortlaut aus KONZ-035 §5.3 R-5. Steht hier einmal, nicht in fünf Skills.
 SPERRSATZ = "Dieser Ausweis erlaubt keine Vollständigkeitsaussage."
+
+#: KONZ-035 §7.2 (K6). Muss im Ausweis stehen, nicht nur im Konzept — sonst liest sich
+#: „Deckung vollständig" als „alles Relevante gefunden". Garantiert wird der untersuchte
+#: Bereich; ob ein Treffer zur Frage gehört, entscheidet der Mensch.
+GARANTIEGRENZE = (
+    "Gedeckt ist der ausgewiesene Suchraum — nicht die Relevanz. "
+    "Ob eine Nachricht zur Frage gehört, entscheidet der Mensch."
+)
 
 
 class Ausweis(NamedTuple):
@@ -195,6 +204,75 @@ def vollstaendigkeitsaussage_zulaessig(ausweis: Ausweis) -> tuple[bool, list[str
     return (not gruende), gruende
 
 
+def pruefkette(ausweis: Ausweis) -> tuple[bool, list[str]]:
+    """Die maschinell prüfbare Bedingungskette aus KONZ-035 §6.1 (K8/REC-8).
+
+    Bewusst enger als :func:`vollstaendigkeitsaussage_zulaessig`: geprüft wird das
+    **Verfahren**, nicht das Ergebnis. Ein knapper Scope ist zulässig — aber nur, wenn
+    die Verengung benannt und begründet dasteht. Genau das ist der Unterschied zwischen
+    „ich habe wenig durchsucht und sage es" und „ich habe wenig durchsucht".
+
+    Nicht prüfbar bleiben Angemessenheit der Frage und Relevanz der Treffer; beide liegen
+    ohnehin beim Menschen. Der ehrliche Satz lautet: **Exit-Code für das Verfahren,
+    Urteil für den Inhalt.**
+    """
+    fehler: list[str] = []
+    begruendet = bool(ausweis.nicht_gedeckt)
+
+    if ausweis.erzeuger != "maschinell":
+        fehler.append("erzeuger ist nicht 'maschinell'")
+    if ausweis.ordner_durchsucht < ausweis.ordner_vorhanden and not begruendet:
+        fehler.append(
+            f"Ordner {ausweis.ordner_durchsucht}/{ausweis.ordner_vorhanden} "
+            "ohne Eintrag in nicht_gedeckt"
+        )
+    if ausweis.konten_durchsucht < ausweis.konten_vorhanden and not begruendet:
+        fehler.append(
+            f"Konten {ausweis.konten_durchsucht}/{ausweis.konten_vorhanden} "
+            "ohne Eintrag in nicht_gedeckt"
+        )
+    if ausweis.ordner_fehlgeschlagen and not begruendet:
+        fehler.append(
+            f"{ausweis.ordner_fehlgeschlagen} unlesbare Ordner ohne Eintrag in nicht_gedeckt"
+        )
+    if offen := unkalibrierte_pfade(ausweis):
+        fehler.append("unkalibrierte Pfade: " + ", ".join(offen))
+    if fehlend := [
+        name
+        for name, wert in (
+            ("frage", ausweis.frage),
+            ("source_watermark", ausweis.source_watermark),
+            ("query_fingerprint", ausweis.query_fingerprint),
+            ("tool_version", ausweis.tool_version),
+        )
+        if not wert
+    ]:
+        fehler.append("Pflichtfelder leer: " + ", ".join(fehlend))
+
+    return (not fehler), fehler
+
+
+def aus_dict(daten: dict) -> Ausweis:
+    """Ein serialisierter Ausweis zurück in das Objekt — Gegenstück zu :func:`als_dict`.
+
+    Nötig, damit die Prüfkette gegen einen Ausweis laufen kann, den ein anderer Prozess
+    erzeugt hat (Hook, CI, archivierte Antwort).
+    """
+    felder = {k: daten[k] for k in Ausweis._fields if k in daten}
+    felder["retrievalpfade"] = tuple(
+        (k, v) for k, v in sorted(daten.get("retrievalpfade", {}).items())
+    )
+    felder["kalibriert"] = tuple(daten.get("kalibriert", ()))
+    felder["nicht_gedeckt"] = tuple(
+        (e["was"], e["grund"]) for e in daten.get("nicht_gedeckt", ())
+    )
+    felder["nenner_divergenz"] = tuple(
+        (e["ordner"], e["server"], e["selbst"])
+        for e in daten.get("nenner_divergenz", ())
+    )
+    return Ausweis(**felder)
+
+
 def als_dict(ausweis: Ausweis) -> dict:
     """Das versionierte Objekt. Primär — der Text unten ist sein Rendering."""
     d = ausweis._asdict()
@@ -267,7 +345,58 @@ def rendern(ausweis: Ausweis) -> str:
     if ausweis.erzeuger != "maschinell":
         zeilen.append(f"  {SPERRSATZ}")
 
+    zeilen.append(f"  {GARANTIEGRENZE}")
     zeilen.append(
         f"  Kennung    {ausweis.query_fingerprint}  Werkzeug {ausweis.tool_version}"
     )
     return "\n".join(zeilen)
+
+
+def main() -> int:
+    """Prüfkette gegen einen serialisierten Ausweis — Exit 1 bei Verstoß (K8).
+
+    Liest den Ausweis als JSON von der Standardeingabe, damit ein Hook oder ein
+    CI-Schritt ihn prüfen kann, ohne dieses Modul zu importieren.
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        description="Deckungsausweis gegen KONZ-035 §6.1 prüfen"
+    )
+    ap.add_argument(
+        "--pruefen",
+        action="store_true",
+        required=True,
+        help="Ausweis als JSON von stdin lesen und die Bedingungskette prüfen",
+    )
+    ap.parse_args()
+
+    try:
+        daten = json.load(sys.stdin)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        print(f"✗ kein lesbarer Ausweis auf stdin: {exc}", file=sys.stderr)
+        return 2
+
+    if daten.get("format_version") != FORMAT_VERSION:
+        print(
+            f"✗ unbekanntes Format: {daten.get('format_version')!r} "
+            f"(erwartet {FORMAT_VERSION})",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        ausweis = aus_dict(daten)
+    except (KeyError, TypeError) as exc:
+        print(f"✗ Ausweis unvollständig: {exc}", file=sys.stderr)
+        return 2
+
+    ok, fehler = pruefkette(ausweis)
+    for f in fehler:
+        print(f"✗ {f}", file=sys.stderr)
+    print("Verfahren eingehalten" if ok else "Verfahren verletzt")
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
