@@ -56,16 +56,22 @@ _TRASH_MARKERS = ("trash", "papierkorb", "deleted", "schte objekte")
 _LIST_LINE_RE = re.compile(r'^\((?P<flags>[^)]*)\)\s+(?:"[^"]*"|NIL)\s+(?P<name>.+)$')
 
 
+def _decode_chunk(chunk: bytes, charset: str | None) -> str:
+    # Reale Mails tragen Charsets, die Python nicht kennt ("unknown-8bit",
+    # "x-unknown", Tippfehler) — codecs.lookup wirft dann LookupError und riss
+    # bisher den ganzen Header-Scan ab. latin-1 dekodiert jedes Byte.
+    try:
+        return chunk.decode(charset or "utf-8", errors="replace")
+    except LookupError:
+        return chunk.decode("latin-1", errors="replace")
+
+
 def _decode(v: str | None) -> str:
     if not v:
         return ""
     out = []
     for chunk, cs in decode_header(v):
-        out.append(
-            chunk.decode(cs or "utf-8", errors="replace")
-            if isinstance(chunk, bytes)
-            else chunk
-        )
+        out.append(_decode_chunk(chunk, cs) if isinstance(chunk, bytes) else chunk)
     return "".join(out).replace("\n", " ").replace("\r", "").strip()
 
 

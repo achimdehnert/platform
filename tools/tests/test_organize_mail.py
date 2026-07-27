@@ -73,6 +73,13 @@ def test_should_decode_mime_and_flatten():
     assert om._decode(None) == ""
 
 
+# Regression #1342: brach den Massen-Header-Scan von ~24k HNU-Mails ab.
+# Ohne den latin-1-Fallback wirft codecs.lookup("unknown-8bit") LookupError.
+def test_should_decode_header_with_charset_python_does_not_know():
+    assert om._decode("=?unknown-8bit?Q?Gr=FC=DFe?=") == "Grüße"
+    assert om._decode("=?x-unknown?B?SGFsbG8=?=") == "Hallo"
+
+
 # --- Move-Pfad (Regression: Seq-Nr-vs-UID-Bug, Retro 2026-07-22 Befund #1) ----
 # Guard gegen `untested-tool-module-green-gate` (retro_kpis ×2): _matches MUSS
 # echte UIDs aus der UID-FETCH-Antwort ziehen, nicht Sequenz-Nummern — sonst traf

@@ -35,13 +35,23 @@ def _resolve_config(config: str | None, account: str | None) -> Path:
     return CONFIG_FILE
 
 
+def _decode_chunk(chunk: bytes, charset: str | None) -> str:
+    # Reale Mails tragen Charsets, die Python nicht kennt ("unknown-8bit",
+    # "x-unknown", Tippfehler) — codecs.lookup wirft dann LookupError und riss
+    # bisher den ganzen Header-Scan ab. latin-1 dekodiert jedes Byte.
+    try:
+        return chunk.decode(charset or "utf-8", errors="replace")
+    except LookupError:
+        return chunk.decode("latin-1", errors="replace")
+
+
 def decode_hdr(value: str | None) -> str:
     if not value:
         return ""
     parts = []
     for chunk, charset in decode_header(value):
         if isinstance(chunk, bytes):
-            parts.append(chunk.decode(charset or "utf-8", errors="replace"))
+            parts.append(_decode_chunk(chunk, charset))
         else:
             parts.append(chunk)
     return "".join(parts).replace("\n", " ").replace("\r", "").strip()
