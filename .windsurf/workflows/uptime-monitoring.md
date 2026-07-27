@@ -6,7 +6,36 @@ description: Uptime-Monitoring für alle Prod-Endpoints einrichten (Betterstack)
 
 > Einmalig einrichten — dann vollautomatisch.
 > Kein Code, keine Abhängigkeiten, 0 Wartungsaufwand.
-> Kostenlos bis 50 Monitore (reicht für alle 21 Repos).
+>
+> ⚠️ **Das Kontingent ist erschöpft — vor dem Anlegen eines Monitors erst einen Slot
+> freimachen.** Gemessen 2026-07-27 gegen `GET /api/v2/monitors`: **10 von 10** Slots
+> belegt (eine Ergebnisseite, kein `next`). Ein `POST /api/v2/monitors` wird seit
+> 2026-07-22 abgelehnt mit `Monitor quota reached. Please upgrade your account to add
+> another monitor.` — die frühere Angabe „kostenlos bis 50 Monitore (reicht für alle
+> 21 Repos)" war falsch und hat eine Kapazitätsplanung getragen, die beim 11. Monitor
+> auflief (Realfall writing-hub#322).
+>
+> *Nicht verifiziert:* welche Plan-Stufe das Konto hat, also ob 10 das kostenlose Limit
+> oder ein bezahltes Kontingent ist. Billigster Check: Betterstack-Dashboard →
+> Settings → Billing.
+
+## Wenn die Quota voll ist
+
+Belegt sind die 10 Slots aktuell durch: `schutztat.de/livez`, `137herz.de`,
+`bieterpilot.de`, `billing-hub`, `dev-hub`, `dms-hub`, `kiohnerisiko.de`, `learn-hub`,
+`nl2cad.de`, `prezimo.com` (Stand 2026-07-27).
+
+Reihenfolge der Optionen:
+
+1. **Umhängen statt löschen.** Ein Monitor kann auf eine andere URL zeigen — der Slot
+   bleibt, das Ziel wechselt. Das ist fast immer richtig, wenn zwei Domains **denselben
+   Container** bedienen.
+2. **Slot freigeben** — nur bei einer Domain, die nachweislich nicht mehr live ist.
+   Vorher gegen das Freeze-Register (#1314) **und** gegen den tatsächlichen HTTP-Status
+   prüfen: `kiohnerisiko.de` steht dort als stillgelegt, war aber weiter live und wird
+   vom selben Container bedient wie `coach-hub.iil.pet` — dort wäre Löschen falsch
+   gewesen, Umhängen richtig.
+3. **Upgraden** — Kostenentscheidung, gehört dem Owner, nicht dem Skill.
 
 ---
 
