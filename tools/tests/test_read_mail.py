@@ -4,6 +4,7 @@ From-Filter, Pfad-Traversal-Schutz beim Anhang-Speichern. Kein Netz-/IMAP-Test
 
 Run: `python3 -m pytest tools/tests/test_read_mail.py -q`
 """
+
 import importlib.util
 import pathlib
 from email.message import EmailMessage
@@ -20,11 +21,14 @@ def _msg(subject="s", frm="a@b.c", body="hallo", attachments=()):
     m["Subject"] = subject
     m.set_content(body)
     for name, data in attachments:
-        m.add_attachment(data, maintype="application", subtype="octet-stream", filename=name)
+        m.add_attachment(
+            data, maintype="application", subtype="octet-stream", filename=name
+        )
     return m
 
 
 # --- decode_hdr --------------------------------------------------------------
+
 
 def test_should_decode_mime_encoded_header():
     enc = "=?iso-8859-1?Q?Pr=FCfergebnis?="
@@ -45,6 +49,7 @@ def test_should_decode_header_with_charset_python_does_not_know():
 
 # --- extract_text ------------------------------------------------------------
 
+
 def test_should_extract_plain_body():
     assert "hallo" in rm.extract_text(_msg())
 
@@ -63,6 +68,7 @@ def test_should_report_missing_plain_part():
 
 # --- attachments -------------------------------------------------------------
 
+
 def test_should_list_attachment_names():
     m = _msg(attachments=[("a.md", b"1"), ("b.zip", b"22")])
     assert rm.attachment_names(m) == ["a.md", "b.zip"]
@@ -78,6 +84,7 @@ def test_should_save_attachments_and_strip_path_traversal(tmp_path):
 
 # --- matches_from ------------------------------------------------------------
 
+
 def test_should_match_from_substring_case_insensitive():
     m = _msg(frm="Ilja Lerch <Ilja.Lerch@example.com>")
     assert rm.matches_from(m, "ilja")
@@ -87,16 +94,17 @@ def test_should_match_from_substring_case_insensitive():
 
 # --- matches_to --------------------------------------------------------------
 
+
 def test_should_match_to_and_cc_substring_case_insensitive():
     m = EmailMessage()
     m["From"] = "achim@iil.gmbh"  # Gesendete: Absender ist man selbst
     m["To"] = "Anna Martinkat <A.Martinkat@landkreis-guenzburg.de>"
     m["Cc"] = "Wibke Michalk <wibke.michalk@th-rosenheim.de>"
     m.set_content("x")
-    assert rm.matches_to(m, "martinkat")   # Treffer im To-Header
-    assert rm.matches_to(m, "michalk")     # Treffer im Cc-Header
+    assert rm.matches_to(m, "martinkat")  # Treffer im To-Header
+    assert rm.matches_to(m, "michalk")  # Treffer im Cc-Header
     assert not rm.matches_to(m, "brandl")
-    assert rm.matches_to(m, None)          # kein Filter -> True
+    assert rm.matches_to(m, None)  # kein Filter -> True
 
 
 def test_should_handle_missing_to_and_cc_headers():
