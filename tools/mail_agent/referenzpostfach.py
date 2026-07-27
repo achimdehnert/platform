@@ -188,6 +188,17 @@ def trenner(imap) -> str:
     return "."
 
 
+def gehoert_zur_wurzel(name: str, sep: str) -> bool:
+    """Liegt dieser Ordner im Referenzpostfach — oder trägt er nur einen ähnlichen Namen?
+
+    Der Aufbau **löscht** alles unterhalb der Wurzel. Ein bloßes ``startswith(WURZEL)``
+    trifft dabei auch ``INBOX.REFERAT.Wichtig`` oder ``INBOX.REFERENZ``: der Präfix passt,
+    obwohl es fremde Ordner sind. Bei einer löschenden Operation ist das kein Schönheits-
+    fehler. Die Grenze muss der Namensraum-Trenner sein, nicht die Zeichenkette.
+    """
+    return name == WURZEL or name.startswith(WURZEL + sep)
+
+
 def ordnerpfad(sep: str, ordner: str) -> str:
     """Relativer Fall-Ordner → absoluter Mailbox-Name unterhalb der Wurzel."""
     if not ordner:
@@ -305,8 +316,11 @@ def aufbauen(imap, verbose: bool = True) -> int:
                 teil.split('"')[-2] if teil.count('"') >= 2 else teil.split()[-1]
             )
     for name in sorted(set(vorhandene), key=lambda n: -n.count(sep)):
-        if name.startswith(WURZEL):
-            imap.delete(f'"{name}"')
+        if not gehoert_zur_wurzel(name, sep):
+            continue
+        typ, res = imap.delete(f'"{name}"')
+        if typ != "OK" and verbose:
+            print(f"⚠ DELETE {name}: {res}", file=sys.stderr)
 
     for name in alle_ordner(sep):
         typ, res = imap.create(f'"{name}"')

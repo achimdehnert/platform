@@ -142,25 +142,49 @@ def test_should_stay_quiet_for_a_long_term_in_a_narrow_field():
     assert vg.such_hinweis("Penetrationstest", "SUBJECT") == []
 
 
-def test_should_keep_non_correspondence_configs_out_of_the_account_denominator():
+def test_should_keep_non_correspondence_configs_out_of_the_account_denominator(
+    tmp_path,
+):
     """Pilotbefund 2026-07-27: 'Konten 1/4' zählte das Referenzpostfach mit.
 
     Ein Nenner, der zu gross ist, ist genauso falsch wie einer, der fehlt — er laesst
     einen vollstaendigen Lauf unvollstaendig aussehen.
+
+    Der Test baut die Konfiguration selbst auf. Gegen das echte Home-Verzeichnis waere
+    er auf einer CI-Maschine ohne Mail-Konfiguration inhaltsleer — er lief dann durch,
+    ohne irgendetwas zu pruefen.
     """
     assert "search" in vg.KEINE_KORRESPONDENZ
     assert "folders" in vg.KEINE_KORRESPONDENZ
-    for name in vg.bekannte_konten():
-        assert name not in vg.KEINE_KORRESPONDENZ
+
+    (tmp_path / "mail.env").write_text("", encoding="utf-8")
+    for name in ("hnu", "search", "folders"):
+        (tmp_path / f"mail-{name}.env").write_text("", encoding="utf-8")
+
+    konten = vg.bekannte_konten(tmp_path)
+    assert konten == ["default", "hnu"], konten
+    assert "search" not in konten, "das Referenzpostfach ist keine echte Korrespondenz"
+    assert "folders" not in konten
 
 
-def test_should_count_graph_only_mailboxes_in_the_denominator():
+def test_should_count_graph_only_mailboxes_in_the_denominator(tmp_path):
     """Pilotbefund 2026-07-27: das IIL-Konto laeuft ueber Graph und fehlte im Nenner.
 
     Ein Konto, das dieses Werkzeug nicht ansprechen kann, muss sichtbar fehlen — sonst
     sieht ein Lauf ueber 1 von 3 Postfaechern wie 1 von 2 aus.
+
+    Der Test bringt sein eigenes Token-Verzeichnis mit. Die erste Fassung las das echte
+    Home-Verzeichnis: lokal gruen, in der CI rot (Lauf 30295192917) — ein Test, der die
+    Maschine misst statt den Code.
     """
-    konten = vg.bekannte_konten()
-    graph = [k for k in konten if k.startswith("graph:")]
-    assert graph, "Graph-Konten muessen im Nenner erscheinen, auch wenn unerreichbar"
-    assert all("@" in k for k in graph), "Kontoname soll die Adresse tragen"
+    (tmp_path / "achim.dehnert_at_iil.gmbh.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "zweite_at_example.org.json").write_text("{}", encoding="utf-8")
+
+    konten = vg.graph_konten(tmp_path)
+    assert konten == ["graph:achim.dehnert@iil.gmbh", "graph:zweite@example.org"]
+    assert all("@" in k for k in konten), "Kontoname soll die Adresse tragen"
+
+
+def test_should_return_no_graph_accounts_when_the_token_directory_is_absent(tmp_path):
+    """Fehlt das Verzeichnis, ist die Antwort leer — kein Absturz, kein geratener Nenner."""
+    assert vg.graph_konten(tmp_path / "gibt-es-nicht") == []

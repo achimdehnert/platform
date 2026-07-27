@@ -63,8 +63,11 @@ def _jetzt() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def bekannte_konten() -> list[str]:
+def bekannte_konten(basis: Path | None = None) -> list[str]:
     """Alle konfigurierten Postfächer — der Nenner der Konten-Ebene (KONZ-035 §5.3 R-1).
+
+    ``basis`` überschreibt das Konfigurationsverzeichnis, damit ein Test die Auswahl
+    prüfen kann, ohne von der Maschine abzuhängen, auf der er läuft.
 
     Ohne diese Zählung kehrt der stille Scope eine Ebene höher wieder: ein Lauf über
     *alle* Ordner *eines* Kontos sieht vollständig aus und ist es nicht.
@@ -75,22 +78,27 @@ def bekannte_konten() -> list[str]:
     „1 von 3" ein „1 von 4" — ein Nenner, der zu groß ist, ist genauso falsch wie einer,
     der fehlt.
     """
-    basis = Path.home() / ".claude"
-    namen = ["default"] if (basis / "mail.env").exists() else []
-    namen += sorted(p.stem.removeprefix("mail-") for p in basis.glob("mail-*.env"))
-    namen += graph_konten()
+    wurzel = basis or (Path.home() / ".claude")
+    namen = ["default"] if (wurzel / "mail.env").exists() else []
+    namen += sorted(p.stem.removeprefix("mail-") for p in wurzel.glob("mail-*.env"))
+    namen += graph_konten(wurzel / "graph-mail-tokens")
     return [n for n in namen if n not in KEINE_KORRESPONDENZ]
 
 
-def graph_konten() -> list[str]:
+def graph_konten(basis: Path | None = None) -> list[str]:
     """Postfächer, die über Microsoft Graph laufen — für dieses Werkzeug unerreichbar.
+
+    ``basis`` überschreibt das Token-Verzeichnis. Nötig, damit ein Test die Funktion
+    prüfen kann, ohne von der Maschine abzuhängen, auf der er läuft: die erste Fassung
+    dieses Tests las das echte Home-Verzeichnis und war deshalb lokal grün und in der
+    CI rot (Lauf 30295192917).
 
     Sie gehören trotzdem in den Nenner. Ein Konto, das ein Werkzeug nicht ansprechen
     kann, verschwindet sonst vollständig aus dem Blick: der Ausweis meldete „Konten 1/2"
     und sah damit vollständiger aus, als der Bestand hergibt. Ausgewiesen werden sie als
     `nicht_gedeckt` mit Grund — sichtbar fehlend statt unsichtbar fehlend.
     """
-    verzeichnis = Path.home() / ".claude" / "graph-mail-tokens"
+    verzeichnis = basis or (Path.home() / ".claude" / "graph-mail-tokens")
     if not verzeichnis.is_dir():
         return []
     return sorted(
