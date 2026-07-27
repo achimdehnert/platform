@@ -5306,8 +5306,8 @@
       "id": "ADR-284",
       "file": "ADR-284-mail-intelligence-action-system.md",
       "title": "Mail-Intelligence-&-Action-System — Coverage-Contract + Triage-Ledger (Phase 1 verbindlich)",
-      "status": "proposed",
-      "date": "2026-07-23",
+      "status": "accepted",
+      "date": "2026-07-27",
       "domains": [
         "mail",
         "data",
