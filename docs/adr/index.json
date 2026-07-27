@@ -5377,7 +5377,7 @@
       "id": "ADR-287",
       "file": "ADR-287-fach-reviewer-org-weite-distribution.md",
       "title": "Distribute the domain-expert reviewer in graded stages, gated on artifact-content sovereignty rather than skill location",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-27",
       "domains": [],
       "supersedes": [],

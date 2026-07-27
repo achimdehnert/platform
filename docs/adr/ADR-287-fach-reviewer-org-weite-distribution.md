@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-07-27
 deciders: Achim Dehnert
 consulted: –
@@ -12,11 +12,11 @@ informed: –
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted                                                             |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-07-27                                                           |
 | **Autor**       | Achim Dehnert                                                        |
-| **Reviewer**    | –                                                                    |
+| **Reviewer**    | Achim Dehnert (ratifiziert 2026-07-27)                               |
 | **Supersedes**  | –                                                                    |
 | **Superseded by** | –                                                                  |
 | **Relates to**  | KONZ-platform-028 (D5), ADR-211 (Klickdummy-Rahmen), ADR-251 (UX-Gate) |
