@@ -87,6 +87,20 @@ jobs:
           #                beide hier: ERGAENZT, nicht ersetzt.
           # Regel daraus: was hier steht, muss der Name sein, unter dem Nutzer die
           # Anwendung erreichen — sonst ueberwacht der Canary etwas anderes als das Produkt.
+          # Fall-A-Aufnahme aus #1468 (2026-07-27): vier Hubs standen bisher gar nicht
+          # im Canary. Nur diese vier, weil nur sie /livez/ mit 200 beantworten — die
+          # uebrigen aus #1468 liefern 302/404 und braeuchten erst einen Endpoint.
+          # Je Host GEMESSEN, nicht angenommen:
+          #   coach-hub.iil.pet     /livez/ 200  Asset 200  / 200
+          #   hr.iil.pet            /livez/ 200  Asset 404  / 200
+          #   illustration.iil.pet  /livez/ 200  Asset 200  / 404
+          #   bahn.iil.pet          /livez/ 200  Asset 404  / 404
+          # Asset-Sonde deshalb NUR fuer coach-hub und illustration — bei den anderen
+          # beiden waere sie ein Dauer-Fehlalarm.
+          # Offen (in #1468 festgehalten, hier bewusst nicht geloest): illustration und
+          # bahn liefern auf / einen 404. /livez/ zu ueberwachen faengt einen Prozess-Tod,
+          # sagt aber nichts darueber, ob die Anwendung erreichbar ist — dieselbe Luecke
+          # wie bei tax-hub (iilgmbh/tax-hub#69).
           URLS="
           https://schutztat.de/livez/
           https://137herz.de/livez/
@@ -107,6 +121,10 @@ jobs:
           https://writing.iil.pet/readyz/
           https://drifttales.com/livez/
           https://research.iil.pet/healthz/
+          https://coach-hub.iil.pet/livez/
+          https://hr.iil.pet/livez/
+          https://illustration.iil.pet/livez/
+          https://bahn.iil.pet/livez/
           "
           down=""
           for u in $URLS; do
@@ -164,6 +182,8 @@ jobs:
           https://writing.iil.pet/static/admin/css/base.css
           https://drifttales.com/static/admin/css/base.css
           https://research.iil.pet/static/admin/css/base.css
+          https://coach-hub.iil.pet/static/admin/css/base.css
+          https://illustration.iil.pet/static/admin/css/base.css
           "
           # Selbsttest: beweist, dass dieser Check ueberhaupt rot werden KANN. Ohne so
           # einen Nachweis ist ein Gate nicht von einem kaputten Gate zu unterscheiden
