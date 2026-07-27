@@ -20,13 +20,23 @@ selbst** schon **gesendet**? Daraus leitet er die **jeweils nächste** Aktion ab
 
 | Konto | Zugang | Neue Antworten | Eigene gesendete Mails |
 |---|---|---|---|
-| **IIL** (achim.dehnert@iil.gmbh) | Graph | `graph_mail.py --scan-senders --days N`, `--find` | `--find … --source "Gesendete Elemente"` |
+| **IIL** (achim.dehnert@iil.gmbh) | Graph | `graph_mail.py --find --all --days N` | `--find --all --source "Gesendete Elemente"` |
 | **HNU** (achim.dehnert@hnu.de) | IMAP | `read_mail.py --account hnu --list N` | `--account hnu --folder "Gesendete Objekte" --to-filter <empf> --list N` |
 | **AD** (Default) | IMAP | `read_mail.py --list N` | `--folder <Sent> --to-filter <empf> --list N` (Ordnername server-abhängig, s.u.) |
 
 > **Beide Seiten prüfen ist Pflicht.** Wer nur den Posteingang liest, schlägt Aktionen vor,
 > die längst per gesendeter Mail erledigt sind (Doppelvorschlag). Der Abgleich gegen
 > „Gesendete Elemente" IST der Kern dieses Skills.
+
+> ⚠️ **Vollerhebung heißt `--find --all` — niemals ein Absender-Platzhalter.** Ein Aufruf wie
+> `--find --from "@"` sieht nach „alles" aus und ist es nicht: Exchange trägt den Absender
+> gesendeter Elemente teils als X.500-DN (`/o=ExchangeLabs/…`) **ohne `@`**, Entwürfe tragen
+> gar kein Absenderfeld. Live gemessen 2026-07-27, derselbe Ordner, dasselbe Zeitfenster:
+> `--all` **34** Treffer, `--from "@"` **13**. Auf genau dieser Teilmenge entstand am selben
+> Tag der falsche Befund, eine DSGVO-Authentifizierungsmail sei nie gesendet worden — sie lag
+> die ganze Zeit im selben Ordner, und der Betroffene bekam daraufhin eine zweite Anfrage.
+> Das Werkzeug warnt seit #1480 laut, wenn ein Absender-Filter Nachrichten ohne SMTP-Adresse
+> verwirft. Diese Warnung ist ein **Abbruchgrund für den Lauf**, keine Randnotiz.
 
 > **Sent-Ordnername ist server-abhängig** (verifiziert 2026-07-23): IIL/Graph `Gesendete Elemente`,
 > HNU `Gesendete Objekte`. Im Zweifel den `\Sent`-Special-Use-Ordner aus `imap.list()` nehmen,
@@ -119,12 +129,14 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 ## Anti-Patterns
 
 - ❌ Nur Posteingang prüfen, „Gesendete Elemente" auslassen → Doppelvorschläge für längst Erledigtes
+- ❌ Einen Absender-Platzhalter (`--from "@"`) für eine Vollerhebung halten — das ist `--find --all` (#1480); eine Verwerfungs-Warnung bricht den Lauf ab
 - ❌ Folge-Stufen eines Prozesses vorab als Drafts durchstellen (Vorgriff ohne Auslöser-Antwort)
 - ❌ Senden — auch nicht „nur die Bestätigung"
 - ❌ Auslöser-Antwort vermuten statt sie im Postfach zu belegen
 
 ## Changelog
 
+- 2026-07-27: Vollerhebung auf `--find --all` umgestellt (#1480). Der bis dahin genutzte Platzhalter `--from "@"` verwarf auf Sent-/Entwurfs-Ordnern still alle Nachrichten ohne SMTP-Adresse im Absenderfeld (Exchange-X.500-DN) — live 13 statt 34 Treffer. Daraus entstand ein falscher „nie gesendet"-Befund in einem laufenden DSGVO-Löschvorgang und eine Doppel-Anfrage an den Betroffenen. Neu außerdem `--draft --cc`.
 - 2026-07-23: Initial (v1). Anschluss an `/briefing`. Ausgelöst durch Owner-Wunsch nach einem
   „aktiv angestoßenen Mailcheck", nachdem ein DSGVO-Löschprozess fälschlich mit allen drei
   Stufen vorab als Draft angelegt worden war — der Skill kodifiziert die zustandsabhängige,

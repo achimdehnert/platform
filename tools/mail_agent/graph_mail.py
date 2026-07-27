@@ -23,8 +23,9 @@ Kommandos:
   --unflag --from S [--subject S] [--source PFAD] [--yes]        # Markierung wieder entfernen
   --importance high|normal|low --from S [--subject S] [--yes]    # Wichtigkeit setzen
   --find [--from S] [--subject S] [--days N] [--source PFAD]     # suchen, read-only
+  --find --all [--days N] [--source PFAD]                        # Ordner VOLLSTAENDIG aufzaehlen (#1480)
   --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N] [--save-attachments DIR]
-  --draft --to a@b.c --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
+  --draft --to a@b.c [--cc c@d.e] --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
   --attach-to <messageId> --attach PFAD [--attach PFAD ...]   # Datei(en) an bestehenden Entwurf hängen
 """
 
@@ -354,19 +355,38 @@ def _match_messages(
             "&$orderby=receivedDateTime desc"
         ),
     )
+    gesehen = 0
+    ohne_smtp = 0  # Absenderfeld ohne "@": Exchange-X.500-DN oder leer (Entwuerfe)
     while url:
         r = _http("GET", url, headers=_auth(tok))
         j = r.json()
         for m in j.get("value", []):
+            gesehen += 1
             em = (m.get("from") or {}).get("emailAddress") or {}
-            hay_from = (em.get("address", "") + " " + em.get("name", "")).lower()
+            adresse = em.get("address", "")
+            hay_from = (adresse + " " + em.get("name", "")).lower()
             subj = m.get("subject") or ""
             if from_sub and from_sub.lower() not in hay_from:
+                # #1480: Gesendete Elemente tragen den Absender teils als X.500-DN
+                # (/o=ExchangeLabs/...), Entwuerfe gar nicht. Ein Filter wie "@"
+                # verwirft die still — dann wird aus einer Teilmenge unbemerkt
+                # eine vermeintliche Vollerhebung.
+                if "@" not in adresse:
+                    ohne_smtp += 1
                 continue
             if subject_sub and subject_sub.lower() not in subj.lower():
                 continue
             hits.append(m)
         url = j.get("@odata.nextLink")
+
+    if ohne_smtp:
+        print(
+            f"⚠ Absender-Filter '{from_sub}': {ohne_smtp} von {gesehen} Nachricht(en) in "
+            f"'{source_path or 'inbox'}' tragen keine SMTP-Adresse im Absenderfeld "
+            f"(Exchange-X.500-DN oder Entwurf) und wurden verworfen. "
+            f"Fuer eine Vollerhebung --all nutzen, keinen Absender-Platzhalter.",
+            file=sys.stderr,
+        )
     return hits
 
 
@@ -759,6 +779,19 @@ def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
         print(f"  + Anhang: {payload['name']} ({payload['contentType']})")
 
 
+def _empfaenger(adressen: str | list[str] | None) -> list[dict]:
+    """Komma-Liste oder Mehrfach-Argument -> Graph-Recipient-Objekte."""
+    if not adressen:
+        return []
+    roh = adressen if isinstance(adressen, list) else [adressen]
+    out = []
+    for eintrag in roh:
+        for a in str(eintrag).split(","):
+            if a.strip():
+                out.append({"emailAddress": {"address": a.strip()}})
+    return out
+
+
 def cmd_draft(
     tok: str,
     to: str,
@@ -766,6 +799,7 @@ def cmd_draft(
     body: str,
     reply_to: str | None,
     attach: list[str] | None = None,
+    cc: list[str] | None = None,
 ) -> None:
     if reply_to:
         r = _http(
@@ -782,6 +816,8 @@ def cmd_draft(
         patch = {"body": {"contentType": "Text", "content": body}}
         if subject:
             patch["subject"] = subject
+        if cc:
+            patch["ccRecipients"] = _empfaenger(cc)
         _http(
             "PATCH", f"{GRAPH}/me/messages/{did}", headers=_auth(tok), json_body=patch
         )
@@ -795,10 +831,10 @@ def cmd_draft(
     body_json = {
         "subject": subject,
         "body": {"contentType": "Text", "content": body},
-        "toRecipients": [
-            {"emailAddress": {"address": a.strip()}} for a in to.split(",") if a.strip()
-        ],
+        "toRecipients": _empfaenger(to),
     }
+    if cc:
+        body_json["ccRecipients"] = _empfaenger(cc)
     r = _http("POST", f"{GRAPH}/me/messages", headers=_auth(tok), json_body=body_json)
     if r.status_code not in (200, 201):
         sys.exit(
@@ -862,6 +898,19 @@ def main() -> None:
         "--trash",
         metavar="messageId",
         help="eine bestimmte Mail/Entwurf per ID in den Papierkorb verschieben (reversibel)",
+    )
+    ap.add_argument(
+        "--all",
+        action="store_true",
+        help="bei --find: Ordner VOLLSTÄNDIG aufzählen, ohne Absender-/Betreff-Filter "
+        "(korrekter Weg statt eines Platzhalters wie --from '@', der Absender ohne "
+        "SMTP-Adresse still verwirft — s. #1480)",
+    )
+    ap.add_argument(
+        "--cc",
+        action="append",
+        metavar="ADRESSE",
+        help="Cc bei --draft (mehrfach möglich)",
     )
     ap.add_argument(
         "--attach",
@@ -946,9 +995,21 @@ def main() -> None:
             ap.error("--move-folder braucht --to-parent ZIEL-ELTERNORDNER")
         cmd_move_folder(tok, args.move_folder, args.to_parent)
     elif args.find:
-        if not (args.from_sub or args.subject):
-            ap.error("--find braucht --from und/oder --subject")
-        cmd_find(tok, args.from_sub or "", args.subject, args.days, args.source)
+        if not (args.from_sub or args.subject or args.all):
+            ap.error(
+                "--find braucht --from und/oder --subject — oder --all für den ganzen Ordner"
+            )
+        if args.all and (args.from_sub or args.subject):
+            ap.error(
+                "--all schließt --from/--subject aus (--all zählt vollständig auf)"
+            )
+        cmd_find(
+            tok,
+            "" if args.all else (args.from_sub or ""),
+            "" if args.all else args.subject,
+            args.days,
+            args.source,
+        )
     elif args.show:
         cmd_show(
             tok,
@@ -972,7 +1033,9 @@ def main() -> None:
         if not (args.to or args.reply_to):
             ap.error("--draft braucht --to ODER --reply-to")
         body = Path(args.body_file).read_text()
-        cmd_draft(tok, args.to or "", args.subject, body, args.reply_to, args.attach)
+        cmd_draft(
+            tok, args.to or "", args.subject, body, args.reply_to, args.attach, args.cc
+        )
 
 
 if __name__ == "__main__":
