@@ -353,3 +353,119 @@ def test_should_not_patch_when_no_matches(monkeypatch):
         label="Zur Nachverfolgung markieren",
     )
     assert calls == []
+
+
+# --- #1480: Ordner filterfrei aufzählen + stille Verwerfung melden -------------
+# Realfall 2026-07-27: `--from "@"` als Platzhalter für "alles" verwarf auf
+# "Gesendete Elemente" 21 von 31 Mails — Exchange liefert den Absender dort teils
+# als X.500-DN (/o=ExchangeLabs/…) OHNE @. Die so entstandene Teilmenge wurde für
+# eine Vollerhebung gehalten und erzeugte einen falschen "nie gesendet"-Befund.
+
+
+def _sent_page():
+    """Gesendete Elemente: gemischt SMTP-Adresse und Exchange-X.500-DN."""
+    x500 = (
+        "/O=EXCHANGELABS/OU=EXCHANGE ADMINISTRATIVE GROUP (FYDIBOHF23SPDLT)"
+        "/CN=RECIPIENTS/CN=DF982E46-ACHIM.DEHNE"
+    )
+    return {
+        "value": [
+            {
+                "id": "s1",
+                "subject": "Bitte um Authentifizierung",
+                "receivedDateTime": "2026-07-23T08:16:00Z",
+                "from": {"emailAddress": {"address": x500, "name": "Achim Dehnert"}},
+            },
+            {
+                "id": "s2",
+                "subject": "RE: Angebot",
+                "receivedDateTime": "2026-07-23T08:56:00Z",
+                "from": {
+                    "emailAddress": {"address": "achim.dehnert@iil.gmbh", "name": "AD"}
+                },
+            },
+            {
+                "id": "s3",
+                "subject": "Zugesagt: PG",
+                "receivedDateTime": "2026-07-24T10:40:00Z",
+                "from": {"emailAddress": {"address": x500, "name": "Achim Dehnert"}},
+            },
+        ]
+    }
+
+
+def _patch_page(monkeypatch, mod, page):
+    import json as _json
+
+    monkeypatch.setattr(mod, "_http", lambda *a, **k: mod._Resp(200, _json.dumps(page)))
+    monkeypatch.setattr(mod, "find_folder", lambda *a, **k: "sentid")
+
+
+def test_should_enumerate_folder_completely_without_any_filter(monkeypatch):
+    mod = _load()
+    _patch_page(monkeypatch, mod, _sent_page())
+    hits = mod._match_messages(
+        "tok", from_sub="", subject_sub="", days=30, source_path="Gesendete Elemente"
+    )
+    assert [m["id"] for m in hits] == ["s1", "s2", "s3"]
+
+
+def test_should_warn_when_sender_filter_drops_non_smtp_senders(monkeypatch, capsys):
+    mod = _load()
+    _patch_page(monkeypatch, mod, _sent_page())
+    hits = mod._match_messages(
+        "tok", from_sub="@", subject_sub="", days=30, source_path="Gesendete Elemente"
+    )
+    # der Platzhalter trifft nur die eine echte SMTP-Adresse
+    assert [m["id"] for m in hits] == ["s2"]
+    warn = capsys.readouterr().err
+    assert "2 von 3" in warn
+    assert "--all" in warn
+
+
+def test_should_not_warn_when_no_message_was_dropped(monkeypatch, capsys):
+    mod = _load()
+    _patch_page(monkeypatch, mod, _sent_page())
+    mod._match_messages(
+        "tok", from_sub="", subject_sub="", days=30, source_path="Gesendete Elemente"
+    )
+    assert capsys.readouterr().err == ""
+
+
+# --- #1480 Teil 2: --draft kann Cc -------------------------------------------
+
+
+def test_should_put_cc_recipients_into_new_draft(monkeypatch):
+    mod = _load()
+    erfasst = {}
+
+    def fake_http(method, url, **k):
+        if method == "POST" and url.endswith("/me/messages"):
+            erfasst["body"] = k.get("json_body")
+            return mod._Resp(201, '{"id": "neu"}')
+        return mod._Resp(200, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    mod.cmd_draft("tok", "a@b.c", "Betreff", "Text", None, cc=["x@y.z", "q@r.s"])
+    assert [r["emailAddress"]["address"] for r in erfasst["body"]["toRecipients"]] == [
+        "a@b.c"
+    ]
+    assert [r["emailAddress"]["address"] for r in erfasst["body"]["ccRecipients"]] == [
+        "x@y.z",
+        "q@r.s",
+    ]
+
+
+def test_should_omit_cc_key_when_no_cc_given(monkeypatch):
+    mod = _load()
+    erfasst = {}
+
+    def fake_http(method, url, **k):
+        if method == "POST" and url.endswith("/me/messages"):
+            erfasst["body"] = k.get("json_body")
+            return mod._Resp(201, '{"id": "neu"}')
+        return mod._Resp(200, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    mod.cmd_draft("tok", "a@b.c", "Betreff", "Text", None)
+    assert "ccRecipients" not in erfasst["body"]
