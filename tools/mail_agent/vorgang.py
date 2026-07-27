@@ -40,16 +40,35 @@ import email
 import re
 import sys
 import time
+from datetime import datetime, timezone
 from typing import NamedTuple
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import deckungsausweis as dz  # noqa: E402
 import organize_mail as om  # noqa: E402
 import read_mail as rm  # noqa: E402
 
 ADR_RE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 ERLEDIGT_MARKER = ".erledigt"
+TOOL_VERSION = "vorgang.py/1"
+
+
+def _jetzt() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def bekannte_konten() -> list[str]:
+    """Alle konfigurierten Postfächer — der Nenner der Konten-Ebene (KONZ-035 §5.3 R-1).
+
+    Ohne diese Zählung kehrt der stille Scope eine Ebene höher wieder: ein Lauf über
+    *alle* Ordner *eines* Kontos sieht vollständig aus und ist es nicht.
+    """
+    basis = Path.home() / ".claude"
+    namen = ["default"] if (basis / "mail.env").exists() else []
+    namen += sorted(p.stem.removeprefix("mail-") for p in basis.glob("mail-*.env"))
+    return namen
 
 
 # ---------- reine Logik (ohne IMAP, damit testbar) ----------
@@ -284,15 +303,18 @@ def cmd_suggest(imap, wurzel: str, posteingang: str, limit: int) -> None:
     print(f"Ohne Zuordnung (Restmenge): {len(gruppen['unbekannt'])} von {len(kopfe)}")
 
 
-def cmd_topic(imap, begriff: str, feld: str) -> None:
+def cmd_topic(imap, begriff: str, feld: str, konto: str = "default", anlass: str = "") -> None:
     alle = om.list_folders(imap)
     t0 = time.time()
+    gestartet = _jetzt()
     gefunden: list[tuple[str, str]] = []
     durchsucht = 0
+    fehlgeschlagen = 0
     for name in alle:
         try:
             typ, _ = imap.select(f'"{name}"', readonly=True)
             if typ != "OK":
+                fehlgeschlagen += 1
                 continue
             durchsucht += 1
             typ, res = imap.uid("SEARCH", None, feld, begriff)
@@ -310,11 +332,44 @@ def cmd_topic(imap, begriff: str, feld: str) -> None:
                     if isinstance(teil, tuple) and teil[1]:
                         gefunden.append((name, _zeile(teil[1])))
         except Exception:  # noqa: BLE001 — ein unlesbarer Ordner darf den Lauf nicht kippen
+            fehlgeschlagen += 1
             continue
     dauer = time.time() - t0
+    beendet = _jetzt()
 
     for h in such_hinweis(begriff, feld):
         print(f"⚠ {h}", file=sys.stderr)
+
+    # REC-2: der Ausweis steht VOR der Trefferliste. Als Fußnote wird er nach dreimal
+    # Lesen unsichtbar, und genau dann wird die Trefferliste für vollständig gehalten.
+    konten = bekannte_konten()
+    andere = [k for k in konten if k != konto]
+    ausweis = dz.Ausweis(
+        frage=f"{begriff} (Feld {feld})",
+        anlass=anlass or "nicht angegeben",
+        konten_vorhanden=len(konten) or 1,
+        konten_durchsucht=1,
+        ordner_vorhanden=len(alle),
+        ordner_durchsucht=durchsucht,
+        scan_started_at=gestartet,
+        scan_finished_at=beendet,
+        # Der Watermark ist das ENDE des Intervalls: alles, was danach eintraf, ist
+        # nicht erfasst. Bei 10-77 s Laufzeit ist das kein theoretischer Fall.
+        source_watermark=beendet,
+        retrievalpfade=(("imap-search", len(gefunden)),),
+        # Ein zweiter, andersartiger Pfad und die Kalibrierung sind REC-3/REC-4 und
+        # hier bewusst NICHT behauptet — deshalb sperrt der Ausweis die
+        # Vollständigkeitsaussage von sich aus.
+        kalibriert=(),
+        ordner_fehlgeschlagen=fehlgeschlagen,
+        nicht_gedeckt=tuple(
+            (f"Konto {k}", "in diesem Lauf nicht abgefragt") for k in andere
+        ),
+        query_fingerprint=dz.fingerprint(begriff, feld, sorted(alle)),
+        tool_version=TOOL_VERSION,
+    )
+    print(dz.rendern(ausweis) + "\n")
+
     ordner_mit_treffern = len({o for o, _ in gefunden})
     print(
         f"Sachverhalt '{begriff}' (Feld {feld}) — {len(gefunden)} Nachricht(en) "
@@ -348,6 +403,12 @@ def main() -> None:
     ap.add_argument("--field", default="TEXT", choices=["TEXT", "SUBJECT", "BODY"])
     ap.add_argument("--limit", type=int, default=500)
     ap.add_argument("--account", help="Postfach-Kürzel (z.B. hnu)")
+    ap.add_argument(
+        "--anlass",
+        default="",
+        help="warum gefragt wird — ohne Anlass ist die Verhältnismäßigkeit unprüfbar "
+        "(KONZ-035 §5.2)",
+    )
     ap.add_argument("--config")
     args = ap.parse_args()
 
@@ -361,7 +422,13 @@ def main() -> None:
         elif args.suggest:
             cmd_suggest(imap, args.root, args.inbox, args.limit)
         else:
-            cmd_topic(imap, args.topic, args.field)
+            cmd_topic(
+                imap,
+                args.topic,
+                args.field,
+                konto=args.account or "default",
+                anlass=args.anlass,
+            )
     finally:
         try:
             imap.logout()
