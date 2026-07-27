@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-035
 title: Deckungsausweis — Vollständigkeit von Sachverhalts-Darlegungen aus E-Mail
-pipeline_status: idea
+pipeline_status: pilot   # Owner-Entscheid 2026-07-27: angenommen; Pilot laeuft bis zur KG-Frist 2026-09-30
 tier: T3
 owner: Achim Dehnert
 spec_refs: []          # kein Klickdummy; betrifft Werkzeug- und Antwortkonvention (begründet leer)
@@ -453,18 +453,21 @@ die einzige Wirksamkeitsmessung.
 
 **Exception-Budget:** einmalige Verlängerung bis **2026-10-31**, danach ohne weitere.
 
+**Owner-Entscheid 2026-07-27: angenommen.** `pipeline_status` auf `pilot`. Die Umsetzung
+läuft in platform#1492 (REC-1/2/3/4/7/9); REC-6 bleibt vertagt, REC-10 steht aus.
+
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 Ausweis maschinell erzeugt, als Objekt `v1`, vor der Trefferliste | offen | — |
-| K2 Pflicht-Scope auf **beiden** Ebenen: alle Ordner **und** alle Konten, Abweichung begründet | offen | — |
-| K3 Mindestens zwei **verschiedenartige** Retrievalpfade mit getrennter Trefferzahl | offen | — |
-| K4 Kalibrierung je Pfad; Vollständigkeitsaussage nur bei allen Pfaden grün | offen | — |
-| K5 **KG-RECALL** grün auf der Referenzmenge (0 False Negatives) | offen | — |
+| K1 Ausweis maschinell erzeugt, als Objekt `v1`, vor der Trefferliste | erfüllt | `deckungsausweis.py`, `vorgang.py:cmd_topic` (#1492) |
+| K2 Pflicht-Scope auf **beiden** Ebenen: alle Ordner **und** alle Konten, Abweichung begründet | teilweise | Konten werden gezählt und Abweichungen begründet; ein Lauf über *mehrere* Konten fehlt (#1492) |
+| K3 Mindestens zwei **verschiedenartige** Retrievalpfade mit getrennter Trefferzahl | erfüllt | `pfad_server_suche` / `pfad_client_filter`, `divergenz()` (#1492) |
+| K4 Kalibrierung je Pfad; Vollständigkeitsaussage nur bei allen Pfaden grün | erfüllt | `kalibriere_pfade()`, `unkalibrierte_pfade()` (#1492) |
+| K5 **KG-RECALL** grün auf der Referenzmenge (0 False Negatives) | offen | REC-10 nicht gebaut — ohne Referenzmenge nicht messbar |
 | K6 Garantiegrenze (§7.2) steht im Ausweis-Text, nicht nur im Konzept | offen | — |
-| K7 `source_watermark`, `scan_started_at`/`_finished_at`, `tool_version`, `query_fingerprint` in jedem Ausweis | offen | — |
-| K8 Exit-Code-Hook prüft die Bedingungskette aus §6.1 | offen | — |
-| K9 Scope-Abweichung ≤ 1/3 der Darlegungen | offen | — |
-| K10 Unabhängige Zweitzählung läuft und bricht bei Abweichung ab | offen | — |
+| K7 `source_watermark`, `scan_started_at`/`_finished_at`, `tool_version`, `query_fingerprint` in jedem Ausweis | erfüllt | Pflichtfelder in `Ausweis` (#1492) |
+| K8 Exit-Code-Hook prüft die Bedingungskette aus §6.1 | offen | REC-8 nicht gebaut |
+| K9 Scope-Abweichung ≤ 1/3 der Darlegungen | offen | Pilot läuft erst an — Messung ab jetzt bis 2026-09-30 |
+| K10 Unabhängige Zweitzählung läuft und bricht bei Abweichung ab | teilweise | `nenner_pruefen()` läuft und sperrt die Aussage; ein *Abbruch* ist es nicht (#1492) |
 
 ### 30/60/90
 
