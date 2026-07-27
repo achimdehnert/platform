@@ -134,6 +134,49 @@ def test_should_render_uncovered_items_structured_not_as_free_text():
     assert "HNU-Postfach" in da.rendern(a)
 
 
+def test_should_report_which_path_found_what_the_other_missed():
+    """R-2: der Wert zweier Pfade liegt in der Differenz, nicht in der Summe."""
+    d = da.divergenz(
+        {
+            "server-suche": {("INBOX", b"1"), ("INBOX", b"2")},
+            "client-filter": {("INBOX", b"1")},
+        }
+    )
+    assert d == [("server-suche", "client-filter", 1)]
+
+
+def test_should_report_no_divergence_when_both_paths_agree():
+    gleich = {("INBOX", b"1")}
+    assert da.divergenz({"a": set(gleich), "b": set(gleich)}) == []
+
+
+def test_should_report_divergence_in_both_directions():
+    d = da.divergenz({"a": {1, 2}, "b": {2, 3}})
+    assert ("a", "b", 1) in d
+    assert ("b", "a", 1) in d
+
+
+def test_should_flag_folders_where_own_count_differs_from_the_server():
+    """REC-9: der Nenner war bisher selbstreferenziell."""
+    abweichend = da.nenner_pruefen(
+        {"INBOX": 500, "Archiv": 12}, {"INBOX": 46065, "Archiv": 12}
+    )
+    assert abweichend == [("INBOX", 46065, 500)]
+
+
+def test_should_not_treat_a_missing_server_count_as_divergence():
+    """Ein Ordner ohne STATUS-Antwort ist eine fehlende Gegenprobe, kein Widerspruch."""
+    assert da.nenner_pruefen({"Seltsam": 3}, {}) == []
+
+
+def test_should_block_completeness_claim_when_the_denominator_is_disputed():
+    a = _vollstaendig(nenner_divergenz=(("INBOX", 46065, 500),))
+    zulaessig, gruende = da.vollstaendigkeitsaussage_zulaessig(a)
+    assert not zulaessig
+    assert any("REC-9" in g for g in gruende)
+    assert "Server 46065" in da.rendern(a)
+
+
 def test_should_produce_a_stable_fingerprint_regardless_of_set_order():
     a = da.fingerprint("postsortierung", {"INBOX", "Gesendete Objekte"})
     b = da.fingerprint("postsortierung", {"Gesendete Objekte", "INBOX"})

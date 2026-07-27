@@ -65,6 +65,10 @@ class Ausweis(NamedTuple):
 
     nicht_gedeckt: tuple[tuple[str, str], ...] = ()
 
+    #: REC-9 — Ordner, in denen die eigene Aufzählung und die Server-Zählung
+    #: auseinanderlaufen: (ordner, server_sagt, selbst_gezaehlt).
+    nenner_divergenz: tuple[tuple[str, int, int], ...] = ()
+
     query_fingerprint: str = ""
     tool_version: str = ""
     format_version: str = FORMAT_VERSION
@@ -110,6 +114,46 @@ def unkalibrierte_pfade(ausweis: Ausweis) -> list[str]:
     return [name for name, _ in ausweis.retrievalpfade if name not in kal]
 
 
+def divergenz(treffer: dict[str, set]) -> list[tuple[str, str, int]]:
+    """Was ein Pfad fand und ein anderer nicht (KONZ-035 §5.3 R-2).
+
+    Genau hier liegt der Wert zweier verschiedenartiger Pfade: nicht in der größeren
+    Gesamtmenge, sondern in der Differenz. Findet ein Pfad nichts, wo ein anderer
+    trifft, ist das eine Aussage über die Abfrage — nicht über den Bestand.
+
+    Rückgabe je Paar: (pfad_mit_treffern, pfad_ohne, anzahl_der_differenz). Nur
+    Richtungen mit echter Differenz erscheinen.
+    """
+    raus: list[tuple[str, str, int]] = []
+    for a, menge_a in sorted(treffer.items()):
+        for b, menge_b in sorted(treffer.items()):
+            if a == b:
+                continue
+            if nur_a := menge_a - menge_b:
+                raus.append((a, b, len(nur_a)))
+    return raus
+
+
+def nenner_pruefen(
+    selbst: dict[str, int], server: dict[str, int]
+) -> list[tuple[str, int, int]]:
+    """Eigene Aufzählung gegen die Zählung des Servers (KONZ-035 REC-9).
+
+    Der Nenner eines Deckungsausweises war bisher selbstreferenziell: er entstand aus
+    derselben Aufzählung, deren Vollständigkeit er belegen sollte. Eine zweite,
+    unabhängig erhobene Zahl (``STATUS (MESSAGES)`` bzw. ``totalItemCount``) bricht
+    diesen Zirkel.
+
+    Ordner, für die der Server keine Zahl liefert, sind **keine** Divergenz — nur eine
+    fehlende Gegenprobe; sie erscheinen nicht in der Liste.
+    """
+    return [
+        (ordner, server[ordner], anzahl)
+        for ordner, anzahl in sorted(selbst.items())
+        if ordner in server and server[ordner] != anzahl
+    ]
+
+
 def vollstaendigkeitsaussage_zulaessig(ausweis: Ausweis) -> tuple[bool, list[str]]:
     """Darf auf Basis dieses Ausweises "vollständig" behauptet werden?
 
@@ -143,6 +187,10 @@ def vollstaendigkeitsaussage_zulaessig(ausweis: Ausweis) -> tuple[bool, list[str
         gruende.append(f"{ausweis.seiten_unvollstaendig} Seite(n) abgeschnitten")
     if ausweis.vorhanden and ausweis.geprueft < ausweis.vorhanden:
         gruende.append(f"geprüft {ausweis.geprueft}/{ausweis.vorhanden}")
+    if ausweis.nenner_divergenz:
+        gruende.append(
+            f"Nenner uneinig in {len(ausweis.nenner_divergenz)} Ordner(n) — REC-9"
+        )
 
     return (not gruende), gruende
 
@@ -153,6 +201,9 @@ def als_dict(ausweis: Ausweis) -> dict:
     d["retrievalpfade"] = dict(ausweis.retrievalpfade)
     d["kalibriert"] = list(ausweis.kalibriert)
     d["nicht_gedeckt"] = [{"was": w, "grund": g} for w, g in ausweis.nicht_gedeckt]
+    d["nenner_divergenz"] = [
+        {"ordner": o, "server": s, "selbst": e} for o, s, e in ausweis.nenner_divergenz
+    ]
     zulaessig, gruende = vollstaendigkeitsaussage_zulaessig(ausweis)
     d["vollstaendigkeitsaussage_zulaessig"] = zulaessig
     d["einschraenkungen"] = gruende
@@ -197,6 +248,11 @@ def rendern(ausweis: Ausweis) -> str:
             f"  Störungen  {ausweis.ordner_fehlgeschlagen} Ordner unlesbar, "
             f"{ausweis.timeouts} Timeouts, {ausweis.berechtigungsfehler} Rechte-Fehler, "
             f"{ausweis.seiten_unvollstaendig} Seiten abgeschnitten"
+        )
+
+    for ordner, server, selbst in ausweis.nenner_divergenz:
+        zeilen.append(
+            f"  ⚠ Nenner uneinig [{ordner}]: Server {server}, selbst gezählt {selbst}"
         )
 
     for was, grund in ausweis.nicht_gedeckt:
