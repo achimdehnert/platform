@@ -24,6 +24,10 @@ Kommandos:
   --importance high|normal|low --from S [--subject S] [--yes]    # Wichtigkeit setzen
   --find [--from S] [--subject S] [--days N] [--source PFAD]     # suchen, read-only
   --find --all [--days N] [--source PFAD]                        # Ordner VOLLSTAENDIG aufzaehlen (#1480)
+  --find --category "<Vorgang>" [--source PFAD]                  # alle Mails eines Vorgangs
+  --categorize "<Vorgang>" --from S [--subject S] [--yes]        # Vorgang zuordnen (ADDITIV)
+  --uncategorize "<Vorgang>" --from S [--subject S] [--yes]      # Zuordnung wieder loesen
+  --list-categories [--source PFAD] [--days N]                   # Vorgangs-Inventar + Restmenge
   --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N] [--save-attachments DIR]
   --draft --to a@b.c [--cc c@d.e] --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
   --attach-to <messageId> --attach PFAD [--attach PFAD ...]   # Datei(en) an bestehenden Entwurf hängen
@@ -335,6 +339,7 @@ def _match_messages(
     subject_sub: str = "",
     days: int = 30,
     source_path: str = "inbox",
+    category: str = "",
 ) -> list[dict]:
     """Substring-Filter client-seitig wie bei --move ($search braucht
     ConsistencyLevel-Header und liefert instabile Treffer-Reihenfolge)."""
@@ -350,7 +355,7 @@ def _match_messages(
         [],
         (
             f"{GRAPH}/me/mailFolders/{src}/messages?$top=100"
-            "&$select=id,subject,from,receivedDateTime"
+            "&$select=id,subject,from,receivedDateTime,categories"
             f"&$filter=receivedDateTime ge {since}"
             "&$orderby=receivedDateTime desc"
         ),
@@ -376,6 +381,10 @@ def _match_messages(
                 continue
             if subject_sub and subject_sub.lower() not in subj.lower():
                 continue
+            if category and not any(
+                c.casefold() == category.casefold() for c in (m.get("categories") or [])
+            ):
+                continue
             hits.append(m)
         url = j.get("@odata.nextLink")
 
@@ -391,7 +400,12 @@ def _match_messages(
 
 
 def cmd_find(
-    tok: str, from_sub: str, subject_sub: str, days: int, source_path: str
+    tok: str,
+    from_sub: str,
+    subject_sub: str,
+    days: int,
+    source_path: str,
+    category: str = "",
 ) -> None:
     hits = _match_messages(
         tok,
@@ -399,6 +413,7 @@ def cmd_find(
         subject_sub=subject_sub,
         days=days,
         source_path=source_path,
+        category=category,
     )
     if not hits:
         print(f"Keine Treffer in '{source_path or 'inbox'}' (letzte {days} Tage).")
@@ -792,6 +807,148 @@ def _empfaenger(adressen: str | list[str] | None) -> list[dict]:
     return out
 
 
+def _kategorien(m: dict) -> list[str]:
+    """Kategorien einer Nachricht, leer-tolerant."""
+    return [c for c in (m.get("categories") or []) if c]
+
+
+def kategorie_setzen(
+    bestand: list[str], vorgang: str, *, entfernen: bool = False
+) -> list[str]:
+    """Neue Kategorienliste — ADDITIV, nicht ersetzend.
+
+    Der Kern von ADR-286 §4.9 Stufe 1: eine Nachricht kann zu MEHREREN Vorgaengen
+    gehoeren (die Antwort in Thread A beantwortet zugleich einen Punkt aus Thread B).
+    Wer hier die Liste ersetzt statt zu ergaenzen, loescht mit dem zweiten Vorgang
+    den ersten — und hat damit genau die Ordner-Beschraenkung nachgebaut, deren
+    Ueberwindung der Zweck war.
+
+    Idempotent auch bei abweichender Schreibweise; Reihenfolge bleibt stabil.
+    """
+    vorhanden = [c for c in bestand if c]
+    if entfernen:
+        return [c for c in vorhanden if c.casefold() != vorgang.casefold()]
+    if any(c.casefold() == vorgang.casefold() for c in vorhanden):
+        return list(vorhanden)
+    return [*vorhanden, vorgang]
+
+
+def cmd_kategorisieren(
+    tok: str,
+    *,
+    vorgang: str,
+    from_sub: str,
+    subject_sub: str,
+    source_path: str,
+    days: int,
+    yes: bool,
+    entfernen: bool = False,
+) -> None:
+    """Ordnet die getroffenen Mails einem Vorgang zu bzw. loest die Zuordnung.
+
+    Der Zustand liegt damit im Postfach des Verantwortlichen, nicht in einer
+    zweiten Datenhaltung (ADR-286 §4.9). Reversibel; nichts wird verschoben
+    oder geloescht.
+    """
+    hits = _match_messages(
+        tok,
+        from_sub=from_sub,
+        subject_sub=subject_sub,
+        days=days,
+        source_path=source_path,
+    )
+    if not hits:
+        print("Keine passenden Mails gefunden — nichts geändert.")
+        return
+
+    verb = "Zuordnung lösen" if entfernen else "Vorgang zuordnen"
+    krit = (
+        " & ".join(
+            filter(
+                None,
+                [
+                    f'Absender~"{from_sub}"' if from_sub else None,
+                    f'Betreff~"{subject_sub}"' if subject_sub else None,
+                ],
+            )
+        )
+        or "ALLE"
+    )
+    print(
+        f"{verb}: '{vorgang}' in '{source_path or 'inbox'}'  "
+        f"(Kriterium: {krit}) — reversibel:"
+    )
+    for m in hits:
+        vorher = _kategorien(m)
+        nachher = kategorie_setzen(vorher, vorgang, entfernen=entfernen)
+        zeichen = "=" if vorher == nachher else "->"
+        print(
+            f"  · {m.get('receivedDateTime', '')[:10]}  "
+            f"{(m.get('subject') or '')[:42]:<42} "
+            f"[{', '.join(vorher) or '—'}] {zeichen} [{', '.join(nachher) or '—'}]"
+        )
+    print(f"  = {len(hits)} Mail(s)")
+
+    if not yes:
+        try:
+            if input(f"{verb}? [j/N] ").strip().lower() not in ("j", "ja", "y", "yes"):
+                sys.exit("Abgebrochen — nichts geändert.")
+        except EOFError:
+            sys.exit("Kein --yes und keine Eingabe — abgebrochen.")
+
+    ok = unveraendert = 0
+    for m in hits:
+        vorher = _kategorien(m)
+        nachher = kategorie_setzen(vorher, vorgang, entfernen=entfernen)
+        if vorher == nachher:
+            unveraendert += 1
+            continue
+        r = _http(
+            "PATCH",
+            f"{GRAPH}/me/messages/{urllib.parse.quote(m['id'], safe='')}",
+            headers=_auth(tok),
+            json_body={"categories": nachher},
+        )
+        if r.status_code in (200, 201):
+            ok += 1
+        else:
+            print(
+                f"  ! Fehler bei einer Mail: HTTP {r.status_code} — {r.text[:120]}",
+                file=sys.stderr,
+            )
+    nachsatz = f", {unveraendert} bereits so" if unveraendert else ""
+    print(f"OK: {ok}/{len(hits)} Mail(s) — {verb} '{vorgang}'{nachsatz}.")
+
+
+def cmd_kategorien_listen(tok: str, *, days: int, source_path: str) -> None:
+    """Inventar: welche Vorgaenge sind vergeben, wie viele Mails haengen daran.
+
+    Ausgewiesen wird auch die RESTMENGE ohne Zuordnung — sie ist die Kennzahl,
+    nicht die Trefferzahl (ADR-284 §7a).
+    """
+    hits = _match_messages(
+        tok, from_sub="", subject_sub="", days=days, source_path=source_path
+    )
+    zaehler: Counter = Counter()
+    ohne = 0
+    for m in hits:
+        kats = _kategorien(m)
+        if not kats:
+            ohne += 1
+        for c in kats:
+            zaehler[c] += 1
+    if not zaehler:
+        print(
+            f"Keine Vorgangs-Zuordnung in '{source_path or 'inbox'}' "
+            f"({len(hits)} Mails geprüft)."
+        )
+        return
+    print(f"Vorgänge in '{source_path or 'inbox'}' ({len(hits)} Mails geprüft):")
+    for name, n in zaehler.most_common():
+        print(f"  {n:>5}  {name}")
+    print(f"  {ohne:>5}  (ohne Zuordnung)")
+
+
 def cmd_draft(
     tok: str,
     to: str,
@@ -886,6 +1043,19 @@ def main() -> None:
     )
     g.add_argument("--find", action="store_true", help="Mails suchen (read-only)")
     g.add_argument(
+        "--categorize",
+        metavar="VORGANG",
+        help="Mails einem Vorgang zuordnen (Kategorie, ADDITIV — Mehrfachzuordnung möglich)",
+    )
+    g.add_argument(
+        "--uncategorize", metavar="VORGANG", help="Vorgangs-Zuordnung wieder lösen"
+    )
+    g.add_argument(
+        "--list-categories",
+        action="store_true",
+        help="Inventar der Vorgänge im Ordner samt Restmenge ohne Zuordnung",
+    )
+    g.add_argument(
         "--show", metavar="ID|latest", help="eine Mail vollständig lesen (read-only)"
     )
     g.add_argument("--draft", action="store_true")
@@ -905,6 +1075,11 @@ def main() -> None:
         help="bei --find: Ordner VOLLSTÄNDIG aufzählen, ohne Absender-/Betreff-Filter "
         "(korrekter Weg statt eines Platzhalters wie --from '@', der Absender ohne "
         "SMTP-Adresse still verwirft — s. #1480)",
+    )
+    ap.add_argument(
+        "--category",
+        metavar="VORGANG",
+        help="bei --find: nur Mails dieses Vorgangs",
     )
     ap.add_argument(
         "--cc",
@@ -995,7 +1170,7 @@ def main() -> None:
             ap.error("--move-folder braucht --to-parent ZIEL-ELTERNORDNER")
         cmd_move_folder(tok, args.move_folder, args.to_parent)
     elif args.find:
-        if not (args.from_sub or args.subject or args.all):
+        if not (args.from_sub or args.subject or args.all or args.category):
             ap.error(
                 "--find braucht --from und/oder --subject — oder --all für den ganzen Ordner"
             )
@@ -1009,6 +1184,23 @@ def main() -> None:
             "" if args.all else args.subject,
             args.days,
             args.source,
+            category=args.category or "",
+        )
+    elif args.list_categories:
+        cmd_kategorien_listen(tok, days=args.days, source_path=args.source)
+    elif args.categorize or args.uncategorize:
+        vorgang = args.categorize or args.uncategorize
+        if not (args.from_sub or args.subject):
+            ap.error("--categorize/--uncategorize braucht --from und/oder --subject")
+        cmd_kategorisieren(
+            tok,
+            vorgang=vorgang,
+            from_sub=args.from_sub or "",
+            subject_sub=args.subject or "",
+            source_path=args.source,
+            days=args.days,
+            yes=args.yes,
+            entfernen=bool(args.uncategorize),
         )
     elif args.show:
         cmd_show(

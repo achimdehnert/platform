@@ -469,3 +469,84 @@ def test_should_omit_cc_key_when_no_cc_given(monkeypatch):
     monkeypatch.setattr(mod, "_http", fake_http)
     mod.cmd_draft("tok", "a@b.c", "Betreff", "Text", None)
     assert "ccRecipients" not in erfasst["body"]
+
+
+# --- ADR-286 §4.9 Stufe 1: Vorgangs-Zuordnung über Kategorien -----------------
+# Kernpunkt: ADDITIV. Eine Nachricht kann zu mehreren Vorgängen gehören — die
+# Antwort in Thread A beantwortet zugleich einen Punkt aus Thread B. Wer die
+# Kategorienliste ersetzt statt sie zu ergänzen, baut die Ordner-Beschränkung
+# nach, deren Überwindung der ganze Zweck war.
+
+
+def test_should_add_category_without_dropping_existing_ones():
+    mod = _load()
+    neu = mod.kategorie_setzen(["Postsortierung"], "OZG-Cloud")
+    assert neu == ["Postsortierung", "OZG-Cloud"]
+
+
+def test_should_be_idempotent_when_category_already_present():
+    mod = _load()
+    assert mod.kategorie_setzen(["OZG-Cloud"], "OZG-Cloud") == ["OZG-Cloud"]
+    # auch bei abweichender Schreibweise — sonst entstehen Dubletten-Vorgänge
+    assert mod.kategorie_setzen(["OZG-Cloud"], "ozg-cloud") == ["OZG-Cloud"]
+
+
+def test_should_remove_only_the_named_category():
+    mod = _load()
+    rest = mod.kategorie_setzen(
+        ["Postsortierung", "OZG-Cloud", "Pentest"], "OZG-Cloud", entfernen=True
+    )
+    assert rest == ["Postsortierung", "Pentest"]
+
+
+def test_should_start_from_empty_and_tolerate_missing_field():
+    mod = _load()
+    assert mod.kategorie_setzen([], "Neuer Vorgang") == ["Neuer Vorgang"]
+    assert mod._kategorien({}) == []
+    assert mod._kategorien({"categories": None}) == []
+    assert mod._kategorien({"categories": ["A", "", "B"]}) == ["A", "B"]
+
+
+def test_should_filter_messages_by_category(monkeypatch):
+    import json as _json
+
+    mod = _load()
+    page = {
+        "value": [
+            {
+                "id": "a",
+                "subject": "RE: Postsortierung",
+                "receivedDateTime": "2026-07-24T15:26:00Z",
+                "from": {
+                    "emailAddress": {"address": "partner@example.com", "name": ""}
+                },
+                "categories": ["Postsortierung", "OZG-Cloud"],
+            },
+            {
+                "id": "b",
+                "subject": "Angebot",
+                "receivedDateTime": "2026-07-24T10:00:00Z",
+                "from": {
+                    "emailAddress": {"address": "partner@example.com", "name": ""}
+                },
+                "categories": ["Postsortierung"],
+            },
+            {
+                "id": "c",
+                "subject": "Ohne Zuordnung",
+                "receivedDateTime": "2026-07-24T09:00:00Z",
+                "from": {"emailAddress": {"address": "x@example.com", "name": ""}},
+            },
+        ]
+    }
+    monkeypatch.setattr(mod, "_http", lambda *a, **k: mod._Resp(200, _json.dumps(page)))
+    monkeypatch.setattr(mod, "find_folder", lambda *a, **k: "fid")
+
+    # Prüffall B: dieselbe Nachricht wird über BEIDE Vorgänge gefunden
+    assert [m["id"] for m in mod._match_messages("tok", category="OZG-Cloud")] == ["a"]
+    assert [m["id"] for m in mod._match_messages("tok", category="Postsortierung")] == [
+        "a",
+        "b",
+    ]
+    # ohne Filter bleibt alles sichtbar
+    assert len(mod._match_messages("tok")) == 3
