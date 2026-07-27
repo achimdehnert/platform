@@ -72,6 +72,21 @@ jobs:
           # zweites Freeze-Artefakt existiert nicht, und beide /livez/
           # antworteten bei der Pruefung mit 200. Wer sie kuenftig streichen
           # will: zuerst Eintrag in #1314, dann hier.
+          # PRODUKT-Domain ueberwachen, nicht den Infra-Namen (#1462). Beide Faelle
+          # stammen aus einem Abgleich von infra/ports.yaml gegen diese Liste (2026-07-27):
+          #   travel-beat  domain_prod=drifttales.com. travel-beat.iil.pet lieferte auf /
+          #                404 — der Hostname bediente die Anwendung gar nicht, nur die
+          #                hostname-unabhaengigen Health-Endpoints. Ein Ausfall von
+          #                drifttales.com bei laufendem Container waere unsichtbar
+          #                gewesen. Deshalb ERSETZT, nicht ergaenzt.
+          #   writing-hub  domain_prod=writing.iil.pet, ueberwacht war writing-hub.iil.pet.
+          #                Hier bedienen BEIDE Namen die App — aber aus zwei getrennten
+          #                nginx-Server-Bloecken (writing.iil.pet.conf und
+          #                writing-hub.iil.pet.conf), die inhaltlich bereits auseinander-
+          #                laufen. Ein Fehler in einem der beiden ist real, also stehen
+          #                beide hier: ERGAENZT, nicht ersetzt.
+          # Regel daraus: was hier steht, muss der Name sein, unter dem Nutzer die
+          # Anwendung erreichen — sonst ueberwacht der Canary etwas anderes als das Produkt.
           URLS="
           https://schutztat.de/livez/
           https://137herz.de/livez/
@@ -88,7 +103,9 @@ jobs:
           https://weltenforger.com/livez/
           https://writing-hub.iil.pet/livez/
           https://writing-hub.iil.pet/readyz/
-          https://travel-beat.iil.pet/livez/
+          https://writing.iil.pet/livez/
+          https://writing.iil.pet/readyz/
+          https://drifttales.com/livez/
           https://research.iil.pet/healthz/
           "
           down=""
@@ -144,7 +161,8 @@ jobs:
           https://wedding-hub.iil.pet/static/admin/css/base.css
           https://weltenforger.com/static/admin/css/base.css
           https://writing-hub.iil.pet/static/admin/css/base.css
-          https://travel-beat.iil.pet/static/admin/css/base.css
+          https://writing.iil.pet/static/admin/css/base.css
+          https://drifttales.com/static/admin/css/base.css
           https://research.iil.pet/static/admin/css/base.css
           "
           # Selbsttest: beweist, dass dieser Check ueberhaupt rot werden KANN. Ohne so
