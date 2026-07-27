@@ -249,7 +249,7 @@
 | 281 | Verteile Skills als Symlinks auf den Repo-Checkout statt als generierte Kopien | Accepted | ⬜ | [ADR-281](ADR-281-skill-distribution-symlink.md) |
 | 282 | Skill-/Workflow-Taxonomie, Governance und Lebenszyklus — Wildwuchs über den vollen Lebenszyklus verhindern | Accepted | ⬜ | [ADR-282](ADR-282-skill-workflow-taxonomy-governance-lifecycle.md) |
 | 283 | Korrespondenz-Vorgangs-Speicher — pointer-first, strukturiert, DSGVO-fest | Proposed | ⬜ | [ADR-283](ADR-283-korrespondenz-vorgangsspeicher.md) |
-| 284 | Mail-Intelligence-&-Action-System — Coverage-Contract + Triage-Ledger (Phase 1 verbindlich) | Proposed | ⬜ | [ADR-284](ADR-284-mail-intelligence-action-system.md) |
+| 284 | Mail-Intelligence-&-Action-System — Coverage-Contract + Triage-Ledger (Phase 1 verbindlich) | Accepted | ⬜ | [ADR-284](ADR-284-mail-intelligence-action-system.md) |
 | 285 | Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel | Accepted | ⬜ | [ADR-285](ADR-285-skill-lane-consolidation.md) |
 | 286 | Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence | Accepted | ⬜ | [ADR-286](ADR-286-mail-agent-crypto-shredding-derived-index.md) |
 | 287 | Distribute the domain-expert reviewer in graded stages, gated on artifact-content sovereignty rather than skill location | Proposed | ⬜ | [ADR-287](ADR-287-fach-reviewer-org-weite-distribution.md) |

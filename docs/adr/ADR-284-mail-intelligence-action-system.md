@@ -1,6 +1,6 @@
 ---
-status: proposed
-decision_date: 2026-07-23
+status: accepted
+decision_date: 2026-07-27
 deciders: Achim Dehnert
 domains: [mail, data, dsgvo, tooling, infrastructure, dx]
 supersedes: []
@@ -20,7 +20,7 @@ ai_sparring_by:
 
 # ADR-284: Mail-Intelligence-&-Action-System — Coverage-Contract + Triage-Ledger (Phase 1 verbindlich)
 
-> **Status: proposed. Rev 1 (2026-07-23)** nach **zwei** externen Zweitmeinungen. Beide
+> **Status: accepted (2026-07-27). Rev 1 (2026-07-23)** nach **zwei** externen Zweitmeinungen. Beide
 > urteilten „überarbeiten": Rev 0 rechtfertigte eine PII-tragende 6-Schicht-Plattform für ein
 > Zwei-Personen-Team mit einem Bug, dessen Direktfix eine Skript-Änderung ist, und formulierte
 > „100 %/präzise/sicher" als **Ziele statt als prüfbare Verträge**. Rev 1: **nur Phase 1 ist
@@ -31,7 +31,7 @@ ai_sparring_by:
 
 | Attribut     | Wert                                                             |
 |--------------|-----------------------------------------------------------------|
-| **Status**   | Proposed (Rev 1)                                                |
+| **Status**   | Accepted (Rev 1, angenommen 2026-07-27)                         |
 | **Scope**    | platform (Governance) · Umsetzung dev-hub · **verbindlich: nur Phase 1** |
 | **Erstellt** | 2026-07-23                                                      |
 
@@ -120,6 +120,60 @@ Getrennte, **versionierte** Signale statt eines „wichtig"-Ratens: `bulk`, `aut
 Klassifikation. Lern-Loop: eine Einzelkorrektur darf **keine** globale Absender-/Domain-Abwertung
 ohne Vorschau + Rollback erzeugen; ML/LLM erst mit owner-korrigiertem Eval-Satz + Versionslog
 (späteres Ausbaustadium, nicht Phase-1-Pflicht).
+
+### 7a. Regel-Lebenszyklus — wie eine Regel entsteht und wie sie korrigiert wird
+
+§7 verlangt „Vorschau + Rollback", sagt aber nicht, wie. Das ist die operative Fassung,
+festgelegt beim Accept am 2026-07-27.
+
+**Eine Regel entsteht nie still.** Jede neue Regel ist zuerst ein **Vorschlag** und wird dem
+Owner gezeigt, bevor sie das erste Mal wirkt. Es gibt keinen Pfad, auf dem eine Beobachtung
+unmittelbar zu einer wirkenden Regel wird.
+
+**Zwei Quellen, unterschiedlich stark:**
+
+| Quelle | Schwelle | Beispiel |
+|---|---|---|
+| **Ausdrückliche Ansage** des Owners | sofort, kein Schwellwert | „eis.de immer in den Papierkorb" |
+| **Beobachtung** von Owner-Handbewegungen | **nie** aus einem Einzelfall; erst ab zwei gleichgerichteten Beobachtungen | zweimal dieselbe Absender-Domain nach `IIL.Finanzen` verschoben |
+
+Ein einzelnes Verschieben kann eine Ausnahme sein. Aus einer Ausnahme eine Regel zu machen
+ist der teurere Fehler, weil er sich auf den ganzen Bestand auswirkt.
+
+**Der Vorschlag zeigt vier Dinge — nicht nur die Regel:**
+
+1. **Beobachtung** mit Beleg: welche Nachrichten, welches Datum, welche Bewegung.
+2. **Abgeleitete Regel** im Klartext.
+3. **Rückwirkungs-Trockenlauf:** was die Regel im vorhandenen Bestand getroffen hätte,
+   mit Stichprobe. Ohne diesen Schritt kein Vorschlag.
+4. **Gegenprobe:** was sie fälschlich fangen könnte. Realfall 2026-07-27: eine Hoster-Regel
+   hätte 52 Sicherheits- und Betriebshinweise im Rechnungsordner begraben; sichtbar wurde das
+   erst durch die Stichprobe, nicht durch die Regelformulierung.
+
+**Verschieben und Löschen sind nicht symmetrisch.** Aus einem Löschvorgang wird **nie**
+automatisch eine Trash-Regel abgeleitet. Löschen ist mehrdeutig — es kann „Rauschen" heißen
+oder „erledigt, kann weg". Diese beiden Bedeutungen sind von außen nicht unterscheidbar.
+Trash-Regeln entstehen ausschließlich auf ausdrückliche Ansage.
+
+**Widerspruch pausiert die Regel, statt sie still zu verengen.** Verschiebt der Owner eine
+Nachricht zurück oder anders, ist das ein **Gegenbeispiel**. Die betroffene Regel wechselt
+nach `strittig` und wirkt nicht weiter, bis entschieden ist. Eine automatische Verengung
+(„dann eben ohne diesen Absender") ist untersagt — sie würde den Widerspruch verschwinden
+lassen, statt ihn zu klären.
+
+**Zustände:** `vorschlag` → `aktiv` → `strittig` → `stillgelegt`. Regeln werden **nicht
+gelöscht**, damit nachvollziehbar bleibt, warum der Bestand so aussieht, wie er aussieht.
+
+**Jeder Lauf ist rücknehmbar.** Protokolliert werden Nachricht, Quellordner, Zielordner und
+die auslösende Regel-ID. Ohne dieses Protokoll ist ein Rollback im Sinne von §7 nicht möglich.
+
+**Kennzahl ist die Restmenge, nicht die Trefferzahl.** Gemessen wird, wie viele Nachrichten
+**keine** Regel traf und deshalb sichtbar liegen blieben — das ist der Arbeitsvorrat für neue
+Regeln und zugleich der Beleg, dass nichts stumm verschwunden ist (§7 „nie stumm weg").
+
+**Ablageort:** Regeln enthalten Absenderadressen, also personenbezogene Daten. Sie liegen
+lokal (`~/.claude/mail-regeln.json`), **nie** im Repo. Der Interpreter liegt versioniert und
+testbar in `tools/mail_agent/`.
 
 ## 8. nl2sql — Sicherheit korrigiert
 
@@ -212,5 +266,6 @@ Schwächen; keiner war `[out-of-scope]`/`[missversteht]`.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-27 | Claude Code (Opus 5) | **Status proposed → accepted.** Neu §7a **Regel-Lebenszyklus**: Vorschlag statt stiller Regel, Zwei-Beobachtungen-Schwelle für abgeleitete Regeln, Rückwirkungs-Trockenlauf + Gegenprobe als Pflichtteile des Vorschlags, Asymmetrie Verschieben/Löschen (keine Trash-Regel aus Beobachtung), Gegenbeispiel setzt Regel auf `strittig` statt sie still zu verengen, Restmenge als Kennzahl. Anlass: Aufräumlauf 2026-07-27 (1366 → 185 Mails), bei dem eine Hoster-Regel im Trockenlauf 52 Betriebshinweise falsch einsortiert hätte. |
 | 2026-07-23 | Claude Code (Opus 4.8) | **Rev 1** nach zwei externen Zweitmeinungen (§15). Kern-Umbau: **nur Phase 1 verbindlich** (§3), Rest in Folge-ADRs (§10). „100 %/präzise/sicher" → Verträge: **Coverage-Contract + Triage-Ledger** (§4, „indexiert ≠ geprüft"), **ephemerer/minimaler purgebarer Index** + entschiedener Feld-Scope + Löschkaskade als Akzeptanzkriterium (§5), **occurrence ≠ message** + Threading-Konfidenz (§6), konservative versionierte Klassifikation (§7), **nl2sql-Sicherheit korrigiert** + Regel-DSL (§8), Reconciliation-SLO + Tombstones (§9), live-fetch statt Body-Kopie (§3/§5), messbares Kill-Gate (§14), Baseline die die DB schlagen muss (§12). |
 | 2026-07-23 | Claude Code (Opus 4.8) | Initial (proposed, Rev 0). Sechs Schichten, „Regeln = Abfragen", nl2sql-Idee, ADR-283 eingebettet. Kundennamen nachträglich genericisiert (PII-frei vor externer Zweitmeinung). |
