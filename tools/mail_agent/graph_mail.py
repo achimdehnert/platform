@@ -18,7 +18,7 @@ Kommandos:
   --list-folders
   --create-path "DSGVO/Groeger"          # legt Ober- + Unterordner an (idempotent)
   --scan-senders [--days N]              # Absender-Domains + Häufigkeit (Mapping-Vorschlag)
-  --move --from "<domain-oder-substr>" --to "DSGVO/Groeger" [--yes]
+  --move --from "<domain-oder-substr>" [--subject S] --to "DSGVO/Groeger" [--yes]
   --flag   --from S [--subject S] [--source PFAD] [--yes]        # zur Nachverfolgung markieren
   --unflag --from S [--subject S] [--source PFAD] [--yes]        # Markierung wieder entfernen
   --importance high|normal|low --from S [--subject S] [--yes]    # Wichtigkeit setzen
@@ -527,7 +527,7 @@ def cmd_show(
 # ---------- Verschieben ----------
 
 
-def _find_messages(tok: str, from_sub: str, source_path: str):
+def _find_messages(tok: str, from_sub: str, source_path: str, subject_sub: str = ""):
     src = (
         "inbox"
         if source_path.lower() in ("inbox", "")
@@ -548,28 +548,46 @@ def _find_messages(tok: str, from_sub: str, source_path: str):
         for m in j.get("value", []):
             addr = ((m.get("from") or {}).get("emailAddress") or {}).get("address", "")
             name = ((m.get("from") or {}).get("emailAddress") or {}).get("name", "")
-            if from_sub.lower() in addr.lower() or from_sub.lower() in name.lower():
-                hits.append(
-                    (
-                        m["id"],
-                        m.get("receivedDateTime", "")[:10],
-                        addr[:38],
-                        (m.get("subject") or "")[:50],
-                    )
+            subj = m.get("subject") or ""
+            if (
+                from_sub.lower() not in addr.lower()
+                and from_sub.lower() not in name.lower()
+            ):
+                continue
+            # UND-Bedingung (#1281): Sammeladressen wie microsoft-noreply@ liefern
+            # Rechnungen und Abo-Mails unter derselben Adresse — eine reine
+            # Absender-Regel wuerde beides in denselben Ordner werfen.
+            if subject_sub and subject_sub.lower() not in subj.lower():
+                continue
+            hits.append(
+                (
+                    m["id"],
+                    m.get("receivedDateTime", "")[:10],
+                    addr[:38],
+                    subj[:50],
                 )
+            )
         url = j.get("@odata.nextLink")
     return hits
 
 
 def cmd_move(
-    tok: str, from_sub: str, target_path: str, source_path: str, yes: bool
+    tok: str,
+    from_sub: str,
+    target_path: str,
+    source_path: str,
+    yes: bool,
+    subject_sub: str = "",
 ) -> None:
-    hits = _find_messages(tok, from_sub, source_path)
+    hits = _find_messages(tok, from_sub, source_path, subject_sub)
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
         return
+    kriterium = f'Absender~"{from_sub}"'
+    if subject_sub:
+        kriterium += f' UND Betreff~"{subject_sub}"'
     print(
-        f"Verschieben (Absender~\"{from_sub}\") aus '{source_path or 'inbox'}' nach '{target_path}':"
+        f"Verschieben ({kriterium}) aus '{source_path or 'inbox'}' nach '{target_path}':"
     )
     for _, d, frm, subj in hits:
         print(f"  · {d}  {frm:<38} {subj}")
@@ -890,7 +908,7 @@ def main() -> None:
     elif args.move:
         if not (args.from_sub and args.to):
             ap.error("--move braucht --from und --to")
-        cmd_move(tok, args.from_sub, args.to, args.source, args.yes)
+        cmd_move(tok, args.from_sub, args.to, args.source, args.yes, args.subject)
     elif args.flag or args.unflag:
         if not (args.from_sub or args.subject):
             ap.error("--flag/--unflag braucht --from und/oder --subject")

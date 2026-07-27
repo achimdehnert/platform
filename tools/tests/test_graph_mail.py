@@ -122,6 +122,71 @@ def test_should_filter_find_hits_by_from_and_subject(monkeypatch):
     assert [m["id"] for m in hits] == ["m1", "m3"]
 
 
+# --- #1281: --move braucht denselben UND-Filter wie --find/--flag --------------
+# Realfall IIL-Postfach: microsoft-noreply@microsoft.com liefert Rechnungen UND
+# Abo-/Lizenzmails unter EINER Adresse — eine reine Absender-Regel wirft beides
+# in denselben Ordner.
+
+
+def _ms_page():
+    def _m(mid, subject, addr):
+        return {
+            "id": mid,
+            "subject": subject,
+            "receivedDateTime": "2026-07-20T08:00:00Z",
+            "from": {"emailAddress": {"address": addr, "name": "Microsoft"}},
+        }
+
+    return {
+        "value": [
+            _m(
+                "r1",
+                "Ihre Microsoft-Rechnung G012 ist bereit",
+                "microsoft-noreply@microsoft.com",
+            ),
+            _m(
+                "a1",
+                "Ihr Abonnement wurde verlängert",
+                "microsoft-noreply@microsoft.com",
+            ),
+            _m(
+                "r2",
+                "Ihre Microsoft-Rechnung G013 ist bereit",
+                "microsoft-noreply@microsoft.com",
+            ),
+            _m("x1", "Rechnung", "billing@other.example"),
+        ]
+    }
+
+
+def test_should_move_only_messages_matching_from_and_subject(monkeypatch):
+    import json as _json
+
+    mod = _load()
+    monkeypatch.setattr(
+        mod, "_http", lambda *a, **k: mod._Resp(200, _json.dumps(_ms_page()))
+    )
+    monkeypatch.setattr(mod, "find_folder", lambda *a, **k: "srcid")
+
+    hits = mod._find_messages(
+        "tok", "microsoft-noreply", "inbox", subject_sub="Rechnung"
+    )
+    assert [h[0] for h in hits] == ["r1", "r2"]  # Abo-Mail bleibt liegen
+
+
+def test_should_keep_move_behaviour_unchanged_without_subject(monkeypatch):
+    import json as _json
+
+    mod = _load()
+    monkeypatch.setattr(
+        mod, "_http", lambda *a, **k: mod._Resp(200, _json.dumps(_ms_page()))
+    )
+    monkeypatch.setattr(mod, "find_folder", lambda *a, **k: "srcid")
+
+    hits = mod._find_messages("tok", "microsoft-noreply", "inbox")
+    assert [h[0] for h in hits] == ["r1", "a1", "r2"]
+
+
 def test_should_build_file_attachment_payload(tmp_path):
     import base64 as _b64
 
