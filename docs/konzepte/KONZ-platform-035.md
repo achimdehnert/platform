@@ -7,8 +7,17 @@ owner: Achim Dehnert
 spec_refs: []          # kein Klickdummy; betrifft Werkzeug- und Antwortkonvention (begründet leer)
 adr_threshold: Amendment   # ADR-284 §2 dehnt den Coverage-Contract auf Live-Antworten aus
 review_by: 2026-10-27
-kill_criteria: "Eine Sachverhalts-Darlegung lässt bis 2026-09-30 eine relevante Mail aus, die INNERHALB des ausgewiesenen Deckungsbereichs lag → Konzept verfehlt seinen Zweck, wird verworfen statt geflickt. Ausserhalb des Bereichs = kein Fehlschlag, sondern eine Scope-Entscheidung."
+kill_criteria: "ZWEI Gates. KG-RECALL: ein einziger False Negative auf der Referenzmenge beendet den Pilot. KG-PROCESS: ein produktiver Ausweis mit unbekannten Teilfehlern, fehlenden Pflichtfeldern oder unbegründeter Scope-Abweichung; ODER Scope-Abweichung in mehr als 1/3 der Darlegungen bis 2026-09-30. Beides -> verwerfen, nicht flicken."
 superseded_by_spec: null
+ai_sparring_by:
+  - tool: other
+    date: 2026-07-27
+    role: adversarial-review
+    summary: "Externe Runde 1: Verdikt ueberarbeiten. Kern: fehlender Watermark reproduziert die 'still veraltete Sicherheit' aus ADR-284 §9; §7.2-Syllogismus ueberdehnt; Kill-Gate ohne Entdeckungskanal. Tag-Tabelle im Body §14."
+  - tool: other
+    date: 2026-07-27
+    role: adversarial-review
+    summary: "Externe Runde 2: Verdikt ueberarbeiten. Kern: Taxonomie vermischt Ursachen, Beobachtbarkeit und Urteilsgrenzen; Erfassungs-/Konsistenzklasse fehlt; Kill-Gate braucht Referenzmenge statt entdeckter Auslassungen. Tag-Tabelle im Body §14."
 evidence_manifest:
   - {claim_id: C1, source_path: docs/adr/ADR-284-mail-intelligence-action-system.md, commit_or_pr: "2c3b2f11/main", opened_in_session: true}
   - {claim_id: C2, source_path: docs/adr/ADR-286-mail-agent-crypto-shredding-derived-index.md, commit_or_pr: "#1488", opened_in_session: true}
@@ -17,64 +26,62 @@ evidence_manifest:
   - {claim_id: C5, source_path: tools/mail_agent/vorgang.py, commit_or_pr: "#1490", opened_in_session: true}
   - {claim_id: C6, source_path: .windsurf/workflows/mailcheck.md, commit_or_pr: "#1485", opened_in_session: true}
   - {claim_id: C7, source_path: "session-run", commit_or_pr: "vorgang.py --topic SUBJECT 2026-07-27", opened_in_session: true}
+  - {claim_id: C8, source_path: "~/shared/adr-handoff-KONZ-platform-035-2026-07-27.md", commit_or_pr: "externe Runden 1+2, 2026-07-27", opened_in_session: true}
 created: 2026-07-27
 ---
 
 # KONZ-platform-035: Deckungsausweis
 
-**Tier T3.** Die Konvention wirkt über die org-weit verteilten Mail-Skills (`mailcheck`,
-`briefing`, `iil-mail`, `read-mail`, `organize-mail`) in alle Repos, und sie verschiebt den
-Datenschutz-Perimeter: Ein Pflicht-Scope über *alle* Ordner berührt mehr personenbezogene Daten
-als der heutige Zuschnitt. Beides sind T3-Trigger. Zusätzlich amendiert sie einen `accepted`
-ADR. Der bei T3 vorgesehene Agenten-Fan-out entfällt zugunsten einer **externen Zweitmeinung**
-(`/adr-handoff-extern`) — Owner-Entscheid, und die stärkere Prüfung von beiden.
+**Tier T3.** Die Konvention wirkt über die org-weit verteilten Mail-Skills in alle Repos, und ein
+Pflicht-Scope über *alle* Ordner verschiebt den Datenschutz-Perimeter. Beides sind T3-Trigger.
+Der Agenten-Fan-out entfiel zugunsten **zweier externer Zweitmeinungen** verschiedener Anbieter
+(§14) — beide Verdikt „überarbeiten", beide eingearbeitet.
+
+## Kernthese
+
+**Vollständigkeit ist nicht garantierbar, Deckung ist ausweisbar** — deshalb trägt jede
+Sachverhalts-Darlegung ihren Deckungsausweis, und ohne ihn gilt sie als unvollständig.
 
 ---
 
 ## 1 Executive Summary
 
-Am 2026-07-27 sind an einem Tag **drei** Sachverhalts-Darlegungen unvollständig gewesen, und
-zwar jede aus einem anderen Grund. Keiner davon war Nachlässigkeit; jeder war eine Abfrage, die
-plausibel aussah und weniger maß, als sie zu messen schien. Der teuerste Fall führte dazu, dass
-eine betroffene Person eine **zweite** Authentifizierungsanfrage in einem laufenden Art.-17-
-Verfahren erhielt.
+Am 2026-07-27 sind an einem Tag **drei** Sachverhalts-Darlegungen unvollständig gewesen, jede aus
+einem anderen Grund. Keiner davon war Nachlässigkeit; jeder war eine Abfrage, die plausibel
+aussah und weniger maß, als sie zu messen schien. Der teuerste Fall führte dazu, dass eine
+betroffene Person eine **zweite** Authentifizierungsanfrage in einem laufenden Art.-17-Verfahren
+erhielt.
 
 **Vorschlag:** Jede Sachverhalts-Darlegung trägt einen maschinell erzeugten **Deckungsausweis** —
-welche Frage, welche Konten, wie viele Ordner, welches Zeitfenster, welche Kriterien mit je
-eigener Trefferzahl, wie viel geprüft, und ausdrücklich: **was nicht gedeckt war**. Ohne ihn gilt
-die Darlegung als unvollständig.
+welche Frage, welcher Anlass, welche Konten von wie vielen, wie viele Ordner, **zu welchem
+Zeitpunkt und Quell-Watermark**, welche Retrievalpfade mit je eigener Trefferzahl, welche
+Teilfehler aufgetreten sind, und ausdrücklich: **was nicht gedeckt war**.
 
 **Der Kern ist eine Umkehrung der Beweislast.** Heute behauptet die Antwort implizit
-Vollständigkeit und niemand kann sie prüfen. Künftig weist sie ihre Grenzen aus, und die
-Vollständigkeit ergibt sich — oder eben nicht — aus einer nachrechenbaren Angabe.
+Vollständigkeit und niemand kann sie prüfen. Künftig weist sie ihre Grenzen aus.
 
-**Was das Konzept ausdrücklich nicht verspricht:** Relevanz. Es sichert die **Deckung**. Welche
-der gedeckten Nachrichten zum Sachverhalt gehören, entscheidet der Mensch. Diese Grenze ist keine
-Schwäche des Entwurfs, sondern ein Ergebnis (§7.2).
+**Zwei Dinge, die dieses Konzept nach externer Kritik ausdrücklich *nicht* mehr behauptet:**
+Es beweist keine Unmöglichkeit (§7.2), und es misst seine Wirksamkeit nicht an entdeckten
+Auslassungen allein, sondern an einer **Referenzmenge mit bekannter Grundgesamtheit** (§13).
 
 ---
 
 ## 2 Scope & Evidenzbasis
 
-**Geöffnet in dieser Session** (C1–C7): ADR-284 (Coverage-Contract, Scope-Tabelle), ADR-286 §4.9
-(Vorgangs-Graph, deterministische Signale), die drei Mail-Werkzeuge samt der heute an ihnen
-vorgenommenen Änderungen, der `/mailcheck`-Skill, und ein Live-Lauf der ordnerübergreifenden
-Suche.
+**Geöffnet in dieser Session** (C1–C8): ADR-284 (Coverage-Contract, Scope-Tabelle), ADR-286 §4.9,
+die drei Mail-Werkzeuge samt der heute an ihnen vorgenommenen Änderungen, der `/mailcheck`-Skill,
+ein Live-Lauf der ordnerübergreifenden Suche, und die beiden externen Reviews.
 
-**Nicht geöffnet und deshalb Hypothese:** wie sich der Vorschlag auf Postfächer verhält, die
-deutlich größer sind als die gemessenen (46.065 Nachrichten / 110 Ordner), und ob die
-Laufzeitmessung auf anderen Servern trägt.
+**Nicht geöffnet, deshalb Hypothese:** das Verhalten auf Postfächern, die deutlich größer sind als
+die gemessenen (46.065 Nachrichten / 110 Ordner), und ob die Laufzeitmessung auf anderen Servern
+trägt.
 
-**Was ausdrücklich außerhalb liegt:** der Index aus ADR-284 Phase 1 (existiert nicht),
-semantische Relevanzbestimmung (§7.2), und jede Persistenz — dieses Konzept fügt kein
-speicherndes Element hinzu.
+**Außerhalb:** der Index aus ADR-284 Phase 1 (existiert nicht), semantische Relevanzbestimmung
+(§7.2), und jede Persistenz — dieses Konzept fügt kein speicherndes Element hinzu.
 
 ---
 
 ## 3 Infrastruktur-Fit
-
-Die Bausteine sind zum großen Teil **heute schon da** — sie greifen nur nicht ineinander und
-niemand verpflichtet sie zu einer gemeinsamen Aussage.
 
 | Baustein | Ort | Stand |
 |---|---|---|
@@ -83,42 +90,37 @@ niemand verpflichtet sie zu einer gemeinsamen Aussage.
 | Nenner in jeder Liste | `read_mail._bilanz` (C3) | vorhanden, seit #1487 |
 | Ordnerübergreifende Sachsuche | `vorgang.py --topic` (C5) | vorhanden, seit #1490 |
 | Warnung zur Trefferqualität | `vorgang.such_hinweis` (C5) | vorhanden, seit #1490 |
-| Vorgangs-Zuordnung über Ordnerbaum | `vorgang.py --suggest` (C5) | vorhanden, seit #1490 |
-| **Gemeinsame Deckungsaussage über all das** | — | **fehlt** |
-| **Verpflichtung, sie auszuweisen** | — | **fehlt** |
+| **Gemeinsame Deckungsaussage** | — | **fehlt** |
+| **Unabhängige Zweitzählung** | — | **fehlt** (§12 REC-9) |
+| **Referenzmenge mit bekannter Grundgesamtheit** | — | **fehlt** (§13 KG-RECALL) |
 
-**Root-Cause-Prüfung (Pflicht, gegen Konzepte für gelöste Probleme):** ADR-284 §2 Nr. 1 führt
-**bereits** einen Coverage-Contract — „100 % der für den Connector sichtbaren Nachrichten in
-explizit benannten Accounts + Ordner-Scope zu einem ausgewiesenen Quell-Watermark". Der Mechanismus
-ist also erfunden. Aber §3 bindet ihn ausdrücklich auf **Phase 1 = den Index**, und die
-Scope-Tabelle führt Phase 0–4 getrennt auf. Die **Live-Antwort** fällt in keine dieser Phasen.
+**Root-Cause-Prüfung.** ADR-284 §2 Nr. 1 führt **bereits** einen Coverage-Contract — „100 % der
+für den Connector sichtbaren Nachrichten in explizit benannten Accounts + Ordner-Scope **zu einem
+ausgewiesenen Quell-Watermark**". §3 bindet ihn aber auf **Phase 1 = den Index**; die Live-Antwort
+fällt in keine Phase.
 
-Damit ist die Lage präzise: **Der Vertrag existiert, er bindet nur das Falsche.** Alle drei
-Fehlschläge traten in Live-Antworten auf — der Index existiert noch gar nicht. Ein Konzept ist
-nötig, aber es ist ein **Amendment**, kein Neubau (§8, §12).
+**Der Vertrag existiert, er bindet nur das Falsche.** Ein Amendment ist nötig, kein Neubau.
+
+*Nachtrag nach externer Kritik:* Die erste Fassung dieses Konzepts zitierte genau diesen Satz und
+ließ den **Watermark** dann selbst weg — und hätte damit die „still veraltete Sicherheit"
+reproduziert, die ADR-284 §9 als schlimmer als keine bezeichnet. Beide Reviewer haben das
+unabhängig gefunden.
 
 ---
 
 ## 4 Steelman
 
-Die stärkste Fassung des Vorschlags argumentiert nicht mit Ordnung, sondern mit **Haftung**.
+Die stärkste Fassung argumentiert nicht mit Ordnung, sondern mit **Haftung**.
 
-Wer als Datenschutzbeauftragter, Betreuer oder Vertragspartner eine Auskunft gibt, haftet für
-ihre Richtigkeit. Eine Auskunft aus unvollständigem Material ist falsch, auch wenn jeder einzelne
-Satz darin zutrifft. Das ist der Unterschied zwischen einem Irrtum und einem Fehler: Der Irrtum
-ist eine falsche Aussage, der Fehler ein Verfahren, das falsche Aussagen erzeugt, ohne dass es
-auffällt.
+Wer eine Auskunft gibt, haftet für ihre Richtigkeit. Eine Auskunft aus unvollständigem Material
+ist falsch, auch wenn jeder einzelne Satz zutrifft. Das ist der Unterschied zwischen einem Irrtum
+und einem Fehler: Der Irrtum ist eine falsche Aussage, der Fehler ein Verfahren, das falsche
+Aussagen erzeugt, ohne dass es auffällt.
 
-Der Deckungsausweis verwandelt eine **unprüfbare Zusicherung** („ich habe alles angesehen") in
-eine **nachrechenbare Angabe** („110 Ordner, 46.065 Nachrichten, Kriterium Betreff, 11 Treffer,
-Papierkorb eingeschlossen"). Zwei Dinge folgen daraus, die keine Sorgfaltsermahnung leisten kann:
-
-Erstens wird eine **Lücke sichtbar, ohne dass jemand sie sucht**. Wer liest, dass 346 von 846
-Nachrichten nicht angesehen wurden, weiß es — ohne den Verdacht gehabt zu haben.
-
-Zweitens wird die Aussage **fremdprüfbar**. Ein Dritter — Aufsichtsbehörde, Mandant, Kollege —
-kann den Deckungsbereich beurteilen, ohne die Arbeit zu wiederholen. Das ist genau der Schritt,
-den ADR-284 für den Index bereits gegangen ist: Verträge statt Adjektive.
+Der Ausweis verwandelt eine **unprüfbare Zusicherung** in eine **nachrechenbare Angabe**. Zwei
+Dinge folgen daraus, die keine Sorgfaltsermahnung leistet: Eine Lücke wird **sichtbar, ohne dass
+jemand sie sucht**, und die Aussage wird **fremdprüfbar** — ein Dritter kann den Deckungsbereich
+beurteilen, ohne die Arbeit zu wiederholen.
 
 Und es ist wohlfeil: Die Werkzeuge messen die Zahlen ohnehin. Heute werfen sie sie weg.
 
@@ -126,60 +128,77 @@ Und es ist wohlfeil: Die Werkzeuge messen die Zahlen ohnehin. Heute werfen sie s
 
 ## 5 Konzeptdefinition
 
-### 5.1 Die vier Lücken
+### 5.1 Fünf Schichten, nicht vier gleichrangige Klassen
 
-Der Kern des Vorschlags ist eine **Taxonomie**, weil „unvollständig" vier verschiedene Dinge
-heißt, die vier verschiedene Gegenmittel brauchen. Alle vier sind an einem Tag real aufgetreten.
+Die erste Fassung führte vier gleichrangige „Lücken". Beide Reviewer haben unabhängig
+festgestellt, dass das **Ursachen, Beobachtbarkeitsmängel und Urteilsgrenzen auf eine Ebene**
+mischt. Korrigiert zu einem Schichtenmodell — die Schichten dürfen sich überlagern, und der Text
+behauptet keine Trennschärfe, die im Betrieb nicht besteht.
 
-| # | Lücke | Was schiefgeht | Realfall 2026-07-27 | Mechanisch lösbar? |
+| # | Schicht | Was schiefgeht | Realfall / Beispiel | mechanisch lösbar |
 |---|---|---|---|---|
-| **L1** | **Quellen-Lücke** | Der Suchraum ist enger als der Sachverhalt | Darlegung aus INBOX allein — 3 von 11 Nachrichten; drei der fehlenden lagen im **Papierkorb** (C7) | **ja** — Scope ausweisen und erzwingen |
-| **L2** | **Kriterien-Lücke** | Die Abfrage kann nicht treffen, was existiert | Platzhalter `--from "@"` verwarf 21 von 34 (Exchange-X.500-DN ohne `@`) (C4) | **ja** — mehrere Kriterien + Kalibrierung |
-| **L3** | **Sichtbarkeits-Lücke** | Das Ergebnis wirkt vollständig, weil der Nenner fehlt | `--list N` gab N Zeilen und sonst nichts (C3) | **ja** — Nenner ist Pflicht |
-| **L4** | **Relevanz-Lücke** | Gefunden, aber nicht als zugehörig erkannt | dieselbe Nachricht gehört zu zwei Vorgängen (ADR-286 §4.9) | **nein** — s. §7.2 |
+| **L1** | **Suchraum** | falsche oder zu wenige Konten, Ordner, Zeitfenster | Darlegung aus INBOX allein — 3 von 11 Nachrichten, drei davon im Papierkorb (C7) | **ja** |
+| **L2** | **Retrieval** | ungeeignete Felder, Normalisierung, Kriterien | Platzhalter `--from "@"` verwarf 21 von 34 (X.500-DN ohne `@`) (C4) | **ja** |
+| **L3** | **Erfassung / Konsistenz** | Pagination, Timeout, Berechtigung, Connector-Sichtbarkeit, **nicht atomarer Scan** | ein Lauf über 110 Ordner dauert 10–77 s; das Postfach ändert sich dabei (C5) | **ja** |
+| **L4** | **Beobachtbarkeit** | das Ergebnis wirkt vollständig, weil Nenner, Fehlerliste oder Trunkierungsangabe fehlen | `--list N` gab N Zeilen und sonst nichts (C3) | **ja** |
+| **L5** | **Relevanz / Zuordnung** | Kandidat gefunden, aber nicht richtig eingeordnet | dieselbe Nachricht gehört zu zwei Vorgängen (ADR-286 §4.9) | **nein** — §7.2 |
 
-L1–L3 sind **Verfahrensfehler** und vollständig mechanisierbar. L4 ist ein **Urteilsproblem** und
-bleibt beim Menschen. Ein Konzept, das alle vier zu lösen verspricht, verspricht zu viel; eines,
-das L1–L3 löst und L4 sichtbar ausweist, ist ehrlich und ausreichend.
+**L1–L4 sind Verfahrensfehler** und mechanisierbar. **L5 ist ein Urteilsproblem** und bleibt beim
+Menschen. Der eigentliche Beitrag ist dieser Schnitt, nicht die Feingliederung darüber.
+
+**L3 war in der ersten Fassung nicht vorhanden** und ist die wichtigste Ergänzung: Ein Ordner mit
+Timeout, abgebrochener Pagination oder Berechtigungsfehler darf **nicht** als „durchsucht" zählen —
+sonst ist der Nenner eine Lüge mit Nachkommastellen.
 
 ### 5.2 Der Deckungsausweis
 
-Ein maschinell erzeugter Block, der **vor** der Trefferliste steht — nicht als Fußnote, weil
-Fußnoten nach dreimal Lesen unsichtbar werden.
+Maschinell erzeugt, **vor** der Trefferliste — nicht als Fußnote, weil Fußnoten nach dreimal Lesen
+unsichtbar werden.
 
 | Feld | Warum |
 |---|---|
-| **Frage** | Vollständigkeit ist ohne Frage undefiniert (§7.1). Der Ausweis nennt sie, damit später prüfbar ist, wonach gesucht wurde |
-| **Konten** | „alle" ist ohne Aufzählung eine Behauptung |
-| **Ordner: durchsucht / vorhanden** | die Quellen-Lücke wird zur Zahl |
-| **Zeitfenster** | ein Fenster ist ein Ausschluss und gehört benannt |
-| **Kriterien, je mit eigener Trefferzahl** | ein Kriterium, das **0** liefert, ist ein Befund — im Gesamtergebnis wäre es unsichtbar |
-| **geprüft / vorhanden** | Trunkierung wird sichtbar |
-| **Nicht gedeckt** | die eigentliche Aussage: was ausgeschlossen war und warum |
-| **Erzeugt von** | maschinell oder von Hand — beides erlaubt, aber unterscheidbar |
+| `frage` | Vollständigkeit ist ohne Frage undefiniert (§7.1) |
+| `anlass` | Die DSGVO-Begründung hängt an Anlassbezogenheit (§7.4) — ohne Feld ist sie unprüfbar |
+| `konten_vorhanden` / `konten_durchsucht` | L1 eine Ebene über den Ordnern; ohne Verhältnis bleibt die Konten-Auswahl der stille Scope |
+| `ordner_vorhanden` / `ordner_durchsucht` | der Nenner |
+| `scan_started_at` / `scan_finished_at` / `source_watermark` | **L3.** Bei 10–77 s Laufzeit ist der Postfachzustand kein Punkt, sondern ein Intervall |
+| `retrievalpfade: {pfad: treffer}` | ein Pfad mit **0** Treffern ist ein Befund — im Gesamtergebnis unsichtbar |
+| `ordner_fehlgeschlagen` / `timeouts` / `berechtigungsfehler` / `seiten_unvollstaendig` | **L3.** „durchsucht" ist ohne diese Felder semantisch unbestimmt |
+| `geprueft` / `vorhanden` | Trunkierung |
+| `nicht_gedeckt: [{was, grund}]` | die eigentliche Aussage — strukturiert, nicht als Freitext |
+| `query_fingerprint` / `tool_version` / `format_version` | Reproduzierbarkeit; ein Ausweis ohne sie ist später nicht mit anderen vergleichbar |
+| `erzeuger: maschinell \| manuell` | Handbetrieb bleibt zulässig, aber unterscheidbar |
+
+**Primär ist ein versioniertes Objekt `deckungsausweis.v1`, sekundär dessen Markdown-Rendering.**
+Alle Skills nutzen denselben Renderer. Ein reiner Textblock über fünf Skills hinweg wäre genau die
+Doppelquelle, die die SSoT-Konvention verbietet — und er wäre 2028 auseinandergelaufen.
 
 ### 5.3 Die fünf Regeln
 
-**R-1 — Pflicht-Scope ist alles.** Alle Ordner aller benannten Konten, **einschließlich Gesendet
-und Papierkorb**. Ausschlüsse sind zu **benennen**, nicht zu unterstellen. Belegt durch L1: drei
-der elf Nachrichten lagen im Papierkorb, und gelöscht heißt dort nicht irrelevant, sondern
-meistens *erledigt* — also gerade die Information über den Stand.
+**R-1 — Pflicht-Scope ist alles, auf zwei Ebenen.**
+*Ordner:* alle Ordner eines benannten Kontos, **einschließlich Gesendet und Papierkorb**.
+*Konten:* Default sind **alle drei Postfächer**. Der Ausschluss eines Kontos ist eine benannte,
+begründete Abweichung im Feld `nicht_gedeckt` — nie ein stiller Default.
+Belegt durch L1: drei der elf Nachrichten lagen im Papierkorb, und gelöscht heißt dort nicht
+irrelevant, sondern meistens *erledigt* — also gerade die Information über den Stand.
 
-**R-2 — Mehrere unabhängige Kriterien.** Thread-Header · Betreff · Beteiligte · zitierter Text ·
-Anhangs-Prüfsumme. Jedes mit eigener Trefferzahl. Der Wert liegt nicht in der größeren Treffermenge,
-sondern in der **Divergenz**: Findet ein Kriterium nichts, wo ein anderes trifft, ist das ein
-Befund über die Abfrage.
+**R-2 — Mehrere verschiedenartige Retrievalpfade**, nicht mehrere Parameter derselben
+Implementierung. Zwei Felder desselben Client-Filters teilen dessen Blindstellen. Der
+aussagekräftige Kontrast ist **Client-Filter gegen Server-Suche** (`IMAP SEARCH` / Graph
+`$search`) — zwei Implementierungen. Der Wert liegt in der **Divergenz**: Findet ein Pfad nichts,
+wo ein anderer trifft, ist das ein Befund über die Abfrage.
 
-**R-3 — Kalibrierung vor Vertrauen.** Vor einer Vollständigkeitsaussage muss die Abfrage ein
-Element zurückgeben, von dem feststeht, dass es enthalten ist. Erscheint es nicht, ist **nicht die
-Menge leer, sondern die Abfrage kaputt**. Genau dieser eine Test hätte L2 verhindert.
+**R-3 — Kalibrierung je Pfad, nicht je Lauf.** Eine bekannte Nachricht belegt **einen** Pfad. Eine
+Vollständigkeitsaussage ist nur zulässig, wenn **alle im Lauf verwendeten Pfade** erfolgreich
+kalibriert wurden. Erscheint das Kalibrierobjekt nicht, ist **nicht die Menge leer, sondern die
+Abfrage kaputt**.
 
-**R-4 — Über-Einschluss vor Unter-Einschluss.** Die Kosten sind asymmetrisch (§7.3): eine
-überflüssige Nachricht kostet Aufmerksamkeit, eine fehlende eine falsche Auskunft. Im Zweifel
-aufnehmen und als unsicher kennzeichnen.
+**R-4 — Über-Einschluss vor Unter-Einschluss.** Die Kosten sind asymmetrisch (§7.3).
 
-**R-5 — Maschinell erzeugt.** Ein handgeschriebener Ausweis ist eine Behauptung über eine
-Behauptung. Handbetrieb bleibt erlaubt, wird aber als solcher ausgewiesen.
+**R-5 — Maschinell erzeugt; Handbetrieb ist gesperrt für Vollständigkeitsaussagen.** Ein manueller
+Ausweis trägt `erzeuger: manuell`, `fallback_grund` und den Satz **„Dieser Ausweis erlaubt keine
+Vollständigkeitsaussage."** Ohne diese Sperre wird der Ausnahmeweg bei jedem Werkzeugproblem zum
+bevorzugten Pfad — und entwertet genau die Nachprüfbarkeit, auf der alles beruht.
 
 ---
 
@@ -187,50 +206,54 @@ Behauptung. Handbetrieb bleibt erlaubt, wird aber als solcher ausgewiesen.
 
 ### 6.1 Advocatus Diabolus
 
-**Wo entsteht eine Doppelquelle?** Nirgends — der Ausweis beschreibt eine Abfrage und speichert
-nichts. Er ist so flüchtig wie die Antwort, zu der er gehört. *Aber:* Sobald jemand ihn
-archiviert („Beleg für die Aufsicht"), entsteht ein Artefakt mit Aussagekraft über einen
-Zeitpunkt — und damit ein Kandidat für Drift. → §12 REC-6.
+**Wo entsteht eine Doppelquelle?** Der Ausweis speichert nichts und ist so flüchtig wie die
+Antwort. *Aber:* Sobald jemand ihn archiviert, entsteht ein Artefakt mit Aussagekraft über einen
+Zeitpunkt — deshalb sind `source_watermark`, `tool_version` und `query_fingerprint` **Pflicht**,
+nicht Kür (§5.2). Die Persistenz-Entscheidung selbst bleibt vertagt (REC-6).
 
-**Wo wird SSoT nur behauptet?** Beim Wort „alle". Es gilt nur für Konten, auf die Zugriff
-besteht. Der HNU-Kanal läuft nach Owner-Entscheid vom 2026-07-27 bei Variante C — durchsuchbar,
-aber nicht zuordenbar. Wer „alle Ordner" liest und „alle Mails der Welt" versteht, irrt. → Der
-Ausweis nennt die Konten **namentlich**, nicht als Menge.
+**Wo wird SSoT nur behauptet?** Beim Wort „alle". Der Ausweis nennt Konten deshalb **namentlich
+und als Verhältnis**, nicht als Menge.
 
 **Wo wird ein Werkzeug faktisch zur Boundary?** Wird der Ausweis Voraussetzung, ist das erzeugende
-Werkzeug kritischer Pfad: Fällt es aus, gibt es keine Darlegung mehr. → R-5 lässt Handbetrieb zu,
-gekennzeichnet. Die Alternative — Ausfall bedeutet Stillstand — wäre schlechter als das Problem.
+Werkzeug kritischer Pfad. → R-5 lässt Handbetrieb zu, aber **ohne** Vollständigkeitsaussage.
 
-**Wo manuelle Pflicht ohne Enforcement?** **Hier ist die härteste Stelle.** „Ich lege keinen
-Sachverhalt ohne Ausweis vor" ist eine Zusage. Ein Hook kann erkennen, *dass* ein Ausweis dasteht;
-seine **Richtigkeit** kann er nicht prüfen. Damit ist dies ein **Review-Gate, kein Exit-Code** —
-und das steht hier, statt es als geschlossen zu verkaufen.
+**Wo manuelle Pflicht ohne Enforcement?** *Hier hat die externe Kritik das Konzept korrigiert —
+zu seinen Gunsten.* Die erste Fassung erklärte pauschal „Review-Gate, kein Exit-Code". Das war zu
+bescheiden: Für R-1 **ist** ein Exit-Code baubar. Prüfbar sind
 
-**Wo ist „sichtbar machen" schwächer als „verhindern"?** Beim Scope. Sichtbar zu machen, dass der
-Papierkorb fehlte, hilft nur, wenn jemand hinsieht. Deshalb ist R-1 als **Pflicht** formuliert und
-das Weglassen als begründungspflichtige Abweichung — nicht umgekehrt.
+```
+erzeuger == "maschinell"
+UND ordner_durchsucht == ordner_vorhanden ODER nicht_gedeckt nichtleer mit Grund
+UND konten_durchsucht == konten_vorhanden ODER nicht_gedeckt nichtleer mit Grund
+UND ordner_fehlgeschlagen == 0 ODER als nicht_gedeckt ausgewiesen
+UND alle verwendeten Pfade kalibriert
+```
 
-**Wo kann man formal erfüllen und praktisch umgehen?** Indem man den Scope eng wählt und korrekt
-ausweist: formal sauber, praktisch nutzlos. Dagegen hilft **nur**, dass das Kill-Kriterium an
-**Auslassungen** misst und nicht am Vorhandensein des Ausweises (§13).
+Nicht maschinell prüfbar bleiben nur **Angemessenheit der Frage** und **Relevanz** — und beide
+liegen ohnehin beim Menschen. Der ehrliche Satz lautet also: **Exit-Code für das Verfahren,
+Urteil für den Inhalt.**
 
-**Wo wird ein bestehendes Problem verschlimmert?** Bei der Laufzeit (R2 in §11) und beim
-Datenschutz: Ein Pflicht-Scope über alle Ordner **berührt mehr personenbezogene Daten** als der
-heutige Zuschnitt. Datenschutzfreundlich ist nicht automatisch, was weniger anfasst — aber diese
-Abwägung gehört ausgesprochen, nicht unterschlagen. → §7.4.
+**Wo ist „sichtbar machen" schwächer als „verhindern"?** Beim Scope. Deshalb ist R-1 als Pflicht
+formuliert und das Weglassen als begründungspflichtige Abweichung — plus einer Schwelle (§13),
+weil eine Abweichung ohne Konsequenz nur eine Statistik ist.
+
+**Wo kann man formal erfüllen und praktisch umgehen?** Durch einen engen, korrekt ausgewiesenen
+Scope. Die erste Fassung hatte dagegen kein Mittel. Jetzt zwei: die **Abweichungsschwelle** (>1/3
+der Darlegungen ⇒ Pflicht-Scope gilt als umgangen) und **KG-RECALL**, das auf einer Referenzmenge
+misst und von der Scope-Wahl im Produktivbetrieb unabhängig ist.
+
+**Wo wird ein bestehendes Problem verschlimmert?** Laufzeit (R2 in §11) und Datenschutz: Ein
+Pflicht-Scope **berührt mehr personenbezogene Daten**. → §7.4.
 
 ### 6.2 Maintainer-2028
 
-Wer das in zwei Jahren liest, muss zwei Dinge erkennen.
+Der Ausweis dokumentiert **nicht Arbeit**, sondern macht **eine Fehlerklasse unmöglich** — die
+stille Teilmenge, die wie eine Vollmenge aussieht. Wird er zur Pflichtübung ohne Bezug zur Frage,
+ist er zu **streichen**, nicht zu erweitern. Die Frage an ihn lautet nie „ist er da", sondern
+„hätte er den Fehler gefangen".
 
-Erstens: Der Ausweis dokumentiert **nicht Arbeit**, sondern macht **eine Fehlerklasse unmöglich** —
-die stille Teilmenge, die wie eine Vollmenge aussieht. Wird er zur Pflichtübung ohne Bezug zur
-Frage, ist er zu **streichen**, nicht zu erweitern. Die Frage an ihn lautet nie „ist er da",
-sondern „hätte er den Fehler gefangen".
-
-Zweitens: Die vier Lücken aus §5.1 sind der eigentliche Beitrag. Wer später etwas verbessern
-will, sollte prüfen, **welche der vier** er adressiert. Ein Vorschlag, der keiner zuzuordnen ist,
-löst vermutlich ein anderes Problem.
+Und: Die fünf Schichten aus §5.1 sind das Denkgerüst. Wer etwas verbessern will, sollte prüfen,
+**welche** er adressiert. Ein Vorschlag ohne Zuordnung löst vermutlich ein anderes Problem.
 
 ---
 
@@ -238,79 +261,79 @@ löst vermutlich ein anderes Problem.
 
 ### 7.1 Vollständigkeit ist relativ zu einer Frage
 
-„Alle relevanten Mails" ist ohne Frage nicht definiert. Dieselbe Nachricht ist relevant für
-*„was habe ich diesem Gegenüber zugesagt"* und irrelevant für *„wer wartet auf Rückmeldung"*.
-Relevanz ist keine Eigenschaft der Nachricht, sondern eine **Relation zwischen Nachricht und
-Frage**.
+„Alle relevanten Mails" ist ohne Frage nicht definiert. Dieselbe Nachricht ist relevant für *„was
+habe ich zugesagt"* und irrelevant für *„wer wartet auf Rückmeldung"*. Relevanz ist keine
+Eigenschaft der Nachricht, sondern eine **Relation zwischen Nachricht und Frage**.
 
-Daraus folgt unmittelbar der Aufbau des Ausweises: Er muss die **Frage mitführen**. Ein Ausweis
-ohne Frage ist so leer wie ein Messergebnis ohne Einheit. Und es folgt, dass dieselbe Mailmenge
-für zwei Fragen **unterschiedlich vollständig** sein kann — was nicht paradox ist, sondern der
-Normalfall.
+Daraus folgt der Aufbau des Ausweises: Er muss die **Frage mitführen**. Ein Ausweis ohne Frage ist
+so leer wie ein Messergebnis ohne Einheit.
 
-### 7.2 Warum L4 unentscheidbar bleibt — und warum das kein Defekt ist
+### 7.2 Die Garantiegrenze — korrigiert nach externer Kritik
 
-Um zu wissen, ob eine Nachricht zu einem Sachverhalt gehört, muss man sie **lesen und verstehen**.
-Alle zu lesen wäre die systematische Inhaltsauswertung, die im Art.-14-Nachtrag zur DSFA
-ausdrücklich ausgeschlossen ist — sie würde die Rechtfertigung entwerten, auf der die Verarbeitung
-ruht.
+Die erste Fassung formulierte einen **Unmöglichkeitsbeweis**: vollständige Relevanz erfordere
+vollständige Inhaltskenntnis, diese sei verwehrt, also sei vollständige Relevanz unmöglich.
 
-Damit steht das Konzept vor einer **echten Unmöglichkeit**, nicht vor einer Bequemlichkeit:
+**Beide Reviewer haben denselben inneren Widerspruch gefunden**, und sie haben recht: §7.4 Nr. 1
+verteidigt die **anlassbezogene** Lektüre ausdrücklich als zulässig. Dasselbe Argument, das den
+Voll-Scope rechtfertigt, erlaubt also auch das Lesen der Treffer. Der Syllogismus trug nicht.
 
-> Vollständige Relevanz erforderte vollständige Inhaltskenntnis. Vollständige Inhaltskenntnis ist
-> ausgeschlossen. Also ist vollständige Relevanz nicht erreichbar.
+**Korrekte Formulierung — enger im Quantor, unverändert in der Konsequenz:**
 
-Die einzig redliche Konsequenz ist, **Deckung von Relevanz zu trennen** und nur erstere zu
-garantieren. Der Ausweis sagt: „In diesem Bereich wurde vollständig gesucht; ob alles Gefundene
-gehört und ob außerhalb noch etwas liegt, ist Urteilssache." Das ist weniger, als der Wunsch
-hergibt — und mehr, als heute jemand belegen kann.
+> Eine belastbare **Garantie**, für **beliebige** Sachverhalte sämtliche relevanten Nachrichten zu
+> erfassen, ist ohne vollständige **systematische** Inhaltsauswertung nicht erreichbar. Diese
+> Auswertung ist durch die Bedingung ausgeschlossen, unter der die Datenschutz-Folgenabschätzung
+> freigegeben wurde.
 
-Ein Nebeneffekt verdient Beachtung: Weil L4 beim Menschen bleibt, wird der Deckungsausweis
-**gerade dadurch belastbar**. Er verspricht nichts, was von einer Maschinenbewertung abhängt.
+Drei Ebenen sind deshalb getrennt zu halten:
 
-### 7.3 Die Kostenasymmetrie, beziffert
-
-| Fehler | Kosten | Realfall |
+| Ebene | Wer | Was garantiert wird |
 |---|---|---|
-| Eine Nachricht **zu viel** | Aufmerksamkeit für einige Sekunden | — |
-| Eine Nachricht **zu wenig** | falsche Auskunft, verschenkte Frist, doppelte Handlung gegenüber Dritten | Am 2026-07-27 erhielt eine betroffene Person eine **zweite** Authentifizierungsanfrage in einem laufenden Art.-17-Verfahren, weil eine gesendete Mail unsichtbar geblieben war |
+| **Kandidatenermittlung** | Maschine | Deckung: welcher Bereich vollständig untersucht wurde |
+| **Relevanzentscheidung** | Mensch | keine Garantie — Urteil |
+| **Garantieanspruch des Gesamtergebnisses** | — | ausdrücklich **kein** Vollständigkeitsversprechen |
 
-Das Verhältnis ist nicht knapp, sondern um Größenordnungen asymmetrisch. Jede Abwägung zwischen
-Präzision und Vollständigkeit ist deshalb zugunsten der Vollständigkeit zu entscheiden — R-4 ist
-keine Vorsichtsregel, sondern die Konsequenz aus dieser Tabelle.
+Die praktische Konsequenz ist dieselbe wie vorher — nur ruht sie jetzt auf einem stehenden
+Entscheid („Relevanz bleibt beim Menschen", draft-first) plus einer Rechtsbedingung, statt auf
+einem Beweis, der den Angriff einlud, den er abwehren sollte.
+
+### 7.3 Die Kostenasymmetrie
+
+| Fehler | Kosten |
+|---|---|
+| Eine Nachricht **zu viel** | Aufmerksamkeit für Sekunden |
+| Eine Nachricht **zu wenig** | falsche Auskunft, verschenkte Frist, doppelte Handlung gegenüber Dritten — am 2026-07-27 real eingetreten |
+
+Das Verhältnis ist um Größenordnungen asymmetrisch. R-4 ist deshalb keine Vorsichtsregel, sondern
+die Konsequenz aus dieser Tabelle.
 
 ### 7.4 Der Datenschutz-Einwand gegen den eigenen Vorschlag
 
-Ein Pflicht-Scope über alle Ordner **liest mehr** als ein enger. Wer Datenminimierung ernst nimmt,
-muss diesen Vorschlag unbequem finden.
+Ein Pflicht-Scope **liest mehr**. Drei Entkräftungen:
 
-Drei Punkte zur Entkräftung, und ein verbleibender Rest:
+1. **Anlassbezogen, nicht systematisch** — läuft nur auf eine konkrete Frage.
+2. **Nichts wird gespeichert** — kein abgeleitetes Artefakt nach ADR-286 §4.4.
+3. **Der Zugriff bestand ohnehin** — es wird nur vollständiger gelesen, was ohnehin im eigenen
+   Postfach liegt.
 
-1. **Anlassbezogen, nicht systematisch.** Es läuft nur auf eine konkrete Frage und danach nie
-   wieder. Der Art.-14-Nachtrag schließt „gezielte und systematische Anreicherung oder Auswertung"
-   aus — beides trifft nicht zu.
-2. **Nichts wird gespeichert.** Es entsteht kein abgeleitetes Artefakt, das nach ADR-286 §4.4
-   einer Löschkaskade unterläge.
-3. **Der Zugriff bestand ohnehin.** Es werden keine Daten erschlossen, die vorher unzugänglich
-   waren; es wird nur vollständiger gelesen, was der Verantwortliche in seinem eigenen Postfach
-   liegen hat.
+**Der verbleibende Rest ist jetzt operationalisiert, nicht nur benannt.** Die erste Fassung nannte
+Häufigkeit als Risiko und ließ es dabei — ein externer Reviewer hat zu Recht darauf gezeigt, dass
+die gesamte Rechtfertigung daran hängt. Deshalb:
 
-**Verbleibender Rest, ehrlich:** Häufigkeit bleibt ein Faktor. Wird die Vollsuche zur Gewohnheit
-für jede Kleinigkeit, nähert sie sich in ihrer Wirkung dem systematischen Lesen an — auch wenn
-jeder Einzellauf begründet ist. Dagegen gibt es keine technische Schranke, nur Maß. → §11 R3.
+- Der Ausweis trägt ein Pflichtfeld `anlass`. Ohne Anlass kein Lauf.
+- **Eine Wiederholung derselben Frage über denselben Scope innerhalb von 24 Stunden ohne neuen
+  Anlass ist keine anlassbezogene Verarbeitung mehr** und wird abgelehnt, nicht ausgewiesen.
+- Die Regel steht **einmal** im Amendment, nicht in drei Skill-Dateien (§12 REC-5).
 
 ### 7.5 Warum ein Index das Problem nicht erledigt
 
-Der naheliegende Einwand lautet: Baut Phase 1 aus ADR-284, dann erübrigt sich das.
+Ein Index deckt, **was er indexiert hat** — die Scope-Frage stellt sich dort identisch, nur früher
+und mit dem Zusatzrisiko, dass eine veraltete Deckung wie eine aktuelle aussieht. ADR-284 §9 sagt
+es selbst: *„Ein still veralteter Index (falsche 100-%-Sicherheit) ist schlimmer als keiner."*
 
-Er trägt nicht. Ein Index deckt, **was er indexiert hat** — die Frage „war der Scope vollständig"
-stellt sich dort **identisch**, nur eine Ebene früher und mit dem Zusatzrisiko, dass eine
-veraltete Deckung wie eine aktuelle aussieht. ADR-284 §9 nennt das selbst: *„Ein still veralteter
-Index (falsche 100 %-Sicherheit) ist schlimmer als keiner."*
-
-Der Deckungsausweis ist deshalb **kein Provisorium bis zum Index**, sondern das, was ein Index
-ohnehin bräuchte. Wird Phase 1 gebaut, wandert der Ausweis mit — und wird dort um den
-Watermark-Zeitpunkt reicher.
+**Erhaltungs-Kriterium für den Fall, dass Phase 1 gebaut wird** (ergänzt nach externer Kritik):
+Der Index-Ausweis muss **mindestens** dieselben Felder tragen wie der Live-Ausweis, plus den
+Watermark des letzten erfolgreichen Sync. Ein Index-Ausweis ohne Staleness-Angabe ist eine
+Rückstufung gegenüber dem Live-Fall, nicht ein Fortschritt.
 
 ---
 
@@ -318,41 +341,42 @@ Watermark-Zeitpunkt reicher.
 
 | # | Alternative | Bewertung |
 |---|---|---|
-| 1 | **Freitext-Vorbehalt** an jede Antwort („nicht abschließend geprüft") | Nicht prüfbar, deshalb wirkungslos — die Sorte Disclaimer, die man nach dreimal Lesen überliest. Die heutigen Fehlschläge hätten ihn getragen und wären trotzdem falsch gewesen: Sie hatten keine fehlende Warnung, sie hatten falsche Zahlen. |
-| 2 | **Erst den Index bauen** (ADR-284 Phase 1) | Löst es nicht (§7.5) und verschiebt es um Monate. Bis dahin bleibt jede Antwort ungeregelt — in genau dem Zeitraum, in dem die Fehler auftreten. |
-| 3 | **Nur Werkzeuge härten, keine Konvention** | Wurde heute gemacht (#1485/#1487/#1490) und **reicht nicht**: Das dritte Versagen (L1) geschah *nach* den ersten beiden Härtungen, mit gehärteten Werkzeugen, weil niemand verpflichtet war, sie vollständig einzusetzen. Der Beleg gegen diese Alternative ist derselbe Tag. |
-| 4 | **Vier-Augen-Prinzip** statt Ausweis | Verdoppelt Aufwand und Fehlerquelle: Ein zweiter Mensch mit derselben Abfrage sieht dieselbe Teilmenge. Gegen L2 wirkungslos. |
+| 1 | **Freitext-Vorbehalt** an jede Antwort | Nicht prüfbar, deshalb wirkungslos. Die heutigen Fehlschläge hätten ihn getragen und wären trotzdem falsch gewesen: Sie hatten keine fehlende Warnung, sie hatten falsche Zahlen. |
+| 2 | **Erst den Index bauen** | Löst es nicht (§7.5) und verschiebt es um Monate — in genau dem Zeitraum, in dem die Fehler auftreten. |
+| 3 | **Nur Werkzeuge härten, keine Konvention** | Wurde heute gemacht und **reicht nicht**: Das dritte Versagen geschah *nach* der Härtung, mit den gehärteten Werkzeugen, weil niemand verpflichtet war, sie vollständig einzusetzen. Der Beleg gegen diese Alternative ist derselbe Tag. |
+| 4 | **Vier-Augen-Prinzip** statt Ausweis | Ein zweiter Mensch mit derselben Abfrage sieht dieselbe Teilmenge. Gegen L2 wirkungslos. |
+| 5 | **Seed-and-Expand statt Voll-Scope** | Als **Ersatz** verworfen: eine strukturell unverbundene Nachricht bleibt unentdeckt. Als **zusätzlicher Retrievalpfad** mit eigener Trefferzahl aufgenommen (§9.6) — dort ist sie wertvoll. |
 
 ---
 
 ## 9 Out-of-the-Box
 
-**9.1 — Negativ-Nachweis statt Positiv-Behauptung.** Der Ausweis könnte seinen Schwerpunkt
-umkehren: nicht „das habe ich gefunden", sondern **„das habe ich nicht durchsucht"** als erste
-Zeile. Psychologisch wirksamer, weil eine Aufzählung von Lücken sich nicht überlesen lässt wie
-eine Zahl. Kostet nichts und ist wahrscheinlich die bessere Darstellung — sollte im Pilot gegen
-die Standardform gemessen werden.
+**9.1 — Negativ-Nachweis statt Positiv-Behauptung.** Der Ausweis könnte mit **„das habe ich nicht
+durchsucht"** beginnen. Eine Aufzählung von Lücken lässt sich nicht überlesen wie eine Zahl. Im
+Pilot gegen die Standardform messen.
 
-**9.2 — Divergenz zweier Wege als eigenständiges Signal.** Dieselbe Frage über zwei unabhängige
-Kriterien laufen lassen und **nur die Differenz** melden. Stimmen beide überein, ist das ein
-starkes Deckungsindiz; weichen sie ab, ist die Abweichung der interessanteste Teil des Ergebnisses.
-Das ist billiger als eine perfekte Einzelabfrage und aussagekräftiger.
+**9.2 — Server-Zweitzählung als unabhängiger Nenner.** `IMAP STATUS (MESSAGES)` bzw. Graph
+`totalItemCount` je Ordner als vom Suchwerkzeug **unabhängige** Quelle für „vorhanden". Weicht die
+eigene Enumeration ab, bricht der Lauf laut ab. Das bricht die Selbstreferenz des Nenners: Bisher
+stammten Zähler und Nenner aus derselben Aufzählung, nicht-enumerierte Ordner blieben also
+**unsichtbar-unsichtbar**. → REC-9.
 
-**9.3 — Der Ausweis als Artefakt am Vorgang.** Statt im Chat zu verpuffen, könnte er als Notiz am
-Vorgang landen — dann ist Monate später prüfbar, auf welcher Grundlage entschieden wurde. Das ist
-für regulierte Vorgänge (Art. 17, Fristen) erheblich, erzeugt aber ein persistentes Artefakt mit
-Personenbezug und wäre eine eigene Entscheidung (§6.1, REC-6).
+**9.3 — Divergenz zweier Implementierungen.** Client-Filter gegen Server-Suche, nur die Differenz
+melden. Stimmen beide überein, ist das ein starkes Deckungsindiz; weichen sie ab, ist die
+Abweichung der interessanteste Teil des Ergebnisses. Lagert zudem Laufzeit auf den Server aus.
 
-**9.4 — Die Lückenliste als Arbeitsvorrat.** Was keine Zuordnung fand, ist nicht Abfall, sondern
-die Liste der ungeklärten Fälle. `vorgang.py --suggest` weist sie bereits aus (164 von 200 im
-Livelauf). Sie ist der natürliche Einstieg in die nächste Aufräumrunde — der Ausweis erzeugt
-damit als Nebenprodukt eine Aufgabenliste.
+**9.4 — Der Ausweis als Artefakt am Vorgang.** Für regulierte Vorgänge erheblich, erzeugt aber ein
+persistentes Artefakt mit Personenbezug → eigener Entscheid (REC-6).
 
-**9.5 — Kalibrierung als stehender Kanarienvogel.** Eine je Datenquelle hinterlegte, bekannte
-Nachrichten-ID, die jede Vollerhebung zurückgeben **muss**. Fehlt sie, bricht der Lauf ab, statt
-ein plausibles Teilergebnis zu liefern. Das verwandelt R-3 von einer Gewohnheit in einen
-Mechanismus — und ist der einzige Vorschlag hier, der L2 **verhindert** statt sie sichtbar zu
-machen.
+**9.5 — Kalibrierung als stehender Kanarienvogel je Pfad.** Fehlt das Kalibrierobjekt, bricht der
+Lauf ab, statt ein plausibles Teilergebnis zu liefern. Der einzige Vorschlag, der L2
+**verhindert** statt sie sichtbar zu machen.
+
+**9.6 — Seed-and-Expand als ergänzender Pfad.** Von einer sicher bekannten Nachricht aus
+deterministisch über Message-ID, Thread-Beziehungen, Beteiligte und zitierte Referenzen erweitern,
+bis keine neuen Verbindungen entstehen. Billig, datensparsam, mit nachvollziehbarem
+Abschlusszustand — aber blind für strukturell unverbundene Nachrichten. Deshalb **Pfad, nicht
+Ersatz**.
 
 ---
 
@@ -360,14 +384,16 @@ machen.
 
 | ID | Befund | Evidenz |
 |---|---|---|
-| B1 | Der Coverage-Contract aus ADR-284 §2 bindet nur Phase 1 (Index); die Live-Antwort ist ungeregelt | E1 (C1) |
+| B1 | Der Coverage-Contract aus ADR-284 §2 bindet nur Phase 1; die Live-Antwort ist ungeregelt | E1 (C1) |
 | B2 | Alle drei Fehlschläge traten in Live-Antworten auf — der Index existiert nicht | E3 (C3/C4/C7) |
-| B3 | Ein Platzhalter-Filter verwarf 21 von 34 gesendeten Nachrichten still (X.500-DN ohne `@`) | E3 (C4) |
+| B3 | Ein Platzhalter-Filter verwarf 21 von 34 gesendeten Nachrichten still | E3 (C4) |
 | B4 | Eine Trefferliste ohne Nenner ist von einer Vollerhebung nicht unterscheidbar | E3 (C3) |
 | B5 | Ein Sachverhalt verteilte sich über **fünf** Ordner inkl. Papierkorb; die Darlegung aus INBOX zeigte 3 von 11 | E3 (C7) |
 | B6 | Die Feldwahl entscheidet mehr als der Suchbegriff: 0 / 327 / 678 Treffer für denselben Term | E3 (C5) |
-| B7 | Gehärtete Werkzeuge allein genügen nicht — B5 geschah **nach** der Härtung, mit den gehärteten Werkzeugen | E3 (C3/C4 vs. C7, zeitliche Abfolge) |
-| B8 | Eine ordnerübergreifende Suche über 110 Ordner / 46.065 Nachrichten dauert 10–77 s je nach Feld | E3 (C5, Live-Messung) |
+| B7 | Gehärtete Werkzeuge allein genügen nicht — B5 geschah **nach** der Härtung | E3 (C3/C4 vs. C7) |
+| B8 | Eine ordnerübergreifende Suche dauert 10–77 s; der Postfachzustand ist also ein **Intervall**, kein Punkt | E3 (C5) |
+| B9 | Die erste Fassung zitierte den Coverage-Contract und ließ dessen Watermark weg — beide Reviewer fanden es unabhängig | E4 (C8) |
+| B10 | Die erste Fassung widersprach sich selbst: §7.2 behauptete Unmöglichkeit, §7.4 erlaubte anlassbezogene Lektüre | E4 (C8) |
 
 ---
 
@@ -375,11 +401,11 @@ machen.
 
 | # | Risiko | Gegenmaßnahme |
 |---|---|---|
-| R1 | Der Ausweis wird Formalie: vorhanden, ungelesen, mit falschen Zahlen | R-5 (maschinell) + Kill-Gate misst **Auslassungen**, nicht Ausweis-Präsenz |
-| R2 | Laufzeit macht den Pflicht-Scope unattraktiv, er wird faktisch umgangen | Kosten **ausweisen** statt Scope kürzen; Kürzung ist eine benannte, begründete Ausnahme — nie ein stiller Default |
-| R3 | Häufige Vollsuchen nähern sich in der Wirkung dem systematischen Lesen an | Anlassbezogenheit ist Bedingung, nicht Empfehlung; kein Hintergrundlauf, keine Persistenz (§7.4) |
-| R4 | Das erzeugende Werkzeug wird kritischer Pfad; sein Ausfall blockiert jede Darlegung | Handbetrieb bleibt zulässig, wird als solcher gekennzeichnet (R-5) |
-| R5 | Scheinsicherheit: Der Ausweis suggeriert Vollständigkeit, obwohl er nur Deckung belegt | §7.2 ist Pflichtbestandteil jeder Einführung; der Ausweis nennt die Relevanzgrenze im Text, nicht nur in diesem Konzept |
+| R1 | Der Ausweis wird Formalie: vorhanden, ungelesen, falsche Zahlen | Exit-Code für das Verfahren (§6.1) + KG-RECALL misst auf einer Referenzmenge, nicht an Ausweis-Präsenz |
+| R2 | Laufzeit macht den Pflicht-Scope unattraktiv, er wird faktisch umgangen | Kosten ausweisen statt Scope kürzen; **Schwelle >1/3 Abweichungen ⇒ gescheitert** (§13); Server-Suche entlastet (§9.3) |
+| R3 | Häufige Vollsuchen nähern sich dem systematischen Lesen an | Pflichtfeld `anlass`; Wiederholung derselben Frage über denselben Scope binnen 24 h ohne neuen Anlass wird **abgelehnt** (§7.4) |
+| R4 | Handbetrieb wird vom Ausnahme- zum Hauptpfad | R-5: manueller Ausweis trägt den Sperrsatz gegen Vollständigkeitsaussagen |
+| R5 | Scheinsicherheit — der Ausweis suggeriert Vollständigkeit, belegt aber nur Deckung | §7.2 ist Pflichtbestandteil; die Garantiegrenze steht **im Ausweis-Text**, nicht nur im Konzept |
 
 ---
 
@@ -387,52 +413,103 @@ machen.
 
 | # | Empfehlung | Konkret |
 |---|---|---|
-| REC-1 | Ausweis-Erzeugung als reine Funktion | `deckungsausweis(frage, konten, ordner_gesamt, ordner_durchsucht, kriterien: dict[str,int], fenster, nicht_gedeckt: list[str], erzeuger) -> str` in `tools/mail_agent/vorgang.py` — ohne IMAP, damit ohne Postfach testbar |
-| REC-2 | Ausgabe **vor** der Trefferliste | in `cmd_topic` und `cmd_show`; nicht als Fußnote (§5.2) |
-| REC-3 | Zweites Kriterium ergänzen | `cmd_topic` zusätzlich über Beteiligte, mit **getrennter** Trefferzahl — Divergenz ist das Signal (§9.2) |
-| REC-4 | Kalibrierung als Kommando | `vorgang.py --calibrate <message-id>`: prüft, ob eine bekannt vorhandene Nachricht von der Abfrage zurückgegeben wird; scheitert laut statt still (§9.5) |
-| REC-5 | Skill-Pflicht verankern | Abschnitt in `mailcheck.md`, `briefing.md`, `iil-mail.md`: Sachverhalts-Darlegung ohne Deckungsausweis gilt als unvollständig |
-| REC-6 | Persistenz **nicht** im MVC | Der Ausweis als Vorgangs-Notiz (§9.3) ist ein eigenständiger Entscheid mit Personenbezug — bewusst vertagt, nicht vergessen |
-| REC-7 | ADR-284 amendieren | §2 Nr. 1 um den Satz erweitern, dass der Coverage-Contract auch für Live-Antworten gilt, nicht nur für den Index |
+| REC-1 | Ausweis als **versioniertes Objekt**, Markdown sekundär | `deckungsausweis(frage, anlass, konten_vorhanden, konten_durchsucht, ordner_vorhanden, ordner_durchsucht, scan_started_at, scan_finished_at, source_watermark, retrievalpfade: dict[str,int], kriterien_wortlaut: dict[str,str], ordner_fehlgeschlagen, timeouts, berechtigungsfehler, seiten_unvollstaendig, nicht_gedeckt: list[dict], query_fingerprint, tool_version, format_version=1, erzeuger) -> DeckungsausweisV1` in `tools/mail_agent/vorgang.py`; ein Renderer für alle Skills |
+| REC-2 | Ausgabe **vor** der Trefferliste | in `cmd_topic` und `cmd_show` |
+| REC-3 | Zweiter Retrievalpfad als **andere Implementierung** | Client-Filter gegen `IMAP SEARCH` / Graph `$search`, getrennte Trefferzahl, Divergenz-Triage |
+| REC-4 | Kalibrierung **je Pfad** | `vorgang.py --calibrate` gibt je Retrievalpfad einen Status aus; Vollständigkeitsaussage nur bei allen verwendeten Pfaden grün |
+| REC-5 | Pflicht **einmal** verankern | Der Pflicht-Wortlaut steht im Amendment zu ADR-284 §2. `mailcheck.md`, `briefing.md`, `iil-mail.md` erhalten nur einen Verweis-Satz mit Referenz — **kein** eigener Wortlaut (SSoT) |
+| REC-6 | Persistenz **nicht** im MVC | Der Ausweis als Vorgangs-Notiz ist ein eigener Entscheid mit Personenbezug — vertagt, nicht vergessen |
+| REC-7 | ADR-284 amendieren | §2 Nr. 1 erweitern: Der Coverage-Contract gilt auch für Live-Antworten |
+| REC-8 | Exit-Code für das Verfahren | Hook prüft die Bedingungskette aus §6.1 — nicht die Anwesenheit des Ausweises |
+| REC-9 | Unabhängige Zweitzählung | `vorgang.py --verify-denominator`: eigene Enumeration gegen `STATUS (MESSAGES)` / `totalItemCount`, lauter Abbruch außerhalb definierter Toleranz |
+| REC-10 | Referenzmenge aufbauen | `tests/fixtures/mail_coverage_cases.yaml` + Testpostfach mit bekannter Grundgesamtheit: Papierkorb, X.500-Absender, fehlende Betreffs, doppelte Threads, Pagination, während des Laufs eintreffende Nachrichten |
 
 ---
 
 ## 13 Entscheidung + Kill-Gate
 
-**Entscheidung:** Konzept **annehmen und pilotieren** — REC-1 bis REC-5 umsetzen, REC-6 vertagen,
-REC-7 als Amendment nachziehen. Der Pilot läuft auf den eigenen Postfächern, ohne
-Fremdbeteiligung, und kostet keine Infrastruktur.
+**Entscheidung:** Konzept **annehmen und pilotieren** — REC-1 bis REC-5 sowie REC-8 bis REC-10
+umsetzen, REC-6 vertagen, REC-7 als Amendment nachziehen.
 
-**Kill-Gate (messbar):** Legt eine Sachverhalts-Darlegung bis **2026-09-30** eine relevante Mail
-nicht vor, die **innerhalb des ausgewiesenen Deckungsbereichs** lag, hat das Konzept seinen Zweck
-verfehlt und wird **verworfen, nicht geflickt**.
+### Zwei Gates statt einem
 
-**Ausdrücklich kein Fehlschlag:** eine fehlende Mail **außerhalb** des ausgewiesenen Bereichs.
-Dann hat der Ausweis funktioniert und der Scope war zu eng — das ist eine Entscheidung, kein
-Defekt. Diese Unterscheidung ist der Kern der Messbarkeit; ohne sie misst das Gate Zufall.
+Die erste Fassung maß **nur entdeckte** Auslassungen. Beide Reviewer haben unabhängig
+festgestellt, dass ein Bestehen dann vor allem geringe Entdeckungswahrscheinlichkeit belegt.
+Deshalb getrennt:
+
+**KG-RECALL (Wirksamkeit).** `tests/mail_agent/test_deckungsausweis_recall.py` läuft gegen eine
+**Referenzmenge mit bekannter Grundgesamtheit** (REC-10). **Ein einziger False Negative beendet
+den Pilot.** Das ist die einzige Messung, die von der Scope-Wahl im Produktivbetrieb unabhängig
+ist.
+
+**KG-PROCESS (Verfahren).** Gescheitert bei
+- einem produktiven Ausweis mit **unbekannten Teilfehlern**, fehlenden Pflichtfeldern oder
+  unbegründeter Scope-Abweichung; **oder**
+- einer Scope-Abweichung in **mehr als 1/3** der Darlegungen bis 2026-09-30. Die Zahl ist hier
+  fixiert und wird **nicht** im Pilot nachverhandelt — sonst wandert sie mit dem Ergebnis.
+
+**Produktiv entdeckte Auslassungen** bleiben ein zusätzliches Stoppsignal, sind aber nicht mehr
+die einzige Wirksamkeitsmessung.
 
 **Exception-Budget:** einmalige Verlängerung bis **2026-10-31**, danach ohne weitere.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 Ausweis wird maschinell erzeugt und erscheint vor der Trefferliste | offen | — |
-| K2 Pflicht-Scope schließt Gesendet und Papierkorb ein | offen | — |
-| K3 Mindestens zwei unabhängige Kriterien mit getrennter Trefferzahl | offen | — |
-| K4 Kalibrierung existiert und wird vor Vollständigkeitsaussagen benutzt | offen | — |
-| K5 Keine Auslassung innerhalb des ausgewiesenen Bereichs bis 2026-09-30 | offen | — |
-| K6 Relevanzgrenze (§7.2) steht im Ausweis-Text, nicht nur im Konzept | offen | — |
+| K1 Ausweis maschinell erzeugt, als Objekt `v1`, vor der Trefferliste | offen | — |
+| K2 Pflicht-Scope auf **beiden** Ebenen: alle Ordner **und** alle Konten, Abweichung begründet | offen | — |
+| K3 Mindestens zwei **verschiedenartige** Retrievalpfade mit getrennter Trefferzahl | offen | — |
+| K4 Kalibrierung je Pfad; Vollständigkeitsaussage nur bei allen Pfaden grün | offen | — |
+| K5 **KG-RECALL** grün auf der Referenzmenge (0 False Negatives) | offen | — |
+| K6 Garantiegrenze (§7.2) steht im Ausweis-Text, nicht nur im Konzept | offen | — |
+| K7 `source_watermark`, `scan_started_at`/`_finished_at`, `tool_version`, `query_fingerprint` in jedem Ausweis | offen | — |
+| K8 Exit-Code-Hook prüft die Bedingungskette aus §6.1 | offen | — |
+| K9 Scope-Abweichung ≤ 1/3 der Darlegungen | offen | — |
+| K10 Unabhängige Zweitzählung läuft und bricht bei Abweichung ab | offen | — |
 
 ### 30/60/90
 
-**Bis Tag 30:** REC-1 bis REC-3 gebaut, Ausweis erscheint in `--topic` und `--show`. Erste zehn
-realen Darlegungen mit Ausweis; K1–K3 erfüllt oder begründet offen.
+**Bis Tag 30:** REC-1 bis REC-3 und REC-10 gebaut — die Referenzmenge zuerst, weil ohne sie
+KG-RECALL nicht messbar ist. Erste zehn realen Darlegungen mit Ausweis. K1–K3, K7.
 
-**Bis Tag 60:** REC-4 (Kalibrierung) und REC-5 (Skill-Pflicht) live. Messung: Wie oft wich der
-Deckungsbereich vom Pflicht-Scope ab, und war die Abweichung jedes Mal benannt? K4, K6.
+**Bis Tag 60:** REC-4, REC-5, REC-8, REC-9 live. Erste KG-RECALL-Messung. K4, K5, K6, K8, K10.
 
-**Bis Tag 90:** Entscheid über REC-6 (Persistenz) und über die Darstellungsform aus §9.1
-(Negativ-Nachweis vs. Standardform) anhand der Pilot-Erfahrung. K5 abschließend — oder Sunset
-nach Kill-Gate.
+**Bis Tag 90:** Entscheid über REC-6 (Persistenz) und über die Darstellungsform aus §9.1. K9
+abschließend — oder Sunset nach Kill-Gate.
+
+---
+
+## 14 Externe Zweitmeinungen — Rückfluss-Bilanz
+
+Zwei unabhängige externe Runden verschiedener Anbieter am 2026-07-27, beide Verdikt
+**„überarbeiten"** (kein Fall für Ablehnung). Die Runden sahen einander nicht.
+
+**Bemerkenswert: kein einziger Befund wurde als `[missversteht-Kontext]` getaggt.** Bei zwei
+unabhängigen Anbietern spricht das dafür, dass das Briefing den Kontext tatsächlich mitgeliefert
+hat — und es heißt zugleich, dass die Kritik nicht auf Unkenntnis beruht.
+
+| Befund-Cluster | Verdikt | Aktion in dieser Fassung |
+|---|---|---|
+| §7.2-Syllogismus überdehnt; widerspricht §7.4 Nr. 1 (**beide Runden**) | [valid] | §7.2 neu gefasst: engerer Quantor, Drei-Ebenen-Trennung, kein Beweis mehr |
+| Taxonomie vermischt Ursachen, Beobachtbarkeit, Urteilsgrenzen; Erfassungsklasse fehlt (**beide**) | [valid] | §5.1 auf Schichtenmodell L1–L5; L3 Erfassung/Konsistenz neu |
+| Watermark fehlt, obwohl ADR-284 §2 ihn zum Contract zählt (**beide**) | [valid] | Pflichtfelder in §5.2, REC-1, K7 |
+| Kill-Gate ohne Entdeckungskanal misst Entdeckungswahrscheinlichkeit (**beide**) | [valid] | Aufteilung KG-RECALL / KG-PROCESS; Referenzmenge REC-10 |
+| „Außerhalb = kein Fehlschlag" macht Scope-Verengung folgenlos (**beide**) | [valid] | Schwelle >1/3 fixiert; KG-RECALL als scope-unabhängige Messung |
+| Konten-Ebene ungeregelt — L1 kehrt eine Ebene höher wieder (**beide**) | [valid] | R-1 zweistufig; `konten_vorhanden`/`konten_durchsucht` |
+| Nenner selbstreferenziell; „durchsucht" bei Teilfehlern unbestimmt (**beide**) | [valid] | REC-9 Server-Zweitzählung; Fehlerfelder in §5.2 |
+| REC-5 verletzt die eigene SSoT-Konvention (**beide**) | [valid] | Pflicht einmal im Amendment; versioniertes Objekt statt Textblock |
+| Zwei Kriterien ≠ zwei unabhängige Wege (**beide**) | [valid] | R-2 auf verschiedenartige **Implementierungen** |
+| Exit-Code ist baubar, das Konzept verkauft sich zu schwach | [valid] | §6.1 mit ausformulierter Bedingungskette; REC-8 |
+| Kalibrierung belegt einen Pfad, nicht das Verfahren | [valid] | R-3 und REC-4 je Pfad |
+| Häufigkeit nicht operationalisiert, obwohl die DSFA-Begründung daran hängt | [valid] | Feld `anlass`; 24-Stunden-Regel in §7.4 |
+| Handbetrieb wird zum Hauptpfad | [valid] | R-5 mit Sperrsatz |
+| Archivierter Ausweis ohne Version/Fingerprint nicht reproduzierbar | [valid] | `tool_version`, `query_fingerprint`, `format_version` |
+| §7.5 ohne Erhaltungs-Kriterium für den Index-Fall | [valid] | Kriterium ergänzt |
+| Seed-and-Expand als ergänzender Pfad | [valid, vertagt] | §9.6 und Alternative 5 — nicht im MVC |
+| Stichproben-Inhaltsaudit zur Messung von L5 | [out-of-scope] | Der Reviewer verwirft ihn selbst: kollidiert mit der DSFA-Bedingung. Übernommen als Begründung, warum L5 unvermessen bleibt |
+| Verbot wiederholter Vollsuchen **in den drei Skill-Dateien** | [valid, angepasst] | Regel ja — aber im Amendment, nicht in drei Dateien (Konflikt mit der SSoT-Korrektur) |
+
+`ai_sparring_by` ist bewusst **non-accountable**: Zwei externe KI-Reviews ersetzen keine
+menschliche Owner-Review.
 
 ---
 
@@ -440,5 +517,4 @@ nach Kill-Gate.
 
 **Amendment an ADR-284**, kein neuer org-weiter ADR. Der Coverage-Contract existiert bereits als
 Entscheidung (§2 Nr. 1); ihn auf Live-Antworten auszudehnen ist eine Erweiterung nach bestehendem
-Muster. Ein eigener ADR wäre Überbau — die Architekturentscheidung ist getroffen, nur ihr
-Geltungsbereich war zu eng.
+Muster. Die Architekturentscheidung ist getroffen, nur ihr Geltungsbereich war zu eng.
