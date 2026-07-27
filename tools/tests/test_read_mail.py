@@ -113,3 +113,94 @@ def test_should_handle_missing_to_and_cc_headers():
     m.set_content("x")
     assert rm.matches_to(m, None)
     assert not rm.matches_to(m, "irgendwer")
+
+
+# --- Nenner sichtbar machen ---------------------------------------------------
+# Eine Liste ohne Gesamtzahl ist von einer Vollerhebung nicht zu unterscheiden.
+# Realfall 2026-07-27: `--list N` wurde als Bestand gelesen; erst ein zweiter
+# Aufruf mit hohem N plus `grep -c` lieferte die echte Zahl. Die Graph-Variante
+# desselben Musters ist platform#1480.
+
+
+def test_should_report_total_and_examined_count():
+    zeile = rm._bilanz(
+        "INBOX",
+        gesamt=120,
+        geprueft=25,
+        gezeigt=25,
+        limit=25,
+        from_filter=None,
+        to_filter=None,
+    )
+    assert "25 gezeigt" in zeile
+    assert "25 von 120" in zeile
+    assert "INBOX" in zeile
+
+
+def test_should_warn_loudly_when_the_limit_truncated_the_listing():
+    zeile = rm._bilanz(
+        "INBOX",
+        gesamt=120,
+        geprueft=25,
+        gezeigt=25,
+        limit=25,
+        from_filter=None,
+        to_filter=None,
+    )
+    assert "KEINE Vollerhebung" in zeile
+    assert "95 Nachricht(en) wurden gar nicht erst angesehen" in zeile
+
+
+def test_should_not_warn_when_the_whole_folder_was_examined():
+    zeile = rm._bilanz(
+        "INBOX",
+        gesamt=12,
+        geprueft=12,
+        gezeigt=12,
+        limit=500,
+        from_filter=None,
+        to_filter=None,
+    )
+    assert "KEINE Vollerhebung" not in zeile
+    assert "12 von 12" in zeile
+
+
+def test_should_name_the_active_filters_in_the_summary():
+    zeile = rm._bilanz(
+        "Sent",
+        gesamt=30,
+        geprueft=30,
+        gezeigt=4,
+        limit=500,
+        from_filter="scheppach",
+        to_filter="brandl",
+    )
+    assert "Absender~'scheppach'" in zeile
+    assert "Empfänger~'brandl'" in zeile
+    assert "UND" in zeile
+
+
+def test_should_state_how_many_were_filtered_out():
+    zeile = rm._bilanz(
+        "Sent",
+        gesamt=30,
+        geprueft=30,
+        gezeigt=4,
+        limit=500,
+        from_filter="scheppach",
+        to_filter=None,
+    )
+    assert "26 Nachricht(en) passten nicht auf den Filter" in zeile
+
+
+def test_should_say_no_filter_when_none_is_set():
+    zeile = rm._bilanz(
+        "INBOX",
+        gesamt=5,
+        geprueft=5,
+        gezeigt=5,
+        limit=500,
+        from_filter=None,
+        to_filter=None,
+    )
+    assert "kein Filter" in zeile

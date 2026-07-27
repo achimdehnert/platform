@@ -124,6 +124,47 @@ def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
     return imap
 
 
+def _bilanz(
+    folder: str,
+    gesamt: int,
+    geprueft: int,
+    gezeigt: int,
+    limit: int,
+    from_filter: str | None,
+    to_filter: str | None,
+) -> str:
+    """Nenner sichtbar machen: eine Liste ohne Gesamtzahl sieht vollständig aus.
+
+    Ohne diese Zeile ist `--list 25` von einer Vollerhebung nicht zu
+    unterscheiden — man zählt die Zeilen und hält das Ergebnis für den Bestand.
+    Genau dieser Trugschluss hat am 2026-07-27 einen falschen Befund erzeugt
+    (platform#1480, dort die Graph-Variante desselben Musters).
+    """
+    filter_teile = []
+    if from_filter:
+        filter_teile.append(f"Absender~{from_filter!r}")
+    if to_filter:
+        filter_teile.append(f"Empfänger~{to_filter!r}")
+    filter_txt = " UND ".join(filter_teile) if filter_teile else "kein Filter"
+
+    zeile = (
+        f"— {gezeigt} gezeigt · {geprueft} von {gesamt} Nachricht(en) in "
+        f"'{folder}' geprüft · {filter_txt}"
+    )
+    if gezeigt >= limit and geprueft < gesamt:
+        zeile += (
+            f"\n⚠ Limit {limit} erreicht — {gesamt - geprueft} Nachricht(en) wurden "
+            f"gar nicht erst angesehen. Diese Liste ist KEINE Vollerhebung; "
+            f"--list höher setzen."
+        )
+    elif filter_teile and geprueft > gezeigt:
+        zeile += (
+            f"\n  ({geprueft - gezeigt} Nachricht(en) passten nicht auf den Filter — "
+            f"für den Gesamtbestand ohne --from/--to-filter aufrufen.)"
+        )
+    return zeile
+
+
 def cmd_list(
     imap: imaplib.IMAP4_SSL,
     folder: str,
@@ -134,8 +175,11 @@ def cmd_list(
     imap.select(_mailbox_arg(folder), readonly=True)
     typ, data = imap.search(None, "ALL")
     ids = data[0].split()
+    gesamt = len(ids)
     shown = 0
+    geprueft = 0
     for i in reversed(ids):
+        geprueft += 1
         typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)])")
         msg = email.message_from_bytes(md[0][1])
         if not matches_from(msg, from_filter) or not matches_to(msg, to_filter):
@@ -149,6 +193,7 @@ def cmd_list(
             break
     if shown == 0:
         print("keine Treffer")
+    print(_bilanz(folder, gesamt, geprueft, shown, count, from_filter, to_filter))
 
 
 def cmd_fetch(
