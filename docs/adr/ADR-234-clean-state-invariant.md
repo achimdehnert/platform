@@ -419,8 +419,18 @@ bewusst und ersatzlos — sie ist bei Bedarf aus dem Archiv reproduzierbar (GitH
 - Der ursprünglich vorgesehene Redirect in `.windsurf/workflows/onboarding-new-repo.md`
   entfällt: die Datei wurde inzwischen im Zuge der Skill-Lane-Konsolidierung (ADR-280)
   von `main` gelöscht.
-- **Offener Rest:** 76 Dateien unter `.windsurf/project-facts/` nennen im Header weiter
-  `scripts/generate_project_facts.py` als Regenerier-Befehl → platform#1304.
+- ~~**Offener Rest:** 76 Dateien unter `.windsurf/project-facts/` nennen im Header weiter
+  `scripts/generate_project_facts.py` als Regenerier-Befehl → platform#1304.~~
+  **Erledigt 2026-07-27 (platform#1304 geschlossen):** Der Rest hat sich durch die
+  Archivierung des Verzeichnisses aufgelöst, nicht durch einen Sweep. Die betroffenen
+  Dateien liegen heute unter `_ARCHIVED/project-facts-windsurf/` — dort bleibt der
+  Header bewusst stehen, weil ein Archiv den damaligen Stand dokumentiert. Die
+  **lebenden** project-facts sind `.windsurf/rules/project-facts.md`
+  (`gen_project_facts.py:207`) und tragen den Header in **keinem** Repo unter
+  `~/github` (fleet-weiter grep, `_ARCHIVED` ausgenommen: 0 Treffer). Einzige
+  verbliebene Referenz auf das archivierte Skript außerhalb von Doku/ADRs ist
+  `bfagent/.github/workflows/update-project-facts.yml` — bfagent ist **archiviert**
+  (`isArchived=true`, read-only), der Workflow läuft nicht und ist nicht änderbar.
 
 Ref: platform#994, repo-optimize 2026-07-08-runB (Befunde L-13/X-15).
 
