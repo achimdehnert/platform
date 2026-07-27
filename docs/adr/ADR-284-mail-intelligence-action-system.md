@@ -49,6 +49,34 @@ die braucht Verträge, keine weitere Heuristik.
 1. **Coverage-Contract** — nicht „100 %", sondern *100 % der für den Connector sichtbaren
    Nachrichten in **explizit benannten** Accounts + Ordner-Scope zu einem ausgewiesenen
    Quell-Watermark*, mit sichtbaren Fehler-/Staleness-Zuständen.
+
+   **Amendment 2026-07-27 (KONZ-platform-035, REC-7).** Der Coverage-Contract galt bisher
+   dem Index. Er gilt ab jetzt **ebenso für Live-Antworten** — jede Darlegung eines
+   Sachverhalts aus dem Postfach, auch ohne Index.
+
+   Anlass sind drei belegte Fehlschläge am 2026-07-27: ein Absender-Platzhalter verwarf
+   21 von 34 gesendeten Nachrichten still; ein Sachverhalt wurde aus dem Posteingang
+   allein dargelegt, während der Rest in vier anderen Ordnern lag (3 von 11 gezeigt);
+   eine Liste nannte einen Zähler ohne Nenner. Keiner davon berührte einen Index — der
+   Contract war also genau dort nicht wirksam, wo heute gearbeitet wird.
+
+   Verbindlich daraus:
+
+   - Eine Antwort, die einen Sachverhalt aus dem Postfach darlegt, trägt einen
+     **Deckungsausweis** (`deckungsausweis.v1`) mit Zähler **und** Nenner auf beiden
+     Ebenen — Konten und Ordner.
+   - **Ohne Ausweis keine Vollständigkeitsaussage.** Das ist keine Stilfrage: „hier sind
+     die Treffer" wird als „das ist alles" gelesen, wenn nichts anderes danebensteht.
+   - Der Ausweis ist ein **versioniertes Objekt**; sein Text ist ein Rendering davon.
+     Diese Pflicht steht **hier einmal**, nicht in den einzelnen Skills — die verweisen
+     nur darauf (SSoT).
+   - Eine Vollständigkeitsaussage setzt voraus, dass jeder **verwendete** Retrievalpfad
+     kalibriert ist. Erscheint eine bekannte Nachricht nicht, ist nicht die Menge leer,
+     sondern die Abfrage kaputt.
+   - **Wiederholte Vollsuchen ohne neuen Anlass sind unzulässig.** Der Ausweis trägt ein
+     Anlass-Feld; ohne Anlass ist die Verhältnismäßigkeit unprüfbar, an der die Freigabe
+     der Datenschutz-Folgenabschätzung hängt.
+
 2. **Triage-Ledger** — jede entdeckte Mail ist ein Prozess-Zustand; „geprüft" ist ein
    *bezeugter* Zustand, nicht „indexiert".
 3. **Präzise Reaktion** — Index liefert Pointer, Inhalt wird **live** geholt (nicht dupliziert).
@@ -266,6 +294,7 @@ Schwächen; keiner war `[out-of-scope]`/`[missversteht]`.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-27 | Claude Code (Opus 5) | **Amendment zu §2 Nr. 1 (KONZ-platform-035, REC-7):** Der Coverage-Contract gilt ab jetzt **auch für Live-Antworten**, nicht nur für den Index. Pflicht zum **Deckungsausweis** (`deckungsausweis.v1`) mit Zähler und Nenner auf Konten- **und** Ordner-Ebene; ohne Ausweis keine Vollständigkeitsaussage; Vollständigkeitsaussage nur bei kalibriertem Retrievalpfad; wiederholte Vollsuche ohne neuen Anlass unzulässig. Anlass: drei belegte Fehlschläge am 2026-07-27, von denen **keiner** einen Index berührte — der Contract war genau dort unwirksam, wo gearbeitet wird. Die Pflicht steht bewusst **hier einmal** statt in drei Skill-Dateien (SSoT). |
 | 2026-07-27 | Claude Code (Opus 5) | **Status proposed → accepted.** Neu §7a **Regel-Lebenszyklus**: Vorschlag statt stiller Regel, Zwei-Beobachtungen-Schwelle für abgeleitete Regeln, Rückwirkungs-Trockenlauf + Gegenprobe als Pflichtteile des Vorschlags, Asymmetrie Verschieben/Löschen (keine Trash-Regel aus Beobachtung), Gegenbeispiel setzt Regel auf `strittig` statt sie still zu verengen, Restmenge als Kennzahl. Anlass: Aufräumlauf 2026-07-27 (1366 → 185 Mails), bei dem eine Hoster-Regel im Trockenlauf 52 Betriebshinweise falsch einsortiert hätte. |
 | 2026-07-23 | Claude Code (Opus 4.8) | **Rev 1** nach zwei externen Zweitmeinungen (§15). Kern-Umbau: **nur Phase 1 verbindlich** (§3), Rest in Folge-ADRs (§10). „100 %/präzise/sicher" → Verträge: **Coverage-Contract + Triage-Ledger** (§4, „indexiert ≠ geprüft"), **ephemerer/minimaler purgebarer Index** + entschiedener Feld-Scope + Löschkaskade als Akzeptanzkriterium (§5), **occurrence ≠ message** + Threading-Konfidenz (§6), konservative versionierte Klassifikation (§7), **nl2sql-Sicherheit korrigiert** + Regel-DSL (§8), Reconciliation-SLO + Tombstones (§9), live-fetch statt Body-Kopie (§3/§5), messbares Kill-Gate (§14), Baseline die die DB schlagen muss (§12). |
 | 2026-07-23 | Claude Code (Opus 4.8) | Initial (proposed, Rev 0). Sechs Schichten, „Regeln = Abfragen", nl2sql-Idee, ADR-283 eingebettet. Kundennamen nachträglich genericisiert (PII-frei vor externer Zweitmeinung). |
