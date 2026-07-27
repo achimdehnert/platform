@@ -36,6 +36,13 @@ def test_should_flatten_newlines_and_none():
     assert rm.decode_hdr(None) == ""
 
 
+# Regression #1342: brach den Massen-Header-Scan von ~24k HNU-Mails ab.
+# Ohne den latin-1-Fallback wirft codecs.lookup("unknown-8bit") LookupError.
+def test_should_decode_header_with_charset_python_does_not_know():
+    assert rm.decode_hdr("=?unknown-8bit?Q?Gr=FC=DFe?=") == "Grüße"
+    assert rm.decode_hdr("=?x-unknown?B?SGFsbG8=?=") == "Hallo"
+
+
 # --- extract_text ------------------------------------------------------------
 
 def test_should_extract_plain_body():
