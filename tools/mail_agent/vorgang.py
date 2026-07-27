@@ -221,8 +221,19 @@ def _zeile(kopf: bytes) -> str:
 
 
 def pfad_server_suche(imap, begriff: str, feld: str) -> set[bytes]:
-    """IMAP SEARCH — der Server entscheidet, was passt. Sieht auch Nachrichtentexte."""
-    typ, res = imap.uid("SEARCH", None, feld, begriff)
+    """IMAP SEARCH — der Server entscheidet, was passt. Sieht auch Nachrichtentexte.
+
+    Begriffe mit Umlauten müssen als UTF-8-Literal mit ``CHARSET UTF-8`` gehen.
+    ``imaplib`` kodiert Argumente sonst als ASCII und wirft ``UnicodeEncodeError`` —
+    im Ordner-Loop von ``cmd_topic`` sähe das aus wie ein unlesbarer Ordner, und eine
+    Suche nach „Löschung" hätte in JEDEM Ordner still null Treffer gemeldet.
+    Gefunden vom Referenzpostfach (KONZ-035 REC-10) beim ersten Lauf.
+    """
+    if begriff.isascii():
+        typ, res = imap.uid("SEARCH", None, feld, begriff)
+    else:
+        imap.literal = begriff.encode("utf-8")
+        typ, res = imap.uid("SEARCH", "CHARSET", "UTF-8", feld)
     if typ != "OK" or not res or not res[0]:
         return set()
     return set(res[0].split())

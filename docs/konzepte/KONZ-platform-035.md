@@ -462,7 +462,7 @@ läuft in platform#1492 (REC-1/2/3/4/7/9); REC-6 bleibt vertagt, REC-10 steht au
 | K2 Pflicht-Scope auf **beiden** Ebenen: alle Ordner **und** alle Konten, Abweichung begründet | teilweise | Konten werden gezählt und Abweichungen begründet; ein Lauf über *mehrere* Konten fehlt (#1492) |
 | K3 Mindestens zwei **verschiedenartige** Retrievalpfade mit getrennter Trefferzahl | erfüllt | `pfad_server_suche` / `pfad_client_filter`, `divergenz()` (#1492) |
 | K4 Kalibrierung je Pfad; Vollständigkeitsaussage nur bei allen Pfaden grün | erfüllt | `kalibriere_pfade()`, `unkalibrierte_pfade()` (#1492) |
-| K5 **KG-RECALL** grün auf der Referenzmenge (0 False Negatives) | offen | REC-10 nicht gebaut — ohne Referenzmenge nicht messbar |
+| K5 **KG-RECALL** grün auf der Referenzmenge (0 False Negatives) | erfüllt | `referenzpostfach.py --recall`, Lauf 2026-07-27: 10/10 Soll-Nachrichten gefunden, 0 False Positives (#1492). Der Lauf davor war **rot** und deckte einen echten Fehler auf (Umlaut-Suche brach ab). |
 | K6 Garantiegrenze (§7.2) steht im Ausweis-Text, nicht nur im Konzept | offen | — |
 | K7 `source_watermark`, `scan_started_at`/`_finished_at`, `tool_version`, `query_fingerprint` in jedem Ausweis | erfüllt | Pflichtfelder in `Ausweis` (#1492) |
 | K8 Exit-Code-Hook prüft die Bedingungskette aus §6.1 | offen | REC-8 nicht gebaut |
