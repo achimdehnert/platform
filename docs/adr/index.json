@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-25",
-  "total": 232,
-  "next_free": 287,
+  "generated": "2026-07-27",
+  "total": 233,
+  "next_free": 288,
   "adrs": [
     {
       "number": 7,
@@ -5364,6 +5364,21 @@
       "title": "Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence",
       "status": "accepted",
       "date": "2026-07-24",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 287,
+      "id": "ADR-287",
+      "file": "ADR-287-fach-reviewer-org-weite-distribution.md",
+      "title": "Distribute the domain-expert reviewer in graded stages, gated on artifact-content sovereignty rather than skill location",
+      "status": "proposed",
+      "date": "2026-07-27",
       "domains": [],
       "supersedes": [],
       "superseded_by": [],
