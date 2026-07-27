@@ -67,7 +67,7 @@ def test_should_not_flag_compose_healthcheck_key():
         "  web:\n"
         "    image: app:latest\n"
         "    healthcheck:\n"
-        "      test: [\"CMD\", \"curl\", \"-f\", \"http://localhost:8000/livez/\"]\n"
+        '      test: ["CMD", "curl", "-f", "http://localhost:8000/livez/"]\n'
     )
     assert not re.search(pattern, compose, re.MULTILINE)
 
@@ -87,11 +87,107 @@ def test_should_flag_healthcheck_only_in_dockerfile_end_to_end(monkeypatch):
         "docker-compose.prod.yml": "services:\n  web:\n    image: app\nHEALTHCHECK bogus\n",
     }
     monkeypatch.setattr(
-        dc, "_get_file_content",
+        dc,
+        "_get_file_content",
         lambda repo, filepath, token: files.get(filepath),
     )
     drifts = dc.check_banned_patterns("dummy-repo", "dummy-token")
     hc = [d for d in drifts if "HEALTHCHECK" in d.message]
-    assert len(hc) == 1, f"erwartet genau 1 HEALTHCHECK-Flag, got {[d.message for d in hc]}"
+    assert len(hc) == 1, (
+        f"erwartet genau 1 HEALTHCHECK-Flag, got {[d.message for d in hc]}"
+    )
     assert hc[0].file == "Dockerfile"
     assert hc[0].rule == "banned-file-pattern"
+
+
+# ── required-file: Alternativpfade + pyproject-Deps (#1469) ───────────────────
+#
+# Vorher meldete die Regel `error` für Repos, die den Docker-Build unter
+# docker/app/ halten (risk-hub, odoo-hub, pptx-hub) bzw. ihre Deps im pyproject
+# tragen statt in requirements.txt. Beides ist im Fleet gelebte Praxis; die
+# Dauer-Errors entwerteten den Check. Die zwei Negativproben unten sind der
+# eigentliche Wert der Lockerung — ohne sie wäre sie wertlos.
+
+
+def _required_files_with(files: dict, monkeypatch):
+    """Führt check_required_files gegen eine gefälschte Dateiliste aus."""
+    monkeypatch.setattr(
+        dc,
+        "_get_file_content",
+        lambda repo, filepath, token: files.get(filepath),
+    )
+    return dc.check_required_files("dummy-repo", "dummy-token")
+
+
+def _findings_for(drifts, path):
+    return [d for d in drifts if d.file == path]
+
+
+PYPROJECT_WITH_DEPS = '[project]\nname = "x"\ndependencies = ["django>=5.0"]\n'
+PYPROJECT_WITHOUT_DEPS = '[project]\nname = "x"\n\n[tool.ruff]\nline-length = 100\n'
+
+
+def test_should_accept_dockerfile_under_docker_app(monkeypatch):
+    """docker/app/Dockerfile erfüllt die Regel — Layout von risk-hub/odoo-hub/pptx-hub."""
+    drifts = _required_files_with(
+        {"docker/app/Dockerfile": "FROM python:3.12\n"}, monkeypatch
+    )
+    assert not _findings_for(drifts, "Dockerfile")
+
+
+def test_should_still_accept_dockerfile_in_repo_root(monkeypatch):
+    """Regression: das Wurzel-Layout (dev-hub, weltenhub) bleibt gültig."""
+    drifts = _required_files_with({"Dockerfile": "FROM python:3.12\n"}, monkeypatch)
+    assert not _findings_for(drifts, "Dockerfile")
+
+
+def test_should_still_flag_when_no_dockerfile_exists_anywhere(monkeypatch):
+    """Negativprobe: ohne Docker-Build bleibt es ein error — sonst ist die Regel zahnlos."""
+    drifts = _required_files_with({}, monkeypatch)
+    found = _findings_for(drifts, "Dockerfile")
+    assert len(found) == 1, "fehlender Docker-Build muss weiterhin genau einmal flaggen"
+    assert found[0].severity == "error"
+
+
+def test_should_report_a_single_finding_when_both_layouts_exist(monkeypatch):
+    """trading-hub hält beide Varianten — das darf kein Doppel-Finding erzeugen."""
+    drifts = _required_files_with(
+        {
+            "Dockerfile": "FROM python:3.12\n",
+            "docker/app/Dockerfile": "FROM python:3.12\n",
+        },
+        monkeypatch,
+    )
+    assert not _findings_for(drifts, "Dockerfile")
+
+
+def test_should_accept_dependencies_declared_in_pyproject(monkeypatch):
+    """Kein requirements.txt noetig, wenn das pyproject die Deps traegt."""
+    drifts = _required_files_with({"pyproject.toml": PYPROJECT_WITH_DEPS}, monkeypatch)
+    assert not _findings_for(drifts, "requirements.txt")
+
+
+def test_should_still_flag_when_dependencies_are_declared_nowhere(monkeypatch):
+    """Negativprobe: pyproject OHNE dependencies rettet die Regel nicht."""
+    drifts = _required_files_with(
+        {"pyproject.toml": PYPROJECT_WITHOUT_DEPS}, monkeypatch
+    )
+    found = _findings_for(drifts, "requirements.txt")
+    assert len(found) == 1
+    assert found[0].severity == "error"
+
+
+def test_should_only_read_dependencies_from_the_project_table():
+    """`dependencies` in einer anderen Tabelle beantwortet die Frage nicht."""
+    assert dc._pyproject_declares_dependencies(PYPROJECT_WITH_DEPS)
+    assert not dc._pyproject_declares_dependencies(PYPROJECT_WITHOUT_DEPS)
+    assert not dc._pyproject_declares_dependencies(
+        '[tool.poetry]\ndependencies = ["django"]\n'
+    )
+
+
+def test_should_name_the_alternative_in_the_fix_hint(monkeypatch):
+    """Der Hinweis nennt den zweiten Kandidaten — sonst raet der Leser."""
+    drifts = _required_files_with({}, monkeypatch)
+    found = _findings_for(drifts, "Dockerfile")
+    assert "docker/app/Dockerfile" in found[0].fix_hint

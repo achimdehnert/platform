@@ -19,6 +19,7 @@ Verwendung:
 
 SSoT: scripts/repo-registry.yaml + GitHub API + PyPI
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,46 +57,73 @@ def _repo_owner(repo: str) -> str:
     da drift_check.py auch mit Repo-Namen außerhalb der Registry aufgerufen wird."""
     return reg.owner(repo) or GITHUB_ORG
 
+
 # ── Drift-Regeln (erweiterbar ohne Code-Änderung) ─────────────────────────────
 
+# Erstes Element ist entweder ein Pfad oder ein Tupel gleichwertiger Kandidaten —
+# erfüllt ist die Regel, sobald EINER existiert. Beide Docker-Layouts sind im
+# Fleet gelebte Praxis (Wurzel: dev-hub, weltenhub, trading-hub · docker/app:
+# risk-hub, odoo-hub, pptx-hub), keines davon ist ein Ausreißer (#1469).
 REQUIRED_FILES_DJANGO = [
-    ("Dockerfile",               "error",  "Docker Build fehlt"),
-    ("docker-compose.prod.yml",  "error",  "Prod-Compose fehlt"),
-    (".env.example",             "warn",   ".env.example fehlt — neue Devs verloren"),
-    ("pyproject.toml",           "warn",   "pyproject.toml fehlt — kein pytest-Config"),
-    ("requirements.txt",         "error",  "requirements.txt fehlt"),
-    ("requirements-test.txt",    "warn",   "requirements-test.txt fehlt"),
-    ("tests/conftest.py",        "warn",   "Kein Test-Scaffold — run gen_test_scaffold.py"),
-    (".github/workflows/ci.yml", "warn",   "Kein CI-Workflow"),
+    (("Dockerfile", "docker/app/Dockerfile"), "error", "Docker Build fehlt"),
+    ("docker-compose.prod.yml", "error", "Prod-Compose fehlt"),
+    (".env.example", "warn", ".env.example fehlt — neue Devs verloren"),
+    ("pyproject.toml", "warn", "pyproject.toml fehlt — kein pytest-Config"),
+    ("requirements.txt", "error", "requirements.txt fehlt"),
+    ("requirements-test.txt", "warn", "requirements-test.txt fehlt"),
+    ("tests/conftest.py", "warn", "Kein Test-Scaffold — run gen_test_scaffold.py"),
+    (".github/workflows/ci.yml", "warn", "Kein CI-Workflow"),
 ]
 
 REQUIRED_FILE_CONTENT_CHECKS = [
     # Das Muster ist owner-agnostisch und trifft weiterhin, seit platforms Kopie
     # retired ist (#1423) — die Fleet ruft iilgmbh/shared-ci/..._ci-python.yml.
     # Nur der Meldungstext nannte platform noch als Quelle.
-    (".github/workflows/ci.yml",         r"_ci-python\.yml",  "warn",
-     "CI nutzt nicht shared-ci/_ci-python.yml (reusable workflow)"),
-    ("Dockerfile",                        r"python:3\.12",     "warn",
-     "Dockerfile nutzt nicht Python 3.12"),
-    ("docker-compose.prod.yml",           r"env_file",         "error",
-     "docker-compose.prod.yml ohne env_file (ADR-022 violation)"),
-    ("docker-compose.prod.yml",           r"unless-stopped",   "warn",
-     "docker-compose.prod.yml ohne restart: unless-stopped"),
-    ("requirements.txt",                  r"(iil-|aifw|promptfw)",  "info",
-     "Kein iil-Package gefunden — ok wenn kein LLM/Test-Kit benötigt"),
+    (
+        ".github/workflows/ci.yml",
+        r"_ci-python\.yml",
+        "warn",
+        "CI nutzt nicht shared-ci/_ci-python.yml (reusable workflow)",
+    ),
+    ("Dockerfile", r"python:3\.12", "warn", "Dockerfile nutzt nicht Python 3.12"),
+    (
+        "docker-compose.prod.yml",
+        r"env_file",
+        "error",
+        "docker-compose.prod.yml ohne env_file (ADR-022 violation)",
+    ),
+    (
+        "docker-compose.prod.yml",
+        r"unless-stopped",
+        "warn",
+        "docker-compose.prod.yml ohne restart: unless-stopped",
+    ),
+    (
+        "requirements.txt",
+        r"(iil-|aifw|promptfw)",
+        "info",
+        "Kein iil-Package gefunden — ok wenn kein LLM/Test-Kit benötigt",
+    ),
 ]
 
 BANNED_PATTERNS = [
-    (r"StrictHostKeyChecking=no",         "error",
-     "StrictHostKeyChecking=no gefunden (SD-001 CRITICAL)"),
-    (r"88\.198\.191\.108",               "error",
-     "Hardcoded Server-IP (SD-001 CRITICAL)"),
-    (r"UUIDField\(primary_key=True\)",   "error",
-     "UUID als PK (DB-001 CRITICAL — nur BigAutoField erlaubt)"),
-    (r"environment:\s*\n(\s+\w+:\s*\$\{)", "warn",
-     "docker-compose environment: mit ${VAR} (ADR-022 — env_file nutzen)"),
-    (r"sqlite",                           "warn",
-     "SQLite-Referenz gefunden — PostgreSQL ist Pflicht (ADR-009)"),
+    (
+        r"StrictHostKeyChecking=no",
+        "error",
+        "StrictHostKeyChecking=no gefunden (SD-001 CRITICAL)",
+    ),
+    (r"88\.198\.191\.108", "error", "Hardcoded Server-IP (SD-001 CRITICAL)"),
+    (
+        r"UUIDField\(primary_key=True\)",
+        "error",
+        "UUID als PK (DB-001 CRITICAL — nur BigAutoField erlaubt)",
+    ),
+    (
+        r"environment:\s*\n(\s+\w+:\s*\$\{)",
+        "warn",
+        "docker-compose environment: mit ${VAR} (ADR-022 — env_file nutzen)",
+    ),
+    (r"sqlite", "warn", "SQLite-Referenz gefunden — PostgreSQL ist Pflicht (ADR-009)"),
 ]
 
 # Banned-Patterns mit File-Scope: feuern NUR in der genannten Datei (nicht über
@@ -104,19 +132,23 @@ BANNED_PATTERNS = [
 # ist — eine globale Regel würde sonst die Msg „…im Dockerfile … in
 # docker-compose.prod.yml" produzieren. (file, pattern, severity, msg)
 BANNED_FILE_PATTERNS = [
-    ("Dockerfile", r"^HEALTHCHECK\b",     "error",
-     "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
-     "docker-compose.prod.yml, nicht ins image-globale Dockerfile)"),
+    (
+        "Dockerfile",
+        r"^HEALTHCHECK\b",
+        "error",
+        "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
+        "docker-compose.prod.yml, nicht ins image-globale Dockerfile)",
+    ),
 ]
 
 ACTIONS_VERSION_MAP = {
-    "actions/checkout":       "v4",
-    "actions/setup-python":   "v5",
+    "actions/checkout": "v4",
+    "actions/setup-python": "v5",
     "actions/upload-artifact": "v4",
     "actions/download-artifact": "v4",
-    "actions/cache":          "v4",
+    "actions/cache": "v4",
     "docker/build-push-action": "v7",
-    "docker/login-action":    "v3",
+    "docker/login-action": "v3",
 }
 
 IIL_PACKAGES_LATEST: dict[str, str] = {}  # befüllt via PyPI
@@ -124,10 +156,11 @@ IIL_PACKAGES_LATEST: dict[str, str] = {}  # befüllt via PyPI
 
 # ── Datenmodell ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class DriftItem:
     rule: str
-    severity: str   # error | warn | info
+    severity: str  # error | warn | info
     file: str
     message: str
     fix_hint: str = ""
@@ -169,6 +202,7 @@ class RepoDrift:
 
 
 # ── GitHub API ────────────────────────────────────────────────────────────────
+
 
 def _github_token() -> str:
     for env_var in ("GITHUB_TOKEN", "PROJECT_PAT"):
@@ -220,8 +254,14 @@ def _fetch_pypi_latest(package: str) -> str | None:
 
 
 def _load_iil_latest() -> dict[str, str]:
-    packages = ["iil-testkit", "aifw", "iil-promptfw", "iil-authoringfw",
-                "iil-weltenfw", "iil-nl2cadfw"]
+    packages = [
+        "iil-testkit",
+        "aifw",
+        "iil-promptfw",
+        "iil-authoringfw",
+        "iil-weltenfw",
+        "iil-nl2cadfw",
+    ]
     result = {}
     for pkg in packages:
         if v := _fetch_pypi_latest(pkg):
@@ -231,18 +271,70 @@ def _load_iil_latest() -> dict[str, str]:
 
 # ── Drift-Checks ──────────────────────────────────────────────────────────────
 
+
+def _pyproject_declares_dependencies(content: str) -> bool:
+    """Deklariert das pyproject im ``[project]``-Abschnitt einen ``dependencies``-Key?
+
+    Bewusst nur ``[project]`` — ein ``dependencies`` unter ``[tool.poetry]`` oder in
+    einer verschachtelten Tabelle beantwortet die Frage nicht, ob das Paket seine
+    Laufzeit-Abhängigkeiten standardisiert trägt.
+    """
+    in_project = False
+    for raw in content.splitlines():
+        line = raw.strip()
+        if line.startswith("["):
+            in_project = line == "[project]"
+            continue
+        if in_project and re.match(r"dependencies\s*=", line):
+            return True
+    return False
+
+
+def _requirements_covered_by_pyproject(repo: str, token: str) -> bool:
+    """``requirements.txt`` ist entbehrlich, wenn das pyproject die Deps trägt.
+
+    Nicht als Alternativpfad in REQUIRED_FILES_DJANGO gelöst: ``pyproject.toml``
+    hat praktisch jedes Repo, ein reiner Existenz-Check machte die Regel vakuum.
+    Geprüft wird deshalb der Inhalt (#1469).
+    """
+    content = _get_file_content(repo, "pyproject.toml", token)
+    return content is not None and _pyproject_declares_dependencies(content)
+
+
+# Regeln, die auch ohne die Datei erfüllt sein können. Schlüssel ist der
+# kanonische (erste) Pfad des Eintrags.
+ALTERNATIVE_SATISFIERS = {
+    "requirements.txt": _requirements_covered_by_pyproject,
+}
+
+
 def check_required_files(repo: str, token: str) -> list[DriftItem]:
     drifts = []
-    for filepath, severity, msg in REQUIRED_FILES_DJANGO:
-        content = _get_file_content(repo, filepath, token)
-        if content is None:
-            drifts.append(DriftItem(
+    for entry, severity, msg in REQUIRED_FILES_DJANGO:
+        candidates = (entry,) if isinstance(entry, str) else tuple(entry)
+        canonical = candidates[0]
+
+        # any() kurzschließt: liegt der erste Kandidat vor, entfällt der zweite
+        # API-Call — und ein Repo mit BEIDEN Varianten erzeugt kein Doppel-Finding.
+        if any(_get_file_content(repo, p, token) is not None for p in candidates):
+            continue
+
+        satisfier = ALTERNATIVE_SATISFIERS.get(canonical)
+        if satisfier is not None and satisfier(repo, token):
+            continue
+
+        hint = f"Erstellen: touch {canonical}  (oder gen_test_scaffold.py nutzen)"
+        if len(candidates) > 1:
+            hint += f" — alternativ akzeptiert: {', '.join(candidates[1:])}"
+        drifts.append(
+            DriftItem(
                 rule="required-file",
                 severity=severity,
-                file=filepath,
+                file=canonical,
                 message=msg,
-                fix_hint=f"Erstellen: touch {filepath}  (oder gen_test_scaffold.py nutzen)",
-            ))
+                fix_hint=hint,
+            )
+        )
     return drifts
 
 
@@ -253,12 +345,14 @@ def check_file_contents(repo: str, token: str) -> list[DriftItem]:
         if content is None:
             continue
         if not re.search(pattern, content):
-            drifts.append(DriftItem(
-                rule="file-content",
-                severity=severity,
-                file=filepath,
-                message=msg,
-            ))
+            drifts.append(
+                DriftItem(
+                    rule="file-content",
+                    severity=severity,
+                    file=filepath,
+                    message=msg,
+                )
+            )
     return drifts
 
 
@@ -268,29 +362,37 @@ def check_banned_patterns(repo: str, token: str) -> list[DriftItem]:
     files_to_check = []
 
     # Gezielte Dateien statt alle (API-effizient)
-    for scan_path in ["Dockerfile", "docker-compose.prod.yml",
-                       ".github/workflows/ci.yml", ".env.example"]:
+    for scan_path in [
+        "Dockerfile",
+        "docker-compose.prod.yml",
+        ".github/workflows/ci.yml",
+        ".env.example",
+    ]:
         if (content := _get_file_content(repo, scan_path, token)) is not None:
             files_to_check.append((scan_path, content))
 
     for filepath, content in files_to_check:
         for pattern, severity, msg in BANNED_PATTERNS:
             if re.search(pattern, content, re.MULTILINE):
-                drifts.append(DriftItem(
-                    rule="banned-pattern",
-                    severity=severity,
-                    file=filepath,
-                    message=f"{msg} in {filepath}",
-                ))
+                drifts.append(
+                    DriftItem(
+                        rule="banned-pattern",
+                        severity=severity,
+                        file=filepath,
+                        message=f"{msg} in {filepath}",
+                    )
+                )
         # File-scoped Patterns nur in der passenden Datei prüfen
         for scoped_file, pattern, severity, msg in BANNED_FILE_PATTERNS:
             if filepath == scoped_file and re.search(pattern, content, re.MULTILINE):
-                drifts.append(DriftItem(
-                    rule="banned-file-pattern",
-                    severity=severity,
-                    file=filepath,
-                    message=f"{msg} in {filepath}",
-                ))
+                drifts.append(
+                    DriftItem(
+                        rule="banned-file-pattern",
+                        severity=severity,
+                        file=filepath,
+                        message=f"{msg} in {filepath}",
+                    )
+                )
     return drifts
 
 
@@ -308,18 +410,21 @@ def check_actions_versions(repo: str, token: str) -> list[DriftItem]:
             for match in re.finditer(pattern, content):
                 found_version = match.group(1)
                 if found_version != expected_version:
-                    drifts.append(DriftItem(
-                        rule="actions-version",
-                        severity="warn",
-                        file=f".github/workflows/{wf_file}",
-                        message=f"{action}@{found_version} → sollte @{expected_version} sein",
-                        fix_hint=f"sed -i 's/{action}@{found_version}/{action}@{expected_version}/g' .github/workflows/{wf_file}",
-                    ))
+                    drifts.append(
+                        DriftItem(
+                            rule="actions-version",
+                            severity="warn",
+                            file=f".github/workflows/{wf_file}",
+                            message=f"{action}@{found_version} → sollte @{expected_version} sein",
+                            fix_hint=f"sed -i 's/{action}@{found_version}/{action}@{expected_version}/g' .github/workflows/{wf_file}",
+                        )
+                    )
     return drifts
 
 
-def check_iil_package_versions(repo: str, token: str,
-                                 latest: dict[str, str]) -> list[DriftItem]:
+def check_iil_package_versions(
+    repo: str, token: str, latest: dict[str, str]
+) -> list[DriftItem]:
     """Prüft ob iil-Packages auf aktuellen Versionen pinned sind."""
     drifts = []
     for req_file in ["requirements.txt", "requirements-test.txt"]:
@@ -341,13 +446,15 @@ def check_iil_package_versions(repo: str, token: str,
                     pinned_parts = tuple(int(x) for x in pinned.split("."))
                     current_parts = tuple(int(x) for x in current.split("."))
                     if current_parts > pinned_parts:
-                        drifts.append(DriftItem(
-                            rule="iil-version",
-                            severity="warn",
-                            file=req_file,
-                            message=f"{pkg_name}>={pinned} — neu: >={current}",
-                            fix_hint=f"sed -i 's/{pkg_name}>={pinned}/{pkg_name}>={current}/' {req_file}",
-                        ))
+                        drifts.append(
+                            DriftItem(
+                                rule="iil-version",
+                                severity="warn",
+                                file=req_file,
+                                message=f"{pkg_name}>={pinned} — neu: >={current}",
+                                fix_hint=f"sed -i 's/{pkg_name}>={pinned}/{pkg_name}>={current}/' {req_file}",
+                            )
+                        )
     return drifts
 
 
@@ -362,13 +469,15 @@ def check_python_version(repo: str, token: str) -> list[DriftItem]:
         if version_match:
             minor = int(version_match.group(1))
             if minor < 12:
-                drifts.append(DriftItem(
-                    rule="python-version",
-                    severity="warn",
-                    file=filepath,
-                    message=f"Python 3.{minor} statt 3.12 — Update empfohlen",
-                    fix_hint=f"python:3.{minor} → python:3.12 in {filepath}",
-                ))
+                drifts.append(
+                    DriftItem(
+                        rule="python-version",
+                        severity="warn",
+                        file=filepath,
+                        message=f"Python 3.{minor} statt 3.12 — Update empfohlen",
+                        fix_hint=f"python:3.{minor} → python:3.12 in {filepath}",
+                    )
+                )
     return drifts
 
 
@@ -425,11 +534,17 @@ def _shared_ci_state(token: str) -> dict:
     latest = latest_shared_ci_tag(tags)
     stale_files: list[str] = []
     if latest:
-        listing = _api_get(
-            f"/repos/{SHARED_CI_REPO}/contents/.github/workflows?ref={latest}", token
-        ) or []
+        listing = (
+            _api_get(
+                f"/repos/{SHARED_CI_REPO}/contents/.github/workflows?ref={latest}",
+                token,
+            )
+            or []
+        )
         for item in listing:
-            if not isinstance(item, dict) or not item.get("name", "").endswith((".yml", ".yaml")):
+            if not isinstance(item, dict) or not item.get("name", "").endswith(
+                (".yml", ".yaml")
+            ):
                 continue
             name = item["name"]
             canonical = _get_content_at(
@@ -450,8 +565,9 @@ def _shared_ci_state(token: str) -> dict:
     return _SHARED_CI_STATE
 
 
-def check_shared_ci_tag_drift(repo: str, token: str,
-                               state: dict | None = None) -> list[DriftItem]:
+def check_shared_ci_tag_drift(
+    repo: str, token: str, state: dict | None = None
+) -> list[DriftItem]:
     """Prüft shared-ci-Pins des Repos gegen neuesten Tag + platform-Kanon."""
     drifts = []
     pins: list[tuple[str, str, str]] = []  # (wf_file, pinned_file, ref)
@@ -471,22 +587,28 @@ def check_shared_ci_tag_drift(repo: str, token: str,
 
     for wf_file, pinned_file, ref in pins:
         if latest and ref != latest and _semver_key(ref) is not None:
-            drifts.append(DriftItem(
-                rule="shared-ci-tag-outdated",
-                severity="warn",
-                file=f".github/workflows/{wf_file}",
-                message=f"shared-ci/{pinned_file}@{ref} — neuester Tag: {latest}",
-                fix_hint=f"sed -i 's#{pinned_file}@{ref}#{pinned_file}@{latest}#' .github/workflows/{wf_file}",
-            ))
+            drifts.append(
+                DriftItem(
+                    rule="shared-ci-tag-outdated",
+                    severity="warn",
+                    file=f".github/workflows/{wf_file}",
+                    message=f"shared-ci/{pinned_file}@{ref} — neuester Tag: {latest}",
+                    fix_hint=f"sed -i 's#{pinned_file}@{ref}#{pinned_file}@{latest}#' .github/workflows/{wf_file}",
+                )
+            )
         if pinned_file in stale_files:
-            drifts.append(DriftItem(
-                rule="shared-ci-tag-stale",
-                severity="error",
-                file=f".github/workflows/{wf_file}",
-                message=(f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
-                         "Tag ist stale, neuen Tag schneiden (🌀 Tag≠main)"),
-                fix_hint="platform .github/workflows nach shared-ci portieren + neuen Tag schneiden",
-            ))
+            drifts.append(
+                DriftItem(
+                    rule="shared-ci-tag-stale",
+                    severity="error",
+                    file=f".github/workflows/{wf_file}",
+                    message=(
+                        f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
+                        "Tag ist stale, neuen Tag schneiden (🌀 Tag≠main)"
+                    ),
+                    fix_hint="platform .github/workflows nach shared-ci portieren + neuen Tag schneiden",
+                )
+            )
     return drifts
 
 
@@ -495,8 +617,9 @@ def check_shared_ci_tag_drift(repo: str, token: str,
 SCAFFOLD_TYPES: frozenset[str] = frozenset({"django", "agent", "bot"})
 
 
-def check_repo(repo: str, repo_type: str, token: str,
-               iil_latest: dict[str, str]) -> RepoDrift:
+def check_repo(
+    repo: str, repo_type: str, token: str, iil_latest: dict[str, str]
+) -> RepoDrift:
     drift = RepoDrift(repo=repo, repo_type=repo_type)
 
     # Repo erreichbar?
@@ -520,23 +643,33 @@ def check_repo(repo: str, repo_type: str, token: str,
 
 # ── Output ───────────────────────────────────────────────────────────────────
 
-def print_report(drifts: list[RepoDrift], severity_filter: str, show_fix_hints: bool) -> None:
+
+def print_report(
+    drifts: list[RepoDrift], severity_filter: str, show_fix_hints: bool
+) -> None:
     SEVERITY_ORDER = {"error": 0, "warn": 1, "info": 2}
     min_level = SEVERITY_ORDER.get(severity_filter, 2)
 
-    print(f"\n## Platform Drift Check — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n")
+    print(
+        f"\n## Platform Drift Check — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n"
+    )
 
     total_errors = sum(len(r.errors) for r in drifts)
     total_warns = sum(len(r.warnings) for r in drifts)
     clean = sum(1 for r in drifts if r.drift_score == 0 and not r.error)
 
     for repo_drift in sorted(drifts, key=lambda x: -x.drift_score):
-        filtered = [d for d in repo_drift.drifts
-                    if SEVERITY_ORDER.get(d.severity, 2) <= min_level]
+        filtered = [
+            d
+            for d in repo_drift.drifts
+            if SEVERITY_ORDER.get(d.severity, 2) <= min_level
+        ]
         if not filtered and not repo_drift.error and severity_filter != "info":
             continue
 
-        print(f"{repo_drift.status_icon}  **{repo_drift.repo}** ({repo_drift.repo_type})")
+        print(
+            f"{repo_drift.status_icon}  **{repo_drift.repo}** ({repo_drift.repo_type})"
+        )
         if repo_drift.error:
             print(f"    ⚠️  {repo_drift.error}")
         for d in sorted(filtered, key=lambda x: SEVERITY_ORDER.get(x.severity, 2)):
@@ -545,8 +678,10 @@ def print_report(drifts: list[RepoDrift], severity_filter: str, show_fix_hints: 
                 print(f"       → {d.fix_hint}")
         print()
 
-    print(f"{'='*70}")
-    print(f"Repos: {len(drifts)}  |  ✅ Kein Drift: {clean}  |  🔴 Errors: {total_errors}  |  🟡 Warns: {total_warns}")
+    print(f"{'=' * 70}")
+    print(
+        f"Repos: {len(drifts)}  |  ✅ Kein Drift: {clean}  |  🔴 Errors: {total_errors}  |  🟡 Warns: {total_warns}"
+    )
 
     # Priorisierte Fix-Liste
     all_errors = [(r.repo, d) for r in drifts for d in r.errors]
@@ -565,42 +700,59 @@ def print_github_summary(drifts: list[RepoDrift]) -> None:
         f.write("| Repo | Status | Errors | Warnings |\n")
         f.write("|------|--------|--------|----------|\n")
         for r in sorted(drifts, key=lambda x: -x.drift_score):
-            f.write(f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n")
+            f.write(
+                f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
+            )
 
 
 def print_json_output(drifts: list[RepoDrift]) -> None:
     out = []
     for r in drifts:
-        out.append({
-            "repo": r.repo,
-            "type": r.repo_type,
-            "status": r.status_icon,
-            "drift_score": r.drift_score,
-            "errors": len(r.errors),
-            "warnings": len(r.warnings),
-            "drifts": [
-                {"rule": d.rule, "severity": d.severity, "file": d.file,
-                 "message": d.message, "fix_hint": d.fix_hint}
-                for d in r.drifts
-            ],
-        })
+        out.append(
+            {
+                "repo": r.repo,
+                "type": r.repo_type,
+                "status": r.status_icon,
+                "drift_score": r.drift_score,
+                "errors": len(r.errors),
+                "warnings": len(r.warnings),
+                "drifts": [
+                    {
+                        "rule": d.rule,
+                        "severity": d.severity,
+                        "file": d.file,
+                        "message": d.message,
+                        "fix_hint": d.fix_hint,
+                    }
+                    for d in r.drifts
+                ],
+            }
+        )
     print(json.dumps(out, indent=2))
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Platform Cross-Repo Drift Detection")
     parser.add_argument("repos", nargs="*", help="Repos (leer = alle Django)")
-    parser.add_argument("--severity", choices=["error", "warn", "info"],
-                        default="warn", help="Minimaler Report-Level")
+    parser.add_argument(
+        "--severity",
+        choices=["error", "warn", "info"],
+        default="warn",
+        help="Minimaler Report-Level",
+    )
     parser.add_argument("--format", choices=["table", "json"], default="table")
-    parser.add_argument("--fix-hints", action="store_true",
-                        help="Fix-Befehle anzeigen")
-    parser.add_argument("--fail-on-error", action="store_true",
-                        help="Exit 1 wenn Error-Drifts gefunden")
-    parser.add_argument("--skip-pypi", action="store_true",
-                        help="PyPI-Versionscheck überspringen (offline)")
+    parser.add_argument("--fix-hints", action="store_true", help="Fix-Befehle anzeigen")
+    parser.add_argument(
+        "--fail-on-error", action="store_true", help="Exit 1 wenn Error-Drifts gefunden"
+    )
+    parser.add_argument(
+        "--skip-pypi",
+        action="store_true",
+        help="PyPI-Versionscheck überspringen (offline)",
+    )
     args = parser.parse_args()
 
     registry = yaml.safe_load(REGISTRY_FILE.read_text()).get("repos", {})
@@ -608,14 +760,21 @@ def main() -> int:
 
     targets = (
         {r: registry.get(r, {"type": "unknown"}) for r in args.repos}
-        if args.repos else
-        {n: p for n, p in registry.items()
-         if isinstance(p, dict) and p.get("type") in SCAFFOLD_TYPES and n != "platform"}
+        if args.repos
+        else {
+            n: p
+            for n, p in registry.items()
+            if isinstance(p, dict)
+            and p.get("type") in SCAFFOLD_TYPES
+            and n != "platform"
+        }
     )
 
     token = _github_token()
     if not token:
-        print("WARN: Kein GitHub-Token — nur öffentliche Repos scanbar", file=sys.stderr)
+        print(
+            "WARN: Kein GitHub-Token — nur öffentliche Repos scanbar", file=sys.stderr
+        )
 
     print(f"\n🔍  Drift Check — {len(targets)} Repos", flush=True)
 
