@@ -140,3 +140,27 @@ def test_should_point_out_that_text_includes_headers():
 
 def test_should_stay_quiet_for_a_long_term_in_a_narrow_field():
     assert vg.such_hinweis("Penetrationstest", "SUBJECT") == []
+
+
+def test_should_keep_non_correspondence_configs_out_of_the_account_denominator():
+    """Pilotbefund 2026-07-27: 'Konten 1/4' zählte das Referenzpostfach mit.
+
+    Ein Nenner, der zu gross ist, ist genauso falsch wie einer, der fehlt — er laesst
+    einen vollstaendigen Lauf unvollstaendig aussehen.
+    """
+    assert "search" in vg.KEINE_KORRESPONDENZ
+    assert "folders" in vg.KEINE_KORRESPONDENZ
+    for name in vg.bekannte_konten():
+        assert name not in vg.KEINE_KORRESPONDENZ
+
+
+def test_should_count_graph_only_mailboxes_in_the_denominator():
+    """Pilotbefund 2026-07-27: das IIL-Konto laeuft ueber Graph und fehlte im Nenner.
+
+    Ein Konto, das dieses Werkzeug nicht ansprechen kann, muss sichtbar fehlen — sonst
+    sieht ein Lauf ueber 1 von 3 Postfaechern wie 1 von 2 aus.
+    """
+    konten = vg.bekannte_konten()
+    graph = [k for k in konten if k.startswith("graph:")]
+    assert graph, "Graph-Konten muessen im Nenner erscheinen, auch wenn unerreichbar"
+    assert all("@" in k for k in graph), "Kontoname soll die Adresse tragen"
