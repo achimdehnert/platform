@@ -263,3 +263,23 @@ Session, `risk-hub` mit geändertem `NEXT.md` (war laut Session-Start-Runner sch
 als `GUARD(dirty)` markiert, also vor Sessionbeginn). Nach der Attributions-Regel liegen
 gelassen, nicht eingesammelt. Die Checklisten-Zeile „kein Repo dirty" ist damit **nicht**
 erfüllt und wird bewusst als offen geführt.
+
+**Abschluss 2026-07-28 (nach den Merges):** Neun PRs auf `main` (#1493, #1494, #1496, #1498,
+#1501, #1502, #1504, #1505, #1509), `main` von `e971840b` auf `ca4befc4`, 28 Commits.
+#1500 geschlossen — überholt durch #1509, das die Ansätze von #1494 und #1500 zusammenführt;
+Abdeckung gegen `origin/main` geprüft (Strukturfilter, `_env_schluessel`, `GRAPH_ACCOUNTS`,
+`KEINE_KORRESPONDENZ`, drei neue Tests) statt behauptet. Verhalten gegen die echte
+Konfiguration: `['hnu', 'graph:achim.dehnert@iil.gmbh']` — `default` fällt korrekt heraus.
+
+Offen bleibt allein #1503: approved, keine roten Checks, trotzdem `BLOCKED`. Vermutlich ein
+Required Check mit `paths`-Filter, der sich für einen reinen `docs/retros/`-PR nie meldet —
+nicht verifiziert, weil der `gh api rulesets`-Aufruf vom Berechtigungs-Klassifikator
+abgelehnt wurde.
+
+Deploy-Pflichtprüfung: platform hat keinen Deploy auf `push:main`; die neun Merges lösten
+keinen Prod-Schritt aus. Belegt über die Trigger der fünf `deploy-*`-Workflows, nicht
+angenommen.
+
+Sechs Worktrees aus Vorsessions (16./20./21./23.07.) bleiben stehen — ihre Branches sind
+nicht gemergt, der Reaper schützt sie zu Recht. Wiederkehrendes Muster
+`worktree-midsession-accumulation`, hier bewusst nicht angefasst.
