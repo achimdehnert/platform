@@ -15,6 +15,150 @@
 
 <!-- Ausgelagert 2026-07-23 (Handover-Refresh 07-22→07-23) -->
 
+## ⚡ Vorheriger Stand (2026-07-27 — Deckungsausweis: KONZ-035 angenommen und weitgehend gebaut, Referenzpostfach, Klickdummy-Pin)
+
+**Kern in einem Satz:** Aus drei belegten Fehlschlägen desselben Tages — eine Mail-Antwort
+behauptete jeweils mehr, als sie abgedeckt hatte — ist ein Verfahren geworden, das die
+eigene Deckung ausweist; und das Verfahren hat beim ersten echten Lauf sofort vier eigene
+Fehler gefunden.
+
+**Was steht.** [KONZ-platform-035](https://github.com/achimdehnert/platform/pull/1491) ist
+angenommen (`pipeline_status: pilot`, Kill-Gate-Frist 2026-09-30), durch zwei externe
+Reviews gehärtet — 18 Befund-Cluster, alle als `[valid]` getaggt, kein einziger als
+kontextblind verworfen. Sieben der zehn Empfehlungen sind umgesetzt und gemergt
+([#1492](https://github.com/achimdehnert/platform/pull/1492)): der Deckungsausweis als
+versioniertes Objekt `deckungsausweis.v1`, zwei **verschiedenartige** Retrievalpfade
+(IMAP-Server-Suche gegen lokalen Kopfzeilen-Filter) samt Divergenz-Meldung, Selbst-
+Kalibrierung, eine unabhängige Zweitzählung des Nenners gegen `STATUS (MESSAGES)` und das
+Amendment an **ADR-284 §2 Nr. 1** — der Coverage-Contract gilt jetzt auch für
+Live-Antworten, nicht nur für einen Index.
+
+**Der Ertrag steckt im Referenzpostfach.** Der Owner-Vorschlag, echte Mails zu
+anonymisieren, wurde geprüft und in dieser Form verworfen: der Anonymisierungslauf wäre
+selbst die systematische Inhaltsauswertung, unter deren Ausschluss die DSFA freigegeben
+wurde. Stattdessen **Struktur messen, Inhalt erfinden** — zwölf frei erfundene Nachrichten
+in `search@dehnert.team`, die die Formen tragen, an denen Suchen scheitern (X.500-Absender
+ohne `@`, MIME-kodierte Umlaute, Nachricht ohne Betreff, Gesendet, Papierkorb). Der **erste
+Lauf war rot** und deckte einen echten Fehler auf: `imaplib` kodiert nur ASCII, eine Suche
+nach „Löschung" brach ab — und hätte im Ordner-Loop still **null Treffer** gemeldet.
+
+**Der Pilotlauf gegen das echte HNU-Konto** (110 Ordner, 46.072 Nachrichten) beantwortete
+den Zeiner-Sachverhalt vollständig (14 Nachrichten in 5 Ordnern, inkl. der zuvor
+übersehenen Mail an Kramer vom 22.07. 10:32) — und legte vier weitere Werkzeugfehler frei,
+darunter einen Kopfzeilen-Filter, der auf Exchange **komplett blind** war, weil der Server
+bei `UID FETCH` keine UID im Envelope liefert.
+
+**risk-hub entblockt.** Der Klickdummy-Drift-Gate färbte drei PRs rot. Meine erste
+Diagnose (Branch-Alter, Fix per `paths`-Filter) war **falsch** und ist im Issue korrigiert:
+Ursache war ein ungepinnter Generator (`iil-klickdummy>=1.32.1,<2.0` mit `--upgrade`), zwei
+Upstream-Releases am selben Tag. Ein `paths`-Filter hätte den echten Befund verdeckt. Fix
+ist der exakte Pin ([#460](https://github.com/iilgmbh/risk-hub/pull/460), gemergt); damit
+ging auch [#449](https://github.com/iilgmbh/risk-hub/pull/449) durch —
+`create_deletion_request` liegt in `main`, der Art.-17-Vorgang mit Frist 22.08. ist
+werkzeugseitig frei.
+
+**Der Session-Retro (deep) ist der ehrlichste Teil.** 16 Befunde, 14 überleben, 2 widerlegt
+— einer der Widerlegten war meine eigene Behauptung. Vier überlebende Befunde sagen
+dasselbe: eine Statuszeile, ein Kill-Gate-Häkchen oder ein PR-Satz behauptete mehr, als das
+Artefakt hergibt. Der schärfste: der erste echte Lauf deckte vier stille Fehler in genau den
+Mechanismen auf, die §13 als „erfüllt" führte — und das Ereignis wurde nie gegen das eigene
+Kill-Gate KG-PROCESS bewertet. Report:
+[`docs/retros/session-retro-2026-07-27-platform-0c98c5.md`](docs/retros/session-retro-2026-07-27-platform-0c98c5.md).
+
+**Offen und benannt:** [#1493](https://github.com/achimdehnert/platform/pull/1493) (K6/K8)
+und [#1494](https://github.com/achimdehnert/platform/pull/1494) (Pilot- + Retro-Fixes)
+warten auf Freigabe. [risk-hub#447](https://github.com/iilgmbh/risk-hub/pull/447) ist grün
+und approved, liegt seit dem 23.07. Ungetrackt geblieben ist die Fleet-Wirkung des
+Klickdummy-Pins auf neun weitere Repos — das ist ein Verstoß gegen die eigene Hausregel und
+steht als Maßnahme im Retro.
+
+
+## ⚡ Vorheriger Stand (2026-07-25 — Wartungs-/Hygiene-Session: `_ci-python`/`_ci-odoo` retired, Handover-Prio reconcilt, PR-Stau von 9 auf 3 abgebaut)
+
+**Kern in einem Satz:** Keine neue Architektur — diese Session hat aufgeräumt, und der
+Ertrag steckt weniger im Gelöschten als in **zwei falschen Prämissen, die vor dem Handeln
+gekippt sind**.
+
+**Die „0 Consumer"-Prämisse hätte fast zu einem falschen Löschvorgang geführt.**
+[#1423](https://github.com/achimdehnert/platform/issues/1423) behauptete, das
+Reusable-Triplett sei consumer-los — eine Behauptung, die dort schon einmal falsch war
+(die erste Zählung übersah 19 `_ci-pypi`-Consumer). Deshalb neu gemessen, und dabei **zwei
+eigene Fehlläufe** gefunden, bevor ein Ergebnis behauptet wurde: (a) `/users/<user>/repos`
+liefert nur **öffentliche** Repos — 32 statt 48, **16 private ungescannt**, darunter
+`gaeb-toolkit` als echter `_ci-pypi`-Consumer; korrekt ist `/user/repos?affiliation=owner`.
+(b) Banner-Kommentare wurden als Consumer gezählt und meldeten `_ci-python.yml` fälschlich
+mit 2 externen Nutzern — `learn-hub`, `weltenhub` und `ausschreibungs-hub` tragen nur eine
+**veraltete Kommentarzeile**, ihr echtes `uses:` zeigt auf `iilgmbh/shared-ci@v1.0.11`.
+Der belastbare Scan (63 non-archived Repos, 33 privat, 0 Tree-Fails, `uses:` von Kommentar
+getrennt) bestätigte dann: `_ci-pypi` **19**, `_ci-python`/`_ci-odoo` **0**.
+
+**Der Retire war kein `git rm`.** [#1437](https://github.com/achimdehnert/platform/pull/1437)
+musste zwei Templates (`docs/templates/ci.yml`, `deployment/workflows/ci.yml`) mitziehen —
+sie verwiesen **neue** Repos auf die gelöschte Datei, jedes daraus onboardete Repo hätte
+eine unauflösbare Workflow-Referenz bekommen. Ziel ist jetzt
+`iilgmbh/shared-ci/.../_ci-python.yml@v1.0.14` (Tag statt `@main`, Fleet-Konvention).
+Nebenaspekt dokumentiert: der Wechsel macht aus einem Same-Org- einen **Cross-Org**-Call,
+wo `secrets: inherit` keine Caller-Secrets liefert (platform#1158) — `PROJECT_PAT` muss
+dann explizit gemappt werden.
+
+**Die zweite gekippte Prämisse: [#1414](https://github.com/achimdehnert/platform/issues/1414)
+beschrieb Lint-Schuld, die es nicht gibt.** Mit dem gepinnten `ruff 0.15.4` meldet
+`ruff check tools/ scripts/` **„All checks passed!"** — die 402 Fehler kamen vollständig aus
+einer ungepinnten neueren Ruff-Version. Damit sind „111 Auto-Fixes anwenden" und „~291
+Restbefunde triagieren" gegenstandslos; übrig bleibt allein der Entscheid, den Check
+**required** zu schalten (jetzt gefahrlos möglich, weil er stabil grün ist).
+
+**PR-Stau abgebaut, 9 → 3 offen.** #1418/#1408 standen rot, weil sie **vor** dem Ruff-Pin
+([#1425](https://github.com/achimdehnert/platform/pull/1425)) abgezweigt waren —
+`gh pr update-branch` genügte, kein inhaltlicher Eingriff. #1401 hatte Konflikte in den
+**generierten** ADR-Index-Dateien → mains Version genommen und `gen_adr_index.py` laufen
+lassen statt von Hand gemergt. #1404 war der einzige inhaltliche Fall: sein PR wollte
+zusätzlich eine 8er-Prio-Liste vom 23.07. einsetzen, die #1378/#1298/#1167 als offen führte
+— alle drei CLOSED. Übernommen wurde nur der Session-Bericht, die Prio-Liste blieb bei
+main. Dadurch berührt der PR nur noch den Historien-Abschnitt und kollidierte nicht mehr
+mit dem parallelen Handover-PR.
+
+**⚙️ Maschinen-Änderung dieser Session (`~/.claude/commands` neu geschrieben).** Auf
+Owner-Freigabe hin wurde die `commands`-Lane live regeneriert
+(`generate.py --kind commands --target ~/.claude/commands --allow-live`, resolved commit
+`7ffb8f1e`). Beide Lanes stehen danach auf **DRIFT 0**. Backup des vorigen Stands:
+`~/.claude/commands.bak` (Rollback möglich). Auslöser war ADR-285 §9 Kriterium 2, der
+eigentliche Gewinn ist aber ein anderer: die live installierte Kopie von
+`klickdummy-pgvector-sync` kannte **`frist-hub` (Org `meiki-lra`) nicht als
+Gov-Ausschluss** — wer den Skill vorher ausführte, bekam eine Anweisung ohne diesen
+Ausschluss. Jetzt korrigiert und verifiziert.
+
+**ADR-285 Phase-1-Pilot ist gemessen — die Anlage von
+[#1416](https://github.com/achimdehnert/platform/issues/1416) war in drei Punkten falsch.**
+`$ARGUMENTS` **wird** in der Skills-Lane substituiert (Marker-Test an `issues-offen`,
+Artefakt [#1441](https://github.com/achimdehnert/platform/pull/1441)) → Kill-Kriterium
+ADR-285 §8 greift nicht. Aber: (a) der als „eigentlicher `$ARGUMENTS`-Fall" benannte
+`teste-repo` enthält **kein** literales `$ARGUMENTS` — der echte Testgegenstand
+(`issues-offen`) war längst migriert und live, der Pilot war faktisch gelaufen und nur nie
+gemessen; (b) `workflow-index` lässt sich **nicht** ohne Fix an `check_workflow_index.py`
+migrieren (getestet: exit 1 vs. exit 0 in der Gegenprobe — Lane 2 fehlt der Selbst-Skip,
+und der `--index`-Default zeigt auf die zu verschiebende Datei, während CI ohne Argumente
+aufruft); (c) Kriterium 2 war rot durch eine stale Kopie aus dem #1408-Merge, nicht durch
+den Pilot. **Bewusst keine weiteren Skills migriert** — Bulk-Move ist Phase 2 und laut
+#1416 erst nach grünem Pilot.
+
+**Nicht verifiziert / bewusst offen:** Der **CLI-Pfad** der Argument-Übergabe — gemessen
+ist der programmatische Skill-Aufruf mit `args`; ob ein **getipptes** `/issues-offen xyz`
+dieselbe Substitution erzeugt, ist offen und nur vom Owner auslösbar (billigster Check:
+einmal tippen, Marker im Body suchen) · ob die 3 Fremd-Repos ihre veralteten Banner
+korrigieren (App-Repo-Scope, in
+[#1438](https://github.com/achimdehnert/platform/issues/1438)) · die stale gewordenen
+ADR-Evidenzpfade nach dem Retire sind bewusst **nicht** im Aufräum-PR überschrieben worden
+(ADRs sind historische Dokumente, gehört pro Dokument beurteilt — #1438) · zwei weitere
+tote Jobs in `validate-workflows.yml` (`test-build`/`test-deploy`, `if:`-Bedingung prüft
+`contains()` auf einem **Integer**) sind vorbestehend und nicht angefasst.
+
+**Prod-Randnotiz:** hetzner-prod-Speicherlage
+([#1303](https://github.com/achimdehnert/platform/issues/1303)) am 25.07. um 10:28 UTC
+nachgemessen statt fortgeschrieben — Swap unverändert **4095/4095 (0 frei)**, 3,8 GB
+verfügbar, uptime 19 Tage. Die Warnung oben trägt jetzt ein Messdatum.
+
+
 ## ⚡ Vorheriger Stand (2026-07-22 Nachmittag — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
 
 **Kern in einem Satz:** Die beiden Skill-Lane-ADRs liegen auf `main`, der ADR-281-Ladetest

@@ -283,3 +283,41 @@ angenommen.
 Sechs Worktrees aus Vorsessions (16./20./21./23.07.) bleiben stehen — ihre Branches sind
 nicht gemergt, der Reaper schützt sie zu Recht. Wiederkehrendes Muster
 `worktree-midsession-accumulation`, hier bewusst nicht angefasst.
+
+---
+
+## Session 2026-07-28 Nachmittag (platform) — Handover-Prios 2+3 gebaut, zwei blinde Melder gefunden
+
+**Fünf PRs geöffnet, alle CI-grün, alle `BLOCKED` (Ruleset: kein Self-Merge):** #1511
+(Handover-Prio 4 gestrichen), #1512 (`--role` + Kanal-Grenze, schließt #1427/#1481), #1513
+(Regel-Interpreter ADR-284 §7a), #1515 (Phase 0.7.2 Cron-Melder), #1517 (project-facts über
+PR statt Direkt-Push). Drei neue Issues: #1514, #1516 — plus Kommentare an #1508.
+
+**#1503 entblockt.** Die Hypothese des Vor-Handovers (`paths`-Filter) ist falsifiziert:
+`guardian.yml` hat keinen, ist auf Head und `main` byte-identisch, und guardian lief am
+selben Tag grün auf #1505 (ebenfalls reiner `docs/retros/`-PR). Für den alten Head gab es
+**keinen einzigen** `pull_request`-Lauf; `reopened` löste nur `pull_request_target` aus.
+Erst ein neuer Head-SHA per `git commit-tree` (fast-forward, kein force) brachte alle sechs
+Läufe. PR ist CLEAN + approved; der Merge wurde vom Permission-Klassifikator abgelehnt und
+liegt beim Owner. **Warum die Läufe ausblieben, ist ungeklärt.**
+
+**Zwei eigene Fehler, beide vor dem Commit gefangen und in den PR-Texten benannt:** Der
+Cron-Melder-Check holte die Läufe zuerst mit einem Sammel-Abruf — sah vollständig aus,
+verdrängte aber die täglichen Workflows und fand 1 von 2 bekannten Meldern (dieselbe
+Fehlerklasse wie `feedback_invented_wildcard_is_not_full_enumeration`). Und die erste
+Verdrahtung in den Runner fiel still in den `*)`-Fallback, weil `$PLATFORM_DIR` auf den
+Haupt-Tree zeigt; belegt erst über einen `GITHUB_DIR`-Symlink auf den Worktree.
+
+**Korrektur einer eigenen Zahl:** „`Gen project-facts.md` seit 15.06. ohne Regenerierung"
+war falsch. Der letzte über *alle* Repos grüne Lauf war der **08.06.**; danach wurde weiter
+verteilt, nur an immer weniger Repos (06-15: 14 ok/5 Fehler · 07-06: 9/11 · 07-27: 0/18).
+Ursache der Fehlzahl: der neue Check zählt nur `event=schedule` und übersah einen
+erfolgreichen `workflow_dispatch` am 29.06. Im Issue korrigiert.
+
+**Offen und ausdrücklich zur Freigabe gestellt:** der scharfe Einzel-Lauf zu #1517
+(`workflow_dispatch` mit `target_repo`), der den Schreibpfad im Zielsystem belegen würde.
+Nicht selbst ausgeführt — Schreibzugriff auf ein zweites Repo.
+
+**Dirty geblieben (fremd):** `django-lms-lite`, `iil-doc-templates`, `lastwar-alliance-ops`,
+`risk-hub` — unverändert gegenüber dem Vormittag, keine davon in dieser Session angefasst.
+Die Checklisten-Zeile „kein Repo dirty" ist damit bewusst nicht erfüllt.

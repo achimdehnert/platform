@@ -10,7 +10,80 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-28 — Mail-Archivierung abgeschlossen, 9 PRs gemergt, Retro deep)
+## ⚡ Aktueller Stand (2026-07-28 Nachmittag — Handover-Prios 2+3 gebaut, zwei blinde Melder gefunden, 5 PRs offen)
+
+**Kern in einem Satz:** Von den vier Handover-Prios sind zwei gebaut (Mail-Rollen,
+Regel-Interpreter), eine gestrichen (Verteiler-Drift, war längst erledigt) — und der
+Session-Start-Runner hat dabei eine Lücke offengelegt, die sechs Wochen niemandem auffiel.
+
+**Fünf PRs offen, alle CI-grün, alle `BLOCKED` (Ruleset: kein Self-Merge):**
+[#1511](https://github.com/achimdehnert/platform/pull/1511) Handover-Prio 4 gestrichen ·
+[#1512](https://github.com/achimdehnert/platform/pull/1512) `--role` + Kanal-Grenze ·
+[#1513](https://github.com/achimdehnert/platform/pull/1513) Regel-Interpreter ADR-284 §7a ·
+[#1515](https://github.com/achimdehnert/platform/pull/1515) Phase 0.7.2 Cron-Melder ·
+[#1517](https://github.com/achimdehnert/platform/pull/1517) project-facts über PR statt Direkt-Push.
+
+**[#1503](https://github.com/achimdehnert/platform/pull/1503) ist entblockt und wartet nur
+auf den Merge-Klick** (CLEAN, approved von `wirdigital`; mein Merge wurde vom
+Permission-Klassifikator abgelehnt). **Die Hypothese des Vor-Handovers war falsch:** kein
+Required Check mit `paths`-Filter — `guardian.yml` ist auf Head und `main` byte-identisch
+und hat gar keinen, und guardian lief am selben Tag grün auf #1505, ebenfalls ein reiner
+`docs/retros/`-PR. Für den alten Head existierte **kein einziger** `pull_request`-Lauf.
+`reopened` half nicht (löste nur `pull_request_target` aus); erst ein neuer Head-SHA per
+`git commit-tree` (fast-forward, kein force, fremder Worktree unangetastet) brachte alle
+sechs Läufe. **Warum sie ausblieben, ist ungeklärt.**
+
+**Handover-Prio 4 (Verteiler-Drift) ist gestrichen** — `doctor.py` selbst ausgeführt:
+DRIFT-SCORE 0, 51 Kopien fresh. Die Zeile war seit dem Erledigt-Vermerk tot, wurde aber vom
+Start-Hook weiter als offene Prio gespiegelt. Wodurch die Lane grün wurde, bleibt offen.
+
+**Prio 2 (Mail-Rollen) gebaut, #1512:** `--role` in `send_mail`/`draft_mail`/`graph_mail`
+verdrahtet, dazu die Kanal-Grenze `darf_nicht_zusagen` als hartes Pre-Send-Gate ohne
+Bypass-Flag. „Termin" ist absichtlich **kein** Signalwort (Gegenprobe als Test). Belegt per
+scharfem CLI-Lauf inklusive Negativprobe, nicht nur per Unit-Test. **Offen bleibt:** die
+Rolle `dsb` ist weiter nicht versandfertig — die Kontaktdaten in der Signatur fehlen, das
+ist Owner-Input.
+
+**Prio 3 (Regel-Interpreter) gebaut, #1513:** `tools/mail_agent/regeln.py` als ausführbare
+Fassung von ADR-284 §7a — jede Zeile des Abschnitts ist ein Codepfad und ein Test. Die
+komplette CLI-Kette lief scharf gegen einen Datensatz, der den Realfall vom 27.07.
+nachbildet; die Gegenprobe meldete „52 Treffer wurden NIE von Hand bewegt (96 %)".
+**Nicht verdrahtet an ein echtes Postfach** — getrackt als
+[#1514](https://github.com/achimdehnert/platform/issues/1514). Die eigentliche offene Frage
+dort ist nicht das Einlesen, sondern woher die beobachteten Handbewegungen kommen sollen.
+
+**Neue Phase 0.7.2 im Session-Start-Runner (#1515)** findet dauerhaft rote Cron-Melder.
+Phase 0.7 prüfte Deploy-Läufe, nie den Zustand der Cron-Workflows — deshalb liefen zwei
+Melder sechs Tage unbemerkt rot. Der erste Lauf fand **vier** statt der zwei bekannten;
+die zwei neuen sind [#1516](https://github.com/achimdehnert/platform/issues/1516).
+
+**[#1516](https://github.com/achimdehnert/platform/issues/1516) `Gen project-facts.md` ist
+diagnostiziert und gefixt (#1517).** Die Generierung war nie kaputt, der **Push**
+scheiterte — aus zwei Gründen gleichzeitig: `409 Conflict` bei 17 Repos (aktives Ruleset
+`main-required-checks` aus ADR-242 Wave 3, ohne Bypass-Actor; die Contents-API kann keinen
+Required Check erfüllen) und `307 Redirect` bei dreien (`risk-hub`, `tax-hub`,
+`ausschreibungs-hub` liegen unter `iilgmbh/`). **Es ist ein fortschreitender Ausfall:**
+06-15 noch 14 ok / 5 Fehler, 07-06 dann 9/11, 07-27 schließlich 0/18 — jede Woche kam ein
+Repo mit neuem Ruleset dazu. Der letzte über alle Repos grüne Lauf war der **08.06.**; die
+verteilten `project-facts.md` tragen deshalb unterschiedliche Stände. Der 409-Teil ist ein
+**Wiedergänger** derselben Ursache, die seit Issue #818 im Kopf von
+`adr-nightly-metrics.yml` steht.
+
+**⛔ Blockiert, wartet auf Freigabe:** Der Schreibpfad von #1517 (Branch anlegen, PUT, PR
+öffnen) ist **nicht** belegt — die 10 Tests laufen gegen einen API-Doppelgänger. Vor dem
+Merge gehört ein scharfer `workflow_dispatch` mit `target_repo` gegen **ein** Repo
+(Vorschlag: `learn-hub`), der dort wirklich Branch und PR anlegt. Das ist ein Schreibzugriff
+auf ein zweites Repo und wurde ausdrücklich zur Freigabe gestellt, nicht selbst ausgeführt.
+Ungeprüft bleibt bis dahin auch, ob `PROJECT_PAT` überhaupt `pull_requests: write` trägt.
+
+**Dirty geblieben (fremd, nicht eingesammelt):** `django-lms-lite`, `iil-doc-templates`,
+`lastwar-alliance-ops`, `risk-hub` — identisch zum Stand vom Vormittag, keine davon in
+dieser Session angefasst.
+
+**Kein Prod-Schritt:** platform hat keinen Deploy auf `push:main`; diese Session hat
+ohnehin nichts gemergt.
+
+## ⚡ Vorheriger Stand (2026-07-28 — Mail-Archivierung abgeschlossen, 9 PRs gemergt, Retro deep)
 
 **Kern in einem Satz:** Der Datenschutz-Zuschnitt des Mail-Systems wurde auf Owner-Weisung
 gelöst (Personendaten und Termine sind erwünscht, Grenze ist der Zweck, nicht der Inhalt),
@@ -75,156 +148,14 @@ Querverweis im Memory unter `outline:platform:20260728-mail-archivierung`.
 > weg von der Prio-Liste war Owner-getrieben, wurde aber **nicht als Scope-Checkpoint
 > festgehalten** — genau das ist Retro-Befund #1.
 
-## ⚡ Vorheriger Stand (2026-07-27 — Deckungsausweis: KONZ-035 angenommen und weitgehend gebaut, Referenzpostfach, Klickdummy-Pin)
-
-**Kern in einem Satz:** Aus drei belegten Fehlschlägen desselben Tages — eine Mail-Antwort
-behauptete jeweils mehr, als sie abgedeckt hatte — ist ein Verfahren geworden, das die
-eigene Deckung ausweist; und das Verfahren hat beim ersten echten Lauf sofort vier eigene
-Fehler gefunden.
-
-**Was steht.** [KONZ-platform-035](https://github.com/achimdehnert/platform/pull/1491) ist
-angenommen (`pipeline_status: pilot`, Kill-Gate-Frist 2026-09-30), durch zwei externe
-Reviews gehärtet — 18 Befund-Cluster, alle als `[valid]` getaggt, kein einziger als
-kontextblind verworfen. Sieben der zehn Empfehlungen sind umgesetzt und gemergt
-([#1492](https://github.com/achimdehnert/platform/pull/1492)): der Deckungsausweis als
-versioniertes Objekt `deckungsausweis.v1`, zwei **verschiedenartige** Retrievalpfade
-(IMAP-Server-Suche gegen lokalen Kopfzeilen-Filter) samt Divergenz-Meldung, Selbst-
-Kalibrierung, eine unabhängige Zweitzählung des Nenners gegen `STATUS (MESSAGES)` und das
-Amendment an **ADR-284 §2 Nr. 1** — der Coverage-Contract gilt jetzt auch für
-Live-Antworten, nicht nur für einen Index.
-
-**Der Ertrag steckt im Referenzpostfach.** Der Owner-Vorschlag, echte Mails zu
-anonymisieren, wurde geprüft und in dieser Form verworfen: der Anonymisierungslauf wäre
-selbst die systematische Inhaltsauswertung, unter deren Ausschluss die DSFA freigegeben
-wurde. Stattdessen **Struktur messen, Inhalt erfinden** — zwölf frei erfundene Nachrichten
-in `search@dehnert.team`, die die Formen tragen, an denen Suchen scheitern (X.500-Absender
-ohne `@`, MIME-kodierte Umlaute, Nachricht ohne Betreff, Gesendet, Papierkorb). Der **erste
-Lauf war rot** und deckte einen echten Fehler auf: `imaplib` kodiert nur ASCII, eine Suche
-nach „Löschung" brach ab — und hätte im Ordner-Loop still **null Treffer** gemeldet.
-
-**Der Pilotlauf gegen das echte HNU-Konto** (110 Ordner, 46.072 Nachrichten) beantwortete
-den Zeiner-Sachverhalt vollständig (14 Nachrichten in 5 Ordnern, inkl. der zuvor
-übersehenen Mail an Kramer vom 22.07. 10:32) — und legte vier weitere Werkzeugfehler frei,
-darunter einen Kopfzeilen-Filter, der auf Exchange **komplett blind** war, weil der Server
-bei `UID FETCH` keine UID im Envelope liefert.
-
-**risk-hub entblockt.** Der Klickdummy-Drift-Gate färbte drei PRs rot. Meine erste
-Diagnose (Branch-Alter, Fix per `paths`-Filter) war **falsch** und ist im Issue korrigiert:
-Ursache war ein ungepinnter Generator (`iil-klickdummy>=1.32.1,<2.0` mit `--upgrade`), zwei
-Upstream-Releases am selben Tag. Ein `paths`-Filter hätte den echten Befund verdeckt. Fix
-ist der exakte Pin ([#460](https://github.com/iilgmbh/risk-hub/pull/460), gemergt); damit
-ging auch [#449](https://github.com/iilgmbh/risk-hub/pull/449) durch —
-`create_deletion_request` liegt in `main`, der Art.-17-Vorgang mit Frist 22.08. ist
-werkzeugseitig frei.
-
-**Der Session-Retro (deep) ist der ehrlichste Teil.** 16 Befunde, 14 überleben, 2 widerlegt
-— einer der Widerlegten war meine eigene Behauptung. Vier überlebende Befunde sagen
-dasselbe: eine Statuszeile, ein Kill-Gate-Häkchen oder ein PR-Satz behauptete mehr, als das
-Artefakt hergibt. Der schärfste: der erste echte Lauf deckte vier stille Fehler in genau den
-Mechanismen auf, die §13 als „erfüllt" führte — und das Ereignis wurde nie gegen das eigene
-Kill-Gate KG-PROCESS bewertet. Report:
-[`docs/retros/session-retro-2026-07-27-platform-0c98c5.md`](docs/retros/session-retro-2026-07-27-platform-0c98c5.md).
-
-**Offen und benannt:** [#1493](https://github.com/achimdehnert/platform/pull/1493) (K6/K8)
-und [#1494](https://github.com/achimdehnert/platform/pull/1494) (Pilot- + Retro-Fixes)
-warten auf Freigabe. [risk-hub#447](https://github.com/iilgmbh/risk-hub/pull/447) ist grün
-und approved, liegt seit dem 23.07. Ungetrackt geblieben ist die Fleet-Wirkung des
-Klickdummy-Pins auf neun weitere Repos — das ist ein Verstoß gegen die eigene Hausregel und
-steht als Maßnahme im Retro.
-
-
-## ⚡ Vorheriger Stand (2026-07-25 — Wartungs-/Hygiene-Session: `_ci-python`/`_ci-odoo` retired, Handover-Prio reconcilt, PR-Stau von 9 auf 3 abgebaut)
-
-**Kern in einem Satz:** Keine neue Architektur — diese Session hat aufgeräumt, und der
-Ertrag steckt weniger im Gelöschten als in **zwei falschen Prämissen, die vor dem Handeln
-gekippt sind**.
-
-**Die „0 Consumer"-Prämisse hätte fast zu einem falschen Löschvorgang geführt.**
-[#1423](https://github.com/achimdehnert/platform/issues/1423) behauptete, das
-Reusable-Triplett sei consumer-los — eine Behauptung, die dort schon einmal falsch war
-(die erste Zählung übersah 19 `_ci-pypi`-Consumer). Deshalb neu gemessen, und dabei **zwei
-eigene Fehlläufe** gefunden, bevor ein Ergebnis behauptet wurde: (a) `/users/<user>/repos`
-liefert nur **öffentliche** Repos — 32 statt 48, **16 private ungescannt**, darunter
-`gaeb-toolkit` als echter `_ci-pypi`-Consumer; korrekt ist `/user/repos?affiliation=owner`.
-(b) Banner-Kommentare wurden als Consumer gezählt und meldeten `_ci-python.yml` fälschlich
-mit 2 externen Nutzern — `learn-hub`, `weltenhub` und `ausschreibungs-hub` tragen nur eine
-**veraltete Kommentarzeile**, ihr echtes `uses:` zeigt auf `iilgmbh/shared-ci@v1.0.11`.
-Der belastbare Scan (63 non-archived Repos, 33 privat, 0 Tree-Fails, `uses:` von Kommentar
-getrennt) bestätigte dann: `_ci-pypi` **19**, `_ci-python`/`_ci-odoo` **0**.
-
-**Der Retire war kein `git rm`.** [#1437](https://github.com/achimdehnert/platform/pull/1437)
-musste zwei Templates (`docs/templates/ci.yml`, `deployment/workflows/ci.yml`) mitziehen —
-sie verwiesen **neue** Repos auf die gelöschte Datei, jedes daraus onboardete Repo hätte
-eine unauflösbare Workflow-Referenz bekommen. Ziel ist jetzt
-`iilgmbh/shared-ci/.../_ci-python.yml@v1.0.14` (Tag statt `@main`, Fleet-Konvention).
-Nebenaspekt dokumentiert: der Wechsel macht aus einem Same-Org- einen **Cross-Org**-Call,
-wo `secrets: inherit` keine Caller-Secrets liefert (platform#1158) — `PROJECT_PAT` muss
-dann explizit gemappt werden.
-
-**Die zweite gekippte Prämisse: [#1414](https://github.com/achimdehnert/platform/issues/1414)
-beschrieb Lint-Schuld, die es nicht gibt.** Mit dem gepinnten `ruff 0.15.4` meldet
-`ruff check tools/ scripts/` **„All checks passed!"** — die 402 Fehler kamen vollständig aus
-einer ungepinnten neueren Ruff-Version. Damit sind „111 Auto-Fixes anwenden" und „~291
-Restbefunde triagieren" gegenstandslos; übrig bleibt allein der Entscheid, den Check
-**required** zu schalten (jetzt gefahrlos möglich, weil er stabil grün ist).
-
-**PR-Stau abgebaut, 9 → 3 offen.** #1418/#1408 standen rot, weil sie **vor** dem Ruff-Pin
-([#1425](https://github.com/achimdehnert/platform/pull/1425)) abgezweigt waren —
-`gh pr update-branch` genügte, kein inhaltlicher Eingriff. #1401 hatte Konflikte in den
-**generierten** ADR-Index-Dateien → mains Version genommen und `gen_adr_index.py` laufen
-lassen statt von Hand gemergt. #1404 war der einzige inhaltliche Fall: sein PR wollte
-zusätzlich eine 8er-Prio-Liste vom 23.07. einsetzen, die #1378/#1298/#1167 als offen führte
-— alle drei CLOSED. Übernommen wurde nur der Session-Bericht, die Prio-Liste blieb bei
-main. Dadurch berührt der PR nur noch den Historien-Abschnitt und kollidierte nicht mehr
-mit dem parallelen Handover-PR.
-
-**⚙️ Maschinen-Änderung dieser Session (`~/.claude/commands` neu geschrieben).** Auf
-Owner-Freigabe hin wurde die `commands`-Lane live regeneriert
-(`generate.py --kind commands --target ~/.claude/commands --allow-live`, resolved commit
-`7ffb8f1e`). Beide Lanes stehen danach auf **DRIFT 0**. Backup des vorigen Stands:
-`~/.claude/commands.bak` (Rollback möglich). Auslöser war ADR-285 §9 Kriterium 2, der
-eigentliche Gewinn ist aber ein anderer: die live installierte Kopie von
-`klickdummy-pgvector-sync` kannte **`frist-hub` (Org `meiki-lra`) nicht als
-Gov-Ausschluss** — wer den Skill vorher ausführte, bekam eine Anweisung ohne diesen
-Ausschluss. Jetzt korrigiert und verifiziert.
-
-**ADR-285 Phase-1-Pilot ist gemessen — die Anlage von
-[#1416](https://github.com/achimdehnert/platform/issues/1416) war in drei Punkten falsch.**
-`$ARGUMENTS` **wird** in der Skills-Lane substituiert (Marker-Test an `issues-offen`,
-Artefakt [#1441](https://github.com/achimdehnert/platform/pull/1441)) → Kill-Kriterium
-ADR-285 §8 greift nicht. Aber: (a) der als „eigentlicher `$ARGUMENTS`-Fall" benannte
-`teste-repo` enthält **kein** literales `$ARGUMENTS` — der echte Testgegenstand
-(`issues-offen`) war längst migriert und live, der Pilot war faktisch gelaufen und nur nie
-gemessen; (b) `workflow-index` lässt sich **nicht** ohne Fix an `check_workflow_index.py`
-migrieren (getestet: exit 1 vs. exit 0 in der Gegenprobe — Lane 2 fehlt der Selbst-Skip,
-und der `--index`-Default zeigt auf die zu verschiebende Datei, während CI ohne Argumente
-aufruft); (c) Kriterium 2 war rot durch eine stale Kopie aus dem #1408-Merge, nicht durch
-den Pilot. **Bewusst keine weiteren Skills migriert** — Bulk-Move ist Phase 2 und laut
-#1416 erst nach grünem Pilot.
-
-**Nicht verifiziert / bewusst offen:** Der **CLI-Pfad** der Argument-Übergabe — gemessen
-ist der programmatische Skill-Aufruf mit `args`; ob ein **getipptes** `/issues-offen xyz`
-dieselbe Substitution erzeugt, ist offen und nur vom Owner auslösbar (billigster Check:
-einmal tippen, Marker im Body suchen) · ob die 3 Fremd-Repos ihre veralteten Banner
-korrigieren (App-Repo-Scope, in
-[#1438](https://github.com/achimdehnert/platform/issues/1438)) · die stale gewordenen
-ADR-Evidenzpfade nach dem Retire sind bewusst **nicht** im Aufräum-PR überschrieben worden
-(ADRs sind historische Dokumente, gehört pro Dokument beurteilt — #1438) · zwei weitere
-tote Jobs in `validate-workflows.yml` (`test-build`/`test-deploy`, `if:`-Bedingung prüft
-`contains()` auf einem **Integer**) sind vorbestehend und nicht angefasst.
-
-**Prod-Randnotiz:** hetzner-prod-Speicherlage
-([#1303](https://github.com/achimdehnert/platform/issues/1303)) am 25.07. um 10:28 UTC
-nachgemessen statt fortgeschrieben — Swap unverändert **4095/4095 (0 frei)**, 3,8 GB
-verfügbar, uptime 19 Tage. Die Warnung oben trägt jetzt ein Messdatum.
-
 ## Nächste Schritte (kompakt)
 
 > **⚠️ Vor allem anderen — hetzner-prod Speicherlage ([#1303](https://github.com/achimdehnert/platform/issues/1303)):** Swap **4095/4095 MB belegt (0 frei)**, 3,8 GB RAM verfügbar — **nachgemessen 2026-07-25 10:28 UTC** (`free -m` auf 88.198.191.108, unverändert gegenüber dem Befund vom 20.07.). Der OOM vom 20.07. hat trading-hub 16 h offline genommen; der nächste trifft irgendein anderes Hub. Zusätzlich ungeklärt, **warum** die Container entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). Beides ist Prod-Risiko, kein Aufräumthema — die Nummerierung unten bleibt davon unberührt.
 
 1. **KONZ-012 DSB-Partner-Rolle entscheiden** [risk-hub#455](https://github.com/iilgmbh/risk-hub/pull/455) — Owner-Vorschlag vom 26.07., als T3-Konzept ausgearbeitet und als PR offen. Empfehlung: **gestaffelt annehmen** (A Dokumentations-Vollständigkeit auswertend sofort · B Anfragen-Entwürfe erst nach Entscheid zu KONZ-009 Teil B · C Publikationen erst nach abgeschlossenem Pilot). Zu entscheiden sind drei Stellen: die Staffelung, die Datenzugriffs-Regel in §7 (technisch formuliert, nicht als Vorsatz) und das Kill-Gate in §13 (Pilot: ein Mandat, ein Vorgang, drei Entwürfe bis 31.08.). **Zwei Grenzen stehen ausdrücklich drin:** der DSGVO-Stand ist als Owner-Entscheid übernommen (nicht selbst geprüft), offen bleibt die Mandats-Ebene — ob die einzelne Vereinbarung maschinelle Assistenz abdeckt; und das Konzept hatte **keine unabhängige Gegenlesung** (Session-Regel: keine Agenten ohne Anforderung), Gegenmaßnahme wäre `/adr-handoff-extern` vor der Ausweitung.
-2. **Mail-Rollen versandfertig machen** — [#1481](https://github.com/achimdehnert/platform/issues/1481) (Rollen-Registry kennt keine Kanal-Grenze) zusammen mit [#1427](https://github.com/achimdehnert/platform/issues/1427) (`--role`-Flag verdrahten). Anlass: Eine Mail ging unter der Rolle `dehnert_team` („KI-Assistent von Achim Dehnert", Signatur **ohne Rufnummer**) hinaus und bot ein Telefonat an — eine Zusage, die diese Identität nicht einlösen kann. Aufgefallen ist es dem Owner **nach** dem Versand. Zwei Nachträge im Issue: die Rolle `dsb` ist heute **nicht versandfertig** (keine Kontaktdaten in der Signatur; Pflicht-Footer trägt wörtlich `[Entwurf – vom Owner zu bestätigen.]`, während `requires_legal_footer: true` steht) — der Footer ist am 2026-07-27 freigegeben und die Entwurfs-Markierung entfernt, die Kontaktdaten fehlen weiter. Solange das offen ist, braucht jede DSB-Mail eine Handumgehung (IIL-Signatur mit getauschter Funktionszeile).
-3. **Regel-Interpreter nach ADR-284 §7a bauen** — ADR-284 steht seit 2026-07-27 auf `accepted`, §7a legt den Regel-Lebenszyklus fest (Vorschlag statt stiller Regel · Zwei-Beobachtungen-Schwelle · Rückwirkungs-Trockenlauf + Gegenprobe als Pflichtteile · keine Trash-Regel aus Beobachtung · Gegenbeispiel setzt die Regel auf `strittig` · Restmenge als Kennzahl). Gebaut ist davon **nichts** — die Regeln liegen künftig lokal in `~/.claude/mail-regeln.json`, der Interpreter gehört nach `tools/mail_agent/`. Vorbedingung [#1480](https://github.com/achimdehnert/platform/issues/1480) ist erfüllt (`--find --all`).
+2. **Mail-Rollen versandfertig machen** — **gebaut, wartet auf Review: [#1512](https://github.com/achimdehnert/platform/pull/1512)** (`--role` verdrahtet, Kanal-Grenze als hartes Pre-Send-Gate; scharfer CLI-Lauf inkl. Negativprobe belegt). Offen bleibt allein der Owner-Anteil: die Rolle `dsb` hat weiterhin **keine Kontaktdaten in der Signatur** und ist deshalb nicht versandfertig. Ursprung: [#1481](https://github.com/achimdehnert/platform/issues/1481) (Rollen-Registry kennt keine Kanal-Grenze) zusammen mit [#1427](https://github.com/achimdehnert/platform/issues/1427) (`--role`-Flag verdrahten). Anlass: Eine Mail ging unter der Rolle `dehnert_team` („KI-Assistent von Achim Dehnert", Signatur **ohne Rufnummer**) hinaus und bot ein Telefonat an — eine Zusage, die diese Identität nicht einlösen kann. Aufgefallen ist es dem Owner **nach** dem Versand. Zwei Nachträge im Issue: die Rolle `dsb` ist heute **nicht versandfertig** (keine Kontaktdaten in der Signatur; Pflicht-Footer trägt wörtlich `[Entwurf – vom Owner zu bestätigen.]`, während `requires_legal_footer: true` steht) — der Footer ist am 2026-07-27 freigegeben und die Entwurfs-Markierung entfernt, die Kontaktdaten fehlen weiter. Solange das offen ist, braucht jede DSB-Mail eine Handumgehung (IIL-Signatur mit getauschter Funktionszeile).
+3. **Regel-Interpreter nach ADR-284 §7a bauen** — **gebaut, wartet auf Review: [#1513](https://github.com/achimdehnert/platform/pull/1513)**; die Verdrahtung an ein echtes Postfach ist bewusst nicht enthalten und als [#1514](https://github.com/achimdehnert/platform/issues/1514) getrackt. Ursprung: ADR-284 steht seit 2026-07-27 auf `accepted`, §7a legt den Regel-Lebenszyklus fest (Vorschlag statt stiller Regel · Zwei-Beobachtungen-Schwelle · Rückwirkungs-Trockenlauf + Gegenprobe als Pflichtteile · keine Trash-Regel aus Beobachtung · Gegenbeispiel setzt die Regel auf `strittig` · Restmenge als Kennzahl). Gebaut ist davon **nichts** — die Regeln liegen künftig lokal in `~/.claude/mail-regeln.json`, der Interpreter gehört nach `tools/mail_agent/`. Vorbedingung [#1480](https://github.com/achimdehnert/platform/issues/1480) ist erfüllt (`--find --all`).
+4. **Freigabe für den scharfen Einzel-Lauf zu [#1517](https://github.com/achimdehnert/platform/pull/1517)** — der Schreibpfad (Branch anlegen, PUT, PR öffnen) ist nur gegen einen API-Doppelgänger getestet, nicht im Zielsystem. Ein `workflow_dispatch` mit `target_repo=learn-hub` würde dort wirklich Branch und PR anlegen und wäre der Beweis; das ist ein Schreibzugriff auf ein zweites Repo und wurde deshalb zur Freigabe gestellt statt ausgeführt. Ungeprüft bleibt bis dahin auch, ob `PROJECT_PAT` `pull_requests: write` auf den Hub-Repos trägt.
 
 > **Erledigt 2026-07-28 (Session-Start-Reconciliation):** **Alt-Prio 4 (Verteiler-Drift) entfällt** — `doctor.py` meldet **DRIFT-SCORE 0** (0 dangling, 0 symlink-stale, 51 Kopien fresh, 0 copy-stale), am 2026-07-28 um 11:2x selbst ausgeführt statt aus dem Vor-Stand übernommen. Die Zeile war seit dem Erledigt-Vermerk im Stand-Block (oben) tot, wurde aber vom Start-Hook `handover_prio_mirror.sh` weiter als offene Prio gespiegelt — genau das Muster, gegen das Phase 2.6 existiert. **Nicht dieser noch der Vor-Session zurechenbar:** kein Artefakt der Sessions vom 28.07. berührt `doctor.py` oder `generate.py`; wodurch die Lane grün wurde, ist offen und bleibt als Hypothese stehen. Liste dadurch 4 → 3 Einträge, lückenlos durchnummeriert (Maschinen-Vertrag: `claude-next-sync` matcht nur ganze Zahlen).
 >
