@@ -64,8 +64,15 @@ def test_should_block_completeness_claim_when_an_account_was_skipped():
 
 
 def test_should_report_a_retrieval_path_without_hits_as_a_finding():
-    """Der Platzhalter-Fall: ein Pfad findet nichts, während der andere trifft."""
-    a = _vollstaendig(retrievalpfade=(("client-filter", 0), ("imap-search", 9)))
+    """Der Platzhalter-Fall: ein Pfad findet nichts, während der andere trifft.
+
+    Ohne bestandene Kalibrierung — mit ihr wäre die Leermenge belegt statt verdächtig,
+    siehe `test_should_not_warn_about_an_empty_path_that_passed_calibration`.
+    """
+    a = _vollstaendig(
+        retrievalpfade=(("client-filter", 0), ("imap-search", 9)),
+        kalibriert=("imap-search",),
+    )
     assert da.leere_pfade(a) == ["client-filter"]
     assert "client-filter" in da.rendern(a)
     assert "kaputte Abfrage" in da.rendern(a)
@@ -250,3 +257,25 @@ def test_should_produce_a_stable_fingerprint_regardless_of_set_order():
     b = da.fingerprint("postsortierung", {"Gesendete Objekte", "INBOX"})
     assert a == b
     assert a != da.fingerprint("postsortierung", {"INBOX"})
+
+
+def test_should_not_warn_about_an_empty_path_that_passed_calibration():
+    """Pilotbefund 2026-07-27: die Warnung feuerte auch bei belegter Leermenge.
+
+    Ein Pfad, der gerade bewiesen hat, dass er findet, was da ist, und dann nichts
+    findet, hat ein Ergebnis geliefert — keinen Fehler.
+    """
+    a = _vollstaendig(
+        retrievalpfade=(("client-filter", 0), ("server-suche", 0)),
+        kalibriert=("client-filter", "server-suche"),
+    )
+    assert da.leere_pfade(a) == []
+    assert "kaputte Abfrage" not in da.rendern(a)
+
+
+def test_should_still_warn_about_an_empty_path_without_calibration():
+    a = _vollstaendig(
+        retrievalpfade=(("client-filter", 0), ("server-suche", 9)),
+        kalibriert=("server-suche",),
+    )
+    assert da.leere_pfade(a) == ["client-filter"]

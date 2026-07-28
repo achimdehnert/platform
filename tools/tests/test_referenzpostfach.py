@@ -103,3 +103,23 @@ def test_should_write_only_below_its_own_root():
     """Ein Aufbau darf nie an einem echten Postfach vorbeischreiben."""
     for name in ref.alle_ordner("."):
         assert name.startswith(ref.WURZEL)
+
+
+def test_should_not_delete_folders_that_merely_share_the_name_prefix():
+    """Retro-Befund 2026-07-27: der Aufbau loeschte per startswith(WURZEL).
+
+    `INBOX.REFERAT.Wichtig` erfuellt diesen Praefix, ist aber ein fremder Ordner. Bei
+    einer loeschenden Operation muss die Grenze der Namensraum-Trenner sein, nicht die
+    Zeichenkette.
+    """
+    assert ref.gehoert_zur_wurzel("INBOX.REF", ".")
+    assert ref.gehoert_zur_wurzel("INBOX.REF.Gesendet", ".")
+    assert ref.gehoert_zur_wurzel("INBOX.REF.Projekte.Ablage.Alt", ".")
+
+    for fremd in ("INBOX.REFERENZ", "INBOX.REFacct", "INBOX.REFERAT.Wichtig", "INBOX"):
+        assert not ref.gehoert_zur_wurzel(fremd, "."), fremd
+
+
+def test_should_respect_a_different_namespace_separator():
+    assert ref.gehoert_zur_wurzel("INBOX.REF/Gesendet", "/")
+    assert not ref.gehoert_zur_wurzel("INBOX.REFERENZ/Alt", "/")

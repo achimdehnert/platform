@@ -108,13 +108,24 @@ def _kanonisch(wert: object) -> object:
 
 
 def leere_pfade(ausweis: Ausweis) -> list[str]:
-    """Retrievalpfade ohne einen einzigen Treffer.
+    """Retrievalpfade ohne Treffer — **und ohne bestandene Kalibrierung**.
 
     Im Gesamtergebnis sind sie unsichtbar: ein Pfad, der nichts liefert, während ein
     anderer trifft, sieht aus wie "es gab eben nicht mehr". Er ist aber meistens eine
     kaputte Abfrage.
+
+    Ein *kalibrierter* Pfad mit null Treffern ist dagegen ein belegtes Ergebnis: er hat
+    gerade gezeigt, dass er findet, was da ist. Ihn trotzdem zu melden, erzeugt eine
+    Warnung ohne Inhalt — und Warnungen ohne Inhalt sind der Weg, auf dem die mit Inhalt
+    übersehen werden. Aufgetreten im ersten Pilotlauf gegen das AD-Konto, wo die
+    Leermenge echt war.
     """
-    return [name for name, treffer in ausweis.retrievalpfade if treffer == 0]
+    kalibriert = set(ausweis.kalibriert)
+    return [
+        name
+        for name, treffer in ausweis.retrievalpfade
+        if treffer == 0 and name not in kalibriert
+    ]
 
 
 def unkalibrierte_pfade(ausweis: Ausweis) -> list[str]:

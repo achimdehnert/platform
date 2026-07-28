@@ -52,23 +52,58 @@ import read_mail as rm  # noqa: E402
 
 ADR_RE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 ERLEDIGT_MARKER = ".erledigt"
-TOOL_VERSION = "vorgang.py/1"
+TOOL_VERSION = "vorgang.py/2"
+
+#: Konfigurationen, die kein Postfach mit echter Korrespondenz beschreiben und deshalb
+#: nicht in den Konten-Nenner gehören.
+KEINE_KORRESPONDENZ = frozenset({"search", "folders"})
 
 
 def _jetzt() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def bekannte_konten() -> list[str]:
+def bekannte_konten(basis: Path | None = None) -> list[str]:
     """Alle konfigurierten Postfächer — der Nenner der Konten-Ebene (KONZ-035 §5.3 R-1).
+
+    ``basis`` überschreibt das Konfigurationsverzeichnis, damit ein Test die Auswahl
+    prüfen kann, ohne von der Maschine abzuhängen, auf der er läuft.
 
     Ohne diese Zählung kehrt der stille Scope eine Ebene höher wieder: ein Lauf über
     *alle* Ordner *eines* Kontos sieht vollständig aus und ist es nicht.
+
+    Nicht mitgezählt werden Konfigurationen, die **kein echtes Postfach mit Korrespondenz**
+    beschreiben: ``search`` ist das Referenzpostfach mit erfundenen Nachrichten, ``folders``
+    eine Hilfs-Konfiguration. Im ersten Pilotlauf standen sie im Nenner und machten aus
+    „1 von 3" ein „1 von 4" — ein Nenner, der zu groß ist, ist genauso falsch wie einer,
+    der fehlt.
     """
-    basis = Path.home() / ".claude"
-    namen = ["default"] if (basis / "mail.env").exists() else []
-    namen += sorted(p.stem.removeprefix("mail-") for p in basis.glob("mail-*.env"))
-    return namen
+    wurzel = basis or (Path.home() / ".claude")
+    namen = ["default"] if (wurzel / "mail.env").exists() else []
+    namen += sorted(p.stem.removeprefix("mail-") for p in wurzel.glob("mail-*.env"))
+    namen += graph_konten(wurzel / "graph-mail-tokens")
+    return [n for n in namen if n not in KEINE_KORRESPONDENZ]
+
+
+def graph_konten(basis: Path | None = None) -> list[str]:
+    """Postfächer, die über Microsoft Graph laufen — für dieses Werkzeug unerreichbar.
+
+    ``basis`` überschreibt das Token-Verzeichnis. Nötig, damit ein Test die Funktion
+    prüfen kann, ohne von der Maschine abzuhängen, auf der er läuft: die erste Fassung
+    dieses Tests las das echte Home-Verzeichnis und war deshalb lokal grün und in der
+    CI rot (Lauf 30295192917).
+
+    Sie gehören trotzdem in den Nenner. Ein Konto, das ein Werkzeug nicht ansprechen
+    kann, verschwindet sonst vollständig aus dem Blick: der Ausweis meldete „Konten 1/2"
+    und sah damit vollständiger aus, als der Bestand hergibt. Ausgewiesen werden sie als
+    `nicht_gedeckt` mit Grund — sichtbar fehlend statt unsichtbar fehlend.
+    """
+    verzeichnis = basis or (Path.home() / ".claude" / "graph-mail-tokens")
+    if not verzeichnis.is_dir():
+        return []
+    return sorted(
+        f"graph:{p.stem.replace('_at_', '@')}" for p in verzeichnis.glob("*.json")
+    )
 
 
 # ---------- reine Logik (ohne IMAP, damit testbar) ----------
@@ -176,7 +211,15 @@ def _absender(rohkopf: bytes) -> str | None:
 def _kopfzeilen(
     imap, ordner: str, felder: str, limit: int
 ) -> list[tuple[bytes, bytes]]:
-    """UID + Rohkopf je Nachricht. Blockweises FETCH, sonst ein Round-Trip je Mail."""
+    """UID + Rohkopf je Nachricht. Blockweises FETCH, sonst ein Round-Trip je Mail.
+
+    ``UID`` wird **ausdrücklich mit angefordert**. RFC 3501 verlangt zwar, dass eine
+    Antwort auf ``UID FETCH`` die UID enthält, aber der Exchange-Server des HNU-Kontos
+    liefert nur die Sequenznummer (gemessen 2026-07-27: ``b'849 (BODY[HEADER.FIELDS …'``).
+    Wer die UID dann aus dem Envelope liest, findet keine — und ein darauf aufbauender
+    Filter meldet still **null Treffer**, während er die Nachrichten als „geprüft" zählt.
+    Genau so war der Client-Filter im ersten Pilotlauf über 46.000 Nachrichten blind.
+    """
     typ, _ = imap.select(f'"{ordner}"', readonly=True)
     if typ != "OK":
         return []
@@ -187,7 +230,9 @@ def _kopfzeilen(
     out: list[tuple[bytes, bytes]] = []
     for i in range(0, len(uids), 200):
         block = b",".join(uids[i : i + 200]).decode()
-        typ, resp = imap.uid("FETCH", block, f"(BODY.PEEK[HEADER.FIELDS ({felder})])")
+        typ, resp = imap.uid(
+            "FETCH", block, f"(UID BODY.PEEK[HEADER.FIELDS ({felder})])"
+        )
         if typ != "OK":
             continue
         for teil in resp:
@@ -239,7 +284,9 @@ def pfad_server_suche(imap, begriff: str, feld: str) -> set[bytes]:
     return set(res[0].split())
 
 
-def pfad_client_filter(imap, ordner: str, begriff: str, limit: int) -> tuple[set[bytes], int]:
+def pfad_client_filter(
+    imap, ordner: str, begriff: str, limit: int
+) -> tuple[set[bytes], int]:
     """Kopfzeilen holen, lokal vergleichen — die Gegenprobe zur Server-Suche.
 
     Deckt nur Absender und Betreff ab, nicht den Nachrichtentext. Diese Grenze ist der
@@ -277,10 +324,30 @@ def nachrichten_laut_server(imap, ordner: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def kalibriere_pfade(imap, ordner: str, limit: int) -> dict[str, str]:
+def probekoerper(imap, ordner: list[str], limit: int) -> tuple[str, bytes, str] | None:
+    """Erste Nachricht, mit der sich ein Pfad prüfen lässt — (Ordner, UID, Wort).
+
+    Sucht über **mehrere** Ordner, nicht nur den ersten. Im HNU-Konto ist der erste
+    Ordner alphabetisch `Archiv`, ein reiner Container ohne eigene Nachrichten: die
+    Kalibrierung fand dort nichts und meldete „kein Probekörper" — für **beide** Pfade,
+    obwohl beide funktionsfähig gewesen wären. Ein Kalibriertest, der am leeren Ordner
+    scheitert, misst die Ordnerwahl, nicht die Suche.
+    """
+    for name in ordner:
+        for roh_uid, kopf in _kopfzeilen(imap, name, "SUBJECT", min(limit, 50)):
+            msg = email.message_from_bytes(kopf)
+            betreff = rm.decode_hdr(msg.get("Subject")) or ""
+            worte = re.findall(r"[A-Za-zÄÖÜäöüß]{5,}", betreff)
+            m = re.search(rb"UID (\d+)", roh_uid)
+            if worte and m:
+                return name, m.group(1), worte[0]
+    return None
+
+
+def kalibriere_pfade(imap, ordner: list[str] | str, limit: int) -> dict[str, str]:
     """Findet jeder Pfad eine Nachricht wieder, von der bekannt ist, dass es sie gibt?
 
-    Der Probekörper wird nicht mitgebracht, sondern aus dem Ordner selbst genommen:
+    Der Probekörper wird nicht mitgebracht, sondern aus dem Bestand selbst genommen:
     eine vorhandene Nachricht, ein hinreichend langes Wort aus ihrem Betreff, dann die
     Frage, ob der Pfad genau diese Nachricht zurückliefert.
 
@@ -290,24 +357,14 @@ def kalibriere_pfade(imap, ordner: str, limit: int) -> dict[str, str]:
 
     Rückgabe: Pfadname → "" bei Erfolg, sonst der Grund des Scheiterns.
     """
+    kandidaten = [ordner] if isinstance(ordner, str) else list(ordner)
     ergebnis: dict[str, str] = {}
-    kopfe = _kopfzeilen(imap, ordner, "SUBJECT", min(limit, 50))
-    probe = None
-    for roh_uid, kopf in kopfe:
-        msg = email.message_from_bytes(kopf)
-        betreff = rm.decode_hdr(msg.get("Subject")) or ""
-        worte = [w for w in re.findall(r"[A-Za-zÄÖÜäöüß]{5,}", betreff)]
-        m = re.search(rb"UID (\d+)", roh_uid)
-        if worte and m:
-            probe = (m.group(1), worte[0])
-            break
+    probe = probekoerper(imap, kandidaten, limit)
     if not probe:
-        return {
-            "server-suche": "kein Probekörper (kein Betreff mit brauchbarem Wort)",
-            "client-filter": "kein Probekörper (kein Betreff mit brauchbarem Wort)",
-        }
+        grund = f"kein Probekörper in {len(kandidaten)} Ordner(n)"
+        return {"server-suche": grund, "client-filter": grund}
 
-    uid, wort = probe
+    ordner, uid, wort = probe
     imap.select(f'"{ordner}"', readonly=True)
     gefunden = pfad_server_suche(imap, wort, "SUBJECT")
     ergebnis["server-suche"] = (
@@ -453,12 +510,17 @@ def cmd_topic(
                 )
                 treffer_je_pfad["client-filter"] |= {(name, u) for u in client_uids}
                 alle_uids |= client_uids
-                selbst_gezaehlt[name] = geprueft_hier
                 if geprueft_hier >= limit:
+                    # Abgeschnitten: die eigene Zahl ist dann das Limit, nicht der
+                    # Bestand. Sie in die Nenner-Gegenprobe zu geben, meldete im ersten
+                    # Pilotlauf 19 Ordner als „uneinig", obwohl nur trunkiert wurde —
+                    # ein Fehlalarm, der die echte Divergenz unsichtbar macht.
                     abgeschnitten += 1
-                if nenner_pruefen and (n := nachrichten_laut_server(imap, name)):
-                    laut_server[name] = n
-                    imap.select(f'"{name}"', readonly=True)
+                else:
+                    selbst_gezaehlt[name] = geprueft_hier
+                    if nenner_pruefen and (n := nachrichten_laut_server(imap, name)):
+                        laut_server[name] = n
+                        imap.select(f'"{name}"', readonly=True)
 
             # R-4: Über-Einschluss vor Unter-Einschluss — angezeigt wird die
             # Vereinigung beider Pfade, nicht der Schnitt.
@@ -480,9 +542,11 @@ def cmd_topic(
     kalibrierung: dict[str, str] = {}
     if durchsucht:
         try:
-            kalibrierung = kalibriere_pfade(imap, alle[0], limit)
+            kalibrierung = kalibriere_pfade(imap, alle, limit)
         except Exception as exc:  # noqa: BLE001
-            kalibrierung = {p: f"Kalibrierung scheiterte: {exc}" for p in treffer_je_pfad}
+            kalibrierung = {
+                p: f"Kalibrierung scheiterte: {exc}" for p in treffer_je_pfad
+            }
 
     dauer = time.time() - t0
     beendet = _jetzt()
