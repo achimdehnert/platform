@@ -276,6 +276,22 @@ case "$DRIFT_OUT" in
   *)                     record "0.7.1 deploy-script" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/deploy-script-drift.sh" ;;
 esac
 
+# ── 0.7.2 Blinde Cron-Melder (platform#1508) ────────────────────────────────
+# 0.7 prüft Deploy-Läufe, aber NICHT den Zustand der Cron-Workflows auf main.
+# Deshalb liefen `Runner Health Check` und `Deploy Failure Monitor` sechs Tage
+# rot (HTTP 401 Bad credentials), ohne dass es in einer Session auffiel — beides
+# Melder, die währenddessen nichts mehr meldeten und Abdeckung nur vortäuschten.
+# Ein dauerhaft roter Melder ist schlimmer als kein Melder.
+# Workflows mit dem Marker `# ROT-IST-BEFUND` sind ausgenommen: dort ist rot ein
+# FUND, kein Defekt (🌀 feedback_run_conclusion_not_tool_health).
+CRON_OUT=$(python3 "$PLATFORM_DIR/tools/cron_melder_check.py" --quiet 2>/dev/null | tail -1 || true)
+case "$CRON_OUT" in
+  "RESULT: OK"*)         record "0.7.2 cron-melder" "PASS" "${CRON_OUT#RESULT: OK — }" ;;
+  "RESULT: BEFUND"*)     record "0.7.2 cron-melder" "WARN" "${CRON_OUT#RESULT: BEFUND — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.2 cron-melder" "WARN" "${CRON_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.2 cron-melder" "WARN" "Cron-Melder-Check nicht auswertbar — manuell: platform/tools/cron_melder_check.py" ;;
+esac
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys

@@ -4,6 +4,10 @@
 # Topologie (canonical.yaml + ports.yaml) mit dem realen Zustand (Container,
 # Ports, DNS). Drift-Kennzahl = Kill-Gate-KPI des Konzepts.
 #
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# dieser Workflow ist absichtlich rot, wenn er etwas gefunden hat, und wird
+# deshalb NICHT als blinder Melder gezaehlt (platform#1508).
+#
 # ⚠️ run-conclusion ≠ Tool-Health (CC-Memory): Ein ROTER Lauf ist ein FUND
 # (neue, untriagierte Drift), KEIN Workflow-Defekt. Triage: beheben oder mit
 # owner+expires_at in infra/reconcile-baseline.yaml stunden.
