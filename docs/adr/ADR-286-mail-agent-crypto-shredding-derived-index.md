@@ -342,6 +342,189 @@ und sie ist als bestätigt oder vermutet unterscheidbar.
 lösen, ist dieser Entwurf gescheitert. Dann wird er **verworfen, nicht geflickt** — denn die
 Inhaltsauswertung ist genau die Grenze, deren Einhaltung ihn rechtfertigt.
 
+> **Überholt durch §4.10 (Amendment 2026-07-28).** Regel 1 (kein Personenbezug im Knoten),
+> Regel 5 (nur deterministische Signale) und das Kill-Kriterium oben sind aufgehoben. Der
+> Zwecktest in §4.10.1 tritt an ihre Stelle. Die Prüffälle A und B bleiben als Prüffälle
+> gültig — nur ohne die Auflage, sie ohne Inhaltsauswertung lösen zu müssen.
+
+---
+
+### 4.10 Inhaltliche Auswertung, Aussagengewicht und Sachstand (Amendment 2026-07-28)
+
+**Anlass.** Der Owner hat am 2026-07-28 den Zuschnitt korrigiert: Personendaten und Termine
+sind *erwünscht*, weil sie Situationen aufklären; logische Verkettung dient der Verbesserung
+der Lage, nicht der Bewertung von Menschen. Damit fällt die Begründung mehrerer Klauseln weg,
+die als Datenschutz-Auflage formuliert waren und faktisch die Funktion begrenzt haben.
+
+#### 4.10.1 Ein Zwecktest ersetzt drei Verbote
+
+§8.9 trug drei starre Klauseln: kein Personen-Knoten im Sachvorgang, keine Kante zwischen
+Anspruchsvorgängen derselben Person, keine Aggregation je Person. Sie werden ersetzt durch:
+
+> Verbessert die Verkettung das Verständnis der **Situation** — oder erzeugt sie ein Urteil
+> über einen **Menschen**?
+
+Das ist zugleich freizügiger und präziser als die Verbotsliste. „Diese Organisation hat vier
+offene Zusagen uns gegenüber" ist eine Situationsaussage und war unter dem alten Verbot
+gesperrt, obwohl sie genau das leistet, wofür das System gebaut wird. „Diese Person antwortet
+unzuverlässig" ist ein Personenurteil und bleibt außerhalb des Zwecks — obwohl beide
+technisch dieselbe Aggregation sind. Der Unterschied liegt im **Subjekt des Ergebnisses**,
+nicht in der Abfrage.
+
+**Ausgaberegel als Durchsetzung:** Ergebnisse sprechen über Sachverhalte, Zusagen, Fristen und
+Organisationen. Ein Befund, der sich **nur** als Aussage über einen Menschen formulieren ließe,
+ist per Konstruktion außerhalb des Zwecks und wird nicht ausgegeben.
+
+#### 4.10.2 Aufgehobene Klauseln
+
+| Fundstelle | Klausel | Status |
+|---|---|---|
+| §4.7 | MEiKI: Allowlist, In-Memory-Klassifikation, Stichproben | aufgehoben |
+| §4.7 | MEiKI: **kein LLM-Zugriff** | aufgehoben |
+| §4.7 | MEiKI: Quarantäne, Attachment-Policy, Incident-Prozess | **bleibt** (§4.10.3) |
+| §4.9 Regel 1 | Knoten tragen keinen Personenbezug | aufgehoben |
+| §4.9 Regel 5 | nur deterministische Signale, keine Semantik | aufgehoben |
+| §8.9 | Graph-Schema-Gate, drei Klauseln | ersetzt durch §4.10.1 |
+
+**MEiKI wird nicht mehr gesondert behandelt.** Der Pilot arbeitet mit synthetischen Daten;
+der Übergang auf echte Daten wird ausdrücklich kommuniziert und ist eine Owner-Entscheidung,
+kein Dauerzustand, gegen den vorsorglich gegatet wird. Bis dahin gilt für MEiKI derselbe
+Funktionsumfang wie für IIL, HNU und dehnert.team — ein Kanal, eine Codebasis.
+
+#### 4.10.3 Was bleibt, und warum es kein Datenschutz-Grund ist
+
+Quarantäne unbekannter Inhalte und die Attachment-Policy bleiben — mit **geänderter
+Begründung**. Mailinhalt ist von außen geschriebener Text, der in ein Modell läuft; das ist
+ein Injection-Vektor. ADR-284 hat das bereits festgehalten („nl2sql über angreifer-
+kontrollierte Betreffs"). Bei MEiKI ist die Angriffsfläche größer, weil beliebige Absender
+hineinschreiben können. Fremder Inhalt bleibt **Daten, nie Anweisung** — das ist Härtung der
+Funktion, nicht ihre Begrenzung.
+
+#### 4.10.4 Akteurs-Registry statt Personen-Knoten
+
+Aussagen werden gewichtet, dafür braucht es Identität und Stand des Sprechenden. Beides gehört
+**nicht in den Vorgangs-Knoten**, sondern in eine eigene Registry, auf die die Aussage zeigt.
+Drei Gründe, alle funktional:
+
+1. **Rollen ändern sich.** Wer im Mai Mitarbeiter war und im Juli Teamleitung ist, muss für
+   eine Mai-Aussage mit Mai-Stand bewertet werden. Ein Rang im Knoten schreibt bei jeder
+   Beförderung still die Vergangenheit um oder friert einen veralteten Stand ein.
+2. **Eine Person, mehrere Hüte.** Dieselbe Person unter zwei Adressen ist derselbe Akteur mit
+   unterschiedlichem Stand je nach Organisationskontext. Pro Mail ein Knoten erzeugt daraus
+   zwei unverbundene Akteure.
+3. **Rangordnung ist Organisationswissen, nicht Vorgangswissen.** In jeden Vorgang kopiert
+   driftet sie auseinander.
+
+```
+Akteur          stabile ID, Anzeigename
+  Adresse[]       Adresse, gültig_von/bis
+  Zugehörigkeit[] Organisation, Rolle, Rang, gültig_von/bis
+Aussage         Zeiger auf Nachricht, Akteur-Ref, Typ, Kern, Wortlaut,
+                Bezugsaussage, gesagt_am, gilt_ab/gilt_bis, bestätigt|vermutet
+Konflikt        Aussage A, Aussage B, gelöst_durch, Begründung
+```
+
+Die vorhandene Rollen-Registry (`tools/mail_agent/roles.py`) beschreibt dieselbe Struktur von
+der anderen Seite — die eigene Absender-Identität. Beide werden zusammengeführt; wir selbst
+sind Akteure wie andere auch. Das schließt zugleich platform#1481 (Rollen-Registry kennt keine
+Kanal-Grenze), weil Organisationszugehörigkeit dann im Modell steht statt in einer Konvention.
+
+#### 4.10.5 Gewichtung — Rang gilt für Entscheidungen, Sachnähe für Fakten
+
+Geordnete Regeln, die erste greifende entscheidet:
+
+1. **Weisungsbefugnis** — höherer Rang in derselben Organisation überstimmt, **aber nur bei
+   Weisungen und Entscheidungen**.
+2. **Sachnähe** — bei Tatsachenaussagen entscheidet, wer den Sachverhalt verantwortet. Wer die
+   Messung gemacht hat, weiß den Messwert besser als die Leitung. Ebenso hat über *seine*
+   Anforderung der Kunde das letzte Wort, über *unseren* Liefertermin wir.
+3. **Aktualität** — jüngere Aussage desselben Akteurs überstimmt die ältere, gemessen an
+   `gilt_ab`, nicht an `gesagt_am`.
+4. **Verbindlichkeit** — ausdrückliche Zusage schlägt Meinung oder Vermutung.
+5. **Ungelöst bleibt ungelöst** — greift keine Regel, wird der Konflikt gemeldet, nicht still
+   entschieden.
+
+Regel 1 ohne die Einschränkung auf Entscheidungen wäre ein Korrektheitsfehler: Ein System, das
+Rang auf Tatsachenaussagen anwendet, glaubt die Schätzung der Leitung und verwirft die Messung
+der Bearbeitung — es wird mit jeder Hierarchiestufe dümmer.
+
+#### 4.10.6 Beobachtung und Sachstand sind zwei Schichten
+
+Der Graph nach §4.9 ist statisch: Er sagt, welche Nachrichten zusammengehören, nicht was daraus
+gerade gilt. Darüber kommt eine Schicht, die bei neuen Fakten revidiert wird.
+
+| | **Beobachtung** | **Sachstand** |
+|---|---|---|
+| Inhalt | was eine Nachricht gesagt hat | was daraus gerade gilt |
+| Änderbar | nein, append-only | ja, wird revidiert |
+| Herkunft | Zeiger auf die Nachricht | abgeleitet, mit Begründung |
+| Bei Zweifel | Postfach ist Wahrheit | neu ableiten |
+
+**Der Sachstand muss aus den Beobachtungen neu berechenbar sein — nicht von Hand
+fortgeschrieben.** Ein direkt editierter Stand macht die Datenbank zu einer zweiten Wahrheit,
+die vom Postfach abweicht, ohne dass entscheidbar wäre, welche stimmt. „Aktualisieren" heißt
+deshalb: neu ableiten und protokollieren, auf welche Nachricht hin sich der Stand geändert hat.
+
+Das Muster ist nicht neu — §4.6 zieht dieselbe Trennung eine Ebene tiefer für die
+Postfach-Mechanik („Der Index ist rebuildbar; das Event-Log ist beobachteter Zustand").
+
+**Verstärkungsrisiko, ausdrücklich benannt:** Ein falsch extrahierter Fakt revidiert den Stand
+auf eine Aussage, die nie gefallen ist — gefährlicher als eine übersehene Nachricht, weil er
+sich richtig anfühlt. Gegenmittel ist die Kennzeichnung *bestätigt* vs. *vermutet* aus §4.9
+Regel 4: Eine vermutete Zusage wird angezeigt, nicht gerechnet.
+
+#### 4.10.7 Vorverarbeitung ist Vorbedingung, nicht Optimierung
+
+Gemessen am 2026-07-28 über 210 Nachrichten des HNU-Kontos:
+
+| | roh | nutzbar | Faktor |
+|---|---|---|---|
+| Median | 29.764 B | 838 B | 36× |
+| Mittelwert | 320.517 B | 1.757 B | **182×** |
+
+Der Mittelwert liegt beim Elffachen des Medians — Anhänge und HTML dominieren die Masse, nicht
+der geschriebene Text. Roh gerechnet ergäbe der Gesamtkorpus von **90.967 Nachrichten** rund
+**4,5 Mrd. Token**; nach Vorverarbeitung sind es **~34–40 Mio.** (≈439 Token je Nachricht).
+
+Verbindlich ist deshalb die Kette vor jeder Extraktion: `text/plain` bevorzugen, sonst HTML zu
+Text reduzieren · Anhänge ausschließen · Zitat-Historie abschneiden. Ein Entwurf, der die
+Nachricht an ein Modell reicht, ist um zwei Größenordnungen daneben.
+
+**Einmal extrahieren, oft abfragen.** Der Modell-Lauf erfolgt **einmal je Nachricht beim
+Einlesen**; Ergebnis ist die strukturierte Aussage. Jede spätere Frage ist eine Abfrage darauf
+und kostet null Token. Das ist keine Bequemlichkeit: Weil Bodies nach Option D nicht dauerhaft
+gespeichert werden, ist Extraktion beim Einlesen **oder nie**. Kleines Modell extrahiert,
+großes synthetisiert — und zwar auf der extrahierten Struktur, nicht auf Rohtext.
+
+#### 4.10.8 Gemessener Ausgangsstand (2026-07-28)
+
+| Konto | Transport | Ordner | Nachrichten | Rauschen (Stichprobe) |
+|---|---|---|---|---|
+| IIL | Graph | 90 | 44.878 | 13% |
+| HNU | IMAP | 110 | 46.077 | 16% |
+| Referenz | IMAP | 9 | 12 | — |
+
+Rauschquote ist eine **Untergrenze** — gemessen in kuratierten Archiv- und Gesendet-Ordnern.
+Ordner-Sweep 2,8 s (Graph) bzw. 5,0 s (IMAP); Kopfzeilen-Durchsatz ~64/s (IMAP) und ~12/s
+(Graph) ⇒ einmaliger Kopfzeilen-Vollscan ≈ 75 Minuten. Das private dehnert.team-Postfach ist
+**nicht** als lesbares Konto konfiguriert und damit ungemessen.
+
+#### 4.10.9 Benannte Grenzen
+
+- **Nicht-Mail-Fakten.** Telefonate und Flurgespräche bleiben unsichtbar. Der Deckungsausweis
+  misst Abdeckung über das Postfach, nicht über die Wirklichkeit, und muss das aussprechen.
+  Termine schließen einen Teil dieser Lücke (§4.10.10).
+- **Nicht-Ereignisse.** Eine verstrichene Frist ohne Reaktion ist ein Fakt, aber nur
+  feststellbar, wenn eine Erwartung hinterlegt ist. Zusagen und Termine erzeugen sie.
+- **Textgröße nach Vorverarbeitung** ist an einem Konto gemessen; IIL kann abweichen.
+
+#### 4.10.10 Termine als zweite Quelle
+
+Kalendereinträge lösen eine Klasse toter Zeiger auf: „wie besprochen", „im Termin geklärt",
+„laut Abstimmung" sind ohne sie nicht auflösbar. Zusätzlich liefern sie die Erwartungen für die
+Nicht-Ereignisse oben — ein Termin ohne nachfolgende Nachricht ist ein Befund. Der Zugang
+besteht bereits (`~/.claude/calendar.env`, Graph).
+
 ---
 
 ## 5. Migration Tracking
@@ -392,18 +575,27 @@ Inhaltsauswertung ist genau die Grenze, deren Einhaltung ihn rechtfertigt.
    abgeleitete Artefakte prüfen → erst dann Freigabe.
 4. **Abgeleitete-Artefakte-Test**: Such-Index/Embedding/Summary/Prompt-Log respektieren dieselbe
    Löschung (Delete-Cascade).
-5. **MEiKI-Scope-Test**: Fehlklassifikation landet in Quarantäne, nicht im Store; kein LLM-Zugriff.
+5. **Injection-Test** (§4.10.3, ersetzt den MEiKI-Scope-Test): Eine Nachricht mit
+   Anweisungstext im Betreff oder Body verändert weder Abfrage noch Ausgabe — fremder Inhalt
+   wirkt als Daten, nie als Anweisung. Gilt für alle Kanäle, nicht nur MEiKI.
 6. **DSGVO-Gate**: **DSFA** + Rechtsgrundlage je Kanal + Serverstandort/TOM/VVT **vor** Prod-Daten
    (Zusammenführung mehrerer Quellen + KI-Auswertung ab Phase 3 → DSFA-Prüfpflicht).
 7. **Art. 14**: Informationspflicht ggü. Dritten dokumentiert (oder Ausnahme Art. 14 Abs. 5 lit. b begründet).
 8. **Drift-Detector** (ADR-059): Staleness 12 Monate.
-9. **Graph-Schema-Gate** (§4.9): kein Personen-Knoten im Sachvorgang; keine Kante zwischen
-   zwei Anspruchsvorgängen derselben Person; kein Zähler/keine Aggregation je Person — im
-   Schema erzwungen, nicht per Konvention.
+9. **Zwecktest-Gate** (§4.10.1, ersetzt das Graph-Schema-Gate): Kein Ergebnis-Objekt hat einen
+   Menschen als Subjekt. Geprüft wird an der Ausgabe, nicht am Schema — Aggregation über eine
+   Person ist zulässig, solange das Ergebnis eine Situation beschreibt.
 10. **Toter-Zeiger-Test** (§4.9): ein aufgelöster Zeiger OHNE `ErasureTombstone` erzeugt einen
     gemeldeten Befund, kein stilles Beschneiden.
-11. **Prüffälle A und B** (§4.9) lösbar **ohne** systematische Inhaltsauswertung — sonst gilt
-    das Kill-Kriterium und §4.9 wird verworfen.
+11. **Prüffälle A und B** (§4.9) werden gelöst — die frühere Auflage, sie *ohne*
+    Inhaltsauswertung zu lösen, ist mit §4.10 aufgehoben.
+12. **Vorverarbeitungs-Gate** (§4.10.7): Kein Modell-Aufruf auf Roh-MIME. Der Test belegt für
+    eine Stichprobe, dass Anhänge ausgeschlossen und Zitat-Historie abgeschnitten sind.
+13. **Konten-Nenner-Gate** (§4.10.8): Die Konten-Aufzählung des Deckungsausweises enthält
+    **jedes** lesbare Postfach — auch Graph-Konten aus `calendar.env` — und **keine**
+    Nicht-Postfächer. Gegenprobe gegen die Konfigurationsquellen, nicht gegen einen Glob.
+14. **Aussagen-Gewichtungstest** (§4.10.5): Ein Faktum einer sachnahen Quelle wird **nicht**
+    von einer ranghöheren Meinung überstimmt; eine Weisung dagegen schon.
 
 ---
 
@@ -468,6 +660,7 @@ Zwei externe adversariale Reviews (non-accountable, ersetzen keine Owner-Review)
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-28 | Claude Code (Opus 5) | **Amendment §4.10 — inhaltliche Auswertung, Aussagengewicht, Sachstand.** Anlass: Owner-Korrektur des Zuschnitts — Personendaten und Termine sind erwünscht, weil sie Situationen aufklären; Verkettung dient der Verbesserung der Lage, nicht der Bewertung von Menschen; Datenschutz wird nachgeschärft, wenn die Funktionalität steht. Aufgehoben: §4.7 MEiKI-Sonderweg inkl. „kein LLM-Zugriff" (der Pilot arbeitet mit synthetischen Daten, der Umschaltpunkt ist eine kommunizierte Owner-Entscheidung), §4.9 Regel 1 (kein Personenbezug im Knoten), §4.9 Regel 5 (nur deterministische Signale) und das Kill-Kriterium der Prüffälle. Ersetzt durch **einen Zwecktest** (Situation vs. Personenurteil), durchgesetzt an der Ausgabe statt im Schema — freizügiger *und* präziser, weil „Organisation hat vier offene Zusagen" und „Person antwortet unzuverlässig" technisch dieselbe Aggregation sind und sich nur im Subjekt des Ergebnisses unterscheiden. Bleibt mit **geänderter Begründung**: Quarantäne + Attachment-Policy als Injection-Härtung (fremder Inhalt = Daten, nie Anweisung), jetzt für alle Kanäle statt nur MEiKI. Neu: Akteurs-Registry mit Gültigkeitszeiträumen statt Personen-Knoten (Rollen ändern sich, eine Person hat mehrere Hüte, Rangordnung ist Organisations- nicht Vorgangswissen) — führt `roles.py` zusammen und schließt platform#1481; Gewichtung mit der tragenden Unterscheidung **Rang für Entscheidungen, Sachnähe für Fakten** (andernfalls glaubt das System die Schätzung der Leitung und verwirft die Messung der Bearbeitung); Trennung **Beobachtung** (append-only) von **Sachstand** (revidierbar, neu ableitbar, nie handeditiert) analog zur bestehenden §4.6-Trennung Index/Event-Log; zwei Zeitachsen (`gesagt_am` vs. `gilt_ab`), Bezugsaussage, Wortlaut neben Normalisierung. **Gemessen statt geschätzt** (2026-07-28): Korpus 90.967 Nachrichten über 209 Ordner (IIL 44.878 / HNU 46.077 / Referenz 12), Rauschanteil ≥13–16 %, Vorverarbeitung reduziert um Faktor 182 im Mittel — roh 4,5 Mrd. Token, nutzbar ~34–40 Mio. Daraus §4.10.7: Vorverarbeitung ist Vorbedingung, nicht Optimierung, und Extraktion erfolgt beim Einlesen oder nie (Bodies sind nach Option D nicht persistiert). Gates: §8.5 → Injection-Test, §8.9 → Zwecktest-Gate, §8.11 entschärft, neu §8.12–§8.14 (Vorverarbeitung, Konten-Nenner, Gewichtung). |
 | 2026-07-27 | Claude Code (Opus 5) | **Amendment §4.9 Vorgangs-Graph** + §8.9–§8.11. Anlass: Header-Threading erkennt Querbezüge nicht (eine Antwort beantwortet zugleich einen Punkt aus einem anderen Thread mit anderem Gegenüber), Ordner können Mehrfachzugehörigkeit nicht abbilden. Kernpunkte: zwei Knotentypen (Sachvorgang / Anspruchsvorgang) mit unterschiedlicher Rechtsgrundlage — ein früherer Entwurf verbot Personen-Knoten vollständig und hätte damit die Fristenverfolgung nach Art. 6 Abs. 1 lit. c unmöglich gemacht; keine Kante zwischen Anspruchsvorgängen derselben Person (Personenakte durch die Hintertür); Grenze ist *kein Personenbezug*, nicht *kein Inhalt*; Zeiger statt Kopien, damit die Löschkaskade §4.4 by design greift; toter Zeiger mit Tombstone = korrekte Löschung, ohne = gemeldeter Befund; Aufbewahrung über den vorhandenen Katalog (`RetentionRule`/`StandardRetentionPeriod`) statt zweitem Fristenwerk. Zwei Annahmen korrigiert: der Graph ist **pseudonym, nicht anonym** (EG 26), und „Vergessen ausgeschlossen" heißt Vollständigkeit der Sicht, **nicht** Löschverbot — Löschen ist spätestens nach Fortfall des Zwecks Pflicht (Art. 5 Abs. 1 lit. e), und der Graph ist dafür das Instrument. Benannte Nicht-Ziele: Art.-15-Auskunft (kompensiert durch die Postfach-Suche), kein Erstlauf über den Altbestand. Zwei genericisierte Prüffälle mit Kill-Kriterium: nur über systematische Inhaltsauswertung lösbar → verwerfen, nicht flicken. |
 | 2026-07-24 | Achim Dehnert | Initial: Status Proposed (crypto-geschredderter Voll-Index) |
 | 2026-07-24 | Achim Dehnert | v2 nach 2× externer KI-Zweitmeinung: Option D (Metadaten-first) primär, Erasure-Ledger, Envelope-Encryption, transport-spezifische Identität, Löschumfang-Matrix, MEiKI-deny-by-default, DSFA-Gate, Delta-Sync; Tag-Tabelle §11 |
