@@ -15,16 +15,24 @@ from __future__ import annotations
 import argparse
 import email
 import imaplib
+import json
 import re
 import sys
+from datetime import datetime, timezone
 from email.header import decode_header
 from email.message import Message
 from pathlib import Path
+from typing import NamedTuple
 
 # Config-/Credentials-Parsing wird aus send_mail wiederverwendet (eine SSoT).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deckungsausweis as da  # noqa: E402
 from indexierung import aufteilen  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, parse_env  # noqa: E402
+
+#: Wird im Deckungsausweis mitgeführt — ein Ausweis ohne Werkzeug-Stand ist
+#: später nicht mehr einzuordnen (KONZ-035 Pflichtfeld).
+WERKZEUG = "read_mail.py/2026-07-28"
 
 
 def _resolve_config(config: str | None, account: str | None) -> Path:
@@ -211,7 +219,39 @@ def _kandidaten(
     return (data[0].split() if data and data[0] else []), False
 
 
-def cmd_list_alle(
+class Treffer(NamedTuple):
+    ordner: str
+    nummer: str
+    datum: str
+    von: str
+    an: str
+    betreff: str
+
+
+class Ergebnis(NamedTuple):
+    """Was ein Lauf gefunden hat — **und** worüber er gelaufen ist.
+
+    Beides in einem Objekt, weil die Trennung genau die Fehlerquelle ist: eine
+    Trefferliste ohne ihren Nenner sieht aus wie eine Vollerhebung. Renderer
+    (Text/JSON) bekommen deshalb nie nur ``treffer``.
+    """
+
+    treffer: tuple[Treffer, ...]
+    konto: str
+    filter: dict[str, str | None]
+    limit: int
+    gesamt_ordner: int
+    geprueft_ordner: int
+    nachrichten_gesehen: int
+    nachrichten_vorhanden: int
+    vorgefiltert: bool
+    ausgeschlossen: tuple[tuple[str, str], ...] = ()
+    fehler: tuple[tuple[str, str], ...] = ()
+    unlesbar: tuple[str, ...] = ()
+    einzelordner: str | None = None
+
+
+def sammle_alle_ordner(
     imap: imaplib.IMAP4_SSL,
     neu_verbinden,
     count: int,
@@ -219,12 +259,18 @@ def cmd_list_alle(
     to_filter: str | None,
     subject_filter: str | None,
     auch_ausgeschlossen: bool = False,
-) -> imaplib.IMAP4_SSL:
+    konto: str = "",
+    gruendlich: bool = False,
+) -> tuple[Ergebnis, imaplib.IMAP4_SSL]:
     """Alle Ordner durchsuchen statt nur INBOX — der Fall 'wo liegt die Mail von X?'.
 
     Ohne das musste man den Ordner vorher kennen; genau daran ist am 2026-07-28
     eine Suche gescheitert, die erst nach einem Dutzend Anläufen im richtigen
-    Postfach ankam. Rückgabewert ist die (ggf. neu aufgebaute) Verbindung.
+    Postfach ankam. Gibt neben dem Ergebnis die (ggf. neu aufgebaute) Verbindung
+    zurück — der Aufrufer kann sie sonst nicht mehr schließen.
+
+    ``gruendlich`` schaltet den server-seitigen Vorfilter ab: langsamer, aber ohne
+    die Annahme, dass die SEARCH-Semantik des Servers der eigenen entspricht.
     """
     ordner, unlesbar = alle_ordner(imap)
     if auch_ausgeschlossen:
@@ -232,8 +278,10 @@ def cmd_list_alle(
     else:
         zu_pruefen, ausgeschlossen = aufteilen(ordner)
 
-    kriterien = _such_kriterien(from_filter, to_filter, subject_filter)
-    gezeigt = 0
+    kriterien = (
+        None if gruendlich else _such_kriterien(from_filter, to_filter, subject_filter)
+    )
+    treffer: list[Treffer] = []
     fehler: list[tuple[str, str]] = []
     geprueft = 0
     vorgefiltert = False
@@ -262,14 +310,17 @@ def cmd_list_alle(
                         and matches_subject(msg, subject_filter)
                     ):
                         continue
-                    print(
-                        f"[{name}] #{i.decode()}  {decode_hdr(msg.get('Date'))[:22]}\n"
-                        f"    VON {decode_hdr(msg.get('From'))[:70]}\n"
-                        f"    AN  {decode_hdr(msg.get('To'))[:70]}\n"
-                        f"    BET {decode_hdr(msg.get('Subject'))[:70]}"
+                    treffer.append(
+                        Treffer(
+                            ordner=name,
+                            nummer=i.decode(),
+                            datum=decode_hdr(msg.get("Date")),
+                            von=decode_hdr(msg.get("From")),
+                            an=decode_hdr(msg.get("To")),
+                            betreff=decode_hdr(msg.get("Subject")),
+                        )
                     )
-                    gezeigt += 1
-                    if gezeigt >= count:
+                    if len(treffer) >= count:
                         break
                 geprueft += 1
                 break
@@ -283,23 +334,110 @@ def cmd_list_alle(
                         fehler.append((name, f"Neuverbindung: {e2}"))
                         break
                 fehler.append((name, str(e)[:80]))
-        if gezeigt >= count:
+        if len(treffer) >= count:
             break
 
-    print(
-        _bilanz_alle(
-            gesamt_ordner=len(ordner),
-            geprueft=geprueft,
-            gezeigt=gezeigt,
+    return (
+        Ergebnis(
+            treffer=tuple(treffer),
+            konto=konto,
+            filter={
+                "von": from_filter,
+                "an": to_filter,
+                "betreff": subject_filter,
+            },
             limit=count,
-            nachrichten=nachrichten,
+            gesamt_ordner=len(ordner),
+            geprueft_ordner=geprueft,
+            nachrichten_gesehen=nachrichten,
+            nachrichten_vorhanden=0,
             vorgefiltert=vorgefiltert,
-            ausgeschlossen=ausgeschlossen,
-            fehler=fehler,
-            unlesbar=unlesbar,
-        )
+            ausgeschlossen=tuple(ausgeschlossen),
+            fehler=tuple(fehler),
+            unlesbar=tuple(unlesbar),
+        ),
+        imap,
     )
-    return imap
+
+
+def rendern_text(erg: Ergebnis) -> str:
+    """Bilanz ZUERST, Trefferliste danach.
+
+    Andersherum scrollt bei 27 ausgeschlossenen Ordnern der Beweis aus dem
+    Terminal, und man liest die Liste ohne ihren Nenner (Realfall 2026-07-28:
+    ``tail`` zeigte die Bilanz und verschluckte dabei den einzigen Treffer).
+    """
+    if erg.einzelordner is not None:
+        bilanz = _bilanz(
+            erg.einzelordner,
+            erg.nachrichten_vorhanden,
+            erg.nachrichten_gesehen,
+            len(erg.treffer),
+            erg.limit,
+            erg.filter.get("von"),
+            erg.filter.get("an"),
+            erg.filter.get("betreff"),
+        )
+    else:
+        bilanz = _bilanz_alle(
+            gesamt_ordner=erg.gesamt_ordner,
+            geprueft=erg.geprueft_ordner,
+            gezeigt=len(erg.treffer),
+            limit=erg.limit,
+            nachrichten=erg.nachrichten_gesehen,
+            vorgefiltert=erg.vorgefiltert,
+            ausgeschlossen=list(erg.ausgeschlossen),
+            fehler=list(erg.fehler),
+            unlesbar=list(erg.unlesbar),
+        )
+
+    zeilen = [bilanz]
+    if erg.treffer:
+        zeilen.append("")
+    for t in erg.treffer:
+        if erg.einzelordner is not None:
+            zeilen.append(
+                f"#{t.nummer:>5}  {t.datum[:22]:<22}  {t.von[:38]:<38}  {t.betreff[:60]}"
+            )
+        else:
+            zeilen.append(
+                f"[{t.ordner}] #{t.nummer}  {t.datum[:22]}\n"
+                f"    VON {t.von[:70]}\n"
+                f"    AN  {t.an[:70]}\n"
+                f"    BET {t.betreff[:70]}"
+            )
+    return "\n".join(zeilen)
+
+
+def rendern_json(erg: Ergebnis) -> str:
+    """Maschinenlesbar, damit niemand Treffer mit ``grep -c`` auf Fließtext zählt.
+
+    Genau dabei entstand am 2026-07-28 eine falsche Trefferzahl (28 statt 21).
+    """
+    return json.dumps(
+        {
+            "konto": erg.konto,
+            "filter": erg.filter,
+            "limit": erg.limit,
+            "bilanz": {
+                "ordner_gesamt": erg.gesamt_ordner,
+                "ordner_geprueft": erg.geprueft_ordner,
+                "einzelordner": erg.einzelordner,
+                "nachrichten_gesehen": erg.nachrichten_gesehen,
+                "nachrichten_vorhanden": erg.nachrichten_vorhanden,
+                "server_vorgefiltert": erg.vorgefiltert,
+                "limit_erreicht": len(erg.treffer) >= erg.limit,
+                "ausgeschlossen": [
+                    {"ordner": o, "grund": g} for o, g in erg.ausgeschlossen
+                ],
+                "fehler": [{"ordner": o, "grund": g} for o, g in erg.fehler],
+                "unlesbare_list_zeilen": list(erg.unlesbar),
+            },
+            "treffer": [t._asdict() for t in erg.treffer],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 def _bilanz_alle(
@@ -400,19 +538,20 @@ def _bilanz(
     return zeile
 
 
-def cmd_list(
+def sammle_einzelordner(
     imap: imaplib.IMAP4_SSL,
     folder: str,
     count: int,
     from_filter: str | None,
     to_filter: str | None = None,
     subject_filter: str | None = None,
-) -> None:
+    konto: str = "",
+) -> Ergebnis:
     imap.select(_mailbox_arg(folder), readonly=True)
     typ, data = imap.search(None, "ALL")
     ids = data[0].split()
     gesamt = len(ids)
-    shown = 0
+    treffer: list[Treffer] = []
     geprueft = 0
     for i in reversed(ids):
         geprueft += 1
@@ -424,27 +563,263 @@ def cmd_list(
             and matches_subject(msg, subject_filter)
         ):
             continue
-        print(
-            f"#{i.decode():>5}  {decode_hdr(msg.get('Date'))[:22]:<22}  "
-            f"{decode_hdr(msg.get('From'))[:38]:<38}  {decode_hdr(msg.get('Subject'))[:60]}"
+        treffer.append(
+            Treffer(
+                ordner=folder,
+                nummer=i.decode(),
+                datum=decode_hdr(msg.get("Date")),
+                von=decode_hdr(msg.get("From")),
+                an=decode_hdr(msg.get("To")),
+                betreff=decode_hdr(msg.get("Subject")),
+            )
         )
-        shown += 1
-        if shown >= count:
+        if len(treffer) >= count:
             break
-    if shown == 0:
-        print("keine Treffer")
-    print(
-        _bilanz(
-            folder,
-            gesamt,
-            geprueft,
-            shown,
-            count,
-            from_filter,
-            to_filter,
-            subject_filter,
-        )
+    return Ergebnis(
+        treffer=tuple(treffer),
+        konto=konto,
+        filter={"von": from_filter, "an": to_filter, "betreff": subject_filter},
+        limit=count,
+        gesamt_ordner=1,
+        geprueft_ordner=1,
+        nachrichten_gesehen=geprueft,
+        nachrichten_vorhanden=gesamt,
+        vorgefiltert=False,
+        einzelordner=folder,
     )
+
+
+PFLICHT_KEYS = ("SMTP_HOST", "MAIL_FROM", "MAIL_CREDS_FILE")
+
+
+def imap_konten() -> list[tuple[str, Path]]:
+    """Alle IMAP-Konten dieser Maschine als (Kürzel, Config-Pfad).
+
+    Erkannt wird an den Pflicht-Keys, nicht am Dateinamen: ``mail-folders.env``
+    liegt im selben Verzeichnis, ist aber eine Ordner-Zuordnung und kein Konto.
+    """
+    gefunden: list[tuple[str, Path]] = []
+    basis = CONFIG_FILE.parent
+    kandidaten = sorted(basis.glob("mail-*.env"))
+    if CONFIG_FILE.exists():
+        kandidaten.insert(0, CONFIG_FILE)
+    for pfad in kandidaten:
+        try:
+            cfg = parse_env(pfad)
+        except OSError:
+            continue
+        if not all(k in cfg for k in PFLICHT_KEYS):
+            continue
+        kuerzel = (
+            "default"
+            if pfad == CONFIG_FILE
+            else pfad.name.removeprefix("mail-").removesuffix(".env")
+        )
+        gefunden.append((kuerzel, pfad))
+    return gefunden
+
+
+def nicht_erreichbare_konten() -> list[tuple[str, str]]:
+    """Postfächer, die dieses Werkzeug bauartbedingt NICHT abdeckt.
+
+    Das IIL-Geschäftspostfach hängt an Microsoft Graph, nicht an IMAP. Ohne
+    diesen Eintrag zählte ein Abwesenheitsbeweis nur die IMAP-Konten und sähe
+    trotzdem vollständig aus — genau die stille Lücke, gegen die der Ausweis
+    geschrieben ist.
+    """
+    token_dir = Path.home() / ".claude" / "graph-mail-tokens"
+    return [
+        (
+            f"Konto {p.stem.replace('_at_', '@')}",
+            "Graph-Transport, nicht über IMAP erreichbar — separat mit "
+            "graph_mail.py --find prüfen",
+        )
+        for p in sorted(token_dir.glob("*.json"))
+    ]
+
+
+#: Stichprobengröße der Kalibriersonde. Groß genug für eine Aussage, klein genug,
+#: um den Beweislauf nicht um Minuten zu verlängern.
+SONDE_TIEFE = 50
+
+
+def gesendet_ordner(imap: imaplib.IMAP4_SSL) -> str:
+    """Name des \\Sent-Ordners laut LIST-Flags — nicht am Namen geraten.
+
+    Die Ordner heißen je nach Server 'Gesendete Objekte', 'Sent', 'INBOX.Sent';
+    das Flag ist die einzige verlässliche Auskunft.
+    """
+    typ, data = imap.list()
+    for zeile in data or []:
+        roh = zeile if isinstance(zeile, bytes) else str(zeile).encode()
+        m = _LIST_RE.match(roh)
+        if m and b"\\Sent" in m.group("flags"):
+            return m.group("name").decode("utf-8", "replace").strip().strip('"')
+    return ""
+
+
+def kalibrierungssonde(
+    imap: imaplib.IMAP4_SSL, eigene_adresse: str
+) -> tuple[bool, str]:
+    """Prüft den **tatsächlich genutzten** Pfad an einer Menge mit bekannter Antwort.
+
+    KONZ-035 §5.3 R-3 verlangt genau das für jeden Retrievalpfad. Als bekannte
+    Menge dient der Gesendet-Ordner: dort trägt per Konstruktion jede Nachricht
+    den eigenen Absender.
+
+    Geprüft wird nicht „findet der Server irgendetwas", sondern die Eigenschaft,
+    auf die es ankommt: **verschweigt der server-seitige Vorfilter etwas, das der
+    lokale Scan sieht?** Falsch-positive Server-Treffer sind harmlos (die lokale
+    Gegenprobe wirft sie weg), falsch-negative wären der stille Beweisfehler.
+    Deshalb ist das Kriterium ``client ⊆ server``, nicht Gleichheit.
+    """
+    gesendet = gesendet_ordner(imap)
+    if not gesendet:
+        return False, "kein \\Sent-Ordner im LIST — Sonde nicht durchführbar"
+    try:
+        typ, _ = imap.select(_mailbox_arg(gesendet), readonly=True)
+        if typ != "OK":
+            return False, f"{gesendet}: SELECT {typ}"
+        typ, data = imap.search(None, "ALL")
+        stichprobe = (data[0].split() if data and data[0] else [])[-SONDE_TIEFE:]
+        if not stichprobe:
+            return False, f"{gesendet}: leer — keine bekannte Menge zum Prüfen"
+
+        client = set()
+        for i in stichprobe:
+            typ2, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
+            if typ2 != "OK" or not md or not md[0]:
+                continue
+            if matches_from(email.message_from_bytes(md[0][1]), eigene_adresse):
+                client.add(i)
+        if not client:
+            return (
+                False,
+                f"{gesendet}: eigener Absender in {len(stichprobe)} nicht gefunden",
+            )
+
+        kriterien = _such_kriterien(eigene_adresse, None, None)
+        if kriterien is None:
+            return True, f"{gesendet}: {len(client)}/{len(stichprobe)}, ohne Vorfilter"
+        server, _ = _kandidaten(imap, kriterien)
+        verfehlt = client - set(server)
+        if verfehlt:
+            return False, (
+                f"{gesendet}: Vorfilter verschweigt {len(verfehlt)} von {len(client)} "
+                "bekannten Nachrichten"
+            )
+        return (
+            True,
+            f"{gesendet}: Vorfilter deckt {len(client)}/{len(client)} bekannte ab",
+        )
+    except (imaplib.IMAP4.error, OSError) as e:
+        return False, f"{gesendet}: {str(e)[:60]}"
+
+
+def abwesenheitsbeweis(
+    from_filter: str | None,
+    to_filter: str | None,
+    subject_filter: str | None,
+    anlass: str,
+    gruendlich: bool = False,
+) -> tuple[list[Ergebnis], da.Ausweis]:
+    """Der Modus für Allaussagen: „es gibt keine Mail von X".
+
+    Anwesenheit belegt ein einzelner Treffer. Abwesenheit ist eine Aussage über
+    **jeden** Ordner **jedes** Kontos — und die kippt still, sobald ein Ordner
+    ausgelassen, ein Konto vergessen oder ein Vorfilter zu scharf war. Deshalb
+    erzwingt dieser Modus alle Konten und alle Ordner (auch Papierkorb und
+    Jahresarchive) und liefert als Ergebnis den Deckungsausweis.
+
+    Den server-seitigen Vorfilter schaltet er **nicht** blind ab, sondern belegt
+    ihn: pro Konto läuft vorher :func:`kalibrierungssonde` gegen eine Menge mit
+    bekannter Antwort. Besteht sie nicht, wandert das Konto als ungedeckt in den
+    Ausweis, statt ein Ergebnis vorzutäuschen. Ein erzwungener Vollscan
+    (``gruendlich=True``) ist möglich, dauert über alle Jahresarchive aber
+    Größenordnungen länger — deshalb nicht der Default.
+    """
+    start = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    konten = imap_konten()
+    nicht_gedeckt = list(nicht_erreichbare_konten())
+    ergebnisse: list[Ergebnis] = []
+    kalibriert: list[str] = []
+    ordner_vorhanden = ordner_durchsucht = 0
+    nachrichten = 0
+    fehlgeschlagen = 0
+    durchsucht = 0
+
+    for kuerzel, pfad in konten:
+        cfg = parse_env(pfad)
+        try:
+            imap = connect(cfg)
+        except Exception as e:  # noqa: BLE001
+            nicht_gedeckt.append((f"Konto {kuerzel}", f"Verbindung: {str(e)[:60]}"))
+            continue
+        try:
+            ok, wie = kalibrierungssonde(imap, cfg["MAIL_FROM"])
+            pfadname = f"imap-headerscan/{kuerzel}"
+            if ok:
+                kalibriert.append(pfadname)
+            else:
+                nicht_gedeckt.append((f"Kalibrierung {kuerzel}", wie))
+            erg, imap = sammle_alle_ordner(
+                imap,
+                lambda c=cfg: connect(c),
+                count=10_000,
+                from_filter=from_filter,
+                to_filter=to_filter,
+                subject_filter=subject_filter,
+                auch_ausgeschlossen=True,
+                konto=kuerzel,
+                # Sonde nicht bestanden -> der Vorfilter ist für dieses Konto
+                # unbelegt, also nicht benutzt. Lieber langsam als unbelegt.
+                gruendlich=gruendlich or not ok,
+            )
+            ergebnisse.append(erg)
+            durchsucht += 1
+            ordner_vorhanden += erg.gesamt_ordner
+            ordner_durchsucht += erg.geprueft_ordner
+            nachrichten += erg.nachrichten_gesehen
+            fehlgeschlagen += len(erg.fehler)
+            nicht_gedeckt += [(f"{kuerzel}:{o}", g) for o, g in erg.fehler]
+        finally:
+            try:
+                imap.logout()
+            except Exception:  # noqa: BLE001
+                pass
+
+    ende = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    frage = ", ".join(
+        f"{feld}~{wert!r}"
+        for feld, wert in (
+            ("Absender", from_filter),
+            ("Empfänger", to_filter),
+            ("Betreff", subject_filter),
+        )
+        if wert
+    )
+    ausweis = da.Ausweis(
+        frage=frage or "(kein Filter)",
+        anlass=anlass,
+        konten_vorhanden=len(konten) + len(nicht_erreichbare_konten()),
+        konten_durchsucht=durchsucht,
+        ordner_vorhanden=ordner_vorhanden,
+        ordner_durchsucht=ordner_durchsucht,
+        scan_started_at=start,
+        scan_finished_at=ende,
+        source_watermark=start,
+        retrievalpfade=tuple(
+            (f"imap-headerscan/{e.konto}", len(e.treffer)) for e in ergebnisse
+        ),
+        kalibriert=tuple(kalibriert),
+        ordner_fehlgeschlagen=fehlgeschlagen,
+        geprueft=nachrichten,
+        vorhanden=nachrichten,
+        nicht_gedeckt=tuple(nicht_gedeckt),
+        query_fingerprint=da.fingerprint(from_filter, to_filter, subject_filter),
+        tool_version=WERKZEUG,
+    )
+    return ergebnisse, ausweis
 
 
 def cmd_fetch(
@@ -487,17 +862,49 @@ def cmd_fetch(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--folder", default="INBOX")
+    # Zweitnamen = die Flags von graph_mail.py. Beide Werkzeuge beantworten
+    # dieselbe Frage; zwei Vokabeln dafür kosteten am 2026-07-28 mehrere
+    # Fehlversuche, weil --from hier und --from-filter dort gilt.
+    ap.add_argument("--folder", "--source", dest="folder", default="INBOX")
     ap.add_argument(
-        "--from-filter", default=None, help="Substring-Match auf From-Header"
+        "--from-filter",
+        "--from",
+        dest="from_filter",
+        default=None,
+        help="Substring-Match auf From-Header (Zweitname: --from wie in graph_mail.py)",
     )
     ap.add_argument(
         "--to-filter",
+        "--to",
+        dest="to_filter",
         default=None,
         help="Substring-Match auf To+Cc-Header (z.B. Empfänger im Gesendete-Ordner)",
     )
     ap.add_argument(
-        "--subject-filter", default=None, help="Substring-Match auf Subject-Header"
+        "--subject-filter",
+        "--subject",
+        dest="subject_filter",
+        default=None,
+        help="Substring-Match auf Subject-Header",
+    )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="Ergebnis als JSON statt Text — Treffer zählen, ohne Fließtext zu grepen",
+    )
+    ap.add_argument(
+        "--gruendlich",
+        action="store_true",
+        help="server-seitigen SEARCH-Vorfilter abschalten (langsamer, aber ohne "
+        "Annahme über die SEARCH-Semantik des Servers)",
+    )
+    ap.add_argument(
+        "--abwesenheitsbeweis",
+        metavar="ANLASS",
+        default=None,
+        help="Allaussage belegen ('es gibt keine Mail von X'): ALLE Konten, ALLE "
+        "Ordner, kein Vorfilter; Ausgabe ist der Deckungsausweis. Exit 1, wenn "
+        "die Prüfkette reisst.",
     )
     ap.add_argument(
         "--all-folders",
@@ -514,7 +921,7 @@ def main() -> None:
     ap.add_argument(
         "--max-chars", type=int, default=4000, help="Body-Kürzung bei --fetch"
     )
-    group = ap.add_mutually_exclusive_group(required=True)
+    group = ap.add_mutually_exclusive_group(required=False)
     group.add_argument(
         "--list", type=int, metavar="N", help="letzte N Mails listen (neueste zuerst)"
     )
@@ -542,6 +949,47 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    if args.abwesenheitsbeweis:
+        # Der Modus wählt seine Konten selbst — ein --account waere die
+        # Einschraenkung, die der Beweis gerade ausschliessen soll.
+        if args.account or args.config:
+            sys.exit(
+                "FEHLER: --abwesenheitsbeweis laeuft ueber ALLE Konten; "
+                "--account/--config widersprechen dem"
+            )
+        if not (args.from_filter or args.to_filter or args.subject_filter):
+            sys.exit("FEHLER: --abwesenheitsbeweis braucht einen Filter")
+        ergebnisse, ausweis = abwesenheitsbeweis(
+            args.from_filter,
+            args.to_filter,
+            args.subject_filter,
+            args.abwesenheitsbeweis,
+            gruendlich=args.gruendlich,
+        )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ausweis": da.als_dict(ausweis),
+                        "konten": [json.loads(rendern_json(e)) for e in ergebnisse],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        else:
+            print(da.rendern(ausweis))
+            for e in ergebnisse:
+                print(f"\n=== Konto {e.konto} ===")
+                print(rendern_text(e))
+        ok, fehler = da.pruefkette(ausweis)
+        if not ok:
+            print("\n✗ Pruefkette gerissen:", "; ".join(fehler), file=sys.stderr)
+        sys.exit(0 if ok else 1)
+
+    if args.list is None and args.fetch is None:
+        sys.exit("FEHLER: --list, --fetch oder --abwesenheitsbeweis waehlen")
+
     cfg_file = _resolve_config(args.config, args.account)
     if not cfg_file.exists():
         sys.exit(
@@ -557,13 +1005,16 @@ def main() -> None:
             "FEHLER: --all-folders gilt nur für --list (--fetch braucht einen Ordner)"
         )
 
+    konto = args.account or "default"
+    ausgeben = rendern_json if args.json else rendern_text
+
     if args.all_folders:
         # Kein `with`: der Lauf kann die Verbindung unterwegs ersetzen (Exchange kappt
         # lange Sitzungen), und ein logout() auf dem toten Socket würde die Bilanz
         # hinter einem Traceback verschwinden lassen.
         imap = connect(cfg)
         try:
-            imap = cmd_list_alle(
+            erg, imap = sammle_alle_ordner(
                 imap,
                 lambda: connect(cfg),
                 args.list,
@@ -571,7 +1022,10 @@ def main() -> None:
                 args.to_filter,
                 args.subject_filter,
                 args.auch_ausgeschlossen,
+                konto=konto,
+                gruendlich=args.gruendlich,
             )
+            print(ausgeben(erg))
         finally:
             try:
                 imap.logout()
@@ -581,13 +1035,18 @@ def main() -> None:
 
     with connect(cfg) as imap:
         if args.list is not None:
-            cmd_list(
-                imap,
-                args.folder,
-                args.list,
-                args.from_filter,
-                args.to_filter,
-                args.subject_filter,
+            print(
+                ausgeben(
+                    sammle_einzelordner(
+                        imap,
+                        args.folder,
+                        args.list,
+                        args.from_filter,
+                        args.to_filter,
+                        args.subject_filter,
+                        konto=konto,
+                    )
+                )
             )
         else:
             cmd_fetch(

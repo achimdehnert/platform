@@ -49,7 +49,29 @@ python3 tools/mail_agent/read_mail.py --account hnu --all-folders --list 50 \
 # an X geschickt (To ODER Cc) bzw. nach Betreff, auch kombinierbar
 python3 tools/mail_agent/read_mail.py --account hnu --all-folders --list 50 \
   --to-filter offner --subject-filter Postkorb
+
+# maschinenlesbar — Treffer zählen, ohne Fließtext zu grepen
+python3 tools/mail_agent/read_mail.py --account hnu --all-folders --list 50 \
+  --from offner --json | jq '.bilanz.ordner_geprueft, (.treffer|length)'
+
+# Allaussage belegen: „von X gibt es KEINE Mail" — alle Konten, alle Ordner
+python3 tools/mail_agent/read_mail.py --from offner \
+  --abwesenheitsbeweis "Rückfrage Kramer, Stand Postkorb-Strang"
 ```
+
+**Kurzformen wie in `graph_mail.py`:** `--from`/`--to`/`--subject`/`--source` sind
+Zweitnamen von `--from-filter`/`--to-filter`/`--subject-filter`/`--folder`. Beide
+Werkzeuge beantworten dieselbe Frage; zwei Vokabeln dafür kosteten am 2026-07-28
+mehrere Fehlversuche.
+
+**`--abwesenheitsbeweis "<Anlass>"` für jeden Satz mit „kein/nie/nur eine".**
+Anwesenheit belegt ein einzelner Treffer — Abwesenheit ist eine Aussage über *jeden*
+Ordner *jedes* Kontos. Der Modus erzwingt alle Konten und alle Ordner (auch Papierkorb
+und Jahresarchive), prüft je Konto mit einer Sonde gegen den Gesendet-Ordner, ob der
+Suchpfad überhaupt findet, was da ist, und gibt statt einer Liste den **Deckungsausweis**
+aus. **Exit-Code 1**, wenn die Prüfkette reißt — dann ist der Satz nicht belegt.
+Das IIL-Postfach hängt an Graph und erscheint dort als *nicht gedeckt*; es braucht
+zusätzlich `graph_mail.py --find`.
 
 **`--all-folders` zuerst, wenn der Ordner unbekannt ist.** Einsortierte Mails liegen
 nicht im Posteingang; ein `--list` auf INBOX meldet dann „keine Treffer" für ein
@@ -83,6 +105,10 @@ Postfach, in dem die Mail sehr wohl liegt (Realfall 2026-07-28: ein Dutzend Anl�
 
 ## Changelog
 
+- 2026-07-28: `--json` (maschinenlesbar), Bilanz **vor** der Trefferliste,
+  Kurzformen `--from/--to/--subject/--source` wie in `graph_mail.py`,
+  `--gruendlich` (Vorfilter abschalten) und `--abwesenheitsbeweis` (alle Konten,
+  alle Ordner, Kalibriersonde je Konto, Deckungsausweis + Exit-Code).
 - 2026-07-28: `--all-folders` (Ordner-Walk mit sichtbarem Nenner, Ausschlüsse aus
   `indexierung.py`, Neuverbindung bei gekappter Sitzung), `--subject-filter`,
   server-seitiger SEARCH-Vorfilter mit lokaler Gegenprobe. Ersetzt das wiederholte

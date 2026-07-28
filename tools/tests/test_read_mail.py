@@ -7,6 +7,7 @@ Run: `python3 -m pytest tools/tests/test_read_mail.py -q`
 
 import imaplib
 import importlib.util
+import json
 import pathlib
 from email.message import EmailMessage
 
@@ -45,6 +46,34 @@ class _FakeImap:
         if self._fehler:
             raise imaplib.IMAP4.error("SEARCH nicht unterstützt")
         return "OK", [self._alle]
+
+
+class _FakePostfach:
+    """Ein Postfach mit einem Ordner — genug für die Kalibriersonde.
+
+    ``server_treffer`` ist die Antwort, die der Server auf ein SEARCH-Kriterium
+    gibt. Sie darf bewusst von dem abweichen, was in den Headern steht — genau
+    diese Abweichung soll die Sonde bemerken.
+    """
+
+    def __init__(self, ordner_zeile, kopfzeilen, server_treffer):
+        self._list = [ordner_zeile]
+        self._kopf = kopfzeilen  # {b"1": b"From: ..."}
+        self._server = server_treffer
+
+    def list(self):
+        return "OK", self._list
+
+    def select(self, mailbox, readonly=True):
+        return "OK", [str(len(self._kopf)).encode()]
+
+    def search(self, charset, *kriterien):
+        if kriterien == ("ALL",):
+            return "OK", [b" ".join(sorted(self._kopf))]
+        return "OK", [b" ".join(sorted(self._server))]
+
+    def fetch(self, num, teile):
+        return "OK", [(b"", self._kopf[num])]
 
 
 # --- decode_hdr --------------------------------------------------------------
@@ -379,3 +408,128 @@ def test_should_warn_when_the_hit_limit_cut_the_folder_walk_short():
     )
     assert "KEINE Vollerhebung" in zeile
     assert "107 Ordner wurden gar nicht erst angesehen" in zeile
+
+
+# --- Ausgabe: Bilanz zuerst, maschinenlesbar auf Wunsch -----------------------
+
+
+def _ergebnis(**over):
+    basis = dict(
+        treffer=(
+            rm.Treffer(
+                "MEIKI/LK",
+                "70",
+                "Tue, 21 Jul 2026",
+                "<p.offner@x.de>",
+                "<a@b>",
+                "AW: Postkorb",
+            ),
+        ),
+        konto="hnu",
+        filter={"von": "offner", "an": None, "betreff": None},
+        limit=50,
+        gesamt_ordner=119,
+        geprueft_ordner=92,
+        nachrichten_gesehen=0,
+        nachrichten_vorhanden=0,
+        vorgefiltert=True,
+        ausgeschlossen=(("Junk-E-Mail", "Papierkorb/Junk — bewusst nicht indexiert"),),
+    )
+    basis.update(over)
+    return rm.Ergebnis(**basis)
+
+
+# Realfall 2026-07-28: bei 27 ausgeschlossenen Ordnern scrollte die Bilanz aus dem
+# Terminal; `tail` zeigte den Beweis und verschluckte den einzigen Treffer.
+def test_should_print_the_denominator_before_the_hits():
+    text = rm.rendern_text(_ergebnis())
+    assert text.index("92 von 119") < text.index("P.Offner".lower())
+
+
+def test_should_render_json_with_denominator_and_limit_flag():
+    daten = json.loads(rm.rendern_json(_ergebnis(limit=1)))
+    assert daten["bilanz"]["ordner_gesamt"] == 119
+    assert daten["bilanz"]["ordner_geprueft"] == 92
+    assert daten["bilanz"]["limit_erreicht"] is True
+    assert daten["bilanz"]["ausgeschlossen"][0]["ordner"] == "Junk-E-Mail"
+    assert daten["treffer"][0]["ordner"] == "MEIKI/LK"
+    assert daten["konto"] == "hnu"
+
+
+def test_should_not_claim_limit_reached_below_the_limit():
+    daten = json.loads(rm.rendern_json(_ergebnis(limit=50)))
+    assert daten["bilanz"]["limit_erreicht"] is False
+
+
+# --- Kalibriersonde -----------------------------------------------------------
+# R-3 (KONZ-035): ein Retrievalpfad zählt erst als belegt, wenn er an einer Menge
+# mit bekannter Antwort gezeigt hat, dass er findet, was da ist.
+
+
+_SENT_ZEILE = rb'(\HasNoChildren \Sent) "/" "Gesendete Objekte"'
+
+
+def test_should_find_sent_folder_by_flag_not_by_name():
+    imap = _FakeImap(
+        list_antwort=[
+            rb'(\HasNoChildren) "/" "Sent"',  # heisst so, ist es aber nicht
+            _SENT_ZEILE,
+        ]
+    )
+    assert rm.gesendet_ordner(imap) == "Gesendete Objekte"
+
+
+def test_should_report_no_sent_folder_instead_of_guessing():
+    assert (
+        rm.gesendet_ordner(_FakeImap(list_antwort=[rb'(\HasNoChildren) "/" "INBOX"']))
+        == ""
+    )
+
+
+def test_should_pass_calibration_when_prefilter_covers_the_known_messages():
+    postfach = _FakePostfach(
+        _SENT_ZEILE,
+        {b"1": b"From: Achim <a@iil.gmbh>\r\n", b"2": b"From: Achim <a@iil.gmbh>\r\n"},
+        server_treffer={b"1", b"2"},
+    )
+    ok, wie = rm.kalibrierungssonde(postfach, "a@iil.gmbh")
+    assert ok, wie
+
+
+# Der eigentliche Zweck der Sonde: ein Vorfilter, der etwas VERSCHWEIGT, ist die
+# teure Fehlerklasse — er sieht aus wie eine leere Menge.
+def test_should_fail_calibration_when_prefilter_hides_a_known_message():
+    postfach = _FakePostfach(
+        _SENT_ZEILE,
+        {b"1": b"From: Achim <a@iil.gmbh>\r\n", b"2": b"From: Achim <a@iil.gmbh>\r\n"},
+        server_treffer={b"1"},  # #2 verschwiegen
+    )
+    ok, wie = rm.kalibrierungssonde(postfach, "a@iil.gmbh")
+    assert not ok
+    assert "verschweigt 1 von 2" in wie
+
+
+def test_should_fail_calibration_without_a_sent_folder():
+    postfach = _FakePostfach(rb'(\HasNoChildren) "/" "INBOX"', {}, set())
+    ok, wie = rm.kalibrierungssonde(postfach, "a@iil.gmbh")
+    assert not ok
+    assert "Sent" in wie
+
+
+# --- Konten-Erkennung ---------------------------------------------------------
+
+
+def test_should_ignore_env_files_that_are_not_accounts(tmp_path, monkeypatch):
+    # mail-folders.env liegt neben den Konten, ist aber eine Ordner-Zuordnung.
+    (tmp_path / "mail.env").write_text(
+        "SMTP_HOST=h\nMAIL_FROM=a@b.c\nMAIL_CREDS_FILE=/dev/null\n"
+    )
+    (tmp_path / "mail-hnu.env").write_text(
+        "SMTP_HOST=h\nMAIL_FROM=d@e.f\nMAIL_CREDS_FILE=/dev/null\n"
+    )
+    (tmp_path / "mail-folders.env").write_text(
+        "# nur Zuordnung\nIIL.Kunden/X | kunde\n"
+    )
+    monkeypatch.setattr(rm, "CONFIG_FILE", tmp_path / "mail.env")
+
+    assert [k for k, _ in rm.imap_konten()] == ["default", "hnu"]
