@@ -29,9 +29,15 @@ Permission-Klassifikator abgelehnt). **Die Hypothese des Vor-Handovers war falsc
 Required Check mit `paths`-Filter — `guardian.yml` ist auf Head und `main` byte-identisch
 und hat gar keinen, und guardian lief am selben Tag grün auf #1505, ebenfalls ein reiner
 `docs/retros/`-PR. Für den alten Head existierte **kein einziger** `pull_request`-Lauf.
-`reopened` half nicht (löste nur `pull_request_target` aus); erst ein neuer Head-SHA per
-`git commit-tree` (fast-forward, kein force, fremder Worktree unangetastet) brachte alle
-sechs Läufe. **Warum sie ausblieben, ist ungeklärt.**
+`reopened` half nicht (löste nur `pull_request_target` aus). **Ursache am Session-Ende
+gefunden und in beide Richtungen belegt: `[skip ci]` in der Commit-Message des
+Head-Commits.** GitHub überspringt dann alle Workflow-Läufe für den Push, auch das
+`pull_request`-Event — der Required Check meldet sich nie, nichts wird rot, der PR bleibt
+dauerhaft blockiert. Head `2c45d444` (mit `[skip ci]`): 0 Läufe, BLOCKED · mein leerer
+Commit `fa04b221` (ohne): 6 Läufe, alle grün, CLEAN · neuer Head `7e177062` vom 19:07 (mit
+`[skip ci]`): wieder 0 Läufe, wieder BLOCKED. **#1503 ist damit gerade NICHT merge-fertig** —
+es braucht einen Commit ohne den Marker. Derselbe Marker ist auf einem Merge nach `main`
+richtig (verhindert Prod-Deploys durch Docs-Commits) und auf einem PR-Head falsch.
 
 **Handover-Prio 4 (Verteiler-Drift) ist gestrichen** — `doctor.py` selbst ausgeführt:
 DRIFT-SCORE 0, 51 Kopien fresh. Die Zeile war seit dem Erledigt-Vermerk tot, wurde aber vom

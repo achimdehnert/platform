@@ -321,3 +321,20 @@ Nicht selbst ausgeführt — Schreibzugriff auf ein zweites Repo.
 **Dirty geblieben (fremd):** `django-lms-lite`, `iil-doc-templates`, `lastwar-alliance-ops`,
 `risk-hub` — unverändert gegenüber dem Vormittag, keine davon in dieser Session angefasst.
 Die Checklisten-Zeile „kein Repo dirty" ist damit bewusst nicht erfüllt.
+
+**Nachtrag am Session-Ende (2026-07-28, nach der Wissenssicherung):** Die Ursache für
+#1503 ist gefunden und ersetzt das vorherige „ungeklärt". Es ist **`[skip ci]` in der
+Commit-Message des Head-Commits** — GitHub überspringt damit alle Workflow-Läufe des
+Pushes, auch das `pull_request`-Event; der Required Check meldet sich nie und der PR
+bleibt dauerhaft `BLOCKED`, ohne dass etwas rot wird. In beide Richtungen belegt:
+`2c45d444` (mit Marker) 0 Läufe → BLOCKED · `fa04b221` (mein leerer Commit, ohne Marker)
+6 Läufe, alle grün → CLEAN · `7e177062` (neuer Commit um 19:07, wieder mit Marker) 0
+Läufe → wieder BLOCKED. **Konsequenz: #1503 ist NICHT merge-fertig**, anders als weiter
+oben zunächst berichtet — es braucht einen Commit ohne den Marker.
+
+Die Lehre ist nicht „`[skip ci]` ist schlecht", sondern dass derselbe Marker
+gegenläufig wirkt: auf einem **Merge nach `main`** ist er richtig (verhindert, dass ein
+Docs-Commit einen Prod-Deploy auslöst — genau dafür existiert die Hausregel), auf einem
+**PR-Head-Commit** hungert er einen Required Check aus. Korrigiert in CC-Memory
+`feedback_blocked_without_any_pull_request_run`, in der Outline-Lesson und als Kommentar
+an #1503; die erste Fassung aller drei sagte „ungeklärt".
