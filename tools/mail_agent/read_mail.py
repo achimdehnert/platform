@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import email
 import imaplib
+import re
 import sys
 from email.header import decode_header
 from email.message import Message
@@ -22,6 +23,7 @@ from pathlib import Path
 
 # Config-/Credentials-Parsing wird aus send_mail wiederverwendet (eine SSoT).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from indexierung import aufteilen  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, parse_env  # noqa: E402
 
 
@@ -105,6 +107,12 @@ def matches_to(msg: Message, needle: str | None) -> bool:
     return needle.lower() in hay
 
 
+def matches_subject(msg: Message, needle: str | None) -> bool:
+    if not needle:
+        return True
+    return needle.lower() in decode_hdr(msg.get("Subject")).lower()
+
+
 def _mailbox_arg(folder: str) -> str:
     """Ordnernamen mit Leerzeichen für IMAP quoten (z.B. 'Gesendete Objekte').
     imaplib quotet nicht selbst — ein unquoted Name mit Space bricht SELECT."""
@@ -124,6 +132,230 @@ def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
     return imap
 
 
+# LIST-Antwort: (flags) "trenner" name — der Name kann gequotet sein oder nicht.
+# Naives Splitten am Trenner zerlegte Namen wie 'Sent-Archiv/2025' falsch und
+# erzeugte Phantom-Ordner ('/" Notizen'), die dann beim SELECT die Verbindung rissen.
+_LIST_RE = re.compile(rb'^\((?P<flags>[^)]*)\)\s+(?P<sep>"[^"]*"|NIL)\s+(?P<name>.*)$')
+
+
+def alle_ordner(imap: imaplib.IMAP4_SSL) -> tuple[list[str], list[str]]:
+    """(selektierbare Ordner, unparsbare LIST-Zeilen).
+
+    Die zweite Menge wird zurückgegeben statt verworfen: ein stillschweigend
+    übersprungener Ordner ist genau die Lücke, die eine Vollerhebung wertlos macht.
+    """
+    typ, data = imap.list()
+    ordner: list[str] = []
+    unlesbar: list[str] = []
+    for zeile in data or []:
+        roh = zeile if isinstance(zeile, bytes) else str(zeile).encode()
+        m = _LIST_RE.match(roh)
+        if not m:
+            unlesbar.append(roh.decode("utf-8", "replace"))
+            continue
+        if b"\\Noselect" in m.group("flags"):
+            continue  # reiner Container, enthält per Definition keine Nachrichten
+        name = m.group("name").decode("utf-8", "replace").strip()
+        if len(name) >= 2 and name.startswith('"') and name.endswith('"'):
+            name = name[1:-1]
+        ordner.append(name)
+    return ordner, unlesbar
+
+
+def _such_kriterien(
+    from_filter: str | None, to_filter: str | None, subject_filter: str | None
+) -> list[str] | None:
+    """IMAP-SEARCH-Kriterien, die denselben Treffer liefern wie die Matcher oben — oder None.
+
+    Kalibriert am 2026-07-28 gegen den vollen client-seitigen Header-Scan (HNU,
+    Exchange 2010): bei ASCII-Suchbegriffen deckungsgleich in 4 von 4 Fällen,
+    u.a. 353/353 Treffer in einem Ordner mit 354 Nachrichten. Für Nicht-ASCII
+    gibt imaplib den Begriff nicht über die Leitung ('ascii' codec ...) — dann
+    None, und der Aufrufer scannt vollständig. Lieber langsam als still unvollständig.
+
+    ``to_filter`` prüft To **oder** Cc, weil ``matches_to`` das auch tut — ein
+    reines ``TO`` würde Cc-Empfänger verschweigen (falsch-negativ).
+    """
+    teile: list[str] = []
+    for feld, needle in (("FROM", from_filter), ("SUBJECT", subject_filter)):
+        if needle:
+            teile += [feld, f'"{needle}"']
+    if to_filter:
+        teile += ["OR", "TO", f'"{to_filter}"', "CC", f'"{to_filter}"']
+    if not teile:
+        return None
+    if not all(t.isascii() for t in teile):
+        return None
+    return teile
+
+
+def _kandidaten(
+    imap: imaplib.IMAP4_SSL, kriterien: list[str] | None
+) -> tuple[list[bytes], bool]:
+    """(zu prüfende IDs, server_vorgefiltert). Bei jedem Zweifel: alle IDs.
+
+    Das Ergebnis ist ein **Vorschlag**, kein Treffer: Der Aufrufer prüft jede ID
+    lokal gegen dieselben Matcher. Nötig, weil Exchange über den Header hinaus
+    sucht — gemessen am 2026-07-28 im Ordner 'Kalender': ``TO "offner"`` lieferte
+    6 IDs, ``CC "offner"`` eine weitere, und **keine** dieser 7 trug den Namen in
+    einem Header. Ohne Gegenprobe wären das 7 erfundene Treffer gewesen.
+    """
+    if kriterien:
+        try:
+            typ, data = imap.search(None, *kriterien)
+            if typ == "OK":
+                return (data[0].split() if data and data[0] else []), True
+        except (imaplib.IMAP4.error, UnicodeEncodeError):
+            pass  # Server mag das Kriterium nicht -> voller Scan, nicht "0 Treffer"
+    typ, data = imap.search(None, "ALL")
+    return (data[0].split() if data and data[0] else []), False
+
+
+def cmd_list_alle(
+    imap: imaplib.IMAP4_SSL,
+    neu_verbinden,
+    count: int,
+    from_filter: str | None,
+    to_filter: str | None,
+    subject_filter: str | None,
+    auch_ausgeschlossen: bool = False,
+) -> imaplib.IMAP4_SSL:
+    """Alle Ordner durchsuchen statt nur INBOX — der Fall 'wo liegt die Mail von X?'.
+
+    Ohne das musste man den Ordner vorher kennen; genau daran ist am 2026-07-28
+    eine Suche gescheitert, die erst nach einem Dutzend Anläufen im richtigen
+    Postfach ankam. Rückgabewert ist die (ggf. neu aufgebaute) Verbindung.
+    """
+    ordner, unlesbar = alle_ordner(imap)
+    if auch_ausgeschlossen:
+        zu_pruefen, ausgeschlossen = ordner, []
+    else:
+        zu_pruefen, ausgeschlossen = aufteilen(ordner)
+
+    kriterien = _such_kriterien(from_filter, to_filter, subject_filter)
+    gezeigt = 0
+    fehler: list[tuple[str, str]] = []
+    geprueft = 0
+    vorgefiltert = False
+    nachrichten = 0
+
+    for name in zu_pruefen:
+        for versuch in (1, 2):
+            try:
+                typ, _ = imap.select(_mailbox_arg(name), readonly=True)
+                if typ != "OK":
+                    fehler.append((name, f"SELECT {typ}"))
+                    break
+                ids, war_vorgefiltert = _kandidaten(imap, kriterien)
+                vorgefiltert = vorgefiltert or war_vorgefiltert
+                nachrichten += len(ids)
+                for i in reversed(ids):
+                    typ2, md = imap.fetch(
+                        i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)])"
+                    )
+                    if typ2 != "OK" or not md or not md[0]:
+                        continue
+                    msg = email.message_from_bytes(md[0][1])
+                    if not (
+                        matches_from(msg, from_filter)
+                        and matches_to(msg, to_filter)
+                        and matches_subject(msg, subject_filter)
+                    ):
+                        continue
+                    print(
+                        f"[{name}] #{i.decode()}  {decode_hdr(msg.get('Date'))[:22]}\n"
+                        f"    VON {decode_hdr(msg.get('From'))[:70]}\n"
+                        f"    AN  {decode_hdr(msg.get('To'))[:70]}\n"
+                        f"    BET {decode_hdr(msg.get('Subject'))[:70]}"
+                    )
+                    gezeigt += 1
+                    if gezeigt >= count:
+                        break
+                geprueft += 1
+                break
+            except (imaplib.IMAP4.abort, OSError) as e:
+                # Lange Läufe verlieren die Verbindung (Exchange kappt Idle-Sockets).
+                if versuch == 1 and neu_verbinden is not None:
+                    try:
+                        imap = neu_verbinden()
+                        continue
+                    except Exception as e2:  # noqa: BLE001
+                        fehler.append((name, f"Neuverbindung: {e2}"))
+                        break
+                fehler.append((name, str(e)[:80]))
+        if gezeigt >= count:
+            break
+
+    print(
+        _bilanz_alle(
+            gesamt_ordner=len(ordner),
+            geprueft=geprueft,
+            gezeigt=gezeigt,
+            limit=count,
+            nachrichten=nachrichten,
+            vorgefiltert=vorgefiltert,
+            ausgeschlossen=ausgeschlossen,
+            fehler=fehler,
+            unlesbar=unlesbar,
+        )
+    )
+    return imap
+
+
+def _bilanz_alle(
+    *,
+    gesamt_ordner: int,
+    geprueft: int,
+    gezeigt: int,
+    limit: int,
+    nachrichten: int,
+    vorgefiltert: bool,
+    ausgeschlossen: list[tuple[str, str]],
+    fehler: list[tuple[str, str]],
+    unlesbar: list[str],
+) -> str:
+    """Nenner des Ordner-Laufs — dieselbe Pflicht wie in ``_bilanz``, eine Ebene höher.
+
+    Der Nenner ist die **volle** Ordnerzahl, nicht die um Ausschlüsse reduzierte
+    (indexierung.py: Ausschluss verkleinert die Grundgesamtheit sichtbar, nicht still).
+    """
+    if gezeigt == 0:
+        kopf = "keine Treffer\n"
+    else:
+        kopf = ""
+    zeilen = [
+        f"{kopf}— {gezeigt} Treffer · {geprueft} von {gesamt_ordner} Ordner(n) geprüft"
+        + (f" · {nachrichten} Nachricht(en) angesehen" if not vorgefiltert else "")
+    ]
+    if vorgefiltert:
+        zeilen.append(
+            "  Server-seitig vorgefiltert (IMAP SEARCH), Treffer zusätzlich lokal "
+            "gegengeprüft — deckungsgleich kalibriert für ASCII-Suchbegriffe."
+        )
+    if gezeigt >= limit and geprueft < gesamt_ordner:
+        zeilen.append(
+            f"⚠ Limit {limit} erreicht — {gesamt_ordner - geprueft} Ordner wurden gar "
+            f"nicht erst angesehen. KEINE Vollerhebung; --list höher setzen."
+        )
+    if ausgeschlossen:
+        zeilen.append(
+            f"  {len(ausgeschlossen)} Ordner bewusst ausgeschlossen "
+            f"(--auch-ausgeschlossen hebt das auf):"
+        )
+        zeilen += [f"    - {o}  →  {grund}" for o, grund in ausgeschlossen]
+    if fehler:
+        zeilen.append(
+            f"⚠ {len(fehler)} Ordner NICHT geprüft — Ergebnis ist unvollständig:"
+        )
+        zeilen += [f"    - {o}: {grund}" for o, grund in fehler]
+    if unlesbar:
+        zeilen.append(
+            f"⚠ {len(unlesbar)} unparsbare LIST-Zeile(n) — Ordner evtl. übersehen:"
+        )
+        zeilen += [f"    - {z}" for z in unlesbar]
+    return "\n".join(zeilen)
+
+
 def _bilanz(
     folder: str,
     gesamt: int,
@@ -132,6 +364,7 @@ def _bilanz(
     limit: int,
     from_filter: str | None,
     to_filter: str | None,
+    subject_filter: str | None = None,
 ) -> str:
     """Nenner sichtbar machen: eine Liste ohne Gesamtzahl sieht vollständig aus.
 
@@ -145,6 +378,8 @@ def _bilanz(
         filter_teile.append(f"Absender~{from_filter!r}")
     if to_filter:
         filter_teile.append(f"Empfänger~{to_filter!r}")
+    if subject_filter:
+        filter_teile.append(f"Betreff~{subject_filter!r}")
     filter_txt = " UND ".join(filter_teile) if filter_teile else "kein Filter"
 
     zeile = (
@@ -171,6 +406,7 @@ def cmd_list(
     count: int,
     from_filter: str | None,
     to_filter: str | None = None,
+    subject_filter: str | None = None,
 ) -> None:
     imap.select(_mailbox_arg(folder), readonly=True)
     typ, data = imap.search(None, "ALL")
@@ -182,7 +418,11 @@ def cmd_list(
         geprueft += 1
         typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)])")
         msg = email.message_from_bytes(md[0][1])
-        if not matches_from(msg, from_filter) or not matches_to(msg, to_filter):
+        if not (
+            matches_from(msg, from_filter)
+            and matches_to(msg, to_filter)
+            and matches_subject(msg, subject_filter)
+        ):
             continue
         print(
             f"#{i.decode():>5}  {decode_hdr(msg.get('Date'))[:22]:<22}  "
@@ -193,7 +433,18 @@ def cmd_list(
             break
     if shown == 0:
         print("keine Treffer")
-    print(_bilanz(folder, gesamt, geprueft, shown, count, from_filter, to_filter))
+    print(
+        _bilanz(
+            folder,
+            gesamt,
+            geprueft,
+            shown,
+            count,
+            from_filter,
+            to_filter,
+            subject_filter,
+        )
+    )
 
 
 def cmd_fetch(
@@ -246,6 +497,21 @@ def main() -> None:
         help="Substring-Match auf To+Cc-Header (z.B. Empfänger im Gesendete-Ordner)",
     )
     ap.add_argument(
+        "--subject-filter", default=None, help="Substring-Match auf Subject-Header"
+    )
+    ap.add_argument(
+        "--all-folders",
+        action="store_true",
+        help="bei --list: ALLE Ordner durchsuchen statt nur --folder "
+        "(für 'wo liegt die Mail von X?')",
+    )
+    ap.add_argument(
+        "--auch-ausgeschlossen",
+        action="store_true",
+        help="bei --all-folders: auch Papierkorb/Junk/Jahresarchive mitnehmen "
+        "(Default: ausgeschlossen, aber in der Bilanz ausgewiesen)",
+    )
+    ap.add_argument(
         "--max-chars", type=int, default=4000, help="Body-Kürzung bei --fetch"
     )
     group = ap.add_mutually_exclusive_group(required=True)
@@ -286,9 +552,43 @@ def main() -> None:
     if missing:
         sys.exit(f"FEHLER: Keys fehlen in {cfg_file}: {', '.join(missing)}")
 
+    if args.all_folders and args.list is None:
+        sys.exit(
+            "FEHLER: --all-folders gilt nur für --list (--fetch braucht einen Ordner)"
+        )
+
+    if args.all_folders:
+        # Kein `with`: der Lauf kann die Verbindung unterwegs ersetzen (Exchange kappt
+        # lange Sitzungen), und ein logout() auf dem toten Socket würde die Bilanz
+        # hinter einem Traceback verschwinden lassen.
+        imap = connect(cfg)
+        try:
+            imap = cmd_list_alle(
+                imap,
+                lambda: connect(cfg),
+                args.list,
+                args.from_filter,
+                args.to_filter,
+                args.subject_filter,
+                args.auch_ausgeschlossen,
+            )
+        finally:
+            try:
+                imap.logout()
+            except Exception:  # noqa: BLE001
+                pass
+        return
+
     with connect(cfg) as imap:
         if args.list is not None:
-            cmd_list(imap, args.folder, args.list, args.from_filter, args.to_filter)
+            cmd_list(
+                imap,
+                args.folder,
+                args.list,
+                args.from_filter,
+                args.to_filter,
+                args.subject_filter,
+            )
         else:
             cmd_fetch(
                 imap,

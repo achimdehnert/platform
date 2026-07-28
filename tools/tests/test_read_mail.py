@@ -5,6 +5,7 @@ From-Filter, Pfad-Traversal-Schutz beim Anhang-Speichern. Kein Netz-/IMAP-Test
 Run: `python3 -m pytest tools/tests/test_read_mail.py -q`
 """
 
+import imaplib
 import importlib.util
 import pathlib
 from email.message import EmailMessage
@@ -25,6 +26,25 @@ def _msg(subject="s", frm="a@b.c", body="hallo", attachments=()):
             data, maintype="application", subtype="octet-stream", filename=name
         )
     return m
+
+
+class _FakeImap:
+    """Nur die drei Aufrufe, die alle_ordner/_kandidaten wirklich machen — kein Netz."""
+
+    def __init__(self, list_antwort=(), alle_ids=b"", search_fehler=False):
+        self._list = list(list_antwort)
+        self._alle = alle_ids
+        self._fehler = search_fehler
+
+    def list(self):
+        return "OK", self._list
+
+    def search(self, charset, *kriterien):
+        if kriterien == ("ALL",):
+            return "OK", [self._alle]
+        if self._fehler:
+            raise imaplib.IMAP4.error("SEARCH nicht unterstützt")
+        return "OK", [self._alle]
 
 
 # --- decode_hdr --------------------------------------------------------------
@@ -204,3 +224,158 @@ def test_should_say_no_filter_when_none_is_set():
         to_filter=None,
     )
     assert "kein Filter" in zeile
+
+
+def test_should_name_the_subject_filter_in_the_summary():
+    zeile = rm._bilanz(
+        "INBOX",
+        gesamt=5,
+        geprueft=5,
+        gezeigt=1,
+        limit=500,
+        from_filter=None,
+        to_filter=None,
+        subject_filter="Postkorb",
+    )
+    assert "Betreff~'Postkorb'" in zeile
+
+
+# --- matches_subject ----------------------------------------------------------
+
+
+def test_should_match_subject_substring_case_insensitive():
+    m = _msg(subject="AW: Termin OCOS Meiki - Postkorb")
+    assert rm.matches_subject(m, "postkorb")
+    assert rm.matches_subject(m, None)
+    assert not rm.matches_subject(m, "Rechnung")
+
+
+# --- LIST-Parsing -------------------------------------------------------------
+# Realfall 2026-07-28: naives Splitten am Trenner erzeugte Phantom-Ordner
+# ('/" Notizen'), deren SELECT die IMAP-Verbindung riss — der Lauf meldete
+# danach "0 Treffer" für ein Postfach, in dem die gesuchte Mail lag.
+
+
+def test_should_parse_quoted_and_unquoted_folder_names():
+    ordner, unlesbar = rm.alle_ordner(
+        _FakeImap(
+            list_antwort=[
+                rb'(\HasNoChildren) "/" "Gesendete Objekte"',
+                rb'(\HasNoChildren) "/" INBOX',
+                rb'(\HasChildren) "/" "Sent-Archiv/2025"',
+            ]
+        )
+    )
+    assert ordner == ["Gesendete Objekte", "INBOX", "Sent-Archiv/2025"]
+    assert unlesbar == []
+
+
+def test_should_skip_noselect_containers():
+    ordner, _ = rm.alle_ordner(
+        _FakeImap(
+            list_antwort=[
+                rb'(\Noselect \HasChildren) "/" "Betreuungen"',
+                rb'(\HasNoChildren) "/" "Betreuungen/Anfragen"',
+            ]
+        )
+    )
+    assert ordner == ["Betreuungen/Anfragen"]
+
+
+def test_should_surface_unparsable_list_lines_instead_of_dropping_them():
+    ordner, unlesbar = rm.alle_ordner(_FakeImap(list_antwort=[b"kaputte zeile"]))
+    assert ordner == []
+    assert unlesbar == ["kaputte zeile"]
+
+
+# --- Server-Vorfilter ---------------------------------------------------------
+# Kalibriert am 2026-07-28 gegen den vollen Header-Scan: bei ASCII deckungsgleich.
+# Nicht-ASCII geht nicht über die Leitung -> None -> voller Scan statt "0 Treffer".
+
+
+def test_should_build_and_criteria_for_from_and_subject():
+    assert rm._such_kriterien("offner", None, "Postkorb") == [
+        "FROM",
+        '"offner"',
+        "SUBJECT",
+        '"Postkorb"',
+    ]
+
+
+def test_should_search_to_or_cc_because_matches_to_checks_both():
+    # Ein reines TO verschwiege Cc-Empfänger — falsch-negativ, die teuerste Fehlerklasse hier.
+    assert rm._such_kriterien(None, "offner", None) == [
+        "OR",
+        "TO",
+        '"offner"',
+        "CC",
+        '"offner"',
+    ]
+
+
+def test_should_refuse_server_prefilter_for_non_ascii_needle():
+    assert rm._such_kriterien("Grüninger", None, None) is None
+
+
+def test_should_return_none_without_any_filter():
+    assert rm._such_kriterien(None, None, None) is None
+
+
+def test_should_fall_back_to_full_scan_when_server_rejects_the_search():
+    imap = _FakeImap(search_fehler=True, alle_ids=b"1 2 3")
+    ids, vorgefiltert = rm._kandidaten(imap, ["FROM", '"x"'])
+    assert [i.decode() for i in ids] == ["1", "2", "3"]
+    assert vorgefiltert is False
+
+
+# --- Bilanz des Ordner-Laufs --------------------------------------------------
+
+
+def test_should_report_full_folder_denominator_not_the_reduced_one():
+    zeile = rm._bilanz_alle(
+        gesamt_ordner=119,
+        geprueft=92,
+        gezeigt=1,
+        limit=50,
+        nachrichten=0,
+        vorgefiltert=True,
+        ausgeschlossen=[("Junk-E-Mail", "Papierkorb/Junk — bewusst nicht indexiert")],
+        fehler=[],
+        unlesbar=[],
+    )
+    assert "92 von 119 Ordner(n)" in zeile
+    assert "1 Ordner bewusst ausgeschlossen" in zeile
+    assert "Junk-E-Mail" in zeile
+
+
+def test_should_flag_unreadable_folders_as_incomplete_result():
+    zeile = rm._bilanz_alle(
+        gesamt_ordner=10,
+        geprueft=9,
+        gezeigt=0,
+        limit=50,
+        nachrichten=0,
+        vorgefiltert=False,
+        ausgeschlossen=[],
+        fehler=[("Kalender", "SELECT NO")],
+        unlesbar=[],
+    )
+    assert "keine Treffer" in zeile
+    assert "Ergebnis ist unvollständig" in zeile
+    assert "Kalender" in zeile
+
+
+def test_should_warn_when_the_hit_limit_cut_the_folder_walk_short():
+    zeile = rm._bilanz_alle(
+        gesamt_ordner=119,
+        geprueft=12,
+        gezeigt=50,
+        limit=50,
+        nachrichten=0,
+        vorgefiltert=True,
+        ausgeschlossen=[],
+        fehler=[],
+        unlesbar=[],
+    )
+    assert "KEINE Vollerhebung" in zeile
+    assert "107 Ordner wurden gar nicht erst angesehen" in zeile
