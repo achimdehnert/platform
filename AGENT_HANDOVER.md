@@ -10,26 +10,31 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-28 — Mail-Archivierung: beide Postfächer sortiert, 5 PRs offen, Retro deep)
+## ⚡ Aktueller Stand (2026-07-28 — Mail-Archivierung abgeschlossen, 9 PRs gemergt, Retro deep)
 
 **Kern in einem Satz:** Der Datenschutz-Zuschnitt des Mail-Systems wurde auf Owner-Weisung
 gelöst (Personendaten und Termine sind erwünscht, Grenze ist der Zweck, nicht der Inhalt),
 darauf folgten Werkzeuge für Indexierungs-Ausschluss, Jahrgangs-Einsortierung und
 Ablage-Prüfung — und **28.158 Nachrichten wurden in zwei Produktivpostfächern umsortiert**.
 
-**Fünf PRs offen, keiner gemergt, alle warten auf Fremd-Review:**
-[#1498](https://github.com/achimdehnert/platform/pull/1498) ADR-286 Amendment §4.10 ·
-[#1500](https://github.com/achimdehnert/platform/pull/1500) Konten-Nenner ·
-[#1501](https://github.com/achimdehnert/platform/pull/1501) Ausschlusskonfiguration ·
-[#1502](https://github.com/achimdehnert/platform/pull/1502) Jahrgangs-Einsortierer ·
-[#1504](https://github.com/achimdehnert/platform/pull/1504) Ablage-Prüfung ·
-[#1505](https://github.com/achimdehnert/platform/pull/1505) Session-Retro.
+**Alles gemergt — der PR-Stapel ist abgebaut.** Neun PRs gingen zwischen 10:43 und 11:08
+auf `main`: #1493, #1494, #1496, #1498, #1501, #1502, #1504, #1505 und #1509. Der lokale
+`main` steht auf `ca4befc4`, 28 Commits weiter als beim Sessionstart (`e971840b`).
 
-**⚠ Echter Merge-Konflikt, von GitHub nicht angezeigt:** [#1494](https://github.com/achimdehnert/platform/pull/1494)
-und [#1500](https://github.com/achimdehnert/platform/pull/1500) ersetzen **dieselben vier
-Zeilen** in `bekannte_konten()` unterschiedlich. GitHub meldet beide `MERGEABLE`, weil es
-nur gegen `main` prüft. Wer zuerst gemergt wird, blockiert den anderen — **Reihenfolge
-bewusst entscheiden**, nicht der Reihe nach mergen.
+**#1500 geschlossen, nicht gemergt.** #1494 löste dasselbe Problem zuerst und auf anderem
+Weg; #1500 wurde dadurch `DIRTY` (Konflikt, **keine** roten Checks). Statt eines Rebase
+entstand #1509 als **Zusammenführung** beider Ansätze — Strukturfilter über `IMAP_HOST`
+und `calendar.env` als zweite Graph-Quelle aus #1500, dazu `KEINE_KORRESPONDENZ` und das
+`graph:`-Präfix aus #1494. Der Abdeckungsnachweis steht als Tabelle im Schließungs-Kommentar
+von #1500, nicht als pauschales „superseded".
+
+**Noch offen: [#1503](https://github.com/achimdehnert/platform/pull/1503)** (Retro der
+Vorsession, iil-klickdummy). Auffällig: `reviewDecision: APPROVED`, keine roten Checks,
+einziger gemeldeter Check `automerge: SKIPPED` — trotzdem `BLOCKED`. **Hypothese, nicht
+belegt:** ein Required Check mit `paths`-Filter meldet sich für einen PR, der nur
+`docs/retros/` anfasst, gar nicht erst und hängt dauerhaft auf `pending` (Muster
+`feedback_required_check_paths_filter_blocks`). Billigster Check: der Merge-Kasten des PRs
+nennt den erwarteten Check namentlich.
 
 **Postfächer (Ist-Stand, unabhängig gegengeprüft):** IIL und HNU sind vollständig nach
 Jahrgängen sortiert, beide Posteingänge und Gesendet-Ordner enthalten nur laufendes Jahr,
@@ -58,6 +63,12 @@ Querverweis im Memory unter `outline:platform:20260728-mail-archivierung`.
 > DRIFT-SCORE 0 in beiden Lanes. **Nicht dieser Session zurechenbar**: kein Artefakt dieser
 > Session berührt `doctor.py` oder `generate.py`; der Retro-Skeptiker führt es als Hypothese.
 >
+> **Nachtrag 2026-07-28 (nach den Merges):** Der Deploy-Status wurde geprüft, wie Phase
+> 0a-deploy es verlangt — Ergebnis: **platform hat keinen Deploy auf `push:main`.** Die drei
+> `_deploy-*`-Workflows sind `workflow_call` (von anderen Repos aufgerufen), der Monitor läuft
+> per `schedule`, `deploy-sh-gate` ist ein Lint-Gate. Der letzte „Deploy to Hetzner"-Lauf
+> stammt vom 2026-02-23. Kein Prod-Schritt durch die neun Merges.
+
 > **Unverändert offen 2026-07-28:** Prio 1 (KONZ-012 DSB-Rolle — risk-hub#455 war schon vor
 > Sessionbeginn gemergt, Kill-Gate weiter 0/5) · Prio 2 (Mail-Rollen #1481/#1427 — #1481 offen,
 > #1427 unberührt) · Prio 3 (Regel-Interpreter ADR-284 §7a — nichts gebaut). Der Themenwechsel
