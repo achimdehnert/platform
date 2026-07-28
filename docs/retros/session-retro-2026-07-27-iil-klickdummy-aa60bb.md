@@ -4,8 +4,8 @@ date: 2026-07-27
 repo_scope: [iil-klickdummy, coach-hub, 137-hub, trading-hub, billing-hub, tax-hub, dev-hub, research-hub, pptx-hub, dms-hub, onboarding-hub, apo-hub, recruiting-hub, iil-pet-portal, django-lms-lite]
 session_id: aa60bb
 footprint: deep
-findings_total: 14
-findings_survived: 13
+findings_total: 15
+findings_survived: 14
 refuted_rate: 0.07
 phase3_refuted: 1
 pre_refuted: 0
@@ -16,7 +16,7 @@ scores:
   risiko_debt: 2
   prozess_effizienz: 3
   entscheidungsqualitaet: 3
-gate_candidates: [blast-radius-not-measured-against-own-manifest, required-check-red-merged-via-unenforced-admin, root-cause-published-without-route-check]
+gate_candidates: [blast-radius-not-measured-against-own-manifest, required-check-red-merged-via-unenforced-admin, root-cause-published-without-route-check, generator-output-not-run-through-own-gates]
 recurring_findings: [claim-before-cheapest-check, deferred-item-no-tracking-issue, ci-gate-maskiert-failure, rollout-completion-ignores-missing-deploy-path]
 ---
 
@@ -91,7 +91,9 @@ recurring_findings: [claim-before-cheapest-check, deferred-item-no-tracking-issu
 | Branches blieben nach Merge stehen | `--delete-branch` beim Merge (wurde genutzt) **plus** repo-seitig `delete_branch_on_merge: true` setzen, damit auch fremd gemergte PRs aufräumen | #11 |
 | Scope wuchs schrittweise, jede Stufe einzeln freigegeben, aber nie als Gesamtbild gespiegelt | Beim Überschreiten der beauftragten Menge einmal die **kumulierte** Bilanz zeigen („beauftragt 11, aktuell 13 + 5 Folge-PRs") statt nur die nächste Einzelstufe | #12 |
 
-**Invariante geprüft:** 13 überlebende Befunde ↔ 13 Soll-Schritte. ✅
+| Der Generator wurde inspiziert und an seinen Zählern gemessen, aber seine Ausgabe nie durch die Gates derselben Toolchain geschickt | Nach jeder Generator-Änderung das **erzeugte Artefakt** durch die repo-eigenen Invarianten-Checks laufen lassen (`make klickdummy`, nicht nur `make test`) — „erzeugt X" und „X besteht die eigenen Checks" sind verschiedene Aussagen | #15 |
+
+**Invariante geprüft:** 14 überlebende Befunde ↔ 14 Soll-Schritte. ✅ (Befund #15 kam beim Abarbeiten dazu, siehe §7b.)
 
 ---
 
@@ -184,18 +186,45 @@ Keiner. Alle Befunde sind Prozess- oder Implementierungslücken innerhalb besteh
 
 ## 7. Maßnahmen
 
+> **Stand 2026-07-28:** Die 🔵-Maßnahmen wurden noch am selben Tag abgearbeitet.
+> Dabei kam ein **vierzehnter Befund** heraus, den dieser Retro nicht gefunden
+> hatte — siehe #15 unten.
+
 ### 🟢 Offen — dein Zug
 
 1. 🟢 `enforce_admins` in coach-hub aktivieren oder bewusst dokumentieren — https://github.com/achimdehnert/coach-hub/settings/branches
 2. 🟢 tax-hub Production-Deploy nachholen (Fix ist nicht live) — https://github.com/iilgmbh/tax-hub/issues/73
+3. 🟢 Release 1.32.7 entscheiden — ohne das bleibt frist-hub#102 rot — https://github.com/iilgmbh/iil-klickdummy/pull/196
 
-### 🔵 Offen — ich kann sofort
+### ⛔ Blockiert
 
-3. 🔵 frist-hub-Sitemap regenerieren + kd-nav.js — https://github.com/iilgmbh/iil-klickdummy/issues/176
-4. 🔵 `genesor/validate.py` Regex nachziehen + Test — https://github.com/iilgmbh/iil-klickdummy/issues/179
-5. 🔵 Drei Tracking-Issues nachlegen (PAT-Wiring, module_shop, dms-hub-ruff) — https://github.com/achimdehnert/coach-hub/issues/50
-6. 🔵 Wurzel-Fallback: `declared_roots` von `render_roots` trennen — https://github.com/iilgmbh/iil-klickdummy/pull/192
-7. 🔵 coach-hub #51 PR-Text korrigieren (Views sind geroutet) — https://github.com/achimdehnert/coach-hub/pull/51
+4. ⛔ frist-hub-Sitemap: PR steht, `klickdummy`-Check rot bis 1.32.7 — https://github.com/meiki-lra/frist-hub/pull/102
+
+### ✅ Erledigt am 2026-07-28
+
+5. ✅ `genesor/validate.py`-Regex + Kohärenztest über alle vier Stellen — https://github.com/iilgmbh/iil-klickdummy/pull/196
+6. ✅ Wurzel-Fallback: `declared_roots` von `roots` getrennt, Zyklus-Fall gefixt — https://github.com/iilgmbh/iil-klickdummy/pull/196
+7. ✅ Dangling-Erkennung neu (präziser als die Waisen-Heuristik) — https://github.com/iilgmbh/iil-klickdummy/pull/196
+8. ✅ Tracking-Issue tote `PROJECT_PAT`-Verdrahtung — https://github.com/achimdehnert/coach-hub/issues/54
+9. ✅ Tracking-Issue `module_shop`-Entscheidung — https://github.com/achimdehnert/coach-hub/issues/55
+10. ✅ Tracking-Issue dms-hub 80 ruff-Fehler — https://github.com/achimdehnert/dms-hub/issues/40
+11. ✅ Fehldiagnose in coach-hub#51 richtiggestellt — https://github.com/achimdehnert/coach-hub/pull/51#issuecomment-5101326072
+12. ✅ frist-hub-Sitemap regeneriert, 0→4 Wurzeln — https://github.com/meiki-lra/frist-hub/pull/102
+13. ✅ GHCR-Zahlen in Handover, Memory und Outline korrigiert — https://github.com/iilgmbh/iil-klickdummy/pull/195
+
+---
+
+## 7b. Nachtrag — Befund #15, gefunden beim Abarbeiten
+
+| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
+|---|---|---|---|---|---|---|
+| 15 | Das HTML-Template des Generators emittiert `ADR-211` **unqualifiziert** und verletzt damit I4 (Namensraum) — dieselbe Invariante, die dieselbe Toolchain anderswo durchsetzt | fehlende Validierung | mittel | SURVIVES | I4-Lauf gegen die regenerierte Datei: `klickdummy/sitemap/index.html ✗ Zeile 16: ADR-211 — unqualifiziert`, `I4 → FAIL`; `git log -S` findet keinen Commit, der `platform:` entfernt hätte → nie qualifiziert emittiert; Stichprobe `origin/main`: trading-hub, dev-hub, 137-hub, risk-hub tragen alle `(ADR-211 §I3)` | `claim-before-cheapest-check` |
+
+**Warum dieser Retro ihn nicht fand:** Alle drei Finder prüften den **Quellcode** des Generators und die **Zähler** der erzeugten Sitemaps (Wurzeln, Zeilen, `kd-nav.js`). Keiner ließ die Repo-eigenen Invarianten-Checks über das erzeugte Artefakt laufen. Sichtbar wurde es erst, als eine Maßnahme aus §7 das Artefakt in einem Repo erzeugte, dessen I4-Lauf den `sitemap/`-Ordner mit abdeckt — frist-hub. In den zwölf am 2026-07-27 regenerierten Repos deckt der I4-Lauf `sitemap/` nicht ab; dort ist der Verstoß **still** vorhanden.
+
+**Methodische Lehre für die Skill:** Ein Finder, der einen Generator prüft, sollte dessen Ausgabe durch die **Gates derselben Toolchain** schicken, nicht nur inspizieren. „Der Generator erzeugt X" und „X besteht die eigenen Checks" sind verschiedene Aussagen — hier lagen sie auseinander.
+
+**Behoben:** [iil-klickdummy#196](https://github.com/iilgmbh/iil-klickdummy/pull/196), mit einem Test, der das gerenderte HTML generisch per Regex auf unqualifizierte ADR-Refs prüft statt nur die zwei bekannten Stellen.
 
 ---
 
