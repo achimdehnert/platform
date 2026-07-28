@@ -112,10 +112,13 @@ def verschiebe(tok: str, mid: str, ziel_id: str) -> bool:
     r = _http(
         "POST",
         f"{GRAPH}/me/messages/{mid}/move",
-        headers={**_auth(tok), "Content-Type": "application/json"},
-        json={"destinationId": ziel_id},
+        headers=_auth(tok),
+        json_body={"destinationId": ziel_id},
     )
-    return r.status_code in (200, 201)
+    if r.status_code not in (200, 201):
+        print(f"  ! HTTP {r.status_code} — {r.text[:120]}", file=sys.stderr)
+        return False
+    return True
 
 
 def main() -> None:

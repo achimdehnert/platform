@@ -113,3 +113,57 @@ def test_should_narrow_to_a_single_year_for_the_pilot_run():
     """2022 (145 Stueck) ist der Kandidat fuer den ersten echten Lauf."""
     assert _ent("2022")[0] == "2022"
     assert _ent("2021")[0] == "2021"  # --nur-jahr filtert spaeter, nicht hier
+
+
+# --- Schreibpfad ----------------------------------------------------------
+#
+# Der Trockenlauf fuehrt `verschiebe()` NIE aus. Ein Tippfehler im Aufruf faellt
+# deshalb erst beim scharfen Lauf auf — real passiert am 2026-07-28: das Werkzeug
+# uebergab `json=` statt `json_body=` und brach beim ersten von 145 Posten ab.
+# Diese Tests pruefen den Aufruf gegen die ECHTE Signatur, statt sie abzuschreiben.
+
+
+import inspect  # noqa: E402
+
+
+def test_should_call_http_with_arguments_the_real_signature_accepts():
+    aufrufe = []
+    echte_signatur = inspect.signature(ae._http)
+
+    def spion(*args, **kwargs):
+        echte_signatur.bind(*args, **kwargs)  # wirft bei falschem Schluesselwort
+        aufrufe.append((args, kwargs))
+
+        class _R:
+            status_code = 200
+            text = ""
+
+        return _R()
+
+    original = ae._http
+    try:
+        ae._http = spion
+        assert ae.verschiebe("tok", "msg-1", "ziel-1") is True
+    finally:
+        ae._http = original
+
+    (methode, url), kwargs = aufrufe[0]
+    assert methode == "POST"
+    assert url.endswith("/messages/msg-1/move")
+    assert kwargs["json_body"] == {"destinationId": "ziel-1"}
+
+
+def test_should_report_failure_instead_of_claiming_success():
+    def spion(*args, **kwargs):
+        class _R:
+            status_code = 403
+            text = "ErrorAccessDenied"
+
+        return _R()
+
+    original = ae._http
+    try:
+        ae._http = spion
+        assert ae.verschiebe("tok", "msg-1", "ziel-1") is False
+    finally:
+        ae._http = original
