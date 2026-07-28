@@ -50,6 +50,9 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import roles  # noqa: E402  (sibling-Modul, Konvention wie ablage_pruefung.py)
+
 
 class _Resp:
     def __init__(self, status: int, text: str):
@@ -1112,6 +1115,13 @@ def main() -> None:
         help="bei --show: Datei-Anhänge in DIR speichern (read-only auf dem Postfach)",
     )
     ap.add_argument("--yes", action="store_true")
+    ap.add_argument(
+        "--role",
+        default=None,
+        help="Rollen-ID aus der Registry (KONZ-033) für --draft: setzt Signatur/"
+        "Pflicht-Footer und erzwingt die Kanal-Grenze (#1481)",
+    )
+    ap.add_argument("--registry", default=None, help="alternative Rollen-Registry")
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(line_buffering=True)
@@ -1225,6 +1235,24 @@ def main() -> None:
         if not (args.to or args.reply_to):
             ap.error("--draft braucht --to ODER --reply-to")
         body = Path(args.body_file).read_text()
+        if args.role:
+            try:
+                profile = roles.resolve(args.role, args.registry)
+            except (FileNotFoundError, ValueError) as e:
+                sys.exit(f"FEHLER: {e}")
+            if profile.transport != "graph_draft":
+                sys.exit(
+                    f"FEHLER: Rolle '{profile.role_id}' hat transport "
+                    f"'{profile.transport}', graph_mail --draft bedient nur "
+                    "'graph_draft' — für smtp send_mail, für imap_append draft_mail."
+                )
+            # Pre-Send-Gate (#1481) VOR dem Anlegen des Entwurfs.
+            try:
+                roles.pruefe_kanalgrenze(profile, args.subject, body)
+            except roles.KanalgrenzeVerletzt as e:
+                sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
+            body = roles.text_mit_signatur(profile, body)
+            print(f"Rolle: {profile.role_id} ({profile.display_name}) — {profile.sender}")
         cmd_draft(
             tok, args.to or "", args.subject, body, args.reply_to, args.attach, args.cc
         )
