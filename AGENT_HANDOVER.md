@@ -10,7 +10,54 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-27 — Deckungsausweis: KONZ-035 angenommen und weitgehend gebaut, Referenzpostfach, Klickdummy-Pin)
+## ⚡ Aktueller Stand (2026-07-28 — Mail-Archivierung: beide Postfächer sortiert, 5 PRs offen, Retro deep)
+
+**Kern in einem Satz:** Der Datenschutz-Zuschnitt des Mail-Systems wurde auf Owner-Weisung
+gelöst (Personendaten und Termine sind erwünscht, Grenze ist der Zweck, nicht der Inhalt),
+darauf folgten Werkzeuge für Indexierungs-Ausschluss, Jahrgangs-Einsortierung und
+Ablage-Prüfung — und **28.158 Nachrichten wurden in zwei Produktivpostfächern umsortiert**.
+
+**Fünf PRs offen, keiner gemergt, alle warten auf Fremd-Review:**
+[#1498](https://github.com/achimdehnert/platform/pull/1498) ADR-286 Amendment §4.10 ·
+[#1500](https://github.com/achimdehnert/platform/pull/1500) Konten-Nenner ·
+[#1501](https://github.com/achimdehnert/platform/pull/1501) Ausschlusskonfiguration ·
+[#1502](https://github.com/achimdehnert/platform/pull/1502) Jahrgangs-Einsortierer ·
+[#1504](https://github.com/achimdehnert/platform/pull/1504) Ablage-Prüfung ·
+[#1505](https://github.com/achimdehnert/platform/pull/1505) Session-Retro.
+
+**⚠ Echter Merge-Konflikt, von GitHub nicht angezeigt:** [#1494](https://github.com/achimdehnert/platform/pull/1494)
+und [#1500](https://github.com/achimdehnert/platform/pull/1500) ersetzen **dieselben vier
+Zeilen** in `bekannte_konten()` unterschiedlich. GitHub meldet beide `MERGEABLE`, weil es
+nur gegen `main` prüft. Wer zuerst gemergt wird, blockiert den anderen — **Reihenfolge
+bewusst entscheiden**, nicht der Reihe nach mergen.
+
+**Postfächer (Ist-Stand, unabhängig gegengeprüft):** IIL und HNU sind vollständig nach
+Jahrgängen sortiert, beide Posteingänge und Gesendet-Ordner enthalten nur laufendes Jahr,
+beide melden **null harte Befunde** der Ablage-Prüfung. IIL-Indexmenge fiel von 36.654 auf
+14.059 (−62 %).
+
+**Session-Retro (deep) liegt vor:** `docs/retros/session-retro-2026-07-28-platform-d5eb5e.md`
+— 20 Befunde, 19 überleben. Die drei härtesten: keine der vier Handover-Prios wurde bewegt ·
+28.158 Nachrichten mit nie fremdreviewtem Branch-Code mutiert · alle drei Werkzeug-Fehler
+fielen erst im scharfen Lauf auf, weil der Trockenlauf den Schreibpfad nie ausführt.
+
+**Drei Tracking-Issues aus der Retro:**
+[#1506](https://github.com/achimdehnert/platform/issues/1506) 3 unlesbare Elemente im
+IIL-Ordner Archiv · [#1507](https://github.com/achimdehnert/platform/issues/1507) vier
+Nachrichten mit unglaubwürdigem Datum · [#1508](https://github.com/achimdehnert/platform/issues/1508)
+zwei Cron-Melder seit 22.07. blind (`HTTP 401 Bad credentials`).
+
+> **Erledigt 2026-07-28:** Handover-Prio 4 (Verteiler-Drift) — `doctor.py` meldet
+> DRIFT-SCORE 0 in beiden Lanes. **Nicht dieser Session zurechenbar**: kein Artefakt dieser
+> Session berührt `doctor.py` oder `generate.py`; der Retro-Skeptiker führt es als Hypothese.
+>
+> **Unverändert offen 2026-07-28:** Prio 1 (KONZ-012 DSB-Rolle — risk-hub#455 war schon vor
+> Sessionbeginn gemergt, Kill-Gate weiter 0/5) · Prio 2 (Mail-Rollen #1481/#1427 — #1481 offen,
+> #1427 unberührt) · Prio 3 (Regel-Interpreter ADR-284 §7a — nichts gebaut). Der Themenwechsel
+> weg von der Prio-Liste war Owner-getrieben, wurde aber **nicht als Scope-Checkpoint
+> festgehalten** — genau das ist Retro-Befund #1.
+
+## ⚡ Vorheriger Stand (2026-07-27 — Deckungsausweis: KONZ-035 angenommen und weitgehend gebaut, Referenzpostfach, Klickdummy-Pin)
 
 **Kern in einem Satz:** Aus drei belegten Fehlschlägen desselben Tages — eine Mail-Antwort
 behauptete jeweils mehr, als sie abgedeckt hatte — ist ein Verfahren geworden, das die
