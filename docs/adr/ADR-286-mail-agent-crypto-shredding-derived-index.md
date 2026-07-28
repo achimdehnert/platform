@@ -161,8 +161,9 @@ denormalisierten Spalten `deleted_at`/`redacted_at` entfallen (SSoT-Konflikt mit
 ### 4.4 Löschumfang-Matrix (Pflicht, Art. 17)
 
 Eine Löschung erfasst **alle** Kategorien mit Aktion/Frist/Ausnahme/Rechtsgrundlage/Nachweis:
-Quellmailbox (oder dokumentierte Ausnahme), Metadaten-Projektion, Body-Blob + Schlüssel, Anhänge,
-Events, Such-/tsvector-/Trigram-Index, Embeddings/Zusammenfassungen, LLM-Prompt/Response-Logs,
+Quellmailbox (oder dokumentierte Ausnahme), Metadaten-Projektion, **Teilnehmer-Zeilen (§4.11.1)**,
+Body-Blob + Schlüssel, Anhänge, Events, Such-/tsvector-/Trigram-Index,
+Embeddings/Zusammenfassungen/extrahierte Aussagen (§4.11.3), LLM-Prompt/Response-Logs,
 Queue-Payloads (Redis), Traces/Crash-Dumps, Backups. Ciphertext-Blobs werden zusätzlich **physisch
 mit Retention gelöscht** (Ciphertext ohne Schlüssel gilt aufsichtsseitig als *pseudonym*, nicht anonym).
 
@@ -525,6 +526,120 @@ Kalendereinträge lösen eine Klasse toter Zeiger auf: „wie besprochen", „im
 Nicht-Ereignisse oben — ein Termin ohne nachfolgende Nachricht ist ein Befund. Der Zugang
 besteht bereits (`~/.claude/calendar.env`, Graph).
 
+### 4.11 Beteiligung, Nenner und abgeleitete Repräsentationen (Amendment 2026-07-28, zweites)
+
+Anlass ist kein Entwurf, sondern ein Fehlschlag im Betrieb ohne Index. Die Frage „was hat
+Person X geschickt?" kostete am 2026-07-28 rund ein Dutzend Postfach-Abfragen über drei Konten,
+weil ohne Index nicht auffindbar ist, in welchem Postfach und Ordner eine Person überhaupt
+vorkommt. Drei Lücken, die dabei sichtbar wurden, betreffen das Modell, nicht das Werkzeug.
+
+#### 4.11.1 Beteiligung ist eine Relation, keine Spalte
+
+§4.8 nennt „Beteiligte" als Teil des Metadaten-Skeletts, §4.10.4 modelliert Akteure und
+Aussagen — aber im physischen Modell aus §4.1 gibt es **keine Relation zwischen Nachricht und
+Adresse**. Damit ist „wer war beteiligt?" keine Abfrage, sondern drei getrennte Suchen über
+`from`, `to` und `cc`, deren Vereinigung der Aufrufer selbst bilden muss. Genau dort entstand am
+2026-07-28 eine falsche Trefferzahl (28 statt 21).
+
+```text
+MessageParticipant(logical_message_id, address_norm, address_domain,
+                   display_name, role ∈ {from,to,cc,bcc,reply_to},
+                   akteur_id NULL)                    # Brücke zur Registry §4.10.4
+```
+
+- **`address_norm` und `address_domain` werden beim Schreiben normalisiert, nicht beim Lesen.**
+  Die Kunden-/Mandanten-Zuordnung lebt heute als Domain-Substrings in einer lokalen Textdatei
+  (`~/.claude/mail-folders.env`); als indizierte Spalte wird daraus ein Join — und erst dadurch
+  prüfbar, ob eine Domain in zwei Ordner zeigt.
+- **Trigram-Index (`pg_trgm`, GIN) auf `display_name` und normalisierten Betreff.** Die
+  Suchsemantik ist Teilstring, Groß-/Kleinschreibung egal; ein B-Tree trägt dafür nicht.
+- **`akteur_id` ist nullable und die einzige Brücke** von der Umschlag-Ebene zur Akteurs-Registry.
+  Ohne sie hat §4.10.4 keinen Anker im physischen Index: Adressen stehen dann in Aussagen, aber
+  nirgends in den Nachrichten, aus denen sie stammen.
+
+Teilnehmer-Zeilen sind Personendaten nach §4.2 und gehören damit in die Löschumfang-Matrix
+(§4.4) — sie sind dort ergänzt.
+
+#### 4.11.2 Der Nenner gehört in die Daten, nicht in den Lauf
+
+§4.10.7 schließt Ordner von der Indexierung aus; die Regel lebt als Laufzeit-Filter in
+`tools/mail_agent/indexierung.py`. Solange sie das tut, kann ein Deckungsausweis **nicht aus der
+Datenbank heraus** erklären, was fehlt — er kennt nur die Restmenge. Die Zahl „92 von 119
+Ordnern geprüft" aus dem Lauf vom 2026-07-28 ist genau so eine Laufzeit-Behauptung: nachträglich
+nicht reproduzierbar, weil nirgends steht, wie viele Ordner es zu diesem Zeitpunkt gab.
+
+Deshalb:
+
+```text
+MailCopy.excluded_reason NULL        # Grund am Objekt, nicht als Filter im Code
+FolderSnapshot(account_id, folder_path, message_count, seen_at)   # je Sync-Lauf
+```
+
+Der Ordnerpfad bekommt einen präfixfähigen Typ (`ltree` oder indizierter Text), damit „alles
+unter `IIL.Kunden/`" ein Präfix-Scan wird statt eines Table-Scans mit `LIKE`.
+
+Das ist dieselbe Regel wie in §4.10.7, eine Ebene tiefer: Ausschluss verkleinert die
+Grundgesamtheit **sichtbar**, Löschung unsichtbar. Ein Ausschluss, der nur im Code steht, ist
+für den Ausweis eine Löschung.
+
+#### 4.11.3 Abgeleitete Repräsentationen: die Löschung ist geregelt, das Schutzniveau nicht
+
+**Zuerst die Korrektur einer naheliegenden Fehlannahme:** Embeddings und Zusammenfassungen sind
+in dieser ADR **nicht** vergessen worden. §4.4 führt sie ausdrücklich in der Löschumfang-Matrix,
+§7 nennt „Abgeleitete Artefakte offenbaren Gelöschtes" als Risiko, §8.4 verlangt den
+Delete-Cascade-Test. Art. 17 ist für sie abgedeckt.
+
+Offen ist etwas anderes: **§4.5 bindet Envelope-Encryption an „jeden persistierten Inhalt".**
+Ob ein Embedding eines Bodys als *Inhalt* in diesem Sinne gilt, steht nirgends. Eine
+Vektor-Spalte im Klartext, die sauber mitgelöscht wird, erfüllt §4.4 vollständig und §4.5 gar
+nicht.
+
+Die Entscheidung folgt dem Vorbild, das diese ADR bereits gefällt hat: §4.4 behandelt
+Ciphertext ohne Schlüssel als **pseudonym, nicht anonym**, und §4.9 zieht dieselbe Linie für den
+Vorgangs-Graphen. Ein Text-Embedding ist kein Zufallsvektor, sondern eine verlustbehaftete
+Repräsentation genau des Textes, dessen dauerhafte Speicherung Option D vermeiden soll; dass ein
+Rückschluss ausgeschlossen sei, ist unbelegt und wäre die einzige Annahme, die eine
+Klartext-Ablage rechtfertigen würde.
+
+> **Regel.** Eine aus einem Body abgeleitete Repräsentation — Embedding, Zusammenfassung,
+> extrahierte Aussage — erbt **Zweckbindung und Schutzniveau des Bodys**: DEK-Klasse nach §4.5,
+> Zweck nach §4.10.1. Wo das nicht geleistet wird, wird sie **nicht persistiert**.
+
+Das ist keine Randnotiz, sondern trifft den Kern von §4.10.7: Weil Bodies nach Option D nicht
+dauerhaft gespeichert werden, ist die extrahierte Aussage „einmal extrahieren, oft abfragen"
+**der überlebende Inhalt**. Sie ungeschützt abzulegen, während der Body geschützt verworfen
+wird, kehrt Option D in ihr Gegenteil um — der Store enthielte dann dauerhaft genau das, was er
+nicht enthalten sollte, nur in anderer Form.
+
+#### 4.11.4 Falsch-negativ und falsch-positiv sind nicht gleich teuer
+
+Gemessen am 2026-07-28 gegen Exchange 2010: eine server-seitige `IMAP SEARCH` auf `TO`/`CC`
+lieferte im Ordner `Kalender` sieben Nachrichten, von denen **keine** den Suchbegriff in
+irgendeinem Kopffeld trug. Umgekehrt war dieselbe Suche bei ASCII-Begriffen in vier von vier
+kalibrierten Fällen deckungsgleich mit dem vollständigen lokalen Scan (u.a. 353 von 353 Treffern
+in einem Ordner mit 354 Nachrichten).
+
+Beide Fehlerarten sind nicht symmetrisch:
+
+- Ein **falsch-positiver** Treffer fällt beim Lesen auf und wird von einer lokalen Gegenprobe
+  entfernt. Kosten: Rechenzeit.
+- Ein **falsch-negativer** fällt nie auf. Er sieht aus wie ein Ergebnis. Kosten: eine falsche
+  Aussage über den Bestand.
+
+> **Regel.** Jede Optimierung, die Kandidaten **verwirft**, muss gegen eine Menge mit bekannter
+> Antwort kalibriert sein; jede, die zu viele liefert, darf ungeprüft bleiben, sofern nachgelagert
+> gegengeprüft wird.
+
+Für den Index betrifft das mehr als IMAP: **Approximate-Nearest-Neighbour-Suche gehört per
+Definition in die verwerfende Klasse** (`ivfflat`/`hnsw` mit `probes`/`ef_search` sind ein
+Recall-Regler). Eine ANN-Konfiguration ohne gemessenen Recall gegen exakte Suche ist derselbe
+Fehler wie ein unkalibrierter Server-Vorfilter, nur schwerer zu bemerken. Dasselbe gilt für
+Retention-Filter und für jede Query, die auf einem Teilindex arbeitet.
+
+Umgesetzt ist die Regel bereits auf Werkzeugebene: `read_mail.py --abwesenheitsbeweis`
+(platform#1520) belegt den genutzten Suchpfad je Konto gegen den Gesendet-Ordner, in dem die
+Antwort bekannt ist, und verweigert die Vollständigkeitsaussage, wenn die Sonde nicht durchläuft.
+
 ---
 
 ## 5. Migration Tracking
@@ -535,6 +650,8 @@ besteht bereits (`~/.claude/calendar.env`, Graph).
 | `dev-hub`      | 1 (Metadaten-Index + Delta-Ingestion dehnert.team) | ⬜ | – | ohne Body-Store |
 | `dev-hub`      | 2 (Reconciliation + Heartbeat + Restore-Gate) | ⬜ | – | Drift-Alarm |
 | `dev-hub`      | 3 (zweckgebundene Body-Persistenz + aifw Opt-in) | ➖ später | – | draft-first, Delete-Cascade |
+| `dev-hub`      | 1a (§4.11: `MessageParticipant`, `FolderSnapshot`, `excluded_reason`) | ⬜ | – | Teil von Phase 1, Tracking platform#1521 |
+| `dev-hub`      | 3a (§4.11.3: DEK-Bindung abgeleiteter Repräsentationen) | ➖ später | – | Vorbedingung für Embeddings/Extraktion |
 
 ---
 
@@ -561,6 +678,8 @@ besteht bereits (`~/.claude/calendar.env`, Graph).
 | Metadaten-PII bleibt unlöschbar | Mittel | Hoch | Metadaten unter Erasure-Ledger + Retention (§4.2) |
 | Identitäts-Kollision bricht Ingestion | Mittel | Hoch | LogicalMessage/MailCopy, transport-spezifisch (§4.1) |
 | Abgeleitete Artefakte offenbaren Gelöschtes | Mittel | Hoch | Löschumfang-Matrix (§4.4) + Phase-0-Register |
+| Ungeschützte Ableitung ersetzt faktisch den geschützten Body | Mittel | Hoch | Ableitung erbt DEK-Klasse + Zweck (§4.11.3), CI-Gate §8.17 |
+| Verwerfender Suchpfad meldet Leermenge als Ergebnis | Hoch | Mittel | Recall gegen exakte Suche messen (§4.11.4), Gate §8.18 |
 | MEiKI-Fehlklassifikation | Mittel | Hoch | deny-by-default + Quarantäne (§4.7) |
 | Basic-Auth-Abschaltung (Exchange/HNU) | Hoch | Mittel | Kanal 1 = dehnert.team (nicht Exchange); HNU-Kanal später mit OAuth |
 
@@ -596,6 +715,20 @@ besteht bereits (`~/.claude/calendar.env`, Graph).
     Nicht-Postfächer. Gegenprobe gegen die Konfigurationsquellen, nicht gegen einen Glob.
 14. **Aussagen-Gewichtungstest** (§4.10.5): Ein Faktum einer sachnahen Quelle wird **nicht**
     von einer ranghöheren Meinung überstimmt; eine Weisung dagegen schon.
+15. **Beteiligungs-Gate** (§4.11.1): „Alle Nachrichten mit Adresse X" ist **eine** Abfrage über
+    `MessageParticipant` und liefert From-, To- **und** Cc-Beteiligung; der Test vergleicht das
+    Ergebnis gegen die Vereinigung dreier Einzelsuchen über dieselbe Menge.
+16. **Nenner-aus-der-Datenbank-Gate** (§4.11.2): Der Deckungsausweis eines vergangenen Laufs
+    lässt sich **ohne Postfachzugriff** aus `FolderSnapshot` + `excluded_reason` rekonstruieren.
+    Ein Ausschluss, der nur im Code steht, lässt diesen Test scheitern.
+17. **Schutzniveau-Gate abgeleiteter Repräsentationen** (§4.11.3): Für jede persistierte
+    Ableitung eines Bodys — Embedding, Zusammenfassung, extrahierte Aussage — belegt CI eine
+    DEK-Referenz nach §4.5. Eine Ableitung ohne Schlüsselbindung ist ein Schema-Verstoß, nicht
+    nur ein Löschproblem.
+18. **Recall-Gate verwerfender Pfade** (§4.11.4): Jeder Pfad, der Kandidaten verwirft — ANN-Suche
+    (`probes`/`ef_search`), Vorfilter, Teilindex — trägt einen **gemessenen Recall gegen die
+    exakte Suche** auf einer Menge mit bekannter Antwort. Ohne Messwert wird der Pfad nicht
+    verwendet; ein Pfad ohne Kalibrierung darf keine Vollständigkeitsaussage tragen.
 
 ---
 
@@ -653,6 +786,10 @@ Zwei externe adversariale Reviews (non-accountable, ersetzen keine Owner-Review)
 - KONZ-platform-034 (Konzept), KONZ-platform-033 (Rollen-Mail-Identität)
 - risk-hub `create_deletion_request` → Erasure-Ledger
 - Externe Zweitmeinungen: `~/shared/adr-handoff-ADR-286-2026-07-24*.md` (ephemer; Audit hier in §11 + `ai_sparring_by`)
+- **§4.11 Umsetzung getrackt**: platform#1521 (Phase 1a + 3a) — entschieden ≠ umgesetzt
+- Werkzeugseitige Vorläufer der Regeln aus §4.11.2/§4.11.4: platform#1519 (`--all-folders`
+  mit sichtbarem Ordner-Nenner) und platform#1520 (`--abwesenheitsbeweis` mit Kalibriersonde
+  je Konto und Deckungsausweis nach KONZ-platform-035)
 
 ---
 
@@ -660,6 +797,7 @@ Zwei externe adversariale Reviews (non-accountable, ersetzen keine Owner-Review)
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-28 | Claude Code (Opus 5) | **Amendment §4.11 — Beteiligung, Nenner, abgeleitete Repräsentationen.** Anlass war kein Entwurf, sondern ein Betriebsfehlschlag ohne Index: „was hat Person X geschickt?" kostete ein Dutzend Postfach-Abfragen über drei Konten, weil ohne Index nicht auffindbar ist, in welchem Postfach und Ordner eine Person vorkommt. **§4.11.1** schließt eine Lücke im physischen Modell: §4.8 nennt „Beteiligte", §4.10.4 modelliert Akteure — aber §4.1 hat keine Relation Nachricht↔Adresse, sodass „wer war beteiligt?" drei getrennte Suchen sind, deren Vereinigung der Aufrufer bildet (genau dort entstand am 2026-07-28 die Trefferzahl 28 statt 21). Neu `MessageParticipant` mit beim Schreiben normalisierter Adresse/Domain, Trigram-Index für die tatsächliche Teilstring-Semantik und `akteur_id` als einziger Brücke zur Registry aus §4.10.4. **§4.11.2** verlagert Ausschlussgrund und Ordner-Nenner aus dem Laufzeit-Filter (`indexierung.py`) in die Daten (`excluded_reason`, `FolderSnapshot`) — sonst kann ein Deckungsausweis nicht aus der Datenbank erklären, was fehlt, und eine Zahl wie „92 von 119 Ordnern" bleibt nachträglich unbelegbar. **§4.11.3 korrigiert eine naheliegende Fehlannahme ausdrücklich**: Embeddings sind **nicht** vergessen — §4.4/§7/§8.4 decken ihre Löschung ab. Offen war das **Schutzniveau**: §4.5 bindet Envelope-Encryption an „persistierten Inhalt", ohne zu sagen, ob eine Ableitung dazuzählt; eine Klartext-Vektorspalte erfüllt §4.4 vollständig und §4.5 gar nicht. Entschieden analog zur bereits gefällten Linie (Ciphertext ohne Schlüssel = pseudonym, nicht anonym): Ableitungen erben Zweckbindung und DEK-Klasse des Bodys oder werden nicht persistiert — zwingend, weil nach §4.10.7 die extrahierte Aussage der **überlebende** Inhalt ist und eine ungeschützte Ablage Option D in ihr Gegenteil kehrte. **§4.11.4** hält die Asymmetrie fest, die beim Bau der Werkzeuge gemessen wurde: server-seitige `SEARCH` auf `TO`/`CC` lieferte 7 Nachrichten ohne den Begriff in irgendeinem Kopffeld (harmlos, lokale Gegenprobe entfernt sie), während ein falsch-negativer Treffer wie ein Ergebnis aussieht. Regel: was Kandidaten **verwirft**, muss gegen eine Menge mit bekannter Antwort kalibriert sein — das trifft ausdrücklich **ANN-Suche** (`ivfflat`/`hnsw` sind Recall-Regler), nicht nur IMAP. Gates neu: §8.15–§8.18 (Beteiligung, Nenner-aus-DB, Schutzniveau, Recall). Migration: Phase 1a + 3a. Umsetzung getrackt in platform#1521 — die ADR ist damit entschieden, **nicht** umgesetzt. |
 | 2026-07-28 | Claude Code (Opus 5) | **Amendment §4.10 — inhaltliche Auswertung, Aussagengewicht, Sachstand.** Anlass: Owner-Korrektur des Zuschnitts — Personendaten und Termine sind erwünscht, weil sie Situationen aufklären; Verkettung dient der Verbesserung der Lage, nicht der Bewertung von Menschen; Datenschutz wird nachgeschärft, wenn die Funktionalität steht. Aufgehoben: §4.7 MEiKI-Sonderweg inkl. „kein LLM-Zugriff" (der Pilot arbeitet mit synthetischen Daten, der Umschaltpunkt ist eine kommunizierte Owner-Entscheidung), §4.9 Regel 1 (kein Personenbezug im Knoten), §4.9 Regel 5 (nur deterministische Signale) und das Kill-Kriterium der Prüffälle. Ersetzt durch **einen Zwecktest** (Situation vs. Personenurteil), durchgesetzt an der Ausgabe statt im Schema — freizügiger *und* präziser, weil „Organisation hat vier offene Zusagen" und „Person antwortet unzuverlässig" technisch dieselbe Aggregation sind und sich nur im Subjekt des Ergebnisses unterscheiden. Bleibt mit **geänderter Begründung**: Quarantäne + Attachment-Policy als Injection-Härtung (fremder Inhalt = Daten, nie Anweisung), jetzt für alle Kanäle statt nur MEiKI. Neu: Akteurs-Registry mit Gültigkeitszeiträumen statt Personen-Knoten (Rollen ändern sich, eine Person hat mehrere Hüte, Rangordnung ist Organisations- nicht Vorgangswissen) — führt `roles.py` zusammen und schließt platform#1481; Gewichtung mit der tragenden Unterscheidung **Rang für Entscheidungen, Sachnähe für Fakten** (andernfalls glaubt das System die Schätzung der Leitung und verwirft die Messung der Bearbeitung); Trennung **Beobachtung** (append-only) von **Sachstand** (revidierbar, neu ableitbar, nie handeditiert) analog zur bestehenden §4.6-Trennung Index/Event-Log; zwei Zeitachsen (`gesagt_am` vs. `gilt_ab`), Bezugsaussage, Wortlaut neben Normalisierung. **Gemessen statt geschätzt** (2026-07-28): Korpus 90.967 Nachrichten über 209 Ordner (IIL 44.878 / HNU 46.077 / Referenz 12), Rauschanteil ≥13–16 %, Vorverarbeitung reduziert um Faktor 182 im Mittel — roh 4,5 Mrd. Token, nutzbar ~34–40 Mio. Daraus §4.10.7: Vorverarbeitung ist Vorbedingung, nicht Optimierung, und Extraktion erfolgt beim Einlesen oder nie (Bodies sind nach Option D nicht persistiert). Gates: §8.5 → Injection-Test, §8.9 → Zwecktest-Gate, §8.11 entschärft, neu §8.12–§8.14 (Vorverarbeitung, Konten-Nenner, Gewichtung). |
 | 2026-07-27 | Claude Code (Opus 5) | **Amendment §4.9 Vorgangs-Graph** + §8.9–§8.11. Anlass: Header-Threading erkennt Querbezüge nicht (eine Antwort beantwortet zugleich einen Punkt aus einem anderen Thread mit anderem Gegenüber), Ordner können Mehrfachzugehörigkeit nicht abbilden. Kernpunkte: zwei Knotentypen (Sachvorgang / Anspruchsvorgang) mit unterschiedlicher Rechtsgrundlage — ein früherer Entwurf verbot Personen-Knoten vollständig und hätte damit die Fristenverfolgung nach Art. 6 Abs. 1 lit. c unmöglich gemacht; keine Kante zwischen Anspruchsvorgängen derselben Person (Personenakte durch die Hintertür); Grenze ist *kein Personenbezug*, nicht *kein Inhalt*; Zeiger statt Kopien, damit die Löschkaskade §4.4 by design greift; toter Zeiger mit Tombstone = korrekte Löschung, ohne = gemeldeter Befund; Aufbewahrung über den vorhandenen Katalog (`RetentionRule`/`StandardRetentionPeriod`) statt zweitem Fristenwerk. Zwei Annahmen korrigiert: der Graph ist **pseudonym, nicht anonym** (EG 26), und „Vergessen ausgeschlossen" heißt Vollständigkeit der Sicht, **nicht** Löschverbot — Löschen ist spätestens nach Fortfall des Zwecks Pflicht (Art. 5 Abs. 1 lit. e), und der Graph ist dafür das Instrument. Benannte Nicht-Ziele: Art.-15-Auskunft (kompensiert durch die Postfach-Suche), kein Erstlauf über den Altbestand. Zwei genericisierte Prüffälle mit Kill-Kriterium: nur über systematische Inhaltsauswertung lösbar → verwerfen, nicht flicken. |
 | 2026-07-24 | Achim Dehnert | Initial: Status Proposed (crypto-geschredderter Voll-Index) |
