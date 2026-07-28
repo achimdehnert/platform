@@ -157,14 +157,58 @@ def test_should_keep_non_correspondence_configs_out_of_the_account_denominator(
     assert "search" in vg.KEINE_KORRESPONDENZ
     assert "folders" in vg.KEINE_KORRESPONDENZ
 
-    (tmp_path / "mail.env").write_text("", encoding="utf-8")
-    for name in ("hnu", "search", "folders"):
-        (tmp_path / f"mail-{name}.env").write_text("", encoding="utf-8")
+    imap = "IMAP_HOST=imap.example.org\n"
+    (tmp_path / "mail.env").write_text(imap, encoding="utf-8")
+    for name in ("hnu", "search"):
+        (tmp_path / f"mail-{name}.env").write_text(imap, encoding="utf-8")
+    # Routing-Tabelle: sieht wie eine Konfiguration aus, hat aber keinen Lese-Zugang
+    (tmp_path / "mail-folders.env").write_text(
+        "IIL.Kunden/Foo | kunde | foo.de\n", encoding="utf-8"
+    )
 
     konten = vg.bekannte_konten(tmp_path)
     assert konten == ["default", "hnu"], konten
     assert "search" not in konten, "das Referenzpostfach ist keine echte Korrespondenz"
     assert "folders" not in konten
+
+
+def test_should_drop_configs_without_a_read_access(tmp_path):
+    """Struktur schlägt Namensliste: ohne IMAP_HOST ist es kein lesbares Postfach.
+
+    Realstand 2026-07-28: `mail.env` trug nur SMTP (Versand) und stand trotzdem als
+    Konto `default` im Nenner. Eine Namensliste haette das nur gefangen, wenn jemand
+    `default` vorher hineingeschrieben haette — der Strukturfilter fängt auch den
+    naechsten, noch unbekannten Fall.
+    """
+    (tmp_path / "mail.env").write_text("SMTP_HOST=smtp.example.org\n", encoding="utf-8")
+    (tmp_path / "mail-hnu.env").write_text(
+        "IMAP_HOST=imap.example.org\n", encoding="utf-8"
+    )
+    assert vg.bekannte_konten(tmp_path) == ["hnu"]
+
+
+def test_should_read_graph_accounts_from_the_config_as_second_source(tmp_path):
+    """Das Token-Verzeichnis kennt nur Konten, in die schon eingeloggt wurde.
+
+    Ein konfiguriertes Konto ohne Token fiele still aus dem Nenner — genau die Luecke,
+    gegen die diese Zaehlung gebaut ist.
+    """
+    (tmp_path / "calendar.env").write_text(
+        "GRAPH_ACCOUNTS=neu@example.org\nGRAPH_TENANT=x\n", encoding="utf-8"
+    )
+    (tmp_path / "mail-hnu.env").write_text(
+        "IMAP_HOST=imap.example.org\n", encoding="utf-8"
+    )
+    konten = vg.bekannte_konten(tmp_path)
+    assert konten == ["hnu", "graph:neu@example.org"], konten
+
+
+def test_should_not_double_count_an_account_present_in_both_sources(tmp_path):
+    tokens = tmp_path / "graph-mail-tokens"
+    tokens.mkdir()
+    (tokens / "a_at_x.de.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "calendar.env").write_text("GRAPH_ACCOUNTS=a@x.de\n", encoding="utf-8")
+    assert vg.bekannte_konten(tmp_path) == ["graph:a@x.de"]
 
 
 def test_should_count_graph_only_mailboxes_in_the_denominator(tmp_path):

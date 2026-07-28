@@ -64,6 +64,22 @@ def _jetzt() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _env_schluessel(pfad: Path) -> dict[str, str]:
+    """Schlüssel/Wert einer .env — nur für Struktur-Prüfungen, nie zur Ausgabe."""
+    werte: dict[str, str] = {}
+    try:
+        text = pfad.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return werte
+    for zeile in text.splitlines():
+        zeile = zeile.strip()
+        if not zeile or zeile.startswith("#") or "=" not in zeile:
+            continue
+        k, _, v = zeile.partition("=")
+        werte[k.strip()] = v.strip().strip("'\"")
+    return werte
+
+
 def bekannte_konten(basis: Path | None = None) -> list[str]:
     """Alle konfigurierten Postfächer — der Nenner der Konten-Ebene (KONZ-035 §5.3 R-1).
 
@@ -78,15 +94,30 @@ def bekannte_konten(basis: Path | None = None) -> list[str]:
     eine Hilfs-Konfiguration. Im ersten Pilotlauf standen sie im Nenner und machten aus
     „1 von 3" ein „1 von 4" — ein Nenner, der zu groß ist, ist genauso falsch wie einer,
     der fehlt.
+
+    **Gezählt wird nach Struktur, nicht nach Namen:** nur Konfigurationen mit einem
+    ``IMAP_HOST`` beschreiben ein lesbares Postfach. ``mail.env`` trägt hier nur SMTP
+    (Versand, nicht lesbar) und ``mail-folders.env`` ist eine Ordner-Routing-Tabelle —
+    beide fielen über die reine Dateinamen-Aufzählung in den Nenner. Die Namensliste
+    ``KEINE_KORRESPONDENZ`` bleibt als zweites Netz für Fälle, die strukturell wie ein
+    Postfach aussehen, aber keine echte Korrespondenz tragen (das Referenzpostfach).
     """
     wurzel = basis or (Path.home() / ".claude")
-    namen = ["default"] if (wurzel / "mail.env").exists() else []
-    namen += sorted(p.stem.removeprefix("mail-") for p in wurzel.glob("mail-*.env"))
-    namen += graph_konten(wurzel / "graph-mail-tokens")
+    namen: list[str] = []
+    for pfad in sorted(wurzel.glob("mail*.env")):
+        if "IMAP_HOST" not in _env_schluessel(pfad):
+            continue  # kein lesbares Postfach: reine Versand-Konfig oder Routing-Tabelle
+        namen.append("default" if pfad.stem == "mail" else pfad.stem.removeprefix("mail-"))
+    # Dateisystem-Reihenfolge stellt 'mail-hnu.env' vor 'mail.env'; der Nenner soll
+    # stabil und lesbar bleiben, deshalb 'default' zuerst, der Rest alphabetisch.
+    namen.sort(key=lambda n: (n != "default", n))
+    namen += graph_konten(wurzel / "graph-mail-tokens", wurzel / "calendar.env")
     return [n for n in namen if n not in KEINE_KORRESPONDENZ]
 
 
-def graph_konten(basis: Path | None = None) -> list[str]:
+def graph_konten(
+    basis: Path | None = None, konfig: Path | None = None
+) -> list[str]:
     """Postfächer, die über Microsoft Graph laufen — für dieses Werkzeug unerreichbar.
 
     ``basis`` überschreibt das Token-Verzeichnis. Nötig, damit ein Test die Funktion
@@ -94,17 +125,29 @@ def graph_konten(basis: Path | None = None) -> list[str]:
     dieses Tests las das echte Home-Verzeichnis und war deshalb lokal grün und in der
     CI rot (Lauf 30295192917).
 
+    ``konfig`` ist eine **zweite, unabhängige Quelle**: ``GRAPH_ACCOUNTS`` in
+    ``calendar.env``. Das Token-Verzeichnis führt nur Konten, in die schon einmal
+    eingeloggt wurde — ein konfiguriertes Konto ohne Token fiele sonst still aus dem
+    Nenner, also genau die Lücke, gegen die diese Zählung gebaut ist. ``None`` heißt
+    „diese Quelle nicht heranziehen".
+
     Sie gehören trotzdem in den Nenner. Ein Konto, das ein Werkzeug nicht ansprechen
     kann, verschwindet sonst vollständig aus dem Blick: der Ausweis meldete „Konten 1/2"
     und sah damit vollständiger aus, als der Bestand hergibt. Ausgewiesen werden sie als
     `nicht_gedeckt` mit Grund — sichtbar fehlend statt unsichtbar fehlend.
     """
     verzeichnis = basis or (Path.home() / ".claude" / "graph-mail-tokens")
-    if not verzeichnis.is_dir():
-        return []
-    return sorted(
-        f"graph:{p.stem.replace('_at_', '@')}" for p in verzeichnis.glob("*.json")
-    )
+    aus: set[str] = set()
+    if verzeichnis.is_dir():
+        aus |= {
+            f"graph:{p.stem.replace('_at_', '@')}" for p in verzeichnis.glob("*.json")
+        }
+    if konfig is not None:
+        for adresse in _env_schluessel(konfig).get("GRAPH_ACCOUNTS", "").split(","):
+            adresse = adresse.strip()
+            if adresse:
+                aus.add(f"graph:{adresse}")
+    return sorted(aus)
 
 
 # ---------- reine Logik (ohne IMAP, damit testbar) ----------
