@@ -28,6 +28,9 @@ import time
 from email.message import EmailMessage
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import roles  # noqa: E402  (sibling-Modul, Konvention wie ablage_pruefung.py)
+
 _LIST_LINE_RE = re.compile(r'^\((?P<flags>[^)]*)\)\s+(?:"(?P<delim>[^"]*)"|NIL)\s+(?P<name>.+)$')
 
 CONFIG_FILE = Path.home() / ".claude" / "mail.env"
@@ -186,9 +189,51 @@ def main() -> None:
     )
     ap.add_argument("--attach", action="append", default=[], help="Anhang-Pfad (mehrfach möglich)")
     ap.add_argument("--from", dest="sender", default=None, help="Absender-Override (Default: MAIL_FROM)")
+    ap.add_argument(
+        "--role",
+        default=None,
+        help="Rollen-ID aus der Registry (KONZ-033). Setzt Absender, hängt Signatur "
+        "und Pflicht-Footer an den Textkörper und erzwingt die Kanal-Grenze "
+        "(#1481). Bei --html-file wird NICHT angehängt — dort bringt "
+        "roles.render_email_html Signatur und Footer bereits mit.",
+    )
+    ap.add_argument("--registry", default=None, help="alternative Rollen-Registry (Default: ~/.claude/mail-roles.json)")
     args = ap.parse_args()
     if not (args.body or args.body_file or args.html_file):
         ap.error("mindestens eine Body-Quelle nötig: --body, --body-file oder --html-file")
+
+    profile = None
+    if args.role:
+        try:
+            profile = roles.resolve(args.role, args.registry)
+        except (FileNotFoundError, ValueError) as e:
+            sys.exit(f"FEHLER: {e}")
+        if profile.transport != "smtp":
+            sys.exit(
+                f"FEHLER: Rolle '{profile.role_id}' hat transport '{profile.transport}', "
+                "send_mail bedient nur 'smtp' — für graph_draft graph_mail --draft, "
+                "für imap_append draft_mail nutzen."
+            )
+        # Pre-Send-Gate VOR jedem Netzzugriff: Betreff + alle Body-Quellen.
+        html_roh = Path(args.html_file).read_text() if args.html_file else None
+        text_roh = Path(args.body_file).read_text() if args.body_file else args.body
+        try:
+            roles.pruefe_kanalgrenze(
+                profile,
+                args.subject,
+                text_roh,
+                html_to_text(html_roh) if html_roh else None,
+            )
+        except roles.KanalgrenzeVerletzt as e:
+            sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
+        if args.sender and args.sender != profile.sender:
+            sys.exit(
+                f"FEHLER: --from '{args.sender}' widerspricht der Rolle "
+                f"'{profile.role_id}' ('{profile.sender}') — nur eines von beiden angeben."
+            )
+        if not args.html_file:
+            gefuellt = roles.text_mit_signatur(profile, text_roh or "")
+            args.body, args.body_file = gefuellt, None
 
     if not CONFIG_FILE.exists():
         sys.exit(f"FEHLER: {CONFIG_FILE} fehlt — Bootstrap siehe /send-mail Step 0")
@@ -197,13 +242,14 @@ def main() -> None:
     if missing:
         sys.exit(f"FEHLER: Keys fehlen in {CONFIG_FILE}: {', '.join(missing)}")
 
-    sender = args.sender or cfg["MAIL_FROM"]
+    sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
     creds_file = Path(cfg["MAIL_CREDS_FILE"]).expanduser()
     user, password = load_credentials(creds_file, sender)
     msg = build_message(sender, args)
     via = send(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"]), user, password, msg)
     atts = ", ".join(Path(a).name for a in args.attach) or "keine"
-    print(f"OK: Mail an {', '.join(args.to)} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}")
+    rolle = f", Rolle: {profile.role_id} ({profile.display_name})" if profile else ""
+    print(f"OK: Mail an {', '.join(args.to)} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}{rolle}")
 
     imap_host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     imap_port = int(cfg.get("IMAP_PORT", "993"))

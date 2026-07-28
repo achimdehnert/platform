@@ -39,6 +39,7 @@ from pathlib import Path
 # Config-/Credentials-Parsing und LIST-Zeilen-Regex kommen aus send_mail (eine SSoT),
 # die Account-Aufloesung aus read_mail — nichts davon wird hier dupliziert.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import roles  # noqa: E402
 from read_mail import _resolve_config  # noqa: E402
 from send_mail import _LIST_LINE_RE, load_credentials, parse_env  # noqa: E402
 
@@ -188,7 +189,37 @@ def main() -> None:
     )
     ap.add_argument("--account", help="Postfach-Kuerzel => ~/.claude/mail-<NAME>.env")
     ap.add_argument("--folder", help="Drafts-Ordner erzwingen (sonst Auto-Erkennung)")
+    ap.add_argument(
+        "--role",
+        default=None,
+        help="Rollen-ID aus der Registry (KONZ-033): setzt Absender, haengt "
+        "Signatur/Pflicht-Footer an und erzwingt die Kanal-Grenze (#1481)",
+    )
+    ap.add_argument("--registry", default=None, help="alternative Rollen-Registry")
     args = ap.parse_args()
+
+    profile = None
+    if args.role:
+        try:
+            profile = roles.resolve(args.role, args.registry)
+        except (FileNotFoundError, ValueError) as e:
+            sys.exit(f"FEHLER: {e}")
+        if profile.transport != "imap_append":
+            sys.exit(
+                f"FEHLER: Rolle '{profile.role_id}' hat transport "
+                f"'{profile.transport}', draft_mail bedient nur 'imap_append' — "
+                "fuer graph_draft graph_mail --draft, fuer smtp send_mail nutzen."
+            )
+        if args.sender and args.sender != profile.sender:
+            sys.exit(
+                f"FEHLER: --from '{args.sender}' widerspricht der Rolle "
+                f"'{profile.role_id}' ('{profile.sender}') — nur eines von beiden angeben."
+            )
+        if args.signature_file:
+            sys.exit(
+                "FEHLER: --signature-file und --role zugleich — die Rolle bringt "
+                "ihre Signatur mit; zwei Quellen wuerden sie doppelt anhaengen."
+            )
 
     cfg_file = _resolve_config(args.config, args.account)
     if not cfg_file.exists():
@@ -213,7 +244,18 @@ def main() -> None:
         if text:
             text = text.rstrip() + "\n\n" + html_to_text(signature)
 
-    sender = args.sender or cfg["MAIL_FROM"]
+    if profile:
+        # Pre-Send-Gate vor jedem Netzzugriff (#1481).
+        try:
+            roles.pruefe_kanalgrenze(
+                profile, args.subject, text, html_to_text(html) if html else None
+            )
+        except roles.KanalgrenzeVerletzt as e:
+            sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
+        if not html:
+            text = roles.text_mit_signatur(profile, text or "")
+
+    sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
     user, password = load_credentials(Path(cfg["MAIL_CREDS_FILE"]).expanduser(), sender)
     msg = build_draft(
         sender,
@@ -233,8 +275,9 @@ def main() -> None:
         args.folder,
     )
     kind = "HTML+Text" if html else "Text"
+    rolle = f" Rolle: {profile.role_id} ({profile.display_name})." if profile else ""
     print(
-        f"OK: Entwurf ({kind}) in '{folder}' abgelegt, UID {uid} — NICHT gesendet. "
+        f"OK: Entwurf ({kind}) in '{folder}' abgelegt, UID {uid} — NICHT gesendet.{rolle} "
         f"Pruefen und selbst aus dem Mail-Client senden."
     )
 

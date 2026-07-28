@@ -59,6 +59,19 @@ heute verstreuter Einzelregeln (iil-signature.txt, HNU-Postfach-Sonderfälle, ME
    `dehnert-signature.txt` in `~/.claude/`.
 6. **Tests** (`test_roles.py`): Resolution je Rolle, `requires_legal_footer`-Enforcement,
    Template-Render pro Rolle, Transport-Key-Auflösung ohne Credential-Kopie.
+7. **Kanal-Grenze `darf_nicht_zusagen`** (Nachtrag 2026-07-28, [#1481](https://github.com/achimdehnert/platform/issues/1481)) —
+   das MVC oben beschreibt, **wie** eine Rolle klingt und **wie** die Mail hinausgeht,
+   aber nicht, **was die Identität in der Welt leisten kann**. `transport` ist dafür
+   nicht das Feld: `smtp`/`graph_draft`/`imap_append` benennen den technischen Weg,
+   nicht die Handlungsfähigkeit. In genau diese Lücke lief am 2026-07-27 ein
+   Telefonat-Angebot unter der Rolle `dehnert_team` (Signatur ohne Rufnummer) —
+   `tone` sagte bereits „KI-Assistent", steuerte aber nur die Formulierung, nicht die
+   Zusage. Neues Registry-Feld je Rolle, `Profile.darf_nicht_zusagen`, und ein
+   Pre-Send-Gate über Betreff + Body, das **hart abbricht** wie
+   `requires_legal_footer` — bewusst ohne Bypass-Flag und ohne Sprachmodell
+   (Wortliste je Kanal, überprüfbar und falsifizierbar). Die Wortlisten sind eng
+   geschnitten und per Registry-Schlüssel `kanal_signale` überschreibbar; „Termin"
+   allein ist absichtlich **kein** Signal (Gegenprobe als Test hinterlegt).
 
 ## Befunde inkl. Advocatus Diabolus
 

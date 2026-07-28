@@ -40,6 +40,42 @@ _STATE_COLORS = {
 
 _REQUIRED_FIELDS = ("display_name", "from", "transport")
 
+# --- Kanal-Grenze (#1481) ---------------------------------------------------
+# `transport` beschreibt den technischen Weg der Nachricht, NICHT die
+# Handlungsfähigkeit des Absenders. Eine Rolle kann per Mail hinausgehen und
+# trotzdem außerstande sein, ein Telefonat einzulösen. `darf_nicht_zusagen`
+# benennt genau diese Kanäle je Rolle.
+#
+# Bewusst eine Wortliste und kein Sprachmodell (#1481 "Abgrenzung"): überprüfbar,
+# deterministisch, falsifizierbar. Die Listen sind absichtlich ENG geschnitten —
+# eine zu breite Liste erzeugt dieselbe Fehlerklasse wie eine zu breite
+# Ablage-Regel (ADR-284 §7a: die Gegenprobe entscheidet, nicht die Formulierung).
+# Deshalb steht "Termin" NICHT in `vor-ort-termin`: eine Assistenz darf für ihren
+# Auftraggeber sehr wohl einen Termin vorschlagen — sie kann ihn nur nicht selbst
+# wahrnehmen. Wer schärfer prüfen will, überschreibt die Liste in der Registry
+# (Top-Level "kanal_signale") statt den Code zu ändern.
+KANAL_SIGNALE: dict[str, tuple[str, ...]] = {
+    "telefonat": (
+        "telefon", "telefonisch", "telefonat", "anruf", "anrufen", "angerufen",
+        "rückruf", "rueckruf", "durchwahl", "hörer", "hoerer",
+    ),
+    "vor-ort-termin": (
+        "vor ort", "vor-ort", "vorbeikommen", "vorbeischauen",
+        "persönlich vorbei", "persoenlich vorbei", "besuche sie", "besuchen sie",
+    ),
+    "unterschrift": (
+        "unterschrift", "unterschreib", "unterzeichn", "handschriftlich",
+        "rechtsverbindlich zeichn",
+    ),
+    "videokonferenz": (
+        "videokonferenz", "videocall", "video-call", "bildschirmfreigabe",
+    ),
+}
+
+
+class KanalgrenzeVerletzt(ValueError):
+    """Der Text sagt einen Kanal zu, den die Rolle nicht einlösen kann."""
+
 
 @dataclass
 class Profile:
@@ -55,6 +91,10 @@ class Profile:
     signature: str = ""
     legal_footer: str | None = None
     requires_legal_footer: bool = False
+    darf_nicht_zusagen: tuple[str, ...] = ()
+    kanal_signale: dict[str, tuple[str, ...]] = field(
+        default_factory=lambda: dict(KANAL_SIGNALE)
+    )
     raw: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -99,6 +139,19 @@ def resolve(role_id: str, path: str | Path | None = None, registry: dict | None 
             f"(erlaubt: {', '.join(sorted(VALID_TRANSPORTS))})"
         )
 
+    # Kanal-Grenze: Registry darf die Signalwörter global überschreiben/ergänzen.
+    signale = {k: tuple(v) for k, v in KANAL_SIGNALE.items()}
+    for kanal, woerter in (reg.get("kanal_signale") or {}).items():
+        signale[kanal] = tuple(w.lower() for w in woerter)
+    gesperrt = tuple(r.get("darf_nicht_zusagen", ()) or ())
+    unbekannt = [k for k in gesperrt if k not in signale]
+    if unbekannt:
+        # Ein Tippfehler im Kanalnamen darf nicht als "nichts gesperrt" durchgehen.
+        raise ValueError(
+            f"Rolle '{role_id}': unbekannte(r) Kanal/Kanäle in darf_nicht_zusagen: "
+            f"{', '.join(unbekannt)} — bekannt: {', '.join(sorted(signale))}"
+        )
+
     requires_footer = bool(r.get("requires_legal_footer", False))
     legal_footer = _read_text_ref(r.get("legal_footer_file"))
     # Governance-Enforcement (R1): Pflicht-Footer ohne Inhalt = Versand-Blocker.
@@ -121,8 +174,59 @@ def resolve(role_id: str, path: str | Path | None = None, registry: dict | None 
         signature=_read_text_ref(r.get("signature_file")) or "",
         legal_footer=legal_footer,
         requires_legal_footer=requires_footer,
+        darf_nicht_zusagen=gesperrt,
+        kanal_signale=signale,
         raw=r,
     )
+
+
+def finde_kanalzusagen(profile: Profile, *texte: str | None) -> list[tuple[str, str]]:
+    """Fundstellen gesperrter Kanäle in den übergebenen Texten.
+
+    Rückgabe: Liste von (kanal, gefundenes_signalwort), dedupliziert und stabil
+    sortiert. Leere Liste = nichts zu beanstanden.
+    """
+    if not profile.darf_nicht_zusagen:
+        return []
+    hay = " \n ".join(t for t in texte if t).lower()
+    if not hay.strip():
+        return []
+    treffer: list[tuple[str, str]] = []
+    for kanal in profile.darf_nicht_zusagen:
+        for wort in profile.kanal_signale.get(kanal, ()):
+            if wort in hay and (kanal, wort) not in treffer:
+                treffer.append((kanal, wort))
+    return treffer
+
+
+def pruefe_kanalgrenze(profile: Profile, *texte: str | None) -> None:
+    """Pre-Send-Gate (#1481): bricht ab, wenn der Text einen gesperrten Kanal zusagt.
+
+    Analog zu `requires_legal_footer` eine harte Bedingung, kein Hinweis — der
+    reale Schaden am 2026-07-27 entstand genau dadurch, dass die Mail trotzdem
+    hinausging. Es gibt bewusst KEIN Bypass-Flag: wer den Satz braucht, nimmt
+    eine Rolle, die ihn einlösen kann.
+    """
+    treffer = finde_kanalzusagen(profile, *texte)
+    if not treffer:
+        return
+    zeilen = "\n".join(f"  - {kanal}: Signalwort '{wort}'" for kanal, wort in treffer)
+    raise KanalgrenzeVerletzt(
+        f"Rolle '{profile.role_id}' ({profile.display_name}) kann folgende Kanäle "
+        f"nicht einlösen, der Text sagt sie aber zu:\n{zeilen}\n"
+        "→ Satz streichen oder eine Rolle wählen, die den Kanal bedienen kann "
+        "(Kanal-Grenze aus der Rollen-Registry, Feld 'darf_nicht_zusagen')."
+    )
+
+
+def text_mit_signatur(profile: Profile, text: str) -> str:
+    """Hängt Signatur und ggf. Pflicht-Footer an einen reinen Textkörper."""
+    teile = [text.rstrip()]
+    if profile.signature:
+        teile.append(profile.signature)
+    if profile.legal_footer:
+        teile.append(profile.legal_footer)
+    return "\n\n".join(t for t in teile if t) + "\n"
 
 
 _ROW = Template(
@@ -263,6 +367,8 @@ def main() -> None:
             print(f"Akzent      : {prof.accent}")
             print(f"Footer-Pflicht: {prof.requires_legal_footer} "
                   f"({'vorhanden' if prof.legal_footer else 'keiner'})")
+            print("Kann NICHT zusagen: "
+                  + (", ".join(prof.darf_nicht_zusagen) or "— (keine Kanal-Grenze)"))
     except (FileNotFoundError, ValueError) as e:
         sys.exit(f"FEHLER: {e}")
 

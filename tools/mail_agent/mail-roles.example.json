@@ -11,7 +11,8 @@
       "tone": "geschäftlich, Empfehlung zuerst, keine KI-Vorrede",
       "signature_file": "~/.claude/mail-sig/iil.txt",
       "legal_footer_file": "~/.claude/mail-sig/iil-footer.txt",
-      "requires_legal_footer": true
+      "requires_legal_footer": true,
+      "darf_nicht_zusagen": []
     },
     "hnu": {
       "display_name": "Prof. Dr. <Name>",
@@ -23,7 +24,8 @@
       "tone": "akademisch, sachlich",
       "signature_file": "~/.claude/mail-sig/hnu.txt",
       "legal_footer_file": null,
-      "requires_legal_footer": false
+      "requires_legal_footer": false,
+      "darf_nicht_zusagen": []
     },
     "dsb": {
       "display_name": "Prof. Dr. <Name>",
@@ -35,7 +37,8 @@
       "tone": "formal, rechtssicher, vertraulich",
       "signature_file": "~/.claude/mail-sig/dsb.txt",
       "legal_footer_file": "~/.claude/mail-sig/dsb-footer.txt",
-      "requires_legal_footer": true
+      "requires_legal_footer": true,
+      "darf_nicht_zusagen": []
     },
     "dehnert_team": {
       "display_name": "KI-Assistent von <Name>",
@@ -47,7 +50,12 @@
       "tone": "knapp, transparent (KI-Assistent), lösungsorientiert",
       "signature_file": "~/.claude/mail-sig/dehnert.txt",
       "legal_footer_file": null,
-      "requires_legal_footer": false
+      "requires_legal_footer": false,
+      "darf_nicht_zusagen": [
+        "telefonat",
+        "vor-ort-termin",
+        "unterschrift"
+      ]
     },
     "private": {
       "display_name": "<Name>",
@@ -59,7 +67,9 @@
       "tone": "persönlich, direkt, ohne Formalia",
       "signature_file": "~/.claude/mail-sig/private.txt",
       "legal_footer_file": null,
-      "requires_legal_footer": false
+      "requires_legal_footer": false,
+      "darf_nicht_zusagen": []
     }
-  }
+  },
+  "_kanal_grenze": "darf_nicht_zusagen benennt Kanaele, die diese Identitaet NICHT einloesen kann (#1481). Bekannt: telefonat, vor-ort-termin, unterschrift, videokonferenz. Ein Versand-/Entwurfsversuch, dessen Betreff oder Text ein Signalwort dieser Kanaele enthaelt, bricht ab — hart, wie requires_legal_footer. Die Signalwoerter lassen sich per Top-Level-Objekt 'kanal_signale' ueberschreiben, ohne den Code zu aendern."
 }
