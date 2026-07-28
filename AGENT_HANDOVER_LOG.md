@@ -180,3 +180,86 @@ Auswertung, nicht das Modell.
 - Es gibt weiterhin **keinen Automatismus**, der `ADR_SYNC_REPOS` konsumiert — der Voll-Sync bleibt Handarbeit, die Liste ist nur die Grundlage.
 - `bfagent` trägt 3 unbehebbare Kollisionen, solange es archiviert ist.
 - Deploy-Wirkung: dev-hub deployte nach beiden Merges (grün, Konstanten im Container gegengelesen); die fünf Doku-Repos lösten bewusst keinen Deploy aus.
+
+---
+
+## 2026-07-27 — platform + risk-hub (`0c98c5`): Deckungsausweis gebaut, Klickdummy-Pin, deep-Retro
+
+**Was entstanden ist.** KONZ-platform-035 „Deckungsausweis" angenommen (#1491) und sieben
+von zehn Empfehlungen umgesetzt (#1492): versioniertes Objekt `deckungsausweis.v1`, zwei
+verschiedenartige Retrievalpfade mit Divergenz-Meldung, Selbst-Kalibrierung, unabhängige
+Zweitzählung des Nenners, Amendment an ADR-284 §2 Nr. 1 (Coverage-Contract gilt auch für
+Live-Antworten). K6/K8 in #1493, Pilot- und Retro-Fixes in #1494 — beide offen.
+
+**Referenzpostfach `search@dehnert.team`.** Owner-Vorschlag „anonymisierte Echt-Mails"
+geprüft und verworfen (Anonymisieren = die systematische Inhaltsauswertung, die die DSFA
+ausschließt). Stattdessen Struktur messen, Inhalt erfinden. Erster Lauf rot → echter
+Fehler gefunden (`imaplib` kodiert nur ASCII, Umlaut-Suche brach still ab).
+
+**risk-hub entblockt.** Klickdummy-Drift kam nicht vom Branch-Alter, sondern von einem
+ungepinnten Generator; erste Diagnose war falsch und ist im Issue korrigiert. #460 und
+#449 gemergt — `create_deletion_request` liegt in `main`.
+
+**Deep-Retro:** 16 Befunde, 14 überleben. Vier davon sagen dasselbe — eine Statuszeile
+behauptete mehr als das Artefakt hergibt. Ein destruktiver Löschpfad (`startswith` ohne
+Trenner) wurde gefunden und behoben. Report unter `docs/retros/`.
+
+**Nächste Schritte:** #1493 und #1494 freigeben · risk-hub#447 mergen (grün, approved,
+liegt seit 23.07.) · K-Tabelle in KONZ-035 gegen die vier Pilotfehler nachziehen ·
+Fleet-Wirkung des Klickdummy-Pins auf neun Repos tracken.
+
+
+## 2026-07-28 — Mail-Archivierung: Zuschnitt gelöst, zwei Postfächer sortiert, Retro deep
+
+**Der Zuschnitt kippte zuerst.** Auf Owner-Weisung fiel der Datenschutz als Vorbehalt weg:
+Personendaten und Termine sind erwünscht, weil sie Situationen aufklären; die Grenze ist der
+**Zweck** (Situation verstehen vs. Menschen bewerten), nicht der Inhalt. Das ADR-286-Amendment
+§4.10 ([#1498](https://github.com/achimdehnert/platform/pull/1498)) hebt den MEiKI-Sonderweg,
+das Personenbezug-Verbot und die Nur-deterministisch-Regel auf und ersetzt drei starre
+Klauseln durch einen Zwecktest. Bemerkenswert: Das ADR hatte die Inhaltsanalyse nie verboten
+(§4.8 wörtlich) — die Bremse saß in der Anwendung, nicht im Dokument.
+
+**28.158 Nachrichten umsortiert, in beiden Postfächern, alle Läufe gegengeprüft.** IIL: 22.599
+aus einem flachen Archiv in Jahrgänge, 6.877 aus Gesendete Elemente in einen neu angelegten
+Sent-Archiv-Baum, 11 Spam gelöscht. HNU: 649 aus dem Posteingang, 4.910 aus einem Sammelordner
+in 11 neue Jahrgänge, 13 nachgezogen, Sammelordner nach Leer-Guard gelöscht. Jeder Lauf folgte
+demselben Ablauf: Trockenlauf, Pilot auf dem kleinsten Jahrgang, Gegenprobe über einen
+**unabhängigen** Codepfad, dann der Rest.
+
+**Drei Werkzeuge entstanden**, alle mit Tests und alle noch ungemergt:
+`indexierung.py` (Ausschlusskonfiguration, [#1501](https://github.com/achimdehnert/platform/pull/1501)),
+`archiv_einsortieren.py` (Graph + IMAP, [#1502](https://github.com/achimdehnert/platform/pull/1502)),
+`ablage_pruefung.py` (Prüfer, [#1504](https://github.com/achimdehnert/platform/pull/1504)).
+Dazu ein Fix am Konten-Nenner des Deckungsausweises
+([#1500](https://github.com/achimdehnert/platform/pull/1500)): Er zählte eine Routing-Tabelle
+als Konto und übersah das IIL-Hauptpostfach mit 44.878 Nachrichten vollständig.
+
+**Vier Fehler, die erst die Wirklichkeit zeigte** — alle mit Regressionstest verankert:
+falsches Schlüsselwort im Schreibpfad (Abbruch beim 1. von 145) · zu kurzer Drossel-Backoff
+(12.311 Falsch-Fehler) · Sortierung nach Ankunft statt Kopfzeile · elf vermeintliche
+Fehlablagen waren Spam mit gefälschtem `Date`, eine davon auf 1988 datiert.
+
+**Session-Retro (deep):** 20 Befunde, 19 überleben die Falsifikation. Pipeline: 1 Kollektor
++ 3 Finder + 3 Skeptiker + 1 Stichentscheid + 1 Meta-Reviewer. Der Stichentscheid war nötig,
+weil zwei Skeptiker sich widersprachen — einer las den nie nacheditierten PR-Body, der andere
+die Kommentare. Report: `docs/retros/session-retro-2026-07-28-platform-d5eb5e.md`.
+
+**Nächste Schritte:** Merge-Reihenfolge #1494/#1500 entscheiden (echter, unsichtbarer
+Konflikt) · fünf PRs reviewen, damit der Stapel abgebaut wird · Freigabe für die
+§4.7/§4.9-Aufhebung als PR-Kommentar an #1498 nachtragen · #1506/#1507/#1508 abarbeiten.
+
+**Nachtrag Wissenssicherung (2026-07-28):** Vier Outline-Dokumente angelegt — Runbook
+(Postfach nach Jahrgängen sortieren, mit Tabelle der sechs bekannten Fehler), Konzept
+(Zwecktest statt Verbotsliste, inkl. der verworfenen Alternativen und der funktionalen
+Begründung für die Akteurs-Registry), zwei Lessons (Trockenlauf deckt den Schreibpfad
+nicht ab · Ankunftsstempel ist nicht das Nachrichtendatum, mit vollständiger
+Fallunterscheidung und dem Zeitzonen-Fallstrick). Querverweis im pgvector unter
+`outline:platform:20260728-mail-archivierung`.
+
+**Offen geblieben am Session-Ende:** Vier Repos sind dirty, alle belegbar **fremd** —
+`django-lms-lite` und `iil-doc-templates` mit untracked `.windsurf/`-Verzeichnissen aus der
+Verteilung, `lastwar-alliance-ops` mit einer geänderten Service-Datei aus einer parallelen
+Session, `risk-hub` mit geändertem `NEXT.md` (war laut Session-Start-Runner schon um 04:22
+als `GUARD(dirty)` markiert, also vor Sessionbeginn). Nach der Attributions-Regel liegen
+gelassen, nicht eingesammelt. Die Checklisten-Zeile „kein Repo dirty" ist damit **nicht**
+erfüllt und wird bewusst als offen geführt.
