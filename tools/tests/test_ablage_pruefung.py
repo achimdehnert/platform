@@ -130,9 +130,9 @@ def test_should_stay_silent_when_stamp_and_header_agree():
     assert _b("Archiv/2024", 2024, stempel=2024) == []
 
 
-def test_should_report_divergence_alongside_a_real_misfiling():
-    befunde = _b("Archiv/2024", 2022, stempel=2026)
-    assert set(befunde) == {"F", "A"}
+def test_should_report_a_real_misfiling_when_neither_date_fits():
+    """Weder Kopfzeile (2022) noch Ankunft (2026) passen zu Archiv/2024."""
+    assert _b("Archiv/2024", 2022, stempel=2026) == ["A"]
 
 
 def test_should_treat_only_actionable_classes_as_hard_findings():
@@ -178,3 +178,48 @@ def test_should_skip_folders_without_mail():
 def test_should_keep_checking_real_mail_folders():
     for name in ("INBOX", "Archiv/2024", "IIL.Kunden/Scheppach", "Betreuungen/Anfragen"):
         assert ap.ist_mail_ordner(name) is True, name
+
+
+# --- Klasse G: gefaelschte Datumsangaben (Realfall 2026-07-28) -------------
+#
+# Von 12 gemeldeten "Fehlablagen" waren 11 Spam mit gefaelschter Date-Kopfzeile
+# — teils Monate in der Zukunft, eine auf 1988 datiert. Einsortiert worden waren
+# sie korrekt nach Ankunft. Als Fehlablage gemeldet, haette ein Aufraeumlauf
+# einen Ordner 'Archiv/1988' verlangt und Spam quer durch das Archiv geschoben.
+
+
+def test_should_blame_the_header_when_arrival_matches_the_folder():
+    """Spam von 2015, 2016 angekommen, in Archiv/2016 abgelegt: die Ablage ist
+    richtig, die Kopfzeile ist der Verdaechtige."""
+    assert _b("Archiv/2016", 2015, stempel=2016) == ["G"]
+
+
+def test_should_handle_a_header_date_in_the_future():
+    """Realfall: Date 2017-06-19 bei einer Nachricht, die 2016 ankam."""
+    assert _b("Archiv/2016", 2017, stempel=2016) == ["G"]
+
+
+def test_should_handle_the_1988_case():
+    assert _b("Archiv/2017", 1988, stempel=2017) == ["G"]
+
+
+def test_should_not_treat_an_implausible_date_as_a_hard_finding():
+    """G darf den Exit-Code nicht auf 1 setzen — sonst meldet jeder Lauf
+    dieselben Spam-Reste als Handlungsbedarf."""
+    assert "G" not in ap.HART
+
+
+def test_should_still_report_a_misfiling_when_arrival_also_mismatches():
+    assert _b("Archiv/2016", 2015, stempel=2019) == ["A"]
+
+
+def test_should_apply_the_same_rule_to_catch_all_folders():
+    """Im Sammelordner zaehlt 'bis einschliesslich' fuer beide Zeitquellen."""
+    assert _b("Sent-Archiv/2019-und-aelter", 2021, stempel=2018) == ["G"]
+    assert _b("Sent-Archiv/2019-und-aelter", 2021, stempel=2022) == ["A"]
+
+
+def test_should_keep_divergence_as_a_hint_when_the_header_fits():
+    """Umsortiert: die Kopfzeile passt zum Ordner, nur der Stempel wurde neu
+    gesetzt. Das bleibt F — der Realfall der 2017er-Mail vom Sessionbeginn."""
+    assert _b("Sent-Archiv/2019-und-aelter", 2017, stempel=2026) == ["F"]

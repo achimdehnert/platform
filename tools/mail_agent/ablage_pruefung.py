@@ -23,13 +23,22 @@ Fehler verschiebt und dabei mit jedem Durchlauf hin- und herschiebt.
 Befundklassen:
 
 ===  ==================  =================================================
-A    Fehlablage          Kopfzeilen-Jahr passt nicht zum Jahrgangsordner
+A    Fehlablage          weder Kopfzeile noch Ankunft passen zum Ordner
 B    Nicht archiviert    Vorjahrespost in einem laufenden Ordner
 C    Fehlender Ordner    Jahr im Bestand, aber kein Jahrgangsordner
 D    Grenzfall           Jahr haengt an der Zeitzone — mehrdeutig
 E    Datumslos           keine oder unlesbare Date-Kopfzeile
-F    Stempel-Divergenz   Ankunftsstempel != Kopfzeilen-Jahr (umsortiert)
+F    Stempel-Divergenz   Ablage folgt der Kopfzeile, Ankunft wurde neu gesetzt
+G    Datum unglaubwuerdig Ablage folgt der Ankunft, Kopfzeile faellt heraus
 ===  ==================  =================================================
+
+**Warum A und G getrennt sind.** Ein erster Entwurf meldete jede Abweichung
+zwischen Kopfzeile und Ordner als Fehlablage. Von 12 so gemeldeten Faellen waren
+11 Spam mit **gefaelschter** ``Date``-Kopfzeile — teils Monate in der Zukunft,
+einer auf 1988 datiert. Einsortiert worden waren sie korrekt nach Ankunft. Ein
+Aufraeumlauf haette daraus einen Ordner ``Archiv/1988`` verlangt und Spam quer
+durch das Archiv geschoben. Deshalb gilt: Passt die **Ankunft** zum Ordner und
+nur die Kopfzeile nicht, ist die Kopfzeile der Verdaechtige, nicht die Ablage.
 
 Exit-Code: 0 sauber · 1 Befunde der Klasse A/B/C · 2 Werkzeug-/Zugriffsfehler.
 """
@@ -140,16 +149,32 @@ def beurteile(
     if kopf_jahr is None:
         return ["E"]
 
-    if stempel_jahr is not None and stempel_jahr != kopf_jahr:
-        befunde.append("F")
+    abweichend = stempel_jahr is not None and stempel_jahr != kopf_jahr
 
     jg = jahrgang_des_ordners(ordner)
     if jg is not None:
         jahr, sammel = jg
         passt = kopf_jahr <= jahr if sammel else kopf_jahr == jahr
-        if not passt:
+        stempel_passt = stempel_jahr is not None and (
+            stempel_jahr <= jahr if sammel else stempel_jahr == jahr
+        )
+        if passt:
+            if abweichend:
+                befunde.append("F")
+        elif stempel_passt:
+            # Die Ablage folgt dem Ankunftsdatum, und nur die Kopfzeile fällt aus
+            # der Reihe. Realfall 2026-07-28: 11 von 12 vermeintlichen Fehlablagen
+            # waren Spam mit gefaelschtem Date — teils Monate in der Zukunft. Als
+            # Fehlablage gemeldet, haette ein Aufraeumlauf Ordner wie 'Archiv/1988'
+            # verlangt und Spam quer durch das Archiv geschoben.
+            befunde.append("G")
+        else:
             befunde.append("D" if grenzfall else "A")
-    elif ist_laufender_ordner(ordner) and kopf_jahr < aktuelles_jahr:
+        return befunde
+
+    if abweichend:
+        befunde.append("F")
+    if ist_laufender_ordner(ordner) and kopf_jahr < aktuelles_jahr:
         befunde.append("D" if grenzfall else "B")
         if not jahr_ist_abgedeckt(kopf_jahr, bekannte_jahrgaenge, sammel_bis):
             befunde.append("C")
@@ -324,12 +349,13 @@ class GraphQuelle:
 # ---------- Bericht ----------
 
 TEXTE = {
-    "A": "Fehlablage — Kopfzeilen-Jahr passt nicht zum Jahrgangsordner",
+    "A": "Fehlablage — weder Kopfzeile noch Ankunft passen zum Ordner",
     "B": "nicht archiviert — Vorjahrespost in laufendem Ordner",
     "C": "fehlender Jahrgangsordner fuer dieses Jahr",
     "D": "Grenzfall — Jahr haengt an der Zeitzone, mehrdeutig",
     "E": "datumslos — keine oder unlesbare Date-Kopfzeile",
-    "F": "Stempel-Divergenz — Ordner wurde umsortiert",
+    "F": "Stempel-Divergenz — Ablage folgt der Kopfzeile, Ankunft neu gesetzt",
+    "G": "Datum unglaubwuerdig — Ablage folgt der Ankunft, Kopfzeile faellt heraus",
 }
 HART = ("A", "B", "C")
 
