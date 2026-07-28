@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Sortiert einen flachen Archiv-Ordner nach Jahrgaengen (Microsoft Graph).
+
+Anlass (gemessen 2026-07-28): Der IIL-Ordner 'Archiv' hielt 22.623 Nachrichten aus
+den Jahren 2016-2026, waehrend die Jahrgangsordner nahezu leer danebenlagen. Die
+Archivierungskonvention (laufendes Jahr live, Vorjahre in den Jahrgang) war damit
+faktisch nicht umgesetzt. `graph_mail.py --move` filtert nach Absender und Betreff,
+nicht nach Datum — fuer diesen Fall gab es kein Werkzeug.
+
+Sicherheitseigenschaften, bewusst so gewaehlt:
+
+* **Trockenlauf ist der Standard.** Verschoben wird nur mit ``--apply``.
+* **Kein Ordner wird angelegt.** Fehlt der Zielordner, wird die Nachricht
+  uebersprungen und der Grund genannt — ein Werkzeug, das im selben Lauf Ordner
+  erfindet und befuellt, macht einen Tippfehler im Quellpfad unbemerkbar.
+* **Das laufende Jahr bleibt unberuehrt**, ebenso alles nach ``--bis``.
+* **Erst lesen, dann schreiben.** Die vollstaendige Liste wird vorab geholt; wer
+  waehrend des Blaetterns verschiebt, verschiebt den Seitenversatz mit und
+  ueberspringt stillschweigend Nachrichten.
+* **Wiederaufnehmbar.** Eine verschobene Nachricht liegt nicht mehr in der Quelle;
+  ein zweiter Lauf setzt fort, statt doppelt zu arbeiten.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from graph_mail import GRAPH, _auth, _http, load_cfg, token  # noqa: E402
+
+TOOL_VERSION = "archiv_einsortieren.py/1"
+
+
+# ---------- reine Logik (ohne Graph, damit testbar) ----------
+
+
+def jahr_aus(iso_datum: str | None) -> str | None:
+    """'2021-03-04T…' -> '2021'. Ohne verwertbares Datum: None."""
+    if not iso_datum or len(iso_datum) < 4:
+        return None
+    kopf = iso_datum[:4]
+    return kopf if kopf.isdigit() else None
+
+
+def entscheide(
+    jahr: str | None,
+    bis: int,
+    aktuelles_jahr: int,
+    vorhandene_jahrgaenge: set[str],
+) -> tuple[str | None, str]:
+    """(Zieljahr oder None, Begruendung) — die Begruendung wird immer ausgegeben.
+
+    Ein uebersprungener Posten ohne genannten Grund ist der stille Rest, den
+    dieses Werkzeug gerade vermeiden soll.
+    """
+    if jahr is None:
+        return None, "kein verwertbares Empfangsdatum"
+    n = int(jahr)
+    if n >= aktuelles_jahr:
+        return None, f"laufendes Jahr {jahr} — bleibt liegen"
+    if n > bis:
+        return None, f"{jahr} liegt nach --bis {bis}"
+    if jahr not in vorhandene_jahrgaenge:
+        return None, f"Jahrgangsordner fuer {jahr} fehlt — nicht angelegt"
+    return jahr, "einsortieren"
+
+
+# ---------- Graph ----------
+
+
+def ordner_index(tok: str) -> dict[str, str]:
+    aus: dict[str, str] = {}
+
+    def walk(pid, prefix):
+        url = (
+            f"{GRAPH}/me/mailFolders"
+            if pid is None
+            else f"{GRAPH}/me/mailFolders/{pid}/childFolders"
+        )
+        url += "?$top=100&$select=id,displayName,childFolderCount"
+        while url:
+            r = _http("GET", url, headers=_auth(tok)).json()
+            for f in r.get("value", []):
+                p = f["displayName"] if not prefix else f"{prefix}/{f['displayName']}"
+                aus[p] = f["id"]
+                if f.get("childFolderCount", 0):
+                    walk(f["id"], p)
+            url = r.get("@odata.nextLink")
+
+    walk(None, "")
+    return aus
+
+
+def nachrichten(tok: str, fid: str) -> list[tuple[str, str | None]]:
+    """(id, receivedDateTime) — vollstaendig VOR dem ersten Schreibzugriff."""
+    url = f"{GRAPH}/me/mailFolders/{fid}/messages?$top=999&$select=id,receivedDateTime"
+    aus: list[tuple[str, str | None]] = []
+    while url:
+        r = _http("GET", url, headers=_auth(tok)).json()
+        for m in r.get("value", []):
+            aus.append((m["id"], m.get("receivedDateTime")))
+        url = r.get("@odata.nextLink")
+    return aus
+
+
+def verschiebe(tok: str, mid: str, ziel_id: str) -> bool:
+    r = _http(
+        "POST",
+        f"{GRAPH}/me/messages/{mid}/move",
+        headers={**_auth(tok), "Content-Type": "application/json"},
+        json={"destinationId": ziel_id},
+    )
+    return r.status_code in (200, 201)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--quelle", default="Archiv", help="flacher Quellordner")
+    ap.add_argument("--ziel-wurzel", default="Archiv", help="Wurzel der Jahrgaenge")
+    ap.add_argument(
+        "--bis", type=int, default=2024, help="hoechstes einzusortierendes Jahr"
+    )
+    ap.add_argument("--nur-jahr", help="nur diesen Jahrgang bearbeiten")
+    ap.add_argument("--limit", type=int, help="hoechstens so viele verschieben")
+    ap.add_argument(
+        "--apply", action="store_true", help="wirklich verschieben (sonst Trockenlauf)"
+    )
+    args = ap.parse_args()
+
+    cfg = load_cfg()
+    konto = cfg["accounts"][0]
+    tok = token(cfg, konto)
+    if not tok:
+        sys.exit("kein gueltiges Token — graph_mail.py --login <konto>")
+
+    idx = ordner_index(tok)
+    if args.quelle not in idx:
+        sys.exit(f"Quellordner '{args.quelle}' nicht gefunden")
+
+    jahrgaenge = {
+        p.split("/")[-1]: i
+        for p, i in idx.items()
+        if p.startswith(f"{args.ziel_wurzel}/") and p.split("/")[-1].isdigit()
+    }
+    aktuelles_jahr = datetime.now(timezone.utc).year
+
+    posten = nachrichten(tok, idx[args.quelle])
+    modus = "AUSFUEHRUNG" if args.apply else "TROCKENLAUF"
+    print(f"=== {modus} · {konto} · {args.quelle} → {args.ziel_wurzel}/<Jahr> ===")
+    print(f"    {TOOL_VERSION} · bis {args.bis} · laufendes Jahr {aktuelles_jahr}")
+    print(f"    {len(posten)} Nachricht(en) gelesen, "
+          f"{len(jahrgaenge)} Jahrgangsordner vorhanden\n")
+
+    plan: Counter = Counter()
+    uebersprungen: Counter = Counter()
+    zu_tun: list[tuple[str, str]] = []
+    for mid, dt in posten:
+        ziel, grund = entscheide(
+            jahr_aus(dt), args.bis, aktuelles_jahr, set(jahrgaenge)
+        )
+        if ziel is None:
+            uebersprungen[grund] += 1
+            continue
+        if args.nur_jahr and ziel != args.nur_jahr:
+            uebersprungen[f"nicht --nur-jahr {args.nur_jahr}"] += 1
+            continue
+        plan[ziel] += 1
+        zu_tun.append((mid, jahrgaenge[ziel]))
+
+    for jahr, n in sorted(plan.items()):
+        print(f"  {n:>6}  → {args.ziel_wurzel}/{jahr}")
+    print(f"  {sum(plan.values()):>6}  gesamt einzusortieren")
+    if uebersprungen:
+        print("\n  uebersprungen:")
+        for grund, n in sorted(uebersprungen.items(), key=lambda kv: -kv[1]):
+            print(f"  {n:>6}  {grund}")
+
+    if not args.apply:
+        print("\n  Trockenlauf — nichts veraendert. Mit --apply ausfuehren.")
+        return
+
+    if args.limit:
+        zu_tun = zu_tun[: args.limit]
+    ok = fehler = 0
+    for i, (mid, ziel_id) in enumerate(zu_tun, 1):
+        if verschiebe(tok, mid, ziel_id):
+            ok += 1
+        else:
+            fehler += 1
+        if i % 250 == 0:
+            print(f"    … {i}/{len(zu_tun)} (ok {ok}, Fehler {fehler})", flush=True)
+    print(f"\n  verschoben {ok}, fehlgeschlagen {fehler}")
+    if fehler:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
