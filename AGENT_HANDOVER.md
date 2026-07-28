@@ -10,7 +10,65 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-25 — Wartungs-/Hygiene-Session: `_ci-python`/`_ci-odoo` retired, Handover-Prio reconcilt, PR-Stau von 9 auf 3 abgebaut)
+## ⚡ Aktueller Stand (2026-07-27 — Deckungsausweis: KONZ-035 angenommen und weitgehend gebaut, Referenzpostfach, Klickdummy-Pin)
+
+**Kern in einem Satz:** Aus drei belegten Fehlschlägen desselben Tages — eine Mail-Antwort
+behauptete jeweils mehr, als sie abgedeckt hatte — ist ein Verfahren geworden, das die
+eigene Deckung ausweist; und das Verfahren hat beim ersten echten Lauf sofort vier eigene
+Fehler gefunden.
+
+**Was steht.** [KONZ-platform-035](https://github.com/achimdehnert/platform/pull/1491) ist
+angenommen (`pipeline_status: pilot`, Kill-Gate-Frist 2026-09-30), durch zwei externe
+Reviews gehärtet — 18 Befund-Cluster, alle als `[valid]` getaggt, kein einziger als
+kontextblind verworfen. Sieben der zehn Empfehlungen sind umgesetzt und gemergt
+([#1492](https://github.com/achimdehnert/platform/pull/1492)): der Deckungsausweis als
+versioniertes Objekt `deckungsausweis.v1`, zwei **verschiedenartige** Retrievalpfade
+(IMAP-Server-Suche gegen lokalen Kopfzeilen-Filter) samt Divergenz-Meldung, Selbst-
+Kalibrierung, eine unabhängige Zweitzählung des Nenners gegen `STATUS (MESSAGES)` und das
+Amendment an **ADR-284 §2 Nr. 1** — der Coverage-Contract gilt jetzt auch für
+Live-Antworten, nicht nur für einen Index.
+
+**Der Ertrag steckt im Referenzpostfach.** Der Owner-Vorschlag, echte Mails zu
+anonymisieren, wurde geprüft und in dieser Form verworfen: der Anonymisierungslauf wäre
+selbst die systematische Inhaltsauswertung, unter deren Ausschluss die DSFA freigegeben
+wurde. Stattdessen **Struktur messen, Inhalt erfinden** — zwölf frei erfundene Nachrichten
+in `search@dehnert.team`, die die Formen tragen, an denen Suchen scheitern (X.500-Absender
+ohne `@`, MIME-kodierte Umlaute, Nachricht ohne Betreff, Gesendet, Papierkorb). Der **erste
+Lauf war rot** und deckte einen echten Fehler auf: `imaplib` kodiert nur ASCII, eine Suche
+nach „Löschung" brach ab — und hätte im Ordner-Loop still **null Treffer** gemeldet.
+
+**Der Pilotlauf gegen das echte HNU-Konto** (110 Ordner, 46.072 Nachrichten) beantwortete
+den Zeiner-Sachverhalt vollständig (14 Nachrichten in 5 Ordnern, inkl. der zuvor
+übersehenen Mail an Kramer vom 22.07. 10:32) — und legte vier weitere Werkzeugfehler frei,
+darunter einen Kopfzeilen-Filter, der auf Exchange **komplett blind** war, weil der Server
+bei `UID FETCH` keine UID im Envelope liefert.
+
+**risk-hub entblockt.** Der Klickdummy-Drift-Gate färbte drei PRs rot. Meine erste
+Diagnose (Branch-Alter, Fix per `paths`-Filter) war **falsch** und ist im Issue korrigiert:
+Ursache war ein ungepinnter Generator (`iil-klickdummy>=1.32.1,<2.0` mit `--upgrade`), zwei
+Upstream-Releases am selben Tag. Ein `paths`-Filter hätte den echten Befund verdeckt. Fix
+ist der exakte Pin ([#460](https://github.com/iilgmbh/risk-hub/pull/460), gemergt); damit
+ging auch [#449](https://github.com/iilgmbh/risk-hub/pull/449) durch —
+`create_deletion_request` liegt in `main`, der Art.-17-Vorgang mit Frist 22.08. ist
+werkzeugseitig frei.
+
+**Der Session-Retro (deep) ist der ehrlichste Teil.** 16 Befunde, 14 überleben, 2 widerlegt
+— einer der Widerlegten war meine eigene Behauptung. Vier überlebende Befunde sagen
+dasselbe: eine Statuszeile, ein Kill-Gate-Häkchen oder ein PR-Satz behauptete mehr, als das
+Artefakt hergibt. Der schärfste: der erste echte Lauf deckte vier stille Fehler in genau den
+Mechanismen auf, die §13 als „erfüllt" führte — und das Ereignis wurde nie gegen das eigene
+Kill-Gate KG-PROCESS bewertet. Report:
+[`docs/retros/session-retro-2026-07-27-platform-0c98c5.md`](docs/retros/session-retro-2026-07-27-platform-0c98c5.md).
+
+**Offen und benannt:** [#1493](https://github.com/achimdehnert/platform/pull/1493) (K6/K8)
+und [#1494](https://github.com/achimdehnert/platform/pull/1494) (Pilot- + Retro-Fixes)
+warten auf Freigabe. [risk-hub#447](https://github.com/iilgmbh/risk-hub/pull/447) ist grün
+und approved, liegt seit dem 23.07. Ungetrackt geblieben ist die Fleet-Wirkung des
+Klickdummy-Pins auf neun weitere Repos — das ist ein Verstoß gegen die eigene Hausregel und
+steht als Maßnahme im Retro.
+
+
+## ⚡ Vorheriger Stand (2026-07-25 — Wartungs-/Hygiene-Session: `_ci-python`/`_ci-odoo` retired, Handover-Prio reconcilt, PR-Stau von 9 auf 3 abgebaut)
 
 **Kern in einem Satz:** Keine neue Architektur — diese Session hat aufgeräumt, und der
 Ertrag steckt weniger im Gelöschten als in **zwei falschen Prämissen, die vor dem Handeln
@@ -94,88 +152,6 @@ tote Jobs in `validate-workflows.yml` (`test-build`/`test-deploy`, `if:`-Bedingu
 ([#1303](https://github.com/achimdehnert/platform/issues/1303)) am 25.07. um 10:28 UTC
 nachgemessen statt fortgeschrieben — Swap unverändert **4095/4095 (0 frei)**, 3,8 GB
 verfügbar, uptime 19 Tage. Die Warnung oben trägt jetzt ein Messdatum.
-
-## ⚡ Vorheriger Stand (2026-07-23 spät — Mail-System-Governance: ADR-283 gebaut (dev-hub#149) + ADR-284 zweifach extern gehärtet; ADR-280 `accepted`)
-
-**Kern in einem Satz (Spät-Session):** Aus einem realen `/mailcheck`-Fehler (Domain-Sampling
-übersah Kunden- + Security-Mail) wurde ein ganzer Governance-Bogen: **ADR-283**
-(Korrespondenz-Vorgangs-Speicher, pointer-first, dev-hub-Postgres — MVP gebaut in **dev-hub#149**,
-CI grün) und **ADR-284** (Mail-Intelligence-&-Action-System, nach **zwei** externen Reviews auf
-Rev 1: nur Phase 1 verbindlich, Coverage-Contract + Triage-Ledger „indexiert ≠ geprüft", ephemerer
-purgebarer Index, nl2sql-Sicherheit korrigiert). Offen: **#1397/#1398/#1401** (platform) +
-**dev-hub#149** review/merge; dann Phase-1-Bau (`model:sonnet-5`). Operativ: Zinser-Antwort liegt
-in IIL-Entwürfen, scheppach-Löschbegehren (Peter Brandl) wartet auf Owner-Gate, feha ungelesen,
-Azure-Frist 1.Aug als [#1400](https://github.com/achimdehnert/platform/issues/1400). Mailcheck-Lehre
-(100 % Einzelmail statt Domain-Sampling) als CC-Memory + pgvector-error_pattern gesichert.
-
-**— Früh-Session (2026-07-23 früh): ADR-280 §8.1 6/6 + Print-Agent-Datenschutz —**
-
-**Kern in einem Satz:** Die Session begann mit einem **stumm veralteten Handover** — der
-Haupt-Tree hing 11 Commits hinter `origin/main` — und dieser Befund wurde zum eigenen
-Arbeitsstrang; daneben ist ADR-280 §8.1 erstmals messbar geworden und der Print-Agent-
-Datenschutz aus #1297 vollständig.
-
-**⚠️ Der Start-Handover war stale, und niemand hätte es gemerkt.** `handover_prio_mirror.sh`
-spiegelt `${CWD}/AGENT_HANDOVER.md` **ohne `fetch` und ohne Behind-Zähler**. Die gespiegelte
-Prio behauptete „12 offene PRs" (real: einer) und „ADR-281 Kriterium 5 ist vorbereitet, die
-NÄCHSTE Session führt es aus" (real: am Vorabend bestanden, ADR `accepted`). Aufgefallen ist
-es nur, weil aus anderem Grund gefetcht wurde. Getrackt als
-[#1378](https://github.com/achimdehnert/platform/issues/1378), gefixt in
-[#1382](https://github.com/achimdehnert/platform/pull/1382) (offen).
-
-**ADR-280 §8.1 steht auf 6/6 → ADR `accepted`** ([Artefakt](docs/verifications/2026-07-23-adr280-betriebsnachweis.md),
-[#1379](https://github.com/achimdehnert/platform/pull/1379) gemergt; Accept in **diesem PR**).
-Die Blockade des Vortags entfiel, weil eine **Parallel-Session** `generate.py --kind skills
---allow-live` mit Owner-Freigabe ausführte (06:14:08 UTC, `doctor.py --kind skills` =
-DRIFT-SCORE 0, keine Lane-Dublette); Kriterien 1–5 wurden in Session `4bacc290` gemessen und
-bestanden, Lane-Beweis je Aufruf über den `MANAGED-BY`-Footer (`source=skills/<name>/SKILL.md`).
-**Kriterium 6 wurde am 2026-07-23 11:07 UTC nachgetragen** — diese Session startete Stunden
-nach dem Rollout, fand alle vier Skills schon beim Start im `/`-Menü (bei leerer
-`commands`-Lane, also nur aus der Skills-Lane möglich), `Skill(escalate)`-Footer
-`source=skills/escalate/SKILL.md`. Damit §8.1 **6/6**, Entscheid **„A bestanden"** (die im ADR
-§8.1 vorab festgelegte Konsequenz), **kein** Fallback D. **Accept ≠ Rollout fertig:** die
-Execution-Phasen 3a/3b/4/5 (Bulk-Move, `commands`-Lane entfernen, ADR-229/Policy) bleiben offen,
-weiter über [#1287](https://github.com/achimdehnert/platform/issues/1287) gegatet — bisher nur
-die 4 Piloten in der Skills-Lane.
-
-**Print-Agent: #1297 ist inhaltlich vollständig, das Issue bleibt offen bis
-[#1381](https://github.com/achimdehnert/platform/pull/1381) gemergt ist.**
-[#1377](https://github.com/achimdehnert/platform/pull/1377) ist gemergt — nach einem Review,
-der drei Befunde fand:
-- **Der Datenschutz-Test lief in CI nie.** `tools/print_agent/tests/` steht in keinem
-  Workflow, und selbst mit Pfad-Eintrag hätten die `importorskip`-Zeilen alle Fälle still
-  übersprungen (CI installiert nur `pytest pyyaml pydantic`). Gelöst über importfreie Module
-  (`llm_gate.py`, `profile_policy.py`), geprüft aus `tools/tests/` — dem Ort, den `make test`
-  ohnehin ausführt.
-- **`ollama/` heißt nicht „auf dieser Maschine".** Mit `OLLAMA_HOST` auf einem entfernten
-  Ollama verließ der Auszug die Maschine, das Opt-in-Gate feuerte nicht, und die Ausgabe
-  behauptete „bleibt lokal". Jetzt entscheidet `leaves_machine()`.
-- **Die ursprünglichen Privacy-Tests waren vakuum** — der Negativtest lief grün durch,
-  obwohl der Fix entfernt war: `_try_completion` schluckt jede Exception, eine werfende
-  Wächter-Attrappe wurde damit zu einem stillen `None`. Alle Fälle prüfen jetzt
-  `assert calls == []`.
-
-**#1381 (offen)** liefert die beiden Restpunkte aus #1297: Hinweiszeile mit Ziel **und**
-Zeichenzahl vor einem *erlaubten* Abfluss (real gemessen: `📤 504 Zeichen verlassen diese
-Maschine → …`), und `--profile iil-extern` ohne KI-Kasten sowie ohne den falschen Untertitel
-„Internes Dokument" (per `pdftotext` gegengelesen). Für extern gerichtete Dokumente wird
-**kein** Typ mehr geraten — ein falsches Etikett ist schlechter als keines. `design-hub` blieb
-unangetastet; die Regel liest vorhandene Profil-Daten (`authorship.recipient`).
-
-**Merge-Disziplin, zweimal dokumentiert statt stillschweigend:** #1379 lief über eine echte
-Zweit-Approval von @wirdigital. Bei #1377 war die Approval **älter** (06:34:32) als der
-Nachbesserungs-Commit (07:05:21); das Ruleset dismisst sie nicht, gemergt wurde auf
-Owner-Freigabe hin — als Audit-Kommentar am PR festgehalten, damit die Historie das später
-nicht für ein Vier-Augen-Ergebnis hält.
-
-**Nicht verifiziert / bewusst offen:** #1381 und #1382 warten auf 2.-Owner-Review · der
-Mirror-Fix wirkt erst nach Regeneration der `hooks`-Lane (generierte Kopie unter
-`~/.claude/hooks/managed/`, `do_not_edit`) · ADR-280 Kriterium 6 offen.
-
-**Laufender Session-Log:** [`AGENT_HANDOVER_LOG.md`](AGENT_HANDOVER_LOG.md) — append-only,
-neueste Einträge unten. Dort schreiben Sessions seit KONZ-027 Arm A ihren Stand hin, damit
-parallele Sessions sich nicht gegenseitig blockieren. **Diese** Datei hier bleibt die
-kuratierte Sicht (Prio-Tabelle + aktueller Stand) und wird weiterhin umgeschrieben.
 
 ## Nächste Schritte (kompakt)
 

@@ -180,3 +180,30 @@ Auswertung, nicht das Modell.
 - Es gibt weiterhin **keinen Automatismus**, der `ADR_SYNC_REPOS` konsumiert — der Voll-Sync bleibt Handarbeit, die Liste ist nur die Grundlage.
 - `bfagent` trägt 3 unbehebbare Kollisionen, solange es archiviert ist.
 - Deploy-Wirkung: dev-hub deployte nach beiden Merges (grün, Konstanten im Container gegengelesen); die fünf Doku-Repos lösten bewusst keinen Deploy aus.
+
+---
+
+## 2026-07-27 — platform + risk-hub (`0c98c5`): Deckungsausweis gebaut, Klickdummy-Pin, deep-Retro
+
+**Was entstanden ist.** KONZ-platform-035 „Deckungsausweis" angenommen (#1491) und sieben
+von zehn Empfehlungen umgesetzt (#1492): versioniertes Objekt `deckungsausweis.v1`, zwei
+verschiedenartige Retrievalpfade mit Divergenz-Meldung, Selbst-Kalibrierung, unabhängige
+Zweitzählung des Nenners, Amendment an ADR-284 §2 Nr. 1 (Coverage-Contract gilt auch für
+Live-Antworten). K6/K8 in #1493, Pilot- und Retro-Fixes in #1494 — beide offen.
+
+**Referenzpostfach `search@dehnert.team`.** Owner-Vorschlag „anonymisierte Echt-Mails"
+geprüft und verworfen (Anonymisieren = die systematische Inhaltsauswertung, die die DSFA
+ausschließt). Stattdessen Struktur messen, Inhalt erfinden. Erster Lauf rot → echter
+Fehler gefunden (`imaplib` kodiert nur ASCII, Umlaut-Suche brach still ab).
+
+**risk-hub entblockt.** Klickdummy-Drift kam nicht vom Branch-Alter, sondern von einem
+ungepinnten Generator; erste Diagnose war falsch und ist im Issue korrigiert. #460 und
+#449 gemergt — `create_deletion_request` liegt in `main`.
+
+**Deep-Retro:** 16 Befunde, 14 überleben. Vier davon sagen dasselbe — eine Statuszeile
+behauptete mehr als das Artefakt hergibt. Ein destruktiver Löschpfad (`startswith` ohne
+Trenner) wurde gefunden und behoben. Report unter `docs/retros/`.
+
+**Nächste Schritte:** #1493 und #1494 freigeben · risk-hub#447 mergen (grün, approved,
+liegt seit 23.07.) · K-Tabelle in KONZ-035 gegen die vier Pilotfehler nachziehen ·
+Fleet-Wirkung des Klickdummy-Pins auf neun Repos tracken.
