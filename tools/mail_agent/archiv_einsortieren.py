@@ -30,6 +30,7 @@ import sys
 import time
 from collections import Counter
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -97,11 +98,19 @@ def imap_ordner(imap) -> list[str]:
 
 
 def imap_posten(imap, ordner: str) -> list[tuple[bytes, str | None]]:
-    """[(uid, jahr)] eines Ordners.
+    """[(uid, jahr)] eines Ordners — Jahr aus der ``Date``-Kopfzeile.
 
     UID wird ausdruecklich mit angefordert: Exchange liefert sie sonst nicht mit,
     und ein darauf aufbauender Filter gibt still eine leere Menge zurueck
     (error_pattern platform:20260728-exchange-uid).
+
+    **Massgeblich ist die Kopfzeile, nicht INTERNALDATE.** Letzteres ist der
+    Zeitpunkt, zu dem eine Nachricht in *diesem Ordner* ankam, und wird beim
+    Umsortieren neu gesetzt. Realfall 2026-07-28: In einem Sammelordner mit 4.910
+    Nachrichten wichen 2 zwischen Kopfzeile und Stempel ab — nach Stempel sortiert
+    waeren sie im falschen Jahrgang gelandet, und die Ablage-Pruefung haette
+    anschliessend genau das gemeldet. INTERNALDATE bleibt nur Rueckfallebene fuer
+    Nachrichten ohne lesbare Kopfzeile.
     """
     typ, res = imap.select(f'"{ordner}"', readonly=True)
     if typ != "OK":
@@ -110,18 +119,31 @@ def imap_posten(imap, ordner: str) -> list[tuple[bytes, str | None]]:
     if anzahl == 0:
         return []
     aus: list[tuple[bytes, str | None]] = []
-    for start in range(1, anzahl + 1, 2000):
+    for start in range(1, anzahl + 1, 500):
         typ, daten = imap.fetch(
-            f"{start}:{min(start + 1999, anzahl)}", "(UID INTERNALDATE)"
+            f"{start}:{min(start + 499, anzahl)}",
+            "(UID INTERNALDATE BODY.PEEK[HEADER.FIELDS (DATE)])",
         )
         if typ != "OK":
             continue
         for teil in daten or []:
-            roh = teil if isinstance(teil, bytes) else (teil[0] if teil else b"")
-            u = _UID.search(roh or b"")
-            d = _INTERNALDATE.search(roh or b"")
-            if u:
-                aus.append((u.group(1), d.group(1).decode() if d else None))
+            if not isinstance(teil, tuple) or len(teil) < 2:
+                continue
+            kopfteil, rumpf = teil[0], teil[1]
+            u = _UID.search(kopfteil or b"")
+            if not u:
+                continue
+            zeile = (rumpf or b"").decode("utf-8", "replace").strip()
+            jahr = None
+            if zeile.lower().startswith("date:"):
+                try:
+                    jahr = str(parsedate_to_datetime(zeile[5:].strip()).year)
+                except (TypeError, ValueError, IndexError):
+                    jahr = None
+            if jahr is None:  # Rueckfall: nur wenn die Kopfzeile nichts hergibt
+                d = _INTERNALDATE.search(kopfteil or b"")
+                jahr = d.group(1).decode() if d else None
+            aus.append((u.group(1), jahr))
     return aus
 
 
