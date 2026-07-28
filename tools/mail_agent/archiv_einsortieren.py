@@ -24,7 +24,9 @@ Sicherheitseigenschaften, bewusst so gewaehlt:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -108,6 +110,102 @@ def nachrichten(tok: str, fid: str) -> list[tuple[str, str | None]]:
     return aus
 
 
+BATCH_GROESSE = 20  # Graph-Obergrenze fuer /$batch
+WIEDERHOLBAR = {429, 503, 504}  # Drosselung/Ueberlast — kein Datenfehler
+
+
+def stapel_anfrage(posten: list[tuple[str, str]]) -> dict:
+    """Baut den /$batch-Rumpf. Rein, damit die Form ohne Netz pruefbar ist."""
+    return {
+        "requests": [
+            {
+                "id": str(i),
+                "method": "POST",
+                "url": f"/me/messages/{mid}/move",
+                "headers": {"Content-Type": "application/json"},
+                "body": {"destinationId": ziel_id},
+            }
+            for i, (mid, ziel_id) in enumerate(posten)
+        ]
+    }
+
+
+def stapel_auswerten(
+    antwort: dict, posten: list[tuple[str, str]]
+) -> tuple[int, list[tuple[str, str]], list[str]]:
+    """(erfolge, erneut_versuchen, endgueltige_fehler).
+
+    Graph liefert die Teilantworten **in beliebiger Reihenfolge** zurueck — sie
+    werden ueber die mitgesendete id zugeordnet, nie ueber die Position. Wer hier
+    positionsweise liest, ordnet Ergebnisse den falschen Nachrichten zu.
+    """
+    erfolge = 0
+    erneut: list[tuple[str, str]] = []
+    fehler: list[str] = []
+    gesehen: set[str] = set()
+
+    for teil in antwort.get("responses", []):
+        kennung = str(teil.get("id", ""))
+        gesehen.add(kennung)
+        if not kennung.isdigit() or int(kennung) >= len(posten):
+            fehler.append(f"unbekannte Teilantwort id={kennung!r}")
+            continue
+        status = int(teil.get("status", 0))
+        eintrag = posten[int(kennung)]
+        if status in (200, 201, 204):
+            erfolge += 1
+        elif status in WIEDERHOLBAR:
+            erneut.append(eintrag)
+        else:
+            fehler.append(f"HTTP {status} fuer {eintrag[0][:24]}…")
+
+    # Eine Teilantwort, die gar nicht kam, ist offen — nicht stillschweigend ok.
+    for i, eintrag in enumerate(posten):
+        if str(i) not in gesehen:
+            erneut.append(eintrag)
+
+    return erfolge, erneut, fehler
+
+
+def verschiebe_stapel(
+    tok: str, posten: list[tuple[str, str]], runden: int = 4
+) -> tuple[int, list[str]]:
+    """Verschiebt bis zu BATCH_GROESSE Nachrichten je Anfrage."""
+    offen = list(posten)
+    erfolge = 0
+    fehler: list[str] = []
+    for runde in range(runden):
+        if not offen:
+            break
+        if runde:
+            time.sleep(min(2**runde, 30))
+        naechste: list[tuple[str, str]] = []
+        for i in range(0, len(offen), BATCH_GROESSE):
+            block = offen[i : i + BATCH_GROESSE]
+            r = _http(
+                "POST",
+                f"{GRAPH}/$batch",
+                headers=_auth(tok),
+                json_body=stapel_anfrage(block),
+                timeout=120,
+            )
+            if r.status_code != 200:
+                naechste.extend(block)
+                continue
+            try:
+                daten = json.loads(r.text)
+            except ValueError:
+                naechste.extend(block)
+                continue
+            ok, erneut, schlecht = stapel_auswerten(daten, block)
+            erfolge += ok
+            naechste.extend(erneut)
+            fehler.extend(schlecht)
+        offen = naechste
+    fehler.extend(f"nach {runden} Runden offen: {mid[:24]}…" for mid, _ in offen)
+    return erfolge, fehler
+
+
 def verschiebe(tok: str, mid: str, ziel_id: str) -> bool:
     r = _http(
         "POST",
@@ -132,6 +230,11 @@ def main() -> None:
     ap.add_argument("--limit", type=int, help="hoechstens so viele verschieben")
     ap.add_argument(
         "--apply", action="store_true", help="wirklich verschieben (sonst Trockenlauf)"
+    )
+    ap.add_argument(
+        "--einzeln",
+        action="store_true",
+        help="ein Aufruf je Nachricht statt Stapel (langsam, aber eindeutig)",
     )
     args = ap.parse_args()
 
@@ -189,15 +292,36 @@ def main() -> None:
 
     if args.limit:
         zu_tun = zu_tun[: args.limit]
-    ok = fehler = 0
-    for i, (mid, ziel_id) in enumerate(zu_tun, 1):
-        if verschiebe(tok, mid, ziel_id):
-            ok += 1
-        else:
-            fehler += 1
-        if i % 250 == 0:
-            print(f"    … {i}/{len(zu_tun)} (ok {ok}, Fehler {fehler})", flush=True)
-    print(f"\n  verschoben {ok}, fehlgeschlagen {fehler}")
+
+    if args.einzeln:
+        ok = schlecht = 0
+        for i, (mid, ziel_id) in enumerate(zu_tun, 1):
+            if verschiebe(tok, mid, ziel_id):
+                ok += 1
+            else:
+                schlecht += 1
+            if i % 250 == 0:
+                print(f"    … {i}/{len(zu_tun)} (ok {ok}, Fehler {schlecht})", flush=True)
+        fehler = [f"{schlecht} Einzelfehler"] if schlecht else []
+    else:
+        ok = 0
+        fehler = []
+        schritt = BATCH_GROESSE * 25  # ~500 je Fortschrittszeile
+        for i in range(0, len(zu_tun), schritt):
+            teil_ok, teil_fehler = verschiebe_stapel(tok, zu_tun[i : i + schritt])
+            ok += teil_ok
+            fehler.extend(teil_fehler)
+            print(
+                f"    … {min(i + schritt, len(zu_tun))}/{len(zu_tun)} "
+                f"(ok {ok}, Fehler {len(fehler)})",
+                flush=True,
+            )
+
+    print(f"\n  verschoben {ok}, fehlgeschlagen {len(fehler)}")
+    for zeile in fehler[:20]:
+        print(f"    ! {zeile}")
+    if len(fehler) > 20:
+        print(f"    … und {len(fehler) - 20} weitere")
     if fehler:
         sys.exit(1)
 
