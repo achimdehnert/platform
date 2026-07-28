@@ -47,6 +47,13 @@ IIL-Ordner Archiv · [#1507](https://github.com/achimdehnert/platform/issues/150
 Nachrichten mit unglaubwürdigem Datum · [#1508](https://github.com/achimdehnert/platform/issues/1508)
 zwei Cron-Melder seit 22.07. blind (`HTTP 401 Bad credentials`).
 
+**Wissen gesichert (Outline, 2026-07-28):**
+[Runbook Postfach nach Jahrgängen sortieren](https://outline.iil.pet/doc/postfach-nach-jahrgangen-sortieren-graph-imap-Vsje1BfKw9) ·
+[Konzept Zwecktest statt Verbotsliste](https://outline.iil.pet/doc/zwecktest-statt-verbotsliste-grenze-der-inhaltsauswertung-im-mail-system-LBOr0B2Xbe) ·
+[Lesson Trockenlauf prüft den Schreibpfad nie](https://outline.iil.pet/doc/2026-07-28-der-trockenlauf-pruft-den-schreibpfad-nie-drei-fehler-fielen-erst-im-scharfen-lauf-auf-jkdPdNBStQ) ·
+[Lesson Ankunftsstempel ist nicht das Datum](https://outline.iil.pet/doc/2026-07-28-ankunftsstempel-ist-nicht-das-datum-der-nachricht-wPaPBauSle).
+Querverweis im Memory unter `outline:platform:20260728-mail-archivierung`.
+
 > **Erledigt 2026-07-28:** Handover-Prio 4 (Verteiler-Drift) — `doctor.py` meldet
 > DRIFT-SCORE 0 in beiden Lanes. **Nicht dieser Session zurechenbar**: kein Artefakt dieser
 > Session berührt `doctor.py` oder `generate.py`; der Retro-Skeptiker führt es als Hypothese.

@@ -247,3 +247,19 @@ die Kommentare. Report: `docs/retros/session-retro-2026-07-28-platform-d5eb5e.md
 **Nächste Schritte:** Merge-Reihenfolge #1494/#1500 entscheiden (echter, unsichtbarer
 Konflikt) · fünf PRs reviewen, damit der Stapel abgebaut wird · Freigabe für die
 §4.7/§4.9-Aufhebung als PR-Kommentar an #1498 nachtragen · #1506/#1507/#1508 abarbeiten.
+
+**Nachtrag Wissenssicherung (2026-07-28):** Vier Outline-Dokumente angelegt — Runbook
+(Postfach nach Jahrgängen sortieren, mit Tabelle der sechs bekannten Fehler), Konzept
+(Zwecktest statt Verbotsliste, inkl. der verworfenen Alternativen und der funktionalen
+Begründung für die Akteurs-Registry), zwei Lessons (Trockenlauf deckt den Schreibpfad
+nicht ab · Ankunftsstempel ist nicht das Nachrichtendatum, mit vollständiger
+Fallunterscheidung und dem Zeitzonen-Fallstrick). Querverweis im pgvector unter
+`outline:platform:20260728-mail-archivierung`.
+
+**Offen geblieben am Session-Ende:** Vier Repos sind dirty, alle belegbar **fremd** —
+`django-lms-lite` und `iil-doc-templates` mit untracked `.windsurf/`-Verzeichnissen aus der
+Verteilung, `lastwar-alliance-ops` mit einer geänderten Service-Datei aus einer parallelen
+Session, `risk-hub` mit geändertem `NEXT.md` (war laut Session-Start-Runner schon um 04:22
+als `GUARD(dirty)` markiert, also vor Sessionbeginn). Nach der Attributions-Regel liegen
+gelassen, nicht eingesammelt. Die Checklisten-Zeile „kein Repo dirty" ist damit **nicht**
+erfüllt und wird bewusst als offen geführt.
