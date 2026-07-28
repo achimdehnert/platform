@@ -59,16 +59,58 @@ def _jetzt() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def bekannte_konten() -> list[str]:
-    """Alle konfigurierten Postfächer — der Nenner der Konten-Ebene (KONZ-035 §5.3 R-1).
+def _env_schluessel(pfad: Path) -> dict[str, str]:
+    """Schlüssel/Wert einer .env — nur für Struktur-Prüfungen, nie zur Ausgabe."""
+    werte: dict[str, str] = {}
+    try:
+        text = pfad.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return werte
+    for zeile in text.splitlines():
+        zeile = zeile.strip()
+        if not zeile or zeile.startswith("#") or "=" not in zeile:
+            continue
+        k, _, v = zeile.partition("=")
+        werte[k.strip()] = v.strip().strip("'\"")
+    return werte
+
+
+def bekannte_konten(basis: Path | None = None) -> list[str]:
+    """Alle **lesbaren** Postfächer — der Nenner der Konten-Ebene (KONZ-035 §5.3 R-1).
 
     Ohne diese Zählung kehrt der stille Scope eine Ebene höher wieder: ein Lauf über
     *alle* Ordner *eines* Kontos sieht vollständig aus und ist es nicht.
+
+    Die Zugänge liegen an **zwei** Orten, deshalb zwei Quellen:
+
+    * ``mail-<name>.env`` — IMAP-Konten. Gezählt wird nur, was ein ``IMAP_HOST``
+      trägt: ``mail.env`` hat nur SMTP (reiner Versand, nicht lesbar) und
+      ``mail-folders.env`` ist eine Ordner-Routing-Tabelle, überhaupt kein Konto.
+    * ``calendar.env`` → ``GRAPH_ACCOUNTS`` — die Microsoft-365-Postfächer.
+
+    Ein Glob allein über ``mail-*.env`` zählte am 2026-07-28 die Routing-Tabelle als
+    Konto **und übersah das IIL-Postfach mit 44.878 Nachrichten vollständig**, weil
+    dessen Zugang in ``calendar.env`` steht. Der Ausweis meldete „Konten 1/4" und
+    nannte als Lücke alles außer der größten. Genau dagegen ist er gebaut — deshalb
+    prüft §8.13 diese Aufzählung gegen die Konfigurationsquellen, nicht gegen einen Glob.
     """
-    basis = Path.home() / ".claude"
-    namen = ["default"] if (basis / "mail.env").exists() else []
-    namen += sorted(p.stem.removeprefix("mail-") for p in basis.glob("mail-*.env"))
-    return namen
+    basis = basis or (Path.home() / ".claude")
+    namen: list[str] = []
+
+    for p in sorted(basis.glob("mail*.env")):
+        if "IMAP_HOST" not in _env_schluessel(p):
+            continue  # kein lesbares Postfach — Versand-Konfig oder Routing-Tabelle
+        stem = p.stem
+        namen.append("default" if stem == "mail" else stem.removeprefix("mail-"))
+
+    for adresse in _env_schluessel(basis / "calendar.env").get(
+        "GRAPH_ACCOUNTS", ""
+    ).split(","):
+        adresse = adresse.strip()
+        if adresse:
+            namen.append(adresse)
+
+    return sorted(set(namen))
 
 
 # ---------- reine Logik (ohne IMAP, damit testbar) ----------
