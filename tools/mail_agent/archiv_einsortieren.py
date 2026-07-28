@@ -130,10 +130,24 @@ def stapel_anfrage(posten: list[tuple[str, str]]) -> dict:
     }
 
 
+def _retry_after(teil: dict) -> int:
+    """Wartezeit aus den Teilantwort-Kopfzeilen, 0 wenn keine genannt ist.
+
+    `_Resp` traegt keine Kopfzeilen, wohl aber jede Teilantwort im /$batch-Rumpf —
+    das ist die einzige Stelle, an der Graph uns sagt, wie lange er gedrosselt hat.
+    """
+    kopf = {k.lower(): v for k, v in (teil.get("headers") or {}).items()}
+    wert = kopf.get("retry-after")
+    try:
+        return max(0, int(str(wert).strip()))
+    except (TypeError, ValueError):
+        return 0
+
+
 def stapel_auswerten(
     antwort: dict, posten: list[tuple[str, str]]
-) -> tuple[int, list[tuple[str, str]], list[str]]:
-    """(erfolge, erneut_versuchen, endgueltige_fehler).
+) -> tuple[int, list[tuple[str, str]], list[str], int]:
+    """(erfolge, erneut_versuchen, endgueltige_fehler, empfohlene_wartezeit).
 
     Graph liefert die Teilantworten **in beliebiger Reihenfolge** zurueck — sie
     werden ueber die mitgesendete id zugeordnet, nie ueber die Position. Wer hier
@@ -143,6 +157,7 @@ def stapel_auswerten(
     erneut: list[tuple[str, str]] = []
     fehler: list[str] = []
     gesehen: set[str] = set()
+    warten = 0
 
     for teil in antwort.get("responses", []):
         kennung = str(teil.get("id", ""))
@@ -156,6 +171,7 @@ def stapel_auswerten(
             erfolge += 1
         elif status in WIEDERHOLBAR:
             erneut.append(eintrag)
+            warten = max(warten, _retry_after(teil))
         else:
             fehler.append(f"HTTP {status} fuer {eintrag[0][:24]}…")
 
@@ -164,11 +180,19 @@ def stapel_auswerten(
         if str(i) not in gesehen:
             erneut.append(eintrag)
 
-    return erfolge, erneut, fehler
+    return erfolge, erneut, fehler, warten
+
+
+#: Wartezeit, wenn Graph drosselt ohne Retry-After zu nennen. Gemessen 2026-07-28:
+#: nach rund 10.000 Verschiebungen drosselt das Postfach, und die Sperre haelt
+#: Minuten an — die frueheren 2/4/8 Sekunden waren um Groessenordnungen zu kurz und
+#: brannten 12.000 Posten als "Fehler" ab, die schlicht haetten warten muessen.
+DROSSEL_WARTEN = 90
+DROSSEL_RUNDEN = 12
 
 
 def verschiebe_stapel(
-    tok: str, posten: list[tuple[str, str]], runden: int = 4
+    tok: str, posten: list[tuple[str, str]], runden: int = DROSSEL_RUNDEN
 ) -> tuple[int, list[str]]:
     """Verschiebt bis zu BATCH_GROESSE Nachrichten je Anfrage."""
     offen = list(posten)
@@ -177,9 +201,8 @@ def verschiebe_stapel(
     for runde in range(runden):
         if not offen:
             break
-        if runde:
-            time.sleep(min(2**runde, 30))
         naechste: list[tuple[str, str]] = []
+        warten = 0
         for i in range(0, len(offen), BATCH_GROESSE):
             block = offen[i : i + BATCH_GROESSE]
             r = _http(
@@ -191,17 +214,30 @@ def verschiebe_stapel(
             )
             if r.status_code != 200:
                 naechste.extend(block)
+                warten = max(warten, DROSSEL_WARTEN)
                 continue
             try:
                 daten = json.loads(r.text)
             except ValueError:
                 naechste.extend(block)
+                warten = max(warten, DROSSEL_WARTEN)
                 continue
-            ok, erneut, schlecht = stapel_auswerten(daten, block)
+            ok, erneut, schlecht, vorschlag = stapel_auswerten(daten, block)
             erfolge += ok
             naechste.extend(erneut)
             fehler.extend(schlecht)
+            if erneut:
+                warten = max(warten, vorschlag or DROSSEL_WARTEN)
         offen = naechste
+        if offen and runde + 1 < runden:
+            # Laut melden, nicht erst in der Schlussbilanz — ein Lauf, der still
+            # 12.000 Fehler sammelt, sieht bis zum Ende gesund aus.
+            print(
+                f"    ⏸ gedrosselt: {len(offen)} offen, warte {warten}s "
+                f"(Runde {runde + 1}/{runden})",
+                flush=True,
+            )
+            time.sleep(warten)
     fehler.extend(f"nach {runden} Runden offen: {mid[:24]}…" for mid, _ in offen)
     return erfolge, fehler
 
