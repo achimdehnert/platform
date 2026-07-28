@@ -47,6 +47,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import deckungsausweis as dz  # noqa: E402
+import indexierung as ix  # noqa: E402
 import organize_mail as om  # noqa: E402
 import read_mail as rm  # noqa: E402
 
@@ -478,6 +479,11 @@ def cmd_topic(
     nenner_pruefen: bool = True,
 ) -> None:
     alle = om.list_folders(imap)
+    # ADR-286 §4.10.7: ausgeschlossene Ordner werden NICHT durchsucht, bleiben aber
+    # im Nenner (`ordner_vorhanden=len(alle)`) und erscheinen einzeln unter
+    # "nicht gedeckt". Wer den Nenner mitverkleinert, baut genau die stille Luecke,
+    # die der Ausweis sichtbar machen soll.
+    zu_durchsuchen, ausgeschlossen = ix.aufteilen(alle)
     t0 = time.time()
     gestartet = _jetzt()
     gefunden: list[tuple[str, str]] = []
@@ -492,7 +498,7 @@ def cmd_topic(
     selbst_gezaehlt: dict[str, int] = {}
     laut_server: dict[str, int] = {}
 
-    for name in alle:
+    for name in zu_durchsuchen:
         try:
             typ, _ = imap.select(f'"{name}"', readonly=True)
             if typ != "OK":
@@ -559,6 +565,7 @@ def cmd_topic(
     konten = bekannte_konten()
     andere = [k for k in konten if k != konto]
     nicht_gedeckt = [(f"Konto {k}", "in diesem Lauf nicht abgefragt") for k in andere]
+    nicht_gedeckt += [(f"Ordner {o}", grund) for o, grund in ausgeschlossen]
     for pfad, grund in sorted(kalibrierung.items()):
         if grund:
             nicht_gedeckt.append((f"Pfad {pfad}", grund))
