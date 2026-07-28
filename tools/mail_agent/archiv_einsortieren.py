@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from collections import Counter
@@ -70,6 +71,108 @@ def entscheide(
     if jahr not in vorhandene_jahrgaenge:
         return None, f"Jahrgangsordner fuer {jahr} fehlt — nicht angelegt"
     return jahr, "einsortieren"
+
+
+# ---------- IMAP (zweiter Transport) ----------
+
+_LIST_ZEILE = re.compile(
+    rb'^\([^)]*\)\s+(?:"[^"]*"|NIL)\s+(?:"(?P<q>[^"]*)"|(?P<u>\S+))\s*$'
+)
+_UID = re.compile(rb"UID (\d+)")
+_INTERNALDATE = re.compile(rb'INTERNALDATE "\d{2}-\w{3}-(\d{4})')
+
+
+def imap_ordner(imap) -> list[str]:
+    typ, res = imap.list()
+    if typ != "OK":
+        return []
+    namen = []
+    for zeile in res or []:
+        m = _LIST_ZEILE.match(zeile) if zeile else None
+        if not m:
+            continue
+        roh = m.group("q") if m.group("q") is not None else m.group("u")
+        namen.append(roh.decode("utf-8", "replace"))
+    return namen
+
+
+def imap_posten(imap, ordner: str) -> list[tuple[bytes, str | None]]:
+    """[(uid, jahr)] eines Ordners.
+
+    UID wird ausdruecklich mit angefordert: Exchange liefert sie sonst nicht mit,
+    und ein darauf aufbauender Filter gibt still eine leere Menge zurueck
+    (error_pattern platform:20260728-exchange-uid).
+    """
+    typ, res = imap.select(f'"{ordner}"', readonly=True)
+    if typ != "OK":
+        return []
+    anzahl = int(res[0])
+    if anzahl == 0:
+        return []
+    aus: list[tuple[bytes, str | None]] = []
+    for start in range(1, anzahl + 1, 2000):
+        typ, daten = imap.fetch(
+            f"{start}:{min(start + 1999, anzahl)}", "(UID INTERNALDATE)"
+        )
+        if typ != "OK":
+            continue
+        for teil in daten or []:
+            roh = teil if isinstance(teil, bytes) else (teil[0] if teil else b"")
+            u = _UID.search(roh or b"")
+            d = _INTERNALDATE.search(roh or b"")
+            if u:
+                aus.append((u.group(1), d.group(1).decode() if d else None))
+    return aus
+
+
+def imap_kann_move(imap) -> bool:
+    """MOVE (RFC 6851) verschiebt atomar. Ohne die Erweiterung braucht es
+    COPY + \\Deleted + UID EXPUNGE — und UID EXPUNGE (UIDPLUS, RFC 4315) ist
+    Pflicht: ein blankes EXPUNGE loescht ALLE als geloescht markierten
+    Nachrichten des Ordners, auch fremd markierte."""
+    return "MOVE" in _faehigkeiten(imap)
+
+
+def _faehigkeiten(imap) -> set[str]:
+    """imaplib liefert Faehigkeiten als str-Tupel, nicht als bytes."""
+    return {
+        (c.decode() if isinstance(c, bytes) else str(c)).upper()
+        for c in imap.capabilities
+    }
+
+
+def imap_kann_uid_expunge(imap) -> bool:
+    return "UIDPLUS" in _faehigkeiten(imap)
+
+
+def imap_verschiebe(imap, ordner: str, uids: list[bytes], ziel: str) -> tuple[int, str]:
+    """(verschoben, fehlermeldung). Schreibzugriff — Ordner NICHT readonly oeffnen."""
+    if not uids:
+        return 0, ""
+    typ, _ = imap.select(f'"{ordner}"', readonly=False)
+    if typ != "OK":
+        return 0, f"Ordner '{ordner}' nicht schreibend zu oeffnen"
+    menge = b",".join(uids).decode()
+
+    if imap_kann_move(imap):
+        typ, res = imap.uid("MOVE", menge, f'"{ziel}"')
+        return (len(uids), "") if typ == "OK" else (0, f"MOVE fehlgeschlagen: {res}")
+
+    if not imap_kann_uid_expunge(imap):
+        return 0, (
+            "Server kann weder MOVE noch UID EXPUNGE — ein blankes EXPUNGE wuerde "
+            "fremd markierte Nachrichten mitloeschen, deshalb kein Fallback"
+        )
+    typ, res = imap.uid("COPY", menge, f'"{ziel}"')
+    if typ != "OK":
+        return 0, f"COPY fehlgeschlagen: {res}"
+    typ, res = imap.uid("STORE", menge, "+FLAGS", "(\\Deleted)")
+    if typ != "OK":
+        return 0, f"STORE fehlgeschlagen (Kopie liegt bereits im Ziel): {res}"
+    typ, res = imap.uid("EXPUNGE", menge)
+    if typ != "OK":
+        return 0, f"UID EXPUNGE fehlgeschlagen: {res}"
+    return len(uids), ""
 
 
 # ---------- Graph ----------
@@ -255,6 +358,74 @@ def verschiebe(tok: str, mid: str, ziel_id: str) -> bool:
     return True
 
 
+def lauf_imap(args) -> None:
+    """IMAP-Variante: gleiche Entscheidungslogik, anderer Transport."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from read_mail import _resolve_config, connect
+    from send_mail import parse_env
+
+    imap = connect(parse_env(_resolve_config(None, args.imap_konto)))
+    alle = imap_ordner(imap)
+    if args.quelle not in alle:
+        sys.exit(f"Quellordner '{args.quelle}' nicht gefunden")
+    jahrgaenge = {
+        p.split("/")[-1]
+        for p in alle
+        if p.startswith(f"{args.ziel_wurzel}/") and p.split("/")[-1].isdigit()
+    }
+    aktuelles_jahr = datetime.now(timezone.utc).year
+
+    posten = imap_posten(imap, args.quelle)
+    modus = "AUSFUEHRUNG" if args.apply else "TROCKENLAUF"
+    print(f"=== {modus} · IMAP {args.imap_konto} · {args.quelle} → "
+          f"{args.ziel_wurzel}/<Jahr> ===")
+    print(f"    {TOOL_VERSION} · bis {args.bis} · laufendes Jahr {aktuelles_jahr}")
+    print(f"    MOVE={imap_kann_move(imap)} UIDPLUS={imap_kann_uid_expunge(imap)}")
+    print(f"    {len(posten)} Nachricht(en) gelesen, "
+          f"{len(jahrgaenge)} Jahrgangsordner vorhanden\n")
+
+    plan: dict[str, list[bytes]] = {}
+    uebersprungen: Counter = Counter()
+    for uid, jahr in posten:
+        ziel, grund = entscheide(jahr, args.bis, aktuelles_jahr, jahrgaenge)
+        if ziel is None or (args.nur_jahr and ziel != args.nur_jahr):
+            uebersprungen[grund if ziel is None else f"nicht --nur-jahr {args.nur_jahr}"] += 1
+            continue
+        plan.setdefault(ziel, []).append(uid)
+
+    for jahr, uids in sorted(plan.items()):
+        print(f"  {len(uids):>6}  → {args.ziel_wurzel}/{jahr}")
+    print(f"  {sum(len(u) for u in plan.values()):>6}  gesamt einzusortieren")
+    if uebersprungen:
+        print("\n  uebersprungen:")
+        for grund, n in sorted(uebersprungen.items(), key=lambda kv: -kv[1]):
+            print(f"  {n:>6}  {grund}")
+
+    if not args.apply:
+        print("\n  Trockenlauf — nichts veraendert. Mit --apply ausfuehren.")
+        return
+
+    ok = 0
+    fehler: list[str] = []
+    for jahr, uids in sorted(plan.items()):
+        if args.limit:
+            uids = uids[: args.limit]
+        ziel = f"{args.ziel_wurzel}/{jahr}"
+        for i in range(0, len(uids), 200):
+            n, meldung = imap_verschiebe(imap, args.quelle, uids[i : i + 200], ziel)
+            ok += n
+            if meldung:
+                fehler.append(f"{ziel}: {meldung}")
+        print(f"    … {ziel}: {ok} gesamt verschoben", flush=True)
+    imap.logout()
+
+    print(f"\n  verschoben {ok}, fehlgeschlagen {len(fehler)}")
+    for zeile in fehler[:20]:
+        print(f"    ! {zeile}")
+    if fehler:
+        sys.exit(1)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--quelle", default="Archiv", help="flacher Quellordner")
@@ -272,7 +443,16 @@ def main() -> None:
         action="store_true",
         help="ein Aufruf je Nachricht statt Stapel (langsam, aber eindeutig)",
     )
+    ap.add_argument(
+        "--imap-konto",
+        dest="imap_konto",
+        help="statt Graph ueber IMAP arbeiten (Kontokuerzel, z.B. hnu)",
+    )
     args = ap.parse_args()
+
+    if args.imap_konto:
+        lauf_imap(args)
+        return
 
     cfg = load_cfg()
     konto = cfg["accounts"][0]
