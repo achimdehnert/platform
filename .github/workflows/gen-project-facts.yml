@@ -33,6 +33,9 @@ jobs:
       - name: Generate + Push project-facts.md
         env:
           GITHUB_TOKEN: ${{ secrets.PROJECT_PAT }}
+          # Nur Ausgangspunkt: der Verteiler löst den echten Owner je Repo
+          # über die API auf (org-migrierte Repos wie risk-hub liegen unter
+          # iilgmbh/ und antworteten sonst mit HTTP 307). Siehe #1516.
           GITHUB_ORG: achimdehnert
         run: |
           ARGS="${{ inputs.target_repo }}"

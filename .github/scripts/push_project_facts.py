@@ -42,6 +42,10 @@ TODAY = date.today().isoformat()
 # GitHub API helpers (stdlib only)
 # ---------------------------------------------------------------------------
 
+class ApiFehler(RuntimeError):
+    """HTTP-Fehler der GitHub-API — mit der Meldung aus dem Body, nicht nur dem Code."""
+
+
 def _req(url: str, method: str = "GET", body: bytes | None = None) -> dict | list | None:
     headers = {
         "Authorization": f"token {TOKEN}",
@@ -53,16 +57,42 @@ def _req(url: str, method: str = "GET", body: bytes | None = None) -> dict | lis
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            return json.loads(r.read())
+            roh = r.read()
+            return json.loads(roh) if roh else {}
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
-        raise
+        # Der Body trägt die eigentliche Diagnose. Vorher flog nur
+        # "HTTP Error 409: Conflict" — sieben Wochen lang, ohne dass jemand
+        # sah, dass ein Ruleset den Direkt-Push ablehnt.
+        try:
+            meldung = (json.loads(e.read()) or {}).get("message", "")
+        except (ValueError, OSError):
+            meldung = ""
+        raise ApiFehler(f"HTTP {e.code} {e.reason}{f' — {meldung}' if meldung else ''}") from e
+
+
+_SLUGS: dict[str, str] = {}
+
+
+def gh_slug(repo: str) -> str:
+    """`owner/repo` wie es HEUTE heißt — nicht wie es in der Registry steht.
+
+    `ORG` ist eine Voreinstellung, keine Wahrheit: `risk-hub`, `tax-hub` und
+    `ausschreibungs-hub` liegen inzwischen unter `iilgmbh/`. Ein GET folgt der
+    Weiterleitung und liefert den echten Namen; ein PUT folgt ihr NICHT (urllib
+    leitet nur GET/HEAD weiter) und scheiterte deshalb mit `HTTP 307`.
+    Vgl. feedback_github_redirect_masks_org_hardcode.
+    """
+    if repo not in _SLUGS:
+        daten = _req(f"{API}/repos/{ORG}/{repo}")
+        _SLUGS[repo] = (daten or {}).get("full_name") or f"{ORG}/{repo}"
+    return _SLUGS[repo]
 
 
 def gh_get_file(repo: str, path: str) -> str | None:
     """Return decoded file content or None if not found."""
-    data = _req(f"{API}/repos/{ORG}/{repo}/contents/{path}")
+    data = _req(f"{API}/repos/{gh_slug(repo)}/contents/{path}")
     if data and isinstance(data, dict) and data.get("encoding") == "base64":
         return base64.b64decode(data["content"]).decode()
     return None
@@ -70,26 +100,82 @@ def gh_get_file(repo: str, path: str) -> str | None:
 
 def gh_get_dir(repo: str, path: str) -> list[str]:
     """Return list of entry names in directory, or [] if not found."""
-    data = _req(f"{API}/repos/{ORG}/{repo}/contents/{path}")
+    data = _req(f"{API}/repos/{gh_slug(repo)}/contents/{path}")
     if isinstance(data, list):
         return [e["name"] for e in data]
     return []
 
 
-def gh_push_file(repo: str, path: str, content: str, message: str) -> bool:
-    """Create or update a file in the repo. Returns True on success."""
-    existing = _req(f"{API}/repos/{ORG}/{repo}/contents/{path}")
-    sha = existing.get("sha") if isinstance(existing, dict) else None
+#: Kopfzeile mit dem Generierungsdatum — ändert sich bei JEDEM Lauf und ist
+#: allein kein Grund für einen Pull Request.
+_DATUMSZEILE = re.compile(r"^> Letzte Aktualisierung: \d{4}-\d{2}-\d{2}.*$", re.MULTILINE)
+
+
+def _ohne_datum(text: str) -> str:
+    return _DATUMSZEILE.sub("> Letzte Aktualisierung: <datum>", text or "")
+
+
+def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
+    """Datei über einen Branch + Pull Request aktualisieren.
+
+    Der frühere Direkt-Push auf `main` scheiterte an den `main-required-checks`-
+    Rulesets (ADR-242 Wave 3, ohne Bypass-Actor): die Contents-API kann keinen
+    Required Check erfüllen und antwortet mit `HTTP 409 Conflict`. Dieselbe
+    Fehlerklasse ist im Kopf von `adr-nightly-metrics.yml` schon beschrieben
+    (Issue #818) — dies ist ihr zweites Auftreten.
+
+    Rückgabe: kurze Statuszeile (PR-Nummer, "unverändert" oder Fehler).
+    """
+    slug = gh_slug(repo)
+    branch = "chore/project-facts-sync"
+
+    repo_daten = _req(f"{API}/repos/{slug}") or {}
+    basis = repo_daten.get("default_branch") or "main"
+
+    vorhanden = _req(f"{API}/repos/{slug}/contents/{path}?ref={basis}")
+    if isinstance(vorhanden, dict) and vorhanden.get("encoding") == "base64":
+        alt = base64.b64decode(vorhanden["content"]).decode()
+        if _ohne_datum(alt) == _ohne_datum(content):
+            return "unverändert"
+
+    # Branch auf den aktuellen Stand von `basis` setzen (anlegen oder umbiegen),
+    # damit ein liegengebliebener Branch aus einem Vorlauf nicht divergiert.
+    kopf = (_req(f"{API}/repos/{slug}/git/ref/heads/{basis}") or {}).get("object", {}).get("sha")
+    if not kopf:
+        raise ApiFehler(f"Kopf von '{basis}' nicht lesbar")
+    if _req(f"{API}/repos/{slug}/git/ref/heads/{branch}"):
+        _req(f"{API}/repos/{slug}/git/refs/heads/{branch}", method="PATCH",
+             body=json.dumps({"sha": kopf, "force": True}).encode())
+    else:
+        _req(f"{API}/repos/{slug}/git/refs", method="POST",
+             body=json.dumps({"ref": f"refs/heads/{branch}", "sha": kopf}).encode())
+
+    auf_branch = _req(f"{API}/repos/{slug}/contents/{path}?ref={branch}")
     payload: dict = {
         "message": message,
         "content": base64.b64encode(content.encode()).decode(),
-        "branch": "main",
+        "branch": branch,
     }
-    if sha:
-        payload["sha"] = sha
-    body = json.dumps(payload).encode()
-    result = _req(f"{API}/repos/{ORG}/{repo}/contents/{path}", method="PUT", body=body)
-    return bool(result)
+    if isinstance(auf_branch, dict) and auf_branch.get("sha"):
+        payload["sha"] = auf_branch["sha"]
+    _req(f"{API}/repos/{slug}/contents/{path}", method="PUT", body=json.dumps(payload).encode())
+
+    offen = _req(f"{API}/repos/{slug}/pulls?head={slug.split('/')[0]}:{branch}&state=open")
+    if isinstance(offen, list) and offen:
+        return f"PR #{offen[0]['number']} aktualisiert"
+    neu = _req(f"{API}/repos/{slug}/pulls", method="POST", body=json.dumps({
+        "title": "docs: project-facts.md aktualisieren",
+        "head": branch,
+        "base": basis,
+        "body": (
+            "Automatisch erzeugt von `platform/.github/scripts/push_project_facts.py`.\n\n"
+            "Direkt auf `main` zu schreiben ist seit dem `main-required-checks`-Ruleset "
+            "nicht mehr möglich (die Contents-API kann keinen Required Check erfüllen, "
+            "GitHub antwortet mit `409 Conflict`) — deshalb dieser PR.\n\n"
+            "Ändert sich nur das Generierungsdatum, entsteht **kein** PR."
+        ),
+    }).encode()) or {}
+    return f"PR #{neu.get('number', '?')} angelegt"
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +390,7 @@ def build_project_facts(repo: str, reg: dict, info: dict, src_root: str, apps: l
     lines = [
         f"# Project Facts: {repo}",
         "",
-        f"> Auto-generiert von `platform/.github/scripts/push_project_facts.py`",
+        "> Auto-generiert von `platform/.github/scripts/push_project_facts.py`",
         f"> Letzte Aktualisierung: {TODAY} — bei Änderungen: `platform/gen-project-facts.yml` triggern",
         "",
         "## Meta",
@@ -331,7 +417,7 @@ def build_project_facts(repo: str, reg: dict, info: dict, src_root: str, apps: l
         "",
         f"- **Django**: `{django_v}`",
         f"- **Python**: `{python_v}`",
-        f"- **PostgreSQL**: `16`",
+        "- **PostgreSQL**: `16`",
         f"- **HTMX installiert**: {'ja (`django-htmx`)' if has_htmx else 'nein'}",
         f"- **HTMX-Detection**: `{htmx_detection}`",
         celery_line,
@@ -394,14 +480,15 @@ def process_repo(repo: str, reg: dict, dry_run: bool) -> str:
         print(content)
         return f"DRY-RUN: {repo}"
 
-    # Push to repo root
-    ok = gh_push_file(
+    # Push to repo root (über Branch + PR, siehe gh_push_file)
+    stand = gh_push_file(
         repo,
         "project-facts.md",
         content,
         f"docs: project-facts.md aktualisiert ({TODAY}) [skip ci]",
     )
-    return f"{'✅' if ok else '❌'} {repo}"
+    zeichen = "⏭" if stand == "unverändert" else "✅"
+    return f"{zeichen} {repo}: {stand}"
 
 
 # ---------------------------------------------------------------------------
@@ -441,8 +528,9 @@ def main() -> None:
             print(f"  {msg}", flush=True)
 
     ok = sum(1 for r in results if r.startswith("✅"))
+    gleich = sum(1 for r in results if r.startswith("⏭"))
     fail = sum(1 for r in results if r.startswith("❌"))
-    print(f"\n=== Fertig: {ok} ok, {fail} fehler ===")
+    print(f"\n=== Fertig: {ok} PR(s), {gleich} unverändert, {fail} fehler ===")
     if fail:
         sys.exit(1)
 
