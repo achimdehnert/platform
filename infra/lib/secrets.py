@@ -45,26 +45,18 @@ SECRETS_DIR = Path.home() / ".secrets"
 REGISTRY: dict[str, dict] = {
     "cloudflare": {
         "env": "CLOUDFLARE_API_TOKEN",
-        "mcp_env": (
-            "DEPLOYMENT_MCP_CLOUDFLARE_API_TOKEN"
-        ),
+        "mcp_env": ("DEPLOYMENT_MCP_CLOUDFLARE_API_TOKEN"),
         "file": "cloudflare_api_token",
         "alt_files": [
             "cloudflare_write_token",
         ],
         "mcp_process": "deployment_mcp",
         "description": "Cloudflare DNS/Zone API",
-        "test_url": (
-            "https://api.cloudflare.com"
-            "/client/v4/user/tokens/verify"
-        ),
+        "test_url": ("https://api.cloudflare.com/client/v4/user/tokens/verify"),
     },
     "cloudflare_access": {
         "env": "CLOUDFLARE_ACCESS_TOKEN",
-        "mcp_env": (
-            "DEPLOYMENT_MCP_CLOUDFLARE"
-            "_ACCESS_TOKEN"
-        ),
+        "mcp_env": ("DEPLOYMENT_MCP_CLOUDFLARE_ACCESS_TOKEN"),
         "file": "cloudflare_access_token",
         "alt_files": [],
         "mcp_process": "deployment_mcp",
@@ -72,9 +64,7 @@ REGISTRY: dict[str, dict] = {
     },
     "hetzner": {
         "env": "HETZNER_CLOUD_TOKEN",
-        "mcp_env": (
-            "DEPLOYMENT_MCP_HETZNER_CLOUD_TOKEN"
-        ),
+        "mcp_env": ("DEPLOYMENT_MCP_HETZNER_CLOUD_TOKEN"),
         "file": "hetzner_cloud_token",
         "alt_files": [],
         "mcp_process": "deployment_mcp",
@@ -82,9 +72,7 @@ REGISTRY: dict[str, dict] = {
     },
     "github": {
         "env": "GITHUB_TOKEN",
-        "mcp_env": (
-            "GITHUB_PERSONAL_ACCESS_TOKEN"
-        ),
+        "mcp_env": ("GITHUB_PERSONAL_ACCESS_TOKEN"),
         "file": "github_token",
         "alt_files": [],
         "mcp_process": None,
@@ -191,7 +179,8 @@ def _read_mcp_env(
         raw = env_path.read_bytes()
         for entry in raw.split(b"\x00"):
             decoded = entry.decode(
-                "utf-8", errors="replace",
+                "utf-8",
+                errors="replace",
             )
             if decoded.startswith(f"{env_var}="):
                 return decoded.split("=", 1)[1]
@@ -307,15 +296,35 @@ def verify_token(name: str) -> bool:
     try:
         req = urllib.request.Request(test_url)
         req.add_header(
-            "Authorization", f"Bearer {token}",
+            "Authorization",
+            f"Bearer {token}",
         )
         resp = urllib.request.urlopen(
-            req, timeout=10,
+            req,
+            timeout=10,
         )
         data = json.loads(resp.read())
         return data.get("success", False)
     except Exception:
         return False
+
+
+def _fingerprint(val: str) -> str:
+    """Wiedererkennbar, aber nicht rekonstruierbar: Laenge + SHA-256-Praefix.
+
+    Ersetzt das fruehere ``val[:8]``. Acht Zeichen sind bei manchen Anbietern
+    nur der oeffentliche Praefix (``sk-proj-``), bei anderen ein Drittel eines
+    kurzen Tokens — und ``print_status()`` schrieb sie fuer JEDES Secret nach
+    stdout, also ins Terminal, in den Scrollback und in jedes kopierte Log.
+
+    Der Fingerabdruck leistet, wofuer die Vorschau da war: zwei Kopien
+    desselben Secrets vergleichen, ohne den Wert zu kennen. Genau so wurde am
+    2026-07-29 belegt, dass Prod einen anderen Groq-Schluessel trug als
+    ``~/.secrets``.
+    """
+    import hashlib
+
+    return f"{len(val)}·{hashlib.sha256(val.encode()).hexdigest()[:8]}"
 
 
 def status_all() -> dict[str, dict]:
@@ -325,11 +334,11 @@ def status_all() -> dict[str, dict]:
         val = get_secret(name)
         results[name] = {
             "found": bool(val),
-            "preview": (
-                f"{val[:8]}..." if val else ""
-            ),
+            # KEINE Vorschau des Werts — siehe _fingerprint().
+            "fingerprint": _fingerprint(val) if val else "",
             "description": entry.get(
-                "description", "",
+                "description",
+                "",
             ),
             "env": entry.get("env", ""),
             "file": entry.get("file", ""),
@@ -338,17 +347,15 @@ def status_all() -> dict[str, dict]:
 
 
 def print_status() -> None:
-    """Print status of all secrets to stdout."""
+    """Print status of all secrets to stdout — ohne Werte, nur Fingerabdruecke."""
     print("Secret-Status (infra/lib/secrets.py)")
     print("=" * 60)
     for name, info in status_all().items():
         icon = "✅" if info["found"] else "❌"
-        preview = info["preview"] or "MISSING"
-        print(
-            f"  {icon}  {name:20}"
-            f" {preview:15}"
-            f" {info['description']}"
-        )
+        fp = info["fingerprint"] or "MISSING"
+        print(f"  {icon}  {name:20} {fp:15} {info['description']}")
+    print()
+    print("Fingerabdruck = Laenge·SHA-256(8). Vergleichbar, nicht rekonstruierbar.")
 
 
 if __name__ == "__main__":
@@ -360,11 +367,9 @@ if __name__ == "__main__":
         ok = verify_token("cloudflare")
         icon = "✅" if ok else "❌"
         print(
-            f"  {icon}  cloudflare"
-            " API-Token funktioniert"
+            f"  {icon}  cloudflare API-Token funktioniert"
             if ok
-            else f"  {icon}  cloudflare"
-            " API-Token UNGÜLTIG!"
+            else f"  {icon}  cloudflare API-Token UNGÜLTIG!"
         )
     else:
         print("  ⏭  cloudflare: kein Token")
