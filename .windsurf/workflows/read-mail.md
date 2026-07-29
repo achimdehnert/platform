@@ -159,6 +159,38 @@ Kurz-Link für eine IIL-Mail anlegen:
   (HNU-Inhalte auf IIL-Infrastruktur), keine Bequemlichkeitsfrage.
 - Das Zugriffslog trägt bewusst keine UID und keinen Betreff.
 
+### Stabile Board-Links: `anker.py` + Route `/a/<board-nummer>`
+
+`/m/<uid>` bricht, sobald die Mail den Ordner wechselt — UIDs gelten pro Ordner.
+`anker.py` bindet jeden Board-Eintrag zusätzlich an seine **Message-ID**, den
+stabilen Schlüssel (dieselbe Begründung wie in `referenzpostfach.py`).
+
+```bash
+python3 tools/mail_agent/anker.py --setze 1 --account hnu --uid 163497
+python3 tools/mail_agent/anker.py --pruefe --uebernehmen   # Exit 1 = etwas hat sich bewegt
+python3 tools/mail_agent/anker.py --liste
+```
+
+| Zustand | Bedeutung | Folge |
+|---|---|---|
+| unverändert | UID trifft, Message-ID stimmt | schneller Weg, keine Ordnersuche |
+| verschoben | Message-ID in anderem Ordner | Anker wird nachgezogen, Link bleibt heil |
+| gelöscht | Message-ID nirgends mehr | wird **gemeldet**, Eintrag bleibt stehen |
+
+Der Board-Link heißt dann `http://localhost:8787/a/1` statt `/m/163497`. Die Route
+löst über den Anker auf und zieht eine Verschiebung im Vorbeigehen nach. Ist die
+Mail weg, antwortet sie **410 Gone** mit dem letzten bekannten Ordner statt eines
+nichtssagenden 404.
+
+- **Gelöschte Anker werden nie stillschweigend entfernt** — Pflege-Regel 1 des
+  Boards („Item verschwindet erst bei Beleg") gilt auch hier: der Befund meldet,
+  entscheiden tut der Owner.
+- Kosten gemessen 2026-07-29: 6 Anker auf dem schnellen Weg **1,4 s**; die
+  Ordnersuche läuft nur im Fehlerfall und kostete dort **8,6 s**.
+- Damit muss der Owner Verschieben/Löschen **nicht** ansagen — das erkennt der
+  Anker. Ansagen muss er nur, was im Postfach keine Spur hinterlässt: Telefonate,
+  mündliche Zusagen, Entscheidungen ohne Mail.
+
 ## Anti-Patterns
 
 - ❌ Credentials/Passwörter nach stdout — die Config-Disziplin von `/send-mail` Step 0 gilt 1:1
@@ -177,6 +209,10 @@ Kurz-Link für eine IIL-Mail anlegen:
 
 ## Changelog
 
+- 2026-07-29: `anker.py` + Route `/a/<board-nummer>` — Board-Einträge hängen an der
+  Message-ID statt an Ordner+UID. Verschieben wird erkannt und nachgezogen, Löschen
+  gemeldet (410 statt 404). Der Owner muss Postfach-Aktionen damit nicht mehr ansagen.
+  Tests: `tools/tests/test_anker.py`.
 - 2026-07-29: **P3-Teil 1.** `--wer <name>` löst einen Namen erst zu **allen**
   Adressen dieser Person im Bestand auf, zeigt sie an und baut das Dossier
   darüber — eine Adresse ist keine Person. Jede „Offen"-Zeile trägt jetzt
