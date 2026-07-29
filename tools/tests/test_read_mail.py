@@ -705,3 +705,108 @@ def test_should_warn_when_coverage_is_incomplete():
     )
     text = rm.rendern_dossier(rm.baue_dossier(erg, _JETZT))
     assert "NICHT belegt" in text
+
+
+# --- Parteien-Aufloesung (P3) -------------------------------------------------
+# Eine Adresse ist keine Person. Aufgeloest wird VOR der Suche, und das Ergebnis
+# wird angezeigt — Uebermatch ist dann sichtbar statt still.
+
+
+def _tp(von, an, betreff="X", datum="Tue, 23 Jun 2026 09:13:20 +0200"):
+    return rm.Treffer(
+        ordner="O", nummer="1", datum=datum, von=von, an=an, betreff=betreff
+    )
+
+
+# Der Realfall vom 2026-07-29: die Kopfzeile als Ganzes zu strippen gab allen
+# Sammelempfaengern denselben "Namen" — die Suche lieferte den halben Verteiler.
+def test_should_read_display_names_per_address_not_per_header():
+    # So schreibt Exchange es real: Nachname-Komma-Vorname in Anfuehrungszeichen.
+    paare = rm._paare(
+        '"Kramer, Daniel" <d.kramer@x.de>, "Offner, Petra" <p.offner@x.de>'
+    )
+    assert dict((a, n) for n, a in paare) == {
+        "d.kramer@x.de": "kramer, daniel",
+        "p.offner@x.de": "offner, petra",
+    }
+
+
+# Bekannte Grenze: OHNE Anfuehrungszeichen ist 'Nachname, Vorname <adr>' nach RFC
+# mehrdeutig und wird am Komma zerlegt. Der Anzeigename wird dadurch kuerzer, die
+# ADRESSEN bleiben korrekt — und nur die tragen das Ergebnis.
+def test_should_still_get_the_addresses_right_when_the_name_is_unquoted():
+    paare = rm._paare("Kramer, Daniel <d.kramer@x.de>, Offner, Petra <p.offner@x.de>")
+    assert {a for _, a in paare} == {"d.kramer@x.de", "p.offner@x.de"}
+
+
+def test_should_reject_display_names_that_cannot_bridge():
+    assert not rm._tragfaehiger_name("")
+    assert not rm._tragfaehiger_name(",")
+    assert not rm._tragfaehiger_name("a@b.de")
+    assert rm._tragfaehiger_name("offner, petra")
+
+
+def test_should_find_the_addresses_of_one_person():
+    t = [_tp("Petra Offner <p.offner@x.de>", "ich@y.de")]
+    p = rm.parteien_aufloesen(t, "offner")
+    assert p.adressen == ("p.offner@x.de",)
+    assert p.nachrichten == 1
+
+
+# Dieselbe Person unter zwei Adressen gehoert zusammengefuehrt.
+def test_should_merge_two_addresses_sharing_a_display_name():
+    t = [
+        _tp("Petra Offner <p.offner@lra.de>", "ich@y.de"),
+        _tp("Petra Offner <petra.offner@privat.de>", "ich@y.de"),
+    ]
+    p = rm.parteien_aufloesen(t, "offner")
+    assert set(p.adressen) == {"p.offner@lra.de", "petra.offner@privat.de"}
+
+
+# Ein Name an einem Dutzend Adressen ist ein Verteiler, keine Person —
+# falsche Zusammenfuehrungen sind teurer als verpasste.
+def test_should_not_merge_over_a_distribution_list_name():
+    t = [
+        _tp("Projektteam <p.offner@lra.de>", "ich@y.de"),
+        _tp("Projektteam <d.kramer@lra.de>", "ich@y.de"),
+        _tp("Projektteam <w.seitz@lra.de>", "ich@y.de"),
+    ]
+    p = rm.parteien_aufloesen(t, "offner")
+    assert p.adressen == ("p.offner@lra.de",)
+
+
+def test_should_return_nothing_when_the_name_is_unknown():
+    assert rm.parteien_aufloesen([_tp("A <a@b.de>", "c@d.de")], "niemand") is None
+
+
+def test_should_expose_the_party_in_the_dossier():
+    erg = _erg([_t("Tue, 23 Jun 2026 09:13:20 +0200", "Frage", True)])
+    d = rm.baue_dossier(erg, _JETZT, partei_name="p@y.de")
+    assert d.partei is not None
+    assert "p@y.de" in d.partei.adressen
+    assert "Partei" in rm.rendern_dossier(d)
+
+
+# --- Evidenz je Zeile ---------------------------------------------------------
+# Ohne Evidenzverweis ist eine Dossier-Zeile eine Behauptung: nicht nachschlagbar,
+# nicht widerlegbar.
+
+
+def test_should_point_each_open_thread_at_its_evidence():
+    d = rm.baue_dossier(
+        _erg(
+            [_t("Tue, 23 Jun 2026 09:13:20 +0200", "DMS Fragen", True, ordner="Sent")]
+        ),
+        _JETZT,
+    )
+    assert d.offene[0].evidenz == "Sent #1"
+
+
+def test_should_label_derived_statements_as_derived():
+    text = rm.rendern_dossier(
+        rm.baue_dossier(
+            _erg([_t("Tue, 23 Jun 2026 09:13:20 +0200", "X", True)]), _JETZT
+        )
+    )
+    assert "abgeleitet" in text
+    assert "Evidenz:" in text
