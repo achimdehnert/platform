@@ -60,6 +60,9 @@ python3 tools/mail_agent/read_mail.py --from offner \
 
 # VORGANG statt Trefferliste: Beteiligte, Zeitachse, unbeantwortete Stränge
 python3 tools/mail_agent/read_mail.py --account hnu --dossier --to offner
+
+# Personensuche in ZWEI Stufen — Name erst zu Adressen auflösen, dann Dossier
+python3 tools/mail_agent/read_mail.py --account hnu --wer offner
 python3 tools/mail_agent/read_mail.py --account hnu --dossier --to offner \
   --still-ab 14 --json | jq '.offen'
 ```
@@ -210,6 +213,13 @@ nichtssagenden 404.
   Message-ID statt an Ordner+UID. Verschieben wird erkannt und nachgezogen, Löschen
   gemeldet (410 statt 404). Der Owner muss Postfach-Aktionen damit nicht mehr ansagen.
   Tests: `tools/tests/test_anker.py`.
+- 2026-07-29: **P3-Teil 1.** `--wer <name>` löst einen Namen erst zu **allen**
+  Adressen dieser Person im Bestand auf, zeigt sie an und baut das Dossier
+  darüber — eine Adresse ist keine Person. Jede „Offen"-Zeile trägt jetzt
+  Ableitungsart (`abgeleitet`) und **Evidenzverweis** (Ordner + Nummer).
+  Grenze: `--wer` ist eine **Teilstring**-Auflösung; ein häufiger Nachname zieht
+  Verwandte und gleichnamige Domains mit — sie werden aber **angezeigt**, nicht
+  still mitgesucht.
 
 - 2026-07-29: `mail_link_server.py` — kurze Links über Loopback (`/m/<uid>` rendert,
   `/i/<kurz>` leitet auf OWA weiter), weil `file://` bei einer SSH-Sitzung ins Leere

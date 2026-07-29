@@ -21,7 +21,7 @@ import sys
 from datetime import datetime, timezone
 from email.header import decode_header
 from email.message import Message
-from email.utils import parsedate_to_datetime
+from email.utils import getaddresses, parsedate_to_datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -546,11 +546,115 @@ def _zeitpunkt(datum: str):
         return None
 
 
+class Partei(NamedTuple):
+    """Eine Person mit allen Adressen, unter denen sie im Bestand auftaucht."""
+
+    name: str
+    adressen: tuple[str, ...]
+    anzeigenamen: tuple[str, ...]
+    nachrichten: int
+
+
+def _paare(kopf: str) -> list[tuple[str, str]]:
+    """(Anzeigename, Adresse) je Empfänger — **pro Adresse**, nicht pro Kopfzeile.
+
+    Der naheliegende Weg (die Kopfzeile als Ganzes nehmen und `<...>` strippen)
+    ist falsch und wurde am 2026-07-29 im scharfen Lauf widerlegt: bei einer
+    Sammelmail an zwölf Leute bleibt derselbe Rest für alle übrig, sie bekommen
+    denselben „Anzeigenamen" und verschmelzen zu einer Person. Die Suche nach
+    einem Namen lieferte so den halben Verteiler — ein Fehlmerge, der wie ein
+    Ergebnis aussieht.
+    """
+    raus = []
+    for name, adr in getaddresses([kopf or ""]):
+        a = adr.strip().lower()
+        if not a or "@" not in a:
+            continue
+        raus.append((decode_hdr(name).strip().strip('"').strip().lower(), a))
+    return raus
+
+
+def _tragfaehiger_name(name: str) -> bool:
+    """Ein Anzeigename taugt nur als Brücke, wenn er überhaupt einer ist.
+
+    Leerstrings, Interpunktionsreste und die eigene Mailadresse als „Name"
+    verbinden sonst beliebige Personen miteinander.
+    """
+    return len(name) >= 3 and any(c.isalpha() for c in name) and "@" not in name
+
+
+def parteien_aufloesen(treffer, name: str) -> Partei | None:
+    """Name → **alle** Adressen dieser Person im Bestand, bevor gesucht wird.
+
+    Eine Adresse ist keine Person. Wer nach einem Namen sucht und direkt auf eine
+    Adresse filtert, verliert stillschweigend jede Zweitadresse, jedes
+    Funktionspostfach und jede Namensvariante — die Trefferliste sieht trotzdem
+    vollständig aus. Deshalb zweistufig: erst auflösen und **anzeigen**, dann über
+    die aufgelöste Menge suchen.
+
+    Zusammengeführt wird nur über **tragfähige Anzeigenamen** (§`_tragfaehiger_name`),
+    und Namen zählen nur, wenn sie zu höchstens zwei Adressen gehören: ein Name,
+    der an einem Dutzend Adressen klebt, ist ein Verteiler und keine Person.
+    Falsche Zusammenführungen sind hier teurer als verpasste — eine zu grosse
+    Partei verfälscht jede Aussage über sie, eine zu kleine ist nur unvollständig
+    und fällt beim Lesen auf.
+    """
+    nadel = name.lower()
+    adr_zu_namen: dict[str, set[str]] = {}
+    name_zu_adr: dict[str, set[str]] = {}
+    zaehler: dict[str, int] = {}
+    for t in treffer:
+        for kopf in (t.von, t.an):
+            for anzeige, a in _paare(kopf):
+                zaehler[a] = zaehler.get(a, 0) + 1
+                if _tragfaehiger_name(anzeige):
+                    adr_zu_namen.setdefault(a, set()).add(anzeige)
+                    name_zu_adr.setdefault(anzeige, set()).add(a)
+                else:
+                    adr_zu_namen.setdefault(a, set())
+
+    kern = {
+        a
+        for a, namen in adr_zu_namen.items()
+        if nadel in a or any(nadel in n for n in namen)
+    }
+    if not kern:
+        return None
+
+    # Bruecken-Namen: nur solche, die zu hoechstens zwei Adressen gehoeren.
+    kernnamen = {
+        n
+        for a in kern
+        for n in adr_zu_namen.get(a, ())
+        if len(name_zu_adr.get(n, ())) <= 2
+    }
+    for a, namen in adr_zu_namen.items():
+        if namen & kernnamen:
+            kern.add(a)
+
+    return Partei(
+        name=name,
+        adressen=tuple(sorted(kern)),
+        anzeigenamen=tuple(sorted(kernnamen)),
+        nachrichten=sum(zaehler.get(a, 0) for a in kern),
+    )
+
+
 class Strang(NamedTuple):
     betreff: str
     nachrichten: tuple[Treffer, ...]
     letzte_ausgehend: bool
     tage_still: int | None
+
+    @property
+    def evidenz(self) -> str:
+        """Woran die Aussage über diesen Strang hängt — Ordner und laufende Nummer.
+
+        Ohne Evidenzverweis ist eine Dossier-Zeile eine Behauptung: man kann sie
+        weder nachschlagen noch widerlegen.
+        """
+        t = self.nachrichten[-1]
+        return f"{t.ordner} #{t.nummer}"
 
 
 class Dossier(NamedTuple):
@@ -560,9 +664,12 @@ class Dossier(NamedTuple):
     zeitachse: tuple[Treffer, ...]
     offene: tuple[Strang, ...]
     ergebnis: Ergebnis
+    partei: Partei | None = None
 
 
-def baue_dossier(erg: Ergebnis, jetzt, still_ab_tagen: int = 7) -> Dossier:
+def baue_dossier(
+    erg: Ergebnis, jetzt, still_ab_tagen: int = 7, partei_name: str = ""
+) -> Dossier:
     """Aus Treffern einen Vorgang machen — Beteiligte, Zeitachse, offene Stränge.
 
     Der Referenzfall vom 2026-07 zeigte, dass die wertvollen Aussagen
@@ -615,6 +722,7 @@ def baue_dossier(erg: Ergebnis, jetzt, still_ab_tagen: int = 7) -> Dossier:
         ),
         offene=offene,
         ergebnis=erg,
+        partei=parteien_aufloesen(erg.treffer, partei_name) if partei_name else None,
     )
 
 
@@ -634,6 +742,18 @@ def rendern_dossier(d: Dossier) -> str:
             "             ⚠ unvollständig — Aussagen über Abwesenheit sind hier NICHT belegt"
         )
 
+    if d.partei:
+        p = d.partei
+        zeilen.append(
+            f"Partei       {p.name!r} → {len(p.adressen)} Adresse(n), {p.nachrichten} Nachricht(en)"
+        )
+        for a in p.adressen:
+            zeilen.append(f"             · {a}")
+        if len(p.adressen) > 1:
+            zeilen.append(
+                "             beobachtet · zusammengeführt über gemeinsame Anzeigenamen"
+            )
+
     if d.beteiligte:
         top = " · ".join(f"{a} ({n})" for a, n in d.beteiligte[:6])
         zeilen.append(f"Beteiligte   {top}")
@@ -644,8 +764,9 @@ def rendern_dossier(d: Dossier) -> str:
         for i, s in enumerate(d.offene, 1):
             zeilen.append(
                 f"  {i}. {s.betreff[:58]}"
-                f"\n     letzte Nachricht von dir, seit {s.tage_still} Tagen ohne Antwort"
-                f"  [{s.nachrichten[-1].ordner}]"
+                f"\n     abgeleitet · letzte Nachricht von dir, seit {s.tage_still} Tagen"
+                f" ohne Antwort"
+                f"\n     Evidenz: {s.evidenz} · {len(s.nachrichten)} Nachricht(en) im Strang"
             )
 
     if d.zeitachse:
@@ -1126,6 +1247,14 @@ def main() -> None:
         help="Ergebnis als JSON statt Text — Treffer zählen, ohne Fließtext zu grepen",
     )
     ap.add_argument(
+        "--wer",
+        metavar="NAME",
+        default=None,
+        help="Personensuche in ZWEI Stufen: Name → alle Adressen dieser Person im "
+        "Bestand (wird angezeigt), dann Dossier über diese Adressen. Eine Adresse "
+        "ist keine Person — direkt zu filtern verliert Zweitadressen still.",
+    )
+    ap.add_argument(
         "--dossier",
         action="store_true",
         help="Vorgang statt Trefferliste: Beteiligte, Zeitachse, unbeantwortete "
@@ -1234,6 +1363,14 @@ def main() -> None:
             print("\n✗ Pruefkette gerissen:", "; ".join(fehler), file=sys.stderr)
         sys.exit(0 if ok else 1)
 
+    if args.wer:
+        # Stufe 1 des zweistufigen Wegs: der Name geht als Empfaenger- UND
+        # Absender-Sicht ins Dossier; Stufe 2 (Adress-Aufloesung) macht
+        # baue_dossier und weist sie aus.
+        args.dossier = True
+        if not (args.from_filter or args.to_filter or args.subject_filter):
+            args.to_filter = args.wer
+
     if args.list is None and args.fetch is None and not args.dossier:
         sys.exit("FEHLER: --list, --fetch, --dossier oder --abwesenheitsbeweis waehlen")
 
@@ -1271,7 +1408,12 @@ def main() -> None:
                 gruendlich=args.gruendlich,
                 eigene_adresse=cfg["MAIL_FROM"],
             )
-            d = baue_dossier(erg, datetime.now(timezone.utc), args.still_ab)
+            d = baue_dossier(
+                erg,
+                datetime.now(timezone.utc),
+                args.still_ab,
+                partei_name=args.wer or "",
+            )
             if args.json:
                 print(
                     json.dumps(
