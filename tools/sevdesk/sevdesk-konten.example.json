@@ -1,0 +1,52 @@
+{
+  "_hinweis": [
+    "Vorlage. Die echte Zuordnung ist personenbezogen (Namen von Lohnempfängern,",
+    "private Posten) und gehört NICHT ins Repo — sie liegt in ~/.claude/sevdesk-konten.json,",
+    "analog zu ~/.claude/mail-roles.json.",
+    "",
+    "Reihenfolge zählt: die erste passende Regel gewinnt. Spezifisches nach oben.",
+    "'muster' ist ein regulärer Ausdruck gegen 'Empfänger + Verwendungszweck', kleingeschrieben.",
+    "'konto' ist die Kontonummer aus DEINEM Kontenrahmen — vor dem Eintragen gegen",
+    "GET /AccountDatev prüfen, ob Nummer und Bezeichnung zusammenpassen. Realfall 2026-07-29:",
+    "6310 hieß dort 'Miete, unbewegliche Wirtschaftsgüter', nicht 'Software' — 23 Positionen",
+    "über 2.058,98 € wären falsch gelandet.",
+    "'konto': 'KLÄRUNG' parkt Positionen sichtbar, ohne ein Konto zu raten.",
+    "'nur_betraege' gilt für Sammelbuchungen: nur diese Beträge sind vollständig abgedeckt,",
+    "alles andere wird als 'NUR TEILWEISE' markiert statt stillschweigend zugeordnet."
+  ],
+  "regeln": [
+    {
+      "muster": "beispiel-lohnempfaenger",
+      "konto": "6035",
+      "bezeichnung": "Löhne Minijob",
+      "nur_betraege": [850.0, 450.0, 400.0]
+    },
+    {
+      "muster": "knappschaft|rentenversicherung",
+      "konto": "6110",
+      "bezeichnung": "Sozialvers.-Beiträge"
+    },
+    {
+      "muster": "koerpst|koerperst|körperst",
+      "konto": "7600",
+      "bezeichnung": "Körperschaftsteuer",
+      "anmerkung": "im Kontoauszug steht KOERPST, ohne 'er'"
+    },
+    {
+      "muster": "ionos|namecheap|github|netcup|hetzner",
+      "konto": "6837",
+      "bezeichnung": "Aufwendungen für Lizenzen, Konzessionen"
+    },
+    {
+      "muster": "girocard|abschluss per",
+      "konto": "6855",
+      "bezeichnung": "Kontoführung & Transaktionskosten"
+    },
+    {
+      "muster": "umsatzsteuer auf .*abrechnung",
+      "konto": "KLÄRUNG",
+      "bezeichnung": "USt-Anteil der Bankabrechnung",
+      "anmerkung": "offen: Vorsteuerkonto oder über die Steuerregel des Belegs?"
+    }
+  ]
+}
