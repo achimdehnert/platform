@@ -169,9 +169,17 @@ class TestKontenAufloesung:
 
     @pytest.fixture
     def claude_dir(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         verzeichnis = tmp_path / ".claude"
         verzeichnis.mkdir()
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        # `_resolve_config` greift für die namenlose Config auf die Konstante
+        # `read_mail.CONFIG_FILE` zu, die beim Import einmal aus dem echten
+        # Home gebildet wird — der Path.home-Patch allein erreicht sie nicht.
+        # Ohne diese Zeile bestand der Test lokal nur deshalb, weil dort eine
+        # echte ~/.claude/mail.env liegt, und fiel in CI um (2026-07-29).
+        import read_mail
+
+        monkeypatch.setattr(read_mail, "CONFIG_FILE", verzeichnis / "mail.env")
         return verzeichnis
 
     def test_should_map_plain_name_to_named_config(self, claude_dir):
