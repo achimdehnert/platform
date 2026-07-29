@@ -499,3 +499,64 @@ identifizierend und im Feedback als Erstes benannt.
 umgestellt — mit der neuen Belegung käme der installierte Stand im Checkout nicht mehr ins
 Postfach (beim Test war es kurz unerreichbar). Die zwei Umstellzeilen stehen als Kommentar in
 der Datei und werden nach dem Merge von #1544 gesetzt.
+
+---
+
+## 2026-07-29 (Teil 2 derselben Session — Prod entlastet, Outline hinter Cloudflare Access)
+
+**Kern in einem Satz:** Der Versuch, Prio 1 (Mail-Ingestion auf Prod) zu erledigen, lief in
+eine Blockade — und die Blockade war das eigentliche Thema.
+
+**Die Blockade und was sie offenlegte.** Ein `import apps.mail_agent` in `devhub_celery`
+starb dreimal mit `rc=137`; das Kernel-Log sagte **„Memory cgroup out of memory"**, also das
+Container-Limit, nicht der Host. Die Rechnung schien eindeutig (512 MiB Limit, 370,4 MiB
+Leerlauf, 225 MiB neuer Prozess) und die naheliegende Antwort wäre gewesen, das Limit
+anzuheben. **Das wäre falsch und gefährlich gewesen:** In die cgroup-Bilanz zählt der
+Seiten-Cache mit, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen — die
+Container saßen künstlich an ihren Limits. Nach dem Stoppen nicht benötigter Stacks fiel
+derselbe Container **ohne jede Änderung an ihm** auf 305,9 MiB, der Import lief durch.
+
+| Größe | vorher | nachher |
+|---|---|---|
+| Freies RAM | 444 MB | **9.455 MB** |
+| Swap belegt | 4.095 / 4.095 | **1.757 / 4.095** |
+| Laufende Container | 113 | **45** |
+
+Gestoppt (nicht entfernt, per `docker start` zurückholbar): ausschreibungs-hub, odoo, hub137,
+wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub,
+pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl.
+`ib_gateway`. Messwerte als Kommentar an
+[#1303](https://github.com/achimdehnert/platform/issues/1303); Folgebefunde als
+[#1549](https://github.com/achimdehnert/platform/issues/1549).
+
+**Cloudflare Access für Outline.** `knowledge.iil.pet` war der einzige produktive Dienst ohne
+Access-Regel (200 ohne Umleitung). Angelegt mit zwei Richtlinien — Owner-Adressen und
+`non_identity` für gültige Dienstzugänge. Beide Wege belegt: Browser 302 auf
+`iil-team.cloudflareaccess.com`, Maschine mit `CF-Access-*`-Kopfzeilen bekommt JSON.
+Werkzeugseite in [mcp-hub#187](https://github.com/achimdehnert/mcp-hub/pull/187).
+
+**Drei eigene Fehler, benannt:**
+
+- **Die entscheidende Memory-Notiz zu spät gelesen.** `reference_dochub_access_cloudflare`
+  sagt: genau **ein** IdP (GitHub), kein Einmal-PIN, Cloudflare liefert immer
+  `admin@wir-digital.de`. Damit sind `achim.dehnert@iil.gmbh` und `ad@dehnert.team` in der
+  neuen Regel **wirkungslos**. Dass die funktionierende Adresse trotzdem drinsteht, war
+  Vorsicht, nicht Wissen — sonst wäre der Owner aus Outline ausgesperrt gewesen.
+- **Dieselbe Notiz warnt wörtlich „Fehlschlag ≠ leere Liste"** für den IdP-Endpunkt, der nur
+  mit `cloudflare_write_token` lesbar ist. Genau in diese Falle bin ich gelaufen und zunächst
+  darüber hinweggegangen.
+- **Der Code-Patch am Outline-MCP genügte nicht** — das Startskript exportierte die beiden
+  Variablen gar nicht. Ergebnis: genau der Bruch, den der Patch verhindern sollte, nur eine
+  Ebene tiefer. Die Fähigkeit war da, die Verdrahtung fehlte. Nachgezogen.
+
+**Zwei Entscheidungen gegen die Freigabe des Owners** — beide mit Beleg statt Vermutung:
+`authentik` bleibt an, weil Outline **und** risk-hub (live, schutztat.de) ihr Login dort
+auflösen (220 Auth-Ereignisse in 72 h). Und die Mail-Ingestion wurde **nicht** scharf
+geschaltet, obwohl der Pfad jetzt frei ist — die zwei vorbereiteten Dateien liegen bereit,
+der Schritt gehört in eine eigene Runde mit dem Geheimnis-Teil beim Owner.
+
+**Offen und bewusst nicht getan:** Der laufende Outline-MCP stammt von vor dem Patch und
+bekommt 302; bis zu seinem Neustart ist jeder Outline-Zugriff blockiert. Ein fertiger
+Lesson-Entwurf zum cgroup-Thema wartet deshalb unter
+`~/.claude/outline-pending/2026-07-29-cgroup-speicherdruck.md`. Ebenfalls angekündigt, aber
+nicht mehr ausgeführt: `dev-hub.iil.pet` hinter Access.
