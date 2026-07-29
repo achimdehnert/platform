@@ -430,3 +430,72 @@ in `dev-hub`, vier Prod-Deploys mit Migration.
 Produktionsserver. Der Zeitplan ist deployt und **inert** — er prüft sich selbst und meldet
 den Grund. Der Schritt, der ein Geheimnis anfasst, gehört einem Menschen; das Runbook dafür
 ist geschrieben.
+
+---
+
+## 2026-07-29 (Parallel-Session — Mail-Links klickbar gemacht, vier Studierenden-Vorgänge beantwortet)
+
+**Kern in einem Satz:** Aus einem `/mailcheck` wurde eine Werkzeugkette, weil die Board-Links
+nicht anklickbar waren — drei Wege mussten dafür erst **gemessen und verworfen** werden.
+
+**Gemergt (4 PRs, alle CI-grün):** [#1531](https://github.com/achimdehnert/platform/pull/1531)
+`mail_view.py` (Mail als lokale HTML-Ansicht, Zähl-Pixel neutralisiert) ·
+[#1535](https://github.com/achimdehnert/platform/pull/1535) `anker.py` + Route `/a/<nr>`
+(Board-Einträge an der Message-ID statt an Ordner+UID) ·
+[#1536](https://github.com/achimdehnert/platform/pull/1536) `port_freigeben.py`
+(verwaiste eigene Instanz vor dem Unit-Start vom Port lösen) ·
+[#1538](https://github.com/achimdehnert/platform/pull/1538) Doku der systemd-Falle.
+**Offen:** [#1544](https://github.com/achimdehnert/platform/pull/1544) — `MAIL_LOGIN` trennt
+Anmeldename von Absenderadresse, review required.
+
+**Vier Prämissen, die gekippt sind:**
+
+1. **`file://` konnte nie funktionieren.** Die Sitzung läuft per SSH auf dem Hetzner-Server,
+   der Browser des Owners sieht diesen Pfad nicht. Gemessen an `SSH_CONNECTION`, nicht vermutet.
+2. **HNU-OWA ist kein Weg.** `outlook.hnu.de/owa/` endet nach Redirect auf `/vpn/tmindex.html` —
+   Citrix-Gateway. IMAP ist durchgelassen, OWA nicht.
+3. **Die iil.pet-Variante ist schlechter als sie aussah.** Alle vhosts nutzen
+   Cloudflare-Origin-Zertifikate; Cloudflare sähe HNU-Mailinhalte im Klartext. Kein einziger
+   vhost nutzt bisher `auth_basic` — es gäbe nicht einmal ein Muster.
+4. **Der Absender im Entwurf war kosmetisch.** „dehnert" statt Adresse; Outlook setzt den Kopf
+   beim Senden auf die Postfachadresse — belegt an der gesendeten #358, nicht angenommen.
+
+**Drei eigene Fehler, benannt statt versteckt:**
+
+- **Das Board führte zwei Studierende als erledigt, weil eine Antwort raus war.** Abel hatte
+  seine Thesis-Arbeitsversion angehängt, Schönherr die Abgabeversion seines Study Papers —
+  die eigentliche Leistung (Feedback, Bewertung) war unberührt. „Antwort gesendet" ist nicht
+  „erledigt"; der Status hing am Sent-Eintrag statt an der Sache.
+- **Die selbst eingebaute systemd-Härtung brach den eigenen Port-Vorabcheck.** `PrivateTmp`,
+  `ProtectKernelTunables` und `ProtectControlGroups` remounten je `/proc`; fremde
+  Datei-Deskriptoren werden unlesbar. `ProcSubset=all` und `ProtectProc=default` heilen es
+  **nicht** — beide einzeln per `systemd-run` gegengemessen. Der Fehler war **stumm**: Unit
+  auf `activating`, während der Waisenprozess mit altem Code weiterbediente.
+- **Ein Test bestand lokal aus dem falschen Grund.** `read_mail.CONFIG_FILE` wird beim Import
+  aus dem echten Home gebildet, der `Path.home`-Patch erreicht sie nicht; lokal existiert die
+  Datei, auf dem Runner nicht. Gegenprobe seither mit leerem `HOME`.
+
+**Entscheidungen:** Kein öffentlicher Endpunkt für Mail-Inhalte — Loopback plus SSH-Tunnel,
+Bindung auf 127.0.0.1 wird erzwungen. Arbeitsteilung bestätigt: Verschieben und Löschen
+erkennt die Maschine über den Message-ID-Anker; ansagen muss der Owner nur, was im Postfach
+keine Spur hinterlässt (Telefonate, mündliche Zusagen). Gelöschte Anker werden **nicht**
+stillschweigend entfernt — die Pflege-Regel „Item verschwindet erst bei Beleg" gilt auch für
+Maschinenbefunde.
+
+**Mail-Ergebnis:** Gesendet an Michalk (Hosting-Aufteilung LRA Traunstein), Ullah
+(Proposal-Feedback nach 17 Tagen Verzug), Abel (Thesis-Rückmeldung), Lluca (Interview-Design),
+dazu Leistungsbezüge-Antrag und MeikI-Terminzusage. **Ein Entwurf offen:** Schönherr —
+Kurzfassung auf Owner-Wunsch, das ausführliche Feedback kommt nach seiner Präsentation und
+liegt vollständig unter `~/.claude/feedback-schoenherr-studypaper.md`.
+
+**Zwei Funde in fremden Artefakten, die nicht in dieser Session entstanden sind:** Die
+Rollen-Signatur `~/.claude/mail-sig/hnu.txt` trug `[TODO Owner: Fakultät/Institut ergänzen]`
+und wäre so an eine Studentin hinausgegangen (korrigiert mit der real gesendeten Fassung; die
+übrigen vier Rollen-Signaturen gegengeprüft, sauber). Und in Abels Arbeitsversion stehen die
+**Interviewpartner mit Vornamen im Fließtext**, zusammen mit Gesellschaft und Rolle — das ist
+identifizierend und im Feedback als Erstes benannt.
+
+**Offen und bewusst nicht getan:** `~/.claude/mail-hnu.env` ist **nicht** auf `MAIL_LOGIN`
+umgestellt — mit der neuen Belegung käme der installierte Stand im Checkout nicht mehr ins
+Postfach (beim Test war es kurz unerreichbar). Die zwei Umstellzeilen stehen als Kommentar in
+der Datei und werden nach dem Merge von #1544 gesetzt.
