@@ -5391,7 +5391,7 @@
       "number": 288,
       "id": "ADR-288",
       "file": "ADR-288-mail-recherche-hybride-projektion.md",
-      "title": "Adopt a hybrid mail-research projection with build generations, coverage states and a curation layer separated from the rebuildable cache",
+      "title": "Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements",
       "status": "proposed",
       "date": "2026-07-29",
       "domains": [],

@@ -253,4 +253,4 @@
 | 285 | Skill-Lane-Konsolidierung — eine Lane, eine Quelle, ein Ziel | Accepted | ⬜ | [ADR-285](ADR-285-skill-lane-consolidation.md) |
 | 286 | Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence | Accepted | ⬜ | [ADR-286](ADR-286-mail-agent-crypto-shredding-derived-index.md) |
 | 287 | Distribute the domain-expert reviewer in graded stages, gated on artifact-content sovereignty rather than skill location | Accepted | ⬜ | [ADR-287](ADR-287-fach-reviewer-org-weite-distribution.md) |
-| 288 | Adopt a hybrid mail-research projection with build generations, coverage states and a curation layer separated from the rebuildable cache | Proposed | ⬜ | [ADR-288](ADR-288-mail-recherche-hybride-projektion.md) |
+| 288 | Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements | Proposed | ⬜ | [ADR-288](ADR-288-mail-recherche-hybride-projektion.md) |

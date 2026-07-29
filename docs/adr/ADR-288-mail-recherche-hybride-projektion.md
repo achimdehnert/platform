@@ -8,54 +8,56 @@ ai_sparring_by:
   - tool: other
     date: 2026-07-29
     role: adversarial-review
-    summary: "Externes LLM (Review 1) auf KONZ-036: Verdikt überarbeiten. Kern: durable Kuration hängt an wegwerfbaren IDs (nächtlicher Neuaufbau zerstört das einzige Produkt), §5-These im eigenen Dokument gebrochen (Köpfe werden längst indexiert), 14-min-Zahl aus einer 300er-Stichprobe eines Ordners hochgerechnet, Kalibriersonde prüft FROM+ASCII statt der real gebrochenen TO/CC- und Unicode-Fälle. Tag-Tabelle §11."
+    summary: "Externes LLM (Runde 1) auf KONZ-036: Verdikt überarbeiten. Kern: durable Kuration hängt an wegwerfbaren IDs (nächtlicher Neuaufbau zerstört das einzige Produkt), §5-These im eigenen Dokument gebrochen (Köpfe werden längst indexiert), 14-min-Zahl aus einer 300er-Stichprobe eines Ordners hochgerechnet, Kalibriersonde prüft FROM+ASCII statt der real gebrochenen TO/CC- und Unicode-Fälle. Tag-Tabelle §11."
   - tool: other
     date: 2026-07-29
     role: adversarial-review
-    summary: "Externes LLM (Review 2) auf KONZ-036: Verdikt überarbeiten. Kern: ein ausgewiesen lückenhafter Index trägt positive Treffer, aber KEINE Negativaussage ('offen', 'unbeantwortet') — eine fehlende Nachricht kehrt den Zustand um; fehlende Build-Generationen erzeugen zeitlich gemischte Abbilder; message modelliert Ablageposition statt Entität; Personenauflösung fehlt ganz. Nachrechnung: 90.967 von theoretisch 95.670 Nachrichten = 95 % des 15-min-Ziels vor jeder Zusatzarbeit. Tag-Tabelle §11."
+    summary: "Externes LLM (Runde 2) auf KONZ-036: Verdikt überarbeiten. Kern: ein ausgewiesen lückenhafter Index trägt positive Treffer, aber KEINE Negativaussage — eine fehlende Nachricht kehrt den Zustand um; fehlende Build-Generationen erzeugen zeitlich gemischte Abbilder; message modelliert Ablageposition statt Entität; Personenauflösung fehlt ganz. Tag-Tabelle §11."
+  - tool: other
+    date: 2026-07-29
+    role: adversarial-review
+    summary: "Externes LLM (Runde 3, 'konzept-hybrid') auf KONZ-036: eigenständige Gegen-Konzeption statt Review — 16 Architekturklassen mit gewichteter Matrix, Sieger PostgreSQL+Datei-CAS (4,73). Vier übernommene Zugewinne: inhaltsadressierter Rohobjektspeicher, Leitsatz 'Delta an der Quelle, Rebuild in der Projektion', sechs Ausgabezustände statt zwei, sechsstufige Retrieval-Pipeline. Nicht übernommen: die volle Grundausstattung (25 Tabellen) und der unbeschränkte Volltext-CAS. Tag-Tabelle §11.3."
 ---
 
-# ADR-288: Adopt a hybrid mail-research projection with build generations, coverage states and a curation layer separated from the rebuildable cache
+# ADR-288: Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements
 
 ## Metadaten
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed — zur externen Zweitmeinung freigegeben                     |
+| **Status**      | Proposed — v2 nach drei externen Runden                              |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-07-29                                                           |
 | **Autor**       | Achim Dehnert                                                        |
-| **Reviewer**    | offen · 2× externe KI-Zweitmeinung auf der Vorstufe KONZ-036 (non-accountable, §11) |
-| **Supersedes**  | –                                                                    |
+| **Reviewer**    | offen · 3× externe KI-Zweitmeinung (non-accountable, §11)             |
+| **Supersedes**  | – (**kein** Supersede von ADR-286 — siehe §3.2)                       |
 | **Superseded by** | –                                                                  |
-| **Relates to**  | ADR-286 (Mailagent-Persistenz — **§4.10.7 wird hier korrigiert**), KONZ-platform-036 (Vorstufe), KONZ-platform-035 (Deckungsausweis) |
+| **Relates to**  | ADR-286 (Persistenz — §4.10.7 wird korrigiert, der Rest bleibt gültig), KONZ-platform-036 (Vorstufe), KONZ-platform-035 (Deckungsausweis) |
 
 ## Repo-Zugehörigkeit
 
 | Repo           | Rolle      | Betroffene Pfade / Komponenten                        |
 |----------------|------------|-------------------------------------------------------|
-| `platform`     | Referenz   | `docs/adr/`, `tools/mail_agent/` (Transport, Live-Suche) |
-| `dev-hub`      | Primär     | `apps/mail_agent/` (Projektion, Build-Generationen, Dossier) |
+| `platform`     | Referenz   | `docs/adr/`, `tools/mail_agent/` (Transport, Live-Suche, Ausschlussregel) |
+| `dev-hub`      | Primär     | `apps/mail_agent/` (Evidenzspeicher, Projektion, Dossier) |
 
 > **Scope-Grenze.** Datenschutz, Aufbewahrung und Löschbarkeit sind **nicht** Gegenstand dieser
-> Entscheidung; sie sind in ADR-286 und organisatorisch geregelt. Hier geht es ausschließlich um
-> Datenmodell, Graph, Wirksamkeit, Bedienung und Betrieb.
+> Entscheidung; sie sind organisatorisch geregelt. Hier geht es um Datenmodell, Graph,
+> Wirksamkeit, Bedienung und Betrieb.
 
 ---
 
 ## Decision Drivers
 
-- **Negativaussagen sind das Produkt.** Der Nutzen des Werkzeugs liegt in „offen", „unbeantwortet",
+- **Negativaussagen sind das Produkt.** Der Nutzen liegt in „offen", „unbeantwortet",
   „verstummt" — nicht in Trefferlisten. Diese Aussagen kehren sich um, wenn eine Nachricht fehlt.
-- **Ein Nutzer, kein Bereitschaftsdienst.** Jede dauerhaft laufende Komponente muss ohne Betreuung
-  überleben; komplizierte Synchronisationskorrektheit ist kein tragbarer Dauerposten.
-- **Das Postfach bleibt Quelle der Wahrheit**, die Projektion ist abgeleitet — aber das *Produkt*
-  des Werkzeugs (Vorgänge, Auflösungen, Entscheidungen) ist es **nicht** und darf nicht mit der
-  Projektion verworfen werden.
-- **Messbarkeit vor Eleganz.** Jede Stufe braucht ein Abbruchkriterium, das an einer Menge mit
-  bekannter Antwort geprüft wird.
-- **Reversal**: ADR-286 §4.10.7 („Extraktion beim Einlesen **oder nie**") ist falsch und wird
-  hier korrigiert — das begründet den ADR-Rang gegenüber der Vorstufe KONZ-036.
+- **Vier Fünftel des Bestands sind für die Fragestellung irrelevant** — gemessen, §1.4. Der
+  billigste Hebel ist, sie gar nicht erst zu verarbeiten.
+- **Ein Nutzer, kein Bereitschaftsdienst.** Jede dauerhaft laufende Komponente muss ohne
+  Betreuung überleben.
+- **Das Produkt des Werkzeugs ist nicht ableitbar.** Vorgänge, Auflösungen und Entscheidungen
+  entstehen nicht aus dem Postfach und dürfen nicht mit einer Projektion verworfen werden.
+- **Umkehrbarkeit.** Von „wenig lokal" zu „viel lokal" kommt man jederzeit; zurück nicht.
 
 ---
 
@@ -63,21 +65,19 @@ ai_sparring_by:
 
 ### 1.1 Der Job
 
-Drei Postfächer, zwei Transportarten, 90.967 Nachrichten in 209 Ordnern:
-
-| Postfach | Transport | Ordner | Nachrichten |
-|---|---|---|---|
-| A (geschäftlich) | Microsoft Graph, `delta` verfügbar | 90 | 44.878 |
-| B (Hochschule) | IMAP, Exchange 2010 | 110 | 46.077 |
-| C (Referenz) | IMAP, bekannter Inhalt | 9 | 12 |
-
 Der motivierende Realfall: Eine Fachauskunft **P** beantwortet drei Fragen vom 23.06. nicht; am
 20.07. ein Termin; am 21.07. eine dreisätzige Mail, deren Substanz vollständig in einem **Anhang**
-steckt; ihre Nachricht und meine Antwort liegen in **zwei verschiedenen Ordnern**. Die drei
-Erkenntnisse, die zählten, waren allesamt **Zustandsaussagen über einen Vorgang**, keine
-Suchergebnisse. Der Weg dorthin kostete rund ein Dutzend Postfach-Abfragen über drei Konten.
+steckt; ihre Nachricht und meine Antwort liegen in **zwei verschiedenen Ordnern**. Alle drei
+Erkenntnisse waren **Zustandsaussagen über einen Vorgang**, keine Suchergebnisse. Der Weg dorthin
+kostete rund ein Dutzend Postfach-Abfragen über drei Konten.
 
-### 1.2 Gemessener Ausgangsstand (2026-07-28/29)
+### 1.2 Umgebung
+
+Drei Postfächer, zwei Transportarten. Python, PostgreSQL und Container-Hosting vorhanden; kein
+Budget für zusätzliche dauerhaft laufende Dienste. Die Ordnerstruktur ist fachlich relevant —
+Nachrichten liegen einsortiert, nicht im Posteingang.
+
+### 1.3 Gemessener Durchsatz und Suchverhalten (2026-07-28/29)
 
 | Messung | Wert |
 |---|---|
@@ -86,92 +86,130 @@ Suchergebnisse. Der Weg dorthin kostete rund ein Dutzend Postfach-Abfragen über
 | Live-Suche über 119 Ordner, Absender | 6,8 s |
 | Live-Suche über 119 Ordner, Empfänger (To **oder** Cc) | 12,6 s |
 | Vorverarbeitung roh → nutzbar | Faktor 182 im Mittel, ~439 Token je Nachricht |
-| Rauschanteil (Stichprobe, Untergrenze) | 13–16 % |
 | Server-`SEARCH`, ASCII | deckungsgleich mit lokalem Vollscan, 4/4 (u.a. 353/353 von 354) |
 | Server-`SEARCH`, Nicht-ASCII | Abbruch der Client-Bibliothek |
 | Server-`SEARCH` auf `TO`/`CC` | **7 Treffer ohne den Begriff in irgendeinem Kopffeld** |
 
-Der letzte Wert ist der teuerste: ungeprüft übernommen ergab er **28 statt 21** Treffern — eine
-Zahl, die aussah wie ein Ergebnis.
+Der letzte Wert ist der teuerste: ungeprüft übernommen ergab er **28 statt 21** Treffern.
 
-### 1.3 Warum jetzt eine Entscheidung nötig ist
+### 1.4 Bestandsgröße und Wirkung der Ausschlussregel (2026-07-29, neu)
 
-Die Vorstufe (KONZ-036) schlug vor: *Suche bleibt live, der Index existiert nur für Aggregate,
-und er darf lückenhaft sein, solange er sagt wo.* Zwei unabhängige externe Reviews haben diesen
-Zuschnitt an derselben Stelle gebrochen (§11). Der tragende Einwand:
+Erhoben über `STATUS (MESSAGES)` je Ordner, gegengeprüft gegen `SELECT`/`SEARCH ALL` in vier
+Ordnern — **4/4 identisch**, die Methode ist belegt.
+
+| Konto | Ordner | Nachrichten | behalten | ausgeschlossen |
+|---|---:|---:|---:|---:|
+| A / Graph | 112 | 40.165 | 7.966 | **32.199 (80,2 %)** |
+| B / IMAP | 119 | 26.303 | 5.976 | **20.327 (77,3 %)** |
+| C / IMAP privat | 6 | 94 | 76 | 18 (19,1 %) |
+| **Summe** | **237** | **66.562** | **14.018** | **52.544 (78,9 %)** |
+
+Ausgeschlossen wird nach der bereits implementierten Regel (`tools/mail_agent/indexierung.py`):
+Papierkorb/Junk, technische Ordner, redaktionell/werbliche Ordner und Jahresarchive bis
+`ARCHIV_BIS`. Die größten Posten sind Jahresarchive (Archiv/2017: 7.459, Archiv/2023: 4.789)
+und Newsletter-Ordner.
+
+**Das verändert die Größenordnung der gesamten Entscheidung:**
+
+| | ohne Ausschluss | mit Ausschluss |
+|---|---:|---:|
+| Zu verarbeitende Nachrichten | 66.562 | **14.018** |
+| Vollaufbau bei 106,3/s | 10,4 min | **2,2 min** |
+| Rohobjektspeicher (Mittelwert-Hochrechnung) | 21,3 GB | **4,5 GB** |
+| Auslastung eines 15-min-Fensters | 70 % | **15 %** |
+
+> **Offener Widerspruch, ausdrücklich nicht weggeglättet.** ADR-286 §4.10.8 nennt **90.967**
+> Nachrichten über 209 Ordner (Messung 2026-07-28). Die hiesige Messung ergibt **66.562** über
+> 237 Ordner — mehr Ordner, weniger Nachrichten. Die Abweichung liegt vor allem bei Konto B
+> (26.303 statt 46.077). Die Methode dieser Messung ist gegengeprüft; die Herkunft der älteren
+> Zahl ist aus dieser Sitzung nicht rekonstruierbar. **Gate 0 (§8) klärt das, bevor eine der
+> beiden Zahlen weiterverwendet wird.** Zwei externe Runden haben auf der älteren Zahl
+> argumentiert — insbesondere die Rechnung „95 % des 15-min-Ziels", die mit der gemessenen Zahl
+> bei 70 % und mit Ausschluss bei 15 % läge.
+
+### 1.5 Warum v1 dieses ADR nicht trug
+
+Der Vorgänger dieser Fassung setzte auf „Suche bleibt live, der Index existiert nur für
+Aggregate, und er darf lückenhaft sein, solange er sagt wo." Drei unabhängige externe Runden
+haben diesen Zuschnitt gebrochen (§11). Der tragende Einwand:
 
 > Ein ausgewiesen lückenhafter Index trägt **positive** Treffer, aber **keine Negativaussage** —
-> gerade eine fehlende Nachricht kehrt „offen" in „erledigt" um und umgekehrt.
-
-Da Negativaussagen das eigentliche Produkt sind, ist das kein Detail, sondern ein
-Zuschnittsfehler. Zusätzlich rechnete Review 2 nach: 106,3/s × 15 min = 95.670 Nachrichten; der
-Bestand von 90.967 nutzt bereits **95 %** dieser theoretischen Grenze, bevor Ordnerwechsel,
-Datenbankschreiben, Parser und Anhänge berücksichtigt sind. Die 14-Minuten-Zahl war aus **einer**
-300er-Stichprobe **eines** Ordners hochgerechnet und trug nur Kopfzeilen.
+> gerade eine fehlende Nachricht kehrt „offen" in „erledigt" um.
 
 ---
 
 ## 2. Considered Options
 
-### Option C: Hybride Projektion mit Build-Generationen und Deckungszuständen ✅
+Runde 3 hat 16 Architekturklassen mit gewichteter Passungsmatrix bewertet. Die vier für uns
+relevanten:
 
-Der Index beantwortet **Kopf-Abfragen und Aggregate**; Inhalte werden live nachgeladen; **jede
-Antwort trägt einen Deckungszustand** (`vollständig` / `teilweise` / `unbekannt`). Der Aufbau
-läuft in Generationen, die validiert und erst dann atomar freigegeben werden; der letzte gültige
-Stand bleibt erhalten. Das Schema trennt **wegwerfbaren Cache** von **durabler Kuration**.
+| Option | Passung | Ergebnis |
+|---|---:|---|
+| **PostgreSQL + Datei-Rohobjektspeicher** | **4,73** | **gewählt** |
+| Maildir + notmuch + PostgreSQL | 4,17 | Benchmark, kein Architekturpfad |
+| Reines PostgreSQL ohne Rohobjekte | 4,07 | tragfähig, aber Parserwechsel erzwingt Vollabruf |
+| PostgreSQL + externer Suchdienst | 4,05 | funktional stark, betrieblich unpassend (Dauerdienst) |
+| Live-Föderation ohne Projektion (= v1) | 2,67 | Verifikation statt Primärpfad |
 
-- **Gut:** Negativaussagen werden erst dann getroffen, wenn die Deckung sie trägt. Ein
-  abgebrochener Lauf ändert nichts Sichtbares. Kuration überlebt jeden Neuaufbau.
-- **Schlecht:** Mehr Schema und ein Generationen-Begriff, den ein Ein-Personen-Betrieb pflegen muss.
-
-### Option A: Voll-Spiegel mit eigener Suchschicht
-
-Alles in die Datenbank, dort auch Volltextsuche.
-
-- Verworfen: erfordert dauerhafte Synchronisationskorrektheit über zwei Transporte und beantwortet
-  die eigentlich wertvollen Fragen nicht besser. Der gemessene Gewinn gegen Live-Suche liegt bei
-  ~34 Sekunden pro Tag.
-
-### Option B: Reine Live-Suche ohne Projektion (die Vorstufe KONZ-036)
-
-- Verworfen aus zwei gemessenen Gründen: die Live-Suche verfehlt mit 6,8–12,6 s bereits das
-  eigene „< 5 s"-Ziel, und Aggregate über Zeit („was ist offen") sind live gar nicht bildbar.
-  Beide Reviews stellten unabhängig fest, dass der Entwurf Köpfe ohnehin indexiert
-  (`participant`, Trigram) — die Selbstbeschreibung war schlicht unehrlich.
-
-### Option D: Fertiger lokaler Indexer (`mbsync` + `notmuch`) als Primärarchitektur
-
-- Verworfen als Architektur: verlagert Identität in eine zweite Schicht, löst weder Vorgangs-
-  zuschnitt noch Zustände, und die M365-Anbindung ist unelegant. **Nicht verworfen als Messlatte:**
-  ein zeitlich begrenzter Benchmark seiner Threading-Güte gegen die eigene Referenzmenge ist
-  billiger als jede Diskussion darüber (§8 Gate 7).
+Verworfen mit Begründung: Graph-, Vektor- und Multi-Model-Datenbanken als *Kern* (lösen
+Kantenerzeugung nicht, die eigentliche Schwierigkeit), Kaufprodukte (lösen den Standardteil,
+nicht das persönliche Vorgangs- und Zustandsmodell), LLM-Agent über Live-Quellen (Bedienoberfläche,
+kein verlässlicher Kern).
 
 ---
 
 ## 3. Decision Outcome
 
-**Gewählt: Option C.**
+### 3.1 Die Entscheidung
 
-Der Zuschnitt der Vorstufe bleibt bestehen — Vorgang statt Trefferliste, Aggregate statt Suche,
-Kalibrierung statt Vertrauen. Die Mechanik wird an fünf Stellen korrigiert:
+**Gewählt: zweckgebundener lokaler Evidenzspeicher mit quellenseitigem Delta und vollständig
+wiederaufbaubaren Projektionen.**
 
-1. **§5-These ehrlich**: Kopf-Abfragen und Aggregate aus der Projektion, Inhalte live, jede Antwort
-   mit Deckungszustand.
-2. **Zwei Schichten**: wegwerfbarer Cache ↔ durable Kuration, mit transportstabilen Referenzen.
-3. **Build-Generationen** mit Validierung, atomarer Freigabe und letztem gültigem Stand.
-4. **Graph in zwei Ebenen**: Kommunikationsstrang ≠ Vorgang; schwache Kanten vereinigen nicht
-   transitiv.
-5. **Drei Schichten für Zustand**: Beobachtung (append-only) → Hypothese (projiziert) →
-   Nutzerentscheidung (append-only Ereignisse, je offenem Punkt).
+Sechs Festlegungen:
 
-**Korrektur an ADR-286 §4.10.7:** Der Satz „Weil Bodies nicht dauerhaft gespeichert werden, ist
-Extraktion beim Einlesen **oder nie**" ist falsch. ADR-286 §4.8 sagt bereits das Richtige — das
-Postfach hält den Inhalt, er ist nachladbar. Damit wird Extraktion **wiederholbar**:
+1. **Ausschluss zuerst.** Die bestehende Regel entfernt 78,9 % des Bestands, bevor irgendetwas
+   verarbeitet wird. Ausgeschlossene Ordner erscheinen **namentlich mit Grund** in jeder Deckung —
+   Ausschluss verkleinert die Grundgesamtheit sichtbar, nicht still.
+2. **Delta an der Quelle, Rebuild in der Projektion.** Die teure Übertragung über das Netz ist
+   inkrementell (Graph-Delta je Ordner, IMAP über `UIDVALIDITY`/UID mit periodischer Abstimmung).
+   Alles lokal Abgeleitete darf jederzeit vollständig neu entstehen. Das ersetzt die Regel
+   „Neuaufbau schlägt Delta" aus v1, die beide Achsen vermengte.
+3. **Zweckgebundener Rohobjektspeicher.** Kopfdaten und **Anhänge** für die behaltene Menge;
+   **Volltext nur für Nachrichten in einem aktiven Vorgang**. Inhaltsadressiert (Ablage unter dem
+   Fingerabdruck des Inhalts), damit identische Anhänge einmal liegen und Parserwechsel ein
+   lokaler Neulauf statt eines Vollabrufs sind.
+4. **Projektion sucht, Quelle verifiziert.** Die lokale Projektion beantwortet Kopf-Abfragen,
+   Volltext und Aggregate; das Postfach dient Synchronisation, Originalabruf und gezielter
+   Gegenprüfung.
+5. **Sechs Ausgabezustände** statt einer binären Aussage (§4.6).
+6. **Zwei Schichten**: wegwerfbare Projektion ↔ durable Kuration (§4.1).
+
+### 3.2 Verhältnis zu ADR-286 — kein Supersede
+
+ADR-286 entschied „Metadaten-Index-first, kein dauerhafter Klartext-Body, Inhalte just-in-time".
+Ein **unbeschränkter** Volltextspeicher wäre dessen Gegenteil und bräuchte ein Supersede.
+
+Die hier gewählte Fassung braucht keines: ADR-286 sieht **zweckgebundene Persistenz** selbst vor
+(§4.8 Stufe 3, „Vorgang-Promotion"). Punkt 3 oben denkt genau diese Tür konsequent zu Ende —
+Volltext existiert lokal nur für das, was in einem aktiven Vorgang steht. Alles andere bleibt
+Kopfdaten plus Anhänge.
+
+Zwei Gründe, warum das nicht nur formal, sondern sachlich die bessere Wahl ist:
+
+- **Umkehrbarkeit.** Von der Teilmenge zur Vollmenge kommt man jederzeit — die Quelle steht ja.
+  Zurück ist teuer. Wer die Teilmenge wählt und sich irrt, verliert Zeit; umgekehrt verliert man
+  Handlungsspielraum.
+- **Messbarkeit.** Ob die Teilmenge reicht, beantwortet Phase 3/4 ohnehin — als Messwert statt
+  als Vorabannahme.
+
+**Korrigiert wird ADR-286 §4.10.7:** Der Satz „Weil Bodies nicht dauerhaft gespeichert werden,
+ist Extraktion beim Einlesen **oder nie**" ist falsch. §4.8 derselben ADR sagt bereits das
+Richtige — das Postfach hält den Inhalt, er ist nachladbar. Mit dem Rohobjektspeicher gilt das
+erst recht: Extraktion ist wiederholbar, und ein Schema- oder Parserfehler ist rückwirkend heilbar.
 
 | | Extraktion beim Einlesen | Extraktion bei Vorgangs-Eintritt |
 |---|---|---|
-| Nachrichten | 90.967 | die im aktiven Vorgang |
-| Token (à ~439) | ~40 Mio. | ~1 Mio. bei 2 % |
+| Nachrichten | 14.018 (nach Ausschluss) | die im aktiven Vorgang |
 | Ingestion | modellgebunden | modellfrei |
 | Schema-Fehler rückwirkend heilbar | **nein** | **ja** |
 
@@ -179,101 +217,150 @@ Postfach hält den Inhalt, er ist nachladbar. Damit wird Extraktion **wiederholb
 
 ## 4. Implementation Details
 
-### 4.1 Zwei Schichten — Cache und Kuration
+### 4.1 Zwei Schichten — Projektion und Kuration
 
 **Wegwerfbar (drop & rebuild):** `message_entity`, `message_occurrence`, `participant`,
-`attachment_occurrence`, `edge`, `thread`, abgeleitete `observation`.
+`text_unit`, `attachment_occurrence`, `edge`, `thread_projection`, `observation`.
 
-**Durabel (überlebt jeden Neuaufbau):** `vorgang`, `open_point`, `decision_event`, `party`,
-`identity_link`, `query_log`, `regression_case`.
+**Durabel (überlebt jeden Neuaufbau):** `vorgang`, `action_item`, `action_event`, `party`,
+`identity`, `query_log`, `regression_case`.
 
-Durable Referenzen zeigen **nie** auf Surrogat-IDs des Cache, sondern auf
+Durable Referenzen zeigen **nie** auf Surrogat-IDs der Projektion, sondern auf
 `(account_id, transport_key)` plus die logische Entität. Ein `UIDVALIDITY`-Wechsel oder ein
 Postfach-Umzug bekommt eine definierte Migrationsprozedur; ein Zähler **verwaister durabler
 Referenzen** läuft nach jedem Aufbau (§8 Gate 3).
 
-Ohne diese Trennung zerstört der nächtliche Lauf auf Dauer das Einzige, was das Werkzeug
-produziert — der stärkste Einwand aus Review 1.
+Ohne diese Trennung zerstört der Neuaufbau auf Dauer das Einzige, was das Werkzeug produziert —
+der stärkste Einwand aus Runde 1.
 
-### 4.2 Entität und Vorkommen
+### 4.2 Rohobjektspeicher (inhaltsadressiert)
 
-`message` in der Vorstufe modellierte eine **Ablageposition**, nicht eine Nachricht. Dieselbe
-logische Nachricht existiert in Gesendet und Posteingang, in Archivkopien, und wechselt beim
-Verschieben ihre Transportidentität — Zählungen, Signale und Anhänge wirken dadurch doppelt.
+```text
+store/objects/<hh>/<hh>/<hash>.<ext>     # Identität ist der Hash, die Endung ist Bedienhilfe
+store/manifests/  store/quarantine/  store/tmp/
+```
+
+Schreibweg: in eine temporäre Datei streamen, dabei Hash und Größe berechnen, synchronisieren,
+atomar an den Zielpfad verschieben, danach Datenbanksatz anlegen. Ein Datenbankverweis zeigt nur
+auf ein bestätigtes Objekt; ein Objekt ohne Verweis gilt zunächst als verwaist, nicht als löschbar.
+
+**Umfang nach §3.1 Punkt 3:** Kopfdaten und Anhänge für die behaltene Menge (14.018 Nachrichten,
+~4,5 GB Mittelwert-Hochrechnung), Volltext nur für aktive Vorgänge. Der Speicherbedarf ist bei
+allen betrachteten Varianten unkritisch und war für die Entscheidung nicht maßgeblich.
+
+### 4.3 Entität und Vorkommen
+
+Dieselbe logische Nachricht existiert in Gesendet und Posteingang, in Archivkopien, und wechselt
+beim Verschieben ihre Transportidentität — Zählungen, Signale und Anhänge wirken dadurch doppelt.
 
 ```text
 message_entity(id, content_fingerprint, sent_at, subject_norm, …)
-message_occurrence(entity_id, account_id, folder_id, transport_key, seen_in_generation)
-attachment_occurrence(occurrence_id, filename, mime, sha256, text_extract)
+message_occurrence(entity_id, account_id, folder_id, transport_key, generation)
+attachment_occurrence(occurrence_id, filename, mime, sha256, raw_object_ref)
 ```
 
-`sha256`-Gleichheit belegt **Identität, nicht Versionsnachfolge**. Die Spalte `version_of` aus der
-Vorstufe entfällt ersatzlos; Dokumentversionierung ist ein eigenes Problem und wird nicht in einer
-Schemaspalte versteckt (beide Reviews, unabhängig).
+`sha256`-Gleichheit belegt **Identität, nicht Versionsnachfolge**. Eine Spalte `version_of`
+entfällt ersatzlos; Dokumentversionierung ist ein eigenes Problem und wird nicht in einer
+Schemaspalte versteckt.
 
-### 4.3 Build-Generationen
+### 4.4 Build-Generationen
 
 ```text
-build_generation(id, started_at, finished_at, status∈{building,valid,published,failed},
-                 derivation_version, parser_version)
-folder_scan(generation_id, account_id, folder_path, expected, read, errors, watermark)
+build_generation(id, status∈{building,validating,ready,active,superseded,rejected},
+                 derivation_version, parser_version, started_at, finished_at)
+folder_scan(generation_id, account_id, folder_path, expected, read, errors, watermark,
+            excluded_reason NULL)
 ```
 
 Ein Lauf baut in eine neue Generation, wird gegen Invarianten validiert und **erst danach atomar
-freigegeben**. Der letzte veröffentlichte Stand bleibt erhalten. Ein abgebrochener Lauf ist
-unsichtbar; ohne dieses Modell entsteht während eines mehrminütigen Scans ein zeitlich gemischtes
-Abbild, und ein Teilergebnis kann trotz plausibler Ordnerzähler ausgeliefert werden.
-
+freigegeben**. Der letzte aktive Stand bleibt erhalten. Ein abgebrochener Lauf ist unsichtbar.
 `derivation_version` und `parser_version` wandern in die Ausgabe — sonst ist in zwei Jahren nicht
-mehr erklärbar, warum ein Vorgang 2026 anders aussah als 2028.
+erklärbar, warum ein Vorgang 2026 anders aussah als 2028.
 
-### 4.4 Deckungszustand statt „darf lückenhaft sein"
+`excluded_reason` steht **an den Daten**, nicht als Filter im Code: nur so kann eine Deckung aus
+der Datenbank heraus erklären, was fehlt.
 
-Jede Antwort trägt `vollständig` / `teilweise` / `unbekannt`.
+### 4.5 Deckung ist mehrdimensional
 
-> **Harte Regel: Eine Negativaussage („offen", „unbeantwortet", „verstummt") wird nur bei
-> Deckungszustand `vollständig` getroffen.** Bei `teilweise` wird der offene Punkt als
-> *unbestimmt* geführt, nicht als offen. Eine partielle Abfrage darf niemals wie eine gewöhnliche
-> Leermenge aussehen.
-
-Die Deckungszeile weist Scanintervall, fehlgeschlagene Ordner, Parserfehler und die verwendete
-Generation aus — Ordnerzähler und ein Zeitstempel allein sind keine semantische Deckung.
-
-### 4.5 Graph — zwei Ebenen, typisierte Evidenzkanten
+Nicht „134 von 134 Ordnern", sondern: Konten · Ordner · **Zeitintervall** · bekannte Vorkommen ·
+geladene Rohobjekte · **Parserstatus** · Anhangstypen · Generation · Stand.
 
 ```text
-edge(from_entity, to_entity, type∈{reply,quote,same_subject,shared_participants,
-                                    temporal_context,calendar_context},
+Deckung: vollständig für Partei P, 2026-06-01 bis 2026-07-29
+Quellen: 3/3 Konten, 134/134 relevante Ordner (52.544 bewusst ausgeschlossen)
+Rohobjekte: 62/62 vorhanden · Parser: 59 ok, 2 Format nicht unterstützt, 1 verschlüsselt
+Ergebnis: PARTIAL — negative Aussage nicht definitiv
+Build: gen_2026-07-29T22:14Z
+```
+
+Die technische Zählung bleibt sichtbar, wird aber in eine **fachliche Konsequenz** übersetzt.
+
+### 4.6 Sechs Ausgabezustände
+
+Eine offene Frage wird nur dann definitiv als `open` ausgegeben, wenn gilt: *Anfrage oder Zusage
+existiert* **und** *relevanter Scope vollständig* **und** *kein Erledigungsbeleg* **und** *keine
+manuelle Erledigung*.
+
+| Status | Bedeutung |
+|---|---|
+| `open` | relevanter Scope vollständig geprüft, kein Erledigungsbeleg |
+| `likely_open` | starke Evidenz, Zuordnung oder Deckung nicht vollständig |
+| `unknown` | Quelle, Ordner, Zeitraum oder Parser unvollständig |
+| `resolved` | belegte oder manuell bestätigte Erledigung |
+| `dismissed` | bewusst nicht als Arbeitsgegenstand behandelt |
+| `snoozed` | gültig, bis zu einem Zeitpunkt zurückgestellt |
+
+Das ersetzt die Zweiteilung aus v1, die „starke Evidenz bei unvollständiger Deckung" und „keine
+Ahnung" in denselben Topf warf. **`likely_open` braucht eine gemessene Zielquote** — bleibt der
+Anteil dauerhaft hoch, ist die Unterscheidung wertlos (§8 Gate 8).
+
+### 4.7 Retrieval in sechs Stufen
+
+| Stufe | Inhalt |
+|---|---|
+| 1 | **Struktureller Scope** — Konten, Ordner, Zeitraum, Parteien; erzeugt zugleich die Deckung |
+| 2 | **Lexikalische Kandidaten** — PostgreSQL-Volltext und `pg_trgm` als Basispfad |
+| 3 | **Semantische Erweiterung** — optional, nur additiv, nie als Vollständigkeitsbeleg |
+| 4 | **Graph-Erweiterung** — Strang- und Vorgangskanten ziehen Nachbarn hinzu |
+| 5 | **Re-Ranking** — Zusammenführung der Kandidatenmengen |
+| 6 | **Dossier** — Ausgabe mit Evidenz je Zeile |
+
+v1 hatte Schema und Regeln, aber keinen Antwortpfad — das war eine echte Lücke.
+
+### 4.8 Graph — zwei Ebenen, typisierte Evidenzkanten
+
+```text
+edge(from_entity, to_entity,
+     type∈{reply,quote,same_subject,shared_participants,temporal_context,calendar_context},
      features jsonb, score numeric, derivation_version)
 ```
 
 - **Strangebene:** `reply` und belastbare `quote`-Kanten bilden über Union-Find den
-  Kommunikationsstrang (JWZ-artig, Strang = Zusammenhangskomponente).
+  Kommunikationsstrang.
 - **Vorgangsebene:** `same_subject`, `shared_participants`, `temporal_context`,
   `calendar_context` erzeugen **Vorgangskandidaten**, nicht Strangzugehörigkeit.
 - **Schwache Kanten vereinigen nicht transitiv.** Ohne diese Schranke zieht ein generischer
   Betreff („Rückfrage", „Termin") fremde Stränge zusammen.
 
-Die Skalar-Konfidenzen 0,95/0,70/0,50 der Vorstufe entfallen — sie waren gesetzte Pseudo-Präzision
-mit genau einem Konsumenten. An ihre Stelle tritt ein Dreizustand *sicher / wahrscheinlich /
-vermutet*, abgeleitet aus Kantentyp und Clusterkonsistenz.
+Die Skalar-Konfidenzen 0,95/0,70/0,50 aus v1 entfallen — gesetzte Pseudo-Präzision mit genau
+einem Konsumenten. Stattdessen ein Dreizustand *sicher / wahrscheinlich / vermutet*, abgeleitet
+aus Kantentyp und Clusterkonsistenz.
 
-### 4.6 Beobachtung, Hypothese, Entscheidung
+### 4.9 Beobachtung, Hypothese, Entscheidung
 
 ```text
 observation(entity_id, kind∈{frage,zusage,frist,anhang,antwortkandidat,termin},
-            evidence_span jsonb, parser_version)          -- append-only, abgeleitet
-open_point(id, vorgang_id, opened_by_observation, status_projected)
-decision_event(open_point_id, at, kind∈{bestätigt,erledigt,mündlich_erledigt,
-               verworfen,pausiert,wieder_geöffnet}, reason, evidence)   -- append-only
+            evidence_span jsonb, parser_version)        -- append-only, abgeleitet
+action_item(id, vorgang_id, opened_by_observation, status_projected)
+action_event(action_item_id, at, kind∈{bestätigt,erledigt,mündlich_erledigt,
+             verworfen,pausiert,wieder_geöffnet}, reason, evidence)   -- append-only
 ```
 
-Der Zustandsautomat gehört an den **einzelnen offenen Punkt**, nicht an den Vorgang: ein Vorgang
-hat mehrere offene Punkte mit unterschiedlichem Schicksal. Beobachtungen sind unveränderlich und
-neu ableitbar; Nutzerwissen (mündlich erledigt, nicht relevant, Wiedervorlage) ist ausdrücklich
-modelliert statt in eine berechnete Schicht gezwungen.
+Der Zustandsautomat gehört an den **einzelnen offenen Punkt**, nicht an den Vorgang. Nutzerwissen
+(mündlich erledigt, nicht relevant, Wiedervorlage) ist ausdrücklich modelliert und **überlebt
+jeden Rebuild** — es liegt in der durablen Schicht.
 
-### 4.7 Personen — `address_norm` ist keine Person
+### 4.10 Personen
 
 ```text
 party(id, label)
@@ -282,56 +369,54 @@ identity_link(a, b, kind∈{merge,split}, at, reason)      -- versioniert, umkeh
 ```
 
 `mail wer <name>` löst zuerst eine **Partei** auf und durchsucht danach deren Adressen. Ohne diese
-Ebene sind Aliase, Funktionspostfächer, mehrere Adressen derselben Person und Namensvarianten
-fachlich unbestimmt — und der zentrale Befehl des Werkzeugs hat keine definierte Semantik.
+Ebene sind Aliase, Funktionspostfächer und Namensvarianten fachlich unbestimmt — und der zentrale
+Befehl hätte keine definierte Semantik.
 
-### 4.8 Ingestion
+### 4.11 Ingestion
 
-1. **Bulk statt Einzelabruf** (Faktor 10,6 gemessen); Graph-Gegenstück `$batch` + `$select`
+1. **Ausschluss zuerst** (78,9 %), Grund an den Daten.
+2. **Bulk statt Einzelabruf** (Faktor 10,6 gemessen); Graph-Gegenstück `$batch` + `$select`
    — **ungemessen, Messung ist Vorbedingung** (§8 Gate 5).
-2. **Gesendet zuerst** — dort entstehen die eigenen Verpflichtungen.
-3. **Heißmenge deterministisch starten**: Gesendet, letzte Monate, manuell aktive Vorgänge.
+3. **Gesendet zuerst** — dort entstehen die eigenen Verpflichtungen.
+4. **Heißmenge deterministisch starten**: Gesendet, letzte Monate, manuell aktive Vorgänge.
    `query_log` ist **ein** Signal, nicht das einzige; rotierende Stichproben kalter Ordner
    verhindern, dass Nichtbeobachtung sich selbst verstärkt.
-4. **Fortschreitend nützlich**: neueste zuerst, heiße Ordner zuerst.
-5. **Kein Sprachmodell im heißen Pfad** — deterministische Merkmale zuerst.
+5. **Kein Sprachmodell im heißen Pfad.** Zulässige Rollen: Kandidatenerzeugung und
+   Dossier-Formulierung. Unzulässig: Identität, Antwortbeziehung oder Erledigung allein bestimmen.
 
-### 4.9 Kalibrierung
-
-Mehrere Sonden statt einer, je Transport und je Operation:
+### 4.12 Kalibrierung
 
 | Sonde | Prüft |
 |---|---|
 | `FROM`, ASCII | Grundfall (bisher einzige Sonde) |
 | `TO` / `CC` | die real beobachtete Übermenge |
-| Nicht-ASCII (Umlaut-Name) | im deutschsprachigen Korpus der **Normalfall**, nicht der Randfall |
+| Nicht-ASCII (Umlaut-Name) | im deutschsprachigen Korpus der **Normalfall** |
 | Ordner außerhalb Gesendet, inkl. Kalenderordner | dort trat die Übermenge auf |
 
-Kriterium bleibt `Client ⊆ Server`: zu viele Server-Treffer sind harmlos, zu wenige sehen aus wie
-ein Ergebnis. Fällt eine Sonde, wird der betroffene Pfad **gesperrt**, nicht nachgebessert.
+Kriterium `Client ⊆ Server`: zu viele Server-Treffer sind harmlos, zu wenige sehen aus wie ein
+Ergebnis. Fällt eine Sonde, wird der Pfad **gesperrt**, nicht nachgebessert.
 
-### 4.10 Dossier
+### 4.13 Dossier
 
-Jede Zeile trägt **Evidenzverweis**, **Ableitungsart** (`beobachtet` / `abgeleitet`),
-Dreizustands-Konfidenz, möglichen Gegenbeleg und Deckungszustand. Offene Punkte zeigen zugehörige
-Frage, mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen:
-`resolve` · `dismiss` · `snooze` · `split` · `merge` · `show-evidence`.
-
-Ohne Bestätigen/Verwerfen/Pausieren wird eine Liste, die gelegentlich bereits Erledigtes meldet,
-binnen Wochen ignoriert.
+Jede Zeile trägt **Evidenzverweis**, **Ableitungsart** (`beobachtet`/`abgeleitet`),
+Dreizustands-Konfidenz, möglichen Gegenbeleg und Deckungszustand. Offene Punkte zeigen Frage,
+mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `resolve` ·
+`dismiss` · `snooze` · `split` · `merge` · `show-evidence`.
 
 ---
 
 ## 5. Migration Tracking
 
-| Repo / Service | Stufe | Status | Datum | Notizen |
-|---|---|---|---|---|
-| `platform` | S1 (Bulk-Abruf, Gesendet-zuerst, Dossier-Ausgabe, `--json`) | ⬜ | – | verbessert den Bestand |
-| `dev-hub` | S2 (Cache-Schema, Build-Generationen, Deckungszustand) | ⬜ | – | Abbruch bei Vollaufbau > 30 min |
-| `dev-hub` | **S2a** (Entität/Vorkommen, Personenauflösung, Evaluationswerkzeug) | ⬜ | – | neu aus §11 |
-| `dev-hub` | **S2b** (Dossier-on-demand, explizites Tracking als Kontrollgruppe) | ⬜ | – | neu aus §11; kann S3 verkleinern |
-| `dev-hub` | S3 (Graph zweistufig, `observation`/`open_point`, `mail offen`) | ⬜ | – | erst nach S2a/S2b |
-| `dev-hub` | S4 (Anhangs-Extraktion, Kalenderkante, ggf. Semantik) | ➖ später | – | entfällt, wenn S3 die Fragen beantwortet |
+| Repo / Service | Phase | Status | Notizen |
+|---|---|---|---|
+| `platform` | **P0** Referenzmenge 30–50 Vorgänge + Messskripte | ⬜ | Tor: kein Threading vorher |
+| `platform` | **P1a** Bestandszahl klären (§1.4-Widerspruch) | ⬜ | Gate 0, blockiert alle Größenrechnungen |
+| `platform` | **P1b** Bulk-Abruf, Gesendet-zuerst, Dossier, `--json` | ⬜ | verbessert den Bestand |
+| `dev-hub` | **P2** Rohobjektspeicher, Entität/Vorkommen, Generationen, Deckung | ⬜ | Abbruch bei Vollaufbau > 30 min |
+| `dev-hub` | **P3** Volltext, Anhangs-Extraktion, Parteien, Dossier mit Evidenz | ⬜ | Benchmark gegen notmuch/`pg_search` |
+| `dev-hub` | **P4** Graph zweistufig, Kantenprovenienz | ⬜ | Falsch-Zusammenführung getrennt gemessen |
+| `dev-hub` | **P5** Vorgänge, `action_item`, sechs Zustände | ⬜ | keine Negativaussage ohne volle Deckung |
+| `dev-hub` | **P6** Semantik/`pgvector`, nur bei belegtem Zusatz-Recall | ➖ später | entfällt, wenn P5 die Fragen beantwortet |
 
 ---
 
@@ -339,19 +424,20 @@ binnen Wochen ignoriert.
 
 ### 6.1 Good
 - Negativaussagen sind an Deckung gebunden — die teuerste Fehlerklasse wird strukturell verhindert.
-- Kuration überlebt jeden Neuaufbau; der Cache bleibt wegwerfbar.
-- Abgebrochene Läufe sind unsichtbar; es gibt immer einen letzten gültigen Stand.
-- Falsche Zusammenführungen werden getrennt gemessen statt in einer Gesamtquote versteckt.
+- Der Ausschluss senkt Verarbeitungsmenge, Aufbauzeit und Speicher um rund vier Fünftel.
+- Parser- und Algorithmuswechsel sind lokale Neuläufe statt Vollabrufe.
+- Kuration überlebt jeden Neuaufbau; abgebrochene Läufe sind unsichtbar.
+- Kein Supersede von ADR-286 nötig; der Rückweg zur kleineren Variante bleibt offen.
 
 ### 6.2 Bad
-- Deutlich mehr Schema als die Vorstufe: Generationen, Entität/Vorkommen, Parteien, drei
+- Deutlich mehr Schema als v1: Rohobjekte, Generationen, Entität/Vorkommen, Parteien, drei
   Zustandsschichten.
-- S3 rückt nach hinten; der eigentliche Nutzen kommt später.
-- Zwei Suchpfade (Projektion und live) können in Normalisierung und Semantik auseinanderlaufen —
-  jeder fachliche Suchfehler ist an zwei Stellen zu reparieren.
+- Zwei Suchpfade (Projektion und live) können in Normalisierung und Semantik auseinanderlaufen.
+- Der Ausschluss macht ältere Korrespondenz unsichtbar — bewusst, aber ein Vorgang kann auf einen
+  alten Strang zeigen; dann muss gezielt nachgeladen werden.
 
 ### 6.3 Nicht in Scope
-- Datenschutz/Aufbewahrung (ADR-286 + organisatorisch).
+- Datenschutz/Aufbewahrung (organisatorisch).
 - Mehrbenutzerbetrieb, Web-Oberfläche, Kalender als eigenständiges Zeitsystem.
 
 ---
@@ -360,51 +446,57 @@ binnen Wochen ignoriert.
 
 | Risiko | W'keit | Impact | Mitigation |
 |---|---|---|---|
-| Vollaufbau sprengt das nächtliche Fenster (95 % der theoretischen Grenze bereits genutzt) | **Hoch** | Hoch | Produktions-Benchmark vor S2 (§8 Gate 5); bei p95 > 10 min auf inkrementell für die Heißmenge |
-| Neuaufbau entwertet durable Kuration | Mittel | **Kritisch** | Schichtentrennung §4.1 + Waisen-Zähler (§8 Gate 3) |
-| Negativaussage auf teilweiser Deckung | Mittel | **Kritisch** | Harte Regel §4.4 + Gate 1 |
-| Falsche Zusammenführung fremder Stränge | Hoch | Hoch | keine transitive Vereinigung schwacher Kanten (§4.5), getrennte Messung (§8 Gate 6) |
-| Überanpassung an einen Realfall | **Hoch** | Hoch | geschichtete Referenzmenge 30–50 Vorgänge vor S3 (§8 Gate 7) |
-| Zwei Suchpfade driften semantisch | Mittel | Mittel | gemeinsame Normalisierungsbibliothek, Sonden gegen beide Pfade |
-| Signal-Muster sprachabhängig und spröde | Hoch | Mittel | explizites Tracking als Kontrollgruppe (S2b), Präzision gegen Referenzmenge gemessen |
+| Bestandszahl falsch (§1.4-Widerspruch) | **Hoch** | Mittel | Gate 0 vor allen Größenrechnungen |
+| Neuaufbau entwertet durable Kuration | Mittel | **Kritisch** | Schichtentrennung §4.1 + Waisen-Zähler |
+| Negativaussage auf teilweiser Deckung | Mittel | **Kritisch** | §4.6 sechs Zustände + Gate 1 |
+| Falsche Zusammenführung fremder Stränge | Hoch | Hoch | keine transitive Vereinigung schwacher Kanten, Gate 6 |
+| `likely_open` wird zum Sammelbecken | Mittel | Hoch | gemessene Zielquote, Gate 8 |
+| Überanpassung an einen Realfall | **Hoch** | Hoch | geschichtete Referenzmenge 30–50, Gate 7 |
+| Ausgeschlossener Ordner enthält doch Relevantes | Mittel | Mittel | Ausschluss in jeder Deckung namentlich; gezieltes Nachladen möglich |
+| Umfang bricht den Ein-Personen-Betrieb | **Hoch** | Hoch | Phasen mit Toren; P6 entfällt bei ausreichendem P5 |
+| Parserfehler blockiert Lauf | Mittel | Mittel | Limits, Quarantäne, Generation wird `rejected` |
 
 ---
 
 ## 8. Confirmation
 
-1. **Negativaussage-Gate:** Kein `mail offen`-Eintrag ohne Deckungszustand `vollständig`. Ein Test
-   mit künstlich entferntem Ordner erzeugt `unbestimmt`, **nicht** „offen".
-2. **Build-Gate:** Ein mitten im Lauf abgebrochener Aufbau ändert den sichtbaren Stand nicht; der
-   letzte veröffentlichte Stand bleibt abfragbar.
+0. **Bestands-Gate:** Der Widerspruch aus §1.4 (66.562 vs. 90.967) ist aufgelöst und die
+   verwendete Zahl reproduzierbar belegt, **bevor** eine Größen-, Zeit- oder Speicherrechnung
+   entscheidungswirksam wird.
+1. **Negativaussage-Gate:** Kein `open` ohne vollständige Deckung. Ein Test mit künstlich
+   entferntem Ordner erzeugt `unknown`, **nicht** `open`.
+2. **Build-Gate:** Ein mitten im Lauf abgebrochener Aufbau ändert den sichtbaren Stand nicht.
 3. **Waisen-Gate:** Nach jedem Neuaufbau **null** verwaiste durable Referenzen; ein simulierter
    `UIDVALIDITY`-Wechsel läuft durch die Migrationsprozedur.
 4. **Kalibrier-Gate:** Sonden für `FROM`, `TO`/`CC`, Nicht-ASCII und einen Nicht-Gesendet-Ordner
    laufen je Konto und Transport; eine fallende Sonde sperrt den Pfad.
-5. **Produktions-Benchmark-Gate:** Vor S2 wird der **tatsächliche** Vollaufbau gemessen — alle drei
-   Konten, alle 209 Ordner, inklusive `SELECT`-Overhead, Graph-`$batch`, Datenbankschreiben,
-   Normalisierung und Fehlerwiederholung. Die 14-Minuten-Zeile wird durch den Messwert ersetzt.
-   Bei p95 > 10 min oder wiederkehrender Serverdrosselung: inkrementell für die Heißmenge.
-6. **Threading-Gate:** Gemessen werden paarweise Präzision und Recall, **Falsch-Zusammenführungs-
-   rate getrennt** und Vorgangsabdeckung. Falsche Zusammenführungen werden strenger bestraft als
-   Teilungen; eine einzelne „Genauigkeit > 90 %" gilt nicht als bestanden.
-7. **Evaluations-Gate:** Vor S3 existiert eine geschichtete Referenzmenge von 30–50 realen
+5. **Benchmark-Gate:** Vor P2 wird der **tatsächliche** Aufbau gemessen — alle Konten, alle
+   behaltenen Ordner, inklusive Graph-`$batch`, Datenbankschreiben, Normalisierung und
+   Fehlerwiederholung. Bei p95 > 10 min: inkrementell für die Heißmenge.
+6. **Threading-Gate:** Paarweise Präzision und Recall, **Falsch-Zusammenführungsrate getrennt**,
+   Vorgangsabdeckung. Falsche Zusammenführungen werden strenger bestraft als Teilungen; eine
+   einzelne „Genauigkeit > 90 %" gilt nicht als bestanden.
+7. **Evaluations-Gate:** Vor P4 existiert eine geschichtete Referenzmenge von 30–50 realen
    Vorgängen (Weiterleitungen, generische Betreffs, Ordnerwechsel, Mehrfachkopien, Unicode,
    Anhänge, Termine, parallele Themen). Im selben Zug: einmaliger Benchmark eines fertigen
-   lokalen Indexers gegen dieselbe Menge, als Messlatte für die eigene Threading-Güte.
-8. **Dossier-Gate:** Jede Zeile trägt Evidenzverweis und Ableitungsart; eine Zeile ohne beides ist
-   ein Fehler, keine Anzeige.
-9. **Drift-Detector** (ADR-059): Staleness 12 Monate.
+   lokalen Indexers gegen dieselbe Menge.
+8. **`likely_open`-Gate:** Der Anteil `likely_open` an allen offenen Punkten wird gemessen.
+   Bleibt er dauerhaft über einem festgelegten Schwellwert, ist die Deckungsdefinition zu eng
+   oder die Zustandsunterscheidung wertlos — beides ist ein Befund, kein Betriebszustand.
+9. **Dossier-Gate:** Jede Zeile trägt Evidenzverweis und Ableitungsart; eine Zeile ohne beides ist
+   ein Fehler.
+10. **Drift-Detector** (ADR-059): Staleness 12 Monate.
 
 ---
 
 ## 9. More Information
 
-- **Vorstufe:** KONZ-platform-036 (portables Entwurfsdokument, Stand v1) — platform#1523
+- **Vorstufe:** KONZ-platform-036 — platform#1523
 - **Deckungsausweis-Begriffe:** KONZ-platform-035
-- **Persistenz-Entscheidung darunter:** ADR-286 (§4.10.7 wird hier korrigiert) — platform#1522
-- **Werkzeugstand:** `tools/mail_agent/read_mail.py` — platform#1519 (Ordner-Walk mit
-  ausgewiesenem Nenner), platform#1520 (Kalibriersonde, Deckungsausweis, `--json`)
-- Externe Zweitmeinungen zur Vorstufe: `~/shared/review 1.md`, `~/shared/review 2.md`
+- **Persistenz darunter:** ADR-286 (§4.10.7 korrigiert, kein Supersede) — platform#1522
+- **Werkzeugstand:** `tools/mail_agent/read_mail.py` — platform#1519, platform#1520;
+  Ausschlussregel `tools/mail_agent/indexierung.py`
+- Externe Runden: `~/shared/review 1.md`, `~/shared/review 2.md`, `~/shared/konzept-hybrid.md`
   (ephemer; Audit hier in §11 + `ai_sparring_by`)
 
 ---
@@ -413,61 +505,73 @@ binnen Wochen ignoriert.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
-| 2026-07-29 | Claude Code (Opus 5) | Initial, Status **Proposed**. Entstanden aus KONZ-036 nach zwei unabhängigen externen adversarialen Reviews, die den Zuschnitt der Vorstufe an derselben Stelle brachen. Kernänderungen gegenüber KONZ-036: §5-These ehrlich umformuliert (Kopf-Abfragen und Aggregate aus der Projektion statt „Suche bleibt live"), Deckungszustand als harte Bedingung für Negativaussagen, Trennung wegwerfbarer Cache ↔ durable Kuration mit transportstabilen Referenzen, Build-Generationen mit atomarer Freigabe und letztem gültigem Stand, Entität/Vorkommen statt Ablageposition, Parteien-/Identitätsauflösung als eigene Ebene, Graph zweistufig mit typisierten Evidenzkanten ohne transitive Vereinigung schwacher Kanten, drei Zustandsschichten (Beobachtung/Hypothese/Entscheidung) mit Automat je offenem Punkt, erweiterte Kalibriersonden (TO/CC, Nicht-ASCII, Nicht-Gesendet-Ordner), `version_of` ersatzlos gestrichen. Neue Stufen S2a/S2b vor S3. Korrigiert **ADR-286 §4.10.7** („Extraktion beim Einlesen oder nie") als falsch — §4.8 derselben ADR sagt bereits das Richtige. |
+| 2026-07-29 | Claude Code (Opus 5) | **v2 nach Runde 3 und einer eigenen Messung.** Neu gemessen: die bestehende Ausschlussregel entfernt **78,9 %** des Bestands (66.562 → 14.018), womit Vollaufbau auf 2,2 min und Rohobjektspeicher auf ~4,5 GB fallen; die Größen-Bedenken der Runden 1–3 entschärfen sich dadurch strukturell. Dabei aufgedeckt: die seit ADR-286 §4.10.8 durchgereichte Zahl **90.967** ist mit der gegengeprüften Methode nicht reproduzierbar (gemessen 66.562) — als **Gate 0** offen geführt statt weggeglättet, weil zwei externe Runden auf der älteren Zahl argumentiert haben. Aus Runde 3 übernommen: inhaltsadressierter Rohobjektspeicher, Leitsatz „Delta an der Quelle, Rebuild in der Projektion" (ersetzt „Neuaufbau schlägt Delta"), **sechs** Ausgabezustände statt zwei, sechsstufige Retrieval-Pipeline, mehrdimensionale Deckung mit fachlicher Konsequenz. **Nicht** übernommen: die volle 25-Tabellen-Grundausstattung und der unbeschränkte Volltextspeicher. Letzteres ist die tragende Abweichung — der Rohobjektspeicher ist **zweckgebunden** (Kopfdaten und Anhänge global, Volltext nur für aktive Vorgänge), wodurch **kein Supersede von ADR-286 nötig** ist und der Rückweg zur kleineren Variante offen bleibt (§3.2). |
+| 2026-07-29 | Claude Code (Opus 5) | v1, Status Proposed. Aus KONZ-036 nach zwei externen Runden: §5-These ehrlich umformuliert, Deckungszustand als Bedingung für Negativaussagen, Trennung Cache ↔ Kuration, Build-Generationen, Entität/Vorkommen, Parteien, Graph zweistufig, drei Zustandsschichten, `version_of` gestrichen. Korrigiert ADR-286 §4.10.7. |
 
 ---
 
-## 11. Externe KI-Zweitmeinung — Rückfluss-Tagging
+## 11. Externe Zweitmeinungen — Rückfluss-Tagging
 
-Zwei unabhängige Runden auf der Vorstufe KONZ-036 am 2026-07-29, beide Verdikt **„überarbeiten"**,
-keine „verwerfen". 43 Befunde, 21 Änderungsvorschläge. Die Einstufung ist Owner-Urteil; nur
-`[valid]` ist eingeflossen, und zwar als eigene Formulierung, nicht als übernommene Prosa.
+Drei unabhängige Runden auf der Vorstufe KONZ-036 am 2026-07-29. Runden 1 und 2 sind adversariale
+Reviews (Verdikt beide „überarbeiten"), Runde 3 ist eine **eigenständige Gegen-Konzeption** mit
+16 bewerteten Architekturklassen. Die Einstufung ist Owner-Urteil; nur `[valid]` ist eingeflossen,
+als eigene Formulierung, nicht als übernommene Prosa.
 
-### 11.1 Konvergenz — von beiden Runden unabhängig gefunden
+### 11.1 Konvergenz Runde 1 + 2
 
-| Befund | R1 | R2 | Verdikt | Wirkung |
-|---|---|---|---|---|
-| §5-These im eigenen Dokument gebrochen (Köpfe werden längst indexiert) | AD-2 | AD-1 | `[valid]` | §3 Punkt 1, §2 Option B verworfen |
-| 14-Minuten-Zahl unbelegt (eine Stichprobe, ein Ordner, nur Kopfzeilen) | AD-1 | AD-3 | `[valid]` | §8 Gate 5 |
-| Durable Kuration hängt an wegwerfbaren IDs | AD-3 | AD-6 | `[valid]` | §4.1, §8 Gate 3 |
-| Kalibriersonde prüft die falschen Fälle | AD-5 | AD-13 | `[valid]` | §4.9, §8 Gate 4 |
-| Strang ≠ Vorgang; Skalar-Konfidenzen sind Pseudo-Präzision | AD-6 | AD-8/9 | `[valid]` | §4.5 |
-| Regressionsmenge n=1 führt zur Überanpassung | B28-2 | AD-14/B28-6 | `[valid]` | §8 Gate 7 |
-| `signal` braucht Nutzerentscheidungen als eigene Schicht | §13.4 | AD-11 | `[valid]` | §4.6 |
-| `query_log`-Rückkopplung (unerschlossene Ordner werden nie heiß) | B28-4 | AD-12 | `[valid]` | §4.8 Punkt 3 |
+| Befund | R1 | R2 | Wirkung |
+|---|---|---|---|
+| §5-These im eigenen Dokument gebrochen | AD-2 | AD-1 | §3.1 Punkt 4 |
+| 14-Minuten-Zahl unbelegt | AD-1 | AD-3 | Gate 5, §1.4 |
+| Durable Kuration hängt an wegwerfbaren IDs | AD-3 | AD-6 | §4.1, Gate 3 |
+| Kalibriersonde prüft die falschen Fälle | AD-5 | AD-13 | §4.12, Gate 4 |
+| Strang ≠ Vorgang; Skalar-Konfidenzen sind Pseudo-Präzision | AD-6 | AD-8/9 | §4.8 |
+| Regressionsmenge n=1 → Überanpassung | B28-2 | AD-14/B28-6 | Gate 7 |
+| `signal` braucht Nutzerentscheidungen als eigene Schicht | §13.4 | AD-11 | §4.9 |
+| `query_log`-Rückkopplung | B28-4 | AD-12 | §4.11 Punkt 4 |
 
-### 11.2 Einzelbefunde mit Wirkung
+### 11.2 Einzelbefunde Runde 1 + 2
 
 | Befund | Quelle | Verdikt | Wirkung |
 |---|---|---|---|
-| Lückenhafter Index trägt keine Negativaussage | R2/AD-4 | `[valid]` — **der tiefste Befund beider Runden** | §4.4 harte Regel, §8 Gate 1 |
-| Fehlende Build-Generationen → zeitlich gemischtes Abbild, Teilergebnisse sichtbar | R2/AD-5, B28-3 | `[valid]` | §4.3, §8 Gate 2 |
-| `message` modelliert Ablageposition statt Entität | R2/AD-6 | `[valid]` | §4.2 |
-| Personenauflösung fehlt vollständig | R2/AD-7, B28-5 | `[valid]` | §4.7 |
-| Betriebsplan unbestimmt (Heiß kontinuierlich + Kalt nächtlich + „≤ 1 Dienst") | R2/AD-2 | `[valid]` | §4.8, §5 Stufenplan |
-| Zitat-Entfernung ungemessen → falsche `frage`-Signale | R1/AD-4 | `[valid]` | §8 Gate 7, S2b Kontrollgruppe |
-| Exchange 2010 ist EOL; kein Identitäts-Migrationspfad | R1/B28-1 | `[valid]` | §4.1 Migrationsprozedur, §8 Gate 3 |
-| Zwei Suchpfade driften semantisch auseinander | R2/B28-1 | `[valid]` | §6.2, §7 |
-| S3-Schätzung scheitert an der Referenzmenge, nicht am Code | R2/B28-6 | `[valid]` | S2a als eigene Stufe |
-| Durchsatz-50 %-Signal und 90-Tage-Demotion verfrüht | R1/B28-4, R2/§13.6 | `[valid]` | erst nach gefülltem `query_log` |
+| Lückenhafter Index trägt keine Negativaussage | R2/AD-4 | `[valid]` — **tiefster Befund** | §4.6, Gate 1 |
+| Fehlende Build-Generationen → gemischtes Abbild | R2/AD-5, B28-3 | `[valid]` | §4.4, Gate 2 |
+| `message` modelliert Ablageposition | R2/AD-6 | `[valid]` | §4.3 |
+| Personenauflösung fehlt | R2/AD-7, B28-5 | `[valid]` | §4.10 |
+| Betriebsplan unbestimmt | R2/AD-2 | `[valid]` | §3.1 Punkt 2, §5 |
+| Zitat-Entfernung ungemessen | R1/AD-4 | `[valid]` | Gate 7 |
+| Exchange EOL, kein Identitäts-Migrationspfad | R1/B28-1 | `[valid]` | §4.1, Gate 3 |
+| Zwei Suchpfade driften | R2/B28-1 | `[valid]` | §6.2 |
+| Dokumentversionierung nicht per Hash | R1/B28-3, R2/REC-3 | `[valid]` | `version_of` gestrichen |
+| notmuch: R1 Spike vs. R2 verwirft — **Runden widersprechen sich** | R1/REC-6, R2/OOB-3 | `[valid, anders]` | Benchmark, kein Architekturpfad (Gate 7) |
+| Explizites Tracking | R1/OOB-2, R2/OOB-1 | `[valid, als Ergänzung]` | Kontrollgruppe, kein Ersatz |
+| Kalenderkante = Mehrquellen-Zeitsystem | R2/B28-7 | `[out-of-scope]` | in P6, §6.3 |
 
-### 11.3 Abweichend übernommen oder abgelehnt
+### 11.3 Runde 3 (Gegen-Konzeption)
 
-| Befund / Vorschlag | Quelle | Verdikt | Begründung |
-|---|---|---|---|
-| Vier-Tabellen-Split inkl. `document`/`document_version` | R2/REC-3 | `[valid, anders umgesetzt]` | Entität/Vorkommen übernommen; Dokumentversionierung **nicht** — beide Runden sagen unabhängig, dass Hashgleichheit nur Identität belegt (R1/B28-3 fordert `version_of` zu streichen). Die Spalte entfällt statt ausgebaut zu werden. |
-| `mbsync`+`notmuch` | R1/REC-6 (Spike vor S2) vs. R2/OOB-3 (als Architektur verworfen) | `[valid, anders umgesetzt]` | **Die Runden widersprechen sich.** Beide wollen es messen, keine will es übernehmen → einmaliger Benchmark gegen die Referenzmenge (§8 Gate 7), kein Architekturpfad. |
-| Explizites Verpflichtungsjournal / `mail track` | R1/OOB-2, R2/OOB-1 | `[valid, als Ergänzung]` | Nicht als Ersatz für automatische Erkennung — als **Kontrollgruppe** in S2b, damit der Zusatznutzen der Automatik messbar wird. |
-| Kalenderkante macht daraus ein Mehrquellen-Zeitsystem | R2/B28-7 | `[out-of-scope]` | Inhaltlich richtig, aber die Kante liegt in S4 hinter einem Abbruchkriterium. Als benannte Grenze in §6.3, keine Änderung. |
+| Beitrag | Verdikt | Wirkung |
+|---|---|---|
+| Inhaltsadressierter Rohobjektspeicher | `[valid]` — **stärkster Einzelbeitrag** | §4.2; macht Parserwechsel zum lokalen Neulauf statt Vollabruf |
+| „Delta an der Quelle, Rebuild in der Projektion" | `[valid]` | §3.1 Punkt 2; ersetzt „Neuaufbau schlägt Delta" und löst die Grenzwertrechnung auf |
+| Sechs Ausgabezustände | `[valid]` | §4.6; v1 warf „starke Evidenz ohne Deckung" und „keine Ahnung" zusammen |
+| Sechsstufige Retrieval-Pipeline | `[valid]` | §4.7; v1 hatte keinen Antwortpfad |
+| Mehrdimensionale Deckung mit fachlicher Konsequenz | `[valid]` | §4.5 |
+| 16 Architekturklassen mit gewichteter Matrix | `[valid]` | §2 ersetzt die 4-Optionen-Analyse aus v1 |
+| Tika für Anhangs-Extraktion | `[valid]` | P3 |
+| Parquet/DuckDB für Regressionsauswertung | `[valid, später]` | P6 |
+| **Unbeschränkter Volltext im Rohobjektspeicher** | `[valid, anders umgesetzt]` | **zweckgebunden** statt unbeschränkt: Kopfdaten + Anhänge global, Volltext nur für aktive Vorgänge. Grund: Runde 3 kennt ADR-286 nicht (Eingabe war nur KONZ-036) und übersieht daher, dass ein unbeschränkter Volltextspeicher dessen Kern widerspricht. Die zweckgebundene Fassung liefert denselben Nutzen für den Referenzfall ohne Supersede und bleibt umkehrbar (§3.2). |
+| **25-Tabellen-Grundausstattung, 7 Phasen** | `[valid, reduziert]` | Bei Bus-Faktor 1 ist Umfang das zentrale Risiko; Runde 3 benennt es selbst (R-10). Übernommen werden die Konzepte, nicht die Grundausstattung auf einmal — die Phasen tragen Tore. |
+| Speicherbedarf des Rohobjektspeichers | `[Lücke der Runde]` | nicht beziffert; hier nachgerechnet: ~4,5 GB für die behaltene Menge, ~21,3 GB für den Gesamtbestand — für die Entscheidung unerheblich |
 
 ### 11.4 Was keine Runde angegriffen hat
 
 Dossier als Ausgabeobjekt · Bulk-Ingestion · Gesendet-zuerst · kein Sprachmodell im heißen Pfad ·
-die Asymmetrie falsch-negativ/falsch-positiv (Review 1: „das tragfähigste Element des Entwurfs").
-Diese Elemente gelten als durch zwei unabhängige Runden bestätigt.
+die Asymmetrie falsch-negativ/falsch-positiv (Runde 1: „das tragfähigste Element des Entwurfs").
+Durch drei unabhängige Runden bestätigt.
 
-### 11.5 Was diese Runde nicht leisten konnte
+### 11.5 Was diese Runden nicht leisten konnten
 
-Beide Runden bewerteten die **Vorstufe**, nicht diesen Text. Die hier getroffenen Entscheidungen —
-insbesondere die Schichtentrennung §4.1, die Generationen §4.3 und die harte Negativaussage-Regel
-§4.4 — sind **ungeprüft**. Genau dafür geht dieser ADR in eine dritte Runde.
+Alle drei bewerteten die **Vorstufe**, nicht diesen Text. Ungeprüft sind damit: die
+Ausschluss-Messung aus §1.4 samt des dabei aufgedeckten Zahlen-Widerspruchs, die Zweckbindung des
+Rohobjektspeichers (§3.2) und die daraus folgende Entscheidung gegen ein Supersede von ADR-286.
+Das sind genau die drei Punkte, an denen eine vierte Runde ansetzen sollte.
