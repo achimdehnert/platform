@@ -18,6 +18,7 @@ implementation_evidence:
   - "Sync: apps.documents.DocumentMetadata in research-hub, Celery task + management command"
   - "Nginx: 200M upload, 120s timeout"
   - "Review fixes: B1/B2/B3/K1/K2/K3/K4/H2/H3/M3 all applied"
+  - "Stand 2026-07-29 (platform#1528): Paperless auf 3.0.4 gehoben (2.14.7 -> 2.20.15 -> 3.0.4, 53 Migrationen, 826 Dokumente unveraendert). Zugang NICHT mehr ueber authentik-OIDC, sondern Cloudflare Access + HTTP-Remote-User (Owner-Entscheid, Abweichung von ADR-142 nur fuer diesen Host). Die OIDC-Zeile oben beschreibt den Stand vom 2026-03-13."
 ---
 
 # ADR-144: doc-hub — Paperless-ngx als Dokumentenmanagement-System
@@ -362,7 +363,7 @@ PAPERLESS_SOCIALACCOUNT_PROVIDERS={"openid_connect":{"APPS":[{"provider_id":"aut
 | **Secrets** | Alle Credentials via `.env.doc-hub`, Injection via `envsubst` beim Deploy (ADR-045) |
 | **Backup (DB)** | Täglicher `pg_dump` Cron → `/opt/backups/doc-hub/`. Rotation: 30 Tage. |
 | **Backup (Docs)** | `paperless-ngx document_exporter` → Export-Volume → `/opt/backups/doc-hub/export/` |
-| **Version-Pinning** | `paperless-ngx:2.14`, `postgres:16-alpine`, `tika:3.2.3.0`, `gotenberg:8.14` |
+| **Version-Pinning** | `paperless-ngx:3.0.4` (seit 2026-07-29, vorher `:2.14` — platform#1528), `postgres:16-alpine`, `tika:3.2.3.0`, `gotenberg:8.14`. **Maßgeblich ist `deployment/stacks/doc-hub/docker-compose.yml`**, nicht diese Tabelle; die Rückspielprobe liest den Tag von dort (platform#1542). |
 | **Admin-Passwort** | `PAPERLESS_ADMIN_USER`/`PAPERLESS_ADMIN_PASSWORD` nur bei Erststart. Nach Setup aus `.env` entfernen. |
 
 ### 3.9 DocumentMetadata Model (research-hub)

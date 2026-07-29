@@ -21,6 +21,7 @@ implementation_evidence:
   - "  - dev-hub: client_id=dev-hub, mozilla-django-oidc — SSO button active ✓"
   - "Phase 2 Customer-Hubs (2026-05-19):"
   - "  - cad-hub (nl2cad.de): client_id=cad-hub, mozilla-django-oidc — deployed & verified live (/login/ SSO button, /oidc/authenticate/ 302 → id.iil.pet/application/o/cad-hub/authorize/ with correct client_id+redirect_uri) ✓"
+  - "Rueckbau 2026-07-29: doc-hub (docs.iil.pet) laeuft NICHT mehr ueber authentik — Owner-Entscheid, Zugang jetzt Cloudflare Access + HTTP-Remote-User (platform#1528). Abweichung bewusst auf diesen einen Host begrenzt; alle uebrigen Anwendungen dieses ADR unveraendert. Der Phase-1-Eintrag oben bleibt als historischer Stand vom 2026-03-14 stehen."
   - "Pending: Portainer Proxy-Auth (Outpost), MFA-Policy, remaining Phase 2 Customer-Hubs"
 ---
 
