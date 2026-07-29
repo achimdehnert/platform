@@ -111,6 +111,36 @@ python3 tools/mail_agent/mail_view.py --account hnu --seq 174,178 --url-only
   verraten — Außenwirkung ohne Freigabe. CID-Anhänge bleiben sichtbar.
 - Der Cache liegt unter `~/.claude/`, **nie** in einem Repo (Mail-Inhalt ist Fremd-Daten).
 
+### Kurze, anklickbare Links: `mail_link_server.py`
+
+`file://` reicht nur, wenn Browser und Datei auf derselben Maschine liegen. Die
+Arbeitssitzung läuft aber per SSH auf dem Server — der Browser des Owners sieht
+diesen Pfad nicht. Und ein OWA-Deeplink ins HNU-Postfach scheidet aus: `outlook.hnu.de`
+steht hinter einem **Citrix-Gateway** (geprüft 2026-07-29: `/owa/` endet auf
+`/vpn/tmindex.html`). Darum ein kleiner Dienst über Loopback:
+
+```bash
+python3 tools/mail_agent/mail_link_server.py --port 8787          # auf dem Server
+ssh -N -L 8787:127.0.0.1:8787 devuser@<server>                    # vom Arbeitsrechner
+```
+
+| Route | Wirkung |
+|---|---|
+| `http://localhost:8787/m/163497` | HNU-Mail live über IMAP gerendert (read-only) |
+| `http://localhost:8787/m/<konto>/<uid>` | anderes Konto (mit `--account` freischalten) |
+| `http://localhost:8787/i/az1` | 302 auf den langen OWA-Deeplink einer IIL-Mail |
+| `http://localhost:8787/` | Übersicht der registrierten Kurz-Links |
+
+Kurz-Link für eine IIL-Mail anlegen:
+`mail_link_server.py --register az1 --graph-id <Graph-id> --notiz "Azure Copilot"`
+(Registry: `~/.claude/mail-links.json`).
+
+- Der Dienst hat **keine Authentifizierung** und bindet darum auf 127.0.0.1. Er
+  verweigert jede andere Bindung, solange nicht `--ich-weiss-was-ich-tue` gesetzt ist.
+  Öffentlich stellen heißt: Auth davor — und das ist eine Datenschutz-Entscheidung
+  (HNU-Inhalte auf IIL-Infrastruktur), keine Bequemlichkeitsfrage.
+- Das Zugriffslog trägt bewusst keine UID und keinen Betreff.
+
 ## Anti-Patterns
 
 - ❌ Credentials/Passwörter nach stdout — die Config-Disziplin von `/send-mail` Step 0 gilt 1:1
@@ -129,6 +159,10 @@ python3 tools/mail_agent/mail_view.py --account hnu --seq 174,178 --url-only
 
 ## Changelog
 
+- 2026-07-29: `mail_link_server.py` — kurze Links über Loopback (`/m/<uid>` rendert,
+  `/i/<kurz>` leitet auf OWA weiter), weil `file://` bei einer SSH-Sitzung ins Leere
+  zeigt und HNU-OWA hinter einem Citrix-Gateway steht. Bindet nur auf 127.0.0.1.
+  Tests: `tools/tests/test_mail_link_server.py`.
 - 2026-07-29: `mail_view.py` — Mail als lokale HTML-Ansicht + `file://`-Link, damit
   auch IMAP-Konten (HNU/AD) im Action-Board anklickbar sind; Zähl-Pixel werden
   neutralisiert. Tests: `tools/tests/test_mail_view.py`.
