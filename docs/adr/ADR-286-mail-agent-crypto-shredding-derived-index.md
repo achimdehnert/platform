@@ -484,8 +484,11 @@ Gemessen am 2026-07-28 über 210 Nachrichten des HNU-Kontos:
 | Mittelwert | 320.517 B | 1.757 B | **182×** |
 
 Der Mittelwert liegt beim Elffachen des Medians — Anhänge und HTML dominieren die Masse, nicht
-der geschriebene Text. Roh gerechnet ergäbe der Gesamtkorpus von **90.967 Nachrichten** rund
-**4,5 Mrd. Token**; nach Vorverarbeitung sind es **~34–40 Mio.** (≈439 Token je Nachricht).
+der geschriebene Text. Roh gerechnet ergäbe der Gesamtkorpus von ~~90.967~~ **66.580 Nachrichten**
+(korrigiert, §4.10.8a) rund **3,3 Mrd. Token**; nach Vorverarbeitung sind es **~29 Mio.**
+(≈439 Token je Nachricht). Nach der Ausschlussregel dieses Abschnitts bleiben davon **14.028
+Nachrichten** und damit **~6 Mio. Token** — der Faktor, der die Verhältnisse tatsächlich bestimmt,
+ist nicht die Vorverarbeitung allein, sondern Ausschluss **mal** Vorverarbeitung.
 
 Verbindlich ist deshalb die Kette vor jeder Extraktion: `text/plain` bevorzugen, sonst HTML zu
 Text reduzieren · Anhänge ausschließen · Zitat-Historie abschneiden. Ein Entwurf, der die
@@ -497,7 +500,7 @@ und kostet null Token. Das ist keine Bequemlichkeit: Weil Bodies nach Option D n
 gespeichert werden, ist Extraktion beim Einlesen **oder nie**. Kleines Modell extrahiert,
 großes synthetisiert — und zwar auf der extrahierten Struktur, nicht auf Rohtext.
 
-#### 4.10.8 Gemessener Ausgangsstand (2026-07-28)
+#### 4.10.8 Gemessener Ausgangsstand (2026-07-28) — ⚠ überholt, siehe §4.10.8a
 
 | Konto | Transport | Ordner | Nachrichten | Rauschen (Stichprobe) |
 |---|---|---|---|---|
@@ -509,6 +512,39 @@ Rauschquote ist eine **Untergrenze** — gemessen in kuratierten Archiv- und Ges
 Ordner-Sweep 2,8 s (Graph) bzw. 5,0 s (IMAP); Kopfzeilen-Durchsatz ~64/s (IMAP) und ~12/s
 (Graph) ⇒ einmaliger Kopfzeilen-Vollscan ≈ 75 Minuten. Das private dehnert.team-Postfach ist
 **nicht** als lesbares Konto konfiguriert und damit ungemessen.
+
+#### 4.10.8a Korrektur der Bestandszahl (2026-07-29)
+
+**Die Zahlen in §4.10.8 beschreiben einen vorübergehenden Zustand und dürfen nicht
+weiterverwendet werden.** Nachmessung am 2026-07-29:
+
+| Konto | Transport | Ordner | Nachrichten | Δ zu §4.10.8 |
+|---|---|---:|---:|---:|
+| IIL | Graph | 112 | 40.171 | −4.707 |
+| HNU | IMAP | 119 | 26.303 | **−19.774** |
+| Referenz | IMAP | 9 | 12 | ±0 |
+| privat (neu erfasst) | IMAP | 6 | 94 | — |
+| **Summe** | | **246** | **66.580** | **−24.387** |
+
+**Warum die alte Zahl zustande kam.** Am 2026-07-28 lief in genau den beiden großen Konten eine
+Archiv-Umsortierung (`archiv_einsortieren.py`): elf neue Jahrgänge angelegt, dreizehn nachgezogen,
+Sammelordner **erst nach einem Leer-Guard gelöscht**. Der Session-Retro
+`docs/retros/session-retro-2026-07-28-platform-d5eb5e.md` beziffert **28.158 verschobene
+Nachrichten** — dieselbe Größenordnung wie die Differenz von 24.387. Die damalige Zählung erfasste
+Nachrichten, die zugleich im Sammelordner und im neuen Jahresarchiv lagen.
+
+**Warum die neue Zahl trägt.** `STATUS` stimmt in vier Stichproben exakt mit `SELECT` und
+`SEARCH ALL` überein; im Volllauf trat kein nicht zählbarer Ordner auf (Fehler werden ausgewiesen,
+nie als 0 verrechnet); und das von der Umsortierung **nicht** betroffene Referenzkonto trifft die
+alte Zahl exakt (9 Ordner / 12 Nachrichten) — die Methode ist also gegen einen Datenpunkt dieser
+ADR selbst validiert.
+
+**Regel daraus:** Eine Bestandszählung wird nach jeder Umsortierung erneut erhoben, bevor
+Größen-, Zeit- oder Speicherrechnungen darauf aufsetzen. Die Folgeentscheidung ADR-288 führt das
+als Gate 0.
+
+**Restlücke:** Die Umsortierung als Ursache ist aus Datum, betroffenen Konten und Größenordnung
+erschlossen; ein Protokoll der damaligen Zählung liegt nicht vor.
 
 #### 4.10.9 Benannte Grenzen
 
