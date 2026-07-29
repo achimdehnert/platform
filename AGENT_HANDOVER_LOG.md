@@ -338,3 +338,95 @@ ADR-142 nachziehen oder als Issue eröffnen · Tests für `bankpositionen.py` un
 geändertem `NEXT.md`, das schon beim Session-Start als `GUARD(dirty)` markiert war. Nach
 der Attributions-Regel liegen gelassen. Die Checklisten-Zeile „kein Repo dirty" ist damit
 nicht erfüllt und wird bewusst als offen geführt.
+## Session 2026-07-28 Nachmittag (platform) — Handover-Prios 2+3 gebaut, zwei blinde Melder gefunden
+
+**Fünf PRs geöffnet, alle CI-grün, alle `BLOCKED` (Ruleset: kein Self-Merge):** #1511
+(Handover-Prio 4 gestrichen), #1512 (`--role` + Kanal-Grenze, schließt #1427/#1481), #1513
+(Regel-Interpreter ADR-284 §7a), #1515 (Phase 0.7.2 Cron-Melder), #1517 (project-facts über
+PR statt Direkt-Push). Drei neue Issues: #1514, #1516 — plus Kommentare an #1508.
+
+**#1503 entblockt.** Die Hypothese des Vor-Handovers (`paths`-Filter) ist falsifiziert:
+`guardian.yml` hat keinen, ist auf Head und `main` byte-identisch, und guardian lief am
+selben Tag grün auf #1505 (ebenfalls reiner `docs/retros/`-PR). Für den alten Head gab es
+**keinen einzigen** `pull_request`-Lauf; `reopened` löste nur `pull_request_target` aus.
+Erst ein neuer Head-SHA per `git commit-tree` (fast-forward, kein force) brachte alle sechs
+Läufe. PR ist CLEAN + approved; der Merge wurde vom Permission-Klassifikator abgelehnt und
+liegt beim Owner. **Warum die Läufe ausblieben, ist ungeklärt.**
+
+**Zwei eigene Fehler, beide vor dem Commit gefangen und in den PR-Texten benannt:** Der
+Cron-Melder-Check holte die Läufe zuerst mit einem Sammel-Abruf — sah vollständig aus,
+verdrängte aber die täglichen Workflows und fand 1 von 2 bekannten Meldern (dieselbe
+Fehlerklasse wie `feedback_invented_wildcard_is_not_full_enumeration`). Und die erste
+Verdrahtung in den Runner fiel still in den `*)`-Fallback, weil `$PLATFORM_DIR` auf den
+Haupt-Tree zeigt; belegt erst über einen `GITHUB_DIR`-Symlink auf den Worktree.
+
+**Korrektur einer eigenen Zahl:** „`Gen project-facts.md` seit 15.06. ohne Regenerierung"
+war falsch. Der letzte über *alle* Repos grüne Lauf war der **08.06.**; danach wurde weiter
+verteilt, nur an immer weniger Repos (06-15: 14 ok/5 Fehler · 07-06: 9/11 · 07-27: 0/18).
+Ursache der Fehlzahl: der neue Check zählt nur `event=schedule` und übersah einen
+erfolgreichen `workflow_dispatch` am 29.06. Im Issue korrigiert.
+
+**Offen und ausdrücklich zur Freigabe gestellt:** der scharfe Einzel-Lauf zu #1517
+(`workflow_dispatch` mit `target_repo`), der den Schreibpfad im Zielsystem belegen würde.
+Nicht selbst ausgeführt — Schreibzugriff auf ein zweites Repo.
+
+**Dirty geblieben (fremd):** `django-lms-lite`, `iil-doc-templates`, `lastwar-alliance-ops`,
+`risk-hub` — unverändert gegenüber dem Vormittag, keine davon in dieser Session angefasst.
+Die Checklisten-Zeile „kein Repo dirty" ist damit bewusst nicht erfüllt.
+
+**Nachtrag am Session-Ende (2026-07-28, nach der Wissenssicherung):** Die Ursache für
+#1503 ist gefunden und ersetzt das vorherige „ungeklärt". Es ist **`[skip ci]` in der
+Commit-Message des Head-Commits** — GitHub überspringt damit alle Workflow-Läufe des
+Pushes, auch das `pull_request`-Event; der Required Check meldet sich nie und der PR
+bleibt dauerhaft `BLOCKED`, ohne dass etwas rot wird. In beide Richtungen belegt:
+`2c45d444` (mit Marker) 0 Läufe → BLOCKED · `fa04b221` (mein leerer Commit, ohne Marker)
+6 Läufe, alle grün → CLEAN · `7e177062` (neuer Commit um 19:07, wieder mit Marker) 0
+Läufe → wieder BLOCKED. **Konsequenz: #1503 ist NICHT merge-fertig**, anders als weiter
+oben zunächst berichtet — es braucht einen Commit ohne den Marker.
+
+Die Lehre ist nicht „`[skip ci]` ist schlecht", sondern dass derselbe Marker
+gegenläufig wirkt: auf einem **Merge nach `main`** ist er richtig (verhindert, dass ein
+Docs-Commit einen Prod-Deploy auslöst — genau dafür existiert die Hausregel), auf einem
+**PR-Head-Commit** hungert er einen Required Check aus. Korrigiert in CC-Memory
+`feedback_blocked_without_any_pull_request_run`, in der Outline-Lesson und als Kommentar
+an #1503; die erste Fassung aller drei sagte „ungeklärt".
+
+---
+
+## 2026-07-29 — Mail-Recherche-Werkzeug: von der Frage bis zum Index
+
+Ausgangspunkt war eine gewöhnliche Frage („analysier die Mails von Frau Offner"), die ein
+Dutzend Postfach-Abfragen über drei Konten kostete, weil ohne Index nicht auffindbar ist,
+in welchem Postfach und Ordner eine Person vorkommt. Am Ende beantwortet ein Index dieselbe
+Frage in **26 Millisekunden** mit **exakt derselben, verifizierten** Antwort (21 Nachrichten).
+
+**Entscheidungsgrundlage in drei externen Runden.** KONZ-036 (portables Entwurfsdokument)
+ging an zwei adversariale Reviews und eine eigenständige Gegen-Konzeption mit 16 bewerteten
+Architekturklassen. 43 Befunde, alle einzeln getaggt in ADR-288 §11. Der tiefste kam aus
+Runde 2: *ein ausgewiesen lückenhafter Index trägt positive Treffer, aber keine
+Negativaussage* — eine fehlende Nachricht kehrt „offen" in „erledigt" um. Da Negativaussagen
+das Produkt sind, war das ein Zuschnittsfehler, kein Detail.
+
+**Vier Messungen kippten Annahmen — drei davon eigene.** (1) Der Bestand ist 66.580, nicht
+die seit ADR-286 durchgereichten 90.967; Ursache belegt über den Retro `d5eb5e` (28.158
+Nachrichten wurden am Vortag umsortiert, die Zählung erfasste einen Zwischenzustand), und
+validiert daran, dass das nicht betroffene Referenzkonto die alte Zahl exakt trifft.
+(2) Die Ausschlussregel entfernt 78,9 % — damit fällt der Vollaufbau auf 2,2 min und die
+schärfste Review-Kritik von 95 % auf 15 % Fensterauslastung. (3) Bulk-Abruf bringt Faktor
+8,9 end-to-end. (4) Mikro-Benchmarks überschätzen systematisch (120,7/s gegen 92,0/s real) —
+exakt der Mechanismus, den zwei Runden an meinen Hochrechnungen kritisiert hatten.
+
+**Zwei eigene Fehler fand erst der scharfe Lauf.** Die Parteien-Auflösung führte 13 Adressen
+zu einer Person zusammen (halber Verteiler), weil der Anzeigename pro Kopfzeile statt pro
+Adresse gebildet wurde. Und die erste Bestandsmessung verrechnete Ausnahmen still als `0`.
+Beides gegen Testdaten unsichtbar, gegen das echte Postfach sofort.
+
+**Gebaut und live:** Werkzeug (Ordner-Walk mit sichtbarem Nenner, Dossier, Parteien-Auflösung
+in zwei Stufen, Abwesenheitsbeweis mit Kalibriersonde) in `platform`; Index (Rohobjekte,
+Build-Generationen, mehrdimensionale Deckung, Volltext, Beteiligung als Relation, Ingestion)
+in `dev-hub`, vier Prod-Deploys mit Migration.
+
+**Offen und bewusst nicht getan:** die Postfach-Zugangsdaten liegen nicht auf dem
+Produktionsserver. Der Zeitplan ist deployt und **inert** — er prüft sich selbst und meldet
+den Grund. Der Schritt, der ein Geheimnis anfasst, gehört einem Menschen; das Runbook dafür
+ist geschrieben.
