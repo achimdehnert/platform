@@ -29,7 +29,7 @@ from typing import NamedTuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import deckungsausweis as da  # noqa: E402
 from indexierung import aufteilen  # noqa: E402
-from send_mail import CONFIG_FILE, load_credentials, parse_env  # noqa: E402
+from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
 
 #: Wird im Deckungsausweis mitgeführt — ein Ausweis ohne Werkzeug-Stand ist
 #: später nicht mehr einzuordnen (KONZ-035 Pflichtfeld).
@@ -134,7 +134,7 @@ def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
     host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     port = int(cfg.get("IMAP_PORT", "993"))
     user, password = load_credentials(
-        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), cfg["MAIL_FROM"]
+        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), login_name(cfg)
     )
     imap = imaplib.IMAP4_SSL(host, port, timeout=30)
     imap.login(user, password)

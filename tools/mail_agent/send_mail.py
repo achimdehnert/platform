@@ -50,6 +50,21 @@ def parse_env(path: Path) -> dict[str, str]:
     return values
 
 
+def login_name(cfg: dict[str, str]) -> str:
+    """Der Anmeldename am Server — nicht zwangsläufig die Absenderadresse.
+
+    Bis 2026-07-29 diente `MAIL_FROM` beidem zugleich: als Schlüssel für das
+    Zugangspaar UND als `From:`-Kopfzeile. Beim HNU-Postfach ist der Anmeldename
+    aber ein blosser Benutzername (`dehnert`) — also stand genau der als Absender
+    im Entwurf, keine gültige Adresse. Wer stattdessen die Adresse eintrug, fand
+    kein Zugangspaar mehr und kam gar nicht erst hinein.
+
+    Seither trennt `MAIL_LOGIN` beides. Fehlt der Schlüssel, bleibt alles wie
+    bisher — bestehende Konfigurationen ändern ihr Verhalten nicht.
+    """
+    return cfg.get("MAIL_LOGIN") or cfg["MAIL_FROM"]
+
+
 def load_credentials(creds_file: Path, sender: str) -> tuple[str, str]:
     # Bei mehreren Paaren mit gleichem user gewinnt das LETZTE — Rotation hängt
     # typischerweise das neue Paar unten an (retro f4a546-incr #6: first-match
@@ -280,7 +295,9 @@ def main() -> None:
 
     sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
     creds_file = Path(cfg["MAIL_CREDS_FILE"]).expanduser()
-    user, password = load_credentials(creds_file, sender)
+    # Anmeldename, nicht Absenderadresse — beim HNU-Postfach sind das zwei
+    # verschiedene Zeichenketten (siehe login_name).
+    user, password = load_credentials(creds_file, login_name(cfg))
     msg = build_message(sender, args)
     via = send(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"]), user, password, msg)
     atts = ", ".join(Path(a).name for a in args.attach) or "keine"

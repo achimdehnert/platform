@@ -36,7 +36,7 @@ from email.header import decode_header
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from send_mail import CONFIG_FILE, load_credentials, parse_env  # noqa: E402
+from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
 
 TRASH_CANDIDATES = (
     "INBOX.Trash",
@@ -86,7 +86,7 @@ def connect(config_file: Path | None = None) -> tuple[imaplib.IMAP4_SSL, dict]:
         if k not in cfg:
             sys.exit(f"FEHLER: {k} fehlt in {cfg_file}")
     user, password = load_credentials(
-        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), cfg["MAIL_FROM"]
+        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), login_name(cfg)
     )
     host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     port = int(cfg.get("IMAP_PORT", "993"))
