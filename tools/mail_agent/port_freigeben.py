@@ -23,6 +23,17 @@ Mensch ansehen muss — kein Hindernis, das ein Start-Skript wegräumt.
 Ohne root: die Zuordnung Port → Prozess läuft über `/proc/net/tcp` und die
 Datei-Deskriptoren unter `/proc/<pid>/fd`. Beides ist für **eigene** Prozesse
 lesbar — genau die Menge, die hier überhaupt in Frage kommt.
+
+**Achtung, systemd-Falle (gemessen 2026-07-29):** In der aufrufenden Unit darf
+**keine Namensraum-Option** gesetzt sein — `PrivateTmp`, `ProtectKernelTunables`
+und `ProtectControlGroups` remounten jeweils `/proc`, und in dieser Sicht sind
+die Datei-Deskriptoren anderer Prozesse unlesbar. Dieses Werkzeug findet dann
+niemanden mehr und meldet fälschlich „gehört nicht diesem Benutzer" — der Start
+scheitert, obwohl nur eine eigene Waise im Weg steht. `ProcSubset=all` und
+`ProtectProc=default` heilen das **nicht** (beide nachgemessen).
+Für einen unprivilegierten User-Dienst auf 127.0.0.1 ist der Verzicht auf diese
+Optionen verkraftbar; `NoNewPrivileges` und `RestrictSUIDSGID` schaffen keinen
+Namensraum und dürfen bleiben.
 """
 
 from __future__ import annotations
