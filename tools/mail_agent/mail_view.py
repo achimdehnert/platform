@@ -59,7 +59,16 @@ from send_mail import parse_env  # noqa: E402
 CACHE_ROOT = Path.home() / ".claude" / "mail-cache"
 
 #: Tags, die im gerenderten Ausschnitt nichts zu suchen haben.
-_TAG_BLACKLIST = ("script", "style", "iframe", "object", "embed", "link", "meta", "base")
+_TAG_BLACKLIST = (
+    "script",
+    "style",
+    "iframe",
+    "object",
+    "embed",
+    "link",
+    "meta",
+    "base",
+)
 
 #: Attribute, die auf entfernte Ressourcen zeigen (Zähl-Pixel!) oder Code tragen.
 _REMOTE_ATTR = re.compile(
@@ -77,8 +86,13 @@ def slugify(text: str, max_len: int = 40) -> str:
     # kein replace("ü", "ue") mehr und aus "bezüge" würde "bezuge".
     text = text or ""
     for umlaut, ersatz in (
-        ("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss"),
-        ("Ä", "Ae"), ("Ö", "Oe"), ("Ü", "Ue"),
+        ("ä", "ae"),
+        ("ö", "oe"),
+        ("ü", "ue"),
+        ("ß", "ss"),
+        ("Ä", "Ae"),
+        ("Ö", "Oe"),
+        ("Ü", "Ue"),
     ):
         text = text.replace(umlaut, ersatz)
     text = unicodedata.normalize("NFKD", text)
@@ -193,12 +207,17 @@ def render(msg: Message, konto: str, ordner: str, uid: str, ziel: Path) -> Path:
 
     kopf = []
     for label, header in (
-        ("Von", "From"), ("An", "To"), ("Cc", "Cc"), ("Datum", "Date"),
+        ("Von", "From"),
+        ("An", "To"),
+        ("Cc", "Cc"),
+        ("Datum", "Date"),
     ):
         wert = decode_hdr(msg.get(header))
         if wert:
             kopf.append(f"<dt>{label}</dt><dd>{html.escape(wert)}</dd>")
-    kopf.append(f"<dt>Ordner</dt><dd>{html.escape(konto)} · {html.escape(ordner)} · UID {uid}</dd>")
+    kopf.append(
+        f"<dt>Ordner</dt><dd>{html.escape(konto)} · {html.escape(ordner)} · UID {uid}</dd>"
+    )
 
     anhaenge = _save_attachments(msg, datei.parent / f"{uid}-anhaenge")
     if anhaenge:
@@ -216,7 +235,9 @@ def render(msg: Message, konto: str, ordner: str, uid: str, ziel: Path) -> Path:
     if html_teil:
         inhalt, blockiert = sanitize_html(html_teil)
     else:
-        inhalt = f"<pre>{html.escape(text_teil or '(kein darstellbarer Textteil)')}</pre>"
+        inhalt = (
+            f"<pre>{html.escape(text_teil or '(kein darstellbarer Textteil)')}</pre>"
+        )
         blockiert = 0
 
     hinweis = ""
@@ -247,7 +268,9 @@ def _uid_fuer_seq(imap: imaplib.IMAP4_SSL, seq: str) -> str:
     typ, data = imap.fetch(seq.encode(), "(UID)")
     if typ != "OK" or not data or data[0] is None:
         sys.exit(f"FEHLER: keine Nachricht mit Nummer {seq}")
-    treffer = re.search(rb"UID (\d+)", data[0] if isinstance(data[0], bytes) else data[0][0])
+    treffer = re.search(
+        rb"UID (\d+)", data[0] if isinstance(data[0], bytes) else data[0][0]
+    )
     if not treffer:
         sys.exit(f"FEHLER: UID zu Nummer {seq} nicht lesbar")
     return treffer.group(1).decode()
@@ -264,12 +287,18 @@ def _hole(imap: imaplib.IMAP4_SSL, uid: str) -> Message:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--account", help="Postfach-Kürzel → ~/.claude/mail-<NAME>.env")
-    ap.add_argument("--config", help="alternative Mail-Config (Default: ~/.claude/mail.env)")
+    ap.add_argument(
+        "--config", help="alternative Mail-Config (Default: ~/.claude/mail.env)"
+    )
     ap.add_argument("--folder", "--source", default="INBOX", dest="folder")
     quelle = ap.add_mutually_exclusive_group(required=True)
     quelle.add_argument("--uid", help="echte IMAP-UID (stabil), Komma-Liste möglich")
-    quelle.add_argument("--seq", help="Nummer aus read_mail --list (verschiebt sich), Komma-Liste")
-    ap.add_argument("--url-only", action="store_true", help="nur den file://-Link ausgeben")
+    quelle.add_argument(
+        "--seq", help="Nummer aus read_mail --list (verschiebt sich), Komma-Liste"
+    )
+    ap.add_argument(
+        "--url-only", action="store_true", help="nur den file://-Link ausgeben"
+    )
     ap.add_argument("--cache-root", default=str(CACHE_ROOT))
     args = ap.parse_args()
 
