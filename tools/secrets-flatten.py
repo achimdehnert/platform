@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -52,9 +53,24 @@ def fingerprint(path: Path) -> str | None:
         return None
 
 
-def plan() -> tuple[list, list, list, list]:
-    """(hochziehen, verwerfen_kopie, verwerfen_abgeloest, konflikte)"""
-    hoch, kopie, abgeloest, konflikt = [], [], [], []
+def plan() -> tuple[list, list, list, list, list]:
+    """(hochziehen, verwerfen_kopie, verwerfen_abgeloest, konflikte, symlink_ziele)
+
+    **Symlinks sind der gefaehrliche Fall.** Drei Eintraege oben sind keine
+    Dateien, sondern relative Symlinks IN das verschachtelte Verzeichnis:
+
+        ~/.secrets/ionos_api_key -> .secrets/ionos_api_key
+
+    Wer durch den Link liest, bekommt identische Bytes und haelt die untere
+    Datei fuer eine ueberfluessige Kopie — sie ist aber das **Original**. Ein
+    erster Entwurf dieses Skripts stufte genau diese drei als „inhaltsgleiche
+    Kopie" zum Verwerfen ein und haette drei tote Links hinterlassen
+    (Cloudflare Zero Trust, Hetzner Cloud, IONOS DNS ohne Zugangsdaten).
+
+    Aufgefallen ist das nur, weil `tar` Symlinks als Symlinks archiviert und
+    eine Vollstaendigkeitspruefung der Sicherung sie dadurch vermisste.
+    """
+    hoch, kopie, abgeloest, konflikt, symlinks = [], [], [], [], []
 
     for p in sorted(NESTED.iterdir()):
         if not p.is_file():
@@ -63,6 +79,11 @@ def plan() -> tuple[list, list, list, list]:
 
         if p.name in ABGELOEST:
             abgeloest.append(p.name)
+        elif oben.is_symlink():
+            # Nicht anfassen: die untere Datei ist das Ziel des Links, nicht
+            # seine Kopie. `oben.exists()` waere hier True und `is_file()`
+            # ebenfalls — beides sagt nichts ueber die Richtung.
+            symlinks.append((p.name, os.readlink(oben)))
         elif not oben.exists():
             hoch.append(p.name)
         else:
@@ -75,7 +96,7 @@ def plan() -> tuple[list, list, list, list]:
                 # Bewusst NICHT nach mtime entscheiden: eine Kopie kann neuer
                 # sein und trotzdem den aelteren Wert tragen.
                 konflikt.append((p.name, "Inhalte verschieden", fo, fu))
-    return hoch, kopie, abgeloest, konflikt
+    return hoch, kopie, abgeloest, konflikt, symlinks
 
 
 def main() -> int:
@@ -87,7 +108,7 @@ def main() -> int:
         print(f"{NESTED} existiert nicht — nichts zu tun.")
         return 0
 
-    hoch, kopie, abgeloest, konflikt = plan()
+    hoch, kopie, abgeloest, konflikt, symlinks = plan()
 
     print(f"\n{NESTED}\n")
     print(f"  hochziehen (oben nicht vorhanden) : {len(hoch)}")
@@ -99,10 +120,22 @@ def main() -> int:
     print(f"  verwerfen (abgeloester Loader)    : {len(abgeloest)}")
     for n in abgeloest:
         print(f"      - {n}")
+    print(f"  UNANTASTBAR (Ziel eines Symlinks) : {len(symlinks)}")
+    for n, ziel in symlinks:
+        print(f"      = {n:<30} oben ist ein Link -> {ziel}")
     print(f"  KONFLIKT (Hand anlegen)           : {len(konflikt)}")
     for n, grund, fo, fu in konflikt:
         print(f"      ! {n:<30} {grund}")
         print(f"        oben {fo}   unten {fu}")
+
+    if symlinks:
+        print(
+            "\n  Die Symlink-Ziele bleiben, wo sie sind. Das verschachtelte Verzeichnis"
+        )
+        print(
+            "  ist fuer sie kein Altbestand, sondern der Speicherort — nur oben steht"
+        )
+        print("  ein Zeiger. Wer sie loescht, hinterlaesst tote Links.")
 
     if konflikt:
         print(
