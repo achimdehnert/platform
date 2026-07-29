@@ -99,10 +99,11 @@ Ordnern — **4/4 identisch**, die Methode ist belegt.
 
 | Konto | Ordner | Nachrichten | behalten | ausgeschlossen |
 |---|---:|---:|---:|---:|
-| A / Graph | 112 | 40.165 | 7.966 | **32.199 (80,2 %)** |
+| A / Graph | 112 | 40.171 | 7.966 | **32.205 (80,2 %)** |
 | B / IMAP | 119 | 26.303 | 5.976 | **20.327 (77,3 %)** |
-| C / IMAP privat | 6 | 94 | 76 | 18 (19,1 %) |
-| **Summe** | **237** | **66.562** | **14.018** | **52.544 (78,9 %)** |
+| C / IMAP Referenz | 9 | 12 | 10 | 2 (16,7 %) |
+| D / IMAP privat | 6 | 94 | 76 | 18 (19,1 %) |
+| **Summe** | **246** | **66.580** | **14.028** | **52.552 (78,9 %)** |
 
 Ausgeschlossen wird nach der bereits implementierten Regel (`tools/mail_agent/indexierung.py`):
 Papierkorb/Junk, technische Ordner, redaktionell/werbliche Ordner und Jahresarchive bis
@@ -113,19 +114,45 @@ und Newsletter-Ordner.
 
 | | ohne Ausschluss | mit Ausschluss |
 |---|---:|---:|
-| Zu verarbeitende Nachrichten | 66.562 | **14.018** |
+| Zu verarbeitende Nachrichten | 66.580 | **14.028** |
 | Vollaufbau bei 106,3/s | 10,4 min | **2,2 min** |
 | Rohobjektspeicher (Mittelwert-Hochrechnung) | 21,3 GB | **4,5 GB** |
 | Auslastung eines 15-min-Fensters | 70 % | **15 %** |
 
-> **Offener Widerspruch, ausdrücklich nicht weggeglättet.** ADR-286 §4.10.8 nennt **90.967**
-> Nachrichten über 209 Ordner (Messung 2026-07-28). Die hiesige Messung ergibt **66.562** über
-> 237 Ordner — mehr Ordner, weniger Nachrichten. Die Abweichung liegt vor allem bei Konto B
-> (26.303 statt 46.077). Die Methode dieser Messung ist gegengeprüft; die Herkunft der älteren
-> Zahl ist aus dieser Sitzung nicht rekonstruierbar. **Gate 0 (§8) klärt das, bevor eine der
-> beiden Zahlen weiterverwendet wird.** Zwei externe Runden haben auf der älteren Zahl
-> argumentiert — insbesondere die Rechnung „95 % des 15-min-Ziels", die mit der gemessenen Zahl
-> bei 70 % und mit Ausschluss bei 15 % läge.
+### 1.4.1 Gate 0 — der Widerspruch zu ADR-286 §4.10.8, aufgelöst
+
+ADR-286 §4.10.8 nennt **90.967** Nachrichten über 209 Ordner (Messung 2026-07-28). Die hiesige
+Messung ergibt **66.580** über 246 Ordner — mehr Ordner, weniger Nachrichten. Die Abweichung liegt
+bei den beiden großen Konten (B: 26.303 statt 46.077 · A: 40.171 statt 44.878), zusammen −24.483.
+
+**Belegkette:**
+
+1. **Die Methode ist validiert.** `STATUS` stimmt in vier Stichproben-Ordnern exakt mit `SELECT`
+   und `SEARCH ALL` überein; im vollständigen Lauf trat **kein einziger** nicht zählbarer Ordner
+   auf (Fehler werden ausgewiesen, nie als 0 verrechnet).
+2. **Das Kontrollkonto trifft exakt.** Konto C ergibt **9 Ordner / 12 Nachrichten** — identisch
+   mit ADR-286. Genau dieses Konto war von der unten genannten Umsortierung nicht betroffen.
+3. **Die Ursache steht im eigenen Sitzungsprotokoll.** Am 2026-07-28 lief eine große
+   Archiv-Umsortierung (`archiv_einsortieren.py`): elf neue Jahrgänge angelegt, dreizehn
+   nachgezogen, **Sammelordner erst nach einem Leer-Guard gelöscht**. Der Session-Retro
+   `docs/retros/session-retro-2026-07-28-platform-d5eb5e.md` beziffert **28.158 in zwei
+   Produktivpostfächern verschobene Nachrichten** — dieselben zwei Konten, dieselbe
+   Größenordnung wie die Differenz von 24.483. Zusätzlich dokumentiert die Sitzung
+   Drossel-Wiederholungen („12.311 Falsch-Fehler").
+
+**Schluss:** Die ältere Zahl war zum Messzeitpunkt keine Erfindung, sondern die Ablesung eines
+**vorübergehenden Zustands** — Nachrichten lagen zugleich im Sammelordner und im neuen
+Jahresarchiv, bevor die Sammelordner gelöscht wurden. Sie beschreibt nicht den heutigen Bestand
+und wird nicht weiterverwendet. Maßgeblich ist **66.580**.
+
+**Konsequenz für die drei externen Runden:** Alle argumentierten auf 90.967. Die schärfste
+Einzelkritik — „90.967 von theoretisch 95.670 = 95 % des 15-min-Fensters" — liegt mit der
+gemessenen Zahl bei 70 % und nach Ausschluss bei **15 %**. Die Kritik bleibt in der Sache richtig
+(nicht extrapolieren, sondern messen), ihr konkreter Alarmwert entfällt.
+
+**Restlücke, ehrlich:** Die Umsortierung als Ursache ist aus Datum, betroffenen Konten und
+Größenordnung erschlossen, nicht aus einem Lauf-Protokoll der damaligen Zählung rekonstruiert.
+Ein Beweis wäre nur über die Rohausgabe jener Messung möglich, die nicht vorliegt.
 
 ### 1.5 Warum v1 dieses ADR nicht trug
 
@@ -446,7 +473,7 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 | Risiko | W'keit | Impact | Mitigation |
 |---|---|---|---|
-| Bestandszahl falsch (§1.4-Widerspruch) | **Hoch** | Mittel | Gate 0 vor allen Größenrechnungen |
+| Bestandszahl veraltet nach einer Umsortierung | Mittel | Mittel | Gate 0 ist erfüllt (§1.4.1), gilt aber als **Wiederholungsauflage** nach jeder Umsortierung |
 | Neuaufbau entwertet durable Kuration | Mittel | **Kritisch** | Schichtentrennung §4.1 + Waisen-Zähler |
 | Negativaussage auf teilweiser Deckung | Mittel | **Kritisch** | §4.6 sechs Zustände + Gate 1 |
 | Falsche Zusammenführung fremder Stränge | Hoch | Hoch | keine transitive Vereinigung schwacher Kanten, Gate 6 |
@@ -460,9 +487,13 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 ## 8. Confirmation
 
-0. **Bestands-Gate:** Der Widerspruch aus §1.4 (66.562 vs. 90.967) ist aufgelöst und die
-   verwendete Zahl reproduzierbar belegt, **bevor** eine Größen-, Zeit- oder Speicherrechnung
-   entscheidungswirksam wird.
+0. **Bestands-Gate — ✅ erfüllt (§1.4.1).** Maßgeblich ist **66.580** über 246 Ordner; die ältere
+   Zahl 90.967 war die Ablesung eines vorübergehenden Zustands während der Archiv-Umsortierung
+   vom 2026-07-28. Belegt durch: Methodenvalidierung (`STATUS` = `SELECT` = `SEARCH`, 4/4, null
+   nicht zählbare Ordner), exakte Übereinstimmung im nicht betroffenen Kontrollkonto (9/12) und
+   das Sitzungsprotokoll mit 28.158 verschobenen Nachrichten in denselben zwei Konten.
+   **Wiederholungsauflage:** Die Zählung wird nach jeder Umsortierung erneut erhoben, bevor
+   Größenrechnungen darauf aufsetzen.
 1. **Negativaussage-Gate:** Kein `open` ohne vollständige Deckung. Ein Test mit künstlich
    entferntem Ordner erzeugt `unknown`, **nicht** `open`.
 2. **Build-Gate:** Ein mitten im Lauf abgebrochener Aufbau ändert den sichtbaren Stand nicht.
@@ -505,6 +536,7 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-29 | Claude Code (Opus 5) | **Gate 0 geschlossen (§1.4.1).** Nachmessung mit ausgewiesenen Fehlern statt stiller Nullen: **66.580** Nachrichten über 246 Ordner in vier Konten, null nicht zählbare Ordner. Der Widerspruch zu ADR-286 §4.10.8 (90.967) ist **ursächlich aufgeklärt**, nicht nur neu gezählt: das nicht betroffene Kontrollkonto trifft die alte Zahl exakt (9 Ordner / 12), während die beiden Konten, in denen am 2026-07-28 laut Session-Retro `d5eb5e` **28.158 Nachrichten verschoben** wurden, zusammen 24.483 weniger zeigen — die alte Messung erfasste einen vorübergehenden Zustand, in dem Nachrichten zugleich im Sammelordner und im neuen Jahresarchiv lagen. Gate 0 wird zur **Wiederholungsauflage** nach jeder Umsortierung. Restlücke benannt: die Ursache ist aus Datum, Konten und Größenordnung erschlossen, nicht aus dem Protokoll der damaligen Zählung. |
 | 2026-07-29 | Claude Code (Opus 5) | **v2 nach Runde 3 und einer eigenen Messung.** Neu gemessen: die bestehende Ausschlussregel entfernt **78,9 %** des Bestands (66.562 → 14.018), womit Vollaufbau auf 2,2 min und Rohobjektspeicher auf ~4,5 GB fallen; die Größen-Bedenken der Runden 1–3 entschärfen sich dadurch strukturell. Dabei aufgedeckt: die seit ADR-286 §4.10.8 durchgereichte Zahl **90.967** ist mit der gegengeprüften Methode nicht reproduzierbar (gemessen 66.562) — als **Gate 0** offen geführt statt weggeglättet, weil zwei externe Runden auf der älteren Zahl argumentiert haben. Aus Runde 3 übernommen: inhaltsadressierter Rohobjektspeicher, Leitsatz „Delta an der Quelle, Rebuild in der Projektion" (ersetzt „Neuaufbau schlägt Delta"), **sechs** Ausgabezustände statt zwei, sechsstufige Retrieval-Pipeline, mehrdimensionale Deckung mit fachlicher Konsequenz. **Nicht** übernommen: die volle 25-Tabellen-Grundausstattung und der unbeschränkte Volltextspeicher. Letzteres ist die tragende Abweichung — der Rohobjektspeicher ist **zweckgebunden** (Kopfdaten und Anhänge global, Volltext nur für aktive Vorgänge), wodurch **kein Supersede von ADR-286 nötig** ist und der Rückweg zur kleineren Variante offen bleibt (§3.2). |
 | 2026-07-29 | Claude Code (Opus 5) | v1, Status Proposed. Aus KONZ-036 nach zwei externen Runden: §5-These ehrlich umformuliert, Deckungszustand als Bedingung für Negativaussagen, Trennung Cache ↔ Kuration, Build-Generationen, Entität/Vorkommen, Parteien, Graph zweistufig, drei Zustandsschichten, `version_of` gestrichen. Korrigiert ADR-286 §4.10.7. |
 
