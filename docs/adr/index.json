@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-29",
-  "total": 233,
-  "next_free": 288,
+  "total": 234,
+  "next_free": 289,
   "adrs": [
     {
       "number": 7,
@@ -5379,6 +5379,21 @@
       "title": "Distribute the domain-expert reviewer in graded stages, gated on artifact-content sovereignty rather than skill location",
       "status": "accepted",
       "date": "2026-07-27",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 288,
+      "id": "ADR-288",
+      "file": "ADR-288-mail-recherche-hybride-projektion.md",
+      "title": "Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements",
+      "status": "proposed",
+      "date": "2026-07-29",
       "domains": [],
       "supersedes": [],
       "superseded_by": [],
