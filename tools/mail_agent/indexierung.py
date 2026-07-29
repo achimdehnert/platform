@@ -44,9 +44,7 @@ _REDAKTIONELL = re.compile(
     re.I,
 )
 _TECHNISCH = re.compile(r"^(synchronisierungsprobleme|sync issues)$", re.I)
-_JAHRESARCHIV = re.compile(
-    r"^(sent-)?archiv/(?P<jahr>\d{4})(-und-(ae|ä)lter)?$", re.I
-)
+_JAHRESARCHIV = re.compile(r"^(sent-)?archiv/(?P<jahr>\d{4})(-und-(ae|ä)lter)?$", re.I)
 
 
 def _segmente(ordner: str) -> list[str]:

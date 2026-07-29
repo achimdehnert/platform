@@ -38,6 +38,7 @@ from urllib.parse import quote, unquote
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mail_view import (  # noqa: E402
     CACHE_ROOT,
+    MailNichtGefunden,
     _hole,
     _mailbox_arg,
     _resolve_config,
@@ -95,7 +96,7 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     server_version = "mail-link-server/1.0"
 
     # Konfiguration: Klassenattribute, von main() bzw. den Tests gesetzt.
-    konten: dict[str, str] = {}
+    konten: dict[str, str | None] = {}
     default_konto: str = "hnu"
     ordner: str = "INBOX"
     cache_root: Path = CACHE_ROOT
@@ -194,9 +195,9 @@ verfügbar: {html.escape(konten)}.</p>
 
         try:
             datei = self._rendern(konto, uid)
-        except (
-            Exception
-        ) as fehler:  # Netz/IMAP/Postfach — dem Browser sagen, was los ist
+        except MailNichtGefunden as fehlt:
+            return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
+        except Exception as fehler:  # Netz/IMAP — dem Browser sagen, was los ist
             return self._fehler(
                 HTTPStatus.BAD_GATEWAY, f"Postfach nicht lesbar: {fehler}"
             )
@@ -246,6 +247,38 @@ def cmd_register(args: argparse.Namespace) -> None:
     print(f"/i/{args.register} → {owa_link(args.graph_id)[:60]}…")
 
 
+def konten_aufloesen(angaben: list[str]) -> dict[str, str | None]:
+    """`["hnu", "ad=default"]` → `{"hnu": "hnu", "ad": None}`, mit Fail-Fast.
+
+    Ohne diese Prüfung startet der Dienst fröhlich mit einem Konto, dessen Config
+    gar nicht existiert, und jede Anfrage endet in einem 502 — gemessen am
+    2026-07-29 mit `--account ad` (es gibt kein `~/.claude/mail-ad.env`, das
+    AD-Postfach liegt in der namenlosen `mail.env`).
+    """
+    aufgeloest: dict[str, str | None] = {}
+    for angabe in angaben:
+        route, trenner, konfig = angabe.partition("=")
+        if not trenner:
+            konfig_name: str | None = route  # --account hnu → mail-hnu.env
+        elif konfig == "default":
+            konfig_name = None  # --account ad=default → mail.env
+        else:
+            konfig_name = konfig  # --account privat=search → mail-search.env
+        pfad = _resolve_config(None, konfig_name)
+        if not pfad.exists():
+            vorhanden = sorted(
+                p.name for p in (Path.home() / ".claude").glob("mail*.env")
+            )
+            sys.exit(
+                f"FEHLER: Konto '{route}' verweist auf {pfad}, die es nicht gibt.\n"
+                f"Vorhanden: {', '.join(vorhanden) or '(keine)'}\n"
+                "Für das Postfach in der namenlosen mail.env: --account "
+                f"{route}=default"
+            )
+        aufgeloest[route] = konfig_name
+    return aufgeloest
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=int, default=8787)
@@ -260,8 +293,9 @@ def main() -> None:
         "--account",
         action="append",
         default=[],
-        metavar="NAME",
-        help="zusätzliches Konto freischalten (mehrfach möglich); Default: --default-account",
+        metavar="ROUTE[=KONFIG]",
+        help="zusätzliches Konto freischalten (mehrfach möglich). 'ad=default' bedient "
+        "/m/ad/ aus ~/.claude/mail.env — das Konto ohne Namensteil.",
     )
     ap.add_argument("--folder", default="INBOX")
     ap.add_argument(
@@ -297,7 +331,7 @@ def main() -> None:
             "--ich-weiss-was-ich-tue."
         )
 
-    konten = {name: name for name in [args.default_account, *args.account]}
+    konten = konten_aufloesen([args.default_account, *args.account])
     MailLinkHandler.konten = konten
     MailLinkHandler.default_konto = args.default_account
     MailLinkHandler.ordner = args.folder

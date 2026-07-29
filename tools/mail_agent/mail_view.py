@@ -263,24 +263,39 @@ def render(msg: Message, konto: str, ordner: str, uid: str, ziel: Path) -> Path:
     return datei
 
 
+class MailNichtGefunden(LookupError):
+    """Die angefragte Nachricht gibt es im Ordner nicht.
+
+    Bewusst eine Ausnahme statt `sys.exit`: derselbe Code läuft im
+    `mail_link_server` in einem Request-Thread. Ein `sys.exit` löst dort ein
+    `SystemExit` aus, das an `except Exception` vorbeigeht — der Thread stirbt
+    und der Browser bekommt eine leere Antwort statt eines 404 (gemessen
+    2026-07-29 an `/m/ad/64`). Die CLI wandelt die Ausnahme unten in einen
+    Exit-Code zurück.
+    """
+
+
 def _uid_fuer_seq(imap: imaplib.IMAP4_SSL, seq: str) -> str:
     """Sequenznummer (wie read_mail --list sie zeigt) → echte, stabile UID."""
     typ, data = imap.fetch(seq.encode(), "(UID)")
     if typ != "OK" or not data or data[0] is None:
-        sys.exit(f"FEHLER: keine Nachricht mit Nummer {seq}")
+        raise MailNichtGefunden(f"keine Nachricht mit Nummer {seq}")
     treffer = re.search(
         rb"UID (\d+)", data[0] if isinstance(data[0], bytes) else data[0][0]
     )
     if not treffer:
-        sys.exit(f"FEHLER: UID zu Nummer {seq} nicht lesbar")
+        raise MailNichtGefunden(f"UID zu Nummer {seq} nicht lesbar")
     return treffer.group(1).decode()
 
 
 def _hole(imap: imaplib.IMAP4_SSL, uid: str) -> Message:
     typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[])")
     if typ != "OK" or not data or data[0] is None:
-        sys.exit(f"FEHLER: keine Nachricht mit UID {uid}")
-    roh = next(teil[1] for teil in data if isinstance(teil, tuple))
+        raise MailNichtGefunden(f"keine Nachricht mit UID {uid}")
+    try:
+        roh = next(teil[1] for teil in data if isinstance(teil, tuple))
+    except StopIteration:
+        raise MailNichtGefunden(f"keine Nachricht mit UID {uid}") from None
     return email.message_from_bytes(roh)
 
 
@@ -311,8 +326,11 @@ def main() -> None:
         imap.select(_mailbox_arg(args.folder), readonly=True)
         werte = (args.uid or args.seq).split(",")
         for wert in [w.strip() for w in werte if w.strip()]:
-            uid = wert if args.uid else _uid_fuer_seq(imap, wert)
-            datei = render(_hole(imap, uid), konto, args.folder, uid, wurzel)
+            try:
+                uid = wert if args.uid else _uid_fuer_seq(imap, wert)
+                datei = render(_hole(imap, uid), konto, args.folder, uid, wurzel)
+            except MailNichtGefunden as fehlt:
+                sys.exit(f"FEHLER: {fehlt}")
             if args.url_only:
                 print(datei.as_uri())
             else:

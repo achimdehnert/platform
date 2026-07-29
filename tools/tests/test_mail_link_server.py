@@ -108,6 +108,26 @@ class TestMailRoute:
     def test_should_404_unknown_attachment(self, server):
         assert _get(server, "/m/4711/anhaenge/gibtsnicht.pdf")[0] == 404
 
+    def test_should_404_when_message_does_not_exist(self, server, monkeypatch):
+        """Früher beendete sich der Fetch per sys.exit — das SystemExit ging an
+        `except Exception` vorbei, der Request-Thread starb und der Browser bekam
+        eine leere Antwort statt einer Fehlerseite (gemessen an /m/ad/64)."""
+
+        def _fehlt(self, konto, uid):
+            raise mls.MailNichtGefunden(f"keine Nachricht mit UID {uid}")
+
+        monkeypatch.setattr(mls.MailLinkHandler, "_rendern", _fehlt)
+        status, _, koerper = _get(server, "/m/999999")
+        assert status == 404
+        assert b"999999" in koerper
+
+    def test_should_502_when_mailbox_is_unreachable(self, server, monkeypatch):
+        def _kaputt(self, konto, uid):
+            raise OSError("Verbindung abgelehnt")
+
+        monkeypatch.setattr(mls.MailLinkHandler, "_rendern", _kaputt)
+        assert _get(server, "/m/4711")[0] == 502
+
 
 class TestIndex:
     def test_should_list_registered_short_links(self, server):
@@ -141,3 +161,32 @@ class TestSicherheitsgrenzen:
         assert mls.sicherer_dateiname("Anh%C3%B6rung%20Bericht.pdf") == (
             "Anhörung Bericht.pdf"
         )
+
+
+class TestKontenAufloesung:
+    """Ein Konto ohne passende Config ließ den Dienst früher starten und jede
+    Anfrage mit 502 enden (gemessen 2026-07-29 mit `--account ad`)."""
+
+    @pytest.fixture
+    def claude_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        verzeichnis = tmp_path / ".claude"
+        verzeichnis.mkdir()
+        return verzeichnis
+
+    def test_should_map_plain_name_to_named_config(self, claude_dir):
+        (claude_dir / "mail-hnu.env").write_text("x")
+        assert mls.konten_aufloesen(["hnu"]) == {"hnu": "hnu"}
+
+    def test_should_map_default_suffix_to_unnamed_config(self, claude_dir):
+        (claude_dir / "mail.env").write_text("x")
+        assert mls.konten_aufloesen(["ad=default"]) == {"ad": None}
+
+    def test_should_map_explicit_config_name(self, claude_dir):
+        (claude_dir / "mail-search.env").write_text("x")
+        assert mls.konten_aufloesen(["privat=search"]) == {"privat": "search"}
+
+    def test_should_fail_fast_when_config_is_missing(self, claude_dir):
+        with pytest.raises(SystemExit) as exc:
+            mls.konten_aufloesen(["ad"])
+        assert "ad=default" in str(exc.value)

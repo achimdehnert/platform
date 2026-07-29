@@ -1252,7 +1252,9 @@ def main() -> None:
             except roles.KanalgrenzeVerletzt as e:
                 sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
             body = roles.text_mit_signatur(profile, body)
-            print(f"Rolle: {profile.role_id} ({profile.display_name}) — {profile.sender}")
+            print(
+                f"Rolle: {profile.role_id} ({profile.display_name}) — {profile.sender}"
+            )
         cmd_draft(
             tok, args.to or "", args.subject, body, args.reply_to, args.attach, args.cc
         )

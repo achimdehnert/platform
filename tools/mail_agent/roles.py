@@ -15,6 +15,7 @@ SSoT-Disziplin: die Registry referenziert den Transport nur per Key
 (smtp | graph_draft | imap_append) — Credentials/Hosts bleiben in mail*.env
 bzw. ~/.secrets und werden hier NIE kopiert.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,19 +57,40 @@ _REQUIRED_FIELDS = ("display_name", "from", "transport")
 # (Top-Level "kanal_signale") statt den Code zu ändern.
 KANAL_SIGNALE: dict[str, tuple[str, ...]] = {
     "telefonat": (
-        "telefon", "telefonisch", "telefonat", "anruf", "anrufen", "angerufen",
-        "rückruf", "rueckruf", "durchwahl", "hörer", "hoerer",
+        "telefon",
+        "telefonisch",
+        "telefonat",
+        "anruf",
+        "anrufen",
+        "angerufen",
+        "rückruf",
+        "rueckruf",
+        "durchwahl",
+        "hörer",
+        "hoerer",
     ),
     "vor-ort-termin": (
-        "vor ort", "vor-ort", "vorbeikommen", "vorbeischauen",
-        "persönlich vorbei", "persoenlich vorbei", "besuche sie", "besuchen sie",
+        "vor ort",
+        "vor-ort",
+        "vorbeikommen",
+        "vorbeischauen",
+        "persönlich vorbei",
+        "persoenlich vorbei",
+        "besuche sie",
+        "besuchen sie",
     ),
     "unterschrift": (
-        "unterschrift", "unterschreib", "unterzeichn", "handschriftlich",
+        "unterschrift",
+        "unterschreib",
+        "unterzeichn",
+        "handschriftlich",
         "rechtsverbindlich zeichn",
     ),
     "videokonferenz": (
-        "videokonferenz", "videocall", "video-call", "bildschirmfreigabe",
+        "videokonferenz",
+        "videocall",
+        "video-call",
+        "bildschirmfreigabe",
     ),
 }
 
@@ -123,16 +145,22 @@ def load_registry(path: str | Path | None = None) -> dict:
     return data
 
 
-def resolve(role_id: str, path: str | Path | None = None, registry: dict | None = None) -> Profile:
+def resolve(
+    role_id: str, path: str | Path | None = None, registry: dict | None = None
+) -> Profile:
     """Rolle → validiertes Profil. Wirft bei unbekannter Rolle oder verletzter Governance."""
     reg = registry if registry is not None else load_registry(path)
     roles = reg["roles"]
     if role_id not in roles:
-        raise ValueError(f"unbekannte Rolle '{role_id}' — bekannt: {', '.join(sorted(roles))}")
+        raise ValueError(
+            f"unbekannte Rolle '{role_id}' — bekannt: {', '.join(sorted(roles))}"
+        )
     r = roles[role_id]
     missing = [k for k in _REQUIRED_FIELDS if not r.get(k)]
     if missing:
-        raise ValueError(f"Rolle '{role_id}': Pflichtfelder fehlen: {', '.join(missing)}")
+        raise ValueError(
+            f"Rolle '{role_id}': Pflichtfelder fehlen: {', '.join(missing)}"
+        )
     if r["transport"] not in VALID_TRANSPORTS:
         raise ValueError(
             f"Rolle '{role_id}': transport '{r['transport']}' ungültig "
@@ -232,7 +260,7 @@ def text_mit_signatur(profile: Profile, text: str) -> str:
 _ROW = Template(
     '<tr><td style="padding:12px 16px;font-size:13.5px;color:#2A3138;$border">$label</td>'
     '<td align="right" style="padding:12px 16px;font-size:12.5px;color:$color;font-weight:600;$border">'
-    '&#9679;&nbsp;$text</td></tr>'
+    "&#9679;&nbsp;$text</td></tr>"
 )
 
 _HTML = Template(
@@ -358,17 +386,21 @@ def main() -> None:
         if args.cmd == "list":
             reg = load_registry(args.registry)
             for rid, r in reg["roles"].items():
-                print(f"{rid:16} {r.get('from',''):28} {r.get('transport','')}")
+                print(f"{rid:16} {r.get('from', ''):28} {r.get('transport', '')}")
         elif args.cmd == "show":
             prof = resolve(args.role, args.registry)
             print(f"Rolle       : {prof.role_id}")
             print(f"Absender    : {prof.sender}")
             print(f"Transport   : {prof.transport}")
             print(f"Akzent      : {prof.accent}")
-            print(f"Footer-Pflicht: {prof.requires_legal_footer} "
-                  f"({'vorhanden' if prof.legal_footer else 'keiner'})")
-            print("Kann NICHT zusagen: "
-                  + (", ".join(prof.darf_nicht_zusagen) or "— (keine Kanal-Grenze)"))
+            print(
+                f"Footer-Pflicht: {prof.requires_legal_footer} "
+                f"({'vorhanden' if prof.legal_footer else 'keiner'})"
+            )
+            print(
+                "Kann NICHT zusagen: "
+                + (", ".join(prof.darf_nicht_zusagen) or "— (keine Kanal-Grenze)")
+            )
     except (FileNotFoundError, ValueError) as e:
         sys.exit(f"FEHLER: {e}")
 
