@@ -283,3 +283,58 @@ angenommen.
 Sechs Worktrees aus Vorsessions (16./20./21./23.07.) bleiben stehen — ihre Branches sind
 nicht gemergt, der Reaper schützt sie zu Recht. Wiederkehrendes Muster
 `worktree-midsession-accumulation`, hier bewusst nicht angefasst.
+
+---
+
+## Session 2026-07-29 — platform (4df8a8): Paperless 3.0.4, Cloudflare Access, sevdesk-Bankpositionen
+
+**Strang:** doc-hub/Paperless · Backup · Cloudflare Access · sevdesk. Vier PRs gemergt
+(#1526, #1528, #1534, #1537), Retro als #1541 offen. Am selben Tag liefen mindestens zwei
+weitere Sessions im Repo (18 Merges gesamt) — deren PRs gehören nicht hierher.
+
+**Backup saniert (#1526).** Ursache war nicht Platzmangel, sondern ein doppelter Lauf: das
+Cron-Skript (Zip, 427 MB) und dieselbe Repo-Fassung als `/etc/cron.daily/doc-hub-backup`
+(unkomprimiert, 2,1 GB) schrieben in dasselbe Verzeichnis. Die 1-Tages-Aufbewahrung vom
+April war Symptombehandlung. Jetzt 30 Tage; die Notbremse entfernt den ältesten Stand statt
+aller; ein übersprungener Lauf endet mit exit 1 statt Erfolg zu melden. Rückspielprobe
+gebaut und bestanden — Weg A 820/826 identisch zur Produktion, Weg B exit 0 mit 5278
+Objekten. Der Importer braucht zwingend Redis; das kostete drei Anläufe.
+
+**Paperless 2.14.7 → 2.20.15 → 3.0.4 (#1528),** 53 Migrationen, 826 Dokumente und 3857
+Audit-Einträge unversehrt. 2.20.15 ist die zwingende Vorstufe. Zwei Consumer-Variablen
+existieren in 3.0.4 nicht mehr und standen in keiner Checkliste — gegen den Quelltext des
+Tags geprüft, nicht gegen Prosa.
+
+**Cloudflare Access statt authentik für docs.iil.pet (#1528).** Header-Anmeldung nur
+deshalb vertretbar, weil nginx die Seite ausschließlich auf `127.0.0.1:8999` für den
+cloudflared-Tunnel bedient — vorher geprüft. Falsifikationstest: mit Kopfzeile HTTP 200 und
+Sitzungs-Cookie, ohne 302 auf die Anmeldung. Passwort-Weg bewusst offen als Rückfalltür.
+Der Anmeldeweg im Zero-Trust-Konto ist **GitHub**, nicht Einmal-PIN; die wirksame Adresse
+ist `admin@wir-digital.de`.
+
+**sevdesk-Bankpositionen (#1537):** 84 unverbuchte Umsätze 2026, Kontenzuordnung nach
+Owner-Vorgaben — 76 zugeordnet, 8 in Klärung, 0 offen. Arbeitsstand als JSON eingefroren
+(Umsatz-ID → Konto), weil das Board bei jedem Lauf neu aus der API entsteht und damit kein
+verlässlicher Bezugspunkt für eine Freigabe wäre.
+
+**⛔ GATE: Buchungen warten auf das Go des Owners.** Mara (`md@dehnert.team`) prüft die
+Aufstellung und meldet sich bei ihm. Eingefrorener Stand unter
+`~/.claude/boards/archiv/sevdesk-stand-2026-07-29.json`.
+
+**Session-Retro (deep):** 9 Befunde, 7 überleben. Schärfster Befund — und er betrifft die
+eigene Arbeit: `restore-test.sh` zeigt weiter auf Paperless 2.14, die Instanz läuft seit
+demselben Tag auf 3.0.4. Der einzige verifizierte Rollback-Pfad ist damit für alle Backups
+ab jetzt latent gebrochen. Die Version steht an vier Stellen im Repo und wird nirgends
+abgeleitet. Zweitschärfster: die wörtlich erklärte ADR-142-Abweichung wurde nirgends
+nachgezogen, das Frontmatter behauptet weiter erfolgreiches authentik-SSO für doc-hub.
+Vier der sieben Überlebenden tragen bereits gate-pflichtige Slugs.
+
+**Nächste Schritte:** #1541 reviewen · Rückspielprobe auf abgeleiteten Image-Tag umstellen ·
+ADR-142 nachziehen oder als Issue eröffnen · Tests für `bankpositionen.py` und die
+`/d/`-Route · #1527 (4,2 GB Altlast) und #1529 (totes GHCR-Token des Hosts) abarbeiten.
+
+**Offen geblieben:** Drei Repos sind dirty, alle belegbar fremd — `django-lms-lite` und
+`iil-doc-templates` mit untracked `.windsurf/`-Resten aus der Verteilung, `risk-hub` mit
+geändertem `NEXT.md`, das schon beim Session-Start als `GUARD(dirty)` markiert war. Nach
+der Attributions-Regel liegen gelassen. Die Checklisten-Zeile „kein Repo dirty" ist damit
+nicht erfüllt und wird bewusst als offen geführt.
