@@ -159,6 +159,21 @@ Kurz-Link für eine IIL-Mail anlegen:
   (HNU-Inhalte auf IIL-Infrastruktur), keine Bequemlichkeitsfrage.
 - Das Zugriffslog trägt bewusst keine UID und keinen Betreff.
 
+**Dauerbetrieb als User-Unit.** `~/.config/systemd/user/mail-links.service` startet
+den Dienst beim Boot (Lingering ist an). Davor räumt
+`port_freigeben.py --port 8787` als `ExecStartPre` eine **verwaiste eigene**
+Instanz weg — ein fremder Prozess auf dem Port lässt den Start dagegen scheitern
+und bleibt unangetastet.
+
+> **Falle:** In dieser Unit darf **keine Namensraum-Option** stehen. `PrivateTmp`,
+> `ProtectKernelTunables` und `ProtectControlGroups` remounten je `/proc`; in
+> dieser Sicht sind fremde Datei-Deskriptoren unlesbar, `port_freigeben.py` findet
+> niemanden mehr und meldet fälschlich „gehört nicht diesem Benutzer".
+> `ProcSubset=all` und `ProtectProc=default` heilen es **nicht** — beide
+> nachgemessen. `NoNewPrivileges` und `RestrictSUIDSGID` sind unschädlich.
+> Symptom, wenn doch gesetzt: Unit auf `activating`, Neustartzähler steigt, und
+> der **Waisenprozess bedient weiter mit altem Code** (2026-07-29).
+
 ### Stabile Board-Links: `anker.py` + Route `/a/<board-nummer>`
 
 `/m/<uid>` bricht, sobald die Mail den Ordner wechselt — UIDs gelten pro Ordner.
