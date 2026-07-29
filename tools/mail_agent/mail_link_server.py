@@ -36,6 +36,16 @@ from pathlib import Path
 from urllib.parse import quote, unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from anker import (  # noqa: E402
+    ANKER_DATEI,
+    GELOESCHT,
+    UNPRUEFBAR,
+    VERSCHOBEN,
+    pruefe_anker,
+)
+from anker import lade as anker_lade  # noqa: E402
+from anker import speichere as anker_speichere  # noqa: E402
+from anker import uebernehme as anker_uebernehme  # noqa: E402
 from mail_view import (  # noqa: E402
     CACHE_ROOT,
     MailNichtGefunden,
@@ -101,6 +111,7 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     ordner: str = "INBOX"
     cache_root: Path = CACHE_ROOT
     registry_pfad: Path = LINK_REGISTRY
+    anker_pfad: Path = ANKER_DATEI
 
     # --- Antwort-Helfer ----------------------------------------------------
 
@@ -141,9 +152,78 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._index()
         if teile[0] == "i" and len(teile) == 2:
             return self._weiterleiten(teile[1])
+        if teile[0] == "a":
+            return self._anker(teile[1:])
         if teile[0] == "m":
             return self._mail(teile[1:])
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
+
+    def _anker(self, teile: list[str]) -> None:
+        """`/a/<item>` — Board-Eintrag über seine Message-ID auflösen.
+
+        Der stabile Weg: `/m/<uid>` bricht, sobald die Mail den Ordner wechselt.
+        Hier wird bei einem Fehlschlag über die Message-ID nachgesucht, der Anker
+        nachgezogen und die Mail trotzdem ausgeliefert.
+        """
+        if not teile:
+            return self._fehler(HTTPStatus.BAD_REQUEST, "Board-Nummer fehlt.")
+        item = teile[0]
+        anker = anker_lade(self.anker_pfad)
+        eintrag = anker.get(item)
+        if not eintrag:
+            return self._fehler(
+                HTTPStatus.NOT_FOUND, f"Für #{item} ist keine Mail verankert."
+            )
+
+        try:
+            cfg = parse_env(
+                _resolve_config(
+                    None,
+                    None
+                    if eintrag.konto == "default"
+                    else self.konten.get(eintrag.konto, eintrag.konto),
+                )
+            )
+            imap = connect(cfg)
+        except Exception as fehler:
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Postfach nicht erreichbar: {fehler}"
+            )
+        try:
+            befund = pruefe_anker(imap, eintrag)
+            if befund.zustand == GELOESCHT:
+                return self._fehler(
+                    HTTPStatus.GONE,
+                    f"Die Mail zu #{item} liegt in keinem Ordner mehr — "
+                    f"zuletzt gesehen in '{eintrag.ordner}'. "
+                    "Gelöscht, oder aus dem Postfach entfernt (bei Termineinladungen "
+                    "passiert das beim Annehmen).",
+                )
+            if befund.zustand == UNPRUEFBAR:
+                return self._fehler(HTTPStatus.BAD_GATEWAY, befund.hinweis)
+
+            ordner = befund.neuer_ordner or eintrag.ordner
+            uid = befund.neue_uid or eintrag.uid
+            if befund.zustand == VERSCHOBEN:
+                anker[item] = anker_uebernehme([befund], anker)[item]
+                anker_speichere(anker, self.anker_pfad)
+            imap.select(_mailbox_arg(ordner), readonly=True)
+            ziel = self.cache_root / slugify(eintrag.konto) / slugify(ordner)
+            datei = render(_hole(imap, uid), eintrag.konto, ordner, uid, ziel)
+        except MailNichtGefunden as fehlt:
+            return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
+        except Exception as fehler:
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Postfach nicht lesbar: {fehler}"
+            )
+        finally:
+            try:
+                imap.logout()
+            except Exception:
+                pass
+        return self._sende(
+            HTTPStatus.OK, datei.read_bytes(), "text/html; charset=utf-8"
+        )
 
     def _index(self) -> None:
         eintraege = lade_registry(self.registry_pfad)
@@ -155,6 +235,17 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             )
             or "<li><em>keine Kurz-Links registriert</em></li>"
         )
+        anker_zeilen = (
+            "".join(
+                f"<li><a href='/a/{html.escape(item)}'>/a/{html.escape(item)}</a> — "
+                f"{html.escape(a.betreff[:60])}</li>"
+                for item, a in sorted(
+                    anker_lade(self.anker_pfad).items(),
+                    key=lambda kv: (len(kv[0]), kv[0]),
+                )
+            )
+            or "<li><em>keine Board-Einträge verankert</em></li>"
+        )
         konten = ", ".join(sorted(self.konten)) or self.default_konto
         seite = f"""<!doctype html><meta charset=utf-8><title>Mail-Links</title>
 <body style="font:15px/1.55 -apple-system,Segoe UI,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">
@@ -163,6 +254,9 @@ class MailLinkHandler(BaseHTTPRequestHandler):
 live über IMAP (read-only). Andere Konten: <code>/m/&lt;konto&gt;/&lt;uid&gt;</code> —
 verfügbar: {html.escape(konten)}.</p>
 <p><code>/i/&lt;kurz-id&gt;</code> leitet auf den OWA-Deeplink einer IIL-Mail weiter.</p>
+<p><code>/a/&lt;board-nummer&gt;</code> löst über die <strong>Message-ID</strong> auf und
+überlebt darum ein Verschieben — der Anker wird dabei automatisch nachgezogen.</p>
+<h2>Verankerte Board-Einträge</h2><ul>{anker_zeilen}</ul>
 <h2>Registrierte Kurz-Links</h2><ul>{zeilen}</ul>
 <p style="color:#777;font-size:.85rem">Nur über Loopback erreichbar. Läuft der Zugriff
 über einen SSH-Tunnel, sieht niemand sonst diese Inhalte.</p>"""

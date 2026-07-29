@@ -129,6 +129,45 @@ class TestMailRoute:
         assert _get(server, "/m/4711")[0] == 502
 
 
+class TestAnkerRoute:
+    """`/a/<item>` löst über die Message-ID auf und überlebt darum ein Verschieben."""
+
+    @pytest.fixture
+    def anker_pfad(self, tmp_path, monkeypatch):
+        import anker as anker_modul
+
+        pfad = tmp_path / "mail-anker.json"
+        anker_modul.speichere(
+            {
+                "1": anker_modul.Anker(
+                    item="1",
+                    konto="hnu",
+                    ordner="INBOX",
+                    uid="100",
+                    message_id="<a@hnu.de>",
+                    betreff="Leistungsbezüge",
+                )
+            },
+            pfad,
+        )
+        monkeypatch.setattr(mls.MailLinkHandler, "anker_pfad", pfad)
+        return pfad
+
+    def test_should_404_unknown_board_item(self, server, anker_pfad):
+        status, _, koerper = _get(server, "/a/999")
+        assert status == 404
+        assert b"999" in koerper
+
+    def test_should_400_without_board_number(self, server, anker_pfad):
+        assert _get(server, "/a")[0] in (400, 404)
+
+    def test_should_list_anchored_items_on_index(self, server, anker_pfad):
+        status, _, koerper = _get(server, "/")
+        assert status == 200
+        assert b"/a/1" in koerper
+        assert "Leistungsbezüge".encode() in koerper
+
+
 class TestIndex:
     def test_should_list_registered_short_links(self, server):
         status, _, koerper = _get(server, "/")
