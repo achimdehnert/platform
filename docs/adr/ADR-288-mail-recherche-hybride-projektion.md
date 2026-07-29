@@ -154,6 +154,40 @@ gemessenen Zahl bei 70 % und nach Ausschluss bei **15 %**. Die Kritik bleibt in 
 Größenordnung erschlossen, nicht aus einem Lauf-Protokoll der damaligen Zählung rekonstruiert.
 Ein Beweis wäre nur über die Rohausgabe jener Messung möglich, die nicht vorliegt.
 
+### 1.4.2 Gemessener Vollaufbau (2026-07-29) — Beleg zu Gate 5
+
+Der Kopfzeilen-Vollaufbau über die **behaltene** Menge, tatsächlich ausgeführt statt
+hochgerechnet — read-only, alle vier Konten, beide Transporte:
+
+| Konto | Transport | Kopfsätze | Ordner | Dauer | Rate |
+|---|---|---:|---:|---:|---:|
+| A / IIL | Graph | 7.951 | 78 | 86,5 s | 92,0/s |
+| B / HNU | IMAP | 5.978 | 92 | 76,1 s | 78,5/s |
+| C / Referenz | IMAP | 10 | 7 | 0,4 s | — |
+| D / privat | IMAP | 77 | 3 | 0,2 s | — |
+| **Gesamt** | | **14.016** | **180** | **163,2 s = 2,7 min** | 86/s |
+
+**Die Mikro-Benchmarks überschätzen systematisch.** Einzelordner-Messungen ergaben 120,7/s
+(Graph, Listen-Abruf) und 106,3/s (IMAP, Bulk-`FETCH`); im echten Lauf über 180 Ordner sind es
+92,0/s und 78,5/s. Die Differenz ist Ordnerwechsel-Overhead — **genau der Faktor, den die
+externen Runden 1 und 2 an den Hochrechnungen dieses Entwurfs kritisiert haben** (§11.1). Ihre
+Kritik trifft im Mechanismus zu; die Schwelle hält mit Faktor 3,7 Reserve trotzdem.
+
+Zum Graph-Transport, der bis hierher als „ungemessen" geführt war: der natürliche Weg ist
+**nicht** `$batch`, sondern der Listen-Abruf mit `$top` und Paging — 591 Nachrichten kamen in
+**einer** Antwort. Gegen den Einzelabruf je Nachricht (10,3/s) ist das Faktor 11,7.
+
+**Zwei Einschränkungen, ausdrücklich:**
+
+- Gate 5 verlangt wörtlich ein **p95**; gemessen ist **ein** Lauf. Bei 2,7 gegen 10 Minuten ist
+  der Abstand groß genug, dass daraus kein Streitfall wird — ein p95 ist es nicht.
+- Gezählt wurden 14.016 statt der in §1.4 erhobenen 14.028 (−12). Das Postfach lebt zwischen
+  zwei Läufen; die Größenordnung bestätigt beide Messungen gegenseitig.
+
+**Noch nicht gemessen** und damit der offene Rest von Gate 5: Datenbankschreiben und
+Normalisierung. Beide existieren erst mit P2 — der Wert oben ist die **untere** Schranke des
+späteren Vollaufbaus, nicht sein Endwert.
+
 ### 1.5 Warum v1 dieses ADR nicht trug
 
 Der Vorgänger dieser Fassung setzte auf „Suche bleibt live, der Index existiert nur für
@@ -501,9 +535,10 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
    `UIDVALIDITY`-Wechsel läuft durch die Migrationsprozedur.
 4. **Kalibrier-Gate:** Sonden für `FROM`, `TO`/`CC`, Nicht-ASCII und einen Nicht-Gesendet-Ordner
    laufen je Konto und Transport; eine fallende Sonde sperrt den Pfad.
-5. **Benchmark-Gate:** Vor P2 wird der **tatsächliche** Aufbau gemessen — alle Konten, alle
-   behaltenen Ordner, inklusive Graph-`$batch`, Datenbankschreiben, Normalisierung und
-   Fehlerwiederholung. Bei p95 > 10 min: inkrementell für die Heißmenge.
+5. **Benchmark-Gate — 🟡 teilweise erfüllt (§8.5a).** Der Kopfzeilen-Vollaufbau ist **real
+   gemessen**: 14.016 Kopfsätze aus 180 behaltenen Ordnern über alle vier Konten und beide
+   Transporte in **2,7 min**. Offen bleiben Datenbankschreiben und Normalisierung — die
+   existieren erst mit P2. Bei p95 > 10 min: inkrementell für die Heißmenge.
 6. **Threading-Gate:** Paarweise Präzision und Recall, **Falsch-Zusammenführungsrate getrennt**,
    Vorgangsabdeckung. Falsche Zusammenführungen werden strenger bestraft als Teilungen; eine
    einzelne „Genauigkeit > 90 %" gilt nicht als bestanden.
@@ -536,6 +571,7 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-29 | Claude Code (Opus 5) | **Gate 5 belegt (§1.4.2), P2 damit vorbereitet.** Der Kopfzeilen-Vollaufbau wurde **ausgeführt statt hochgerechnet**: 14.016 Kopfsätze aus 180 behaltenen Ordnern über vier Konten und beide Transporte in **2,7 min** — Schwelle 10 min, Reserve Faktor 3,7. Zwei Erkenntnisse: (a) Der Graph-Transport war als „ungemessen" geführt; der tragende Weg ist nicht `$batch`, sondern der Listen-Abruf mit `$top`+Paging (591 Nachrichten in **einer** Antwort, Faktor 11,7 gegen Einzelabruf). (b) **Mikro-Benchmarks überschätzen systematisch** — 120,7/s bzw. 106,3/s im Einzelordner gegen 92,0/s bzw. 78,5/s im Lauf über 180 Ordner; die Differenz ist Ordnerwechsel-Overhead, also genau der Punkt, an dem die Runden 1 und 2 die Hochrechnungen dieses Entwurfs angegriffen haben. Gate 5 bleibt **teilweise** offen: Datenbankschreiben und Normalisierung existieren erst mit P2, der Messwert ist die untere Schranke. Ebenfalls benannt: es ist ein Lauf, kein p95. |
 | 2026-07-29 | Claude Code (Opus 5) | **Gate 0 geschlossen (§1.4.1).** Nachmessung mit ausgewiesenen Fehlern statt stiller Nullen: **66.580** Nachrichten über 246 Ordner in vier Konten, null nicht zählbare Ordner. Der Widerspruch zu ADR-286 §4.10.8 (90.967) ist **ursächlich aufgeklärt**, nicht nur neu gezählt: das nicht betroffene Kontrollkonto trifft die alte Zahl exakt (9 Ordner / 12), während die beiden Konten, in denen am 2026-07-28 laut Session-Retro `d5eb5e` **28.158 Nachrichten verschoben** wurden, zusammen 24.483 weniger zeigen — die alte Messung erfasste einen vorübergehenden Zustand, in dem Nachrichten zugleich im Sammelordner und im neuen Jahresarchiv lagen. Gate 0 wird zur **Wiederholungsauflage** nach jeder Umsortierung. Restlücke benannt: die Ursache ist aus Datum, Konten und Größenordnung erschlossen, nicht aus dem Protokoll der damaligen Zählung. |
 | 2026-07-29 | Claude Code (Opus 5) | **v2 nach Runde 3 und einer eigenen Messung.** Neu gemessen: die bestehende Ausschlussregel entfernt **78,9 %** des Bestands (66.562 → 14.018), womit Vollaufbau auf 2,2 min und Rohobjektspeicher auf ~4,5 GB fallen; die Größen-Bedenken der Runden 1–3 entschärfen sich dadurch strukturell. Dabei aufgedeckt: die seit ADR-286 §4.10.8 durchgereichte Zahl **90.967** ist mit der gegengeprüften Methode nicht reproduzierbar (gemessen 66.562) — als **Gate 0** offen geführt statt weggeglättet, weil zwei externe Runden auf der älteren Zahl argumentiert haben. Aus Runde 3 übernommen: inhaltsadressierter Rohobjektspeicher, Leitsatz „Delta an der Quelle, Rebuild in der Projektion" (ersetzt „Neuaufbau schlägt Delta"), **sechs** Ausgabezustände statt zwei, sechsstufige Retrieval-Pipeline, mehrdimensionale Deckung mit fachlicher Konsequenz. **Nicht** übernommen: die volle 25-Tabellen-Grundausstattung und der unbeschränkte Volltextspeicher. Letzteres ist die tragende Abweichung — der Rohobjektspeicher ist **zweckgebunden** (Kopfdaten und Anhänge global, Volltext nur für aktive Vorgänge), wodurch **kein Supersede von ADR-286 nötig** ist und der Rückweg zur kleineren Variante offen bleibt (§3.2). |
 | 2026-07-29 | Claude Code (Opus 5) | v1, Status Proposed. Aus KONZ-036 nach zwei externen Runden: §5-These ehrlich umformuliert, Deckungszustand als Bedingung für Negativaussagen, Trennung Cache ↔ Kuration, Build-Generationen, Entität/Vorkommen, Parteien, Graph zweistufig, drei Zustandsschichten, `version_of` gestrichen. Korrigiert ADR-286 §4.10.7. |
