@@ -176,6 +176,95 @@ class TestIndex:
         assert "Azure Copilot".encode() in koerper
 
 
+class TestBoardRoute:
+    """`/d/<name>` — Arbeitslisten aus ~/.claude/boards.
+
+    Anlass: Retro 2026-07-29 Befund #4. Die Route ging ohne Test in den Merge; der
+    vorhandene `TestAnkerRoute` prüft `/a/<item>`, eine ANDERE Route mit ähnlichem
+    Namen ("Board-Nummer") — genau die Verwechslung, die einen fehlenden Test wie
+    Abdeckung aussehen ließ.
+    """
+
+    @pytest.fixture
+    def boards(self, tmp_path):
+        wurzel = tmp_path / "boards"
+        wurzel.mkdir()
+        (wurzel / "liste.md").write_text(
+            "# Titel\n\n| A | B |\n|---|---|\n| 1 | 2 |\n", encoding="utf-8"
+        )
+        mls.MailLinkHandler.board_root = wurzel
+        return wurzel
+
+    def test_should_serve_board_content_as_html(self, server, boards):
+        """Inhalt muss ankommen — unabhängig davon, ob `markdown` installiert ist.
+
+        Die Bibliothek ist optional (CI hat sie nicht). Ein Test, der `<table>`
+        erwartet, prüft die Umgebung statt den Code — dieser Fehler kostete am
+        2026-07-29 einen roten CI-Lauf.
+        """
+        status, kopf, koerper = _get(server, "/d/liste")
+        assert status == 200
+        assert kopf["Content-Type"].startswith("text/html")
+        assert "Titel".encode() in koerper
+
+    def test_should_render_tables_when_markdown_available(self, server, boards):
+        pytest.importorskip("markdown")
+        _, _, koerper = _get(server, "/d/liste")
+        assert b"<table>" in koerper  # Tabelle als HTML, nicht als Rohtext
+
+    def test_should_404_unknown_board_name(self, server, boards):
+        status, _, _ = _get(server, "/d/gibtsnicht")
+        assert status == 404
+
+    def test_should_list_available_boards_on_index(self, server, boards):
+        status, _, koerper = _get(server, "/")
+        assert status == 200
+        assert b"/d/liste" in koerper
+
+    @pytest.mark.parametrize(
+        "roh",
+        [
+            "../../.secrets/token",
+            "/etc/passwd",
+            "..",
+            ".",
+            "liste.md",          # Endung gehört nicht in den Namen
+            "a/b",
+            "",
+        ],
+    )
+    def test_should_reject_names_that_could_escape_the_board_root(self, boards, roh):
+        assert mls.board_pfad(roh, boards) is None
+
+    def test_should_resolve_plain_name_inside_root(self, boards):
+        assert mls.board_pfad("liste", boards) == (boards / "liste.md").resolve()
+
+    def test_should_refuse_symlink_pointing_out_of_root(self, tmp_path, boards):
+        """Ein Symlink im Board-Verzeichnis darf nicht aus ihm herausführen."""
+        aussen = tmp_path / "geheim.md"
+        aussen.write_text("nicht ausliefern", encoding="utf-8")
+        (boards / "trick.md").symlink_to(aussen)
+        assert mls.board_pfad("trick", boards) is None
+
+    def test_should_fall_back_to_plain_text_without_markdown_library(
+        self, monkeypatch, boards
+    ):
+        """Fehlt die Bibliothek, bleibt der Inhalt lesbar statt zu scheitern."""
+        import builtins
+
+        echt = builtins.__import__
+
+        def ohne_markdown(name, *a, **k):
+            if name == "markdown":
+                raise ImportError("nicht installiert")
+            return echt(name, *a, **k)
+
+        monkeypatch.setattr(builtins, "__import__", ohne_markdown)
+        html = mls.board_als_html("# Titel\n\n| A |\n|---|\n", "liste")
+        assert "<pre>" in html
+        assert "# Titel" in html
+
+
 class TestSicherheitsgrenzen:
     def test_should_refuse_non_loopback_bind_without_optin(self, monkeypatch, capsys):
         monkeypatch.setattr(

@@ -14,8 +14,38 @@ NET="restoretest_net"
 PGC="restoretest_db"
 RDC="restoretest_redis"
 PGPASS="restore-test-only-throwaway"
-IMAGE="ghcr.io/paperless-ngx/paperless-ngx:2.14"
 MIN_FREE_GB=15
+
+# Compose-Datei als Quelle der Wahrheit für die Image-Version. Reihenfolge:
+# ausgerollte Datei auf dem Host, sonst die Repo-Fassung neben diesem Skript.
+COMPOSE="${COMPOSE:-}"
+for kandidat in /opt/doc-hub/docker-compose.yml "$(dirname "$0")/docker-compose.yml"; do
+    [[ -z "$COMPOSE" && -f "$kandidat" ]] && COMPOSE="$kandidat"
+done
+
+# ── Image-Version ABLEITEN, nicht duplizieren ────────────────────────────────
+# Warum: bis 2026-07-29 stand hier ein fester Tag (:2.14). Am selben Tag hob ein
+# Upgrade die Produktivinstanz auf 3.0.4 — dieses Skript blieb stehen und war
+# damit für jedes neue Backup unbrauchbar, ohne es zu melden. Genau der eine
+# Weg, der im Notfall greifen soll. Eine duplizierte Version ist nach dem
+# nächsten Upgrade still kaputt; deshalb wird sie hier gelesen, nicht gesetzt.
+if [[ -z "$COMPOSE" ]]; then
+    echo "ABBRUCH: keine docker-compose.yml gefunden (weder /opt/doc-hub noch neben dem Skript)."
+    echo "         Nötig, um die Paperless-Version zu bestimmen — sie wird bewusst"
+    echo "         NICHT mehr im Skript festgeschrieben."
+    exit 2
+fi
+if [[ ! -f "$COMPOSE" ]]; then
+    echo "ABBRUCH: \$COMPOSE zeigt auf '$COMPOSE' — die Datei existiert nicht."
+    exit 2
+fi
+# grep liefert Exit 1 ohne Treffer; unter `set -e` würde das den Lauf hier
+# abbrechen, bevor die eigene Fehlermeldung greift.
+IMAGE=$(grep -oE 'ghcr\.io/paperless-ngx/paperless-ngx:[^"[:space:]]+' "$COMPOSE" | head -1) || IMAGE=""
+if [[ -z "$IMAGE" ]]; then
+    echo "ABBRUCH: in $COMPOSE steht kein paperless-ngx-Image — Version nicht bestimmbar."
+    exit 2
+fi
 
 cleanup() {
     echo "--- Aufräumen ---"
@@ -39,6 +69,7 @@ DUMP=$(ls -1t "$STAND"/db-*.sql.gz 2>/dev/null | head -1)
 [[ -f "$DUMP" ]] || { echo "ABBRUCH: kein db-*.sql.gz in $STAND"; exit 2; }
 
 echo "=== Rückspielprobe doc-hub ==="
+echo "  Image:   $IMAGE  (aus $COMPOSE gelesen)"
 echo "  Stand:   $STAND"
 echo "  Export:  $(basename "$ZIP") ($(du -h "$ZIP" | cut -f1))"
 echo "  DB-Dump: $(basename "$DUMP") ($(du -h "$DUMP" | cut -f1))"
