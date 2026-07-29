@@ -3,23 +3,31 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Deploy: /opt/doc-hub/ on hetzner-prod
 # Secrets: .env (never committed) — see .env.template
-# Port: 127.0.0.1:8102 → Nginx → docs.iil.pet
+# Port: 127.0.0.1:8102 → Nginx (127.0.0.1:8999) → cloudflared-Tunnel → docs.iil.pet
+# Zugang: Cloudflare Access (Einmal-PIN) + HTTP-Remote-User; authentik abgeloest
+#         am 2026-07-29 fuer DIESEN Host — Abweichung von ADR-142, s.u.
 # ═══════════════════════════════════════════════════════════════════════════════
 name: doc-hub-stack
 
 networks:
+  bf_platform_prod:
+    external: true
   dochub_internal:
     name: iil_dochub_internal
     driver: bridge
 
 services:
   paperless-web:
-    image: ghcr.io/paperless-ngx/paperless-ngx:2.14
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.0.4
     container_name: iil_dochub_web
-    networks: [dochub_internal]
+    networks:
+      - dochub_internal
+      - bf_platform_prod
     ports:
       - "127.0.0.1:8102:8000"
     environment:
+      # Ab 3.0 muss der Datenbanktyp ausdruecklich stehen — DBHOST allein genuegt nicht.
+      PAPERLESS_DBENGINE: postgresql
       PAPERLESS_DBHOST: iil_dochub_db
       PAPERLESS_DBNAME: paperless
       PAPERLESS_DBUSER: "${DOCHUB_DB_USER}"
@@ -27,23 +35,68 @@ services:
       PAPERLESS_REDIS: "redis://:${DOCHUB_REDIS_PASSWORD}@iil_dochub_redis:6379"
       PAPERLESS_SECRET_KEY: "${DOCHUB_SECRET_KEY}"
       PAPERLESS_URL: "https://docs.iil.pet"
-      PAPERLESS_ALLOWED_HOSTS: "docs.iil.pet,localhost"
-      PAPERLESS_CSRF_TRUSTED_ORIGINS: "https://docs.iil.pet"
+      PAPERLESS_ALLOWED_HOSTS: "127.0.0.1,docs.iil.pet,localhost"
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: "https://docs.iil.pet,https://docs.iil.pet:443"
+      PAPERLESS_USE_X_FORWARD_HOST: "true"
+      PAPERLESS_USE_X_FORWARD_PORT: "true"
+      PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO","https"]'
       PAPERLESS_OCR_LANGUAGE: "deu+eng"
+      # 3.0 trennt OCR von der Erzeugung der Archiv-PDF. Beides ausdruecklich auf
+      # den bisherigen Standard gesetzt, damit ein spaeterer Default-Wechsel nicht
+      # still durchschlaegt.
+      PAPERLESS_OCR_MODE: "auto"
+      PAPERLESS_ARCHIVE_FILE_GENERATION: "auto"
       PAPERLESS_TIME_ZONE: "Europe/Berlin"
-      PAPERLESS_FILENAME_FORMAT: "{created.year}/{correspondent}/{title}"
+      PAPERLESS_FILENAME_FORMAT: "{{ created_year }}/{{ correspondent }}/{{ title }}"
       PAPERLESS_CONSUMER_RECURSIVE: "true"
       PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
+      # 3.0: CONSUMER_POLLING heisst jetzt CONSUMER_POLLING_INTERVAL.
+      # CONSUMER_POLLING_RETRY_COUNT und CONSUMER_POLLING_DELAY gibt es in 3.0.4
+      # nicht mehr (geprueft gegen src/paperless/settings/ in v3.0.4) — entfernt,
+      # statt sie still ignorieren zu lassen. CONSUMER_STABILITY_DELAY ist der
+      # Nachfolger fuer die Wartezeit; Standard belassen, bis ein Grund vorliegt.
+      PAPERLESS_CONSUMER_POLLING_INTERVAL: "10"
+      PAPERLESS_ENABLE_NLTK: "1"
+      PAPERLESS_NUMBER_OF_SUGGESTED_DATES: "5"
+      PAPERLESS_CONSUMER_ENABLE_COLLATE_DOUBLE_SIDED: "false"
+      # TEST-Einstellung (Owner-Entscheid 2026-07-29): Duplikate werden ab jetzt
+      # AUFGENOMMEN und in der Oberflaeche kenntlich gemacht, statt still verworfen
+      # zu werden. Ziel ist zu sehen, was tatsaechlich doppelt vorliegt, und es
+      # anfangs von Hand zu bereinigen. Rueckweg ist diese eine Zeile auf "true".
+      PAPERLESS_CONSUMER_DELETE_DUPLICATES: "false"
+      PAPERLESS_POST_CONSUME_SCRIPT: "/usr/src/paperless/scripts/auto-title.py"
       PAPERLESS_TIKA_ENABLED: "1"
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: "http://iil_dochub_gotenberg:3000"
       PAPERLESS_TIKA_ENDPOINT: "http://iil_dochub_tika:9998"
       PAPERLESS_ADMIN_USER: "${DOCHUB_ADMIN_USER}"
       PAPERLESS_ADMIN_PASSWORD: "${DOCHUB_ADMIN_PASS}"
+      # ── Zugang: Cloudflare Access statt authentik (Owner-Entscheid 2026-07-29) ──
+      # Abweichung von ADR-142 (authentik als Plattform-IdP) NUR fuer diesen Host.
+      # Cloudflare Access sitzt vor dem Tunnel und setzt die Kopfzeile
+      # Cf-Access-Authenticated-User-Email; Django sieht sie als
+      # HTTP_CF_ACCESS_AUTHENTICATED_USER_EMAIL. Paperless meldet den Benutzer
+      # damit ohne zweite Anmeldung an.
+      #
+      # SICHERHEITSVORAUSSETZUNG (geprueft 2026-07-29, nicht angenommen): die
+      # Kopfzeile darf nicht von aussen einschleusbar sein. nginx bedient
+      # docs.iil.pet ausschliesslich auf 127.0.0.1:8999 fuer den cloudflared-
+      # Tunnel; der Port-80-Block macht nur "return 301" und leitet nie weiter.
+      # Ein direkter Verbindungsversuch auf 443 scheitert im TLS-Handschlag.
+      # Wird dieser Aufbau je geaendert, MUSS diese Zeile zurueck auf false —
+      # sonst kann sich jeder als beliebiger Benutzer anmelden.
+      PAPERLESS_ENABLE_HTTP_REMOTE_USER: "true"
+      PAPERLESS_HTTP_REMOTE_USER_HEADER_NAME: "HTTP_CF_ACCESS_AUTHENTICATED_USER_EMAIL"
+      # Der lokale Passwort-Weg bleibt bewusst offen — Rueckfalltuer, falls Access
+      # oder der Tunnel klemmt. Ohne ihn waere ein Fehlschlag eine Aussperrung.
+      PAPERLESS_ACCOUNT_ALLOW_SIGNUPS: "false"
+      PAPERLESS_DISABLE_REGULAR_LOGIN: "false"
+      PAPERLESS_APP_TITLE: "IIL Dokumente"
     env_file: [.env]
     volumes:
       - dochub_data:/usr/src/paperless/data
       - dochub_media:/usr/src/paperless/media
       - dochub_consume:/usr/src/paperless/consume
+      - /opt/doc-hub/scripts:/usr/src/paperless/scripts
       - dochub_export:/usr/src/paperless/export
     depends_on:
       dochub_db:
@@ -54,10 +107,19 @@ services:
         condition: service_started
       dochub_gotenberg:
         condition: service_healthy
-    mem_limit: 1024m
+    mem_limit: 4096m
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:8000/api/ | grep -q documents || exit 1"]
+      # Ab 2.20.15 antwortet /api/ unangemeldet mit 302 statt der Uebersicht —
+      # der alte Check (grep auf "documents") lief damit ins Leere und meldete
+      # den gesunden Container als unhealthy. Jetzt die Form aus dem
+      # Upstream-Compose: antwortet die App ueberhaupt.
+      test: ["CMD-SHELL", "curl -fs -S --max-time 5 http://localhost:8000 -o /dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -75,6 +137,11 @@ services:
       - dochub_db_data:/var/lib/postgresql/data
     mem_limit: 256m
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DOCHUB_DB_USER} -d paperless"]
       interval: 10s
@@ -88,6 +155,11 @@ services:
     command: ["redis-server", "--requirepass", "${DOCHUB_REDIS_PASSWORD}"]
     mem_limit: 64m
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${DOCHUB_REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -100,6 +172,11 @@ services:
     networks: [dochub_internal]
     mem_limit: 512m
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   dochub_gotenberg:
     image: docker.io/gotenberg/gotenberg:8.14
@@ -112,6 +189,11 @@ services:
       - "--api-timeout=30s"
     mem_limit: 512m
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:3000/health || exit 1"]
       interval: 30s
@@ -124,3 +206,4 @@ volumes:
   dochub_db_data:
   dochub_consume:
   dochub_export:
+
