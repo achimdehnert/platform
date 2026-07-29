@@ -560,3 +560,79 @@ bekommt 302; bis zu seinem Neustart ist jeder Outline-Zugriff blockiert. Ein fer
 Lesson-Entwurf zum cgroup-Thema wartet deshalb unter
 `~/.claude/outline-pending/2026-07-29-cgroup-speicherdruck.md`. Ebenfalls angekündigt, aber
 nicht mehr ausgeführt: `dev-hub.iil.pet` hinter Access.
+
+---
+
+## 2026-07-29 Abend — Der Egress-Pfad war tot und meldete das nicht
+
+Auftrag war eng: ADR-288 in die vierte externe Runde geben. Der Weg dorthin kostete zwei
+Fixes, drei PRs und einen Prod-Deploy, weil ein fehlgeschlagener LLM-Call wie ein
+erfolgreicher aussah.
+
+**Der Fehlschlag, der wie ein Ergebnis aussah.** Der erste Versuch, Runde 4 abzusetzen, kam
+zurück mit `content: ""`, `tokens_used: 0`, `cost_usd: 0.0`, `duration_seconds: 0.13` — und
+**ohne Fehler**. Eine Kurzprobe mit einem Satz Nutzlast lieferte dasselbe in 0,02 s, also
+nicht größenbedingt. Die Gegenprobe über **denselben** Transport auf
+`groq/llama-3.3-70b-versatile` gab Inhalt und 2.352 Token: der Transport war gesund, nur der
+o-Series-Pfad nicht. Im Container-Log stand die Ursache im Klartext —
+`litellm.UnsupportedParamsError: O-series models don't support temperature=0.0`. Sichtbar war
+sie für den Aufrufer nie. Ohne die Gegenprobe wäre der leere Rückgabewert als fertige
+Review-Runde in ein Architektur-Dokument eingeflossen.
+
+**Der erste Fix war unvollständig, und die Zahl bewies es.** [mcp-hub#183] ließ `temperature`
+für o-Series weg. Nach dem Deploy kam derselbe Call weiter leer zurück — aber die
+Fehlermeldung sagte jetzt `temperature=0.7` statt `0.0`. Weglassen gibt die Kontrolle an aifw
+ab, wo der Default 0.7 greift; litellm lehnt den genauso ab. Dieselbe geänderte Zahl belegte
+zugleich, dass der Deploy gewirkt hatte: der Code war live, die Regel falsch. Korrigiert in
+[mcp-hub#185] — `temperature` wird wieder **immer explizit** gesetzt, 1.0 für o-Series, 0.0
+sonst. Die 13 Tests wurden mit umgeschrieben; die alten prüften auf *Abwesenheit* des
+Parameters und hätten den Denkfehler festgeschrieben.
+
+**Die strukturelle Ebene war die teurere.** aifw meldet Provider-Fehler als Feld am
+Ergebnisobjekt (`success`/`error`) statt als Ausnahme — und **kein einziger Aufrufer im Repo**
+hat sie ausgewertet: nicht `workflow_executor`, nicht `step_executor`, `planner`,
+`use_case_decomposer` oder `task_pipeline`. In `step_executor` ist das schlimmer als
+verwirrend: eine leere Antwort ohne Tool-Calls bedeutet dort „Schritt fertig", ein
+Provider-Fehlschlag wurde also als erledigte Arbeit verbucht. Behoben in [mcp-hub#186]: der
+Adapter wirft `LLMCallFailedError` (RuntimeError-Subklasse, damit breite Handler weiter
+greifen), die Tool-Schicht bildet sie auf `llm_call_failed` ab statt auf das irreführende
+`llm_unavailable` — der Adapter war ja verfügbar, der Provider hat abgelehnt. Volle
+Orchestrator-Suite 753 passed, 6 skipped.
+
+**Runde 4 dann mit Beleg.** o3 antwortete auf die Kurzprobe mit `OK` (999 Token, 4,04 s),
+der volle Lauf lieferte 11.046 Token in 23,5 s. Verdikt **überarbeiten**, 7 von 9 Befunden
+`[valid]`. Sie traf **alle drei** in §11.5 als ungeprüft benannten Punkte — der Auftrag hat
+funktioniert, was für sich eine Aussage über §11.5 ist.
+
+**Die folgenreichste Einarbeitung ist eine Herabstufung, keine Ergänzung.** Gate 0 fällt von
+✅ auf 🟡: das Argument, mit dem die alte Bestandszahl 90.967 entwertet wurde — eine
+Einzelmessung kann einen Zwischenzustand treffen — gilt unverändert gegen die neue 66.580.
+Ein Indizienbeweis, der die Vorgängerzahl kippt, trägt seine eigene nicht. Neu sind §3.2.1
+(drei benannte Auslöser, ab denen ein Supersede von ADR-286 fällig wird), Gate 10, Gate 11,
+eine versionierte Ausschluss-Konfiguration und die Eingrenzung von „gesperrt" auf den
+Retrievalpfad statt auf Konto oder Lauf.
+
+**Bewusst abgelehnt:** die Empfehlung, `open` schon ab rund neun Zehnteln Deckung
+zuzulassen. Bei jeder zehnten ungesehenen Nachricht kippt die Negativaussage — der
+Unterschied zu vollständiger Deckung ist kategorial, nicht graduell. Übernommen wurde der
+zweite Teil des Einwands: Gate 8 maß das Problem, ohne es zu beheben, und bekommt jetzt drei
+definierte Hebel.
+
+**Zwei eigene Fehlurteile, benannt statt versteckt.** Ich habe „platform braucht einen
+zweiten Owner-Review" aus dem Sitzungsverlauf als übertrieben abgetan und auf „ein Approve
+genügt" korrigiert — mit Berufung auf `required_approving_review_count: 1`, ohne
+`require_code_owner_review: true` im **selben** Antwortobjekt zu lesen. Die ursprüngliche
+Notiz war richtig, meine Korrektur der Fehler. Und ich habe zweimal einen Merge angesetzt,
+weil ein „approved" im Chat stand, während `GET /pulls/1548/reviews` **null** Einträge
+lieferte — Ursache: GitHub lässt Self-Approval nicht zu, Autor und Konto sind dasselbe.
+
+**Offen und bewusst nicht getan:** der Deploy von [mcp-hub#186] stand beim Session-Ende noch
+auf `queued`; der scharfe Check für #184 (Aufruf gegen ein absichtlich ungültiges Modell)
+steht deshalb aus. [#1548] wartet auf einen Code-Owner. Die Mail-Zugangsdaten auf Prod bleiben
+Menschenarbeit. Und auch nach vier Runden ungegengelesen: die Ausschluss-Messung selbst
+(§1.4, 52.552 Nachrichten) — Runde 4 griff nur deren Folgen an, nicht die Zahl.
+
+[mcp-hub#183]: https://github.com/achimdehnert/mcp-hub/pull/183
+[mcp-hub#185]: https://github.com/achimdehnert/mcp-hub/pull/185
+[mcp-hub#186]: https://github.com/achimdehnert/mcp-hub/pull/186
+[#1548]: https://github.com/achimdehnert/platform/pull/1548
