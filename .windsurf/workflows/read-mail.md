@@ -57,7 +57,22 @@ python3 tools/mail_agent/read_mail.py --account hnu --all-folders --list 50 \
 # Allaussage belegen: „von X gibt es KEINE Mail" — alle Konten, alle Ordner
 python3 tools/mail_agent/read_mail.py --from offner \
   --abwesenheitsbeweis "Rückfrage Kramer, Stand Postkorb-Strang"
+
+# VORGANG statt Trefferliste: Beteiligte, Zeitachse, unbeantwortete Stränge
+python3 tools/mail_agent/read_mail.py --account hnu --dossier --to offner
+python3 tools/mail_agent/read_mail.py --account hnu --dossier --to offner \
+  --still-ab 14 --json | jq '.offen'
 ```
+
+**`--dossier` beantwortet Zustandsfragen, `--list` beantwortet Suchfragen.** Das
+Dossier fasst dieselbe Ordner-Suche zu einem Vorgang zusammen: wer beteiligt ist,
+was wann in welche Richtung lief, welche Stränge zusammengehören (Betreff ohne
+`AW:`/`WG:`) und **welcher ausgehende Strang seit Tagen ohne Antwort ist**.
+
+Das „offen"-Signal kommt allein aus Kopfzeilen — letzte Nachricht des Strangs ging
+raus und liegt länger als `--still-ab` zurück. Kein Textparser, kein Modell, keine
+Sprachabhängigkeit. **Grenze:** eine Dankesmail ohne Antworterwartung sieht genauso
+aus. Der Modus meldet Kandidaten, nicht Urteile.
 
 **Kurzformen wie in `graph_mail.py`:** `--from`/`--to`/`--subject`/`--source` sind
 Zweitnamen von `--from-filter`/`--to-filter`/`--subject-filter`/`--folder`. Beide
@@ -105,6 +120,11 @@ Postfach, in dem die Mail sehr wohl liegt (Realfall 2026-07-28: ein Dutzend Anl�
 
 ## Changelog
 
+- 2026-07-29: **S1 nach ADR-288.** Bulk-Abruf statt eines `FETCH` je Nachricht —
+  end-to-end **34,9 s → 3,9 s** auf einem 354er-Ordner bei identischem Ergebnis
+  (Faktor 8,9; Mikro-Benchmark 10,1/s → 106,3/s). Gesendet-Ordner wird zuerst
+  durchsucht, weil dort die eigenen Verpflichtungen entstehen. Neu `--dossier`
+  (+ `--still-ab`): Vorgang statt Trefferliste, mit Deckung zuerst.
 - 2026-07-28: `--json` (maschinenlesbar), Bilanz **vor** der Trefferliste,
   Kurzformen `--from/--to/--subject/--source` wie in `graph_mail.py`,
   `--gruendlich` (Vorfilter abschalten) und `--abwesenheitsbeweis` (alle Konten,

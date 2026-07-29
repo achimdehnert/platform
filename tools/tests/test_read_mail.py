@@ -5,6 +5,7 @@ From-Filter, Pfad-Traversal-Schutz beim Anhang-Speichern. Kein Netz-/IMAP-Test
 Run: `python3 -m pytest tools/tests/test_read_mail.py -q`
 """
 
+import datetime
 import imaplib
 import importlib.util
 import json
@@ -533,3 +534,174 @@ def test_should_ignore_env_files_that_are_not_accounts(tmp_path, monkeypatch):
     monkeypatch.setattr(rm, "CONFIG_FILE", tmp_path / "mail.env")
 
     assert [k for k, _ in rm.imap_konten()] == ["default", "hnu"]
+
+
+# --- Bulk-Abruf ---------------------------------------------------------------
+# Gemessen 2026-07-29: 10,1/s einzeln gegen 106,3/s gebündelt (Faktor 10,6);
+# end-to-end auf einem 354er-Ordner 34,9 s -> 3,9 s bei identischem Ergebnis.
+
+
+class _FetchImap:
+    """Liefert eine Bulk-FETCH-Antwort im imaplib-Format."""
+
+    def __init__(self, saetze):
+        # saetze: {nummer: b"From: ...\r\n"}
+        self._s = saetze
+
+    def fetch(self, bereich, teile):
+        out = []
+        for nr, roh in sorted(self._s.items()):
+            out.append(
+                (f"{nr} (BODY[HEADER.FIELDS (...)] {{{len(roh)}}}".encode(), roh)
+            )
+            out.append(b")")
+        return "OK", out
+
+
+def test_should_fetch_many_headers_in_one_command():
+    imap = _FetchImap(
+        {1: b"From: a@b.c\r\nSubject: eins\r\n", 2: b"From: d@e.f\r\nSubject: zwei\r\n"}
+    )
+    raus = rm.bulk_kopfsaetze(imap, [b"1", b"2"])
+    assert [nr for nr, _ in raus] == ["1", "2"]
+    assert raus[1][1].get("Subject") == "zwei"
+
+
+# Der Server liefert den ganzen Bereich, auch Nummern die niemand wollte —
+# ohne Nachfilter zählte der Aufrufer fremde Nachrichten mit.
+def test_should_drop_messages_outside_the_requested_set():
+    imap = _FetchImap(
+        {1: b"Subject: ja\r\n", 2: b"Subject: nein\r\n", 3: b"Subject: ja\r\n"}
+    )
+    raus = rm.bulk_kopfsaetze(imap, [b"1", b"3"])
+    assert [nr for nr, _ in raus] == ["1", "3"]
+
+
+def test_should_return_nothing_for_empty_id_list():
+    assert rm.bulk_kopfsaetze(_FetchImap({}), []) == []
+
+
+# --- Gesendet zuerst ----------------------------------------------------------
+
+
+def test_should_sort_the_sent_folder_first():
+    o = ["Archiv/2025", "INBOX", "Gesendete Objekte", "Projekte"]
+    assert rm.sortiere_gesendet_zuerst(o, "Gesendete Objekte")[0] == "Gesendete Objekte"
+
+
+def test_should_recognise_sent_folders_by_name_without_the_flag():
+    assert rm.sortiere_gesendet_zuerst(["INBOX", "INBOX.Sent"])[0] == "INBOX.Sent"
+
+
+# --- Betreff-Normalisierung ---------------------------------------------------
+# Ohne sie zerfaellt ein Vorgang in so viele Straenge wie er Richtungswechsel hatte.
+
+
+def test_should_strip_nested_reply_and_forward_prefixes():
+    assert rm.betreff_normalisiert("AW: WG: AW: Termin") == "termin"
+    assert rm.betreff_normalisiert("RE[2]: Postkorb") == "postkorb"
+    assert rm.betreff_normalisiert("Termin") == "termin"
+
+
+def test_should_collect_addresses_without_duplicates():
+    assert rm.adressen("A <a@b.de>", "a@b.de, d@e.com") == ["a@b.de", "d@e.com"]
+
+
+# Einbuchstabige Endungen gibt es nicht — die Regex verlangt zu Recht >= 2.
+def test_should_ignore_things_that_only_look_like_addresses():
+    assert rm.adressen("a@b.c", "kein text") == []
+
+
+# --- Dossier ------------------------------------------------------------------
+
+
+def _t(datum, betreff, ausgehend, ordner="X"):
+    return rm.Treffer(
+        ordner=ordner,
+        nummer="1",
+        datum=datum,
+        von="ich@x.de" if ausgehend else "p@y.de",
+        an="p@y.de" if ausgehend else "ich@x.de",
+        betreff=betreff,
+        ausgehend=ausgehend,
+    )
+
+
+def _erg(treffer, **over):
+    basis = dict(
+        treffer=tuple(treffer),
+        konto="k",
+        filter={"an": "p", "von": None, "betreff": None},
+        limit=500,
+        gesamt_ordner=10,
+        geprueft_ordner=10,
+        nachrichten_gesehen=0,
+        nachrichten_vorhanden=0,
+        vorgefiltert=True,
+    )
+    basis.update(over)
+    return rm.Ergebnis(**basis)
+
+
+_JETZT = datetime.datetime(2026, 7, 29, tzinfo=datetime.timezone.utc)
+
+
+# Der Referenzfall: am 23.06. drei Fragen gesendet, nie beantwortet.
+def test_should_report_an_outgoing_thread_without_reply_as_open():
+    d = rm.baue_dossier(
+        _erg([_t("Tue, 23 Jun 2026 09:13:20 +0200", "DMS Fragen", True)]), _JETZT
+    )
+    assert len(d.offene) == 1
+    assert d.offene[0].tage_still == 35  # 23.06. 07:13 UTC bis 29.07. 00:00 UTC
+
+
+def test_should_not_report_a_thread_whose_last_message_is_incoming():
+    d = rm.baue_dossier(
+        _erg(
+            [
+                _t("Tue, 23 Jun 2026 09:13:20 +0200", "Frage", True),
+                _t("Wed, 24 Jun 2026 09:00:00 +0200", "AW: Frage", False),
+            ]
+        ),
+        _JETZT,
+    )
+    assert d.offene == ()
+    assert len(d.straenge) == 1  # AW: gehoert zum selben Strang
+
+
+def test_should_respect_the_silence_threshold():
+    t = [_t("Mon, 27 Jul 2026 09:00:00 +0200", "Neulich", True)]
+    assert rm.baue_dossier(_erg(t), _JETZT, still_ab_tagen=7).offene == ()
+    assert len(rm.baue_dossier(_erg(t), _JETZT, still_ab_tagen=1).offene) == 1
+
+
+def test_should_count_participants_across_all_hits():
+    d = rm.baue_dossier(
+        _erg(
+            [
+                _t("Tue, 23 Jun 2026 09:13:20 +0200", "A", True),
+                _t("Wed, 24 Jun 2026 09:00:00 +0200", "B", False),
+            ]
+        ),
+        _JETZT,
+    )
+    assert dict(d.beteiligte)["p@y.de"] == 2
+
+
+def test_should_put_coverage_before_the_timeline():
+    text = rm.rendern_dossier(
+        rm.baue_dossier(
+            _erg([_t("Tue, 23 Jun 2026 09:13:20 +0200", "DMS Fragen", True)]), _JETZT
+        )
+    )
+    assert text.index("Deckung") < text.index("Zeitachse")
+
+
+# Eine Abwesenheitsaussage auf lueckenhafter Deckung ist die teuerste Fehlerklasse.
+def test_should_warn_when_coverage_is_incomplete():
+    erg = _erg(
+        [_t("Tue, 23 Jun 2026 09:13:20 +0200", "X", True)],
+        fehler=(("Kalender", "SELECT NO"),),
+    )
+    text = rm.rendern_dossier(rm.baue_dossier(erg, _JETZT))
+    assert "NICHT belegt" in text

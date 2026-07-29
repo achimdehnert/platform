@@ -21,6 +21,7 @@ import sys
 from datetime import datetime, timezone
 from email.header import decode_header
 from email.message import Message
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -219,6 +220,71 @@ def _kandidaten(
     return (data[0].split() if data and data[0] else []), False
 
 
+#: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden. `MESSAGE-ID` und
+#: `IN-REPLY-TO` kosten nichts extra und tragen später die Strang-Bildung.
+KOPFFELDER = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO"
+
+#: Antwortpräfix einer Bulk-FETCH-Antwort: b'123 (BODY[HEADER.FIELDS (...)] {456}'
+_FETCH_NR = re.compile(rb"^\s*(\d+)\s+\(")
+
+
+def bulk_kopfsaetze(
+    imap: imaplib.IMAP4_SSL, ids: list[bytes]
+) -> list[tuple[str, Message]]:
+    """Kopfzeilen für viele Nachrichten in **einem** FETCH statt einem pro Nachricht.
+
+    Gemessen am 2026-07-29 (Exchange 2010, 300 Nachrichten): 10,1/s einzeln gegen
+    **106,3/s** gebündelt — Faktor 10,6. Der Engpass war nie der Server, sondern
+    der Round-Trip. Hochgerechnet auf den behaltenen Bestand fällt ein Vollscan
+    von rund 150 auf 14 Minuten.
+
+    Bereichsnotation statt Komma-Liste: ein Bereich ist ein kurzes Kommando, eine
+    Liste aus 5.000 Nummern sprengt die Zeilenlänge mancher Server. Nicht
+    angeforderte Nummern im Bereich liefert der Server einfach mit; der Aufrufer
+    filtert ohnehin lokal nach.
+    """
+    if not ids:
+        return []
+    zahlen = sorted(int(i) for i in ids)
+    bereich = f"{zahlen[0]}:{zahlen[-1]}"
+    typ, daten = imap.fetch(bereich, f"(BODY.PEEK[HEADER.FIELDS ({KOPFFELDER})])")
+    if typ != "OK" or not daten:
+        return []
+    gesucht = {int(i) for i in ids}
+    raus: list[tuple[str, Message]] = []
+    for teil in daten:
+        if not isinstance(teil, tuple) or len(teil) < 2:
+            continue
+        kopf, roh = teil[0], teil[1]
+        m = _FETCH_NR.match(kopf if isinstance(kopf, bytes) else str(kopf).encode())
+        if not m:
+            continue
+        nr = int(m.group(1))
+        if nr not in gesucht:
+            continue  # Server liefert den ganzen Bereich, wir wollten nur Teile
+        raus.append((str(nr), email.message_from_bytes(roh)))
+    return raus
+
+
+def sortiere_gesendet_zuerst(ordner: list[str], gesendet: str = "") -> list[str]:
+    """Gesendet-Ordner nach vorn — dort entstehen die eigenen Verpflichtungen.
+
+    Wer zuletzt einliest, was er selbst zugesagt hat, findet die eigenen offenen
+    Punkte zuletzt. Beim Referenzfall vom 2026-07 lag genau die entscheidende
+    Nachricht (drei unbeantwortete Fragen) im Gesendet-Ordner.
+    """
+
+    def rang(o: str) -> int:
+        if gesendet and o == gesendet:
+            return 0
+        n = o.lower()
+        if "gesendet" in n or n.endswith("sent") or ".sent" in n or "/sent" in n:
+            return 1
+        return 2
+
+    return sorted(ordner, key=lambda o: (rang(o), o))
+
+
 class Treffer(NamedTuple):
     ordner: str
     nummer: str
@@ -226,6 +292,9 @@ class Treffer(NamedTuple):
     von: str
     an: str
     betreff: str
+    message_id: str = ""
+    in_reply_to: str = ""
+    ausgehend: bool = False
 
 
 class Ergebnis(NamedTuple):
@@ -261,6 +330,7 @@ def sammle_alle_ordner(
     auch_ausgeschlossen: bool = False,
     konto: str = "",
     gruendlich: bool = False,
+    eigene_adresse: str = "",
 ) -> tuple[Ergebnis, imaplib.IMAP4_SSL]:
     """Alle Ordner durchsuchen statt nur INBOX — der Fall 'wo liegt die Mail von X?'.
 
@@ -277,6 +347,7 @@ def sammle_alle_ordner(
         zu_pruefen, ausgeschlossen = ordner, []
     else:
         zu_pruefen, ausgeschlossen = aufteilen(ordner)
+    zu_pruefen = sortiere_gesendet_zuerst(zu_pruefen, gesendet_ordner(imap))
 
     kriterien = (
         None if gruendlich else _such_kriterien(from_filter, to_filter, subject_filter)
@@ -297,27 +368,27 @@ def sammle_alle_ordner(
                 ids, war_vorgefiltert = _kandidaten(imap, kriterien)
                 vorgefiltert = vorgefiltert or war_vorgefiltert
                 nachrichten += len(ids)
-                for i in reversed(ids):
-                    typ2, md = imap.fetch(
-                        i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)])"
-                    )
-                    if typ2 != "OK" or not md or not md[0]:
-                        continue
-                    msg = email.message_from_bytes(md[0][1])
+                for nr, msg in reversed(bulk_kopfsaetze(imap, ids)):
                     if not (
                         matches_from(msg, from_filter)
                         and matches_to(msg, to_filter)
                         and matches_subject(msg, subject_filter)
                     ):
                         continue
+                    von = decode_hdr(msg.get("From"))
                     treffer.append(
                         Treffer(
                             ordner=name,
-                            nummer=i.decode(),
+                            nummer=nr,
                             datum=decode_hdr(msg.get("Date")),
-                            von=decode_hdr(msg.get("From")),
+                            von=von,
                             an=decode_hdr(msg.get("To")),
                             betreff=decode_hdr(msg.get("Subject")),
+                            message_id=decode_hdr(msg.get("Message-ID")),
+                            in_reply_to=decode_hdr(msg.get("In-Reply-To")),
+                            ausgehend=bool(
+                                eigene_adresse and eigene_adresse.lower() in von.lower()
+                            ),
                         )
                     )
                     if len(treffer) >= count:
@@ -440,6 +511,161 @@ def rendern_json(erg: Ergebnis) -> str:
     )
 
 
+_PRAEFIX = re.compile(r"^\s*((aw|re|wg|fw|fwd|antw)\s*(\[\d+\])?\s*:\s*)+", re.I)
+_ADRESSE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+def betreff_normalisiert(betreff: str) -> str:
+    """Antwort- und Weiterleitungspräfixe abschneiden — auch mehrfach geschachtelt.
+
+    'AW: WG: AW: Termin' und 'Termin' gehören zum selben Strang. Ohne das zerfällt
+    ein Vorgang in so viele Stränge, wie er Richtungswechsel hatte.
+    """
+    return _PRAEFIX.sub("", betreff or "").strip().lower()
+
+
+def adressen(*texte: str) -> list[str]:
+    raus: list[str] = []
+    for t in texte:
+        for a in _ADRESSE.findall(t or ""):
+            k = a.lower()
+            if k not in raus:
+                raus.append(k)
+    return raus
+
+
+def _zeitpunkt(datum: str):
+    """Datum aus der Kopfzeile, nicht der Ankunftsstempel.
+
+    Der Ankunftsstempel (`INTERNALDATE`) wird beim Umsortieren neu gesetzt — eine
+    Zeitachse darauf zu bauen datiert verschobene Nachrichten auf den Umzugstag.
+    """
+    try:
+        return parsedate_to_datetime(datum)
+    except (TypeError, ValueError):
+        return None
+
+
+class Strang(NamedTuple):
+    betreff: str
+    nachrichten: tuple[Treffer, ...]
+    letzte_ausgehend: bool
+    tage_still: int | None
+
+
+class Dossier(NamedTuple):
+    frage: dict[str, str | None]
+    beteiligte: tuple[tuple[str, int], ...]
+    straenge: tuple[Strang, ...]
+    zeitachse: tuple[Treffer, ...]
+    offene: tuple[Strang, ...]
+    ergebnis: Ergebnis
+
+
+def baue_dossier(erg: Ergebnis, jetzt, still_ab_tagen: int = 7) -> Dossier:
+    """Aus Treffern einen Vorgang machen — Beteiligte, Zeitachse, offene Stränge.
+
+    Der Referenzfall vom 2026-07 zeigte, dass die wertvollen Aussagen
+    Zustandsaussagen sind: *drei Fragen seit vier Wochen ohne Antwort*, *zwei
+    Ordner gehören zu einem Strang*. Eine Trefferliste stellt beides nicht dar.
+
+    Bewusst **ohne Nachrichtentext**: Ein Strang gilt als unbeantwortet, wenn die
+    letzte Nachricht von uns kam und seither Zeit vergangen ist. Das ist aus
+    Kopfzeilen allein entscheidbar — kein Parser, kein Modell, keine
+    Sprachabhängigkeit, und genau der Befund aus dem Referenzfall.
+    """
+    nach_strang: dict[str, list[Treffer]] = {}
+    for t in erg.treffer:
+        nach_strang.setdefault(betreff_normalisiert(t.betreff), []).append(t)
+
+    straenge: list[Strang] = []
+    for _, gruppe in nach_strang.items():
+        sortiert = sorted(gruppe, key=lambda t: _zeitpunkt(t.datum) or jetzt)
+        letzte = sortiert[-1]
+        ts = _zeitpunkt(letzte.datum)
+        tage = (jetzt - ts).days if ts else None
+        straenge.append(
+            Strang(
+                betreff=letzte.betreff,
+                nachrichten=tuple(sortiert),
+                letzte_ausgehend=letzte.ausgehend,
+                tage_still=tage,
+            )
+        )
+    straenge.sort(
+        key=lambda s: _zeitpunkt(s.nachrichten[-1].datum) or jetzt, reverse=True
+    )
+
+    zaehler: dict[str, int] = {}
+    for t in erg.treffer:
+        for a in adressen(t.von, t.an):
+            zaehler[a] = zaehler.get(a, 0) + 1
+
+    offene = tuple(
+        s
+        for s in straenge
+        if s.letzte_ausgehend and (s.tage_still or 0) >= still_ab_tagen
+    )
+    return Dossier(
+        frage=erg.filter,
+        beteiligte=tuple(sorted(zaehler.items(), key=lambda x: (-x[1], x[0]))),
+        straenge=tuple(straenge),
+        zeitachse=tuple(
+            sorted(erg.treffer, key=lambda t: _zeitpunkt(t.datum) or jetzt)
+        ),
+        offene=offene,
+        ergebnis=erg,
+    )
+
+
+def rendern_dossier(d: Dossier) -> str:
+    """Vorgang statt Trefferliste. Deckung zuerst — sie qualifiziert alles darunter."""
+    erg = d.ergebnis
+    filt = " · ".join(f"{k}~{v!r}" for k, v in d.frage.items() if v) or "kein Filter"
+    zeilen = [f"VORGANG  {filt}", ""]
+
+    zeilen.append(
+        f"Deckung      {erg.konto or '—'} · {erg.geprueft_ordner}/{erg.gesamt_ordner} Ordner"
+        + (f" · {len(erg.ausgeschlossen)} ausgeschlossen" if erg.ausgeschlossen else "")
+        + (f" · ⚠ {len(erg.fehler)} unlesbar" if erg.fehler else "")
+    )
+    if erg.fehler:
+        zeilen.append(
+            "             ⚠ unvollständig — Aussagen über Abwesenheit sind hier NICHT belegt"
+        )
+
+    if d.beteiligte:
+        top = " · ".join(f"{a} ({n})" for a, n in d.beteiligte[:6])
+        zeilen.append(f"Beteiligte   {top}")
+
+    if d.offene:
+        zeilen.append("")
+        zeilen.append("Offen")
+        for i, s in enumerate(d.offene, 1):
+            zeilen.append(
+                f"  {i}. {s.betreff[:58]}"
+                f"\n     letzte Nachricht von dir, seit {s.tage_still} Tagen ohne Antwort"
+                f"  [{s.nachrichten[-1].ordner}]"
+            )
+
+    if d.zeitachse:
+        zeilen.append("")
+        zeilen.append("Zeitachse")
+        for t in d.zeitachse:
+            ts = _zeitpunkt(t.datum)
+            tag = ts.strftime("%d.%m.%Y") if ts else "??.??.????"
+            pfeil = "→" if t.ausgehend else "←"
+            zeilen.append(f"  {tag}  {pfeil}  {t.betreff[:52]:<52} [{t.ordner}]")
+
+    if len(d.straenge) != len(d.zeitachse):
+        zeilen.append("")
+        zeilen.append(
+            f"Stränge      {len(d.straenge)} aus {len(d.zeitachse)} Nachrichten "
+            "(nach normalisiertem Betreff)"
+        )
+    return "\n".join(zeilen)
+
+
 def _bilanz_alle(
     *,
     gesamt_ordner: int,
@@ -546,6 +772,7 @@ def sammle_einzelordner(
     to_filter: str | None = None,
     subject_filter: str | None = None,
     konto: str = "",
+    eigene_adresse: str = "",
 ) -> Ergebnis:
     imap.select(_mailbox_arg(folder), readonly=True)
     typ, data = imap.search(None, "ALL")
@@ -553,24 +780,30 @@ def sammle_einzelordner(
     gesamt = len(ids)
     treffer: list[Treffer] = []
     geprueft = 0
-    for i in reversed(ids):
+    # Ein FETCH für den ganzen Ordner statt einem je Nachricht — derselbe
+    # Faktor 10,6 wie im Ordner-Walk. Dieser Pfad ist der meistgenutzte.
+    for nr, msg in reversed(bulk_kopfsaetze(imap, ids)):
         geprueft += 1
-        typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)])")
-        msg = email.message_from_bytes(md[0][1])
         if not (
             matches_from(msg, from_filter)
             and matches_to(msg, to_filter)
             and matches_subject(msg, subject_filter)
         ):
             continue
+        von = decode_hdr(msg.get("From"))
         treffer.append(
             Treffer(
                 ordner=folder,
-                nummer=i.decode(),
+                nummer=nr,
                 datum=decode_hdr(msg.get("Date")),
-                von=decode_hdr(msg.get("From")),
+                von=von,
                 an=decode_hdr(msg.get("To")),
                 betreff=decode_hdr(msg.get("Subject")),
+                message_id=decode_hdr(msg.get("Message-ID")),
+                in_reply_to=decode_hdr(msg.get("In-Reply-To")),
+                ausgehend=bool(
+                    eigene_adresse and eigene_adresse.lower() in von.lower()
+                ),
             )
         )
         if len(treffer) >= count:
@@ -893,6 +1126,20 @@ def main() -> None:
         help="Ergebnis als JSON statt Text — Treffer zählen, ohne Fließtext zu grepen",
     )
     ap.add_argument(
+        "--dossier",
+        action="store_true",
+        help="Vorgang statt Trefferliste: Beteiligte, Zeitachse, unbeantwortete "
+        "Stränge und Deckung — über alle Ordner",
+    )
+    ap.add_argument(
+        "--still-ab",
+        type=int,
+        default=7,
+        metavar="TAGE",
+        help="ab wie vielen Tagen ohne Antwort ein ausgehender Strang als offen gilt "
+        "(Default 7)",
+    )
+    ap.add_argument(
         "--gruendlich",
         action="store_true",
         help="server-seitigen SEARCH-Vorfilter abschalten (langsamer, aber ohne "
@@ -987,8 +1234,8 @@ def main() -> None:
             print("\n✗ Pruefkette gerissen:", "; ".join(fehler), file=sys.stderr)
         sys.exit(0 if ok else 1)
 
-    if args.list is None and args.fetch is None:
-        sys.exit("FEHLER: --list, --fetch oder --abwesenheitsbeweis waehlen")
+    if args.list is None and args.fetch is None and not args.dossier:
+        sys.exit("FEHLER: --list, --fetch, --dossier oder --abwesenheitsbeweis waehlen")
 
     cfg_file = _resolve_config(args.config, args.account)
     if not cfg_file.exists():
@@ -1007,6 +1254,56 @@ def main() -> None:
 
     konto = args.account or "default"
     ausgeben = rendern_json if args.json else rendern_text
+
+    if args.dossier:
+        # Ein Dossier ohne Ordner-Walk waere ein Vorgang mit halber Deckung.
+        imap = connect(cfg)
+        try:
+            erg, imap = sammle_alle_ordner(
+                imap,
+                lambda: connect(cfg),
+                args.list or 500,
+                args.from_filter,
+                args.to_filter,
+                args.subject_filter,
+                args.auch_ausgeschlossen,
+                konto=konto,
+                gruendlich=args.gruendlich,
+                eigene_adresse=cfg["MAIL_FROM"],
+            )
+            d = baue_dossier(erg, datetime.now(timezone.utc), args.still_ab)
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "frage": d.frage,
+                            "beteiligte": [
+                                {"adresse": a, "nachrichten": n}
+                                for a, n in d.beteiligte
+                            ],
+                            "offen": [
+                                {
+                                    "betreff": s.betreff,
+                                    "tage_still": s.tage_still,
+                                    "ordner": s.nachrichten[-1].ordner,
+                                }
+                                for s in d.offene
+                            ],
+                            "zeitachse": [t._asdict() for t in d.zeitachse],
+                            "deckung": json.loads(rendern_json(erg))["bilanz"],
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            else:
+                print(rendern_dossier(d))
+        finally:
+            try:
+                imap.logout()
+            except Exception:  # noqa: BLE001
+                pass
+        return
 
     if args.all_folders:
         # Kein `with`: der Lauf kann die Verbindung unterwegs ersetzen (Exchange kappt
@@ -1045,6 +1342,7 @@ def main() -> None:
                         args.to_filter,
                         args.subject_filter,
                         konto=konto,
+                        eigene_adresse=cfg["MAIL_FROM"],
                     )
                 )
             )
