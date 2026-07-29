@@ -18,7 +18,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sevdesk"))
 
-bp = pytest.importorskip("bankpositionen")
+# Bewusst KEIN `pytest.importorskip`: das machte den Ausfall still. Im ersten CI-Lauf
+# fehlte `httpx`, das Modul war nicht importierbar, und alle 22 Tests wurden
+# übersprungen — der Lauf war grün, die Abdeckung null. Ein harter Import lässt einen
+# solchen Fehler laut scheitern. `httpx` ist inzwischen lazy in `hole()` importiert,
+# die reinen Funktionen brauchen es nicht.
+import bankpositionen as bp  # noqa: E402
 
 
 # ── PayPal-Händler: drei Schreibweisen, jede kostete beim Bau einen Fehlversuch ──

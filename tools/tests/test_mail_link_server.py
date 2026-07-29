@@ -195,12 +195,22 @@ class TestBoardRoute:
         mls.MailLinkHandler.board_root = wurzel
         return wurzel
 
-    def test_should_render_markdown_board_as_html(self, server, boards):
+    def test_should_serve_board_content_as_html(self, server, boards):
+        """Inhalt muss ankommen — unabhängig davon, ob `markdown` installiert ist.
+
+        Die Bibliothek ist optional (CI hat sie nicht). Ein Test, der `<table>`
+        erwartet, prüft die Umgebung statt den Code — dieser Fehler kostete am
+        2026-07-29 einen roten CI-Lauf.
+        """
         status, kopf, koerper = _get(server, "/d/liste")
         assert status == 200
         assert kopf["Content-Type"].startswith("text/html")
-        assert b"<table>" in koerper  # Tabelle als HTML, nicht als Rohtext
         assert "Titel".encode() in koerper
+
+    def test_should_render_tables_when_markdown_available(self, server, boards):
+        pytest.importorskip("markdown")
+        _, _, koerper = _get(server, "/d/liste")
+        assert b"<table>" in koerper  # Tabelle als HTML, nicht als Rohtext
 
     def test_should_404_unknown_board_name(self, server, boards):
         status, _, _ = _get(server, "/d/gibtsnicht")

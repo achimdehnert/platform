@@ -28,7 +28,12 @@ import re
 import sys
 from pathlib import Path
 
-import httpx
+#: `httpx` wird bewusst NICHT auf Modulebene importiert, sondern erst in `hole()`.
+#: Die reinen Funktionen (Kontenzuordnung, Händler-Erkennung, Board-Rendering)
+#: brauchen kein Netz. Ein Modul-Import macht sie in Umgebungen ohne httpx
+#: untestbar — genau das passierte am 2026-07-29: die Tests liefen lokal, wurden
+#: in CI still ÜBERSPRUNGEN (`No module named 'httpx'`) und deckten damit nichts ab.
+#: Ein Test, der nur zu Hause läuft, ist kein Test.
 
 API = "https://my.sevdesk.de/api/v1"
 TOKEN_DATEI = Path.home() / ".secrets" / "sevdesk_api_token"
@@ -56,6 +61,8 @@ def token_lesen(pfad: Path = TOKEN_DATEI) -> str:
 
 def hole(pfad: str, kopf: dict, **params) -> list[dict]:
     """Blättert vollständig durch — sevdesk liefert maximal 200 je Anfrage."""
+    import httpx  # noqa: PLC0415 — bewusst lazy, s. Kommentar oben
+
     ergebnis: list[dict] = []
     offset = 0
     while True:
