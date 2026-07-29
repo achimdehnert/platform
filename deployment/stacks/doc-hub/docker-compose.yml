@@ -17,7 +17,7 @@ networks:
 
 services:
   paperless-web:
-    image: ghcr.io/paperless-ngx/paperless-ngx:2.20.15
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.0.4
     container_name: iil_dochub_web
     networks:
       - dochub_internal
@@ -25,6 +25,8 @@ services:
     ports:
       - "127.0.0.1:8102:8000"
     environment:
+      # Ab 3.0 muss der Datenbanktyp ausdruecklich stehen — DBHOST allein genuegt nicht.
+      PAPERLESS_DBENGINE: postgresql
       PAPERLESS_DBHOST: iil_dochub_db
       PAPERLESS_DBNAME: paperless
       PAPERLESS_DBUSER: "${DOCHUB_DB_USER}"
@@ -38,17 +40,29 @@ services:
       PAPERLESS_USE_X_FORWARD_PORT: "true"
       PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO","https"]'
       PAPERLESS_OCR_LANGUAGE: "deu+eng"
+      # 3.0 trennt OCR von der Erzeugung der Archiv-PDF. Beides ausdruecklich auf
+      # den bisherigen Standard gesetzt, damit ein spaeterer Default-Wechsel nicht
+      # still durchschlaegt.
+      PAPERLESS_OCR_MODE: "auto"
+      PAPERLESS_ARCHIVE_FILE_GENERATION: "auto"
       PAPERLESS_TIME_ZONE: "Europe/Berlin"
       PAPERLESS_FILENAME_FORMAT: "{{ created_year }}/{{ correspondent }}/{{ title }}"
       PAPERLESS_CONSUMER_RECURSIVE: "true"
       PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
-      PAPERLESS_CONSUMER_POLLING: "10"
-      PAPERLESS_CONSUMER_POLLING_RETRY_COUNT: "3"
-      PAPERLESS_CONSUMER_POLLING_DELAY: "2"
+      # 3.0: CONSUMER_POLLING heisst jetzt CONSUMER_POLLING_INTERVAL.
+      # CONSUMER_POLLING_RETRY_COUNT und CONSUMER_POLLING_DELAY gibt es in 3.0.4
+      # nicht mehr (geprueft gegen src/paperless/settings/ in v3.0.4) — entfernt,
+      # statt sie still ignorieren zu lassen. CONSUMER_STABILITY_DELAY ist der
+      # Nachfolger fuer die Wartezeit; Standard belassen, bis ein Grund vorliegt.
+      PAPERLESS_CONSUMER_POLLING_INTERVAL: "10"
       PAPERLESS_ENABLE_NLTK: "1"
       PAPERLESS_NUMBER_OF_SUGGESTED_DATES: "5"
       PAPERLESS_CONSUMER_ENABLE_COLLATE_DOUBLE_SIDED: "false"
-      PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
+      # TEST-Einstellung (Owner-Entscheid 2026-07-29): Duplikate werden ab jetzt
+      # AUFGENOMMEN und in der Oberflaeche kenntlich gemacht, statt still verworfen
+      # zu werden. Ziel ist zu sehen, was tatsaechlich doppelt vorliegt, und es
+      # anfangs von Hand zu bereinigen. Rueckweg ist diese eine Zeile auf "true".
+      PAPERLESS_CONSUMER_DELETE_DUPLICATES: "false"
       PAPERLESS_POST_CONSUME_SCRIPT: "/usr/src/paperless/scripts/auto-title.py"
       PAPERLESS_TIKA_ENABLED: "1"
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: "http://iil_dochub_gotenberg:3000"
