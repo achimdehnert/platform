@@ -41,7 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import roles  # noqa: E402
 from read_mail import _resolve_config  # noqa: E402
-from send_mail import _LIST_LINE_RE, load_credentials, parse_env  # noqa: E402
+from send_mail import _LIST_LINE_RE, load_credentials, login_name, parse_env  # noqa: E402
 
 #: RFC 6154 SPECIAL-USE gewinnt vor Namensraten; die Hints decken de/en-Postfaecher ab.
 _DRAFT_NAME_HINTS = ("drafts", "entw")
@@ -256,7 +256,11 @@ def main() -> None:
             text = roles.text_mit_signatur(profile, text or "")
 
     sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
-    user, password = load_credentials(Path(cfg["MAIL_CREDS_FILE"]).expanduser(), sender)
+    # Anmeldung und Absender sind zwei verschiedene Dinge: das HNU-Postfach meldet
+    # sich mit einem Benutzernamen an, verschickt aber unter einer Adresse.
+    user, password = load_credentials(
+        Path(cfg["MAIL_CREDS_FILE"]).expanduser(), login_name(cfg)
+    )
     msg = build_draft(
         sender,
         args.to,
