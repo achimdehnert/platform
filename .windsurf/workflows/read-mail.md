@@ -87,6 +87,30 @@ Postfach, in dem die Mail sehr wohl liegt (Realfall 2026-07-28: ein Dutzend Anl�
 - Freshness wie bei `/send-mail`: Skript liegt im platform-Checkout — nach Remote-Merge
   ggf. `git -C ~/github/platform pull --ff-only` vor dem Aufruf.
 
+## Mail als anklickbaren Link ausgeben (`mail_view.py`)
+
+Das IIL-Postfach liefert über Graph eine Item-ID, aus der ein OWA-Deeplink baubar
+ist. **HNU und AD laufen über IMAP — dort gibt es keine Item-URL**, und eine
+Rechte-Anpassung an der Hochschule ist nicht möglich (Owner-Feststellung 2026-07-29).
+Damit ein Action-Board trotzdem überall klickbar bleibt, rendert
+`tools/mail_agent/mail_view.py` die Mail read-only nach
+`~/.claude/mail-cache/<konto>/<ordner>/<uid>-<slug>.html` und gibt einen
+`file://`-Link aus:
+
+```bash
+python3 tools/mail_agent/mail_view.py --account hnu --seq 174        # Nummer aus --list
+python3 tools/mail_agent/mail_view.py --account hnu --uid 163497     # stabile UID
+python3 tools/mail_agent/mail_view.py --account hnu --seq 174,178 --url-only
+```
+
+- `--seq` ist die Nummer aus `read_mail.py --list`: die IMAP-**Sequenz**nummer, die
+  sich verschiebt, sobald eine ältere Mail im Ordner gelöscht wird. Das Werkzeug löst
+  sie auf die echte UID auf und gibt diese immer mit aus — ins Board gehört die **UID**.
+- Externe Verweise im HTML-Teil werden neutralisiert. Ein Remote-Bild oder Zähl-Pixel
+  würde beim Öffnen der Datei einen Abruf beim Absender auslösen und „gelesen am …"
+  verraten — Außenwirkung ohne Freigabe. CID-Anhänge bleiben sichtbar.
+- Der Cache liegt unter `~/.claude/`, **nie** in einem Repo (Mail-Inhalt ist Fremd-Daten).
+
 ## Anti-Patterns
 
 - ❌ Credentials/Passwörter nach stdout — die Config-Disziplin von `/send-mail` Step 0 gilt 1:1
@@ -105,6 +129,9 @@ Postfach, in dem die Mail sehr wohl liegt (Realfall 2026-07-28: ein Dutzend Anl�
 
 ## Changelog
 
+- 2026-07-29: `mail_view.py` — Mail als lokale HTML-Ansicht + `file://`-Link, damit
+  auch IMAP-Konten (HNU/AD) im Action-Board anklickbar sind; Zähl-Pixel werden
+  neutralisiert. Tests: `tools/tests/test_mail_view.py`.
 - 2026-07-28: `--json` (maschinenlesbar), Bilanz **vor** der Trefferliste,
   Kurzformen `--from/--to/--subject/--source` wie in `graph_mail.py`,
   `--gruendlich` (Vorfilter abschalten) und `--abwesenheitsbeweis` (alle Konten,
