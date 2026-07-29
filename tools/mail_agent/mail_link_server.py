@@ -61,6 +61,13 @@ from mail_view import (  # noqa: E402
 #: Kurz-ID → Ziel. Liegt neben dem Board unter ~/.claude, nie in einem Repo.
 LINK_REGISTRY = Path.home() / ".claude" / "mail-links.json"
 
+#: Arbeitslisten (Boards) als Markdown. Bewusst ein EIGENES Verzeichnis und
+#: ausdrücklich NICHT ``~/shared``: das ist laut CLAUDE.md die Übergabeschleuse,
+#: in der Secrets zeitweise im Klartext liegen. Ein Dienst, der ``~/shared``
+#: ausliefert, würde sie über den Tunnel sichtbar machen. Hier landet nur, was
+#: für die Anzeige gedacht ist.
+BOARD_ROOT = Path.home() / ".claude" / "boards"
+
 #: Aus einer Graph-`id` wird der OWA-Deeplink so gebaut (belegt: funktioniert im Board).
 OWA_TEMPLATE = (
     "https://outlook.office365.com/owa/?ItemID={id}&exvsurl=1&viewmodel=ReadMessageItem"
@@ -68,6 +75,53 @@ OWA_TEMPLATE = (
 
 _UID = re.compile(r"^\d+$")
 _KURZ_ID = re.compile(r"^[A-Za-z0-9_-]{1,24}$")
+_BOARD_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def board_pfad(name: str, wurzel: Path = BOARD_ROOT) -> Path | None:
+    """Board-Name aus der URL → Datei unter ``wurzel``. None, wenn unbrauchbar.
+
+    Bewusst restriktiv: nur ``[A-Za-z0-9_-]`` (also kein ``.``, kein ``/``), feste
+    Endung ``.md``, und danach noch einmal geprüft, dass der aufgelöste Pfad
+    wirklich unterhalb der Wurzel liegt — ein Symlink im Board-Verzeichnis soll
+    nicht aus ihr herausführen.
+    """
+    if not _BOARD_NAME.match(name):
+        return None
+    ziel = (wurzel / f"{name}.md").resolve()
+    try:
+        ziel.relative_to(wurzel.resolve())
+    except (ValueError, OSError):
+        return None
+    return ziel if ziel.is_file() else None
+
+
+def board_als_html(text: str, titel: str) -> str:
+    """Markdown → HTML. Fällt ohne die Bibliothek auf lesbaren Rohtext zurück."""
+    try:
+        import markdown  # noqa: PLC0415
+
+        rumpf = markdown.markdown(text, extensions=["tables", "sane_lists"])
+    except ImportError:
+        rumpf = f"<pre>{html.escape(text)}</pre>"
+    return f"""<!doctype html><meta charset=utf-8><title>{html.escape(titel)}</title>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<body style="font:15px/1.6 -apple-system,Segoe UI,sans-serif;max-width:70rem;margin:2rem auto;padding:0 1rem">
+<style>
+ table{{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92em}}
+ th,td{{border:1px solid #d0d0d0;padding:.35rem .5rem;text-align:left}}
+ th{{background:#f4f4f4}} tr:nth-child(even) td{{background:#fafafa}}
+ code{{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}}
+ h2{{margin-top:2rem;border-bottom:1px solid #e0e0e0;padding-bottom:.2rem}}
+ @media (prefers-color-scheme:dark){{
+   body{{background:#16181c;color:#e6e6e6}} th{{background:#23262c}}
+   tr:nth-child(even) td{{background:#1c1f24}} th,td{{border-color:#333}}
+   code{{background:#23262c}} a{{color:#7ab7ff}} h2{{border-color:#333}}
+ }}
+</style>
+{rumpf}
+<p style="color:#777;font-size:.85rem;margin-top:2rem">Nur über Loopback erreichbar.
+<a href="/">Übersicht</a></p>"""
 
 
 def lade_registry(pfad: Path = LINK_REGISTRY) -> dict[str, dict[str, str]]:
@@ -113,6 +167,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     registry_pfad: Path = LINK_REGISTRY
     anker_pfad: Path = ANKER_DATEI
 
+    board_root: Path = BOARD_ROOT
+
     # --- Antwort-Helfer ----------------------------------------------------
 
     def _sende(self, status: HTTPStatus, body: bytes, ctype: str) -> None:
@@ -156,6 +212,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._anker(teile[1:])
         if teile[0] == "m":
             return self._mail(teile[1:])
+        if teile[0] == "d" and len(teile) == 2:
+            return self._board(teile[1])
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Pfad.")
 
     def _anker(self, teile: list[str]) -> None:
@@ -225,6 +283,17 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             HTTPStatus.OK, datei.read_bytes(), "text/html; charset=utf-8"
         )
 
+    def _board(self, name: str) -> None:
+        pfad = board_pfad(name, self.board_root)
+        if pfad is None:
+            return self._fehler(HTTPStatus.NOT_FOUND, "Kein Board unter diesem Namen.")
+        try:
+            text = pfad.read_text(encoding="utf-8")
+        except OSError as e:
+            return self._fehler(HTTPStatus.INTERNAL_SERVER_ERROR, f"Nicht lesbar: {e}")
+        seite = board_als_html(text, name)
+        self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
     def _index(self) -> None:
         eintraege = lade_registry(self.registry_pfad)
         zeilen = (
@@ -247,6 +316,18 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             or "<li><em>keine Board-Einträge verankert</em></li>"
         )
         konten = ", ".join(sorted(self.konten)) or self.default_konto
+        try:
+            dateien = sorted(p.stem for p in self.board_root.glob("*.md"))
+        except OSError:
+            dateien = []
+        boards = (
+            "".join(
+                f"<li><a href='/d/{html.escape(n)}'>/d/{html.escape(n)}</a></li>"
+                for n in dateien
+                if _BOARD_NAME.match(n)
+            )
+            or "<li><em>keine Arbeitslisten abgelegt</em></li>"
+        )
         seite = f"""<!doctype html><meta charset=utf-8><title>Mail-Links</title>
 <body style="font:15px/1.55 -apple-system,Segoe UI,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">
 <h1>Mail-Links</h1>
@@ -257,6 +338,9 @@ verfügbar: {html.escape(konten)}.</p>
 <p><code>/a/&lt;board-nummer&gt;</code> löst über die <strong>Message-ID</strong> auf und
 überlebt darum ein Verschieben — der Anker wird dabei automatisch nachgezogen.</p>
 <h2>Verankerte Board-Einträge</h2><ul>{anker_zeilen}</ul>
+
+<p><code>/d/&lt;name&gt;</code> zeigt eine Arbeitsliste aus <code>~/.claude/boards/</code>.</p>
+<h2>Arbeitslisten</h2><ul>{boards}</ul>
 <h2>Registrierte Kurz-Links</h2><ul>{zeilen}</ul>
 <p style="color:#777;font-size:.85rem">Nur über Loopback erreichbar. Läuft der Zugriff
 über einen SSH-Tunnel, sieht niemand sonst diese Inhalte.</p>"""
