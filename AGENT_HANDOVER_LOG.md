@@ -636,3 +636,34 @@ Menschenarbeit. Und auch nach vier Runden ungegengelesen: die Ausschluss-Messung
 [mcp-hub#185]: https://github.com/achimdehnert/mcp-hub/pull/185
 [mcp-hub#186]: https://github.com/achimdehnert/mcp-hub/pull/186
 [#1548]: https://github.com/achimdehnert/platform/pull/1548
+
+---
+
+## 2026-07-29 Abend, Nachtrag — Korrektur zum Deploy-Status
+
+Der Block oben sagt, der Deploy von mcp-hub#186 habe beim Session-Ende „noch auf `queued`"
+gestanden, und der zweite `/session-ende`-Lauf verschärfte das zu „der Deploy ist abgebrochen,
+`deploy / 🔍 Resolve` startet nie". **Beides war falsch.**
+
+Der Lauf [30490611598](https://github.com/achimdehnert/mcp-hub/actions/runs/30490611598) ist um
+**21:34 mit `success`** beendet, `deploy / 🚀 Production` grün. Beide Fixes sind im laufenden
+Container verifiziert: `/app/llm_errors.py` liegt dort, `_temperature_for` steht an Zeile 219 und
+wird an 327 ausgewertet. Zum Zeitpunkt meiner Sichtung stand der Lauf lediglich in der
+Warteschlange — ich habe aus zwei fehlgeschlagenen `ci`-Jobs geschlossen, der Deploy könne nicht
+mehr starten, statt den Lauf zu Ende zu beobachten.
+
+**Was dabei aber ein echter Fund ist, und der wiegt mehr als der Irrtum:** die zwei roten Jobs
+(`ci / Lint & Format`, `ci / Security Scan`) haben den Prod-Deploy **nicht aufgehalten**, weil
+`ci / gate` grün meldet und der Deploy an diesem Gate hängt. Ein Lint-Fehler und ein
+Dependency-Konflikt sind also nach Produktion durchgelaufen. Ob das Absicht ist oder ein blindes
+Gate, ist **nicht geprüft** — der billigste Check ist die `needs:`-Liste des Gate-Jobs. Solange
+das offen ist, relativiert es jede „CI grün"-Aussage in diesem Repo.
+
+**Zwei eigene Muster in einer Session, beide dasselbe:** vorhin habe ich eine gefundene
+Formatierungs-Abweichung liegen gelassen, weil sie nicht in der PR-Checkliste gated war — und
+dann behauptet, genau sie blockiere Prod. Erst war der Befund zu klein, dann zu groß. In beiden
+Fällen fehlte derselbe billige Check: einmal die Post-Merge-Job-Liste, einmal das Ende des Laufs.
+
+Korrigiert wurden nicht nur diese Zeilen, sondern alle Kopien der Falschaussage: PR-Body und
+Titel von [#188](https://github.com/achimdehnert/mcp-hub/pull/188) und der Text von
+[#189](https://github.com/achimdehnert/mcp-hub/issues/189).
