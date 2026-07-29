@@ -102,6 +102,60 @@ Postfach, in dem die Mail sehr wohl liegt (Realfall 2026-07-28: ein Dutzend Anl�
 - Freshness wie bei `/send-mail`: Skript liegt im platform-Checkout — nach Remote-Merge
   ggf. `git -C ~/github/platform pull --ff-only` vor dem Aufruf.
 
+## Mail als anklickbaren Link ausgeben (`mail_view.py`)
+
+Das IIL-Postfach liefert über Graph eine Item-ID, aus der ein OWA-Deeplink baubar
+ist. **HNU und AD laufen über IMAP — dort gibt es keine Item-URL**, und eine
+Rechte-Anpassung an der Hochschule ist nicht möglich (Owner-Feststellung 2026-07-29).
+Damit ein Action-Board trotzdem überall klickbar bleibt, rendert
+`tools/mail_agent/mail_view.py` die Mail read-only nach
+`~/.claude/mail-cache/<konto>/<ordner>/<uid>-<slug>.html` und gibt einen
+`file://`-Link aus:
+
+```bash
+python3 tools/mail_agent/mail_view.py --account hnu --seq 174        # Nummer aus --list
+python3 tools/mail_agent/mail_view.py --account hnu --uid 163497     # stabile UID
+python3 tools/mail_agent/mail_view.py --account hnu --seq 174,178 --url-only
+```
+
+- `--seq` ist die Nummer aus `read_mail.py --list`: die IMAP-**Sequenz**nummer, die
+  sich verschiebt, sobald eine ältere Mail im Ordner gelöscht wird. Das Werkzeug löst
+  sie auf die echte UID auf und gibt diese immer mit aus — ins Board gehört die **UID**.
+- Externe Verweise im HTML-Teil werden neutralisiert. Ein Remote-Bild oder Zähl-Pixel
+  würde beim Öffnen der Datei einen Abruf beim Absender auslösen und „gelesen am …"
+  verraten — Außenwirkung ohne Freigabe. CID-Anhänge bleiben sichtbar.
+- Der Cache liegt unter `~/.claude/`, **nie** in einem Repo (Mail-Inhalt ist Fremd-Daten).
+
+### Kurze, anklickbare Links: `mail_link_server.py`
+
+`file://` reicht nur, wenn Browser und Datei auf derselben Maschine liegen. Die
+Arbeitssitzung läuft aber per SSH auf dem Server — der Browser des Owners sieht
+diesen Pfad nicht. Und ein OWA-Deeplink ins HNU-Postfach scheidet aus: `outlook.hnu.de`
+steht hinter einem **Citrix-Gateway** (geprüft 2026-07-29: `/owa/` endet auf
+`/vpn/tmindex.html`). Darum ein kleiner Dienst über Loopback:
+
+```bash
+python3 tools/mail_agent/mail_link_server.py --port 8787          # auf dem Server
+ssh -N -L 8787:127.0.0.1:8787 devuser@<server>                    # vom Arbeitsrechner
+```
+
+| Route | Wirkung |
+|---|---|
+| `http://localhost:8787/m/163497` | HNU-Mail live über IMAP gerendert (read-only) |
+| `http://localhost:8787/m/<konto>/<uid>` | anderes Konto (mit `--account` freischalten) |
+| `http://localhost:8787/i/az1` | 302 auf den langen OWA-Deeplink einer IIL-Mail |
+| `http://localhost:8787/` | Übersicht der registrierten Kurz-Links |
+
+Kurz-Link für eine IIL-Mail anlegen:
+`mail_link_server.py --register az1 --graph-id <Graph-id> --notiz "Azure Copilot"`
+(Registry: `~/.claude/mail-links.json`).
+
+- Der Dienst hat **keine Authentifizierung** und bindet darum auf 127.0.0.1. Er
+  verweigert jede andere Bindung, solange nicht `--ich-weiss-was-ich-tue` gesetzt ist.
+  Öffentlich stellen heißt: Auth davor — und das ist eine Datenschutz-Entscheidung
+  (HNU-Inhalte auf IIL-Infrastruktur), keine Bequemlichkeitsfrage.
+- Das Zugriffslog trägt bewusst keine UID und keinen Betreff.
+
 ## Anti-Patterns
 
 - ❌ Credentials/Passwörter nach stdout — die Config-Disziplin von `/send-mail` Step 0 gilt 1:1
@@ -120,6 +174,13 @@ Postfach, in dem die Mail sehr wohl liegt (Realfall 2026-07-28: ein Dutzend Anl�
 
 ## Changelog
 
+- 2026-07-29: `mail_link_server.py` — kurze Links über Loopback (`/m/<uid>` rendert,
+  `/i/<kurz>` leitet auf OWA weiter), weil `file://` bei einer SSH-Sitzung ins Leere
+  zeigt und HNU-OWA hinter einem Citrix-Gateway steht. Bindet nur auf 127.0.0.1.
+  Tests: `tools/tests/test_mail_link_server.py`.
+- 2026-07-29: `mail_view.py` — Mail als lokale HTML-Ansicht + `file://`-Link, damit
+  auch IMAP-Konten (HNU/AD) im Action-Board anklickbar sind; Zähl-Pixel werden
+  neutralisiert. Tests: `tools/tests/test_mail_view.py`.
 - 2026-07-29: **S1 nach ADR-288.** Bulk-Abruf statt eines `FETCH` je Nachricht —
   end-to-end **34,9 s → 3,9 s** auf einem 354er-Ordner bei identischem Ergebnis
   (Faktor 8,9; Mikro-Benchmark 10,1/s → 106,3/s). Gesendet-Ordner wird zuerst

@@ -122,9 +122,7 @@ def ist_mail_ordner(ordner: str) -> bool:
     return not any(NICHT_MAIL.match(teil) for teil in ordner.split("/"))
 
 
-def jahr_ist_abgedeckt(
-    jahr: int, jahrgaenge: set[int], sammel_bis: int | None
-) -> bool:
+def jahr_ist_abgedeckt(jahr: int, jahrgaenge: set[int], sammel_bis: int | None) -> bool:
     """Gibt es einen Zielordner fuer dieses Jahr?
 
     Ein Sammelordner ('2019-und-aelter') deckt **alle** Jahre bis zu seiner Zahl ab.
@@ -283,6 +281,7 @@ class GraphQuelle:
     def _laden(self):
         if self._idx:
             return
+
         def walk(pid, prefix):
             url = (
                 f"{self._G}/me/mailFolders"
@@ -293,7 +292,11 @@ class GraphQuelle:
             while url:
                 r = self._http("GET", url, headers=self._auth(self.tok)).json()
                 for f in r.get("value", []):
-                    p = f["displayName"] if not prefix else f"{prefix}/{f['displayName']}"
+                    p = (
+                        f["displayName"]
+                        if not prefix
+                        else f"{prefix}/{f['displayName']}"
+                    )
                     self._idx[p] = (f["id"], f.get("totalItemCount", 0))
                     if f.get("childFolderCount", 0):
                         walk(f["id"], p)
@@ -385,12 +388,16 @@ def main() -> None:
     aktuelles_jahr = datetime.now(timezone.utc).year
 
     print(f"=== Ablage-Pruefung · {quelle.name} · {TOOL_VERSION} ===")
-    print(f"    {len(zu_pruefen)} von {len(alle)} Ordner(n) geprueft, "
-          f"{len(uebersprungen)} ohne Mail-Inhalt uebersprungen")
-    print(f"    Jahrgaenge {min(jahrgaenge, default='-')}–"
-          f"{max(jahrgaenge, default='-')}"
-          f"{f' (Sammelordner bis {sammel_bis})' if sammel_bis else ''}, "
-          f"laufendes Jahr {aktuelles_jahr}\n")
+    print(
+        f"    {len(zu_pruefen)} von {len(alle)} Ordner(n) geprueft, "
+        f"{len(uebersprungen)} ohne Mail-Inhalt uebersprungen"
+    )
+    print(
+        f"    Jahrgaenge {min(jahrgaenge, default='-')}–"
+        f"{max(jahrgaenge, default='-')}"
+        f"{f' (Sammelordner bis {sammel_bis})' if sammel_bis else ''}, "
+        f"laufendes Jahr {aktuelles_jahr}\n"
+    )
 
     zaehler: Counter = Counter()
     beispiele: dict[str, list[str]] = defaultdict(list)

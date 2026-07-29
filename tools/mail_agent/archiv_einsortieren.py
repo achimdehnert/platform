@@ -399,19 +399,25 @@ def lauf_imap(args) -> None:
 
     posten = imap_posten(imap, args.quelle)
     modus = "AUSFUEHRUNG" if args.apply else "TROCKENLAUF"
-    print(f"=== {modus} · IMAP {args.imap_konto} · {args.quelle} → "
-          f"{args.ziel_wurzel}/<Jahr> ===")
+    print(
+        f"=== {modus} · IMAP {args.imap_konto} · {args.quelle} → "
+        f"{args.ziel_wurzel}/<Jahr> ==="
+    )
     print(f"    {TOOL_VERSION} · bis {args.bis} · laufendes Jahr {aktuelles_jahr}")
     print(f"    MOVE={imap_kann_move(imap)} UIDPLUS={imap_kann_uid_expunge(imap)}")
-    print(f"    {len(posten)} Nachricht(en) gelesen, "
-          f"{len(jahrgaenge)} Jahrgangsordner vorhanden\n")
+    print(
+        f"    {len(posten)} Nachricht(en) gelesen, "
+        f"{len(jahrgaenge)} Jahrgangsordner vorhanden\n"
+    )
 
     plan: dict[str, list[bytes]] = {}
     uebersprungen: Counter = Counter()
     for uid, jahr in posten:
         ziel, grund = entscheide(jahr, args.bis, aktuelles_jahr, jahrgaenge)
         if ziel is None or (args.nur_jahr and ziel != args.nur_jahr):
-            uebersprungen[grund if ziel is None else f"nicht --nur-jahr {args.nur_jahr}"] += 1
+            uebersprungen[
+                grund if ziel is None else f"nicht --nur-jahr {args.nur_jahr}"
+            ] += 1
             continue
         plan.setdefault(ziel, []).append(uid)
 
@@ -497,8 +503,10 @@ def main() -> None:
     modus = "AUSFUEHRUNG" if args.apply else "TROCKENLAUF"
     print(f"=== {modus} · {konto} · {args.quelle} → {args.ziel_wurzel}/<Jahr> ===")
     print(f"    {TOOL_VERSION} · bis {args.bis} · laufendes Jahr {aktuelles_jahr}")
-    print(f"    {len(posten)} Nachricht(en) gelesen, "
-          f"{len(jahrgaenge)} Jahrgangsordner vorhanden\n")
+    print(
+        f"    {len(posten)} Nachricht(en) gelesen, "
+        f"{len(jahrgaenge)} Jahrgangsordner vorhanden\n"
+    )
 
     plan: Counter = Counter()
     uebersprungen: Counter = Counter()
@@ -539,7 +547,9 @@ def main() -> None:
             else:
                 schlecht += 1
             if i % 250 == 0:
-                print(f"    … {i}/{len(zu_tun)} (ok {ok}, Fehler {schlecht})", flush=True)
+                print(
+                    f"    … {i}/{len(zu_tun)} (ok {ok}, Fehler {schlecht})", flush=True
+                )
         fehler = [f"{schlecht} Einzelfehler"] if schlecht else []
     else:
         ok = 0

@@ -107,7 +107,9 @@ def bekannte_konten(basis: Path | None = None) -> list[str]:
     for pfad in sorted(wurzel.glob("mail*.env")):
         if "IMAP_HOST" not in _env_schluessel(pfad):
             continue  # kein lesbares Postfach: reine Versand-Konfig oder Routing-Tabelle
-        namen.append("default" if pfad.stem == "mail" else pfad.stem.removeprefix("mail-"))
+        namen.append(
+            "default" if pfad.stem == "mail" else pfad.stem.removeprefix("mail-")
+        )
     # Dateisystem-Reihenfolge stellt 'mail-hnu.env' vor 'mail.env'; der Nenner soll
     # stabil und lesbar bleiben, deshalb 'default' zuerst, der Rest alphabetisch.
     namen.sort(key=lambda n: (n != "default", n))
@@ -115,9 +117,7 @@ def bekannte_konten(basis: Path | None = None) -> list[str]:
     return [n for n in namen if n not in KEINE_KORRESPONDENZ]
 
 
-def graph_konten(
-    basis: Path | None = None, konfig: Path | None = None
-) -> list[str]:
+def graph_konten(basis: Path | None = None, konfig: Path | None = None) -> list[str]:
     """Postfächer, die über Microsoft Graph laufen — für dieses Werkzeug unerreichbar.
 
     ``basis`` überschreibt das Token-Verzeichnis. Nötig, damit ein Test die Funktion

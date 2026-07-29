@@ -29,6 +29,7 @@ Nachrichten-Form (bewusst entkoppelt von Graph/IMAP, damit prüfbar):
     {"id": str, "absender": str, "betreff": str, "datum": str, "ordner": str}
 `aus_graph()` normalisiert eine Graph-Nachricht in diese Form.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,11 +56,33 @@ AKTIONEN = AKTIONEN_AUS_BEOBACHTUNG + ("loeschen",)
 SCHWELLE_BEOBACHTUNG = 2
 
 _WORT = re.compile(r"[a-zäöüß]{4,}")
-_RAUSCHEN = frozenset({
-    "eine", "eines", "einer", "ihre", "ihren", "unser", "unsere", "oder", "und",
-    "fuer", "für", "mit", "vom", "vom", "sehr", "geehrte", "hallo", "guten",
-    "betreff", "info", "news", "newsletter", "nummer",
-})
+_RAUSCHEN = frozenset(
+    {
+        "eine",
+        "eines",
+        "einer",
+        "ihre",
+        "ihren",
+        "unser",
+        "unsere",
+        "oder",
+        "und",
+        "fuer",
+        "für",
+        "mit",
+        "vom",
+        "vom",
+        "sehr",
+        "geehrte",
+        "hallo",
+        "guten",
+        "betreff",
+        "info",
+        "news",
+        "newsletter",
+        "nummer",
+    }
+)
 
 
 class RegelFehler(ValueError):
@@ -80,13 +103,21 @@ class Regel:
 
     def __post_init__(self) -> None:
         if self.quelle not in QUELLEN:
-            raise RegelFehler(f"quelle '{self.quelle}' unbekannt (erlaubt: {', '.join(QUELLEN)})")
+            raise RegelFehler(
+                f"quelle '{self.quelle}' unbekannt (erlaubt: {', '.join(QUELLEN)})"
+            )
         if self.aktion not in AKTIONEN:
-            raise RegelFehler(f"aktion '{self.aktion}' unbekannt (erlaubt: {', '.join(AKTIONEN)})")
+            raise RegelFehler(
+                f"aktion '{self.aktion}' unbekannt (erlaubt: {', '.join(AKTIONEN)})"
+            )
         if self.zustand not in ZUSTAENDE:
-            raise RegelFehler(f"zustand '{self.zustand}' unbekannt (erlaubt: {', '.join(ZUSTAENDE)})")
+            raise RegelFehler(
+                f"zustand '{self.zustand}' unbekannt (erlaubt: {', '.join(ZUSTAENDE)})"
+            )
         if not self.kriterium:
-            raise RegelFehler(f"Regel '{self.regel_id}': leeres Kriterium träfe den ganzen Bestand")
+            raise RegelFehler(
+                f"Regel '{self.regel_id}': leeres Kriterium träfe den ganzen Bestand"
+            )
         # §7a: Löschen ist mehrdeutig — es kann "Rauschen" heißen oder "erledigt,
         # kann weg". Diese Bedeutungen sind von außen nicht unterscheidbar, also
         # entsteht eine Trash-Regel ausschließlich auf ausdrückliche Ansage.
@@ -113,9 +144,11 @@ class Regel:
         if v := self.kriterium.get("betreff_enthaelt"):
             teile.append(f"Betreff enthält '{v}'")
         wenn = " und ".join(teile) or "(kein Kriterium)"
-        was = {"verschieben": f"nach '{self.ziel}' verschieben",
-               "markieren": f"mit '{self.ziel}' markieren",
-               "loeschen": "in den Papierkorb"}[self.aktion]
+        was = {
+            "verschieben": f"nach '{self.ziel}' verschieben",
+            "markieren": f"mit '{self.ziel}' markieren",
+            "loeschen": "in den Papierkorb",
+        }[self.aktion]
         return f"Wenn {wenn}, dann {was}."
 
 
@@ -139,6 +172,7 @@ def trifft(regel: Regel, nachricht: dict) -> bool:
 
 # --- Beobachtung → Kandidat -------------------------------------------------
 
+
 def kandidaten_aus_bewegungen(bewegungen: list[dict]) -> list[dict]:
     """Gleichgerichtete Handbewegungen zu Regel-Kandidaten verdichten.
 
@@ -156,12 +190,14 @@ def kandidaten_aus_bewegungen(bewegungen: list[dict]) -> list[dict]:
     for (domain, ziel), belege in sorted(gruppen.items()):
         if len(belege) < SCHWELLE_BEOBACHTUNG:
             continue
-        aus.append({
-            "kriterium": {"absender_domain": domain},
-            "aktion": "verschieben",
-            "ziel": ziel,
-            "belege": belege,
-        })
+        aus.append(
+            {
+                "kriterium": {"absender_domain": domain},
+                "aktion": "verschieben",
+                "ziel": ziel,
+                "belege": belege,
+            }
+        )
     return aus
 
 
@@ -178,8 +214,11 @@ def trockenlauf(regel: Regel, bestand: list[dict], stichprobe: int = 5) -> dict:
         "geprueft": len(bestand),
         "treffer": len(treffer),
         "stichprobe": [
-            {"betreff": m.get("betreff", ""), "absender": m.get("absender", ""),
-             "ordner": m.get("ordner", "")}
+            {
+                "betreff": m.get("betreff", ""),
+                "absender": m.get("absender", ""),
+                "ordner": m.get("ordner", ""),
+            }
             for m in treffer[:stichprobe]
         ],
     }
@@ -206,15 +245,20 @@ def gegenprobe(regel: Regel, bestand: list[dict], belege: list[dict]) -> dict:
         "nicht_von_hand_bewegt": len(fremd),
         "anteil_fremd": round(len(fremd) / len(treffer), 3) if treffer else 0.0,
         "gruppen": [
-            {"signatur": sig, "anzahl": len(ms),
-             "beispiel": ms[0].get("betreff", "")}
+            {"signatur": sig, "anzahl": len(ms), "beispiel": ms[0].get("betreff", "")}
             for sig, ms in sortiert[:5]
         ],
     }
 
 
-def vorschlag_bauen(kandidat: dict, bestand: list[dict], *, regel_id: str,
-                    quelle: str = "beobachtung", notiz: str = "") -> dict:
+def vorschlag_bauen(
+    kandidat: dict,
+    bestand: list[dict],
+    *,
+    regel_id: str,
+    quelle: str = "beobachtung",
+    notiz: str = "",
+) -> dict:
     """Ein Vorschlag mit allen vier Pflichtteilen aus §7a.
 
     Wirft, wenn kein Bestand übergeben wird: "Ohne diesen Schritt kein Vorschlag."
@@ -238,8 +282,12 @@ def vorschlag_bauen(kandidat: dict, bestand: list[dict], *, regel_id: str,
     return {
         "regel": regel,
         "beobachtung": [
-            {"betreff": b.get("betreff", ""), "absender": b.get("absender", ""),
-             "ziel": b.get("ziel", ""), "zeit": b.get("zeit", "")}
+            {
+                "betreff": b.get("betreff", ""),
+                "absender": b.get("absender", ""),
+                "ziel": b.get("ziel", ""),
+                "zeit": b.get("zeit", ""),
+            }
             for b in regel.belege
         ],
         "regel_text": regel.als_text(),
@@ -249,6 +297,7 @@ def vorschlag_bauen(kandidat: dict, bestand: list[dict], *, regel_id: str,
 
 
 # --- Lebenszyklus -----------------------------------------------------------
+
 
 def _wechsel(regel: Regel, neu: str, grund: str) -> Regel:
     regel.zustand = neu
@@ -280,9 +329,13 @@ def gegenbeispiel(regel: Regel, beleg: dict) -> Regel:
     verschwinden, statt ihn zu klären.
     """
     if regel.zustand == "stillgelegt":
-        raise RegelFehler(f"Regel '{regel.regel_id}' ist stillgelegt — kein Gegenbeispiel nötig.")
+        raise RegelFehler(
+            f"Regel '{regel.regel_id}' ist stillgelegt — kein Gegenbeispiel nötig."
+        )
     regel.belege.append({"art": "gegenbeispiel", **beleg})
-    return _wechsel(regel, "strittig", f"Gegenbeispiel: {beleg.get('betreff', '')[:60]}")
+    return _wechsel(
+        regel, "strittig", f"Gegenbeispiel: {beleg.get('betreff', '')[:60]}"
+    )
 
 
 def stilllegen(regel: Regel, grund: str = "") -> Regel:
@@ -296,6 +349,7 @@ def wirksam(regeln: list[Regel]) -> list[Regel]:
 
 # --- Anwenden, Restmenge, Rücknahme ----------------------------------------
 
+
 def plan(regeln: list[Regel], bestand: list[dict]) -> tuple[list[dict], list[dict]]:
     """(Bewegungen, Restmenge). Die erste treffende aktive Regel gewinnt."""
     aktive = wirksam(regeln)
@@ -303,14 +357,16 @@ def plan(regeln: list[Regel], bestand: list[dict]) -> tuple[list[dict], list[dic
     for m in bestand:
         for r in aktive:
             if trifft(r, m):
-                bewegungen.append({
-                    "id": m.get("id"),
-                    "betreff": m.get("betreff", ""),
-                    "quellordner": m.get("ordner", ""),
-                    "zielordner": r.ziel,
-                    "aktion": r.aktion,
-                    "regel_id": r.regel_id,
-                })
+                bewegungen.append(
+                    {
+                        "id": m.get("id"),
+                        "betreff": m.get("betreff", ""),
+                        "quellordner": m.get("ordner", ""),
+                        "zielordner": r.ziel,
+                        "aktion": r.aktion,
+                        "regel_id": r.regel_id,
+                    }
+                )
                 break
         else:
             rest.append(m)
@@ -350,8 +406,12 @@ def protokollieren(bewegungen: list[dict], pfad: Path, lauf_id: str) -> Path:
     pfad.parent.mkdir(parents=True, exist_ok=True)
     with pfad.open("a", encoding="utf-8") as fh:
         for b in bewegungen:
-            fh.write(json.dumps({"lauf_id": lauf_id, "zeit": _jetzt(), **b},
-                                ensure_ascii=False) + "\n")
+            fh.write(
+                json.dumps(
+                    {"lauf_id": lauf_id, "zeit": _jetzt(), **b}, ensure_ascii=False
+                )
+                + "\n"
+            )
     return pfad
 
 
@@ -366,21 +426,24 @@ def ruecknahme(pfad: Path, lauf_id: str) -> list[dict]:
         e = json.loads(zeile)
         if e.get("lauf_id") != lauf_id:
             continue
-        aus.append({
-            "id": e.get("id"),
-            "betreff": e.get("betreff", ""),
-            "quellordner": e.get("zielordner", ""),
-            "zielordner": e.get("quellordner", ""),
-            "aktion": "verschieben",
-            "regel_id": e.get("regel_id"),
-            "grund": f"Rücknahme Lauf {lauf_id}",
-        })
+        aus.append(
+            {
+                "id": e.get("id"),
+                "betreff": e.get("betreff", ""),
+                "quellordner": e.get("zielordner", ""),
+                "zielordner": e.get("quellordner", ""),
+                "aktion": "verschieben",
+                "regel_id": e.get("regel_id"),
+                "grund": f"Rücknahme Lauf {lauf_id}",
+            }
+        )
     if not aus:
         raise RegelFehler(f"Kein Eintrag mit lauf_id '{lauf_id}' in {pfad}.")
     return aus
 
 
 # --- Persistenz -------------------------------------------------------------
+
 
 def laden(pfad: str | Path | None = None) -> list[Regel]:
     p = Path(pfad).expanduser() if pfad else REGELN_DATEI
@@ -395,7 +458,10 @@ def speichern(regeln: list[Regel], pfad: str | Path | None = None) -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(
-        json.dumps({"regeln": [asdict(r) for r in regeln]}, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(
+            {"regeln": [asdict(r) for r in regeln]}, ensure_ascii=False, indent=2
+        )
+        + "\n",
         encoding="utf-8",
     )
     tmp.replace(p)
@@ -418,6 +484,7 @@ def aus_graph(m: dict, ordner: str = "") -> dict:
 
 # --- CLI --------------------------------------------------------------------
 
+
 def _lies_json(pfad: str) -> list[dict]:
     daten = json.loads(Path(pfad).expanduser().read_text(encoding="utf-8"))
     return daten if isinstance(daten, list) else daten.get("nachrichten", [])
@@ -429,32 +496,55 @@ def _zeige_vorschlag(v: dict) -> None:
     print(f"2) Regel     : {v['regel_text']}")
     print(f"1) Beobachtung ({len(v['beobachtung'])} Belege):")
     for b in v["beobachtung"][:5]:
-        print(f"     - {b['zeit'] or '—'}  {b['absender']}  „{b['betreff'][:50]}\" → {b['ziel']}")
+        print(
+            f'     - {b["zeit"] or "—"}  {b["absender"]}  „{b["betreff"][:50]}" → {b["ziel"]}'
+        )
     t = v["trockenlauf"]
     print(f"3) Trockenlauf: {t['treffer']} von {t['geprueft']} Nachrichten getroffen")
     for s in t["stichprobe"]:
-        print(f"     - {s['absender']}  „{s['betreff'][:50]}\"  [{s['ordner']}]")
+        print(f'     - {s["absender"]}  „{s["betreff"][:50]}"  [{s["ordner"]}]')
     g = v["gegenprobe"]
-    print(f"4) Gegenprobe : {g['nicht_von_hand_bewegt']} Treffer wurden NIE von Hand "
-          f"bewegt ({int(g['anteil_fremd'] * 100)} % der Treffer)")
+    print(
+        f"4) Gegenprobe : {g['nicht_von_hand_bewegt']} Treffer wurden NIE von Hand "
+        f"bewegt ({int(g['anteil_fremd'] * 100)} % der Treffer)"
+    )
     for gr in g["gruppen"]:
-        print(f"     - {gr['anzahl']:4}x  {gr['signatur']}   z.B. „{gr['beispiel'][:45]}\"")
+        print(
+            f'     - {gr["anzahl"]:4}x  {gr["signatur"]}   z.B. „{gr["beispiel"][:45]}"'
+        )
     if g["anteil_fremd"] >= 0.5:
-        print("   ACHTUNG: die Mehrheit der Treffer hast du nie selbst bewegt — "
-              "genau so hätte die Hoster-Regel 52 Sicherheitshinweise begraben.")
+        print(
+            "   ACHTUNG: die Mehrheit der Treffer hast du nie selbst bewegt — "
+            "genau so hätte die Hoster-Regel 52 Sicherheitshinweise begraben."
+        )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--regeln", default=None, help="Regel-Datei (Default: ~/.claude/mail-regeln.json)")
+    ap.add_argument(
+        "--regeln",
+        default=None,
+        help="Regel-Datei (Default: ~/.claude/mail-regeln.json)",
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("liste", help="Regeln mit Zustand zeigen")
 
-    p_v = sub.add_parser("vorschlag", help="aus Handbewegungen Vorschläge bauen (speichert als 'vorschlag')")
-    p_v.add_argument("--bewegungen", required=True, help="JSON mit beobachteten Handbewegungen")
-    p_v.add_argument("--bestand", required=True, help="JSON mit dem vorhandenen Nachrichtenbestand")
-    p_v.add_argument("--speichern", action="store_true", help="Vorschläge in die Regel-Datei schreiben")
+    p_v = sub.add_parser(
+        "vorschlag",
+        help="aus Handbewegungen Vorschläge bauen (speichert als 'vorschlag')",
+    )
+    p_v.add_argument(
+        "--bewegungen", required=True, help="JSON mit beobachteten Handbewegungen"
+    )
+    p_v.add_argument(
+        "--bestand", required=True, help="JSON mit dem vorhandenen Nachrichtenbestand"
+    )
+    p_v.add_argument(
+        "--speichern",
+        action="store_true",
+        help="Vorschläge in die Regel-Datei schreiben",
+    )
 
     p_a = sub.add_parser("aktivieren", help="Vorschlag → aktiv (nur mit --bestaetigt)")
     p_a.add_argument("regel_id")
@@ -463,7 +553,9 @@ def main() -> None:
     p_g = sub.add_parser("gegenbeispiel", help="Regel auf 'strittig' setzen")
     p_g.add_argument("regel_id")
     p_g.add_argument("--betreff", default="")
-    p_g.add_argument("--ziel", default="", help="wohin der Owner stattdessen bewegt hat")
+    p_g.add_argument(
+        "--ziel", default="", help="wohin der Owner stattdessen bewegt hat"
+    )
 
     p_s = sub.add_parser("stilllegen", help="Regel stilllegen (wird nicht gelöscht)")
     p_s.add_argument("regel_id")
@@ -472,10 +564,14 @@ def main() -> None:
     p_r = sub.add_parser("restmenge", help="Kennzahl: was keine Regel traf")
     p_r.add_argument("--bestand", required=True)
 
-    p_p = sub.add_parser("plan", help="Bewegungsplan der aktiven Regeln (führt nichts aus)")
+    p_p = sub.add_parser(
+        "plan", help="Bewegungsplan der aktiven Regeln (führt nichts aus)"
+    )
     p_p.add_argument("--bestand", required=True)
     p_p.add_argument("--protokoll", default=None)
-    p_p.add_argument("--lauf-id", default=None, help="mit --protokoll: Plan protokollieren")
+    p_p.add_argument(
+        "--lauf-id", default=None, help="mit --protokoll: Plan protokollieren"
+    )
 
     p_u = sub.add_parser("ruecknahme", help="umgekehrten Plan zu einem Lauf ausgeben")
     p_u.add_argument("--protokoll", default=None)
@@ -496,13 +592,17 @@ def main() -> None:
             bestand = _lies_json(args.bestand)
             kandidaten = kandidaten_aus_bewegungen(bewegungen)
             if not kandidaten:
-                print(f"Kein Kandidat — keine {SCHWELLE_BEOBACHTUNG} gleichgerichteten "
-                      "Beobachtungen. Ein Einzelfall kann eine Ausnahme sein (§7a).")
+                print(
+                    f"Kein Kandidat — keine {SCHWELLE_BEOBACHTUNG} gleichgerichteten "
+                    "Beobachtungen. Ein Einzelfall kann eine Ausnahme sein (§7a)."
+                )
                 return
             bekannt = {r.regel_id for r in regeln}
             neu = []
             for i, k in enumerate(kandidaten, 1):
-                rid = f"beob-{k['kriterium']['absender_domain']}-{k['ziel']}".replace(" ", "_").lower()
+                rid = f"beob-{k['kriterium']['absender_domain']}-{k['ziel']}".replace(
+                    " ", "_"
+                ).lower()
                 if rid in bekannt:
                     print(f"übersprungen: {rid} existiert bereits")
                     continue
@@ -511,8 +611,10 @@ def main() -> None:
                 neu.append(v["regel"])
             if args.speichern and neu:
                 pfad = speichern(regeln + neu, args.regeln)
-                print(f"\n{len(neu)} Vorschlag/Vorschläge gespeichert in {pfad} — "
-                      "sie wirken NICHT, bis du sie aktivierst.")
+                print(
+                    f"\n{len(neu)} Vorschlag/Vorschläge gespeichert in {pfad} — "
+                    "sie wirken NICHT, bis du sie aktivierst."
+                )
             elif neu:
                 print("\n(nicht gespeichert — mit --speichern übernehmen)")
 
@@ -534,7 +636,9 @@ def main() -> None:
             k = restmenge(regeln, _lies_json(args.bestand))
             print(f"Bestand           : {k['bestand']}")
             print(f"Von Regeln erfasst: {k['von_regeln_getroffen']}")
-            print(f"RESTMENGE         : {k['restmenge']} ({int(k['anteil_rest'] * 100)} %)")
+            print(
+                f"RESTMENGE         : {k['restmenge']} ({int(k['anteil_rest'] * 100)} %)"
+            )
             print("Arbeitsvorrat (häufigste Absender ohne Regel):")
             for e in k["top_absender_im_rest"]:
                 print(f"  {e['anzahl']:5}x  {e['absender']}")
@@ -542,17 +646,27 @@ def main() -> None:
         elif args.cmd == "plan":
             bewegungen, rest = plan(regeln, _lies_json(args.bestand))
             for b in bewegungen[:50]:
-                print(f"{b['quellordner'] or '—':22} → {b['zielordner']:22} "
-                      f"[{b['regel_id']}]  „{b['betreff'][:40]}\"")
-            print(f"\n{len(bewegungen)} Bewegung(en), Restmenge {len(rest)} — nichts ausgeführt.")
+                print(
+                    f"{b['quellordner'] or '—':22} → {b['zielordner']:22} "
+                    f'[{b["regel_id"]}]  „{b["betreff"][:40]}"'
+                )
+            print(
+                f"\n{len(bewegungen)} Bewegung(en), Restmenge {len(rest)} — nichts ausgeführt."
+            )
             if args.protokoll and args.lauf_id:
-                p = protokollieren(bewegungen, Path(args.protokoll).expanduser(), args.lauf_id)
+                p = protokollieren(
+                    bewegungen, Path(args.protokoll).expanduser(), args.lauf_id
+                )
                 print(f"Protokoll geschrieben: {p} (Lauf {args.lauf_id})")
 
         elif args.cmd == "ruecknahme":
-            pfad = Path(args.protokoll).expanduser() if args.protokoll else PROTOKOLL_DATEI
+            pfad = (
+                Path(args.protokoll).expanduser() if args.protokoll else PROTOKOLL_DATEI
+            )
             for b in ruecknahme(pfad, args.lauf_id):
-                print(f"{b['quellordner']:22} → {b['zielordner']:22} „{b['betreff'][:40]}\"")
+                print(
+                    f'{b["quellordner"]:22} → {b["zielordner"]:22} „{b["betreff"][:40]}"'
+                )
 
     except (RegelFehler, FileNotFoundError, json.JSONDecodeError) as e:
         sys.exit(f"FEHLER: {e}")

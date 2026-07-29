@@ -16,6 +16,7 @@ eine IMAP-APPEND-Kopie in den Sent-Ordner an. Schlägt das fehl (Server ohne IMA
 falsche Zugangsdaten, Netz), ist das nur eine Warnung: die Mail ist bereits
 verschickt, das Fehlen der Sent-Kopie darf den Erfolg nicht überschreiben.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import roles  # noqa: E402  (sibling-Modul, Konvention wie ablage_pruefung.py)
 
-_LIST_LINE_RE = re.compile(r'^\((?P<flags>[^)]*)\)\s+(?:"(?P<delim>[^"]*)"|NIL)\s+(?P<name>.+)$')
+_LIST_LINE_RE = re.compile(
+    r'^\((?P<flags>[^)]*)\)\s+(?:"(?P<delim>[^"]*)"|NIL)\s+(?P<name>.+)$'
+)
 
 CONFIG_FILE = Path.home() / ".claude" / "mail.env"
 
@@ -111,7 +114,9 @@ def build_message(sender: str, args: argparse.Namespace) -> EmailMessage:
             maintype, subtype = ("application", "pdf")
         elif p.suffix not in {".txt", ".md", ".csv", ".log"}:
             maintype, subtype = ("application", "octet-stream")
-        msg.add_attachment(p.read_bytes(), maintype=maintype, subtype=subtype, filename=p.name)
+        msg.add_attachment(
+            p.read_bytes(), maintype=maintype, subtype=subtype, filename=p.name
+        )
     return msg
 
 
@@ -123,7 +128,10 @@ def send(host: str, port: int, user: str, password: str, msg: EmailMessage) -> s
             s.send_message(msg)
         return f"SSL:{port}"
     except (smtplib.SMTPException, OSError) as e:
-        print(f"{port}/SSL fehlgeschlagen ({type(e).__name__}), versuche 587/STARTTLS", file=sys.stderr)
+        print(
+            f"{port}/SSL fehlgeschlagen ({type(e).__name__}), versuche 587/STARTTLS",
+            file=sys.stderr,
+        )
     with smtplib.SMTP(host, 587, timeout=30) as s:
         s.starttls(context=ctx)
         s.login(user, password)
@@ -149,7 +157,9 @@ def find_sent_folder(imap: imaplib.IMAP4_SSL, configured: str | None) -> str | N
         name = m.group("name").strip('"')
         names.append(name)
         if "\\sent" in m.group("flags").lower() and by_special_use is None:
-            by_special_use = name  # RFC 6154 SPECIAL-USE \Sent gewinnt vor Namens-Rätselraten
+            by_special_use = (
+                name  # RFC 6154 SPECIAL-USE \Sent gewinnt vor Namens-Rätselraten
+            )
     if by_special_use:
         return by_special_use
     if configured and configured in names:
@@ -161,13 +171,20 @@ def find_sent_folder(imap: imaplib.IMAP4_SSL, configured: str | None) -> str | N
 
 
 def append_to_sent(
-    host: str, port: int, user: str, password: str, msg: EmailMessage, sent_folder: str | None
+    host: str,
+    port: int,
+    user: str,
+    password: str,
+    msg: EmailMessage,
+    sent_folder: str | None,
 ) -> str:
     with imaplib.IMAP4_SSL(host, port, timeout=30) as imap:
         imap.login(user, password)
         folder = find_sent_folder(imap, sent_folder)
         if not folder:
-            raise RuntimeError("kein Sent-Ordner gefunden (LIST lieferte keinen Kandidaten)")
+            raise RuntimeError(
+                "kein Sent-Ordner gefunden (LIST lieferte keinen Kandidaten)"
+            )
         date_time = imaplib.Time2Internaldate(time.time())
         typ, resp = imap.append(folder, "(\\Seen)", date_time, msg.as_bytes())
         if typ != "OK":
@@ -177,7 +194,9 @@ def append_to_sent(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--to", action="append", required=True, help="Empfänger (mehrfach möglich)")
+    ap.add_argument(
+        "--to", action="append", required=True, help="Empfänger (mehrfach möglich)"
+    )
     ap.add_argument("--subject", required=True)
     body_group = ap.add_mutually_exclusive_group(required=False)
     body_group.add_argument("--body", help="Mailtext direkt (text/plain)")
@@ -187,8 +206,15 @@ def main() -> None:
         help="HTML-Body aus Datei (multipart/alternative). Text-Fallback aus "
         "--body/--body-file, sonst automatisch aus dem HTML abgeleitet.",
     )
-    ap.add_argument("--attach", action="append", default=[], help="Anhang-Pfad (mehrfach möglich)")
-    ap.add_argument("--from", dest="sender", default=None, help="Absender-Override (Default: MAIL_FROM)")
+    ap.add_argument(
+        "--attach", action="append", default=[], help="Anhang-Pfad (mehrfach möglich)"
+    )
+    ap.add_argument(
+        "--from",
+        dest="sender",
+        default=None,
+        help="Absender-Override (Default: MAIL_FROM)",
+    )
     ap.add_argument(
         "--role",
         default=None,
@@ -197,10 +223,16 @@ def main() -> None:
         "(#1481). Bei --html-file wird NICHT angehängt — dort bringt "
         "roles.render_email_html Signatur und Footer bereits mit.",
     )
-    ap.add_argument("--registry", default=None, help="alternative Rollen-Registry (Default: ~/.claude/mail-roles.json)")
+    ap.add_argument(
+        "--registry",
+        default=None,
+        help="alternative Rollen-Registry (Default: ~/.claude/mail-roles.json)",
+    )
     args = ap.parse_args()
     if not (args.body or args.body_file or args.html_file):
-        ap.error("mindestens eine Body-Quelle nötig: --body, --body-file oder --html-file")
+        ap.error(
+            "mindestens eine Body-Quelle nötig: --body, --body-file oder --html-file"
+        )
 
     profile = None
     if args.role:
@@ -238,7 +270,11 @@ def main() -> None:
     if not CONFIG_FILE.exists():
         sys.exit(f"FEHLER: {CONFIG_FILE} fehlt — Bootstrap siehe /send-mail Step 0")
     cfg = parse_env(CONFIG_FILE)
-    missing = [k for k in ("SMTP_HOST", "SMTP_PORT", "MAIL_FROM", "MAIL_CREDS_FILE") if k not in cfg]
+    missing = [
+        k
+        for k in ("SMTP_HOST", "SMTP_PORT", "MAIL_FROM", "MAIL_CREDS_FILE")
+        if k not in cfg
+    ]
     if missing:
         sys.exit(f"FEHLER: Keys fehlen in {CONFIG_FILE}: {', '.join(missing)}")
 
@@ -249,12 +285,16 @@ def main() -> None:
     via = send(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"]), user, password, msg)
     atts = ", ".join(Path(a).name for a in args.attach) or "keine"
     rolle = f", Rolle: {profile.role_id} ({profile.display_name})" if profile else ""
-    print(f"OK: Mail an {', '.join(args.to)} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}{rolle}")
+    print(
+        f"OK: Mail an {', '.join(args.to)} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}{rolle}"
+    )
 
     imap_host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     imap_port = int(cfg.get("IMAP_PORT", "993"))
     try:
-        folder = append_to_sent(imap_host, imap_port, user, password, msg, cfg.get("IMAP_SENT_FOLDER"))
+        folder = append_to_sent(
+            imap_host, imap_port, user, password, msg, cfg.get("IMAP_SENT_FOLDER")
+        )
         print(f"Sent-Kopie abgelegt in '{folder}' auf {imap_host}")
     except (imaplib.IMAP4.error, RuntimeError, OSError) as e:
         print(
