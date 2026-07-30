@@ -97,6 +97,9 @@ def html_to_text(html: str) -> str:
     text = re.sub(r"(?is)<(script|style|head|title)[^>]*>.*?</\1>", "", html)
     text = re.sub(r"(?i)<br\s*/?>", "\n", text)
     text = re.sub(r"(?i)</(p|div|tr|h[1-6])\s*>", "\n\n", text)
+    # Listen lesbar halten: <li> wird zum Aufzaehlungspunkt, das Listenende zur Zeile.
+    text = re.sub(r"(?i)<li[^>]*>", "- ", text)
+    text = re.sub(r"(?i)</(li|ul|ol)\s*>", "\n", text)
     text = re.sub(r"<[^>]+>", "", text)
     text = _htmlmod.unescape(text)
     text = re.sub(r"[ \t]+", " ", text)
