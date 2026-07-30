@@ -667,3 +667,31 @@ Fällen fehlte derselbe billige Check: einmal die Post-Merge-Job-Liste, einmal d
 Korrigiert wurden nicht nur diese Zeilen, sondern alle Kopien der Falschaussage: PR-Body und
 Titel von [#188](https://github.com/achimdehnert/mcp-hub/pull/188) und der Text von
 [#189](https://github.com/achimdehnert/mcp-hub/issues/189).
+
+## 2026-07-30 — Mail-Ingest auf Prod scharf, Antwort-Entwürfe mit Zitat, ~/.claude-Schaden
+
+Mail-Ingestion läuft: Runbook mail-ingest-prod.md Schritte 1–7 durch, genau eine aktive
+Generation (6.008 Nachrichten, 12.865 Beteiligungen, Deckung `complete`), Zeitplan 03:30
+nicht mehr inert. Der Größenvergleich lief bewusst **vor** der Freigabe: +0,5 % gegen den
+lokalen Referenzlauf, Ordnerzahlen 92/27 identisch.
+
+Antwort-Entwürfe trugen kein Zitat — `createReply` legt es an, der folgende PATCH auf
+`body.content` löschte es. Auf dem IMAP-Weg fehlten `In-Reply-To`/`References` ganz.
+Behoben: platform#1555 (+ `--design` fürs Rollen-Design), #1556 (Link-Dienst erreicht
+jeden Ordner). Drei Entwürfe neu erzeugt, ungesendet.
+
+`mail.iil.pet` hinter Cloudflare Access, eigener Tunnel im User-Kontext. Beim Erstlauf
+antwortete der Host ~20 s mit HTTP 200 ohne Anmeldung: Access war angelegt, die
+Durchsetzung noch nicht propagiert, der Tunnel lief schon. Tunnel sofort gestoppt, danach
+302. Das Skript wartet jetzt auf die nachgewiesene Abweisung, bevor es den Tunnel startet
+(`tools/cf_access/`, Runbook `loopback-dienst-hinter-cloudflare-access.md`).
+
+Selbstverschuldeter Schaden: `generate.py --target ~/.claude` statt `~/.claude/commands`
+tauschte per atomarem Swap das ganze Verzeichnis aus. Vollständig aus `.bak`
+wiederhergestellt, `settings.json` zusammengeführt, Dienste gegengeprüft. Guard dagegen in
+#1558. `--allow-live` schützte nicht: es prüft Gleichheit mit dem Live-Pfad, nicht
+Enthaltensein.
+
+Zwei Prozess-Stolpersteine: `[skip ci]` im Kopf-Commit macht Required Checks unerreichbar
+(#1503 war approved und dauerhaft blockiert); und ein Merge während eines laufenden Push
+verliert Commits (#1555 → Folge-PR #1556, zweites Mal am selben Tag).

@@ -15,6 +15,85 @@
 
 <!-- Ausgelagert 2026-07-23 (Handover-Refresh 07-22→07-23) -->
 
+## ⚡ Vorheriger Stand (2026-07-28 Nachmittag — Handover-Prios 2+3 gebaut, zwei blinde Melder gefunden, 5 PRs offen)
+
+**Kern in einem Satz:** Von den vier Handover-Prios sind zwei gebaut (Mail-Rollen,
+Regel-Interpreter), eine gestrichen (Verteiler-Drift, war längst erledigt) — und der
+Session-Start-Runner hat dabei eine Lücke offengelegt, die sechs Wochen niemandem auffiel.
+
+**Fünf PRs offen, alle CI-grün, alle `BLOCKED` (Ruleset: kein Self-Merge):**
+[#1511](https://github.com/achimdehnert/platform/pull/1511) Handover-Prio 4 gestrichen ·
+[#1512](https://github.com/achimdehnert/platform/pull/1512) `--role` + Kanal-Grenze ·
+[#1513](https://github.com/achimdehnert/platform/pull/1513) Regel-Interpreter ADR-284 §7a ·
+[#1515](https://github.com/achimdehnert/platform/pull/1515) Phase 0.7.2 Cron-Melder ·
+[#1517](https://github.com/achimdehnert/platform/pull/1517) project-facts über PR statt Direkt-Push.
+
+**[#1503](https://github.com/achimdehnert/platform/pull/1503) ist entblockt und wartet nur
+auf den Merge-Klick** (CLEAN, approved von `wirdigital`; mein Merge wurde vom
+Permission-Klassifikator abgelehnt). **Die Hypothese des Vor-Handovers war falsch:** kein
+Required Check mit `paths`-Filter — `guardian.yml` ist auf Head und `main` byte-identisch
+und hat gar keinen, und guardian lief am selben Tag grün auf #1505, ebenfalls ein reiner
+`docs/retros/`-PR. Für den alten Head existierte **kein einziger** `pull_request`-Lauf.
+`reopened` half nicht (löste nur `pull_request_target` aus). **Ursache am Session-Ende
+gefunden und in beide Richtungen belegt: `[skip ci]` in der Commit-Message des
+Head-Commits.** GitHub überspringt dann alle Workflow-Läufe für den Push, auch das
+`pull_request`-Event — der Required Check meldet sich nie, nichts wird rot, der PR bleibt
+dauerhaft blockiert. Head `2c45d444` (mit `[skip ci]`): 0 Läufe, BLOCKED · mein leerer
+Commit `fa04b221` (ohne): 6 Läufe, alle grün, CLEAN · neuer Head `7e177062` vom 19:07 (mit
+`[skip ci]`): wieder 0 Läufe, wieder BLOCKED. **#1503 ist damit gerade NICHT merge-fertig** —
+es braucht einen Commit ohne den Marker. Derselbe Marker ist auf einem Merge nach `main`
+richtig (verhindert Prod-Deploys durch Docs-Commits) und auf einem PR-Head falsch.
+
+**Handover-Prio 4 (Verteiler-Drift) ist gestrichen** — `doctor.py` selbst ausgeführt:
+DRIFT-SCORE 0, 51 Kopien fresh. Die Zeile war seit dem Erledigt-Vermerk tot, wurde aber vom
+Start-Hook weiter als offene Prio gespiegelt. Wodurch die Lane grün wurde, bleibt offen.
+
+**Prio 2 (Mail-Rollen) gebaut, #1512:** `--role` in `send_mail`/`draft_mail`/`graph_mail`
+verdrahtet, dazu die Kanal-Grenze `darf_nicht_zusagen` als hartes Pre-Send-Gate ohne
+Bypass-Flag. „Termin" ist absichtlich **kein** Signalwort (Gegenprobe als Test). Belegt per
+scharfem CLI-Lauf inklusive Negativprobe, nicht nur per Unit-Test. **Offen bleibt:** die
+Rolle `dsb` ist weiter nicht versandfertig — die Kontaktdaten in der Signatur fehlen, das
+ist Owner-Input.
+
+**Prio 3 (Regel-Interpreter) gebaut, #1513:** `tools/mail_agent/regeln.py` als ausführbare
+Fassung von ADR-284 §7a — jede Zeile des Abschnitts ist ein Codepfad und ein Test. Die
+komplette CLI-Kette lief scharf gegen einen Datensatz, der den Realfall vom 27.07.
+nachbildet; die Gegenprobe meldete „52 Treffer wurden NIE von Hand bewegt (96 %)".
+**Nicht verdrahtet an ein echtes Postfach** — getrackt als
+[#1514](https://github.com/achimdehnert/platform/issues/1514). Die eigentliche offene Frage
+dort ist nicht das Einlesen, sondern woher die beobachteten Handbewegungen kommen sollen.
+
+**Neue Phase 0.7.2 im Session-Start-Runner (#1515)** findet dauerhaft rote Cron-Melder.
+Phase 0.7 prüfte Deploy-Läufe, nie den Zustand der Cron-Workflows — deshalb liefen zwei
+Melder sechs Tage unbemerkt rot. Der erste Lauf fand **vier** statt der zwei bekannten;
+die zwei neuen sind [#1516](https://github.com/achimdehnert/platform/issues/1516).
+
+**[#1516](https://github.com/achimdehnert/platform/issues/1516) `Gen project-facts.md` ist
+diagnostiziert und gefixt (#1517).** Die Generierung war nie kaputt, der **Push**
+scheiterte — aus zwei Gründen gleichzeitig: `409 Conflict` bei 17 Repos (aktives Ruleset
+`main-required-checks` aus ADR-242 Wave 3, ohne Bypass-Actor; die Contents-API kann keinen
+Required Check erfüllen) und `307 Redirect` bei dreien (`risk-hub`, `tax-hub`,
+`ausschreibungs-hub` liegen unter `iilgmbh/`). **Es ist ein fortschreitender Ausfall:**
+06-15 noch 14 ok / 5 Fehler, 07-06 dann 9/11, 07-27 schließlich 0/18 — jede Woche kam ein
+Repo mit neuem Ruleset dazu. Der letzte über alle Repos grüne Lauf war der **08.06.**; die
+verteilten `project-facts.md` tragen deshalb unterschiedliche Stände. Der 409-Teil ist ein
+**Wiedergänger** derselben Ursache, die seit Issue #818 im Kopf von
+`adr-nightly-metrics.yml` steht.
+
+**⛔ Blockiert, wartet auf Freigabe:** Der Schreibpfad von #1517 (Branch anlegen, PUT, PR
+öffnen) ist **nicht** belegt — die 10 Tests laufen gegen einen API-Doppelgänger. Vor dem
+Merge gehört ein scharfer `workflow_dispatch` mit `target_repo` gegen **ein** Repo
+(Vorschlag: `learn-hub`), der dort wirklich Branch und PR anlegt. Das ist ein Schreibzugriff
+auf ein zweites Repo und wurde ausdrücklich zur Freigabe gestellt, nicht selbst ausgeführt.
+Ungeprüft bleibt bis dahin auch, ob `PROJECT_PAT` überhaupt `pull_requests: write` trägt.
+
+**Dirty geblieben (fremd, nicht eingesammelt):** `django-lms-lite`, `iil-doc-templates`,
+`lastwar-alliance-ops`, `risk-hub` — identisch zum Stand vom Vormittag, keine davon in
+dieser Session angefasst.
+
+**Kein Prod-Schritt:** platform hat keinen Deploy auf `push:main`; diese Session hat
+ohnehin nichts gemergt.
+
 ## ⚡ Vorheriger Stand (2026-07-22 Nachmittag — ADR-280/281 gemergt, Symlink-Ladetest real durchgeführt: 5/6 bestanden + zwei Werkzeug-Befunde; Worktree-Bestand 30→23)
 
 **Kern in einem Satz:** Die beiden Skill-Lane-ADRs liegen auf `main`, der ADR-281-Ladetest
