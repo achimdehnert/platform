@@ -21,6 +21,8 @@ Usage:
   draft_mail.py --account hnu --to a@b.de --subject "..." --html-file mail.html
   draft_mail.py --to a@b.de --cc c@d.de --subject "..." --body-file mail.txt \
                 --signature-file sig.html --attach anhang.pdf
+  draft_mail.py --account hnu --role hnu --design --to a@b.de --subject "AW: ..." \
+                --body-file mail.txt --in-reply-to "<mid@host>"   # Design + Strang-Zuordnung
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ import mimetypes
 import re
 import sys
 import time
+from email import message_from_bytes
 from email.message import EmailMessage
 from email.utils import formatdate
 from pathlib import Path
@@ -97,6 +100,71 @@ def html_to_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
 
 
+_ZITAT_FELDER = (("Von", "From"), ("Gesendet", "Date"), ("An", "To"), ("Cc", "Cc"))
+
+
+def zitat_bauen(ursprung, *, als_html: bool, max_chars: int = 20000) -> str:
+    """Ursprungsmail als Zitat aufbereiten — das IMAP-Gegenstueck zu Graph `createReply`.
+
+    Graph legt den zitierten Verlauf selbst an; per IMAP-APPEND gibt es das nicht,
+    also wird der Block hier gebaut: Kopfzeilen im Outlook-Stil, darunter der
+    **Text**-Teil der Ursprungsmail. Bewusst der Textteil und nicht deren HTML —
+    fremdes Mail-HTML brachte sonst Remote-Referenzen (Zaehlpixel) in den eigenen
+    Entwurf; die neutralisiert `mail_view.py` fuer die Anzeige, nicht fuer den Versand.
+    """
+    from read_mail import decode_hdr, extract_text  # lokal: nur fuer diesen Weg
+
+    kopf = [
+        (label, decode_hdr(ursprung.get(feld)))
+        for label, feld in _ZITAT_FELDER
+        if ursprung.get(feld)
+    ]
+    kopf.append(("Betreff", decode_hdr(ursprung.get("Subject"))))
+    rumpf = extract_text(ursprung, max_chars=max_chars).rstrip()
+    if als_html:
+        zeilen = "".join(
+            f"<p style='margin:0;font-size:12.5px;color:#55606A;'>"
+            f"<b>{html_mod.escape(label)}:</b> {html_mod.escape(wert)}</p>"
+            for label, wert in kopf
+        )
+        return (
+            '<div style="margin-top:24px;padding-top:14px;border-top:1px solid #C9C4BA;'
+            "font-family:'Segoe UI',Helvetica,Arial,sans-serif;\">"
+            + zeilen
+            + "<div style='margin-top:12px;font-size:13px;line-height:1.55;color:#2A3138;"
+            "white-space:pre-wrap;'>" + html_mod.escape(rumpf) + "</div></div>"
+        )
+    kopf_text = "\n".join(f"{label}: {wert}" for label, wert in kopf)
+    zitiert = "\n".join(f"> {z}" for z in rumpf.split("\n"))
+    return f"\n\n-----Urspruengliche Nachricht-----\n{kopf_text}\n\n{zitiert}\n"
+
+
+def hole_ursprung(cfg: dict[str, str], message_id: str):
+    """Ursprungsmail per Message-ID aus dem Postfach holen (read-only, BODY.PEEK).
+
+    Die Message-ID ist der stabile Anker — UIDs wandern beim Umsortieren. Gesucht
+    wird ueber alle Ordner, damit eine bereits einsortierte Mail noch gefunden wird.
+    """
+    from anker import suche_message_id
+    from read_mail import _mailbox_arg, connect
+
+    imap = connect(cfg)
+    try:
+        ordner, uid = suche_message_id(imap, message_id)
+        if not uid:
+            sys.exit(f"FEHLER: Message-ID {message_id} in keinem Ordner gefunden")
+        imap.select(_mailbox_arg(ordner), readonly=True)
+        typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[])")
+        if typ != "OK" or not data or not isinstance(data[0], tuple):
+            sys.exit(f"FEHLER: Ursprungsmail {message_id} nicht lesbar ({ordner})")
+        return message_from_bytes(data[0][1])
+    finally:
+        try:
+            imap.logout()
+        except (imaplib.IMAP4.error, OSError):
+            pass
+
+
 def build_draft(
     sender: str,
     to: list[str],
@@ -106,8 +174,16 @@ def build_draft(
     text: str | None = None,
     html: str | None = None,
     attachments: list[str] | None = None,
+    in_reply_to: str | None = None,
+    references: str | None = None,
 ) -> EmailMessage:
-    """Entwurf bauen; mit `html` als multipart/alternative, sonst reines text/plain."""
+    """Entwurf bauen; mit `html` als multipart/alternative, sonst reines text/plain.
+
+    `in_reply_to`/`references` tragen die Message-ID der Ursprungsmail. Ohne sie
+    landet eine Antwort beim Empfaenger als NEUER Strang — der Verlauf reisst,
+    obwohl der Betreff stimmt. Graph macht das per `createReply` von selbst,
+    IMAP-APPEND nicht (Befund 2026-07-30).
+    """
     if not text and not html:
         raise ValueError("weder Text- noch HTML-Body angegeben")
     msg = EmailMessage()
@@ -117,6 +193,10 @@ def build_draft(
         msg["Cc"] = ", ".join(cc)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        # References traegt die ganze Kette; fehlt sie, genuegt die eine ID.
+        msg["References"] = references or in_reply_to
     msg.set_content(text or html_to_text(html or ""), subtype="plain", charset="utf-8")
     if html:
         msg.add_alternative(
@@ -179,6 +259,15 @@ def main() -> None:
     ap.add_argument("--text-file", help="expliziter Text-Teil zu --html-file")
     ap.add_argument("--signature-file", help="Signatur, wird an den Body angehaengt")
     ap.add_argument(
+        "--in-reply-to",
+        dest="in_reply_to",
+        help="Message-ID der Ursprungsmail — ohne sie reisst der Strang beim Empfaenger",
+    )
+    ap.add_argument(
+        "--references",
+        help="ganze References-Kette; fehlt sie, wird --in-reply-to genommen",
+    )
+    ap.add_argument(
         "--attach", action="append", default=[], help="Anhang (mehrfach moeglich)"
     )
     ap.add_argument(
@@ -196,7 +285,26 @@ def main() -> None:
         "Signatur/Pflicht-Footer an und erzwingt die Kanal-Grenze (#1481)",
     )
     ap.add_argument("--registry", default=None, help="alternative Rollen-Registry")
+    ap.add_argument(
+        "--design",
+        action="store_true",
+        help="mit --role: Klartext im Rollen-Design als HTML-Mail rendern",
+    )
+    ap.add_argument(
+        "--eyebrow",
+        default=None,
+        help="Kopfzeile ueber der Anrede bei --design (Default: Betreff)",
+    )
+    ap.add_argument(
+        "--zitat-message-id",
+        default=None,
+        metavar="<mid@host>",
+        help="Ursprungsmail (Message-ID) als Zitat unter die Antwort setzen — "
+        "das IMAP-Gegenstueck zu Graph createReply",
+    )
     args = ap.parse_args()
+    if args.design and not args.role:
+        ap.error("--design braucht --role (das Design kommt aus der Rolle)")
 
     profile = None
     if args.role:
@@ -252,8 +360,37 @@ def main() -> None:
             )
         except roles.KanalgrenzeVerletzt as e:
             sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
-        if not html:
+        if args.design:
+            if html:
+                sys.exit(
+                    "FEHLER: --design und HTML-Body zugleich — das Design rendert "
+                    "den Klartext selbst; nur eines von beiden angeben."
+                )
+            if not (text or "").strip():
+                sys.exit("FEHLER: --design braucht einen Klartext-Body")
+            html = roles.render_email_html(
+                profile,
+                eyebrow=args.eyebrow or args.subject,
+                subject=args.subject,
+                **roles.zerlege_klartext(text or ""),
+            )
+            text = None  # Text-Teil leitet build_draft aus dem HTML ab (mit Signatur)
+        elif not html:
             text = roles.text_mit_signatur(profile, text or "")
+
+    if args.zitat_message_id:
+        ursprung = hole_ursprung(cfg, args.zitat_message_id)
+        if html:
+            # Das Zitat gehoert VOR </body>, sonst haengt es ausserhalb des Rumpfes.
+            block = zitat_bauen(ursprung, als_html=True)
+            html = (
+                html.replace("</body>", f"{block}</body>", 1)
+                if "</body>" in html
+                else html + block
+            )
+        if text:
+            text = text.rstrip() + zitat_bauen(ursprung, als_html=False)
+        print(f"Zitat uebernommen: {args.zitat_message_id}")
 
     sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
     # Anmeldung und Absender sind zwei verschiedene Dinge: das HNU-Postfach meldet
@@ -269,6 +406,8 @@ def main() -> None:
         text=text,
         html=html,
         attachments=args.attach,
+        in_reply_to=args.in_reply_to,
+        references=args.references,
     )
     folder, uid = append_draft(
         cfg.get("IMAP_HOST", cfg["SMTP_HOST"]),

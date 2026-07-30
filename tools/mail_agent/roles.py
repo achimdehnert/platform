@@ -257,6 +257,52 @@ def text_mit_signatur(profile: Profile, text: str) -> str:
     return "\n\n".join(t for t in teile if t) + "\n"
 
 
+GRUSSFORMELN = (
+    "herzliche grüße",
+    "viele grüße",
+    "beste grüße",
+    "mit freundlichen grüßen",
+    "freundliche grüße",
+    "liebe grüße",
+    "grüße",
+)
+
+
+def zerlege_klartext(text: str) -> dict:
+    """Klartext-Mail → Bausteine für `render_email_html`.
+
+    Der Klartext ist die Arbeitsform (so werden Entwürfe geschrieben und
+    gegengelesen); das Rollen-Design braucht ihn zerlegt. Erste Zeile = Anrede;
+    Grußformel und der Namensblock darunter fallen weg, weil `render_email_html`
+    beides aus der Rolle setzt (Signatur/Footer) — sonst stünde der Name doppelt.
+    Absatz-interne Zeilenumbrüche (Datums-/Punktlisten) bleiben erhalten.
+    """
+    zeilen = [z.rstrip() for z in text.strip().split("\n")]
+    greeting = zeilen.pop(0).strip() if zeilen else ""
+    closing = ""
+    for i in range(len(zeilen) - 1, -1, -1):  # Grußformel von hinten suchen
+        kern = zeilen[i].strip().lower().rstrip(",!.")
+        if kern and kern.startswith(GRUSSFORMELN):
+            closing = zeilen[i].strip().rstrip(",")
+            del zeilen[i:]
+            break
+    absaetze: list[str] = []
+    puffer: list[str] = []
+    for z in zeilen:
+        if z.strip():
+            puffer.append(z.strip())
+        elif puffer:
+            absaetze.append("\n".join(puffer))
+            puffer = []
+    if puffer:
+        absaetze.append("\n".join(puffer))
+    return {
+        "greeting": greeting,
+        "paragraphs": absaetze,
+        "closing": closing or "Viele Grüße",
+    }
+
+
 _ROW = Template(
     '<tr><td style="padding:12px 16px;font-size:13.5px;color:#2A3138;$border">$label</td>'
     '<td align="right" style="padding:12px 16px;font-size:12.5px;color:$color;font-weight:600;$border">'
@@ -321,9 +367,11 @@ def render_email_html(
     closing: str = "Viele Grüße",
 ) -> str:
     """Baut eine Outlook-feste HTML-Mail im Stil 'Klare Linie' mit den Rollen-Tokens."""
+    # Zeilenumbruch INNERHALB eines Absatzes bleibt erhalten (Datums-/Punktlisten
+    # kämen sonst als eine lange Zeile an) — erst escapen, dann <br> einsetzen.
     paras = "".join(
         f'<p style="margin:0 0 15px 0;font-size:14.5px;line-height:1.62;color:#2A3138;">{p}</p>'
-        for p in (html.escape(x) for x in paragraphs)
+        for p in (html.escape(x).replace("\n", "<br>") for x in paragraphs)
     )
     status_html = ""
     if status_rows:
