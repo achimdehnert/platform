@@ -17,6 +17,10 @@ ai_sparring_by:
     date: 2026-07-29
     role: adversarial-review
     summary: "Externes LLM (Runde 3, 'konzept-hybrid') auf KONZ-036: eigenständige Gegen-Konzeption statt Review — 16 Architekturklassen mit gewichteter Matrix, Sieger PostgreSQL+Datei-CAS (4,73). Vier übernommene Zugewinne: inhaltsadressierter Rohobjektspeicher, Leitsatz 'Delta an der Quelle, Rebuild in der Projektion', sechs Ausgabezustände statt zwei, sechsstufige Retrieval-Pipeline. Nicht übernommen: die volle Grundausstattung (25 Tabellen) und der unbeschränkte Volltext-CAS. Tag-Tabelle §11.3."
+  - tool: other
+    date: 2026-07-29
+    role: adversarial-review
+    summary: "OpenAI o3 (Runde 4) auf DIESEN ADR-Text — erste Runde, die nicht die Vorstufe bewertet. Verdikt überarbeiten. Traf die drei in §11.5 selbst benannten Lücken: die Zahlenkorrektur bleibt Indizienbeweis (AD-1), die Zweckbindung macht eine Ausnahmeklausel von ADR-286 zur Default-Strategie (AD-3), und Gate 8 misst das likely_open-Problem, behebt es aber nicht (AD-4). 7 von 9 Befunden valid, 2 missverstehen den Kontext. Tag-Tabelle §11.6."
 ---
 
 # ADR-288: Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements
@@ -154,6 +158,19 @@ gemessenen Zahl bei 70 % und nach Ausschluss bei **15 %**. Die Kritik bleibt in 
 Größenordnung erschlossen, nicht aus einem Lauf-Protokoll der damaligen Zählung rekonstruiert.
 Ein Beweis wäre nur über die Rohausgabe jener Messung möglich, die nicht vorliegt.
 
+**Was daraus folgt (Runde 4, AD-1).** Die Gegenlesung hält den Schluss für einen
+Indizienbeweis und zieht daraus einen Schluss, den dieser Abschnitt bis dahin nicht gezogen
+hatte: solange nur *eine* Zählung vorliegt, ist auch **66.580** eine Momentaufnahme. Die alte
+Zahl wurde ja gerade deshalb verworfen, weil sie einen Zwischenzustand traf — dasselbe
+Argument gilt gegen die neue. Der Einwand ist berechtigt und billig zu entkräften:
+
+> **Die Bestandszählung gilt erst als belastbar, wenn sie an drei nicht aufeinanderfolgenden
+> Tagen wiederholt wurde, die Rohausgabe je Lauf protokolliert ist und die drei Ergebnisse
+> innerhalb einer festzulegenden Spanne liegen.** Bis dahin ist 66.580 die *beste verfügbare*
+> Zahl, keine bestätigte. Größenrechnungen dürfen darauf aufsetzen, Gate-Entscheidungen nicht.
+
+Das verschiebt Gate 0 von „erfüllt" auf „vorläufig erfüllt" (§8).
+
 ### 1.4.2 Gemessener Vollaufbau (2026-07-29) — Beleg zu Gate 5
 
 Der Kopfzeilen-Vollaufbau über die **behaltene** Menge, tatsächlich ausgeführt statt
@@ -230,7 +247,19 @@ Sechs Festlegungen:
 
 1. **Ausschluss zuerst.** Die bestehende Regel entfernt 78,9 % des Bestands, bevor irgendetwas
    verarbeitet wird. Ausgeschlossene Ordner erscheinen **namentlich mit Grund** in jeder Deckung —
-   Ausschluss verkleinert die Grundgesamtheit sichtbar, nicht still.
+   Ausschluss verkleinert die Grundgesamtheit sichtbar, nicht still. Drei Auflagen, alle aus
+   Runde 4 (AD-2, M28-1):
+   - Die Ausschlussregel lebt in einer **versionierten Konfiguration**, nicht als Literal im
+     Code. Jede Deckung nennt die Version, mit der sie erzeugt wurde. Ohne das ist in zwei
+     Jahren nicht mehr rekonstruierbar, warum ein alter Vorgang eine andere Grundgesamtheit
+     sah als ein neuer.
+   - Ein Ausschluss ist **nie endgültig**: zeigt ein Vorgang auf einen ausgeschlossenen Ordner,
+     wird dieser gezielt nachgeladen und die Deckung neu berechnet. Der Ausschluss spart
+     Verarbeitung, er verkleinert nicht den erreichbaren Raum.
+   - Bis zum Nachladen ist der Zustand **`unknown`**, nicht `open` und nicht `resolved`. Ein
+     ausgeschlossener Ordner ist eine Deckungslücke wie jede andere — genau das war der
+     Einwand: sonst verschiebt der Ausschluss das Problem nur an eine Stelle, an der es
+     niemand mehr sieht.
 2. **Delta an der Quelle, Rebuild in der Projektion.** Die teure Übertragung über das Netz ist
    inkrementell (Graph-Delta je Ordner, IMAP über `UIDVALIDITY`/UID mit periodischer Abstimmung).
    Alles lokal Abgeleitete darf jederzeit vollständig neu entstehen. Das ersetzt die Regel
@@ -273,6 +302,26 @@ erst recht: Extraktion ist wiederholbar, und ein Schema- oder Parserfehler ist r
 | Nachrichten | 14.018 (nach Ausschluss) | die im aktiven Vorgang |
 | Ingestion | modellgebunden | modellfrei |
 | Schema-Fehler rückwirkend heilbar | **nein** | **ja** |
+
+### 3.2.1 Wann ein Supersede doch nötig würde (Runde 4, AD-3)
+
+Die Gegenlesung hält dem entgegen, dass hier eine **Ausnahmeklausel zur Regelstrategie**
+gemacht wird: ADR-286 §4.8 sieht Vorgang-Promotion als Sonderfall vor, dieser ADR baut den
+Normalbetrieb darauf. Der Einwand trifft. Er widerlegt die Entscheidung nicht — eine Klausel
+konsequent zu nutzen ist zulässig —, aber er legt offen, dass die Grenze bisher nirgends
+definiert war. Ein Verhältnis, das nur durch Auslegung hält, driftet.
+
+**Die Entscheidung braucht ein Supersede von ADR-286, sobald einer dieser Punkte eintritt:**
+
+1. Volltext wird für Nachrichten **außerhalb** eines aktiven Vorgangs dauerhaft gespeichert —
+   gleich mit welcher Begründung (Vorwärmen, Recall-Messung, Bequemlichkeit).
+2. Der Anteil der Nachrichten in aktiven Vorgängen überschreitet dauerhaft **ein Viertel** der
+   behaltenen Menge. Dann ist „zweckgebunden" nur noch ein Etikett für „fast alles".
+3. Ein Vorgang wird geschlossen, ohne dass sein Volltext gelöscht oder in ein definiertes
+   Nachleben überführt wird. Zweckbindung ohne Ende der Zweckbindung ist keine.
+
+Trifft einer davon zu, ist die Umdeklaration real und der ehrliche Weg ist ein Supersede,
+kein weiter gedehnter §4.8. **Der Anteil aus Punkt 2 wird gemessen** (§8 Gate 10).
 
 ---
 
@@ -375,6 +424,35 @@ Das ersetzt die Zweiteilung aus v1, die „starke Evidenz bei unvollständiger D
 Ahnung" in denselben Topf warf. **`likely_open` braucht eine gemessene Zielquote** — bleibt der
 Anteil dauerhaft hoch, ist die Unterscheidung wertlos (§8 Gate 8).
 
+**Der Einwand aus Runde 4 (AD-4) und warum er nur halb übernommen wird.** Die Gegenlesung
+hält die Regel für praxisgefährdend: wenn vollständige Deckung selten erreicht wird, landet
+alles in `likely_open`, und das Werkzeug beantwortet die eine Frage nicht mehr, für die es
+gebaut ist. Der zweite Teil des Einwands sitzt: Gate 8 **misst** das Problem, es **behebt**
+nichts — ein Messwert ohne definierte Konsequenz ist ein Beobachtungsposten, keine Absicherung.
+
+Der vorgeschlagene Ausweg — `open` schon ab einer Deckung von etwa neun Zehnteln zulassen —
+wird **nicht** übernommen. Er kauft Benutzbarkeit mit genau der Fehlerklasse, gegen die dieser
+ADR gebaut ist: bei neun Zehnteln Deckung ist jede zehnte Nachricht ungesehen, und eine
+einzige ungesehene Nachricht kehrt „offen" in „erledigt" um. Eine Schwelle unterhalb von
+vollständig macht die Negativaussage nicht etwas unsicherer, sondern unzulässig — der
+Unterschied ist kategorial, nicht graduell.
+
+**Stattdessen bekommt Gate 8 eine Konsequenz statt nur einer Zahl.** Übersteigt der Anteil
+`likely_open` an allen offenen Punkten den Schwellwert dauerhaft, wird genau einer von drei
+Hebeln gezogen, und die Wahl wird begründet festgehalten:
+
+1. **Die Deckungsdefinition ist zu breit geschnitten** — der „relevante Scope" einer Frage
+   umfasst Quellen, die für sie nachweislich nichts beitragen. Dann wird der Scope enger
+   definiert, nicht die Schwelle gesenkt.
+2. **Die Ingestion hat eine reale Lücke** — dann ist der hohe Anteil ein korrektes Signal und
+   die Lücke wird geschlossen.
+3. **Die Frage ist auf diesem Bestand nicht beantwortbar.** Dann sagt das Werkzeug das, statt
+   eine Antwort zu erfinden — das ist ein zulässiges Ergebnis, kein Defekt.
+
+Bleibt der Anteil auch nach dem Ziehen eines Hebels hoch, ist das ein Befund gegen den
+gesamten Zuschnitt und gehört in eine Nachfolge-Entscheidung — nicht in eine aufgeweichte
+Schwelle.
+
 ### 4.7 Retrieval in sechs Stufen
 
 | Stufe | Inhalt |
@@ -457,6 +535,22 @@ Befehl hätte keine definierte Semantik.
 Kriterium `Client ⊆ Server`: zu viele Server-Treffer sind harmlos, zu wenige sehen aus wie ein
 Ergebnis. Fällt eine Sonde, wird der Pfad **gesperrt**, nicht nachgebessert.
 
+**Was „gesperrt" genau heißt (Runde 4, M28-3).** Die Gegenlesung weist darauf hin, dass ein
+einzelner Parser- oder Sondenfehler bei dieser Formulierung ein ganzes Konto stilllegen kann —
+im Ein-Personen-Betrieb ohne Bereitschaft ist das ein Ausfall, kein Schutz. Der Einwand
+trifft eine echte Unschärfe: gesperrt wird der **Retrievalpfad**, für den die Sonde steht,
+nicht das Konto und nicht der Lauf.
+
+- Fällt die `TO`/`CC`-Sonde, wird die Empfängersuche für dieses Konto auf den lokalen
+  Vollscan umgestellt — langsamer, aber vollständig. Absendersuche und Ingestion laufen weiter.
+- Fällt eine Sonde für einen Ordner, gilt dieser Ordner als **nicht gedeckt** und erscheint so
+  in jeder Deckung. Der Rest des Kontos bleibt nutzbar.
+- Nur wenn **kein** Pfad eines Kontos mehr kalibriert ist, gilt das Konto als ungedeckt.
+
+Der Unterschied ist wesentlich: eine gesperrte Abkürzung darf nie zu weniger Treffern führen,
+sondern nur zu langsameren. Ein Pfad wird gesperrt, damit die Antwort ehrlich bleibt — nicht,
+damit sie ausbleibt.
+
 ### 4.13 Dossier
 
 Jede Zeile trägt **Evidenzverweis**, **Ableitungsart** (`beobachtet`/`abgeleitet`),
@@ -521,13 +615,20 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 ## 8. Confirmation
 
-0. **Bestands-Gate — ✅ erfüllt (§1.4.1).** Maßgeblich ist **66.580** über 246 Ordner; die ältere
-   Zahl 90.967 war die Ablesung eines vorübergehenden Zustands während der Archiv-Umsortierung
-   vom 2026-07-28. Belegt durch: Methodenvalidierung (`STATUS` = `SELECT` = `SEARCH`, 4/4, null
-   nicht zählbare Ordner), exakte Übereinstimmung im nicht betroffenen Kontrollkonto (9/12) und
-   das Sitzungsprotokoll mit 28.158 verschobenen Nachrichten in denselben zwei Konten.
-   **Wiederholungsauflage:** Die Zählung wird nach jeder Umsortierung erneut erhoben, bevor
-   Größenrechnungen darauf aufsetzen.
+0. **Bestands-Gate — 🟡 vorläufig erfüllt (§1.4.1, herabgestuft nach Runde 4).** Maßgeblich ist
+   **66.580** über 246 Ordner; die ältere Zahl 90.967 war die Ablesung eines vorübergehenden
+   Zustands während der Archiv-Umsortierung vom 2026-07-28. Belegt durch: Methodenvalidierung
+   (`STATUS` = `SELECT` = `SEARCH`, 4/4, null nicht zählbare Ordner), exakte Übereinstimmung im
+   nicht betroffenen Kontrollkonto (9/12) und das Sitzungsprotokoll mit 28.158 verschobenen
+   Nachrichten in denselben zwei Konten.
+   **Warum nur vorläufig:** Genau das Argument, das die alte Zahl entwertet hat — eine einzelne
+   Messung kann einen Zwischenzustand treffen — gilt unverändert gegen die neue. Ein
+   Indizienbeweis, der die Vorgängerzahl kippt, trägt seine eigene nicht.
+   **Voll erfüllt ist Gate 0 erst,** wenn die Zählung an **drei nicht aufeinanderfolgenden
+   Tagen** wiederholt wurde, die **Rohausgabe je Lauf** protokolliert vorliegt und die drei
+   Ergebnisse innerhalb einer vorab festgelegten Spanne liegen. Bis dahin dürfen
+   Größenrechnungen auf 66.580 aufsetzen, **Gate-Entscheidungen nicht**.
+   **Wiederholungsauflage:** Die Zählung wird zusätzlich nach jeder Umsortierung erneut erhoben.
 1. **Negativaussage-Gate:** Kein `open` ohne vollständige Deckung. Ein Test mit künstlich
    entferntem Ordner erzeugt `unknown`, **nicht** `open`.
 2. **Build-Gate:** Ein mitten im Lauf abgebrochener Aufbau ändert den sichtbaren Stand nicht.
@@ -546,12 +647,25 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
    Vorgängen (Weiterleitungen, generische Betreffs, Ordnerwechsel, Mehrfachkopien, Unicode,
    Anhänge, Termine, parallele Themen). Im selben Zug: einmaliger Benchmark eines fertigen
    lokalen Indexers gegen dieselbe Menge.
-8. **`likely_open`-Gate:** Der Anteil `likely_open` an allen offenen Punkten wird gemessen.
-   Bleibt er dauerhaft über einem festgelegten Schwellwert, ist die Deckungsdefinition zu eng
-   oder die Zustandsunterscheidung wertlos — beides ist ein Befund, kein Betriebszustand.
+8. **`likely_open`-Gate — mit Konsequenz, nicht nur mit Zahl (verschärft nach Runde 4, AD-4).**
+   Der Anteil `likely_open` an allen offenen Punkten wird gemessen. Bleibt er dauerhaft über
+   dem Schwellwert, **wird einer der drei Hebel aus §4.6 gezogen und die Wahl begründet
+   festgehalten** — Scope enger schneiden, Ingestionslücke schließen, oder die Frage als auf
+   diesem Bestand nicht beantwortbar ausweisen. Ein reiner Messwert ohne gezogenen Hebel gilt
+   als **nicht bestanden**: Gate 8 war bis hierher ein Beobachtungsposten, keine Absicherung.
+   Die Schwelle für `open` wird dabei **nicht** gesenkt (Begründung in §4.6).
 9. **Dossier-Gate:** Jede Zeile trägt Evidenzverweis und Ableitungsart; eine Zeile ohne beides ist
    ein Fehler.
-10. **Drift-Detector** (ADR-059): Staleness 12 Monate.
+10. **Zweckbindungs-Gate (neu nach Runde 4, AD-3).** Der Anteil der Nachrichten in aktiven
+    Vorgängen an der behaltenen Menge wird gemessen. Überschreitet er dauerhaft **ein Viertel**,
+    oder tritt einer der beiden anderen Punkte aus §3.2.1 ein, ist die Zweckbindung nur noch
+    ein Etikett — dann ist ein **Supersede von ADR-286** fällig, keine weitere Auslegung von
+    dessen §4.8.
+11. **Ausschluss-Rückholbarkeits-Gate (neu nach Runde 4, AD-2).** Ein Vorgang, der auf einen
+    ausgeschlossenen Ordner zeigt, erzeugt `unknown` und einen Nachlade-Auftrag — **nie** eine
+    stille Auslassung. Ein Test mit einem künstlich auf „ausgeschlossen" gesetzten Ordner, der
+    nachweislich relevante Nachrichten enthält, muss das zeigen.
+12. **Drift-Detector** (ADR-059): Staleness 12 Monate.
 
 ---
 
@@ -571,6 +685,7 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-29 | Claude Code (Opus 5) | **Runde 4 eingearbeitet (§11.6) — erste externe Gegenlesung dieses Textes statt der Vorstufe.** Sie traf alle drei in §11.5 als ungeprüft benannten Punkte; 7 von 9 Befunden `[valid]`, 2 `[missversteht-Kontext]`. Die folgenreichste Änderung ist eine **Herabstufung**: Gate 0 fällt von ✅ auf 🟡, weil das Argument, mit dem die alte Bestandszahl entwertet wurde (eine Einzelmessung kann einen Zwischenzustand treffen), unverändert gegen die neue gilt — voll erfüllt erst nach drei Wiederholungsmessungen an nicht aufeinanderfolgenden Tagen mit protokollierter Rohausgabe. Neu: **§3.2.1** benennt drei Auslöser, ab denen die Zweckbindung zur Umdeklaration wird und ein Supersede von ADR-286 fällig ist (Gate 10 misst den Anteil); **§3.1 Punkt 1** macht die Ausschlussregel versioniert konfigurierbar und den Ausschluss rückholbar — ein Vorgang auf einem ausgeschlossenen Ordner erzeugt `unknown`, nie eine stille Auslassung (Gate 11); **§4.12** grenzt „gesperrt" auf den Retrievalpfad ein statt auf Konto oder Lauf. **Gate 8** bekommt drei definierte Hebel statt nur eines Messwerts. **Abgelehnt** wurde die Empfehlung, `open` schon ab rund neun Zehnteln Deckung zuzulassen: bei jeder zehnten ungesehenen Nachricht kippt die Negativaussage — der Unterschied zu vollständiger Deckung ist kategorial, nicht graduell (§4.6). Offen und auch nach vier Runden ungegengelesen: die Ausschluss-Messung selbst (§1.4, 52.552 Nachrichten). |
 | 2026-07-29 | Claude Code (Opus 5) | **Gate 5 belegt (§1.4.2), P2 damit vorbereitet.** Der Kopfzeilen-Vollaufbau wurde **ausgeführt statt hochgerechnet**: 14.016 Kopfsätze aus 180 behaltenen Ordnern über vier Konten und beide Transporte in **2,7 min** — Schwelle 10 min, Reserve Faktor 3,7. Zwei Erkenntnisse: (a) Der Graph-Transport war als „ungemessen" geführt; der tragende Weg ist nicht `$batch`, sondern der Listen-Abruf mit `$top`+Paging (591 Nachrichten in **einer** Antwort, Faktor 11,7 gegen Einzelabruf). (b) **Mikro-Benchmarks überschätzen systematisch** — 120,7/s bzw. 106,3/s im Einzelordner gegen 92,0/s bzw. 78,5/s im Lauf über 180 Ordner; die Differenz ist Ordnerwechsel-Overhead, also genau der Punkt, an dem die Runden 1 und 2 die Hochrechnungen dieses Entwurfs angegriffen haben. Gate 5 bleibt **teilweise** offen: Datenbankschreiben und Normalisierung existieren erst mit P2, der Messwert ist die untere Schranke. Ebenfalls benannt: es ist ein Lauf, kein p95. |
 | 2026-07-29 | Claude Code (Opus 5) | **Gate 0 geschlossen (§1.4.1).** Nachmessung mit ausgewiesenen Fehlern statt stiller Nullen: **66.580** Nachrichten über 246 Ordner in vier Konten, null nicht zählbare Ordner. Der Widerspruch zu ADR-286 §4.10.8 (90.967) ist **ursächlich aufgeklärt**, nicht nur neu gezählt: das nicht betroffene Kontrollkonto trifft die alte Zahl exakt (9 Ordner / 12), während die beiden Konten, in denen am 2026-07-28 laut Session-Retro `d5eb5e` **28.158 Nachrichten verschoben** wurden, zusammen 24.483 weniger zeigen — die alte Messung erfasste einen vorübergehenden Zustand, in dem Nachrichten zugleich im Sammelordner und im neuen Jahresarchiv lagen. Gate 0 wird zur **Wiederholungsauflage** nach jeder Umsortierung. Restlücke benannt: die Ursache ist aus Datum, Konten und Größenordnung erschlossen, nicht aus dem Protokoll der damaligen Zählung. |
 | 2026-07-29 | Claude Code (Opus 5) | **v2 nach Runde 3 und einer eigenen Messung.** Neu gemessen: die bestehende Ausschlussregel entfernt **78,9 %** des Bestands (66.562 → 14.018), womit Vollaufbau auf 2,2 min und Rohobjektspeicher auf ~4,5 GB fallen; die Größen-Bedenken der Runden 1–3 entschärfen sich dadurch strukturell. Dabei aufgedeckt: die seit ADR-286 §4.10.8 durchgereichte Zahl **90.967** ist mit der gegengeprüften Methode nicht reproduzierbar (gemessen 66.562) — als **Gate 0** offen geführt statt weggeglättet, weil zwei externe Runden auf der älteren Zahl argumentiert haben. Aus Runde 3 übernommen: inhaltsadressierter Rohobjektspeicher, Leitsatz „Delta an der Quelle, Rebuild in der Projektion" (ersetzt „Neuaufbau schlägt Delta"), **sechs** Ausgabezustände statt zwei, sechsstufige Retrieval-Pipeline, mehrdimensionale Deckung mit fachlicher Konsequenz. **Nicht** übernommen: die volle 25-Tabellen-Grundausstattung und der unbeschränkte Volltextspeicher. Letzteres ist die tragende Abweichung — der Rohobjektspeicher ist **zweckgebunden** (Kopfdaten und Anhänge global, Volltext nur für aktive Vorgänge), wodurch **kein Supersede von ADR-286 nötig** ist und der Rückweg zur kleineren Variante offen bleibt (§3.2). |
@@ -643,3 +758,31 @@ Alle drei bewerteten die **Vorstufe**, nicht diesen Text. Ungeprüft sind damit:
 Ausschluss-Messung aus §1.4 samt des dabei aufgedeckten Zahlen-Widerspruchs, die Zweckbindung des
 Rohobjektspeichers (§3.2) und die daraus folgende Entscheidung gegen ein Supersede von ADR-286.
 Das sind genau die drei Punkte, an denen eine vierte Runde ansetzen sollte.
+
+### 11.6 Runde 4 — erste Gegenlesung dieses Textes (OpenAI o3, 2026-07-29)
+
+Die erste Runde, die **diesen ADR** bewertet hat statt der Vorstufe. Auftrag war ausdrücklich
+die Lückenliste aus §11.5. Verdikt: **überarbeiten**. Sie hat alle drei benannten Lücken
+getroffen — der Auftrag hat also funktioniert, was für sich schon eine Aussage über §11.5 ist.
+
+| ID | Befund (verkürzt) | Verdikt | Wirkung |
+|---|---|---|---|
+| AD-1 | Die Zahlenkorrektur bleibt Indizienbeweis — ohne alte Rohmessung kann auch 66.580 unvollständig sein | `[valid]` — **schärfster Befund** | §1.4.1 + Gate 0 von ✅ auf 🟡 **herabgestuft**; drei Wiederholungsmessungen an nicht aufeinanderfolgenden Tagen mit protokollierter Rohausgabe |
+| AD-3 | Die Zweckbindung macht eine Ausnahmeklausel von ADR-286 zur Default-Strategie | `[valid]` | **§3.2.1 neu**: drei benannte Auslöser, ab denen ein Supersede fällig ist; **Gate 10 neu** misst den Anteil |
+| AD-4 | Gate 8 misst das `likely_open`-Problem, behebt es aber nicht | `[valid, anders umgesetzt]` | §4.6 + Gate 8: **drei definierte Hebel** statt eines Messwerts. Die vorgeschlagene Schwelle „`open` ab ~90 % Deckung" wird **abgelehnt** — bei jeder zehnten ungesehenen Nachricht kippt die Negativaussage; der Unterschied zu vollständig ist kategorial, nicht graduell |
+| AD-2 | Ausschluss verschiebt das Problem nur auf eine manuelle Nachlade-Aktion | `[valid]` | §3.1 Punkt 1: Ausschluss ist nie endgültig, Zustand bis zum Nachladen ist `unknown`; **Gate 11 neu** |
+| M28-1 | Ausschlussliste hart kodiert statt versioniert konfigurierbar | `[valid]` | §3.1 Punkt 1: versionierte Konfiguration, Version steht in jeder Deckung |
+| M28-3 | Ein Sondenfehler kann ein ganzes Konto stilllegen | `[valid]` | §4.12: „gesperrt" gilt für den **Retrievalpfad**, nicht für Konto oder Lauf; Fallback auf den langsameren Vollscan |
+| AD-5 | Ohne dauerhaften Klartext müssen Bodies bei jeder Vorgangs-Revision neu geholt werden | `[missversteht-Kontext]` | Für Nachrichten **in** einem aktiven Vorgang liegt der Volltext lokal (§3.1 Punkt 3) — genau dort, wo wiederholt gearbeitet wird. Anhänge liegen ohnehin inhaltsadressiert (§4.2). Der beschriebene Wiederhol-Abruf tritt im benannten Fall nicht auf |
+| M28-2 | Migration bei Schema-Änderungen der durablen Tabellen fehlt | `[missversteht-Kontext]` | §4.4 führt `derivation_version` und `parser_version` je Generation und §4.1 eine definierte Migrationsprozedur samt Waisen-Zähler (Gate 3). Der Befund trifft eine reale Sorge, aber nicht diesen Text |
+| PRO-1…4 | Steelman-Seite: Ausschlusshebel, Zweckbindung, Sechs-Zustands-Logik, Schichtentrennung | bestätigend | keine Änderung — deckt sich mit den in §11.4 schon dreifach bestätigten Elementen |
+
+**Nicht übernommene Empfehlungen und warum.** REC-2 (`open` ab ~90 % Deckung) ist abgelehnt,
+Begründung in §4.6. REC-4 (Schema-Migration) und REC-6 (Body-Cache mit Verfallszeit) hängen an
+den beiden Befunden, die den Kontext missverstehen, und entfallen mit ihnen. Übernommen sind
+REC-1, REC-3 und REC-5 — jeweils in eigener Formulierung, nicht als übernommene Prosa.
+
+**Was Runde 4 nicht geleistet hat.** Sie hat die **Ausschluss-Messung selbst** (§1.4, die
+78,9 %) nicht angegriffen, sondern nur deren Folgen für ausgeschlossene Jahrgänge (AD-2). Die
+Zahl 52.552 und ihre Aufteilung auf die Ordnerklassen bleibt damit auch nach vier Runden
+ungeprüft — sie ist gemessen, aber nicht gegengelesen.
