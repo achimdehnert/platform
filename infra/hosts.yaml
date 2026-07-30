@@ -14,7 +14,10 @@
 #   Runner prüfen:  gh api repos/<owner>/<repo>/actions/runners
 #   Ports:          siehe infra/ports.yaml (eigene SoT)
 #
-# Ground-Truth-Stand: 2026-07-22 (verifiziert per SSH-Probe + Hetzner-Cloud-API; siehe `verified`).
+# Ground-Truth-Stand: 2026-07-30 (verifiziert per SSH-Probe; siehe `verified` je Host).
+#   Neu 2026-07-30: `netcup` (152.53.136.219) — erster Nicht-Hetzner-Host, noch ohne Rolle.
+#   Korrigiert 2026-07-30: die Speicherlage hat den Host GEWECHSELT — `prod` ist entspannt,
+#   `staging` (88.99.38.75) sitzt jetzt im Swap-Anschlag. Details in beiden Einträgen.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 hosts:
@@ -36,11 +39,20 @@ hosts:
       (risk-hub→schutztat.de, billing-hub, trading-hub, …) als getrennte
       docker-compose-Projekte auf EINER Engine. Multi-Hub-Host → COMPOSE_PROJECT_NAME
       pro Hub pinnen (ADR-248), sonst Cross-Projekt-Orphan-Removal.
-      ⚠ SPEICHERNOTLAGE (#1303): 113 Container, Swap dauerhaft 100 %, 9 OOM-Kills in
-      16 Tagen Uptime bei 94 % CPU-Idle — das Problem ist RAM, nicht CPU. Entlastung
-      läuft über `prod-b` (unten) + Runner-Verlagerung (ADR-257) + Freeze #1314.
+      ✅ SPEICHERNOTLAGE ENTSPANNT (gemessen 2026-07-30): 46 laufende Container (von 48),
+      RAM 10,7 von 23,5 GB (46 %), Swap 1,8 von 4,0 GB (44 %), Load 1,7 bei 12 Kernen,
+      Uptime 24 Tage. Der Vorstand dieses Eintrags (2026-07-22) lautete "113 Container,
+      Swap dauerhaft 100 %, 9 OOM-Kills" — Freeze #1314 + Auslagerung nach `prod-b`
+      haben gewirkt. #1303 bleibt für die Leak-Analyse relevant, ist aber kein
+      akuter Kapazitäts-Notstand mehr.
+      Disk: `/` 93 von 150 GB (65 %), Docker liegt korrekt auf dem 350-GB-Volume
+      (`findmnt`: /dev/sdb → /mnt/HC_Volume_105908261, ext4) mit 105 von 344 GB (32 %).
+      `/opt/paperless-consume` ist nur ein Bind in ein Docker-Volume darauf, kein
+      eigenes Gerät. NICHT VERIFIZIERT: was die 93 GB auf `/` belegt (Docker ist es
+      nicht; `du` lief 2x in den Timeout) — 51 GB frei, kein Notstand.
+      ⚠ Toter NFS-Mount: `/mnt/fritz-nas-scans` → "Host is down" (df/ls scheitern).
     hosts_runners: [prod-server]
-    verified: 2026-07-22               # SSH-Probe + Hetzner-Cloud-API
+    verified: 2026-07-30               # SSH-Probe on-host (RAM/Disk/Container/Mounts)
 
   prod-b:
     ip: 89.167.43.30
@@ -64,8 +76,15 @@ hosts:
       Archiv des Vorzustands: Snapshot `lastwar-bot-archive-20260722` (id 411324113,
       7,8 GB) — Android-SDK/Emulator-Projekt, auf einen Server mit >=301 GB Disk
       wiederherstellbar.
+      ⚠ UMZUG STECKT (gemessen 2026-07-30): nach 8 Tagen trägt dieser Host GENAU EINEN
+      Hub — illustration-hub (illustration_web/worker/db/redis, 4 Container). Belegt
+      sind 1,1 von 15,6 GB RAM (7 %) und 3,3 von 301 GB Disk (2 %). Der "Long Tail der
+      Hubs" ist nicht nachgekommen. Zusammen mit `staging-dedicated` (23 % RAM) liegen
+      ~26 GB RAM brach, während `staging` im Swap-Anschlag sitzt → der Bestand hat ein
+      VERTEILUNGS-, kein Kapazitätsproblem. Wandernde Hubs gehören hierher, nicht auf
+      den neuen `netcup`-Host (dort Plattformfunktionen, siehe dessen Eintrag).
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
-    verified: 2026-07-22               # SSH + docker --version on-host
+    verified: 2026-07-30               # SSH-Probe on-host (RAM/Disk/Container)
 
   staging:
     ip: 88.99.38.75
@@ -89,8 +108,17 @@ hosts:
       Staging-Ingress via eigenem cloudflared (staging-riskhub.iil.pet).
       Trägt seit 2026-06-28 den Non-Prod-CI-Runner (ADR-257, Pilot travel-beat) —
       KEINE Prod-Container auf dieser Engine (Bedingung ADR-257 Entscheidung 1).
+      ⚠ NEUER ENGPASS DES BESTANDS (gemessen 2026-07-30): RAM 17 von 30 GB, davon nur
+      2,3 GB frei — und **Swap 8,0 von 8,0 GB = 100 % belegt**. Load 3,6, Uptime 84 Tage,
+      43 laufende Container (von 58), 30 angemeldete Benutzer.
+      Die Container sind NICHT die Ursache: der größte belegt 292 MiB
+      (`writing_hub_web_dev`), die übrigen liegen im zweistelligen MiB-Bereich. Die Last
+      kommt von den Nicht-Container-Diensten dieses Hosts — Sitzungen, Windsurf-Remote-
+      Server, Sunshine/Moonlight-Desktop-Streaming. Genau dieser Host trägt zusätzlich
+      den ci-nonprod-Runner. Entlastungs-Kandidat: Runner nach `netcup` verlagern
+      (12 freie Kerne, 31 GB frei; I/O-Eignung gemessen — siehe netcup-Eintrag).
     hosts_runners: [staging-ci]
-    verified: 2026-06-28               # on-host: 16 CPU/32 GB/601 G; staging-ci-Runner registriert + online
+    verified: 2026-07-30               # SSH-Probe on-host (RAM/Swap/Disk/Container/docker stats)
 
   staging-dedicated:
     ip: 178.104.184.168
@@ -107,8 +135,11 @@ hosts:
       301 GB, Uptime 97 Tage.
       ⚠ Doppelung mit `staging` (88.99.38.75): risk-hub-Staging und dev-hub-Staging
       existieren auf BEIDEN Hosts. Konsolidierung ist offen.
+      Nachgemessen 2026-07-30, Stand bestätigt: 3,7 von 15,6 GB RAM (23 %), 7,7 von
+      301 GB Disk (3 %), 12 Container, Uptime 106 Tage. Diente als NVMe-Referenz für
+      die I/O-Messung des netcup-Hosts (siehe dessen Eintrag).
     hosts_runners: []
-    verified: 2026-07-22               # SSH-Probe on-host
+    verified: 2026-07-30               # SSH-Probe on-host + dd-I/O-Referenzmessung
 
   odoo:
     ip: 46.225.127.211
@@ -126,6 +157,41 @@ hosts:
       Bekannter Defekt: `aifw_service` in Restart-Schleife.
     hosts_runners: []
     verified: 2026-07-22               # SSH-Probe on-host
+
+  netcup:
+    ip: 152.53.136.219
+    ssh: root@152.53.136.219
+    hostname: v2202604344838448611     # DNS: v2202604344838448611.goodsrv.de
+    provider: netcup (Nürnberg, DE)    # ERSTER Nicht-Hetzner-Host im Bestand
+    os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
+    server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
+    role: >
+      NOCH KEINE ROLLE ZUGEWIESEN — Bestandsaufnahme 2026-07-30, Rollenzuschnitt
+      wartet auf Owner-Freigabe (Gate G3 der Analyse).
+      Zustand: unangetastete Neuinstallation. 113 Tage Uptime, Load 0,00, 1 GiB
+      Traffic im Monat, 0,55 von 31 GB RAM belegt, 3,3 von 1007 GB Disk.
+      KEIN Docker installiert, KEIN Swap konfiguriert, es lauscht nur SSH auf 22
+      (80/443 zu). Dienste: systemd-Grundausstattung + cron + qemu-guest-agent.
+      Dasselbe Muster wie `lastwar-bot` vor dem prod-b-Rebuild: bezahlt, ungenutzt.
+      ⚠ FIREWALL: netcup-Panel zeigt "Aktiv (0)" — eingeschaltet, aber KEINE Regel.
+      💡 WERT FÜR DIE PLATTFORM: einziger Host außerhalb der Hetzner-Fehlerdomäne
+      und größte Disk im Bestand (1 TB = dreifach jeder andere). Damit der einzige
+      sinnvolle Ort für (a) Off-Provider-Backup nach ADR-241 — dessen beschlossenes
+      Ziel "Hetzner Storage Box BX11" liegt beim SELBEN Anbieter — und (b) einen
+      Monitoring-Host außerhalb der überwachten Domäne (`prod` hat keines; siehe
+      odoo-Eintrag oben). Standort Nürnberg/DE, anders als prod-b (Helsinki).
+      ⚠ AVV MIT NETCUP FEHLT — Voraussetzung, bevor Backups mit Personenbezug
+      (risk-hub MinIO = Kundendokumente) hier landen.
+      ❗ KORREKTUR ZUR PANEL-ANGABE "Startlaufwerk HDD": widerlegt durch Messung
+      2026-07-30. dd ergab 633 MB/s sequenziell schreibend (oflag=direct),
+      653 MB/s lesend, fsync-Latenz 1,44 ms (1000x4k oflag=dsync). Eine
+      7200-RPM-Platte schafft 150-200 MB/s. Referenz staging-dedicated (NVMe)
+      im selben Test: 879 MB/s / 1,7 GB/s / 1,24 ms — netcup liegt bei 72 %
+      schreibend, 88 % fsync, 38 % lesend. `lsblk ROTA=1` ist virtio-Default und
+      trägt keine Aussage. NICHT gemessen: Random-IOPS, Verhalten unter Dauerlast
+      (geteilter Speicher, noisy neighbour) — billigster Check: fio randwrite 60 s.
+    hosts_runners: []
+    verified: 2026-07-30               # SSH-Probe on-host + dd-I/O-Messung
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
