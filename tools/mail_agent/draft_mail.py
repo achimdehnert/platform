@@ -44,7 +44,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import roles  # noqa: E402
 from read_mail import _resolve_config  # noqa: E402
-from send_mail import _LIST_LINE_RE, load_credentials, login_name, parse_env  # noqa: E402
+
+# html_to_text kommt aus send_mail — EINE Implementierung. Die frueher hier stehende
+# Kopie hatte den <style>-Fix nicht, und genau das brach am 2026-07-30 die Textform
+# von Outlook-Mails (VML-CSS statt Anrede). Der Docstring oben verspricht die SSoT.
+from send_mail import (  # noqa: E402
+    _LIST_LINE_RE,
+    html_to_text,
+    load_credentials,
+    login_name,
+    parse_env,
+)
 
 #: RFC 6154 SPECIAL-USE gewinnt vor Namensraten; die Hints decken de/en-Postfaecher ab.
 _DRAFT_NAME_HINTS = ("drafts", "entw")
@@ -81,23 +91,6 @@ def find_drafts_folder(imap: imaplib.IMAP4_SSL, configured: str | None) -> str |
         if any(hint in candidate.lower() for hint in _DRAFT_NAME_HINTS):
             return candidate
     return configured
-
-
-def html_to_text(html: str) -> str:
-    """Lesbaren text/plain-Teil aus dem HTML ableiten (Fallback fuer Nur-Text-Clients).
-
-    Bewusst simpel: Absaetze und Listen werden zu Leerzeilen bzw. `- `-Punkten, Tags
-    fallen weg, Entities werden aufgeloest. Kein HTML-Parser — der Input sind unsere
-    eigenen, handgeschriebenen Mailtexte, nicht beliebiges Web-HTML.
-    """
-    text = re.sub(r"(?i)<br\s*/?>", "\n", html)
-    text = re.sub(r"(?i)</(p|div|h[1-6])>", "\n\n", text)
-    text = re.sub(r"(?i)<li[^>]*>", "- ", text)
-    text = re.sub(r"(?i)</(li|ul|ol)>", "\n", text)
-    text = re.sub(r"<[^>]+>", "", text)
-    text = html_mod.unescape(text)
-    text = re.sub(r"[ \t]+", " ", text)
-    return re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
 
 
 _ZITAT_FELDER = (("Von", "From"), ("Gesendet", "Date"), ("An", "To"), ("Cc", "Cc"))
