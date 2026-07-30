@@ -499,3 +499,171 @@ identifizierend und im Feedback als Erstes benannt.
 umgestellt — mit der neuen Belegung käme der installierte Stand im Checkout nicht mehr ins
 Postfach (beim Test war es kurz unerreichbar). Die zwei Umstellzeilen stehen als Kommentar in
 der Datei und werden nach dem Merge von #1544 gesetzt.
+
+---
+
+## 2026-07-29 (Teil 2 derselben Session — Prod entlastet, Outline hinter Cloudflare Access)
+
+**Kern in einem Satz:** Der Versuch, Prio 1 (Mail-Ingestion auf Prod) zu erledigen, lief in
+eine Blockade — und die Blockade war das eigentliche Thema.
+
+**Die Blockade und was sie offenlegte.** Ein `import apps.mail_agent` in `devhub_celery`
+starb dreimal mit `rc=137`; das Kernel-Log sagte **„Memory cgroup out of memory"**, also das
+Container-Limit, nicht der Host. Die Rechnung schien eindeutig (512 MiB Limit, 370,4 MiB
+Leerlauf, 225 MiB neuer Prozess) und die naheliegende Antwort wäre gewesen, das Limit
+anzuheben. **Das wäre falsch und gefährlich gewesen:** In die cgroup-Bilanz zählt der
+Seiten-Cache mit, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen — die
+Container saßen künstlich an ihren Limits. Nach dem Stoppen nicht benötigter Stacks fiel
+derselbe Container **ohne jede Änderung an ihm** auf 305,9 MiB, der Import lief durch.
+
+| Größe | vorher | nachher |
+|---|---|---|
+| Freies RAM | 444 MB | **9.455 MB** |
+| Swap belegt | 4.095 / 4.095 | **1.757 / 4.095** |
+| Laufende Container | 113 | **45** |
+
+Gestoppt (nicht entfernt, per `docker start` zurückholbar): ausschreibungs-hub, odoo, hub137,
+wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub,
+pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl.
+`ib_gateway`. Messwerte als Kommentar an
+[#1303](https://github.com/achimdehnert/platform/issues/1303); Folgebefunde als
+[#1549](https://github.com/achimdehnert/platform/issues/1549).
+
+**Cloudflare Access für Outline.** `knowledge.iil.pet` war der einzige produktive Dienst ohne
+Access-Regel (200 ohne Umleitung). Angelegt mit zwei Richtlinien — Owner-Adressen und
+`non_identity` für gültige Dienstzugänge. Beide Wege belegt: Browser 302 auf
+`iil-team.cloudflareaccess.com`, Maschine mit `CF-Access-*`-Kopfzeilen bekommt JSON.
+Werkzeugseite in [mcp-hub#187](https://github.com/achimdehnert/mcp-hub/pull/187).
+
+**Drei eigene Fehler, benannt:**
+
+- **Die entscheidende Memory-Notiz zu spät gelesen.** `reference_dochub_access_cloudflare`
+  sagt: genau **ein** IdP (GitHub), kein Einmal-PIN, Cloudflare liefert immer
+  `admin@wir-digital.de`. Damit sind `achim.dehnert@iil.gmbh` und `ad@dehnert.team` in der
+  neuen Regel **wirkungslos**. Dass die funktionierende Adresse trotzdem drinsteht, war
+  Vorsicht, nicht Wissen — sonst wäre der Owner aus Outline ausgesperrt gewesen.
+- **Dieselbe Notiz warnt wörtlich „Fehlschlag ≠ leere Liste"** für den IdP-Endpunkt, der nur
+  mit `cloudflare_write_token` lesbar ist. Genau in diese Falle bin ich gelaufen und zunächst
+  darüber hinweggegangen.
+- **Der Code-Patch am Outline-MCP genügte nicht** — das Startskript exportierte die beiden
+  Variablen gar nicht. Ergebnis: genau der Bruch, den der Patch verhindern sollte, nur eine
+  Ebene tiefer. Die Fähigkeit war da, die Verdrahtung fehlte. Nachgezogen.
+
+**Zwei Entscheidungen gegen die Freigabe des Owners** — beide mit Beleg statt Vermutung:
+`authentik` bleibt an, weil Outline **und** risk-hub (live, schutztat.de) ihr Login dort
+auflösen (220 Auth-Ereignisse in 72 h). Und die Mail-Ingestion wurde **nicht** scharf
+geschaltet, obwohl der Pfad jetzt frei ist — die zwei vorbereiteten Dateien liegen bereit,
+der Schritt gehört in eine eigene Runde mit dem Geheimnis-Teil beim Owner.
+
+**Offen und bewusst nicht getan:** Der laufende Outline-MCP stammt von vor dem Patch und
+bekommt 302; bis zu seinem Neustart ist jeder Outline-Zugriff blockiert. Ein fertiger
+Lesson-Entwurf zum cgroup-Thema wartet deshalb unter
+`~/.claude/outline-pending/2026-07-29-cgroup-speicherdruck.md`. Ebenfalls angekündigt, aber
+nicht mehr ausgeführt: `dev-hub.iil.pet` hinter Access.
+
+---
+
+## 2026-07-29 Abend — Der Egress-Pfad war tot und meldete das nicht
+
+Auftrag war eng: ADR-288 in die vierte externe Runde geben. Der Weg dorthin kostete zwei
+Fixes, drei PRs und einen Prod-Deploy, weil ein fehlgeschlagener LLM-Call wie ein
+erfolgreicher aussah.
+
+**Der Fehlschlag, der wie ein Ergebnis aussah.** Der erste Versuch, Runde 4 abzusetzen, kam
+zurück mit `content: ""`, `tokens_used: 0`, `cost_usd: 0.0`, `duration_seconds: 0.13` — und
+**ohne Fehler**. Eine Kurzprobe mit einem Satz Nutzlast lieferte dasselbe in 0,02 s, also
+nicht größenbedingt. Die Gegenprobe über **denselben** Transport auf
+`groq/llama-3.3-70b-versatile` gab Inhalt und 2.352 Token: der Transport war gesund, nur der
+o-Series-Pfad nicht. Im Container-Log stand die Ursache im Klartext —
+`litellm.UnsupportedParamsError: O-series models don't support temperature=0.0`. Sichtbar war
+sie für den Aufrufer nie. Ohne die Gegenprobe wäre der leere Rückgabewert als fertige
+Review-Runde in ein Architektur-Dokument eingeflossen.
+
+**Der erste Fix war unvollständig, und die Zahl bewies es.** [mcp-hub#183] ließ `temperature`
+für o-Series weg. Nach dem Deploy kam derselbe Call weiter leer zurück — aber die
+Fehlermeldung sagte jetzt `temperature=0.7` statt `0.0`. Weglassen gibt die Kontrolle an aifw
+ab, wo der Default 0.7 greift; litellm lehnt den genauso ab. Dieselbe geänderte Zahl belegte
+zugleich, dass der Deploy gewirkt hatte: der Code war live, die Regel falsch. Korrigiert in
+[mcp-hub#185] — `temperature` wird wieder **immer explizit** gesetzt, 1.0 für o-Series, 0.0
+sonst. Die 13 Tests wurden mit umgeschrieben; die alten prüften auf *Abwesenheit* des
+Parameters und hätten den Denkfehler festgeschrieben.
+
+**Die strukturelle Ebene war die teurere.** aifw meldet Provider-Fehler als Feld am
+Ergebnisobjekt (`success`/`error`) statt als Ausnahme — und **kein einziger Aufrufer im Repo**
+hat sie ausgewertet: nicht `workflow_executor`, nicht `step_executor`, `planner`,
+`use_case_decomposer` oder `task_pipeline`. In `step_executor` ist das schlimmer als
+verwirrend: eine leere Antwort ohne Tool-Calls bedeutet dort „Schritt fertig", ein
+Provider-Fehlschlag wurde also als erledigte Arbeit verbucht. Behoben in [mcp-hub#186]: der
+Adapter wirft `LLMCallFailedError` (RuntimeError-Subklasse, damit breite Handler weiter
+greifen), die Tool-Schicht bildet sie auf `llm_call_failed` ab statt auf das irreführende
+`llm_unavailable` — der Adapter war ja verfügbar, der Provider hat abgelehnt. Volle
+Orchestrator-Suite 753 passed, 6 skipped.
+
+**Runde 4 dann mit Beleg.** o3 antwortete auf die Kurzprobe mit `OK` (999 Token, 4,04 s),
+der volle Lauf lieferte 11.046 Token in 23,5 s. Verdikt **überarbeiten**, 7 von 9 Befunden
+`[valid]`. Sie traf **alle drei** in §11.5 als ungeprüft benannten Punkte — der Auftrag hat
+funktioniert, was für sich eine Aussage über §11.5 ist.
+
+**Die folgenreichste Einarbeitung ist eine Herabstufung, keine Ergänzung.** Gate 0 fällt von
+✅ auf 🟡: das Argument, mit dem die alte Bestandszahl 90.967 entwertet wurde — eine
+Einzelmessung kann einen Zwischenzustand treffen — gilt unverändert gegen die neue 66.580.
+Ein Indizienbeweis, der die Vorgängerzahl kippt, trägt seine eigene nicht. Neu sind §3.2.1
+(drei benannte Auslöser, ab denen ein Supersede von ADR-286 fällig wird), Gate 10, Gate 11,
+eine versionierte Ausschluss-Konfiguration und die Eingrenzung von „gesperrt" auf den
+Retrievalpfad statt auf Konto oder Lauf.
+
+**Bewusst abgelehnt:** die Empfehlung, `open` schon ab rund neun Zehnteln Deckung
+zuzulassen. Bei jeder zehnten ungesehenen Nachricht kippt die Negativaussage — der
+Unterschied zu vollständiger Deckung ist kategorial, nicht graduell. Übernommen wurde der
+zweite Teil des Einwands: Gate 8 maß das Problem, ohne es zu beheben, und bekommt jetzt drei
+definierte Hebel.
+
+**Zwei eigene Fehlurteile, benannt statt versteckt.** Ich habe „platform braucht einen
+zweiten Owner-Review" aus dem Sitzungsverlauf als übertrieben abgetan und auf „ein Approve
+genügt" korrigiert — mit Berufung auf `required_approving_review_count: 1`, ohne
+`require_code_owner_review: true` im **selben** Antwortobjekt zu lesen. Die ursprüngliche
+Notiz war richtig, meine Korrektur der Fehler. Und ich habe zweimal einen Merge angesetzt,
+weil ein „approved" im Chat stand, während `GET /pulls/1548/reviews` **null** Einträge
+lieferte — Ursache: GitHub lässt Self-Approval nicht zu, Autor und Konto sind dasselbe.
+
+**Offen und bewusst nicht getan:** der Deploy von [mcp-hub#186] stand beim Session-Ende noch
+auf `queued`; der scharfe Check für #184 (Aufruf gegen ein absichtlich ungültiges Modell)
+steht deshalb aus. [#1548] wartet auf einen Code-Owner. Die Mail-Zugangsdaten auf Prod bleiben
+Menschenarbeit. Und auch nach vier Runden ungegengelesen: die Ausschluss-Messung selbst
+(§1.4, 52.552 Nachrichten) — Runde 4 griff nur deren Folgen an, nicht die Zahl.
+
+[mcp-hub#183]: https://github.com/achimdehnert/mcp-hub/pull/183
+[mcp-hub#185]: https://github.com/achimdehnert/mcp-hub/pull/185
+[mcp-hub#186]: https://github.com/achimdehnert/mcp-hub/pull/186
+[#1548]: https://github.com/achimdehnert/platform/pull/1548
+
+---
+
+## 2026-07-29 Abend, Nachtrag — Korrektur zum Deploy-Status
+
+Der Block oben sagt, der Deploy von mcp-hub#186 habe beim Session-Ende „noch auf `queued`"
+gestanden, und der zweite `/session-ende`-Lauf verschärfte das zu „der Deploy ist abgebrochen,
+`deploy / 🔍 Resolve` startet nie". **Beides war falsch.**
+
+Der Lauf [30490611598](https://github.com/achimdehnert/mcp-hub/actions/runs/30490611598) ist um
+**21:34 mit `success`** beendet, `deploy / 🚀 Production` grün. Beide Fixes sind im laufenden
+Container verifiziert: `/app/llm_errors.py` liegt dort, `_temperature_for` steht an Zeile 219 und
+wird an 327 ausgewertet. Zum Zeitpunkt meiner Sichtung stand der Lauf lediglich in der
+Warteschlange — ich habe aus zwei fehlgeschlagenen `ci`-Jobs geschlossen, der Deploy könne nicht
+mehr starten, statt den Lauf zu Ende zu beobachten.
+
+**Was dabei aber ein echter Fund ist, und der wiegt mehr als der Irrtum:** die zwei roten Jobs
+(`ci / Lint & Format`, `ci / Security Scan`) haben den Prod-Deploy **nicht aufgehalten**, weil
+`ci / gate` grün meldet und der Deploy an diesem Gate hängt. Ein Lint-Fehler und ein
+Dependency-Konflikt sind also nach Produktion durchgelaufen. Ob das Absicht ist oder ein blindes
+Gate, ist **nicht geprüft** — der billigste Check ist die `needs:`-Liste des Gate-Jobs. Solange
+das offen ist, relativiert es jede „CI grün"-Aussage in diesem Repo.
+
+**Zwei eigene Muster in einer Session, beide dasselbe:** vorhin habe ich eine gefundene
+Formatierungs-Abweichung liegen gelassen, weil sie nicht in der PR-Checkliste gated war — und
+dann behauptet, genau sie blockiere Prod. Erst war der Befund zu klein, dann zu groß. In beiden
+Fällen fehlte derselbe billige Check: einmal die Post-Merge-Job-Liste, einmal das Ende des Laufs.
+
+Korrigiert wurden nicht nur diese Zeilen, sondern alle Kopien der Falschaussage: PR-Body und
+Titel von [#188](https://github.com/achimdehnert/mcp-hub/pull/188) und der Text von
+[#189](https://github.com/achimdehnert/mcp-hub/issues/189).
