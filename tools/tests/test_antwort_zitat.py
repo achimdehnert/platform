@@ -182,3 +182,65 @@ class TestImapStrangZuordnung:
         msg = dm.build_draft("a@b.de", ["c@d.de"], [], "Neu", text="x")
         assert msg["In-Reply-To"] is None
         assert msg["References"] is None
+
+
+class TestUrsprungAlsAnhang:
+    """`--ursprung-anhaengen`: die Ursprungsmail zusätzlich als message/rfc822.
+
+    Owner-Wunsch 2026-07-30: das Zitat im Rumpf zeigt nur Text; zum Gegenlesen
+    vor dem Senden braucht es das Original mit Kopfzeilen und Anhängen.
+    """
+
+    ROH = (
+        b"From: Ruh, Annika <a.russ@hnu.de>\r\n"
+        b"Subject: AW: Pruefungsleistung\r\n"
+        b"Message-ID: <x@hnu.de>\r\n\r\n"
+        b"Hallo,\r\n\r\npasst der 01.10.?\r\n"
+    )
+
+    def test_should_attach_original_as_message_rfc822(self):
+        msg = dm.build_draft(
+            "a@b.de", ["c@d.de"], [], "AW: Test", text="x", ursprung_roh=self.ROH
+        )
+        typen = [p.get_content_type() for p in msg.walk()]
+        assert "message/rfc822" in typen
+
+    def test_should_use_given_filename(self):
+        msg = dm.build_draft(
+            "a@b.de",
+            ["c@d.de"],
+            [],
+            "AW: Test",
+            text="x",
+            ursprung_roh=self.ROH,
+            ursprung_name="Vorgang 12.eml",
+        )
+        namen = [p.get_filename() for p in msg.walk() if p.get_filename()]
+        assert "Vorgang 12.eml" in namen
+
+    def test_should_keep_original_headers_and_body(self):
+        msg = dm.build_draft(
+            "a@b.de", ["c@d.de"], [], "AW: Test", text="x", ursprung_roh=self.ROH
+        )
+        teil = next(p for p in msg.walk() if p.get_content_type() == "message/rfc822")
+        innen = teil.get_payload(0)
+        assert innen["Message-ID"] == "<x@hnu.de>"
+        assert "passt der 01.10.?" in innen.get_payload()
+
+    def test_should_not_base64_encode_the_embedded_message(self):
+        """RFC 2046 §5.2.1: message/rfc822 darf NUR 7bit, 8bit oder binary sein.
+
+        `add_attachment(bytes, maintype="message", ...)` waehlt base64 — gemessen
+        2026-07-30. Clients duerfen so einen Teil zurueckweisen; der Weg ueber das
+        geparste Message-Objekt erzeugt 8bit.
+        """
+        msg = dm.build_draft(
+            "a@b.de", ["c@d.de"], [], "AW: Test", text="x", ursprung_roh=self.ROH
+        )
+        teil = next(p for p in msg.walk() if p.get_content_type() == "message/rfc822")
+        assert teil.get("Content-Transfer-Encoding") in (None, "7bit", "8bit", "binary")
+        assert b"message/rfc822" in msg.as_bytes()
+
+    def test_should_stay_without_attachment_when_not_requested(self):
+        msg = dm.build_draft("a@b.de", ["c@d.de"], [], "AW: Test", text="x")
+        assert "message/rfc822" not in [p.get_content_type() for p in msg.walk()]
