@@ -810,3 +810,28 @@ def test_should_label_derived_statements_as_derived():
     )
     assert "abgeleitet" in text
     assert "Evidenz:" in text
+
+
+class TestOrdnerKlartext:
+    """LIST liefert Ordnernamen in IMAP modified UTF-7 (RFC 3501 §5.1.3)."""
+
+    def test_should_decode_umlaut_folder(self):
+        assert rm.ordner_klartext("Entw&APw-rfe") == "Entwürfe"
+
+    def test_should_leave_plain_names_untouched(self):
+        assert rm.ordner_klartext("Sent-Archiv/2025") == "Sent-Archiv/2025"
+
+    def test_should_decode_ampersand(self):
+        assert rm.ordner_klartext("Recht &- Steuern") == "Recht & Steuern"
+
+    def test_should_map_comma_to_slash_in_shift(self):
+        """Modified UTF-7 ersetzt '/' des Base64-Alphabets durch ','.
+
+        Beispiel aus RFC 3501 §5.1.3: '~peter/mail/&U,BTFw-/&ZeVnLIqe-' ist
+        '~peter/mail/台北/日本語'.
+        """
+        assert rm.ordner_klartext("&U,BTFw-") == "台北"
+        assert rm.ordner_klartext("&ZeVnLIqe-") == "日本語"
+
+    def test_should_keep_unterminated_shift_verbatim(self):
+        assert rm.ordner_klartext("kaputt&APw") == "kaputt&APw"

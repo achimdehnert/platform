@@ -130,6 +130,38 @@ def _mailbox_arg(folder: str) -> str:
     return folder
 
 
+def ordner_klartext(name: str) -> str:
+    """IMAP modified UTF-7 (RFC 3501 §5.1.3) → Klartext: 'Entw&APw-rfe' → 'Entwürfe'.
+
+    Gegenrichtung zu `_mailbox_arg`, das den kodierten Namen unveraendert an SELECT
+    weitergibt. Der Klartext dient nur der Anzeige und dem Wiedererkennen (URL-Slug,
+    Uebersicht) — selektiert wird weiter mit dem kodierten Namen.
+    """
+    teile: list[str] = []
+    i = 0
+    while i < len(name):
+        if name[i] != "&":
+            teile.append(name[i])
+            i += 1
+            continue
+        ende = name.find("-", i + 1)
+        if ende == -1:  # kein Abschluss: kein Shift, sondern ein echtes '&'
+            teile.append(name[i:])
+            break
+        roh = name[i + 1 : ende]
+        if not roh:
+            teile.append("&")  # '&-' ist die Kodierung des Kaufmanns-Und
+        else:
+            try:
+                teile.append(
+                    ("+" + roh.replace(",", "/") + "-").encode().decode("utf-7")
+                )
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                teile.append(name[i : ende + 1])  # unverstaendlich → unveraendert
+        i = ende + 1
+    return "".join(teile)
+
+
 def connect(cfg: dict[str, str]) -> imaplib.IMAP4_SSL:
     host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
     port = int(cfg.get("IMAP_PORT", "993"))

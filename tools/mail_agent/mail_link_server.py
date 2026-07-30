@@ -46,6 +46,7 @@ from anker import (  # noqa: E402
 from anker import lade as anker_lade  # noqa: E402
 from anker import speichere as anker_speichere  # noqa: E402
 from anker import uebernehme as anker_uebernehme  # noqa: E402
+from read_mail import alle_ordner, ordner_klartext  # noqa: E402
 from mail_view import (  # noqa: E402
     CACHE_ROOT,
     MailNichtGefunden,
@@ -334,6 +335,10 @@ class MailLinkHandler(BaseHTTPRequestHandler):
 <p><code>/m/&lt;uid&gt;</code> rendert eine Mail aus <strong>{html.escape(self.default_konto)}</strong>
 live über IMAP (read-only). Andere Konten: <code>/m/&lt;konto&gt;/&lt;uid&gt;</code> —
 verfügbar: {html.escape(konten)}.</p>
+<p>Ein anderer Ordner als {html.escape(self.ordner)} kommt als Segment davor:
+<code>/m/&lt;konto&gt;/&lt;ordner&gt;/&lt;uid&gt;</code> — z.B.
+<code>/m/hnu/entwuerfe/23254</code>. Der Ordnername ist der Klartext-Slug
+(„Entwürfe" → <code>entwuerfe</code>), ein eindeutiger Anfang genügt.</p>
 <p><code>/i/&lt;kurz-id&gt;</code> leitet auf den OWA-Deeplink einer IIL-Mail weiter.</p>
 <p><code>/a/&lt;board-nummer&gt;</code> löst über die <strong>Message-ID</strong> auf und
 überlebt darum ein Verschieben — der Anker wird dabei automatisch nachgezogen.</p>
@@ -367,12 +372,17 @@ verfügbar: {html.escape(konten)}.</p>
         konto = self.default_konto
         if teile[0] in self.konten:
             konto, teile = teile[0], teile[1:]
+        # Ein nicht-numerisches Segment vor der UID ist der Ordner: /m/hnu/entwuerfe/23254.
+        # Ohne diese Route war nur INBOX erreichbar — ein Entwurf lag ausserhalb (404).
+        ordner_slug = None
+        if len(teile) >= 2 and not _UID.match(teile[0]):
+            ordner_slug, teile = teile[0], teile[1:]
         if not teile or not _UID.match(teile[0]):
             return self._fehler(HTTPStatus.BAD_REQUEST, "UID muss eine Zahl sein.")
         uid, rest = teile[0], teile[1:]
 
         try:
-            datei = self._rendern(konto, uid)
+            datei = self._rendern(konto, uid, ordner_slug)
         except MailNichtGefunden as fehlt:
             return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
         except Exception as fehler:  # Netz/IMAP — dem Browser sagen, was los ist
@@ -396,13 +406,43 @@ verfügbar: {html.escape(konten)}.</p>
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Unterpfad.")
 
-    def _rendern(self, konto: str, uid: str) -> Path:
+    def _ordner_aufloesen(self, imap, slug: str) -> str:
+        """URL-Slug → echter (kodierter) Ordnername. Wirft MailNichtGefunden.
+
+        Verglichen wird gegen den KLARTEXT-Namen: 'Entw&APw-rfe' heisst im Postfach
+        "Entwürfe" und soll als `/entwuerfe/` erreichbar sein, nicht als
+        `/entw-apw-rfe/`. Eindeutiger Anfang genuegt (`gesendete` → "Gesendete Elemente").
+        """
+        namen, _ = alle_ordner(imap)
+        paare = [(slugify(ordner_klartext(n)), n) for n in namen]
+        genau = [n for s, n in paare if s == slug]
+        if genau:
+            return genau[0]
+        anfang = [n for s, n in paare if s.startswith(slug)]
+        if len(anfang) == 1:
+            return anfang[0]
+        if anfang:
+            raise MailNichtGefunden(
+                f"Ordner '{slug}' ist nicht eindeutig — gemeint: "
+                + ", ".join(sorted(slugify(ordner_klartext(n)) for n in anfang))
+            )
+        raise MailNichtGefunden(
+            f"Ordner '{slug}' gibt es in diesem Postfach nicht — bekannt sind u.a. "
+            + ", ".join(sorted(s for s, _ in paare)[:8])
+        )
+
+    def _rendern(self, konto: str, uid: str, ordner_slug: str | None = None) -> Path:
         cfg = parse_env(_resolve_config(None, self.konten.get(konto, konto)))
-        ziel = self.cache_root / slugify(konto) / slugify(self.ordner)
         imap = connect(cfg)
         try:
-            imap.select(_mailbox_arg(self.ordner), readonly=True)
-            return render(_hole(imap, uid), konto, self.ordner, uid, ziel)
+            ordner = (
+                self._ordner_aufloesen(imap, ordner_slug)
+                if ordner_slug
+                else self.ordner
+            )
+            ziel = self.cache_root / slugify(konto) / slugify(ordner_klartext(ordner))
+            imap.select(_mailbox_arg(ordner), readonly=True)
+            return render(_hole(imap, uid), konto, ordner_klartext(ordner), uid, ziel)
         finally:
             try:
                 imap.close()
