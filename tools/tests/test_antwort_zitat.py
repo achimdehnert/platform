@@ -119,6 +119,40 @@ class TestKlartextZerlegung:
         assert "a<br>b" in out
 
 
+class TestImapZitatBlock:
+    """IMAP-APPEND hat kein `createReply` — der Zitat-Block wird selbst gebaut."""
+
+    @staticmethod
+    def _ursprung():
+        from email.message import EmailMessage
+
+        m = EmailMessage()
+        m["From"] = "Ruß, Annika <Annika.Russ@hnu.de>"
+        m["To"] = "Dehnert, Achim <Achim.Dehnert@hnu.de>"
+        m["Date"] = "Wed, 29 Jul 2026 15:29:00 +0200"
+        m["Subject"] = "AW: Prüfungsleistung M7 DIL"
+        m.set_content("Hallo Herr Dehnert,\n\npasst der 01.10.?\n\nA. Ruß")
+        return m
+
+    def test_should_render_outlook_style_header(self):
+        z = dm.zitat_bauen(self._ursprung(), als_html=True)
+        for label in ("Von:", "Gesendet:", "An:", "Betreff:"):
+            assert f"<b>{label}</b>" in z
+        assert "passt der 01.10.?" in z
+
+    def test_should_escape_original_body(self):
+        m = self._ursprung()
+        m.set_content("Preis <b>hoch</b> & knapp")
+        z = dm.zitat_bauen(m, als_html=True)
+        assert "&lt;b&gt;hoch&lt;/b&gt; &amp; knapp" in z
+
+    def test_should_prefix_quoted_lines_in_text_mode(self):
+        z = dm.zitat_bauen(self._ursprung(), als_html=False)
+        assert "-----Urspruengliche Nachricht-----" in z
+        assert "> Hallo Herr Dehnert," in z
+        assert "<b>" not in z
+
+
 class TestImapStrangZuordnung:
     MID = "<635f02a0a4c84b19ba905d54a7ec3d3a@hnu.de>"
 
