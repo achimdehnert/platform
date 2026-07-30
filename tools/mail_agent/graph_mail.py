@@ -30,6 +30,7 @@ Kommandos:
   --list-categories [--source PFAD] [--days N]                   # Vorgangs-Inventar + Restmenge
   --show <messageId>|latest [gleiche Filter wie --find] [--max-chars N] [--save-attachments DIR]
   --draft --to a@b.c [--cc c@d.e] --subject "..." --body-file f.txt [--reply-to <messageId>] [--attach PFAD ...]
+  --draft --reply-to <messageId> --role iil --design [--eyebrow "..."]   # Rollen-Design, Zitat bleibt erhalten
   --attach-to <messageId> --attach PFAD [--attach PFAD ...]   # Datei(en) an bestehenden Entwurf hängen
 """
 
@@ -37,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html
 import json
 import mimetypes
 import re
@@ -797,6 +799,45 @@ def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
         print(f"  + Anhang: {payload['name']} ({payload['contentType']})")
 
 
+def _antwort_rumpf(
+    neu: str, vorhanden: str, vorhandener_typ: str, *, neu_ist_html: bool = False
+) -> dict:
+    """Neuen Text VOR den zitierten Ursprungstext setzen (Graph-body-Objekt).
+
+    `createReply` liefert den Entwurf bereits mit dem zitierten Verlauf. Wer
+    danach `body.content` schreibt, ersetzt den gesamten Rumpf und loescht das
+    Zitat — genau dieser Fehler stand am 2026-07-30 in drei Antwort-Entwuerfen.
+
+    Der neue Text kommt als Klartext herein. Ist der vorhandene Rumpf HTML
+    (Graph liefert praktisch immer HTML), wird der Klartext escaped und in
+    Absaetze gesetzt, damit Zeilenumbrueche nicht verlorengehen.
+    """
+    if neu_ist_html:
+        # Rollen-Design (--design): der neue Teil ist fertiges HTML und wird nicht
+        # escaped. Ein reines Text-Zitat kommt in <pre>, damit es lesbar bleibt.
+        if not vorhanden.strip():
+            return {"contentType": "HTML", "content": neu}
+        zitat = (
+            f"<pre>{html.escape(vorhanden)}</pre>"
+            if vorhandener_typ == "text"
+            else vorhanden
+        )
+        return {"contentType": "HTML", "content": f"{neu}{zitat}"}
+
+    if not vorhanden.strip():
+        # Kein Zitat vorhanden (z.B. Ursprungsmail ohne Rumpf) — dann wie bisher.
+        return {"contentType": "Text", "content": neu}
+
+    if vorhandener_typ == "text":
+        return {"contentType": "Text", "content": f"{neu}\n\n{vorhanden}"}
+
+    absaetze = "".join(
+        f"<p>{html.escape(zeile) if zeile.strip() else '&nbsp;'}</p>"
+        for zeile in neu.split("\n")
+    )
+    return {"contentType": "HTML", "content": f"{absaetze}{vorhanden}"}
+
+
 def _empfaenger(adressen: str | list[str] | None) -> list[dict]:
     """Komma-Liste oder Mehrfach-Argument -> Graph-Recipient-Objekte."""
     if not adressen:
@@ -960,6 +1001,7 @@ def cmd_draft(
     reply_to: str | None,
     attach: list[str] | None = None,
     cc: list[str] | None = None,
+    ist_html: bool = False,
 ) -> None:
     if reply_to:
         r = _http(
@@ -972,8 +1014,24 @@ def cmd_draft(
             sys.exit(
                 f"FEHLER: Antwort-Entwurf anlegen fehlgeschlagen HTTP {r.status_code}"
             )
-        did = r.json()["id"]
-        patch = {"body": {"contentType": "Text", "content": body}}
+        angelegt = r.json()
+        did = angelegt["id"]
+
+        # createReply legt den zitierten Urspruchstext bereits an. Ein PATCH mit
+        # body.content ERSETZT den ganzen Rumpf — und loeschte damit genau dieses
+        # Zitat (gemessen 2026-07-30: der Entwurf enthielt nur den neuen Text plus
+        # Signatur). Deshalb wird der vorhandene Rumpf gelesen und der neue Text
+        # DAVOR gesetzt, wie es ein Mail-Programm beim Antworten tut.
+        vorhanden = (angelegt.get("body") or {}).get("content") or ""
+        vorhandener_typ = (
+            (angelegt.get("body") or {}).get("contentType") or ""
+        ).lower()
+
+        patch = {
+            "body": _antwort_rumpf(
+                body, vorhanden, vorhandener_typ, neu_ist_html=ist_html
+            )
+        }
         if subject:
             patch["subject"] = subject
         if cc:
@@ -990,7 +1048,7 @@ def cmd_draft(
         return
     body_json = {
         "subject": subject,
-        "body": {"contentType": "Text", "content": body},
+        "body": {"contentType": "HTML" if ist_html else "Text", "content": body},
         "toRecipients": _empfaenger(to),
     }
     if cc:
@@ -1122,6 +1180,17 @@ def main() -> None:
         "Pflicht-Footer und erzwingt die Kanal-Grenze (#1481)",
     )
     ap.add_argument("--registry", default=None, help="alternative Rollen-Registry")
+    ap.add_argument(
+        "--design",
+        action="store_true",
+        help="mit --role: Klartext im Rollen-Design als HTML-Mail rendern "
+        "(Signatur/Footer kommen aus dem Design, nicht angehängt)",
+    )
+    ap.add_argument(
+        "--eyebrow",
+        default=None,
+        help="Kopfzeile über der Anrede bei --design (Default: Betreff)",
+    )
     args = ap.parse_args()
     try:
         sys.stdout.reconfigure(line_buffering=True)
@@ -1235,6 +1304,9 @@ def main() -> None:
         if not (args.to or args.reply_to):
             ap.error("--draft braucht --to ODER --reply-to")
         body = Path(args.body_file).read_text()
+        ist_html = False
+        if args.design and not args.role:
+            ap.error("--design braucht --role (das Design kommt aus der Rolle)")
         if args.role:
             try:
                 profile = roles.resolve(args.role, args.registry)
@@ -1251,12 +1323,30 @@ def main() -> None:
                 roles.pruefe_kanalgrenze(profile, args.subject, body)
             except roles.KanalgrenzeVerletzt as e:
                 sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
-            body = roles.text_mit_signatur(profile, body)
+            if args.design:
+                bausteine = roles.zerlege_klartext(body)
+                body = roles.render_email_html(
+                    profile,
+                    eyebrow=args.eyebrow or args.subject or "",
+                    subject=args.subject or "",
+                    **bausteine,
+                )
+                ist_html = True
+            else:
+                body = roles.text_mit_signatur(profile, body)
             print(
                 f"Rolle: {profile.role_id} ({profile.display_name}) — {profile.sender}"
+                + (" · Design" if args.design else "")
             )
         cmd_draft(
-            tok, args.to or "", args.subject, body, args.reply_to, args.attach, args.cc
+            tok,
+            args.to or "",
+            args.subject,
+            body,
+            args.reply_to,
+            args.attach,
+            args.cc,
+            ist_html,
         )
 
 

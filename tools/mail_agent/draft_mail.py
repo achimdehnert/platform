@@ -21,6 +21,8 @@ Usage:
   draft_mail.py --account hnu --to a@b.de --subject "..." --html-file mail.html
   draft_mail.py --to a@b.de --cc c@d.de --subject "..." --body-file mail.txt \
                 --signature-file sig.html --attach anhang.pdf
+  draft_mail.py --account hnu --role hnu --design --to a@b.de --subject "AW: ..." \
+                --body-file mail.txt --in-reply-to "<mid@host>"   # Design + Strang-Zuordnung
 """
 
 from __future__ import annotations
@@ -106,8 +108,16 @@ def build_draft(
     text: str | None = None,
     html: str | None = None,
     attachments: list[str] | None = None,
+    in_reply_to: str | None = None,
+    references: str | None = None,
 ) -> EmailMessage:
-    """Entwurf bauen; mit `html` als multipart/alternative, sonst reines text/plain."""
+    """Entwurf bauen; mit `html` als multipart/alternative, sonst reines text/plain.
+
+    `in_reply_to`/`references` tragen die Message-ID der Ursprungsmail. Ohne sie
+    landet eine Antwort beim Empfaenger als NEUER Strang — der Verlauf reisst,
+    obwohl der Betreff stimmt. Graph macht das per `createReply` von selbst,
+    IMAP-APPEND nicht (Befund 2026-07-30).
+    """
     if not text and not html:
         raise ValueError("weder Text- noch HTML-Body angegeben")
     msg = EmailMessage()
@@ -117,6 +127,10 @@ def build_draft(
         msg["Cc"] = ", ".join(cc)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        # References traegt die ganze Kette; fehlt sie, genuegt die eine ID.
+        msg["References"] = references or in_reply_to
     msg.set_content(text or html_to_text(html or ""), subtype="plain", charset="utf-8")
     if html:
         msg.add_alternative(
@@ -179,6 +193,15 @@ def main() -> None:
     ap.add_argument("--text-file", help="expliziter Text-Teil zu --html-file")
     ap.add_argument("--signature-file", help="Signatur, wird an den Body angehaengt")
     ap.add_argument(
+        "--in-reply-to",
+        dest="in_reply_to",
+        help="Message-ID der Ursprungsmail — ohne sie reisst der Strang beim Empfaenger",
+    )
+    ap.add_argument(
+        "--references",
+        help="ganze References-Kette; fehlt sie, wird --in-reply-to genommen",
+    )
+    ap.add_argument(
         "--attach", action="append", default=[], help="Anhang (mehrfach moeglich)"
     )
     ap.add_argument(
@@ -196,7 +219,19 @@ def main() -> None:
         "Signatur/Pflicht-Footer an und erzwingt die Kanal-Grenze (#1481)",
     )
     ap.add_argument("--registry", default=None, help="alternative Rollen-Registry")
+    ap.add_argument(
+        "--design",
+        action="store_true",
+        help="mit --role: Klartext im Rollen-Design als HTML-Mail rendern",
+    )
+    ap.add_argument(
+        "--eyebrow",
+        default=None,
+        help="Kopfzeile ueber der Anrede bei --design (Default: Betreff)",
+    )
     args = ap.parse_args()
+    if args.design and not args.role:
+        ap.error("--design braucht --role (das Design kommt aus der Rolle)")
 
     profile = None
     if args.role:
@@ -252,7 +287,22 @@ def main() -> None:
             )
         except roles.KanalgrenzeVerletzt as e:
             sys.exit(f"ABBRUCH (Kanal-Grenze): {e}")
-        if not html:
+        if args.design:
+            if html:
+                sys.exit(
+                    "FEHLER: --design und HTML-Body zugleich — das Design rendert "
+                    "den Klartext selbst; nur eines von beiden angeben."
+                )
+            if not (text or "").strip():
+                sys.exit("FEHLER: --design braucht einen Klartext-Body")
+            html = roles.render_email_html(
+                profile,
+                eyebrow=args.eyebrow or args.subject,
+                subject=args.subject,
+                **roles.zerlege_klartext(text or ""),
+            )
+            text = None  # Text-Teil leitet build_draft aus dem HTML ab (mit Signatur)
+        elif not html:
             text = roles.text_mit_signatur(profile, text or "")
 
     sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
@@ -269,6 +319,8 @@ def main() -> None:
         text=text,
         html=html,
         attachments=args.attach,
+        in_reply_to=args.in_reply_to,
+        references=args.references,
     )
     folder, uid = append_draft(
         cfg.get("IMAP_HOST", cfg["SMTP_HOST"]),
