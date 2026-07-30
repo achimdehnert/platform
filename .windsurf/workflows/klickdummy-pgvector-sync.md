@@ -82,12 +82,23 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
 - ❌ Gov-Repos „nur mit Tag" syncen — Tag schützt nicht vor Ablage (E3).
 - ❌ 0-Upsert-Lauf als grün werten (R3).
 - ❌ Namen verkürzen zu „klickdummy-sync" — kollidiert mit dem Genesor-Issue-Sync (A3).
-- ❌ Bekannter Generator-Makel: `Sync-Zeit` steht im Entry-Content → content_hash ändert sich
-  jeden Lauf, Orchestrator-Dedup greift nie (iilgmbh/iil-klickdummy#160-Familie). Bis zum
-  Paket-Fix nightly akzeptiert; NICHT stündlich takten.
+- ❌ Einen gekappten Entry als vollständigen Treffer lesen. Bis iil-klickdummy 1.33.x kappte
+  der Produzent ADR-Bodies bei 8000 Zeichen; seit
+  [#207](https://github.com/iilgmbh/iil-klickdummy/pull/207) wird stattdessen an
+  `##`-Grenzen gechunkt (`…:ADR-007#2`, Titel `(Teil 2/4)`). Ein Treffer auf einem
+  Folge-Chunk ist **normal**, kein Dublett — alle Chunks tragen dieselben ADR-Tags.
+  Offene Restlücke: schrumpft ein ADR wieder, bleiben höhere `#N` stale
+  ([iil-klickdummy#205](https://github.com/iilgmbh/iil-klickdummy/issues/205)).
 
 ## Changelog
 
 - 2026-07-12: Initial (KONZ-risk-hub-008 MVC Schritt 1; Backfill-Baseline 125 Entries/14 Repos).
 - 2026-07-15: Repo-Liste +tax-hub +trading-hub (Discovery-Fund; 139 Entries/16 Repos). ttz-hub hat jetzt auch `klickdummy/` — bleibt gov-ausgeschlossen (E3).
 - 2026-07-24: Repo-Liste +coach-hub +dms-hub +onboarding-hub +research-hub (Discovery), −pptx-hub −dev-hub (kein `klickdummy/` mehr); frist-hub (meiki-lra) neu mit KD → gov-ausgeschlossen (E3). 143 Entries/18 Repos; Producer-Duplikat-Bug gemeldet iilgmbh/iil-klickdummy#188.
+- 2026-07-30: Anti-Pattern „`Sync-Zeit` im Entry-Content ⇒ Dedup greift nie" **entfernt — die
+  Aussage war falsifiziert**, nicht nur veraltet. Belege, zwei unabhängige: (1) der Produzent
+  `sync_to_orchestrator.py` enthält kein `Sync-Zeit`/`datetime`/`now()`/`strftime`, (2) im Lauf
+  über 20 Repos tragen **0 von 243** Entries einen Zeitstempel. Der Lauf 2026-07-29 zeigte
+  passend dazu 57/142 `written: false`, also greifenden `content_hash`-Dedup. Ersetzt durch das
+  Chunk-Anti-Pattern (iil-klickdummy#199/#207). Die alte Notiz hätte weiter davon abgeraten,
+  den Sync häufiger als nightly zu takten — mit einer Begründung, die nicht mehr zutrifft.
