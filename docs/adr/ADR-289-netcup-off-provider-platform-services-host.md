@@ -48,10 +48,20 @@ tags: [infrastructure, hosts, backup, disaster-recovery, monitoring, ci, provide
 - **Das beschlossene Offsite-Ziel liegt beim selben Anbieter.** ADR-241 wählte eine Hetzner
   Storage Box BX11. Alle fünf Bestandshosts sind Hetzner — ein Ziel im selben Konto und
   beim selben Anbieter isoliert weder Konto-, Abrechnungs- noch anbieterweite Störungen.
-- **`prod` hat kein Monitoring.** Das einzige Stack-Monitoring der Plattform läuft auf
-  `odoo` (46.225.127.211) in einem separaten Hetzner-Konto. Deshalb blieb der OOM-Ausfall
-  am 2026-07-20 **16 Stunden** unbemerkt. Ein Beobachter innerhalb der beobachteten
-  Fehlerdomäne ist ohnehin kein Monitoring.
+- **`prod` fehlt die Host-Metrik-Ebene — und die Alarm-Zustellung.**
+  ⚠ **KORREKTUR 2026-07-30 (adversariales Review, `/adr-challenger`):** Die erste Fassung
+  dieses Treibers behauptete „`prod` hat kein Monitoring" und „deshalb blieb der OOM-Ausfall
+  16 Stunden unbemerkt". **Beides ist falsch** und wird hier ersetzt, statt es stillschweigend
+  zu glätten — siehe §1.3.
+  Tatsächlich existiert `.github/workflows/prod-uptime-canary.yml` (seit 2026-06-17, alle
+  15 min, 41 geprobte URLs inkl. `trading-hub.iil.pet/livez/`) und es hat funktioniert: der
+  OOM begann am 2026-07-20 um 18:26, der Canary legte **um 18:42 automatisch Issue #1282 an**
+  — nach 16 **Minuten**, nicht 16 Stunden. Was fehlt, ist deshalb nicht die Erkennung,
+  sondern (a) die **Host-/Container-Metrik-Ebene**, die Speicherdruck *vor* dem Totalausfall
+  sichtbar macht — ein Endpoint-Check sieht erst den 502 —, und (b) eine **Alarm-Zustellung,
+  die einen Menschen erreicht**: ein GitHub-Issue ist ein Protokoll, kein Alarm. Der
+  Stack-Monitoring-Bestand (Prometheus/Loki/Grafana) läuft nur auf `odoo` im separaten Konto
+  und deckt `prod` nicht ab.
 - **Der CI-Host sitzt im Swap-Anschlag.** `staging` (88.99.38.75) trägt laut ADR-257 den
   `ci-nonprod`-Runner und gleichzeitig 30 Sitzungen, Windsurf-Remote und
   Desktop-Streaming: gemessen 2026-07-30 Swap **8,0 / 8,0 GB = 100 %**, 2,3 GB RAM frei.
@@ -97,13 +107,53 @@ hat mit 1 TB die größte Disk im Bestand — dreifach jede andere.
 
 Drei Dinge treffen zusammen. Erstens ist ADR-241 seit sechs Wochen beschlossen und nicht
 umgesetzt; das dringlichste Einzelstück (risk-hub MinIO) ist weiter ungesichert. Zweitens
-liegt seit dem 2026-07-20 ein konkreter Schadensfall vor, dessen Ursache nicht der OOM
-selbst war, sondern dass ihn 16 Stunden niemand bemerkte. Drittens ist die Maschine da,
-bezahlt und leer — die Alternative zur Nutzung ist nicht Ersparnis, sondern Leerlauf.
+liegt seit dem 2026-07-20 ein konkreter Schadensfall vor, bei dem der Ausfall **erkannt und
+protokolliert** wurde (Issue #1282, 16 Minuten nach Beginn) und trotzdem rund 16 Stunden
+andauerte — die Lücke liegt zwischen Erkennung und Reaktion, siehe §1.3. Drittens ist die
+Maschine da, bezahlt und leer — die Alternative zur Nutzung ist nicht Ersparnis, sondern
+Leerlauf.
 
-Hinzu kommt eine Falsifikation, die den Entscheidungsraum erst geöffnet hat: die
-Panel-Angabe „Startlaufwerk HDD" (siehe §2, Option D und §4.1) hätte netcup auf reine
-Archivrollen beschränkt. Die Messung widerlegt sie.
+Hinzu kommen **zwei** Falsifikationen, die den Entscheidungsraum geformt haben. Die erste
+hat ihn geöffnet: die Panel-Angabe „Startlaufwerk HDD" (§2 Option D, §4.1) hätte netcup auf
+reine Archivrollen beschränkt — die Messung widerlegt sie. Die zweite hat ihn **verengt**
+und wird in §1.3 offen ausgewiesen, weil sie eine Begründung dieses ADR entkräftet.
+
+### 1.3 Falsifizierte eigene Begründung (adversariales Review 2026-07-30)
+
+Die erste Fassung dieses ADR trug als Treiber für R2: „`prod` hat kein Monitoring, deshalb
+blieb der OOM-Ausfall am 2026-07-20 16 Stunden unbemerkt." Das Review (`/adr-challenger`)
+hat beide Hälften widerlegt:
+
+| Behauptung | Befund |
+|---|---|
+| „`prod` hat kein Monitoring" | `.github/workflows/prod-uptime-canary.yml` existiert seit **2026-06-17**, läuft alle **15 min**, probt **41 URLs** — darunter `trading-hub.iil.pet/livez/`, den betroffenen Hub — und legt bei Fehlschlag **automatisch ein GitHub-Issue** an (mit Dedup und Auto-Close). |
+| „16 Stunden unbemerkt" | Der OOM begann 18:26. Der Canary legte **um 18:42 Issue #1282 an** — nach 16 **Minuten**. Erkannt und protokolliert war der Ausfall also fast sofort. |
+
+Das ist dieselbe Fehlerklasse, die im Drift-Memory `error:writing-hub:20260722-absence-claim`
+festgehalten ist — dort wurde aus „kein Betterstack-Monitor" ein „kein Monitoring", obwohl
+**genau diese Canary-Datei** den Hub abdeckte. Die dort vorgeschriebene Gegenprobe
+(`grep -rl '<domain>' .github/workflows/`) war beim Schreiben dieses ADR **nicht** gefahren
+worden.
+
+**Was von R2 übrig bleibt — und was nicht:**
+
+- **Nicht mehr tragfähig:** „es gibt kein Monitoring". Endpoint-Uptime ist abgedeckt und
+  funktioniert nachweislich.
+- **Weiter tragfähig, aber schwächer:** Es fehlt die **Host-/Container-Metrik-Ebene**
+  (RAM, Swap, OOM-Kills, Restart-Schleifen). Ein Endpoint-Check sieht den 502, nicht den
+  Speicherdruck der Stunden davor — Vorwarnung ist damit nicht möglich, nur Feststellung.
+- **Der eigentliche Engpass ist ein anderer als angenommen:** die **Zustellung**. Ein
+  GitHub-Issue ist ein Protokoll, kein Alarm; #1282 lag 18 Stunden offen. Dieses Problem
+  löst ein zweiter Prometheus **nicht** — es braucht einen Kanal, der einen Menschen erreicht
+  (Push/Mail/Discord). Das ist unabhängig von netcup machbar und **vermutlich der
+  wirksamere, billigere Schritt**.
+
+**Folge für die Priorisierung:** R2 verliert seinen dringlichsten Treiber. Die Reihenfolge
+R1 → R2 → R3 ist damit **nicht mehr aus dem Schadensfall begründet**, sondern nur noch aus
+der Fehlerdomänen-Logik. Ob R2 vor R3 bleibt — oder ob zuerst die Alarm-Zustellung gebaut
+wird, ganz ohne netcup — ist eine **offene Entscheidung des Owners** und wird von diesem ADR
+ausdrücklich **nicht** vorweggenommen. R1 ist davon unberührt: dessen Begründung (kein
+Offsite-Backup, Kundendokumente ungesichert) hat das Review nicht angetastet.
 
 ---
 
@@ -171,9 +221,12 @@ auf `staging`.
 **Cons:**
 - Verschenkt 12 Kerne und 30 GB RAM für eine Aufgabe, die 60 GB Disk und kaum CPU braucht.
 - Lässt das Monitoring in der falschen Domäne (`odoo`, fremdes Konto) → **Abgelehnt weil:**
-  Der belegte Schadensfall vom 2026-07-20 (16 h unbemerkt) bleibt ungedeckt, obwohl der
-  Host dafür bereitsteht. Die HDD-Annahme, die diese Beschränkung getragen hätte, ist
-  widerlegt (§4.1).
+  die Host-Metrik-Ebene bleibt ungedeckt, obwohl der Host dafür bereitsteht. Die
+  HDD-Annahme, die diese Beschränkung getragen hätte, ist widerlegt (§4.1).
+  ⚠ Nach §1.3 ist dieser Gegengrund **schwächer** als ursprünglich formuliert: Option D
+  lässt keine Erkennungslücke offen (die deckt der Canary), sondern nur die Metrik-Ebene.
+  Wer die Alarm-Zustellung für den wirksameren Schritt hält, kann Option D begründet
+  vertreten — das Review hat diesen Einwand ausdrücklich stehen gelassen.
 
 ---
 
@@ -320,7 +373,8 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | `platform` | 4 — R2 Monitoring | ⬜ Ausstehend | – | §4.4 inkl. Dead-Man's-Switch |
 | — | 5 — `fio randwrite` nachmessen | ✅ Abgeschlossen | 2026-07-30 | **bestanden**, Werte in §4.1.1. Deckt die I/O-Vorbedingung; der Build-Wall-Clock-Vergleich bleibt offen (Phase 5b) |
 | — | 5b — Build-Wall-Clock vergleichen | ⬜ Ausstehend | – | derselbe Docker-Build auf netcup und `staging`; das ist der eigentliche R3-Nachweis, nicht die IOPS-Zahl |
-| `platform` | 6 — R3 Runner | ⬜ Ausstehend | – | nur wenn Phase 5b bestanden |
+| `platform` | 6 — R3 Runner | ⬜ Ausstehend | – | nur wenn Phase 5b bestanden **und** die Disk-Trennung gegen R1 entschieden ist (§7, Review-Einwand ADR-257-Logik) |
+| — | 4b — Alarm-Zustellung (kanalgebunden) | ⬜ Ausstehend | – | **aus §1.3**: Der Canary erkennt, aber ein Issue erreicht niemanden. Push/Mail/Discord — **unabhängig von netcup machbar** und vermutlich wirksamer als R2. Owner entscheidet die Reihenfolge |
 | — | 7 — R4 DR-Standby | ➖ Out of Scope | – | eigene Entscheidung nach Phase 3 |
 | `platform` | 8 — ADR-241 Statuszeile | ⬜ Ausstehend | – | **aufgeschobener Statuswechsel**: ADR-241 erhält `amended_by: ADR-289` erst, wenn dieses ADR `accepted` ist |
 
@@ -371,6 +425,7 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | „Noisy neighbour" auf geteiltem Speicher | Mittel | Niedrig | **Teilweise entschärft** (§4.1.1, 2026-07-30): 43,3k Write-/94,0k Read-IOPS gemessen, p99 5,5 ms — Streuung sichtbar, Reserve groß. Random-IOPS sind damit **nicht** mehr unbekannt. Offen bleibt das Verhalten über Wochen; R1/R2 sind gegen I/O-Schwankungen ohnehin tolerant. |
 | AVV fehlt, Backups mit Personenbezug landen trotzdem dort | Niedrig | **Kritisch** | Phase 0b ist Vorbedingung von Phase 2, nicht Parallelarbeit. R2 (Metriken/Logs) und R3 (Builds) sind davon nicht betroffen und können vorher laufen. |
 | Kompromittierter Quell-Host löscht die Sicherungen | Niedrig | Hoch | `restic`-Zugang als Append-only-Schlüssel (§4.3). |
+| **R3 (CI) neben R1 (Backup) auf einem Host widerspricht der Begründung von ADR-257** | Mittel | Hoch | **Offener Einwand aus dem Review 2026-07-30, hier bewusst nicht wegargumentiert.** ADR-257 hat CI vom Prod-Host getrennt, weil CI-Image-Churn die geteilte Disk füllte (dort §Status: „2026-06-27/28 bestätigte die Prämisse"), und lässt Koexistenz mit CI ausdrücklich nur für **non-prod** zu. Ein Off-Provider-Backup für Prod-Daten ist aber prod-**kritisch** — derselbe Mechanismus, der 2026-06 die Prod-Disk füllte, würde hier das Backup-Ziel gefährden. Vor R3 ist daher entweder eine harte Trennung nötig (eigenes Dateisystem oder Disk-Quota für den Runner-Bereich, nicht nur getrennte Verzeichnisse) **oder R3 entfällt** und `staging` wird anders entlastet. Als Vorbedingung in §5 Phase 6 zu führen — die Entscheidung liegt beim Owner. |
 | Schleichende Umnutzung zum sechsten Hub-Host | **Mittel** | Mittel | Negativ-Regel §4.6 mit maschineller Prüfung (§8.2) — nicht nur als Absichtserklärung. |
 | Kosten/Laufzeit ungünstiger als die 5 €/Monat für BX11 | Niedrig | Niedrig | Phase 0c klärt das vor Phase 1; fällt der Vergleich negativ aus, bleibt Option C erreichbar, weil bis dahin nichts Irreversibles geschehen ist. |
 
@@ -434,7 +489,15 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
   deshalb kein Fall für `infra/ports.yaml`.
 - `infra/hosts.yaml` — Ist-Zustand aller sechs Hosts, Messwerte und Vorbehalte
   (platform PR #1560, gemergt 2026-07-30).
-- Vorfall 2026-07-20: Host-OOM auf `prod`, 16 h unbemerkt — platform#1303, Freeze #1314.
+- Vorfall 2026-07-20: Host-OOM auf `prod` — platform#1303, Freeze #1314. **Erkannt** vom
+  Prod-Uptime-Canary um 18:42 (Issue #1282, 16 Minuten nach Beginn); die Dauer von ~16 h
+  entstand zwischen Erkennung und Reaktion, nicht durch fehlende Erkennung (§1.3).
+- `.github/workflows/prod-uptime-canary.yml` — 41 geprobte Prod-URLs, alle 15 min,
+  Auto-Issue mit Dedup. Der Bestand an Endpoint-Monitoring, den §1.3 der ersten Fassung
+  dieses ADR entgegenhält.
+- Drift-Memory `error:writing-hub:20260722-absence-claim` — dieselbe Fehlerklasse, dieselbe
+  Datei, acht Tage vor diesem ADR festgehalten; die vorgeschriebene Gegenprobe wurde beim
+  Schreiben nicht gefahren.
 
 ---
 
@@ -443,4 +506,5 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-07-30 | Achim Dehnert | Initial: Status Proposed. Rollenzuschnitt R1–R4 für netcup; Amendment zu ADR-241 (Offsite-Ziel). Grundlage: SSH-Inventur aller sechs Hosts und I/O-Messung, die die Panel-Angabe „HDD" widerlegt. |
+| 2026-07-30 | Achim Dehnert | **Adversariales Review (`/adr-challenger`) — eine eigene Begründung falsifiziert.** Der R2-Treiber „`prod` hat kein Monitoring, deshalb 16 h unbemerkt" ist in beiden Hälften widerlegt: `prod-uptime-canary.yml` probt seit 2026-06-17 alle 15 min 41 URLs inklusive des betroffenen Hubs und legte am 2026-07-20 um 18:42 Issue #1282 an — 16 **Minuten** nach OOM-Beginn. Neuer §1.3 weist das offen aus, statt es zu glätten; dieselbe Fehlerklasse liegt als Drift-Memory `20260722-absence-claim` vor, die dort vorgeschriebene Gegenprobe war nicht gefahren. Folge: R2 behält nur den schwächeren Treiber (fehlende Host-Metrik-Ebene), der eigentliche Engpass ist die **Alarm-Zustellung** — als Phase 4b geführt, ohne netcup machbar. Die Reihenfolge R2 vor R3 ist damit nicht mehr aus dem Schadensfall begründet und bleibt ausdrücklich Owner-Entscheidung. Zweiter Einwand als offenes Risiko aufgenommen: **R3 neben R1 widerspricht der Begründung von ADR-257** (CI-Image-Churn füllte dort die geteilte Disk; Koexistenz nur für non-prod zugelassen) — vor R3 ist Disk-Trennung oder Verzicht zu entscheiden. R1 ist von beidem unberührt. |
 | 2026-07-30 | Achim Dehnert | **Phase 1 + Phase 5 abgeschlossen.** Grundinstallation gelaufen (Owner-Freigabe erteilt): Swap 8 G, Docker 29.6.2, Compose 5.3.1, fio 3.39, sysctl nach ADR-098 — als idempotentes Skript `infra/host-maintenance/netcup-bootstrap.sh` ins IaC gespiegelt, nicht per Handarbeit. Random-IOPS nachgemessen (§4.1.1): 43,3k write / 94,0k read, p99 5,5 ms → SSD-Klasse bestätigt, Risiko-Zeile „Random-IOPS unbekannt" entschärft. **Neue Phase 5b** eingezogen: der Build-Wall-Clock-Vergleich ist der eigentliche R3-Nachweis; die IOPS-Messung deckt ihn nicht. Status bleibt `proposed` — die Freigabe betraf die rollenneutrale Grundinstallation, nicht die Annahme der Rollen R1–R4. |
