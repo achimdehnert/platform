@@ -222,10 +222,29 @@ ist die **fsync-Commit-Latenz** — die für Postgres bestimmende Größe — un
 88 % der NVMe-Referenz. Nur beim sequenziellen Lesen fällt netcup ab (0,38 ×); das betrifft
 Image-Pulls und Cache-Aufwärmung, nicht den Datenbankbetrieb (Gegenmittel: §4.4).
 
-**Nicht gemessen, ausdrücklich offen:** Random-IOPS und Verhalten unter Dauerlast
-(geteilter Speicher, „noisy neighbour"). Belastbar widerlegt ist „HDD, deshalb für
-Datenbanken und Builds ungeeignet"; **nicht** belegt ist Gleichwertigkeit unter Dauerlast.
-Nachmessung als Vorbedingung von R3 in §5.
+### 4.1.1 Nachmessung Random-IOPS (Phase 5, 2026-07-30 — bestanden)
+
+Die erste Fassung dieses ADR führte Random-IOPS als offen und machte die Nachmessung zur
+Vorbedingung von R3. Sie ist erfolgt (`fio` 3.39, `--direct=1 --bs=4k --iodepth=32
+--ioengine=libaio`, zeitbasiert):
+
+| Profil | Ergebnis |
+|---|---|
+| `randwrite` 4 K, 30 s | **43,3k IOPS**, 169 MiB/s, Latenz Ø 730 µs, p99 **5,5 ms** |
+| `randread` 4 K, 45 s | **94,0k IOPS** |
+
+Eine rotierende Platte liefert 100–200 IOPS — der Abstand ist Faktor 200 bis 400. Damit ist
+die Speicherklasse endgültig geklärt: **SSD/NVMe-gestützt**, nicht rotierend. Für
+Docker-Builds, Prometheus-Blöcke und restic-Läufe ist das mit Reserve ausreichend.
+
+Die p99-Latenz von 5,5 ms bei Warteschlangentiefe 32 (gegen Ø 730 µs) zeigt die erwartete
+Streuung geteilten Speichers — bemerkbar unter Last, aber weit von einer Blockade entfernt.
+
+**Was damit NICHT belegt ist:** dass ein echter Docker-Build hier genauso schnell läuft.
+Die Messung deckt die *Speicher*-Vorbedingung, nicht die Wall-Clock eines Builds, in die
+auch die schwächere Leseleistung (0,38 × bei sequenziellem Lesen, §4.1) über Image-Pulls
+eingeht. Der Build-Vergleich ist deshalb als eigene Phase 5b geführt und bleibt die
+Bedingung für R3 — die IOPS-Zahl allein reicht dafür ausdrücklich nicht.
 
 ### 4.2 Grundinstallation (Vorbedingung aller Rollen)
 
@@ -294,13 +313,14 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | `platform` | 0 — Host in SoT | ✅ Abgeschlossen | 2026-07-30 | `infra/hosts.yaml`, PR #1560 (gemergt) |
 | — | 0b — AVV mit netcup | ⬜ Ausstehend | – | **Vorbedingung für R1**; Owner, netcup-Panel |
 | — | 0c — Kosten/Laufzeit offenlegen | ⬜ Ausstehend | – | fehlt für den Vergleich gegen BX11 |
-| `platform` | 1 — Grundinstallation | ⬜ Ausstehend | – | §4.2; Schreibeingriff, braucht Freigabe |
+| `platform` | 1 — Grundinstallation | ✅ Abgeschlossen | 2026-07-30 | Owner-Freigabe erteilt; `infra/host-maintenance/netcup-bootstrap.sh` gelaufen — Swap 8 G, Docker 29.6.2, Compose 5.3.1, fio 3.39, sysctl nach ADR-098. Firewall bewusst ausgenommen (§4.2) |
 | `risk-hub` | 2 — R1 inkl. MinIO | ⬜ Ausstehend | – | dringlichster Einzelfix aus ADR-241 |
 | `mcp-hub` | 2 — R1 pgvector | ⬜ Ausstehend | – | kein Backup-Skript vorhanden |
 | `platform` | 3 — R1 Feuerübung G3 | ⬜ Ausstehend | – | erst danach gilt R1 als belegt |
 | `platform` | 4 — R2 Monitoring | ⬜ Ausstehend | – | §4.4 inkl. Dead-Man's-Switch |
-| — | 5 — `fio randwrite` nachmessen | ⬜ Ausstehend | – | **Vorbedingung für R3** |
-| `platform` | 6 — R3 Runner | ⬜ Ausstehend | – | nur wenn Phase 5 bestanden |
+| — | 5 — `fio randwrite` nachmessen | ✅ Abgeschlossen | 2026-07-30 | **bestanden**, Werte in §4.1.1. Deckt die I/O-Vorbedingung; der Build-Wall-Clock-Vergleich bleibt offen (Phase 5b) |
+| — | 5b — Build-Wall-Clock vergleichen | ⬜ Ausstehend | – | derselbe Docker-Build auf netcup und `staging`; das ist der eigentliche R3-Nachweis, nicht die IOPS-Zahl |
+| `platform` | 6 — R3 Runner | ⬜ Ausstehend | – | nur wenn Phase 5b bestanden |
 | — | 7 — R4 DR-Standby | ➖ Out of Scope | – | eigene Entscheidung nach Phase 3 |
 | `platform` | 8 — ADR-241 Statuszeile | ⬜ Ausstehend | – | **aufgeschobener Statuswechsel**: ADR-241 erhält `amended_by: ADR-289` erst, wenn dieses ADR `accepted` ist |
 
@@ -348,7 +368,7 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | Risiko | W'keit | Impact | Mitigation |
 |--------|--------|--------|-----------|
 | netcup fällt aus → Backup-Ziel **und** Monitoring gleichzeitig weg | Niedrig | Hoch | Die deploy-getriggerten Pre-Deploy-Backups auf `prod` (ADR-241) bleiben als zweite, lokale Kopie bestehen — R1 ersetzt sie nicht. Monitoring-Ausfall wird durch Heartbeat/Dead-Man's-Switch (§4.4) sichtbar, nicht durch Stille. |
-| „Noisy neighbour" auf geteiltem Speicher; Random-IOPS unbekannt | Mittel | Mittel | `fio`-Nachmessung als **Vorbedingung** für R3 (§5 Phase 5). R1/R2 sind gegen I/O-Schwankungen tolerant. |
+| „Noisy neighbour" auf geteiltem Speicher | Mittel | Niedrig | **Teilweise entschärft** (§4.1.1, 2026-07-30): 43,3k Write-/94,0k Read-IOPS gemessen, p99 5,5 ms — Streuung sichtbar, Reserve groß. Random-IOPS sind damit **nicht** mehr unbekannt. Offen bleibt das Verhalten über Wochen; R1/R2 sind gegen I/O-Schwankungen ohnehin tolerant. |
 | AVV fehlt, Backups mit Personenbezug landen trotzdem dort | Niedrig | **Kritisch** | Phase 0b ist Vorbedingung von Phase 2, nicht Parallelarbeit. R2 (Metriken/Logs) und R3 (Builds) sind davon nicht betroffen und können vorher laufen. |
 | Kompromittierter Quell-Host löscht die Sicherungen | Niedrig | Hoch | `restic`-Zugang als Append-only-Schlüssel (§4.3). |
 | Schleichende Umnutzung zum sechsten Hub-Host | **Mittel** | Mittel | Negativ-Regel §4.6 mit maschineller Prüfung (§8.2) — nicht nur als Absichtserklärung. |
@@ -372,8 +392,10 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 4. **R2 ist erst belegt, wenn ein Alarm ausgelöst hat** — ein bewusst herbeigeführter
    Testfall (Container-Stop auf einem Nicht-Prod-Host) erzeugt binnen 5 Minuten eine
    Benachrichtigung. Ein installierter Prometheus ohne zugestellten Alarm gilt nicht.
-5. **R3 nur nach Messung** — Phase 5 (`fio randwrite`) liegt als Ergebnis vor, bevor ein
-   Runner registriert wird.
+5. **R3 nur nach Messung** — Phase 5 (`fio randwrite`) ist **erfüllt** (§4.1.1, 2026-07-30).
+   Bevor ein Runner registriert wird, muss zusätzlich Phase 5b vorliegen: derselbe
+   Docker-Build auf netcup und auf `staging`, verglichen nach Wall-Clock. Eine bestandene
+   IOPS-Messung allein gilt ausdrücklich **nicht** als Nachweis der Build-Eignung.
 6. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft —
    Staleness-Schwelle: **6 Monate** (kurz gewählt, weil die Rollen gestaffelt umgesetzt
    werden und ein halbjährlicher Abgleich Phasen-Stillstand sichtbar macht).
@@ -421,3 +443,4 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-07-30 | Achim Dehnert | Initial: Status Proposed. Rollenzuschnitt R1–R4 für netcup; Amendment zu ADR-241 (Offsite-Ziel). Grundlage: SSH-Inventur aller sechs Hosts und I/O-Messung, die die Panel-Angabe „HDD" widerlegt. |
+| 2026-07-30 | Achim Dehnert | **Phase 1 + Phase 5 abgeschlossen.** Grundinstallation gelaufen (Owner-Freigabe erteilt): Swap 8 G, Docker 29.6.2, Compose 5.3.1, fio 3.39, sysctl nach ADR-098 — als idempotentes Skript `infra/host-maintenance/netcup-bootstrap.sh` ins IaC gespiegelt, nicht per Handarbeit. Random-IOPS nachgemessen (§4.1.1): 43,3k write / 94,0k read, p99 5,5 ms → SSD-Klasse bestätigt, Risiko-Zeile „Random-IOPS unbekannt" entschärft. **Neue Phase 5b** eingezogen: der Build-Wall-Clock-Vergleich ist der eigentliche R3-Nachweis; die IOPS-Messung deckt ihn nicht. Status bleibt `proposed` — die Freigabe betraf die rollenneutrale Grundinstallation, nicht die Annahme der Rollen R1–R4. |
