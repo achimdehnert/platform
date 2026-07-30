@@ -44,7 +44,11 @@ def server(tmp_path, registry, monkeypatch):
     (seite.parent / "4711-anhaenge").mkdir()
     (seite.parent / "4711-anhaenge" / "bericht.pdf").write_bytes(b"%PDF-1.4")
 
-    monkeypatch.setattr(mls.MailLinkHandler, "_rendern", lambda self, konto, uid: seite)
+    monkeypatch.setattr(
+        mls.MailLinkHandler,
+        "_rendern",
+        lambda self, konto, uid, ordner=None: seite,
+    )
     mls.MailLinkHandler.konten = {"hnu": "hnu", "ad": "ad"}
     mls.MailLinkHandler.default_konto = "hnu"
     mls.MailLinkHandler.registry_pfad = registry
@@ -113,7 +117,7 @@ class TestMailRoute:
         `except Exception` vorbei, der Request-Thread starb und der Browser bekam
         eine leere Antwort statt einer Fehlerseite (gemessen an /m/ad/64)."""
 
-        def _fehlt(self, konto, uid):
+        def _fehlt(self, konto, uid, ordner=None):
             raise mls.MailNichtGefunden(f"keine Nachricht mit UID {uid}")
 
         monkeypatch.setattr(mls.MailLinkHandler, "_rendern", _fehlt)
@@ -121,8 +125,31 @@ class TestMailRoute:
         assert status == 404
         assert b"999999" in koerper
 
+    def test_should_pass_folder_segment_through(self, server, monkeypatch):
+        """Ohne Ordner-Segment war nur INBOX erreichbar — ein Entwurf gab 404."""
+        gesehen = {}
+
+        def _merken(self, konto, uid, ordner=None):
+            gesehen.update(konto=konto, uid=uid, ordner=ordner)
+            return Path(__file__)  # irgendeine lesbare Datei
+
+        monkeypatch.setattr(mls.MailLinkHandler, "_rendern", _merken)
+        assert _get(server, "/m/hnu/entwuerfe/23254")[0] == 200
+        assert gesehen == {"konto": "hnu", "uid": "23254", "ordner": "entwuerfe"}
+
+    def test_should_keep_default_folder_without_segment(self, server, monkeypatch):
+        gesehen = {}
+
+        def _merken(self, konto, uid, ordner=None):
+            gesehen["ordner"] = ordner
+            return Path(__file__)
+
+        monkeypatch.setattr(mls.MailLinkHandler, "_rendern", _merken)
+        _get(server, "/m/4711")
+        assert gesehen["ordner"] is None
+
     def test_should_502_when_mailbox_is_unreachable(self, server, monkeypatch):
-        def _kaputt(self, konto, uid):
+        def _kaputt(self, konto, uid, ordner=None):
             raise OSError("Verbindung abgelehnt")
 
         monkeypatch.setattr(mls.MailLinkHandler, "_rendern", _kaputt)
@@ -228,7 +255,7 @@ class TestBoardRoute:
             "/etc/passwd",
             "..",
             ".",
-            "liste.md",          # Endung gehört nicht in den Namen
+            "liste.md",  # Endung gehört nicht in den Namen
             "a/b",
             "",
         ],
