@@ -166,14 +166,25 @@ hosts:
     os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
     server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
     role: >
-      NOCH KEINE ROLLE ZUGEWIESEN — Bestandsaufnahme 2026-07-30, Rollenzuschnitt
-      wartet auf Owner-Freigabe (Gate G3 der Analyse).
-      Zustand: unangetastete Neuinstallation. 113 Tage Uptime, Load 0,00, 1 GiB
-      Traffic im Monat, 0,55 von 31 GB RAM belegt, 3,3 von 1007 GB Disk.
-      KEIN Docker installiert, KEIN Swap konfiguriert, es lauscht nur SSH auf 22
-      (80/443 zu). Dienste: systemd-Grundausstattung + cron + qemu-guest-agent.
-      Dasselbe Muster wie `lastwar-bot` vor dem prod-b-Rebuild: bezahlt, ungenutzt.
-      ⚠ FIREWALL: netcup-Panel zeigt "Aktiv (0)" — eingeschaltet, aber KEINE Regel.
+      ROLLE VORGESCHLAGEN in ADR-289 (Status `proposed`): Off-Provider-Host für
+      PLATTFORMDIENSTE, ausdrücklich KEINE App-Hubs. R1 Off-Provider-Backup/DR-Ziel,
+      R2 unabhängiger Monitoring-Host, R3 CI-/Build-Runner, R4 DR-Standby.
+      ⛔ NEGATIV-REGEL (ADR-289 §4.6): hier läuft KEIN App-Hub-Stack. Wandernde Hubs
+      gehen nach `prod-b` oder `staging-dedicated` (7 % bzw. 23 % RAM-Belegung) —
+      der Bestand hat ein Verteilungs-, kein Kapazitätsproblem. Prüfbar per
+      `docker ps` gegen ports.yaml über COMPOSE_PROJECT_NAME (ADR-248).
+      Zustand nach Grundinstallation (2026-07-30, `netcup-bootstrap.sh`, ADR-289
+      Phase 1): Swap 8 GB aktiv (vorher KEINER), Docker 29.6.2 + Compose 5.3.1
+      (vorher nicht installiert), fio 3.39, sysctl nach ADR-098 §2
+      (overcommit_memory=1, somaxconn=65535, swappiness=10). Noch 0 Container.
+      Vor dem Eingriff: 113 Tage Uptime bei Load 0,00 und 1 GiB Monatstraffic —
+      dasselbe Muster wie `lastwar-bot` vor dem prod-b-Rebuild: bezahlt, ungenutzt.
+      ⚠ FIREWALL — zwei Ebenen, die wirksame liegt im Panel: netcup-Panel zeigt
+      "Aktiv (0)" (eingeschaltet, aber KEINE Regel) und ist nur dort pflegbar, nicht
+      per SSH. Eine Host-Firewall (ufw/nftables) wurde bewusst NICHT aktiviert —
+      aus einer SSH-Sitzung heraus riskiert das die Selbst-Aussperrung, heilbar nur
+      über die netcup-Konsole. Derzeit lauscht ausschließlich SSH auf 22 (80/443 zu),
+      die Angriffsfläche ist minimal; Regeln werden mit Rolle R2 nötig.
       💡 WERT FÜR DIE PLATTFORM: einziger Host außerhalb der Hetzner-Fehlerdomäne
       und größte Disk im Bestand (1 TB = dreifach jeder andere). Damit der einzige
       sinnvolle Ort für (a) Off-Provider-Backup nach ADR-241 — dessen beschlossenes
@@ -188,10 +199,17 @@ hosts:
       7200-RPM-Platte schafft 150-200 MB/s. Referenz staging-dedicated (NVMe)
       im selben Test: 879 MB/s / 1,7 GB/s / 1,24 ms — netcup liegt bei 72 %
       schreibend, 88 % fsync, 38 % lesend. `lsblk ROTA=1` ist virtio-Default und
-      trägt keine Aussage. NICHT gemessen: Random-IOPS, Verhalten unter Dauerlast
-      (geteilter Speicher, noisy neighbour) — billigster Check: fio randwrite 60 s.
+      trägt keine Aussage.
+      ✅ NACHGEMESSEN 2026-07-30 (fio 3.39, direct=1 bs=4k iodepth=32, ADR-289 §4.1.1):
+      randwrite 43,3k IOPS / 169 MiB/s, Latenz Ø 730 us, p99 5,5 ms; randread
+      94,0k IOPS. Eine rotierende Platte macht 100-200 IOPS — Abstand Faktor 200-400.
+      Speicherklasse damit endgültig geklärt: SSD/NVMe-gestützt. Die p99-Streuung
+      (5,5 ms gegen Ø 730 us) ist die erwartete Varianz geteilten Speichers.
+      NICHT belegt: Build-Wall-Clock. Die IOPS deckt die Speicher-Vorbedingung, nicht
+      die Build-Eignung — dafür laeuft ADR-289 Phase 5b (gleicher Docker-Build auf
+      netcup vs. staging). Ebenfalls offen: Verhalten über Wochen (noisy neighbour).
     hosts_runners: []
-    verified: 2026-07-30               # SSH-Probe on-host + dd-I/O-Messung
+    verified: 2026-07-30               # SSH-Probe + dd + fio; Grundinstallation gelaufen
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
