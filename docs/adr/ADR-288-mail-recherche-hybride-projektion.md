@@ -29,11 +29,11 @@ ai_sparring_by:
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed — v2 nach drei externen Runden                              |
+| **Status**      | Proposed — v2 nach vier externen Runden (§11.6)                      |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-07-29                                                           |
 | **Autor**       | Achim Dehnert                                                        |
-| **Reviewer**    | offen · 3× externe KI-Zweitmeinung (non-accountable, §11)             |
+| **Reviewer**    | offen · 4× externe KI-Zweitmeinung (non-accountable, §11)             |
 | **Supersedes**  | – (**kein** Supersede von ADR-286 — siehe §3.2)                       |
 | **Superseded by** | –                                                                  |
 | **Relates to**  | ADR-286 (Persistenz — §4.10.7 wird korrigiert, der Rest bleibt gültig), KONZ-platform-036 (Vorstufe), KONZ-platform-035 (Deckungsausweis) |
