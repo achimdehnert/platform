@@ -6,6 +6,15 @@ consulted: Claude Code
 informed: –
 supersedes: []
 amends: [ADR-241]
+ai_sparring_by:
+  - tool: other
+    date: 2026-07-30
+    role: adversarial-review
+    summary: "Externes LLM (Runde 1) auf ADR-289: Verdikt ueberarbeiten. Kern: Option A ist nicht entschieden (R2 ungeordnet, R3 kann entfallen, R4 spaetere Entscheidung); falsifizierte 16-h-Behauptung wirkt in Paragraph 3/6.1 fort; CI-Runner ist ein Rechte-, nicht nur ein Speicherproblem; R2 ist vom AVV doch betroffen (Loki-Logs); Negativ-Regel als Allowlist statt Denylist. Tag-Tabelle Paragraph 11."
+  - tool: other
+    date: 2026-07-30
+    role: adversarial-review
+    summary: "Externes LLM (Runde 2) auf ADR-289: Verdikt ueberarbeiten. Kern: das ADR wiederholt den Fehler, den es an ADR-241 diagnostiziert (eine belegte Entscheidung an drei unfertige gebunden); ungestellte Frage warum ADR-241 sechs Wochen nicht gebaut wurde; Kapazitaetsargument gegen Option B und D gegenlaeufig verwendet; ADR-257-Lehre nur auf R3 statt auch auf R2 angewandt; Append-only ist unterverkauft (SFTP kann es nicht erzwingen, rest-server schon). Tag-Tabelle Paragraph 11."
 related: [ADR-059, ADR-098, ADR-157, ADR-164, ADR-248, ADR-257]
 implementation_status: none
 last_reviewed: 2026-07-30
@@ -508,3 +517,74 @@ kein unabhängiger Beobachter/Sicherungsort mehr. Prüfmechanismus in §8.
 | 2026-07-30 | Achim Dehnert | Initial: Status Proposed. Rollenzuschnitt R1–R4 für netcup; Amendment zu ADR-241 (Offsite-Ziel). Grundlage: SSH-Inventur aller sechs Hosts und I/O-Messung, die die Panel-Angabe „HDD" widerlegt. |
 | 2026-07-30 | Achim Dehnert | **Adversariales Review (`/adr-challenger`) — eine eigene Begründung falsifiziert.** Der R2-Treiber „`prod` hat kein Monitoring, deshalb 16 h unbemerkt" ist in beiden Hälften widerlegt: `prod-uptime-canary.yml` probt seit 2026-06-17 alle 15 min 41 URLs inklusive des betroffenen Hubs und legte am 2026-07-20 um 18:42 Issue #1282 an — 16 **Minuten** nach OOM-Beginn. Neuer §1.3 weist das offen aus, statt es zu glätten; dieselbe Fehlerklasse liegt als Drift-Memory `20260722-absence-claim` vor, die dort vorgeschriebene Gegenprobe war nicht gefahren. Folge: R2 behält nur den schwächeren Treiber (fehlende Host-Metrik-Ebene), der eigentliche Engpass ist die **Alarm-Zustellung** — als Phase 4b geführt, ohne netcup machbar. Die Reihenfolge R2 vor R3 ist damit nicht mehr aus dem Schadensfall begründet und bleibt ausdrücklich Owner-Entscheidung. Zweiter Einwand als offenes Risiko aufgenommen: **R3 neben R1 widerspricht der Begründung von ADR-257** (CI-Image-Churn füllte dort die geteilte Disk; Koexistenz nur für non-prod zugelassen) — vor R3 ist Disk-Trennung oder Verzicht zu entscheiden. R1 ist von beidem unberührt. |
 | 2026-07-30 | Achim Dehnert | **Phase 1 + Phase 5 abgeschlossen.** Grundinstallation gelaufen (Owner-Freigabe erteilt): Swap 8 G, Docker 29.6.2, Compose 5.3.1, fio 3.39, sysctl nach ADR-098 — als idempotentes Skript `infra/host-maintenance/netcup-bootstrap.sh` ins IaC gespiegelt, nicht per Handarbeit. Random-IOPS nachgemessen (§4.1.1): 43,3k write / 94,0k read, p99 5,5 ms → SSD-Klasse bestätigt, Risiko-Zeile „Random-IOPS unbekannt" entschärft. **Neue Phase 5b** eingezogen: der Build-Wall-Clock-Vergleich ist der eigentliche R3-Nachweis; die IOPS-Messung deckt ihn nicht. Status bleibt `proposed` — die Freigabe betraf die rollenneutrale Grundinstallation, nicht die Annahme der Rollen R1–R4. |
+
+---
+
+## 11. External Review Audit (2026-07-30)
+
+Zwei externe Zweitmeinungen von **zwei verschiedenen Fremdanbieter-Modellen**, beide ohne
+Repo-, ADR- oder Memory-Zugriff (Briefing redigiert: keine IPs, Hostnamen, Credentials,
+Personennamen). **Beide Verdikte: „überarbeiten"** — keines annehmen, keines ablehnen.
+
+67 Befunde/Empfehlungen, getaggt nach dem Rückfluss-Gate (`[valid]` / `[missversteht-Kontext]`
+/ `[out-of-scope]`): **21 Cluster `[valid]`**, 2 `[missversteht-Kontext]`, 3 `[out-of-scope]`,
+11 Zustimmungen. Der Vollständigkeitsnachweis (jede Einzel-ID → Cluster) liegt in der
+Arbeitsdatei; die entscheidungsrelevanten Cluster stehen hier durabel.
+
+**Der Hauptbefund fiel in beiden Runden unabhängig:** Dieses ADR bündelt **eine** belegte
+Entscheidung (R1 — ungesicherte Kundendokumente) mit **drei** Rollen ohne tragenden oder
+ohne geprüften Treiber (R2 falsifiziert, R3 unbewiesen, R4 nicht vorhanden) und macht sich
+dadurch un-fertigstellbar. Runde 2 formuliert die Pointe schärfer: das ist „die Wiederholung
+des Fehlers, den dieser ADR an ADR-241 zu Recht diagnostiziert".
+
+### 11.1 Owner-Entscheidungen (nicht durch den Autor umsetzbar)
+
+| ID | Befund | Status |
+|---|---|---|
+| A1 | ADR auf **R1 + Negativ-Regel** zusammenschneiden; R2/R3/R4 als „erwogen, zurückgestellt" mit dem jeweils auslösenden Treiber | offen |
+| A2 | Alarm-Zustellung (Phase 4b) **vor** R2 priorisieren — netcup-unabhängig, in Stunden baubar | offen |
+| A3 | AVV-Pfad terminieren oder überbrücken — die dringendste Lücke wartet derzeit auf einen Vertrag | offen |
+| A4 | Option D nach der Falsifikation neu bewerten | folgt A1 |
+| **D1** | **Ungestellte Frage: Warum wurde ADR-241 in sechs Wochen nicht gebaut?** Kein Bestandteil war durch das Ziel blockiert. Ist die Ursache Owner-Zeit, ändert ein Zielwechsel nichts — und drei Rollen verschlechtern es. Trifft die Prämisse dieses ADR. | offen |
+
+### 11.2 Sachfehler im Text (`[valid]`, gate-frei zu korrigieren)
+
+| ID | Befund |
+|---|---|
+| B1 | Die Falsifikation aus §1.3 ist **nicht** nach §3 und §6.1 propagiert — beide begründen R2 weiter mit dem „16-h-Ausfall" |
+| B2 | Kapazitätsargument gegenläufig verwendet: gegen Option B als „Verteilungs-, kein Kapazitätsproblem", gegen Option D als „verschenkt 12 Kerne" |
+| B3 | §7 sagt „Phase 0c klärt das **vor** Phase 1", §5 führt Phase 1 als ✅ und 0c als ⬜ |
+| B4 | §4.5 nennt „die Nachmessung in §5" als R3-Gate, obwohl 5b das Gate ist |
+| B5 | „R2/R3 vom AVV nicht betroffen" war eine Annahme — Loki-Logs und Metrik-Labels können IP-Adressen und Nutzerkennungen tragen |
+| B6 | Kein einziger Mengenwert im ADR (Backup-Volumen, Retention, Loki-Ingest) — damit ist „braucht den 1-TB-Host" nach der eigenen Evidenzkonvention unbelegt |
+| B7 | Nürnberg: dieses ADR schafft **Anbieter-**, nicht geografische Unabhängigkeit — `prod` (nbg1) und netcup teilen die Region |
+| B8 | ADR-157 nur als `related` geführt statt amendiert — die Topologie-Aussage steht an zwei Orten widersprüchlich |
+
+### 11.3 Fachlich stärkere Lösungen als die eigenen (`[valid]`, übernommen)
+
+| ID | Befund |
+|---|---|
+| C1 | Disk-Trennung als Vorbedingung **jeder** Co-Tenancy, nicht nur R3 — Prometheus/Loki ist dieselbe Churn-Klasse, die 2026-06 die Prod-Disk füllte, und R2 steht vor R3 |
+| C2 | Der CI-Runner ist ein **Rechte**-, nicht nur ein Speicherproblem: Zugriff auf Backup-Daten und Monitoring-Credentials; eine Quota löst das nicht |
+| C3 | Der Dead-Man's-Switch braucht einen Empfänger in einer **dritten** Domäne — ein Alertmanager auf netcup kann netcups Ausfall nicht melden. Der bestehende GitHub-Canary ist genau das und hat am 20.07. funktioniert |
+| C4 | Append-only ist **unterverkauft**: eine Storage Box über SFTP kann restic-Append-only nicht erzwingen, `rest-server --append-only` schon — das stärkt Option C gegenüber der eigenen Formulierung |
+| C5 | Append-only-Spezifikation zu ungenau (Backend, Erzwingung, Prune-Pfad, Schlüsselablage offen) |
+| C6 | Ein G3-Restore auf demselben Host beweist Lesbarkeit, **nicht** Wiederanlauf (Transfer, Secrets, DNS, fachliche Prüfung, gemessene RTO fehlen) |
+| C7 | Negativ-Regel als **Allowlist** statt Denylist — eine Suche nach bekannten Hub-Namen übersieht Umbenennungen und nicht-Compose-Dienste |
+| C8 | Fünfte Option fehlt im Optionsraum: Objektspeicher eines **dritten** Anbieters mit Object Lock — löst die Geo-Achse und ist härter als ein Append-only-Schlüssel |
+| C9 | Die Frage „sollten es überhaupt sechs Hosts sein?" fehlt — als verworfene Option zu dokumentieren, damit sie nicht neu erfunden wird |
+| C10 | Automation-first statt Monitoring-first: Speichergrenzen, Watchdogs, kontrollierte Neustarts wirken im Ein-Personen-Betrieb stärker als Dashboards |
+
+### 11.4 Nicht eingeflossen (mit Grund)
+
+| ID | Verdikt | Grund |
+|---|---|---|
+| E1 | `[missversteht-Kontext]` | „Phase 1 greift der Entscheidung vor" — die Grundinstallation ist rollenneutral, jede der vier Rollen **und** Option D braucht sie. Der andere Teil desselben Befunds (0c/1-Widerspruch) ist `[valid]` → B3 |
+| E2 | `[missversteht-Kontext]` | Drei hart isolierte VMs auf dem Host — von der Runde selbst „vorläufig verworfen"; Hypervisor-Betrieb ist unter Ein-Personen-Betrieb unverhältnismäßig. Der Kern (Isolation für R3) ist als C2 übernommen |
+| E3 | `[out-of-scope]` | Managed-Observability als Regelfall — berührt die Kostendisziplin-Konvention, eigene Entscheidung. Der Alarm-Kanal-Teil ist als A2/C3 übernommen |
+| E4 | `[out-of-scope]` | Vollständige RTO/RPO-Festlegung für R4 — R4 ist bereits „Out of Scope". Der berechtigte Kern (R4 könnte als geplante DR-Fähigkeit weiterzitiert werden) ist in A1 enthalten |
+
+> **`ai_sparring_by` ist bewusst non-accountable** und erfüllt **nicht** `reviewed_by`: zwei
+> externe KI-Reviews ersetzen keine menschliche Owner-Review. Sie haben hier allerdings zwei
+> Selbstwidersprüche und eine gegenläufige Argumentation gefunden, die drei interne Durchgänge
+> (Autor, `/adr-challenger`, CI) nicht gefunden hatten.
