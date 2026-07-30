@@ -43,6 +43,42 @@ python3 tools/mail_agent/draft_mail.py --account hnu \
   `--folder` erzwingt einen bestimmten.
 - Draft-first ist der bevorzugte Außen-Weg: gesendet wird vom Menschen (Lotsen-Charta Art. 2).
 
+### Antwort statt Neu-Mail (seit 2026-07-30, platform#1555)
+
+Eine Antwort braucht dreierlei, sonst kommt sie beim Empfänger als kontextlose neue
+Mail an. Alle drei sind Schalter, keine Handarbeit:
+
+| Was | Graph (`graph_mail.py --draft`) | IMAP (`draft_mail.py`) |
+|---|---|---|
+| Zitat der Ursprungsmail | `--reply-to <messageId>` | `--zitat-message-id "<mid@host>"` |
+| Strang-Zuordnung | macht Graph selbst | `--in-reply-to` (+ `--references`) |
+| Rollen-Design als HTML | `--role <id> --design` | `--role <id> --design` |
+
+```
+# Graph: Zitat kommt von createReply, das Design steht davor
+python3 tools/mail_agent/graph_mail.py --draft --role iil --design \
+  --eyebrow "Angebot 20251218" --subject "AW: ..." --body-file mail.txt \
+  --reply-to "<graph-message-id>"
+
+# IMAP: Zitat und Kopfzeilen baut das Werkzeug selbst
+python3 tools/mail_agent/draft_mail.py --account hnu --role hnu --design \
+  --to a@b.de --subject "AW: ..." --body-file mail.txt \
+  --in-reply-to "<mid@host>" --zitat-message-id "<mid@host>"
+```
+
+- **`--design` erwartet Klartext**, nicht HTML: erste Zeile Anrede, Grußformel am Ende.
+  Den Namensblock unter der Grußformel weglassen — Name, Signatur und Pflicht-Footer
+  kommen aus der Rolle, sonst stehen sie doppelt. Zeilenumbrüche innerhalb eines
+  Absatzes (Terminlisten) bleiben erhalten.
+- **`--references`** nimmt die Kette der Ursprungsmail **plus** deren eigene Message-ID.
+  Ohne Angabe wird nur die eine ID gesetzt — funktioniert, hängt den Strang aber flacher ein.
+- Die Message-ID ist der stabile Anker; UIDs wandern beim Umsortieren. `anker.py` und
+  `/a/<nr>` im Link-Dienst arbeiten aus demselben Grund darüber.
+- **Falle, die dahinter steckte:** `createReply` legt das Zitat an, ein anschließender
+  `PATCH body.content` ersetzt den **ganzen** Rumpf und löscht es wieder. Genau so gingen
+  am 2026-07-30 drei Entwürfe ohne Zitat raus. Wer den Rumpf setzt, muss den vorhandenen
+  erst lesen und den neuen Text davor setzen.
+
 ---
 
 ## Step 0 — Maschinen-Config prüfen (Bootstrap)

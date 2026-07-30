@@ -22,6 +22,7 @@ separat, nicht hash-relevant).
 SICHERHEIT: `--target` ist Pflicht; schreibt NIE ins Live-Ziel der Lane ohne explizites
 `--allow-live`. Default = Staging.
 """
+
 import argparse
 import datetime
 import hashlib
@@ -43,21 +44,23 @@ DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
 # Lane-Konfiguration: Quell-Pfad im Repo + Live-Ziel (ohne --allow-live gesperrt).
 LANES = {
     "commands": {"src": ".windsurf/workflows/", "live": "~/.claude/commands"},
-    "skills":   {"src": "skills/",              "live": "~/.claude/skills"},
+    "skills": {"src": "skills/", "live": "~/.claude/skills"},
     # ADR-258 Stufe A: Hook-Skripte (.sh) flach nach ~/.claude/hooks/managed/, ausführbar.
     # WICHTIG: dediziertes managed/-Unterverzeichnis, NICHT ~/.claude/hooks/ selbst — denn
     # generate macht einen atomaren Verzeichnis-SWAP, und ~/.claude/hooks/ enthält auch
     # hand-gepflegte Hooks (PreToolUse/SessionStart/…), die ein Swap sonst wegwischen würde.
     # Verteilung != Enforcement — der SessionEnd-Eintrag in settings.json bleibt manuell
     # (doctor.py prüft das Wiring; bootstrap-hook.py zeigt den Patch).
-    "hooks":    {"src": "tools/hooks/",         "live": "~/.claude/hooks/managed"},
+    "hooks": {"src": "tools/hooks/", "live": "~/.claude/hooks/managed"},
 }
+
 
 def git(args, cwd):
     r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f"git {' '.join(args)} fehlgeschlagen: {r.stderr[:200]}")
     return r.stdout
+
 
 def collect(listing, kind):
     """Quell-Blobs → name -> (blob_sha, repo_pfad).
@@ -76,13 +79,57 @@ def collect(listing, kind):
             blobs[os.path.basename(path)] = (p[2], path)
     return blobs
 
+
+def pruefe_swap_ziel(target, kind):
+    """Abbrechen, wenn der Verzeichnis-Swap Fremdinhalte wegwischen würde.
+
+    `--target` bekommt das Lane-Verzeichnis SELBST (z.B. `~/.claude/commands`),
+    nie dessen Elternverzeichnis. Wer versehentlich `~/.claude` angibt, verliert
+    beim atomaren Swap das ganze Verzeichnis.
+
+    Realfall 2026-07-30: `--target ~/.claude --kind commands --allow-live` schob
+    `~/.claude` nach `~/.claude.bak` und legte ein neues mit 51 flachen Dateien an
+    — `commands/`, `policies/`, `hooks/`, `bin/`, `mail-*.env` und 41
+    Session-Verzeichnisse waren weg (wiederherstellbar, aber weg). Der
+    `--allow-live`-Guard griff nicht: er prüft **Gleichheit** mit dem Live-Pfad,
+    und `~/.claude` ist dessen Eltern, nicht der Pfad selbst.
+
+    Kriterium: ein Swap-Ziel ist entweder leer/nicht vorhanden (frisches Staging)
+    oder trägt die Spuren eines früheren Lauf (`MANAGED_BY`/`manifest.json`).
+    Alles andere ist fremdes Verzeichnis — Hände weg.
+    """
+    if not os.path.isdir(target):
+        return
+    inhalt = os.listdir(target)
+    if not inhalt:
+        return
+    if "MANAGED_BY" in inhalt or "manifest.json" in inhalt:
+        return
+    lane_name = os.path.basename(LANES[kind]["live"].rstrip("/"))
+    sys.exit(
+        f"ABBRUCH: {target} ist nicht leer und stammt nicht aus einem früheren Lauf "
+        f"(kein MANAGED_BY/manifest.json) — ein Swap würde {len(inhalt)} fremde "
+        f"Einträge wegwischen.\n"
+        f"  Gemeint war wahrscheinlich: --target {os.path.join(target, lane_name)}\n"
+        f"  --target bekommt das Lane-Verzeichnis selbst, nicht sein Elternverzeichnis."
+    )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--platform", default=os.path.expanduser("~/github/platform"))
     ap.add_argument("--ref", default="origin/main")
-    ap.add_argument("--kind", choices=list(LANES), default="commands",
-                    help="commands = Slash-Commands (flach, Default); skills = Agent Skills (verschachtelt)")
-    ap.add_argument("--target", required=True, help="Ziel-Verzeichnis (Staging). Live nur mit --allow-live")
+    ap.add_argument(
+        "--kind",
+        choices=list(LANES),
+        default="commands",
+        help="commands = Slash-Commands (flach, Default); skills = Agent Skills (verschachtelt)",
+    )
+    ap.add_argument(
+        "--target",
+        required=True,
+        help="Ziel-Verzeichnis (Staging). Live nur mit --allow-live",
+    )
     ap.add_argument("--allow-live", action="store_true")
     args = ap.parse_args()
 
@@ -90,31 +137,45 @@ def main():
     target = os.path.abspath(os.path.expanduser(args.target))
     live = os.path.abspath(os.path.expanduser(lane["live"]))
     if target == live and not args.allow_live:
-        sys.exit(f"ABBRUCH: Ziel ist {lane['live']} — Prototyp schreibt nicht live (--allow-live nötig).")
+        sys.exit(
+            f"ABBRUCH: Ziel ist {lane['live']} — Prototyp schreibt nicht live (--allow-live nötig)."
+        )
+    # VOR dem Netz-/git-Zugriff: ein falsches --target darf nicht erst am Swap auffallen.
+    pruefe_swap_ziel(target, args.kind)
 
     git(["fetch", "origin", "main", "-q"], args.platform)
     commit = git(["rev-parse", args.ref], args.platform).strip()
     listing = git(["ls-tree", "-r", args.ref, lane["src"]], args.platform)
     blobs = collect(listing, args.kind)
     if not blobs:
-        sys.exit(f"ABBRUCH: keine Quellen unter {args.ref}:{lane['src']} (kind={args.kind})")
+        sys.exit(
+            f"ABBRUCH: keine Quellen unter {args.ref}:{lane['src']} (kind={args.kind})"
+        )
 
     staging = target + ".tmp"
     if os.path.exists(staging):
         shutil.rmtree(staging)
     os.makedirs(staging)
 
-    manifest = {"source_repo": "achimdehnert/platform", "source_commit": commit,
-                "generator_version": GENERATOR_VERSION, "kind": args.kind,
-                "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
-                "target_type": "copy", "skill_count": 0, "files": []}
+    manifest = {
+        "source_repo": "achimdehnert/platform",
+        "source_commit": commit,
+        "generator_version": GENERATOR_VERSION,
+        "kind": args.kind,
+        "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "target_type": "copy",
+        "skill_count": 0,
+        "files": [],
+    }
     for name, (bsha, path) in sorted(blobs.items()):
         src = git(["cat-file", "blob", bsha], args.platform)
         if args.kind == "commands" and DISTRIBUTE_FALSE.search(src):
             continue  # interner System-Prompt — kein Slash-Command
         chash = hashlib.sha256(src.encode("utf-8")).hexdigest()
-        meta = (f"{MARK} · generated=true · source={path} · "
-                f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit")
+        meta = (
+            f"{MARK} · generated=true · source={path} · "
+            f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit"
+        )
         if args.kind == "hooks":
             # Shell-Skript: Footer als #-Kommentar (HTML-Kommentar wäre in .sh ungültig).
             content = src.rstrip("\n") + f"\n\n# {meta}\n"
@@ -127,10 +188,16 @@ def main():
             out = os.path.join(staging, name)
         open(out, "w", encoding="utf-8").write(content)
         if args.kind == "hooks":
-            os.chmod(out, 0o755)  # Hooks müssen ausführbar sein (REC-6: 0755, kein world-write)
-        manifest["files"].append({"name": name, "source_path": path, "content_hash": "sha256:" + chash})
+            os.chmod(
+                out, 0o755
+            )  # Hooks müssen ausführbar sein (REC-6: 0755, kein world-write)
+        manifest["files"].append(
+            {"name": name, "source_path": path, "content_hash": "sha256:" + chash}
+        )
 
-    manifest["skill_count"] = len(manifest["files"])  # nach distribute:false-Filter, nicht len(blobs)
+    manifest["skill_count"] = len(
+        manifest["files"]
+    )  # nach distribute:false-Filter, nicht len(blobs)
     json.dump(manifest, open(os.path.join(staging, "manifest.json"), "w"), indent=2)
     # --allow-live in die regenerate-Zeile aufnehmen, wenn das Ziel das Live-Verzeichnis
     # ist — sonst läuft ein Copy-Paste des Befehls in den Guard (target==live) und bricht ab.
@@ -139,7 +206,8 @@ def main():
         f"managed_by: platform/tools/cc-skill-dist/generate.py (kind={args.kind})\n"
         f"allowed_writer: cc-skill-dist generator only — KEINE Handänderung\n"
         f"source: achimdehnert/platform @ {commit}\n"
-        f"regenerate: python3 tools/cc-skill-dist/generate.py --kind {args.kind} --target {target}{regen_live}\n")
+        f"regenerate: python3 tools/cc-skill-dist/generate.py --kind {args.kind} --target {target}{regen_live}\n"
+    )
 
     # Atomarer Swap
     backup = target + ".bak"
@@ -151,8 +219,11 @@ def main():
 
     print(f"=== generate.py — kind={args.kind}, resolved commit {commit[:12]} ===")
     print(f"  Ziel: {target}")
-    print(f"  generiert: {len(manifest['files'])} {args.kind} + manifest.json + MANAGED_BY")
+    print(
+        f"  generiert: {len(manifest['files'])} {args.kind} + manifest.json + MANAGED_BY"
+    )
     print(f"  Backup voriger Stand: {backup if os.path.exists(backup) else '—'}")
+
 
 if __name__ == "__main__":
     main()
