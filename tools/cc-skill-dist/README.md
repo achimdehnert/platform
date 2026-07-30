@@ -14,6 +14,16 @@ Werkzeuge zur deterministischen Verteilung aus der **einen kanonischen Quelle** 
 > würde sie wegwischen. Die Lane besitzt darum exklusiv `~/.claude/hooks/managed/`; settings.json
 > verweist auf `~/.claude/hooks/managed/reap_worktrees.sh`.
 
+> 🌀 **`--target` ist das Lane-Verzeichnis selbst, nie sein Elternverzeichnis.**
+> Richtig: `--target ~/.claude/commands`. Falsch: `--target ~/.claude`.
+> Realfall 2026-07-30: der zweite Aufruf schob **das ganze `~/.claude`** nach
+> `~/.claude.bak` und legte ein neues mit 51 flachen Dateien an — `commands/`,
+> `policies/`, `hooks/`, `bin/`, `mail-*.env` und 41 Session-Verzeichnisse waren weg
+> (aus `.bak` wiederherstellbar, aber weg). `--allow-live` schützt davor **nicht**:
+> es prüft Gleichheit mit dem Live-Pfad, und das Elternverzeichnis ist nicht dieser
+> Pfad. Seit demselben Tag bricht `pruefe_swap_ziel()` ab, wenn das Ziel nicht leer
+> ist und kein `MANAGED_BY`/`manifest.json` trägt — und nennt den gemeinten Pfad.
+
 **Hooks: Verteilung ≠ Enforcement (ADR-258).** Die `hooks`-Lane verteilt nur das Skript;
 ein Hook feuert erst, wenn `~/.claude/settings.json` ihn als Event-Eintrag (z. B. `SessionEnd`)
 verdrahtet. Das Wiring bleibt ein **bewusster Akt pro Maschine** (settings.json ist secret-haltig,

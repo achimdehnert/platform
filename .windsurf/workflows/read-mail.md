@@ -146,8 +146,16 @@ ssh -N -L 8787:127.0.0.1:8787 devuser@<server>                    # vom Arbeitsr
 |---|---|
 | `http://localhost:8787/m/163497` | HNU-Mail live über IMAP gerendert (read-only) |
 | `http://localhost:8787/m/<konto>/<uid>` | anderes Konto (mit `--account` freischalten) |
+| `http://localhost:8787/m/<konto>/<ordner>/<uid>` | anderer Ordner, z.B. `/m/hnu/entwuerfe/23254` |
 | `http://localhost:8787/i/az1` | 302 auf den langen OWA-Deeplink einer IIL-Mail |
 | `http://localhost:8787/` | Übersicht der registrierten Kurz-Links |
+
+Der Ordner ist der **Klartext**-Slug, nicht der IMAP-Name: „Entwürfe" heißt auf der
+Leitung `Entw&APw-rfe` (modified UTF-7, RFC 3501 §5.1.3) und in der URL `entwuerfe`.
+Ein eindeutiger Anfang genügt (`gesendete` → „Gesendete Elemente"); ist er mehrdeutig,
+antwortet der Dienst mit 404 und nennt die Kandidaten. Ohne Ordner-Segment bleibt es
+beim Startordner (`--folder`, Standard INBOX) — vorher war **nur** der erreichbar,
+ein Entwurf lag außerhalb und gab 400 (platform#1556).
 
 Kurz-Link für eine IIL-Mail anlegen:
 `mail_link_server.py --register az1 --graph-id <Graph-id> --notiz "Azure Copilot"`
