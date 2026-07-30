@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-29",
-  "total": 234,
-  "next_free": 289,
+  "generated": "2026-07-30",
+  "total": 235,
+  "next_free": 290,
   "adrs": [
     {
       "number": 7,
@@ -4306,7 +4306,9 @@
         "ADR-143",
         "ADR-144"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-289"
+      ],
       "related": [
         "ADR-045",
         "ADR-072",
@@ -5401,6 +5403,30 @@
       "amended_by": [],
       "related": [],
       "implementation_status": ""
+    },
+    {
+      "number": 289,
+      "id": "ADR-289",
+      "file": "ADR-289-netcup-off-provider-platform-services-host.md",
+      "title": "Adopt netcup as Off-Provider Host for Platform Services, Not for App Hubs",
+      "status": "proposed",
+      "date": "2026-07-30",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-241"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-059",
+        "ADR-098",
+        "ADR-157",
+        "ADR-164",
+        "ADR-248",
+        "ADR-257"
+      ],
+      "implementation_status": "none"
     },
     {
       "number": 400,

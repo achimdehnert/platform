@@ -27,6 +27,21 @@ risk-hub-Backup-Fix inkl. MinIO als dringlichster Einzelfix, Restore-Feuerübung
 der **Rollout nach Accept** (§ Rollout) und bleibt ein separat freigegebener Prod-Schritt.
 Kandidat für den `enterprise-core`-Subset (Enterprise-Basis-Entscheidung E3/E4, 2026-06-10).
 
+> ⚠ **AMENDMENT VORGESCHLAGEN (2026-07-30) — Offsite-Ziel: `ADR-289` (Status `proposed`).**
+> **Die Storage Box BX11 bitte nicht bestellen, bevor ADR-289 entschieden ist.**
+> Begründung dort: Eine Hetzner Storage Box liegt beim **selben Anbieter** wie alle fünf
+> Bestandshosts und isoliert damit weder Konto-, Abrechnungs- noch anbieterweite Störungen —
+> sie ist ein zweites Rechenzentrum, aber keine zweite Fehlerdomäne. ADR-289 schlägt
+> stattdessen den seit 2026-07-30 in `infra/hosts.yaml` geführten **netcup**-Host
+> (152.53.136.219, Nürnberg, 1 TB) vor: erster Nicht-Hetzner-Host im Bestand, 0 € Mehrkosten
+> statt ~5 €/Monat, und als **vollwertiger Server** fähig zu `restic check --read-data` und
+> lokalen Restore-Tests — was die Feuerübung **G3** überhaupt erst praktikabel macht.
+> **Betroffen ist ausschließlich das Ziel.** Option B im Übrigen — „Offsite by
+> construction", restic, Verschlüsselung, Retention, Backup-Meter, G3 — bleibt unverändert
+> gültig; ADR-289 ändert das Wohin, nicht das Wie. Solange ADR-289 `proposed` ist, bleibt
+> BX11 die formal beschlossene Wahl (ein Amendment durch einen erst vorgeschlagenen
+> Nachfolger wäre eine Änderung, die niemand entschieden hat).
+
 ## Kontext & Problemstellung
 
 Die Backup-/DR-Lage wurde am 2026-06-10 aus Datei-Evidenz inventarisiert und am
@@ -256,7 +271,10 @@ Amendment, wenn ttz-lif/meiki-lra-Workloads produktiv werden.
 - ADR-072: shared-schema Trade-off „kein per-Tenant-Backup"
 - ADR-090 v4: „DB-Backup vor jeder Migration" (Pre-Deploy-Pfad)
 - ADR-142/143/144: Stack-Backups Authentik/Outline/doc-hub (werden Erzeuger-Schicht)
-- ADR-157: Ein-Prod-Host-Topologie (CPX52)
+- ADR-157: Ein-Prod-Host-Topologie (CPX52) — inzwischen überholt: der Bestand umfasst sechs
+  Hosts (`infra/hosts.yaml`, Stand 2026-07-30)
+- **ADR-289: netcup als Off-Provider-Host — ändert das Offsite-Ziel dieses ADR
+  (`proposed`, siehe Amendment-Hinweis oben)**
 - ADR-218: RPO/RTO als Doku-Pflichtfeld (KRITIS-Profil)
 - ADR-234/235: Derived-Invariant-/Meter-Philosophie
 - Inventar-Evidenz: 3-Repo-ADR-Analyse + Backup-Inventur 2026-06-10 (Session-Protokoll)
