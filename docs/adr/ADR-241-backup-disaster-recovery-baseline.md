@@ -7,8 +7,8 @@ informed: []
 supersedes: []
 amends: [ADR-142, ADR-143, ADR-144]
 related: [ADR-045, ADR-072, ADR-090, ADR-157, ADR-218, ADR-234, ADR-235, ADR-236]
-implementation_status: none
-last_reviewed: 2026-06-21
+implementation_status: partial
+last_reviewed: 2026-07-30
 staleness_months: 3
 tags: [backup, disaster-recovery, offsite, restore-test, enterprise-core, governance]
 ---
@@ -27,6 +27,21 @@ risk-hub-Backup-Fix inkl. MinIO als dringlichster Einzelfix, Restore-Feuerübung
 der **Rollout nach Accept** (§ Rollout) und bleibt ein separat freigegebener Prod-Schritt.
 Kandidat für den `enterprise-core`-Subset (Enterprise-Basis-Entscheidung E3/E4, 2026-06-10).
 
+> ✅ **STATUS-KORREKTUR 2026-07-30: `implementation_status` von `none` auf `partial`.**
+> Die Einstufung „none" war falsch und hat sechs Wochen lang ein zu düsteres Bild gezeichnet.
+> **Gebaut und im Repo** (alles am Accept-Tag, 2026-06-21, PR #620/#622):
+> `deployment/scripts/offsite-backup.sh` (restic-Wrapper), `tools/backup_meter.py` samt Tests,
+> `governance/backup/expected-apps.json` und `.github/workflows/backup-meter.yml` — letzterer
+> **läuft täglich um 05:00**. **Nicht gebaut:** die Provisionierung des Repositories —
+> `restic` ist auf `prod` nicht installiert, `RESTIC_REPOSITORY` nirgends gesetzt, kein
+> restic-Cron (nur `authentik-backup`/`outline-backup` aus ADR-142/143/144).
+> **Warum genau dieser Schritt fehlte:** Er war durch das **Ziel** blockiert.
+> `RESTIC_REPOSITORY` braucht ein existierendes Repository; die Storage Box wurde nie
+> bestellt. Das ist die Ursache — nicht fehlende Zeit.
+> **Warum es niemand bemerkte:** Der Backup-Meter läuft im Scaffold-Modus und meldet grün,
+> solange `RESTIC_REPOSITORY` fehlt — „noch nicht provisioniert" ist dort nicht von
+> „gesichert" unterscheidbar ([#1567](https://github.com/achimdehnert/platform/issues/1567)).
+>
 > ⚠ **AMENDMENT VORGESCHLAGEN (2026-07-30) — Offsite-Ziel: `ADR-289` (Status `proposed`).**
 > **Die Storage Box BX11 bitte nicht bestellen, bevor ADR-289 entschieden ist.**
 > Begründung dort: Eine Hetzner Storage Box liegt beim **selben Anbieter** wie alle fünf
