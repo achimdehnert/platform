@@ -12,7 +12,7 @@ Opus). It is meant for "agentic flows, complex synthesis, only with explicit
 justification" — and because it is the most expensive tier, defaulting a whole
 session to it for routine work is the same anti-pattern the spend data below
 flags, only sharper. Most day-to-day work (lint cleanup, model-string sweeps,
-drift workflows, log inspections, deploy checks) is Tier 3 at most.
+drift workflows, log inspections, deploy checks) is T3 at most.
 
 Concrete spend evidence — 2026-05-13 in this repo's `llm_calls` table:
 
@@ -27,21 +27,39 @@ indistinguishable for the kinds of tasks that ran. (Numbers are Opus-4.7-era;
 the ratio only widens with Fable on top — the principle scales, re-measure via
 the `llm_calls` table, don't trust these exact figures.)
 
-## Tier map for Claude Code sessions (Claude 5 family)
+## Tier ladder (T5–T1)
+
+One numbering across both routing policies. `llm-routing.md` uses the same rungs
+for action-level API calls; this file maps Claude Code **sessions** onto them.
+
+| Tier | Model | Model ID | $/1M in → out |
+|---|---|---|---|
+| **T5** | Claude Fable 5 | `claude-fable-5` | 10 → 50 |
+| **T4** | Claude Opus 5 | `claude-opus-5` | 5 → 25 |
+| **T3** | Claude Sonnet 5 | `claude-sonnet-5` | 3 → 15 (intro 2 → 10 until 2026-08-31) |
+| **T2** | Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 1 → 5 |
+| **T1** | Groq / Cerebras open models | see `llm-routing.md` | ~1–2 orders below T2 |
+
+T1 is API-only — there is no Claude Code session on a non-Anthropic model. For
+sessions the ladder starts at T2.
+
+**Opus 4.8 (`claude-opus-4-8`, 5 → 25) is no longer the T4 default** — Claude
+Opus 5 replaced it at identical pricing. Keep 4.8 only where a run must stay
+reproducible against it; it is otherwise a strict downgrade at the same cost.
+
+## Tier map for Claude Code sessions
 
 | Task type | Recommended | Why |
 |---|---|---|
-| Multi-agent orchestration, fan-out layer (`/repo-optimize` finders/skeptics, `/platform-audit` sub-agents) | **Sonnet 5** | Bounded, spec'd sub-tasks — this is what the fan-out is *for* |
-| Multi-agent orchestration, orchestrator layer (`/repo-optimize`, `/platform-audit`) — default | **Opus 4.8** | Large-context bookkeeping + moderate judgment (prompt design, dedupe against prior reports, synthesis into one report, PR triage) — not itself frontier reasoning in the typical run |
-| … orchestrator layer — escalate to Fable mid-run | **Fable 5**, only on trigger | Escalate *once a concrete need appears*, not upfront: (a) a skeptic pass reports a genuine unresolved conflict between findings that a further Sonnet skeptic pass can't settle, (b) the report surfaces a novel cross-repo architecture trade-off with no existing ADR/pattern to lean on, (c) explicit user ask for the deepest pass. Grounded in a 2026-07-08 run: 8 finders + 6 skeptics on Sonnet resolved every conflict (incl. one two-finder disagreement) themselves; the orchestrator's own work was consistently Opus-shaped, including PR review of the two delegate PRs (which is Sonnet-tier per the row below) — Fable's premium went unused end to end. |
-| ADR drafting / architectural reasoning with cross-repo or security/reversibility stakes | **Fable 5** | Real Tier-4 work — synthesis across many ADRs and policies |
-| Heavy single-repo reasoning / large multi-file implementation / thorough design review | **Opus 4.8** | Hard but not frontier — Opus reasoning without the Mythos premium |
-| Code review of someone else's PR | **Sonnet 5** | Tier 3 — sufficient for review depth |
-| Single-PR implementation (bug fix, feature) from a clear spec | **Sonnet 5** | Tier 3 |
-| Lint cleanup / mass rename / mechanical edits | **Sonnet 5** or `/fast` | Tier 3 or Tier 2 |
-| Log inspection / DB queries / deploy babysitting / status checks | **Haiku 4.5** or `/fast` | Cheap, fast, low complexity |
-
-Model IDs: `claude-fable-5` · `claude-opus-4-8` · `claude-sonnet-5` · `claude-haiku-4-5-20251001`.
+| Multi-agent orchestration, fan-out layer (`/repo-optimize` finders/skeptics, `/platform-audit` sub-agents) | **T3 · Sonnet 5** | Bounded, spec'd sub-tasks — this is what the fan-out is *for* |
+| Multi-agent orchestration, orchestrator layer (`/repo-optimize`, `/platform-audit`) — default | **T4 · Opus 5** | Large-context bookkeeping + moderate judgment (prompt design, dedupe against prior reports, synthesis into one report, PR triage) — not itself frontier reasoning in the typical run |
+| … orchestrator layer — escalate to Fable mid-run | **T5 · Fable 5**, only on trigger | Escalate *once a concrete need appears*, not upfront: (a) a skeptic pass reports a genuine unresolved conflict between findings that a further Sonnet skeptic pass can't settle, (b) the report surfaces a novel cross-repo architecture trade-off with no existing ADR/pattern to lean on, (c) explicit user ask for the deepest pass. Grounded in a 2026-07-08 run: 8 finders + 6 skeptics on Sonnet resolved every conflict (incl. one two-finder disagreement) themselves; the orchestrator's own work was consistently Opus-shaped, including PR review of the two delegate PRs (which is Sonnet-tier per the row below) — Fable's premium went unused end to end. |
+| ADR drafting / architectural reasoning with cross-repo or security/reversibility stakes | **T5 · Fable 5** | Genuine top-rung work — synthesis across many ADRs and policies |
+| Heavy single-repo reasoning / large multi-file implementation / thorough design review | **T4 · Opus 5** | Hard but not frontier — Opus reasoning without the T5 premium |
+| Code review of someone else's PR | **T3 · Sonnet 5** | Sufficient for review depth |
+| Single-PR implementation (bug fix, feature) from a clear spec | **T3 · Sonnet 5** | |
+| Lint cleanup / mass rename / mechanical edits | **T3 · Sonnet 5** or `/fast` | |
+| Log inspection / DB queries / deploy babysitting / status checks | **T2 · Haiku 4.5** or `/fast` | Cheap, fast, low complexity |
 
 ## How to apply
 
@@ -53,7 +71,10 @@ Model IDs: `claude-fable-5` · `claude-opus-4-8` · `claude-sonnet-5` · `claude
   works with the running context preserved — switching does not reset the session.
 - **`/fast` toggle**: stays on the Opus family with faster output — useful when
   you want Opus reasoning depth on a long context but reduced per-turn latency.
-  Same cost class as regular Opus (available on Opus 4.8/4.7).
+  Available on **Opus 5 and Opus 4.8 only**; Opus 4.7 fast mode was removed and
+  now errors. **Not the same cost class as regular Opus:** fast mode on Opus 5
+  bills at 10 → 50 per 1M, i.e. T5 pricing for a T4 model. Reach for it to buy
+  latency, never to save money, and check the `llm_calls` table afterwards.
 
 ## Who can switch the model (and who cannot)
 
@@ -74,14 +95,14 @@ Tier discipline is only actionable if you know which lever exists:
 
 ## Fable-session: do vs. delegate (producer / consumer + labels)
 
-A Fable-tier session is expensive; spending it on Tier-3 execution wastes the tier.
+A T5 session is expensive; spending it on T3 execution wastes the tier.
 The pattern:
 
-- **Do inline** the Tier-4 part (analysis, design, decision, orchestration) **and**
+- **Do inline** the T5 part (analysis, design, decision, orchestration) **and**
   anything trivial (a 2-line fix costs less done than delegated — there is a floor).
 - **Delegate** bounded, clear-pattern implementation by writing an **execution-ready
   issue** (files, exact change, test plan, pitfalls — so the executor need not
-  re-reason) labelled `model:sonnet-5` or `model:opus-4-8`.
+  re-reason) labelled `model:sonnet-5` (T3) or `model:opus-5` (T4).
 - **Consumer** = a session of that tier: the human runs `/model <tier>` then
   `/issues-offen` / `/issues-abarbeiten` filtered on the label, or the headless
   queue picks it up. (Model-label-aware routing in `process-agent-queue` is a
@@ -92,11 +113,11 @@ The pattern:
 ## What the assistant should do
 
 When the assistant notices a session running on a tier above the queued work
-(e.g. Fable/Opus doing predominantly Tier-3-or-below work), it should mention this
+(e.g. Fable/Opus doing predominantly T3-or-below work), it should mention this
 once early in the session — not every turn — with a concrete recommendation. Example:
 
 > "This session is on Fable 5. The work I see queued is lint cleanup + a couple of
-> deploys — Tier 3/2 in `llm-routing.md` terms. A `/model` swap to Sonnet 5 would
+> deploys — T3/T2 in `llm-routing.md` terms. A `/model` swap to Sonnet 5 would
 > cut spend sharply without affecting outcome quality on this kind of work. Want me
 > to remind once or never?"
 
@@ -133,3 +154,12 @@ Do not nag.
   Fable only on a concrete trigger (unresolved cross-finding conflict, novel
   architecture trade-off with no ADR precedent, explicit user ask for max
   depth) — not upfront. Fan-out layer (finders/skeptics) unchanged at Sonnet.
+- 2026-07-31: Tier ladder made explicit as **T5–T1** and shared with
+  `llm-routing.md`, so one numbering covers actions and sessions. T4 default
+  moved Opus 4.8 → **Claude Opus 5** (same 5 → 25 pricing, strictly better);
+  4.8 kept only for reproducibility against prior runs. Added a price column
+  per rung. Corrected the `/fast` note: fast mode is **Opus 5 / Opus 4.8 only**
+  (4.7 fast mode was removed and now errors) and is **not** the same cost class
+  as regular Opus — on Opus 5 it bills at 10 → 50, i.e. T5 pricing for a T4
+  model. Prose switched from "Tier-3"/"Tier-4" to T3/T4; the 2026-05 spend
+  table keeps its historical `claude-opus-4-7` rows unchanged.
