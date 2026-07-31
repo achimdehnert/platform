@@ -4,9 +4,9 @@ date: 2026-07-31
 repo_scope: [platform, dotclaude-memory]
 session_id: 36c670
 footprint: full
-findings_total: 13
+findings_total: 12
 findings_survived: 5
-refuted_rate: 0.31
+refuted_rate: 0.33
 phase3_refuted: 4
 pre_refuted: 0
 scores:
@@ -59,7 +59,6 @@ ausdrücklich außer Scope.
 | 10 | Dreifache Zahlenkorrektur in Issue #1597 (10/16/19 → 12/23/10; 12 → 5; 7/23/11 → 8/23/10) | fehlende Validierung | mittel | nicht Phase-3-geprüft (§8) | Issue #1597, Kommentare wörtlich "Zahlen per Auge gezählt statt gemessen" | claim-before-cheapest-check |
 | 11 | Kein Artefakt verbindet den Ausgangspunkt (Video-Analyse) mit dem gelieferten Werk | Kommunikation | niedrig | nicht Phase-3-geprüft (§8) | `grep -iE "youtube\|system.?prompt\|kürzen"` über alle 7 PR-Bodies + 3 Commits → 0 thematische Treffer | — |
 | 12 | Issue-Closure-Rückverfolgbarkeit: Gruppe a+b wurde durch `639700b` im remote-losen Repo erledigt, das Issue schloss aber über PR #1609 ohne verlinkenden Kommentar | Kommunikation | mittel | nicht Phase-3-geprüft (§8) | `gh pr view 1609 --json closingIssuesReferences`; kein Kommentar zwischen 13:40 und 14:16 | — |
-| 13 | Review 6–13 Sekunden vor Merge bei allen sieben PRs | — | — | **kein Befund** | Owner-Angabe: `wirdigital` ist mit der Thematik betraut; aus Artefakten allein nicht auflösbar, durch Owner-Kontext beantwortet | — |
 
 ## 3. Scorecard
 
@@ -211,5 +210,11 @@ Umkehr einer bestehenden Entscheidung — laut `adr-threshold.md` kein ADR-Fall.
   wurde nicht geprüft — falls `name:` dort als Einbettungs-Feld dient, könnte die
   Angleichung Trefferqualität verändert haben. Billigster Check: Feldliste des
   Einbettungs-Schemas im Orchestrator.
+- **Kein Befund, aber festgehalten:** Bei allen sieben PRs lag die Freigabe
+  6–13 Sekunden vor dem Merge, unabhängig von der PR-Größe. Aus Artefakten allein
+  ist "gelesen" nicht von "durchgewunken" zu unterscheiden. Der Owner hat es
+  aufgelöst: `wirdigital` ist mit der Thematik betraut. Das steht hier statt in
+  der Befund-Tabelle, weil es weder SURVIVES noch REFUTED ist und kein
+  Artefakt-Beleg dahintersteht — ein drittes Verdikt gibt es nicht.
 - **Ob die 10 Baseline-Einträge sachlich zutreffen** (also wirklich "noch zu
   schreiben" statt Tippfehler) wurde nicht gegengeprüft, nur ihre Form.
