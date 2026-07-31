@@ -6,7 +6,7 @@ consulted: [Claude Code, Ilja Lerch (SB-Neu, indirekt)]
 informed: []
 supersedes: []
 amends: []
-related: [ADR-081, ADR-100, ADR-233]
+related: [ADR-081, ADR-082, ADR-233]
 implementation_status: none
 last_reviewed: 2026-07-31
 staleness_months: 3
