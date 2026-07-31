@@ -77,6 +77,8 @@ jobs:
             fi
           done
 
+      # Weichgestellt, damit ein Meter-Absturz den Zeitplan-Job nicht rot faerbt;
+      # der Absturz wird weiter unten ueber steps.meter.outcome gemeldet.
       - name: "Meter ausführen (read-only: --dry-run --strict)"
         id: meter
         continue-on-error: true
