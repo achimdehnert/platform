@@ -411,4 +411,4 @@ services:
     container_name: decks_hub_web
     domain_prod: decks-hub.iil.pet
     repo: achimdehnert/decks-hub
-    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. Noch nicht deployed (deploy.yml ist workflow_dispatch-only)."
+    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true."
