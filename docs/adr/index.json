@@ -5433,7 +5433,7 @@
       "number": 290,
       "id": "ADR-290",
       "file": "ADR-290-zonenregel-handlungsleitender-text.md",
-      "title": "Zonenregel — genau ein Pfad trägt handlungsleitenden Text",
+      "title": "Steuerzone — deklarierte Allow-List handlungsleitender Texte",
       "status": "proposed",
       "date": "2026-07-31",
       "domains": [],
@@ -5443,7 +5443,7 @@
       "amended_by": [],
       "related": [
         "ADR-081",
-        "ADR-100",
+        "ADR-082",
         "ADR-233"
       ],
       "implementation_status": "none"

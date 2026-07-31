@@ -22,6 +22,26 @@ tags: [ci, governance, drift, guardrails, konvention]
 
 `proposed`. Setzt ADR-290 voraus — ohne deklarierte Steuerzone gibt es nichts zu prüfen.
 
+**Nachtrag 2026-07-31 (ADR-290 Fassung 2, zwei externe Reviews):** Zwei Annahmen dieses
+ADR sind durch die Überarbeitung von ADR-290 überholt und werden hier **noch nicht**
+eingearbeitet — der externe Review zu ADR-291 selbst steht aus, und ich will die beiden
+Runden nicht vermischen:
+
+1. **Prüfung 2 ist nicht mehr nur SUGGEST-würdig, sondern normativ unterlegt.** ADR-290
+   Regel 2 entscheidet den Status der verteilten Kopien: Sie tragen Zonenstatus nur,
+   solange ihr `manifest.json` zur freigegebenen Repo-Quelle passt. Die hier als „echte
+   Lücke" benannte CI-Schwäche (der Pfad `~/.claude/` existiert in CI nicht) wird dadurch
+   nicht kleiner — aber der Vergleich gegen das Manifest ist jetzt die *definierte*
+   Autoritätsbedingung statt eines Behelfs.
+2. **Vor dem Marker-Scanner steht ein heuristikfreier Ladelisten-Check** (ADR-290
+   Option C'): prüfen, was automatisch in einen Agentenkontext geladen wird, gegen
+   Loader/Manifest — per Konstruktion ohne Fehlalarme und damit ohne Baseline-Runde
+   sofort gating-fähig. Beide externen Reviewer schlugen das unabhängig vor. Die
+   Umsetzungs-Reihenfolge unten (Schritt 3: „Prüfung 2 SUGGEST, Baseline über ≥5 Repos")
+   ist dadurch voraussichtlich zu ändern.
+
+Beides gehört in eine Fassung 2 dieses ADR, **nach** seinem eigenen externen Review.
+
 ## Context
 
 Wir haben ein wiederkehrendes, belegtes Problem: **Kanon-Entscheidungen driften weg, weil
