@@ -310,9 +310,19 @@ def _kandidaten(
     return (data[0].split() if data and data[0] else []), False
 
 
-#: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden. `MESSAGE-ID` und
-#: `IN-REPLY-TO` kosten nichts extra und tragen später die Strang-Bildung.
-KOPFFELDER = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO"
+#: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden.
+#
+# `REFERENCES` ergänzt 2026-07-31 — ohne sie beruht die Strang-Bildung allein auf
+# dem normalisierten Betreff, und der trägt nicht weit genug. Am echten Bestand
+# gemessen: 43 Nachrichten lagen in EINEM „Strang" mit dem Betreff „Request for
+# Thesis Supervision" — verschiedene Studierende, kein Gespräch; dazu 43
+# ResearchGate-Benachrichtigungen und 33 „HNU Kontaktformular". Umgekehrt
+# zerreißt ein Betreffwechsel mitten im Verlauf jede echte Kette.
+#
+# `REFERENCES` trägt die vollständige Ahnenkette einer Antwort und ist das
+# einzige Feld, das beides richtig macht. Es kostet im Bulk-FETCH nichts extra:
+# derselbe Abruf, ein Feldname mehr.
+KOPFFELDER = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO REFERENCES"
 
 #: Antwortpräfix einer Bulk-FETCH-Antwort: b'123 (BODY[HEADER.FIELDS (...)] {456}'
 _FETCH_NR = re.compile(rb"^\s*(\d+)\s+\(")
