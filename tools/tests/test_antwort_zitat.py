@@ -30,20 +30,43 @@ class TestGraphZitatErhalten:
         assert "divRplyFwdMsg" in r["content"], "Zitat wurde verworfen"
         assert r["content"].index("Meine Antwort") < r["content"].index("divRplyFwdMsg")
 
-    def test_should_preserve_line_breaks_as_paragraphs(self):
+    def test_should_keep_line_breaks_inside_one_paragraph(self):
+        """Umbruch ohne Leerzeile bleibt im Absatz — sonst blaeht Exchange ihn auf.
+
+        Bis 2026-07-30 wurde JEDE Zeile ein eigenes `<p>`. Exchange normalisiert
+        jedes `<p>` auf `margin-top:1em; margin-bottom:1em`; eine fuenfzeilige
+        Signatur bekam damit vier doppelte Leerzeilen (Owner-Befund am Entwurf).
+        """
         r = gm._antwort_rumpf("Zeile eins\nZeile zwei", self.ZITAT_HTML, "html")
-        assert "<p>Zeile eins</p>" in r["content"]
-        assert "<p>Zeile zwei</p>" in r["content"]
+        assert "Zeile eins<br>Zeile zwei" in r["content"]
+        assert r["content"].count("<p ") == 1
 
     def test_should_escape_html_in_plain_input(self):
         """Klartext mit spitzen Klammern darf das Markup nicht zerreißen."""
         r = gm._antwort_rumpf("Preis < 2 TEUR & fair", self.ZITAT_HTML, "html")
         assert "&lt; 2 TEUR &amp; fair" in r["content"]
-        assert "<p>Preis" in r["content"]
+        assert ">Preis" in r["content"]
 
-    def test_should_keep_blank_lines_as_spacer(self):
+    def test_should_split_paragraphs_at_blank_line(self):
         r = gm._antwort_rumpf("oben\n\nunten", self.ZITAT_HTML, "html")
-        assert "&nbsp;" in r["content"]
+        assert r["content"].count("<p ") == 2
+        assert ">oben<" in r["content"] and ">unten<" in r["content"]
+
+    def test_should_not_emit_empty_spacer_paragraphs(self):
+        """`<p>&nbsp;</p>` klebte in Exchange als Einrueckung vor dem Folgetext."""
+        r = gm._antwort_rumpf("oben\n\n\n\nunten", self.ZITAT_HTML, "html")
+        assert "&nbsp;" not in r["content"]
+
+    def test_should_carry_a_plain_font_declaration(self):
+        """Ohne Schriftangabe nimmt der Client seinen Default — wirkte zu gross.
+
+        Bewusst Calibri/Segoe UI in 11pt: das ist die Outlook-Konvention und
+        faellt nicht auf. Kein Monogramm, kein Akzentbalken — ein Kunde nannte
+        das Rollen-Design am 2026-07-30 woertlich "sieht aus wie ein Newsletter".
+        """
+        r = gm._antwort_rumpf("Text", self.ZITAT_HTML, "html")
+        assert "font-size:11pt" in r["content"]
+        assert "border-radius" not in r["content"].split("divRplyFwdMsg")[0]
 
     def test_should_stay_plain_when_original_is_plain(self):
         r = gm._antwort_rumpf("Antwort", "> Original", "text")
