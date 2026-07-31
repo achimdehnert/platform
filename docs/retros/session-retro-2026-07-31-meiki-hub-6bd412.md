@@ -46,7 +46,7 @@ recurring_findings: [claim-before-cheapest-check]
 | 2 | Handover auf `main` behauptet die Korrektur im Plural („fehlte in den am selben Tag gemergten AVV — nachgezogen"), real wurde 1 von 2 korrigiert | claim-before-cheapest-check | hoch | SURVIVES | `git show origin/main:AGENT_HANDOVER.md \| grep "gemergten AVV"` → 1 Treffer, Plural; widerlegt durch Befund 1 | **×3+** (bereits gate-pflichtig laut `retro_kpis.py`) |
 | 3 | Drei Anschreiben an dieselbe Adressatin in ~14 h; zwei sofort als Vorstufe entwertet | verfrühte Festlegung | mittel | **REFUTED** | Prämisse falsch: `schreiben-rollenklaerung-hnu.md` adressiert die DSB **beider** Landratsämter („Adressaten: … ⟨Günzburg⟩ und ⟨Traunstein⟩"), nicht dieselbe Person wie die anderen zwei. Damit fällt auch die Vermeidbarkeits-These | — |
 | 4 | Anschreiben dreimal überarbeitet (v1.0→2.0→2.1); v1.0 war zu lang und belehrend | fehlende Zielgruppen-Kalibrierung | mittel | **REFUTED** | v1.0 existiert nie als Commit — nur als Selbstauskunft in der Änderungshistorie desselben Erst-Commits (85fcfa3 führt die Datei bereits als v2.0 ein), also unbelegbar. v2.1 ist eine Scope-Änderung auf Nutzerwunsch (Frage gestrichen), keine Kalibrierungskorrektur | — |
-| 7 | **Die Konsolidierung der DSB-Schreiben ließ Traunstein fallen:** `schreiben-lra-dsb-gesamt.md` führt „Ersetzt: `schreiben-rollenklaerung-hnu.md`", adressiert aber nur Günzburg | fehlende Validierung | hoch | SURVIVES | `grep -ci traunstein` auf `origin/main:docs/datenschutz/schreiben-lra-dsb-gesamt.md` → **0**, während die abgelöste Vorstufe beide Häuser adressiert. Gefunden vom Skeptiker zu Befund 3 | neu |
+| 7 | **Ersetzt-Vermerk ohne Abgleich der Adressatenmengen:** `schreiben-lra-dsb-gesamt.md` führt „Ersetzt: `schreiben-rollenklaerung-hnu.md`", adressiert aber nur Günzburg, während die Vorstufe beide Pilot-Landratsämter ansprach | fehlende Validierung | mittel | SURVIVES | `grep -ci traunstein` auf der damaligen Fassung → **0**. Gefunden vom Skeptiker zu Befund 3. **Severity von *hoch* auf *mittel* korrigiert:** die Projektauskunft vom selben Tag ergab, dass Projekt 2 (der einzige Anzeigefall) ohnehin für beide Häuser gilt — Traunstein ist über den Verteiler abgedeckt, es fehlte die *Kennzeichnung*, nicht die Sache | neu |
 | 5 | Mailtext ASCII-transliteriert (`ae/oe/ue`) ohne Werkzeug-Zwang | unnötige Vorsichtsmaßnahme | niedrig | SURVIVES | Draft UID 23297 im HNU-Postfach: Body transliteriert, **Betreff mit Em-Dash korrekt** → UTF-8 war möglich | neu |
 | 6 | Alt-PRs #3/#9/#22 (seit April/Mai offen) blieben unbearbeitet, obwohl im Session-Start-Board als Item 9 gelistet | Scope | niedrig | **REFUTED** | Item 9 war ein 🔵-Vorschlag, keine Zusage; die Session hatte einen anderen, vom Nutzer gesetzten Auftrag | — |
 
@@ -209,6 +209,15 @@ selbst geschrieben hatte, ohne verifizierbares Artefakt dahinter.
 „deutlich unter" den 126k des gerügten Drei-Agenten-Laufs. Real: 115k — knapp darunter. Die
 Schätzung war zu optimistisch; für künftige Abwägungen ist **~55k pro eng geführtem Skeptiker**
 die gemessene Größenordnung.
+
+**Nachtrag: die Reparatur überschoss.** Aus Befund 7 wurde zunächst die Konsequenz gezogen,
+Traunstein brauche ein **eigenes Schreiben** — formuliert, ohne den Projektzuschnitt zu
+kennen. Die Rückfrage bei der Projektleitung ergab: Projekt 1 ist für Traunstein separat und
+ohnehin nicht anzeigepflichtig, Projekt 2 gilt gemeinsam für beide Häuser. Richtig ist
+deshalb eine **Kopie im Verteiler**, kein zweites Schreiben. Derselbe Fehlertyp wie in den
+Befunden 3 und 4: aus einer real erkannten Lücke eine zu weit reichende Folgerung ziehen,
+bevor die Faktenlage steht. Ein Skeptiker findet die Lücke — er ersetzt nicht die Rückfrage
+zur Konsequenz.
 
 **Wo der fremde Kontext wirkte und wo nicht:** Die Befunde 1, 2 und 5 sind kommandobelegt
 (`grep -c`, Textvergleich, Draft-Feld) — ein Subagent hätte sie identisch gefunden, ohne
