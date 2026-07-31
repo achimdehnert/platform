@@ -83,28 +83,48 @@ jobs:
         run: |
           python3 tools/sync_drift_meter.py --report /tmp/sync-drift-report.md
 
+      # Bewusst github-script statt der gh-CLI: auf dem self-hosted Runner ist
+      # `gh` NICHT installiert — der Schritt brach mit Exit 127 ab und machte
+      # den Melder blind (platform#1508). Ein auf dem Host installiertes
+      # Binary waere Runner-ZUSTAND, kein Konfigurationsbestandteil, und
+      # driftet unabhaengig von jedem Commit; github-script bringt seinen
+      # Client mit und laeuft hier bereits an drei Stellen self-hosted
+      # (scaffold-tests, megatest, platform-audit).
       - name: "Issue bei Drift (Label sync-drift)"
         if: steps.meter.outputs.drift == '1'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/labels" \
-            -f name="sync-drift" -f color="fbca04" \
-            -f description="ADR-265 REC-3 Meter: Workflow-Sync-Drift in der Fleet" \
-            >/dev/null 2>&1 || true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/sync-drift-report.md', 'utf8');
+            const { owner, repo } = context.repo;
 
-          existing=$(gh issue list --label sync-drift --state open \
-            --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body-file /tmp/sync-drift-report.md
-            echo "Kommentar an bestehendes Issue #$existing"
-          else
-            gh issue create \
-              --title "[sync-drift] sync-drift-meter: Workflow-Drift in der Fleet ($(date -u +%Y-%m-%d))" \
-              --label sync-drift \
-              --body-file /tmp/sync-drift-report.md
-          fi
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: 'sync-drift', color: 'fbca04',
+                description: 'ADR-265 REC-3 Meter: Workflow-Sync-Drift in der Fleet',
+              });
+            } catch (e) {
+              if (e.status !== 422) throw e;   // 422 = Label existiert bereits
+            }
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner, repo, labels: 'sync-drift', state: 'open', per_page: 1,
+            });
+
+            if (open.length) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open[0].number, body,
+              });
+              core.info(`Kommentar an bestehendes Issue #${open[0].number}`);
+            } else {
+              const today = new Date().toISOString().slice(0, 10);
+              const { data: created } = await github.rest.issues.create({
+                owner, repo, labels: ['sync-drift'], body,
+                title: `[sync-drift] sync-drift-meter: Workflow-Drift in der Fleet (${today})`,
+              });
+              core.info(`Neues Issue #${created.number}`);
+            }
 
       - name: "Gate: Meter-Ergebnis durchreichen"
         if: steps.meter.outcome == 'failure'
