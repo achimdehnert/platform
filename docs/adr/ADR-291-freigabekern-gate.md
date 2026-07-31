@@ -46,6 +46,12 @@ alle drei.
 und danach ein Gate entworfen, das aus strukturellen Gründen **nie rot werden kann**. Genau
 davor warnt die Regel, die ich eine Stunde vorher geschrieben hatte.
 
+**Und derselbe Fehler ein zweites Mal, im ersten Entwurf dieser Fassung:** A2 stand dort
+als „Manifest-Ahnenschaft — beobachtbar in CI: ja", ohne dass ich geprüft hätte, **wo
+`manifest.json` liegt.** Ein `find` über das Repo (null Treffer) widerlegt das: Die Datei
+existiert nur unter `~/.claude/`. Ich hatte den Ortsfehler der Fassung 1 diagnostiziert und
+ihn im selben Atemzug reproduziert. Korrigiert unten; die Lehre steht im Tagging-Abschnitt.
+
 ## Context
 
 Wir haben ein wiederkehrendes, belegtes Problem: **Kanon-Entscheidungen driften weg, weil
@@ -82,8 +88,28 @@ Prüft ausschließlich reproduzierbare Eigenschaften der **Quelle**:
 | Prüfung | Rechnung | Beobachtbar in CI? |
 |---|---|---|
 | **A1 Zonen-Vollständigkeit** | kein Zonenpfad wird von `.gitignore` erfasst; keine aus dem Repo herausführenden Symlinks in der Zone | ja |
-| **A2 Manifest-Ahnenschaft** | der in `manifest.json` eingetragene Quell-Commit ist ein **Vorfahr** des PR-Head | ja |
-| **A3 Generator-Reproduzierbarkeit** | ein Lauf des Generators gegen ein temporäres Ziel erzeugt dieselben Hashes wie das committete Manifest — kein unerklärter Diff | ja |
+| **A2 Generator-Determinismus** | zwei Läufe des Generators gegen zwei temporäre Ziele erzeugen identische Hashes — der Generator ist reproduzierbar | ja |
+| **A3 Erwartungs-Manifest aktuell** | der Generator schreibt ein **im Repo committetes** `manifest.expected.json`; CI regeneriert es und diffed gegen den Commit (Muster wie `ADR index freshness`) | ja, **sobald es dieses Manifest gibt** |
+
+#### Voraussetzung von A3 — nachgemessen, nicht angenommen
+
+**`manifest.json` existiert heute ausschließlich unter `~/.claude/{skills,commands}/`, nicht
+im Repo** (`find` über `platform`: null Treffer; die Live-Datei trägt
+`source_commit: 9371148f…`, `generator_version: 0.2.0`). Damit hat CI **keinen
+Vergleichsgegenstand** — jede Prüfung, die das Manifest liest, ist in CI so unberechenbar
+wie die Prüfungen aus Fassung 1.
+
+**Das ist mein eigener Fehler derselben Klasse**, gefunden beim zweiten Durchgang durch
+Runde 1 AD-4/REC-5: Fassung 2 dieses ADR schrieb zunächst „A2 Manifest-Ahnenschaft:
+beobachtbar in CI — ja", ohne den Ort der Datei zu prüfen. Der billigste Check (ein `find`)
+widerlegt das.
+
+**Folge, als Entscheidung:** Der Generator schreibt künftig **zusätzlich** ein
+`manifest.expected.json` in das Repo — den erwarteten Verteilstand, aus der Quelle
+ableitbar. Erst dadurch bekommen A3 **und** die Laufzeitprüfung B2 einen definierten
+Vergleichsgegenstand: B2 hält das Live-Manifest gegen das committete Erwartungs-Manifest.
+Ohne diesen Schritt entfällt A3 ersatzlos, und B2 kann nur gegen `origin/main` als
+Quellbaum prüfen statt gegen eine erklärte Erwartung.
 
 **A1 ersetzt die „Versionsbindung" aus Fassung 1.** Die war in CI tautologisch: Der
 Arbeitsbaum in einem Actions-Lauf **ist** der ausgecheckte Commit; ein Unterschied ist
@@ -108,6 +134,25 @@ erwogen. Sie fängt Vorfall 2 und 4 **am Entstehungsort**, mit einer Fehlermeldu
 Fehler benennt — ohne CI-Job. Und sie **entfernt eine Fehlermöglichkeit**, statt eine
 Prüfung hinzuzufügen: Sie verbessert die Komplexitäts-Bilanz, statt gerechtfertigt werden
 zu müssen.
+
+### Abbildung je Zonenpfad — wer prüft was, und was passiert bei Abweichung
+
+Ohne diese Tabelle bleibt offen, welche Zonenpfade überhaupt verteilt werden und welche
+nur im Repo leben. Fassung 2 beschrieb die Distributionsprüfung zunächst nur für
+`skills`/`commands` und ließ `policies/`, `CLAUDE.md`, `CORE_CONTEXT.md` unbestimmt.
+
+| Zonenpfad (ADR-290) | Laufzeitziel | Verteilmechanismus | Manifest | Prüf-Ort | Bei Abweichung |
+|---|---|---|---|---|---|
+| `.windsurf/workflows/` | `~/.claude/commands/` | `generate.py --kind commands` | ja | A1–A3 + B1/B2 | B2 meldet, `restore-from-source` |
+| `skills/` | `~/.claude/skills/` | `generate.py --kind skills` | ja | A1–A3 + B1/B2 | B2 meldet, `restore-from-source` |
+| `policies/` | `~/.claude/policies/` | **derzeit ungeklärt** — Vorfall 2 entstand genau hier | **nein** | nur A1 | offener Punkt 4 |
+| `CLAUDE.md`, `CORE_CONTEXT.md` | wird **aus dem Repo** gelesen, nicht verteilt | keiner | entfällt | nur A1 | — |
+
+**Die dritte Zeile ist ein Befund, kein Design:** `policies/` hat eine verteilte Kopie
+unter `~/.claude/policies/`, aber — anders als `skills`/`commands` — **keinen belegten
+Generator-Lane und kein Manifest**. Genau dort passierte Vorfall 2 (Policy-Edit am
+verteilten Ort). Solange das ungeklärt ist, deckt weder A noch B diesen Pfad ab. Das ist
+die größte verbleibende Lücke dieses ADR und steht als offener Punkt 4.
 
 ### Vorrangregel — auf ihren Adressaten verkleinert
 
@@ -158,6 +203,7 @@ nötig ist (A2), ist er ausdrücklich als Ahnenschafts-Relation zum PR-Head form
 | **B — Alles in einem CI-Gate** (Fassung 1) | drei Prüfungen im PR | Zwei davon aus CI nicht berechenbar; erzeugt Vertrauen, das sie nicht deckt. | **verworfen nach externem Review** |
 | **C — Zweiteilung Quelle/Laufzeit** (gewählt) | A in CI, B am Ort | Jede Prüfung sitzt dort, wo ihr Gegenstand beobachtbar ist. Zwei Umsetzungsorte statt einem. | **gewählt** |
 | **D — Freigabejournal wie SB-Neu** | Pflicht-Eintrag je Zonenänderung | Doppelung: Der PR **ist** unser Freigabejournal. | verworfen |
+| **D' — Nur Generator-Härtung, kein CI-Teil** | ausschließlich B1, gar keine Prüfung in CI | Fängt Vorfall 2 und 4 am Entstehungsort, kostet keinen Job, **entfernt** eine Fehlermöglichkeit. Deckt aber Vorfall 1 nicht und lässt die Quelle selbst ungeprüft (Zonenpfad in `.gitignore`, Symlink aus dem Repo). | **teilweise übernommen** — B1 ist der erste Schritt und trägt den Großteil des Ertrags; A1 bleibt, weil es echte Quellfehler fängt, die B1 nicht sieht |
 | **E — GitHub-native Mittel** | CODEOWNERS auf `policies/`, `skills/`, `.windsurf/workflows/` + Ruleset | Null neue Jobs, null Skripte. Sagt nichts über die verteilten Kopien. | **ergänzend übernommen** — konsequente Fortsetzung von „der PR ist das Journal" |
 | **F — Gepinnter Checkout statt Kopie** | `~/.claude/skills` ist ein Checkout bzw. commit-adressiertes Bundle mit atomarem `current`-Verweis, kein kopiertes Verzeichnis | Das Drift-Problem **löst sich auf**, statt einen Detektor zu bekommen: „Abweichung" ist dann `git status`. Unklar, ob die Agenten-Laufzeit ein `.git`/Symlinks im Lane-Verzeichnis toleriert. | **Spike vor dem Bau** — die „Löschen statt Hinzufügen"-Option, die unsere eigene Konvention hätte hervorbringen müssen |
 | **G — Steuerzone als eigenes Repo** | Zone = ganzes Repo, Ruleset erzwingt Review | Tauscht Drift gegen ein Submodul-Synchronisationsproblem. | verworfen |
@@ -211,7 +257,9 @@ Verdikt beider: *überarbeiten*. Nur `[valid]` ist eingeflossen, jeweils eigene 
 | AD-1 (1) | Ortsfehler betrifft **alle drei** Prüfungen, nicht nur Prüfung 2 | `[valid]` | Zweiteilung A/B — trägt die ganze Fassung |
 | AD-2 (1) · AD-1 (2) | Prüfung 1 ist in CI tautologisch | `[valid]` | ersetzt durch A1 (Zonen-Vollständigkeit) |
 | AD-3 (1) · AD-6 (2) | SUGGEST misst Rauschen, nicht Gültigkeit — zertifiziert den Konstruktionsfehler | `[valid]` | schärfster Befund; Prüfung 2 aus dem Gate genommen |
-| AD-4 (1) · AD-9 (2) | Ort von `manifest.json` und „festgeschriebener Stand" unterspezifiziert | `[valid]` | Abschnitt „Begriffe" |
+| AD-4 (1) · REC-5 (1) · AD-9 (2) | Ort von `manifest.json` und „festgeschriebener Stand" unterspezifiziert | `[valid]`, **zweiter Durchgang nötig** | Abschnitt „Begriffe". **Beim ersten Durchgang zu dünn behandelt:** Fassung 2 schrieb „A2 Manifest-Ahnenschaft — beobachtbar in CI: ja", ohne den Ort zu prüfen. Nachgemessen: `manifest.json` liegt **nur** unter `~/.claude/`, nicht im Repo → A2/A3 neu geschnitten, `manifest.expected.json` als Voraussetzung eingeführt |
+| REC-4 (2) | explizite Abbildung je Zonenpfad (Quelle, Ziel, Mechanismus, Manifest, Prüf-Ort, Reaktion) | `[valid]`, **erst im zweiten Durchgang** | eigene Tabelle. Ergebnis: `policies/` hat eine verteilte Kopie **ohne Lane und ohne Manifest** — verifiziert, offener Punkt 4 |
+| REC-4 (1) | Generator-Härtung als eigene Option in „Options considered" | `[valid]`, **erst im zweiten Durchgang** | Option D' mit Begründung, warum sie den CI-Teil nur teilweise ersetzt |
 | AD-5 (1) | Vorfall 3 bekommt keinen Fänger, wird aber als gedeckt reklamiert | `[valid]` | Vorfalls-Tabelle + explizite Nicht-Leistung |
 | AD-6 (1) · AD-11 (2) | „Anfügungsfestigkeit" ist ein Fremdbegriff, der hier etwas anderes meint | `[valid]` | Prüfung 3 entfällt, Begriff gestrichen |
 | AD-7 (1) · AD-8 (2) | Vorrangregel hat in Actions keinen Adressaten / braucht Serialisierung | `[valid]` | auf zonelesende Checks verkleinert |
@@ -246,6 +294,8 @@ Das ist der eine Fehler, aus dem fast alle Befunde folgen.
 | 1 | Steuerzone genau **einmal** maschinenlesbar deklarieren (eine Datei im Repo); ADR-290 referenziert sie, das Prüfskript liest dieselbe Datei | Owner |
 | 2 | Deterministische Reparaturhandlungen bei Drift (`verify`, `reinstall`, `show-diff`, `restore-from-source`) | Owner |
 | 3 | Ergebnis des Spikes zu Option F — er kann B2 ganz überflüssig machen | offen |
+| 4 | **`policies/` hat eine verteilte Kopie ohne Generator-Lane und ohne Manifest** — verifiziert am 2026-07-31: `~/.claude/policies/` existiert mit Kopien, enthält **kein** `manifest.json`, und `LANES` in `generate.py` kennt nur `commands`, `skills`, `hooks`. Genau dort passierte Vorfall 2. Entweder als Lane aufnehmen oder die Kopie abschaffen. | Owner |
+| 5 | Ob der Generator ein committetes `manifest.expected.json` schreibt — Voraussetzung für A3 und für ein aussagekräftiges B2 | Owner |
 
 ## Herkunft
 
