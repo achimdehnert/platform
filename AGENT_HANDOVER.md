@@ -223,6 +223,14 @@ diese Sperren nicht auf, sie sind technisch, nicht argumentativ.**
 5. **Mail-Ingest läuft auf Prod nicht — korrigiert Punkt 3** ([dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187), P1). Der Satz in Punkt 3, „ab jetzt läuft täglich 03:30 ein Ingest-Lauf", ist **widerlegt** — gegengelesen am 31.07. wie dort angekündigt, der Lauf hat **nie** stattgefunden. Der dort genannte Grep nennt zudem einen Task-Namen, den es nicht gibt (`mail_ingest`); er heißt `mail_agent.ingest_scheduled`. Fünf Messungen am Prod-Host: Logs 24 h ohne Treffer · Celery-Registry 19 Tasks, keiner mit `mail` · `PeriodicTask`-Tabelle 12 Einträge, keiner für `mail_agent` · weder `/app/apps/mail_agent` noch `/app/mail_tools` im Container · Mount-Quelle `/opt/platform/tools/mail_agent` fehlt auf dem Host. Der Ingest ist auf **keiner** Schicht aktiv: kein Code im Container, kein Bind-Mount, kein `PeriodicTask`-Eintrag. Zu tun sind **zwei** Dinge, nicht eines: Code auf Prod bringen **und** den DB-Eintrag `mail-agent-ingest-daily` → `mail_agent.ingest_scheduled` anlegen. Laufendes Image vom **12.07.**, 19 Tage alt — alles, was seither in dev-hub gebaut wurde, ist auf Prod nicht vorhanden. **Prod-Eingriff, Owner-Entscheidung.**
 6. **Health-Poll meldet `succeeded`, prüft aber nichts** ([dev-hub#188](https://github.com/achimdehnert/dev-hub/issues/188), P1, `severity:critical`) — `health.poll_all_checks` läuft alle fünf Minuten, findet `Organization.objects.count() == 0` und gibt `{'error': "Tenant 'devhub' not found"}` als **Rückgabewert** zurück; Celery verbucht den Task als **grün**. `platform_health_scan` entsprechend `servers_scanned: 0`. Zwei Fixe, getrennt zu bewerten: Organization anlegen behebt **diesen** Fall, der Task sollte **fehlschlagen** statt `succeeded` zu melden — das behebt die **Klasse**. **Mögliche Verbindung zu Punkt 3 (rote Health-Checks) — ausdrücklich Hypothese, nicht verifiziert.**
 
+> **Nachtrag 2026-07-31 — Konsequenz aus Punkt 5 für Punkt 3 (übernommen aus
+> [#1612](https://github.com/achimdehnert/platform/pull/1612) vor dessen Schließung):**
+> Punkt 3 führt den täglichen 03:30-Ingest als **Belastungstest** für das 256-MiB-Limit von
+> `devhub_beat`. Diese Prämisse ist entfallen — der Lauf existiert nicht (Messung in Punkt 5).
+> **Damit steht die Speicherfrage von `devhub_beat` für sich**: Sie wird nicht durch einen
+> Ingest-Lauf beantwortet und braucht eine eigene Messung. Punkt 3 bleibt davon unberührt
+> offen; nur seine Begründung über den Belastungstest trägt nicht mehr.
+
 > **Nachtrag 2026-07-30 (Abend):** **Vier PRs im Review**, thematisch eine Kette —
 > [#1562](https://github.com/achimdehnert/platform/pull/1562) (`html_to_text` lag zweimal im
 > Baum, die Kopie ohne `<style>`-Fix), [#1565](https://github.com/achimdehnert/platform/pull/1565)
