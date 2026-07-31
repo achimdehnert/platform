@@ -32,6 +32,7 @@ CHECK = REPO / "scripts" / "checks" / "policy_zone_freshness.sh"
 EXIT_OK = 0
 EXIT_FAIL = 1
 EXIT_SETUP = 2
+EXIT_UNENTSCHIEDEN = 3
 
 
 def _git(*args: str) -> str:
@@ -132,6 +133,73 @@ def test_should_detect_orphan_file(gruene_zone: Path) -> None:
     ergebnis = _run(gruene_zone)
     assert ergebnis.returncode == EXIT_FAIL
     assert "zombie-policy.md" in ergebnis.stdout
+
+
+def _fixture_repo_ohne_erreichbares_origin(tmp_path: Path) -> tuple[Path, Path]:
+    """Eigenstaendiges Repo mit unerreichbarem origin — OHNE die Testbarkeits-Naht.
+
+    Baut die Umgebung nach, in der die erste Fassung still auf HEAD zurueckfiel
+    und exit 0 meldete. Der Check muss hier `git fetch` wirklich versuchen.
+    """
+    repo = tmp_path / "repo"
+    (repo / "scripts" / "checks").mkdir(parents=True)
+    (repo / "policies").mkdir()
+    for name in ("adr-threshold.md", "llm-routing.md"):
+        (repo / "policies" / name).write_text(f"# {name}\nkanonischer Stand\n")
+    (repo / "scripts" / "checks" / CHECK.name).write_text(CHECK.read_text())
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            env={
+                "PATH": "/usr/bin:/bin",
+                "HOME": str(tmp_path),
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@t",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@t",
+            },
+        )
+
+    git("init", "-q", "-b", "main")
+    git("add", "-A")
+    git("commit", "-qm", "fixture")
+    git("remote", "add", "origin", str(tmp_path / "gibt-es-nicht"))
+
+    ziel = tmp_path / "inject"
+    ziel.mkdir()
+    for datei in (repo / "policies").glob("*.md"):
+        (ziel / datei.name).write_text(datei.read_text())
+    return repo, ziel
+
+
+def test_should_not_report_green_when_reference_is_unobtainable(
+    tmp_path: Path,
+) -> None:
+    """DER Fall, den die Naht verdeckte — Regression zu Retro-Befund #1.
+
+    Injektionsziel und lokaler HEAD sind deckungsgleich; nur der kanonische Bezug
+    fehlt. Die erste Fassung meldete hier GRUEN/exit 0 und war damit von einem
+    echt geprueften Zustand nicht unterscheidbar.
+    """
+    repo, ziel = _fixture_repo_ohne_erreichbares_origin(tmp_path)
+    ergebnis = subprocess.run(
+        ["bash", str(repo / "scripts" / "checks" / CHECK.name)],
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "HOME": str(tmp_path),
+            "CLAUDE_POLICIES_DIR": str(ziel),
+        },  # POLICY_ZONE_REF bewusst NICHT gesetzt
+    )
+    assert ergebnis.returncode != EXIT_OK, (
+        "Bezug nicht erhebbar, aber exit 0 gemeldet — genau der Bug aus Befund #1"
+    )
+    assert ergebnis.returncode == EXIT_UNENTSCHIEDEN, ergebnis.stdout + ergebnis.stderr
+    assert "UNENTSCHIEDEN" in ergebnis.stdout
 
 
 def test_should_report_setup_error_without_repo(tmp_path: Path) -> None:
