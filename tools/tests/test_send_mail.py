@@ -7,6 +7,7 @@ Anhänge, Body-Quelle). Kein Netz-/SMTP-Test (send() bleibt Dogfood/Integration)
 
 Run: `python3 -m pytest tools/tests/test_send_mail.py -q`
 """
+
 import argparse
 import importlib.util
 import pathlib
@@ -27,10 +28,18 @@ def _creds(tmp_path, text):
 
 # --- parse_env ---------------------------------------------------------------
 
+
 def test_should_parse_env_with_quotes_comments_and_blanks(tmp_path):
-    f = _creds(tmp_path, "# Kommentar\n\nSMTP_HOST='mail.example.org'\nSMTP_PORT=465\nMAIL_FROM=\"a@b.c\"\n")
+    f = _creds(
+        tmp_path,
+        "# Kommentar\n\nSMTP_HOST='mail.example.org'\nSMTP_PORT=465\nMAIL_FROM=\"a@b.c\"\n",
+    )
     values = sm.parse_env(f)
-    assert values == {"SMTP_HOST": "mail.example.org", "SMTP_PORT": "465", "MAIL_FROM": "a@b.c"}
+    assert values == {
+        "SMTP_HOST": "mail.example.org",
+        "SMTP_PORT": "465",
+        "MAIL_FROM": "a@b.c",
+    }
 
 
 def test_should_keep_last_value_on_duplicate_keys(tmp_path):
@@ -40,8 +49,11 @@ def test_should_keep_last_value_on_duplicate_keys(tmp_path):
 
 # --- load_credentials --------------------------------------------------------
 
+
 def test_should_pick_pair_matching_sender_among_multiple(tmp_path):
-    f = _creds(tmp_path, "user='x@d.team'\npassword='px'\nuser='ad@d.team'\npassword='pa'\n")
+    f = _creds(
+        tmp_path, "user='x@d.team'\npassword='px'\nuser='ad@d.team'\npassword='pa'\n"
+    )
     assert sm.load_credentials(f, "ad@d.team") == ("ad@d.team", "pa")
 
 
@@ -54,7 +66,9 @@ def test_should_pair_by_line_order_not_by_proximity(tmp_path):
 def test_should_use_last_pair_on_duplicate_user_rotation(tmp_path):
     # Passwort-Rotation hängt das neue Paar unten an — das LETZTE gewinnt
     # (retro f4a546-incr #6: first-match lieferte still den veralteten Wert)
-    f = _creds(tmp_path, "user='ad@d.team'\npassword='OLD'\nuser='ad@d.team'\npassword='NEW'\n")
+    f = _creds(
+        tmp_path, "user='ad@d.team'\npassword='OLD'\nuser='ad@d.team'\npassword='NEW'\n"
+    )
     assert sm.load_credentials(f, "ad@d.team") == ("ad@d.team", "NEW")
 
 
@@ -70,14 +84,20 @@ def test_should_exit_on_empty_file(tmp_path):
 
 
 def test_should_ignore_non_kv_lines(tmp_path):
-    f = _creds(tmp_path, "IMAP-SSL noise ohne gleichheitszeichen\nuser='ad@d.team'\npassword='pa'\n")
+    f = _creds(
+        tmp_path,
+        "IMAP-SSL noise ohne gleichheitszeichen\nuser='ad@d.team'\npassword='pa'\n",
+    )
     assert sm.load_credentials(f, "ad@d.team") == ("ad@d.team", "pa")
 
 
 # --- build_message -----------------------------------------------------------
 
+
 def _args(**kw):
-    base = dict(to=["r@x.y"], subject="s", body="b", body_file=None, attach=[], sender=None)
+    base = dict(
+        to=["r@x.y"], subject="s", body="b", body_file=None, attach=[], sender=None
+    )
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -109,16 +129,21 @@ def test_should_attach_markdown_as_text_markdown(tmp_path):
 
 # --- HTML-Body (multipart/alternative) ---------------------------------------
 
+
 def test_should_build_multipart_alternative_with_html_and_text(tmp_path):
     hf = tmp_path / "mail.html"
     hf.write_text("<p>Hallo <strong>Ilja</strong></p>")
-    msg = sm.build_message("a@b.c", _args(body="text-fallback", body_file=None, html_file=str(hf)))
+    msg = sm.build_message(
+        "a@b.c", _args(body="text-fallback", body_file=None, html_file=str(hf))
+    )
     assert msg.get_content_type() == "multipart/alternative"
     types = {p.get_content_type() for p in msg.iter_parts()}
     assert types == {"text/plain", "text/html"}
     html_part = next(p for p in msg.iter_parts() if p.get_content_type() == "text/html")
     assert "<strong>Ilja</strong>" in html_part.get_content()
-    text_part = next(p for p in msg.iter_parts() if p.get_content_type() == "text/plain")
+    text_part = next(
+        p for p in msg.iter_parts() if p.get_content_type() == "text/plain"
+    )
     assert "text-fallback" in text_part.get_content()
 
 
@@ -127,19 +152,24 @@ def test_should_derive_text_fallback_from_html_when_no_body(tmp_path):
     hf.write_text("<p>Hallo Ilja</p><p>Zeile zwei</p>")
     msg = sm.build_message("a@b.c", _args(body=None, body_file=None, html_file=str(hf)))
     assert msg.get_content_type() == "multipart/alternative"
-    text_part = next(p for p in msg.iter_parts() if p.get_content_type() == "text/plain")
+    text_part = next(
+        p for p in msg.iter_parts() if p.get_content_type() == "text/plain"
+    )
     txt = text_part.get_content()
     assert "Hallo Ilja" in txt and "Zeile zwei" in txt
     assert "<p>" not in txt
 
 
 def test_should_strip_tags_and_unescape_in_html_to_text():
-    out = sm.html_to_text("<style>x{color:red}</style><p>Guten Tag &amp; hallo</p><br>Ende")
+    out = sm.html_to_text(
+        "<style>x{color:red}</style><p>Guten Tag &amp; hallo</p><br>Ende"
+    )
     assert "Guten Tag & hallo" in out
     assert "<" not in out and "color:red" not in out
 
 
 # --- find_sent_folder (Sent-Kopie, kein Netz — s. append_to_sent Docstring) ---
+
 
 class _FakeImap:
     def __init__(self, list_response):
@@ -151,25 +181,33 @@ class _FakeImap:
 
 def test_should_prefer_special_use_sent_flag_over_name_heuristic():
     # Realer Server-Output (dogfood 2026-07-17): Name unquoted, \Sent-Flag gesetzt.
-    imap = _FakeImap([
-        b'(\\HasNoChildren \\UnMarked \\Trash) "." INBOX.Trash',
-        b'(\\HasNoChildren \\UnMarked \\Sent) "." INBOX.Sent',
-    ])
+    imap = _FakeImap(
+        [
+            b'(\\HasNoChildren \\UnMarked \\Trash) "." INBOX.Trash',
+            b'(\\HasNoChildren \\UnMarked \\Sent) "." INBOX.Sent',
+        ]
+    )
     assert sm.find_sent_folder(imap, None) == "INBOX.Sent"
 
 
 def test_should_prefer_configured_folder_when_it_exists_and_no_special_use_flag():
-    imap = _FakeImap([b'(\\HasNoChildren) "." "INBOX.Sent"', b'(\\HasNoChildren) "." "Sent"'])
+    imap = _FakeImap(
+        [b'(\\HasNoChildren) "." "INBOX.Sent"', b'(\\HasNoChildren) "." "Sent"']
+    )
     assert sm.find_sent_folder(imap, "Sent") == "Sent"
 
 
 def test_should_fall_back_to_name_heuristic_when_configured_is_absent():
-    imap = _FakeImap([b'(\\HasNoChildren) "." "INBOX.Sent"', b'(\\HasNoChildren) "." "INBOX.Trash"'])
+    imap = _FakeImap(
+        [b'(\\HasNoChildren) "." "INBOX.Sent"', b'(\\HasNoChildren) "." "INBOX.Trash"']
+    )
     assert sm.find_sent_folder(imap, "Sent") == "INBOX.Sent"
 
 
 def test_should_return_configured_when_list_has_no_sent_candidate():
-    imap = _FakeImap([b'(\\HasNoChildren) "." "INBOX"', b'(\\HasNoChildren) "." "INBOX.Trash"'])
+    imap = _FakeImap(
+        [b'(\\HasNoChildren) "." "INBOX"', b'(\\HasNoChildren) "." "INBOX.Trash"']
+    )
     assert sm.find_sent_folder(imap, "Sent") == "Sent"
 
 
@@ -179,3 +217,29 @@ def test_should_return_none_when_list_fails_and_nothing_configured():
             return "NO", []
 
     assert sm.find_sent_folder(_FailingImap(), None) is None
+
+
+def test_should_drop_outlook_vml_css_not_just_tags():
+    """Realfall 2026-07-30: der Textteil begann mit VML-CSS statt mit der Anrede.
+
+    Outlook-Mails tragen im <style>-Block Regeln wie `v\\:* {behavior:url(...)}`.
+    Ein reiner Tag-Strip entfernt `<style>`, laesst den Rumpf aber stehen — gemessen
+    an fuenf HNU-Mails, deren abgeleiteter Text komplett unlesbar war.
+    """
+    html = (
+        "<html><head><style>v\\:* {behavior:url(#default#VML);}\n"
+        "o\\:* {behavior:url(#default#VML);}</style></head>"
+        "<body><p>Hallo zusammen,</p></body></html>"
+    )
+    out = sm.html_to_text(html)
+    assert out.strip().startswith("Hallo zusammen,")
+    assert "behavior" not in out and "VML" not in out
+
+
+def test_should_render_lists_as_bullets():
+    """Die Listen-Behandlung stand bis 2026-07-30 nur in der draft_mail-Kopie.
+
+    Beim Zusammenlegen auf eine Implementierung darf sie nicht verlorengehen.
+    """
+    out = sm.html_to_text("<p>Punkte</p><ul><li>eins</li><li>zwei</li></ul>")
+    assert "- eins" in out and "- zwei" in out

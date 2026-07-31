@@ -206,7 +206,7 @@
 | 238 | Security-by-Construction als Konstruktionsprinzip — Containment symmetrisch zu Acceleration | Accepted | 🔶 | [ADR-238](ADR-238-security-by-construction-agent-containment.md) |
 | 239 | Architecture Guardian — PR-Zeit-Architektur-Compliance-Agent | Accepted | ✅ | [ADR-239](ADR-239-architecture-guardian.md) |
 | 240 | Repo-Health-Framework über alle Plattform-Repos | Proposed | ⬜ | [ADR-240](ADR-240-repo-health-framework.md) |
-| 241 | Platform-weite Backup- & Disaster-Recovery-Baseline (Offsite by construction) | Accepted | ⬜ | [ADR-241](ADR-241-backup-disaster-recovery-baseline.md) |
+| 241 | Platform-weite Backup- & Disaster-Recovery-Baseline (Offsite by construction) | Accepted | 🔶 | [ADR-241](ADR-241-backup-disaster-recovery-baseline.md) |
 | 242 | Fleet-weite Branch-Protection — required status checks auf `main` (no-bypass by construction) | Accepted | 🔶 | [ADR-242](ADR-242-branch-protection-required-checks.md) |
 | 243 | `iil-corefw` — Shared Runtime Core für die Framework-Flotte (Retry, Errors, Observability, Cost-Provenance) | Accepted | ⬜ | [ADR-243](ADR-243-shared-runtime-core-iil-corefw.md) |
 | 244 | Geschlossener Regel-Lebenszyklus — eine Severity-/Suppression-Sprache und ein Compliance-Gate über alle Check-Systeme | Accepted | ⬜ | [ADR-244](ADR-244-rule-lifecycle-governance-loop.md) |
@@ -254,4 +254,4 @@
 | 286 | Adopt a metadata-index-first mail agent with purpose-bound crypto-shredded body persistence | Accepted | ⬜ | [ADR-286](ADR-286-mail-agent-crypto-shredding-derived-index.md) |
 | 287 | Distribute the domain-expert reviewer in graded stages, gated on artifact-content sovereignty rather than skill location | Accepted | ⬜ | [ADR-287](ADR-287-fach-reviewer-org-weite-distribution.md) |
 | 288 | Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements | Proposed | ⬜ | [ADR-288](ADR-288-mail-recherche-hybride-projektion.md) |
-| 289 | Adopt netcup as Off-Provider Host for Platform Services, Not for App Hubs | Proposed | ⬜ | [ADR-289](ADR-289-netcup-off-provider-platform-services-host.md) |
+| 289 | Adopt netcup as Off-Provider Backup Target — Further Platform Roles Deferred | Proposed | ⬜ | [ADR-289](ADR-289-netcup-off-provider-platform-services-host.md) |

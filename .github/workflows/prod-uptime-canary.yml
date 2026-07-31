@@ -40,6 +40,12 @@ permissions:
   contents: read
   issues: write
 
+env:
+  # Empfänger der Alarm-Zustellung. Ein Issue OHNE Assignee benachrichtigt niemanden —
+  # es ist ein Protokolleintrag, kein Alarm. Mit Assignee verschickt GitHub eine
+  # Benachrichtigung, ohne dass ein zusätzliches Secret oder ein externer Dienst nötig ist.
+  ALERT_ASSIGNEE: achimdehnert
+
 jobs:
   canary:
     name: "Prod Health + Assets"
@@ -267,7 +273,12 @@ jobs:
               echo "Duplikat #$n → #$existing geschlossen"
             done
           else
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY" --label "$LABEL"
+            # --assignee IST die Zustellung: ohne sie benachrichtigt das Issue niemanden.
+            # Realfall 2026-07-20: der OOM war nach 16 Minuten erkannt (Issue #1282), der
+            # Ausfall dauerte trotzdem ~16 h — das Issue lag 18 h unbeachtet. Die Lücke war
+            # nie die Erkennung, sondern die Zustellung.
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY" \
+              --label "$LABEL" --assignee "${ALERT_ASSIGNEE}"
           fi
 
       - name: "Issue schließen bei wieder-grün (Loop schließen)"

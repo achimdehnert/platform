@@ -48,8 +48,33 @@ jobs:
             fi
           else
             echo "args=" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ restic/Env fehlt — Scaffold-Modus (alle Apps deferred)"
+            echo "scaffold=true" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Backup-Meter im Scaffold-Modus::restic/Env fehlt — es wird NICHT gemessen, ob Backups existieren. Alle Apps gelten als 'deferred'."
           fi
+
+      - name: "Scaffold-Zustand sichtbar machen (#1567)"
+        if: steps.snap.outputs.scaffold == 'true'
+        run: |
+          # Warum dieser Schritt existiert: Der Meter meldete vom 2026-06-21 bis 2026-07-30
+          # taeglich 'success', obwohl KEIN einziges Offsite-Backup existierte — 'noch nicht
+          # provisioniert' war von 'alles gesichert' nicht unterscheidbar, ohne das Log zu
+          # oeffnen. Sechs Wochen lang hat das niemand bemerkt (#1567).
+          # Der Lauf bleibt gruen (der Scaffold ist ein bekannter, gewollter Zwischenstand),
+          # aber er sagt es jetzt im Job-Summary statt nur in Zeile 51 des Logs.
+          {
+            echo "## ⚠️ Backup-Meter läuft im Scaffold-Modus"
+            echo
+            echo "**Es wird nicht gemessen, ob Backups existieren.** \`RESTIC_REPOSITORY\` bzw."
+            echo "\`/etc/offsite-backup.env\` fehlen auf dem Runner, daher gelten alle Apps als"
+            echo "\`deferred\` und der Meter meldet 0 Verletzungen — unabhängig davon, ob"
+            echo "irgendetwas gesichert ist."
+            echo
+            echo "Grün heißt hier **nicht** \"Backups in Ordnung\", sondern \"noch nichts zu messen\"."
+            echo
+            echo "Der fehlende Schritt ist die Repository-Provisionierung (ADR-241 → ADR-289)."
+            echo "Solange sie aussteht, ist dieser Hinweis der einzige Unterschied zwischen"
+            echo "\"nicht provisioniert\" und \"alles gesichert\"."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Meter ausführen"
         id: meter
@@ -78,9 +103,11 @@ jobs:
             gh issue comment "$existing" --body-file /tmp/backup-meter-report.md
             echo "Kommentar an bestehendes Issue #$existing"
           else
+            # --assignee IST die Zustellung — ohne sie benachrichtigt das Issue niemanden.
             gh issue create \
               --title "[backup-violation] backup-meter: Backup-Soll verletzt ($(date -u +%Y-%m-%d))" \
               --label backup-violation \
+              --assignee "achimdehnert" \
               --body-file /tmp/backup-meter-report.md
           fi
 

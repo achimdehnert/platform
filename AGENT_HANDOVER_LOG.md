@@ -695,3 +695,26 @@ Enthaltensein.
 Zwei Prozess-Stolpersteine: `[skip ci]` im Kopf-Commit macht Required Checks unerreichbar
 (#1503 war approved und dauerhaft blockiert); und ein Merge während eines laufenden Push
 verliert Commits (#1555 → Folge-PR #1556, zweites Mal am selben Tag).
+
+## 2026-07-30 Nachtrag — Mail-Werkzeug nach Kundenrückmeldung überarbeitet
+
+Vier PRs im Review, alle aus derselben Rückmeldungskette: ein Kunde nannte eine Mail im
+Rollen-Design wörtlich „sieht aus wie ein Newsletter". Daraus: Design raus aus der
+Kundenkorrespondenz, Antwort-HTML kompakt (#1566 — jede Zeile wurde ein eigenes `<p>`,
+Exchange normalisiert das auf 1em/1em), Namensdopplung nach dem Gruß automatisch entfernt
+(#1568), Ursprungsmail optional als `message/rfc822` anhängbar (#1565, dabei RFC-2046-Falle
+gefunden: `add_attachment(bytes, maintype="message")` wählt base64, erlaubt sind nur
+7bit/8bit/binary). Dazu #1562: `html_to_text` lag zweimal im Baum, die Kopie ohne
+`<style>`-Fix — Outlook-Mails kamen als VML-CSS statt als Text an.
+
+Signaturen gekürzt: 5 → 2 Zeilen, Firmenangaben nur noch im Pflicht-Footer, §35a auch für
+die DSB-Rolle (Absender ist die GmbH). Referenz für die Länge ist die Kundenmail mit
+360 Zeichen; die eigene Erstfassung hatte 4.000.
+
+MEiKI-Datenschutz-Anfrage an Actago: Analyse fertig und als lokales Board eingefroren
+(`~/.claude/boards/meiki-datenschutz-anzeige.md`, über den Link-Dienst erreichbar). Kern:
+§ 80 Abs. 1 SGB X verlangt ZWEI Anzeigen — die beauftragte öffentliche Stelle (HNU) muss
+ihrer eigenen Aufsicht anzeigen, das fehlte im Plan. Und das Wort „KI" gehört aus der
+Anfrage gestrichen, weil die Auswertung in beiden Stufen deterministisch ist. Wird in einer
+anderen Session weiterbearbeitet.
+

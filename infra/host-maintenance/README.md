@@ -53,6 +53,39 @@ see [`runner-nonprod-runbook.md`](runner-nonprod-runbook.md) (ADR-257 §Folge-Ar
 Alt E — dedicated non-prod runner on the staging host). Until that lands, the daily
 timer is the agreed interim.
 
+## Host-Grundinstallation netcup (ADR-289 Phase 1)
+
+[`netcup-bootstrap.sh`](netcup-bootstrap.sh) bringt den netcup-Host
+(152.53.136.219, Debian 13 — der erste Nicht-Hetzner-Host im Bestand) auf den Stand,
+den **jede** in ADR-289 vorgeschlagene Rolle braucht: Swap, `sysctl` nach ADR-098 §2,
+Docker + Compose, `daemon.json` nach ADR-098 §1, `fio` als Messwerkzeug. Es ist
+rollen-neutral und installiert **keine** Rolle.
+
+Idempotent — jeder Schritt prüft erst und überspringt, was schon da ist:
+
+```bash
+# Vorschau ohne Änderung
+ssh root@152.53.136.219 'DRY_RUN=1 bash /root/netcup-bootstrap.sh'
+
+# scharf
+scp infra/host-maintenance/netcup-bootstrap.sh root@152.53.136.219:/root/
+ssh root@152.53.136.219 'bash /root/netcup-bootstrap.sh'
+```
+
+Gelaufen am 2026-07-30 (Owner-Freigabe): Swap 8 G, Docker 29.6.2, Compose 5.3.1,
+fio 3.39, `overcommit_memory=1 somaxconn=65535 swappiness=10`.
+
+**Die Firewall ist bewusst nicht Teil des Skripts.** Die wirksame Ebene ist die
+netcup-Panel-Firewall (dort „Aktiv (0)" — eingeschaltet, aber ohne Regel), und sie ist
+nur im Kundenpanel pflegbar, nicht per SSH. Eine Host-Firewall aus einer SSH-Sitzung
+heraus zu aktivieren riskiert die Selbst-Aussperrung, heilbar nur über die
+netcup-Konsole. Derzeit lauscht dort ausschließlich SSH; Regeln werden mit Rolle R2
+(Monitoring-Ports) nötig.
+
+> Warum als Skript und nicht per Handarbeit: ein Host-Eingriff ohne IaC-Spiegelung
+> driftet beim nächsten Host sofort wieder auseinander — genau die Klasse Drift, die
+> `daemon.json.recommended` in diesem Verzeichnis schon einmal nötig gemacht hat.
+
 ## Relationship to `/infra-cleanup`
 
 | Concern | Tool |

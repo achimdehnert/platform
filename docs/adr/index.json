@@ -4319,7 +4319,7 @@
         "ADR-235",
         "ADR-236"
       ],
-      "implementation_status": "none"
+      "implementation_status": "partial"
     },
     {
       "number": 242,
@@ -5408,7 +5408,7 @@
       "number": 289,
       "id": "ADR-289",
       "file": "ADR-289-netcup-off-provider-platform-services-host.md",
-      "title": "Adopt netcup as Off-Provider Host for Platform Services, Not for App Hubs",
+      "title": "Adopt netcup as Off-Provider Backup Target — Further Platform Roles Deferred",
       "status": "proposed",
       "date": "2026-07-30",
       "domains": [],
@@ -5421,6 +5421,7 @@
       "related": [
         "ADR-059",
         "ADR-098",
+        "ADR-142",
         "ADR-157",
         "ADR-164",
         "ADR-248",

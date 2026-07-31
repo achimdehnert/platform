@@ -799,6 +799,32 @@ def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
         print(f"  + Anhang: {payload['name']} ({payload['contentType']})")
 
 
+#: Schrift wie ein normaler Outlook-Client — unauffaellig, kein Marketing-Look.
+#: Kein Monogramm, kein Akzentbalken: Rueckmeldung eines Kunden am 2026-07-30 zum
+#: Rollen-Design lautete woertlich "Sieht aus wie ein Newsletter".
+_MAIL_SCHRIFT = "font-family:Calibri,'Segoe UI',sans-serif;font-size:11pt;color:#000000"
+
+
+def _klartext_als_mailhtml(text: str) -> str:
+    """Klartext -> kompaktes Mail-HTML: Leerzeile trennt Absaetze, Umbruch wird <br>.
+
+    Die frueher hier stehende Fassung machte aus JEDER Zeile ein eigenes `<p>`.
+    Exchange normalisiert jedes `<p>` auf `margin-top:1em; margin-bottom:1em` —
+    eine fuenfzeilige Signatur bekam damit vier doppelte Leerzeilen, und die
+    Leerzeilen-Absaetze (`<p>&nbsp;</p>`) klebten als Einrueckung vor dem
+    Folgetext. Beides am Entwurf gemessen (2026-07-30), beides Owner-Befund.
+
+    Absatzgrenze ist deshalb die LEERZEILE, nicht der Zeilenumbruch. Der letzte
+    Absatz — Signatur und Pflichtangaben — bleibt so ein kompakter Block.
+    """
+    bloecke = [b for b in re.split(r"\n\s*\n", text.strip()) if b.strip()]
+    absaetze = []
+    for block in bloecke:
+        zeilen = [html.escape(z.rstrip()) for z in block.split("\n") if z.strip()]
+        absaetze.append(f'<p style="margin:0 0 10px 0">{"<br>".join(zeilen)}</p>')
+    return f'<div style="{_MAIL_SCHRIFT}">{"".join(absaetze)}</div>'
+
+
 def _antwort_rumpf(
     neu: str, vorhanden: str, vorhandener_typ: str, *, neu_ist_html: bool = False
 ) -> dict:
@@ -831,11 +857,10 @@ def _antwort_rumpf(
     if vorhandener_typ == "text":
         return {"contentType": "Text", "content": f"{neu}\n\n{vorhanden}"}
 
-    absaetze = "".join(
-        f"<p>{html.escape(zeile) if zeile.strip() else '&nbsp;'}</p>"
-        for zeile in neu.split("\n")
-    )
-    return {"contentType": "HTML", "content": f"{absaetze}{vorhanden}"}
+    return {
+        "contentType": "HTML",
+        "content": f"{_klartext_als_mailhtml(neu)}{vorhanden}",
+    }
 
 
 def _empfaenger(adressen: str | list[str] | None) -> list[dict]:
