@@ -10,7 +10,38 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
+## Zeitanker — Pflicht je Stand-Block
+
+Jeder `## ⚡ Aktueller Stand`-Block trägt **als erste Zeile** einen Zeitanker: die
+Werte, gegen die eine frische Instanz in **einem** Kommando prüfen kann, ob dieser
+Text noch den Stand beschreibt oder hinterherhinkt.
+
+```
+**Zeitanker:** HEAD `<sha7>` · `rev-list --count` <n> · geschrieben <YYYY-MM-DD>
+```
+
+Prüfen (ein Kommando, read-only):
+
+```bash
+git fetch -q origin && echo "ist: $(git rev-parse --short origin/main) / $(git rev-list --count origin/main)"
+```
+
+**Weicht der Ist-Wert ab, ist der Block veraltet — nicht falsch, aber überholt.** Das ist
+die einzige Aussage, die der Anker trägt; er ersetzt kein Lesen. Fehlt ein Wert, wird
+`nicht erhoben` eingetragen — **nie** ein geschätzter.
+
+Warum: Ohne Anker war „hinkt der Handover nach?" nur durch Lesen beantwortbar, und das
+unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinander
+(`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
+derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
+
 ## ⚡ Aktueller Stand (2026-07-30 — Mail-Ingestion auf Prod scharf, Antwort-Entwürfe mit Zitat, ein selbstverschuldeter Schaden)
+
+**Zeitanker:** HEAD `nicht erhoben` · `rev-list --count` nicht erhoben · geschrieben 2026-07-30
+— die Anker-Konvention wurde erst am 2026-07-31 eingeführt; für diesen Block
+wurden die Werte nie genommen und werden **nicht nachträglich geschätzt**. Ab dem nächsten
+Stand-Block ist der Anker Pflicht. Zur Einordnung: `origin/main` stand bei Einführung der
+Konvention auf `7f1ee0cd` / 2635 Commits (2026-07-31).
 
 **Kern in einem Satz:** Der Mail-Ingest läuft auf Produktion — Runbook-Schritte 1 bis 7
 durch, genau eine aktive Generation mit 6.008 Nachrichten und Deckung `complete`; der

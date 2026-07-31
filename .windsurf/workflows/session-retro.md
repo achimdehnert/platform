@@ -17,7 +17,7 @@ mode: write
 > pipeline-erzwungene Falsifikation). Dieser Command ist die portable Prosa-Variante mit
 > identischer Methode.
 
-## Eiserne Regeln — die 4 Fixes (nicht verhandelbar)
+## Eiserne Regeln — die 5 Fixes (nicht verhandelbar)
 
 1. **Richter ≠ Angeklagter.** Urteile NIE aus deinem Session-Gedächtnis. Jeden Befund über
    einen **frischen Subagenten** (Agent-Tool) erzeugen, der nur die Artefakte sieht — nicht
@@ -28,6 +28,14 @@ mode: write
    Original-Entscheidung). Nur Überlebende bleiben — sonst entsteht performative Kritik.
 4. **Geschlossener Loop.** Lessons NICHT als Prosa versanden lassen → als **kopierfertige**
    Memory-/ADR-/CLAUDE.md-Vorschläge ausgeben. Verankerung entscheidet der Mensch.
+5. **Nullbefund ist rechenschaftspflichtig, kein Haken** (evidence-discipline Punkte 7/8).
+   Endet ein Finder- oder Falsifikations-Pass mit **null** Befunden/Survivors, wird
+   dokumentiert, **was erfolglos versucht wurde** — welche Dimensionen, Artefakte und
+   Zeiträume abgesucht wurden. Sonst ist „nichts gefunden" nicht von „nicht hingesehen"
+   zu unterscheiden. **Das ist ausdrücklich kein Zwang, etwas zu finden:** Phase 0 rechnet
+   selbst mit 0–1 Survivors bei sauberen Sessions — verlangt ist die *Abdeckungsauskunft*,
+   nicht der Befund. Jeder Retro-Report endet zudem auf den Vierer
+   **getan · angenommen · nicht verifizierbar · offen geblieben**.
 
 ## Phase 0 — Right-Sizing (Footprint **und** erwartete Befund-Dichte)
 Footprint messen (PRs / Repos / Prod-Schritte / Migrationen / ADRs) **und** Befund-Dichte
