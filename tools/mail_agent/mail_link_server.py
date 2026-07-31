@@ -268,7 +268,14 @@ class MailLinkHandler(BaseHTTPRequestHandler):
                 anker_speichere(anker, self.anker_pfad)
             imap.select(_mailbox_arg(ordner), readonly=True)
             ziel = self.cache_root / slugify(eintrag.konto) / slugify(ordner)
-            datei = render(_hole(imap, uid), eintrag.konto, ordner, uid, ziel)
+            datei = render(
+                _hole(imap, uid),
+                eintrag.konto,
+                ordner,
+                uid,
+                ziel,
+                f"/m/{eintrag.konto}/{slugify(ordner_klartext(ordner))}/{uid}",
+            )
         except MailNichtGefunden as fehlt:
             return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
         except Exception as fehler:
@@ -440,9 +447,15 @@ verfügbar: {html.escape(konten)}.</p>
                 if ordner_slug
                 else self.ordner
             )
-            ziel = self.cache_root / slugify(konto) / slugify(ordner_klartext(ordner))
+            slug = slugify(ordner_klartext(ordner))
+            ziel = self.cache_root / slugify(konto) / slug
             imap.select(_mailbox_arg(ordner), readonly=True)
-            return render(_hole(imap, uid), konto, ordner_klartext(ordner), uid, ziel)
+            # Immer die vollqualifizierte Route als Basis — sie ist von jedem
+            # Aufrufpfad aus gueltig, auch von `/a/<nr>`.
+            basis = f"/m/{konto}/{slug}/{uid}"
+            return render(
+                _hole(imap, uid), konto, ordner_klartext(ordner), uid, ziel, basis
+            )
         finally:
             try:
                 imap.close()
