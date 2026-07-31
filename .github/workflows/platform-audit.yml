@@ -84,6 +84,9 @@ jobs:
 
           python3 scripts/audit_platform.py $ARGS 2>&1 | tee audit-output.txt
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        # Weichgestellt, damit gefundene Regressions den Job nicht rot faerben —
+        # sie werden als Issue gemeldet. Ein ABSTURZ des Audits (kein exit_code)
+        # wird seit 2026-07-31 vom Schritt darunter sichtbar gemacht.
         continue-on-error: true
 
       - name: Audit-Report als Artifact
@@ -109,6 +112,15 @@ jobs:
           print(f'- **Mit Test-Scaffold:** {scaffolded}/{total}')
           print(f'- **Ohne Scaffold:** {total - scaffolded}')
           " >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+      # Ohne diesen Schritt bleibt ein Absturz des Audits still: exit_code ist
+      # dann leer, das `if` unten greift nicht, und der Job meldet gruen —
+      # als waere das Audit sauber durchgelaufen (Befund 2026-07-31).
+      - name: Absturz des Audits sichtbar machen
+        if: steps.audit.outcome == 'failure' && steps.audit.outputs.exit_code == ''
+        run: |
+          echo "::error::audit_platform.py ist abgestuerzt, bevor ein exit_code entstand — fuer diesen Lauf gibt es KEIN Audit-Ergebnis."
+          exit 1
 
       - name: Issue bei Regressions erstellen
         if: steps.audit.outputs.exit_code != '0'

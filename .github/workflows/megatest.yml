@@ -82,6 +82,11 @@ jobs:
             --junitxml=megatest-results.xml \
             2>&1 | tee megatest-output.txt
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        # Weichgestellt, damit ein roter Megatest den Zeitplan-Job nicht rot faerbt —
+        # gemeldet wird er ueber steps.megatest_run.outcome im Issue-Schritt unten.
+        # ACHTUNG (#1010, #1581): das maskiert derzeit auch, dass der Aufruf `python`
+        # statt `python3` nutzt und auf dem Runner mit `command not found` scheitert —
+        # die Suite lief dadurch wochenlang gar nicht, der Workflow blieb gruen.
         continue-on-error: true
 
       - name: Run Megatest (Budget-Update)

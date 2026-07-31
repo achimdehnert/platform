@@ -1,0 +1,48 @@
+name: "Silent-Failure-Lint"
+
+# Gate gegen Melder, die beim Ausfall schweigen.
+#
+# Anlass (2026-07-31): Der Hardcoding-Megatest lief zwei Wochen lang nicht —
+# `python` statt `python3` auf dem Runner, `command not found`. Der Workflow
+# meldete trotzdem `success`, weil der Schritt `continue-on-error: true` trägt.
+# Nebenbei entstanden 21 inhaltsleere Regressions-Issues (#1010, #1581).
+#
+# Geprüft wird zweierlei:
+#   1. Jedes `continue-on-error: true` trägt eine Begründung (im Header oder daneben).
+#   2. Wird auf die `outputs` eines weichgestellten Schritts reagiert, muss auch
+#      auf sein `outcome` reagiert werden — sonst ist Absturz gleich Stille.
+#
+# Läuft nur auf Änderungen an Workflows und am Prüfer selbst: ein Lint, der bei
+# jedem Commit feuert, wird zum Rauschen, das er bekämpfen soll.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'tools/check_silent_failures.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'tools/check_silent_failures.py'
+  workflow_call: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  silent-failure-lint:
+    name: "Stille Fehlschläge in Workflows"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: PyYAML bereitstellen
+        run: python3 -m pip install --quiet pyyaml
+
+      # Bewusst NICHT weichgestellt: ein Gate, das seinen eigenen Fehlschlag
+      # verschluckt, wäre genau der Fehler, den es sucht.
+      - name: Prüfen
+        run: python3 tools/check_silent_failures.py .github/workflows

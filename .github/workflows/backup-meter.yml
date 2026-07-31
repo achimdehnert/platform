@@ -76,6 +76,9 @@ jobs:
             echo "\"nicht provisioniert\" und \"alles gesichert\"."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Weichgestellt, damit ein Meter-Absturz nicht den Zeitplan-Job rot faerbt —
+      # gemeldet wird er trotzdem: der Schritt "Meter-Absturz melden" unten haengt
+      # an steps.meter.outcome und legt dann ein Issue an.
       - name: "Meter ausführen"
         id: meter
         continue-on-error: true
