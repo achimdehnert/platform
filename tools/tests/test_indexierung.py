@@ -53,6 +53,46 @@ def test_should_exclude_technical_folders_including_children():
     assert _aus("Synchronisierungsprobleme/Lokale Fehler")
 
 
+# --- Nicht-Mail-Ordner (Kalender/Kontakte/Aufgaben) -----------------------
+
+
+def test_should_exclude_non_mail_folders():
+    """Exchange gibt diese Ordner über IMAP nicht als RFC822 heraus.
+
+    Gemessen am Konto hnu (2026-07-31): 2.488 von 6.035 Index-Einträgen waren
+    Platzhalter mit dem Betreff "Retrieval using the IMAP4 protocol failed for
+    the following message: <n>" — ohne Absender, ohne Datum, und exakt
+    deckungsgleich mit den 2.488 Einträgen ohne `sent_at`.
+    """
+    for name in ("Kalender", "Calendar", "Kontakte", "Contacts", "Aufgaben", "Tasks"):
+        assert _aus(name), name
+
+
+def test_should_exclude_non_mail_children():
+    """Ein Treffer auf dem Elternsegment nimmt die Unterordner mit.
+
+    Real vorgefunden: 'Kalender/Feiertage in Deutschland' (101 Platzhalter) und
+    'Kalender/Achim Dehnert' (13).
+    """
+    assert _aus("Kalender/Feiertage in Deutschland")
+    assert _aus("Kalender/Achim Dehnert")
+
+
+def test_should_not_exclude_business_folders_starting_like_non_mail():
+    """Der Ausschluss matcht ganze Segmente, nicht Präfixe.
+
+    Ein Kundenordner 'Kalenderverlag' oder ein Vorgang 'Aufgabenheft' ist Post
+    und muss drinbleiben — dieselbe Falle wie 'Junker' unter 'junk'.
+    """
+    for name in (
+        "Kalenderverlag",
+        "Aufgabenheft",
+        "Kontaktformulare",
+        "IIL.Kunden/Journalismus",
+    ):
+        assert _aus(name) is None, name
+
+
 # --- Jahresarchive bis 2024 (Owner-Ergänzung) -----------------------------
 
 
