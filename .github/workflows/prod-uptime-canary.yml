@@ -1,5 +1,12 @@
 name: "Prod-Uptime-Canary"
 
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# Ein roter Lauf ist hier das ERGEBNIS, nicht der Defekt (siehe "Origin-Down-
+# Signale ... -> Issue + roter Run" weiter unten). Ohne diese Zeile zaehlte der
+# Melder-Check den Canary als "blinden Melder", obwohl er genau tat, was er
+# soll — nachgewiesen am 2026-07-31: Lauf rot UND Issue #1547 in derselben
+# Minute aktualisiert (platform#1508).
+#
 # Externe Outage-Detektion für Prod-Hubs (session-retro 2026-06-17, P2).
 # Hintergrund: risk-hub-Web war 2026-06-15 ~25h down (schutztat.de 502) und blieb
 # UNBEMERKT — es gab kein externes Monitoring (Uptime-Kuma nur geplant, nie deployed).
