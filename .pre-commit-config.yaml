@@ -33,3 +33,15 @@ repos:
         always_run: false
         files: ^docs/adr/ADR-.*\.md$
         stages: [pre-commit]
+
+      # Realfall 2026-07-31: ein Commit, der über den Marker SCHRIEB, trug ihn
+      # wörtlich in der Message — GitHub startete keinen Lauf, die Required
+      # Checks meldeten nie, platform#1503 blieb 37 h 56 min blockiert, ohne rot
+      # zu werden. Absichtliche Nutzung bleibt möglich (Trailer "Skip-CI: absichtlich").
+      - id: no-accidental-skip-ci
+        name: "[skip ci] in der Commit-Message nur mit Opt-in-Trailer"
+        language: system
+        entry: python3 tools/hooks/check_skip_ci_marker.py
+        pass_filenames: true
+        always_run: true
+        stages: [commit-msg]

@@ -1,4 +1,5 @@
 """Tests für die Rollen-Profil-Registry (KONZ-platform-033, tools/mail_agent/roles.py)."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -11,7 +12,9 @@ import pytest
 _SRC = pathlib.Path(__file__).resolve().parents[1] / "mail_agent" / "roles.py"
 _spec = importlib.util.spec_from_file_location("roles", _SRC)
 roles = importlib.util.module_from_spec(_spec)
-sys.modules["roles"] = roles  # @dataclass braucht das Modul in sys.modules (string-Annotationen)
+sys.modules["roles"] = (
+    roles  # @dataclass braucht das Modul in sys.modules (string-Annotationen)
+)
 _spec.loader.exec_module(roles)
 
 
@@ -67,19 +70,30 @@ def test_should_block_when_requires_footer_but_none(tmp_path):
 def test_should_resolve_when_required_footer_present(tmp_path):
     footer = tmp_path / "iil-footer.txt"
     footer.write_text("IIL GmbH · HRB 12191 · GF Sabine Dehnert\n")
-    reg = _registry(tmp_path, iil={
-        "display_name": "Prof. Dr. A. D.", "role_line": "Leiter",
-        "from": "a@iil.gmbh", "transport": "graph_draft",
-        "requires_legal_footer": True, "legal_footer_file": str(footer),
-    })
+    reg = _registry(
+        tmp_path,
+        iil={
+            "display_name": "Prof. Dr. A. D.",
+            "role_line": "Leiter",
+            "from": "a@iil.gmbh",
+            "transport": "graph_draft",
+            "requires_legal_footer": True,
+            "legal_footer_file": str(footer),
+        },
+    )
     prof = roles.resolve("iil", reg)
     assert prof.legal_footer and "HRB 12191" in prof.legal_footer
 
 
 def test_should_reject_invalid_transport(tmp_path):
-    reg = _registry(tmp_path, bad={
-        "display_name": "X", "from": "x@y.z", "transport": "carrier_pigeon",
-    })
+    reg = _registry(
+        tmp_path,
+        bad={
+            "display_name": "X",
+            "from": "x@y.z",
+            "transport": "carrier_pigeon",
+        },
+    )
     with pytest.raises(ValueError, match="transport"):
         roles.resolve("bad", reg)
 
@@ -88,14 +102,16 @@ def test_should_render_html_with_role_tokens(tmp_path):
     reg = _registry(tmp_path)
     prof = roles.resolve("dehnert_team", reg)
     htmlout = roles.render_email_html(
-        prof, eyebrow="LUCA", greeting="Hallo Ilja,",
+        prof,
+        eyebrow="LUCA",
+        greeting="Hallo Ilja,",
         paragraphs=["Erster Absatz.", "Zweiter Absatz."],
         status_rows=[{"label": "Import", "state": "good", "text": "erledigt"}],
     )
-    assert prof.accent in htmlout            # Akzent-Token gerendert
-    assert "d." in htmlout                    # Monogramm
+    assert prof.accent in htmlout  # Akzent-Token gerendert
+    assert "d." in htmlout  # Monogramm
     assert "Erster Absatz." in htmlout
-    assert "#1F7A4D" in htmlout               # good-Status-Farbe
+    assert "#1F7A4D" in htmlout  # good-Status-Farbe
     assert htmlout.lstrip().startswith("<!DOCTYPE html>")
 
 
@@ -103,7 +119,10 @@ def test_should_html_escape_body_content(tmp_path):
     reg = _registry(tmp_path)
     prof = roles.resolve("dehnert_team", reg)
     htmlout = roles.render_email_html(
-        prof, eyebrow="x", greeting="g", paragraphs=["<script>alert(1)</script>"],
+        prof,
+        eyebrow="x",
+        greeting="g",
+        paragraphs=["<script>alert(1)</script>"],
     )
     assert "<script>alert(1)</script>" not in htmlout
     assert "&lt;script&gt;" in htmlout
@@ -123,11 +142,15 @@ _SATZ = "Wenn dir Telefonieren lieber ist als Schreiben: sag kurz Bescheid."
 
 
 def _mit_grenze(tmp_path, kanaele=("telefonat",)):
-    return _registry(tmp_path, dehnert_team={
-        "display_name": "KI-Assistent von A. D.",
-        "from": "ad@dehnert.team", "transport": "smtp",
-        "darf_nicht_zusagen": list(kanaele),
-    })
+    return _registry(
+        tmp_path,
+        dehnert_team={
+            "display_name": "KI-Assistent von A. D.",
+            "from": "ad@dehnert.team",
+            "transport": "smtp",
+            "darf_nicht_zusagen": list(kanaele),
+        },
+    )
 
 
 def test_should_default_to_no_channel_limit(tmp_path):
@@ -148,11 +171,17 @@ def test_should_pass_same_text_for_human_role(tmp_path):
     Menschen-Rolle geht durch — der Fix sperrt den Kanal, nicht den Satz."""
     footer = tmp_path / "f.txt"
     footer.write_text("IIL GmbH · HRB 12191\n")
-    reg = _registry(tmp_path, iil={
-        "display_name": "Prof. Dr. A. D.", "from": "a@iil.gmbh",
-        "transport": "graph_draft", "requires_legal_footer": True,
-        "legal_footer_file": str(footer), "darf_nicht_zusagen": [],
-    })
+    reg = _registry(
+        tmp_path,
+        iil={
+            "display_name": "Prof. Dr. A. D.",
+            "from": "a@iil.gmbh",
+            "transport": "graph_draft",
+            "requires_legal_footer": True,
+            "legal_footer_file": str(footer),
+            "darf_nicht_zusagen": [],
+        },
+    )
     prof = roles.resolve("iil", reg)
     roles.pruefe_kanalgrenze(prof, "Fortschritt", _SATZ)  # darf NICHT werfen
 
@@ -194,13 +223,74 @@ def test_should_append_signature_and_footer_to_text(tmp_path):
     sig.write_text("Viele Grüße\nA. D.\n")
     foot = tmp_path / "foot.txt"
     foot.write_text("IIL GmbH · HRB 12191\n")
-    reg = _registry(tmp_path, dehnert_team={
-        "display_name": "KI-Assistent", "from": "ad@dehnert.team",
-        "transport": "smtp", "signature_file": str(sig),
-        "legal_footer_file": str(foot), "requires_legal_footer": True,
-    })
+    reg = _registry(
+        tmp_path,
+        dehnert_team={
+            "display_name": "KI-Assistent",
+            "from": "ad@dehnert.team",
+            "transport": "smtp",
+            "signature_file": str(sig),
+            "legal_footer_file": str(foot),
+            "requires_legal_footer": True,
+        },
+    )
     prof = roles.resolve("dehnert_team", reg)
     out = roles.text_mit_signatur(prof, "Kurzer Text.")
     assert out.startswith("Kurzer Text.")
     assert "A. D." in out and "HRB 12191" in out
     assert out.index("A. D.") < out.index("HRB 12191")  # Footer zuletzt
+
+
+# --- Grußformel-Erkennung (Retro-Befund 2026-07-31) ------------------------
+
+
+class TestGrussformelVollzeile:
+    """Eine Grußformel-ZEILE ist die Formel und nichts sonst.
+
+    Vorher prüfte `str.startswith(GRUSSFORMELN)` nur den Anfang — "Grüße deine
+    Frau von mir." galt damit als Grußformel, und die Folgezeile wurde aus der
+    versandfertigen Mail gelöscht. Ein Wortgrenzen-`\\b` hätte NICHT gereicht:
+    nach "Grüße" steht ein Leerzeichen, die Grenze ist erfüllt.
+    """
+
+    @staticmethod
+    def _profil():
+        return roles.Profile(
+            role_id="t",
+            display_name="T",
+            sender="t@example.org",
+            transport="graph_draft",
+            signature="Prof. Dr. Achim Dehnert · Leiter\nMobil +49 171 537 6151",
+        )
+
+    def _rumpf(self, text):
+        out = roles.text_mit_signatur(self._profil(), text)
+        return out.split("Prof. Dr.")[0]
+
+    def test_should_keep_name_after_imperative_starting_with_gruesse(self):
+        """'Grüße deine Frau von mir.' ist ein Satz, keine Grußformel."""
+        text = "Bis dahin.\n\nGrüße deine Frau von mir.\nAchim Dehnert"
+        assert "Achim Dehnert" in self._rumpf(text)
+
+    def test_should_keep_name_after_word_starting_with_gruesse(self):
+        text = "Kurz.\n\nGrüßeaustausch war nett\nAchim Dehnert"
+        assert "Achim Dehnert" in self._rumpf(text)
+
+    def test_should_still_drop_name_after_real_greeting(self):
+        text = "Kurz.\n\nHerzliche Grüße\nAchim Dehnert"
+        assert "Achim Dehnert" not in self._rumpf(text)
+
+    def test_should_tolerate_punctuation_after_greeting(self):
+        text = "Kurz.\n\nViele Grüße,\nProf. Dr. Achim Dehnert"
+        assert "Achim Dehnert" not in self._rumpf(text)
+
+    def test_should_not_cut_body_at_imperative_in_zerlege_klartext(self):
+        """`zerlege_klartext` sucht die Grußformel von hinten — ein Satzanfang
+        'Grüße…' hätte dort alles danach abgeschnitten."""
+        text = (
+            "Hallo,\n\nGrüße deine Frau von mir.\n\n"
+            "Der eigentliche Punkt kommt erst hier.\n\nHerzliche Grüße\nAchim"
+        )
+        b = roles.zerlege_klartext(text)
+        assert any("Der eigentliche Punkt" in p for p in b["paragraphs"])
+        assert b["closing"] == "Herzliche Grüße"

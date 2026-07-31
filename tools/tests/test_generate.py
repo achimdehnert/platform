@@ -332,3 +332,68 @@ def test_should_allow_empty_existing_target(tmp_path):
     out.mkdir()
     r = _run(["--platform", str(repo), "--ref", "HEAD", "--target", str(out)])
     assert r.returncode == 0, r.stderr
+
+
+# --- Guard gegen das eigene Unfall-Residuum (Retro-Befund 2026-07-31) -------
+
+
+def _residuum_ziel(tmp_path, eigene_dateien, fremde_eintraege):
+    """Verzeichnis mit Manifest + optional fremden Einträgen bauen."""
+    ziel = tmp_path / "claude"
+    ziel.mkdir()
+    for name in eigene_dateien:
+        (ziel / name).write_text("x")
+    for name in fremde_eintraege:
+        (ziel / name).mkdir() if name.endswith("/") else (ziel / name).write_text("x")
+    (ziel / "MANAGED_BY").write_text("x")
+    (ziel / "manifest.json").write_text(
+        json.dumps({"files": [{"name": n} for n in eigene_dateien]})
+    )
+    return ziel
+
+
+def test_should_refuse_target_with_manifest_but_foreign_entries(tmp_path):
+    """Der Unfall schreibt MANAGED_BY/manifest.json ins FALSCHE Verzeichnis.
+
+    Blieben sie liegen, hätte die reine Namens-Prüfung denselben Tippfehler beim
+    zweiten Mal durchgewinkt — ein Guard, dessen Erkennungsmerkmal der Fehler
+    selbst erzeugt, schützt nur einmal.
+    """
+    repo = _make_repo(tmp_path / "repo")
+    ziel = _residuum_ziel(tmp_path, ["foo.md"], ["settings.json", "policies"])
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--target",
+            str(ziel),
+            "--allow-live",
+        ]
+    )
+    assert r.returncode != 0
+    assert "ABBRUCH" in r.stderr
+    assert "settings.json" in r.stderr or "policies" in r.stderr
+    assert (ziel / "settings.json").is_file()  # nichts angefasst
+    assert not (tmp_path / "claude.bak").exists()
+
+
+def test_should_allow_target_whose_content_matches_manifest(tmp_path):
+    """Echter Zweitlauf: alles im Ziel steht im Manifest → darf durchlaufen."""
+    repo = _make_repo(tmp_path / "repo")
+    ziel = _residuum_ziel(tmp_path, ["foo.md"], [])
+    r = _run(["--platform", str(repo), "--ref", "HEAD", "--target", str(ziel)])
+    assert r.returncode == 0, r.stderr
+
+
+def test_should_refuse_managed_by_without_manifest(tmp_path):
+    """Ohne Manifest ist der Inhalt nicht prüfbar — kein Freibrief."""
+    repo = _make_repo(tmp_path / "repo")
+    ziel = tmp_path / "halb"
+    ziel.mkdir()
+    (ziel / "MANAGED_BY").write_text("x")
+    (ziel / "fremd.txt").write_text("x")
+    r = _run(["--platform", str(repo), "--ref", "HEAD", "--target", str(ziel)])
+    assert r.returncode != 0
+    assert "nicht gegen die Generator-Dateiliste prüfbar" in r.stderr
