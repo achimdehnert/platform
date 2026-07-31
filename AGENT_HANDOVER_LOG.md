@@ -696,6 +696,88 @@ Zwei Prozess-Stolpersteine: `[skip ci]` im Kopf-Commit macht Required Checks une
 (#1503 war approved und dauerhaft blockiert); und ein Merge während eines laufenden Push
 verliert Commits (#1555 → Folge-PR #1556, zweites Mal am selben Tag).
 
+---
+
+## 2026-07-30 Nachmittag/Abend — dms-hub + doc-hub: Upload-Fix, Ruff-Regelsatz, Paperless-Struktur
+
+**Auslöser:** zwei gemeldete Fehler an `docs.iil.pet` — „Dokument 854 ist ein Angebot, steht
+aber als Rechnung" und „Upload mehrerer PDF, Reinziehen klappt nicht". Beide führten tiefer
+als erwartet.
+
+**Gemergt (4 PRs, dms-hub):** [#41] Mehrfach-Upload + Ablegen per Ziehen · [#45]
+Freigabe-Schalter je Datenklasse · [#43] Ruff-Regelauswahl festgeschrieben · [#44]
+KONZ-dms-hub-003. Drei Prod-Deploys, alle `success` (`2fcefcf`, `7b7da05`, `6c83430`);
+laufendes Abbild am Container-Tag verifiziert, nicht nur am Job-Ergebnis. #44 mit
+`[skip ci]` gemergt (reine Doku, kein Deploy ausgelöst).
+
+**Der Upload-Fehler saß an drei unabhängigen Stellen**, nicht an einer: `<input>` ohne
+`multiple`, Aufruf mit `this.files[0]`, und **gar kein** `dragover`/`drop`-Handler —
+„Reinziehen" war kein Defekt, sondern eine fehlende Funktion. Serverseitig las
+`upload_view` nur `FILES.get()`. Teilerfolg gibt jetzt 207 mit Namen der gescheiterten
+Dateien statt 200.
+
+**Der Klassifikations-Fehler war keiner.** Drei Hypothesen widerlegt: OCR läuft (Tesseract
+5.3.0 via OCRmyPDF, `deu+eng`, 824/834 mit Textschicht); die `match`-Strings aller 15
+Dokumenttypen sind wirkungslos, weil `matching_algorithm=auto` sie ignoriert; und Doc 854
+hat **gar keinen** Dokumenttyp. Ursache ist `/opt/doc-hub/scripts/auto-title.py`, das den
+Typ mit `break` beim ersten Treffer der Liste wählt — `Rechnung` steht an erster, `Angebot`
+an achter Stelle, der Text enthält 9× „angebot" und 4× „rechnung". **Es gewinnt die
+Listenposition, nicht der Befund.**
+
+**Struktureller Befund (gemessen, nicht geschätzt):** 826 Dokumente, davon **553 ohne
+Dokumenttyp (67 %)**, 681 ohne Korrespondent (82 %), 264 ohne jeden Tag. Das Skript schreibt
+ausschließlich `doc.title`. Die Struktur des Archivs ist eine Zeichenkette, keine
+Metadatenlage — und dms-hub filtert über Metadaten. Festgehalten in KONZ-dms-hub-003.
+
+**Ruff: die Aufgabenstellung war falsch, nicht der Bestand.** CI stand seit dem 27.07. rot.
+Naheliegend war „80 Befunde abarbeiten". Der billigste Gegencheck kippte es: ruff 0.15.21
+aktiviert **59** Regeln, ruff 0.16.0 **413** — `ci.yml` zieht ungepinnt. Fix ist die
+Deklaration der Auswahl (`select = ["E4","E7","E9","F"]`), keine Zeile Anwendungscode. Die
+30 bereits angewandten Autofixes wurden bewusst zurückgenommen, damit der Diff die
+Begründung nicht verschleiert.
+
+**Datenschutz-Befund, der eine offene Entscheidung mitentschied:** der Bestand mischt privat
+und geschäftlich und enthält **Gesundheitsdaten benannter Personen** (Tag `Gesundheit`, 21
+Dokumente; Personen-Tags achim/bine/mara). Art.-9-Daten. Damit ist der lokale Ollama-Weg
+nicht die günstigere, sondern die einzige tragfähige Variante — mein Groq-Vorschlag vom
+Vormittag war falsch. Der Schalter (#45) schaltet deshalb auf der **Datenklasse**, nicht auf
+der Verfügbarkeit, mit Erlaubnisliste statt Verbotsliste (264 ungetaggte Dokumente wären bei
+einer Verbotsliste exportiert worden) und Rückfall auf den regelbasierten Weg statt auf die
+Cloud. Reichweite heute ehrlich: **1 Dokument** — es gibt keinen Tag, der ein Dokument als
+nicht-privat kennzeichnet.
+
+**WireGuard zur RTX 4090: drei Fehler in Reihe, alle behoben.** (1) Rückroute fehlte —
+`10.8.0.2` verließ den Server über `eth0`. (2) PSK einseitig: Station verlangte einen, Server
+hatte für keinen der drei Peers einen; Kernel-Diagnose zeigte „Invalid handshake response".
+(3) `AllowedIPs = 10.8.0.0/24` der Station schließt die Server-Quelladresse `10.99.0.1` aus —
+umgangen durch eine zweite Adresse `10.8.0.1/24` auf `wg0`. Handshake steht, ICMP 2/2 in
+7,9 ms. Die veraltete Datei im Zip (Endpoint `:51820`, fremder Serverschlüssel) wurde
+**nicht** verwendet; nur ihr PSK, dessen Identität gegen `bNYr18c…` verifiziert wurde.
+
+**Vier neue Issues, alle mit Messung statt Vermutung:** [#42] ungepinntes ruff · [#46] **157
+Tests laufen nirgends in CI** (`ci.yml` ohne pytest, `deploy.yml` mit `skip_tests: true`) ·
+[#47] **Scan seit 2026-03-30 in der Einlese-Warteschlange hängen geblieben**, vier Monate
+unbemerkt · [#48] Backup-Aufbewahrung: Skript zielt auf 30 Tage, ein Alt-Cron behält 2.
+
+**Eigene Fehler, benannt:** eine Zwischenmessung („721 von 824 ohne Textschicht") war ein
+Artefakt meines Prüfverfahrens — die Gegenprobe mit `pdftotext` fand in 40 von 40 Text; die
+Zahl gilt nicht. Eine zweite („16× BLE001") kam vom Grep über das CI-Protokoll statt über das
+Werkzeug; es sind 14. Und ich habe `git checkout origin/main` im **geteilten Haupt-Tree** von
+dms-hub ausgeführt — ADR-233-Verstoß, zurückgesetzt und per Fast-Forward sauber gezogen.
+
+**⛔ Offen und blockiert:** Die WireGuard-Änderungen (PSK für Peer `bNYr18c…`, zweite Adresse
+`10.8.0.1/24` auf `wg0`) stehen **nur im laufenden Zustand**. Der Schreibzugriff auf
+`/etc/wireguard/wg0.conf` wurde vom Permission-Klassifikator abgelehnt. Ein Neustart des
+Tunnels verliert beides. Befehle stehen im Session-Abschluss.
+
+[#41]: https://github.com/achimdehnert/dms-hub/pull/41
+[#43]: https://github.com/achimdehnert/dms-hub/pull/43
+[#44]: https://github.com/achimdehnert/dms-hub/pull/44
+[#45]: https://github.com/achimdehnert/dms-hub/pull/45
+[#42]: https://github.com/achimdehnert/dms-hub/issues/42
+[#46]: https://github.com/achimdehnert/dms-hub/issues/46
+[#47]: https://github.com/achimdehnert/dms-hub/issues/47
+[#48]: https://github.com/achimdehnert/dms-hub/issues/48
 ## 2026-07-30 Nachtrag — Mail-Werkzeug nach Kundenrückmeldung überarbeitet
 
 Vier PRs im Review, alle aus derselben Rückmeldungskette: ein Kunde nannte eine Mail im
