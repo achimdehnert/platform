@@ -155,3 +155,86 @@ def test_should_keep_line_structure_when_blanking_code(mem: Path):
     assert len(prosa) == len(text)
     assert "[[x]]" not in prosa and "[[y]]" not in prosa
     assert prosa.startswith("a\n") and prosa.rstrip().endswith("c")
+
+
+# --- Baseline fuer vorausschauende Verweise ---------------------------------
+
+
+def baseline_datei(tmp_path: Path, *zeilen: str) -> Path:
+    p = tmp_path / "forward_refs.tsv"
+    p.write_text("# Kommentar\n\n" + "\n".join(zeilen) + "\n", encoding="utf-8")
+    return p
+
+
+def test_should_parse_a_baseline_and_skip_comments_and_blanks(tmp_path: Path):
+    from memory_link_check import lade_baseline
+
+    p = baseline_datei(tmp_path, "projekt-a\tziel-1\tGrund", "projekt-a\tziel-2\tGrund")
+
+    assert lade_baseline(p) == {"projekt-a": {"ziel-1", "ziel-2"}}
+
+
+def test_should_treat_a_missing_baseline_as_empty(tmp_path: Path):
+    from memory_link_check import lade_baseline
+
+    assert lade_baseline(tmp_path / "gibtsnicht.tsv") == {}
+
+
+def test_should_classify_a_listed_target_as_forward_ref(mem: Path):
+    schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[noch-nicht-da]].")
+
+    funde = pruefe_verzeichnis(mem, {"noch-nicht-da"})
+
+    assert [f.art for f in funde] == ["forward-ref"]
+
+
+def test_should_still_flag_an_unlisted_target_as_dead(mem: Path):
+    # die Baseline darf nur decken, was ausdruecklich drinsteht
+    schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[tippfehlr]].")
+
+    funde = pruefe_verzeichnis(mem, {"noch-nicht-da"})
+
+    assert [f.art for f in funde] == ["dead-wikilink"]
+
+
+def test_should_report_a_baseline_entry_whose_target_now_exists(mem: Path):
+    from memory_link_check import pruefe_baseline
+
+    schreibe(mem, "spaeter-geschrieben", "spaeter-geschrieben")
+
+    funde = pruefe_baseline(mem, {"spaeter-geschrieben"}, {"spaeter-geschrieben"})
+
+    assert [f.art for f in funde] == ["stale-baseline"]
+    assert "existiert inzwischen" in funde[0].detail
+
+
+def test_should_report_a_baseline_entry_nobody_references_anymore(mem: Path):
+    from memory_link_check import pruefe_baseline
+
+    funde = pruefe_baseline(mem, {"nie-mehr-verwiesen"}, set())
+
+    assert [f.art for f in funde] == ["stale-baseline"]
+    assert "nicht mehr verwiesen" in funde[0].detail
+
+
+def test_should_keep_a_baseline_entry_that_is_still_in_use(mem: Path):
+    from memory_link_check import pruefe_baseline
+
+    assert pruefe_baseline(mem, {"noch-offen"}, {"noch-offen"}) == []
+
+
+def test_should_exit_0_for_forward_refs_but_1_for_a_real_dead_link(mem: Path, tmp_path: Path):
+    schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[noch-nicht-da]].")
+    bl = baseline_datei(tmp_path, f"{mem.parent.name}\tnoch-nicht-da\tGrund")
+
+    assert main(["--root", str(mem), "--baseline", str(bl)]) == 0
+
+    schreibe(mem, "feedback_beta", "feedback_beta", "Siehe [[tippfehlr]].")
+    assert main(["--root", str(mem), "--baseline", str(bl)]) == 1
+
+
+def test_should_exit_1_when_the_baseline_has_rotted(mem: Path, tmp_path: Path):
+    schreibe(mem, "gibt-es-schon", "gibt-es-schon")
+    bl = baseline_datei(tmp_path, f"{mem.parent.name}\tgibt-es-schon\tGrund")
+
+    assert main(["--root", str(mem), "--baseline", str(bl)]) == 1
