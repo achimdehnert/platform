@@ -267,3 +267,54 @@ class TestUrsprungAlsAnhang:
     def test_should_stay_without_attachment_when_not_requested(self):
         msg = dm.build_draft("a@b.de", ["c@d.de"], [], "AW: Test", text="x")
         assert "message/rfc822" not in [p.get_content_type() for p in msg.walk()]
+
+
+class TestNamensdopplung:
+    """Namenszeile nach dem Gruß entfernen, wenn die Signatur denselben Namen trägt.
+
+    Realfall 2026-07-30: der Entwurf zeigte „Herzliche Grüße / Achim Dehnert" und
+    darunter erneut „Prof. Dr. Achim Dehnert · Leiter" aus der Rollen-Signatur.
+    """
+
+    @staticmethod
+    def _profil():
+        return rl.Profile(
+            role_id="t",
+            display_name="T",
+            sender="t@example.org",
+            transport="graph_draft",
+            signature="Prof. Dr. Achim Dehnert · Leiter\nMobil +49 171 537 6151",
+        )
+
+    def _kern(self, text):
+        out = rl.text_mit_signatur(self._profil(), text)
+        return out.split("Prof. Dr.")[0].rstrip().split("\n")[-1]
+
+    def test_should_drop_name_line_after_greeting(self):
+        assert (
+            self._kern("Kurz.\n\nHerzliche Grüße\nAchim Dehnert") == "Herzliche Grüße"
+        )
+
+    def test_should_drop_name_line_even_with_titles(self):
+        """Im Text mit Titel, in der Signatur mit Titel — derselbe Namenskern."""
+        text = "Kurz.\n\nViele Grüße\nProf. Dr. Achim Dehnert"
+        assert self._kern(text) == "Viele Grüße"
+
+    def test_should_keep_name_in_running_text(self):
+        """Ohne Grußformel davor ist es Fließtext und bleibt stehen."""
+        text = "Hallo,\n\nich habe mit Achim Dehnert gesprochen."
+        assert self._kern(text) == "ich habe mit Achim Dehnert gesprochen."
+
+    def test_should_keep_a_different_name(self):
+        text = "Kurz.\n\nHerzliche Grüße\nSabine Dehnert"
+        assert self._kern(text) == "Sabine Dehnert"
+
+    def test_should_leave_text_without_name_line_alone(self):
+        assert self._kern("Kurz.\n\nHerzliche Grüße") == "Herzliche Grüße"
+
+    def test_should_do_nothing_without_signature(self):
+        leer = rl.Profile(
+            role_id="t", display_name="T", sender="t@x.de", transport="smtp"
+        )
+        out = rl.text_mit_signatur(leer, "Kurz.\n\nHerzliche Grüße\nAchim Dehnert")
+        assert "Achim Dehnert" in out
