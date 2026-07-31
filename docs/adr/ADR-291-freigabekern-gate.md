@@ -227,10 +227,21 @@ und ist damit selbst Teil der Zone — es kann prinzipiell mitdriften. Das ist e
 nicht auflösbare Restlage: Ein Selbstcheck, der Teil des Geprüften ist, hat eine
 Selbstbezüglichkeit, die nur ein zweiter, unabhängiger Ort auflösen könnte.
 
-**Komplexitäts-Bilanz.** Anders als in Fassung 1 **positiv**: B1 entfernt eine
-Fehlermöglichkeit aus `generate.py` (die stillschweigende Ziel-Ersetzung), A1–A3 laufen
-path-gefiltert in einem bestehenden Check statt in einem neuen Job, und Prüfung 3 aus
-Fassung 1 entfällt ersatzlos.
+**Komplexitäts-Bilanz** (richtiggestellt 2026-07-31 nach Retro-Befund #8 — die vorige
+Fassung verbuchte im Präsens einen Effekt, der noch nicht existiert, und nannte das
+tatsächlich Gebaute gar nicht):
+
+| Posten | Zustand | Bilanz |
+|---|---|---|
+| `scripts/checks/policy_zone_freshness.sh` + Test | **gebaut und gemergt** (264 Zeilen, PR #1607) | **+264**, reiner Zuwachs |
+| B1 Generator-Härtung — *würde* eine Fehlermöglichkeit aus `generate.py` entfernen | **nicht gebaut**, gated hinter Schritt 1 (ADR-290 ist `proposed`, nicht `accepted`) | 0 (Futur) |
+| A1–A3 path-gefiltert in einem bestehenden Check statt neuem Job | nicht gebaut | 0 (Futur) |
+| Prüfung 3 aus Fassung 1 („Anfügungsfestigkeit") | ersatzlos gestrichen | −1 Prüfung |
+
+**Ehrlicher Stand: die Bilanz ist derzeit negativ** — 264 Zeilen Zuwachs gegen eine
+gestrichene Prüfung. Positiv wird sie erst mit B1, dem einzigen Posten, der eine
+Fehlermöglichkeit *entfernt* statt eine Prüfung hinzuzufügen. Das rechtfertigt den
+Zuwachs, macht ihn aber nicht rückwirkend zu einer Ersparnis.
 
 ## Umsetzungs-Reihenfolge
 

@@ -15,14 +15,26 @@
 # READ-ONLY: fetcht Refs, checkt nichts aus, repariert nichts. Der Refresh ist
 # Sache von ~/.claude/hooks/refresh_pinned_policies.sh.
 #
-#   0  GRUEN  — Zone deckungsgleich mit origin/main
+#   0  GRUEN  — Zone deckungsgleich mit dem KANONISCHEN Bezug
 #   0  SKIP   — keine Injektions-Umgebung (kein ~/.claude/policies). --strict => 1
 #   1  FAIL   — mindestens eine Policy weicht ab, oder der Pin ist stale
 #   2  Setupfehler (kein Repo, policies/ fehlt)
+#   3  BEZUG NICHT ERHEBBAR — `git fetch` fehlgeschlagen und kein ausdruecklicher
+#      Bezug gesetzt. Der Lauf ist UNENTSCHIEDEN, nicht gruen.
+#
+# Warum 3 existiert (Retro 2026-07-31, Befund #1): Die erste Fassung fiel bei
+# Fetch-Fehler still auf den lokalen HEAD zurueck und meldete exit 0/GRUEN — ein
+# doppelt staler Zustand (lokaler HEAD alt UND Injektionsziel passend dazu alt)
+# war damit von echtem Gruen nicht unterscheidbar. Der HINWEIS-Text half nur
+# menschlichen Lesern; jeder automatisierte Konsument sieht nur $?. Regel:
+# **Wer seinen Bezug nicht erheben kann, meldet nie 0.**
 #
 # Env: CLAUDE_POLICIES_DIR  Injektions-Ziel (Default ~/.claude/policies) — ueber-
 #      schreibbar, damit die Rot-Faehigkeit an Fixtures beweisbar ist, ohne die
 #      Live-Umgebung anzufassen.
+#      POLICY_ZONE_REF     ausdruecklicher Bezug statt origin/main. AUSDRUECKLICH
+#      heisst: der Aufrufer uebernimmt die Verantwortung fuer die Kanonizitaet —
+#      deshalb ist damit exit 0 moeglich, beim STILLEN Fallback dagegen nicht.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -35,15 +47,23 @@ die() { echo "SETUP: $*" >&2; exit 2; }
 [[ -d "$SRC_DIR" ]] || die "SSoT fehlt — $SRC_DIR"
 git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1 || die "kein git-Repo — $REPO_ROOT"
 
-# origin/main als kanonischer Bezug. Ohne Netz: lokaler Stand, laut benannt.
-# POLICY_ZONE_REF ist die Testbarkeits-Naht: der Mutationstest pinnt den Bezug
-# auf HEAD und braucht damit weder Netz noch einen bestimmten Verlaufs-Commit.
+# origin/main als kanonischer Bezug.
+# POLICY_ZONE_REF ist die Testbarkeits-Naht: ein AUSDRUECKLICH gesetzter Bezug.
+# Ein STILLER Fallback auf HEAD ist dagegen kein Bezug, sondern dessen Fehlen.
 if [[ -n "${POLICY_ZONE_REF:-}" ]]; then
   REF="$POLICY_ZONE_REF"; REMOTE_OK=1
 else
   REMOTE_OK=1
   git -C "$REPO_ROOT" fetch --quiet origin main 2>/dev/null || REMOTE_OK=0
-  REF="origin/main"; [[ $REMOTE_OK -eq 1 ]] || REF="HEAD"
+  REF="origin/main"
+  if [[ $REMOTE_OK -eq 0 ]]; then
+    echo "UNENTSCHIEDEN: 'git fetch origin main' fehlgeschlagen — kanonischer Bezug"
+    echo "  nicht erhebbar. Ein Vergleich gegen den lokalen HEAD wuerde einen doppelt"
+    echo "  stalen Zustand als GRUEN ausweisen; deshalb wird hier NICHT verglichen."
+    echo "  Rueckgabewert 3 (unentschieden, NICHT gruen). Fix: Netz/Remote pruefen,"
+    echo "  oder den Bezug ausdruecklich setzen: POLICY_ZONE_REF=<ref> $0"
+    exit 3
+  fi
 fi
 
 # 1) Injektions-Schicht vorhanden?
@@ -85,7 +105,7 @@ done < <(cd "$INJECT_DIR" && ls -1 ./*.md 2>/dev/null | sed 's|^\./||' | sort)
 # 4) Urteil — jede Lage einzeln aufgezaehlt, keine verdeckt eine andere.
 echo "Policy-Zone: ${#soll[@]} Dateien unter $REF · Ziel $INJECT_DIR"
 [[ -n "$behind" ]] && echo "  gepinnter Worktree: ${pin_head:-?} · $behind Commit(s) hinter $REF"
-[[ $REMOTE_OK -eq 0 ]] && echo "  HINWEIS: origin nicht erreichbar — gegen lokalen HEAD geprueft, nicht kanonisch."
+[[ "$REF" != "origin/main" ]] && echo "  HINWEIS: Bezug ist ausdruecklich gesetzt ($REF), nicht origin/main."
 
 rc=0
 if [[ ${#abw[@]} -gt 0 ]]; then
