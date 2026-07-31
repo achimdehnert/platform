@@ -54,6 +54,21 @@ word ("ändert alles").
    (`evidence_claim_scanner.py`) ebenfalls nicht fängt (er scannt Verifikations-/Deploy-
    Marker, keine `gh pr close`-Aufrufe).
 
+7. **Jeder Subagenten-/Rollen-Bericht endet auf vier Punkte: getan · angenommen ·
+   nicht verifizierbar · offen geblieben.** Die mittleren beiden sind der eigentliche
+   Zweck — sie zwingen das Trennen von „geprüft" und „unterstellt" in die Berichtsform,
+   statt es der Formulierungslaune zu überlassen. Ein Bericht ohne den Vierer ist
+   unvollständig, auch wenn sein Inhalt stimmt. Gilt für Agent-Berichte, Skill-Ausgaben
+   und jede Zuarbeit, die ein anderer Lauf als Eingabe nimmt. Herkunft: Fremdsystem
+   SB-Neu (Ilja Lerch, 2026-07), dort Pflichtschluss jedes der sechs Rollen-Mandate.
+8. **Ein Prüf-/Review-Lauf ohne einen einzigen Befund ist verdächtig, nicht gut.**
+   Wer null Befunde meldet, dokumentiert **was er erfolglos versucht hat** — sonst ist
+   „nichts gefunden" nicht von „nicht hingesehen" unterscheidbar, und genau diese
+   Ununterscheidbarkeit ist der Befund. Ein Nullbefund von einem ungeeichten Werkzeug
+   ist eine Aussage über das Werkzeug, nicht über den Gegenstand (vgl.
+   `calibrate-before-scaling`: ein Fall mit **vorab bekannter** Antwort zuerst).
+   Herkunft: SB-Neu, Rollen-Mandat `pruefer`.
+
 Recall surface (concrete past incidents only, not doctrine):
 CC-memory `claim-confidence-vs-cheapest-check`. This file is the single
 authoritative statement.
@@ -115,6 +130,18 @@ If R does not beat the ~6-incident baseline, the policy is cut per the effective
   Retros (retro_kpis.py), Familie von Punkt 5, anderer Trigger (Close/Delete). Der
   Marker-Scanner-Hook fängt diese Variante bisher nicht — begleitender Hook-Patch-Vorschlag
   im PR-Body (Hook lebt in `~/.claude/hooks/`, außerhalb dieses Repos).
+- 2026-07-31: How-to-apply Punkte 7 und 8 — Vier-Punkte-Berichtsschluss und „Nullbefund
+  ist verdächtig". **Nicht** aus einem eigenen Retro, sondern aus der Analyse eines
+  fremden Systems (SB-Neu, Ilja Lerch): dort sind beide Pflichtbestandteil jedes
+  Rollen-Mandats. Aufgenommen, weil sie zwei Lücken schließen, die unsere Retros
+  benennen, ohne sie zu adressieren — die Trennung geprüft/unterstellt in der
+  Berichtsform (7) und der unbelegte Nullbefund (8, vgl. `run-conclusion ≠ Tool-Health`
+  und `Null ohne Kalibrierung ist kein Beweis`, #1589). Erzwungen in `/agent-review`
+  und `/session-retro`. **Falsifikation dieser beiden Punkte** (nach dem
+  Wirksamkeitstest oben): Bleiben über ~10 Retro-/Review-Läufe die Felder
+  `nicht verifizierbar` und `offen geblieben` durchgängig leer, während dieselben Läufe
+  Nachfragen oder Korrekturen auslösen, ist der Vierer Ritual statt Trennschärfe — dann
+  werden 7/8 gestrichen, nicht nachgebessert.
 - 2026-07-15: Weiterer Realfall, root-cause-label-Variante (weder Punkt 5 noch 6 — ein
   drittes Muster desselben Bidirectional-Fehlers): ein Root-Cause-Satz ("transiente
   Runner-Kontention") wurde mit mehr Bestimmtheit formuliert, als das Log trug — die

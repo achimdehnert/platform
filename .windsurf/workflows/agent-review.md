@@ -110,7 +110,22 @@ Review-Report als strukturierter PR-Kommentar:
 ### Ergebnis
 ✅ **APPROVED** — bereit für Tech Lead Review
 ❌ **CHANGES REQUESTED** — blockierende Issues (siehe oben)
+
+### Bericht-Schluss (Pflicht — evidence-discipline Punkt 7)
+- **getan:** …
+- **angenommen:** …
+- **nicht verifizierbar:** …
+- **offen geblieben:** …
 ```
+
+**Der Vierer ist nicht optional.** Ein Report ohne ihn gilt als unvollständig, auch
+wenn alle Gates grün sind — er trennt „geprüft" von „unterstellt", und genau diese
+Trennung geht sonst in der Formulierung unter.
+
+**Null Befunde ⇒ Rechenschaft, nicht Haken (evidence-discipline Punkt 8).** Meldet der
+Lauf keinen einzigen Befund, gehört unter `angenommen` bzw. `nicht verifizierbar`, **was
+erfolglos versucht wurde** — welche Datei-/Pattern-Klassen abgesucht wurden und welche
+nicht. Ohne das ist „nichts gefunden" nicht von „nicht hingesehen" zu unterscheiden.
 
 ---
 
