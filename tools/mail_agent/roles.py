@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -247,16 +248,6 @@ def pruefe_kanalgrenze(profile: Profile, *texte: str | None) -> None:
     )
 
 
-def text_mit_signatur(profile: Profile, text: str) -> str:
-    """Hängt Signatur und ggf. Pflicht-Footer an einen reinen Textkörper."""
-    teile = [text.rstrip()]
-    if profile.signature:
-        teile.append(profile.signature)
-    if profile.legal_footer:
-        teile.append(profile.legal_footer)
-    return "\n\n".join(t for t in teile if t) + "\n"
-
-
 GRUSSFORMELN = (
     "herzliche grüße",
     "viele grüße",
@@ -266,6 +257,63 @@ GRUSSFORMELN = (
     "liebe grüße",
     "grüße",
 )
+
+#: Akademische Titel und gängige Abkürzungen vor einem Namen — für den Vergleich
+#: "steht dieser Name schon in der Signatur?" irrelevant.
+_TITEL_PRAEFIX = re.compile(
+    r"^(?:prof\.?|dr\.?|dipl\.-?\w*\.?|mag\.?|ing\.?)\s+", re.IGNORECASE
+)
+
+
+def _namenskern(zeile: str) -> str:
+    """Zeile → vergleichbarer Namenskern: ohne Titel, ohne Funktionszusatz, klein.
+
+    "Prof. Dr. Achim Dehnert · Leiter" und "Achim Dehnert" ergeben beide
+    "achim dehnert" — genau das braucht der Dopplungs-Check unten.
+    """
+    kern = zeile.split("·")[0].strip()
+    while True:
+        gekuerzt = _TITEL_PRAEFIX.sub("", kern)
+        if gekuerzt == kern:
+            break
+        kern = gekuerzt
+    return " ".join(kern.lower().split())
+
+
+def _ohne_doppelten_namen(text: str, signatur: str) -> str:
+    """Namenszeile nach der Grußformel entfernen, wenn die Signatur sie ohnehin trägt.
+
+    Realfall 2026-07-30: der Entwurf zeigte "Herzliche Grüße / Achim Dehnert" und
+    darunter erneut "Prof. Dr. Achim Dehnert · Leiter" aus der Rollen-Signatur.
+
+    Zwei Bedingungen müssen BEIDE gelten, damit kein Fließtext getroffen wird:
+    die Zeile davor ist eine Grußformel, UND der Namenskern stimmt mit dem der
+    ersten Signaturzeile überein. Ein "…habe mit Achim Dehnert gesprochen." am
+    Textende bleibt damit unangetastet.
+    """
+    zeilen = text.rstrip().split("\n")
+    if len(zeilen) < 2 or not signatur.strip():
+        return text.rstrip()
+    davor = zeilen[-2].strip().lower().rstrip(",!.")
+    if not davor.startswith(GRUSSFORMELN):
+        return text.rstrip()
+    if _namenskern(zeilen[-1]) != _namenskern(signatur.strip().split("\n")[0]):
+        return text.rstrip()
+    return "\n".join(zeilen[:-1]).rstrip()
+
+
+def text_mit_signatur(profile: Profile, text: str) -> str:
+    """Hängt Signatur und ggf. Pflicht-Footer an einen reinen Textkörper.
+
+    Eine Namenszeile direkt nach der Grußformel wird entfernt, wenn die Signatur
+    denselben Namen trägt — sonst steht er zweimal untereinander.
+    """
+    teile = [_ohne_doppelten_namen(text, profile.signature)]
+    if profile.signature:
+        teile.append(profile.signature)
+    if profile.legal_footer:
+        teile.append(profile.legal_footer)
+    return "\n\n".join(t for t in teile if t) + "\n"
 
 
 def zerlege_klartext(text: str) -> dict:
