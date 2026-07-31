@@ -110,10 +110,55 @@ def test_should_truncate_long_body():
     assert "gekürzt" in out
 
 
-def test_should_report_missing_plain_part():
+def test_should_fall_back_to_html_when_no_plain_part():
+    """Realfall 2026-07-31: fünf von neun neuen Mails waren HTML-only.
+
+    Sie kamen als "(kein text/plain-Teil)" zurück und waren im Postfach-Durchgang
+    damit unsichtbar — darunter eine Personal-Angelegenheit und ein inhaltlicher
+    Einwand zur Lehrplanung.
+    """
     m = EmailMessage()
-    m.add_alternative("<p>nur html</p>", subtype="html")
-    assert rm.extract_text(m) == "(kein text/plain-Teil)"
+    m.add_alternative(
+        "<html><head><style>p{color:red}</style></head><body>"
+        "<p>Hallo &amp; Gr&uuml;&szlig;e</p><p>Zweiter&nbsp;Absatz</p></body></html>",
+        subtype="html",
+    )
+    text, quelle = rm.body_und_quelle(m)
+    assert quelle == "text/html"
+    assert text == "Hallo & Grüße\nZweiter Absatz"
+    assert "style" not in text and "<" not in text
+
+
+def test_should_prefer_plain_over_html():
+    m = EmailMessage()
+    m.set_content("der Klartext")
+    m.add_alternative("<p>das HTML</p>", subtype="html")
+    text, quelle = rm.body_und_quelle(m)
+    assert quelle == "text/plain"
+    assert "Klartext" in text
+
+
+def test_should_skip_empty_plain_part_and_use_html():
+    """Outlook legt gelegentlich einen leeren text/plain-Teil neben das HTML."""
+    m = EmailMessage()
+    m.set_content("   \n  ")
+    m.add_alternative("<p>der eigentliche Inhalt</p>", subtype="html")
+    text, quelle = rm.body_und_quelle(m)
+    assert quelle == "text/html"
+    assert text == "der eigentliche Inhalt"
+
+
+def test_should_report_when_no_readable_part_at_all():
+    m = EmailMessage()
+    m.set_content(b"\x00\x01", maintype="application", subtype="octet-stream")
+    assert rm.body_und_quelle(m) == ("(kein darstellbarer Textteil)", "keiner")
+
+
+def test_should_not_leak_source_marker_into_quoted_reply():
+    """`draft_mail` zitiert diesen Rückgabewert wörtlich — kein Marker darin."""
+    m = EmailMessage()
+    m.add_alternative("<p>Originaltext</p>", subtype="html")
+    assert rm.extract_text(m) == "Originaltext"
 
 
 # --- attachments -------------------------------------------------------------

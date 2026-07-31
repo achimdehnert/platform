@@ -116,6 +116,33 @@ class TestRender:
         assert "Anh%C3%B6rung%20Bericht.pdf" in inhalt
         assert 'href="3-anhaenge/Anhörung Bericht.pdf"' not in inhalt
 
+    def test_should_use_absolute_attachment_url_when_served(self, tmp_path):
+        """Realfall 2026-07-31: der Anhang-Link war von `/a/<nr>` aus tot.
+
+        Der relative href trug den PLATTEN-Verzeichnisnamen (`163497-anhaenge/…`).
+        Der Browser löste ihn gegen den Aufrufpfad auf und landete bei
+        `/a/163497-anhaenge/…` — eine Route, die es nicht gibt. Mit `basis` ist der
+        Link absolut und damit unabhängig davon, über welchen Pfad die Mail kam.
+        """
+        msg = _nachricht(anhang=("HNU Grundsätze_2018.pdf", b"%PDF-1.4"))
+        datei = mail_view.render(
+            msg, "hnu", "INBOX", "163497", tmp_path, "/m/hnu/inbox/163497"
+        )
+        inhalt = datei.read_text(encoding="utf-8")
+        assert (
+            'href="/m/hnu/inbox/163497/anhaenge/HNU%20Grunds%C3%A4tze_2018.pdf"'
+            in inhalt
+        )
+        # Der Plattenname darf in KEINER Form in die URL geraten.
+        assert "163497-anhaenge/" not in inhalt
+
+    def test_should_keep_relative_attachment_url_without_basis(self, tmp_path):
+        """Ohne `basis` bleibt der Link relativ — der CLI-Weg öffnet die Datei
+        direkt von der Platte, wo der Anhangsordner danebenliegt."""
+        msg = _nachricht(anhang=("bericht.pdf", b"%PDF"))
+        datei = mail_view.render(msg, "hnu", "INBOX", "77", tmp_path)
+        assert 'href="77-anhaenge/bericht.pdf"' in datei.read_text(encoding="utf-8")
+
     def test_should_not_escape_attachment_outside_target_dir(self, tmp_path):
         msg = _nachricht(anhang=("../../evil.pdf", b"x"))
         mail_view.render(msg, "hnu", "INBOX", "5", tmp_path)
