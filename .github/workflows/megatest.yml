@@ -76,7 +76,7 @@ jobs:
           GITHUB_DIR: /root/github
         run: |
           cd ~/github/platform
-          python -m pytest tests/megatest/ \
+          python3 -m pytest tests/megatest/ \
             -v \
             --tb=short \
             --junitxml=megatest-results.xml \
@@ -90,7 +90,7 @@ jobs:
           GITHUB_DIR: /root/github
         run: |
           cd ~/github/platform
-          python -m pytest tests/megatest/ \
+          python3 -m pytest tests/megatest/ \
             --update-budgets \
             -v -q \
             2>&1 | tee megatest-output.txt
@@ -102,8 +102,18 @@ jobs:
           name: megatest-results
           path: ~/github/platform/megatest-results.xml
 
+      # Ohne diesen Schritt kann der Melder nicht zwischen "Test hat Violations
+      # gefunden" und "Test lief gar nicht" unterscheiden — genau das erzeugte
+      # zwischen 06.05. und 15.06. 21 inhaltsleere Issues (#1581). Ein Lauf ohne
+      # JUnit-Datei ist kein Befund, sondern ein Defekt und gehoert rot.
+      - name: Kein Testlauf zustande gekommen
+        if: steps.megatest_run.outcome == 'failure' && hashFiles('megatest-results.xml') == ''
+        run: |
+          echo "::error::pytest hat keine megatest-results.xml erzeugt — der Lauf kam nicht zustande (z.B. Interpreter fehlt). Das ist ein Defekt, kein Regressions-Befund."
+          exit 1
+
       - name: Failure-Summary als GitHub Issue
-        if: steps.megatest_run.outcome == 'failure'
+        if: steps.megatest_run.outcome == 'failure' && hashFiles('megatest-results.xml') != ''
         uses: actions/github-script@v9
         with:
           script: |
