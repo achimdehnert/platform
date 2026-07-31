@@ -145,7 +145,7 @@ nur im Repo leben. Fassung 2 beschrieb die Distributionsprüfung zunächst nur f
 |---|---|---|---|---|---|
 | `.windsurf/workflows/` | `~/.claude/commands/` | `generate.py --kind commands` | ja | A1–A3 + B1/B2 | B2 meldet, `restore-from-source` |
 | `skills/` | `~/.claude/skills/` | `generate.py --kind skills` | ja | A1–A3 + B1/B2 | B2 meldet, `restore-from-source` |
-| `policies/` | `~/.claude/policies/` | **derzeit ungeklärt** — Vorfall 2 entstand genau hier | **nein** | nur A1 | offener Punkt 4 |
+| `policies/` | `~/.claude/policies/` → **Symlink** nach `platform-pinned/policies` | `refresh_pinned_policies.sh` bei SessionStart (`checkout --detach origin/main`) | entfällt — Symlink, keine Kopie | **C6** (`klickdummy_policy_sync.sh`), auf der Maschine — **nicht** in CI, dort skippt er immer | C6 meldet stale Pin; Refresh-Hook zieht nach |
 | `CLAUDE.md`, `CORE_CONTEXT.md` | wird **aus dem Repo** gelesen, nicht verteilt | keiner | entfällt | nur A1 | — |
 
 **Die dritte Zeile ist ein Befund, kein Design:** `policies/` hat eine verteilte Kopie
@@ -258,7 +258,7 @@ Verdikt beider: *überarbeiten*. Nur `[valid]` ist eingeflossen, jeweils eigene 
 | AD-2 (1) · AD-1 (2) | Prüfung 1 ist in CI tautologisch | `[valid]` | ersetzt durch A1 (Zonen-Vollständigkeit) |
 | AD-3 (1) · AD-6 (2) | SUGGEST misst Rauschen, nicht Gültigkeit — zertifiziert den Konstruktionsfehler | `[valid]` | schärfster Befund; Prüfung 2 aus dem Gate genommen |
 | AD-4 (1) · REC-5 (1) · AD-9 (2) | Ort von `manifest.json` und „festgeschriebener Stand" unterspezifiziert | `[valid]`, **zweiter Durchgang nötig** | Abschnitt „Begriffe". **Beim ersten Durchgang zu dünn behandelt:** Fassung 2 schrieb „A2 Manifest-Ahnenschaft — beobachtbar in CI: ja", ohne den Ort zu prüfen. Nachgemessen: `manifest.json` liegt **nur** unter `~/.claude/`, nicht im Repo → A2/A3 neu geschnitten, `manifest.expected.json` als Voraussetzung eingeführt |
-| REC-4 (2) | explizite Abbildung je Zonenpfad (Quelle, Ziel, Mechanismus, Manifest, Prüf-Ort, Reaktion) | `[valid]`, **erst im zweiten Durchgang** | eigene Tabelle. Ergebnis: `policies/` hat eine verteilte Kopie **ohne Lane und ohne Manifest** — verifiziert, offener Punkt 4 |
+| REC-4 (2) | explizite Abbildung je Zonenpfad (Quelle, Ziel, Mechanismus, Manifest, Prüf-Ort, Reaktion) | `[valid]`, **erst im zweiten Durchgang** | eigene Tabelle. **Genau diese Tabelle deckte auf, dass meine erste Antwort zu `policies/` falsch war** (Kopie statt Symlink) — Richtigstellung bei den offenen Punkten. Der Reviewer verlangte die Abbildung nicht ohne Grund: Sie erzwingt, jede Spalte einzeln zu beantworten, statt eine Annahme durchzuwinken |
 | REC-4 (1) | Generator-Härtung als eigene Option in „Options considered" | `[valid]`, **erst im zweiten Durchgang** | Option D' mit Begründung, warum sie den CI-Teil nur teilweise ersetzt |
 | AD-5 (1) | Vorfall 3 bekommt keinen Fänger, wird aber als gedeckt reklamiert | `[valid]` | Vorfalls-Tabelle + explizite Nicht-Leistung |
 | AD-6 (1) · AD-11 (2) | „Anfügungsfestigkeit" ist ein Fremdbegriff, der hier etwas anderes meint | `[valid]` | Prüfung 3 entfällt, Begriff gestrichen |
@@ -294,8 +294,75 @@ Das ist der eine Fehler, aus dem fast alle Befunde folgen.
 | 1 | Steuerzone genau **einmal** maschinenlesbar deklarieren (eine Datei im Repo); ADR-290 referenziert sie, das Prüfskript liest dieselbe Datei | Owner |
 | 2 | Deterministische Reparaturhandlungen bei Drift (`verify`, `reinstall`, `show-diff`, `restore-from-source`) | Owner |
 | 3 | Ergebnis des Spikes zu Option F — er kann B2 ganz überflüssig machen | offen |
-| 4 | **`policies/` hat eine verteilte Kopie ohne Generator-Lane und ohne Manifest** — verifiziert am 2026-07-31: `~/.claude/policies/` existiert mit Kopien, enthält **kein** `manifest.json`, und `LANES` in `generate.py` kennt nur `commands`, `skills`, `hooks`. Genau dort passierte Vorfall 2. Entweder als Lane aufnehmen oder die Kopie abschaffen. | Owner |
+| 4 | **`refresh_pinned_policies.sh` unter Versionskontrolle bringen** — der Hook, der die Steuerzone aktuell hält, ist selbst unversioniert (Richtigstellung unten) | Owner |
 | 5 | Ob der Generator ein committetes `manifest.expected.json` schreibt — Voraussetzung für A3 und für ein aussagekräftiges B2 | Owner |
+| 6 | **Ein Prüfer für die ganze Policy-Zone fehlt** — C6 deckt 1 von 12 Dateien ab und wäre beim realen Vorfall grün gewesen (Mutationstest unten). Zu bauen wäre ein Zonen-weiter Pin-Frische-Check; C6 bleibt daneben als ADR-211-Bestätigung bestehen | Owner |
+| 7 | **Mid-Session-Drift** — der Refresh läuft nur bei SessionStart; während einer langen Sitzung veraltet die Zone unbemerkt (Realfall: 17 Commits) | Owner |
+
+### Richtigstellung zum `policies/`-Pfad (2026-07-31, nachgemessen)
+
+Die erste Fassung dieses offenen Punktes behauptete, `policies/` habe „eine verteilte Kopie
+ohne Generator-Lane und ohne Manifest". **Das war zweifach falsch.** Was tatsächlich gilt:
+
+| Behauptung (falsch) | Befund (gemessen) |
+|---|---|
+| „verteilte **Kopie**" | `~/.claude/policies` ist ein **Symlink** → `~/github/platform-pinned/policies` (`ls -ld`). Es gibt keine Kopie, die driften könnte. |
+| „ohne Manifest" | Ein Symlink **braucht** kein Manifest. Die Invariante ist eine andere: der gepinnte Worktree darf nicht veralten. |
+| „kein Prüfer" | Ein Prüfer existiert — aber er deckt die Zone **nicht** ab, siehe „Mutationstest" unten. Diese Zeile war in der ersten Richtigstellung selbst noch zu großzügig formuliert. |
+| „kein Refresh" | `~/.claude/hooks/refresh_pinned_policies.sh` refresht bei SessionStart (`fetch` + `checkout --detach origin/main`), mit Dirty-Guard und fail-soft. Auch das ist in ADR-272 als Mechanismus geführt. |
+
+**Der echte Befund ist ein anderer und schärfer** — drei Lagen, alle verifiziert:
+
+1. **C6 hat keinen Aufrufer.** Ein Grep über alle Workflows, YAMLs und Skripte findet den
+   Check nur in ADR-211 und CONCEPT-003 erwähnt, **in keinem Aufruf**. Das ist Vorfall 1
+   dieses ADR in Reinform: Prüfer gebaut, funktioniert, wird nie ausgeführt.
+2. **C6 gehört nicht in CI.** Das Skript skippt per Konstruktion, wenn `~/.claude/policies`
+   fehlt — auf einem CI-Runner also **immer** (`exit 0`, „keine Injektions-Umgebung").
+   Ihn dort einzuhängen erzeugte genau das Gate, das nie rot werden kann, gegen das der
+   Abschnitt „Abnahmekriterium" oben geschrieben ist. Sein Ort ist die Maschine.
+3. **Der Refresh-Hook ist selbst unversioniert.** `refresh_pinned_policies.sh` hat **keine
+   Repo-Quelle** (`find` über `platform`: null Treffer) — anders als die `managed/`-Hooks,
+   die aus der hooks-Lane kommen. Nach ADR-290 Regel 2 (Zonenintegrität) ist damit
+   ausgerechnet das Werkzeug, das die Zone aktuell hält, kein owner-freigegebener,
+   hash-prüfbarer Generator, sondern ein handgepflegtes Skript außerhalb jeder Kontrolle.
+
+#### Mutationstest an C6 — das Abnahmekriterium auf den Prüfer selbst angewandt
+
+Dieses ADR verlangt: *kein Gate ohne bewiesene Rot-Fähigkeit.* Vor jeder Verdrahtung von C6
+wurde das an ihm selbst durchgeführt — an Fixtures, ohne Eingriff in die Live-Umgebung
+(`CLAUDE_POLICIES_DIR` ist überschreibbar).
+
+| Fall | Erwartet | Gemessen |
+|---|---|---|
+| M0 Live-Umgebung (Kontrolle) | grün | ✅ `exit 0` |
+| M1 Injektionsziel fehlt | SKIP | ✅ `exit 0` |
+| M1b dasselbe mit `--strict` | FAIL | ✅ `exit 1` |
+| M2 Ziel-Datei fehlt | FAIL | ✅ `exit 1` |
+| M4 manipulierter Inhalt | FAIL | ✅ `exit 1` |
+| **M3 staler Pin** (der Zielfall) | FAIL | ❌ **`exit 0` — grün** |
+
+**Ursache, nachgemessen:** C6 prüft **genau eine Datei** — `SRC="$REPO_ROOT/policies/klickdummy.md"`,
+`TGT="$INJECT_DIR/klickdummy.md"`. Ein Grep nach weiteren Policy-Namen im Skript liefert nur
+diese eine. Der Name sagt es: Es ist die **ADR-211-Bestätigung C6** für die
+Klickdummy-Policy, **kein Prüfer der Steuerzone**.
+
+**Konsequenz für den realen Vorfall:** Zwischen dem stalen Pin `6d9c692b` und `origin/main`
+änderten sich `llm-routing.md` und `session-routing.md` — `klickdummy.md` **nicht**
+(`git diff --quiet … -- policies/klickdummy.md` → unverändert). **C6 wäre während des
+gesamten Vorfalls grün gewesen.** Abdeckung der Policy-Zone: **1 von 12 Dateien.**
+
+Damit ist die Lage schärfer als „Prüfer ohne Aufrufer": Es gibt **keinen** Prüfer für die
+Policy-Zone. C6 zu verdrahten hätte ein grünes Signal erzeugt, das über 11 von 12 Dateien
+nichts aussagt — ein Gate, das Vertrauen erzeugt, ohne es zu decken. Genau das, wogegen
+dieses ADR geschrieben ist. **Der Mutationstest hat das gefangen, bevor gebaut wurde.**
+
+**Und die Latenz, die den Anlass gab:** Am 2026-07-31 stand der Pin auf `6d9c692b`
+(11:09 Uhr, gesetzt vom Hook einer parallelen Session), während `origin/main` 17 Commits
+weiter war — darunter geänderte `llm-routing.md` und `session-routing.md`. Die injizierte
+Modell-Leiter war damit überholt. Der Hook hatte **nicht versagt**; er läuft nur bei
+SessionStart, und es startete keine neue Session. Manuell über den Hook selbst nachgezogen
+(`pinned → 0d078b29`, C6 danach grün, `git diff` gegen `origin/main` über `policies/` leer).
+Das ist die „unbounded Redistribution-Latenz" aus ADR-272, hier einmal mit Zahlen.
 
 ## Herkunft
 
