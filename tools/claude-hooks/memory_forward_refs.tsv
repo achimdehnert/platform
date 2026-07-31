@@ -1,0 +1,24 @@
+# Vorausschauende Verweise — Baseline fuer memory_link_check.py
+#
+# Ein [[ziel]] ohne passende Datei ist laut Memory-Spezifikation zulaessig: es
+# markiert, was noch zu schreiben waere. Von einem Tippfehler ist es maschinell
+# nicht zu unterscheiden — deshalb diese ausdrueckliche Liste statt einer
+# Heuristik. Was hier steht, laesst den Lauf gruen; alles andere bricht ihn.
+#
+# Der Pruefer meldet einen Eintrag als `stale-baseline` (harter Fund), sobald
+# das Ziel existiert ODER niemand mehr darauf verweist. Die Liste kann also
+# nicht still zur Dauerschuld werden.
+#
+# Format:  projektverzeichnis <TAB> ziel <TAB> Begruendung
+# Stand:   2026-07-31, 10 Eintraege (aus 317 Ausgangsbefunden, siehe platform#1597)
+
+-home-devuser-github	risk-hub-repo-optimize-2026-07-02	Sitzungsbericht — gehoert eher nach Outline als ins Memory; Verweis bis zur Entscheidung offen
+-home-devuser-github-dev-hub	adr-210-staging-platform	ADR-210 ist noch nicht als Memory erfasst
+-home-devuser-github-dev-hub	reference-iil-aifw-package	Paket-Referenz geplant, noch nicht geschrieben
+-home-devuser-github-dev-hub	reference-ttz-hub-repo	Repo-Referenz geplant, noch nicht geschrieben
+-home-devuser-github-frist-hub	project_authentik_oidc_rollout_execution_ready	Existiert im platform-Memory, nicht in frist-hub — echter Cross-Repo-Verweis, fuer den es bisher keine Schreibweise gibt
+-home-devuser-github-frist-hub	fristenmanagement-dms-agnostisch	Konzept benannt, Memory noch nicht geschrieben
+-home-devuser-github-lastwar-bot	lastwar-server-1092-fusion-strategie	Strategie-Memory geplant
+-home-devuser-github-meiki-hub	mail-kontrakt-lotse-entwirft-user-sendet	Kontrakt ist als Regel gelebt, als Memory noch nicht erfasst
+-home-devuser-github-risk-hub	project_dsb_nis2_gröger_zahlenabfrage	Vorgangs-Memory geplant
+-home-devuser-github-ttz-hub	klickdummy-repo-local-nicht-iil-klickdummy	Abgrenzung benannt, Memory noch nicht geschrieben
