@@ -53,25 +53,25 @@ LOG_FILE = Path.home() / ".claude" / "hooks" / "log_llm_call.log"
 # Anthropic pricing per 1M tokens (USD). Source: anthropic.com/pricing 2026-05.
 # Cache pricing relative to input: write_5m=1.25x, write_1h=2x, read=0.1x.
 PRICING_USD_PER_MTOK: dict[str, dict[str, float]] = {
-    "claude-sonnet-4-5":          {"input": 3.0,  "output": 15.0},
-    "claude-sonnet-4-5-20251022": {"input": 3.0,  "output": 15.0},
-    "claude-sonnet-4-6":          {"input": 3.0,  "output": 15.0},
-    "claude-sonnet-4":            {"input": 3.0,  "output": 15.0},
-    "claude-haiku-4-5":           {"input": 1.0,  "output": 5.0},
-    "claude-haiku-4-5-20251001":  {"input": 1.0,  "output": 5.0},
-    "claude-opus-4":              {"input": 15.0, "output": 75.0},
-    "claude-opus-4-1":            {"input": 15.0, "output": 75.0},
-    "claude-opus-4-6":            {"input": 15.0, "output": 75.0},
-    "claude-opus-4-7":            {"input": 15.0, "output": 75.0},
-    "gpt-4o":                     {"input": 2.5,  "output": 10.0},
-    "gpt-4o-mini":                {"input": 0.15, "output": 0.60},
+    "claude-sonnet-4-5": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4-5-20251022": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4": {"input": 3.0, "output": 15.0},
+    "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+    "claude-opus-4": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-6": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-7": {"input": 15.0, "output": 75.0},
+    "gpt-4o": {"input": 2.5, "output": 10.0},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
 }
 DEFAULT_PRICING = {"input": 3.0, "output": 15.0}
 
 # Once-per-session Tier-3 nudge thresholds (issue #305).
-TIER3_MIN_TURNS = 8       # need enough signal before suggesting a switch
+TIER3_MIN_TURNS = 8  # need enough signal before suggesting a switch
 TIER3_CHEAP_RATIO = 0.70  # fraction of turns with cost < $0.10 = "routine"
-TIER3_CHEAP_MAX = 0.10    # $/turn threshold for "cheap" classification
+TIER3_CHEAP_MAX = 0.10  # $/turn threshold for "cheap" classification
 
 
 def _log(msg: str) -> None:
@@ -148,10 +148,14 @@ def _save_state(session_id: str, state: dict) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     p = _state_path(session_id)
     keep = list(state["logged_request_ids"])[-2000:]
-    p.write_text(json.dumps({
-        "logged_request_ids": keep,
-        "tier3_nudged": state.get("tier3_nudged", False),
-    }))
+    p.write_text(
+        json.dumps(
+            {
+                "logged_request_ids": keep,
+                "tier3_nudged": state.get("tier3_nudged", False),
+            }
+        )
+    )
 
 
 def _collect_turns(transcript_path: str) -> list[dict]:
@@ -246,7 +250,9 @@ def _insert_rows(rows: list[dict]) -> int:
     if not rows:
         return 0
     if DB_URL is None:
-        _log("ORCHESTRATOR_DB_URL fehlt (und ALLOW_DEV_DB_FALLBACK != 1) — DB-Write übersprungen.")
+        _log(
+            "ORCHESTRATOR_DB_URL fehlt (und ALLOW_DEV_DB_FALLBACK != 1) — DB-Write übersprungen."
+        )
         return 0
     try:
         import psycopg  # noqa: PLC0415
@@ -352,7 +358,9 @@ def main() -> int:
     transcript_path = event.get("transcript_path") or ""
     session_id = event.get("session_id") or ""
     if not transcript_path or not session_id:
-        _log(f"missing fields: transcript={bool(transcript_path)} session={bool(session_id)}")
+        _log(
+            f"missing fields: transcript={bool(transcript_path)} session={bool(session_id)}"
+        )
         return 0
 
     state = _load_state(session_id)
@@ -365,10 +373,9 @@ def main() -> int:
     rows = []
     for t in new:
         u = t["usage"]
-        cache_create_total = (
-            (u.get("cache_creation") or {}).get("ephemeral_5m_input_tokens", 0)
-            + (u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens", 0)
-        )
+        cache_create_total = (u.get("cache_creation") or {}).get(
+            "ephemeral_5m_input_tokens", 0
+        ) + (u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens", 0)
         if cache_create_total == 0:
             cache_create_total = u.get("cache_creation_input_tokens") or 0
         prompt_tokens = (
@@ -390,7 +397,9 @@ def main() -> int:
                 "total_tokens": _total_tokens(u),
                 "cost_usd": _compute_cost(t["model"], u),
                 "duration_ms": t.get("duration_ms"),
-                "routing_reason": f"claude_code Stop hook · branch={t['git_branch']}"[:200],
+                "routing_reason": f"claude_code Stop hook · branch={t['git_branch']}"[
+                    :200
+                ],
                 "created_at": t.get("timestamp") or None,
             }
         )
@@ -417,7 +426,7 @@ def main() -> int:
         session_total = _query_session_total(session_id)
         bits = [f"turn: ${turn_cost:.4f} ({short_model}"]
         if turn_ms:
-            bits[-1] += f", {turn_ms/1000:.1f}s"
+            bits[-1] += f", {turn_ms / 1000:.1f}s"
         bits[-1] += ")"
         if session_total is not None and session_total > 0:
             bits.append(f"session: ${session_total:.2f}")

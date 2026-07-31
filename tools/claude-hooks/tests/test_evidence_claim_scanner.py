@@ -31,6 +31,7 @@ def _klassen(satz: str) -> set[str]:
 
 # --- Die realen Fehlsätze vom 2026-07-31, wörtlich -------------------------------
 
+
 @pytest.mark.parametrize(
     "satz, erwartet",
     [
@@ -44,8 +45,10 @@ def _klassen(satz: str) -> set[str]:
         ("Das war das zweite Mal am selben Tag.", "temporal-claim"),
         ("Der Check schlägt seit 14 Tagen fehl.", "temporal-claim"),
         # Vermutung im Gewand eines Befunds; geprüft waren es null.
-        ("Viele dieser Issues sind längst erledigt und wurden nur nie geschlossen.",
-         "soft-quantifier-claim"),
+        (
+            "Viele dieser Issues sind längst erledigt und wurden nur nie geschlossen.",
+            "soft-quantifier-claim",
+        ),
         ("Die meisten der Repos haben den Scan schon aktiv.", "soft-quantifier-claim"),
     ],
 )
@@ -54,6 +57,7 @@ def test_should_erkennen_die_realen_fehlsaetze(satz: str, erwartet: str) -> None
 
 
 # --- Redewendungen: gleiche Wörter, keine prüfbare Behauptung ---------------------
+
 
 @pytest.mark.parametrize(
     "satz",
@@ -68,11 +72,17 @@ def test_should_erkennen_die_realen_fehlsaetze(satz: str, erwartet: str) -> None
     ],
 )
 def test_should_redewendungen_in_ruhe_lassen(satz: str) -> None:
-    treffer = _klassen(satz) & {"universal-claim", "function-negation", "temporal-claim", "soft-quantifier-claim"}
+    treffer = _klassen(satz) & {
+        "universal-claim",
+        "function-negation",
+        "temporal-claim",
+        "soft-quantifier-claim",
+    }
     assert not treffer, f"Falschalarm auf {satz!r}: {treffer}"
 
 
 # --- Beleg-Strenge: der falsche Beleg darf nicht durchgehen ----------------------
+
 
 def test_should_diff_nicht_als_beleg_fuer_gegenwart_akzeptieren() -> None:
     """`git show` zeigt Code, nicht Verhalten.
@@ -80,11 +90,17 @@ def test_should_diff_nicht_als_beleg_fuer_gegenwart_akzeptieren() -> None:
     Genau dieser Fehlschluss trug den Megatest-Satz: die Workflow-Datei war
     unverändert, also „läuft weiterhin nicht" — ohne den heutigen Lauf anzusehen.
     """
-    assert not scanner.RUN_EVIDENCE_TOKENS.search("git show origin/main:.github/workflows/megatest.yml")
+    assert not scanner.RUN_EVIDENCE_TOKENS.search(
+        "git show origin/main:.github/workflows/megatest.yml"
+    )
     assert scanner.RUN_EVIDENCE_TOKENS.search("gh run view 30610979756 --log")
 
 
 def test_should_stichprobe_nicht_als_beleg_fuer_allaussage_akzeptieren() -> None:
     """Ein gezielter Datei-Read deckt keine Aussage über eine ganze Menge."""
-    assert not scanner.ABSENCE_EVIDENCE_TOKENS.search("Read .github/workflows/megatest.yml limit=100")
-    assert scanner.ABSENCE_EVIDENCE_TOKENS.search("grep -rn 'steps.meter.outcome' .github/workflows/")
+    assert not scanner.ABSENCE_EVIDENCE_TOKENS.search(
+        "Read .github/workflows/megatest.yml limit=100"
+    )
+    assert scanner.ABSENCE_EVIDENCE_TOKENS.search(
+        "grep -rn 'steps.meter.outcome' .github/workflows/"
+    )

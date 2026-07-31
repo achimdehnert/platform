@@ -72,55 +72,58 @@ def test_should_load_false_nudge_when_not_set(tmp_path):
 # _should_emit_tier3_nudge trigger matrix
 # ---------------------------------------------------------------------------
 
-_ROUTINE_STATS = (10, 0.80, 0.03)   # 10 turns, 80% cheap, median $0.03
-_TIER4_STATS   = (10, 0.40, 0.25)   # 10 turns, 40% cheap (expensive session)
-_FEW_TURNS     = (4,  0.90, 0.02)   # 4 turns — not enough signal yet
+_ROUTINE_STATS = (10, 0.80, 0.03)  # 10 turns, 80% cheap, median $0.03
+_TIER4_STATS = (10, 0.40, 0.25)  # 10 turns, 40% cheap (expensive session)
+_FEW_TURNS = (4, 0.90, 0.02)  # 4 turns — not enough signal yet
 
 
-@pytest.mark.parametrize("model,state,stats,expected", [
-    # routine Opus session → fire
-    (
-        "claude-opus-4-7",
-        {"tier3_nudged": False},
-        _ROUTINE_STATS,
-        True,
-    ),
-    # already nudged → don't repeat
-    (
-        "claude-opus-4-7",
-        {"tier3_nudged": True},
-        _ROUTINE_STATS,
-        False,
-    ),
-    # Sonnet session → no nudge
-    (
-        "claude-sonnet-4-6",
-        {"tier3_nudged": False},
-        _ROUTINE_STATS,
-        False,
-    ),
-    # Tier-4 Opus (expensive turns) → no nudge
-    (
-        "claude-opus-4-7",
-        {"tier3_nudged": False},
-        _TIER4_STATS,
-        False,
-    ),
-    # too few turns → no nudge
-    (
-        "claude-opus-4-7",
-        {"tier3_nudged": False},
-        _FEW_TURNS,
-        False,
-    ),
-    # stats is None (DB unavailable) → no nudge
-    (
-        "claude-opus-4-7",
-        {"tier3_nudged": False},
-        None,
-        False,
-    ),
-])
+@pytest.mark.parametrize(
+    "model,state,stats,expected",
+    [
+        # routine Opus session → fire
+        (
+            "claude-opus-4-7",
+            {"tier3_nudged": False},
+            _ROUTINE_STATS,
+            True,
+        ),
+        # already nudged → don't repeat
+        (
+            "claude-opus-4-7",
+            {"tier3_nudged": True},
+            _ROUTINE_STATS,
+            False,
+        ),
+        # Sonnet session → no nudge
+        (
+            "claude-sonnet-4-6",
+            {"tier3_nudged": False},
+            _ROUTINE_STATS,
+            False,
+        ),
+        # Tier-4 Opus (expensive turns) → no nudge
+        (
+            "claude-opus-4-7",
+            {"tier3_nudged": False},
+            _TIER4_STATS,
+            False,
+        ),
+        # too few turns → no nudge
+        (
+            "claude-opus-4-7",
+            {"tier3_nudged": False},
+            _FEW_TURNS,
+            False,
+        ),
+        # stats is None (DB unavailable) → no nudge
+        (
+            "claude-opus-4-7",
+            {"tier3_nudged": False},
+            None,
+            False,
+        ),
+    ],
+)
 def test_should_emit_tier3_nudge(model, state, stats, expected):
     result = hook._should_emit_tier3_nudge(model, state, stats)
     assert result is expected
@@ -158,11 +161,15 @@ def test_should_use_dev_fallback_only_with_explicit_opt_in(monkeypatch):
     monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
     monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
     assert hook._resolve_db_url() == hook._DEV_FALLBACK_DB_URL
-    assert "change-me-in-production" in hook._DEV_FALLBACK_DB_URL  # documents the known dev-only value
+    assert (
+        "change-me-in-production" in hook._DEV_FALLBACK_DB_URL
+    )  # documents the known dev-only value
 
 
 def test_should_prefer_explicit_env_var_over_dev_fallback(monkeypatch):
-    monkeypatch.setenv("ORCHESTRATOR_DB_URL", "postgresql://real:secret@db.internal/prod")
+    monkeypatch.setenv(
+        "ORCHESTRATOR_DB_URL", "postgresql://real:secret@db.internal/prod"
+    )
     monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
     assert hook._resolve_db_url() == "postgresql://real:secret@db.internal/prod"
 

@@ -52,7 +52,9 @@ def test_should_detect_slug_mismatch_between_frontmatter_and_filename(mem: Path)
 
 
 def test_should_detect_dead_wikilink(mem: Path):
-    schreibe(mem, "feedback_alpha", "feedback_alpha", "Verwandt: [[feedback_gibtsnicht]].")
+    schreibe(
+        mem, "feedback_alpha", "feedback_alpha", "Verwandt: [[feedback_gibtsnicht]]."
+    )
 
     funde = pruefe_verzeichnis(mem)
 
@@ -86,7 +88,8 @@ def test_should_not_flag_known_policy_references_as_dead(mem: Path):
 def test_should_not_flag_http_links_in_index(mem: Path):
     schreibe(mem, "feedback_alpha", "feedback_alpha")
     (mem / "MEMORY.md").write_text(
-        "- [Issue](https://github.com/achimdehnert/platform/issues/1.md)\n", encoding="utf-8"
+        "- [Issue](https://github.com/achimdehnert/platform/issues/1.md)\n",
+        encoding="utf-8",
     )
 
     assert pruefe_verzeichnis(mem) == []
@@ -113,7 +116,9 @@ def test_should_scan_all_memory_dirs_under_a_projects_root(tmp_path: Path):
         d.mkdir(parents=True)
         schreibe(d, "feedback_alpha", "feedback-alpha")  # je 1 Fund
 
-    funde = [f for d in (tmp_path / "projekt-a" / "memory",) for f in pruefe_verzeichnis(d)]
+    funde = [
+        f for d in (tmp_path / "projekt-a" / "memory",) for f in pruefe_verzeichnis(d)
+    ]
     assert len(funde) == 1
     assert main(["--root", str(tmp_path)]) == 1
 
@@ -123,7 +128,9 @@ def test_should_scan_all_memory_dirs_under_a_projects_root(tmp_path: Path):
 
 def test_should_not_flag_a_wikilink_inside_inline_code(mem: Path):
     # Realfall: design-hub-Memory dokumentiert Makro-Syntax, die nie ein Link war
-    schreibe(mem, "feedback_alpha", "feedback_alpha", "Keine `[[clause:…]]`-Makros mehr.")
+    schreibe(
+        mem, "feedback_alpha", "feedback_alpha", "Keine `[[clause:…]]`-Makros mehr."
+    )
 
     assert pruefe_verzeichnis(mem) == []
 
@@ -169,7 +176,9 @@ def baseline_datei(tmp_path: Path, *zeilen: str) -> Path:
 def test_should_parse_a_baseline_and_skip_comments_and_blanks(tmp_path: Path):
     from memory_link_check import lade_baseline
 
-    p = baseline_datei(tmp_path, "projekt-a\ta.md\tziel-1\tGrund", "projekt-a\tb.md\tziel-2\tGrund")
+    p = baseline_datei(
+        tmp_path, "projekt-a\ta.md\tziel-1\tGrund", "projekt-a\tb.md\tziel-2\tGrund"
+    )
 
     assert lade_baseline(p) == {"projekt-a": {("a.md", "ziel-1"), ("b.md", "ziel-2")}}
 
@@ -202,7 +211,9 @@ def test_should_report_a_baseline_entry_whose_target_now_exists(mem: Path):
 
     schreibe(mem, "spaeter-geschrieben", "spaeter-geschrieben")
 
-    funde = pruefe_baseline(mem, {("a.md", "spaeter-geschrieben")}, {("a.md", "spaeter-geschrieben")})
+    funde = pruefe_baseline(
+        mem, {("a.md", "spaeter-geschrieben")}, {("a.md", "spaeter-geschrieben")}
+    )
 
     assert [f.art for f in funde] == ["stale-baseline"]
     assert "existiert inzwischen" in funde[0].detail
@@ -220,12 +231,18 @@ def test_should_report_a_baseline_entry_nobody_references_anymore(mem: Path):
 def test_should_keep_a_baseline_entry_that_is_still_in_use(mem: Path):
     from memory_link_check import pruefe_baseline
 
-    assert pruefe_baseline(mem, {("a.md", "noch-offen")}, {("a.md", "noch-offen")}) == []
+    assert (
+        pruefe_baseline(mem, {("a.md", "noch-offen")}, {("a.md", "noch-offen")}) == []
+    )
 
 
-def test_should_exit_0_for_forward_refs_but_1_for_a_real_dead_link(mem: Path, tmp_path: Path):
+def test_should_exit_0_for_forward_refs_but_1_for_a_real_dead_link(
+    mem: Path, tmp_path: Path
+):
     schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[noch-nicht-da]].")
-    bl = baseline_datei(tmp_path, f"{mem.parent.name}\tfeedback_alpha.md\tnoch-nicht-da\tGrund")
+    bl = baseline_datei(
+        tmp_path, f"{mem.parent.name}\tfeedback_alpha.md\tnoch-nicht-da\tGrund"
+    )
 
     assert main(["--root", str(mem), "--baseline", str(bl)]) == 0
 

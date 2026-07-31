@@ -58,10 +58,16 @@ def _ohne_code(text: str) -> str:
 
     return INLINE_CODE.sub(leeren, CODE_FENCE.sub(leeren, text))
 
+
 # In MEMORY.md/Body duerfen Verweise auf Nicht-Memories stehen (Policies, ADRs).
 # Die werden nicht als tot gemeldet, sondern verlangen Klartext statt [[..]] —
 # deshalb hier nur die bekannten Ausnahmen, damit der Check keine Fehlalarme wirft.
-NICHT_MEMORY = {"evidence-discipline", "session-routing", "llm-routing", "adr-threshold"}
+NICHT_MEMORY = {
+    "evidence-discipline",
+    "session-routing",
+    "llm-routing",
+    "adr-threshold",
+}
 
 
 @dataclass(frozen=True)
@@ -114,10 +120,16 @@ def pruefe_verzeichnis(
             fm = _frontmatter(text)
             treffer = NAME_FIELD.search(fm)
             if not treffer:
-                funde.append(Fund("missing-name", name, "kein name:-Feld im Frontmatter"))
+                funde.append(
+                    Fund("missing-name", name, "kein name:-Feld im Frontmatter")
+                )
             elif treffer.group(1) != pfad.stem:
                 funde.append(
-                    Fund("slug-mismatch", name, f"name: {treffer.group(1)!r} != Dateiname")
+                    Fund(
+                        "slug-mismatch",
+                        name,
+                        f"name: {treffer.group(1)!r} != Dateiname",
+                    )
                 )
 
         for ziel in WIKILINK.findall(prosa):
