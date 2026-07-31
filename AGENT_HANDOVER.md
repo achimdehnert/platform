@@ -129,6 +129,28 @@ Konvention auf `7f1ee0cd` / 2635 Commits (2026-07-31).
 durch, genau eine aktive Generation mit 6.008 Nachrichten und Deckung `complete`; der
 Zeitplan 03:30 ist damit nicht mehr inert.
 
+> ⚠️ **Richtigstellung 2026-07-31 (nicht umgeschrieben, sondern angefügt):** Der Satz
+> „der Zeitplan 03:30 ist damit nicht mehr inert" **trifft auf den laufenden Prod-Host
+> nicht zu.** Beim fälligen Gegenlesen des ersten scharfen Laufs am 31.07. gemessen
+> (Host `ubuntu-32gb-fsn1-1`): **kein einziger Lauf**, auf keiner Schicht —
+> `docker logs devhub_celery/beat --since 24h | grep mail_agent` → 0 Treffer ·
+> Celery-Registry 19 Tasks, keiner mit `mail` · `PeriodicTask`-Tabelle 12 Einträge,
+> keiner für `mail_agent` · weder `/app/apps/mail_agent` noch der in
+> [dev-hub#175](https://github.com/achimdehnert/dev-hub/issues/175) beschriebene
+> Bind-Mount `/app/mail_tools` vorhanden, dessen Quelle `/opt/platform/tools/mail_agent`
+> auf dem Host ebenfalls fehlt. Laufendes Image vom **12.07.**, Container seit
+> **12.07. 16:44** — 19 Tage alt.
+>
+> **Und ein Deploy allein würde es nicht beheben:** Beat läuft mit
+> `django_celery_beat.schedulers:DatabaseScheduler`; der Eintrag in
+> `config/settings/base.py` ist damit **nicht maßgeblich**, maßgeblich ist die
+> `PeriodicTask`-Tabelle. Es braucht beides — Code auf Prod **und** DB-Eintrag.
+>
+> Getrackt als [dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187).
+> **Nicht zurückverfolgt:** wann und warum der Mount verschwand — die Aussage oben war
+> zum Zeitpunkt ihrer Messung (30.07., am laufenden Artefakt) plausibel; was zwischen
+> dem 30.07. und dem 31.07. geschah, ist offen.
+
 **Zweiter Strang:** Antwort-Entwürfe trugen **kein Zitat** der Ursprungsmail. Ursache an
 einem Probe-Entwurf im echten Postfach gemessen: `graph_mail --reply-to` legt per
 `createReply` den zitierten Verlauf an und PATCHt danach `body.content` — das ersetzt den
