@@ -15,6 +15,66 @@
 
 <!-- Ausgelagert 2026-07-23 (Handover-Refresh 07-22→07-23) -->
 
+## ⚡ Stand (2026-07-29 — Mail-Recherche-Werkzeug von der Frage bis zum Index gebaut)
+
+**Kern in einem Satz:** Aus „analysier die Mails von Frau Offner" — einer Frage, die ein
+Dutzend Postfach-Abfragen kostete — wurde ein Werkzeug, das dieselbe, **verifiziert
+identische** Antwort in 26 Millisekunden aus einem Index liefert; die Entscheidungsgrundlage
+dafür ging durch drei externe Runden.
+
+**Gemergt (10 PRs, alle CI-grün):**
+platform [#1519](https://github.com/achimdehnert/platform/pull/1519) `--all-folders` ·
+[#1520](https://github.com/achimdehnert/platform/pull/1520) `--json`/Abwesenheitsbeweis ·
+[#1522](https://github.com/achimdehnert/platform/pull/1522) ADR-286 §4.11 + Bestandskorrektur ·
+[#1523](https://github.com/achimdehnert/platform/pull/1523) KONZ-036 ·
+[#1524](https://github.com/achimdehnert/platform/pull/1524) ADR-288 v2 ·
+[#1530](https://github.com/achimdehnert/platform/pull/1530) S1 ·
+[#1532](https://github.com/achimdehnert/platform/pull/1532) Gate-5-Beleg ·
+[#1533](https://github.com/achimdehnert/platform/pull/1533) Parteien+Evidenz ·
+dev-hub [#168](https://github.com/achimdehnert/dev-hub/pull/168) P2 ·
+[#169](https://github.com/achimdehnert/dev-hub/pull/169) P3.2 ·
+[#170](https://github.com/achimdehnert/dev-hub/pull/170) P3.3 ·
+[#171](https://github.com/achimdehnert/dev-hub/pull/171) Prod-Vorbereitung.
+Vier dev-hub-Merges waren Prod-Deploys mit Migration — **alle vier per Audit-Kommentar
+vorab angekündigt und hinterher am Migrations-Protokoll belegt** (3× `Applying … OK`,
+1× `No migrations to apply` wie vorhergesagt).
+
+**Vier Messungen, die Annahmen gekippt haben:**
+
+1. **Der Bestand ist 66.580, nicht 90.967.** Die alte Zahl stammte aus ADR-286 §4.10.8 und
+   war durch KONZ-036, ADR-288 und **beide externen Review-Briefings** gewandert. Ursache
+   belegt: am 2026-07-28 lief eine Archiv-Umsortierung (Retro `d5eb5e`: 28.158 verschobene
+   Nachrichten), die Zählung erfasste einen Zwischenzustand. Das nicht betroffene
+   Referenzkonto trifft die alte Zahl **exakt** (9 Ordner / 12) — daran ist die Methode
+   validiert. Korrigiert in ADR-286 §4.10.8a.
+2. **Die Ausschlussregel entfernt 78,9 %** (66.580 → 14.028). Damit fallen Vollaufbau auf
+   2,2 min und Rohobjektspeicher auf 4,5 GB. Die schärfste Review-Kritik („95 % des
+   Zeitfensters") landet dadurch bei 15 %.
+3. **Bulk-Abruf statt Einzel-`FETCH`: Faktor 8,9** end-to-end (34,9 s → 3,9 s auf 354
+   Nachrichten, identisches Ergebnis).
+4. **Mikro-Benchmarks überschätzen systematisch** — 120,7/s bzw. 106,3/s im Einzelordner
+   gegen 92,0/s bzw. 78,5/s im echten Lauf über 180 Ordner. Genau der Mechanismus, den die
+   Runden 1 und 2 an den Hochrechnungen kritisiert hatten: sie hatten recht, ihr Alarmwert
+   nicht.
+
+**Zwei eigene Fehler, im scharfen Lauf gefunden:**
+Die Parteien-Auflösung führte zunächst **13 Adressen** zu einer Person zusammen (halber
+Verteiler) — der Anzeigename wurde pro Kopfzeile statt pro Adresse gebildet. Behoben über
+`getaddresses()` plus zwei Schranken, als Test verankert. Und die erste Bestandsmessung
+verrechnete Ausnahmen still als `0`; die Nachmessung weist Fehler aus.
+
+**Der Index beweist sich am Referenzfall:** eine Abfrage über `MessageParticipant` liefert
+**21 Nachrichten in 26 ms** — exakt die am 2026-07-28 korrigierte Zahl. Er reproduziert die
+verifizierte Antwort, statt eine neue zu erfinden.
+
+**Prod-Stand dev-hub:** Modelle, Extraktion, Volltext, Ingestion, Zeitplan (täglich 03:30)
+sind live. Der Zeitplan ist **inert** — er prüft seine Konfiguration selbst und meldet den
+Grund ins Log. Nach Repo-Prüfung steht **keine** `MAIL_*`-Variable in `deployment/`,
+`docker-compose*` oder `Dockerfile`; es findet also kein Postfach-Zugriff statt.
+
+**Dirty, aber nicht dieser Session zurechenbar:** `django-lms-lite`, `iil-doc-templates`
+(je untracked `.windsurf/`), `risk-hub` (`NEXT.md`) — liegen gelassen, nicht eingesammelt.
+
 ## ⚡ Vorheriger Stand (2026-07-28 Nachmittag — Handover-Prios 2+3 gebaut, zwei blinde Melder gefunden, 5 PRs offen)
 
 **Kern in einem Satz:** Von den vier Handover-Prios sind zwei gebaut (Mail-Rollen,
