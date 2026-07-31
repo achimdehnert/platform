@@ -335,13 +335,55 @@ kein weiter gedehnter §4.8. **Der Anteil aus Punkt 2 wird gemessen** (§8 Gate 
 **Durabel (überlebt jeden Neuaufbau):** `vorgang`, `action_item`, `action_event`, `party`,
 `identity`, `query_log`, `regression_case`.
 
-Durable Referenzen zeigen **nie** auf Surrogat-IDs der Projektion, sondern auf
-`(account_id, transport_key)` plus die logische Entität. Ein `UIDVALIDITY`-Wechsel oder ein
-Postfach-Umzug bekommt eine definierte Migrationsprozedur; ein Zähler **verwaister durabler
-Referenzen** läuft nach jedem Aufbau (§8 Gate 3).
+Durable Referenzen hängen an **stabiler Identität**, nie an einem Wert, den ein Neuaufbau neu
+vergibt. Ein `UIDVALIDITY`-Wechsel oder ein Postfach-Umzug bekommt eine definierte
+Migrationsprozedur.
 
 Ohne diese Trennung zerstört der Neuaufbau auf Dauer das Einzige, was das Werkzeug produziert —
 der stärkste Einwand aus Runde 1.
+
+#### Geändert 2026-07-31 — natürlicher Schlüssel statt Umgehung der Datenbank
+
+**Vorher stand hier:** „Durable Referenzen zeigen **nie** auf Surrogat-IDs der Projektion,
+sondern auf `(account_id, transport_key)` plus die logische Entität […]; ein Zähler
+**verwaister durabler Referenzen** läuft nach jedem Aufbau (§8 Gate 3)."
+
+Die erste Umsetzung befolgte diesen Wortlaut und baute damit **an der Datenbank vorbei**: die
+Kennung lag als Textkopie neben einem Fremdschlüssel, der nur noch Cache war, dazu ein
+Neuverknüpfungs-Lauf und ein Waisen-Zähler. Drei Mechanismen für eine Beziehung.
+
+Zwei Messungen am 2026-07-31 haben die Änderung ausgelöst:
+
+1. **Kein Code löscht `LogicalMessage`** (nur `demo_data.py` beim Seed-Reset), und einen
+   Neuaufbau-Pfad gibt es nicht. Der Test, der die Regel rechtfertigte, bildete ein Szenario
+   nach, das das System nicht erzeugen kann.
+2. **`ingest_or_skip` korreliert längst** auf `internet_message_id`/`raw_sha256`. Die „stabile
+   Kennung" war keine neue Größe, sondern der vorhandene Merge-Schlüssel unter neuem Namen.
+
+**Das Ziel der Regel ist stabile Identität, nicht die Vermeidung von Fremdschlüsseln.** Ein
+*natürlicher* Schlüssel — `sha256(Mandant | Message-ID bzw. Inhalts-Hash)`, materialisiert als
+eindeutige Spalte — erfüllt das Ziel und taugt als Fremdschlüsselziel. Damit erzwingt die
+Datenbank die Beziehung selbst, statt sie hinterher zu beklagen.
+
+**Folgen für §8 Gate 3.** Für diese Referenzklasse ist der Waisen-Zähler kein Monitor mehr,
+sondern ein Wächter: `PROTECT` verweigert das Löschen einer kuratierten Nachricht, verwaiste
+Zuordnungen sind damit **konstruktiv ausgeschlossen** statt gezählt. Die Prüffunktion bleibt
+bestehen — sie deckt den Fall ab, dass jemand am ORM vorbei löscht (roher SQL-Zugriff,
+Teil-Restore). Ein Gate, das seine eigene Voraussetzung nicht mehr prüft, ist kein Gate. Für
+andere durable Klassen (`action_item`, `party`, …) gilt Gate 3 unverändert, solange sie keinen
+Fremdschlüssel auf einen natürlichen Schlüssel tragen.
+
+**Verträglich mit ADR-286 §4.3.** Die DSGVO-Löschung entfernt keine Zeile, sie setzt einen
+Grabstein und minimiert die Felder — `PROTECT` steht ihr nicht im Weg. Als Test verankert;
+andernfalls wäre der Schutz ein Fehler.
+
+**Restlücke, ehrlich benannt:** Eine Nachricht ohne jede Identität (weder Message-ID noch
+Inhalts-Hash) bekommt **keinen** Schlüssel und ist damit nicht kuratierbar. Das ist gewollt —
+ein erfundener Schlüssel würde zwei verschiedene Nachrichten zu einer machen. Wie oft dieser
+Fall real auftritt, ist **nicht gemessen**; der billigste Check ist
+`LogicalMessage.objects.filter(kennung__isnull=True).count()` nach dem Backfill.
+
+Umgesetzt in dev-hub#182 (Migrationen `0008`/`0009`).
 
 ### 4.2 Rohobjektspeicher (inhaltsadressiert)
 
