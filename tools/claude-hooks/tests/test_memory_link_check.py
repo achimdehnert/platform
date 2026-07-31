@@ -116,3 +116,42 @@ def test_should_scan_all_memory_dirs_under_a_projects_root(tmp_path: Path):
     funde = [f for d in (tmp_path / "projekt-a" / "memory",) for f in pruefe_verzeichnis(d)]
     assert len(funde) == 1
     assert main(["--root", str(tmp_path)]) == 1
+
+
+# --- Code ist kein Verweis ---------------------------------------------------
+
+
+def test_should_not_flag_a_wikilink_inside_inline_code(mem: Path):
+    # Realfall: design-hub-Memory dokumentiert Makro-Syntax, die nie ein Link war
+    schreibe(mem, "feedback_alpha", "feedback_alpha", "Keine `[[clause:…]]`-Makros mehr.")
+
+    assert pruefe_verzeichnis(mem) == []
+
+
+def test_should_not_flag_a_wikilink_inside_a_fenced_block(mem: Path):
+    body = "Beispiel:\n\n```\n[[angebot-cover]]\n[[reisekosten:...]]\n```\n"
+    schreibe(mem, "feedback_alpha", "feedback_alpha", body)
+
+    assert pruefe_verzeichnis(mem) == []
+
+
+def test_should_still_flag_a_dead_link_outside_the_code_block(mem: Path):
+    # die Ausnahme darf nicht den ganzen Rest der Datei stumm schalten
+    body = "```\n[[in-code]]\n```\n\nVerwandt: [[feedback_weg]].\n"
+    schreibe(mem, "feedback_alpha", "feedback_alpha", body)
+
+    funde = pruefe_verzeichnis(mem)
+
+    assert [f.detail for f in funde] == ["[[feedback_weg]]"]
+
+
+def test_should_keep_line_structure_when_blanking_code(mem: Path):
+    from memory_link_check import _ohne_code
+
+    text = "a\n```\n[[x]]\n```\nb `[[y]]` c\n"
+    prosa = _ohne_code(text)
+
+    assert prosa.count("\n") == text.count("\n")
+    assert len(prosa) == len(text)
+    assert "[[x]]" not in prosa and "[[y]]" not in prosa
+    assert prosa.startswith("a\n") and prosa.rstrip().endswith("c")

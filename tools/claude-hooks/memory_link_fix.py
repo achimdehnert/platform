@@ -32,6 +32,25 @@ WIKILINK = re.compile(r"\[\[([^\]]+)\]\]")
 NAME_LINE = re.compile(r"^(name:[ \t]*)(.+?)[ \t]*$", re.MULTILINE)
 PRAEFIXE = ("feedback_", "project_", "reference_")
 
+# Eine Quelle fuer beide Werkzeuge — der Pruefer definiert, was Code ist, und der
+# Reparierer haelt sich daran. Beide liegen im selben Verzeichnis, das beim
+# direkten Aufruf ohnehin auf sys.path steht.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from memory_link_check import CODE_FENCE, INLINE_CODE  # noqa: E402
+
+
+def _code_bereiche(text: str) -> list[tuple[int, int]]:
+    """Start/Ende aller Code-Bereiche — Bloecke und Inline-Spans."""
+    return [
+        (m.start(), m.end())
+        for regex in (CODE_FENCE, INLINE_CODE)
+        for m in regex.finditer(text)
+    ]
+
+
+def _in_code(pos: int, bereiche: list[tuple[int, int]]) -> bool:
+    return any(a <= pos < b for a, b in bereiche)
+
 # Verweise auf Nicht-Memories (Policies) sind kein Fund und werden nie umgeschrieben.
 NICHT_MEMORY = {"evidence-discipline", "session-routing", "llm-routing", "adr-threshold"}
 
@@ -100,16 +119,33 @@ def repariere(mem: Path, apply: bool) -> tuple[list[Aenderung], list[tuple[str, 
     offen: list[tuple[str, str]] = []
 
     for p in sorted(mem.glob("*.md")):
-        text = neu_text = p.read_text(encoding="utf-8", errors="replace")
+        text = p.read_text(encoding="utf-8", errors="replace")
+        code = _code_bereiche(text)
 
         # (2) Verweise zuerst — solange die alten Frontmatter-Namen noch gelten.
-        for ziel in sorted(set(WIKILINK.findall(text))):
+        #
+        # Ein Durchlauf mit Positionspruefung statt str.replace je Ziel: replace
+        # traefe auch Vorkommen in Code-Bereichen, und die dokumentieren
+        # Makro-Syntax (`[[clause:…]]`), sind also keine Verweise. Ausserdem
+        # bleiben die Positionen gueltig, weil sub auf dem Originaltext arbeitet.
+        gesehen: set[str] = set()
+
+        def ersetze(m: re.Match) -> str:
+            ziel = m.group(1)
+            if _in_code(m.start(), code):
+                return m.group(0)
             treffer = loese_verweis(ziel, slugs, karte)
             if treffer:
-                neu_text = neu_text.replace(f"[[{ziel}]]", f"[[{treffer}]]")
-                aenderungen.append(Aenderung(p.name, "verweis", ziel, treffer))
-            elif ziel not in slugs and ziel not in NICHT_MEMORY:
+                if ziel not in gesehen:
+                    aenderungen.append(Aenderung(p.name, "verweis", ziel, treffer))
+                    gesehen.add(ziel)
+                return f"[[{treffer}]]"
+            if ziel not in slugs and ziel not in NICHT_MEMORY and ziel not in gesehen:
                 offen.append((p.name, ziel))
+                gesehen.add(ziel)
+            return m.group(0)
+
+        neu_text = WIKILINK.sub(ersetze, text)
 
         # (3) danach der Frontmatter-Name.
         if p.name != "MEMORY.md" and slug_name.get(p.stem, p.stem) != p.stem:

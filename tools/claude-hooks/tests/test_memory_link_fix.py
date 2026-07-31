@@ -146,3 +146,25 @@ def test_should_repair_every_memory_dir_under_a_projects_root(tmp_path: Path):
 
     for projekt in ("projekt-a", "projekt-b"):
         assert pruefe_verzeichnis(tmp_path / projekt / "memory") == []
+
+
+def test_should_not_rewrite_a_wikilink_inside_code(mem: Path):
+    """Der gefaehrlichere Fall: str.replace haette auch das Code-Vorkommen
+    umgeschrieben und damit dokumentierte Makro-Syntax verfaelscht."""
+    schreibe(mem, "feedback_alpha", "feedback-alpha")
+    quelle = schreibe(
+        mem, "feedback_beta", "feedback_beta",
+        "Prosa: [[feedback-alpha]]\n\n```\nMakro: [[feedback-alpha]]\n```\n",
+    )
+
+    repariere(mem, apply=True)
+    text = quelle.read_text(encoding="utf-8")
+
+    assert "Prosa: [[feedback_alpha]]" in text
+    assert "Makro: [[feedback-alpha]]" in text  # unveraendert
+
+
+def test_should_not_report_a_code_only_link_as_open(mem: Path):
+    schreibe(mem, "feedback_alpha", "feedback_alpha", "`[[clause]]` ist ein Makro")
+
+    assert repariere(mem, apply=True) == ([], [])

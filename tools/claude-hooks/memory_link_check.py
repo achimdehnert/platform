@@ -31,6 +31,27 @@ WIKILINK = re.compile(r"\[\[([^\]]+)\]\]")
 INDEXLINK = re.compile(r"\]\(([^)]+\.md)\)")
 NAME_FIELD = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
 
+# Code ist kein Verweis. Memories dokumentieren Makro- und Glob-Syntax, die
+# zufaellig wie ein Wiki-Verweis aussieht — `[[clause:…]]`, `[[angebot-cover]]`,
+# `[[*_extract*]]` aus dem design-hub-Renderer, `[[reisekosten:…]]` aus einer
+# Angebotsvorlage. Wer den Codebereich mitliest, meldet Dokumentation als
+# kaputten Link; am 2026-07-31 waren das 12 der 45 verbleibenden Befunde.
+CODE_FENCE = re.compile(r"^(```|~~~).*?^\1", re.MULTILINE | re.DOTALL)
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+
+
+def _ohne_code(text: str) -> str:
+    """Leert Code-Bereiche, behaelt aber Laenge und Zeilenumbrueche.
+
+    Bewusst leeren statt loeschen: so bleiben Zeilennummern und Offsets gueltig,
+    falls der Bericht spaeter Zeilen nennen soll.
+    """
+
+    def leeren(m: re.Match) -> str:
+        return re.sub(r"[^\n]", " ", m.group(0))
+
+    return INLINE_CODE.sub(leeren, CODE_FENCE.sub(leeren, text))
+
 # In MEMORY.md/Body duerfen Verweise auf Nicht-Memories stehen (Policies, ADRs).
 # Die werden nicht als tot gemeldet, sondern verlangen Klartext statt [[..]] —
 # deshalb hier nur die bekannten Ausnahmen, damit der Check keine Fehlalarme wirft.
@@ -65,6 +86,9 @@ def pruefe_verzeichnis(mem: Path) -> list[Fund]:
 
     for pfad in sorted(mem.glob("*.md")):
         text = pfad.read_text(encoding="utf-8", errors="replace")
+        # Verweise werden aus dem code-freien Text gelesen, das Frontmatter aus
+        # dem Original — dort gibt es keine Code-Bereiche zu schonen.
+        prosa = _ohne_code(text)
         name = pfad.name
 
         if name != "MEMORY.md":
@@ -77,13 +101,13 @@ def pruefe_verzeichnis(mem: Path) -> list[Fund]:
                     Fund("slug-mismatch", name, f"name: {treffer.group(1)!r} != Dateiname")
                 )
 
-        for ziel in WIKILINK.findall(text):
+        for ziel in WIKILINK.findall(prosa):
             if ziel in slugs or ziel in NICHT_MEMORY:
                 continue
             funde.append(Fund("dead-wikilink", name, f"[[{ziel}]]"))
 
         if name == "MEMORY.md":
-            for ziel in INDEXLINK.findall(text):
+            for ziel in INDEXLINK.findall(prosa):
                 if ziel.startswith(("http://", "https://")):
                     continue
                 if not (mem / ziel).exists():
