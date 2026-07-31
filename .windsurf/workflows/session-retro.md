@@ -44,6 +44,40 @@ Survivors strukturell selten → kleiner skalieren (sonst verbrennt die Falsifik
 Kein Multi-Agent unter `lean`. Falsifikation **nie** 1 Agent pro Befund (explodiert linear) —
 gebündelt je Dimension.
 
+**Skeptiker-Auswahl: nur Bewertungsbefunde, nie kommandobelegte (GEMESSEN 2026-07-31).**
+Das Budget bezahlt den **fremden Kontext**, nicht die Zweitausführung eines Befehls. Sortiere
+die Befunde vor Phase 3 in zwei Klassen und setze Skeptiker **ausschließlich** auf die zweite:
+
+| Klasse | Beleg ist … | Skeptiker? |
+|---|---|---|
+| **kommandobelegt** | ein reproduzierbares Kommandoergebnis (`grep -c` → 0 vs. 1, Datei existiert/nicht, CI-Status, Textvergleich) | **nein** — ein Subagent liefert dieselbe Zahl; reiner Aufpreis |
+| **Bewertungsbefund** | ein Urteil über eigene Entscheidungen („war vermeidbar", „zu spät", „falsch kalibriert", „überflüssiges Rework") | **ja** — hier und nur hier wirkt Richter≠Angeklagter |
+
+Realfall `session-retro-2026-07-31-meiki-hub-6bd412`: 5 Inline-Befunde, davon 3 kommandobelegt
+und 2 Bewertungsbefunde. Zwei Sonnet-Skeptiker auf **nur die zwei Bewertungsbefunde**
+(je ein Befund, benannte Dateipfade im Prompt, kein Repo-Sweep) widerlegten **beide** und
+fanden dabei einen neuen Befund der Severity *hoch*, den der Inline-Pass übersehen hatte
+(ein „Ersetzt"-Vermerk, der einen Adressaten stillschweigend fallen ließ). Die drei
+kommandobelegten Befunde blieben ungeprüft — ohne Erkenntnisverlust.
+
+**Die Richtung des Fehlers ist nicht vorhersagbar.** Der Inline-Pass hatte die zwei
+Bewertungsbefunde als „nachsichtig verdächtig" markiert; real waren beide zu **streng** —
+schlecht belegte Selbstanklagen, eine davon gestützt auf eine Versionsangabe ohne Artefakt.
+Formuliere den Skeptiker-Auftrag deshalb neutral („widerlege, wenn du kannst"), nicht als
+„prüfe, ob ich zu milde war".
+
+**Kosten (gemessen, kein Schätzwert): ~55k Tokens pro eng geführtem Skeptiker** — enger
+Auftrag, benannte Artefakte, Ausgabe ≤200 Wörter, ~6 Tool-Calls. Zwei Skeptiker = ~115k.
+Ein Finder mit Repo-Sweep-Auftrag liegt deutlich darüber. Nenne diese Zahl, wenn du ein
+Agenten-Budget zur Freigabe vorlegst — schätze sie nicht.
+
+**Wenn die Umgebung Subagenten untersagt** (Repo-Memory, Capability-Profil, Systemanweisung):
+Find-Phase inline fahren, die Befunde nach obiger Tabelle sortieren, und die Bewertungsbefunde
+mit ihrer Zahl (~55k je) als Freigabe-Frage vorlegen — statt den Retro entweder ganz ohne
+Falsifikation zu fahren oder ihn an der Budgetfrage scheitern zu lassen. Der Regel-1-Bruch der
+Find-Phase bleibt dann in §8 als Restlücke stehen; die Falsifikation der weichen Befunde ist
+nachträglich einholbar (Realfall oben: genau so gelaufen, mit Ertrag).
+
 **Trigger-Konflikt (Rule B feuert, Dichte-Regel dämpft) — Auflösung (Lehre 2026-06-14):**
 Der `deep`-Trigger „Prod-Schritt" und die Dichte-Regel „reversibel+transparent+freigegeben →
 kleiner skalieren" widersprechen sich bei einem **sauberen, freigegebenen, reversiblen**
@@ -150,6 +184,12 @@ den er anklagte** — genau dafür existiert Richter≠Angeklagter.)
 Skeptiker-Subagent **je Dimension** (nicht je Befund — Budget, s. Phase 0). **Binär: SURVIVES
 oder REFUTED** — kein „weakened"/„teilweise" (das ist Verhandlung, nicht Falsifikation; mildernde
 Umstände gehören in die Beleg-Spalte, nicht in ein drittes Verdikt).
+
+**Vorher sortieren, nicht alles verifizieren:** kommandobelegte Befunde überspringen,
+Skeptiker nur auf Bewertungsbefunde — Klassentabelle und gemessene Kosten in Phase 0
+(§ Skeptiker-Auswahl). Bei sehr wenigen Bewertungsbefunden (≤2) ist ein Skeptiker **je Befund**
+günstiger und schärfer als die Dimensions-Bündelung; das Budget-Argument gegen „1 Agent pro
+Befund" greift erst ab etwa vier.
 
 **Eiserne Verify-Regel (Lehre 2026-06-04):** Der Skeptiker bekommt **nur die Behauptung, NICHT
 den Finder-Befehl** — und muss den Beleg **unabhängig neu ziehen**, breiter/rekursiv (`find -name`,
@@ -309,7 +349,9 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **Soll-Schritt ohne Befund-Referenz** (= Plattitüde) ODER überlebender Befund ohne Soll-Schritt.
 - ❌ **Default-Dateiname `…-<datum>.md`** → Kollision/Overwrite bei Parallel-Sessions; repo+session-id ist Pflicht.
 - ❌ **Halbscores** (2.5) — brechen Längsschnitt-Vergleichbarkeit.
-- ❌ **Multi-Agent für `lean`-Footprint** / Skeptiker je Befund statt je Dimension (Spend-Falle).
+- ❌ **Multi-Agent für `lean`-Footprint** / Skeptiker je Befund statt je Dimension **ab ~4 Befunden** (Spend-Falle). Bei ≤2 Bewertungsbefunden ist je-Befund richtig — s. Phase 3.
+- ❌ **Skeptiker auf einen kommandobelegten Befund ansetzen** (`grep`-Ergebnis, CI-Status, Datei-Existenz) — der fremde Kontext ändert an einer reproduzierbaren Zahl nichts; bezahlt wird eine Zweitausführung. Skeptiker gehören auf **Bewertungsbefunde** (Phase 0 § Skeptiker-Auswahl).
+- ❌ **Agenten-Budget schätzen statt beziffern** — „liegt deutlich darunter" war 2026-07-31 nachweislich falsch (geschätzt ≪126k, real 115k). Gemessener Wert: ~55k je eng geführtem Skeptiker.
 - ❌ Meta-Self-Review (Phase 5), der die **Session** statt den **Report** beurteilt (Richter≠Angeklagter auf Meta-Ebene).
 - ❌ Find/Verify durch **„du"/Haupt-Session** „zum Sparen" — das ist Self-Review (Regel-1-Bruch). Kosten-Fix = **Sonnet-Subagent**, nicht **kein** Subagent.
 - ❌ **Opus-Subagenten** als Default — Sonnet trägt Find/Verify/Meta; Opus nur bei nachgewiesenem Nuance-Fail.
@@ -321,6 +363,24 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **Phase-1-Collect liest lokalen `git log` ohne vorheriges `git fetch`** — die Frisch-Checkout-Pflicht gilt nicht nur für Phase-3-Skeptiker, sondern für JEDEN Collect-Schritt, auch inline bei `lean`.
 
 ## Changelog
+- 2026-07-31 (v2.7): **Skeptiker-Auswahl nach Befund-Klasse** (Phase 0) + Folgeänderungen in
+  Phase 3 und den Anti-Patterns. Bisher war das Agenten-Budget eine reine Mengenregel
+  („≤5 Subagenten", „je Dimension, nicht je Befund") ohne Aussage darüber, **welche** Befunde
+  eine Falsifikation überhaupt lohnen. Gemessen am Realfall
+  `session-retro-2026-07-31-meiki-hub-6bd412`: von 5 Inline-Befunden waren 3 kommandobelegt
+  (`grep -c`, Textvergleich, Draft-Feld) — ein Skeptiker hätte dort dieselbe Zahl geliefert,
+  reiner Aufpreis. Zwei Sonnet-Skeptiker auf **nur** die 2 Bewertungsbefunde widerlegten beide
+  und fanden zusätzlich einen übersehenen Befund der Severity *hoch*. Drei neue Festlegungen:
+  (1) Klassentabelle kommandobelegt/Bewertungsbefund als Auswahlfilter vor Phase 3;
+  (2) **gemessene** Kostengröße ~55k je eng geführtem Skeptiker statt Schätzung — die
+  Vorab-Schätzung „deutlich unter 126k" war real 115k, also falsch, und ist als Anti-Pattern
+  aufgenommen; (3) bei ≤2 Bewertungsbefunden ist je-Befund günstiger als die
+  Dimensions-Bündelung, die Spend-Falle greift erst ab ~4. Ergänzt außerdem den Fall
+  „Umgebung untersagt Subagenten": inline finden, sortieren, die weichen Befunde mit ihrer
+  Zahl zur Freigabe vorlegen und nachträglich falsifizieren — statt Retro ohne Falsifikation
+  oder Abbruch an der Budgetfrage. Nebenbefund derselben Messung: die Fehlerrichtung ist nicht
+  vorhersagbar (erwartet wurde Selbstnachsicht, real waren beide Befunde zu streng) → der
+  Skeptiker-Auftrag muss neutral formuliert sein.
 - 2026-06-04: Initial. Aus einem Advocatus-Diabolus-Review des Paste-Prompt-Retros
   (`iil-prompts-retrospective`) hervorgegangen; die 4 Fixes + der Längsschnitt-Hebel sind die
   Lehren daraus. Deterministische Engine: `~/shared/session-retro.workflow.js`.
