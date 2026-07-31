@@ -36,7 +36,7 @@ PRAEFIXE = ("feedback_", "project_", "reference_")
 # Reparierer haelt sich daran. Beide liegen im selben Verzeichnis, das beim
 # direkten Aufruf ohnehin auf sys.path steht.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from memory_link_check import CODE_FENCE, INLINE_CODE  # noqa: E402
+from memory_link_check import CODE_FENCE, INLINE_CODE, NICHT_MEMORY  # noqa: E402
 
 
 def _code_bereiche(text: str) -> list[tuple[int, int]]:
@@ -51,8 +51,10 @@ def _code_bereiche(text: str) -> list[tuple[int, int]]:
 def _in_code(pos: int, bereiche: list[tuple[int, int]]) -> bool:
     return any(a <= pos < b for a, b in bereiche)
 
-# Verweise auf Nicht-Memories (Policies) sind kein Fund und werden nie umgeschrieben.
-NICHT_MEMORY = {"evidence-discipline", "session-routing", "llm-routing", "adr-threshold"}
+# NICHT_MEMORY wird oben zusammen mit CODE_FENCE/INLINE_CODE aus dem Pruefer
+# importiert. Eine zweite Kopie hier driftet auseinander, sobald jemand nur eine
+# der beiden Stellen anfasst — und die Doku behauptete bereits "eine Quelle fuer
+# beide Werkzeuge", waehrend nur die Regexe geteilt waren (Retro 2026-07-31, #3).
 
 
 @dataclass

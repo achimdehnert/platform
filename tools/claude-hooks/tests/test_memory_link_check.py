@@ -169,9 +169,9 @@ def baseline_datei(tmp_path: Path, *zeilen: str) -> Path:
 def test_should_parse_a_baseline_and_skip_comments_and_blanks(tmp_path: Path):
     from memory_link_check import lade_baseline
 
-    p = baseline_datei(tmp_path, "projekt-a\tziel-1\tGrund", "projekt-a\tziel-2\tGrund")
+    p = baseline_datei(tmp_path, "projekt-a\ta.md\tziel-1\tGrund", "projekt-a\tb.md\tziel-2\tGrund")
 
-    assert lade_baseline(p) == {"projekt-a": {"ziel-1", "ziel-2"}}
+    assert lade_baseline(p) == {"projekt-a": {("a.md", "ziel-1"), ("b.md", "ziel-2")}}
 
 
 def test_should_treat_a_missing_baseline_as_empty(tmp_path: Path):
@@ -183,7 +183,7 @@ def test_should_treat_a_missing_baseline_as_empty(tmp_path: Path):
 def test_should_classify_a_listed_target_as_forward_ref(mem: Path):
     schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[noch-nicht-da]].")
 
-    funde = pruefe_verzeichnis(mem, {"noch-nicht-da"})
+    funde = pruefe_verzeichnis(mem, {("feedback_alpha.md", "noch-nicht-da")})
 
     assert [f.art for f in funde] == ["forward-ref"]
 
@@ -192,7 +192,7 @@ def test_should_still_flag_an_unlisted_target_as_dead(mem: Path):
     # die Baseline darf nur decken, was ausdruecklich drinsteht
     schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[tippfehlr]].")
 
-    funde = pruefe_verzeichnis(mem, {"noch-nicht-da"})
+    funde = pruefe_verzeichnis(mem, {("feedback_alpha.md", "noch-nicht-da")})
 
     assert [f.art for f in funde] == ["dead-wikilink"]
 
@@ -202,7 +202,7 @@ def test_should_report_a_baseline_entry_whose_target_now_exists(mem: Path):
 
     schreibe(mem, "spaeter-geschrieben", "spaeter-geschrieben")
 
-    funde = pruefe_baseline(mem, {"spaeter-geschrieben"}, {"spaeter-geschrieben"})
+    funde = pruefe_baseline(mem, {("a.md", "spaeter-geschrieben")}, {("a.md", "spaeter-geschrieben")})
 
     assert [f.art for f in funde] == ["stale-baseline"]
     assert "existiert inzwischen" in funde[0].detail
@@ -211,7 +211,7 @@ def test_should_report_a_baseline_entry_whose_target_now_exists(mem: Path):
 def test_should_report_a_baseline_entry_nobody_references_anymore(mem: Path):
     from memory_link_check import pruefe_baseline
 
-    funde = pruefe_baseline(mem, {"nie-mehr-verwiesen"}, set())
+    funde = pruefe_baseline(mem, {("a.md", "nie-mehr-verwiesen")}, set())
 
     assert [f.art for f in funde] == ["stale-baseline"]
     assert "nicht mehr verwiesen" in funde[0].detail
@@ -220,12 +220,12 @@ def test_should_report_a_baseline_entry_nobody_references_anymore(mem: Path):
 def test_should_keep_a_baseline_entry_that_is_still_in_use(mem: Path):
     from memory_link_check import pruefe_baseline
 
-    assert pruefe_baseline(mem, {"noch-offen"}, {"noch-offen"}) == []
+    assert pruefe_baseline(mem, {("a.md", "noch-offen")}, {("a.md", "noch-offen")}) == []
 
 
 def test_should_exit_0_for_forward_refs_but_1_for_a_real_dead_link(mem: Path, tmp_path: Path):
     schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[noch-nicht-da]].")
-    bl = baseline_datei(tmp_path, f"{mem.parent.name}\tnoch-nicht-da\tGrund")
+    bl = baseline_datei(tmp_path, f"{mem.parent.name}\tfeedback_alpha.md\tnoch-nicht-da\tGrund")
 
     assert main(["--root", str(mem), "--baseline", str(bl)]) == 0
 
@@ -235,6 +235,49 @@ def test_should_exit_0_for_forward_refs_but_1_for_a_real_dead_link(mem: Path, tm
 
 def test_should_exit_1_when_the_baseline_has_rotted(mem: Path, tmp_path: Path):
     schreibe(mem, "gibt-es-schon", "gibt-es-schon")
-    bl = baseline_datei(tmp_path, f"{mem.parent.name}\tgibt-es-schon\tGrund")
+    bl = baseline_datei(tmp_path, f"{mem.parent.name}\ta.md\tgibt-es-schon\tGrund")
 
     assert main(["--root", str(mem), "--baseline", str(bl)]) == 1
+
+
+# --- Nachtrag aus dem Retro 2026-07-31 --------------------------------------
+
+
+def test_should_not_let_a_baseline_entry_cover_a_neighbouring_file(mem: Path):
+    """Der Kern von Befund #2: die Ausnahme gilt der Datei, die sie beantragt hat.
+
+    Datei A darf `[[noch-nicht-da]]` fuehren; nennt Datei B denselben String
+    versehentlich, ist das ein Tippfehler und muss hart bleiben.
+    """
+    schreibe(mem, "feedback_alpha", "feedback_alpha", "Siehe [[noch-nicht-da]].")
+    schreibe(mem, "feedback_beta", "feedback_beta", "Auch [[noch-nicht-da]].")
+
+    funde = pruefe_verzeichnis(mem, {("feedback_alpha.md", "noch-nicht-da")})
+
+    nach_datei = {f.datei: f.art for f in funde}
+    assert nach_datei == {
+        "feedback_alpha.md": "forward-ref",
+        "feedback_beta.md": "dead-wikilink",
+    }
+
+
+def test_should_recognise_an_indented_code_fence(mem: Path):
+    body = "- Punkt:\n\n  ```\n  [[in-code]]\n  ```\n"
+    schreibe(mem, "feedback_alpha", "feedback_alpha", body)
+
+    assert pruefe_verzeichnis(mem) == []
+
+
+def test_should_not_close_a_four_backtick_fence_at_an_inner_three(mem: Path):
+    body = "````\nBeispiel:\n```\n[[in-code]]\n```\n````\n"
+    schreibe(mem, "feedback_alpha", "feedback_alpha", body)
+
+    assert pruefe_verzeichnis(mem) == []
+
+
+def test_should_share_the_non_memory_set_with_the_fixer():
+    """Beide Werkzeuge muessen dieselbe Ausnahmeliste sehen, nicht zwei Kopien."""
+    import memory_link_check as check
+    import memory_link_fix as fix
+
+    assert fix.NICHT_MEMORY is check.NICHT_MEMORY

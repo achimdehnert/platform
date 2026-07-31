@@ -36,7 +36,13 @@ NAME_FIELD = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
 # `[[*_extract*]]` aus dem design-hub-Renderer, `[[reisekosten:…]]` aus einer
 # Angebotsvorlage. Wer den Codebereich mitliest, meldet Dokumentation als
 # kaputten Link; am 2026-07-31 waren das 12 der 45 verbleibenden Befunde.
-CODE_FENCE = re.compile(r"^(```|~~~).*?^\1", re.MULTILINE | re.DOTALL)
+# Zwei Grenzfaelle, die die erste Fassung verfehlte (Retro 2026-07-31, Befund #4):
+#   - eingerueckte Fences in Listenpunkten (`^` verlangte Spaltennull)
+#   - ein 4-Backtick-Block, der ein 3-Backtick-Beispiel enthaelt: der innere
+#     Fence schloss den aeusseren, der Rest lag wieder offen
+# Deshalb Einrueckung erlauben und die Zaunlaenge per Rueckverweis festhalten —
+# ein Zaun schliesst nur mit derselben Zeichenzahl, mit der er geoeffnet hat.
+CODE_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1", re.MULTILINE | re.DOTALL)
 INLINE_CODE = re.compile(r"`[^`\n]*`")
 
 
@@ -81,12 +87,15 @@ def _frontmatter(text: str) -> str:
 
 
 def pruefe_verzeichnis(
-    mem: Path, erlaubt: frozenset[str] | set[str] = frozenset()
+    mem: Path,
+    erlaubt: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
 ) -> list[Fund]:
     """Prueft ein Memory-Verzeichnis.
 
-    `erlaubt` sind vorausschauende Verweisziele aus der Baseline: sie werden als
+    `erlaubt` sind (Datei, Ziel)-Paare aus der Baseline: sie werden als
     `forward-ref` gemeldet statt als `dead-wikilink` und lassen den Lauf gruen.
+    Die Ausnahme gilt genau der Datei, die sie beantragt hat — eine Nachbardatei
+    mit demselben Zielstring bleibt ein harter Fund.
     Ein vorausschauender Verweis ist laut Memory-Spezifikation zulaessig — er
     markiert, was noch zu schreiben waere. Von einem Tippfehler ist er maschinell
     nicht zu unterscheiden, deshalb die ausdrueckliche Liste statt einer Heuristik.
@@ -114,7 +123,7 @@ def pruefe_verzeichnis(
         for ziel in WIKILINK.findall(prosa):
             if ziel in slugs or ziel in NICHT_MEMORY:
                 continue
-            art = "forward-ref" if ziel in erlaubt else "dead-wikilink"
+            art = "forward-ref" if (name, ziel) in erlaubt else "dead-wikilink"
             funde.append(Fund(art, name, f"[[{ziel}]]"))
 
         if name == "MEMORY.md":
@@ -130,22 +139,34 @@ def pruefe_verzeichnis(
 BASELINE = Path(__file__).with_name("memory_forward_refs.tsv")
 
 
-def lade_baseline(pfad: Path) -> dict[str, set[str]]:
-    """projekt -> erlaubte Verweisziele. Fehlende Datei = leere Baseline."""
-    erlaubt: dict[str, set[str]] = {}
+def lade_baseline(pfad: Path) -> dict[str, set[tuple[str, str]]]:
+    """projekt -> erlaubte (Datei, Ziel)-Paare. Fehlende Datei = leere Baseline.
+
+    Der Schluessel ist bewusst so fein wie der Befund, den er deckt: der Pruefer
+    meldet (Verzeichnis, Datei, Ziel), also deckt die Ausnahme genau dieses
+    Tripel. Auf (Projekt, Ziel) verkuerzt — so die erste Fassung — deckt ein
+    Eintrag auch jede ANDERE Datei desselben Projekts ab, die zufaellig denselben
+    String nennt: ein echter Tippfehler ginge dort still als zulaessig durch
+    (Retro 2026-07-31, Befund #2).
+    """
+    erlaubt: dict[str, set[tuple[str, str]]] = {}
     if not pfad.is_file():
         return erlaubt
     for zeile in pfad.read_text(encoding="utf-8").splitlines():
         if not zeile.strip() or zeile.lstrip().startswith("#"):
             continue
-        teile = zeile.split("\t")
-        if len(teile) < 2:
+        teile = [t.strip() for t in zeile.split("\t")]
+        if len(teile) < 3:
             continue
-        erlaubt.setdefault(teile[0].strip(), set()).add(teile[1].strip())
+        erlaubt.setdefault(teile[0], set()).add((teile[1], teile[2]))
     return erlaubt
 
 
-def pruefe_baseline(mem: Path, erlaubt: set[str], gesehen: set[str]) -> list[Fund]:
+def pruefe_baseline(
+    mem: Path,
+    erlaubt: set[tuple[str, str]],
+    gesehen: set[tuple[str, str]],
+) -> list[Fund]:
     """Meldet Baseline-Eintraege, die ihren Zweck verloren haben.
 
     Ohne diese Rueckrichtung wird jede Ausnahmeliste zur stillen Dauerschuld:
@@ -153,21 +174,21 @@ def pruefe_baseline(mem: Path, erlaubt: set[str], gesehen: set[str]) -> list[Fun
     entfernt wurde, und decken irgendwann einen echten Tippfehler mit ab.
     """
     funde: list[Fund] = []
-    for ziel in sorted(erlaubt):
+    for datei, ziel in sorted(erlaubt):
         if (mem / f"{ziel}.md").exists():
             funde.append(
                 Fund(
                     "stale-baseline",
                     "memory_forward_refs.tsv",
-                    f"{ziel} existiert inzwischen — Eintrag entfernen",
+                    f"{datei} → {ziel} existiert inzwischen — Eintrag entfernen",
                 )
             )
-        elif ziel not in gesehen:
+        elif (datei, ziel) not in gesehen:
             funde.append(
                 Fund(
                     "stale-baseline",
                     "memory_forward_refs.tsv",
-                    f"{ziel} wird nicht mehr verwiesen — Eintrag entfernen",
+                    f"{datei} → {ziel} wird nicht mehr verwiesen — Eintrag entfernen",
                 )
             )
     return funde
@@ -209,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     for mem in verzeichnisse:
         erlaubt = baseline.get(mem.parent.name, set())
         funde = pruefe_verzeichnis(mem, erlaubt)
-        gesehen = {f.detail[2:-2] for f in funde if f.art == "forward-ref"}
+        gesehen = {(f.datei, f.detail[2:-2]) for f in funde if f.art == "forward-ref"}
         funde += pruefe_baseline(mem, erlaubt, gesehen)
         alle.append((mem, funde))
 
