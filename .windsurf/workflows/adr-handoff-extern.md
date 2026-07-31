@@ -212,6 +212,37 @@ ist jeder Punkt einzeln adressierbar: tagge jede **Befund- und REC-ID** `[valid]
 eigener Begründung, nicht als wörtliche GPT-Prosa. Halte die Tag-Tabelle (ID → Verdikt → Aktion)
 als Nachweis fest.
 
+**5a — Eine Zeile je ID, und eine Vollständigkeits-Gegenprobe (PFLICHT).**
+Die Tagging-Regel oben existiert seit der Erstfassung — sie wird trotzdem übersprungen, weil ein
+thematisch gebündeltes Board *aussieht*, als sei alles erfasst. Deshalb mechanisch:
+
+1. **Jede `REC-`ID bekommt eine eigene Tabellenzeile**, auch wenn mehrere dieselbe Aktion
+   auslösen. Als Aktionstext ist dann `s. REC-N` zulässig — die **Zeile** darf nicht fehlen.
+   Befund-IDs (`AD-`/`PRO-`/`M28-`) dürfen weiterhin gebündelt werden, wenn sie denselben
+   Sachverhalt tragen.
+2. **Auszählen, nicht überfliegen:** Zahl der `REC-`IDs in der Antwort gegen Zahl der
+   `REC-`Zeilen in der Tag-Tabelle. Bei zwei Review-Runden je Runde getrennt zählen.
+   ```bash
+   grep -oE '\*\*REC-[0-9]+' <response>.md | sort -u | wc -l   # Soll
+   grep -coE '^\| *REC-[0-9]+' <adr>.md                        # Ist
+   ```
+   Der Ist-Grep zählt **nur Zeilen, die mit einer `REC-`ID beginnen** — das ist Absicht, nicht
+   Ungenauigkeit: Genau dadurch fällt eine REC auf, die in einer Befund-Zeile mitgeschleppt
+   wurde (`| AD-4 · REC-5 | …`), statt eine eigene Zeile zu haben. Beide Greps am 2026-07-31
+   gegen eine Fixture und die reale ADR-291-Tabelle geprüft.
+3. **Differenz ≠ 0 ⇒ die Bilanz ist noch nicht geschrieben.** Erst gleichziehen, dann die
+   Zusammenfassung („N Empfehlungen, davon M eingeflossen") formulieren — sonst zählt sie
+   Empfehlungen, die nie geprüft wurden.
+
+**Realfall 2026-07-31 (ADR-291, platform#1595):** Zwei Review-Runden mit zusammen 22
+Empfehlungen wurden thematisch gebündelt getaggt. Dabei fielen **drei** Punkte still heraus —
+`REC-4` aus **beiden** Runden und der Ortsteil von `REC-5`. Einer davon (`REC-5`: „den Ort von
+`manifest.json` explizit benennen") deckte einen **echten Konstruktionsfehler** in der gerade
+erst überarbeiteten Fassung auf: Eine neu entworfene CI-Prüfung las eine Datei, die es im Repo
+gar nicht gibt. Gefunden erst, als der Betreiber dieselben Reviews ein zweites Mal vorlegte und
+die IDs einzeln durchgezählt wurden. Ohne diesen Zufall wäre der Fehler gemergt worden.
+Familie: `execution-fidelity-long-documents` — die Regel stand da, sie wurde überflogen.
+
 **5b — Durabler Audit-Nachweis (`~/shared` ist Wegwerf, KONZ-platform-010).** Briefing + Response
 bleiben Scratch in `~/shared` (s. Anti-Pattern — kein Briefing ins Repo). Aber der **Audit selbst**
 — welcher Anbieter, wann, Verdikt-Bilanz + die `[valid]`-Tag-Tabelle — muss ein **durables** Zuhause
@@ -252,6 +283,12 @@ der Versionshistorie.
   Souveränitäts-Check ist Vorbedingung des Calls, kein Best-Effort danach.
 - ❌ Bei `--auto` das Befund-Tagging (Step 5) **mit-automatisieren** — das Urteil bleibt Mensch;
   Auto-Rückfluss macht die Zweitmeinung zum Gummistempel.
+- ❌ **`REC-`IDs thematisch bündeln, statt je eine Zeile zu führen** (Step 5a) — genau so fallen
+  Empfehlungen still heraus, und die Bilanz („N Empfehlungen, davon M eingeflossen") zählt dann
+  Punkte mit, die nie geprüft wurden. Realfall platform#1595: 3 von 22 verloren, darunter einer,
+  der einen echten Konstruktionsfehler aufdeckte.
+- ❌ Die Rückfluss-**Bilanz schreiben, bevor die Vollständigkeits-Gegenprobe (Step 5a.2) läuft** —
+  eine ausgezählte Differenz ≠ 0 heißt: die Bilanz ist noch nicht schreibbar.
 - ❌ Modell-ID (z. B. „gpt-5.5") hardcoden statt aus Frontmatter `model` / `${ADR_HANDOFF_MODEL}`.
 - ❌ **Lokal curlen / `~/.secrets/*_api_key` lesen wollen** — root-only, in CC-Session nicht lesbar;
   Egress läuft über aifw/Orchestrator (Step 4b.3).
@@ -313,3 +350,14 @@ der Versionshistorie.
   `ai_sparring_by` (Array von `$defs/AISparring`: `tool: other` für externe Anbieter, `role:
   adversarial-review`, Provider in `summary`), plus Pflicht-`validate` nach dem Setzen. Kein
   Schema-Change nötig; `ai_sparring_by` ist bewusst non-accountable (ersetzt keine Owner-Review).
+- 2026-07-31: **Step 5a — eine Zeile je `REC-`ID plus Vollständigkeits-Gegenprobe (Realfall
+  platform#1595).** Die Tagging-Pflicht („tagge jede Befund- und REC-ID") stand seit der
+  Erstfassung in Step 5 — sie wurde trotzdem übersprungen: Zwei Review-Runden zu ADR-291 mit
+  zusammen 22 Empfehlungen wurden **thematisch gebündelt** getaggt, wobei drei Punkte still
+  herausfielen (`REC-4` aus beiden Runden, der Ortsteil von `REC-5`). Ein verlorener Punkt
+  deckte einen **echten Konstruktionsfehler** auf: Eine gerade erst überarbeitete CI-Prüfung
+  las `manifest.json`, das im Repo gar nicht existiert (nur unter `~/.claude/`) — derselbe
+  Ortsfehler, den die Überarbeitung eigentlich behob. Gefunden erst, weil der Betreiber
+  dieselben Reviews ein zweites Mal vorlegte. **Lehre:** Eine Regel, die nur *fordert*, wird
+  überflogen; sie braucht eine mechanische Gegenprobe (ID-Zahl auszählen, Differenz ≠ 0 blockt
+  die Bilanz). Familie `execution-fidelity-long-documents`. Zwei Anti-Patterns ergänzt.
