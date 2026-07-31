@@ -296,7 +296,7 @@ Das ist der eine Fehler, aus dem fast alle Befunde folgen.
 | 3 | Ergebnis des Spikes zu Option F — er kann B2 ganz überflüssig machen | offen |
 | 4 | **`refresh_pinned_policies.sh` unter Versionskontrolle bringen** — der Hook, der die Steuerzone aktuell hält, ist selbst unversioniert (Richtigstellung unten) | Owner |
 | 5 | Ob der Generator ein committetes `manifest.expected.json` schreibt — Voraussetzung für A3 und für ein aussagekräftiges B2 | Owner |
-| 6 | **Wo C6 aufgerufen wird** — in CI ist er wirkungslos (Richtigstellung unten); Kandidat ist die SessionStart-Kette direkt nach dem Refresh | Owner |
+| 6 | **Ein Prüfer für die ganze Policy-Zone fehlt** — C6 deckt 1 von 12 Dateien ab und wäre beim realen Vorfall grün gewesen (Mutationstest unten). Zu bauen wäre ein Zonen-weiter Pin-Frische-Check; C6 bleibt daneben als ADR-211-Bestätigung bestehen | Owner |
 | 7 | **Mid-Session-Drift** — der Refresh läuft nur bei SessionStart; während einer langen Sitzung veraltet die Zone unbemerkt (Realfall: 17 Commits) | Owner |
 
 ### Richtigstellung zum `policies/`-Pfad (2026-07-31, nachgemessen)
@@ -308,7 +308,7 @@ ohne Generator-Lane und ohne Manifest". **Das war zweifach falsch.** Was tatsäc
 |---|---|
 | „verteilte **Kopie**" | `~/.claude/policies` ist ein **Symlink** → `~/github/platform-pinned/policies` (`ls -ld`). Es gibt keine Kopie, die driften könnte. |
 | „ohne Manifest" | Ein Symlink **braucht** kein Manifest. Die Invariante ist eine andere: der gepinnte Worktree darf nicht veralten. |
-| „kein Prüfer" | `scripts/checks/klickdummy_policy_sync.sh` (ADR-211 C6) prüft **genau das** — SSoT gegen Injektionsziel gegen `origin/main`. Am 2026-07-31 grün laufen gesehen. |
+| „kein Prüfer" | Ein Prüfer existiert — aber er deckt die Zone **nicht** ab, siehe „Mutationstest" unten. Diese Zeile war in der ersten Richtigstellung selbst noch zu großzügig formuliert. |
 | „kein Refresh" | `~/.claude/hooks/refresh_pinned_policies.sh` refresht bei SessionStart (`fetch` + `checkout --detach origin/main`), mit Dirty-Guard und fail-soft. Auch das ist in ADR-272 als Mechanismus geführt. |
 
 **Der echte Befund ist ein anderer und schärfer** — drei Lagen, alle verifiziert:
@@ -325,6 +325,36 @@ ohne Generator-Lane und ohne Manifest". **Das war zweifach falsch.** Was tatsäc
    die aus der hooks-Lane kommen. Nach ADR-290 Regel 2 (Zonenintegrität) ist damit
    ausgerechnet das Werkzeug, das die Zone aktuell hält, kein owner-freigegebener,
    hash-prüfbarer Generator, sondern ein handgepflegtes Skript außerhalb jeder Kontrolle.
+
+#### Mutationstest an C6 — das Abnahmekriterium auf den Prüfer selbst angewandt
+
+Dieses ADR verlangt: *kein Gate ohne bewiesene Rot-Fähigkeit.* Vor jeder Verdrahtung von C6
+wurde das an ihm selbst durchgeführt — an Fixtures, ohne Eingriff in die Live-Umgebung
+(`CLAUDE_POLICIES_DIR` ist überschreibbar).
+
+| Fall | Erwartet | Gemessen |
+|---|---|---|
+| M0 Live-Umgebung (Kontrolle) | grün | ✅ `exit 0` |
+| M1 Injektionsziel fehlt | SKIP | ✅ `exit 0` |
+| M1b dasselbe mit `--strict` | FAIL | ✅ `exit 1` |
+| M2 Ziel-Datei fehlt | FAIL | ✅ `exit 1` |
+| M4 manipulierter Inhalt | FAIL | ✅ `exit 1` |
+| **M3 staler Pin** (der Zielfall) | FAIL | ❌ **`exit 0` — grün** |
+
+**Ursache, nachgemessen:** C6 prüft **genau eine Datei** — `SRC="$REPO_ROOT/policies/klickdummy.md"`,
+`TGT="$INJECT_DIR/klickdummy.md"`. Ein Grep nach weiteren Policy-Namen im Skript liefert nur
+diese eine. Der Name sagt es: Es ist die **ADR-211-Bestätigung C6** für die
+Klickdummy-Policy, **kein Prüfer der Steuerzone**.
+
+**Konsequenz für den realen Vorfall:** Zwischen dem stalen Pin `6d9c692b` und `origin/main`
+änderten sich `llm-routing.md` und `session-routing.md` — `klickdummy.md` **nicht**
+(`git diff --quiet … -- policies/klickdummy.md` → unverändert). **C6 wäre während des
+gesamten Vorfalls grün gewesen.** Abdeckung der Policy-Zone: **1 von 12 Dateien.**
+
+Damit ist die Lage schärfer als „Prüfer ohne Aufrufer": Es gibt **keinen** Prüfer für die
+Policy-Zone. C6 zu verdrahten hätte ein grünes Signal erzeugt, das über 11 von 12 Dateien
+nichts aussagt — ein Gate, das Vertrauen erzeugt, ohne es zu decken. Genau das, wogegen
+dieses ADR geschrieben ist. **Der Mutationstest hat das gefangen, bevor gebaut wurde.**
 
 **Und die Latenz, die den Anlass gab:** Am 2026-07-31 stand der Pin auf `6d9c692b`
 (11:09 Uhr, gesetzt vom Hook einer parallelen Session), während `origin/main` 17 Commits
