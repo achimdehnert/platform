@@ -256,4 +256,4 @@
 | 288 | Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements | Proposed | ⬜ | [ADR-288](ADR-288-mail-recherche-hybride-projektion.md) |
 | 289 | Adopt netcup as Off-Provider Backup Target — Further Platform Roles Deferred | Proposed | ⬜ | [ADR-289](ADR-289-netcup-off-provider-platform-services-host.md) |
 | 290 | Steuerzone — deklarierte Allow-List handlungsleitender Texte | Proposed | ⬜ | [ADR-290](ADR-290-zonenregel-handlungsleitender-text.md) |
-| 291 | Freigabekern-Gate — anweisungstragende Dateien gegen den festgeschriebenen Stand | Proposed | ⬜ | [ADR-291](ADR-291-freigabekern-gate.md) |
+| 291 | Integrität der Steuerzone — Quellprüfung in CI, Laufzeitprüfung am Ort | Proposed | ⬜ | [ADR-291](ADR-291-freigabekern-gate.md) |

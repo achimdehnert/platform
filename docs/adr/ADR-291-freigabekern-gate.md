@@ -11,137 +11,244 @@ implementation_status: none
 last_reviewed: 2026-07-31
 staleness_months: 3
 tags: [ci, governance, drift, guardrails, konvention]
+ai_sparring_by:
+  - tool: other
+    date: 2026-07-31
+    role: adversarial-review
+    summary: "Externes LLM Runde 1 (via /adr-handoff-extern): Verdikt ueberarbeiten — zwei von drei Pruefungen sind aus CI heraus nicht berechenbar; SUGGEST misst Rauschen statt Gueltigkeit und wuerde den Konstruktionsfehler zertifizieren. 18 Befunde, 10 Empfehlungen."
+  - tool: other
+    date: 2026-07-31
+    role: adversarial-review
+    summary: "Externes LLM Runde 2 (unabhaengig, via /adr-handoff-extern): Verdikt ueberarbeiten — Pruef-Ort, Claims und Abnahmekriterien neu schneiden; Manifest-Hash beweist weder Zielpfad noch Lane-Identitaet. 22 Befunde, 12 Empfehlungen."
 ---
 
-# ADR-291: Freigabekern-Gate — anweisungstragende Dateien gegen den festgeschriebenen Stand
+# ADR-291: Integrität der Steuerzone — Quellprüfung in CI, Laufzeitprüfung am Ort
 
 > **Nummern-Hinweis:** 291 = nächste freie Nummer zum Draft-Zeitpunkt; final allokiert
 > zur Merge-Zeit (ADR-228).
 
 ## Status-Hinweis
 
-`proposed`. Setzt ADR-290 voraus — ohne deklarierte Steuerzone gibt es nichts zu prüfen.
+`proposed`, **Fassung 2 nach zwei unabhängigen externen Reviews** (2026-07-31). Beide
+Verdikte: *überarbeiten*. Beide unabhängig mit derselben Hauptbegründung:
 
-**Nachtrag 2026-07-31 (ADR-290 Fassung 2, zwei externe Reviews):** Zwei Annahmen dieses
-ADR sind durch die Überarbeitung von ADR-290 überholt und werden hier **noch nicht**
-eingearbeitet — der externe Review zu ADR-291 selbst steht aus, und ich will die beiden
-Runden nicht vermischen:
+> Zwei der drei geplanten Prüfungen können aus CI heraus **genau den Zustand nicht
+> beobachten, über den sie urteilen sollen.**
 
-1. **Prüfung 2 ist nicht mehr nur SUGGEST-würdig, sondern normativ unterlegt.** ADR-290
-   Regel 2 entscheidet den Status der verteilten Kopien: Sie tragen Zonenstatus nur,
-   solange ihr `manifest.json` zur freigegebenen Repo-Quelle passt. Die hier als „echte
-   Lücke" benannte CI-Schwäche (der Pfad `~/.claude/` existiert in CI nicht) wird dadurch
-   nicht kleiner — aber der Vergleich gegen das Manifest ist jetzt die *definierte*
-   Autoritätsbedingung statt eines Behelfs.
-2. **Vor dem Marker-Scanner steht ein heuristikfreier Ladelisten-Check** (ADR-290
-   Option C'): prüfen, was automatisch in einen Agentenkontext geladen wird, gegen
-   Loader/Manifest — per Konstruktion ohne Fehlalarme und damit ohne Baseline-Runde
-   sofort gating-fähig. Beide externen Reviewer schlugen das unabhängig vor. Die
-   Umsetzungs-Reihenfolge unten (Schritt 3: „Prüfung 2 SUGGEST, Baseline über ≥5 Repos")
-   ist dadurch voraussichtlich zu ändern.
+Fassung 1 hieß „Freigabekern-Gate" und wollte alles in einem CI-Job prüfen. Das war ein
+Ortsfehler: SB-Neu prüft auf **derselben Maschine im selben Moment** wie die geschützte
+Handlung; CI prüft auf einer anderen Maschine zu einer anderen Zeit und sieht
+ausschließlich den PR. Fassung 1 benannte diesen Verlust nur für Prüfung 2 — er betrifft
+alle drei.
 
-Beides gehört in eine Fassung 2 dieses ADR, **nach** seinem eigenen externen Review.
+**Selbstkritik, weil sie zur Sache gehört:** In derselben Sitzung habe ich
+`evidence-discipline` Punkt 8 eingeführt — *„ein Prüflauf ohne Befund ist verdächtig"* —
+und danach ein Gate entworfen, das aus strukturellen Gründen **nie rot werden kann**. Genau
+davor warnt die Regel, die ich eine Stunde vorher geschrieben hatte.
 
 ## Context
 
 Wir haben ein wiederkehrendes, belegtes Problem: **Kanon-Entscheidungen driften weg, weil
-nichts sie erzwingt.** Die Memory-Historie nennt es dreimal unabhängig:
+nichts sie erzwingt.** Vier Vorfälle:
 
-| Lehre | Kern |
-|---|---|
-| `canon-decision-needs-enforcement-gate` | Banner ohne CI-Gate driftet |
-| `policy-edits-belong-in-platform-pr-not-pinned` | Policy-Edits am verteilten Ort statt an der Quelle |
-| `ruleset-bypass-durable-artifact` | Bypass ohne Audit-Spur |
+| # | Vorfall | Aus einem PR-Check fangbar? |
+|---|---|---|
+| 1 | Kanon-Entscheidung als Banner dokumentiert, ohne Gate — driftete weg | teilweise |
+| 2 | Policy-Edit am **verteilten** Ort (`~/.claude/policies/`) statt an der Quelle | **nein** — passiert außerhalb jedes Repos |
+| 3 | Ruleset-Bypass ohne Audit-Spur | **nein, prinzipiell** — ein Bypass ist das Umgehen genau dieser Prüfung |
+| 4 | `generate.py --target` tauschte das komplette Lane-Verzeichnis `~/.claude` aus; `--allow-live` prüfte nur Gleichheit, nicht Identität des Ziels (#1558) | **nein** — passiert auf der Betreibermaschine |
 
-Dazu kommt ein vierter, jüngerer Fall: `generate.py --target` hat am 2026-07-30 das
-komplette Lane-Verzeichnis `~/.claude` ausgetauscht, und `--allow-live` prüfte nur
-Gleichheit, nicht Identität des Ziels (#1558).
+**Diese Tabelle ist die eigentliche Korrektur gegenüber Fassung 1.** Dort stand,
+das Gate gebe „vier belegten Drift-Vorfällen erstmals einen mechanischen Fänger". Das war
+falsch: Drei der vier passieren dort, wo CI nicht hinsieht. Vorfall 3 kann von einer
+PR-Prüfung **prinzipiell** nicht gefangen werden.
 
-Das gemeinsame Muster: Die **Quelle** der handlungsleitenden Texte (`policies/`,
-`skills/`, `.windsurf/workflows/`, `CLAUDE.md`) und ihre **verteilten Kopien** unter
-`~/.claude/` können auseinanderlaufen, ohne dass jemand es merkt. Die Kopien sind das,
-was der Agent tatsächlich liest.
-
-**Vergleichsfall (Fremdsystem).** SB-Neu prüft seine Steuerzone bei **jedem** Werkzeuglauf:
-
-- Liegt alles unterhalb `steuer\` byte-gleich im festgeschriebenen Stand?
-- Trägt jede Änderung einen korrespondierenden Eintrag im Freigabejournal?
-- Ist das Journal **anfügungsfest** — stehen alle je angefügten Einträge auch im Commit?
-
-Mit **eigenem Rückgabewert**, der vor allen anderen Befunden steht: *„dieses Urteil stammt
-nicht von dem Werkzeug, das die Versionskontrolle trägt."* Ich habe das am 2026-07-31
-scharf laufen lassen — es funktioniert, auch unter Linux.
+**Vergleichsfall (Fremdsystem), Übertragbarkeit ausdrücklich als Hypothese.** SB-Neu prüft
+seine Steuerzone bei jedem Werkzeuglauf gegen den festgeschriebenen Stand, mit eigenem
+Rückgabewert, der allen anderen Befunden vorgeht. Ich habe das einmal (n=1) unter Linux
+scharf laufen lassen; es funktioniert dort. **Die Konstruktion überträgt sich aber nicht,
+weil die Prüfung dort am Ort der Handlung sitzt** — bei uns wäre sie es nur, wenn sie beim
+Verteilen und beim Sessionstart läuft, nicht im PR.
 
 ## Decision
 
-**Ein CI-Gate prüft bei jedem PR, dass die Steuerzone (ADR-290) im festgeschriebenen Stand
-liegt und ihre verteilten Kopien damit übereinstimmen.**
+**Die Integrität der Steuerzone wird an zwei getrennten Orten gesichert. Nur was CI
+beobachten kann, läuft in CI.**
 
-Drei Prüfungen, in dieser Rangfolge:
+### Invariante A — Quellintegrität (in CI, path-gefiltert)
 
-| # | Prüfung | Bei Verletzung |
+Prüft ausschließlich reproduzierbare Eigenschaften der **Quelle**:
+
+| Prüfung | Rechnung | Beobachtbar in CI? |
 |---|---|---|
-| 1 | **Versionsbindung** — jede Datei der Steuerzone liegt im Commit, byte-gleich zum Arbeitsbaum | hart rot |
-| 2 | **Distributionsgleichheit** — `~/.claude/{skills,commands}` stimmt mit dem Quellstand überein (Manifest-Hash gegen `manifest.json`) | SUGGEST zunächst |
-| 3 | **Anfügungsfestigkeit** — Änderungen an `policies/` erscheinen im PR-Diff, nicht nur am verteilten Ort | hart rot |
+| **A1 Zonen-Vollständigkeit** | kein Zonenpfad wird von `.gitignore` erfasst; keine aus dem Repo herausführenden Symlinks in der Zone | ja |
+| **A2 Manifest-Ahnenschaft** | der in `manifest.json` eingetragene Quell-Commit ist ein **Vorfahr** des PR-Head | ja |
+| **A3 Generator-Reproduzierbarkeit** | ein Lauf des Generators gegen ein temporäres Ziel erzeugt dieselben Hashes wie das committete Manifest — kein unerklärter Diff | ja |
 
-Prüfung 2 startet **SUGGEST / non-gating** nach `repo-health-rule-discipline`: neue Regeln
-gehen erst scharf, wenn sie über mindestens fünf Repos null Fehlalarme produziert haben.
-Prüfung 1 und 3 sind deterministisch-strukturell und können sofort gaten.
+**A1 ersetzt die „Versionsbindung" aus Fassung 1.** Die war in CI tautologisch: Der
+Arbeitsbaum in einem Actions-Lauf **ist** der ausgecheckte Commit; ein Unterschied ist
+konstruktionsbedingt nicht herstellbar. Die ursprüngliche Absicht (Arbeitsbaum gegen
+Commit) gehört in einen Pre-Commit-Hook, nicht in CI.
 
-**Vorrangregel, übernommen von SB-Neu:** Meldet Prüfung 1 eine Abweichung, steht dieser
-Befund **vor** allen anderen — ein Lauf, dessen eigene Regelbasis nicht im
-festgeschriebenen Stand liegt, trifft über nichts anderes ein belastbares Urteil.
+**Prüfung 3 aus Fassung 1 („Anfügungsfestigkeit") entfällt ersatzlos in CI.** Sie sollte
+feststellen, dass eine Policy-Änderung nicht nur am verteilten Ort geschah — ein Ereignis,
+das im CI-Beobachtungsraum überhaupt nicht vorkommt. Der Name war zudem aus SB-Neu
+entlehnt, wo er eine Append-only-Eigenschaft eines Journals meint; hier meinte er die
+Herkunft einer Änderung. Name und geprüfte Invariante fielen auseinander.
+
+### Invariante B — Laufzeitintegrität (am Ort, nicht in CI)
+
+| Ort | Maßnahme |
+|---|---|
+| **B1 Generator-Härtung** (beim Schreiben) | `generate.py` verweigert `--target` auf Verzeichnisse ohne Lane-**Identitätsmarker** (nicht nur Inhaltsgleichheit), löscht keine manifestfremden Einträge, sichert vor dem Schreiben, schließt atomar ab |
+| **B2 Sessionstart-Selbstcheck** (beim Lesen) | der Agent vergleicht beim Start sein `~/.claude`-Manifest gegen `origin/main`: kanonisch aufgelöster Zielpfad, erlaubte Zielwurzel, alle Hashes, unerwartete Dateien — Abweichung wird gemeldet |
+
+**B1 ist die wichtigste Einzelmaßnahme dieses ADR** und war in Fassung 1 gar nicht
+erwogen. Sie fängt Vorfall 2 und 4 **am Entstehungsort**, mit einer Fehlermeldung, die den
+Fehler benennt — ohne CI-Job. Und sie **entfernt eine Fehlermöglichkeit**, statt eine
+Prüfung hinzuzufügen: Sie verbessert die Komplexitäts-Bilanz, statt gerechtfertigt werden
+zu müssen.
+
+### Vorrangregel — auf ihren Adressaten verkleinert
+
+Fassung 1 übernahm den SB-Neu-Satz *„dieses Urteil stammt nicht vom versionsführenden
+Werkzeug"*. **In GitHub Actions ist das versionsführende Werkzeug der Urteilende** — der
+Satz hat hier keinen Adressaten und wird gestrichen.
+
+Was bleibt, ist der tragfähige Kern: *Ein Check, der die Steuerzone **liest**, urteilt
+nicht belastbar, wenn deren Quellintegrität verletzt ist.* Das gilt für die zonelesenden
+Checks (die beiden KI-Reviews, Guardian) — **nicht** für Lint oder Secret-Scan, die
+`CLAUDE.md` nie anfassen. Nur diese bekommen `needs:`; alles andere bleibt parallel.
+Andernfalls würde der Zonen-Job zur Latenz-Untergrenze jedes PRs — und erzeugte genau den
+Zeitdruck, aus dem Vorfall 3 (Bypass) entstand.
+
+### Abnahmekriterium — kein Gate ohne bewiesene Rot-Fähigkeit
+
+**Jede gatende Prüfung liefert einen Negativ-Test mit, der in CI nachweislich rot wird.**
+„Grüner Lauf auf einem echten PR" (Fassung 1, Schritt 2) ist als Abnahme **unzureichend**:
+Grün beweist nichts über die Fähigkeit, rot zu werden.
+
+Mutationsfälle, die A1–A3 erkennen müssen: geänderte Quelldatei ohne aktualisiertes
+Manifest · manipuliertes Manifest · Manifest-Commit ist kein Vorfahr · Zonenpfad per
+`.gitignore` ausgeblendet · Symlink aus der Zone heraus. Für B1/B2 zusätzlich: geänderte
+Live-Datei · zusätzliche Live-Datei · falscher/umgeleiteter Zielpfad · Austausch des
+gesamten Lane-Verzeichnisses.
+
+**Und die Gegenprobe zuerst:** Bevor irgendetwas gebaut wird, wird versucht, A1 in CI rot
+zu bekommen. Gelingt das nicht, ist die Prüfung tautologisch und entfällt — so wie A1 die
+Prüfung 1 aus Fassung 1 abgelöst hat.
+
+### Kein eigener Job
+
+Der CI-Teil (A1–A3) läuft **path-gefiltert** (nur bei Änderungen an Steuerzone, Generator,
+Manifest oder Gate-Code) und wird in einen bestehenden Check integriert (Guardian oder
+Repo-Health), statt eine neue Check-Oberfläche zu erzeugen. Das Repo trägt schon 14 Checks.
+
+### Begriffe
+
+„Festgeschrieben" heißt in diesem ADR: **der Digest des tatsächlich verteilten Quellbaums**,
+wie ihn `manifest.json` führt — nicht PR-Head, nicht Merge-Commit. Wo ein Commit-Bezug
+nötig ist (A2), ist er ausdrücklich als Ahnenschafts-Relation zum PR-Head formuliert.
 
 ## Options considered
 
 | Option | Beschreibung | Konsequenz | Verdikt |
 |---|---|---|---|
-| **A — Status quo** | Regel in Memory + Policy, keine Prüfung | Nichts zu bauen. Das Muster ist viermal aufgetreten und wird wieder auftreten. | verworfen |
-| **B — Nur Versionsbindung** | Prüfung 1 allein | Billig, sofort scharf. Fängt den häufigsten Fall (Edit an der Quelle ohne Commit) — aber **nicht** den teuersten (#1558: Drift zwischen Quelle und Kopie). | verworfen als alleinige Maßnahme |
-| **C — Alle drei, gestaffelt** (gewählt) | 1 und 3 gatend, 2 SUGGEST | Deckt beide Fälle. Kostet einen Job und eine Baseline-Runde für Prüfung 2. | **gewählt** |
-| **D — Freigabejournal wie SB-Neu** | Zusätzlich Pflicht-Eintrag je Zonenänderung | Vollständigster Nachweis. Für uns aber Doppelung: Der PR **ist** unser Freigabejournal — mit Review, Zeitstempel und Signatur. | verworfen (Doppelung) |
-
-Option D ist der Punkt, an dem sich unsere Systeme legitim unterscheiden: SB-Neu hat kein
-GitHub und musste sich das Journal selbst bauen. Wir haben es.
+| **A — Status quo** | Regel in Memory + Policy, keine Prüfung | Das Muster ist viermal aufgetreten. | verworfen |
+| **B — Alles in einem CI-Gate** (Fassung 1) | drei Prüfungen im PR | Zwei davon aus CI nicht berechenbar; erzeugt Vertrauen, das sie nicht deckt. | **verworfen nach externem Review** |
+| **C — Zweiteilung Quelle/Laufzeit** (gewählt) | A in CI, B am Ort | Jede Prüfung sitzt dort, wo ihr Gegenstand beobachtbar ist. Zwei Umsetzungsorte statt einem. | **gewählt** |
+| **D — Freigabejournal wie SB-Neu** | Pflicht-Eintrag je Zonenänderung | Doppelung: Der PR **ist** unser Freigabejournal. | verworfen |
+| **E — GitHub-native Mittel** | CODEOWNERS auf `policies/`, `skills/`, `.windsurf/workflows/` + Ruleset | Null neue Jobs, null Skripte. Sagt nichts über die verteilten Kopien. | **ergänzend übernommen** — konsequente Fortsetzung von „der PR ist das Journal" |
+| **F — Gepinnter Checkout statt Kopie** | `~/.claude/skills` ist ein Checkout bzw. commit-adressiertes Bundle mit atomarem `current`-Verweis, kein kopiertes Verzeichnis | Das Drift-Problem **löst sich auf**, statt einen Detektor zu bekommen: „Abweichung" ist dann `git status`. Unklar, ob die Agenten-Laufzeit ein `.git`/Symlinks im Lane-Verzeichnis toleriert. | **Spike vor dem Bau** — die „Löschen statt Hinzufügen"-Option, die unsere eigene Konvention hätte hervorbringen müssen |
+| **G — Steuerzone als eigenes Repo** | Zone = ganzes Repo, Ruleset erzwingt Review | Tauscht Drift gegen ein Submodul-Synchronisationsproblem. | verworfen |
 
 ## Consequences
 
-**Positiv.** Vier belegte Drift-Vorfälle bekommen erstmals einen mechanischen Fänger. Die
-Aussage „das Gate war grün" gewinnt Bedeutung, weil die Regelbasis des Gates selbst
-mitgeprüft wird.
+**Positiv.** Jede Prüfung sitzt dort, wo ihr Gegenstand beobachtbar ist. B1 entfernt eine
+Fehlermöglichkeit am Entstehungsort. Das Abnahmekriterium (bewiesene Rot-Fähigkeit)
+verhindert ein Gate, das nur Vertrauen erzeugt.
 
-**Negativ / Kosten.** Ein CI-Job mehr auf jedem PR. Prüfung 2 braucht eine Baseline-Runde,
-bevor sie scharf geht — bis dahin ist sie Lärm mit Nutzen nahe null. Und ein hartes Gate
-auf `policies/` erhöht die Reibung genau dort, wo bisher am schnellsten editiert wurde;
-das ist beabsichtigt, aber spürbar.
+**Was diese Entscheidung ausdrücklich NICHT leistet:**
 
-**Risiko, ausdrücklich.** Prüfung 2 vergleicht gegen `~/.claude/` — einen Pfad **außerhalb
-des Repos**, der je Maschine anders aussieht. In CI existiert er gar nicht. Die Prüfung
-kann dort also nur gegen das mitgelieferte `manifest.json` laufen, nicht gegen den echten
-Live-Stand. **Damit prüft sie in CI etwas schwächeres als lokal** — das ist eine echte
-Lücke und kein Detail. Sie ist der Hauptgrund, warum Prüfung 2 SUGGEST startet.
+> **Vorfall 3 (Ruleset-Bypass) wird von nichts hier gefangen** und kann es prinzipiell
+> nicht — ein Bypass umgeht genau die Prüfung, die ihn fangen sollte. Sein Nachweis lebt
+> im Ruleset-Bypass-Log bzw. Org-Audit-Log, außerhalb der Reichweite dieses ADR.
+>
+> Gedeckt sind: Vorfall 2 und 4 durch B1/B2, Vorfall 1 teilweise durch A und E.
 
-**Komplexitäts-Bilanz.** Fügt hinzu (ein Workflow-Job, ein Prüfskript), entfernt nichts.
-Begründung des Zuwachses: Er ersetzt vier Memory-Zeilen, die dasselbe Problem beschreiben,
-ohne es zu verhindern — Zeilen, die bei jedem Sessionstart Kontext kosten und trotzdem
-viermal nicht gegriffen haben.
+**Negativ / Kosten.** Zwei Umsetzungsorte statt einem. B2 läuft auf der Betreibermaschine
+und ist damit selbst Teil der Zone — es kann prinzipiell mitdriften. Das ist eine echte,
+nicht auflösbare Restlage: Ein Selbstcheck, der Teil des Geprüften ist, hat eine
+Selbstbezüglichkeit, die nur ein zweiter, unabhängiger Ort auflösen könnte.
+
+**Komplexitäts-Bilanz.** Anders als in Fassung 1 **positiv**: B1 entfernt eine
+Fehlermöglichkeit aus `generate.py` (die stillschweigende Ziel-Ersetzung), A1–A3 laufen
+path-gefiltert in einem bestehenden Check statt in einem neuen Job, und Prüfung 3 aus
+Fassung 1 entfällt ersatzlos.
 
 ## Umsetzungs-Reihenfolge
 
 | Schritt | Inhalt | Gate |
 |---|---|---|
-| 1 | ADR-290 accepted (Zone deklariert) | Owner |
-| 2 | Prüfskript + Prüfung 1 und 3 gatend | grüner Lauf auf einem echten PR |
-| 3 | Prüfung 2 SUGGEST, Baseline über ≥5 Repos | 0 Fehlalarme nachgewiesen |
-| 4 | Prüfung 2 gatend | Owner |
+| 0 | **Gegenprobe:** A1 in CI rot bekommen. Gelingt es nicht, entfällt A1. | empirisch |
+| 1 | ADR-290 accepted (Zone deklariert, Pfade final) | Owner |
+| 2 | **B1 Generator-Härtung** — höchster Ertrag, kein CI-Job | Negativ-Tests grün rot |
+| 3 | Spike Option F (Bundle/Symlink statt Kopie) | Ergebnis entscheidet, ob B2 überhaupt nötig ist |
+| 4 | A1–A3 path-gefiltert im bestehenden Check | Mutationstests + echter CI-Lauf |
+| 5 | B2 Sessionstart-Selbstcheck | nur falls Schritt 3 negativ |
+| 6 | Option E (CODEOWNERS/Ruleset) | Owner |
 
-Schritt 2 verlangt ausdrücklich einen **echten Lauf in CI**, kein lokales Skriptergebnis —
-Gate `autonomous-no-human-review` und `claim-before-cheapest-check`.
+**Schritt 2 vor Schritt 4** ist die wichtigste Änderung der Reihenfolge: Die billigste und
+wirksamste Maßnahme kommt zuerst, nicht der CI-Job.
+
+## Externe Zweitmeinung — Rückfluss-Tagging (Step 5)
+
+Zwei unabhängige Reviews am 2026-07-31, je eine Runde. **40 Befunde, 22 Empfehlungen.**
+Verdikt beider: *überarbeiten*. Nur `[valid]` ist eingeflossen, jeweils eigene Formulierung.
+
+| ID (Runde) | Kern | Verdikt | Aktion in Fassung 2 |
+|---|---|---|---|
+| AD-1 (1) | Ortsfehler betrifft **alle drei** Prüfungen, nicht nur Prüfung 2 | `[valid]` | Zweiteilung A/B — trägt die ganze Fassung |
+| AD-2 (1) · AD-1 (2) | Prüfung 1 ist in CI tautologisch | `[valid]` | ersetzt durch A1 (Zonen-Vollständigkeit) |
+| AD-3 (1) · AD-6 (2) | SUGGEST misst Rauschen, nicht Gültigkeit — zertifiziert den Konstruktionsfehler | `[valid]` | schärfster Befund; Prüfung 2 aus dem Gate genommen |
+| AD-4 (1) · AD-9 (2) | Ort von `manifest.json` und „festgeschriebener Stand" unterspezifiziert | `[valid]` | Abschnitt „Begriffe" |
+| AD-5 (1) | Vorfall 3 bekommt keinen Fänger, wird aber als gedeckt reklamiert | `[valid]` | Vorfalls-Tabelle + explizite Nicht-Leistung |
+| AD-6 (1) · AD-11 (2) | „Anfügungsfestigkeit" ist ein Fremdbegriff, der hier etwas anderes meint | `[valid]` | Prüfung 3 entfällt, Begriff gestrichen |
+| AD-7 (1) · AD-8 (2) | Vorrangregel hat in Actions keinen Adressaten / braucht Serialisierung | `[valid]` | auf zonelesende Checks verkleinert |
+| AD-8 (1) | scharfer Lauf belegt, dass SB-Neu-Code läuft, nicht dass er überträgt | `[valid]` | als Hypothese gekennzeichnet |
+| AD-9 (1) | billigste Alternative fehlt: Härtung von `generate.py` | `[valid]` | **B1, wichtigste Einzelmaßnahme** |
+| AD-4 (2) | Distributionsprüfung nur für `skills`/`commands` beschrieben, nicht für die ganze Zone | `[valid]` | B2 prüft das ganze Manifest |
+| AD-5 (2) | Manifest-Hash beweist weder Zielpfad noch Lane-Identität — also nicht Vorfall 4 | `[valid]` | B1 prüft **Identität**, nicht nur Gleichheit |
+| AD-7 (2) · M28-2 (2) | eigener Job unverhältnismäßig, path-Filter fehlt | `[valid]` | path-gefiltert, in bestehenden Check integriert |
+| AD-10 (2) · M28-1 (1) | keine Negativtests; grün beweist nichts über Rot-Fähigkeit | `[valid]` | Abnahmekriterium + Mutationsliste + Schritt 0 |
+| AD-12 (2) | „deterministisch-strukturell" verwechselt Determinismus mit Beobachtbarkeit | `[valid]` | Formulierung gestrichen |
+| M28-2 (1) | Zone steht zweimal (ADR-290-Tabelle + Prüfskript) — SSoT-Verstoß | `[valid]` | offener Punkt 1: Zone einmal maschinenlesbar |
+| M28-3 (1) | `AGENT_HANDOVER.md` in der Zone ⇒ faktisch ein PR je Session | **`[erledigt]`** | bereits in ADR-290 Fassung 2 aus der Zone entfernt — vor diesem Review |
+| M28-4 (1) | Vorrangregel per `needs:` macht den Job zur Latenz-Untergrenze | `[valid]` | nur zonelesende Checks |
+| M28-5 (1) | Vokabular ist Prototyp-Metaphorik | `[valid]` | Titel und Prüfnamen sagen jetzt, was sie rechnen |
+| M28-3 (2) · OOTB 2 (beide) | Kopplung an ein veränderliches Home-Verzeichnis; Kopien als Fehlerklasse abschaffen | `[valid]` | Option F + Spike als Schritt 3 |
+| M28-5 (2) · REC-10 (2) | keine festgelegte Reparaturhandlung bei Drift | `[valid]` | offener Punkt 2 |
+| M28-4 (2) · REC-12 (2) | 291 nicht vor 290 akzeptieren | `[valid]` | Schritt 1 der Reihenfolge |
+| OOTB 3 (1) | GitHub-native Mittel (CODEOWNERS/Ruleset) | `[valid]` | Option E, ergänzend |
+| OOTB 5 (1) | Steuerzone als eigenes Repo | `[valid]`, aber verworfen | Option G, mit Begründung |
+| PRO-1…5 (beide) | Intent trägt: mechanische Durchsetzung ist richtig, ADR-233 belegt das Muster | `[valid]` | Entscheidung *zu gaten* bleibt |
+| REC-5 (2) Teil „atomarer Installationsabschluss" | Detailanforderung an die Laufzeitprüfung | `[out-of-scope]` | Implementierungsdetail von B1, nicht ADR-Ebene |
+
+**Bilanz:** 22 Empfehlungen, 20 eingeflossen, 1 `[out-of-scope]`, 1 bereits vorab erledigt.
+**Fassung 1 hat den Ort der Prüfung nicht hinterfragt** — sie hat eine Konstruktion
+übernommen, die auf einer Ein-Maschinen-Welt beruht, und sie in eine PR-Welt gestellt.
+Das ist der eine Fehler, aus dem fast alle Befunde folgen.
+
+## Offene Punkte
+
+| # | Punkt | Wer entscheidet |
+|---|---|---|
+| 1 | Steuerzone genau **einmal** maschinenlesbar deklarieren (eine Datei im Repo); ADR-290 referenziert sie, das Prüfskript liest dieselbe Datei | Owner |
+| 2 | Deterministische Reparaturhandlungen bei Drift (`verify`, `reinstall`, `show-diff`, `restore-from-source`) | Owner |
+| 3 | Ergebnis des Spikes zu Option F — er kann B2 ganz überflüssig machen | offen |
 
 ## Herkunft
 
-Analyse des Fremdsystems SB-Neu am 2026-07-31. Der dort gebaute Nachweis
-(`steuer\werkzeug\pruefen.py`, Prüfung 5 „Freigabekern") lief im Rahmen dieser Analyse
-einmal scharf unter Linux und bestätigte seine Zusagen; Details in
-`~/.claude/boards/sb-neu-bewertung.md`.
+Analyse des Fremdsystems SB-Neu am 2026-07-31; Bewertung in
+`~/.claude/boards/sb-neu-bewertung.md`. Fassung 1 in PR #1592.
+Externe Review-Briefings: `~/shared/adr-handoff-ADR-291-2026-07-31.md`.

@@ -5452,7 +5452,7 @@
       "number": 291,
       "id": "ADR-291",
       "file": "ADR-291-freigabekern-gate.md",
-      "title": "Freigabekern-Gate — anweisungstragende Dateien gegen den festgeschriebenen Stand",
+      "title": "Integrität der Steuerzone — Quellprüfung in CI, Laufzeitprüfung am Ort",
       "status": "proposed",
       "date": "2026-07-31",
       "domains": [],
