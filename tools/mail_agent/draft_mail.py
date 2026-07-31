@@ -137,6 +137,8 @@ def hole_ursprung(cfg: dict[str, str], message_id: str):
 
     Die Message-ID ist der stabile Anker — UIDs wandern beim Umsortieren. Gesucht
     wird ueber alle Ordner, damit eine bereits einsortierte Mail noch gefunden wird.
+
+    Rueckgabe: (geparste Nachricht, Roh-Bytes).
     """
     from anker import suche_message_id
     from read_mail import _mailbox_arg, connect
@@ -150,7 +152,10 @@ def hole_ursprung(cfg: dict[str, str], message_id: str):
         typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[])")
         if typ != "OK" or not data or not isinstance(data[0], tuple):
             sys.exit(f"FEHLER: Ursprungsmail {message_id} nicht lesbar ({ordner})")
-        return message_from_bytes(data[0][1])
+        # Roh-Bytes mitgeben: fuer den message/rfc822-Anhang wird das Original
+        # unveraendert gebraucht, nicht das geparste Objekt (ein Re-Serialisieren
+        # aendert Kopfzeilen-Faltung und Kodierung).
+        return message_from_bytes(data[0][1]), data[0][1]
     finally:
         try:
             imap.logout()
@@ -169,6 +174,8 @@ def build_draft(
     attachments: list[str] | None = None,
     in_reply_to: str | None = None,
     references: str | None = None,
+    ursprung_roh: bytes | None = None,
+    ursprung_name: str = "Ursprungsmail.eml",
 ) -> EmailMessage:
     """Entwurf bauen; mit `html` als multipart/alternative, sonst reines text/plain.
 
@@ -176,6 +183,12 @@ def build_draft(
     landet eine Antwort beim Empfaenger als NEUER Strang — der Verlauf reisst,
     obwohl der Betreff stimmt. Graph macht das per `createReply` von selbst,
     IMAP-APPEND nicht (Befund 2026-07-30).
+
+    `ursprung_roh` haengt die Ursprungsmail zusaetzlich als `message/rfc822` an.
+    Das Zitat im Rumpf zeigt nur den Text; der Anhang traegt Kopfzeilen, Anhaenge
+    und Formatierung des Originals — gedacht zum Gegenlesen VOR dem Senden
+    (Owner-Wunsch 2026-07-30). Outlook zeigt so einen Anhang als eingebettete
+    Nachricht, nicht als Datei zum Herunterladen.
     """
     if not text and not html:
         raise ValueError("weder Text- noch HTML-Body angegeben")
@@ -204,6 +217,12 @@ def build_draft(
         msg.add_attachment(
             path.read_bytes(), maintype=maintype, subtype=subtype, filename=path.name
         )
+    if ursprung_roh:
+        # Als geparste Nachricht anhaengen, NICHT als Bytes: bei maintype="message"
+        # waehlt add_attachment sonst base64, und RFC 2046 §5.2.1 erlaubt fuer
+        # message/rfc822 nur 7bit, 8bit oder binary. Der Weg ueber das
+        # Message-Objekt erzeugt 8bit (beides gemessen 2026-07-30).
+        msg.add_attachment(message_from_bytes(ursprung_roh), filename=ursprung_name)
     return msg
 
 
@@ -295,7 +314,15 @@ def main() -> None:
         help="Ursprungsmail (Message-ID) als Zitat unter die Antwort setzen — "
         "das IMAP-Gegenstueck zu Graph createReply",
     )
+    ap.add_argument(
+        "--ursprung-anhaengen",
+        action="store_true",
+        help="Ursprungsmail zusaetzlich als message/rfc822 anhaengen (zum Gegenlesen "
+        "vor dem Senden). Braucht --zitat-message-id.",
+    )
     args = ap.parse_args()
+    if args.ursprung_anhaengen and not args.zitat_message_id:
+        ap.error("--ursprung-anhaengen braucht --zitat-message-id (dort steht, welche)")
     if args.design and not args.role:
         ap.error("--design braucht --role (das Design kommt aus der Rolle)")
 
@@ -371,8 +398,17 @@ def main() -> None:
         elif not html:
             text = roles.text_mit_signatur(profile, text or "")
 
+    ursprung_roh = None
+    ursprung_name = "Ursprungsmail.eml"
     if args.zitat_message_id:
-        ursprung = hole_ursprung(cfg, args.zitat_message_id)
+        ursprung, roh = hole_ursprung(cfg, args.zitat_message_id)
+        if args.ursprung_anhaengen:
+            ursprung_roh = roh
+            # Dateiname aus dem Betreff, damit der Anhang im Client benennbar ist.
+            from read_mail import decode_hdr
+
+            betreff = decode_hdr(ursprung.get("Subject")) or "Ursprungsmail"
+            ursprung_name = f"{betreff[:60].replace('/', '-')}.eml"
         if html:
             # Das Zitat gehoert VOR </body>, sonst haengt es ausserhalb des Rumpfes.
             block = zitat_bauen(ursprung, als_html=True)
@@ -383,7 +419,8 @@ def main() -> None:
             )
         if text:
             text = text.rstrip() + zitat_bauen(ursprung, als_html=False)
-        print(f"Zitat uebernommen: {args.zitat_message_id}")
+        angehaengt = " + als Anhang" if args.ursprung_anhaengen else ""
+        print(f"Zitat uebernommen{angehaengt}: {args.zitat_message_id}")
 
     sender = (profile.sender if profile else args.sender) or cfg["MAIL_FROM"]
     # Anmeldung und Absender sind zwei verschiedene Dinge: das HNU-Postfach meldet
@@ -401,6 +438,8 @@ def main() -> None:
         attachments=args.attach,
         in_reply_to=args.in_reply_to,
         references=args.references,
+        ursprung_roh=ursprung_roh,
+        ursprung_name=ursprung_name,
     )
     folder, uid = append_draft(
         cfg.get("IMAP_HOST", cfg["SMTP_HOST"]),
