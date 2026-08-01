@@ -130,3 +130,92 @@ def test_should_attach_file_with_guessed_mimetype(tmp_path):
 def test_should_reject_draft_without_any_body():
     with pytest.raises(ValueError):
         dm.build_draft("me@x.de", ["a@b.de"], [], "Betreff")
+
+
+# --- Konto-Guard: Rolle setzt den Absender, --account das Postfach (platform#1610) ---
+
+
+class _Profil:
+    """Nur die zwei Felder, die der Guard liest — roles.Profile braucht eine Registry."""
+
+    def __init__(self, role_id="hnu", sender="achim.dehnert@hnu.de"):
+        self.role_id = role_id
+        self.sender = sender
+
+
+def _env(tmp_path, name, mail_from):
+    pfad = tmp_path / name
+    pfad.write_text(
+        f"SMTP_HOST=mail.example\nMAIL_FROM={mail_from}\nMAIL_CREDS_FILE=/dev/null\n"
+    )
+    return pfad
+
+
+def test_should_abort_when_role_sender_does_not_match_selected_mailbox():
+    with pytest.raises(SystemExit) as exc:
+        dm.pruefe_konto_passt_zur_rolle(
+            _Profil(), {"MAIL_FROM": "ad@dehnert.team"}, pathlib.Path("mail.env")
+        )
+    meldung = str(exc.value)
+    assert "achim.dehnert@hnu.de" in meldung
+    assert "ad@dehnert.team" in meldung
+
+
+def test_should_pass_when_role_sender_matches_mailbox():
+    assert (
+        dm.pruefe_konto_passt_zur_rolle(
+            _Profil(),
+            {"MAIL_FROM": "achim.dehnert@hnu.de"},
+            pathlib.Path("mail-hnu.env"),
+        )
+        is None
+    )
+
+
+def test_should_match_mailbox_case_insensitively():
+    assert (
+        dm.pruefe_konto_passt_zur_rolle(
+            _Profil(),
+            {"MAIL_FROM": "Achim.Dehnert@HNU.de"},
+            pathlib.Path("mail-hnu.env"),
+        )
+        is None
+    )
+
+
+def test_should_suggest_the_matching_account_flag(tmp_path):
+    _env(tmp_path, "mail.env", "ad@dehnert.team")
+    _env(tmp_path, "mail-hnu.env", "achim.dehnert@hnu.de")
+    with pytest.raises(SystemExit) as exc:
+        dm.pruefe_konto_passt_zur_rolle(
+            _Profil(),
+            {"MAIL_FROM": "ad@dehnert.team"},
+            pathlib.Path("mail.env"),
+            tmp_path,
+        )
+    assert "--account hnu" in str(exc.value)
+
+
+def test_should_name_expected_mail_from_when_no_account_matches(tmp_path):
+    _env(tmp_path, "mail.env", "ad@dehnert.team")
+    with pytest.raises(SystemExit) as exc:
+        dm.pruefe_konto_passt_zur_rolle(
+            _Profil(),
+            {"MAIL_FROM": "ad@dehnert.team"},
+            pathlib.Path("mail.env"),
+            tmp_path,
+        )
+    assert "MAIL_FROM=achim.dehnert@hnu.de" in str(exc.value)
+
+
+def test_should_find_account_by_mail_from(tmp_path):
+    _env(tmp_path, "mail.env", "ad@dehnert.team")
+    _env(tmp_path, "mail-hnu.env", "achim.dehnert@hnu.de")
+    assert dm.konto_fuer_absender("achim.dehnert@hnu.de", tmp_path) == "hnu"
+    assert dm.konto_fuer_absender("ad@dehnert.team", tmp_path) == "default"
+    assert dm.konto_fuer_absender("fremd@example.org", tmp_path) is None
+
+
+def test_should_derive_account_label_from_config_filename():
+    assert dm.konto_kuerzel(pathlib.Path("/home/u/.claude/mail-hnu.env")) == "hnu"
+    assert dm.konto_kuerzel(pathlib.Path("/home/u/.claude/mail.env")) == "default"

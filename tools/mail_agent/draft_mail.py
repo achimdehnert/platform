@@ -60,6 +60,65 @@ from send_mail import (  # noqa: E402
 _DRAFT_NAME_HINTS = ("drafts", "entw")
 
 
+def konto_kuerzel(cfg_file: Path) -> str:
+    """Anzeigename des Kontos aus dem Config-Dateinamen.
+
+    `mail-hnu.env` -> "hnu", `mail.env` -> "default". Nur fuer Meldungen —
+    die Verbindung selbst kommt aus der Datei, nicht aus diesem Namen.
+    """
+    stem = cfg_file.stem  # "mail-hnu" | "mail"
+    return stem[5:] if stem.startswith("mail-") else "default"
+
+
+def konto_fuer_absender(sender: str, verzeichnis: Path | None = None) -> str | None:
+    """Kuerzel des Kontos suchen, dessen MAIL_FROM zu `sender` passt.
+
+    Liest ausschliesslich `MAIL_FROM` aus den `mail*.env`-Dateien — Adressen,
+    keine Zugangsdaten. Dient nur dazu, einer Fehlermeldung den konkreten
+    `--account`-Vorschlag mitzugeben.
+    """
+    basis = verzeichnis or (Path.home() / ".claude")
+    if not basis.is_dir():
+        return None
+    for pfad in sorted(basis.glob("mail*.env")):
+        try:
+            cfg = parse_env(pfad)
+        except OSError:
+            continue
+        if cfg.get("MAIL_FROM", "").strip().lower() == sender.strip().lower():
+            return konto_kuerzel(pfad)
+    return None
+
+
+def pruefe_konto_passt_zur_rolle(
+    profile, cfg: dict, cfg_file: Path, verzeichnis: Path | None = None
+) -> None:
+    """Abbrechen, wenn die Rolle in ein fremdes Postfach schreiben wuerde.
+
+    `--role` setzt Absender, Signatur und Kanal-Grenze; das **Postfach** setzt
+    allein `--account`/`--config`. Fehlt es, landet der Entwurf im Default-Konto
+    mit fremdem Absender — also in einem Postfach, aus dem er nie gesendet
+    werden duerfte. Realfall 2026-07-31: `--role hnu` ohne `--account hnu` legte
+    die Antwort an einen HNU-Studenten im AD-Postfach ab (platform#1610).
+    """
+    postfach = cfg.get("MAIL_FROM", "").strip()
+    if not postfach or postfach.lower() == profile.sender.strip().lower():
+        return
+    vorschlag = konto_fuer_absender(profile.sender, verzeichnis)
+    hinweis = (
+        f"--account {vorschlag} ergaenzen"
+        if vorschlag
+        else f"eine Config mit MAIL_FROM={profile.sender} anlegen und per --account/--config waehlen"
+    )
+    sys.exit(
+        f"FEHLER: Rolle '{profile.role_id}' schreibt als '{profile.sender}', "
+        f"das gewaehlte Postfach ({konto_kuerzel(cfg_file)}, {cfg_file.name}) gehoert "
+        f"aber '{postfach}'. Der Entwurf laege in einem fremden Postfach, aus dem er "
+        f"nicht gesendet werden darf. -> {hinweis}.\n"
+        "Merksatz: --role bestimmt, WER schreibt; --account bestimmt, WO es liegt."
+    )
+
+
 def find_drafts_folder(imap: imaplib.IMAP4_SSL, configured: str | None) -> str | None:
     """Drafts-Ordner bestimmen: SPECIAL-USE \\Drafts > --folder > Namensheuristik.
 
@@ -356,6 +415,8 @@ def main() -> None:
     missing = [k for k in ("SMTP_HOST", "MAIL_FROM", "MAIL_CREDS_FILE") if k not in cfg]
     if missing:
         sys.exit(f"FEHLER: Keys fehlen in {cfg_file}: {', '.join(missing)}")
+    if profile:
+        pruefe_konto_passt_zur_rolle(profile, cfg, cfg_file)
 
     html = _read(args.html_file)
     text = args.body or _read(args.text_file)
@@ -451,8 +512,12 @@ def main() -> None:
     )
     kind = "HTML+Text" if html else "Text"
     rolle = f" Rolle: {profile.role_id} ({profile.display_name})." if profile else ""
+    # Konto und Absender gehoeren in die Meldung: die frueher nur genannte Rolle
+    # liess offen, in WELCHEM Postfach der Entwurf liegt — genau die Angabe, die
+    # den Fehlgriff vom 2026-07-31 sofort sichtbar gemacht haette (platform#1610).
     print(
-        f"OK: Entwurf ({kind}) in '{folder}' abgelegt, UID {uid} — NICHT gesendet.{rolle} "
+        f"OK: Entwurf ({kind}) im Konto '{konto_kuerzel(cfg_file)}' als '{sender}' "
+        f"in '{folder}' abgelegt, UID {uid} — NICHT gesendet.{rolle} "
         f"Pruefen und selbst aus dem Mail-Client senden."
     )
 
