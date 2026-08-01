@@ -51,6 +51,7 @@ def _code_bereiche(text: str) -> list[tuple[int, int]]:
 def _in_code(pos: int, bereiche: list[tuple[int, int]]) -> bool:
     return any(a <= pos < b for a, b in bereiche)
 
+
 # NICHT_MEMORY wird oben zusammen mit CODE_FENCE/INLINE_CODE aus dem Pruefer
 # importiert. Eine zweite Kopie hier driftet auseinander, sobald jemand nur eine
 # der beiden Stellen anfasst — und die Doku behauptete bereits "eine Quelle fuer
@@ -200,8 +201,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {'OFFEN':<8} {datei:<58} [[{ziel}]] — kein eindeutiges Ziel")
 
     verb = "angewendet" if args.apply else "anwendbar"
-    print(f"\n{len(verzeichnisse)} Verzeichnisse · {ges_aend} Reparaturen {verb} · "
-          f"{ges_offen} offen (Handentscheidung)")
+    print(
+        f"\n{len(verzeichnisse)} Verzeichnisse · {ges_aend} Reparaturen {verb} · "
+        f"{ges_offen} offen (Handentscheidung)"
+    )
     return 1 if (ges_aend or ges_offen) else 0
 
 

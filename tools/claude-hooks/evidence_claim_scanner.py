@@ -31,49 +31,82 @@ from pathlib import Path
 
 # Claim markers: cheaply-falsifiable specificity. Kept deliberately narrow.
 CLAIM_PATTERNS = [
-    (re.compile(r"\b\d+\s*(?:/\s*\d+\s*)?(?:passed|failed|passing|grün|gruen|green)\b", re.I), "test-result"),
-    (re.compile(r"\b(?:deployed|deployt|published|publiziert|live\s+(?:on|auf)\s+pypi)\b", re.I), "deploy/publish"),
+    (
+        re.compile(
+            r"\b\d+\s*(?:/\s*\d+\s*)?(?:passed|failed|passing|grün|gruen|green)\b", re.I
+        ),
+        "test-result",
+    ),
+    (
+        re.compile(
+            r"\b(?:deployed|deployt|published|publiziert|live\s+(?:on|auf)\s+pypi)\b",
+            re.I,
+        ),
+        "deploy/publish",
+    ),
     (re.compile(r"\b\d+/\d+\s*(?:grün|gruen|green|passed|ok)\b", re.I), "ratio-claim"),
     # PR/Issue-Claim (Lehre 2026-06-25, claim-before-cheapest-check gate-pflicht):
     # eine konkrete PR/Issue-Nummer als angelegt/gemergt/existent behauptet.
     # Eng gehalten: VERB muss am #N kleben (mere "siehe #303" feuert NICHT).
-    (re.compile(
-        r"(?:PR|Pull Request|Issue)\s*#?\d+[^.\n]{0,45}"
-        r"(?:angelegt|erstellt|er(?:ö|oe)ffnet|created|opened|gemergt|merged|existiert)"
-        r"|(?:angelegt|erstellt|er(?:ö|oe)ffnet|created|opened|gemergt|merged)[^.\n]{0,25}#\d+",
-        re.I), "pr/issue-status"),
+    (
+        re.compile(
+            r"(?:PR|Pull Request|Issue)\s*#?\d+[^.\n]{0,45}"
+            r"(?:angelegt|erstellt|er(?:ö|oe)ffnet|created|opened|gemergt|merged|existiert)"
+            r"|(?:angelegt|erstellt|er(?:ö|oe)ffnet|created|opened|gemergt|merged)[^.\n]{0,25}#\d+",
+            re.I,
+        ),
+        "pr/issue-status",
+    ),
     # Verifikations-Claim (Retro-Increment 2026-06-30 F1: "#762 verifiziert"/"validiert"
     # fielen VOR dem Cheapest-Check — genau die Marker-Lücke, durch die claim-before-
     # cheapest-check ×12 rezidivierte, obwohl dieser Hook lief). Korroborations-gated:
     # feuert nur, wenn der Turn KEINEN belegenden Tool-Lauf hatte.
-    (re.compile(r"\b(?:verifiziert|validiert|best(?:ä|ae)tigt|verified|validated|confirmed)\b", re.I),
-     "verification"),
+    (
+        re.compile(
+            r"\b(?:verifiziert|validiert|best(?:ä|ae)tigt|verified|validated|confirmed)\b",
+            re.I,
+        ),
+        "verification",
+    ),
     # Über-Diagnose (evidence-discipline: over-claiming UND over-diagnosing skippen beide
     # den Check). Realfälle 2026-06-30: "Konfabulation" (#734), "pre-existing" (Sweep-PRs),
     # "nicht meins". Selten genug für niedrige False-Positive-Rate.
-    (re.compile(r"\b(?:pre-existing|vorbestehend|konfabuliert|konfabulation|confabulat\w*|"
-                r"phantom|nicht mein(?:s|e|er)?|not my code|infra[- ]smell)\b", re.I),
-     "over-diagnosis"),
+    (
+        re.compile(
+            r"\b(?:pre-existing|vorbestehend|konfabuliert|konfabulation|confabulat\w*|"
+            r"phantom|nicht mein(?:s|e|er)?|not my code|infra[- ]smell)\b",
+            re.I,
+        ),
+        "over-diagnosis",
+    ),
     # Coverage-/Exposure-Claim (Lehre 2026-07-06, GHAS-Audit: "13/20 Repos ohne
     # Secret-Scan" war 13× falsch — grep-Literal übersah shared-CI-uses:-Vererbung).
     # Feuert nur, wenn KEIN echter Coverage-Read (contents/actions/workflows) im Turn lief.
-    (re.compile(
-        r"\b\d+\s*(?:/\s*\d+|\s*von\s*\d+)?[^.\n]{0,15}?(?:repos?|repositories|repositorys)\b"
-        r"[^.\n]{0,45}(?:exposed|ungesch(?:ü|ue)tzt|ungescannt|ohne\s+(?:secret|scan)|"
-        r"offen|protected|abgedeckt|gescannt|scanned)"
-        r"|(?:exposed|ungesch(?:ü|ue)tzt|abgedeckt|protected|gescannt)[^.\n]{0,20}"
-        r"\b\d+\s*(?:/|von)\s*\d+\b",
-        re.I), "coverage-claim"),
+    (
+        re.compile(
+            r"\b\d+\s*(?:/\s*\d+|\s*von\s*\d+)?[^.\n]{0,15}?(?:repos?|repositories|repositorys)\b"
+            r"[^.\n]{0,45}(?:exposed|ungesch(?:ü|ue)tzt|ungescannt|ohne\s+(?:secret|scan)|"
+            r"offen|protected|abgedeckt|gescannt|scanned)"
+            r"|(?:exposed|ungesch(?:ü|ue)tzt|abgedeckt|protected|gescannt)[^.\n]{0,20}"
+            r"\b\d+\s*(?:/|von)\s*\d+\b",
+            re.I,
+        ),
+        "coverage-claim",
+    ),
     # Capability-Claim (Lehre 2026-07-06: "kein Scope-Wall, ich kann ausführen" aus
     # org-Rolle abgeleitet → attach 403/422 → 2 OAuth-Flows). Korroboration = ein
     # echter Scope-/Endpoint-Preflight im Turn (x-oauth-scopes / gh auth status / attach-dry).
-    (re.compile(
-        r"\bich\s+kann(?:'s|\s+es|\s+das)?\s+(?:jetzt\s+|sofort\s+|gleich\s+)*"
-        r"(?:ausf(?:ü|ue)hren|attachen|durchf(?:ü|ue)hren|umh(?:ä|ae)ngen|anlegen)"
-        r"|kein(?:e|en)?\s+scope[-\s]?wall"
-        r"|\bI\s+can\s+execute\b"
-        r"|habe\s+(?:die\s+)?(?:n(?:ö|oe)tigen\s+)?(?:schreib)?rechte\b",
-        re.I), "capability-claim"),
+    (
+        re.compile(
+            r"\bich\s+kann(?:'s|\s+es|\s+das)?\s+(?:jetzt\s+|sofort\s+|gleich\s+)*"
+            r"(?:ausf(?:ü|ue)hren|attachen|durchf(?:ü|ue)hren|umh(?:ä|ae)ngen|anlegen)"
+            r"|kein(?:e|en)?\s+scope[-\s]?wall"
+            r"|\bI\s+can\s+execute\b"
+            r"|habe\s+(?:die\s+)?(?:n(?:ö|oe)tigen\s+)?(?:schreib)?rechte\b",
+            re.I,
+        ),
+        "capability-claim",
+    ),
     # Absence-/Negativ-Claim (Lehre 2026-07-09, Retro-Increment 589606-incr: ein
     # Finder UND der ihn verifizierende Skeptiker behaupteten unabhängig "tax-hub
     # referenziert #1024 nie" — beide stützten sich auf `gh pr list --search`, das
@@ -84,49 +117,53 @@ CLAIM_PATTERNS = [
     # erkennen. Fängt stattdessen die eine Ebene, die sichtbar ist: wenn DIESE Antwort
     # selbst eine Abwesenheits-/Negativ-Behauptung trifft ("X referenziert Y nicht",
     # "nirgends dokumentiert", "0 Treffer", "existiert nicht").
-    (re.compile(
-        r"\b(?:referenziert|verweist|erw(?:ä|ae)hnt)\b[^.\n]{0,30}\bnicht\b"
-        r"|\bnicht\b[^.\n]{0,20}\b(?:referenziert|verweist|erw(?:ä|ae)hnt)\b"
-        r"|\b(?:nirgends|nirgendwo|in\s+keiner)\b[^.\n]{0,25}"
-        r"(?:dokumentiert|gefunden|vorhanden|festgehalten)"
-        r"|\bkeine?\b[^.\n]{0,15}\b(?:referenz|verweis|dokumentation|doku|treffer)\b"
-        r"|\bexistiert\s+nicht\b|\bgibt\s+es\s+nicht\b"
-        r"|\bdoes\s+not\s+reference\b|\bnot\s+documented\s+anywhere\b|\bno\s+hits?\b"
-        r"|\b0\s+(?:treffer|matches|hits|kommentare)\b"
-        # Possessiv-Form (Lehre 2026-07-22, writing-hub#322 + platform#1328): „X hat
-        # (aktuell/gar/überhaupt) kein Y" fiel durch — die alte Alternative verlangte
-        # eines von referenz/verweis/doku/treffer als Objekt. Real war das Objekt ein
-        # Ding („keinen Uptime-Monitor"), und die Absenz war nur die des EIGENEN
-        # Werkzeugs (Betterstack-API); ein zweiter Suchpfad (grep über workflows/)
-        # hätte sie sofort widerlegt. Aussage ging so in ZWEI Issues + eine gemergte Doku.
-        # Negative-Lookahead auf Nicht-Artefakt-Objekte: „keine Eile/Zeit/Lust/Ahnung"
-        # sind Redewendungen, keine prüfbaren Absenz-Behauptungen.
-        r"|\b(?:hat|haben)\s+(?:aktuell\s+|derzeit\s+|gar\s+|(?:ü|ue)berhaupt\s+|bisher\s+|noch\s+)*"
-        r"kein(?:e|en|erlei)?\s+(?!(?:Eile|Zeit|Lust|Ahnung|Sorge|Problem|Bedarf|Wahl|Grund|"
-        r"Zweifel|Meinung|Angst|Chance|Idee|Bock|Geduld|Wahl)\b)"
-        r"|\b(?:gibt\s+es|existiert)\s+(?:aktuell\s+|derzeit\s+|gar\s+|(?:ü|ue)berhaupt\s+)*"
-        r"kein(?:e|en)?\b"
-        r"|\b(?:ü|ue)berhaupt\s+kein(?:e|en)?\b"
-        r"|\bhas\s+(?:currently\s+|absolutely\s+)?no\b|\bthere\s+(?:is|are)\s+no\b"
-        # Aussagesatz-Form (Lehre 2026-07-22-incr, vom Skeptiker gefunden): die
-        # obige Alternative verlangt die Wortfolge „gibt es kein" (Frage/Inversion)
-        # und verfehlt damit das häufigere „Es gibt kein X". Gleiche Stopp-Liste.
-        r"|\bes\s+gibt\s+kein(?:e|en)?\s+(?!(?:Eile|Zeit|Lust|Ahnung|Sorge|Problem|"
-        r"Bedarf|Wahl|Grund|Zweifel|Meinung|Angst|Chance|Idee|Bock)\b)"
-        # „X fehlt" — verlangt ein grossgeschriebenes Substantiv davor, damit
-        # „mir fehlt die Zeit" nicht feuert. Stopp-Liste deckt Abstrakta UND
-        # satzinitiale Pronomen ab (die sind ebenfalls gross geschrieben).
-        r"|\b(?!(?:Zeit|Lust|Eile|Geld|Mut|Erfahrung|Ahnung|Mir|Dir|Ihm|Ihr|Uns|"
-        r"Euch|Ihnen|Es|Das|Dem|Den|Der|Die|Was|Wer)\b)"
-        r"[A-ZÄÖÜ][a-zäöüß-]{2,}\s+(?:fehlt|fehlen)\b"
-        # „ohne jeden/jede/jegliche X" und englisches „lacks"
-        r"|\bohne\s+(?:jede[nrs]?|jegliche[nrs]?)\s+"
-        r"|\blacks?\s+(?:a|an|any)\b|\bis\s+missing\b|\bare\s+missing\b"
-        # „nirgends aktiv/implementiert/verdrahtet/konfiguriert" — die bestehende
-        # nirgends-Alternative deckt nur dokumentiert/gefunden/vorhanden/festgehalten.
-        r"|\b(?:nirgends|nirgendwo)\b[^.\n]{0,25}"
-        r"(?:aktiv|implementiert|verdrahtet|konfiguriert|gesetzt|verwendet)",
-        re.I), "absence-claim"),
+    (
+        re.compile(
+            r"\b(?:referenziert|verweist|erw(?:ä|ae)hnt)\b[^.\n]{0,30}\bnicht\b"
+            r"|\bnicht\b[^.\n]{0,20}\b(?:referenziert|verweist|erw(?:ä|ae)hnt)\b"
+            r"|\b(?:nirgends|nirgendwo|in\s+keiner)\b[^.\n]{0,25}"
+            r"(?:dokumentiert|gefunden|vorhanden|festgehalten)"
+            r"|\bkeine?\b[^.\n]{0,15}\b(?:referenz|verweis|dokumentation|doku|treffer)\b"
+            r"|\bexistiert\s+nicht\b|\bgibt\s+es\s+nicht\b"
+            r"|\bdoes\s+not\s+reference\b|\bnot\s+documented\s+anywhere\b|\bno\s+hits?\b"
+            r"|\b0\s+(?:treffer|matches|hits|kommentare)\b"
+            # Possessiv-Form (Lehre 2026-07-22, writing-hub#322 + platform#1328): „X hat
+            # (aktuell/gar/überhaupt) kein Y" fiel durch — die alte Alternative verlangte
+            # eines von referenz/verweis/doku/treffer als Objekt. Real war das Objekt ein
+            # Ding („keinen Uptime-Monitor"), und die Absenz war nur die des EIGENEN
+            # Werkzeugs (Betterstack-API); ein zweiter Suchpfad (grep über workflows/)
+            # hätte sie sofort widerlegt. Aussage ging so in ZWEI Issues + eine gemergte Doku.
+            # Negative-Lookahead auf Nicht-Artefakt-Objekte: „keine Eile/Zeit/Lust/Ahnung"
+            # sind Redewendungen, keine prüfbaren Absenz-Behauptungen.
+            r"|\b(?:hat|haben)\s+(?:aktuell\s+|derzeit\s+|gar\s+|(?:ü|ue)berhaupt\s+|bisher\s+|noch\s+)*"
+            r"kein(?:e|en|erlei)?\s+(?!(?:Eile|Zeit|Lust|Ahnung|Sorge|Problem|Bedarf|Wahl|Grund|"
+            r"Zweifel|Meinung|Angst|Chance|Idee|Bock|Geduld|Wahl)\b)"
+            r"|\b(?:gibt\s+es|existiert)\s+(?:aktuell\s+|derzeit\s+|gar\s+|(?:ü|ue)berhaupt\s+)*"
+            r"kein(?:e|en)?\b"
+            r"|\b(?:ü|ue)berhaupt\s+kein(?:e|en)?\b"
+            r"|\bhas\s+(?:currently\s+|absolutely\s+)?no\b|\bthere\s+(?:is|are)\s+no\b"
+            # Aussagesatz-Form (Lehre 2026-07-22-incr, vom Skeptiker gefunden): die
+            # obige Alternative verlangt die Wortfolge „gibt es kein" (Frage/Inversion)
+            # und verfehlt damit das häufigere „Es gibt kein X". Gleiche Stopp-Liste.
+            r"|\bes\s+gibt\s+kein(?:e|en)?\s+(?!(?:Eile|Zeit|Lust|Ahnung|Sorge|Problem|"
+            r"Bedarf|Wahl|Grund|Zweifel|Meinung|Angst|Chance|Idee|Bock)\b)"
+            # „X fehlt" — verlangt ein grossgeschriebenes Substantiv davor, damit
+            # „mir fehlt die Zeit" nicht feuert. Stopp-Liste deckt Abstrakta UND
+            # satzinitiale Pronomen ab (die sind ebenfalls gross geschrieben).
+            r"|\b(?!(?:Zeit|Lust|Eile|Geld|Mut|Erfahrung|Ahnung|Mir|Dir|Ihm|Ihr|Uns|"
+            r"Euch|Ihnen|Es|Das|Dem|Den|Der|Die|Was|Wer)\b)"
+            r"[A-ZÄÖÜ][a-zäöüß-]{2,}\s+(?:fehlt|fehlen)\b"
+            # „ohne jeden/jede/jegliche X" und englisches „lacks"
+            r"|\bohne\s+(?:jede[nrs]?|jegliche[nrs]?)\s+"
+            r"|\blacks?\s+(?:a|an|any)\b|\bis\s+missing\b|\bare\s+missing\b"
+            # „nirgends aktiv/implementiert/verdrahtet/konfiguriert" — die bestehende
+            # nirgends-Alternative deckt nur dokumentiert/gefunden/vorhanden/festgehalten.
+            r"|\b(?:nirgends|nirgendwo)\b[^.\n]{0,25}"
+            r"(?:aktiv|implementiert|verdrahtet|konfiguriert|gesetzt|verwendet)",
+            re.I,
+        ),
+        "absence-claim",
+    ),
     # Deckungs-/Vollständigkeits-Claim (Lehre 2026-07-22, writing-hub PR #320):
     # „seed_project_lookups deckt die gelöschte Fixture vollständig ab, einziger Rest
     # ist Hörbuch" — belegt über einen ANZAHL-Vergleich (6/14/5 vs. 9/15/8). Ein
@@ -134,19 +171,23 @@ CLAIM_PATTERNS = [
     # können gleich lang und trotzdem disjunkt sein; der Zählvergleich fühlt sich wie
     # ein Beweis an, ist aber blind, sobald per name/slug gematcht wird. Die falsche
     # Aussage stand danach in drei gemergten Artefakten.
-    (re.compile(
-        r"\bdeckt\b[^.\n]{0,40}\b(?:vollst(?:ä|ae)ndig|komplett|g(?:ä|ae)nzlich)\b[^.\n]{0,15}\bab\b"
-        r"|\b(?:vollst(?:ä|ae)ndig|komplett)\s+(?:abgedeckt|ersetzt|(?:ü|ue)bernommen)\b"
-        r"|\bersetzt\b[^.\n]{0,40}\bvollst(?:ä|ae)ndig\b"
-        r"|\beinzige[rns]?\b[^.\n]{0,30}\b(?:rest|eintrag|unterschied|abweichung)\b"
-        r"|\b(?:covers?|replaces?)\b[^.\n]{0,30}\b(?:completely|entirely|fully)\b"
-        r"|\bonly\s+(?:remaining|missing)\s+(?:entry|item|one)\b"
-        # Ergänzt 2026-07-22-incr: Deckungs-Aussagen ohne das Wort „vollständig".
-        # „deckungsgleich" und „1:1 ersetzt" behaupten dasselbe und rutschten durch.
-        r"|\bdeckungsgleich\b|\b1\s*:\s*1\s+(?:ersetzt|(?:ü|ue)bernommen|abgebildet)\b"
-        r"|\bidentisch\s+(?:zu|mit)\b[^.\n]{0,25}\b(?:liste|menge|satz|eintr(?:ä|ae)g)"
-        r"|\bis\s+(?:a\s+)?superset\s+of\b|\bfully\s+covered\s+by\b",
-        re.I), "coverage-completeness-claim"),
+    (
+        re.compile(
+            r"\bdeckt\b[^.\n]{0,40}\b(?:vollst(?:ä|ae)ndig|komplett|g(?:ä|ae)nzlich)\b[^.\n]{0,15}\bab\b"
+            r"|\b(?:vollst(?:ä|ae)ndig|komplett)\s+(?:abgedeckt|ersetzt|(?:ü|ue)bernommen)\b"
+            r"|\bersetzt\b[^.\n]{0,40}\bvollst(?:ä|ae)ndig\b"
+            r"|\beinzige[rns]?\b[^.\n]{0,30}\b(?:rest|eintrag|unterschied|abweichung)\b"
+            r"|\b(?:covers?|replaces?)\b[^.\n]{0,30}\b(?:completely|entirely|fully)\b"
+            r"|\bonly\s+(?:remaining|missing)\s+(?:entry|item|one)\b"
+            # Ergänzt 2026-07-22-incr: Deckungs-Aussagen ohne das Wort „vollständig".
+            # „deckungsgleich" und „1:1 ersetzt" behaupten dasselbe und rutschten durch.
+            r"|\bdeckungsgleich\b|\b1\s*:\s*1\s+(?:ersetzt|(?:ü|ue)bernommen|abgebildet)\b"
+            r"|\bidentisch\s+(?:zu|mit)\b[^.\n]{0,25}\b(?:liste|menge|satz|eintr(?:ä|ae)g)"
+            r"|\bis\s+(?:a\s+)?superset\s+of\b|\bfully\s+covered\s+by\b",
+            re.I,
+        ),
+        "coverage-completeness-claim",
+    ),
     # ------------------------------------------------------------------ 2026-07-31
     # Drei Muster, jedes belegt an einem realen Fehlsatz DIESES Tages. Gemeinsame
     # Form: eine Aussage reicht weiter als der Blick, der sie stuetzt.
@@ -156,35 +197,47 @@ CLAIM_PATTERNS = [
     # Der absence-claim-Block oben verlangt ein Objekt aus fester Liste (Referenz/
     # Verweis/Doku/Treffer) oder die Wortfolge „hat kein" — ein blosser Allquantor
     # ueber ein beliebiges Objekt faellt durch.
-    (re.compile(
-        r"\bkein(?:e|en)?\s+einzig(?:er|e|es|en)\b"
-        r"|\b(?:keine[rs]?|in\s+keine[rm])\s+(?:der|dieser|von\s+den)\b"
-        r"|\b(?:ausnahmslos|durchweg|s(?:ä|ae)mtliche[nrs]?)\b"
-        r"|\balle[nrs]?\s+\d+\s+[A-Za-zÄÖÜäöüß-]{3,}\b"
-        r"|\bnot\s+(?:a\s+)?single\b|\bnone\s+of\s+(?:the|these)\b|\bevery\s+single\b",
-        re.I), "universal-claim"),
+    (
+        re.compile(
+            r"\bkein(?:e|en)?\s+einzig(?:er|e|es|en)\b"
+            r"|\b(?:keine[rs]?|in\s+keine[rm])\s+(?:der|dieser|von\s+den)\b"
+            r"|\b(?:ausnahmslos|durchweg|s(?:ä|ae)mtliche[nrs]?)\b"
+            r"|\balle[nrs]?\s+\d+\s+[A-Za-zÄÖÜäöüß-]{3,}\b"
+            r"|\bnot\s+(?:a\s+)?single\b|\bnone\s+of\s+(?:the|these)\b|\bevery\s+single\b",
+            re.I,
+        ),
+        "universal-claim",
+    ),
     # Funktions-Negation — „Der Megatest laeuft weiterhin nicht" stand da, bevor der
     # heutige Lauf angesehen war; belegt war nur der Vortag. Eine Praesens-Aussage
     # ueber einen laufenden Job/Dienst verlangt einen frischen Lauf- oder Log-Blick.
-    (re.compile(
-        r"\b(?:l(?:ä|ae)uft|greift|feuert|funktioniert|reagiert|startet|triggert)\s+"
-        r"(?:weiterhin\s+|immer\s+noch\s+|nach\s+wie\s+vor\s+|aktuell\s+|derzeit\s+|bis\s+heute\s+)*"
-        r"nicht\b(?!\s+(?:auf|darauf|nur|zwingend|unbedingt))"
-        r"|\bist\s+(?:weiterhin|immer\s+noch|nach\s+wie\s+vor)\s+(?:rot|defekt|kaputt|tot|down)\b"
-        r"|\bwird\s+(?:weiterhin\s+|immer\s+noch\s+)?nicht\s+"
-        r"(?:ausgef(?:ü|ue)hrt|aufgerufen|getriggert|gestartet)\b"
-        r"|\b(?:still|currently)\s+(?:not\s+running|broken|failing)\b",
-        re.I), "function-negation"),
+    (
+        re.compile(
+            r"\b(?:l(?:ä|ae)uft|greift|feuert|funktioniert|reagiert|startet|triggert)\s+"
+            r"(?:weiterhin\s+|immer\s+noch\s+|nach\s+wie\s+vor\s+|aktuell\s+|derzeit\s+|bis\s+heute\s+)*"
+            r"nicht\b(?!\s+(?:auf|darauf|nur|zwingend|unbedingt))"
+            r"|\bist\s+(?:weiterhin|immer\s+noch|nach\s+wie\s+vor)\s+(?:rot|defekt|kaputt|tot|down)\b"
+            r"|\bwird\s+(?:weiterhin\s+|immer\s+noch\s+)?nicht\s+"
+            r"(?:ausgef(?:ü|ue)hrt|aufgerufen|getriggert|gestartet)\b"
+            r"|\b(?:still|currently)\s+(?:not\s+running|broken|failing)\b",
+            re.I,
+        ),
+        "function-negation",
+    ),
     # Zeit-/Wiederholungs-Claim — „das zweite Mal am selben Tag" war aus dem
     # Gedaechtnis geschrieben und falsch (29.07. vs. 30.07.), gefunden erst von einem
     # Finder im Retro. Datums- und Zaehlaussagen fuehlen sich wie Kontext an, sind
     # aber Behauptungen mit Zeitstempel-Beleg: git log, gh run list, Datei-mtime.
-    (re.compile(
-        r"\bzum\s+(?:zweiten|dritten|vierten|f(?:ü|ue)nften|\d+\.)\s+Mal\b"
-        r"|\bam\s+selben\s+Tag\b|\bdas\s+(?:zweite|dritte)\s+Mal\b"
-        r"|\bseit\s+\d+\s+(?:Tagen|Wochen|Monaten|Stunden)\b"
-        r"|\bzwei(?:mal)?\s+(?:an\s+)?einem\s+Tag\b",
-        re.I), "temporal-claim"),
+    (
+        re.compile(
+            r"\bzum\s+(?:zweiten|dritten|vierten|f(?:ü|ue)nften|\d+\.)\s+Mal\b"
+            r"|\bam\s+selben\s+Tag\b|\bdas\s+(?:zweite|dritte)\s+Mal\b"
+            r"|\bseit\s+\d+\s+(?:Tagen|Wochen|Monaten|Stunden)\b"
+            r"|\bzwei(?:mal)?\s+(?:an\s+)?einem\s+Tag\b",
+            re.I,
+        ),
+        "temporal-claim",
+    ),
     # Weich-Quantor — „Viele dieser Issues sind laengst erledigt und wurden nur nie
     # geschlossen" war eine Vermutung im Gewand eines Befunds; die Pruefung ergab
     # NULL offene Issues mit `Closes` in einem gemergten PR. Der weiche Quantor macht
@@ -192,13 +245,17 @@ CLAIM_PATTERNS = [
     # deshalb durch jeden Allquantor-Filter. Eng gehalten: verlangt Demonstrativ oder
     # bestimmten Artikel plus Zustandsaussage, damit „viele Wege fuehren nach Rom"
     # nicht feuert.
-    (re.compile(
-        r"\b(?:viele|etliche|zahlreiche|die\s+meisten|ein\s+Gro(?:ß|ss)teil|"
-        r"der\s+Gro(?:ß|ss)teil|gro(?:ß|ss)e\s+Teile)\s+"
-        r"(?:dieser|der|den|von\s+(?:den|diesen))\s+[A-Za-zÄÖÜäöüß-]{3,}"
-        r"[^.\n]{0,40}\b(?:sind|wurden|haben|waren|ist|wird)\b"
-        r"|\b(?:most|many)\s+of\s+(?:these|the)\s+[a-z-]{3,}[^.\n]{0,40}\b(?:are|were|have)\b",
-        re.I), "soft-quantifier-claim"),
+    (
+        re.compile(
+            r"\b(?:viele|etliche|zahlreiche|die\s+meisten|ein\s+Gro(?:ß|ss)teil|"
+            r"der\s+Gro(?:ß|ss)teil|gro(?:ß|ss)e\s+Teile)\s+"
+            r"(?:dieser|der|den|von\s+(?:den|diesen))\s+[A-Za-zÄÖÜäöüß-]{3,}"
+            r"[^.\n]{0,40}\b(?:sind|wurden|haben|waren|ist|wird)\b"
+            r"|\b(?:most|many)\s+of\s+(?:these|the)\s+[a-z-]{3,}[^.\n]{0,40}\b(?:are|were|have)\b",
+            re.I,
+        ),
+        "soft-quantifier-claim",
+    ),
 ]
 
 # Absence-Claims brauchen eine ECHTE Breitsuche als Beleg, nicht irgendeinen gh-Call —
@@ -288,7 +345,9 @@ _BODY_FILE_RE = re.compile(r"(?:--body-file|-F)[= ]+(\S+)")
 # deckt $(cat f) UND den Bashism $(< f) (d2522c-incr #6); Backticks bleiben
 # bewusst ungedeckt (Carrier-Kommandos nutzen sie real nicht; bei Vorkommen ergänzen)
 CAT_SUBST_RE = re.compile(r"^\$\(\s*(?:cat\s+|<\s*)\"?'?([^\"')]+)\"?'?\s*\)$")
-_GH_BODY_CARRIER_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+(?:create|edit|comment|close|merge)\b")
+_GH_BODY_CARRIER_RE = re.compile(
+    r"\bgh\s+(?:pr|issue)\s+(?:create|edit|comment|close|merge)\b"
+)
 
 
 def _published_bodies(tool_inputs: list) -> list:
@@ -325,7 +384,9 @@ def _published_bodies(tool_inputs: list) -> list:
             bodies.append(write_contents[p])
         else:
             try:  # Datei existiert zur Stop-Zeit meist noch (Scratchpad)
-                bodies.append(Path(p).read_text(encoding="utf-8", errors="replace")[:20000])
+                bodies.append(
+                    Path(p).read_text(encoding="utf-8", errors="replace")[:20000]
+                )
             except OSError:
                 pass
     return bodies
@@ -336,7 +397,11 @@ def _last_turn_blocks(transcript_path: str):
     the last user message. tool_evidence_text concatenates tool_result/tool_use
     payloads; tool_inputs is a list of (tool_name, input_dict) for published-body scans."""
     try:
-        lines = Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines()
+        lines = (
+            Path(transcript_path)
+            .read_text(encoding="utf-8", errors="replace")
+            .splitlines()
+        )
     except OSError:
         return "", "", []
 
@@ -427,21 +492,35 @@ def main() -> int:
     # darf eine Vollständigkeits-Behauptung NICHT decken — nur ein elementweiser Diff.
     # (Lehre 2026-07-22: der begleitende Test prüfte `.count() == len(DEFAULT_*)` und
     # war damit strukturell blind für genau die Frage, die er zu belegen schien.)
-    coverage_fired = [label for label in fired if label == "coverage-completeness-claim"]
+    coverage_fired = [
+        label for label in fired if label == "coverage-completeness-claim"
+    ]
     fired = [label for label in fired if label != "coverage-completeness-claim"]
     if coverage_fired and not DIFF_EVIDENCE_TOKENS.search(evidence_text):
         fired.extend(coverage_fired)
 
     # Universal-Claims teilen die Strenge der Absence-Claims: eine Aussage ueber ALLE
     # Elemente einer Menge braucht eine Breitsuche, kein Stichproben-Read.
-    universal_fired = [label for label in fired if label in ("universal-claim", "soft-quantifier-claim")]
-    fired = [label for label in fired if label not in ("universal-claim", "soft-quantifier-claim")]
+    universal_fired = [
+        label
+        for label in fired
+        if label in ("universal-claim", "soft-quantifier-claim")
+    ]
+    fired = [
+        label
+        for label in fired
+        if label not in ("universal-claim", "soft-quantifier-claim")
+    ]
     if universal_fired and not ABSENCE_EVIDENCE_TOKENS.search(evidence_text):
         fired.extend(universal_fired)
 
     # Funktions-Negation und Zeit-Claim brauchen den Lauf, nicht den Code.
-    lauf_fired = [label for label in fired if label in ("function-negation", "temporal-claim")]
-    fired = [label for label in fired if label not in ("function-negation", "temporal-claim")]
+    lauf_fired = [
+        label for label in fired if label in ("function-negation", "temporal-claim")
+    ]
+    fired = [
+        label for label in fired if label not in ("function-negation", "temporal-claim")
+    ]
     if lauf_fired and not RUN_EVIDENCE_TOKENS.search(evidence_text):
         fired.extend(lauf_fired)
 
@@ -449,10 +528,17 @@ def main() -> int:
     # test/deploy/publish evidence?
     if fired and EVIDENCE_TOKENS.search(evidence_text):
         fired = [
-            label for label in fired
-            if label in ("absence-claim", "coverage-completeness-claim",
-                         "universal-claim", "function-negation", "temporal-claim",
-                         "soft-quantifier-claim")
+            label
+            for label in fired
+            if label
+            in (
+                "absence-claim",
+                "coverage-completeness-claim",
+                "universal-claim",
+                "function-negation",
+                "temporal-claim",
+                "soft-quantifier-claim",
+            )
         ]
 
     # Published-Body-Claims (PR-/Issue-Bodies via gh create/edit/comment): eigener
@@ -474,7 +560,9 @@ def main() -> int:
                 ev = ev.replace(b, "")
                 ev = ev.replace(json.dumps(b)[1:-1], "")
             if not BODY_EVIDENCE_TOKENS.search(ev):
-                fired.append("published-body (PR/Issue-Body-Claim ohne Read-Beleg im Turn)")
+                fired.append(
+                    "published-body (PR/Issue-Body-Claim ohne Read-Beleg im Turn)"
+                )
 
     if not fired:
         return 0
@@ -496,7 +584,11 @@ def main() -> int:
     )
     # Dokumentierte additionalContext-Form (exit-0 Stop-Hooks parsen JSON-stdout); der
     # Plain-Text-String bleibt als additionalContext erhalten → robustes Surfacing.
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": msg}}))
+    print(
+        json.dumps(
+            {"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": msg}}
+        )
+    )
     return 0
 
 

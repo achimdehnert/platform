@@ -74,7 +74,9 @@ def test_should_leave_unresolvable_link_untouched_and_report_it(mem: Path):
 
 
 def test_should_not_touch_policy_references(mem: Path):
-    quelle = schreibe(mem, "feedback_alpha", "feedback_alpha", "s. [[evidence-discipline]]")
+    quelle = schreibe(
+        mem, "feedback_alpha", "feedback_alpha", "s. [[evidence-discipline]]"
+    )
 
     aenderungen, offen = repariere(mem, apply=True)
 
@@ -96,7 +98,9 @@ def test_should_not_resolve_when_two_files_claim_the_same_frontmatter_name(mem: 
 
 def test_should_only_rewrite_the_name_field_inside_the_frontmatter(mem: Path):
     # eine name:-Zeile im Fliesstext darf nicht angefasst werden
-    p = schreibe(mem, "feedback_alpha", "feedback-alpha", "Beispiel:\nname: nicht-anfassen")
+    p = schreibe(
+        mem, "feedback_alpha", "feedback-alpha", "Beispiel:\nname: nicht-anfassen"
+    )
 
     repariere(mem, apply=True)
     text = p.read_text(encoding="utf-8")
@@ -153,7 +157,9 @@ def test_should_not_rewrite_a_wikilink_inside_code(mem: Path):
     umgeschrieben und damit dokumentierte Makro-Syntax verfaelscht."""
     schreibe(mem, "feedback_alpha", "feedback-alpha")
     quelle = schreibe(
-        mem, "feedback_beta", "feedback_beta",
+        mem,
+        "feedback_beta",
+        "feedback_beta",
         "Prosa: [[feedback-alpha]]\n\n```\nMakro: [[feedback-alpha]]\n```\n",
     )
 

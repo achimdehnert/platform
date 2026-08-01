@@ -44,7 +44,7 @@ def test_should_flag_angle_bracket_placeholder():
 
 
 def test_should_flag_uppercase_placeholder():
-    text = "```\ncurl -H \"Authorization: Bearer DEIN_TOKEN\" https://api.github.com\n```"
+    text = '```\ncurl -H "Authorization: Bearer DEIN_TOKEN" https://api.github.com\n```'
     _, placeholders = find_untested(text, bash_commands=[])
     assert len(placeholders) == 1
 
@@ -53,7 +53,7 @@ def test_should_ignore_output_and_log_blocks():
     """Ausgabe-Beispiele dürfen nicht feuern — sonst nervt der Hook."""
     text = (
         "Ergebnis:\n\n```\n1/4 Token pruefen...\nFEHLER: HTTP 401\nexit=1\n```\n"
-        "Und JSON:\n\n```json\n{\"status\": \"queued\"}\n```"
+        'Und JSON:\n\n```json\n{"status": "queued"}\n```'
     )
     untested, placeholders = find_untested(text, bash_commands=[])
     assert untested == []
@@ -87,3 +87,65 @@ def test_should_name_both_finding_classes_in_reminder():
     assert "Platzhalter" in msg
     assert "ohne ihn in diesem Turn selbst" in msg
     assert msg.startswith("[untested-command-scanner]")
+
+
+# --- Entprellung: derselbe Befund darf nicht in jedem Turn erneut kommen ----
+#
+# Realfall 2026-07-31: `_last_turn` endet bei der letzten ECHTEN Nutzernachricht.
+# Hintergrund-Benachrichtigungen und Hook-Injektionen zaehlen nicht als solche.
+# Arbeitet der Agent laenger ohne Zwischenruf, waechst das Fenster unbegrenzt —
+# gemessen 166 Records mit 27 Vorkommen desselben Befehls, siebenmal hintereinander
+# gemeldet.
+
+
+def _lauf(tmp_path, monkeypatch, session, text, bash=()):
+    """Ruft main() mit einem synthetischen Transkript und faengt die Ausgabe."""
+    import io
+    import json as _json
+
+    import untested_command_scanner as ucs
+
+    monkeypatch.setattr(ucs, "STATE_DIR", tmp_path / "state")
+    inhalt = []
+    inhalt.append(_json.dumps({"type": "user", "message": {"content": "los"}}))
+    blocks = [{"type": "text", "text": text}]
+    for b in bash:
+        blocks.append({"type": "tool_use", "name": "Bash", "input": {"command": b}})
+    inhalt.append(_json.dumps({"type": "assistant", "message": {"content": blocks}}))
+    tp = tmp_path / f"{session}.jsonl"
+    tp.write_text("\n".join(inhalt), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(_json.dumps({"transcript_path": str(tp), "session_id": session})),
+    )
+    aus = io.StringIO()
+    monkeypatch.setattr("sys.stdout", aus)
+    ucs.main()
+    return aus.getvalue()
+
+
+TEXT = "Bitte ausfuehren:\n```bash\nssh root@example.invalid 'systemctl restart foo'\n```\n"
+
+
+def test_should_report_an_untested_command_the_first_time(tmp_path, monkeypatch):
+    assert "systemctl" in _lauf(tmp_path, monkeypatch, "s1", TEXT)
+
+
+def test_should_not_report_the_same_command_again(tmp_path, monkeypatch):
+    """Der zweite Lauf ueber dasselbe Fenster muss still bleiben."""
+    _lauf(tmp_path, monkeypatch, "s2", TEXT)
+    assert _lauf(tmp_path, monkeypatch, "s2", TEXT) == ""
+
+
+def test_should_still_report_a_different_command(tmp_path, monkeypatch):
+    """Die Entprellung darf nicht den ganzen Waechter abschalten."""
+    _lauf(tmp_path, monkeypatch, "s3", TEXT)
+    anderer = "Und noch:\n```bash\nssh root@example.invalid 'docker restart bar'\n```\n"
+    assert "docker" in _lauf(tmp_path, monkeypatch, "s3", anderer)
+
+
+def test_should_keep_reporting_per_session(tmp_path, monkeypatch):
+    """Eine andere Sitzung faengt bei null an."""
+    _lauf(tmp_path, monkeypatch, "s4", TEXT)
+    assert "systemctl" in _lauf(tmp_path, monkeypatch, "s5", TEXT)
