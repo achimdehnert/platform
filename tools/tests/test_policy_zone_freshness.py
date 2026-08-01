@@ -135,6 +135,28 @@ def test_should_detect_orphan_file(gruene_zone: Path) -> None:
     assert "zombie-policy.md" in ergebnis.stdout
 
 
+def test_should_not_leak_raw_git_errors_on_stderr(
+    gruene_zone: Path, tmp_path: Path
+) -> None:
+    """Kein roher `fatal:`-Block auf stderr, auch wenn das Ziel ein unborn-HEAD-Repo ist.
+
+    Ein Werkzeug, das ungefilterte Fremdfehler durchreicht, macht seine eigene
+    Ausgabe unlesbar und verschleiert den echten Befund. Gefunden vom
+    Retro-Skeptiker (8ed6a2) beim Pruefen einer ANDEREN Hypothese.
+    """
+    subprocess.run(
+        ["git", "-C", str(gruene_zone), "init", "-q"],
+        check=True,
+        capture_output=True,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+    )
+    ergebnis = _run(gruene_zone)
+    assert "fatal:" not in ergebnis.stderr, (
+        f"roher git-Fehler auf stderr durchgereicht:\n{ergebnis.stderr}"
+    )
+    assert "mehrdeutig" not in ergebnis.stderr
+
+
 def _fixture_repo_ohne_erreichbares_origin(tmp_path: Path) -> tuple[Path, Path]:
     """Eigenstaendiges Repo mit unerreichbarem origin — OHNE die Testbarkeits-Naht.
 
