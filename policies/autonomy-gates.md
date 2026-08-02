@@ -104,6 +104,45 @@ Signal G (unten) je Klasse.
   Merge-Griff der Sinn des Gates (diese Policy-Änderung selbst ist so ein Fall: manuell gemergt).
   Voraussetzung repo-seitig: `allow_auto_merge=true` (bei achimdehnert/platform verifiziert 2026-07-18).
 
+## Budget-Deklaration (Pflicht bei autonomen Läufen)
+
+Gate 5 fragt nach der **Erlaubnis** für nennenswerten Spend. Diese Regel beantwortet die andere
+Hälfte: **wie viel** ein Lauf ausgeben darf, bevor er von selbst aufhört. Beides zusammen, nicht
+eines statt des anderen — eine Freigabe ohne Obergrenze ist ein offener Scheck.
+
+**Ein autonomer Lauf** ist jeder, der ohne wartende Person weiterläuft: Queue-Abarbeitung
+(`process-agent-queue`), Headless-Läufe (ADR-186), cron-getriebene Agenten, Multi-Agent-Fan-outs.
+
+Er deklariert **vor dem Start** drei Zahlen, sichtbar im auslösenden Artefakt (Issue-Kommentar,
+Job-Definition, Workflow-Kopf):
+
+| Feld | Bedeutung | Fehlt die Angabe |
+|---|---|---|
+| `max_agenten` | gleichzeitige **und** insgesamt gestartete Teilagenten | **1** |
+| `max_tokens` | Ausgabe-Budget des gesamten Laufs | Lauf startet **nicht** |
+| `max_schreibzugriffe` | PRs, Commits, Issues, externe Aufrufe mit Wirkung | **0** — nur lesend |
+
+Die Vorgabewerte sind mit Absicht die engste Auslegung: ein Lauf, der nichts deklariert, darf
+lesen und sonst nichts. Das Fehlen einer Angabe ist damit keine stille Erlaubnis, sondern eine
+laute Einschränkung — umgekehrt zum heutigen Zustand, in dem das Budget implizit ist und erst am
+Rechnungsbetrag sichtbar wird.
+
+**Erreicht ein Lauf eine seiner Grenzen, endet er als `abgebrochen: Budget`, nie als `fertig`.**
+Ein Budget-Ende, das wie ein Erfolg aussieht, ist die teuerste Variante dieser Regel: der
+Auftraggeber hält die Arbeit für erledigt und schaut nie nach. Dieselbe Fehlerklasse wie ein
+Health-Check, der `succeeded` meldet und nichts geprüft hat (dev-hub#188).
+
+> **Ehrliche Einschränkung — diese Regel ist heute Text, nicht Mechanik.** Sie beschreibt, was
+> deklariert werden muss; **niemand liest die Felder bisher aus**. Eine Konvention ohne
+> Durchsetzung driftet (`feedback_canon_decision_needs_enforcement_gate`). Der nächste Schritt ist
+> deshalb kein weiterer Policy-Satz, sondern **eine** Stelle, die die Deklaration prüft und einen
+> Lauf ohne sie nicht startet — sinnvollerweise dort, wo Läufe ohnehin entgegengenommen werden.
+> Bis dahin gilt: fehlt die Deklaration, ist der Lauf **nicht** freigegeben, auch wenn er
+> technisch startet.
+
+**Herkunft:** Owner-Input 2026-08-02 aus einem externen Papier (dort als Pflichtfeld je autonomem
+Lauf beschrieben). Zuschnitt auf die hiesigen Lauf-Arten und die Vorgabewerte stammen von hier.
+
 ## Effectiveness test (binding — falsify or cut)
 
 Signal **G** = User-Roundtrips pro gate-pflichtiger Entscheidung (Ziel: 1).
@@ -113,6 +152,13 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
+- 2026-08-02: Abschnitt **Budget-Deklaration** ergänzt (Owner-Input aus einem externen Papier).
+  Ergänzt Gate 5, ersetzt es nicht: Gate 5 regelt die Erlaubnis, die Deklaration die Obergrenze.
+  Vorgabewerte bewusst als engste Auslegung (ohne Angabe: ein Agent, keine Schreibzugriffe, kein
+  Start ohne Token-Budget), damit eine fehlende Angabe einschränkt statt stillschweigend zu
+  erlauben. **Noch nicht durchgesetzt** — der Abschnitt sagt das ausdrücklich und benennt die
+  fehlende Prüfstelle als nächsten Schritt; eine Konvention ohne Gate driftet
+  (`feedback_canon_decision_needs_enforcement_gate`).
 - 2026-07-12: **SA-1 + SA-3 RATIFIZIERT (Achim, wörtlich)** — Abschnitt
   „Standing-Authorization-Klassen" ergänzt (KONZ-platform-019 B2). SA-1 (Merge
   CI-grüner PR ohne Review-Pflicht+ohne Auto-Deploy) und SA-3 (Secret-Datei-
