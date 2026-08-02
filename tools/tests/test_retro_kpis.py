@@ -267,3 +267,82 @@ class TestFileIssues:
             "missing-slug: neu angelegt — https://github.com/owner/repo/issues/77"
             in out
         )
+
+
+# --- D6 (KONZ-038): Golden-Fixtures aus ECHTEN Retros + Parser-Haertung ----------
+# Der Zaehler ist der einzige Sensor des Regel-Lebenszyklus; vor der K1-Baseline
+# wird er gegen reale Reports mit bekannter Soll-Zaehlung gedrillt. a50bc6 traegt
+# den Realfall, der 3 Phantom-Slugs erzeugte (Inline-Kommentar hinter der Liste).
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "retro_kpis"
+_TOOL = Path(__file__).resolve().parents[1] / "retro_kpis.py"
+
+
+def _run_kpis(*args):
+    out = subprocess.run(
+        [sys.executable, str(_TOOL), "--dir", str(FIXTURES), *args],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert out.returncode == 0, out.stderr
+    return out.stdout
+
+
+def test_should_goldene_soll_zaehlung_liefern():
+    out = _run_kpis()
+    assert "Längsschnitt über 3 Retro-Reports" in out
+    assert "claim-before-cheapest-check  ×3" in out
+    assert "deferred-item-no-tracking-issue  ×2" in out
+    assert "lint-failure-no-local-gate  ×1" in out
+
+
+def test_should_a50bc6_phantom_slugs_nicht_mehr_zaehlen():
+    out = _run_kpis()
+    assert "Zählregel" not in out
+    assert "verifiziert)" not in out
+    assert "handover-stale-vor-merge]" not in out
+    assert "handover-stale-vor-merge  ×1" in out  # der echte letzte Slug zählt weiter
+
+
+def test_should_fenster_filter_nach_dateinamens_datum():
+    out = _run_kpis("--since", "2026-07-31")
+    assert "Längsschnitt über 2 Retro-Reports" in out
+    assert "Fenster 2026-07-31" in out
+    assert "claim-before-cheapest-check  ×2" in out
+    assert "lint-failure-no-local-gate" not in out  # a50bc6 (07-02) vor dem Fenster
+
+
+def test_should_unbekanntes_schema_laut_ausschliessen(tmp_path):
+    import shutil
+
+    src = FIXTURES / "session-retro-2026-07-31-platform-ec0588a8.md"
+    (tmp_path / src.name).write_text(
+        src.read_text(encoding="utf-8").replace("retro_schema: 1", "retro_schema: 99"),
+        encoding="utf-8",
+    )
+    shutil.copy(FIXTURES / "session-retro-2026-07-02-frist-hub-a50bc6.md", tmp_path)
+    out = subprocess.run(
+        [sys.executable, str(_TOOL), "--dir", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    ).stdout
+    assert "Längsschnitt über 1 Retro-Reports" in out
+    assert "unbekannt" in out and "ec0588a8" in out.split("##")[1]
+
+
+def test_should_nicht_slugfoermige_eintraege_warnen_statt_zaehlen():
+    fm = parse_frontmatter(
+        "---\nrecurring_findings: [echter-slug, Kaputt (x:1, UPPER-CASE]\ndate: 2026-08-02\n---\nBody"
+    )
+    assert fm["recurring_findings"] == ["echter-slug"]
+    assert any("NICHT gezählt" in w for w in fm["_parse_warnings"])
+
+
+def test_should_kommentar_hinter_der_liste_ignorieren():
+    fm = parse_frontmatter(
+        "---\nrecurring_findings: [a-b-c, d-e-f]  # Kommentar (mit:Doppelpunkt)\n---\nBody"
+    )
+    assert fm["recurring_findings"] == ["a-b-c", "d-e-f"]
+    assert "_parse_warnings" not in fm
