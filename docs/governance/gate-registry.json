@@ -1,0 +1,61 @@
+{
+  "_doc": "Gate-Registry (KONZ-038 D8). SSoT fuer gebaute Gates: Slug, Modus, Modul, Drill. Der Fenster-Prueflauf (tools/gate_drill_check.py, verdrahtet im regel-ritual-Workflow) fuehrt jeden Drill ECHT aus — ein Gate mit rotem Drill gilt K4-konform als NICHT gebaut, egal was hier steht. Bewusst JSON statt YAML: stdlib-parsebar ohne Mini-Parser (die a50bc6-Lehre). Neue Gates werden hier registriert, sonst drillt sie niemand.",
+  "_wording_convention": "Blocking-Gates formulieren stderr/reason als MASCHINEN-Feedback, nie als Ablehnung ('dies ist KEINE Nutzer-Ablehnung ...') und begrenzen auf 1 erzwungenen Korrektur-Zug pro Turn (stop_hook_active-Guard) — EXT2-M28-5.",
+  "frozen_note": "mode-Aenderungen (advisory→blocking) nur per eigenem PR nach 0-FP-Kalibrierfenster.",
+  "gates": [
+    {
+      "slug": "claim-before-cheapest-check",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/claude-hooks/evidence_claim_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1643"
+    },
+    {
+      "slug": "deferred-item-no-tracking-issue",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/deferred_item_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1645"
+    },
+    {
+      "slug": "scope-checkpoint-not-durably-recorded",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1646"
+    },
+    {
+      "slug": "stale-local-clone-as-ground-truth",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hooks/stale_clone_check.sh",
+      "drill": "tools/tests/test_stale_clone_check.py",
+      "built": "2026-08-02",
+      "ref": "platform#1644"
+    },
+    {
+      "slug": "handover-stale-vor-merge",
+      "mode": "process",
+      "owner": "achim",
+      "module": "scripts/checks/agent_handover_freshness_check.py",
+      "drill": "tools/tests/test_agent_handover_freshness_check.py",
+      "built": "2026-08-02",
+      "ref": "platform#1648"
+    },
+    {
+      "slug": "model-change-detection",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/model_change_detector.sh",
+      "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
+      "built": "2026-08-02",
+      "ref": "KONZ-038 D7"
+    }
+  ]
+}
