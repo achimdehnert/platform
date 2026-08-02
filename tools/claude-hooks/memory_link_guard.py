@@ -88,8 +88,13 @@ def pruefe(dirs: list[Path]) -> list[str]:
 
 
 def main() -> int:
+    # Der Client verlangt hookSpecificOutput.hookEventName ("Stop"|"SubagentStop");
+    # ohne das Feld verwirft er die Ausgabe und zeigt den rohen Schema-Dump.
+    event = "Stop"
     try:
-        json.load(sys.stdin)  # Vertrag erfüllen; Inhalt wird nicht gebraucht
+        daten = json.load(sys.stdin)
+        if isinstance(daten, dict) and daten.get("hook_event_name") == "SubagentStop":
+            event = "SubagentStop"
     except (json.JSONDecodeError, ValueError):
         pass
 
@@ -114,7 +119,16 @@ def main() -> int:
         "in tools/claude-hooks/memory_forward_refs.tsv, nicht in die Prosa. "
         "Jetzt im selben Zug korrigieren."
     )
-    print(json.dumps({"hookSpecificOutput": {"additionalContext": text}}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": event,
+                    "additionalContext": text,
+                }
+            }
+        )
+    )
     return 0
 
 
