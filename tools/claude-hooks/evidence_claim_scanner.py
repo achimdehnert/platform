@@ -25,9 +25,42 @@ claims, tolerates any plausible corroboration, stays silent otherwise (no naggin
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
+
+# GATE-HEADER (KONZ-038 D8, maschinenlesbar — der Fenster-Prüflauf liest dieses Dict):
+# Umstellung advisory→blocking ist Welle-1-Vorabtest (b) aus KONZ-038 D2; Messfenster
+# 2026-08-02 bis 2026-08-16, Erfolgskriterium: Verstoßrate des Slugs sinkt im Retro-Delta.
+GATE_HEADER = {
+    "slug": "claim-before-cheapest-check",
+    "mode": "blocking",  # Laufzeit-Opt-out: state-Datei, s. _mode()
+    "owner": "achim",
+    "last_drill_pass": "2026-08-02",  # Drill = test_should_block_* in tests/
+    "evidence": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
+}
+
+
+def _mode() -> str:
+    """blocking (Default) | advisory. Opt-out über State-Datei — bewusst KEIN stiller
+    Advisory-Default bei fehlender Datei: fehlende Datei = blocking, sonst stürbe das
+    Gate auf frischen Maschinen lautlos zurück in den Zustand, dessen Wirkungslosigkeit
+    ×34 belegt ist (KONZ-038 §7)."""
+    state_dir = Path(
+        os.environ.get(
+            "EVIDENCE_SCANNER_STATE_DIR", str(Path.home() / ".claude/hooks/state")
+        )
+    )
+    try:
+        if (state_dir / "evidence_scanner_mode").read_text(
+            encoding="utf-8"
+        ).strip().lower() == "advisory":
+            return "advisory"
+    except OSError:
+        pass
+    return "blocking"
+
 
 # Claim markers: cheaply-falsifiable specificity. Kept deliberately narrow.
 CLAIM_PATTERNS = [
@@ -582,8 +615,22 @@ def main() -> int:
         "auf einem Log, das den Treffer enthielt; ANSI-Codes im Muster). "
         "(Quelle: ~/.claude/policies/evidence-discipline.md; Backstop nach Vorfall 2026-06-01.)"
     )
-    # Dokumentierte additionalContext-Form (exit-0 Stop-Hooks parsen JSON-stdout); der
-    # Plain-Text-String bleibt als additionalContext erhalten → robustes Surfacing.
+    if _mode() == "blocking":
+        # decision:block statt Exit 2 — bewusst: Exit 2 wird teils als Nutzer-Ablehnung
+        # gelesen und würde den Turn stallen statt korrigieren (KONZ-038 EXT2-M28-5).
+        # Der stop_hook_active-Guard oben begrenzt auf EINEN erzwungenen Korrektur-Zug
+        # pro Turn (kein Block-Loop; Vorfall 2026-07-03: 9 Blocks in Folge).
+        reason = (
+            "Automatischer Evidenz-Check (Gate claim-before-cheapest-check, KONZ-038 "
+            "§5.2 — dies ist KEINE Nutzer-Ablehnung, sondern Maschinen-Feedback): "
+            + msg
+            + " Danach den Turn normal beenden; dieser Check feuert pro Turn nur einmal."
+        )
+        print(json.dumps({"decision": "block", "reason": reason}))
+        return 0
+    # advisory (Opt-out): dokumentierte additionalContext-Form (exit-0 Stop-Hooks
+    # parsen JSON-stdout); der Plain-Text-String bleibt als additionalContext
+    # erhalten → robustes Surfacing ohne erzwungene Fortsetzung.
     print(
         json.dumps(
             {"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": msg}}
