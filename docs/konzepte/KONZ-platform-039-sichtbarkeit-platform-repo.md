@@ -18,6 +18,7 @@ evidence_manifest:
   - {claim_id: C5, source_path: "bootstrap.sh:71", commit_or_pr: "origin/main 2026-08-02", opened_in_session: true}   # unauthentifizierter git clone
   - {claim_id: C6, source_path: "git grep -c über origin/main", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # Prod-IP 117 Dateien, iil.pet 255, 237 ADRs, 38 KONZ
   - {claim_id: C7, source_path: "docs.github.com/actions/how-tos/reuse-automations/share-across-private-repositories", commit_or_pr: "WebFetch 2026-08-02", opened_in_session: true}   # Freigabe ist besitzer-bezogen; zur Sichtbarkeit des AUFRUFERS sagt die Doku nichts
+  - {claim_id: C9, source_path: "G1-Experiment: achimdehnert/ci-sichtbarkeit-probe (privat, access_level=user) + ci-sichtbarkeit-probe-caller (public) — gh workflow run → HTTP 422 workflow was not found", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # L5 bestätigt: public→privat-Aufruf unmöglich
 created: 2026-08-02
 ---
 
@@ -107,8 +108,19 @@ Tatsache behauptet — das war nicht belegt und ist hiermit zurückgenommen.
 Zweig eines der acht öffentlichen Konsumenten. Kosten: eine Viertelstunde. Ergebnis entscheidet
 zwischen Variante A und B in §6.
 
-**Bis G1 vorliegt, ist jede Aufwandsschätzung für P1 eine Wette.** Deshalb steht dieses Konzept
-auf `idea`, nicht auf `ready`.
+**G1 AUSGEFÜHRT (2026-08-02, Owner-Go im Chat):** privates Wegwerf-Repo
+`ci-sichtbarkeit-probe` mit trivialem `workflow_call`-Workflow, Actions-Freigabe per API auf
+`access_level=user` gesetzt; Aufruf aus dem eigens angelegten **öffentlichen** Wegwerf-Repo
+`ci-sichtbarkeit-probe-caller` (`workflow_dispatch` → `uses: …/_probe.yml@main`).
+**Ergebnis: GitHub verweigert den Dispatch mit „workflow was not found"** (HTTP 422 beim
+Parsen des aufgerufenen Workflows) — der öffentliche Aufrufer kann den privaten
+Reusable-Workflow **nicht** nutzen, die Freigabe „user" ändert daran nichts. L5 ist damit
+**bestätigt**: platform privat schalten bricht die ≥19 öffentlichen Workflow-Konsumenten
+sicher. Der tragfähige Weg bleibt der Schnitt (§6 Variante B) oder Variante A (Bereinigung).
+Die beiden Wegwerf-Repos sind löschbar (DELETE ist per Policy Human-Only).
+
+**Aufwandsschätzung für P1 ist damit keine Wette mehr** — die Entscheidungsgrundlage für den
+ADR liegt vor; nächster Schritt ist die Owner-Wahl zwischen Variante A und B.
 
 ## 5. Annahmen-/Entscheidungs-Ledger
 
@@ -118,7 +130,7 @@ auf `idea`, nicht auf `ready`.
 | L2 | **19** öffentliche Repos beziehen Reusable Workflows aus platform (34 insgesamt) | Beobachtung | C3, C8 — zwei Methoden vereinigt (§3.1) | verifiziert als **untere Schranke** |
 | L3 | 10 Repos ziehen Dateien über `raw.githubusercontent` | Beobachtung | C4 | verifiziert |
 | L4 | `bootstrap.sh` klont ohne Authentifizierung | Beobachtung | C5 | verifiziert |
-| L5 | Ein öffentlicher Aufrufer kann keinen privaten Reusable Workflow nutzen | **Annahme** | nicht belegt — Check: G1 | **offen** |
+| L5 | Ein öffentlicher Aufrufer kann keinen privaten Reusable Workflow nutzen | Beobachtung | G1-Experiment 2026-08-02: Dispatch scheitert mit „workflow was not found" trotz `access_level=user` (§4) | **verifiziert** |
 | L6 | Die vier Workflows sind der einzige Grund, platform öffentlich zu halten | Annahme | P2–P4 sind umstellbar; Konsumentenzahl inzwischen zweifach erhoben (§3.1), bleibt aber untere Schranke | offen (M) |
 | L7 | Ein separates öffentliches CI-Repo erzeugt keinen zweiten Wahrheitsstand | Entscheidung | Workflows wandern **ganz**, kein Duplikat; Kill-Kriterium K3 misst Divergenz | offen |
 
@@ -187,7 +199,7 @@ org-weit und träfe genau die Repos, die publiziert werden.
 
 | id | Kriterium | Schwelle | Status |
 |----|-----------|----------|--------|
-| K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ⬜ offen |
+| K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ✅ 2026-08-02 — Ergebnis in §4: öffentlicher Aufrufer scheitert, L5 bestätigt |
 | K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | 🟡 teilweise — 2 Methoden × 1 Owner erhoben (§3.1), 3 Owner fehlen |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
