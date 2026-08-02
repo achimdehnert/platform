@@ -1,4 +1,5 @@
 # Policy: Data Sovereignty & LLM-Egress
+<!-- rule_class: C | assessed_with: claude-fable-5 | reassess_by: 2027-08-01 (KONZ-038 D4) -->
 
 **Status:** 🟡 DRAFT — pending ratification by Achim Dehnert (iil.gmbh). Bis zur Ratifizierung
 ist NICHTS aktiv: das `/adr-handoff-extern`-Hard-Gate bleibt unverändert kategorisch.

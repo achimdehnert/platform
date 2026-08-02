@@ -1,4 +1,5 @@
 # Policy: Klickdummy
+<!-- rule_class: B | assessed_with: claude-fable-5 | reassess_by: 2027-08-01 (KONZ-038 D4) -->
 
 **Trigger words:** klickdummy, mockup, prototyp, mock-prototyp, stub-demo, story, spec-demo, parity-test, demo-render, `?demo=`, sunset_after
 

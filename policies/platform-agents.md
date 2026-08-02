@@ -1,4 +1,5 @@
 # Policy: Where do Platform Agents live?
+<!-- rule_class: B | assessed_with: claude-fable-5 | reassess_by: 2027-08-01 (KONZ-038 D4) -->
 
 **Trigger words:** platform agent, wo soll, which hub, welcher hub, where
 should this live, host für, agent, drift, scribe, guardian

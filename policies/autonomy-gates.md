@@ -1,4 +1,5 @@
 # Policy: Autonomy Gates
+<!-- rule_class: C | assessed_with: claude-fable-5 | reassess_by: 2027-08-01 (KONZ-038 D4) -->
 
 **Trigger words:** freigabe, genehmigung, approval, autonom, autonomie, darf ich,
 user-eingriff, gate, permission, bypass
