@@ -45,6 +45,18 @@ jobs:
             sed -n '1,40p' /tmp/kpi.txt
             echo '```'
             echo ""
+            # Handover-Freshness-Sweep (Slug handover-stale-vor-merge, Welle 1):
+            # das PR-Gate ist paths-gefiltert und sieht "Datei nicht angefasst" nie —
+            # dieser Sweep erreicht die Lesefläche (#1640) unabhängig von PR-Pfaden.
+            if python3 scripts/checks/agent_handover_freshness_check.py AGENT_HANDOVER.md > /tmp/fresh.txt 2>&1; then
+              echo "Handover-Freshness: ✅ frisch"
+            else
+              echo "Handover-Freshness: ⚠️ STALE — Stand-Abschnitt älter als letzter Commit:"
+              echo '```'
+              sed -n '1,10p' /tmp/fresh.txt
+              echo '```'
+            fi
+            echo ""
             echo "_Voller Lauf im Actions-Log. Sunset-Prüfung + Gate-Backlog: manueller Teil des Rituals (Runbook folgt mit Gate-Welle 1)._"
           } > /tmp/comment.md
           cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
