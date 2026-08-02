@@ -127,3 +127,49 @@ def test_should_im_continuation_turn_schweigen(monkeypatch, capsys, tmp_path):
     rc, out = _run(monkeypatch, capsys, p, stop_hook_active=True)
     assert rc == 0
     assert out == {}
+
+
+# --- Retro 287b23 #6: verschieben-FN + MCP-Tracking-Kanal ------------------------
+
+
+def test_should_verschieben_in_ich_form_melden(monkeypatch, capsys, tmp_path):
+    rc, out = _run(
+        monkeypatch,
+        capsys,
+        _transcript(tmp_path, "Das Cleanup verschiebe ich auf morgen."),
+    )
+    assert rc == 0
+    assert "deferred-item" in out.get("hookSpecificOutput", {}).get(
+        "additionalContext", ""
+    )
+
+
+def test_should_termin_verschiebung_in_ruhe_lassen(monkeypatch, capsys, tmp_path):
+    rc, out = _run(
+        monkeypatch,
+        capsys,
+        _transcript(tmp_path, "Der Termin wurde auf Dienstag verschoben."),
+    )
+    assert rc == 0
+    assert out == {}, f"False Positive auf Termin-Prosa: {out}"
+
+
+def test_should_mcp_issue_tool_als_tracking_erkennen(monkeypatch, capsys, tmp_path):
+    mcp_rec = {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "name": "mcp__github__create_issue",
+                    "input": {"title": "Backfill nachziehen"},
+                }
+            ]
+        },
+    }
+    p = _transcript(
+        tmp_path, "Den Backfill habe ich bewusst ausgelassen.", extra_records=[mcp_rec]
+    )
+    rc, out = _run(monkeypatch, capsys, p)
+    assert rc == 0
+    assert out == {}, f"MCP-Tracking-Kanal nicht erkannt: {out}"

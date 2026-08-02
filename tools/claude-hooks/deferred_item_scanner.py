@@ -50,7 +50,11 @@ DEFERRAL_PATTERNS = re.compile(
     r"|\bsp(?:ä|ae)ter\s+(?:nachziehen|nachholen|nachr(?:ü|ue)sten|erledigen)\b"
     r"|\bziehe\s+ich\s+sp(?:ä|ae)ter\s+nach\b"
     r"|\bout\s+of\s+scope\s+for\s+this\b|\bdeferred\s+(?:to|for)\b"
-    r"|\bleft\s+for\s+(?:later|a\s+follow-?up)\b|\bin\s+a\s+(?:separate|follow-?up)\s+PR\b",
+    r"|\bleft\s+for\s+(?:later|a\s+follow-?up)\b|\bin\s+a\s+(?:separate|follow-?up)\s+PR\b"
+    # Retro 287b23 #6: "verschieben" als Vertagungs-Verb fehlte (FN-Klasse). Eng:
+    # nur Ich-Form/Arbeits-Kontext, damit "der Termin wurde verschoben" nicht feuert.
+    r"|\bverschiebe\s+ich\s+(?:auf|in|nach)\b"
+    r"|\bauf\s+(?:sp(?:ä|ae)ter|die\s+n(?:ä|ae)chste\s+Session|morgen)\s+verschoben\b",
     re.I,
 )
 
@@ -64,13 +68,19 @@ _TRACKING_FILE = re.compile(
     r"KONZ-[^\s/]*\.md|ledger|AGENT_HANDOVER|docs/konzepte/", re.I
 )
 _TRACKING_TOOLS = {"TaskCreate"}
+# Retro 287b23 #6: Tracking läuft auch über MCP-Tools, nicht nur gh-CLI (FP-Klasse).
+_TRACKING_TOOL_PREFIXES = (
+    "mcp__github__create_issue",
+    "mcp__github__add_issue_comment",
+    "mcp__github__update_issue",
+)
 
 
 def _has_tracking_artifact(evidence_text: str, tool_inputs: list) -> bool:
     if _TRACKING_CMD.search(evidence_text):
         return True
     for name, inp in tool_inputs:
-        if name in _TRACKING_TOOLS:
+        if name in _TRACKING_TOOLS or str(name).startswith(_TRACKING_TOOL_PREFIXES):
             return True
         if name in ("Write", "Edit") and isinstance(inp, dict):
             if _TRACKING_FILE.search(str(inp.get("file_path", ""))):

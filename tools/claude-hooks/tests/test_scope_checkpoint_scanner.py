@@ -126,3 +126,29 @@ def test_should_im_continuation_turn_schweigen(monkeypatch, capsys, tmp_path):
     rc, out = _run(monkeypatch, capsys, p, stop_hook_active=True)
     assert rc == 0
     assert out == {}
+
+
+# --- Retro 287b23 #6 (Schwester-Lücke): MCP-Kanal als durables Artefakt ----------
+
+
+def test_should_mcp_kommentar_als_durabel_erkennen(monkeypatch, capsys, tmp_path):
+    mcp_rec = {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "name": "mcp__github__add_issue_comment",
+                    "input": {"body": "Scope-Checkpoint: ..."},
+                }
+            ]
+        },
+    }
+    p = _transcript(
+        tmp_path,
+        "Scope-Checkpoint: drittes Repo berührt — ist das noch gewollt?",
+        extra_records=[mcp_rec],
+    )
+    rc, out = _run(monkeypatch, capsys, p)
+    assert rc == 0
+    assert out == {}, f"MCP-Kanal nicht erkannt: {out}"

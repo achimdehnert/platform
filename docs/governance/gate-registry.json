@@ -56,6 +56,16 @@
       "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
       "built": "2026-08-02",
       "ref": "KONZ-038 D7"
+    },
+    {
+      "slug": "drill-path-not-invocation-path",
+      "mode": "meta",
+      "owner": "achim",
+      "module": "",
+      "drill": "tools/claude-hooks/tests/test_hook_invocation_contract.py",
+      "built": "2026-08-02",
+      "ref": "Retro 287b23 #1 / PR #1660",
+      "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad."
     }
   ]
 }
