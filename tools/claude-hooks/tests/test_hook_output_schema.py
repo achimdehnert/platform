@@ -35,6 +35,13 @@ ERLAUBTE_EVENTS = {
     "UserPromptSubmit",
     "Stop",
     "SubagentStop",
+    # Realfall 2026-08-02 (#1674-Nachfix): hygiene_melder ist ein
+    # SessionStart-Hook, bekam aber "Stop" — weil diese Liste SessionStart
+    # nicht kannte und so den falschen Namen erzwang.
+    "SessionStart",
+    "SessionEnd",
+    "Notification",
+    "PreCompact",
 }
 
 _module = sorted(p for p in HOOKS.glob("*.py") if p.name != "__init__.py")

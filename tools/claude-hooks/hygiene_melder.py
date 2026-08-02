@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "hookSpecificOutput": {
-                    "hookEventName": "Stop",
+                    "hookEventName": "SessionStart",
                     "additionalContext": "🧹 hygiene-melder:\n" + "\n".join(zeilen),
                 }
             }
