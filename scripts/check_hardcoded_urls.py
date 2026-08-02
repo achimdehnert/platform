@@ -36,6 +36,7 @@ Verwendung:
   python scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
   python scripts/check_hardcoded_urls.py --all --report-only   # Exit 0 immer
 """
+
 from __future__ import annotations
 
 import argparse
@@ -50,15 +51,40 @@ from pathlib import Path
 GITHUB_ROOT = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
 
 _SKIP_DIRS = {
-    ".venv", "node_modules", "__pycache__", "site-packages",
-    ".git", "dist", "build", "htmlcov", ".mypy_cache", ".tox",
-    ".claude", ".windsurf",
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    "site-packages",
+    ".git",
+    "dist",
+    "build",
+    "htmlcov",
+    ".mypy_cache",
+    ".tox",
+    ".claude",
+    ".windsurf",
+    # Klickdummys sind statische Prototypen ohne Django-URL-Aufloesung
+    # (ADR-211) — harte hrefs sind dort das Medium, kein Befund.
+    "klickdummy",
 }
 
 _SKIP_REPOS = {
-    "platform", "infra-deploy", "iil-reflex", "promptfw", "authoringfw",
-    "aifw", "testkit", "outlinefw", "weltenfw", "illustration-fw",
-    "researchfw", "learnfw", "lastwar-bot", "odoo-hub", "mcp-hub", "nl2cad",
+    "platform",
+    "infra-deploy",
+    "iil-reflex",
+    "promptfw",
+    "authoringfw",
+    "aifw",
+    "testkit",
+    "outlinefw",
+    "weltenfw",
+    "illustration-fw",
+    "researchfw",
+    "learnfw",
+    "lastwar-bot",
+    "odoo-hub",
+    "mcp-hub",
+    "nl2cad",
 }
 
 # Django-Boilerplate-Dateien: os.environ hier ist NOTWENDIG
@@ -66,24 +92,26 @@ _DJANGO_BOILERPLATE = {"manage.py", "wsgi.py", "asgi.py", "celery.py"}
 
 # Zeilen-Whitelist für Template-Prüfungen
 _TMPL_ALLOWED = [
-    "/admin/",   # Django-Admin: keine namespaced URL
+    "/admin/",  # Django-Admin: keine namespaced URL
     "https://",  # externe Links
-    "http://",   # externe Links
-    "{{ ",       # Template-Variable
-    "{% url",    # korrekte Verwendung
-    "{% static", # korrekte Verwendung
+    "http://",  # externe Links
+    "{{ ",  # Template-Variable
+    "{% url",  # korrekte Verwendung
+    "{% static",  # korrekte Verwendung
 ]
 
 # Pfad-Fragmente, bei denen INFO-Regeln nicht greifen (Drittcode, Seed-Daten, CI)
 _INFO_SKIP_PATH_PARTS = {
-    "vendor",                   # Third-Party-Code
-    ".github",                  # CI-Scripts
+    "vendor",  # Third-Party-Code
+    ".github",  # CI-Scripts
     "node_modules",
 }
 
 # Dateinamen-Muster, bei denen I-CFG-03/04 übersprungen werden
 _SEED_OR_FIXTURE_NAMES = {
-    "factories.py", "fixtures.py", "conftest.py",
+    "factories.py",
+    "fixtures.py",
+    "conftest.py",
 }
 _SEED_PREFIXES = ("seed_", "bootstrap_", "load_")
 
@@ -94,19 +122,20 @@ _IP_WHITELIST = re.compile(
 
 CATEGORY_LABELS = {
     "VERMEIDBAR": "\033[31mVERMEIDB.\033[0m",
-    "INFO":       "\033[33mINFO\033[0m",
+    "INFO": "\033[33mINFO\033[0m",
 }
 
 # ── Regel-Definitionen ────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class Rule:
     rule_id: str
-    category: str        # VERMEIDBAR | INFO
+    category: str  # VERMEIDBAR | INFO
     description: str
     pattern: re.Pattern
-    suffixes: tuple[str, ...]   # welche Dateitypen
-    alternative: str            # was stattdessen verwenden
+    suffixes: tuple[str, ...]  # welche Dateitypen
+    alternative: str  # was stattdessen verwenden
     skip_filenames: frozenset[str] = field(default_factory=frozenset)
     only_filenames: frozenset[str] = field(default_factory=frozenset)
     skip_in_tests: bool = True  # test_* und conftest.py überspringen
@@ -115,21 +144,24 @@ class Rule:
 RULES: list[Rule] = [
     # ── VERMEIDBAR: Templates ─────────────────────────────────────────────────
     Rule(
-        "V-TMPL-01", "VERMEIDBAR",
+        "V-TMPL-01",
+        "VERMEIDBAR",
         "href mit hartkodiertem Pfad",
         re.compile(r'href="(/[a-zA-Z0-9_-])'),
         (".html", ".htm"),
         "{% url 'app:view_name' %}",
     ),
     Rule(
-        "V-TMPL-02", "VERMEIDBAR",
+        "V-TMPL-02",
+        "VERMEIDBAR",
         "action mit hartkodiertem Pfad (Formular)",
         re.compile(r'action="(/[a-zA-Z0-9_-])'),
         (".html", ".htm"),
         "{% url 'app:view_name' %}",
     ),
     Rule(
-        "V-TMPL-03", "VERMEIDBAR",
+        "V-TMPL-03",
+        "VERMEIDBAR",
         "src mit hartkodiertem Pfad (eigenes Asset)",
         re.compile(r'src="(/[a-zA-Z0-9_-])'),
         (".html", ".htm"),
@@ -137,7 +169,8 @@ RULES: list[Rule] = [
     ),
     # ── VERMEIDBAR: Python Views ──────────────────────────────────────────────
     Rule(
-        "V-VIEW-01", "VERMEIDBAR",
+        "V-VIEW-01",
+        "VERMEIDBAR",
         "redirect() mit hartkodiertem URL-String",
         re.compile(r'\bredirect\(\s*["\']\/[a-zA-Z]'),
         (".py",),
@@ -145,7 +178,8 @@ RULES: list[Rule] = [
         skip_filenames=frozenset(_DJANGO_BOILERPLATE | {"urls.py"}),
     ),
     Rule(
-        "V-VIEW-02", "VERMEIDBAR",
+        "V-VIEW-02",
+        "VERMEIDBAR",
         "HttpResponseRedirect() mit hartkodiertem Pfad",
         re.compile(r'HttpResponseRedirect\(\s*["\']\/'),
         (".py",),
@@ -154,25 +188,34 @@ RULES: list[Rule] = [
     ),
     # ── VERMEIDBAR: Konfiguration ─────────────────────────────────────────────
     Rule(
-        "V-CFG-01", "VERMEIDBAR",
-        "os.environ[\"KEY\"] — direkter Env-Zugriff",
-        re.compile(r'\bos\.environ\['),
+        "V-CFG-01",
+        "VERMEIDBAR",
+        'os.environ["KEY"] — direkter Env-Zugriff',
+        re.compile(r"\bos\.environ\["),
         (".py",),
         "decouple.config('KEY')",
         skip_filenames=frozenset(_DJANGO_BOILERPLATE),
         skip_in_tests=False,  # auch in Tests flaggen
     ),
     Rule(
-        "V-CFG-02", "VERMEIDBAR",
-        "os.environ.get(\"KEY\") ohne Fallback-Logik",
-        re.compile(r'\bos\.environ\.get\('),
+        "V-CFG-02",
+        "VERMEIDBAR",
+        'os.environ.get("KEY") ohne Fallback-Logik',
+        # Nur der vollständige Ein-Argument-Aufruf auf einer Zeile ist der
+        # beschriebene Fall "ohne Fallback-Logik". Mit Default-Argument ist die
+        # Zeile das empfohlene Muster; mehrzeilige Aufrufe und Variablen-
+        # Argumente sind zeilenweise nicht entscheidbar → nicht geflaggt
+        # (0-FP-Disziplin). Bis 2026-08 flaggte die Regex JEDEN .get(-Aufruf
+        # und widersprach der eigenen Beschreibung.
+        re.compile(r'\bos\.environ\.get\(\s*["\'][^"\']+["\']\s*\)'),
         (".py",),
         "decouple.config('KEY', default=...)",
         skip_filenames=frozenset(_DJANGO_BOILERPLATE),
     ),
     # ── VERMEIDBAR: Secrets ───────────────────────────────────────────────────
     Rule(
-        "V-SEC-01", "VERMEIDBAR",
+        "V-SEC-01",
+        "VERMEIDBAR",
         "SECRET_KEY als Literal (nicht aus Env)",
         re.compile(r'SECRET_KEY\s*=\s*["\'][^$({]'),
         (".py",),
@@ -180,7 +223,8 @@ RULES: list[Rule] = [
         skip_in_tests=False,
     ),
     Rule(
-        "V-SEC-02", "VERMEIDBAR",
+        "V-SEC-02",
+        "VERMEIDBAR",
         "PASSWORD/DB-Passwort als Literal",
         re.compile(r'(?:PASSWORD|DB_PASS|REDIS_PASS)\s*=\s*["\'][^$({\'\"]{3,}'),
         (".py",),
@@ -188,10 +232,11 @@ RULES: list[Rule] = [
         skip_in_tests=False,
     ),
     Rule(
-        "V-SEC-03", "VERMEIDBAR",
+        "V-SEC-03",
+        "VERMEIDBAR",
         "Hardcodierter API-Token / Secret als Literal-String",
         re.compile(
-            r'(?:api_key|apikey|api_secret|token|auth_token|access_token|private_key)'
+            r"(?:api_key|apikey|api_secret|token|auth_token|access_token|private_key)"
             r'\s*=\s*["\'][a-zA-Z0-9_\-\.]{16,}["\']',
             re.IGNORECASE,
         ),
@@ -201,28 +246,32 @@ RULES: list[Rule] = [
     ),
     # ── INFO: Konfiguration ───────────────────────────────────────────────────
     Rule(
-        "I-CFG-01", "INFO",
+        "I-CFG-01",
+        "INFO",
         "ALLOWED_HOSTS mit Literal-Domain (nicht localhost)",
         re.compile(r'ALLOWED_HOSTS\s*=\s*\[.*["\'][^\'\"]*\.[^\'\"]+["\']'),
         (".py",),
         "ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())",
     ),
     Rule(
-        "I-CFG-02", "INFO",
+        "I-CFG-02",
+        "INFO",
         "Hardcodierte öffentliche IP-Adresse",
         re.compile(r'["\'](\d{1,3}\.){3}\d{1,3}["\']'),
         (".py",),
         "decouple.config('SERVER_IP')",
     ),
     Rule(
-        "I-CFG-03", "INFO",
+        "I-CFG-03",
+        "INFO",
         "Hardcodierte E-Mail-Adresse (nicht in Seed/Fixture)",
         re.compile(r'["\'][a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}["\']'),
         (".py",),
         "settings.DEFAULT_FROM_EMAIL oder decouple.config()",
     ),
     Rule(
-        "I-CFG-04", "INFO",
+        "I-CFG-04",
+        "INFO",
         "Hardcodierte externe Domain/URL (nicht in API-Clients/Vendor)",
         re.compile(r'["\']https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^"\']*["\']'),
         (".py",),
@@ -232,6 +281,7 @@ RULES: list[Rule] = [
 
 
 # ── Datenmodelle ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class Violation:
@@ -261,6 +311,7 @@ class RepoResult:
 
 
 # ── Scanner ───────────────────────────────────────────────────────────────────
+
 
 def _should_skip_path(path: Path) -> bool:
     return any(part in _SKIP_DIRS for part in path.parts)
@@ -356,12 +407,14 @@ def scan_repo(repo_path: Path) -> RepoResult:
         for lineno, line in enumerate(lines, start=1):
             for rule in rules:
                 if _check_line(rule, line, fpath):
-                    result.violations.append(Violation(
-                        rule=rule,
-                        file_path=fpath,
-                        lineno=lineno,
-                        line=line.strip(),
-                    ))
+                    result.violations.append(
+                        Violation(
+                            rule=rule,
+                            file_path=fpath,
+                            lineno=lineno,
+                            line=line.strip(),
+                        )
+                    )
     return result
 
 
@@ -393,7 +446,9 @@ def find_all_repos(
         if (candidate / "src" / "manage.py").exists():
             repos.append(candidate)
             continue
-        html_count = sum(1 for p in candidate.rglob("*.html") if not _should_skip_path(p))
+        html_count = sum(
+            1 for p in candidate.rglob("*.html") if not _should_skip_path(p)
+        )
         if html_count > 0:
             repos.append(candidate)
         elif include_only is not None:
@@ -403,13 +458,13 @@ def find_all_repos(
 
 # ── Ausgabe ───────────────────────────────────────────────────────────────────
 
-RESET  = "\033[0m"
-RED    = "\033[31m"
-GREEN  = "\033[32m"
+RESET = "\033[0m"
+RED = "\033[31m"
+GREEN = "\033[32m"
 YELLOW = "\033[33m"
-CYAN   = "\033[36m"
-BOLD   = "\033[1m"
-DIM    = "\033[2m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
 
 
 def _c(text: str, *codes: str) -> str:
@@ -424,31 +479,38 @@ def print_report(
     summary_only: bool = False,
     category_filter: str | None = None,
 ) -> int:
-    categories = ["VERMEIDBAR", "INFO"] if not category_filter else [category_filter.upper()]
+    categories = (
+        ["VERMEIDBAR", "INFO"] if not category_filter else [category_filter.upper()]
+    )
 
     def filtered(r: RepoResult) -> list[Violation]:
         return [v for v in r.violations if v.rule.category in categories]
 
     total = sum(len(filtered(r)) for r in results)
     n_vermeidbar = sum(len(r.by_category("VERMEIDBAR")) for r in results)
-    n_info       = sum(len(r.by_category("INFO"))       for r in results)
-    repos_dirty  = [r for r in results if filtered(r)]
-    repos_clean  = [r for r in results if not filtered(r)]
+    n_info = sum(len(r.by_category("INFO")) for r in results)
+    repos_dirty = [r for r in results if filtered(r)]
+    repos_clean = [r for r in results if not filtered(r)]
 
     print(f"\n{_c('HARDCODING-GUARD — Platform Scan v2', BOLD)}")
-    print(f"Repos: {len(results)}  │  "
-          f"Gesamt: {_c(str(total), RED if total else GREEN)}  │  "
-          f"Vermeidbar: {_c(str(n_vermeidbar), RED)}  │  "
-          f"Info: {_c(str(n_info), YELLOW)}  │  "
-          f"Sauber: {_c(str(len(repos_clean)), GREEN)}/{len(results)}")
+    print(
+        f"Repos: {len(results)}  │  "
+        f"Gesamt: {_c(str(total), RED if total else GREEN)}  │  "
+        f"Vermeidbar: {_c(str(n_vermeidbar), RED)}  │  "
+        f"Info: {_c(str(n_info), YELLOW)}  │  "
+        f"Sauber: {_c(str(len(repos_clean)), GREEN)}/{len(results)}"
+    )
     print(_c("─" * 72, DIM))
 
     for repo in sorted(repos_dirty, key=lambda r: -len(filtered(r))):
         viols = filtered(repo)
         v_count = len(repo.by_category("VERMEIDBAR"))
         i_count = len(repo.by_category("INFO"))
-        tag = (f"{_c(f'V:{v_count}', RED)} {_c(f'I:{i_count}', YELLOW)}"
-               if not category_filter else f"{len(viols)}")
+        tag = (
+            f"{_c(f'V:{v_count}', RED)} {_c(f'I:{i_count}', YELLOW)}"
+            if not category_filter
+            else f"{len(viols)}"
+        )
         print(f"\n{_c('✗ ' + repo.name, RED + BOLD)}  [{tag}]")
 
         by_file: dict[Path, list[Violation]] = {}
@@ -476,16 +538,20 @@ def print_report(
             shown = fviols if verbose else fviols[:6]
             for v in shown:
                 cat_label = _c("●", RED if v.rule.category == "VERMEIDBAR" else YELLOW)
-                print(f"    {cat_label} {_c(f'[{v.rule.rule_id}]', BOLD)} "
-                      f"Zeile {v.lineno}: {v.line[:90]}")
+                print(
+                    f"    {cat_label} {_c(f'[{v.rule.rule_id}]', BOLD)} "
+                    f"Zeile {v.lineno}: {v.line[:90]}"
+                )
                 if verbose:
                     print(f"       {_c('→ ' + v.rule.alternative, DIM)}")
             if not verbose and len(fviols) > 6:
-                print(f"    {_c(f'... +{len(fviols)-6} weitere', DIM)}")
+                print(f"    {_c(f'... +{len(fviols) - 6} weitere', DIM)}")
 
     # Sauber-Liste
     if repos_clean:
-        names = ", ".join(_c(r.name, GREEN) for r in sorted(repos_clean, key=lambda r: r.name))
+        names = ", ".join(
+            _c(r.name, GREEN) for r in sorted(repos_clean, key=lambda r: r.name)
+        )
         print(f"\n{_c('✓ Sauber:', GREEN + BOLD)} {names}")
 
     # Statistik
@@ -497,11 +563,15 @@ def print_report(
         for v in r.violations:
             if v.rule.category not in categories:
                 continue
-            rule_stats.setdefault(v.rule.rule_id, (v.rule.category, v.rule.description, 0))
+            rule_stats.setdefault(
+                v.rule.rule_id, (v.rule.category, v.rule.description, 0)
+            )
             t = rule_stats[v.rule.rule_id]
             rule_stats[v.rule.rule_id] = (t[0], t[1], t[2] + 1)
 
-    for rid, (cat, desc, cnt) in sorted(rule_stats.items(), key=lambda x: (-x[1][2], x[0])):
+    for rid, (cat, desc, cnt) in sorted(
+        rule_stats.items(), key=lambda x: (-x[1][2], x[0])
+    ):
         marker = _c("●", RED if cat == "VERMEIDBAR" else YELLOW)
         print(f"  {marker} {_c(rid, BOLD)}: {cnt:4d}  {desc}")
 
@@ -523,17 +593,24 @@ def print_report(
 
 # ── Entry-Point ───────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Platform-weiter Hardcoding-Guard — VERMEIDBAR vs. INFO",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("path", nargs="?", help="Pfad zu einem einzelnen Repo")
-    parser.add_argument("--all",         action="store_true", help="Alle Repos scannen")
-    parser.add_argument("--summary",     action="store_true", help="Dateiliste ohne Zeilen-Detail")
-    parser.add_argument("--verbose","-v",action="store_true", help="Alle Violations + Alternativen")
-    parser.add_argument("--report-only", action="store_true", help="Immer Exit 0 (für Audits)")
-    parser.add_argument("--category",    help="Nur VERMEIDBAR oder INFO anzeigen")
+    parser.add_argument("--all", action="store_true", help="Alle Repos scannen")
+    parser.add_argument(
+        "--summary", action="store_true", help="Dateiliste ohne Zeilen-Detail"
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Alle Violations + Alternativen"
+    )
+    parser.add_argument(
+        "--report-only", action="store_true", help="Immer Exit 0 (für Audits)"
+    )
+    parser.add_argument("--category", help="Nur VERMEIDBAR oder INFO anzeigen")
     args = parser.parse_args()
 
     if args.all:
