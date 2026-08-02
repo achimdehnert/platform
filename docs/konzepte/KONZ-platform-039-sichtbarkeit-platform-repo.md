@@ -1,11 +1,11 @@
 ---
 concept_id: KONZ-platform-039
 title: Sichtbarkeit des platform-Repos — privat werden, ohne die Flotte abzuschneiden
-pipeline_status: idea
+pipeline_status: ready
 tier: T3
 owner: Achim Dehnert
 spec_refs: []        # Infrastruktur-/Governance-Konzept, keine App-Spec
-adr_threshold: "ADR nötig — Security-Perimeter + Cross-Repo. G1 ist erfüllt (§4); offen bleibt der Konsumenten-Scan über alle vier Owner (K2)."
+adr_threshold: "ADR nötig — Security-Perimeter + Cross-Repo. G1 und K2 sind erfüllt; das Konzept ist entscheidungsreif."
 review_by: 2026-09-15
 kill_criteria: "K1–K4 in §9; hart: bricht nach dem Schnitt CI in ≥1 öffentlichem Konsumenten länger als 24 h, wird zurückgedreht"
 superseded_by_spec: null
@@ -60,7 +60,7 @@ ist, ist das eine bewusste Entscheidung wert, keine Vorbelegung.
 
 | # | Pfad | Umfang | Bricht bei „privat"? |
 |---|---|---|---|
-| P1 | Reusable Workflows `_*.yml` (C2, C3) | 4 Workflows, **34 Konsumenten, 19 davon öffentlich** | **ja — experimentell belegt** (§4) |
+| P1 | Reusable Workflows `_*.yml` (C2, C3) | 4 Workflows, **37 Konsumenten, 19 davon öffentlich** | **ja — experimentell belegt** (§4) |
 | P2 | `raw.githubusercontent.com/achimdehnert/platform` (C4) | 10 Repos | **ja, sicher** |
 | P3 | `bootstrap.sh` klont unauthentifiziert (C5) | jede neue Maschine | **ja, sicher** |
 | P4 | `git clone` in fremder CI (sqf-hub) | 1 Repo | **ja, sicher** |
@@ -79,7 +79,8 @@ niedrig. Der Grund ist methodisch und wiegt schwerer als die Zahl:
 |---|---|---|
 | `grep` über lokale Klone `~/github/*` | 26 | 10, die nie ausgecheckt waren |
 | `gh search code --owner achimdehnert` | 25 | 11, u. a. `outlinefw` |
-| **Vereinigung beider** | **34** | mind. die Repos fremder Owner (s. u.) |
+| **Vereinigung beider** | 34 | die Repos fremder Owner |
+| **+ Code-Suche über alle vier Owner** | **37** | — (K2 damit erfüllt) |
 
 **Keine der beiden Methoden ist für sich vollständig, und keine merkt es.** Der lokale Scan
 sieht nur, was jemand einmal geklont hat; die Code-Suche indiziert nicht alles und ist auf
@@ -92,9 +93,11 @@ Repos lagen in `iilgmbh`, der Zielorganisation der Migration nach KONZ-012; `iil
 ist dort **öffentlich**. Eine Suche mit `--owner achimdehnert` kann sie konstruktionsbedingt
 nicht finden.
 
-**Was daraus für die Umsetzung folgt:** Die Zahl 34 ist eine **untere Schranke**, keine
-Erhebung. Vor dem Schnitt braucht es eine Zählung, die alle vier Owner abdeckt und beide
-Methoden vereinigt — sonst bricht die CI genau dort, wo niemand hingesehen hat.
+**Nachgeholt am 2026-08-02:** die Code-Suche lief anschließend über alle vier Owner. Ergebnis
+**37 Konsumenten, 19 öffentlich** — verteilt auf `achimdehnert` (29), `iilgmbh` (5),
+`meiki-lra` (3); `ttz-lif` **null**. Die Null dort ist kalibriert: dieselbe Suche findet in
+`ttz-lif` sehr wohl Treffer für andere Muster, das Repo `ttz-hub` existiert und ist indiziert.
+Sie ist damit ein Befund, kein Filterartefakt.
 
 ## 4. G1 — die offene Frage ist experimentell beantwortet
 
@@ -144,7 +147,7 @@ zeigt statt auf die Ursache.
 | id | Aussage | Typ | Evidenz / Falsifikation | Status |
 |----|---------|-----|-------------------------|--------|
 | L1 | `platform` ist öffentlich, `dev-hub` privat | Beobachtung | C1 | verifiziert |
-| L2 | **19** öffentliche Repos beziehen Reusable Workflows aus platform (34 insgesamt) | Beobachtung | C3, C8 — zwei Methoden vereinigt (§3.1) | verifiziert als **untere Schranke** |
+| L2 | **19** öffentliche Repos beziehen Reusable Workflows aus platform (**37** insgesamt) | Beobachtung | C3, C8 — zwei Methoden × vier Owner (§3.1) | **verifiziert** |
 | L3 | 10 Repos ziehen Dateien über `raw.githubusercontent` | Beobachtung | C4 | verifiziert |
 | L4 | `bootstrap.sh` klont ohne Authentifizierung | Beobachtung | C5 | verifiziert |
 | L5 | Ein öffentlicher Aufrufer kann keinen privaten Reusable Workflow nutzen | Beobachtung | **C9 — Versuch + Kontrolle, §4** | **verifiziert** |
@@ -197,7 +200,7 @@ eine Vorstufe, die sofort wirkt und nichts kostet:
    verhindert** — der Beinahe-Vorfall mit der Fixture war ein Routine-, kein Technikproblem.
 2. ~~G1 ausführen~~ **erledigt** (§4) — Ergebnis: der Schnitt ist zwingend. Ohne ihn stünde die
    CI von 19 öffentlichen Repos ab der Sekunde des Umschaltens still.
-3. **Vollständiger Konsumenten-Scan** über die GitHub-Code-Suche statt über lokale Klone (L6).
+3. ~~Vollständiger Konsumenten-Scan~~ **erledigt** (§3.1) — 37 Konsumenten, 19 öffentlich, vier Owner abgedeckt.
 4. **Dann erst** ADR schreiben und `shared-ci` anlegen.
 
 **Nicht empfohlen: den Sichtbarkeitsschalter vor Schritt 2–3 umzulegen.** Der Bruch wäre sofort,
@@ -217,7 +220,7 @@ org-weit und träfe genau die Repos, die publiziert werden.
 | id | Kriterium | Schwelle | Status |
 |----|-----------|----------|--------|
 | K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ✅ erfüllt (§4, 2026-08-02) |
-| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | 🟡 teilweise — 2 Methoden × 1 Owner erhoben (§3.1), 3 Owner fehlen |
+| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | ✅ erfüllt (§3.1, 2026-08-02) — 37 Konsumenten, 19 öffentlich |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
 
@@ -252,3 +255,42 @@ hier — `gh repo view` liefert für alle drei `Could not resolve to a Repositor
 `delete_repo` **nicht**. Das Anlegen von Wegwerf-Repos ist damit billiger als ihr Entfernen —
 wer so ein Experiment plant, klärt das Aufräumen besser vorher als hinterher. In diesem Fall
 stand ein öffentliches Repo rund zwanzig Minuten länger als nötig.
+
+---
+
+## 12. Umsetzungsreihenfolge — Schnitt und Schalter entkoppeln
+
+**Die wichtigste Einsicht dieses Konzepts kommt zum Schluss:** Der Umzug der Workflows nach
+`shared-ci` und das Umlegen des Sichtbarkeitsschalters sind **zwei Vorhaben**, nicht eines. Der
+Umzug ist für sich nützlich, risikoarm und jederzeit rückholbar; der Schalter ist ein einzelner,
+scharfer Schnitt. Sie zu koppeln macht aus einer Reihe kleiner Schritte ein Ereignis mit
+19 möglichen Ausfällen an einem Tag.
+
+| Stufe | Schritt | Risiko | Umkehrbar |
+|---|---|---|---|
+| **0** | `platform ist öffentlich` in `CLAUDE.md` + `CORE_CONTEXT.md` | keins | ja |
+| **1** | Repo `shared-ci` anlegen (**öffentlich**), die 4 `_*.yml` dorthin, Tag `v1` | keins — noch ruft niemand | ja |
+| **2** | **Ein** Pilot-Konsument auf `shared-ci@v1` umstellen, CI grün abwarten | gering | ja, ein PR |
+| **3** | Restliche 36 Konsumenten in Wellen (Owner-weise), je Welle CI-Kontrolle | gering, gestaffelt | ja, je PR |
+| **4** | P2 umhängen (10 Repos), P3 `bootstrap.sh`, P4 `sqf-hub` | gering | ja |
+| **5** | Gegenprobe: `platform` hat **keine** externen Konsumenten mehr | — | — |
+| **6** | **Erst jetzt** Sichtbarkeit auf privat | hoch, aber vorbereitet | ja, ein Klick |
+
+**Stufe 5 ist das eigentliche Gate.** Sie ist dieselbe Messung wie §3.1, nur später und mit
+erwartetem Ergebnis Null — und sie muss **kalibriert** sein: dieselbe Suche muss vorher noch
+Treffer geliefert haben, sonst belegt die Null nur, dass der Filter greift (Lehre aus `ttz-lif`
+in §3.1).
+
+**Nach Stufe 3 ist der größte Teil des Nutzens schon da**, auch wenn Stufe 6 nie käme:
+`platform` wäre dann kein CI-Anbieter mehr, sondern nur noch Governance-Repo — die Trennung, um
+die es eigentlich geht. Stufe 6 ist danach eine Fünf-Sekunden-Entscheidung statt eines Projekts.
+
+**Wer macht was.** Stufen 1–4 sind mechanisch (Ref-Umstellung, ein Muster, 47 PRs) und gehören
+auf ein günstigeres Modell-Tier; Stufe 0 und die Entscheidung zu Stufe 6 gehören dem Owner.
+Die Wellen in Stufe 3 folgen der Staffelungs-Lehre aus `feedback_mass_bump_wave_stagger_preflight`:
+Vorab-Check, dann Welle, nicht 36 PRs auf einmal.
+
+**Offen und bewusst nicht entschieden:** ob die Historie von `platform` mitwandert oder
+`shared-ci` bei null beginnt. Für die Workflows ist die Historie entbehrlich; wer sie will,
+zahlt mit einem `git filter-repo`-Lauf. Das ist eine Umsetzungsentscheidung, keine
+Konzeptfrage.
