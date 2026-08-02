@@ -240,17 +240,15 @@ Entscheidungsvorlage mehr.
 
 ---
 
-## 11. Aufräumen — die Wegwerf-Repos aus G1
+## 11. Aufräumen — erledigt
 
-Drei Repos sind nur für das Experiment entstanden und **gehören gelöscht**. Der irreversible
-Schritt bleibt beim Menschen (Konvention `delete-repo`); die Befehle stehen hier fertig:
+Die drei Wegwerf-Repos aus G1 (`g1-probe-privat`, `g1-probe-oeffentlich`,
+`g1-probe-aufrufer-privat`) wurden am **2026-08-02 vom Owner gelöscht**. Der irreversible
+Schritt lag beim Menschen (Konvention `delete-repo`); vorbereitet und **nachgeprüft** wurde er
+hier — `gh repo view` liefert für alle drei `Could not resolve to a Repository`. Die Meldung
+„sind gelöscht" allein hätte den Eintrag nicht getragen.
 
-```bash
-gh repo delete achimdehnert/g1-probe-privat --yes
-gh repo delete achimdehnert/g1-probe-oeffentlich --yes
-gh repo delete achimdehnert/g1-probe-aufrufer-privat --yes
-```
-
-`g1-probe-oeffentlich` ist **öffentlich** sichtbar, solange es steht. Inhalt ist ein
-`echo`-Workflow und eine README, die den Zweck nennt — kein Schaden, aber Unordnung mit
-Außenwirkung.
+**Nebenbefund für künftige Experimente dieser Art:** Der CLI-Token trägt den Scope
+`delete_repo` **nicht**. Das Anlegen von Wegwerf-Repos ist damit billiger als ihr Entfernen —
+wer so ein Experiment plant, klärt das Aufräumen besser vorher als hinterher. In diesem Fall
+stand ein öffentliches Repo rund zwanzig Minuten länger als nötig.
