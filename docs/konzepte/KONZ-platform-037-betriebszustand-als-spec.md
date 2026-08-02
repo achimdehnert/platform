@@ -7,8 +7,8 @@ owner: Achim Dehnert
 conforms_to: platform:ADR-211
 spec_refs: [platform:ADR-211, dms-hub:KONZ-dms-hub-003, platform:ADR-275]
 adr_threshold: "Kein neuer ADR. Dies ist die Anwendung eines bestehenden, akzeptierten Musters (ADR-211 I1–I4) auf eine zweite Artefaktklasse — nach adr-threshold.md eine Ergänzung nach bestehendem Muster. ADR-pflichtig würde erst, wenn die Selbsttest-Pflicht (§4) auf ADR-211 selbst zurückwirken soll; das ist hier ausdrücklich als Folgeentscheidung offen gelassen (§7 E5)."
-review_by: 2026-11-01
-kill_criteria: "Zwei harte Kriterien, beide bindend. (1) WIRKUNG: Steigt der Längsschnitt-Mittelwert von risiko_debt über die nächsten ~10 Retros nicht messbar über 2,55, ist der Ansatz widerlegt und wird GESTRICHEN, nicht um weitere Invarianten ergänzt. (2) SCHRUMPFUNG: Ist die Zahl der abgelösten Prosa-Regeln nach 90 Tagen nicht mindestens so groß wie die Zahl der neuen Invarianten, hat das Verfahren sein eigenes Versprechen verfehlt und wird gestrichen."
+review_by: 2026-08-17
+kill_criteria: "Zwei harte Kriterien, beide bindend, beide am SELBEN Stichtag gemessen: Tag 15 nach Merge, mindestens jedoch nach 20 Retrospektiven (was später eintritt — schützt gegen eine ruhige Phase). (1) WIRKUNG: Steigt der Längsschnitt-Mittelwert von risiko_debt bis dahin nicht messbar über 2,55, ist der Ansatz widerlegt und wird GESTRICHEN, nicht um weitere Invarianten ergänzt. (2) SCHRUMPFUNG: Ist die Zahl der abgelösten Prosa-Regeln bis dahin nicht mindestens so groß wie die Zahl der neuen Invarianten, hat das Verfahren sein eigenes Versprechen verfehlt und wird gestrichen. Herleitung der 15 Tage siehe §9."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: docs/adr/ADR-211-spec-zentrierte-klickdummies.md, commit_or_pr: origin/main, opened_in_session: true, provenance: direct}
@@ -193,10 +193,48 @@ Invarianten nach 90 Tagen negativ, wird dieses Konzept **gestrichen** — nicht 
 Das ist bewusst dieselbe Härte, die `autonomy-gates.md` und `evidence-discipline.md` gegen
 sich selbst richten.
 
-**30/60/90:** 30 Tage E1–E3 (Spec, Läufer, Negativproben) · 60 Tage E4 nach Freigabe und
-erste Messreihe · 90 Tage E5 — Bilanz ziehen, Kill-Gate anwenden, und erst dann entscheiden,
-ob das Muster auf weitere Dienste geht.
+**5/10/15:** 5 Tage E1–E3 (Spec, Läufer, Negativproben) · 10 Tage E4 nach Freigabe und
+erste Messreihe · **Tag 15** E5 — Bilanz ziehen, Kill-Gate anwenden, und erst dann
+entscheiden, ob das Muster auf weitere Dienste geht.
 
 **Was ausdrücklich nicht passiert:** keine Übertragung auf einen zweiten Dienst, bevor die
-90-Tage-Bilanz vorliegt. Ein Verfahren gegen Regelwucher, das sich vor seinem eigenen
+Tag-15-Bilanz vorliegt. Ein Verfahren gegen Regelwucher, das sich vor seinem eigenen
 Wirksamkeitsnachweis ausbreitet, wäre die Ironie, die es zu vermeiden gilt.
+
+## 9 Herleitung der Fristen (gemessen, nicht gesetzt)
+
+Der erste Entwurf dieses Konzepts trug zwei Kill-Kriterien mit den Fristen „~10 Retros" und
+„90 Tage". Die Messung am eigenen Bestand zeigt, dass die beiden um **Faktor 18**
+auseinanderlagen:
+
+| Fenster | Retros | Rate |
+|---|---|---|
+| letzte 7 Tage | 10 | 10,0/Woche |
+| letzte 14 Tage | 20 | 10,0/Woche |
+| letzte 30 Tage | 61 | 14,2/Woche |
+
+An 24 von 30 Tagen wurde gearbeitet, im Schnitt **2,5 Retrospektiven je aktivem Tag**.
+**Zehn Retrospektiven zurück liegen fünf Tage**, zwanzig liegen zwölf Tage zurück.
+
+Damit hätte Kriterium (1) nach fünf Tagen gefeuert und Kriterium (2) nach drei Monaten —
+zwei Kriterien im selben Dokument auf unvereinbaren Zeitskalen. Das ist ein
+Konstruktionsfehler, kein Detail: das langsamere hätte das schnellere faktisch außer Kraft
+gesetzt, weil bis zu seinem Stichtag längst weitergebaut worden wäre.
+
+**Warum Tag 15 und nicht Tag 5.** Fünf Tage reichen für die Menge (dann liegen ~10 Retros
+vor), aber nicht für die Aussagekraft: die Scores sind ganzzahlig von 1 bis 5, die Streuung
+einer Einzelsession ist entsprechend hoch. Ein Mittelwert über ~20 Beobachtungen ist die
+kleinste Menge, bei der eine Bewegung von 2,55 nicht bloß Rauschen ist. Bei der gemessenen
+Rate sind das **15 Tage**.
+
+**Warum zusätzlich eine Mindestmenge.** Die Rate ist nicht garantiert — über 60 Tage
+gerechnet liegt sie bei 7,3/Woche, über 90 Tage bei 4,9/Woche. Eine ruhige Phase würde den
+Stichtag nach Kalender erreichen, ohne dass genug Daten vorliegen. Deshalb gilt: **Tag 15
+oder 20 Retrospektiven, was später eintritt.**
+
+**Nebenbefund, hier nur festgehalten, nicht entschieden:** Die Schwelle „ein Slug ab 2
+Vorkommen ist gate-pflichtig" stammt aus einer Zeit mit deutlich niedrigerer Taktfrequenz.
+Bei 10 bis 14 Retrospektiven pro Woche werden zwei Vorkommen schnell erreicht — aktuell
+stehen **18 Slugs** auf gate-pflichtig, und für die wenigsten davon existiert ein gebautes
+Gate. Ob die Schwelle mitwachsen muss, ist eine eigene Entscheidung und gehört nicht in
+dieses Konzept.
