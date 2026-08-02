@@ -115,11 +115,28 @@ python3 tools/measure-evidence-discipline.py --repo <repo-slug>
 # Emits: R = <fraction> (<checked>/<total> marker-claim turns)
 ```
 
+**Signal K (Beobachtungs-Metrik, 2026-08-02 — UNVALIDIERT):** Rücknahme-Turns je
+100 Marker-Claims, gemessen vom selben Werkzeug (Marker: „war falsch",
+„Richtigstellung", „Rücknahme", „zurückgenommen", „mein Fehler", „zu scharf
+formuliert"). R misst, ob VOR der Behauptung ein Werkzeug lief; K misst, wie oft
+die Behauptung DANACH kassiert wurde — R hoch + K hoch = Prüfung als Ritual.
+Erstmessung 2026-08-02: Flotte K=9,3 (148/1595, 89 Sessions); die Retro-Session
+`8ed6a2` lag bei K=48,6 bei identischem R — R konnte sie nicht von der Flotte
+unterscheiden, K um Faktor 5. **Validierungspflicht vor jeder Gate-Nutzung:**
+K gegen die Retro-Scorecards halten (Sessions mit schlechten Scores müssen
+systematisch höher liegen); bis dahin ist K Diagnose, kein Gate. Ein Wort-Zähler
+ohne diese Validierung wäre dieselbe Klasse Scheinsicherheit wie ein grünes
+`continue-on-error`.
+
 Run on or after **2026-06-15** (~10 sessions post-merge). R ≥ 0.70 = policy working.
 If R does not beat the ~6-incident baseline, the policy is cut per the effectiveness test above.
 
 ## Changelog
 
+- 2026-08-02: **Signal K ergänzt (unvalidiert, Beobachtung)** — Rücknahme-Quote als
+  Gegenstück zu R, nach Retro `8ed6a2`: eine Session mit 8 zurückgenommenen
+  Behauptungen und 5 Selbstkorrektur-PRs stand in R unauffällig (0,853). Werkzeug:
+  dasselbe `tools/measure-evidence-discipline.py`; Tests inkl. Sabotage-Gegenprobe.
 - 2026-05-19: Initial, promoted passive→active. Trimmed same day to
   operative core (removed speculative "where applies" table + essay —
   by its own standard, unverified content does not belong in an
