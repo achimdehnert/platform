@@ -993,3 +993,30 @@ stand nicht im eigenen paths-Filter — Workflow-only-Push löste keinen Lauf au
 
 Offen: Marker-PR-Reste keine; Budget>0-Abbau + Org-Read-Vollabdeckung in #1682;
 risk-hub seed_test_user-Sichtung iilgmbh/risk-hub#478 (Prod-live, TEST_PASSWORD-Seed).
+
+---
+
+## 2026-08-02 (4. Eintrag) — Rotation #2 nachverifiziert und nachdokumentiert
+
+Session-Start-Befund: Die im 2. Eintrag als OFFEN geführte Rotation #2 des
+ORCHESTRATOR_MCP_API_KEY war bereits ausgeführt (mtime der kanonischen Secret-Datei
+und des Backups `.bak-rotation2` beide 2026-08-02 13:36 UTC), aber von der ausführenden
+Session nirgends dokumentiert — welche Session es war, ist nicht rekonstruierbar (weder
+AGENT_HANDOVER_LOG noch Retro 932035 erwähnen sie). Verstoß gegen die Artefakt-Pflicht;
+dieser Eintrag holt die Dokumentation nach.
+
+Verifikation (19:10 UTC, nur SHA256-Hash-Präfixe, nie Klartext): lokaler neuer Key =
+Server-Env-Datei (mcp-hub-Host, `/opt/mcp-hub/.env.prod`) = Container-Env von
+`mcp_hub_orchestrator_http`; Container-StartedAt 13:36:21Z. Die docker-restart-Falle
+(env_file wird bei restart NIE neu geladen, 🌀-Memory) greift hier NICHT — die
+Container-Env trägt nachweislich den neuen Wert. Der alte, transkript-exponierte Key
+ist damit überall abgelöst.
+
+Aufgeräumt: Rotationsskript aus `~/shared/` gelöscht (Übergabeschleuse, Zweck erfüllt;
+das Skript enthielt selbst keinen Secret-Wert, hätte aber bei erneutem Lauf unnötig
+rotiert — und nutzte intern `docker restart`, wäre also in die Falle gelaufen).
+
+Offen bleibt: (1) Funktionsbeweis per Orchestrator-MCP-Connect aus einer Session, die
+den Server lädt (z. B. dev-hub) — curl endet an der Edge mit 403, unkalibrierbar;
+(2) Owner-only-Hygiene der `.env.prod.bak-*`-Altdateien auf dem mcp-hub-Host
+(Alt-Keys im Klartext, Löschen irreversibel — nur vorgeschlagen).
