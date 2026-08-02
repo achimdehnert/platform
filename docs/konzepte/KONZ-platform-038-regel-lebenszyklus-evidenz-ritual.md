@@ -7,7 +7,7 @@ owner: Achim Dehnert
 spec_refs: []        # Governance-Konzept, keine App-Spec (ADR-211 nicht berührt)
 adr_threshold: org-weiter ADR — aber erst NACH 3 überlebten Ritual-Zyklen (sonst kein ADR)
 review_by: 2026-08-31
-kill_criteria: "K1–K4 in §13; hart: 2 verpasste Ritual-Fenster in Folge ⇒ Status stale"
+kill_criteria: "K1–K5 in §13; hart: 2 verpasste Ritual-Fenster in Folge ⇒ Status stale"
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: tools/retro_kpis.py, commit_or_pr: d5824acb, opened_in_session: true}   # Verstoß-Matrix 63 Retros, Lauf 2026-08-02
@@ -78,6 +78,12 @@ Jede Regel erhält in ihrer Quelle (Memory-/Policy-Frontmatter): `rule_class: A|
 bleibt. **C** = Irreversibilitäts-/Security-Gate → bleibt unabhängig von Modellgüte; nie
 sunset-fähig. Grenzfälle A/C werden als C geführt (konservativ).
 
+**Entscheidungskriterien mit Ankerbeispielen** (EXT1-AD-5 — Inter-Reviewer-Konsistenz):
+Frage 1: „Würde ein fehlerfreies Modell die Regel überflüssig machen?" Ja → A-Kandidat
+(Bsp.: Pre-Send-Zellen-Zählung im Action Board). Nein → Frage 2: „Schützt sie vor
+irreversiblem/externem Schaden (Prod, Publish, Secrets, Dritte)?" Ja → C (Bsp.: Secrets nie
+im Klartext). Nein → B (Bsp.: Commit-Message-Format). Wer bei Frage 1 zögert → C-konservativ.
+
 ### 5.2 Gate-Bau: Reconcile → Drill → Bau
 Reihenfolge nach Verstoßzähler × Schadensklasse. Pro Slug PFLICHT-Sequenz:
 1. **Reconcile:** Was existiert schon (Hook/CI/Skill-Phase)? Warum wirkt es nicht
@@ -88,18 +94,43 @@ Reihenfolge nach Verstoßzähler × Schadensklasse. Pro Slug PFLICHT-Sequenz:
 Hooks werden git-getrackt (platform) verteilt, nicht nur maschinen-lokal gepflegt (§6 M-2).
 
 ### 5.3 14-Tage-Ritual — erzwungen, nicht vorgenommen
-Cron-Trigger (2. + 16. des Monats), NICHT Vorsatz (§6 AD-1). Inhalt je Lauf:
+Trigger: **GitHub-Actions-Schedule** (2. + 16. des Monats, `.github/workflows/regel-ritual.yml`,
+PR #1641) — bewusst off-host statt Maschinen-Cron; Aufsicht und Ausführung teilen nicht den
+Dev-Server-Ausfall (EXT2-M28-1). Rest-Risiko „Schedule feuert still nicht" (z. B.
+GitHub-Inaktivitäts-Abschaltung): der jeweils nächste Lauf prüft das Datum des letzten
+Kommentars auf #1640 und meldet Lücken >20 Tage als eigenen Befund. Der Lauf kommentiert
+ausschließlich auf das EINE fixe Tracking-Issue (kein Issue-Anlegen, 2×/Monat — Flut-Risiko
+strukturell begrenzt, EXT2-AD-10; die Bezeichnung „report-only" wird nicht mehr verwendet,
+der Kommentar IST ein Schreibpfad). Inhalt je Lauf:
 `retro_kpis`-Delta; neue Slugs ≥2 → Issue via `--file-issues`; Gate-Backlog-Stand;
 Sunset-Prüfung (§5.4). **Input-Bedingung:** ≥8 Retros im Fenster, sonst Ergebnis
 „nicht bewertbar" (zählt nie als „stagniert/sauber", §6 AD-6/M-7). **Ausfallregel:** 2
 verpasste Fenster in Folge ⇒ Konzept-Status automatisch → `stale` + Issue (§6 M-3).
 1-Seiten-Runbook, damit jeder Dritte den Lauf fahren kann.
 
-### 5.4 Sunset — Abwesenheit reicht nicht
-Typ-A-Regel wird Sunset-Kandidat erst bei: 2 aufeinanderfolgende saubere Fenster **UND**
-≥5 Exposures (Situationen, in denen die Regel hätte greifen können — Exposure-Nenner statt
-Kalenderzeit, §6 AD-4). Dann kontrollierter Auslass-Test (Regel suspendiert, Beobachtung 1
-Fenster). Jede Rücknahme = realer Schadensfall, wird im Sunset-Ledger geführt (append-only).
+### 5.4 Sunset — zwei Pfade statt einem
+**Pfad 1 (Evidenz-Sunset, nur instrumentierte Regeln):** Typ-A-Regel mit Sensor wird
+Sunset-Kandidat erst bei: 2 aufeinanderfolgende saubere Fenster **UND** ≥5 Exposures
+(Situationen, in denen die Regel hätte greifen können — Exposure-Nenner statt Kalenderzeit,
+§6 AD-4). Dann kontrollierter Auslass-Test (1 Fenster). **Pfad 2 (Default-Expiry, der
+nicht-instrumentierte Long Tail — EXT2-AD-7):** Für die ~700 Regeln ohne Sensor ist Pfad 1
+nicht ausführbar (Exposure eines Nicht-Ereignisses ist ohne Sensor nicht erhebbar). Dort
+**greift** `reassess_by`: Typ-A-Regel, die am Stichtag nicht mit einer Zeile erneuert wird,
+verfällt (Semantik-Wechsel von „erinnern" zu „greifen"). Typ B/C sind von beiden Pfaden
+ausgenommen. Jede Rücknahme = realer Schadensfall, wird im Sunset-Ledger geführt
+(append-only, je Eintrag mit Regel-Referenz + Begründung — EXT2-M28-6).
+
+### 5.7 Vier-Wege-Prüfung vor jeder neuen Regel (Owner-Input 2026-08-02)
+Frontier-Labore verbessern Agenten primär über Rückkopplungsschleifen (Daten, Evals,
+Werkzeuge, Inferenz-Ablauf), kaum über zusätzliche Verhaltensregeln. Analog gilt ab jetzt vor
+jeder neuen Regel die Pflichtfrage: Löst das Problem besser **(1) ein Werkzeug** (Hook/Check,
+der die Fehlerklasse strukturell unmöglich macht), **(2) eine Evaluation** (Messung, die
+Drift sichtbar macht), **(3) eine Ablauf-Änderung** (anderer Prozessschritt) — oder wirklich
+**(4) eine Regel** (letztes Mittel, nur wenn 1–3 nicht greifen)? Die Antwort wird im
+Artefakt der Regel dokumentiert. Deckt sich mit EXT2-OOTB-1/2: das Ritual ist der Sache nach
+ein kleines Eval-/Post-Training-System auf Governance-Ebene — investiert wird vorrangig in
+den Sensor (KPI-Härtung), die Werkzeuge (blockierende Hooks) und den Ablauf, nicht in
+Regeltext.
 
 ### 5.5 Skills-Nachrang mit Zaun
 Solange die Welle-1-Gates (D2) nicht Drill-bestanden sind: keine neuen Skill-PRs außer mit
@@ -196,12 +227,13 @@ die PR-Ebene die Verstoß-Klasse messbar senkt, ist unverifiziert — genau daf�
 | ID | Empfehlung | Charakter | Owner-Entscheid nötig? |
 |---|---|---|---|
 | D1 | Dieses KONZ reviewen/mergen | Governance | Ja (manueller Merge) |
-| D2 | Gate-Welle 1: Top-5-Slugs je Reconcile→Drill→Bau-PR (Start: claim-before-cheapest-check mit PR-Ebene §7; dann handover-stale, scope-checkpoint, stale-clone [Drill des existierenden SessionStart-Checks!], deferred-item-no-tracking) | Ausführung, gate-frei bis auf Hook-Verteilung | Reihenfolge-OK genügt |
-| D3 | Ritual-Cron anlegen (2.+16., report-only, kein Schreibrecht außer Issue via bestehendem --file-issues) | Automatismus, read-only-Bericht | Kenntnisnahme; Abschaltung jederzeit |
-| D4 | A/B/C-Frontmatter-Rollout: erst platform (148 Einträge), dann Fleet | Pflege, gate-frei | Nein |
-| D5 | Skills-WIP-Zaun Stufe 1 sofort, Stufe 2 als CI nach Welle 1 | **Selbstbetreffend: schränkt MICH ein** | Ja (bewusste Selbstbindung) |
-| D6 | retro_kpis-Härtung: Golden-Fixture, Fail-on-unknown, a50bc6-Parser-Fix | Ausführung, gate-frei | Nein |
-| D7 | Modellwechsel-Detektor (SessionStart, model-id-State) + Smoke-Suite | Ausführung, gate-frei | Nein |
+| D2 | Gate-Welle 1, umgebaut (EXT2-AD-5/AD-8): für claim-before-cheapest-check ZUERST zwei kostenlose Vorabtests — (a) Replay der geplanten Prüfregel gegen die 34 historischen Vorkommen (Abdeckungsquote = Wirkungsobergrenze), (b) evidence_claim_scanner von advisory auf blockierend (Stop-Hook Exit 2 = erzwungener Korrektur-Turn, optional mit Evidenz-Token-Formvertrag EXT2-OOTB-2) + EIN Fenster messen. PR-CI-Ebene erst, wenn (b) die Rate nicht senkt. Danach handover-stale, scope-checkpoint, stale-clone (Drill des existierenden Checks!), deferred-item-no-tracking | Ausführung, gate-frei bis auf Hook-Verteilung | Reihenfolge-OK genügt |
+| D3 | Ritual-Trigger als Actions-Schedule (PR #1641, kommentiert NUR auf fixes Issue #1640; Lücken-Selbstprüfung §5.3) | Automatismus mit begrenztem Schreibpfad | Kenntnisnahme; Abschaltung jederzeit |
+| D4 | A/B/C-Frontmatter-Rollout NUR platform (148 Einträge); Fleet erst nach org-weitem ADR-Entscheid (EXT2-AD-9) | Pflege, gate-frei | Nein |
+| D5 | Skills-WIP-Zaun Stufe 1 sofort, Stufe 2 als CI nach Welle 1; der Zaun trägt ein **mechanisches** Ablaufdatum 2026-09-13 (Frontmatter-Feld, das der Ritual-Lauf prüft und bei Überschreitung als Befund meldet — Zusage wird Mechanismus, EXT2-M28-4) | **Selbstbetreffend: schränkt MICH ein** | Ja (bewusste Selbstbindung) |
+| D6 | retro_kpis-Härtung VOR der Baseline (EXT2-AD-3): Golden-Fixture, Fail-on-unknown, a50bc6-Parser-Fix; Baseline wird mit gepinnter Tool-Version berechnet und als committetes Artefakt inkl. Tool-Commit-Hash abgelegt; Instrumentenwechsel ⇒ Baseline-Neuberechnung. Zusätzlich: kanonisches Slug-Wörterbuch der Baseline-Top-Slugs einfrieren + committen; unmappbare neue Slugs = „nicht bewertbar", nie „neu" (EXT2-AD-2) | Ausführung, gate-frei | Nein |
+| D7 | Modellwechsel-Detektor (SessionStart, model-id-State) + Smoke-Suite; Re-Assessment bei Modellwechsel begrenzt auf A-Regeln mit Exposure im letzten Fenster, `reassess_by` gestaffelt statt kohortenweise (EXT2-M28-3) | Ausführung, gate-frei | Nein |
+| D8 | Wiederkehrender Drill (aus §9 in Entscheid gehoben, EXT2-M28-2): jedes Gate trägt maschinenlesbaren Header (slug, mode: blocking\|advisory, owner, last_drill_pass); ein Prüf-Lauf je Fenster stuft Gates mit veraltetem last_drill_pass K4-konform auf „nicht gebaut" zurück. Blocking-Gates mit Formulierungs-Konvention (stderr = Maschinen-Feedback, nicht Ablehnung) + Drill-Fall „Agent bricht Turn ab statt zu korrigieren" (EXT2-M28-5) | Ausführung, gate-frei | Nein |
 
 **Ausdrücklich NICHT in diesem KONZ:** Autonomie-Erweiterungen (neue SA-Klassen,
 Gate-Absenkungen). Die werden — Charta Punkt 3 — erst NACH Drill-bestandener Welle 1 + einem
@@ -212,25 +244,104 @@ sauberen Ritual-Zyklus einzeln vorgeschlagen, jeweils markiert „erweitert mein
 Empfehlung: D1–D7 wie oben; Pilot = 3 Ritual-Zyklen (16.08., 02.09., 16.09.); ADR-Entscheid
 erst danach.
 
-**Kill-Gate-Kriterien:**
-- **K1:** Nach 3 Zyklen (Stichtag 2026-09-16): normalisierte Verstoßrate (Verstöße/Retro) der
-  Top-3-Slugs nicht gestiegen vs. Baseline-Fenster 19.07.–01.08.; Fenster mit <8 Retros =
-  „nicht bewertbar" und zählt nicht als bestanden. Sonst: Überarbeitung mit hartem Scope-Cut.
+**Kill-Gate-Kriterien (K1/K3 neu gefasst nach externem Review — Begründung §14):**
+- **K1 (dreistufig, vorab registriert — EXT2-AD-1):** Nach 3 Zyklen (Stichtag 2026-09-16),
+  gemessen als normalisierte Verstoßrate (Verstöße/Retro) der eingefrorenen Baseline-Top-3
+  (Slug-Wörterbuch D6) vs. Baseline-Fenster 19.07.–01.08.:
+  **wirksam** = Rate ≥30 % unter Baseline ⇒ NUR dieser Ausgang löst ADR-Reife aus ·
+  **unentschieden** = nicht gestiegen, aber <30 % Senkung ⇒ Pilot läuft weiter, KEIN ADR ·
+  **Kill** = Rate gestiegen ⇒ Überarbeitung mit hartem Scope-Cut.
+  Fenster mit <8 Retros = „nicht bewertbar" (zählt für keinen der drei Ausgänge).
+  Benannter Confounder (EXT2-AD-4): D5 verschiebt die Session-Zusammensetzung und damit die
+  Exposure je Retro — bei der Auswertung ausweisen.
 - **K2:** 2 aufeinanderfolgende Fenster ohne Ritual-Lauf ⇒ `pipeline_status: stale` +
   Auto-Issue. Kein drittes Fenster ohne Owner-Entscheid.
-- **K3:** >30 % Sunset-Rücknahmen bei N≥5 ⇒ Sunset-Pfad eingefroren (jede Rücknahme = realer
-  Schadensfall im Ledger).
-- **K4:** Gate ohne bestandenen Negativ-Drill zählt in jeder Metrik als NICHT gebaut.
+- **K3 (symmetrisch kalibriert — EXT2-AD-6):** Die ersten 2 Sunset-Rücknahmen gelten als
+  deklarierte Lernphase; danach: >30 % Rücknahmen bei N≥10 ⇒ Sunset-Pfad eingefroren. Jede
+  Rücknahme bleibt ein realer Schadensfall im Ledger — die Symmetrie verhindert nur, dass der
+  reduzierende Pfad eine härtere Beweislast trägt als der akkretierende.
+- **K4:** Gate ohne bestandenen Negativ-Drill zählt in jeder Metrik als NICHT gebaut;
+  veralteter `last_drill_pass` (D8) stuft zurück auf „nicht gebaut".
+- **K5 (Meta-Kill — EXT1-M28-5/EXT1-AD-1):** Das Ritual selbst muss je Quartal (a) einen
+  Outcome-Indikator AUSSERHALB der Governance ausweisen — Folge-Fix-Quote: Anteil gemergter
+  PRs, die binnen 14 Tagen einen Korrektur-PR im selben Bereich brauchen (aus gh/git
+  erhebbar) — und (b) sein Aufwand/Nutzen-Verhältnis begründen. Zwei Quartale ohne
+  Outcome-Verbesserung bei wachsendem Meta-Aufwand ⇒ Ritual verschlanken oder killen. Die
+  Governance-Artefakte (Ledger, Zaun, Workflow, Drills) unterliegen derselben
+  Ritual-Prüfung wie Regeln (EXT2-M28-4); ausgenommen von rekursiver Governance sind
+  B-Regeln und reine Doku (EXT1-M28-3).
 
 **Tracking-Tabelle (Pflicht §13):**
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 Verstoßraten-Stagnation nach 3 Zyklen | offen | — (Baseline-Messung = Aufgabe Ritual-Lauf 1, 16.08.) |
-| K2 Ritual-Ausfallregel aktiv | offen | — (Cron-Anlage = D3) |
-| K3 Sunset-Ledger existiert, 0 Einträge | offen | — |
+| K1 dreistufig: Baseline eingefroren (Tool gepinnt + Slug-Wörterbuch) | offen | — (VOR Ritual-Lauf 1, 16.08. — D6) |
+| K2 Ritual-Ausfallregel aktiv | offen | — (PR #1641 + Lücken-Selbstprüfung) |
+| K3 Sunset-Ledger existiert, 0 Einträge, Lernphasen-Zähler 0/2 | offen | — |
 | K4 Drill-Protokoll je Welle-1-Gate | offen | — |
+| K5 Outcome-Indikator (Folge-Fix-Quote) erstmalig erhoben | offen | — (Quartalstermin 2026-11-01) |
+| D5-Zaun-Ablaufdatum mechanisch geprüft | offen | — (Ritual-Lauf prüft Frontmatter-Feld) |
 
-**30/60/90:** 30 Tage = Welle-1-Gates + Zyklen 1–2 + Baseline; 60 Tage = erste
-Sunset-Kandidaten-Bewertung + Fleet-Label-Rollout; 90 Tage = ADR-Entscheid (org-weit) oder
-Kill nach K1.
+**30/60/90:** 30 Tage = Welle-1-Vorabtests + Gates + Zyklen 1–2 + Baseline; 60 Tage = erste
+Sunset-Kandidaten-Bewertung (platform-Labels; Fleet erst nach ADR — EXT2-AD-9); 90 Tage =
+ADR-Entscheid NUR bei K1-Ausgang „wirksam", sonst Weiterlauf oder Kill.
+
+**Regelkreis als Zustandsdiagramm (EXT1-REC-5):**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Prosa_Regel: neue Lehre (nach Vier-Wege-Prüfung §5.7)
+    Prosa_Regel --> Gate_Kandidat: Slug ≥2× (retro_kpis)
+    Gate_Kandidat --> Gate_gebaut: Reconcile + Drill bestanden (K4)
+    Gate_gebaut --> Gate_Kandidat: last_drill_pass veraltet (D8)
+    Prosa_Regel --> Sunset_Kandidat: Typ A, 2 saubere Fenster + ≥5 Exposures
+    Prosa_Regel --> Verfallen: Typ A ohne Sensor, reassess_by überschritten
+    Sunset_Kandidat --> Auslass_Test: 1 Fenster suspendiert
+    Auslass_Test --> Entfernt: kein Verstoß
+    Auslass_Test --> Prosa_Regel: Rücknahme (= Ledger-Schadensfall)
+    Gate_gebaut --> [*]: Typ C — verbleibt dauerhaft
+```
+
+## 14 Rückfluss externes Review (2026-08-02, 2 unabhängige externe LLM-Reviews)
+
+Audit: 2 externe Anbieter-Reviews (Transport via /adr-handoff-extern, Briefing
+`adr-handoff-KONZ-platform-038-2026-08-02.md`; Anbieter-Namen trägt der Owner nach). Beide
+Verdikte: **überarbeiten** — eingearbeitet in dieser Fassung. ID-Namespace: `EXT1-*` =
+Review 1, `EXT2-*` = Review 2 (Kollision der Persona-Präfixe mit §6-internen IDs — Prozess-Fix
+am Handoff-Skill getrackt, EXT2-REC-13).
+
+**Tag-Tabelle (nur [valid] floss ein, jeweils mit eigener Begründung):**
+
+| ID | Verdikt | Aktion |
+|---|---|---|
+| EXT1-AD-1 (Outcome-KPI fehlt) | valid | K5(a) Folge-Fix-Quote |
+| EXT1-AD-2 (Self-Measurement-Bias) | valid | quartalsweise externe Zweitmeinung auf die K1-Auswertung (dieses Handoff-Format) |
+| EXT1-AD-3 (Overhead ohne Nutzen-Nachweis) | valid | K5(b) Aufwand/Nutzen-Pflicht |
+| EXT1-AD-4 (Kosten je Regel) | teilweise | nur für Gates (Header/Drill-Kosten); Feld für alle ~730 Regeln wäre selbst ungedeckter Meta-Aufwand |
+| EXT1-AD-5 (A/B/C-Konsistenz) | valid | §5.1 Ankerbeispiele |
+| EXT1-M28-1 (Meta-Artefakt-Wartung) | valid | K5 Selbstanwendung |
+| EXT1-M28-2 (Zustandsautomaten) | teilweise | Diagramm §13; separate Doku erst bei Bedarf |
+| EXT1-M28-3 (rekursive Governance) | valid | K5: B-Regeln + Doku ausgenommen |
+| EXT1-M28-4 (lokale Evidenz) | valid | Hooks git-getrackt (§5.2, bereits geplant); Reports git/Issues |
+| EXT1-M28-5 (Ritual-Selbstzweck) | valid | K5 Meta-Kill |
+| EXT2-AD-1 (K1 nicht falsifizierbar) | valid | K1 dreistufig, 30 %-Schwelle vorab registriert |
+| EXT2-AD-2 (Slug-Goodhart) | valid | D6 Slug-Wörterbuch einfrieren |
+| EXT2-AD-3 (Instrumentenwechsel) | valid | D6 vor Baseline, Tool gepinnt, Artefakt committet |
+| EXT2-AD-4 (Exposure in K1) | valid | Confounder benannt in K1 (voller Nenner zu teuer) |
+| EXT2-AD-5 (Replay-Vorabtest fehlt) | valid | D2(a) — der Befund trifft: das Konzept beging den eigenen Slug |
+| EXT2-AD-6 (Kill-Asymmetrie) | valid | K3 neu: Lernphase + N≥10 |
+| EXT2-AD-7 (Sunset für Long Tail unausführbar) | valid | §5.4 Pfad 2 Default-Expiry |
+| EXT2-AD-8 (Hook advisory per Konfig, nicht Konstruktion) | valid | D2(b) blockierend + 1 Fenster messen VOR PR-Ebene |
+| EXT2-AD-9 (Fleet vor ADR) | valid | D4 platform-only |
+| EXT2-AD-10 (D3-Schreibpfad) | teilweise | Implementierung kommentiert nur auf fixes Issue (keine Issue-Erzeugung); Wortlaut „report-only" gestrichen |
+| EXT2-M28-1 (K2 Selbstüberwachung) | teilweise | Ausführung ist bereits off-host (Actions, #1641); Rest-Risiko still-toter Schedule → Lücken-Selbstprüfung §5.3 |
+| EXT2-M28-2 (kein Lebendigkeits-Drill) | valid | D8 neu |
+| EXT2-M28-3 (Re-Assessment-Aufwand) | valid | D7 gestaffelt + exposure-begrenzt |
+| EXT2-M28-4 (keine Rückbau-Pfade für Meta) | valid | K5 + D5-Ablaufdatum mechanisch |
+| EXT2-M28-5 (Blocking-Hook-Stall-Risiko) | valid | D8 Formulierungs-Konvention + Drill-Fall |
+| EXT2-M28-6 (Ledger ohne Rückindex) | valid | §5.4 Regel-Referenz je Eintrag |
+| EXT2-REC-13 (ID-Namespace) | valid | Prozess-Issue am Handoff-Skill |
+| EXT2-OOTB-2 (Evidenz-Token-Formvertrag) | valid | D2(b)-Option — stärkster Welle-1-Kandidat |
+| EXT2-OOTB-1/3 (Checks-as-Code / pre-commit) | teilweise | Framing für §5.2 übernommen; ersetzt Hook-Ebene nicht |
+| EXT2-OOTB-4 (Typ-A-Bestand aussetzen) | out-of-scope | wie vom Reviewer selbst verworfen; abgeschwächte Form = Pfad 2 |
+| EXT1-OOTB (Governance-Budget one-in-one-out) | teilweise | als Zukunftsoption notiert, nicht übernommen (C-Regeln nicht tauschbar) |
