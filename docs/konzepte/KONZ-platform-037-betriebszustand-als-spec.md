@@ -240,3 +240,90 @@ Bei 10 bis 14 Retrospektiven pro Woche werden zwei Vorkommen schnell erreicht �
 stehen **18 Slugs** auf gate-pflichtig, und für die wenigsten davon existiert ein gebautes
 Gate. Ob die Schwelle mitwachsen muss, ist eine eigene Entscheidung und gehört nicht in
 dieses Konzept.
+
+## 10 Struktur, Begründung, Eingangspuffer — und was das kostet
+
+Der Satz „Struktur ersetzt Prosa" trifft einen messbaren Befund. Der Bestand, den eine
+Session lädt oder konsultiert, umfasst **191 Memories (63.172 Wörter)**, **51 Skills
+(58.343 Wörter)** und **12 Policies (9.979 Wörter)** — rund **131.000 Wörter**, etwa ein
+Buch von 500 Seiten. Es hat `claim-before-cheapest-check` **32-mal** nicht verhindert.
+
+Der Satz greift in dieser Form dennoch zu weit. Prosa hat drei verschiedene Aufgaben, und
+nur eine davon kann Struktur übernehmen.
+
+### 10.1 Drei Schichten, drei Lebensdauern
+
+| Schicht | Aufgabe | Lebensdauer |
+|---|---|---|
+| **Struktur** | was wahr sein muss | bis das Kill-Kriterium feuert (gemessen) |
+| **Begründung** | warum es wahr sein muss | **exakt so lange wie ihre Struktur** |
+| **Eingangspuffer** | Beobachtung ohne Struktur | 15 Tage, dann Entscheidung |
+
+Als **Durchsetzung** ersetzt Struktur die Prosa vollständig und ohne Rest: eine Zusicherung,
+die nicht prüfbar ist, gehört nicht in die Liste. Als **Begründung** bleibt Prosa
+unverzichtbar — eine Invariante ohne Grund wird von der nächsten Person entweder gelöscht,
+weil sie unbequem ist, oder für immer behalten, weil niemand weiß, wovor sie schützt. Beides
+ist schlecht.
+
+### 10.2 Begründung ist gekoppelt, nie frei — daraus folgt das Prosa-Budget von selbst
+
+**Jede Begründung hängt an genau einer Invariante und wird mit ihr gelöscht.** Freistehende
+Prosa ist nicht vorgesehen.
+
+Das ist die eigentliche Antwort auf die 191 Memories: Sie sind freistehende Begründungen
+ohne Struktur, an der sie hängen könnten — deshalb wächst ihre Zahl unbegrenzt. Koppelt man
+sie, ist das Prosa-Budget **kein zweites Limit, sondern eine Folge des ersten**: zehn
+Invarianten erlauben höchstens zehn Begründungen. Man muss die Prosa nicht deckeln, man muss
+ihr nur verbieten, allein zu stehen.
+
+### 10.3 Der Eingangspuffer bekommt denselben Ablauf
+
+Der erste Fehler seiner Art hat keine Invariante. Er landet als Notiz — das ist legitim und
+notwendig. Was fehlt, ist der Ablauf: **eine Notiz, die binnen 15 Tagen nicht zu einer
+Invariante geworden ist, wird geschlossen, mit Begründung.** Entweder war sie nicht wichtig
+genug, oder sie lässt sich nicht formalisieren; beides ist eine Entscheidung, und beide sind
+besser als stilles Liegenbleiben. Die Frist ist dieselbe wie beim Kill-Gate (§9) — es gibt
+keinen Grund, den Puffer länger leben zu lassen als das Verfahren, das ihn leeren soll.
+
+### 10.4 Revisionen ersetzen, sie lagern sich nicht an
+
+Das Problem von ADR-211 ist bei genauerem Hinsehen **nicht** seine Prosa, sondern seine
+Versionierung: Rev 17, 18, 19 und 21 stehen in derselben Tabellenzelle, und der gültige
+Stand muss aus dem Sediment rekonstruiert werden. Deshalb gilt hier: **wer eine Invariante
+ändert, schreibt sie neu.** Die Historie steht im Commit, das Dokument trägt nur die
+gegenwärtige Wahrheit. Ein Dokument bleibt damit lesbar, egal wie oft es geändert wurde.
+
+### 10.5 Der dritte Zustand: dauerhaft rot ist so nutzlos wie ungeschrieben
+
+Die Negativprobe (§4.1) unterscheidet zwei Zustände — die Prüfung kann rot werden oder nicht.
+Es gibt einen dritten, und er ist der gefährlichste, weil er nach Wachsamkeit aussieht:
+
+| Beobachtung | Deutung | Folge |
+|---|---|---|
+| nie rot, Negativprobe besteht | das Risiko ist verschwunden | Rückzug erwägen |
+| nie rot, Negativprobe scheitert | die Prüfung ist kaputt | `dormant` |
+| **dauerhaft rot, nichts ändert sich** | **kein Gate, sondern ein Wunsch** | **eskalieren oder streichen** |
+
+Der Beleg liegt vor: `Issue Triage` in dms-hub stand seit dem **14. Juli** durchgehend auf
+`failure` und wurde über fünf Merges hinweg nicht bemerkt. Eine Prüfung, die rot ist und
+ignoriert wird, hat exakt den Wert einer Regel, die geschrieben ist und ignoriert wird.
+Deshalb führt der Läufer je Invariante ein **Trefferprotokoll**, und **fünf aufeinander
+folgende rote Läufe ohne Zustandsänderung** erzeugen keine sechste Meldung, sondern eine
+Entscheidungsvorlage: reparieren oder zurückziehen.
+
+### 10.6 Die unbequeme Ökonomie
+
+Prosa wächst nicht, weil sie beliebter wäre, sondern weil sie **billiger** ist. Eine Notiz
+entsteht in einem Zug. Eine Invariante braucht Spec-Eintrag, Prüfung, Negativprobe, Review
+und Merge. Solange dieses Gefälle besteht, gewinnt Prosa jede Auseinandersetzung —
+unabhängig davon, was ein Konzept empfiehlt.
+
+Die ehrliche Konsequenz lautet deshalb nicht „mehr Struktur schreiben", sondern **Prosa
+mindestens so teuer machen wie Struktur**. Der konkrete Weg: eine neue Notiz entsteht nur
+noch **als Teil einer strukturellen Änderung** — im selben PR, gekoppelt an den Eintrag, den
+sie begründet. Ein eigenständiger „ich schreibe mal eine Memory"-Schritt entfällt.
+
+Das ist der Vorschlag mit dem größten Reibungspotenzial in diesem Dokument, und er ist
+bewusst nicht Teil der Entscheidung in §8. Er betrifft die Arbeitsweise über doc-hub hinaus
+und gehört deshalb erst nach der Tag-15-Bilanz entschieden — mit den dann vorliegenden
+Zahlen statt mit diesem Argument.
