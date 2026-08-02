@@ -100,6 +100,35 @@ Ledger-/Tabellenzeilen verdichtet, nicht als Freitext gespeichert.
   „Security prüfen" / „CI verbessern". Immer konkret: welche Datei/Feld/Gate/Test/Status.
 - **Kill-Gate Pflicht:** eine *messbare* Abbruchschwelle + datiertes Exception-Budget.
 
+### Step 2a — Ausführungsform wählen (nur wenn das Konzept einen automatisierten Ablauf beschreibt)
+
+Beschreibt das Konzept einen Ablauf, den später Agenten oder Jobs ausführen, gehen diese sechs
+Fragen **in dieser Reihenfolge** durch. Sie sind ein Filter, kein Katalog: die Standardantwort ist
+die **kleinste** Form, und jede Stufe darüber muss sich ihre Frage verdienen.
+
+| # | Frage | Nein → | Ja → |
+|---|---|---|---|
+| 1 | Braucht es überhaupt mehrere Schritte? | **ein Aufruf. Stop.** | weiter |
+| 2 | Steht die Schrittfolge vorher fest? | Agent entscheidet zur Laufzeit | **Kette**, fest verdrahtet |
+| 3 | Sind die Teilaufgaben unabhängig? | sequenziell | **parallel** |
+| 4 | Braucht ein Schritt *alle* Vorergebnisse zugleich? | ohne Barriere | Barriere, kostet Wartezeit |
+| 5 | Verzweigt der Weg je nach Zwischenergebnis? | Kette reicht | **Graph/Router** |
+| 6 | Gibt es ein *messbares* Abbruchkriterium? | **keine Schleife** | Schleife erlaubt |
+
+**Warum das hier steht.** Die teuerste Fehlentscheidung in Ablauf-Konzepten ist nicht die falsche
+Form, sondern die zu große: ein Graph, wo eine Kette reicht, kostet dauerhaft Wartung und
+verdeckt beim Debuggen die eigentliche Ursache. Frage 1 ist deshalb die wichtigste — sie beendet
+die meisten Fälle, bevor irgendetwas gebaut wird.
+
+**Frage 6 ist ein Gate, keine Empfehlung.** Eine Schleife ohne messbares Abbruchkriterium läuft
+bis zum Budget und meldet das nicht als Fehler, sondern als Ende. Wer keine Schwelle nennen kann,
+hat keine Schleife, sondern eine offene Rechnung. Zusammen mit der Budget-Deklaration in
+`policies/autonomy-gates.md` ist das die zweite Hälfte derselben Regel.
+
+> **Herkunft:** Anstoß aus einem externen Papier (Owner-Input 2026-08-02); Formulierung und
+> Zuschnitt stammen von hier. Die sechs Fragen sind **nicht** wörtlich aus der Quelle übernommen —
+> weicht deren Fassung ab, gewinnt die Quelle und diese Tabelle wird nachgezogen.
+
 ---
 
 ## Step 3 — Adversariat (Schärfe nach Tier)
@@ -191,6 +220,8 @@ ist per I3 abgelaufen.
 - [ ] Steelman vor Kritik?
 - [ ] Kein neues Feld/Gate/Scoreboard ohne SSoT-Prüfung, keine Boundary ohne Threshold?
 - [ ] Kill-Gate messbar, Exception-Budget datiert?
+- [ ] (nur bei automatisierten Abläufen) Step 2a durchlaufen — kleinste tragfähige Form
+      begründet, und bei Schleifen ein *messbares* Abbruchkriterium benannt?
 - [ ] Jede REC konkret + verifizierbar?
 - [ ] Artefakt hat `owner` + `review_by` + `pipeline_status` + `kill_criteria`?
 - [ ] (nur T3) §13 hat eine Kriterium→Status-Tabelle, nicht nur gelabelte Prosa (a/b/c…)?
@@ -199,6 +230,14 @@ ist per I3 abgelaufen.
 
 ## Changelog
 
+- 2026-08-02: **Step 2a — Ausführungsform wählen** ergänzt (sechs Fragen, Filter statt Katalog)
+  plus Selbstcheck-Zeile in Step 5. Anlass: Owner-Input aus einem externen Papier; die dort
+  benannte Gefahr ist Über-Architektur — ein Graph, wo eine Kette reicht. Bewusst **konditional**
+  gehalten (nur bei Konzepten über automatisierte Abläufe), damit der Skill für alle anderen
+  Konzepte nicht länger wird: die Ausführungstreue-Lehre aus Retro c494a2 sagt, dass jede
+  zusätzliche Pflichtphase die Wahrscheinlichkeit senkt, dass die bestehenden gelesen werden.
+  Frage 6 (messbares Abbruchkriterium) ist als Gate formuliert und hängt an der neuen
+  Budget-Deklaration in `policies/autonomy-gates.md`.
 - 2026-07-15: §13 braucht jetzt eine Kriterium→Status-Tabelle unter dem Kill-Gate-Fließtext
   (+ Step-5-Selbstcheck-Zeile). Audit (Issue #1167, aus Retro c494a2/-incr) fand: 18 von 19
   aktiven KONZ-Dokumenten hatten präzise Kill-Gate-Kriterien, aber keinen Tracking-Mechanismus
