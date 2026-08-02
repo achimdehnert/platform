@@ -154,6 +154,8 @@ Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dat
 > #189 durch #192 (Security-Scan im frischen venv, je Job) geschlossen; Deploy 30741745261
 > success, venv-Step im Log belegt. **Punkt 4 bestätigt:** Outline in frischer Session
 > erreichbar. Punkte 1, 5, 6 unverändert offen; Details im LOG (Session 8ed6a2).
+> — **Nachtrag Session 922ab2 (später am selben Tag):** für **Punkt 5** trifft „unverändert
+> offen" nicht mehr zu; der Ingest läuft, am Prod-Host gemessen. Punkte 1 und 6 stimmen.
 
 > **Nachtrag 2026-07-31 — Konsequenz aus Punkt 5 für Punkt 3 (übernommen aus
 > [#1612](https://github.com/achimdehnert/platform/pull/1612) vor dessen Schließung):**
