@@ -12,7 +12,8 @@ superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "gh repo view achimdehnert/platform --json visibility", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # PUBLIC; dev-hub PRIVATE
   - {claim_id: C2, source_path: ".github/workflows/_*.yml (git ls-tree origin/main)", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # 4 aktive Reusable Workflows
-  - {claim_id: C3, source_path: "grep über ~/github/*/.github/workflows/", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # 20 Konsumenten, 8 davon PUBLIC
+  - {claim_id: C3, source_path: "grep über ~/github/*/.github/workflows/ + gh search code --owner achimdehnert, VEREINIGT", commit_or_pr: "Lauf 2026-08-02 (2. Runde)", opened_in_session: true}   # 34 Konsumenten, 19 PUBLIC — Erstzählung (20/8) war zu niedrig
+  - {claim_id: C8, source_path: "gh repo view über 4 Owner (achimdehnert, meiki-lra, ttz-lif, iilgmbh)", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # Konsumenten liegen in mind. 4 Orgs
   - {claim_id: C4, source_path: "grep raw.githubusercontent.com/achimdehnert/platform über ~/github/*/", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # 10 Repos
   - {claim_id: C5, source_path: "bootstrap.sh:71", commit_or_pr: "origin/main 2026-08-02", opened_in_session: true}   # unauthentifizierter git clone
   - {claim_id: C6, source_path: "git grep -c über origin/main", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # Prod-IP 117 Dateien, iil.pet 255, 237 ADRs, 38 KONZ
@@ -57,13 +58,39 @@ ist, ist das eine bewusste Entscheidung wert, keine Vorbelegung.
 
 | # | Pfad | Umfang | Bricht bei „privat"? |
 |---|---|---|---|
-| P1 | Reusable Workflows `_*.yml` (C2, C3) | 4 Workflows, 20 Konsumenten, **8 davon öffentlich** | **ungeklärt** (§4) |
+| P1 | Reusable Workflows `_*.yml` (C2, C3) | 4 Workflows, **34 Konsumenten, 19 davon öffentlich** | **ungeklärt** (§4) |
 | P2 | `raw.githubusercontent.com/achimdehnert/platform` (C4) | 10 Repos | **ja, sicher** |
 | P3 | `bootstrap.sh` klont unauthentifiziert (C5) | jede neue Maschine | **ja, sicher** |
 | P4 | `git clone` in fremder CI (sqf-hub) | 1 Repo | **ja, sicher** |
 
 **P2 bis P4 tragen die Schlussfolgerung schon allein.** Selbst wenn P1 unproblematisch wäre,
 bräuchte ein Sichtbarkeitswechsel Vorarbeit an drei Stellen.
+
+### 3.1 Wie die Konsumentenzahl zustande kam — und warum die erste falsch war
+
+Die erste Fassung dieses Konzepts nannte **20 Konsumenten, 8 öffentlich**. Beides war zu
+niedrig. Der Grund ist methodisch und wiegt schwerer als die Zahl:
+
+| Methode | gefunden | übersehen |
+|---|---|---|
+| `grep` über lokale Klone `~/github/*` | 26 | 10, die nie ausgecheckt waren |
+| `gh search code --owner achimdehnert` | 25 | 11, u. a. `outlinefw` |
+| **Vereinigung beider** | **34** | mind. die Repos fremder Owner (s. u.) |
+
+**Keine der beiden Methoden ist für sich vollständig, und keine merkt es.** Der lokale Scan
+sieht nur, was jemand einmal geklont hat; die Code-Suche indiziert nicht alles und ist auf
+einen Owner beschränkt. Wer nur eine von beiden fährt, bekommt eine plausible Zahl **ohne
+Fehlerbalken** — genau die Form, in der eine Abwesenheitsaussage kippt.
+
+Dazu kommt: die Konsumenten liegen in **mindestens vier Owner-Namensräumen** (C8) —
+`achimdehnert`, `meiki-lra`, `ttz-lif` und `iilgmbh`. Die beiden zunächst nicht auflösbaren
+Repos lagen in `iilgmbh`, der Zielorganisation der Migration nach KONZ-012; `iil-klickdummy`
+ist dort **öffentlich**. Eine Suche mit `--owner achimdehnert` kann sie konstruktionsbedingt
+nicht finden.
+
+**Was daraus für die Umsetzung folgt:** Die Zahl 34 ist eine **untere Schranke**, keine
+Erhebung. Vor dem Schnitt braucht es eine Zählung, die alle vier Owner abdeckt und beide
+Methoden vereinigt — sonst bricht die CI genau dort, wo niemand hingesehen hat.
 
 ## 4. Die eine offene Frage — ausdrücklich ungeprüft
 
@@ -88,17 +115,17 @@ auf `idea`, nicht auf `ready`.
 | id | Aussage | Typ | Evidenz / Falsifikation | Status |
 |----|---------|-----|-------------------------|--------|
 | L1 | `platform` ist öffentlich, `dev-hub` privat | Beobachtung | C1 | verifiziert |
-| L2 | 8 öffentliche Repos beziehen Reusable Workflows aus platform | Beobachtung | C3 | verifiziert |
+| L2 | **19** öffentliche Repos beziehen Reusable Workflows aus platform (34 insgesamt) | Beobachtung | C3, C8 — zwei Methoden vereinigt (§3.1) | verifiziert als **untere Schranke** |
 | L3 | 10 Repos ziehen Dateien über `raw.githubusercontent` | Beobachtung | C4 | verifiziert |
 | L4 | `bootstrap.sh` klont ohne Authentifizierung | Beobachtung | C5 | verifiziert |
 | L5 | Ein öffentlicher Aufrufer kann keinen privaten Reusable Workflow nutzen | **Annahme** | nicht belegt — Check: G1 | **offen** |
-| L6 | Die vier Workflows sind der einzige Grund, platform öffentlich zu halten | Annahme | P2–P4 sind umstellbar; nicht gegengeprüft, ob weitere Konsumenten außerhalb `~/github` existieren | offen (H) |
+| L6 | Die vier Workflows sind der einzige Grund, platform öffentlich zu halten | Annahme | P2–P4 sind umstellbar; Konsumentenzahl inzwischen zweifach erhoben (§3.1), bleibt aber untere Schranke | offen (M) |
 | L7 | Ein separates öffentliches CI-Repo erzeugt keinen zweiten Wahrheitsstand | Entscheidung | Workflows wandern **ganz**, kein Duplikat; Kill-Kriterium K3 misst Divergenz | offen |
 
-**L6 ist die unbequemste Zeile.** Der Konsumenten-Scan lief über die lokalen Klone unter
-`~/github`. Ein Repo, das hier nicht ausgecheckt ist, taucht nicht auf. Der vollständige Check
-wäre eine org-weite Code-Suche über die GitHub-API — nachzuholen vor der Umsetzung, nicht vor
-der Entscheidung.
+**L6 war die unbequemste Zeile — und sie hat sich sofort bestätigt.** Der Nachscan (§3.1)
+hob die Konsumentenzahl von 20 auf 34 und die öffentlichen von 8 auf 19. Die Zeile bleibt
+trotzdem offen, nur mit kleinerer Restunsicherheit: auch die Vereinigung zweier unvollständiger
+Methoden ist kein Beweis für Vollständigkeit.
 
 ## 6. Alternativen
 
@@ -161,7 +188,7 @@ org-weit und träfe genau die Repos, die publiziert werden.
 | id | Kriterium | Schwelle | Status |
 |----|-----------|----------|--------|
 | K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ⬜ offen |
-| K2 | Konsumenten-Scan org-weit statt lokal | vor der Umsetzung | ⬜ offen |
+| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | 🟡 teilweise — 2 Methoden × 1 Owner erhoben (§3.1), 3 Owner fehlen |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
 
@@ -177,5 +204,7 @@ Entscheidungsvorlage mehr.
   Gegenlesung fehlt damit — das ist eine benannte Lücke, keine erledigte Achse.
 - **Keine Kostenrechnung.** Ob private Repos hier Actions-Minuten kosten (self-hosted Runner vs.
   GitHub-hosted), ist nicht erhoben.
-- **Keine Aussage über die Fremd-Orgs** (`meiki-lra`, `ttz-lif`). Der Konsumenten-Scan lief nur
-  gegen `achimdehnert`; drei Repos in der Liste ließen sich dort nicht auflösen.
+- **Fremd-Orgs nur angerissen.** Der Nachscan (§3.1) förderte einen vierten Namensraum zutage:
+  `iilgmbh` — die Zielorganisation der Migration nach KONZ-012. Zwei Konsumenten liegen dort,
+  `iil-klickdummy` davon **öffentlich**. Eine Code-Suche pro Owner für `meiki-lra`, `ttz-lif`
+  und `iilgmbh` steht aus; erst danach ist die Zahl mehr als eine untere Schranke.
