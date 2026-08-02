@@ -1,0 +1,31 @@
+# Exporter-Stack für prod + prod-b — Anmeldung am VORHANDENEN odoo-Prometheus
+# (ADR-292: kein neuer Monitoring-Stack; 0-€-Schritt aus hosts.yaml/odoo-Eintrag).
+# Rollout: siehe README.md — ERST Hetzner-Cloud-Firewall (9100/9338 nur für die
+# odoo-Host-IP freigeben), DANN hier: docker compose -p mon -f <datei> up -d.
+# Bewusst KISS: Ports lauschen offen, der Schutz ist die Cloud-Firewall-Allowlist.
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: mon_node_exporter
+    restart: unless-stopped
+    network_mode: host          # exportiert Host-Metriken auf :9100
+    pid: host
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - "/:/host:ro,rslave"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: mon_cadvisor
+    restart: unless-stopped
+    ports:
+      - "9338:8080"             # Container-Metriken
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker:/var/lib/docker:ro"
+      - "/dev/disk:/dev/disk:ro"
+    devices:
+      - "/dev/kmsg"

@@ -1,0 +1,22 @@
+# Scrape-Ergänzung für den VORHANDENEN Prometheus auf dem odoo-Host
+# (odoo_prometheus-Container). In dessen prometheus.yml unter scrape_configs
+# einfügen (oder als Datei einbinden, falls dort include genutzt wird) und den
+# Container mit --force-recreate neu erzeugen (docker restart lädt Config je
+# nach Mount, Env NIE — siehe Memory-Regel).
+#
+# Hosts laut infra/hosts.yaml (prod = 88.198.191.108, prod-b = 89.167.43.30).
+scrape_configs:
+  - job_name: fleet-node
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["88.198.191.108:9100"]
+        labels: {host: prod}
+      - targets: ["89.167.43.30:9100"]
+        labels: {host: prod-b}
+  - job_name: fleet-cadvisor
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["88.198.191.108:9338"]
+        labels: {host: prod}
+      - targets: ["89.167.43.30:9338"]
+        labels: {host: prod-b}
