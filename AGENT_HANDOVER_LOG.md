@@ -1020,3 +1020,16 @@ Offen bleibt: (1) Funktionsbeweis per Orchestrator-MCP-Connect aus einer Session
 den Server lädt (z. B. dev-hub) — curl endet an der Edge mit 403, unkalibrierbar;
 (2) Owner-only-Hygiene der `.env.prod.bak-*`-Altdateien auf dem mcp-hub-Host
 (Alt-Keys im Klartext, Löschen irreversibel — nur vorgeschlagen).
+
+**KORREKTUR (gleiche Session, ~20:00 UTC) — dieser Eintrag war in zwei Punkten falsch:**
+(a) Es GAB ein durables Artefakt: der letzte Kommentar auf #1640 dokumentiert Rotation #2
+vollständig (Owner-Freigabe „3 go", Server-Hälfte sofort, Client-Hälfte BEWUSST vertagt).
+Der Vorwurf „Artefakt-Pflicht verletzt" entfällt; mein Fehler war, nur AGENT_HANDOVER_LOG
+und Retro als Leseflächen abzufragen. (b) Die Rotation ist NICHT komplett: settings.json
+trägt absichtlich den toten Token #2; `~/shared/finish_token_rotation2.sh` ist Step 0 der
+nächsten frischen Session (VOR jedem settings-Read — Datei-Watcher spiegelt jede
+settings.json-Änderung laufender Sessions ins Transkript, 2026-08-02 zweimal beobachtet).
+Meine ✅-Ersetzung der ⚠️-Zeile in #1693 hatte genau diese Step-0-Anweisung von der
+Lesefläche entfernt — mit dieser Korrektur wiederhergestellt. Die Server-Hälfte-Verifikation
+aus dem 4. Eintrag (Hash-Gleichheit, StartedAt) bleibt gültig und ist nun unabhängige
+Bestätigung des #1640-Kommentars.
