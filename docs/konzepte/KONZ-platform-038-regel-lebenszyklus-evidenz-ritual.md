@@ -275,10 +275,10 @@ erst danach.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 dreistufig: Baseline eingefroren (Tool gepinnt + Slug-Wörterbuch) | offen | — (VOR Ritual-Lauf 1, 16.08. — D6) |
-| K2 Ritual-Ausfallregel aktiv | offen | — (PR #1641 + Lücken-Selbstprüfung) |
+| K1 dreistufig: Baseline eingefroren (Tool gepinnt + Slug-Wörterbuch) | **erfüllt 2026-08-02** | docs/governance/k1-baseline/ (n=20, Summen-Rate 1.000, Schwellen 0.700/1.000; Tool-Suite 23/23) |
+| K2 Ritual-Ausfallregel aktiv | erfüllt 2026-08-02 | PR #1641 gemergt, scharfer Lauf auf #1640 bewiesen |
 | K3 Sunset-Ledger existiert, 0 Einträge, Lernphasen-Zähler 0/2 | offen | — |
-| K4 Drill-Protokoll je Welle-1-Gate | offen | — |
+| K4 Drill-Protokoll je Welle-1-Gate | erfüllt 2026-08-02 (5/5 Welle 1) | GATE_HEADER + Drill-Tests in PRs #1643–#1648 |
 | K5 Outcome-Indikator (Folge-Fix-Quote) erstmalig erhoben | offen | — (Quartalstermin 2026-11-01) |
 | D5-Zaun-Ablaufdatum mechanisch geprüft | offen | — (Ritual-Lauf prüft Frontmatter-Feld) |
 
