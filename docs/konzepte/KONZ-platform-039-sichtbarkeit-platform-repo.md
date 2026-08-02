@@ -5,7 +5,7 @@ pipeline_status: idea
 tier: T3
 owner: Achim Dehnert
 spec_refs: []        # Infrastruktur-/Governance-Konzept, keine App-Spec
-adr_threshold: "ADR nötig — Security-Perimeter + Cross-Repo. Erst NACH G1 (Workflow-Experiment), sonst baut der ADR auf einer ungeprüften Annahme."
+adr_threshold: "ADR nötig — Security-Perimeter + Cross-Repo. G1 ist erfüllt (§4); offen bleibt der Konsumenten-Scan über alle vier Owner (K2)."
 review_by: 2026-09-15
 kill_criteria: "K1–K4 in §9; hart: bricht nach dem Schnitt CI in ≥1 öffentlichem Konsumenten länger als 24 h, wird zurückgedreht"
 superseded_by_spec: null
@@ -14,6 +14,7 @@ evidence_manifest:
   - {claim_id: C2, source_path: ".github/workflows/_*.yml (git ls-tree origin/main)", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # 4 aktive Reusable Workflows
   - {claim_id: C3, source_path: "grep über ~/github/*/.github/workflows/ + gh search code --owner achimdehnert, VEREINIGT", commit_or_pr: "Lauf 2026-08-02 (2. Runde)", opened_in_session: true}   # 34 Konsumenten, 19 PUBLIC — Erstzählung (20/8) war zu niedrig
   - {claim_id: C8, source_path: "gh repo view über 4 Owner (achimdehnert, meiki-lra, ttz-lif, iilgmbh)", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # Konsumenten liegen in mind. 4 Orgs
+  - {claim_id: C9, source_path: "G1-Experiment: g1-probe-privat / -oeffentlich / -aufrufer-privat", commit_or_pr: "Lauf 30749096578 (Kontrolle) 2026-08-02", opened_in_session: true}   # oeffentlicher Aufrufer abgelehnt, privater erfolgreich
   - {claim_id: C4, source_path: "grep raw.githubusercontent.com/achimdehnert/platform über ~/github/*/", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # 10 Repos
   - {claim_id: C5, source_path: "bootstrap.sh:71", commit_or_pr: "origin/main 2026-08-02", opened_in_session: true}   # unauthentifizierter git clone
   - {claim_id: C6, source_path: "git grep -c über origin/main", commit_or_pr: "Lauf 2026-08-02", opened_in_session: true}   # Prod-IP 117 Dateien, iil.pet 255, 237 ADRs, 38 KONZ
@@ -26,9 +27,10 @@ created: 2026-08-02
 ## Kernthese
 
 **`platform` ist öffentlich, und das war niemandem bewusst.** Privat werden ist möglich, aber
-nicht durch Umlegen eines Schalters: vier Abhängigkeitspfade führen von außen hinein, zwei davon
-brechen **sicher**. Der tragfähige Weg ist ein Schnitt entlang der Frage „muss das öffentlich
-lesbar sein, damit fremde CI läuft?" — nicht ein Sichtbarkeitswechsel am Ganzen.
+nicht durch Umlegen eines Schalters: vier Abhängigkeitspfade führen von außen hinein, und **alle
+vier brechen** — drei davon unmittelbar einsichtig, der vierte experimentell belegt (§4). Der
+tragfähige Weg ist ein Schnitt entlang der Frage „muss das öffentlich lesbar sein, damit fremde
+CI läuft?" — nicht ein Sichtbarkeitswechsel am Ganzen.
 
 ## 1. Wie das aufgefallen ist
 
@@ -58,13 +60,15 @@ ist, ist das eine bewusste Entscheidung wert, keine Vorbelegung.
 
 | # | Pfad | Umfang | Bricht bei „privat"? |
 |---|---|---|---|
-| P1 | Reusable Workflows `_*.yml` (C2, C3) | 4 Workflows, **34 Konsumenten, 19 davon öffentlich** | **ungeklärt** (§4) |
+| P1 | Reusable Workflows `_*.yml` (C2, C3) | 4 Workflows, **34 Konsumenten, 19 davon öffentlich** | **ja — experimentell belegt** (§4) |
 | P2 | `raw.githubusercontent.com/achimdehnert/platform` (C4) | 10 Repos | **ja, sicher** |
 | P3 | `bootstrap.sh` klont unauthentifiziert (C5) | jede neue Maschine | **ja, sicher** |
 | P4 | `git clone` in fremder CI (sqf-hub) | 1 Repo | **ja, sicher** |
 
-**P2 bis P4 tragen die Schlussfolgerung schon allein.** Selbst wenn P1 unproblematisch wäre,
-bräuchte ein Sichtbarkeitswechsel Vorarbeit an drei Stellen.
+**P1 ist der schwerste Pfad und zugleich der leiseste.** P2–P4 brechen sichtbar: ein Download
+schlägt fehl, ein Klon fragt nach Zugangsdaten. P1 dagegen meldet `workflow was not found` —
+das liest sich wie ein Tippfehler im Pfad, nicht wie eine Sichtbarkeitsfrage. Wer nur P2–P4
+vorbereitet und dann umschaltet, sucht den Fehler an der falschen Stelle.
 
 ### 3.1 Wie die Konsumentenzahl zustande kam — und warum die erste falsch war
 
@@ -92,23 +96,48 @@ nicht finden.
 Erhebung. Vor dem Schnitt braucht es eine Zählung, die alle vier Owner abdeckt und beide
 Methoden vereinigt — sonst bricht die CI genau dort, wo niemand hingesehen hat.
 
-## 4. Die eine offene Frage — ausdrücklich ungeprüft
+## 4. G1 — die offene Frage ist experimentell beantwortet
 
-Darf ein **öffentliches** Repo einen Reusable Workflow aus einem **privaten** Repo desselben
-Besitzers aufrufen?
+**Frage:** Darf ein **öffentliches** Repo einen Reusable Workflow aus einem **privaten** Repo
+desselben Besitzers aufrufen?
 
-**Ich weiß es nicht.** Die GitHub-Dokumentation beschreibt die Freigabe als besitzer-bezogen
-(„Accessible from repositories owned by USERNAME") und sagt zur Sichtbarkeit des *aufrufenden*
-Repos **nichts** (C7). In einem früheren Zwischenstand dieser Sitzung habe ich das Gegenteil als
-Tatsache behauptet — das war nicht belegt und ist hiermit zurückgenommen.
+**Antwort: nein.** Am 2026-08-02 mit drei Wegwerf-Repos gemessen (C9).
 
-**Billigster Check (G1):** ein Wegwerf-Repo `ci-sichtbarkeit-probe`, privat, mit einem trivialen
-`workflow_call`-Workflow; Freigabe auf „repositories owned by USERNAME"; Aufruf aus einem
-Zweig eines der acht öffentlichen Konsumenten. Kosten: eine Viertelstunde. Ergebnis entscheidet
-zwischen Variante A und B in §6.
+### Aufbau
 
-**Bis G1 vorliegt, ist jede Aufwandsschätzung für P1 eine Wette.** Deshalb steht dieses Konzept
-auf `idea`, nicht auf `ready`.
+| Rolle | Repo | Sichtbarkeit |
+|---|---|---|
+| Anbieter | `g1-probe-privat` | **privat**, `actions/permissions/access` = `user` |
+| Versuch | `g1-probe-oeffentlich` | **öffentlich** |
+| Kontrolle | `g1-probe-aufrufer-privat` | **privat** |
+
+Beide Aufrufer tragen **dieselbe** Workflow-Datei, denselben Ref (`@main`), denselben Anbieter.
+
+### Ergebnis
+
+| Aufrufer | Ergebnis |
+|---|---|
+| öffentlich | **abgelehnt beim Auslösen**, zweimal: `-> "…/reusable.yml@main": workflow was not found` |
+| privat (Kontrolle) | **erfolgreich** — Lauf `30749096578`, beide Jobs `success`, Ausgabe `Beleg=ausgefuehrt` |
+
+Der öffentliche Aufruf wurde **erneut** abgelehnt, nachdem der private schon lief — damit ist
+Replikationsverzögerung als Erklärung ausgeschlossen. Die einzige Variable, die sich zwischen
+Versuch und Kontrolle unterscheidet, ist die **Sichtbarkeit des Aufrufers**.
+
+### Was das für die Entscheidung heißt
+
+`L5` ist damit **verifiziert**, und P1 ist kein Restrisiko mehr, sondern eine Gewissheit: Ein
+Wechsel von `platform` auf privat legt die CI von **19 öffentlichen Repos** still — sofort, ohne
+Vorwarnung, und mit einer Fehlermeldung (`workflow was not found`), die auf ein fehlendes File
+zeigt statt auf die Ursache.
+
+> **Zur Chronologie, weil sie zur Sache gehört:** Diese Behauptung stand früher in der Sitzung
+> als Tatsache da, ohne Beleg. Sie wurde daraufhin zurückgenommen — richtig, denn unbelegt ist
+> unbelegt, auch wenn man am Ende recht behält. Jetzt steht sie wieder da, diesmal mit
+> Versuch **und** Kontrolle. Der Unterschied zwischen den beiden Zuständen ist der ganze Punkt
+> von `evidence-discipline`: nicht das Ergebnis war falsch, sondern die Deckung.
+
+**Aufräumen:** Die drei Wegwerf-Repos sind zu löschen (§11).
 
 ## 5. Annahmen-/Entscheidungs-Ledger
 
@@ -118,7 +147,7 @@ auf `idea`, nicht auf `ready`.
 | L2 | **19** öffentliche Repos beziehen Reusable Workflows aus platform (34 insgesamt) | Beobachtung | C3, C8 — zwei Methoden vereinigt (§3.1) | verifiziert als **untere Schranke** |
 | L3 | 10 Repos ziehen Dateien über `raw.githubusercontent` | Beobachtung | C4 | verifiziert |
 | L4 | `bootstrap.sh` klont ohne Authentifizierung | Beobachtung | C5 | verifiziert |
-| L5 | Ein öffentlicher Aufrufer kann keinen privaten Reusable Workflow nutzen | **Annahme** | nicht belegt — Check: G1 | **offen** |
+| L5 | Ein öffentlicher Aufrufer kann keinen privaten Reusable Workflow nutzen | Beobachtung | **C9 — Versuch + Kontrolle, §4** | **verifiziert** |
 | L6 | Die vier Workflows sind der einzige Grund, platform öffentlich zu halten | Annahme | P2–P4 sind umstellbar; Konsumentenzahl inzwischen zweifach erhoben (§3.1), bleibt aber untere Schranke | offen (M) |
 | L7 | Ein separates öffentliches CI-Repo erzeugt keinen zweiten Wahrheitsstand | Entscheidung | Workflows wandern **ganz**, kein Duplikat; Kill-Kriterium K3 misst Divergenz | offen |
 
@@ -159,15 +188,15 @@ Wie B, zusätzlich werden vor dem Wechsel die Infrastruktur-Angaben bereinigt, w
 
 ## 7. Empfehlung
 
-**Variante B, aber erst nach G1** — und mit einer Vorstufe, die sofort wirkt und nichts kostet:
+**Variante B** — G1 ist beantwortet (§4: der Schnitt ist **zwingend**, nicht optional). Es bleibt
+eine Vorstufe, die sofort wirkt und nichts kostet:
 
 1. **Sofort (unabhängig von allem):** die Arbeitsroutine korrigieren. `platform` ist öffentlich;
    das gehört in `CLAUDE.md` und `CORE_CONTEXT.md`, damit keine weitere Entscheidung auf der
    falschen Prämisse gebaut wird. **Das ist der einzige Schritt, der heute schon Schaden
    verhindert** — der Beinahe-Vorfall mit der Fixture war ein Routine-, kein Technikproblem.
-2. **G1 ausführen** (Viertelstunde, §4). Fällt er negativ aus (öffentlicher Aufrufer kann
-   privaten Workflow nicht nutzen), ist der Schnitt zwingend; fällt er positiv aus, wird B
-   billiger, bleibt aber wegen P2–P4 nötig.
+2. ~~G1 ausführen~~ **erledigt** (§4) — Ergebnis: der Schnitt ist zwingend. Ohne ihn stünde die
+   CI von 19 öffentlichen Repos ab der Sekunde des Umschaltens still.
 3. **Vollständiger Konsumenten-Scan** über die GitHub-Code-Suche statt über lokale Klone (L6).
 4. **Dann erst** ADR schreiben und `shared-ci` anlegen.
 
@@ -187,7 +216,7 @@ org-weit und träfe genau die Repos, die publiziert werden.
 
 | id | Kriterium | Schwelle | Status |
 |----|-----------|----------|--------|
-| K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ⬜ offen |
+| K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ✅ erfüllt (§4, 2026-08-02) |
 | K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | 🟡 teilweise — 2 Methoden × 1 Owner erhoben (§3.1), 3 Owner fehlen |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
@@ -208,3 +237,20 @@ Entscheidungsvorlage mehr.
   `iilgmbh` — die Zielorganisation der Migration nach KONZ-012. Zwei Konsumenten liegen dort,
   `iil-klickdummy` davon **öffentlich**. Eine Code-Suche pro Owner für `meiki-lra`, `ttz-lif`
   und `iilgmbh` steht aus; erst danach ist die Zahl mehr als eine untere Schranke.
+
+---
+
+## 11. Aufräumen — die Wegwerf-Repos aus G1
+
+Drei Repos sind nur für das Experiment entstanden und **gehören gelöscht**. Der irreversible
+Schritt bleibt beim Menschen (Konvention `delete-repo`); die Befehle stehen hier fertig:
+
+```bash
+gh repo delete achimdehnert/g1-probe-privat --yes
+gh repo delete achimdehnert/g1-probe-oeffentlich --yes
+gh repo delete achimdehnert/g1-probe-aufrufer-privat --yes
+```
+
+`g1-probe-oeffentlich` ist **öffentlich** sichtbar, solange es steht. Inhalt ist ein
+`echo`-Workflow und eine README, die den Zweck nennt — kein Schaden, aber Unordnung mit
+Außenwirkung.
