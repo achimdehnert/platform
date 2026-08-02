@@ -34,8 +34,16 @@ CLAUDE_REPO = Path.home() / ".claude"
 PRUEFER = Path(__file__).with_name("memory_link_check.py")
 
 
-def geaenderte_memory_dirs() -> list[Path]:
-    """Memory-Verzeichnisse mit offenen Änderungen — leer heißt: nichts zu tun."""
+def geaenderte_memory_dirs() -> tuple[list[Path], set[str]]:
+    """Memory-Verzeichnisse mit offenen Änderungen und die geänderten Dateinamen.
+
+    Zwei Rückgabewerte, weil das Prüfwerkzeug immer ein ganzes Verzeichnis liest:
+    die Verzeichnisliste sagt, **wo** geprüft wird, die Dateinamen sagen, **was
+    dieser Zug angefasst hat**. Ohne die zweite Menge meldet der Melder Funde in
+    fremden Dateien als „dieser Zug hat sie erzeugt" — das ist falsch und war der
+    Anlass für diese Änderung (Realfall 2026-08-02: 8 Funde in 3 Dateien, die der
+    meldende Zug nie geöffnet hatte).
+    """
     try:
         roh = subprocess.run(
             ["git", "-C", str(CLAUDE_REPO), "status", "--porcelain", "--", "projects/"],
@@ -44,11 +52,12 @@ def geaenderte_memory_dirs() -> list[Path]:
             timeout=20,
         )
     except (OSError, subprocess.SubprocessError):
-        return []
+        return [], set()
     if roh.returncode != 0:
-        return []
+        return [], set()
 
     dirs: set[Path] = set()
+    dateien: set[str] = set()
     for zeile in roh.stdout.splitlines():
         # Format: "XY <pfad>"; bei Umbenennung "XY alt -> neu"
         pfad = zeile[3:].split(" -> ")[-1].strip().strip('"')
@@ -57,12 +66,20 @@ def geaenderte_memory_dirs() -> list[Path]:
             continue
         idx = teile.index("memory")
         dirs.add(CLAUDE_REPO.joinpath(*teile[: idx + 1]))
-    return sorted(d for d in dirs if d.is_dir())
+        if len(teile) > idx + 1:
+            dateien.add(teile[-1])
+    return sorted(d for d in dirs if d.is_dir()), dateien
 
 
-def pruefe(dirs: list[Path]) -> list[str]:
-    """Harte Funde je Verzeichnis, als fertige Meldezeilen."""
-    meldungen: list[str] = []
+def pruefe(dirs: list[Path], geaendert: set[str]) -> tuple[list[str], int]:
+    """Harte Funde als Meldezeilen — getrennt nach angefasst und fremd.
+
+    Rückgabe: (Zeilen zu Dateien, die dieser Zug geschrieben hat; Anzahl der
+    übrigen harten Funde). Die fremden werden gezählt, nicht verschwiegen — sonst
+    verschwände Bestandsschuld lautlos, sobald der Melder ehrlicher wird.
+    """
+    eigene: list[str] = []
+    fremd = 0
     for d in dirs:
         try:
             lauf = subprocess.run(
@@ -83,8 +100,11 @@ def pruefe(dirs: list[Path]) -> list[str]:
             for f in det.get("funde", []):
                 if f.get("art") == "forward-ref":
                     continue
-                meldungen.append(f"  {f['art']:<15} {f['datei']:<52} {f['detail']}")
-    return meldungen
+                if f.get("datei") in geaendert:
+                    eigene.append(f"  {f['art']:<15} {f['datei']:<52} {f['detail']}")
+                else:
+                    fremd += 1
+    return eigene, fremd
 
 
 def main() -> int:
@@ -101,23 +121,31 @@ def main() -> int:
     if not PRUEFER.is_file():
         return 0
 
-    dirs = geaenderte_memory_dirs()
+    dirs, geaendert = geaenderte_memory_dirs()
     if not dirs:
         return 0
 
-    meldungen = pruefe(dirs)
-    if not meldungen:
+    eigene, fremd = pruefe(dirs, geaendert)
+    if not eigene:
         return 0
+
+    nachsatz = ""
+    if fremd:
+        nachsatz = (
+            f"\n\nAusserdem {fremd} harte(r) Fund(e) in Dateien, die dieser Zug "
+            "NICHT angefasst hat — Bestandsschuld, nicht deine. Aufraeumen ja, "
+            "aber als eigene Aufgabe."
+        )
 
     text = (
         "⚠️ memory-link-guard: dieser Zug hat Memory-Dateien geschrieben und "
-        f"dabei {len(meldungen)} harte(n) Verweis-Fund erzeugt:\n"
-        + "\n".join(meldungen)
+        f"dabei {len(eigene)} harte(n) Verweis-Fund erzeugt:\n"
+        + "\n".join(eigene)
         + "\n\nEin toter Verweis entsteht meist, weil ein Ziel unter seinem "
         "Frontmatter-Namen statt seinem Dateinamen genannt wurde, oder weil das "
         "Ziel zusammengelegt/umbenannt wurde. Vorausschauende Verweise gehören "
         "in tools/claude-hooks/memory_forward_refs.tsv, nicht in die Prosa. "
-        "Jetzt im selben Zug korrigieren."
+        "Jetzt im selben Zug korrigieren." + nachsatz
     )
     print(
         json.dumps(

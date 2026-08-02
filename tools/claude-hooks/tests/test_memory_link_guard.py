@@ -48,7 +48,7 @@ def test_should_extract_the_memory_dir_from_a_porcelain_line(monkeypatch, tmp_pa
         lambda *a, **k: FakeLauf(" M projects/projekt-a/memory/feedback_x.md\n"),
     )
 
-    assert guard.geaenderte_memory_dirs() == [mem]
+    assert guard.geaenderte_memory_dirs()[0] == [mem]
 
 
 def test_should_handle_a_rename_line(monkeypatch, tmp_path):
@@ -63,7 +63,7 @@ def test_should_handle_a_rename_line(monkeypatch, tmp_path):
         ),
     )
 
-    assert guard.geaenderte_memory_dirs() == [mem]
+    assert guard.geaenderte_memory_dirs()[0] == [mem]
 
 
 def test_should_ignore_changes_outside_memory_dirs(monkeypatch, tmp_path):
@@ -76,7 +76,7 @@ def test_should_ignore_changes_outside_memory_dirs(monkeypatch, tmp_path):
         ),
     )
 
-    assert guard.geaenderte_memory_dirs() == []
+    assert guard.geaenderte_memory_dirs()[0] == []
 
 
 def test_should_return_empty_when_git_fails(monkeypatch, tmp_path):
@@ -85,7 +85,7 @@ def test_should_return_empty_when_git_fails(monkeypatch, tmp_path):
         guard.subprocess, "run", lambda *a, **k: FakeLauf("", returncode=128)
     )
 
-    assert guard.geaenderte_memory_dirs() == []
+    assert guard.geaenderte_memory_dirs()[0] == []
 
 
 def test_should_return_empty_when_git_is_missing(monkeypatch, tmp_path):
@@ -96,7 +96,7 @@ def test_should_return_empty_when_git_is_missing(monkeypatch, tmp_path):
 
     monkeypatch.setattr(guard.subprocess, "run", explodiert)
 
-    assert guard.geaenderte_memory_dirs() == []
+    assert guard.geaenderte_memory_dirs()[0] == []
 
 
 def test_should_deduplicate_several_files_of_one_dir(monkeypatch, tmp_path):
@@ -111,7 +111,7 @@ def test_should_deduplicate_several_files_of_one_dir(monkeypatch, tmp_path):
         ),
     )
 
-    assert guard.geaenderte_memory_dirs() == [mem]
+    assert guard.geaenderte_memory_dirs()[0] == [mem]
 
 
 # --- Auswertung des Pruefer-Berichts ----------------------------------------
@@ -135,7 +135,7 @@ def test_should_report_only_hard_findings(monkeypatch, tmp_path):
         lambda *a, **k: FakeLauf(json.dumps(bericht), returncode=1),
     )
 
-    meldungen = guard.pruefe([tmp_path])
+    meldungen, fremd = guard.pruefe([tmp_path], {"a.md"})
 
     assert len(meldungen) == 1
     assert "dead-wikilink" in meldungen[0] and "forward-ref" not in meldungen[0]
@@ -146,7 +146,7 @@ def test_should_stay_silent_on_a_tool_error(monkeypatch, tmp_path):
         guard.subprocess, "run", lambda *a, **k: FakeLauf("", returncode=2)
     )
 
-    assert guard.pruefe([tmp_path]) == []
+    assert guard.pruefe([tmp_path], {"a.md"}) == ([], 0)
 
 
 def test_should_survive_unparsable_checker_output(monkeypatch, tmp_path):
@@ -154,7 +154,7 @@ def test_should_survive_unparsable_checker_output(monkeypatch, tmp_path):
         guard.subprocess, "run", lambda *a, **k: FakeLauf("kein json", returncode=1)
     )
 
-    assert guard.pruefe([tmp_path]) == []
+    assert guard.pruefe([tmp_path], {"a.md"}) == ([], 0)
 
 
 # --- main(): darf unter keinen Umstaenden blockieren -------------------------
@@ -163,7 +163,7 @@ def test_should_survive_unparsable_checker_output(monkeypatch, tmp_path):
 def test_should_exit_0_and_stay_silent_when_nothing_was_written(
     monkeypatch, capsys, stdin_leer
 ):
-    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: [])
+    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: ([], set()))
 
     assert guard.main() == 0
     assert capsys.readouterr().out == ""
@@ -172,8 +172,10 @@ def test_should_exit_0_and_stay_silent_when_nothing_was_written(
 def test_should_emit_additional_context_on_a_finding(
     monkeypatch, capsys, stdin_leer, tmp_path
 ):
-    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: [tmp_path])
-    monkeypatch.setattr(guard, "pruefe", lambda d: ["  dead-wikilink   a.md   [[weg]]"])
+    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"a.md"}))
+    monkeypatch.setattr(
+        guard, "pruefe", lambda d, g: (["  dead-wikilink   a.md   [[weg]]"], 0)
+    )
 
     assert guard.main() == 0
     ausgabe = json.loads(capsys.readouterr().out)
@@ -185,7 +187,7 @@ def test_should_emit_additional_context_on_a_finding(
 
 def test_should_exit_0_on_broken_stdin(monkeypatch, capsys):
     monkeypatch.setattr(sys, "stdin", io.StringIO("kein json {{{"))
-    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: [])
+    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: ([], set()))
 
     assert guard.main() == 0
 
@@ -199,8 +201,8 @@ def test_should_exit_0_when_the_checker_is_absent(monkeypatch, stdin_leer, tmp_p
 def test_should_stay_silent_when_only_forward_refs_are_found(
     monkeypatch, capsys, stdin_leer, tmp_path
 ):
-    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: [tmp_path])
-    monkeypatch.setattr(guard, "pruefe", lambda d: [])
+    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"a.md"}))
+    monkeypatch.setattr(guard, "pruefe", lambda d, g: ([], 0))
 
     assert guard.main() == 0
     assert capsys.readouterr().out == ""
@@ -211,9 +213,149 @@ def test_should_not_call_the_checker_when_precondition_is_empty(
 ):
     """Die Vorbedingung ist der ganze Punkt: kein Scan ohne Schreibvorgang."""
     aufrufe = []
-    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: [])
-    monkeypatch.setattr(guard, "pruefe", lambda d: aufrufe.append(d) or [])
+    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: ([], set()))
+    monkeypatch.setattr(guard, "pruefe", lambda d, g: (aufrufe.append(d), ([], 0))[1])
 
     guard.main()
 
     assert aufrufe == []
+
+
+# --- Zuschreibung: nur was dieser Zug angefasst hat --------------------------
+#
+# Realfall 2026-08-02: der Melder las das ganze Verzeichnis und schrieb ALLE
+# harten Funde dem meldenden Zug zu — 8 Funde in 3 Dateien, die er nie geoeffnet
+# hatte. Der Prueferlauf bleibt verzeichnisweit (anders geht es nicht), die
+# Meldung nicht.
+
+
+def _bericht(tmp_path, *dateien):
+    return {
+        "details": [
+            {
+                "verzeichnis": str(tmp_path),
+                "funde": [
+                    {"art": "dead-wikilink", "datei": d, "detail": "[[weg]]"}
+                    for d in dateien
+                ],
+            }
+        ]
+    }
+
+
+def test_should_report_only_files_this_turn_touched(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        guard.subprocess,
+        "run",
+        lambda *a, **k: FakeLauf(
+            json.dumps(_bericht(tmp_path, "meine.md", "fremde.md")), returncode=1
+        ),
+    )
+
+    eigene, fremd = guard.pruefe([tmp_path], {"meine.md"})
+
+    assert len(eigene) == 1
+    assert "meine.md" in eigene[0]
+    assert fremd == 1
+
+
+def test_should_count_foreign_findings_instead_of_dropping_them(monkeypatch, tmp_path):
+    """Stillschweigen waere die naechste Unehrlichkeit — zaehlen, nicht schlucken."""
+    monkeypatch.setattr(
+        guard.subprocess,
+        "run",
+        lambda *a, **k: FakeLauf(
+            json.dumps(_bericht(tmp_path, "a.md", "b.md", "c.md")), returncode=1
+        ),
+    )
+
+    eigene, fremd = guard.pruefe([tmp_path], {"a.md"})
+
+    assert (len(eigene), fremd) == (1, 2)
+
+
+def test_should_stay_silent_when_only_foreign_files_have_findings(
+    monkeypatch, capsys, stdin_leer, tmp_path
+):
+    """Kein eigener Fund heisst: dieser Zug hat nichts kaputtgemacht."""
+    monkeypatch.setattr(
+        guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"meine.md"})
+    )
+    monkeypatch.setattr(guard, "pruefe", lambda d, g: ([], 7))
+
+    assert guard.main() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_should_mention_foreign_findings_as_separate_debt(
+    monkeypatch, capsys, stdin_leer, tmp_path
+):
+    monkeypatch.setattr(
+        guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"meine.md"})
+    )
+    monkeypatch.setattr(
+        guard, "pruefe", lambda d, g: (["  dead-wikilink  meine.md"], 5)
+    )
+
+    guard.main()
+
+    text = json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+        "additionalContext"
+    ]
+    assert "5 harte(r) Fund(e)" in text
+    assert "NICHT angefasst" in text
+
+
+def test_should_not_add_the_debt_note_when_there_is_none(
+    monkeypatch, capsys, stdin_leer, tmp_path
+):
+    """Gegenprobe: ohne fremde Funde darf der Nachsatz nicht erscheinen."""
+    monkeypatch.setattr(
+        guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"meine.md"})
+    )
+    monkeypatch.setattr(
+        guard, "pruefe", lambda d, g: (["  dead-wikilink  meine.md"], 0)
+    )
+
+    guard.main()
+
+    text = json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+        "additionalContext"
+    ]
+    assert "NICHT angefasst" not in text
+
+
+def test_should_collect_changed_filenames_next_to_dirs(monkeypatch, tmp_path):
+    mem = tmp_path / "projects" / "projekt-a" / "memory"
+    mem.mkdir(parents=True)
+    monkeypatch.setattr(guard, "CLAUDE_REPO", tmp_path)
+    monkeypatch.setattr(
+        guard.subprocess,
+        "run",
+        lambda *a, **k: FakeLauf(
+            " M projects/projekt-a/memory/a.md\n?? projects/projekt-a/memory/b.md\n"
+        ),
+    )
+
+    dirs, dateien = guard.geaenderte_memory_dirs()
+
+    assert dirs == [mem]
+    assert dateien == {"a.md", "b.md"}
+
+
+# --- Ausgabe-Vertrag --------------------------------------------------------
+
+
+def test_should_send_hook_event_name(monkeypatch, capsys, stdin_leer, tmp_path):
+    """Ohne hookEventName verwirft Claude Code die Ausgabe — Schema-Fehler statt Hinweis."""
+    monkeypatch.setattr(
+        guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"meine.md"})
+    )
+    monkeypatch.setattr(
+        guard, "pruefe", lambda d, g: (["  dead-wikilink  meine.md"], 0)
+    )
+
+    guard.main()
+
+    ausgabe = json.loads(capsys.readouterr().out)
+    assert ausgabe["hookSpecificOutput"]["hookEventName"] == "Stop"
