@@ -587,17 +587,29 @@ def test_should_ignore_env_files_that_are_not_accounts(tmp_path, monkeypatch):
 
 
 class _FetchImap:
-    """Liefert eine Bulk-FETCH-Antwort im imaplib-Format."""
+    """Liefert eine Bulk-`UID FETCH`-Antwort im imaplib-Format.
+
+    Wichtig fuer die Echtheit dieses Doppelgaengers: bei `UID FETCH` steht am
+    Zeilenanfang weiterhin die **Sequenznummer**, die UID steht IM Antwortteil.
+    Der Doppelgaenger setzt beide absichtlich verschieden (Sequenz = UID + 1000),
+    damit ein Parser, der den Zeilenanfang liest, hier auffliegt statt zufaellig
+    zu bestehen.
+    """
 
     def __init__(self, saetze):
-        # saetze: {nummer: b"From: ...\r\n"}
+        # saetze: {uid: b"From: ...\r\n"}
         self._s = saetze
 
-    def fetch(self, bereich, teile):
+    def uid(self, befehl, bereich, teile=None):
+        assert befehl.upper() == "FETCH", befehl
         out = []
-        for nr, roh in sorted(self._s.items()):
+        for uid, roh in sorted(self._s.items()):
+            sequenz = uid + 1000
             out.append(
-                (f"{nr} (BODY[HEADER.FIELDS (...)] {{{len(roh)}}}".encode(), roh)
+                (
+                    f"{sequenz} (UID {uid} BODY[HEADER.FIELDS (...)] {{{len(roh)}}}".encode(),
+                    roh,
+                )
             )
             out.append(b")")
         return "OK", out
@@ -608,6 +620,7 @@ def test_should_fetch_many_headers_in_one_command():
         {1: b"From: a@b.c\r\nSubject: eins\r\n", 2: b"From: d@e.f\r\nSubject: zwei\r\n"}
     )
     raus = rm.bulk_kopfsaetze(imap, [b"1", b"2"])
+    # Erwartet werden die UIDs (1, 2) — NICHT die Sequenznummern (1001, 1002).
     assert [nr for nr, _ in raus] == ["1", "2"]
     assert raus[1][1].get("Subject") == "zwei"
 
@@ -880,3 +893,64 @@ class TestOrdnerKlartext:
 
     def test_should_keep_unterminated_shift_verbatim(self):
         assert rm.ordner_klartext("kaputt&APw") == "kaputt&APw"
+
+
+# --- Echte UIDs statt Sequenznummern (Realfall 2026-08-02) ------------------
+#
+# Der Index speicherte Sequenznummern im Feld `uid`; ein spaeterer `UID FETCH`
+# fand deshalb nichts. Am echten Postfach nachgewiesen: `FETCH 185` lieferte die
+# gesuchte Mail, `UID FETCH 185` gar nichts, und der Server meldete
+# UIDVALIDITY 14, waehrend 0 gespeichert war.
+
+
+def test_should_return_uids_not_sequence_numbers():
+    """Der Doppelgaenger setzt Sequenz = UID + 1000 — wer den Zeilenanfang liest,
+    faellt hier durch."""
+    imap = _FetchImap({7: b"Subject: sieben\r\n", 9: b"Subject: neun\r\n"})
+    raus = rm.bulk_kopfsaetze(imap, [b"7", b"9"])
+    assert [nr for nr, _ in raus] == ["7", "9"]
+
+
+def test_should_drop_a_response_without_a_uid():
+    """Lieber ein fehlender Satz als eine falsche Nummer: eine falsche `uid`
+    zeigt spaeter stillschweigend auf eine ANDERE Nachricht."""
+
+    class _OhneUid:
+        def uid(self, befehl, bereich, teile=None):
+            return "OK", [
+                (b"1 (BODY[HEADER.FIELDS (...)] {20}", b"Subject: x\r\n"),
+                b")",
+            ]
+
+    assert rm.bulk_kopfsaetze(_OhneUid(), [b"1"]) == []
+
+
+def test_should_read_the_real_uidvalidity():
+    class _Status:
+        def status(self, ordner, teile):
+            return "OK", [b'"INBOX" (UIDVALIDITY 14)']
+
+    assert rm.uidvalidity(_Status(), "INBOX") == 14
+
+
+def test_should_return_zero_when_uidvalidity_is_unavailable():
+    """Null heisst hier 'unbekannt' — und ist damit ehrlicher als eine erfundene
+    Generation, die spaeter wie eine echte aussieht."""
+
+    class _Kaputt:
+        def status(self, ordner, teile):
+            return "NO", [b""]
+
+    assert rm.uidvalidity(_Kaputt(), "INBOX") == 0
+
+
+def test_should_search_by_uid_not_by_sequence():
+    aufrufe = []
+
+    class _Suche:
+        def uid(self, befehl, *rest):
+            aufrufe.append(befehl)
+            return "OK", [b"3 7 11"]
+
+    assert rm.uid_liste(_Suche()) == [b"3", b"7", b"11"]
+    assert aufrufe == ["SEARCH"]

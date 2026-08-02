@@ -327,6 +327,14 @@ KOPFFELDER = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO REFERENCES"
 #: Antwortpräfix einer Bulk-FETCH-Antwort: b'123 (BODY[HEADER.FIELDS (...)] {456}'
 _FETCH_NR = re.compile(rb"^\s*(\d+)\s+\(")
 
+#: Bei `UID FETCH` steht die UID IM Antwortteil, nicht am Zeilenanfang — dort
+#: steht weiterhin die Sequenznummer. Wer den Zeilenanfang liest, bekommt also
+#: die falsche Zahl. Genau das war der Fehler bis 2026-08-02: der Index
+#: speicherte Sequenznummern im Feld `uid`, und ein späterer `UID FETCH` fand
+#: nichts. Sequenznummern sind zudem NICHT stabil — wird eine Nachricht
+#: gelöscht, rutschen alle folgenden um eins nach vorn.
+_FETCH_UID = re.compile(rb"UID\s+(\d+)")
+
 
 def bulk_kopfsaetze(
     imap: imaplib.IMAP4_SSL, ids: list[bytes]
@@ -347,7 +355,9 @@ def bulk_kopfsaetze(
         return []
     zahlen = sorted(int(i) for i in ids)
     bereich = f"{zahlen[0]}:{zahlen[-1]}"
-    typ, daten = imap.fetch(bereich, f"(BODY.PEEK[HEADER.FIELDS ({KOPFFELDER})])")
+    typ, daten = imap.uid(
+        "FETCH", bereich, f"(UID BODY.PEEK[HEADER.FIELDS ({KOPFFELDER})])"
+    )
     if typ != "OK" or not daten:
         return []
     gesucht = {int(i) for i in ids}
@@ -356,14 +366,47 @@ def bulk_kopfsaetze(
         if not isinstance(teil, tuple) or len(teil) < 2:
             continue
         kopf, roh = teil[0], teil[1]
-        m = _FETCH_NR.match(kopf if isinstance(kopf, bytes) else str(kopf).encode())
+        kopf_b = kopf if isinstance(kopf, bytes) else str(kopf).encode()
+        # UID aus dem Antwortteil, NICHT vom Zeilenanfang (dort steht die
+        # Sequenznummer). Fehlt sie wider Erwarten, wird der Satz verworfen
+        # statt mit einer falschen Nummer gespeichert — eine falsche Zahl im
+        # Feld `uid` ist schlimmer als ein fehlender Satz, weil sie spaeter
+        # stillschweigend auf eine andere Nachricht zeigt.
+        m = _FETCH_UID.search(kopf_b)
         if not m:
             continue
-        nr = int(m.group(1))
-        if nr not in gesucht:
+        uid = int(m.group(1))
+        if uid not in gesucht:
             continue  # Server liefert den ganzen Bereich, wir wollten nur Teile
-        raus.append((str(nr), email.message_from_bytes(roh)))
+        raus.append((str(uid), email.message_from_bytes(roh)))
     return raus
+
+
+def uid_liste(imap: imaplib.IMAP4_SSL) -> list[bytes]:
+    """Alle UIDs des gewaehlten Ordners — NICHT die Sequenznummern.
+
+    `imap.search` liefert Sequenznummern; die verschieben sich bei jeder
+    Loeschung und taugen weder als dauerhafte Kennung noch fuer einen spaeteren
+    `UID FETCH`.
+    """
+    typ, d = imap.uid("SEARCH", None, "ALL")
+    return d[0].split() if typ == "OK" and d and d[0] else []
+
+
+def uidvalidity(imap: imaplib.IMAP4_SSL, ordner: str) -> int:
+    """UIDVALIDITY des Ordners — eine UID ist nur INNERHALB dieser Generation eindeutig.
+
+    Springt der Wert, hat der Server die UIDs neu vergeben und alle
+    gespeicherten Verweise sind wertlos. Ohne dieses Feld ist eine UID keine
+    Identitaet, sondern eine Zahl.
+    """
+    typ, d = imap.status(_mailbox_arg(ordner), "(UIDVALIDITY)")
+    if typ != "OK" or not d:
+        return 0
+    m = re.search(
+        rb"UIDVALIDITY\s+(\d+)", d[0] if isinstance(d[0], bytes) else str(d[0]).encode()
+    )
+    return int(m.group(1)) if m else 0
 
 
 def sortiere_gesendet_zuerst(ordner: list[str], gesendet: str = "") -> list[str]:
