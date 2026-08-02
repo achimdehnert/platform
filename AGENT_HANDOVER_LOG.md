@@ -916,3 +916,49 @@ Retro gemergt (#1661, 7 Survivors, refuted_rate 0.30), Maßnahmen 2–8 komplett
 (compose --force-recreate, Container-Env verifiziert); 🌀-Lehre docker-restart≠env-reload.
 OFFEN: Rotation #2 in frischer Session (~/shared/rotate_orchestrator_token.sh) wegen
 Watcher-Re-Exposure; .env.prod.bak-Altkeys auf Prod als Hygiene-Kandidat.
+
+---
+
+## 2026-08-02 (3. Eintrag) — Paperless wird zum DMS: Benutzertrennung, Abgleich, Hook-Vertrag
+
+**Ziel erreicht:** Mara und Bine arbeiten in `docs.iil.pet` und sehen jeweils nur ihre
+eigenen Dokumente — an einer echten Anmeldung belegt, nicht nur in der Datenbank.
+
+**Cloudflare Access** (`infra/cloudflare/cf_access_idp_pin.py`, #1667): 16 Anwendungen auf
+GitHub festgenagelt, Einmal-PIN angelegt, nur `docs.iil.pet` dafür geöffnet. Zwei Fallen:
+leeres `allowed_idps` heißt *alle* Anbieter (ohne Festnageln hätte der PIN sofort auch für
+`praes.iil.ai`/LRA gegolten), und der Endpunkt nimmt kein `PATCH` — `405 / 10405` liest
+sich wie ein Rechteproblem, ist aber die Methode.
+
+**Paperless-Konten** (`deployment/stacks/doc-hub/benutzertrennung/`, #1667): `mara` →
+`md@dehnert.team`, `bine` → `sd@dehnert.team`, `achim` → `achim.dehnert@iil.gmbh`
+(Zusammenführung, 65 Dok + 115 guardian-Einträge). 711 Dokumente ans Arbeitskonto, 0 ohne
+Besitzer (in Paperless heißt „kein Besitzer" *für alle sichtbar*). 4× Superuser entzogen.
+Endstand 776 / 27 / 11.
+
+**dms-hub↔Paperless — DREI Ursachen, nicht eine.** Der Spiegel stand vom 19.07. bis heute
+still: (1) Cloudflare Access antwortete mit Weiterleitung statt JSON (#52, interner Pfad),
+(2) es gab **keinen Auslöser** — kein Task, kein Zeitplan (#53/#55), (3) der Worker hing
+nicht in `bf_platform_prod` und konnte `iil_dochub_web` nie auflösen (#56). Ursache 3 kam
+nur ans Licht, weil der neue Task **laut** fehlschlägt statt still `None` zurückzugeben.
+Verifiziert nach Merge: Worker im Netz, Lauf über die Warteschlange `succeeded`,
+`0 neu, 813 aktualisiert`.
+
+**Hook-Vertrag** (#1674, nach #1673 einer Parallelsitzung): `hygiene_melder` sendete
+`hookSpecificOutput` ohne `hookEventName` → der Client verwarf die Ausgabe und zeigte dem
+Menschen einen Schema-Dump statt des Hinweises. Dazu: `memory_link_guard` schrieb *alle*
+Verzeichnis-Funde dem meldenden Zug zu (8 Funde in nie geöffneten Dateien) — jetzt
+getrennt nach eigen/fremd. Neues AST-Gate `test_hook_output_schema.py` über **alle** Hooks;
+der alte Aufrufpfad-Drill konnte die Klasse nicht sehen (Registry-Filter + `*_scanner.py`).
+
+**Ein eigener Fehler, offen dokumentiert:** Ich empfahl, `admin@wir-digital.de` einzuziehen,
+ohne zu prüfen, welche Kennung die GitHub-Anmeldung erzeugt — und sperrte den Owner aus.
+`last_login` stand in derselben Tabelle, die ich schon abgefragt hatte. Zurückgenommen;
+Memory `feedback_check_login_identity_before_revoking_rights`.
+
+**Offen für die nächste Sitzung:** GitHub-Hauptadresse auf `achim.dehnert@iil.gmbh`
+umstellen, danach `admin@wir-digital.de` einziehen (vorher **nicht** — sperrt den Owner
+aus). `ScanDocument` zählt 830 gegen 814 in Paperless: 16 Spiegel gelöschter Dokumente,
+der Abgleich räumt nicht ab (in dms-hub#53 vermerkt). `~/.secrets/paperless_api_token`
+war nach der Rotation ungültig — nachgezogen, Werkzeug
+`deployment/stacks/doc-hub/paperless_token_sync.sh`.
