@@ -829,3 +829,15 @@ Eigene Korrekturen: „seit dem 15.07." war falsch (14.07. trägt denselben Fehl
 der 21.04.) — nachgezogen an #1588 und #1010. Drei Bypass-Audit-Kommentare beschrieben einen
 Merge, der nie stattfand — richtiggestellt.
 
+---
+
+## 2026-08-02 — Lotse-Ausbau: KONZ-038 + Ritual + Welle 1
+
+KONZ-038 (#1639, 3 interne + 2 externe Reviews), regel-ritual.yml (#1641, scharfer Lauf
+bewiesen → #1640), Welle 1 komplett: #1643 (Scanner blocking) · #1644 (stale-clone-Drill) ·
+#1645 (deferred_item advisory) · #1646 (scope_checkpoint advisory, Option A #1081) · #1648
+(Handover-Freshness Skill-Phase + Ritual-Sweep). 8 Gate-Issues #1631–#1638 nachgeholt,
+Replay-Analyse 55 Instanzen (DOC-Lücke 42 %) auf #1185. Verdrahtung: 6 Stop-Hooks in
+settings.json, 3 Hook-Kopien synchron, cc-skill-dist @ 86546d09. Offen: D4/D6/D7/D8,
+Messfenster bis 16.08., Token-Rotation orchestrator (Transkript-Exposure), fremder staged
+KONZ-037-Entwurf im Haupt-Tree.
