@@ -57,6 +57,32 @@ MARKER_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r'\bändert alles\b', re.IGNORECASE),
 ]
 
+# ---------------------------------------------------------------------------
+# Signal K — Ruecknahme-Marker (2026-08-02, Retro 8ed6a2)
+# K = Ruecknahme-Turns je 100 Marker-Claim-Turns. R misst, OB vor der
+# Behauptung ein Werkzeug lief; K misst, wie oft die Behauptung danach
+# zurueckgenommen wurde. R hoch + K hoch = Pruefung als Ritual (Werkzeug
+# lief, aber am Gegenstand vorbei). Bewusst ENGE Liste — "widerlegt" fehlt
+# absichtlich: es markiert meist Skeptiker-Verdikte ueber Dritt-Befunde,
+# nicht die Ruecknahme einer eigenen Aussage.
+# UNVALIDIERTER INDIKATOR: zaehlt Woerter, nicht Wahrheit. Validierung =
+# K gegen Retro-Scorecards (schlechte Sessions muessen hoeher liegen).
+# ---------------------------------------------------------------------------
+RETRACTION_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\bwar falsch\b", re.IGNORECASE),
+    re.compile(r"\bRichtigstellung\b", re.IGNORECASE),
+    re.compile(r"\bR(?:ü|ue)cknahme\b", re.IGNORECASE),
+    re.compile(r"\bzur(?:ü|ue)ck(?:zu)?(?:nehmen|genommen)\b", re.IGNORECASE),
+    re.compile(r"\bnehme ich zur(?:ü|ue)ck\b", re.IGNORECASE),
+    re.compile(r"\bmein(?:e)? (?:eigener? )?(?:Fehler|Aufruffehler|Messfehler)\b", re.IGNORECASE),
+    re.compile(r"\bzu scharf formuliert\b", re.IGNORECASE),
+]
+
+
+def _has_retraction(text: str) -> bool:
+    return any(p.search(text) for p in RETRACTION_PATTERNS)
+
+
 # Tools that count as a "cited check"
 CHECK_TOOL_NAMES: frozenset[str] = frozenset({
     "Bash", "Read", "grep", "find",
@@ -143,14 +169,15 @@ def _iter_logical_turns(jsonl_path: Path) -> Iterator[list[dict]]:
         yield current
 
 
-def measure_file(jsonl_path: Path) -> tuple[int, int]:
-    """Return (checked_claims, total_claims) for one transcript file."""
-    total = checked = 0
+def measure_file(jsonl_path: Path) -> tuple[int, int, int]:
+    """Return (checked_claims, total_claims, retraction_turns) for one file."""
+    total = checked = retractions = 0
     for turn_entries in _iter_logical_turns(jsonl_path):
         # Collect tool-use blocks and text blocks in order
         saw_check = False
         turn_has_marker = False
         turn_checked = False
+        turn_retracts = False
         for entry in turn_entries:
             msg = entry.get("message", entry)
             content = msg.get("content", [])
@@ -163,21 +190,26 @@ def measure_file(jsonl_path: Path) -> tuple[int, int]:
                     turn_has_marker = True
                     if saw_check:
                         turn_checked = True
+                if _has_retraction(text):
+                    turn_retracts = True
         if turn_has_marker:
             total += 1
             if turn_checked:
                 checked += 1
-    return checked, total
+        if turn_retracts:
+            retractions += 1
+    return checked, total, retractions
 
 
-def scan_project_dir(project_dir: Path) -> tuple[int, int]:
-    checked_total = total_total = 0
+def scan_project_dir(project_dir: Path) -> tuple[int, int, int]:
+    checked_total = total_total = retr_total = 0
     files = list(project_dir.glob("*.jsonl"))
     for f in files:
-        c, t = measure_file(f)
+        c, t, k = measure_file(f)
         checked_total += c
         total_total += t
-    return checked_total, total_total
+        retr_total += k
+    return checked_total, total_total, retr_total
 
 
 def main() -> int:
@@ -203,27 +235,29 @@ def main() -> int:
         base = Path.home() / ".claude" / "projects"
         targets = list(base.iterdir()) if base.exists() else []
 
-    grand_checked = grand_total = 0
+    grand_checked = grand_total = grand_retr = 0
     session_count = 0
 
     for target in sorted(targets):
         if target.is_dir():
             files = list(target.glob("*.jsonl"))
             for f in files:
-                c, t = measure_file(f)
+                c, t, k = measure_file(f)
                 if args.verbose and t > 0:
                     r = c / t
-                    print(f"  {f.parent.name}/{f.name}: R={r:.2f} ({c}/{t})")
+                    print(f"  {f.parent.name}/{f.name}: R={r:.2f} ({c}/{t}) K-Turns={k}")
                 grand_checked += c
                 grand_total += t
+                grand_retr += k
                 session_count += 1
         elif target.is_file() and target.suffix == ".jsonl":
-            c, t = measure_file(target)
+            c, t, k = measure_file(target)
             if args.verbose and t > 0:
                 r = c / t
-                print(f"  {target.name}: R={r:.2f} ({c}/{t})")
+                print(f"  {target.name}: R={r:.2f} ({c}/{t}) K-Turns={k}")
             grand_checked += c
             grand_total += t
+            grand_retr += k
             session_count += 1
 
     print("\nSignal R measurement — evidence-discipline policy")
@@ -243,6 +277,12 @@ def main() -> int:
         print()
         print("Baseline: ~6 incidents (assert-before-check or never checked).")
         print("First measurement target: 2026-06-15 (~10 sessions post-merge).")
+        k100 = 100.0 * grand_retr / grand_total
+        print()
+        print(f"Signal K (Ruecknahme-Turns je 100 Marker-Claims): {k100:.1f}  ({grand_retr}/{grand_total})")
+        print("  R hoch + K hoch  -> Pruefung als Ritual (Werkzeug lief, Aussage trotzdem kassiert)")
+        print("  K ist UNVALIDIERT: zaehlt Woerter, nicht Wahrheit — Validierung gegen")
+        print("  Retro-Scorecards steht aus (schlechte Sessions muessen hoeher liegen).")
     else:
         print("R = n/a  (no marker-claim turns found in scanned transcripts)")
 
