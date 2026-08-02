@@ -962,3 +962,34 @@ aus). `ScanDocument` zählt 830 gegen 814 in Paperless: 16 Spiegel gelöschter D
 der Abgleich räumt nicht ab (in dms-hub#53 vermerkt). `~/.secrets/paperless_api_token`
 war nach der Rotation ungültig — nachgezogen, Werkzeug
 `deployment/stacks/doc-hub/paperless_token_sync.sh`.
+
+---
+
+## 2026-08-02 (3. Eintrag) — Megatest: 15 Befunde → 3 Wurzelursachen, CI misst jetzt frisch
+
+Handover-Prio 1 komplett. Kern-Einsicht: die „15 failed" waren überwiegend Messfehler,
+nicht Regressionen — (a) V-CFG-02 flaggte jeden os.environ.get(-Aufruf inkl. des eigenen
+Empfehlungsmusters (Regex ≠ Regelbeschreibung); (b) der Megatest-Checkout klonte nur bei
+fehlendem Verzeichnis und scannte auf dem persistenten Runner eingefrorene Erst-Klon-
+Stände (research-hub-Funde aus Dateien, die auf origin/main längst anders aussehen);
+(c) GITHUB_TOKEN ist repo-scoped — private Repos wurden nie gescannt, still grün.
+
+Geliefert: #1681 (Regel-Präzision + klickdummy-Skip + frische Klone + Budgets neu
+basiert: 13 Repos ergänzt, testkit→iil-testkit, bfagent 72→33, mcp-hub 79→34, sechs
+weitere Budget-0-Repos auf Messwert) · vier Marker-PRs (dev-hub#199, research-hub#53,
+nl2cad#61, iil-enrichment#11 — alle Attrappen/Guards, einzeln gesichtet) · #1679
+(hygiene_melder hookEventName: SessionStart statt Stop; Wurzelgrund war die
+ERLAUBTE_EVENTS-Liste im Schema-Test, die SessionStart nicht kannte) ·
+MEGATEST_READ_TOKEN gesetzt (Enterprise-PAT per Owner-Freigabe; Scrub: Remote-URLs nach
+fetch/clone sofort wieder tokenlos — Token liegt nie persistent in .git/config).
+Beweis: Main-Lauf 30758611903 = 119 passed, 0 failed; 5 nicht scannbare Repos sind
+Fremd-Org (meiki-lra/iilgmbh/ttz-lif) — Owner-Feld-Plan in #1682.
+
+Eigene Fehler: (1) ruff format riss den zeilenbasierten hardcoded-ok-Marker von der
+os.environ-Zeile (nl2cad-Lint rot → zweizeilige, formatstabile Fassung); (2) der erste
+Checkout-Fix scannte unfetchbare Klone weiter stale → 9 Geister-Fails gegen neue Budgets,
+erst der zweite Wurf (stale Klon entfernen statt scannen) war ehrlich; (3) megatest.yml
+stand nicht im eigenen paths-Filter — Workflow-only-Push löste keinen Lauf aus (gefixt).
+
+Offen: Marker-PR-Reste keine; Budget>0-Abbau + Org-Read-Vollabdeckung in #1682;
+risk-hub seed_test_user-Sichtung iilgmbh/risk-hub#478 (Prod-live, TEST_PASSWORD-Seed).
