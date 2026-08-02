@@ -906,3 +906,13 @@ Rotation offen (#1586).
 
 Offen für die nächste Sitzung: Ingest-Neulauf mit echten UIDs (ohne den holt mail_volltext
 nichts), Graph-Pfad in mail_volltext, /opt/platform nach jedem tools/mail_agent-Merge ziehen.
+
+---
+
+## 2026-08-02 (2. Eintrag) — Retro 287b23 + Maßnahmen + Token-Rotation
+
+Retro gemergt (#1661, 7 Survivors, refuted_rate 0.30), Maßnahmen 2–8 komplett (#1664,
+#1660, Issues 1186/1190 zu, Welle-2-Rangliste #705). Orchestrator-Key rotiert
+(compose --force-recreate, Container-Env verifiziert); 🌀-Lehre docker-restart≠env-reload.
+OFFEN: Rotation #2 in frischer Session (~/shared/rotate_orchestrator_token.sh) wegen
+Watcher-Re-Exposure; .env.prod.bak-Altkeys auf Prod als Hygiene-Kandidat.
