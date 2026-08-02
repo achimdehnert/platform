@@ -32,7 +32,9 @@ KOPIEN = Path.home() / ".claude" / "hooks"
 QUELLEN = ("tools/claude-hooks", "tools/hooks")
 
 
-def abgelaufene_leases(jetzt: dt.datetime, wurzel: Path = LEASES) -> list[tuple[str, int]]:
+def abgelaufene_leases(
+    jetzt: dt.datetime, wurzel: Path = LEASES
+) -> list[tuple[str, int]]:
     """(Lease-Name, Tage ueberfaellig), aelteste zuerst."""
     if not wurzel.is_dir():
         return []
@@ -129,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "hookSpecificOutput": {
-                    "additionalContext": "🧹 hygiene-melder:\n" + "\n".join(zeilen)
+                    "hookEventName": "Stop",
+                    "additionalContext": "🧹 hygiene-melder:\n" + "\n".join(zeilen),
                 }
             }
         )
