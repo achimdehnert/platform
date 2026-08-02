@@ -69,6 +69,28 @@ jobs:
           } > /tmp/comment.md
           cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
 
+      # Lücken-Selbstprüfung (KONZ-038 §5.3, Retro 287b23 #5): meldet, wenn der
+      # letzte Ritual-Kommentar >20 Tage alt ist (Schedule-Ausfall, K2-Signal).
+      - name: Lücken-Selbstprüfung (#1640)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST=$(gh issue view "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" --json comments -q '.comments[-1].createdAt' 2>/dev/null || echo "")
+          {
+            echo ""
+            if [ -n "$LAST" ]; then
+              AGE_DAYS=$(( ( $(date -u +%s) - $(date -u -d "$LAST" +%s) ) / 86400 ))
+              if [ "$AGE_DAYS" -gt 20 ]; then
+                echo "⚠️ Lücken-Selbstprüfung: letzter Ritual-Kommentar ist ${AGE_DAYS} Tage alt (>20) — Schedule-Ausfall prüfen (K2)."
+              else
+                echo "Lücken-Selbstprüfung: letzter Kommentar vor ${AGE_DAYS} Tag(en) — ok."
+              fi
+            else
+              echo "⚠️ Lücken-Selbstprüfung: Kommentare auf #$TRACKING_ISSUE nicht lesbar — NICHT bewertbar (nie als ok werten)."
+            fi
+          } >> /tmp/comment.md
+
       # Schreibpfad NUR bei echten Läufen — der PR-Lauf beweist die Verdrahtung
       # bis vor den Write (Trockenlauf deckt den Schreibpfad nie; erster
       # scharfer Beweis = workflow_dispatch nach Merge, siehe PR-Checkliste).

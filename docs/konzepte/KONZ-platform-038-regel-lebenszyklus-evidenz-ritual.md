@@ -281,6 +281,7 @@ erst danach.
 | K4 Drill-Protokoll je Welle-1-Gate | erfüllt 2026-08-02 (5/5 Welle 1) | GATE_HEADER + Drill-Tests in PRs #1643–#1648 |
 | K5 Outcome-Indikator (Folge-Fix-Quote) erstmalig erhoben | offen | — (Quartalstermin 2026-11-01) |
 | D5-Zaun-Ablaufdatum mechanisch geprüft | offen | — (Ritual-Lauf prüft Frontmatter-Feld) |
+| D4 A/B/C-Frontmatter-Rollout (148 platform-Einträge) | **offen** | — (Retro 287b23 #3: 0 `rule_class:`-Treffer; fehlte hier — Zeile nachgetragen, Claim in PR-#1658-Kommentar korrigiert) |
 
 **30/60/90:** 30 Tage = Welle-1-Vorabtests + Gates + Zyklen 1–2 + Baseline; 60 Tage = erste
 Sunset-Kandidaten-Bewertung (platform-Labels; Fleet erst nach ADR — EXT2-AD-9); 90 Tage =

@@ -57,12 +57,21 @@ CHECKPOINT_PATTERNS = re.compile(
 # Schreibzugriff auf eine git-/board-getrackte Doku-Flaeche.
 _DURABLE_CMD = re.compile(r"gh\s+(?:pr|issue)\s+(?:comment|create|edit)", re.I)
 _DURABLE_FILE = re.compile(r"docs/|AGENT_HANDOVER|KONZ-|ledger|\.claude/boards/", re.I)
+# Retro 287b23 #6 (Schwester-Lücke): auch MCP-Tools erzeugen durable Artefakte.
+_DURABLE_TOOL_PREFIXES = (
+    "mcp__github__create_issue",
+    "mcp__github__add_issue_comment",
+    "mcp__github__update_issue",
+    "mcp__github__create_pull_request_review",
+)
 
 
 def _has_durable_artifact(evidence_text: str, tool_inputs: list) -> bool:
     if _DURABLE_CMD.search(evidence_text):
         return True
     for name, inp in tool_inputs:
+        if str(name).startswith(_DURABLE_TOOL_PREFIXES):
+            return True
         if name in ("Write", "Edit") and isinstance(inp, dict):
             if _DURABLE_FILE.search(str(inp.get("file_path", ""))):
                 return True

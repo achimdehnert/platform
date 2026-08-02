@@ -156,14 +156,18 @@ def test_should_stay_silent_when_everything_is_healthy(tmp_path, capsys, stdin_l
     assert capsys.readouterr().out == ""
 
 
-def test_should_report_expired_leases_via_additional_context(tmp_path, capsys, stdin_leer):
+def test_should_report_expired_leases_via_additional_context(
+    tmp_path, capsys, stdin_leer
+):
     d = tmp_path / "leases"
     d.mkdir()
     lease(d, "alt", "2026-01-01T00:00:00+00:00")
 
     hm.main(["--platform", str(tmp_path), "--leases", str(d)])
 
-    text = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    text = json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+        "additionalContext"
+    ]
     assert "abgelaufene repo-session-Leases" in text
     assert "dirty Baeume bleiben bewusst stehen" in text
 
@@ -172,8 +176,16 @@ def test_should_exit_0_on_broken_stdin(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "stdin", io.StringIO("kein json {{{"))
     (tmp_path / "leases").mkdir()
 
-    assert hm.main(["--platform", str(tmp_path), "--leases", str(tmp_path / "leases")]) == 0
+    assert (
+        hm.main(["--platform", str(tmp_path), "--leases", str(tmp_path / "leases")])
+        == 0
+    )
 
 
 def test_should_exit_0_when_nothing_exists_at_all(tmp_path, stdin_leer):
-    assert hm.main(["--platform", str(tmp_path / "weg"), "--leases", str(tmp_path / "weg")]) == 0
+    assert (
+        hm.main(
+            ["--platform", str(tmp_path / "weg"), "--leases", str(tmp_path / "weg")]
+        )
+        == 0
+    )
