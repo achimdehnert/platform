@@ -76,15 +76,14 @@ hosts:
       Archiv des Vorzustands: Snapshot `lastwar-bot-archive-20260722` (id 411324113,
       7,8 GB) — Android-SDK/Emulator-Projekt, auf einen Server mit >=301 GB Disk
       wiederherstellbar.
-      ⚠ UMZUG STECKT (gemessen 2026-07-30): nach 8 Tagen trägt dieser Host GENAU EINEN
-      Hub — illustration-hub (illustration_web/worker/db/redis, 4 Container). Belegt
-      sind 1,1 von 15,6 GB RAM (7 %) und 3,3 von 301 GB Disk (2 %). Der "Long Tail der
-      Hubs" ist nicht nachgekommen. Zusammen mit `staging-dedicated` (23 % RAM) liegen
-      ~26 GB RAM brach, während `staging` im Swap-Anschlag sitzt → der Bestand hat ein
-      VERTEILUNGS-, kein Kapazitätsproblem. Wandernde Hubs gehören hierher, nicht auf
-      den neuen `netcup`-Host (dort Plattformfunktionen, siehe dessen Eintrag).
+      STAND 2026-08-02 (ADR-292): illustration-hub-Umzug ABGESCHLOSSEN — Traffic-Route
+      per Marker-Request verifiziert (dieser Host bedient illustration.iil.pet), die
+      prod-Kopie wurde gestoppt (Doppellauf 22.07.–02.08. beendet; ports.yaml führt
+      illustration-hub mit prod_host: prod-b). Long-Tail-Umzugswelle weiterer Hubs
+      ist beschlossen und offen. Wandernde Hubs gehören hierher, nicht auf den
+      `netcup`-Host (dort nur Backup, ADR-289 R1).
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
-    verified: 2026-07-30               # SSH-Probe on-host (RAM/Disk/Container)
+    verified: 2026-08-02               # SSH-Probe + Traffic-Marker + Container-Stop
 
   staging:
     ip: 88.99.38.75
@@ -103,8 +102,10 @@ hosts:
     #   (Klickdummy-Bewertung, ~/kd-serve/, Tunnel: LocalForward 8130)
     provider: Hetzner
     role: >
-      Staging-/Dev-Host. Trägt Staging-Container (risk_hub_staging_*,
-      cad_hub_staging_web, …) + diverse *_local_*-Dev-Stacks + ib_gateway.
+      ZIELROLLE per ADR-292 (2026-08-02): NUR Dev + Desktop-Streaming. Die hiesigen
+      Staging-Container (risk_hub_staging_*, tax_hub_staging_*, …) entfallen —
+      Preprod lebt ausschließlich auf `staging-dedicated` (Lane G); Abbau offen.
+      IST noch: Staging-Container + diverse *_local_*-Dev-Stacks + ib_gateway.
       Staging-Ingress via eigenem cloudflared (staging-riskhub.iil.pet).
       Trägt seit 2026-06-28 den Non-Prod-CI-Runner (ADR-257, Pilot travel-beat) —
       KEINE Prod-Container auf dieser Engine (Bedingung ADR-257 Entscheidung 1).
@@ -127,14 +128,15 @@ hosts:
     server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
     datacenter: fsn1-dc8
     role: >
-      ROLLEN-KLÄRUNG ERLEDIGT (2026-07-22, on-host verifiziert): dedizierter
-      Staging-Host. Trägt 12 Container — risk-hub-Staging (risk_hub_web/db/redis/
-      minio/celery/worker/celery_beat), dev-hub-Staging (dev_hub_staging_*) und
-      klickdummy; /opt hält dev-hub-staging, klickdummy, risk-hub, scripts,
-      shared-secrets. Deutlich unterausgelastet: 3,6 von 16 GB belegt, Disk 6,2 von
-      301 GB, Uptime 97 Tage.
-      ⚠ Doppelung mit `staging` (88.99.38.75): risk-hub-Staging und dev-hub-Staging
-      existieren auf BEIDEN Hosts. Konsolidierung ist offen.
+      ZIELROLLE per ADR-292 (2026-08-02): PREPROD ausschließlich für Lane G —
+      risk-hub und meiki/frist (Smoke-Check + Owner-Freigabe vor Prod, No-Auto-Prod).
+      dev-hub-Staging und alles Weitere entfällt hier; Abbau offen.
+      IST (verifiziert 2026-07-22/30): 12 Container — risk-hub-Staging (risk_hub_web/
+      db/redis/minio/celery/worker/celery_beat), dev-hub-Staging (dev_hub_staging_*)
+      und klickdummy; /opt hält dev-hub-staging, klickdummy, risk-hub, scripts,
+      shared-secrets. Deutlich unterausgelastet: 3,6 von 16 GB belegt.
+      ⚠ Doppelung mit `staging` (88.99.38.75): risk-hub-Staging existiert auf BEIDEN
+      Hosts — Konsolidierung hierher ist Teil des ADR-292-Abbaus.
       Nachgemessen 2026-07-30, Stand bestätigt: 3,7 von 15,6 GB RAM (23 %), 7,7 von
       301 GB Disk (3 %), 12 Container, Uptime 106 Tage. Diente als NVMe-Referenz für
       die I/O-Messung des netcup-Hosts (siehe dessen Eintrag).
@@ -166,9 +168,10 @@ hosts:
     os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
     server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
     role: >
-      ROLLE VORGESCHLAGEN in ADR-289 (Status `proposed`): Off-Provider-Host für
-      PLATTFORMDIENSTE, ausdrücklich KEINE App-Hubs. R1 Off-Provider-Backup/DR-Ziel,
-      R2 unabhängiger Monitoring-Host, R3 CI-/Build-Runner, R4 DR-Standby.
+      ROLLE per ADR-292 (2026-08-02) right-sized: NUR R1 Off-Provider-Backup/DR-Ziel
+      (rest-server läuft, append-only). Die weiteren ADR-289-Rollen R2 Monitoring,
+      R3 CI-/Build-Runner, R4 DR-Standby sind VERTAGT — je neuer Owner-Beschluss.
+      Ausdrücklich KEINE App-Hubs.
       ⛔ NEGATIV-REGEL (ADR-289 §4.6): hier läuft KEIN App-Hub-Stack. Wandernde Hubs
       gehen nach `prod-b` oder `staging-dedicated` (7 % bzw. 23 % RAM-Belegung) —
       der Bestand hat ein Verteilungs-, kein Kapazitätsproblem. Prüfbar per
