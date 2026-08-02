@@ -639,6 +639,60 @@ def test_should_return_nothing_for_empty_id_list():
     assert rm.bulk_kopfsaetze(_FetchImap({}), []) == []
 
 
+class _StrukturImap:
+    """FETCH-Antwort MIT BODYSTRUCTURE — so, wie ein echter Server sie liefert."""
+
+    def __init__(self, struktur: bytes):
+        self._struktur = struktur
+
+    def uid(self, befehl, bereich, teile=None):
+        assert "BODYSTRUCTURE" in teile, f"BODYSTRUCTURE nicht angefordert: {teile}"
+        roh = b"Subject: mit Anhang\r\n"
+        return "OK", [
+            (
+                b"1001 (UID 1 BODYSTRUCTURE "
+                + self._struktur
+                + b" BODY[HEADER.FIELDS (...)] {%d}" % len(roh),
+                roh,
+            ),
+            b")",
+        ]
+
+
+_PDF_STRUKTUR = (
+    b'(("text" "plain" ("charset" "utf-8") NIL NIL "7bit" 10 1 NIL NIL NIL NIL)'
+    b'("application" "pdf" ("name" "Rechnung.pdf") NIL NIL "base64" 4711 NIL '
+    b'("attachment" ("filename" "Rechnung.pdf")) NIL NIL) "mixed" ("boundary" "b") NIL NIL)'
+)
+
+
+def test_should_report_attachments_from_the_same_fetch():
+    """Anhänge kommen aus derselben Antwort — kein zweiter Umlauf."""
+    saetze = rm.bulk_saetze(_StrukturImap(_PDF_STRUKTUR), [b"1"])
+    assert len(saetze) == 1
+    assert saetze[0].teile is not None, "Struktur nicht gelesen"
+    anhaenge = [t for t in saetze[0].teile if t.ist_anhang]
+    assert [t.dateiname for t in anhaenge] == ["Rechnung.pdf"]
+
+
+def test_should_mark_structure_as_not_collected_when_server_omits_it():
+    """Ohne BODYSTRUCTURE ist `teile` None — **nicht** eine leere Liste.
+
+    Der Unterschied entscheidet, ob „keine Anhänge" eine Messung oder eine
+    Behauptung ist (platform#1663).
+    """
+    saetze = rm.bulk_saetze(_FetchImap({1: b"Subject: ohne Struktur\r\n"}), [b"1"])
+    assert saetze[0].teile is None
+
+
+def test_should_keep_the_old_two_tuple_shape():
+    """`bulk_kopfsaetze` bleibt formgleich — bestehende Aufrufer brechen nicht."""
+    raus = rm.bulk_kopfsaetze(_StrukturImap(_PDF_STRUKTUR), [b"1"])
+    assert raus[0][0] == "1"
+    assert raus[0][1].get("Subject") == "mit Anhang"
+    assert all(len(eintrag) == 2 for eintrag in raus)
+
+
 # --- Gesendet zuerst ----------------------------------------------------------
 
 
