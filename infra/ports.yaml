@@ -137,10 +137,11 @@ infra:
 #   prod_host:       Ziel-Host des Prod-Deployments laut infra/hosts.yaml
 #                    (Default: prod — nur Abweichungen eintragen; SSoT per ADR-292,
 #                    Deploy-Workflows lesen dieses Feld, Handverteilung = Regelverstoß)
-#   compose_drift:   Compose-File hat falschen Port (zu fixen!) — ACHTUNG: statische
-#                    Anmerkung, KEINE Messung; infra_overview.py gibt sie nur wieder.
-#                    Vor dem Eintragen/Stehenlassen gegen die Datei im Repo verifizieren
-#                    (Melder-Umstellung auf echte Messung: platform#1685).
+#   compose_drift:   Statische Freitext-Anmerkung (unverifiziert). infra_overview.py
+#                    MISST Compose-Drift seit #1685 selbst gegen die lokalen Klone
+#                    (~/github/<repo>/docker-compose[.prod].yml) und führt diese
+#                    Anmerkungen nur noch als "unverifizierte Annotation" mit —
+#                    sie beeinflussen den Exit-Code nicht mehr.
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
 
