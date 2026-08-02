@@ -80,6 +80,22 @@ def collect(listing, kind):
     return blobs
 
 
+def _fremde_eintraege(target, inhalt):
+    """Verzeichnisinhalt minus das, was laut Manifest von hier stammt.
+
+    Ist das Manifest unlesbar oder ohne `files`, gilt ALLES als fremd — ein
+    kaputtes Manifest darf kein Freibrief sein.
+    """
+    eigene = {"manifest.json", "MANAGED_BY"}
+    try:
+        with open(os.path.join(target, "manifest.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        eigene |= {eintrag["name"] for eintrag in manifest["files"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        return set(inhalt) - eigene
+    return set(inhalt) - eigene
+
+
 def pruefe_swap_ziel(target, kind):
     """Abbrechen, wenn der Verzeichnis-Swap Fremdinhalte wegwischen würde.
 
@@ -95,17 +111,42 @@ def pruefe_swap_ziel(target, kind):
     und `~/.claude` ist dessen Eltern, nicht der Pfad selbst.
 
     Kriterium: ein Swap-Ziel ist entweder leer/nicht vorhanden (frisches Staging)
-    oder trägt die Spuren eines früheren Lauf (`MANAGED_BY`/`manifest.json`).
-    Alles andere ist fremdes Verzeichnis — Hände weg.
+    oder es enthält **ausschliesslich**, was ein früherer Lauf dort erzeugt hat.
+
+    Die bloße ANWESENHEIT von `MANAGED_BY`/`manifest.json` genügt als Freibrief
+    NICHT — der Unfall oben schreibt genau diese zwei Dateien in das falsche
+    Verzeichnis. Blieben sie liegen, hätte derselbe Tippfehler beim zweiten Mal
+    freie Bahn: ein Guard, dessen Erkennungsmerkmal vom Fehler selbst erzeugt
+    wird, schützt nur beim ersten Mal (Retro-Befund 2026-07-31). Deshalb wird
+    der Inhalt gegen die Dateiliste des Manifests gehalten: taucht dort etwas
+    auf, das der Generator nicht erzeugt hat, ist es ein fremdes Verzeichnis.
     """
     if not os.path.isdir(target):
         return
     inhalt = os.listdir(target)
     if not inhalt:
         return
-    if "MANAGED_BY" in inhalt or "manifest.json" in inhalt:
-        return
     lane_name = os.path.basename(LANES[kind]["live"].rstrip("/"))
+    if "manifest.json" in inhalt:
+        fremd = _fremde_eintraege(target, inhalt)
+        if not fremd:
+            return  # echter Zweitlauf: alles im Ziel stammt aus dem Manifest
+        sys.exit(
+            f"ABBRUCH: {target} trägt zwar ein Manifest, enthält aber "
+            f"{len(fremd)} Eintrag/Einträge, die der Generator nie erzeugt hat: "
+            f"{', '.join(sorted(fremd)[:6])}"
+            f"{' …' if len(fremd) > 6 else ''}\n"
+            f"  Das sieht nach einem Fremdverzeichnis mit Manifest-Resten aus — "
+            f"ein Swap würde diese Einträge wegwischen.\n"
+            f"  Gemeint war wahrscheinlich: --target {os.path.join(target, lane_name)}"
+        )
+    if "MANAGED_BY" in inhalt:
+        sys.exit(
+            f"ABBRUCH: {target} trägt ein MANAGED_BY, aber kein manifest.json — "
+            f"der Inhalt ist damit nicht gegen die Generator-Dateiliste prüfbar.\n"
+            f"  Entweder das Verzeichnis leeren oder --target korrigieren "
+            f"(gemeint war wahrscheinlich {os.path.join(target, lane_name)})."
+        )
     sys.exit(
         f"ABBRUCH: {target} ist nicht leer und stammt nicht aus einem früheren Lauf "
         f"(kein MANAGED_BY/manifest.json) — ein Swap würde {len(inhalt)} fremde "

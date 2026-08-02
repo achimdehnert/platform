@@ -258,6 +258,24 @@ GRUSSFORMELN = (
     "grüße",
 )
 
+#: Eine Grußformel-ZEILE ist die Formel und nichts sonst — höchstens gefolgt von
+#: Satzzeichen. Der frühere `str.startswith(GRUSSFORMELN)` prüfte nur den Anfang
+#: und hielt darum auch "Grüße deine Frau von mir." für eine Grußformel; die
+#: Folgezeile wurde daraufhin aus der Mail gelöscht (Retro-Befund 2026-07-31,
+#: reproduziert). Ein Wortgrenzen-`\b` genügt NICHT: nach "Grüße" steht dort ein
+#: Leerzeichen, die Grenze ist erfüllt. Nur der Vollzeilen-Match trennt die
+#: Grußformel vom gleichlautenden Satzanfang.
+_GRUSSFORMEL_ZEILE = re.compile(
+    r"^(?:" + "|".join(re.escape(g) for g in GRUSSFORMELN) + r")[\s,.!;:]*$",
+    re.IGNORECASE,
+)
+
+
+def _ist_grussformel(zeile: str) -> bool:
+    """Ist diese Zeile eine Grußformel — und nichts anderes?"""
+    return bool(_GRUSSFORMEL_ZEILE.match(zeile.strip()))
+
+
 #: Akademische Titel und gängige Abkürzungen vor einem Namen — für den Vergleich
 #: "steht dieser Name schon in der Signatur?" irrelevant.
 _TITEL_PRAEFIX = re.compile(
@@ -294,8 +312,7 @@ def _ohne_doppelten_namen(text: str, signatur: str) -> str:
     zeilen = text.rstrip().split("\n")
     if len(zeilen) < 2 or not signatur.strip():
         return text.rstrip()
-    davor = zeilen[-2].strip().lower().rstrip(",!.")
-    if not davor.startswith(GRUSSFORMELN):
+    if not _ist_grussformel(zeilen[-2]):
         return text.rstrip()
     if _namenskern(zeilen[-1]) != _namenskern(signatur.strip().split("\n")[0]):
         return text.rstrip()
@@ -329,8 +346,7 @@ def zerlege_klartext(text: str) -> dict:
     greeting = zeilen.pop(0).strip() if zeilen else ""
     closing = ""
     for i in range(len(zeilen) - 1, -1, -1):  # Grußformel von hinten suchen
-        kern = zeilen[i].strip().lower().rstrip(",!.")
-        if kern and kern.startswith(GRUSSFORMELN):
+        if _ist_grussformel(zeilen[i]):
             closing = zeilen[i].strip().rstrip(",")
             del zeilen[i:]
             break
