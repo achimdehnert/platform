@@ -18,7 +18,9 @@ import sys
 
 import pytest
 
-_SRC = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "check_hardcoded_urls.py"
+_SRC = (
+    pathlib.Path(__file__).resolve().parents[2] / "scripts" / "check_hardcoded_urls.py"
+)
 _spec = importlib.util.spec_from_file_location("check_hardcoded_urls", _SRC)
 chu = importlib.util.module_from_spec(_spec)
 # VOR exec_module registrieren — siehe test_hardcode_scanner.py: @dataclass
@@ -46,7 +48,9 @@ P = pathlib.Path
 # --- Pfad-Filter -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("teil", ["node_modules", ".venv", "__pycache__", ".git", ".claude"])
+@pytest.mark.parametrize(
+    "teil", ["node_modules", ".venv", "__pycache__", ".git", ".claude"]
+)
 def test_should_skip_paths_inside_vendored_or_generated_dirs(teil):
     assert chu._should_skip_path(P(f"repo/{teil}/modul.py"))
 
@@ -84,7 +88,9 @@ def test_should_treat_vendor_and_github_as_info_skip_paths():
     assert not chu._in_skip_path(P("repo/apps/views.py"))
 
 
-@pytest.mark.parametrize("zeile", ['href="/admin/"', 'href="https://x"', "{{ url }}", "{% url 'a' %}"])
+@pytest.mark.parametrize(
+    "zeile", ['href="/admin/"', 'href="https://x"', "{{ url }}", "{% url 'a' %}"]
+)
 def test_should_allow_whitelisted_template_tokens(zeile):
     assert chu._tmpl_allowed(zeile)
 
@@ -119,7 +125,9 @@ def test_should_skip_a_test_file_by_default():
 
 
 def test_should_scan_a_test_file_when_the_rule_opts_in():
-    assert chu._check_line(regel(skip_in_tests=False), "x = TREFFER", P("test_views.py"))
+    assert chu._check_line(
+        regel(skip_in_tests=False), "x = TREFFER", P("test_views.py")
+    )
 
 
 def test_should_respect_skip_filenames():
@@ -146,17 +154,27 @@ def test_should_skip_info_rules_in_vendor_but_not_avoidable_ones():
 def test_should_skip_seed_files_only_for_the_two_config_rules():
     pfad = P("apps/factories.py")
 
-    assert not chu._check_line(regel(rule_id="I-CFG-03", category="INFO"), "x = TREFFER", pfad)
-    assert not chu._check_line(regel(rule_id="I-CFG-04", category="INFO"), "x = TREFFER", pfad)
+    assert not chu._check_line(
+        regel(rule_id="I-CFG-03", category="INFO"), "x = TREFFER", pfad
+    )
+    assert not chu._check_line(
+        regel(rule_id="I-CFG-04", category="INFO"), "x = TREFFER", pfad
+    )
     # eine andere INFO-Regel greift dort weiterhin
-    assert chu._check_line(regel(rule_id="I-CFG-09", category="INFO"), "x = TREFFER", pfad)
+    assert chu._check_line(
+        regel(rule_id="I-CFG-09", category="INFO"), "x = TREFFER", pfad
+    )
 
 
-@pytest.mark.parametrize("adresse", ["127.0.0.1", "localhost", "0.0.0.0", "172.17.0.2", "192.168.1.5"])
+@pytest.mark.parametrize(
+    "adresse", ["127.0.0.1", "localhost", "0.0.0.0", "172.17.0.2", "192.168.1.5"]
+)
 def test_should_whitelist_local_addresses_for_the_ip_rule(adresse):
     r = regel(rule_id="I-CFG-02", category="INFO")
 
-    assert not chu._check_line(r, f"HOST = '{adresse}' TREFFER", P("config/settings.py"))
+    assert not chu._check_line(
+        r, f"HOST = '{adresse}' TREFFER", P("config/settings.py")
+    )
 
 
 def test_should_still_flag_a_public_ip_for_the_ip_rule():
@@ -168,7 +186,9 @@ def test_should_still_flag_a_public_ip_for_the_ip_rule():
 def test_should_allow_environ_setdefault_in_boilerplate_rules():
     for rid in ("V-CFG-01", "V-CFG-02"):
         r = regel(rule_id=rid)
-        assert not chu._check_line(r, "os.environ.setdefault('X', 'TREFFER')", P("manage.py"))
+        assert not chu._check_line(
+            r, "os.environ.setdefault('X', 'TREFFER')", P("manage.py")
+        )
         assert chu._check_line(r, "os.environ['X'] = 'TREFFER'", P("manage.py"))
 
 
@@ -184,14 +204,20 @@ def _echte_regel(rule_id: str) -> "chu.Rule":
 
 def test_should_flag_environ_get_without_default():
     r = _echte_regel("V-CFG-02")
-    assert chu._check_line(r, 'wert = os.environ.get("MAIL_AGENT_TOOLS")', P("apps/x.py"))
+    assert chu._check_line(
+        r, 'wert = os.environ.get("MAIL_AGENT_TOOLS")', P("apps/x.py")
+    )
     assert chu._check_line(r, "wert = os.environ.get('CACHE_DIR')", P("apps/x.py"))
 
 
 def test_should_not_flag_environ_get_with_default():
     r = _echte_regel("V-CFG-02")
-    assert not chu._check_line(r, 'creds = os.environ.get("MAIL_GRAPH_CREDS", "")', P("apps/x.py"))
-    assert not chu._check_line(r, "t = float(os.environ.get('TIMEOUT', '15'))", P("apps/x.py"))
+    assert not chu._check_line(
+        r, 'creds = os.environ.get("MAIL_GRAPH_CREDS", "")', P("apps/x.py")
+    )
+    assert not chu._check_line(
+        r, "t = float(os.environ.get('TIMEOUT', '15'))", P("apps/x.py")
+    )
 
 
 def test_should_not_flag_undecidable_get_calls():
