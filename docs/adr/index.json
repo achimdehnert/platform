@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-31",
-  "total": 237,
-  "next_free": 292,
+  "generated": "2026-08-02",
+  "total": 238,
+  "next_free": 293,
   "adrs": [
     {
       "number": 7,
@@ -2515,7 +2515,9 @@
       "amends": [
         "ADR-063-staging-environment-strategy.md"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-292"
+      ],
       "related": [
         "ADR-021-unified-deployment-pattern.md",
         "ADR-075-deployment-execution-strategy.md",
@@ -5417,7 +5419,9 @@
       "amends": [
         "ADR-241"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-292"
+      ],
       "related": [
         "ADR-059",
         "ADR-098",
@@ -5465,6 +5469,29 @@
         "ADR-290"
       ],
       "implementation_status": "none"
+    },
+    {
+      "number": 292,
+      "id": "ADR-292",
+      "file": "ADR-292-two-lane-deployment-six-host-standard.md",
+      "title": "Two-Lane-Deployment auf dem 6-Host-Bestand — Standard vor Speziallösung",
+      "status": "proposed",
+      "date": "2026-08-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-157",
+        "ADR-289"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-164",
+        "ADR-241",
+        "ADR-248",
+        "ADR-257"
+      ],
+      "implementation_status": "partial"
     },
     {
       "number": 400,

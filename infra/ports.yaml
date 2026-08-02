@@ -134,6 +134,9 @@ infra:
 #   domain_staging:  Staging domain
 #   domain_aliases:  Additional production domains (redirects)
 #   repo:            GitHub repo (achimdehnert/*)
+#   prod_host:       Ziel-Host des Prod-Deployments laut infra/hosts.yaml
+#                    (Default: prod — nur Abweichungen eintragen; SSoT per ADR-292,
+#                    Deploy-Workflows lesen dieses Feld, Handverteilung = Regelverstoß)
 #   compose_drift:   Compose-File hat falschen Port (zu fixen!)
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
@@ -291,6 +294,7 @@ services:
     prod: 8096
     staging: 8096
     dev: 8096
+    prod_host: prod-b          # ADR-292; Umzug abgeschlossen 2026-08-02 (prod-Kopie gestoppt)
     container_name: illustration_web
     domain_prod: illustration.iil.pet
     domain_staging: staging-illustration.iil.pet
