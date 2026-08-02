@@ -28,6 +28,7 @@ from typing import NamedTuple
 
 # Config-/Credentials-Parsing wird aus send_mail wiederverwendet (eine SSoT).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bodystructure as bs  # noqa: E402
 import deckungsausweis as da  # noqa: E402
 from indexierung import aufteilen  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
@@ -336,15 +337,36 @@ _FETCH_NR = re.compile(rb"^\s*(\d+)\s+\(")
 _FETCH_UID = re.compile(rb"UID\s+(\d+)")
 
 
-def bulk_kopfsaetze(
-    imap: imaplib.IMAP4_SSL, ids: list[bytes]
-) -> list[tuple[str, Message]]:
-    """Kopfzeilen für viele Nachrichten in **einem** FETCH statt einem pro Nachricht.
+class Satz(NamedTuple):
+    """Ein Kopfsatz samt Aufbau der Nachricht.
+
+    `teile` ist **dreiwertig**: `None` heißt „nicht erhoben" (Server lieferte
+    keine oder eine unlesbare Struktur), eine leere Liste heißt „erhoben, keine
+    Anhänge". Diese Unterscheidung ist der Grund, warum es diesen Typ gibt —
+    siehe `bodystructure`.
+    """
+
+    uid: str
+    nachricht: Message
+    teile: list[bs.Teil] | None
+
+
+def bulk_saetze(imap: imaplib.IMAP4_SSL, ids: list[bytes]) -> list[Satz]:
+    """Kopfzeilen **und Aufbau** für viele Nachrichten in **einem** FETCH.
 
     Gemessen am 2026-07-29 (Exchange 2010, 300 Nachrichten): 10,1/s einzeln gegen
     **106,3/s** gebündelt — Faktor 10,6. Der Engpass war nie der Server, sondern
     der Round-Trip. Hochgerechnet auf den behaltenen Bestand fällt ein Vollscan
     von rund 150 auf 14 Minuten.
+
+    `BODYSTRUCTURE` wird **mit** angefordert, weil es in derselben Antwort
+    mitkommt — kein zweiter Umlauf, keine messbare Mehrzeit. Ohne sie kann
+    niemand sagen, ob eine Nachricht Anhänge hat: der Kopfzeilen-Abruf überträgt
+    keinen Körper, und `msg.walk()` findet auf ihm folgerichtig nichts. Genau
+    das stand bis 2026-08-02 als `has_attachments=False` an allen 3.649
+    IMAP-Kopien des Bestands (platform#1663) — ein Vorgabewert, der wie ein
+    Messwert aussah. Am HNU-Postfach nachgemessen: **29,6 %** der Nachrichten
+    tragen tatsächlich Anhänge.
 
     Bereichsnotation statt Komma-Liste: ein Bereich ist ein kurzes Kommando, eine
     Liste aus 5.000 Nummern sprengt die Zeilenlänge mancher Server. Nicht
@@ -356,12 +378,12 @@ def bulk_kopfsaetze(
     zahlen = sorted(int(i) for i in ids)
     bereich = f"{zahlen[0]}:{zahlen[-1]}"
     typ, daten = imap.uid(
-        "FETCH", bereich, f"(UID BODY.PEEK[HEADER.FIELDS ({KOPFFELDER})])"
+        "FETCH", bereich, f"(UID BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS ({KOPFFELDER})])"
     )
     if typ != "OK" or not daten:
         return []
     gesucht = {int(i) for i in ids}
-    raus: list[tuple[str, Message]] = []
+    raus: list[Satz] = []
     for teil in daten:
         if not isinstance(teil, tuple) or len(teil) < 2:
             continue
@@ -378,8 +400,17 @@ def bulk_kopfsaetze(
         uid = int(m.group(1))
         if uid not in gesucht:
             continue  # Server liefert den ganzen Bereich, wir wollten nur Teile
-        raus.append((str(uid), email.message_from_bytes(roh)))
+        raus.append(
+            Satz(str(uid), email.message_from_bytes(roh), bs.aus_fetch_antwort(kopf_b))
+        )
     return raus
+
+
+def bulk_kopfsaetze(
+    imap: imaplib.IMAP4_SSL, ids: list[bytes]
+) -> list[tuple[str, Message]]:
+    """Wie `bulk_saetze`, aber nur (UID, Nachricht) — für Aufrufer ohne Anhangs-Bedarf."""
+    return [(s.uid, s.nachricht) for s in bulk_saetze(imap, ids)]
 
 
 def uid_liste(imap: imaplib.IMAP4_SSL) -> list[bytes]:
