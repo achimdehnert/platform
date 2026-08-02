@@ -118,19 +118,25 @@ jobs:
         id: megatest_run
         env:
           GITHUB_DIR: /root/github
+        # pipefail ist hier der eigentliche Melde-Mechanismus (#1689): ohne ihn
+        # ist der Pipeline-Exit der von `tee` (=0), der Step endet IMMER gruen,
+        # `outcome == 'failure'` ist unerreichbar und beide Folgeschritte sind
+        # tot (belegt: Lauf 30758541548 — 3 failed, conclusion success, Issue-
+        # Step skipped). Das frueher hier erfasste exit_code-Output wurde
+        # nirgends gelesen und entfaellt.
         run: |
+          set -o pipefail
           cd ~/github/platform
           python3 -m pytest tests/megatest/ \
             -v \
             --tb=short \
             --junitxml=megatest-results.xml \
             2>&1 | tee megatest-output.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
         # Weichgestellt, damit ein roter Megatest den Zeitplan-Job nicht rot faerbt —
         # gemeldet wird er ueber steps.megatest_run.outcome im Issue-Schritt unten.
-        # ACHTUNG (#1010, #1581): das maskiert derzeit auch, dass der Aufruf `python`
-        # statt `python3` nutzt und auf dem Runner mit `command not found` scheitert —
-        # die Suite lief dadurch wochenlang gar nicht, der Workflow blieb gruen.
+        # ACHTUNG (#1010, #1581): das maskiert auch harte Startfehler (z.B.
+        # `python` statt `python3` → command not found) — dafuer existiert der
+        # Schritt "Kein Testlauf zustande gekommen" unten.
         continue-on-error: true
 
       - name: Run Megatest (Budget-Update)
