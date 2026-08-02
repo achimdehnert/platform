@@ -157,6 +157,21 @@ Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dat
    </details>
 6. **Health-Poll meldet `succeeded`, prüft aber nichts** ([dev-hub#188](https://github.com/achimdehnert/dev-hub/issues/188), P1, `severity:critical`) — `health.poll_all_checks` läuft alle fünf Minuten, findet `Organization.objects.count() == 0` und gibt `{'error': "Tenant 'devhub' not found"}` als **Rückgabewert** zurück; Celery verbucht den Task als **grün**. `platform_health_scan` entsprechend `servers_scanned: 0`. Zwei Fixe, getrennt zu bewerten: Organization anlegen behebt **diesen** Fall, der Task sollte **fehlschlagen** statt `succeeded` zu melden — das behebt die **Klasse**. **Mögliche Verbindung zu Punkt 3 (rote Health-Checks) — ausdrücklich Hypothese, nicht verifiziert.**
 
+> **Erledigt 2026-08-02 (Session 932035, Megatest):** **Punkt 1 komplett** — alle 15
+> Befunde trianguliert und geschlossen; Main-Lauf danach **119 passed, 0 failed**
+> ([30758611903](https://github.com/achimdehnert/platform/actions/runs/30758611903)).
+> Drei Wurzelursachen statt 15 Einzelfixe: (a) beide Security-Funde waren selbst-
+> beschreibende Attrappen (Werte im CI-Log gelesen); (b) V-CFG-02 flaggte per Regex das
+> eigene Empfehlungsmuster — präzisiert, plus klickdummy/-Skip ([#1681](https://github.com/achimdehnert/platform/pull/1681));
+> (c) Megatest-CI scannte eingefrorene Erst-Klon-Stände und konnte private Repos mit dem
+> repo-scoped GITHUB_TOKEN nie erreichen — Checkout zieht jetzt frisch nach, entfernt
+> stale Klone, `MEGATEST_READ_TOKEN` (Enterprise-PAT, Owner-Freigabe, Token-Scrub) hebt
+> die Abdeckung auf alle bis auf 5 Fremd-Org-Repos. Budgets ehrlich neu basiert
+> (13 Repos ergänzt, bfagent 72→33, mcp-hub 79→34); Marker-PRs dev-hub#199,
+> research-hub#53, nl2cad#61, iil-enrichment#11 gemergt (alle `[skip ci]`-konform bzw.
+> ohne Deploy-Pfad). Rest-Abbau + Owner-Feld-Plan: [#1682](https://github.com/achimdehnert/platform/issues/1682);
+> risk-hub-Sichtung `seed_test_user`: [iilgmbh/risk-hub#478](https://github.com/iilgmbh/risk-hub/issues/478).
+
 > **Erledigt 2026-08-02 (Session 8ed6a2):** **Punkt 2 komplett** — mcp-hub#188-PR gemergt,
 > #189 durch #192 (Security-Scan im frischen venv, je Job) geschlossen; Deploy 30741745261
 > success, venv-Step im Log belegt. **Punkt 4 bestätigt:** Outline in frischer Session
