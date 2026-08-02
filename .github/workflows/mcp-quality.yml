@@ -130,6 +130,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Weichgestellt als Fallback-Kette: schlaegt die editierbare Installation
+      # fehl, springt der naechste Schritt ein und installiert die Abhaengigkeiten
+      # direkt. Ein echter Fehler faellt danach in "Ruff (hard fail)" auf.
       - name: Install orchestrator_mcp
         run: pip install -e ".[dev]"
         working-directory: orchestrator_mcp

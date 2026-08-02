@@ -14,6 +14,15 @@ Der Ordner-Nenner bleibt die volle Ordnerzahl, nicht die reduzierte.
 
 Freigegeben vom Owner am 2026-07-28 auf Basis des gemessenen Ordner-Rauschberichts.
 
+**Zweite Ausschlussklasse (2026-07-31): Ordner, die gar keine Post enthalten.**
+Kalender, Kontakte und Aufgaben liefert Exchange über IMAP nicht als RFC822 aus —
+statt der Einträge kommt je Eintrag ein Platzhalter zurück. Im Konto ``hnu`` waren
+das **2.488 von 6.035 Einträgen (41,2 %)**, alle ohne Absender und ohne Datum, und
+ihr Betreff landete als Volltext im Index. Das ist kein Deckungs-, sondern ein
+Datenqualitätsproblem: hier fehlt nichts, hier steht zu viel. Die Regel wurde gegen
+die realen 83 Ordner des Kontos kalibriert und entfernt **genau** diese 2.488 —
+die verbleibenden 3.547 sind exakt die Einträge, die ein Datum tragen.
+
 Lokale Ergänzungen: ``~/.claude/mail-index-exclude.txt``, ein Muster je Zeile
 (Teilstring, Groß-/Kleinschreibung egal), ``#`` als Kommentar.
 """
@@ -44,6 +53,20 @@ _REDAKTIONELL = re.compile(
     re.I,
 )
 _TECHNISCH = re.compile(r"^(synchronisierungsprobleme|sync issues)$", re.I)
+# Exchange legt Kalender, Kontakte, Aufgaben, Notizen und Journal als IMAP-Ordner
+# aus, gibt ihren Inhalt ueber IMAP aber NICHT als RFC822 heraus. Der Abruf
+# liefert je Eintrag einen Platzhalter, dessen Betreff woertlich lautet:
+#   "Retrieval using the IMAP4 protocol failed for the following message: <n>"
+# — ohne Absender, ohne Datum. Gemessen am Konto hnu (2026-07-31): 2.488 von
+# 6.035 Eintraegen (41,2 %) waren solche Platzhalter, exakt deckungsgleich mit
+# den 2.488 ohne `sent_at` und praktisch deckungsgleich mit den 2.490 ohne
+# `from_addr`. Sie landeten als Volltext im Index — eine Suche nach "failed"
+# oder "protocol" lieferte 500 von 500 Treffern Platzhalter.
+# Es sind keine Nachrichten und gehoeren nicht in einen Mail-Index.
+_NICHT_MAIL = re.compile(
+    r"^(kalender|calendar|kontakte|contacts|aufgaben|tasks|notizen|notes|journal)$",
+    re.I,
+)
 _JAHRESARCHIV = re.compile(r"^(sent-)?archiv/(?P<jahr>\d{4})(-und-(ae|ä)lter)?$", re.I)
 
 
@@ -73,6 +96,10 @@ def ist_ausgeschlossen(ordner: str, lokal: Path | None = None) -> str | None:
         return "Papierkorb/Junk — bewusst nicht indexiert"
     if any(_TECHNISCH.match(s) for s in segmente):
         return "technischer Ordner — bewusst nicht indexiert"
+    if any(_NICHT_MAIL.match(s) for s in segmente):
+        # Elternsegment trifft die Kinder mit: 'Kalender/Feiertage in Deutschland'
+        # und 'Kalender/Achim Dehnert' fallen ueber 'Kalender'.
+        return "keine Mail (Kalender/Kontakte/Aufgaben) — ueber IMAP nicht abrufbar"
     if any(_REDAKTIONELL.match(s) for s in segmente):
         return "redaktionell/werblich — bewusst nicht indexiert"
 

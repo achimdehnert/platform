@@ -14,6 +14,27 @@
 #
 # ⚠️ run-conclusion ≠ Tool-Health (CC-Memory): ein roter Check ist ein FUND
 # (reale Drift), kein Workflow-Defekt.
+#
+# ─── UMBAU 2026-08-02: ein Job statt acht, Regression wird sichtbar ───────────
+# Der obige Aufbau bleibt in seiner Absicht unverändert (sichtbar, nicht
+# blockierend). Geändert hat sich, was er NICHT leistete:
+#
+# Am Lauf 30688059707 (2026-08-01) fielen **7 von 8 Jobs**. Bei sieben dauerhaft
+# roten Jobs ist ein achter, NEUER Fehlschlag nicht mehr unterscheidbar — eine
+# Regression geht im Rauschen unter. Genau das ist jetzt abgedeckt:
+#
+#   - EIN Job ruft `scripts/checks/run_all.sh --baseline`. Das Skript beherrschte
+#     die Aggregation längst, hatte aber selbst keinen Aufrufer — die Architektur
+#     war invertiert.
+#   - `scripts/checks/staging-baseline.txt` friert die 7 bekannten Fehlschläge ein.
+#     Bekanntes bleibt geduldet; ein Check, der DORT NICHT steht und fällt, macht
+#     den Lauf hart rot.
+#   - Nebeneffekt, nicht Zweck: 8 Checkouts → 1, 8 Runner-Slots → 1, ~105 → ~60
+#     Zeilen YAML.
+#
+# Per-Check-Ergebnisse gehen nicht verloren — sie stehen in der Job-Summary.
+# Die Baseline ist eine SCHULD, kein Zielzustand: `run_all.sh` meldet bei jedem
+# Lauf, welche Einträge wieder grün sind und gekürzt werden können.
 name: Staging-Registry-Checks (KONZ-015 REC-1)
 
 on:
@@ -24,82 +45,38 @@ on:
     branches: [main]
     paths:
       - 'scripts/checks/staging_*.sh'
+      - 'scripts/checks/run_all.sh'
+      - 'scripts/checks/staging-baseline.txt'
       - '.github/workflows/staging-registry-checks.yml'
 
 permissions:
   contents: read
 
 jobs:
-  r1-dns-schema:
-    name: "R1 DNS-Schema (Cloudflare)"
+  staging-checks:
+    name: "ADR-210 R1–R8 (Baseline-gegated)"
     runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - run: bash scripts/checks/staging_dns_schema.sh
 
-  r2-host-locality:
-    name: "R2 Staging-Container nur auf staging-platform"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: bash scripts/checks/staging_host_locality.sh
+      - name: pyyaml bereitstellen (R4/R7)
+        run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
 
-  r3-naming:
-    name: "R3 Staging-Container-Naming"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: bash scripts/checks/staging_naming.sh
-
-  r4-port-range:
-    name: "R4 Staging-Port-Range + Uniqueness"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
-      - run: bash scripts/checks/staging_port_range.sh
-
-  r5-tunnel-ingress:
-    name: "R5 bf-staging Tunnel-Ingress"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: bash scripts/checks/staging_tunnel_ingress.sh
-
-  r6-oidc-redirects:
-    name: "R6 Authentik-Staging-Redirects"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: bash scripts/checks/staging_oidc_redirects.sh
-
-  r7-generated-drift:
-    name: "R7 Generierte Staging-Artefakte byte-identisch"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
-      - run: bash scripts/checks/staging_generated_drift.sh
-
-  r8-devdesktop-clean:
-    name: "R8 dev-desktop staging-frei"
-    runs-on: [self-hosted, prod]
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-      - run: bash scripts/checks/staging_devdesktop_clean.sh
+      - name: Checks fahren — Regression ist hartes Rot, Bekanntes geduldet
+        run: |
+          set +e
+          bash scripts/checks/run_all.sh \
+            --baseline scripts/checks/staging-baseline.txt 2>&1 | tee /tmp/staging.log
+          rc="${PIPESTATUS[0]}"
+          {
+            echo "## ADR-210 Staging-Checks (R1–R8)"
+            echo
+            echo '```'
+            sed -n '/^===================================/,$p' /tmp/staging.log
+            echo '```'
+            echo
+            echo "Bekannte Fehlschläge sind in \`scripts/checks/staging-baseline.txt\` eingefroren"
+            echo "und getrackt: #1227 (R2/R8), #1228 (R6/R7), #1627 (R3/R4/R5)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"

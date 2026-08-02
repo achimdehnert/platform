@@ -26,13 +26,16 @@ models for equivalent quality on mechanical tasks.
 
 ## Tier list
 
-| Tier | Default model | Use case |
-|---|---|---|
-| **1a** | `groq/llama-3.3-70b-versatile` *or* `cerebras/gpt-oss-120b` | Background jobs, summaries, classification, reports — prefer when output is user-visible prose |
-| **1b** | `cerebras/llama3.1-8b` *or* `groq/llama-3.1-8b-instant` | Same tier, when 8B is sufficient and you want lower spend |
-| **2** | `anthropic/claude-haiku-4-5` | If 1a/1b fail on instruction following or nuance |
-| **3** | `anthropic/claude-sonnet-4-6` | Code review, planning, multi-step reasoning |
-| **4** | `anthropic/claude-opus-4-7` | Only with explicit justification — agentic flows, complex synthesis |
+Same rungs as `session-routing.md` — one ladder for actions and sessions alike.
+
+| Tier | Default model | $/1M in → out | Use case |
+|---|---|---|---|
+| **T1a** | `groq/llama-3.3-70b-versatile` *or* `cerebras/gpt-oss-120b` | — | Background jobs, summaries, classification, reports — prefer when output is user-visible prose |
+| **T1b** | `cerebras/llama3.1-8b` *or* `groq/llama-3.1-8b-instant` | — | Same rung, when 8B is sufficient and you want lower spend |
+| **T2** | `anthropic/claude-haiku-4-5` | 1 → 5 | If T1a/T1b fail on instruction following or nuance |
+| **T3** | `anthropic/claude-sonnet-5` | 3 → 15 (intro 2 → 10 until 2026-08-31) | Code review, planning, multi-step reasoning |
+| **T4** | `anthropic/claude-opus-5` | 5 → 25 | Only with explicit justification — agentic flows, complex synthesis |
+| **T5** | `anthropic/claude-fable-5` | 10 → 50 | Top rung — deepest reasoning, long-horizon agentic work; needs a named reason |
 
 **Verified available** as of 2026-05-13 (via `GET /v1/models`):
 - Cerebras account: `gpt-oss-120b`, `zai-glm-4.7`, `llama3.1-8b`
@@ -55,9 +58,9 @@ US-hosted provider. For `ttz-lif` / `meiki-lra` repos see per-repo overrides.
 ## How to apply
 
 Before recommending an LLM target for a new `action_code`, present the tier
-list above. Default = Tier 1a. Skip a tier only with a stated reason.
+list above. Default = T1a. Skip a tier only with a stated reason.
 
-When seeding an aifw action code (single provider, Tier 1a on Groq):
+When seeding an aifw action code (single provider, T1a on Groq):
 
 ```python
 from aifw.models import Provider, Model, ActionType
@@ -122,3 +125,8 @@ Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
   qwen aus „Verified available" entfernt. Konsumenten umgestellt: ADR-208
   Resolver (mcp-hub #55), adr-review-CLI (platform #185), Orchestrator-Routing
   (mcp-hub #56), aifw-Migration 0003 (dev-hub #48, **DB-Apply ausstehend**).
+- 2026-07-31: Tier list renumbered to the shared **T1a–T5** ladder (same rungs
+  as `session-routing.md`) and refreshed to current models: T3 `claude-sonnet-4-6`
+  → `claude-sonnet-5`, T4 `claude-opus-4-7` → `claude-opus-5`, new top rung
+  **T5 `claude-fable-5`**. Added a price column; both replaced IDs were stale
+  against the current lineup.

@@ -800,3 +800,44 @@ ihrer eigenen Aufsicht anzeigen, das fehlte im Plan. Und das Wort „KI" gehört
 Anfrage gestrichen, weil die Auswertung in beiden Stufen deterministisch ist. Wird in einer
 anderen Session weiterbearbeitet.
 
+---
+
+## 2026-07-31 — platform (Sitzung ec0588a8)
+
+Der Hardcoding-Megatest lief seit seiner Einführung am 2026-04-21 **nie**. `python -m pytest`
+auf einem Runner, der nur `python3` kennt; unsichtbar, weil der Schritt
+`continue-on-error: true` trägt. Der Melder öffnete darauf 28 inhaltsleere Regressions-Issues
+(22.04.–15.06., Rumpf `Output nicht gefunden`), alle wurden geschlossen, keines führte zur
+Ursache. Gefixt in #1588 samt Zweig, der rot wird, wenn gar keine JUnit-Datei entsteht.
+Erster echter Lauf (30619024656): 100 Tests gesammelt, `15 failed, 53 passed`. Die Budgets
+stammen vom 27.04. aus lokalen Läufen — Überschreitungen sind erstmalige Messungen, keine
+Regressionen.
+
+#1589: `evidence_claim_scanner.py` aus `~/.claude/hooks/` nach `tools/claude-hooks/` geholt
+(war ungetrackt und ungetestet, obwohl er den Wächter gegen das häufigste Retro-Finding
+darstellt) und um vier Claim-Klassen ergänzt. Gemessen an den fünf realen Fehlsätzen des
+Tages fing die alte Fassung einen.
+
+#1591: `read_mail` liest HTML-only-Mails (fünf von neun neuen Nachrichten des Tages waren
+das); Anhang-Links des Link-Dienstes sind absolut statt relativ, weil der relative href den
+Plattenpfad in die URL trug und von `/a/<nr>` aus ins Leere lief.
+
+Gelernt über das Repo: Ruleset 17621471 hat `bypass_actors: []` — `--admin` hilft niemandem,
+auch dem Owner nicht. Der Weg ist das Code-Owner-Review durch `@wirdigital`.
+
+Eigene Korrekturen: „seit dem 15.07." war falsch (14.07. trägt denselben Fehler, Beginn ist
+der 21.04.) — nachgezogen an #1588 und #1010. Drei Bypass-Audit-Kommentare beschrieben einen
+Merge, der nie stattfand — richtiggestellt.
+
+---
+
+## 2026-08-02 — Lotse-Ausbau: KONZ-038 + Ritual + Welle 1
+
+KONZ-038 (#1639, 3 interne + 2 externe Reviews), regel-ritual.yml (#1641, scharfer Lauf
+bewiesen → #1640), Welle 1 komplett: #1643 (Scanner blocking) · #1644 (stale-clone-Drill) ·
+#1645 (deferred_item advisory) · #1646 (scope_checkpoint advisory, Option A #1081) · #1648
+(Handover-Freshness Skill-Phase + Ritual-Sweep). 8 Gate-Issues #1631–#1638 nachgeholt,
+Replay-Analyse 55 Instanzen (DOC-Lücke 42 %) auf #1185. Verdrahtung: 6 Stop-Hooks in
+settings.json, 3 Hook-Kopien synchron, cc-skill-dist @ 86546d09. Offen: D4/D6/D7/D8,
+Messfenster bis 16.08., Token-Rotation orchestrator (Transkript-Exposure), fremder staged
+KONZ-037-Entwurf im Haupt-Tree.

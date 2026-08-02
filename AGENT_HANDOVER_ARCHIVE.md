@@ -15,6 +15,66 @@
 
 <!-- Ausgelagert 2026-07-23 (Handover-Refresh 07-22→07-23) -->
 
+## ⚡ Stand (2026-07-29 — Mail-Recherche-Werkzeug von der Frage bis zum Index gebaut)
+
+**Kern in einem Satz:** Aus „analysier die Mails von Frau Offner" — einer Frage, die ein
+Dutzend Postfach-Abfragen kostete — wurde ein Werkzeug, das dieselbe, **verifiziert
+identische** Antwort in 26 Millisekunden aus einem Index liefert; die Entscheidungsgrundlage
+dafür ging durch drei externe Runden.
+
+**Gemergt (10 PRs, alle CI-grün):**
+platform [#1519](https://github.com/achimdehnert/platform/pull/1519) `--all-folders` ·
+[#1520](https://github.com/achimdehnert/platform/pull/1520) `--json`/Abwesenheitsbeweis ·
+[#1522](https://github.com/achimdehnert/platform/pull/1522) ADR-286 §4.11 + Bestandskorrektur ·
+[#1523](https://github.com/achimdehnert/platform/pull/1523) KONZ-036 ·
+[#1524](https://github.com/achimdehnert/platform/pull/1524) ADR-288 v2 ·
+[#1530](https://github.com/achimdehnert/platform/pull/1530) S1 ·
+[#1532](https://github.com/achimdehnert/platform/pull/1532) Gate-5-Beleg ·
+[#1533](https://github.com/achimdehnert/platform/pull/1533) Parteien+Evidenz ·
+dev-hub [#168](https://github.com/achimdehnert/dev-hub/pull/168) P2 ·
+[#169](https://github.com/achimdehnert/dev-hub/pull/169) P3.2 ·
+[#170](https://github.com/achimdehnert/dev-hub/pull/170) P3.3 ·
+[#171](https://github.com/achimdehnert/dev-hub/pull/171) Prod-Vorbereitung.
+Vier dev-hub-Merges waren Prod-Deploys mit Migration — **alle vier per Audit-Kommentar
+vorab angekündigt und hinterher am Migrations-Protokoll belegt** (3× `Applying … OK`,
+1× `No migrations to apply` wie vorhergesagt).
+
+**Vier Messungen, die Annahmen gekippt haben:**
+
+1. **Der Bestand ist 66.580, nicht 90.967.** Die alte Zahl stammte aus ADR-286 §4.10.8 und
+   war durch KONZ-036, ADR-288 und **beide externen Review-Briefings** gewandert. Ursache
+   belegt: am 2026-07-28 lief eine Archiv-Umsortierung (Retro `d5eb5e`: 28.158 verschobene
+   Nachrichten), die Zählung erfasste einen Zwischenzustand. Das nicht betroffene
+   Referenzkonto trifft die alte Zahl **exakt** (9 Ordner / 12) — daran ist die Methode
+   validiert. Korrigiert in ADR-286 §4.10.8a.
+2. **Die Ausschlussregel entfernt 78,9 %** (66.580 → 14.028). Damit fallen Vollaufbau auf
+   2,2 min und Rohobjektspeicher auf 4,5 GB. Die schärfste Review-Kritik („95 % des
+   Zeitfensters") landet dadurch bei 15 %.
+3. **Bulk-Abruf statt Einzel-`FETCH`: Faktor 8,9** end-to-end (34,9 s → 3,9 s auf 354
+   Nachrichten, identisches Ergebnis).
+4. **Mikro-Benchmarks überschätzen systematisch** — 120,7/s bzw. 106,3/s im Einzelordner
+   gegen 92,0/s bzw. 78,5/s im echten Lauf über 180 Ordner. Genau der Mechanismus, den die
+   Runden 1 und 2 an den Hochrechnungen kritisiert hatten: sie hatten recht, ihr Alarmwert
+   nicht.
+
+**Zwei eigene Fehler, im scharfen Lauf gefunden:**
+Die Parteien-Auflösung führte zunächst **13 Adressen** zu einer Person zusammen (halber
+Verteiler) — der Anzeigename wurde pro Kopfzeile statt pro Adresse gebildet. Behoben über
+`getaddresses()` plus zwei Schranken, als Test verankert. Und die erste Bestandsmessung
+verrechnete Ausnahmen still als `0`; die Nachmessung weist Fehler aus.
+
+**Der Index beweist sich am Referenzfall:** eine Abfrage über `MessageParticipant` liefert
+**21 Nachrichten in 26 ms** — exakt die am 2026-07-28 korrigierte Zahl. Er reproduziert die
+verifizierte Antwort, statt eine neue zu erfinden.
+
+**Prod-Stand dev-hub:** Modelle, Extraktion, Volltext, Ingestion, Zeitplan (täglich 03:30)
+sind live. Der Zeitplan ist **inert** — er prüft seine Konfiguration selbst und meldet den
+Grund ins Log. Nach Repo-Prüfung steht **keine** `MAIL_*`-Variable in `deployment/`,
+`docker-compose*` oder `Dockerfile`; es findet also kein Postfach-Zugriff statt.
+
+**Dirty, aber nicht dieser Session zurechenbar:** `django-lms-lite`, `iil-doc-templates`
+(je untracked `.windsurf/`), `risk-hub` (`NEXT.md`) — liegen gelassen, nicht eingesammelt.
+
 ## ⚡ Vorheriger Stand (2026-07-28 Nachmittag — Handover-Prios 2+3 gebaut, zwei blinde Melder gefunden, 5 PRs offen)
 
 **Kern in einem Satz:** Von den vier Handover-Prios sind zwei gebaut (Mail-Rollen,
@@ -589,3 +649,101 @@ Repo-weite Sweep, gegen den `check_noop_changes.py` gebaut wurde.
 **Nicht verifiziert / bewusst offen:** ADR-280 §8.1 unverändert blockiert (Owner-Entscheid
 `--allow-live`) · beide PRs dieser Session warten auf 2.-Owner-Review, nichts davon ist auf
 `main`.
+
+---
+
+## ⚡ Vorheriger Stand (2026-07-30 — Mail-Ingestion auf Prod scharf, Antwort-Entwürfe mit Zitat, ein selbstverschuldeter Schaden)
+
+**Zeitanker:** HEAD `nicht erhoben` · `rev-list --count` nicht erhoben · geschrieben 2026-07-30
+— die Anker-Konvention wurde erst am 2026-07-31 eingeführt; für diesen Block
+wurden die Werte nie genommen und werden **nicht nachträglich geschätzt**. Ab dem nächsten
+Stand-Block ist der Anker Pflicht. Zur Einordnung: `origin/main` stand bei Einführung der
+Konvention auf `7f1ee0cd` / 2635 Commits (2026-07-31).
+
+**Kern in einem Satz:** Der Mail-Ingest läuft auf Produktion — Runbook-Schritte 1 bis 7
+durch, genau eine aktive Generation mit 6.008 Nachrichten und Deckung `complete`; der
+Zeitplan 03:30 ist damit nicht mehr inert.
+
+> ⚠️ **Richtigstellung 2026-07-31 (nicht umgeschrieben, sondern angefügt):** Der Satz
+> „der Zeitplan 03:30 ist damit nicht mehr inert" **trifft auf den laufenden Prod-Host
+> nicht zu.** Beim fälligen Gegenlesen des ersten scharfen Laufs am 31.07. gemessen
+> (Host `ubuntu-32gb-fsn1-1`): **kein einziger Lauf**, auf keiner Schicht —
+> `docker logs devhub_celery/beat --since 24h | grep mail_agent` → 0 Treffer ·
+> Celery-Registry 19 Tasks, keiner mit `mail` · `PeriodicTask`-Tabelle 12 Einträge,
+> keiner für `mail_agent` · weder `/app/apps/mail_agent` noch der in
+> [dev-hub#175](https://github.com/achimdehnert/dev-hub/issues/175) beschriebene
+> Bind-Mount `/app/mail_tools` vorhanden, dessen Quelle `/opt/platform/tools/mail_agent`
+> auf dem Host ebenfalls fehlt. Laufendes Image vom **12.07.**, Container seit
+> **12.07. 16:44** — 19 Tage alt.
+>
+> **Und ein Deploy allein würde es nicht beheben:** Beat läuft mit
+> `django_celery_beat.schedulers:DatabaseScheduler`; der Eintrag in
+> `config/settings/base.py` ist damit **nicht maßgeblich**, maßgeblich ist die
+> `PeriodicTask`-Tabelle. Es braucht beides — Code auf Prod **und** DB-Eintrag.
+>
+> Getrackt als [dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187).
+> **Nicht zurückverfolgt:** wann und warum der Mount verschwand — die Aussage oben war
+> zum Zeitpunkt ihrer Messung (30.07., am laufenden Artefakt) plausibel; was zwischen
+> dem 30.07. und dem 31.07. geschah, ist offen.
+
+**Zweiter Strang:** Antwort-Entwürfe trugen **kein Zitat** der Ursprungsmail. Ursache an
+einem Probe-Entwurf im echten Postfach gemessen: `graph_mail --reply-to` legt per
+`createReply` den zitierten Verlauf an und PATCHt danach `body.content` — das ersetzt den
+ganzen Rumpf. Auf dem IMAP-Weg fehlten `In-Reply-To`/`References` ganz. Behoben in
+[#1555](https://github.com/achimdehnert/platform/pull/1555) (+ `--design` rendert den
+Klartext im Rollen-Design) und [#1556](https://github.com/achimdehnert/platform/pull/1556)
+(Link-Dienst erreicht jeden Ordner, nicht nur INBOX). Drei Entwürfe (Herrmann, Paul/Marold,
+Ruß) liegen neu erzeugt im Postfach — mit Zitat, im jeweiligen Rollen-Design, ungesendet.
+
+**Neu erreichbar:** `mail.iil.pet` — der Link-Dienst hinter Cloudflare Access, eigener
+cloudflared-Tunnel im User-Kontext (`cloudflared-mail-links.service`), **nicht** im
+Prod-Tunnel `bf-platform` mit seinen ~40 Hostnamen. Werkzeug und Runbook liegen jetzt im
+Repo: `tools/cf_access/` + `docs/runbooks/loopback-dienst-hinter-cloudflare-access.md`.
+
+**⛔ Eigener Schaden, gemeldet und behoben.** `generate.py --target ~/.claude --kind commands
+--allow-live` — richtig wäre `--target ~/.claude/commands` gewesen. Der atomare
+Verzeichnis-Swap schob **das ganze `~/.claude`** nach `~/.claude.bak` und legte ein neues mit
+51 flachen Dateien an; weg waren `commands/`, `policies/`, `hooks/`, `bin/`, `boards/`,
+`mail-sig/`, `mail-*.env`, `mail-roles.json`, `CLAUDE.md` und 41 Session-Verzeichnisse.
+Zusätzlich schrieb Claude Code in die Lücke ein `settings.json` mit **nur** dem `model`-Feld
+— alle 20 Permissions, Hooks, statusLine und mcpServers waren dort nicht mehr.
+Wiederhergestellt per `rsync -a --ignore-existing` aus dem `.bak`, `settings.json`
+zusammengeführt (Backup als Basis, nur `model` übernommen; `permissions` danach byte-gleich),
+flache Dubletten gezielt entfernt. Gegengeprüft: Link-Dienst 200 auf INBOX **und** Entwurf,
+`mail.iil.pet` 302, `roles.py list` zeigt alle fünf Rollen. `~/.secrets` war nie betroffen.
+**`--allow-live` schützt hier nicht** — es prüft *Gleichheit* mit dem Live-Pfad, und
+`~/.claude` ist dessen Elternverzeichnis. Der Guard dagegen ist
+[#1558](https://github.com/achimdehnert/platform/pull/1558): `pruefe_swap_ziel()` bricht ab,
+wenn das Ziel nicht leer ist und kein `MANAGED_BY`/`manifest.json` trägt, und nennt den
+gemeinten Pfad. Gegenprobe mit dem Originalfehler läuft in den Abbruch. **Die Gefahr stand
+als Kommentar im Code** (`hooks`-Lane: „ein Swap würde hand-gepflegte Hooks wegwischen") —
+lane-spezifisch gelöst, nicht als Prüfung. Merksatz: *ein Werkzeug, das ein Verzeichnis
+austauscht, braucht einen Guard gegen das falsche Verzeichnis, nicht nur gegen das falsche Ziel.*
+
+**Gemergt (5 PRs):** platform [#1555](https://github.com/achimdehnert/platform/pull/1555) ·
+[#1556](https://github.com/achimdehnert/platform/pull/1556) ·
+[#1558](https://github.com/achimdehnert/platform/pull/1558) ·
+[#1503](https://github.com/achimdehnert/platform/pull/1503) (Retro) ·
+dev-hub [#172](https://github.com/achimdehnert/dev-hub/pull/172) (Mounts, mit `--admin` auf
+ausdrückliche Owner-Weisung — Bypass-Audit als PR-Kommentar, kein rotes Gate übergangen).
+
+**Zwei Stolpersteine, die Zeit kosteten und wiederkommen werden:**
+1. **`[skip ci]` im Kopf-Commit macht Required Checks unerreichbar.** [#1503](https://github.com/achimdehnert/platform/pull/1503) war approved und trotzdem `BLOCKED`: GitHub startete keinen `pull_request`-Lauf, also konnten `guardian`/`gitleaks`/`pytest tools/tests` nie melden. Mein erster Anstoß-Commit trug den Marker **versehentlich wörtlich in der eigenen Nachricht** und wurde genauso übergangen (belegt: Lauf 08:46 auf `head=dae483be` zeigte nur `pull_request_target`). Zweiter Commit ohne den Wortlaut → alle drei grün. **Und dann noch einmal:** der Commit, der genau diesen Absatz ins Handover schrieb, trug den Marker wieder wörtlich in seiner Nachricht — #1559 stand daraufhin ebenfalls ohne einen einzigen Lauf da. Die Lehre ist also nicht „Marker nicht setzen", sondern: **wer über den Marker schreibt, darf ihn nicht in die Commit-Message zitieren** — GitHub liest den Wortlaut, nicht die Absicht. Im Dateitext ist er harmlos, nur die Commit-Message zählt.
+2. **Merge während ich noch pushe verliert Commits.** [#1555](https://github.com/achimdehnert/platform/pull/1555) wurde gemergt, bevor mein dritter Commit oben war — die Ordner-Route fehlte auf `main`, der Link gab 400. Folge-PR [#1556](https://github.com/achimdehnert/platform/pull/1556). Zweites Mal am selben Tag (vorher #1545/#1546). Gegenmittel: ich sage ausdrücklich „fertig gepusht, N Commits", bevor gemergt wird.
+
+**Prod-Zustand Mail-Ingest, gemessen am laufenden Artefakt (nicht am grünen Deploy):**
+beide Mounts an `devhub_web` **und** `devhub_celery`, jeweils `rw=false`;
+`konfiguration_pruefen()` → `{'bereit': True, 'fehlt': []}`; Trockenlauf 3 Ordner Deckung
+`complete`; Vollaufnahme **ohne** Freigabe zuerst zum Größenvergleich (6.007/12.864 gegen
+Referenz 5.979/12.796 = **+0,5 %**, Ordnerzahlen 92/27 identisch → Runbook-Kriterium „keine
+starke Abweichung" erfüllt), dann `--freigeben`: **6.008 Nachrichten, 12.865 Beteiligungen,
+Generation `active`**. Nachkontrolle: **genau eine** aktive Generation (3), Deckung
+`complete`. Zwei `ready`-Generationen (1, 2) sind inerte Reste der Probeläufe.
+
+**Schritt 4 blieb Menschenarbeit** — der Classifier verwehrt dem Agenten `~/.secrets`
+unabhängig von einer Chat-Ermächtigung. Der Owner hat die Datei selbst per stdin-Pipe
+abgelegt (`/opt/dev-hub/mail/hnu-creds.env`, 0640, uid 1000); der Agent hat sie nie gelesen.
+Ebenso blockiert waren der Prod-Compose-Edit und der Merge nach `main` in einem
+Deploy-on-push-Repo. Für beides lagen fertige Skripte bereit — **Ermächtigung im Chat hebt
+diese Sperren nicht auf, sie sind technisch, nicht argumentativ.**
+

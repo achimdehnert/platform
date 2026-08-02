@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-30",
-  "total": 235,
-  "next_free": 290,
+  "generated": "2026-07-31",
+  "total": 237,
+  "next_free": 292,
   "adrs": [
     {
       "number": 7,
@@ -5426,6 +5426,43 @@
         "ADR-164",
         "ADR-248",
         "ADR-257"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 290,
+      "id": "ADR-290",
+      "file": "ADR-290-zonenregel-handlungsleitender-text.md",
+      "title": "Steuerzone — deklarierte Allow-List handlungsleitender Texte",
+      "status": "proposed",
+      "date": "2026-07-31",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-081",
+        "ADR-082",
+        "ADR-233"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 291,
+      "id": "ADR-291",
+      "file": "ADR-291-freigabekern-gate.md",
+      "title": "Integrität der Steuerzone — Quellprüfung in CI, Laufzeitprüfung am Ort",
+      "status": "proposed",
+      "date": "2026-07-31",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-233",
+        "ADR-290"
       ],
       "implementation_status": "none"
     },

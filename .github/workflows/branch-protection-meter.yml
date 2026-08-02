@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Weichgestellt, damit ein Meter-Absturz den Zeitplan-Job nicht rot faerbt;
+      # der Absturz wird weiter unten ueber steps.meter.outcome gemeldet.
       - name: "Meter ausführen"
         id: meter
         continue-on-error: true
@@ -39,6 +41,8 @@ jobs:
                        governance/rulesets/wave2-repos.json \
             --report /tmp/meter-report.md
 
+      # Weichgestellt wie der Meter oben; der Absturz wird seit 2026-07-31 durch
+      # den Schritt "Absturz des Break-Glass-Zaehlers sichtbar machen" gemeldet.
       - name: "Break-Glass-Zähler (KONZ-004 Kill-Gate)"
         id: breakglass
         continue-on-error: true
@@ -50,6 +54,15 @@ jobs:
                        governance/rulesets/wave2-repos.json \
             --weeks 2 --threshold-per-week 1 \
             --report /tmp/break-glass-report.md
+
+      # Ohne diesen Schritt bleibt ein Absturz des Zaehlers still: die Outputs
+      # sind dann leer, das `if` unten greift nicht, und der Job meldet gruen —
+      # als waere nichts zu melden gewesen (Befund 2026-07-31).
+      - name: "Absturz des Break-Glass-Zaehlers sichtbar machen"
+        if: steps.breakglass.outcome == 'failure'
+        run: |
+          echo "::error::break_glass_meter.py ist abgestuerzt — fuer diesen Lauf gibt es KEINE Break-Glass-Zaehlung. Gruen heisst hier nicht 'keine Verletzung'."
+          exit 1
 
       - name: "Break-Glass-Report an Issue anhängen"
         if: steps.breakglass.outputs.breached != '0' && steps.breakglass.outputs.breached != ''

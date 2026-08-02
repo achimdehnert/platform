@@ -1,0 +1,20 @@
+# Slug-Wörterbuch — K1-Baseline KONZ-platform-038 (EINGEFROREN 2026-08-02)
+#
+# Zweck (EXT2-AD-2, Goodhart-Schutz): Die K1-Auswertung zählt NUR gegen diese
+# kanonischen Slugs. Ein neuer Slug, der semantisch dasselbe benennt, wird VOR
+# der Auswertung hier als Alias gemappt (per PR, mit Begründung). Unmappbare
+# neue Slugs gelten als "nicht bewertbar", NIE als "neu bei null".
+# Änderungen an diesem File nach Baseline-Freeze = Instrumentenwechsel und
+# erzwingen eine Baseline-Neuberechnung (KONZ-038 D6).
+
+baseline_window: 2026-07-19..2026-08-01
+frozen_at: "2026-08-02"
+tool_sha256: eaa1f370d6c2a7e9ae1f1e16ab3a7327f843398f7ddfa5f72750e156aac02279
+
+top3:
+  - canonical: claim-before-cheapest-check
+    aliases: []
+  - canonical: deferred-item-no-tracking-issue
+    aliases: []
+  - canonical: workaround-without-tracking-anchor
+    aliases: []

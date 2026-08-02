@@ -41,9 +41,27 @@ FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.S)
 # mit einem dieser Kommandos beginnt. Bewusst eine Positivliste: Ausgabe-
 # Beispiele, Logs, JSON und Diffs sollen NICHT feuern.
 COMMAND_STARTERS = {
-    "bash", "sh", "ssh", "scp", "gh", "git", "curl", "wget", "make",
-    "docker", "python3", "python", "pytest", "npm", "pnpm", "yarn",
-    "systemctl", "journalctl", "psql", "kubectl", "rsync",
+    "bash",
+    "sh",
+    "ssh",
+    "scp",
+    "gh",
+    "git",
+    "curl",
+    "wget",
+    "make",
+    "docker",
+    "python3",
+    "python",
+    "pytest",
+    "npm",
+    "pnpm",
+    "yarn",
+    "systemctl",
+    "journalctl",
+    "psql",
+    "kubectl",
+    "rsync",
 }
 
 # Platzhalter, die ein Befehl nie enthalten darf, wenn er kopierbar sein soll.
@@ -119,9 +137,11 @@ def _command_core(line: str) -> str:
 def _last_turn(transcript_path: str):
     """(assistant_text, bash_commands) seit der letzten echten User-Nachricht."""
     try:
-        lines = Path(transcript_path).read_text(
-            encoding="utf-8", errors="replace"
-        ).splitlines()
+        lines = (
+            Path(transcript_path)
+            .read_text(encoding="utf-8", errors="replace")
+            .splitlines()
+        )
     except OSError:
         return "", []
 
@@ -166,7 +186,9 @@ def _last_turn(transcript_path: str):
 def find_untested(assistant_text: str, bash_commands: list[str]):
     """(ungetestet, mit_platzhalter) — je eine Liste von Befehlszeilen."""
     ran = "\n".join(bash_commands)
-    ran_cores = {_command_core(line) for cmd in bash_commands for line in cmd.splitlines()}
+    ran_cores = {
+        _command_core(line) for cmd in bash_commands for line in cmd.splitlines()
+    }
     ran_cores.discard("")
 
     untested, placeholders = [], []
@@ -210,6 +232,35 @@ def build_reminder(untested: list[str], placeholders: list[str]) -> str:
     )
 
 
+STATE_DIR = Path.home() / ".claude" / "hooks" / "state"
+
+
+def _state_path(session_id: str) -> Path:
+    safe = "".join(c for c in session_id if c.isalnum() or c in "-_") or "unknown"
+    return STATE_DIR / f"untested_{safe}.json"
+
+
+def _bereits_gemeldet(session_id: str) -> set[str]:
+    try:
+        roh = json.loads(_state_path(session_id).read_text())
+        return set(roh.get("gemeldet") or [])
+    except (OSError, json.JSONDecodeError, ValueError, AttributeError):
+        return set()
+
+
+def _merken(session_id: str, kerne: set[str]) -> None:
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        alt = _bereits_gemeldet(session_id)
+        _state_path(session_id).write_text(
+            json.dumps({"gemeldet": sorted(alt | kerne)[-500:]})
+        )
+    except OSError:
+        # Ein nicht schreibbarer Zustand darf den Hook nicht scheitern lassen —
+        # er verliert dann nur seine Entprellung.
+        pass
+
+
 def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
@@ -221,7 +272,35 @@ def main() -> int:
         return 0
 
     assistant_text, bash_commands = _last_turn(transcript_path)
-    reminder = build_reminder(*find_untested(assistant_text, bash_commands))
+    untested, placeholders = find_untested(assistant_text, bash_commands)
+
+    # Entprellung (2026-07-31). `_last_turn` endet bei der letzten ECHTEN
+    # Nutzernachricht — Hintergrund-Benachrichtigungen und Hook-Injektionen
+    # zaehlen nicht als solche. Arbeitet der Agent laenger ohne Zwischenruf,
+    # waechst das Fenster unbegrenzt und schleppt jeden frueher genannten
+    # Befehl mit: real gemessen 166 Records mit 27 Vorkommen DESSELBEN
+    # Befehls, siebenmal hintereinander gemeldet. Ein Waechter, der ab dem
+    # ersten Treffer dauerhaft anschlaegt, meldet nichts mehr — dieselbe
+    # Klasse wie die blinden Cron-Melder aus platform#1508.
+    session_id = event.get("session_id") or ""
+    if session_id:
+        # Fingerabdruck ist die NORMALISIERTE ZEILE, nicht `_command_core`.
+        # Der Kern ist absichtlich grob (er soll gegen tatsaechlich gelaufene
+        # Befehle matchen) und reduziert `ssh host 'systemctl …'` und
+        # `ssh host 'docker …'` auf denselben Wert — als Entprellungs-
+        # schluessel wuerde er den zweiten Befund verschlucken. Genau das
+        # fiel im Test auf.
+        schon = _bereits_gemeldet(session_id)
+
+        def _abdruck(zeile: str) -> str:
+            return " ".join(zeile.split())
+
+        untested = [b for b in untested if _abdruck(b) not in schon]
+        if not untested and not placeholders:
+            return 0
+        _merken(session_id, {_abdruck(b) for b in untested})
+
+    reminder = build_reminder(untested, placeholders)
     if reminder:
         print(
             json.dumps(

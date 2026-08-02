@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import email
+import html
 import imaplib
 import json
 import re
@@ -68,19 +69,76 @@ def decode_hdr(value: str | None) -> str:
     return "".join(parts).replace("\n", " ").replace("\r", "").strip()
 
 
-def extract_text(msg: Message, max_chars: int = 4000) -> str:
+#: Blockenden werden zu Zeilenumbruechen, sonst klebt der ganze Text in einer Zeile.
+_HTML_BLOCK_ENDE = re.compile(
+    r"(?i)</(?:p|div|tr|li|h[1-6]|blockquote|table|ul|ol)\s*>|<br\s*/?>"
+)
+#: Nicht-Inhalt: Skript, Stil, Kopfbereich und Kommentare (Outlook packt dort viel hinein).
+_HTML_NICHT_INHALT = re.compile(r"(?is)<(script|style|head)\b.*?</\1>|<!--.*?-->")
+_HTML_TAG = re.compile(r"<[^>]+>")
+
+
+def html_zu_text(roh: str) -> str:
+    """HTML-Mailteil auf lesbaren Fliesstext eindampfen.
+
+    Bewusst ohne Parser-Abhaengigkeit: das Ziel ist Lesbarkeit im Terminal, nicht
+    originalgetreue Wiedergabe. Wer die Mail wirklich ansehen will, nimmt den
+    Link-Dienst (`/m/<konto>/<uid>`), der das echte HTML rendert.
+    """
+    ohne = _HTML_NICHT_INHALT.sub(" ", roh)
+    mit_umbruch = _HTML_BLOCK_ENDE.sub("\n", ohne)
+    text = html.unescape(_HTML_TAG.sub(" ", mit_umbruch)).replace("\xa0", " ")
+    zeilen = [re.sub(r"[ \t]+", " ", z).strip() for z in text.split("\n")]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(zeilen)).strip()
+
+
+def _kuerzen(text: str, max_chars: int) -> str:
+    if len(text) > max_chars:
+        return text[:max_chars] + f"\n[... gekürzt, {len(text)} Zeichen gesamt]"
+    return text
+
+
+def body_und_quelle(msg: Message, max_chars: int = 4000) -> tuple[str, str]:
+    """Lesbarer Text plus Herkunft: 'text/plain', 'text/html' oder 'keiner'.
+
+    Der HTML-Rueckfall ist kein Komfort, sondern das Schliessen einer Luecke im
+    Postfach-Abgleich: Mails ohne text/plain-Teil kamen als "(kein text/plain-Teil)"
+    zurueck und waren damit faktisch unsichtbar. Am 2026-07-31 betraf das fuenf von
+    neun neuen Nachrichten — darunter eine Personal-Angelegenheit und ein
+    inhaltlicher Einwand zur Lehrplanung. Beide waeren stillschweigend durchgefallen.
+    """
     for part in msg.walk():
         if part.get_content_type() == "text/plain" and part.get_filename() is None:
             payload = part.get_payload(decode=True)
             if payload is None:
                 continue
-            text = payload.decode(
+            roh = payload.decode(
                 part.get_content_charset() or "utf-8", errors="replace"
             )
-            if len(text) > max_chars:
-                return text[:max_chars] + f"\n[... gekürzt, {len(text)} Zeichen gesamt]"
-            return text
-    return "(kein text/plain-Teil)"
+            if roh.strip():
+                return _kuerzen(roh, max_chars), "text/plain"
+    for part in msg.walk():
+        if part.get_content_type() == "text/html" and part.get_filename() is None:
+            payload = part.get_payload(decode=True)
+            if payload is None:
+                continue
+            roh = payload.decode(
+                part.get_content_charset() or "utf-8", errors="replace"
+            )
+            text = html_zu_text(roh)
+            if text:
+                return _kuerzen(text, max_chars), "text/html"
+    return "(kein darstellbarer Textteil)", "keiner"
+
+
+def extract_text(msg: Message, max_chars: int = 4000) -> str:
+    """Nur der Text — ohne Herkunfts-Marker.
+
+    Wichtig fuer `draft_mail`: der Rueckgabewert landet woertlich im Zitat einer
+    Antwortmail. Ein Hinweis wie "[aus HTML umgewandelt]" gehoert deshalb in die
+    Anzeige (CLI), nicht hierher.
+    """
+    return body_und_quelle(msg, max_chars)[0]
 
 
 def attachment_names(msg: Message) -> list[str]:
@@ -252,9 +310,19 @@ def _kandidaten(
     return (data[0].split() if data and data[0] else []), False
 
 
-#: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden. `MESSAGE-ID` und
-#: `IN-REPLY-TO` kosten nichts extra und tragen später die Strang-Bildung.
-KOPFFELDER = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO"
+#: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden.
+#
+# `REFERENCES` ergänzt 2026-07-31 — ohne sie beruht die Strang-Bildung allein auf
+# dem normalisierten Betreff, und der trägt nicht weit genug. Am echten Bestand
+# gemessen: 43 Nachrichten lagen in EINEM „Strang" mit dem Betreff „Request for
+# Thesis Supervision" — verschiedene Studierende, kein Gespräch; dazu 43
+# ResearchGate-Benachrichtigungen und 33 „HNU Kontaktformular". Umgekehrt
+# zerreißt ein Betreffwechsel mitten im Verlauf jede echte Kette.
+#
+# `REFERENCES` trägt die vollständige Ahnenkette einer Antwort und ist das
+# einzige Feld, das beides richtig macht. Es kostet im Bulk-FETCH nichts extra:
+# derselbe Abruf, ein Feldname mehr.
+KOPFFELDER = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO REFERENCES"
 
 #: Antwortpräfix einer Bulk-FETCH-Antwort: b'123 (BODY[HEADER.FIELDS (...)] {456}'
 _FETCH_NR = re.compile(rb"^\s*(\d+)\s+\(")
@@ -1240,7 +1308,10 @@ def cmd_fetch(
     atts = attachment_names(msg)
     print(f"Anhänge: {', '.join(atts) if atts else 'keine'}")
     print("--- Body ---")
-    print(extract_text(msg, max_chars=max_chars))
+    rumpf, quelle = body_und_quelle(msg, max_chars=max_chars)
+    if quelle == "text/html":
+        print("[nur HTML-Teil vorhanden — als Text dargestellt]")
+    print(rumpf)
     if save_dir:
         for name, size in save_attachments(msg, Path(save_dir).expanduser()):
             print(f"Anhang gespeichert: {name} ({size} Bytes)")

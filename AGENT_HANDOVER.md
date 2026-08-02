@@ -10,140 +10,149 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-30 — Mail-Ingestion auf Prod scharf, Antwort-Entwürfe mit Zitat, ein selbstverschuldeter Schaden)
+## Zeitanker — Pflicht je Stand-Block
 
-**Kern in einem Satz:** Der Mail-Ingest läuft auf Produktion — Runbook-Schritte 1 bis 7
-durch, genau eine aktive Generation mit 6.008 Nachrichten und Deckung `complete`; der
-Zeitplan 03:30 ist damit nicht mehr inert.
+Jeder `## ⚡ Aktueller Stand`-Block trägt **als erste Zeile** einen Zeitanker: die
+Werte, gegen die eine frische Instanz in **einem** Kommando prüfen kann, ob dieser
+Text noch den Stand beschreibt oder hinterherhinkt.
 
-**Zweiter Strang:** Antwort-Entwürfe trugen **kein Zitat** der Ursprungsmail. Ursache an
-einem Probe-Entwurf im echten Postfach gemessen: `graph_mail --reply-to` legt per
-`createReply` den zitierten Verlauf an und PATCHt danach `body.content` — das ersetzt den
-ganzen Rumpf. Auf dem IMAP-Weg fehlten `In-Reply-To`/`References` ganz. Behoben in
-[#1555](https://github.com/achimdehnert/platform/pull/1555) (+ `--design` rendert den
-Klartext im Rollen-Design) und [#1556](https://github.com/achimdehnert/platform/pull/1556)
-(Link-Dienst erreicht jeden Ordner, nicht nur INBOX). Drei Entwürfe (Herrmann, Paul/Marold,
-Ruß) liegen neu erzeugt im Postfach — mit Zitat, im jeweiligen Rollen-Design, ungesendet.
+```
+**Zeitanker:** HEAD `<sha7>` · `rev-list --count` <n> · geschrieben <YYYY-MM-DD>
+```
 
-**Neu erreichbar:** `mail.iil.pet` — der Link-Dienst hinter Cloudflare Access, eigener
-cloudflared-Tunnel im User-Kontext (`cloudflared-mail-links.service`), **nicht** im
-Prod-Tunnel `bf-platform` mit seinen ~40 Hostnamen. Werkzeug und Runbook liegen jetzt im
-Repo: `tools/cf_access/` + `docs/runbooks/loopback-dienst-hinter-cloudflare-access.md`.
+Prüfen (ein Kommando, read-only):
 
-**⛔ Eigener Schaden, gemeldet und behoben.** `generate.py --target ~/.claude --kind commands
---allow-live` — richtig wäre `--target ~/.claude/commands` gewesen. Der atomare
-Verzeichnis-Swap schob **das ganze `~/.claude`** nach `~/.claude.bak` und legte ein neues mit
-51 flachen Dateien an; weg waren `commands/`, `policies/`, `hooks/`, `bin/`, `boards/`,
-`mail-sig/`, `mail-*.env`, `mail-roles.json`, `CLAUDE.md` und 41 Session-Verzeichnisse.
-Zusätzlich schrieb Claude Code in die Lücke ein `settings.json` mit **nur** dem `model`-Feld
-— alle 20 Permissions, Hooks, statusLine und mcpServers waren dort nicht mehr.
-Wiederhergestellt per `rsync -a --ignore-existing` aus dem `.bak`, `settings.json`
-zusammengeführt (Backup als Basis, nur `model` übernommen; `permissions` danach byte-gleich),
-flache Dubletten gezielt entfernt. Gegengeprüft: Link-Dienst 200 auf INBOX **und** Entwurf,
-`mail.iil.pet` 302, `roles.py list` zeigt alle fünf Rollen. `~/.secrets` war nie betroffen.
-**`--allow-live` schützt hier nicht** — es prüft *Gleichheit* mit dem Live-Pfad, und
-`~/.claude` ist dessen Elternverzeichnis. Der Guard dagegen ist
-[#1558](https://github.com/achimdehnert/platform/pull/1558): `pruefe_swap_ziel()` bricht ab,
-wenn das Ziel nicht leer ist und kein `MANAGED_BY`/`manifest.json` trägt, und nennt den
-gemeinten Pfad. Gegenprobe mit dem Originalfehler läuft in den Abbruch. **Die Gefahr stand
-als Kommentar im Code** (`hooks`-Lane: „ein Swap würde hand-gepflegte Hooks wegwischen") —
-lane-spezifisch gelöst, nicht als Prüfung. Merksatz: *ein Werkzeug, das ein Verzeichnis
-austauscht, braucht einen Guard gegen das falsche Verzeichnis, nicht nur gegen das falsche Ziel.*
+```bash
+git fetch -q origin && echo "ist: $(git rev-parse --short origin/main) / $(git rev-list --count origin/main)"
+```
 
-**Gemergt (5 PRs):** platform [#1555](https://github.com/achimdehnert/platform/pull/1555) ·
-[#1556](https://github.com/achimdehnert/platform/pull/1556) ·
-[#1558](https://github.com/achimdehnert/platform/pull/1558) ·
-[#1503](https://github.com/achimdehnert/platform/pull/1503) (Retro) ·
-dev-hub [#172](https://github.com/achimdehnert/dev-hub/pull/172) (Mounts, mit `--admin` auf
-ausdrückliche Owner-Weisung — Bypass-Audit als PR-Kommentar, kein rotes Gate übergangen).
+**Weicht der Ist-Wert ab, ist der Block veraltet — nicht falsch, aber überholt.** Das ist
+die einzige Aussage, die der Anker trägt; er ersetzt kein Lesen. Fehlt ein Wert, wird
+`nicht erhoben` eingetragen — **nie** ein geschätzter.
 
-**Zwei Stolpersteine, die Zeit kosteten und wiederkommen werden:**
-1. **`[skip ci]` im Kopf-Commit macht Required Checks unerreichbar.** [#1503](https://github.com/achimdehnert/platform/pull/1503) war approved und trotzdem `BLOCKED`: GitHub startete keinen `pull_request`-Lauf, also konnten `guardian`/`gitleaks`/`pytest tools/tests` nie melden. Mein erster Anstoß-Commit trug den Marker **versehentlich wörtlich in der eigenen Nachricht** und wurde genauso übergangen (belegt: Lauf 08:46 auf `head=dae483be` zeigte nur `pull_request_target`). Zweiter Commit ohne den Wortlaut → alle drei grün. **Und dann noch einmal:** der Commit, der genau diesen Absatz ins Handover schrieb, trug den Marker wieder wörtlich in seiner Nachricht — #1559 stand daraufhin ebenfalls ohne einen einzigen Lauf da. Die Lehre ist also nicht „Marker nicht setzen", sondern: **wer über den Marker schreibt, darf ihn nicht in die Commit-Message zitieren** — GitHub liest den Wortlaut, nicht die Absicht. Im Dateitext ist er harmlos, nur die Commit-Message zählt.
-2. **Merge während ich noch pushe verliert Commits.** [#1555](https://github.com/achimdehnert/platform/pull/1555) wurde gemergt, bevor mein dritter Commit oben war — die Ordner-Route fehlte auf `main`, der Link gab 400. Folge-PR [#1556](https://github.com/achimdehnert/platform/pull/1556). Zweites Mal am selben Tag (vorher #1545/#1546). Gegenmittel: ich sage ausdrücklich „fertig gepusht, N Commits", bevor gemergt wird.
+Warum: Ohne Anker war „hinkt der Handover nach?" nur durch Lesen beantwortbar, und das
+unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinander
+(`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
+derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-**Prod-Zustand Mail-Ingest, gemessen am laufenden Artefakt (nicht am grünen Deploy):**
-beide Mounts an `devhub_web` **und** `devhub_celery`, jeweils `rw=false`;
-`konfiguration_pruefen()` → `{'bereit': True, 'fehlt': []}`; Trockenlauf 3 Ordner Deckung
-`complete`; Vollaufnahme **ohne** Freigabe zuerst zum Größenvergleich (6.007/12.864 gegen
-Referenz 5.979/12.796 = **+0,5 %**, Ordnerzahlen 92/27 identisch → Runbook-Kriterium „keine
-starke Abweichung" erfüllt), dann `--freigeben`: **6.008 Nachrichten, 12.865 Beteiligungen,
-Generation `active`**. Nachkontrolle: **genau eine** aktive Generation (3), Deckung
-`complete`. Zwei `ready`-Generationen (1, 2) sind inerte Reste der Probeläufe.
+## ⚡ Aktueller Stand (2026-08-02 — Regel-Lebenszyklus KONZ-038: Ritual live, Welle-1-Gates gebaut)
 
-**Schritt 4 blieb Menschenarbeit** — der Classifier verwehrt dem Agenten `~/.secrets`
-unabhängig von einer Chat-Ermächtigung. Der Owner hat die Datei selbst per stdin-Pipe
-abgelegt (`/opt/dev-hub/mail/hnu-creds.env`, 0640, uid 1000); der Agent hat sie nie gelesen.
-Ebenso blockiert waren der Prod-Compose-Edit und der Merge nach `main` in einem
-Deploy-on-push-Repo. Für beides lagen fertige Skripte bereit — **Ermächtigung im Chat hebt
-diese Sperren nicht auf, sie sind technisch, nicht argumentativ.**
+**Zeitanker:** HEAD `86546d09` · `rev-list --count` 2746 · geschrieben 2026-08-02
 
-## ⚡ Vorheriger Stand (2026-07-29 — Mail-Recherche-Werkzeug von der Frage bis zum Index gebaut)
+**Was diese Session gebaut hat (alles gemergt):**
+- **KONZ-platform-038** „Regel-Lebenszyklus mit erzwungenem Evidenz-Ritual" ([#1639](https://github.com/achimdehnert/platform/pull/1639), T3): A/B/C-Klassifikation, Reconcile→Drill→Bau, 14-Tage-Ritual, Sunset mit Exposure-Nenner + Default-Expiry für den sensorlosen Long Tail. 3 interne + 2 externe Adversarial-Reviews eingearbeitet (Tag-Tabelle §14); K1 dreistufig mit vorregistrierter 30-%-Schwelle — nur „wirksam" löst den ADR-Entscheid aus.
+- **Ritual-Workflow** `.github/workflows/regel-ritual.yml` ([#1641](https://github.com/achimdehnert/platform/pull/1641)): 2.+16. je Monat, scharfer Lauf bewiesen (Kommentar auf [#1640](https://github.com/achimdehnert/platform/issues/1640), 22 Retros im Fenster). Nächste Läufe: 16.08., 02.09., 16.09.
+- **Welle 1 — 5/18 Gates Drill-bestanden gebaut:** claim-before-cheapest-check → `evidence_claim_scanner` jetzt **blocking** ([#1643](https://github.com/achimdehnert/platform/pull/1643), Maschinen-Kopie live); stale-clone-Drill ([#1644](https://github.com/achimdehnert/platform/pull/1644)); `deferred_item_scanner` advisory ([#1645](https://github.com/achimdehnert/platform/pull/1645)); `scope_checkpoint_scanner` advisory ([#1646](https://github.com/achimdehnert/platform/pull/1646), Option A aus #1081); Handover-Freshness als /session-ende-Phase 0a-freshness + Ritual-Sweep ([#1648](https://github.com/achimdehnert/platform/pull/1648)). `settings.json`: 6 Stop-Hooks; cc-skill-dist regeneriert (51 Commands @ 86546d09).
+- Replay-Vorabtest auf [#1185](https://github.com/achimdehnert/platform/issues/1185): 55 historische Instanzen — TURN 18 % / PR 40 % / **DOC 42 %**. Die im KONZ §7 vermutete PR-CI-Ebene wäre redundant (published-body-Scan deckt PR-Bodies); die echte nächste Stufe wäre ein Doku-Claim-Check.
+- 8 neue Gate-Issues [#1631–#1638](https://github.com/achimdehnert/platform/issues/1631) (7 Slugs hatten NULL Tracking); [#1642](https://github.com/achimdehnert/platform/issues/1642) Handoff-ID-Namespace.
 
-**Kern in einem Satz:** Aus „analysier die Mails von Frau Offner" — einer Frage, die ein
-Dutzend Postfach-Abfragen kostete — wurde ein Werkzeug, das dieselbe, **verifiziert
-identische** Antwort in 26 Millisekunden aus einem Index liefert; die Entscheidungsgrundlage
-dafür ging durch drei externe Runden.
+**Kritisch für Folge-Sessions:**
+- **Messfenster bis 16.08.** (Ritual-Lauf 1): VORHER D6 ausführen — `retro_kpis` härten (Golden-Fixture, a50bc6-Parser-Fix, Fail-on-unknown), Slug-Wörterbuch der Baseline-Top-3 einfrieren + committen, Baseline mit gepinnter Tool-Version als Artefakt ablegen. Ohne das ist K1 nicht auswertbar (KONZ-038 §13).
+- FP-Kalibrierung der zwei advisory-Scanner im selben Fenster (0-FP-Fenster = Voraussetzung für blocking-Upgrade per eigenem PR).
+- Offen aus KONZ-038 §12: D4 (A/B/C-Frontmatter, platform-only), D7 (Modellwechsel-Detektor + Smoke-Suite), D8 (wiederkehrender Fenster-Drill-Lauf).
+- **Sicherheits-Nebenbefund:** `~/.claude/settings.json` trägt den orchestrator-Bearer-Token im Klartext; er landete beim (fürs Hook-Wiring notwendigen) Einlesen im Session-Transkript → als kompromittiert behandeln: **Rotation** anstoßen + Header-Wert aus der Datei auslagern (Owner-Entscheid, Gate 1).
+- **Fremd-Artefakt, nicht angefasst:** im platform-Haupt-Tree liegt ein staged `KONZ-platform-037`-Entwurf, der von origin/main abweicht (vermutlich Parallel-Session 01.08.) — blockiert `git pull` des stalen lokalen main. Sichten/verwerfen ist Owner-Call.
 
-**Gemergt (10 PRs, alle CI-grün):**
-platform [#1519](https://github.com/achimdehnert/platform/pull/1519) `--all-folders` ·
-[#1520](https://github.com/achimdehnert/platform/pull/1520) `--json`/Abwesenheitsbeweis ·
-[#1522](https://github.com/achimdehnert/platform/pull/1522) ADR-286 §4.11 + Bestandskorrektur ·
-[#1523](https://github.com/achimdehnert/platform/pull/1523) KONZ-036 ·
-[#1524](https://github.com/achimdehnert/platform/pull/1524) ADR-288 v2 ·
-[#1530](https://github.com/achimdehnert/platform/pull/1530) S1 ·
-[#1532](https://github.com/achimdehnert/platform/pull/1532) Gate-5-Beleg ·
-[#1533](https://github.com/achimdehnert/platform/pull/1533) Parteien+Evidenz ·
-dev-hub [#168](https://github.com/achimdehnert/dev-hub/pull/168) P2 ·
-[#169](https://github.com/achimdehnert/dev-hub/pull/169) P3.2 ·
-[#170](https://github.com/achimdehnert/dev-hub/pull/170) P3.3 ·
-[#171](https://github.com/achimdehnert/dev-hub/pull/171) Prod-Vorbereitung.
-Vier dev-hub-Merges waren Prod-Deploys mit Migration — **alle vier per Audit-Kommentar
-vorab angekündigt und hinterher am Migrations-Protokoll belegt** (3× `Applying … OK`,
-1× `No migrations to apply` wie vorhergesagt).
+## ⚡ Vorheriger Stand (2026-07-31 — der Megatest lief seit dem 21.04. nie; Claim-Wächter und Mail-Werkzeug repariert)
 
-**Vier Messungen, die Annahmen gekippt haben:**
+**Zeitanker:** HEAD `6d9c692b` · `rev-list --count` 2657 · geschrieben 2026-07-31
 
-1. **Der Bestand ist 66.580, nicht 90.967.** Die alte Zahl stammte aus ADR-286 §4.10.8 und
-   war durch KONZ-036, ADR-288 und **beide externen Review-Briefings** gewandert. Ursache
-   belegt: am 2026-07-28 lief eine Archiv-Umsortierung (Retro `d5eb5e`: 28.158 verschobene
-   Nachrichten), die Zählung erfasste einen Zwischenzustand. Das nicht betroffene
-   Referenzkonto trifft die alte Zahl **exakt** (9 Ordner / 12) — daran ist die Methode
-   validiert. Korrigiert in ADR-286 §4.10.8a.
-2. **Die Ausschlussregel entfernt 78,9 %** (66.580 → 14.028). Damit fallen Vollaufbau auf
-   2,2 min und Rohobjektspeicher auf 4,5 GB. Die schärfste Review-Kritik („95 % des
-   Zeitfensters") landet dadurch bei 15 %.
-3. **Bulk-Abruf statt Einzel-`FETCH`: Faktor 8,9** end-to-end (34,9 s → 3,9 s auf 354
-   Nachrichten, identisches Ergebnis).
-4. **Mikro-Benchmarks überschätzen systematisch** — 120,7/s bzw. 106,3/s im Einzelordner
-   gegen 92,0/s bzw. 78,5/s im echten Lauf über 180 Ordner. Genau der Mechanismus, den die
-   Runden 1 und 2 an den Hochrechnungen kritisiert hatten: sie hatten recht, ihr Alarmwert
-   nicht.
+**Der Kernbefund ist unangenehm und gut belegt:** Der Hardcoding-Megatest meldete drei
+Monate lang `success`, **ohne je eine Zeile Testcode auszuführen**. `python -m pytest` auf
+einem Runner, der nur `python3` kennt — der Aufruf stand seit dem allerersten Commit der
+Suite so drin (`c100e78c`, 2026-04-21), nicht erst seit Juli. Sichtbar wurde es nie, weil
+der Schritt `continue-on-error: true` trägt. Der Melder dahinter feuerte korrekt auf
+`outcome == 'failure'`, fand aber nichts zu berichten und öffnete **28 inhaltsleere
+Regressions-Issues** zwischen dem 22.04. und dem 15.06., Rumpf jeweils
+`Output nicht gefunden (Pfad: .../megatest-output.txt)`. Alle 28 wurden geschlossen, keines
+führte zur Ursache.
 
-**Zwei eigene Fehler, im scharfen Lauf gefunden:**
-Die Parteien-Auflösung führte zunächst **13 Adressen** zu einer Person zusammen (halber
-Verteiler) — der Anzeigename wurde pro Kopfzeile statt pro Adresse gebildet. Behoben über
-`getaddresses()` plus zwei Schranken, als Test verankert. Und die erste Bestandsmessung
-verrechnete Ausnahmen still als `0`; die Nachmessung weist Fehler aus.
+Gefixt in [#1588](https://github.com/achimdehnert/platform/pull/1588) (`python3` + ein
+Zweig, der **rot** wird, wenn gar keine JUnit-Datei entsteht — damit ist „Test fand
+Verletzungen" von „Test kam nicht zustande" unterscheidbar). Der Beweis ist der Lauf, nicht
+der Diff: [30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656)
+sammelt **100 Tests** und führt sie aus.
 
-**Der Index beweist sich am Referenzfall:** eine Abfrage über `MessageParticipant` liefert
-**21 Nachrichten in 26 ms** — exakt die am 2026-07-28 korrigierte Zahl. Er reproduziert die
-verifizierte Antwort, statt eine neue zu erfinden.
+**Das Ergebnis der ersten echten Messung: `15 failed, 53 passed, 26 skipped, 6 xfailed`.**
+Wichtig für die Einordnung — die Budgets in `tests/megatest/budgets.toml` stammen vom
+**27.04.** aus lokalen Scanner-Läufen und wurden **nie** in CI gegengeprüft. Eine
+Überschreitung ist deshalb keine Regression gegen einen gemessenen Zustand, sondern die
+Differenz zwischen einer April-Schätzung und der Wirklichkeit. Aufgeschlüsselt:
 
-**Prod-Stand dev-hub:** Modelle, Extraktion, Volltext, Ingestion, Zeitplan (täglich 03:30)
-sind live. Der Zeitplan ist **inert** — er prüft seine Konfiguration selbst und meldet den
-Grund ins Log. Nach Repo-Prüfung steht **keine** `MAIL_*`-Variable in `deployment/`,
-`docker-compose*` oder `Dockerfile`; es findet also kein Postfach-Zugriff statt.
+| Kategorie | Repos |
+|---|---|
+| Security-Funde in Repos mit Budget 0 | dev-hub (`conftest.py:34`, Regel `SECRET_KEY=`), research-hub |
+| „war sauber (Budget=0)", hat jetzt Violations | dev-hub, iil-enrichment, nl2cad, research-hub, trading-hub |
+| Budget überschritten | bfagent 116>72, mcp-hub 110, trading-hub, dev-hub 6>0, iil-enrichment, nl2cad 5, research-hub |
+| Meta | `test_should_registry_budget_sync` — Repos in `repo-registry.yaml` ohne Budget |
 
-**Dirty, aber nicht dieser Session zurechenbar:** `django-lms-lite`, `iil-doc-templates`
-(je untracked `.windsurf/`), `risk-hub` (`NEXT.md`) — liegen gelassen, nicht eingesammelt.
+**Zwei weitere Reparaturen, beide im Zielkontext verifiziert statt nur getestet:**
+
+[#1589](https://github.com/achimdehnert/platform/pull/1589) — `evidence_claim_scanner.py`
+lag ausschließlich in `~/.claude/hooks/`: ungetrackt, ungetestet, pro Maschine driftend.
+Der Wächter gegen `claim-before-cheapest-check` (×30 das häufigste Retro-Finding, mehr als
+doppelt so oft wie das nächste) war damit das schlechtest gesicherte Artefakt im Setup. Jetzt
+in `tools/claude-hooks/` mit 43 Tests. Gemessen an den fünf realen Fehlsätzen dieses Tages
+fing er **einen**; die vier Lücken sind geschlossen als `universal-claim`,
+`function-negation`, `temporal-claim`, `soft-quantifier-claim`. Alle vier erben die strenge
+Beleg-Regel — eine Allaussage verlangt eine Breitsuche, eine Gegenwarts-Aussage einen
+Lauf-Blick; **`git show` zählt dafür ausdrücklich nicht**, ein Diff belegt Verhalten nie.
+
+[#1591](https://github.com/achimdehnert/platform/pull/1591) — `read_mail` gab bei Mails ohne
+`text/plain`-Teil nur „(kein text/plain-Teil)" zurück. Am 31.07. betraf das **fünf von neun**
+neuen Nachrichten; zwei davon wären still durchgefallen (eine Personal-Anfrage der HNU, ein
+inhaltlicher Einwand zur Lehrplanung). Neu: `body_und_quelle()` mit HTML-Rückfall.
+`extract_text()` bleibt bewusst **ohne** Herkunfts-Marker — sein Rückgabewert landet wörtlich
+im Zitat von `draft_mail`. Zweitens trugen die Anhang-Links des Link-Dienstes den
+**Verzeichnisnamen von der Platte** in die URL (`163497-anhaenge/…`), was von `/a/<nr>` aus
+ins Leere lief; `render()` bekommt jetzt einen `basis`-Parameter und erzeugt absolute Routen.
+Dienst neu gestartet, `/a/1` liefert den Anhang mit HTTP 200.
+
+**Was beim Mergen zu wissen ist:** Ruleset `17621471` trägt `bypass_actors: []` — es gibt
+**keinen** Akteur, der die Regel umgehen kann, `--admin` eingeschlossen. Der Owner versuchte
+es an allen drei PRs selbst, dreimal dieselbe Wand. Der einzige Weg ist ein Code-Owner-Review
+durch `@wirdigital` (CODEOWNERS: `* @achimdehnert @wirdigital`, Autor zählt nicht). Das ist
+Routine, nicht Ausnahme: neun Merges an diesem Tag liefen so.
+
+**Eigene Fehler dieser Sitzung, alle korrigiert:** „seit dem 15.07." war zu eng — der Lauf
+vom 14.07. trägt denselben Fehler, der wahre Beginn ist der 21.04.; korrigiert als Kommentar
+an #1588 und #1010, mit benannter Restlücke (April-Logs sind mit `HTTP 410` abgelaufen, dort
+stützen nur die Issue-Rümpfe). Drei Bypass-Audit-Kommentare beschrieben einen `--admin`-Merge,
+der nie stattfand — an allen drei PRs richtiggestellt. Und ein `grep -c` gab null auf einem
+Log, das den Treffer enthielt (ANSI-Codes im Muster) — beinahe der umgekehrte Fehlschluss.
+
+**Outline:** der MCP dieser Sitzung liefert weiterhin `302`, wie im Vor-Stand beschrieben.
+Der dokumentierte Umweg funktioniert und wurde heute genutzt — Lesson-Dokument
+`dde42e37-83e0-42ff-acc5-e5637ba3002e` („Megatest meldete drei Monate grün, ohne je zu
+laufen"). Skript-Muster: `scratchpad/outline-lesson.sh` (Token nur in Variablen und
+curl-Kopfzeilen, nie in URL oder Ausgabe).
+
+**Nicht aus dieser Sitzung, aber offen:** `Prod-Uptime-Canary` ist seit dem 29.07. rot, fünf
+Hubs mit `HTTP 502` (137herz.de, bieterpilot.de, wedding-hub, coach-hub, hr.iil.pet) —
+getrackt in [#1547](https://github.com/achimdehnert/platform/issues/1547), passt zum
+Container-Freeze aus #1303. Drei fremde Repos sind dirty (`django-lms-lite`,
+`iil-doc-templates` mit untracked `.windsurf/`, `risk-hub` mit geändertem `NEXT.md`) —
+liegen gelassen, gehören anderen Sitzungen.
+
 
 ## Nächste Schritte (kompakt)
 
 > **✅ hetzner-prod Speicherlage entschärft 2026-07-29 ([#1303](https://github.com/achimdehnert/platform/issues/1303), Messwerte als Kommentar):** Freies RAM **444 → 9.455 MB**, Swap von **4.095/4.095 auf 1.757/4.095**, laufende Container **113 → 45**. Auf Owner-Anweisung wurden 68 nicht benötigte Container **gestoppt** (nicht entfernt — `docker start` holt jeden zurück, Volumes unangetastet): ausschreibungs-hub, odoo, hub137, wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub, pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl. `ib_gateway`. **Weiter laufen** risk-hub (live), dev-hub, doc-hub, Outline, mcp-hub, authentik, weltenhub, illustration, dms-hub, writing-hub, aifw. **Die Lehre daraus ist wichtiger als die Zahl:** Ein cgroup-OOM sagt nicht, dass der Container zu klein ist — in die cgroup-Bilanz zählt der Seiten-Cache, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen. `devhub_celery` fiel **ohne jede Änderung an ihm** von 370,4 auf 305,9 MiB; ein Import, der dreimal mit `rc=137` starb, lief danach durch. „Limit erhöhen" wäre bei 924 MB freiem Host-RAM die gefährlichere Antwort gewesen. **Weiterhin ungeklärt:** warum die Container am 20.07. entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). **Nicht geheilt und deshalb eigenes Ticket ([#1549](https://github.com/achimdehnert/platform/issues/1549)):** `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Cache) und Health-Checks, die seit Tagen rot sind — `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9`; der Server antwortet weiter, der Worker ist tot.
 
-1. **Outline-MCP in DIESER Sitzung neu verbinden (`/mcp`)** — der Zugang ist **repariert, aber nicht wirksam**. Die Ursache ist jetzt eingegrenzt, nicht vermutet: `curl` gegen `https://knowledge.iil.pet/api/documents.search` liefert **mit** den beiden `CF-Access-Client-*`-Kopfzeilen **200**, ohne sie **302**. Der Client-Code trägt den Patch (`access_client_id` 3× in `outline_mcp/client.py`), `scripts/start-outline-mcp.sh` exportiert beide Variablen, die Token-Dateien liegen. Der **laufende Server-Prozess dieser Sitzung** hat `OUTLINE_MCP_ACCESS_CLIENT_ID` aber nicht in seiner Umgebung — geprüft über `/proc/<pid>/environ` (nur Variablennamen, keine Werte): Prozesse anderer Fenster, die nach dem Merge gestartet sind, **haben** sie und funktionieren; der dieser Sitzung stammt vom 28.07., also von **vor** dem Merge (9ca7ff7, 29.07. 19:17). **Ein `/mcp`-Reconnect behebt es NICHT** — am 30.07. um 10:37 durchgeführt: der neu gestartete Prozess trägt **überhaupt keine** `OUTLINE_MCP_*`-Variablen (der alte hatte zumindest das API-Token), obwohl `~/.claude.json` das Wrapper-Skript nennt und keine zweite Konfigurationsquelle existiert (`.mcp.json` fehlt, `.claude/settings.local.json` enthält nur `permissions`). Das Skript selbst ist **nachweislich in Ordnung**: von Hand gestartet setzt es alle drei Variablen (`OUTLINE_MCP_OUTLINE_API_TOKEN`, `..._ACCESS_CLIENT_ID`, `..._ACCESS_CLIENT_SECRET`, per `/proc/<pid>/environ` am eigenen Testprozess geprüft). Der von Claude Code gestartete Prozess hat **keine** davon. **Hypothese** (nicht verifizierbar von außen): der Sitzungszustand hält die MCP-Definition aus der Startzeit der Sitzung; ein `/mcp`-Reconnect startet mit dieser **gecachten** Definition neu, nicht mit der aktuellen `~/.claude.json`. Dazu passt, dass der Prozess vom 28.07. nur das API-Token trug — die Belegung von damals. Praktisch heißt das: **eine neue Sitzung löst es, ein Reconnect in der laufenden nicht** — belegt an drei Prozessen aus frisch gestarteten Fenstern (04:26, 09:59, 10:16), die die Variablen tragen und funktionieren. **Und ein zweiter Merksatz, unabhängig von Outline:** die MCP-Statusanzeige „✔ connected · 10 tools" belegt nur, dass der Server-Prozess auf Protokollebene antwortet und seine (statische) Tool-Liste liefert — **nicht**, dass der Dienst dahinter erreichbar ist. Hier stand „connected" bei jedem Aufruf, der mit 302 endete. Killen darf der Agent den Prozess nicht (fremde Sessions hängen an denselben Namen — Realfall 2026-07-29: 14 vermeintliche Waisen hatten alle lebende `claude`-Eltern). **Bis dahin funktioniert der Umweg:** `curl` mit den drei Kopfzeilen, siehe `scratchpad/outline-write.sh`-Muster. Der Lesson-Entwurf zu cgroup-Speicherdruck ist darüber **schon geschrieben** (Doc `9e1ea790`), `~/.claude/outline-pending/` ist insoweit abgearbeitet.
+1. **Die 15 Megatest-Befunde abarbeiten** — der erste echte Lauf der Suite ([30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656)) meldet `15 failed, 53 passed`. **Reihenfolge nach Schwere, nicht nach Zahl:** (a) die zwei Security-Funde in Repos mit Budget 0 — dev-hub (`conftest.py:34`, Regel `SECRET_KEY=`) und research-hub; erst entscheiden, ob echt oder Test-Attrappe, der Wert wurde bewusst nicht ausgelesen. (b) die fünf Repos, die als sauber geführt waren und jetzt Violations haben (dev-hub, iil-enrichment, nl2cad, research-hub, trading-hub) — ein Budget von 0 war eine bewusste Zusage. (c) die Budget-Überschreitungen; für **bfagent** (116>72) ist eine ehrliche Neu-Basierung sinnvoller als ein Fix an totem Code, das Repo ist eingefroren (import-only). (d) `test_should_registry_budget_sync` — Repos in `repo-registry.yaml` ohne Budget. **Vor jeder Bewertung mitdenken:** die Budgets stammen vom 27.04. aus lokalen Läufen und wurden nie in CI gemessen; „über Budget" heißt hier nicht „verschlechtert", sondern „erstmals gemessen".
 2. **mcp-hub: die zwei roten Jobs schließen** — [#188](https://github.com/achimdehnert/mcp-hub/pull/188) (Formatierung) und [#189](https://github.com/achimdehnert/mcp-hub/issues/189) (click/huggingface-hub-Konflikt in der geteilten Runner-Umgebung). **Der Verdacht aus dem Vor-Stand ist widerlegt:** `ci / gate` ist **kein** Konstruktionsfehler und verlangt auch keine Teilmenge — seine `needs`-Liste enthält alle elf Jobs, `lint` und `security` inklusive, im Tag `v1.0.11` **identisch** zu `main` (beide gelesen). Der echte Mechanismus ist `continue-on-error`: `security` hat es hart verdrahtet („Job blockiert Deploy nicht — aber Output ist sichtbar"), `lint` über den Input `lint_soft_fail`, den `mcp-hub/deploy.yml` bewusst auf `true` setzt (fünf Zeilen Begründung im Workflow: Polyrepo-Monorepo ohne Root-`requirements.txt`, Option 3 aus #78, **gitleaks bleibt hartes Gate**). GitHub zeigt bei `continue-on-error` die Job-**Conclusion** als `failure`, setzt aber `needs.<job>.result` auf `success` — der Gate ist damit zu Recht grün. **Was bleibt:** „`ci / gate` grün" belegt in mcp-hub **nicht**, dass Lint und Security grün waren. Das ist gewollt, muss man aber wissen. **Weiter offen:** der scharfe Negativtest zu [#184](https://github.com/achimdehnert/mcp-hub/issues/184) — über die vorhandenen Workflows nicht auslösbar (keiner trägt ein ungültiges Modell); verifiziert ist nur die Code-Präsenz im laufenden Container.
 3. **`devhub_beat` und die toten Health-Checks** ([#1549](https://github.com/achimdehnert/platform/issues/1549)) — `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Seiten-Cache, also nicht durch die Host-Entlastung geheilt) und Health-Checks, die seit Tagen rot sind: `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9` — der Server antwortet weiter, der Worker ist tot. **Neu hinzugekommen:** durch die aktive Mail-Generation läuft ab jetzt täglich 03:30 ein Ingest-Lauf in `devhub_celery`; der erste scharfe Lauf ist der Belastungstest für dieses Limit und sollte am 31.07. gegengelesen werden (`docker logs devhub_celery --since 4h | grep -i mail_ingest`).
+4. **Outline-MCP** — unverändert `302` in laufenden Sitzungen, eine **neue** Sitzung löst es (Belege im Vor-Stand). Kein Blocker mehr: der Umweg ist erprobt und wurde am 31.07. genutzt (`scratchpad/outline-lesson.sh` — Collection über `collections.list` suchen, dann `documents.create`; die drei Werte nur in Variablen und curl-Kopfzeilen, nie in URL oder Ausgabe). Geschrieben darüber: Doc `dde42e37-83e0-42ff-acc5-e5637ba3002e`. **Achtung beim Nachbauen:** ein `tr < ~/.secrets/…` direkt in der Bash-Kommandozeile löst den Secret-Leak-Guard aus — das Skript als Datei anlegen, nicht per Heredoc im Aufruf.
+5. **Mail-Ingest läuft auf Prod nicht — korrigiert Punkt 3** ([dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187), P1). Der Satz in Punkt 3, „ab jetzt läuft täglich 03:30 ein Ingest-Lauf", ist **widerlegt** — gegengelesen am 31.07. wie dort angekündigt, der Lauf hat **nie** stattgefunden. Der dort genannte Grep nennt zudem einen Task-Namen, den es nicht gibt (`mail_ingest`); er heißt `mail_agent.ingest_scheduled`. Fünf Messungen am Prod-Host: Logs 24 h ohne Treffer · Celery-Registry 19 Tasks, keiner mit `mail` · `PeriodicTask`-Tabelle 12 Einträge, keiner für `mail_agent` · weder `/app/apps/mail_agent` noch `/app/mail_tools` im Container · Mount-Quelle `/opt/platform/tools/mail_agent` fehlt auf dem Host. Der Ingest ist auf **keiner** Schicht aktiv: kein Code im Container, kein Bind-Mount, kein `PeriodicTask`-Eintrag. Zu tun sind **zwei** Dinge, nicht eines: Code auf Prod bringen **und** den DB-Eintrag `mail-agent-ingest-daily` → `mail_agent.ingest_scheduled` anlegen. Laufendes Image vom **12.07.**, 19 Tage alt — alles, was seither in dev-hub gebaut wurde, ist auf Prod nicht vorhanden. **Prod-Eingriff, Owner-Entscheidung.**
+6. **Health-Poll meldet `succeeded`, prüft aber nichts** ([dev-hub#188](https://github.com/achimdehnert/dev-hub/issues/188), P1, `severity:critical`) — `health.poll_all_checks` läuft alle fünf Minuten, findet `Organization.objects.count() == 0` und gibt `{'error': "Tenant 'devhub' not found"}` als **Rückgabewert** zurück; Celery verbucht den Task als **grün**. `platform_health_scan` entsprechend `servers_scanned: 0`. Zwei Fixe, getrennt zu bewerten: Organization anlegen behebt **diesen** Fall, der Task sollte **fehlschlagen** statt `succeeded` zu melden — das behebt die **Klasse**. **Mögliche Verbindung zu Punkt 3 (rote Health-Checks) — ausdrücklich Hypothese, nicht verifiziert.**
+
+> **Nachtrag 2026-07-31 — Konsequenz aus Punkt 5 für Punkt 3 (übernommen aus
+> [#1612](https://github.com/achimdehnert/platform/pull/1612) vor dessen Schließung):**
+> Punkt 3 führt den täglichen 03:30-Ingest als **Belastungstest** für das 256-MiB-Limit von
+> `devhub_beat`. Diese Prämisse ist entfallen — der Lauf existiert nicht (Messung in Punkt 5).
+> **Damit steht die Speicherfrage von `devhub_beat` für sich**: Sie wird nicht durch einen
+> Ingest-Lauf beantwortet und braucht eine eigene Messung. Punkt 3 bleibt davon unberührt
+> offen; nur seine Begründung über den Belastungstest trägt nicht mehr.
 
 > **Nachtrag 2026-07-30 (Abend):** **Vier PRs im Review**, thematisch eine Kette —
 > [#1562](https://github.com/achimdehnert/platform/pull/1562) (`html_to_text` lag zweimal im
@@ -212,6 +221,8 @@ Grund ins Log. Nach Repo-Prüfung steht **keine** `MAIL_*`-Variable in `deployme
 > **Erledigt 2026-07-13 (nachgezogen, war nur in PR #1122 unmerged dokumentiert):** KONZ-017 W1 sync-drift-meter #998 (#1009 gemergt) · usage_sweep.py (#1116 gemergt) · trading-hub Deploy-403 (#1070 zu) · PyPI-OIDC-Readiness codeguard/ingest (#1118 gemergt) · trading-hub PR #130 (README-Fix, inzwischen gemergt).
 
 > **Ältere Stände** (2026-07-10 Mail-Skill, 2026-06-20 F4/Wave-2 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
+
+7. **Ritual-Lauf 1 vorbereiten (bis 16.08., KONZ-038)** — D6 VOR der Baseline (retro_kpis-Härtung + Slug-Wörterbuch einfrieren + Baseline-Artefakt committen), FP-Auswertung der zwei neuen advisory-Scanner, danach D4/D7/D8. Tracking: [#1640](https://github.com/achimdehnert/platform/issues/1640); Gate-Backlog 13/18 offen.
 
 ## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 

@@ -200,7 +200,23 @@ _PAGE = """<!doctype html>
 """
 
 
-def render(msg: Message, konto: str, ordner: str, uid: str, ziel: Path) -> Path:
+def render(
+    msg: Message,
+    konto: str,
+    ordner: str,
+    uid: str,
+    ziel: Path,
+    basis: str | None = None,
+) -> Path:
+    """`basis` = URL-Praefix dieser Mail beim Ausliefern ueber den Link-Dienst.
+
+    Ohne `basis` entstehen relative Anhang-Links, die neben der HTML-Datei auf der
+    Platte funktionieren (der CLI-Weg). Ueber HTTP tragen sie nicht: der Browser
+    loest sie gegen den AUFRUFPFAD auf, und der ist bei `/a/<nr>` ein voellig
+    anderer als bei `/m/<konto>/<uid>`. Genau daraus entstand der kaputte Link
+    `/a/163497-anhaenge/<datei>` — der Verzeichnisname von der Platte war in die
+    URL gewandert. Mit `basis` werden die Links absolut und damit aufrufpfad-egal.
+    """
     betreff = decode_hdr(msg.get("Subject")) or "(ohne Betreff)"
     ziel.mkdir(parents=True, exist_ok=True)
     datei = ziel / f"{uid}-{slugify(betreff)}.html"
@@ -221,11 +237,15 @@ def render(msg: Message, konto: str, ordner: str, uid: str, ziel: Path) -> Path:
 
     anhaenge = _save_attachments(msg, datei.parent / f"{uid}-anhaenge")
     if anhaenge:
+        # Auf der Platte heisst der Ordner "<uid>-anhaenge" (neben der HTML-Datei);
+        # im Dienst lautet die Route "<basis>/anhaenge/<name>". Beides darf nicht
+        # verwechselt werden — der Plattenname gehoert nicht in eine URL.
+        praefix = f"{basis.rstrip('/')}/anhaenge" if basis else f"{uid}-anhaenge"
         # href muss URL-kodiert sein: reale Anhangsnamen tragen Leerzeichen und
         # Umlaute ("Anschreiben_Verbandsanhörung ....pdf") — roh im href bricht
         # der Link im Browser.
         links = ", ".join(
-            f'<a href="{uid}-anhaenge/{quote(n)}">{html.escape(n)}</a> '
+            f'<a href="{praefix}/{quote(n)}">{html.escape(n)}</a> '
             f"({groesse // 1024} kB)"
             for n, groesse in anhaenge
         )

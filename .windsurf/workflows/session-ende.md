@@ -113,6 +113,27 @@ gh pr list --repo <owner>/<repo> --state open --json number,title,files \
   ihn explizit als „ersetzt durch PR #N" schließen, **bevor** der neue Stand gepusht wird.
 - **Kein Treffer** → normal weiter mit 0b.
 
+### 0a-freshness: Handover-Rezenz erzwingen (PFLICHT — NEU 2026-08-02, Welle 1 KONZ-038, Issue #1457)
+
+> **Warum als Skill-Gate:** Das CI-Gate (`handoff-banner-gate.yml`) läuft nur, wenn
+> `AGENT_HANDOVER.md` im PR IST — der ×12-Verstoß (`handover-stale-vor-merge`) ist aber
+> gerade, sie NICHT anzufassen. Ein paths-gefiltertes Gate kann diese Klasse strukturell
+> nicht sehen; der Prozess-Schritt hier kann es (Vier-Wege-Prüfung KONZ-038 §5.7: Ablauf
+> statt N-ter Regel).
+
+Nach dem Aktualisieren von `AGENT_HANDOVER.md` (bzw. der bewussten Entscheidung, es
+nicht zu tun) den vorhandenen Prüfer scharf laufen lassen:
+
+```bash
+python3 scripts/checks/agent_handover_freshness_check.py AGENT_HANDOVER.md
+```
+
+- **Exit 0** → frisch, weiter.
+- **Exit 1** → die Datei trägt einen älteren Stand als ihr letzter Commit erwarten lässt:
+  Stand-Abschnitt JETZT nachziehen (Datum + Prio-Zeilen), dann erneut prüfen. Ein
+  „bewusst nicht aktualisiert, weil X" ist zulässig, gehört dann aber als Satz in den
+  Commit-/PR-Text — stillschweigend stale mergen ist der ×12-Verstoß.
+
 ### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
 
 Falls uncommitted changes, offene Tasks oder abgebrochene Implementierungen existieren:
@@ -594,6 +615,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
 | 11 | Erledigte/verschobene Prios im Handover UND Memory nachgezogen (Phase 0c) | ☐ |
 | 12 | Offene AGENT_HANDOVER.md-PRs gegengecheckt vor eigenem Schreiben (Phase 0a-handover-pr) | ☐ |
+| 13 | Handover-Freshness-Check gelaufen: Exit 0 oder begründet im Commit-/PR-Text (Phase 0a-freshness) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
@@ -632,6 +654,11 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 
 ## Changelog
 
+- 2026-08-02: Phase 0a-freshness (PFLICHT) + Checklisten-Zeile 13 — Welle 1 KONZ-038,
+  Issue #1457, Slug `handover-stale-vor-merge` (×12). Reconcile-Befund: das CI-Gate ist
+  paths-gefiltert und kann die Verstoß-Klasse „Handover NICHT angefasst" strukturell
+  nicht sehen; der Prüfer (`agent_handover_freshness_check.py`) existierte + ist getestet,
+  lief aber an keiner Prozess-Stelle, die den Verstoß erreicht.
 - 2026-07-15: Abschluss-Checkliste um Zeile 12 (Phase 0a-handover-pr) ergänzt + Pflicht-
   Selbstcheck-Hinweis. Aus Retro `session-retro-2026-07-15-platform-c494a2` (Befund #8):
   Phase 0a-handover-pr wurde 07-14 ergänzt, war in der verteilten Skill-Kopie vorhanden,

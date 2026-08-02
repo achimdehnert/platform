@@ -1,0 +1,29 @@
+# Baseline der bekannten Staging-Check-Fehlschlaege (ADR-210 R1-R8).
+#
+# STAND 2026-08-01, gemessen auf dem PROD-RUNNER (Lauf 30688059707):
+# 7 von 8 Jobs `failure`, Gesamt-Conclusion `success` — weil jeder Job
+# `continue-on-error: true` trug. Diese Datei friert genau diesen Stand ein.
+#
+# WOZU: Ohne Baseline haette das Scharfschalten des Gates sofort dauerrot
+# erzeugt (repo-health-rule-discipline: ein dauerrot blinkender Check ist
+# Alarm-Muedigkeit, kein Fortschritt). Mit Baseline gilt:
+#   - ein Eintrag hier faellt        -> geduldet, kein Befund
+#   - ein Check AUSSERHALB faellt    -> Regression, hartes Rot
+#
+# WICHTIG — diese Datei ist eine SCHULD, kein Zielzustand. `run_all.sh` meldet
+# bei jedem Lauf, welche Eintraege wieder gruen sind ("behoben, Baseline
+# kuerzen"). Wer einen Eintrag streicht, macht das Gate scharfer; wer einen
+# hinzufuegt, muss das im PR begruenden.
+#
+# Die inhaltlichen Befunde sind getrackt: platform#1627.
+#
+# Lokal (Dev-Maschine) fallen nur 4 davon auf — Container, nginx-vhosts und
+# Cloudflare sind von dort nicht sichtbar. Massgeblich ist der Prod-Runner.
+
+staging_host_locality.sh
+staging_naming.sh
+staging_port_range.sh
+staging_tunnel_ingress.sh
+staging_oidc_redirects.sh
+staging_generated_drift.sh
+staging_devdesktop_clean.sh

@@ -68,7 +68,7 @@ def test_should_count_checked_claim_when_check_tool_precedes_marker(tmp_path):
     p = tmp_path / "session.jsonl"
     _write_jsonl(p, entries)
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (1, 1)
 
@@ -82,7 +82,7 @@ def test_should_count_unchecked_claim_when_no_check_tool_precedes_marker(tmp_pat
     p = tmp_path / "session.jsonl"
     _write_jsonl(p, entries)
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (0, 1)
 
@@ -96,7 +96,7 @@ def test_should_ignore_turns_without_any_marker_claim(tmp_path):
     p = tmp_path / "session.jsonl"
     _write_jsonl(p, entries)
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (0, 0)
 
@@ -114,7 +114,7 @@ def test_should_keep_tool_result_callbacks_inside_same_logical_turn(tmp_path):
     p = tmp_path / "session.jsonl"
     _write_jsonl(p, entries)
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (1, 1)
 
@@ -129,7 +129,7 @@ def test_should_aggregate_multiple_turns_in_one_file(tmp_path):
     p = tmp_path / "session.jsonl"
     _write_jsonl(p, entries)
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (1, 2)
 
@@ -143,7 +143,7 @@ def test_should_return_zero_zero_for_empty_transcript(tmp_path):
     p = tmp_path / "empty.jsonl"
     p.write_text("", encoding="utf-8")
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (0, 0)
 
@@ -159,7 +159,7 @@ def test_should_skip_malformed_json_lines_without_crashing(tmp_path):
         encoding="utf-8",
     )
 
-    checked, total = med.measure_file(p)
+    checked, total, _k = med.measure_file(p)
 
     assert (checked, total) == (1, 1)
 
@@ -168,6 +168,81 @@ def test_should_scan_project_dir_with_no_jsonl_files_as_zero(tmp_path):
     empty_dir = tmp_path / "no-sessions"
     empty_dir.mkdir()
 
-    checked, total = med.scan_project_dir(empty_dir)
+    checked, total, _k = med.scan_project_dir(empty_dir)
 
     assert (checked, total) == (0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Signal K — Ruecknahme-Turns (2026-08-02, Retro 8ed6a2)
+# ---------------------------------------------------------------------------
+
+
+def _write(tmp_path, *entries):
+    p = tmp_path / "t.jsonl"
+    p.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
+    return p
+
+
+def test_should_count_retraction_turn(tmp_path):
+    """Ein Turn, der eine eigene Aussage kassiert, zaehlt fuer K."""
+    p = _write(
+        tmp_path,
+        _user("hi"),
+        _assistant(_text("Meine Zahl von eben war falsch — Richtigstellung folgt.")),
+    )
+    _c, _t, k = med.measure_file(p)
+    assert k == 1
+
+
+def test_should_not_count_plain_progress_as_retraction(tmp_path):
+    """Gegenrichtung: normale Arbeit ohne Ruecknahme-Marker -> K=0.
+    Ohne diesen Test koennte K auf allem feuern und waere Rauschen."""
+    p = _write(
+        tmp_path,
+        _user("hi"),
+        _assistant(_text("PR #12 angelegt, Tests laufen, alles gruen.")),
+    )
+    _c, _t, k = med.measure_file(p)
+    assert k == 0
+
+
+def test_should_not_count_widerlegt_alone(tmp_path):
+    """'widerlegt' fehlt BEWUSST in der Liste — es markiert meist Skeptiker-
+    Verdikte ueber Dritt-Befunde, nicht die Ruecknahme eigener Aussagen."""
+    p = _write(
+        tmp_path,
+        _user("hi"),
+        _assistant(_text("Der Skeptiker hat Befund B3 widerlegt.")),
+    )
+    _c, _t, k = med.measure_file(p)
+    assert k == 0
+
+
+def test_should_count_retraction_once_per_turn(tmp_path):
+    """K zaehlt TURNS, nicht Marker — drei Marker im selben Turn = 1."""
+    p = _write(
+        tmp_path,
+        _user("hi"),
+        _assistant(
+            _text("Das war falsch."),
+            _text("Rücknahme: mein Fehler, zu scharf formuliert."),
+        ),
+    )
+    _c, _t, k = med.measure_file(p)
+    assert k == 1
+
+
+def test_should_count_marker_and_retraction_independently(tmp_path):
+    """R-hoch+K-hoch ist die Ritual-Diagnose — beide Zaehler muessen im selben
+    Turn unabhaengig feuern koennen (Check gelaufen UND Aussage kassiert)."""
+    p = _write(
+        tmp_path,
+        _user("hi"),
+        _assistant(
+            _tool_use("Bash"),
+            _text("PR #7 gemergt — aber meine Messung von vorhin war falsch."),
+        ),
+    )
+    checked, total, k = med.measure_file(p)
+    assert (checked, total, k) == (1, 1, 1)
