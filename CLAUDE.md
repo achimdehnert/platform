@@ -3,6 +3,23 @@
 > Meta-Repo des IIL-Ökosystems: ADRs, Workflows, Governance, `shared_contracts`.
 > **Kein App-Code, kein Django** — der lebt in den Hub-Repos (dev-hub, risk-hub, …).
 
+## ⚠️ Dieses Repo ist ÖFFENTLICH
+
+`achimdehnert/platform` ist **public** (geprüft 2026-08-02). `dev-hub` und die Hub-Repos sind
+privat — **platform ist die Ausnahme**, und genau darin liegt die Falle.
+
+**Jeder Commit hierher ist eine Veröffentlichung.** Keine Personendaten, keine Zugangsdaten,
+keine Infrastruktur-Details, die nicht draußen stehen sollen. Testdaten aus echten Quellen
+(Postfach, Prod-Datenbank, Kundendokumente) **immer** entpersonalisieren — und die Bereinigung
+mit einer Kontrollprobe belegen (roh N Treffer → bereinigt 0), nicht nur behaupten.
+
+**Warum das hier steht:** Am 2026-08-02 wurde ein `--admin`-Bypass mit der Begründung „wegen
+privat" freigegeben, und beinahe wäre eine Test-Fixture mit Namen Studierender und einer
+Anschrift hier gelandet ([#1670](https://github.com/achimdehnert/platform/pull/1670)). Falsch
+war die Prämisse, nicht die Sorgfalt. Ob das so bleibt, behandelt
+[`KONZ-platform-039`](docs/konzepte/KONZ-platform-039-sichtbarkeit-platform-repo.md) — bis zu
+einer Entscheidung gilt: **öffentlich**.
+
 ## SSoT: zuerst `CORE_CONTEXT.md` lesen
 
 Die maßgebliche Repo-Doku ist **[`CORE_CONTEXT.md`](CORE_CONTEXT.md)** — Rolle,
