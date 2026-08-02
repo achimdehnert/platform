@@ -207,7 +207,7 @@ org-weit und träfe genau die Repos, die publiziert werden.
 | id | Kriterium | Schwelle | Status |
 |----|-----------|----------|--------|
 | K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ✅ 2026-08-02 — Ergebnis in §4: öffentlicher Aufrufer scheitert, L5 bestätigt |
-| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | 🟡 teilweise — 2 Methoden × 1 Owner erhoben (§3.1), 3 Owner fehlen |
+| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | ✅ 2026-08-02 — Union Code-Suche (4 Owner) + lokaler Grep: **26 Repos, 12 PUBLIC** (11 externe + platform selbst), 14 privat; Owner mit Konsumenten: achimdehnert, iilgmbh, meiki-lra; ttz-lif = 0 (Suche fand bei denselben Queries andere Owner → kalibriert). Bleibt untere Schranke: Suche fand mcp-hub, das der lokale Grep nicht traf, und umgekehrt 22 Repos ohne Such-Index-Treffer |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
 
