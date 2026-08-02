@@ -172,6 +172,36 @@ def test_should_allow_environ_setdefault_in_boilerplate_rules():
         assert chu._check_line(r, "os.environ['X'] = 'TREFFER'", P("manage.py"))
 
 
+# --- V-CFG-02: nur .get OHNE Default ist "ohne Fallback-Logik" ----------------
+# Realfall 2026-08-02 (Megatest-Lauf 30619024656): die alte Regex flaggte JEDEN
+# os.environ.get(-Aufruf — auch mit Default, also das von der Regel selbst
+# empfohlene Muster. Fünf Budget-0-Repos fielen fast nur dadurch durch.
+
+
+def _echte_regel(rule_id: str) -> "chu.Rule":
+    return next(r for r in chu.RULES if r.rule_id == rule_id)
+
+
+def test_should_flag_environ_get_without_default():
+    r = _echte_regel("V-CFG-02")
+    assert chu._check_line(r, 'wert = os.environ.get("MAIL_AGENT_TOOLS")', P("apps/x.py"))
+    assert chu._check_line(r, "wert = os.environ.get('CACHE_DIR')", P("apps/x.py"))
+
+
+def test_should_not_flag_environ_get_with_default():
+    r = _echte_regel("V-CFG-02")
+    assert not chu._check_line(r, 'creds = os.environ.get("MAIL_GRAPH_CREDS", "")', P("apps/x.py"))
+    assert not chu._check_line(r, "t = float(os.environ.get('TIMEOUT', '15'))", P("apps/x.py"))
+
+
+def test_should_not_flag_undecidable_get_calls():
+    r = _echte_regel("V-CFG-02")
+    # mehrzeiliger Aufruf: das Default-Argument steht auf der Folgezeile
+    assert not chu._check_line(r, "mcp_url = os.environ.get(", P("apps/x.py"))
+    # Variablen-Argument: zeilenweise nicht entscheidbar
+    assert not chu._check_line(r, "raw = os.environ.get(name)", P("apps/x.py"))
+
+
 def test_should_apply_the_template_whitelist_only_to_html_files():
     zeile = 'href="https://extern" TREFFER'
 

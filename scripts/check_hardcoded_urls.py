@@ -53,6 +53,9 @@ _SKIP_DIRS = {
     ".venv", "node_modules", "__pycache__", "site-packages",
     ".git", "dist", "build", "htmlcov", ".mypy_cache", ".tox",
     ".claude", ".windsurf",
+    # Klickdummys sind statische Prototypen ohne Django-URL-Aufloesung
+    # (ADR-211) — harte hrefs sind dort das Medium, kein Befund.
+    "klickdummy",
 }
 
 _SKIP_REPOS = {
@@ -165,7 +168,13 @@ RULES: list[Rule] = [
     Rule(
         "V-CFG-02", "VERMEIDBAR",
         "os.environ.get(\"KEY\") ohne Fallback-Logik",
-        re.compile(r'\bos\.environ\.get\('),
+        # Nur der vollständige Ein-Argument-Aufruf auf einer Zeile ist der
+        # beschriebene Fall "ohne Fallback-Logik". Mit Default-Argument ist die
+        # Zeile das empfohlene Muster; mehrzeilige Aufrufe und Variablen-
+        # Argumente sind zeilenweise nicht entscheidbar → nicht geflaggt
+        # (0-FP-Disziplin). Bis 2026-08 flaggte die Regex JEDEN .get(-Aufruf
+        # und widersprach der eigenen Beschreibung.
+        re.compile(r'\bos\.environ\.get\(\s*["\'][^"\']+["\']\s*\)'),
         (".py",),
         "decouple.config('KEY', default=...)",
         skip_filenames=frozenset(_DJANGO_BOILERPLATE),

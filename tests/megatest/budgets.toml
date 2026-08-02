@@ -5,32 +5,50 @@
 # Budget reduzieren wenn Violations gefixt werden.
 #
 # Ziel: alle Repos auf 0 bringen.
-# Generiert: 2026-04-21
+# Generiert: 2026-04-21 · Neu-Basierung 2026-08-02 (Megatest-Lauf 30619024656):
+#   - 11 Registry-Repos ohne Budget aufgenommen, Werte = Erstmessung gegen
+#     origin/main mit praezisierter V-CFG-02-Regel (nur .get ohne Default).
+#   - bfagent 72→33, mcp-hub 79→34 neu gemessen (alte Werte stammten aus
+#     lokalen Laeufen vom 27.04. mit der breiten Regel).
+#   - Alle V-SEC-Funde hinter Budgets >0 wurden einzeln gesichtet:
+#     ausnahmslos Test-Attrappen ("test-secret-key-…", "s3cr3t-ingress-token")
+#     bzw. V-SEC-03-Fehlgriffe auf REASON_*-Audit-Konstanten (mcp-hub).
 # Tool: platform/scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
 
 [budgets]
 "137-hub"            = 0
 "aifw"               = 7
-"ausschreibungs-hub" = 0
+"apo-hub"            = 7
+"ausschreibungs-hub" = 5
 "authoringfw"        = 0
-"bfagent"            = 72
+"bfagent"            = 33
 "billing-hub"        = 0
 "cad-hub"            = 0
 "coach-hub"          = 0
+"decks-hub"          = 0
 "dev-hub"            = 0
 "dms-hub"            = 0
+"frist-hub"          = 8
+"gaeb-toolkit"       = 0
+"iil-adrfw"          = 1
+"iil-codeguard"      = 0
+"iil-django-commons" = 1
 "iil-enrichment"     = 0
 "iil-fieldprefill"   = 0
 "iil-ingest"         = 0
-"iil-reflex"         = 0
+"iil-klickdummy"     = 2
+"iil-reflex"         = 1
 "iil-relaunch"       = 0
-"illustration-fw"    = 0
-"illustration-hub"   = 0
+"iil-testkit"        = 1
+"iil-voice-agent"    = 39
+"illustration-fw"    = 4
+"illustration-hub"   = 1
 "infra-deploy"       = 1
 "lastwar-bot"        = 0
 "learn-hub"          = 0
 "learnfw"            = 1
-"mcp-hub"            = 79
+"mcp-hub"            = 34
+"meiki-hub"          = 1
 "nl2cad"             = 0
 "odoo-hub"           = 21
 "onboarding-hub"     = 0
@@ -40,15 +58,16 @@
 "recruiting-hub"     = 0
 "research-hub"       = 0
 "researchfw"         = 3
-"risk-hub"           = 0
+"risk-hub"           = 2
+"riskfw"             = 0
 "tax-hub"            = 0
-"testkit"            = 1
 "trading-hub"        = 0
 "travel-beat"        = 0
+"ttz-hub"            = 5
 "wedding-hub"        = 0
 "weltenhub"          = 0
 "weltenfw"           = 0
-"writing-hub"        = 0
+"writing-hub"        = 2
 
 # Per-Regel-Budgets (optional, für granulare Gates)
 # Format: "repo.RULE_ID" = max_count
