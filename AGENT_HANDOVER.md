@@ -35,7 +35,90 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-02 — Regel-Lebenszyklus KONZ-038: Ritual live, Welle-1-Gates gebaut)
+## ⚡ Aktueller Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
+
+**Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
+
+**Kern in einem Satz:** Die vollständige Kette zu einem Thema kommt jetzt in **unter
+120 ms aus der Datenbank** — über Ordner- **und** Kontengrenzen hinweg —, statt über
+mehrere IMAP-Durchläufe; beide vom Owner gesetzten Abnahmefälle sind bestanden.
+
+**Die beiden Abnahmefälle, gemessen:**
+
+| Fall | Transport | Ergebnis |
+|---|---|---|
+| Offner | IMAP (hnu + mittwald) | 3er-Kette, 51 ms, Kanten `verweis` |
+| Schmalberger | Graph (iil) | 11er-Kette, 119 ms, 3 Beteiligte, 4 Ordner, Kanten `konversation` |
+
+Keine einzige Kante kam über den Betreff — alle sind über `References` bzw. Graph-
+`conversationId` belegt. Bestand: **11.573 Nachrichten** aus drei Postfächern.
+
+**Fünf Stufen gebaut (S1–S5, alle gemergt und live):**
+- **S1 Antwortpfad** — `mail_suche` (dev-hub) + `tools/mail_agent/suche.py` (platform).
+  Jede Antwort trägt ihre **Deckung**: Konten, Umfang, Textzonen und ausdrücklich, was
+  NICHT durchsucht wurde. Ohne das liest sich ein leeres Ergebnis wie „gibt es nicht",
+  wo nur „habe ich nicht indexiert" gilt.
+- **S2 Vorgangs-Schicht** — `Vorgang` + `VorgangsZuordnung`, durabel, über einen
+  **natürlichen Schlüssel** (`LogicalMessage.kennung` = sha256(Mandant|Message-ID bzw.
+  Inhalts-Hash)). `PROTECT` macht verwaiste Kuration konstruktiv unmöglich.
+- **S3 Volltext** — `mail_volltext`, Tor an ADR-286 §4.5 (nur aktiver Vorgang), **kein**
+  Umgehungsschalter, als Test verankert.
+- **S4 Graph-Ingest** — `mail_ingest --transport graph` mit eigener App-Registrierung
+  (`iil-mail-ingest`, Client-Credentials). Dazu `mail_graph_pruefen`: vier Stufen
+  Datei→Token→Berechtigung→Postfach, jede mit dem nächsten konkreten Schritt.
+- **S5 Dossier** — `mail_dossier` mit Evidenz je Zeile und Ausgabezustand nach §4.6
+  (`open` nur bei vollständiger Deckung), Zustand nie ohne Gründe.
+- **Verkettung** — `mail_kette`, drei Kantenarten nach Verlässlichkeit; Betreff nur als
+  Rückfall und nur bis `BETREFF_MAX=12`, sonst ausdrücklich verworfen **mit Meldung**.
+
+**ADR-288 §4.1 geändert** ([#1598](https://github.com/achimdehnert/platform/pull/1598)):
+„durable Referenzen zeigen nie auf Surrogat-IDs" → „hängen an stabiler **Identität**".
+Der alte Wortlaut zwang dazu, an der Datenbank vorbeizubauen (Textkopie + Cache-FK +
+Neuverknüpfen + Waisen-Zähler); ein natürlicher Schlüssel erfüllt das Ziel mit **einer**
+Beziehung.
+
+**Sechs Befunde am echten Bestand — alle waren still:**
+1. **41 % des Index waren keine Post** — 2.488 IMAP-Platzhalter aus Kalender/Kontakte/
+   Aufgaben, ohne Datum und Absender ([#1584](https://github.com/achimdehnert/platform/pull/1584)).
+   Kein Deckungsproblem: es fehlte nichts, es stand zu viel drin, und die Deckung meldete
+   folgerichtig `complete`.
+2. **Betreff-Stränge verschmelzen Fremdes** — 43 Nachrichten *verschiedener* Studierender
+   unter „Request for Thesis Supervision", 43 ResearchGate-Meldungen, 33 „HNU
+   Kontaktformular"; umgekehrt zerreißt jeder Betreffwechsel eine echte Kette.
+3. **Verschieben erzeugte Duplikate** — die transportspezifische Identität enthält den
+   Ordner (id 1713/6045, byte-gleiche Message-ID). Behoben durch Message-ID-Korrelation
+   als zweite Stufe.
+4. **Der Index speicherte Sequenznummern statt UIDs**, `uidvalidity=0` fest verdrahtet.
+   Am Postfach belegt: `FETCH 185` lieferte die Mail, `UID FETCH 185` nichts, Server
+   meldet UIDVALIDITY 14. Eine Sequenznummer ist **nicht stabil**
+   ([#1656](https://github.com/achimdehnert/platform/pull/1656) + dev-hub#195).
+5. **`/opt/platform` driftet ungebremst** — 33 Commits hinter main, nichts synct
+   ([#1585](https://github.com/achimdehnert/platform/issues/1585)). Ein Merge nach main
+   wirkt dort **nicht**; er sieht nur so aus.
+6. **Der untested-command-Hook meldete siebenmal denselben Befund** — sein Fenster wächst
+   ohne Nutzereingabe unbegrenzt (166 Records, 27 Vorkommen). Entprellt
+   ([#1619](https://github.com/achimdehnert/platform/pull/1619)).
+
+**Zwingend für die nächste Session:**
+- **Ein Ingest-Lauf mit echten UIDs steht aus.** Die gespeicherten Nummern stammen noch
+  aus der Sequenznummer-Ära; `mail_volltext` kann bis dahin nichts abrufen.
+- **`mail_volltext` hat keinen Graph-Pfad** — Kopien mit `transport=graph` tragen kein
+  `uid`, `_roh_holen` gibt `None` zurück. Damit ist der Volltext für IIL blockiert und
+  für den Offner-Fall teilweise (dessen Kette spannt über beide Transporte).
+- **Nach jedem `platform`-Merge, der `tools/mail_agent/` berührt: `/opt/platform` ziehen.**
+  Sonst läuft der Container auf altem Werkzeugstand weiter.
+
+**Sicherheit:** Outline-API-Token lag im Klartext in `/etc/cron.d/adr-outline-sync` und
+geriet beim Suchen ins Transkript → als **kompromittiert** behandeln, Rotation offen
+([#1586](https://github.com/achimdehnert/platform/issues/1586)).
+
+**Eigene Fehler, benannt:** `git add -A` sammelte fremde Arbeit einer Parallel-Sitzung ein
+(zurückgenommen); ein `--amend` traf den Basis-Merge-Commit (Branch neu aufgesetzt);
+`ruff format .` über den ganzen Baum formatierte fremde, unfertige Dateien um. Und der
+Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dateien als
+„deine" — kostete mehrere Anläufe, bis ich es gemessen statt geglaubt habe.
+
+## ⚡ Vorheriger Stand (2026-08-02 — Regel-Lebenszyklus KONZ-038: Ritual live, Welle-1-Gates gebaut)
 
 **Zeitanker:** HEAD `86546d09` · `rev-list --count` 2746 · geschrieben 2026-08-02
 
@@ -53,103 +136,26 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 - **Sicherheits-Nebenbefund:** `~/.claude/settings.json` trägt den orchestrator-Bearer-Token im Klartext; er landete beim (fürs Hook-Wiring notwendigen) Einlesen im Session-Transkript → als kompromittiert behandeln: **Rotation** anstoßen + Header-Wert aus der Datei auslagern (Owner-Entscheid, Gate 1).
 - **Fremd-Artefakt, nicht angefasst:** im platform-Haupt-Tree liegt ein staged `KONZ-platform-037`-Entwurf, der von origin/main abweicht (vermutlich Parallel-Session 01.08.) — blockiert `git pull` des stalen lokalen main. Sichten/verwerfen ist Owner-Call.
 
-## ⚡ Vorheriger Stand (2026-07-31 — der Megatest lief seit dem 21.04. nie; Claim-Wächter und Mail-Werkzeug repariert)
-
-**Zeitanker:** HEAD `6d9c692b` · `rev-list --count` 2657 · geschrieben 2026-07-31
-
-**Der Kernbefund ist unangenehm und gut belegt:** Der Hardcoding-Megatest meldete drei
-Monate lang `success`, **ohne je eine Zeile Testcode auszuführen**. `python -m pytest` auf
-einem Runner, der nur `python3` kennt — der Aufruf stand seit dem allerersten Commit der
-Suite so drin (`c100e78c`, 2026-04-21), nicht erst seit Juli. Sichtbar wurde es nie, weil
-der Schritt `continue-on-error: true` trägt. Der Melder dahinter feuerte korrekt auf
-`outcome == 'failure'`, fand aber nichts zu berichten und öffnete **28 inhaltsleere
-Regressions-Issues** zwischen dem 22.04. und dem 15.06., Rumpf jeweils
-`Output nicht gefunden (Pfad: .../megatest-output.txt)`. Alle 28 wurden geschlossen, keines
-führte zur Ursache.
-
-Gefixt in [#1588](https://github.com/achimdehnert/platform/pull/1588) (`python3` + ein
-Zweig, der **rot** wird, wenn gar keine JUnit-Datei entsteht — damit ist „Test fand
-Verletzungen" von „Test kam nicht zustande" unterscheidbar). Der Beweis ist der Lauf, nicht
-der Diff: [30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656)
-sammelt **100 Tests** und führt sie aus.
-
-**Das Ergebnis der ersten echten Messung: `15 failed, 53 passed, 26 skipped, 6 xfailed`.**
-Wichtig für die Einordnung — die Budgets in `tests/megatest/budgets.toml` stammen vom
-**27.04.** aus lokalen Scanner-Läufen und wurden **nie** in CI gegengeprüft. Eine
-Überschreitung ist deshalb keine Regression gegen einen gemessenen Zustand, sondern die
-Differenz zwischen einer April-Schätzung und der Wirklichkeit. Aufgeschlüsselt:
-
-| Kategorie | Repos |
-|---|---|
-| Security-Funde in Repos mit Budget 0 | dev-hub (`conftest.py:34`, Regel `SECRET_KEY=`), research-hub |
-| „war sauber (Budget=0)", hat jetzt Violations | dev-hub, iil-enrichment, nl2cad, research-hub, trading-hub |
-| Budget überschritten | bfagent 116>72, mcp-hub 110, trading-hub, dev-hub 6>0, iil-enrichment, nl2cad 5, research-hub |
-| Meta | `test_should_registry_budget_sync` — Repos in `repo-registry.yaml` ohne Budget |
-
-**Zwei weitere Reparaturen, beide im Zielkontext verifiziert statt nur getestet:**
-
-[#1589](https://github.com/achimdehnert/platform/pull/1589) — `evidence_claim_scanner.py`
-lag ausschließlich in `~/.claude/hooks/`: ungetrackt, ungetestet, pro Maschine driftend.
-Der Wächter gegen `claim-before-cheapest-check` (×30 das häufigste Retro-Finding, mehr als
-doppelt so oft wie das nächste) war damit das schlechtest gesicherte Artefakt im Setup. Jetzt
-in `tools/claude-hooks/` mit 43 Tests. Gemessen an den fünf realen Fehlsätzen dieses Tages
-fing er **einen**; die vier Lücken sind geschlossen als `universal-claim`,
-`function-negation`, `temporal-claim`, `soft-quantifier-claim`. Alle vier erben die strenge
-Beleg-Regel — eine Allaussage verlangt eine Breitsuche, eine Gegenwarts-Aussage einen
-Lauf-Blick; **`git show` zählt dafür ausdrücklich nicht**, ein Diff belegt Verhalten nie.
-
-[#1591](https://github.com/achimdehnert/platform/pull/1591) — `read_mail` gab bei Mails ohne
-`text/plain`-Teil nur „(kein text/plain-Teil)" zurück. Am 31.07. betraf das **fünf von neun**
-neuen Nachrichten; zwei davon wären still durchgefallen (eine Personal-Anfrage der HNU, ein
-inhaltlicher Einwand zur Lehrplanung). Neu: `body_und_quelle()` mit HTML-Rückfall.
-`extract_text()` bleibt bewusst **ohne** Herkunfts-Marker — sein Rückgabewert landet wörtlich
-im Zitat von `draft_mail`. Zweitens trugen die Anhang-Links des Link-Dienstes den
-**Verzeichnisnamen von der Platte** in die URL (`163497-anhaenge/…`), was von `/a/<nr>` aus
-ins Leere lief; `render()` bekommt jetzt einen `basis`-Parameter und erzeugt absolute Routen.
-Dienst neu gestartet, `/a/1` liefert den Anhang mit HTTP 200.
-
-**Was beim Mergen zu wissen ist:** Ruleset `17621471` trägt `bypass_actors: []` — es gibt
-**keinen** Akteur, der die Regel umgehen kann, `--admin` eingeschlossen. Der Owner versuchte
-es an allen drei PRs selbst, dreimal dieselbe Wand. Der einzige Weg ist ein Code-Owner-Review
-durch `@wirdigital` (CODEOWNERS: `* @achimdehnert @wirdigital`, Autor zählt nicht). Das ist
-Routine, nicht Ausnahme: neun Merges an diesem Tag liefen so.
-
-**Eigene Fehler dieser Sitzung, alle korrigiert:** „seit dem 15.07." war zu eng — der Lauf
-vom 14.07. trägt denselben Fehler, der wahre Beginn ist der 21.04.; korrigiert als Kommentar
-an #1588 und #1010, mit benannter Restlücke (April-Logs sind mit `HTTP 410` abgelaufen, dort
-stützen nur die Issue-Rümpfe). Drei Bypass-Audit-Kommentare beschrieben einen `--admin`-Merge,
-der nie stattfand — an allen drei PRs richtiggestellt. Und ein `grep -c` gab null auf einem
-Log, das den Treffer enthielt (ANSI-Codes im Muster) — beinahe der umgekehrte Fehlschluss.
-
-**Outline:** der MCP dieser Sitzung liefert weiterhin `302`, wie im Vor-Stand beschrieben.
-Der dokumentierte Umweg funktioniert und wurde heute genutzt — Lesson-Dokument
-`dde42e37-83e0-42ff-acc5-e5637ba3002e` („Megatest meldete drei Monate grün, ohne je zu
-laufen"). Skript-Muster: `scratchpad/outline-lesson.sh` (Token nur in Variablen und
-curl-Kopfzeilen, nie in URL oder Ausgabe).
-
-**Nicht aus dieser Sitzung, aber offen:** `Prod-Uptime-Canary` ist seit dem 29.07. rot, fünf
-Hubs mit `HTTP 502` (137herz.de, bieterpilot.de, wedding-hub, coach-hub, hr.iil.pet) —
-getrackt in [#1547](https://github.com/achimdehnert/platform/issues/1547), passt zum
-Container-Freeze aus #1303. Drei fremde Repos sind dirty (`django-lms-lite`,
-`iil-doc-templates` mit untracked `.windsurf/`, `risk-hub` mit geändertem `NEXT.md`) —
-liegen gelassen, gehören anderen Sitzungen.
-
-
 ## Nächste Schritte (kompakt)
 
 > **✅ hetzner-prod Speicherlage entschärft 2026-07-29 ([#1303](https://github.com/achimdehnert/platform/issues/1303), Messwerte als Kommentar):** Freies RAM **444 → 9.455 MB**, Swap von **4.095/4.095 auf 1.757/4.095**, laufende Container **113 → 45**. Auf Owner-Anweisung wurden 68 nicht benötigte Container **gestoppt** (nicht entfernt — `docker start` holt jeden zurück, Volumes unangetastet): ausschreibungs-hub, odoo, hub137, wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub, pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl. `ib_gateway`. **Weiter laufen** risk-hub (live), dev-hub, doc-hub, Outline, mcp-hub, authentik, weltenhub, illustration, dms-hub, writing-hub, aifw. **Die Lehre daraus ist wichtiger als die Zahl:** Ein cgroup-OOM sagt nicht, dass der Container zu klein ist — in die cgroup-Bilanz zählt der Seiten-Cache, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen. `devhub_celery` fiel **ohne jede Änderung an ihm** von 370,4 auf 305,9 MiB; ein Import, der dreimal mit `rc=137` starb, lief danach durch. „Limit erhöhen" wäre bei 924 MB freiem Host-RAM die gefährlichere Antwort gewesen. **Weiterhin ungeklärt:** warum die Container am 20.07. entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). **Nicht geheilt und deshalb eigenes Ticket ([#1549](https://github.com/achimdehnert/platform/issues/1549)):** `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Cache) und Health-Checks, die seit Tagen rot sind — `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9`; der Server antwortet weiter, der Worker ist tot.
 
 1. **Die 15 Megatest-Befunde abarbeiten** — der erste echte Lauf der Suite ([30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656)) meldet `15 failed, 53 passed`. **Reihenfolge nach Schwere, nicht nach Zahl:** (a) die zwei Security-Funde in Repos mit Budget 0 — dev-hub (`conftest.py:34`, Regel `SECRET_KEY=`) und research-hub; erst entscheiden, ob echt oder Test-Attrappe, der Wert wurde bewusst nicht ausgelesen. (b) die fünf Repos, die als sauber geführt waren und jetzt Violations haben (dev-hub, iil-enrichment, nl2cad, research-hub, trading-hub) — ein Budget von 0 war eine bewusste Zusage. (c) die Budget-Überschreitungen; für **bfagent** (116>72) ist eine ehrliche Neu-Basierung sinnvoller als ein Fix an totem Code, das Repo ist eingefroren (import-only). (d) `test_should_registry_budget_sync` — Repos in `repo-registry.yaml` ohne Budget. **Vor jeder Bewertung mitdenken:** die Budgets stammen vom 27.04. aus lokalen Läufen und wurden nie in CI gemessen; „über Budget" heißt hier nicht „verschlechtert", sondern „erstmals gemessen".
 2. **mcp-hub: die zwei roten Jobs schließen** — [#188](https://github.com/achimdehnert/mcp-hub/pull/188) (Formatierung) und [#189](https://github.com/achimdehnert/mcp-hub/issues/189) (click/huggingface-hub-Konflikt in der geteilten Runner-Umgebung). **Der Verdacht aus dem Vor-Stand ist widerlegt:** `ci / gate` ist **kein** Konstruktionsfehler und verlangt auch keine Teilmenge — seine `needs`-Liste enthält alle elf Jobs, `lint` und `security` inklusive, im Tag `v1.0.11` **identisch** zu `main` (beide gelesen). Der echte Mechanismus ist `continue-on-error`: `security` hat es hart verdrahtet („Job blockiert Deploy nicht — aber Output ist sichtbar"), `lint` über den Input `lint_soft_fail`, den `mcp-hub/deploy.yml` bewusst auf `true` setzt (fünf Zeilen Begründung im Workflow: Polyrepo-Monorepo ohne Root-`requirements.txt`, Option 3 aus #78, **gitleaks bleibt hartes Gate**). GitHub zeigt bei `continue-on-error` die Job-**Conclusion** als `failure`, setzt aber `needs.<job>.result` auf `success` — der Gate ist damit zu Recht grün. **Was bleibt:** „`ci / gate` grün" belegt in mcp-hub **nicht**, dass Lint und Security grün waren. Das ist gewollt, muss man aber wissen. **Weiter offen:** der scharfe Negativtest zu [#184](https://github.com/achimdehnert/mcp-hub/issues/184) — über die vorhandenen Workflows nicht auslösbar (keiner trägt ein ungültiges Modell); verifiziert ist nur die Code-Präsenz im laufenden Container.
-3. **`devhub_beat` und die toten Health-Checks** ([#1549](https://github.com/achimdehnert/platform/issues/1549)) — `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Seiten-Cache, also nicht durch die Host-Entlastung geheilt) und Health-Checks, die seit Tagen rot sind: `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9` — der Server antwortet weiter, der Worker ist tot. **Neu hinzugekommen:** durch die aktive Mail-Generation läuft ab jetzt täglich 03:30 ein Ingest-Lauf in `devhub_celery`; der erste scharfe Lauf ist der Belastungstest für dieses Limit und sollte am 31.07. gegengelesen werden (`docker logs devhub_celery --since 4h | grep -i mail_ingest`).
+3. **`devhub_beat` und die toten Health-Checks** ([#1549](https://github.com/achimdehnert/platform/issues/1549)) — `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Seiten-Cache, also nicht durch die Host-Entlastung geheilt) und Health-Checks, die seit Tagen rot sind: `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9` — der Server antwortet weiter, der Worker ist tot. **Stand 2026-08-02:** der tägliche 03:30-Ingest läuft jetzt wirklich (Beleg in Punkt 5), ist damit wieder ein Belastungstest für dieses Limit — die Speichermessung von `devhub_beat` steht aber weiterhin für sich und wird von einem Ingest-Lauf **nicht** beantwortet. Gegenlesen mit dem **richtigen** Task-Namen: `docker logs devhub_celery --since 6h | grep -i ingest_scheduled` (der früher hier genannte `mail_ingest` existiert nicht).
 4. **Outline-MCP** — unverändert `302` in laufenden Sitzungen, eine **neue** Sitzung löst es (Belege im Vor-Stand). Kein Blocker mehr: der Umweg ist erprobt und wurde am 31.07. genutzt (`scratchpad/outline-lesson.sh` — Collection über `collections.list` suchen, dann `documents.create`; die drei Werte nur in Variablen und curl-Kopfzeilen, nie in URL oder Ausgabe). Geschrieben darüber: Doc `dde42e37-83e0-42ff-acc5-e5637ba3002e`. **Achtung beim Nachbauen:** ein `tr < ~/.secrets/…` direkt in der Bash-Kommandozeile löst den Secret-Leak-Guard aus — das Skript als Datei anlegen, nicht per Heredoc im Aufruf.
-5. **Mail-Ingest läuft auf Prod nicht — korrigiert Punkt 3** ([dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187), P1). Der Satz in Punkt 3, „ab jetzt läuft täglich 03:30 ein Ingest-Lauf", ist **widerlegt** — gegengelesen am 31.07. wie dort angekündigt, der Lauf hat **nie** stattgefunden. Der dort genannte Grep nennt zudem einen Task-Namen, den es nicht gibt (`mail_ingest`); er heißt `mail_agent.ingest_scheduled`. Fünf Messungen am Prod-Host: Logs 24 h ohne Treffer · Celery-Registry 19 Tasks, keiner mit `mail` · `PeriodicTask`-Tabelle 12 Einträge, keiner für `mail_agent` · weder `/app/apps/mail_agent` noch `/app/mail_tools` im Container · Mount-Quelle `/opt/platform/tools/mail_agent` fehlt auf dem Host. Der Ingest ist auf **keiner** Schicht aktiv: kein Code im Container, kein Bind-Mount, kein `PeriodicTask`-Eintrag. Zu tun sind **zwei** Dinge, nicht eines: Code auf Prod bringen **und** den DB-Eintrag `mail-agent-ingest-daily` → `mail_agent.ingest_scheduled` anlegen. Laufendes Image vom **12.07.**, 19 Tage alt — alles, was seither in dev-hub gebaut wurde, ist auf Prod nicht vorhanden. **Prod-Eingriff, Owner-Entscheidung.**
+5. **Mail-Ingest läuft jetzt auf Prod — Restarbeit ist ein UID-Neulauf** (korrigiert den Vor-Stand, der ihn als „läuft nicht" führte; [dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187)). Am 2026-08-02 gemessen: `PeriodicTask` **`mail-agent-ingest-daily` → `mail_agent.ingest_scheduled`**, `30 3 * * *` Europe/Berlin, `enabled=True`, letzter Lauf **2026-08-02 01:30 UTC**; Bestand **11.573 Nachrichten** über hnu/mittwald/iil. **Was bleibt, ist nicht der Ingest, sondern sein Inhalt:** die gespeicherten Nummern stammen aus der Sequenznummer-Ära (Fix in [#1656](https://github.com/achimdehnert/platform/pull/1656) + dev-hub#195) — bis zu einem Neulauf kann `mail_volltext` **nichts** abrufen. Zweitens hat `mail_volltext` **keinen Graph-Pfad**, damit ist der Volltext für das IIL-Postfach blockiert. Drittens: **`/opt/platform` zieht sich nicht selbst** ([#1585](https://github.com/achimdehnert/platform/issues/1585)) — nach jedem Merge, der `tools/mail_agent/` berührt, dort von Hand pullen, sonst läuft der Container auf altem Werkzeugstand weiter.
+   <details><summary>Vor-Stand vom 31.07. (widerlegt, zur Nachvollziehbarkeit)</summary>
+   Der Satz in Punkt 3, „ab jetzt läuft täglich 03:30 ein Ingest-Lauf", war am 31.07. **widerlegt** — der Lauf hatte **nie** stattgefunden. Der dort genannte Grep nennt zudem einen Task-Namen, den es nicht gibt (`mail_ingest`); er heißt `mail_agent.ingest_scheduled`. Fünf Messungen am Prod-Host: Logs 24 h ohne Treffer · Celery-Registry 19 Tasks, keiner mit `mail` · `PeriodicTask`-Tabelle 12 Einträge, keiner für `mail_agent` · weder `/app/apps/mail_agent` noch `/app/mail_tools` im Container · Mount-Quelle `/opt/platform/tools/mail_agent` fehlt auf dem Host. Der Ingest ist auf **keiner** Schicht aktiv: kein Code im Container, kein Bind-Mount, kein `PeriodicTask`-Eintrag. Zu tun sind **zwei** Dinge, nicht eines: Code auf Prod bringen **und** den DB-Eintrag `mail-agent-ingest-daily` → `mail_agent.ingest_scheduled` anlegen. Laufendes Image vom **12.07.**, 19 Tage alt — alles, was seither in dev-hub gebaut wurde, ist auf Prod nicht vorhanden.
+   </details>
 6. **Health-Poll meldet `succeeded`, prüft aber nichts** ([dev-hub#188](https://github.com/achimdehnert/dev-hub/issues/188), P1, `severity:critical`) — `health.poll_all_checks` läuft alle fünf Minuten, findet `Organization.objects.count() == 0` und gibt `{'error': "Tenant 'devhub' not found"}` als **Rückgabewert** zurück; Celery verbucht den Task als **grün**. `platform_health_scan` entsprechend `servers_scanned: 0`. Zwei Fixe, getrennt zu bewerten: Organization anlegen behebt **diesen** Fall, der Task sollte **fehlschlagen** statt `succeeded` zu melden — das behebt die **Klasse**. **Mögliche Verbindung zu Punkt 3 (rote Health-Checks) — ausdrücklich Hypothese, nicht verifiziert.**
 
 > **Erledigt 2026-08-02 (Session 8ed6a2):** **Punkt 2 komplett** — mcp-hub#188-PR gemergt,
 > #189 durch #192 (Security-Scan im frischen venv, je Job) geschlossen; Deploy 30741745261
 > success, venv-Step im Log belegt. **Punkt 4 bestätigt:** Outline in frischer Session
 > erreichbar. Punkte 1, 5, 6 unverändert offen; Details im LOG (Session 8ed6a2).
+> — **Nachtrag Session 922ab2 (später am selben Tag):** für **Punkt 5** trifft „unverändert
+> offen" nicht mehr zu; der Ingest läuft, am Prod-Host gemessen. Punkte 1 und 6 stimmen.
 
 > **Nachtrag 2026-07-31 — Konsequenz aus Punkt 5 für Punkt 3 (übernommen aus
 > [#1612](https://github.com/achimdehnert/platform/pull/1612) vor dessen Schließung):**
@@ -158,6 +164,11 @@ liegen gelassen, gehören anderen Sitzungen.
 > **Damit steht die Speicherfrage von `devhub_beat` für sich**: Sie wird nicht durch einen
 > Ingest-Lauf beantwortet und braucht eine eigene Messung. Punkt 3 bleibt davon unberührt
 > offen; nur seine Begründung über den Belastungstest trägt nicht mehr.
+>
+> **Überholt am 2026-08-02:** der Lauf existiert inzwischen (`mail-agent-ingest-daily`,
+> letzter Lauf 01:30 UTC). Der *Kernsatz* dieses Nachtrags bleibt trotzdem gültig — die
+> Speicherfrage von `devhub_beat` beantwortet ein Ingest-Lauf nicht, sie braucht eine
+> eigene Messung. Nur die Begründung „weil es den Lauf nicht gibt" ist entfallen.
 
 > **Nachtrag 2026-07-30 (Abend):** **Vier PRs im Review**, thematisch eine Kette —
 > [#1562](https://github.com/achimdehnert/platform/pull/1562) (`html_to_text` lag zweimal im

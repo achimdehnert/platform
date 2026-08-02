@@ -867,3 +867,42 @@ den Required-Context-Stau, Auto-Merge zog ohne `--admin`.
 **Fremd vorgefunden, NICHT angefasst:** platform-Haupttree mit *gestagtem*
 KONZ-platform-037 (parallele Session) · risk-hub NEXT.md · `.windsurf/`-Reste in
 django-lms-lite/iil-doc-templates · dev-hub-Deploy `04a9d5e` lief noch (~09:56).
+
+---
+
+## 2026-08-02 — Mail-Index: Vorgangsketten aus Postgres statt aus IMAP
+
+Aufgabe war nicht Stichwortsuche, sondern die *ganze Kette* zu einem Thema — ausgehend von
+einer beliebigen passenden Mail, über Ordner- und Kontengrenzen hinweg, schnell genug, um
+den Sinn daran zu bearbeiten. Beide vom Owner gesetzten Abnahmefälle bestanden: Offner
+3 Nachrichten über zwei Konten in 51 ms (IMAP), Schmalberger 11 Nachrichten, 3 Beteiligte,
+4 Ordner in 119 ms (Graph). Keine einzige Kante kam über den Betreff; alle sind über
+References bzw. Graph-conversationId belegt. Bestand 11.573 Nachrichten aus drei Postfächern.
+
+Gebaut: S1 Antwortpfad (mail_suche + tools/mail_agent/suche.py, Deckung an jeder Antwort) ·
+S2 Vorgangs-Schicht über einen natürlichen Schlüssel (LogicalMessage.kennung, PROTECT) ·
+S3 Volltext-Tor an ADR-286 §4.5 ohne Umgehungsschalter · S4 Graph-Ingest mit eigener
+App-Registrierung plus vierstufiger Diagnose mail_graph_pruefen · S5 Dossier mit Evidenz je
+Zeile · mail_kette mit drei nach Verlässlichkeit geordneten Kantenarten.
+
+ADR-288 §4.1 geändert (#1598): der alte Wortlaut („nie auf Surrogat-IDs") zwang dazu, an der
+Datenbank vorbeizubauen; „stabile Identität" erreicht dasselbe Ziel mit einer Beziehung.
+Der Owner hat die Änderung ausdrücklich freigegeben — maximale Qualität vor ADR-Buchstabe.
+
+Sechs stille Befunde am echten Bestand: 41 % des Index waren Kalender-/Kontakte-Platzhalter
+(#1584) · Betreff-Stränge verschmolzen 43 verschiedene Studierende zu einem Vorgang ·
+Verschieben erzeugte Duplikate, weil die transportspezifische Identität den Ordner enthält ·
+der Index speicherte Sequenznummern statt UIDs, uidvalidity fest auf 0 (#1656 + dev-hub#195;
+am Postfach belegt: FETCH 185 liefert, UID FETCH 185 nichts) · /opt/platform hing 33 Commits
+zurück und synct nichts (#1585) · der untested-command-Hook meldete siebenmal denselben
+Befund (#1619).
+
+Eigene Fehler: git add -A sammelte fremde Arbeit einer Parallel-Sitzung ein (zurückgenommen);
+ein --amend traf den Basis-Merge-Commit; ruff format über den ganzen Baum formatierte fremde
+unfertige Dateien um; und das Ausrollen einer Migration ohne vorherige Kollisionsmessung
+brach einen Prod-Deploy (6 doppelte Message-IDs). Sicherheitsvorfall: ein cat auf
+/etc/cron.d/adr-outline-sync legte den Outline-Token offen — als kompromittiert behandelt,
+Rotation offen (#1586).
+
+Offen für die nächste Sitzung: Ingest-Neulauf mit echten UIDs (ohne den holt mail_volltext
+nichts), Graph-Pfad in mail_volltext, /opt/platform nach jedem tools/mail_agent-Merge ziehen.

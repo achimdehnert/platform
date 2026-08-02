@@ -747,3 +747,83 @@ Ebenso blockiert waren der Prod-Compose-Edit und der Merge nach `main` in einem
 Deploy-on-push-Repo. Für beides lagen fertige Skripte bereit — **Ermächtigung im Chat hebt
 diese Sperren nicht auf, sie sind technisch, nicht argumentativ.**
 
+## ⚡ Vorheriger Stand (2026-07-31 — der Megatest lief seit dem 21.04. nie; Claim-Wächter und Mail-Werkzeug repariert)
+
+**Zeitanker:** HEAD `6d9c692b` · `rev-list --count` 2657 · geschrieben 2026-07-31
+
+**Der Kernbefund ist unangenehm und gut belegt:** Der Hardcoding-Megatest meldete drei
+Monate lang `success`, **ohne je eine Zeile Testcode auszuführen**. `python -m pytest` auf
+einem Runner, der nur `python3` kennt — der Aufruf stand seit dem allerersten Commit der
+Suite so drin (`c100e78c`, 2026-04-21), nicht erst seit Juli. Sichtbar wurde es nie, weil
+der Schritt `continue-on-error: true` trägt. Der Melder dahinter feuerte korrekt auf
+`outcome == 'failure'`, fand aber nichts zu berichten und öffnete **28 inhaltsleere
+Regressions-Issues** zwischen dem 22.04. und dem 15.06., Rumpf jeweils
+`Output nicht gefunden (Pfad: .../megatest-output.txt)`. Alle 28 wurden geschlossen, keines
+führte zur Ursache.
+
+Gefixt in [#1588](https://github.com/achimdehnert/platform/pull/1588) (`python3` + ein
+Zweig, der **rot** wird, wenn gar keine JUnit-Datei entsteht — damit ist „Test fand
+Verletzungen" von „Test kam nicht zustande" unterscheidbar). Der Beweis ist der Lauf, nicht
+der Diff: [30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656)
+sammelt **100 Tests** und führt sie aus.
+
+**Das Ergebnis der ersten echten Messung: `15 failed, 53 passed, 26 skipped, 6 xfailed`.**
+Wichtig für die Einordnung — die Budgets in `tests/megatest/budgets.toml` stammen vom
+**27.04.** aus lokalen Scanner-Läufen und wurden **nie** in CI gegengeprüft. Eine
+Überschreitung ist deshalb keine Regression gegen einen gemessenen Zustand, sondern die
+Differenz zwischen einer April-Schätzung und der Wirklichkeit. Aufgeschlüsselt:
+
+| Kategorie | Repos |
+|---|---|
+| Security-Funde in Repos mit Budget 0 | dev-hub (`conftest.py:34`, Regel `SECRET_KEY=`), research-hub |
+| „war sauber (Budget=0)", hat jetzt Violations | dev-hub, iil-enrichment, nl2cad, research-hub, trading-hub |
+| Budget überschritten | bfagent 116>72, mcp-hub 110, trading-hub, dev-hub 6>0, iil-enrichment, nl2cad 5, research-hub |
+| Meta | `test_should_registry_budget_sync` — Repos in `repo-registry.yaml` ohne Budget |
+
+**Zwei weitere Reparaturen, beide im Zielkontext verifiziert statt nur getestet:**
+
+[#1589](https://github.com/achimdehnert/platform/pull/1589) — `evidence_claim_scanner.py`
+lag ausschließlich in `~/.claude/hooks/`: ungetrackt, ungetestet, pro Maschine driftend.
+Der Wächter gegen `claim-before-cheapest-check` (×30 das häufigste Retro-Finding, mehr als
+doppelt so oft wie das nächste) war damit das schlechtest gesicherte Artefakt im Setup. Jetzt
+in `tools/claude-hooks/` mit 43 Tests. Gemessen an den fünf realen Fehlsätzen dieses Tages
+fing er **einen**; die vier Lücken sind geschlossen als `universal-claim`,
+`function-negation`, `temporal-claim`, `soft-quantifier-claim`. Alle vier erben die strenge
+Beleg-Regel — eine Allaussage verlangt eine Breitsuche, eine Gegenwarts-Aussage einen
+Lauf-Blick; **`git show` zählt dafür ausdrücklich nicht**, ein Diff belegt Verhalten nie.
+
+[#1591](https://github.com/achimdehnert/platform/pull/1591) — `read_mail` gab bei Mails ohne
+`text/plain`-Teil nur „(kein text/plain-Teil)" zurück. Am 31.07. betraf das **fünf von neun**
+neuen Nachrichten; zwei davon wären still durchgefallen (eine Personal-Anfrage der HNU, ein
+inhaltlicher Einwand zur Lehrplanung). Neu: `body_und_quelle()` mit HTML-Rückfall.
+`extract_text()` bleibt bewusst **ohne** Herkunfts-Marker — sein Rückgabewert landet wörtlich
+im Zitat von `draft_mail`. Zweitens trugen die Anhang-Links des Link-Dienstes den
+**Verzeichnisnamen von der Platte** in die URL (`163497-anhaenge/…`), was von `/a/<nr>` aus
+ins Leere lief; `render()` bekommt jetzt einen `basis`-Parameter und erzeugt absolute Routen.
+Dienst neu gestartet, `/a/1` liefert den Anhang mit HTTP 200.
+
+**Was beim Mergen zu wissen ist:** Ruleset `17621471` trägt `bypass_actors: []` — es gibt
+**keinen** Akteur, der die Regel umgehen kann, `--admin` eingeschlossen. Der Owner versuchte
+es an allen drei PRs selbst, dreimal dieselbe Wand. Der einzige Weg ist ein Code-Owner-Review
+durch `@wirdigital` (CODEOWNERS: `* @achimdehnert @wirdigital`, Autor zählt nicht). Das ist
+Routine, nicht Ausnahme: neun Merges an diesem Tag liefen so.
+
+**Eigene Fehler dieser Sitzung, alle korrigiert:** „seit dem 15.07." war zu eng — der Lauf
+vom 14.07. trägt denselben Fehler, der wahre Beginn ist der 21.04.; korrigiert als Kommentar
+an #1588 und #1010, mit benannter Restlücke (April-Logs sind mit `HTTP 410` abgelaufen, dort
+stützen nur die Issue-Rümpfe). Drei Bypass-Audit-Kommentare beschrieben einen `--admin`-Merge,
+der nie stattfand — an allen drei PRs richtiggestellt. Und ein `grep -c` gab null auf einem
+Log, das den Treffer enthielt (ANSI-Codes im Muster) — beinahe der umgekehrte Fehlschluss.
+
+**Outline:** der MCP dieser Sitzung liefert weiterhin `302`, wie im Vor-Stand beschrieben.
+Der dokumentierte Umweg funktioniert und wurde heute genutzt — Lesson-Dokument
+`dde42e37-83e0-42ff-acc5-e5637ba3002e` („Megatest meldete drei Monate grün, ohne je zu
+laufen"). Skript-Muster: `scratchpad/outline-lesson.sh` (Token nur in Variablen und
+curl-Kopfzeilen, nie in URL oder Ausgabe).
+
+**Nicht aus dieser Sitzung, aber offen:** `Prod-Uptime-Canary` ist seit dem 29.07. rot, fünf
+Hubs mit `HTTP 502` (137herz.de, bieterpilot.de, wedding-hub, coach-hub, hr.iil.pet) —
+getrackt in [#1547](https://github.com/achimdehnert/platform/issues/1547), passt zum
+Container-Freeze aus #1303. Drei fremde Repos sind dirty (`django-lms-lite`,
+`iil-doc-templates` mit untracked `.windsurf/`, `risk-hub` mit geändertem `NEXT.md`) —
+liegen gelassen, gehören anderen Sitzungen.
