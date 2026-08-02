@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-039
 title: Sichtbarkeit des platform-Repos — privat werden, ohne die Flotte abzuschneiden
-pipeline_status: idea
+pipeline_status: decided
 tier: T3
 owner: Achim Dehnert
 spec_refs: []        # Infrastruktur-/Governance-Konzept, keine App-Spec
@@ -168,6 +168,13 @@ Wie B, zusätzlich werden vor dem Wechsel die Infrastruktur-Angaben bereinigt, w
 
 *Dafür:* die einzige Variante, die auch die **Vergangenheit** adressiert.
 *Dagegen:* teuerste Variante; die Bereinigung ist Fleißarbeit ohne Kill-Gate.
+
+**ENTSCHIEDEN (Owner, Chat 2026-08-02, nach G1): Variante C.** G1 hatte zuvor belegt,
+dass ein öffentlicher Aufrufer private Reusable Workflows nicht nutzen kann (§4, L5) —
+der Schnitt ist damit Pflicht, die Bereinigung kommt bewusst dazu. Nächster Schritt laut
+adr_threshold: **ADR ausarbeiten** (shared-ci-Repo, Konsumenten-Umhängung, Bereinigungs-
+umfang, Reihenfolge), dann Umsetzungsprogramm mit eigenem Tracking. K2 (Konsumenten-Scan
+alle 4 Owner) und K3 (shared-ci-Divergenz) bleiben Vorbedingungen der Umsetzung.
 
 ## 7. Empfehlung
 
