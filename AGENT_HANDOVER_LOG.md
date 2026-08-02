@@ -841,3 +841,29 @@ Replay-Analyse 55 Instanzen (DOC-Lücke 42 %) auf #1185. Verdrahtung: 6 Stop-Hoo
 settings.json, 3 Hook-Kopien synchron, cc-skill-dist @ 86546d09. Offen: D4/D6/D7/D8,
 Messfenster bis 16.08., Token-Rotation orchestrator (Transkript-Exposure), fremder staged
 KONZ-037-Entwurf im Haupt-Tree.
+
+## Session 8ed6a2 — 2026-08-02 (Fortsetzung der SB-Neu-Session vom 31.07.)
+
+**Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
+
+**Kern:** Silent-Failure-Lint (platform#1587) läuft jetzt in **10 Repos** — Canary
+iil-testkit#13 mit Rot/Grün-Beweis in echter CI; 8 Bestands-Begründungen, kein
+Verhaltens-Change; 3 Merges mit `[skip ci]` gegen ungefilterte Deploy-on-main,
+nachgemessen deploy-frei. Staging-Checks: ein Job statt 8× `continue-on-error`,
+Baseline der 7 bekannten Roten, **Regression = hartes Rot** (#1630 gemergt).
+
+**Messbarkeit:** Signal K in `measure-evidence-discipline.py` (Flotte 9,3 ·
+Session 8ed6a2 **48,6** bei identischem R ≈0,87 — K trennt, R nicht; UNVALIDIERT,
+Scorecard-Abgleich offen). **Artefakt-Budget-Hook** (`scope-checkpoint` ×10) als
+7. Stop-Hook verdrahtet, feuerte im echten Stop-Event (19 PRs + 3 Issues). Quelle
+beider: #1654 gemergt; `~/.claude/hooks/artefakt_budget.py` == Repo-Stand.
+
+**mcp-hub:** #192 + #193 per Owner-`--admin` (Audit-Kommentare an beiden); Deploy
+30741745261 **success**, venv-Step im Log belegt → **#189 geschlossen**, #188-PR
+gemergt. `policy_zone_freshness.sh`: Rückgabewert 3 statt Falsch-Grün + stderr-
+Leak-Fix (#1615/#1626 gemergt). platform#1580 (fremder PR): update-branch löste
+den Required-Context-Stau, Auto-Merge zog ohne `--admin`.
+
+**Fremd vorgefunden, NICHT angefasst:** platform-Haupttree mit *gestagtem*
+KONZ-platform-037 (parallele Session) · risk-hub NEXT.md · `.windsurf/`-Reste in
+django-lms-lite/iil-doc-templates · dev-hub-Deploy `04a9d5e` lief noch (~09:56).
