@@ -137,7 +137,10 @@ infra:
 #   prod_host:       Ziel-Host des Prod-Deployments laut infra/hosts.yaml
 #                    (Default: prod — nur Abweichungen eintragen; SSoT per ADR-292,
 #                    Deploy-Workflows lesen dieses Feld, Handverteilung = Regelverstoß)
-#   compose_drift:   Compose-File hat falschen Port (zu fixen!)
+#   compose_drift:   Compose-File hat falschen Port (zu fixen!) — ACHTUNG: statische
+#                    Anmerkung, KEINE Messung; infra_overview.py gibt sie nur wieder.
+#                    Vor dem Eintragen/Stehenlassen gegen die Datei im Repo verifizieren
+#                    (Melder-Umstellung auf echte Messung: platform#1685).
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
 
@@ -208,7 +211,6 @@ services:
     domain_aliases:
       - ai-trades.de
     repo: achimdehnert/trading-hub
-    compose_drift: "docker-compose.yml uses 8000:8000 — must change to 8088:8000"
 
   travel-beat:
     prod: 8089
@@ -238,7 +240,6 @@ services:
       - schutztat.com
       - kiohnerisiko.de
     repo: iilgmbh/risk-hub
-    compose_drift: "docker-compose.yml uses 8001:8000 — must change to 8090:8000"
 
   # bfagent entfernt (ADR-275 Hygiene, #1143): decommissioned 2026-06-03
   # (bfagent#44), in canonical.yaml lifecycle:archived. Port 8091 wieder frei.
@@ -260,7 +261,6 @@ services:
     domain_prod: wedding-hub.iil.pet
     domain_staging: staging-wedding.iil.pet
     repo: achimdehnert/wedding-hub
-    compose_drift: "docker-compose.yml uses 8000:8000 — must change to 8093:8000"
 
   cad-hub:
     prod: 8094
@@ -308,7 +308,6 @@ services:
     domain_prod: writing.iil.pet
     domain_staging: staging-writing.iil.pet
     repo: achimdehnert/writing-hub
-    compose_drift: "docker-compose.yml uses 8095:8000 — must change to 8097:8000"
 
   research-hub:
     prod: 8098
@@ -338,7 +337,6 @@ services:
     # docker-compose.prod.yml sagt weiterhin 8104 (unverändert seit #31).
     # Datei-vs-Live-Drift bleibt bestehen, hier NICHT angefasst (kein
     # Prod-Redeploy in diesem Zug) — separat zu klären.
-    compose_drift: "docker-compose.prod.yml uses 8104:8000 — live container runs 8099 (verified 2026-07-14); file still needs reconciling with either 8099 or the running value"
 
   learn-hub:
     prod: 8100
@@ -357,7 +355,6 @@ services:
     domain_prod: bieterpilot.de
     domain_staging: staging.bieterpilot.de
     repo: iilgmbh/ausschreibungs-hub
-    compose_drift: "docker-compose.prod.yml uses 8095 — must change to 8101 (conflicts with 137-hub)"
 
   # doc-hub: repo-loser Service (docs.iil.pet) — kein eigenes GitHub-Repo, steht
   # daher bewusst NICHT in registry/canonical.yaml (Repo-SSoT). ADR-275 Hygiene
