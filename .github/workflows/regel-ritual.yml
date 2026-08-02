@@ -26,6 +26,9 @@ jobs:
         with:
           fetch-depth: 0 # git log --since braucht Historie; depth 1 ergäbe stumm 0 Retros (M-7)
 
+      - name: pytest bereitstellen (für Gate-Drills)
+        run: pip install -q pytest
+
       - name: KPI-Delta erheben
         id: kpi
         run: |
@@ -57,7 +60,12 @@ jobs:
               echo '```'
             fi
             echo ""
-            echo "_Voller Lauf im Actions-Log. Sunset-Prüfung + Gate-Backlog: manueller Teil des Rituals (Runbook folgt mit Gate-Welle 1)._"
+            # Gate-Drill-Prüflauf (KONZ-038 D8/K4): jeder registrierte Drill wird ECHT
+            # ausgeführt — tote Gates fallen binnen eines Fensters auf, nicht 2028 (M-8).
+            python3 tools/gate_drill_check.py > /tmp/drill.txt 2>&1 || true
+            sed -n '1,15p' /tmp/drill.txt
+            echo ""
+            echo "_Voller Lauf im Actions-Log. Sunset-Prüfung + Gate-Backlog: manueller Teil des Rituals (Runbook: docs/governance/model-rebaseline-runbook.md für Modellwechsel; K1-Auswertung gegen docs/governance/k1-baseline/)._"
           } > /tmp/comment.md
           cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
 
