@@ -39,6 +39,13 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
 **Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
 
+**Nachtrag (2. Session-Ende 2026-08-02, HEAD `d24fd16f` · count 2769):**
+- **Retro 287b23** gemergt ([#1661](https://github.com/achimdehnert/platform/pull/1661)): 7 Survivors, alle Maßnahmen umgesetzt ([#1664](https://github.com/achimdehnert/platform/pull/1664) + Mode-Fix [#1660](https://github.com/achimdehnert/platform/pull/1660)); Aufrufpfad-Contract-Drill neu (drillt den ECHTEN settings-Pfad); #1186/#1190 als gebaut geschlossen; Welle-2-Rangliste auf [#705](https://github.com/achimdehnert/platform/issues/705) — **workaround-Slug bis 16.09. NICHT gaten (K1-Vergleichsgruppe!)**.
+- **Orchestrator-Token rotiert** (Gate 1, Owner-Wort): neuer Key in `.env.prod` + Container per compose **--force-recreate** (nicht restart!) + `~/.secrets/orchestrator_mcp_api_key` + settings.json konsistent; Container-Env-Präfix verifiziert, Service healthy. Kernlehre als 🌀-Memory: `docker restart` lädt env_file NIE neu — die Juli-Rotation war deshalb 16 Tage wirkungslos.
+- **⚠️ Rotation #2 nötig, ERSTE Handlung einer FRISCHEN Session:** der neue Wert wurde vom Datei-Watcher erneut ins Session-Transkript gespiegelt (settings.json-Echo) → nach Owner-Standard exponiert. Skript liegt bereit: `~/shared/rotate_orchestrator_token.sh` (frische Session, settings.json vorher NICHT lesen, dann kein Echo). Danach MCP-Connect der neuen Session = echter Funktionsbeweis (curl-Checks enden an der Edge mit 403, unkalibrierbar).
+- Hygiene-Kandidat (Owner): `/opt/mcp-hub/.env.prod.bak-*` tragen Alt-Keys im Klartext — Löschen ist irreversibel, daher nur vorgeschlagen.
+
+
 **Kern in einem Satz:** Die vollständige Kette zu einem Thema kommt jetzt in **unter
 120 ms aus der Datenbank** — über Ordner- **und** Kontengrenzen hinweg —, statt über
 mehrere IMAP-Durchläufe; beide vom Owner gesetzten Abnahmefälle sind bestanden.
