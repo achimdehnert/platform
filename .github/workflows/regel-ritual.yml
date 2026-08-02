@@ -1,0 +1,59 @@
+# Regel-Ritual (KONZ-platform-038 §5.3) — erzwungener 14-Tage-Trigger.
+# Bewusst Actions-Schedule statt Maschinen-Cron: git-getrackt, überlebt
+# Dev-Server und Sessions (Maintainer-2028-Befund M-2), Ausfall ist im
+# Actions-Log sichtbar statt lautlos.
+name: regel-ritual
+
+on:
+  schedule:
+    - cron: "23 6 2,16 * *" # 2.+16. des Monats, 06:23 UTC
+  workflow_dispatch: {}
+  pull_request:
+    paths: [".github/workflows/regel-ritual.yml"]
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  TRACKING_ISSUE: "1640"
+
+jobs:
+  ritual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git log --since braucht Historie; depth 1 ergäbe stumm 0 Retros (M-7)
+
+      - name: KPI-Delta erheben
+        id: kpi
+        run: |
+          python3 tools/retro_kpis.py --dir docs/retros > /tmp/kpi.txt
+          WINDOW_START=$(date -u -d "14 days ago" +%F)
+          RETRO_COUNT=$(git log --since="$WINDOW_START" --name-only --pretty=format: -- docs/retros/ | grep "session-retro-.*\.md" | sort -u | wc -l)
+          {
+            echo "## Regel-Ritual $(date -u +%F)"
+            echo ""
+            if [ "$RETRO_COUNT" -lt 8 ]; then
+              echo "**NICHT BEWERTBAR** — nur $RETRO_COUNT neue Retro-Dateien im 14-Tage-Fenster (Input-Bedingung ≥8, KONZ-038 K1). Zählt nicht als sauberes Fenster."
+            else
+              echo "Input-Bedingung erfüllt: $RETRO_COUNT neue Retro-Dateien im Fenster."
+            fi
+            echo ""
+            echo '```'
+            sed -n '1,40p' /tmp/kpi.txt
+            echo '```'
+            echo ""
+            echo "_Voller Lauf im Actions-Log. Sunset-Prüfung + Gate-Backlog: manueller Teil des Rituals (Runbook folgt mit Gate-Welle 1)._"
+          } > /tmp/comment.md
+          cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Schreibpfad NUR bei echten Läufen — der PR-Lauf beweist die Verdrahtung
+      # bis vor den Write (Trockenlauf deckt den Schreibpfad nie; erster
+      # scharfer Beweis = workflow_dispatch nach Merge, siehe PR-Checkliste).
+      - name: Lauf auf Tracking-Issue protokollieren
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file /tmp/comment.md
