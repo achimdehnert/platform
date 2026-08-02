@@ -600,6 +600,49 @@ Dreizustands-Konfidenz, möglichen Gegenbeleg und Deckungszustand. Offene Punkte
 mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `resolve` ·
 `dismiss` · `snooze` · `split` · `merge` · `show-evidence`.
 
+### 4.14 Werkzeuge der Textgewinnung — der Grundsatz ist „kein Dauerdienst"
+
+**Präzisierung, 2026-08-02.** Runde 3 empfahl Apache Tika für die Anhangs-Extraktion (§11.3,
+`[valid]`); die Umsetzung verwarf ihn und hielt fest, die Extraktion komme **ohne
+Fremdbibliothek** aus. Das war eine *Auslegung*, keine Anforderung — und sie trug nur so lange,
+wie `.docx` das Format war, das die fachliche Substanz trug.
+
+**Was der Grundsatz wirklich verlangt.** Tika wurde verworfen, **weil** es eine JVM und faktisch
+einen laufenden Dienst braucht: bei Bus-Faktor 1 und ohne Bereitschaftsdienst ist ein
+zusätzlicher Dauerprozess der teuerste Teil der Kette. Der Grundsatz lautet damit **„kein
+Dauerdienst"**, nicht „keine Bibliothek". Eine reine Python-Bibliothek verletzt ihn nicht.
+
+**Was die Messung ergab** (HNU, 2026-08-02, Vollerhebung über 119 Ordner, 5.665 Nachrichten):
+
+| Anhangstyp | Anzahl | mit stdlib lesbar |
+|---|---|---|
+| **PDF** | **1.443** | **nein** |
+| `.docx` | 211 | ja |
+| `.xlsx` | 64 | ja (ZIP + XML) |
+| `.pptx` | 29 | ja (ZIP + XML) |
+
+PDF ist der **Hauptfall**. Eine Auslegung, die ihn ausschließt, macht die Zweckbindung aus §4.5
+wertlos: ein aktiver Vorgang bekäme Zugriff auf einen Volltext, der die tragenden Dokumente
+gerade nicht enthält.
+
+**Entscheidung.** Für PDF kommt **eine** Bibliothek hinzu: `pdfminer.six` — reines Python, MIT,
+kein Dienst, kein Systempaket. Gemessen an 40 echten PDFs liegt sie praktisch gleichauf mit
+`pdftotext`/poppler (Median 1.591 gegen 1.697 Zeichen; 28 von 40 gleichauf, 8 zugunsten poppler,
+4 zugunsten pdfminer) — der Unterschied rechtfertigt kein Systempaket im Abbild plus
+Unterprozess. `PyMuPDF` wäre stärker, steht aber unter **AGPL**; das ist eine Lizenzfrage und
+fällt damit unter die ADR-Schwelle, nicht unter Werkzeuggeschmack. `.xlsx` und `.pptx` kommen
+ohne weitere Abhängigkeit dazu (ZIP mit XML, wie `.docx`).
+
+**Die Grenze bleibt und wird beziffert: 12,5 % der PDFs haben keine Textebene.** Das sind Scans.
+Dafür hilft nur OCR — und OCR *wäre* der Dauerdienst, den dieser ADR verwirft. Sie enden deshalb
+als benannter Parserfehler mit gemessener Zeichenzahl, nicht als leerer Erfolg; §4.5 und die
+Deckungsbewertung behandeln sie damit korrekt als `partial`. **Ob OCR dazukommt, ist eine eigene
+Entscheidung** und braucht einen eigenen ADR — dieser Vermerk trifft sie nicht.
+
+**Was das nicht ändert:** die Zweckbindung (§4.5), die Extraktion bei Vorgangs-Eintritt statt
+beim Einlesen (§3.2) und die modellfreie Ingestion. Der Vermerk betrifft ausschließlich die
+Frage, mit welchem Werkzeug ein bereits zulässiger Volltext gewonnen wird.
+
 ---
 
 ## 5. Migration Tracking
@@ -727,6 +770,7 @@ mutmaßliche Antwort, Grund der Nichtauflösung und nächste Aktion. Aktionen: `
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-08-02 | Claude Code (Opus 5) | **§4.14 neu — Präzisierung des Werkzeug-Grundsatzes.** Die Umsetzung von P3 hatte „Tika verworfen" zu „ohne Fremdbibliothek" verallgemeinert; das war eine Auslegung, keine Anforderung. Der Grundsatz ist **„kein Dauerdienst"** (Tika scheitert an JVM + Hintergrundprozess, nicht an `pip install`). Anlass ist eine Messung, nicht eine Meinung: in der Vollerhebung des Referenzpostfachs stehen **1.443 PDF** gegen 211 `.docx`, 64 `.xlsx`, 29 `.pptx` — PDF ist der Hauptfall, und die stdlib-Auslegung hätte den Volltext eines aktiven Vorgangs gerade um die tragenden Dokumente gekürzt. Aufgenommen: `pdfminer.six` (reines Python, MIT, kein Dienst), an 40 echten PDFs gegen `pdftotext` gemessen und praktisch gleichauf; `PyMuPDF` wegen **AGPL** ausgeschlossen. **Beziffert stehen gelassen: 12,5 % der PDFs haben keine Textebene** — sie enden als benannter Parserfehler und machen die Deckung `partial`, statt als leerer Erfolg durchzugehen. OCR bleibt bewusst draußen und bräuchte einen eigenen ADR. Unverändert: Zweckbindung §4.5, Extraktion bei Vorgangs-Eintritt §3.2, modellfreie Ingestion. |
 | 2026-07-29 | Claude Code (Opus 5) | **Runde 4 eingearbeitet (§11.6) — erste externe Gegenlesung dieses Textes statt der Vorstufe.** Sie traf alle drei in §11.5 als ungeprüft benannten Punkte; 7 von 9 Befunden `[valid]`, 2 `[missversteht-Kontext]`. Die folgenreichste Änderung ist eine **Herabstufung**: Gate 0 fällt von ✅ auf 🟡, weil das Argument, mit dem die alte Bestandszahl entwertet wurde (eine Einzelmessung kann einen Zwischenzustand treffen), unverändert gegen die neue gilt — voll erfüllt erst nach drei Wiederholungsmessungen an nicht aufeinanderfolgenden Tagen mit protokollierter Rohausgabe. Neu: **§3.2.1** benennt drei Auslöser, ab denen die Zweckbindung zur Umdeklaration wird und ein Supersede von ADR-286 fällig ist (Gate 10 misst den Anteil); **§3.1 Punkt 1** macht die Ausschlussregel versioniert konfigurierbar und den Ausschluss rückholbar — ein Vorgang auf einem ausgeschlossenen Ordner erzeugt `unknown`, nie eine stille Auslassung (Gate 11); **§4.12** grenzt „gesperrt" auf den Retrievalpfad ein statt auf Konto oder Lauf. **Gate 8** bekommt drei definierte Hebel statt nur eines Messwerts. **Abgelehnt** wurde die Empfehlung, `open` schon ab rund neun Zehnteln Deckung zuzulassen: bei jeder zehnten ungesehenen Nachricht kippt die Negativaussage — der Unterschied zu vollständiger Deckung ist kategorial, nicht graduell (§4.6). Offen und auch nach vier Runden ungegengelesen: die Ausschluss-Messung selbst (§1.4, 52.552 Nachrichten). |
 | 2026-07-29 | Claude Code (Opus 5) | **Gate 5 belegt (§1.4.2), P2 damit vorbereitet.** Der Kopfzeilen-Vollaufbau wurde **ausgeführt statt hochgerechnet**: 14.016 Kopfsätze aus 180 behaltenen Ordnern über vier Konten und beide Transporte in **2,7 min** — Schwelle 10 min, Reserve Faktor 3,7. Zwei Erkenntnisse: (a) Der Graph-Transport war als „ungemessen" geführt; der tragende Weg ist nicht `$batch`, sondern der Listen-Abruf mit `$top`+Paging (591 Nachrichten in **einer** Antwort, Faktor 11,7 gegen Einzelabruf). (b) **Mikro-Benchmarks überschätzen systematisch** — 120,7/s bzw. 106,3/s im Einzelordner gegen 92,0/s bzw. 78,5/s im Lauf über 180 Ordner; die Differenz ist Ordnerwechsel-Overhead, also genau der Punkt, an dem die Runden 1 und 2 die Hochrechnungen dieses Entwurfs angegriffen haben. Gate 5 bleibt **teilweise** offen: Datenbankschreiben und Normalisierung existieren erst mit P2, der Messwert ist die untere Schranke. Ebenfalls benannt: es ist ein Lauf, kein p95. |
 | 2026-07-29 | Claude Code (Opus 5) | **Gate 0 geschlossen (§1.4.1).** Nachmessung mit ausgewiesenen Fehlern statt stiller Nullen: **66.580** Nachrichten über 246 Ordner in vier Konten, null nicht zählbare Ordner. Der Widerspruch zu ADR-286 §4.10.8 (90.967) ist **ursächlich aufgeklärt**, nicht nur neu gezählt: das nicht betroffene Kontrollkonto trifft die alte Zahl exakt (9 Ordner / 12), während die beiden Konten, in denen am 2026-07-28 laut Session-Retro `d5eb5e` **28.158 Nachrichten verschoben** wurden, zusammen 24.483 weniger zeigen — die alte Messung erfasste einen vorübergehenden Zustand, in dem Nachrichten zugleich im Sammelordner und im neuen Jahresarchiv lagen. Gate 0 wird zur **Wiederholungsauflage** nach jeder Umsortierung. Restlücke benannt: die Ursache ist aus Datum, Konten und Größenordnung erschlossen, nicht aus dem Protokoll der damaligen Zählung. |
