@@ -77,10 +77,20 @@ fi
 pinned="$(readlink -f "$INJECT_DIR" 2>/dev/null || echo "$INJECT_DIR")"
 
 # 2) Commit-Ebene: liegt das Ziel in einem git-Worktree, wie weit ist er zurueck?
+#    Rein informativ — das Urteil faellt unten am INHALT. Ein Worktree kann Commits
+#    zurueckliegen, ohne dass eine Policy betroffen ist.
+#    Die innere rev-parse braucht ein EIGENES 2>/dev/null: bei unborn HEAD (frisch
+#    initialisiertes Repo ohne Commit) leakt sie sonst einen rohen 'fatal:'-Block auf
+#    stderr — das aeussere 2>/dev/null der Kommando-Substitution faengt ihn NICHT,
+#    weil es zur ausseren Substitution gehoert (Retro 8ed6a2, Skeptiker-Befund zu B5:
+#    der dort vermutete '-e'-Fehlerpfad war es nicht, dieser Leak schon).
 behind=""
 if git -C "$pinned" rev-parse --git-dir >/dev/null 2>&1; then
   pin_head="$(git -C "$pinned" rev-parse --short HEAD 2>/dev/null || echo '?')"
-  behind="$(git -C "$REPO_ROOT" rev-list --count "$(git -C "$pinned" rev-parse HEAD)".."$REF" 2>/dev/null || echo '?')"
+  pin_sha="$(git -C "$pinned" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -n "$pin_sha" ]]; then
+    behind="$(git -C "$REPO_ROOT" rev-list --count "$pin_sha".."$REF" 2>/dev/null || echo '?')"
+  fi
 fi
 
 # 3) Inhalts-Ebene: JEDE Policy einzeln gegen den kanonischen Stand.
