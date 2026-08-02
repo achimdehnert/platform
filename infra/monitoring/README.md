@@ -22,6 +22,14 @@ bleibt vertagt.
 5. **Alerts (Folgeschritt):** OOM/Swap>80 %/Container-down als Alertmanager-Regeln
    — separater PR, damit dieser hier klein bleibt.
 
+## Betriebserfahrung Erst-Rollout (2026-08-02)
+
+- Der `odoo_prometheus`-Container hängt im `internal: true`-Netz und erreicht die
+  Exporter nicht — er braucht zusätzlich das Bridge-Netz:
+  `docker network connect bridge odoo_prometheus && docker restart odoo_prometheus`.
+- Scrape-Timeout auf prod kam vom toten NFS-Mount (Collector-Hänger 10,5 s) —
+  deshalb der `/mnt`-Ausschluss im Compose (auf beiden Hosts bereits aktiv).
+
 ## Bewusste Entscheidungen
 
 - **Bind offen + Firewall-Allowlist** statt Tunnel/VPN: einfachster Standardweg,
