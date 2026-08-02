@@ -134,11 +134,27 @@ trat trotz „fetch first" ein 7. Mal (Phase 1, `session-retro-2026-07-16-iil-kl
 Content-Smell gefangen) auf — beide belegen: die Lücke ist die **Lesequelle**, nicht der Fetch.
 Diese Zeile ersetzt das bloße Hoffen auf Einzelfall-Disziplin — exakt wie die Phase-3-Zeile es bereits für Skeptiker tut.
 
+**Session-Grenze = die Konversation, NICHT der Kalendertag (Lehre 2026-07-31):**
+Ein Datumsfilter sammelt an einem geteilten Arbeitstag auch fremde Sitzungen ein.
+Realfall `36c670`: der Collector lieferte 30 PRs, von denen 23 anderen Sitzungen
+gehörten — ungeprüft hätten die Finder fremde Arbeit beurteilt. Der Scope wird
+über die **Branch-Präfixe/PR-Nummern der eigenen Sitzung** gezogen (bzw. über den
+Transkript-Pfad, falls gegeben); das Datum ist nur der Vorfilter, nie das Kriterium.
+
 Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
 - `gh pr list --repo <owner>/<repo> --state all --search "updated:>=<datum>"` (+ `gh issue list`)
-- `git -C ~/github/<repo> fetch origin <default-branch>` **zuerst**, dann `log --oneline --since=<…>`
-  gegen `origin/<default-branch>` (nicht den lokalen Branch) + `git diff --stat` wo sinnvoll
+  — danach auf die Sitzung **eingrenzen**, nicht alles übernehmen (s. o.)
+- `git -C ~/github/<repo> fetch origin <default-branch>` **zuerst**, dann
+  `log --oneline --since='<YYYY-MM-DD> 00:00'` gegen `origin/<default-branch>`
+  (nicht den lokalen Branch) + `git diff --stat` wo sinnvoll
 - CI/main-Status der betroffenen Repos (`gh run list --branch main`)
+
+> ⚠️ **`--since` braucht die Uhrzeit.** `--since=<datum>` ohne `00:00` liefert
+> **null Treffer**, obwohl Commits an dem Tag existieren — gemessen 2026-07-31 in
+> `~/.claude`: `--since=2026-07-31` → 0, `--since='2026-07-31 00:00'` → 3. Der
+> Collector meldete daraufhin „keine Commits" als Faktum. Die Abfrage war korrekt
+> ausgeführt und trotzdem falsch; eine stille Null ist hier der teuerste Fall.
+> Alternativen mit demselben Ergebnis: `--after=<vortag>` oder `--since=1.day`.
 
 **Aktiv nach red_flags suchen, die ein Self-Review systematisch übersieht:**
 OPEN-PR überholt von späterem MERGED-PR zum selben Issue (Duplikat/dangling) · mehrere PRs
