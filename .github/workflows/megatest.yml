@@ -63,10 +63,18 @@ jobs:
         # origin/HEAD (Lokal-vs-CI-Drift, Handover 2026-08-02). Der beim Klon
         # eingebrannte x-access-token ist ein Per-Run-Token und beim naechsten
         # Lauf tot → Remote-URL vor jedem fetch neu setzen.
+        #
+        # Nicht nachziehbare Klone werden ENTFERNT statt stale gescannt: ein
+        # eingefrorener Stand erzeugt Geister-Befunde gegen frisch gemessene
+        # Budgets. GITHUB_TOKEN ist repo-scoped (nur platform) — private Repos
+        # sind damit weder klon- noch fetchbar und werden ehrlich uebersprungen
+        # (WARN + Summary-Zeile). Vollabdeckung braeuchte ein Org-Read-Token:
+        # bewusste Owner-Entscheidung, siehe platform#1682.
         run: |
           set -euo pipefail
           REPOS=$(python3 scripts/list_megatest_repos.py)
           mkdir -p ~/github
+          uebersprungen=0
           for repo in $REPOS; do
             url="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/achimdehnert/$repo.git"
             dir="$HOME/github/$repo"
@@ -74,13 +82,17 @@ jobs:
               git -C "$dir" remote set-url origin "$url"
               if git -C "$dir" fetch --depth=1 origin HEAD 2>/dev/null; then
                 git -C "$dir" reset --hard FETCH_HEAD --quiet
-              else
-                echo "WARN: $repo fetch failed — Scan laeuft auf altem Stand"
+                continue
               fi
-            else
-              git clone --depth=1 "$url" "$dir" 2>/dev/null || echo "WARN: $repo not found"
+              echo "WARN: $repo nicht nachziehbar — stale Klon wird entfernt (kein Stale-Scan)"
+              rm -rf "$dir"
+            fi
+            if ! git clone --depth=1 "$url" "$dir" 2>/dev/null; then
+              echo "WARN: $repo nicht erreichbar (Token-Scope?) — wird NICHT gescannt"
+              uebersprungen=$((uebersprungen+1))
             fi
           done
+          echo "::notice::Megatest-Checkout: $uebersprungen Repo(s) nicht scannbar (siehe WARN-Zeilen) — kein Befund, aber auch kein Beleg."
 
       - name: Run Megatest (normal)
         if: ${{ !inputs.update_budgets }}
