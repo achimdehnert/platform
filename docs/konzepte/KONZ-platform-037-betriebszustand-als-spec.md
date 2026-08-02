@@ -113,7 +113,7 @@ oder Merksätze, die sie überflüssig macht. Leeres Feld ist erlaubt, aber es i
 eine Invariante, die nichts ablöst, ist reines Wachstum.
 
 Der Zusammenhang wird gemessen, nicht behauptet: das zweite Kill-Kriterium im Frontmatter
-verlangt, dass nach 90 Tagen **mindestens so viele Prosa-Regeln abgelöst wie Invarianten
+verlangt, dass bis zum Stichtag (§9) **mindestens so viele Prosa-Regeln abgelöst wie Invarianten
 hinzugefügt** wurden. Ist das nicht der Fall, wird dieses Konzept gestrichen — nicht
 verlängert.
 
@@ -144,7 +144,7 @@ ist erfunden. Die Spalte „ersetzt" nennt, was dadurch aus der Prosa verschwind
 
 **Zehn Zusicherungen lösen sechs Prosa-Artefakte ab.** Das erfüllt das Schrumpfungs-Kriterium
 noch nicht (10 neu gegen 6 abgelöst) — und genau das soll sichtbar sein, statt in einer
-Erfolgsmeldung zu verschwinden. Die Bilanz wird nach 90 Tagen erneut gezogen; bleibt sie
+Erfolgsmeldung zu verschwinden. Die Bilanz wird am Stichtag (§9) erneut gezogen; bleibt sie
 negativ, greift das Kill-Kriterium.
 
 ## 6 Adversariale Analyse
@@ -180,16 +180,18 @@ im Bericht als schwächer.
 | E2 | Prüfläufer `tools/betrieb_check.py` (stdlib-only, analog `retro_kpis.py`) | Exit-Code statt Erinnerung | keins, read-only |
 | E3 | Negativproben je Invariante ergänzen | fängt Dormanz automatisch | Aufwand |
 | E4 | Täglicher Lauf + Meldung bei Rot | macht den Zustand beobachtbar | **Cron auf Prod = Gate 2** |
-| E5 | Nach 90 Tagen: Bilanz Invarianten vs. abgelöste Regeln; Rückwirkung auf ADR-211 entscheiden | schließt den Loop | Entscheidung, kein Risiko |
+| E5 | Am Stichtag (Tag 15 / 20 Retros): Bilanz Invarianten vs. abgelöste Regeln; Rückwirkung auf ADR-211 entscheiden | schließt den Loop | Entscheidung, kein Risiko |
 
 ## 8 Entscheidung + Kill-Gate + 30/60/90
 
 **Entscheidung:** Der Betriebszustand von doc-hub wird nach dem ADR-211-Muster als Spec
 geführt, mit zehn Invarianten, hartem Budget, Negativprobe und Verfallsdatum je Eintrag.
 
-**Kill-Gate (zwei bindende Kriterien, beide im Frontmatter):** Bewegt sich `risiko_debt` über
-~10 Retros nicht messbar über 2,55, **oder** ist die Bilanz aus abgelösten Regeln gegen neue
-Invarianten nach 90 Tagen negativ, wird dieses Konzept **gestrichen** — nicht nachgebessert.
+**Kill-Gate (zwei bindende Kriterien, beide im Frontmatter, beide am SELBEN Stichtag —
+Tag 15 nach Merge, mindestens jedoch nach 20 Retrospektiven, was später eintritt):** Bewegt
+sich `risiko_debt` bis dahin nicht messbar über 2,55, **oder** ist die Bilanz aus abgelösten
+Regeln gegen neue Invarianten negativ, wird dieses Konzept **gestrichen** — nicht
+nachgebessert.
 Das ist bewusst dieselbe Härte, die `autonomy-gates.md` und `evidence-discipline.md` gegen
 sich selbst richten.
 
