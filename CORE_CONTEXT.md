@@ -10,8 +10,15 @@ ist die Single-Source-of-Truth für plattformweite Entscheidungen, Conventions
 und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 `python3 -c "import yaml; print(len(yaml.safe_load(open('registry/canonical.yaml'))['repos']))"`).
 
-**GitHub:** https://github.com/achimdehnert/platform
+**GitHub:** https://github.com/achimdehnert/platform — **Sichtbarkeit: ÖFFENTLICH**
 **ADR-Verzeichnis:** `docs/adr/` (Bestand live: `ls docs/adr/ADR-*.md | wc -l`; höchste Nr.: `ls docs/adr/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -V | tail -1`)
+
+> ⚠️ **platform ist `public`, `dev-hub` und die Hub-Repos sind `private`.** Prüfen statt
+> annehmen: `gh repo view achimdehnert/platform --json visibility`. Jeder Commit hierher ist
+> eine Veröffentlichung — keine Personendaten, keine Zugangsdaten, keine Infrastruktur-Details,
+> die nicht draußen stehen sollen. Echte Testdaten vor dem Commit entpersonalisieren **und die
+> Bereinigung mit einer Kontrollprobe belegen** (roh N Treffer → bereinigt 0). Hintergrund und
+> der geplante Schnitt: [`KONZ-platform-039`](docs/konzepte/KONZ-platform-039-sichtbarkeit-platform-repo.md).
 
 ## Rolle gegenüber anderen Repos
 
