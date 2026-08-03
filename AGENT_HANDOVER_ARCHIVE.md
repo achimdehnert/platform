@@ -827,3 +827,23 @@ getrackt in [#1547](https://github.com/achimdehnert/platform/issues/1547), passt
 Container-Freeze aus #1303. Drei fremde Repos sind dirty (`django-lms-lite`,
 `iil-doc-templates` mit untracked `.windsurf/`, `risk-hub` mit geändertem `NEXT.md`) —
 liegen gelassen, gehören anderen Sitzungen.
+
+---
+
+## ⚡ Stand 2026-08-02 — Regel-Lebenszyklus KONZ-038: Ritual live, Welle-1-Gates gebaut
+
+**Zeitanker:** HEAD `86546d09` · `rev-list --count` 2746 · geschrieben 2026-08-02
+
+**Was diese Session gebaut hat (alles gemergt):**
+- **KONZ-platform-038** „Regel-Lebenszyklus mit erzwungenem Evidenz-Ritual" ([#1639](https://github.com/achimdehnert/platform/pull/1639), T3): A/B/C-Klassifikation, Reconcile→Drill→Bau, 14-Tage-Ritual, Sunset mit Exposure-Nenner + Default-Expiry für den sensorlosen Long Tail. 3 interne + 2 externe Adversarial-Reviews eingearbeitet (Tag-Tabelle §14); K1 dreistufig mit vorregistrierter 30-%-Schwelle — nur „wirksam" löst den ADR-Entscheid aus.
+- **Ritual-Workflow** `.github/workflows/regel-ritual.yml` ([#1641](https://github.com/achimdehnert/platform/pull/1641)): 2.+16. je Monat, scharfer Lauf bewiesen (Kommentar auf [#1640](https://github.com/achimdehnert/platform/issues/1640), 22 Retros im Fenster). Nächste Läufe: 16.08., 02.09., 16.09.
+- **Welle 1 — 5/18 Gates Drill-bestanden gebaut:** claim-before-cheapest-check → `evidence_claim_scanner` jetzt **blocking** ([#1643](https://github.com/achimdehnert/platform/pull/1643), Maschinen-Kopie live); stale-clone-Drill ([#1644](https://github.com/achimdehnert/platform/pull/1644)); `deferred_item_scanner` advisory ([#1645](https://github.com/achimdehnert/platform/pull/1645)); `scope_checkpoint_scanner` advisory ([#1646](https://github.com/achimdehnert/platform/pull/1646), Option A aus #1081); Handover-Freshness als /session-ende-Phase 0a-freshness + Ritual-Sweep ([#1648](https://github.com/achimdehnert/platform/pull/1648)). `settings.json`: 6 Stop-Hooks; cc-skill-dist regeneriert (51 Commands @ 86546d09).
+- Replay-Vorabtest auf [#1185](https://github.com/achimdehnert/platform/issues/1185): 55 historische Instanzen — TURN 18 % / PR 40 % / **DOC 42 %**. Die im KONZ §7 vermutete PR-CI-Ebene wäre redundant (published-body-Scan deckt PR-Bodies); die echte nächste Stufe wäre ein Doku-Claim-Check.
+- 8 neue Gate-Issues [#1631–#1638](https://github.com/achimdehnert/platform/issues/1631) (7 Slugs hatten NULL Tracking); [#1642](https://github.com/achimdehnert/platform/issues/1642) Handoff-ID-Namespace.
+
+**Kritisch für Folge-Sessions:**
+- **Messfenster bis 16.08.** (Ritual-Lauf 1): VORHER D6 ausführen — `retro_kpis` härten (Golden-Fixture, a50bc6-Parser-Fix, Fail-on-unknown), Slug-Wörterbuch der Baseline-Top-3 einfrieren + committen, Baseline mit gepinnter Tool-Version als Artefakt ablegen. Ohne das ist K1 nicht auswertbar (KONZ-038 §13).
+- FP-Kalibrierung der zwei advisory-Scanner im selben Fenster (0-FP-Fenster = Voraussetzung für blocking-Upgrade per eigenem PR).
+- Offen aus KONZ-038 §12: D4 (A/B/C-Frontmatter, platform-only), D7 (Modellwechsel-Detektor + Smoke-Suite), D8 (wiederkehrender Fenster-Drill-Lauf).
+- **Sicherheits-Nebenbefund:** `~/.claude/settings.json` trägt den orchestrator-Bearer-Token im Klartext; er landete beim (fürs Hook-Wiring notwendigen) Einlesen im Session-Transkript → als kompromittiert behandeln: **Rotation** anstoßen + Header-Wert aus der Datei auslagern (Owner-Entscheid, Gate 1).
+- **Fremd-Artefakt, nicht angefasst:** im platform-Haupt-Tree liegt ein staged `KONZ-platform-037`-Entwurf, der von origin/main abweicht (vermutlich Parallel-Session 01.08.) — blockiert `git pull` des stalen lokalen main. Sichten/verwerfen ist Owner-Call.

@@ -35,7 +35,19 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
+## ⚡ Aktueller Stand (2026-08-03 — Health-Ehrlichkeit: Tasks und Checks lügen nicht mehr grün)
+
+**Zeitanker:** HEAD `6adfbfb7` · `rev-list --count` 2804 · geschrieben 2026-08-03
+
+- **⚠️ WEITER GÜLTIG — Step 0 der nächsten FRISCHEN Session:** `~/shared/finish_token_rotation2.sh` VOR jedem settings.json-Read (settings.json trägt **bewusst** den toten Orchestrator-Token #2; orchestrator-MCP bis dahin sichtbar nicht verbindbar). Hintergrund + Korrektur der Fehldoku: [#1694](https://github.com/achimdehnert/platform/pull/1694), Owner-Freigabe-Beleg im [#1640-Kommentar](https://github.com/achimdehnert/platform/issues/1640).
+- **dev-hub#188 (P1) Klasse gefixt und live:** `health.poll_all_checks`/`platform_health_scan` schlagen jetzt **fehl**, statt `succeeded` mit Fehler-Dict zu melden ([dev-hub#201](https://github.com/achimdehnert/dev-hub/pull/201), Deploy verifiziert im Container). **Prämissen-Korrektur:** der blinde Poller lief nie auf Prod, sondern auf fsn1 (88.99.38.75) — beide Hosts fahren devhub-Stacks mit identischen Container-Namen; Prod pollt korrekt.
+- **platform#1549 vollständig aufgelöst, Prod = 0 unhealthy:** devhub_beat war bereits sauber via IaC auf 512M (dev-hub d9d7735), authentik-Worker seit 2 Tagen healthy; die 4 Dauer-Roten waren ein **Healthcheck-Konstruktionsfehler** — `pidof` matcht den Exe-Basenamen `python3.12`, nie das setproctitle-`celery` ([dms-hub#58](https://github.com/achimdehnert/dms-hub/pull/58), [coach-hub#58](https://github.com/achimdehnert/coach-hub/pull/58), beide deployt). Outline-Lesson + 🌀-Memory geschrieben.
+- **Ritual-Lauf-1-Vorbereitung (#1640) inhaltlich fertig, zwei Merges fehlen:** D4-Klassifikation ausgeführt (118 Memory-Regelquellen A=67/B=36/C=15 direkt; 11 Policies via [#1700](https://github.com/achimdehnert/platform/pull/1700)), K3 Sunset-Ledger via [#1701](https://github.com/achimdehnert/platform/pull/1701). **Beide PRs standen 2026-08-03 04:30 noch OPEN/REVIEW_REQUIRED — die Owner-Meldung „gemergt" war nicht eingetreten (kein Approve registriert).** FP-Auswertung der 2 Advisory-Scanner: **n=0 echte Auslösungen** → „nicht bewertbar", Auswertung beim Ritual-Lauf 1 (16.08.).
+- **fsn1-Tenant-Rätsel OFFEN (dev-hub#188 Checkbox 1):** Owner-Lauf meldete `created=True, count=1` (Django/devhub_web), aber `psql` in `devhub_db` zeigt **0 rows** und der Poll bleibt rot — DNS/Netz/Settings/Prozess-Env/Transaktionen alle als Ursache ausgeschlossen (Belege in [dev-hub#188](https://github.com/achimdehnert/dev-hub/issues/188)-Verlauf dieser Session). Nächster Schritt: `bash ~/shared/fsn1_org_fix.sh` — druckt `connection.settings_dict` (wirklich genutzte DB), psql-Gegenzählung und Tick-Ergebnis in EINEM Lauf.
+- **Secret-Leak (eigener Fehler, gemeldet):** fsn1-`DB_PASSWORD` via zu breitem Env-Grep (`^DB_`) ins Transkript — Rotation **vom Owner vertagt**, getrackt in [dev-hub#202](https://github.com/achimdehnert/dev-hub/issues/202); 🌀-Memory + Outline-Lesson zur Muster-Vermeidung geschrieben.
+- Kleineres: docu-update dev-hub [#1704](https://github.com/achimdehnert/platform/issues/1704) (CHANGELOG zur FAILURE-Semantik); shared-ci-Tag-stale in 3 Session-Repos bereits getrackt ([#1157](https://github.com/achimdehnert/platform/issues/1157)/[#1678](https://github.com/achimdehnert/platform/issues/1678)); dev-hub#187 UID-Neulauf weiter unentschieden; `.env.prod.bak-*`-Hygiene mcp-hub-Host bleibt Owner-only.
+
+## ⚡ Vorheriger Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
 
 **Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
 
@@ -125,24 +137,6 @@ geriet beim Suchen ins Transkript → als **kompromittiert** behandeln, Rotation
 Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dateien als
 „deine" — kostete mehrere Anläufe, bis ich es gemessen statt geglaubt habe.
 
-## ⚡ Vorheriger Stand (2026-08-02 — Regel-Lebenszyklus KONZ-038: Ritual live, Welle-1-Gates gebaut)
-
-**Zeitanker:** HEAD `86546d09` · `rev-list --count` 2746 · geschrieben 2026-08-02
-
-**Was diese Session gebaut hat (alles gemergt):**
-- **KONZ-platform-038** „Regel-Lebenszyklus mit erzwungenem Evidenz-Ritual" ([#1639](https://github.com/achimdehnert/platform/pull/1639), T3): A/B/C-Klassifikation, Reconcile→Drill→Bau, 14-Tage-Ritual, Sunset mit Exposure-Nenner + Default-Expiry für den sensorlosen Long Tail. 3 interne + 2 externe Adversarial-Reviews eingearbeitet (Tag-Tabelle §14); K1 dreistufig mit vorregistrierter 30-%-Schwelle — nur „wirksam" löst den ADR-Entscheid aus.
-- **Ritual-Workflow** `.github/workflows/regel-ritual.yml` ([#1641](https://github.com/achimdehnert/platform/pull/1641)): 2.+16. je Monat, scharfer Lauf bewiesen (Kommentar auf [#1640](https://github.com/achimdehnert/platform/issues/1640), 22 Retros im Fenster). Nächste Läufe: 16.08., 02.09., 16.09.
-- **Welle 1 — 5/18 Gates Drill-bestanden gebaut:** claim-before-cheapest-check → `evidence_claim_scanner` jetzt **blocking** ([#1643](https://github.com/achimdehnert/platform/pull/1643), Maschinen-Kopie live); stale-clone-Drill ([#1644](https://github.com/achimdehnert/platform/pull/1644)); `deferred_item_scanner` advisory ([#1645](https://github.com/achimdehnert/platform/pull/1645)); `scope_checkpoint_scanner` advisory ([#1646](https://github.com/achimdehnert/platform/pull/1646), Option A aus #1081); Handover-Freshness als /session-ende-Phase 0a-freshness + Ritual-Sweep ([#1648](https://github.com/achimdehnert/platform/pull/1648)). `settings.json`: 6 Stop-Hooks; cc-skill-dist regeneriert (51 Commands @ 86546d09).
-- Replay-Vorabtest auf [#1185](https://github.com/achimdehnert/platform/issues/1185): 55 historische Instanzen — TURN 18 % / PR 40 % / **DOC 42 %**. Die im KONZ §7 vermutete PR-CI-Ebene wäre redundant (published-body-Scan deckt PR-Bodies); die echte nächste Stufe wäre ein Doku-Claim-Check.
-- 8 neue Gate-Issues [#1631–#1638](https://github.com/achimdehnert/platform/issues/1631) (7 Slugs hatten NULL Tracking); [#1642](https://github.com/achimdehnert/platform/issues/1642) Handoff-ID-Namespace.
-
-**Kritisch für Folge-Sessions:**
-- **Messfenster bis 16.08.** (Ritual-Lauf 1): VORHER D6 ausführen — `retro_kpis` härten (Golden-Fixture, a50bc6-Parser-Fix, Fail-on-unknown), Slug-Wörterbuch der Baseline-Top-3 einfrieren + committen, Baseline mit gepinnter Tool-Version als Artefakt ablegen. Ohne das ist K1 nicht auswertbar (KONZ-038 §13).
-- FP-Kalibrierung der zwei advisory-Scanner im selben Fenster (0-FP-Fenster = Voraussetzung für blocking-Upgrade per eigenem PR).
-- Offen aus KONZ-038 §12: D4 (A/B/C-Frontmatter, platform-only), D7 (Modellwechsel-Detektor + Smoke-Suite), D8 (wiederkehrender Fenster-Drill-Lauf).
-- **Sicherheits-Nebenbefund:** `~/.claude/settings.json` trägt den orchestrator-Bearer-Token im Klartext; er landete beim (fürs Hook-Wiring notwendigen) Einlesen im Session-Transkript → als kompromittiert behandeln: **Rotation** anstoßen + Header-Wert aus der Datei auslagern (Owner-Entscheid, Gate 1).
-- **Fremd-Artefakt, nicht angefasst:** im platform-Haupt-Tree liegt ein staged `KONZ-platform-037`-Entwurf, der von origin/main abweicht (vermutlich Parallel-Session 01.08.) — blockiert `git pull` des stalen lokalen main. Sichten/verwerfen ist Owner-Call.
-
 ## Nächste Schritte (kompakt)
 
 > **✅ hetzner-prod Speicherlage entschärft 2026-07-29 ([#1303](https://github.com/achimdehnert/platform/issues/1303), Messwerte als Kommentar):** Freies RAM **444 → 9.455 MB**, Swap von **4.095/4.095 auf 1.757/4.095**, laufende Container **113 → 45**. Auf Owner-Anweisung wurden 68 nicht benötigte Container **gestoppt** (nicht entfernt — `docker start` holt jeden zurück, Volumes unangetastet): ausschreibungs-hub, odoo, hub137, wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub, pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl. `ib_gateway`. **Weiter laufen** risk-hub (live), dev-hub, doc-hub, Outline, mcp-hub, authentik, weltenhub, illustration, dms-hub, writing-hub, aifw. **Die Lehre daraus ist wichtiger als die Zahl:** Ein cgroup-OOM sagt nicht, dass der Container zu klein ist — in die cgroup-Bilanz zählt der Seiten-Cache, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen. `devhub_celery` fiel **ohne jede Änderung an ihm** von 370,4 auf 305,9 MiB; ein Import, der dreimal mit `rc=137` starb, lief danach durch. „Limit erhöhen" wäre bei 924 MB freiem Host-RAM die gefährlichere Antwort gewesen. **Weiterhin ungeklärt:** warum die Container am 20.07. entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). **Nicht geheilt und deshalb eigenes Ticket ([#1549](https://github.com/achimdehnert/platform/issues/1549)):** `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Cache) und Health-Checks, die seit Tagen rot sind — `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9`; der Server antwortet weiter, der Worker ist tot.
@@ -178,6 +172,16 @@ Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dat
 > erreichbar. Punkte 1, 5, 6 unverändert offen; Details im LOG (Session 8ed6a2).
 > — **Nachtrag Session 922ab2 (später am selben Tag):** für **Punkt 5** trifft „unverändert
 > offen" nicht mehr zu; der Ingest läuft, am Prod-Host gemessen. Punkte 1 und 6 stimmen.
+
+> **Erledigt 2026-08-03 (Session 9530de73, health-poll-honest-failure):** **Punkte 3 und 6
+> komplett** — Details im „⚡ Aktueller Stand" oben: #1549 aufgelöst (Prod 0 unhealthy,
+> pidof-Wurzelursache, [dms-hub#58](https://github.com/achimdehnert/dms-hub/pull/58)/[coach-hub#58](https://github.com/achimdehnert/coach-hub/pull/58)),
+> dev-hub#188-Klasse gefixt ([dev-hub#201](https://github.com/achimdehnert/dev-hub/pull/201) live);
+> die Punkt-6-Hypothese „Verbindung zu Punkt 3" ist für Prod **falsifiziert** (Prod pollte
+> korrekt — der blinde Poller war fsn1). **Punkt 4 erneut bestätigt** (2 Outline-Lessons per
+> MCP geschrieben, kein 302 in dieser Session). Offen bleiben Punkt 5 (UID-Neulauf,
+> [dev-hub#187](https://github.com/achimdehnert/dev-hub/issues/187)) und aus Punkt 6 die
+> fsn1-Datenlage (Rätsel + Skript, siehe Aktueller Stand).
 
 > **Nachtrag 2026-07-31 — Konsequenz aus Punkt 5 für Punkt 3 (übernommen aus
 > [#1612](https://github.com/achimdehnert/platform/pull/1612) vor dessen Schließung):**
