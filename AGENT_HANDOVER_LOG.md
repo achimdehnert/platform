@@ -1033,3 +1033,30 @@ Meine ✅-Ersetzung der ⚠️-Zeile in #1693 hatte genau diese Step-0-Anweisung
 Lesefläche entfernt — mit dieser Korrektur wiederhergestellt. Die Server-Hälfte-Verifikation
 aus dem 4. Eintrag (Hash-Gleichheit, StartedAt) bleibt gültig und ist nun unabhängige
 Bestätigung des #1640-Kommentars.
+
+---
+
+## 2026-08-03 — Session 9530de73 (health-poll-honest-failure): Health-Ehrlichkeit + Ritual-Prep
+
+Kern: Zwei Klassen von „grün lügen" beseitigt. (1) Task-Ebene: dev-hub#201 gemergt+deployt —
+poll_all_checks/platform_health_scan schlagen fehl statt succeeded-mit-Fehler-Dict; Prämisse
+des Issues korrigiert (blinder Poller lief auf fsn1, nicht Prod). (2) Check-Ebene: die 4
+Dauer-unhealthy (dms/coach Worker+Beat) arbeiteten nachweislich — pidof matcht Exe-Basenamen
+python3.12, nie setproctitle-celery; dms-hub#58 + coach-hub#58 gemergt/deployt, danach
+Prod 0 unhealthy (nachgemessen). #1549 damit komplett (beat-Limit war schon via IaC 512M,
+authentik seit 2 Tagen healthy).
+
+Ritual-Prep (#1640): D4 ausgeführt — 118 Memory-Regelquellen klassifiziert (A=67/B=36/C=15,
+reassess_by gestaffelt), 11 Policies via PR #1700 (einzeilig statt Frontmatter wegen
+inject_policies-10-Zeilen-Fenster); K3 Sunset-Ledger via PR #1701; FP-Auswertung der zwei
+Advisory-Scanner: n=0 echte Auslösungen (13 Transkript-Treffer = Code-Spuren der Bau-Session)
+→ nicht bewertbar, Punkt für Ritual-Lauf 1. ACHTUNG: #1700/#1701 standen 04:30 trotz
+Owner-Meldung „gemergt" OPEN/REVIEW_REQUIRED — Approve fehlt.
+
+Offen/Übergabe: fsn1-Tenant-Rätsel (Owner-Lauf created=True + count=1 via Django, psql in
+devhub_db = 0 rows; DNS/Netz/Settings/Prozess-Env/Transaktionen ausgeschlossen) —
+~/shared/fsn1_org_fix.sh druckt settings_dict + Gegenzählung + Tick. Eigener Fehler:
+DB_PASSWORD (fsn1) via Präfix-Grep ins Transkript → dev-hub#202 (Rotation Owner-vertagt);
+Lesson + 🌀-Memory. Ferner: docu-update #1704, shared-ci-Tag-stale bereits #1157/#1678,
+dev-hub#187 UID-Neulauf unentschieden. Wissen: 2 Outline-Lessons (pidof; Env-Grep-Leak),
+pgvector session:platform:20260803:health-poll-honest-failure + error:fleet:20260802-pidof-celery.
