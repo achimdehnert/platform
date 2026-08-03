@@ -64,6 +64,7 @@ on:
       - ".windsurf/rules/**"     # test_gen_project_facts_guards
       - "infra/**"               # test_check_registry_view_readers
       - "registry/**"            # test_check_registry_view_readers
+      - "governance/**"          # test_backup_meter (Soll-Liste expected-apps.json)
   # #1414: KEIN `paths`-Filter auf pull_request — bewusst.
   #
   # Ein *required* Check mit paths-Filter läuft auf PRs, die keinen der Pfade
