@@ -26,6 +26,7 @@ ai_sparring_by:
 | **Erstellt**    | 2026-07-24                                                           |
 | **Autor**       | Achim Dehnert                                                        |
 | **Reviewer**    | Achim Dehnert (approved 2026-07-24) · 2× externe KI-Zweitmeinung (non-accountable, §11)             |
+| **Amended by**  | [ADR-293](ADR-293-mail-vollstaendige-verfuegbarkeit-statt-just-in-time.md) — §3 abgelöst, Rest in Kraft |
 | **Supersedes**  | –                                                                    |
 | **Superseded by** | –                                                                  |
 | **Relates to**  | KONZ-platform-034 (Postgres-Mailagent), KONZ-033 (Rollen-Mail-Identität) |
@@ -117,6 +118,15 @@ nur als **zweckgebundener Untermodus** von D.
 ---
 
 ## 3. Decision Outcome
+
+> ⚠️ **DIESER ABSCHNITT IST ABGELÖST (2026-08-03) — siehe
+> [ADR-293](ADR-293-mail-vollstaendige-verfuegbarkeit-statt-just-in-time.md).**
+> Für die Mail-Lane gilt **nicht mehr** Option D, sondern Option A: Nachrichtentext und
+> Anhänge werden für den gesamten Umfang persistiert, verschlüsselt und einzeln
+> schredderbar. Der Rest dieses ADR bleibt in Kraft — ADR-293 §3.1 listet Abschnitt für
+> Abschnitt auf, was weiter gilt und was fällt (§4.5 als *Tor* und §4.10.7 fallen mit).
+> Der Text unten bleibt als Begründungsstand vom 2026-07-24 stehen und wird bewusst
+> nicht umgeschrieben.
 
 **Gewählte Option: Option D — Metadaten-Index-first mit zweckgebundener, crypto-geschredderter
 Body-Persistenz.** Beide externen Reviews schlugen D unabhängig vor; es löst den härtesten
