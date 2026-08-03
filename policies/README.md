@@ -1,7 +1,7 @@
 # Org-Wide Policies
 
 These files codify cross-repo defaults for the Achim Dehnert / iil.gmbh org
-landscape (achimdehnert, ttz-lif, meiki-lra). They are loaded by Claude Code
+landscape (achimdehnert, iilgmbh, ttz-lif, meiki-lra). They are loaded by Claude Code
 on every session via `~/.claude/CLAUDE.md`.
 
 **SSoT = this directory** (`platform/policies/`, versioned). `~/.claude/policies/`
@@ -24,6 +24,7 @@ The `inject_policies.py` hook and `claude-policy` CLI read that path unchanged.
 | `evidence-discipline.md` | Bidirectional cheapest-check rule for claims and verdicts (binding falsification test) |
 | `autonomy-gates.md` | Autonom durcharbeiten; Freigabe nur an 5 Gates (Irreversibles, Prod, Security-Config, Scope, Spend) |
 | `data-sovereignty.md` | 🟡 DRAFT — ttz-lif/meiki-lra LLM-Egress-Perimeter + enge E1–E7-Ausnahme für PII-freie Arch-ADRs |
+| `error-handling.md` | Fehler mit Schadens-/Wiederholungspotenzial: Ursache belegen + fixen, Quick-Fix nur mit Folge-Ticket, ab 2. Auftreten Gate (Owner-Weisung 2026-08-03) |
 
 ## Override pattern (per-repo)
 
