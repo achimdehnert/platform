@@ -12,6 +12,9 @@ services:
     pid: host
     command:
       - "--path.rootfs=/host"
+      # /mnt ausgeschlossen: toter NFS-Mount auf prod (/mnt/fritz-nas-scans) ließ
+      # den Filesystem-Collector 10,5 s hängen -> Scrape-Timeout (gemessen 2026-08-02).
+      - "--collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+|var/lib/containers/storage/.+|mnt)($|/)"
     volumes:
       - "/:/host:ro,rslave"
 
