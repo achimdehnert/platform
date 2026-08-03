@@ -1126,6 +1126,83 @@ error:doc-hub:20260803-paperless-api-csrf-403.
 
 ---
 
+## 2026-08-03 — Session melder-triage: drei Melder gefixt, zwei davon meldeten Gesundes als krank
+
+Auftrag war eng gefasst: der User gab die Punkte 4–7 eines Session-Start-Boards frei,
+danach einzeln "1 go 2 3 done 4 go 5 go 6 go 7 automatisch". Alles Folgende haengt an
+diesen Nummern; nichts wurde daneben aufgemacht.
+
+**Der rote Faden, den keiner der Punkte vorhergesagt hat:** von fuenf als "blind"
+gemeldeten Meldern war keiner aus dem vermuteten Grund rot (HTTP 401), zwei waren
+bereits gefixt, und **zwei meldeten Gesundes als krank**. Beide aus derselben Wurzel:
+der Melder prueft einen Schluessel, den der produzierende Job gar nicht mehr setzt.
+
+- **backup-meter** meldete "risk-hub juengster Snapshot 89.6 h alt". Nachgemessen:
+  der taegliche Job (Cron 02:30) legt `risk_hub_db` UND den Sammel-Snapshot `volumes`
+  an, beide 7,8 h alt, und `volumes` enthaelt sowohl `risk_hub_media/_data` als auch
+  `risk_hub_minio_data/_data`. Der in `expected-apps.json` erwartete Tag `risk-hub`
+  stammt aus einem manuellen Einzellauf vom 30.07., den nichts erneuert. Der Alarmwert
+  sah *plausibel* aus (89,6 h statt "kein Snapshot") — genau das machte ihn gefaehrlich.
+  Fix platform#1724: der Meter kennt jetzt mehrere `checks` je App und prueft beim
+  Sammel-Snapshot zusaetzlich `paths_contain`. Ohne die Pfadpruefung haette der Fix
+  eine echte Luecke zugedeckt: `volumes` bliebe frisch, auch wenn risk-hubs Pfade
+  daraus verschwaenden. Beweis an den echten 57 Snapshots: alt 1 Verletzung, neu 1 konform.
+- **sync-drift-meter** meldete "design-hub: .windsurf/ fehlt in .gitignore" — die
+  Zeile ist dort seit dem 2026-06-01 committet (`8a0ee9ca`). Zwei Monate Fehlalarm aus
+  einem Klon, den der Melder mit `if [ ! -d ]` anlegte und danach **nie** zog. Zweiter
+  Defekt derselben Stelle: Owner hart auf `achimdehnert`, fuenf Repos scheiterten still
+  mit `WARN: not found`. Fix platform#1721 (`tools/fleet_checkout.py`): Owner ueber
+  `registry_api`, Klone werden aktualisiert, und die **Abdeckung** steht jetzt im
+  Issue-Text (49 von 52, drei Fremd-Org namentlich).
+
+**`/opt/platform` ist ab jetzt selbstziehend.** Bis heute zog den Prod-Werkzeugklon
+nichts: kein Cron, kein Skript, keine systemd-Unit — nur Handgriffe zu unregelmaessigen
+Uhrzeiten, mit einer Luecke von 27 Tagen zwischen dem 02.07. und dem 29.07. Ein Merge
+nach `main` wirkte dort nicht, sah aber so aus. Jetzt zwei unabhaengige Dinge:
+Phase 0.7.3 misst den Klon in jeder Session von aussen (platform#1723, zwei WARN-Stufen:
+`HINTERHER` = Rueckstand ohne Mail-Risiko, `DRIFT` = `tools/mail_agent` weicht ab), und
+`opt-platform-sync.yml` zieht ihn bei jedem Push auf main plus taeglich 01:15 UTC
+(platform#1725, `self-hosted`, kein SSH — der Runner laeuft als root auf demselben Host).
+**Erster scharfer Lauf war der Merge selbst und ist durchgelaufen:** der Klon ging von
+32 Commits Rueckstand auf `HEAD == origin/main` (`0da74306`), unabhaengig nachgemessen.
+Der Job prueft den Zielzustand nach dem Pull, nicht den Exit-Code von `git pull` — der
+kann 0 liefern und den Klon trotzdem hinterherhinkend lassen.
+
+**Eigener Fehler, gemeldet:** ein `cat` auf `/etc/cron.d/adr-outline-sync` trug einen
+Outline-API-Token im Klartext ins Transkript; der gezielte `grep` war der naechste
+Schritt, einen Aufruf zu spaet. Gleiche Klasse wie dev-hub#202 vom selben Tag. Getrackt
+in **dev-hub#214** (privates Repo — platform ist oeffentlich), Rotationsskript liegt
+zweiphasig in `~/shared/rotate_outline_token.sh`: Phase 1 legt den neuen Schluessel an,
+verifiziert ihn, schreibt `/etc/adr-outline-sync.env` mit 0600 und baut den Cron aufs
+Sourcen um; erst `--revoke` nach einem erfolgreichen 04:00-Lauf loescht den alten.
+Zwei Classifier-Blocks (worktree-reaper `--apply`, Credential-Handling auf prod) wurden
+respektiert, nicht umgangen, und an den Owner uebergeben.
+
+Kleineres: dev-hub#213 gemergt (CHANGELOG+README zur FAILURE-Semantik der Health-Tasks,
+`[skip ci]`), platform#1704 geschlossen. `governance/**` fehlte im paths-Filter von
+`tools-tests.yml` — der gestern gebaute Trigger-Deckungstest (#1717) fiel sofort darauf,
+mitgezogen in #1724. Ein gemergter Worktree in frist-hub gereapt (20→19).
+
+**Offen:** dev-hub#214 Rotation ausfuehren (danach dritte Checkbox: weitere
+`/etc/cron.d/`-Dateien mit inline-Geheimnissen pruefen) · platform#1718 kann geschlossen
+werden, der Melder ist gefixt · platform#1508 Restpunkte: Registry-Live-Reconcile-Funde
+(apo-hub, onboarding-hub) triagieren, und **`Gen project-facts.md` bleibt rot** — 3×
+"Kopf von 'main' nicht lesbar" fuer frist-hub/meiki-hub/ttz-hub, weil `gh_slug()` den
+Owner ueber einen GitHub-**Redirect** aufloest, den es fuer nie transferierte Repos nicht
+gibt; der Fix braucht einen Scope-Entscheid (Owner aufloesen = PRs in Fremd-Org-Repos,
+oder ausschliessen mit benanntem Grund) · shared-ci-Tag-Drift jetzt an drei Tags
+gleichzeitig sichtbar (#1157 kommentiert) — fehlt eine Tag-Cut-Kadenz, sonst laeuft sie
+nach jedem Schliessen erneut auf · die 46 abgelaufenen Leases bleiben liegen: 23 dirty
+(fremde Arbeit), 40 mit offenem PR, 12 detached HEAD — nur einer war reapbar, die
+Hygiene-Meldung ueberzeichnet den Aufraeumbedarf · drei fremde dirty Repos unveraendert
+(django-lms-lite, iil-doc-templates, risk-hub).
+
+**AGENT_HANDOVER.md wurde bewusst NICHT angefasst:** PR #1720 (fremde Session) stand
+beim Session-Ende offen und traegt bereits einen neuen Stand. Nur dieser Log-Block —
+`merge=union` traegt ihn konfliktfrei neben deren Aenderung.
+
+Wissen: pgvector `session:platform:20260803:melder-triage` +
+`error:platform:20260803-melder-misst-falschen-schluessel`.
 ## 2026-08-03 (3. Eintrag) — Session 8e5cf907 (session-start → Melder, Mail-Bestand, Zugangsschutz)
 
 Als Statusaufnahme gestartet, über freigegebene Ketten in drei Repos gewachsen. Kern: eine
