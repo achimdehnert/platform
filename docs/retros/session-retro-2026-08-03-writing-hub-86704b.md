@@ -4,18 +4,19 @@ date: 2026-08-03
 repo_scope: [writing-hub, aifw, platform]
 session_id: 86704b
 footprint: deep
-findings_total: 5
-findings_survived: 5
-refuted_rate: 0.0
-phase3_refuted: 0
+findings_total: 7
+findings_survived: 4
+refuted_rate: 0.29
+phase3_refuted: 2
 pre_refuted: 0
+hypotheses: 1  # Befund 4 — sitzungsinternes Signal, fuer repo-begrenzte Skeptiker nicht falsifizierbar
 scores:
   zielerreichung: 4
   architektur_design: 4
   code_konventionstreue: 4
   risiko_debt: 3
   prozess_effizienz: 3
-  entscheidungsqualitaet: 3
+  entscheidungsqualitaet: 2
 gate_candidates: [claim-before-cheapest-check-attribut-und-dokumentzustand, german-schliesst-keyword-no-autoclose]
 recurring_findings: [claim-before-cheapest-check, german-schliesst-keyword-no-autoclose]
 footprint_reduction_reason: "keine Reduktion — Bedingung (b) verletzt: zwei DB-Migrationen (0042_bookproject_archived_at, 0043_bookproject_is_experiment)"
@@ -41,13 +42,19 @@ footprint_reduction_reason: "keine Reduktion — Bedingung (b) verletzt: zwei DB
 
 ## 2. Befund-Tabelle
 
+Drei Sonnet-Skeptiker haben die Bewertungsbefunde nachträglich falsifiziert (Phase 3,
+nachgeholt nach ausdrücklicher Freigabe). Jeder bekam nur die Behauptung, zog seine Belege
+unabhängig aus `origin/main` und den Registern, und war neutral beauftragt.
+
 | # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
 |---|---|---|---|---|---|---|
-| 1 | PR #484 schreibt „**Schließt** #473 und #481" — GitHub kennt nur `Closes/Fixes/Resolves`; beide Issues blieben `OPEN`, obwohl der Fix gemergt und deployt ist | Wissenslücke | mittel | SURVIVES | `gh pr view 484 --json body` → „Schließt **#473**"; `gh issue view 473/481` → `OPEN`; Memory `german-schliesst-keyword-no-autoclose.md` existiert | ja — eigene Drift-Memory |
-| 2 | Zwei Zustandsbehauptungen ohne den billigsten Check: (a) „37 **erfundene** Belegstellen" — gemessen war nur „0 folgen dem Platzhalter-Schema"; (b) „`PLATFORM_GITHUB_TOKEN` rotieren" — aus dem Issue-Text vom Session-Start, während beide Melder seit 07:39 grün liefen | fehlende Validierung | hoch | SURVIVES | (a) CrossRef: Davis 1989 `10.2307/249008` + Miller 2019 `10.1016/j.artint.2018.07.007` existieren; (b) `gh run list --workflow "Runner Health Check"` → `2026-08-03T07:39 success` | ja — `claim-before-cheapest-check` ×37 |
-| 3 | „sechs / sieben / acht Worktrees liegen herum" über mehrere Turns behauptet; real waren es **drei** | fehlende Validierung | niedrig | SURVIVES | `git worktree list` → 4 Zeilen inkl. `main`; die gemergten waren längst abgeräumt | ja — selbe Familie wie #2 |
-| 4 | Der Artefakt-Budget-Checkpoint feuerte **5×** (Schwelle 4). Jedes Mal wurde der Scope gespiegelt und weitergebaut; das Signal änderte das Verhalten nie | Prozesslücke | mittel | SURVIVES | 5 Stop-Hook-Meldungen im Transkript; PR-Zahl stieg 5 → 7 → 8 → 9 nach dem ersten Checkpoint | ja — `scope-checkpoint-not-durably-recorded` ×10 (hier abgeschwächt: **wurde** durabel im Handover festgehalten) |
-| 5 | Prod-DB-Mutation per Titel-Regex **ohne Dry-Run** — in demselben Repo, in dem Issue #478 kurz zuvor genau davor warnte („ein Backfill müsste am Titel raten") | verfrühte Festlegung | mittel | SURVIVES | Der Lauf setzte `is_experiment`/`is_active`/`archived_at` direkt per `save()`; erst danach wurde der Archiv-Bestand angesehen. Schaden gering (1 Treffer), weil der Owner bereits von Hand archiviert hatte | nein |
+| 1 | PR #484 schreibt „**Schließt** #473 und #481" — GitHub kennt nur `Closes/Fixes/Resolves`; beide Issues blieben `OPEN`, obwohl der Fix gemergt und deployt war | Wissenslücke | mittel | SURVIVES | `gh pr view 484 --json body`; `gh issue view 473/481` → `OPEN`; Memory `german-schliesst-keyword-no-autoclose.md` existiert | ja — eigene Drift-Memory |
+| 2a | „37 **erfundene** Belegstellen" behauptet; gemessen war nur „0 von 37 folgen dem Platzhalter-Schema" | fehlende Validierung | hoch | **SURVIVES** | Skeptiker bestätigt unabhängig: CrossRef weist Davis 1989 (`10.2307/249008`, MIS Quarterly) und Miller 2019 (`10.1016/j.artint.2018.07.007`) als reale, titel- und jahresgleiche Werke aus | ja — `claim-before-cheapest-check` |
+| 2b | „`PLATFORM_GITHUB_TOKEN` rotieren" sei eine unbelegte Behauptung gewesen | fehlende Validierung | mittel | **REFUTED** | Issue #1451 (2026-07-25, **OPEN**) dokumentiert `HTTP 401: Bad credentials` als Log-Befund und benennt das Token ausdrücklich; der fehlgeschlagene Lauf `30792795240` zeigt `runner API error 401` für alle 27 Repos. Die Aussage war belegt — sie war **veraltet**, nicht unbegründet | — |
+| 3 | „sechs / sieben / acht Worktrees liegen herum" mehrfach behauptet; real waren es **drei** | fehlende Validierung | niedrig | SURVIVES | `git worktree list` → 4 Zeilen inkl. `main` | ja — selbe Familie wie 2a |
+| 4 | Artefakt-Budget-Signal feuerte 5× ohne Verhaltensänderung | Prozesslücke | mittel | **HYPOTHESE** | Der Skeptiker fand keine Textspur in `AGENT_HANDOVER.md`, `CLAUDE.md` oder den 9 PR-Bodies — zu Recht: das Signal ist ein **Stop-Hook der Sitzungsumgebung**, kein Repo-Artefakt. Damit ist der Befund für einen repo-begrenzten Prüfer strukturell nicht falsifizierbar und wird laut Skill als Hypothese geführt, nicht als SURVIVES | — |
+| 5 | Prod-DB per Titel-Regex mutiert, entgegen der eigenen Warnung in #478 | verfrühte Festlegung | mittel | **REFUTED** | Der Abschluss von #478 belegt das Gegenteil: der Owner archivierte die 8 Läufe **von Hand** über die neue Oberfläche (Variante 3, die das Issue empfahl); die Heuristik setzte danach nur ein kosmetisches Flag auf bereits Archiviertes, und zwei Titel wurden ausdrücklich **nicht** erfasst. Alle Felder sind umkehrbar, `ProjectRestoreView` existiert | — |
+| 6 | **Eine Korrektur des Owners übernommen, ohne ihre Grundlage zu prüfen.** Auf „13 fehlerhaft" wurde die eigene Token-Aussage als Fehler verbucht und im Report als Befund geführt — geprüft wurde nur, dass die Workflows *jetzt* grün sind, nicht ob die Diagnose je falsch war | fehlende Validierung | **hoch** | SURVIVES | Issue #1451 stand die ganze Zeit offen und belegte die Token-Ursache; erst der Skeptiker brachte es hervor. `evidence-discipline.md`: „This binds the claimant and the reviewer equally. Neither may carry a prior into the gap" | ja — `claim-before-cheapest-check`, gespiegelt |
 
 ## 3. Scorecard
 
@@ -62,13 +69,14 @@ footprint_reduction_reason: "keine Reduktion — Bedingung (b) verletzt: zwei DB
 
 ## 4. Soll-Ablauf
 
+Invariante: 4 überlebende Befunde (1, 2a, 3, 6) ⇒ 4 Soll-Schritte.
+
 | Ist (beobachtet, mit Beleg) | Soll (verbesserter Ablauf) | eliminiert |
 |---|---|---|
-| PR-Body sagt „Schließt #473" → Issues bleiben offen | Vor jedem `gh pr create` mit Issue-Bezug: `grep -iE 'closes\|fixes\|resolves' <body>` — kein Treffer bei vorhandenem `#N` ⇒ Body korrigieren, nicht mergen | #1 |
-| „37 erfundene Belegstellen" aus „0 Schema-Treffer" geschlossen | Vor jeder Aussage prüfen: *Was habe ich gemessen, was behaupte ich?* Weichen Messgröße und Behauptung ab, ist die Behauptung eine Hypothese — bis der billigste Check läuft (hier: Titel gegen CrossRef) | #2 |
-| „acht Worktrees" mehrfach genannt, nie gezählt | Jede Zahl in einer Antwort stammt aus einem Kommando in derselben Antwort oder wird als Schätzung gekennzeichnet | #3 |
-| 5 Checkpoints gespiegelt, Verhalten unverändert | Ab dem **zweiten** Checkpoint keine Spiegelung mehr, sondern eine Entscheidungsfrage mit Abbruch-Option als Default — der Mensch wählt Weiterbauen aktiv, statt es durch Schweigen zu bestätigen | #4 |
-| Prod-Regex-Mutation direkt ausgeführt | Jede mutierende Prod-Abfrage läuft **zweimal**: erst als reine Auswahl mit Ausgabe der Treffer, dann — nach Sichtung — als Schreibvorgang. Bei Heuristiken ist das keine Kür | #5 |
+| PR-Body sagt „Schließt #473" → Issues bleiben offen | Vor jedem `gh pr create` mit `#N` im Body: auf `Closes\|Fixes\|Resolves` greppen; kein Treffer ⇒ Body korrigieren, nicht aufmachen | #1 |
+| „37 erfundene Belegstellen" aus „0 Schema-Treffer" geschlossen | Vor jeder Aussage: *Was habe ich gemessen, was behaupte ich?* Weichen Messgröße und Behauptung ab, ist es eine Hypothese — bis der billigste Check läuft (hier: Titel gegen CrossRef) | #2a |
+| „acht Worktrees" mehrfach genannt, nie gezählt | Jede Zahl in einer Antwort stammt aus einem Kommando derselben Antwort oder wird als Schätzung gekennzeichnet | #3 |
+| Owner-Korrektur „13 fehlerhaft" sofort als eigener Fehler verbucht | Eine Korrektur ist eine **Behauptung wie jede andere**. Prüfe ihre Grundlage mit demselben billigsten Check, bevor du die eigene Aussage zurücknimmst — sonst tauscht man einen ungeprüften Stand gegen den nächsten | #6 |
 
 ## 5. Längsschnitt
 
@@ -220,3 +228,62 @@ Fall (Dokument gelesen, Herkunft verschwiegen) bleibt offen und wäre nur über 
 Prozessregel zu fassen: **ein Issue-Text ist eine Momentaufnahme seiner Erstellung, kein
 Zustand.** Diese Regel gehört in `session-start`, wo Handover und Issues gelesen werden — und
 nicht in einen Textscanner.
+
+---
+
+## 10. Nachtrag — was die Falsifikation verändert hat
+
+Die Phase 3 wurde **nachgeholt**, nachdem der Owner die drei Bewertungsbefunde ausdrücklich
+zur Falsifikation freigab. Drei Sonnet-Skeptiker, je ein Befund, neutral beauftragt, Belege
+unabhängig aus `origin/main` und den Registern gezogen. Ergebnis:
+
+| Befund | vorher | nachher |
+|---|---|---|
+| 2a — „37 erfundene" | SURVIVES | **SURVIVES**, unabhängig bestätigt |
+| 2b — Token-Rotation | (in 2 gebündelt) | **REFUTED** |
+| 4 — Checkpoint-Signal | SURVIVES | **HYPOTHESE** |
+| 5 — Prod-Regex | SURVIVES | **REFUTED** |
+| 6 — Überkorrektur | — | **neu, SURVIVES** |
+
+`refuted_rate` steigt von 0,0 auf **0,29** — im gesunden Band (0,2–0,8). Der Wert 0,0 der
+Erstfassung war kein Qualitätssignal, sondern die Folge fehlender Falsifikation; das steht
+so in §8 und hat sich bestätigt.
+
+**Zwei von fünf Selbstanklagen hielten nicht.** Beide waren zu **streng**, nicht zu milde —
+genau die Richtung, vor deren Vorhersagbarkeit der Skill warnt.
+
+### Der teuerste Fund kam vom Skeptiker, nicht aus dem Retro
+
+Befund 2 bündelte zwei Teilaussagen, und die zweite war falsch. Die Token-Diagnose **war**
+belegt: Issue #1451 (2026-07-25, bis heute offen) dokumentiert `HTTP 401: Bad credentials`
+als Log-Befund und benennt `PLATFORM_GITHUB_TOKEN` ausdrücklich; PR #1708 behob etwas
+anderes (Owner-Typ/Endpunkt).
+
+Der eigentliche Fehler war ein anderer und stand nirgends im Report: Auf die Rückmeldung
+„13 fehlerhaft" wurde die eigene Aussage **sofort** als Fehler verbucht — geprüft wurde nur,
+dass die Workflows *jetzt* grün sind, nicht ob die Diagnose je falsch war. Das ist derselbe
+Fehler wie der ursprüngliche, mit umgekehrtem Vorzeichen: eine fremde Behauptung ungeprüft
+in die Lücke getragen. `evidence-discipline.md` sagt es wörtlich — *„This binds the claimant
+and the reviewer equally."*
+
+Daraus wurde Befund 6, und er wiegt schwerer als der, den er ersetzt: eine Überkorrektur ist
+schwerer zu bemerken als eine Überbehauptung, weil sie wie Einsicht aussieht.
+
+### Methodenbefund für den Skill selbst
+
+Befund 4 ist für einen repo-begrenzten Skeptiker **strukturell nicht falsifizierbar** — das
+Signal ist ein Stop-Hook der Sitzungsumgebung, kein Repo-Artefakt. Der Skeptiker schloss
+daraus korrekt „kein Beleg", deutete es aber als „konstruiert".
+
+Beides ist lehrreich: Ein Retro darf sitzungsinterne Signale nicht als `SURVIVES` führen —
+der Skeptiker kann ihnen gar nicht widersprechen, und Regel 1 wird unbemerkt umgangen. Die
+Skill kennt die Regel bereits („nur durch Session-Gedächtnis gedeckt ⇒ Hypothese"); sie
+greift hier zum ersten Mal sichtbar.
+
+### Offen geblieben
+
+**Issue #1451 ist weiterhin offen** und seine Frage — ob `PLATFORM_GITHUB_TOKEN` rotiert
+wurde oder nur der Symptom-Pfad reparariert ist — ist mit den vorliegenden Artefakten nicht
+zu beantworten. Der Lauf um 07:39 war grün, 29 Minuten nach dem letzten 401 und 29 Minuten
+nach dem Merge von #1708, das das Token nicht anfasst. Billigster Check: das Secret-
+Änderungsdatum in den Repo-Settings.
