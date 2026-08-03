@@ -63,6 +63,50 @@ def _mode() -> str:
 
 
 # Claim markers: cheaply-falsifiable specificity. Kept deliberately narrow.
+# --- Bejahende Ursachenbehauptung (2026-08-03) -------------------------------
+# Absichtlich eng: nur Formulierungen, die eine Ursache als FESTSTELLUNG setzen.
+# "Ursache könnte X sein" oder "Hypothese: X" sollen NICHT feuern — dafür der
+# Hedge-Filter unten, der satzweise arbeitet (ein Hedge im selben Satz entwaffnet
+# den Treffer, ein Hedge drei Absätze weiter nicht).
+AFFIRMATIVE_CAUSE_RE = re.compile(
+    r"\b(?:"
+    r"(?:die\s+)?ursache\s+(?:ist|war|liegt|lag)\b"
+    r"|root[- ]cause\s*[:=]"
+    r"|(?:das|es|dies|der\s+fehler|das\s+problem)\s+(?:liegt|lag)\s+an\b"
+    r"|verursacht\s+(?:durch|von)\b"
+    r"|(?:ist|war)\s+ein\s+bekanntes\s+(?:muster|problem)\b"
+    r"|\bcaused\s+by\b"
+    r")",
+    re.I,
+)
+
+# Ein Hedge im SELBEN Satz macht aus der Feststellung eine Hypothese — genau das,
+# was die Policy verlangt. Dann darf der Scanner schweigen.
+CAUSE_HEDGE_RE = re.compile(
+    r"\b(?:vermutlich|wahrscheinlich|moeglicherweise|m(?:ö|oe)glicherweise|"
+    r"hypothese|verdacht|vermute|k(?:ö|oe)nnte|d(?:ü|ue)rfte|scheint|"
+    r"plausibel|nicht\s+verifiziert|unbelegt|nicht\s+belegt|"
+    r"leithypothese|annahme|wohl|evtl\.?|eventuell|"
+    r"maybe|likely|presumably|hypothesis|unverified)\b",
+    re.I,
+)
+
+# Bewusst NICHT an ":" und ";" trennen — "Leithypothese: die Ursache ist X" ist EIN
+# Gedanke, und der Hedge steht davor. Kalibrierlauf 2026-08-03: mit ":" im Splitter
+# war genau dieser Satz der einzige Fehlalarm.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?\n])\s+")
+
+
+def _affirmative_cause_fires(text: str) -> bool:
+    """True, wenn mindestens EIN Satz eine ungehedgte Ursachenbehauptung trägt."""
+    for sentence in _SENTENCE_SPLIT_RE.split(text):
+        if AFFIRMATIVE_CAUSE_RE.search(sentence) and not CAUSE_HEDGE_RE.search(
+            sentence
+        ):
+            return True
+    return False
+
+
 CLAIM_PATTERNS = [
     (
         re.compile(
@@ -112,6 +156,18 @@ CLAIM_PATTERNS = [
         ),
         "over-diagnosis",
     ),
+    # Bejahende Ursachenbehauptung (Lehre 2026-08-03, Retro 928b64). `over-diagnosis`
+    # oben deckt nur die ABWEHRENDE Hälfte ab ("pre-existing", "nicht mein Code") —
+    # eine bejahende Diagnose ("die Ursache ist X", "das liegt an X") trug keinen
+    # dieser Marker und rutschte durch, obwohl evidence-discipline.md "root-cause
+    # label" ausdrücklich als auslösenden Marker nennt. Realfall: ein 403 wurde als
+    # "veraltetes Plätzchen" festgestellt und in ein durables Memory geschrieben,
+    # bevor ein Befund das stützte; widerlegt wurde es erst durch eine Gegenprobe,
+    # die in der bereits gelesenen Memory-Datei wörtlich vorgeschlagen war.
+    # Korroboration ist RUN_EVIDENCE_TOKENS, nicht die generische Liste: eine Ursache
+    # belegt man durch einen Lauf/Log, nicht durch das Lesen von Code.
+    # Hedges werden satzweise ausgenommen — s. _affirmative_cause_fires().
+    (AFFIRMATIVE_CAUSE_RE, "affirmative-cause"),
     # Coverage-/Exposure-Claim (Lehre 2026-07-06, GHAS-Audit: "13/20 Repos ohne
     # Secret-Scan" war 13× falsch — grep-Literal übersah shared-CI-uses:-Vererbung).
     # Feuert nur, wenn KEIN echter Coverage-Read (contents/actions/workflows) im Turn lief.
@@ -510,6 +566,12 @@ def main() -> int:
     fired = []
     if assistant_text:
         for pat, label in CLAIM_PATTERNS:
+            if label == "affirmative-cause":
+                # Braucht den satzweisen Hedge-Filter, nicht den Volltext-search:
+                # "Hypothese: die Ursache ist X" darf NICHT feuern.
+                if _affirmative_cause_fires(assistant_text):
+                    fired.append(label)
+                continue
             if pat.search(assistant_text):
                 fired.append(label)
 
@@ -549,10 +611,14 @@ def main() -> int:
 
     # Funktions-Negation und Zeit-Claim brauchen den Lauf, nicht den Code.
     lauf_fired = [
-        label for label in fired if label in ("function-negation", "temporal-claim")
+        label
+        for label in fired
+        if label in ("function-negation", "temporal-claim", "affirmative-cause")
     ]
     fired = [
-        label for label in fired if label not in ("function-negation", "temporal-claim")
+        label
+        for label in fired
+        if label not in ("function-negation", "temporal-claim", "affirmative-cause")
     ]
     if lauf_fired and not RUN_EVIDENCE_TOKENS.search(evidence_text):
         fired.extend(lauf_fired)
@@ -571,6 +637,10 @@ def main() -> int:
                 "function-negation",
                 "temporal-claim",
                 "soft-quantifier-claim",
+                # Eine Ursache belegt man durch einen Lauf/Log, nicht durch das Lesen
+                # von Code oder einen gruenen Test — die generische Korroboration
+                # darf sie deshalb nicht entwaffnen (s. lauf_fired oben).
+                "affirmative-cause",
             )
         ]
 
