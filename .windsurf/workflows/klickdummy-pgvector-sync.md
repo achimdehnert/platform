@@ -28,10 +28,10 @@ Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-07-24, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste (Stand 2026-08-03, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
 
 ```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub
+risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -102,3 +102,10 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   passend dazu 57/142 `written: false`, also greifenden `content_hash`-Dedup. Ersetzt durch das
   Chunk-Anti-Pattern (iil-klickdummy#199/#207). Die alte Notiz hätte weiter davon abgeraten,
   den Sync häufiger als nightly zu takten — mit einer Begründung, die nicht mehr zutrifft.
+- 2026-08-03: Repo-Liste +billing-hub +recruiting-hub +weltenhub +dev-hub +pptx-hub
+  (Discovery; dev-hub und pptx-hub haben wieder `klickdummy/`). frist-hub (meiki-lra) und
+  ttz-hub (ttz-lif) weiter gov-ausgeschlossen (E3). 160 Entries/23 Repos, R3 PASS
+  (160/160, 28 written, Rest content_hash-Dedup). Schema-WARNs pg-hub bereits getrackt
+  (bahn-sqf/pg-hub#8). Betriebs-Hinweis: orchestrator-Key-Rotation 2026-08-02 war in
+  `~/.claude.json` nicht nachgezogen (403 beim MCP-Bind) — Client-Nachzug gehört zur
+  Rotations-Checkliste (Wiederholung von 2026-07-12, mcp-hub#175).
