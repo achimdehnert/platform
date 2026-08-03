@@ -54,6 +54,28 @@ def test_should_pass_with_body_waiver(tmp_path):
     assert gate.violation_for(p) is None
 
 
+def test_should_pass_with_nonempty_amends(tmp_path):
+    # Ein gefuelltes `amends:` benennt die Vorgaenger ausdruecklich und beantwortet
+    # damit die Frage, die der Gate stellt (Realfall ADR-292).
+    p = _write(tmp_path, "292", "two-lane-deployment-six-host-standard", supersedes="[]",
+               extra_fm="amends: [ADR-157, ADR-289]\n")
+    assert gate.violation_for(p) is None
+
+
+def test_should_pass_with_block_amends(tmp_path):
+    p = _write(tmp_path, "293", "deployment-strategy-v3", supersedes="[]",
+               extra_fm="amends:\n  - ADR-157\n  - ADR-289\n")
+    assert gate.violation_for(p) is None
+
+
+def test_should_flag_when_both_supersedes_and_amends_empty(tmp_path):
+    # Gegenprobe: ein leeres `amends:` darf NICHT als Antwort durchgehen --
+    # sonst waere die Erweiterung ein Freifahrtschein statt einer dritten Antwort.
+    p = _write(tmp_path, "294", "final-deployment-pipeline", supersedes="[]",
+               extra_fm="amends: []\n")
+    assert gate.violation_for(p) is not None
+
+
 def test_should_ignore_draft_status(tmp_path):
     p = _write(tmp_path, "265", "final-deployment-pipeline", status="draft", supersedes="[]")
     assert gate.violation_for(p) is None
