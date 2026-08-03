@@ -1123,3 +1123,40 @@ Retro-Befund #4 ungeprueft, weil Subagenten in dieser Umgebung untersagt sind (r
 ~/shared/finish_token_rotation2.sh. Wissen: Outline-Lesson
 d000582f-2316-48c2-99f2-afeefe3ee6d9; pgvector session:platform:20260803:retro-928b64 +
 error:doc-hub:20260803-paperless-api-csrf-403.
+
+---
+
+## 2026-08-03 (3. Eintrag) — Session 8e5cf907 (session-start → Melder, Mail-Bestand, Zugangsschutz)
+
+Als Statusaufnahme gestartet, über freigegebene Ketten in drei Repos gewachsen. Kern: eine
+blockierte Merge-Wand aufgelöst, die Melder-Kette wirklich zum Melden gebracht, den Mail-Bestand
+ehrlich vermessen und eine offene Route geschlossen.
+
+Erledigt: platform#1716 (Deploy-ADR-Gate akzeptiert `amends:` — `main` war rot und blockierte
+jeden PR; auf blankem main gegengeprüft, #1715 auto-closed) · platform#1714 (`gh` auf dem
+Prod-Runner installiert + `ensure-runner-tooling.sh` als einzeln aufrufbare IaC; beide Melder
+legen wieder Issues an: #1718/#1711) · dev-hub#202 geschlossen (fsn1-DB-Passwort rotiert,
+`ALTER ROLE` + `.env.prod` + `--force-recreate`, alle Hashes identisch, DB-Verbindung belegt,
+5/5 healthy, bewusst ohne `.bak`-Kopie) · 32 stale Worktrees in 17 Repos entfernt (Leases 76→46).
+
+Prämissen-Korrekturen (beide waren Pflicht-Zeilen im Handover): Step 0 `finish_token_rotation2.sh`
+war längst erledigt (drei Orte hash-identisch, MCP verbindet) · #1700/#1701 waren gemergt, nicht
+offen · authentik schützt dev-hub **gar nicht** (kein `auth_request` in der nginx-Site; die
+Weiterleitungen kommen von django-allauth).
+
+Sicherheitsfund: `/mail-agent/` lieferte 200 ohne Anmeldung, auch an Cloudflare vorbei über die
+Origin-IP. Fix + Konzept in dev-hub#212 (KONZ-dev-hub-002): `DevHubLoginRequiredMiddleware` mit
+Pfad-Positivliste; `/livez/` und `/api/` begründet offen. Nebenbefund mitbehoben: test.py führte
+eine Middleware-Zweitliste, der Testlauf prüfte eine andere Kette als Prod.
+
+Mail-Bestand (Owner-Frage, Antwort NEIN): 15.123 Kopien, 0 Attachment-Zeilen, 4 Volltexte →
+dev-hub#209/#210/#211. Zeitpläne iil/mittwald hatten noch nie gefeuert, erster Lauf 2026-08-04.
+
+Eigene Fehler, selbst gemeldet: „keine Issues angelegt" war ein Abfragefehler (`gh --label a,b`
+ist UND) · das erste 403 auf `/mail-agent/` war ein falscher Host-Header, kein Defekt · der erste
+grüne dev-hub-Testlauf war wertlos, weil test.py die neue Middleware gar nicht lud.
+
+Offen/Übergabe: dev-hub#212 + #208 mergen; **K1 (Nachmessung von außen) steht aus — der Fix wirkt
+erst nach Deploy** · dev-hub#211 NICHT vor #212 umsetzen · #1508 bleibt offen (Fremd-Org-Token,
+2 Registry-Drift-Funde) · Konzept A (LLM-Antworten) aussteht, ADR-284 verlangt Eval-Satz zuerst ·
+Kernel-Reboot 88.198.191.108 steht aus. Nicht verifiziert: ob weitere dev-hub-Routen offenstanden.
