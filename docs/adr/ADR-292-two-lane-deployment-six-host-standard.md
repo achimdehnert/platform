@@ -5,7 +5,6 @@ deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: []
 supersedes: []
-supersedes_waiver: "Ergaenzt ADR-157/ADR-289 (siehe amends:), loest sie nicht ab — kein Sprawl-Beitrag nach KONZ-011/ADR-264."
 amends: [ADR-157, ADR-289]
 related: [ADR-164, ADR-248, ADR-257, ADR-241]
 implementation_status: partial
@@ -13,6 +12,8 @@ last_reviewed: 2026-08-02
 staleness_months: 6
 tags: [infrastructure, deployment, hosts, standardisierung, two-lane, governance]
 ---
+
+<!-- supersedes-waiver: Ergaenzt ADR-157/ADR-289 (siehe amends:), loest sie nicht ab — kein Sprawl-Beitrag nach KONZ-011/ADR-264. Frontmatter-Feld nicht moeglich: das ADR-Schema verbietet Zusatzfelder. -->
 
 # ADR-292: Two-Lane-Deployment auf dem 6-Host-Bestand — Standard vor Speziallösung
 
