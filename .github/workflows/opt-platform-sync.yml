@@ -1,0 +1,128 @@
+name: "Sync /opt/platform (Prod-Werkzeugklon)"
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  Haelt den Prod-Klon /opt/platform auf origin/main.                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# Warum (platform#1585, Owner-Entscheid 2026-08-03 = "automatisch"):
+#   Der naechtliche Mail-Ingest liest seine Werkzeuge read-only aus diesem Klon
+#   (/opt/platform/tools/mail_agent -> /app/mail_tools). Gezogen hat ihn bis
+#   heute NICHTS: kein Cron, kein Skript, keine systemd-Unit — nur Handgriffe zu
+#   unregelmaessigen Uhrzeiten, mit einer Luecke von 27 Tagen zwischen dem
+#   2026-07-02 und dem 2026-07-29. Ein Merge nach `main` wirkte dort also nicht,
+#   sah aber so aus (Realfall PR #1584).
+#
+# Kein SSH noetig: der self-hosted Runner laeuft auf demselben Host wie der Klon
+# und als root; /opt/platform gehoert root (755). Gleiches Muster wie
+# sync-registry-to-devhub.yml, das aus demselben Grund von appleboy/ssh-action
+# auf direkten Zugriff umgestellt wurde.
+#
+# BEWUSST OHNE paths-Filter: der Klon soll `main` als Ganzes tracken. Ein Filter
+# wuerde exakt die Drift wiederherstellen, die dieser Workflow beseitigt — fuer
+# jeden nicht gefilterten Pfad.
+#
+# Der Zeitplan ist Redundanz, kein Ersatz: er faengt verlorene/uebersprungene
+# push-Laeufe und Pushes, die waehrend eines Runner-Ausfalls passierten.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "15 1 * * *"   # taeglich 01:15 UTC, vor dem 03:30-Mail-Ingest
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Zwei Pulls gleichzeitig im selben Arbeitsbaum sind ein Datenrennen.
+# cancel-in-progress: false — ein laufender Pull wird zu Ende gefuehrt, sonst
+# bliebe der Klon in einem halben Zustand zurueck.
+concurrency:
+  group: opt-platform-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: "git pull --ff-only in /opt/platform"
+    runs-on: self-hosted
+    timeout-minutes: 5
+
+    steps:
+      - name: "Klon ziehen und Ergebnis beweisen"
+        env:
+          KLON: /opt/platform
+        run: |
+          set -euo pipefail
+
+          if [ ! -d "$KLON/.git" ]; then
+            echo "::error title=Prod-Klon fehlt::$KLON ist kein git-Klon. \
+          Der Mail-Ingest laeuft dann auf einem unbekannten Werkzeugstand."
+            exit 1
+          fi
+
+          vorher=$(git -C "$KLON" rev-parse --short HEAD)
+          echo "vorher:      $vorher"
+
+          # Lokale Aenderungen im Prod-Klon sind ein eigener Befund: dort soll
+          # niemand editieren. --ff-only wuerde daran scheitern, aber mit einer
+          # git-Meldung, die im Job-Log untergeht. Deshalb vorher benennen.
+          if ! git -C "$KLON" diff --quiet || ! git -C "$KLON" diff --cached --quiet; then
+            echo "::error title=Prod-Klon ist dirty::In $KLON liegen lokale \
+          Aenderungen. Sie werden NICHT ueberschrieben — bitte ansehen und \
+          bereinigen, dann diesen Workflow erneut ausloesen."
+            git -C "$KLON" status --short | head -20
+            exit 1
+          fi
+
+          git -C "$KLON" fetch --quiet origin
+          git -C "$KLON" pull --ff-only origin main
+
+          nachher=$(git -C "$KLON" rev-parse --short HEAD)
+          ziel=$(git -C "$KLON" rev-parse --short origin/main)
+          echo "nachher:     $nachher"
+          echo "origin/main: $ziel"
+
+          # Der eigentliche Beweis. `git pull` allein beweist nichts — es kann
+          # mit Exit 0 zurueckkehren und den Klon trotzdem hinter origin/main
+          # lassen (z. B. wenn `main` waehrenddessen weiterlief). Geprueft wird
+          # der Zielzustand, nicht der Erfolg des Kommandos.
+          if [ "$nachher" != "$ziel" ]; then
+            echo "::error title=Klon nicht auf origin/main::$KLON steht auf \
+          $nachher, origin/main auf $ziel. Der Pull ist durchgelaufen, hat den \
+          Zielzustand aber nicht hergestellt."
+            exit 1
+          fi
+
+          rueckstand=$(git -C "$KLON" rev-list --count HEAD..origin/main)
+          [ "$rueckstand" = "0" ] || { echo "::error::Rueckstand $rueckstand"; exit 1; }
+
+          if [ "$vorher" = "$nachher" ]; then
+            echo "✓ bereits aktuell ($nachher)"
+          else
+            echo "✓ gezogen: $vorher -> $nachher"
+            if ! git -C "$KLON" diff --quiet "$vorher" "$nachher" -- tools/mail_agent; then
+              echo "::notice title=Mail-Werkzeuge geaendert::tools/mail_agent \
+          hat sich mit diesem Pull geaendert — der naechste Ingest laeuft auf \
+          dem neuen Stand."
+            fi
+          fi
+
+      - name: "Ergebnis in die Job-Summary"
+        if: always()
+        env:
+          KLON: /opt/platform
+        run: |
+          {
+            echo "## /opt/platform"
+            if [ -d "$KLON/.git" ]; then
+              echo ""
+              echo "| Feld | Wert |"
+              echo "|---|---|"
+              echo "| HEAD | \`$(git -C "$KLON" rev-parse --short HEAD)\` |"
+              echo "| origin/main | \`$(git -C "$KLON" rev-parse --short origin/main 2>/dev/null || echo '?')\` |"
+              echo "| Rueckstand | $(git -C "$KLON" rev-list --count HEAD..origin/main 2>/dev/null || echo '?') Commits |"
+            else
+              echo ""
+              echo "Kein git-Klon unter \`$KLON\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
