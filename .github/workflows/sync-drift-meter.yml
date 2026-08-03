@@ -48,11 +48,10 @@ jobs:
       - name: Install pyyaml
         run: pip install pyyaml --quiet --break-system-packages
 
-      - name: "Checkout alle Repos unter ~/github (read-only, shallow)"
+      - name: "platform-Symlink in den Fleet-Baum legen"
         run: |
           set -euo pipefail
-          REPOS=$(python3 scripts/list_megatest_repos.py)
-          mkdir -p ~/github
+          mkdir -p "$GITHUB_DIR"
           # list_megatest_repos.py klammert "platform" bewusst aus (eigene
           # _SKIP-Liste dort) — dieser Checkout HIER ist bereits platform.
           # list_megatest_repos.py + sync-workflows.sh (via sync_drift_meter.py)
@@ -69,13 +68,22 @@ jobs:
             rm -rf "$GITHUB_DIR/platform"
           fi
           ln -sfn "$GITHUB_WORKSPACE" "$GITHUB_DIR/platform"
-          for repo in $REPOS; do
-            if [ ! -d "$HOME/github/$repo" ]; then
-              git clone --depth=1 \
-                "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/achimdehnert/$repo.git" \
-                "$HOME/github/$repo" 2>/dev/null || echo "WARN: $repo not found"
-            fi
-          done
+
+      # Die frühere Inline-Schleife hier hatte zwei belegte Defekte
+      # (platform#1508-Triage 2026-08-03): sie klonte nur bei fehlendem
+      # Verzeichnis (vorhandene Klone alterten unbegrenzt -> design-hub
+      # erzeugte 2 Monate lang einen Fehlalarm) und hatte `achimdehnert`
+      # in der URL hartkodiert (Fremd-Org-Repos scheiterten still mit
+      # "WARN: not found"). Beides steckt jetzt in tools/fleet_checkout.py,
+      # inklusive Abdeckungs-Bericht und Tests.
+      - name: "Fleet-Checkouts herstellen und aktualisieren"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 tools/fleet_checkout.py \
+            --base "$GITHUB_DIR" \
+            --coverage /tmp/fleet-coverage.md
 
       # Weichgestellt, damit ein Meter-Absturz den Zeitplan-Job nicht rot faerbt;
       # der Absturz wird weiter unten ueber steps.meter.outcome gemeldet.
@@ -84,6 +92,13 @@ jobs:
         continue-on-error: true
         run: |
           python3 tools/sync_drift_meter.py --report /tmp/sync-drift-report.md
+          # Abdeckung gehoert IN den Bericht, nicht nur in den Job-Log: sonst
+          # liest sich ein Drift-Issue wie eine Vollerhebung, obwohl drei
+          # Fremd-Org-Repos bewusst aussen vor bleiben.
+          if [ -f /tmp/fleet-coverage.md ]; then
+            printf '\n---\n\n' >> /tmp/sync-drift-report.md
+            cat /tmp/fleet-coverage.md >> /tmp/sync-drift-report.md
+          fi
 
       # Bewusst github-script statt der gh-CLI: auf dem self-hosted Runner ist
       # `gh` NICHT installiert — der Schritt brach mit Exit 127 ab und machte
