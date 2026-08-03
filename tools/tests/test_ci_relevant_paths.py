@@ -7,6 +7,7 @@ stehen — sonst entscheidet der Zwilling gegen eine leere Liste).
 
 Run: `python3 -m pytest tools/tests/test_ci_relevant_paths.py -q`
 """
+
 import importlib.util
 import pathlib
 
@@ -77,7 +78,14 @@ def test_should_write_github_output(tmp_path, capsys):
     changed.write_text("docs/x.md\n", encoding="utf-8")
     out = tmp_path / "gh_output"
     rc = crp.main(
-        ["--workflow", str(wf), "--changed-file", str(changed), "--github-output", str(out)]
+        [
+            "--workflow",
+            str(wf),
+            "--changed-file",
+            str(changed),
+            "--github-output",
+            str(out),
+        ]
     )
     assert rc == 0
     assert out.read_text(encoding="utf-8").strip() == "relevant=false"
@@ -107,4 +115,9 @@ def test_should_read_patterns_from_real_workflow():
     assert "skills/**" in patterns
     # Und die Entscheidung stimmt an beiden Enden
     assert crp.is_relevant(["tools/ci_relevant_paths.py"], patterns) is True
-    assert crp.is_relevant(["docs/adr/ADR-285.md"], patterns) is False
+    # 2026-08-03: docs/adr ist JETZT relevant — mehrere Tests lesen den ADR-Baum
+    # (test_check_deploy_adr_supersession, test_adr_citation_lint). Diese Zeile
+    # behauptete bis dahin das Gegenteil und hielt die Luecke fest, durch die
+    # ADR-292 main latent rot machen konnte, ohne einen Lauf auszuloesen.
+    assert crp.is_relevant(["docs/adr/ADR-285.md"], patterns) is True
+    assert crp.is_relevant(["README.md"], patterns) is False

@@ -24,6 +24,7 @@ Usage:
     python tools/check_deploy_adr_supersession.py [ADR-Datei ...]
     # ohne Argumente: alle docs/adr/ADR-*.md (muss auf heutigem Baum grün sein)
 """
+
 from __future__ import annotations
 
 import glob
@@ -77,7 +78,7 @@ def has_supersession(fm: str) -> bool:
     if inline and inline not in ("[]", "~", "null"):
         return True
     # Block-Form: nachfolgende `  - ADR-xxx`-Zeilen
-    tail = fm[m.end():]
+    tail = fm[m.end() :]
     for line in tail.splitlines():
         if re.match(r"\s*-\s+\S", line):
             return True
@@ -117,7 +118,10 @@ def violation_for(path: str) -> str | None:
         f"{os.path.basename(path)}: Deployment-Strategie-ADR (ID {aid} >= {GATE_FROM_ID}) "
         f"ohne `supersedes:`-Eintrag und ohne `supersedes_waiver:`. "
         f"Ein neues Deploy-ADR muss seine Vorgänger ablösen (KONZ-011/ADR-264) — "
-        f"sonst wächst der Sprawl. Setze `supersedes: [...]` oder begründe mit `supersedes_waiver:`."
+        f"sonst wächst der Sprawl. Setze `supersedes: [...]` — oder begründe den Verzicht mit "
+        f"einem `<!-- supersedes-waiver: <Grund> -->`-Marker im Body. ACHTUNG: ein "
+        f"Frontmatter-Feld `supersedes_waiver:` wird vom ADR-Schema abgelehnt "
+        f"(Additional properties are not allowed) — nur der Body-Marker funktioniert."
     )
 
 
@@ -126,13 +130,23 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 0
     paths = argv[1:] or sorted(
-        glob.glob(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "adr", "ADR-*.md"))
+        glob.glob(
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "docs",
+                "adr",
+                "ADR-*.md",
+            )
+        )
     )
     violations = [v for p in paths if (v := violation_for(p))]
     for v in violations:
         print(f"::error title=Deploy-ADR-Supersession-Gate::{v}", file=sys.stderr)
     if violations:
-        print(f"\n{len(violations)} Verstoß/Verstöße gegen den Deploy-ADR-Supersession-Gate.", file=sys.stderr)
+        print(
+            f"\n{len(violations)} Verstoß/Verstöße gegen den Deploy-ADR-Supersession-Gate.",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

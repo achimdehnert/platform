@@ -52,6 +52,18 @@ on:
       # Ohne diesen Trigger liefe er bei einer reinen skills/-Änderung NICHT —
       # der Gate-Name bliebe grün, die Deckung wäre still weg (Konvention F-A).
       - "skills/**"
+      # 2026-08-03: test_check_deploy_adr_supersession + test_adr_citation_lint u.a.
+      # lesen den ADR-Baum. Ohne diesen Trigger lief der Gate bei einem reinen
+      # ADR-Merge NICHT — ADR-292 machte main am 02.08. latent rot und blieb
+      # unsichtbar, bis ein fremder PR zufaellig tools/** anfasste (#1702).
+      - "docs/adr/**"
+      # 2026-08-03, gemessen von test_ci_trigger_covers_test_inputs.py: diese
+      # Pfade werden von tools/tests/ real gelesen und lagen ausserhalb des
+      # Filters — der Gate lief bei ihrer Aenderung nicht.
+      - ".github/workflows/**"   # test_audit_platform
+      - ".windsurf/rules/**"     # test_gen_project_facts_guards
+      - "infra/**"               # test_check_registry_view_readers
+      - "registry/**"            # test_check_registry_view_readers
   # #1414: KEIN `paths`-Filter auf pull_request — bewusst.
   #
   # Ein *required* Check mit paths-Filter läuft auf PRs, die keinen der Pfade
