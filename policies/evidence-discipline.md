@@ -1,4 +1,5 @@
 # Policy: Evidence Discipline
+<!-- rule_class: A | assessed_with: claude-fable-5 | reassess_by: 2026-12-01 (KONZ-038 D4) -->
 
 **Trigger words:** beweis, daten als beweis, behauptung, claim, done, fertig, festgehalten, deployed, gesichert, erfolgreich, COMPLETE, pre-existing, nicht mein code, infra smell, evidence, nachweis, verifiziert
 
