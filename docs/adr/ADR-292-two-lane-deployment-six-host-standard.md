@@ -5,6 +5,7 @@ deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: []
 supersedes: []
+supersedes_waiver: "Ergaenzt ADR-157/ADR-289 (siehe amends:), loest sie nicht ab — kein Sprawl-Beitrag nach KONZ-011/ADR-264."
 amends: [ADR-157, ADR-289]
 related: [ADR-164, ADR-248, ADR-257, ADR-241]
 implementation_status: partial
