@@ -1278,3 +1278,47 @@ nach dem Merge von #1720 auf DIRTY; lokal lief derselbe Merge konfliktfrei).
 Offen/Uebergabe: iil-Volltextlauf laeuft (7.926, ~80/Runde) · ADR-293 Gate 3
 (Crypto-Shredding am echten Bestand) und Gate 4 (Deckungsausweis) · /mail-agent/ auf
 Live-Daten (dev-hub#211) · Fehltreffer bei Personennamen durch deutsches Stemming.
+
+---
+
+## 2026-08-03 (5. Eintrag) — Session 3ca15d7d, Abschluss: Volltext steht auf allen drei Postfaechern
+
+Fortsetzung des 4. Eintrags. Der iil-Lauf ist durch; damit ist der Auftrag
+"komplette Verfuegbarkeit von Mail-Text und Anhang fuer alle drei Postfaecher"
+erfuellt.
+
+Endstand: hnu 3.513/3.513 · iil 7.920/7.925 · mittwald 91/91. Bestand 11.612
+Nachrichten, 8.712 Anhangs-Inventarzeilen, TextUnit body 11.594 / attachment
+8.846. Datenbank 7,2 GB. Heute frueh: 4 Volltexte, 0 Anhangszeilen.
+
+Der letzte Blocker war lehrreich und keine Speicherfrage: die offenen
+Nachrichten stehen nach sent_at, drei Fotomails (45,8 / 24,0 / 45,8 MB) standen
+ganz vorn und rissen JEDE Runde mit, bevor die 845 kleinen drankamen - 105
+Runden ohne einen Schritt. Die Speichergrenze aus #220 half nicht, weil sie
+NACH einer fertigen Nachricht prueft und diese nie fertig wurden. Gefixt mit
+--max-roh (dev-hub#223): zu grosse Nachrichten werden MIT IHRER GROESSE
+vermerkt statt uebersprungen; ohne Vermerk gelten sie weiter als offen und
+blockieren erneut.
+
+Auf dem Weg dorthin, alle vom Owner angestossen und alle gemessen statt
+vermutet: die Frage "wo ist da ueberhaupt Django?" fuehrte zu schlanken
+Batch-Settings (Sockel 226 -> 59 MB; der Sockel war nicht Django, sondern 32
+geladene Apps inkl. aifw); die Frage nach Staging + Massen-Import fuehrte zur
+Messung, dass DB-Schreiben nur 7 % der Verarbeitungszeit kostet und die
+Textextraktion 91 % - deshalb keine Staging-Tabelle, sondern die Trennung von
+Holen und Auswerten (dev-hub#222), die einen kuenftigen Parserwechsel ohne
+Postfach-Zugriff moeglich macht.
+
+Eigene Fehler, zusaetzlich zu den im 4. Eintrag genannten: (1) iil-Volumen als
+5-6 GB hochgerechnet, real 7,2 GB - die 120er-Stichprobe traf die Fotomails
+nicht. (2) "Deploy success" gemeldet, obwohl `gh run list --limit 1` direkt
+nach dem Merge den VORHERIGEN Lauf liefert. (3) Zugriffe je Hostname aus dem
+nginx-Log gezaehlt, ohne zu pruefen, dass das Standardformat gar keinen
+Hostnamen enthaelt - die Null war mein Filter. (4) Behauptet, die Schleife sei
+tot, und eine zweite gestartet; die "2" im Prozesszaehler waren nohup + sh.
+
+Offen: ADR-293 Gate 4 (6.152 Textzonen mit unsupported_reason - nur gezaehlt,
+nicht aufgeschluesselt) · Gate 3 (Crypto-Shredding am echten Bestand, jetzt
+erstmals pruefbar) · Cloudflare-Entscheidung · Namens-Umstellung auf
+dev-hub.iil.pet · /mail-agent/ auf Live-Daten (haengt an der
+Cloudflare-Entscheidung).
