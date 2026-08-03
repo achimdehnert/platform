@@ -2,8 +2,9 @@
 """Deploy-ADR-Supersession-Gate (KONZ-platform-011 / ADR-264).
 
 Verhindert Deployment-ADR-Sprawl: Ein **neues** ADR (ID >= GATE_FROM_ID), dessen
-Titel/Dateiname es als Deployment-Strategie-ADR ausweist, MUSS seine Vorgänger via
-nicht-leerem `supersedes:` ablösen — sonst wird es Sprawl-Beitrag #N+1.
+Titel/Dateiname es als Deployment-Strategie-ADR ausweist, MUSS sich zu seinen
+Vorgängern verhalten — über nicht-leeres `supersedes:` (Ablösung) oder nicht-leeres
+`amends:` (ausdrückliche Änderung) — sonst wird es Sprawl-Beitrag #N+1.
 
 Realfall, der den Gate motiviert: ADR-021 (`unified-deployment-pattern`) und ADR-120
 (`unified-deployment-pipeline`) sind beide `accepted`, beide mit `supersedes: []` —
@@ -68,9 +69,9 @@ def status_of(fm: str) -> str:
     return _fm_value(fm, "status").lower()
 
 
-def has_supersession(fm: str) -> bool:
-    """True, wenn `supersedes:` einen nicht-leeren Wert trägt (Inline-Liste oder Block)."""
-    m = re.search(r"^supersedes:\s*(.*)$", fm, re.MULTILINE)
+def _has_nonempty_list(fm: str, key: str) -> bool:
+    """True, wenn `<key>:` einen nicht-leeren Wert trägt (Inline-Liste oder Block)."""
+    m = re.search(rf"^{re.escape(key)}:\s*(.*)$", fm, re.MULTILINE)
     if not m:
         return False
     inline = m.group(1).strip()
@@ -84,6 +85,25 @@ def has_supersession(fm: str) -> bool:
         if line.strip() and not line.startswith((" ", "\t")):
             break
     return False
+
+
+def has_supersession(fm: str) -> bool:
+    """True, wenn `supersedes:` einen nicht-leeren Wert trägt."""
+    return _has_nonempty_list(fm, "supersedes")
+
+
+def has_amendment(fm: str) -> bool:
+    """True, wenn `amends:` einen nicht-leeren Wert trägt.
+
+    Der Gate fragt: „Wie verhält sich dieses ADR zu seinen Vorgängern?" Ein
+    gefülltes `amends:` beantwortet das — es benennt die Vorgänger und ändert
+    sie ausdrücklich, statt sie unerwähnt neben sich stehen zu lassen. Das ist
+    keine Ausnahme von der Regel, sondern eine dritte legitime Antwort neben
+    Ablösung und Waiver. Der Sprawl, den der Gate verhindern soll, entsteht bei
+    ADRs OHNE jeden Bezug zum Bestand (Realfall ADR-021 vs. ADR-120: zwei
+    „Vereinheitlichungen" nebeneinander, keine kennt die andere).
+    """
+    return _has_nonempty_list(fm, "amends")
 
 
 def has_waiver(fm: str, body: str) -> bool:
@@ -111,13 +131,14 @@ def violation_for(path: str) -> str | None:
         return None  # draft/rejected/superseded interessiert nicht
     if not is_deploy_strategy_adr(fm, path):
         return None
-    if has_supersession(fm) or has_waiver(fm, body):
+    if has_supersession(fm) or has_amendment(fm) or has_waiver(fm, body):
         return None
     return (
         f"{os.path.basename(path)}: Deployment-Strategie-ADR (ID {aid} >= {GATE_FROM_ID}) "
-        f"ohne `supersedes:`-Eintrag und ohne `supersedes_waiver:`. "
-        f"Ein neues Deploy-ADR muss seine Vorgänger ablösen (KONZ-011/ADR-264) — "
-        f"sonst wächst der Sprawl. Setze `supersedes: [...]` oder begründe mit `supersedes_waiver:`."
+        f"ohne `supersedes:`, ohne `amends:` und ohne `supersedes_waiver:`. "
+        f"Ein neues Deploy-ADR muss sich zu seinen Vorgängern verhalten (KONZ-011/ADR-264) — "
+        f"sonst wächst der Sprawl. Setze `supersedes: [...]`, `amends: [...]` "
+        f"oder begründe mit `supersedes_waiver:`."
     )
 
 
