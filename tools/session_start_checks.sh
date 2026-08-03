@@ -297,6 +297,24 @@ case "$CRON_OUT" in
   *)                     record "0.7.2 cron-melder" "WARN" "Cron-Melder-Check nicht auswertbar — manuell: platform/tools/cron_melder_check.py" ;;
 esac
 
+# ── 0.7.3 /opt/platform Git↔Prod-Drift (platform#1585) ──────────────────────
+# Der Prod-Klon /opt/platform haengt read-only im Mail-Container; gezogen wird er
+# von Hand. Nichts meldet, wenn das unterbleibt — zwischen 2026-07-02 und
+# 2026-07-29 lagen 27 Tage ohne Pull, und ein Merge nach main wirkte dort nicht,
+# sah aber so aus. Wie bei 0.7.1 kann sich der Klon nicht selbst pruefen.
+# Zwei getrennte WARN-Stufen mit Absicht: "HINTERHER" (Klon dahinter, aber
+# tools/mail_agent identisch) ist Hygiene, "DRIFT" (Mail-Werkzeuge weichen ab)
+# ist ein Prod-Befund. Eine einzige Stufe haette am 2026-08-03 einen harmlosen
+# 28-Commit-Rueckstand wie einen Mail-Ausfall aussehen lassen.
+OPTDRIFT_OUT=$("$PLATFORM_DIR/tools/opt-platform-drift.sh" --quiet 2>/dev/null | tail -1 || true)
+case "$OPTDRIFT_OUT" in
+  "RESULT: OK"*)         record "0.7.3 opt-platform" "PASS" "${OPTDRIFT_OUT#RESULT: OK — }" ;;
+  "RESULT: DRIFT"*)      record "0.7.3 opt-platform" "WARN" "${OPTDRIFT_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: HINTERHER"*)  record "0.7.3 opt-platform" "WARN" "${OPTDRIFT_OUT#RESULT: HINTERHER — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.3 opt-platform" "WARN" "${OPTDRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.3 opt-platform" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/opt-platform-drift.sh" ;;
+esac
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys
