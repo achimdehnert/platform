@@ -9,13 +9,20 @@ RUNNER_DIR="/opt/github-runner"
 
 echo "=== ADR-042: Installing Self-Hosted Runner ==="
 
+# ── 0. Job-Werkzeuge auf dem Host (idempotent) ────────────────────
+# Ausgelagert, weil dieses Skript nur bei der ERSTINSTALLATION laeuft: ein
+# spaeter dazugekommenes Werkzeug erreicht einen bereits laufenden Host sonst
+# nie. ensure-runner-tooling.sh ist einzeln aufrufbar (platform#1508).
+echo "[1/6] Installing job tooling..."
+bash "$(dirname "$0")/ensure-runner-tooling.sh"
+
 # ── 1. Create dedicated user (idempotent) ─────────────────────────
-echo "[1/5] Creating runner user..."
+echo "[2/6] Creating runner user..."
 id "$RUNNER_USER" &>/dev/null || useradd -m -s /bin/bash "$RUNNER_USER"
 usermod -aG docker "$RUNNER_USER"
 
 # ── 2. Download runner ───────────────────────────────────────────
-echo "[2/5] Downloading runner v${RUNNER_VERSION}..."
+echo "[3/6] Downloading runner v${RUNNER_VERSION}..."
 mkdir -p "$RUNNER_DIR"
 cd "$RUNNER_DIR"
 
@@ -30,7 +37,7 @@ fi
 chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_DIR"
 
 # ── 3. Configure runner ──────────────────────────────────────────
-echo "[3/5] Configuring runner..."
+echo "[4/6] Configuring runner..."
 echo ""
 echo "Get a registration token from GitHub:"
 echo "  Settings → Actions → Runners → New self-hosted runner"
@@ -51,13 +58,13 @@ su - "$RUNNER_USER" -c "
 "
 
 # ── 4. Install as systemd service ────────────────────────────────
-echo "[4/5] Installing systemd service..."
+echo "[5/6] Installing systemd service..."
 cd "$RUNNER_DIR"
 ./svc.sh install "$RUNNER_USER"
 ./svc.sh start
 
 # ── 5. Apply resource limits ─────────────────────────────────────
-echo "[5/5] Applying resource limits..."
+echo "[6/6] Applying resource limits..."
 SVC_DIR="/etc/systemd/system/actions.runner.achimdehnert.hetzner-dev-runner.service.d"
 mkdir -p "$SVC_DIR"
 cat > "$SVC_DIR/override.conf" << 'EOF'
