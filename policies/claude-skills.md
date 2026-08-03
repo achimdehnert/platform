@@ -1,4 +1,5 @@
 # Policy: Claude-Code Skills (Slash-Commands)
+<!-- rule_class: B | assessed_with: claude-fable-5 | reassess_by: 2027-08-01 (KONZ-038 D4) -->
 
 **Trigger words:** skill, slash command, /command, workflow, cc-skill
 
