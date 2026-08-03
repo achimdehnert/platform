@@ -1237,3 +1237,44 @@ Offen/Übergabe: dev-hub#212 + #208 mergen; **K1 (Nachmessung von außen) steht 
 erst nach Deploy** · dev-hub#211 NICHT vor #212 umsetzen · #1508 bleibt offen (Fremd-Org-Token,
 2 Registry-Drift-Funde) · Konzept A (LLM-Antworten) aussteht, ADR-284 verlangt Eval-Satz zuerst ·
 Kernel-Reboot 88.198.191.108 steht aus. Nicht verifiziert: ob weitere dev-hub-Routen offenstanden.
+
+---
+
+## 2026-08-03 (4. Eintrag) — Session 3ca15d7d: Mail-Verfuegbarkeit, ADR-293, und ein falsch zugeordnetes Viertel
+
+Als Session-Start begonnen, ueber eine Owner-Entscheidung zur Datenhaltung gewachsen.
+Kern: die Mail-Lane ist aus ADR-286 Option D herausgenommen, der Volltext laeuft jetzt
+ueber den Umfang statt ueber einen Vorgang — und die dafuer vorgeschriebene Messung hat
+einen Datenfehler aufgedeckt, der ein Viertel des Bestands betraf.
+
+Erledigt: platform#1722 (Prio-Liste entstaubt: der SessionStart-Hook spiegelte 7 Punkte,
+5 davon laengst erledigt) · platform#1727 (ADR-293, amendet ADR-286 §3) · dev-hub#215
+(Anhangs-Inventar aus BODYSTRUCTURE, ohne zusaetzlichen Umlauf; zieht auch bestehende
+Kopien nach) · dev-hub#216 (--account waehlt wirklich das Postfach) · dev-hub#217
+(mail_volltext nutzt dieselbe Konto-Aufloesung) · dev-hub#218 (tsvector-Grenze) ·
+dev-hub#219 (Fortschritt statt Endlosschleife) · dev-hub#212 gemergt (Zugangsschutz,
+K1 nachgemessen) · platform#1720 + #1726 der Parallel-Session mitgemergt.
+
+Der Fund: 3.641 von 3.652 `mittwald`-Kopien waren hnu-Kopien. Ursache war eine
+Vorrangregel zwei Ebenen tiefer (--config sticht --account), sichtbar erst, weil ADR-293
+Gate 2 eine Messung VOR dem Schreiben verlangt. Ohne dieses Gate haette der Volltextlauf
+3.579 fremde Nachrichten samt Inhalt unter falschem Label festgeschrieben — aus einem
+Zaehlfehler waere ein Inhaltsfehler geworden.
+
+Eigene Fehler, alle selbst gemeldet und im PR-Text belegt: (1) ein Regressionstest war
+mit "z"*1.5MB gruen, obwohl der Fix fehlte — 1,5 MB desselben Zeichens ergeben EIN Lexem;
+erst 110.000 verschiedene Woerter reproduzierten den Produktionsfehler. (2) "Deploy
+success" gemeldet, obwohl der Container noch den alten Stand fuhr — `gh run list --limit 1`
+unmittelbar nach dem Merge liefert den VORHERIGEN Lauf; belastbar ist der Abgleich
+headSha gegen origin/main plus ein Blick ins Image. (3) `pkill -f volltext_iil` traf die
+eigene SSH-Kommandozeile (Exit 255, das folgende sed lief nie) — Klammer-Muster noetig.
+(4) ein Befehl an den Owner uebergeben, ohne ihn selbst gelaufen zu sein (`docker exec -it`
+ohne TTY). (5) vorgeschlagen, drei unbekannte Konten stillzulegen — es waren die
+SSO-Konten des Owners.
+
+Beantwortet, war offen: der server-seitige Merge ehrt `merge=union` NICHT (#1726 ging
+nach dem Merge von #1720 auf DIRTY; lokal lief derselbe Merge konfliktfrei).
+
+Offen/Uebergabe: iil-Volltextlauf laeuft (7.926, ~80/Runde) · ADR-293 Gate 3
+(Crypto-Shredding am echten Bestand) und Gate 4 (Deckungsausweis) · /mail-agent/ auf
+Live-Daten (dev-hub#211) · Fehltreffer bei Personennamen durch deutsches Stemming.
