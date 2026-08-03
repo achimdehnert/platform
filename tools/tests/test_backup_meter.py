@@ -86,6 +86,7 @@ def test_should_pass_drill_when_recent_protocol(tmp_path):
 
 def test_should_defer_stale_drill_when_not_enforced(tmp_path):
     import os
+
     p = tmp_path / "2026-01-01-risk-hub.md"
     p.write_text("alt")
     old = NOW.timestamp() - 200 * 86400
@@ -109,3 +110,117 @@ def test_should_count_each_bucket_in_report():
     report = render_report(results)
     assert "1 konform · 1 Verletzungen · 1 deferred" in report
     assert "**b**: kaputt" in report
+
+
+# ── Mehrteilige Apps + Pfad-Pruefung (Fehlalarm 2026-08-03) ────────────────
+# risk-hub wird ueber ZWEI Snapshots gesichert: pgdump unter Tag `risk_hub_db`
+# und die Volumes im Sammel-Snapshot `volumes`. Der Melder kannte nur einen Tag
+# pro App und erwartete `risk-hub` — den vergibt der taegliche Job gar nicht.
+# Ergebnis: "89.6 h alt" gemeldet, waehrend beide echten Snapshots 7,8 h alt
+# waren. Der Sammel-Snapshot macht Tag-Frische allein wertlos, deshalb Pfade.
+
+
+def _snap_pfade(tags, hours_ago, paths):
+    t = NOW - timedelta(hours=hours_ago)
+    return {
+        "time": t.strftime("%Y-%m-%dT%H:%M:%S") + "+00:00",
+        "tags": list(tags),
+        "paths": list(paths),
+    }
+
+
+RISK_ENTRY = {
+    "app": "risk-hub",
+    "max_age_hours": 26,
+    "checks": [
+        {"tag": "risk_hub_db", "label": "Datenbank"},
+        {
+            "tag": "volumes",
+            "label": "Medien + MinIO",
+            "paths_contain": [
+                "risk-hub_risk_hub_media/_data",
+                "risk-hub_risk_hub_minio_data/_data",
+            ],
+        },
+    ],
+}
+
+VOLUME_PFADE = [
+    "/mnt/HC_Volume_105908261/docker/volumes/devhub_media_prod/_data",
+    "/mnt/HC_Volume_105908261/docker/volumes/risk-hub_risk_hub_media/_data",
+    "/mnt/HC_Volume_105908261/docker/volumes/risk-hub_risk_hub_minio_data/_data",
+]
+
+
+def test_should_pass_when_all_parts_of_a_multipart_app_are_fresh():
+    snaps = [
+        _snap("risk_hub_db", 7.8),
+        _snap_pfade(["volumes"], 7.8, VOLUME_PFADE),
+    ]
+    assert evaluate_app(RISK_ENTRY, snaps, NOW)["status"] == "ok"
+
+
+def test_should_flag_violation_when_only_the_database_part_is_fresh():
+    """Die Haelfte gesichert ist nicht gesichert."""
+    result = evaluate_app(RISK_ENTRY, [_snap("risk_hub_db", 7.8)], NOW)
+    assert result["status"] == "violation"
+    assert any("Medien + MinIO" in r for r in result["reasons"])
+
+
+def test_should_flag_violation_when_collective_snapshot_drops_the_app_paths():
+    """Kern-Regression: frischer Sammel-Snapshot OHNE die Pfade der App.
+
+    Ohne Pfad-Pruefung waere das gruen — der Tag `volumes` ist ja frisch. Genau
+    diese Luecke soll der Melder nicht haben.
+    """
+    ohne_risk = [p for p in VOLUME_PFADE if "risk-hub" not in p]
+    snaps = [
+        _snap("risk_hub_db", 7.8),
+        _snap_pfade(["volumes"], 1, ohne_risk),
+    ]
+    result = evaluate_app(RISK_ENTRY, snaps, NOW)
+    assert result["status"] == "violation"
+    assert any("enthaelt" in r for r in result["reasons"])
+
+
+def test_should_flag_violation_when_only_minio_path_is_missing():
+    """Auch ein einzelner fehlender Pfad zaehlt — nicht 'einer reicht'."""
+    ohne_minio = [p for p in VOLUME_PFADE if "minio" not in p]
+    snaps = [_snap("risk_hub_db", 7.8), _snap_pfade(["volumes"], 1, ohne_minio)]
+    assert evaluate_app(RISK_ENTRY, snaps, NOW)["status"] == "violation"
+
+
+def test_should_ignore_stale_snapshot_that_matches_paths():
+    """Passende Pfade, aber zu alt — bleibt eine Verletzung."""
+    snaps = [_snap("risk_hub_db", 7.8), _snap_pfade(["volumes"], 90, VOLUME_PFADE)]
+    result = evaluate_app(RISK_ENTRY, snaps, NOW)
+    assert result["status"] == "violation"
+    assert any("90.0 h alt" in r for r in result["reasons"])
+
+
+def test_should_keep_single_tag_entries_working():
+    """Rueckwaertskompatibel: Eintraege ohne `checks` verhalten sich wie bisher."""
+    assert evaluate_app(ENTRY, [_snap("risk-hub", 4)], NOW)["status"] == "ok"
+    assert evaluate_app(ENTRY, [_snap("risk-hub", 30)], NOW)["status"] == "violation"
+
+
+def test_should_match_paths_by_substring_not_exact():
+    """Der Hetzner-Mountpoint darf sich aendern, ohne den Melder rot zu faerben."""
+    umgezogen = [
+        p.replace("HC_Volume_105908261", "HC_Volume_999") for p in VOLUME_PFADE
+    ]
+    snaps = [_snap("risk_hub_db", 7.8), _snap_pfade(["volumes"], 1, umgezogen)]
+    assert evaluate_app(RISK_ENTRY, snaps, NOW)["status"] == "ok"
+
+
+def test_should_treat_real_expected_apps_entry_as_multipart():
+    """Ohne Test-Naht: die echte governance/backup/expected-apps.json."""
+    import json
+
+    pfad = Path(__file__).resolve().parents[2] / "governance/backup/expected-apps.json"
+    eintrag = next(e for e in json.loads(pfad.read_text()) if e["app"] == "risk-hub")
+    assert not eintrag.get("deferred")
+    tags = {c["tag"] for c in eintrag["checks"]}
+    assert tags == {"risk_hub_db", "volumes"}
+    volumes = next(c for c in eintrag["checks"] if c["tag"] == "volumes")
+    assert any("minio" in p for p in volumes["paths_contain"])

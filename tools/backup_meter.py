@@ -65,26 +65,65 @@ def _parse_restic_time(value: str) -> datetime:
     return datetime.fromisoformat(raw).astimezone(timezone.utc)
 
 
-def newest_snapshot_age_hours(snapshots: list, tag: str, now: datetime):
-    """Alter (h) des jüngsten Snapshots mit `tag`, oder None wenn keiner."""
+def _snapshot_deckt_pfade(snap: dict, fragmente: list) -> bool:
+    """Enthalten die `paths` des Snapshots JEDES geforderte Fragment?
+
+    Teilstring-Vergleich mit Absicht: die restic-Pfade tragen den Hetzner-
+    Volume-Mountpoint (`/mnt/HC_Volume_105908261/docker/volumes/…`), der sich bei
+    einem Volume-Wechsel aendert. Geprueft wird der stabile Teil — der
+    Docker-Volume-Name.
+    """
+    pfade = snap.get("paths") or []
+    return all(any(f in p for p in pfade) for f in fragmente)
+
+
+def newest_snapshot_age_hours(
+    snapshots: list, tag: str, now: datetime, paths_contain: list | None = None
+):
+    """Alter (h) des jüngsten passenden Snapshots, oder None wenn keiner passt.
+
+    `paths_contain` verschaerft den Treffer: der Snapshot zaehlt nur, wenn seine
+    `paths` alle geforderten Fragmente enthalten. Ohne das wuerde ein
+    **Sammel-Snapshot** — Tag `volumes` deckt die Volumes ALLER Apps in einem
+    einzigen Snapshot — den Melder gruen halten, auch wenn genau die Pfade der
+    geprueften App daraus verschwinden: der Tag bliebe ja frisch. Der Melder
+    wuerde dann die Frische des Jobs bestaetigen statt die Abdeckung der App.
+    """
     times = []
     for snap in snapshots:
-        if tag in (snap.get("tags") or []):
-            try:
-                times.append(_parse_restic_time(snap["time"]))
-            except (KeyError, ValueError):
-                continue
+        if tag not in (snap.get("tags") or []):
+            continue
+        if paths_contain and not _snapshot_deckt_pfade(snap, paths_contain):
+            continue
+        try:
+            times.append(_parse_restic_time(snap["time"]))
+        except (KeyError, ValueError):
+            continue
     if not times:
         return None
     newest = max(times)
     return (now - newest).total_seconds() / 3600.0
 
 
+def _checks_aus(entry: dict) -> list:
+    """Prueflinge einer Soll-App — `checks`-Liste oder der einzelne `tag`.
+
+    Eine App kann ueber MEHRERE Snapshots gesichert sein (risk-hub: Datenbank
+    unter Tag `risk_hub_db`, Medien/MinIO im Sammel-Snapshot `volumes`). Der
+    Melder kannte vorher nur einen Tag pro App und war deshalb blind fuer die
+    zweite Haelfte.
+    """
+    if entry.get("checks"):
+        return entry["checks"]
+    return [{"tag": entry.get("tag", entry["app"])}]
+
+
 def evaluate_app(entry: dict, snapshots, now: datetime) -> dict:
     """Bewertet eine Soll-App (pure, testbar).
 
     snapshots=None → Scaffold-Modus (Offsite nicht provisioniert) → deferred.
-    status: 'ok' | 'violation' | 'deferred'.
+    status: 'ok' | 'violation' | 'deferred'. ALLE Prueflinge muessen passen —
+    eine App gilt erst als gesichert, wenn jeder ihrer Bestandteile frisch ist.
     """
     app = entry["app"]
     if entry.get("deferred"):
@@ -94,15 +133,25 @@ def evaluate_app(entry: dict, snapshots, now: datetime) -> dict:
         return {"app": app, "status": "deferred",
                 "reasons": ["Offsite (restic) noch nicht provisioniert — Scaffold"]}
 
-    tag = entry.get("tag", app)
     max_age = entry.get("max_age_hours", DEFAULT_MAX_AGE_HOURS)
-    age = newest_snapshot_age_hours(snapshots, tag, now)
-    if age is None:
-        return {"app": app, "status": "violation",
-                "reasons": [f"kein restic-Snapshot mit Tag '{tag}'"]}
-    if age > max_age:
-        return {"app": app, "status": "violation",
-                "reasons": [f"jüngster Snapshot {age:.1f} h alt (> {max_age} h Soll)"]}
+    gruende = []
+    for check in _checks_aus(entry):
+        tag = check["tag"]
+        pfade = check.get("paths_contain")
+        was = check.get("label") or tag
+        age = newest_snapshot_age_hours(snapshots, tag, now, pfade)
+        if age is None:
+            if pfade:
+                gruende.append(
+                    f"{was}: kein Snapshot mit Tag '{tag}', der {', '.join(pfade)} enthaelt"
+                )
+            else:
+                gruende.append(f"{was}: kein restic-Snapshot mit Tag '{tag}'")
+        elif age > max_age:
+            gruende.append(f"{was}: jüngster Snapshot {age:.1f} h alt (> {max_age} h Soll)")
+
+    if gruende:
+        return {"app": app, "status": "violation", "reasons": gruende}
     return {"app": app, "status": "ok", "reasons": []}
 
 
