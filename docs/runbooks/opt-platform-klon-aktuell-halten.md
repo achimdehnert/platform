@@ -44,25 +44,48 @@ Die Trennung ist der Punkt: am 2026-08-03 war der Klon 28 Commits hinterher,
 `tools/mail_agent/` aber identisch. Eine einzige Stufe hätte diesen harmlosen
 Rückstand wie einen Mail-Ausfall aussehen lassen.
 
-## Ziehen (bewusster Prod-Eingriff)
+## Ziehen — automatisch (Entscheid 2026-08-03)
+
+Der Owner hat sich in [#1585](https://github.com/achimdehnert/platform/issues/1585)
+für den **automatischen** Sync entschieden. Zuständig ist
+`.github/workflows/opt-platform-sync.yml`:
+
+| | |
+|---|---|
+| **Auslöser** | jeder Push auf `main` · täglich 01:15 UTC · `workflow_dispatch` |
+| **Läuft auf** | `self-hosted` — derselbe Host wie der Klon, kein SSH nötig |
+| **Aktion** | `git pull --ff-only origin main` in `/opt/platform` |
+
+Bewusst **ohne** `paths`-Filter: der Klon soll `main` als Ganzes tracken. Ein
+Filter stellte für jeden nicht gefilterten Pfad genau die Drift wieder her, die
+der Workflow beseitigt. Der Zeitplan ist Redundanz, kein Ersatz — er fängt
+verlorene Push-Läufe und Pushes während eines Runner-Ausfalls.
+
+**Der Job scheitert laut** (DoD-Zeile 2 aus #1585), und zwar bei:
+
+- fehlendem git-Klon unter `/opt/platform`
+- lokalen Änderungen im Klon (werden **nicht** überschrieben — dort soll niemand editieren)
+- `HEAD != origin/main` **nach** dem Pull
+
+Der letzte Punkt ist der eigentliche Beweis: `git pull` kann mit Exit 0
+zurückkehren und den Klon trotzdem hinter `origin/main` lassen, etwa wenn `main`
+währenddessen weiterlief. Geprüft wird deshalb der **Zielzustand**, nicht der
+Erfolg des Kommandos.
+
+### Von Hand ziehen
+
+Weiterhin möglich, etwa wenn der Runner steht:
 
 ```bash
 platform/tools/opt-platform-drift.sh --sync
 ```
 
-Führt `git pull --ff-only` in `/opt/platform` aus. Das verändert den
-Werkzeugstand, mit dem der nächtliche Ingest läuft — **nie beiläufig, nie aus
-dem Session-Runner heraus.** Nach jedem Merge, der `tools/mail_agent/` berührt,
-ist dieser Schritt fällig.
+Das verändert den Werkzeugstand des nächtlichen Ingests — nie beiläufig, nie aus
+dem Session-Runner heraus.
 
-## Offene Entscheidung
+## Zwei unabhängige Signale
 
-Ob der Sync **automatisch** (Cron/Deploy-Schritt) oder **ausdrücklich manuell**
-laufen soll, ist in [#1585](https://github.com/achimdehnert/platform/issues/1585)
-noch nicht entschieden — beides ist vertretbar, stillschweigend driften nicht.
-Dieses Runbook beschreibt den Ist-Zustand (manuell) und macht ihn prüfbar; es
-nimmt die Entscheidung nicht vorweg.
-
-Falls **automatisch** gewählt wird, gilt die zweite DoD-Zeile aus #1585: der Job
-muss **laut scheitern**, wenn der Pull nicht durchgeht — ein stiller Fehlschlag
-stellt genau den Zustand wieder her, den dieses Runbook beseitigen soll.
+Der Workflow ist das Heilmittel, Phase 0.7.3 die unabhängige Gegenprobe: sie
+misst den Klon von außen und würde auch dann anschlagen, wenn der Workflow selbst
+ausfiele oder stillschweigend nichts täte. Ein Melder, der nur die eigene
+Automatik befragt, prüft sich selbst.
