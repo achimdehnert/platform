@@ -1060,3 +1060,66 @@ DB_PASSWORD (fsn1) via Präfix-Grep ins Transkript → dev-hub#202 (Rotation Own
 Lesson + 🌀-Memory. Ferner: docu-update #1704, shared-ci-Tag-stale bereits #1157/#1678,
 dev-hub#187 UID-Neulauf unentschieden. Wissen: 2 Outline-Lessons (pidof; Env-Grep-Leak),
 pgvector session:platform:20260803:health-poll-honest-failure + error:fleet:20260802-pidof-celery.
+
+---
+
+## 2026-08-03 (2. Eintrag, gleiche Session 9530de73) — Mail-Strang komplett + error-handling-Policy
+
+Vormittagsblock nach dem 1. Session-Ende: UID-Neulauf fertig (#187 zu; mittwald 1.936
+saubere Kopien, 3.649 Alt-Kopien stillgelegt), Volltext beide Transporte live (#204 zu via
+#205: uidvalidity-/Konto-Filter + Graph-$value; AC 3 scharf: hnu geholt 3 / iil geholt 1,
+body 4/4). Wurzelfund: /app/mail/iil_mail_api = Voice-Agent-App ohne Mail-Rolle — der
+Container-Graph-Zugriff hatte NIE funktioniert (drei Hypothesen falsifiziert: ReadBasic,
+Consent fehlt, Nachrichtenschutz; Beweis via Token-roles-Claim + SP-appRoleAssignments).
+#207 gemergt+deployt: Migration 0011 (Zeitpläne iil/mittwald/heartbeat-scan, psql-Beleg),
+MAIL_GRAPH_CREDS als Compose-environment auf iil_mail_ingest.env, heartbeat_scan wirft
+bei >48h. #206 offen bis Nacht-Beleg. error-handling.md org-weit (#1706), adversarial
+right-sized (Incident-Ausnahme, Gate-ab-2.-Auftreten, Taxonomie, Grenzen≠Fehler).
+
+Eigene Fehler (Policy direkt angewendet): (1) Commit-Message-Datei aus tmp-Scratchpad
+verschwunden → blinder --amend schrieb die Branch-Basis um; per reset --soft + Lease-Push
+repariert, 🌀-Memory feedback_amend_after_failed_push_verify_head. (2) Zwei Lease-Pushes
+scheiterten an stalem/ungültigem Lease-Wert — exakter Remote-Hash als Lease ist der Weg.
+(3) mail_volltext in devhub_celery stirbt am 512M-cgroup (exit 137) — devhub_web nehmen.
+
+Wissen: Outline-Lesson wrong-app-creds; pgvector session:platform:20260803:mail-strang +
+error:dev-hub:20260803-wrong-graph-app. Offen: #206-Nacht-Beleg (03:50/04:10/05:00),
+#202 Rotation (Owner-vertagt), #1704 docu-update, Step 0 (finish_token_rotation2.sh)
+nächste frische Session.
+
+---
+
+## 2026-08-03 — Session 928b64 (retro-928b64): Paperless-CSRF — Server sauber, Ursache im Browserprofil
+
+Kern: Ein Nutzer-`403 CSRF Failed … header incorrect` auf docs.iil.pet wurde geloest und
+die Server-Seite dabei in fuenf Dimensionen belastbar freigemessen — Schreibpfad (POST
+/api/tags/ mit Token 201, ohne Kopfzeile 403), keine Token-Rotation ueber vier Aufrufe,
+CSRF-Config regulaer (CSRF_USE_SESSIONS=False, COOKIE_DOMAIN=None), nginx ohne Cache und
+ohne Cookie-Umschrift (tunnel-only 127.0.0.1:8999), keine domainweite Cookie-Domain in
+der Flotte. Ursache lag im Edge-Profilzustand aus der Zeit vor dem Access-Umbau (29.07.);
+Fix = Websitedaten loeschen UND alle Tabs schliessen, weil ein Service Worker die
+Kontrolle erst dann abgibt. Werkzeuge neu: ~/shared/paperless_csrftest_run.sh und
+~/shared/paperless_csrf_rotation.sh.
+
+Entscheid (haelt unabhaengig von der Diagnose): PAPERLESS_ENABLE_HTTP_REMOTE_USER_API
+bleibt AUS — sie verschoebe die Vertrauensgrenze von der Oberflaeche auf die API und
+haengt dauerhaft an einer nicht durchgesetzten Invariante; API-Skripting laeuft bereits
+ueber Token-Auth, DRF erzwingt CSRF nur bei SessionAuthentication.
+
+Eigene Fehler, alle im Retro belegt: die unbewiesene Ursache „veralteter Tab" wurde
+zweimal als Feststellung formuliert und in ein durables Memory geschrieben, bevor sie
+belegt war; der billigste Client/Server-Discriminator (zweiter Browser) kam als fuenfter
+Schritt, obwohl er in der zu Beginn gelesenen Memory-Datei woertlich stand
+(reference_paperless_remote_user_and_csrf.md:33 „… oder privates Fenster"); eine nicht
+existente Edge-URL wurde als Anweisung genannt; der Prod-DB-Schreibzugriff (2 Wegwerf-Tags,
+selbst geloescht, Rest auf 0 nachgezaehlt) war nur im Skript-Kopf offengelegt, nicht in
+der Freigabe-Zeile. Slug claim-before-cheapest-check steht damit bei x37.
+
+Offen/Uebergabe: Ursache nicht isoliert (Doppel-Cookie vs. Service Worker — Zustand ist
+geloescht, nicht nachholbar); Gate fuer claim-before-cheapest-check (#1640); Memory-Kandidat
+„Prod-Schreibzugriff gehoert in die Freigabe-Zeile" (Retro Paragraph 6); Falsifikation von
+Retro-Befund #4 ungeprueft, weil Subagenten in dieser Umgebung untersagt sind (refuted_rate
+0.0, in Paragraph 8 begruendet). Unveraendert aus dem Vorstand: Step 0
+~/shared/finish_token_rotation2.sh. Wissen: Outline-Lesson
+d000582f-2316-48c2-99f2-afeefe3ee6d9; pgvector session:platform:20260803:retro-928b64 +
+error:doc-hub:20260803-paperless-api-csrf-403.

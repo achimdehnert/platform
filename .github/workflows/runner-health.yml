@@ -162,19 +162,82 @@ jobs:
 
           # --- 3. Drift detection: find runners NOT in registry ---
           # Fängt Repos mit Runner, die (noch) nicht in canonical.yaml stehen.
-          org_repos = api("GET", f"/orgs/{MAIN_ORG}/repos?per_page=100&type=all")
-          if "_error" not in org_repos and isinstance(org_repos, list):
-              for repo_meta in org_repos:
+          #
+          # Dieser Block lief bis 2026-08-03 ins Leere, ohne dass es auffiel:
+          # er fragte hart `/orgs/achimdehnert/repos`, aber achimdehnert ist ein
+          # USER-Konto, keine Organisation → HTTP 404. Das alte
+          # `if "_error" not in org_repos` schluckte den 404 stillschweigend, der
+          # Job blieb grün, und die Sektion "UNREGISTERED RUNNERS" hat nie ein
+          # Ergebnis geliefert. Verifiziert am 2026-08-03: /orgs/achimdehnert/repos
+          # → 404, /orgs/iilgmbh/repos → 200 (Gegenprobe).
+          #
+          # Zwei Konsequenzen daraus:
+          #  1. Owner-Typ bestimmt den Endpunkt — und für das eigene User-Konto ist
+          #     `/user/repos` nötig, nicht `/users/{name}/repos`: letzterer ist der
+          #     öffentliche Endpunkt und liefert PRIVATE Repos NICHT. Gemessen:
+          #     /users/achimdehnert/repos = 35 Repos, davon 0 privat;
+          #     /user/repos?affiliation=owner = 55 Repos, davon 26 privat.
+          #     Ein reiner Endpunkt-Tausch hätte den blinden Fleck also nur verkleinert.
+          #  2. Ein Fetch-Fehler ist kein grüner Zustand (#1615): er landet jetzt in
+          #     `errors` und färbt den Lauf rot, statt die Prüfung zu überspringen.
+          def paged(path_with_query):
+              """Alle Seiten einholen — eine stille Kürzung bei >100 Repos wäre
+              derselbe Fehler in klein: Vollständigkeit vortäuschen."""
+              out, page = [], 1
+              while True:
+                  sep = "&" if "?" in path_with_query else "?"
+                  chunk = api("GET", f"{path_with_query}{sep}per_page=100&page={page}")
+                  if isinstance(chunk, dict) and "_error" in chunk:
+                      return chunk
+                  if not isinstance(chunk, list) or not chunk:
+                      return out
+                  out.extend(chunk)
+                  if len(chunk) < 100:
+                      return out
+                  page += 1
+
+          token_login = (api("GET", "/user") or {}).get("login")
+          OWNERS = sorted({org for org, _ in REPOS} | {MAIN_ORG})
+
+          for owner in OWNERS:
+              meta = api("GET", f"/users/{owner}")
+              if "_error" in meta:
+                  errors.append(f"{owner}: Owner-Typ nicht bestimmbar ({meta['_error']})")
+                  continue
+              if meta.get("type") == "Organization":
+                  owner_repos = paged(f"/orgs/{owner}/repos?type=all")
+              elif owner == token_login:
+                  # Eigenes Konto: nur /user/repos sieht die privaten Repos.
+                  owner_repos = paged("/user/repos?affiliation=owner")
+              else:
+                  # Fremdes User-Konto: nur öffentliche Repos sichtbar. Das ist eine
+                  # echte Grenze der API, keine Nachlässigkeit — deshalb benannt
+                  # statt verschwiegen.
+                  errors.append(
+                      f"{owner}: fremdes User-Konto — nur öffentliche Repos sichtbar, "
+                      f"Drift-Erkennung dort unvollständig"
+                  )
+                  owner_repos = paged(f"/users/{owner}/repos?type=all")
+
+              if isinstance(owner_repos, dict) and "_error" in owner_repos:
+                  errors.append(
+                      f"{owner}: Repo-Liste für Drift-Erkennung nicht abrufbar "
+                      f"({owner_repos['_error']})"
+                  )
+                  continue
+
+              print(f"Drift-Scan {owner}: {len(owner_repos)} Repos")
+              for repo_meta in owner_repos:
                   repo_name = repo_meta["name"]
                   if repo_name in registry_repos:
                       continue
-                  runners_data = api("GET", f"/repos/{MAIN_ORG}/{repo_name}/actions/runners")
+                  runners_data = api("GET", f"/repos/{owner}/{repo_name}/actions/runners")
                   if "_error" in runners_data:
                       continue
                   for runner in runners_data.get("runners", []):
                       if runner.get("name") == REQUIRED_LABEL:
                           unregistered.append(
-                              f"{repo_name} (runner {runner['id']}) — "
+                              f"{owner}/{repo_name} (runner {runner['id']}) — "
                               f"WARN: not in registry/canonical.yaml!"
                           )
 
