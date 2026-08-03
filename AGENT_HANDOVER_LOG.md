@@ -1060,3 +1060,29 @@ DB_PASSWORD (fsn1) via Präfix-Grep ins Transkript → dev-hub#202 (Rotation Own
 Lesson + 🌀-Memory. Ferner: docu-update #1704, shared-ci-Tag-stale bereits #1157/#1678,
 dev-hub#187 UID-Neulauf unentschieden. Wissen: 2 Outline-Lessons (pidof; Env-Grep-Leak),
 pgvector session:platform:20260803:health-poll-honest-failure + error:fleet:20260802-pidof-celery.
+
+---
+
+## 2026-08-03 (2. Eintrag, gleiche Session 9530de73) — Mail-Strang komplett + error-handling-Policy
+
+Vormittagsblock nach dem 1. Session-Ende: UID-Neulauf fertig (#187 zu; mittwald 1.936
+saubere Kopien, 3.649 Alt-Kopien stillgelegt), Volltext beide Transporte live (#204 zu via
+#205: uidvalidity-/Konto-Filter + Graph-$value; AC 3 scharf: hnu geholt 3 / iil geholt 1,
+body 4/4). Wurzelfund: /app/mail/iil_mail_api = Voice-Agent-App ohne Mail-Rolle — der
+Container-Graph-Zugriff hatte NIE funktioniert (drei Hypothesen falsifiziert: ReadBasic,
+Consent fehlt, Nachrichtenschutz; Beweis via Token-roles-Claim + SP-appRoleAssignments).
+#207 gemergt+deployt: Migration 0011 (Zeitpläne iil/mittwald/heartbeat-scan, psql-Beleg),
+MAIL_GRAPH_CREDS als Compose-environment auf iil_mail_ingest.env, heartbeat_scan wirft
+bei >48h. #206 offen bis Nacht-Beleg. error-handling.md org-weit (#1706), adversarial
+right-sized (Incident-Ausnahme, Gate-ab-2.-Auftreten, Taxonomie, Grenzen≠Fehler).
+
+Eigene Fehler (Policy direkt angewendet): (1) Commit-Message-Datei aus tmp-Scratchpad
+verschwunden → blinder --amend schrieb die Branch-Basis um; per reset --soft + Lease-Push
+repariert, 🌀-Memory feedback_amend_after_failed_push_verify_head. (2) Zwei Lease-Pushes
+scheiterten an stalem/ungültigem Lease-Wert — exakter Remote-Hash als Lease ist der Weg.
+(3) mail_volltext in devhub_celery stirbt am 512M-cgroup (exit 137) — devhub_web nehmen.
+
+Wissen: Outline-Lesson wrong-app-creds; pgvector session:platform:20260803:mail-strang +
+error:dev-hub:20260803-wrong-graph-app. Offen: #206-Nacht-Beleg (03:50/04:10/05:00),
+#202 Rotation (Owner-vertagt), #1704 docu-update, Step 0 (finish_token_rotation2.sh)
+nächste frische Session.
