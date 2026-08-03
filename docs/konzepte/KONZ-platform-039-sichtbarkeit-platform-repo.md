@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-039
 title: Sichtbarkeit des platform-Repos — privat werden, ohne die Flotte abzuschneiden
-pipeline_status: idea
+pipeline_status: decided
 tier: T3
 owner: Achim Dehnert
 spec_refs: []        # Infrastruktur-/Governance-Konzept, keine App-Spec
@@ -169,6 +169,13 @@ Wie B, zusätzlich werden vor dem Wechsel die Infrastruktur-Angaben bereinigt, w
 *Dafür:* die einzige Variante, die auch die **Vergangenheit** adressiert.
 *Dagegen:* teuerste Variante; die Bereinigung ist Fleißarbeit ohne Kill-Gate.
 
+**ENTSCHIEDEN (Owner, Chat 2026-08-02, nach G1): Variante C.** G1 hatte zuvor belegt,
+dass ein öffentlicher Aufrufer private Reusable Workflows nicht nutzen kann (§4, L5) —
+der Schnitt ist damit Pflicht, die Bereinigung kommt bewusst dazu. Nächster Schritt laut
+adr_threshold: **ADR ausarbeiten** (shared-ci-Repo, Konsumenten-Umhängung, Bereinigungs-
+umfang, Reihenfolge), dann Umsetzungsprogramm mit eigenem Tracking. K2 (Konsumenten-Scan
+alle 4 Owner) und K3 (shared-ci-Divergenz) bleiben Vorbedingungen der Umsetzung.
+
 ## 7. Empfehlung
 
 **Variante B, aber erst nach G1** — und mit einer Vorstufe, die sofort wirkt und nichts kostet:
@@ -200,7 +207,7 @@ org-weit und träfe genau die Repos, die publiziert werden.
 | id | Kriterium | Schwelle | Status |
 |----|-----------|----------|--------|
 | K1 | G1 ausgeführt und protokolliert | vor jedem weiteren Schritt | ✅ 2026-08-02 — Ergebnis in §4: öffentlicher Aufrufer scheitert, L5 bestätigt |
-| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | 🟡 teilweise — 2 Methoden × 1 Owner erhoben (§3.1), 3 Owner fehlen |
+| K2 | Konsumenten-Scan über **alle vier Owner**, beide Methoden vereinigt | vor der Umsetzung | ✅ 2026-08-02 — Union Code-Suche (4 Owner) + lokaler Grep: **26 Repos, 12 PUBLIC** (11 externe + platform selbst), 14 privat; Owner mit Konsumenten: achimdehnert, iilgmbh, meiki-lra; ttz-lif = 0 (Suche fand bei denselben Queries andere Owner → kalibriert). Bleibt untere Schranke: Suche fand mcp-hub, das der lokale Grep nicht traf, und umgekehrt 22 Repos ohne Such-Index-Treffer |
 | K3 | Divergenz zwischen `shared-ci` und `platform` | > 0 Dateien doppelt ⇒ Schnitt falsch geführt | ⬜ offen |
 | K4 | CI-Bruch in einem öffentlichen Konsumenten | > 24 h ⇒ zurückdrehen | ⬜ offen |
 
