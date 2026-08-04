@@ -497,6 +497,31 @@ SHARED_CI_PIN_RE = re.compile(
 )
 _SHARED_CI_STATE: dict | None = None
 
+# Beim Portieren platform → shared-ci wird nicht nur der Repo-Pfad umgeschrieben,
+# sondern auch das lokale Checkout-Verzeichnis (`path:` im actions/checkout-Step)
+# und jeder Aufruf, der darunter liegt. Beides ist mechanische Port-Transformation,
+# kein inhaltlicher Drift — wer nur den Repo-Pfad normalisiert, meldet jede
+# gespiegelte Datei mit eigenem Checkout-Pfad dauerhaft als „stale" (Realfall
+# 2026-08-03: risk-hub#496 meldete 3 stale Dateien, 2 davon waren genau das).
+# Reihenfolge ist bedeutsam: der längere Präfix zuerst, sonst frisst die
+# `_shared_ci`-Regel den Anfang von `_shared_ci_checks`.
+SHARED_CI_PORT_SUBSTITUTIONS: tuple[tuple[str, str], ...] = (
+    (SHARED_CI_REPO, f"{GITHUB_ORG}/platform"),
+    ("_shared_ci_checks", "_platform_checks"),
+    ("_shared_ci", "platform"),
+)
+
+
+def normalize_shared_ci_port(tagged: str) -> str:
+    """Macht shared-ci-Inhalt mit dem platform-Kanon vergleichbar.
+
+    Kehrt die mechanischen Umschreibungen des Mirrors um, damit nur echter
+    inhaltlicher Drift übrig bleibt.
+    """
+    for mirror, canonical in SHARED_CI_PORT_SUBSTITUTIONS:
+        tagged = tagged.replace(mirror, canonical)
+    return tagged
+
 
 def parse_shared_ci_pins(content: str) -> list[tuple[str, str]]:
     """Extrahiert (workflow-datei, ref) aller shared-ci-Pins aus YAML-Text."""
@@ -555,12 +580,10 @@ def _shared_ci_state(token: str) -> dict:
             tagged = _get_content_at(
                 SHARED_CI_REPO, f".github/workflows/{name}", latest, token
             )
-            # Port-Transformation normalisieren: der Mirror schreibt nur die
-            # Repo-Pfade um (Header + interne Action-Refs) — das ist kein Drift.
-            if tagged is not None:
-                normalized = tagged.replace(SHARED_CI_REPO, f"{GITHUB_ORG}/platform")
-                if normalized != canonical:
-                    stale_files.append(name)
+            # Port-Transformation normalisieren (Repo-Pfade + Checkout-Verzeichnis),
+            # damit nur echter inhaltlicher Drift als stale gemeldet wird.
+            if tagged is not None and normalize_shared_ci_port(tagged) != canonical:
+                stale_files.append(name)
     _SHARED_CI_STATE = {"latest_tag": latest, "stale_files": stale_files}
     return _SHARED_CI_STATE
 
