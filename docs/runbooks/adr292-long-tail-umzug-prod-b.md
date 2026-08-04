@@ -227,9 +227,26 @@ womöglich nicht.** Der `pptx-hub`-vhost auf `prod` bedient **fünf** Namen in
 Namen aus dem Register umschaltet, bricht die übrigen, sobald die Quelle
 abgeschaltet wird.
 
+**Portbasiert suchen, nicht nach dem App-Namen.** vhosts heißen nicht zwingend
+nach der Anwendung. `kiohnerisiko.de` wird von einem vhost namens
+`kiohnerisiko.de.conf` bedient, der auf Port 8007 zeigt — also auf `coach-hub`.
+Ein `grep` nach „coach" findet ihn nicht; ohne diesen Fund wäre die Domain beim
+Abschalten von `prod` ausgefallen. Maßgeblich ist der Ziel-Port:
+
 ```bash
-grep -h server_name /etc/nginx/sites-enabled/<app>*.conf | sort -u
+# -R (nicht -r): sites-enabled enthaelt Symlinks, denen -r NICHT folgt.
+# Regex statt Fixstring: die Einrueckung nach proxy_pass variiert.
+for f in $(grep -RlE "proxy_pass[[:space:]]+http://127\.0\.0\.1:<app-port>" \
+             /etc/nginx/sites-enabled/); do
+  echo "$f"; grep -hE "^[[:space:]]*server_name" "$f" | sort -u
+done
 ```
+
+Beide Abweichungen haben beim coach-hub-Umzug echte Treffer verschluckt: mit
+`-r` fehlte `weltenhub` (Symlink), mit einfachem Leerzeichen fehlte `apo`
+(mehrfache Einrückung). Der Suchlauf fand in drei von fünf Fällen etwas und
+sah dadurch funktionsfähig aus — die beiden Nullen waren der Filter, nicht die
+Welt.
 
 **Die DNS-Records vollständig abfragen — `per_page` beachten.** Die Zone
 `iil.pet` hat mehr als 50 Einträge. Eine Abfrage mit `?per_page=50` lieferte
@@ -266,6 +283,13 @@ heißt deshalb zweistufig, **in dieser Reihenfolge** — umgekehrt entsteht eine
    unkritisch; auf `prod` trifft es die gesamte Plattform und gehört in ein
    Wartungsfenster.
 2. CNAME auf die Tunnel-ID des Zielhosts umhängen (`proxied` beibehalten).
+
+   **Sonderfall A-Record:** `wedding-hub.iil.pet` war kein CNAME, sondern ein
+   A-Record auf die prod-IP. Er muss durch einen **CNAME auf den Tunnel**
+   ersetzt werden (Typ-Wechsel per `PUT` auf dieselbe Record-ID) — ein A-Record
+   auf die prod-b-IP funktioniert nicht, weil dort kein TLS terminiert wird.
+   Ein Skript, das nur `type == "CNAME"` behandelt, überspringt solche Records
+   stillschweigend.
 
 **Nachweis — der externe `curl` taugt dafür nicht.** Vor den Hubs steht
 Cloudflare Access: jede unauthentifizierte Anfrage endet mit 302 auf
@@ -413,6 +437,25 @@ mingle: all alone
 
 Meldet Celery dort stattdessen Nachbarn, läuft doch noch ein zweiter Worker am
 selben Broker — dann sofort anhalten und die Quelle prüfen.
+
+**Frische Named Volumes gehören root — der Beat scheitert daran.** `coach-hub`
+legt seinen Schedule in `/celerybeat` ab; auf `prod` gehört das Verzeichnis
+`1000:1000`, auf dem Ziel entsteht es neu als `0:0`. Der Container läuft als
+`coachuser` (UID 1000) und bricht ab mit
+`[Errno 13] Permission denied: '/celerybeat/celerybeat-schedule'` — dabei
+meldet der Health-Status kurzzeitig `healthy`, bevor der Restart-Zyklus greift.
+Besitzer aus dem Quell-Volume ablesen und auf dem Ziel setzen:
+
+```bash
+# Quelle
+docker run --rm -v <app>_<vol>:/c alpine ls -lan /c | head -3
+# Ziel
+docker run --rm -v <app>_<vol>:/c alpine chown -R <uid>:<gid> /c
+```
+
+Gilt für jedes Volume, in das die Anwendung schreibt (Beat-Schedule, Medien,
+Uploads) — nicht für reine Datenbank-Volumes, die der DB-Container selbst
+initialisiert.
 
 ### Klasse 3 — nicht nebenbei
 

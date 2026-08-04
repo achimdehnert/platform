@@ -157,11 +157,24 @@ services:
     prod: 8007
     staging: 8007
     dev: 8007
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # ⚠ kiohnerisiko.de wird von einem NACH DER DOMAIN
+                               # benannten vhost auf denselben Port 8007 geleitet —
+                               # ein Grep nach "coach" findet ihn nicht. Portbasiert
+                               # suchen: grep -RlE 'proxy_pass[[:space:]]+http://
+                               # 127\.0\.0\.1:8007' (-R wegen Symlinks!).
+                               # 12 RLS-Tabellen: Dump als Superuser coach_hub,
+                               # coach_hub_app auf dem Ziel als NOSUPERUSER neu
+                               # angelegt (SCRAM-Verifier von prod uebernommen).
+                               # beatdata-Volume auf dem Ziel gehoerte root — Beat
+                               # scheiterte mit Permission denied; chown 1000:1000
+                               # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
     container_name: coach_hub_web
     domain_prod: coach-hub.iil.pet
     domain_staging: staging-coaching.iil.pet
     domain_aliases:
       - kiohnerisiko.de
+      - www.kiohnerisiko.de      # ergaenzt 2026-08-04: stand nur im vhost
     repo: achimdehnert/coach-hub
 
   pptx-hub:
@@ -287,9 +300,17 @@ services:
     prod: 8093
     staging: 8093
     dev: 8093
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # wedding-hub.iil.pet war ein A-RECORD auf die prod-IP
+                               # und wurde zum CNAME auf den prod-b-Tunnel: ein
+                               # A-Record auf prod-b ginge nicht, dort liegt kein
+                               # TLS-Zertifikat. Beide Namen per Marker nachgewiesen
+                               # (prod 0 bei 17249 Logzeilen, prod-b 2).
     container_name: wedding_hub_web
     domain_prod: wedding-hub.iil.pet
     domain_staging: staging-wedding.iil.pet
+    domain_aliases:
+      - wedding.iil.pet          # ergaenzt 2026-08-04: stand nur im vhost
     repo: achimdehnert/wedding-hub
 
   cad-hub:
