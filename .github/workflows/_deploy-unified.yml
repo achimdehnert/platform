@@ -258,11 +258,20 @@ jobs:
       - name: Deploy to staging
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         timeout-minutes: 15
+        env:
+          # Kurzlebiger Workflow-Token → deploy.sh loggt damit frisch bei GHCR ein,
+          # statt an der manuell gepflegten Host-Token-Datei zu hängen. Diese Zeilen
+          # stammen aus der iilgmbh-Linie (shared-ci#10 Facette A) und fehlten in der
+          # platform-Linie — Realfall 2026-08-02: drei Deploys scheiterten am Host-Pull
+          # mit "denied", weil der gespeicherte Host-Login veraltet war.
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
+          envs: GHCR_TOKEN,GHCR_USER
           script: |
             set -euo pipefail
             /opt/scripts/deploy.sh \
@@ -358,6 +367,13 @@ jobs:
       - name: Deploy to production (direct — self-hosted runner)
         if: ${{ !startsWith(inputs.runs_on, 'ubuntu') }}
         timeout-minutes: 15
+        env:
+          # Kurzlebiger Workflow-Token → deploy.sh loggt frisch bei GHCR ein.
+          # v1.1.1 hatte das NUR in die SSH-Schritte gepatcht — self-hosted Runner
+          # nehmen aber DIESEN Direktpfad (Realfall: Probe-Deploy 30765328996 rot,
+          # weil deploy.sh ohne GHCR_TOKEN auf die veraltete Host-Datei zurückfiel).
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
           set -euo pipefail
           /opt/scripts/deploy.sh \
@@ -371,11 +387,16 @@ jobs:
         if: startsWith(inputs.runs_on, 'ubuntu')
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         timeout-minutes: 15
+        env:
+          # Siehe Staging-Step: frischer GHCR-Login statt veralteter Host-Token-Datei.
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
+          envs: GHCR_TOKEN,GHCR_USER
           script: |
             set -euo pipefail
             /opt/scripts/deploy.sh \
