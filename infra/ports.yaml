@@ -286,13 +286,17 @@ services:
     prod: 8042
     staging: 8042
     dev: 8042
-    prod_host: prod-b          # ADR-292 Long-Tail-Pilot, umgeschaltet 2026-08-04.
-                               # Nachweis: Marker-Request (Access-Service-Token, 200)
-                               # landet im nginx-access.log von prod-b; auf prod kein
-                               # Treffer, dessen Log lebt (7781 Zeilen) — kalibriert.
-                               # ⚠ prod-Kopie laeuft WEITER (gemessen 2026-08-04 06:55,
-                               # StartedAt unveraendert seit 02.08.) -> Doppellauf ohne
-                               # Traffic auf der alten Seite. Stop offen, siehe #1738.
+    prod_host: prod-b          # ADR-292 Long-Tail-Pilot, umgezogen 2026-08-04, kein
+                               # Doppellauf. Nachweis: Marker-Request (Access-Service-
+                               # Token, 200) landet im nginx-access.log von prod-b, auf
+                               # prod kein Treffer — dessen Log lebt (7781 Zeilen),
+                               # der Check haette also finden koennen. prod-Kopie
+                               # gestoppt und entfernt (0 Container), danach ERNEUT
+                               # geprueft: weiterhin 200, Marker weiterhin nur prod-b.
+                               # Volume apo-hub_apo_hub_pgdata auf prod erhalten
+                               # (Rueckweg). Offen: tote Tunnel-Route auf prod (#1738),
+                               # Entfernen braucht Wartungsfenster — der noetige
+                               # cloudflared-Restart trifft dort alle Routen.
     container_name: apo_hub_web
     domain_prod: apo.iil.pet
     note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
