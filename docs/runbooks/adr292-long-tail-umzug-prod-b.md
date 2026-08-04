@@ -99,6 +99,20 @@ rsync -a --exclude '.git' root@88.198.191.108:/opt/<app>/ root@89.167.43.30:/opt
 Die `.env` enthält Zugangsdaten — nicht in Logs, nicht in Tickets, nicht in
 Chat-Verläufe. Nach dem Umzug auf `prod` löschen, nicht liegen lassen.
 
+**Geteilte Dateien außerhalb des App-Verzeichnisses werden von diesem `rsync`
+nicht erfasst.** `cad-hub` bindet `/opt/shared-secrets/api-keys.env` ein — eine
+Datei, die sich vier Apps teilen (cad-hub, writing-hub, onboarding-hub,
+travel-beat). Fehlt sie, startet der Container gar nicht:
+`env file /opt/shared-secrets/api-keys.env not found`. Vor dem Start prüfen:
+
+```bash
+grep -hoE '(env_file|source):[[:space:]]*/[^ ]+' /opt/<app>/docker-compose*.yml
+grep -hoE '^[[:space:]]*-[[:space:]]*/[^:]+:' /opt/<app>/docker-compose*.yml  # bind mounts
+```
+
+Übertragung mit denselben Rechten (hier `0600 root:root`) und Prüfung per
+Hash-Vergleich statt Sichtkontrolle — der Inhalt gehört nicht auf den Bildschirm.
+
 ### 3. Datenbank umziehen
 
 ```bash
@@ -262,6 +276,17 @@ auf `prod` findet derselbe Suchlauf 224 Dateien). Der vhost bekommt deshalb
 `listen 127.0.0.1:<freier-port>;` statt `listen 443 ssl` — TLS macht der
 Cloudflare-Edge, der Tunnel spricht HTTP zum Origin. Private Schlüssel wandern
 nicht mit.
+
+**Hilfsport aus 9500–9599 wählen, nicht aus dem App-Bereich.** `infra/ports.yaml`
+vergibt 8000–8199 an Anwendungen. Ein dort gewählter nginx-Port kollidiert
+früher oder später mit der nächsten App, die auf `prod-b` zieht: Port 8094 war
+zunächst der wedding-nginx und gehört laut Register `cad-hub` — beim
+cad-hub-Umzug musste er erst umgezogen werden. Unterbrechungsfrei geht das, indem
+der vhost übergangsweise auf **beiden** Ports lauscht, dann die Tunnel-Route
+umgestellt und erst danach der alte `listen` entfernt wird.
+
+Bereits vergeben auf `prod-b` (nicht neu belegen): 8008 coach-hub, 8021 pptx-hub,
+8043 apo-hub, 8082 weltenhub, 9501 wedding-hub, 9502 research-hub, 9503 cad-hub.
 
 Dabei **`X-Forwarded-Proto https` fest setzen**, nicht `$scheme`: der Origin
 spricht HTTP, Django würde sonst http-URLs bauen und in Redirect-Schleifen

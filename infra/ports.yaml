@@ -317,9 +317,20 @@ services:
     prod: 8094
     staging: 8094
     dev: 8094
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # ⚠ Braucht /opt/shared-secrets/api-keys.env — eine
+                               # GETEILTE Datei ausserhalb des App-Verzeichnisses,
+                               # die ein tar von /opt/<app> nicht erfasst. Ohne sie
+                               # startet der web-Container nicht. Gleiche Datei nutzen
+                               # auch writing-hub, onboarding-hub und travel-beat.
+                               # Alle 3 Namen per Marker nachgewiesen (prod 0 bei
+                               # 17635 Logzeilen, prod-b 3).
     container_name: cad_hub_web
     domain_prod: nl2cad.de
     domain_staging: staging.nl2cad.de
+    domain_aliases:
+      - www.nl2cad.de            # ergaenzt 2026-08-04: stand nur im vhost
+      - cad-hub.iil.pet
     repo: achimdehnert/cad-hub
 
   137-hub:
@@ -375,6 +386,12 @@ services:
     prod: 8098
     staging: 8098
     dev: 8098
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # Nur ein oeffentlicher Name. Der zweite vhost auf
+                               # Port 8098 (staging-writing.iil.pet.conf) ist eine
+                               # Karteileiche: der DNS-Name zeigt auf den Staging-
+                               # Tunnel, nicht auf prod — kein Traffic, nicht migriert.
+                               # Marker: prod 0 bei 17607 Logzeilen, prod-b 1.
     container_name: research_hub_web
     domain_prod: research.iil.pet
     domain_staging: staging-research.iil.pet
