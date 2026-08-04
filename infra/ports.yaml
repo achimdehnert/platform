@@ -248,11 +248,25 @@ services:
     prod: 8088
     staging: 8088
     dev: 8088
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04, Papertrading
+                               # (scalping-tick-paper), keine IP-Bindung der Broker-
+                               # Schluessel — Owner-Auskunft 2026-08-04.
+                               # ⚠ TimescaleDB: DB-Image MUSS versioniert gepinnt
+                               # werden (2.25.0-pg16). Der bewegliche Tag latest-pg16
+                               # zog auf prod-b 2.29.0 -> Restore mit 11 Fehlern und
+                               # "catalog version mismatch" bei post_restore.
+                               # Restore braucht timescaledb_pre_restore()/
+                               # post_restore(); Beleg sind die Chunk-Zahlen
+                               # (70/0/7, identisch zu prod).
+                               # Vier Namen aus ZWEI vhosts auf Port 8088;
+                               # trading-hub.iil.pet war ein A-Record.
     container_name: trading_hub_web
     domain_prod: trading-hub.iil.pet
     domain_staging: staging.ai-trades.de
     domain_aliases:
       - ai-trades.de
+      - www.ai-trades.de         # ergaenzt 2026-08-04: stand nur im vhost
+      - trading.iil.pet
     repo: achimdehnert/trading-hub
 
   travel-beat:

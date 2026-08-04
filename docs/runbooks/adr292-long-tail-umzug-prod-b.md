@@ -482,6 +482,67 @@ Gilt für jedes Volume, in das die Anwendung schreibt (Beat-Schedule, Medien,
 Uploads) — nicht für reine Datenbank-Volumes, die der DB-Container selbst
 initialisiert.
 
+### Bewegliche Image-Tags sind bei zustandsbehafteten Diensten ein Restore-Killer
+
+Beim trading-hub-Umzug lief der erste Restore-Versuch komplett schief, obwohl
+Dump und Verfahren korrekt waren: `timescale/timescaledb:latest-pg16` zieht auf
+einem anderen Host eine **andere Version**. Auf `prod` lief 2.25.0, auf `prod-b`
+kam 2.29.0 — das ergab 11 `pg_restore`-Fehler in den TimescaleDB-Katalogtabellen
+und ein hartes `ERROR: catalog version mismatch, expected "2.29.0" seen "2.25.0"`
+bei `timescaledb_post_restore()`. Die Ziel-Datenbank war danach unbrauchbar und
+musste samt Volume verworfen werden.
+
+**Zwei Sackgassen bei der Digest-Ermittlung**, beide real durchlaufen:
+
+- `docker inspect <c> --format '{{.Image}}'` liefert die **lokale Image-ID**,
+  nicht den Registry-Digest. Ein `docker pull repo@sha256:<image-id>` kann
+  trotzdem ohne Fehler durchlaufen und etwas anderes holen — genau das ist
+  passiert, die falsche Version fiel erst am Restore auf.
+- `{{index .RepoDigests 0}}` schlägt fehl, wenn das Image ohne Digest-Referenz
+  im lokalen Store liegt (`map has no entry for key "RepoDigests"`).
+
+**Der verlässliche Weg** ist der versionierte Tag. Version an der Quelle
+ablesen, auf dem Ziel exakt diese ziehen und lokal auf den Tag legen, den das
+Compose erwartet — dann zieht `docker compose up` nichts nach:
+
+```bash
+# Quelle
+docker exec <app>_db psql -U <su> -d <db> -tAc \
+  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"   # -> 2.25.0
+# Ziel
+docker pull timescale/timescaledb:2.25.0-pg16
+docker tag  timescale/timescaledb:2.25.0-pg16 timescale/timescaledb:latest-pg16
+```
+
+Der Restore selbst braucht bei Hypertables die Klammer:
+
+```bash
+psql -tAc "SELECT timescaledb_pre_restore()"
+pg_restore ...
+psql -tAc "SELECT timescaledb_post_restore()"
+```
+
+Beleg ist nicht `exit=0`, sondern der **Chunk-Vergleich** beider Seiten:
+
+```bash
+psql -tAc "SELECT hypertable_name, num_chunks FROM timescaledb_information.hypertables ORDER BY 1"
+```
+
+### `cloudflared tunnel ingress validate` validiert womöglich die falsche Datei
+
+`--config` ist eine **globale** Option und muss **vor** das Subkommando. Steht
+sie dahinter, wird sie nicht als Pfad erkannt (das Kommando gibt seine Hilfe
+aus). Ohne `--config` sucht `cloudflared` selbst — auf `prod` liegt dort eine
+Altlast `/root/.cloudflared/config.yml`, sodass die Validierung eine ganz andere
+Datei prüfte als der Dienst nutzt (`ExecStart … --config /etc/cloudflared/config.yml`).
+Richtig:
+
+```bash
+cloudflared --config /etc/cloudflared/config.yml tunnel ingress validate
+```
+
+`prod-b` hat diese Altlast nicht — dort waren die Validierungen gültig.
+
 ### Klasse 3 — nicht nebenbei
 
 `trading-hub` ist der einzige gemessene Fall: `monitor_trades`,
@@ -492,14 +553,23 @@ TimescaleDB mit 77 Chunks (eigenes Restore-Verfahren mit
 `timescaledb_pre_restore()` / `post_restore()`) und ein beweglicher Image-Tag
 `latest-pg16`, der auf dem Ziel eine andere Version ziehen kann.
 
-Bedingungen, bevor diese App angefasst wird:
+**Umgezogen am 2026-08-04.** Die Owner-Auskunft entschärfte die Klasse: der Hub
+läuft im **Papertrading**-Modus (der Beat sendet `scalping-tick-paper`), die
+Broker-Schlüssel sind nicht IP-gebunden. Damit war kein Wartungsfenster nötig —
+das normale Beat-Verfahren (Klasse 1/2) genügte, weil ein doppelter Lauf zwar
+Daten, aber kein Geld bewegt hätte. Beat und Worker waren auf der Quelle von
+12:11 UTC bis zum Ende gestoppt (`Running=false`, per `docker inspect` belegt).
 
-- **Wartungsfenster mit vollständigem Stillstand** — kein paralleles Hochfahren
-- Vorher klären, ob die Broker-Schlüssel **IP-gebunden** sind; der Standortwechsel
-  nach Helsinki ändert die ausgehende Adresse (Owner-Einschätzung 2026-08-04:
-  vermutlich kein Whitelisting — **ungeprüfte Annahme**, vor dem Umzug in den
-  Broker-Einstellungen verifizieren)
-- Image per Digest pinnen statt per `latest`-Tag
+Was trotzdem stimmen muss, wenn diese App erneut bewegt wird:
+
+- **Kein paralleler Beat-Betrieb** — beide Seiten würden dieselben Positionen
+  verwalten, jede gegen ihre eigene Datenbank
+- Sobald der Modus von Paper auf echtes Handeln wechselt, gilt wieder
+  Wartungsfenster mit vollständigem Stillstand, und die IP-Bindung der
+  Broker-Schlüssel ist vorher in deren Einstellungen zu prüfen — nicht
+  anzunehmen
+- **Image versioniert pinnen**, nicht `latest` (siehe Abschnitt oben — genau
+  hier ist der erste Restore-Versuch gescheitert)
 
 ## Rückweg
 
