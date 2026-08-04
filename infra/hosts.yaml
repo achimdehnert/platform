@@ -76,14 +76,24 @@ hosts:
       Archiv des Vorzustands: Snapshot `lastwar-bot-archive-20260722` (id 411324113,
       7,8 GB) — Android-SDK/Emulator-Projekt, auf einen Server mit >=301 GB Disk
       wiederherstellbar.
-      STAND 2026-08-02 (ADR-292): illustration-hub-Umzug ABGESCHLOSSEN — Traffic-Route
-      per Marker-Request verifiziert (dieser Host bedient illustration.iil.pet), die
-      prod-Kopie wurde gestoppt (Doppellauf 22.07.–02.08. beendet; ports.yaml führt
-      illustration-hub mit prod_host: prod-b). Long-Tail-Umzugswelle weiterer Hubs
-      ist beschlossen und offen. Wandernde Hubs gehören hierher, nicht auf den
-      `netcup`-Host (dort nur Backup, ADR-289 R1).
+      STAND 2026-08-02 (ADR-292): illustration-hub-Umzug vollzogen — Traffic-Route
+      per Marker-Request verifiziert (dieser Host bedient illustration.iil.pet;
+      ports.yaml führt illustration-hub mit prod_host: prod-b).
+      ⚠ KORREKTUR 2026-08-04: Der Satz "die prod-Kopie wurde gestoppt (Doppellauf
+      22.07.–02.08. beendet)" stand hier zu Unrecht. `docker stats` auf beiden
+      Hosts zeigt illustration_web/_worker/_db/_redis WEITERHIN auf prod UND auf
+      prod-b (268 bzw. 305 MiB). Der Doppellauf besteht fort — mit dem Risiko
+      divergierender Datenbanken, das ADR-292 selbst benennt. Bewusst vertagt bis
+      nach der laufenden Illustrations-Session (Owner-Entscheidung 2026-08-04);
+      Tracking und Verfahren in platform#1738. Vor dem Stopp gehoert ein
+      Datenvergleich BEIDER Instanzen: der neuere Stand koennte in der Kopie
+      stecken, die nicht per DNS bedient wird.
+      STAND 2026-08-04: Long-Tail-Umzugswelle ausgefuehrt — apo, pptx, weltenhub,
+      wedding, coach, research, cad, trading und dms liegen jetzt hier
+      (Register-Eintraege in platform#1752/#1753). Wandernde Hubs gehoeren
+      hierher, nicht auf den `netcup`-Host (dort nur Backup, ADR-289 R1).
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
-    verified: 2026-08-02               # SSH-Probe + Traffic-Marker + Container-Stop
+    verified: 2026-08-04               # docker stats beide Hosts + Marker je App
 
   staging:
     ip: 88.99.38.75

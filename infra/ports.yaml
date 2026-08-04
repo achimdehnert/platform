@@ -335,7 +335,11 @@ services:
     prod: 8096
     staging: 8096
     dev: 8096
-    prod_host: prod-b          # ADR-292; Umzug abgeschlossen 2026-08-02 (prod-Kopie gestoppt)
+    prod_host: prod-b          # ADR-292; Traffic laeuft seit 2026-08-02 ueber prod-b.
+                               # ⚠ KORREKTUR 2026-08-04: der Zusatz "prod-Kopie
+                               # gestoppt" war falsch — docker stats zeigt die
+                               # Container auf BEIDEN Hosts. Doppellauf besteht
+                               # fort, bewusst vertagt, siehe #1738 und hosts.yaml.
     container_name: illustration_web
     domain_prod: illustration.iil.pet
     domain_staging: staging-illustration.iil.pet
