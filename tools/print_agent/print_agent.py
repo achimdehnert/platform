@@ -29,6 +29,13 @@ import litellm
 import markdown
 from weasyprint import HTML, CSS
 
+from pdf_forms import (
+    FORMULAR_CSS,
+    formulare_gewuenscht,
+    html_mit_formularfeldern,
+    markdown_mit_platzhaltern,
+)
+
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
 
@@ -1008,6 +1015,11 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     # Strip meta-prefix lines so they don't appear as paragraph text in body.
     md_text_cleaned = strip_meta_prefix_lines(md_text)
     md_text_processed = preprocess_md(md_text_cleaned, design=design)
+    # Unterstrich-Laeufe VOR der Markdown-Konvertierung sichern — Markdown
+    # verbraucht sie sonst selbst (`___` = horizontale Linie / Hervorhebung).
+    als_formular = formulare_gewuenscht(meta)
+    if als_formular:
+        md_text_processed = markdown_mit_platzhaltern(md_text_processed)
     md = markdown.Markdown(
         extensions=["tables", "attr_list", "meta", "toc", "fenced_code", "sane_lists"],
         extension_configs={
@@ -1038,12 +1050,24 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
         print(f"   ✅ Summary: {enrichment['summary'][:80]}…")
         print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
 
+    # Ausfuellbares PDF: nur wenn das Dokument es im Frontmatter verlangt
+    # (`forms: true`). Ohne das Feld bleibt alles wie bisher — ein Unterstrich
+    # im Fliesstext soll nicht stillschweigend zum Eingabefeld werden.
+    if als_formular:
+        body_html = html_mit_formularfeldern(body_html)
+        anzahl = body_html.count("pdf-formularfeld-")
+        print(f"📝 Ausfuellbares PDF: {anzahl} Formularfeld(er)")
+
     html = build_html(title, body_html, meta, input_path.stem, enrichment, design)
     css = build_css(design, extra_css=extra_css)
+    if als_formular:
+        css += FORMULAR_CSS
 
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{input_path.stem}.pdf"
-    HTML(string=html, base_url="/").write_pdf(str(out_path), stylesheets=[CSS(string=css)])
+    HTML(string=html, base_url="/").write_pdf(
+        str(out_path), stylesheets=[CSS(string=css)], pdf_forms=als_formular
+    )
     return out_path
 
 
