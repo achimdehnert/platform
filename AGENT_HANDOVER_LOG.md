@@ -1386,3 +1386,43 @@ und wie der TENANT_NON_TENANT_SUBDOMAINS-Vorgabewert.
 Neu getrackt: dev-hub#230 — der Herzschlag wird erst am Ende geschrieben, ein
 abgebrochener Task hinterlaesst nichts, und heartbeat_scan kann einen nie gelaufenen
 Kanal gar nicht sehen. Genau so blieb dieser Fehlschlag unsichtbar.
+
+## 2026-08-04 — Retro 6cec19: was der fremde Blick am eigenen Werk fand
+
+Ein adversarialer Retro ueber den Mail-Strang, gefahren mit fremdem Kontext: ein
+Collector, drei Finder je Dimension, drei Skeptiker nur auf Bewertungsbefunde, ein
+Meta-Reviewer auf den Report-Entwurf. 16 Befunde, alle ueberlebten die Falsifikation.
+Report unter docs/retros/session-retro-2026-08-04-dev-hub-6cec19.md.
+
+Die drei schwersten Befunde kamen alle NICHT aus meiner eigenen Pruefung. Der
+Schluessel, der nirgends gesetzt war und den ganzen Bestand an SECRET_KEY haengte.
+Die Adressrelation MessageParticipant, die jede Art-17-Loeschung ueberlebte. Die
+nginx-Spiegeldatei, deren Existenz ich gar nicht kannte, als ich den vhost umstellte.
+
+Warum der Gate-3-Nachweis MessageParticipant nicht fand, ist die eigentliche Lehre:
+er mass, was eine SUCHE noch findet. Die Relation ist keine Suchflaeche. Eine Probe
+findet immer nur, wonach sie sucht — deshalb zaehlt der neue Test Modelle auf, statt
+Stellen zu pruefen. Ein neues Modell an LogicalMessage laesst ihn fehlschlagen, auch
+wenn niemand an die Loeschung gedacht hat.
+
+Dieselbe Klasse ein zweites Mal am selben Tag: der Umschluesselungslauf starb am
+OOM-Killer, weil er beim Streamen den ciphertext mitzog — rund 7 GB statt ein paar
+hundert Byte je Zeile. Nicht die Rechnung war teuer, sondern das, was nebenbei mitkam.
+Gleiche Ursache wie die 650-MB-Grenze der Vornacht.
+
+Und ein Fehler, den kein Test gefunden haette: der Zaehler "schon aktuell" konnte nie
+zutreffen, weil rotate jedes Mal einen anderen Wert liefert. Jeder Wiederholungslauf
+haette alles erneut umgeschluesselt, und die Ausgabe haette dabei ehrlich ausgesehen.
+
+Der Mailbestand haengt ab jetzt nicht mehr an SECRET_KEY: 11.574 von 11.574 am eigenen
+Schluessel, 0 verloren, in Prod gemessen. Der Wert liegt in der Prod-Umgebungsdatei und
+im Passwortspeicher des Owners; die Uebergabeschleuse ist geprueft leer.
+
+Bewusst liegengelassen und benannt: die nginx-Spiegeldatei ist weiter veraltet, und die
+OCR-Anschlussentscheidung fuer neu eintreffende Scans hat kein Issue. Beides steht im
+Retro, ist also getrackt — erledigt ist es nicht, und das gehoert so gesagt.
+
+Selbstkritik am Retro: refuted_rate 0,0 liegt unter dem gesunden Band. Ich habe zur
+Falsifikation Behauptungen ausgewaehlt, die ich schon fuer plausibel hielt, statt
+solche, die fallen koennten. Der Ertrag kam trotzdem — aber aus den Skeptikern, nicht
+aus meiner Auswahl.
