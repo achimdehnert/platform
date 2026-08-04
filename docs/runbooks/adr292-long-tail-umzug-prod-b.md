@@ -307,6 +307,96 @@ hängen geblieben: der Stop galt als erledigt, die drei Container liefen mit
 bit-identischem Zeitstempel weiter. Wäre der Wert ungeprüft ins Register
 gewandert, hätte der Pilot exakt den Fehler reproduziert, den er beheben sollte.
 
+## Apps mit Worker und Beat
+
+Die ersten beiden Umzüge (`apo-hub`, `pptx-hub`) waren Sonderfälle: `apo-hub`
+hatte gar keine Hintergrundjobs, `pptx-hub`s Worker war defekt. **Alle acht
+verbleibenden Kandidaten haben einen Worker, fünf zusätzlich einen Beat.**
+Damit kommt eine Gefahr dazu, die das Verfahren oben nicht abdeckt.
+
+### Warum das gefährlich ist
+
+Zwischen Schritt 4 und Schritt 7 laufen zwei vollständige Instanzen — die alte
+mit Traffic, die neue ohne. Bei einer reinen Web-App ist das harmlos. Laufen
+dort aber Worker und Beat mit, verarbeiten **beide** Seiten periodische
+Aufgaben, jede gegen ihre eigene Datenbank. Ergebnis: doppelte Mails, doppelte
+Zustandswechsel, zwei auseinanderlaufende Wahrheiten. Der Doppellauf ist hier
+nicht nur ein Registerfehler, sondern verändert Daten.
+
+Zweiter Punkt, leicht zu übersehen: **Redis wird nicht mitmigriert.** Auf dem
+Ziel entsteht eine leere Instanz. Alles, was in der alten Queue wartet, ist
+nach dem Umschalten verloren.
+
+### Erst erheben, dann entscheiden
+
+Nicht raten, was der Beat tut — nachsehen. Read-only auf der Quelle:
+
+```bash
+# 1) Was sendet der Beat wirklich?
+docker logs --tail 200 <app>_beat 2>&1 | grep -oE 'Sending due task [^ ]+ \([^)]+\)' | sort -u
+
+# 2) Was hat der Worker zuletzt ausgefuehrt?
+docker logs --tail 120 <app>_worker 2>&1 | grep -oE 'Task [a-zA-Z0-9_.]+\[' | sort | uniq -c
+
+# 3) Liegt der Schedule in der DB (abschaltbar) oder im Code (nur Container-Stop)?
+docker exec <app>_db psql -U <su> -d <db> -tAc \
+  "SELECT count(*) FROM django_celery_beat_periodictask WHERE enabled"
+
+# 4) Wartet etwas in der Queue? MUSS 0 sein, sonst gehen Jobs verloren
+docker exec <app>_redis redis-cli eval "local n=0 for _,k in ipairs(redis.call('keys','*')) do if redis.call('type',k)['ok']=='list' then n=n+redis.call('llen',k) end end return n" 0
+```
+
+Danach die Tasks in drei Klassen einsortieren:
+
+| Klasse | Beispiel (gemessen 2026-08-04) | Umgang |
+|---|---|---|
+| **Housekeeping** | `celery.backend_cleanup` (weltenhub, wedding-hub) | unkritisch, idempotent |
+| **lesend/prüfend** | `apps.governance.tasks.check_overdue_actions` (coach-hub, täglich) | unkritisch, solange nicht im Umzugsfenster |
+| **handelnd** | `trading.monitor_trades` (trading-hub, **minütlich**, schließt Positionen) | Wartungsfenster, kein Parallelbetrieb |
+
+Für die drei anstehenden Beat-Apps ergab die Erhebung ausschließlich Klasse 1
+und 2, alle **täglich**, und in allen drei Queues null wartende Jobs. Ein
+Umzugsfenster von Minuten trifft einen Tagesjob mit hoher Wahrscheinlichkeit
+gar nicht — und wenn doch, ist er idempotent oder nur prüfend.
+
+### Ablauf für Klasse 1 und 2
+
+Gegenüber dem Verfahren oben ändert sich nur, **wann** Worker und Beat laufen:
+
+1. Auf der Quelle **zuerst Beat und Worker stoppen**, Web weiterlaufen lassen:
+   `docker compose -f docker-compose.prod.yml stop <beat> <worker>`
+2. Queue erneut prüfen — jetzt muss sie 0 sein (siehe Abfrage 4 oben)
+3. Dump, Übertragung, Restore wie in Schritt 0–3
+4. Auf dem Ziel **nur `db`, `redis`, `web`** starten — Worker und Beat bleiben aus
+5. Ingress umschalten und den Marker-Nachweis führen (Schritt 6)
+6. Quelle vollständig stoppen (Schritt 7)
+7. **Erst jetzt** auf dem Ziel Worker und Beat starten
+
+Zwischen 1 und 7 verarbeitet niemand Hintergrundaufgaben. Genau deshalb steht
+Schritt 1 nicht früher: das Fenster soll so kurz wie möglich sein, und der
+Web-Betrieb läuft dabei ununterbrochen weiter. Bei den gemessenen Tagesjobs
+kostet dieses Fenster praktisch nichts; bei minütlichen Aufgaben wäre es ein
+Ausfall und damit ein Fall für Klasse 3.
+
+### Klasse 3 — nicht nebenbei
+
+`trading-hub` ist der einzige gemessene Fall: `monitor_trades`,
+`update_portfolio_pnl` und `ib_health_check` laufen **minütlich**, der Worker
+meldet „checked 0 trades, closed 0" — die Aufgabe kann Positionen schließen. Im
+Environment liegen Schlüssel für Alpaca, Binance, OANDA und Finnhub. Dazu
+TimescaleDB mit 77 Chunks (eigenes Restore-Verfahren mit
+`timescaledb_pre_restore()` / `post_restore()`) und ein beweglicher Image-Tag
+`latest-pg16`, der auf dem Ziel eine andere Version ziehen kann.
+
+Bedingungen, bevor diese App angefasst wird:
+
+- **Wartungsfenster mit vollständigem Stillstand** — kein paralleles Hochfahren
+- Vorher klären, ob die Broker-Schlüssel **IP-gebunden** sind; der Standortwechsel
+  nach Helsinki ändert die ausgehende Adresse (Owner-Einschätzung 2026-08-04:
+  vermutlich kein Whitelisting — **ungeprüfte Annahme**, vor dem Umzug in den
+  Broker-Einstellungen verifizieren)
+- Image per Digest pinnen statt per `latest`-Tag
+
 ## Rückweg
 
 Bis Schritt 6 ist der Umzug folgenlos rückgängig zu machen: DNS zurückstellen,
