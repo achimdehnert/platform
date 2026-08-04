@@ -213,7 +213,10 @@ services:
                                # nachgewiesen (prod-b 5, prod 0 bei 15808 Logzeilen).
                                # ⚠ db+redis stehen NUR in docker-compose.override.yml
                                # — compose IMMER mit beiden -f Dateien aufrufen.
-                               # ⚠ prod-Kopie laeuft noch (Stop verwehrt), siehe #1738.
+                               # prod-Kopie gestoppt und entfernt (0 Container); danach
+                               # erneut geprueft: alle fuenf Namen 302 wie zuvor, Marker
+                               # weiterhin nur prod-b, Beat+Celery dort healthy.
+                               # Alle 3 Volumes auf prod erhalten (Rueckweg).
     container_name: weltenhub_web
     domain_prod: weltenforger.com
     domain_staging: staging.weltenforger.com
