@@ -1278,3 +1278,89 @@ nach dem Merge von #1720 auf DIRTY; lokal lief derselbe Merge konfliktfrei).
 Offen/Uebergabe: iil-Volltextlauf laeuft (7.926, ~80/Runde) · ADR-293 Gate 3
 (Crypto-Shredding am echten Bestand) und Gate 4 (Deckungsausweis) · /mail-agent/ auf
 Live-Daten (dev-hub#211) · Fehltreffer bei Personennamen durch deutsches Stemming.
+
+---
+
+## 2026-08-03 (5. Eintrag) — Session 3ca15d7d, Abschluss: Volltext steht auf allen drei Postfaechern
+
+Fortsetzung des 4. Eintrags. Der iil-Lauf ist durch; damit ist der Auftrag
+"komplette Verfuegbarkeit von Mail-Text und Anhang fuer alle drei Postfaecher"
+erfuellt.
+
+Endstand: hnu 3.513/3.513 · iil 7.920/7.925 · mittwald 91/91. Bestand 11.612
+Nachrichten, 8.712 Anhangs-Inventarzeilen, TextUnit body 11.594 / attachment
+8.846. Datenbank 7,2 GB. Heute frueh: 4 Volltexte, 0 Anhangszeilen.
+
+Der letzte Blocker war lehrreich und keine Speicherfrage: die offenen
+Nachrichten stehen nach sent_at, drei Fotomails (45,8 / 24,0 / 45,8 MB) standen
+ganz vorn und rissen JEDE Runde mit, bevor die 845 kleinen drankamen - 105
+Runden ohne einen Schritt. Die Speichergrenze aus #220 half nicht, weil sie
+NACH einer fertigen Nachricht prueft und diese nie fertig wurden. Gefixt mit
+--max-roh (dev-hub#223): zu grosse Nachrichten werden MIT IHRER GROESSE
+vermerkt statt uebersprungen; ohne Vermerk gelten sie weiter als offen und
+blockieren erneut.
+
+Auf dem Weg dorthin, alle vom Owner angestossen und alle gemessen statt
+vermutet: die Frage "wo ist da ueberhaupt Django?" fuehrte zu schlanken
+Batch-Settings (Sockel 226 -> 59 MB; der Sockel war nicht Django, sondern 32
+geladene Apps inkl. aifw); die Frage nach Staging + Massen-Import fuehrte zur
+Messung, dass DB-Schreiben nur 7 % der Verarbeitungszeit kostet und die
+Textextraktion 91 % - deshalb keine Staging-Tabelle, sondern die Trennung von
+Holen und Auswerten (dev-hub#222), die einen kuenftigen Parserwechsel ohne
+Postfach-Zugriff moeglich macht.
+
+Eigene Fehler, zusaetzlich zu den im 4. Eintrag genannten: (1) iil-Volumen als
+5-6 GB hochgerechnet, real 7,2 GB - die 120er-Stichprobe traf die Fotomails
+nicht. (2) "Deploy success" gemeldet, obwohl `gh run list --limit 1` direkt
+nach dem Merge den VORHERIGEN Lauf liefert. (3) Zugriffe je Hostname aus dem
+nginx-Log gezaehlt, ohne zu pruefen, dass das Standardformat gar keinen
+Hostnamen enthaelt - die Null war mein Filter. (4) Behauptet, die Schleife sei
+tot, und eine zweite gestartet; die "2" im Prozesszaehler waren nohup + sh.
+
+Offen: ADR-293 Gate 4 (6.152 Textzonen mit unsupported_reason - nur gezaehlt,
+nicht aufgeschluesselt) · Gate 3 (Crypto-Shredding am echten Bestand, jetzt
+erstmals pruefbar) · Cloudflare-Entscheidung · Namens-Umstellung auf
+dev-hub.iil.pet · /mail-agent/ auf Live-Daten (haengt an der
+Cloudflare-Entscheidung).
+
+---
+
+## 2026-08-04 (6. Eintrag) — Session 3ca15d7d, Abschluss: ADR-293 vollstaendig belegt
+
+Fortsetzung des 5. Eintrags. Der Owner gab pg_trgm, OCR, Gate 3, Cloudflare-Weg 1
+und die Namens-Umstellung frei; alles ist erledigt und am echten Bestand belegt.
+
+Der wichtigste Fund kam aus Gate 3 und wurde nur sichtbar, WEIL der ADR einen
+Nachweis am echten Bestand verlangt und keinen gruenen Test: `record_erasure`
+vernichtete Rohtext und Metadaten, liess aber die TextUnit-Zeilen stehen. Nach
+der Loeschung war die Nachricht weiterhin durchsuchbar, der Name des Empfaengers
+stand woertlich in der body-Zone. Die Loeschung SAH erfolgreich aus. Der
+Docstring der Funktion kuendigt die fehlende Ergaenzung seit jeher an; solange
+es fast keine Volltexte gab, war es folgenlos. Behoben (dev-hub#227), Nachweis
+wiederholt, alles auf 0.
+
+Zweiter Fund: die Trigramm-Schwelle 0.5 war zu locker — "aramis" lieferte neun
+Blindgaenger. An vier Begriffen mit bekannter Antwort kalibriert auf 0.6.
+Lehrreich daran: unter 0.5 lieferte "Offner" 459 Treffer, was nach guter
+Trefferquote aussah und fast vollstaendig Rauschen war. Ohne eine Menge mit
+bekannter Antwort haette man das fuer ein gutes Ergebnis gehalten.
+
+Dritter Fund: der Vorgabewert von TENANT_NON_TENANT_SUBDOMAINS kannte den neuen
+Kanon dev-hub nicht — nur production.py fuehrte ihn. Dieselbe Klasse wie
+--config gegen --account beim Ingest: Vorgabe und gesetzte Einstellung liefen
+auseinander, und nur die gesetzte wurde je geprueft.
+
+Erledigt: dev-hub#224 (Volltext-Zeitplan, mail_anhang, Trefferzone,
+Endungs-Erkennung) · #225 (pg_trgm + OCR) · #226 (Kanon dev-hub.iil.pet) ·
+#227 (Loeschung nimmt abgeleiteten Text mit) · #228 (Schwelle 0.6).
+
+Eigene Fehler: das nginx-Logformat war beim ersten Versuch zerschossen, weil ein
+nicht gequotetes Heredoc die $-Variablen von der Shell expandieren liess (als
+Datei kopiert, dann korrekt) · der Deploy von #226 nahm die laufende OCR-Schleife
+mit, sie verbrauchte ihre Runden im Deploy-Fenster und erreichte die Obergrenze.
+Beides fiel nur auf, weil nachgemessen wurde.
+
+Offen/Uebergabe: /mail-agent/ auf Live-Daten (dev-hub#211) · 69 ZIP und 20
+Alt-Word ohne Handler · Cloudflare Weg 2 (Origin schliessen) falls gewuenscht ·
+NICHT verifiziert: ob die drei neuen Volltext-Zeitplaene wirklich feuern (erster
+Lauf 2026-08-04 ab 05:30, Gegencheck ueber ChannelHeartbeat mit Kanal volltext:*).
