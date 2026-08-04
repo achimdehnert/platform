@@ -1364,3 +1364,25 @@ Offen/Uebergabe: /mail-agent/ auf Live-Daten (dev-hub#211) · 69 ZIP und 20
 Alt-Word ohne Handler · Cloudflare Weg 2 (Origin schliessen) falls gewuenscht ·
 NICHT verifiziert: ob die drei neuen Volltext-Zeitplaene wirklich feuern (erster
 Lauf 2026-08-04 ab 05:30, Gegencheck ueber ChannelHeartbeat mit Kanal volltext:*).
+
+---
+
+## 2026-08-04 (7. Eintrag) — Nachtrag: der erste Zeitplan-Lauf hat einen Fehler gezeigt
+
+Kurznachtrag zum 6. Eintrag, der die Zeitplaene noch als "nicht verifiziert" fuehrte.
+
+Verifiziert: alle drei feuerten korrekt, hnu und mittwald liefen durch, iil wurde vom
+OOM-Killer abgeraeumt (03:50:38, Kernel-Log). Ursache war meine eigene Speichergrenze:
+fest auf 650 MB, gebaut und getestet in devhub_web (1 GiB) — der Zeitplan laeuft aber im
+Worker devhub_celery mit 512 MB. Eine Schutzgrenze ueber dem Container-Limit ist keine.
+Behoben (dev-hub#229): Ableitung aus der cgroup, 80 % des Limits. End-to-End ueber die
+Warteschlange belegt, alle drei Kanaele haben jetzt einen Herzschlag.
+
+Die Lehre daraus ist allgemeiner als der Fix: ein Wert, der in einem Container gemessen
+und in einem anderen benutzt wird, ist geraten — auch wenn er einmal richtig war.
+Dieselbe Klasse wie --config gegen --account (Vorgabe und Einsatzort liefen auseinander)
+und wie der TENANT_NON_TENANT_SUBDOMAINS-Vorgabewert.
+
+Neu getrackt: dev-hub#230 — der Herzschlag wird erst am Ende geschrieben, ein
+abgebrochener Task hinterlaesst nichts, und heartbeat_scan kann einen nie gelaufenen
+Kanal gar nicht sehen. Genau so blieb dieser Fehlschlag unsichtbar.
