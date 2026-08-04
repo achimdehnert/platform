@@ -130,10 +130,19 @@ def html_mit_formularfeldern(html: str) -> str:
         zaehler["n"] += 1
         return f"f{zaehler['n']}"
 
-    def _checkbox(_treffer: re.Match) -> str:
-        return f'<input type="checkbox" name="{_naechster_name()}" class="pdf-formularfeld-box">'
+    def _checkbox(treffer: re.Match) -> str:
+        # Kaestchen und seine Beschriftung zusammenhalten. Ohne das bricht eine
+        # schmale Tabellenspalte zwischen beiden um, und das Kaestchen steht
+        # ueber statt neben seinem Wort — in einer Spalte mit drei Optionen
+        # ("ja / nein / entfaellt") wird der Bogen dadurch unlesbar.
+        feld = f'<input type="checkbox" name="{_naechster_name()}" class="pdf-formularfeld-box">'
+        wort = treffer.group(1) or ""
+        if not wort:
+            return feld
+        return f'<span class="pdf-formularfeld-gruppe">{feld}{wort}</span> '
 
-    rest = re.sub(re.escape(CHECKBOX), _checkbox, rest)
+    # Das Wort direkt nach dem Kaestchen mitnehmen (bis Leerzeichen oder Tag).
+    rest = re.sub(re.escape(CHECKBOX) + r"[ \t]*([^\s<]+)?", _checkbox, rest)
 
     def _textfeld(treffer: re.Match) -> str:
         breite = _feldbreite_em(int(treffer.group(1)))
@@ -166,6 +175,13 @@ input.pdf-formularfeld-text {
   line-height: 1.2;
   padding: 0 2pt;
   vertical-align: baseline;
+}
+/* Kaestchen + Beschriftung sind eine Einheit und duerfen nicht getrennt
+   umbrochen werden. */
+span.pdf-formularfeld-gruppe {
+  white-space: nowrap;
+  display: inline-block;
+  margin-right: 0.5em;
 }
 input.pdf-formularfeld-box {
   width: 1.05em;
