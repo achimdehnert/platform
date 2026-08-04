@@ -191,3 +191,89 @@ def test_should_name_the_alternative_in_the_fix_hint(monkeypatch):
     drifts = _required_files_with({}, monkeypatch)
     found = _findings_for(drifts, "Dockerfile")
     assert "docker/app/Dockerfile" in found[0].fix_hint
+
+
+# ── shared-ci Port-Normalisierung (risk-hub#496) ─────────────────────────────
+#
+# Der Mirror platform → shared-ci schreibt zwei Dinge um: den Repo-Pfad und das
+# lokale Checkout-Verzeichnis. Die Normalisierung kannte nur das erste, also
+# meldete der Kanon-Abgleich jede Datei mit eigenem Checkout-Pfad dauerhaft als
+# "stale" — ein Dauer-Error, der echten Drift untergehen laesst. Die Fixtures
+# unten sind gekuerzte, aber woertliche Auszuege aus dem Realfall vom 2026-08-03
+# (shared-ci@v1.1.2 gegen platform-main).
+
+CANON_WITH_CHECKOUT_PATH = """\
+      - uses: actions/checkout@v4
+        with:
+          repository: achimdehnert/platform
+          path: _platform_checks
+      - run: python3 _platform_checks/scripts/checks/handoff_banner_check.py
+"""
+
+MIRRORED_WITH_CHECKOUT_PATH = """\
+      - uses: actions/checkout@v4
+        with:
+          repository: iilgmbh/shared-ci
+          path: _shared_ci_checks
+      - run: python3 _shared_ci_checks/scripts/checks/handoff_banner_check.py
+"""
+
+CANON_SHORT_CHECKOUT_PATH = """\
+      - uses: actions/checkout@v4
+        with:
+          path: platform
+      - run: python3 platform/tools/deploy_config_lint.py caller/.github/workflows
+"""
+
+MIRRORED_SHORT_CHECKOUT_PATH = """\
+      - uses: actions/checkout@v4
+        with:
+          path: _shared_ci
+      - run: python3 _shared_ci/tools/deploy_config_lint.py caller/.github/workflows
+"""
+
+
+def test_should_not_flag_pure_checkout_path_rewrites_as_drift():
+    """`_shared_ci_checks` → `_platform_checks` ist Port-Mechanik, kein Drift."""
+    assert (
+        dc.normalize_shared_ci_port(MIRRORED_WITH_CHECKOUT_PATH)
+        == CANON_WITH_CHECKOUT_PATH
+    )
+
+
+def test_should_normalize_the_short_checkout_path_too():
+    """Auch das kuerzere `_shared_ci` (ohne `_checks`) muss zurueckgedreht werden."""
+    assert (
+        dc.normalize_shared_ci_port(MIRRORED_SHORT_CHECKOUT_PATH)
+        == CANON_SHORT_CHECKOUT_PATH
+    )
+
+
+def test_should_apply_the_longer_prefix_first():
+    """Reihenfolge-Falle: `_shared_ci` darf `_shared_ci_checks` nicht anfressen.
+
+    Ohne Longest-First wuerde `_shared_ci_checks` zu `platform_checks` statt zu
+    `_platform_checks` — der Vergleich bliebe ungleich und die Datei weiter stale.
+    """
+    assert "platform_checks" not in dc.normalize_shared_ci_port(
+        "_shared_ci_checks"
+    ).replace("_platform_checks", "")
+    assert dc.normalize_shared_ci_port("_shared_ci_checks") == "_platform_checks"
+
+
+def test_should_still_flag_real_content_drift():
+    """Beisskraft: eine echte inhaltliche Abweichung bleibt sichtbar.
+
+    Negativprobe zur Normalisierung — sie darf nur Pfade zurueckdrehen, nicht
+    Inhalt einebnen. Hier fehlt dem Kanon der GHCR_TOKEN-Block (genau der
+    Realfall, den shared-ci@v1.1.2 gegenueber platform-main voraus hat).
+    """
+    mirrored = MIRRORED_SHORT_CHECKOUT_PATH + "        env:\n          GHCR_TOKEN: x\n"
+    assert dc.normalize_shared_ci_port(mirrored) != CANON_SHORT_CHECKOUT_PATH
+
+
+def test_should_normalize_the_repo_path_as_before():
+    """Regression: die urspruengliche Repo-Pfad-Umschreibung wirkt weiterhin."""
+    assert dc.normalize_shared_ci_port("uses: iilgmbh/shared-ci/x.yml@v1") == (
+        "uses: achimdehnert/platform/x.yml@v1"
+    )
