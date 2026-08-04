@@ -286,6 +286,13 @@ services:
     prod: 8042
     staging: 8042
     dev: 8042
+    prod_host: prod-b          # ADR-292 Long-Tail-Pilot, umgeschaltet 2026-08-04.
+                               # Nachweis: Marker-Request (Access-Service-Token, 200)
+                               # landet im nginx-access.log von prod-b; auf prod kein
+                               # Treffer, dessen Log lebt (7781 Zeilen) — kalibriert.
+                               # ⚠ prod-Kopie laeuft WEITER (gemessen 2026-08-04 06:55,
+                               # StartedAt unveraendert seit 02.08.) -> Doppellauf ohne
+                               # Traffic auf der alten Seite. Stop offen, siehe #1738.
     container_name: apo_hub_web
     domain_prod: apo.iil.pet
     note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."

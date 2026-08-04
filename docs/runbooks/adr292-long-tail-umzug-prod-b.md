@@ -52,7 +52,7 @@ Gov-Workloads freigegeben, Owner-Auflage 2026-07-22):
 | wedding-hub | 372 | 5 | |
 | coach-hub | 287 | 5 | |
 | pptx-hub | 230 | 4 | |
-| apo-hub | 203 | 3 | **Pilot-Empfehlung** — kleinster, kein Worker |
+| apo-hub | 203 | 3 | **Pilot** — 2026-08-04 durchgeführt, siehe unten |
 | **Summe** | **4881** | | ≈ 4,8 GiB |
 
 **Bleiben auf `prod`** (Prod-Kern laut ADR-292):
@@ -112,11 +112,48 @@ Ab hier läuft die Ausfallzeit: Schreibzugriffe auf die alte Instanz gehen
 verloren. Deshalb vorher Schritt 6 vorbereiten und die alte Instanz während
 Dump/Restore stilllegen.
 
-### 4. Container starten und prüfen
+**PostGIS-Apps** (Image `postgis/postgis`) melden beim Restore zuverlässig drei
+Fehler `schema "tiger" | "tiger_data" | "topology" already exists` und `exit=1` —
+das Image legt diese Schemas beim Init selbst an, der Dump bringt sie mit.
+Das ist folgenlos, **aber nur nachweislich**. Pflichtschritt, nicht optional:
 
 ```bash
-ssh root@89.167.43.30 "cd /opt/<app> && docker compose -f docker-compose.prod.yml up -d"
+# auf BEIDEN Hosts laufen lassen und die Ausgaben diffen
+for t in $(docker exec <app>_db psql -U <user> -d <db> -tAc \
+    "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1"); do
+  echo "$t $(docker exec <app>_db psql -U <user> -d <db> -tAc \
+    "SELECT count(*) FROM public.\"$t\"")"
+done
 ```
+
+Erst wenn Tabellenliste und alle Zeilenzahlen identisch sind, gilt der Restore
+als geglückt — der Exit-Code allein sagt darüber nichts.
+
+### 4. Container starten und prüfen
+
+Zwei Fallen, beide im Pilot aufgetreten:
+
+**Externe Netze existieren auf dem Zielhost nicht.** `apo-hub` verlangt
+`bf_platform_prod` (`external: true`); ohne das bricht Compose ab:
+
+```bash
+ssh root@89.167.43.30 "docker network create <netzname>"   # falls external
+```
+
+**Nicht alle definierten Services laufen auch.** `apo-hub` definiert
+`*-worker` und `*-beat`, die auf `prod` nicht laufen. Ein pauschales
+`up -d` startet auf dem Zielhost mehr als vorher lief. Deshalb vorher
+`docker ps` auf der Quelle vergleichen und nur die tatsächlich laufenden
+Services benennen:
+
+```bash
+ssh root@89.167.43.30 "cd /opt/<app> && IMAGE_TAG=<tag> \
+  docker compose -f docker-compose.prod.yml up -d <service-db> <service-redis> <service-web>"
+```
+
+`IMAGE_TAG` nicht vergessen: Compose interpoliert `${IMAGE_TAG:-latest}` aus
+`.env`, **nicht** aus `.env.prod` — ohne Angabe wird `latest` gezogen statt des
+Tags, der auf `prod` läuft.
 
 Port aus `infra/ports.yaml` — er bleibt gleich, weil die Hosts getrennt sind
 (ADR-164). Health-Endpunkt gegen `localhost:<port>` prüfen, noch ohne DNS.
@@ -127,12 +164,45 @@ nginx-vhost auf `prod-b` nach dem Muster
 `/etc/nginx/sites-enabled/illustration.iil.pet.conf`. TLS-Kette und
 Cloudflare-Einstellung der Zone gegenprüfen, bevor umgeschaltet wird.
 
-### 6. DNS umschalten und beweisen
+### 6. Ingress umschalten und beweisen
 
-Cloudflare-Record auf `prod-b` zeigen lassen, dann **Marker-Request**: eine
-eindeutige Anfrage absetzen und in den Zugriffsprotokollen **beider** Hosts
-nachsehen, welcher sie beantwortet hat. Erst dieser Nachweis zählt als
-„umgezogen" — nicht ein grüner Deploy und nicht ein 200er.
+Der Ingress läuft über **Cloudflare-Tunnel**, nicht über A-Records: der
+öffentliche Name ist ein CNAME auf `<tunnel-id>.cfargotunnel.com`. Umschalten
+heißt deshalb zweistufig, **in dieser Reihenfolge** — umgekehrt entsteht eine
+404-Lücke:
+
+1. Route im Ziel-Tunnel eintragen (`/etc/cloudflared/config.yml`, vor der
+   Catch-all-Zeile `- service: http_status:404`), dann
+   `cloudflared tunnel ingress validate`.
+   ⚠ **`cloudflared` kennt kein `reload`** (`Job type reload is not applicable`)
+   — es braucht `systemctl restart`, und der trennt **alle** Routen dieses
+   Tunnels für einige Sekunden. Auf `prod-b` mit einer Handvoll Routen
+   unkritisch; auf `prod` trifft es die gesamte Plattform und gehört in ein
+   Wartungsfenster.
+2. CNAME auf die Tunnel-ID des Zielhosts umhängen (`proxied` beibehalten).
+
+**Nachweis — der externe `curl` taugt dafür nicht.** Vor den Hubs steht
+Cloudflare Access: jede unauthentifizierte Anfrage endet mit 302 auf
+`iil-team.cloudflareaccess.com`, auch eine auf einen frei erfundenen Pfad. Ein
+302 unterscheidet also weder „Anwendung antwortet" noch „welcher Host bedient".
+
+Belastbarer Nachweis:
+
+```bash
+# 1) Anfrage mit Access-Service-Token und eindeutigem Marker (erwartet: 200)
+curl -s -o /dev/null -w "%{http_code}\n" -A "iil-marker-<datum>-<app>" \
+  -H "CF-Access-Client-Id: $(tr -d '\n' < ~/.secrets/cf_access_client_id)" \
+  -H "CF-Access-Client-Secret: $(tr -d '\n' < ~/.secrets/cf_access_client_secret)" \
+  https://<host>/
+
+# 2) Marker in den Zugriffsprotokollen BEIDER Hosts suchen
+ssh root@<host> "grep -rl 'iil-marker-<datum>-<app>' /var/log/nginx/; \
+                 wc -l < /var/log/nginx/access.log"
+```
+
+Die zweite Ausgabe (`wc -l`) ist die **Kalibrierung**: ein „kein Treffer" auf
+dem alten Host beweist nur dann etwas, wenn dessen Log nachweislich lebt. Ohne
+diese Gegenprobe ist die Null womöglich der eigene Filter und nicht die Welt.
 
 ### 7. Alte Instanz stoppen und Register nachziehen
 
@@ -145,6 +215,21 @@ Im selben Zug in `infra/ports.yaml` `prod_host: prod-b` setzen und den
 unterblieben**: das Register meldet seit dem 2026-08-02 „prod-Kopie gestoppt",
 während beide Instanzen weiterlaufen (#1738). Ein Umzug ohne Schritt 7 erzeugt
 einen Doppellauf mit möglicherweise auseinanderlaufenden Datenbanken.
+
+**Den Stop messen, nicht übernehmen.** „Ist gestoppt" ist eine prüfbare
+Behauptung — auch wenn sie von einem Menschen kommt. Der Eintrag ins Register
+darf erst danach erfolgen:
+
+```bash
+ssh root@<alter-host> 'docker ps --filter name=<app>_ --format "{{.Names}}" | wc -l
+docker inspect <app>_web --format "{{.State.StartedAt}} {{.State.Running}}"'
+```
+
+`0` laufende Container ist der Beleg. Ein unveränderter `StartedAt` beweist,
+dass nichts passiert ist — genau daran ist der apo-hub-Pilot am 2026-08-04
+hängen geblieben: der Stop galt als erledigt, die drei Container liefen mit
+bit-identischem Zeitstempel weiter. Wäre der Wert ungeprüft ins Register
+gewandert, hätte der Pilot exakt den Fehler reproduziert, den er beheben sollte.
 
 ## Rückweg
 
