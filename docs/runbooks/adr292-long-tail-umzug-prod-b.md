@@ -112,6 +112,48 @@ Ab hier läuft die Ausfallzeit: Schreibzugriffe auf die alte Instanz gehen
 verloren. Deshalb vorher Schritt 6 vorbereiten und die alte Instanz während
 Dump/Restore stilllegen.
 
+**Immer als Superuser dumpen — sonst entsteht stillschweigend Datenverlust.**
+Steht auch nur eine Tabelle unter Row-Level-Security und hat der App-User kein
+`BYPASSRLS`, bricht pg_dump mit `query would be affected by row-level security
+policy` ab — **schreibt die Datei aber trotzdem**. Bei `pptx-hub` waren das
+138K statt 139K; über die Dateigröße ist das nicht zu erkennen. Deshalb:
+
+```bash
+# Superuser-Rolle ermitteln (NICHT blind POSTGRES_USER nehmen)
+docker exec <app>_db psql -U <app-user> -d <db> -tAc \
+  "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolcanlogin"
+# dumpen und Objektzahl pruefen — die ist der Beleg, nicht der Exit-Code allein
+docker run --rm -v /tmp:/t <db-image> pg_restore --list /t/<app>.dump | grep -c '^[0-9]'
+```
+
+**Die Rollenlage muss auf dem Zielhost nachgebaut werden.** Der Bootstrap-User
+eines Postgres-Containers (`POSTGRES_USER`) ist dort **immer** Superuser und
+kann das nicht verlieren (`the bootstrap user must have the SUPERUSER
+attribute`). Startet man den Zielcontainer mit dem *App*-Benutzernamen, hat die
+App auf dem neuen Host `BYPASSRLS` — und eine RLS-gestützte Mandantentrennung
+ist dort wirkungslos, ohne dass irgendetwas fehlschlägt. Richtig:
+
+1. Zielcontainer einmalig mit `POSTGRES_USER=<superuser>` initialisieren
+2. App-Rolle danach anlegen: `CREATE ROLE <app> LOGIN NOSUPERUSER NOBYPASSRLS`
+3. Restore als Superuser
+4. Rollenlage gegen die Quelle vergleichen (`rolsuper`/`rolbypassrls` je Rolle)
+
+**Passwörter nicht aus `.env` ableiten, sondern den SCRAM-Verifier kopieren.**
+Welche Rolle die App tatsächlich benutzt, steht nicht zuverlässig in
+`POSTGRES_USER` — `pptx-hub` verbindet sich als `pptx_hub`, obwohl dort
+`pptx_hub_app` steht. Statt zu raten, den Verifier je Rolle übertragen; das
+umgeht Quoting- und Encoding-Fragen und lässt keinen Klartext entstehen:
+
+```bash
+ssh <quelle> "docker exec <app>_db psql -U <su> -tAc \
+  \"SELECT rolpassword FROM pg_authid WHERE rolname='<rolle>'\"" \
+  | ssh <ziel> 'read -r H; docker exec -i <app>_db psql -U <su> -v h="$H" \
+      -c "ALTER ROLE <rolle> PASSWORD :'"'"'h'"'"'"'
+```
+
+Beim Zeilenvergleich unbedingt **als Superuser zählen** — als App-User filtert
+RLS die Ergebnisse und beide Seiten sehen gleich falsch aus.
+
 **PostGIS-Apps** (Image `postgis/postgis`) melden beim Restore zuverlässig drei
 Fehler `schema "tiger" | "tiger_data" | "topology" already exists` und `exit=1` —
 das Image legt diese Schemas beim Init selbst an, der Dump bringt sie mit.
@@ -146,6 +188,21 @@ ssh root@89.167.43.30 "docker network create <netzname>"   # falls external
 `docker ps` auf der Quelle vergleichen und nur die tatsächlich laufenden
 Services benennen:
 
+**Und nicht alle laufenden Services stehen in der Datei, die man erwartet.**
+Bei `weltenhub` sind `db` und `redis` **ausschließlich** in
+`docker-compose.override.yml` definiert (inklusive des Volumes, das dort per
+`name:` einen festen Namen bekommt). Ein Aufruf mit nur
+`-f docker-compose.prod.yml` kennt sie nicht — auf dem Ziel fehlen sie dann,
+und auf der Quelle würde ein solcher Aufruf sie sogar entfernen. Vor dem ersten
+compose-Befehl prüfen, aus welcher Datei die laufenden Container stammen:
+
+```bash
+ls /opt/<app>/docker-compose*
+docker inspect <app>_db --format '{{index .Config.Labels "com.docker.compose.config_files"}}'
+# und dann konsequent BEIDE Dateien angeben:
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d <services>
+```
+
 ```bash
 ssh root@89.167.43.30 "cd /opt/<app> && IMAGE_TAG=<tag> \
   docker compose -f docker-compose.prod.yml up -d <service-db> <service-redis> <service-web>"
@@ -161,8 +218,37 @@ Port aus `infra/ports.yaml` — er bleibt gleich, weil die Hosts getrennt sind
 ### 5. Ingress anlegen
 
 nginx-vhost auf `prod-b` nach dem Muster
-`/etc/nginx/sites-enabled/illustration.iil.pet.conf`. TLS-Kette und
-Cloudflare-Einstellung der Zone gegenprüfen, bevor umgeschaltet wird.
+`/etc/nginx/sites-enabled/illustration.iil.pet.conf`.
+
+**Zuerst alle `server_name` des Quell-vhosts auslesen — das Register kennt sie
+womöglich nicht.** Der `pptx-hub`-vhost auf `prod` bedient **fünf** Namen in
+**drei** Cloudflare-Zonen (`pptx-hub.iil.pet`, `prezimo.de`, `www.prezimo.de`,
+`prezimo.com`, `www.prezimo.com`); `ports.yaml` führte davon zwei. Wer nur den
+Namen aus dem Register umschaltet, bricht die übrigen, sobald die Quelle
+abgeschaltet wird.
+
+```bash
+grep -h server_name /etc/nginx/sites-enabled/<app>*.conf | sort -u
+```
+
+**Die DNS-Records vollständig abfragen — `per_page` beachten.** Die Zone
+`iil.pet` hat mehr als 50 Einträge. Eine Abfrage mit `?per_page=50` lieferte
+beim weltenhub-Umzug `weltenhub.iil.pet` **nicht** zurück, obwohl der Record
+existiert; die gezielte Abfrage nach dem Namen fand ihn sofort. Wer aus der
+Listenansicht auf „gibt es nicht" schließt, schwenkt einen Namen zu wenig.
+Deshalb je Hostname gezielt abfragen (`?name=<host>`), nicht aus einer
+paginierten Liste heraus arbeiten.
+
+**Auf `prod-b` wird kein TLS terminiert.** Dort liegen 0 Zertifikatsdateien und
+kein aktiver vhost hat eine `ssl_certificate`-Direktive (gemessen 2026-08-04;
+auf `prod` findet derselbe Suchlauf 224 Dateien). Der vhost bekommt deshalb
+`listen 127.0.0.1:<freier-port>;` statt `listen 443 ssl` — TLS macht der
+Cloudflare-Edge, der Tunnel spricht HTTP zum Origin. Private Schlüssel wandern
+nicht mit.
+
+Dabei **`X-Forwarded-Proto https` fest setzen**, nicht `$scheme`: der Origin
+spricht HTTP, Django würde sonst http-URLs bauen und in Redirect-Schleifen
+laufen.
 
 ### 6. Ingress umschalten und beweisen
 
@@ -204,6 +290,19 @@ Die zweite Ausgabe (`wc -l`) ist die **Kalibrierung**: ein „kein Treffer" auf
 dem alten Host beweist nur dann etwas, wenn dessen Log nachweislich lebt. Ohne
 diese Gegenprobe ist die Null womöglich der eigene Filter und nicht die Welt.
 
+**Je Hostname einen eigenen Marker verwenden.** Das nginx-Log führt den
+`Host`-Header nicht mit; bei mehreren Domains lässt sich sonst nicht sagen,
+*welche* noch am alten Host hängt. Beim pptx-hub-Umzug ergaben drei Anfragen
+mit **einem** Marker „prod 1 / prod-b 2" — welche der drei Domains die
+Nachzüglerin war, war daraus nicht ableitbar. Mit fünf Einzelmarkern war die
+Zuordnung eindeutig (prod 0, prod-b 5).
+
+**Direkt nach dem CNAME-Schwenk mit Nachzüglern rechnen.** Der Cloudflare-Edge
+liefert für kurze Zeit noch an den alten Tunnel. Ein einzelner Treffer auf dem
+alten Host unmittelbar nach der Umstellung ist deshalb kein Fehler, sondern ein
+Grund, die Messung eine Minute später zu wiederholen — und **erst bei 0 auf der
+alten Seite** darf Schritt 7 folgen.
+
 ### 7. Alte Instanz stoppen und Register nachziehen
 
 ```bash
@@ -230,6 +329,109 @@ dass nichts passiert ist — genau daran ist der apo-hub-Pilot am 2026-08-04
 hängen geblieben: der Stop galt als erledigt, die drei Container liefen mit
 bit-identischem Zeitstempel weiter. Wäre der Wert ungeprüft ins Register
 gewandert, hätte der Pilot exakt den Fehler reproduziert, den er beheben sollte.
+
+## Apps mit Worker und Beat
+
+Die ersten beiden Umzüge (`apo-hub`, `pptx-hub`) waren Sonderfälle: `apo-hub`
+hatte gar keine Hintergrundjobs, `pptx-hub`s Worker war defekt. **Alle acht
+verbleibenden Kandidaten haben einen Worker, fünf zusätzlich einen Beat.**
+Damit kommt eine Gefahr dazu, die das Verfahren oben nicht abdeckt.
+
+### Warum das gefährlich ist
+
+Zwischen Schritt 4 und Schritt 7 laufen zwei vollständige Instanzen — die alte
+mit Traffic, die neue ohne. Bei einer reinen Web-App ist das harmlos. Laufen
+dort aber Worker und Beat mit, verarbeiten **beide** Seiten periodische
+Aufgaben, jede gegen ihre eigene Datenbank. Ergebnis: doppelte Mails, doppelte
+Zustandswechsel, zwei auseinanderlaufende Wahrheiten. Der Doppellauf ist hier
+nicht nur ein Registerfehler, sondern verändert Daten.
+
+Zweiter Punkt, leicht zu übersehen: **Redis wird nicht mitmigriert.** Auf dem
+Ziel entsteht eine leere Instanz. Alles, was in der alten Queue wartet, ist
+nach dem Umschalten verloren.
+
+### Erst erheben, dann entscheiden
+
+Nicht raten, was der Beat tut — nachsehen. Read-only auf der Quelle:
+
+```bash
+# 1) Was sendet der Beat wirklich?
+docker logs --tail 200 <app>_beat 2>&1 | grep -oE 'Sending due task [^ ]+ \([^)]+\)' | sort -u
+
+# 2) Was hat der Worker zuletzt ausgefuehrt?
+docker logs --tail 120 <app>_worker 2>&1 | grep -oE 'Task [a-zA-Z0-9_.]+\[' | sort | uniq -c
+
+# 3) Liegt der Schedule in der DB (abschaltbar) oder im Code (nur Container-Stop)?
+docker exec <app>_db psql -U <su> -d <db> -tAc \
+  "SELECT count(*) FROM django_celery_beat_periodictask WHERE enabled"
+
+# 4) Wartet etwas in der Queue? MUSS 0 sein, sonst gehen Jobs verloren
+docker exec <app>_redis redis-cli eval "local n=0 for _,k in ipairs(redis.call('keys','*')) do if redis.call('type',k)['ok']=='list' then n=n+redis.call('llen',k) end end return n" 0
+```
+
+Danach die Tasks in drei Klassen einsortieren:
+
+| Klasse | Beispiel (gemessen 2026-08-04) | Umgang |
+|---|---|---|
+| **Housekeeping** | `celery.backend_cleanup` (weltenhub, wedding-hub) | unkritisch, idempotent |
+| **lesend/prüfend** | `apps.governance.tasks.check_overdue_actions` (coach-hub, täglich) | unkritisch, solange nicht im Umzugsfenster |
+| **handelnd** | `trading.monitor_trades` (trading-hub, **minütlich**, schließt Positionen) | Wartungsfenster, kein Parallelbetrieb |
+
+Für die drei anstehenden Beat-Apps ergab die Erhebung ausschließlich Klasse 1
+und 2, alle **täglich**, und in allen drei Queues null wartende Jobs. Ein
+Umzugsfenster von Minuten trifft einen Tagesjob mit hoher Wahrscheinlichkeit
+gar nicht — und wenn doch, ist er idempotent oder nur prüfend.
+
+### Ablauf für Klasse 1 und 2
+
+Gegenüber dem Verfahren oben ändert sich nur, **wann** Worker und Beat laufen:
+
+1. Auf der Quelle **zuerst Beat und Worker stoppen**, Web weiterlaufen lassen:
+   `docker compose -f docker-compose.prod.yml stop <beat> <worker>`
+2. Queue erneut prüfen — jetzt muss sie 0 sein (siehe Abfrage 4 oben)
+3. Dump, Übertragung, Restore wie in Schritt 0–3
+4. Auf dem Ziel **nur `db`, `redis`, `web`** starten — Worker und Beat bleiben aus
+5. Ingress umschalten und den Marker-Nachweis führen (Schritt 6)
+6. Quelle vollständig stoppen (Schritt 7)
+7. **Erst jetzt** auf dem Ziel Worker und Beat starten
+
+Zwischen 1 und 7 verarbeitet niemand Hintergrundaufgaben. Genau deshalb steht
+Schritt 1 nicht früher: das Fenster soll so kurz wie möglich sein, und der
+Web-Betrieb läuft dabei ununterbrochen weiter. Bei den gemessenen Tagesjobs
+kostet dieses Fenster praktisch nichts; bei minütlichen Aufgaben wäre es ein
+Ausfall und damit ein Fall für Klasse 3.
+
+**Schritt 7 darf vor Schritt 6 gezogen werden** — sobald der Ingress geschwenkt
+und nachgewiesen ist. Der Grund für die Reihenfolge ist allein, doppelte
+Verarbeitung zu verhindern; die ist ab Schritt 1 ausgeschlossen, weil die
+Quelle ihre Worker nicht mehr fährt. Das verkürzt das Fenster spürbar. Beim
+weltenhub-Umzug so gemacht; der Beleg steht im Celery-Log des Ziels:
+
+```
+mingle: all alone
+```
+
+Meldet Celery dort stattdessen Nachbarn, läuft doch noch ein zweiter Worker am
+selben Broker — dann sofort anhalten und die Quelle prüfen.
+
+### Klasse 3 — nicht nebenbei
+
+`trading-hub` ist der einzige gemessene Fall: `monitor_trades`,
+`update_portfolio_pnl` und `ib_health_check` laufen **minütlich**, der Worker
+meldet „checked 0 trades, closed 0" — die Aufgabe kann Positionen schließen. Im
+Environment liegen Schlüssel für Alpaca, Binance, OANDA und Finnhub. Dazu
+TimescaleDB mit 77 Chunks (eigenes Restore-Verfahren mit
+`timescaledb_pre_restore()` / `post_restore()`) und ein beweglicher Image-Tag
+`latest-pg16`, der auf dem Ziel eine andere Version ziehen kann.
+
+Bedingungen, bevor diese App angefasst wird:
+
+- **Wartungsfenster mit vollständigem Stillstand** — kein paralleles Hochfahren
+- Vorher klären, ob die Broker-Schlüssel **IP-gebunden** sind; der Standortwechsel
+  nach Helsinki ändert die ausgehende Adresse (Owner-Einschätzung 2026-08-04:
+  vermutlich kein Whitelisting — **ungeprüfte Annahme**, vor dem Umzug in den
+  Broker-Einstellungen verifizieren)
+- Image per Digest pinnen statt per `latest`-Tag
 
 ## Rückweg
 
