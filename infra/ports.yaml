@@ -204,6 +204,16 @@ services:
     prod: 8081
     staging: 8081
     dev: 8081
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04, erste App mit
+                               # aktivem Beat. Verfahren: Beat+Celery auf der Quelle
+                               # ZUERST gestoppt, auf dem Ziel zuletzt gestartet —
+                               # celery meldet dort "mingle: all alone", also kein
+                               # zweiter Worker am Broker.
+                               # Fuenf Namen in drei Zonen, je einzeln per Marker
+                               # nachgewiesen (prod-b 5, prod 0 bei 15808 Logzeilen).
+                               # ⚠ db+redis stehen NUR in docker-compose.override.yml
+                               # — compose IMMER mit beiden -f Dateien aufrufen.
+                               # ⚠ prod-Kopie laeuft noch (Stop verwehrt), siehe #1738.
     container_name: weltenhub_web
     domain_prod: weltenforger.com
     domain_staging: staging.weltenforger.com

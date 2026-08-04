@@ -188,6 +188,21 @@ ssh root@89.167.43.30 "docker network create <netzname>"   # falls external
 `docker ps` auf der Quelle vergleichen und nur die tatsächlich laufenden
 Services benennen:
 
+**Und nicht alle laufenden Services stehen in der Datei, die man erwartet.**
+Bei `weltenhub` sind `db` und `redis` **ausschließlich** in
+`docker-compose.override.yml` definiert (inklusive des Volumes, das dort per
+`name:` einen festen Namen bekommt). Ein Aufruf mit nur
+`-f docker-compose.prod.yml` kennt sie nicht — auf dem Ziel fehlen sie dann,
+und auf der Quelle würde ein solcher Aufruf sie sogar entfernen. Vor dem ersten
+compose-Befehl prüfen, aus welcher Datei die laufenden Container stammen:
+
+```bash
+ls /opt/<app>/docker-compose*
+docker inspect <app>_db --format '{{index .Config.Labels "com.docker.compose.config_files"}}'
+# und dann konsequent BEIDE Dateien angeben:
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d <services>
+```
+
 ```bash
 ssh root@89.167.43.30 "cd /opt/<app> && IMAGE_TAG=<tag> \
   docker compose -f docker-compose.prod.yml up -d <service-db> <service-redis> <service-web>"
@@ -215,6 +230,14 @@ abgeschaltet wird.
 ```bash
 grep -h server_name /etc/nginx/sites-enabled/<app>*.conf | sort -u
 ```
+
+**Die DNS-Records vollständig abfragen — `per_page` beachten.** Die Zone
+`iil.pet` hat mehr als 50 Einträge. Eine Abfrage mit `?per_page=50` lieferte
+beim weltenhub-Umzug `weltenhub.iil.pet` **nicht** zurück, obwohl der Record
+existiert; die gezielte Abfrage nach dem Namen fand ihn sofort. Wer aus der
+Listenansicht auf „gibt es nicht" schließt, schwenkt einen Namen zu wenig.
+Deshalb je Hostname gezielt abfragen (`?name=<host>`), nicht aus einer
+paginierten Liste heraus arbeiten.
 
 **Auf `prod-b` wird kein TLS terminiert.** Dort liegen 0 Zertifikatsdateien und
 kein aktiver vhost hat eine `ssl_certificate`-Direktive (gemessen 2026-08-04;
@@ -377,6 +400,19 @@ Schritt 1 nicht früher: das Fenster soll so kurz wie möglich sein, und der
 Web-Betrieb läuft dabei ununterbrochen weiter. Bei den gemessenen Tagesjobs
 kostet dieses Fenster praktisch nichts; bei minütlichen Aufgaben wäre es ein
 Ausfall und damit ein Fall für Klasse 3.
+
+**Schritt 7 darf vor Schritt 6 gezogen werden** — sobald der Ingress geschwenkt
+und nachgewiesen ist. Der Grund für die Reihenfolge ist allein, doppelte
+Verarbeitung zu verhindern; die ist ab Schritt 1 ausgeschlossen, weil die
+Quelle ihre Worker nicht mehr fährt. Das verkürzt das Fenster spürbar. Beim
+weltenhub-Umzug so gemacht; der Beleg steht im Celery-Log des Ziels:
+
+```
+mingle: all alone
+```
+
+Meldet Celery dort stattdessen Nachbarn, läuft doch noch ein zweiter Worker am
+selben Broker — dann sofort anhalten und die Quelle prüfen.
 
 ### Klasse 3 — nicht nebenbei
 
