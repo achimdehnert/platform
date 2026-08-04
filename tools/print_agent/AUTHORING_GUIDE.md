@@ -201,6 +201,58 @@ Bei Bedarf siehe `parse_flow_block` im `print_agent.py`.
 
 ---
 
+## 4b Ausfüllbare PDFs (Checklisten, Erfassungsbögen, Aktualisierungen)
+
+Ein gedrucktes Formular, das man nicht ausfüllen kann, ist ein totes Bild: man
+druckt aus, füllt mit der Hand, scannt wieder ein. Der Print Agent kann statt
+dessen **echte PDF-Formularfelder** erzeugen — anklickbar und beschreibbar in
+jedem PDF-Betrachter.
+
+**Einschalten** — eine Zeile im Kopf des Dokuments:
+
+```markdown
+forms: true
+```
+
+**Es gibt keine neue Syntax.** Was ohnehin geschrieben wird, um ein Formular
+anzudeuten, wird zur Sache selbst:
+
+| im Markdown | im PDF |
+|---|---|
+| `☐` (U+2610) | ankreuzbare Checkbox |
+| `___` (3+ Unterstriche) | beschreibbares Textfeld — Breite folgt der Länge |
+
+```markdown
+forms: true
+
+# Abnahme-Checkliste
+
+| Prüfpunkt | Ergebnis | Bemerkung |
+|---|---|---|
+| Zugang eingerichtet | ☐ ja ☐ nein | ______________ |
+| Schulung erfolgt | ☐ ja ☐ nein | ______________ |
+
+Geprüft durch: ____________________ am: __________
+```
+
+**Regeln, die man kennen sollte:**
+
+- **Opt-in ist Absicht.** Ohne `forms: true` bleibt alles wie bisher — ein
+  Unterstrich im Fließtext soll nicht unbemerkt zum Eingabefeld werden.
+- **Code bleibt Code.** In ` ``` `-Blöcken und `` `inline` `` wird nichts
+  ersetzt; dort sind Unterstriche Inhalt (Bezeichner, ASCII-Zeichnungen).
+- **Kurze Läufe bleiben stehen.** `__init__` ist ein Bezeichner, kein Feld —
+  ersetzt wird erst ab drei Unterstrichen.
+- **In Tabellenzellen** füllt das Feld die Zelle; die Unterstrich-Länge steuert
+  nur außerhalb von Tabellen die Breite.
+- **Feldnamen** werden fortlaufend vergeben (`f1`, `f2`, …) und sind bei
+  gleichem Markdown stabil.
+
+> **Beim Prüfen aufpassen:** WeasyPrint komprimiert die PDF-Objekte. Ein
+> `grep "/AcroForm"` auf der Datei findet deshalb **nichts**, auch wenn die
+> Felder da sind. Mit einem PDF-Parser prüfen (`pypdf`/`PyPDF2`:
+> `PdfReader(pfad).get_fields()`) oder mit `--uncompressed-pdf` erzeugen.
+
 ## 5 Standard-Markdown — Do's und Don'ts
 
 ### 5.1 Listen unter Bold-Präfix
