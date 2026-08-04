@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+
+import yaml
 from pathlib import Path
 
 _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "drift_check.py"
@@ -23,7 +25,9 @@ sys.modules["drift_check"] = dc
 _spec.loader.exec_module(dc)
 
 
-CI_YML = "jobs:\n  ci:\n    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@{ref}\n"
+CI_YML = (
+    "jobs:\n  ci:\n    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@{ref}\n"
+)
 
 
 def _mock_repo_files(monkeypatch, content):
@@ -125,3 +129,125 @@ def test_should_flag_genuine_content_difference_as_stale(monkeypatch):
     monkeypatch.setattr(dc, "_get_content_at", fake_content_at)
     monkeypatch.setattr(dc, "_SHARED_CI_STATE", None)
     assert dc._shared_ci_state("")["stale_files"] == ["_ci-python.yml"]
+
+
+# ── Kanon-Abgleich: struktureller Vergleich statt Text-Ersetzung ─────────────
+#
+# Die Fixtures unten sind gekuerzte, aber woertliche Auszuege aus dem Bestand
+# (shared-ci@v1.1.2 gegen platform-main, gemessen 2026-08-04). Jede von ihnen
+# stand fuer einen realen Dauer-Fehlalarm der frueheren `str.replace()`-Loesung.
+
+_SHARED = "iilgmbh/shared-ci"
+_KANON = "achimdehnert/platform"
+
+
+def _workflow(
+    repo: str, verzeichnis: str, *, step_name="Checkout", run=None, extra=None
+):
+    """Minimaler, aber echter Workflow mit Selbst-Checkout."""
+    step = {
+        "name": step_name,
+        "uses": "actions/checkout@v4",
+        "with": {"repository": repo, "path": verzeichnis},
+    }
+    schritte = [step]
+    if run:
+        schritte.append({"name": "Pruefen", "run": run})
+    if extra:
+        schritte.append(extra)
+    return yaml.safe_dump(
+        {"name": "wf", "jobs": {"j": {"steps": schritte}}}, sort_keys=False
+    )
+
+
+def test_should_accept_a_pure_checkout_directory_rename():
+    """`_shared_ci_checks` -> `_platform_checks` ist Port-Mechanik, kein Drift."""
+    tagged = _workflow(
+        _SHARED, "_shared_ci_checks", run="python3 _shared_ci_checks/scripts/x.py"
+    )
+    kanon = _workflow(
+        _KANON, "_platform_checks", run="python3 _platform_checks/scripts/x.py"
+    )
+    assert dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_accept_a_canon_directory_with_leading_underscore():
+    """`_platform` (statt `platform`) — an einer Token-Liste scheiterte genau das.
+
+    Realfall `doc-profile-guard.yml`: der Kanon checkt nach `_platform` aus,
+    die fruehere Abbildung lieferte `platform` und meldete die Datei dauerhaft.
+    """
+    tagged = _workflow(_SHARED, "_shared_ci", run="bash _shared_ci/scripts/check.sh")
+    kanon = _workflow(_KANON, "_platform", run="bash _platform/scripts/check.sh")
+    assert dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_ignore_the_directory_word_inside_a_step_name():
+    """Realfall `deploy-config-lint.yml`: Kanon-Verzeichnis heisst schlicht `platform`.
+
+    Das Wort steht auch im Step-Namen ("Checkout platform (Lint-Script)"). Eine
+    Ersetzung ueber den ganzen Text traf ihn mit und erzeugte den Fehlalarm.
+    """
+    name = "Checkout platform (Lint-Script)"
+    tagged = _workflow(
+        _SHARED, "_shared_ci", step_name=name, run="python3 _shared_ci/tools/l.py"
+    )
+    kanon = _workflow(
+        _KANON, "platform", step_name=name, run="python3 platform/tools/l.py"
+    )
+    assert dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_ignore_an_issue_reference_in_free_text():
+    """Realfall `handoff-banner-gate.yml`: "achimdehnert/platform#913" im Fixture.
+
+    Die Referenz meint eine platform-Issue und steht auf BEIDEN Seiten gleich —
+    bis eine Repo-Ersetzung sie anfasst.
+    """
+    run = "printf 'Live-Status: achimdehnert/platform#913'"
+    tagged = _workflow(_SHARED, "_shared_ci_checks", run=run)
+    kanon = _workflow(_KANON, "_platform_checks", run=run)
+    assert dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_ignore_comments_because_they_do_not_run():
+    """Realfall `_ci-pypi.yml`/`validate-workflows.yml`: Drift nur im Kommentar.
+
+    Dort ist "iilgmbh/shared-ci" der Gegenstand des Satzes, kein Pfad.
+    """
+    tagged = "# SSoT ist iilgmbh/shared-ci\n" + _workflow(_SHARED, "_shared_ci")
+    kanon = "# ganz anderer Kommentar\n" + _workflow(_KANON, "platform")
+    assert dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_still_flag_a_real_behaviour_difference():
+    """Beisskraft: ein zusaetzlicher Schritt bleibt sichtbar.
+
+    Der einzige echte Fund im Bestand (`_deploy-unified.yml`, GHCR-Login) ist
+    von dieser Form — dem Kanon fehlte ein `env:`-Block.
+    """
+    tagged = _workflow(
+        _SHARED, "_shared_ci", extra={"name": "Deploy", "env": {"GHCR_TOKEN": "x"}}
+    )
+    kanon = _workflow(_KANON, "platform", extra={"name": "Deploy"})
+    assert not dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_still_flag_a_changed_command():
+    """Beisskraft: ein geaendertes Kommando ist Drift, kein Pfad-Rauschen."""
+    tagged = _workflow(_SHARED, "_shared_ci", run="python3 _shared_ci/tools/neu.py")
+    kanon = _workflow(_KANON, "platform", run="python3 platform/tools/alt.py")
+    assert not dc.shared_ci_deckt_kanon(tagged, kanon)
+
+
+def test_should_fall_back_to_text_comparison_on_unparsable_yaml():
+    """Kaputtes YAML darf nicht still gruen werden."""
+    assert not dc.shared_ci_deckt_kanon("{{ kein yaml", "name: wf\n")
+    assert dc.shared_ci_deckt_kanon("{{ kein yaml", "{{ kein yaml")
+
+
+def test_should_read_the_checkout_directory_from_the_file_itself():
+    """Die Abbildung wird abgeleitet, nicht geraten — Kern des Umbaus."""
+    tree = yaml.safe_load(_workflow(_SHARED, "_irgendwas_eigenes"))
+    assert dc._eigenes_checkout_verzeichnis(tree, _SHARED) == "_irgendwas_eigenes"
+    assert dc._eigenes_checkout_verzeichnis(tree, "fremd/repo") is None
