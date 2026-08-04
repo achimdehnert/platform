@@ -112,6 +112,48 @@ Ab hier läuft die Ausfallzeit: Schreibzugriffe auf die alte Instanz gehen
 verloren. Deshalb vorher Schritt 6 vorbereiten und die alte Instanz während
 Dump/Restore stilllegen.
 
+**Immer als Superuser dumpen — sonst entsteht stillschweigend Datenverlust.**
+Steht auch nur eine Tabelle unter Row-Level-Security und hat der App-User kein
+`BYPASSRLS`, bricht pg_dump mit `query would be affected by row-level security
+policy` ab — **schreibt die Datei aber trotzdem**. Bei `pptx-hub` waren das
+138K statt 139K; über die Dateigröße ist das nicht zu erkennen. Deshalb:
+
+```bash
+# Superuser-Rolle ermitteln (NICHT blind POSTGRES_USER nehmen)
+docker exec <app>_db psql -U <app-user> -d <db> -tAc \
+  "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolcanlogin"
+# dumpen und Objektzahl pruefen — die ist der Beleg, nicht der Exit-Code allein
+docker run --rm -v /tmp:/t <db-image> pg_restore --list /t/<app>.dump | grep -c '^[0-9]'
+```
+
+**Die Rollenlage muss auf dem Zielhost nachgebaut werden.** Der Bootstrap-User
+eines Postgres-Containers (`POSTGRES_USER`) ist dort **immer** Superuser und
+kann das nicht verlieren (`the bootstrap user must have the SUPERUSER
+attribute`). Startet man den Zielcontainer mit dem *App*-Benutzernamen, hat die
+App auf dem neuen Host `BYPASSRLS` — und eine RLS-gestützte Mandantentrennung
+ist dort wirkungslos, ohne dass irgendetwas fehlschlägt. Richtig:
+
+1. Zielcontainer einmalig mit `POSTGRES_USER=<superuser>` initialisieren
+2. App-Rolle danach anlegen: `CREATE ROLE <app> LOGIN NOSUPERUSER NOBYPASSRLS`
+3. Restore als Superuser
+4. Rollenlage gegen die Quelle vergleichen (`rolsuper`/`rolbypassrls` je Rolle)
+
+**Passwörter nicht aus `.env` ableiten, sondern den SCRAM-Verifier kopieren.**
+Welche Rolle die App tatsächlich benutzt, steht nicht zuverlässig in
+`POSTGRES_USER` — `pptx-hub` verbindet sich als `pptx_hub`, obwohl dort
+`pptx_hub_app` steht. Statt zu raten, den Verifier je Rolle übertragen; das
+umgeht Quoting- und Encoding-Fragen und lässt keinen Klartext entstehen:
+
+```bash
+ssh <quelle> "docker exec <app>_db psql -U <su> -tAc \
+  \"SELECT rolpassword FROM pg_authid WHERE rolname='<rolle>'\"" \
+  | ssh <ziel> 'read -r H; docker exec -i <app>_db psql -U <su> -v h="$H" \
+      -c "ALTER ROLE <rolle> PASSWORD :'"'"'h'"'"'"'
+```
+
+Beim Zeilenvergleich unbedingt **als Superuser zählen** — als App-User filtert
+RLS die Ergebnisse und beide Seiten sehen gleich falsch aus.
+
 **PostGIS-Apps** (Image `postgis/postgis`) melden beim Restore zuverlässig drei
 Fehler `schema "tiger" | "tiger_data" | "topology" already exists` und `exit=1` —
 das Image legt diese Schemas beim Init selbst an, der Dump bringt sie mit.
@@ -161,8 +203,29 @@ Port aus `infra/ports.yaml` — er bleibt gleich, weil die Hosts getrennt sind
 ### 5. Ingress anlegen
 
 nginx-vhost auf `prod-b` nach dem Muster
-`/etc/nginx/sites-enabled/illustration.iil.pet.conf`. TLS-Kette und
-Cloudflare-Einstellung der Zone gegenprüfen, bevor umgeschaltet wird.
+`/etc/nginx/sites-enabled/illustration.iil.pet.conf`.
+
+**Zuerst alle `server_name` des Quell-vhosts auslesen — das Register kennt sie
+womöglich nicht.** Der `pptx-hub`-vhost auf `prod` bedient **fünf** Namen in
+**drei** Cloudflare-Zonen (`pptx-hub.iil.pet`, `prezimo.de`, `www.prezimo.de`,
+`prezimo.com`, `www.prezimo.com`); `ports.yaml` führte davon zwei. Wer nur den
+Namen aus dem Register umschaltet, bricht die übrigen, sobald die Quelle
+abgeschaltet wird.
+
+```bash
+grep -h server_name /etc/nginx/sites-enabled/<app>*.conf | sort -u
+```
+
+**Auf `prod-b` wird kein TLS terminiert.** Dort liegen 0 Zertifikatsdateien und
+kein aktiver vhost hat eine `ssl_certificate`-Direktive (gemessen 2026-08-04;
+auf `prod` findet derselbe Suchlauf 224 Dateien). Der vhost bekommt deshalb
+`listen 127.0.0.1:<freier-port>;` statt `listen 443 ssl` — TLS macht der
+Cloudflare-Edge, der Tunnel spricht HTTP zum Origin. Private Schlüssel wandern
+nicht mit.
+
+Dabei **`X-Forwarded-Proto https` fest setzen**, nicht `$scheme`: der Origin
+spricht HTTP, Django würde sonst http-URLs bauen und in Redirect-Schleifen
+laufen.
 
 ### 6. Ingress umschalten und beweisen
 
@@ -203,6 +266,19 @@ ssh root@<host> "grep -rl 'iil-marker-<datum>-<app>' /var/log/nginx/; \
 Die zweite Ausgabe (`wc -l`) ist die **Kalibrierung**: ein „kein Treffer" auf
 dem alten Host beweist nur dann etwas, wenn dessen Log nachweislich lebt. Ohne
 diese Gegenprobe ist die Null womöglich der eigene Filter und nicht die Welt.
+
+**Je Hostname einen eigenen Marker verwenden.** Das nginx-Log führt den
+`Host`-Header nicht mit; bei mehreren Domains lässt sich sonst nicht sagen,
+*welche* noch am alten Host hängt. Beim pptx-hub-Umzug ergaben drei Anfragen
+mit **einem** Marker „prod 1 / prod-b 2" — welche der drei Domains die
+Nachzüglerin war, war daraus nicht ableitbar. Mit fünf Einzelmarkern war die
+Zuordnung eindeutig (prod 0, prod-b 5).
+
+**Direkt nach dem CNAME-Schwenk mit Nachzüglern rechnen.** Der Cloudflare-Edge
+liefert für kurze Zeit noch an den alten Tunnel. Ein einzelner Treffer auf dem
+alten Host unmittelbar nach der Umstellung ist deshalb kein Fehler, sondern ein
+Grund, die Messung eine Minute später zu wiederholen — und **erst bei 0 auf der
+alten Seite** darf Schritt 7 folgen.
 
 ### 7. Alte Instanz stoppen und Register nachziehen
 

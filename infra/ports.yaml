@@ -168,11 +168,24 @@ services:
     prod: 8020
     staging: 8020
     dev: 8020
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # Ingress: FUENF Namen in DREI Cloudflare-Zonen, alle
+                               # per Marker-Request einzeln nachgewiesen (je 1 Treffer
+                               # im nginx-access.log von prod-b, 0 auf prod — dessen
+                               # Log lebt mit 10445 Zeilen, also kalibriert).
+                               # Auf prod-b terminiert nginx KEIN TLS (dort liegen 0
+                               # Zertifikate); vhost lauscht HTTP auf 127.0.0.1:8021,
+                               # X-Forwarded-Proto fest https. Tunnel-Routen explizit,
+                               # weil prod-b keinen nginx-Catch-all hat wie prod.
+                               # ⚠ prod-Kopie laeuft noch (Stop verwehrt), siehe #1738.
     container_name: pptx_hub_web
     domain_prod: prezimo.de
     domain_staging: staging.prezimo.de
     domain_aliases:
       - prezimo.com
+      - www.prezimo.de
+      - www.prezimo.com
+      - pptx-hub.iil.pet         # ergaenzt 2026-08-04: stand im vhost, nicht im Register
     repo: achimdehnert/pptx-hub
 
   odoo:
