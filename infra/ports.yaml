@@ -177,7 +177,10 @@ services:
                                # Zertifikate); vhost lauscht HTTP auf 127.0.0.1:8021,
                                # X-Forwarded-Proto fest https. Tunnel-Routen explizit,
                                # weil prod-b keinen nginx-Catch-all hat wie prod.
-                               # ⚠ prod-Kopie laeuft noch (Stop verwehrt), siehe #1738.
+                               # prod-Kopie gestoppt und entfernt (0 Container, auch
+                               # das Netz weg); danach ERNEUT geprueft: alle fuenf
+                               # Namen 200, Marker weiterhin nur prod-b. Volumes auf
+                               # prod erhalten (postgres_data + media_data, Rueckweg).
     container_name: pptx_hub_web
     domain_prod: prezimo.de
     domain_staging: staging.prezimo.de
