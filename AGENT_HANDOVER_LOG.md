@@ -1322,3 +1322,45 @@ nicht aufgeschluesselt) · Gate 3 (Crypto-Shredding am echten Bestand, jetzt
 erstmals pruefbar) · Cloudflare-Entscheidung · Namens-Umstellung auf
 dev-hub.iil.pet · /mail-agent/ auf Live-Daten (haengt an der
 Cloudflare-Entscheidung).
+
+---
+
+## 2026-08-04 (6. Eintrag) — Session 3ca15d7d, Abschluss: ADR-293 vollstaendig belegt
+
+Fortsetzung des 5. Eintrags. Der Owner gab pg_trgm, OCR, Gate 3, Cloudflare-Weg 1
+und die Namens-Umstellung frei; alles ist erledigt und am echten Bestand belegt.
+
+Der wichtigste Fund kam aus Gate 3 und wurde nur sichtbar, WEIL der ADR einen
+Nachweis am echten Bestand verlangt und keinen gruenen Test: `record_erasure`
+vernichtete Rohtext und Metadaten, liess aber die TextUnit-Zeilen stehen. Nach
+der Loeschung war die Nachricht weiterhin durchsuchbar, der Name des Empfaengers
+stand woertlich in der body-Zone. Die Loeschung SAH erfolgreich aus. Der
+Docstring der Funktion kuendigt die fehlende Ergaenzung seit jeher an; solange
+es fast keine Volltexte gab, war es folgenlos. Behoben (dev-hub#227), Nachweis
+wiederholt, alles auf 0.
+
+Zweiter Fund: die Trigramm-Schwelle 0.5 war zu locker — "aramis" lieferte neun
+Blindgaenger. An vier Begriffen mit bekannter Antwort kalibriert auf 0.6.
+Lehrreich daran: unter 0.5 lieferte "Offner" 459 Treffer, was nach guter
+Trefferquote aussah und fast vollstaendig Rauschen war. Ohne eine Menge mit
+bekannter Antwort haette man das fuer ein gutes Ergebnis gehalten.
+
+Dritter Fund: der Vorgabewert von TENANT_NON_TENANT_SUBDOMAINS kannte den neuen
+Kanon dev-hub nicht — nur production.py fuehrte ihn. Dieselbe Klasse wie
+--config gegen --account beim Ingest: Vorgabe und gesetzte Einstellung liefen
+auseinander, und nur die gesetzte wurde je geprueft.
+
+Erledigt: dev-hub#224 (Volltext-Zeitplan, mail_anhang, Trefferzone,
+Endungs-Erkennung) · #225 (pg_trgm + OCR) · #226 (Kanon dev-hub.iil.pet) ·
+#227 (Loeschung nimmt abgeleiteten Text mit) · #228 (Schwelle 0.6).
+
+Eigene Fehler: das nginx-Logformat war beim ersten Versuch zerschossen, weil ein
+nicht gequotetes Heredoc die $-Variablen von der Shell expandieren liess (als
+Datei kopiert, dann korrekt) · der Deploy von #226 nahm die laufende OCR-Schleife
+mit, sie verbrauchte ihre Runden im Deploy-Fenster und erreichte die Obergrenze.
+Beides fiel nur auf, weil nachgemessen wurde.
+
+Offen/Uebergabe: /mail-agent/ auf Live-Daten (dev-hub#211) · 69 ZIP und 20
+Alt-Word ohne Handler · Cloudflare Weg 2 (Origin schliessen) falls gewuenscht ·
+NICHT verifiziert: ob die drei neuen Volltext-Zeitplaene wirklich feuern (erster
+Lauf 2026-08-04 ab 05:30, Gegencheck ueber ChannelHeartbeat mit Kanal volltext:*).
