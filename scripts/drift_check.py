@@ -32,6 +32,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 try:
     import yaml
@@ -497,30 +498,117 @@ SHARED_CI_PIN_RE = re.compile(
 )
 _SHARED_CI_STATE: dict | None = None
 
-# Beim Portieren platform → shared-ci wird nicht nur der Repo-Pfad umgeschrieben,
-# sondern auch das lokale Checkout-Verzeichnis (`path:` im actions/checkout-Step)
-# und jeder Aufruf, der darunter liegt. Beides ist mechanische Port-Transformation,
-# kein inhaltlicher Drift — wer nur den Repo-Pfad normalisiert, meldet jede
-# gespiegelte Datei mit eigenem Checkout-Pfad dauerhaft als „stale" (Realfall
-# 2026-08-03: risk-hub#496 meldete 3 stale Dateien, 2 davon waren genau das).
-# Reihenfolge ist bedeutsam: der längere Präfix zuerst, sonst frisst die
-# `_shared_ci`-Regel den Anfang von `_shared_ci_checks`.
-SHARED_CI_PORT_SUBSTITUTIONS: tuple[tuple[str, str], ...] = (
-    (SHARED_CI_REPO, f"{GITHUB_ORG}/platform"),
-    ("_shared_ci_checks", "_platform_checks"),
-    ("_shared_ci", "platform"),
-)
+# ── Kanon-Abgleich: strukturell, nicht per Text-Ersetzung ────────────────────
+#
+# Beim Portieren platform → shared-ci werden zwei Dinge umgeschrieben: der
+# Repo-Pfad (`uses:`, `with.repository`) und das lokale Checkout-Verzeichnis
+# (`with.path` plus jeder Aufruf darunter). Beides ist Mechanik, kein Drift.
+#
+# Naheliegend — und falsch — ist, das per `str.replace()` über den ganzen
+# Dateiinhalt zurückzudrehen. Am realen Bestand (9 vergleichbare Dateien,
+# gemessen 2026-08-04) erzeugt genau das drei Fehlalarme, die keine Token-Liste
+# heilt, weil sie in die Sprache statt in die Struktur greift:
+#
+#   1. Kommentar-Prosa: `_ci-pypi.yml`/`validate-workflows.yml` unterscheiden
+#      sich NUR in einem Kommentar, in dem "iilgmbh/shared-ci" der Gegenstand
+#      des Satzes ist ("SSoT ist iilgmbh/shared-ci"). Die Ersetzung schreibt den
+#      Satz um und erzeugt die Abweichung selbst.
+#   2. Freitext mit Repo-Referenz: in `handoff-banner-gate.yml` steht die
+#      Issue-Referenz "achimdehnert/platform#913" in einem Test-Fixture — auf
+#      BEIDEN Seiten korrekt gleich, bis eine Ersetzung sie anfasst.
+#   3. Verzeichnisname als gewöhnliches Wort: der Kanon von
+#      `deploy-config-lint.yml` checkt nach `path: platform` aus und nennt den
+#      Step "Checkout platform (Lint-Script)". Eine Token-Ersetzung trifft auch
+#      den Step-Namen. Dazu kommen mindestens drei Kanon-Schreibweisen
+#      (`_platform_checks`, `platform`, `_platform`) — eine gepflegte Liste
+#      hinkt dieser Menge immer hinterher.
+#
+# Deshalb wird verglichen, was der Workflow TUT, nicht wie er formuliert ist:
+# beide Seiten werden als YAML geladen (Kommentare fallen damit weg — sie laufen
+# nicht) und nur an strukturell bedeutsamen Stellen normalisiert. Das
+# Checkout-Verzeichnis wird nicht geraten, sondern aus dem `actions/checkout`-
+# Step der jeweiligen Seite gelesen.
+_SELF_REPO = "<SELF_REPO>"
+_SELF_DIR = "<SELF_DIR>"
 
 
-def normalize_shared_ci_port(tagged: str) -> str:
-    """Macht shared-ci-Inhalt mit dem platform-Kanon vergleichbar.
+def _eigenes_checkout_verzeichnis(tree: Any, repo: str) -> str | None:
+    """`with.path` des Steps, der `repo` selbst auscheckt (oder None)."""
+    if not isinstance(tree, dict):
+        return None
+    for job in (tree.get("jobs") or {}).values():
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            if not isinstance(step, dict):
+                continue
+            mit = step.get("with") or {}
+            if (
+                str(step.get("uses", "")).startswith("actions/checkout")
+                and isinstance(mit, dict)
+                and str(mit.get("repository", "")) == repo
+                and mit.get("path")
+            ):
+                return str(mit["path"])
+    return None
 
-    Kehrt die mechanischen Umschreibungen des Mirrors um, damit nur echter
-    inhaltlicher Drift übrig bleibt.
+
+def normalisiere_port(node: Any, repo: str, verzeichnis: str | None) -> Any:
+    """Ersetzt Port-Mechanik durch Platzhalter — nur strukturell.
+
+    Angefasst werden ausschliesslich: `uses:`-Refs auf das eigene Repo,
+    `with.repository`, `with.path` und Pfad-Praefixe in `run:`/`script:`.
+    Alles andere (Step-Namen, Freitext, Issue-Referenzen) bleibt unberuehrt.
     """
-    for mirror, canonical in SHARED_CI_PORT_SUBSTITUTIONS:
-        tagged = tagged.replace(mirror, canonical)
-    return tagged
+    if isinstance(node, list):
+        return [normalisiere_port(v, repo, verzeichnis) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        key = str(key)
+        if key == "uses" and isinstance(value, str) and value.startswith(repo + "/"):
+            out[key] = _SELF_REPO + "/" + value[len(repo) + 1 :]
+        elif key == "with" and isinstance(value, dict):
+            mit = dict(value)
+            if str(mit.get("repository", "")) == repo:
+                mit["repository"] = _SELF_REPO
+            if verzeichnis and str(mit.get("path", "")) == verzeichnis:
+                mit["path"] = _SELF_DIR
+            out[key] = normalisiere_port(mit, repo, verzeichnis)
+        elif key in ("run", "script") and isinstance(value, str) and verzeichnis:
+            # Nur als Pfad-Praefix ersetzen: `_shared_ci/tools/x.py` ja,
+            # das blosse Wort im Fliesstext nein.
+            out[key] = re.sub(
+                rf"(?<![\w/]){re.escape(verzeichnis)}/", _SELF_DIR + "/", value
+            )
+        else:
+            out[key] = normalisiere_port(value, repo, verzeichnis)
+    return out
+
+
+def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
+    """True, wenn Tag-Inhalt und platform-Kanon dasselbe TUN.
+
+    Faellt auf exakten Textvergleich zurueck, wenn eine Seite nicht als YAML
+    ladbar ist — lieber ein Fehlalarm als ein stillschweigend uebersehener
+    Drift.
+    """
+    try:
+        tag_tree = yaml.safe_load(tagged)
+        kanon_tree = yaml.safe_load(canonical)
+    except yaml.YAMLError:
+        return tagged == canonical
+    tag_norm = normalisiere_port(
+        tag_tree,
+        SHARED_CI_REPO,
+        _eigenes_checkout_verzeichnis(tag_tree, SHARED_CI_REPO),
+    )
+    kanon_repo = f"{GITHUB_ORG}/platform"
+    kanon_norm = normalisiere_port(
+        kanon_tree, kanon_repo, _eigenes_checkout_verzeichnis(kanon_tree, kanon_repo)
+    )
+    return tag_norm == kanon_norm
 
 
 def parse_shared_ci_pins(content: str) -> list[tuple[str, str]]:
@@ -580,9 +668,9 @@ def _shared_ci_state(token: str) -> dict:
             tagged = _get_content_at(
                 SHARED_CI_REPO, f".github/workflows/{name}", latest, token
             )
-            # Port-Transformation normalisieren (Repo-Pfade + Checkout-Verzeichnis),
-            # damit nur echter inhaltlicher Drift als stale gemeldet wird.
-            if tagged is not None and normalize_shared_ci_port(tagged) != canonical:
+            # Strukturell vergleichen, nicht per Text-Ersetzung — Begruendung
+            # und Messung siehe `shared_ci_deckt_kanon`.
+            if tagged is not None and not shared_ci_deckt_kanon(tagged, canonical):
                 stale_files.append(name)
     _SHARED_CI_STATE = {"latest_tag": latest, "stale_files": stale_files}
     return _SHARED_CI_STATE
