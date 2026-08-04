@@ -8,9 +8,18 @@ bleibt vertagt.
 
 ## Rollout (Reihenfolge)
 
-1. **Firewall zuerst** (Owner, Hetzner-Cloud-Console): eingehend TCP 9100 + 9338
-   auf prod und prod-b NUR für die odoo-Host-IP `46.225.127.211` freigeben.
-   Ohne diese Regel bleiben die Exporter offen erreichbar — nicht deployen.
+1. **Firewall zuerst — ZWEI Ebenen, beide nötig.** Eingehend TCP 9100 + 9338
+   NUR für die odoo-Host-IP `46.225.127.211` freigeben. Ohne diese Regeln
+   bleiben die Exporter offen erreichbar — nicht deployen.
+   1. **Hetzner-Cloud-Firewall** (Owner, Cloud-Console): Regeln in `prod-web`
+      bzw. `prod-b-web`.
+   2. **Lokale Host-Firewall**: `prod` fährt zusätzlich `ufw` mit Policy
+      `INPUT DROP`. Die Cloud-Regel allein reicht dort NICHT — das Paket wird
+      erst auf dem Host verworfen:
+      `ufw allow from 46.225.127.211 to any port 9100 proto tcp`
+      (dasselbe für 9338). `prod-b` hat kein aktives ufw und braucht Ebene 2
+      nicht — deshalb ist der Unterschied zwischen beiden Hosts kein Fehler,
+      sondern muss je Host geprüft werden: `ufw status`.
 2. **Exporter je Host starten** (prod, prod-b):
    `docker compose -p mon -f infra/monitoring/docker-compose.exporters.yml up -d`
 3. **Scrape-Config ergänzen** (odoo-Host): Jobs aus `prometheus-scrape-fleet.yml`
@@ -24,11 +33,34 @@ bleibt vertagt.
 
 ## Betriebserfahrung Erst-Rollout (2026-08-02)
 
-- Der `odoo_prometheus`-Container hängt im `internal: true`-Netz und erreicht die
-  Exporter nicht — er braucht zusätzlich das Bridge-Netz:
-  `docker network connect bridge odoo_prometheus && docker restart odoo_prometheus`.
+- Der `odoo_prometheus`-Container hängt im `internal: true`-Netz
+  (`odoo_hub_internal`, kein Gateway) und erreicht die Exporter nicht.
+  ⚠ **Der ursprünglich hier dokumentierte Laufzeit-Fix `docker network connect
+  bridge odoo_prometheus` ist NICHT persistent** — er überlebt kein
+  `--force-recreate`. Am 2026-08-04 standen deshalb wieder alle 4 Fleet-Targets
+  auf `down` (`network is unreachable`), obwohl beide Exporter liefen.
+  Persistenter Fix: in `/opt/odoo-hub/docker-compose.prod.yml` beim Service
+  `prometheus` das vorhandene, nicht-interne Netz ergänzen —
+  `networks: [internal, proxy]` — danach
+  `docker compose -f docker-compose.prod.yml up -d --force-recreate prometheus`.
 - Scrape-Timeout auf prod kam vom toten NFS-Mount (Collector-Hänger 10,5 s) —
   deshalb der `/mnt`-Ausschluss im Compose (auf beiden Hosts bereits aktiv).
+
+## Diagnose-Reihenfolge, wenn Targets `down` sind
+
+Von innen nach außen — jeder Schritt schließt eine Ursache aus:
+
+1. **Exporter lebt?** Auf dem Ziel-Host: `curl -s -o /dev/null -w '%{http_code}'
+   http://localhost:9100/metrics` → 200 erwartet.
+2. **Von außen erreichbar?** Vom odoo-Host aus dieselbe URL gegen die Host-IP.
+   Antwortet Schritt 1 mit 200 und Schritt 2 nicht, liegt es an einer der
+   beiden Firewall-Ebenen (siehe Rollout 1) — bei `prod` zuerst `ufw status`.
+3. **Prometheus-Container hat Ausgang?** `docker exec odoo_prometheus wget -qO-
+   --timeout=5 http://1.1.1.1` — schlägt das fehl, während Schritt 2 klappt,
+   fehlt dem Container das nicht-interne Netz (siehe Betriebserfahrung).
+
+Die Fehlermeldung `network is unreachable` zeigt auf Schritt 3, ein Timeout
+(`000`) auf Schritt 2 — die beiden nicht verwechseln.
 
 ## Bewusste Entscheidungen
 
