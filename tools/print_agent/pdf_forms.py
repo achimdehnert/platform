@@ -27,8 +27,22 @@ aendert sich nichts — Bestandsdokumente drucken unveraendert, und ein Fliesste
 in dem zufaellig ein Unterstrich-Lauf steht, wird nicht stillschweigend zum
 Eingabefeld.
 
-Nicht angefasst werden ``<code>``- und ``<pre>``-Bloecke: dort sind Unterstriche
-Inhalt (Python-Namen, ASCII-Zeichnungen) und kein Ausfuellfeld.
+Nicht angefasst werden Code-Bloecke: dort sind Unterstriche Inhalt (Python-Namen,
+ASCII-Zeichnungen) und kein Ausfuellfeld.
+
+**Zwei Schritte, und die Reihenfolge ist wesentlich.** Unterstrich-Laeufe muessen
+VOR der Markdown-Konvertierung gesichert werden, weil Markdown sie sonst selbst
+verbraucht: ``___`` allein auf einer Zeile ist eine horizontale Linie,
+``___text___`` ist Hervorhebung. Wer erst das fertige HTML durchsucht, findet
+die Laeufe nicht mehr — genau daran ist die erste Fassung gescheitert
+(2026-08-04: 15 statt 56 Feldern, alle Textfelder verschluckt).
+
+    md = markdown_mit_platzhaltern(md_text)   # 1. VOR der Konvertierung
+    html = ... markdown ...
+    html = html_mit_formularfeldern(html)     # 2. NACH der Konvertierung
+
+Das Kaestchen-Zeichen ist davon nicht betroffen — es ueberlebt die Konvertierung
+unveraendert und wird erst in Schritt 2 ersetzt.
 """
 
 from __future__ import annotations
@@ -64,6 +78,36 @@ def _feldbreite_em(laenge: int) -> float:
     return max(_MIN_WIDTH_EM, min(_MAX_WIDTH_EM, laenge * _EM_PER_UNDERSCORE))
 
 
+# Platzhalter fuer Textfelder. Bewusst rein alphanumerisch: Markdown laesst so
+# etwas unveraendert stehen, waehrend Sonderzeichen-Marker je nach Extension
+# escaped oder umgebrochen werden koennten.
+_PLATZHALTER = "xFORMFELDx{laenge}x"
+_PLATZHALTER_RE = re.compile(r"xFORMFELDx(\d+)x")
+
+# Fenced-Code und Inline-Code im MARKDOWN schuetzen (im HTML greift spaeter
+# _PROTECTED_RE, aber da ist es fuer die Unterstriche schon zu spaet).
+_MD_PROTECTED_RE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]+`", re.DOTALL)
+
+
+def markdown_mit_platzhaltern(md_text: str) -> str:
+    """Schritt 1 — Unterstrich-Laeufe sichern, BEVOR Markdown sie verbraucht.
+
+    Die Laenge des Laufs wird im Platzhalter mitgefuehrt, damit Schritt 2 die
+    vom Autor gemeinte Feldbreite noch kennt.
+    """
+    geschuetzt: list[str] = []
+
+    def _ausschneiden(treffer: re.Match) -> str:
+        geschuetzt.append(treffer.group(0))
+        return f"\x00MDSCHUTZ{len(geschuetzt) - 1}\x00"
+
+    rest = _MD_PROTECTED_RE.sub(_ausschneiden, md_text)
+    rest = _FILL_RE.sub(lambda t: _PLATZHALTER.format(laenge=len(t.group(0))), rest)
+    for i, stueck in enumerate(geschuetzt):
+        rest = rest.replace(f"\x00MDSCHUTZ{i}\x00", stueck)
+    return rest
+
+
 def html_mit_formularfeldern(html: str) -> str:
     """Ersetzt Checkbox-Zeichen und Unterstrich-Laeufe durch Eingabeelemente.
 
@@ -92,13 +136,16 @@ def html_mit_formularfeldern(html: str) -> str:
     rest = re.sub(re.escape(CHECKBOX), _checkbox, rest)
 
     def _textfeld(treffer: re.Match) -> str:
-        breite = _feldbreite_em(len(treffer.group(0)))
+        breite = _feldbreite_em(int(treffer.group(1)))
         return (
             f'<input type="text" name="{_naechster_name()}" '
             f'class="pdf-formularfeld-text" style="width:{breite:.1f}em">'
         )
 
-    rest = _FILL_RE.sub(_textfeld, rest)
+    # Platzhalter aus Schritt 1 …
+    rest = _PLATZHALTER_RE.sub(_textfeld, rest)
+    # … und rohe Laeufe, falls jemand html_mit_formularfeldern allein benutzt.
+    rest = _FILL_RE.sub(lambda t: _textfeld(re.match(r"(\d+)", str(len(t.group(0))))), rest)
 
     for i, stueck in enumerate(geschuetzt):
         rest = rest.replace(f"\x00SCHUTZ{i}\x00", stueck)

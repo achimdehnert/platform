@@ -192,3 +192,62 @@ def test_should_produce_a_plain_pdf_without_the_opt_in(tmp_path):
     )
 
     assert _felder(pdf) == {}
+
+
+# ── Reihenfolge der beiden Schritte ──────────────────────────────────────────
+
+
+def test_should_protect_underscores_before_markdown_consumes_them():
+    """Markdown verbraucht `___` in mehreren Kontexten — deshalb Schritt 1 zuerst.
+
+    Gemessen (2026-08-04), nicht vermutet:
+
+    ======================================  ====================================
+    Kontext                                  Markdown macht daraus
+    ======================================  ====================================
+    ``______`` allein auf einer Zeile        ``<hr />``
+    zwei Laeufe in derselben Zeile           ``<strong><em>`` — Lauf zerrissen
+    in einer Tabellenzelle                   bleibt erhalten
+    ======================================  ====================================
+
+    Die ersten beiden reichen: die erste Fassung suchte erst im fertigen HTML
+    und erzeugte in den echten Dokumenten 15 statt 56 Feldern.
+    """
+    import markdown as _md
+
+    def zu_html(text: str) -> str:
+        return _md.Markdown(extensions=["tables"]).convert(text)
+
+    # 1) allein auf einer Zeile -> horizontale Linie, Lauf ist weg
+    assert "<hr" in zu_html("______\n")
+    # 2) zwei Laeufe in einer Zeile -> Hervorhebung, Lauf ist zerrissen
+    assert "<strong>" in zu_html("Datum: ______ Uhrzeit: ______\n")
+
+    # Mit vorgeschaltetem Schutz ueberleben beide und werden zu Feldern.
+    for quelle in ("______\n", "Datum: ______ Uhrzeit: ______\n"):
+        html = pf.html_mit_formularfeldern(
+            zu_html(pf.markdown_mit_platzhaltern(quelle))
+        )
+        assert "<input" in html, f"kein Feld aus {quelle!r}"
+    assert (
+        pf.html_mit_formularfeldern(
+            zu_html(pf.markdown_mit_platzhaltern("Datum: ______ Uhrzeit: ______\n"))
+        ).count("<input")
+        == 2
+    )
+
+
+def test_should_carry_the_intended_width_through_the_placeholder():
+    """Die Feldbreite muss Schritt 1 ueberleben, sonst sind alle Felder gleich breit."""
+    schmal = pf.html_mit_formularfeldern(pf.markdown_mit_platzhaltern("___"))
+    breit = pf.html_mit_formularfeldern(pf.markdown_mit_platzhaltern("_" * 40))
+
+    def em(h: str) -> float:
+        return float(h.split("width:")[1].split("em")[0])
+
+    assert em(breit) > em(schmal)
+
+
+def test_should_leave_fenced_code_untouched_in_the_markdown_step():
+    quelle = "```\ntabelle_____spalte\n```\n"
+    assert pf.markdown_mit_platzhaltern(quelle) == quelle

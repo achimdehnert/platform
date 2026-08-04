@@ -29,7 +29,12 @@ import litellm
 import markdown
 from weasyprint import HTML, CSS
 
-from pdf_forms import FORMULAR_CSS, formulare_gewuenscht, html_mit_formularfeldern
+from pdf_forms import (
+    FORMULAR_CSS,
+    formulare_gewuenscht,
+    html_mit_formularfeldern,
+    markdown_mit_platzhaltern,
+)
 
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
 import profile_policy  # Profil-Voreinstellungen (#1297, zweiter Befund)
@@ -1010,6 +1015,11 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     # Strip meta-prefix lines so they don't appear as paragraph text in body.
     md_text_cleaned = strip_meta_prefix_lines(md_text)
     md_text_processed = preprocess_md(md_text_cleaned, design=design)
+    # Unterstrich-Laeufe VOR der Markdown-Konvertierung sichern — Markdown
+    # verbraucht sie sonst selbst (`___` = horizontale Linie / Hervorhebung).
+    als_formular = formulare_gewuenscht(meta)
+    if als_formular:
+        md_text_processed = markdown_mit_platzhaltern(md_text_processed)
     md = markdown.Markdown(
         extensions=["tables", "attr_list", "meta", "toc", "fenced_code", "sane_lists"],
         extension_configs={
@@ -1043,7 +1053,6 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     # Ausfuellbares PDF: nur wenn das Dokument es im Frontmatter verlangt
     # (`forms: true`). Ohne das Feld bleibt alles wie bisher — ein Unterstrich
     # im Fliesstext soll nicht stillschweigend zum Eingabefeld werden.
-    als_formular = formulare_gewuenscht(meta)
     if als_formular:
         body_html = html_mit_formularfeldern(body_html)
         anzahl = body_html.count("pdf-formularfeld-")
