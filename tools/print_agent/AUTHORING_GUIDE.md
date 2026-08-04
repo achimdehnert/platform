@@ -253,6 +253,124 @@ Geprüft durch: ____________________ am: __________
 > Felder da sind. Mit einem PDF-Parser prüfen (`pypdf`/`PyPDF2`:
 > `PdfReader(pfad).get_fields()`) oder mit `--uncompressed-pdf` erzeugen.
 
+## 4c Formulare bauen — Regeln
+
+> **Grundregel (Owner-Vorgabe 2026-08-04):** Ein Formular ist maximal übersichtlich
+> und logisch aufgebaut — **aus Sicht dessen, der es ausfüllt**, nicht aus Sicht
+> dessen, der es später auswertet.
+
+Die folgenden Regeln sind an einem realen Satz von neun Bögen entstanden und
+haben dort jeweils einen konkreten Fehler behoben.
+
+### R1 · Beschreibung und Erfassung trennen
+
+Ein Dokument wird **entweder gelesen oder ausgefüllt**. Sobald beides in einem
+Blatt steht, findet der Ausfüllende seine Felder nicht mehr, und der Lesende
+blättert durch Formularzeilen.
+
+Trennen, sobald sich zwei Blöcke abgrenzen lassen:
+
+| Dokument | Inhalt | Felder |
+|---|---|---|
+| `X-Verfahrensanweisung` | Ablauf, Fristen, Zuständigkeiten | keine |
+| `X-Erfassung` | die auszufüllenden Teile | alle |
+
+Das Lesedokument verweist im Kopf auf das Erfassungsdokument und umgekehrt.
+
+### R2 · Nach Bearbeiter gliedern, nicht nach Sachlogik
+
+Wer füllt was aus, und wann? Diese Frage bestimmt die Reihenfolge der Teile —
+nicht die fachliche Systematik.
+
+Beispiel Vorfallmeldung: Teil A für die Person, die den Vorfall bemerkt (neun
+Fragen in Alltagssprache, keine Rechtsbegriffe), Teil B für den
+Meldeverantwortlichen (beginnt mit der Fristenberechnung, weil das seine erste
+Handlung ist), Teil C für die Zuarbeit, Teil D für den Abschluss.
+
+Im Kopf eine Tabelle „wer füllt welchen Teil, wann" — dann liest niemand mehr
+als nötig.
+
+### R3 · Ein Teil, eine Seite
+
+`# Teil A {: .break-before }` — so kann jeder Teil einzeln ausgedruckt und
+weitergegeben werden.
+
+> Die Klasse wirkt auf **jeder** Überschriftenebene (seit 2026-08-04; vorher nur
+> auf `h2`, auf `h1` lief sie wirkungslos durch).
+
+### R4 · Ausfüllfelder gehören in Tabellen
+
+Freistehende Zeilen wie `**Bearbeitet von** ______ **am** ______` zerfallen im
+Umbruch in Einzelzeilen mit unbrauchbar kurzen Feldern. In einer Tabellenzeile
+füllt das Feld die Zelle:
+
+```markdown
+| Bearbeitet von | am | um |
+|---|---|---|
+| ______________________ | ____________ | ________ |
+```
+
+### R5 · Kästchen-Beschriftungen sind einwortig
+
+Das Kästchen wird mit dem **nächsten Wort** zusammengehalten. Bei mehrwortigen
+Beschriftungen entsteht Unsinn:
+
+| statt | besser |
+|---|---|
+| `☐ ja, BSI melden ☐ nein` → „ja, BSI melden nein" | Frage umformulieren, Antwort `☐ ja ☐ nein` |
+| `☐ liegt bei ☐ fehlt` → „liegt bei fehlt" | `☐ beigefügt ☐ fehlt` |
+
+Was nicht in ein Wort passt, gehört in die Fragespalte.
+
+### R6 · Nicht abfragen, was in der Quelle steht
+
+Wenn ein Beleg beiliegt, sind die Angaben daraus **nicht** noch einmal zu
+erheben. Ein AVV-Bogen fragte 21 Felder je Dienstleister ab, von denen 18 im
+beigefügten Vertrag standen — nach der Kürzung blieben drei.
+
+Stattdessen: „Beleg beilegen" als Option, und einen kurzen Zusatzteil **nur für
+die Fälle ohne Beleg**.
+
+### R7 · Keine Auswertung im Erfassungsbogen
+
+Interne Zahlen, Systemkennungen, Bewertungen und Folgeschritte gehören nicht in
+ein Dokument, das jemand anderes ausfüllt. Die Auswertung läuft getrennt.
+
+Ausnahme: eine schmale ID-Spalte für die Rückzuordnung — ohne Erklärung, sie
+stört nicht.
+
+### R8 · Pilot-User-Durchgang vor der Abnahme
+
+**Je Rolle einmal durchgehen**, mit der Frage: Was sieht diese Person, was muss
+sie wissen, was kann sie an dieser Stelle überhaupt beantworten?
+
+Rollen unterscheiden sich stark — die Person, die einen Vorfall bemerkt, steht
+unter Zeitdruck und kennt keine Rechtsbegriffe; die Geschäftsführung füllt
+einmalig und zu einem ganz anderen Zeitpunkt aus. Ein Formular, das für beide
+gleich gebaut ist, passt für keinen.
+
+### R9 · Am erzeugten PDF prüfen, nicht am Markdown
+
+Drei Prüfungen, alle über einen PDF-Parser (`pypdf`/`PyPDF2`), **nicht** über
+eine Bytesuche in der Datei — WeasyPrint komprimiert die Objekt-Streams:
+
+```python
+r = PdfReader(pfad)
+len(r.get_fields() or {})                                   # Felder wirklich da?
+[len((s.extract_text() or "").strip()) for s in r.pages]     # Leerseiten? (< ~120 Zeichen)
+[(s.extract_text() or "")[:260] for s in r.pages]            # beginnt jeder Teil auf eigener Seite?
+```
+
+> Eine Null belegt erst dann eine Abwesenheit, wenn dieselbe Prüfung nachweislich
+> auch etwas finden **kann** — also einmal gegen ein Dokument laufen lassen, das
+> den gesuchten Fehler hat.
+
+### Vorlagen wiederverwenden
+
+Mandantenspezifische Werte gehören in **einen** klar markierten Abschnitt am
+Ende („Stand bei diesem Mandanten — bei Verwendung als Vorlage ersetzen oder
+entfernen"), nicht verstreut in den Fließtext. Alles Übrige bleibt kundenneutral.
+
 ## 5 Standard-Markdown — Do's und Don'ts
 
 ### 5.1 Listen unter Bold-Präfix
