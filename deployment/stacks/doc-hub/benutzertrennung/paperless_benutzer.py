@@ -27,7 +27,10 @@ for b in User.objects.order_by("id"):
 print()
 print("=== Gruppen")
 for g in Group.objects.order_by("id"):
-    print("%-4s %-32s rechte=%d  mitglieder=%d" % (g.id, g.name[:32], g.permissions.count(), g.user_set.count()))
+    print(
+        "%-4s %-32s rechte=%d  mitglieder=%d"
+        % (g.id, g.name[:32], g.permissions.count(), g.user_set.count())
+    )
 
 print()
 print("=== Dokumente nach Besitzer")

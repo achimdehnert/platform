@@ -37,7 +37,9 @@ SAMPLE = """# Agent Handover
 def test_should_find_refs_only_in_open_sections():
     refs, _ = extract_refs(SAMPLE, OWNER, REPO)
     nums = {(r.owner, r.repo, r.number) for r in refs}
-    assert (OWNER, REPO, 999) not in nums, "Referenz außerhalb offener Abschnitte gezählt"
+    assert (OWNER, REPO, 999) not in nums, (
+        "Referenz außerhalb offener Abschnitte gezählt"
+    )
     assert (OWNER, REPO, 811) not in nums, "Prio-Tabelle ist bewusste Parser-Grenze"
     assert (OWNER, REPO, 1094) in nums
 

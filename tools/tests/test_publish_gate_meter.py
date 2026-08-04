@@ -43,7 +43,9 @@ def test_should_return_no_offenders_for_gated_files():
 
 
 def test_should_return_offender_for_ungated_twine():
-    assert m.scan_files({"publish.yml": _UNGATED_TWINE}) == [{"file": "publish.yml", "job": "publish"}]
+    assert m.scan_files({"publish.yml": _UNGATED_TWINE}) == [
+        {"file": "publish.yml", "job": "publish"}
+    ]
 
 
 def test_should_ignore_non_upload_workflows():
@@ -57,7 +59,10 @@ def test_should_sort_files_deterministically():
 
 
 def test_should_render_empty_backlog_when_no_offenders():
-    body = m.build_backlog({"aifw": [], "promptfw": []}, {"aifw": "achimdehnert", "promptfw": "achimdehnert"})
+    body = m.build_backlog(
+        {"aifw": [], "promptfw": []},
+        {"aifw": "achimdehnert", "promptfw": "achimdehnert"},
+    )
     assert "Backlog leer" in body
     assert "|" not in body  # keine Tabelle
 

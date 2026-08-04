@@ -13,6 +13,7 @@ Testet:
 - Security Auditor niemals downgegradet (UC-SE-5)
 - Cache-Invalidierung (T-01)
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -59,10 +60,7 @@ class TestRouterAgentRoleEnum:
         assert _normalize_role("tech_lead") == RouterAgentRole.TECH_LEAD
 
     def test_normalize_role_with_enum(self):
-        assert (
-            _normalize_role(RouterAgentRole.GUARDIAN)
-            == RouterAgentRole.GUARDIAN
-        )
+        assert _normalize_role(RouterAgentRole.GUARDIAN) == RouterAgentRole.GUARDIAN
 
     def test_normalize_role_unknown_returns_none(self):
         result = _normalize_role("discord_ask")  # K-02: Discord nicht im Router
@@ -102,8 +100,7 @@ class TestTaskComplexityHintEnum:
 
     def test_normalize_complexity_with_string(self):
         assert (
-            _normalize_complexity("architectural")
-            == TaskComplexityHint.ARCHITECTURAL
+            _normalize_complexity("architectural") == TaskComplexityHint.ARCHITECTURAL
         )
 
     def test_normalize_complexity_fallback(self):
@@ -170,9 +167,7 @@ class TestRuleBasedBudgetRouterNormalMode:
     @pytest.mark.asyncio
     async def test_normal_mode_returns_premium_model(self):
         router = _make_router(BudgetMode.NORMAL)
-        router._route_cache = {
-            ("developer", "complex"): _make_route_config()
-        }
+        router._route_cache = {("developer", "complex"): _make_route_config()}
 
         result = await router.select(
             agent_role="developer",
@@ -182,16 +177,18 @@ class TestRuleBasedBudgetRouterNormalMode:
 
         assert result.model == "anthropic/claude-3.5-sonnet"
         assert result.tier == "premium"
-        assert result.budget_mode == BudgetMode.NORMAL if hasattr(result, "budget_mode") else True
+        assert (
+            result.budget_mode == BudgetMode.NORMAL
+            if hasattr(result, "budget_mode")
+            else True
+        )
         assert "rule:developer+complex" in result.routing_reason
 
     @pytest.mark.asyncio
     async def test_routing_reason_contains_budget_pct(self):
         """K-01: routing_reason muss Budget-Prozentsatz enthalten."""
         router = _make_router(BudgetMode.NORMAL)
-        router._route_cache = {
-            ("developer", "complex"): _make_route_config()
-        }
+        router._route_cache = {("developer", "complex"): _make_route_config()}
 
         result = await router.select("developer", "complex", tenant_id=1)
         assert "%" in result.routing_reason
@@ -208,9 +205,7 @@ class TestRuleBasedBudgetRouterCostSensitiveMode:
     async def test_cost_sensitive_uses_budget_model(self):
         """H-01 + B-02: Budget-Downgrade nutzt budget_model aus DB."""
         router = _make_router(BudgetMode.COST_SENSITIVE)
-        router._route_cache = {
-            ("developer", "complex"): _make_route_config()
-        }
+        router._route_cache = {("developer", "complex"): _make_route_config()}
 
         result = await router.select("developer", "complex", tenant_id=1)
 
@@ -222,9 +217,7 @@ class TestRuleBasedBudgetRouterCostSensitiveMode:
     @pytest.mark.asyncio
     async def test_cost_sensitive_routing_reason_has_percentage(self):
         router = _make_router(BudgetMode.COST_SENSITIVE)
-        router._route_cache = {
-            ("developer", "complex"): _make_route_config()
-        }
+        router._route_cache = {("developer", "complex"): _make_route_config()}
 
         result = await router.select("developer", "complex", tenant_id=1)
         assert "%" in result.routing_reason
@@ -250,9 +243,7 @@ class TestRuleBasedBudgetRouterEmergencyMode:
         """Emergency-Pfad braucht keine DB-Query für Route-Tabelle."""
         router = _make_router(BudgetMode.EMERGENCY)
 
-        with patch.object(
-            router, "_get_route", new_callable=AsyncMock
-        ) as mock_get:
+        with patch.object(router, "_get_route", new_callable=AsyncMock) as mock_get:
             await router.select("developer", "complex", tenant_id=1)
             mock_get.assert_not_called()
 
@@ -269,9 +260,7 @@ class TestRuleBasedBudgetRouterFallback:
         router = _make_router(BudgetMode.NORMAL)
         router._route_cache = {}
 
-        result = await router.select(
-            "new_unknown_role", "complex", tenant_id=1
-        )
+        result = await router.select("new_unknown_role", "complex", tenant_id=1)
         assert result.model == EMERGENCY_FALLBACK_MODEL
         assert "fallback" in result.routing_reason
 
@@ -281,9 +270,7 @@ class TestRuleBasedBudgetRouterFallback:
         router = _make_router(BudgetMode.NORMAL)
         router._route_cache = {}
 
-        result = await router.select(
-            "discord_status", "trivial", tenant_id=1
-        )
+        result = await router.select("discord_status", "trivial", tenant_id=1)
         assert "fallback" in result.routing_reason
 
 
@@ -308,9 +295,7 @@ class TestSecurityAuditorNoDowngrade:
         )
         router._route_cache = {("security_auditor", "complex"): config}
 
-        result = await router.select(
-            "security_auditor", "complex", tenant_id=1
-        )
+        result = await router.select("security_auditor", "complex", tenant_id=1)
 
         assert result.model == "anthropic/claude-3.5-sonnet"
         assert result.tier == "premium"
@@ -334,9 +319,7 @@ class TestSecurityAuditorNoDowngrade:
         )
         router._route_cache = {("security_auditor", "moderate"): config}
 
-        result = await router.select(
-            "security_auditor", "kritisch", tenant_id=1
-        )
+        result = await router.select("security_auditor", "kritisch", tenant_id=1)
         assert result.model == "anthropic/claude-3.5-sonnet"
 
 

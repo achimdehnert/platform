@@ -1,4 +1,5 @@
 """Tests für repo_health_check.py — gitignore-Cruft-SUGGEST-Checks (#517)."""
+
 import importlib.util
 import pathlib
 import sys
@@ -45,7 +46,10 @@ def _make_django(tmp_path: pathlib.Path, gitignore_lines: list[str]) -> pathlib.
 
 # ── check_python_package ────────────────────────────────────────────────────
 
-def test_should_pass_gitignore_cruft_checks_python_package_when_entries_present(tmp_path):
+
+def test_should_pass_gitignore_cruft_checks_python_package_when_entries_present(
+    tmp_path,
+):
     path = _make_package(tmp_path, list(CRUFT_ENTRIES))
     report = rhc.check_python_package(path)
     for entry in CRUFT_ENTRIES:
@@ -54,7 +58,9 @@ def test_should_pass_gitignore_cruft_checks_python_package_when_entries_present(
         assert result.severity == "SUGGEST"
 
 
-def test_should_fail_gitignore_cruft_checks_python_package_when_entries_missing(tmp_path):
+def test_should_fail_gitignore_cruft_checks_python_package_when_entries_missing(
+    tmp_path,
+):
     path = _make_package(tmp_path, [])
     report = rhc.check_python_package(path)
     for entry in CRUFT_ENTRIES:
@@ -73,6 +79,7 @@ def test_should_not_block_python_package_when_gitignore_entries_missing(tmp_path
 
 
 # ── check_django_app ────────────────────────────────────────────────────────
+
 
 def test_should_pass_gitignore_cruft_checks_django_app_when_entries_present(tmp_path):
     path = _make_django(tmp_path, list(CRUFT_ENTRIES))

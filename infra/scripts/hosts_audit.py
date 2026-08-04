@@ -74,7 +74,9 @@ def check_schema(data: dict) -> list[str]:
             issues.append(f"schema: runner '{name}' hat kein 'status'")
         host = r.get("host")
         if host not in (None, "UNKNOWN") and host not in hosts:
-            issues.append(f"schema: runner '{name}'.host='{host}' referenziert keinen Host")
+            issues.append(
+                f"schema: runner '{name}'.host='{host}' referenziert keinen Host"
+            )
 
     for name, h in hosts.items():
         if not isinstance(h, dict):
@@ -82,7 +84,9 @@ def check_schema(data: dict) -> list[str]:
             continue
         for rn in h.get("hosts_runners", []) or []:
             if rn not in runners:
-                issues.append(f"schema: host '{name}'.hosts_runners enthält unbekannten Runner '{rn}'")
+                issues.append(
+                    f"schema: host '{name}'.hosts_runners enthält unbekannten Runner '{rn}'"
+                )
     return issues
 
 
@@ -102,7 +106,9 @@ def check_staleness(data: dict, max_age_days: int) -> list[str]:
                 continue
             d = v if isinstance(v, _dt.date) else _parse_date(str(v))
             if d is None:
-                issues.append(f"staleness: {section}/{name}.verified='{v}' ist kein gültiges Datum")
+                issues.append(
+                    f"staleness: {section}/{name}.verified='{v}' ist kein gültiges Datum"
+                )
             elif d < cutoff:
                 age = (today - d).days
                 issues.append(
@@ -158,7 +164,9 @@ def _iter_runs_on(wf_path: Path) -> list[tuple[str, set[str]]]:
     for m in re.finditer(r"runs-on:\s*(.+)", text):
         val = m.group(1).strip()
         if val.startswith("["):
-            labels = {x.strip().strip("'\"") for x in val.strip("[]").split(",") if x.strip()}
+            labels = {
+                x.strip().strip("'\"") for x in val.strip("[]").split(",") if x.strip()
+            }
         else:
             labels = {val.strip("'\"")}
         results.append(("?", labels))
@@ -168,13 +176,20 @@ def _iter_runs_on(wf_path: Path) -> list[tuple[str, set[str]]]:
 def check_labels(data: dict, workflows_dir: Path) -> list[str]:
     issues: list[str] = []
     if not workflows_dir.exists():
-        print(f"FEHLER: workflows-Verzeichnis {workflows_dir} nicht gefunden", file=sys.stderr)
+        print(
+            f"FEHLER: workflows-Verzeichnis {workflows_dir} nicht gefunden",
+            file=sys.stderr,
+        )
         sys.exit(2)
     avail = available_label_sets(data)
-    for wf in sorted(workflows_dir.glob("*.yml")) + sorted(workflows_dir.glob("*.yaml")):
+    for wf in sorted(workflows_dir.glob("*.yml")) + sorted(
+        workflows_dir.glob("*.yaml")
+    ):
         for job_id, req in _iter_runs_on(wf):
             # GitHub-hosted Runner ignorieren
-            if any(any(lbl.lower().startswith(p) for p in _HOSTED_PREFIXES) for lbl in req):
+            if any(
+                any(lbl.lower().startswith(p) for p in _HOSTED_PREFIXES) for lbl in req
+            ):
                 continue
             if "self-hosted" not in {lbl.lower() for lbl in req}:
                 continue
@@ -193,10 +208,20 @@ def check_labels(data: dict, workflows_dir: Path) -> list[str]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--check", choices=["schema", "staleness", "labels", "all"], default="all")
-    p.add_argument("--hosts", type=Path, default=Path(__file__).resolve().parents[1] / "hosts.yaml")
-    p.add_argument("--workflows", type=Path, help="Verzeichnis mit .github/workflows zum Label-Audit")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--check", choices=["schema", "staleness", "labels", "all"], default="all"
+    )
+    p.add_argument(
+        "--hosts", type=Path, default=Path(__file__).resolve().parents[1] / "hosts.yaml"
+    )
+    p.add_argument(
+        "--workflows",
+        type=Path,
+        help="Verzeichnis mit .github/workflows zum Label-Audit",
+    )
     p.add_argument("--max-age-days", type=int, default=_DEFAULT_MAX_AGE_DAYS)
     args = p.parse_args()
 

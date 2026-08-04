@@ -32,7 +32,11 @@ async def lifespan(app: FastAPI):
 
     model = SentenceTransformer(MODEL_NAME)
     model_load_time = time.perf_counter() - t0
-    logger.info("Model loaded in %.1fs, dim=%d", model_load_time, model.get_sentence_embedding_dimension())
+    logger.info(
+        "Model loaded in %.1fs, dim=%d",
+        model_load_time,
+        model.get_sentence_embedding_dimension(),
+    )
     yield
     logger.info("Shutting down embedder service")
 
@@ -42,7 +46,10 @@ app = FastAPI(title="Embedder Service", version="0.1.0", lifespan=lifespan)
 
 class EmbedRequest(BaseModel):
     texts: list[str] = Field(..., min_length=1, max_length=100)
-    prefix: str = Field(default="passage: ", description="E5 prefix: 'query: ' for search, 'passage: ' for ingest")
+    prefix: str = Field(
+        default="passage: ",
+        description="E5 prefix: 'query: ' for search, 'passage: ' for ingest",
+    )
 
 
 class EmbedResponse(BaseModel):
@@ -61,7 +68,12 @@ async def embed(req: EmbedRequest):
     prefixed = [f"{req.prefix}{t}" for t in req.texts]
 
     t0 = time.perf_counter()
-    vectors = model.encode(prefixed, batch_size=BATCH_SIZE, normalize_embeddings=True, show_progress_bar=False)
+    vectors = model.encode(
+        prefixed,
+        batch_size=BATCH_SIZE,
+        normalize_embeddings=True,
+        show_progress_bar=False,
+    )
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     return EmbedResponse(

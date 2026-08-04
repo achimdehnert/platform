@@ -14,6 +14,7 @@ Usage:
     python3 scripts/konz_number_check.py            # Report + nächste freie Nummer
     python3 scripts/konz_number_check.py --check     # exit 1 bei Konflikten (CI)
 """
+
 from __future__ import annotations
 
 import re
@@ -25,7 +26,9 @@ FILENAME_RE = re.compile(r"KONZ-platform-(\d{3})")
 CONCEPT_ID_RE = re.compile(r"^concept_id:\s*KONZ-platform-(\d{3})\b", re.MULTILINE)
 
 
-def scan(konz_dir: Path = KONZ_DIR) -> tuple[dict[int, list[Path]], list[tuple[Path, str, str]]]:
+def scan(
+    konz_dir: Path = KONZ_DIR,
+) -> tuple[dict[int, list[Path]], list[tuple[Path, str, str]]]:
     """Return (number -> files) and a list of (file, filename_num, concept_id_num)
     for files whose concept_id does not match the filename number."""
     by_number: dict[int, list[Path]] = {}

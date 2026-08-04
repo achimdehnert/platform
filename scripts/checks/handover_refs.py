@@ -86,9 +86,17 @@ def extract_refs(
     for line_no, line in lines:
         for m in REF_RE.finditer(line):
             if m.group("u_num"):
-                owner, repo, num = m.group("u_owner"), m.group("u_repo"), m.group("u_num")
+                owner, repo, num = (
+                    m.group("u_owner"),
+                    m.group("u_repo"),
+                    m.group("u_num"),
+                )
             elif m.group("s_num"):
-                owner, repo, num = m.group("s_owner"), m.group("s_repo"), m.group("s_num")
+                owner, repo, num = (
+                    m.group("s_owner"),
+                    m.group("s_repo"),
+                    m.group("s_num"),
+                )
             elif m.group("r_num"):
                 owner, repo, num = default_owner, m.group("r_repo"), m.group("r_num")
             else:

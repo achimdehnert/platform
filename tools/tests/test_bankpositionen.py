@@ -33,12 +33,17 @@ import bankpositionen as bp  # noqa: E402
     ("zweck", "erwartet"),
     [
         # Variante A — mit PP-Block und Schrägstrichen
-        ("1047470049958/PP.6820.PP/. Cleverbridge GmbH, Ihr Einkauf bei Cleverbridge",
-         "Cleverbridge GmbH"),
+        (
+            "1047470049958/PP.6820.PP/. Cleverbridge GmbH, Ihr Einkauf bei Cleverbridge",
+            "Cleverbridge GmbH",
+        ),
         # Variante B — ohne PP-Block
         ("1048171118267/. Ionos SE, Ihr Einkauf bei Ionos SE", "Ionos SE"),
         # Variante C — Leerzeichen statt Schrägstrich
-        ("1049697671020 PP.1321.PP . Spotify AB, Ihr Einkauf bei Spotify AB", "Spotify AB"),
+        (
+            "1049697671020 PP.1321.PP . Spotify AB, Ihr Einkauf bei Spotify AB",
+            "Spotify AB",
+        ),
         # Händler mit Komma im Namen — bricht am ERSTEN Komma ab (dokumentiertes Verhalten)
         ("1051431380713 PP.6820.PP . GitHub, Inc., Ihr Einkauf bei GitHub", "GitHub"),
     ],
@@ -47,7 +52,9 @@ def test_should_extract_merchant_from_all_three_purpose_formats(zweck, erwartet)
     assert bp.paypal_haendler(zweck) == erwartet
 
 
-@pytest.mark.parametrize("zweck", ["", "SEPA Sammel-Ueberweisung mit 2 Ueberweisungen", None])
+@pytest.mark.parametrize(
+    "zweck", ["", "SEPA Sammel-Ueberweisung mit 2 Ueberweisungen", None]
+)
 def test_should_return_empty_when_no_merchant_pattern(zweck):
     assert bp.paypal_haendler(zweck) == ""
 
@@ -56,11 +63,19 @@ def test_should_return_empty_when_no_merchant_pattern(zweck):
 
 
 REGELN = [
-    {"muster": "dehnert (mara|sabine)", "konto": "6035", "bezeichnung": "Löhne Minijob",
-     "nur_betraege": [850.0, 450.0, 400.0]},
+    {
+        "muster": "dehnert (mara|sabine)",
+        "konto": "6035",
+        "bezeichnung": "Löhne Minijob",
+        "nur_betraege": [850.0, 450.0, 400.0],
+    },
     {"muster": "knappschaft", "konto": "6110", "bezeichnung": "Sozialvers."},
-    {"muster": "umsatzsteuer auf .*abrechnung", "konto": "KLÄRUNG",
-     "bezeichnung": "USt-Anteil", "anmerkung": "offen"},
+    {
+        "muster": "umsatzsteuer auf .*abrechnung",
+        "konto": "KLÄRUNG",
+        "bezeichnung": "USt-Anteil",
+        "anmerkung": "offen",
+    },
     {"muster": "hetzner|ionos", "konto": "6837", "bezeichnung": "Lizenzen"},
 ]
 
@@ -71,7 +86,11 @@ def test_should_apply_first_matching_rule():
 
 
 def test_should_return_empty_when_no_rule_matches():
-    assert bp.zuordnen("völlig unbekannter zahlungsempfänger", -12.0, REGELN) == ("", "", "")
+    assert bp.zuordnen("völlig unbekannter zahlungsempfänger", -12.0, REGELN) == (
+        "",
+        "",
+        "",
+    )
 
 
 def test_should_match_case_insensitively():
@@ -123,9 +142,18 @@ def test_should_collapse_whitespace_and_keep_short_text():
 
 
 def _zeile(nr, betrag, konto="", bez="", anm="", haendler="", name="X", zweck="Z"):
-    return {"nr": nr, "id": f"id{nr}", "datum": "2026-01-01", "betrag": betrag,
-            "name": name, "zweck": zweck, "konto": konto, "bez": bez,
-            "anm": anm, "haendler": haendler}
+    return {
+        "nr": nr,
+        "id": f"id{nr}",
+        "datum": "2026-01-01",
+        "betrag": betrag,
+        "name": name,
+        "zweck": zweck,
+        "konto": konto,
+        "bez": bez,
+        "anm": anm,
+        "haendler": haendler,
+    }
 
 
 def test_should_split_board_into_open_klaerung_and_assigned(tmp_path):
@@ -136,11 +164,14 @@ def test_should_split_board_into_open_klaerung_and_assigned(tmp_path):
             _zeile(2, -4.05, konto="KLÄRUNG", bez="USt", anm="offen"),
             _zeile(3, -99.0),
         ],
-        ziel, 2026,
+        ziel,
+        2026,
     )
     assert stand == {"zugeordnet": 1, "klaerung": 1, "offen": 1}
     text = ziel.read_text(encoding="utf-8")
-    assert "## Noch offen" in text and "## In Klärung" in text and "## Zugeordnet" in text
+    assert (
+        "## Noch offen" in text and "## In Klärung" in text and "## Zugeordnet" in text
+    )
     assert "`id3`" in text  # Umsatz-ID der offenen Position trägt die Zuordnung
 
 
@@ -153,8 +184,17 @@ def test_should_omit_empty_open_section(tmp_path):
 def test_should_mark_partial_assignment_visibly(tmp_path):
     ziel = tmp_path / "board.md"
     bp.board_schreiben(
-        [_zeile(1, -901.18, konto="6035", bez="Lohn", anm="NUR TEILWEISE — 51,18 € nicht abgedeckt")],
-        ziel, 2026,
+        [
+            _zeile(
+                1,
+                -901.18,
+                konto="6035",
+                bez="Lohn",
+                anm="NUR TEILWEISE — 51,18 € nicht abgedeckt",
+            )
+        ],
+        ziel,
+        2026,
     )
     text = ziel.read_text(encoding="utf-8")
     assert "⚠" in text
@@ -165,7 +205,8 @@ def test_should_prefer_merchant_over_payer_name_in_board(tmp_path):
     ziel = tmp_path / "board.md"
     bp.board_schreiben(
         [_zeile(1, -21.99, name="PayPal Europe S.a.r.l.", haendler="Spotify AB")],
-        ziel, 2026,
+        ziel,
+        2026,
     )
     assert "PayPal → Spotify AB" in ziel.read_text(encoding="utf-8")
 

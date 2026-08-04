@@ -17,6 +17,7 @@ Emits:
     R = <fraction>  (<checked>/<total> marker-claim turns, across N sessions)
     Baseline: ~6 documented incidents (assert-before-check or never checked).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,30 +32,30 @@ from typing import Iterator
 # ---------------------------------------------------------------------------
 MARKER_PATTERNS: list[re.Pattern[str]] = [
     # Named artifact
-    re.compile(r'\bPR\s+#\d+\b', re.IGNORECASE),
-    re.compile(r'\bcommit\s+[0-9a-f]{6,}\b', re.IGNORECASE),
-    re.compile(r'\bADR-\d+\b', re.IGNORECASE),
-    re.compile(r'\bfile\s+\S+\.(py|sh|yml|yaml|md|json|toml)\b', re.IGNORECASE),
-    re.compile(r'\bmemory\s+\w+', re.IGNORECASE),
+    re.compile(r"\bPR\s+#\d+\b", re.IGNORECASE),
+    re.compile(r"\bcommit\s+[0-9a-f]{6,}\b", re.IGNORECASE),
+    re.compile(r"\bADR-\d+\b", re.IGNORECASE),
+    re.compile(r"\bfile\s+\S+\.(py|sh|yml|yaml|md|json|toml)\b", re.IGNORECASE),
+    re.compile(r"\bmemory\s+\w+", re.IGNORECASE),
     # Status / outcome
-    re.compile(r'\bdone\s*[✓✔]|\bfertig\s*[✓✔]', re.IGNORECASE),
-    re.compile(r'\bfestgehalten\b', re.IGNORECASE),
-    re.compile(r'\bdeployed\b', re.IGNORECASE),
-    re.compile(r'\bCOMPLETE\b'),
-    re.compile(r'\bgesichert\b', re.IGNORECASE),
-    re.compile(r'\berfolgreich\b', re.IGNORECASE),
-    re.compile(r'\bgreen\b|\bgrün\b', re.IGNORECASE),
-    re.compile(r'\bfailed\b|\bfehler\b', re.IGNORECASE),
+    re.compile(r"\bdone\s*[✓✔]|\bfertig\s*[✓✔]", re.IGNORECASE),
+    re.compile(r"\bfestgehalten\b", re.IGNORECASE),
+    re.compile(r"\bdeployed\b", re.IGNORECASE),
+    re.compile(r"\bCOMPLETE\b"),
+    re.compile(r"\bgesichert\b", re.IGNORECASE),
+    re.compile(r"\berfolgreich\b", re.IGNORECASE),
+    re.compile(r"\bgreen\b|\bgrün\b", re.IGNORECASE),
+    re.compile(r"\bfailed\b|\bfehler\b", re.IGNORECASE),
     # Number / date with specificity
-    re.compile(r'\$\d+\.\d+'),                    # cost like $2.294
-    re.compile(r'\d{1,3}[,./]\d{1,3}[,./]\d{2,4}'),  # date
-    re.compile(r'\d+\s*(ms|s|min|Minuten)\b', re.IGNORECASE),
+    re.compile(r"\$\d+\.\d+"),  # cost like $2.294
+    re.compile(r"\d{1,3}[,./]\d{1,3}[,./]\d{2,4}"),  # date
+    re.compile(r"\d+\s*(ms|s|min|Minuten)\b", re.IGNORECASE),
     # Root-cause labels
-    re.compile(r'\bpre-existing\b|\bvorbestehend\b', re.IGNORECASE),
-    re.compile(r'\bnot my code\b|\bnicht mein code\b', re.IGNORECASE),
-    re.compile(r'\binfra smell\b', re.IGNORECASE),
+    re.compile(r"\bpre-existing\b|\bvorbestehend\b", re.IGNORECASE),
+    re.compile(r"\bnot my code\b|\bnicht mein code\b", re.IGNORECASE),
+    re.compile(r"\binfra smell\b", re.IGNORECASE),
     # Magnitude word
-    re.compile(r'\bändert alles\b', re.IGNORECASE),
+    re.compile(r"\bändert alles\b", re.IGNORECASE),
 ]
 
 # ---------------------------------------------------------------------------
@@ -74,7 +75,10 @@ RETRACTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bR(?:ü|ue)cknahme\b", re.IGNORECASE),
     re.compile(r"\bzur(?:ü|ue)ck(?:zu)?(?:nehmen|genommen)\b", re.IGNORECASE),
     re.compile(r"\bnehme ich zur(?:ü|ue)ck\b", re.IGNORECASE),
-    re.compile(r"\bmein(?:e)? (?:eigener? )?(?:Fehler|Aufruffehler|Messfehler)\b", re.IGNORECASE),
+    re.compile(
+        r"\bmein(?:e)? (?:eigener? )?(?:Fehler|Aufruffehler|Messfehler)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bzu scharf formuliert\b", re.IGNORECASE),
 ]
 
@@ -84,13 +88,18 @@ def _has_retraction(text: str) -> bool:
 
 
 # Tools that count as a "cited check"
-CHECK_TOOL_NAMES: frozenset[str] = frozenset({
-    "Bash", "Read", "grep", "find",
-    "mcp__github__get_file_contents",
-    "mcp__github__list_issues",
-    "mcp__github__get_pull_request",
-    "mcp__github__search_code",
-})
+CHECK_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "Bash",
+        "Read",
+        "grep",
+        "find",
+        "mcp__github__get_file_contents",
+        "mcp__github__list_issues",
+        "mcp__github__get_pull_request",
+        "mcp__github__search_code",
+    }
+)
 
 
 def _has_marker(text: str) -> bool:
@@ -132,8 +141,7 @@ def _is_real_user_message(obj: dict) -> bool:
     if isinstance(content, list):
         # Has any tool_result block → it's a callback, not a real message
         return not any(
-            isinstance(c, dict) and c.get("type") == "tool_result"
-            for c in content
+            isinstance(c, dict) and c.get("type") == "tool_result" for c in content
         )
     return True
 
@@ -215,7 +223,10 @@ def scan_project_dir(project_dir: Path) -> tuple[int, int, int]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("paths", nargs="*", help="JSONL files or project dirs to scan")
-    ap.add_argument("--repo", help="Repo slug, e.g. 'platform' → scans ~/.claude/projects/*platform*/")
+    ap.add_argument(
+        "--repo",
+        help="Repo slug, e.g. 'platform' → scans ~/.claude/projects/*platform*/",
+    )
     ap.add_argument("--verbose", "-v", action="store_true")
     args = ap.parse_args()
 
@@ -226,7 +237,10 @@ def main() -> int:
         base = Path.home() / ".claude" / "projects"
         matches = [p for p in base.iterdir() if slug in p.name]
         if not matches:
-            print(f"No project dir found matching repo '{args.repo}' under {base}", file=sys.stderr)
+            print(
+                f"No project dir found matching repo '{args.repo}' under {base}",
+                file=sys.stderr,
+            )
             return 2
         targets.extend(matches)
     elif args.paths:
@@ -245,7 +259,9 @@ def main() -> int:
                 c, t, k = measure_file(f)
                 if args.verbose and t > 0:
                     r = c / t
-                    print(f"  {f.parent.name}/{f.name}: R={r:.2f} ({c}/{t}) K-Turns={k}")
+                    print(
+                        f"  {f.parent.name}/{f.name}: R={r:.2f} ({c}/{t}) K-Turns={k}"
+                    )
                 grand_checked += c
                 grand_total += t
                 grand_retr += k
@@ -269,7 +285,9 @@ def main() -> int:
         print(f"R = {r:.3f}  ({grand_checked}/{grand_total})")
         print()
         if r < 0.5:
-            print("⚠  R below 0.5 — policy effectiveness unproven; consider cut or patch.")
+            print(
+                "⚠  R below 0.5 — policy effectiveness unproven; consider cut or patch."
+            )
         elif r < 0.7:
             print("~  R between 0.5 and 0.7 — policy is improving, not yet strong.")
         else:
@@ -279,10 +297,16 @@ def main() -> int:
         print("First measurement target: 2026-06-15 (~10 sessions post-merge).")
         k100 = 100.0 * grand_retr / grand_total
         print()
-        print(f"Signal K (Ruecknahme-Turns je 100 Marker-Claims): {k100:.1f}  ({grand_retr}/{grand_total})")
-        print("  R hoch + K hoch  -> Pruefung als Ritual (Werkzeug lief, Aussage trotzdem kassiert)")
+        print(
+            f"Signal K (Ruecknahme-Turns je 100 Marker-Claims): {k100:.1f}  ({grand_retr}/{grand_total})"
+        )
+        print(
+            "  R hoch + K hoch  -> Pruefung als Ritual (Werkzeug lief, Aussage trotzdem kassiert)"
+        )
         print("  K ist UNVALIDIERT: zaehlt Woerter, nicht Wahrheit — Validierung gegen")
-        print("  Retro-Scorecards steht aus (schlechte Sessions muessen hoeher liegen).")
+        print(
+            "  Retro-Scorecards steht aus (schlechte Sessions muessen hoeher liegen)."
+        )
     else:
         print("R = n/a  (no marker-claim turns found in scanned transcripts)")
 

@@ -43,12 +43,16 @@ def _lint(tmp_path, body):
 
 
 def test_should_pass_clean_reference_to_active_adr(tmp_path):
-    findings = _lint(tmp_path, "# ADR-100\n\nSiehe ADR-101 und [ADR-101](ADR-101-bar-pattern.md).\n")
+    findings = _lint(
+        tmp_path, "# ADR-100\n\nSiehe ADR-101 und [ADR-101](ADR-101-bar-pattern.md).\n"
+    )
     assert findings == []
 
 
 def test_should_skip_self_reference(tmp_path):
-    findings = _lint(tmp_path, "# ADR-100\n\nDieses ADR-100 referenziert sich selbst.\n")
+    findings = _lint(
+        tmp_path, "# ADR-100\n\nDieses ADR-100 referenziert sich selbst.\n"
+    )
     assert findings == []
 
 
@@ -128,7 +132,9 @@ def test_should_dedupe_same_finding_per_line(tmp_path):
     assert len(findings) == 1
 
 
-def test_should_exit_zero_in_suggest_mode_despite_findings(tmp_path, monkeypatch, capsys):
+def test_should_exit_zero_in_suggest_mode_despite_findings(
+    tmp_path, monkeypatch, capsys
+):
     adr_dir = _mk_corpus(tmp_path)
     (adr_dir / "ADR-100-foo-service.md").write_text(
         "# ADR-100\n\nSiehe ADR-999.\n", encoding="utf-8"

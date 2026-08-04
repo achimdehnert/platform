@@ -51,7 +51,9 @@ def test_should_find_a_dead_ip(repo):
 
 def test_should_ignore_a_dead_marker_that_only_appears_in_a_comment(repo):
     # der Realfall vom 2026-07-17 (weltenhub) — Fehlalarm vor dem Fix
-    p = datei(repo, "docker-compose.prod.yml", "# frueher: alt-hub.example\nservices: {}\n")
+    p = datei(
+        repo, "docker-compose.prod.yml", "# frueher: alt-hub.example\nservices: {}\n"
+    )
 
     assert dc.scan_file(p, HOSTS, IPS) == []
 

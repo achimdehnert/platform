@@ -14,6 +14,7 @@ import pytest
 def user(db):
     """Standard authenticated user."""
     from tests.factories import UserFactory
+
     return UserFactory()
 
 
@@ -21,6 +22,7 @@ def user(db):
 def admin_user(db):
     """Admin user with superuser rights."""
     from tests.factories import UserFactory
+
     return UserFactory(is_staff=True, is_superuser=True)
 
 

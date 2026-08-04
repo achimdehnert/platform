@@ -16,6 +16,7 @@ Gate-Integration:
                         da tenant_id nur für Multi-Tenant-Repos Pflicht)
   G-002 → Gate 2 (Human Approval Required)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -175,14 +176,11 @@ def check_g001_model_without_migration(
     """G-001: Model-\u00c4nderung ohne Migration?"""
     violations: list[Violation] = []
     model_files = [
-        f for f in files
-        if f["path"].endswith("models.py")
-        or f["path"].endswith("models_testing.py")
+        f
+        for f in files
+        if f["path"].endswith("models.py") or f["path"].endswith("models_testing.py")
     ]
-    migration_files = [
-        f for f in files
-        if "/migrations/" in f["path"]
-    ]
+    migration_files = [f for f in files if "/migrations/" in f["path"]]
 
     model_patterns = [
         r"class\s+\w+\(.*Model\)",
@@ -193,24 +191,23 @@ def check_g001_model_without_migration(
 
     for mf in model_files:
         added = "\n".join(mf["added_lines"])
-        has_model_change = any(
-            re.search(p, added) for p in model_patterns
-        )
+        has_model_change = any(re.search(p, added) for p in model_patterns)
         if has_model_change and not migration_files:
-            violations.append(Violation(
-                rule="G-001",
-                gate=Gate.AUTO_WARN,
-                file=mf["path"],
-                line=mf["hunks"][0] if mf["hunks"] else None,
-                message=(
-                    "Model-\u00c4nderung erkannt aber keine "
-                    "Migration in diesem PR"
-                ),
-                suggestion=(
-                    "F\u00fchre `python manage.py makemigrations` "
-                    "aus und f\u00fcge die Migration dem PR hinzu"
-                ),
-            ))
+            violations.append(
+                Violation(
+                    rule="G-001",
+                    gate=Gate.AUTO_WARN,
+                    file=mf["path"],
+                    line=mf["hunks"][0] if mf["hunks"] else None,
+                    message=(
+                        "Model-\u00c4nderung erkannt aber keine Migration in diesem PR"
+                    ),
+                    suggestion=(
+                        "F\u00fchre `python manage.py makemigrations` "
+                        "aus und f\u00fcge die Migration dem PR hinzu"
+                    ),
+                )
+            )
 
     return violations
 
@@ -238,30 +235,27 @@ def check_g002_api_signature_changed(
             continue
         if not (
             f["path"].endswith(".py")
-            and any(
-                x in f["path"]
-                for x in ["serializers", "views", "urls", "api"]
-            )
+            and any(x in f["path"] for x in ["serializers", "views", "urls", "api"])
         ):
             continue
 
         removed = "\n".join(f["removed_lines"])
         for pattern, label in api_patterns:
             if re.search(pattern, removed):
-                violations.append(Violation(
-                    rule="G-002",
-                    gate=Gate.HUMAN_APPROVAL,
-                    file=f["path"],
-                    line=f["hunks"][0] if f["hunks"] else None,
-                    message=(
-                        f"Public API {label} wurde ge\u00e4ndert/entfernt"
-                    ),
-                    suggestion=(
-                        "Pr\u00fcfe ob bestehende Clients betroffen "
-                        "sind. Nutze Expand/Contract Pattern "
-                        "(ADR-042) f\u00fcr Breaking Changes"
-                    ),
-                ))
+                violations.append(
+                    Violation(
+                        rule="G-002",
+                        gate=Gate.HUMAN_APPROVAL,
+                        file=f["path"],
+                        line=f["hunks"][0] if f["hunks"] else None,
+                        message=(f"Public API {label} wurde ge\u00e4ndert/entfernt"),
+                        suggestion=(
+                            "Pr\u00fcfe ob bestehende Clients betroffen "
+                            "sind. Nutze Expand/Contract Pattern "
+                            "(ADR-042) f\u00fcr Breaking Changes"
+                        ),
+                    )
+                )
 
     return violations
 
@@ -278,7 +272,8 @@ def check_g003_model_without_tenant_id(
 
         added = "\n".join(f["added_lines"])
         new_models = re.findall(
-            r"class\s+(\w+)\(.*Model\)", added,
+            r"class\s+(\w+)\(.*Model\)",
+            added,
         )
 
         for model_name in new_models:
@@ -288,21 +283,20 @@ def check_g003_model_without_tenant_id(
                 continue
 
             if "tenant_id" not in added:
-                violations.append(Violation(
-                    rule="G-003",
-                    gate=Gate.AUTO_WARN,  # Nur Warning: tenant_id nur für weltenhub/risk-hub Pflicht
-                    file=f["path"],
-                    line=f["hunks"][0] if f["hunks"] else None,
-                    message=(
-                        f"Neues Model `{model_name}` ohne "
-                        "`tenant_id` Feld"
-                    ),
-                    suggestion=(
-                        "Für Multi-Tenant-Repos (weltenhub, risk-hub): "
-                        "`tenant_id = UUIDField(db_index=True)` ergänzen. "
-                        "Für Single-Tenant-Repos: kein tenant_id nötig."
-                    ),
-                ))
+                violations.append(
+                    Violation(
+                        rule="G-003",
+                        gate=Gate.AUTO_WARN,  # Nur Warning: tenant_id nur für weltenhub/risk-hub Pflicht
+                        file=f["path"],
+                        line=f["hunks"][0] if f["hunks"] else None,
+                        message=(f"Neues Model `{model_name}` ohne `tenant_id` Feld"),
+                        suggestion=(
+                            "Für Multi-Tenant-Repos (weltenhub, risk-hub): "
+                            "`tenant_id = UUIDField(db_index=True)` ergänzen. "
+                            "Für Single-Tenant-Repos: kein tenant_id nötig."
+                        ),
+                    )
+                )
 
     return violations
 
@@ -317,20 +311,21 @@ def check_g004_pr_too_large(
     total_changed = total_added + total_removed
 
     if total_changed > threshold:
-        return [Violation(
-            rule="G-004",
-            gate=Gate.AUTO_WARN,
-            file="(gesamt)",
-            line=None,
-            message=(
-                f"PR hat {total_changed} ge\u00e4nderte Zeilen "
-                f"(Limit: {threshold})"
-            ),
-            suggestion=(
-                "Gro\u00dfe PRs sind schwerer zu reviewen. "
-                "Erw\u00e4ge Aufteilen in kleinere PRs"
-            ),
-        )]
+        return [
+            Violation(
+                rule="G-004",
+                gate=Gate.AUTO_WARN,
+                file="(gesamt)",
+                line=None,
+                message=(
+                    f"PR hat {total_changed} ge\u00e4nderte Zeilen (Limit: {threshold})"
+                ),
+                suggestion=(
+                    "Gro\u00dfe PRs sind schwerer zu reviewen. "
+                    "Erw\u00e4ge Aufteilen in kleinere PRs"
+                ),
+            )
+        ]
 
     return []
 
@@ -364,15 +359,19 @@ def main() -> None:
         description="Architecture Guardian \u2014 PR Analyse",
     )
     parser.add_argument(
-        "--diff", type=str,
+        "--diff",
+        type=str,
         help="Pfad zu Diff-Datei (oder stdin)",
     )
     parser.add_argument(
-        "--format", choices=["markdown", "json"],
+        "--format",
+        choices=["markdown", "json"],
         default="markdown",
     )
     parser.add_argument(
-        "--threshold", type=int, default=600,
+        "--threshold",
+        type=int,
+        default=600,
         help="Max ge\u00e4nderte Zeilen (G-004)",
     )
     args = parser.parse_args()

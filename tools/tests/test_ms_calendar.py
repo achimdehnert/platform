@@ -2,6 +2,7 @@
 Zeit-Parsing, Event-Body-Bau (inkl. Stufe-A-Riegel: nie Teilnehmer), ICS-Serien-Expansion.
 Kein Graph-/Netz-Test (cmd_login/cmd_create/cmd_list bleiben Dogfood/Integration).
 """
+
 import datetime as dt
 import importlib.util
 import pathlib
@@ -16,6 +17,7 @@ _spec.loader.exec_module(mc)
 
 # --- parse_local -------------------------------------------------------------
 
+
 def test_should_convert_local_datetime_to_graph_string():
     assert mc.parse_local("2026-07-24 14:00") == "2026-07-24T14:00:00"
     assert mc.parse_local("2026-07-24T14:00") == "2026-07-24T14:00:00"
@@ -28,8 +30,11 @@ def test_should_reject_malformed_datetime():
 
 # --- build_event_body: Stufe-A-Riegel ---------------------------------------
 
+
 def test_should_build_event_with_subject_start_end():
-    b = mc.build_event_body("Prüfungsvorbereitung", "2026-07-24 14:00", "2026-07-24 16:00", "", "")
+    b = mc.build_event_body(
+        "Prüfungsvorbereitung", "2026-07-24 14:00", "2026-07-24 16:00", "", ""
+    )
     assert b["subject"] == "Prüfungsvorbereitung"
     assert b["start"]["dateTime"] == "2026-07-24T14:00:00"
     assert b["start"]["timeZone"] == mc.TIMEZONE
@@ -38,7 +43,9 @@ def test_should_build_event_with_subject_start_end():
 
 def test_should_never_set_attendees_stufe_a_riegel():
     # Der harte Riegel: Stufe A legt NIE Teilnehmer an (das wäre Außenwirkung, Stufe B).
-    b = mc.build_event_body("Block", "2026-07-24 09:00", "2026-07-24 10:00", "Büro", "Notiz")
+    b = mc.build_event_body(
+        "Block", "2026-07-24 09:00", "2026-07-24 10:00", "Büro", "Notiz"
+    )
     assert b["attendees"] == []
     assert b["location"]["displayName"] == "Büro"
     assert b["body"]["content"] == "Notiz"
@@ -52,6 +59,7 @@ def test_should_omit_optional_fields_when_empty():
 
 # --- ics_events: Serien-Expansion (netzfrei via monkeypatch) -----------------
 
+
 def test_should_expand_weekly_series(monkeypatch):
     ics = (
         "BEGIN:VCALENDAR\n"
@@ -63,6 +71,7 @@ def test_should_expand_weekly_series(monkeypatch):
 
     class _Resp:
         text = ics
+
         def raise_for_status(self):
             pass
 

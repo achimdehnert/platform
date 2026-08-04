@@ -7,6 +7,7 @@ the retro verified manually — comment-skip, word-boundary, --pin, idempotency.
 Run: `python3 -m pytest tools/tests/test_ref_sweep.py -q`
 (ref-sweep.py has a hyphen → loaded via importlib.)
 """
+
 import importlib.util
 import pathlib
 
@@ -66,17 +67,21 @@ def test_should_be_idempotent_when_already_new():
 
 
 def test_should_rewrite_only_real_uses_in_multiline():
-    text = "\n".join([
-        "# uses: achimdehnert/platform/x@v1   (banner, must stay)",
-        "jobs:",
-        "  ci:",
-        "    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main",
-        "    runs-on: ubuntu-latest",
-    ])
+    text = "\n".join(
+        [
+            "# uses: achimdehnert/platform/x@v1   (banner, must stay)",
+            "jobs:",
+            "  ci:",
+            "    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main",
+            "    runs-on: ubuntu-latest",
+        ]
+    )
     out, n = rs.rewrite_uses(text, OLD, NEW, "v1.0.0")
     assert n == 1  # only the real uses line, NOT the banner comment
     assert "iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.0" in out
-    assert out.splitlines()[0].startswith("# uses: achimdehnert/platform")  # banner untouched
+    assert out.splitlines()[0].startswith(
+        "# uses: achimdehnert/platform"
+    )  # banner untouched
 
 
 def test_should_not_change_text_without_uses():

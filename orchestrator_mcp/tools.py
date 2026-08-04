@@ -109,15 +109,31 @@ def agent_team_status() -> dict[str, Any]:
 def _get_routing_summary() -> list[dict[str, str]]:
     return [
         {"task_type": "adr", "routes_to": AgentRole.TECH_LEAD.value, "gate": "3"},
-        {"task_type": "architecture", "routes_to": AgentRole.TECH_LEAD.value, "gate": "3"},
+        {
+            "task_type": "architecture",
+            "routes_to": AgentRole.TECH_LEAD.value,
+            "gate": "3",
+        },
         {"task_type": "concept", "routes_to": AgentRole.TECH_LEAD.value, "gate": "3"},
         {"task_type": "feature", "routes_to": AgentRole.DEVELOPER.value, "gate": "1"},
         {"task_type": "bugfix", "routes_to": AgentRole.DEVELOPER.value, "gate": "1"},
         {"task_type": "test", "routes_to": AgentRole.TESTER.value, "gate": "0"},
-        {"task_type": "deployment", "routes_to": AgentRole.DEPLOYMENT.value, "gate": "2"},
+        {
+            "task_type": "deployment",
+            "routes_to": AgentRole.DEPLOYMENT.value,
+            "gate": "2",
+        },
         {"task_type": "pr_review", "routes_to": AgentRole.REVIEW.value, "gate": "1"},
-        {"task_type": "refactor", "routes_to": AgentRole.RE_ENGINEER.value, "gate": "2"},
-        {"task_type": "tech_debt", "routes_to": AgentRole.RE_ENGINEER.value, "gate": "2"},
+        {
+            "task_type": "refactor",
+            "routes_to": AgentRole.RE_ENGINEER.value,
+            "gate": "2",
+        },
+        {
+            "task_type": "tech_debt",
+            "routes_to": AgentRole.RE_ENGINEER.value,
+            "gate": "2",
+        },
     ]
 
 
@@ -171,13 +187,20 @@ def analyze_task(description: str) -> dict[str, Any]:
     """
     description_lower = description.lower()
 
-    if any(kw in description_lower for kw in ("adr", "architecture", "design", "concept")):
+    if any(
+        kw in description_lower for kw in ("adr", "architecture", "design", "concept")
+    ):
         task_type = "adr"
         complexity = "architectural"
-    elif any(kw in description_lower for kw in ("deploy", "deployment", "migrate", "migration")):
+    elif any(
+        kw in description_lower
+        for kw in ("deploy", "deployment", "migrate", "migration")
+    ):
         task_type = "deployment"
         complexity = "moderate"
-    elif any(kw in description_lower for kw in ("test", "coverage", "pytest", "fixture")):
+    elif any(
+        kw in description_lower for kw in ("test", "coverage", "pytest", "fixture")
+    ):
         task_type = "test"
         complexity = "simple"
     elif any(kw in description_lower for kw in ("refactor", "tech debt", "clean")):
@@ -223,9 +246,8 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
     action_lower = action.lower()
     component_lower = component.lower()
 
-    requires_gate2 = (
-        any(d in action_lower for d in DESTRUCTIVE_ACTIONS)
-        or any(c in component_lower for c in GATE2_COMPONENTS)
+    requires_gate2 = any(d in action_lower for d in DESTRUCTIVE_ACTIONS) or any(
+        c in component_lower for c in GATE2_COMPONENTS
     )
 
     if requires_gate2:
@@ -253,19 +275,19 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
 
 # Cost per 1k tokens (input+output blended estimate)
 _COST_PER_1K: dict[str, float] = {
-    "opus":      0.015,   # Claude Opus / Cascade Pro
-    "swe":       0.003,   # SWE-1 / claude-3-5-sonnet
-    "gpt_low":   0.001,   # GPT-4o-mini
+    "opus": 0.015,  # Claude Opus / Cascade Pro
+    "swe": 0.003,  # SWE-1 / claude-3-5-sonnet
+    "gpt_low": 0.001,  # GPT-4o-mini
     "grok_fast": 0.0002,  # xAI Grok-3-fast — docu/test tasks, lowest cost
-    "cascade":   0.015,   # Windsurf Cascade (Opus-tier, for comparison)
+    "cascade": 0.015,  # Windsurf Cascade (Opus-tier, for comparison)
 }
 
 # Cascade baseline: typical tokens per session type (empirical estimates)
 _CASCADE_BASELINE: dict[str, int] = {
-    "trivial":       15_000,
-    "simple":        40_000,
-    "moderate":      80_000,
-    "complex":      150_000,
+    "trivial": 15_000,
+    "simple": 40_000,
+    "moderate": 80_000,
+    "complex": 150_000,
     "architectural": 250_000,
 }
 
@@ -294,16 +316,22 @@ def get_cost_estimate(
     """
     from orchestrator_mcp.agent_team.evaluator import TOKEN_BUDGETS
 
-    agent_tokens = estimated_tokens or TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
+    agent_tokens = estimated_tokens or TOKEN_BUDGETS.get(
+        complexity, TOKEN_BUDGETS["moderate"]
+    )
     agent_rate = _COST_PER_1K.get(model, _COST_PER_1K["swe"])
     agent_cost = round((agent_tokens / 1000) * agent_rate, 4)
 
     # Cascade comparison (always Opus-tier pricing)
-    cascade_tok = cascade_tokens or _CASCADE_BASELINE.get(complexity, _CASCADE_BASELINE["moderate"])
+    cascade_tok = cascade_tokens or _CASCADE_BASELINE.get(
+        complexity, _CASCADE_BASELINE["moderate"]
+    )
     cascade_cost = round((cascade_tok / 1000) * _COST_PER_1K["cascade"], 4)
 
     savings_usd = round(cascade_cost - agent_cost, 4)
-    savings_pct = round((savings_usd / cascade_cost) * 100, 1) if cascade_cost > 0 else 0.0
+    savings_pct = (
+        round((savings_usd / cascade_cost) * 100, 1) if cascade_cost > 0 else 0.0
+    )
 
     budget = TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
 
@@ -379,9 +407,9 @@ def evaluate_task(
     )
 
     recommendation = {
-        "none":     "Task complete — ship it.",
-        "soft":     "Retry with feedback — score below threshold.",
-        "hard":     "Revert to last known good — critical quality gap.",
+        "none": "Task complete — ship it.",
+        "soft": "Retry with feedback — score below threshold.",
+        "hard": "Revert to last known good — critical quality gap.",
         "escalate": "Human intervention required — score critically low.",
     }[score.rollback_level.value]
 
@@ -391,17 +419,17 @@ def evaluate_task(
         "rollback_level": score.rollback_level.value,
         "recommendation": recommendation,
         "sub_scores": {
-            "completion":    round(score.completion_score, 3),
-            "guardian":      round(score.guardian_score, 3),
+            "completion": round(score.completion_score, 3),
+            "guardian": round(score.guardian_score, 3),
             "adr_compliance": round(score.adr_compliance_score, 3),
-            "iteration":     round(score.iteration_score, 3),
-            "token":         round(score.token_score, 3),
+            "iteration": round(score.iteration_score, 3),
+            "token": round(score.token_score, 3),
         },
         "metrics": {
             "iterations_used": score.iterations_used,
-            "tokens_used":     score.tokens_used,
-            "token_budget":    score.token_budget,
-            "complexity":      score.complexity,
+            "tokens_used": score.tokens_used,
+            "token_budget": score.token_budget,
+            "complexity": score.complexity,
         },
         "adr_reference": "ADR-108",
     }
@@ -441,26 +469,32 @@ def verify_task(
 
     enriched = list(criteria)
     if tests_passed is not None:
-        enriched.append({
-            "description": "All tests pass",
-            "met": tests_passed,
-            "blocking": True,
-            "evidence": "pytest exit code 0" if tests_passed else "pytest failures",
-        })
+        enriched.append(
+            {
+                "description": "All tests pass",
+                "met": tests_passed,
+                "blocking": True,
+                "evidence": "pytest exit code 0" if tests_passed else "pytest failures",
+            }
+        )
     if lint_passed is not None:
-        enriched.append({
-            "description": "Lint clean (ruff)",
-            "met": lint_passed,
-            "blocking": True,
-            "evidence": "ruff check passed" if lint_passed else "ruff errors found",
-        })
+        enriched.append(
+            {
+                "description": "Lint clean (ruff)",
+                "met": lint_passed,
+                "blocking": True,
+                "evidence": "ruff check passed" if lint_passed else "ruff errors found",
+            }
+        )
     if adr_violations > 0:
-        enriched.append({
-            "description": f"No ADR violations ({adr_violations} found)",
-            "met": False,
-            "blocking": True,
-            "evidence": f"{adr_violations} violation(s) from platform-context check",
-        })
+        enriched.append(
+            {
+                "description": f"No ADR violations ({adr_violations} found)",
+                "met": False,
+                "blocking": True,
+                "evidence": f"{adr_violations} violation(s) from platform-context check",
+            }
+        )
 
     result = checker.from_dict(enriched)
 
@@ -473,7 +507,9 @@ def verify_task(
     elif adr_violations > 0:
         next_action = "fix_adr — resolve platform-context violations"
     else:
-        next_action = f"fix_criteria — {len(result.blocking_open)} blocking criteria open"
+        next_action = (
+            f"fix_criteria — {len(result.blocking_open)} blocking criteria open"
+        )
 
     return {
         "task_id": task_id,
@@ -513,33 +549,61 @@ def get_infra_context() -> dict[str, Any]:
     mcp_servers = {
         "deployment-mcp": {
             "prefix": "mcp5_",
-            "capabilities": ["ssh_manage", "docker_manage", "git_manage",
-                              "database_manage", "system_manage"],
+            "capabilities": [
+                "ssh_manage",
+                "docker_manage",
+                "git_manage",
+                "database_manage",
+                "system_manage",
+            ],
             "target": "hetzner-prod (88.198.191.108), user=deploy",
         },
         "orchestrator": {
             "prefix": "mcp11_",
-            "capabilities": ["agent_team_status", "agent_plan_task", "analyze_task",
-                              "deploy_check", "get_cost_estimate", "evaluate_task",
-                              "verify_task", "get_infra_context", "log_action"],
+            "capabilities": [
+                "agent_team_status",
+                "agent_plan_task",
+                "analyze_task",
+                "deploy_check",
+                "get_cost_estimate",
+                "evaluate_task",
+                "verify_task",
+                "get_infra_context",
+                "log_action",
+            ],
             "target": "local (platform/orchestrator_mcp)",
         },
         "platform-context": {
             "prefix": "mcp12_",
-            "capabilities": ["get_context_for_task", "check_violations",
-                              "get_banned_patterns", "get_project_facts"],
+            "capabilities": [
+                "get_context_for_task",
+                "check_violations",
+                "get_banned_patterns",
+                "get_project_facts",
+            ],
             "target": "local (ADR knowledge graph)",
         },
         "github": {
             "prefix": "mcp8_",
-            "capabilities": ["issues", "pull_requests", "repos", "branches",
-                              "reviews", "push_files"],
+            "capabilities": [
+                "issues",
+                "pull_requests",
+                "repos",
+                "branches",
+                "reviews",
+                "push_files",
+            ],
             "target": "github.com/achimdehnert",
         },
         "cloudflare-api": {
             "prefix": "mcp_cloudflare_",
-            "capabilities": ["dns_list", "dns_create", "dns_update",
-                              "zones", "tunnels"],
+            "capabilities": [
+                "dns_list",
+                "dns_create",
+                "dns_update",
+                "zones",
+                "tunnels",
+            ],
             "target": "Cloudflare (API-Keys in Windsurf-Secrets)",
         },
     }

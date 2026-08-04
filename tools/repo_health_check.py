@@ -12,6 +12,7 @@ Exit codes:
     0 = alle BLOCK-Items OK
     1 = ein oder mehr BLOCK-Items fehlgeschlagen
 """
+
 from __future__ import annotations
 
 import argparse
@@ -75,8 +76,15 @@ def _read_pyproject(path: Path) -> dict:
 
 
 _TEST_EXCLUDE_PARTS = {
-    "_archive", "_ARCHIVED", ".venv", "venv", "env",
-    "node_modules", "__pycache__", ".tox", ".git",
+    "_archive",
+    "_ARCHIVED",
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "__pycache__",
+    ".tox",
+    ".git",
 }
 
 
@@ -120,7 +128,7 @@ def _yaml_get_2level(text: str, section: str, field: str) -> str | None:
         indent = len(line) - len(stripped)
         if indent == 0 and ":" in stripped:
             key = stripped.split(":", 1)[0].strip()
-            in_section = (key == section)
+            in_section = key == section
             section_indent = 0
             continue
         if in_section and indent > 0:
@@ -196,9 +204,15 @@ def _check_django_test_settings(path: Path) -> tuple[bool, str]:
         for prefix in [*pythonpath, ""]:
             full = path / prefix / rel_path
             if full.exists():
-                return True, f"found via DJANGO_SETTINGS_MODULE: {full.relative_to(path)}"
+                return (
+                    True,
+                    f"found via DJANGO_SETTINGS_MODULE: {full.relative_to(path)}",
+                )
 
-    return False, "no test settings (tried sub-package, flat, pyproject DJANGO_SETTINGS_MODULE)"
+    return (
+        False,
+        "no test settings (tried sub-package, flat, pyproject DJANGO_SETTINGS_MODULE)",
+    )
 
 
 def _check_ci_build_dependency(workflows_dir: Path) -> tuple[bool, str]:
@@ -221,6 +235,7 @@ def _check_ci_build_dependency(workflows_dir: Path) -> tuple[bool, str]:
 # Python Package Checks
 # ─────────────────────────────────────────────
 
+
 def check_python_package(path: Path) -> HealthReport:
     report = HealthReport(profile="python-package", path=path)
     add = report.results.append
@@ -230,8 +245,15 @@ def check_python_package(path: Path) -> HealthReport:
 
     # ── pyproject.toml fields ──
     required_fields = [
-        "name", "version", "description", "readme",
-        "requires-python", "license", "authors", "keywords", "classifiers",
+        "name",
+        "version",
+        "description",
+        "readme",
+        "requires-python",
+        "license",
+        "authors",
+        "keywords",
+        "classifiers",
     ]
     for f in required_fields:
         val = project.get(f)
@@ -241,47 +263,57 @@ def check_python_package(path: Path) -> HealthReport:
 
     # description must not be empty or "None"
     desc = project.get("description", "")
-    add(CheckResult(
-        "pyproject[description] not-empty",
-        "BLOCK",
-        bool(desc) and desc.strip() not in ("", "None"),
-        "" if desc else "description is empty or missing",
-    ))
+    add(
+        CheckResult(
+            "pyproject[description] not-empty",
+            "BLOCK",
+            bool(desc) and desc.strip() not in ("", "None"),
+            "" if desc else "description is empty or missing",
+        )
+    )
 
     # URLs
     urls = project.get("urls", {})
     for url_key in ["Homepage", "Repository"]:
-        add(CheckResult(
-            f"pyproject[urls][{url_key}]",
-            "BLOCK",
-            url_key in urls,
-            "" if url_key in urls else f"missing [project.urls] {url_key}",
-        ))
+        add(
+            CheckResult(
+                f"pyproject[urls][{url_key}]",
+                "BLOCK",
+                url_key in urls,
+                "" if url_key in urls else f"missing [project.urls] {url_key}",
+            )
+        )
 
     # Optional-deps: dev group
     opt_deps = data.get("project", {}).get("optional-dependencies", {})
-    add(CheckResult(
-        "pyproject[optional-dependencies][dev]",
-        "SUGGEST",
-        "dev" in opt_deps,
-    ))
+    add(
+        CheckResult(
+            "pyproject[optional-dependencies][dev]",
+            "SUGGEST",
+            "dev" in opt_deps,
+        )
+    )
 
     # pytest config
     pytest_cfg = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
-    add(CheckResult(
-        "pyproject[tool.pytest.ini_options]",
-        "SUGGEST",
-        bool(pytest_cfg.get("testpaths")),
-        "" if pytest_cfg.get("testpaths") else "testpaths not set",
-    ))
+    add(
+        CheckResult(
+            "pyproject[tool.pytest.ini_options]",
+            "SUGGEST",
+            bool(pytest_cfg.get("testpaths")),
+            "" if pytest_cfg.get("testpaths") else "testpaths not set",
+        )
+    )
 
     # ruff config
     ruff_cfg = data.get("tool", {}).get("ruff", {})
-    add(CheckResult(
-        "pyproject[tool.ruff]",
-        "SUGGEST",
-        bool(ruff_cfg),
-    ))
+    add(
+        CheckResult(
+            "pyproject[tool.ruff]",
+            "SUGGEST",
+            bool(ruff_cfg),
+        )
+    )
 
     # ── Required files ──
     block_files = ["README.md", ".gitignore", "pyproject.toml"]
@@ -290,12 +322,14 @@ def check_python_package(path: Path) -> HealthReport:
 
     # tests/ directory
     tests_dir = path / "tests"
-    add(CheckResult(
-        "dir:tests/",
-        "BLOCK",
-        tests_dir.is_dir(),
-        "" if tests_dir.is_dir() else "tests/ directory missing",
-    ))
+    add(
+        CheckResult(
+            "dir:tests/",
+            "BLOCK",
+            tests_dir.is_dir(),
+            "" if tests_dir.is_dir() else "tests/ directory missing",
+        )
+    )
 
     # Makefile
     add(CheckResult("file:Makefile", "SUGGEST", _file_exists(path, "Makefile")))
@@ -309,29 +343,41 @@ def check_python_package(path: Path) -> HealthReport:
     add(CheckResult("README.md content", "SUGGEST", passed, detail))
 
     # gitignore deckt generierte/Editor-Cruft ab (ADR-230, platform convention)
-    gi = (path / ".gitignore").read_text(encoding="utf-8") if (path / ".gitignore").exists() else ""
+    gi = (
+        (path / ".gitignore").read_text(encoding="utf-8")
+        if (path / ".gitignore").exists()
+        else ""
+    )
     gi_lines = {line.strip() for line in gi.splitlines()}
     for entry in ("NEXT.md", ".windsurfignore", ".windsurf/"):
-        add(CheckResult(
-            f"gitignore:{entry}",
-            "SUGGEST",
-            entry in gi_lines,
-            "" if entry in gi_lines else f"{entry} nicht in .gitignore",
-        ))
+        add(
+            CheckResult(
+                f"gitignore:{entry}",
+                "SUGGEST",
+                entry in gi_lines,
+                "" if entry in gi_lines else f"{entry} nicht in .gitignore",
+            )
+        )
 
     # ── CI Workflows ──
     workflows_dir = path / ".github" / "workflows"
-    add(CheckResult(
-        "ci:test.yml exists",
-        "BLOCK",
-        (workflows_dir / "test.yml").exists(),
-        "" if (workflows_dir / "test.yml").exists() else "create .github/workflows/test.yml",
-    ))
-    add(CheckResult(
-        "ci:publish.yml exists",
-        "BLOCK",
-        (workflows_dir / "publish.yml").exists(),
-    ))
+    add(
+        CheckResult(
+            "ci:test.yml exists",
+            "BLOCK",
+            (workflows_dir / "test.yml").exists(),
+            ""
+            if (workflows_dir / "test.yml").exists()
+            else "create .github/workflows/test.yml",
+        )
+    )
+    add(
+        CheckResult(
+            "ci:publish.yml exists",
+            "BLOCK",
+            (workflows_dir / "publish.yml").exists(),
+        )
+    )
 
     # Publish gate: publish.yml must have 'needs: test' or 'needs: [test'
     publish_yml = workflows_dir / "publish.yml"
@@ -342,28 +388,44 @@ def check_python_package(path: Path) -> HealthReport:
             or "needs: [test" in content
             or "needs:\n      - test" in content
         )
-        add(CheckResult(
-            "ci:publish.yml has needs:test gate",
-            "BLOCK",
-            has_gate,
-            "" if has_gate else "add 'needs: test' to build job in publish.yml",
-        ))
+        add(
+            CheckResult(
+                "ci:publish.yml has needs:test gate",
+                "BLOCK",
+                has_gate,
+                "" if has_gate else "add 'needs: test' to build job in publish.yml",
+            )
+        )
     else:
-        add(CheckResult("ci:publish.yml has needs:test gate", "BLOCK", False, "publish.yml missing"))
+        add(
+            CheckResult(
+                "ci:publish.yml has needs:test gate",
+                "BLOCK",
+                False,
+                "publish.yml missing",
+            )
+        )
 
     # test.yml triggers
     test_yml = workflows_dir / "test.yml"
     if test_yml.exists():
         content = test_yml.read_text(encoding="utf-8")
-        add(CheckResult(
-            "ci:test.yml triggers push+PR",
-            "BLOCK",
-            "pull_request" in content and "push" in content,
-            "" if ("pull_request" in content and "push" in content)
-            else "test.yml must trigger on push AND pull_request",
-        ))
+        add(
+            CheckResult(
+                "ci:test.yml triggers push+PR",
+                "BLOCK",
+                "pull_request" in content and "push" in content,
+                ""
+                if ("pull_request" in content and "push" in content)
+                else "test.yml must trigger on push AND pull_request",
+            )
+        )
     else:
-        add(CheckResult("ci:test.yml triggers push+PR", "BLOCK", False, "test.yml missing"))
+        add(
+            CheckResult(
+                "ci:test.yml triggers push+PR", "BLOCK", False, "test.yml missing"
+            )
+        )
 
     # ── Tests run ──
     if tests_dir.is_dir():
@@ -378,6 +440,7 @@ def check_python_package(path: Path) -> HealthReport:
 # ─────────────────────────────────────────────
 # Django App Checks
 # ─────────────────────────────────────────────
+
 
 def check_django_app(path: Path) -> HealthReport:
     report = HealthReport(profile="django-app", path=path)
@@ -402,9 +465,8 @@ def check_django_app(path: Path) -> HealthReport:
     add(CheckResult("file:Dockerfile", "BLOCK", dockerfile_exists))
 
     # docker-compose.prod.yml
-    compose_exists = (
-        _file_exists(path, "docker-compose.prod.yml")
-        or _file_exists(path, "deploy/docker-compose.prod.yml")
+    compose_exists = _file_exists(path, "docker-compose.prod.yml") or _file_exists(
+        path, "deploy/docker-compose.prod.yml"
     )
     add(CheckResult("file:docker-compose.prod.yml", "BLOCK", compose_exists))
 
@@ -418,46 +480,59 @@ def check_django_app(path: Path) -> HealthReport:
     add(CheckResult("README.md content", "SUGGEST", passed, detail))
 
     # gitignore deckt generierte/Editor-Cruft ab (ADR-230, platform convention)
-    gi = (path / ".gitignore").read_text(encoding="utf-8") if (path / ".gitignore").exists() else ""
+    gi = (
+        (path / ".gitignore").read_text(encoding="utf-8")
+        if (path / ".gitignore").exists()
+        else ""
+    )
     gi_lines = {line.strip() for line in gi.splitlines()}
     for entry in ("NEXT.md", ".windsurfignore", ".windsurf/"):
-        add(CheckResult(
-            f"gitignore:{entry}",
-            "SUGGEST",
-            entry in gi_lines,
-            "" if entry in gi_lines else f"{entry} nicht in .gitignore",
-        ))
+        add(
+            CheckResult(
+                f"gitignore:{entry}",
+                "SUGGEST",
+                entry in gi_lines,
+                "" if entry in gi_lines else f"{entry} nicht in .gitignore",
+            )
+        )
 
     # Makefile contains DJANGO_SETTINGS_MODULE
     if _file_exists(path, "Makefile"):
-        add(CheckResult(
-            "Makefile:DJANGO_SETTINGS_MODULE",
-            "BLOCK",
-            _file_contains(path, "Makefile", "DJANGO_SETTINGS_MODULE"),
-            "Makefile must set DJANGO_SETTINGS_MODULE for make test",
-        ))
+        add(
+            CheckResult(
+                "Makefile:DJANGO_SETTINGS_MODULE",
+                "BLOCK",
+                _file_contains(path, "Makefile", "DJANGO_SETTINGS_MODULE"),
+                "Makefile must set DJANGO_SETTINGS_MODULE for make test",
+            )
+        )
 
     # ── CI Workflows ──
     workflows_dir = path / ".github" / "workflows"
     has_ci = (
-        (workflows_dir / "ci.yml").exists()
-        or any(workflows_dir.glob("*ci*.yml"))
-    ) if workflows_dir.is_dir() else False
-    add(CheckResult(
-        "ci:ci.yml exists",
-        "BLOCK",
-        has_ci,
-        "" if has_ci else "create .github/workflows/ci.yml",
-    ))
+        ((workflows_dir / "ci.yml").exists() or any(workflows_dir.glob("*ci*.yml")))
+        if workflows_dir.is_dir()
+        else False
+    )
+    add(
+        CheckResult(
+            "ci:ci.yml exists",
+            "BLOCK",
+            has_ci,
+            "" if has_ci else "create .github/workflows/ci.yml",
+        )
+    )
 
     if has_ci and workflows_dir.is_dir():
         passed, detail = _check_ci_build_dependency(workflows_dir)
-        add(CheckResult(
-            "ci:build needs:[ci]",
-            "BLOCK",
-            passed,
-            detail,
-        ))
+        add(
+            CheckResult(
+                "ci:build needs:[ci]",
+                "BLOCK",
+                passed,
+                detail,
+            )
+        )
 
     # Health endpoint
     has_livez = False
@@ -473,21 +548,25 @@ def check_django_app(path: Path) -> HealthReport:
                     pass
         if has_livez:
             break
-    add(CheckResult(
-        "django:livez-endpoint",
-        "BLOCK",
-        has_livez,
-        "" if has_livez else "add /livez/ health endpoint",
-    ))
+    add(
+        CheckResult(
+            "django:livez-endpoint",
+            "BLOCK",
+            has_livez,
+            "" if has_livez else "add /livez/ health endpoint",
+        )
+    )
 
     # test settings — accept sub-package layout, flat layout, or pyproject-declared
     passed, detail = _check_django_test_settings(path)
-    add(CheckResult(
-        "django:test-settings",
-        "BLOCK",
-        passed,
-        detail,
-    ))
+    add(
+        CheckResult(
+            "django:test-settings",
+            "BLOCK",
+            passed,
+            detail,
+        )
+    )
 
     # Tests
     tests_dir = path / "tests"
@@ -498,7 +577,11 @@ def check_django_app(path: Path) -> HealthReport:
         passed, detail = _check_test_count(path, min_count=10)
         add(CheckResult("tests:min-10-tests", "BLOCK", passed, detail))
     else:
-        add(CheckResult("tests:min-10-tests", "BLOCK", False, "no tests directory found"))
+        add(
+            CheckResult(
+                "tests:min-10-tests", "BLOCK", False, "no tests directory found"
+            )
+        )
 
     return report
 
@@ -506,6 +589,7 @@ def check_django_app(path: Path) -> HealthReport:
 # ─────────────────────────────────────────────
 # Output
 # ─────────────────────────────────────────────
+
 
 def _render_report(report: HealthReport, fmt: str = "text") -> None:
     if fmt == "json":
@@ -516,7 +600,12 @@ def _render_report(report: HealthReport, fmt: str = "text") -> None:
             "blocks_failed": len(report.blocks_failed),
             "suggests_failed": len(report.suggests_failed),
             "results": [
-                {"name": r.name, "severity": r.severity, "passed": r.passed, "detail": r.detail}
+                {
+                    "name": r.name,
+                    "severity": r.severity,
+                    "passed": r.passed,
+                    "detail": r.detail,
+                }
                 for r in report.results
             ],
         }
@@ -546,17 +635,22 @@ def _render_report(report: HealthReport, fmt: str = "text") -> None:
     if report.ok:
         print(f"✅ ALL {len(blocks)} BLOCK items passed. Ready to publish/deploy.")
     else:
-        print(f"❌ {len(report.blocks_failed)} BLOCK item(s) FAILED. Fix before publish/deploy:")
+        print(
+            f"❌ {len(report.blocks_failed)} BLOCK item(s) FAILED. Fix before publish/deploy:"
+        )
         for r in report.blocks_failed:
             print(f"   - {r.name}: {r.detail}")
     if report.suggests_failed:
-        print(f"⚠️  {len(report.suggests_failed)} SUGGEST item(s) not met (not blocking).")
+        print(
+            f"⚠️  {len(report.suggests_failed)} SUGGEST item(s) not met (not blocking)."
+        )
     print()
 
 
 # ─────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(

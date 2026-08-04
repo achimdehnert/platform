@@ -48,7 +48,9 @@ def build_report(fix_hints: bool = False) -> dict:
         if gaps:
             report["gaps_by_repo"][repo] = [f"ADR-{n:03d}" for n in gaps]
         try:
-            report["next_free_by_repo"][repo] = f"ADR-{get_next_free(mapping, repo):03d}"
+            report["next_free_by_repo"][repo] = (
+                f"ADR-{get_next_free(mapping, repo):03d}"
+            )
         except ValueError:
             report["next_free_by_repo"][repo] = "FULL"
 

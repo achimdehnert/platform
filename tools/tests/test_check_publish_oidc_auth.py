@@ -76,7 +76,9 @@ def test_should_allow_password_for_testpypi(wf):
 
 def test_should_still_flag_pypi_when_repository_url_points_at_real_pypi(wf):
     # die TestPyPI-Ausnahme darf nicht auf upload.pypi.org durchschlagen
-    inhalt = TESTPYPI.replace("https://test.pypi.org/legacy/", "https://upload.pypi.org/legacy/")
+    inhalt = TESTPYPI.replace(
+        "https://test.pypi.org/legacy/", "https://upload.pypi.org/legacy/"
+    )
 
     assert len(gate.scan_file(wf(inhalt))) == 1
 

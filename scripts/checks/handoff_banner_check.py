@@ -60,12 +60,18 @@ def main(argv: list[str]) -> int:
             print(f"SKIP  {name} (existiert nicht — vermutlich gelöscht)")
             continue
         if has_banner(path):
-            print(f"PASS  {name} (Live-Status-Banner in den ersten {HEAD_LINES} Zeilen)")
+            print(
+                f"PASS  {name} (Live-Status-Banner in den ersten {HEAD_LINES} Zeilen)"
+            )
         else:
-            print(f"FAIL  {name} — kein Live-Status-Banner in den ersten {HEAD_LINES} Zeilen")
+            print(
+                f"FAIL  {name} — kein Live-Status-Banner in den ersten {HEAD_LINES} Zeilen"
+            )
             failed.append(name)
     if failed:
-        print(f"\n⛔ Gate handover-stale-vor-merge: {len(failed)} Datei(en) ohne Banner —")
+        print(
+            f"\n⛔ Gate handover-stale-vor-merge: {len(failed)} Datei(en) ohne Banner —"
+        )
         print(FAIL_HINT)
         return 1
     return 0

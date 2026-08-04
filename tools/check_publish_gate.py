@@ -35,6 +35,7 @@ nicht versehentliches Duplikat — Retro 2026-06-30 F5):
     Invariante (c) = Test ODER Secret-Scan (Minimum). Schwächere Pflicht, breitere Erkennung.
 Vor Erweiterung beider: hier abgleichen, ob die Logik konvergieren sollte.
 """
+
 from __future__ import annotations
 
 import pathlib

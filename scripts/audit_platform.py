@@ -19,6 +19,7 @@ SSoT: scripts/repo-registry.yaml (Repo-Liste)
       PyPI iil-testkit (Test-Versions-Referenz)
       PostgreSQL platform_audit_run (History)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,10 +56,12 @@ def _repo_owner(repo: str) -> str:
     liefert None für unbekannte/nicht-registrierte Namen)."""
     return reg.owner(repo) or GITHUB_ORG
 
+
 SCAFFOLD_TYPES = {"django", "agent", "bot"}
 HEALTH_TIMEOUT = 5
 
 # ── Datenmodell ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class RepoAudit:
@@ -67,17 +70,17 @@ class RepoAudit:
     prod_url: str = ""
 
     # Inventory
-    has_scaffold: bool = False        # tests/conftest.py vorhanden
-    has_req_test: bool = False        # requirements-test.txt vorhanden
-    has_pyproject: bool = False       # pyproject.toml vorhanden
-    workflow_count: int = 0           # .github/workflows/*.yml Anzahl
-    test_file_count: int = 0          # tests/test_*.py Anzahl
-    url_count: int = 0                # URL-Patterns (urls.py Zeilen als Proxy)
-    service_count: int = 0            # services.py Dateien
+    has_scaffold: bool = False  # tests/conftest.py vorhanden
+    has_req_test: bool = False  # requirements-test.txt vorhanden
+    has_pyproject: bool = False  # pyproject.toml vorhanden
+    workflow_count: int = 0  # .github/workflows/*.yml Anzahl
+    test_file_count: int = 0  # tests/test_*.py Anzahl
+    url_count: int = 0  # URL-Patterns (urls.py Zeilen als Proxy)
+    service_count: int = 0  # services.py Dateien
 
     # Health
-    health_status: int = -1           # HTTP Status /livez/ (-1 = nicht geprüft)
-    health_ms: int = -1               # Response-Zeit in ms
+    health_status: int = -1  # HTTP Status /livez/ (-1 = nicht geprüft)
+    health_ms: int = -1  # Response-Zeit in ms
 
     # Test-Run
     tests_run: bool = False
@@ -86,18 +89,22 @@ class RepoAudit:
 
     # Meta
     error: str = ""
-    scanned_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    scanned_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     @property
     def inventory_score(self) -> int:
         """0-5 Punkte: wie vollständig ist die Test-Infrastruktur?"""
-        return sum([
-            self.has_scaffold,
-            self.has_req_test,
-            self.has_pyproject,
-            self.workflow_count > 0,
-            self.test_file_count > 0,
-        ])
+        return sum(
+            [
+                self.has_scaffold,
+                self.has_req_test,
+                self.has_pyproject,
+                self.workflow_count > 0,
+                self.test_file_count > 0,
+            ]
+        )
 
     @property
     def status_icon(self) -> str:
@@ -109,6 +116,7 @@ class RepoAudit:
 
 
 # ── GitHub API ────────────────────────────────────────────────────────────────
+
 
 def _github_token() -> str:
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("PROJECT_PAT")
@@ -141,29 +149,37 @@ def _api_get(path: str, token: str) -> dict | list | None:
 
 
 def _file_exists(repo: str, path: str, token: str) -> bool:
-    return _api_get(
-        f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token
-    ) is not None
+    return (
+        _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token)
+        is not None
+    )
 
 
 def _count_files(repo: str, path: str, pattern: str, token: str) -> int:
     items = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/{path}", token)
     if not isinstance(items, list):
         return 0
-    return sum(1 for i in items if isinstance(i, dict) and i.get("name", "").endswith(pattern))
+    return sum(
+        1 for i in items if isinstance(i, dict) and i.get("name", "").endswith(pattern)
+    )
 
 
 def _count_url_lines(repo: str, token: str) -> int:
     """Zählt urls.py Zeilen als Proxy für URL-Pattern-Anzahl."""
-    content = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/config/urls.py", token)
+    content = _api_get(
+        f"/repos/{_repo_owner(repo)}/{repo}/contents/config/urls.py", token
+    )
     if not content or not isinstance(content, dict):
         content = _api_get(f"/repos/{_repo_owner(repo)}/{repo}/contents/urls.py", token)
     if not content or not isinstance(content, dict):
         return 0
     import base64
+
     try:
         text = base64.b64decode(content.get("content", "")).decode(errors="replace")
-        return sum(1 for line in text.splitlines() if "path(" in line or "re_path(" in line)
+        return sum(
+            1 for line in text.splitlines() if "path(" in line or "re_path(" in line
+        )
     except Exception:
         return 0
 
@@ -197,6 +213,7 @@ def scan_via_api(repo: str, repo_type: str, prod_url: str, token: str) -> RepoAu
 
 # ── Lokaler Scan (wenn GITHUB_DIR vorhanden) ─────────────────────────────────
 
+
 def scan_local(repo_dir: Path, repo: str, repo_type: str, prod_url: str) -> RepoAudit:
     audit = RepoAudit(repo=repo, repo_type=repo_type, prod_url=prod_url)
 
@@ -209,16 +226,22 @@ def scan_local(repo_dir: Path, repo: str, repo_type: str, prod_url: str) -> Repo
     audit.has_pyproject = (repo_dir / "pyproject.toml").exists()
 
     workflows_dir = repo_dir / ".github" / "workflows"
-    audit.workflow_count = len(list(workflows_dir.glob("*.yml"))) if workflows_dir.exists() else 0
+    audit.workflow_count = (
+        len(list(workflows_dir.glob("*.yml"))) if workflows_dir.exists() else 0
+    )
 
     tests_dir = repo_dir / "tests"
-    audit.test_file_count = len(list(tests_dir.rglob("test_*.py"))) if tests_dir.exists() else 0
+    audit.test_file_count = (
+        len(list(tests_dir.rglob("test_*.py"))) if tests_dir.exists() else 0
+    )
 
     # URL-Patterns zählen
     for urls_path in [repo_dir / "config" / "urls.py", repo_dir / "urls.py"]:
         if urls_path.exists():
             text = urls_path.read_text(errors="replace")
-            audit.url_count = sum(1 for line in text.splitlines() if "path(" in line or "re_path(" in line)
+            audit.url_count = sum(
+                1 for line in text.splitlines() if "path(" in line or "re_path(" in line
+            )
             break
 
     # services.py zählen
@@ -231,8 +254,10 @@ def scan_local(repo_dir: Path, repo: str, repo_type: str, prod_url: str) -> Repo
 
 # ── Health Check ──────────────────────────────────────────────────────────────
 
-def check_health(audit: RepoAudit, local_port: int | None = None,
-                 health_path: str = "/livez/") -> None:
+
+def check_health(
+    audit: RepoAudit, local_port: int | None = None, health_path: str = "/livez/"
+) -> None:
     if not audit.prod_url and not local_port:
         return
     path = health_path if health_path else "/livez/"
@@ -262,25 +287,41 @@ def check_health(audit: RepoAudit, local_port: int | None = None,
     # Fallback: curl (funktioniert zuverlässig auf Self-Hosted Runner)
     try:
         result = subprocess.run(
-            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-             "--max-time", "5", url],
-            capture_output=True, text=True, timeout=10,
+            [
+                "curl",
+                "-s",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                "--max-time",
+                "5",
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         code_str = result.stdout.strip()
         code = int(code_str) if code_str.isdigit() else 0
         audit.health_status = code
         audit.health_ms = int((time.monotonic() - t0) * 1000)
         if code == 0:
-            print(f"  HEALTH-WARN {audit.repo} ({url}): urllib={urllib_err!r} curl_exit={result.returncode}",
-                  file=sys.stderr)
+            print(
+                f"  HEALTH-WARN {audit.repo} ({url}): urllib={urllib_err!r} curl_exit={result.returncode}",
+                file=sys.stderr,
+            )
     except Exception as e:
         audit.health_status = 0
         audit.health_ms = -1
-        print(f"  HEALTH-WARN {audit.repo} ({url}): urllib={urllib_err!r} curl_exc={e}",
-              file=sys.stderr)
+        print(
+            f"  HEALTH-WARN {audit.repo} ({url}): urllib={urllib_err!r} curl_exc={e}",
+            file=sys.stderr,
+        )
 
 
 # ── Test-Run ──────────────────────────────────────────────────────────────────
+
 
 def run_tests(audit: RepoAudit, repo_dir: Path) -> None:
     if not repo_dir.exists():
@@ -294,7 +335,9 @@ def run_tests(audit: RepoAudit, repo_dir: Path) -> None:
     python = _find_python(repo_dir)
     result = subprocess.run(
         [python, str(teste_script), str(repo_dir)],
-        capture_output=True, text=True, timeout=300,
+        capture_output=True,
+        text=True,
+        timeout=300,
     )
     audit.tests_run = True
     audit.tests_exit_code = result.returncode
@@ -339,6 +382,7 @@ CREATE INDEX IF NOT EXISTS idx_platform_audit_repo_time
     ON platform_audit_run (repo, scanned_at DESC);
 """
 
+
 def store_in_db(audits: list[RepoAudit]) -> None:
     try:
         import psycopg2
@@ -363,11 +407,26 @@ def store_in_db(audits: list[RepoAudit]) -> None:
                     health_status, health_ms, tests_run, tests_passed, tests_exit_code,
                     inventory_score, error, scanned_at)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (a.repo, a.repo_type, a.prod_url, a.has_scaffold, a.has_req_test,
-                 a.has_pyproject, a.workflow_count, a.test_file_count, a.url_count,
-                 a.service_count, a.health_status, a.health_ms, a.tests_run,
-                 a.tests_passed, a.tests_exit_code, a.inventory_score, a.error,
-                 a.scanned_at),
+                (
+                    a.repo,
+                    a.repo_type,
+                    a.prod_url,
+                    a.has_scaffold,
+                    a.has_req_test,
+                    a.has_pyproject,
+                    a.workflow_count,
+                    a.test_file_count,
+                    a.url_count,
+                    a.service_count,
+                    a.health_status,
+                    a.health_ms,
+                    a.tests_run,
+                    a.tests_passed,
+                    a.tests_exit_code,
+                    a.inventory_score,
+                    a.error,
+                    a.scanned_at,
+                ),
             )
         conn.commit()
         print(f"\n✅  {len(audits)} Einträge in PostgreSQL gespeichert.")
@@ -382,6 +441,7 @@ def store_in_db(audits: list[RepoAudit]) -> None:
 
 # ── Output ───────────────────────────────────────────────────────────────────
 
+
 def _health_str(audit: RepoAudit) -> str:
     if audit.health_status == -1:
         return "—"
@@ -391,16 +451,22 @@ def _health_str(audit: RepoAudit) -> str:
 
 
 def print_table(audits: list[RepoAudit]) -> None:
-    print("\n## Platform Audit — " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    print(
+        "\n## Platform Audit — "
+        + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    )
     print()
     header = f"{'':2} {'Repo':<28} {'Typ':<8} {'Inv':>3} {'Tests':>5} {'Wflows':>6} {'URLs':>5} {'Svc':>4} {'Health':<12} {'Fehler'}"
     print(header)
     print("-" * len(header))
 
-    for a in sorted(audits, key=lambda x: (x.status_icon != "✅", x.inventory_score < 3, x.repo)):
+    for a in sorted(
+        audits, key=lambda x: (x.status_icon != "✅", x.inventory_score < 3, x.repo)
+    ):
         test_str = (
             f"{'✅' if a.tests_passed else '❌'} (exit {a.tests_exit_code})"
-            if a.tests_run else f"{a.test_file_count:>3} file(s)"
+            if a.tests_run
+            else f"{a.test_file_count:>3} file(s)"
         )
         print(
             f"{a.status_icon:2} {a.repo:<28} {a.repo_type:<8} "
@@ -414,10 +480,12 @@ def print_table(audits: list[RepoAudit]) -> None:
     tested = sum(1 for a in audits if a.tests_passed is True)
     healthy = sum(1 for a in audits if a.health_status == 200)
 
-    print(f"\n{'='*80}")
-    print(f"Gesamt: {total} Repos  |  Scaffold: {scaffolded}/{total}  |  "
-          f"Tests grün: {tested}/{sum(1 for a in audits if a.tests_run)}  |  "
-          f"Health OK: {healthy}/{sum(1 for a in audits if a.health_status != -1)}")
+    print(f"\n{'=' * 80}")
+    print(
+        f"Gesamt: {total} Repos  |  Scaffold: {scaffolded}/{total}  |  "
+        f"Tests grün: {tested}/{sum(1 for a in audits if a.tests_run)}  |  "
+        f"Health OK: {healthy}/{sum(1 for a in audits if a.health_status != -1)}"
+    )
 
     missing = [a.repo for a in audits if not a.has_scaffold]
     if missing:
@@ -427,7 +495,12 @@ def print_table(audits: list[RepoAudit]) -> None:
 
 
 def print_json(audits: list[RepoAudit]) -> None:
-    print(json.dumps([asdict(a) | {"inventory_score": a.inventory_score} for a in audits], indent=2))
+    print(
+        json.dumps(
+            [asdict(a) | {"inventory_score": a.inventory_score} for a in audits],
+            indent=2,
+        )
+    )
 
 
 def print_github_summary(audits: list[RepoAudit]) -> None:
@@ -439,14 +512,23 @@ def print_github_summary(audits: list[RepoAudit]) -> None:
         f.write("| Repo | Typ | Inv | Tests | Workflows | Health |\n")
         f.write("|------|-----|-----|-------|-----------|--------|\n")
         for a in sorted(audits, key=lambda x: x.repo):
-            test_cell = "✅" if a.tests_passed else ("❌" if a.tests_run else f"{a.test_file_count} files")
-            f.write(f"| {a.status_icon} {a.repo} | {a.repo_type} | {a.inventory_score}/5 | "
-                    f"{test_cell} | {a.workflow_count} | {_health_str(a)} |\n")
-        f.write(f"\n**Repos:** {len(audits)} | "
-                f"**Scaffold:** {sum(1 for a in audits if a.has_scaffold)}/{len(audits)}\n")
+            test_cell = (
+                "✅"
+                if a.tests_passed
+                else ("❌" if a.tests_run else f"{a.test_file_count} files")
+            )
+            f.write(
+                f"| {a.status_icon} {a.repo} | {a.repo_type} | {a.inventory_score}/5 | "
+                f"{test_cell} | {a.workflow_count} | {_health_str(a)} |\n"
+            )
+        f.write(
+            f"\n**Repos:** {len(audits)} | "
+            f"**Scaffold:** {sum(1 for a in audits if a.has_scaffold)}/{len(audits)}\n"
+        )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def load_registry() -> dict:
     return yaml.safe_load(REGISTRY_FILE.read_text())
@@ -454,18 +536,33 @@ def load_registry() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Platform Cross-Repo Audit")
-    parser.add_argument("repos", nargs="*", help="Einzelne Repos (leer = alle Django-Repos)")
-    parser.add_argument("--run-tests", action="store_true",
-                        help="pytest via teste_repo.py pro Repo ausführen (langsam)")
-    parser.add_argument("--health", action="store_true",
-                        help="/livez/ Prod-Check pro Repo")
-    parser.add_argument("--store-db", action="store_true",
-                        help="Ergebnisse in PostgreSQL speichern (DATABASE_URL erforderlich)")
-    parser.add_argument("--local", action="store_true",
-                        help=f"Lokale Repos aus GITHUB_DIR={GITHUB_DIR} scannen statt GitHub API")
+    parser.add_argument(
+        "repos", nargs="*", help="Einzelne Repos (leer = alle Django-Repos)"
+    )
+    parser.add_argument(
+        "--run-tests",
+        action="store_true",
+        help="pytest via teste_repo.py pro Repo ausführen (langsam)",
+    )
+    parser.add_argument(
+        "--health", action="store_true", help="/livez/ Prod-Check pro Repo"
+    )
+    parser.add_argument(
+        "--store-db",
+        action="store_true",
+        help="Ergebnisse in PostgreSQL speichern (DATABASE_URL erforderlich)",
+    )
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help=f"Lokale Repos aus GITHUB_DIR={GITHUB_DIR} scannen statt GitHub API",
+    )
     parser.add_argument("--format", choices=["table", "json"], default="table")
-    parser.add_argument("--fail-on-missing-scaffold", action="store_true",
-                        help="Exit 1 wenn Repos ohne Test-Scaffold existieren")
+    parser.add_argument(
+        "--fail-on-missing-scaffold",
+        action="store_true",
+        help="Exit 1 wenn Repos ohne Test-Scaffold existieren",
+    )
     args = parser.parse_args()
 
     registry = load_registry()
@@ -476,8 +573,10 @@ def main() -> int:
         targets = {r: all_repos.get(r, {"type": "django"}) for r in args.repos}
     else:
         targets = {
-            name: props for name, props in all_repos.items()
-            if isinstance(props, dict) and props.get("type") in SCAFFOLD_TYPES
+            name: props
+            for name, props in all_repos.items()
+            if isinstance(props, dict)
+            and props.get("type") in SCAFFOLD_TYPES
             and name != "platform"
         }
 
@@ -490,10 +589,16 @@ def main() -> int:
         repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
         prod_url = props.get("prod_url", "") if isinstance(props, dict) else ""
         local_port = props.get("port") if isinstance(props, dict) else None
-        health_path = props.get("health", "/livez/") if isinstance(props, dict) else "/livez/"
+        health_path = (
+            props.get("health", "/livez/") if isinstance(props, dict) else "/livez/"
+        )
         repo_dir = GITHUB_DIR / repo
 
-        print(f"  {'[local]' if args.local and repo_dir.exists() else '[api]  '} {repo}...", end="", flush=True)
+        print(
+            f"  {'[local]' if args.local and repo_dir.exists() else '[api]  '} {repo}...",
+            end="",
+            flush=True,
+        )
 
         if args.local and repo_dir.exists():
             audit = scan_local(repo_dir, repo, repo_type, prod_url)
@@ -508,7 +613,9 @@ def main() -> int:
 
         icon = audit.status_icon
         inv = f"{audit.inventory_score}/5"
-        print(f" {icon} inv={inv}" + (f" err={audit.error[:30]}" if audit.error else ""))
+        print(
+            f" {icon} inv={inv}" + (f" err={audit.error[:30]}" if audit.error else "")
+        )
         audits.append(audit)
 
     # Output

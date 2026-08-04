@@ -114,7 +114,10 @@ def check(path: Path) -> tuple[bool, str]:
 
 def main(argv: list[str]) -> int:
     if not argv:
-        print("usage: agent_handover_freshness_check.py <AGENT_HANDOVER.md> [...]", file=sys.stderr)
+        print(
+            "usage: agent_handover_freshness_check.py <AGENT_HANDOVER.md> [...]",
+            file=sys.stderr,
+        )
         return 2
     failed: list[str] = []
     for name in argv:
@@ -129,7 +132,9 @@ def main(argv: list[str]) -> int:
             print(f"FAIL  {name} — {hint}")
             failed.append(name)
     if failed:
-        print(f"\n⛔ Gate handover-stale-vor-merge (AGENT_HANDOVER.md): {len(failed)} Datei(en) nicht frisch.")
+        print(
+            f"\n⛔ Gate handover-stale-vor-merge (AGENT_HANDOVER.md): {len(failed)} Datei(en) nicht frisch."
+        )
         return 1
     return 0
 

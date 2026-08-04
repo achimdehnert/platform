@@ -47,9 +47,12 @@ SECRETS_DIRS = [
 ]
 _TEMPLATES_DIR = Path(__file__).parent / "print_templates"
 _BASE_CSS_FILE = _TEMPLATES_DIR / "base.css"
-_BASE_CSS_STATIC = _BASE_CSS_FILE.read_text(encoding="utf-8") if _BASE_CSS_FILE.exists() else ""
+_BASE_CSS_STATIC = (
+    _BASE_CSS_FILE.read_text(encoding="utf-8") if _BASE_CSS_FILE.exists() else ""
+)
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
 _JINJA_ENV = Environment(
     loader=FileSystemLoader(str(_TEMPLATES_DIR)),
     autoescape=select_autoescape([]),
@@ -98,10 +101,17 @@ DESIGNS = _load_designs()
 # Spezifikation: design-hub/profiles/_SCHEMA.md (allowed_assets-Check Pflicht)
 # ---------------------------------------------------------------------------
 
-DESIGN_HUB_DIR = Path(os.environ.get("DESIGN_HUB_DIR", str(Path.home() / "github" / "design-hub")))
+DESIGN_HUB_DIR = Path(
+    os.environ.get("DESIGN_HUB_DIR", str(Path.home() / "github" / "design-hub"))
+)
 
 
-_FONT_FORMAT = {".ttf": "truetype", ".otf": "opentype", ".woff": "woff", ".woff2": "woff2"}
+_FONT_FORMAT = {
+    ".ttf": "truetype",
+    ".otf": "opentype",
+    ".woff": "woff",
+    ".woff2": "woff2",
+}
 
 
 def _resolve_font(rel: str) -> Path | None:
@@ -125,7 +135,9 @@ def _install_brand_fonts(primary_rel: str) -> bool:
     if not src:
         return False
     font_dir = src.parent  # .../sans/ttf
-    target = Path.home() / ".local" / "share" / "fonts" / f"iil-brand-{font_dir.parent.name}"
+    target = (
+        Path.home() / ".local" / "share" / "fonts" / f"iil-brand-{font_dir.parent.name}"
+    )
     if target.exists() and any(target.glob("*.ttf")):
         return True  # bereits installiert
     target.mkdir(parents=True, exist_ok=True)
@@ -149,28 +161,30 @@ def _profile_to_design(profile_name: str) -> dict:
     if not prof_file.exists():
         raise SystemExit(f"❌ Profil nicht gefunden: {prof_file}")
     prof = yaml.safe_load(prof_file.read_text(encoding="utf-8"))
-    print(f"🎨 Brand-Profil: {profile_name}  (owner={prof.get('authorship', {}).get('owner', '?')})")
+    print(
+        f"🎨 Brand-Profil: {profile_name}  (owner={prof.get('authorship', {}).get('owner', '?')})"
+    )
 
     c = prof.get("colours", {})
     allowed = prof.get("allowed_assets", {})
     db_ok = bool(allowed.get("db"))
 
     design = {
-        "primary":      c.get("primary", "#000000"),
-        "bg_light":     c.get("bg_light", "#F5F5F5"),
-        "border":       c.get("border", "#DDDDDD"),
-        "border_dark":  c.get("primary_dark", c.get("primary", "#000000")),
-        "row_even":     c.get("zebra", "#F4F5F7"),
-        "row_odd":      "#FFFFFF",
-        "gantt_bg":     c.get("bg_light", "#F8FAFE"),
-        "flow_s1":      c.get("primary", "#000000"),
-        "flow_s2":      c.get("accent_1", c.get("text", "#3C414C")),
-        "flow_s3":      c.get("accent_2", c.get("text_muted", "#646973")),
-        "header_left":  prof.get("header", {}).get("text", ""),
-        "cover_label":  prof.get("header", {}).get("cover_label", ""),
-        "subtitle":     prof.get("subtitle", ""),
+        "primary": c.get("primary", "#000000"),
+        "bg_light": c.get("bg_light", "#F5F5F5"),
+        "border": c.get("border", "#DDDDDD"),
+        "border_dark": c.get("primary_dark", c.get("primary", "#000000")),
+        "row_even": c.get("zebra", "#F4F5F7"),
+        "row_odd": "#FFFFFF",
+        "gantt_bg": c.get("bg_light", "#F8FAFE"),
+        "flow_s1": c.get("primary", "#000000"),
+        "flow_s2": c.get("accent_1", c.get("text", "#3C414C")),
+        "flow_s3": c.get("accent_2", c.get("text_muted", "#646973")),
+        "header_left": prof.get("header", {}).get("text", ""),
+        "cover_label": prof.get("header", {}).get("cover_label", ""),
+        "subtitle": prof.get("subtitle", ""),
         "footer_suffix": prof.get("footer", {}).get("suffix", ""),
-        "llm_context":  prof.get("llm_context", "Technologie und KI"),
+        "llm_context": prof.get("llm_context", "Technologie und KI"),
         "es_label_text": prof.get("es_label_text", "Zusammenfassung"),
         # #1297 (zweiter Befund): Publikum steuert Anreicherung + Untertitel-Default.
         # meta_template bleibt bei "db", solange das Profil nichts anderes sagt —
@@ -178,12 +192,28 @@ def _profile_to_design(profile_name: str) -> dict:
         "meta_template": prof.get("meta_template", "db"),
         "audience": profile_policy.audience(prof),
         "llm_enrichment": profile_policy.enrichment_enabled(prof),
-        "_text_color":  c.get("text", "#1F2937"),
+        "_text_color": c.get("text", "#1F2937"),
         "mermaid_classes": {
-            "primary": {"fill": c.get("primary", "#000"),     "stroke": c.get("primary_dark", "#000"), "color": "#FFFFFF"},
-            "accent":  {"fill": c.get("accent_1", "#3C414C"), "stroke": c.get("primary", "#000"),       "color": "#FFFFFF"},
-            "support": {"fill": c.get("border", "#DDD"),      "stroke": c.get("primary", "#000"),       "color": c.get("text", "#1F2937")},
-            "muted":   {"fill": c.get("bg_light", "#EEE"),    "stroke": c.get("primary", "#000"),       "color": c.get("text", "#1F2937")},
+            "primary": {
+                "fill": c.get("primary", "#000"),
+                "stroke": c.get("primary_dark", "#000"),
+                "color": "#FFFFFF",
+            },
+            "accent": {
+                "fill": c.get("accent_1", "#3C414C"),
+                "stroke": c.get("primary", "#000"),
+                "color": "#FFFFFF",
+            },
+            "support": {
+                "fill": c.get("border", "#DDD"),
+                "stroke": c.get("primary", "#000"),
+                "color": c.get("text", "#1F2937"),
+            },
+            "muted": {
+                "fill": c.get("bg_light", "#EEE"),
+                "stroke": c.get("primary", "#000"),
+                "color": c.get("text", "#1F2937"),
+            },
         },
     }
 
@@ -196,12 +226,15 @@ def _profile_to_design(profile_name: str) -> dict:
         else:
             print("⚠️  Brand-Fonts nicht auffindbar — Fallback-Fonts.")
     elif fonts.get("primary_path"):
-        print("🔒 allowed_assets.db=false → DB-Fonts NICHT eingebettet (Lizenz). Nutze Fallback-Fonts.")
+        print(
+            "🔒 allowed_assets.db=false → DB-Fonts NICHT eingebettet (Lizenz). Nutze Fallback-Fonts."
+        )
 
     # Logo (cover) — base64-Embed, nur wenn erlaubt
     logo = prof.get("logo") or {}
     if db_ok and logo.get("url"):
         import base64
+
         logo_f = (DESIGN_HUB_DIR / logo["url"]).resolve()
         if logo_f.exists():
             b64 = base64.b64encode(logo_f.read_bytes()).decode("ascii")
@@ -266,9 +299,20 @@ def build_css(d: dict, extra_css: str = "") -> str:
     }}
 }}
 """
-    repo_css = f"\n/* --- repo-spezifisches CSS ---*/\n{extra_css}" if extra_css.strip() else ""
+    repo_css = (
+        f"\n/* --- repo-spezifisches CSS ---*/\n{extra_css}"
+        if extra_css.strip()
+        else ""
+    )
     font_css = f"\n/* --- Brand-Fonts ---*/\n{font_face}" if font_face else ""
-    return font_css + root_and_page + _BASE_CSS_STATIC + brand_css + body_override + repo_css
+    return (
+        font_css
+        + root_and_page
+        + _BASE_CSS_STATIC
+        + brand_css
+        + body_override
+        + repo_css
+    )
 
 
 def get_secret(name: str) -> str | None:
@@ -403,15 +447,47 @@ Antworte mit:
     return {}
 
 
-GANTT_COLORS = ["#2E7D32","#1565C0","#6A1B9A","#E65100",
-                "#00695C","#283593","#4527A0","#558B2F"]
-MONTHS_13 = ["Mär\n2026","Apr","Mai","Jun","Jul","Aug",
-             "Sep","Okt","Nov","Dez","Jan\n2027","Feb","Mär"]
+GANTT_COLORS = [
+    "#2E7D32",
+    "#1565C0",
+    "#6A1B9A",
+    "#E65100",
+    "#00695C",
+    "#283593",
+    "#4527A0",
+    "#558B2F",
+]
+MONTHS_13 = [
+    "Mär\n2026",
+    "Apr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Dez",
+    "Jan\n2027",
+    "Feb",
+    "Mär",
+]
 
 
 MONTH_NAME_TO_NUM = {
-    "jan": 1, "feb": 2, "mär": 3, "mar": 3, "apr": 4, "mai": 5,
-    "jun": 6, "jul": 7, "aug": 8, "sep": 9, "okt": 10, "nov": 11, "dez": 12,
+    "jan": 1,
+    "feb": 2,
+    "mär": 3,
+    "mar": 3,
+    "apr": 4,
+    "mai": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "okt": 10,
+    "nov": 11,
+    "dez": 12,
 }
 
 
@@ -444,17 +520,15 @@ def parse_gantt_block(block: str) -> str:
             phases.append((int(num), label, int(start), int(end)))
 
     months = MONTHS_13
-    header_cells = "".join(
-        f'<th>{m.replace(chr(10), "<br>")}</th>' for m in months
-    )
+    header_cells = "".join(f"<th>{m.replace(chr(10), '<br>')}</th>" for m in months)
     total_months = len(months)
     rows = ""
     for i, (num, label, cal_start, cal_end) in enumerate(phases):
         color = GANTT_COLORS[i % len(GANTT_COLORS)]
         # Kalendermonat → Chart-Position (1-basiert, Jahresüberlauf beachten)
         pos_start = _cal_to_pos(cal_start, start_cal, total_months)
-        pos_end   = _cal_to_pos(cal_end,   start_cal, total_months)
-        if pos_end < pos_start:            # Überlauf: Jan/Feb/Mär 2027
+        pos_end = _cal_to_pos(cal_end, start_cal, total_months)
+        if pos_end < pos_start:  # Überlauf: Jan/Feb/Mär 2027
             pos_end += 12
         pos_end = min(pos_end, total_months + 1)
         cells = ""
@@ -545,12 +619,15 @@ def parse_flow_block(block: str) -> str:
             parts = [p.strip() for p in line[3:].split("|")]
             badge = parts[0] if parts else ""
             title = parts[1] if len(parts) > 1 else ""
-            desc  = parts[2] if len(parts) > 2 else ""
+            desc = parts[2] if len(parts) > 2 else ""
             yes_text = no_text = rate_text = ""
             for p in parts[3:]:
-                if p.startswith("yes:"):   yes_text  = p[4:].strip()
-                elif p.startswith("no:"):  no_text   = p[3:].strip()
-                elif p.startswith("rate:"): rate_text = p[5:].strip()
+                if p.startswith("yes:"):
+                    yes_text = p[4:].strip()
+                elif p.startswith("no:"):
+                    no_text = p[3:].strip()
+                elif p.startswith("rate:"):
+                    rate_text = p[5:].strip()
             stages.append((num, badge, title, desc, yes_text, no_text, rate_text))
 
     html = '<div class="flow-diagram">\n'
@@ -560,14 +637,18 @@ def parse_flow_block(block: str) -> str:
         html += f'<div class="flow-stage s{num}">\n'
         html += f'  <div class="flow-badge"><span class="badge-num">{num}</span>{badge}</div>\n'
         html += f'  <div class="flow-body">\n    <strong>{title}</strong><br>\n'
-        if desc:       html += f'    {desc}<br>\n'
-        if yes_text:   html += f'    <span class="flow-yes">{yes_text}</span><br>\n'
-        if no_text:    html += f'    <span class="flow-no">{no_text}</span>\n'
-        if rate_text:  html += f'    <span class="flow-rate">&nbsp;(Ziel: {rate_text})</span>\n'
-        html += '  </div>\n</div>\n'
+        if desc:
+            html += f"    {desc}<br>\n"
+        if yes_text:
+            html += f'    <span class="flow-yes">{yes_text}</span><br>\n'
+        if no_text:
+            html += f'    <span class="flow-no">{no_text}</span>\n'
+        if rate_text:
+            html += f'    <span class="flow-rate">&nbsp;(Ziel: {rate_text})</span>\n'
+        html += "  </div>\n</div>\n"
     if target_text:
         html += f'<div class="flow-connector">▼</div>\n<div class="flow-target">{target_text}</div>\n'
-    html += '</div>'
+    html += "</div>"
     return html
 
 
@@ -586,10 +667,14 @@ def parse_arch_block(block: str) -> str:
     rows: list[str] = []
     split_left = split_right = ""
     for line in lines:
-        if line.startswith("title:"):   title = line[6:].strip()
-        elif line.startswith("row:"):   rows.append(line[4:].strip())
-        elif line.startswith("left:"):  split_left  = line[5:].strip()
-        elif line.startswith("right:"): split_right = line[6:].strip()
+        if line.startswith("title:"):
+            title = line[6:].strip()
+        elif line.startswith("row:"):
+            rows.append(line[4:].strip())
+        elif line.startswith("left:"):
+            split_left = line[5:].strip()
+        elif line.startswith("right:"):
+            split_right = line[6:].strip()
 
     def render_box(spec: str) -> str:
         bits = [b.strip() for b in spec.split("|")]
@@ -606,7 +691,7 @@ def parse_arch_block(block: str) -> str:
             if j > 0:
                 html += '<div class="arch-arrow">→</div>\n'
             html += render_box(part)
-        html += '</div>\n'
+        html += "</div>\n"
     if split_left or split_right:
         html += '<div class="arch-split">\n'
         for spec in (split_left, split_right):
@@ -617,9 +702,9 @@ def parse_arch_block(block: str) -> str:
             html += render_box(box_spec.strip())
             if ext.strip():
                 html += f'<div class="arch-ext">{ext.strip()}</div>\n'
-            html += '</div>\n'
-        html += '</div>\n'
-    html += '</div>'
+            html += "</div>\n"
+        html += "</div>\n"
+    html += "</div>"
     return html
 
 
@@ -638,10 +723,14 @@ def parse_layer_block(block: str) -> str:
     left_items: list[str] = []
     right_items: list[str] = []
     for line in lines:
-        if line.startswith("top:"):    top_items   = [p.strip() for p in line[4:].split("|")]
-        elif line.startswith("bridge:"): bridge    = line[7:].strip()
-        elif line.startswith("left:"):  left_items  = [p.strip() for p in line[5:].split("|")]
-        elif line.startswith("right:"): right_items = [p.strip() for p in line[6:].split("|")]
+        if line.startswith("top:"):
+            top_items = [p.strip() for p in line[4:].split("|")]
+        elif line.startswith("bridge:"):
+            bridge = line[7:].strip()
+        elif line.startswith("left:"):
+            left_items = [p.strip() for p in line[5:].split("|")]
+        elif line.startswith("right:"):
+            right_items = [p.strip() for p in line[6:].split("|")]
 
     def render_list(items: list[str]) -> str:
         if len(items) <= 1:
@@ -652,7 +741,7 @@ def parse_layer_block(block: str) -> str:
     if top_items:
         html += f'<div class="layer-top">\n<div class="layer-top-title">{top_items[0]}</div>\n'
         html += render_list(top_items)
-        html += '</div>\n'
+        html += "</div>\n"
     if bridge:
         html += f'<div class="layer-bridge">↓&nbsp; {bridge} &nbsp;↓</div>\n'
     if left_items or right_items:
@@ -662,9 +751,9 @@ def parse_layer_block(block: str) -> str:
                 continue
             html += f'<div class="layer-box">\n<div class="layer-box-title">{items[0]}</div>\n'
             html += render_list(items)
-            html += '</div>\n'
-        html += '</div>\n'
-    html += '</div>'
+            html += "</div>\n"
+        html += "</div>\n"
+    html += "</div>"
     return html
 
 
@@ -688,16 +777,25 @@ def parse_tiers_block(block: str) -> str:
         label = parts[1] if len(parts) > 1 else ""
         cond = parts[2] if len(parts) > 2 else ""
         action = parts[3] if len(parts) > 3 else ""
-        cls = {"tier1": "tier-1", "tier2": "tier-2", "tier3": "tier-3",
-               "info": "tier-info", "ok": "tier-ok"}.get(kind, "tier-info")
+        cls = {
+            "tier1": "tier-1",
+            "tier2": "tier-2",
+            "tier3": "tier-3",
+            "info": "tier-info",
+            "ok": "tier-ok",
+        }.get(kind, "tier-info")
         html += f'<div class="tier-item {cls}">\n'
         html += f'  <div class="tier-label">{label}</div>\n'
         if cond:
-            html += f'  <div class="tier-cond"><strong>Bedingung:</strong> {cond}</div>\n'
+            html += (
+                f'  <div class="tier-cond"><strong>Bedingung:</strong> {cond}</div>\n'
+            )
         if action:
-            html += f'  <div class="tier-action"><strong>Aktion:</strong> {action}</div>\n'
-        html += '</div>\n'
-    html += '</div>'
+            html += (
+                f'  <div class="tier-action"><strong>Aktion:</strong> {action}</div>\n'
+            )
+        html += "</div>\n"
+    html += "</div>"
     return html
 
 
@@ -737,7 +835,7 @@ def parse_compare_block(block: str) -> str:
         html += f'  <div class="compare-title">{title}</div>\n'
     html += '  <div class="compare-grid">\n'
     for side_class, side_title, items in (
-        ("compare-left",  left_title,  left_items),
+        ("compare-left", left_title, left_items),
         ("compare-right", right_title, right_items),
     ):
         if not side_title and not items:
@@ -746,15 +844,15 @@ def parse_compare_block(block: str) -> str:
         if side_title:
             html += f'      <div class="compare-col-title">{side_title}</div>\n'
         if items:
-            html += '      <ul>\n'
+            html += "      <ul>\n"
             for it in items:
-                html += f'        <li>{it}</li>\n'
-            html += '      </ul>\n'
-        html += '    </div>\n'
-    html += '  </div>\n'
+                html += f"        <li>{it}</li>\n"
+            html += "      </ul>\n"
+        html += "    </div>\n"
+    html += "  </div>\n"
     if verdict:
         html += f'  <div class="compare-verdict"><strong>Empfehlung:</strong> {verdict}</div>\n'
-    html += '</div>'
+    html += "</div>"
     return html
 
 
@@ -764,9 +862,10 @@ _PUPPETEER_CFG = Path(__file__).parent / ".puppeteer.json"
 def _ensure_puppeteer_config() -> str:
     """Erstellt einmalig eine Puppeteer-Config mit --no-sandbox (für Container/WSL)."""
     if not _PUPPETEER_CFG.exists():
-        _PUPPETEER_CFG.write_text(json.dumps({
-            "args": ["--no-sandbox", "--disable-setuid-sandbox"]
-        }), encoding="utf-8")
+        _PUPPETEER_CFG.write_text(
+            json.dumps({"args": ["--no-sandbox", "--disable-setuid-sandbox"]}),
+            encoding="utf-8",
+        )
     return str(_PUPPETEER_CFG)
 
 
@@ -781,18 +880,24 @@ def inject_mermaid_classdefs(mermaid_code: str, design: dict) -> str:
     used = set(re.findall(r":::([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code))
     if not used:
         return mermaid_code
-    already_defined = set(re.findall(r"^\s*classDef\s+([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code, re.MULTILINE))
-    to_inject = [name for name in used if name in classes and name not in already_defined]
+    already_defined = set(
+        re.findall(
+            r"^\s*classDef\s+([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code, re.MULTILINE
+        )
+    )
+    to_inject = [
+        name for name in used if name in classes and name not in already_defined
+    ]
     if not to_inject:
         return mermaid_code
     lines = []
     for name in to_inject:
         c = classes[name]
         lines.append(
-            f"    classDef {name} fill:{c.get('fill','#888')},"
-            f"stroke:{c.get('stroke','#333')},"
-            f"color:{c.get('color','#000')},"
-            f"stroke-width:{c.get('stroke_width','1.5px')}"
+            f"    classDef {name} fill:{c.get('fill', '#888')},"
+            f"stroke:{c.get('stroke', '#333')},"
+            f"color:{c.get('color', '#000')},"
+            f"stroke-width:{c.get('stroke_width', '1.5px')}"
         )
     head, _, rest = mermaid_code.partition("\n")
     return head + "\n" + "\n".join(lines) + "\n" + rest
@@ -805,6 +910,7 @@ def render_mermaid_to_png(mermaid_code: str) -> str:
     (Text in Mermaid-Boxen verschwindet).
     """
     import base64
+
     pp_cfg = _ensure_puppeteer_config()
     with tempfile.NamedTemporaryFile(mode="w", suffix=".mmd", delete=False) as f_in:
         f_in.write(mermaid_code)
@@ -812,17 +918,35 @@ def render_mermaid_to_png(mermaid_code: str) -> str:
     out_path = in_path.replace(".mmd", ".png")
     try:
         result = subprocess.run(
-            ["npx", "--yes", "@mermaid-js/mermaid-cli", "-i", in_path, "-o", out_path,
-             "-p", pp_cfg, "--backgroundColor", "white", "--scale", "3", "--quiet"],
-            capture_output=True, text=True, timeout=45,
+            [
+                "npx",
+                "--yes",
+                "@mermaid-js/mermaid-cli",
+                "-i",
+                in_path,
+                "-o",
+                out_path,
+                "-p",
+                pp_cfg,
+                "--backgroundColor",
+                "white",
+                "--scale",
+                "3",
+                "--quiet",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=45,
         )
         if result.returncode == 0 and os.path.exists(out_path):
             png_data = Path(out_path).read_bytes()
             b64 = base64.b64encode(png_data).decode("ascii")
-            return (f'<div class="mermaid-diagram">'
-                    f'<img src="data:image/png;base64,{b64}" '
-                    f'style="max-width:100%;height:auto;" />'
-                    f'</div>')
+            return (
+                f'<div class="mermaid-diagram">'
+                f'<img src="data:image/png;base64,{b64}" '
+                f'style="max-width:100%;height:auto;" />'
+                f"</div>"
+            )
         else:
             err = result.stderr[:200] if result.stderr else "unknown error"
             print(f"\u26a0\ufe0f  Mermaid-Rendering fehlgeschlagen: {err}")
@@ -841,43 +965,61 @@ def render_mermaid_to_png(mermaid_code: str) -> str:
 def preprocess_md(md_text: str, design: dict | None = None) -> str:
     """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer / ```tiers / ```compare / ```mermaid durch HTML."""
     design = design or {}
-    def replace_gantt(m):   return parse_gantt_block(m.group(1))
-    def replace_tree(m):    return parse_tree_block(m.group(1))
-    def replace_flow(m):    return parse_flow_block(m.group(1))
-    def replace_arch(m):    return parse_arch_block(m.group(1))
-    def replace_layer(m):   return parse_layer_block(m.group(1))
-    def replace_tiers(m):   return parse_tiers_block(m.group(1))
-    def replace_compare(m): return parse_compare_block(m.group(1))
+
+    def replace_gantt(m):
+        return parse_gantt_block(m.group(1))
+
+    def replace_tree(m):
+        return parse_tree_block(m.group(1))
+
+    def replace_flow(m):
+        return parse_flow_block(m.group(1))
+
+    def replace_arch(m):
+        return parse_arch_block(m.group(1))
+
+    def replace_layer(m):
+        return parse_layer_block(m.group(1))
+
+    def replace_tiers(m):
+        return parse_tiers_block(m.group(1))
+
+    def replace_compare(m):
+        return parse_compare_block(m.group(1))
+
     def replace_mermaid(m):
         code = m.group(1).strip()
         code = inject_mermaid_classdefs(code, design)
-        print(f"   \U0001f4ca Mermaid-Diagramm rendern ({code.split(chr(10))[0][:40]}\u2026)")
+        print(
+            f"   \U0001f4ca Mermaid-Diagramm rendern ({code.split(chr(10))[0][:40]}\u2026)"
+        )
         return render_mermaid_to_png(code)
-    text = re.sub(r"```gantt\n(.*?)```",   replace_gantt,   md_text, flags=re.DOTALL)
-    text = re.sub(r"```tree\n(.*?)```",    replace_tree,    text,    flags=re.DOTALL)
-    text = re.sub(r"```flow\n(.*?)```",    replace_flow,    text,    flags=re.DOTALL)
-    text = re.sub(r"```arch\n(.*?)```",    replace_arch,    text,    flags=re.DOTALL)
-    text = re.sub(r"```layer\n(.*?)```",   replace_layer,   text,    flags=re.DOTALL)
-    text = re.sub(r"```tiers\n(.*?)```",   replace_tiers,   text,    flags=re.DOTALL)
-    text = re.sub(r"```compare\n(.*?)```", replace_compare, text,    flags=re.DOTALL)
-    text = re.sub(r"```mermaid\n(.*?)```", replace_mermaid, text,    flags=re.DOTALL)
+
+    text = re.sub(r"```gantt\n(.*?)```", replace_gantt, md_text, flags=re.DOTALL)
+    text = re.sub(r"```tree\n(.*?)```", replace_tree, text, flags=re.DOTALL)
+    text = re.sub(r"```flow\n(.*?)```", replace_flow, text, flags=re.DOTALL)
+    text = re.sub(r"```arch\n(.*?)```", replace_arch, text, flags=re.DOTALL)
+    text = re.sub(r"```layer\n(.*?)```", replace_layer, text, flags=re.DOTALL)
+    text = re.sub(r"```tiers\n(.*?)```", replace_tiers, text, flags=re.DOTALL)
+    text = re.sub(r"```compare\n(.*?)```", replace_compare, text, flags=re.DOTALL)
+    text = re.sub(r"```mermaid\n(.*?)```", replace_mermaid, text, flags=re.DOTALL)
     return text
 
 
 _INLINE_PATTERNS = {
-    "stand":           r"\*\*Stand:\*\*\s*([^|\n]+)",
-    "zielgruppe":      r"\*\*Zielgruppe:\*\*\s*([^\n]+)",
-    "angebot_nr":      r"\*\*Angebot Nr\.:\*\*\s*([^\n]+)",
-    "datum":           r"\*\*Datum:\*\*\s*([^\n]+)",
-    "gueltig_bis":     r"\*\*Gültig bis:\*\*\s*([^\n]+)",
-    "auftraggeber":    r"\*\*Auftraggeber\*\*\s*\n+(.+)",
+    "stand": r"\*\*Stand:\*\*\s*([^|\n]+)",
+    "zielgruppe": r"\*\*Zielgruppe:\*\*\s*([^\n]+)",
+    "angebot_nr": r"\*\*Angebot Nr\.:\*\*\s*([^\n]+)",
+    "datum": r"\*\*Datum:\*\*\s*([^\n]+)",
+    "gueltig_bis": r"\*\*Gültig bis:\*\*\s*([^\n]+)",
+    "auftraggeber": r"\*\*Auftraggeber\*\*\s*\n+(.+)",
     # Generic document fields (used by konzept/briefing templates)
-    "doc_type":        r"\*\*(?:Typ|Doc[- ]?Type|Dokumenttyp):\*\*\s*([^\n]+)",
-    "status":          r"\*\*Status:\*\*\s*([^\n]+)",
-    "adressat":        r"\*\*Adressat:\*\*\s*([^\n]+)",
-    "zielentscheidung":r"\*\*Zielentscheidung:\*\*\s*([^\n]+)",
-    "autor":           r"\*\*Autor(?:in)?:\*\*\s*([^\n]+)",
-    "anlass":          r"\*\*Anlass:\*\*\s*([^\n]+)",
+    "doc_type": r"\*\*(?:Typ|Doc[- ]?Type|Dokumenttyp):\*\*\s*([^\n]+)",
+    "status": r"\*\*Status:\*\*\s*([^\n]+)",
+    "adressat": r"\*\*Adressat:\*\*\s*([^\n]+)",
+    "zielentscheidung": r"\*\*Zielentscheidung:\*\*\s*([^\n]+)",
+    "autor": r"\*\*Autor(?:in)?:\*\*\s*([^\n]+)",
+    "anlass": r"\*\*Anlass:\*\*\s*([^\n]+)",
 }
 
 
@@ -925,23 +1067,35 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
     template = design.get("meta_template", "meiki")
     if template == "db":
         rows = []
-        if meta.get("status"):    rows.append(("Status", meta["status"]))
-        if meta.get("datum"):     rows.append(("Datum", meta["datum"]))
-        if meta.get("adressat"):  rows.append(("Adressat", meta["adressat"]))
-        if meta.get("anlass"):    rows.append(("Anlass", meta["anlass"]))
+        if meta.get("status"):
+            rows.append(("Status", meta["status"]))
+        if meta.get("datum"):
+            rows.append(("Datum", meta["datum"]))
+        if meta.get("adressat"):
+            rows.append(("Adressat", meta["adressat"]))
+        if meta.get("anlass"):
+            rows.append(("Anlass", meta["anlass"]))
         return rows
     if template == "iil":
         rows = []
         # Angebot-specific fields (only shown if filled)
-        if meta.get("angebot_nr"):       rows.append(("Angebot-Nr.", meta["angebot_nr"]))
+        if meta.get("angebot_nr"):
+            rows.append(("Angebot-Nr.", meta["angebot_nr"]))
         # Generic Konzept/Briefing-Felder (always shown if present)
-        if meta.get("status"):           rows.append(("Status", meta["status"]))
-        if meta.get("datum"):            rows.append(("Datum", meta["datum"]))
-        if meta.get("gueltig_bis"):      rows.append(("Gültig bis", meta["gueltig_bis"]))
-        if meta.get("adressat"):         rows.append(("Adressat", meta["adressat"]))
-        if meta.get("anlass"):           rows.append(("Anlass", meta["anlass"]))
-        if meta.get("zielentscheidung"): rows.append(("Zielentscheidung", meta["zielentscheidung"]))
-        if meta.get("auftraggeber"):     rows.append(("Auftraggeber", meta["auftraggeber"]))
+        if meta.get("status"):
+            rows.append(("Status", meta["status"]))
+        if meta.get("datum"):
+            rows.append(("Datum", meta["datum"]))
+        if meta.get("gueltig_bis"):
+            rows.append(("Gültig bis", meta["gueltig_bis"]))
+        if meta.get("adressat"):
+            rows.append(("Adressat", meta["adressat"]))
+        if meta.get("anlass"):
+            rows.append(("Anlass", meta["anlass"]))
+        if meta.get("zielentscheidung"):
+            rows.append(("Zielentscheidung", meta["zielentscheidung"]))
+        if meta.get("auftraggeber"):
+            rows.append(("Auftraggeber", meta["auftraggeber"]))
         rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
         return rows
     # meiki default
@@ -958,7 +1112,9 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
     ]
 
 
-def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: dict, design: dict) -> str:
+def build_html(
+    title: str, body_html: str, meta: dict, stem: str, enrichment: dict, design: dict
+) -> str:
     stand = meta.get("stand", "")
     template = design.get("meta_template", "meiki")
 
@@ -967,7 +1123,9 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
         # Priority: explicit Typ: > explicit Status: > Default je Template/Publikum.
         # #1297: extern gerichtete Profile raten KEINEN Typ mehr — ein Angebot trug
         # sonst den Untertitel „Internes Dokument".
-        _default_type = profile_policy.default_doc_type(design.get("audience", ""), template)
+        _default_type = profile_policy.default_doc_type(
+            design.get("audience", ""), template
+        )
         doc_type = meta.get("doc_type") or meta.get("status") or _default_type
         datum = meta.get("datum", "")
         date_line = f"{doc_type} · {datum}".strip(" ·")
@@ -975,29 +1133,37 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
         zg = meta.get("zielgruppe", "Lenkungskreis, IT-Leitung, Entscheider LRA")
         date_line = f"Zielgruppe: {zg}"
 
-    footer_text = (f"Stand: {stand} — " if stand else "") + design.get("footer_suffix", "")
+    footer_text = (f"Stand: {stand} — " if stand else "") + design.get(
+        "footer_suffix", ""
+    )
 
     ctx = {
-        "title":        title,
-        "cover_label":  design.get("cover_label", ""),
-        "subtitle":     design.get("subtitle", ""),
-        "date_line":    date_line,
-        "es_label":     design.get("es_label_text", "Executive Summary"),
-        "enrichment":   enrichment,
-        "meta_rows":    _build_meta_rows(meta, design, stem),
-        "body_html":    body_html,
-        "footer_text":  footer_text,
-        "stand":        stand,
+        "title": title,
+        "cover_label": design.get("cover_label", ""),
+        "subtitle": design.get("subtitle", ""),
+        "date_line": date_line,
+        "es_label": design.get("es_label_text", "Executive Summary"),
+        "enrichment": enrichment,
+        "meta_rows": _build_meta_rows(meta, design, stem),
+        "body_html": body_html,
+        "footer_text": footer_text,
+        "stand": stand,
         "logo_data_uri": design.get("_logo_data_uri", ""),
-        "logo_alt":     design.get("_logo_alt", ""),
+        "logo_alt": design.get("_logo_alt", ""),
         "classification": design.get("_classification", ""),
     }
     tpl = _JINJA_ENV.get_template("base.html.j2")
     return tpl.render(**ctx)
 
 
-def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extra_css: str = "",
-            profile: str | None = None, enrich: bool | None = None) -> Path:
+def convert(
+    input_path: Path,
+    output_dir: Path,
+    design_name: str = "meiki",
+    extra_css: str = "",
+    profile: str | None = None,
+    enrich: bool | None = None,
+) -> Path:
     """``enrich``: ``None`` = Profil entscheidet, sonst CLI-Vorrang (--enrich/--no-enrich)."""
     if profile:
         design = _profile_to_design(profile)
@@ -1009,7 +1175,11 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     # Extract meta first (from original text), then strip those lines before HTML build.
     md_pre_meta = markdown.Markdown(extensions=["meta"])
     md_pre_meta.convert(md_text)
-    fm = {k: v for k, v in md_pre_meta.Meta.items()} if hasattr(md_pre_meta, "Meta") else {}
+    fm = (
+        {k: v for k, v in md_pre_meta.Meta.items()}
+        if hasattr(md_pre_meta, "Meta")
+        else {}
+    )
     meta = extract_meta(md_text, fm=fm)
 
     # Strip meta-prefix lines so they don't appear as paragraph text in body.
@@ -1040,7 +1210,11 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     # Angebot mit Unterschriftsfeld. CLI sticht das Profil.
     do_enrich = design.get("llm_enrichment", True) if enrich is None else enrich
     if not do_enrich:
-        why = "--no-enrich" if enrich is False else f"Profil ist {design.get('audience', 'extern')} gerichtet"
+        why = (
+            "--no-enrich"
+            if enrich is False
+            else f"Profil ist {design.get('audience', 'extern')} gerichtet"
+        )
         print(f"⏭️  LLM-Anreicherung aus ({why}) — mit --enrich erzwingbar")
         enrichment = {}
     else:
@@ -1075,18 +1249,39 @@ def main():
     parser = argparse.ArgumentParser(description="IIL Print Agent — Markdown → PDF")
     parser.add_argument("input", help="Markdown-Quelldatei")
     parser.add_argument("output_dir", nargs="?", help="Ausgabeverzeichnis (optional)")
-    parser.add_argument("--design", default="meiki",
-                        help="Design-Profil: meiki (Standard), iil, ttz oder repo-eigener Key")
-    parser.add_argument("--designs", default=None,
-                        help="Pfad zu repo-spezifischem designs.yaml (Override/Ergänzung)")
-    parser.add_argument("--profile", default=None,
-                        help="design-hub Brand-Profil (db-intern|db-hybrid|iil-extern) — volle CI inkl. Logo/Fonts; prüft allowed_assets")
-    parser.add_argument("--extra-css", default=None,
-                        help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)")
-    parser.add_argument("--enrich", dest="enrich", action="store_true", default=None,
-                        help="LLM-Anreicherung erzwingen, auch bei extern gerichtetem Profil (#1297)")
-    parser.add_argument("--no-enrich", dest="enrich", action="store_false",
-                        help="LLM-Anreicherung unterdrücken (kein Zusammenfassungs-Kasten)")
+    parser.add_argument(
+        "--design",
+        default="meiki",
+        help="Design-Profil: meiki (Standard), iil, ttz oder repo-eigener Key",
+    )
+    parser.add_argument(
+        "--designs",
+        default=None,
+        help="Pfad zu repo-spezifischem designs.yaml (Override/Ergänzung)",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help="design-hub Brand-Profil (db-intern|db-hybrid|iil-extern) — volle CI inkl. Logo/Fonts; prüft allowed_assets",
+    )
+    parser.add_argument(
+        "--extra-css",
+        default=None,
+        help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)",
+    )
+    parser.add_argument(
+        "--enrich",
+        dest="enrich",
+        action="store_true",
+        default=None,
+        help="LLM-Anreicherung erzwingen, auch bei extern gerichtetem Profil (#1297)",
+    )
+    parser.add_argument(
+        "--no-enrich",
+        dest="enrich",
+        action="store_false",
+        help="LLM-Anreicherung unterdrücken (kein Zusammenfassungs-Kasten)",
+    )
     args = parser.parse_args()
     if args.designs:
         global DESIGNS
@@ -1097,10 +1292,22 @@ def main():
         print(f"❌ Datei nicht gefunden: {input_path}")
         sys.exit(1)
 
-    output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else OUTPUT_DIR
-    extra_css = Path(args.extra_css).read_text(encoding="utf-8") if args.extra_css and Path(args.extra_css).exists() else ""
-    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css,
-                  profile=args.profile, enrich=args.enrich)
+    output_dir = (
+        Path(args.output_dir).expanduser().resolve() if args.output_dir else OUTPUT_DIR
+    )
+    extra_css = (
+        Path(args.extra_css).read_text(encoding="utf-8")
+        if args.extra_css and Path(args.extra_css).exists()
+        else ""
+    )
+    out = convert(
+        input_path,
+        output_dir,
+        design_name=args.design,
+        extra_css=extra_css,
+        profile=args.profile,
+        enrich=args.enrich,
+    )
     print(f"✅ PDF erstellt: {out}  ({out.stat().st_size // 1024} KB)")
 
 

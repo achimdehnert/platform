@@ -300,5 +300,7 @@ def test_should_scan_all_workflows_not_only_publish_named(tmp_path):
     wfdir = tmp_path / ".github" / "workflows"
     wfdir.mkdir(parents=True)
     (wfdir / "ci.yml").write_text(_UPLOAD_IN_CI, encoding="utf-8")
-    (wfdir / "lint.yml").write_text(_NON_UPLOAD, encoding="utf-8")  # irrelevant, still übersprungen
+    (wfdir / "lint.yml").write_text(
+        _NON_UPLOAD, encoding="utf-8"
+    )  # irrelevant, still übersprungen
     assert cpg.main([str(tmp_path)]) == 1

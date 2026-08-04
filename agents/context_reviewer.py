@@ -14,6 +14,7 @@ Nutzung:
 Gate-Integration:
   Context Review → Gate 1 (NOTIFY — Kommentare automatisch, nie blockierend)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,94 +35,156 @@ logger = logging.getLogger("context_reviewer")
 
 ADR_KEYWORDS: dict[str, list[str]] = {
     "ADR-009": [
-        "architecture", "platform", "service-map",
+        "architecture",
+        "platform",
+        "service-map",
     ],
     "ADR-021": [
-        "deployment", "docker", "compose", "deploy",
+        "deployment",
+        "docker",
+        "compose",
+        "deploy",
     ],
     "ADR-028": [
-        "platform-context", "middleware", "tenant",
+        "platform-context",
+        "middleware",
+        "tenant",
     ],
     "ADR-035": [
-        "tenant", "multi-tenant", "tenant_id",
+        "tenant",
+        "multi-tenant",
+        "tenant_id",
         "organization",
     ],
     "ADR-040": [
-        "frontend", "completeness", "template",
+        "frontend",
+        "completeness",
+        "template",
         "tailwind",
     ],
     "ADR-041": [
-        "component", "templatetag", "inclusion_tag",
+        "component",
+        "templatetag",
+        "inclusion_tag",
     ],
     "ADR-042": [
-        "deploy", "workflow", "ci/cd", "github-actions",
+        "deploy",
+        "workflow",
+        "ci/cd",
+        "github-actions",
     ],
     "ADR-043": [
-        "ai", "llm", "mcp", "agent", "windsurf",
+        "ai",
+        "llm",
+        "mcp",
+        "agent",
+        "windsurf",
     ],
     "ADR-045": [
-        "secret", "api-key", "env", "credential",
+        "secret",
+        "api-key",
+        "env",
+        "credential",
     ],
     "ADR-048": [
-        "htmx", "hx-get", "hx-post", "hx-swap",
+        "htmx",
+        "hx-get",
+        "hx-post",
+        "hx-swap",
     ],
     "ADR-049": [
-        "token", "design-token", "pui-", "tailwind",
+        "token",
+        "design-token",
+        "pui-",
+        "tailwind",
     ],
     "ADR-050": [
-        "knowledge", "documentation", "sphinx", "rag",
+        "knowledge",
+        "documentation",
+        "sphinx",
+        "rag",
     ],
     "ADR-052": [
-        "pgvector", "embedding", "query-agent", "rag",
+        "pgvector",
+        "embedding",
+        "query-agent",
+        "rag",
     ],
     "ADR-054": [
-        "agent", "guardian", "scribe", "drift",
-        "coach", "reviewer",
+        "agent",
+        "guardian",
+        "scribe",
+        "drift",
+        "coach",
+        "reviewer",
     ],
 }
 
 PRINCIPLE_KEYWORDS: dict[str, list[str]] = {
     "P-001 Database-First": [
-        "models.py", "migration", "makemigrations",
-        "CharField", "ForeignKey",
+        "models.py",
+        "migration",
+        "makemigrations",
+        "CharField",
+        "ForeignKey",
     ],
     "P-002 Zero Breaking Changes": [
-        "deprecat", "breaking", "backward",
+        "deprecat",
+        "breaking",
+        "backward",
         "expand/contract",
     ],
     "P-003 Tenant-Isolation": [
-        "tenant_id", "tenant", "multi-tenant",
+        "tenant_id",
+        "tenant",
+        "multi-tenant",
         "organization",
     ],
     "P-004 Minimal Diff": [],
     "P-005 Service Layer": [
-        "services.py", "service_layer", "business_logic",
+        "services.py",
+        "service_layer",
+        "business_logic",
     ],
 }
 
 PROJECT_PATHS: dict[str, list[str]] = {
     "travel-beat": [
-        "apps/trips", "apps/stories", "apps/locations",
-        "apps/worlds", "apps/ai_services",
+        "apps/trips",
+        "apps/stories",
+        "apps/locations",
+        "apps/worlds",
+        "apps/ai_services",
     ],
     "bfagent": [
-        "apps/bfagent", "apps/writing_hub",
-        "apps/control_center", "apps/expert_hub",
+        "apps/bfagent",
+        "apps/writing_hub",
+        "apps/control_center",
+        "apps/expert_hub",
     ],
     "weltenhub": [
-        "apps/worlds", "apps/characters", "apps/scenes",
+        "apps/worlds",
+        "apps/characters",
+        "apps/scenes",
         "apps/enrichment",
     ],
     "risk-hub": [
-        "apps/risk", "apps/assessments", "apps/reports",
+        "apps/risk",
+        "apps/assessments",
+        "apps/reports",
     ],
     "platform": [
-        "agents/", "packages/", "docs/adr",
-        "shared/", "tools/",
+        "agents/",
+        "packages/",
+        "docs/adr",
+        "shared/",
+        "tools/",
     ],
     "mcp-hub": [
-        "orchestrator_mcp", "llm_mcp",
-        "deployment_mcp", "query_agent_mcp",
+        "orchestrator_mcp",
+        "llm_mcp",
+        "deployment_mcp",
+        "query_agent_mcp",
     ],
 }
 
@@ -138,10 +201,7 @@ class ContextInsight:
 
     def to_markdown_item(self) -> str:
         loc = f" (`{self.file}`)" if self.file else ""
-        return (
-            f"- **{self.category}** → "
-            f"[{self.reference}]: {self.message}{loc}"
-        )
+        return f"- **{self.category}** → [{self.reference}]: {self.message}{loc}"
 
 
 @dataclass
@@ -180,33 +240,24 @@ class ReviewResult:
         if self.affected_adrs:
             lines.append(
                 "**Betroffene ADRs:** "
-                + ", ".join(
-                    f"[{a}](docs/adr/{a}.md)"
-                    for a in self.affected_adrs
-                )
+                + ", ".join(f"[{a}](docs/adr/{a}.md)" for a in self.affected_adrs)
             )
 
         if self.affected_principles:
             lines.append(
-                "**Betroffene Prinzipien:** "
-                + ", ".join(self.affected_principles)
+                "**Betroffene Prinzipien:** " + ", ".join(self.affected_principles)
             )
 
         if self.affected_projects:
             lines.append(
-                "**Betroffene Projekte:** "
-                + ", ".join(self.affected_projects)
+                "**Betroffene Projekte:** " + ", ".join(self.affected_projects)
             )
 
         lines.append("\n### Kontext-Hinweise\n")
         for insight in self.insights:
             lines.append(insight.to_markdown_item())
 
-        lines.append(
-            "\n---\n"
-            "*Context Reviewer v0.1.0 — "
-            "informativ, nie blockierend*"
-        )
+        lines.append("\n---\n*Context Reviewer v0.1.0 — informativ, nie blockierend*")
 
         return "\n".join(lines)
 
@@ -286,19 +337,12 @@ def detect_affected_principles(
     """Erkennt betroffene Architekturprinzipien."""
     found: set[str] = set()
 
-    total_changes = sum(
-        len(f["added_lines"]) + len(f["removed_lines"])
-        for f in files
-    )
+    total_changes = sum(len(f["added_lines"]) + len(f["removed_lines"]) for f in files)
     if total_changes > 400:
         found.add("P-004 Minimal Diff")
 
     for f in files:
-        all_text = (
-            " ".join(f["added_lines"])
-            + " "
-            + f["path"]
-        ).lower()
+        all_text = (" ".join(f["added_lines"]) + " " + f["path"]).lower()
 
         for principle, keywords in PRINCIPLE_KEYWORDS.items():
             if any(kw.lower() in all_text for kw in keywords):
@@ -332,96 +376,103 @@ def generate_insights(
     insights: list[ContextInsight] = []
 
     for adr in adrs:
-        insights.append(ContextInsight(
-            category="ADR",
-            reference=adr,
-            message=(
-                f"Diese Änderung betrifft Bereiche "
-                f"die in {adr} geregelt sind. "
-                f"Bitte prüfen ob die Änderung "
-                f"konform ist."
-            ),
-        ))
+        insights.append(
+            ContextInsight(
+                category="ADR",
+                reference=adr,
+                message=(
+                    f"Diese Änderung betrifft Bereiche "
+                    f"die in {adr} geregelt sind. "
+                    f"Bitte prüfen ob die Änderung "
+                    f"konform ist."
+                ),
+            )
+        )
 
     for principle in principles:
         if principle == "P-004 Minimal Diff":
-            total = sum(
-                len(f["added_lines"])
-                + len(f["removed_lines"])
-                for f in files
+            total = sum(len(f["added_lines"]) + len(f["removed_lines"]) for f in files)
+            insights.append(
+                ContextInsight(
+                    category="Prinzip",
+                    reference=principle,
+                    message=(
+                        f"PR hat {total} geänderte Zeilen. "
+                        f"Erwäge Aufteilen wenn möglich."
+                    ),
+                    confidence=0.9,
+                )
             )
-            insights.append(ContextInsight(
-                category="Prinzip",
-                reference=principle,
-                message=(
-                    f"PR hat {total} geänderte Zeilen. "
-                    f"Erwäge Aufteilen wenn möglich."
-                ),
-                confidence=0.9,
-            ))
         else:
-            insights.append(ContextInsight(
-                category="Prinzip",
-                reference=principle,
-                message=(
-                    f"Änderung berührt {principle}. "
-                    f"FYI für den Reviewer."
-                ),
-            ))
+            insights.append(
+                ContextInsight(
+                    category="Prinzip",
+                    reference=principle,
+                    message=(f"Änderung berührt {principle}. FYI für den Reviewer."),
+                )
+            )
 
     for f in files:
         path = f["path"]
         added = "\n".join(f["added_lines"])
 
         if path.endswith("models.py") and "tenant_id" in added:
-            insights.append(ContextInsight(
-                category="Multi-Tenancy",
-                reference="P-003",
-                message=(
-                    "tenant_id Feld gefunden — "
-                    "stelle sicher dass alle Queries "
-                    "per tenant_id filtern."
-                ),
-                file=path,
-            ))
+            insights.append(
+                ContextInsight(
+                    category="Multi-Tenancy",
+                    reference="P-003",
+                    message=(
+                        "tenant_id Feld gefunden — "
+                        "stelle sicher dass alle Queries "
+                        "per tenant_id filtern."
+                    ),
+                    file=path,
+                )
+            )
 
         if "services.py" in path:
-            insights.append(ContextInsight(
-                category="Architecture",
-                reference="P-005",
-                message=(
-                    "Service-Layer-Änderung — "
-                    "Business-Logik gehört hierhin, "
-                    "nicht in views.py."
-                ),
-                file=path,
-                confidence=0.7,
-            ))
+            insights.append(
+                ContextInsight(
+                    category="Architecture",
+                    reference="P-005",
+                    message=(
+                        "Service-Layer-Änderung — "
+                        "Business-Logik gehört hierhin, "
+                        "nicht in views.py."
+                    ),
+                    file=path,
+                    confidence=0.7,
+                )
+            )
 
         if re.search(r"hx-(get|post|put|delete)", added):
-            insights.append(ContextInsight(
-                category="HTMX",
-                reference="ADR-048",
-                message=(
-                    "HTMX-Attribute erkannt. "
-                    "Siehe ADR-048 für Patterns "
-                    "(Swap, Boost, OOB)."
-                ),
-                file=path,
-            ))
+            insights.append(
+                ContextInsight(
+                    category="HTMX",
+                    reference="ADR-048",
+                    message=(
+                        "HTMX-Attribute erkannt. "
+                        "Siehe ADR-048 für Patterns "
+                        "(Swap, Boost, OOB)."
+                    ),
+                    file=path,
+                )
+            )
 
         if re.search(r"#[0-9a-fA-F]{6}\b", added):
-            insights.append(ContextInsight(
-                category="Design Tokens",
-                reference="ADR-049",
-                message=(
-                    "Hardcoded Farbwert erkannt. "
-                    "Nutze pui-Token aus "
-                    "pui-tokens.css stattdessen."
-                ),
-                file=path,
-                confidence=0.85,
-            ))
+            insights.append(
+                ContextInsight(
+                    category="Design Tokens",
+                    reference="ADR-049",
+                    message=(
+                        "Hardcoded Farbwert erkannt. "
+                        "Nutze pui-Token aus "
+                        "pui-tokens.css stattdessen."
+                    ),
+                    file=path,
+                    confidence=0.85,
+                )
+            )
 
     return insights
 
@@ -434,7 +485,10 @@ def analyze_diff(diff_text: str) -> ReviewResult:
     principles = detect_affected_principles(files)
     projects = detect_affected_projects(files)
     insights = generate_insights(
-        files, adrs, principles, projects,
+        files,
+        adrs,
+        principles,
+        projects,
     )
 
     return ReviewResult(
@@ -451,11 +505,13 @@ def main() -> None:
         description="Context Reviewer — PR-Kontext-Analyse",
     )
     parser.add_argument(
-        "--diff", type=str,
+        "--diff",
+        type=str,
         help="Pfad zu Diff-Datei (oder stdin)",
     )
     parser.add_argument(
-        "--format", choices=["markdown", "json"],
+        "--format",
+        choices=["markdown", "json"],
         default="markdown",
     )
     args = parser.parse_args()

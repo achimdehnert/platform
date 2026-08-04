@@ -16,6 +16,7 @@ Nutzung:
 Gate-Integration:
   Onboarding → Gate 0 (AUTONOMOUS — reines Lese-/Erklärungs-Tool)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -79,9 +80,7 @@ class Module:
                 lines.append(f"### Übung {i}: {ex.id}\n")
                 lines.append(f"{ex.instruction}\n")
                 if ex.hint:
-                    lines.append(
-                        f"> **Hinweis:** {ex.hint}\n"
-                    )
+                    lines.append(f"> **Hinweis:** {ex.hint}\n")
 
         return "\n".join(lines)
 
@@ -102,7 +101,8 @@ MODULES: list[Module] = [
         title="Platform-Überblick",
         duration="30min",
         topics=[
-            "Architektur", "Prinzipien P-001..P-005",
+            "Architektur",
+            "Prinzipien P-001..P-005",
             "Service-Map",
         ],
         content="""\
@@ -141,8 +141,7 @@ und wird per Docker Compose orchestriert.
             Exercise(
                 id="platform-overview",
                 instruction=(
-                    "Frage den Query Agent: "
-                    "'Was sind die 5 Architekturprinzipien?'"
+                    "Frage den Query Agent: 'Was sind die 5 Architekturprinzipien?'"
                 ),
                 hint="Nutze @query-agent-mcp in Windsurf",
             ),
@@ -158,8 +157,7 @@ und wird per Docker Compose orchestriert.
         quiz=[
             QuizQuestion(
                 question=(
-                    "Welches Prinzip verlangt, dass jedes "
-                    "Model ein tenant_id Feld hat?"
+                    "Welches Prinzip verlangt, dass jedes Model ein tenant_id Feld hat?"
                 ),
                 options=[
                     "P-001 Database-First",
@@ -176,10 +174,7 @@ und wird per Docker Compose orchestriert.
                 ),
             ),
             QuizQuestion(
-                question=(
-                    "Wo liegt die Grenze für PR-Größe "
-                    "(Prinzip P-004)?"
-                ),
+                question=("Wo liegt die Grenze für PR-Größe (Prinzip P-004)?"),
                 options=[
                     "100 Zeilen",
                     "200 Zeilen",
@@ -188,8 +183,7 @@ und wird per Docker Compose orchestriert.
                 ],
                 correct=2,
                 explanation=(
-                    "P-004 Minimal Diff: PRs sollten < 400 "
-                    "geänderte Zeilen haben."
+                    "P-004 Minimal Diff: PRs sollten < 400 geänderte Zeilen haben."
                 ),
             ),
         ],
@@ -199,7 +193,8 @@ und wird per Docker Compose orchestriert.
         title="Lokale Entwicklungsumgebung",
         duration="45min",
         topics=[
-            "Git Clone", "Docker Compose",
+            "Git Clone",
+            "Docker Compose",
             "Erste Migration",
         ],
         content="""\
@@ -242,25 +237,17 @@ docker logs travel_beat_web --tail 20
             Exercise(
                 id="clone-project",
                 instruction=(
-                    "Klone travel-beat und starte die "
-                    "Docker-Container lokal."
+                    "Klone travel-beat und starte die Docker-Container lokal."
                 ),
-                hint=(
-                    "Nutze `docker compose -f "
-                    "docker-compose.prod.yml up -d`"
-                ),
+                hint=("Nutze `docker compose -f docker-compose.prod.yml up -d`"),
                 verification=(
-                    "curl http://localhost:8000/health/ "
-                    "sollte 200 zurückgeben"
+                    "curl http://localhost:8000/health/ sollte 200 zurückgeben"
                 ),
             ),
         ],
         quiz=[
             QuizQuestion(
-                question=(
-                    "Wo liegt die Django-Settings-Datei "
-                    "in Platform-Projekten?"
-                ),
+                question=("Wo liegt die Django-Settings-Datei in Platform-Projekten?"),
                 options=[
                     "settings.py im Root",
                     "config/settings/base.py",
@@ -281,7 +268,8 @@ docker logs travel_beat_web --tail 20
         title="Deployment verstehen",
         duration="30min",
         topics=[
-            "CI/CD Pipeline", "Docker Build",
+            "CI/CD Pipeline",
+            "Docker Build",
             "Health Checks",
         ],
         content="""\
@@ -332,10 +320,7 @@ Das `deployment-mcp` bietet Tools für:
         ],
         quiz=[
             QuizQuestion(
-                question=(
-                    "Welche Container-Registry wird "
-                    "für Docker-Images genutzt?"
-                ),
+                question=("Welche Container-Registry wird für Docker-Images genutzt?"),
                 options=[
                     "Docker Hub",
                     "AWS ECR",
@@ -344,8 +329,7 @@ Das `deployment-mcp` bietet Tools für:
                 ],
                 correct=2,
                 explanation=(
-                    "Alle Images liegen unter "
-                    "`ghcr.io/achimdehnert/<app>:latest`"
+                    "Alle Images liegen unter `ghcr.io/achimdehnert/<app>:latest`"
                 ),
             ),
         ],
@@ -355,7 +339,8 @@ Das `deployment-mcp` bietet Tools für:
         title="AI-Tools & MCP",
         duration="30min",
         topics=[
-            "Windsurf Setup", "Query Agent",
+            "Windsurf Setup",
+            "Query Agent",
             "Deployment MCP",
         ],
         content="""\
@@ -400,21 +385,14 @@ Entwicklung in Windsurf:
             Exercise(
                 id="query-agent",
                 instruction=(
-                    "Frage den Query Agent: "
-                    "'Wie funktioniert Tenant-Isolation?'"
+                    "Frage den Query Agent: 'Wie funktioniert Tenant-Isolation?'"
                 ),
-                hint=(
-                    "Nutze @query-agent-mcp query_docs "
-                    "in Windsurf"
-                ),
+                hint=("Nutze @query-agent-mcp query_docs in Windsurf"),
             ),
         ],
         quiz=[
             QuizQuestion(
-                question=(
-                    "Welcher Gate-Level erfordert "
-                    "Human Approval?"
-                ),
+                question=("Welcher Gate-Level erfordert Human Approval?"),
                 options=[
                     "Gate 0",
                     "Gate 1",
@@ -423,8 +401,7 @@ Entwicklung in Windsurf:
                 ],
                 correct=2,
                 explanation=(
-                    "Gate 2 (APPROVE): AI schlägt vor, "
-                    "Mensch genehmigt vor Ausführung."
+                    "Gate 2 (APPROVE): AI schlägt vor, Mensch genehmigt vor Ausführung."
                 ),
             ),
         ],
@@ -434,7 +411,8 @@ Entwicklung in Windsurf:
         title="Erster eigener PR",
         duration="45min",
         topics=[
-            "Feature Branch", "PR Guidelines",
+            "Feature Branch",
+            "PR Guidelines",
             "Guardian Check",
         ],
         content="""\
@@ -485,22 +463,15 @@ docs: update deployment runbook
                     "Docs-Änderung in einem beliebigen "
                     "Projekt. Beobachte den Guardian-Check."
                 ),
-                hint=(
-                    "Ändere z.B. eine Typo-Korrektur "
-                    "in einer README.md"
-                ),
+                hint=("Ändere z.B. eine Typo-Korrektur in einer README.md"),
                 verification=(
-                    "PR ist auf GitHub sichtbar und "
-                    "Guardian hat kommentiert"
+                    "PR ist auf GitHub sichtbar und Guardian hat kommentiert"
                 ),
             ),
         ],
         quiz=[
             QuizQuestion(
-                question=(
-                    "Welcher Commit-Prefix wird für "
-                    "neue Features verwendet?"
-                ),
+                question=("Welcher Commit-Prefix wird für neue Features verwendet?"),
                 options=[
                     "fix:",
                     "feat:",
@@ -509,8 +480,7 @@ docs: update deployment runbook
                 ],
                 correct=1,
                 explanation=(
-                    "Konvention: `feat:` für neue "
-                    "Features, `fix:` für Bugfixes."
+                    "Konvention: `feat:` für neue Features, `fix:` für Bugfixes."
                 ),
             ),
         ],
@@ -535,9 +505,7 @@ class OnboardingProgress:
     def completion_pct(self) -> float:
         if not MODULES:
             return 0.0
-        return (
-            len(self.completed_modules) / len(MODULES)
-        ) * 100
+        return (len(self.completed_modules) / len(MODULES)) * 100
 
     def to_markdown(self) -> str:
         lines = [
@@ -551,13 +519,8 @@ class OnboardingProgress:
             done = m.id in self.completed_modules
             icon = "✅" if done else "⬜"
             score = self.quiz_scores.get(m.id)
-            score_str = (
-                f" (Quiz: {score:.0f}%)" if score else ""
-            )
-            lines.append(
-                f"- {icon} **{m.id}**: "
-                f"{m.title} ({m.duration}){score_str}"
-            )
+            score_str = f" (Quiz: {score:.0f}%)" if score else ""
+            lines.append(f"- {icon} **{m.id}**: {m.title} ({m.duration}){score_str}")
 
         return "\n".join(lines)
 
@@ -596,10 +559,7 @@ def run_quiz(module_id: str) -> float:
             correct += 1
         else:
             right = q.options[q.correct]
-            print(
-                f"❌ Falsch. Richtig: {right}\n"
-                f"   {q.explanation}\n"
-            )
+            print(f"❌ Falsch. Richtig: {right}\n   {q.explanation}\n")
 
     score = (correct / total) * 100 if total > 0 else 0
     print(f"\n**Ergebnis:** {correct}/{total} ({score:.0f}%)")
@@ -613,36 +573,36 @@ def list_modules_markdown() -> str:
         "**Gesamtdauer:** ~3 Stunden\n",
     ]
     for m in MODULES:
-        lines.append(
-            f"- **{m.id}: {m.title}** ({m.duration}) — "
-            f"{', '.join(m.topics)}"
-        )
+        lines.append(f"- **{m.id}: {m.title}** ({m.duration}) — {', '.join(m.topics)}")
     return "\n".join(lines)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=(
-            "Onboarding Coach — "
-            "Interaktiver Onboarding-Assistent"
-        ),
+        description=("Onboarding Coach — Interaktiver Onboarding-Assistent"),
     )
     parser.add_argument(
-        "--list-modules", action="store_true",
+        "--list-modules",
+        action="store_true",
         help="Alle Module auflisten",
     )
     parser.add_argument(
-        "--module", type=str, default=None,
+        "--module",
+        type=str,
+        default=None,
         choices=[m.id for m in MODULES],
         help="Bestimmtes Modul anzeigen",
     )
     parser.add_argument(
-        "--quiz", type=str, default=None,
+        "--quiz",
+        type=str,
+        default=None,
         choices=[m.id for m in MODULES],
         help="Quiz für ein Modul starten",
     )
     parser.add_argument(
-        "--format", choices=["markdown", "json"],
+        "--format",
+        choices=["markdown", "json"],
         default="markdown",
     )
     args = parser.parse_args()

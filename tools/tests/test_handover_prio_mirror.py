@@ -10,6 +10,7 @@ Fehlerklassen lang still falsch (2026-07-22, ausschreibungs-hub):
      ausgerechnet im von ADR-233 vorgeschriebenen Editier-Modus.
 Alle drei sind hier als Golden-Test festgenagelt, damit sie nicht zurueckkehren.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -101,7 +102,10 @@ def test_should_stay_silent_outside_a_git_repo(tmp_path: Path) -> None:
 def test_should_not_reopen_section_on_archive_heading_variants(
     tmp_path: Path, heading: str
 ) -> None:
-    doc = CANONICAL_HANDOVER + f"\n### {heading}\n\n| # | Item | Tier |\n|---|---|---|\n| 1 | Alt-Item | [Sonnet] |\n"
+    doc = (
+        CANONICAL_HANDOVER
+        + f"\n### {heading}\n\n| # | Item | Tier |\n|---|---|---|\n| 1 | Alt-Item | [Sonnet] |\n"
+    )
     out = _run(_repo(tmp_path, doc))
     assert "Alt-Item" not in out
 
@@ -199,7 +203,9 @@ def test_should_warn_when_handover_is_behind_origin_main(tmp_path: Path) -> None
     _advance_origin(
         repo,
         touch="AGENT_HANDOVER.md",
-        content=CANONICAL_HANDOVER.replace("Preview-Tunnel starten", "Ganz andere Prio"),
+        content=CANONICAL_HANDOVER.replace(
+            "Preview-Tunnel starten", "Ganz andere Prio"
+        ),
     )
     out = _run(repo)
     assert WARN_MARKER in out
@@ -209,7 +215,7 @@ def test_should_warn_when_handover_is_behind_origin_main(tmp_path: Path) -> None
 
 
 def test_should_stay_quiet_when_only_other_files_changed(tmp_path: Path) -> None:
-    """"N Commits hinter" allein ist Alltag — sonst Alarm-Muedigkeit."""
+    """ "N Commits hinter" allein ist Alltag — sonst Alarm-Muedigkeit."""
     repo = _real_repo(tmp_path)
     _advance_origin(repo, touch="other.txt", content="v2\n")
     assert WARN_MARKER not in _run(repo)
@@ -217,7 +223,9 @@ def test_should_stay_quiet_when_only_other_files_changed(tmp_path: Path) -> None
 
 def test_should_stay_quiet_when_up_to_date(tmp_path: Path) -> None:
     repo = _real_repo(tmp_path)
-    _git(repo, "update-ref", "refs/remotes/origin/main", _git(repo, "rev-parse", "HEAD"))
+    _git(
+        repo, "update-ref", "refs/remotes/origin/main", _git(repo, "rev-parse", "HEAD")
+    )
     assert WARN_MARKER not in _run(repo)
 
 

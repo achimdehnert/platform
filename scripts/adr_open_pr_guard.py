@@ -18,6 +18,7 @@ Usage (CI, PR context):
     GH_TOKEN=... PR_NUMBER=<n> GITHUB_REPOSITORY=owner/repo \\
         python3 scripts/adr_open_pr_guard.py
 """
+
 from __future__ import annotations
 
 import json
@@ -41,10 +42,22 @@ def main() -> int:
         print("ℹ️  no PR context (GITHUB_REPOSITORY/PR_NUMBER) — open-PR guard skipped")
         return 0
 
-    listed = gh("pr", "list", "--repo", repo, "--state", "open",
-                "--json", "number", "--limit", "200")
+    listed = gh(
+        "pr",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "open",
+        "--json",
+        "number",
+        "--limit",
+        "200",
+    )
     if listed.returncode != 0:
-        print(f"ℹ️  gh unavailable — open-PR guard skipped ({listed.stderr.strip()[:100]})")
+        print(
+            f"ℹ️  gh unavailable — open-PR guard skipped ({listed.stderr.strip()[:100]})"
+        )
         return 0
 
     open_prs = [p["number"] for p in json.loads(listed.stdout or "[]")]

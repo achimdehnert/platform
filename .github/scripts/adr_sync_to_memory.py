@@ -31,6 +31,7 @@ import yaml
 # ---------------------------------------------------------------------------
 def _get_conn():
     import psycopg
+
     db_url = os.environ.get("ORCHESTRATOR_MCP_MEMORY_DB_URL", "")
     if not db_url:
         pw_file = Path.home() / ".secrets" / "orchestrator_mcp_db_password"
@@ -128,7 +129,7 @@ def sync_adr_to_memory(conn, adr_id: str, data: dict, inbound: list[str]) -> boo
     last_review = ""
     if sparring:
         last = sparring[-1]
-        last_review = f"\nLast AI review ({last.get('tool','')} {last.get('date','')}): {last.get('summary','')}"
+        last_review = f"\nLast AI review ({last.get('tool', '')} {last.get('date', '')}): {last.get('summary', '')}"
 
     content = (
         f"ADR: {adr_id} — {data['title']}\n"
@@ -136,8 +137,8 @@ def sync_adr_to_memory(conn, adr_id: str, data: dict, inbound: list[str]) -> boo
         f"Depends on: {', '.join(data['depends_on']) or 'none'}\n"
         f"Depended on by: {', '.join(inbound) or 'none'} ({inbound_count} inbound links)\n"
         f"AI reviews: {len(sparring)} total{last_review}\n"
-        f"Metrics: ttd={metrics.get('ttd_days','?')}d, "
-        f"ttr={metrics.get('ttr_days','?')}d, "
+        f"Metrics: ttd={metrics.get('ttd_days', '?')}d, "
+        f"ttr={metrics.get('ttr_days', '?')}d, "
         f"ai_90d={metrics.get('ai_interactions_90d', 0)}"
     )
 
@@ -153,24 +154,29 @@ def sync_adr_to_memory(conn, adr_id: str, data: dict, inbound: list[str]) -> boo
 
     h = _hash(content)
     with conn.cursor() as cur:
-        cur.execute(UPSERT_SQL, {
-            "id": f"adr:platform:{adr_id}",
-            "entry_type": "decision",
-            "title": f"{adr_id}: {data['title'][:100]}",
-            "content": content,
-            "agent": "adr-nightly-sync",
-            "tags": tags,
-            "related_ids": [f"adr:platform:{r}" for r in related],
-            "half_life_days": half_life,
-            "content_hash": h,
-            "metadata": json.dumps({
-                "adr_id": adr_id,
-                "status": status,
-                "inbound_links": inbound_count,
-                "ai_interactions": len(sparring),
-                "depends_on": data["depends_on"],
-            }),
-        })
+        cur.execute(
+            UPSERT_SQL,
+            {
+                "id": f"adr:platform:{adr_id}",
+                "entry_type": "decision",
+                "title": f"{adr_id}: {data['title'][:100]}",
+                "content": content,
+                "agent": "adr-nightly-sync",
+                "tags": tags,
+                "related_ids": [f"adr:platform:{r}" for r in related],
+                "half_life_days": half_life,
+                "content_hash": h,
+                "metadata": json.dumps(
+                    {
+                        "adr_id": adr_id,
+                        "status": status,
+                        "inbound_links": inbound_count,
+                        "ai_interactions": len(sparring),
+                        "depends_on": data["depends_on"],
+                    }
+                ),
+            },
+        )
     return True
 
 
@@ -214,9 +220,13 @@ def main() -> int:
         with open(summary_path, "a") as f:
             f.write(f"\n### ADR → pgvector Sync\n")
             f.write(f"- **{synced}** entries upserted\n")
-            f.write(f"- **{len(critical)}** critical nodes (≥3 inbound, half_life=365d)\n")
+            f.write(
+                f"- **{len(critical)}** critical nodes (≥3 inbound, half_life=365d)\n"
+            )
             f.write(f"- Graph edges encoded in `related_ids[]`\n")
-            f.write(f"- Claude kann jetzt: `agent_memory_context('ADR-022')` → vollständige Nachbarschaft\n")
+            f.write(
+                f"- Claude kann jetzt: `agent_memory_context('ADR-022')` → vollständige Nachbarschaft\n"
+            )
 
     return 0
 

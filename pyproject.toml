@@ -15,6 +15,13 @@ markers = [
 # Ohne beide Pfade sähe nacktes `pytest` nur 5 von 40 Testdateien (Blindfleck, repo-optimize L-4).
 testpaths = ["tests", "tools/tests"]
 
+[tool.ruff]
+# platform#1754 (B): _ARCHIVED ist Altbestand und bringt EIGENE pyproject.toml mit
+# abweichenden line-lengths mit (99/100/120). Ohne diesen Ausschluss formatiert ruff
+# dort nach jenen Regeln — eine Reformatierung stillgelegten Codes, die niemand
+# will und die den Format-Sweep von 211 auf 495 Dateien aufgeblaeht haette.
+extend-exclude = ["_ARCHIVED"]
+
 [tool.ruff.lint.per-file-ignores]
 # X-9 (repo-optimize 2026-07-03): tools-tests.yml führt jetzt `ruff check tools/ scripts/`
 # als Gate. Diese vier Dateien tragen historische Lint-Schuld, die NICHT trivial (also

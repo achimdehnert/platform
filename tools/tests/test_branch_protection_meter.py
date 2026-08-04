@@ -120,8 +120,16 @@ class TestNetworkErrorDegradation:
         expected.write_text(
             json.dumps(
                 [
-                    {"repo": "unreachable-hub", "owner": "achimdehnert", "required_check": "ci / gate"},
-                    {"repo": "healthy-hub", "owner": "achimdehnert", "required_check": "ci / gate"},
+                    {
+                        "repo": "unreachable-hub",
+                        "owner": "achimdehnert",
+                        "required_check": "ci / gate",
+                    },
+                    {
+                        "repo": "healthy-hub",
+                        "owner": "achimdehnert",
+                        "required_check": "ci / gate",
+                    },
                 ]
             )
         )
@@ -129,11 +137,19 @@ class TestNetworkErrorDegradation:
         monkeypatch.setattr(
             sys,
             "argv",
-            ["branch_protection_meter.py", "--expected", str(expected), "--report", str(report_path)],
+            [
+                "branch_protection_meter.py",
+                "--expected",
+                str(expected),
+                "--report",
+                str(report_path),
+            ],
         )
         return main(), report_path.read_text()
 
-    def test_should_degrade_urlerror_to_violation_and_keep_scanning(self, monkeypatch, tmp_path):
+    def test_should_degrade_urlerror_to_violation_and_keep_scanning(
+        self, monkeypatch, tmp_path
+    ):
         rc, report = self._run(
             monkeypatch,
             tmp_path,
@@ -144,7 +160,9 @@ class TestNetworkErrorDegradation:
         assert "healthy-hub" in report
         assert "- healthy-hub" in report  # zweites Repo lief trotzdem konform durch
 
-    def test_should_degrade_timeout_error_to_violation_and_keep_scanning(self, monkeypatch, tmp_path):
+    def test_should_degrade_timeout_error_to_violation_and_keep_scanning(
+        self, monkeypatch, tmp_path
+    ):
         rc, report = self._run(
             monkeypatch,
             tmp_path,

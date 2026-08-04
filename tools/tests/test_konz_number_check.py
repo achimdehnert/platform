@@ -19,7 +19,9 @@ knc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(knc)
 
 
-def schreibe(d: pathlib.Path, nummer: str, concept_id: str | None = None) -> pathlib.Path:
+def schreibe(
+    d: pathlib.Path, nummer: str, concept_id: str | None = None
+) -> pathlib.Path:
     """Legt KONZ-platform-<nummer>.md an; concept_id default = nummer."""
     cid = nummer if concept_id is None else concept_id
     kopf = "---\n" + (f"concept_id: KONZ-platform-{cid}\n" if cid else "") + "---\n"

@@ -63,7 +63,9 @@ def test_should_reject_an_entry_without_any_dead_marker():
 
 def test_should_accept_an_entry_carrying_only_dead_ips():
     fehler = []
-    vr.validate_decommissioned([decomm(dead_hostnames=[], dead_ips=["10.0.0.1"])], fehler)
+    vr.validate_decommissioned(
+        [decomm(dead_hostnames=[], dead_ips=["10.0.0.1"])], fehler
+    )
 
     assert fehler == []
 

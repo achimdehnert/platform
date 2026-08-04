@@ -1,4 +1,5 @@
 """Tests for Context Reviewer (Agent A6)."""
+
 from __future__ import annotations
 
 from agents.context_reviewer import (
@@ -68,8 +69,7 @@ index abc1234..def5678 100644
 DIFF_LARGE = (
     "diff --git a/big.py b/big.py\n"
     "--- a/big.py\n+++ b/big.py\n"
-    "@@ -1 +1,500 @@\n"
-    + "\n".join(f"+line {i}" for i in range(500))
+    "@@ -1 +1,500 @@\n" + "\n".join(f"+line {i}" for i in range(500))
 )
 
 
@@ -142,42 +142,32 @@ class TestGenerateInsights:
     def test_should_generate_adr_insights(self):
         files = parse_diff(DIFF_MODEL_CHANGE)
         insights = generate_insights(
-            files, ["ADR-035"], [], [],
+            files,
+            ["ADR-035"],
+            [],
+            [],
         )
-        assert any(
-            i.category == "ADR" for i in insights
-        )
+        assert any(i.category == "ADR" for i in insights)
 
     def test_should_detect_htmx_patterns(self):
         files = parse_diff(DIFF_HTMX)
         insights = generate_insights(files, [], [], [])
-        assert any(
-            i.category == "HTMX" for i in insights
-        )
+        assert any(i.category == "HTMX" for i in insights)
 
     def test_should_detect_hardcoded_colors(self):
         files = parse_diff(DIFF_HARDCODED_COLOR)
         insights = generate_insights(files, [], [], [])
-        assert any(
-            i.category == "Design Tokens"
-            for i in insights
-        )
+        assert any(i.category == "Design Tokens" for i in insights)
 
     def test_should_detect_service_layer(self):
         files = parse_diff(DIFF_SERVICES)
         insights = generate_insights(files, [], [], [])
-        assert any(
-            i.category == "Architecture"
-            for i in insights
-        )
+        assert any(i.category == "Architecture" for i in insights)
 
     def test_should_detect_tenant_id_usage(self):
         files = parse_diff(DIFF_MODEL_CHANGE)
         insights = generate_insights(files, [], [], [])
-        assert any(
-            i.category == "Multi-Tenancy"
-            for i in insights
-        )
+        assert any(i.category == "Multi-Tenancy" for i in insights)
 
 
 class TestAnalyzeDiff:

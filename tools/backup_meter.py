@@ -57,7 +57,7 @@ def _parse_restic_time(value: str) -> datetime:
             if ch.isdigit():
                 frac += ch
             else:
-                tail = tail[len(frac):]
+                tail = tail[len(frac) :]
                 break
         raw = f"{head}.{frac[:6]}{tail}"
     if raw.endswith("Z"):
@@ -127,11 +127,17 @@ def evaluate_app(entry: dict, snapshots, now: datetime) -> dict:
     """
     app = entry["app"]
     if entry.get("deferred"):
-        return {"app": app, "status": "deferred",
-                "reasons": [entry.get("reason", "explizit deferred")]}
+        return {
+            "app": app,
+            "status": "deferred",
+            "reasons": [entry.get("reason", "explizit deferred")],
+        }
     if snapshots is None:
-        return {"app": app, "status": "deferred",
-                "reasons": ["Offsite (restic) noch nicht provisioniert — Scaffold"]}
+        return {
+            "app": app,
+            "status": "deferred",
+            "reasons": ["Offsite (restic) noch nicht provisioniert — Scaffold"],
+        }
 
     max_age = entry.get("max_age_hours", DEFAULT_MAX_AGE_HOURS)
     gruende = []
@@ -148,7 +154,9 @@ def evaluate_app(entry: dict, snapshots, now: datetime) -> dict:
             else:
                 gruende.append(f"{was}: kein restic-Snapshot mit Tag '{tag}'")
         elif age > max_age:
-            gruende.append(f"{was}: jüngster Snapshot {age:.1f} h alt (> {max_age} h Soll)")
+            gruende.append(
+                f"{was}: jüngster Snapshot {age:.1f} h alt (> {max_age} h Soll)"
+            )
 
     if gruende:
         return {"app": app, "status": "violation", "reasons": gruende}
@@ -168,14 +176,22 @@ def evaluate_drill(drills_dir: Path, now: datetime, enforce: bool) -> dict:
     protocols = [p for p in protocols if p.name.lower() != "readme.md"]
     if not protocols:
         status = "violation" if enforce else "deferred"
-        return {"app": "restore-drill", "status": status,
-                "reasons": ["kein Feuerübungs-Protokoll in docs/runbooks/restore-drills/"]}
+        return {
+            "app": "restore-drill",
+            "status": status,
+            "reasons": ["kein Feuerübungs-Protokoll in docs/runbooks/restore-drills/"],
+        }
     newest = max(p.stat().st_mtime for p in protocols)
     age_days = (now.timestamp() - newest) / 86400.0
     if age_days > DRILL_MAX_AGE_DAYS:
         status = "violation" if enforce else "deferred"
-        return {"app": "restore-drill", "status": status,
-                "reasons": [f"jüngstes Protokoll {age_days:.0f} Tage alt (> {DRILL_MAX_AGE_DAYS})"]}
+        return {
+            "app": "restore-drill",
+            "status": status,
+            "reasons": [
+                f"jüngstes Protokoll {age_days:.0f} Tage alt (> {DRILL_MAX_AGE_DAYS})"
+            ],
+        }
     return {"app": "restore-drill", "status": "ok", "reasons": []}
 
 
@@ -215,15 +231,23 @@ def load_expected(paths: list) -> list:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--expected", required=True, nargs="+",
-                        help="Pfad(e) zur Soll-App-Liste (JSON)")
-    parser.add_argument("--snapshots",
-                        help="restic-snapshots-JSON; fehlt → Scaffold (alles deferred)")
-    parser.add_argument("--drills-dir", default="docs/runbooks/restore-drills",
-                        help="Verzeichnis der Feuerübungs-Protokolle")
-    parser.add_argument("--enforce-drill", action="store_true",
-                        help="Fehlendes/veraltetes Feuerübungs-Protokoll als Verletzung "
-                             "werten (erst nach erfolgter G3-Erstübung setzen)")
+    parser.add_argument(
+        "--expected", required=True, nargs="+", help="Pfad(e) zur Soll-App-Liste (JSON)"
+    )
+    parser.add_argument(
+        "--snapshots", help="restic-snapshots-JSON; fehlt → Scaffold (alles deferred)"
+    )
+    parser.add_argument(
+        "--drills-dir",
+        default="docs/runbooks/restore-drills",
+        help="Verzeichnis der Feuerübungs-Protokolle",
+    )
+    parser.add_argument(
+        "--enforce-drill",
+        action="store_true",
+        help="Fehlendes/veraltetes Feuerübungs-Protokoll als Verletzung "
+        "werten (erst nach erfolgter G3-Erstübung setzen)",
+    )
     parser.add_argument("--report", help="Markdown-Report in Datei schreiben")
     args = parser.parse_args()
 
@@ -244,7 +268,9 @@ def main() -> int:
 
     now = datetime.now(timezone.utc)
     results = [evaluate_app(entry, snapshots, now) for entry in expected]
-    results.append(evaluate_drill(Path(args.drills_dir), now, enforce=args.enforce_drill))
+    results.append(
+        evaluate_drill(Path(args.drills_dir), now, enforce=args.enforce_drill)
+    )
 
     report = render_report(results)
     print(report)

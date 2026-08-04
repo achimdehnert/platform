@@ -36,6 +36,7 @@ Subcommands:
                einmalig genutzt für den Kanonisierungs-Flip, danach nur bei bewusster
                Header-Auffrischung — siehe `flip()` unten)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -48,7 +49,9 @@ ROOT = Path(__file__).resolve().parent.parent
 FLAT = ROOT / "scripts" / "repo-registry.yaml"
 RICH = ROOT / "registry" / "repos.yaml"
 CANON = ROOT / "registry" / "canonical.yaml"
-ARCHIVED = ROOT / "registry" / "archived-repos.yaml"   # ADR-275 P0: gefilterte lifecycle==archived-View
+ARCHIVED = (
+    ROOT / "registry" / "archived-repos.yaml"
+)  # ADR-275 P0: gefilterte lifecycle==archived-View
 
 
 def _load(p: Path):
@@ -58,10 +61,12 @@ def _load(p: Path):
 def build() -> dict:
     flat_doc = _load(FLAT)
     rich_doc = _load(RICH)
-    flat_repos = {k: v for k, v in (flat_doc.get("repos") or {}).items() if isinstance(v, dict)}
+    flat_repos = {
+        k: v for k, v in (flat_doc.get("repos") or {}).items() if isinstance(v, dict)
+    }
 
     domain_order = []
-    rich_sys = {}     # name -> (domain, system-dict)
+    rich_sys = {}  # name -> (domain, system-dict)
     for dom in rich_doc.get("domains", []):
         dname = dom.get("name")
         domain_order.append(dname)
@@ -100,7 +105,13 @@ def build() -> dict:
             # die clean-state-Invariante umfasst. Hier (nicht in repos.yaml), weil der flip-
             # Roundtrip top-level Source-Keys droppt. bahn-sqf IN (Owner hat Admin), pactive-de
             # bewusst AUSSEN (separates Kunden-Vault). Entscheidung 2026-06-06, Issue #488.
-            "enterprise_owners": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra", "bahn-sqf"],
+            "enterprise_owners": [
+                "achimdehnert",
+                "iilgmbh",
+                "ttz-lif",
+                "meiki-lra",
+                "bahn-sqf",
+            ],
             # Per-Repo-Owner-Override (Transition, = IST-Zustand). KONZ-001 P0 Teil 2:
             # flat-only Repos können keinen rich.github tragen (circular pipeline),
             # darum die per-gh-VERIFIZIERTEN KONZ-002-Migrationen hier als meta-Override
@@ -146,10 +157,10 @@ def build() -> dict:
                 "pg-hub": "PG-Hub",
             },
             "_note": "KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via "
-                     "`registry-canonical.py flip`). Union aus scripts/repo-registry.yaml + "
-                     "registry/repos.yaml; beide Altdateien sind jetzt generierte, "
-                     "gate-erzwungene Views (verify-Gate in registry-consistency.yml). Edits "
-                     "nur hier, nie in den Views. Accessor: tools/registry_api.py.",
+            "`registry-canonical.py flip`). Union aus scripts/repo-registry.yaml + "
+            "registry/repos.yaml; beide Altdateien sind jetzt generierte, "
+            "gate-erzwungene Views (verify-Gate in registry-consistency.yml). Edits "
+            "nur hier, nie in den Views. Accessor: tools/registry_api.py.",
         },
         "repos": repos,
     }
@@ -168,7 +179,14 @@ def _norm(x):
         # Listen von Systemen: nach repo/name sortieren; sonst elementweise normalisieren
         norm = [_norm(i) for i in x]
         try:
-            return sorted(norm, key=lambda d: d.get("repo") or d.get("name") or str(d) if isinstance(d, dict) else str(d))
+            return sorted(
+                norm,
+                key=lambda d: (
+                    d.get("repo") or d.get("name") or str(d)
+                    if isinstance(d, dict)
+                    else str(d)
+                ),
+            )
         except TypeError:
             return norm
     return x
@@ -200,7 +218,9 @@ def verify(canon: dict) -> int:
         gen_a = gen_archived(canon)
         cur_a = {"archived": (_load(ARCHIVED) or {}).get("archived", {})}
         if _norm(gen_a) == _norm(cur_a):
-            print("✅ archived-View: semantisch identisch zu registry/archived-repos.yaml")
+            print(
+                "✅ archived-View: semantisch identisch zu registry/archived-repos.yaml"
+            )
         else:
             rc = 1
             print("🔴 archived-View weicht ab:")
@@ -252,7 +272,9 @@ def _strip_gen_notice(text: str) -> str:
     """Entfernt einen aus einem FRÜHEREN flip vorhandenen GEN_NOTICE-Block per exakter
     Zeilen-Identität (kein Heuristik-Match), bevor flip ihn neu setzt — sonst akkumuliert jeder
     Roundtrip einen weiteren Header (Doppel-Header-Bug, belegt beim C9-Lag-PR). Idempotent."""
-    return "\n".join(ln for ln in text.splitlines() if ln not in _GEN_NOTICE_LINES).strip("\n")
+    return "\n".join(
+        ln for ln in text.splitlines() if ln not in _GEN_NOTICE_LINES
+    ).strip("\n")
 
 
 def flip(canon: dict) -> int:
@@ -264,24 +286,52 @@ def flip(canon: dict) -> int:
     flip behebt NUR die Header-Akkumulation, nicht den Kommentar-Verlust innerhalb der Daten.
     Vollständig verlustfrei wäre nur mit ruamel.yaml (eigene Entscheidung)."""
     rich_header = _strip_gen_notice(_leading_comments(RICH))
-    FLAT.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
-    RICH.write_text(GEN_NOTICE + "\n" + rich_header + "\n" + yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
-    ARCHIVED.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_archived(canon), sort_keys=False, allow_unicode=True, width=100))
-    print(f"✅ geflippt: {FLAT.relative_to(ROOT)} + {RICH.relative_to(ROOT)} + {ARCHIVED.relative_to(ROOT)} (Archiv-View, ADR-275 P0).")
+    FLAT.write_text(
+        GEN_NOTICE
+        + "\n"
+        + yaml.safe_dump(
+            gen_flat(canon), sort_keys=False, allow_unicode=True, width=100
+        )
+    )
+    RICH.write_text(
+        GEN_NOTICE
+        + "\n"
+        + rich_header
+        + "\n"
+        + yaml.safe_dump(
+            gen_rich(canon), sort_keys=False, allow_unicode=True, width=100
+        )
+    )
+    ARCHIVED.write_text(
+        GEN_NOTICE
+        + "\n"
+        + yaml.safe_dump(
+            gen_archived(canon), sort_keys=False, allow_unicode=True, width=100
+        )
+    )
+    print(
+        f"✅ geflippt: {FLAT.relative_to(ROOT)} + {RICH.relative_to(ROOT)} + {ARCHIVED.relative_to(ROOT)} (Archiv-View, ADR-275 P0)."
+    )
     return verify(canon)
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Union-Canonical-Registry (ADR-234 P0 Schritt 1).")
+    ap = argparse.ArgumentParser(
+        description="Union-Canonical-Registry (ADR-234 P0 Schritt 1)."
+    )
     ap.add_argument("cmd", choices=["build", "gen-flat", "gen-rich", "verify", "flip"])
     args = ap.parse_args()
 
     if args.cmd == "build":
         canon = build()
-        CANON.write_text(yaml.safe_dump(canon, sort_keys=False, allow_unicode=True, width=100))
+        CANON.write_text(
+            yaml.safe_dump(canon, sort_keys=False, allow_unicode=True, width=100)
+        )
         nf = sum(1 for e in canon["repos"].values() if e["in_flat"])
         nr = sum(1 for e in canon["repos"].values() if e["in_rich"])
-        print(f"✅ {CANON.relative_to(ROOT)} gebaut: {len(canon['repos'])} Repos (flat={nf}, rich={nr}).")
+        print(
+            f"✅ {CANON.relative_to(ROOT)} gebaut: {len(canon['repos'])} Repos (flat={nf}, rich={nr})."
+        )
         return 0
 
     if not CANON.exists():
@@ -290,9 +340,17 @@ def main() -> int:
     canon = _load(CANON)
 
     if args.cmd == "gen-flat":
-        print(yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
+        print(
+            yaml.safe_dump(
+                gen_flat(canon), sort_keys=False, allow_unicode=True, width=100
+            )
+        )
     elif args.cmd == "gen-rich":
-        print(yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
+        print(
+            yaml.safe_dump(
+                gen_rich(canon), sort_keys=False, allow_unicode=True, width=100
+            )
+        )
     elif args.cmd == "verify":
         return verify(canon)
     elif args.cmd == "flip":

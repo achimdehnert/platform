@@ -13,11 +13,15 @@ from config.secrets import read_secret  # ADR-045
 
 # --- authentik OIDC (ADR-142) ---
 # Set OIDC_ENABLED=false to disable OIDC (e.g. local dev without Authentik)
-_OIDC_ENABLED = read_secret("OIDC_ENABLED", default="true").lower() in ("true", "1", "yes")
+_OIDC_ENABLED = read_secret("OIDC_ENABLED", default="true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 AUTHENTICATION_BACKENDS = (
     [
-        "core.auth.IILOIDCAuthenticationBackend",   # ADR-142 Custom Backend
+        "core.auth.IILOIDCAuthenticationBackend",  # ADR-142 Custom Backend
         "django.contrib.auth.backends.ModelBackend",  # Fallback für Admin/Shell
     ]
     if _OIDC_ENABLED
@@ -30,12 +34,14 @@ if _OIDC_ENABLED:
     # Credentials via read_secret() — ADR-045
     OIDC_RP_CLIENT_ID = read_secret("OIDC_RP_CLIENT_ID", required=True)
     OIDC_RP_CLIENT_SECRET = read_secret(
-        "OIDC_RP_CLIENT_SECRET", required=True,
+        "OIDC_RP_CLIENT_SECRET",
+        required=True,
     )
 
     # IDP Base URL — configurable per environment (default: production)
     _OIDC_IDP_BASE_URL = read_secret(
-        "OIDC_IDP_BASE_URL", default="https://id.iil.pet",
+        "OIDC_IDP_BASE_URL",
+        default="https://id.iil.pet",
     )
 
     # authentik OIDC endpoints. Verified against authentik's own discovery
@@ -56,6 +62,7 @@ if _OIDC_ENABLED:
     OIDC_RP_SCOPES = "openid email profile"
 
 LOGIN_REDIRECT_URL = read_secret(
-    "LOGIN_REDIRECT_URL", default="/dashboard/",
+    "LOGIN_REDIRECT_URL",
+    default="/dashboard/",
 )
 LOGOUT_REDIRECT_URL = "/"

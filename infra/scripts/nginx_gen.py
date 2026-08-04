@@ -32,29 +32,17 @@ from textwrap import dedent
 
 import yaml
 
-PORTS_YAML = (
-    Path(__file__).resolve().parent.parent / "ports.yaml"
-)
+PORTS_YAML = Path(__file__).resolve().parent.parent / "ports.yaml"
 
 # SSL-Zertifikat-Patterns nach Domain-Typ
 SSL_PATTERNS = {
     "iil.pet": {
-        "cert": (
-            "/etc/nginx/ssl/cf-origin/iil-pet.crt"
-        ),
-        "key": (
-            "/etc/nginx/ssl/cf-origin/iil-pet.key"
-        ),
+        "cert": ("/etc/nginx/ssl/cf-origin/iil-pet.crt"),
+        "key": ("/etc/nginx/ssl/cf-origin/iil-pet.key"),
     },
     "letsencrypt": {
-        "cert": (
-            "/etc/letsencrypt/live/{domain}"
-            "/fullchain.pem"
-        ),
-        "key": (
-            "/etc/letsencrypt/live/{domain}"
-            "/privkey.pem"
-        ),
+        "cert": ("/etc/letsencrypt/live/{domain}/fullchain.pem"),
+        "key": ("/etc/letsencrypt/live/{domain}/privkey.pem"),
     },
 }
 
@@ -124,13 +112,8 @@ def generate_prod_config(
         http_names += f" www.{domain}"
 
     lines = []
-    lines.append(
-        f"# Auto-generated from ports.yaml"
-        f" — {name} (prod)"
-    )
-    lines.append(
-        f"# Domain: {domain}, Port: {port}"
-    )
+    lines.append(f"# Auto-generated from ports.yaml — {name} (prod)")
+    lines.append(f"# Domain: {domain}, Port: {port}")
     lines.append("")
 
     # HTTP redirect block
@@ -138,10 +121,7 @@ def generate_prod_config(
     lines.append("    listen 80;")
     lines.append("    listen [::]:80;")
     lines.append(f"    server_name {http_names};")
-    lines.append(
-        f"    return 301 https://{domain}"
-        "$request_uri;"
-    )
+    lines.append(f"    return 301 https://{domain}$request_uri;")
     lines.append("}")
     lines.append("")
 
@@ -150,17 +130,10 @@ def generate_prod_config(
         lines.append("server {")
         lines.append("    listen 443 ssl http2;")
         lines.append("    listen [::]:443 ssl http2;")
-        lines.append(
-            f"    server_name www.{domain};"
-        )
+        lines.append(f"    server_name www.{domain};")
         lines.append(f"    ssl_certificate {cert};")
-        lines.append(
-            f"    ssl_certificate_key {key};"
-        )
-        lines.append(
-            f"    return 301 https://{domain}"
-            "$request_uri;"
-        )
+        lines.append(f"    ssl_certificate_key {key};")
+        lines.append(f"    return 301 https://{domain}$request_uri;")
         lines.append("}")
         lines.append("")
 
@@ -173,9 +146,7 @@ def generate_prod_config(
     lines.append("")
     lines.append(f"    ssl_certificate {cert};")
     lines.append(f"    ssl_certificate_key {key};")
-    lines.append(
-        "    ssl_protocols TLSv1.2 TLSv1.3;"
-    )
+    lines.append("    ssl_protocols TLSv1.2 TLSv1.3;")
     lines.append("    ssl_ciphers HIGH:!aNULL:!MD5;")
     lines.append("")
     lines.append("    client_max_body_size 100M;")
@@ -186,9 +157,7 @@ def generate_prod_config(
     # Alias domain redirect configs
     for alias in aliases:
         lines.append("")
-        lines.append(
-            _alias_redirect(alias, domain)
-        )
+        lines.append(_alias_redirect(alias, domain))
 
     return "\n".join(lines)
 
@@ -208,13 +177,8 @@ def generate_staging_config(
     cert, key = get_ssl_paths(domain)
 
     lines = []
-    lines.append(
-        f"# Auto-generated from ports.yaml"
-        f" — {name} (staging)"
-    )
-    lines.append(
-        f"# Domain: {domain}, Port: {port}"
-    )
+    lines.append(f"# Auto-generated from ports.yaml — {name} (staging)")
+    lines.append(f"# Domain: {domain}, Port: {port}")
     lines.append("")
 
     # HTTP redirect
@@ -222,9 +186,7 @@ def generate_staging_config(
     lines.append("    listen 80;")
     lines.append("    listen [::]:80;")
     lines.append(f"    server_name {domain};")
-    lines.append(
-        "    return 301 https://$host$request_uri;"
-    )
+    lines.append("    return 301 https://$host$request_uri;")
     lines.append("}")
     lines.append("")
 
@@ -236,9 +198,7 @@ def generate_staging_config(
     lines.append("")
     lines.append(f"    ssl_certificate {cert};")
     lines.append(f"    ssl_certificate_key {key};")
-    lines.append(
-        "    ssl_protocols TLSv1.2 TLSv1.3;"
-    )
+    lines.append("    ssl_protocols TLSv1.2 TLSv1.3;")
     lines.append("    ssl_ciphers HIGH:!aNULL:!MD5;")
     lines.append("")
     lines.append("    client_max_body_size 100M;")
@@ -265,7 +225,8 @@ def _proxy_location(port: int) -> str:
 
 
 def _alias_redirect(
-    alias: str, target: str,
+    alias: str,
+    target: str,
 ) -> str:
     """Generate alias domain redirect config."""
     cert, key = get_ssl_paths(alias)
@@ -292,9 +253,7 @@ def _alias_redirect(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=(
-            "Nginx Config Generator (ADR-157)"
-        ),
+        description=("Nginx Config Generator (ADR-157)"),
     )
     parser.add_argument(
         "--service",
@@ -305,11 +264,13 @@ def main() -> None:
         help="Configs in Verzeichnis schreiben",
     )
     parser.add_argument(
-        "--prod-only", action="store_true",
+        "--prod-only",
+        action="store_true",
         help="Nur Prod-Configs",
     )
     parser.add_argument(
-        "--staging-only", action="store_true",
+        "--staging-only",
+        action="store_true",
         help="Nur Staging-Configs",
     )
     args = parser.parse_args()
@@ -319,8 +280,7 @@ def main() -> None:
     if args.service:
         if args.service not in services:
             print(
-                f"ERROR: '{args.service}'"
-                " nicht in ports.yaml",
+                f"ERROR: '{args.service}' nicht in ports.yaml",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -328,10 +288,7 @@ def main() -> None:
             args.service: services[args.service],
         }
     else:
-        targets = {
-            k: v for k, v in services.items()
-            if v and v.get("domain_prod")
-        }
+        targets = {k: v for k, v in services.items() if v and v.get("domain_prod")}
 
     output_dir = None
     if args.output_dir:
@@ -356,7 +313,8 @@ def main() -> None:
             stg = generate_staging_config(name, cfg)
             if stg:
                 domain = cfg.get(
-                    "domain_staging", name,
+                    "domain_staging",
+                    name,
                 )
                 fname = f"{domain}.conf"
                 configs.append((fname, stg))

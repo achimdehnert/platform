@@ -4,6 +4,7 @@ AGENT_MEMORY.md Schema — Pydantic v2 Modelle für den persistenten Kontext-Sto
 Format: JSON-Fences in Markdown (strukturiert + parserbar).
 Jeder Entry hat expires_at (TTL) — abgelaufene Entries werden via gc() entfernt.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -15,20 +16,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class EntryType(str, Enum):
     SOLVED_PROBLEM = "solved_problem"
-    REPO_CONTEXT   = "repo_context"
-    OPEN_TASK      = "open_task"
+    REPO_CONTEXT = "repo_context"
+    OPEN_TASK = "open_task"
     AGENT_DECISION = "agent_decision"
-    ERROR_PATTERN  = "error_pattern"
+    ERROR_PATTERN = "error_pattern"
 
 
 class MemoryEntry(BaseModel):
     """Einzelner strukturierter Eintrag im Agent Memory Store."""
+
     model_config = ConfigDict(extra="forbid")
 
     entry_id: str = Field(
         ...,
         description="Eindeutige ID: T-001, R-coach-hub, D-2026-03-08-001",
-        pattern=r'^[A-Z][A-Z0-9\-]+$',
+        pattern=r"^[A-Z][A-Z0-9\-]+$",
     )
     entry_type: EntryType
     title: str = Field(..., min_length=5, max_length=200)
@@ -59,6 +61,7 @@ class MemoryEntry(BaseModel):
 
 class MemoryStore(BaseModel):
     """Vollständiger Agent Memory Store — wird als AGENT_MEMORY.md serialisiert."""
+
     model_config = ConfigDict(extra="forbid")
 
     version: str = "1.0"

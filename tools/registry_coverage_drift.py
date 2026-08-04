@@ -20,6 +20,7 @@ Gleicht die GitHub-Realität gegen die SSoT `registry/canonical.yaml` ab und mel
 Read-only/advisory (exit 0); `--strict` → exit 1 bei `critical>0` (gated, KONZ-001 R2b, hinter ADR).
 Reiner Kern (`compute_drift`) ist netz-frei → R7-Fault-Injection (s. test).
 """
+
 import argparse
 import datetime
 import json
@@ -57,10 +58,24 @@ def discover_owners() -> list:
 
 def gh_repo_fullnames(owner: str) -> tuple[set, bool]:
     """Gibt (fullnames, truncated). truncated=True wenn das Limit erreicht wurde (AD-2)."""
-    out = _gh(["repo", "list", owner, "--limit", str(LIMIT), "--json", "nameWithOwner",
-               "-q", ".[].nameWithOwner"])
+    out = _gh(
+        [
+            "repo",
+            "list",
+            owner,
+            "--limit",
+            str(LIMIT),
+            "--json",
+            "nameWithOwner",
+            "-q",
+            ".[].nameWithOwner",
+        ]
+    )
     if out is None:
-        return set(), False  # Owner-Fehler → leer + Attestation-Warnung (AD-8: kein sys.exit)
+        return (
+            set(),
+            False,
+        )  # Owner-Fehler → leer + Attestation-Warnung (AD-8: kein sys.exit)
     names = {ln.strip() for ln in out.splitlines() if ln.strip()}
     return names, len(names) >= LIMIT
 
@@ -111,22 +126,32 @@ def compute_drift(ground: set, canonical: dict) -> dict:
     for pfn in sorted(raw_phantom):
         cands = sorted(gap_by_base.get(_basename(pfn), []))
         if len(cands) == 1:
-            migrated.append({"repo": _basename(pfn), "canonical": pfn, "reality": cands[0]})
+            migrated.append(
+                {"repo": _basename(pfn), "canonical": pfn, "reality": cands[0]}
+            )
             resolved.add(pfn)
-        elif len(cands) >= 2:                                    # AD-4: nicht still migrieren
-            ambiguous.append({"repo": _basename(pfn), "canonical": pfn, "candidates": cands})
+        elif len(cands) >= 2:  # AD-4: nicht still migrieren
+            ambiguous.append(
+                {"repo": _basename(pfn), "canonical": pfn, "candidates": cands}
+            )
             resolved.add(pfn)
     busy_bases = {m["repo"] for m in migrated} | {a["repo"] for a in ambiguous}
     enrollment_gap = sorted(fn for fn in raw_gap if _basename(fn) not in busy_bases)
     phantom = sorted(fn for fn in raw_phantom if fn not in resolved)
-    schema_incomplete = sorted(fn for fn, m in canonical.items() if not m["owner_explicit"])
+    schema_incomplete = sorted(
+        fn for fn, m in canonical.items() if not m["owner_explicit"]
+    )
 
-    crit = (sum(1 for m in migrated if _critical(canonical.get(m["canonical"], {})))
-            + sum(1 for fn in phantom if _critical(canonical.get(fn, {})))
-            + len(ambiguous))                                   # Ambiguität ist immer kritisch
-    warn = (len(enrollment_gap)
-            + sum(1 for m in migrated if not _critical(canonical.get(m["canonical"], {})))
-            + sum(1 for fn in phantom if not _critical(canonical.get(fn, {}))))
+    crit = (
+        sum(1 for m in migrated if _critical(canonical.get(m["canonical"], {})))
+        + sum(1 for fn in phantom if _critical(canonical.get(fn, {})))
+        + len(ambiguous)
+    )  # Ambiguität ist immer kritisch
+    warn = (
+        len(enrollment_gap)
+        + sum(1 for m in migrated if not _critical(canonical.get(m["canonical"], {})))
+        + sum(1 for fn in phantom if not _critical(canonical.get(fn, {})))
+    )
     return {
         "enrollment_gap": enrollment_gap,
         "migrated": sorted(migrated, key=lambda m: m["repo"]),
@@ -135,21 +160,33 @@ def compute_drift(ground: set, canonical: dict) -> dict:
         "schema_incomplete": schema_incomplete,
         "covered": sorted(ground & canon_set),
         "severity": {"critical": crit, "warn": warn, "info": len(schema_incomplete)},
-        "drift_score": crit + warn,                             # info (Schema) separat, nicht blockierend
+        "drift_score": crit + warn,  # info (Schema) separat, nicht blockierend
     }
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--owners", default=None, help="Komma-Liste; Default: dynamisch entdeckt (gh api)")
+    ap.add_argument(
+        "--owners",
+        default=None,
+        help="Komma-Liste; Default: dynamisch entdeckt (gh api)",
+    )
     ap.add_argument("--canonical", default=str(CANONICAL))
     ap.add_argument("--format", choices=["text", "json"], default="text")
-    ap.add_argument("--strict", action="store_true", help="exit 1 bei critical>0 (gated)")
-    ap.add_argument("--ledger", default=None, help="datierten Drift-Record an Datei anhängen (Trend, O4)")
+    ap.add_argument(
+        "--strict", action="store_true", help="exit 1 bei critical>0 (gated)"
+    )
+    ap.add_argument(
+        "--ledger",
+        default=None,
+        help="datierten Drift-Record an Datei anhängen (Trend, O4)",
+    )
     a = ap.parse_args()
 
     d = yaml.safe_load(open(a.canonical))
-    canon_org = (d.get("meta") or {}).get("server", {}).get("github_org", "achimdehnert")
+    canon_org = (
+        (d.get("meta") or {}).get("server", {}).get("github_org", "achimdehnert")
+    )
     canonical = parse_canonical(a.canonical, canon_org)
 
     # Scope ist GOVERNANCE, in der SSoT deklariert (meta.enterprise_owners) — nicht hardcoded
@@ -160,9 +197,15 @@ def main():
     if a.owners:
         owners = [o.strip() for o in a.owners.split(",") if o.strip()]
     elif meta.get("enterprise_owners"):
-        owners, scope_source = list(meta["enterprise_owners"]), "canonical.meta.enterprise_owners"
+        owners, scope_source = (
+            list(meta["enterprise_owners"]),
+            "canonical.meta.enterprise_owners",
+        )
     else:
-        owners, scope_source = list(DEFAULT_OWNERS), "FALLBACK (meta.enterprise_owners fehlt!)"
+        owners, scope_source = (
+            list(DEFAULT_OWNERS),
+            "FALLBACK (meta.enterprise_owners fehlt!)",
+        )
     discovered_unscoped = sorted(set(discover_owners()) - set(owners))
 
     # REC-9: Owner-Provenienz — welche Repos beziehen ihren Owner aus dem TRANSITION-Override
@@ -177,7 +220,9 @@ def main():
     if len(owners) != len(set(owners)):
         validation.append("enterprise_owners enthält Duplikate")
     if any(not o or "/" in o for o in overrides.values()):
-        validation.append("repo_owner-Werte leer oder nicht owner-normalisiert (kein 'owner/name' erwartet)")
+        validation.append(
+            "repo_owner-Werte leer oder nicht owner-normalisiert (kein 'owner/name' erwartet)"
+        )
 
     ground, truncated, failed = set(), [], []
     for o in owners:
@@ -193,10 +238,10 @@ def main():
         "owners_queried": owners,
         "scope_source": scope_source,
         "discovered_unscoped": discovered_unscoped,  # Owner, die der Token sieht, aber NICHT im Scope → Review
-        "owner_from_override": owner_from_override,   # REC-9: Owner aus Transition-Override, nicht finaler Architektur
-        "validation": validation,                     # REC-12: Governance-Input-Probleme (Override-Keys/Duplikate)
-        "owners_failed": failed,                      # leere/fehlgeschlagene Abfragen → Ergebnis unvollständig
-        "truncation_warning": truncated,              # Limit erreicht → mögliche stille Lücke
+        "owner_from_override": owner_from_override,  # REC-9: Owner aus Transition-Override, nicht finaler Architektur
+        "validation": validation,  # REC-12: Governance-Input-Probleme (Override-Keys/Duplikate)
+        "owners_failed": failed,  # leere/fehlgeschlagene Abfragen → Ergebnis unvollständig
+        "truncation_warning": truncated,  # Limit erreicht → mögliche stille Lücke
         "schema_incomplete_count": res["severity"]["info"],
         "advisory": not a.strict,
     }
@@ -204,32 +249,54 @@ def main():
     if a.ledger:
         stamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M")
         sev = res["severity"]
-        line = (f"{stamp}\tdrift={res['drift_score']}\tcrit={sev['critical']}\twarn={sev['warn']}"
-                f"\tschema_incomplete={sev['info']}\tgaps={len(res['enrollment_gap'])}"
-                f"\tmigrated={len(res['migrated'])}\tambiguous={len(res['ambiguous'])}"
-                f"\tphantom={len(res['phantom'])}\towners={len(owners)}\n")
+        line = (
+            f"{stamp}\tdrift={res['drift_score']}\tcrit={sev['critical']}\twarn={sev['warn']}"
+            f"\tschema_incomplete={sev['info']}\tgaps={len(res['enrollment_gap'])}"
+            f"\tmigrated={len(res['migrated'])}\tambiguous={len(res['ambiguous'])}"
+            f"\tphantom={len(res['phantom'])}\towners={len(owners)}\n"
+        )
         with open(a.ledger, "a", encoding="utf-8") as f:
             f.write(line)
 
     if a.format == "json":
-        print(json.dumps({"attestation": attestation, **res}, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"attestation": attestation, **res}, indent=2, ensure_ascii=False
+            )
+        )
     else:
         s = res["severity"]
-        print(f"=== registry_coverage_drift v2 (KONZ-001 R5) — owners={len(owners)} (scope: {attestation['scope_source']}) ===")
+        print(
+            f"=== registry_coverage_drift v2 (KONZ-001 R5) — owners={len(owners)} (scope: {attestation['scope_source']}) ==="
+        )
         if discovered_unscoped:
-            print(f"  ⚠ ATTESTATION: {len(discovered_unscoped)} entdeckte Owner NICHT im Scope ({', '.join(discovered_unscoped)}) — in canonical.meta.enterprise_owners aufnehmen oder bewusst ausschließen")
+            print(
+                f"  ⚠ ATTESTATION: {len(discovered_unscoped)} entdeckte Owner NICHT im Scope ({', '.join(discovered_unscoped)}) — in canonical.meta.enterprise_owners aufnehmen oder bewusst ausschließen"
+            )
         if "FALLBACK" in attestation["scope_source"]:
-            print("  ⚠ ATTESTATION: Scope-FALLBACK — die SSoT deklariert keine enterprise_owners; Governance-Entscheidung offen")
+            print(
+                "  ⚠ ATTESTATION: Scope-FALLBACK — die SSoT deklariert keine enterprise_owners; Governance-Entscheidung offen"
+            )
         if failed:
-            print(f"  ⚠ ATTESTATION: {len(failed)} Owner-Abfrage(n) fehlgeschlagen ({','.join(failed)}) — Ergebnis UNVOLLSTÄNDIG")
+            print(
+                f"  ⚠ ATTESTATION: {len(failed)} Owner-Abfrage(n) fehlgeschlagen ({','.join(failed)}) — Ergebnis UNVOLLSTÄNDIG"
+            )
         if truncated:
-            print(f"  ⚠ ATTESTATION: Truncation bei {','.join(truncated)} (≥{LIMIT}) — mögliche stille Lücke")
+            print(
+                f"  ⚠ ATTESTATION: Truncation bei {','.join(truncated)} (≥{LIMIT}) — mögliche stille Lücke"
+            )
         for v in attestation["validation"]:
             print(f"  ⚠ VALIDATION: {v}")
         if attestation["owner_from_override"]:
-            print(f"  ℹ TRANSITION: Owner aus meta.repo_owner-Override (nicht finale Architektur): {', '.join(attestation['owner_from_override'])}")
-        print(f"  Ground-Truth: {len(ground)} · canonical: {len(canonical)} · covered: {len(res['covered'])}")
-        print(f"  SEVERITY: critical={s['critical']} · warn={s['warn']} · info/schema-incomplete={s['info']}")
+            print(
+                f"  ℹ TRANSITION: Owner aus meta.repo_owner-Override (nicht finale Architektur): {', '.join(attestation['owner_from_override'])}"
+            )
+        print(
+            f"  Ground-Truth: {len(ground)} · canonical: {len(canonical)} · covered: {len(res['covered'])}"
+        )
+        print(
+            f"  SEVERITY: critical={s['critical']} · warn={s['warn']} · info/schema-incomplete={s['info']}"
+        )
         print(f"  ENROLLMENT-GAP ({len(res['enrollment_gap'])}):")
         for r in res["enrollment_gap"]:
             print(f"    + {r}")
@@ -237,12 +304,18 @@ def main():
         for m in res["migrated"]:
             print(f"    ~ {m['repo']}: {m['canonical']} → {m['reality']}")
         if res["ambiguous"]:
-            print(f"  AMBIGUOUS ({len(res['ambiguous'])} — basename-Kollision, NICHT still migriert):")
+            print(
+                f"  AMBIGUOUS ({len(res['ambiguous'])} — basename-Kollision, NICHT still migriert):"
+            )
             for am in res["ambiguous"]:
                 print(f"    ? {am['repo']}: {am['canonical']} ↔ {am['candidates']}")
         print(f"  PHANTOM ({len(res['phantom'])}): {', '.join(res['phantom']) or '—'}")
-        print(f"  SCHEMA-INCOMPLETE ({len(res['schema_incomplete'])}): Repos ohne expliziten Owner in der SSoT")
-        print(f"=== DRIFT-SCORE: {res['drift_score']} (critical+warn; 0 = sauber) · advisory={attestation['advisory']} ===")
+        print(
+            f"  SCHEMA-INCOMPLETE ({len(res['schema_incomplete'])}): Repos ohne expliziten Owner in der SSoT"
+        )
+        print(
+            f"=== DRIFT-SCORE: {res['drift_score']} (critical+warn; 0 = sauber) · advisory={attestation['advisory']} ==="
+        )
     sys.exit(1 if (a.strict and res["severity"]["critical"]) else 0)
 
 

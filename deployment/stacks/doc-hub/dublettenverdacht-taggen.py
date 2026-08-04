@@ -21,9 +21,9 @@ TAG_FARBE = "#e74c3c"
 
 # Gruppen aus dem Aehnlichkeitslauf (>= 98 %)
 GRUPPEN = {
-    "A": [732, 846, 848],   # Rechnung Gemeinde Memmingerberg, 2026-03-16
-    "B": [724, 740],        # Rechnung Prof. Dr. Achim Dehnert, 2022-03-08
-    "C": [107, 123],        # Dr. Armin Dehnert, 2023-08-02
+    "A": [732, 846, 848],  # Rechnung Gemeinde Memmingerberg, 2026-03-16
+    "B": [724, 740],  # Rechnung Prof. Dr. Achim Dehnert, 2022-03-08
+    "C": [107, 123],  # Dr. Armin Dehnert, 2023-08-02
 }
 
 RULE_HAS_TAG = 6  # documents_savedviewfilterrule.rule_type
@@ -34,7 +34,9 @@ def main() -> int:
         name=TAG_NAME,
         defaults={"color": TAG_FARBE, "is_inbox_tag": False, "matching_algorithm": 0},
     )
-    print(f"Tag '{tag.name}' (id {tag.id}) — {'neu angelegt' if neu else 'bestand bereits'}")
+    print(
+        f"Tag '{tag.name}' (id {tag.id}) — {'neu angelegt' if neu else 'bestand bereits'}"
+    )
 
     gesetzt, fehlend = 0, []
     for gruppe, ids in GRUPPEN.items():
@@ -84,9 +86,11 @@ def main() -> int:
             SavedViewFilterRule.objects.create(
                 saved_view=view, rule_type=RULE_HAS_TAG, value=str(tag.id)
             )
-        print(f"Ansicht 'Dublettenverdacht' (id {view.id}, Besitzer {besitzer}) — "
-              f"{'neu angelegt' if view_neu else 'bestand bereits'}, "
-              f"")
+        print(
+            f"Ansicht 'Dublettenverdacht' (id {view.id}, Besitzer {besitzer}) — "
+            f"{'neu angelegt' if view_neu else 'bestand bereits'}, "
+            f""
+        )
 
     # Gegenprobe gegen den Bestand, nicht gegen die eigene Absicht
     ist = set(Document.objects.filter(tags=tag).values_list("id", flat=True))
@@ -98,11 +102,16 @@ def main() -> int:
 
     print("\nPaare zum Nebeneinanderlegen:")
     for a, b, wert in [
-        (732, 848, "99,4 %"), (846, 848, "99,2 %"), (732, 846, "99,1 %"),
-        (724, 740, "98,9 %"), (107, 123, "98,3 %"),
+        (732, 848, "99,4 %"),
+        (846, 848, "99,2 %"),
+        (732, 846, "99,1 %"),
+        (724, 740, "98,9 %"),
+        (107, 123, "98,3 %"),
     ]:
-        print(f"  {wert}  https://docs.iil.pet/documents/{a}/details"
-              f"   |   https://docs.iil.pet/documents/{b}/details")
+        print(
+            f"  {wert}  https://docs.iil.pet/documents/{a}/details"
+            f"   |   https://docs.iil.pet/documents/{b}/details"
+        )
     return 0
 
 

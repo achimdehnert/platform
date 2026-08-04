@@ -18,19 +18,34 @@ Usage:
     python3 fix_os_environ_to_decouple.py /path/to/repo/    # dry-run
     python3 fix_os_environ_to_decouple.py /path/to/repo/ --apply
 """
+
 import argparse
 import os
 import re
 import sys
 
 SKIP_FILES = {
-    "manage.py", "wsgi.py", "asgi.py", "celery.py",
-    "conftest.py", "test.py", "testing.py", "settings_test.py",
+    "manage.py",
+    "wsgi.py",
+    "asgi.py",
+    "celery.py",
+    "conftest.py",
+    "test.py",
+    "testing.py",
+    "settings_test.py",
 }
 SKIP_DIRS = {
-    "migrations", "__pycache__", ".venv", "node_modules",
-    "tests", "test", "site-packages", "docs",
-    ".github", ".claude", "scripts",
+    "migrations",
+    "__pycache__",
+    ".venv",
+    "node_modules",
+    "tests",
+    "test",
+    "site-packages",
+    "docs",
+    ".github",
+    ".claude",
+    "scripts",
 }
 
 # os.environ.get("KEY", "default")
@@ -38,19 +53,13 @@ ENVIRON_GET_DEFAULT = re.compile(
     r'os\.environ\.get\(\s*(["\'][^"\']+["\'])\s*,\s*([^)]+)\s*\)'
 )
 # os.environ.get("KEY") — no default
-ENVIRON_GET_NODEFAULT = re.compile(
-    r'os\.environ\.get\(\s*(["\'][^"\']+["\'])\s*\)'
-)
+ENVIRON_GET_NODEFAULT = re.compile(r'os\.environ\.get\(\s*(["\'][^"\']+["\'])\s*\)')
 # os.environ["KEY"] on right side (read, not assignment)
-ENVIRON_BRACKET_READ = re.compile(
-    r'(?<!=\s)os\.environ\[(["\'][^"\']+["\'])\]'
-)
+ENVIRON_BRACKET_READ = re.compile(r'(?<!=\s)os\.environ\[(["\'][^"\']+["\'])\]')
 # os.environ.setdefault — SKIP
-ENVIRON_SETDEFAULT = re.compile(r'os\.environ\.setdefault')
+ENVIRON_SETDEFAULT = re.compile(r"os\.environ\.setdefault")
 # os.environ["KEY"] = ... — SKIP (assignment)
-ENVIRON_ASSIGNMENT = re.compile(
-    r'os\.environ\[["\'][^"\']+["\']\]\s*='
-)
+ENVIRON_ASSIGNMENT = re.compile(r'os\.environ\[["\'][^"\']+["\']\]\s*=')
 
 
 def should_skip(filepath):
@@ -116,17 +125,11 @@ def process_file(filepath, apply=False):
             continue
 
         # Replace os.environ.get("KEY", "default")
-        line = ENVIRON_GET_DEFAULT.sub(
-            r'config(\1, default=\2)', line
-        )
+        line = ENVIRON_GET_DEFAULT.sub(r"config(\1, default=\2)", line)
         # Replace os.environ.get("KEY")
-        line = ENVIRON_GET_NODEFAULT.sub(
-            r'config(\1, default="")', line
-        )
+        line = ENVIRON_GET_NODEFAULT.sub(r'config(\1, default="")', line)
         # Replace os.environ["KEY"] (read)
-        line = ENVIRON_BRACKET_READ.sub(
-            r'config(\1)', line
-        )
+        line = ENVIRON_BRACKET_READ.sub(r"config(\1)", line)
 
         if line != original_line:
             replacements += 1
@@ -172,9 +175,7 @@ def main():
         description="Replace os.environ with decouple.config()"
     )
     parser.add_argument("directory", help="Directory to scan")
-    parser.add_argument(
-        "--apply", action="store_true", help="Write changes"
-    )
+    parser.add_argument("--apply", action="store_true", help="Write changes")
     args = parser.parse_args()
 
     mode = "APPLY" if args.apply else "DRY-RUN"
@@ -190,9 +191,7 @@ def main():
     print(f"Skipped (setdefault/assignment): {total_skipped}")
     print(f"Files affected: {len(results)}")
     for r in results:
-        short = r["file"].replace(
-            os.path.expanduser("~/github/"), ""
-        )
+        short = r["file"].replace(os.path.expanduser("~/github/"), "")
         print(f"  {short}: {r['replacements']} replacements")
 
     return 0

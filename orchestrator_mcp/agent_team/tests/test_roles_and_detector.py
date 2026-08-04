@@ -140,17 +140,23 @@ class TestDeploymentAgentConfig:
 
     def test_rollback_requires_tech_lead_on_destructive(self):
         policy = self.agent.rollback_policy
-        assert policy.requires_tech_lead(
-            migration_is_destructive=True,
-            migration_was_applied=True,
-        ) is True
+        assert (
+            policy.requires_tech_lead(
+                migration_is_destructive=True,
+                migration_was_applied=True,
+            )
+            is True
+        )
 
     def test_rollback_no_tech_lead_if_not_applied(self):
         policy = self.agent.rollback_policy
-        assert policy.requires_tech_lead(
-            migration_is_destructive=True,
-            migration_was_applied=False,
-        ) is False
+        assert (
+            policy.requires_tech_lead(
+                migration_is_destructive=True,
+                migration_was_applied=False,
+            )
+            is False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -247,9 +253,7 @@ class TestClassifySQLStatement:
         assert "DROP TABLE" in result.reason
 
     def test_drop_column_is_breaking(self):
-        result = _classify_sql_statement(
-            "ALTER TABLE myapp_user DROP COLUMN email;"
-        )
+        result = _classify_sql_statement("ALTER TABLE myapp_user DROP COLUMN email;")
         assert result.change_type == ChangeType.BREAKING
 
     def test_rename_is_breaking(self):
@@ -265,9 +269,7 @@ class TestClassifySQLStatement:
         assert result.change_type == ChangeType.BREAKING
 
     def test_create_table_is_safe(self):
-        result = _classify_sql_statement(
-            "CREATE TABLE myapp_newmodel (id bigint);"
-        )
+        result = _classify_sql_statement("CREATE TABLE myapp_newmodel (id bigint);")
         assert result.change_type == ChangeType.SAFE
 
     def test_add_column_is_safe(self):

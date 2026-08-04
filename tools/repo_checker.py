@@ -184,16 +184,26 @@ def check_compose(repo_path: Path, config: dict) -> list[CheckResult]:
 
     content = read_file(path)
     if content is None:
-        results.append(CheckResult(
-            cat, "file_exists", Severity.ERROR,
-            f"{compose_file} not found", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "file_exists",
+                Severity.ERROR,
+                f"{compose_file} not found",
+                str(path),
+            )
+        )
         return results
 
-    results.append(CheckResult(
-        cat, "file_exists", Severity.OK,
-        f"{compose_file} exists", str(path),
-    ))
+    results.append(
+        CheckResult(
+            cat,
+            "file_exists",
+            Severity.OK,
+            f"{compose_file} exists",
+            str(path),
+        )
+    )
 
     # Check IMAGE_TAG standardization
     legacy_tags = grep_lines(
@@ -202,82 +212,130 @@ def check_compose(repo_path: Path, config: dict) -> list[CheckResult]:
     )
     if legacy_tags:
         for ln, line in legacy_tags:
-            results.append(CheckResult(
-                cat, "image_tag", Severity.ERROR,
-                f"Legacy IMAGE_TAG variant: {line}",
-                str(path), ln,
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "image_tag",
+                    Severity.ERROR,
+                    f"Legacy IMAGE_TAG variant: {line}",
+                    str(path),
+                    ln,
+                )
+            )
     else:
-        results.append(CheckResult(
-            cat, "image_tag", Severity.OK,
-            "IMAGE_TAG standardized", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "image_tag",
+                Severity.OK,
+                "IMAGE_TAG standardized",
+                str(path),
+            )
+        )
 
     # Check healthcheck uses 127.0.0.1 (not localhost)
     localhost_hc = grep_lines(content, r"localhost.*8000.*livez")
     if localhost_hc:
         for ln, line in localhost_hc:
-            results.append(CheckResult(
-                cat, "hc_ip", Severity.ERROR,
-                "Healthcheck uses 'localhost' instead of '127.0.0.1'",
-                str(path), ln,
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "hc_ip",
+                    Severity.ERROR,
+                    "Healthcheck uses 'localhost' instead of '127.0.0.1'",
+                    str(path),
+                    ln,
+                )
+            )
     else:
         ip_hc = grep_lines(content, r"127\.0\.0\.1.*8000.*livez")
         if ip_hc:
-            results.append(CheckResult(
-                cat, "hc_ip", Severity.OK,
-                "Healthcheck uses 127.0.0.1", str(path),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "hc_ip",
+                    Severity.OK,
+                    "Healthcheck uses 127.0.0.1",
+                    str(path),
+                )
+            )
 
     # Check healthcheck uses /livez/
     hc_lines = grep_lines(content, r"healthcheck|test.*CMD")
     livez_found = any("livez" in line for _, line in hc_lines)
     if hc_lines and not livez_found:
-        results.append(CheckResult(
-            cat, "hc_livez", Severity.ERROR,
-            "Healthcheck does not use /livez/ endpoint", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "hc_livez",
+                Severity.ERROR,
+                "Healthcheck does not use /livez/ endpoint",
+                str(path),
+            )
+        )
     elif livez_found:
-        results.append(CheckResult(
-            cat, "hc_livez", Severity.OK,
-            "Healthcheck uses /livez/", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "hc_livez",
+                Severity.OK,
+                "Healthcheck uses /livez/",
+                str(path),
+            )
+        )
 
     # Check healthcheck uses python urllib (not curl)
     curl_hc = grep_lines(content, r"curl.*livez|curl.*health")
     if curl_hc:
         for ln, line in curl_hc:
-            results.append(CheckResult(
-                cat, "hc_urllib", Severity.WARNING,
-                f"Healthcheck uses curl instead of python urllib: {line}",
-                str(path), ln,
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "hc_urllib",
+                    Severity.WARNING,
+                    f"Healthcheck uses curl instead of python urllib: {line}",
+                    str(path),
+                    ln,
+                )
+            )
 
     # Check env_file usage
     env_file_lines = grep_lines(content, r"^\s*env_file:")
     env_interp = grep_lines(content, r"^\s+\$\{[A-Z_]+")
     if not env_file_lines and env_interp:
-        results.append(CheckResult(
-            cat, "env_file", Severity.WARNING,
-            "No env_file directive; uses environment: with ${VAR} interpolation",
-            str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "env_file",
+                Severity.WARNING,
+                "No env_file directive; uses environment: with ${VAR} interpolation",
+                str(path),
+            )
+        )
     elif env_file_lines:
         env_prod = grep_lines(content, r"\.env\.prod")
         if env_prod:
-            results.append(CheckResult(
-                cat, "env_file", Severity.OK,
-                "Uses env_file: .env.prod", str(path),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "env_file",
+                    Severity.OK,
+                    "Uses env_file: .env.prod",
+                    str(path),
+                )
+            )
         else:
             env_plain = grep_lines(content, r"- \.env\s*$")
             if env_plain:
-                results.append(CheckResult(
-                    cat, "env_file", Severity.WARNING,
-                    "Uses .env instead of .env.prod",
-                    str(path),
-                ))
+                results.append(
+                    CheckResult(
+                        cat,
+                        "env_file",
+                        Severity.WARNING,
+                        "Uses .env instead of .env.prod",
+                        str(path),
+                    )
+                )
 
     return results
 
@@ -291,29 +349,49 @@ def check_dockerfile(repo_path: Path, config: dict) -> list[CheckResult]:
 
     content = read_file(path)
     if content is None:
-        results.append(CheckResult(
-            cat, "file_exists", Severity.ERROR,
-            f"{dockerfile} not found", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "file_exists",
+                Severity.ERROR,
+                f"{dockerfile} not found",
+                str(path),
+            )
+        )
         return results
 
     # OCI Labels
     oci_labels = grep_lines(content, r"org\.opencontainers\.image\.")
     if len(oci_labels) >= 2:
-        results.append(CheckResult(
-            cat, "oci_labels", Severity.OK,
-            f"OCI Labels present ({len(oci_labels)} found)", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "oci_labels",
+                Severity.OK,
+                f"OCI Labels present ({len(oci_labels)} found)",
+                str(path),
+            )
+        )
     elif oci_labels:
-        results.append(CheckResult(
-            cat, "oci_labels", Severity.WARNING,
-            "Only 1 OCI Label (need source + description)", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "oci_labels",
+                Severity.WARNING,
+                "Only 1 OCI Label (need source + description)",
+                str(path),
+            )
+        )
     else:
-        results.append(CheckResult(
-            cat, "oci_labels", Severity.ERROR,
-            "No OCI Labels found", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "oci_labels",
+                Severity.ERROR,
+                "No OCI Labels found",
+                str(path),
+            )
+        )
 
     # HEALTHCHECK (may span multiple lines via backslash)
     hc = grep_lines(content, r"^HEALTHCHECK")
@@ -321,45 +399,80 @@ def check_dockerfile(repo_path: Path, config: dict) -> list[CheckResult]:
         # Collect continuation lines (HEALTHCHECK ... \ \n    CMD ...)
         hc_block = _get_continuation_block(content, hc[0][0] - 1)
         if "127.0.0.1" in hc_block and "livez" in hc_block:
-            results.append(CheckResult(
-                cat, "healthcheck", Severity.OK,
-                "HEALTHCHECK with 127.0.0.1 and /livez/", str(path),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "healthcheck",
+                    Severity.OK,
+                    "HEALTHCHECK with 127.0.0.1 and /livez/",
+                    str(path),
+                )
+            )
         elif "livez" not in hc_block:
-            results.append(CheckResult(
-                cat, "healthcheck", Severity.ERROR,
-                "HEALTHCHECK does not use /livez/", str(path),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "healthcheck",
+                    Severity.ERROR,
+                    "HEALTHCHECK does not use /livez/",
+                    str(path),
+                )
+            )
         elif "127.0.0.1" not in hc_block:
-            results.append(CheckResult(
-                cat, "healthcheck", Severity.WARNING,
-                "HEALTHCHECK does not use 127.0.0.1", str(path),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "healthcheck",
+                    Severity.WARNING,
+                    "HEALTHCHECK does not use 127.0.0.1",
+                    str(path),
+                )
+            )
     else:
-        results.append(CheckResult(
-            cat, "healthcheck", Severity.ERROR,
-            "No HEALTHCHECK directive", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "healthcheck",
+                Severity.ERROR,
+                "No HEALTHCHECK directive",
+                str(path),
+            )
+        )
 
     # Non-root USER
     user_lines = grep_lines(content, r"^USER\s+(?!root)")
     nonroot_exempt = config.get("nonroot_exempt", False)
     if user_lines:
-        results.append(CheckResult(
-            cat, "nonroot_user", Severity.OK,
-            f"Non-root USER: {user_lines[-1][1]}", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "nonroot_user",
+                Severity.OK,
+                f"Non-root USER: {user_lines[-1][1]}",
+                str(path),
+            )
+        )
     elif nonroot_exempt:
         reason = config.get("nonroot_reason", "exempt")
-        results.append(CheckResult(
-            cat, "nonroot_user", Severity.INFO,
-            f"Non-root USER exempt: {reason}", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "nonroot_user",
+                Severity.INFO,
+                f"Non-root USER exempt: {reason}",
+                str(path),
+            )
+        )
     else:
-        results.append(CheckResult(
-            cat, "nonroot_user", Severity.WARNING,
-            "No non-root USER directive", str(path),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "nonroot_user",
+                Severity.WARNING,
+                "No non-root USER directive",
+                str(path),
+            )
+        )
 
     return results
 
@@ -371,20 +484,28 @@ def check_cicd(repo_path: Path, config: dict) -> list[CheckResult]:
 
     workflow_dir = repo_path / ".github" / "workflows"
     if not workflow_dir.exists():
-        results.append(CheckResult(
-            cat, "workflows_dir", Severity.ERROR,
-            ".github/workflows/ not found", str(workflow_dir),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "workflows_dir",
+                Severity.ERROR,
+                ".github/workflows/ not found",
+                str(workflow_dir),
+            )
+        )
         return results
 
-    workflows = list(workflow_dir.glob("*.yml")) + list(
-        workflow_dir.glob("*.yaml")
-    )
+    workflows = list(workflow_dir.glob("*.yml")) + list(workflow_dir.glob("*.yaml"))
     if not workflows:
-        results.append(CheckResult(
-            cat, "workflows_exist", Severity.ERROR,
-            "No workflow files found", str(workflow_dir),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "workflows_exist",
+                Severity.ERROR,
+                "No workflow files found",
+                str(workflow_dir),
+            )
+        )
         return results
 
     is_deployed = config.get("deployed", True)
@@ -397,69 +518,88 @@ def check_cicd(repo_path: Path, config: dict) -> list[CheckResult]:
             continue
 
         # Check for platform reusable workflows
-        platform_refs = grep_lines(
-            content, r"achimdehnert/platform/.*@v\d+"
-        )
+        platform_refs = grep_lines(content, r"achimdehnert/platform/.*@v\d+")
         if platform_refs:
             platform_refs_found = True
-            results.append(CheckResult(
-                cat, "platform_workflows", Severity.OK,
-                f"Uses platform reusable workflows ({len(platform_refs)} refs)",
-                str(wf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "platform_workflows",
+                    Severity.OK,
+                    f"Uses platform reusable workflows ({len(platform_refs)} refs)",
+                    str(wf),
+                )
+            )
 
         # Check health_url
         health_urls = grep_lines(content, r"health_url:")
         for ln, line in health_urls:
             if "/livez/" in line:
                 health_url_ok = True
-                results.append(CheckResult(
-                    cat, "health_url", Severity.OK,
-                    f"health_url uses /livez/: {line}", str(wf), ln,
-                ))
+                results.append(
+                    CheckResult(
+                        cat,
+                        "health_url",
+                        Severity.OK,
+                        f"health_url uses /livez/: {line}",
+                        str(wf),
+                        ln,
+                    )
+                )
             else:
-                results.append(CheckResult(
-                    cat, "health_url", Severity.ERROR,
-                    f"health_url not /livez/: {line}", str(wf), ln,
-                ))
+                results.append(
+                    CheckResult(
+                        cat,
+                        "health_url",
+                        Severity.ERROR,
+                        f"health_url not /livez/: {line}",
+                        str(wf),
+                        ln,
+                    )
+                )
 
     if is_deployed and not platform_refs_found:
-        results.append(CheckResult(
-            cat, "platform_workflows", Severity.WARNING,
-            "No platform reusable workflow references found",
-            str(workflow_dir),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "platform_workflows",
+                Severity.WARNING,
+                "No platform reusable workflow references found",
+                str(workflow_dir),
+            )
+        )
 
     if is_deployed and not health_url_ok:
         has_health_url = any(
-            grep_lines(read_file(wf) or "", r"health_url:")
-            for wf in workflows
+            grep_lines(read_file(wf) or "", r"health_url:") for wf in workflows
         )
         if has_health_url:
-            results.append(CheckResult(
-                cat, "health_url", Severity.ERROR,
-                "health_url defined but not using /livez/",
-                str(workflow_dir),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "health_url",
+                    Severity.ERROR,
+                    "health_url defined but not using /livez/",
+                    str(workflow_dir),
+                )
+            )
 
     return results
 
 
-def check_health_endpoints(
-    repo_path: Path, config: dict
-) -> list[CheckResult]:
+def check_health_endpoints(repo_path: Path, config: dict) -> list[CheckResult]:
     """Check health endpoint implementation."""
     results: list[CheckResult] = []
     cat = "health"
 
     # Search for healthz.py or health views
-    healthz_files = (
-        find_files(repo_path, "**/healthz.py")
-        + find_files(repo_path, "**/health.py")
+    healthz_files = find_files(repo_path, "**/healthz.py") + find_files(
+        repo_path, "**/health.py"
     )
     # Exclude test files and venvs
     healthz_files = [
-        f for f in healthz_files
+        f
+        for f in healthz_files
         if ".venv" not in str(f)
         and "test" not in str(f).lower()
         and "__pycache__" not in str(f)
@@ -475,7 +615,8 @@ def check_health_endpoints(
         # Check views.py for health endpoints
         view_files = find_files(repo_path, "**/views.py")
         view_files = [
-            f for f in view_files
+            f
+            for f in view_files
             if ".venv" not in str(f) and "__pycache__" not in str(f)
         ]
         health_in_views = False
@@ -486,10 +627,14 @@ def check_health_endpoints(
                 health_in_views = True
                 break
         if not health_in_views:
-            results.append(CheckResult(
-                cat, "health_module", Severity.ERROR,
-                "No healthz.py or health views found",
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "health_module",
+                    Severity.ERROR,
+                    "No healthz.py or health views found",
+                )
+            )
             return results
 
     for hf in healthz_files:
@@ -497,103 +642,156 @@ def check_health_endpoints(
         if content is None:
             continue
 
-        results.append(CheckResult(
-            cat, "health_module", Severity.OK,
-            f"Health endpoints in {hf.relative_to(repo_path)}",
-            str(hf),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "health_module",
+                Severity.OK,
+                f"Health endpoints in {hf.relative_to(repo_path)}",
+                str(hf),
+            )
+        )
 
         # HEALTH_PATHS
         if "HEALTH_PATHS" in content:
-            results.append(CheckResult(
-                cat, "health_paths", Severity.OK,
-                "HEALTH_PATHS frozenset defined", str(hf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "health_paths",
+                    Severity.OK,
+                    "HEALTH_PATHS frozenset defined",
+                    str(hf),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "health_paths", Severity.WARNING,
-                "HEALTH_PATHS not defined", str(hf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "health_paths",
+                    Severity.WARNING,
+                    "HEALTH_PATHS not defined",
+                    str(hf),
+                )
+            )
 
         # csrf_exempt
         csrf_lines = grep_lines(content, r"@csrf_exempt")
         if csrf_lines:
-            results.append(CheckResult(
-                cat, "csrf_exempt", Severity.OK,
-                f"@csrf_exempt on {len(csrf_lines)} views", str(hf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "csrf_exempt",
+                    Severity.OK,
+                    f"@csrf_exempt on {len(csrf_lines)} views",
+                    str(hf),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "csrf_exempt", Severity.ERROR,
-                "Health views missing @csrf_exempt", str(hf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "csrf_exempt",
+                    Severity.ERROR,
+                    "Health views missing @csrf_exempt",
+                    str(hf),
+                )
+            )
 
         # require_GET
         get_lines = grep_lines(content, r"@require_GET")
         if get_lines:
-            results.append(CheckResult(
-                cat, "require_get", Severity.OK,
-                f"@require_GET on {len(get_lines)} views", str(hf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "require_get",
+                    Severity.OK,
+                    f"@require_GET on {len(get_lines)} views",
+                    str(hf),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "require_get", Severity.WARNING,
-                "Health views missing @require_GET", str(hf),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "require_get",
+                    Severity.WARNING,
+                    "Health views missing @require_GET",
+                    str(hf),
+                )
+            )
 
     return results
 
 
-def check_deploy_script(
-    repo_path: Path, config: dict
-) -> list[CheckResult]:
+def check_deploy_script(repo_path: Path, config: dict) -> list[CheckResult]:
     """Check deployment script presence."""
     results: list[CheckResult] = []
     cat = "deploy"
 
     if not config.get("deployed", True):
-        results.append(CheckResult(
-            cat, "deploy_script", Severity.SKIP,
-            "Not deployed to Hetzner — skipping",
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "deploy_script",
+                Severity.SKIP,
+                "Not deployed to Hetzner — skipping",
+            )
+        )
         return results
 
     script = repo_path / "deployment" / "scripts" / "deploy-remote.sh"
     if script.exists():
         size = script.stat().st_size
-        results.append(CheckResult(
-            cat, "deploy_script", Severity.OK,
-            f"deploy-remote.sh exists ({size} bytes)", str(script),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "deploy_script",
+                Severity.OK,
+                f"deploy-remote.sh exists ({size} bytes)",
+                str(script),
+            )
+        )
         # Check for IMAGE_TAG standardization
         content = read_file(script)
         if content:
             if 'TAG_VAR="IMAGE_TAG"' in content:
-                results.append(CheckResult(
-                    cat, "deploy_image_tag", Severity.OK,
-                    "deploy-remote.sh uses standardized IMAGE_TAG",
-                    str(script),
-                ))
+                results.append(
+                    CheckResult(
+                        cat,
+                        "deploy_image_tag",
+                        Severity.OK,
+                        "deploy-remote.sh uses standardized IMAGE_TAG",
+                        str(script),
+                    )
+                )
             else:
                 tag_vars = grep_lines(content, r"TAG_VAR=")
                 if tag_vars:
-                    results.append(CheckResult(
-                        cat, "deploy_image_tag", Severity.ERROR,
-                        f"Non-standard TAG_VAR: {tag_vars[0][1]}",
-                        str(script), tag_vars[0][0],
-                    ))
+                    results.append(
+                        CheckResult(
+                            cat,
+                            "deploy_image_tag",
+                            Severity.ERROR,
+                            f"Non-standard TAG_VAR: {tag_vars[0][1]}",
+                            str(script),
+                            tag_vars[0][0],
+                        )
+                    )
     else:
-        results.append(CheckResult(
-            cat, "deploy_script", Severity.ERROR,
-            "deployment/scripts/deploy-remote.sh missing", str(script),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "deploy_script",
+                Severity.ERROR,
+                "deployment/scripts/deploy-remote.sh missing",
+                str(script),
+            )
+        )
 
     return results
 
 
-def check_django_config(
-    repo_path: Path, config: dict
-) -> list[CheckResult]:
+def check_django_config(repo_path: Path, config: dict) -> list[CheckResult]:
     """Check Django project configuration."""
     results: list[CheckResult] = []
     cat = "config"
@@ -606,25 +804,39 @@ def check_django_config(
     content = read_file(manage)
     if content:
         if "config.settings" in content:
-            results.append(CheckResult(
-                cat, "manage_settings", Severity.OK,
-                "manage.py uses config.settings", str(manage),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "manage_settings",
+                    Severity.OK,
+                    "manage.py uses config.settings",
+                    str(manage),
+                )
+            )
         elif "tests.settings" in content:
-            results.append(CheckResult(
-                cat, "manage_settings", Severity.WARNING,
-                "manage.py still uses tests.settings", str(manage),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "manage_settings",
+                    Severity.WARNING,
+                    "manage.py still uses tests.settings",
+                    str(manage),
+                )
+            )
         else:
             settings_match = re.search(
                 r'DJANGO_SETTINGS_MODULE.*["\'](.+?)["\']', content
             )
             if settings_match:
-                results.append(CheckResult(
-                    cat, "manage_settings", Severity.INFO,
-                    f"manage.py uses: {settings_match.group(1)}",
-                    str(manage),
-                ))
+                results.append(
+                    CheckResult(
+                        cat,
+                        "manage_settings",
+                        Severity.INFO,
+                        f"manage.py uses: {settings_match.group(1)}",
+                        str(manage),
+                    )
+                )
 
     # config/wsgi.py (may be at root or under src/)
     wsgi_candidates = [
@@ -634,15 +846,25 @@ def check_django_config(
     wsgi = next((p for p in wsgi_candidates if p.exists()), None)
     if wsgi:
         rel = wsgi.relative_to(repo_path)
-        results.append(CheckResult(
-            cat, "wsgi", Severity.OK,
-            f"{rel} exists", str(wsgi),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "wsgi",
+                Severity.OK,
+                f"{rel} exists",
+                str(wsgi),
+            )
+        )
     else:
-        results.append(CheckResult(
-            cat, "wsgi", Severity.ERROR,
-            "config/wsgi.py missing", str(wsgi_candidates[0]),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "wsgi",
+                Severity.ERROR,
+                "config/wsgi.py missing",
+                str(wsgi_candidates[0]),
+            )
+        )
 
     # config/urls.py (may be at root or under src/)
     urls_candidates = [
@@ -654,20 +876,35 @@ def check_django_config(
         urls_content = read_file(urls)
         rel = urls.relative_to(repo_path)
         if urls_content and "livez" in urls_content:
-            results.append(CheckResult(
-                cat, "urls_livez", Severity.OK,
-                f"/livez/ route in {rel}", str(urls),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "urls_livez",
+                    Severity.OK,
+                    f"/livez/ route in {rel}",
+                    str(urls),
+                )
+            )
         elif urls_content:
-            results.append(CheckResult(
-                cat, "urls_livez", Severity.WARNING,
-                f"/livez/ not in {rel}", str(urls),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "urls_livez",
+                    Severity.WARNING,
+                    f"/livez/ not in {rel}",
+                    str(urls),
+                )
+            )
     else:
-        results.append(CheckResult(
-            cat, "urls", Severity.ERROR,
-            "config/urls.py missing", str(urls_candidates[0]),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "urls",
+                Severity.ERROR,
+                "config/urls.py missing",
+                str(urls_candidates[0]),
+            )
+        )
 
     return results
 
@@ -687,64 +924,95 @@ def check_testing(repo_path: Path, config: dict) -> list[CheckResult]:
     tests_dir = next((p for p in tests_candidates if p.exists()), None)
 
     if tests_dir is None:
-        results.append(CheckResult(
-            cat, "tests_dir", Severity.WARNING,
-            "No tests/ directory found",
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "tests_dir",
+                Severity.WARNING,
+                "No tests/ directory found",
+            )
+        )
         return results
 
-    results.append(CheckResult(
-        cat, "tests_dir", Severity.OK,
-        f"{tests_dir.relative_to(repo_path)} exists",
-    ))
+    results.append(
+        CheckResult(
+            cat,
+            "tests_dir",
+            Severity.OK,
+            f"{tests_dir.relative_to(repo_path)} exists",
+        )
+    )
 
     # conftest.py
     conftest = tests_dir / "conftest.py"
     if not conftest.exists():
-        results.append(CheckResult(
-            cat, "conftest", Severity.WARNING,
-            "tests/conftest.py missing",
-            str(conftest),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "conftest",
+                Severity.WARNING,
+                "tests/conftest.py missing",
+                str(conftest),
+            )
+        )
     else:
         content = read_file(conftest)
         if content and "platform_context.testing" in content:
-            results.append(CheckResult(
-                cat, "conftest_platform", Severity.OK,
-                "conftest.py imports platform_context.testing",
-                str(conftest),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "conftest_platform",
+                    Severity.OK,
+                    "conftest.py imports platform_context.testing",
+                    str(conftest),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "conftest_platform", Severity.WARNING,
-                "conftest.py does not import platform_context.testing"
-                " (ADR-058)",
-                str(conftest),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "conftest_platform",
+                    Severity.WARNING,
+                    "conftest.py does not import platform_context.testing (ADR-058)",
+                    str(conftest),
+                )
+            )
 
     # test_auth.py
     test_auth = tests_dir / "test_auth.py"
     if not test_auth.exists():
-        results.append(CheckResult(
-            cat, "test_auth", Severity.WARNING,
-            "tests/test_auth.py missing — auth/access control tests"
-            " required (ADR-058 A2)",
-            str(test_auth),
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "test_auth",
+                Severity.WARNING,
+                "tests/test_auth.py missing — auth/access control tests"
+                " required (ADR-058 A2)",
+                str(test_auth),
+            )
+        )
     else:
         content = read_file(test_auth)
         if content and "assert_login_required" in content:
-            results.append(CheckResult(
-                cat, "test_auth", Severity.OK,
-                "test_auth.py uses assert_login_required",
-                str(test_auth),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "test_auth",
+                    Severity.OK,
+                    "test_auth.py uses assert_login_required",
+                    str(test_auth),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "test_auth", Severity.WARNING,
-                "test_auth.py exists but does not use assert_login_required",
-                str(test_auth),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "test_auth",
+                    Severity.WARNING,
+                    "test_auth.py exists but does not use assert_login_required",
+                    str(test_auth),
+                )
+            )
 
     # requirements-test.txt
     req_test_candidates = [
@@ -754,43 +1022,62 @@ def check_testing(repo_path: Path, config: dict) -> list[CheckResult]:
     ]
     req_test = next((p for p in req_test_candidates if p.exists()), None)
     if req_test is None:
-        results.append(CheckResult(
-            cat, "requirements_test", Severity.WARNING,
-            "No requirements-test.txt found (ADR-058)",
-        ))
+        results.append(
+            CheckResult(
+                cat,
+                "requirements_test",
+                Severity.WARNING,
+                "No requirements-test.txt found (ADR-058)",
+            )
+        )
     else:
         content = read_file(req_test)
         if content and "platform-context" in content:
-            results.append(CheckResult(
-                cat, "requirements_platform", Severity.OK,
-                f"platform-context[testing] in"
-                f" {req_test.relative_to(repo_path)}",
-                str(req_test),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "requirements_platform",
+                    Severity.OK,
+                    f"platform-context[testing] in {req_test.relative_to(repo_path)}",
+                    str(req_test),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "requirements_platform", Severity.WARNING,
-                f"{req_test.relative_to(repo_path)}"
-                " missing platform-context[testing] (ADR-058)",
-                str(req_test),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "requirements_platform",
+                    Severity.WARNING,
+                    f"{req_test.relative_to(repo_path)}"
+                    " missing platform-context[testing] (ADR-058)",
+                    str(req_test),
+                )
+            )
 
     # pyproject.toml pytest config
     pyproject = repo_path / "pyproject.toml"
     if pyproject.exists():
         content = read_file(pyproject)
         if content and "pytest.ini_options" in content:
-            results.append(CheckResult(
-                cat, "pytest_config", Severity.OK,
-                "pyproject.toml has [tool.pytest.ini_options]",
-                str(pyproject),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "pytest_config",
+                    Severity.OK,
+                    "pyproject.toml has [tool.pytest.ini_options]",
+                    str(pyproject),
+                )
+            )
         else:
-            results.append(CheckResult(
-                cat, "pytest_config", Severity.WARNING,
-                "pyproject.toml missing [tool.pytest.ini_options]",
-                str(pyproject),
-            ))
+            results.append(
+                CheckResult(
+                    cat,
+                    "pytest_config",
+                    Severity.WARNING,
+                    "pyproject.toml missing [tool.pytest.ini_options]",
+                    str(pyproject),
+                )
+            )
 
     return results
 
@@ -805,12 +1092,15 @@ def check_repo(repo_path: Path, repo_name: str = "") -> RepoReport:
     if not repo_name:
         repo_name = repo_path.name
 
-    config = REPO_CONFIG.get(repo_name, {
-        "type": "django",
-        "deployed": True,
-        "dockerfile": "Dockerfile",
-        "compose": "docker-compose.prod.yml",
-    })
+    config = REPO_CONFIG.get(
+        repo_name,
+        {
+            "type": "django",
+            "deployed": True,
+            "dockerfile": "Dockerfile",
+            "compose": "docker-compose.prod.yml",
+        },
+    )
 
     report = RepoReport(repo=repo_name, path=str(repo_path))
 
@@ -834,10 +1124,14 @@ def check_all_repos(base_dir: Path) -> list[RepoReport]:
             reports.append(check_repo(repo_path, repo_name))
         else:
             report = RepoReport(repo=repo_name, path=str(repo_path))
-            report.results.append(CheckResult(
-                "repo", "exists", Severity.ERROR,
-                f"Repository directory not found: {repo_path}",
-            ))
+            report.results.append(
+                CheckResult(
+                    "repo",
+                    "exists",
+                    Severity.ERROR,
+                    f"Repository directory not found: {repo_path}",
+                )
+            )
             reports.append(report)
     return reports
 
@@ -864,9 +1158,7 @@ SEVERITY_COLORS = {
 RESET = "\033[0m"
 
 
-def format_report_text(
-    reports: list[RepoReport], use_color: bool = True
-) -> str:
+def format_report_text(reports: list[RepoReport], use_color: bool = True) -> str:
     """Format reports as human-readable text."""
     lines: list[str] = []
     total_errors = sum(r.errors for r in reports)
@@ -907,8 +1199,10 @@ def format_report_text(
 
     # Summary
     lines.append("=" * 70)
-    lines.append(f"  Summary: {total_ok} OK, {total_warnings} warnings, "
-                 f"{total_errors} errors across {len(reports)} repos")
+    lines.append(
+        f"  Summary: {total_ok} OK, {total_warnings} warnings, "
+        f"{total_errors} errors across {len(reports)} repos"
+    )
     lines.append("=" * 70)
 
     return "\n".join(lines)

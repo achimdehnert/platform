@@ -96,7 +96,9 @@ def within_window(timestamp: str, cutoff: dt.datetime) -> bool:
     return parsed >= cutoff
 
 
-def evaluate(suites: list, weeks: int, threshold_per_week: float, now: dt.datetime) -> dict:
+def evaluate(
+    suites: list, weeks: int, threshold_per_week: float, now: dt.datetime
+) -> dict:
     """Bewertet die Bypass-Suites eines Repos gegen die Schwelle (pure, testbar)."""
     cutoff = now - dt.timedelta(weeks=weeks)
     recent = [s for s in suites if within_window(s.get("pushed_at", ""), cutoff)]
@@ -183,11 +185,16 @@ def main() -> int:
             suites = fetch_bypasses(owner, repo, token)
         except urllib.error.HTTPError as exc:
             results.append(
-                {"repo": repo, "error": f"rule-suites-API nicht lesbar (HTTP {exc.code})"}
+                {
+                    "repo": repo,
+                    "error": f"rule-suites-API nicht lesbar (HTTP {exc.code})",
+                }
             )
             continue
         except urllib.error.URLError as exc:
-            results.append({"repo": repo, "error": f"rule-suites-API nicht lesbar ({exc})"})
+            results.append(
+                {"repo": repo, "error": f"rule-suites-API nicht lesbar ({exc})"}
+            )
             continue
         verdict = evaluate(suites, args.weeks, args.threshold_per_week, now)
         results.append({"repo": repo, **verdict})

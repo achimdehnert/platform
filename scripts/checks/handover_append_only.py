@@ -89,7 +89,9 @@ def main(argv: list[str] | None = None) -> int:
         diff = git_diff(a.base, a.head, a.file)
     except RuntimeError as exc:
         print(f"⚠️  {a.file}: Diff nicht ermittelbar — {exc}", file=sys.stderr)
-        print("   Base-Ref fehlt vermutlich (flacher Checkout?) — fetch-depth: 0 setzen.")
+        print(
+            "   Base-Ref fehlt vermutlich (flacher Checkout?) — fetch-depth: 0 setzen."
+        )
         return 2
 
     if not diff.strip():
@@ -98,11 +100,15 @@ def main(argv: list[str] | None = None) -> int:
 
     removed = removed_lines(diff)
     if not removed:
-        print(f"✅ {a.file}: nur Ergänzungen ({diff.count(chr(10) + '+')} Zeilen) — append-only gewahrt.")
+        print(
+            f"✅ {a.file}: nur Ergänzungen ({diff.count(chr(10) + '+')} Zeilen) — append-only gewahrt."
+        )
         return 0
 
     if a.allow_removals:
-        print(f"✅ {a.file}: {len(removed)} entfernte Zeile(n), Opt-out gesetzt (Archiv-Rotation).")
+        print(
+            f"✅ {a.file}: {len(removed)} entfernte Zeile(n), Opt-out gesetzt (Archiv-Rotation)."
+        )
         return 0
 
     print(f"⛔ {a.file}: {len(removed)} bestehende Zeile(n) entfernt oder geändert —")

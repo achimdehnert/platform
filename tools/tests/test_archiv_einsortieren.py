@@ -12,7 +12,9 @@ import importlib.util
 import pathlib
 
 _SRC = (
-    pathlib.Path(__file__).resolve().parents[1] / "mail_agent" / "archiv_einsortieren.py"
+    pathlib.Path(__file__).resolve().parents[1]
+    / "mail_agent"
+    / "archiv_einsortieren.py"
 )
 _spec = importlib.util.spec_from_file_location("archiv_einsortieren", _SRC)
 ae = importlib.util.module_from_spec(_spec)
@@ -93,8 +95,17 @@ def test_should_match_the_measured_distribution():
     7 aus 2026 sind das laufende Jahr.
     """
     gemessen = {
-        "2016": 3853, "2017": 7466, "2018": 3969, "2019": 4306, "2020": 2275,
-        "2021": 518, "2022": 145, "2023": 20, "2024": 47, "2025": 17, "2026": 7,
+        "2016": 3853,
+        "2017": 7466,
+        "2018": 3969,
+        "2019": 4306,
+        "2020": 2275,
+        "2021": 518,
+        "2022": 145,
+        "2023": 20,
+        "2024": 47,
+        "2025": 17,
+        "2026": 7,
     }
     einsortieren = liegen_bleiben = 0
     for jahr, anzahl in gemessen.items():

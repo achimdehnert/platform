@@ -8,6 +8,7 @@ Discovers <target-dir>/<owner>/<repo>/<klickdummy>/<shell.html|chat-simulator.ht
 and produces an authenticated landing page (SSO-User-Name aus
 X-authentik-username Header wird per JS gerendert, falls vorhanden).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,13 +38,15 @@ def discover(target_dir: pathlib.Path) -> list[dict]:
                 # Suche shell.html oder chat-simulator.html
                 for entry in ("shell.html", "chat-simulator.html"):
                     if (kd_dir / entry).exists():
-                        found.append({
-                            "owner": owner_dir.name,
-                            "repo": repo_dir.name,
-                            "klickdummy": kd_dir.name,
-                            "entry": entry,
-                            "url": f"/{owner_dir.name}/{repo_dir.name}/{kd_dir.name}/{entry}",
-                        })
+                        found.append(
+                            {
+                                "owner": owner_dir.name,
+                                "repo": repo_dir.name,
+                                "klickdummy": kd_dir.name,
+                                "entry": entry,
+                                "url": f"/{owner_dir.name}/{repo_dir.name}/{kd_dir.name}/{entry}",
+                            }
+                        )
                         break
     return found
 
@@ -51,9 +54,7 @@ def discover(target_dir: pathlib.Path) -> list[dict]:
 def render(found: list[dict], repos_meta: dict) -> str:
     """HTML-Landing-Seite."""
     # Repo-Metadaten als Dict für schnellen Lookup
-    meta_by_repo = {
-        f"{r['owner']}/{r['name']}": r for r in repos_meta.get("repos", [])
-    }
+    meta_by_repo = {f"{r['owner']}/{r['name']}": r for r in repos_meta.get("repos", [])}
 
     rows = []
     by_owner: dict[str, list[dict]] = {}
@@ -124,27 +125,29 @@ def render_json(found: list[dict], repos_meta: dict) -> str:
     import datetime
     import json as _json
 
-    meta_by_repo = {
-        f"{r['owner']}/{r['name']}": r for r in repos_meta.get("repos", [])
-    }
+    meta_by_repo = {f"{r['owner']}/{r['name']}": r for r in repos_meta.get("repos", [])}
     entries = []
     for f in found:
         repo_key = f"{f['owner']}/{f['repo']}"
         meta = meta_by_repo.get(repo_key, {})
-        entries.append({
-            "key": f"{f['owner']}/{f['klickdummy']}",
-            "org": f["owner"],
-            "repo": f["repo"],
-            "name": f["klickdummy"],
-            "url": f["url"],
-            "entry_file": f["entry"],
-            "description": meta.get("description"),
-            "adr": meta.get("adr"),
-            "source": "staging-klickdummy.iil.pet",
-        })
+        entries.append(
+            {
+                "key": f"{f['owner']}/{f['klickdummy']}",
+                "org": f["owner"],
+                "repo": f["repo"],
+                "name": f["klickdummy"],
+                "url": f["url"],
+                "entry_file": f["entry"],
+                "description": meta.get("description"),
+                "adr": meta.get("adr"),
+                "source": "staging-klickdummy.iil.pet",
+            }
+        )
     payload = {
         "entries": entries,
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="seconds"
+        ),
         "source": "filesystem-scan",
         "adr": "platform:ADR-216",
     }
@@ -160,7 +163,9 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     target = pathlib.Path(args.target_dir)
-    repos_meta = yaml.safe_load(pathlib.Path(args.repos_yaml).read_text(encoding="utf-8"))
+    repos_meta = yaml.safe_load(
+        pathlib.Path(args.repos_yaml).read_text(encoding="utf-8")
+    )
 
     found = discover(target)
 

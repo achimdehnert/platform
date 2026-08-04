@@ -5,6 +5,7 @@ _try_completion für einen externen Anbieter litellm NIE aufrufen — der
 Dokumentinhalt verlässt die Maschine dann nicht. Lokale Ollama-Modelle laufen
 key-frei gegen den lokalen Host.
 """
+
 import sys
 from pathlib import Path
 
@@ -54,7 +55,9 @@ def test_should_skip_external_without_optin(monkeypatch):
     monkeypatch.delenv("PRINT_AGENT_ALLOW_EXTERNAL", raising=False)
     calls = _record_calls(monkeypatch)
     assert print_agent._try_completion("groq/llama-3.1-8b-instant", "hi") is None
-    assert calls == [], "litellm.completion für externen Anbieter ohne Opt-in aufgerufen"
+    assert calls == [], (
+        "litellm.completion für externen Anbieter ohne Opt-in aufgerufen"
+    )
 
 
 def test_should_allow_external_with_optin_but_still_need_key(monkeypatch):
@@ -87,7 +90,7 @@ def test_should_call_ollama_without_key_and_with_api_base(monkeypatch):
     monkeypatch.setattr(print_agent.litellm, "completion", _fake)
     out = print_agent._try_completion("ollama/qwen2.5:3b", "hi")
     assert out == {"summary": "s", "keywords": ["a"]}
-    assert "api_key" not in captured          # lokal: kein Key
+    assert "api_key" not in captured  # lokal: kein Key
     # Literal statt Modulkonstante: ein Vergleich mit sich selbst könnte einen
     # falschen Host nicht auffangen.
     assert captured.get("api_base") == "http://127.0.0.1:11434"
@@ -99,4 +102,6 @@ def test_should_skip_remote_ollama_without_optin(monkeypatch):
     monkeypatch.setenv("OLLAMA_HOST", "http://88.99.38.75:11434")
     calls = _record_calls(monkeypatch)
     assert print_agent._try_completion("ollama/qwen2.5:3b", "hi") is None
-    assert calls == [], "litellm.completion gegen entfernten Ollama ohne Opt-in aufgerufen"
+    assert calls == [], (
+        "litellm.completion gegen entfernten Ollama ohne Opt-in aufgerufen"
+    )

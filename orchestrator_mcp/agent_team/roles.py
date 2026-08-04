@@ -35,7 +35,7 @@ class AgentRole(str, Enum):
     REVIEW = "review"
     RE_ENGINEER = "re_engineer"
     GUARDIAN = "guardian"
-    PLANNER = "planner"              # ADR-116: Task-Planung
+    PLANNER = "planner"  # ADR-116: Task-Planung
     SECURITY_AUDITOR = "security_auditor"  # ADR-116 UC-SE-5: Security Audit
 
 
@@ -97,8 +97,7 @@ class AgentRoleProtocol(Protocol):
     gate_level: GateLevel
     description: str
 
-    def can_auto_execute(self) -> bool:
-        ...
+    def can_auto_execute(self) -> bool: ...
 
 
 # ---------------------------------------------------------------------------
@@ -230,15 +229,42 @@ class DeploymentAgentConfig:
             "dev_host": "hetzner-dev",
             "cloudflare_access": "via mcp_cloudflare_* (API-Keys in Windsurf-Secrets)",
             "deploy_targets": {
-                "coach-hub":        {"path": "/opt/coach-hub",        "health": "https://kiohnerisiko.de/healthz/"},
-                "billing-hub":      {"path": "/opt/billing-hub",      "health": "https://billing.iil.pet/healthz/"},
-                "travel-beat":      {"path": "/opt/travel-beat",      "health": "https://drifttales.de/healthz/"},
-                "weltenhub":        {"path": "/opt/weltenhub",        "health": "https://weltenforger.com/healthz/"},
-                "trading-hub":      {"path": "/opt/trading-hub",      "health": "https://ai-trades.de/healthz/"},
-                "cad-hub":          {"path": "/opt/cad-hub",          "health": "https://nl2cad.de/healthz/"},
-                "pptx-hub":         {"path": "/opt/pptx-hub",         "health": "https://prezimo.de/healthz/"},
-                "risk-hub":         {"path": "/opt/risk-hub",         "health": "https://risk-hub.iil.pet/healthz/"},
-                "ausschreibungs-hub": {"path": "/opt/ausschreibungs-hub", "health": "https://bieterpilot.de/healthz/"},
+                "coach-hub": {
+                    "path": "/opt/coach-hub",
+                    "health": "https://kiohnerisiko.de/healthz/",
+                },
+                "billing-hub": {
+                    "path": "/opt/billing-hub",
+                    "health": "https://billing.iil.pet/healthz/",
+                },
+                "travel-beat": {
+                    "path": "/opt/travel-beat",
+                    "health": "https://drifttales.de/healthz/",
+                },
+                "weltenhub": {
+                    "path": "/opt/weltenhub",
+                    "health": "https://weltenforger.com/healthz/",
+                },
+                "trading-hub": {
+                    "path": "/opt/trading-hub",
+                    "health": "https://ai-trades.de/healthz/",
+                },
+                "cad-hub": {
+                    "path": "/opt/cad-hub",
+                    "health": "https://nl2cad.de/healthz/",
+                },
+                "pptx-hub": {
+                    "path": "/opt/pptx-hub",
+                    "health": "https://prezimo.de/healthz/",
+                },
+                "risk-hub": {
+                    "path": "/opt/risk-hub",
+                    "health": "https://risk-hub.iil.pet/healthz/",
+                },
+                "ausschreibungs-hub": {
+                    "path": "/opt/ausschreibungs-hub",
+                    "health": "https://bieterpilot.de/healthz/",
+                },
             },
             "rules": [
                 "Gate-2 required before any prod deploy",
@@ -409,8 +435,15 @@ class PaymentAgentConfig:
                 ),
             },
             "platforms": [
-                "coach-hub", "billing-hub", "travel-beat", "weltenhub",
-                "trading-hub", "cad-hub", "pptx-hub", "risk-hub", "ausschreibungs-hub",
+                "coach-hub",
+                "billing-hub",
+                "travel-beat",
+                "weltenhub",
+                "trading-hub",
+                "cad-hub",
+                "pptx-hub",
+                "risk-hub",
+                "ausschreibungs-hub",
             ],
             "subscription_tiers": ["free", "registered", "premium", "enterprise"],
             "internal_api": {
@@ -556,7 +589,7 @@ class ReviewAgentConfig:
 
         lines.append("")
         lines.append("| Check | Status | Blocking |")
-        lines.append("|-------|--------|----------|")  
+        lines.append("|-------|--------|----------|")
 
         for r in results:
             status = "Pass" if r.passed else ("Fail" if r.blocking else "Warn")

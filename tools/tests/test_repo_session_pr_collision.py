@@ -30,8 +30,19 @@ REPO_SESSION_SH = Path(__file__).resolve().parents[2] / "tools" / "repo-session.
 # hier trotzdem verlinkt sein, weil subprocess(env=...) das PATH aus `env` für
 # die Auflösung von argv[0] benutzt.
 _REQUIRED_BINARIES = [
-    "git", "python3", "sed", "tr", "date", "mkdir", "cat",
-    "basename", "dirname", "bash", "rm", "printf", "grep",
+    "git",
+    "python3",
+    "sed",
+    "tr",
+    "date",
+    "mkdir",
+    "cat",
+    "basename",
+    "dirname",
+    "bash",
+    "rm",
+    "printf",
+    "grep",
 ]
 
 
@@ -62,20 +73,30 @@ def _make_fixture_repo(tmp_path: Path) -> Path:
     git = shutil.which("git")
     subprocess.run([git, "init", "--bare", "-q", str(origin)], check=True)
     subprocess.run([git, "init", "-q", "-b", "main", str(work)], check=True)
-    subprocess.run([git, "-C", str(work), "config", "user.email", "t@example.com"], check=True)
-    subprocess.run([git, "-C", str(work), "config", "user.name", "Test User"], check=True)
+    subprocess.run(
+        [git, "-C", str(work), "config", "user.email", "t@example.com"], check=True
+    )
+    subprocess.run(
+        [git, "-C", str(work), "config", "user.name", "Test User"], check=True
+    )
     (work / "README.md").write_text("fixture\n")
     subprocess.run([git, "-C", str(work), "add", "."], check=True)
     subprocess.run([git, "-C", str(work), "commit", "-q", "-m", "init"], check=True)
-    subprocess.run([git, "-C", str(work), "remote", "add", "origin", str(origin)], check=True)
+    subprocess.run(
+        [git, "-C", str(work), "remote", "add", "origin", str(origin)], check=True
+    )
     subprocess.run([git, "-C", str(work), "push", "-q", "origin", "main"], check=True)
     return work
 
 
-def _run_start(tmp_path: Path, repo: Path, task: str, path: str) -> subprocess.CompletedProcess:
+def _run_start(
+    tmp_path: Path, repo: Path, task: str, path: str
+) -> subprocess.CompletedProcess:
     env = {
         "PATH": path,
-        "HOME": str(tmp_path),  # git config fallback / ssh-Suche darf nicht ins echte HOME
+        "HOME": str(
+            tmp_path
+        ),  # git config fallback / ssh-Suche darf nicht ins echte HOME
         "REPO_SESSION_DIR": str(tmp_path / ".repo-session"),
     }
     bash_bin = shutil.which("bash")

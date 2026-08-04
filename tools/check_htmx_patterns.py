@@ -54,13 +54,13 @@ def check_file(path: Path) -> list[str]:
 
     for ap_id, (pattern, message) in PATTERNS.items():
         for match in re.finditer(
-            pattern, content, re.DOTALL | re.IGNORECASE,
+            pattern,
+            content,
+            re.DOTALL | re.IGNORECASE,
         ):
             line_start = content.rfind("\n", 0, match.start()) + 1
             line_end = content.find("\n", match.end())
-            line = content[
-                line_start:line_end if line_end != -1 else len(content)
-            ]
+            line = content[line_start : line_end if line_end != -1 else len(content)]
             if f"noqa: {ap_id}" not in line and "noqa: AP-" not in line:
                 errors.append(f"  {path}: {ap_id}: {message}")
 

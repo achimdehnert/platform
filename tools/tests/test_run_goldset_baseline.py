@@ -17,7 +17,9 @@ import sys
 
 import pytest
 
-_SRC = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "run_goldset_baseline.py"
+_SRC = (
+    pathlib.Path(__file__).resolve().parents[2] / "scripts" / "run_goldset_baseline.py"
+)
 _spec = importlib.util.spec_from_file_location("run_goldset_baseline", _SRC)
 gb = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = gb
@@ -45,11 +47,13 @@ def test_should_return_an_empty_aggregate_for_no_results():
 
 
 def test_should_group_results_by_task_type():
-    agg = gb._aggregate([
-        ergebnis(task_type="feature"),
-        ergebnis(task_type="feature"),
-        ergebnis(task_type="bugfix"),
-    ])
+    agg = gb._aggregate(
+        [
+            ergebnis(task_type="feature"),
+            ergebnis(task_type="feature"),
+            ergebnis(task_type="bugfix"),
+        ]
+    )
 
     assert sorted(agg) == ["bugfix", "feature"]
     assert agg["feature"]["count"] == 2
@@ -57,9 +61,13 @@ def test_should_group_results_by_task_type():
 
 
 def test_should_count_success_and_failure_separately():
-    agg = gb._aggregate([
-        ergebnis(success=True), ergebnis(success=True), ergebnis(success=False),
-    ])
+    agg = gb._aggregate(
+        [
+            ergebnis(success=True),
+            ergebnis(success=True),
+            ergebnis(success=False),
+        ]
+    )
 
     assert (agg["feature"]["success"], agg["feature"]["fail"]) == (2, 1)
 
@@ -77,10 +85,12 @@ def test_should_bucket_a_result_without_task_type_as_unknown():
 
 
 def test_should_sum_costs_and_tokens():
-    agg = gb._aggregate([
-        ergebnis(cost_usd=0.10, prompt_tokens=100, completion_tokens=50),
-        ergebnis(cost_usd=0.20, prompt_tokens=200, completion_tokens=70),
-    ])["feature"]
+    agg = gb._aggregate(
+        [
+            ergebnis(cost_usd=0.10, prompt_tokens=100, completion_tokens=50),
+            ergebnis(cost_usd=0.20, prompt_tokens=200, completion_tokens=70),
+        ]
+    )["feature"]
 
     assert agg["total_cost_usd"] == pytest.approx(0.30)
     assert agg["total_prompt_tokens"] == 300
@@ -94,9 +104,12 @@ def test_should_default_missing_numeric_fields_to_zero():
 
 
 def test_should_compute_the_average_cost_per_task():
-    agg = gb._aggregate([
-        ergebnis(cost_usd=0.10), ergebnis(cost_usd=0.30),
-    ])["feature"]
+    agg = gb._aggregate(
+        [
+            ergebnis(cost_usd=0.10),
+            ergebnis(cost_usd=0.30),
+        ]
+    )["feature"]
 
     assert agg["avg_cost_usd"] == pytest.approx(0.20)
 
@@ -104,19 +117,24 @@ def test_should_compute_the_average_cost_per_task():
 def test_should_compute_the_average_duration_as_an_integer():
     """Ganzzahlige Division ist Absicht — Millisekunden mit Nachkomma taeuschen
     eine Genauigkeit vor, die die Messung nicht hat."""
-    agg = gb._aggregate([
-        ergebnis(duration_ms=1000), ergebnis(duration_ms=1001),
-    ])["feature"]
+    agg = gb._aggregate(
+        [
+            ergebnis(duration_ms=1000),
+            ergebnis(duration_ms=1001),
+        ]
+    )["feature"]
 
     assert agg["avg_duration_ms"] == 1000
     assert isinstance(agg["avg_duration_ms"], int)
 
 
 def test_should_keep_the_two_task_types_independent():
-    agg = gb._aggregate([
-        ergebnis(task_type="feature", cost_usd=1.0),
-        ergebnis(task_type="bugfix", cost_usd=0.0),
-    ])
+    agg = gb._aggregate(
+        [
+            ergebnis(task_type="feature", cost_usd=1.0),
+            ergebnis(task_type="bugfix", cost_usd=0.0),
+        ]
+    )
 
     assert agg["feature"]["total_cost_usd"] == pytest.approx(1.0)
     assert agg["bugfix"]["total_cost_usd"] == pytest.approx(0.0)
@@ -141,10 +159,19 @@ def test_should_fill_defaults_for_missing_task_fields():
 
 def test_should_use_the_given_values_over_the_defaults():
     text = gb._build_prompt(
-        {"description": "x", "repo": "risk-hub", "task_type": "bugfix", "complexity": "hard"}
+        {
+            "description": "x",
+            "repo": "risk-hub",
+            "task_type": "bugfix",
+            "complexity": "hard",
+        }
     )
 
-    assert "Repo: risk-hub" in text and "Type: bugfix" in text and "Complexity: hard" in text
+    assert (
+        "Repo: risk-hub" in text
+        and "Type: bugfix" in text
+        and "Complexity: hard" in text
+    )
 
 
 # --- _get_db_url -------------------------------------------------------------

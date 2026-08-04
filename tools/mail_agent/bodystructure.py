@@ -86,7 +86,9 @@ class _Leser:
     pos: int = 0
 
     def ueberspringen(self) -> None:
-        while self.pos < len(self.daten) and self.daten[self.pos : self.pos + 1].isspace():
+        while (
+            self.pos < len(self.daten) and self.daten[self.pos : self.pos + 1].isspace()
+        ):
             self.pos += 1
 
     def lesen(self):
@@ -113,7 +115,9 @@ class _Leser:
         if z == b"{":
             # Literal — der Inhalt steht in einem eigenen Antwortteil, den wir
             # hier nicht haben. Lieber ehrlich abbrechen als raten.
-            raise NichtLesbar("Literal in BODYSTRUCTURE — nicht aus einem Stueck lesbar")
+            raise NichtLesbar(
+                "Literal in BODYSTRUCTURE — nicht aus einem Stueck lesbar"
+            )
         m = _ATOM.match(self.daten, self.pos)
         if not m:
             raise NichtLesbar(f"unlesbares Zeichen an Position {self.pos}")
@@ -183,7 +187,9 @@ def _rfc2231(wert: str) -> str:
     teile = wert.split("'", 2)
     if len(teile) == 3:
         zeichensatz, _sprache, rest = teile
-        return urllib.parse.unquote(rest, encoding=zeichensatz or "utf-8", errors="replace")
+        return urllib.parse.unquote(
+            rest, encoding=zeichensatz or "utf-8", errors="replace"
+        )
     return urllib.parse.unquote(wert, errors="replace")
 
 
@@ -288,7 +294,9 @@ def _teil_lesen(knoten, nummer: str, raus: list[Teil]) -> None:
             groesse = element
 
     typ_klein, subtyp_klein = typ.lower(), subtyp.lower()
-    disposition, dparams = _disposition_finden(knoten[_erweiterung_ab(typ_klein, subtyp_klein) :])
+    disposition, dparams = _disposition_finden(
+        knoten[_erweiterung_ab(typ_klein, subtyp_klein) :]
+    )
 
     media_type = f"{typ_klein}/{subtyp_klein}" if typ and subtyp else ""
     dateiname = dateiname_aus(dparams, "filename") or dateiname_aus(params, "name")

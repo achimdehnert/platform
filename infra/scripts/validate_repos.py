@@ -41,9 +41,7 @@ sys.path.insert(
 )
 import registry_api  # noqa: E402
 
-PORTS_YAML = (
-    Path(__file__).resolve().parent.parent / "ports.yaml"
-)
+PORTS_YAML = Path(__file__).resolve().parent.parent / "ports.yaml"
 
 
 def load_ports() -> dict:
@@ -80,9 +78,7 @@ def get_all_registry_repos() -> dict[str, dict]:
         lifecycle = registry_api._lifecycle(entry)
         repos[name] = {
             "github": entry.get("github") or rich.get("github"),
-            "description": (
-                entry.get("description") or rich.get("description")
-            ),
+            "description": (entry.get("description") or rich.get("description")),
             "deployed": rich.get("deployed", False),
             "port_prod": flat.get("port"),
             "_type": rich.get("type") or flat.get("type"),
@@ -97,10 +93,14 @@ def get_github_repos() -> set[str]:
     try:
         result = subprocess.run(
             [
-                "gh", "repo", "list",
+                "gh",
+                "repo",
+                "list",
                 "achimdehnert",
-                "--limit", "200",
-                "--json", "name",
+                "--limit",
+                "200",
+                "--json",
+                "name",
             ],
             capture_output=True,
             text=True,
@@ -153,30 +153,18 @@ def check_ports_consistency(
             alt = repo_name if repo_name != svc_name else None
             if alt and alt in registry_repos:
                 continue
-            issues.append(
-                f"ports.yaml '{svc_name}'"
-                " nicht in Registry"
-            )
+            issues.append(f"ports.yaml '{svc_name}' nicht in Registry")
             continue
 
         reg = registry_repos[svc_name]
         if reg.get("_archived"):
-            issues.append(
-                f"'{svc_name}' in ports.yaml"
-                " aber als archiviert markiert"
-            )
+            issues.append(f"'{svc_name}' in ports.yaml aber als archiviert markiert")
 
         prod_port = svc_cfg.get("prod")
         reg_prod = reg.get("port_prod")
-        if (
-            prod_port
-            and reg_prod
-            and prod_port != reg_prod
-        ):
+        if prod_port and reg_prod and prod_port != reg_prod:
             issues.append(
-                f"'{svc_name}' port_prod:"
-                f" ports.yaml={prod_port}"
-                f" registry={reg_prod}"
+                f"'{svc_name}' port_prod: ports.yaml={prod_port} registry={reg_prod}"
             )
 
     return issues
@@ -190,10 +178,7 @@ def check_github_coverage(
     issues = []
     for repo_name in sorted(github_repos):
         if repo_name not in registry_repos:
-            issues.append(
-                f"GitHub repo '{repo_name}'"
-                " nicht in Registry"
-            )
+            issues.append(f"GitHub repo '{repo_name}' nicht in Registry")
     return issues
 
 
@@ -220,10 +205,7 @@ def main() -> None:
     for name, cfg in registry_repos.items():
         t = cfg.get("_type") or "unknown"
         types[t] = types.get(t, 0) + 1
-    print(
-        f"\nRegistry: {len(registry_repos)} Repos"
-        " (Quelle: canonical.yaml)"
-    )
+    print(f"\nRegistry: {len(registry_repos)} Repos (Quelle: canonical.yaml)")
     for t, count in sorted(types.items()):
         print(f"  type={t}: {count}")
     print(f"ports.yaml: {len(ports)} Services")
@@ -233,7 +215,8 @@ def main() -> None:
     # Check 1: ports.yaml vs registry
     print("\n--- Check 1: ports.yaml vs Registry ---")
     issues = check_ports_consistency(
-        registry_repos, ports,
+        registry_repos,
+        ports,
     )
     all_issues.extend(issues)
     if issues:
@@ -249,7 +232,8 @@ def main() -> None:
         if github_repos:
             print(f"  GitHub: {len(github_repos)} Repos")
             issues = check_github_coverage(
-                registry_repos, github_repos,
+                registry_repos,
+                github_repos,
             )
             all_issues.extend(issues)
             if issues:
@@ -263,14 +247,11 @@ def main() -> None:
     # Check 3: Registry internal
     print("\n--- Check 3: Registry-Integrität ---")
     deployed = [
-        n for n, c in registry_repos.items()
-        if c.get("deployed")
-        and c.get("_type") == "django"
+        n
+        for n, c in registry_repos.items()
+        if c.get("deployed") and c.get("_type") == "django"
     ]
-    no_port = [
-        n for n in deployed
-        if not registry_repos[n].get("port_prod")
-    ]
+    no_port = [n for n in deployed if not registry_repos[n].get("port_prod")]
     if no_port:
         for n in no_port:
             msg = f"'{n}' deployed=true aber kein port_prod"
@@ -282,10 +263,7 @@ def main() -> None:
     # Summary
     print("\n" + "=" * 60)
     if all_issues:
-        print(
-            f"⚠ {len(all_issues)}"
-            " Inkonsistenz(en) gefunden"
-        )
+        print(f"⚠ {len(all_issues)} Inkonsistenz(en) gefunden")
         sys.exit(1)
     else:
         print("✅ Registry vollständig und konsistent")

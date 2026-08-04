@@ -1,4 +1,5 @@
 """Tests for Architecture Guardian (Agent A2)."""
+
 from __future__ import annotations
 
 from agents.guardian import (
@@ -76,8 +77,7 @@ index abc1234..def5678 100644
 DIFF_LARGE_PR = (
     "diff --git a/big.py b/big.py\n"
     "--- a/big.py\n+++ b/big.py\n"
-    "@@ -1 +1,500 @@\n"
-    + "\n".join(f"+line {i}" for i in range(500))
+    "@@ -1 +1,500 @@\n" + "\n".join(f"+line {i}" for i in range(500))
 )
 
 
@@ -148,7 +148,8 @@ class TestG004PrTooLarge:
     def test_should_detect_large_pr(self):
         files = parse_diff(DIFF_LARGE_PR)
         violations = check_g004_pr_too_large(
-            files, threshold=400,
+            files,
+            threshold=400,
         )
         assert len(violations) == 1
         assert violations[0].rule == "G-004"
@@ -156,7 +157,8 @@ class TestG004PrTooLarge:
     def test_should_pass_small_pr(self):
         files = parse_diff(DIFF_MODEL_NO_MIGRATION)
         violations = check_g004_pr_too_large(
-            files, threshold=400,
+            files,
+            threshold=400,
         )
         assert len(violations) == 0
 

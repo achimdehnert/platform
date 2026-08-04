@@ -69,10 +69,10 @@ def classify_task(
     else:
         gate = max(base_gate, GateLevel.ONE.value)
 
-    needs_tech_lead_plan = (
-        task_type in _TECH_LEAD_TYPES
-        or complexity in {"complex", "architectural"}
-    )
+    needs_tech_lead_plan = task_type in _TECH_LEAD_TYPES or complexity in {
+        "complex",
+        "architectural",
+    }
     auto_eligible = gate <= GateLevel.ONE.value
 
     rationale = _build_rationale(task_type, complexity, role, gate)
@@ -239,7 +239,9 @@ def build_task_plan(
                     "Verify coverage delta >= 0",
                     "Report results",
                 ],
-                depends_on=["implementation"] if "implementation" in [b.name for b in branches] else [],
+                depends_on=["implementation"]
+                if "implementation" in [b.name for b in branches]
+                else [],
             )
         )
 

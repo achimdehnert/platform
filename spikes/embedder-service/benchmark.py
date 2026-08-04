@@ -58,7 +58,10 @@ def benchmark_latency(base_url: str, rounds: int) -> dict:
     latencies = []
     for i in range(rounds):
         t0 = time.perf_counter()
-        resp = request_json(f"{base_url}/embed", {"texts": [f"passage: Test Satz Nummer {i}"], "prefix": ""})
+        resp = request_json(
+            f"{base_url}/embed",
+            {"texts": [f"passage: Test Satz Nummer {i}"], "prefix": ""},
+        )
         elapsed = (time.perf_counter() - t0) * 1000
         latencies.append(elapsed)
 
@@ -78,16 +81,21 @@ def benchmark_batch(base_url: str, batch_sizes: list[int]) -> list[dict]:
     """Batch throughput at various sizes."""
     results = []
     for bs in batch_sizes:
-        texts = [f"passage: Deutscher Beispieltext Nummer {i} für Batch-Test." for i in range(bs)]
+        texts = [
+            f"passage: Deutscher Beispieltext Nummer {i} für Batch-Test."
+            for i in range(bs)
+        ]
         t0 = time.perf_counter()
         resp = request_json(f"{base_url}/embed", {"texts": texts, "prefix": ""})
         elapsed_s = time.perf_counter() - t0
-        results.append({
-            "batch_size": bs,
-            "total_ms": round(elapsed_s * 1000, 1),
-            "per_chunk_ms": round((elapsed_s * 1000) / bs, 1),
-            "chunks_per_sec": round(bs / elapsed_s, 1),
-        })
+        results.append(
+            {
+                "batch_size": bs,
+                "total_ms": round(elapsed_s * 1000, 1),
+                "per_chunk_ms": round((elapsed_s * 1000) / bs, 1),
+                "chunks_per_sec": round(bs / elapsed_s, 1),
+            }
+        )
     return results
 
 
@@ -96,14 +104,18 @@ def benchmark_recall(base_url: str) -> dict:
     import numpy as np
 
     # Embed passages
-    passage_resp = request_json(f"{base_url}/embed", {"texts": [s for s in LEGAL_SAMPLES], "prefix": ""})
+    passage_resp = request_json(
+        f"{base_url}/embed", {"texts": [s for s in LEGAL_SAMPLES], "prefix": ""}
+    )
     passages = np.array(passage_resp["embeddings"])
 
     # Embed queries and check recall
     correct = 0
     details = []
     for query_text, expected_idx in QUERY_SAMPLES:
-        query_resp = request_json(f"{base_url}/embed", {"texts": [query_text], "prefix": ""})
+        query_resp = request_json(
+            f"{base_url}/embed", {"texts": [query_text], "prefix": ""}
+        )
         query_vec = np.array(query_resp["embeddings"][0])
 
         # Cosine similarity (vectors are normalized)
@@ -113,13 +125,15 @@ def benchmark_recall(base_url: str) -> dict:
 
         if is_correct:
             correct += 1
-        details.append({
-            "query": query_text[:60],
-            "expected": expected_idx,
-            "got": best_idx,
-            "score": round(float(similarities[best_idx]), 4),
-            "correct": is_correct,
-        })
+        details.append(
+            {
+                "query": query_text[:60],
+                "expected": expected_idx,
+                "got": best_idx,
+                "score": round(float(similarities[best_idx]), 4),
+                "correct": is_correct,
+            }
+        )
 
     return {
         "recall_at_1": f"{correct}/{len(QUERY_SAMPLES)}",
@@ -153,20 +167,26 @@ def main():
     # Latency
     print(f"\n⏱️  Single-text latency ({args.rounds} rounds):")
     lat = benchmark_latency(base, args.rounds)
-    print(f"   p50: {lat['p50_ms']}ms | p95: {lat['p95_ms']}ms | p99: {lat['p99_ms']}ms")
-    print(f"   mean: {lat['mean_ms']}ms | min: {lat['min_ms']}ms | max: {lat['max_ms']}ms")
+    print(
+        f"   p50: {lat['p50_ms']}ms | p95: {lat['p95_ms']}ms | p99: {lat['p99_ms']}ms"
+    )
+    print(
+        f"   mean: {lat['mean_ms']}ms | min: {lat['min_ms']}ms | max: {lat['max_ms']}ms"
+    )
 
     # Batch
     print(f"\n📦 Batch throughput:")
     batches = benchmark_batch(base, [1, 5, 10, 25, 50])
     for b in batches:
-        print(f"   batch={b['batch_size']:3d}: {b['per_chunk_ms']}ms/chunk, {b['chunks_per_sec']} chunks/sec")
+        print(
+            f"   batch={b['batch_size']:3d}: {b['per_chunk_ms']}ms/chunk, {b['chunks_per_sec']} chunks/sec"
+        )
 
     # Recall
     print(f"\n🎯 Recall@1 (German legal text, 5 queries):")
     try:
         recall = benchmark_recall(base)
-        print(f"   Accuracy: {recall['recall_at_1']} = {recall['accuracy']*100}%")
+        print(f"   Accuracy: {recall['recall_at_1']} = {recall['accuracy'] * 100}%")
         for d in recall["details"]:
             status = "✅" if d["correct"] else "❌"
             print(f"   {status} {d['query']}... → idx={d['got']} (score={d['score']})")

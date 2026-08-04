@@ -20,6 +20,7 @@ Alle KRITISCH behoben:
 - K-02: Keine Discord-Rollen hier
 - K-03: Vollständige Enum-Validierung mit Fallback-Logik
 """
+
 from __future__ import annotations
 
 import enum
@@ -41,6 +42,7 @@ class RouterAgentRole(str, enum.Enum):
     die tatsächlich im RuleBasedBudgetRouter geroutet werden.
     Discord-Rollen sind NICHT hier (K-02 Fix).
     """
+
     DEVELOPER = "developer"
     TESTER = "tester"
     GUARDIAN = "guardian"
@@ -64,6 +66,7 @@ class TaskComplexityHint(str, enum.Enum):
 
     Mappt 1:1 auf ADR-068 TaskComplexity (gleiche Werte).
     """
+
     TRIVIAL = "trivial"
     SIMPLE = "simple"
     MODERATE = "moderate"
@@ -76,9 +79,7 @@ class TaskComplexityHint(str, enum.Enum):
             for member in cls:
                 if member.value == value.lower():
                     return member
-        logger.warning(
-            "Unknown TaskComplexityHint '%s' — Fallback auf MODERATE", value
-        )
+        logger.warning("Unknown TaskComplexityHint '%s' — Fallback auf MODERATE", value)
         return cls.MODERATE
 
     @classmethod
@@ -142,6 +143,7 @@ class RuleBasedBudgetRouter:
 
     def __init__(self, budget_tracker) -> None:
         from orchestrator_mcp.agent_team.budget_tracker import BudgetTracker
+
         assert isinstance(budget_tracker, BudgetTracker)
         self._budget_tracker = budget_tracker
         # In-Memory Cache für Route-Tabelle (5 Minuten TTL)
@@ -179,8 +181,7 @@ class RuleBasedBudgetRouter:
 
         is_emergency = budget.mode == BudgetMode.EMERGENCY
         is_cost_sensitive = (
-            force_budget_mode
-            or budget.mode == BudgetMode.COST_SENSITIVE
+            force_budget_mode or budget.mode == BudgetMode.COST_SENSITIVE
         )
 
         # --- Emergency: alles auf gpt-4o-mini ---
@@ -278,10 +279,7 @@ class RuleBasedBudgetRouter:
         cache_key = (role.value, complexity.value)
         now = time.monotonic()
 
-        if (
-            self._cache_loaded_at
-            and (now - self._cache_loaded_at) < _ROUTE_CACHE_TTL
-        ):
+        if self._cache_loaded_at and (now - self._cache_loaded_at) < _ROUTE_CACHE_TTL:
             return self._route_cache.get(cache_key)
 
         await self._refresh_cache()
@@ -301,14 +299,9 @@ class RuleBasedBudgetRouter:
             )
         )()
 
-        self._route_cache = {
-            (row.agent_role, row.complexity_hint): row
-            for row in rows
-        }
+        self._route_cache = {(row.agent_role, row.complexity_hint): row for row in rows}
         self._cache_loaded_at = time.monotonic()
-        logger.debug(
-            "Route cache refreshed: %d entries", len(self._route_cache)
-        )
+        logger.debug("Route cache refreshed: %d entries", len(self._route_cache))
 
     def invalidate_cache(self) -> None:
         """Route-Cache leeren (nach DB-Änderung über Admin)."""

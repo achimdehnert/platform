@@ -190,7 +190,9 @@ class TestMainWarnDegradesUnresolvableOwner:
 
         monkeypatch.setattr(dfm, "fetch_runs", fake_fetch_runs)
         monkeypatch.setattr(
-            dfm, "escalate_issue", lambda org, repo, result, dry_run: f"escalated {repo}@{org}"
+            dfm,
+            "escalate_issue",
+            lambda org, repo, result, dry_run: f"escalated {repo}@{org}",
         )
 
     def test_should_skip_unresolvable_repo_without_crash_and_keep_scanning(
@@ -208,12 +210,22 @@ class TestMainWarnDegradesUnresolvableOwner:
         assert "ghost-hub" in out and "nicht in Registry" in out
         assert "healthy-hub: grün" in out  # Lauf ging trotz Ghost-Repo weiter
 
-    def test_should_fall_back_to_explicit_org_flag_in_only_mode(self, monkeypatch, capsys):
+    def test_should_fall_back_to_explicit_org_flag_in_only_mode(
+        self, monkeypatch, capsys
+    ):
         owner_map = {}  # gar nichts in der Registry aufloesbar
         run_map = {"debug-repo": [_r("success")]}
         self._patch_common(monkeypatch, owner_map, run_map)
         monkeypatch.setattr(
-            sys, "argv", ["deploy_failure_monitor.py", "--only", "debug-repo", "--org", "explicit-org"]
+            sys,
+            "argv",
+            [
+                "deploy_failure_monitor.py",
+                "--only",
+                "debug-repo",
+                "--org",
+                "explicit-org",
+            ],
         )
 
         rc = dfm.main()

@@ -30,7 +30,9 @@ def test_should_include_every_job_in_gate_needs():
 def test_should_not_reference_unknown_jobs_in_gate_needs():
     jobs = _jobs()
     unknown = set(jobs["gate"]["needs"]) - set(jobs)
-    assert not unknown, f"gate.needs referenziert nicht-existente Jobs: {sorted(unknown)}"
+    assert not unknown, (
+        f"gate.needs referenziert nicht-existente Jobs: {sorted(unknown)}"
+    )
 
 
 def test_should_keep_gate_always_running():

@@ -99,7 +99,10 @@ def tcp_probe(host: str, port: int, timeout: float = 3.0) -> ProbeResult:
         return ProbeResult(host, port, service, "filtered")
     except ConnectionRefusedError:
         return ProbeResult(
-            host, port, service, "refused",
+            host,
+            port,
+            service,
+            "refused",
             error="Port closed but host responds",
         )
     except OSError as e:
@@ -108,16 +111,18 @@ def tcp_probe(host: str, port: int, timeout: float = 3.0) -> ProbeResult:
         s.close()
 
 
-def ssh_check(host: str, user: str = "root",
-              timeout: int = 10) -> tuple[bool, str]:
+def ssh_check(host: str, user: str = "root", timeout: int = 10) -> tuple[bool, str]:
     """Prüfe ob SSH-Login funktioniert und hole Uptime."""
     try:
         result = subprocess.run(
             [
                 "ssh",
-                "-o", f"ConnectTimeout={timeout}",
-                "-o", "BatchMode=yes",
-                "-o", "StrictHostKeyChecking=accept-new",
+                "-o",
+                f"ConnectTimeout={timeout}",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
                 f"{user}@{host}",
                 "uptime",
             ],
@@ -257,42 +262,50 @@ def main() -> int:
         help=f"Server-IP (default: {SERVERS['prod']})",
     )
     parser.add_argument(
-        "--user", default="root",
+        "--user",
+        default="root",
         help="SSH-User (default: root)",
     )
     parser.add_argument(
-        "--with-apps", action="store_true",
+        "--with-apps",
+        action="store_true",
         help="Auch App-Ports aus ports.yaml prüfen",
     )
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Alle bekannten Server prüfen",
     )
     parser.add_argument(
-        "--json", action="store_true", dest="json_out",
+        "--json",
+        action="store_true",
+        dest="json_out",
         help="JSON-Output",
     )
     parser.add_argument(
-        "--timeout", type=float, default=3.0,
+        "--timeout",
+        type=float,
+        default=3.0,
         help="TCP-Timeout in Sekunden (default: 3)",
     )
     args = parser.parse_args()
 
-    hosts = (
-        list(SERVERS.values()) if args.all
-        else [SERVERS.get(args.host, args.host)]
-    )
+    hosts = list(SERVERS.values()) if args.all else [SERVERS.get(args.host, args.host)]
 
     reports = []
     for host in hosts:
         report = probe_server(
-            host, args.user, args.with_apps, args.timeout,
+            host,
+            args.user,
+            args.with_apps,
+            args.timeout,
         )
         reports.append(report)
 
     if args.json_out:
         out = (
-            reports[0].to_dict() if len(reports) == 1
+            reports[0].to_dict()
+            if len(reports) == 1
             else [r.to_dict() for r in reports]
         )
         print(json.dumps(out, indent=2))

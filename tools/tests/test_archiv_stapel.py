@@ -14,7 +14,9 @@ import importlib.util
 import pathlib
 
 _SRC = (
-    pathlib.Path(__file__).resolve().parents[1] / "mail_agent" / "archiv_einsortieren.py"
+    pathlib.Path(__file__).resolve().parents[1]
+    / "mail_agent"
+    / "archiv_einsortieren.py"
 )
 _spec = importlib.util.spec_from_file_location("archiv_einsortieren_stapel", _SRC)
 ae = importlib.util.module_from_spec(_spec)

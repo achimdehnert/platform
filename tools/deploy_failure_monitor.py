@@ -329,7 +329,9 @@ def main() -> int:
                 org = args.org
             else:
                 not_in_registry.append(repo)
-                print(f"  ⚠️  {repo}: nicht in Registry auflösbar (owner()=None) — übersprungen")
+                print(
+                    f"  ⚠️  {repo}: nicht in Registry auflösbar (owner()=None) — übersprungen"
+                )
                 continue
         try:
             runs = fetch_runs(org, repo, args.limit)

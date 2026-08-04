@@ -5,6 +5,7 @@ realer Wirkung (fängt genau die ADR-221..227-Renumber-Kollision von 2026-05).
 `main()` ruft `gh` direkt auf; hier wird die modul-lokale `gh()`-Funktion
 gemonkeypatcht, damit KEIN echter `gh`-/Netz-Call stattfindet.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -36,13 +37,17 @@ def _make_fake_gh(open_prs: list[int], views: dict[int, list[dict]], list_rc: in
     def _fake_gh(*args: str) -> _FakeCompletedProcess:
         if args[0] == "pr" and args[1] == "list":
             if list_rc != 0:
-                return _FakeCompletedProcess(returncode=list_rc, stderr="gh: not authenticated")
+                return _FakeCompletedProcess(
+                    returncode=list_rc, stderr="gh: not authenticated"
+                )
             payload = [{"number": n} for n in open_prs]
             return _FakeCompletedProcess(returncode=0, stdout=json.dumps(payload))
         if args[0] == "pr" and args[1] == "view":
             n = int(args[2])
             files = views.get(n, [])
-            return _FakeCompletedProcess(returncode=0, stdout=json.dumps({"files": files}))
+            return _FakeCompletedProcess(
+                returncode=0, stdout=json.dumps({"files": files})
+            )
         raise AssertionError(f"unerwarteter gh-Aufruf: {args}")
 
     return _fake_gh

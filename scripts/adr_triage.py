@@ -7,6 +7,7 @@ Ausführen: python scripts/adr_triage.py [--apply]
 Ohne --apply: nur Report ausgeben (read-only)
 Mit --apply:  YAML-Frontmatter in ADRs ohne Frontmatter einfügen (schreibt Dateien)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,20 +20,28 @@ ADR_DIR = Path(__file__).parent.parent / "docs" / "adr"
 
 # Bekannte Superseded-Beziehungen (manuell gepflegt)
 KNOWN_SUPERSEDED: dict[str, str] = {
-    "ADR-017": "ADR-032",   # DDL Duplikat — ADR-032 ist aktueller
-    "ADR-020": "ADR-046",   # Sphinx-Doku → techdocs (ADR-046 Accepted)
-    "ADR-047": "ADR-046",   # Sphinx Hub → techdocs (ADR-046 Accepted)
-    "ADR-033": "ADR-056",   # Dual-Framework (Odoo) → obsolet durch SaaS-Fokus
+    "ADR-017": "ADR-032",  # DDL Duplikat — ADR-032 ist aktueller
+    "ADR-020": "ADR-046",  # Sphinx-Doku → techdocs (ADR-046 Accepted)
+    "ADR-047": "ADR-046",  # Sphinx Hub → techdocs (ADR-046 Accepted)
+    "ADR-033": "ADR-056",  # Dual-Framework (Odoo) → obsolet durch SaaS-Fokus
 }
 
 # ADRs die definitiv Accepted sind (aus INDEX.md manuell extrahiert)
 KNOWN_ACCEPTED: set[str] = {
-    "ADR-007", "ADR-021", "ADR-035", "ADR-046", "ADR-055",
+    "ADR-007",
+    "ADR-021",
+    "ADR-035",
+    "ADR-046",
+    "ADR-055",
 }
 
 # ADRs die definitiv Proposed sind
 KNOWN_PROPOSED: set[str] = {
-    "ADR-054", "ADR-056", "ADR-057", "ADR-058", "ADR-059",
+    "ADR-054",
+    "ADR-056",
+    "ADR-057",
+    "ADR-058",
+    "ADR-059",
 }
 
 
@@ -171,9 +180,9 @@ def print_report(results: list[dict]) -> None:
     unknown_status = [r for r in results if r["raw_status"] == "?"]
     superseded = [r for r in results if r["suggested_status"] == "superseded"]
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"ADR TRIAGE REPORT — {date.today()}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"  Total ADRs       : {total}")
     print(f"  With issues      : {len(with_issues)}")
     print(f"  No frontmatter   : {len(no_frontmatter)}")
@@ -203,7 +212,7 @@ def print_report(results: list[dict]) -> None:
 
     print()
     print("Ausführen mit --apply um YAML-Frontmatter automatisch einzufügen.")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
 
 def apply_frontmatter(results: list[dict]) -> None:
@@ -216,20 +225,27 @@ def apply_frontmatter(results: list[dict]) -> None:
         content = path.read_text(encoding="utf-8")
         new_content = generate_frontmatter(r, content)
         path.write_text(new_content, encoding="utf-8")
-        print(f"  ✅ Frontmatter hinzugefügt: {r['file']} (status: {r['suggested_status']})")
+        print(
+            f"  ✅ Frontmatter hinzugefügt: {r['file']} (status: {r['suggested_status']})"
+        )
         applied += 1
     print(f"\n{applied} Dateien aktualisiert.")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ADR Triage — Staleness & Status Check")
-    parser.add_argument("--apply", action="store_true", help="YAML-Frontmatter einfügen")
-    parser.add_argument("--only-issues", action="store_true", help="Nur ADRs mit Issues anzeigen")
+    parser = argparse.ArgumentParser(
+        description="ADR Triage — Staleness & Status Check"
+    )
+    parser.add_argument(
+        "--apply", action="store_true", help="YAML-Frontmatter einfügen"
+    )
+    parser.add_argument(
+        "--only-issues", action="store_true", help="Nur ADRs mit Issues anzeigen"
+    )
     args = parser.parse_args()
 
     adr_files = sorted(
-        p for p in ADR_DIR.glob("*.md")
-        if not p.name.upper().startswith("INDEX")
+        p for p in ADR_DIR.glob("*.md") if not p.name.upper().startswith("INDEX")
     )
 
     if not adr_files:

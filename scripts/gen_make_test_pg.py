@@ -21,6 +21,7 @@ Usage:
     python3 scripts/gen_make_test_pg.py <repo> --write    # actually patch
     python3 scripts/gen_make_test_pg.py --all             # classify all repos (dry)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -74,9 +75,11 @@ def classify(repo: Path) -> str:
     if re.search(r"^test-pg:", text, re.M) or "POSTGRES_" in text:
         return "already-patched"
     settings_test = repo / "config" / "settings" / "test.py"
-    if settings_test.exists() and "postgresql" in settings_test.read_text(
-        encoding="utf-8", errors="replace"
-    ).lower():
+    if (
+        settings_test.exists()
+        and "postgresql"
+        in settings_test.read_text(encoding="utf-8", errors="replace").lower()
+    ):
         return "django-pg"
     if list(repo.glob("**/settings.py")):
         return "django-other"
@@ -105,7 +108,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("repo", nargs="?", help="repo name under $GITHUB_DIR")
     ap.add_argument("--all", action="store_true", help="classify all repos (dry)")
-    ap.add_argument("--write", action="store_true", help="actually patch (default: dry-run)")
+    ap.add_argument(
+        "--write", action="store_true", help="actually patch (default: dry-run)"
+    )
     args = ap.parse_args()
 
     if args.all:

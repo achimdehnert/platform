@@ -69,7 +69,9 @@ def test_should_extract_skill_slug_from_typed_slash_command():
 def test_should_ignore_skill_mentioned_only_as_text_reference():
     obj = {
         "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "siehe /adr-health für Details"}]},
+        "message": {
+            "content": [{"type": "text", "text": "siehe /adr-health für Details"}]
+        },
     }
 
     events = extract_usage_events(obj)
@@ -113,7 +115,9 @@ def test_should_flag_inventory_entries_with_zero_usage_as_candidates():
 
 
 def test_should_find_scheduled_workflows_by_cron_trigger(tmp_path):
-    (tmp_path / "scheduled.yml").write_text("on:\n  schedule:\n    - cron: '0 7 * * 1'\n")
+    (tmp_path / "scheduled.yml").write_text(
+        "on:\n  schedule:\n    - cron: '0 7 * * 1'\n"
+    )
     (tmp_path / "manual-only.yml").write_text("on:\n  workflow_dispatch:\n")
 
     result = find_scheduled_workflows(tmp_path)
@@ -139,7 +143,12 @@ def test_should_flag_workflow_as_candidate_when_stale_unreacted_issue_exists():
     label_by_workflow = {"sync-drift-meter.yml": "sync-drift"}
     issues_by_label = {
         "sync-drift": [
-            {"number": 1, "createdAt": "2026-01-01T00:00:00Z", "comments": 0, "state": "OPEN"},
+            {
+                "number": 1,
+                "createdAt": "2026-01-01T00:00:00Z",
+                "comments": 0,
+                "state": "OPEN",
+            },
         ]
     }
 
@@ -154,7 +163,12 @@ def test_should_not_flag_workflow_when_stale_issue_was_commented():
     label_by_workflow = {"x.yml": "lbl"}
     issues_by_label = {
         "lbl": [
-            {"number": 1, "createdAt": "2026-01-01T00:00:00Z", "comments": 2, "state": "OPEN"},
+            {
+                "number": 1,
+                "createdAt": "2026-01-01T00:00:00Z",
+                "comments": 2,
+                "state": "OPEN",
+            },
         ]
     }
 
@@ -167,7 +181,12 @@ def test_should_not_flag_workflow_when_stale_issue_is_closed():
     label_by_workflow = {"x.yml": "lbl"}
     issues_by_label = {
         "lbl": [
-            {"number": 1, "createdAt": "2026-01-01T00:00:00Z", "comments": 0, "state": "CLOSED"},
+            {
+                "number": 1,
+                "createdAt": "2026-01-01T00:00:00Z",
+                "comments": 0,
+                "state": "CLOSED",
+            },
         ]
     }
 
@@ -180,11 +199,18 @@ def test_should_not_flag_workflow_when_issue_younger_than_min_age():
     label_by_workflow = {"x.yml": "lbl"}
     issues_by_label = {
         "lbl": [
-            {"number": 1, "createdAt": "2026-07-01T00:00:00Z", "comments": 0, "state": "OPEN"},
+            {
+                "number": 1,
+                "createdAt": "2026-07-01T00:00:00Z",
+                "comments": 0,
+                "state": "OPEN",
+            },
         ]
     }
 
-    result = evaluate_meter_consequence(label_by_workflow, issues_by_label, NOW, min_age_days=90)
+    result = evaluate_meter_consequence(
+        label_by_workflow, issues_by_label, NOW, min_age_days=90
+    )
 
     assert result == []
 
@@ -245,6 +271,10 @@ def test_should_extract_overdue_kill_gate_lines():
 
 
 def test_should_format_current_quarter_label():
-    assert current_quarter_label(datetime(2026, 7, 13, tzinfo=timezone.utc)) == "2026-Q3"
+    assert (
+        current_quarter_label(datetime(2026, 7, 13, tzinfo=timezone.utc)) == "2026-Q3"
+    )
     assert current_quarter_label(datetime(2026, 1, 1, tzinfo=timezone.utc)) == "2026-Q1"
-    assert current_quarter_label(datetime(2026, 12, 31, tzinfo=timezone.utc)) == "2026-Q4"
+    assert (
+        current_quarter_label(datetime(2026, 12, 31, tzinfo=timezone.utc)) == "2026-Q4"
+    )

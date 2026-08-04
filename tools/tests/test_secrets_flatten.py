@@ -179,7 +179,9 @@ def test_should_exit_0_when_the_nested_directory_is_absent(secrets, monkeypatch)
     assert sf.main() == 0
 
 
-def test_should_keep_the_nested_dir_when_an_unclassified_entry_remains(secrets, monkeypatch):
+def test_should_keep_the_nested_dir_when_an_unclassified_entry_remains(
+    secrets, monkeypatch
+):
     oben, unten = secrets
     schreib(oben, "dublette", "x\n")
     schreib(unten, "dublette", "x\n")

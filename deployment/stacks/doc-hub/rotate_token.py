@@ -6,6 +6,7 @@ landet Beiwerk im Token.
 
 Aufruf im Container:  python3 /usr/src/paperless/scripts/rotate_token.py <username>
 """
+
 import os
 import sys
 
@@ -37,7 +38,11 @@ vorhanden = Token.objects.filter(user=u).first()
 if trockenlauf:
     sys.stderr.write(
         "TROCKENLAUF: Benutzer=%s vorhandener_Token=%s erstellt=%s — nichts geaendert\n"
-        % (name, bool(vorhanden), vorhanden.created.strftime("%Y-%m-%d") if vorhanden else "-")
+        % (
+            name,
+            bool(vorhanden),
+            vorhanden.created.strftime("%Y-%m-%d") if vorhanden else "-",
+        )
     )
     sys.exit(0)
 

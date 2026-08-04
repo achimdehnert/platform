@@ -54,7 +54,10 @@ def validate_decommissioned(entries: list, errors: list[str]) -> None:
         hostnames = e.get("dead_hostnames") or []
         ips = e.get("dead_ips") or []
         if not hostnames and not ips:
-            _err(errors, f"{loc} ({name}): weder dead_hostnames noch dead_ips gesetzt — Eintrag ohne Gate-Wirkung")
+            _err(
+                errors,
+                f"{loc} ({name}): weder dead_hostnames noch dead_ips gesetzt — Eintrag ohne Gate-Wirkung",
+            )
 
 
 def validate_overrides(entries: list, errors: list[str]) -> None:
@@ -67,22 +70,34 @@ def validate_overrides(entries: list, errors: list[str]) -> None:
             continue
         missing = [f for f in required if not e.get(f)]
         if missing:
-            _err(errors, f"{loc}: Pflichtfelder fehlen: {', '.join(missing)} (D1-Waiver-Vorbild: ohne expires_at -> blockiert)")
+            _err(
+                errors,
+                f"{loc}: Pflichtfelder fehlen: {', '.join(missing)} (D1-Waiver-Vorbild: ohne expires_at -> blockiert)",
+            )
             continue
         try:
             expires = dt.date.fromisoformat(str(e["expires_at"]))
         except ValueError:
-            _err(errors, f"{loc}: expires_at '{e['expires_at']}' ist kein ISO-Datum (YYYY-MM-DD)")
+            _err(
+                errors,
+                f"{loc}: expires_at '{e['expires_at']}' ist kein ISO-Datum (YYYY-MM-DD)",
+            )
             continue
         if expires < today:
-            _err(errors, f"{loc} ({e.get('repo')}/{e.get('path')}): expires_at {expires} ist abgelaufen (heute {today}) — fail-closed, verlängern oder Override entfernen")
+            _err(
+                errors,
+                f"{loc} ({e.get('repo')}/{e.get('path')}): expires_at {expires} ist abgelaufen (heute {today}) — fail-closed, verlängern oder Override entfernen",
+            )
 
 
 def main() -> int:
     try:
         canon = yaml.safe_load(CANON_PATH.read_text())
     except (OSError, yaml.YAMLError) as exc:
-        print(f"FEHLER: {CANON_PATH} nicht lesbar/kein valides YAML: {exc}", file=sys.stderr)
+        print(
+            f"FEHLER: {CANON_PATH} nicht lesbar/kein valides YAML: {exc}",
+            file=sys.stderr,
+        )
         return 2
 
     errors: list[str] = []
@@ -97,7 +112,9 @@ def main() -> int:
 
     n_decom = len(canon.get("decommissioned") or [])
     n_over = len(canon.get("overrides") or [])
-    print(f"✅ registry/canonical.yaml Schema OK ({n_decom} decommissioned, {n_over} overrides)")
+    print(
+        f"✅ registry/canonical.yaml Schema OK ({n_decom} decommissioned, {n_over} overrides)"
+    )
     return 0
 
 

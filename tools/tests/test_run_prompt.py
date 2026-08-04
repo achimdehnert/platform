@@ -33,7 +33,9 @@ def test_should_rate_a_complex_keyword_as_complex(wort):
     assert stufe(f"Bitte {wort} umsetzen").startswith("COMPLEX")
 
 
-@pytest.mark.parametrize("wort", ["fix", "bug", "typo", "rename", "text", "farbe", "color"])
+@pytest.mark.parametrize(
+    "wort", ["fix", "bug", "typo", "rename", "text", "farbe", "color"]
+)
 def test_should_rate_a_simple_keyword_as_simple(wort):
     assert stufe(f"Nur ein {wort}").startswith("SIMPLE")
 

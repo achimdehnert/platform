@@ -5,6 +5,7 @@ Rate-Limit: exponential backoff, X-RateLimit-Remaining auswerten.
 Auth: GITHUB_TOKEN Env-Var (aus GitHub Actions oder PROJECT_PAT).
 Ergebnis: wird als REPO_CONTEXT Entry in AGENT_MEMORY.md gespeichert.
 """
+
 from __future__ import annotations
 
 import base64
@@ -21,9 +22,9 @@ from .session_memory import MEMORY_FILE, _git_commit, _read_store, _write_store
 
 log = logging.getLogger(__name__)
 
-GITHUB_API   = "https://api.github.com"
+GITHUB_API = "https://api.github.com"
 DEFAULT_ORG = "achimdehnert"
-MAX_RETRIES  = 3
+MAX_RETRIES = 3
 BACKOFF_BASE = 2.0
 
 
@@ -56,7 +57,8 @@ def _github_request(
             wait = max(0, reset_ts - int(time.time())) + 1
             log.warning(
                 "GitHub Rate-Limit fast erschöpft (%d remaining) — warte %ds",
-                remaining, wait,
+                remaining,
+                wait,
             )
             time.sleep(wait)
 
@@ -69,7 +71,9 @@ def _github_request(
                 wait = BACKOFF_BASE ** (attempt + 1)
                 log.warning(
                     "Rate-Limit hit — Backoff %ds (attempt %d/%d)",
-                    wait, attempt + 1, MAX_RETRIES,
+                    wait,
+                    attempt + 1,
+                    MAX_RETRIES,
                 )
                 time.sleep(wait)
                 return _github_request(endpoint, token, timeout, attempt + 1)
@@ -164,13 +168,14 @@ class RepoScanSkill(Skill):
 
         # Framework erkennen
         requirements = _github_request(
-            f"/repos/{full_name}/contents/requirements.txt?ref={branch}", token,
+            f"/repos/{full_name}/contents/requirements.txt?ref={branch}",
+            token,
         )
         if requirements and isinstance(requirements, dict):
             try:
-                req_text = base64.b64decode(
-                    requirements.get("content", "")
-                ).decode("utf-8", errors="ignore")
+                req_text = base64.b64decode(requirements.get("content", "")).decode(
+                    "utf-8", errors="ignore"
+                )
                 if "django" in req_text.lower():
                     context["framework"] = "Django"
                 elif "fastapi" in req_text.lower():
@@ -182,24 +187,28 @@ class RepoScanSkill(Skill):
 
         # Health-URL aus docker-compose.prod.yml
         compose = _github_request(
-            f"/repos/{full_name}/contents/docker-compose.prod.yml?ref={branch}", token,
+            f"/repos/{full_name}/contents/docker-compose.prod.yml?ref={branch}",
+            token,
         )
         compose_content = None
         if compose and isinstance(compose, dict):
             try:
-                compose_content = base64.b64decode(
-                    compose.get("content", "")
-                ).decode("utf-8", errors="ignore")
+                compose_content = base64.b64decode(compose.get("content", "")).decode(
+                    "utf-8", errors="ignore"
+                )
             except Exception:
                 pass
 
         health_url = _extract_health_url(compose_content)
         context["health_url"] = health_url
-        context["health_status"] = _check_health(health_url) if health_url else "⚠️ UNKNOWN"
+        context["health_status"] = (
+            _check_health(health_url) if health_url else "⚠️ UNKNOWN"
+        )
 
         # Migrations-Stand
         root = _github_request(
-            f"/repos/{full_name}/contents?ref={branch}", token,
+            f"/repos/{full_name}/contents?ref={branch}",
+            token,
         )
         if root and isinstance(root, list):
             app_dirs = [f["name"] for f in root if f["type"] == "dir"]
@@ -211,7 +220,8 @@ class RepoScanSkill(Skill):
                 if mig_dir and isinstance(mig_dir, list):
                     migration_files = sorted(
                         [
-                            f["name"] for f in mig_dir
+                            f["name"]
+                            for f in mig_dir
                             if f["name"].endswith(".py") and f["name"] != "__init__.py"
                         ],
                         reverse=True,
@@ -225,13 +235,14 @@ class RepoScanSkill(Skill):
 
         # AGENT_HANDOVER.md
         handover = _github_request(
-            f"/repos/{full_name}/contents/AGENT_HANDOVER.md?ref={branch}", token,
+            f"/repos/{full_name}/contents/AGENT_HANDOVER.md?ref={branch}",
+            token,
         )
         if handover and isinstance(handover, dict):
             try:
-                handover_text = base64.b64decode(
-                    handover.get("content", "")
-                ).decode("utf-8", errors="ignore")
+                handover_text = base64.b64decode(handover.get("content", "")).decode(
+                    "utf-8", errors="ignore"
+                )
                 context["has_handover"] = True
                 context["handover_preview"] = handover_text[:500]
             except Exception:

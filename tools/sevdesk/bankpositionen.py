@@ -47,7 +47,9 @@ STANDARD_ZIEL = Path.home() / ".claude" / "boards" / "sevdesk-bankpositionen.md"
 #:   1048171118267/.            Ionos SE, …            (ohne PP-Block)
 #:   1049697671020 PP.1321.PP . Spotify AB, …          (Leerzeichen statt »/«)
 #: Trefferquote am Bestand 2026: 28 von 28.
-PP_MUSTER = re.compile(r"(?:PP\.[0-9]{4}\.PP)?\s*[/\s]\.\s*(.{3,45}?)(?:,|\s+Ihr Einkauf|$)")
+PP_MUSTER = re.compile(
+    r"(?:PP\.[0-9]{4}\.PP)?\s*[/\s]\.\s*(.{3,45}?)(?:,|\s+Ihr Einkauf|$)"
+)
 
 #: Umsatz-Status 100 = unverbucht. 200 verknüpft, 400 verbucht.
 STATUS_UNVERBUCHT = "100"
@@ -66,8 +68,12 @@ def hole(pfad: str, kopf: dict, **params) -> list[dict]:
     ergebnis: list[dict] = []
     offset = 0
     while True:
-        r = httpx.get(f"{API}/{pfad}", headers=kopf,
-                      params=dict(params, limit=200, offset=offset), timeout=60)
+        r = httpx.get(
+            f"{API}/{pfad}",
+            headers=kopf,
+            params=dict(params, limit=200, offset=offset),
+            timeout=60,
+        )
         r.raise_for_status()
         seite = r.json().get("objects") or []
         ergebnis += seite
@@ -131,43 +137,61 @@ def board_schreiben(zeilen: list[dict], ziel: Path, jahr: int) -> dict[str, int]
     ziel.parent.mkdir(parents=True, exist_ok=True)
     with ziel.open("w", encoding="utf-8") as f:
         f.write(f"# Offene Bankpositionen {jahr} — Einzelaufstellung je Position\n\n")
-        f.write(f"{len(zeilen)} unverbuchte Positionen (Status {STATUS_UNVERBUCHT}), "
-                f"read-only aus der sevdesk-API.\n")
-        f.write(f"**{len(zugeordnet)} zugeordnet** · **{len(klaerung)} in Klärung** · "
-                f"**{len(offen)} offen**\n\n")
+        f.write(
+            f"{len(zeilen)} unverbuchte Positionen (Status {STATUS_UNVERBUCHT}), "
+            f"read-only aus der sevdesk-API.\n"
+        )
+        f.write(
+            f"**{len(zugeordnet)} zugeordnet** · **{len(klaerung)} in Klärung** · "
+            f"**{len(offen)} offen**\n\n"
+        )
 
         if offen:
             f.write(f"\n## Noch offen — Konto eintragen ({len(offen)} Positionen)\n\n")
             f.write("| # | Datum | Betrag € | Wer | Zweck | Konto | Umsatz-ID |\n")
             f.write("|---:|---|---:|---|---|---|---|\n")
             for z in offen:
-                f.write(f"| {z['nr']} | {z['datum']} | {z['betrag']:,.2f} | "
-                        f"{kurz(wer(z), 34)} | {kurz(z['zweck'], 40)} | | `{z['id']}` |\n")
+                f.write(
+                    f"| {z['nr']} | {z['datum']} | {z['betrag']:,.2f} | "
+                    f"{kurz(wer(z), 34)} | {kurz(z['zweck'], 40)} | | `{z['id']}` |\n"
+                )
 
         if klaerung:
             summe = sum(abs(z["betrag"]) for z in klaerung)
             f.write(f"\n## In Klärung ({len(klaerung)} Positionen, {summe:,.2f} €)\n\n")
             f.write(f"{klaerung[0]['anm']}\n\n")
-            f.write("| # | Datum | Betrag € | Zweck | Umsatz-ID |\n|---:|---|---:|---|---|\n")
+            f.write(
+                "| # | Datum | Betrag € | Zweck | Umsatz-ID |\n|---:|---|---:|---|---|\n"
+            )
             for z in klaerung:
-                f.write(f"| {z['nr']} | {z['datum']} | {z['betrag']:,.2f} | "
-                        f"{kurz(z['zweck'], 46)} | `{z['id']}` |\n")
+                f.write(
+                    f"| {z['nr']} | {z['datum']} | {z['betrag']:,.2f} | "
+                    f"{kurz(z['zweck'], 46)} | `{z['id']}` |\n"
+                )
 
         f.write(f"\n## Zugeordnet ({len(zugeordnet)} Positionen)\n\n")
         f.write("| # | Datum | Betrag € | Wer | Konto | Bezeichnung | Umsatz-ID |\n")
         f.write("|---:|---|---:|---|---|---|---|\n")
         for z in zugeordnet:
             warnung = " ⚠" if "TEILWEISE" in (z["anm"] or "") else ""
-            f.write(f"| {z['nr']} | {z['datum']} | {z['betrag']:,.2f} | {kurz(wer(z), 34)} | "
-                    f"**{z['konto']}**{warnung} | {z['bez']} | `{z['id']}` |\n")
+            f.write(
+                f"| {z['nr']} | {z['datum']} | {z['betrag']:,.2f} | {kurz(wer(z), 34)} | "
+                f"**{z['konto']}**{warnung} | {z['bez']} | `{z['id']}` |\n"
+            )
 
         teilweise = [z for z in zugeordnet if "TEILWEISE" in (z["anm"] or "")]
         if teilweise:
             f.write("\n**⚠ Nur teilweise zugeordnet:**\n\n")
             for z in teilweise:
-                f.write(f"- Nr. {z['nr']} ({z['datum']}, {z['betrag']:,.2f} €): {z['anm']}\n")
+                f.write(
+                    f"- Nr. {z['nr']} ({z['datum']}, {z['betrag']:,.2f} €): {z['anm']}\n"
+                )
 
-    return {"zugeordnet": len(zugeordnet), "klaerung": len(klaerung), "offen": len(offen)}
+    return {
+        "zugeordnet": len(zugeordnet),
+        "klaerung": len(klaerung),
+        "offen": len(offen),
+    }
 
 
 def main() -> int:
@@ -175,14 +199,21 @@ def main() -> int:
     p.add_argument("--jahr", type=int, default=2026)
     p.add_argument("--ziel", type=Path, default=STANDARD_ZIEL)
     p.add_argument("--konten", type=Path, default=KONTEN_DATEI)
-    p.add_argument("--schnappschuss", type=Path, default=None,
-                   help="Arbeitsstand als JSON einfrieren (Umsatz-ID → Konto). "
-                        "Eingabe für den Buchungsschritt und Beleg dafür, worauf "
-                        "sich eine Freigabe bezogen hat.")
-    p.add_argument("--stand", default=None,
-                   help="Zeitstempel für den Schnappschuss (z. B. 2026-07-29T11:50). "
-                        "Bewusst als Argument statt aus der Systemuhr, damit ein "
-                        "Wiederholungslauf denselben Stand erzeugt.")
+    p.add_argument(
+        "--schnappschuss",
+        type=Path,
+        default=None,
+        help="Arbeitsstand als JSON einfrieren (Umsatz-ID → Konto). "
+        "Eingabe für den Buchungsschritt und Beleg dafür, worauf "
+        "sich eine Freigabe bezogen hat.",
+    )
+    p.add_argument(
+        "--stand",
+        default=None,
+        help="Zeitstempel für den Schnappschuss (z. B. 2026-07-29T11:50). "
+        "Bewusst als Argument statt aus der Systemuhr, damit ein "
+        "Wiederholungslauf denselben Stand erzeugt.",
+    )
     args = p.parse_args()
 
     kopf = {"Authorization": token_lesen(), "Accept": "application/json"}
@@ -190,10 +221,13 @@ def main() -> int:
 
     alle = hole("CheckAccountTransaction", kopf)
     offen = sorted(
-        [t for t in alle
-         if (t.get("valueDate") or "")[:4] == str(args.jahr)
-         and str(t.get("status")) == STATUS_UNVERBUCHT],
-        key=lambda t: (t.get("valueDate") or ""),
+        [
+            t
+            for t in alle
+            if (t.get("valueDate") or "")[:4] == str(args.jahr)
+            and str(t.get("status")) == STATUS_UNVERBUCHT
+        ],
+        key=lambda t: t.get("valueDate") or "",
     )
 
     zeilen = []
@@ -203,12 +237,20 @@ def main() -> int:
         zweck = t.get("paymtPurpose") or ""
         konto, bez, anm = zuordnen(f"{name} {zweck}", betrag, regeln)
         ist_paypal = "paypal" in f"{name} {zweck}".lower()
-        zeilen.append({
-            "nr": nr, "id": t.get("id"), "datum": (t.get("valueDate") or "")[:10],
-            "betrag": betrag, "name": kurz(name, 34) or "—",
-            "zweck": kurz(zweck, 60) or "—", "konto": konto, "bez": bez, "anm": anm,
-            "haendler": paypal_haendler(zweck) if ist_paypal else "",
-        })
+        zeilen.append(
+            {
+                "nr": nr,
+                "id": t.get("id"),
+                "datum": (t.get("valueDate") or "")[:10],
+                "betrag": betrag,
+                "name": kurz(name, 34) or "—",
+                "zweck": kurz(zweck, 60) or "—",
+                "konto": konto,
+                "bez": bez,
+                "anm": anm,
+                "haendler": paypal_haendler(zweck) if ist_paypal else "",
+            }
+        )
 
     stand = board_schreiben(zeilen, args.ziel, args.jahr)
 
@@ -218,27 +260,43 @@ def main() -> int:
     # und ist zugleich die Eingabe für den Buchungsschritt: Umsatz-ID → Konto.
     if args.schnappschuss:
         args.schnappschuss.parent.mkdir(parents=True, exist_ok=True)
-        args.schnappschuss.write_text(json.dumps({
-            "erzeugt": args.stand or "(ohne Zeitstempel aufgerufen)",
-            "jahr": args.jahr,
-            "positionen_gesamt": len(zeilen),
-            "summe": stand,
-            "positionen": [
-                {"umsatz_id": z["id"], "datum": z["datum"], "betrag": z["betrag"],
-                 "wer": z["haendler"] or z["name"], "konto": z["konto"],
-                 "bezeichnung": z["bez"], "anmerkung": z["anm"]}
-                for z in zeilen
-            ],
-        }, ensure_ascii=False, indent=1), encoding="utf-8")
+        args.schnappschuss.write_text(
+            json.dumps(
+                {
+                    "erzeugt": args.stand or "(ohne Zeitstempel aufgerufen)",
+                    "jahr": args.jahr,
+                    "positionen_gesamt": len(zeilen),
+                    "summe": stand,
+                    "positionen": [
+                        {
+                            "umsatz_id": z["id"],
+                            "datum": z["datum"],
+                            "betrag": z["betrag"],
+                            "wer": z["haendler"] or z["name"],
+                            "konto": z["konto"],
+                            "bezeichnung": z["bez"],
+                            "anmerkung": z["anm"],
+                        }
+                        for z in zeilen
+                    ],
+                },
+                ensure_ascii=False,
+                indent=1,
+            ),
+            encoding="utf-8",
+        )
         print(f"Schnappschuss: {args.schnappschuss}")
     print(f"geschrieben: {args.ziel}")
-    print(f"  {len(zeilen)} Positionen — {stand['zugeordnet']} zugeordnet, "
-          f"{stand['klaerung']} in Klärung, {stand['offen']} offen\n")
+    print(
+        f"  {len(zeilen)} Positionen — {stand['zugeordnet']} zugeordnet, "
+        f"{stand['klaerung']} in Klärung, {stand['offen']} offen\n"
+    )
     for (konto, bez), n in collections.Counter(
         (z["konto"], z["bez"]) for z in zeilen if z["konto"]
     ).most_common():
-        summe = sum(abs(z["betrag"]) for z in zeilen
-                    if z["konto"] == konto and z["bez"] == bez)
+        summe = sum(
+            abs(z["betrag"]) for z in zeilen if z["konto"] == konto and z["bez"] == bez
+        )
         print(f"  {konto:<8} {bez:<38} {n:>2} Pos.  {summe:>10,.2f} €")
     return 0
 

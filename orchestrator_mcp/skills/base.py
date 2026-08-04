@@ -7,6 +7,7 @@ Platform-Standards:
 - Vollständige Exception-Hierarchy
 - gate_level 0-4 (ADR-107 kompatibel)
 """
+
 from __future__ import annotations
 
 import time
@@ -17,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 # ─── Exception Hierarchy ──────────────────────────────────────────────────────
+
 
 class SkillError(Exception):
     """Basis-Exception für alle Skill-Fehler."""
@@ -45,13 +47,15 @@ class SkillDependencyError(SkillError):
 
 # ─── Value Objects ────────────────────────────────────────────────────────────
 
+
 class GateLevel(IntEnum):
     """Gate-Level (ADR-107 kompatibel)."""
-    AUTONOMOUS  = 0  # kein menschlicher Eingriff
-    NOTIFY      = 1  # Mensch informiert
-    APPROVE     = 2  # Mensch muss zustimmen
+
+    AUTONOMOUS = 0  # kein menschlicher Eingriff
+    NOTIFY = 1  # Mensch informiert
+    APPROVE = 2  # Mensch muss zustimmen
     SYNCHRONOUS = 3  # Mensch live dabei
-    HUMAN_ONLY  = 4  # nur Mensch führt aus
+    HUMAN_ONLY = 4  # nur Mensch führt aus
 
 
 class SkillResult(BaseModel):
@@ -66,6 +70,7 @@ class SkillResult(BaseModel):
         duration_ms:  Ausführungszeit in Millisekunden
         gate_required: Gate-Level der für Follow-up-Aktionen nötig ist
     """
+
     model_config = ConfigDict(extra="forbid")
 
     success: bool
@@ -110,6 +115,7 @@ class SkillResult(BaseModel):
 
 # ─── Skill Base ───────────────────────────────────────────────────────────────
 
+
 class Skill(BaseModel):
     """
     Abstrakte Basis für alle registrierten Agent-Skills.
@@ -132,6 +138,7 @@ class Skill(BaseModel):
             def invoke(self, **kwargs) -> SkillResult:
                 ...
     """
+
     model_config = ConfigDict(
         validate_assignment=True,
         extra="forbid",
@@ -140,25 +147,25 @@ class Skill(BaseModel):
     name: str = Field(
         ...,
         description="Eindeutiger Skill-Name (snake_case)",
-        pattern=r'^[a-z][a-z0-9_]*$',
+        pattern=r"^[a-z][a-z0-9_]*$",
         min_length=2,
         max_length=64,
     )
     version: str = Field(
         ...,
         description="Semantic Version",
-        pattern=r'^\d+\.\d+\.\d+$',
+        pattern=r"^\d+\.\d+\.\d+$",
     )
     domain: str = Field(
         ...,
         description="Domain (infra, payment, tenancy, qa, memory, ...)",
-        pattern=r'^[a-z][a-z0-9_]*$',
+        pattern=r"^[a-z][a-z0-9_]*$",
     )
     description: str = Field(..., min_length=10, max_length=500)
     mcp_tool_name: str = Field(
         ...,
         description="Name des MCP-Tools das diesen Skill exponiert",
-        pattern=r'^[a-z][a-z0-9_]*$',
+        pattern=r"^[a-z][a-z0-9_]*$",
     )
     gate_level: GateLevel = Field(
         default=GateLevel.AUTONOMOUS,

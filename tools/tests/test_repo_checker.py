@@ -75,7 +75,9 @@ def test_should_pass_compose_golden_path(tmp_path):
 
 
 def test_should_flag_compose_violations(tmp_path):
-    (tmp_path / "docker-compose.prod.yml").write_text(_COMPOSE_VIOLATION, encoding="utf-8")
+    (tmp_path / "docker-compose.prod.yml").write_text(
+        _COMPOSE_VIOLATION, encoding="utf-8"
+    )
     results = rc.check_compose(tmp_path, {})
     by_check = {r.check: r.severity for r in results}
     assert by_check["image_tag"] == rc.Severity.ERROR
@@ -296,9 +298,7 @@ def test_should_flag_nonstandard_tag_var(tmp_path):
 
 
 def test_should_pass_django_config_golden_path(tmp_path):
-    (tmp_path / "manage.py").write_text(
-        "import config.settings\n", encoding="utf-8"
-    )
+    (tmp_path / "manage.py").write_text("import config.settings\n", encoding="utf-8")
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     (config_dir / "wsgi.py").write_text("app = None\n", encoding="utf-8")

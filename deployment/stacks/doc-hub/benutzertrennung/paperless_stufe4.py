@@ -26,7 +26,9 @@ ziel = User.objects.filter(username=ZIEL).first()
 if not ziel:
     raise SystemExit("ABBRUCH: Zielkonto %s gibt es nicht" % ZIEL)
 
-behalten_ids = list(User.objects.filter(username__in=BEHALTEN).values_list("id", flat=True))
+behalten_ids = list(
+    User.objects.filter(username__in=BEHALTEN).values_list("id", flat=True)
+)
 if len(behalten_ids) != len(BEHALTEN):
     raise SystemExit("ABBRUCH: nicht alle Konten gefunden: %s" % ", ".join(BEHALTEN))
 
@@ -55,8 +57,10 @@ if SCHARF:
 
 print()
 print("=== Stand danach")
-print("Dokumente gesamt=%d  ohne Besitzer=%d"
-      % (Document.objects.count(), Document.objects.filter(owner__isnull=True).count()))
+print(
+    "Dokumente gesamt=%d  ohne Besitzer=%d"
+    % (Document.objects.count(), Document.objects.filter(owner__isnull=True).count())
+)
 for b in User.objects.order_by("id"):
     n = Document.objects.filter(owner=b).count()
     if n:

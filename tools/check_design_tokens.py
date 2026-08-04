@@ -20,9 +20,7 @@ DIRECT_COLORS = re.compile(
     r"-\d{2,3}\b"
 )
 
-HARDCODED_HEX = re.compile(
-    r"(?:color|background|border-color)\s*:\s*#[0-9a-fA-F]{3,8}"
-)
+HARDCODED_HEX = re.compile(r"(?:color|background|border-color)\s*:\s*#[0-9a-fA-F]{3,8}")
 
 SEMANTIC_MAP: dict[str, str] = {
     # Primary
@@ -67,14 +65,12 @@ def check_file(path: Path) -> tuple[list[str], list[str]]:
     for match in DIRECT_COLORS.finditer(content):
         suggestion = SEMANTIC_MAP.get(match.group(), "a semantic token")
         warnings.append(
-            f"  {path}: Direct color '{match.group()}'"
-            f" -- use '{suggestion}' instead"
+            f"  {path}: Direct color '{match.group()}' -- use '{suggestion}' instead"
         )
 
     for match in HARDCODED_HEX.finditer(content):
         errors.append(
-            f"  {path}: Hardcoded color '{match.group()}'"
-            f" -- use --pui-* token"
+            f"  {path}: Hardcoded color '{match.group()}' -- use --pui-* token"
         )
 
     return errors, warnings

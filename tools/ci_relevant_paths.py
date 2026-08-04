@@ -127,7 +127,9 @@ def main(argv: list[str] | None = None) -> int:
     # "nichts geaendert" — dann lieber einmal zu viel pruefen als still gruen.
     if not changed:
         relevant = True
-        print("hinweis: leerer Diff — konservativ als relevant gewertet", file=sys.stderr)
+        print(
+            "hinweis: leerer Diff — konservativ als relevant gewertet", file=sys.stderr
+        )
 
     line = f"relevant={'true' if relevant else 'false'}"
     print(line)

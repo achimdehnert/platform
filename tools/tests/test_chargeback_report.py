@@ -89,7 +89,15 @@ def test_should_exclude_infra_containers_from_apps_but_report_them():
 
 
 def test_should_skip_host_without_any_app_container():
-    data = {"hosts": {"leer": {"price_eur_month": 10.0, "ram_gib": 4, "containers": {"mon_cadvisor": "5MiB"}}}}
+    data = {
+        "hosts": {
+            "leer": {
+                "price_eur_month": 10.0,
+                "ram_gib": 4,
+                "containers": {"mon_cadvisor": "5MiB"},
+            }
+        }
+    }
     assert cb.compute(data) == []
 
 

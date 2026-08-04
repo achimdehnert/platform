@@ -18,6 +18,7 @@ Verwendung (neuer Code):
     reg.repos()          # sortierte Repo-Namen (alle ~44)
     reg.repo("risk-hub") # zusammengeführter Datensatz (flat+rich+meta) für EIN Repo
 """
+
 from __future__ import annotations
 
 import sys
@@ -79,6 +80,7 @@ def gen_archived(canon: dict) -> dict:
 
 # ── Convenience-Accessoren für neuen Code ──────────────────────────────────────
 
+
 def flat() -> dict:
     return gen_flat(load_canonical())
 
@@ -102,11 +104,18 @@ def repo(name: str, strict: bool = False) -> dict | None:
     e = load_canonical()["repos"].get(name)
     if e is None:
         if strict:
-            print(f"registry_api.repo: unbekannter Repo-Name '{name}' (Typo?)", file=sys.stderr)
+            print(
+                f"registry_api.repo: unbekannter Repo-Name '{name}' (Typo?)",
+                file=sys.stderr,
+            )
             raise KeyError(name)
         return None
     merged = {**(e.get("flat") or {}), **(e.get("rich") or {})}
-    merged.update(domain=e.get("domain"), in_flat=e.get("in_flat", False), in_rich=e.get("in_rich", False))
+    merged.update(
+        domain=e.get("domain"),
+        in_flat=e.get("in_flat", False),
+        in_rich=e.get("in_rich", False),
+    )
     return merged
 
 
@@ -140,7 +149,9 @@ def owner(name: str, canon: dict | None = None) -> str | None:
     repos = canon.get("repos") or {}
     known = name in repos
     entry = repos.get(name) or {}
-    gh = (entry.get("rich") or {}).get("github") or (entry.get("flat") or {}).get("github")
+    gh = (entry.get("rich") or {}).get("github") or (entry.get("flat") or {}).get(
+        "github"
+    )
     if gh and "/" in gh:
         return gh.split("/", 1)[0]
     explicit = (meta.get("repo_owner") or {}).get(name)

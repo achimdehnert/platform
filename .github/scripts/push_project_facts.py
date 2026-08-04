@@ -14,6 +14,7 @@ Env-Vars:
     GITHUB_TOKEN  — Personal Access Token (repo scope)
     GITHUB_ORG    — Organisation (default: achimdehnert)
 """
+
 from __future__ import annotations
 
 import base64
@@ -42,11 +43,14 @@ TODAY = date.today().isoformat()
 # GitHub API helpers (stdlib only)
 # ---------------------------------------------------------------------------
 
+
 class ApiFehler(RuntimeError):
     """HTTP-Fehler der GitHub-API — mit der Meldung aus dem Body, nicht nur dem Code."""
 
 
-def _req(url: str, method: str = "GET", body: bytes | None = None) -> dict | list | None:
+def _req(
+    url: str, method: str = "GET", body: bytes | None = None
+) -> dict | list | None:
     headers = {
         "Authorization": f"token {TOKEN}",
         "Accept": "application/vnd.github+json",
@@ -69,7 +73,9 @@ def _req(url: str, method: str = "GET", body: bytes | None = None) -> dict | lis
             meldung = (json.loads(e.read()) or {}).get("message", "")
         except (ValueError, OSError):
             meldung = ""
-        raise ApiFehler(f"HTTP {e.code} {e.reason}{f' — {meldung}' if meldung else ''}") from e
+        raise ApiFehler(
+            f"HTTP {e.code} {e.reason}{f' — {meldung}' if meldung else ''}"
+        ) from e
 
 
 _SLUGS: dict[str, str] = {}
@@ -108,7 +114,9 @@ def gh_get_dir(repo: str, path: str) -> list[str]:
 
 #: Kopfzeile mit dem Generierungsdatum — ändert sich bei JEDEM Lauf und ist
 #: allein kein Grund für einen Pull Request.
-_DATUMSZEILE = re.compile(r"^> Letzte Aktualisierung: \d{4}-\d{2}-\d{2}.*$", re.MULTILINE)
+_DATUMSZEILE = re.compile(
+    r"^> Letzte Aktualisierung: \d{4}-\d{2}-\d{2}.*$", re.MULTILINE
+)
 
 
 def _ohne_datum(text: str) -> str:
@@ -140,15 +148,25 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
 
     # Branch auf den aktuellen Stand von `basis` setzen (anlegen oder umbiegen),
     # damit ein liegengebliebener Branch aus einem Vorlauf nicht divergiert.
-    kopf = (_req(f"{API}/repos/{slug}/git/ref/heads/{basis}") or {}).get("object", {}).get("sha")
+    kopf = (
+        (_req(f"{API}/repos/{slug}/git/ref/heads/{basis}") or {})
+        .get("object", {})
+        .get("sha")
+    )
     if not kopf:
         raise ApiFehler(f"Kopf von '{basis}' nicht lesbar")
     if _req(f"{API}/repos/{slug}/git/ref/heads/{branch}"):
-        _req(f"{API}/repos/{slug}/git/refs/heads/{branch}", method="PATCH",
-             body=json.dumps({"sha": kopf, "force": True}).encode())
+        _req(
+            f"{API}/repos/{slug}/git/refs/heads/{branch}",
+            method="PATCH",
+            body=json.dumps({"sha": kopf, "force": True}).encode(),
+        )
     else:
-        _req(f"{API}/repos/{slug}/git/refs", method="POST",
-             body=json.dumps({"ref": f"refs/heads/{branch}", "sha": kopf}).encode())
+        _req(
+            f"{API}/repos/{slug}/git/refs",
+            method="POST",
+            body=json.dumps({"ref": f"refs/heads/{branch}", "sha": kopf}).encode(),
+        )
 
     auf_branch = _req(f"{API}/repos/{slug}/contents/{path}?ref={branch}")
     payload: dict = {
@@ -158,23 +176,38 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
     }
     if isinstance(auf_branch, dict) and auf_branch.get("sha"):
         payload["sha"] = auf_branch["sha"]
-    _req(f"{API}/repos/{slug}/contents/{path}", method="PUT", body=json.dumps(payload).encode())
+    _req(
+        f"{API}/repos/{slug}/contents/{path}",
+        method="PUT",
+        body=json.dumps(payload).encode(),
+    )
 
-    offen = _req(f"{API}/repos/{slug}/pulls?head={slug.split('/')[0]}:{branch}&state=open")
+    offen = _req(
+        f"{API}/repos/{slug}/pulls?head={slug.split('/')[0]}:{branch}&state=open"
+    )
     if isinstance(offen, list) and offen:
         return f"PR #{offen[0]['number']} aktualisiert"
-    neu = _req(f"{API}/repos/{slug}/pulls", method="POST", body=json.dumps({
-        "title": "docs: project-facts.md aktualisieren",
-        "head": branch,
-        "base": basis,
-        "body": (
-            "Automatisch erzeugt von `platform/.github/scripts/push_project_facts.py`.\n\n"
-            "Direkt auf `main` zu schreiben ist seit dem `main-required-checks`-Ruleset "
-            "nicht mehr möglich (die Contents-API kann keinen Required Check erfüllen, "
-            "GitHub antwortet mit `409 Conflict`) — deshalb dieser PR.\n\n"
-            "Ändert sich nur das Generierungsdatum, entsteht **kein** PR."
-        ),
-    }).encode()) or {}
+    neu = (
+        _req(
+            f"{API}/repos/{slug}/pulls",
+            method="POST",
+            body=json.dumps(
+                {
+                    "title": "docs: project-facts.md aktualisieren",
+                    "head": branch,
+                    "base": basis,
+                    "body": (
+                        "Automatisch erzeugt von `platform/.github/scripts/push_project_facts.py`.\n\n"
+                        "Direkt auf `main` zu schreiben ist seit dem `main-required-checks`-Ruleset "
+                        "nicht mehr möglich (die Contents-API kann keinen Required Check erfüllen, "
+                        "GitHub antwortet mit `409 Conflict`) — deshalb dieser PR.\n\n"
+                        "Ändert sich nur das Generierungsdatum, entsteht **kein** PR."
+                    ),
+                }
+            ).encode(),
+        )
+        or {}
+    )
     return f"PR #{neu.get('number', '?')} angelegt"
 
 
@@ -182,10 +215,12 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
 # Registry loader (plain text parse, no yaml dep needed)
 # ---------------------------------------------------------------------------
 
+
 def load_registry() -> dict[str, dict]:
     """Minimal YAML parser — reads repo-registry.yaml into flat dict."""
     try:
         import yaml  # noqa: PLC0415
+
         with open(REGISTRY_PATH) as f:
             data = yaml.safe_load(f)
         return data.get("repos", {})
@@ -218,6 +253,7 @@ def load_registry() -> dict[str, dict]:
 # Django-specific detection
 # ---------------------------------------------------------------------------
 
+
 def detect_from_pyproject(content: str) -> dict:
     """Extract Django facts from pyproject.toml content."""
     info: dict = {}
@@ -228,13 +264,13 @@ def detect_from_pyproject(content: str) -> dict:
         info["test_settings"] = m.group(1)
 
     # pythonpath
-    m = re.search(r'pythonpath\s*=\s*\[([^\]]+)\]', content)
+    m = re.search(r"pythonpath\s*=\s*\[([^\]]+)\]", content)
     if m:
         paths = re.findall(r'["\']([^"\']+)["\']', m.group(1))
         info["pythonpath"] = paths[0] if paths else ""
 
     # testpaths
-    m = re.search(r'testpaths\s*=\s*\[([^\]]+)\]', content)
+    m = re.search(r"testpaths\s*=\s*\[([^\]]+)\]", content)
     if m:
         paths = re.findall(r'["\']([^"\']+)["\']', m.group(1))
         info["testpaths"] = paths[0] if paths else "tests"
@@ -250,10 +286,10 @@ def detect_from_pyproject(content: str) -> dict:
         info["python_version"] = m.group(1)
 
     # HTMX: django-htmx in deps?
-    info["has_django_htmx"] = bool(re.search(r'django-htmx', content, re.I))
+    info["has_django_htmx"] = bool(re.search(r"django-htmx", content, re.I))
 
     # Celery?
-    info["has_celery"] = bool(re.search(r'\bcelery\b', content, re.I))
+    info["has_celery"] = bool(re.search(r"\bcelery\b", content, re.I))
 
     return info
 
@@ -283,9 +319,20 @@ def detect_src_root(repo: str) -> str:
 
 
 _NON_APP_DIRS = {
-    "config", "templates", "static", "staticfiles", "media",
-    "__pycache__", "tests", "fixtures", "migrations", "locale",
-    "management", "templatetags", "node_modules", ".hypothesis",
+    "config",
+    "templates",
+    "static",
+    "staticfiles",
+    "media",
+    "__pycache__",
+    "tests",
+    "fixtures",
+    "migrations",
+    "locale",
+    "management",
+    "templatetags",
+    "node_modules",
+    ".hypothesis",
 }
 
 
@@ -307,7 +354,8 @@ def detect_apps(repo: str, src_root: str) -> list[str]:
         seen_paths.add(norm)
         entries = gh_get_dir(repo, norm)
         apps = [
-            e for e in entries
+            e
+            for e in entries
             if not e.startswith(".") and "." not in e and e not in _NON_APP_DIRS
         ]
         if len(apps) >= 2:
@@ -330,30 +378,42 @@ def detect_apps(repo: str, src_root: str) -> list[str]:
 def detect_settings_module(repo: str, src_root: str, test_settings: str) -> str:
     """Try to find the production settings module name."""
     # 1. Look in settings directory (subdirectory pattern)
-    for settings_path in [f"{src_root}/config/settings", "config/settings",
-                          f"{src_root}/settings", "settings"]:
+    for settings_path in [
+        f"{src_root}/config/settings",
+        "config/settings",
+        f"{src_root}/settings",
+        "settings",
+    ]:
         entries = gh_get_dir(repo, settings_path)
         if not entries:
             continue
         for candidate in ("production.py", "prod.py", "settings_production.py"):
             if candidate in entries:
                 # e.g. src/config/settings → config.settings
-                module_base = settings_path.replace(f"{src_root}/", "").replace("/", ".")
+                module_base = settings_path.replace(f"{src_root}/", "").replace(
+                    "/", "."
+                )
                 return f"{module_base}.{candidate.replace('.py', '')}"
 
     # 2. Single-file settings (settings.py next to other settings_*.py)
     for parent_path in [f"{src_root}/config", "config", src_root, "."]:
         entries = gh_get_dir(repo, parent_path)
-        for candidate in ("settings_production.py", "settings_prod.py",
-                          "settings.production.py"):
+        for candidate in (
+            "settings_production.py",
+            "settings_prod.py",
+            "settings.production.py",
+        ):
             if candidate in entries:
                 module_base = parent_path.replace(f"{src_root}/", "").replace("/", ".")
                 return f"{module_base}.{candidate.replace('.py', '')}"
 
     # 3. Derive from test settings
     if test_settings:
-        for old, new in (("_test", "_production"), (".test", ".production"),
-                         ("_tests", "_production")):
+        for old, new in (
+            ("_test", "_production"),
+            (".test", ".production"),
+            ("_tests", "_production"),
+        ):
             if old in test_settings:
                 return test_settings.replace(old, new)
     return "[TODO: manuell prüfen — production settings nicht auto-detektiert]"
@@ -363,7 +423,10 @@ def detect_settings_module(repo: str, src_root: str, test_settings: str) -> str:
 # Markdown generator
 # ---------------------------------------------------------------------------
 
-def build_project_facts(repo: str, reg: dict, info: dict, src_root: str, apps: list[str]) -> str:
+
+def build_project_facts(
+    repo: str, reg: dict, info: dict, src_root: str, apps: list[str]
+) -> str:
     prod_url = reg.get("prod_url", f"{repo}.iil.pet")
     staging_url = reg.get("staging_url", f"staging.{prod_url}")
     port = reg.get("port", "8000")
@@ -383,7 +446,9 @@ def build_project_facts(repo: str, reg: dict, info: dict, src_root: str, apps: l
 
     src_root_display = f"`{src_root}/`" if src_root != "." else "`./` (root)"
 
-    apps_str = "\n".join(f"- `{a}`" for a in apps) if apps else "- [TODO: manuell ergänzen]"
+    apps_str = (
+        "\n".join(f"- `{a}`" for a in apps) if apps else "- [TODO: manuell ergänzen]"
+    )
 
     celery_line = "\n- **Celery**: ja (Worker + Beat)" if has_celery else ""
 
@@ -438,7 +503,7 @@ def build_project_facts(repo: str, reg: dict, info: dict, src_root: str, apps: l
         "",
         "- devuser hat **KEIN sudo-Passwort** → System-Pakete immer via SSH als root:",
         "  ```bash",
-        "  ssh root@localhost \"apt-get install -y <package>\"",
+        '  ssh root@localhost "apt-get install -y <package>"',
         "  ```",
     ]
 
@@ -449,14 +514,15 @@ def build_project_facts(repo: str, reg: dict, info: dict, src_root: str, apps: l
 # Main per-repo logic
 # ---------------------------------------------------------------------------
 
+
 def process_repo(repo: str, reg: dict, dry_run: bool) -> str:
     print(f"\n→ {repo} ...", flush=True)
 
     # Fetch pyproject.toml
     pyproject_content = (
-        gh_get_file(repo, "pyproject.toml") or
-        gh_get_file(repo, "src/pyproject.toml") or
-        ""
+        gh_get_file(repo, "pyproject.toml")
+        or gh_get_file(repo, "src/pyproject.toml")
+        or ""
     )
 
     info = detect_from_pyproject(pyproject_content) if pyproject_content else {}
@@ -471,7 +537,9 @@ def process_repo(repo: str, reg: dict, dry_run: bool) -> str:
     )
 
     # HTMX detection method
-    info["htmx_detection"] = detect_htmx_method(repo, info.get("has_django_htmx", False))
+    info["htmx_detection"] = detect_htmx_method(
+        repo, info.get("has_django_htmx", False)
+    )
 
     # Build content
     content = build_project_facts(repo, reg, info, src_root, apps)
@@ -495,18 +563,22 @@ def process_repo(repo: str, reg: dict, dry_run: bool) -> str:
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     args = sys.argv[1:]
     dry_run = "--dry-run" in args
     target = next((a for a in args if not a.startswith("-")), "")
 
     if not TOKEN and not dry_run:
-        print("ERROR: GITHUB_TOKEN nicht gesetzt. Export: export GITHUB_TOKEN=$(cat ~/.secrets/github_PAT)")
+        print(
+            "ERROR: GITHUB_TOKEN nicht gesetzt. Export: export GITHUB_TOKEN=$(cat ~/.secrets/github_PAT)"
+        )
         sys.exit(1)
 
     repos = load_registry()
     django_repos = {
-        name: cfg for name, cfg in repos.items()
+        name: cfg
+        for name, cfg in repos.items()
         if (cfg or {}).get("type", "django") == "django"
     }
 

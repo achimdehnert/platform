@@ -30,7 +30,9 @@ import sys
 from pathlib import Path
 
 #: Die Marker, auf die GitHub Actions und gängige CI-Dienste reagieren.
-MARKER = re.compile(r"\[(?:skip[ -]ci|ci[ -]skip|no[ -]ci|skip[ -]actions)\]", re.IGNORECASE)
+MARKER = re.compile(
+    r"\[(?:skip[ -]ci|ci[ -]skip|no[ -]ci|skip[ -]actions)\]", re.IGNORECASE
+)
 
 #: Opt-in-Trailer: eine eigene Zeile, damit sie bewusst gesetzt werden muss.
 OPT_IN = re.compile(r"^Skip-CI:\s*absichtlich\s*$", re.IGNORECASE | re.MULTILINE)
@@ -63,7 +65,9 @@ def pruefe(nachricht: str) -> str | None:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("Aufruf: check_skip_ci_marker.py <pfad-zur-commit-message>", file=sys.stderr)
+        print(
+            "Aufruf: check_skip_ci_marker.py <pfad-zur-commit-message>", file=sys.stderr
+        )
         return 2
     fehler = pruefe(Path(sys.argv[1]).read_text(encoding="utf-8"))
     if fehler:

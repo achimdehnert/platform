@@ -49,12 +49,9 @@ def test_should_render_traefik_ingress_when_opted_in():
     # router/service labels derived from hostname + repo
     assert "traefik.enable=true" in out
     assert (
-        "traefik.http.routers.devhub-staging.rule=Host(`staging-devhub.iil.pet`)"
-        in out
+        "traefik.http.routers.devhub-staging.rule=Host(`staging-devhub.iil.pet`)" in out
     )
-    assert (
-        "traefik.http.services.devhub-staging.loadbalancer.server.port=8000" in out
-    )
+    assert "traefik.http.services.devhub-staging.loadbalancer.server.port=8000" in out
 
 
 def test_should_drop_nginx_vhost_artifact_for_traefik_repo():

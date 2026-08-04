@@ -59,7 +59,9 @@ def test_should_detect_a_line_inside_an_enum_class():
     assert hs._is_inside_enum(zeilen, 1)
 
 
-@pytest.mark.parametrize("basis", ["IntEnum", "StrEnum", "TextChoices", "IntegerChoices"])
+@pytest.mark.parametrize(
+    "basis", ["IntEnum", "StrEnum", "TextChoices", "IntegerChoices"]
+)
 def test_should_detect_every_supported_enum_base(basis):
     zeilen = [f"class Status(models.{basis}):", "    OFFEN = 'offen'"]
 

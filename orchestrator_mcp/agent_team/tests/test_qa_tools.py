@@ -2,6 +2,7 @@
 Tests for QA cycle MCP tools: get_cost_estimate, evaluate_task, verify_task.
 ADR-108 Phase 5.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -28,11 +29,15 @@ class TestGetCostEstimate:
         assert result["comparison"]["savings_pct"] > 0
 
     def test_opus_same_as_cascade(self):
-        result = get_cost_estimate("t4", "opus", estimated_tokens=80_000, complexity="moderate")
+        result = get_cost_estimate(
+            "t4", "opus", estimated_tokens=80_000, complexity="moderate"
+        )
         assert result["comparison"]["savings_pct"] == pytest.approx(0.0, abs=5.0)
 
     def test_cascade_tokens_override(self):
-        result = get_cost_estimate("t5", "swe", cascade_tokens=200_000, complexity="moderate")
+        result = get_cost_estimate(
+            "t5", "swe", cascade_tokens=200_000, complexity="moderate"
+        )
         assert result["cascade"]["tokens"] == 200_000
         assert result["cascade"]["source"] == "actual"
 
@@ -121,7 +126,11 @@ class TestEvaluateTask:
             tokens_used=50_000,
         )
         assert set(result["sub_scores"].keys()) == {
-            "completion", "guardian", "adr_compliance", "iteration", "token",
+            "completion",
+            "guardian",
+            "adr_compliance",
+            "iteration",
+            "token",
         }
 
     def test_metrics_present(self):

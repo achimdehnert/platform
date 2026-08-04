@@ -13,6 +13,7 @@ Architektur:
 
 Kein Hardcode: Werte kommen aus YAML, nicht aus Python-Literals.
 """
+
 from __future__ import annotations
 
 import time
@@ -38,6 +39,7 @@ class JobEstimate:
 
     Alle Zeitangaben in Sekunden.
     """
+
     job_type: str
     estimated_seconds: int
     estimated_seconds_min: int
@@ -56,7 +58,11 @@ class JobEstimate:
             "%H:%M:%S",
             time.localtime(time.time() + self.estimated_seconds),
         )
-        mode = "⚡ Background (Agent bleibt verfügbar)" if self.background_capable else "⏳ Foreground (Agent wartet)"
+        mode = (
+            "⚡ Background (Agent bleibt verfügbar)"
+            if self.background_capable
+            else "⏳ Foreground (Agent wartet)"
+        )
         repo_str = f" {repo}" if repo else ""
         steps_str = " + ".join(self.steps) if self.steps else "—"
 
@@ -94,6 +100,7 @@ class JobEstimator:
     catalog_path: Pfad zu job_catalog.yaml
     history: Dict {job_type: [measured_seconds, ...]} für Feedback-Loop
     """
+
     catalog_path: Path = field(
         default_factory=lambda: Path(__file__).parent / "job_catalog.yaml"
     )
@@ -137,14 +144,17 @@ class JobEstimator:
             if repo and "repos" in base and repo in base["repos"]:
                 entry.update(base["repos"][repo])
         else:
-            entry = self._catalog.get("fallback", {
-                "estimated_seconds_min": 10,
-                "estimated_seconds_max": 300,
-                "background_capable": True,
-                "executor": "server-script",
-                "steps": ["(unbekannter Job-Typ)"],
-                "parallel_safe": False,
-            })
+            entry = self._catalog.get(
+                "fallback",
+                {
+                    "estimated_seconds_min": 10,
+                    "estimated_seconds_max": 300,
+                    "background_capable": True,
+                    "executor": "server-script",
+                    "steps": ["(unbekannter Job-Typ)"],
+                    "parallel_safe": False,
+                },
+            )
 
         # Basis-Schätzung: Mittelpunkt aus Min/Max
         min_s: int = entry.get("estimated_seconds_min", 10)
@@ -154,7 +164,9 @@ class JobEstimator:
         # Feedback-Loop: Gemessene Werte einbeziehen (30% Gewicht)
         final_estimate = catalog_estimate
         if job_type in self.history and self.history[job_type]:
-            measured_avg = sum(self.history[job_type][-10:]) / len(self.history[job_type][-10:])
+            measured_avg = sum(self.history[job_type][-10:]) / len(
+                self.history[job_type][-10:]
+            )
             final_estimate = int(0.7 * catalog_estimate + 0.3 * measured_avg)
 
         return JobEstimate(

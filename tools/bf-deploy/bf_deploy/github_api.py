@@ -1,4 +1,5 @@
 """GitHub API interactions for workflow dispatch."""
+
 from __future__ import annotations
 
 import httpx
@@ -15,10 +16,7 @@ def trigger_workflow(
 
     Returns 204 on success.
     """
-    url = (
-        f"https://api.github.com/repos/{repo}"
-        f"/actions/workflows/{workflow}/dispatches"
-    )
+    url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches"
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -35,10 +33,7 @@ def get_latest_run(
     token: str,
 ) -> dict | None:
     """Get latest workflow run for a repo."""
-    url = (
-        f"https://api.github.com/repos/{repo}"
-        f"/actions/runs?per_page=1"
-    )
+    url = f"https://api.github.com/repos/{repo}/actions/runs?per_page=1"
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",

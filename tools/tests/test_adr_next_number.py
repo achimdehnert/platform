@@ -5,6 +5,7 @@ adr-guard.yml sie auf jedem ADR-PR aufruft (und der ADR-265-Kollisions-Vorfall
 vom 2026-07-05 genau die Konflikt-Erkennung betraf). Rein lokal (tmp_path),
 keine echten `gh`-/Netz-Calls nötig — das Modul ruft keine an.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -25,6 +26,7 @@ def _touch(d: Path, name: str) -> Path:
 
 
 # --- scan_adr_dir ------------------------------------------------------------
+
 
 def test_should_return_empty_mapping_for_empty_adr_dir(tmp_path):
     assert ann.scan_adr_dir(tmp_path) == {}
@@ -52,6 +54,7 @@ def test_should_ignore_non_adr_files_when_scanning(tmp_path):
 
 
 # --- get_conflicts -------------------------------------------------------------
+
 
 def test_should_report_no_conflicts_on_happy_path(tmp_path):
     _touch(tmp_path, "ADR-001-first-decision.md")
@@ -84,12 +87,17 @@ def test_should_return_no_conflicts_for_empty_dir(tmp_path):
 
 # --- get_next_free --------------------------------------------------------------
 
+
 def test_should_return_one_as_next_free_when_no_adrs_exist():
     assert ann.get_next_free({}) == 1
 
 
 def test_should_return_max_plus_one_as_next_free():
-    mapping = {1: [Path("ADR-001-a.md")], 2: [Path("ADR-002-b.md")], 5: [Path("ADR-005-c.md")]}
+    mapping = {
+        1: [Path("ADR-001-a.md")],
+        2: [Path("ADR-002-b.md")],
+        5: [Path("ADR-005-c.md")],
+    }
     assert ann.get_next_free(mapping) == 6
 
 
