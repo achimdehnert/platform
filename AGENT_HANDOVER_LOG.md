@@ -1498,3 +1498,65 @@ Antworten die Erkennung **nicht** findet (neuer Betreff, Telefonat) · ob die Su
 vorher zu messen (der Skeptiker belegte: beide Ursachen waren ohne Deploy prüfbar) ·
 eine Live-URL mit Haken genannt, während die beschriebenen Funktionen nur in einem offenen
 PR existierten · dreimal in Tests geprüft, was ich erwartete, statt was das System tut.
+
+## 2026-08-05 — Werkzeuge statt Prosa, und ein Anzeigetext, der das Gegenteil sagte
+
+Der Tag begann mit drei Handover-Prios und endete in einer Datenschutz-Anzeige an eine
+Aufsichtsbehörde. Jeder Schritt war eine eigene Ansage, keiner Eigeninitiative — aber die
+Kette ist lang, und das gehört festgehalten.
+
+**D6 war zu vier Fünfteln erledigt, der Rest war der wichtige.** Härtung, Golden-Fixtures
+und die eingefrorene K1-Baseline standen seit dem 02.08. Was fehlte: das Slug-Wörterbuch
+hatte **keinen maschinellen Konsumenten**. „Unmappbare Slugs = nicht bewertbar" und
+„Instrumentenwechsel ⇒ Neuberechnung" standen als Prosa im YAML-Kopf, und der Ritual-Lauf
+verwies auf den „manuellen Teil". Am 16.09. hätte eine Handzählung den K1-Ausgang
+entschieden. Jetzt rechnet ihn `retro_kpis.py --k1`, verdrahtet in `regel-ritual.yml`.
+Baseline nach dem Instrumentenwechsel neu berechnet — dieselben Zahlen, Pin nachgezogen.
+
+**Beim Megatest war die bisherige Erklärung falsch.** Die fünf „nicht scannbaren Repos"
+lagen nicht am Token-Scope: `megatest.yml` klonte alle 52 als `achimdehnert/$repo`, obwohl
+elf unter iilgmbh/meiki-lra/ttz-lif liegen. Sechs davon rettete GitHubs Redirect, fünf
+antworten mit 404. Darunter `iil-voice-agent` mit Budget 39 — der größte Posten des
+Issues, nie im CI gescannt. Der Owner-Resolver existierte in der Registry; er wurde nur
+nicht aufgerufen. Zweimal am selben Tag dasselbe Muster.
+
+**Ein neuer Skill mit eigenem Prüfer.** Aus der Formalprüfung einer Masterarbeit entstand
+`/arbeit-pruefen` plus `tools/dokument_formalpruefung.py` (13 Prüfungen, 28 Tests). Die
+Entscheidung, die Mechanik ins Werkzeug zu legen statt in Skill-Prosa, hat sich sofort
+bezahlt gemacht: Das Werkzeug widerlegte **meine eigene** Handprüfung — 32 statt 17
+betroffene Abbildungen, 26 statt 24 Belege, und zwei Befunde, die ich gar nicht hatte
+(ein Beleg ohne Verzeichniseintrag, eine Quelle mit zwei Jahren). Beide Zählfehler gingen
+in dieselbe Richtung: zu wenig.
+
+**Das Quellen-Gate ist gemessen, nicht vorsichtig.** Von neun belegbar falsch
+zugeschriebenen Literatureinträgen tragen drei keinen Autor-Marker, zwei überhaupt keinen.
+Ein Werkzeug kann sie nicht finden — deshalb verlangt der Skill einen Abruf je Eintrag.
+Ein vierter Fall entpuppte sich beim exakten Auszählen als Detektionslücke: `[a-zäöüß]`
+kennt den Akzent in „Léo" nicht. Ohne diesen Fix wäre der Satz „kein Marker heißt nicht
+korrekt" mit einer Zahl belegt worden, die ein Werkzeugfehler erzeugt hat.
+
+**Der schwerste Fund des Tages lag nicht im Code.** Ein Entwurf an die externe
+Datenschutzbeauftragte führte die Dokumenten-Steuerung als „keine Sozialdaten · kein
+externer Auftragsverarbeiter · keine Anzeige" und schrieb, es komme in keiner Stufe ein
+lernendes Verfahren zum Einsatz. Der Verantwortliche selbst hatte derselben Empfängerin
+17 Minuten später geschrieben, die Post werde „KI-gestützt sortiert und verschlagwortet"
+und dabei würden personenbezogene Daten verarbeitet. Vier der neun Anlagen trugen den
+Fehler mit — darunter der Anzeigetext an die Aufsicht. Korrigiert in meiki-hub#138, jede
+Änderung sichtbar vermerkt statt still überschrieben, weil die Vorfassung im Umlauf ist.
+
+**Nebenbefund mit Sprengkraft:** `read_mail.py --list` zeigt 0 von 221 geprüften
+Nachrichten — in jedem Ordner, ohne Filter, Exit 0. Dasselbe Werkzeug trägt den Schalter
+`--abwesenheitsbeweis`. Eine Allaussage über eine Abwesenheit auf einer Funktion, die immer
+null liefert, ist deren Umkehrung. Gefunden nur, weil der Evidenz-Gate eine schlampige
+Zeile von mir traf und ich die Gegenprobe fahren musste.
+
+**Eigene Fehler:** Ein `git checkout` auf eine Datei mit ungetrackter Arbeit — das
+komplette K1-Modul war weg und musste neu geschrieben werden, obwohl genau diese Lehre im
+Memory steht. Zwei falsche Zahlen in einer Rückmeldung an einen Studenten, gefunden vom
+eigenen Werkzeug. Eine Marker-Quote („vier von neun") ohne exaktes Auszählen behauptet.
+Und dreimal eine Null gemeldet, ohne vorher zu prüfen, ob die Suche überhaupt etwas finden
+kann — dreimal hat der Gate es abgefangen.
+
+**Gesendet hat der Owner selbst:** die Rückmeldung an Frost (13:24) und die Rückfrage an
+Zeiner (12:49), beide mit den korrigierten Inhalten (verifiziert am gesendeten Text). Die
+MEiKI-Anzeige liegt als Entwurf und bleibt es, solange der AV LRA–OCOS unbelegt ist.
