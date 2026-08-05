@@ -300,15 +300,21 @@ def _kandidaten(
     6 IDs, ``CC "offner"`` eine weitere, und **keine** dieser 7 trug den Namen in
     einem Header. Ohne Gegenprobe wären das 7 erfundene Treffer gewesen.
     """
+    # UID SEARCH, nicht SEARCH: der einzige Abnehmer dieser Liste ist
+    # `bulk_kopfsaetze` -> `bulk_saetze`, und das faehrt ein **UID** FETCH ueber
+    # `min:max`. Mit Sequenznummern gefuettert bildet der Bereich eine ganz
+    # andere Menge ab als gemeint und trifft in der Regel nichts: am HNU-Postfach
+    # ergab `--list` "0 gezeigt · 0 von 228 geprueft" bei Exit 0 (platform#1769).
+    # Genau davor warnt der Docstring von `uid_liste` unten — die Warnung stand
+    # da, der Aufrufer hielt sich nicht daran.
     if kriterien:
         try:
-            typ, data = imap.search(None, *kriterien)
+            typ, data = imap.uid("SEARCH", None, *kriterien)
             if typ == "OK":
                 return (data[0].split() if data and data[0] else []), True
         except (imaplib.IMAP4.error, UnicodeEncodeError):
             pass  # Server mag das Kriterium nicht -> voller Scan, nicht "0 Treffer"
-    typ, data = imap.search(None, "ALL")
-    return (data[0].split() if data and data[0] else []), False
+    return uid_liste(imap), False
 
 
 #: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden.
@@ -1070,8 +1076,9 @@ def sammle_einzelordner(
     eigene_adresse: str = "",
 ) -> Ergebnis:
     imap.select(_mailbox_arg(folder), readonly=True)
-    typ, data = imap.search(None, "ALL")
-    ids = data[0].split()
+    # UIDs, keine Sequenznummern — `bulk_kopfsaetze` faehrt ein UID FETCH
+    # (siehe `_kandidaten`, platform#1769).
+    ids = uid_liste(imap)
     gesamt = len(ids)
     treffer: list[Treffer] = []
     geprueft = 0
