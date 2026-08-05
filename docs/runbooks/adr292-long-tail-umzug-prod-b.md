@@ -99,6 +99,20 @@ rsync -a --exclude '.git' root@88.198.191.108:/opt/<app>/ root@89.167.43.30:/opt
 Die `.env` enthält Zugangsdaten — nicht in Logs, nicht in Tickets, nicht in
 Chat-Verläufe. Nach dem Umzug auf `prod` löschen, nicht liegen lassen.
 
+**Geteilte Dateien außerhalb des App-Verzeichnisses werden von diesem `rsync`
+nicht erfasst.** `cad-hub` bindet `/opt/shared-secrets/api-keys.env` ein — eine
+Datei, die sich vier Apps teilen (cad-hub, writing-hub, onboarding-hub,
+travel-beat). Fehlt sie, startet der Container gar nicht:
+`env file /opt/shared-secrets/api-keys.env not found`. Vor dem Start prüfen:
+
+```bash
+grep -hoE '(env_file|source):[[:space:]]*/[^ ]+' /opt/<app>/docker-compose*.yml
+grep -hoE '^[[:space:]]*-[[:space:]]*/[^:]+:' /opt/<app>/docker-compose*.yml  # bind mounts
+```
+
+Übertragung mit denselben Rechten (hier `0600 root:root`) und Prüfung per
+Hash-Vergleich statt Sichtkontrolle — der Inhalt gehört nicht auf den Bildschirm.
+
 ### 3. Datenbank umziehen
 
 ```bash
@@ -227,9 +241,26 @@ womöglich nicht.** Der `pptx-hub`-vhost auf `prod` bedient **fünf** Namen in
 Namen aus dem Register umschaltet, bricht die übrigen, sobald die Quelle
 abgeschaltet wird.
 
+**Portbasiert suchen, nicht nach dem App-Namen.** vhosts heißen nicht zwingend
+nach der Anwendung. `kiohnerisiko.de` wird von einem vhost namens
+`kiohnerisiko.de.conf` bedient, der auf Port 8007 zeigt — also auf `coach-hub`.
+Ein `grep` nach „coach" findet ihn nicht; ohne diesen Fund wäre die Domain beim
+Abschalten von `prod` ausgefallen. Maßgeblich ist der Ziel-Port:
+
 ```bash
-grep -h server_name /etc/nginx/sites-enabled/<app>*.conf | sort -u
+# -R (nicht -r): sites-enabled enthaelt Symlinks, denen -r NICHT folgt.
+# Regex statt Fixstring: die Einrueckung nach proxy_pass variiert.
+for f in $(grep -RlE "proxy_pass[[:space:]]+http://127\.0\.0\.1:<app-port>" \
+             /etc/nginx/sites-enabled/); do
+  echo "$f"; grep -hE "^[[:space:]]*server_name" "$f" | sort -u
+done
 ```
+
+Beide Abweichungen haben beim coach-hub-Umzug echte Treffer verschluckt: mit
+`-r` fehlte `weltenhub` (Symlink), mit einfachem Leerzeichen fehlte `apo`
+(mehrfache Einrückung). Der Suchlauf fand in drei von fünf Fällen etwas und
+sah dadurch funktionsfähig aus — die beiden Nullen waren der Filter, nicht die
+Welt.
 
 **Die DNS-Records vollständig abfragen — `per_page` beachten.** Die Zone
 `iil.pet` hat mehr als 50 Einträge. Eine Abfrage mit `?per_page=50` lieferte
@@ -245,6 +276,17 @@ auf `prod` findet derselbe Suchlauf 224 Dateien). Der vhost bekommt deshalb
 `listen 127.0.0.1:<freier-port>;` statt `listen 443 ssl` — TLS macht der
 Cloudflare-Edge, der Tunnel spricht HTTP zum Origin. Private Schlüssel wandern
 nicht mit.
+
+**Hilfsport aus 9500–9599 wählen, nicht aus dem App-Bereich.** `infra/ports.yaml`
+vergibt 8000–8199 an Anwendungen. Ein dort gewählter nginx-Port kollidiert
+früher oder später mit der nächsten App, die auf `prod-b` zieht: Port 8094 war
+zunächst der wedding-nginx und gehört laut Register `cad-hub` — beim
+cad-hub-Umzug musste er erst umgezogen werden. Unterbrechungsfrei geht das, indem
+der vhost übergangsweise auf **beiden** Ports lauscht, dann die Tunnel-Route
+umgestellt und erst danach der alte `listen` entfernt wird.
+
+Bereits vergeben auf `prod-b` (nicht neu belegen): 8008 coach-hub, 8021 pptx-hub,
+8043 apo-hub, 8082 weltenhub, 9501 wedding-hub, 9502 research-hub, 9503 cad-hub.
 
 Dabei **`X-Forwarded-Proto https` fest setzen**, nicht `$scheme`: der Origin
 spricht HTTP, Django würde sonst http-URLs bauen und in Redirect-Schleifen
@@ -266,6 +308,13 @@ heißt deshalb zweistufig, **in dieser Reihenfolge** — umgekehrt entsteht eine
    unkritisch; auf `prod` trifft es die gesamte Plattform und gehört in ein
    Wartungsfenster.
 2. CNAME auf die Tunnel-ID des Zielhosts umhängen (`proxied` beibehalten).
+
+   **Sonderfall A-Record:** `wedding-hub.iil.pet` war kein CNAME, sondern ein
+   A-Record auf die prod-IP. Er muss durch einen **CNAME auf den Tunnel**
+   ersetzt werden (Typ-Wechsel per `PUT` auf dieselbe Record-ID) — ein A-Record
+   auf die prod-b-IP funktioniert nicht, weil dort kein TLS terminiert wird.
+   Ein Skript, das nur `type == "CNAME"` behandelt, überspringt solche Records
+   stillschweigend.
 
 **Nachweis — der externe `curl` taugt dafür nicht.** Vor den Hubs steht
 Cloudflare Access: jede unauthentifizierte Anfrage endet mit 302 auf
@@ -414,6 +463,86 @@ mingle: all alone
 Meldet Celery dort stattdessen Nachbarn, läuft doch noch ein zweiter Worker am
 selben Broker — dann sofort anhalten und die Quelle prüfen.
 
+**Frische Named Volumes gehören root — der Beat scheitert daran.** `coach-hub`
+legt seinen Schedule in `/celerybeat` ab; auf `prod` gehört das Verzeichnis
+`1000:1000`, auf dem Ziel entsteht es neu als `0:0`. Der Container läuft als
+`coachuser` (UID 1000) und bricht ab mit
+`[Errno 13] Permission denied: '/celerybeat/celerybeat-schedule'` — dabei
+meldet der Health-Status kurzzeitig `healthy`, bevor der Restart-Zyklus greift.
+Besitzer aus dem Quell-Volume ablesen und auf dem Ziel setzen:
+
+```bash
+# Quelle
+docker run --rm -v <app>_<vol>:/c alpine ls -lan /c | head -3
+# Ziel
+docker run --rm -v <app>_<vol>:/c alpine chown -R <uid>:<gid> /c
+```
+
+Gilt für jedes Volume, in das die Anwendung schreibt (Beat-Schedule, Medien,
+Uploads) — nicht für reine Datenbank-Volumes, die der DB-Container selbst
+initialisiert.
+
+### Bewegliche Image-Tags sind bei zustandsbehafteten Diensten ein Restore-Killer
+
+Beim trading-hub-Umzug lief der erste Restore-Versuch komplett schief, obwohl
+Dump und Verfahren korrekt waren: `timescale/timescaledb:latest-pg16` zieht auf
+einem anderen Host eine **andere Version**. Auf `prod` lief 2.25.0, auf `prod-b`
+kam 2.29.0 — das ergab 11 `pg_restore`-Fehler in den TimescaleDB-Katalogtabellen
+und ein hartes `ERROR: catalog version mismatch, expected "2.29.0" seen "2.25.0"`
+bei `timescaledb_post_restore()`. Die Ziel-Datenbank war danach unbrauchbar und
+musste samt Volume verworfen werden.
+
+**Zwei Sackgassen bei der Digest-Ermittlung**, beide real durchlaufen:
+
+- `docker inspect <c> --format '{{.Image}}'` liefert die **lokale Image-ID**,
+  nicht den Registry-Digest. Ein `docker pull repo@sha256:<image-id>` kann
+  trotzdem ohne Fehler durchlaufen und etwas anderes holen — genau das ist
+  passiert, die falsche Version fiel erst am Restore auf.
+- `{{index .RepoDigests 0}}` schlägt fehl, wenn das Image ohne Digest-Referenz
+  im lokalen Store liegt (`map has no entry for key "RepoDigests"`).
+
+**Der verlässliche Weg** ist der versionierte Tag. Version an der Quelle
+ablesen, auf dem Ziel exakt diese ziehen und lokal auf den Tag legen, den das
+Compose erwartet — dann zieht `docker compose up` nichts nach:
+
+```bash
+# Quelle
+docker exec <app>_db psql -U <su> -d <db> -tAc \
+  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"   # -> 2.25.0
+# Ziel
+docker pull timescale/timescaledb:2.25.0-pg16
+docker tag  timescale/timescaledb:2.25.0-pg16 timescale/timescaledb:latest-pg16
+```
+
+Der Restore selbst braucht bei Hypertables die Klammer:
+
+```bash
+psql -tAc "SELECT timescaledb_pre_restore()"
+pg_restore ...
+psql -tAc "SELECT timescaledb_post_restore()"
+```
+
+Beleg ist nicht `exit=0`, sondern der **Chunk-Vergleich** beider Seiten:
+
+```bash
+psql -tAc "SELECT hypertable_name, num_chunks FROM timescaledb_information.hypertables ORDER BY 1"
+```
+
+### `cloudflared tunnel ingress validate` validiert womöglich die falsche Datei
+
+`--config` ist eine **globale** Option und muss **vor** das Subkommando. Steht
+sie dahinter, wird sie nicht als Pfad erkannt (das Kommando gibt seine Hilfe
+aus). Ohne `--config` sucht `cloudflared` selbst — auf `prod` liegt dort eine
+Altlast `/root/.cloudflared/config.yml`, sodass die Validierung eine ganz andere
+Datei prüfte als der Dienst nutzt (`ExecStart … --config /etc/cloudflared/config.yml`).
+Richtig:
+
+```bash
+cloudflared --config /etc/cloudflared/config.yml tunnel ingress validate
+```
+
+`prod-b` hat diese Altlast nicht — dort waren die Validierungen gültig.
+
 ### Klasse 3 — nicht nebenbei
 
 `trading-hub` ist der einzige gemessene Fall: `monitor_trades`,
@@ -424,14 +553,23 @@ TimescaleDB mit 77 Chunks (eigenes Restore-Verfahren mit
 `timescaledb_pre_restore()` / `post_restore()`) und ein beweglicher Image-Tag
 `latest-pg16`, der auf dem Ziel eine andere Version ziehen kann.
 
-Bedingungen, bevor diese App angefasst wird:
+**Umgezogen am 2026-08-04.** Die Owner-Auskunft entschärfte die Klasse: der Hub
+läuft im **Papertrading**-Modus (der Beat sendet `scalping-tick-paper`), die
+Broker-Schlüssel sind nicht IP-gebunden. Damit war kein Wartungsfenster nötig —
+das normale Beat-Verfahren (Klasse 1/2) genügte, weil ein doppelter Lauf zwar
+Daten, aber kein Geld bewegt hätte. Beat und Worker waren auf der Quelle von
+12:11 UTC bis zum Ende gestoppt (`Running=false`, per `docker inspect` belegt).
 
-- **Wartungsfenster mit vollständigem Stillstand** — kein paralleles Hochfahren
-- Vorher klären, ob die Broker-Schlüssel **IP-gebunden** sind; der Standortwechsel
-  nach Helsinki ändert die ausgehende Adresse (Owner-Einschätzung 2026-08-04:
-  vermutlich kein Whitelisting — **ungeprüfte Annahme**, vor dem Umzug in den
-  Broker-Einstellungen verifizieren)
-- Image per Digest pinnen statt per `latest`-Tag
+Was trotzdem stimmen muss, wenn diese App erneut bewegt wird:
+
+- **Kein paralleler Beat-Betrieb** — beide Seiten würden dieselben Positionen
+  verwalten, jede gegen ihre eigene Datenbank
+- Sobald der Modus von Paper auf echtes Handeln wechselt, gilt wieder
+  Wartungsfenster mit vollständigem Stillstand, und die IP-Bindung der
+  Broker-Schlüssel ist vorher in deren Einstellungen zu prüfen — nicht
+  anzunehmen
+- **Image versioniert pinnen**, nicht `latest` (siehe Abschnitt oben — genau
+  hier ist der erste Restore-Versuch gescheitert)
 
 ## Rückweg
 

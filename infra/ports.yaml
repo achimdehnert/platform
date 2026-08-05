@@ -157,11 +157,24 @@ services:
     prod: 8007
     staging: 8007
     dev: 8007
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # ⚠ kiohnerisiko.de wird von einem NACH DER DOMAIN
+                               # benannten vhost auf denselben Port 8007 geleitet —
+                               # ein Grep nach "coach" findet ihn nicht. Portbasiert
+                               # suchen: grep -RlE 'proxy_pass[[:space:]]+http://
+                               # 127\.0\.0\.1:8007' (-R wegen Symlinks!).
+                               # 12 RLS-Tabellen: Dump als Superuser coach_hub,
+                               # coach_hub_app auf dem Ziel als NOSUPERUSER neu
+                               # angelegt (SCRAM-Verifier von prod uebernommen).
+                               # beatdata-Volume auf dem Ziel gehoerte root — Beat
+                               # scheiterte mit Permission denied; chown 1000:1000
+                               # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
     container_name: coach_hub_web
     domain_prod: coach-hub.iil.pet
     domain_staging: staging-coaching.iil.pet
     domain_aliases:
       - kiohnerisiko.de
+      - www.kiohnerisiko.de      # ergaenzt 2026-08-04: stand nur im vhost
     repo: achimdehnert/coach-hub
 
   pptx-hub:
@@ -235,11 +248,25 @@ services:
     prod: 8088
     staging: 8088
     dev: 8088
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04, Papertrading
+                               # (scalping-tick-paper), keine IP-Bindung der Broker-
+                               # Schluessel — Owner-Auskunft 2026-08-04.
+                               # ⚠ TimescaleDB: DB-Image MUSS versioniert gepinnt
+                               # werden (2.25.0-pg16). Der bewegliche Tag latest-pg16
+                               # zog auf prod-b 2.29.0 -> Restore mit 11 Fehlern und
+                               # "catalog version mismatch" bei post_restore.
+                               # Restore braucht timescaledb_pre_restore()/
+                               # post_restore(); Beleg sind die Chunk-Zahlen
+                               # (70/0/7, identisch zu prod).
+                               # Vier Namen aus ZWEI vhosts auf Port 8088;
+                               # trading-hub.iil.pet war ein A-Record.
     container_name: trading_hub_web
     domain_prod: trading-hub.iil.pet
     domain_staging: staging.ai-trades.de
     domain_aliases:
       - ai-trades.de
+      - www.ai-trades.de         # ergaenzt 2026-08-04: stand nur im vhost
+      - trading.iil.pet
     repo: achimdehnert/trading-hub
 
   travel-beat:
@@ -287,18 +314,37 @@ services:
     prod: 8093
     staging: 8093
     dev: 8093
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # wedding-hub.iil.pet war ein A-RECORD auf die prod-IP
+                               # und wurde zum CNAME auf den prod-b-Tunnel: ein
+                               # A-Record auf prod-b ginge nicht, dort liegt kein
+                               # TLS-Zertifikat. Beide Namen per Marker nachgewiesen
+                               # (prod 0 bei 17249 Logzeilen, prod-b 2).
     container_name: wedding_hub_web
     domain_prod: wedding-hub.iil.pet
     domain_staging: staging-wedding.iil.pet
+    domain_aliases:
+      - wedding.iil.pet          # ergaenzt 2026-08-04: stand nur im vhost
     repo: achimdehnert/wedding-hub
 
   cad-hub:
     prod: 8094
     staging: 8094
     dev: 8094
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # ⚠ Braucht /opt/shared-secrets/api-keys.env — eine
+                               # GETEILTE Datei ausserhalb des App-Verzeichnisses,
+                               # die ein tar von /opt/<app> nicht erfasst. Ohne sie
+                               # startet der web-Container nicht. Gleiche Datei nutzen
+                               # auch writing-hub, onboarding-hub und travel-beat.
+                               # Alle 3 Namen per Marker nachgewiesen (prod 0 bei
+                               # 17635 Logzeilen, prod-b 3).
     container_name: cad_hub_web
     domain_prod: nl2cad.de
     domain_staging: staging.nl2cad.de
+    domain_aliases:
+      - www.nl2cad.de            # ergaenzt 2026-08-04: stand nur im vhost
+      - cad-hub.iil.pet
     repo: achimdehnert/cad-hub
 
   137-hub:
@@ -354,6 +400,12 @@ services:
     prod: 8098
     staging: 8098
     dev: 8098
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04.
+                               # Nur ein oeffentlicher Name. Der zweite vhost auf
+                               # Port 8098 (staging-writing.iil.pet.conf) ist eine
+                               # Karteileiche: der DNS-Name zeigt auf den Staging-
+                               # Tunnel, nicht auf prod — kein Traffic, nicht migriert.
+                               # Marker: prod 0 bei 17607 Logzeilen, prod-b 1.
     container_name: research_hub_web
     domain_prod: research.iil.pet
     domain_staging: staging-research.iil.pet
