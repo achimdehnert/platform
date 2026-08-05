@@ -118,6 +118,12 @@ Altbestand mehr — self-hosted-Runner-gebunden, teils rot; Triage-Historie: Iss
 - **`shared_contracts/`-Änderungen** triggern Downstream-Builds → erst ADR, dann Code
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
 - **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`
+- **LLM-Zugriff in platform-Tooling (Owner-Entscheidung 2026-08-05, platform#1776):**
+  Skripte/Pakete ohne Django-/aifw-Runtime (`packages/adr-review`, `scripts/run_prompt.py`,
+  `scripts/run_goldset_baseline.py`, `tools/print_agent/` und deren Kopien, z.B. sqf-hub)
+  dürfen `litellm` direkt nutzen — bewusste Tooling-Ausnahme vom aifw-Pfad (kein
+  Tenant-/Kosten-Pfad, läuft außerhalb der App-Runtimes). Für App-/Hub-Laufzeitpfade
+  gilt sie NICHT: dort bleibt aifw Pflicht (Verdikte + Bypass-Issues in platform#1776).
 - **Org-Resolution & neue iil-* Pakete (ADR-255)**: Der GitHub-Org-Ziel für die
   `iil-*` PyPI-Familie ist **`iilgmbh`** (PyPI-Org **`iil`**, nicht `iilgmbh` —
   Trusted Publishing matcht den GitHub-Owner). **Jedes _neue_ `iil-*` Paket wird
