@@ -18,6 +18,7 @@ Rules:
 
 Usage: python3 staging_prod_contract.py [path/to/ports.yaml]
 """
+
 import sys
 from pathlib import Path
 
@@ -25,11 +26,14 @@ import yaml
 
 
 def main() -> int:
-    p = Path(sys.argv[1] if len(sys.argv) > 1 else
-             Path(__file__).resolve().parents[1] / "ports.yaml")
+    p = Path(
+        sys.argv[1]
+        if len(sys.argv) > 1
+        else Path(__file__).resolve().parents[1] / "ports.yaml"
+    )
     services = (yaml.safe_load(p.read_text()) or {}).get("services") or {}
-    violations: list[str] = []   # hard → exit 1
-    advisories: list[str] = []   # R3 → reported, does not fail CI
+    violations: list[str] = []  # hard → exit 1
+    advisories: list[str] = []  # R3 → reported, does not fail CI
 
     for name, s in services.items():
         if not isinstance(s, dict):
@@ -44,11 +48,13 @@ def main() -> int:
                 violations.append(
                     f"R2 {name}: domain_staging `{ds}` is a 2+-label "
                     f"subdomain under iil.pet — Cloudflare Universal SSL "
-                    f"covers 1 label only (ADR-198)")
+                    f"covers 1 label only (ADR-198)"
+                )
             elif label != "staging" and not label.startswith("staging-"):
                 advisories.append(
                     f"R3 {name}: `{ds}` SSL-ok but off-convention "
-                    f"(expected `staging` or `staging-<app>`)")
+                    f"(expected `staging` or `staging-<app>`)"
+                )
 
     for a in advisories:
         print(f"  ⚠️  {a}")
@@ -57,8 +63,10 @@ def main() -> int:
         for v in violations:
             print(f"  - {v}")
         return 1
-    print(f"✅ Staging/Prod contract: {len(services)} services conform "
-          f"({len(advisories)} advisory)")
+    print(
+        f"✅ Staging/Prod contract: {len(services)} services conform "
+        f"({len(advisories)} advisory)"
+    )
     return 0
 
 

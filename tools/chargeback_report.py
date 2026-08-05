@@ -91,7 +91,12 @@ def parse_mem(value: str | float) -> float:
     if isinstance(value, (int, float)):
         return float(value)
     text = value.strip()
-    for unit, factor in (("GiB", 1024.0), ("MiB", 1.0), ("KiB", 1 / 1024.0), ("B", 1 / 1048576.0)):
+    for unit, factor in (
+        ("GiB", 1024.0),
+        ("MiB", 1.0),
+        ("KiB", 1 / 1024.0),
+        ("B", 1 / 1048576.0),
+    ):
         if text.endswith(unit):
             return float(text[: -len(unit)]) * factor
     raise ValueError(f"unbekannte Speicherangabe: {value!r}")
@@ -137,7 +142,9 @@ def compute(data: dict) -> list[dict]:
                 "share_pct": 100.0,
                 "eur_month": round(price, 2),
                 "infra_mib": round(infra_mib, 1),
-                "belegt_pct": round(100.0 * (app_total + infra_mib) / host_mib, 1) if host_mib else None,
+                "belegt_pct": round(100.0 * (app_total + infra_mib) / host_mib, 1)
+                if host_mib
+                else None,
             }
         )
     return rows
@@ -162,7 +169,9 @@ def to_markdown(rows: list[dict]) -> str:
         for r in rows:
             if r["host"] != host or r["app"] == "_SUMME":
                 continue
-            out.append(f"| {r['app']} | {r['ram_mib']:.0f} | {r['share_pct']:.1f} % | {r['eur_month']:.2f} |")
+            out.append(
+                f"| {r['app']} | {r['ram_mib']:.0f} | {r['share_pct']:.1f} % | {r['eur_month']:.2f} |"
+            )
         out.append("")
     return "\n".join(out)
 
@@ -184,10 +193,18 @@ Momentaufnahme verwenden:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("input", nargs="?", type=Path, help="JSON-Datei mit der Erhebung")
-    ap.add_argument("--json", action="store_true", help="Rohdaten statt Markdown ausgeben")
-    ap.add_argument("--help-collect", action="store_true", help="zeigt, wie die Eingabe erhoben wird")
+    ap.add_argument(
+        "--json", action="store_true", help="Rohdaten statt Markdown ausgeben"
+    )
+    ap.add_argument(
+        "--help-collect",
+        action="store_true",
+        help="zeigt, wie die Eingabe erhoben wird",
+    )
     args = ap.parse_args(argv)
 
     if args.help_collect:
@@ -197,7 +214,11 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("Eingabedatei fehlt (oder --help-collect)")
 
     rows = compute(json.loads(args.input.read_text(encoding="utf-8")))
-    print(json.dumps(rows, indent=2, ensure_ascii=False) if args.json else to_markdown(rows))
+    print(
+        json.dumps(rows, indent=2, ensure_ascii=False)
+        if args.json
+        else to_markdown(rows)
+    )
     return 0
 
 

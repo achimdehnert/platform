@@ -67,21 +67,25 @@ def to_platform_data(registry: dict) -> list:
                 comp_type = "library"
             elif sys.get("type") == "mcp_server":
                 comp_type = "mcp_server"
-            systems_out.append({
-                "name": sys["name"],
-                "desc": sys.get("description", ""),
-                "components": [
-                    {
-                        "name": f"{sys['name']}-web",
-                        "type": comp_type,
-                        "lc": sys.get("lifecycle", "experimental"),
-                    }
-                ],
-            })
-        domains_out.append({
-            "domain": domain["name"],
-            "systems": systems_out,
-        })
+            systems_out.append(
+                {
+                    "name": sys["name"],
+                    "desc": sys.get("description", ""),
+                    "components": [
+                        {
+                            "name": f"{sys['name']}-web",
+                            "type": comp_type,
+                            "lc": sys.get("lifecycle", "experimental"),
+                        }
+                    ],
+                }
+            )
+        domains_out.append(
+            {
+                "domain": domain["name"],
+                "systems": systems_out,
+            }
+        )
     return domains_out
 
 
@@ -156,7 +160,9 @@ def main() -> int:
     issues.extend(check_populate_catalog_sync(registry))
 
     total = len(systems)
-    print(f"Registry: {total} systems across {len(registry.get('domains', []))} domains")
+    print(
+        f"Registry: {total} systems across {len(registry.get('domains', []))} domains"
+    )
     print()
     for domain in registry.get("domains", []):
         print(f"  {domain['name']}")

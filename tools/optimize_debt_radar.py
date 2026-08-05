@@ -25,6 +25,7 @@ Reiner Kern (`scan_repo`, `compute_deltas`) ist dateisystem-lokal bzw. rein
 funktional, fault-injectable via tmp_path in Tests (Analogie zu
 registry_coverage_drift.py::compute_drift).
 """
+
 import argparse
 import json
 import re
@@ -34,13 +35,21 @@ from pathlib import Path
 import yaml
 
 CANONICAL = Path(__file__).resolve().parents[1] / "registry" / "canonical.yaml"
-REQUIRED_FILES = ["README.md", ".gitignore", "Makefile", "pyproject.toml", "CHANGELOG.md"]
+REQUIRED_FILES = [
+    "README.md",
+    ".gitignore",
+    "Makefile",
+    "pyproject.toml",
+    "CHANGELOG.md",
+]
 
 PATTERNS = {
     "uuid_pk": re.compile(r"UUIDField\(primary_key=True\)"),
     "os_environ": re.compile(r"os\.environ"),
     "print_calls": re.compile(r"print\("),
-    "direct_llm_imports": re.compile(r"^\s*(import anthropic|import openai|from groq)", re.MULTILINE),
+    "direct_llm_imports": re.compile(
+        r"^\s*(import anthropic|import openai|from groq)", re.MULTILINE
+    ),
 }
 HEALTH_ENDPOINT_PATTERN = re.compile(r"livez|healthz|health/")
 EXCLUDE_DIR_PARTS = {".venv", "node_modules", "__pycache__"}
@@ -51,13 +60,19 @@ def _iter_py_files(repo_path: Path, exclude_tests: bool = True):
         parts = set(p.parts)
         if parts & EXCLUDE_DIR_PARTS:
             continue
-        if exclude_tests and (p.name.startswith("test_") or p.name.endswith("_test.py")
-                               or p.name == "conftest.py" or "tests" in parts):
+        if exclude_tests and (
+            p.name.startswith("test_")
+            or p.name.endswith("_test.py")
+            or p.name == "conftest.py"
+            or "tests" in parts
+        ):
             continue
         yield p
 
 
-def _files_matching(repo_path: Path, pattern: re.Pattern, exclude_tests: bool = True) -> int:
+def _files_matching(
+    repo_path: Path, pattern: re.Pattern, exclude_tests: bool = True
+) -> int:
     """Anzahl Dateien mit >=1 Treffer (Datei-Einheit, s. Modul-Docstring)."""
     n = 0
     for p in _iter_py_files(repo_path, exclude_tests=exclude_tests):
@@ -117,8 +132,12 @@ def scan_repo(repo_path: Path) -> dict:
     tests = test_file_count(repo_path)
     signals = {key: _files_matching(repo_path, pat) for key, pat in PATTERNS.items()}
     signals["missing_required_files"] = len(missing_files)
-    signals["default_auto_field_missing"] = int(django and not has_default_auto_field(repo_path))
-    signals["health_endpoint_missing"] = int(django and not has_health_endpoint(repo_path))
+    signals["default_auto_field_missing"] = int(
+        django and not has_default_auto_field(repo_path)
+    )
+    signals["health_endpoint_missing"] = int(
+        django and not has_health_endpoint(repo_path)
+    )
     signals["zero_tests"] = int(tests == 0)
     return {
         "signals": signals,
@@ -132,9 +151,11 @@ def scan_repo(repo_path: Path) -> dict:
 def _repo_excluded(entry: dict) -> bool:
     rich = (entry or {}).get("rich") or {}
     flat = (entry or {}).get("flat") or {}
-    return (rich.get("lifecycle") == "archived"
-            or rich.get("archived") is True
-            or flat.get("archived") is True)
+    return (
+        rich.get("lifecycle") == "archived"
+        or rich.get("archived") is True
+        or flat.get("archived") is True
+    )
 
 
 def resolve_fleet_targets(canonical_path: Path, owner_filter: str = None):
@@ -192,10 +213,16 @@ def compute_deltas(current: dict, baseline: dict) -> dict:
     return {name: current[name] - baseline.get(name, 0) for name in current}
 
 
-def render_text(current_totals: dict, deltas: dict, skipped_no_clone: list,
-                 skipped_archived: list, top_n: int) -> str:
-    flagged = sorted((n for n, d in deltas.items() if d > 0),
-                      key=lambda n: deltas[n], reverse=True)[:top_n]
+def render_text(
+    current_totals: dict,
+    deltas: dict,
+    skipped_no_clone: list,
+    skipped_archived: list,
+    top_n: int,
+) -> str:
+    flagged = sorted(
+        (n for n, d in deltas.items() if d > 0), key=lambda n: deltas[n], reverse=True
+    )[:top_n]
     lines = [
         "=== optimize-debt-radar (KONZ-platform-019) ===",
         f"  Repos gescannt: {len(current_totals)} · archiviert übersprungen: {len(skipped_archived)}",
@@ -207,7 +234,9 @@ def render_text(current_totals: dict, deltas: dict, skipped_no_clone: list,
         )
     lines.append(f"  TOP-{top_n} Delta ggü. Baseline (Kandidaten für /repo-optimize):")
     for name in flagged:
-        lines.append(f"    + {name}: Δ{deltas[name]:+d} (debt_total={current_totals[name]})")
+        lines.append(
+            f"    + {name}: Δ{deltas[name]:+d} (debt_total={current_totals[name]})"
+        )
     if not flagged:
         lines.append("    — keine Zuwächse ggü. Baseline")
     return "\n".join(lines)
@@ -217,12 +246,21 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--github-dir", default=str(Path.home() / "github"))
     ap.add_argument("--canonical", default=str(CANONICAL))
-    ap.add_argument("--repos", default=None,
-                     help="Komma-Liste; überschreibt Registry-Discovery (für Tests/Teilscans)")
-    ap.add_argument("--baseline", default=None,
-                     help="Pfad zur vorherigen debt_total-JSON (Delta-Basis)")
-    ap.add_argument("--out", default=None,
-                     help="Pfad zum Schreiben der neuen Ergebnis-JSON (zusätzlich zu stdout)")
+    ap.add_argument(
+        "--repos",
+        default=None,
+        help="Komma-Liste; überschreibt Registry-Discovery (für Tests/Teilscans)",
+    )
+    ap.add_argument(
+        "--baseline",
+        default=None,
+        help="Pfad zur vorherigen debt_total-JSON (Delta-Basis)",
+    )
+    ap.add_argument(
+        "--out",
+        default=None,
+        help="Pfad zum Schreiben der neuen Ergebnis-JSON (zusätzlich zu stdout)",
+    )
     ap.add_argument("--top", type=int, default=5)
     ap.add_argument("--format", choices=["text", "json"], default="text")
     a = ap.parse_args()
@@ -234,7 +272,9 @@ def main():
         skipped_no_clone = [n for n in names if not (github_dir / n / ".git").exists()]
         skipped_archived = []
     else:
-        repos, skipped_no_clone, skipped_archived = discover_repos(github_dir, Path(a.canonical))
+        repos, skipped_no_clone, skipped_archived = discover_repos(
+            github_dir, Path(a.canonical)
+        )
 
     results = {name: scan_repo(path) for name, path in repos.items()}
     current_totals = {name: r["debt_total"] for name, r in results.items()}
@@ -257,9 +297,15 @@ def main():
     if a.format == "json":
         print(json.dumps(out, indent=2, ensure_ascii=False))
     else:
-        print(render_text(current_totals, deltas, skipped_no_clone, skipped_archived, a.top))
+        print(
+            render_text(
+                current_totals, deltas, skipped_no_clone, skipped_archived, a.top
+            )
+        )
 
-    sys.exit(0)  # advisory, kein Gate — der Radar flaggt nur (KONZ-019 L5, kein Coding-Agent)
+    sys.exit(
+        0
+    )  # advisory, kein Gate — der Radar flaggt nur (KONZ-019 L5, kein Coding-Agent)
 
 
 if __name__ == "__main__":

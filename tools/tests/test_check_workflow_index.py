@@ -5,6 +5,7 @@ fehlender Skill → gemeldet, plus ein Live-Check gegen den echten Repo-Index (m
 
 Run: `python3 -m pytest tools/tests/test_check_workflow_index.py -q`
 """
+
 import importlib.util
 import pathlib
 
@@ -83,7 +84,8 @@ def test_should_have_complete_live_repo_index():
     wf_dir = _REPO_ROOT / ".windsurf" / "workflows"
     index = wf_dir / "workflow-index.md"
     missing, checked = cwi.check(
-        str(wf_dir), str(index),
+        str(wf_dir),
+        str(index),
         allowlist={"onboard-repo-testing-addendum"},
         skills_dir=str(_REPO_ROOT / "skills"),
     )
@@ -92,6 +94,7 @@ def test_should_have_complete_live_repo_index():
 
 
 # ── Lane 2: Agent-Skills (skills/<name>/SKILL.md) ────────────────────────────
+
 
 def _skill(root, name):
     d = root / "skills" / name
@@ -107,7 +110,10 @@ def test_should_report_missing_agent_skill(tmp_path):
     index = d / "workflow-index.md"
     index.write_text("| x | `/irgendwas` |\n")
     missing, checked = cwi.check(
-        str(d), str(index), allowlist=set(), skills_dir=str(tmp_path / "skills"),
+        str(d),
+        str(index),
+        allowlist=set(),
+        skills_dir=str(tmp_path / "skills"),
     )
     assert missing == ["nur-in-skills"]
     assert "nur-in-skills" in checked
@@ -119,7 +125,10 @@ def test_should_pass_when_agent_skill_is_indexed(tmp_path):
     index = d / "workflow-index.md"
     index.write_text("| x | `/irgendwas` |\n| y | `/migriert` |\n")
     missing, checked = cwi.check(
-        str(d), str(index), allowlist=set(), skills_dir=str(tmp_path / "skills"),
+        str(d),
+        str(index),
+        allowlist=set(),
+        skills_dir=str(tmp_path / "skills"),
     )
     assert missing == []
     assert "migriert" in checked
@@ -132,7 +141,10 @@ def test_should_not_double_count_name_present_in_both_lanes(tmp_path):
     index = d / "workflow-index.md"
     index.write_text("| x | `/doppelt` |\n")
     missing, checked = cwi.check(
-        str(d), str(index), allowlist=set(), skills_dir=str(tmp_path / "skills"),
+        str(d),
+        str(index),
+        allowlist=set(),
+        skills_dir=str(tmp_path / "skills"),
     )
     assert missing == []
     assert checked.count("doppelt") == 1
@@ -144,7 +156,10 @@ def test_should_tolerate_absent_skills_dir(tmp_path):
     index = d / "workflow-index.md"
     index.write_text("| x | `/irgendwas` |\n")
     missing, checked = cwi.check(
-        str(d), str(index), allowlist=set(), skills_dir=str(tmp_path / "gibt-es-nicht"),
+        str(d),
+        str(index),
+        allowlist=set(),
+        skills_dir=str(tmp_path / "gibt-es-nicht"),
     )
     assert missing == []
     assert checked == ["irgendwas"]
@@ -158,7 +173,10 @@ def test_should_ignore_skills_dir_entry_without_skill_md(tmp_path):
     index = d / "workflow-index.md"
     index.write_text("| x | `/irgendwas` |\n")
     missing, checked = cwi.check(
-        str(d), str(index), allowlist=set(), skills_dir=str(tmp_path / "skills"),
+        str(d),
+        str(index),
+        allowlist=set(),
+        skills_dir=str(tmp_path / "skills"),
     )
     assert missing == []
     assert checked == ["irgendwas"]

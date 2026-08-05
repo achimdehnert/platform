@@ -27,33 +27,33 @@ except ImportError:
     sys.exit("Fehler: pyyaml fehlt — pip3 install pyyaml")
 
 PLATFORM_DIR = pathlib.Path(__file__).parent.parent
-PORTS_YAML   = PLATFORM_DIR / "infra" / "ports.yaml"
-REPOS_YAML   = PLATFORM_DIR / "registry" / "repos.yaml"
-INDEX_HTML   = PLATFORM_DIR / "static-sites" / "iil.pet" / "index.html"
+PORTS_YAML = PLATFORM_DIR / "infra" / "ports.yaml"
+REPOS_YAML = PLATFORM_DIR / "registry" / "repos.yaml"
+INDEX_HTML = PLATFORM_DIR / "static-sites" / "iil.pet" / "index.html"
 
 # Icon + Color Mapping (erweiterbar)
 META = {
-    "risk-hub":        {"icon": "⚠️",  "color": "red"},
-    "writing-hub":     {"icon": "✍️",  "color": "purple"},
-    "weltenhub":       {"icon": "🌍",  "color": "pink"},
-    "trading-hub":     {"icon": "📈",  "color": "green"},
-    "travel-beat":     {"icon": "✈️",  "color": "cyan"},
-    "coach-hub":       {"icon": "🎯",  "color": "orange"},
-    "billing-hub":     {"icon": "💳",  "color": "amber"},
-    "pptx-hub":        {"icon": "📊",  "color": "amber"},
-    "cad-hub":         {"icon": "🔧",  "color": "accent"},
-    "research-hub":    {"icon": "🔬",  "color": "cyan"},
-    "learn-hub":       {"icon": "📚",  "color": "accent"},
-    "wedding-hub":     {"icon": "💍",  "color": "pink"},
-    "bfagent":         {"icon": "🤖",  "color": "purple"},
-    "dev-hub":         {"icon": "⚙️",  "color": "muted"},
-    "137-hub":         {"icon": "💫",  "color": "purple"},
-    "illustration-hub":{"icon": "🎨",  "color": "pink"},
-    "ausschreibungs-hub":{"icon": "📋","color": "accent"},
-    "recruiting-hub":  {"icon": "👥",  "color": "green"},
-    "tax-hub":         {"icon": "🧾",  "color": "muted"},
-    "dms-hub":         {"icon": "📂",  "color": "amber"},
-    "odoo":            {"icon": "🏢",  "color": "muted"},
+    "risk-hub": {"icon": "⚠️", "color": "red"},
+    "writing-hub": {"icon": "✍️", "color": "purple"},
+    "weltenhub": {"icon": "🌍", "color": "pink"},
+    "trading-hub": {"icon": "📈", "color": "green"},
+    "travel-beat": {"icon": "✈️", "color": "cyan"},
+    "coach-hub": {"icon": "🎯", "color": "orange"},
+    "billing-hub": {"icon": "💳", "color": "amber"},
+    "pptx-hub": {"icon": "📊", "color": "amber"},
+    "cad-hub": {"icon": "🔧", "color": "accent"},
+    "research-hub": {"icon": "🔬", "color": "cyan"},
+    "learn-hub": {"icon": "📚", "color": "accent"},
+    "wedding-hub": {"icon": "💍", "color": "pink"},
+    "bfagent": {"icon": "🤖", "color": "purple"},
+    "dev-hub": {"icon": "⚙️", "color": "muted"},
+    "137-hub": {"icon": "💫", "color": "purple"},
+    "illustration-hub": {"icon": "🎨", "color": "pink"},
+    "ausschreibungs-hub": {"icon": "📋", "color": "accent"},
+    "recruiting-hub": {"icon": "👥", "color": "green"},
+    "tax-hub": {"icon": "🧾", "color": "muted"},
+    "dms-hub": {"icon": "📂", "color": "amber"},
+    "odoo": {"icon": "🏢", "color": "muted"},
 }
 
 
@@ -81,7 +81,7 @@ def is_open(port: int | None) -> bool:
 
 
 def build_apps_json() -> list[dict]:
-    ports_data  = yaml.safe_load(PORTS_YAML.read_text())
+    ports_data = yaml.safe_load(PORTS_YAML.read_text())
     descriptions = load_descriptions()
     apps = []
 
@@ -90,21 +90,23 @@ def build_apps_json() -> list[dict]:
         if not port:
             continue
 
-        active  = is_open(port)
-        meta    = META.get(name, {"icon": "📦", "color": "accent"})
+        active = is_open(port)
+        meta = META.get(name, {"icon": "📦", "color": "accent"})
         local_url = f"http://127.0.0.1:{port}"
         desc = descriptions.get(name) or svc.get("domain_prod", name)
 
-        apps.append({
-            "name":        name,
-            "url":         local_url if active else "#",
-            "admin_url":   f"{local_url}/admin/" if active else "",
-            "description": desc,
-            "icon":        meta["icon"],
-            "color":       meta["color"],
-            "tags":        [f":{port}"],
-            "status":      "live" if active else "gestoppt",
-        })
+        apps.append(
+            {
+                "name": name,
+                "url": local_url if active else "#",
+                "admin_url": f"{local_url}/admin/" if active else "",
+                "description": desc,
+                "icon": meta["icon"],
+                "color": meta["color"],
+                "tags": [f":{port}"],
+                "status": "live" if active else "gestoppt",
+            }
+        )
 
     return sorted(apps, key=lambda a: int(a["tags"][0][1:]) if a["tags"] else 9999)
 
@@ -112,16 +114,18 @@ def build_apps_json() -> list[dict]:
 def build_index_html() -> str:
     """Bestehende index.html lesen und Titel anpassen."""
     html = INDEX_HTML.read_text()
-    html = html.replace("<title>IIL Platform</title>",
-                        "<title>IIL Dev Portal — Lokal</title>")
-    html = html.replace("<h1>IIL Platform</h1>",
-                        "<h1>IIL Dev Portal</h1>")
-    html = html.replace("Integrated Intelligence Layer &mdash; App Ecosystem",
-                        "Lokale Entwicklungsumgebung &mdash; Auto-Refresh alle 10s")
+    html = html.replace(
+        "<title>IIL Platform</title>", "<title>IIL Dev Portal — Lokal</title>"
+    )
+    html = html.replace("<h1>IIL Platform</h1>", "<h1>IIL Dev Portal</h1>")
+    html = html.replace(
+        "Integrated Intelligence Layer &mdash; App Ecosystem",
+        "Lokale Entwicklungsumgebung &mdash; Auto-Refresh alle 10s",
+    )
     # Auto-Refresh hinzufügen
     html = html.replace(
         '<meta name="viewport"',
-        '<meta http-equiv="refresh" content="10">\n    <meta name="viewport"'
+        '<meta http-equiv="refresh" content="10">\n    <meta name="viewport"',
     )
     # apps.json relativ laden (bleibt gleich, kein Änderungsbedarf)
     return html
@@ -153,7 +157,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9000
     print(f"\n🚀 IIL Dev Portal — http://127.0.0.1:{port}")
-    print(f"   apps.json dynamisch aus ports.yaml ({len(yaml.safe_load(PORTS_YAML.read_text()).get('services', {}))} Services)")
+    print(
+        f"   apps.json dynamisch aus ports.yaml ({len(yaml.safe_load(PORTS_YAML.read_text()).get('services', {}))} Services)"
+    )
     print("   Auto-Refresh alle 10s  |  Ctrl+C zum Beenden\n")
     with http.server.HTTPServer(("127.0.0.1", port), Handler) as srv:
         srv.serve_forever()

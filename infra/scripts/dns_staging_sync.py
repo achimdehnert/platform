@@ -46,43 +46,48 @@ import yaml
 # --- Konstanten ---
 
 PORTS_YAML = Path(__file__).resolve().parent.parent / "ports.yaml"
-TUNNELS_YAML = (
-    Path(__file__).resolve().parent.parent / "cloudflared-tunnels.yaml"
-)
+TUNNELS_YAML = Path(__file__).resolve().parent.parent / "cloudflared-tunnels.yaml"
 CF_API = "https://api.cloudflare.com/client/v4"
 PROD_IP = "88.198.191.108"  # nur noch für DEAD_IPS-Vergleich relevant
 
 # Bekannte alte/tote IPs die auf keinen aktiven Server zeigen
-DEAD_IPS = frozenset({
-    "46.225.113.1",    # alter dev-server (nicht mehr existent)
-    "46.225.127.211",  # alter odoo-server
-})
+DEAD_IPS = frozenset(
+    {
+        "46.225.113.1",  # alter dev-server (nicht mehr existent)
+        "46.225.127.211",  # alter odoo-server
+    }
+)
 
 # DNS-Leichen: Records in falscher Zone oder veraltet (aus Audit 2026-04-02)
 KNOWN_ORPHANS = [
     # (zone_domain, record_id, name, reason)
     (
-        "iil.pet", "6d186ce5d8195093a58c990b8982f92c",
+        "iil.pet",
+        "6d186ce5d8195093a58c990b8982f92c",
         "staging.ai-trades.de.iil.pet",
         "Falsche Zone",
     ),
     (
-        "iil.pet", "67aa09ae437d9c6e62901267d833edea",
+        "iil.pet",
+        "67aa09ae437d9c6e62901267d833edea",
         "grafana-stagingv18-odoo.iil.pet",
         "Odoo Staging v18 veraltet",
     ),
     (
-        "iil.pet", "a4fec1561fea4c009d06320e6918a0aa",
+        "iil.pet",
+        "a4fec1561fea4c009d06320e6918a0aa",
         "grafana-stagingv19-odoo.iil.pet",
         "Odoo Staging v19 veraltet",
     ),
     (
-        "iil.pet", "fb7aafee2670efee0ecd8a6d4d72dd4e",
+        "iil.pet",
+        "fb7aafee2670efee0ecd8a6d4d72dd4e",
         "stagingv18-odoo.iil.pet",
         "Odoo Staging v18 veraltet",
     ),
     (
-        "iil.pet", "09bc0bbd426c1c2aae9260bced98d122",
+        "iil.pet",
+        "09bc0bbd426c1c2aae9260bced98d122",
         "stagingv19-odoo.iil.pet",
         "Odoo Staging v19 veraltet",
     ),
@@ -128,6 +133,7 @@ def get_token() -> str:
     )
     try:
         from infra.lib.secrets import require_secret
+
         return require_secret("cloudflare")
     except (ImportError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -170,7 +176,9 @@ def cf_request(
 def get_zone_id(domain: str, token: str) -> str | None:
     """Zone-ID für eine Domain ermitteln."""
     resp = cf_request(
-        "GET", f"/zones?name={domain}", token,
+        "GET",
+        f"/zones?name={domain}",
+        token,
     )
     if resp.get("success") and resp.get("result"):
         return resp["result"][0]["id"]
@@ -181,33 +189,36 @@ def list_staging_records(zone_id: str, token: str) -> list[dict]:
     """Alle A- und CNAME-Records in einer Zone die 'staging' enthalten."""
     records: list[dict] = []
     for rec_type in ("A", "CNAME"):
-        path = (
-            f"/zones/{zone_id}/dns_records"
-            f"?type={rec_type}&per_page=100"
-        )
+        path = f"/zones/{zone_id}/dns_records?type={rec_type}&per_page=100"
         resp = cf_request("GET", path, token)
         if not resp.get("success"):
             continue
         records.extend(
-            r for r in resp.get("result", [])
-            if "staging" in r["name"].lower()
+            r for r in resp.get("result", []) if "staging" in r["name"].lower()
         )
     return records
 
 
 def update_record(
-    zone_id: str, record_id: str,
-    name: str, target_hostname: str, token: str,
+    zone_id: str,
+    record_id: str,
+    name: str,
+    target_hostname: str,
+    token: str,
 ) -> bool:
     """DNS-Record als CNAME auf Tunnel-Hostname setzen (ADR-198)."""
     path = f"/zones/{zone_id}/dns_records/{record_id}"
-    resp = cf_request("PATCH", path, token, {
-        "type": "CNAME",
-        "content": target_hostname,
-        "proxied": True,   # CF-Proxy aktiv (orange cloud) — wegen Tunnel-Origin
-        "ttl": 1,           # 1 = Auto, mit Proxy required
-        "comment": "ADR-198: bf-staging Tunnel",
-    },
+    resp = cf_request(
+        "PATCH",
+        path,
+        token,
+        {
+            "type": "CNAME",
+            "content": target_hostname,
+            "proxied": True,  # CF-Proxy aktiv (orange cloud) — wegen Tunnel-Origin
+            "ttl": 1,  # 1 = Auto, mit Proxy required
+            "comment": "ADR-198: bf-staging Tunnel",
+        },
     )
     return resp.get("success", False)
 
@@ -245,22 +256,19 @@ def extract_zone_from_domain(domain: str) -> str:
 def run_audit(token: str, target_hostname: str) -> list[dict]:
     """Scanne alle Zonen, finde Records die nicht auf bf-staging zeigen."""
     staging_domains = load_staging_domains()
-    zones_needed = {
-        extract_zone_from_domain(d)
-        for d in staging_domains
-    }
+    zones_needed = {extract_zone_from_domain(d) for d in staging_domains}
 
     issues = []
     zone_cache: dict[str, str] = {}
 
     for zone_domain in sorted(zones_needed):
         zone_id = get_zone_id(
-            zone_domain, token,
+            zone_domain,
+            token,
         )
         if not zone_id:
             print(
-                f"  WARN: Zone {zone_domain}"
-                " nicht gefunden",
+                f"  WARN: Zone {zone_domain} nicht gefunden",
             )
             continue
         zone_cache[zone_domain] = zone_id
@@ -275,16 +283,18 @@ def run_audit(token: str, target_hostname: str) -> list[dict]:
             )
             if is_correct:
                 continue
-            issues.append({
-                "zone": zone_domain,
-                "zone_id": zone_id,
-                "record_id": rec["id"],
-                "name": rec["name"],
-                "current_type": rec.get("type"),
-                "current_content": rec.get("content"),
-                "target_hostname": target_hostname,
-                "action": "UPDATE",
-            })
+            issues.append(
+                {
+                    "zone": zone_domain,
+                    "zone_id": zone_id,
+                    "record_id": rec["id"],
+                    "name": rec["name"],
+                    "current_type": rec.get("type"),
+                    "current_content": rec.get("content"),
+                    "target_hostname": target_hostname,
+                    "action": "UPDATE",
+                }
+            )
 
     return issues
 
@@ -294,15 +304,18 @@ def main() -> None:
         description="DNS Staging Sync (ADR-198)",
     )
     parser.add_argument(
-        "--apply", action="store_true",
+        "--apply",
+        action="store_true",
         help="Änderungen wirklich anwenden",
     )
     parser.add_argument(
-        "--delete-only", action="store_true",
+        "--delete-only",
+        action="store_true",
         help="Nur Leichen löschen",
     )
     parser.add_argument(
-        "--update-only", action="store_true",
+        "--update-only",
+        action="store_true",
         help="Nur Updates, keine Löschungen",
     )
     args = parser.parse_args()
@@ -322,10 +335,7 @@ def main() -> None:
         print("\n--- Staging DNS-Records prüfen ---\n")
         issues = run_audit(token, target_hostname)
         if not issues:
-            print(
-                f"  ✅ Alle staging-Records sind bereits CNAME → "
-                f"{target_hostname}"
-            )
+            print(f"  ✅ Alle staging-Records sind bereits CNAME → {target_hostname}")
         for issue in issues:
             print(f"  {'→' if args.apply else '⚠'} {issue['name']}")
             print(

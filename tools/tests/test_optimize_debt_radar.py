@@ -6,6 +6,7 @@ tools/tests/test_registry_coverage_drift.py::_canon-Pattern).
 
 Run: `python3 -m pytest tools/tests/test_optimize_debt_radar.py -q`
 """
+
 import importlib.util
 import pathlib
 
@@ -45,7 +46,9 @@ def test_should_count_missing_required_files(tmp_path):
     assert result["signals"]["missing_required_files"] == len(odr.REQUIRED_FILES) - 1
 
 
-def test_should_count_uuid_pk_os_environ_print_and_llm_imports_by_file_not_by_line(tmp_path):
+def test_should_count_uuid_pk_os_environ_print_and_llm_imports_by_file_not_by_line(
+    tmp_path,
+):
     repo = tmp_path / "smelly-repo"
     _write(repo / "models.py", "class X:\n    id = UUIDField(primary_key=True)\n")
     _write(
@@ -80,7 +83,9 @@ def test_should_flag_default_auto_field_missing_only_for_django_repos(tmp_path):
     non_django = tmp_path / "plain-repo"
     _write(non_django / "app.py", "x = 1\n")
     result_plain = odr.scan_repo(non_django)
-    assert result_plain["signals"]["default_auto_field_missing"] == 0  # kein Django -> kein Signal
+    assert (
+        result_plain["signals"]["default_auto_field_missing"] == 0
+    )  # kein Django -> kein Signal
 
     django_missing = tmp_path / "django-repo-missing"
     _write(django_missing / "manage.py")
@@ -90,7 +95,10 @@ def test_should_flag_default_auto_field_missing_only_for_django_repos(tmp_path):
 
     django_ok = tmp_path / "django-repo-ok"
     _write(django_ok / "manage.py")
-    _write(django_ok / "config" / "settings.py", "DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'\n")
+    _write(
+        django_ok / "config" / "settings.py",
+        "DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'\n",
+    )
     result_ok = odr.scan_repo(django_ok)
     assert result_ok["signals"]["default_auto_field_missing"] == 0
 
@@ -124,15 +132,21 @@ def test_should_exclude_archived_repos_from_discovery(tmp_path):
         if name != "no-clone-repo":
             _write(github_dir / name / ".git" / "HEAD")
 
-    canonical.write_text(yaml.safe_dump({
-        "repos": {
-            "active-repo": {"rich": {"lifecycle": "active"}},
-            "archived-repo": {"rich": {"lifecycle": "archived"}},
-            "no-clone-repo": {"rich": {"lifecycle": "active"}},
-        }
-    }))
+    canonical.write_text(
+        yaml.safe_dump(
+            {
+                "repos": {
+                    "active-repo": {"rich": {"lifecycle": "active"}},
+                    "archived-repo": {"rich": {"lifecycle": "archived"}},
+                    "no-clone-repo": {"rich": {"lifecycle": "active"}},
+                }
+            }
+        )
+    )
 
-    repos, skipped_no_clone, skipped_archived = odr.discover_repos(github_dir, canonical)
+    repos, skipped_no_clone, skipped_archived = odr.discover_repos(
+        github_dir, canonical
+    )
 
     assert list(repos) == ["active-repo"]
     assert skipped_no_clone == ["no-clone-repo"]
@@ -141,7 +155,11 @@ def test_should_exclude_archived_repos_from_discovery(tmp_path):
 
 def test_should_render_top_n_flagged_repos_sorted_by_delta_descending():
     current_totals = {"repo-a": 5, "repo-b": 8, "repo-c": 1}
-    deltas = {"repo-a": 2, "repo-b": 6, "repo-c": -1}  # repo-c verbessert sich -> nicht geflaggt
+    deltas = {
+        "repo-a": 2,
+        "repo-b": 6,
+        "repo-c": -1,
+    }  # repo-c verbessert sich -> nicht geflaggt
 
     text = odr.render_text(current_totals, deltas, [], [], top_n=5)
 
@@ -159,10 +177,18 @@ def test_should_surface_missing_local_clones_as_attestation_not_silent_gap():
 
 def test_should_resolve_fleet_targets_via_explicit_github_field(tmp_path):
     canonical = tmp_path / "canonical.yaml"
-    canonical.write_text(yaml.safe_dump({
-        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
-        "repos": {"foo": {"rich": {"github": "achimdehnert/foo", "lifecycle": "active"}}},
-    }))
+    canonical.write_text(
+        yaml.safe_dump(
+            {
+                "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
+                "repos": {
+                    "foo": {
+                        "rich": {"github": "achimdehnert/foo", "lifecycle": "active"}
+                    }
+                },
+            }
+        )
+    )
 
     targets = odr.resolve_fleet_targets(canonical)
 
@@ -171,10 +197,17 @@ def test_should_resolve_fleet_targets_via_explicit_github_field(tmp_path):
 
 def test_should_resolve_fleet_targets_via_repo_owner_override(tmp_path):
     canonical = tmp_path / "canonical.yaml"
-    canonical.write_text(yaml.safe_dump({
-        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {"frist-hub": "meiki-lra"}},
-        "repos": {"frist-hub": {"rich": {"lifecycle": "active"}}},
-    }))
+    canonical.write_text(
+        yaml.safe_dump(
+            {
+                "meta": {
+                    "server": {"github_org": "achimdehnert"},
+                    "repo_owner": {"frist-hub": "meiki-lra"},
+                },
+                "repos": {"frist-hub": {"rich": {"lifecycle": "active"}}},
+            }
+        )
+    )
 
     targets = odr.resolve_fleet_targets(canonical)
 
@@ -183,10 +216,14 @@ def test_should_resolve_fleet_targets_via_repo_owner_override(tmp_path):
 
 def test_should_fall_back_to_default_org_when_no_github_field_or_override(tmp_path):
     canonical = tmp_path / "canonical.yaml"
-    canonical.write_text(yaml.safe_dump({
-        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
-        "repos": {"bar": {"rich": {"lifecycle": "active"}}},
-    }))
+    canonical.write_text(
+        yaml.safe_dump(
+            {
+                "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
+                "repos": {"bar": {"rich": {"lifecycle": "active"}}},
+            }
+        )
+    )
 
     targets = odr.resolve_fleet_targets(canonical)
 
@@ -195,18 +232,45 @@ def test_should_fall_back_to_default_org_when_no_github_field_or_override(tmp_pa
 
 def test_should_exclude_archived_and_filter_by_owner(tmp_path):
     canonical = tmp_path / "canonical.yaml"
-    canonical.write_text(yaml.safe_dump({
-        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
-        "repos": {
-            "own-active": {"rich": {"github": "achimdehnert/own-active", "lifecycle": "active"}},
-            "own-archived": {"rich": {"github": "achimdehnert/own-archived", "lifecycle": "archived"}},
-            "foreign-active": {"rich": {"github": "iilgmbh/foreign-active", "lifecycle": "active"}},
-        },
-    }))
+    canonical.write_text(
+        yaml.safe_dump(
+            {
+                "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
+                "repos": {
+                    "own-active": {
+                        "rich": {
+                            "github": "achimdehnert/own-active",
+                            "lifecycle": "active",
+                        }
+                    },
+                    "own-archived": {
+                        "rich": {
+                            "github": "achimdehnert/own-archived",
+                            "lifecycle": "archived",
+                        }
+                    },
+                    "foreign-active": {
+                        "rich": {
+                            "github": "iilgmbh/foreign-active",
+                            "lifecycle": "active",
+                        }
+                    },
+                },
+            }
+        )
+    )
 
     all_targets = odr.resolve_fleet_targets(canonical)
-    assert ("own-archived", "achimdehnert/own-archived") not in all_targets  # archiviert -> nie
-    assert ("foreign-active", "iilgmbh/foreign-active") in all_targets      # ohne Filter: alle Owner
+    assert (
+        "own-archived",
+        "achimdehnert/own-archived",
+    ) not in all_targets  # archiviert -> nie
+    assert (
+        "foreign-active",
+        "iilgmbh/foreign-active",
+    ) in all_targets  # ohne Filter: alle Owner
 
     scoped = odr.resolve_fleet_targets(canonical, owner_filter="achimdehnert")
-    assert scoped == [("own-active", "achimdehnert/own-active")]           # KONZ-019 L6 Owner-Scope
+    assert scoped == [
+        ("own-active", "achimdehnert/own-active")
+    ]  # KONZ-019 L6 Owner-Scope

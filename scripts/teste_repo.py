@@ -13,6 +13,7 @@ Schritte:
   6. Hardcoding Guard
   7. Report
 """
+
 from __future__ import annotations
 
 import os
@@ -26,10 +27,11 @@ PLATFORM_ROOT = Path(__file__).parent.parent
 
 # ── Ergebnis-Datenstrukturen ──────────────────────────────────────────────────
 
+
 @dataclass
 class StepResult:
     name: str
-    status: str = "OK"       # OK | WARN | FAIL | SKIP
+    status: str = "OK"  # OK | WARN | FAIL | SKIP
     detail: str = ""
     output: str = ""
 
@@ -45,14 +47,14 @@ class Report:
 
     def print(self) -> None:
         icons = {"OK": "✅", "WARN": "⚠️ ", "FAIL": "❌", "SKIP": "⏭️ "}
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  /teste-repo Report: {self.repo_name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for s in self.steps:
             icon = icons.get(s.status, "?")
             line = f"  {icon}  {s.name:<28} {s.detail}"
             print(line)
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         failed = [s for s in self.steps if s.status == "FAIL"]
         warned = [s for s in self.steps if s.status == "WARN"]
         if not failed and not warned:
@@ -68,6 +70,7 @@ class Report:
 
 
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
 
 def run(
     cmd: list[str],
@@ -114,11 +117,16 @@ def detect_settings_module(repo_dir: Path) -> str:
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
         from gen_test_scaffold import detect_settings  # type: ignore[import]
+
         return detect_settings(repo_dir)
     except ImportError:
         pass
     # Inline-Fallback falls gen_test_scaffold nicht verfügbar
-    for candidate in ["config.settings.test", "config.settings.base", "config.settings"]:
+    for candidate in [
+        "config.settings.test",
+        "config.settings.base",
+        "config.settings",
+    ]:
         if (repo_dir / candidate.replace(".", "/")).with_suffix(".py").exists():
             return candidate
     return "config.settings.test"
@@ -131,9 +139,12 @@ def last_n_lines(text: str, n: int = 30) -> str:
 
 # ── Test-Schritte ─────────────────────────────────────────────────────────────
 
+
 def step_validate(repo_dir: Path, report: Report) -> bool:
     if not repo_dir.exists():
-        report.add(StepResult("Repo-Validierung", "FAIL", f"{repo_dir} existiert nicht"))
+        report.add(
+            StepResult("Repo-Validierung", "FAIL", f"{repo_dir} existiert nicht")
+        )
         return False
     if not (repo_dir / ".git").exists():
         report.add(StepResult("Repo-Validierung", "WARN", "Kein .git-Verzeichnis"))
@@ -144,9 +155,18 @@ def step_validate(repo_dir: Path, report: Report) -> bool:
 
 def step_lint(repo_dir: Path, python: str, report: Report) -> None:
     ruff = repo_dir / ".venv" / "bin" / "ruff"
-    cmd = [str(ruff) if ruff.exists() else "ruff", "check", ".", "--output-format=concise"]
+    cmd = [
+        str(ruff) if ruff.exists() else "ruff",
+        "check",
+        ".",
+        "--output-format=concise",
+    ]
     rc, out = run(cmd, cwd=repo_dir)
-    lines = [line for line in out.splitlines() if line.strip() and not line.startswith("All checks")]
+    lines = [
+        line
+        for line in out.splitlines()
+        if line.strip() and not line.startswith("All checks")
+    ]
     if rc == 0:
         report.add(StepResult("Lint (ruff)", "OK", "Keine Fehler"))
     elif rc == 127:
@@ -157,52 +177,96 @@ def step_lint(repo_dir: Path, python: str, report: Report) -> None:
         print(f"\n--- Lint Fehler ---\n{last_n_lines(out, 15)}\n")
 
 
-def step_django_check(repo_dir: Path, python: str, settings: str, report: Report) -> None:
+def step_django_check(
+    repo_dir: Path, python: str, settings: str, report: Report
+) -> None:
     manage = find_manage(repo_dir)
     if not manage:
         report.add(StepResult("Django Check", "SKIP", "Kein manage.py"))
         return
-    env = {"USE_POSTGRES": "0", "SECRET_KEY": "test-ci-secret-key", "DJANGO_SETTINGS_MODULE": settings}
-    rc, out = run([python, str(manage), "check", "--fail-level", "ERROR"], cwd=repo_dir, env=env)
+    env = {
+        "USE_POSTGRES": "0",
+        "SECRET_KEY": "test-ci-secret-key",
+        "DJANGO_SETTINGS_MODULE": settings,
+    }
+    rc, out = run(
+        [python, str(manage), "check", "--fail-level", "ERROR"], cwd=repo_dir, env=env
+    )
     if rc == 0:
         report.add(StepResult("Django Check", "OK"))
     else:
-        report.add(StepResult("Django Check", "FAIL", "System Check fehlgeschlagen", last_n_lines(out, 10)))
+        report.add(
+            StepResult(
+                "Django Check",
+                "FAIL",
+                "System Check fehlgeschlagen",
+                last_n_lines(out, 10),
+            )
+        )
         print(f"\n--- Django Check Fehler ---\n{last_n_lines(out, 10)}\n")
 
 
-def step_migration_check(repo_dir: Path, python: str, settings: str, report: Report) -> None:
+def step_migration_check(
+    repo_dir: Path, python: str, settings: str, report: Report
+) -> None:
     manage = find_manage(repo_dir)
     if not manage:
         report.add(StepResult("Migration Check", "SKIP", "Kein manage.py"))
         return
-    env = {"USE_POSTGRES": "0", "SECRET_KEY": "test-ci-secret-key", "DJANGO_SETTINGS_MODULE": settings}
+    env = {
+        "USE_POSTGRES": "0",
+        "SECRET_KEY": "test-ci-secret-key",
+        "DJANGO_SETTINGS_MODULE": settings,
+    }
     rc, out = run([python, str(manage), "migrate", "--check"], cwd=repo_dir, env=env)
     if rc == 0:
         report.add(StepResult("Migration Check", "OK"))
     elif "SQLite" in out or "sqlite" in out.lower() or rc == 1:
         # SQLite: migrate --check schlägt fehl wenn keine DB existiert → nicht kritisch
-        report.add(StepResult("Migration Check", "WARN", "SQLite — kein --check möglich"))
+        report.add(
+            StepResult("Migration Check", "WARN", "SQLite — kein --check möglich")
+        )
     else:
-        report.add(StepResult("Migration Check", "FAIL", "Ausstehende Migrationen", last_n_lines(out, 5)))
+        report.add(
+            StepResult(
+                "Migration Check",
+                "FAIL",
+                "Ausstehende Migrationen",
+                last_n_lines(out, 5),
+            )
+        )
         print(f"\n--- Migration Check ---\n{last_n_lines(out, 5)}\n")
 
 
 def step_install_test_deps(repo_dir: Path, python: str, report: Report) -> None:
     req = repo_dir / "requirements-test.txt"
     if not req.exists():
-        report.add(StepResult("Test-Dependencies", "WARN", "requirements-test.txt fehlt"))
+        report.add(
+            StepResult("Test-Dependencies", "WARN", "requirements-test.txt fehlt")
+        )
         return
     rc, out = run([python, "-m", "pip", "install", "-r", str(req), "-q"], cwd=repo_dir)
     if rc == 0:
-        report.add(StepResult("Test-Dependencies", "OK", "requirements-test.txt installiert"))
+        report.add(
+            StepResult("Test-Dependencies", "OK", "requirements-test.txt installiert")
+        )
     else:
-        report.add(StepResult("Test-Dependencies", "FAIL", "Install fehlgeschlagen", last_n_lines(out, 5)))
+        report.add(
+            StepResult(
+                "Test-Dependencies",
+                "FAIL",
+                "Install fehlgeschlagen",
+                last_n_lines(out, 5),
+            )
+        )
         print(f"\n--- pip install Fehler ---\n{last_n_lines(out, 5)}\n")
 
 
 def step_pytest(
-    repo_dir: Path, python: str, settings: str, report: Report,
+    repo_dir: Path,
+    python: str,
+    settings: str,
+    report: Report,
     auto_scaffold: bool = False,
 ) -> None:
     tests_dir = repo_dir / "tests"
@@ -212,29 +276,50 @@ def step_pytest(
             scaffold_script = PLATFORM_ROOT / "scripts" / "gen_test_scaffold.py"
             if scaffold_script.exists():
                 print("\n⚠️  Kein tests/-Verzeichnis — starte Scaffold-Generator...\n")
-                rc_s, out_s = run([python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT)
+                rc_s, out_s = run(
+                    [python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT
+                )
                 print(out_s)
                 if rc_s == 0 and tests_dir.exists():
                     print("✅  Scaffold erstellt — installiere Test-Deps...\n")
                     req = repo_dir / "requirements-test.txt"
                     if req.exists():
-                        run([python, "-m", "pip", "install", "-r", str(req), "-q"], cwd=repo_dir)
+                        run(
+                            [python, "-m", "pip", "install", "-r", str(req), "-q"],
+                            cwd=repo_dir,
+                        )
                 else:
-                    report.add(StepResult("Tests (pytest)", "WARN", "Scaffold fehlgeschlagen",
-                        f"Manuell: {fix_cmd}"))
+                    report.add(
+                        StepResult(
+                            "Tests (pytest)",
+                            "WARN",
+                            "Scaffold fehlgeschlagen",
+                            f"Manuell: {fix_cmd}",
+                        )
+                    )
                     return
         else:
-            report.add(StepResult("Tests (pytest)", "WARN",
-                "Kein tests/-Verzeichnis", f"Fix: {fix_cmd}"))
+            report.add(
+                StepResult(
+                    "Tests (pytest)",
+                    "WARN",
+                    "Kein tests/-Verzeichnis",
+                    f"Fix: {fix_cmd}",
+                )
+            )
             print(f"\n⚠️  Kein tests/-Verzeichnis in {repo_dir.name}")
             print(f"   Fix: {fix_cmd}")
-            print(f"   Oder: python3 scripts/teste_repo.py {repo_dir.name} --auto-scaffold\n")
+            print(
+                f"   Oder: python3 scripts/teste_repo.py {repo_dir.name} --auto-scaffold\n"
+            )
             return
 
     # Prüfen ob Tests vorhanden
     test_files = list(tests_dir.rglob("test_*.py"))
     if not test_files:
-        report.add(StepResult("Tests (pytest)", "WARN", "Keine test_*.py Dateien gefunden"))
+        report.add(
+            StepResult("Tests (pytest)", "WARN", "Keine test_*.py Dateien gefunden")
+        )
         return
 
     env = {
@@ -244,10 +329,17 @@ def step_pytest(
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     cmd = [
-        python, "-m", "pytest", "tests/",
-        "--tb=short", "--no-header", "-q",
-        "-n", "auto",
-        "--cov", "--cov-report=term-missing:skip-covered",
+        python,
+        "-m",
+        "pytest",
+        "tests/",
+        "--tb=short",
+        "--no-header",
+        "-q",
+        "-n",
+        "auto",
+        "--cov",
+        "--cov-report=term-missing:skip-covered",
     ]
     rc, out = run(cmd, cwd=repo_dir, env=env, capture=True)
     # Graceful fallbacks für optionale Plugins
@@ -258,10 +350,14 @@ def step_pytest(
         if "--cov" in out:
             strip_args += ["--cov", "--cov-report=term-missing:skip-covered"]
         cmd_fallback = [a for a in cmd if a not in strip_args]
-        note = "(" + ", ".join(
-            (["pytest-xdist fehlt"] if "-n" in strip_args else []) +
-            (["pytest-cov fehlt"] if "--cov" in strip_args else [])
-        ) + " — vereinfachter Run)\n"
+        note = (
+            "("
+            + ", ".join(
+                (["pytest-xdist fehlt"] if "-n" in strip_args else [])
+                + (["pytest-cov fehlt"] if "--cov" in strip_args else [])
+            )
+            + " — vereinfachter Run)\n"
+        )
         rc, out = run(cmd_fallback, cwd=repo_dir, env=env, capture=True)
         out = note + out
 
@@ -288,7 +384,9 @@ def step_pytest(
     elif rc == 5:
         report.add(StepResult("Tests (pytest)", "WARN", "Keine Tests collected"))
     else:
-        report.add(StepResult("Tests (pytest)", "FAIL", summary_line or "Tests fehlgeschlagen"))
+        report.add(
+            StepResult("Tests (pytest)", "FAIL", summary_line or "Tests fehlgeschlagen")
+        )
 
 
 def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
@@ -304,9 +402,19 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
     if not found_reqs:
         # pyproject.toml als Alternative akzeptieren
         if (repo_dir / "pyproject.toml").exists():
-            report.add(StepResult("Dependencies", "OK", "pyproject.toml vorhanden (kein requirements.txt)"))
+            report.add(
+                StepResult(
+                    "Dependencies",
+                    "OK",
+                    "pyproject.toml vorhanden (kein requirements.txt)",
+                )
+            )
         else:
-            report.add(StepResult("Dependencies", "WARN", "Weder requirements.txt noch pyproject.toml"))
+            report.add(
+                StepResult(
+                    "Dependencies", "WARN", "Weder requirements.txt noch pyproject.toml"
+                )
+            )
         return
 
     issues: list[str] = []
@@ -314,7 +422,9 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
 
     # 1. Pinning-Check: Pakete ohne jegliche Versionsangabe
     _UNPINNED_RE = re.compile(r"^([a-zA-Z0-9_\-]+)\s*$")
-    _IIL_PACKAGE_RE = re.compile(r"^(iil-\w+|aifw|promptfw|authoringfw|weltenfw|nl2cadfw)")
+    _IIL_PACKAGE_RE = re.compile(
+        r"^(iil-\w+|aifw|promptfw|authoringfw|weltenfw|nl2cadfw)"
+    )
     _IIL_UPPER_BOUND_RE = re.compile(r"<\s*\d")
 
     for req_file, req_path in found_reqs.items():
@@ -326,7 +436,9 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
             if _UNPINNED_RE.match(line):
                 warns.append(f"{req_file}: '{pkg}' hat keine Versionsangabe")
             if _IIL_PACKAGE_RE.match(pkg) and not _IIL_UPPER_BOUND_RE.search(line):
-                warns.append(f"{req_file}: '{pkg}' fehlt Upper-Bound (<1) — ADR iil-packages")
+                warns.append(
+                    f"{req_file}: '{pkg}' fehlt Upper-Bound (<1) — ADR iil-packages"
+                )
 
     # 2. pip check — Dependency-Konflikte im installierten Environment
     rc, out = run([python, "-m", "pip", "check"], cwd=repo_dir)
@@ -336,12 +448,15 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
                 issues.append(f"pip check: {line.strip()}")
 
     # 3. pip-audit — CVE-Scan (optional, nur wenn installiert)
-    audit_rc, audit_out = run([python, "-m", "pip_audit", "--format=columns", "-q"], cwd=repo_dir)
+    audit_rc, audit_out = run(
+        [python, "-m", "pip_audit", "--format=columns", "-q"], cwd=repo_dir
+    )
     if audit_rc == 127:
         pass  # pip-audit nicht installiert — kein Problem
     elif audit_rc != 0:
         vuln_lines = [
-            line for line in audit_out.splitlines()
+            line
+            for line in audit_out.splitlines()
             if line.strip() and "No known" not in line and "Name" not in line
         ]
         if vuln_lines:
@@ -371,16 +486,28 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
 def step_hardcoding(repo_dir: Path, report: Report) -> None:
     checker = PLATFORM_ROOT / "scripts" / "check_hardcoded_urls.py"
     if not checker.exists():
-        report.add(StepResult("Hardcoding Guard", "SKIP", "check_hardcoded_urls.py nicht gefunden"))
+        report.add(
+            StepResult(
+                "Hardcoding Guard", "SKIP", "check_hardcoded_urls.py nicht gefunden"
+            )
+        )
         return
     rc, out = run(
-        [sys.executable, str(checker), str(repo_dir), "--category", "VERMEIDBAR", "--summary"],
+        [
+            sys.executable,
+            str(checker),
+            str(repo_dir),
+            "--category",
+            "VERMEIDBAR",
+            "--summary",
+        ],
         cwd=PLATFORM_ROOT,
     )
     violations = 0
     for line in out.splitlines():
         if "Violations:" in line or "violations" in line.lower():
             import re
+
             m = re.search(r"(\d+)", line)
             if m:
                 violations = int(m.group(1))
@@ -393,6 +520,7 @@ def step_hardcoding(repo_dir: Path, report: Report) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     auto_scaffold = "--auto-scaffold" in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -400,7 +528,9 @@ def main() -> int:
     if not args:
         print("Usage: python3 scripts/teste_repo.py <repo_dir> [--auto-scaffold]")
         print("       python3 scripts/teste_repo.py coach-hub")
-        print("       python3 scripts/teste_repo.py coach-hub --auto-scaffold  # erstellt tests/ wenn fehlend")
+        print(
+            "       python3 scripts/teste_repo.py coach-hub --auto-scaffold  # erstellt tests/ wenn fehlend"
+        )
         return 1
 
     arg = args[0]

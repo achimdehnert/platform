@@ -31,9 +31,7 @@ class ContentSavedEvent(BaseModel):
     tenant_id: UUID | None = Field(default=None)
     version: int = Field(ge=1)
     content_hash: str = Field(description="SHA-256 of content")
-    occurred_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ContentRelationAddedEvent(BaseModel):
@@ -46,9 +44,7 @@ class ContentRelationAddedEvent(BaseModel):
     target_ref: str
     relation_type: str
     tenant_id: UUID | None = Field(default=None)
-    occurred_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ContentVersionBumpedEvent(BaseModel):
@@ -62,6 +58,4 @@ class ContentVersionBumpedEvent(BaseModel):
     old_version: int = Field(ge=1)
     new_version: int = Field(ge=2)
     tenant_id: UUID | None = Field(default=None)
-    occurred_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

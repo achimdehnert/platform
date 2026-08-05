@@ -35,7 +35,9 @@ TOOLS_DIR = Path(__file__).resolve().parent
 PLATFORM_DIR = TOOLS_DIR.parent  # auch in Session-Worktrees korrekt (= dieser Checkout)
 # Fleet liegt IMMER unter $GITHUB_DIR bzw. ~/github — NICHT relativ zu diesem File
 # ableiten: in einem Session-Worktree (ADR-233) wäre parent der Worktree-Container.
-GITHUB_DIR = Path(__import__("os").environ.get("GITHUB_DIR", str(Path.home() / "github")))
+GITHUB_DIR = Path(
+    __import__("os").environ.get("GITHUB_DIR", str(Path.home() / "github"))
+)
 FLEET_FILE = PLATFORM_DIR / "registry" / "pypi-fleet.yaml"
 
 sys.path.insert(0, str(TOOLS_DIR))
@@ -45,6 +47,7 @@ import registry_api  # noqa: E402
 # --------------------------------------------------------------------------
 # Klassifikation (pure functions — getestet in tools/tests/)
 # --------------------------------------------------------------------------
+
 
 def classify_auth(workflow_text: str) -> str:
     """Auth-Modus eines Publish-Workflows: oidc | token | hybrid | unknown.
@@ -83,7 +86,11 @@ def parse_remote_publisher(workflow_text: str) -> dict:
     if m:
         out["remote_repo"] = m.group(1)
     dirs = sorted(
-        set(re.findall(r"(?:working-directory|path):\s*(packages/[\w.-]+)", workflow_text))
+        set(
+            re.findall(
+                r"(?:working-directory|path):\s*(packages/[\w.-]+)", workflow_text
+            )
+        )
     )
     if dirs:
         out["package_dirs"] = [d.rstrip("/").removesuffix("/dist") for d in dirs]
@@ -113,6 +120,7 @@ def pyproject_meta_text(text: str | None) -> dict:
 # Working-Tree per Konstruktion frisch).
 # --------------------------------------------------------------------------
 
+
 def _git(repo_dir: Path, *args: str) -> str | None:
     res = subprocess.run(
         ["git", "-C", str(repo_dir), *args], capture_output=True, text=True
@@ -137,9 +145,7 @@ def repo_ls(repo_dir: Path, prefix: str) -> list[str]:
     base = repo_dir / prefix
     if not base.is_dir():
         return []
-    return sorted(
-        str(p.relative_to(repo_dir)) for p in base.rglob("*") if p.is_file()
-    )
+    return sorted(str(p.relative_to(repo_dir)) for p in base.rglob("*") if p.is_file())
 
 
 def registry_packages() -> dict[str, str]:
@@ -221,7 +227,9 @@ def scan_repo_api(repo: str, token: str) -> dict | None:
             return None
         workflows = []
         for name in publish_names:
-            text = _gh_api(f"/repos/{org}/{repo}/contents/.github/workflows/{name}", token)
+            text = _gh_api(
+                f"/repos/{org}/{repo}/contents/.github/workflows/{name}", token
+            )
             text = text if isinstance(text, str) else ""
             workflows.append(
                 {
@@ -270,13 +278,16 @@ def pypi_live(dist: str, timeout: int = 10) -> dict:
 # Findings
 # --------------------------------------------------------------------------
 
+
 def build_findings(pkg: dict) -> list[str]:
     findings = []
     if not pkg.get("in_registry"):
         findings.append("registry_missing")
     if len(pkg.get("publishers", [])) > 1:
         findings.append("double_publisher")
-    auths = {w["auth"] for p in pkg.get("publishers", []) for w in p.get("workflows", [])}
+    auths = {
+        w["auth"] for p in pkg.get("publishers", []) for w in p.get("workflows", [])
+    }
     if "token" in auths:
         findings.append("token_auth")
     if "hybrid" in auths:
@@ -361,7 +372,9 @@ def main() -> int:
             # PLATFORM_DIR = dieser Checkout (Session-Worktree = PR-Stand) —
             # bewusst Working-Tree, damit ein PR seine eigenen Fixes sieht.
             if not (PLATFORM_DIR / pdir).is_dir():
-                dead_platform_workflows.append({"file": wf["file"], "missing_path": pdir})
+                dead_platform_workflows.append(
+                    {"file": wf["file"], "missing_path": pdir}
+                )
 
     # 3) Paket-Sicht bauen (ein Eintrag je publizierendem Repo, ohne platform selbst)
     packages = {}
@@ -412,13 +425,13 @@ def main() -> int:
         pkg["findings"] = sorted(build_findings(pkg) + ["repo_not_cloned_locally"])
         packages[target] = pkg
 
-    registry_orphans = sorted(
-        r for r in reg if r not in packages and r != "platform"
-    )
+    registry_orphans = sorted(r for r in reg if r not in packages and r != "platform")
 
     # platform-Subtree-Pakete (packages/<x>/pyproject.toml) ohne Publish-Workflow
     referenced_dirs = {
-        d for wf in platform_facts["publish_workflows"] for d in wf.get("package_dirs", [])
+        d
+        for wf in platform_facts["publish_workflows"]
+        for d in wf.get("package_dirs", [])
     }
     platform_orphan_packages = sorted(
         f"packages/{p.parent.name}"
@@ -432,7 +445,7 @@ def main() -> int:
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "regenerate": "python3 tools/pypi_fleet_inventory.py",
             "note": "Reiner Ground-Truth-Scan — nicht von Hand editieren. Entscheidungen, "
-                    "Owner-Aktionen und Stufen-Status leben in docs/adr/ADR-266.",
+            "Owner-Aktionen und Stufen-Status leben in docs/adr/ADR-266.",
         },
         "packages": packages,
         "registry_orphans_without_publisher": registry_orphans,
@@ -454,8 +467,10 @@ def main() -> int:
         yaml.safe_dump(doc, sort_keys=True, allow_unicode=True, width=100),
         encoding="utf-8",
     )
-    print(f"→ {FLEET_FILE} ({len(packages)} Pakete, {len(registry_orphans)} Registry-Waisen, "
-          f"{len(dead_platform_workflows)} tote platform-Workflows)")
+    print(
+        f"→ {FLEET_FILE} ({len(packages)} Pakete, {len(registry_orphans)} Registry-Waisen, "
+        f"{len(dead_platform_workflows)} tote platform-Workflows)"
+    )
     return 0
 
 

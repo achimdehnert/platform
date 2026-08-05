@@ -36,7 +36,10 @@ print()
 
 print("Superuser vorher:")
 for b in User.objects.filter(is_superuser=True).order_by("id"):
-    print("   %-4s %-30s dokumente=%d" % (b.id, b.username[:30], Document.objects.filter(owner=b).count()))
+    print(
+        "   %-4s %-30s dokumente=%d"
+        % (b.id, b.username[:30], Document.objects.filter(owner=b).count())
+    )
 print()
 
 for name in ENTZIEHEN:
@@ -62,7 +65,9 @@ print("behalten:")
 for name in BEHALTEN:
     b = User.objects.filter(username=name).first()
     if b:
-        print("   %-30s dokumente=%d" % (name, Document.objects.filter(owner=b).count()))
+        print(
+            "   %-30s dokumente=%d" % (name, Document.objects.filter(owner=b).count())
+        )
 
 # ----------------------------------------------- Rechte-Abgleich der echten Nutzer
 print()
@@ -92,9 +97,19 @@ if len(mengen) == 2:
 print()
 print("=== Stand danach")
 for b in User.objects.order_by("id"):
-    print("%-4s %-32s super=%-5s aktiv=%-5s rechte=%-3d dokumente=%d"
-          % (b.id, b.username[:32], b.is_superuser, b.is_active,
-             b.user_permissions.count(), Document.objects.filter(owner=b).count()))
+    print(
+        "%-4s %-32s super=%-5s aktiv=%-5s rechte=%-3d dokumente=%d"
+        % (
+            b.id,
+            b.username[:32],
+            b.is_superuser,
+            b.is_active,
+            b.user_permissions.count(),
+            Document.objects.filter(owner=b).count(),
+        )
+    )
 print()
 print("Ruecknahme fuer ein Konto:")
-print("  User.objects.filter(username='<name>').update(is_superuser=True, is_staff=True)")
+print(
+    "  User.objects.filter(username='<name>').update(is_superuser=True, is_staff=True)"
+)

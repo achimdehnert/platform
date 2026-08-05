@@ -11,6 +11,7 @@ Feature-Flag:
     BUDGET_GUARD_ENABLED=false  → nur ADR-068 LLM-Router (Default)
     BUDGET_GUARD_ENABLED=true   → ADR-116 Pre-Filter aktiv
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,9 +21,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-BUDGET_GUARD_ENABLED = os.environ.get(
-    "BUDGET_GUARD_ENABLED", "false"
-).lower() == "true"
+BUDGET_GUARD_ENABLED = os.environ.get("BUDGET_GUARD_ENABLED", "false").lower() == "true"
 
 
 @dataclass(frozen=True)
@@ -79,9 +78,7 @@ class TaskRouterBudgetGuardMixin:
         from orchestrator_mcp.agent_team.budget_tracker import BudgetMode
 
         if not BUDGET_GUARD_ENABLED:
-            logger.debug(
-                "BUDGET_GUARD_ENABLED=false — ADR-068 LLM-Router direkt"
-            )
+            logger.debug("BUDGET_GUARD_ENABLED=false — ADR-068 LLM-Router direkt")
             return await self._llm_route(task)  # type: ignore[attr-defined]
 
         budget = await budget_tracker.get_status()
@@ -143,16 +140,36 @@ class TaskRouter(TaskRouterBudgetGuardMixin):
         """
         # Default-Routing: role + complexity → Modell aus bekannter Tabelle
         _defaults = {
-            ("developer", "complex"): ("anthropic/claude-3.5-sonnet", "premium", "anthropic"),
+            ("developer", "complex"): (
+                "anthropic/claude-3.5-sonnet",
+                "premium",
+                "anthropic",
+            ),
             ("developer", "moderate"): ("openai/gpt-4o", "standard", "openai"),
             ("developer", "simple"): ("openai/gpt-4o-mini", "budget", "openai"),
             ("tester", "complex"): ("openai/gpt-4o", "standard", "openai"),
             ("tester", "moderate"): ("openai/gpt-4o-mini", "budget", "openai"),
-            ("guardian", "complex"): ("anthropic/claude-3.5-sonnet", "premium", "anthropic"),
+            ("guardian", "complex"): (
+                "anthropic/claude-3.5-sonnet",
+                "premium",
+                "anthropic",
+            ),
             ("guardian", "moderate"): ("openai/gpt-4o", "standard", "openai"),
-            ("tech_lead", "complex"): ("anthropic/claude-3.5-sonnet", "premium", "anthropic"),
-            ("security_auditor", "complex"): ("anthropic/claude-3.5-sonnet", "premium", "anthropic"),
-            ("security_auditor", "moderate"): ("anthropic/claude-3.5-sonnet", "premium", "anthropic"),
+            ("tech_lead", "complex"): (
+                "anthropic/claude-3.5-sonnet",
+                "premium",
+                "anthropic",
+            ),
+            ("security_auditor", "complex"): (
+                "anthropic/claude-3.5-sonnet",
+                "premium",
+                "anthropic",
+            ),
+            ("security_auditor", "moderate"): (
+                "anthropic/claude-3.5-sonnet",
+                "premium",
+                "anthropic",
+            ),
         }
 
         key = (task.agent_role, task.complexity)

@@ -103,7 +103,9 @@ def test_should_skip_repo_silently_when_origin_is_platform_ssot(tmp_path):
 def test_should_skip_tracked_workflow_with_skip_tracked_marker(tmp_path):
     _make_platform_root(tmp_path)
     repo_dir = _make_target_repo(
-        tmp_path, "fixture-tracked", "https://github.com/achimdehnert/fixture-tracked.git"
+        tmp_path,
+        "fixture-tracked",
+        "https://github.com/achimdehnert/fixture-tracked.git",
     )
     # Ignore-Guard muss zuerst passieren, damit sync_repo() überhaupt bis zum
     # Tracked-Guard in sync_workflow() vordringt.
@@ -131,7 +133,9 @@ def test_should_skip_tracked_workflow_with_skip_tracked_marker(tmp_path):
 def test_should_skip_repo_when_windsurf_not_gitignored(tmp_path):
     _make_platform_root(tmp_path)
     _make_target_repo(
-        tmp_path, "fixture-no-ignore", "https://github.com/achimdehnert/fixture-no-ignore.git"
+        tmp_path,
+        "fixture-no-ignore",
+        "https://github.com/achimdehnert/fixture-no-ignore.git",
     )
     # bewusst KEIN .gitignore mit '.windsurf/'-Zeile
 
@@ -149,7 +153,9 @@ def test_should_skip_repo_when_windsurf_not_gitignored(tmp_path):
 def test_should_print_skip_summary_and_exit_nonzero_in_strict_mode(tmp_path):
     _make_platform_root(tmp_path)
     _make_target_repo(
-        tmp_path, "fixture-strict-skip", "https://github.com/achimdehnert/fixture-strict-skip.git"
+        tmp_path,
+        "fixture-strict-skip",
+        "https://github.com/achimdehnert/fixture-strict-skip.git",
     )
     # kein .gitignore → Ignore-Guard greift → 1 Skip
 
@@ -157,14 +163,18 @@ def test_should_print_skip_summary_and_exit_nonzero_in_strict_mode(tmp_path):
 
     assert "SKIP-SUMMARY" in res.stdout
     assert "1 Repo(s) übersprungen" in res.stdout
-    assert "fixture-strict-skip" in res.stdout  # taucht im SKIP-REPO-Teil der Summary auf
+    assert (
+        "fixture-strict-skip" in res.stdout
+    )  # taucht im SKIP-REPO-Teil der Summary auf
     assert res.returncode != 0, "strict + Skips>0 muss Exit != 0 liefern"
 
 
 def test_should_exit_zero_without_strict_despite_skip(tmp_path):
     _make_platform_root(tmp_path)
     _make_target_repo(
-        tmp_path, "fixture-nonstrict-skip", "https://github.com/achimdehnert/fixture-nonstrict-skip.git"
+        tmp_path,
+        "fixture-nonstrict-skip",
+        "https://github.com/achimdehnert/fixture-nonstrict-skip.git",
     )
 
     res = _run_sync(tmp_path, "fixture-nonstrict-skip")  # kein --strict
@@ -196,6 +206,7 @@ def _write_registry(tmp_path: Path, repos: dict) -> None:
     """Überschreibt die von _make_platform_root angelegte leere Flat-View mit
     konkreten Einträgen (repos-Dict mit type-Feld) — für Klassifikations-Tests."""
     import yaml
+
     reg = tmp_path / "platform" / "scripts" / "repo-registry.yaml"
     reg.write_text(yaml.safe_dump({"repos": repos}))
 
@@ -221,7 +232,9 @@ def test_should_label_django_type_as_django_hub(tmp_path):
 
 def test_should_label_library_and_framework_as_package(tmp_path):
     _make_platform_root(tmp_path)
-    _write_registry(tmp_path, {"mylib": {"type": "library"}, "myfw": {"type": "framework"}})
+    _write_registry(
+        tmp_path, {"mylib": {"type": "library"}, "myfw": {"type": "framework"}}
+    )
     _clean_synctarget(tmp_path, "mylib")
     _clean_synctarget(tmp_path, "myfw")
     assert "(package)" in _run_sync(tmp_path, "mylib").stdout

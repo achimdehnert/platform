@@ -19,6 +19,7 @@ default:
 Bezug: ADR-233, feedback_branch_cleanup_squash_worktree (squash-aware Wahrheit,
 Worktree-Branches ausschließen, Restore-Manifest schreiben).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,7 +31,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 PROTECTED_BRANCHES = {"main", "master"}
-LEASE_DIR = Path(os.environ.get("REPO_SESSION_DIR", str(Path.home() / ".repo-session"))) / "leases"
+LEASE_DIR = (
+    Path(os.environ.get("REPO_SESSION_DIR", str(Path.home() / ".repo-session")))
+    / "leases"
+)
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
@@ -52,7 +56,13 @@ def list_worktrees() -> list[dict]:
             continue
         key, _, val = line.partition(" ")
         if key == "worktree":
-            cur = {"path": val, "branch": None, "head": None, "detached": False, "bare": False}
+            cur = {
+                "path": val,
+                "branch": None,
+                "head": None,
+                "detached": False,
+                "bare": False,
+            }
         elif key == "HEAD":
             cur["head"] = val
         elif key == "branch":
@@ -144,8 +154,19 @@ def pr_state(branch: str, repo: str | None) -> str:
     if not branch:
         return "unknown"
     # --state all: sonst defaultet gh auf 'open' und gemergte PRs bleiben unsichtbar.
-    base = ["gh", "pr", "list", "--head", branch, "--state", "all",
-            "--json", "number,state", "--limit", "10"]
+    base = [
+        "gh",
+        "pr",
+        "list",
+        "--head",
+        branch,
+        "--state",
+        "all",
+        "--json",
+        "number,state",
+        "--limit",
+        "10",
+    ]
     if repo:
         base += ["--repo", repo]
     rc, out = _run(base)
@@ -163,7 +184,9 @@ def pr_state(branch: str, repo: str | None) -> str:
     return "none"
 
 
-def classify(wt: dict, primary: str, current: str, repo: str | None, stale_days: int) -> tuple[str, str]:
+def classify(
+    wt: dict, primary: str, current: str, repo: str | None, stale_days: int
+) -> tuple[str, str]:
     """→ (verdict, reason). verdict ∈ {KEEP, REAP_MERGED, REAP_STALE, SKIP}."""
     path, branch = wt["path"], wt["branch"]
     if wt.get("bare") or path == primary:
@@ -188,7 +211,10 @@ def classify(wt: dict, primary: str, current: str, repo: str | None, stale_days:
     if lease is not None:
         exp = lease_expired(lease)
         if exp is True:
-            return "REAP_STALE", f"Lease abgelaufen ({lease.get('expires_at')}), kein PR"
+            return (
+                "REAP_STALE",
+                f"Lease abgelaufen ({lease.get('expires_at')}), kein PR",
+            )
         if exp is False:
             return "KEEP", f"Lease aktiv bis {lease.get('expires_at')}"
         # exp is None → expires_at unparsebar, falle auf mtime zurück
@@ -199,11 +225,28 @@ def classify(wt: dict, primary: str, current: str, repo: str | None, stale_days:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Deterministischer git-Worktree-GC (ADR-233).")
-    ap.add_argument("--apply", action="store_true", help="Entfernungen ausführen (Standard: dry-run).")
-    ap.add_argument("--include-stale", action="store_true", help="Auch stale-but-unmerged entfernen.")
-    ap.add_argument("--stale-days", type=int, default=14, help="Stale-Schwelle in Tagen (default 14).")
-    ap.add_argument("--repo", default=None, help="OWNER/REPO für gh (default: aus Remote).")
+    ap = argparse.ArgumentParser(
+        description="Deterministischer git-Worktree-GC (ADR-233)."
+    )
+    ap.add_argument(
+        "--apply",
+        action="store_true",
+        help="Entfernungen ausführen (Standard: dry-run).",
+    )
+    ap.add_argument(
+        "--include-stale",
+        action="store_true",
+        help="Auch stale-but-unmerged entfernen.",
+    )
+    ap.add_argument(
+        "--stale-days",
+        type=int,
+        default=14,
+        help="Stale-Schwelle in Tagen (default 14).",
+    )
+    ap.add_argument(
+        "--repo", default=None, help="OWNER/REPO für gh (default: aus Remote)."
+    )
     ap.add_argument("--manifest", default=None, help="Restore-Manifest-Pfad (JSONL).")
     args = ap.parse_args()
 
@@ -244,14 +287,21 @@ def main() -> int:
         for wt, reason in reap:
             rec = {
                 "removed_at": datetime.now(timezone.utc).isoformat(),
-                "path": wt["path"], "branch": wt["branch"], "head": wt["head"], "reason": reason,
+                "path": wt["path"],
+                "branch": wt["branch"],
+                "head": wt["head"],
+                "reason": reason,
             }
             rc, out = _run(["git", "worktree", "remove", wt["path"]])
             if rc == 0:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 removed += 1
-                lease_note = " + Lease geschlossen" if close_lease_for(wt["path"]) else ""
-                print(f"entfernt: {wt['branch']}{lease_note}  (restore: git worktree add {wt['path']} {wt['branch']})")
+                lease_note = (
+                    " + Lease geschlossen" if close_lease_for(wt["path"]) else ""
+                )
+                print(
+                    f"entfernt: {wt['branch']}{lease_note}  (restore: git worktree add {wt['path']} {wt['branch']})"
+                )
             else:
                 print(f"FEHLER beim Entfernen {wt['path']}: {out}", file=sys.stderr)
     orphaned = close_orphan_leases()

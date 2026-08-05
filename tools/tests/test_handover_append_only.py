@@ -22,7 +22,9 @@ def _repo(tmp_path: Path, base_content: str) -> tuple[Path, str]:
     subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "base"], check=True)
     sha = subprocess.run(
         ["git", "-C", str(tmp_path), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     return tmp_path, sha
 
@@ -35,7 +37,10 @@ def _commit(repo: Path, content: str) -> None:
 def _run(repo: Path, base: str, *extra: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(SCRIPT), "--base", base, "--head", "HEAD", *extra],
-        cwd=repo, capture_output=True, text=True, timeout=30,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
 
@@ -69,7 +74,10 @@ def test_should_reproduce_pr_1317_pattern(tmp_path):
     # sie verändert weiter unten wieder ein. Genau das muss das Gate fangen —
     # sonst misst der A/B-Vergleich in #1302 den Bruch statt den Arm.
     repo, sha = _repo(tmp_path, "> Erledigt 07-20: alt\n> Erledigt 07-19: aelter\n")
-    _commit(repo, "> Erledigt 07-21: neu\n> Erledigt 07-20: alt, ergaenzt\n> Erledigt 07-19: aelter\n")
+    _commit(
+        repo,
+        "> Erledigt 07-21: neu\n> Erledigt 07-20: alt, ergaenzt\n> Erledigt 07-19: aelter\n",
+    )
     res = _run(repo, sha)
     assert res.returncode == 1
 

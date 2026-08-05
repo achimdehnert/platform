@@ -164,7 +164,11 @@ def schritt1(trocken):
         return True
 
     print("   Sicherung: %s" % sichere("apps-vor-schritt1", apps))
-    probe = ziel_app(offen) if any(ZIEL_DOMAIN in str(a.get("domain", "")) for a in offen) else offen[0]
+    probe = (
+        ziel_app(offen)
+        if any(ZIEL_DOMAIN in str(a.get("domain", "")) for a in offen)
+        else offen[0]
+    )
     print("   Berechtigungsprobe an einer einzigen Anwendung: %s" % probe.get("name"))
     ok, meldung = setze_idps(probe, [gh], "ok")
     if not ok:
@@ -205,7 +209,10 @@ def schritt2(trocken):
             print("     offen: %s" % str(a.get("name"))[:50])
         return False
     if offen and trocken:
-        print("   HINWEIS: im Trockenlauf sind noch %d offen — scharf bricht das ab" % len(offen))
+        print(
+            "   HINWEIS: im Trockenlauf sind noch %d offen — scharf bricht das ab"
+            % len(offen)
+        )
     if pin_id(idps):
         print("   Einmal-PIN existiert bereits — nichts zu tun")
         return True
@@ -250,19 +257,27 @@ def schritt3(trocken):
 
     print("   Anwendung  : %s" % app.get("name"))
     print("   Richtlinien: %d" % len(richtlinien))
-    print("   erlaubt    : %s" % (", ".join(sorted(erlaubt)) or "(keine Einzeladresse)"))
+    print(
+        "   erlaubt    : %s" % (", ".join(sorted(erlaubt)) or "(keine Einzeladresse)")
+    )
     print("   ergaenzen  : %s" % (", ".join(fehlend) or "nichts"))
 
     if trocken:
-        print("   WUERDE setzen: Anmeldedienste = GitHub + Einmal-PIN%s"
-              % ("" if pin else "  (PIN existiert noch nicht)"))
+        print(
+            "   WUERDE setzen: Anmeldedienste = GitHub + Einmal-PIN%s"
+            % ("" if pin else "  (PIN existiert noch nicht)")
+        )
         if fehlend and richtlinien:
-            print("   WUERDE ergaenzen in Richtlinie '%s': %s"
-                  % (richtlinien[0].get("name"), ", ".join(fehlend)))
+            print(
+                "   WUERDE ergaenzen in Richtlinie '%s': %s"
+                % (richtlinien[0].get("name"), ", ".join(fehlend))
+            )
         return True
 
-    print("   Sicherung: %s" % sichere("docs-app-und-richtlinien",
-                                       {"app": app, "policies": richtlinien}))
+    print(
+        "   Sicherung: %s"
+        % sichere("docs-app-und-richtlinien", {"app": app, "policies": richtlinien})
+    )
     ok, meldung = setze_idps(app, [gh, pin], "ok")
     if not ok:
         print("   FEHLER beim Setzen der Anmeldedienste: %s" % meldung)
@@ -317,7 +332,9 @@ def main():
         fertig = {1: schritt1, 2: schritt2, 3: schritt3}[nummer](trocken)
         print()
         if not fertig and not trocken:
-            print("Schritt %d nicht vollstaendig — Abbruch, kein Folgeschritt." % nummer)
+            print(
+                "Schritt %d nicht vollstaendig — Abbruch, kein Folgeschritt." % nummer
+            )
             return 1
 
     print(">>> Trockenlauf Ende" if trocken else ">>> fertig")

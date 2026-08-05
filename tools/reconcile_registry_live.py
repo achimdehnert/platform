@@ -47,19 +47,29 @@ BASELINE_PATH = REPO_ROOT / "infra" / "reconcile-baseline.yaml"
 # mit eigener Verwaltung). Bewusst kurz — alles andere gehört in ports.yaml
 # oder in die Baseline (mit Ablaufdatum), nicht hierher.
 INFRA_PORT_RANGES = [
-    (3000, 3199),   # Infrastructure UIs (Grafana, Outline, Uptime-Kuma)
-    (4000, 4099),   # Finance-Infra
-    (5432, 5499),   # PostgreSQL
-    (6379, 6399),   # Redis
-    (9000, 9099),   # Auth + Object Storage (Authentik, MinIO)
-    (19000, 19999), # Staging-Range (ADR-210 R4) — Staging-Host separat, hier nur Durchreiche
+    (3000, 3199),  # Infrastructure UIs (Grafana, Outline, Uptime-Kuma)
+    (4000, 4099),  # Finance-Infra
+    (5432, 5499),  # PostgreSQL
+    (6379, 6399),  # Redis
+    (9000, 9099),  # Auth + Object Storage (Authentik, MinIO)
+    (
+        19000,
+        19999,
+    ),  # Staging-Range (ADR-210 R4) — Staging-Host separat, hier nur Durchreiche
 ]
 
 
 def sh(cmd: list[str], ssh: str | None = None) -> str:
     if ssh:
-        cmd = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", ssh,
-               shlex.join(cmd)]
+        cmd = [
+            "ssh",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "BatchMode=yes",
+            ssh,
+            shlex.join(cmd),
+        ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
         raise RuntimeError(f"{cmd}: rc={r.returncode} {r.stderr[:200]}")
@@ -81,12 +91,16 @@ def load_baseline() -> list[dict]:
     for e in entries:
         for field in ("id", "reason", "owner", "expires_at"):
             if not e.get(field):
-                sys.exit(f"BASELINE-FEHLER: Eintrag ohne Pflichtfeld '{field}': {e} "
-                         "(E2-Waiver-Muster: owner + expires_at sind Pflicht)")
+                sys.exit(
+                    f"BASELINE-FEHLER: Eintrag ohne Pflichtfeld '{field}': {e} "
+                    "(E2-Waiver-Muster: owner + expires_at sind Pflicht)"
+                )
         expires = dt.date.fromisoformat(str(e["expires_at"]))
         if expires < today:
-            sys.exit(f"BASELINE-FEHLER: Eintrag '{e['id']}' ist am {expires} abgelaufen "
-                     "— fail-closed: verlängern (bewusst, mit Grund) oder Drift beheben.")
+            sys.exit(
+                f"BASELINE-FEHLER: Eintrag '{e['id']}' ist am {expires} abgelaufen "
+                "— fail-closed: verlängern (bewusst, mit Grund) oder Drift beheben."
+            )
     return entries
 
 
@@ -96,7 +110,9 @@ def live_containers(ssh: str | None) -> dict[str, list[int]]:
     result: dict[str, list[int]] = {}
     for line in out.strip().splitlines():
         name, _, ports = line.partition("\t")
-        host_ports = [int(m) for m in re.findall(r"(?:127\.0\.0\.1|0\.0\.0\.0):(\d+)->", ports)]
+        host_ports = [
+            int(m) for m in re.findall(r"(?:127\.0\.0\.1|0\.0\.0\.0):(\d+)->", ports)
+        ]
         result[name] = sorted(set(host_ports))
     return result
 
@@ -115,8 +131,14 @@ def in_infra_range(port: int) -> bool:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--ssh", default=None, help="root@HOST für Remote-Lauf (default: lokal)")
-    ap.add_argument("--skip-dns", action="store_true", help="C3 überspringen (z.B. Host ohne Resolver)")
+    ap.add_argument(
+        "--ssh", default=None, help="root@HOST für Remote-Lauf (default: lokal)"
+    )
+    ap.add_argument(
+        "--skip-dns",
+        action="store_true",
+        help="C3 überspringen (z.B. Host ohne Resolver)",
+    )
     args = ap.parse_args()
 
     canonical, ports_decl = load_declared()
@@ -129,7 +151,7 @@ def main() -> int:
         print(f"TOOL-FEHLER: Live-Zustand nicht lesbar: {e}", file=sys.stderr)
         return 2
 
-    drift: list[tuple[str, str]] = []   # (drift_id, beschreibung)
+    drift: list[tuple[str, str]] = []  # (drift_id, beschreibung)
 
     # C5: doppelte Port-Deklaration — prod UND staging getrennt (das bekannte
     # 8099-Duplikat risk-hub/tax-hub lag auf staging, nicht prod)
@@ -140,7 +162,12 @@ def main() -> int:
             if not isinstance(p, int):
                 continue
             if p in seen:
-                drift.append((f"C5:{env}:{p}", f"{env}-Port {p} doppelt deklariert: {seen[p]} + {svc}"))
+                drift.append(
+                    (
+                        f"C5:{env}:{p}",
+                        f"{env}-Port {p} doppelt deklariert: {seen[p]} + {svc}",
+                    )
+                )
             seen[p] = svc
 
     # C1 + C2 je deklariertem Service
@@ -153,9 +180,19 @@ def main() -> int:
         if cname in containers:
             live_ports = containers[cname]
             if live_ports and p not in live_ports:
-                drift.append((f"C1:{svc}", f"{svc}: deklariert {p}, Container {cname} publiziert {live_ports}"))
+                drift.append(
+                    (
+                        f"C1:{svc}",
+                        f"{svc}: deklariert {p}, Container {cname} publiziert {live_ports}",
+                    )
+                )
         elif deployed:
-            drift.append((f"C2:{svc}", f"{svc}: rich.deployed=true, aber Container {cname} läuft nicht"))
+            drift.append(
+                (
+                    f"C2:{svc}",
+                    f"{svc}: rich.deployed=true, aber Container {cname} läuft nicht",
+                )
+            )
 
     # C3: DNS je deklarierter prod_url (flat), nur für deployte Services
     if not args.skip_dns:
@@ -163,28 +200,41 @@ def main() -> int:
             url = entry.get("flat", {}).get("prod_url")
             deployed = entry.get("rich", {}).get("deployed") is True
             if url and deployed and not live_dns(url, args.ssh):
-                drift.append((f"C3:{repo}", f"{repo}: prod_url {url} löst nicht auf (NXDOMAIN)"))
+                drift.append(
+                    (f"C3:{repo}", f"{repo}: prod_url {url} löst nicht auf (NXDOMAIN)")
+                )
 
     # C4: live publizierter Port ohne Deklaration
-    declared_ports = {cfg.get("prod") for cfg in ports_decl.values()} \
-                   | {cfg.get("staging") for cfg in ports_decl.values()} \
-                   | {cfg.get("dev") for cfg in ports_decl.values()}
+    declared_ports = (
+        {cfg.get("prod") for cfg in ports_decl.values()}
+        | {cfg.get("staging") for cfg in ports_decl.values()}
+        | {cfg.get("dev") for cfg in ports_decl.values()}
+    )
     for cname, live_ports in containers.items():
         for p in live_ports:
             if p not in declared_ports and not in_infra_range(p):
-                drift.append((f"C4:{p}", f"Port {p} ({cname}) publiziert, aber in ports.yaml unbekannt"))
+                drift.append(
+                    (
+                        f"C4:{p}",
+                        f"Port {p} ({cname}) publiziert, aber in ports.yaml unbekannt",
+                    )
+                )
 
     new = [(i, d) for i, d in drift if i not in baseline_ids]
     suppressed = [(i, d) for i, d in drift if i in baseline_ids]
 
-    print(f"Drift-Kennzahl: {len(drift)} gesamt = {len(new)} NEU + {len(suppressed)} baselined")
+    print(
+        f"Drift-Kennzahl: {len(drift)} gesamt = {len(new)} NEU + {len(suppressed)} baselined"
+    )
     for i, d in suppressed:
         print(f"  [baseline] {i}  {d}")
     for i, d in new:
         print(f"  [NEU]      {i}  {d}")
     if new:
-        print("\n→ Exit 1 = FUND-Signal (neue Drift), kein Tool-Fehler. "
-              "Triage: beheben ODER mit owner+expires_at in infra/reconcile-baseline.yaml.")
+        print(
+            "\n→ Exit 1 = FUND-Signal (neue Drift), kein Tool-Fehler. "
+            "Triage: beheben ODER mit owner+expires_at in infra/reconcile-baseline.yaml."
+        )
         return 1
     print("→ Keine neue Drift gegenüber Baseline.")
     return 0

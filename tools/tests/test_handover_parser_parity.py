@@ -29,7 +29,9 @@ import pytest
 
 _TOOLS = Path(__file__).resolve().parents[1]
 _HOOK = _TOOLS / "hooks" / "handover_prio_mirror.sh"
-_FIXTURES = sorted((Path(__file__).parent / "fixtures" / "handover_parity").glob("*.md"))
+_FIXTURES = sorted(
+    (Path(__file__).parent / "fixtures" / "handover_parity").glob("*.md")
+)
 
 _SPEC = importlib.util.spec_from_loader(
     "claude_next_sync",

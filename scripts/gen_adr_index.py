@@ -15,6 +15,7 @@ Design decisions:
 - next_free is computed from active ADR numbers only (archive may have high historical numbers).
 - index.json contains all ADRs (active + archived), deduplicated by number (active wins).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -220,7 +221,9 @@ def write_json(active: list[dict], archived: list[dict], out_path: Path) -> None
         "next_free": next_free,
         "adrs": export,
     }
-    out_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    out_path.write_text(
+        json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
 
 def write_index_md(active: list[dict], out_path: Path) -> None:
@@ -278,7 +281,9 @@ def main() -> int:
         return 1
 
     active, archived = scan_adrs(adr_dir)
-    all_records = active + [r for r in archived if r["number"] not in {x["number"] for x in active}]
+    all_records = active + [
+        r for r in archived if r["number"] not in {x["number"] for x in active}
+    ]
     build_backward_refs(all_records)
 
     json_path = adr_dir / "index.json"

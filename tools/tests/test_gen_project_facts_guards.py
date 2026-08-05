@@ -35,10 +35,14 @@ _spec.loader.exec_module(gpf)
 
 
 def _git(repo_path: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo_path), *args], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo_path), *args], check=True, capture_output=True
+    )
 
 
-def _init_repo(repo_path: Path, origin: str | None = None, ignore_windsurf: bool = False) -> None:
+def _init_repo(
+    repo_path: Path, origin: str | None = None, ignore_windsurf: bool = False
+) -> None:
     repo_path.mkdir(parents=True, exist_ok=True)
     _git(repo_path, "init", "-q")
     _git(repo_path, "config", "user.email", "test@example.com")
@@ -76,6 +80,7 @@ def _patch_sources(monkeypatch, tmp_path: Path, rules_src: Path, wf_src: Path) -
 
 # ── Guard 1: SSoT-Skip per git-ORIGIN ────────────────────────────────────────
 
+
 def test_should_skip_entirely_when_origin_is_platform(tmp_path, monkeypatch):
     """origin endet auf /platform(.git) → Repo komplett unberührt lassen,
     auch project-facts.md wird NICHT geschrieben (deckt platform-pinned ab,
@@ -110,6 +115,7 @@ def test_should_skip_when_origin_is_platform_https_no_git_suffix(tmp_path, monke
 
 # ── Guard 2: Ignore-Guard ────────────────────────────────────────────────────
 
+
 def test_should_skip_distribution_when_windsurf_not_gitignored(tmp_path, monkeypatch):
     """Ohne wirksamen `.windsurf/`-Ignore darf gen_facts() weder Rules-Symlinks
     noch Workflow-Kopien anlegen (verhindert ??-Noise). project-facts.md
@@ -118,13 +124,19 @@ def test_should_skip_distribution_when_windsurf_not_gitignored(tmp_path, monkeyp
     _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
 
     repo_path = tmp_path / "some-hub"
-    _init_repo(repo_path, origin="git@github.com:achimdehnert/some-hub.git", ignore_windsurf=False)
+    _init_repo(
+        repo_path,
+        origin="git@github.com:achimdehnert/some-hub.git",
+        ignore_windsurf=False,
+    )
 
     result = gpf.gen_facts("some-hub", {}, force=False)
 
     assert result.startswith("✅")
     facts_file = repo_path / ".windsurf" / "rules" / "project-facts.md"
-    assert facts_file.exists(), "project-facts.md ist Per-Repo-Inhalt und bleibt vom Ignore-Guard unberührt"
+    assert facts_file.exists(), (
+        "project-facts.md ist Per-Repo-Inhalt und bleibt vom Ignore-Guard unberührt"
+    )
 
     # Keine Distribution: weder Workflow-Kopien noch Rules-Symlinks
     assert not (repo_path / ".windsurf" / "workflows").exists(), (
@@ -147,7 +159,11 @@ def test_should_distribute_when_windsurf_is_gitignored(tmp_path, monkeypatch):
     _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
 
     repo_path = tmp_path / "other-hub"
-    _init_repo(repo_path, origin="git@github.com:achimdehnert/other-hub.git", ignore_windsurf=True)
+    _init_repo(
+        repo_path,
+        origin="git@github.com:achimdehnert/other-hub.git",
+        ignore_windsurf=True,
+    )
 
     result = gpf.gen_facts("other-hub", {}, force=False)
 
@@ -160,6 +176,7 @@ def test_should_distribute_when_windsurf_is_gitignored(tmp_path, monkeypatch):
 
 # ── --dry-run Safety-Guard (#931-Abnahme, Incident 2026-07-05) ────────────────
 
+
 def test_dry_run_writes_nothing(tmp_path, monkeypatch):
     """--dry-run darf KEINERLEI Schreib-/mkdir-/Symlink-Operation ausführen —
     Schutz gegen versehentliche Fleet-Writes (der Incident 2026-07-05 entstand,
@@ -168,7 +185,11 @@ def test_dry_run_writes_nothing(tmp_path, monkeypatch):
     _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
 
     repo_path = tmp_path / "dry-hub"
-    _init_repo(repo_path, origin="git@github.com:achimdehnert/dry-hub.git", ignore_windsurf=True)
+    _init_repo(
+        repo_path,
+        origin="git@github.com:achimdehnert/dry-hub.git",
+        ignore_windsurf=True,
+    )
 
     result = gpf.gen_facts("dry-hub", {}, force=True, dry_run=True)
 
@@ -186,7 +207,10 @@ def test_help_flag_does_not_run_fleet(tmp_path):
     env["GITHUB_DIR"] = str(tmp_path)  # leerer Sandbox-Fleet-Dir
     r = subprocess.run(
         [sys.executable, str(_SCRIPT), "--help"],
-        capture_output=True, text=True, env=env, timeout=30,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
     )
     assert r.returncode == 0
     assert "Usage:" in r.stdout and "--dry-run" in r.stdout
@@ -194,6 +218,7 @@ def test_help_flag_does_not_run_fleet(tmp_path):
 
 
 # ── Guard 3: Tracked-Guard ───────────────────────────────────────────────────
+
 
 def test_should_not_replace_tracked_rule_file_with_symlink(tmp_path, monkeypatch):
     """Eine im Ziel-Repo-Index getrackte Rules-Datei darf NIE durch einen
@@ -203,7 +228,11 @@ def test_should_not_replace_tracked_rule_file_with_symlink(tmp_path, monkeypatch
     _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
 
     repo_path = tmp_path / "tracked-hub"
-    _init_repo(repo_path, origin="git@github.com:achimdehnert/tracked-hub.git", ignore_windsurf=True)
+    _init_repo(
+        repo_path,
+        origin="git@github.com:achimdehnert/tracked-hub.git",
+        ignore_windsurf=True,
+    )
 
     tracked_rule = repo_path / ".windsurf" / "rules" / "mcp-tools.md"
     tracked_rule.parent.mkdir(parents=True, exist_ok=True)
@@ -214,7 +243,9 @@ def test_should_not_replace_tracked_rule_file_with_symlink(tmp_path, monkeypatch
     result = gpf.gen_facts("tracked-hub", {}, force=False)
 
     assert result.startswith("✅")
-    assert not tracked_rule.is_symlink(), "getrackte Datei darf nicht durch Symlink ersetzt werden"
+    assert not tracked_rule.is_symlink(), (
+        "getrackte Datei darf nicht durch Symlink ersetzt werden"
+    )
     assert tracked_rule.read_text() == "REPO-EIGENE Version — bewusst abweichend\n"
 
     # Die NICHT getrackte zweite Rule wird ganz normal gesynct (Guard ist
@@ -232,7 +263,11 @@ def test_should_not_overwrite_tracked_workflow_copy(tmp_path, monkeypatch):
     _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
 
     repo_path = tmp_path / "wf-tracked-hub"
-    _init_repo(repo_path, origin="git@github.com:achimdehnert/wf-tracked-hub.git", ignore_windsurf=True)
+    _init_repo(
+        repo_path,
+        origin="git@github.com:achimdehnert/wf-tracked-hub.git",
+        ignore_windsurf=True,
+    )
 
     tracked_wf = repo_path / ".windsurf" / "workflows" / "run-local.md"
     tracked_wf.parent.mkdir(parents=True, exist_ok=True)
@@ -251,7 +286,9 @@ def test_should_not_overwrite_tracked_workflow_copy(tmp_path, monkeypatch):
     assert other_wf.exists() and not other_wf.is_symlink()
 
 
-def test_should_replace_symlink_pointing_elsewhere_even_if_untracked(tmp_path, monkeypatch):
+def test_should_replace_symlink_pointing_elsewhere_even_if_untracked(
+    tmp_path, monkeypatch
+):
     """Ein bereits existierender (aber falscher) Symlink ist per Definition
     nicht 'getrackt wie eine reguläre Datei' im Tracked-Guard-Sinn — er wird
     weiterhin korrigiert (kein Typechange, da schon ein Symlink)."""
@@ -259,7 +296,11 @@ def test_should_replace_symlink_pointing_elsewhere_even_if_untracked(tmp_path, m
     _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
 
     repo_path = tmp_path / "stale-link-hub"
-    _init_repo(repo_path, origin="git@github.com:achimdehnert/stale-link-hub.git", ignore_windsurf=True)
+    _init_repo(
+        repo_path,
+        origin="git@github.com:achimdehnert/stale-link-hub.git",
+        ignore_windsurf=True,
+    )
 
     rules_dest = repo_path / ".windsurf" / "rules"
     rules_dest.mkdir(parents=True, exist_ok=True)

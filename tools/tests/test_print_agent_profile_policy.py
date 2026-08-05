@@ -13,7 +13,10 @@ import llm_gate  # noqa: E402
 import profile_policy  # noqa: E402
 
 # Auszug aus design-hub/profiles/iil-extern.yaml, Stand 2026-07-23.
-IIL_EXTERN = {"name": "iil-extern", "authorship": {"recipient": "extern (Kunden, Stakeholder, Konzerne)"}}
+IIL_EXTERN = {
+    "name": "iil-extern",
+    "authorship": {"recipient": "extern (Kunden, Stakeholder, Konzerne)"},
+}
 DB_INTERN = {"name": "db-intern", "authorship": {"recipient": "intern (Fachbereich)"}}
 
 
@@ -40,8 +43,13 @@ def test_should_disable_enrichment_for_external_profiles():
 
 
 def test_should_let_explicit_flag_win_over_audience():
-    assert profile_policy.enrichment_enabled(dict(IIL_EXTERN, llm_enrichment=True)) is True
-    assert profile_policy.enrichment_enabled(dict(DB_INTERN, llm_enrichment=False)) is False
+    assert (
+        profile_policy.enrichment_enabled(dict(IIL_EXTERN, llm_enrichment=True)) is True
+    )
+    assert (
+        profile_policy.enrichment_enabled(dict(DB_INTERN, llm_enrichment=False))
+        is False
+    )
 
 
 def test_should_not_guess_doc_type_for_external_documents():

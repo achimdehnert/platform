@@ -16,6 +16,7 @@ Nutzung:
 
 Exit: 0 = sauber (oder warn-Modus), 1 = Fund im --block-Modus / Parse-Fehler im --block-Modus.
 """
+
 from __future__ import annotations
 
 import glob
@@ -32,7 +33,9 @@ PYPA_ACTION = "pypa/gh-action-pypi-publish"
 
 
 def _is_testpypi(with_block: dict) -> bool:
-    url = str(with_block.get("repository-url") or with_block.get("repository_url") or "")
+    url = str(
+        with_block.get("repository-url") or with_block.get("repository_url") or ""
+    )
     return "test.pypi.org" in url
 
 
@@ -70,8 +73,11 @@ def collect_targets(argv: list[str]) -> list[Path]:
     files = [a for a in argv if not a.startswith("-")]
     if files:
         return [Path(f) for f in files]
-    return [Path(p) for p in glob.glob(".github/workflows/*publish*.yml")
-            + glob.glob(".github/workflows/*publish*.yaml")]
+    return [
+        Path(p)
+        for p in glob.glob(".github/workflows/*publish*.yml")
+        + glob.glob(".github/workflows/*publish*.yaml")
+    ]
 
 
 def main(argv: list[str]) -> int:
@@ -90,7 +96,9 @@ def main(argv: list[str]) -> int:
         for v in all_violations:
             print(f"  - {v}")
         return 1 if block else 0
-    print(f"✅ ADR-278: {len(targets)} publish-Workflow(s) sind OIDC-only (kein password-Input).")
+    print(
+        f"✅ ADR-278: {len(targets)} publish-Workflow(s) sind OIDC-only (kein password-Input)."
+    )
     return 0
 
 

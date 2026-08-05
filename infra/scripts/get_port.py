@@ -38,7 +38,7 @@ def main():
     services = data.get("services", {})
     if service not in services:
         print(f"Unbekannter Service: {service}", file=sys.stderr)
-        known = ', '.join(services.keys())
+        known = ", ".join(services.keys())
         print(f"Bekannte Services: {known}", file=sys.stderr)
         sys.exit(1)
 

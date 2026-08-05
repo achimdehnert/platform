@@ -36,7 +36,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Cost model (claude-3-5-haiku-20241022, 2026-05 pricing)
 # ---------------------------------------------------------------------------
-COST_PER_1K_INPUT = 0.00025   # USD
+COST_PER_1K_INPUT = 0.00025  # USD
 COST_PER_1K_OUTPUT = 0.00125  # USD
 MODEL = "claude-3-5-haiku-20241022"
 MAX_TOKENS_RESPONSE = 1200
@@ -57,7 +57,7 @@ class ReviewResult:
     adr_path: str
     structural_findings: list[StructuralFinding] = field(default_factory=list)
     structural_ok: bool = True
-    ai_verdict: str = "skipped"          # approved | concerns | blocked | skipped | error
+    ai_verdict: str = "skipped"  # approved | concerns | blocked | skipped | error
     ai_summary: str = ""
     ai_findings: list[str] = field(default_factory=list)
     tokens_in: int = 0
@@ -73,12 +73,16 @@ def run_structural_check(adr_path: str) -> tuple[bool, list[StructuralFinding]]:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "iil_adrfw.cli", "validate", adr_path, "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode == 0 and result.stdout.strip():
             data = json.loads(result.stdout)
             findings = [
-                StructuralFinding(severity=f.get("severity", "info"), message=f.get("message", ""))
+                StructuralFinding(
+                    severity=f.get("severity", "info"), message=f.get("message", "")
+                )
                 for f in data.get("findings", [])
             ]
             ok = not any(f.severity in ("error", "critical") for f in findings)
@@ -121,7 +125,10 @@ def should_review(fm: dict[str, Any]) -> tuple[bool, str]:
                 try:
                     d = date.fromisoformat(entry_date[:10])
                     if (today - d).days < 30:
-                        return False, f"recent ai_sparring_by entry ({entry_date}), skip"
+                        return (
+                            False,
+                            f"recent ai_sparring_by entry ({entry_date}), skip",
+                        )
                 except ValueError:
                     pass
 
@@ -179,14 +186,19 @@ def call_claude(
     if not api_key:
         return "skipped", [], "ANTHROPIC_API_KEY not set", 0, 0, 0.0
 
-    sf_text = "\n".join(f"[{f.severity.upper()}] {f.message}" for f in structural_findings) or "None"
+    sf_text = (
+        "\n".join(f"[{f.severity.upper()}] {f.message}" for f in structural_findings)
+        or "None"
+    )
     body_truncated = body[:3000] if len(body) > 3000 else body
 
     prompt = ADVERSARIAL_PROMPT_TEMPLATE.format(
         adr_id=adr_id,
         status=fm.get("status", "unknown"),
         domains=", ".join(fm.get("domains", [])),
-        frontmatter_yaml=yaml.dump({k: v for k, v in fm.items() if k != "metrics"}, allow_unicode=True),
+        frontmatter_yaml=yaml.dump(
+            {k: v for k, v in fm.items() if k != "metrics"}, allow_unicode=True
+        ),
         body=body_truncated,
         structural_findings=sf_text,
     )
@@ -202,18 +214,29 @@ def call_claude(
         raw = msg.content[0].text.strip()
         tokens_in = msg.usage.input_tokens
         tokens_out = msg.usage.output_tokens
-        cost = (tokens_in / 1000 * COST_PER_1K_INPUT) + (tokens_out / 1000 * COST_PER_1K_OUTPUT)
+        cost = (tokens_in / 1000 * COST_PER_1K_INPUT) + (
+            tokens_out / 1000 * COST_PER_1K_OUTPUT
+        )
 
         # Parse JSON (Claude may wrap in ```json)
         json_match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not json_match:
-            return "error", [], f"No JSON in response: {raw[:100]}", tokens_in, tokens_out, cost
+            return (
+                "error",
+                [],
+                f"No JSON in response: {raw[:100]}",
+                tokens_in,
+                tokens_out,
+                cost,
+            )
         data = json.loads(json_match.group())
         return (
             data.get("verdict", "concerns"),
             data.get("findings", []),
             data.get("summary", "")[:120],
-            tokens_in, tokens_out, cost,
+            tokens_in,
+            tokens_out,
+            cost,
         )
     except json.JSONDecodeError as e:
         return "error", [], f"JSON parse error: {e}", 0, 0, 0.0
@@ -236,16 +259,24 @@ def patch_ai_sparring_by(path: str, verdict: str, summary: str) -> None:
         sparring = []
 
     # Map verdict to role
-    role_map = {"approved": "compliance-check", "concerns": "adversarial-review", "blocked": "adversarial-review"}
-    sparring.append({
-        "tool": "claude-code",
-        "date": date.today().isoformat(),
-        "role": role_map.get(verdict, "adversarial-review"),
-        "summary": summary or f"Dual-tool review: {verdict}",
-    })
+    role_map = {
+        "approved": "compliance-check",
+        "concerns": "adversarial-review",
+        "blocked": "adversarial-review",
+    }
+    sparring.append(
+        {
+            "tool": "claude-code",
+            "date": date.today().isoformat(),
+            "role": role_map.get(verdict, "adversarial-review"),
+            "summary": summary or f"Dual-tool review: {verdict}",
+        }
+    )
     fm["ai_sparring_by"] = sparring
 
-    new_fm = yaml.dump(fm, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    new_fm = yaml.dump(
+        fm, allow_unicode=True, default_flow_style=False, sort_keys=False
+    )
     new_text = f"---\n{new_fm}---\n{match.group(4)}"
     Path(path).write_text(new_text, encoding="utf-8")
 
@@ -253,7 +284,13 @@ def patch_ai_sparring_by(path: str, verdict: str, summary: str) -> None:
 # ---------------------------------------------------------------------------
 # Step 6: Build PR comment
 # ---------------------------------------------------------------------------
-VERDICT_EMOJI = {"approved": "✅", "concerns": "⚠️", "blocked": "❌", "skipped": "⏭️", "error": "🔴"}
+VERDICT_EMOJI = {
+    "approved": "✅",
+    "concerns": "⚠️",
+    "blocked": "❌",
+    "skipped": "⏭️",
+    "error": "🔴",
+}
 
 
 def build_pr_comment(results: list[ReviewResult]) -> str:
@@ -263,24 +300,34 @@ def build_pr_comment(results: list[ReviewResult]) -> str:
     lines.append("| ADR | Structural | AI Verdict | Cost |")
     lines.append("|-----|-----------|------------|------|")
     for r in results:
-        sf_icon = "✅" if r.structural_ok else f"⚠️ {sum(1 for f in r.structural_findings if f.severity in ('error','critical'))} errors"
+        sf_icon = (
+            "✅"
+            if r.structural_ok
+            else f"⚠️ {sum(1 for f in r.structural_findings if f.severity in ('error', 'critical'))} errors"
+        )
         emoji = VERDICT_EMOJI.get(r.ai_verdict, "❓")
         cost_str = f"${r.cost_usd:.4f}" if r.cost_usd > 0 else "—"
-        lines.append(f"| `{r.adr_id}` | {sf_icon} | {emoji} {r.ai_verdict} | {cost_str} |")
+        lines.append(
+            f"| `{r.adr_id}` | {sf_icon} | {emoji} {r.ai_verdict} | {cost_str} |"
+        )
 
     lines.append(f"\n**Total cost this run**: ${total_cost:.4f}")
     lines.append(f"**Model**: `{MODEL}` · **Schema v4** `ai_sparring_by` patched\n")
 
     for r in results:
         if r.ai_verdict in ("concerns", "blocked", "error") or r.structural_findings:
-            lines.append(f"### `{r.adr_id}` — {VERDICT_EMOJI.get(r.ai_verdict, '')} {r.ai_verdict.upper()}")
+            lines.append(
+                f"### `{r.adr_id}` — {VERDICT_EMOJI.get(r.ai_verdict, '')} {r.ai_verdict.upper()}"
+            )
             if r.ai_summary:
                 lines.append(f"> {r.ai_summary}\n")
             if r.ai_findings:
                 lines.append("**AI findings:**")
                 for finding in r.ai_findings:
                     lines.append(f"- {finding}")
-            sf_errors = [f for f in r.structural_findings if f.severity in ("error", "critical")]
+            sf_errors = [
+                f for f in r.structural_findings if f.severity in ("error", "critical")
+            ]
             if sf_errors:
                 lines.append("\n**Structural errors (iil-adrfw):**")
                 for f in sf_errors:
@@ -291,7 +338,9 @@ def build_pr_comment(results: list[ReviewResult]) -> str:
             lines.append(f"> {r.error or 'No review needed'}\n")
 
     lines.append("---")
-    lines.append("*Tool 1: [iil-adrfw](https://pypi.org/project/iil-adrfw/) · Tool 2: Claude API (non-accountable — see `ai_sparring_by`)*")
+    lines.append(
+        "*Tool 1: [iil-adrfw](https://pypi.org/project/iil-adrfw/) · Tool 2: Claude API (non-accountable — see `ai_sparring_by`)*"
+    )
     return "\n".join(lines)
 
 
@@ -340,13 +389,18 @@ def post_pr_comment(comment: str, pr_number: int, repo: str) -> None:
         return
     try:
         import urllib.request
+
         url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
         data = json.dumps({"body": comment}).encode()
-        req = urllib.request.Request(url, data=data, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/vnd.github+json",
-        })
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github+json",
+            },
+        )
         with urllib.request.urlopen(req) as resp:
             print(f"[OK] PR comment posted: HTTP {resp.status}")
     except Exception as e:
@@ -379,8 +433,16 @@ def main() -> int:
         result = ReviewResult(adr_id=adr_id, adr_path=str(path))
 
         # Structural check
-        result.structural_ok, result.structural_findings = run_structural_check(str(path))
-        sf_count = len([f for f in result.structural_findings if f.severity in ("error", "critical")])
+        result.structural_ok, result.structural_findings = run_structural_check(
+            str(path)
+        )
+        sf_count = len(
+            [
+                f
+                for f in result.structural_findings
+                if f.severity in ("error", "critical")
+            ]
+        )
         print(f"  Structural: {'OK' if result.structural_ok else f'{sf_count} errors'}")
 
         # Cost gate
@@ -394,7 +456,9 @@ def main() -> int:
             continue
 
         # Claude adversarial review
-        verdict, findings, summary, t_in, t_out, cost = call_claude(adr_id, fm, body, result.structural_findings)
+        verdict, findings, summary, t_in, t_out, cost = call_claude(
+            adr_id, fm, body, result.structural_findings
+        )
         result.ai_verdict = verdict
         result.ai_findings = findings
         result.ai_summary = summary

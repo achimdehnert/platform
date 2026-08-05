@@ -129,9 +129,19 @@ def lint_file(
             return
         if num in archived:
             hint = ", ".join(_rel(p, repo_root) for p in archived[num])
-            add(line_no, "dead_ref", num, f"ADR-{num} hat keine aktive Datei (archiviert: {hint})")
+            add(
+                line_no,
+                "dead_ref",
+                num,
+                f"ADR-{num} hat keine aktive Datei (archiviert: {hint})",
+            )
         else:
-            add(line_no, "dead_ref", num, f"ADR-{num} existiert weder aktiv noch archiviert")
+            add(
+                line_no,
+                "dead_ref",
+                num,
+                f"ADR-{num} existiert weder aktiv noch archiviert",
+            )
 
     lines = src.read_text(encoding="utf-8", errors="ignore").splitlines()
     skip_next = False
@@ -157,8 +167,13 @@ def lint_file(
             if not has_adr:
                 continue
             # relativer Pfad: gegen das Verzeichnis der Quelldatei aufloesen
-            resolved = (src.parent / target_path).resolve() if target_path else src.resolve()
-            if not str(resolved).startswith(str(adr_dir_resolved) + "/") and resolved != adr_dir_resolved:
+            resolved = (
+                (src.parent / target_path).resolve() if target_path else src.resolve()
+            )
+            if (
+                not str(resolved).startswith(str(adr_dir_resolved) + "/")
+                and resolved != adr_dir_resolved
+            ):
                 nums = ADR_REF_RE.findall(target) or ADR_REF_RE.findall(text)
                 num = nums[0] if nums else ""
                 add(
@@ -220,13 +235,17 @@ def emit(findings: list[Finding], fmt: str) -> None:
             print(f"{f.path}:{f.line}: [{f.category}] {f.message}")
     summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "0 Findings"
     if fmt == "github":
-        print(f"::warning title=adr-citation-lint summary::{len(findings)} Finding(s): {summary}")
+        print(
+            f"::warning title=adr-citation-lint summary::{len(findings)} Finding(s): {summary}"
+        )
     print(f"adr-citation-lint: {len(findings)} Finding(s) ({summary})")
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--adr-dir", default="docs/adr", help="ADR-Verzeichnis (Default docs/adr)")
+    ap.add_argument(
+        "--adr-dir", default="docs/adr", help="ADR-Verzeichnis (Default docs/adr)"
+    )
     ap.add_argument("--format", choices=["human", "github"], default="human")
     ap.add_argument(
         "--gate",
@@ -237,7 +256,9 @@ def main(argv: list[str] | None = None) -> int:
 
     adr_dir = pathlib.Path(args.adr_dir)
     if not adr_dir.is_dir():
-        print(f"adr-citation-lint: Verzeichnis {adr_dir} nicht gefunden — nichts zu pruefen.")
+        print(
+            f"adr-citation-lint: Verzeichnis {adr_dir} nicht gefunden — nichts zu pruefen."
+        )
         return 0
     repo_root = adr_dir.resolve().parent.parent  # docs/adr → repo root
     findings = run(adr_dir.resolve(), repo_root)

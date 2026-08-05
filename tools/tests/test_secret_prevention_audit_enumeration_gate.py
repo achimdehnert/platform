@@ -42,14 +42,18 @@ def _extract_embedded_python() -> str:
     """Zieht den Python-Code aus `python3 - <<'PY' ... PY` im 'audit'-Job."""
     wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     run = wf["jobs"]["audit"]["steps"][0]["run"]
-    assert "<<'PY'" in run, "erwartetes Heredoc-Muster nicht gefunden — Workflow umstrukturiert?"
+    assert "<<'PY'" in run, (
+        "erwartetes Heredoc-Muster nicht gefunden — Workflow umstrukturiert?"
+    )
     body = run.split("<<'PY'\n", 1)[1]
     assert body.rstrip().endswith("PY"), "Heredoc-Ende 'PY' nicht gefunden"
     return body.rstrip()[: -len("PY")]
 
 
 def _http_error(url: str, code: int, payload: bytes = b"{}") -> urllib.error.HTTPError:
-    return urllib.error.HTTPError(url, code, "simulated failure", {}, io.BytesIO(payload))
+    return urllib.error.HTTPError(
+        url, code, "simulated failure", {}, io.BytesIO(payload)
+    )
 
 
 class _FakeResponse:
@@ -82,7 +86,9 @@ def test_should_exit_nonzero_on_total_enumeration_failure(monkeypatch, tmp_path)
     def fake_urlopen(req, *a, **kw):
         # Sowohl /user/repos (Primärpfad) als auch der /users/{owner}/repos
         # Fallback schlagen fehl -> Enumeration ist ein Totalausfall.
-        assert "/user/repos" in req.full_url or "/users/achimdehnert/repos" in req.full_url
+        assert (
+            "/user/repos" in req.full_url or "/users/achimdehnert/repos" in req.full_url
+        )
         raise _http_error(req.full_url, 500)
 
     with pytest.raises(SystemExit) as exc_info:
@@ -94,7 +100,9 @@ def test_should_exit_nonzero_on_total_enumeration_failure(monkeypatch, tmp_path)
     )
 
 
-def test_should_not_raise_when_zero_repos_is_a_legitimate_empty_result(monkeypatch, tmp_path):
+def test_should_not_raise_when_zero_repos_is_a_legitimate_empty_result(
+    monkeypatch, tmp_path
+):
     """Gegenprobe: leere erste Seite (kein Fehler) darf NICHT als Totalausfall gelten."""
 
     def fake_urlopen(req, *a, **kw):

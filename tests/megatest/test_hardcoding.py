@@ -12,13 +12,25 @@ Ratchet-Regeln:
   - Violations < Budget  → PASSED + Warnung (Budget kann reduziert werden)
   - Budget=0, keine Violations → PASSED ✓
 """
+
 from __future__ import annotations
 
 import pytest
 
-from .conftest import ALL_REPO_NAMES, Budget, load_budgets, record_budget_update, scan_results  # noqa: F401
+# Der noqa-Marker gehoert an den NAMEN, nicht an die schliessende Klammer:
+# der Format-Sweep (platform#1754 B) brach den zuvor einzeiligen Import um und
+# schob den Marker ans Ende, wodurch F401 wieder feuerte. Am Namen ueberlebt er
+# jede weitere Umformatierung.
+from .conftest import (
+    ALL_REPO_NAMES,
+    Budget,
+    load_budgets,
+    record_budget_update,
+    scan_results,  # noqa: F401
+)
 
 # ── Hilfsfunktionen ──────────────────────────────────────────────────────────
+
 
 def _vermeidbar_count(results: dict, repo_name: str) -> int:
     r = results.get(repo_name)
@@ -45,6 +57,7 @@ def _violation_summary(results: dict, repo_name: str) -> str:
 
 
 # ── Test 1: VERMEIDBAR-Gesamtbudget ──────────────────────────────────────────
+
 
 @pytest.mark.megatest
 @pytest.mark.parametrize("repo_name", ALL_REPO_NAMES)
@@ -85,6 +98,7 @@ def test_vermeidbar_total(
 
 # ── Test 2: Per-Regel-Budget (nur wenn in budgets.toml definiert) ─────────────
 
+
 @pytest.mark.megatest
 @pytest.mark.parametrize("repo_name", ALL_REPO_NAMES)
 def test_vermeidbar_per_rule(
@@ -104,15 +118,14 @@ def test_vermeidbar_per_rule(
             failures.append(f"  [{rule_id}] {actual} > {max_count}")
 
     if failures:
-        pytest.fail(
-            f"[{repo_name}] Per-Regel-Regression:\n" + "\n".join(failures)
-        )
+        pytest.fail(f"[{repo_name}] Per-Regel-Regression:\n" + "\n".join(failures))
 
 
 # ── Test 3: Budget=0 Repos bleiben sauber ────────────────────────────────────
 
-_CLEAN_REPOS = [r for r in ALL_REPO_NAMES
-                if load_budgets().get(r, Budget(0, {})).total == 0]
+_CLEAN_REPOS = [
+    r for r in ALL_REPO_NAMES if load_budgets().get(r, Budget(0, {})).total == 0
+]
 
 
 @pytest.mark.megatest
@@ -153,8 +166,9 @@ def test_no_new_secrets(
     if not r:
         pytest.skip(f"{repo_name}: nicht gescannt")
 
-    sec_violations = [v for v in r.by_category("VERMEIDBAR")
-                      if v.rule.rule_id in _SECURITY_RULES]
+    sec_violations = [
+        v for v in r.by_category("VERMEIDBAR") if v.rule.rule_id in _SECURITY_RULES
+    ]
 
     if sec_violations:
         details = "\n".join(

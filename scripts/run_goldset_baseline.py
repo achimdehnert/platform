@@ -18,6 +18,7 @@ Voraussetzungen:
 
 ADR: docs/adr/ADR-177-agent-role-specialization.md (v1.4 Phase 0a)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,7 +37,9 @@ logger = logging.getLogger("goldset_runner")
 
 ROUTING_REASON = "goldset_baseline_2026-04"
 GOLDSET_FILE = Path(__file__).parent.parent / "baselines" / "goldset-2026-04.yaml"
-RESULTS_FILE = Path(__file__).parent.parent / "baselines" / "goldset-2026-04-results.json"
+RESULTS_FILE = (
+    Path(__file__).parent.parent / "baselines" / "goldset-2026-04-results.json"
+)
 
 
 def _load_goldset(path: Path) -> dict[str, Any]:
@@ -137,7 +140,9 @@ def _run_one_task(task: dict[str, Any], dry_run: bool = False) -> dict[str, Any]
         )
         choice = response.choices[0].message
         usage = response.usage
-        cost = float(getattr(response, "_hidden_params", {}).get("response_cost", 0.0) or 0.0)
+        cost = float(
+            getattr(response, "_hidden_params", {}).get("response_cost", 0.0) or 0.0
+        )
         return {
             "task_id": task_id,
             "task_type": task.get("task_type"),
@@ -196,7 +201,10 @@ def _insert_llm_calls(db_url: str, results: list[dict]) -> int:
                     "model": r.get("model") or "unknown",
                     "pt": r.get("prompt_tokens", 0),
                     "ct": r.get("completion_tokens", 0),
-                    "tt": r.get("total_tokens", r.get("prompt_tokens", 0) + r.get("completion_tokens", 0)),
+                    "tt": r.get(
+                        "total_tokens",
+                        r.get("prompt_tokens", 0) + r.get("completion_tokens", 0),
+                    ),
                     "cost": r.get("cost_usd", 0.0),
                     "dur": r.get("duration_ms", 0),
                     "rr": ROUTING_REASON,
@@ -207,11 +215,17 @@ def _insert_llm_calls(db_url: str, results: list[dict]) -> int:
                 },
             )
             inserted += 1
-    logger.info("Inserted %d rows into llm_calls with routing_reason=%s", inserted, ROUTING_REASON)
+    logger.info(
+        "Inserted %d rows into llm_calls with routing_reason=%s",
+        inserted,
+        ROUTING_REASON,
+    )
     return inserted
 
 
-def _ensure_routing_tag_in_db(db_url: str, run_id: str, task_results: list[dict]) -> None:
+def _ensure_routing_tag_in_db(
+    db_url: str, run_id: str, task_results: list[dict]
+) -> None:
     """Tag the most recent llm_calls entries with our routing_reason.
 
     aifw.sync_completion writes to llm_calls but doesn't set routing_reason.
@@ -238,7 +252,11 @@ def _ensure_routing_tag_in_db(db_url: str, run_id: str, task_results: list[dict]
             ),
             {"rr": ROUTING_REASON},
         )
-        logger.info("Tagged %d llm_calls with routing_reason=%s", result.rowcount, ROUTING_REASON)
+        logger.info(
+            "Tagged %d llm_calls with routing_reason=%s",
+            result.rowcount,
+            ROUTING_REASON,
+        )
 
 
 def _aggregate(results: list[dict]) -> dict[str, Any]:
@@ -275,10 +293,18 @@ def _aggregate(results: list[dict]) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Goldset Baseline Runner (ADR-177 Phase 0a)")
-    parser.add_argument("--dry-run", action="store_true", help="No API calls, synthetic data")
-    parser.add_argument("--limit", type=int, default=0, help="Stop after N tasks (0 = all)")
-    parser.add_argument("--task-id", default="", help="Run only this task_id (e.g. gs-001)")
+    parser = argparse.ArgumentParser(
+        description="Goldset Baseline Runner (ADR-177 Phase 0a)"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="No API calls, synthetic data"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Stop after N tasks (0 = all)"
+    )
+    parser.add_argument(
+        "--task-id", default="", help="Run only this task_id (e.g. gs-001)"
+    )
     parser.add_argument(
         "--goldset",
         default=str(GOLDSET_FILE),

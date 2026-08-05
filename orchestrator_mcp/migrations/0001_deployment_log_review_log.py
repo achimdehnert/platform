@@ -17,7 +17,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies: list[tuple[str, str]] = []
@@ -44,9 +43,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "tenant_id",
-                    models.BigIntegerField(
-                        db_index=True, verbose_name="Tenant ID"
-                    ),
+                    models.BigIntegerField(db_index=True, verbose_name="Tenant ID"),
                 ),
                 (
                     "repository",
@@ -144,9 +141,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "started_at",
-                    models.DateTimeField(
-                        auto_now_add=True, verbose_name="Started At"
-                    ),
+                    models.DateTimeField(auto_now_add=True, verbose_name="Started At"),
                 ),
                 (
                     "completed_at",
@@ -182,9 +177,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "health_check_passed",
-                    models.BooleanField(
-                        null=True, verbose_name="Health Check Passed"
-                    ),
+                    models.BooleanField(null=True, verbose_name="Health Check Passed"),
                 ),
                 (
                     "gate_level",
@@ -233,15 +226,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(
-                        auto_now_add=True, verbose_name="Created At"
-                    ),
+                    models.DateTimeField(auto_now_add=True, verbose_name="Created At"),
                 ),
                 (
                     "updated_at",
-                    models.DateTimeField(
-                        auto_now=True, verbose_name="Updated At"
-                    ),
+                    models.DateTimeField(auto_now=True, verbose_name="Updated At"),
                 ),
             ],
             options={
@@ -308,15 +297,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "tenant_id",
-                    models.BigIntegerField(
-                        db_index=True, verbose_name="Tenant ID"
-                    ),
+                    models.BigIntegerField(db_index=True, verbose_name="Tenant ID"),
                 ),
                 (
                     "repository",
-                    models.CharField(
-                        max_length=255, verbose_name="Repository"
-                    ),
+                    models.CharField(max_length=255, verbose_name="Repository"),
                 ),
                 (
                     "pr_number",
@@ -324,9 +309,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "pr_author",
-                    models.CharField(
-                        max_length=100, verbose_name="PR Author"
-                    ),
+                    models.CharField(max_length=100, verbose_name="PR Author"),
                 ),
                 (
                     "git_sha",
@@ -350,21 +333,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "blocking_issues",
-                    models.JSONField(
-                        default=list, verbose_name="Blocking Issues"
-                    ),
+                    models.JSONField(default=list, verbose_name="Blocking Issues"),
                 ),
                 (
                     "warning_issues",
-                    models.JSONField(
-                        default=list, verbose_name="Warning Issues"
-                    ),
+                    models.JSONField(default=list, verbose_name="Warning Issues"),
                 ),
                 (
                     "check_results",
-                    models.JSONField(
-                        default=dict, verbose_name="Check Results"
-                    ),
+                    models.JSONField(default=dict, verbose_name="Check Results"),
                 ),
                 (
                     "override_by",
@@ -390,9 +367,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "started_at",
-                    models.DateTimeField(
-                        auto_now_add=True, verbose_name="Started At"
-                    ),
+                    models.DateTimeField(auto_now_add=True, verbose_name="Started At"),
                 ),
                 (
                     "completed_at",
@@ -411,15 +386,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(
-                        auto_now_add=True, verbose_name="Created At"
-                    ),
+                    models.DateTimeField(auto_now_add=True, verbose_name="Created At"),
                 ),
                 (
                     "updated_at",
-                    models.DateTimeField(
-                        auto_now=True, verbose_name="Updated At"
-                    ),
+                    models.DateTimeField(auto_now=True, verbose_name="Updated At"),
                 ),
             ],
             options={

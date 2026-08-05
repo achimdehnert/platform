@@ -8,6 +8,7 @@ Rollback: Tabelle droppen + Spalte aus llm_calls entfernen.
 
 Depends on: 0002_qa_log_cost_log (ADR-108)
 """
+
 from __future__ import annotations
 
 import uuid
@@ -16,7 +17,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("orchestrator_mcp", "0002_qa_log_cost_log"),
     ]
@@ -108,9 +108,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(
-                        auto_now_add=True, verbose_name="Created At"
-                    ),
+                    models.DateTimeField(auto_now_add=True, verbose_name="Created At"),
                 ),
                 (
                     "deleted_at",
@@ -135,9 +133,7 @@ class Migration(migrations.Migration):
                 "constraints": [
                     models.UniqueConstraint(
                         fields=["agent_role", "complexity_hint"],
-                        condition=models.Q(
-                            deleted_at__isnull=True, is_active=True
-                        ),
+                        condition=models.Q(deleted_at__isnull=True, is_active=True),
                         name="uq_model_route_active",
                     ),
                 ],

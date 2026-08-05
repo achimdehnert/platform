@@ -44,18 +44,12 @@ class ReviewLog(models.Model):
     )
 
     # --- Multi-tenancy ---
-    tenant_id = models.BigIntegerField(
-        db_index=True, verbose_name=_("Tenant ID")
-    )
+    tenant_id = models.BigIntegerField(db_index=True, verbose_name=_("Tenant ID"))
 
     # --- PR Identity ---
-    repository = models.CharField(
-        max_length=255, verbose_name=_("Repository")
-    )
+    repository = models.CharField(max_length=255, verbose_name=_("Repository"))
     pr_number = models.PositiveIntegerField(verbose_name=_("PR Number"))
-    pr_author = models.CharField(
-        max_length=100, verbose_name=_("PR Author")
-    )
+    pr_author = models.CharField(max_length=100, verbose_name=_("PR Author"))
     git_sha = models.CharField(max_length=40, verbose_name=_("Git SHA"))
 
     # --- Review State ---
@@ -66,15 +60,9 @@ class ReviewLog(models.Model):
         db_index=True,
         verbose_name=_("Status"),
     )
-    blocking_issues = models.JSONField(
-        default=list, verbose_name=_("Blocking Issues")
-    )
-    warning_issues = models.JSONField(
-        default=list, verbose_name=_("Warning Issues")
-    )
-    check_results = models.JSONField(
-        default=dict, verbose_name=_("Check Results")
-    )
+    blocking_issues = models.JSONField(default=list, verbose_name=_("Blocking Issues"))
+    warning_issues = models.JSONField(default=list, verbose_name=_("Warning Issues"))
+    check_results = models.JSONField(default=dict, verbose_name=_("Check Results"))
 
     # --- Override Audit Trail (Fix M-3) ---
     override_by = models.CharField(
@@ -96,21 +84,15 @@ class ReviewLog(models.Model):
     )
 
     # --- Timestamps ---
-    started_at = models.DateTimeField(
-        auto_now_add=True, verbose_name=_("Started At")
-    )
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Started At"))
     completed_at = models.DateTimeField(
         null=True, blank=True, verbose_name=_("Completed At")
     )
     deleted_at = models.DateTimeField(
         null=True, blank=True, db_index=True, verbose_name=_("Deleted At")
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name=_("Created At")
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, verbose_name=_("Updated At")
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
 
     class Meta:
         verbose_name = _("Review Log")
@@ -124,9 +106,7 @@ class ReviewLog(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["tenant_id", "repository", "pr_number"],
-                condition=models.Q(
-                    status__in=["pending", "in_review"]
-                ),
+                condition=models.Q(status__in=["pending", "in_review"]),
                 name="unique_active_review_per_pr",
             ),
         ]

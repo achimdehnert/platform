@@ -169,9 +169,7 @@ def run_sync_dry_run(
         cmd.append(repo)
     env = dict(os.environ)
     env["GITHUB_DIR"] = str(github_dir)
-    return subprocess.run(
-        cmd, capture_output=True, text=True, env=env, check=False
-    )
+    return subprocess.run(cmd, capture_output=True, text=True, env=env, check=False)
 
 
 def main() -> int:
@@ -186,9 +184,7 @@ def main() -> int:
         default=str(DEFAULT_SYNC_SCRIPT),
         help="Pfad zu scripts/sync-workflows.sh",
     )
-    parser.add_argument(
-        "--repo", help="Nur ein Repo prüfen statt der ganzen Fleet"
-    )
+    parser.add_argument("--repo", help="Nur ein Repo prüfen statt der ganzen Fleet")
     parser.add_argument("--report", help="Markdown-Report in Datei schreiben")
     args = parser.parse_args()
 
@@ -204,7 +200,9 @@ def main() -> int:
     if parsed["summary_line"] is None:
         # SKIP-SUMMARY fehlt komplett -> Lauf ist vor der Summary abgebrochen
         # (z. B. Registry nicht lesbar) -> Aufruffehler, nicht "kein Drift".
-        print("❌ sync-workflows.sh lieferte keine SKIP-SUMMARY-Zeile:", file=sys.stderr)
+        print(
+            "❌ sync-workflows.sh lieferte keine SKIP-SUMMARY-Zeile:", file=sys.stderr
+        )
         print(output, file=sys.stderr)
         return 2
 

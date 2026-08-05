@@ -2,6 +2,7 @@
 
 Kept in sync manually; update both when the rule engine changes (ADR-218 OQ-1).
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -24,7 +25,8 @@ def check_min_inhalt_rule(rule: dict, path: pathlib.Path) -> str | None:
 
     if rule_type == "heading_count":
         count = sum(
-            1 for ln in text.splitlines()
+            1
+            for ln in text.splitlines()
             if ln.startswith("## ") or ln.startswith("### ")
         )
         mn = int(rule.get("min", 1))
@@ -32,7 +34,8 @@ def check_min_inhalt_rule(rule: dict, path: pathlib.Path) -> str | None:
 
     if rule_type == "table_rows":
         rows = [
-            ln for ln in text.splitlines()
+            ln
+            for ln in text.splitlines()
             if ln.strip().startswith("|")
             and set(ln.replace("|", "").replace("-", "").replace(" ", "")) != set()
         ]
@@ -47,6 +50,7 @@ def check_min_inhalt_rule(rule: dict, path: pathlib.Path) -> str | None:
 
     if rule_type == "frontmatter_status":
         import yaml
+
         required_val = rule.get("required_value", "ready")
         lines = text.splitlines()
         if lines and lines[0].strip() == "---":
@@ -58,7 +62,11 @@ def check_min_inhalt_rule(rule: dict, path: pathlib.Path) -> str | None:
             try:
                 fm = yaml.safe_load("\n".join(fm_lines)) or {}
                 actual = fm.get("status", "")
-                return None if actual == required_val else f"status={actual!r}!={required_val!r}"
+                return (
+                    None
+                    if actual == required_val
+                    else f"status={actual!r}!={required_val!r}"
+                )
             except Exception:
                 return "frontmatter-parse-error"
         return f"no-frontmatter (need status:{required_val})"

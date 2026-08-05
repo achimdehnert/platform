@@ -7,6 +7,7 @@ Prüft:
 Anpassen: HTMX_URLS mit den tatsächlichen HTMX-Endpoints des Repos füllen.
 Nur URLs eintragen die auf HX-Request reagieren (partials liefern).
 """
+
 import pytest
 
 from iil_testkit.assertions import assert_data_testids, assert_htmx_response

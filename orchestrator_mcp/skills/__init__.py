@@ -4,6 +4,7 @@ SkillRegistry — zentrale Registrierung und Discovery aller Agent-Skills.
 Kein Magic via __init_subclass__: explizite Discovery via importlib.
 Kein silentes Versagen: fehlende Skills werfen SkillNotFoundError.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -37,13 +38,17 @@ def register(skill: Skill) -> None:
         if existing.version != skill.version:
             log.warning(
                 "Skill '%s' wird überschrieben: %s → %s",
-                skill.name, existing.version, skill.version,
+                skill.name,
+                existing.version,
+                skill.version,
             )
 
     _REGISTRY[skill.name] = skill
     log.info(
         "Skill registriert: %s v%s (domain=%s)",
-        skill.name, skill.version, skill.domain,
+        skill.name,
+        skill.version,
+        skill.domain,
     )
 
 
@@ -52,8 +57,7 @@ def get_skill(name: str) -> Skill:
     if name not in _REGISTRY:
         available = sorted(_REGISTRY.keys())
         raise SkillNotFoundError(
-            f"Skill '{name}' nicht gefunden. "
-            f"Verfügbare Skills: {available}"
+            f"Skill '{name}' nicht gefunden. Verfügbare Skills: {available}"
         )
     return _REGISTRY[name]
 
@@ -101,6 +105,7 @@ def _resolve_dependencies(
 
 # ─── Discovery ────────────────────────────────────────────────────────────────
 
+
 def discover_skills(skills_dir: Path | None = None) -> int:
     """
     Alle Skill-Module in skills/ laden und registrieren.
@@ -125,7 +130,8 @@ def discover_skills(skills_dir: Path | None = None) -> int:
         except ImportError as exc:
             log.error(
                 "Skill-Modul '%s' konnte nicht geladen werden: %s",
-                module_name, exc,
+                module_name,
+                exc,
             )
             continue
 
@@ -137,7 +143,8 @@ def discover_skills(skills_dir: Path | None = None) -> int:
             else:
                 log.warning(
                     "Modul '%s' hat SKILL Variable, aber es ist kein Skill-Objekt: %s",
-                    module_name, type(skill_instance),
+                    module_name,
+                    type(skill_instance),
                 )
         else:
             log.debug(

@@ -92,7 +92,12 @@ def scan_file(path: Path, hostnames: list[str], ips: list[str]) -> list[str]:
     return hits
 
 
-def scan_repo(repo_dir: Path, hostnames: list[str], ips: list[str], extra_files: list[str] | None = None) -> dict[str, list[str]]:
+def scan_repo(
+    repo_dir: Path,
+    hostnames: list[str],
+    ips: list[str],
+    extra_files: list[str] | None = None,
+) -> dict[str, list[str]]:
     findings: dict[str, list[str]] = {}
     candidates = list(extra_files or [])
     for pattern in DEFAULT_GLOBS:
@@ -112,7 +117,9 @@ def scan_repo(repo_dir: Path, hostnames: list[str], ips: list[str], extra_files:
 def cmd_gate(args: argparse.Namespace) -> int:
     hostnames, ips = load_dead_markers()
     if not hostnames and not ips:
-        print("INFO: keine decommissioned-Einträge in registry/canonical.yaml — nichts zu prüfen.")
+        print(
+            "INFO: keine decommissioned-Einträge in registry/canonical.yaml — nichts zu prüfen."
+        )
         return 0
     repo_dir = Path.home() / "github" / args.repo
     if not repo_dir.is_dir():
@@ -135,14 +142,18 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     ips = [i for e in entries for i in (e.get("dead_ips") or [])]
     decommissioned_names = {e.get("name") for e in entries if e.get("name")}
     if not hostnames and not ips:
-        print("INFO: keine decommissioned-Einträge in registry/canonical.yaml — nichts zu prüfen.")
+        print(
+            "INFO: keine decommissioned-Einträge in registry/canonical.yaml — nichts zu prüfen."
+        )
         return 0
     root = Path(args.root).expanduser()
     if not root.is_dir():
         print(f"FEHLER: --root nicht gefunden: {root}", file=sys.stderr)
         return 2
     total_findings: dict[str, dict[str, list[str]]] = {}
-    for repo_dir in sorted(p for p in root.iterdir() if p.is_dir() and (p / ".git").exists()):
+    for repo_dir in sorted(
+        p for p in root.iterdir() if p.is_dir() and (p / ".git").exists()
+    ):
         if repo_dir.name in decommissioned_names:
             # Ein dekommissioniertes Repo, das in seiner EIGENEN Compose-Datei
             # seine eigenen (jetzt toten) Container-Namen definiert, ist kein
@@ -158,21 +169,34 @@ def cmd_sweep(args: argparse.Namespace) -> int:
             for path, hits in findings.items():
                 print(f"  {repo}: {path}: {', '.join(hits)}")
         return 1
-    print(f"✅ Sweep sauber — {sum(1 for p in root.iterdir() if p.is_dir() and (p / '.git').exists())} Repos geprüft, keine toten Referenzen in getrackten Dateien.")
+    print(
+        f"✅ Sweep sauber — {sum(1 for p in root.iterdir() if p.is_dir() and (p / '.git').exists())} Repos geprüft, keine toten Referenzen in getrackten Dateien."
+    )
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="mode", required=True)
 
     gate = sub.add_parser("gate", help="Ein Repo gegen decommissioned: prüfen")
     gate.add_argument("--repo", required=True, help="Repo-Name unter ~/github/")
-    gate.add_argument("--env-file", action="append", default=[], help="Zusätzliche Datei(en) prüfen (Pfad relativ zum Repo oder absolut)")
+    gate.add_argument(
+        "--env-file",
+        action="append",
+        default=[],
+        help="Zusätzliche Datei(en) prüfen (Pfad relativ zum Repo oder absolut)",
+    )
     gate.set_defaults(func=cmd_gate)
 
     sweep = sub.add_parser("sweep", help="Alle lokalen Repo-Checkouts scannen")
-    sweep.add_argument("--root", default="~/github", help="Wurzelverzeichnis der Checkouts (Default ~/github)")
+    sweep.add_argument(
+        "--root",
+        default="~/github",
+        help="Wurzelverzeichnis der Checkouts (Default ~/github)",
+    )
     sweep.set_defaults(func=cmd_sweep)
 
     args = parser.parse_args()

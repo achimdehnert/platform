@@ -100,7 +100,9 @@ def parse_index(index_path: pathlib.Path) -> tuple[list[IndexRow], int | None, i
     rows: list[IndexRow] = []
     next_free: int | None = None
     next_free_line = 0
-    for i, line in enumerate(index_path.read_text(encoding="utf-8").splitlines(), start=1):
+    for i, line in enumerate(
+        index_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         nf = NEXT_FREE_RE.search(line)
         if nf and next_free is None:
             next_free = int(nf.group(1))
@@ -263,13 +265,17 @@ def emit(findings: list[Finding], fmt: str) -> None:
             print(f"{f.path}:{f.line}: [{f.category}] {f.message}")
     summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "0 Findings"
     if fmt == "github":
-        print(f"::warning title=adr-index-check summary::{len(findings)} Finding(s): {summary}")
+        print(
+            f"::warning title=adr-index-check summary::{len(findings)} Finding(s): {summary}"
+        )
     print(f"adr-index-check: {len(findings)} Finding(s) ({summary})")
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--adr-dir", default="docs/adr", help="ADR-Verzeichnis (Default docs/adr)")
+    ap.add_argument(
+        "--adr-dir", default="docs/adr", help="ADR-Verzeichnis (Default docs/adr)"
+    )
     ap.add_argument("--format", choices=["human", "github"], default="human")
     ap.add_argument(
         "--gate",
@@ -280,7 +286,9 @@ def main(argv: list[str] | None = None) -> int:
 
     adr_dir = pathlib.Path(args.adr_dir)
     if not adr_dir.is_dir():
-        print(f"adr-index-check: Verzeichnis {adr_dir} nicht gefunden — nichts zu pruefen.")
+        print(
+            f"adr-index-check: Verzeichnis {adr_dir} nicht gefunden — nichts zu pruefen."
+        )
         return 0
     repo_root = adr_dir.resolve().parent.parent
     findings = run(adr_dir.resolve(), repo_root)

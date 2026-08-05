@@ -7,12 +7,15 @@ Test pinnt die Idempotenz — er läuft im generischen tools-tests.yml Gate (#49
 Run: `python3 -m pytest tools/tests/test_registry_canonical.py -q`
 (registry-canonical.py hat einen Bindestrich → via importlib geladen.)
 """
+
 import importlib.util
 import pathlib
 import sys
 
 _TOOLS = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_TOOLS))  # registry-canonical.py macht modul-level `from registry_api import …`
+sys.path.insert(
+    0, str(_TOOLS)
+)  # registry-canonical.py macht modul-level `from registry_api import …`
 
 _SRC = _TOOLS / "registry-canonical.py"
 _spec = importlib.util.spec_from_file_location("registry_canonical", _SRC)
@@ -41,4 +44,6 @@ def test_should_not_strip_docs_that_merely_resemble_notice():
     # Eine Schema-Doc-Zeile, die KEINE exakte GEN_NOTICE-Zeile ist, bleibt erhalten
     text = "# GENERATED irgendwas anderes (kein exakter Match)\n" + DOCS
     out = rc._strip_gen_notice(text)
-    assert "kein exakter Match" in out  # nicht versehentlich gestrippt (REC-5 Determinismus)
+    assert (
+        "kein exakter Match" in out
+    )  # nicht versehentlich gestrippt (REC-5 Determinismus)

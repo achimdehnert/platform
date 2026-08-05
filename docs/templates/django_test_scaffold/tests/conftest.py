@@ -9,4 +9,5 @@ Voraussetzungen (requirements-test.txt):
     pytest-cov>=5.0
     beautifulsoup4>=4.12
 """
+
 pytest_plugins = ["iil_testkit.fixtures"]

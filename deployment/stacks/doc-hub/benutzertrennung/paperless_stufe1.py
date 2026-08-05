@@ -61,8 +61,10 @@ for alt, neu in UMBENENNEN:
         fehler.append("%s -> %s: Ziel existiert" % (alt, neu))
         continue
     n = Document.objects.filter(owner=b).count()
-    print("umbenennen    %-8s -> %-24s (Kennung %s, %d Dokumente, %d Rechte)"
-          % (alt, neu, b.id, n, b.user_permissions.count()))
+    print(
+        "umbenennen    %-8s -> %-24s (Kennung %s, %d Dokumente, %d Rechte)"
+        % (alt, neu, b.id, n, b.user_permissions.count())
+    )
     if SCHARF:
         b.username = neu
         b.save(update_fields=["username"])
@@ -74,12 +76,18 @@ print()
 if not quelle:
     print("UEBERSPRUNGEN %-8s -> %-24s (Quellkonto gibt es nicht)" % (alt, neu))
 elif not ziel:
-    print("umbenennen    %-8s -> %-24s (Ziel existiert nicht, also nur Umbenennung)" % (alt, neu))
+    print(
+        "umbenennen    %-8s -> %-24s (Ziel existiert nicht, also nur Umbenennung)"
+        % (alt, neu)
+    )
     if SCHARF:
         quelle.username = neu
         quelle.save(update_fields=["username"])
 else:
-    print("zusammenfuehren %s (Kennung %s) -> %s (Kennung %s)" % (alt, quelle.id, neu, ziel.id))
+    print(
+        "zusammenfuehren %s (Kennung %s) -> %s (Kennung %s)"
+        % (alt, quelle.id, neu, ziel.id)
+    )
     umzug = {}
     for modell in BESITZ_MODELLE:
         n = modell.objects.filter(owner=quelle).count()
@@ -102,7 +110,9 @@ else:
                 modell.objects.filter(owner=quelle).update(owner=ziel)
             UserObjectPermission.objects.filter(user=quelle).update(user=ziel)
             if neue_rechte:
-                ziel.user_permissions.add(*Permission.objects.filter(id__in=neue_rechte))
+                ziel.user_permissions.add(
+                    *Permission.objects.filter(id__in=neue_rechte)
+                )
             quelle.is_active = False
             quelle.username = "zusammengefuehrt-%s" % alt
             quelle.save(update_fields=["is_active", "username"])
@@ -111,9 +121,17 @@ else:
 print()
 print("=== Stand danach")
 for b in User.objects.order_by("id"):
-    print("%-4s %-32s super=%-5s aktiv=%-5s rechte=%-3d dokumente=%d"
-          % (b.id, b.username[:32], b.is_superuser, b.is_active,
-             b.user_permissions.count(), Document.objects.filter(owner=b).count()))
+    print(
+        "%-4s %-32s super=%-5s aktiv=%-5s rechte=%-3d dokumente=%d"
+        % (
+            b.id,
+            b.username[:32],
+            b.is_superuser,
+            b.is_active,
+            b.user_permissions.count(),
+            Document.objects.filter(owner=b).count(),
+        )
+    )
 
 if fehler:
     print()

@@ -40,9 +40,7 @@ from pathlib import Path
 import yaml
 
 
-PORTS_YAML = (
-    Path(__file__).resolve().parent.parent / "ports.yaml"
-)
+PORTS_YAML = Path(__file__).resolve().parent.parent / "ports.yaml"
 
 
 def load_ports_yaml(path: Path) -> tuple[dict, dict]:
@@ -69,30 +67,24 @@ def check_yaml_duplicates(services: dict) -> list[str]:
         prod_port = cfg.get("prod")
         if prod_port and isinstance(prod_port, int):
             prod_owners.setdefault(
-                prod_port, [],
+                prod_port,
+                [],
             ).append(name)
         staging_port = cfg.get("staging")
         if staging_port and isinstance(staging_port, int):
             staging_owners.setdefault(
-                staging_port, [],
+                staging_port,
+                [],
             ).append(name)
 
     errors = []
     for port, owners in sorted(prod_owners.items()):
         if len(owners) > 1:
-            errors.append(
-                f"  DUPLIKAT prod:{port}:"
-                f" {', '.join(owners)}"
-            )
+            errors.append(f"  DUPLIKAT prod:{port}: {', '.join(owners)}")
     for port, owners in sorted(staging_owners.items()):
         if len(owners) > 1:
-            errors.append(
-                f"  DUPLIKAT staging:{port}:"
-                f" {', '.join(owners)}"
-            )
+            errors.append(f"  DUPLIKAT staging:{port}: {', '.join(owners)}")
     return errors
-
-
 
 
 def check_domain_depth(services: dict) -> list[str]:
@@ -120,6 +112,7 @@ def check_domain_depth(services: dict) -> list[str]:
                 )
     return errors
 
+
 def find_next_free_port(services: dict) -> int:
     """Berechne den nächsten freien Port."""
     used: set[int] = set()
@@ -140,10 +133,7 @@ def find_next_free_port(services: dict) -> int:
 
 def get_server_ports(server: str) -> dict[int, str]:
     """Hole alle Docker-Container-Port-Mappings vom Server."""
-    cmd = [
-        "ssh", server,
-        "docker ps --format '{{.Names}}\\t{{.Ports}}'"
-    ]
+    cmd = ["ssh", server, "docker ps --format '{{.Names}}\\t{{.Ports}}'"]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         print(f"FEHLER: SSH fehlgeschlagen: {result.stderr.strip()}")
@@ -184,15 +174,18 @@ def _normalize_name(name: str) -> str:
     n = name.lower().replace("-", "_")
     # Docker-Suffixe entfernen (längste zuerst)
     for suffix in (
-        "_staging_web_rls", "_staging_web", "_staging_caddy",
-        "_web", "_caddy",
+        "_staging_web_rls",
+        "_staging_web",
+        "_staging_caddy",
+        "_web",
+        "_caddy",
     ):
         if n.endswith(suffix):
             n = n[: -len(suffix)]
             break
     # 'staging_' Präfix entfernen (bei staging-Containern)
     if n.startswith("staging_"):
-        n = n[len("staging_"):]
+        n = n[len("staging_") :]
     # '_staging' Suffix entfernen (bei risk_hub_staging etc.)
     if n.endswith("_staging"):
         n = n[: -len("_staging")]
@@ -267,8 +260,7 @@ def audit_server(
     print(f"  Verbinde zu {server_ssh}...")
     server_ports = get_server_ports(server_ssh)
     print(
-        f"  {len(server_ports)} Port-Mappings"
-        " gefunden\n",
+        f"  {len(server_ports)} Port-Mappings gefunden\n",
     )
     return audit(services, server_ports)
 
@@ -366,19 +358,23 @@ def main() -> None:
         help="SSH target (überschreibt ports.yaml)",
     )
     parser.add_argument(
-        "--staging", action="store_true",
+        "--staging",
+        action="store_true",
         help="Staging-Server prüfen",
     )
     parser.add_argument(
-        "--all-servers", action="store_true",
+        "--all-servers",
+        action="store_true",
         help="Beide Server prüfen",
     )
     parser.add_argument(
-        "--offline", action="store_true",
+        "--offline",
+        action="store_true",
         help="Nur ports.yaml auf Duplikate prüfen",
     )
     parser.add_argument(
-        "--next-free", action="store_true",
+        "--next-free",
+        action="store_true",
         help="Nächsten freien Port ausgeben",
     )
     parser.add_argument(
@@ -421,11 +417,7 @@ def main() -> None:
     # Check 3 (optional): Inventory — Compose / Nginx Drift gegen ports.yaml
     inventory_errors: list[str] = []
     if args.inventory:
-        envs = (
-            ["staging", "prod"]
-            if args.inventory == "all"
-            else [args.inventory]
-        )
+        envs = ["staging", "prod"] if args.inventory == "all" else [args.inventory]
         for env in envs:
             print(f"\nCheck 3: Compose-Drift [{env}]")
             cd = check_compose_drift(services, env)
@@ -474,12 +466,11 @@ def main() -> None:
 
     all_errors = list(dupes) + depth_errors + inventory_errors
     for ssh_target, env in targets:
-        print(
-            f"Check: Server-Abgleich"
-            f" [{env}] ({ssh_target})"
-        )
+        print(f"Check: Server-Abgleich [{env}] ({ssh_target})")
         conflicts = audit_server(
-            services, ssh_target, env,
+            services,
+            ssh_target,
+            env,
         )
         if conflicts:
             print("\n".join(conflicts))
@@ -488,14 +479,11 @@ def main() -> None:
         all_errors.extend(conflicts)
 
     if all_errors:
-        print(f"\n{'='*50}")
-        print(
-            f"ERGEBNIS:"
-            f" {len(all_errors)} Problem(e)"
-        )
+        print(f"\n{'=' * 50}")
+        print(f"ERGEBNIS: {len(all_errors)} Problem(e)")
         sys.exit(1)
     else:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("ERGEBNIS: Alles OK")
         sys.exit(0)
 

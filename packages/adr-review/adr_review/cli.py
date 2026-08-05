@@ -23,6 +23,7 @@ Frontier-Lücke NICHT — wirklich harte ADRs bleiben Mensch/in-session.
 Modellnamen mappen künftig auf ADR-208-Resolver-Aliase (noch nicht hart
 gekoppelt: Resolver-Implementierung offen).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,19 +38,15 @@ GH = "https://api.github.com"
 MARKER = "<!-- adr-review -->"
 
 # Tier-1a (policy: user-visible prose), Flatrate Cerebras/Groq — kein Anthropic.
-PRIMARY = os.environ.get("ADR_REVIEW_MODEL",
-                         "groq/llama-3.3-70b-versatile")
+PRIMARY = os.environ.get("ADR_REVIEW_MODEL", "groq/llama-3.3-70b-versatile")
 # Cross-Provider-Failover (Policy): Primary groq -> Fallback cerebras.
 # Beide nicht deprecating; löst qwen-3-235b ab (Cerebras-EOL 2026-05-27).
-FALLBACK = os.environ.get("ADR_REVIEW_FALLBACK",
-                          "cerebras/llama3.1-8b").strip()
+FALLBACK = os.environ.get("ADR_REVIEW_FALLBACK", "cerebras/llama3.1-8b").strip()
 # Eskalations-Modell (stärker, weiter Flatrate, KEIN Anthropic).
-DEEP_MODEL = os.environ.get("ADR_REVIEW_DEEP_MODEL",
-                            "cerebras/zai-glm-4.7").strip()
+DEEP_MODEL = os.environ.get("ADR_REVIEW_DEEP_MODEL", "cerebras/zai-glm-4.7").strip()
 ESCALATE_BELOW = int(os.environ.get("ADR_REVIEW_ESCALATE_BELOW", "6"))
 DEEP_LABEL = os.environ.get("ADR_REVIEW_DEEP_LABEL", "adr-deep-review")
-_SECRET_DIRS = [Path.home() / "shared" / "secrets-inbox",
-                Path.home() / ".secrets"]
+_SECRET_DIRS = [Path.home() / "shared" / "secrets-inbox", Path.home() / ".secrets"]
 
 CHECKLIST = """Du bist ADR-Architektur-Reviewer für die iil/achimdehnert-Plattform.
 Bewerte den/die geänderten ADR(s) gegen:
@@ -81,11 +78,17 @@ def is_adr_file(path: str) -> bool:
 def _secret(model: str) -> str | None:
     """litellm-Modellstring → API-Key (env ODER ~/shared/secrets-inbox/, wie print_agent)."""
     m = model.lower()
-    name = ("cerebras_api_key" if m.startswith("cerebras/")
-            else "groq_api_key" if m.startswith("groq/")
-            else "mistral_api_key" if m.startswith("mistral/")
-            else "openai_api_key" if m.startswith(("openai/", "gpt-"))
-            else None)
+    name = (
+        "cerebras_api_key"
+        if m.startswith("cerebras/")
+        else "groq_api_key"
+        if m.startswith("groq/")
+        else "mistral_api_key"
+        if m.startswith("mistral/")
+        else "openai_api_key"
+        if m.startswith(("openai/", "gpt-"))
+        else None
+    )
     if not name:
         return None
     val = os.environ.get(name.upper())
@@ -99,8 +102,7 @@ def _secret(model: str) -> str | None:
 
 
 def _gh(method: str, url: str, token: str, **kw):
-    h = {"Authorization": f"Bearer {token}",
-         "Accept": "application/vnd.github+json"}
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     r = requests.request(method, url, headers=h, timeout=30, **kw)
     r.raise_for_status()
     return r
@@ -109,13 +111,15 @@ def _gh(method: str, url: str, token: str, **kw):
 def changed_adrs(repo: str, pr: int, token: str) -> list[dict]:
     out, page = [], 1
     while True:
-        r = _gh("GET", f"{GH}/repos/{repo}/pulls/{pr}/files"
-                f"?per_page=100&page={page}", token)
+        r = _gh(
+            "GET", f"{GH}/repos/{repo}/pulls/{pr}/files?per_page=100&page={page}", token
+        )
         batch = r.json()
         if not batch:
             break
-        out += [f for f in batch if is_adr_file(f["filename"])
-                and f["status"] != "removed"]
+        out += [
+            f for f in batch if is_adr_file(f["filename"]) and f["status"] != "removed"
+        ]
         if len(batch) < 100:
             break
         page += 1
@@ -137,10 +141,13 @@ def _complete(model: str, system: str, user: str) -> str | None:
         return None
     try:
         import litellm
+
         resp = litellm.completion(
             model=model,
-            messages=[{"role": "system", "content": system},
-                      {"role": "user", "content": user}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
             max_tokens=1600,
             temperature=0.2,
             api_key=key,
@@ -153,13 +160,11 @@ def _complete(model: str, system: str, user: str) -> str | None:
 
 
 def build_prompt(files: list[dict], token: str) -> str:
-    parts = [f"### {f['filename']}\n\n{fetch_text(f['raw_url'], token)}"
-             for f in files]
+    parts = [f"### {f['filename']}\n\n{fetch_text(f['raw_url'], token)}" for f in files]
     return "Geänderte ADR-Dateien:\n\n" + "\n\n---\n\n".join(parts)
 
 
-def run_model(model: str, fallback: str,
-              user: str) -> tuple[int, str, str] | None:
+def run_model(model: str, fallback: str, user: str) -> tuple[int, str, str] | None:
     text, used = _complete(model, CHECKLIST, user), model
     if text is None and fallback and fallback != model:
         text, used = _complete(fallback, CHECKLIST, user), fallback
@@ -178,8 +183,9 @@ def pr_labels(repo: str, pr: int, token: str) -> list[str]:
         return []
 
 
-def should_escalate(labels: list[str], n_files: int, first_score: int,
-                     threshold: int, deep_label: str) -> tuple[bool, str]:
+def should_escalate(
+    labels: list[str], n_files: int, first_score: int, threshold: int, deep_label: str
+) -> tuple[bool, str]:
     """Pure: warum (oder ob nicht) ein zweiter, stärkerer Pass nötig ist."""
     if deep_label in labels:
         return True, f"Label '{deep_label}'"
@@ -200,36 +206,43 @@ def label_for(score: int) -> str:
 
 def upsert_comment(repo: str, pr: int, body: str, token: str) -> None:
     body = f"{MARKER}\n{body}"
-    existing = _gh("GET", f"{GH}/repos/{repo}/issues/{pr}/comments?per_page=100",
-                   token).json()
+    existing = _gh(
+        "GET", f"{GH}/repos/{repo}/issues/{pr}/comments?per_page=100", token
+    ).json()
     for c in existing:
         if MARKER in (c.get("body") or ""):
-            _gh("PATCH", f"{GH}/repos/{repo}/issues/comments/{c['id']}",
-                token, json={"body": body})
+            _gh(
+                "PATCH",
+                f"{GH}/repos/{repo}/issues/comments/{c['id']}",
+                token,
+                json={"body": body},
+            )
             return
-    _gh("POST", f"{GH}/repos/{repo}/issues/{pr}/comments", token,
-        json={"body": body})
+    _gh("POST", f"{GH}/repos/{repo}/issues/{pr}/comments", token, json={"body": body})
 
 
 def set_label(repo: str, pr: int, label: str, token: str) -> None:
-    for stale in ("adr-review-passed", "adr-review-concerns",
-                  "adr-review-failed"):
+    for stale in ("adr-review-passed", "adr-review-concerns", "adr-review-failed"):
         if stale != label:
             try:
-                _gh("DELETE",
-                    f"{GH}/repos/{repo}/issues/{pr}/labels/{stale}", token)
+                _gh("DELETE", f"{GH}/repos/{repo}/issues/{pr}/labels/{stale}", token)
             except Exception:  # noqa: BLE001
                 pass
-    _gh("POST", f"{GH}/repos/{repo}/issues/{pr}/labels", token,
-        json={"labels": [label]})
+    _gh(
+        "POST", f"{GH}/repos/{repo}/issues/{pr}/labels", token, json={"labels": [label]}
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="adr-review")
     ap.add_argument("--pr", type=int, required=True)
     ap.add_argument("--repo", required=True, help="owner/name")
-    ap.add_argument("--fail-under", type=int, default=0,
-                    help="Exit 1 wenn Score < N (default 0 = nie blockieren)")
+    ap.add_argument(
+        "--fail-under",
+        type=int,
+        default=0,
+        help="Exit 1 wenn Score < N (default 0 = nie blockieren)",
+    )
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
 
@@ -238,8 +251,9 @@ def main(argv: list[str] | None = None) -> int:
         print("adr-review: GITHUB_TOKEN fehlt — übersprungen.")
         return 0
     if not (_secret(PRIMARY) or (FALLBACK and _secret(FALLBACK))):
-        print("adr-review: kein LLM-Key (CEREBRAS_API_KEY/GROQ_API_KEY) "
-              "— übersprungen.")
+        print(
+            "adr-review: kein LLM-Key (CEREBRAS_API_KEY/GROQ_API_KEY) — übersprungen."
+        )
         return 0
 
     files = changed_adrs(a.repo, a.pr, token)
@@ -254,8 +268,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     score, text, used = r
 
-    esc, why = should_escalate(pr_labels(a.repo, a.pr, token), len(files),
-                               score, ESCALATE_BELOW, DEEP_LABEL)
+    esc, why = should_escalate(
+        pr_labels(a.repo, a.pr, token), len(files), score, ESCALATE_BELOW, DEEP_LABEL
+    )
     esc_note = ""
     if esc and DEEP_MODEL and DEEP_MODEL != used and _secret(DEEP_MODEL):
         print(f"adr-review: Eskalation ({why}) → {DEEP_MODEL}")
@@ -267,9 +282,11 @@ def main(argv: list[str] | None = None) -> int:
             esc_note = f" · Eskalation versucht ({why}), Deep-Modell n/a"
 
     label = label_for(score)
-    body = (f"## 🤖 ADR Review — Score {score}/10 (`{label}`)\n\n"
-            f"{text}\n\n<sub>{len(files)} ADR-Datei(en) · via {used} · "
-            f"Flatrate{esc_note} · informativ, nicht blockierend</sub>")
+    body = (
+        f"## 🤖 ADR Review — Score {score}/10 (`{label}`)\n\n"
+        f"{text}\n\n<sub>{len(files)} ADR-Datei(en) · via {used} · "
+        f"Flatrate{esc_note} · informativ, nicht blockierend</sub>"
+    )
 
     if a.dry_run:
         print(body)

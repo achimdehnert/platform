@@ -28,13 +28,17 @@ def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
     )
 
 
-def _git_repo_with_commit(tmp_path: Path, filename: str, content: str, commit_date: str) -> Path:
+def _git_repo_with_commit(
+    tmp_path: Path, filename: str, content: str, commit_date: str
+) -> Path:
     """Frisches Git-Repo mit EINEM Commit, der `filename` an einem festen Datum anlegt —
     deterministisch statt von der Systemuhr abhängig (Date.now()-Fallen vermeiden)."""
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+    )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
     (repo / filename).write_text(content, encoding="utf-8")
     env = {
@@ -50,7 +54,8 @@ def _git_repo_with_commit(tmp_path: Path, filename: str, content: str, commit_da
 def test_should_pass_when_heading_date_matches_last_commit_date(tmp_path):
     # Dialekt 1 (iil-voice-agent-Stil): "## ⚡ Aktueller Stand (<datum>)".
     repo = _git_repo_with_commit(
-        tmp_path, "AGENT_HANDOVER.md",
+        tmp_path,
+        "AGENT_HANDOVER.md",
         "# Titel\n\n## ⚡ Aktueller Stand (2026-07-07)\n\nInhalt.\n",
         "2026-07-07",
     )
@@ -62,7 +67,8 @@ def test_should_pass_when_heading_date_matches_last_commit_date(tmp_path):
 def test_should_pass_for_library_dialect_heading(tmp_path):
     # Dialekt 2 (Package-Repo-Stil): "## Current state (observed <datum>)".
     repo = _git_repo_with_commit(
-        tmp_path, "AGENT_HANDOVER.md",
+        tmp_path,
+        "AGENT_HANDOVER.md",
         "# Titel\n\n## Current state (observed 2026-07-07)\n\nContent.\n",
         "2026-07-07",
     )
@@ -83,7 +89,8 @@ def test_should_fail_when_heading_date_is_stale_vs_last_commit(tmp_path):
     # Datei wurde am 2026-07-07 committet, die Überschrift behauptet aber weiterhin einen
     # >30 Tage alten Stand — genau die Drift, die das Gate fangen soll.
     repo = _git_repo_with_commit(
-        tmp_path, "AGENT_HANDOVER.md",
+        tmp_path,
+        "AGENT_HANDOVER.md",
         "# Titel\n\n## Aktueller Stand (2026-05-01)\n\nAlter Inhalt, PR aber gerade gemergt.\n",
         "2026-07-07",
     )
@@ -96,7 +103,9 @@ def test_should_fail_when_heading_date_is_stale_vs_last_commit(tmp_path):
 def test_should_pass_when_no_git_history_is_determinable(tmp_path):
     # Kein Git-Repo (z.B. flaches Checkout/Sonderfall) -> degradiert zu PASS statt False-Positive.
     f = tmp_path / "AGENT_HANDOVER.md"
-    f.write_text("# Titel\n\n## Aktueller Stand (2020-01-01)\n\nSehr alt, aber kein Git-Kontext.\n")
+    f.write_text(
+        "# Titel\n\n## Aktueller Stand (2020-01-01)\n\nSehr alt, aber kein Git-Kontext.\n"
+    )
     res = _run(str(f))
     assert res.returncode == 0, res.stdout + res.stderr
 
@@ -114,7 +123,8 @@ def test_should_exit_usage_error_without_args():
 
 def test_should_report_one_exit_code_for_mixed_batch(tmp_path):
     repo = _git_repo_with_commit(
-        tmp_path, "AGENT_HANDOVER.md",
+        tmp_path,
+        "AGENT_HANDOVER.md",
         "# T\n\n## Aktueller Stand (2026-07-07)\n\nfrisch.\n",
         "2026-07-07",
     )
@@ -129,6 +139,8 @@ def test_should_pass_on_platform_own_agent_handover_dogfood():
     # Dogfood: platform trägt selbst ein AGENT_HANDOVER.md mit datierter Überschrift — muss das
     # Gate real bestehen, nicht nur an synthetischen Fixtures.
     handover = REPO_ROOT / "AGENT_HANDOVER.md"
-    assert handover.is_file(), "Bestands-AGENT_HANDOVER.md fehlt — Test-Fixture-Annahme kaputt"
+    assert handover.is_file(), (
+        "Bestands-AGENT_HANDOVER.md fehlt — Test-Fixture-Annahme kaputt"
+    )
     res = _run(str(handover), cwd=REPO_ROOT)
     assert res.returncode == 0, res.stdout + res.stderr

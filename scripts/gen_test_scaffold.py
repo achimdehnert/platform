@@ -14,6 +14,7 @@ Verwendet von:
     - scaffold-tests.yml GitHub Action
     - Manuell beim Onboarding neuer Repos
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,13 +31,15 @@ def _get_fallback_version() -> str:
     """Ermittle Fallback-Version aus installiertem iil-testkit oder pyproject.toml."""
     try:
         from importlib.metadata import version
+
         return version("iil-testkit")
     except Exception:
         pass
     pyproject = PLATFORM_ROOT / "pyproject.toml"
     if pyproject.exists():
         import re
-        m = re.search(r'iil-testkit.*?>=(\d+\.\d+\.\d+)', pyproject.read_text())
+
+        m = re.search(r"iil-testkit.*?>=(\d+\.\d+\.\d+)", pyproject.read_text())
         if m:
             return m.group(1)
     return "0.1.0"
@@ -44,11 +47,14 @@ def _get_fallback_version() -> str:
 
 # ── PyPI Version Lookup ───────────────────────────────────────────────────────
 
+
 def get_latest_version(package: str, fallback: str | None = None) -> str:
     """Hole aktuelle Stable-Version von PyPI. Fallback bei Netzwerkfehler."""
     url = f"https://pypi.org/pypi/{package}/json"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "gen_test_scaffold/1.0"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "gen_test_scaffold/1.0"}
+        )
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
         version = data["info"]["version"]
@@ -62,9 +68,10 @@ def get_latest_version(package: str, fallback: str | None = None) -> str:
 
 # ── Scaffold-Templates ────────────────────────────────────────────────────────
 
+
 def _requirements_test(testkit_version: str) -> str:
     return f"""\
-iil-testkit[smoke]>={testkit_version},<{int(testkit_version.split('.')[0]) + 1}
+iil-testkit[smoke]>={testkit_version},<{int(testkit_version.split(".")[0]) + 1}
 pytest>=8.0
 pytest-django>=4.8
 pytest-cov>=5.0
@@ -139,6 +146,7 @@ def test_should_unauthenticated_redirect_to_login(url: str, api_client) -> None:
 def _discover_htmx_urls(repo_dir: Path) -> list[str]:
     """Durchsucht Templates nach hx-post/hx-get Attributen und leitet URLs ab."""
     import re
+
     HX_ATTR_RE = re.compile(r'hx-(?:post|get|delete|put|patch)=["\']([^"\']+)["\']')
     found: set[str] = set()
     templates_dirs = list(repo_dir.rglob("templates"))
@@ -159,8 +167,8 @@ def _test_views_htmx(repo_dir: Path) -> str:
     urls_repr = "\n".join(f'    "{u}",' for u in htmx_urls) if htmx_urls else ""
     auto_note = (
         f"# Auto-entdeckt aus Templates ({len(htmx_urls)} URLs):"
-        if htmx_urls else
-        "# Keine hx-* Attribute in Templates gefunden — manuell bef\xfcllen:"
+        if htmx_urls
+        else "# Keine hx-* Attribute in Templates gefunden — manuell bef\xfcllen:"
     )
     return f'''\
 """test_views_htmx.py — HTMX-Partials und data-testid Enforcement (ADR-048).
@@ -264,14 +272,21 @@ testpaths = ["tests"]
 
 # ── Settings-Modul auto-detect ────────────────────────────────────────────────
 
+
 def detect_settings(repo_dir: Path) -> str:
     """Ermittle DJANGO_SETTINGS_MODULE aus pyproject.toml oder Verzeichnisstruktur."""
     pyproject = repo_dir / "pyproject.toml"
     if pyproject.exists():
         try:
             import tomllib
+
             cfg = tomllib.loads(pyproject.read_text())
-            s = cfg.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("DJANGO_SETTINGS_MODULE", "")
+            s = (
+                cfg.get("tool", {})
+                .get("pytest", {})
+                .get("ini_options", {})
+                .get("DJANGO_SETTINGS_MODULE", "")
+            )
             if s:
                 return s
         except Exception:
@@ -358,11 +373,19 @@ def generate_scaffold(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Test-Scaffold für ein Django-Repo generieren")
+    parser = argparse.ArgumentParser(
+        description="Test-Scaffold für ein Django-Repo generieren"
+    )
     parser.add_argument("repo", help="Repo-Name oder absoluter Pfad")
-    parser.add_argument("--dry-run", action="store_true", help="Nur anzeigen, nichts schreiben")
-    parser.add_argument("--update", action="store_true", help="Bestehende Dateien überschreiben")
-    parser.add_argument("--version", default=None, help="iil-testkit Version (default: PyPI latest)")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Nur anzeigen, nichts schreiben"
+    )
+    parser.add_argument(
+        "--update", action="store_true", help="Bestehende Dateien überschreiben"
+    )
+    parser.add_argument(
+        "--version", default=None, help="iil-testkit Version (default: PyPI latest)"
+    )
     args = parser.parse_args()
 
     # Repo-Pfad bestimmen
@@ -377,20 +400,26 @@ def main() -> int:
 
     print(f"\n🔧  Generiere Test-Scaffold für: {repo_dir.name}")
     print(f"    Pfad:    {repo_dir}")
-    print(f"    Modus:   {'DRY-RUN' if args.dry_run else 'UPDATE' if args.update else 'ERSTELLEN (neu)'}\n")
+    print(
+        f"    Modus:   {'DRY-RUN' if args.dry_run else 'UPDATE' if args.update else 'ERSTELLEN (neu)'}\n"
+    )
 
     # Version von PyPI holen (kein hardcodierter Fallback — wird aus installiertem Paket ermittelt)
     testkit_version = args.version or get_latest_version("iil-testkit")
 
     # Scaffold generieren
-    results = generate_scaffold(repo_dir, testkit_version, dry_run=args.dry_run, update=args.update)
+    results = generate_scaffold(
+        repo_dir, testkit_version, dry_run=args.dry_run, update=args.update
+    )
 
     # Report
-    print(f"\n{'='*55}")
+    print(f"\n{'=' * 55}")
     for path, status in results.items():
-        icon = "✅" if "CREAT" in status or "UPDATE" in status or "DRY" in status else "⏭️ "
+        icon = (
+            "✅" if "CREAT" in status or "UPDATE" in status or "DRY" in status else "⏭️ "
+        )
         print(f"  {icon}  {path:<35} {status}")
-    print(f"{'='*55}")
+    print(f"{'=' * 55}")
 
     if not args.dry_run:
         print(f"\nNächste Schritte für {repo_dir.name}:")

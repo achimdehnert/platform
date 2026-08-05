@@ -17,6 +17,7 @@ Begründung (K-02):
 
 Konfiguration via ENV — kein DB-Eintrag, kein Code-Deployment bei Änderung.
 """
+
 from __future__ import annotations
 
 import os
@@ -46,9 +47,7 @@ def get_discord_model(command_type: str) -> DiscordModelConfig:
     _CONFIG = {
         "status": DiscordModelConfig(
             command_type="status",
-            model=os.environ.get(
-                "DISCORD_STATUS_MODEL", "openai/gpt-4o-mini"
-            ),
+            model=os.environ.get("DISCORD_STATUS_MODEL", "openai/gpt-4o-mini"),
             max_tokens=512,
             temperature=0.3,
         ),
@@ -63,17 +62,13 @@ def get_discord_model(command_type: str) -> DiscordModelConfig:
         ),
         "chat": DiscordModelConfig(
             command_type="chat",
-            model=os.environ.get(
-                "DISCORD_CHAT_MODEL", "openai/gpt-4o"
-            ),
+            model=os.environ.get("DISCORD_CHAT_MODEL", "openai/gpt-4o"),
             max_tokens=2048,
             temperature=0.8,
         ),
         "code": DiscordModelConfig(
             command_type="code",
-            model=os.environ.get(
-                "DISCORD_CODE_MODEL", "openai/gpt-4o"
-            ),
+            model=os.environ.get("DISCORD_CODE_MODEL", "openai/gpt-4o"),
             max_tokens=4096,
             temperature=0.2,
         ),
@@ -83,8 +78,6 @@ def get_discord_model(command_type: str) -> DiscordModelConfig:
         command_type,
         DiscordModelConfig(
             command_type=command_type,
-            model=os.environ.get(
-                "DISCORD_DEFAULT_MODEL", "openai/gpt-4o-mini"
-            ),
+            model=os.environ.get("DISCORD_DEFAULT_MODEL", "openai/gpt-4o-mini"),
         ),
     )

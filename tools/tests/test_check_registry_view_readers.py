@@ -6,6 +6,7 @@ Maschinerie (registry_api etc.) ist allowlisted.
 
 Run: `python3 -m pytest tools/tests/test_check_registry_view_readers.py -q`
 """
+
 import importlib.util
 import pathlib
 
@@ -32,13 +33,21 @@ def test_should_flag_new_direct_read_of_rich_view(tmp_path):
 
 
 def test_should_flag_direct_read_of_flat_view(tmp_path):
-    _write(tmp_path, "scripts/bad2.py", "yaml.safe_load(open('scripts/repo-registry.yaml'))\n")
+    _write(
+        tmp_path,
+        "scripts/bad2.py",
+        "yaml.safe_load(open('scripts/repo-registry.yaml'))\n",
+    )
     assert crvr.find_readers(tmp_path, ["scripts/bad2.py"]) == {"scripts/bad2.py"}
 
 
 def test_should_not_flag_klickdummy_bare_repos_yaml(tmp_path):
     # infra/klickdummy-host nutzt /opt/klickdummy/repos.yaml — anderes File, kein registry/-Pfad.
-    _write(tmp_path, "infra/klickdummy-host/sync.sh", 'REPOS_FILE="/opt/klickdummy/repos.yaml"\n')
+    _write(
+        tmp_path,
+        "infra/klickdummy-host/sync.sh",
+        'REPOS_FILE="/opt/klickdummy/repos.yaml"\n',
+    )
     assert crvr.find_readers(tmp_path, ["infra/klickdummy-host/sync.sh"]) == set()
 
 

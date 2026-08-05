@@ -7,6 +7,7 @@ Anpassen:
   - discover_smoke_urls(extra_skip_namespaces={"api", "webhooks"})  — weitere Namespaces ausschließen
   - expected_statuses=(200, 302, 404)  — wenn leere DB 404 liefert
 """
+
 import pytest
 
 from iil_testkit.smoke import ViewSmokeTester, discover_smoke_urls
@@ -27,6 +28,7 @@ def test_should_view_return_200(url: str, auth_client) -> None:
 def test_should_unauthenticated_access_redirect(url: str, api_client) -> None:
     """Nicht-öffentliche Views müssen unauthentifiziert auf Login weiterleiten."""
     from iil_testkit.assertions import assert_redirects_to_login
+
     response = api_client.get(url)
     if response.status_code not in (200, 302):
         return

@@ -2,12 +2,14 @@
 
 Fixtures: stub (empty) → FAIL, filled → PASS.
 """
+
 import pathlib
 import textwrap
 
 import pytest
 
 import sys, pathlib
+
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from check_utils import check_min_inhalt_rule
 
@@ -15,6 +17,7 @@ from check_utils import check_min_inhalt_rule
 # ---------------------------------------------------------------------------
 # heading_count
 # ---------------------------------------------------------------------------
+
 
 def test_heading_count_empty_stub_fails(tmp_path):
     f = tmp_path / "doc.md"
@@ -44,6 +47,7 @@ def test_heading_count_partial_fails(tmp_path):
 # table_rows
 # ---------------------------------------------------------------------------
 
+
 def test_table_rows_empty_stub_fails(tmp_path):
     f = tmp_path / "doc.md"
     f.write_text("# Glossar\n\nStub.\n")
@@ -64,6 +68,7 @@ def test_table_rows_filled_passes(tmp_path):
 # lines
 # ---------------------------------------------------------------------------
 
+
 def test_lines_empty_stub_fails(tmp_path):
     f = tmp_path / "doc.md"
     f.write_text("# Title\n")
@@ -83,10 +88,13 @@ def test_lines_filled_passes(tmp_path):
 # frontmatter_status
 # ---------------------------------------------------------------------------
 
+
 def test_frontmatter_status_missing_fails(tmp_path):
     f = tmp_path / "doc.md"
     f.write_text("# No Frontmatter\n\nContent.\n")
-    err = check_min_inhalt_rule({"type": "frontmatter_status", "required_value": "ready"}, f)
+    err = check_min_inhalt_rule(
+        {"type": "frontmatter_status", "required_value": "ready"}, f
+    )
     assert err is not None
     assert "no-frontmatter" in err
 
@@ -94,7 +102,9 @@ def test_frontmatter_status_missing_fails(tmp_path):
 def test_frontmatter_status_draft_fails(tmp_path):
     f = tmp_path / "doc.md"
     f.write_text("---\nstatus: draft\n---\n# Content\n")
-    err = check_min_inhalt_rule({"type": "frontmatter_status", "required_value": "ready"}, f)
+    err = check_min_inhalt_rule(
+        {"type": "frontmatter_status", "required_value": "ready"}, f
+    )
     assert err is not None
     assert "draft" in err
 
@@ -102,13 +112,16 @@ def test_frontmatter_status_draft_fails(tmp_path):
 def test_frontmatter_status_ready_passes(tmp_path):
     f = tmp_path / "doc.md"
     f.write_text("---\nstatus: ready\nauthor: test\n---\n# Content\n")
-    err = check_min_inhalt_rule({"type": "frontmatter_status", "required_value": "ready"}, f)
+    err = check_min_inhalt_rule(
+        {"type": "frontmatter_status", "required_value": "ready"}, f
+    )
     assert err is None
 
 
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_missing_file_returns_none(tmp_path):
     f = tmp_path / "does_not_exist.md"

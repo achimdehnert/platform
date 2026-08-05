@@ -27,6 +27,7 @@ Usage:
     python3 tools/publish_gate_meter.py [--dry-run] [--all-types] [--fail-on-backlog]
     python3 tools/publish_gate_meter.py --local ~/github --dry-run   # offline gegen lokale Klone
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,18 +85,26 @@ def build_backlog(results: dict, owners: dict) -> str:
         "",
     ]
     if not offenders:
-        lines.append("✅ **Backlog leer** — alle geprüften Upload-Workflows sind gegated.")
+        lines.append(
+            "✅ **Backlog leer** — alle geprüften Upload-Workflows sind gegated."
+        )
         return "\n".join(lines)
-    lines.append(f"⛔ **{total_jobs} ungegatete Upload-Job(s) in {len(offenders)} Repo(s):**")
+    lines.append(
+        f"⛔ **{total_jobs} ungegatete Upload-Job(s) in {len(offenders)} Repo(s):**"
+    )
     lines.append("")
     lines.append("| Repo | Workflow | Job |")
     lines.append("|---|---|---|")
     for repo in sorted(offenders):
         for o in offenders[repo]:
-            lines.append(f"| {owners.get(repo, repo)}/{repo} | `{o['file']}` | `{o['job']}` |")
+            lines.append(
+                f"| {owners.get(repo, repo)}/{repo} | `{o['file']}` | `{o['job']}` |"
+            )
     lines.append("")
-    lines.append("**Fix:** Test- oder Secret-Scan-Gate vor den Upload ziehen. "
-                 "Lokal prüfbar: `python3 tools/check_publish_gate.py <repo-pfad>`.")
+    lines.append(
+        "**Fix:** Test- oder Secret-Scan-Gate vor den Upload ziehen. "
+        "Lokal prüfbar: `python3 tools/check_publish_gate.py <repo-pfad>`."
+    )
     return "\n".join(lines)
 
 
@@ -114,7 +123,9 @@ def registry_repos(repos: dict, all_types: bool) -> list:
 def _api(path: str, token: str, raw: bool = False, method: str = "GET", data=None):
     req = urllib.request.Request(f"https://api.github.com{path}", method=method)
     req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Accept", "application/vnd.github.raw" if raw else "application/vnd.github+json")
+    req.add_header(
+        "Accept", "application/vnd.github.raw" if raw else "application/vnd.github+json"
+    )
     if data is not None:
         req.data = json.dumps(data).encode()
         req.add_header("Content-Type", "application/json")
@@ -136,7 +147,9 @@ def fetch_repo_workflows_api(owner: str, repo: str, token: str) -> dict:
         name = item.get("name", "")
         if name.endswith((".yml", ".yaml")) and item.get("type") == "file":
             files[name] = _api(
-                f"/repos/{owner}/{repo}/contents/.github/workflows/{name}", token, raw=True
+                f"/repos/{owner}/{repo}/contents/.github/workflows/{name}",
+                token,
+                raw=True,
             )
     return files
 
@@ -159,25 +172,43 @@ def issue_needs_update(existing: dict, title: str, body: str) -> bool:
 
 def upsert_issue(owner: str, repo: str, token: str, title: str, body: str) -> str:
     """Findet offenes Issue mit MARKER_LABEL, PATCHt es NUR bei Änderung, sonst neu. Returns URL."""
-    issues = _api(f"/repos/{owner}/{repo}/issues?state=open&labels={MARKER_LABEL}", token)
+    issues = _api(
+        f"/repos/{owner}/{repo}/issues?state=open&labels={MARKER_LABEL}", token
+    )
     if issues:
         existing = issues[0]
         if issue_needs_update(existing, title, body):
-            _api(f"/repos/{owner}/{repo}/issues/{existing['number']}", token, method="PATCH",
-                 data={"title": title, "body": body})
+            _api(
+                f"/repos/{owner}/{repo}/issues/{existing['number']}",
+                token,
+                method="PATCH",
+                data={"title": title, "body": body},
+            )
         return existing["html_url"]
-    created = _api(f"/repos/{owner}/{repo}/issues", token, method="POST",
-                   data={"title": title, "body": body, "labels": [MARKER_LABEL]})
+    created = _api(
+        f"/repos/{owner}/{repo}/issues",
+        token,
+        method="POST",
+        data={"title": title, "body": body, "labels": [MARKER_LABEL]},
+    )
     return created["html_url"]
 
 
 # --------------------------------------------------------------------- main ---
 def main(argv: list) -> int:
     ap = argparse.ArgumentParser(description="Publish-Gate-Meter")
-    ap.add_argument("--dry-run", action="store_true", help="kein Issue schreiben, nur Report")
-    ap.add_argument("--all-types", action="store_true", help="alle Repo-Typen statt nur library")
-    ap.add_argument("--fail-on-backlog", action="store_true", help="Exit 1 wenn Backlog > 0")
-    ap.add_argument("--local", metavar="ROOT", help="offline gegen lokale Klone unter ROOT")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="kein Issue schreiben, nur Report"
+    )
+    ap.add_argument(
+        "--all-types", action="store_true", help="alle Repo-Typen statt nur library"
+    )
+    ap.add_argument(
+        "--fail-on-backlog", action="store_true", help="Exit 1 wenn Backlog > 0"
+    )
+    ap.add_argument(
+        "--local", metavar="ROOT", help="offline gegen lokale Klone unter ROOT"
+    )
     args = ap.parse_args(argv)
 
     default_owner = os.environ.get("OWNER", "achimdehnert")
@@ -198,7 +229,10 @@ def main(argv: list) -> int:
             results[r] = scan_files(fetch_repo_workflows_local(root, r))
     else:
         if not token:
-            print("FEHLER: GH_TOKEN/GITHUB_TOKEN nötig (oder --local nutzen).", file=sys.stderr)
+            print(
+                "FEHLER: GH_TOKEN/GITHUB_TOKEN nötig (oder --local nutzen).",
+                file=sys.stderr,
+            )
             return 2
         for r in repos:
             results[r] = scan_files(fetch_repo_workflows_api(owners[r], r, token))
@@ -211,7 +245,10 @@ def main(argv: list) -> int:
         # Guard gilt für BEIDE Pfade: --local ohne Token + ohne --dry-run darf hier nicht
         # mit KeyError sterben (Retro-Increment 2026-06-30 F4). token vorher gehoben.
         if not token:
-            print("FEHLER: Issue-Upsert braucht GH_TOKEN/GITHUB_TOKEN (oder --dry-run nutzen).", file=sys.stderr)
+            print(
+                "FEHLER: Issue-Upsert braucht GH_TOKEN/GITHUB_TOKEN (oder --dry-run nutzen).",
+                file=sys.stderr,
+            )
             return 2
         # Tracking-Issue lebt IMMER in achimdehnert/platform (SSoT-Repo für den
         # Meter selbst), unabhängig vom Owner der gescannten Repos.

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Post-consume script: Generate document title from OCR text + assign owner + auto-permissions."""
+
 import datetime
 import os
 import re
@@ -10,6 +11,7 @@ try:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "paperless.settings")
     sys.path.insert(0, "/usr/src/paperless/src")
     import django
+
     django.setup()
     from documents.models import Document
     from django.contrib.auth.models import User
@@ -27,13 +29,31 @@ OWNER_MAP = {
 # No explicit map needed - if a tag matches a username, permissions are granted
 
 DOC_TYPES = [
-    "Rechnung", "Invoice", "Quittung", "Gutschrift",
-    "Vertrag", "Kuendigung", "Mahnung", "Angebot",
-    "Bescheid", "Mitteilung", "Bestaetigung", "Meldung",
-    "Kontoauszug", "Abrechnung", "Beitragsbescheid",
-    "Steuerbescheid", "Lohnabrechnung", "Gehaltsabrechnung",
-    "Arztbrief", "Befund", "Rezept", "Ueberweisung",
-    "Versicherungsschein", "Police", "Antrag",
+    "Rechnung",
+    "Invoice",
+    "Quittung",
+    "Gutschrift",
+    "Vertrag",
+    "Kuendigung",
+    "Mahnung",
+    "Angebot",
+    "Bescheid",
+    "Mitteilung",
+    "Bestaetigung",
+    "Meldung",
+    "Kontoauszug",
+    "Abrechnung",
+    "Beitragsbescheid",
+    "Steuerbescheid",
+    "Lohnabrechnung",
+    "Gehaltsabrechnung",
+    "Arztbrief",
+    "Befund",
+    "Rezept",
+    "Ueberweisung",
+    "Versicherungsschein",
+    "Police",
+    "Antrag",
 ]
 
 
@@ -92,10 +112,9 @@ def assign_permissions(doc):
         except User.DoesNotExist:
             pass
     if granted:
-        print(f"Permissions granted: {", ".join(granted)}")
+        print(f"Permissions granted: {', '.join(granted)}")
     else:
         print("No permission rules matched")
-
 
         print("No permission rules matched")
 
@@ -191,10 +210,13 @@ if __name__ == "__main__":
     if doc_id:
         try:
             import subprocess
+
             subprocess.Popen(
-                [sys.executable,
-                 '/usr/src/paperless/scripts/paperless-post-consume.py',
-                 str(doc_id)],
+                [
+                    sys.executable,
+                    "/usr/src/paperless/scripts/paperless-post-consume.py",
+                    str(doc_id),
+                ],
                 env=os.environ.copy(),
             )
         except Exception:

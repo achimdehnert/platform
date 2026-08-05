@@ -10,6 +10,7 @@ Usage:
 
 Source of truth: repo-registry.yaml (same directory)
 """
+
 from __future__ import annotations
 
 import os
@@ -47,12 +48,14 @@ GLOBAL_RULES = [
 
 # ── Registry ─────────────────────────────────────────────────────────────────
 
+
 def load_registry() -> dict:
     with open(REGISTRY_FILE) as f:
         return yaml.safe_load(f)
 
 
 # ── Auto-detect from docker-compose files ────────────────────────────────────
+
 
 def compose_files(repo_path: Path) -> list[Path]:
     return list(repo_path.glob("docker-compose*.yml"))
@@ -104,7 +107,10 @@ def detect_prod_url(repo_path: Path) -> str:
         try:
             text = f.read_text()
             for line in text.splitlines():
-                if any(k in line for k in ("ALLOWED_HOSTS", "DJANGO_ALLOWED_HOSTS", "CSRF_TRUSTED")):
+                if any(
+                    k in line
+                    for k in ("ALLOWED_HOSTS", "DJANGO_ALLOWED_HOSTS", "CSRF_TRUSTED")
+                ):
                     urls = re.findall(r"([a-z0-9.-]+\.(?:de|com|pet|io|net))", line)
                     for url in urls:
                         if "localhost" not in url and "127.0" not in url:
@@ -122,7 +128,9 @@ def detect_container_prefix(repo_path: Path) -> str:
 def detect_pypi_name(repo_path: Path) -> str:
     pyproject = repo_path / "pyproject.toml"
     if pyproject.exists():
-        m = re.search(r'^name\s*=\s*["\']?([a-zA-Z0-9_-]+)', pyproject.read_text(), re.M)
+        m = re.search(
+            r'^name\s*=\s*["\']?([a-zA-Z0-9_-]+)', pyproject.read_text(), re.M
+        )
         if m:
             return m.group(1)
     return ""
@@ -144,7 +152,9 @@ def _repo_origin_url(repo_path: Path) -> str:
     try:
         result = subprocess.run(
             ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         return result.stdout.strip()
     except OSError:
@@ -169,9 +179,16 @@ def _distribution_allowed(repo_path: Path) -> bool:
     """
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo_path), "check-ignore", "-q",
-             ".windsurf/workflows/__adr265_probe__.md"],
-            capture_output=True, check=False,
+            [
+                "git",
+                "-C",
+                str(repo_path),
+                "check-ignore",
+                "-q",
+                ".windsurf/workflows/__adr265_probe__.md",
+            ],
+            capture_output=True,
+            check=False,
         )
         return result.returncode == 0
     except OSError:
@@ -185,7 +202,8 @@ def _is_tracked(repo_path: Path, relpath: str) -> bool:
     try:
         result = subprocess.run(
             ["git", "-C", str(repo_path), "ls-files", "--error-unmatch", relpath],
-            capture_output=True, check=False,
+            capture_output=True,
+            check=False,
         )
         return result.returncode == 0
     except OSError:
@@ -194,7 +212,10 @@ def _is_tracked(repo_path: Path, relpath: str) -> bool:
 
 # ── Generate project-facts.md ────────────────────────────────────────────────
 
-def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = False) -> str:
+
+def gen_facts(
+    repo: str, reg_entry: dict, force: bool = False, dry_run: bool = False
+) -> str:
     repo_path = GITHUB / repo
     if not repo_path.is_dir():
         return f"❌ NOT FOUND: {repo}"
@@ -223,8 +244,11 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = F
                 # Tracked-Guard (ADR-265) auch auf dem Kopie-Pfad: eine getrackte
                 # reguläre run-*.md NICHT überschreiben (sonst git-Dirt) — genau
                 # dieser Pfad überschrieb im Incident 2026-07-05 billing-hub.
-                if src.exists() and not dst.is_symlink() \
-                        and not _is_tracked(repo_path, f".windsurf/workflows/{wf}"):
+                if (
+                    src.exists()
+                    and not dst.is_symlink()
+                    and not _is_tracked(repo_path, f".windsurf/workflows/{wf}")
+                ):
                     shutil.copy2(src, dst)
 
         # Symlink global rules to every repo.
@@ -256,14 +280,14 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = F
         return f"SKIP (exists): {repo}"
 
     # Read registry values (take precedence)
-    rtype      = reg_entry.get("type", "")
-    prod_url   = str(reg_entry.get("prod_url", ""))
-    staging_url= str(reg_entry.get("staging_url", ""))
-    port       = str(reg_entry.get("port", ""))
-    db         = str(reg_entry.get("db", ""))
-    health     = str(reg_entry.get("health", ""))
-    pypi       = str(reg_entry.get("pypi", ""))
-    note       = str(reg_entry.get("note", ""))
+    rtype = reg_entry.get("type", "")
+    prod_url = str(reg_entry.get("prod_url", ""))
+    staging_url = str(reg_entry.get("staging_url", ""))
+    port = str(reg_entry.get("port", ""))
+    db = str(reg_entry.get("db", ""))
+    health = str(reg_entry.get("health", ""))
+    pypi = str(reg_entry.get("pypi", ""))
+    note = str(reg_entry.get("note", ""))
 
     # Auto-detect fallbacks
     if not port:
@@ -304,7 +328,11 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = F
     else:
         compose_local = "docker-compose.yml"
     compose_staging = "docker-compose.staging.yml"
-    compose_prod    = "docker-compose.prod.yml" if (repo_path / "docker-compose.prod.yml").exists() else "docker-compose.yml"
+    compose_prod = (
+        "docker-compose.prod.yml"
+        if (repo_path / "docker-compose.prod.yml").exists()
+        else "docker-compose.yml"
+    )
 
     lines = [
         "---",
@@ -320,9 +348,9 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = F
     # steht noch eine Prefix-Regel trifft (Typo/komplett unregistriert) — dann
     # NICHT still "None" in die generierte Doku schreiben, sondern den
     # konfigurierten Server-Default als sichtbaren Fallback nehmen.
-    gh_owner = reg.owner(repo) or (reg.load_canonical().get("meta", {}).get("server") or {}).get(
-        "github_org", "achimdehnert"
-    )
+    gh_owner = reg.owner(repo) or (
+        reg.load_canonical().get("meta", {}).get("server") or {}
+    ).get("github_org", "achimdehnert")
 
     lines += [
         "",
@@ -372,7 +400,7 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = F
         "",
         "- devuser hat **KEIN sudo-Passwort** → System-Pakete immer via SSH als root:",
         "  ```bash",
-        "  ssh root@localhost \"apt-get install -y <package>\"",
+        '  ssh root@localhost "apt-get install -y <package>"',
         "  ```",
         "",
         "## Secrets / Config",
@@ -450,8 +478,10 @@ def main():
                 results.append(gen_facts(repo, {}, force=force, dry_run=dry_run))
 
     print("\n".join(results))
-    print(f"\n=== Done ({sum(1 for r in results if r.startswith('✅'))} generated, "
-          f"{sum(1 for r in results if 'SKIP' in r)} skipped) ===")
+    print(
+        f"\n=== Done ({sum(1 for r in results if r.startswith('✅'))} generated, "
+        f"{sum(1 for r in results if 'SKIP' in r)} skipped) ==="
+    )
     print("Run with --force to regenerate all.")
 
 

@@ -125,13 +125,17 @@ Alles synced, keine Restarbeit dokumentiert. Nur Fließtext, keine Tabelle.
 """
 
 
-def test_should_not_resurface_archived_items_when_archive_heading_precedes_active_section(tmp_path):
+def test_should_not_resurface_archived_items_when_archive_heading_precedes_active_section(
+    tmp_path,
+):
     """Ursache 1: Archiv-Heading '... — erledigt' darf die Sektion nicht reaktivieren."""
     repo = _write_handover(tmp_path, FIXTURE_ARCHIVE_BEFORE_ACTIVE)
 
     items = cns._read_handover(repo)
 
-    assert items is not None, "aktive Sektion '## Nächste Schritte' muss gefunden werden"
+    assert items is not None, (
+        "aktive Sektion '## Nächste Schritte' muss gefunden werden"
+    )
     joined = " ".join(items)
     assert "Referenz-Pflege-Erweiterung" not in joined
     assert "Mandant-Onboarding-KD" not in joined
@@ -173,7 +177,9 @@ def test_should_keep_working_with_old_item_tier_positional_contract(tmp_path):
     assert items[2] == "[Sonnet] Reboot-Festigkeit Preview (systemd)"
 
 
-def test_should_leave_fallback_behavior_unchanged_when_no_priorities_section_exists(tmp_path):
+def test_should_leave_fallback_behavior_unchanged_when_no_priorities_section_exists(
+    tmp_path,
+):
     """Kein Prioritäten-Abschnitt vorhanden → _read_handover liefert None (git-Fallback greift)."""
     repo = _write_handover(tmp_path, FIXTURE_NO_PRIORITY_SECTION)
 
@@ -182,7 +188,9 @@ def test_should_leave_fallback_behavior_unchanged_when_no_priorities_section_exi
     assert items is None
 
 
-def test_should_extract_real_active_items_end_to_end_from_pre_fix_full_handover(tmp_path):
+def test_should_extract_real_active_items_end_to_end_from_pre_fix_full_handover(
+    tmp_path,
+):
     """Golden-Path mit dem echten, vollständigen Vor-Fix-Dokument (vor iilgmbh#165):
     beide Ursachen gleichzeitig wirksam — Item-Spalte an Position 3 UND ein Archiv-
     Block weiter unten im Dokument. Erwartung: die drei echten Aufgabentexte, keine

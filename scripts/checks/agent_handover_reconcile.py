@@ -73,14 +73,18 @@ def query_state(ref: Ref) -> tuple[str, str]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("handover", type=Path)
-    ap.add_argument("--repo-slug", required=True, help="owner/repo für nackte #N-Referenzen")
+    ap.add_argument(
+        "--repo-slug", required=True, help="owner/repo für nackte #N-Referenzen"
+    )
     ap.add_argument("--summary", type=Path, default=None)
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args()
 
     owner, repo = args.repo_slug.split("/", 1)
     if not args.handover.is_file():
-        print(f"::warning::{args.handover} nicht gefunden — nichts zu prüfen (PASS-degradiert)")
+        print(
+            f"::warning::{args.handover} nicht gefunden — nichts zu prüfen (PASS-degradiert)"
+        )
         return 0
 
     refs, skipped_sections = extract_refs(args.handover.read_text(), owner, repo)

@@ -87,19 +87,27 @@ def main(argv: list[str]) -> int:
             if allow_missing:
                 print(f"SKIP  {name} (existiert nicht, --allow-missing gesetzt)")
                 continue
-            print(f"MISS  {name} — verlangte Datei existiert nicht (umbenannt/verschoben?)")
+            print(
+                f"MISS  {name} — verlangte Datei existiert nicht (umbenannt/verschoben?)"
+            )
             missing.append(name)
             continue
         if has_tool_call(path):
-            print(f"PASS  {name} (Aufruf-Form mcp__orchestrator__estimate_job: vorhanden)")
+            print(
+                f"PASS  {name} (Aufruf-Form mcp__orchestrator__estimate_job: vorhanden)"
+            )
         else:
             print(f"FAIL  {name} — Aufruf-Form mcp__orchestrator__estimate_job: fehlt")
             failed.append(name)
     if missing:
-        print(f"\n⛔ Gate workflow-tool-ref: {len(missing)} verlangte Datei(en) nicht vorhanden —")
+        print(
+            f"\n⛔ Gate workflow-tool-ref: {len(missing)} verlangte Datei(en) nicht vorhanden —"
+        )
         print(MISS_HINT)
     if failed:
-        print(f"\n⛔ Gate workflow-tool-ref: {len(failed)} Datei(en) ohne Aufruf-Form —")
+        print(
+            f"\n⛔ Gate workflow-tool-ref: {len(failed)} Datei(en) ohne Aufruf-Form —"
+        )
         print(FAIL_HINT)
     return 1 if (failed or missing) else 0
 

@@ -8,6 +8,7 @@ Kritische Design-Entscheidungen (ADR-112 Blocker B1 + B3 fixed):
 - Git-Commit nach Write mit explizitem user.email (B3 fixed)
 - Memory-Pfad in mcp-hub, nicht platform (H2 fixed)
 """
+
 from __future__ import annotations
 
 import fcntl
@@ -25,13 +26,14 @@ from .memory_schema import EntryType, MemoryEntry, MemoryStore
 log = logging.getLogger(__name__)
 
 MEMORY_FILE = Path("AGENT_MEMORY.md")
-LOCK_FILE   = Path(".agent_memory.lock")
+LOCK_FILE = Path(".agent_memory.lock")
 
-_GIT_AUTHOR_NAME  = "Agent Team"
+_GIT_AUTHOR_NAME = "Agent Team"
 _GIT_AUTHOR_EMAIL = "agent@iilgmbh.com"
 
 
 # ─── I/O Helpers ──────────────────────────────────────────────────────────────
+
 
 def _read_store(path: Path = MEMORY_FILE) -> MemoryStore:
     """AGENT_MEMORY.md lesen und in MemoryStore deserialisieren."""
@@ -158,15 +160,17 @@ def _git_commit(path: Path, message: str) -> None:
     """
     try:
         env = os.environ.copy()
-        env.update({
-            "GIT_AUTHOR_NAME":     _GIT_AUTHOR_NAME,
-            "GIT_AUTHOR_EMAIL":    _GIT_AUTHOR_EMAIL,
-            "GIT_COMMITTER_NAME":  _GIT_AUTHOR_NAME,
-            "GIT_COMMITTER_EMAIL": _GIT_AUTHOR_EMAIL,
-        })
+        env.update(
+            {
+                "GIT_AUTHOR_NAME": _GIT_AUTHOR_NAME,
+                "GIT_AUTHOR_EMAIL": _GIT_AUTHOR_EMAIL,
+                "GIT_COMMITTER_NAME": _GIT_AUTHOR_NAME,
+                "GIT_COMMITTER_EMAIL": _GIT_AUTHOR_EMAIL,
+            }
+        )
         for cmd in [
             ["git", "config", "user.email", _GIT_AUTHOR_EMAIL],
-            ["git", "config", "user.name",  _GIT_AUTHOR_NAME],
+            ["git", "config", "user.name", _GIT_AUTHOR_NAME],
             ["git", "add", str(path)],
         ]:
             subprocess.run(cmd, check=True, capture_output=True)
@@ -181,7 +185,9 @@ def _git_commit(path: Path, message: str) -> None:
 
         subprocess.run(
             ["git", "commit", "-m", message, "--no-verify"],
-            check=True, capture_output=True, env=env,
+            check=True,
+            capture_output=True,
+            env=env,
         )
         log.info("Git-Commit: %s", message)
     except subprocess.CalledProcessError as exc:
@@ -192,6 +198,7 @@ def _git_commit(path: Path, message: str) -> None:
 
 
 # ─── Skill ────────────────────────────────────────────────────────────────────
+
 
 class SessionMemorySkill(Skill):
     """Liest und schreibt AGENT_MEMORY.md — persistenter Kontext-Store."""
@@ -210,7 +217,9 @@ class SessionMemorySkill(Skill):
                 return self._read()
             case "upsert":
                 if entry is None:
-                    return SkillResult.fail(self.name, "operation='upsert' benötigt 'entry'")
+                    return SkillResult.fail(
+                        self.name, "operation='upsert' benötigt 'entry'"
+                    )
                 return self._upsert(entry, agent, commit)
             case "gc":
                 return self._gc(agent, commit)

@@ -7,6 +7,7 @@ Usage:
     bf status                      # Show deploy status
     bf rollback <app> <sha-tag>    # Rollback to specific image
 """
+
 from __future__ import annotations
 
 import os
@@ -60,9 +61,7 @@ def deploy(
 
     for app in targets:
         if app not in APPS:
-            click.echo(
-                f"Unknown app: {app}. Available: {', '.join(APPS)}"
-            )
+            click.echo(f"Unknown app: {app}. Available: {', '.join(APPS)}")
             continue
 
         if not force and is_debounced(app):
@@ -75,15 +74,15 @@ def deploy(
 
         cfg = APPS[app]
         status_code = trigger_workflow(
-            cfg["repo"], token, workflow=cfg["workflow"],
+            cfg["repo"],
+            token,
+            workflow=cfg["workflow"],
         )
         if status_code == 204:
             mark_triggered(app)
             click.echo(f"\U0001f680 {app}: deploy triggered (async)")
         else:
-            click.echo(
-                f"\u274c {app}: trigger failed (HTTP {status_code})"
-            )
+            click.echo(f"\u274c {app}: trigger failed (HTTP {status_code})")
 
 
 @cli.command()
@@ -101,9 +100,7 @@ def status() -> None:
             conclusion = run.get("conclusion") or run.get("status")
             sha = run["head_sha"][:7]
             emoji = emoji_map.get(conclusion, "\u2753")
-            click.echo(
-                f"  {emoji} {app:15s} {conclusion:12s} ({sha})"
-            )
+            click.echo(f"  {emoji} {app:15s} {conclusion:12s} ({sha})")
         else:
             click.echo(f"  \u2753 {app:15s} no runs found")
 
@@ -117,9 +114,7 @@ def rollback(app: str, sha_tag: str) -> None:
     Usage: bf rollback travel-beat sha-abc1234
     """
     if app not in APPS:
-        click.echo(
-            f"Unknown app: {app}. Available: {', '.join(APPS)}"
-        )
+        click.echo(f"Unknown app: {app}. Available: {', '.join(APPS)}")
         sys.exit(1)
 
     cfg = APPS[app]
@@ -135,7 +130,9 @@ def rollback(app: str, sha_tag: str) -> None:
     )
     result = subprocess.run(
         [
-            "ssh", "-o", "BatchMode=yes",
+            "ssh",
+            "-o",
+            "BatchMode=yes",
             f"{PROD_USER}@{PROD_HOST}",
             ssh_cmd,
         ],
@@ -143,9 +140,7 @@ def rollback(app: str, sha_tag: str) -> None:
         text=True,
     )
     if result.returncode == 0:
-        click.echo(
-            f"\u2705 Rollback {app} -> {sha_tag} complete."
-        )
+        click.echo(f"\u2705 Rollback {app} -> {sha_tag} complete.")
     else:
         click.echo(
             f"\u274c Rollback failed: {result.stderr}",

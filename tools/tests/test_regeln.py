@@ -3,6 +3,7 @@
 Jeder Test benennt die Zeile aus §7a, die er festhält — die Regeln des
 Lebenszyklus sind der Testgegenstand, nicht die Implementierung.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -20,35 +21,55 @@ _spec.loader.exec_module(regeln)
 
 
 def _nachricht(i, absender, betreff, ordner="Posteingang"):
-    return {"id": f"m{i}", "absender": absender, "betreff": betreff,
-            "datum": "2026-07-01T08:00:00Z", "ordner": ordner}
+    return {
+        "id": f"m{i}",
+        "absender": absender,
+        "betreff": betreff,
+        "datum": "2026-07-01T08:00:00Z",
+        "ordner": ordner,
+    }
 
 
 def _bewegung(i, absender, betreff, ziel="IIL.Finanzen"):
-    return {"id": f"m{i}", "absender": absender, "betreff": betreff,
-            "ziel": ziel, "zeit": "2026-07-01T09:00:00Z"}
+    return {
+        "id": f"m{i}",
+        "absender": absender,
+        "betreff": betreff,
+        "ziel": ziel,
+        "zeit": "2026-07-01T09:00:00Z",
+    }
 
 
 def _regel(**kw):
-    basis = {"regel_id": "r1", "quelle": "ansage", "aktion": "verschieben",
-             "ziel": "IIL.Finanzen", "kriterium": {"absender_domain": "hoster.de"}}
+    basis = {
+        "regel_id": "r1",
+        "quelle": "ansage",
+        "aktion": "verschieben",
+        "ziel": "IIL.Finanzen",
+        "kriterium": {"absender_domain": "hoster.de"},
+    }
     basis.update(kw)
     return regeln.Regel(**basis)
 
 
 # --- Zwei Quellen, unterschiedlich stark ------------------------------------
 
+
 def test_should_not_derive_rule_from_single_observation():
     """§7a: nie aus einem Einzelfall — ein Verschieben kann eine Ausnahme sein."""
-    kandidaten = regeln.kandidaten_aus_bewegungen([_bewegung(1, "a@hoster.de", "Rechnung")])
+    kandidaten = regeln.kandidaten_aus_bewegungen(
+        [_bewegung(1, "a@hoster.de", "Rechnung")]
+    )
     assert kandidaten == []
 
 
 def test_should_derive_candidate_from_two_aligned_observations():
-    kandidaten = regeln.kandidaten_aus_bewegungen([
-        _bewegung(1, "a@hoster.de", "Rechnung 1"),
-        _bewegung(2, "b@hoster.de", "Rechnung 2"),
-    ])
+    kandidaten = regeln.kandidaten_aus_bewegungen(
+        [
+            _bewegung(1, "a@hoster.de", "Rechnung 1"),
+            _bewegung(2, "b@hoster.de", "Rechnung 2"),
+        ]
+    )
     assert len(kandidaten) == 1
     assert kandidaten[0]["kriterium"] == {"absender_domain": "hoster.de"}
     assert kandidaten[0]["ziel"] == "IIL.Finanzen"
@@ -56,10 +77,12 @@ def test_should_derive_candidate_from_two_aligned_observations():
 
 def test_should_not_group_observations_into_different_targets():
     """Gleichgerichtet heißt: dieselbe Domain in DENSELBEN Ordner."""
-    kandidaten = regeln.kandidaten_aus_bewegungen([
-        _bewegung(1, "a@hoster.de", "x", ziel="IIL.Finanzen"),
-        _bewegung(2, "b@hoster.de", "y", ziel="IIL.Technik"),
-    ])
+    kandidaten = regeln.kandidaten_aus_bewegungen(
+        [
+            _bewegung(1, "a@hoster.de", "x", ziel="IIL.Finanzen"),
+            _bewegung(2, "b@hoster.de", "y", ziel="IIL.Technik"),
+        ]
+    )
     assert kandidaten == []
 
 
@@ -76,11 +99,15 @@ def test_should_reject_observation_rule_below_threshold():
 
 # --- Verschieben und Löschen sind nicht symmetrisch --------------------------
 
+
 def test_should_never_derive_trash_rule_from_observation():
     """§7a: aus einem Löschvorgang wird NIE automatisch eine Trash-Regel."""
     with pytest.raises(regeln.RegelFehler, match="loeschen"):
-        _regel(quelle="beobachtung", aktion="loeschen",
-               belege=[_bewegung(1, "a@x.de", "1"), _bewegung(2, "b@x.de", "2")])
+        _regel(
+            quelle="beobachtung",
+            aktion="loeschen",
+            belege=[_bewegung(1, "a@x.de", "1"), _bewegung(2, "b@x.de", "2")],
+        )
 
 
 def test_should_allow_trash_rule_on_explicit_instruction():
@@ -95,41 +122,65 @@ def test_should_reject_empty_criterion():
 
 # --- Vorschlag: vier Pflichtteile -------------------------------------------
 
+
 def test_should_refuse_proposal_without_backtest():
     """§7a: 'Ohne diesen Schritt kein Vorschlag.'"""
-    kandidat = {"kriterium": {"absender_domain": "hoster.de"}, "aktion": "verschieben",
-                "ziel": "IIL.Finanzen", "belege": [_bewegung(1, "a@hoster.de", "R1"),
-                                                   _bewegung(2, "b@hoster.de", "R2")]}
+    kandidat = {
+        "kriterium": {"absender_domain": "hoster.de"},
+        "aktion": "verschieben",
+        "ziel": "IIL.Finanzen",
+        "belege": [
+            _bewegung(1, "a@hoster.de", "R1"),
+            _bewegung(2, "b@hoster.de", "R2"),
+        ],
+    }
     with pytest.raises(regeln.RegelFehler, match="Trockenlauf"):
         regeln.vorschlag_bauen(kandidat, [], regel_id="r1")
 
 
 def test_should_build_proposal_with_all_four_parts():
-    bestand = [_nachricht(1, "a@hoster.de", "Rechnung Juli"),
-               _nachricht(2, "b@hoster.de", "Rechnung August"),
-               _nachricht(3, "c@hoster.de", "Wartungsfenster Sonntag")]
-    kandidat = {"kriterium": {"absender_domain": "hoster.de"}, "aktion": "verschieben",
-                "ziel": "IIL.Finanzen",
-                "belege": [_bewegung(1, "a@hoster.de", "Rechnung Juli"),
-                           _bewegung(2, "b@hoster.de", "Rechnung August")]}
+    bestand = [
+        _nachricht(1, "a@hoster.de", "Rechnung Juli"),
+        _nachricht(2, "b@hoster.de", "Rechnung August"),
+        _nachricht(3, "c@hoster.de", "Wartungsfenster Sonntag"),
+    ]
+    kandidat = {
+        "kriterium": {"absender_domain": "hoster.de"},
+        "aktion": "verschieben",
+        "ziel": "IIL.Finanzen",
+        "belege": [
+            _bewegung(1, "a@hoster.de", "Rechnung Juli"),
+            _bewegung(2, "b@hoster.de", "Rechnung August"),
+        ],
+    }
     v = regeln.vorschlag_bauen(kandidat, bestand, regel_id="r1")
-    assert v["beobachtung"] and len(v["beobachtung"]) == 2      # 1) Beleg
-    assert "hoster.de" in v["regel_text"]                        # 2) Klartext
-    assert v["trockenlauf"]["treffer"] == 3                      # 3) Trockenlauf
-    assert v["gegenprobe"]["nicht_von_hand_bewegt"] == 1         # 4) Gegenprobe
+    assert v["beobachtung"] and len(v["beobachtung"]) == 2  # 1) Beleg
+    assert "hoster.de" in v["regel_text"]  # 2) Klartext
+    assert v["trockenlauf"]["treffer"] == 3  # 3) Trockenlauf
+    assert v["gegenprobe"]["nicht_von_hand_bewegt"] == 1  # 4) Gegenprobe
     assert v["regel"].zustand == "vorschlag"
 
 
 def test_should_surface_collateral_in_counter_check():
     """Realfall 2026-07-27: eine Hoster-Regel hätte 52 Sicherheitshinweise im
     Rechnungsordner begraben — sichtbar erst durch die Stichprobe."""
-    bestand = [_nachricht(1, "a@hoster.de", "Rechnung Juli"),
-               _nachricht(2, "b@hoster.de", "Rechnung August")]
-    bestand += [_nachricht(10 + i, "sec@hoster.de", "Sicherheitshinweis Zertifikat")
-                for i in range(52)]
+    bestand = [
+        _nachricht(1, "a@hoster.de", "Rechnung Juli"),
+        _nachricht(2, "b@hoster.de", "Rechnung August"),
+    ]
+    bestand += [
+        _nachricht(10 + i, "sec@hoster.de", "Sicherheitshinweis Zertifikat")
+        for i in range(52)
+    ]
     r = _regel(quelle="ansage")
-    g = regeln.gegenprobe(r, bestand, [_bewegung(1, "a@hoster.de", "Rechnung Juli"),
-                                       _bewegung(2, "b@hoster.de", "Rechnung August")])
+    g = regeln.gegenprobe(
+        r,
+        bestand,
+        [
+            _bewegung(1, "a@hoster.de", "Rechnung Juli"),
+            _bewegung(2, "b@hoster.de", "Rechnung August"),
+        ],
+    )
     assert g["treffer"] == 54
     assert g["nicht_von_hand_bewegt"] == 52
     assert g["anteil_fremd"] > 0.9
@@ -138,6 +189,7 @@ def test_should_surface_collateral_in_counter_check():
 
 
 # --- Lebenszyklus ------------------------------------------------------------
+
 
 def test_should_not_activate_without_explicit_confirmation():
     """§7a: kein Pfad, auf dem eine Beobachtung unmittelbar zu einer wirkenden Regel wird."""
@@ -159,8 +211,8 @@ def test_should_pause_rule_on_counter_example_instead_of_narrowing():
     kriterium_vorher = dict(r.kriterium)
     regeln.gegenbeispiel(r, {"betreff": "Rechnung Juli", "ziel": "Posteingang"})
     assert r.zustand == "strittig"
-    assert r.kriterium == kriterium_vorher      # KEINE automatische Verengung
-    assert regeln.wirksam([r]) == []            # wirkt nicht weiter
+    assert r.kriterium == kriterium_vorher  # KEINE automatische Verengung
+    assert regeln.wirksam([r]) == []  # wirkt nicht weiter
 
 
 def test_should_keep_rule_after_retirement():
@@ -180,12 +232,15 @@ def test_should_only_apply_active_rules():
 
 # --- Kennzahl: Restmenge -----------------------------------------------------
 
+
 def test_should_measure_remainder_not_hit_count():
     """§7a: Kennzahl ist die Restmenge, nicht die Trefferzahl."""
-    bestand = [_nachricht(1, "a@hoster.de", "Rechnung"),
-               _nachricht(2, "b@hoster.de", "Rechnung"),
-               _nachricht(3, "chef@kunde.de", "Angebot"),
-               _nachricht(4, "chef@kunde.de", "Rückfrage")]
+    bestand = [
+        _nachricht(1, "a@hoster.de", "Rechnung"),
+        _nachricht(2, "b@hoster.de", "Rechnung"),
+        _nachricht(3, "chef@kunde.de", "Angebot"),
+        _nachricht(4, "chef@kunde.de", "Rückfrage"),
+    ]
     r = regeln.aktivieren(_regel(), bestaetigt=True)
     k = regeln.restmenge([r], bestand)
     assert k["bestand"] == 4
@@ -201,6 +256,7 @@ def test_should_report_full_remainder_without_rules():
 
 
 # --- Protokoll und Rücknahme -------------------------------------------------
+
 
 def test_should_log_every_move_with_source_target_and_rule(tmp_path):
     """§7a: ohne dieses Protokoll ist ein Rollback nicht möglich."""
@@ -232,6 +288,7 @@ def test_should_refuse_rollback_without_protocol(tmp_path):
 
 # --- Persistenz und Normalisierung -------------------------------------------
 
+
 def test_should_roundtrip_rules_through_disk(tmp_path):
     r = regeln.aktivieren(_regel(), bestaetigt=True)
     p = regeln.speichern([r], tmp_path / "mail-regeln.json")
@@ -243,12 +300,16 @@ def test_should_roundtrip_rules_through_disk(tmp_path):
 
 def test_should_prefer_header_date_over_arrival_stamp():
     """Lesson 2026-07-28: der Ankunftsstempel wird beim Umsortieren neu gesetzt."""
-    m = regeln.aus_graph({
-        "id": "x", "subject": "Rechnung",
-        "from": {"emailAddress": {"address": "A@Hoster.de"}},
-        "sentDateTime": "2026-01-05T10:00:00Z",
-        "receivedDateTime": "2026-07-28T09:00:00Z",
-    }, ordner="Archiv/2026")
+    m = regeln.aus_graph(
+        {
+            "id": "x",
+            "subject": "Rechnung",
+            "from": {"emailAddress": {"address": "A@Hoster.de"}},
+            "sentDateTime": "2026-01-05T10:00:00Z",
+            "receivedDateTime": "2026-07-28T09:00:00Z",
+        },
+        ordner="Archiv/2026",
+    )
     assert m["datum"] == "2026-01-05T10:00:00Z"
     assert m["ordner"] == "Archiv/2026"
 
@@ -259,7 +320,9 @@ def test_should_match_sender_case_insensitively():
 
 
 def test_should_require_all_criteria_to_match():
-    r = _regel(kriterium={"absender_domain": "hoster.de", "betreff_enthaelt": "Rechnung"})
+    r = _regel(
+        kriterium={"absender_domain": "hoster.de", "betreff_enthaelt": "Rechnung"}
+    )
     assert regeln.trifft(r, _nachricht(1, "a@hoster.de", "Rechnung Juli"))
     assert not regeln.trifft(r, _nachricht(2, "a@hoster.de", "Wartungsfenster"))
 

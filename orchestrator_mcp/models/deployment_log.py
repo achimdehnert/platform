@@ -177,9 +177,7 @@ class DeploymentLog(models.Model):
     )
 
     # --- Timestamps ---
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name=_("Created At")
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
 
     class Meta:
@@ -195,9 +193,7 @@ class DeploymentLog(models.Model):
             # Fix L-2: use _ACTIVE_STATUSES constant
             models.UniqueConstraint(
                 fields=["tenant_id", "service_name"],
-                condition=models.Q(
-                    status__in=["pending", "pre_check", "deploying"]
-                ),
+                condition=models.Q(status__in=["pending", "pre_check", "deploying"]),
                 name="unique_active_deployment_per_service",
             ),
         ]

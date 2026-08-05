@@ -11,6 +11,7 @@ Einbinden per conftest.py im Repo-Root:
 Dann werden alle .html-Templates und apps/**/*.py automatisch als
 separate Test-Cases registriert und in `pytest` angezeigt.
 """
+
 from __future__ import annotations
 
 import re
@@ -21,23 +22,54 @@ import pytest
 # ── Gemeinsame Konfiguration (identisch zu check_hardcoded_urls.py) ───────────
 
 _ALLOWED_TOKENS = [
-    "/admin/", "https://", "http://", "{{ ", "{% url", "{% static",
+    "/admin/",
+    "https://",
+    "http://",
+    "{{ ",
+    "{% url",
+    "{% static",
 ]
 
 _SKIP_DIRS = {
-    ".venv", "node_modules", "__pycache__", "site-packages",
-    ".git", "dist", "build", "migrations",
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    "site-packages",
+    ".git",
+    "dist",
+    "build",
+    "migrations",
 }
 
 _TEMPLATE_RULES = [
-    ("TEMPLATE-01", re.compile(r'href="(/[a-zA-Z0-9_-])'),    "href mit hartkodiertem Pfad → {{% url 'app:name' %}}"),
-    ("TEMPLATE-02", re.compile(r'action="(/[a-zA-Z0-9_-])'),  "action mit hartkodiertem Pfad → {{% url 'app:name' %}}"),
-    ("TEMPLATE-03", re.compile(r'src="(/[a-zA-Z0-9_-])'),     "src mit hartkodiertem Pfad → {{% static 'path' %}}"),
+    (
+        "TEMPLATE-01",
+        re.compile(r'href="(/[a-zA-Z0-9_-])'),
+        "href mit hartkodiertem Pfad → {{% url 'app:name' %}}",
+    ),
+    (
+        "TEMPLATE-02",
+        re.compile(r'action="(/[a-zA-Z0-9_-])'),
+        "action mit hartkodiertem Pfad → {{% url 'app:name' %}}",
+    ),
+    (
+        "TEMPLATE-03",
+        re.compile(r'src="(/[a-zA-Z0-9_-])'),
+        "src mit hartkodiertem Pfad → {{% static 'path' %}}",
+    ),
 ]
 
 _PYTHON_RULES = [
-    ("PYTHON-01",  re.compile(r'redirect\(\s*["\']\/[a-zA-Z]'),     "redirect() mit hartkodiertem Pfad → reverse()"),
-    ("PYTHON-02",  re.compile(r'HttpResponseRedirect\(\s*["\']\/'),  "HttpResponseRedirect() mit hartkodiertem Pfad"),
+    (
+        "PYTHON-01",
+        re.compile(r'redirect\(\s*["\']\/[a-zA-Z]'),
+        "redirect() mit hartkodiertem Pfad → reverse()",
+    ),
+    (
+        "PYTHON-02",
+        re.compile(r'HttpResponseRedirect\(\s*["\']\/'),
+        "HttpResponseRedirect() mit hartkodiertem Pfad",
+    ),
 ]
 
 
@@ -50,15 +82,13 @@ def _should_skip(path: Path) -> bool:
 
 
 def _collect_templates(root: Path) -> list[Path]:
-    return sorted(
-        p for p in root.rglob("*.html")
-        if not _should_skip(p)
-    )
+    return sorted(p for p in root.rglob("*.html") if not _should_skip(p))
 
 
 def _collect_python_files(root: Path) -> list[Path]:
     return sorted(
-        p for p in root.rglob("*.py")
+        p
+        for p in root.rglob("*.py")
         if not _should_skip(p)
         and not p.name.startswith("test_")
         and p.name != "conftest.py"
@@ -68,13 +98,20 @@ def _collect_python_files(root: Path) -> list[Path]:
 
 # ── pytest-Parametrisierung ───────────────────────────────────────────────────
 
+
 def _get_repo_root() -> Path:
     return Path(__file__).parent.parent.parent
 
 
 _REPO_ROOT = _get_repo_root()
-_TEMPLATES = _collect_templates(_REPO_ROOT / "templates") if (_REPO_ROOT / "templates").exists() else []
-_PY_FILES  = _collect_python_files(_REPO_ROOT / "apps") if (_REPO_ROOT / "apps").exists() else []
+_TEMPLATES = (
+    _collect_templates(_REPO_ROOT / "templates")
+    if (_REPO_ROOT / "templates").exists()
+    else []
+)
+_PY_FILES = (
+    _collect_python_files(_REPO_ROOT / "apps") if (_REPO_ROOT / "apps").exists() else []
+)
 
 
 @pytest.mark.parametrize(
@@ -95,7 +132,9 @@ def test_should_not_contain_hardcoded_urls_in_template(template_path: Path) -> N
             continue
         for rule_id, pattern, description in _TEMPLATE_RULES:
             if pattern.search(line):
-                violations.append(f"[{rule_id}] Zeile {lineno}: {description}\n    → {stripped}")
+                violations.append(
+                    f"[{rule_id}] Zeile {lineno}: {description}\n    → {stripped}"
+                )
 
     assert not violations, (
         f"\nHardcoding-Violations in {template_path.relative_to(_REPO_ROOT)}:\n"
@@ -119,7 +158,9 @@ def test_should_not_contain_hardcoded_redirects_in_views(py_path: Path) -> None:
             continue
         for rule_id, pattern, description in _PYTHON_RULES:
             if pattern.search(line):
-                violations.append(f"[{rule_id}] Zeile {lineno}: {description}\n    → {stripped}")
+                violations.append(
+                    f"[{rule_id}] Zeile {lineno}: {description}\n    → {stripped}"
+                )
 
     assert not violations, (
         f"\nHardcoding-Violations in {py_path.relative_to(_REPO_ROOT)}:\n"

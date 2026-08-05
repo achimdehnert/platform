@@ -13,6 +13,7 @@ Danach:
     python3 scripts/gen_test_scaffold.py <repo_name>   # Test-Infrastruktur
     python3 scripts/gen_django_app.py <repo_name> <app_name>  # Erste App
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,22 +26,22 @@ TEMPLATES_DIR = PLATFORM_ROOT / "docs" / "templates"
 
 
 TEMPLATE_FILES = [
-    ("Dockerfile",               "Dockerfile"),
-    ("docker-compose.prod.yml",  "docker-compose.prod.yml"),
-    ("ci.yml",                   ".github/workflows/ci.yml"),
-    (".env.example",             ".env.example"),
-    ("cliff.toml",               "cliff.toml"),
-    (".importlinter",            ".importlinter"),
-    ("renovate.json",            "renovate.json"),  # aus platform root
-    (".dockerignore",            ".dockerignore"),
+    ("Dockerfile", "Dockerfile"),
+    ("docker-compose.prod.yml", "docker-compose.prod.yml"),
+    ("ci.yml", ".github/workflows/ci.yml"),
+    (".env.example", ".env.example"),
+    ("cliff.toml", "cliff.toml"),
+    (".importlinter", ".importlinter"),
+    ("renovate.json", "renovate.json"),  # aus platform root
+    (".dockerignore", ".dockerignore"),
 ]
 
 
-def _replace_placeholders(content: str, repo_name: str, port: str,
-                           settings_module: str) -> str:
+def _replace_placeholders(
+    content: str, repo_name: str, port: str, settings_module: str
+) -> str:
     return (
-        content
-        .replace("REPO_NAME", repo_name)
+        content.replace("REPO_NAME", repo_name)
         .replace("PORT", port)
         .replace("config.settings.test", settings_module)
     )
@@ -61,10 +62,10 @@ def setup_repo(
             src = PLATFORM_ROOT / "renovate.json"
             # Für andere Repos: nur das 3-Zeiler-Preset, nicht den vollen Config
             template_content = (
-                '{\n'
+                "{\n"
                 '  "$schema": "https://docs.renovatebot.com/renovate-schema.json",\n'
                 '  "extends": ["github>achimdehnert/platform//renovate.json"]\n'
-                '}\n'
+                "}\n"
             )
         else:
             src = TEMPLATES_DIR / template_name
@@ -73,7 +74,9 @@ def setup_repo(
                 continue
             template_content = src.read_text(encoding="utf-8")
 
-        content = _replace_placeholders(template_content, repo_name, port, settings_module)
+        content = _replace_placeholders(
+            template_content, repo_name, port, settings_module
+        )
         target = repo_dir / target_rel
 
         if target.exists():
@@ -98,10 +101,16 @@ def main() -> int:
         description="Neues Repo aus Golden-Path-Templates initialisieren"
     )
     parser.add_argument("repo", help="Repo-Name oder absoluter Pfad")
-    parser.add_argument("--port", required=True,
-                        help="Prod-Port (z.B. 8015) — muss einmalig in repo-registry.yaml vergeben sein")
-    parser.add_argument("--settings", default="config.settings.test",
-                        help="DJANGO_SETTINGS_MODULE (default: config.settings.test)")
+    parser.add_argument(
+        "--port",
+        required=True,
+        help="Prod-Port (z.B. 8015) — muss einmalig in repo-registry.yaml vergeben sein",
+    )
+    parser.add_argument(
+        "--settings",
+        default="config.settings.test",
+        help="DJANGO_SETTINGS_MODULE (default: config.settings.test)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Nur anzeigen")
     args = parser.parse_args()
 
@@ -114,26 +123,32 @@ def main() -> int:
         print(f"❌ Repo nicht gefunden: {repo_dir}")
         return 1
 
-    print(f"\n🚀  Setup: {repo_dir.name} | Port: {args.port} | "
-          f"Settings: {args.settings} | {'DRY-RUN' if args.dry_run else 'ERSTELLEN'}\n")
+    print(
+        f"\n🚀  Setup: {repo_dir.name} | Port: {args.port} | "
+        f"Settings: {args.settings} | {'DRY-RUN' if args.dry_run else 'ERSTELLEN'}\n"
+    )
 
     results = setup_repo(repo_dir, args.port, args.settings, dry_run=args.dry_run)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     for path, status in results.items():
         icon = "✅" if "CREAT" in status or "DRY" in status else "⏭️ "
         print(f"  {icon}  {path:<40} {status}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not args.dry_run:
         repo_name = repo_dir.name
         print(f"\n📋  Nächste Schritte für '{repo_name}':")
         print(f"  1. Port {args.port} in scripts/repo-registry.yaml eintragen")
-        print(f"  2. Nginx-Konfig auf Server: /etc/nginx/sites-available/{repo_name}.conf")
+        print(
+            f"  2. Nginx-Konfig auf Server: /etc/nginx/sites-available/{repo_name}.conf"
+        )
         print(f"  3. python3 scripts/gen_test_scaffold.py {repo_name}")
         print(f"  4. python3 scripts/gen_django_app.py {repo_name} <app_name>")
         print("  5. .env.example → .env.prod kopieren + echte Werte setzen")
-        print("  6. git add -A && git commit -m 'chore: initial setup via setup_repo.py'")
+        print(
+            "  6. git add -A && git commit -m 'chore: initial setup via setup_repo.py'"
+        )
         print("  7. git push → CI baut + deployt automatisch")
 
     return 0

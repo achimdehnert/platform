@@ -25,15 +25,9 @@ from pathlib import Path
 
 import yaml
 
-REPOS_YAML = (
-    Path(__file__).resolve().parent.parent.parent
-    / "registry"
-    / "repos.yaml"
-)
+REPOS_YAML = Path(__file__).resolve().parent.parent.parent / "registry" / "repos.yaml"
 
-VALID_TENANCY_MODES = frozenset(
-    {"subdomain", "path", "header", "jwt_claim", "none"}
-)
+VALID_TENANCY_MODES = frozenset({"subdomain", "path", "header", "jwt_claim", "none"})
 
 
 def load_repos(path: Path) -> dict:
@@ -106,10 +100,7 @@ def main() -> None:
     data = load_repos(REPOS_YAML)
 
     # Count systems
-    system_count = sum(
-        len(d.get("systems", []))
-        for d in data.get("domains", [])
-    )
+    system_count = sum(len(d.get("systems", [])) for d in data.get("domains", []))
 
     print("=" * 60)
     print("Tenancy-Mode Registry Lint (ADR-212 Issue #247)")
@@ -147,7 +138,8 @@ def main() -> None:
         if subdomain_systems:
             print(f"\nKlausel-1-Systeme (subdomain): {subdomain_systems}")
             configured = [
-                s for _, s in iter_systems(data)
+                s
+                for _, s in iter_systems(data)
                 if s.get("tenancy_mode") == "subdomain"
                 and s.get("demo_fixture") is True
             ]

@@ -78,11 +78,15 @@ def main(argv: list[str] | None = None) -> int:
 
     funde = finde_ankerlose_stellen(text, args.fenster)
     if not funde:
-        print("✅ Aufschub-Anker: jede angekuendigte Auslassung hat eine Issue-Referenz.")
+        print(
+            "✅ Aufschub-Anker: jede angekuendigte Auslassung hat eine Issue-Referenz."
+        )
         return 0
 
     kopf = "❌ Aufschub ohne Anker" if args.block else "⚠️  Aufschub ohne Anker"
-    print(f"{kopf}: {len(funde)} Stelle(n) kuendigen Arbeit an, ohne ein Issue zu nennen:")
+    print(
+        f"{kopf}: {len(funde)} Stelle(n) kuendigen Arbeit an, ohne ein Issue zu nennen:"
+    )
     for nr, zeile in funde:
         print(f"  Zeile {nr}: {zeile[:110]}")
     print(

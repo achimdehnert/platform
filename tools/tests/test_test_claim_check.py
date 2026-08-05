@@ -3,6 +3,7 @@
 The gate that demands tests ships with tests — and these run in CI via
 .github/workflows/test-claim-check.yml (step 1, blocking). Naming: test_should_*.
 """
+
 import importlib
 
 tcc = importlib.import_module("tools.test_claim_check")

@@ -6,6 +6,7 @@ Zeigt alle 5 Verifier-Typen aus ADR-155.
 
 ADR: ADR-155
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -53,6 +54,7 @@ class TestOutlineGeneratorContract:
 
 # ── 2. Service-Layer Contract ────────────────────────────────────────────────
 
+
 @pytest.mark.contract
 class TestDocumentServiceContract:
     """Contract-Tests für einen internen Service-Layer."""
@@ -87,6 +89,7 @@ class TestDocumentServiceContract:
 
 # ── 3. Celery Task Contract ──────────────────────────────────────────────────
 
+
 @pytest.mark.contract
 class TestCeleryTaskContract:
     """Contract-Tests für einen Celery Task."""
@@ -115,6 +118,7 @@ class TestCeleryTaskContract:
 
 # ── 4. Freie Funktion Contract ───────────────────────────────────────────────
 
+
 @pytest.mark.contract
 class TestFreeFunctionContract:
     """Contract-Tests für eine freistehende Funktion."""
@@ -123,7 +127,9 @@ class TestFreeFunctionContract:
     def verifier(self):
         from iil_testkit.contract import ContractVerifier
 
-        def analyze_cv_with_llm(cv_text: str, *, quality: str = "standard") -> dict[str, Any]: ...
+        def analyze_cv_with_llm(
+            cv_text: str, *, quality: str = "standard"
+        ) -> dict[str, Any]: ...
 
         return ContractVerifier.for_callable(analyze_cv_with_llm)
 
@@ -136,6 +142,7 @@ class TestFreeFunctionContract:
 
 # ── 5. REST Response Shape Contract ──────────────────────────────────────────
 
+
 @pytest.mark.contract
 class TestRestResponseContract:
     """Contract-Tests für REST API Response-Shapes."""
@@ -144,23 +151,29 @@ class TestRestResponseContract:
     def verifier(self):
         from iil_testkit.contract import ResponseShapeVerifier
 
-        return ResponseShapeVerifier({
-            "fit_score": float,
-            "skills": list,
-            "summary": str,
-        })
+        return ResponseShapeVerifier(
+            {
+                "fit_score": float,
+                "skills": list,
+                "summary": str,
+            }
+        )
 
     def test_should_have_expected_keys(self, verifier) -> None:
-        verifier.assert_response({
-            "fit_score": 0.85,
-            "skills": ["Python", "Django"],
-            "summary": "Guter Kandidat",
-            "extra_field": True,  # Extra-Keys sind erlaubt
-        })
+        verifier.assert_response(
+            {
+                "fit_score": 0.85,
+                "skills": ["Python", "Django"],
+                "summary": "Guter Kandidat",
+                "extra_field": True,  # Extra-Keys sind erlaubt
+            }
+        )
 
     def test_should_have_correct_types(self, verifier) -> None:
-        verifier.assert_response_types({
-            "fit_score": 0.85,
-            "skills": ["Python"],
-            "summary": "Test",
-        })
+        verifier.assert_response_types(
+            {
+                "fit_score": 0.85,
+                "skills": ["Python"],
+                "summary": "Test",
+            }
+        )

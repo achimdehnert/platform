@@ -6,6 +6,7 @@ und NICHT der PyPI-Lookup (`get_latest_version`); beide bleiben ungetestet, weil
 sie echte Netz-/gh-Calls bräuchten. `generate_scaffold()` nimmt die testkit-Version
 als Parameter entgegen, macht selbst keinen Netzwerkzugriff.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -54,7 +55,9 @@ def test_should_create_all_scaffold_files_on_fresh_repo(tmp_path):
     assert "def test_should_unauthenticated_redirect_to_login(" in smoke
 
     htmx = (repo_dir / "tests" / "test_views_htmx.py").read_text(encoding="utf-8")
-    assert "HTMX_URLS: list[str] = [\n\n]" in htmx or "HTMX_URLS: list[str] = [\n]" in htmx
+    assert (
+        "HTMX_URLS: list[str] = [\n\n]" in htmx or "HTMX_URLS: list[str] = [\n]" in htmx
+    )
     assert "Keine hx-* Attribute in Templates gefunden" in htmx
 
     req = (repo_dir / "requirements-test.txt").read_text(encoding="utf-8")
@@ -152,7 +155,7 @@ def test_should_detect_settings_module_from_pyproject_ini_options(tmp_path):
     repo_dir = tmp_path / "myrepo"
     repo_dir.mkdir()
     (repo_dir / "pyproject.toml").write_text(
-        '[tool.pytest.ini_options]\n'
+        "[tool.pytest.ini_options]\n"
         'DJANGO_SETTINGS_MODULE = "config.settings.prod_like"\n',
         encoding="utf-8",
     )

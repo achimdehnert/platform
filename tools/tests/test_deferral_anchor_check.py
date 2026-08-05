@@ -56,7 +56,9 @@ def test_should_accept_an_anchor_that_precedes_the_deferral():
 
 
 def test_should_accept_a_full_issue_url_as_anchor():
-    text = "Bewusst nicht enthalten.\nhttps://github.com/achimdehnert/platform/issues/7\n"
+    text = (
+        "Bewusst nicht enthalten.\nhttps://github.com/achimdehnert/platform/issues/7\n"
+    )
 
     assert stellen(text) == []
 

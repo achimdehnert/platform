@@ -110,9 +110,7 @@ def _check_redis() -> tuple[bool | None, str]:
     try:
         import redis
 
-        r = redis.from_url(
-            redis_url, socket_connect_timeout=2, socket_timeout=2
-        )
+        r = redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
         r.ping()
         return True, "connected"
     except Exception as e:

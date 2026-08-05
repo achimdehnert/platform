@@ -176,7 +176,12 @@ def test_should_skip_folders_without_mail():
 
 
 def test_should_keep_checking_real_mail_folders():
-    for name in ("INBOX", "Archiv/2024", "IIL.Kunden/Scheppach", "Betreuungen/Anfragen"):
+    for name in (
+        "INBOX",
+        "Archiv/2024",
+        "IIL.Kunden/Scheppach",
+        "Betreuungen/Anfragen",
+    ):
         assert ap.ist_mail_ordner(name) is True, name
 
 

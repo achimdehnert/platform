@@ -18,6 +18,7 @@ separaten `infra/klickdummy-host` `/opt/klickdummy/repos.yaml`, anderes File) +
 Run:    python3 tools/check_registry_view_readers.py
 Update: python3 tools/check_registry_view_readers.py --update   # nur nach echter Konsumenten-Migration
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -68,11 +69,7 @@ def find_readers(root: Path, files: list[str]) -> set[str]:
         # _ARCHIVED/ überspringen (root wie verschachtelt, z.B. ADR-275 P5:
         # registry/_ARCHIVED/github_repos.yaml, dessen RETIRED-Banner die
         # View-Pfade nennt).
-        if (
-            rel in ALLOWED
-            or rel.startswith("_ARCHIVED/")
-            or "/_ARCHIVED/" in rel
-        ):
+        if rel in ALLOWED or rel.startswith("_ARCHIVED/") or "/_ARCHIVED/" in rel:
             continue
         if not rel.endswith(CODE_SUFFIXES):
             continue
@@ -113,12 +110,17 @@ def main(argv: list[str]) -> int:
     readers = find_readers(ROOT, _tracked_files())
     if "--update" in argv:
         write_baseline(readers)
-        print(f"✅ Baseline aktualisiert: {len(readers)} Reader → {BASELINE.relative_to(ROOT)}")
+        print(
+            f"✅ Baseline aktualisiert: {len(readers)} Reader → {BASELINE.relative_to(ROOT)}"
+        )
         return 0
 
     baseline = load_baseline()
     if not baseline:
-        print("FEHLER: Baseline fehlt — erst `--update` (committed) laufen lassen.", file=sys.stderr)
+        print(
+            "FEHLER: Baseline fehlt — erst `--update` (committed) laufen lassen.",
+            file=sys.stderr,
+        )
         return 2
 
     new = readers - baseline
@@ -129,16 +131,24 @@ def main(argv: list[str]) -> int:
             f"optional `--update`: {', '.join(sorted(gone))}"
         )
     if new:
-        print("🔴 NEUE Direct-Reads der generierten Registry-Views (ADR-234 §11.1 REC-4):")
+        print(
+            "🔴 NEUE Direct-Reads der generierten Registry-Views (ADR-234 §11.1 REC-4):"
+        )
         for r in sorted(new):
             print(f"   - {r}")
-        print("\n   Die Views (scripts/repo-registry.yaml, registry/repos.yaml) sind GENERIERT.")
+        print(
+            "\n   Die Views (scripts/repo-registry.yaml, registry/repos.yaml) sind GENERIERT."
+        )
         print("   Neuer Code liest die Registry über tools/registry_api.py")
-        print("   (flat()/rich()/repos()/repo()). Falls dieser Reader bewusst legitim ist,")
+        print(
+            "   (flat()/rich()/repos()/repo()). Falls dieser Reader bewusst legitim ist,"
+        )
         print("   begründe ihn und nimm ihn per `--update` in die Baseline auf.")
         return 1
 
-    print(f"✅ Keine neuen View-Direct-Reads ({len(readers)} bekannte Reader, Baseline eingehalten).")
+    print(
+        f"✅ Keine neuen View-Direct-Reads ({len(readers)} bekannte Reader, Baseline eingehalten)."
+    )
     return 0
 
 

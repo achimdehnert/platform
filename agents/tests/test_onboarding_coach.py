@@ -1,4 +1,5 @@
 """Tests for Onboarding Coach (Agent A5)."""
+
 from __future__ import annotations
 
 from agents.onboarding_coach import (
@@ -24,15 +25,11 @@ class TestModules:
 
     def test_should_have_exercises(self):
         for m in MODULES:
-            assert len(m.exercises) >= 1, (
-                f"{m.id} has no exercises"
-            )
+            assert len(m.exercises) >= 1, f"{m.id} has no exercises"
 
     def test_should_have_quiz_questions(self):
         for m in MODULES:
-            assert len(m.quiz) >= 1, (
-                f"{m.id} has no quiz questions"
-            )
+            assert len(m.quiz) >= 1, f"{m.id} has no quiz questions"
 
 
 class TestModuleRendering:
@@ -84,7 +81,11 @@ class TestOnboardingProgress:
     def test_should_show_full_completion(self):
         progress = OnboardingProgress(
             completed_modules=[
-                "M1", "M2", "M3", "M4", "M5",
+                "M1",
+                "M2",
+                "M3",
+                "M4",
+                "M5",
             ],
         )
         assert progress.completion_pct == 100.0
@@ -112,6 +113,4 @@ class TestQuizQuestions:
     def test_should_have_explanations(self):
         for m in MODULES:
             for q in m.quiz:
-                assert q.explanation, (
-                    f"{m.id}: quiz missing explanation"
-                )
+                assert q.explanation, f"{m.id}: quiz missing explanation"

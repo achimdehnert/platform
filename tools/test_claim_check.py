@@ -21,6 +21,7 @@ CLI:
 
 Run-Tests: python3 -m pytest tools/tests/test_test_claim_check.py -q
 """
+
 from __future__ import annotations
 
 import argparse
@@ -74,7 +75,7 @@ def find_test_claims(text: str) -> list[str]:
         return []
     claims: list[str] = []
     for m in _CLAIM_RE.finditer(text):
-        window = text[max(0, m.start() - _NEG_WINDOW): m.start()]
+        window = text[max(0, m.start() - _NEG_WINDOW) : m.start()]
         if _NEG_RE.search(window):
             continue  # abgeschwaecht/negiert -> kein Test-Claim
         claims.append(m.group(0).strip())
@@ -134,7 +135,9 @@ def main(argv: list[str] | None = None) -> int:
 
     body = _read(args.body_file)
     commits = _read(args.commits_file)
-    changed = [ln.strip() for ln in _read(args.changed_files_file).splitlines() if ln.strip()]
+    changed = [
+        ln.strip() for ln in _read(args.changed_files_file).splitlines() if ln.strip()
+    ]
 
     result = analyze(body, commits, changed)
 

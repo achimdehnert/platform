@@ -17,7 +17,9 @@ import pathlib
 
 import pytest
 
-_SRC = pathlib.Path(__file__).resolve().parents[1] / "cc-skill-dist" / "windsurf-subset.py"
+_SRC = (
+    pathlib.Path(__file__).resolve().parents[1] / "cc-skill-dist" / "windsurf-subset.py"
+)
 _spec = importlib.util.spec_from_file_location("windsurf_subset", _SRC)
 ws = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ws)
@@ -36,7 +38,8 @@ def fake_git(dateien: dict[str, str]):
             return COMMIT + "\n"
         if args[0] == "ls-tree":
             return "".join(
-                f"100644 blob {shas[n]}\t.windsurf/workflows/{n}\n" for n in sorted(dateien)
+                f"100644 blob {shas[n]}\t.windsurf/workflows/{n}\n"
+                for n in sorted(dateien)
             )
         if args[0] == "cat-file":
             name = next(n for n, s in shas.items() if s == args[2])
@@ -48,7 +51,9 @@ def fake_git(dateien: dict[str, str]):
 
 def lauf(monkeypatch, dateien, ziel, *extra):
     monkeypatch.setattr(ws, "git", fake_git(dateien))
-    monkeypatch.setattr(ws.sys, "argv", ["windsurf-subset.py", "--target", str(ziel), *extra])
+    monkeypatch.setattr(
+        ws.sys, "argv", ["windsurf-subset.py", "--target", str(ziel), *extra]
+    )
     ws.main()
 
 
@@ -79,10 +84,14 @@ def test_should_not_detect_the_tag_outside_the_frontmatter():
 # --- Sicherheitsgate ---------------------------------------------------------
 
 
-def test_should_refuse_to_write_to_the_live_location_without_allow_live(monkeypatch, tmp_path):
+def test_should_refuse_to_write_to_the_live_location_without_allow_live(
+    monkeypatch, tmp_path
+):
     monkeypatch.setattr(ws, "WINDSURF_LIVE", str(tmp_path / "live"))
     monkeypatch.setattr(ws, "git", fake_git({"adr.md": "x"}))
-    monkeypatch.setattr(ws.sys, "argv", ["windsurf-subset.py", "--target", str(tmp_path / "live")])
+    monkeypatch.setattr(
+        ws.sys, "argv", ["windsurf-subset.py", "--target", str(tmp_path / "live")]
+    )
 
     with pytest.raises(SystemExit) as exc:
         ws.main()
@@ -96,10 +105,14 @@ def test_should_refuse_to_write_to_the_live_location_without_allow_live(monkeypa
 
 def test_should_prefer_tagged_files_over_the_fallback_list(monkeypatch, tmp_path):
     ziel = tmp_path / "subset"
-    lauf(monkeypatch, {
-        "adr.md": "---\na: 1\n---\nohne Tag\n",
-        "sonstwas.md": "---\ntool_targets: [windsurf-review]\n---\nmit Tag\n",
-    }, ziel)
+    lauf(
+        monkeypatch,
+        {
+            "adr.md": "---\na: 1\n---\nohne Tag\n",
+            "sonstwas.md": "---\ntool_targets: [windsurf-review]\n---\nmit Tag\n",
+        },
+        ziel,
+    )
 
     manifest = json.loads((ziel / "manifest.json").read_text(encoding="utf-8"))
 
@@ -107,12 +120,18 @@ def test_should_prefer_tagged_files_over_the_fallback_list(monkeypatch, tmp_path
     assert "Frontmatter-Tag" in manifest["selection_mode"]
 
 
-def test_should_fall_back_to_the_curated_list_when_nothing_is_tagged(monkeypatch, tmp_path):
+def test_should_fall_back_to_the_curated_list_when_nothing_is_tagged(
+    monkeypatch, tmp_path
+):
     ziel = tmp_path / "subset"
-    lauf(monkeypatch, {
-        "adr.md": "kein frontmatter\n",
-        "unbeteiligt.md": "kein frontmatter\n",
-    }, ziel)
+    lauf(
+        monkeypatch,
+        {
+            "adr.md": "kein frontmatter\n",
+            "unbeteiligt.md": "kein frontmatter\n",
+        },
+        ziel,
+    )
 
     manifest = json.loads((ziel / "manifest.json").read_text(encoding="utf-8"))
 
@@ -154,12 +173,16 @@ def test_should_move_an_existing_target_aside_into_bak(monkeypatch, tmp_path):
 
     lauf(monkeypatch, {"adr.md": "Inhalt\n"}, ziel)
 
-    assert (tmp_path / "subset.bak" / "alt.md").read_text(encoding="utf-8") == "Vorgaenger\n"
+    assert (tmp_path / "subset.bak" / "alt.md").read_text(
+        encoding="utf-8"
+    ) == "Vorgaenger\n"
     assert (ziel / "adr.md").exists()
     assert not (ziel / "alt.md").exists()
 
 
-def test_should_replace_an_older_backup_rather_than_stacking_them(monkeypatch, tmp_path):
+def test_should_replace_an_older_backup_rather_than_stacking_them(
+    monkeypatch, tmp_path
+):
     ziel = tmp_path / "subset"
     ziel.mkdir()
     (ziel / "runde2.md").write_text("zweiter Lauf\n", encoding="utf-8")

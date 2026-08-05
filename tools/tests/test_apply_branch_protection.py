@@ -85,7 +85,9 @@ fi
 
 def _require_jq() -> None:
     if not shutil.which("jq"):
-        pytest.skip("jq nicht auf PATH — Skript requires jq hart (lokale Dev-Sandbox ohne jq)")
+        pytest.skip(
+            "jq nicht auf PATH — Skript requires jq hart (lokale Dev-Sandbox ohne jq)"
+        )
 
 
 def _make_fixture(tmp_path: Path) -> Path:
@@ -95,7 +97,9 @@ def _make_fixture(tmp_path: Path) -> Path:
     (root / "governance" / "rulesets").mkdir(parents=True)
     shutil.copy(SCRIPT, root / "tools" / "apply-branch-protection.sh")
     (root / "tools" / "apply-branch-protection.sh").chmod(0o755)
-    (root / "governance" / "rulesets" / "main-required-checks-template.json").write_text(_TEMPLATE_JSON)
+    (
+        root / "governance" / "rulesets" / "main-required-checks-template.json"
+    ).write_text(_TEMPLATE_JSON)
     (root / "governance" / "rulesets" / "wave1-repos.json").write_text(_WAVE1_JSON)
     return root
 
@@ -109,7 +113,9 @@ def _make_gh_shim(tmp_path: Path, script_body: str) -> str:
     return str(shim_dir)
 
 
-def _run_script(root: Path, shim_dir: str, extra_env: dict | None = None) -> subprocess.CompletedProcess:
+def _run_script(
+    root: Path, shim_dir: str, extra_env: dict | None = None
+) -> subprocess.CompletedProcess:
     import os
 
     env = dict(os.environ)
@@ -119,7 +125,12 @@ def _run_script(root: Path, shim_dir: str, extra_env: dict | None = None) -> sub
         env.update(extra_env)
     bash_bin = shutil.which("bash")
     return subprocess.run(
-        [bash_bin, str(root / "tools" / "apply-branch-protection.sh"), "--repo", "demo-repo"],
+        [
+            bash_bin,
+            str(root / "tools" / "apply-branch-protection.sh"),
+            "--repo",
+            "demo-repo",
+        ],
         cwd=str(root),
         env=env,
         capture_output=True,
@@ -188,7 +199,9 @@ def _extract_apply_rulesets_run_step() -> str:
     for step in steps:
         if step.get("name") == "Apply Rulesets":
             return step["run"]
-    raise AssertionError("Step 'Apply Rulesets' nicht in apply-branch-protection.yml gefunden")
+    raise AssertionError(
+        "Step 'Apply Rulesets' nicht in apply-branch-protection.yml gefunden"
+    )
 
 
 def test_should_report_failure_and_nonzero_exit_when_workflow_post_fails(tmp_path):
@@ -198,7 +211,9 @@ def test_should_report_failure_and_nonzero_exit_when_workflow_post_fails(tmp_pat
 
     root = tmp_path / "wf-fixture"
     (root / "governance" / "rulesets").mkdir(parents=True)
-    (root / "governance" / "rulesets" / "main-required-checks-template.json").write_text(_TEMPLATE_JSON)
+    (
+        root / "governance" / "rulesets" / "main-required-checks-template.json"
+    ).write_text(_TEMPLATE_JSON)
     (root / "governance" / "rulesets" / "wave1-repos.json").write_text(_WAVE1_JSON)
     script_path = root / "run.sh"
     script_path.write_text(run_script)
@@ -233,5 +248,7 @@ def test_should_report_failure_and_nonzero_exit_when_workflow_post_fails(tmp_pat
         f"SEC-1 Regression (Workflow): Exit 0 trotz simuliertem curl-Fehlschlag.\n"
         f"stdout={res.stdout}\nstderr={res.stderr}"
     )
-    assert "✅" not in res.stdout, f"SEC-1 Regression (Workflow): '✅' trotz Fehlschlag.\nstdout={res.stdout}"
+    assert "✅" not in res.stdout, (
+        f"SEC-1 Regression (Workflow): '✅' trotz Fehlschlag.\nstdout={res.stdout}"
+    )
     assert "❌" in res.stdout

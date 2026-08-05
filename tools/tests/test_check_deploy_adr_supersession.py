@@ -1,4 +1,5 @@
 """Tests für den Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-264)."""
+
 import os
 import sys
 
@@ -8,7 +9,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import check_deploy_adr_supersession as gate  # noqa: E402
 
 
-def _write(tmp_path, adr_id, title, status="proposed", supersedes="[]", extra_fm="", body="Body."):
+def _write(
+    tmp_path,
+    adr_id,
+    title,
+    status="proposed",
+    supersedes="[]",
+    extra_fm="",
+    body="Body.",
+):
     fm = f"---\nid: ADR-{adr_id}\ntitle: {title}\nstatus: {status}\nsupersedes: {supersedes}\n{extra_fm}---\n\n{body}\n"
     p = tmp_path / f"ADR-{adr_id}-{title}.md"
     p.write_text(fm, encoding="utf-8")
@@ -22,17 +31,30 @@ def test_should_flag_new_deploy_adr_without_supersedes(tmp_path):
 
 def test_should_pass_grandfathered_deploy_adr(tmp_path):
     # ADR-120 existierte vor dem Gate → auch mit leerem supersedes konform.
-    p = _write(tmp_path, "120", "unified-deployment-pipeline", status="accepted", supersedes="[]")
+    p = _write(
+        tmp_path,
+        "120",
+        "unified-deployment-pipeline",
+        status="accepted",
+        supersedes="[]",
+    )
     assert gate.violation_for(p) is None
 
 
 def test_should_pass_new_deploy_adr_with_supersedes(tmp_path):
-    p = _write(tmp_path, "265", "final-deployment-pipeline", supersedes="[ADR-021, ADR-120]")
+    p = _write(
+        tmp_path, "265", "final-deployment-pipeline", supersedes="[ADR-021, ADR-120]"
+    )
     assert gate.violation_for(p) is None
 
 
 def test_should_pass_new_deploy_adr_with_block_supersedes(tmp_path):
-    p = _write(tmp_path, "266", "deployment-strategy-v2", supersedes="\n  - ADR-021\n  - ADR-120")
+    p = _write(
+        tmp_path,
+        "266",
+        "deployment-strategy-v2",
+        supersedes="\n  - ADR-021\n  - ADR-120",
+    )
     assert gate.violation_for(p) is None
 
 
@@ -43,41 +65,68 @@ def test_should_ignore_new_non_deploy_adr(tmp_path):
 
 
 def test_should_pass_with_frontmatter_waiver(tmp_path):
-    p = _write(tmp_path, "265", "narrow-deployment-addition", supersedes="[]",
-               extra_fm="supersedes_waiver: enge Ergänzung, löst nichts ab\n")
+    p = _write(
+        tmp_path,
+        "265",
+        "narrow-deployment-addition",
+        supersedes="[]",
+        extra_fm="supersedes_waiver: enge Ergänzung, löst nichts ab\n",
+    )
     assert gate.violation_for(p) is None
 
 
 def test_should_pass_with_body_waiver(tmp_path):
-    p = _write(tmp_path, "265", "narrow-deployment-addition", supersedes="[]",
-               body="<!-- supersedes-waiver: enge Ergänzung -->\nBody.")
+    p = _write(
+        tmp_path,
+        "265",
+        "narrow-deployment-addition",
+        supersedes="[]",
+        body="<!-- supersedes-waiver: enge Ergänzung -->\nBody.",
+    )
     assert gate.violation_for(p) is None
 
 
 def test_should_pass_with_nonempty_amends(tmp_path):
     # Ein gefuelltes `amends:` benennt die Vorgaenger ausdruecklich und beantwortet
     # damit die Frage, die der Gate stellt (Realfall ADR-292).
-    p = _write(tmp_path, "292", "two-lane-deployment-six-host-standard", supersedes="[]",
-               extra_fm="amends: [ADR-157, ADR-289]\n")
+    p = _write(
+        tmp_path,
+        "292",
+        "two-lane-deployment-six-host-standard",
+        supersedes="[]",
+        extra_fm="amends: [ADR-157, ADR-289]\n",
+    )
     assert gate.violation_for(p) is None
 
 
 def test_should_pass_with_block_amends(tmp_path):
-    p = _write(tmp_path, "293", "deployment-strategy-v3", supersedes="[]",
-               extra_fm="amends:\n  - ADR-157\n  - ADR-289\n")
+    p = _write(
+        tmp_path,
+        "293",
+        "deployment-strategy-v3",
+        supersedes="[]",
+        extra_fm="amends:\n  - ADR-157\n  - ADR-289\n",
+    )
     assert gate.violation_for(p) is None
 
 
 def test_should_flag_when_both_supersedes_and_amends_empty(tmp_path):
     # Gegenprobe: ein leeres `amends:` darf NICHT als Antwort durchgehen --
     # sonst waere die Erweiterung ein Freifahrtschein statt einer dritten Antwort.
-    p = _write(tmp_path, "294", "final-deployment-pipeline", supersedes="[]",
-               extra_fm="amends: []\n")
+    p = _write(
+        tmp_path,
+        "294",
+        "final-deployment-pipeline",
+        supersedes="[]",
+        extra_fm="amends: []\n",
+    )
     assert gate.violation_for(p) is not None
 
 
 def test_should_ignore_draft_status(tmp_path):
-    p = _write(tmp_path, "265", "final-deployment-pipeline", status="draft", supersedes="[]")
+    p = _write(
+        tmp_path, "265", "final-deployment-pipeline", status="draft", supersedes="[]"
+    )
     assert gate.violation_for(p) is None
 
 
@@ -85,6 +134,7 @@ def test_should_pass_on_current_adr_tree():
     """Der heutige docs/adr-Baum muss den Gate passieren (Grandfathering greift)."""
     repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import glob
+
     paths = glob.glob(os.path.join(repo, "docs", "adr", "ADR-*.md"))
     offenders = [gate.violation_for(p) for p in paths]
     offenders = [o for o in offenders if o]

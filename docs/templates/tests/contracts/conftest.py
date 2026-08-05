@@ -6,6 +6,7 @@ Registriert den pytest-Marker 'contract' damit pytest keine Warnings wirft.
 
 ADR: ADR-155
 """
+
 import pytest
 
 

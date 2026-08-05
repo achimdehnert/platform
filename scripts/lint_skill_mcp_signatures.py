@@ -52,7 +52,10 @@ def lint_file(path: Path) -> list[str]:
     for line_no, line in enumerate(text.splitlines(), start=1):
         # Skip comment lines explaining the rule (look for explicit "NOT" or "wrong" markers)
         lowered = line.lower()
-        if any(marker in lowered for marker in ("not `", "wrong", "❌", "achtung", "warnung")):
+        if any(
+            marker in lowered
+            for marker in ("not `", "wrong", "❌", "achtung", "warnung")
+        ):
             continue
         for pattern, msg in RULES:
             if pattern.search(line):

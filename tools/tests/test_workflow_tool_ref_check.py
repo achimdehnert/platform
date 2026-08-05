@@ -29,9 +29,7 @@ def _run(*args: str) -> subprocess.CompletedProcess:
 def test_should_pass_when_call_form_present(tmp_path):
     f = tmp_path / "ship.md"
     f.write_text(
-        "## Schritt 2\n\n"
-        "mcp__orchestrator__estimate_job:\n"
-        "  job_type: deploy\n",
+        "## Schritt 2\n\nmcp__orchestrator__estimate_job:\n  job_type: deploy\n",
         encoding="utf-8",
     )
     res = _run(str(f))
@@ -43,9 +41,7 @@ def test_should_pass_when_call_form_is_indented_yaml(tmp_path):
     # ship.md/backup.md nutzen die Tool-Aufruf-Zeile oft eingerückt unter einem Bullet.
     f = tmp_path / "backup.md"
     f.write_text(
-        "- Schritt:\n"
-        "    mcp__orchestrator__estimate_job:\n"
-        "      job_type: backup\n",
+        "- Schritt:\n    mcp__orchestrator__estimate_job:\n      job_type: backup\n",
         encoding="utf-8",
     )
     res = _run(str(f))
@@ -102,7 +98,9 @@ def test_should_skip_missing_file_only_with_allow_missing(tmp_path):
 
 def test_should_still_check_existing_files_with_allow_missing(tmp_path):
     ok = tmp_path / "ship.md"
-    ok.write_text("mcp__orchestrator__estimate_job:\n  job_type: deploy\n", encoding="utf-8")
+    ok.write_text(
+        "mcp__orchestrator__estimate_job:\n  job_type: deploy\n", encoding="utf-8"
+    )
     bad = tmp_path / "backup.md"
     bad.write_text("estimate_job existiert nicht mehr.\n", encoding="utf-8")
     res = _run("--allow-missing", str(ok), str(bad), str(tmp_path / "weg.md"))
@@ -117,7 +115,9 @@ def test_should_exit_usage_error_without_args():
 
 def test_should_report_one_exit_code_for_mixed_batch(tmp_path):
     ok = tmp_path / "ship.md"
-    ok.write_text("mcp__orchestrator__estimate_job:\n  job_type: deploy\n", encoding="utf-8")
+    ok.write_text(
+        "mcp__orchestrator__estimate_job:\n  job_type: deploy\n", encoding="utf-8"
+    )
     bad = tmp_path / "backup.md"
     bad.write_text("estimate_job existiert nicht mehr.\n", encoding="utf-8")
     res = _run(str(ok), str(bad))

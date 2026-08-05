@@ -136,7 +136,9 @@ def test_should_disposition_des_inneren_teils_nicht_dem_aeusseren_zuschreiben():
     teile = bs.aus_fetch_antwort(roh)
     assert teile is not None
     container = [t for t in teile if t.media_type == "message/rfc822"][0]
-    assert container.disposition == "", "Disposition aus der eingebetteten Nachricht geerbt"
+    assert container.disposition == "", (
+        "Disposition aus der eingebetteten Nachricht geerbt"
+    )
     assert container.dateiname == "", "Dateiname aus der eingebetteten Nachricht geerbt"
     # Der innere Anhang muss trotzdem gefunden werden.
     assert any(t.dateiname == "innen.pdf" and t.ist_anhang for t in teile)
@@ -206,7 +208,10 @@ def test_should_rfc2231_fortsetzung_zusammensetzen():
 
 
 def test_should_rfc2231_einteilig_dekodieren():
-    assert bs.dateiname_aus({"filename*": "utf-8''Bericht%20Q1.pdf"}, "filename") == "Bericht Q1.pdf"
+    assert (
+        bs.dateiname_aus({"filename*": "utf-8''Bericht%20Q1.pdf"}, "filename")
+        == "Bericht Q1.pdf"
+    )
 
 
 def test_should_ohne_dateiname_leer_bleiben():

@@ -20,15 +20,15 @@ ADR_PATTERN = re.compile(r"^ADR-(\d{3,4})-(.+)\.md$", re.IGNORECASE)
 
 # Numbers reserved for specific repos (ADR-065 workflow definition)
 REPO_RANGES: dict[str, tuple[int, int]] = {
-    "platform":    (1,   99),
-    "bfagent":     (100, 149),
+    "platform": (1, 99),
+    "bfagent": (100, 149),
     "travel-beat": (150, 199),
-    "mcp-hub":     (200, 249),
-    "risk-hub":    (250, 299),
-    "cad-hub":     (300, 349),
-    "pptx-hub":    (350, 399),
+    "mcp-hub": (200, 249),
+    "risk-hub": (250, 299),
+    "cad-hub": (300, 349),
+    "pptx-hub": (350, 399),
     "trading-hub": (400, 449),
-    "shared":      (450, 499),
+    "shared": (450, 499),
 }
 
 
@@ -143,10 +143,7 @@ def main() -> int:
             print("🚫 ADR number conflicts detected:")
             for num, files in sorted(conflicts.items()):
                 print(f"  ADR-{num:03d}: {', '.join(f.name for f in files)}")
-            print(
-                "\nRun: python3 scripts/adr_next_number.py --audit  "
-                "for full report."
-            )
+            print("\nRun: python3 scripts/adr_next_number.py --audit  for full report.")
             return 1
         print("✅ No ADR number conflicts.")
         return 0

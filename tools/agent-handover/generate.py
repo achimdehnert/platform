@@ -25,6 +25,7 @@ Usage:
   generate.py [REPO_PATH] [--ref origin/main] [--write] [--force] [--no-orchestrator]
   Default: Dry-Run (stdout). REPO_PATH default = cwd.
 """
+
 import argparse
 import datetime
 import json
@@ -37,7 +38,11 @@ AUTO_START = "<!-- AGENT_HANDOVER:AUTO START — generiert via platform/tools/ag
 AUTO_END = "<!-- AGENT_HANDOVER:AUTO END -->"
 INJECT_NOTE = "> _Anker-Block unten ist generiert (`platform/tools/agent-handover`); Re-Runs ersetzen nur den Block zwischen den Markern. Restliches Dokument von Hand gepflegt._"
 
-PF_CANDIDATES = ("project-facts.md", ".windsurf/rules/project-facts.md", "docs/project-facts.md")
+PF_CANDIDATES = (
+    "project-facts.md",
+    ".windsurf/rules/project-facts.md",
+    "docs/project-facts.md",
+)
 
 
 def run(cmd, cwd):
@@ -62,7 +67,9 @@ def read_project_facts(root, ref):
 
 
 def pf_value(text, key):
-    m = re.search(r"\*\*" + re.escape(key) + r"\*\*\s*[:=]\s*`?([^`\n|]+?)`?\s*$", text, re.M)
+    m = re.search(
+        r"\*\*" + re.escape(key) + r"\*\*\s*[:=]\s*`?([^`\n|]+?)`?\s*$", text, re.M
+    )
     return m.group(1).strip() if m else None
 
 
@@ -76,47 +83,110 @@ def build_auto(root, today, no_orch, ref):
         branch = ref.split("/")[-1]
         last = run(["git", "log", "-1", "--format=%h %s", ref], root) or "?"
         clean = "n/a (Snapshot von {0})".format(ref)
-        manage = run(["bash", "-c", "git ls-tree -r --name-only {0} | grep -E '(^|/)manage\\.py$' | head -1".format(ref)], root)
-        log5 = run(["git", "log", "-5", "--format=%ad %s", "--date=short", ref], root) or ""
-        adr_listing = run(["bash", "-c", "git ls-tree --name-only {0}:{1} 2>/dev/null".format(ref, adr_path)], root) or ""
-        adr_files = [line for line in adr_listing.splitlines() if re.match(r"ADR-\d+", line)]
+        manage = run(
+            [
+                "bash",
+                "-c",
+                "git ls-tree -r --name-only {0} | grep -E '(^|/)manage\\.py$' | head -1".format(
+                    ref
+                ),
+            ],
+            root,
+        )
+        log5 = (
+            run(["git", "log", "-5", "--format=%ad %s", "--date=short", ref], root)
+            or ""
+        )
+        adr_listing = (
+            run(
+                [
+                    "bash",
+                    "-c",
+                    "git ls-tree --name-only {0}:{1} 2>/dev/null".format(ref, adr_path),
+                ],
+                root,
+            )
+            or ""
+        )
+        adr_files = [
+            line for line in adr_listing.splitlines() if re.match(r"ADR-\d+", line)
+        ]
     else:
         branch = run(["git", "branch", "--show-current"], root) or "main"
         last = run(["git", "log", "-1", "--format=%h %s"], root) or "?"
         dirty = run(["git", "status", "--porcelain"], root)
         clean = "ja" if dirty == "" else "nein (uncommittete Änderungen)"
-        manage = run(["bash", "-c", "find . -name manage.py -not -path '*/node_modules/*' -not -path '*/.venv*' | head -1"], root)
+        manage = run(
+            [
+                "bash",
+                "-c",
+                "find . -name manage.py -not -path '*/node_modules/*' -not -path '*/.venv*' | head -1",
+            ],
+            root,
+        )
         log5 = run(["git", "log", "-5", "--format=%ad %s", "--date=short"], root) or ""
         adr_dir = os.path.join(root, adr_path)
-        adr_files = sorted(f for f in os.listdir(adr_dir) if re.match(r"ADR-\d+", f)) if os.path.isdir(adr_dir) else []
+        adr_files = (
+            sorted(f for f in os.listdir(adr_dir) if re.match(r"ADR-\d+", f))
+            if os.path.isdir(adr_dir)
+            else []
+        )
 
     last_sha = last.split(" ", 1)[0]
 
     ci = "n/a"
-    ci_raw = run(["gh", "run", "list", "-L1", "--branch", branch, "--repo",
-                  "{0}/{1}".format(owner, repo_name), "--json", "conclusion,databaseId"], root)
+    ci_raw = run(
+        [
+            "gh",
+            "run",
+            "list",
+            "-L1",
+            "--branch",
+            branch,
+            "--repo",
+            "{0}/{1}".format(owner, repo_name),
+            "--json",
+            "conclusion,databaseId",
+        ],
+        root,
+    )
     if ci_raw:
         try:
             arr = json.loads(ci_raw)
             if arr:
-                ci = "{0}@{1}".format(arr[0].get("conclusion"), arr[0].get("databaseId"))
+                ci = "{0}@{1}".format(
+                    arr[0].get("conclusion"), arr[0].get("databaseId")
+                )
         except Exception:
             pass
 
     if manage:
-        mig_val, mig_cmd = "siehe Prüfbefehl (DB nötig)", "python manage.py showmigrations | grep '\\[ \\]'"
+        mig_val, mig_cmd = (
+            "siehe Prüfbefehl (DB nötig)",
+            "python manage.py showmigrations | grep '\\[ \\]'",
+        )
     else:
         mig_val, mig_cmd = "n/a (kein Django/manage.py)", "—"
 
-    recent = "\n".join("- " + line for line in log5.splitlines()) or "- (keine Commits gelesen)"
+    recent = (
+        "\n".join("- " + line for line in log5.splitlines())
+        or "- (keine Commits gelesen)"
+    )
 
     adr_files = adr_files[:6]
     if adr_files:
-        adr_line = ", ".join("`{0}:{1}`".format(repo_name, re.match(r"(ADR-\d+)", a).group(1)) for a in adr_files)
+        adr_line = ", ".join(
+            "`{0}:{1}`".format(repo_name, re.match(r"(ADR-\d+)", a).group(1))
+            for a in adr_files
+        )
     else:
         adr_line = "`{0}/` (Index)".format(adr_path)
 
-    orch_line = "" if no_orch else "\n- Orchestrator-Memory: `agent_memory_search \"{0}\"`".format(repo_name)
+    orch_line = (
+        ""
+        if no_orch
+        else '\n- Orchestrator-Memory: `agent_memory_search "{0}"`'.format(repo_name)
+    )
 
     auto = """{START}
 ## Aktueller Stand
@@ -142,9 +212,22 @@ def build_auto(root, today, no_orch, ref):
 
 ## Was wurde zuletzt getan?
 {recent}
-{END}""".format(START=AUTO_START, END=AUTO_END, today=today, branch=branch, pf_rel=pf_rel,
-                last=last, last_sha=last_sha, ci=ci, mig_val=mig_val, mig_cmd=mig_cmd,
-                clean=clean, adr_line=adr_line, orch_line=orch_line, recent=recent)
+{END}""".format(
+        START=AUTO_START,
+        END=AUTO_END,
+        today=today,
+        branch=branch,
+        pf_rel=pf_rel,
+        last=last,
+        last_sha=last_sha,
+        ci=ci,
+        mig_val=mig_val,
+        mig_cmd=mig_cmd,
+        clean=clean,
+        adr_line=adr_line,
+        orch_line=orch_line,
+        recent=recent,
+    )
     return repo_name, auto
 
 
@@ -184,9 +267,17 @@ def inject(existing, auto):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("repo_path", nargs="?", default=".")
-    ap.add_argument("--ref", default=None, help="Git-Ref für Anker (z. B. origin/main); read-only, kein Working-Tree")
+    ap.add_argument(
+        "--ref",
+        default=None,
+        help="Git-Ref für Anker (z. B. origin/main); read-only, kein Working-Tree",
+    )
     ap.add_argument("--write", action="store_true")
-    ap.add_argument("--force", action="store_true", help="Bestandsdatei mit frischer Vorlage ÜBERSCHREIBEN (Bestand verworfen)")
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Bestandsdatei mit frischer Vorlage ÜBERSCHREIBEN (Bestand verworfen)",
+    )
     ap.add_argument("--no-orchestrator", action="store_true")
     ap.add_argument("--date", default=None)
     args = ap.parse_args()
@@ -200,9 +291,16 @@ def main():
 
     if args.force or not existing:
         new = HEADER.format(repo_name=repo_name) + auto + HUMAN_DEFAULT
-        mode = "überschrieben (--force, Bestand verworfen)" if existing else "neu erstellt"
+        mode = (
+            "überschrieben (--force, Bestand verworfen)" if existing else "neu erstellt"
+        )
     elif AUTO_START in existing and AUTO_END in existing:
-        new = re.sub(re.escape(AUTO_START) + r".*?" + re.escape(AUTO_END), lambda m: auto, existing, flags=re.S)
+        new = re.sub(
+            re.escape(AUTO_START) + r".*?" + re.escape(AUTO_END),
+            lambda m: auto,
+            existing,
+            flags=re.S,
+        )
         mode = "aktualisiert (Auto-Block ersetzt, Hand-Abschnitte erhalten)"
     else:
         new = inject(existing, auto)

@@ -33,8 +33,8 @@ _CANON = {
         "risk-hub": {"rich": {"github": "iilgmbh/risk-hub"}},
         "137-hub": {"rich": {"github": "achimdehnert/137-hub"}},
         "illustration-fw": {},  # kein github-Feld → repo_owner-Map greift
-        "meiki-hub": {},        # kein github-Feld → Prefix greift
-        "some-known-hub": {},   # registriert, aber ohne github/override/prefix-Treffer
+        "meiki-hub": {},  # kein github-Feld → Prefix greift
+        "some-known-hub": {},  # registriert, aber ohne github/override/prefix-Treffer
     },
 }
 
@@ -103,7 +103,9 @@ def test_should_resolve_real_canonical_non_achimdehnert_repos_not_to_404():
     for name in canon["repos"]:
         resolved = reg.owner(name, canon)
         entry = canon["repos"][name]
-        gh = (entry.get("rich") or {}).get("github") or (entry.get("flat") or {}).get("github")
+        gh = (entry.get("rich") or {}).get("github") or (entry.get("flat") or {}).get(
+            "github"
+        )
         if gh and "/" in gh:
             assert resolved == gh.split("/", 1)[0]
             if resolved != "achimdehnert":
@@ -117,33 +119,54 @@ def test_should_resolve_real_canonical_non_achimdehnert_repos_not_to_404():
 _CANON_ARCHIVE = {
     "meta": {"server": {}, "domain_order": ["D"]},
     "repos": {
-        "active-django": {"in_flat": True, "in_rich": True, "domain": "D",
-                          "flat": {"type": "django"},
-                          "rich": {"repo": "active-django", "type": "django"}},
+        "active-django": {
+            "in_flat": True,
+            "in_rich": True,
+            "domain": "D",
+            "flat": {"type": "django"},
+            "rich": {"repo": "active-django", "type": "django"},
+        },
         # schlanker Archiv-Eintrag mit Top-Level-lifecycle (neue P0-Form)
-        "dead-lean": {"in_flat": False, "in_rich": False, "lifecycle": "archived",
-                      "github": "achimdehnert/dead-lean", "description": "tot"},
+        "dead-lean": {
+            "in_flat": False,
+            "in_rich": False,
+            "lifecycle": "archived",
+            "github": "achimdehnert/dead-lean",
+            "description": "tot",
+        },
         # historische Form: lifecycle im rich-Block (wie bfagent)
-        "dead-rich": {"in_flat": True, "in_rich": True, "domain": "D",
-                      "flat": {"type": "django"},
-                      "rich": {"repo": "dead-rich", "github": "achimdehnert/dead-rich",
-                               "description": "alt-tot", "lifecycle": "archived"}},
+        "dead-rich": {
+            "in_flat": True,
+            "in_rich": True,
+            "domain": "D",
+            "flat": {"type": "django"},
+            "rich": {
+                "repo": "dead-rich",
+                "github": "achimdehnert/dead-rich",
+                "description": "alt-tot",
+                "lifecycle": "archived",
+            },
+        },
     },
 }
 
 
 def test_should_project_only_archived_into_archived_view():
     out = reg.gen_archived(_CANON_ARCHIVE)["archived"]
-    assert set(out) == {"dead-lean", "dead-rich"}          # active-django NICHT dabei
+    assert set(out) == {"dead-lean", "dead-rich"}  # active-django NICHT dabei
     assert out["dead-lean"]["github"] == "achimdehnert/dead-lean"
-    assert out["dead-rich"]["github"] == "achimdehnert/dead-rich"  # aus rich-Block gezogen
+    assert (
+        out["dead-rich"]["github"] == "achimdehnert/dead-rich"
+    )  # aus rich-Block gezogen
     assert all(v["lifecycle"] == "archived" for v in out.values())
 
 
 def test_should_keep_active_views_free_of_archived_lean_entries():
     # Die schlanken Archiv-Einträge (in_flat/in_rich false) dürfen in KEINE aktive View lecken
     flat = reg.gen_flat(_CANON_ARCHIVE)["repos"]
-    rich_names = {s["repo"] for d in reg.gen_rich(_CANON_ARCHIVE)["domains"] for s in d["systems"]}
+    rich_names = {
+        s["repo"] for d in reg.gen_rich(_CANON_ARCHIVE)["domains"] for s in d["systems"]
+    }
     assert "dead-lean" not in flat
     assert "dead-lean" not in rich_names
     assert "active-django" in flat and "active-django" in rich_names

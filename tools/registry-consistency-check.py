@@ -21,6 +21,7 @@ als SUGGEST, gegen echte Repos validiert, 0 FP, kein Hard-Fail der die Flotte ei
 
 Deterministisch, kein LLM. ADR-234 P0 / KONZ-platform-001.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,7 +55,11 @@ def load_rich(path: Path) -> dict[str, dict]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Registry-Konsistenz-Check (ADR-234 P0).")
-    ap.add_argument("--strict", action="store_true", help="Exit 1 bei Divergenz (Default: informational).")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 bei Divergenz (Default: informational).",
+    )
     args = ap.parse_args()
 
     if not FLAT.exists() or not RICH.exists():
@@ -87,7 +92,10 @@ def main() -> int:
         *([f"- `{r}`" for r in only_rich] or ["- (keine)"]),
         "",
         f"## `type`-Divergenz auf der Schnittmenge ({len(type_mismatch)})",
-        *([f"- `{r}`: flach=`{ft}` ≠ reich=`{rt}`" for r, ft, rt in type_mismatch] or ["- (keine)"]),
+        *(
+            [f"- `{r}`: flach=`{ft}` ≠ reich=`{rt}`" for r, ft, rt in type_mismatch]
+            or ["- (keine)"]
+        ),
         "",
         "_Dual-SSoT noch aktiv — Auflösung = Union-Canonical (ADR-234 P0). Dieser Check macht Drift sichtbar._",
     ]

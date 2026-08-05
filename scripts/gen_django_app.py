@@ -14,6 +14,7 @@ Verwendung:
 
 SSoT: ADR-009 (Service Layer), ADR-048 (HTMX), ADR-057 (test_should_*)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +26,7 @@ PLATFORM_ROOT = Path(__file__).parent.parent
 
 
 # ── Templates ─────────────────────────────────────────────────────────────────
+
 
 def _apps_py(app_name: str, entity: str) -> str:
     return f'''\
@@ -157,7 +159,7 @@ urlpatterns = [
 
 
 def _admin_py(app_name: str, entity: str) -> str:
-    return f'''\
+    return f"""\
 from django.contrib import admin
 
 from .models import {entity}
@@ -168,7 +170,7 @@ class {entity}Admin(admin.ModelAdmin):
     list_display = ["pk", "user", "created_at"]
     list_filter = ["user"]
     readonly_fields = ["created_at", "updated_at"]
-'''
+"""
 
 
 def _test_services(app_name: str, entity: str) -> str:
@@ -236,16 +238,18 @@ def _settings_installed_apps_hint(app_name: str) -> str:
 # ── Hauptlogik ────────────────────────────────────────────────────────────────
 
 APP_FILES = {
-    "apps/{name}/__init__.py":        lambda c: "",
-    "apps/{name}/apps.py":            lambda c: _apps_py(c["app_name"], c["entity"]),
-    "apps/{name}/models.py":          lambda c: _models_py(c["app_name"], c["entity"]),
-    "apps/{name}/services.py":        lambda c: _services_py(c["app_name"], c["entity"]),
-    "apps/{name}/views.py":           lambda c: _views_py(c["app_name"], c["entity"]),
-    "apps/{name}/urls.py":            lambda c: _urls_py(c["app_name"]),
-    "apps/{name}/admin.py":           lambda c: _admin_py(c["app_name"], c["entity"]),
+    "apps/{name}/__init__.py": lambda c: "",
+    "apps/{name}/apps.py": lambda c: _apps_py(c["app_name"], c["entity"]),
+    "apps/{name}/models.py": lambda c: _models_py(c["app_name"], c["entity"]),
+    "apps/{name}/services.py": lambda c: _services_py(c["app_name"], c["entity"]),
+    "apps/{name}/views.py": lambda c: _views_py(c["app_name"], c["entity"]),
+    "apps/{name}/urls.py": lambda c: _urls_py(c["app_name"]),
+    "apps/{name}/admin.py": lambda c: _admin_py(c["app_name"], c["entity"]),
     "apps/{name}/migrations/__init__.py": lambda c: "",
-    "tests/test_{name}_services.py":  lambda c: _test_services(c["app_name"], c["entity"]),
-    "tests/test_{name}_views.py":     lambda c: _test_views(c["app_name"]),
+    "tests/test_{name}_services.py": lambda c: _test_services(
+        c["app_name"], c["entity"]
+    ),
+    "tests/test_{name}_views.py": lambda c: _test_views(c["app_name"]),
 }
 
 
@@ -291,8 +295,11 @@ def main() -> int:
     )
     parser.add_argument("repo", help="Repo-Name oder absoluter Pfad")
     parser.add_argument("app_name", help="App-Name (snake_case, z.B. 'trips')")
-    parser.add_argument("--entity", default=None,
-                        help="Entity-Klassenname (PascalCase, default: aus app_name abgeleitet)")
+    parser.add_argument(
+        "--entity",
+        default=None,
+        help="Entity-Klassenname (PascalCase, default: aus app_name abgeleitet)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Nur anzeigen")
     args = parser.parse_args()
 
@@ -313,19 +320,23 @@ def main() -> int:
 
     results = generate_app(repo_dir, app_name, entity, dry_run=args.dry_run)
 
-    print(f"\n{'='*55}")
+    print(f"\n{'=' * 55}")
     for path, status in results.items():
         icon = "✅" if "CREAT" in status or "DRY" in status else "⏭️ "
         print(f"  {icon}  {path:<45} {status}")
-    print(f"{'='*55}")
+    print(f"{'=' * 55}")
 
     if not args.dry_run:
         print(f"\n⚠️  Manuelle Nacharbeiten für '{app_name}':")
         print("  1. INSTALLED_APPS in config/settings/base.py ergänzen:")
         print(f"     {_settings_installed_apps_hint(app_name)}")
-        print(f"  2. config/urls.py: path('{app_name}/', include('apps.{app_name}.urls', namespace='{app_name}')),")
+        print(
+            f"  2. config/urls.py: path('{app_name}/', include('apps.{app_name}.urls', namespace='{app_name}')),"
+        )
         print(f"  3. python manage.py makemigrations {app_name}")
-        print(f"  4. Templates: templates/{app_name}/{app_name}_list.html + {app_name}_detail.html anlegen")
+        print(
+            f"  4. Templates: templates/{app_name}/{app_name}_list.html + {app_name}_detail.html anlegen"
+        )
         print(f"  5. tests/test_{app_name}_views.py: URLs anpassen")
 
     return 0

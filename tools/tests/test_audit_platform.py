@@ -43,8 +43,11 @@ def test_should_score_zero_for_an_empty_repo():
 
 def test_should_score_five_when_every_component_is_present():
     a = audit(
-        has_scaffold=True, has_req_test=True, has_pyproject=True,
-        workflow_count=3, test_file_count=12,
+        has_scaffold=True,
+        has_req_test=True,
+        has_pyproject=True,
+        workflow_count=3,
+        test_file_count=12,
     )
 
     assert a.inventory_score == 5
@@ -52,8 +55,13 @@ def test_should_score_five_when_every_component_is_present():
 
 @pytest.mark.parametrize(
     "feld,wert",
-    [("has_scaffold", True), ("has_req_test", True), ("has_pyproject", True),
-     ("workflow_count", 1), ("test_file_count", 1)],
+    [
+        ("has_scaffold", True),
+        ("has_req_test", True),
+        ("has_pyproject", True),
+        ("workflow_count", 1),
+        ("test_file_count", 1),
+    ],
 )
 def test_should_count_each_component_exactly_once(feld, wert):
     assert audit(**{feld: wert}).inventory_score == 1
@@ -131,9 +139,16 @@ def test_should_treat_a_missing_file_as_absent(monkeypatch):
 
 
 def test_should_count_only_files_with_the_wanted_suffix(monkeypatch):
-    monkeypatch.setattr(ap, "_api_get", lambda pfad, token: [
-        {"name": "ci.yml"}, {"name": "deploy.yml"}, {"name": "README.md"}, {"name": "x.yaml"},
-    ])
+    monkeypatch.setattr(
+        ap,
+        "_api_get",
+        lambda pfad, token: [
+            {"name": "ci.yml"},
+            {"name": "deploy.yml"},
+            {"name": "README.md"},
+            {"name": "x.yaml"},
+        ],
+    )
 
     assert ap._count_files("beispiel-hub", ".github/workflows", ".yml", "t") == 2
 
@@ -164,7 +179,9 @@ def test_should_return_zero_url_patterns_when_no_urls_file_exists(monkeypatch):
 
 
 def test_should_return_zero_url_patterns_on_undecodable_content(monkeypatch):
-    monkeypatch.setattr(ap, "_api_get", lambda pfad, token: {"content": "kein base64!!"})
+    monkeypatch.setattr(
+        ap, "_api_get", lambda pfad, token: {"content": "kein base64!!"}
+    )
 
     assert ap._count_url_lines("beispiel-hub", "t") == 0
 

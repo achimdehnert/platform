@@ -14,6 +14,7 @@ Ausführung:
   pytest tests/megatest/ -v --tb=short --category VERMEIDBAR
   pytest tests/megatest/ --update-budgets   # Budgets auf aktuellen Stand setzen
 """
+
 from __future__ import annotations
 
 import os
@@ -36,6 +37,7 @@ BUDGETS_FILE = Path(__file__).parent / "budgets.toml"
 
 
 # ── Budget-Laden ──────────────────────────────────────────────────────────────
+
 
 class Budget(NamedTuple):
     total: int
@@ -63,6 +65,7 @@ def load_budgets() -> dict[str, Budget]:
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def all_repos() -> list[Path]:
     budget_repos = set(load_budgets().keys())
@@ -77,11 +80,13 @@ def budgets() -> dict[str, Budget]:
 @pytest.fixture(scope="session")
 def scan_results(all_repos: list[Path]) -> dict[str, RepoResult]:
     """Scannt alle Repos einmalig (session-scoped → kein Doppel-Scan)."""
-    return {r.name if r.name != "src" else r.parent.name: scan_repo(r)
-            for r in all_repos}
+    return {
+        r.name if r.name != "src" else r.parent.name: scan_repo(r) for r in all_repos
+    }
 
 
 # ── Parametrize-Helper ────────────────────────────────────────────────────────
+
 
 def get_repo_names() -> list[str]:
     """Alle Repos lesen ohne session-fixture (für pytest.mark.parametrize)."""
@@ -96,6 +101,7 @@ ALL_REPO_NAMES = get_repo_names()
 
 
 # ── CLI-Option ────────────────────────────────────────────────────────────────
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(

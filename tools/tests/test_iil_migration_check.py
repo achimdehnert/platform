@@ -34,11 +34,7 @@ def _write_canonical_gen(tmp_path, repo_owner_entries: dict[str, str]) -> pathli
     body = "\n".join(f'        "{k}": "{v}",' for k, v in repo_owner_entries.items())
     gen = tmp_path / "registry-canonical.py"
     gen.write_text(
-        "SOME_MAP = {\n"
-        '    "repo_owner": {\n'
-        f"{body}\n"
-        "    },\n"
-        "}\n",
+        f'SOME_MAP = {{\n    "repo_owner": {{\n{body}\n    }},\n}}\n',
         encoding="utf-8",
     )
     return gen
@@ -52,9 +48,7 @@ def _write_canonical_gen(tmp_path, repo_owner_entries: dict[str, str]) -> pathli
 def test_should_report_no_drift_for_clean_registry_offline(tmp_path, monkeypatch):
     reg = _write_registry(
         tmp_path,
-        "  iil-adrfw:\n"
-        "    repo_current: iilgmbh/iil-adrfw\n"
-        "    status: done\n",
+        "  iil-adrfw:\n    repo_current: iilgmbh/iil-adrfw\n    status: done\n",
     )
     gen = _write_canonical_gen(tmp_path, {"iil-adrfw": "iilgmbh"})
     monkeypatch.setattr(imc, "REGISTRY", reg)
@@ -90,11 +84,11 @@ def test_should_flag_canonical_vs_migration_owner_mismatch(tmp_path, monkeypatch
 def test_should_flag_status_done_outside_target_org(tmp_path, monkeypatch):
     reg = _write_registry(
         tmp_path,
-        "  iil-ghost:\n"
-        "    repo_current: achimdehnert/iil-ghost\n"
-        "    status: done\n",
+        "  iil-ghost:\n    repo_current: achimdehnert/iil-ghost\n    status: done\n",
     )
-    gen = _write_canonical_gen(tmp_path, {})  # keine Canonical-Aussage -> Befund #1 entfaellt
+    gen = _write_canonical_gen(
+        tmp_path, {}
+    )  # keine Canonical-Aussage -> Befund #1 entfaellt
     monkeypatch.setattr(imc, "REGISTRY", reg)
     monkeypatch.setattr(imc, "CANONICAL_GEN", gen)
 
@@ -126,16 +120,16 @@ def test_should_not_flag_status_pending_outside_target_org(tmp_path, monkeypatch
 def test_should_skip_gh_reality_check_when_offline(tmp_path, monkeypatch):
     reg = _write_registry(
         tmp_path,
-        "  iil-adrfw:\n"
-        "    repo_current: iilgmbh/iil-adrfw\n"
-        "    status: done\n",
+        "  iil-adrfw:\n    repo_current: iilgmbh/iil-adrfw\n    status: done\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)
     monkeypatch.setattr(imc, "CANONICAL_GEN", gen)
 
     def _boom(owner_name):
-        raise AssertionError("gh_repo_full_name darf im --offline-Modus NICHT aufgerufen werden")
+        raise AssertionError(
+            "gh_repo_full_name darf im --offline-Modus NICHT aufgerufen werden"
+        )
 
     monkeypatch.setattr(imc, "gh_repo_full_name", _boom)
 
@@ -151,9 +145,7 @@ def test_should_skip_gh_reality_check_when_offline(tmp_path, monkeypatch):
 def test_should_flag_drift_when_gh_resolves_to_different_repo(tmp_path, monkeypatch):
     reg = _write_registry(
         tmp_path,
-        "  iil-renamed:\n"
-        "    repo_current: iilgmbh/iil-renamed\n"
-        "    status: pending\n",
+        "  iil-renamed:\n    repo_current: iilgmbh/iil-renamed\n    status: pending\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)
@@ -172,9 +164,7 @@ def test_should_flag_drift_when_gh_resolves_to_different_repo(tmp_path, monkeypa
 def test_should_warn_when_gh_cannot_resolve_repo(tmp_path, monkeypatch):
     reg = _write_registry(
         tmp_path,
-        "  iil-missing:\n"
-        "    repo_current: iilgmbh/iil-missing\n"
-        "    status: pending\n",
+        "  iil-missing:\n    repo_current: iilgmbh/iil-missing\n    status: pending\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)
@@ -191,14 +181,14 @@ def test_should_warn_when_gh_cannot_resolve_repo(tmp_path, monkeypatch):
 def test_should_report_no_drift_when_gh_confirms_repo_current(tmp_path, monkeypatch):
     reg = _write_registry(
         tmp_path,
-        "  iil-stable:\n"
-        "    repo_current: iilgmbh/iil-stable\n"
-        "    status: done\n",
+        "  iil-stable:\n    repo_current: iilgmbh/iil-stable\n    status: done\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)
     monkeypatch.setattr(imc, "CANONICAL_GEN", gen)
-    monkeypatch.setattr(imc, "gh_repo_full_name", lambda owner_name: "iilgmbh/iil-stable")
+    monkeypatch.setattr(
+        imc, "gh_repo_full_name", lambda owner_name: "iilgmbh/iil-stable"
+    )
 
     findings, summary = imc.check(offline=False)
 
@@ -225,9 +215,7 @@ def test_should_exit_2_when_registry_missing(tmp_path, monkeypatch, capsys):
 def test_should_exit_1_when_drift_found_offline(tmp_path, monkeypatch, capsys):
     reg = _write_registry(
         tmp_path,
-        "  iil-ghost:\n"
-        "    repo_current: achimdehnert/iil-ghost\n"
-        "    status: done\n",
+        "  iil-ghost:\n    repo_current: achimdehnert/iil-ghost\n    status: done\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)
@@ -245,9 +233,7 @@ def test_should_exit_1_when_drift_found_offline(tmp_path, monkeypatch, capsys):
 def test_should_exit_0_when_no_drift_offline(tmp_path, monkeypatch, capsys):
     reg = _write_registry(
         tmp_path,
-        "  iil-adrfw:\n"
-        "    repo_current: iilgmbh/iil-adrfw\n"
-        "    status: done\n",
+        "  iil-adrfw:\n    repo_current: iilgmbh/iil-adrfw\n    status: done\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)
@@ -263,9 +249,7 @@ def test_should_exit_0_when_no_drift_offline(tmp_path, monkeypatch, capsys):
 def test_should_emit_valid_json_report(tmp_path, monkeypatch, capsys):
     reg = _write_registry(
         tmp_path,
-        "  iil-ghost:\n"
-        "    repo_current: achimdehnert/iil-ghost\n"
-        "    status: done\n",
+        "  iil-ghost:\n    repo_current: achimdehnert/iil-ghost\n    status: done\n",
     )
     gen = _write_canonical_gen(tmp_path, {})
     monkeypatch.setattr(imc, "REGISTRY", reg)

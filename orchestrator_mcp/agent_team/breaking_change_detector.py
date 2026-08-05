@@ -66,14 +66,10 @@ class MigrationAnalysis:
     def summary(self) -> str:
         if self.error:
             return (
-                f"ERROR analysing {self.app_label}.{self.migration_name}: "
-                f"{self.error}"
+                f"ERROR analysing {self.app_label}.{self.migration_name}: {self.error}"
             )
         if not self.changes:
-            return (
-                f"{self.app_label}.{self.migration_name}: "
-                "no schema changes detected"
-            )
+            return f"{self.app_label}.{self.migration_name}: no schema changes detected"
         status = "BREAKING" if self.has_breaking_changes else "SAFE"
         details = "; ".join(c.reason for c in self.breaking_changes)
         return (
@@ -123,9 +119,7 @@ _SAFE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         "ADD CONSTRAINT",
     ),
     (
-        re.compile(
-            r"^\s*ALTER\s+TABLE.*ALTER\s+COLUMN.*SET\s+DEFAULT", re.IGNORECASE
-        ),
+        re.compile(r"^\s*ALTER\s+TABLE.*ALTER\s+COLUMN.*SET\s+DEFAULT", re.IGNORECASE),
         "SET DEFAULT",
     ),
 ]
@@ -283,29 +277,22 @@ def get_deployment_gate_level(
 
     breaking = [a for a in analyses if a.has_breaking_changes]
     unknown = [
-        a for a in analyses
+        a
+        for a in analyses
         if any(c.change_type == ChangeType.UNKNOWN for c in a.changes)
     ]
     errors = [a for a in analyses if a.error]
 
     if errors:
-        names = ", ".join(
-            f"{a.app_label}.{a.migration_name}" for a in errors
-        )
-        return 2, False, (
-            f"sqlmigrate errors in {names} — manual review required"
-        )
+        names = ", ".join(f"{a.app_label}.{a.migration_name}" for a in errors)
+        return 2, False, (f"sqlmigrate errors in {names} — manual review required")
 
     if breaking:
-        names = ", ".join(
-            f"{a.app_label}.{a.migration_name}" for a in breaking
-        )
+        names = ", ".join(f"{a.app_label}.{a.migration_name}" for a in breaking)
         return 2, False, f"Breaking changes in: {names} — Gate-2-Approval required"
 
     if unknown:
-        names = ", ".join(
-            f"{a.app_label}.{a.migration_name}" for a in unknown
-        )
+        names = ", ".join(f"{a.app_label}.{a.migration_name}" for a in unknown)
         return 2, False, f"Unclassified SQL in: {names} — manual review recommended"
 
     return 2, True, "Additive migrations only — auto-deployment eligible"

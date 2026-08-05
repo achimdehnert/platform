@@ -7,6 +7,7 @@ Ausgabe: space-separated Liste für Shell-Nutzung.
 Usage:
     python3 scripts/list_megatest_repos.py
 """
+
 from __future__ import annotations
 
 import sys

@@ -135,7 +135,9 @@ def extract_usage_events(obj: dict) -> list[tuple[str, str]]:
         text = content if isinstance(content, str) else None
         if text is None and isinstance(content, list):
             text = " ".join(
-                b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+                b.get("text", "")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
             )
         if text:
             for m in _COMMAND_NAME_RE.finditer(text):
@@ -238,7 +240,9 @@ def evaluate_meter_consequence(
             ):
                 stale.append(issue["number"])
         if stale:
-            candidates.append({"workflow": workflow, "label": label, "stale_issues": stale})
+            candidates.append(
+                {"workflow": workflow, "label": label, "stale_issues": stale}
+            )
     return candidates
 
 
@@ -264,9 +268,7 @@ def evaluate_label_usage(
 # Messung 4: Kill-Gate-Vollzug (best-effort, Freitext)
 # ---------------------------------------------------------------------------
 
-_KILL_SECTION_RE = re.compile(
-    r"(?im)^#{0,4}\s*kill-(?:gate|kriterium)s?\b.*$"
-)
+_KILL_SECTION_RE = re.compile(r"(?im)^#{0,4}\s*kill-(?:gate|kriterium)s?\b.*$")
 _DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 
 
@@ -277,7 +279,11 @@ def evaluate_kill_gates(
     und extrahiert Zeilen mit Datum >min_age_days. Kein strukturiertes Format
     vorhanden -> ehrliches k=nicht-prüfbar statt erfundener Kandidaten."""
     if not report_body:
-        return {"checked": False, "reason": "kein aktuelles fleet-drift-Issue gefunden", "candidates": []}
+        return {
+            "checked": False,
+            "reason": "kein aktuelles fleet-drift-Issue gefunden",
+            "candidates": [],
+        }
 
     match = _KILL_SECTION_RE.search(report_body)
     if not match:
@@ -318,7 +324,9 @@ def _gh_json(args: list[str]):
 
 
 def fetch_all_labels(repo: str) -> list[str]:
-    data = _gh_json(["label", "list", "--repo", repo, "--limit", "300", "--json", "name"])
+    data = _gh_json(
+        ["label", "list", "--repo", repo, "--limit", "300", "--json", "name"]
+    )
     return [row["name"] for row in (data or [])]
 
 
@@ -326,9 +334,18 @@ def fetch_issues_created_since(repo: str, since: datetime) -> list[dict]:
     date_str = since.strftime("%Y-%m-%d")
     data = _gh_json(
         [
-            "issue", "list", "--repo", repo, "--state", "all",
-            "--search", f"created:>={date_str}",
-            "--json", "number,labels", "--limit", "1000",
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "all",
+            "--search",
+            f"created:>={date_str}",
+            "--json",
+            "number,labels",
+            "--limit",
+            "1000",
         ]
     )
     return data or []
@@ -337,8 +354,18 @@ def fetch_issues_created_since(repo: str, since: datetime) -> list[dict]:
 def fetch_issues_by_label(repo: str, label: str) -> list[dict]:
     data = _gh_json(
         [
-            "issue", "list", "--repo", repo, "--state", "all", "--label", label,
-            "--json", "number,createdAt,comments,state", "--limit", "300",
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "all",
+            "--label",
+            label,
+            "--json",
+            "number,createdAt,comments,state",
+            "--limit",
+            "300",
         ]
     )
     return data or []
@@ -347,8 +374,18 @@ def fetch_issues_by_label(repo: str, label: str) -> list[dict]:
 def fetch_latest_fleet_drift_body(repo: str) -> str | None:
     data = _gh_json(
         [
-            "issue", "list", "--repo", repo, "--label", "fleet-drift", "--state", "all",
-            "--json", "number,body,updatedAt", "--limit", "5",
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--label",
+            "fleet-drift",
+            "--state",
+            "all",
+            "--json",
+            "number,body,updatedAt",
+            "--limit",
+            "5",
         ]
     )
     if not data:
@@ -360,34 +397,75 @@ def fetch_latest_fleet_drift_body(repo: str) -> str | None:
 def ensure_label(repo: str, name: str, color: str, description: str) -> None:
     subprocess.run(
         [
-            "gh", "api", f"repos/{repo}/labels",
-            "-f", f"name={name}", "-f", f"color={color}", "-f", f"description={description}",
+            "gh",
+            "api",
+            f"repos/{repo}/labels",
+            "-f",
+            f"name={name}",
+            "-f",
+            f"color={color}",
+            "-f",
+            f"description={description}",
         ],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )  # Fehler (Label existiert bereits) bewusst ignoriert
 
 
 def create_or_comment_issue(repo: str, title: str, label: str, body: str) -> str:
     existing = _gh_json(
-        ["issue", "list", "--repo", repo, "--label", label, "--state", "open", "--json", "number"]
+        [
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--label",
+            label,
+            "--state",
+            "open",
+            "--json",
+            "number",
+        ]
     )
-    current_quarter_open = next(
-        (row for row in (existing or []) if title.split(" ")[-1] in _issue_title(repo, row["number"])),
-        None,
-    ) if existing else None
+    current_quarter_open = (
+        next(
+            (
+                row
+                for row in (existing or [])
+                if title.split(" ")[-1] in _issue_title(repo, row["number"])
+            ),
+            None,
+        )
+        if existing
+        else None
+    )
     if current_quarter_open:
         number = current_quarter_open["number"]
         subprocess.run(
             ["gh", "issue", "comment", str(number), "--repo", repo, "--body", body],
-            check=True, timeout=30,
+            check=True,
+            timeout=30,
         )
         return f"Kommentar an bestehendes Issue #{number}"
     result = subprocess.run(
         [
-            "gh", "issue", "create", "--repo", repo, "--title", title,
-            "--label", label, "--body", body,
+            "gh",
+            "issue",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            title,
+            "--label",
+            label,
+            "--body",
+            body,
         ],
-        capture_output=True, text=True, check=True, timeout=30,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
     )
     return result.stdout.strip()
 
@@ -415,18 +493,25 @@ def render_report(
     label_candidates: list[str],
     kill_gate_result: dict,
 ) -> str:
-    lines = [f"## Usage-Sweep — {current_quarter_label(now)} ({now.strftime('%Y-%m-%d')})", ""]
+    lines = [
+        f"## Usage-Sweep — {current_quarter_label(now)} ({now.strftime('%Y-%m-%d')})",
+        "",
+    ]
 
     lines.append(f"### 1. Skill-Nutzung (Fenster: {window_days} Tage)")
     n = skill_result["inventory_size"]
     m = len(skill_result["candidates"])
-    lines.append(f"n={n} Skills geprüft, m={m} Kandidaten (0 Aufrufe im Fenster), k=0 nicht prüfbar")
+    lines.append(
+        f"n={n} Skills geprüft, m={m} Kandidaten (0 Aufrufe im Fenster), k=0 nicht prüfbar"
+    )
     lines.append("")
     if skill_result["candidates"]:
         lines.append("| Kandidat | Evidenz |")
         lines.append("|---|---|")
         for slug in skill_result["candidates"]:
-            lines.append(f"| `{slug}` | 0 Aufrufe (tool_use + command) in {window_days} Tagen |")
+            lines.append(
+                f"| `{slug}` | 0 Aufrufe (tool_use + command) in {window_days} Tagen |"
+            )
     else:
         lines.append("Keine Kandidaten.")
     lines.append(_CAVEAT_FOOTNOTE)
@@ -434,7 +519,9 @@ def render_report(
     lines.append("### 2. Meter-ohne-Konsequenz (>=90 Tage alt, 0 Kommentare, offen)")
     n2 = skill_result.get("scheduled_workflow_count", 0)
     m2 = len(meter_candidates)
-    lines.append(f"n={n2} scheduled Workflows geprüft, m={m2} Kandidaten, k=0 nicht prüfbar")
+    lines.append(
+        f"n={n2} scheduled Workflows geprüft, m={m2} Kandidaten, k=0 nicht prüfbar"
+    )
     lines.append("")
     if meter_candidates:
         lines.append("| Workflow | Label | Stale-Issues |")
@@ -458,7 +545,9 @@ def render_report(
         lines.append("Keine Kandidaten.")
     lines.append("")
 
-    lines.append("### 4. Kill-Gate-Vollzug (fleet-drift-Report, >=30 Tage ohne Reaktion)")
+    lines.append(
+        "### 4. Kill-Gate-Vollzug (fleet-drift-Report, >=30 Tage ohne Reaktion)"
+    )
     if not kill_gate_result["checked"]:
         lines.append(f"k=1 nicht prüfbar: {kill_gate_result['reason']}")
     else:
@@ -487,14 +576,39 @@ def render_report(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--window-days", type=int, default=180, help="Zeitfenster für Skill-/Label-Nutzung (Default 180)")
-    parser.add_argument("--dry-run", action="store_true", help="Nur Report drucken, kein Issue erzeugen")
-    parser.add_argument("--report", help="Markdown-Report zusätzlich in Datei schreiben")
-    parser.add_argument("--repo", default=_DEFAULT_REPO, help=f"GitHub-Repo (Default {_DEFAULT_REPO})")
-    parser.add_argument("--projects-dir", default=str(_DEFAULT_PROJECTS_DIR), help="Wurzel der CC-Transkripte")
-    parser.add_argument("--workflows-dir", default=str(_DEFAULT_WORKFLOWS_DIR), help="Skill-Inventar-Verzeichnis")
-    parser.add_argument("--gh-workflows-dir", default=str(_DEFAULT_GH_WORKFLOWS_DIR), help="CI-Workflow-Verzeichnis")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--window-days",
+        type=int,
+        default=180,
+        help="Zeitfenster für Skill-/Label-Nutzung (Default 180)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Nur Report drucken, kein Issue erzeugen"
+    )
+    parser.add_argument(
+        "--report", help="Markdown-Report zusätzlich in Datei schreiben"
+    )
+    parser.add_argument(
+        "--repo", default=_DEFAULT_REPO, help=f"GitHub-Repo (Default {_DEFAULT_REPO})"
+    )
+    parser.add_argument(
+        "--projects-dir",
+        default=str(_DEFAULT_PROJECTS_DIR),
+        help="Wurzel der CC-Transkripte",
+    )
+    parser.add_argument(
+        "--workflows-dir",
+        default=str(_DEFAULT_WORKFLOWS_DIR),
+        help="Skill-Inventar-Verzeichnis",
+    )
+    parser.add_argument(
+        "--gh-workflows-dir",
+        default=str(_DEFAULT_GH_WORKFLOWS_DIR),
+        help="CI-Workflow-Verzeichnis",
+    )
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc)
@@ -518,7 +632,9 @@ def main() -> int:
             label: fetch_issues_by_label(args.repo, label)
             for label in sorted(set(label_by_workflow.values()))
         }
-        meter_candidates = evaluate_meter_consequence(label_by_workflow, issues_by_label, now)
+        meter_candidates = evaluate_meter_consequence(
+            label_by_workflow, issues_by_label, now
+        )
 
         # Messung 3
         all_labels = fetch_all_labels(args.repo)
@@ -538,7 +654,14 @@ def main() -> int:
         "scheduled_workflow_count": len(scheduled),
     }
 
-    report = render_report(now, args.window_days, skill_result, meter_candidates, label_candidates, kill_gate_result)
+    report = render_report(
+        now,
+        args.window_days,
+        skill_result,
+        meter_candidates,
+        label_candidates,
+        kill_gate_result,
+    )
     print(report)
     if args.report:
         Path(args.report).write_text(report)
@@ -547,7 +670,12 @@ def main() -> int:
         print("\n[--dry-run] Kein Issue erzeugt.", file=sys.stderr)
         return 0
 
-    ensure_label(args.repo, "usage-sweep", "0E8A16", "Quartals-Nutzungs-Sweep (Entbürokratisierung, lokal ausgeführt)")
+    ensure_label(
+        args.repo,
+        "usage-sweep",
+        "0E8A16",
+        "Quartals-Nutzungs-Sweep (Entbürokratisierung, lokal ausgeführt)",
+    )
     title = f"[usage-sweep] Rückbau-Kandidaten {current_quarter_label(now)}"
     outcome = create_or_comment_issue(args.repo, title, "usage-sweep", report)
     print(outcome, file=sys.stderr)
@@ -555,7 +683,9 @@ def main() -> int:
     gh_output = os.environ.get("GITHUB_OUTPUT")
     if gh_output:
         with open(gh_output, "a") as fh:
-            fh.write(f"candidates={len(candidates1) + len(meter_candidates) + len(label_candidates)}\n")
+            fh.write(
+                f"candidates={len(candidates1) + len(meter_candidates) + len(label_candidates)}\n"
+            )
 
     return 0
 

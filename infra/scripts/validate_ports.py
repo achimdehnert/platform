@@ -37,11 +37,12 @@ def validate(data: dict) -> list[str]:
         staging_port = config.get("staging")
         if staging_port is not None:
             if not isinstance(staging_port, int):
-                errors.append(f"{name}: staging-Port muss int sein, ist: {type(staging_port)}")
+                errors.append(
+                    f"{name}: staging-Port muss int sein, ist: {type(staging_port)}"
+                )
             elif not (1024 <= staging_port <= 9999):
                 errors.append(
-                    f"{name}: staging-Port {staging_port} "
-                    "außerhalb Range 1024–9999"
+                    f"{name}: staging-Port {staging_port} außerhalb Range 1024–9999"
                 )
             else:
                 port_usage[staging_port].append(f"{name}/staging")

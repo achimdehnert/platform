@@ -22,6 +22,7 @@ Standardmäßig ausgenommen (immer, unabhängig von --allowlist):
 
 Zusätzliche bewusst nicht-indexierte Skills via `--allowlist name1,name2`.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -144,7 +145,9 @@ def main(argv: list[str] | None = None) -> int:
     allowlist = {n.strip() for n in args.allowlist.split(",") if n.strip()}
 
     try:
-        missing, checked = check(args.workflows_dir, args.index, allowlist, args.skills_dir)
+        missing, checked = check(
+            args.workflows_dir, args.index, allowlist, args.skills_dir
+        )
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -159,7 +162,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(f"OK: alle {len(checked)} verteilten Skills sind im workflow-index.md referenziert.")
+    print(
+        f"OK: alle {len(checked)} verteilten Skills sind im workflow-index.md referenziert."
+    )
     return 0
 
 

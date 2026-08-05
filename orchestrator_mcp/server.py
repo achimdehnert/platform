@@ -197,8 +197,12 @@ _TOOLS: dict[str, dict[str, Any]] = {
                 },
             },
             "required": [
-                "task_id", "completion_score", "guardian_passed",
-                "adr_violations", "iterations_used", "tokens_used",
+                "task_id",
+                "completion_score",
+                "guardian_passed",
+                "adr_violations",
+                "iterations_used",
+                "tokens_used",
             ],
         },
         "handler": lambda args: evaluate_task(
@@ -418,9 +422,7 @@ def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "result": {
-                    "content": [
-                        {"type": "text", "text": json.dumps(result, indent=2)}
-                    ]
+                    "content": [{"type": "text", "text": json.dumps(result, indent=2)}]
                 },
             }
         except Exception as exc:
@@ -444,7 +446,11 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         stream=sys.stderr,
     )
-    logger.info("orchestrator_mcp server v3.2 starting (ADR-107+108+112, %d tools, %d skills)", len(_TOOLS), _SKILLS_LOADED)
+    logger.info(
+        "orchestrator_mcp server v3.2 starting (ADR-107+108+112, %d tools, %d skills)",
+        len(_TOOLS),
+        _SKILLS_LOADED,
+    )
 
     for line in sys.stdin:
         line = line.strip()

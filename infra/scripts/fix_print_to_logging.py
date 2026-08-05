@@ -16,14 +16,23 @@ Usage:
     python3 fix_print_to_logging.py /path/to/repo/apps/     # dry-run
     python3 fix_print_to_logging.py /path/to/repo/apps/ --apply
 """
+
 import argparse
 import os
 import re
 import sys
 
 SKIP_FILES = {"manage.py", "wsgi.py", "asgi.py", "conftest.py"}
-SKIP_DIRS = {"migrations", "__pycache__", ".venv", "node_modules", "tests", "test",
-             "site-packages", "docs"}
+SKIP_DIRS = {
+    "migrations",
+    "__pycache__",
+    ".venv",
+    "node_modules",
+    "tests",
+    "test",
+    "site-packages",
+    "docs",
+}
 
 ERROR_PATTERNS = re.compile(
     r"print\s*\(\s*f?[\"'].*(?:Error|FEHLER|KRITISCH|CRITICAL|Fehler|error:|ERROR)",
@@ -165,7 +174,9 @@ def main():
 
     total = sum(r["replacements"] for r in results)
     print(f"\n{'=' * 60}")
-    print(f"{'APPLIED' if args.apply else 'WOULD REPLACE'}: {total} print() → logger.X()")
+    print(
+        f"{'APPLIED' if args.apply else 'WOULD REPLACE'}: {total} print() → logger.X()"
+    )
     print(f"Files affected: {len(results)}")
     for r in results:
         short = r["file"].replace(os.path.expanduser("~/github/"), "")

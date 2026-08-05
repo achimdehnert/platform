@@ -5,6 +5,7 @@ Wegwerf-Verzeichnis (tmp_path) — prüft, dass index.json + INDEX.md aus
 `supersedes`- und `archived`-Frontmatter korrekt erzeugt werden. Rein lokal,
 keine echten Netz-/gh-Calls.
 """
+
 from __future__ import annotations
 
 import importlib.util

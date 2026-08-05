@@ -12,7 +12,9 @@ aic = importlib.util.module_from_spec(_SPEC)
 sys.modules["adr_index_check"] = aic  # noetig fuer @dataclass-Aufloesung
 _SPEC.loader.exec_module(aic)
 
-_TABLE_HEADER = "| # | Title | Status | Impl | Link |\n|---|-------|--------|------|------|\n"
+_TABLE_HEADER = (
+    "| # | Title | Status | Impl | Link |\n|---|-------|--------|------|------|\n"
+)
 
 
 def _mk_corpus(tmp_path):
@@ -47,9 +49,15 @@ def _write_index(adr_dir, rows, next_free=102):
 
 
 _ROW_040 = "| 040 | Ancient | `Archived` | — | [ADR-040](_archive/superseded/ADR-040-ancient.md) |\n"
-_ROW_050 = "| 050 | Old Thing | `Superseded` | — | [ADR-050](archive/ADR-050-old-thing.md) |\n"
-_ROW_100 = "| 100 | Foo Service | `Accepted` | ✅ | [ADR-100](ADR-100-foo-service.md) |\n"
-_ROW_101 = "| 101 | Bar Pattern | `Proposed` | ⬜ | [ADR-101](ADR-101-bar-pattern.md) |\n"
+_ROW_050 = (
+    "| 050 | Old Thing | `Superseded` | — | [ADR-050](archive/ADR-050-old-thing.md) |\n"
+)
+_ROW_100 = (
+    "| 100 | Foo Service | `Accepted` | ✅ | [ADR-100](ADR-100-foo-service.md) |\n"
+)
+_ROW_101 = (
+    "| 101 | Bar Pattern | `Proposed` | ⬜ | [ADR-101](ADR-101-bar-pattern.md) |\n"
+)
 
 
 def test_should_pass_consistent_index(tmp_path):
@@ -69,7 +77,9 @@ def test_should_flag_missing_row_for_active_file(tmp_path):
 def test_should_flag_ghost_row_without_any_file(tmp_path):
     adr_dir = _mk_corpus(tmp_path)
     ghost = "| 666 | Phantom | `Accepted` | ✅ | [ADR-666](ADR-666-phantom.md) |\n"
-    _write_index(adr_dir, [_ROW_040, _ROW_050, _ROW_100, _ROW_101, ghost], next_free=102)
+    _write_index(
+        adr_dir, [_ROW_040, _ROW_050, _ROW_100, _ROW_101, ghost], next_free=102
+    )
     findings = aic.run(adr_dir, tmp_path)
     assert [f.category for f in findings] == ["ghost_row"]
     assert "ADR-666" in findings[0].message
@@ -77,7 +87,9 @@ def test_should_flag_ghost_row_without_any_file(tmp_path):
 
 def test_should_flag_status_drift_case_insensitive(tmp_path):
     adr_dir = _mk_corpus(tmp_path)
-    drifted = "| 101 | Bar Pattern | `Accepted` | ⬜ | [ADR-101](ADR-101-bar-pattern.md) |\n"
+    drifted = (
+        "| 101 | Bar Pattern | `Accepted` | ⬜ | [ADR-101](ADR-101-bar-pattern.md) |\n"
+    )
     _write_index(adr_dir, [_ROW_040, _ROW_050, _ROW_100, drifted], next_free=102)
     findings = aic.run(adr_dir, tmp_path)
     assert [f.category for f in findings] == ["status_drift"]
@@ -93,7 +105,9 @@ def test_should_accept_archived_status_for_underscore_archive_file(tmp_path):
 
 def test_should_flag_archived_status_when_file_is_active(tmp_path):
     adr_dir = _mk_corpus(tmp_path)
-    wrong = "| 100 | Foo Service | `Archived` | — | [ADR-100](ADR-100-foo-service.md) |\n"
+    wrong = (
+        "| 100 | Foo Service | `Archived` | — | [ADR-100](ADR-100-foo-service.md) |\n"
+    )
     _write_index(adr_dir, [_ROW_040, _ROW_050, wrong, _ROW_101], next_free=102)
     findings = aic.run(adr_dir, tmp_path)
     assert [f.category for f in findings] == ["status_drift"]

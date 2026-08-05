@@ -154,7 +154,9 @@ def html_mit_formularfeldern(html: str) -> str:
     # Platzhalter aus Schritt 1 …
     rest = _PLATZHALTER_RE.sub(_textfeld, rest)
     # … und rohe Laeufe, falls jemand html_mit_formularfeldern allein benutzt.
-    rest = _FILL_RE.sub(lambda t: _textfeld(re.match(r"(\d+)", str(len(t.group(0))))), rest)
+    rest = _FILL_RE.sub(
+        lambda t: _textfeld(re.match(r"(\d+)", str(len(t.group(0))))), rest
+    )
 
     for i, stueck in enumerate(geschuetzt):
         rest = rest.replace(f"\x00SCHUTZ{i}\x00", stueck)

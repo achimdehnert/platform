@@ -5,6 +5,7 @@ Prüft strukturelle Invarianten der Test-Infrastruktur selbst:
   2. test_should_budgets_have_no_unknown_repos — kein Budget-Eintrag für unbekannte Repos
   3. test_should_repos_have_test_infrastructure — Django-Repos haben tests/conftest.py
 """
+
 from __future__ import annotations
 
 import os

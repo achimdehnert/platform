@@ -19,6 +19,7 @@ Checks (best-effort, pro Repo):
 Exit 0 immer (informativ). `--strict` → exit 1 wenn ein Repo rot.
 Verwendung:  python3 platform_doctor.py [--dir ~/github] [--json] [--strict]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,9 +50,7 @@ def sh(args: list[str], cwd: Path | None = None, timeout: int = 15) -> str:
 
 
 def discover_repos(root: Path) -> list[Path]:
-    return sorted(
-        p.parent for p in root.glob("*/.git") if (p.is_dir() or p.is_file())
-    )
+    return sorted(p.parent for p in root.glob("*/.git") if (p.is_dir() or p.is_file()))
 
 
 def origin_slug(repo: Path) -> str:
@@ -115,8 +114,9 @@ def check_repo(repo: Path) -> dict:
                 )
 
     # dep-gitsub
-    if _grep_tree(repo, GITSUB_RE, ["requirements*.txt", "pyproject.toml",
-                                    "requirements/*.txt"]):
+    if _grep_tree(
+        repo, GITSUB_RE, ["requirements*.txt", "pyproject.toml", "requirements/*.txt"]
+    ):
         findings.append(("red", "git+…#subdirectory-Dependency vorhanden"))
 
     # frozen
@@ -138,8 +138,12 @@ def check_repo(repo: Path) -> dict:
     if cat == "pylib":
         pp = _read(repo / "pyproject.toml")
         rp = re.search(r'requires-python\s*=\s*"[^"]*?(\d+\.\d+)', pp)
-        ci_pys = set(re.findall(r'(?:python-version|python)[:\s"\']+(\d+\.\d+)',
-                                " ".join(_read(f) for f in wf)))
+        ci_pys = set(
+            re.findall(
+                r'(?:python-version|python)[:\s"\']+(\d+\.\d+)',
+                " ".join(_read(f) for f in wf),
+            )
+        )
         if rp and ci_pys:
             minv = tuple(int(x) for x in rp.group(1).split("."))
             for c in ci_pys:
@@ -150,9 +154,7 @@ def check_repo(repo: Path) -> dict:
 
     # health (hub)
     if cat == "hub":
-        body = " ".join(
-            _read(f) for f in list(repo.glob("**/urls.py"))[:50]
-        )
+        body = " ".join(_read(f) for f in list(repo.glob("**/urls.py"))[:50])
         if "/livez" not in body and "livez" not in body:
             findings.append(("yellow", "kein /livez referenziert"))
 
@@ -161,8 +163,10 @@ def check_repo(repo: Path) -> dict:
     stale = False
     if pushed:
         try:
-            age = (dt.datetime.now(dt.timezone.utc)
-                   - dt.datetime.fromisoformat(pushed.replace("Z", "+00:00"))).days
+            age = (
+                dt.datetime.now(dt.timezone.utc)
+                - dt.datetime.fromisoformat(pushed.replace("Z", "+00:00"))
+            ).days
             stale = age > STALE_DAYS
         except Exception:
             pass
@@ -188,11 +192,11 @@ def check_repo(repo: Path) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="platform-doctor v0.1 (read-only)")
-    ap.add_argument("--dir", default=os.environ.get("GITHUB_DIR",
-                                                    str(Path.home() / "github")))
+    ap.add_argument(
+        "--dir", default=os.environ.get("GITHUB_DIR", str(Path.home() / "github"))
+    )
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--strict", action="store_true",
-                    help="exit 1 wenn ein Repo rot")
+    ap.add_argument("--strict", action="store_true", help="exit 1 wenn ein Repo rot")
     a = ap.parse_args()
 
     root = Path(a.dir).expanduser()
@@ -203,21 +207,28 @@ def main() -> int:
         print(json.dumps(results, indent=2, ensure_ascii=False))
     else:
         today = dt.date.today().isoformat()
-        n = {s: sum(r["status"] == s for r in results)
-             for s in ("green", "yellow", "red")}
+        n = {
+            s: sum(r["status"] == s for r in results)
+            for s in ("green", "yellow", "red")
+        }
         print(f"# platform-doctor — {today}\n")
-        print(f"Repos entdeckt: **{len(results)}** (dynamisch, "
-              f"`{root}`)  ·  🟢 {n['green']}  🟡 {n['yellow']}  🔴 {n['red']}\n")
+        print(
+            f"Repos entdeckt: **{len(results)}** (dynamisch, "
+            f"`{root}`)  ·  🟢 {n['green']}  🟡 {n['yellow']}  🔴 {n['red']}\n"
+        )
         print("| Status | Repo | Kat | pushedAt | Befund |")
         print("|---|---|---|---|---|")
         order = {"red": 0, "yellow": 1, "green": 2}
         for r in sorted(results, key=lambda x: (order[x["status"]], x["repo"])):
             icon = {"red": "🔴", "yellow": "🟡", "green": "🟢"}[r["status"]]
             msg = "; ".join(m for _, m in r["findings"]) or "—"
-            print(f"| {icon} | {r['repo']} | {r['category']} "
-                  f"| {r['pushedAt']} | {msg} |")
-        print("\n_read-only · ADR-209 D5 · keine Schreib-Ops · "
-              "Discovery dynamisch, kein hartkodiertes Inventar_")
+            print(
+                f"| {icon} | {r['repo']} | {r['category']} | {r['pushedAt']} | {msg} |"
+            )
+        print(
+            "\n_read-only · ADR-209 D5 · keine Schreib-Ops · "
+            "Discovery dynamisch, kein hartkodiertes Inventar_"
+        )
 
     if a.strict and any(r["status"] == "red" for r in results):
         return 1

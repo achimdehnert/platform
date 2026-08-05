@@ -23,6 +23,7 @@ Usage:
 
 Exit code: 0 = no drift, 1 = drift found, 2 = usage/load error.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -50,7 +51,9 @@ def gh_repo_full_name(owner_name: str) -> str | None:
     try:
         out = subprocess.run(
             ["gh", "api", f"repos/{owner_name}", "--jq", ".full_name"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
@@ -96,24 +99,37 @@ def check(offline: bool) -> tuple[list[dict], dict]:
         if claimed and "/" in repo_current:
             actual_org = repo_current.split("/")[0]
             if claimed != actual_org:
-                add("DRIFT", pkg,
+                add(
+                    "DRIFT",
+                    pkg,
                     f"registry-canonical repo_owner claims '{repo_name}: {claimed}' "
-                    f"but iil-migration.yaml records repo_current={repo_current}")
+                    f"but iil-migration.yaml records repo_current={repo_current}",
+                )
 
         # 2. status=done must mean repo under target org
         if status == "done" and not repo_current.startswith(f"{TARGET_ORG}/"):
-            add("DRIFT", pkg,
-                f"status=done but repo_current={repo_current} is not under {TARGET_ORG}/")
+            add(
+                "DRIFT",
+                pkg,
+                f"status=done but repo_current={repo_current} is not under {TARGET_ORG}/",
+            )
 
         # 3. live gh reality vs repo_current
         if not offline:
             resolved = gh_repo_full_name(repo_current)
             if resolved is None:
-                add("WARN", pkg, f"gh could not resolve repo_current={repo_current} (missing/unauth)")
+                add(
+                    "WARN",
+                    pkg,
+                    f"gh could not resolve repo_current={repo_current} (missing/unauth)",
+                )
             elif resolved != repo_current:
-                add("DRIFT", pkg,
+                add(
+                    "DRIFT",
+                    pkg,
                     f"repo_current={repo_current} but gh resolves to {resolved} "
-                    f"(transfer/redirect or registry stale)")
+                    f"(transfer/redirect or registry stale)",
+                )
 
     summary = {
         "packages": len(packages),
@@ -125,8 +141,14 @@ def check(offline: bool) -> tuple[list[dict], dict]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Reality-check the iil-* migration registry (ADR-255 REC-3)")
-    ap.add_argument("--offline", action="store_true", help="skip GitHub queries (structural checks only)")
+    ap = argparse.ArgumentParser(
+        description="Reality-check the iil-* migration registry (ADR-255 REC-3)"
+    )
+    ap.add_argument(
+        "--offline",
+        action="store_true",
+        help="skip GitHub queries (structural checks only)",
+    )
     ap.add_argument("--json", action="store_true", help="emit JSON report")
     args = ap.parse_args()
 
@@ -139,9 +161,11 @@ def main() -> int:
     if args.json:
         print(json.dumps({"summary": summary, "findings": findings}, indent=2))
     else:
-        print(f"iil-migration check — {summary['packages']} packages, "
-              f"{summary['drift']} drift, {summary['warn']} warn"
-              f"{' (offline)' if summary['offline'] else ''}")
+        print(
+            f"iil-migration check — {summary['packages']} packages, "
+            f"{summary['drift']} drift, {summary['warn']} warn"
+            f"{' (offline)' if summary['offline'] else ''}"
+        )
         for f in findings:
             icon = {"DRIFT": "✗", "WARN": "⚠"}.get(f["level"], "•")
             print(f"  {icon} [{f['package']}] {f['message']}")

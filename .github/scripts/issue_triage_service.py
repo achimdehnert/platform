@@ -18,44 +18,44 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPOSITORY", "achimdehnert/platform")
 
 TYPE_LABELS: dict[str, str] = {
-    "feature":  "type:feature",
-    "bugfix":   "type:bug",
+    "feature": "type:feature",
+    "bugfix": "type:bug",
     "refactor": "type:refactor",
-    "test":     "type:test",
-    "docs":     "type:docs",
-    "adr":      "type:adr",
-    "chore":    "type:chore",
+    "test": "type:test",
+    "docs": "type:docs",
+    "adr": "type:adr",
+    "chore": "type:chore",
 }
 
 COMPLEXITY_LABELS: dict[str, str] = {
-    "trivial":       "complexity:trivial",
-    "simple":        "complexity:simple",
-    "moderate":      "complexity:moderate",
-    "complex":       "complexity:complex",
+    "trivial": "complexity:trivial",
+    "simple": "complexity:simple",
+    "moderate": "complexity:moderate",
+    "complex": "complexity:complex",
     "architectural": "complexity:architectural",
 }
 
 RISK_LABELS: dict[str, str] = {
-    "low":      "risk:low",
-    "medium":   "risk:medium",
-    "high":     "risk:high",
+    "low": "risk:low",
+    "medium": "risk:medium",
+    "high": "risk:high",
     "critical": "risk:critical",
 }
 
 # platform-spezifische App-Labels
 PATH_APP_LABELS: list[tuple[str, str]] = [
-    ("docs/adr",               "app:adr"),
-    ("docs/governance",        "app:governance"),
-    ("docs/",                  "app:docs"),
-    ("packages/task_scorer",   "app:task-scorer"),
-    ("packages/django-tenancy","app:django-tenancy"),
-    ("packages/docs-agent",    "app:docs-agent"),
-    ("packages/",              "scope:packages"),
-    ("shared_contracts",       "app:contracts"),
-    ("shared/",                "app:shared"),
-    ("tools/",                 "scope:tools"),
-    (".github/",               "scope:ci"),
-    ("provision",              "scope:infrastructure"),
+    ("docs/adr", "app:adr"),
+    ("docs/governance", "app:governance"),
+    ("docs/", "app:docs"),
+    ("packages/task_scorer", "app:task-scorer"),
+    ("packages/django-tenancy", "app:django-tenancy"),
+    ("packages/docs-agent", "app:docs-agent"),
+    ("packages/", "scope:packages"),
+    ("shared_contracts", "app:contracts"),
+    ("shared/", "app:shared"),
+    ("tools/", "scope:tools"),
+    (".github/", "scope:ci"),
+    ("provision", "scope:infrastructure"),
 ]
 
 MAX_TASKS_FOR_LABELS = 5
@@ -156,12 +156,16 @@ class IssueTriageService:
                 )
                 results.append(result)
             except Exception as exc:
-                logger.error("Triage failed for issue #%s: %s", issue.get("number"), exc)
-                results.append(TriageResult(
-                    issue_number=issue.get("number", 0),
-                    title=issue.get("title", ""),
-                    warnings=[f"Triage error: {exc}"],
-                ))
+                logger.error(
+                    "Triage failed for issue #%s: %s", issue.get("number"), exc
+                )
+                results.append(
+                    TriageResult(
+                        issue_number=issue.get("number", 0),
+                        title=issue.get("title", ""),
+                        warnings=[f"Triage error: {exc}"],
+                    )
+                )
         return results
 
     def _http_decompose(self, use_case: str, context: str) -> dict:
@@ -169,15 +173,18 @@ class IssueTriageService:
         try:
             import json as _json
             from urllib import request as _req
-            payload = _json.dumps({
-                "tool": "decompose_use_case",
-                "arguments": {
-                    "use_case": use_case,
-                    "context": context,
-                    "tier": self.tier,
-                    "output_format": "json",
-                },
-            }).encode()
+
+            payload = _json.dumps(
+                {
+                    "tool": "decompose_use_case",
+                    "arguments": {
+                        "use_case": use_case,
+                        "context": context,
+                        "tier": self.tier,
+                        "output_format": "json",
+                    },
+                }
+            ).encode()
             req = _req.Request(
                 f"{mcp_url}/mcp/call",
                 data=payload,
@@ -187,14 +194,23 @@ class IssueTriageService:
             with _req.urlopen(req, timeout=30) as resp:
                 data = _json.loads(resp.read())
                 content = data.get("content", [{}])
-                text = content[0].get("text", "{}") if isinstance(content, list) else "{}"
+                text = (
+                    content[0].get("text", "{}") if isinstance(content, list) else "{}"
+                )
                 return {"success": True, **_json.loads(text)}
         except Exception as exc:
             logger.error("HTTP decompose failed: %s", exc)
-            return {"success": False, "tasks": [], "warnings": [str(exc)],
-                    "model_used": "stub", "tier_used": self.tier}
+            return {
+                "success": False,
+                "tasks": [],
+                "warnings": [str(exc)],
+                "model_used": "stub",
+                "tier_used": self.tier,
+            }
 
-    def _compute_labels(self, tasks: list[dict], existing_labels: list[str]) -> list[str]:
+    def _compute_labels(
+        self, tasks: list[dict], existing_labels: list[str]
+    ) -> list[str]:
         labels: set[str] = set()
         types, complexities, risks, paths = set(), set(), set(), []
 
@@ -209,14 +225,17 @@ class IssueTriageService:
                 labels.add(label)
 
         complexity_order = ["trivial", "simple", "moderate", "complex", "architectural"]
-        highest = max(complexities, key=lambda c: complexity_order.index(c)
-                      if c in complexity_order else 0)
+        highest = max(
+            complexities,
+            key=lambda c: complexity_order.index(c) if c in complexity_order else 0,
+        )
         if label := COMPLEXITY_LABELS.get(highest):
             labels.add(label)
 
         risk_order = ["low", "medium", "high", "critical"]
-        highest_risk = max(risks, key=lambda r: risk_order.index(r)
-                           if r in risk_order else 0)
+        highest_risk = max(
+            risks, key=lambda r: risk_order.index(r) if r in risk_order else 0
+        )
         if highest_risk in ("high", "critical"):
             if label := RISK_LABELS.get(highest_risk):
                 labels.add(label)
@@ -233,6 +252,7 @@ class IssueTriageService:
         try:
             import json as _json
             from urllib import request as _req
+
             url = f"https://api.github.com/repos/{self.github_repo}/issues/{issue_number}/labels"
             payload = _json.dumps({"labels": labels}).encode()
             headers = {

@@ -3,6 +3,7 @@
 Kern-Invariante (Lizenz §1 DB Type): DB-Logo/Fonts werden NUR eingebettet,
 wenn das design-hub-Profil `allowed_assets.db: true` setzt. Kein Rendering nötig.
 """
+
 import struct
 import sys
 import zlib
@@ -33,7 +34,9 @@ def _tiny_png(path: Path) -> None:
 
     ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
     idat = zlib.compress(b"\x00\xff\xff\xff")
-    path.write_bytes(sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b""))
+    path.write_bytes(
+        sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+    )
 
 
 _COLOURS = (

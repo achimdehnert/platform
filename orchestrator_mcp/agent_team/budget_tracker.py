@@ -13,6 +13,7 @@ Hinweis: Da orchestrator_mcp Django-basiert ist, wird Django ORM
 für die DB-Abfrage genutzt (kein SQLAlchemy). Redis via django-redis
 oder direktem redis-py Client.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,27 +28,22 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 # Konfiguration aus ENV
-DAILY_BUDGET_USD = Decimal(
-    os.environ.get("MODEL_SELECTOR_DAILY_BUDGET_USD", "10.0")
-)
-BUDGET_WARNING_PCT = float(
-    os.environ.get("MODEL_SELECTOR_BUDGET_WARNING_PCT", "0.80")
-)
+DAILY_BUDGET_USD = Decimal(os.environ.get("MODEL_SELECTOR_DAILY_BUDGET_USD", "10.0"))
+BUDGET_WARNING_PCT = float(os.environ.get("MODEL_SELECTOR_BUDGET_WARNING_PCT", "0.80"))
 BUDGET_EMERGENCY_PCT = float(
     os.environ.get("MODEL_SELECTOR_BUDGET_EMERGENCY_PCT", "1.00")
 )
-BUDGET_CACHE_TTL = int(
-    os.environ.get("MODEL_SELECTOR_BUDGET_CACHE_TTL", "60")
-)
+BUDGET_CACHE_TTL = int(os.environ.get("MODEL_SELECTOR_BUDGET_CACHE_TTL", "60"))
 
 _CACHE_KEY = "model_selector:budget:today"
 
 
 class BudgetMode(str, Enum):
     """Budget-Zustand des Model Selectors."""
-    NORMAL = "normal"               # < 80% Budget
+
+    NORMAL = "normal"  # < 80% Budget
     COST_SENSITIVE = "cost_sensitive"  # 80-100% Budget
-    EMERGENCY = "emergency"         # > 100% Budget
+    EMERGENCY = "emergency"  # > 100% Budget
 
 
 @dataclass(frozen=True)
@@ -130,9 +126,7 @@ class BudgetTracker:
                         json.dumps(_status_to_dict(status)),
                     )
                 except Exception as exc:
-                    logger.warning(
-                        "Redis budget cache write failed: %s", exc
-                    )
+                    logger.warning("Redis budget cache write failed: %s", exc)
 
         return status
 
@@ -190,9 +184,7 @@ class BudgetTracker:
             try:
                 await self._redis.delete(_CACHE_KEY)
             except Exception as exc:
-                logger.warning(
-                    "Redis budget cache invalidation failed: %s", exc
-                )
+                logger.warning("Redis budget cache invalidation failed: %s", exc)
 
 
 def _status_to_dict(status: BudgetStatus) -> dict:
