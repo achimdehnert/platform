@@ -85,6 +85,7 @@ Literaturverzeichnis und Anhang                             115
  arXiv:1603.02754. (9. 03 2016). arxiv.org. Von XGBoost: https://arxiv.org/abs/1603.02754 abgerufen
  Breiman, L. (2001). Random Forests. Springer Nature, 5-32.
  Hansika Hewamalage, K. A. (2022). Forecast evaluation. Springer Nature, 788-832.
+ Léo Grinsztajn, E. O. (18. 07 2022). arxiv.org. Von Tree-based models: https://arxiv.org/abs/2207.08815 abgerufen
  Institute For the Future (IFF), U. o. (11. 05 2026). PubMed Central. Von etwas abgerufen
  Quentin W. Fleming, J. M. (2010). Earned Value Project management. PMI.
  Tashman, L. J. (2000). Out-of-sample tests. International Journal of Forecasting, 437-450.
@@ -176,7 +177,7 @@ def test_should_ligaturverlust_melden():
 class TestLiteratureintraege:
     def test_should_alle_eintraege_extrahieren(self):
         eintraege = literatur_eintraege(SEITEN)
-        assert len(eintraege) == 7
+        assert len(eintraege) == 8
 
     def test_should_verdachtsmarker_setzen(self):
         nach_autor = {e["autor"]: e["marker"] for e in literatur_eintraege(SEITEN)}
@@ -191,6 +192,10 @@ class TestLiteratureintraege:
         # Realfall-Regression: der mittlere Initial ("Quentin W. Fleming, J. M.")
         # brach das erste Muster — genau die haeufigste Form im echten Verzeichnis.
         assert "autorenfeld-gemischt" in nach_autor["Quentin W. Fleming, J. M"]
+        # Zweiter Realfall: Akzent im Vornamen. Eine ASCII-Zeichenklasse liess
+        # "Léo Grinsztajn, E. O." still durchgehen — Namen sind der Ort, an dem
+        # eine ASCII-Annahme am zuverlaessigsten bricht.
+        assert "autorenfeld-gemischt" in nach_autor["Léo Grinsztajn, E. O"]
 
     def test_should_sauberen_eintrag_nicht_markieren(self):
         # Gegenprobe: ohne diesen Test wuerde ein Marker-Generator, der IMMER

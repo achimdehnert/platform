@@ -486,11 +486,15 @@ def literatur_eintraege(seiten: list[str]) -> list[dict]:
         autor = text[: m_datum.start()] if m_datum else text.split("(", 1)[0]
         autor = autor.strip().rstrip(".").strip()
         # Ausgeschriebener Vorname neben blossen Initialen => Word-Quellenmanager.
-        # Der mittlere Initial muss zugelassen sein: "Quentin W. Fleming, J. M."
-        # ist der haeufigste Realfall und fiel ohne `(\s+[A-ZÄÖÜ]\.)?` durch.
+        # Zwei Realfaelle haben das Muster nacheinander gesprengt:
+        #   "Quentin W. Fleming, J. M." — mittlerer Initial => `(?:\s+[A-Z]\.)?`
+        #   "Léo Grinsztajn, E. O."     — Akzent im Vornamen => volle Latin-1-Klasse
+        # Namen sind der Ort, an dem eine ASCII-Annahme am zuverlaessigsten bricht.
+        gross = r"[A-ZÀ-ÖØ-Þ]"
+        klein = r"[a-zß-öø-ÿ]"
         if re.search(
-            r"[A-ZÄÖÜ][a-zäöüß]{2,}(?:\s+[A-ZÄÖÜ]\.)?\s+[A-ZÄÖÜ][a-zäöüß]{2,}", autor
-        ) and re.search(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]?\.?\s*$", autor):
+            rf"{gross}{klein}{{2,}}(?:\s+{gross}\.)?\s+{gross}{klein}{{2,}}", autor
+        ) and re.search(rf"\b{gross}\.\s*{gross}?\.?\s*$", autor):
             marker.append("autorenfeld-gemischt")
         if re.match(r"^(arXiv|doi|https?|www\.)", autor, re.I):
             marker.append("quellen-id-statt-autor")

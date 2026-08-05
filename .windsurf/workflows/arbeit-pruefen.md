@@ -60,10 +60,12 @@ und Autoren, Jahr, Titel, Publikationsort abgleichen. Ergebnis je Eintrag:
 
 Drei Regeln, jede aus einem realen Fehlschlag:
 
-1. **Kein Marker ≠ korrekt.** Am Realfall trugen **4 von 9** falsch zugeschriebenen
-   Einträgen keinen formalen Marker — sie waren sauber gesetzt und trotzdem falsch
-   (`Athanasopoulos, R. J.` für Hyndman & Athanasopoulos). Wer nur markierte Einträge
-   prüft, findet die Hälfte nicht.
+1. **Kein Marker ≠ korrekt.** Am Realfall trugen **3 von 9** falsch zugeschriebenen
+   Einträgen keinen Marker, der auf das Autorenfeld zeigt; **2 davon trugen überhaupt
+   keinen** (`Athanasopoulos, R. J.` für Hyndman & Athanasopoulos, `G. Rajaguru, S. L.`
+   für Rajaguru, Lim & O'Neill). Sie waren formal sauber gesetzt und trotzdem falsch.
+   Ein vierter (`Léo Grinsztajn, E. O.`) wurde erst gefunden, nachdem die
+   Zeichenklasse Akzente zuließ — vorher zählte er stillschweigend als unauffällig.
 2. **Nie aus dem Gedächtnis korrigieren.** Eine erfundene Korrektur in einer Rückmeldung an
    eine:n Studierende:n ist der teuerste Fehler dieses Ablaufs: Sie sieht autoritativ aus
    und ist falsifizierbar. Ohne Abruf gilt der Eintrag als `nicht geprüft` — das steht so im
