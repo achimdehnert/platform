@@ -52,7 +52,10 @@ def _uncovered() -> dict[str, set[str]]:
         for literal in set(_LITERAL.findall(text)):
             if literal in ALLOWLIST:
                 continue
-            if not (_REPO_ROOT / literal).exists():
+            ziel = (_REPO_ROOT / literal).resolve()
+            if not ziel.is_relative_to(_REPO_ROOT):
+                continue  # ".."-Traversal-Fixture — liest nicht aus dem Repo
+            if not ziel.exists():
                 continue  # Fixture-String, kein Repo-Read
             if crp.is_relevant([literal], patterns):
                 continue
@@ -82,3 +85,15 @@ def test_should_detect_an_uncovered_path_when_one_exists():
     patterns = ["tools/**"]
     assert crp.is_relevant(["tools/x.py"], patterns) is True
     assert crp.is_relevant(["docs/adr/ADR-1.md"], patterns) is False
+
+
+def test_should_ignore_traversal_literals_that_escape_the_repo():
+    """Realfall 2026-08-05 (platform#1775): '../../.ssh/authorized_keys'.
+
+    Der Fixture-String des Path-Traversal-Tests in test_graph_mail.py machte den
+    Guard NUR auf Dev-Maschinen rot: Repo-Root/../../.ssh/authorized_keys ist
+    $HOME/.ssh/authorized_keys und existiert dort — in CI nicht. Ein Literal,
+    das per ".." aus dem Repo hinausfuehrt, ist nie eine Testeingabe dieses
+    Repos und darf den Filter-Abgleich gar nicht erst erreichen.
+    """
+    assert not any(pfad.startswith("..") for pfad in _uncovered()), _uncovered()
