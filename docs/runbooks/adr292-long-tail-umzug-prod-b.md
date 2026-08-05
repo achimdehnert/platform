@@ -585,6 +585,49 @@ vollständig durchlaufen und dieses Runbook korrigiert, bevor größere Apps fol
 Apps mit Hintergrundjobs (`*_beat`, `*_worker`) brauchen zusätzlich die Prüfung,
 ob während der Umstellung Jobs doppelt oder gar nicht laufen.
 
+## Nachtrag aus dem dms-hub-Umzug (2026-08-04)
+
+Vier Punkte, die bei den acht vorherigen Umzügen nicht auftraten.
+
+**1. Ein Name kann A *und* AAAA haben.** `dms.iil.pet` führte beide, beide auf
+prod. Ein CNAME darf nicht daneben stehen — der Typwechsel scheitert mit
+`81053 — An A, AAAA, or CNAME record with that host already exists`. Richtige
+Reihenfolge: erst den AAAA löschen, dann den A per `PUT` in einen CNAME wandeln.
+Vorher **beide** gegen die erwarteten prod-Adressen prüfen, sonst löscht man im
+Zweifel einen fremden Record.
+
+**2. Redis kann passwortgeschützt sein.** Der Queue-Check antwortete mit
+`NOAUTH Authentication required`. Das Passwort steht in `.env.prod` und wandert
+mit dem Verzeichnis mit; für die Prüfung selbst:
+
+```bash
+PW=$(grep -hoE '^REDIS_PASSWORD=.*' /opt/<app>/.env.prod | cut -d= -f2-)
+docker exec -e REDISCLI_AUTH="$PW" <app>_redis redis-cli llen <queue>
+```
+
+**3. Nur die *bediente* Queue muss leer sein.** `dms-hub` hatte einen wartenden
+Job in `accounting` — der Worker läuft aber mit `-Q dms`, hört dort also gar
+nicht zu. Der Job (`apps.accounting.tasks.process_receipt`) lag seit unbekannter
+Zeit ohne Konsumenten und wäre nie ausgeführt worden; beim Umzug geht er
+verloren, weil Redis nicht mitwandert. Deshalb: die Queue-Namen aus dem
+Worker-Kommando ablesen (`grep -A6 '<app>-worker:' docker-compose.prod.yml`),
+nur diese müssen leer sein — und alles, was in anderen Listen liegt, vorher
+sichern und als Befund melden statt stillschweigend zu verwerfen.
+
+**4. Spiegeln, nicht verbessern.** Beim Anlegen des vhosts hatte ich
+`client_max_body_size 200M` gesetzt; auf `prod` stehen **50M**. Ein Umzug
+überträgt den Zustand — eine großzügigere Grenze ist eine eigene Entscheidung
+und gehört nicht nebenbei hinein. Abweichende Werte gegen die Quelle prüfen:
+
+```bash
+grep -h client_max_body_size /etc/nginx/sites-enabled/<vhost>.conf   # auf BEIDEN Hosts
+```
+
+**Erstmals mit echten Nutzdateien:** Das Media-Volume enthielt 4 Dokumente. Sie
+wurden per `tar` durch die Volumes übertragen und mit `md5sum` je Datei
+verglichen — nicht über die Volume-Größe, die durch Verzeichnisblöcke ohnehin
+abweicht (840K gegen 836K bei identischem Inhalt).
+
 ## Offene Vorbedingung
 
 `prod` und `prod-b` melden derzeit keine Metriken (#1734). Bis das behoben ist,

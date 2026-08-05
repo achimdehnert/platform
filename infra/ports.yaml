@@ -474,6 +474,14 @@ services:
     prod: 8107
     staging: 8107
     dev: 8107
+    prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04 (Owner-Nachtrag,
+                               # zuvor ausgenommen). Erster Umzug mit echten
+                               # Nutzdateien: Media-Volume mit 4 Dokumenten, per
+                               # md5-Vergleich bitgleich uebertragen.
+                               # ⚠ dms.iil.pet hatte A UND AAAA — ein CNAME darf nicht
+                               # danebenstehen (CF-Fehler 81053), der AAAA musste zuerst
+                               # weg. Redis ist passwortgeschuetzt (REDISCLI_AUTH noetig).
+                               # Marker: prod 0 bei 22165 Logzeilen, prod-b 1.
     container_name: dms_hub_web
     domain_prod: dms.iil.pet
     domain_staging: staging-dms.iil.pet
