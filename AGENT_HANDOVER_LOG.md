@@ -1426,3 +1426,75 @@ Selbstkritik am Retro: refuted_rate 0,0 liegt unter dem gesunden Band. Ich habe 
 Falsifikation Behauptungen ausgewaehlt, die ich schon fuer plausibel hielt, statt
 solche, die fallen koennten. Der Ertrag kam trotzdem — aber aus den Skeptikern, nicht
 aus meiner Auswahl.
+
+---
+
+## 2026-08-05 (8. Eintrag) — Mail-Strang: Vorgangsbuch statt Suche; Session-Skills gegen Kollisionen
+
+**Ziel der Sitzung:** „die Mail-Skripte für den Lotsen auf DB statt IMAP". Was daraus
+wurde, ist etwas anderes — der Owner steuerte über den Tag von der Suche zum
+**Vorgangsbuch**, und das war die richtige Richtung.
+
+**Der wertvollste Fund war kein Code, sondern ein Muster:** vier Mechanismen waren
+gebaut und liefen nie — `reconcile` (Löscherkennung), `ingest_delta` (gegen einen
+synthetischen Adapter), `zustand_offener_punkt` (nur Test-Aufrufer), `MailEvent.REPLIED`
+(nirgends geschrieben). Alle sahen von außen wie „funktioniert" aus, weil nichts rot
+wurde. Jede spätere Entscheidung dieser Sitzung folgt daraus.
+
+**Erledigt (dev-hub, 15 PRs gemergt):**
+
+* **Graph-Delta live und belegt** (#234): erster Lauf 475 Nachrichten, zweiter **0** —
+  der `deltaLink` greift. Neu/geändert und entfernt getrennt; `services.abgang_klassifizieren`
+  trennt *verschoben* von *gelöscht*, weil beides im Quellordner identisch aussieht und
+  erst der eigene Bestand es unterscheidet.
+* **IMAP-Weg** (#236): UID-Cursor für Zuwachs, UID-Listen-Abgleich für Abgang. Getrennt,
+  weil **kein** Server dieses Bestandes CONDSTORE/QRESYNC anbietet (gemessen). `UID SEARCH n:*`
+  liefert bei leerem Rest die höchste UID statt nichts — ungefiltert meldet jeder Lauf „1 neu".
+* **Antwort-Erkennung** (#242/#243): 2.356 Buchungen. Zwei Wege, weil jeder Transport nur
+  **eine** Verkettung liefert — hnu 2.261 Reply-Header und 0 Konversationen, iil genau
+  umgekehrt. Der erste scharfe Lauf buchte für iil **null**; das war keine Verhaltensaussage,
+  sondern eine Datenlücke.
+* **Suche 27,5 s → 7,9–11,1 s** (#239/#240) — über **zwei Fehlversuche**, die sie
+  zwischenzeitlich auf 50,8 s verschlechterten. Die Relevanzordnung war nicht nur teuer,
+  sondern **wirkungslos**: `Greatest(ts_rank, word_similarity)` vergleicht 0,0608 mit 1,0,
+  das Maximum ist immer die Ähnlichkeit.
+* **Drei Ansichten auf den echten Bestand** (#244/#245/#246) — die bestehenden hängen an
+  `DEMO_TENANT_ID` (dev-hub#211, kommentiert). Mit Inhalt zum Aufklappen, Klick in die Mail,
+  sortierbaren Spalten.
+* **Zwei Konzepte:** KONZ-dev-hub-003 (Suche) und **KONZ-dev-hub-004** (Vorgangsbuch mit
+  Mail-Anschluss) inkl. §10 Rückfrage-Vorrat: verbindliches Lernen über **eine** Engstelle,
+  Entscheidungen in die Datenbank, Schwellen in den Code per PR, **kein** Reinforcement
+  Learning (Exploration auf echter Post kostet Vertrauen schneller als sie Genauigkeit
+  gewinnt).
+
+**Erledigt (platform):**
+
+* **Retro 346c51** (#1761): 8 Befunde, 7 überleben. Der teuerste ist eine Zahl, die ich
+  selbst weitergereicht habe — „21 s" war nach #239 korrekt und nach #240 überholt. Der
+  Evidenz-Hook ließ sie durch, weil es einen Beleg *gab*.
+* **Session-Skills gegen Kollisionen** (#1764): `repo-session.sh abstand` rechnet den
+  Basis-Abstand je Lease (**36 von 87 über der Schwelle, Spitzenreiter 243 Commits**),
+  `--ziel` als Lease-Feld. Ursache: der Parallel-Session-Check sagt über sich selbst
+  „blockiert nichts, entscheidet nichts" und liefert seine Anweisung „vor Merge/Deploy
+  abgleichen" zum einzigen Zeitpunkt, an dem sie nicht befolgbar ist.
+
+**Nächste Schritte, konkret:**
+
+1. **M2/M3 aus KONZ-004** — Punkte ab Stichtag (letzte Woche) eröffnen, Zuordnung über
+   Beteiligte **und** Kette. Ohne das bleibt es eine Eingangsliste.
+2. **M8** — Rückfrage-Vorrat einmal bauen, mit der Engstelle und dem Test, der beweist,
+   dass ein abgelehntes Paar keinen zweiten Vorschlag erzeugt.
+3. **Stundenzeitplan** für den Delta-Lauf — geht per Migration nach Prod, eigene Freigabe.
+4. **IMAP-Delta scharf laufen lassen** — `--modus delta --ordner-limit 1 --account hnu`
+   zweimal. Der Graph-Zwilling ist belegt, der IMAP-Weg nicht.
+5. Die drei alten Mail-Views auf `services.STANDARD_TENANT` umstellen oder als Demo
+   kennzeichnen (dev-hub#211).
+
+**Nicht verifiziert, ausdrücklich:** der IMAP-Delta-Pfad am echten Postfach · wie viele
+Antworten die Erkennung **nicht** findet (neuer Betreff, Telefonat) · ob die Suchzeit von
+~8 s stabil ist (zwei Läufe, erster kalt).
+
+**Eigene Fehler dieser Sitzung:** zweimal an einer Stellschraube gedreht, ohne die Wirkung
+vorher zu messen (der Skeptiker belegte: beide Ursachen waren ohne Deploy prüfbar) ·
+eine Live-URL mit Haken genannt, während die beschriebenen Funktionen nur in einem offenen
+PR existierten · dreimal in Tests geprüft, was ich erwartete, statt was das System tut.
