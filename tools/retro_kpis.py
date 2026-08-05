@@ -17,6 +17,15 @@ Aufruf:
     python3 tools/retro_kpis.py --dir <pfad>    # nur dies(e) Verzeichnis(se), mehrfach angebbar
     python3 tools/retro_kpis.py --min-band 3    # refuted_rate-Band erst ab N Retros werten
     python3 tools/retro_kpis.py --file-issues   # GATE-PFLICHT-Slugs (>=2) als GH-Issue anlegen/aktualisieren
+    python3 tools/retro_kpis.py --since 2026-09-03 --until 2026-09-16 --k1
+                                                # K1-Ausgang gegen die eingefrorene Baseline
+
+--k1 (KONZ-038 D6): rechnet den vorregistrierten K1-Ausgang statt ihn von Hand zu
+behaupten. Liest `docs/governance/k1-baseline/slug-woerterbuch.yaml`, vergleicht den
+eigenen sha256 gegen den dort eingefrorenen Pin (Abweichung = Instrumentenwechsel ⇒
+Ausgang "nicht bewertbar", Baseline neu berechnen), mappt Aliase auf die kanonischen
+Baseline-Slugs und weist Slugs AUSSERHALB des Wörterbuchs getrennt als "nicht
+bewertbar" aus — nie als "neu bei null" (Goodhart-Schutz EXT2-AD-2).
 
 --file-issues (Retro d80d23/2026-07-16 — "Verankerung entscheidet der Mensch" landete
 bisher nur als Prosa im Report; niemand kam zuverlässig zurück, um sie in ein
@@ -37,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -261,6 +271,172 @@ def file_gate_issues(gated: dict, reports: list[dict], repo: str) -> None:
             )
 
 
+# --- K1-Auswertung gegen die eingefrorene Baseline (KONZ-038 D6) ----------------
+# Bis hierher war das Slug-Wörterbuch ein Dokument OHNE Konsument: die Regel
+# "unmappbare neue Slugs = nicht bewertbar, NIE neu bei null" (EXT2-AD-2) und die
+# Pflicht "Instrumentenwechsel ⇒ Baseline-Neuberechnung" (EXT2-AD-3) standen nur
+# als Prosa im YAML-Kopf. Beides rechnet jetzt das Tool — sonst entscheidet den
+# K1-Ausgang am 2026-09-16 eine Handzählung gegen ein Wörterbuch, das nichts liest.
+
+K1_WOERTERBUCH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "docs",
+    "governance",
+    "k1-baseline",
+    "slug-woerterbuch.yaml",
+)
+
+
+def tool_sha256(path: str | None = None) -> str:
+    """sha256 des Zählwerks selbst — der Pin, gegen den die Baseline eingefroren ist."""
+    with open(path or os.path.abspath(__file__), "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def load_woerterbuch(path: str) -> dict | None:
+    """Mini-Parser für slug-woerterbuch.yaml (stdlib-only wie der Rest des Tools).
+
+    Liest genau die eingefrorene Struktur: flache Skalare, den ``top3:``-Block
+    (``- canonical:`` + ``aliases: [...]``) und den ``schwellen:``-Block. Fehlt
+    eine Pflichtangabe, wird None geliefert — die Auswertung sagt dann "nicht
+    bewertbar" statt gegen halbe Daten zu rechnen.
+    """
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return None
+    out: dict = {"top3": [], "schwellen": {}}
+    section = None
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        stripped = line.strip()
+        if not line[0].isspace() and stripped.endswith(":") and ":" in stripped:
+            section = stripped[:-1]
+            continue
+        if section == "top3" and stripped.startswith("- canonical:"):
+            out["top3"].append(
+                {
+                    "canonical": stripped.split(":", 1)[1].strip().strip("'\""),
+                    "aliases": [],
+                }
+            )
+            continue
+        if section == "top3" and stripped.startswith("aliases:") and out["top3"]:
+            m = re.search(r"\[(.*?)\]", stripped)
+            inner = m.group(1) if m else ""
+            out["top3"][-1]["aliases"] = [
+                s.strip().strip("'\"") for s in inner.split(",") if s.strip()
+            ]
+            continue
+        if section == "schwellen" and ":" in stripped:
+            k, v = stripped.split(":", 1)
+            try:
+                out["schwellen"][k.strip()] = float(v.strip())
+            except ValueError:
+                pass
+            continue
+        if not line[0].isspace() and ":" in stripped:
+            section = None
+            k, v = stripped.split(":", 1)
+            out[k.strip()] = v.strip().strip("'\"")
+    if not out["top3"] or "tool_sha256" not in out:
+        return None
+    return out
+
+
+def k1_auswertung(reports: list[dict], wb: dict, ist_sha: str) -> list[str]:
+    """Rechnet den K1-Ausgang gegen die vorregistrierten Schwellen.
+
+    Drei Wege in "nicht bewertbar", alle laut: Instrumentenwechsel (sha-Mismatch),
+    zu wenige Retros im Fenster, oder ein leeres Fenster. Unmappbare Slugs werden
+    getrennt ausgewiesen und gehen NIE in die Rate ein.
+    """
+    lines = ["\n## K1-Auswertung (KONZ-038 §13, eingefrorene Baseline)"]
+    lines.append(f"  Wörterbuch: {os.path.relpath(K1_WOERTERBUCH, os.getcwd())}")
+
+    instrument_ok = ist_sha == wb.get("tool_sha256")
+    if instrument_ok:
+        lines.append(
+            f"  Instrument: sha256 {ist_sha[:16]}… ✅ identisch mit Baseline-Pin"
+        )
+    else:
+        lines.append(
+            f"  Instrument: sha256 {ist_sha[:16]}… ⚠️ INSTRUMENTENWECHSEL — "
+            f"Pin ist {str(wb.get('tool_sha256'))[:16]}…"
+        )
+        lines.append(
+            "    → Baseline mit dieser Tool-Version NEU berechnen und den Pin "
+            "nachziehen (KONZ-038 D6/EXT2-AD-3). Bis dahin ist der Ausgang nicht bewertbar."
+        )
+
+    alias_map: dict[str, str] = {}
+    for eintrag in wb["top3"]:
+        kanon = eintrag["canonical"]
+        alias_map[kanon] = kanon
+        for alias in eintrag.get("aliases", []):
+            alias_map[alias] = kanon
+
+    treffer: Counter = Counter()
+    unmappbar: Counter = Counter()
+    for r in reports:
+        for slug in r.get("recurring_findings", []):
+            kanon = alias_map.get(slug)
+            if kanon:
+                treffer[kanon] += 1
+            else:
+                unmappbar[slug] += 1
+
+    n = len(reports)
+    min_retros = int(wb["schwellen"].get("min_retros", 8))
+    lines.append(
+        f"  Retros im Fenster: {n} (Input-Bedingung ≥{min_retros}: "
+        f"{'erfüllt' if n >= min_retros else 'NICHT erfüllt'})"
+    )
+    lines.append("")
+    summe = 0
+    for eintrag in wb["top3"]:
+        kanon = eintrag["canonical"]
+        cnt = treffer[kanon]
+        summe += cnt
+        rate = cnt / n if n else 0.0
+        lines.append(f"    {kanon:38} ×{cnt:<3} Rate {rate:.3f}")
+    summen_rate = summe / n if n else 0.0
+    lines.append(f"    {'Summe Top-3':38} ×{summe:<3} Rate {summen_rate:.3f}")
+
+    if unmappbar:
+        lines.append("")
+        lines.append(
+            f"  Nicht bewertbar — {len(unmappbar)} Slug(s) außerhalb des Wörterbuchs "
+            "(zählen NICHT als „neu bei null“, EXT2-AD-2):"
+        )
+        for slug, cnt in sorted(unmappbar.items(), key=lambda kv: (-kv[1], kv[0])):
+            lines.append(f"    · {slug} ×{cnt}")
+        lines.append(
+            "    → Semantisch deckungsgleiche Slugs VOR der Auswertung als Alias "
+            "ins Wörterbuch mappen (per PR, mit Begründung)."
+        )
+
+    wirksam_max = wb["schwellen"].get("wirksam_max", 0.700)
+    kill_ueber = wb["schwellen"].get("kill_ueber", 1.000)
+    if not instrument_ok:
+        ausgang = "nicht bewertbar (Instrumentenwechsel — Baseline neu berechnen)"
+    elif n < min_retros:
+        ausgang = f"nicht bewertbar (nur {n} Retros im Fenster, Schwelle {min_retros})"
+    elif summen_rate <= wirksam_max:
+        ausgang = f"wirksam (Rate {summen_rate:.3f} ≤ {wirksam_max:.3f})"
+    elif summen_rate > kill_ueber:
+        ausgang = f"Kill (Rate {summen_rate:.3f} > {kill_ueber:.3f})"
+    else:
+        ausgang = (
+            f"unentschieden ({wirksam_max:.3f} < Rate {summen_rate:.3f} "
+            f"≤ {kill_ueber:.3f})"
+        )
+    lines.append(f"\n  → Ausgang: {ausgang}")
+    return lines
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Längsschnitt-KPIs über session-retro-Reports"
@@ -296,6 +472,17 @@ def main() -> int:
         type=int,
         default=3,
         help="refuted_rate-Band erst ab N Retros bewerten (default 3)",
+    )
+    ap.add_argument(
+        "--k1",
+        action="store_true",
+        help="K1-Ausgang gegen die eingefrorene Baseline rechnen (Slug-Wörterbuch, "
+        "Instrument-Pin, vorregistrierte Schwellen — KONZ-038 D6).",
+    )
+    ap.add_argument(
+        "--k1-woerterbuch",
+        default=K1_WOERTERBUCH,
+        help=f"Pfad zum Slug-Wörterbuch (default: {K1_WOERTERBUCH})",
     )
     ap.add_argument(
         "--file-issues",
@@ -416,6 +603,16 @@ def main() -> int:
     for k in SCORE_KEYS:
         if cnts[k]:
             print(f"  {k:24} {sums[k] / cnts[k]:.2f}  (n={cnts[k]})")
+
+    if args.k1:
+        wb = load_woerterbuch(args.k1_woerterbuch)
+        if wb is None:
+            print(
+                f"\n## K1-Auswertung\n  ⚠️ Wörterbuch nicht lesbar/unvollständig: "
+                f"{args.k1_woerterbuch}\n  → nicht bewertbar (nie als ok werten)."
+            )
+        else:
+            print("\n".join(k1_auswertung(reports, wb, tool_sha256())))
 
     if args.file_issues:
         file_gate_issues(gated, reports, args.issues_repo)

@@ -9,7 +9,11 @@
 
 baseline_window: 2026-07-19..2026-08-01
 frozen_at: "2026-08-02"
-tool_sha256: eaa1f370d6c2a7e9ae1f1e16ab3a7327f843398f7ddfa5f72750e156aac02279
+# Neuberechnet 2026-08-05 nach Instrumentenwechsel (retro_kpis.py bekam den
+# --k1-Auswertemodus, der genau dieses File liest). Das Zählwerk selbst blieb
+# unangetastet; der Baseline-Lauf ergab dieselben Zahlen wie am 2026-08-02
+# (n=20, 10/7/3, Summen-Rate 1.000) — Beleg im Roh-Auszug der Baseline-Datei.
+tool_sha256: 54148695abed7894ae4c09c22168196d2f11ea1864b6b7021803c945ff1daefd
 
 top3:
   - canonical: claim-before-cheapest-check
@@ -18,3 +22,12 @@ top3:
     aliases: []
   - canonical: workaround-without-tracking-anchor
     aliases: []
+
+# Vorregistrierte K1-Schwellen (KONZ-038 §13). Wortgleich mit
+# baseline-2026-07-19--2026-08-01.md, hier zusaetzlich maschinenlesbar, damit
+# der Ausgang gerechnet und nicht von Hand behauptet wird. Werte NICHT
+# nachtraeglich aendern — sie sind vor der Messung registriert worden.
+schwellen:
+  wirksam_max: 0.700 # Summen-Rate <= 0.700  => "wirksam" (einziger ADR-Ausgang)
+  kill_ueber: 1.000 # Summen-Rate  > 1.000  => "Kill"
+  min_retros: 8 # weniger Retros im Fenster => "nicht bewertbar"

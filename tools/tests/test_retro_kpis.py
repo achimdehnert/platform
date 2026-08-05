@@ -12,8 +12,11 @@ from retro_kpis import (  # noqa: E402
     _existing_gate_issue,
     _gate_issue_title,
     file_gate_issues,
+    k1_auswertung,
     load_reports,
+    load_woerterbuch,
     parse_frontmatter,
+    tool_sha256,
 )
 
 SAMPLE = """---
@@ -346,3 +349,178 @@ def test_should_kommentar_hinter_der_liste_ignorieren():
     )
     assert fm["recurring_findings"] == ["a-b-c", "d-e-f"]
     assert "_parse_warnings" not in fm
+
+
+# --- D6-Rest (KONZ-038): K1-Auswertung liest das Woerterbuch ---------------------
+# Vor diesem Block war slug-woerterbuch.yaml ein Dokument OHNE Konsument: weder
+# der Instrument-Pin noch "unmappbar = nicht bewertbar" wurden je gerechnet.
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WB_PFAD = REPO_ROOT / "docs" / "governance" / "k1-baseline" / "slug-woerterbuch.yaml"
+
+_WB_MIN = """\
+baseline_window: 2026-07-19..2026-08-01
+tool_sha256: deadbeef
+
+top3:
+  - canonical: claim-before-cheapest-check
+    aliases: [claim-vor-billigstem-check]
+  - canonical: deferred-item-no-tracking-issue
+    aliases: []
+  - canonical: workaround-without-tracking-anchor
+    aliases: []
+
+schwellen:
+  wirksam_max: 0.700
+  kill_ueber: 1.000
+  min_retros: 8
+"""
+
+
+def _wb(tmp_path, text=_WB_MIN):
+    p = tmp_path / "wb.yaml"
+    p.write_text(text, encoding="utf-8")
+    return load_woerterbuch(str(p))
+
+
+def _reports(slug_listen):
+    return [
+        {"recurring_findings": s, "_path": f"r{i}.md"}
+        for i, s in enumerate(slug_listen)
+    ]
+
+
+class TestWoerterbuchParser:
+    def test_should_kanonische_slugs_und_aliase_lesen(self, tmp_path):
+        wb = _wb(tmp_path)
+        assert [e["canonical"] for e in wb["top3"]] == [
+            "claim-before-cheapest-check",
+            "deferred-item-no-tracking-issue",
+            "workaround-without-tracking-anchor",
+        ]
+        assert wb["top3"][0]["aliases"] == ["claim-vor-billigstem-check"]
+        assert wb["schwellen"] == {
+            "wirksam_max": 0.7,
+            "kill_ueber": 1.0,
+            "min_retros": 8,
+        }
+
+    def test_should_none_liefern_wenn_pflichtangabe_fehlt(self, tmp_path):
+        # Ohne tool_sha256 ist der Instrument-Pin nicht pruefbar — dann darf die
+        # Auswertung nicht "irgendwie" rechnen, sondern gar nicht.
+        assert _wb(tmp_path, _WB_MIN.replace("tool_sha256: deadbeef\n", "")) is None
+
+    def test_should_echtes_eingefrorenes_woerterbuch_lesen(self):
+        wb = load_woerterbuch(str(WB_PFAD))
+        assert wb is not None
+        assert len(wb["top3"]) == 3
+        assert wb["schwellen"]["min_retros"] == 8
+
+
+class TestK1Auswertung:
+    def test_should_baseline_rate_und_ausgang_kill_rechnen(self, tmp_path):
+        wb = _wb(tmp_path)
+        # 8 Retros, 8 Top-3-Treffer => Summen-Rate 1.000 => noch "unentschieden"
+        out = "\n".join(
+            k1_auswertung(
+                _reports([["claim-before-cheapest-check"]] * 8), wb, "deadbeef"
+            )
+        )
+        assert "Rate 1.000" in out
+        assert "→ Ausgang: unentschieden" in out
+
+    def test_should_wirksam_nur_unter_der_vorregistrierten_schwelle(self, tmp_path):
+        wb = _wb(tmp_path)
+        # 10 Retros, 7 Treffer => 0.700 => genau auf der Schwelle => wirksam
+        out = "\n".join(
+            k1_auswertung(
+                _reports([["claim-before-cheapest-check"]] * 7 + [[]] * 3),
+                wb,
+                "deadbeef",
+            )
+        )
+        assert "→ Ausgang: wirksam (Rate 0.700 ≤ 0.700)" in out
+
+    def test_should_kill_ueber_der_baseline_rate(self, tmp_path):
+        wb = _wb(tmp_path)
+        out = "\n".join(
+            k1_auswertung(
+                _reports(
+                    [["claim-before-cheapest-check", "deferred-item-no-tracking-issue"]]
+                    * 8
+                ),
+                wb,
+                "deadbeef",
+            )
+        )
+        assert "Rate 2.000" in out
+        assert "→ Ausgang: Kill" in out
+
+    def test_should_alias_auf_kanonischen_slug_mappen(self, tmp_path):
+        wb = _wb(tmp_path)
+        out = "\n".join(
+            k1_auswertung(
+                _reports([["claim-vor-billigstem-check"]] * 8), wb, "deadbeef"
+            )
+        )
+        assert "claim-before-cheapest-check" in out and "×8" in out
+        assert "Rate 1.000" in out  # der Alias zaehlt voll auf den kanonischen Slug
+        assert "Nicht bewertbar" not in out
+
+    def test_should_unmappbaren_slug_nicht_als_neu_bei_null_zaehlen(self, tmp_path):
+        # Kern von EXT2-AD-2: ein umbenannter Slug darf die Rate nicht schoenen.
+        wb = _wb(tmp_path)
+        out = "\n".join(
+            k1_auswertung(_reports([["voellig-neuer-slug"]] * 8), wb, "deadbeef")
+        )
+        assert "Nicht bewertbar — 1 Slug(s)" in out
+        assert "voellig-neuer-slug ×8" in out
+        assert "Summe Top-3" in out and "Rate 0.000" in out
+        # ... und der Ausgang darf daraus NICHT "wirksam" machen? Doch — die Rate ist
+        # echt 0, aber der unmappbare Slug steht sichtbar daneben statt zu verschwinden.
+        assert "→ Ausgang: wirksam" in out
+
+    def test_should_instrumentenwechsel_als_nicht_bewertbar_melden(self, tmp_path):
+        wb = _wb(tmp_path)
+        out = "\n".join(
+            k1_auswertung(
+                _reports([["claim-before-cheapest-check"]] * 8), wb, "ANDERER-HASH"
+            )
+        )
+        assert "INSTRUMENTENWECHSEL" in out
+        assert "→ Ausgang: nicht bewertbar (Instrumentenwechsel" in out
+
+    def test_should_zu_kleines_fenster_als_nicht_bewertbar_melden(self, tmp_path):
+        wb = _wb(tmp_path)
+        out = "\n".join(
+            k1_auswertung(
+                _reports([["claim-before-cheapest-check"]] * 7), wb, "deadbeef"
+            )
+        )
+        assert "Input-Bedingung ≥8: NICHT erfüllt" in out
+        assert "→ Ausgang: nicht bewertbar (nur 7 Retros" in out
+
+
+def test_should_eingefrorenen_instrument_pin_einhalten():
+    """Rot, sobald retro_kpis.py sich aendert, ohne dass die Baseline neu berechnet
+    und der Pin nachgezogen wurde — genau die Pflicht aus KONZ-038 D6/EXT2-AD-3.
+    Bis hierher war das eine Prosa-Zusage im YAML-Kopf ohne jeden Sensor."""
+    wb = load_woerterbuch(str(WB_PFAD))
+    assert wb is not None
+    assert tool_sha256() == wb["tool_sha256"], (
+        "retro_kpis.py wurde geaendert: Baseline mit dieser Version NEU berechnen "
+        "und tool_sha256 in slug-woerterbuch.yaml nachziehen (KONZ-038 D6)."
+    )
+
+
+def test_should_k1_ueber_die_cli_erreichbar_sein():
+    out = _run_kpis("--k1", "--k1-woerterbuch", str(WB_PFAD))
+    assert "## K1-Auswertung" in out
+    assert "→ Ausgang:" in out
+
+
+def test_should_ohne_lesbares_woerterbuch_nicht_bewertbar_melden(tmp_path):
+    fehlt = tmp_path / "gibtsnicht.yaml"
+    out = _run_kpis("--k1", "--k1-woerterbuch", str(fehlt))
+    assert "nicht lesbar/unvollständig" in out
+    assert "nicht bewertbar" in out

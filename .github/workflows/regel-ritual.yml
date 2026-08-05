@@ -48,6 +48,18 @@ jobs:
             sed -n '1,40p' /tmp/kpi.txt
             echo '```'
             echo ""
+            # K1-Ausgang MASCHINELL gegen die eingefrorene Baseline (KONZ-038 D6).
+            # Vorher war das der "manuelle Teil des Rituals" — eine Handzaehlung
+            # gegen ein Woerterbuch, das kein Programm las. --k1 prueft zusaetzlich
+            # den Instrument-Pin: aendert sich retro_kpis.py ohne Baseline-
+            # Neuberechnung, sagt der Lauf "nicht bewertbar" statt still zu rechnen.
+            echo "**K1-Ausgang (Fenster $WINDOW_START..$(date -u +%F))**"
+            echo '```'
+            python3 tools/retro_kpis.py --dir docs/retros \
+              --since "$WINDOW_START" --until "$(date -u +%F)" --k1 \
+              | sed -n '/## K1-Auswertung/,$p'
+            echo '```'
+            echo ""
             # Handover-Freshness-Sweep (Slug handover-stale-vor-merge, Welle 1):
             # das PR-Gate ist paths-gefiltert und sieht "Datei nicht angefasst" nie —
             # dieser Sweep erreicht die Lesefläche (#1640) unabhängig von PR-Pfaden.
@@ -65,7 +77,7 @@ jobs:
             python3 tools/gate_drill_check.py > /tmp/drill.txt 2>&1 || true
             sed -n '1,15p' /tmp/drill.txt
             echo ""
-            echo "_Voller Lauf im Actions-Log. Sunset-Prüfung + Gate-Backlog: manueller Teil des Rituals (Runbook: docs/governance/model-rebaseline-runbook.md für Modellwechsel; K1-Auswertung gegen docs/governance/k1-baseline/)._"
+            echo "_Voller Lauf im Actions-Log. Der K1-Ausgang oben ist gerechnet, nicht behauptet (docs/governance/k1-baseline/). Sunset-Prüfung + Gate-Backlog bleiben manueller Teil des Rituals (Runbook: docs/governance/model-rebaseline-runbook.md für Modellwechsel)._"
           } > /tmp/comment.md
           cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
 
