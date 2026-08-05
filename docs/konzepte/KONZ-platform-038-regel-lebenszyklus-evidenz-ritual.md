@@ -276,12 +276,13 @@ erst danach.
 | Kriterium | Status | Beleg |
 |---|---|---|
 | K1 dreistufig: Baseline eingefroren (Tool gepinnt + Slug-Wörterbuch) | **erfüllt 2026-08-02** | docs/governance/k1-baseline/ (n=20, Summen-Rate 1.000, Schwellen 0.700/1.000; Tool-Suite 23/23) |
+| K1-Ausgang wird **gerechnet**, nicht behauptet (D6-Rest) | **erfüllt 2026-08-05** | `retro_kpis.py --k1` liest das Wörterbuch (Alias-Mapping · unmappbar ⇒ „nicht bewertbar" · Instrument-Pin) und ist in `regel-ritual.yml` verdrahtet; Baseline nach Instrumentenwechsel neu berechnet (identische Zahlen), Suite 36/36 |
 | K2 Ritual-Ausfallregel aktiv | erfüllt 2026-08-02 | PR #1641 gemergt, scharfer Lauf auf #1640 bewiesen |
 | K3 Sunset-Ledger existiert, 0 Einträge, Lernphasen-Zähler 0/2 | erfüllt 2026-08-02 | docs/governance/sunset-ledger.md (0 Einträge, Lernphase 0/2) |
 | K4 Drill-Protokoll je Welle-1-Gate | erfüllt 2026-08-02 (5/5 Welle 1) | GATE_HEADER + Drill-Tests in PRs #1643–#1648 |
 | K5 Outcome-Indikator (Folge-Fix-Quote) erstmalig erhoben | offen | — (Quartalstermin 2026-11-01) |
 | D5-Zaun-Ablaufdatum mechanisch geprüft | offen | — (Ritual-Lauf prüft Frontmatter-Feld) |
-| D4 A/B/C-Frontmatter-Rollout (148 platform-Einträge) | **offen** | — (Retro 287b23 #3: 0 `rule_class:`-Treffer; fehlte hier — Zeile nachgetragen, Claim in PR-#1658-Kommentar korrigiert) |
+| D4 A/B/C-Frontmatter-Rollout (148 platform-Einträge) | **weitgehend erfüllt** (Stand 2026-08-05) | Gemessen: 12/13 Policies (PR #1700) und 122/211 platform-Memory-Dateien tragen `rule_class`. Die „0 Treffer" aus Retro 287b23 #3 sind damit überholt. **Nicht verifiziert:** ob die 89 Dateien ohne Marker durchweg Nicht-Regeln (project/reference) sind — der Rest-Abgleich fehlt |
 
 **30/60/90:** 30 Tage = Welle-1-Vorabtests + Gates + Zyklen 1–2 + Baseline; 60 Tage = erste
 Sunset-Kandidaten-Bewertung (platform-Labels; Fleet erst nach ADR — EXT2-AD-9); 90 Tage =
