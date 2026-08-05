@@ -91,6 +91,17 @@ services:
       PAPERLESS_ACCOUNT_ALLOW_SIGNUPS: "false"
       PAPERLESS_DISABLE_REGULAR_LOGIN: "false"
       PAPERLESS_APP_TITLE: "IIL Dokumente"
+      # Mailversand ("Email Document" im Dokument-Menue). Ohne diesen Block ist der
+      # Knopf in der Oberflaeche vorhanden, laeuft aber in einen Fehler — Paperless
+      # kann nur SMTP, nicht Graph. Transport ist derselbe Mittwald-Mailserver, den
+      # risk-hub und /send-mail schon nutzen; das Passwort kommt als Secret aus .env.
+      PAPERLESS_EMAIL_HOST: "mail.agenturserver.de"
+      PAPERLESS_EMAIL_PORT: "465"
+      PAPERLESS_EMAIL_USE_SSL: "true"
+      PAPERLESS_EMAIL_USE_TLS: "false"
+      PAPERLESS_EMAIL_HOST_USER: "ad@dehnert.team"
+      PAPERLESS_EMAIL_HOST_PASSWORD: "${DOCHUB_EMAIL_PASSWORD}"
+      PAPERLESS_EMAIL_FROM: "IIL Dokumente <ad@dehnert.team>"
     env_file: [.env]
     volumes:
       - dochub_data:/usr/src/paperless/data
