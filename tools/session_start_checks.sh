@@ -18,7 +18,10 @@
 set -u
 
 export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
-PLATFORM_DIR="$GITHUB_DIR/platform"
+# Ueberschreibbar, damit eine Aenderung an den Werkzeugen VOR dem Merge
+# pruefbar ist: sonst ruft der Lauf immer den Haupt-Tree und testet die
+# alte Fassung. Genau daran scheiterte der erste Test von 0.4.4.
+PLATFORM_DIR="${PLATFORM_DIR:-$GITHUB_DIR/platform}"
 TARGET_REPO="${1:-platform}"
 PROD_HOST="88.198.191.108"
 STAGING_HOST="88.99.38.75"
@@ -114,6 +117,29 @@ if [ -n "$PARALLEL_SESSIONS" ]; then
   printf '%s\n' "$PARALLEL_SESSIONS"
 else
   record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO"
+fi
+
+# ── 0.4.4 Basis-Abstand der offenen Leases ─────────────────────────────────
+# Die Sichtbarkeit von Parallelsitzungen (0.4) beantwortet "wer arbeitet noch",
+# nicht "welcher Branch kollidiert beim Merge". Gemessen am 2026-08-04: der
+# einzige echte Konflikt des Tages entstand, weil ein Branch vier Stunden lag,
+# waehrend main um zwoelf Commits weiterlief — BEIDE Seiten von derselben
+# Sitzung. Kein Parallel-Check haette das gefangen; der Abstand schon.
+ABSTAND_OUT="$(bash "$PLATFORM_DIR/tools/repo-session.sh" abstand 2>/dev/null)" && ABSTAND_RC=0 || ABSTAND_RC=$?
+ABSTAND_ZEILE="$(printf '%s\n' "$ABSTAND_OUT" | tail -3 | head -1)"
+ABSTAND_N="$(printf '%s\n' "$ABSTAND_OUT" | grep -c '^  ⚠' || true)"
+if [ "${ABSTAND_RC:-0}" -ne 0 ] && [ "${ABSTAND_N:-0}" -eq 0 ]; then
+  # Exit ungleich 0 OHNE Befundzeilen heisst nicht "alles ueber der Schwelle",
+  # sondern "das Unterkommando gibt es hier nicht" (alte Skript-Fassung, exit 2).
+  # Diese Unterscheidung ist der Unterschied zwischen einem Befund und einem
+  # Werkzeugfehler — und ohne sie meldete der Lauf "0 Lease(s) ueber der
+  # Schwelle" als WARN, was beim ersten Test genau so passierte.
+  record "0.4.4 basis-abstand" "WARN" "Unterkommando 'abstand' nicht verfuegbar — platform-Haupt-Tree veraltet? (git -C \"$PLATFORM_DIR\" pull)"
+elif [ "${ABSTAND_RC:-0}" -ne 0 ]; then
+  record "0.4.4 basis-abstand" "WARN" "$ABSTAND_N Lease(s) ueber der Schwelle — vor weiterer Arbeit im Worktree: git merge origin/main"
+  printf '%s\n' "$ABSTAND_OUT" | grep '^  ⚠' | head -5
+else
+  record "0.4.4 basis-abstand" "PASS" "${ABSTAND_ZEILE:-keine Lease ueber der Schwelle}"
 fi
 
 # ── 0.4.1 REFLEX aktualisieren + Review (nur wenn reflex.yaml im Target) ────

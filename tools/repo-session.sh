@@ -7,18 +7,20 @@
 # worktree-reaper konsumiert. Der Haupt-Tree bleibt "heilig" auf main.
 #
 # Usage:
-#   repo-session.sh start <repo-path> --task <slug> [--base <ref>] [--ephemeral]
+#   repo-session.sh start <repo-path> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral]
 #   repo-session.sh list
+#   repo-session.sh abstand [<repo>]           # Commits hinter origin/main je Lease; exit 1 ueber Schwelle
 #   repo-session.sh end <worktree-path>        # Worktree entfernen (nur wenn clean), Lease schliessen
 #   repo-session.sh reap [<repo-path>]         # gemergte+cleane Session-Worktrees des Repos abraeumen
 #                                              # (default: Repo des cwd); Leases werden .closed
 #
 # Lease-Felder (ADR-233 §2.4): session_id, owner, created_at, last_touch, branch,
-#   base_sha, repo, worktree, intended_pr, expires_at, ephemeral.
+#   base_sha, repo, worktree, ziel, intended_pr, expires_at, ephemeral.
 #
 # Env:
 #   REPO_SESSION_DIR   (default ~/.repo-session)  — Leases + Worktree-Wurzel
 #   REPO_SESSION_TTL_DAYS (default 7)             — expires_at = created_at + TTL
+#   REPO_SESSION_ABSTAND_MAX (default 25)         — Schwelle fuer 'abstand' (Commits hinter main)
 set -euo pipefail
 
 ROOT="${REPO_SESSION_DIR:-$HOME/.repo-session}"
@@ -93,10 +95,12 @@ check_pr_collision() {
 
 cmd_start() {
   local repo="" task="" base="origin/main" ephemeral="false"
+  local ziel=""
   repo="${1:-}"; shift || true
   while [ $# -gt 0 ]; do
     case "$1" in
       --task) task="$2"; shift 2;;
+      --ziel) ziel="$2"; shift 2;;
       --base) base="$2"; shift 2;;
       --ephemeral) ephemeral="true"; shift;;
       *) die "unbekannte Option: $1";;
@@ -104,6 +108,12 @@ cmd_start() {
   done
   [ -n "$repo" ] || die "repo-path fehlt"
   [ -n "$task" ] || die "--task <slug> fehlt"
+  # --ziel ist bewusst OPTIONAL, kein Zwang. Ein Pflichtfeld waere eine Huerde
+  # vor jeder Kleinigkeit; als Feld beantwortet es dagegen zwei Fragen, die heute
+  # geraten werden muessen: "warum existiert dieser Branch" (Wildwuchs) und
+  # "welche PRs gehoeren zu dieser Sitzung" (Retro-Grenze — musste am 2026-08-04
+  # aus Branch-Praefixen rekonstruiert werden, wobei 7 fremde PRs auszusortieren
+  # waren).
   # Immer kanonisieren (#1360): vorher nur im Fallback-Zweig, wenn "$repo/.git"
   # fehlte. Aufruf mit "." aus dem Haupt-Tree traf den Fallback NIE (".git"
   # existiert ja) und liess $repo="." stehen -> "repo": "." im Lease + "/./"
@@ -156,8 +166,13 @@ cmd_start() {
   git -C "$repo" worktree add -b "$branch" "$wt" "$base" >&2 \
     || die "worktree add fehlgeschlagen (Branch '$branch' evtl. vergeben?)"
 
-  local now exp lease
+  local now exp lease ziel_json
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if [ -n "$ziel" ]; then
+    ziel_json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$ziel")"
+  else
+    ziel_json="null"
+  fi
   exp="$(date -u -d "+${TTL_DAYS} days" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
   lease="$LEASE_DIR/$sid.json"
   cat > "$lease" <<JSON
@@ -171,6 +186,7 @@ cmd_start() {
   "created_at": "$now",
   "last_touch": "$now",
   "expires_at": "$exp",
+  "ziel": ${ziel_json},
   "intended_pr": null,
   "ephemeral": $ephemeral
 }
@@ -180,6 +196,7 @@ JSON
     echo "✓ Session-Worktree angelegt (ADR-233):"
     echo "  Branch : $branch  (von $base @ ${base_sha:0:12})"
     echo "  Pfad   : $wt"
+    [ -n "$ziel" ] && echo "  Ziel   : $ziel"
     echo "  Lease  : $lease  (expires $exp, ephemeral=$ephemeral)"
     echo "  cd \"$wt\""
   } >&2
@@ -239,11 +256,59 @@ cmd_end() {
   echo "Worktree entfernt: $wt (Branch bleibt erhalten)"
 }
 
+# ---------------------------------------------------------------------------
+# abstand — wie weit ist jede offene Lease hinter origin/main
+#
+# **Warum das eine eigene Schranke braucht.** Ein Branch, der lange liegt,
+# kollidiert beim Merge — unabhaengig davon, ob eine FREMDE Sitzung ihn
+# ueberholt hat oder die eigene. Gemessen am 2026-08-04: der einzige echte
+# Konflikt des Tages entstand, weil ein Branch vier Stunden lag, waehrend main
+# um zwoelf Commits weiterlief — beide Seiten von derselben Sitzung. Die
+# Sichtbarkeit von Parallelsitzungen haette das nicht verhindert; der Abstand
+# schon.
+#
+# Die Zahl steht bereits in der Lease (`base_sha`) und muss nur gerechnet werden.
+# Exit 1, wenn eine Lease die Schwelle reisst — damit ein Aufrufer daran
+# scheitern kann, statt es zu ueberlesen.
+# ---------------------------------------------------------------------------
+ABSTAND_SCHWELLE="${REPO_SESSION_ABSTAND_MAX:-25}"
+
+cmd_abstand() {
+  local nur_repo="${1:-}" ueber=0 gesamt=0
+  [ -d "$LEASE_DIR" ] || { echo "keine Leases."; return 0; }
+  for l in "$LEASE_DIR"/*.json; do
+    [ -e "$l" ] || continue
+    local repo branch base_sha pfad n
+    repo="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('repo',''))" "$l" 2>/dev/null)" || continue
+    [ -n "$repo" ] || continue
+    [ -z "$nur_repo" ] || [ "$repo" = "$nur_repo" ] || continue
+    branch="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('branch',''))" "$l" 2>/dev/null)"
+    base_sha="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('base_sha',''))" "$l" 2>/dev/null)"
+    pfad="${GITHUB_DIR:-$HOME/github}/$repo"
+    [ -d "$pfad" ] || continue
+    [ -n "$base_sha" ] || continue
+    n="$(git -C "$pfad" rev-list --count "$base_sha..origin/main" 2>/dev/null)" || continue
+    gesamt=$((gesamt + 1))
+    if [ "$n" -gt "$ABSTAND_SCHWELLE" ]; then
+      ueber=$((ueber + 1))
+      printf '  ⚠ %-14s %-40s %5s Commits hinter main\n' "$repo" "${branch##*/}" "$n"
+    fi
+  done
+  if [ "$ueber" -gt 0 ]; then
+    echo "$ueber von $gesamt Lease(s) ueber der Schwelle ($ABSTAND_SCHWELLE)."
+    echo "Vor weiterer Arbeit im betroffenen Worktree: git merge origin/main"
+    return 1
+  fi
+  echo "$gesamt Lease(s), keine ueber der Schwelle ($ABSTAND_SCHWELLE)."
+  return 0
+}
+
 case "${1:-}" in
   start) shift; cmd_start "$@";;
+  abstand) shift; cmd_abstand "${1:-}";;
   list)  cmd_list;;
   end)   shift; cmd_end "$@";;
   reap)  shift; cmd_reap "$@";;
-  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt> | reap [<repo>]}"; exit 0;;
-  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt> | reap [<repo>]}" >&2; exit 2;;
+  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>]}"; exit 0;;
+  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>]}" >&2; exit 2;;
 esac

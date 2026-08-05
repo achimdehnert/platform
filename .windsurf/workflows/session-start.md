@@ -139,9 +139,16 @@ claude-skills §MCP-Signaturen):
 - **Editierende Arbeit:** über den verbindlichen Entry Point starten —
   ```bash
   wt=$(bash "${GITHUB_DIR:-$HOME/github}/platform/tools/repo-session.sh" \
-        start "${GITHUB_DIR:-$HOME/github}/$TARGET_REPO" --task "<slug>")
+        start "${GITHUB_DIR:-$HOME/github}/$TARGET_REPO" --task "<slug>" --ziel "<das Sitzungsziel>")
   cd "$wt"   # eigener Branch session/<date>/<owner>/<slug> von origin/main + Lease
   ```
+- **`--ziel` ist optional, aber die Antwort auf zwei Fragen, die sonst geraten werden:**
+  „warum existiert dieser Branch?" (Wildwuchs) und „welche PRs gehören zu dieser Sitzung?"
+  (Retro-Grenze). **Kein Zwang** — ein Pflichtfeld wäre eine Hürde vor jeder Kleinigkeit, und
+  eine erzwungene Ein-Thema-Regel hätte am 2026-08-04 eine zusammenhängende Kette
+  (Messung → Konzept → Code → Retro) in vier Sitzungen zerschnitten, deren Wert gerade in den
+  Übergängen lag. Das Ziel bleibt über alle Aufgaben derselben Sitzung gleich; wechselt es
+  wirklich, ist ein neues Ziel die ehrlichere Antwort als ein gedehntes.
 - **Aufräumen (gemergte/stale Worktrees):** `python3 platform/tools/worktree-reaper.py` (dry-run; `--apply` bewusst).
 - **Verstoß-Messung:** `bash platform/tools/main-tree-guard.sh report` → `unauthorized_head_flips/30d` (Kill-Gate ADR-233 §8).
 
@@ -303,6 +310,7 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
 | 6 | Recurring-Errors geprüft, Handover↔Memory-Reconciliation gemacht (2.5/2.6) | ☐ |
 | 7 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3, ADR-233-Kill-Gate) | ☐ |
+| 7a | Basis-Abstand aus 0.4.4 gelesen — betrifft eine WARN-Zeile den eigenen Worktree, **vor** dem ersten Edit `git merge origin/main` | ☐ |
 | 8 | Arbeitsplan aufgestellt (Phase 3) | ☐ |
 
 **Pflicht-Selbstcheck (2-Schritt, NEU 2026-07-15 — Retro c494a2-incr Befund #3):** Diese
@@ -357,6 +365,10 @@ nicht in einem Folge-Commit "irgendwann".
   Cross-Host-Sessions hinterlassen erledigte Prios als „offen".
 - ❌ Session auf dem teuersten Modell beginnen, ohne 0.8 (Modell-Routing) bewusst
   entschieden zu haben.
+- ❌ **In einem Worktree weiterarbeiten, den 0.4.4 als weit hinter `main` meldet**, ohne ihn
+  vorher nachzuziehen. Der Konflikt entsteht dann beim Merge — also dort, wo er am teuersten
+  ist, weil die Arbeit schon fertig ist. Der Abstand ist die einzige Kollisionswarnung, die
+  auch bei **selbst**verschuldeter Drift greift; die Parallel-Session-Sicht (0.4) tut das nicht.
 
 ## Changelog
 
