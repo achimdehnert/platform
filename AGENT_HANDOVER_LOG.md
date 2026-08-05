@@ -1560,3 +1560,43 @@ kann — dreimal hat der Gate es abgefangen.
 **Gesendet hat der Owner selbst:** die Rückmeldung an Frost (13:24) und die Rückfrage an
 Zeiner (12:49), beide mit den korrigierten Inhalten (verifiziert am gesendeten Text). Die
 MEiKI-Anzeige liegt als Entwurf und bleibt es, solange der AV LRA–OCOS unbelegt ist.
+
+## 2026-08-05 (Nachtrag) — zwei eigene Auswertungen widerlegt, bevor sie jemand geglaubt hat
+
+Die Sitzung lief nach dem formalen Ende weiter, und der wertvollste Teil kam danach.
+
+Auf die Frage „sag ob noch was offen" habe ich eine Liste mit 29 offenen Strängen
+geliefert. Sie war falsch. Der Owner fragte bei einem Eintrag nach — „ich habe darauf
+nicht geantwortet?" — und die Nachprüfung zeigte, dass meine Auswertung INBOX gegen
+„Gesendete Objekte" verglich, während dieser Strang zu sieben Neunteln in einem
+Betreuungsordner lag, eigene Antwort inklusive. Dass das Ergebnis bei ihm zufällig
+stimmte, machte es nicht besser.
+
+Die zweite Fassung las alle Ordner und gruppierte über den `thread_key`. Auch falsch,
+diesmal in zwei Richtungen gleichzeitig: 33 Nachrichten von zehn Personen über
+anderthalb Jahre lagen unter einem Schlüssel, weil sie alle „HNU Kontaktformular"
+heißen — ohne `References` fällt die Gruppierung auf den Betreff zurück. Und dieselbe
+Unterhaltung zerfiel umgekehrt in mehrere Schlüssel, sodass beantwortete Vorgänge als
+offen erschienen.
+
+Erst die dritte Fassung — gruppiert nach Gesprächspartner statt nach Strang — fand,
+was beide vorher übersehen hatten: eine Studentin, die seit 58 Tagen auf eine erste
+Antwort wartet. In Fassung 1 unsichtbar wegen des Ordnervergleichs, in Fassung 2
+unsichtbar wegen des kollidierten Strangs.
+
+Die Lehre ist nicht „Gruppierung ist schwierig". Sie ist: **Ich habe zweimal eine Zahl
+geliefert, die seriös aussah, und beide Male hat erst die Rückfrage des Owners den
+Fehler aufgedeckt.** Eine Liste mit 29 Einträgen wirkt gründlicher als eine mit sechs —
+und war es nicht.
+
+Aus derselben Bewegung entstand `dev-hub#249`: eine Verlaufsansicht, die den ganzen
+Faden zeigt statt einer Nachricht. Der schwierige Teil war nicht die Darstellung,
+sondern dieselbe Auswahlfrage; die Einschränkung auf die Gegenseite ist dort mit einem
+Rot-Beweis abgesichert, weil sie sonst still wieder herausfällt.
+
+Zwei Owner-Weisungen kamen dazu und liegen als Memory: in Abläufen mit Menschen schlage
+ich vor und warne, entschieden wird vom Owner — ausgelöst daran, dass ich einen PR
+mergen wollte, der einen Anzeigetext an eine Aufsichtsbehörde ändert, nur weil er
+technisch unter eine Standing Authorization fiel. Und ein Umfangsregler für Mails samt
+der Regel, dass jeder Fakt beantworten oder anstoßen muss, sonst rausfliegt — ausgelöst
+an einem Gefälligkeitsdetail in einer Mail an ein Landratsamt, das schlicht falsch war.
