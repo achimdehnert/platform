@@ -122,7 +122,36 @@ def board_als_html(text: str, titel: str) -> str:
 </style>
 {rumpf}
 <p style="color:#777;font-size:.85rem;margin-top:2rem">Nur über Loopback erreichbar.
-<a href="/">Übersicht</a></p>"""
+<a href="/">Übersicht</a></p>
+<div id=ovl style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9">
+ <div id=ovl-box style="position:absolute;inset:4% 6%;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+  <div style="padding:.45rem .9rem;display:flex;justify-content:flex-end;gap:1.2rem;border-bottom:1px solid #d0d0d0;font-size:.9rem">
+   <a id=ovl-ext href="#" target=_blank rel=noreferrer>in OWA/neuem Tab öffnen ↗</a>
+   <a href="#" id=ovl-x>✕ schließen (Esc)</a>
+  </div>
+  <iframe id=ovl-frame title="Mail" style="border:0;flex:1;width:100%"></iframe>
+ </div>
+</div>
+<style>@media (prefers-color-scheme:dark){{#ovl-box{{background:#16181c}}
+ #ovl-box>div{{border-color:#333}}}}</style>
+<script>
+(function(){{
+ var ovl=document.getElementById('ovl'),fr=document.getElementById('ovl-frame'),
+     ext=document.getElementById('ovl-ext');
+ function zu(){{ovl.style.display='none';fr.src='about:blank';}}
+ function auf(src,orig){{fr.src=src;ext.href=orig;ovl.style.display='block';}}
+ document.addEventListener('click',function(e){{
+  var a=e.target.closest('a');if(!a)return;
+  var h=a.getAttribute('href')||'';
+  if(a.id==='ovl-x'){{e.preventDefault();zu();return;}}
+  if(a===ext)return;                      // Absprung nach draußen: normal folgen
+  if(h.indexOf('/i/')===0){{e.preventDefault();auf('/r/'+h.slice(3),h);}}
+  else if(h.indexOf('/m/')===0){{e.preventDefault();auf(h,h);}}
+ }});
+ ovl.addEventListener('click',function(e){{if(e.target===ovl)zu();}});
+ document.addEventListener('keydown',function(e){{if(e.key==='Escape')zu();}});
+}})();
+</script>"""
 
 
 def lade_registry(pfad: Path = LINK_REGISTRY) -> dict[str, dict[str, str]]:
@@ -164,6 +193,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     konten: dict[str, str | None] = {}
     default_konto: str = "hnu"
     ordner: str = "INBOX"
+    #: Graph-Konto für /r/ (IIL-Mails im Board-Modal); Token liegt in graph-mail-tokens.
+    graph_konto: str = "achim.dehnert@iil.gmbh"
     cache_root: Path = CACHE_ROOT
     registry_pfad: Path = LINK_REGISTRY
     anker_pfad: Path = ANKER_DATEI
@@ -209,6 +240,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._index()
         if teile[0] == "i" and len(teile) == 2:
             return self._weiterleiten(teile[1])
+        if teile[0] == "r" and len(teile) == 2:
+            return self._graph_rendern(teile[1])
         if teile[0] == "a":
             return self._anker(teile[1:])
         if teile[0] == "m":
@@ -373,6 +406,67 @@ verfügbar: {html.escape(konten)}.</p>
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _graph_rendern(self, kurz: str) -> None:
+        """`/r/<kurz-id>` — IIL-Mail read-only über Graph rendern (fürs Board-Modal).
+
+        OWA lässt sich nicht einbetten (Frame-Blocking), darum rendert das Modal
+        eine eigene Text-Ansicht. Der OWA-Deeplink bleibt als Absprung erhalten.
+        """
+        if not _KURZ_ID.match(kurz):
+            return self._fehler(HTTPStatus.BAD_REQUEST, "Ungültige Kurz-ID.")
+        ziel = lade_registry(self.registry_pfad).get(kurz)
+        if not ziel or not ziel.get("graph_id"):
+            return self._fehler(
+                HTTPStatus.NOT_FOUND, f"Kurz-ID '{kurz}' ist nicht registriert."
+            )
+        try:
+            import graph_mail  # noqa: PLC0415
+
+            cfg = graph_mail.load_cfg()
+            tok = graph_mail.token(cfg, self.graph_konto)
+        except SystemExit as e:
+            return self._fehler(HTTPStatus.SERVICE_UNAVAILABLE, str(e))
+        if not tok:
+            return self._fehler(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                f"{self.graph_konto} nicht angemeldet — graph_mail.py --login nötig.",
+            )
+        r = graph_mail._http(
+            "GET",
+            f"{graph_mail.GRAPH}/me/messages/{quote(ziel['graph_id'], safe='')}"
+            "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+            headers=graph_mail._auth(tok),
+        )
+        if r.status_code != 200:
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}."
+            )
+        m = r.json()
+        von = (m.get("from") or {}).get("emailAddress", {})
+        an = ", ".join(
+            e.get("emailAddress", {}).get("address", "")
+            for e in m.get("toRecipients", [])
+        )
+        body = m.get("body") or {}
+        text = body.get("content", "")
+        if body.get("contentType", "").lower() == "html":
+            text = graph_mail._strip_html(text)
+        anhang = (
+            "<p style='color:#a60'>📎 Anhänge vorhanden — im OWA-Deeplink abrufbar.</p>"
+            if m.get("hasAttachments")
+            else ""
+        )
+        seite = f"""<!doctype html><meta charset=utf-8><title>{html.escape(m.get("subject") or kurz)}</title>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<body style="font:14px/1.55 -apple-system,Segoe UI,sans-serif;max-width:52rem;margin:1rem auto;padding:0 1rem">
+<style>@media (prefers-color-scheme:dark){{body{{background:#16181c;color:#e6e6e6}}a{{color:#7ab7ff}}}}</style>
+<h2 style="margin:.2rem 0">{html.escape(m.get("subject") or "")}</h2>
+<p style="color:#777;margin:.2rem 0">Von: {html.escape(von.get("name") or "")} &lt;{html.escape(von.get("address") or "")}&gt;<br>
+An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</p>
+{anhang}<hr>
+<div style="white-space:pre-wrap">{html.escape(text)}</div>"""
+        self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
     def _mail(self, teile: list[str]) -> None:
         if not teile:
             return self._fehler(HTTPStatus.BAD_REQUEST, "UID fehlt.")
@@ -530,6 +624,11 @@ def main() -> None:
     )
     ap.add_argument("--folder", default="INBOX")
     ap.add_argument(
+        "--graph-account",
+        default="achim.dehnert@iil.gmbh",
+        help="Graph-Konto, mit dem /r/<kurz-id> IIL-Mails rendert",
+    )
+    ap.add_argument(
         "--register", metavar="KURZ-ID", help="Kurz-Link anlegen statt Server starten"
     )
     ap.add_argument("--graph-id", help="zu --register: Graph-id der IIL-Mail")
@@ -566,6 +665,7 @@ def main() -> None:
     MailLinkHandler.konten = konten
     MailLinkHandler.default_konto = args.default_account
     MailLinkHandler.ordner = args.folder
+    MailLinkHandler.graph_konto = args.graph_account
 
     with ThreadingHTTPServer((args.host, args.port), MailLinkHandler) as srv:
         print(
