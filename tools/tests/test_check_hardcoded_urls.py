@@ -233,3 +233,81 @@ def test_should_apply_the_template_whitelist_only_to_html_files():
 
     assert not chu._check_line(regel(), zeile, P("templates/seite.html"))
     assert chu._check_line(regel(), zeile, P("apps/views.py"))
+
+
+# ── V-CFG-02: same-line-Fallback ist Fallback (platform#1682) ─────────────────
+
+
+def test_should_not_flag_environ_get_with_same_line_or_fallback():
+    """`or DEFAULT` IST Fallback-Logik — nur anders geschrieben als das Default-Argument."""
+    r = _echte_regel("V-CFG-02")
+    assert not chu._check_line(
+        r, 'p = os.environ.get("CACHE_DIR") or "/tmp"', P("apps/x.py")
+    )
+    assert not chu._check_line(
+        r, "root = os.environ.get('GITHUB_DIR') or DEFAULT_ROOT", P("apps/x.py")
+    )
+
+
+def test_should_not_flag_environ_get_with_same_line_ternary_fallback():
+    r = _echte_regel("V-CFG-02")
+    assert not chu._check_line(
+        r, 'p = os.environ.get("X") if os.environ.get("X") else D', P("apps/x.py")
+    )
+
+
+def test_should_still_flag_a_bare_environ_get_after_the_fallback_change():
+    """Gegenprobe: die Lockerung darf den echten Fall nicht mitnehmen."""
+    r = _echte_regel("V-CFG-02")
+    assert chu._check_line(r, 'wert = os.environ.get("MAIL_AGENT_TOOLS")', P("apps/x.py"))
+
+
+# ── V-SEC-03: Wortgrenze wurde geprueft und VERWORFEN (platform#1682) ────────
+
+
+def test_should_still_flag_names_that_only_end_in_token():
+    """Haelt die verworfene Lockerung fest.
+
+    Ein fuehrendes \\b am Namensteil haette 2 Fehlalarme entfernt
+    (REASON_*-Enum-Labels in mcp-hub) und dabei 7 richtige Treffer mitgenommen,
+    weil auch echte Zuweisungen keine Wortgrenze vor dem Namensteil haben.
+    Diese Zeilen MUESSEN weiter treffen — sonst ist die Lockerung durch die
+    Hintertuer zurueck.
+    """
+    r = _echte_regel("V-SEC-03")
+    assert chu._check_line(r, '_TOKEN = "s3cr3t-ingress-token"', P("apps/x.py"))
+    assert chu._check_line(
+        r, 'INGRESS_AUTH_TOKEN = "test-ingress-token"', P("apps/x.py")
+    )
+    assert chu._check_line(r, 'api_token="ol_api_test_token_12345",', P("apps/x.py"))
+
+
+def test_should_still_flag_real_token_assignments():
+    r = _echte_regel("V-SEC-03")
+    assert chu._check_line(r, 'token = "ghp_AAAAAAAAAAAAAAAAAAAA"', P("apps/x.py"))
+    assert chu._check_line(r, 'self.token = "ghp_AAAAAAAAAAAAAAAAAAAA"', P("apps/x.py"))
+    assert chu._check_line(r, 'api_key = "sk-AAAAAAAAAAAAAAAAAAAA"', P("apps/x.py"))
+
+
+# ── Opt-out-Marker: bisher voellig ungetestet ────────────────────────────────
+
+
+def test_should_honour_the_hardcoded_ok_marker():
+    r = _echte_regel("V-SEC-01")
+    zeile = 'SECRET_KEY = "test-wert-fuer-die-ableitung"'
+    assert chu._check_line(r, zeile, P("apps/x.py"))
+    assert not chu._check_line(r, zeile + "  # hardcoded-ok", P("apps/x.py"))
+
+
+@pytest.mark.parametrize("marker", ["# noqa", "# nosec", "hardcoded-ok"])
+def test_should_treat_noqa_and_nosec_as_the_same_opt_out(marker):
+    """Dokumentiert den Ist-Zustand: der Marker ist NICHT regel-scoped.
+
+    `# noqa` (Ruff) und `# nosec` (Bandit) schalten den Hardcoding-Guard fuer
+    die Zeile mit ab, obwohl sie fuer andere Werkzeuge gedacht sind. Das ist
+    heute so gewollt-unbeabsichtigt; der Test haelt es fest, damit eine spaetere
+    Verengung als bewusste Aenderung sichtbar wird statt als stiller Bruch.
+    """
+    r = _echte_regel("V-SEC-01")
+    zeile = 'SECRET_KEY = "test-wert-fuer-die-ableitung"'
+    assert not chu._check_line(r, f"{zeile}  {marker}", P("apps/x.py"))

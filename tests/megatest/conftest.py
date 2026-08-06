@@ -142,11 +142,21 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # n
         return
 
     raw = BUDGETS_FILE.read_text(encoding="utf-8")
+    bestand = load_budgets()
+    geschuetzt: list[str] = []
 
     def _replace(m: re.Match) -> str:
         repo = m.group(1)
         new_val = _budget_updates.get(repo)
         if new_val is None:
+            return m.group(0)
+        # Ein Budget von 0 ist eine Zusage ("dieses Repo bleibt sauber"), kein
+        # Messwert. --update-budgets schreibt sonst den Ist-Wert darueber und
+        # macht aus einer Regression stillschweigend das neue Soll — genau die
+        # Warnung aus platform#1682. Nach unten (auf 0) darf es weiter.
+        alt = bestand.get(repo)
+        if alt is not None and alt.total == 0 and new_val > 0:
+            geschuetzt.append(f"{repo} (0 → {new_val} abgelehnt)")
             return m.group(0)
         padding = m.group(2)
         return f'"{repo}"{padding}= {new_val}'
@@ -158,3 +168,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # n
     )
     BUDGETS_FILE.write_text(updated, encoding="utf-8")
     print(f"\n✅ budgets.toml aktualisiert ({len(_budget_updates)} Repos)")
+    if geschuetzt:
+        print(
+            f"⛔ {len(geschuetzt)} Budget-0-Zusage(n) NICHT ueberschrieben: "
+            + ", ".join(geschuetzt)
+        )
+        print("   Regression fixen oder die Zusage bewusst per Hand aufheben.")
