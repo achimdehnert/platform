@@ -24,7 +24,25 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  # Generic ADR validation (frontmatter schema, constitution audit, staleness /
+  # reference drift) lives in the framework repo, so every ADR-carrying repo runs
+  # the same steps and none of them can drift by copy-paste. That drift is not
+  # hypothetical: meiki-hub and ttz-hub carried a copied `--adr-dir` flag that
+  # `iil-adrfw audit` did not accept, which kept their nightly audit green while
+  # auditing nothing for months (iil-adrfw#69).
+  #
+  # A consuming repo needs exactly this block. Everything below stays here
+  # because it is platform-specific tooling, not generic ADR validation.
+  adr:
+    uses: achimdehnert/iil-adrfw/.github/workflows/_adr-validate.yml@main
+    with:
+      adr-dir: docs/adr
+      audit: true
+      audit-gating: false     # platform health is 0.745 with 90 findings — report, don't block
+      staleness: true
+
+  platform-checks:
+    name: Platform-specific ADR checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -33,11 +51,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Pinned to the release that introduced the uniform --adr-dir contract and
+      # made an empty/missing ADR directory a configuration error instead of a
+      # perfect-health report. The bespoke checks below rely on it being present.
       - name: Install iil-adrfw
-        run: pip install "iil-adrfw>=0.2.1"
-
-      - name: Validate all ADRs
-        run: iil-adrfw validate docs/adr/
+        run: pip install "iil-adrfw>=0.8.0"
 
       # Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-264) — SUGGEST / non-gating.
       # repo-health-rule-discipline: neue Regel startet SUGGEST (0 FPs auf heutigem Baum
@@ -48,22 +66,6 @@ jobs:
         run: |
           set +e
           python3 tools/check_deploy_adr_supersession.py
-          exit 0
-
-      # ADR reference-drift report — SUGGEST / non-gating (repo-health-rule-discipline:
-      # new rules start as SUGGEST; structural deterministic only). Surfaces depends_on /
-      # references pointing at archived or missing ADR ids (renumbering-collision dead-refs).
-      # Does NOT fail the build yet; promote to gating once the existing dead-refs are cleaned.
-      - name: ADR reference-drift (SUGGEST, non-gating)
-        run: |
-          set +e
-          iil-adrfw staleness docs/adr/ 2>&1 | tee staleness.txt
-          drift=$(grep -c "does not exist" staleness.txt)
-          if [ "$drift" -gt 0 ]; then
-            echo "::warning title=ADR reference drift::$drift dangling ADR reference(s) (depends_on → archived/missing). Non-gating SUGGEST — see log. Promote to gating after cleanup."
-          else
-            echo "✓ No ADR reference drift."
-          fi
           exit 0
 
       # ADR-211 C5/I4 — Cross-Repo-Ref-Format-Gate (gating).
