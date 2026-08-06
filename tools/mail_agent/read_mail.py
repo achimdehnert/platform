@@ -300,15 +300,17 @@ def _kandidaten(
     6 IDs, ``CC "offner"`` eine weitere, und **keine** dieser 7 trug den Namen in
     einem Header. Ohne Gegenprobe wären das 7 erfundene Treffer gewesen.
     """
+    # UID SEARCH, nicht SEARCH: die Ergebnisse gehen in `bulk_saetze`, und das
+    # fetcht per UID. Sequenznummern hier hiessen leere Schnittmenge dort —
+    # exakt die 0-Treffer-Regression nach 4307cf9c (--list sah 0 von 231).
     if kriterien:
         try:
-            typ, data = imap.search(None, *kriterien)
+            typ, data = imap.uid("SEARCH", None, *kriterien)
             if typ == "OK":
                 return (data[0].split() if data and data[0] else []), True
         except (imaplib.IMAP4.error, UnicodeEncodeError):
             pass  # Server mag das Kriterium nicht -> voller Scan, nicht "0 Treffer"
-    typ, data = imap.search(None, "ALL")
-    return (data[0].split() if data and data[0] else []), False
+    return uid_liste(imap), False
 
 
 #: Kopfzeilen, die für Trefferliste und Dossier gebraucht werden.
@@ -1070,8 +1072,7 @@ def sammle_einzelordner(
     eigene_adresse: str = "",
 ) -> Ergebnis:
     imap.select(_mailbox_arg(folder), readonly=True)
-    typ, data = imap.search(None, "ALL")
-    ids = data[0].split()
+    ids = uid_liste(imap)  # UIDs, nicht Sequenznummern — bulk_saetze fetcht per UID
     gesamt = len(ids)
     treffer: list[Treffer] = []
     geprueft = 0
@@ -1208,14 +1209,13 @@ def kalibrierungssonde(
         typ, _ = imap.select(_mailbox_arg(gesendet), readonly=True)
         if typ != "OK":
             return False, f"{gesendet}: SELECT {typ}"
-        typ, data = imap.search(None, "ALL")
-        stichprobe = (data[0].split() if data and data[0] else [])[-SONDE_TIEFE:]
+        stichprobe = uid_liste(imap)[-SONDE_TIEFE:]
         if not stichprobe:
             return False, f"{gesendet}: leer — keine bekannte Menge zum Prüfen"
 
         client = set()
         for i in stichprobe:
-            typ2, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
+            typ2, md = imap.uid("FETCH", i, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
             if typ2 != "OK" or not md or not md[0]:
                 continue
             if matches_from(email.message_from_bytes(md[0][1]), eigene_adresse):
@@ -1360,12 +1360,13 @@ def cmd_fetch(
     to_filter: str | None = None,
 ) -> None:
     imap.select(_mailbox_arg(folder), readonly=True)
-    typ, data = imap.search(None, "ALL")
-    ids = data[0].split()
+    # Durchgängig UIDs: --list zeigt UIDs als Nummer, also muss --fetch NUM sie
+    # auch als UID auflösen — imap.fetch(seq) fände eine ANDERE Nachricht.
+    ids = uid_liste(imap)
     target_id = None
     if which == "latest":
         for i in reversed(ids):
-            typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
+            typ, md = imap.uid("FETCH", i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
             hmsg = email.message_from_bytes(md[0][1])
             if matches_from(hmsg, from_filter) and matches_to(hmsg, to_filter):
                 target_id = i
@@ -1374,7 +1375,7 @@ def cmd_fetch(
         target_id = which.encode()
     if target_id is None:
         sys.exit("FEHLER: keine passende Mail gefunden")
-    typ, md = imap.fetch(target_id, "(BODY.PEEK[])")
+    typ, md = imap.uid("FETCH", target_id, "(BODY.PEEK[])")
     msg = email.message_from_bytes(md[0][1])
     print(f"From:    {decode_hdr(msg.get('From'))}")
     print(f"Date:    {decode_hdr(msg.get('Date'))}")

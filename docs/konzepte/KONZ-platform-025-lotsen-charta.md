@@ -227,12 +227,31 @@ Dritten unabhängig vom Innenverhältnis — der Kapitän haftet, also entscheid
 
 ## Artikel 9 — Kosten-Rahmen ⬜ (wie v2)
 
-## Artikel 10 — Heimat, Herzschlag & SSoT (v3: SSoT-Widerspruch behoben) ⬜
+## Artikel 10 — Heimat, Herzschlag & SSoT ✅ ratifiziert 2026-08-06
 
 **SSoT dieser Verfassung ist genau diese Datei in platform.** Das
-Programm-Memory ist Zeiger und Arbeitsstand, nie zweite Wahrheit. Heimat: platform;
-Eskalationskriterium für eigenes Repo unverändert. Herzschlag: Morning-Briefing +
-Routinen — mit Quiet Hours und Informationsbudget (Detail bei Umsetzung Punkt 24).
+Programm-Memory ist Zeiger und Arbeitsstand, nie zweite Wahrheit. **Heimat:
+platform — kein eigenes Lotse-Repo.** Neue Lotsen-Fähigkeiten mit App-Code und
+Deploy folgen ADR-282 §2.1: erste Adresse `dev-hub/apps/<agent>`;
+Domänen-Workloads leben in ihrem Domänen-Hub (Mail → dev-hub `apps/mail_agent`
++ platform `tools/mail_agent` per ADR-293; DSB-Assistenz → risk-hub `dsb`;
+Buch-/Paper-Schreiben → writing-hub bzw. Manuskript-Repos).
+
+**Eskalationskriterien für ein eigenes Lotse-Repo** (messbar; bei Erfüllung
+entsteht ein neues KONZ mit ADR — nie ein stilles Repo):
+
+1. Die Registry führt **> 5 aktive Vollmachten** UND der Lotse betreibt eigene
+   Dienste, deren Release-Takt nachweislich mit dev-hub kollidiert
+   (≥ 2 dokumentierte Deploy-Konflikte im Ledger).
+2. Der Kapitän verlangt einen **getrennten Datenschutz-/Zugriffs-Perimeter**
+   für persönliche Assistenz-Daten (eigene DB, eigene Secrets, eigenes Backup)
+   gegenüber dem Platform-Engineering.
+3. Ein Dritter (Mandant, Auditor, Aufsicht) verlangt **nachweisbare Trennung**
+   von Assistenz-Betrieb und Plattform-Entwicklung.
+
+Solange keines erfüllt ist, gilt jeder Lotse-Repo-Vorschlag als Verstoß gegen
+die Konvergenz-Ratsche (Art. 16). Herzschlag: Morning-Briefing + Routinen — mit
+Quiet Hours und Informationsbudget (Detail bei Umsetzung Punkt 24).
 
 ## Artikel 11 — Fremd-Audit 🆕 (wie v2, bereits zweifach gelebt)
 
@@ -391,7 +410,8 @@ sie Governance-Sprawl, den der eigene usage-sweep zu Recht rasieren würde.
 |---|---|
 | Präambel (inkl. Ehrlichkeits-Klausel), Art. 1 komplett, 6, 7, 13, 14, 15 | 🆕 v3 zur Ratifikation — **Empfehlung beider Reviews: 1.0/5.2/7 sofort** |
 | Art. 2 (Kern), 3 (Kern) | ✅ ratifiziert; v3-Präzisierungen (2.1-Katalog, 3.4/3.6/3.7) zur Bestätigung |
-| Art. 4 (neu geschrieben), 5.1 (Umbenennung), 8, 9, 10, 11, 12 | ⬜ offen |
+| Art. 4 (neu geschrieben), 5.1 (Umbenennung), 8, 9, 11, 12 | ⬜ offen |
+| Art. 10 (Heimat platform, kein Lotse-Repo, 3 messbare Eskalationskriterien) | ✅ ratifiziert 2026-08-06 (Kapitäns-Session) |
 | Anhang A (10 Zeilen) | ⬜ Kapitän setzt ein |
 
 ## Nutzungs-Ledger
@@ -405,3 +425,4 @@ sie Governance-Sprawl, den der eigene usage-sweep zu Recht rasieren würde.
 | 2026-07-17 | Review 2: Sichtbarkeits-Overclaim zurückgenommen, STOP-Klassen, Autoritätsordnung, 4 begründete Pushbacks | 11, 1.6 | — | zweites Fremd-Audit; „wörtlich"-Claim der Präambel korrigiert |
 | 2026-07-17 | **RATIFIKATION vollzogen:** Merge #1237 (12:38 UTC) + Anhang A in `~/.claude/CLAUDE.md` (per grep verifiziert) — **Charta in Kraft** | alle | sofort mergen | Lotse empfahl Abkühlfrist (1.8), Kapitän entschied informiert dagegen — nach 6.4 dokumentiert; dadurch kein Kill-(a)-Eintrag |
 | 2026-07-17 | Externe Validierung: Iljas System prüfte A1–A3 unabhängig (»über 20 Behauptungen, praktisch alles bestätigt, null Konfabulation«; RS-1 selbst verifiziert) | 1.3 | — | Fremdbestätigung der Evidenz-Disziplin durch die Gegenseite |
+| 2026-08-06 | **Art. 10 ratifiziert** (Kapitäns-Anweisung in Session, nach Cross-Repo-Analyse Mail-Agent/lotsen-hub): Heimat platform, kein Lotse-Repo, 3 messbare Eskalationskriterien festgeschrieben | 10, 16 | lotsen-hub erwogen | Entscheid gegen Repo-Extraktion; Vollmachten A/B/C separat als Registry-PR (1.8, ungebündelt) |

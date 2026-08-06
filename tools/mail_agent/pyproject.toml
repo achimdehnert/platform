@@ -1,0 +1,47 @@
+# iil-mail-tools — der Mail-Werkzeugkern als installierbares Wheel (KONZ-platform-040 MVC-1).
+#
+# Warum py-modules statt Paket: die Module importieren einander flach
+# (`import roles`, `import read_mail` — Sibling-Konvention dieses Verzeichnisses),
+# und der einzige Fremd-Konsument (dev-hub mail_ingest/mail_volltext) importiert
+# genauso flach aus dem bisherigen :ro-Mount. Top-Level-Installation hält die
+# konsumierte Oberfläche byte-identisch — kein Import muss sich ändern, der
+# Kontrakt-Test in dev-hub prüft exakt diese Oberfläche. Ein sauberes
+# `mail_agent`-Paket wäre ein eigener, trennbarer Folgeschritt (alle internen
+# Imports + CLI-Aufrufe wandern mit) und ist bewusst NICHT Teil von MVC-1.
+#
+# Bauen (lokal, kein PyPI — KONZ-040 §5 Non-Goal O2):
+#   pip wheel ./tools/mail_agent -w dist/
+# Konsument pinnt das Wheel im eigenen Repo (dev-hub wheels/-Muster).
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iil-mail-tools"
+version = "0.1.0"
+description = "IIL Mail-Agent Werkzeugkern: IMAP/Graph-Transport, Indexierung, Entwürfe (stdlib-only)"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+py-modules = [
+  "ablage_pruefung",
+  "anker",
+  "archiv_einsortieren",
+  "bodystructure",
+  "deckungsausweis",
+  "draft_mail",
+  "graph_mail",
+  "indexierung",
+  "mail_link_server",
+  "mail_view",
+  "organize_mail",
+  "port_freigeben",
+  "read_mail",
+  "referenzpostfach",
+  "regeln",
+  "roles",
+  "send_mail",
+  "suche",
+  "vorgang",
+]
