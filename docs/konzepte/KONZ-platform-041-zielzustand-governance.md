@@ -24,6 +24,7 @@ evidence_manifest:
   - {claim_id: C12, source_path: "Externe Zweitmeinung, 2 unabhängige Runden (Cross-Provider, via Betreiber; Briefing ~/shared/adr-handoff-KONZ-platform-041-2026-08-06.md); 27 RECs, Tag-Tabelle §6.5", commit_or_pr: "2026-08-06", opened_in_session: true, provenance: external-review}
   - {claim_id: C13, source_path: "risk-hub@a072bce: docs/adr/ADR-053-celery-worker-fuer-event-tasks.md (status accepted, implementation_status none) vs. docker-compose.prod.yml:176 (Service risk-hub-celery), :38 (Redis noeviction+appendonly+Volume), src/gbu/tasks.py:96 + src/brandschutz/tasks.py:155 (.delay() aktiv laut ADR-053); ADR-052 = proposed, regelt periodische Jobs", commit_or_pr: "Pilot-Preflight 2026-08-06", opened_in_session: true, provenance: direct}
   - {claim_id: C14, source_path: "Cross-Repo-ADR-Kartierung 2026-08-06 (Subagent, read-only): grep -rln drift_check_paths|staleness_months über tools/+scripts/+.github/ = 0 Konsumenten; implementation_evidence → tools/adr_evidence_paths.py (non-gating SUGGEST in adr-validate.yml, 39/158 Kandidaten geprüft); risk-hub 33 ADRs/19 accepted/15× implementation_status:none/9× spec-stub/5 ohne Feld; K-B2-Kandidaten ADR-054, ADR-038, ADR-004", commit_or_pr: "risk-hub@a072bce, platform@271af52f", opened_in_session: true, provenance: subagent-kartierung}
+  - {claim_id: C15, source_path: "Eigenverifikation des K-B2-Kandidaten ADR-054 (nicht nur Subagent-Uebernahme): Positivkontrolle AddConstraint|RunSQL = 15 Treffer-Dateien in risk-hub-Migrationen (rot-faehig); src/tenancy/migrations/ nur 0002 mit 2 Uniqueness-Constraints, keine Hierarchie-Invariante", commit_or_pr: "risk-hub@a072bce", opened_in_session: true, provenance: direct}
 created: 2026-08-06
 ---
 
@@ -436,8 +437,12 @@ Owner, C14):** Die Kartierung beider Pilot-Repos hat drei geeignete Fälle gelie
 in risk-hub (platform scheidet aus: dort meldet `adr_evidence_paths.py` Typ-B-Fälle
 bereits, ein „verblindeter" Fall wäre vorbekannt und bewiese den alten Checker, nicht den
 neuen). Rangfolge: **(1)** ADR-054 — Body sagt „verbindlich, **DB-durchgesetzt**", real
-nur `clean()` auf App-Ebene, Migration `0005` enthält kein `AddConstraint`/`RunSQL`
-(**real rot ohne Mutation**); **(2)** ADR-038 — Body-Dateiliste nennt `models/avv.py`,
+nur `clean()` auf App-Ebene (**real rot ohne Mutation**). Nachgeprüft mit
+Positivkontrolle (C15): der Ausdruck `AddConstraint|RunSQL` findet in risk-hub
+15 Migrations-Dateien, ist also rot-fähig; in `src/tenancy/migrations/` trifft er
+**ausschließlich** `0002` mit zwei **Uniqueness**-Constraints
+(`uq_site_code_per_tenant`, `uq_department_per_org_site`) — die Hierarchie-Invariante
+selbst ist nirgends DB-durchgesetzt. **(2)** ADR-038 — Body-Dateiliste nennt `models/avv.py`,
 real `models/dpa.py` (reiner `file`-Check, sauber mutierbar); **(3)** ADR-004 —
 `api/v1/` existiert, das zugesagte `openapi/v1/openapi.yaml` fehlt vollständig.
 Der Owner wählt NACH Runner-Merge einen davon (oder einen anderen) aus.
