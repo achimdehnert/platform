@@ -110,6 +110,16 @@ def test_should_build_message_with_recipients_and_subject():
     assert "b" in msg.get_content()
 
 
+def test_should_set_cc_header_when_given():
+    msg = sm.build_message("a@b.c", _args(cc=["cc1@x.y", "cc2@x.y"]))
+    assert msg["Cc"] == "cc1@x.y, cc2@x.y"
+
+
+def test_should_omit_cc_header_without_cc():
+    msg = sm.build_message("a@b.c", _args())
+    assert msg["Cc"] is None
+
+
 def test_should_read_body_from_file(tmp_path):
     bf = tmp_path / "body.txt"
     bf.write_text("datei-body\n")
