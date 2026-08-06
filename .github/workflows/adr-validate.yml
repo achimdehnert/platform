@@ -8,6 +8,12 @@ on:
       - "tools/adr_index_check.py"
       - "tools/adr_evidence_paths.py"
       - "scripts/gen_adr_index.py"
+      # Diese Datei selbst — sonst ist der Workflow gegen Aenderungen an sich
+      # blind: ein PR, der NUR hier editiert, laeuft nie, und die Aenderung
+      # erreicht main ohne einen einzigen Lauf. Genau das war bei der Umstellung
+      # auf den reusable Workflow der Fall (PR #1786: 11 gruene Checks, kein
+      # einziger davon aus adr-validate.yml).
+      - ".github/workflows/adr-validate.yml"
   pull_request:
     paths:
       - "docs/adr/**"
@@ -15,6 +21,7 @@ on:
       - "tools/adr_index_check.py"
       - "tools/adr_evidence_paths.py"
       - "scripts/gen_adr_index.py"
+      - ".github/workflows/adr-validate.yml"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
 
