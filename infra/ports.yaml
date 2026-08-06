@@ -381,11 +381,30 @@ services:
     prod: 8096
     staging: 8096
     dev: 8096
-    prod_host: prod-b          # ADR-292; Traffic laeuft seit 2026-08-02 ueber prod-b.
-                               # ⚠ KORREKTUR 2026-08-04: der Zusatz "prod-Kopie
-                               # gestoppt" war falsch — docker stats zeigt die
-                               # Container auf BEIDEN Hosts. Doppellauf besteht
-                               # fort, bewusst vertagt, siehe #1738 und hosts.yaml.
+    prod_host: prod            # ⚠ AUSNAHME von ADR-292, gesetzt 2026-08-06.
+                               # Dieser Dienst kann die Wanderung nach prod-b als
+                               # EINZIGER nicht mitmachen: Rendern heisst ComfyUI auf
+                               # 10.99.0.2, und wg0 liegt nur auf prod (/system_stats
+                               # -> 200; von prod-b nicht erreichbar). Ohne GPU faellt
+                               # nicht "etwas" aus, sondern jeder Render.
+                               # Umgesetzt ueber den DNS-CNAME: illustration.iil.pet
+                               # zeigt auf den Tunnel von prod (f758021c-...), nicht
+                               # mehr auf den von prod-b (a2ddc304-...). BEIDE Hosts
+                               # tragen die Ingress-Route auf 127.0.0.1:8096 — der
+                               # CNAME entscheidet allein.
+                               # Verifiziert: Marker-Gegenprobe 3 von 3 im
+                               # illustration_web-Log von prod, 0 auf prod-b;
+                               # /livez/ + /readyz/ je 200 (illustration-hub#147/#152).
+                               # VORGESCHICHTE 22.07.–06.08.2026: prod-b bediente den
+                               # Namen mit einem Stand vom 22.07., waehrend alle Deploys
+                               # auf prod landeten — zwei Wochen lang ging kein Deploy
+                               # live, ohne dass ein Check rot wurde. Der Health-Check
+                               # des Deploys zeigte auf den oeffentlichen Namen, also
+                               # auf die ANDERE Instanz.
+                               # OFFEN: tote Ingress-Route auf prod-b (Entfernen braucht
+                               # cloudflared-Restart = alle Routen dort, Wartungsfenster
+                               # #1738); gestoppte Container + Volumes auf prod-b
+                               # bleiben als Rueckweg.
     container_name: illustration_web
     domain_prod: illustration.iil.pet
     domain_staging: staging-illustration.iil.pet

@@ -88,6 +88,24 @@ hosts:
       Tracking und Verfahren in platform#1738. Vor dem Stopp gehoert ein
       Datenvergleich BEIDER Instanzen: der neuere Stand koennte in der Kopie
       stecken, die nicht per DNS bedient wird.
+      ⚠ AUFLOESUNG 2026-08-06: Der Datenvergleich fiel eindeutig aus — und gegen
+      diesen Host. prod-b bediente illustration.iil.pet mit einem Stand vom
+      22.07. (Image main-f2a4345, PostgreSQL 15, 28 Migrationen, letzte vom
+      05.03., comics-Migrationen unapplied) und hatte in zwei Wochen Traffic
+      KEINE Zeile erzeugt: alle 6 Jobs tragen das Datum 05.03. Auf prod stand
+      derweil das aktuelle Image, PostgreSQL 16 mit 42 Migrationen und Jobs bis
+      zum 24.07. Alle Deploys landeten dort — zwei Wochen lang ging damit kein
+      Deploy live, ohne dass ein Check rot wurde (der Health-Check des Deploys
+      zeigt auf den oeffentlichen Namen, also auf die jeweils ANDERE Instanz).
+      Ausschlaggebend fuer die Richtung: wg0 zur GPU-Box 10.99.0.2 liegt NUR auf
+      prod (/system_stats -> 200; von hier nicht erreichbar). Ohne GPU laeuft
+      kein Render — dieser Dienst kann die ADR-292-Wanderung als einziger nicht
+      mitmachen. illustration.iil.pet haengt seit dem 06.08. am Tunnel von prod
+      (CNAME f758021c-… statt a2ddc304-…); ports.yaml fuehrt prod_host: prod.
+      Hier verbleiben: eine tote Ingress-Route (Entfernen braucht cloudflared-
+      Restart = alle Routen dieses Hosts, Wartungsfenster #1738) sowie die
+      gestoppten Container und ihre Volumes als Rueckweg.
+      Belege: illustration-hub#147 (Messung) und #152 (Umsetzung).
       STAND 2026-08-04: Long-Tail-Umzugswelle ausgefuehrt — apo, pptx, weltenhub,
       wedding, coach, research, cad, trading und dms liegen jetzt hier
       (Register-Eintraege in platform#1752/#1753). Wandernde Hubs gehoeren
