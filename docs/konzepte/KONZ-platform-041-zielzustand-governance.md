@@ -46,9 +46,11 @@ Review-Runden** (Cross-Provider), Rückfluss-Tagging aller 27 Empfehlungen in §
 ## 1 Executive Summary
 
 **Basis:** Die Org hat Soll-Deklaration und Ist-Prüfung **beide bereits gebaut — und nie
-miteinander verbunden**: 45–50 ADRs tragen maschinenlesbare Drift-Felder
-(`drift_check_paths`, `staleness_months`), für die **kein Runner existiert** (grep über
-`scripts/` + `tools/`: 0 Konsumenten, C6); `scripts/drift_check.py` prüft Cross-Repo-Drift,
+miteinander verbunden**: ADRs tragen maschinenlesbare Drift-Felder — `drift_check_paths`
+(23×) und `staleness_months` (29×) mit **null Konsumenten**, verifiziert per `grep -rln`
+über `tools/ scripts/ .github/` (C14); für `implementation_evidence` (109×) existiert ein
+Konsument, der aber **non-gating** ist und nur 39 von 158 Pfad-Kandidaten prüft (B1a);
+`scripts/drift_check.py` prüft Cross-Repo-Drift,
 aber gegen **hartkodierte** Regeln statt gegen ADRs (C4). Belegte Folge: ADR-Drift wird per
 Zufall gefunden, nicht per Gate (ADR-167 HealthBypass-Drift; risk-hub ADR-053
 `implementation_status: none` trotz vollständiger Umsetzung — beide monatelang
