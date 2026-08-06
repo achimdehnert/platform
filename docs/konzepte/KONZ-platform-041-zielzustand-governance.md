@@ -20,6 +20,7 @@ evidence_manifest:
   - {claim_id: C8, source_path: "docs/konzepte/ (40 KONZ; 6 überfällig-ungepflegt, 1 vollzogen → Lifecycle-Vollzugsquote ~14%)", commit_or_pr: "Zählung 2026-08-06", opened_in_session: true, provenance: subagent-maintainer2028}
   - {claim_id: C9, source_path: "docs/adr/ Statuszählung: 181 accepted / 45 proposed / 8 superseded / 3 void (239 ADR-*.md; Zählweisen differieren 239-242)", commit_or_pr: "Zählung 2026-08-06", opened_in_session: true, provenance: subagent-diabolus+maintainer2028}
   - {claim_id: C10, source_path: "docs/governance/sunset-ledger.md (existiert, 0 Einträge)", commit_or_pr: origin/main@319af164, opened_in_session: true, provenance: subagent-steelman}
+  - {claim_id: C11, source_path: "git log --diff-filter=A -- docs/adr/ → 305 ADR-Datei-Adds seit 2026-01 (~40/Monat, Renames zählen mit)", commit_or_pr: "Messung 2026-08-06, origin/main", opened_in_session: true, provenance: direct}
 created: 2026-08-06
 ---
 
@@ -82,9 +83,12 @@ Zwei-Arme-Auflösung.
 
 **Evidenzbasis:** Manifest im Frontmatter. Direkt geöffnet in dieser Session: C1–C5.
 Subagenten-verifiziert (drei unabhängige Reviewer, Pfade/Zeilen in deren Berichten):
-C6–C10. Zahlenbestand mit Zählweisen-Caveat: 239–242 ADR-Dateien (C9). **Nicht
-verifiziert:** die ADR-Zuwachsrate (~+60/Jahr, Hypothese aus Bestand ÷ Alter; billigster
-Check: `git log --diff-filter=A -- docs/adr/` je Jahresfenster).
+C6–C10. Zahlenbestand mit Zählweisen-Caveat: 239–242 ADR-Dateien (C9).
+**ADR-Zuwachsrate — nachgemessen (C11):** `git log --diff-filter=A -- docs/adr/` ergibt
+**305 ADR-Datei-Adds seit 2026-01** (~40/Monat; Caveat: Renames/Moves zählen als Adds,
+netto-Bestand ~240). Die im Review angenommene Rate (+60/Jahr) war fast eine
+Größenordnung zu NIEDRIG — Voll-Coverage ist damit noch klarer unbezahlbar und das
+Budget-Modell (D3) noch klarer alternativlos.
 
 ## 3 Infrastruktur-Fit
 
@@ -235,6 +239,10 @@ Status — damit ist „keine zweite SSoT" Bauform, nicht Behauptung.
 die aktiven Invarianten aus. Budget: **max. 10 aktive Invarianten je Repo**, vom Runner
 selbst durchgesetzt (11. Invariante ⇒ Lauf rot mit genau dieser Meldung — KONZ-037 §4.2
 wörtlich). Invariante ohne bestandene Negativprobe zählt nicht als aktiv (`dormant`).
+Blockierungs-Staffel (M-1: blockierende Checks überleben, Reports sterben): Budget- und
+Schema-Verletzungen blockieren CI sofort; Invarianten-Rot läuft über die 5-Läufe-
+Eskalation (D5) und wird erst mit Ablauf der Entscheidungsvorlage-Frist blockierend —
+verhindert die Rot-Lawine (R1), ohne im Report-Modus zu verrotten.
 
 **D4 — Invariante 0 (Staleness-Selbsttest).** Wie §5 definiert; zusätzlich altert das
 jüngste Negativproben-Datum je Repo analog `review_by` (KONZ-037): älter als 90 Tage ⇒
