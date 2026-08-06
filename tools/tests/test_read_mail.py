@@ -48,6 +48,12 @@ class _FakeImap:
             raise imaplib.IMAP4.error("SEARCH nicht unterstützt")
         return "OK", [self._alle]
 
+    def uid(self, command, *args):
+        # Produktivcode sucht seit dem UID-Fix per UID SEARCH; in den Fakes
+        # sind UIDs und Sequenznummern identisch.
+        assert command == "SEARCH"
+        return self.search(*args)
+
 
 class _FakePostfach:
     """Ein Postfach mit einem Ordner — genug für die Kalibriersonde.
@@ -75,6 +81,14 @@ class _FakePostfach:
 
     def fetch(self, num, teile):
         return "OK", [(b"", self._kopf[num])]
+
+    def uid(self, command, *args):
+        # UID-Varianten der beiden Aufrufe; UIDs == Sequenznummern im Fake.
+        if command == "SEARCH":
+            return self.search(*args)
+        if command == "FETCH":
+            return self.fetch(*args)
+        raise AssertionError(f"unerwartetes UID-Kommando {command}")
 
 
 # --- decode_hdr --------------------------------------------------------------
