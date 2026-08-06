@@ -102,7 +102,7 @@ authorizations:
     action: "Schritt 1 — Datenbestände der DSB-Mandate aufbereiten (Sichten, Strukturieren, VVT-/TOM-/Doku-Entwürfe als interne Artefakte)"
     scope:
       datenhalter: "nur vom Kapitän benannte Bestände; Ziel-App risk-hub dsb (Domänen-Hub per Art. 10 / ADR-282)"
-      allowlist_ref: "~/.claude/dsb-mandanten.json (lokal — Mandantennamen nie in dieses public Repo)"
+      allowlist_ref: "risk-hub src/tenancy/models.py Organization (Status active) — SSoT der DSB-Mandanten, privates Repo; Namen nie in dieses public Repo"
     forbidden: ["neue Datenquellen ohne eigenen Ratifikations-Akt (Art. 4)", "Mandantendaten in public Repos/Klickdummies (Seed-vs-Live-Regel)", "Export außerhalb der Kapitäns-Systeme"]
     mode: B
     limits: "Entwurfs-/Dry-Run-Artefakte; keine Schreibzugriffe auf Prod-Bestände"
@@ -130,14 +130,14 @@ authorizations:
     program: dsb
     action: "Schritt 3 — Mandanten-Kommunikation als ENTWURF (Antworten auf DSB-Anfragen vorbereiten; Versand bleibt D)"
     scope:
-      allowlist_ref: "~/.claude/dsb-mandanten.json (lokal)"
+      allowlist_ref: "risk-hub tenancy.Organization (Status active) — SSoT der DSB-Mandanten"
       werkzeuge: ["LV-003-Draft-Pfade", "risk-hub dsb-Workflows (z. B. deletion_workflow als SSoT für Löschvorgänge)"]
     forbidden: ["Auftreten als benannter DSB (der DSB ist eine natürliche Person — der Lotse arbeitet zu, Art. 7 Provenienz)", "rechtlich bindende Erklärungen (STOP 6.3)", "Fristsachen ohne ausdrücklichen Kapitäns-Review", "Versand jeder Art (LV-004)"]
     mode: B
     limits: "nur Empfänger aus der Allowlist; jeder Entwurf trägt die Provenienz-Zeile Entwurf/Prüfung/Freigabe/Versand (Art. 7)"
     status: proposed
     expires_at: "2027-02-06"
-    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "Änderung der Allowlist ohne Ratifikation"]
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "neue Organization in risk-hub ohne eigenen Ratifikations-Akt (Art. 4: neuer Mandant = neue Quelle)"]
     preconditions: "je Mandat LV-005+LV-006 gelaufen; Erkennbarkeit als Lotsen-Entwurf pro Kontakt vereinbart (Art. 7)"
     verification: "Draft-Ordner + Provenienz-Zeilen; Quartals-Review"
 
