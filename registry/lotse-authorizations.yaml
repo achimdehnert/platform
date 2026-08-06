@@ -1,0 +1,159 @@
+# Authorization-Registry des Lotsen (KONZ-025 Art. 2.6)
+#
+# Entsteht mit der ersten Vollmacht (Erteilung: Kapitäns-Session 2026-08-06).
+# Regeln: Keine Vollmacht ohne Registry-Eintrag; abgelaufene werden nicht still
+# verlängert; Widerruf jederzeit formlos (Art. 2.3); „Lotse stopp" suspendiert
+# betroffene Einträge sofort (Art. 14.1).
+#
+# ⚠️ platform ist PUBLIC: Diese Datei enthält KEINE Personen- oder Mandanten-
+# namen. Allowlists stehen als Zeiger auf lokale Dateien der Kapitäns-Maschine.
+#
+# Reifegrade (Art. 2.7): A analysieren/empfehlen · B Entwurf/Dry-Run · C Shadow
+# · D Ausführung nach Einzelfreigabe · E reversibel + Sofortmeldung · F begrenzte
+# Autonomie in engen Caps. Beförderung nur eine Stufe, nie unter Übersprung von D.
+
+meta:
+  established: "2026-08-06"
+  granted_by: "Kapitän, interaktive Session (Kommandokanal Art. 13.2)"
+  ratified_by: "Merge des einführenden PR durch den Kapitän"
+  zaehlgroesse: >
+    Für Art.-10-Eskalationskriterium 1 und den Sechs-Artefakt-Trigger
+    (KONZ-025 „Struktur & Zielbild") zählen nur Einträge mit status: active.
+    Stand Erteilung: 4 active, 3 proposed, 1 dokumentierter Nicht-Vollmacht-
+    Marker (LV-004). Die nächste Aktivierung einer proposed-Vollmacht
+    überschreitet die 5er-Schwelle NICHT (5 ≤ 5), die übernächste schon —
+    dann ist der Sechs-Artefakt-Ausbau fällig, bevor weiter aktiviert wird.
+
+authorizations:
+
+  # ── Programm A: Mail (Kapitäns-Wortlaut „alles rund um Mail" — nach
+  #    Art. 2.1a in enge Klassen zerlegt; Versand bleibt bewusst draußen) ──
+
+  - id: LV-001
+    program: mail
+    action: "Postfächer lesen, durchsuchen, Dossiers und Recherchen erstellen (strikt read-only)"
+    scope:
+      konten: ["ad (default)", "hnu", "iil (Graph)"]
+      werkzeuge: ["platform tools/mail_agent (read_mail, graph_mail, suche, mail_view)", "/read-mail", "/iil-mail (nur Lese-Pfade)", "/mailcheck", "/briefing"]
+    forbidden: ["Versand", "Löschung", "Weitergabe von Postfach-Inhalten an Dritte oder externe Dienste", "Vollexport eines Postfachs ohne Einzelfreigabe (Art. 4)"]
+    mode: F
+    limits: "nur die benannten read-only-Werkzeuge; Ergebnisse bleiben in Kapitäns-Session/-Maschine"
+    status: active
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
+    preconditions: "read-mail-Maschinen-Gate (platform PR #1236) aktiv"
+    verification: "Stichprobe im Quartals-Review (Art. 8); Gate-Logs"
+    evidence: "seit 2026-07 täglich mit Einzelfreigaben gelebt; DSFA/TOM/VVT Mail-Agent 2026-07-24 freigegeben"
+
+  - id: LV-002
+    program: mail
+    action: "Postfächer organisieren: verschieben, Ordner anlegen, flaggen, in Papierkorb legen — kein endgültiges Löschen"
+    scope:
+      konten: ["ad (default)", "hnu", "iil (Graph)"]
+      werkzeuge: ["organize_mail.py", "graph_mail.py (move/flag/folder/trash)", "/organize-mail", "/iil-mail"]
+    forbidden: ["Hard-Delete/Expunge", "Löschen des Papierkorbs", "Regeln, die künftige Mails automatisch nach außen leiten"]
+    mode: E
+    limits: "jede Sitzung meldet Verschiebe-/Flag-Bilanz sofort (Sofortmeldung Art. 2.7 E); Rückholweg Papierkorb bleibt erhalten"
+    status: active
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
+    preconditions: "keine — Werkzeuge erzwingen kein Hard-Delete"
+    verification: "IMAP-/Graph-Ordnerstand nachprüfbar; Quartals-Review"
+    evidence: "mehrfach mit Einzelfreigabe gelebt (/organize-mail, /mailcheck-Aufräumpfad)"
+
+  - id: LV-003
+    program: mail
+    action: "Antwort- und Neu-Entwürfe erstellen und als Draft im Postfach ablegen (Reply-Threading, Signaturen nach Rollen-Registry)"
+    scope:
+      konten: ["ad (default)", "hnu", "iil (Graph, --draft)"]
+      werkzeuge: ["draft_mail.py", "graph_mail.py --draft", "/send-mail (Draft-Pfad)", "/iil-mail (Entwürfe)"]
+    forbidden: ["Versand (auch nicht 'aus Versehen' über send-Pfade)", "persönliche Unterschrift des Kapitäns ohne Einzelfreigabe (Art. 7)", "Zusagen/Preise/rechtlich bindende Formulierungen als fertige Zusage statt als markierter Entwurf"]
+    mode: F
+    limits: "Entwürfe landen ausschließlich im Draft-Ordner des jeweiligen Kontos"
+    status: active
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
+    preconditions: "Kontrakt 'Lotse entwirft, Kapitän sendet' (gelebt, u.a. frist-hub)"
+    verification: "Draft-Ordner = vollständige Spur; Quartals-Review"
+    evidence: "draft-first seit Wochen Standard in /mailcheck und /iil-mail"
+
+  - id: LV-004
+    program: mail
+    action: "Mail-VERSAND — ausdrücklich KEINE stehende Vollmacht"
+    mode: D
+    status: gate-dokumentiert
+    limits: "Versand nur nach informierter Einzelfreigabe je Mail (Empfänger, Diff, Anhänge sichtbar — Reaktionsklasse CHALLENGE)"
+    forbidden: ["Versand unter Standing Authorization jeder Art"]
+    expires_at: "—"
+    invalidated_by: []
+    verification: "Sent-Ordner-Abgleich"
+    anmerkung: >
+      Bewusster Machtverzicht trotz Kapitäns-Wortlaut „alles rund um Mail"
+      (Kill-Kriterium e der Charta): Versand ist Außenwirkung gegenüber Dritten
+      (Art. 7) und bleibt auf Reifegrad D. Beförderung später nur klassenweise
+      nach Prüfkatalog 2.1 (z. B. „Terminbestätigung im bestehenden Thread mit
+      Allowlist-Kontakt"), nie pauschal.
+
+  # ── Programm B: DSB-Assistenz (neue Fähigkeitsklasse — startet nach
+  #    Art. 2.7 unten, nicht auf Autonomie; Beförderung über D nach 2.1) ──
+
+  - id: LV-005
+    program: dsb
+    action: "Schritt 1 — Datenbestände der DSB-Mandate aufbereiten (Sichten, Strukturieren, VVT-/TOM-/Doku-Entwürfe als interne Artefakte)"
+    scope:
+      datenhalter: "nur vom Kapitän benannte Bestände; Ziel-App risk-hub dsb (Domänen-Hub per Art. 10 / ADR-282)"
+      allowlist_ref: "~/.claude/dsb-mandanten.json (lokal — Mandantennamen nie in dieses public Repo)"
+    forbidden: ["neue Datenquellen ohne eigenen Ratifikations-Akt (Art. 4)", "Mandantendaten in public Repos/Klickdummies (Seed-vs-Live-Regel)", "Export außerhalb der Kapitäns-Systeme"]
+    mode: B
+    limits: "Entwurfs-/Dry-Run-Artefakte; keine Schreibzugriffe auf Prod-Bestände"
+    status: proposed
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
+    preconditions: "Kapitän benennt je Mandat den Datenbestand; sensible Reads bleiben gate-pflichtig (Art. 1.2)"
+    verification: "Kapitäns-Review je Aufbereitung; Beförderung B→C→D nur nach Prüfkatalog 2.1"
+
+  - id: LV-006
+    program: dsb
+    action: "Schritt 2 — GAP-Analyse der aufbereiteten Bestände (Abgleich gegen DSGVO-Pflichtenkatalog, Lückenbericht als Entwurf)"
+    scope:
+      basis: "ausschließlich Artefakte aus LV-005"
+    forbidden: ["Rechtsberatungs-Duktus gegenüber Dritten", "Bewertungen ohne benannte Prüfgrundlage (Evidenz-Policy)"]
+    mode: B
+    limits: "Analyse + Berichtsentwurf; jede Lücken-Behauptung mit Fundstelle"
+    status: proposed
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
+    preconditions: "LV-005 für das Mandat mindestens einmal durchlaufen"
+    verification: "Kapitäns-Review; Stichprobe der Fundstellen"
+
+  - id: LV-007
+    program: dsb
+    action: "Schritt 3 — Mandanten-Kommunikation als ENTWURF (Antworten auf DSB-Anfragen vorbereiten; Versand bleibt D)"
+    scope:
+      allowlist_ref: "~/.claude/dsb-mandanten.json (lokal)"
+      werkzeuge: ["LV-003-Draft-Pfade", "risk-hub dsb-Workflows (z. B. deletion_workflow als SSoT für Löschvorgänge)"]
+    forbidden: ["Auftreten als benannter DSB (der DSB ist eine natürliche Person — der Lotse arbeitet zu, Art. 7 Provenienz)", "rechtlich bindende Erklärungen (STOP 6.3)", "Fristsachen ohne ausdrücklichen Kapitäns-Review", "Versand jeder Art (LV-004)"]
+    mode: B
+    limits: "nur Empfänger aus der Allowlist; jeder Entwurf trägt die Provenienz-Zeile Entwurf/Prüfung/Freigabe/Versand (Art. 7)"
+    status: proposed
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "Änderung der Allowlist ohne Ratifikation"]
+    preconditions: "je Mandat LV-005+LV-006 gelaufen; Erkennbarkeit als Lotsen-Entwurf pro Kontakt vereinbart (Art. 7)"
+    verification: "Draft-Ordner + Provenienz-Zeilen; Quartals-Review"
+
+  # ── Programm C: Publikationen ──
+
+  - id: LV-008
+    program: schreiben
+    action: "Bücher, Paper und Fachtexte semiautonom entwerfen und iterieren — als versionierte Manuskript-Artefakte in Repos des Kapitäns"
+    scope:
+      repos: ["writing-hub (Inhalt, per ADR-180-Schnitt)", "Manuskript-Repos (z. B. manuskripte/)"]
+      umfang: "initial 3 Buchprojekte + Paper nach Zuruf"
+    forbidden: ["Publikation/Einreichung/Upload zu Verlagen, Plattformen, arXiv o. ä. (= Außenwirkung, D)", "erfundene persönliche Erfahrungen oder Unterschrift des Kapitäns (Art. 7)", "Zitate/Quellen ohne Beleg (Evidenz-Policy — Unbelegtes als Hypothese markieren)"]
+    mode: E
+    limits: "nur git-versionierte Entwürfe (vollständig reversibel); Kapitel-/Struktur-Entscheidungen mit Begründung im Commit/PR"
+    status: active
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
+    preconditions: "je Projekt ein Kapitäns-Briefing (Zielgruppe, These, Ton) vor dem ersten Kapitel"
+    verification: "git-Historie = lückenlose Spur; Kapitäns-Review je Meilenstein"
