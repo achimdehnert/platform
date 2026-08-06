@@ -230,6 +230,9 @@ def main() -> None:
     ap.add_argument(
         "--to", action="append", required=True, help="Empfänger (mehrfach möglich)"
     )
+    ap.add_argument(
+        "--cc", action="append", default=[], help="CC-Empfänger (mehrfach möglich)"
+    )
     ap.add_argument("--subject", required=True)
     ap.add_argument("--cc", action="append", help="Cc (mehrfach möglich)")
     ap.add_argument(
@@ -332,8 +335,9 @@ def main() -> None:
     via = send(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"]), user, password, msg)
     atts = ", ".join(Path(a).name for a in args.attach) or "keine"
     rolle = f", Rolle: {profile.role_id} ({profile.display_name})" if profile else ""
+    cc = f", CC: {', '.join(args.cc)}" if args.cc else ""
     print(
-        f"OK: Mail an {', '.join(args.to)} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}{rolle}"
+        f"OK: Mail an {', '.join(args.to)}{cc} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}{rolle}"
     )
 
     imap_host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
