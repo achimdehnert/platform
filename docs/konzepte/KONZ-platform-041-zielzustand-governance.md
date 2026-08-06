@@ -25,6 +25,7 @@ evidence_manifest:
   - {claim_id: C13, source_path: "risk-hub@a072bce: docs/adr/ADR-053-celery-worker-fuer-event-tasks.md (status accepted, implementation_status none) vs. docker-compose.prod.yml:176 (Service risk-hub-celery), :38 (Redis noeviction+appendonly+Volume), src/gbu/tasks.py:96 + src/brandschutz/tasks.py:155 (.delay() aktiv laut ADR-053); ADR-052 = proposed, regelt periodische Jobs", commit_or_pr: "Pilot-Preflight 2026-08-06", opened_in_session: true, provenance: direct}
   - {claim_id: C14, source_path: "Cross-Repo-ADR-Kartierung 2026-08-06 (Subagent, read-only): grep -rln drift_check_paths|staleness_months über tools/+scripts/+.github/ = 0 Konsumenten; implementation_evidence → tools/adr_evidence_paths.py (non-gating SUGGEST in adr-validate.yml, 39/158 Kandidaten geprüft); risk-hub 33 ADRs/19 accepted/15× implementation_status:none/9× spec-stub/5 ohne Feld; K-B2-Kandidaten ADR-054, ADR-038, ADR-004", commit_or_pr: "risk-hub@a072bce, platform@271af52f", opened_in_session: true, provenance: subagent-kartierung}
   - {claim_id: C15, source_path: "Eigenverifikation des K-B2-Kandidaten ADR-054 (nicht nur Subagent-Uebernahme): Positivkontrolle AddConstraint|RunSQL = 15 Treffer-Dateien in risk-hub-Migrationen (rot-faehig); src/tenancy/migrations/ nur 0002 mit 2 Uniqueness-Constraints, keine Hierarchie-Invariante", commit_or_pr: "risk-hub@a072bce", opened_in_session: true, provenance: direct}
+  - {claim_id: C16, source_path: "Pilot-Verifikation 2026-08-06: 4 unabhaengige Pruefdimensionen + Skeptiker-Gegenprobe (17 Agenten) => Urteil NICHT BESTAETIGT; 4 kritische Defekte. B10 eigenverifiziert per Rueckbau-Simulation (0/4 Proben => PASS bei severity critical). Bericht: ~/shared/konz041-pilot-verifikation-2026-08-06.txt", commit_or_pr: "Worktrees, nichts committet", opened_in_session: true, provenance: workflow-verification+direct}
 created: 2026-08-06
 ---
 
@@ -175,6 +176,20 @@ Begriffe (hier eigenständig normiert; Ideen-Herkunft KONZ-037/038 — R2-REC-11
 - **Deckungs-Sprache (R2-REC-2):** ein ADR mit aktiven Invarianten gilt als **„partiell
   gedeckt"** — nie als „gedeckt". Eine Invariante prüft einen Anker der Entscheidung,
   nicht die Entscheidung.
+- **Konsistenz ≠ Konformität (Rev 4, aus dem Pilot erzwungen — C16, B10):** Eine Invariante
+  muss benennen, WELCHE der beiden Fragen sie stellt.
+  **Konsistenz-Invariante:** „stimmt die Deklaration mit der Realität überein?"
+  **Konformitäts-Invariante:** „wird die Entscheidung eingehalten?"
+  Das ist **nicht** dasselbe, und die Verwechslung ist gefährlich: Der Pilot-Erstfall wurde
+  als reine Konsistenzprüfung gebaut (`implementation_status` vs. gemessene Evidenz) — mit
+  der Folge, dass ein **vollständiger Rückbau** des Architekturentscheids die Invariante
+  **grün** macht (Evidenz `none` == Deklaration `none` ⇒ konsistent). Verifiziert durch
+  Rückbau-Simulation: 0/4 Proben ⇒ `PASS` bei `severity: critical` (C16).
+  **Norm:** Jede Invariante mit `severity: critical` MUSS eine Konformitäts-Bedingung
+  tragen (erwartete Klasse/Zustand), nicht nur eine Konsistenz-Bedingung. Beide
+  Verletzungsarten sind `violation`, müssen im Report aber unterscheidbar sein:
+  **(a) Buchhaltungsdrift** (Deklaration ≠ Realität) und **(b) Konformitätsdrift**
+  (Realität ≠ Zusage). Eine Invariante, die nur (a) kann, darf nicht `critical` heißen.
 - **Aktiv:** zählt ins Budget UND die Negativprobe wurde im letzten Runner-Lauf
   **maschinell ausgeführt und bestanden** (R1-REC-1) — sonst `dormant:<grund>`.
 - **Negativprobe (maschinell, R1-REC-1/R2-REC-8):** je Invariante eine Fixture unter
@@ -410,6 +425,9 @@ gekoppelt, damit nie wieder ein deklariertes Feld ohne Konsumenten entsteht.
 | B6 | Sunset-Ledger existiert mit 0 Einträgen | C10 | mittel |
 | B7 | Belegte ADR-Drift (risk-hub ADR-053: accepted + real umgesetzt, Frontmatter sagt `implementation_status: none`) seit ~7 Wochen unbemerkt | C13 | hoch |
 | B8 | Kill-Gate der Vorfassung war papier-bestehbar (Negativprobe als String; K-B zeitlich unerreichbar) — von zwei externen Runden unabhängig gefunden | C12 | hoch |
+| B10 | **Konsistenz-Blindheit (Rev 4, C16):** Der erste real gebaute Check meldete nach vollständigem Rückbau des Architekturentscheids `PASS` bei `severity: critical` — weil „Evidenz none == Deklaration none" konsistent ist. Ein Konsistenz-Check kann Konformität grundsätzlich nicht messen; das Instrument war exakt dort blind, wo es wachen sollte. Gefunden von einer unabhängigen Verifikation, nachgestellt und bestätigt durch eigene Rückbau-Simulation | C16 | kritisch |
+| B11 | **Pfad-Eingrenzung fehlte (C16):** Pfade aus der Check-Datei wurden ungeprüft geladen; im öffentlichen platform-Repo mit Fork-PRs ein Auslese-Primitiv (fremde Dateiinhalte/Schlüsselnamen landeten in stdout + Projektion). Bestätigt die Notwendigkeit der §7-D1-Sicherheitsgrenze — sie war deklariert, aber nicht implementiert | C16 | kritisch |
+| B12 | **Vakuose Checks bestehen das Gate (C16):** eine Probe mit leerer Bedingung durchläuft alle Nachweise A–D mit Exit 0 — die von R1-REC-1 geforderte maschinelle Negativprobe beweist Rot-Fähigkeit des *Pfades*, nicht Gehalt der *Bedingung* | C16 | kritisch |
 | B9 | **Der ursprünglich „verbindliche Erstfall" (ADR-052/`.delay()`) war selbst falsch** — ADR-052 ist `proposed` und regelt periodische Jobs, nicht `.delay()`; ADR-053 hat den Worker beschlossen und umgesetzt. Quelle des Irrtums: eine 53 Tage alte 🌀-Memory, deren offene Entscheidung 4 Tage später fiel und die nie nachgezogen wurde. Sie führte den Pilot-Auftrag auf eine falsche Prämisse. | C13 | hoch |
 
 ## 11 Top-5-Risiken
