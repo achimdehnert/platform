@@ -54,6 +54,7 @@ mode: read-only
 | ADR adversarial challengen (Konflikte, Right-Sizing) | `/adr-challenger` |
 | ADR-Zweitmeinung an externes LLM übergeben | `/adr-handoff-extern` |
 | Problem → entscheidungsreifes Konzept (T1/T2/T3) | `/konzept` |
+| Eingereichte Arbeit formal prüfen (Zitate, Abbildungen, Belege) | `/arbeit-pruefen` |
 
 ### Repo-Onboarding & Setup
 
