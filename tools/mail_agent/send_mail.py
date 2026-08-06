@@ -112,7 +112,22 @@ def build_message(sender: str, args: argparse.Namespace) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = ", ".join(args.to)
+    if getattr(args, "cc", None):
+        msg["Cc"] = ", ".join(args.cc)
     msg["Subject"] = args.subject
+    # Ohne diese Kopfzeilen haengt eine Antwort an keinem Strang: der Empfaenger
+    # sieht eine themengleiche, aber beziehungslose Mail. Real gemeldet am
+    # 2026-07-27 von einem Empfaenger ("Wo ist das E-Mail-Protokoll? Es scheint,
+    # dass du die E-Mail ohne Bezug zu unseren bisherigen E-Mails versendet
+    # hast") — send_mail konnte sie bis dahin gar nicht setzen.
+    if getattr(args, "in_reply_to", None):
+        msg["In-Reply-To"] = args.in_reply_to
+        # References traegt die ganze Kette; fehlt sie, faedeln manche Clients
+        # trotz In-Reply-To nicht ein. Ohne uebergebene Kette ist der Elternteil
+        # die beste verfuegbare Naeherung.
+        msg["References"] = getattr(args, "references", None) or args.in_reply_to
+    elif getattr(args, "references", None):
+        msg["References"] = args.references
     text = Path(args.body_file).read_text() if args.body_file else args.body
     html_file = getattr(args, "html_file", None)
     html = Path(html_file).read_text() if html_file else None
@@ -216,6 +231,18 @@ def main() -> None:
         "--to", action="append", required=True, help="Empfänger (mehrfach möglich)"
     )
     ap.add_argument("--subject", required=True)
+    ap.add_argument("--cc", action="append", help="Cc (mehrfach möglich)")
+    ap.add_argument(
+        "--in-reply-to",
+        dest="in_reply_to",
+        help="Message-ID der Mail, auf die geantwortet wird (mit spitzen Klammern). "
+        "Ohne sie haengt die Antwort an keinem Strang.",
+    )
+    ap.add_argument(
+        "--references",
+        help="Strang-Kette (Message-IDs, durch Leerzeichen getrennt). Ohne Angabe "
+        "wird --in-reply-to uebernommen.",
+    )
     body_group = ap.add_mutually_exclusive_group(required=False)
     body_group.add_argument("--body", help="Mailtext direkt (text/plain)")
     body_group.add_argument("--body-file", help="Mailtext aus Datei (text/plain)")
