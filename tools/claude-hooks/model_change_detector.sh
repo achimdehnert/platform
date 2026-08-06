@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# GATE_HEADER (KONZ-038 D8) — auch in Shell maschinenlesbar gehalten, damit
+# tools/gate_drill_check.py Kopf und Registry gegeneinander pruefen kann:
+#   "slug": "model-change-detection"
+#   "mode": "advisory"
+#   "owner": "achim"
+#   "last_drill_pass": "2026-08-06"
+#   "evidence": "tools/claude-hooks/tests/test_model_change_detector.py"
+#
 # Claude Code SessionStart hook — Modellwechsel-Detektor (KONZ-038 D7, §5.6).
 #
 # Event-Trigger statt Kalender-Raten (EXT2-M28-6): vergleicht die konfigurierte
