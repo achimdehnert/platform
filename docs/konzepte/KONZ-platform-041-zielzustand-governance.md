@@ -22,6 +22,7 @@ evidence_manifest:
   - {claim_id: C10, source_path: "docs/governance/sunset-ledger.md (existiert, 0 Einträge)", commit_or_pr: origin/main@319af164, opened_in_session: true, provenance: subagent-steelman}
   - {claim_id: C11, source_path: "git log --diff-filter=A -- docs/adr/ → 305 ADR-Datei-Adds seit 2026-01 (~40/Monat, Renames zählen mit)", commit_or_pr: "Messung 2026-08-06, origin/main", opened_in_session: true, provenance: direct}
   - {claim_id: C12, source_path: "Externe Zweitmeinung, 2 unabhängige Runden (Cross-Provider, via Betreiber; Briefing ~/shared/adr-handoff-KONZ-platform-041-2026-08-06.md); 27 RECs, Tag-Tabelle §6.5", commit_or_pr: "2026-08-06", opened_in_session: true, provenance: external-review}
+  - {claim_id: C13, source_path: "risk-hub@a072bce: docs/adr/ADR-053-celery-worker-fuer-event-tasks.md (status accepted, implementation_status none) vs. docker-compose.prod.yml:176 (Service risk-hub-celery), :38 (Redis noeviction+appendonly+Volume), src/gbu/tasks.py:96 + src/brandschutz/tasks.py:155 (.delay() aktiv laut ADR-053); ADR-052 = proposed, regelt periodische Jobs", commit_or_pr: "Pilot-Preflight 2026-08-06", opened_in_session: true, provenance: direct}
 created: 2026-08-06
 ---
 
@@ -33,6 +34,13 @@ Adversarialer Fan-out mit drei unabhängigen internen Agenten (Steelman / Advoca
 Maintainer-2028) am 2026-08-06, Konfliktmatrix §6.4; danach **zwei unabhängige externe
 Review-Runden** (Cross-Provider), Rückfluss-Tagging aller 27 Empfehlungen in §6.5.
 
+> **Rev 3 (2026-08-06, Pilot-Preflight):** Der als „verbindlich" gesetzte Erstfall
+> (ADR-052/`.delay()`) wurde beim ersten realen Anwendungsversuch **falsifiziert** und
+> durch die belegte risk-hub-**ADR-053-`implementation_status`-Drift** ersetzt (B9, C13).
+> Das ist kein Betriebsunfall, sondern der erste Nutzen dieses Konzepts: Der Versuch, eine
+> Entscheidung maschinell prüfbar zu machen, hat die Entscheidung selbst als falsch
+> zitiert entlarvt — bevor ein Check darauf gebaut wurde.
+
 ## 1 Executive Summary
 
 **Basis:** Die Org hat Soll-Deklaration und Ist-Prüfung **beide bereits gebaut — und nie
@@ -40,8 +48,9 @@ miteinander verbunden**: 45–50 ADRs tragen maschinenlesbare Drift-Felder
 (`drift_check_paths`, `staleness_months`), für die **kein Runner existiert** (grep über
 `scripts/` + `tools/`: 0 Konsumenten, C6); `scripts/drift_check.py` prüft Cross-Repo-Drift,
 aber gegen **hartkodierte** Regeln statt gegen ADRs (C4). Belegte Folge: ADR-Drift wird per
-Zufall gefunden, nicht per Gate (ADR-167 HealthBypass-Drift; risk-hub `.delay()` trotz
-ADR-052 — beide monatelang unentdeckt). Zugleich kennt der ADR-Bestand (181 accepted,
+Zufall gefunden, nicht per Gate (ADR-167 HealthBypass-Drift; risk-hub ADR-053
+`implementation_status: none` trotz vollständiger Umsetzung — beide monatelang
+unentdeckt, C13). Zugleich kennt der ADR-Bestand (181 accepted,
 45 proposed im Limbo, 8 superseded, C9) praktisch nur eine Richtung: Anbau.
 
 **Analyse:** Das Problem ist keine fehlende Deklarationsschicht, sondern die **fehlende
@@ -63,8 +72,10 @@ in eine **Zwei-Arme-Entscheidung**: Ist anpassen ODER ADR amend/supersede — R�
 Anbau.
 
 **Handlungsempfehlung:** MVC §12 (D1–D7) umsetzen — Pilot platform + risk-hub,
-Erstfall ADR-052/`.delay()` (Plumbing-Beweis) + ein verblindeter Zweitfall
-(Lifecycle-Beweis). Kill-Gate §13 vorab registriert.
+Erstfall **risk-hub ADR-053 `implementation_status`-Drift** (Plumbing-Beweis, Rev 3 —
+der ursprünglich benannte ADR-052/`.delay()`-Fall wurde im Pilot-Preflight
+falsifiziert, §10 B9) + ein verblindeter Zweitfall (Lifecycle-Beweis). Kill-Gate §13
+vorab registriert.
 
 ## 2 Scope & Evidenzbasis
 
@@ -122,9 +133,12 @@ Alle Bausteine existieren; das MVC ist Komposition, kein Neubau:
 1. **Deklarations-Lücke belegt, nicht vermutet:** maschinenlesbare Soll-Felder ohne einen
    einzigen Konsumenten (C6) sind der Zustand „deklariert, aber wirkungslos" — falsches
    Vertrauen, gefährlicher als Regellosigkeit.
-2. **Drift zweifach dokumentiert, jeweils monatelang unentdeckt** (ADR-167,
-   ADR-052/risk-hub) — beide per Zufall gefunden; der `.delay()`-Fall ist ein
-   Ein-Zeilen-AST-Check.
+2. **Drift zweifach dokumentiert, jeweils monatelang unentdeckt** (ADR-167;
+   risk-hub ADR-053, C13) — beide per Zufall gefunden. Der ADR-053-Fall ist ein
+   deklarativer Datei-Check und zeigt die teuerste Drift-Klasse: nicht der Code weicht
+   vom ADR ab, sondern das **ADR-Frontmatter behauptet das Gegenteil des Codes** — eine
+   🌀-Memory hat diesen Irrtum 53 Tage lang als Fakt weitergetragen und im
+   Pilot-Preflight einen Auftrag auf eine falsche Prämisse geführt (B9).
 3. **Policy-Grundlage gemergt und bindend** (`policies/zielzustand.md`, C3): „Artefakt
    mit Akzeptanzkriterien IST der Zielzustand — referenzieren statt neu erfinden." Bei
    ~240 ADRs ist Referenzieren ohne maschinelle Projektion praktisch unausführbar.
@@ -279,8 +293,8 @@ Pflicht für neue accepted ADRs — R1-REC-2):
 zielzustand: invariant            # invariant | nicht-testbar | out-of-budget
 zielzustand_begruendung: "…"      # PFLICHT bei nicht-testbar (ein Satz)
 invariants:                       # nur bei zielzustand: invariant
-  - id: ADR-052-I1
-    check_ref: checks/adr-052-i1.yaml   # reviewte Datei; Typen im MVC: python_ast | file
+  - id: ADR-053-I1
+    check_ref: checks/adr-053-i1.yaml   # reviewte Datei; Typen im MVC: python_ast | file
     severity: critical                  # critical | normal
 ```
 Kein ausführbarer String im Frontmatter; `script`/`http` sind bis zu einer eigenen
@@ -356,7 +370,7 @@ gekoppelt, damit nie wieder ein deklariertes Feld ohne Konsumenten entsteht.
 | A1: Nur Runner bauen, kein Konzept | Bedarf bestätigt durch beide externe Runden (R2-PRO-1: Autorenvertrag + Ausführungssemantik + Rückbauprozess brauchen ein challengebares Artefakt); ABER der Preis wurde extern korrekt nachgetragen: 041 ist die dritte laufende Lifecycle-Verpflichtung eines Solo-Owners — Antwort: pilot-lokaler Experimentvertrag mit automatischem Streichungs-PR statt drittem unabhängigem Dauer-Artefakt (R2-REC-13) |
 | A2: Ur-Entwurf (LLM-Destillat + abgenommene YAML, Voll-Coverage, Org-Ebene) | dreifach intern falsifiziert, extern doppelt bestätigt |
 | A3: Voll-Migration aller ~181 accepted ADRs sofort | Kapazität nachweislich nicht vorhanden; D7 ersetzt das durch eine billige Klassifikations- (nicht Invarianten-)Kampagne mit Abbruchkriterium |
-| A4: Warten bis KONZ-037/038 ihre Kill-Gates bestanden haben | Korrigiert (R1-REC-7): das frühere Scheduling-Argument deckte nur 038. Ehrliche Antwort für 037: 041 **normiert die geborgten Mechaniken eigenständig** (§5) — scheitert 037, fällt Attribution, nicht Fundament; ein Warten würde den einzigen belegten Drift-Realfall (ADR-052) weitere Monate ungeprüft lassen |
+| A4: Warten bis KONZ-037/038 ihre Kill-Gates bestanden haben | Korrigiert (R1-REC-7): das frühere Scheduling-Argument deckte nur 038. Ehrliche Antwort für 037: 041 **normiert die geborgten Mechaniken eigenständig** (§5) — scheitert 037, fällt Attribution, nicht Fundament; ein Warten würde den belegten Drift-Realfall (risk-hub ADR-053, B7) weitere Monate ungeprüft lassen |
 | A5 (extern, R1-OOB-3): nur `review_by` auf alle accepted ADRs, kein Runner | als Ersatz verworfen (erzeugt Urteilsarbeit = knappste Ressource, hohes „46. totes Feld"-Risiko); als möglicher Folgekandidat nach bestandenem Kill-Gate notiert (§9) |
 
 ## 9 Out-of-the-Box
@@ -382,8 +396,9 @@ gekoppelt, damit nie wieder ein deklariertes Feld ohne Konsumenten entsteht.
 | B4 | 181 accepted vs 8 superseded — ADR-Ratsche kennt nur Anbau | C9 | hoch |
 | B5 | Lifecycle-Vollzugsquote fälliger KONZ ~14 % (1/7) | C8 | hoch |
 | B6 | Sunset-Ledger existiert mit 0 Einträgen | C10 | mittel |
-| B7 | Belegte ADR-Drift (ADR-052/.delay()) seit Monaten ohne ADR-Konsequenz | 🌀-Memory + C2 | hoch |
+| B7 | Belegte ADR-Drift (risk-hub ADR-053: accepted + real umgesetzt, Frontmatter sagt `implementation_status: none`) seit ~7 Wochen unbemerkt | C13 | hoch |
 | B8 | Kill-Gate der Vorfassung war papier-bestehbar (Negativprobe als String; K-B zeitlich unerreichbar) — von zwei externen Runden unabhängig gefunden | C12 | hoch |
+| B9 | **Der ursprünglich „verbindliche Erstfall" (ADR-052/`.delay()`) war selbst falsch** — ADR-052 ist `proposed` und regelt periodische Jobs, nicht `.delay()`; ADR-053 hat den Worker beschlossen und umgesetzt. Quelle des Irrtums: eine 53 Tage alte 🌀-Memory, deren offene Entscheidung 4 Tage später fiel und die nie nachgezogen wurde. Sie führte den Pilot-Auftrag auf eine falsche Prämisse. | C13 | hoch |
 
 ## 11 Top-5-Risiken
 
@@ -407,8 +422,12 @@ gekoppelt, damit nie wieder ein deklariertes Feld ohne Konsumenten entsteht.
 | D6 | Amendment-Vorschlag an KONZ-038 §5.4 (Memory-Löschen, 🌀-Ausnahme) | kleiner PR an KONZ-038 | S |
 | D7 | Klassifikationskampagne Pilot-Repos (Baseline eingefroren, Abbruch > 4 h) | Feld-PRs + Baseline-Commit | M |
 
-**M1:** D1 nie ohne D3 mergen. **Erstfälle (verbindlich):** ADR-052/`.delay()` als
-Plumbing-Fall (K-B1) **plus ein verblindeter Zweitfall** für K-B2: eine vom Owner erst
+**M1:** D1 nie ohne D3 mergen. **Erstfälle (verbindlich, Rev 3):** risk-hub **ADR-053
+`implementation_status`-Drift** als Plumbing-Fall (K-B1) — die Invariante prüft die drei
+belegten ADR-053-Zusagen (Celery-Service, durabler Redis-Broker, async Dispatch) gegen
+das Repo und vergleicht das Ergebnis mit dem deklarierten `implementation_status`;
+erwartetes Reallauf-Ergebnis ist `violation` (Evidenz „implementiert" vs. Deklaration
+„none"). **Plus ein verblindeter Zweitfall** für K-B2: eine vom Owner erst
 NACH Runner-Merge ausgewählte Invariante, deren Verletzung per Mutation eingespielt wird
 und die volle Eskalation (Fristen, Vorlage, Entscheidung, Ledger) real durchläuft.
 
@@ -428,9 +447,9 @@ GESTRICHEN, nicht nachgebessert:**
   Pilot-ADR-Satz** (Baseline-Commit; Beleg weist `accepted vorher/nachher` aus).
   Maschinell aus der Projektion gemessen; Body-Konflikte separat gezählt, nicht
   weginterpretiert.
-- **K-B1 (Plumbing-Vollzug):** der ADR-052-Erstfall ist als `violation` erkannt UND sein
-  Arm ist vollzogen (gemergter Ist-Fix ODER gemergtes Supersede-/Amend-ADR mit Link auf
-  den Report).
+- **K-B1 (Plumbing-Vollzug):** der ADR-053-Erstfall ist als `violation` erkannt UND sein
+  Arm ist vollzogen (gemergter Ist-Fix — hier: `implementation_status` auf den belegten
+  Wert korrigiert — ODER gemergtes Supersede-/Amend-ADR, je mit Link auf den Report).
 - **K-B2 (Lifecycle-Vollzug, verblindet):** der Zweitfall (§12) hat die volle
   Eskalationsmechanik real durchlaufen — Fristen ausgelöst, Vorlage erzeugt, Entscheidung
   getroffen, Ledger-Eintrag — ohne manuelles Eingreifen außerhalb der Mechanik.
@@ -441,12 +460,12 @@ GESTRICHEN, nicht nachgebessert:**
 | Kriterium | Status (offen/erfüllt/verworfen) | Beleg |
 |---|---|---|
 | K-A Delta=0 (eingefrorener Pilot-Satz) | offen | — |
-| K-B1 Plumbing-Vollzug ADR-052 | offen | — |
+| K-B1 Plumbing-Vollzug ADR-053 | offen | — |
 | K-B2 Lifecycle-Vollzug verblindeter Zweitfall | offen | — |
 | K-C 100 % maschinelle Negativproben aktiv | offen | — |
 
 **30/60/90:**
-- **30 Tage:** D1+D3 gekoppelt gemergt (M1), D2, D4, D7-Baseline; ADR-052-Invariante
+- **30 Tage:** D1+D3 gekoppelt gemergt (M1), D2, D4, D7-Baseline; ADR-053-Invariante
   aktiv mit maschineller Negativprobe; erster Ritual-Report mit Delta-Mischungszeile;
   Zweitfall-Mutation eingespielt.
 - **60 Tage:** Kill-Gate-Bilanz in obiger Tabelle. Bestehen ⇒ Org-ADR-Vorlage +
