@@ -23,6 +23,7 @@ evidence_manifest:
   - {claim_id: C11, source_path: "git log --diff-filter=A -- docs/adr/ → 305 ADR-Datei-Adds seit 2026-01 (~40/Monat, Renames zählen mit)", commit_or_pr: "Messung 2026-08-06, origin/main", opened_in_session: true, provenance: direct}
   - {claim_id: C12, source_path: "Externe Zweitmeinung, 2 unabhängige Runden (Cross-Provider, via Betreiber; Briefing ~/shared/adr-handoff-KONZ-platform-041-2026-08-06.md); 27 RECs, Tag-Tabelle §6.5", commit_or_pr: "2026-08-06", opened_in_session: true, provenance: external-review}
   - {claim_id: C13, source_path: "risk-hub@a072bce: docs/adr/ADR-053-celery-worker-fuer-event-tasks.md (status accepted, implementation_status none) vs. docker-compose.prod.yml:176 (Service risk-hub-celery), :38 (Redis noeviction+appendonly+Volume), src/gbu/tasks.py:96 + src/brandschutz/tasks.py:155 (.delay() aktiv laut ADR-053); ADR-052 = proposed, regelt periodische Jobs", commit_or_pr: "Pilot-Preflight 2026-08-06", opened_in_session: true, provenance: direct}
+  - {claim_id: C14, source_path: "Cross-Repo-ADR-Kartierung 2026-08-06 (Subagent, read-only): grep -rln drift_check_paths|staleness_months über tools/+scripts/+.github/ = 0 Konsumenten; implementation_evidence → tools/adr_evidence_paths.py (non-gating SUGGEST in adr-validate.yml, 39/158 Kandidaten geprüft); risk-hub 33 ADRs/19 accepted/15× implementation_status:none/9× spec-stub/5 ohne Feld; K-B2-Kandidaten ADR-054, ADR-038, ADR-004", commit_or_pr: "risk-hub@a072bce, platform@271af52f", opened_in_session: true, provenance: subagent-kartierung}
 created: 2026-08-06
 ---
 
@@ -355,6 +356,13 @@ eingedampft. Begründung: Memory wird injiziert, nicht nachgeschlagen.
 **D7 — Klassifikationskampagne Pilot-Repos (NEU — R1-REC-5, R2-REC-10).** Eigene,
 aufwandsgeschätzte MVC-Position: alle accepted ADRs der beiden Pilot-Repos erhalten das
 `zielzustand`-Feld (Mehrheit erwartbar `out-of-budget` — das ist der ehrliche Zustand).
+**Vermessene Ausgangslage (Rev 3, C14):** risk-hub 33 ADRs (19 accepted, davon **15 mit
+`implementation_status: none`** — Stichproben zeigen mehrere davon real umgesetzt);
+platform 242 ADRs (182 accepted; 63 **ohne** `implementation_status`-Feld). Zwei
+Feld-Fallstricke, die die Kampagne sonst still verfehlt: risk-hub nutzt den Wert
+**`spec-stub`** (9×), der in keiner KONZ-041-Klasse vorkommt und explizit abgebildet
+werden muss; und **5 risk-hub-ADRs tragen gar kein `implementation_status`** (darunter
+ADR-052) — fehlendes Feld muss als `out-of-budget` gezählt werden, nie als grün.
 **Baseline-Einfrierung (R1-REC-11):** `count(accepted)` wird VOR Beginn der Kampagne
 committet; der Kill-Gate-Beleg weist `vorher/nachher` aus, damit der Nenner nicht Teil
 des Ergebnisses ist. Abbruchkriterium: > 4 h Gesamtaufwand ⇒ Kampagne stoppt, K-A wird
@@ -390,7 +398,8 @@ gekoppelt, damit nie wieder ein deklariertes Feld ohne Konsumenten entsteht.
 
 | # | Befund | Evidenz | Schwere |
 |---|---|---|---|
-| B1 | 45–50 ADRs mit maschinenlesbaren Drift-Feldern, 0 Konsumenten | C6 | hoch |
+| B1 | `drift_check_paths` (23 ADRs) und `staleness_months` (29 ADRs): **0 Konsumenten** — verifiziert per `grep -rln` über `tools/ scripts/ .github/` (C14). Für `implementation_evidence` (109 ADRs) existiert **ein halber** Konsument: `tools/adr_evidence_paths.py`, in `adr-validate.yml` aber **non-gating (SUGGEST)** und mit nur **39 von 158** geprüften Pfad-Kandidaten (68 „fremder Root", 43 cross-repo, 8 Teilspiegel übersprungen) | C6, C14 | hoch |
+| B1a | Genau dieser halbe Konsument ist das Muster, das KONZ-041 adressiert: gebaut, aber blockiert nichts und überspringt 75 % — „2 Findings" liest sich wie „sauber", misst aber ein Viertel des Feldes | C14 | hoch |
 | B2 | drift_check.py prüft gegen hartkodiertes Soll, nicht gegen ADRs | C4 | hoch |
 | B3 | ADR-Status-Frontmatter schmutzig: 0/3-Stichprobe intern widersprüchlich | C7 | hoch |
 | B4 | 181 accepted vs 8 superseded — ADR-Ratsche kennt nur Anbau | C9 | hoch |
@@ -421,6 +430,17 @@ gekoppelt, damit nie wieder ein deklariertes Feld ohne Konsumenten entsteht.
 | D5 | Eigenes Report-Issue + Fristen-Eskalation (2 Fenster/14 d; critical: 1 Lauf) + Zwei-Buttons + Ledger-Pflicht | Workflow-Schritt + 2 Templates + Issue | M |
 | D6 | Amendment-Vorschlag an KONZ-038 §5.4 (Memory-Löschen, 🌀-Ausnahme) | kleiner PR an KONZ-038 | S |
 | D7 | Klassifikationskampagne Pilot-Repos (Baseline eingefroren, Abbruch > 4 h) | Feld-PRs + Baseline-Commit | M |
+
+**Zweitfall-Kandidaten für K-B2 (vorbereitet, Rev 3 — Auswahl bleibt verblindet beim
+Owner, C14):** Die Kartierung beider Pilot-Repos hat drei geeignete Fälle geliefert, alle
+in risk-hub (platform scheidet aus: dort meldet `adr_evidence_paths.py` Typ-B-Fälle
+bereits, ein „verblindeter" Fall wäre vorbekannt und bewiese den alten Checker, nicht den
+neuen). Rangfolge: **(1)** ADR-054 — Body sagt „verbindlich, **DB-durchgesetzt**", real
+nur `clean()` auf App-Ebene, Migration `0005` enthält kein `AddConstraint`/`RunSQL`
+(**real rot ohne Mutation**); **(2)** ADR-038 — Body-Dateiliste nennt `models/avv.py`,
+real `models/dpa.py` (reiner `file`-Check, sauber mutierbar); **(3)** ADR-004 —
+`api/v1/` existiert, das zugesagte `openapi/v1/openapi.yaml` fehlt vollständig.
+Der Owner wählt NACH Runner-Merge einen davon (oder einen anderen) aus.
 
 **M1:** D1 nie ohne D3 mergen. **Erstfälle (verbindlich, Rev 3):** risk-hub **ADR-053
 `implementation_status`-Drift** als Plumbing-Fall (K-B1) — die Invariante prüft die drei
