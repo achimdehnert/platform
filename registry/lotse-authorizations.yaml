@@ -19,10 +19,10 @@ meta:
   zaehlgroesse: >
     Für Art.-10-Eskalationskriterium 1 und den Sechs-Artefakt-Trigger
     (KONZ-025 „Struktur & Zielbild") zählen nur Einträge mit status: active.
-    Stand Erteilung: 4 active, 3 proposed, 1 dokumentierter Nicht-Vollmacht-
-    Marker (LV-004). Die nächste Aktivierung einer proposed-Vollmacht
-    überschreitet die 5er-Schwelle NICHT (5 ≤ 5), die übernächste schon —
-    dann ist der Sechs-Artefakt-Ausbau fällig, bevor weiter aktiviert wird.
+    Stand 2026-08-06 (inkl. LV-009): 5 active, 3 proposed, 1 dokumentierter
+    Nicht-Vollmacht-Marker (LV-004). Die 5er-Grenze ist damit ERREICHT —
+    jede weitere Aktivierung überschreitet sie und löst zuerst den
+    Sechs-Artefakt-Ausbau aus, bevor aktiviert werden darf.
 
 authorizations:
 
@@ -83,16 +83,17 @@ authorizations:
     mode: D
     status: gate-dokumentiert
     limits: "Versand nur nach informierter Einzelfreigabe je Mail (Empfänger, Diff, Anhänge sichtbar — Reaktionsklasse CHALLENGE)"
-    forbidden: ["Versand unter Standing Authorization jeder Art"]
+    forbidden: ["pauschaler Versand unter Standing Authorization — Ausnahmen NUR als eigene, explizit benannte Registry-Vollmacht je Vorgang/Kontakt"]
     expires_at: "—"
     invalidated_by: []
     verification: "Sent-Ordner-Abgleich"
     anmerkung: >
       Bewusster Machtverzicht trotz Kapitäns-Wortlaut „alles rund um Mail"
       (Kill-Kriterium e der Charta): Versand ist Außenwirkung gegenüber Dritten
-      (Art. 7) und bleibt auf Reifegrad D. Beförderung später nur klassenweise
-      nach Prüfkatalog 2.1 (z. B. „Terminbestätigung im bestehenden Thread mit
-      Allowlist-Kontakt"), nie pauschal.
+      (Art. 7) und bleibt auf Reifegrad D. Kapitäns-Entscheid 2026-08-06
+      (Session): Widerspruch akzeptiert, mit Ausnahme-Klasse für explizit
+      benannte Vorgänge/Kontakte als eigene Vollmacht — erste Anwendung LV-009.
+      Beförderung weiterer Klassen nur nach Prüfkatalog 2.1, nie pauschal.
 
   # ── Programm B: DSB-Assistenz (neue Fähigkeitsklasse — startet nach
   #    Art. 2.7 unten, nicht auf Autonomie; Beförderung über D nach 2.1) ──
@@ -140,6 +141,24 @@ authorizations:
     invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "neue Organization in risk-hub ohne eigenen Ratifikations-Akt (Art. 4: neuer Mandant = neue Quelle)"]
     preconditions: "je Mandat LV-005+LV-006 gelaufen; Erkennbarkeit als Lotsen-Entwurf pro Kontakt vereinbart (Art. 7)"
     verification: "Draft-Ordner + Provenienz-Zeilen; Quartals-Review"
+
+  # ── Vollmacht D: LUCAS-Zusammenarbeit mit Ilja (Kapitäns-Session 2026-08-06,
+  #    Nachtrag; erste Anwendung der Versand-Ausnahme-Klasse aus LV-004) ──
+
+  - id: LV-009
+    program: lucas
+    action: "Direkte, eigenständige Mail-Interaktion mit Ilja zur Weiterentwicklung von LUCAS — lesen, entwerfen und SENDEN, inkl. fachlicher Abstimmungen, Reviews und Vorschlägen"
+    scope:
+      empfaenger: "genau ein Kontakt: Ilja (Adresse belegt im CC-Memory; Personendaten nie in dieses public Repo)"
+      thema: "LUCAS-Weiterentwicklung innerhalb der bestehenden Grundrichtung (Kapitäns-Wortlaut: 'solange die grundsätzliche Richtung von lucas sich nicht ändert')"
+    forbidden: ["Mitwirkung an Richtungsänderungen von LUCAS ohne Kapitäns-Entscheid (Reaktionsklasse CHALLENGE)", "rechtlich oder finanziell bindende Zusagen (STOP 6.3)", "neue Empfänger, Verteiler oder Weiterleitungen", "Offenlegung von Daten Dritter"]
+    mode: F
+    limits: "JEDE gesendete Mail trägt den Kapitän in CC; Erkennbarkeit als KI-Assistent in der Korrespondenz etabliert (Art. 7); verlässt ein Thread das Thema LUCAS oder die Grundrichtung, endet die Autonomie für diesen Thread sofort"
+    status: active
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "Widerruf durch Kapitän", "Opt-out des Kontakts"]
+    preconditions: "Art.-7-Ansage-Mail an den Kontakt versendet (Kapitän in CC) — erfolgt 2026-08-06 auf Kapitäns-Anweisung"
+    verification: "Sent-Ordner + CC-Kopien beim Kapitän = lückenlose Spur; Quartals-Review (Art. 8)"
 
   # ── Programm C: Publikationen ──
 
