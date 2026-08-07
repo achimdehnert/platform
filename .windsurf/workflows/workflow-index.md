@@ -56,6 +56,7 @@ mode: read-only
 | Problem → entscheidungsreifes Konzept (T1/T2/T3) | `/konzept` |
 | Eingereichte Arbeit formal prüfen (Zitate, Abbildungen, Belege) | `/arbeit-pruefen` |
 | Memory-Lane D4-klassifizieren (A/B/C, Regel-Extraktion, KONZ-038) | `/d4-lane` |
+| Rechnungs-Mails → Paperless + sevdesk-Entwurf (nie buchen) | `/rechnungsstrecke` |
 
 ### Repo-Onboarding & Setup
 
