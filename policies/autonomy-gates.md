@@ -60,6 +60,28 @@ berührt wird).
   `cat`/`grep` über Dateiinhalte) — nur Dateinamen, Größen, Hashes. Divergente/
   nicht-identische Dateien bleiben stehen + werden gemeldet (kein blindes
   Überschreiben). Secret-**Rotation** bleibt Gate 1.
+- **SA-4 — Zielzustand-Konvergenz: Umbauten, die den IST-Stand einem AKZEPTIERTEN
+  Zielzustand nachweisbar näherbringen.** 🟡 **VORGESCHLAGEN (2026-08-07, Policy-PR,
+  selbstbetreffend eingebracht — Ratifikation = wörtliches Owner-Go beim Review,
+  nicht der Merge allein.)** Autonome Umsetzung inklusive plain-Merge, wenn ALLE
+  Bedingungen erfüllt sind:
+  1. Ein **akzeptiertes Artefakt** (ADR/KONZ/Issue mit Akzeptanzkriterien,
+     `zielzustand.md` Pkt. 3) beschreibt den Zielzustand. „Naheliegend" heißt
+     ausschließlich: der PR verlinkt das Artefakt UND benennt das
+     Akzeptanzkriterium, auf das er einzahlt — nie das eigene Urteil des Agenten.
+  2. Die Änderung ist **reversibel** und berührt weder Gate 1 (Irreversibles),
+     Gate 2 (Prod-Zustand — in Auto-Deploy-Repos ist der Merge selbst Gate 2),
+     Gate 3 (Security-/Governance-Config) noch Gate 5 (Spend). Gate 4 (drittes
+     Repo) nur, wenn das Artefakt die Repos selbst benennt.
+  3. **Abweichung vom Artefakt = Stopp + Scope-Checkpoint** — Zielzustand
+     aktualisieren und erneut akzeptieren lassen, nicht stillschweigend erweitern.
+  4. **Ratsche:** befristet bis Ritual-Lauf 2 (KONZ-038); die erste Fehlanwendung
+     (Umbau ohne tragendes Artefakt oder an einem Gate vorbei) setzt die Klasse
+     auf Einzelfreigabe zurück. Zählung über den Kill-Test unten (Signal G).
+  **Ausdrücklich AUSGESCHLOSSEN:** Änderungen an dieser Policy, an Charta/
+  Profilen/Permissions (selbstbetreffend — immer Owner), sowie alles, was eine
+  wartende Owner-Entscheidung überholen würde (erkennbar an „wartet auf
+  Entscheidung/Go" im Artefakt).
 
 **Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
 liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
@@ -153,6 +175,14 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
+- 2026-08-07: **SA-4 (Zielzustand-Konvergenz) VORGESCHLAGEN** — selbstbetreffend
+  eingebracht (erweitert die Reichweite des Agenten), deshalb ungebündelter
+  Policy-PR; Ratifikation nur durch wörtliches Owner-Go beim Review. Anlass:
+  Owner-Frage „mehr Autonomie bei naheliegenden Umbauten, die IST dem Zielzustand
+  näherbringen?" — Zuschnitt bindet „naheliegend" ans akzeptierte Artefakt
+  (`zielzustand.md` Pkt. 3) statt ans Agenten-Urteil; Probe an zwei Realfällen
+  vom selben Tag: Canary-Rückbau wäre NICHT gedeckt (wartende Owner-Entscheidung),
+  D4-Regel-Extraktion wäre gedeckt gewesen.
 - 2026-08-02: Abschnitt **Budget-Deklaration** ergänzt (Owner-Input aus einem externen Papier).
   Ergänzt Gate 5, ersetzt es nicht: Gate 5 regelt die Erlaubnis, die Deklaration die Obergrenze.
   Vorgabewerte bewusst als engste Auslegung (ohne Angabe: ein Agent, keine Schreibzugriffe, kein
