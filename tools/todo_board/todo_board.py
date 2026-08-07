@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""Persistente Arbeitsliste — baut aus dem Vorgangs-Ledger eine HTML-Seite und serviert sie.
+
+Warum es das gibt: `/mailcheck` erhebt den Stand offener Vorgaenge und schreibt ihn
+nach `~/.claude/mail-vorgaenge.json`. Bisher war das Board fluechtig — es stand in
+einer Chat-Antwort und war beim naechsten Fenster weg, waehrend Fristen (AV-Pruefung,
+Angebotsfrist, DSGVO-Monatsfrist) genau dort schlummerten, wo niemand hinsieht.
+Dieser Dienst macht denselben Zustand dauerhaft sichtbar.
+
+    todo_board.py build            → schreibt ~/.claude/boards/todo.html
+    todo_board.py serve            → 127.0.0.1:8789, baut bei jedem Abruf neu
+
+Bewusst getrennt von `mail_agent/mail_link_server.py`: der rendert Mail-Koerper live
+aus dem Postfach und darf darum nie oeffentlich stehen. Dieser Dienst kennt nur das
+Ledger, spricht kein IMAP und hat genau eine Seite — das ist die Angriffsflaeche, die
+hinter Cloudflare Access vertretbar ist.
+
+Das Ledger enthaelt Klarnamen von Mandanten und Betreffs aus laufenden Vorgaengen.
+Der Dienst bindet darum auf Loopback und verlangt fuer jede andere Adresse ein
+ausdrueckliches `--oeffentlich-hinter-auth`. Wer das setzt, ohne eine
+Authentifizierung davorzuhaengen, legt Mandantendaten offen.
+
+Quelle bleibt das Ledger. Dieses Werkzeug schreibt nie hinein.
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import sys
+from datetime import date, datetime
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
+AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
+PORT = 8789
+
+# Reihenfolge der Abschnitte = Reihenfolge der Dringlichkeit. Leere entfallen.
+BUCKETS = (
+    ("owner", "Dein Zug", "Entscheidung, Berechtigung oder Inhalt, den nur du hast"),
+    ("agent", "Ich kann sofort", "Braucht kein Gate — sag zu, dann laeuft es"),
+    ("warten", "Wartet auf andere", "Der naechste Zug kommt von aussen"),
+)
+KONTO_LABEL = {"iil": "IIL", "hnu": "HNU", "ad": "Mittwald", "": "—"}
+
+
+def heute() -> date:
+    return date.today()
+
+
+def lade(pfad: Path) -> dict:
+    if not pfad.exists():
+        sys.exit(f"FEHLER: Ledger {pfad} fehlt — erst /mailcheck laufen lassen.")
+    with pfad.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def frist_tage(v: dict, stichtag: date) -> int | None:
+    """Resttage bis zur Frist; None, wenn der Vorgang keine traegt."""
+    roh = v.get("frist")
+    if not roh:
+        return None
+    try:
+        return (datetime.strptime(roh, "%Y-%m-%d").date() - stichtag).days
+    except ValueError:
+        # Ein unlesbares Datum ist ein Befund, kein Grund, die Seite abstuerzen zu
+        # lassen — es faellt in der Ausgabe als "?" auf.
+        return None
+
+
+def ampel(tage: int | None) -> tuple[str, str]:
+    """(CSS-Klasse, Text) fuer die Fristenspalte."""
+    if tage is None:
+        return "keine", "—"
+    if tage < 0:
+        return "rot", f"{abs(tage)} Tage ueberfaellig"
+    if tage == 0:
+        return "rot", "heute"
+    if tage <= 3:
+        return "rot", f"in {tage} Tagen"
+    if tage <= 10:
+        return "gelb", f"in {tage} Tagen"
+    return "gruen", f"in {tage} Tagen"
+
+
+def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
+    """Fristen zuerst, aufsteigend; Fristlose danach, alphabetisch."""
+    tage = frist_tage(v, stichtag)
+    return (1, 0, v.get("thread_key", "")) if tage is None else (0, tage, "")
+
+
+def zeile(v: dict, stichtag: date) -> str:
+    tage = frist_tage(v, stichtag)
+    klasse, text = ampel(tage)
+    konto = KONTO_LABEL.get(v.get("konto", ""), v.get("konto", "—"))
+    frist = v.get("frist") or ""
+    return (
+        "<tr>"
+        f"<td class='sache'>{html.escape(v.get('thread_key', '—'))}"
+        f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
+        f"<td class='konto'>{html.escape(konto)}</td>"
+        f"<td class='frist {klasse}'>{html.escape(text)}"
+        f"<span class='datum'>{html.escape(frist)}</span></td>"
+        f"<td class='schritt'>{html.escape(v.get('kurz') or v.get('next_trigger', ''))}</td>"
+        "</tr>"
+    )
+
+
+def abschnitt(titel: str, unter: str, posten: list[dict], stichtag: date) -> str:
+    if not posten:
+        return ""
+    zeilen = "".join(
+        zeile(v, stichtag)
+        for v in sorted(posten, key=lambda x: sortschluessel(x, stichtag))
+    )
+    return f"""<section>
+<h2>{html.escape(titel)} <span class='zahl'>{len(posten)}</span></h2>
+<p class='unter'>{html.escape(unter)}</p>
+<table><thead><tr><th>Sache</th><th>Konto</th><th>Frist</th><th>Naechster Schritt</th></tr></thead>
+<tbody>{zeilen}</tbody></table>
+</section>"""
+
+
+CSS = """
+:root{--bg:#fbfbfa;--fg:#1a1a19;--stumm:#6b6b66;--linie:#e3e3df;--karte:#fff;
+--rot:#b3261e;--gelb:#8a6100;--gruen:#2c6b3f}
+:root:not([data-theme=light]){}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+--bg:#16171a;--fg:#e8e8e6;--stumm:#9a9a95;--linie:#2c2e33;--karte:#1e2024;
+--rot:#f2836f;--gelb:#e0b341;--gruen:#7fc79a}}
+:root[data-theme=dark]{--bg:#16171a;--fg:#e8e8e6;--stumm:#9a9a95;--linie:#2c2e33;
+--karte:#1e2024;--rot:#f2836f;--gelb:#e0b341;--gruen:#7fc79a}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem 1.25rem 4rem;background:var(--bg);color:var(--fg);
+font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:60rem;margin:0 auto}
+h1{font-size:1.5rem;margin:0 0 .25rem}
+.stand{color:var(--stumm);font-size:.85rem;margin:0 0 2rem}
+section{background:var(--karte);border:1px solid var(--linie);border-radius:10px;
+padding:1.1rem 1.25rem;margin-bottom:1.25rem}
+h2{font-size:1.05rem;margin:0;display:flex;align-items:center;gap:.5rem}
+.zahl{font-size:.75rem;font-weight:600;color:var(--stumm);border:1px solid var(--linie);
+border-radius:999px;padding:.05rem .5rem}
+.unter{color:var(--stumm);font-size:.82rem;margin:.2rem 0 .9rem}
+.tabellenrahmen,section{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;
+color:var(--stumm);font-weight:600;padding:0 .6rem .4rem 0;border-bottom:1px solid var(--linie)}
+td{padding:.6rem .6rem .6rem 0;border-bottom:1px solid var(--linie);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.sache{font-weight:500;min-width:14rem}
+.wer{display:block;font-weight:400;font-size:.78rem;color:var(--stumm);margin-top:.15rem}
+.konto{color:var(--stumm);white-space:nowrap}
+.frist{white-space:nowrap;font-variant-numeric:tabular-nums}
+.frist .datum{display:block;font-size:.72rem;color:var(--stumm)}
+.frist.rot{color:var(--rot);font-weight:600}
+.frist.gelb{color:var(--gelb);font-weight:600}
+.frist.gruen{color:var(--gruen)}
+.frist.keine{color:var(--stumm)}
+.schritt{color:var(--fg)}
+footer{color:var(--stumm);font-size:.78rem;margin-top:2rem;text-align:center}
+"""
+
+
+def baue(daten: dict, stichtag: date) -> str:
+    posten = daten.get("vorgaenge", [])
+    nach_bucket: dict[str, list[dict]] = {k: [] for k, _, _ in BUCKETS}
+    # Ein Vorgang ohne bekannten Bucket verschwindet nicht — er landet sichtbar
+    # bei "Dein Zug", damit eine fehlende Klassifikation auffaellt statt zu schweigen.
+    for v in posten:
+        schluessel = v.get("bucket")
+        nach_bucket[schluessel if schluessel in nach_bucket else "owner"].append(v)
+    abschnitte = "".join(
+        abschnitt(t, u, nach_bucket.get(k, []), stichtag) for k, t, u in BUCKETS
+    )
+    geprueft = html.escape(str(daten.get("letzte_pruefung", "unbekannt")))
+    faellig = sum(
+        1 for v in posten if (d := frist_tage(v, stichtag)) is not None and d <= 3
+    )
+    warnung = (
+        f" · <strong>{faellig} in den naechsten 3 Tagen faellig</strong>"
+        if faellig
+        else ""
+    )
+    return f"""<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Arbeitsliste</title><style>{CSS}</style></head>
+<body><main>
+<h1>Arbeitsliste</h1>
+<p class="stand">{len(posten)} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
+{abschnitte}
+<footer>Quelle: mail-vorgaenge.json · gebaut {html.escape(stichtag.isoformat())} ·
+fortgeschrieben durch /mailcheck</footer>
+</main></body></html>"""
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "todo-board"
+
+    def _sende(self, status: HTTPStatus, body: bytes, ctype: str) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def log_message(self, fmt: str, *args) -> None:
+        # Pfade und Query-Strings koennten Vorgangsnamen tragen — nicht ins Log.
+        sys.stderr.write(
+            f"{self.address_string()} {self.command} {args[1] if len(args) > 1 else ''}\n"
+        )
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        self.do_GET()
+
+    def do_GET(self) -> None:  # noqa: N802
+        pfad = self.path.split("?", 1)[0].rstrip("/") or "/"
+        if pfad == "/healthz":
+            self._sende(HTTPStatus.OK, b"ok\n", "text/plain; charset=utf-8")
+            return
+        if pfad != "/":
+            self._sende(
+                HTTPStatus.NOT_FOUND, b"nicht gefunden\n", "text/plain; charset=utf-8"
+            )
+            return
+        try:
+            seite = baue(lade(LEDGER), heute())
+        except (OSError, json.JSONDecodeError) as exc:
+            # Ein kaputtes Ledger darf nicht als leere, beruhigende Liste erscheinen.
+            body = (
+                f"<h1>Ledger nicht lesbar</h1><p>{html.escape(str(exc))}</p>".encode()
+            )
+            self._sende(
+                HTTPStatus.INTERNAL_SERVER_ERROR, body, "text/html; charset=utf-8"
+            )
+            return
+        self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
+
+def cmd_build(args: argparse.Namespace) -> None:
+    ziel = Path(args.ausgabe).expanduser()
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    ziel.write_text(baue(lade(LEDGER), heute()), encoding="utf-8")
+    print(f"OK: {ziel}")
+
+
+def cmd_serve(args: argparse.Namespace) -> None:
+    if args.bind != "127.0.0.1" and not args.oeffentlich_hinter_auth:
+        sys.exit(
+            f"FEHLER: --bind {args.bind} verweigert. Das Ledger traegt Mandanten- und\n"
+            "Pruefungsdaten. Nur mit vorgelagerter Authentifizierung (Cloudflare Access,\n"
+            "Tunnel-only) und dann mit --oeffentlich-hinter-auth."
+        )
+    srv = ThreadingHTTPServer((args.bind, args.port), Handler)
+    print(f"Arbeitsliste auf http://{args.bind}:{args.port}/ — Strg-C beendet.")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        srv.server_close()
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    b = sub.add_parser("build", help="HTML-Datei schreiben")
+    b.add_argument("--ausgabe", default=str(AUSGABE))
+    b.set_defaults(fn=cmd_build)
+    s = sub.add_parser("serve", help="lokal ausliefern, bei jedem Abruf frisch gebaut")
+    s.add_argument("--port", type=int, default=PORT)
+    s.add_argument("--bind", default="127.0.0.1")
+    s.add_argument("--oeffentlich-hinter-auth", action="store_true")
+    s.set_defaults(fn=cmd_serve)
+    args = ap.parse_args()
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()
