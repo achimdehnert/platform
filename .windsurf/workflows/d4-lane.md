@@ -38,9 +38,7 @@ fortsetzt, liest ZUERST die dortigen `d4-lane-status`-Datensätze (Schema in Ste
    Sonderfall globale Lane: Argument `global` → `~/.claude/projects/-home-devuser/memory/`.
 2. Existenz prüfen: Lane-Verzeichnis UND mindestens eine `*.md` darin. Fehlt beides →
    **sauber abbrechen** mit Meldung „Lane leer/nicht vorhanden" — kein Verzeichnis anlegen.
-3. Org bestimmen (`git -C <repo-ordner> remote get-url origin`). Bei `meiki-lra`/`ttz-lif`:
-   Gov-Regel unten beachten (Step 6).
-4. Klassendefinition lesen: `~/github/platform/docs/konzepte/KONZ-platform-038*.md` §5.1.
+3. Klassendefinition lesen: `~/github/platform/docs/konzepte/KONZ-platform-038*.md` §5.1.
    Ist platform lokal nicht vorhanden: `git show` über GitHub-API (`achimdehnert/platform`,
    main) — die Definition NIE aus dem Gedächtnis rekonstruieren.
 
@@ -123,10 +121,6 @@ Läufe und Auswertungen parsen ihn):
 {"d4-lane-status": {"repo": "<repo>", "datum": "<YYYY-MM-DD>", "gesamt": 0, "vorher_klassifiziert": 0, "direkt": 0, "extrahiert": 0, "nichtregeln": 0, "uebersprungen_mit_grund": 0, "stand": "x/y", "assessed_with": "<modell-id>", "offene_faelle": ["<datei>: <grund>"]}}
 ```
 
-**Gov-Regel (meiki-lra/ttz-lif):** In den platform-Kommentar gehören NUR Zahlen und
-Dateinamen — keine Regeltexte, keine Inhalte. Inhaltliche Befunde bleiben als Issue im
-Gov-Repo selbst (Gov-Funde bleiben im Gov-Repo).
-
 ## Verboten
 
 - Klasse C nach A/B abschwächen (Korrektur nur Richtung C)
@@ -143,5 +137,5 @@ Gov-Repo selbst (Gov-Funde bleiben im Gov-Repo).
 - [ ] Step 3/4: jede neue/geänderte Datei mit vollständigem Frontmatter-Schema
 - [ ] Step 4.4: MEMORY.md-Zeile je extrahierter Datei
 - [ ] Step 5: Selbstverifikation gelaufen, 3er-Stichprobe dokumentiert
-- [ ] Step 6: #1640-Kommentar mit JSON-Datensatz abgesetzt (Gov-Regel beachtet)
+- [ ] Step 6: #1640-Kommentar mit JSON-Datensatz abgesetzt
 - [ ] Bewusst Ausgelassenes im Datensatz unter `offene_faelle` getrackt
