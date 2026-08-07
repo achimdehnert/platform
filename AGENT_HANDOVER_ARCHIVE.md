@@ -943,3 +943,120 @@ liegen gelassen, gehören anderen Sitzungen.
 - **Zweiter eigener Fehler, vom Owner gefunden:** eine Live-URL mit ✅ genannt, während die beschriebenen Funktionen nur in einem **offenen** PR existierten („weder sortierbar noch reinklickbar"). Regel daraus: solange ein PR offen ist, gilt 🟡 „gebaut, nicht deployt" — nie ✅.
 - **Offen, in dieser Reihenfolge:** (1) **M2/M3** aus KONZ-004 — offene Punkte ab Stichtag eröffnen, Zuordnung über Beteiligte **und** Kette; ohne das bleibt es eine Eingangsliste statt einer Aufgabenliste. (2) **M8** Rückfrage-Vorrat mit der Engstelle und dem Test, der beweist, dass ein abgelehntes Paar keinen zweiten Vorschlag erzeugt. (3) **Stundenzeitplan für den Delta-Lauf** (Migration → eigene Freigabe). (4) **IMAP-Delta zweimal scharf laufen lassen** — der Graph-Zwilling ist belegt, der IMAP-Weg nicht. (5) dev-hub#211.
 - **Nicht verifiziert, ausdrücklich:** der IMAP-Delta-Pfad am echten Postfach · wie viele Antworten die Erkennung **nicht** findet (neuer Betreff, Telefonat) · ob die Suchzeit von ~8 s stabil ist (zwei Läufe, der erste kalt) · ob die 36 überschrittenen Lease-Abstände real Konflikte erzeugt hätten.
+
+## ⚡ Vorheriger Stand (2026-08-05 — Werkzeuge statt Prosa; ein Anzeigetext sagte das Gegenteil des Sachverhalts)
+
+**Zeitanker:** HEAD `bd1ffb5a` · `rev-list --count` 2919 · geschrieben 2026-08-05
+
+- **🟢 ZUERST — die MEiKI-Anzeige ist entscheidungsreif, die Sachfrage ist geklärt.** Der Entwurf liegt im hnu-Postfach (`Entwürfe`, an `schmidt@actago.de`, 9 Anlagen, **nicht gesendet** — der Versand ist eine Owner-Entscheidung). Der Auftragsverarbeitungsvertrag LRA–OCOS **besteht**: zugesichert von OCOS selbst (C. Zeiner, telefonische Rücksprache 2026-08-03), Entscheidung des Projektleiters vom 2026-08-05, dieser Zusicherung zu folgen. Das ist die belastbarste verfügbare Quelle — Zeiner ist Vertragspartei. **Provenienz für den Fall einer Rückfrage der Aufsicht:** schriftlich übersandt hat OCOS am 2026-08-03 den eigenen AVV-Mustervertrag (`Vertraulich_AVV_Ocos.docx`); die Bestätigung des *geschlossenen* Vertrags mit dem Landratsamt erfolgte mündlich, der Nachweis in Papierform liegt in der Vertragsakte des Landratsamts. Die frühere Einstufung als Blocker (Stand vom Vormittag) ist damit zurückgezogen. Die Nebenspur ist ebenfalls geklärt (Owner, 2026-08-05): `00891_Beauftragung_Ocos Solutions GmbH.pdf` über `beschaffung@hnu.de` ist ein **Beratungsvertrag, keine Programmierung** — die Hochschule lässt sich beraten, es fließen keine Sozialdaten an OCOS. Damit **keine** zweite Auftragsverarbeitung und kein zusätzlicher Anzeigetatbestand. Die Konstellation ist sauber getrennt: LRA→OCOS Auftragsverarbeitung (Dokumentenstrom, AV besteht, angezeigt) · HNU→OCOS Beratung (ohne Datenverarbeitung) · HNU→LRA Fristenmanagement-Betrieb ab Pilot 2 (§ 80 Abs. 1 Satz 1 **und** Satz 2). Die Grenze der Beratungs-Einordnung liegt dort, wo OCOS im Zuge der Beratung Zugriff auf echte Sozialdaten bekäme — konkret relevant, weil Zeiner die Umgebungsvariablen des Produktivpfads „nach Zustimmung durch Herrn Kramer" angeboten hat.
+- **[meiki-hub#138](https://github.com/meiki-lra/meiki-hub/pull/138) ist merge-fertig und wartet auf deine Entscheidung** — CI grün, kein Review-Ruleset, kein Deploy-Pfad berührt. Bewusst **nicht** autonom gemergt: Owner-Weisung 2026-08-05 — in Abläufen mit Menschen schlage ich vor, warne und weise hin; entschieden wird vom Owner. Die Standing-Authorization SA-1 beschreibt, was technisch zulässig ist, nicht was inhaltlich meine Entscheidung wäre.
+- **Vier von neun Anlagen der DSB-Anfrage trugen einen falschen Sachverhalt** — korrigiert in [meiki-hub#138](https://github.com/meiki-lra/meiki-hub/pull/138) (offen, CLEAN). Sie führten die Dokumenten-Steuerung als „keine Sozialdaten · kein externer Auftragsverarbeiter · keine Anzeige" und schrieben, es komme in keiner Stufe ein lernendes Verfahren zum Einsatz. Kramer schrieb derselben Empfängerin 17 Minuten nach dem Versand der Vorfassung, die Post werde „KI-gestützt sortiert und verschlagwortet", dabei würden personenbezogene Daten verarbeitet. Betroffen war auch `anzeigetext-80-abs1-satz1-lra.pdf` — der Text an die Aufsicht selbst. `anzeigetext-80-abs1-satz2-hnu.pdf` blieb bewusst unverändert (sein „deterministisch" gilt dem Fristenmanagement und stimmt). **Zwei Rechtsfragen nebenbei geklärt:** Behörde zu sein schließt die Auftragsverarbeitung nicht aus — § 80 Abs. 1 Satz 2 SGB X **verdoppelt** die Anzeigepflicht (LRA an seine Aufsicht, HNU an ihre). Und Kramers „Anzeige nach § 80 Abs. 2" ist die falsche Fundstelle; Abs. 2 regelt den Verarbeitungsort.
+- **KONZ-038 D6 abgeschlossen** ([#1766](https://github.com/achimdehnert/platform/pull/1766) gemergt): Das Slug-Wörterbuch der eingefrorenen K1-Baseline hatte **keinen maschinellen Konsumenten** — „unmappbar = nicht bewertbar" und „Instrumentenwechsel ⇒ Neuberechnung" standen als Prosa im YAML-Kopf, der Ritual-Lauf verwies auf den „manuellen Teil". `retro_kpis.py --k1` rechnet den Ausgang jetzt und ist in `regel-ritual.yml` verdrahtet. Baseline nach dem eigenen Instrumentenwechsel neu berechnet (identisch: n=20, 10/7/3, Summen-Rate 1.000), Pin nachgezogen. Suite 23 → 36.
+- **Megatest: die „5 nicht scannbaren Repos" lagen nie am Token** ([#1768](https://github.com/achimdehnert/platform/pull/1768) gemergt). `megatest.yml` klonte alle 52 als `achimdehnert/$repo`; 11 liegen unter iilgmbh/meiki-lra/ttz-lif, 6 rettete GitHubs Redirect, **5 antworten mit 404** — darunter `iil-voice-agent` mit **Budget 39**, dem größten Posten von [#1682](https://github.com/achimdehnert/platform/issues/1682), nie im CI gescannt. Der Owner-Resolver lag fertig in der Registry und wurde nicht aufgerufen. Der Budget-Abbau selbst bleibt offen (App-Repos).
+- **[#1549](https://github.com/achimdehnert/platform/issues/1549) geschlossen, mit ehrlichem Rand:** Prod 0 unhealthy von 43, `devhub_beat` bei 45 % statt 89,5 %. Aber `dms_hub_*` und `coach_hub_*` laufen unter dem Freeze gar nicht — ihre Null kommt aus „läuft nicht", nicht aus „läuft gesund". Steht so im Issue.
+- **Neuer Skill mit eigenem Prüfer** ([#1770](https://github.com/achimdehnert/platform/pull/1770), offen, CI grün): `/arbeit-pruefen` + `tools/dokument_formalpruefung.py` (13 Prüfungen, 28 Tests) für die Formalprüfung eingereichter Arbeiten. Das Werkzeug widerlegte sofort die eigene Handprüfung (32 statt 17 betroffene Abbildungen, 26 statt 24 Belege, zwei zusätzliche Befunde). Das Quellen-Gate ist gemessen, nicht vorsichtig: von 9 belegbar falsch zugeschriebenen Literatureinträgen tragen 3 keinen Autor-Marker, 2 überhaupt keinen.
+- **Zwei offene Nebenbefunde:** [#1769](https://github.com/achimdehnert/platform/issues/1769) — `read_mail.py --list` liefert **0 von 221 geprüften** Nachrichten in jedem Ordner, `treffer: []`, `fehler: []`, Exit 0; dasselbe Werkzeug trägt den Schalter `--abwesenheitsbeweis`. [#1767](https://github.com/achimdehnert/platform/issues/1767) — fsn1 3 Container unhealthy aus **drei** Ursachen (Healthcheck probt HTTP auf einem Celery-Worker · `docker exec` scheitert seit 5 Wochen · `ib_gateway` ruft ein nicht installiertes `nc`). Der Neustart wurde vom Berechtigungs-Klassifikator geblockt, das Kommando steht im Issue. Vorfrage vor dem Neustart: Der Stack ist ein Juni-Worktree-Rest mit seit 3 Wochen totem Web-Container — `down` wäre womöglich richtiger als `up`.
+- **Gesendet hat der Owner selbst (verifiziert am gesendeten Text):** Rückmeldung an R. Frost zur Masterarbeit (13:24) · Rückfrage an C. Zeiner zu Verschlagwortungs-Verfahren, Azure-Verarbeitungsorten und geltendem AVV (12:49). Zeiners Antwort ist die Voraussetzung für M-6/M-7 in der Anzeigepflicht-Matrix.
+- **Eigene Fehler dieser Sitzung:** `git checkout` auf eine Datei mit ungetrackter Arbeit — das komplette K1-Modul war weg und musste neu geschrieben werden, obwohl genau diese Lehre im Memory steht (im selben Zug ein zweites Mal: ein Splice traf die Erwähnung im Konventions-Kommentar statt die Überschrift) · zwei falsche Zahlen in einer Rückmeldung an einen Studenten · eine Marker-Quote ohne exaktes Auszählen behauptet, deren Korrektur zugleich eine Detektionslücke freilegte (`[a-zäöüß]` kennt „Léo" nicht) · dreimal eine Null gemeldet, ohne die Positivprobe zu fahren — dreimal hat der Evidenz-Gate es abgefangen.
+
+
+**Nachtrag (2026-08-05 nachmittags, nach dem formalen Session-Ende) — Mail-Auswertung zweimal widerlegt, Verlaufsansicht gebaut:**
+
+- **Vier Mails sind raus, vom Owner selbst gesendet** (am gesendeten Text verifiziert): Rückfrage an C. Zeiner (12:49) · Rückmeldung an R. Frost zur Masterarbeit (13:24) · **MEiKI-Anzeige an die externe DSB S. Schmidt (13:35)** · Antwort an M. Raslan (13:40) · Antwort an S. Lohwieser mit zwei Anlagen (14:12).
+- **⚠️ OFFEN, konkret: Die MEiKI-Anzeige ging mit NULL Anlagen raus.** Der Text sagt an zwei Stellen „liegt bei" — Frau Schmidt hat den Sachstand, aber weder die beiden Anzeigetexte noch Anzeigepflicht-Matrix, AVV-/TOM-Entwürfe oder Erhebungsbogen. Alle neun PDFs liegen im meiki-hub-Worktree bereit. **Eine kurze Nachfass-Mail im selben Strang ist der nächste Schritt.** Inhaltlich war die gesendete Fassung korrekt (Tabelle mit `ja - OCOS`, Fristenmanagement Stufe 1 `synthetisch`, Pilot 2 `ja - HNU`); der Hinweis zu § 80 Abs. 2 fehlt, weil der Owner den Infrastruktur-Passus vor dem Senden entfernt hat — das nimmt zugleich den Termindruck von Zeiners Auskunft (Telefonat vereinbart für **Freitag 07.08.**).
+- **Zwei Mail-Auswertungen gebaut und beide widerlegt — der lehrreichste Teil des Tages.** Erste Fassung verglich INBOX gegen „Gesendete Objekte": Sie meldete 29 offene Stränge, übersah aber, dass Antworten in Betreuungs- und Projektordnern liegen (Realfall Nawaz: 7 von 9 Nachrichten in `Betreuungen/Nawaz-Muhammad`, darunter eine eigene Antwort). Zweite Fassung las alle Ordner über den `thread_key` — und lief in zwei **gegenläufige** Fehler: **Kollision** (33 Nachrichten von zehn Personen über 1,5 Jahre unter EINEM Schlüssel, weil alle „HNU Kontaktformular" heißen — ohne `References` fällt die Gruppierung auf den Betreff zurück) und **Fragmentierung** (dieselbe Unterhaltung in mehreren Schlüsseln; Abel und Ullah erschienen offen, obwohl beantwortet). Dritte Fassung gruppiert **nach Gesprächspartner** statt nach Strang und ist gegen beides robust.
+- **Was die dritte Fassung fand und die ersten beiden nicht:** `maryhenrietta.ezeobi@student.hnu.de`, „Re: Research Idea" vom 08.06. — **58 Tage, nie beantwortet**. In Fassung 1 unsichtbar (falscher Ordnervergleich), in Fassung 2 unsichtbar (kollidierter Strang). Ebenfalls offen: M. Schönherr fragt seit 30.07. nach einem Präsentationstermin „in der nächsten Woche" (= diese Woche); an dem Termin hängen sein ausführliches Feedback und die Note. Seine Masterarbeits-Idee vom 22.06. hat keine Mail-Antwort — in dieser Korrespondenz läuft aber vieles telefonisch.
+- **[dev-hub#249](https://github.com/achimdehnert/dev-hub/pull/249) — Verlaufsansicht.** `/mail-agent/verlauf/?id=<n>` zeigt den ganzen Faden, neueste zuerst, je Nachricht Von/An/Cc/Datum/Ordner/Betreff/Text/Anhänge. Anhänge über `/mail-agent/anhang/?id=<n>` **inline**, PDFs gehen im Browser auf. Der Anhang-Lesepfad liegt jetzt einmal in `services.anhang_bytes` statt je einmal im Kommando und im View; fehlender Rohtext gibt 404 mit Grund statt 200 mit null Bytes. 391 Tests grün, Rot-Beweis geführt.
+- **Zwei neue Arbeitsregeln als Memory** (Owner-Weisungen): (1) **In Abläufen mit Menschen schlage ich vor, warne und weise hin — entschieden wird vom Owner.** Anlass: Ich hatte geprüft, dass meiki-hub#138 unter SA-1 fällt, und wollte mergen; der PR ändert einen Anzeigetext an eine Aufsichtsbehörde. SA-1 beschreibt, was technisch zulässig ist, nicht was inhaltlich meine Entscheidung wäre. (2) **Mail-Umfangsregler** `knapp | normal | ausführlich` (Default `normal`) plus die davon unabhängige Regel: Jeder Fakt muss beantworten, was gefragt wurde, oder anstoßen, was ich brauche — sonst raus, auch wenn er stimmt. Dazu: **keine harten Zeilenumbrüche in Mails**, nur Absätze.
+- **Eigener Fehler mit Außenwirkung:** In der Lohwieser-Mail stand „In Günzburg ist es IKOL-WG" — abgeleitet aus einer Sammelzeile, tatsächlich ist es **OK.WOBIS**. Vor dem Versand korrigiert. Ein Gefälligkeitsdetail, nach dem niemand gefragt hatte; genau der Fall, den die neue Faktenregel adressiert.
+- **AV LRA–OCOS ist geklärt** (Owner 2026-08-05): Zusicherung von OCOS selbst, Zeiner ist Vertragspartei. Die HNU-Beauftragung über eBANF ist ein **Beratungsvertrag ohne Datenverarbeitung** — keine zweite Auftragsverarbeitung. Konstellation: LRA→OCOS Auftragsverarbeitung (angezeigt) · HNU→OCOS Beratung · HNU→LRA Fristenmanagement ab Pilot 2 (Satz 1 **und** Satz 2). Grenze: Sobald OCOS im Zuge der Beratung Zugriff auf echte Sozialdaten bekäme, kippt die Einordnung — Zeiner hat die Produktiv-Umgebungsvariablen „nach Zustimmung durch Herrn Kramer" angeboten.
+
+## ⚡ Älterer Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
+
+**Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
+
+**Nachtrag (2. Session-Ende 2026-08-02, HEAD `d24fd16f` · count 2769):**
+- **Retro 287b23** gemergt ([#1661](https://github.com/achimdehnert/platform/pull/1661)): 7 Survivors, alle Maßnahmen umgesetzt ([#1664](https://github.com/achimdehnert/platform/pull/1664) + Mode-Fix [#1660](https://github.com/achimdehnert/platform/pull/1660)); Aufrufpfad-Contract-Drill neu (drillt den ECHTEN settings-Pfad); #1186/#1190 als gebaut geschlossen; Welle-2-Rangliste auf [#705](https://github.com/achimdehnert/platform/issues/705) — **workaround-Slug bis 16.09. NICHT gaten (K1-Vergleichsgruppe!)**.
+- **Orchestrator-Token rotiert** (Gate 1, Owner-Wort): neuer Key in `.env.prod` + Container per compose **--force-recreate** (nicht restart!) + `~/.secrets/orchestrator_mcp_api_key` + settings.json konsistent; Container-Env-Präfix verifiziert, Service healthy. Kernlehre als 🌀-Memory: `docker restart` lädt env_file NIE neu — die Juli-Rotation war deshalb 16 Tage wirkungslos.
+- **⚠️ Rotation #2: Server-Hälfte FERTIG, Client-Hälfte OFFEN — Step 0 der NÄCHSTEN frischen Session:** `~/shared/finish_token_rotation2.sh` ausführen, **VOR jedem settings.json-Read** (der Datei-Watcher spiegelt jede settings.json-Änderung einer laufenden Session komplett ins Transkript — Token #3 wäre sofort wieder exponiert; deshalb NICHT in einer laufenden Session patchen). Bis dahin trägt settings.json **bewusst** den toten Token #2 — orchestrator-MCP ist sichtbar nicht verbindbar, das ist gewollt. Server-Hälfte (Owner „3 go", dokumentiert im [#1640-Kommentar](https://github.com/achimdehnert/platform/issues/1640)): Token #3 in `.env.prod` + compose --force-recreate; unabhängig nachverifiziert 19:10 UTC per SHA256-Präfix-Vergleich (nie Klartext): `~/.secrets/orchestrator_mcp_api_key` = Server-`.env.prod` = Container-Env, StartedAt 13:36:21Z; Token #2 serverseitig tot. **Korrektur eigener Fehldoku (#1693):** die Behauptung „kein Artefakt, Ausführende Session unbekannt" war falsch — das Artefakt existierte als #1640-Kommentar; außerdem hatte #1693 die ⚠️-Zeile fälschlich als komplett erledigt ersetzt und damit die Step-0-Anweisung von der Lesefläche entfernt. Altes Voll-Rotationsskript (`rotate_orchestrator_token.sh`) aus `~/shared/` entfernt — **`finish_token_rotation2.sh` liegt weiter dort und bleibt, bis Step 0 gelaufen ist.**
+- Hygiene-Kandidat (Owner): `/opt/mcp-hub/.env.prod.bak-*` tragen Alt-Keys im Klartext — Löschen ist irreversibel, daher nur vorgeschlagen.
+
+
+**Kern in einem Satz:** Die vollständige Kette zu einem Thema kommt jetzt in **unter
+120 ms aus der Datenbank** — über Ordner- **und** Kontengrenzen hinweg —, statt über
+mehrere IMAP-Durchläufe; beide vom Owner gesetzten Abnahmefälle sind bestanden.
+
+**Die beiden Abnahmefälle, gemessen:**
+
+| Fall | Transport | Ergebnis |
+|---|---|---|
+| Offner | IMAP (hnu + mittwald) | 3er-Kette, 51 ms, Kanten `verweis` |
+| Schmalberger | Graph (iil) | 11er-Kette, 119 ms, 3 Beteiligte, 4 Ordner, Kanten `konversation` |
+
+Keine einzige Kante kam über den Betreff — alle sind über `References` bzw. Graph-
+`conversationId` belegt. Bestand: **11.573 Nachrichten** aus drei Postfächern.
+
+**Fünf Stufen gebaut (S1–S5, alle gemergt und live):**
+- **S1 Antwortpfad** — `mail_suche` (dev-hub) + `tools/mail_agent/suche.py` (platform).
+  Jede Antwort trägt ihre **Deckung**: Konten, Umfang, Textzonen und ausdrücklich, was
+  NICHT durchsucht wurde. Ohne das liest sich ein leeres Ergebnis wie „gibt es nicht",
+  wo nur „habe ich nicht indexiert" gilt.
+- **S2 Vorgangs-Schicht** — `Vorgang` + `VorgangsZuordnung`, durabel, über einen
+  **natürlichen Schlüssel** (`LogicalMessage.kennung` = sha256(Mandant|Message-ID bzw.
+  Inhalts-Hash)). `PROTECT` macht verwaiste Kuration konstruktiv unmöglich.
+- **S3 Volltext** — `mail_volltext`, Tor an ADR-286 §4.5 (nur aktiver Vorgang), **kein**
+  Umgehungsschalter, als Test verankert.
+- **S4 Graph-Ingest** — `mail_ingest --transport graph` mit eigener App-Registrierung
+  (`iil-mail-ingest`, Client-Credentials). Dazu `mail_graph_pruefen`: vier Stufen
+  Datei→Token→Berechtigung→Postfach, jede mit dem nächsten konkreten Schritt.
+- **S5 Dossier** — `mail_dossier` mit Evidenz je Zeile und Ausgabezustand nach §4.6
+  (`open` nur bei vollständiger Deckung), Zustand nie ohne Gründe.
+- **Verkettung** — `mail_kette`, drei Kantenarten nach Verlässlichkeit; Betreff nur als
+  Rückfall und nur bis `BETREFF_MAX=12`, sonst ausdrücklich verworfen **mit Meldung**.
+
+**ADR-288 §4.1 geändert** ([#1598](https://github.com/achimdehnert/platform/pull/1598)):
+„durable Referenzen zeigen nie auf Surrogat-IDs" → „hängen an stabiler **Identität**".
+Der alte Wortlaut zwang dazu, an der Datenbank vorbeizubauen (Textkopie + Cache-FK +
+Neuverknüpfen + Waisen-Zähler); ein natürlicher Schlüssel erfüllt das Ziel mit **einer**
+Beziehung.
+
+**Sechs Befunde am echten Bestand — alle waren still:**
+1. **41 % des Index waren keine Post** — 2.488 IMAP-Platzhalter aus Kalender/Kontakte/
+   Aufgaben, ohne Datum und Absender ([#1584](https://github.com/achimdehnert/platform/pull/1584)).
+   Kein Deckungsproblem: es fehlte nichts, es stand zu viel drin, und die Deckung meldete
+   folgerichtig `complete`.
+2. **Betreff-Stränge verschmelzen Fremdes** — 43 Nachrichten *verschiedener* Studierender
+   unter „Request for Thesis Supervision", 43 ResearchGate-Meldungen, 33 „HNU
+   Kontaktformular"; umgekehrt zerreißt jeder Betreffwechsel eine echte Kette.
+3. **Verschieben erzeugte Duplikate** — die transportspezifische Identität enthält den
+   Ordner (id 1713/6045, byte-gleiche Message-ID). Behoben durch Message-ID-Korrelation
+   als zweite Stufe.
+4. **Der Index speicherte Sequenznummern statt UIDs**, `uidvalidity=0` fest verdrahtet.
+   Am Postfach belegt: `FETCH 185` lieferte die Mail, `UID FETCH 185` nichts, Server
+   meldet UIDVALIDITY 14. Eine Sequenznummer ist **nicht stabil**
+   ([#1656](https://github.com/achimdehnert/platform/pull/1656) + dev-hub#195).
+5. **`/opt/platform` driftet ungebremst** — 33 Commits hinter main, nichts synct
+   ([#1585](https://github.com/achimdehnert/platform/issues/1585)). Ein Merge nach main
+   wirkt dort **nicht**; er sieht nur so aus.
+6. **Der untested-command-Hook meldete siebenmal denselben Befund** — sein Fenster wächst
+   ohne Nutzereingabe unbegrenzt (166 Records, 27 Vorkommen). Entprellt
+   ([#1619](https://github.com/achimdehnert/platform/pull/1619)).
+
+**Zwingend für die nächste Session:**
+- **Ein Ingest-Lauf mit echten UIDs steht aus.** Die gespeicherten Nummern stammen noch
+  aus der Sequenznummer-Ära; `mail_volltext` kann bis dahin nichts abrufen.
+- **`mail_volltext` hat keinen Graph-Pfad** — Kopien mit `transport=graph` tragen kein
+  `uid`, `_roh_holen` gibt `None` zurück. Damit ist der Volltext für IIL blockiert und
+  für den Offner-Fall teilweise (dessen Kette spannt über beide Transporte).
+- **Nach jedem `platform`-Merge, der `tools/mail_agent/` berührt: `/opt/platform` ziehen.**
+  Sonst läuft der Container auf altem Werkzeugstand weiter.
+
+**Sicherheit:** Outline-API-Token lag im Klartext in `/etc/cron.d/adr-outline-sync` und
+geriet beim Suchen ins Transkript → als **kompromittiert** behandeln, Rotation offen
+([#1586](https://github.com/achimdehnert/platform/issues/1586)).
+
+**Eigene Fehler, benannt:** `git add -A` sammelte fremde Arbeit einer Parallel-Sitzung ein
+(zurückgenommen); ein `--amend` traf den Basis-Merge-Commit (Branch neu aufgesetzt);
+`ruff format .` über den ganzen Baum formatierte fremde, unfertige Dateien um. Und der
+Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dateien als
+„deine" — kostete mehrere Anläufe, bis ich es gemessen statt geglaubt habe.
