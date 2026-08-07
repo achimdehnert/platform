@@ -43,6 +43,16 @@ import sys
 from datetime import date
 from pathlib import Path
 
+# KONZ-038 D8 verlangt den Kopf im Modul selbst, nicht nur in der Registry —
+# sonst laesst sich von der Datei aus nicht sagen, welches Gate sie ist.
+GATE_HEADER = {
+    "slug": "handover-stale-vor-merge",
+    "mode": "process",
+    "owner": "achim",
+    "last_drill_pass": "2026-08-06",
+    "evidence": "tools/tests/test_agent_handover_freshness_check.py",
+}
+
 HEAD_LINES = 40
 STALE_DAYS = 30
 HEADING_DATE_RE = re.compile(r"^#{1,6}\s.*?(\d{4}-\d{2}-\d{2})")

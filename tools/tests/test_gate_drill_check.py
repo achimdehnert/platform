@@ -48,3 +48,68 @@ def test_should_kaputte_registry_laut_melden(tmp_path):
     r = _run(reg)
     assert r.returncode == 0
     assert "NICHT bewertbar" in r.stdout
+
+
+# ── Kopf-Konsistenz (KONZ-038 D8) ────────────────────────────────────────────
+
+
+def _reg_mit(tmp_path, gate: dict) -> Path:
+    """Registry mit EINEM Gate.
+
+    Der Drill zeigt auf eine WEGWERF-Testdatei, nicht auf diese hier: sonst
+    startet gate_drill_check.py pytest auf test_gate_drill_check.py, das erneut
+    gate_drill_check.py startet — eine Endlosrekursion, die beim ersten Versuch
+    genau so passiert ist (Lauf nach 6 Minuten abgebrochen).
+    """
+    trivial = tmp_path / "test_trivial_drill.py"
+    trivial.write_text("def test_should_pass():\n    assert True\n", encoding="utf-8")
+    reg = tmp_path / "reg.json"
+    gate = {"drill": str(trivial), **gate}
+    reg.write_text(json.dumps({"gates": [gate]}), encoding="utf-8")
+    return reg
+
+
+def test_should_fehlenden_gate_header_melden(tmp_path):
+    """Ein Modul ohne GATE_HEADER ist der Fall, der bis 2026-08-06 unbemerkt blieb."""
+    modul = tmp_path / "ohne_kopf.py"
+    modul.write_text("print('ich bin ein Gate ohne Selbstauskunft')\n", encoding="utf-8")
+    r = _run(_reg_mit(tmp_path, {"slug": "x", "mode": "advisory", "module": str(modul)}))
+    assert r.returncode == 0
+    assert "kein GATE_HEADER im Modul" in r.stdout, r.stdout
+
+
+def test_should_unvollstaendigen_gate_header_feldweise_melden(tmp_path):
+    modul = tmp_path / "halber_kopf.py"
+    modul.write_text(
+        'GATE_HEADER = {"slug": "x", "mode": "advisory"}\n', encoding="utf-8"
+    )
+    r = _run(_reg_mit(tmp_path, {"slug": "x", "mode": "advisory", "module": str(modul)}))
+    assert "GATE_HEADER ohne `owner`" in r.stdout, r.stdout
+    assert "GATE_HEADER ohne `last_drill_pass`" in r.stdout, r.stdout
+
+
+def test_should_slug_drift_zwischen_kopf_und_registry_melden(tmp_path):
+    """Laufen Kopf und Registry auseinander, zeigt der Report auf ein anderes Gate."""
+    modul = tmp_path / "falscher_slug.py"
+    modul.write_text(
+        'GATE_HEADER = {"slug": "anderer", "mode": "advisory", "owner": "a", '
+        '"last_drill_pass": "2026-01-01"}\n',
+        encoding="utf-8",
+    )
+    r = _run(
+        _reg_mit(tmp_path, {"slug": "erwartet", "mode": "advisory", "module": str(modul)})
+    )
+    assert "Slug im Kopf != Registry-Slug `erwartet`" in r.stdout, r.stdout
+
+
+def test_should_meta_gate_ohne_modul_nicht_als_befund_melden(tmp_path):
+    """`meta`-Gates drillen quer ueber alle Module und haben bewusst keins."""
+    r = _run(_reg_mit(tmp_path, {"slug": "quer", "mode": "meta", "module": ""}))
+    assert "Kopf nicht pruefbar" not in r.stdout, r.stdout
+    assert "alle Gates tragen einen vollstaendigen Kopf" in r.stdout, r.stdout
+
+
+def test_should_modullosem_nicht_meta_gate_widersprechen(tmp_path):
+    """Gegenprobe: ausserhalb von `meta` bleibt ein fehlendes Modul ein Befund."""
+    r = _run(_reg_mit(tmp_path, {"slug": "quer", "mode": "advisory", "module": ""}))
+    assert "kein `module` in der Registry" in r.stdout, r.stdout

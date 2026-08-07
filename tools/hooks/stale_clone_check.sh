@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# GATE_HEADER (KONZ-038 D8) — auch in Shell maschinenlesbar gehalten, damit
+# tools/gate_drill_check.py Kopf und Registry gegeneinander pruefen kann:
+#   "slug": "stale-local-clone-as-ground-truth"
+#   "mode": "advisory"
+#   "owner": "achim"
+#   "last_drill_pass": "2026-08-06"
+#   "evidence": "tools/claude-hooks/tests/test_stale_clone_check.py"
+#
 # Claude Code SessionStart hook — Rueckstand des lokalen Klons melden.
 #
 # Warum es das gibt (Session 2026-07-26, platform): der Assistent las eine

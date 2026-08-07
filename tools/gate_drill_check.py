@@ -25,6 +25,50 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
 
 
+def pruefe_header(gate: dict) -> list[str]:
+    """Befunde zum maschinenlesbaren Kopf des Gate-Moduls (KONZ-038 D8).
+
+    D8 verlangt, dass JEDES Gate einen Kopf mit slug/mode/owner/last_drill_pass
+    im Modul selbst traegt — nicht nur in der Registry. Ohne diese Pruefung
+    verrottet der Kopf still: `last_drill_pass` wurde bis 2026-08-06 von
+    keiner Zeile Code gelesen, und zwei der sieben Gates trugen ueberhaupt
+    keinen Kopf. Der echte Drill-Lauf unten ist der staerkere Mechanismus und
+    bleibt das Urteil; diese Pruefung deckt nur auf, wo Kopf und Registry
+    auseinanderlaufen.
+
+    Gibt eine Liste von Befund-Texten zurueck; leer = in Ordnung.
+    """
+    modul = gate.get("module", "")
+    if not modul:
+        # `meta`-Gates sind absichtlich modul-los: sie drillen quer ueber ALLE
+        # registrierten Module (z.B. Executable-Bit + Shebang) und haben deshalb
+        # kein eigenes. Kein Befund — aber auch nicht stillschweigend uebergehen.
+        if gate.get("mode") == "meta":
+            return []
+        return ["kein `module` in der Registry — Kopf nicht pruefbar"]
+    voll = os.path.join(REPO_ROOT, modul)
+    if not os.path.isfile(voll):
+        return [f"Modul fehlt: {modul}"]
+    try:
+        with open(voll, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError as exc:
+        return [f"Modul nicht lesbar: {exc}"]
+
+    if "GATE_HEADER" not in text:
+        return ["kein GATE_HEADER im Modul (D8 verlangt ihn dort, nicht nur in der Registry)"]
+
+    befunde = []
+    for feld in ("slug", "mode", "owner", "last_drill_pass"):
+        if f'"{feld}"' not in text:
+            befunde.append(f"GATE_HEADER ohne `{feld}`")
+    # Der Slug ist der Schluessel zwischen Kopf und Registry — laufen sie
+    # auseinander, zeigt der Report auf ein anderes Gate als der Drill prueft.
+    if gate.get("slug") and f'"{gate["slug"]}"' not in text:
+        befunde.append(f"Slug im Kopf != Registry-Slug `{gate['slug']}`")
+    return befunde
+
+
 def run_drill(drill_path: str) -> tuple[bool, str]:
     """True = Drill grün. Fehlende Datei = rot (K4: nicht belegbar = nicht gebaut)."""
     full = os.path.join(REPO_ROOT, drill_path)
@@ -58,6 +102,7 @@ def main() -> int:
     gates = registry.get("gates", [])
     print(f"## Gate-Drill-Prüflauf ({len(gates)} registrierte Gates)")
     dead = 0
+    kopf_befunde: list[str] = []
     for g in gates:
         ok, detail = run_drill(g.get("drill", ""))
         if ok:
@@ -67,6 +112,21 @@ def main() -> int:
             print(
                 f"  ✗ {g['slug']} ({g.get('mode', '?')}) — K4: NICHT GEBAUT — {detail}"
             )
+        for b in pruefe_header(g):
+            kopf_befunde.append(f"{g.get('slug', '?')}: {b}")
+
+    if kopf_befunde:
+        print(f"\n### Kopf-Konsistenz ({len(kopf_befunde)} Befund(e))")
+        for b in kopf_befunde:
+            print(f"  ⚠ {b}")
+        print(
+            "  → Der Drill oben ist das Urteil; ein fehlender Kopf macht ein Gate "
+            "nicht wirkungslos. Er nimmt ihm aber die Selbstauskunft — genau die, "
+            "die D8 verlangt."
+        )
+    else:
+        print("\n### Kopf-Konsistenz — alle Gates tragen einen vollstaendigen Kopf.")
+
     if dead:
         print(
             f"\n→ {dead} Gate(s) K4-zurückgestuft: Drill reparieren oder Gate aus der "
