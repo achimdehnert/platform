@@ -129,3 +129,32 @@ class TestBindGuard:
         with pytest.raises(SystemExit) as exc:
             tb.cmd_serve(args)
         assert "verweigert" in str(exc.value)
+
+
+class TestFrische:
+    """Eine Liste, die stillschweigend alten Stand zeigt, beruhigt fälschlich."""
+
+    def test_should_stay_silent_when_recent(self):
+        daten = {"letzte_pruefung": "2026-08-07", "vorgaenge": []}
+        assert tb.frische_banner(daten, STICHTAG) == ""
+
+    def test_should_stay_silent_at_the_freshness_limit(self):
+        daten = {"letzte_pruefung": "2026-08-05", "vorgaenge": []}
+        assert tb.frische_banner(daten, STICHTAG) == ""
+
+    def test_should_warn_one_day_past_the_limit(self):
+        daten = {"letzte_pruefung": "2026-08-04", "vorgaenge": []}
+        banner = tb.frische_banner(daten, STICHTAG)
+        assert "3 Tage alt" in banner
+        assert "2026-08-04" in banner
+
+    def test_should_warn_when_date_is_missing(self):
+        assert "Stand unbekannt" in tb.frische_banner({"vorgaenge": []}, STICHTAG)
+
+    def test_should_warn_when_date_is_unparsable(self):
+        banner = tb.frische_banner({"letzte_pruefung": "07.08.2026"}, STICHTAG)
+        assert "unlesbar" in banner
+
+    def test_should_surface_the_banner_on_the_page(self):
+        daten = {"letzte_pruefung": "2026-07-01", "vorgaenge": [vorgang()]}
+        assert "37 Tage alt" in tb.baue(daten, STICHTAG)

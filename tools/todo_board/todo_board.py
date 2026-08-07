@@ -37,6 +37,8 @@ from pathlib import Path
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
 PORT = 8789
+# Ab wie vielen Tagen ohne Erhebung die Seite ihren eigenen Stand in Frage stellt.
+FRISCH_TAGE = 2
 
 # Reihenfolge der Abschnitte = Reihenfolge der Dringlichkeit. Leere entfallen.
 BUCKETS = (
@@ -161,8 +163,34 @@ tr:last-child td{border-bottom:none}
 .frist.gruen{color:var(--gruen)}
 .frist.keine{color:var(--stumm)}
 .schritt{color:var(--fg)}
+.alt{background:var(--karte);border:1px solid var(--rot);border-left-width:4px;
+border-radius:8px;color:var(--rot);font-size:.88rem;padding:.7rem .9rem;margin:0 0 1.25rem}
 footer{color:var(--stumm);font-size:.78rem;margin-top:2rem;text-align:center}
 """
+
+
+def frische_banner(daten: dict, stichtag: date) -> str:
+    """Sagt an, wenn die Erhebung veraltet ist — Schweigen waere hier gefaehrlich.
+
+    Die Seite baut bei jedem Abruf neu und sieht darum immer frisch aus, auch
+    wenn der naechtliche /mailcheck seit Tagen scheitert. Eine Liste, die
+    stillschweigend eine Woche alten Stand zeigt, ist schlimmer als keine:
+    sie beruhigt, waehrend eine Frist laeuft.
+    """
+    roh = daten.get("letzte_pruefung")
+    if not roh:
+        return "<p class='alt'>Kein Erhebungsdatum im Ledger — Stand unbekannt.</p>"
+    try:
+        alter = (stichtag - datetime.strptime(str(roh), "%Y-%m-%d").date()).days
+    except ValueError:
+        return f"<p class='alt'>Erhebungsdatum '{html.escape(str(roh))}' unlesbar.</p>"
+    if alter <= FRISCH_TAGE:
+        return ""
+    return (
+        f"<p class='alt'>Diese Liste ist {alter} Tage alt. Der naechtliche "
+        f"/mailcheck hat sie seit dem {html.escape(str(roh))} nicht "
+        "fortgeschrieben — neue Antworten und Fristen fehlen moeglicherweise.</p>"
+    )
 
 
 def baue(daten: dict, stichtag: date) -> str:
@@ -193,6 +221,7 @@ def baue(daten: dict, stichtag: date) -> str:
 <body><main>
 <h1>Arbeitsliste</h1>
 <p class="stand">{len(posten)} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
+{frische_banner(daten, stichtag)}
 {abschnitte}
 <footer>Quelle: mail-vorgaenge.json · gebaut {html.escape(stichtag.isoformat())} ·
 fortgeschrieben durch /mailcheck</footer>
