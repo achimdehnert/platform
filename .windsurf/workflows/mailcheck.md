@@ -13,16 +13,46 @@ selbst** schon **gesendet**? Daraus leitet er die **jeweils nächste** Aktion ab
 > — typischerweise einige Stunden/Tage nach einem `/briefing`.
 > **Wann NICHT:** Erst-Sichtung neuer Post (→ `/briefing`); Senden (→ Mensch sendet den Draft selbst).
 
-**SSoT-Skripte:** `tools/mail_agent/graph_mail.py` (IIL/Graph), `tools/mail_agent/read_mail.py`
-(HNU/AD per IMAP). Kein neues Tooling — `/mailcheck` ist die **Orchestrierung** dieser beiden.
+**SSoT-Skripte:** `tools/mail_agent/suche.py` (DB-Index, ADR-288 §4.7) als **Primärweg**;
+`tools/mail_agent/graph_mail.py` (IIL/Graph) und `tools/mail_agent/read_mail.py` (HNU/AD
+per IMAP) nur noch als **deklarierter Live-Fallback**. Kein neues Tooling — `/mailcheck`
+ist die **Orchestrierung** dieser drei. (Auftrag + Akzeptanzkriterien: platform#1820.)
 
-## Datenquellen (drei Konten)
+## Datenweg: DB-first mit Deckungspflicht (NEU 2026-08-07, #1820)
 
-| Konto | Zugang | Neue Antworten | Eigene gesendete Mails |
+**Der Index in der dev-hub-Datenbank ist die erste Quelle für alles Historische** —
+alle drei Konten (hnu, iil, mittwald/AD), alle Ordner, Millisekunden statt Minuten.
+`suche.py` reicht per SSH an den Management-Befehl `mail_suche` durch; jede Antwort
+trägt ihre **Deckung** (Konten, Umfang, Zeitraum, Textzonen und ausdrücklich das
+NICHT-Durchsuchte).
+
+```bash
+python3 tools/mail_agent/suche.py --nur-deckung            # Schritt 0: Bestand + Frische
+python3 tools/mail_agent/suche.py --seit <datum> --json    # Eingänge/Gesendetes im Fenster
+python3 tools/mail_agent/suche.py --von <adresse> --seit … # je Vorgang/Gegenüber
+```
+
+**Quellen-Pflicht:** Jeder Abschnitt der Ausgabe trägt seine Quelle — `[db]` oder
+`[live]`. Ein Abschnitt ohne Quellen-Tag gilt als nicht geliefert (#1820 Kriterium 1).
+
+**Live ist die Ausnahme mit zwei legitimen Fällen, beide werden als `[live]` markiert:**
+1. **Das Post-Ingest-Fenster:** Der Index wird täglich 03:30 befüllt — Nachrichten
+   NACH dem letzten Ingest kennt er nicht. Genau dieses Fenster (und nur dieses) wird
+   live geprüft: gezielt, je Konto EIN Listen-Aufruf über das Restfenster, kein Vollscan.
+2. **Original-Abruf:** „Projektion sucht, Quelle verifiziert" (ADR-288 §3.1.4) — wer den
+   Nachrichtentext/Anhang selbst braucht, holt das Original via `read_mail.py`/`graph_mail.py`.
+
+**Deckungslücke heißt sagen, nicht raten:** Meldet die Deckung Lücken (fehlende Konten,
+Nachrichten ohne Datum, ausgeschlossene Ordner), stehen sie im Deckungsblock des Boards.
+Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Kriterium 2).
+
+## Live-Fallback (drei Konten — nur für die zwei Fälle oben)
+
+| Konto | Zugang | Restfenster listen | Original holen |
 |---|---|---|---|
-| **IIL** (achim.dehnert@iil.gmbh) | Graph | `graph_mail.py --find --all --days N` | `--find --all --source "Gesendete Elemente"` |
-| **HNU** (achim.dehnert@hnu.de) | IMAP | `read_mail.py --account hnu --list N` | `--account hnu --folder "Gesendete Objekte" --to-filter <empf> --list N` |
-| **AD** (Default) | IMAP | `read_mail.py --list N` | `--folder <Sent> --to-filter <empf> --list N` (Ordnername server-abhängig, s.u.) |
+| **IIL** (achim.dehnert@iil.gmbh) | Graph | `graph_mail.py --find --all --days N` | `graph_mail.py` (Message-ID) |
+| **HNU** (achim.dehnert@hnu.de) | IMAP | `read_mail.py --account hnu --list N` | `read_mail.py --account hnu …` |
+| **AD** (Default) | IMAP | `read_mail.py --list N` | `read_mail.py …` (Sent-Ordnername server-abhängig, s.u.) |
 
 > **Beide Seiten prüfen ist Pflicht.** Wer nur den Posteingang liest, schlägt Aktionen vor,
 > die längst per gesendeter Mail erledigt sind (Doppelvorschlag). Der Abgleich gegen
@@ -45,21 +75,40 @@ selbst** schon **gesendet**? Daraus leitet er die **jeweils nächste** Aktion ab
 
 ## Ablauf
 
+0. **Deckung zuerst:** `suche.py --nur-deckung` — Bestand, Konten, Zeitraum, Frische.
+   Daraus das **Post-Ingest-Fenster** bestimmen (jetzt minus letzter Ingest 03:30).
 1. **Vorgangs-Speicher laden** (s.u. „Ledger") — was ist als offen getrackt?
-2. **Zeitfenster wählen** — Default „seit dem letzten Briefing" bzw. `--days 2`. Bei Bedarf weiter zurück.
-3. **Je Konto** neue Eingänge listen **und** die eigenen gesendeten Mails im selben Fenster
-   holen (Tabelle oben). Threads über Betreff/Absender zuordnen.
+2. **Zeitfenster wählen** — Default „seit dem letzten Briefing" bzw. 2 Tage. Bei Bedarf weiter zurück.
+3. **Eingänge UND Gesendetes im Fenster aus der DB** `[db]`: `suche.py --seit <datum>`
+   (deckt alle drei Konten und alle Ordner in einem Aufruf — auch „Gesendete
+   Elemente/Objekte"); je offenem Vorgang gezielt `--von/--an <gegenüber>`.
+   Danach NUR das Post-Ingest-Restfenster live nachziehen `[live]` (ein Listen-Aufruf
+   je Konto, Tabelle „Live-Fallback").
 4. **Rauschen erkennen + wegräumen** (s.u.) — offensichtlich unwichtige Mails verschieben,
    damit sie die offene Liste nicht zumüllen.
 5. **Offene Vorgänge korrelieren** — jede getrackte Position gegen Eingang **und** Gesendetes
    prüfen: **gesendet → Status fortschreiben / Punkt schließen**; Antwort da → nächster Schritt;
-   sonst weiter wartend.
+   sonst weiter wartend. Gruppierung **nach Gesprächspartner**, nicht nach Betreff-Strang
+   (Betreff kollidiert und fragmentiert — Lehre der drei Auswertungs-Fassungen vom 05.08.).
 6. **Zustandsabhängige Prozesse auflösen** (s.u.) — aktuellen Zustand aus der **jüngsten**
-   Nachricht bestimmen, dann **genau die eine** nächste Aktion vorschlagen/anlegen.
+   Nachricht bestimmen (bei Bedarf Original holen, „Projektion sucht, Quelle verifiziert"),
+   dann **genau die eine** nächste Aktion vorschlagen/anlegen.
 7. **Ledger zurückschreiben** — neue Zustände speichern, geschlossene Punkte entfernen.
-8. **Als Action Board ausgeben** (Regeln: `feedback_reporting_table_format`). Auf „go":
+8. **Als Mail-Action-Board ausgeben** (s.u. „Ausgabeformat"). Auf „go":
    den nächsten Draft mit `graph_mail.py --draft` anlegen (IIL) bzw. den HNU-Draft per
    IMAP-Append (siehe `/iil-mail`-Werkzeuglücke: HNU-Drafts nur via IMAP-Append) — **nie senden**.
+
+## Ausgabeformat: Mail-Action-Board mit Deckungsblock (#1820 Kriterium 3)
+
+- **Buckets in fester Reihenfolge**, leere weglassen: 🟢 *dein Zug* · 🔵 *ich kann sofort*
+  · 🟡 *wartet auf Antwort* · ✅ *erledigt seit letztem Check*. Nummerierte Zeilen mit
+  **kurzen Labellinks** (nie nackte IDs, nie Fließtext in Zellen).
+- **Quellen-Tag je Bucket-Abschnitt:** `[db]`, `[live]` oder `[db+live]`.
+- **Umfang-Regler** `knapp | normal | ausführlich`, Default **normal** (Owner-Weisung
+  2026-08-05): knapp = nur 🟢/🔵; normal = alle Buckets, 1 Zeile je Item; ausführlich =
+  plus Kontextzeile je Item. Keine harten Zeilenumbrüche in Mail-Entwürfen.
+- **Deckungsblock am Ende, immer** — auch bei leerem Board: Konten, Umfang, Zeitraum,
+  NICHT-Durchsuchtes, Post-Ingest-Fenster und ob es live nachgezogen wurde.
 
 ## Vorgangs-Speicher (Ledger)
 
@@ -134,8 +183,25 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 - ❌ Senden — auch nicht „nur die Bestätigung"
 - ❌ Auslöser-Antwort vermuten statt sie im Postfach zu belegen
 
+## Abschluss-Checkliste (PFLICHT — jede Zeile explizit abhaken, #1820 Kriterium 5)
+
+- [ ] Schritt 0: Deckung erhoben, Post-Ingest-Fenster bestimmt
+- [ ] Schritt 3: DB-Abfragen gefahren, NUR das Restfenster live nachgezogen — kein Vollscan
+- [ ] Jeder Board-Abschnitt trägt sein Quellen-Tag ([db]/[live])
+- [ ] Beide Seiten geprüft (Eingang UND Gesendetes) — Korrelation nach Gesprächspartner
+- [ ] Ledger aktualisiert (geschlossene Punkte raus, neue Zustände drin)
+- [ ] Deckungsblock im Board — auch wenn das Board leer ist
+- [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
+
 ## Changelog
 
+- 2026-08-07: **DB-first (#1820, SA-4):** `suche.py` (Mail-Index, ADR-288 §4.7) ist der
+  Primärweg für alles Historische; IMAP/Graph nur noch als deklarierter Live-Fallback für
+  das Post-Ingest-Fenster und den Original-Abruf. Quellen-Tag je Abschnitt, Deckungsblock
+  Pflicht (auch leer), Mail-Action-Board mit Umfang-Regler als festes Ausgabeformat,
+  Korrelation nach Gesprächspartner statt Betreff-Strang, Abschluss-Checkliste ergänzt.
+  Beweis der Reproduzierbarkeit im PR (zwei byte-identische Deckungs-Läufe, 11.808
+  Nachrichten / 141 Ordner / 3 Konten).
 - 2026-07-27: Vollerhebung auf `--find --all` umgestellt (#1480). Der bis dahin genutzte Platzhalter `--from "@"` verwarf auf Sent-/Entwurfs-Ordnern still alle Nachrichten ohne SMTP-Adresse im Absenderfeld (Exchange-X.500-DN) — live 13 statt 34 Treffer. Daraus entstand ein falscher „nie gesendet"-Befund in einem laufenden DSGVO-Löschvorgang und eine Doppel-Anfrage an den Betroffenen. Neu außerdem `--draft --cc`.
 - 2026-07-23: Initial (v1). Anschluss an `/briefing`. Ausgelöst durch Owner-Wunsch nach einem
   „aktiv angestoßenen Mailcheck", nachdem ein DSGVO-Löschprozess fälschlich mit allen drei
