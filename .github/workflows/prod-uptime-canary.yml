@@ -85,6 +85,22 @@ jobs:
           # zweites Freeze-Artefakt existiert nicht, und beide /livez/
           # antworteten bei der Pruefung mit 200. Wer sie kuenftig streichen
           # will: zuerst Eintrag in #1314, dann hier.
+          #
+          # Stillgelegt am 2026-08-07 (Umsetzung des #1303-Vorschlags, Owner-Go;
+          # Register-Eintrag in #1314 vom selben Tag — die geforderte Reihenfolge
+          # ist eingehalten, auch fuer learn.iil.pet, dessen Streichung am
+          # 2026-07-22 noch am fehlenden Register-Eintrag scheiterte). Alle 7
+          # antworten seit dem Container-Stopp durchgehend 502 (zuletzt Lauf
+          # 31148945890); der Canary war dadurch seit dem 29.07. ohne einen
+          # einzigen gruenen Lauf und als Alarm wertlos (#1547, 257 Auto-Kommentare).
+          #   bieterpilot.de    ausschreibungs-hub
+          #   billing.iil.pet   billing-hub
+          #   learn.iil.pet     learn-hub
+          #   tax.iil.pet       tax-hub
+          #   drifttales.com    travel-beat
+          #   hr.iil.pet        recruiting-hub
+          #   bahn.iil.pet      bahn-hub
+          # Wiederaufnahme je Stack: Register-Vermerk in #1314, dann URL(s) hier.
           # PRODUKT-Domain ueberwachen, nicht den Infra-Namen (#1462). Beide Faelle
           # stammen aus einem Abgleich von infra/ports.yaml gegen diese Liste (2026-07-27):
           #   travel-beat  domain_prod=drifttales.com. travel-beat.iil.pet lieferte auf /
@@ -117,14 +133,10 @@ jobs:
           URLS="
           https://schutztat.de/livez/
           https://137herz.de/livez/
-          https://bieterpilot.de/livez/
-          https://billing.iil.pet/livez/
           https://dev-hub.iil.pet/livez/
           https://dms.iil.pet/livez/
-          https://learn.iil.pet/livez/
           https://nl2cad.de/livez/
           https://prezimo.com/livez/
-          https://tax.iil.pet/livez/
           https://trading-hub.iil.pet/livez/
           https://wedding-hub.iil.pet/livez/
           https://weltenforger.com/livez/
@@ -132,12 +144,9 @@ jobs:
           https://writing-hub.iil.pet/readyz/
           https://writing.iil.pet/livez/
           https://writing.iil.pet/readyz/
-          https://drifttales.com/livez/
           https://research.iil.pet/healthz/
           https://coach-hub.iil.pet/livez/
-          https://hr.iil.pet/livez/
           https://illustration.iil.pet/livez/
-          https://bahn.iil.pet/livez/
           "
           down=""
           for u in $URLS; do
@@ -182,18 +191,13 @@ jobs:
           ASSETS="
           https://schutztat.de/static/admin/css/base.css
           https://137herz.de/static/admin/css/base.css
-          https://bieterpilot.de/static/admin/css/base.css
-          https://billing.iil.pet/static/admin/css/base.css
           https://dev-hub.iil.pet/static/admin/css/base.css
           https://dms.iil.pet/static/admin/css/base.css
-          https://learn.iil.pet/static/admin/css/base.css
-          https://tax.iil.pet/static/admin/css/base.css
           https://trading-hub.iil.pet/static/admin/css/base.css
           https://wedding-hub.iil.pet/static/admin/css/base.css
           https://weltenforger.com/static/admin/css/base.css
           https://writing-hub.iil.pet/static/admin/css/base.css
           https://writing.iil.pet/static/admin/css/base.css
-          https://drifttales.com/static/admin/css/base.css
           https://research.iil.pet/static/admin/css/base.css
           https://coach-hub.iil.pet/static/admin/css/base.css
           https://illustration.iil.pet/static/admin/css/base.css
