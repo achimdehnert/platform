@@ -55,7 +55,7 @@ def _client():
 
 def konto_aufloesen(client, nummer: str) -> dict | None:
     """AccountDatev-Objekt zur KONTONUMMER — eindeutig oder gar nicht (nie raten)."""
-    r = client.get("/AccountDatev", params={"number": nummer, "limit": 10})
+    r = client.get("/AccountDatev", params={"limit": 1000})
     r.raise_for_status()
     treffer = [o for o in r.json()["objects"] if str(o.get("number")) == str(nummer)]
     if len(treffer) != 1:
@@ -114,6 +114,7 @@ def anlegen(args) -> int:
         "voucher[creditDebit]": "C",
         "voucher[voucherType]": "VOU",
         "voucher[currency]": args.waehrung,
+        **({"voucher[propExchangeRate]": args.kurs} if args.kurs else {}),
         "voucher[taxRule][id]": args.taxrule,
         "voucher[taxRule][objectName]": "TaxRule",
         "voucherPosSave[0][objectName]": "VoucherPos",
@@ -159,6 +160,7 @@ def main() -> int:
     p.add_argument("--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC")
     p.add_argument("--konto", default="", help="Kontonummer NUR wenn Owner-zugeordnet; sonst leer lassen")
     p.add_argument("--waehrung", default="EUR", help="Rechnungswährung, z.B. USD (Beträge dann in dieser Währung)")
+    p.add_argument("--kurs", default="", help="EUR je Fremdwährungseinheit (Pflicht bei Fremdwährung; Quelle im Bericht nennen)")
     return anlegen(p.parse_args())
 
 
