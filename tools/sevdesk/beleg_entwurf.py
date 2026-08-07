@@ -113,6 +113,7 @@ def anlegen(args) -> int:
         "voucher[status]": "50",
         "voucher[creditDebit]": "C",
         "voucher[voucherType]": "VOU",
+        "voucher[currency]": args.waehrung,
         "voucher[taxRule][id]": args.taxrule,
         "voucher[taxRule][objectName]": "TaxRule",
         "voucherPosSave[0][objectName]": "VoucherPos",
@@ -157,6 +158,7 @@ def main() -> int:
     p.add_argument("--beschreibung", required=True, help="Rechnungsnummer/eindeutige Kennung (Dedup-Schlüssel)")
     p.add_argument("--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC")
     p.add_argument("--konto", default="", help="Kontonummer NUR wenn Owner-zugeordnet; sonst leer lassen")
+    p.add_argument("--waehrung", default="EUR", help="Rechnungswährung, z.B. USD (Beträge dann in dieser Währung)")
     return anlegen(p.parse_args())
 
 
