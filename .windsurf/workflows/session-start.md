@@ -286,9 +286,29 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 
 ---
 
+## Phase 2.7: Session-Zielzustand klären (Zielzustand-Loop — NEU 2026-08-07, PFLICHT für Arbeits-Sessions)
+
+Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
+(`policies/zielzustand.md` + SA-4 aus `policies/autonomy-gates.md`):
+
+1. **Quelle bestimmen:** Kommt die Session mit einem User-Auftrag → der ist die Quelle.
+   Ohne Auftrag → die Handover-Prio (Punkt 1) ist die Quelle.
+2. **Existiert schon ein akzeptiertes Artefakt** (Issue/ADR/KONZ mit
+   Akzeptanzkriterien)? → referenzieren, NICHT neu formulieren. Es ist zugleich
+   der **SA-4-Anker**: Umbauten, die nachweisbar auf seine Kriterien einzahlen,
+   laufen autonom durch (Bedingungen der Klasse beachten).
+3. **Existiert keins** und die Arbeit ist substanziell → Zielzustands-Vorschlag
+   (3–7 Zeilen: 1 Satz Endzustand + 2–5 prüfbare Kriterien + Out-of-Scope) und
+   **Akzeptanz einholen, bevor substanzielle Arbeit beginnt**. Schweigen ≠ Zustimmung.
+   Bei Akzeptanz und PR-überlebender Arbeit: als Issue im Ziel-Repo materialisieren
+   (`/prompt --auftrag` macht genau das).
+4. **Right-Sizing:** Reine Frage-/Triage-Sessions und triviale mechanische Fixes
+   überspringen diese Phase (die Anweisung ist der Zielzustand) — das Überspringen
+   ist eine bewusste Entscheidung, keine Auslassung.
+
 ## Phase 3: Arbeitsplan
 
-12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
+12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen), **gegen den Zielzustand aus 2.7**
 
 ---
 
@@ -311,7 +331,8 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 | 6 | Recurring-Errors geprüft, Handover↔Memory-Reconciliation gemacht (2.5/2.6) | ☐ |
 | 7 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3, ADR-233-Kill-Gate) | ☐ |
 | 7a | Basis-Abstand aus 0.4.4 gelesen — betrifft eine WARN-Zeile den eigenen Worktree, **vor** dem ersten Edit `git merge origin/main` | ☐ |
-| 8 | Arbeitsplan aufgestellt (Phase 3) | ☐ |
+| 7b | Session-Zielzustand geklärt: Artefakt referenziert ODER Vorschlag akzeptiert ODER Überspringen begründet (2.7) | ☐ |
+| 8 | Arbeitsplan aufgestellt (Phase 3, gegen den Zielzustand) | ☐ |
 
 **Pflicht-Selbstcheck (2-Schritt, NEU 2026-07-15 — Retro c494a2-incr Befund #3):** Diese
 Checkliste selbst ließ bei ihrer Erstellung 0.4.3 und Phase 3 aus, weil beide keine
