@@ -33,6 +33,7 @@ from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import quote, unquote
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
@@ -94,14 +95,22 @@ def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
     return (1, 0, v.get("thread_key", "")) if tage is None else (0, tage, "")
 
 
-def zeile(v: dict, stichtag: date) -> str:
+def zeile(v: dict, stichtag: date, basis: str = "") -> str:
     tage = frist_tage(v, stichtag)
     klasse, text = ampel(tage)
     konto = KONTO_LABEL.get(v.get("konto", ""), v.get("konto", "—"))
     frist = v.get("frist") or ""
+    schluessel = v.get("thread_key", "")
+    beschriftung = html.escape(schluessel or "—")
+    # Ohne thread_key gibt es kein Ziel — dann bleibt es Text statt totem Link.
+    sache = (
+        f"<a href='{html.escape(basis)}/t/{quote(schluessel, safe='')}'>{beschriftung}</a>"
+        if schluessel
+        else beschriftung
+    )
     return (
         "<tr>"
-        f"<td class='sache'>{html.escape(v.get('thread_key', '—'))}"
+        f"<td class='sache'>{sache}"
         f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
         f"<td class='konto'>{html.escape(konto)}</td>"
         f"<td class='frist {klasse}'>{html.escape(text)}"
@@ -111,11 +120,13 @@ def zeile(v: dict, stichtag: date) -> str:
     )
 
 
-def abschnitt(titel: str, unter: str, posten: list[dict], stichtag: date) -> str:
+def abschnitt(
+    titel: str, unter: str, posten: list[dict], stichtag: date, basis: str = ""
+) -> str:
     if not posten:
         return ""
     zeilen = "".join(
-        zeile(v, stichtag)
+        zeile(v, stichtag, basis)
         for v in sorted(posten, key=lambda x: sortschluessel(x, stichtag))
     )
     return f"""<section>
@@ -166,6 +177,10 @@ tr:last-child td{border-bottom:none}
 .alt{background:var(--karte);border:1px solid var(--rot);border-left-width:4px;
 border-radius:8px;color:var(--rot);font-size:.88rem;padding:.7rem .9rem;margin:0 0 1.25rem}
 footer{color:var(--stumm);font-size:.78rem;margin-top:2rem;text-align:center}
+.sache a{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie)}
+.sache a:hover{border-bottom-color:currentColor}
+pre.notiz{white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.5;
+background:var(--karte);border:1px solid var(--linie);border-radius:6px;padding:.8rem}
 """
 
 
@@ -193,7 +208,78 @@ def frische_banner(daten: dict, stichtag: date) -> str:
     )
 
 
-def baue(daten: dict, stichtag: date) -> str:
+# Overlay nach dem Muster von tools/mail_agent/mail_link_server.py (dort Z. 126-154).
+# Fällt ohne JavaScript auf einen normalen Seitenwechsel zurück: der Link im Markup
+# ist ein echter Link, das Skript fängt ihn nur ab.
+OVERLAY = """
+<div id=ovl style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9">
+ <div id=ovl-box style="position:absolute;inset:4% 6%;background:#fff;border-radius:10px;
+  overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+  <div style="padding:.45rem .9rem;display:flex;justify-content:flex-end;gap:1.2rem;
+   border-bottom:1px solid #d0d0d0;font-size:.9rem">
+   <a id=ovl-ext href="#" target=_blank rel=noreferrer>in neuem Tab oeffnen &#8599;</a>
+   <a href="#" id=ovl-x>&#10005; schliessen (Esc)</a>
+  </div>
+  <iframe id=ovl-frame title="Vorgang" style="border:0;flex:1;width:100%"></iframe>
+ </div>
+</div>
+<style>@media (prefers-color-scheme:dark){#ovl-box{background:#1e2024}
+ #ovl-box>div{border-color:#2c2e33}}</style>
+<script>
+(function(){
+ var ovl=document.getElementById('ovl'),fr=document.getElementById('ovl-frame'),
+     ext=document.getElementById('ovl-ext');
+ function zu(){ovl.style.display='none';fr.src='about:blank';}
+ function auf(src){fr.src=src;ext.href=src;ovl.style.display='block';}
+ document.addEventListener('click',function(e){
+  var a=e.target.closest('a');if(!a)return;
+  var h=a.getAttribute('href')||'';
+  if(a.id==='ovl-x'){e.preventDefault();zu();return;}
+  if(a===ext)return;
+  if(h.indexOf('/t/')>=0){e.preventDefault();auf(h);}
+ });
+ ovl.addEventListener('click',function(e){if(e.target===ovl)zu();});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape')zu();});
+})();
+</script>"""
+
+# Reihenfolge der Detailfelder: erst wer und was, dann Zustand, zuletzt der Verlauf.
+DETAIL_FELDER = (
+    ("gegenueber", "Gegenueber"),
+    ("konto", "Konto"),
+    ("typ", "Typ"),
+    ("zustand", "Zustand"),
+    ("frist", "Frist"),
+    ("bucket", "Bucket"),
+    ("angelegt", "Angelegt"),
+    ("letzte_pruefung", "Zuletzt geprueft"),
+    ("next_trigger", "Naechster Schritt"),
+)
+
+
+def detail(v: dict) -> str:
+    """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
+    zeilen = "".join(
+        f"<tr><th>{html.escape(label)}</th><td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
+        for feld, label in DETAIL_FELDER
+    )
+    notiz = html.escape(str(v.get("notiz") or "")).replace(" | ", "\n\n")
+    return f"""<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{html.escape(v.get("thread_key", "Vorgang"))}</title><style>{CSS}</style></head>
+<body><main>
+<h1>{html.escape(v.get("thread_key", "Vorgang"))}</h1>
+<p class="stand">{html.escape(v.get("kurz") or "")}</p>
+<table><tbody>{zeilen}</tbody></table>
+<h2>Verlauf</h2>
+<pre class="notiz">{notiz or "—"}</pre>
+<footer>Quelle: mail-vorgaenge.json</footer>
+</main></body></html>"""
+
+
+def baue(daten: dict, stichtag: date, basis: str = "") -> str:
     posten = daten.get("vorgaenge", [])
     nach_bucket: dict[str, list[dict]] = {k: [] for k, _, _ in BUCKETS}
     # Ein Vorgang ohne bekannten Bucket verschwindet nicht — er landet sichtbar
@@ -202,7 +288,7 @@ def baue(daten: dict, stichtag: date) -> str:
         schluessel = v.get("bucket")
         nach_bucket[schluessel if schluessel in nach_bucket else "owner"].append(v)
     abschnitte = "".join(
-        abschnitt(t, u, nach_bucket.get(k, []), stichtag) for k, t, u in BUCKETS
+        abschnitt(t, u, nach_bucket.get(k, []), stichtag, basis) for k, t, u in BUCKETS
     )
     geprueft = html.escape(str(daten.get("letzte_pruefung", "unbekannt")))
     faellig = sum(
@@ -225,7 +311,7 @@ def baue(daten: dict, stichtag: date) -> str:
 {abschnitte}
 <footer>Quelle: mail-vorgaenge.json · gebaut {html.escape(stichtag.isoformat())} ·
 fortgeschrieben durch /mailcheck</footer>
-</main></body></html>"""
+</main>{OVERLAY}</body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -251,10 +337,38 @@ class Handler(BaseHTTPRequestHandler):
     def do_HEAD(self) -> None:  # noqa: N802
         self.do_GET()
 
+    def _vorgang(self, schluessel: str) -> None:
+        """Einen Vorgang ausliefern. Der Schluessel wird gegen das Ledger geprueft,
+        nicht gegen das Dateisystem — es gibt hier keinen Pfad, der entgleiten kann."""
+        try:
+            daten = lade(LEDGER)
+        except (OSError, json.JSONDecodeError) as exc:
+            body = (
+                f"<h1>Ledger nicht lesbar</h1><p>{html.escape(str(exc))}</p>".encode()
+            )
+            self._sende(
+                HTTPStatus.INTERNAL_SERVER_ERROR, body, "text/html; charset=utf-8"
+            )
+            return
+        for v in daten.get("vorgaenge", []):
+            if v.get("thread_key") == schluessel and schluessel:
+                self._sende(
+                    HTTPStatus.OK, detail(v).encode("utf-8"), "text/html; charset=utf-8"
+                )
+                return
+        self._sende(
+            HTTPStatus.NOT_FOUND,
+            b"Diesen Vorgang gibt es nicht.\n",
+            "text/plain; charset=utf-8",
+        )
+
     def do_GET(self) -> None:  # noqa: N802
         pfad = self.path.split("?", 1)[0].rstrip("/") or "/"
         if pfad == "/healthz":
             self._sende(HTTPStatus.OK, b"ok\n", "text/plain; charset=utf-8")
+            return
+        if pfad.startswith("/t/"):
+            self._vorgang(unquote(pfad[3:]))
             return
         if pfad != "/":
             self._sende(
@@ -278,7 +392,12 @@ class Handler(BaseHTTPRequestHandler):
 def cmd_build(args: argparse.Namespace) -> None:
     ziel = Path(args.ausgabe).expanduser()
     ziel.parent.mkdir(parents=True, exist_ok=True)
-    ziel.write_text(baue(lade(LEDGER), heute()), encoding="utf-8")
+    # Die gebaute Datei wird als Datei geoeffnet — relative Links zeigten dann ins
+    # Dateisystem. Darum absolute Loopback-Adresse, nie file:// (Owner-Entscheid).
+    ziel.write_text(
+        baue(lade(LEDGER), heute(), basis=f"http://127.0.0.1:{args.basis_port}"),
+        encoding="utf-8",
+    )
     print(f"OK: {ziel}")
 
 
@@ -304,6 +423,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="HTML-Datei schreiben")
     b.add_argument("--ausgabe", default=str(AUSGABE))
+    b.add_argument("--basis-port", type=int, default=PORT, dest="basis_port")
     b.set_defaults(fn=cmd_build)
     s = sub.add_parser("serve", help="lokal ausliefern, bei jedem Abruf frisch gebaut")
     s.add_argument("--port", type=int, default=PORT)
