@@ -4,16 +4,59 @@ description: Aus einer kurzen Repo-Anweisung einen optimalen, lückenlosen Promp
 
 # /prompt — Optimal Prompt Generator
 
-**Usage:** `/prompt <reponame> "<kurze Anweisung>"`
+**Usage:**
+```
+/prompt <reponame> "<kurze Anweisung>"              # Coding-Modus (bisheriges Verhalten)
+/prompt --auftrag <reponame> "<kurzes Ziel>"        # Auftrag-Modus (Zielzustand-Loop, NEU 2026-08-07)
+```
 
 **Beispiele:**
 - `/prompt risk-hub "fix den Login-Bug: redirect nach /accounts/login statt /dashboard"`
 - `/prompt tax-hub "neues Model: Steuerrate mit Prozentsatz und Gültigkeitszeitraum"`
 - `/prompt writing-hub "refactor: CharacterService auslagern aus views.py"`
+- `/prompt --auftrag writing-hub "ich möchte ein fertiges Buch optimal produzieren"`
 
 ---
 
-## Schritt 1 — Input parsen
+## Schritt 0 — Modus-Weiche (NEU 2026-08-07)
+
+**Auftrag-Modus** greift bei `--auftrag` ODER wenn die Anweisung ein **Ergebnis-Wunsch
+ohne Code-Bezug** ist („ich möchte …", ein Produkt/Zustand statt einer Codestelle).
+Im Zweifel: kurz nachfragen statt raten. Coding-Anweisungen (Bug, Model, Refactor,
+Test, Deploy) → weiter mit Schritt 1 wie bisher.
+
+### Auftrag-Modus (ersetzt Schritte 1–5; drei Stationen, die zweite ist ein Halt)
+
+1. **Zielzustand-Prompt generieren** aus der kurzen Eingabe, exakt diese Struktur
+   (`policies/zielzustand.md`):
+   - **Zielzustand (1 Satz):** beobachtbares Endergebnis — „Was ist am Ende wahr?"
+   - **Akzeptanzkriterien (2–5, prüfbar):** maschinen- oder stichprobenprüfbar
+     formuliert, nie „es funktioniert". Reproduzierbarkeit (ein Einstiegskommando,
+     zweimal identisch) ist fast immer ein gutes erstes Kriterium.
+   - **Out of Scope:** mindestens die Außenwirkungs-Grenze explizit ziehen
+     (Publish/Versand/Upload/Dritte = bleibt Owner).
+   - **Arbeitsmodus:** Verweis auf SA-4 (`policies/autonomy-gates.md`): autonome
+     Umsetzung inkl. Merge für alles, was nachweisbar auf ein benanntes Kriterium
+     einzahlt; Abweichung = Stopp + Scope-Checkpoint.
+   Vorlage: Referenzbeispiel „Buchproduktion writing-hub" im PR, der diesen Modus
+   einführte (platform, Zielzustand-Loop 2026-08-07).
+2. **HALT — Freigabe einholen.** Den generierten Prompt dem User zeigen und auf
+   ausdrückliches Go warten. **Schweigen ≠ Zustimmung; ohne Go endet der Skill hier**
+   (Ausgabe: der Prompt selbst, als Entwurf markiert). Änderungswünsche einarbeiten
+   und erneut vorlegen.
+3. **Bei Go: Artefakt materialisieren.** Issue im Ziel-Repo anlegen (Titel =
+   Zielzustand-Kurzform, Body = der freigegebene Prompt + Freigabe-Vermerk
+   „akzeptiert durch Owner <Datum>, Kapitäns-Kanal"). Link-Basis vorher gegen
+   `git remote get-url origin` verifizieren (Org-Falle). Ausgabe: Issue-Link +
+   ein Satz: „Ab jetzt SA-4-fähig — jeder PR verlinkt dieses Issue und das
+   Kriterium, auf das er einzahlt."
+
+**Abschluss-Check Auftrag-Modus:** ☐ Prompt in Soll-Struktur ☐ Go liegt wörtlich vor
+☐ Issue existiert + verlinkt ☐ ohne Go: nichts angelegt, Entwurf ausgegeben.
+
+---
+
+## Schritt 1 — Input parsen (Coding-Modus)
 
 Extrahiere aus der User-Eingabe:
 - **REPO**: Repository-Name (z.B. `risk-hub`)

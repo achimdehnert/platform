@@ -205,6 +205,25 @@ Falls diese Session eine Aufgabe aus der `## Prioritäten`-Tabelle des
    pgvector-Memory → der git-getrackte Handover driftet. Der Start-seitige
    Drift-Guard (`session-start` Phase 2.6) fängt nur, was beide Quellen abgleicht.
 
+### 0d: Abnahme gegen den Session-Zielzustand + SA-4-Zähler (PFLICHT — NEU 2026-08-07, Zielzustand-Loop)
+
+> Gegenstück zu `session-start` Phase 2.7. Abnahme heißt: gegen den **akzeptierten
+> Zielzustand** prüfen, nicht gegen die Liste erledigter Schritte
+> (`policies/zielzustand.md` Pkt. 4). Und: SA-4 ist eine Konvention mit Ratsche —
+> ohne Messstelle driftet sie (`feedback_canon_decision_needs_enforcement_gate`);
+> diese Phase IST die Messstelle.
+
+1. **Abnahme:** Für den in 2.7 geklärten Zielzustand genau einen Ausgang festhalten
+   (im Stand-Block des Handovers): **erreicht** (Kriterien einzeln verifiziert, nicht
+   pauschal) · **nicht erreicht** (mit dem konkret fehlenden Kriterium) ·
+   **verschoben** (nur mit Tracking-Artefakt im selben Zug). Sessions, die 2.7
+   begründet übersprungen haben, schreiben „Zielzustand: n/a (begründet)".
+2. **SA-4-Zähler** (nur wenn SA-4 ratifiziert und benutzt/benutzbar war), eine Zeile
+   im Stand-Block: `SA-4: <n> Anwendungen · <m> Einzel-OK trotz Klassen-Deckung ·
+   <f> Fehlanwendungen`. `f > 0` → SA-4 fällt laut Ratsche auf Einzelfreigabe zurück:
+   sofort als Befund melden, nicht nur zählen. `m` speist den Kill-Test (Signal G,
+   >30 % → Klasse überarbeiten/streichen) — Auswertung im Regel-Ritual (KONZ-038).
+
 ---
 
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
@@ -616,6 +635,8 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 11 | Erledigte/verschobene Prios im Handover UND Memory nachgezogen (Phase 0c) | ☐ |
 | 12 | Offene AGENT_HANDOVER.md-PRs gegengecheckt vor eigenem Schreiben (Phase 0a-handover-pr) | ☐ |
 | 13 | Handover-Freshness-Check gelaufen: Exit 0 oder begründet im Commit-/PR-Text (Phase 0a-freshness) | ☐ |
+| 14 | Abnahme gegen Session-Zielzustand im Stand-Block: erreicht/nicht erreicht/verschoben+Tracking bzw. n/a-begründet (Phase 0d) | ☐ |
+| 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
