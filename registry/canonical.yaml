@@ -176,7 +176,7 @@ repos:
       repo: ausschreibungs-hub
       description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
       github: iilgmbh/ausschreibungs-hub
-      deployed: true
+      deployed: false
       type: django
       lifecycle: experimental
       tenancy_mode: none
@@ -200,7 +200,7 @@ repos:
       repo: bahn-hub
       description: Bahn SQF Analytics — FastAPI + DuckDB
       github: achimdehnert/bahn-hub
-      deployed: true
+      deployed: false
       url: https://bahn.iil.pet
       type: fastapi
       lifecycle: active
@@ -259,7 +259,7 @@ repos:
       repo: billing-hub
       description: Rechnungs-/Abrechnungsplattform
       github: achimdehnert/billing-hub
-      deployed: true
+      deployed: false
       url: https://billing.iil.pet
       type: django
       lifecycle: production
@@ -586,7 +586,7 @@ repos:
       repo: learn-hub
       description: Lern-/Schulungsplattform
       github: achimdehnert/learn-hub
-      deployed: true
+      deployed: false
       url: https://learn.iil.pet
       type: django
       lifecycle: production
@@ -666,7 +666,7 @@ repos:
       repo: odoo-hub
       description: Odoo management and integration (Odoo 17)
       github: achimdehnert/odoo-hub
-      deployed: true
+      deployed: false
       type: other
       lifecycle: experimental
       tenancy_mode: none
@@ -686,7 +686,7 @@ repos:
       repo: onboarding-hub
       description: Schulungs-/Onboarding-Plattform (schulungspass.de). Wird laut Session-Memory nicht weiterentwickelt (Auth via Cloudflare Access statt App-OIDC), bleibt aber im Betrieb.
       github: achimdehnert/onboarding-hub
-      deployed: true
+      deployed: false
       url: https://schulungspass.de
       type: django
       lifecycle: production
@@ -764,7 +764,7 @@ repos:
       repo: recruiting-hub
       description: Recruiting-/Bewerbermanagement-Plattform
       github: achimdehnert/recruiting-hub
-      deployed: true
+      deployed: false
       url: https://recruiting.iil.pet
       type: django
       lifecycle: production
@@ -891,7 +891,7 @@ repos:
       repo: tax-hub
       description: Steuer-/Finanzverwaltungsplattform (django_tenants Multi-Tenancy)
       github: iilgmbh/tax-hub
-      deployed: true
+      deployed: false
       url: https://tax.iil.pet
       type: django
       lifecycle: production
@@ -970,7 +970,7 @@ repos:
       repo: travel-beat
       description: Travel story platform (DriftTales)
       github: achimdehnert/travel-beat
-      deployed: true
+      deployed: false
       url: https://drifttales.app
       type: django
       lifecycle: production
