@@ -77,6 +77,12 @@ def duplikat(client, beschreibung: str) -> str | None:
     return None
 
 
+def _dd_mm_yyyy(iso: str) -> str:
+    """2026-08-06 -> 06.08.2026 (Format laut OpenAPI-Beispiel 01.01.2022)."""
+    j, m, t_ = iso.split("-")
+    return f"{t_}.{m}.{j}"
+
+
 def anlegen(args) -> int:
     brutto = round(float(args.brutto), 2)
     steuer = round(float(args.steuer), 2)
@@ -114,7 +120,13 @@ def anlegen(args) -> int:
         "voucher[creditDebit]": "C",
         "voucher[voucherType]": "VOU",
         "voucher[currency]": args.waehrung,
-        **({"voucher[propExchangeRate]": args.kurs} if args.kurs else {}),
+        # Fremdwaehrung (OpenAPI-Spec): propertyForeignCurrencyDeadline laesst sevdesk
+        # den offiziellen Kurs zum Stichtag setzen — kein Kurs-Raten. Alternativ
+        # propertyExchangeRate (NICHT propExchangeRate — der 500-Fehler des Probelaufs
+        # 2026-08-07 kam vom falschen Feldnamen). Deadline gewinnt laut Spec.
+        **({"voucher[propertyForeignCurrencyDeadline]": _dd_mm_yyyy(args.datum)}
+           if args.waehrung != "EUR" and not args.kurs else {}),
+        **({"voucher[propertyExchangeRate]": args.kurs} if args.kurs else {}),
         "voucher[taxRule][id]": args.taxrule,
         "voucher[taxRule][objectName]": "TaxRule",
         "voucherPosSave[0][objectName]": "VoucherPos",
@@ -160,7 +172,7 @@ def main() -> int:
     p.add_argument("--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC")
     p.add_argument("--konto", default="", help="Kontonummer NUR wenn Owner-zugeordnet; sonst leer lassen")
     p.add_argument("--waehrung", default="EUR", help="Rechnungswährung, z.B. USD (Beträge dann in dieser Währung)")
-    p.add_argument("--kurs", default="", help="EUR je Fremdwährungseinheit (Pflicht bei Fremdwährung; Quelle im Bericht nennen)")
+    p.add_argument("--kurs", default="", help="optional: fester Kurs (propertyExchangeRate); ohne Angabe setzt sevdesk den Stichtagskurs selbst")
     return anlegen(p.parse_args())
 
 
