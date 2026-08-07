@@ -21,7 +21,7 @@
 "apo-hub"            = 7
 "ausschreibungs-hub" = 5
 "authoringfw"        = 0
-"bfagent"            = 33
+"bfagent"            = 31
 "billing-hub"        = 0
 "cad-hub"            = 0
 "coach-hub"          = 0
@@ -40,14 +40,14 @@
 "iil-reflex"         = 1
 "iil-relaunch"       = 0
 "iil-testkit"        = 1
-"iil-voice-agent"    = 39
+"iil-voice-agent"    = 30
 "illustration-fw"    = 4
 "illustration-hub"   = 1
 "infra-deploy"       = 1
 "lastwar-bot"        = 0
 "learn-hub"          = 0
 "learnfw"            = 1
-"mcp-hub"            = 34
+"mcp-hub"            = 33
 "meiki-hub"          = 1
 "nl2cad"             = 0
 "odoo-hub"           = 21
@@ -58,7 +58,7 @@
 "recruiting-hub"     = 0
 "research-hub"       = 0
 "researchfw"         = 3
-"risk-hub"           = 2
+"risk-hub"           = 1
 "riskfw"             = 0
 "tax-hub"            = 0
 "trading-hub"        = 0

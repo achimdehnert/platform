@@ -207,7 +207,17 @@ RULES: list[Rule] = [
         # Argumente sind zeilenweise nicht entscheidbar → nicht geflaggt
         # (0-FP-Disziplin). Bis 2026-08 flaggte die Regex JEDEN .get(-Aufruf
         # und widersprach der eigenen Beschreibung.
-        re.compile(r'\bos\.environ\.get\(\s*["\'][^"\']+["\']\s*\)'),
+        #
+        # Der negative Lookahead ergaenzt den zweiten Fallback-Weg: `or DEFAULT`
+        # und `if x else DEFAULT` auf derselben Zeile SIND Fallback-Logik, nur
+        # eben nicht als Default-Argument geschrieben. Vorher wurden sie
+        # geflaggt, obwohl die Regel-Beschreibung ausdruecklich "ohne
+        # Fallback-Logik" sagt (platform#1682). Der Lookahead kann nur Treffer
+        # entfernen, nie neue erzeugen — 0-FP-Disziplin bleibt gewahrt.
+        re.compile(
+            r'\bos\.environ\.get\(\s*["\'][^"\']+["\']\s*\)'
+            r"(?!\s*(?:or\b|if\b|else\b))"
+        ),
         (".py",),
         "decouple.config('KEY', default=...)",
         skip_filenames=frozenset(_DJANGO_BOILERPLATE),
@@ -235,6 +245,20 @@ RULES: list[Rule] = [
         "V-SEC-03",
         "VERMEIDBAR",
         "Hardcodierter API-Token / Secret als Literal-String",
+        # BEWUSST OHNE Wortgrenze am Namensteil — das wurde 2026-08 einmal
+        # versucht und wieder zurueckgenommen (platform#1682).
+        #
+        # Anlass war ein echter Fehlalarm: `REASON_ALLOW_VALID_TOKEN =
+        # "allow_valid_capability"` in mcp-hub ist ein Enum-Label, kein Secret;
+        # der Wertteil laesst Unterstriche zu und greift ab 16 Zeichen, trennt
+        # solche Labels also nicht von Geheimnissen. Ein fuehrendes \b haette
+        # diese 2 Fehlalarme entfernt — und mit ihnen 7 RICHTIGE Treffer, weil
+        # `_TOKEN = "..."`, `INGRESS_AUTH_TOKEN = "..."` und `api_token="..."`
+        # ebenfalls keine Wortgrenze vor dem Namensteil haben (gemessen ueber
+        # 70 Repos: frist-hub 5→0, iil-reflex 1→0, platform 1→0).
+        #
+        # Ein Fehlalarm gehoert an der Fundstelle markiert (`# hardcoded-ok`),
+        # nicht durch eine Regel-Lockerung erschlagen, die echte Funde mitnimmt.
         re.compile(
             r"(?:api_key|apikey|api_secret|token|auth_token|access_token|private_key)"
             r'\s*=\s*["\'][a-zA-Z0-9_\-\.]{16,}["\']',
