@@ -35,7 +35,23 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-07 — die Arbeitsliste ist nicht mehr flüchtig: todo.iil.pet)
+## ⚡ Aktueller Stand (2026-08-07 nachmittags — Zielzustand-Loop ratifiziert; Canary nach 9 Tagen wieder Alarm; zwei Aufträge Ende-zu-Ende)
+
+**Zeitanker:** HEAD `21c852c3` · `rev-list --count` 3015 · geschrieben 2026-08-07
+
+- **Abnahme (Phase 0d, erster Lauf des neuen Gegenstücks): Session-Zielzustand n/a (begründet)** — Phase 2.7 entstand erst MITTEN in dieser Session (PR #1819); gearbeitet wurde gegen drei je einzeln akzeptierte Auftrags-Artefakte: [#1820](https://github.com/achimdehnert/platform/issues/1820) **erreicht+geschlossen**, [#1827](https://github.com/achimdehnert/platform/issues/1827) **erreicht+geschlossen**, [dev-hub#259](https://github.com/achimdehnert/dev-hub/issues/259) **in Arbeit** (Inventar liegt, Rückbau-PRs noch nicht begonnen).
+- **SA-4-Zähler: 5 Anwendungen · 4 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Die 4× m sind STRUKTURELL: das platform-Review-Ruleset verlangt je PR ein Owner-Review — die Klasse deckte die Umsetzung, GitHub erzwang das Einzel-OK trotzdem. Das ist das zurückgestellte SA-2/KONZ-019-B1-Thema, kein SA-4-Zuschnittsfehler; m/n=80% risse den Kill-Test formal → als Befund fürs Regel-Ritual am 16.08. werten, nicht als Streich-Signal.
+- **Zielzustand-Loop steht komplett** (Owner-ratifiziert): SA-4 in `policies/autonomy-gates.md` (#1818 + wörtliches Go als PR-Kommentar) · `/prompt --auftrag` (Eingabe → Zielzustand-Prompt → HALT → Issue) · `session-start` 2.7 + `session-ende` 0d als Messstelle (#1819). Dreimal scharf benutzt (#1820, #1827, dev-hub#259).
+- **Canary ist wieder ein Alarm:** [#1303](https://github.com/achimdehnert/platform/issues/1303) autonom gelöst und geschlossen — 7 tote Freeze-Ziele raus (#1814), Register #1314 nachgezogen, Registry deployed:false, hub137 war von selbst zurück (#1778 zu). Erster grüner Lauf seit 29.07. um 06:42, [#1547](https://github.com/achimdehnert/platform/issues/1547) schloss sich nach 257 Auto-Kommentaren selbst. Reste: [#1815](https://github.com/achimdehnert/platform/issues/1815) · [137-hub#83](https://github.com/achimdehnert/137-hub/issues/83).
+- **D4 massiv voran:** platform-Lane 122→**186/253** („ohne rule_class=Nicht-Regel" falsifiziert: 56/97 trugen Regeln; 35 Extraktionen; Draft→Verify fing 5 echte Entwurfsfehler). writing-hub 0→**82/104** als erster `/d4-lane`-Fremdlauf (Skill #1817, verteilt); `d4-lane-status`-JSON-Datensätze auf [#1640](https://github.com/achimdehnert/platform/issues/1640).
+- **⚠️ MORGEN 08.08. 06:23 UTC feuert der Ritual-Trockenlauf-Cron** (#1816): sein #1640-Kommentar ist der Schedule-Pfad-Beweis — danach die Zusatz-Cron-Zeile in `regel-ritual.yml` WIEDER ENTFERNEN (Vermerk auf #1640). Ein 08.08.-Kommentar ist der Trockenlauf, NICHT Lauf 1.
+- **/mailcheck ist DB-first** (#1825, Echtlauf-Abnahme an #1820): Index 11.808 Nachrichten für die Historie, live nur Post-Ingest-Fenster + Original-Abruf; Mail-Action-Board mit Deckungsblock Pflicht; Skill verteilt.
+- **Rechnungsstrecke läuft** (#1827 zu, `/rechnungsstrecke` verteilt): `tools/sevdesk/beleg_entwurf.py` (#1828/#1829) legt NUR Entwürfe an; **drei Entwürfe warten auf Owner-Sichtprüfung** (152103230 Google 50,89 € Konto 6837 · 152105495 Groq $4,91 · 152105500 Railway $6,50 — USD via `propertyForeignCurrencyDeadline`, Rücklese-Kurs ~0,866 plausibel). Empfänger-Prüfung fing am ersten Tag 3 Fremd-Entitäten (Kronen privat · Placetel+Cerebras = Dehnert EDV, eigenes sevdesk, bewusst OHNE API). Ledger-Todos angelegt; Heroku-Klasse = Ablage-Ordner `~/shared/inbox/invoices/` (Owner-Entscheid B).
+- **dev-hub#259 wartet auf Fortsetzung:** Inventar als Kommentar (4 tote Apps inkl. portal 2.618 LOC, 6 Task-Leichen, 2 Dep-Kandidaten; content_store praktisch tot, aber nicht trivial entfernbar). VOR dem ersten Rückbau-PR: org-weiter Konsumenten-Check der URL-Präfixe. Merges dort einzeln Owner (Auto-Deploy = Gate 2).
+- **Eigene Fehler, benannt:** Alt-Branch der Vormittags-Session gelöscht und sofort wiederhergestellt (Inhalt war längst gemergt — Schaden 0, aber `git branch -D` ohne Herkunftsprüfung bleibt der Fehler) · erster Workflow-Start mit stringifiziertem args (385 Ein-Zeichen-Items) · vier USD-Rateversuche gegen die sevdesk-API, bevor die OpenAPI-Spec gelesen wurde — der Feldname stand dort.
+- **Bewusst verschoben (getrackt):** `/knowledge-capture` (Outline) — Kontext-Ende dieser Marathon-Session; nächste Session holt es nach (dieser Block + #1640-Kommentare sind die Quelle).
+
+## ⚡ Vorheriger Stand (2026-08-07 vormittags — die Arbeitsliste ist nicht mehr flüchtig: todo.iil.pet)
 
 **Zeitanker:** HEAD `6266008d` · `rev-list --count` 3001 · geschrieben 2026-08-07
 
@@ -57,128 +73,11 @@ Z. 178) — kein Zähler zu führen.
 - **Zwei Memory-Dateien in der risk-hub-Lane hatten `name:` mit Bindestrichen statt passend zum Dateinamen** (`feedback_ci_last_log_line_lies`, `feedback_compose_interpolation_vs_env_file`) — vom Link-Guard gemeldet, korrigiert. Vorher geprüft, dass niemand auf die Bindestrich-Form verweist; `MEMORY.md` verlinkte bereits die Dateinamens-Form.
 - **Eigener Fehler dieser Sitzung:** Ich habe `cloudflared tunnel route dns` benutzt, ohne danach zu prüfen, welchen Namen es tatsächlich angelegt hat — der Fehler fiel nur auf, weil das Werkzeug seine Ausgabe druckte. Hätte es geschwiegen, wäre `todo.iil.pet` einfach nie aufgelöst worden, und die Suche hätte am falschen Ende begonnen.
 
-## ⚡ Vorheriger Stand (2026-08-05 — Werkzeuge statt Prosa; ein Anzeigetext sagte das Gegenteil des Sachverhalts)
-
-**Zeitanker:** HEAD `bd1ffb5a` · `rev-list --count` 2919 · geschrieben 2026-08-05
-
-- **🟢 ZUERST — die MEiKI-Anzeige ist entscheidungsreif, die Sachfrage ist geklärt.** Der Entwurf liegt im hnu-Postfach (`Entwürfe`, an `schmidt@actago.de`, 9 Anlagen, **nicht gesendet** — der Versand ist eine Owner-Entscheidung). Der Auftragsverarbeitungsvertrag LRA–OCOS **besteht**: zugesichert von OCOS selbst (C. Zeiner, telefonische Rücksprache 2026-08-03), Entscheidung des Projektleiters vom 2026-08-05, dieser Zusicherung zu folgen. Das ist die belastbarste verfügbare Quelle — Zeiner ist Vertragspartei. **Provenienz für den Fall einer Rückfrage der Aufsicht:** schriftlich übersandt hat OCOS am 2026-08-03 den eigenen AVV-Mustervertrag (`Vertraulich_AVV_Ocos.docx`); die Bestätigung des *geschlossenen* Vertrags mit dem Landratsamt erfolgte mündlich, der Nachweis in Papierform liegt in der Vertragsakte des Landratsamts. Die frühere Einstufung als Blocker (Stand vom Vormittag) ist damit zurückgezogen. Die Nebenspur ist ebenfalls geklärt (Owner, 2026-08-05): `00891_Beauftragung_Ocos Solutions GmbH.pdf` über `beschaffung@hnu.de` ist ein **Beratungsvertrag, keine Programmierung** — die Hochschule lässt sich beraten, es fließen keine Sozialdaten an OCOS. Damit **keine** zweite Auftragsverarbeitung und kein zusätzlicher Anzeigetatbestand. Die Konstellation ist sauber getrennt: LRA→OCOS Auftragsverarbeitung (Dokumentenstrom, AV besteht, angezeigt) · HNU→OCOS Beratung (ohne Datenverarbeitung) · HNU→LRA Fristenmanagement-Betrieb ab Pilot 2 (§ 80 Abs. 1 Satz 1 **und** Satz 2). Die Grenze der Beratungs-Einordnung liegt dort, wo OCOS im Zuge der Beratung Zugriff auf echte Sozialdaten bekäme — konkret relevant, weil Zeiner die Umgebungsvariablen des Produktivpfads „nach Zustimmung durch Herrn Kramer" angeboten hat.
-- **[meiki-hub#138](https://github.com/meiki-lra/meiki-hub/pull/138) ist merge-fertig und wartet auf deine Entscheidung** — CI grün, kein Review-Ruleset, kein Deploy-Pfad berührt. Bewusst **nicht** autonom gemergt: Owner-Weisung 2026-08-05 — in Abläufen mit Menschen schlage ich vor, warne und weise hin; entschieden wird vom Owner. Die Standing-Authorization SA-1 beschreibt, was technisch zulässig ist, nicht was inhaltlich meine Entscheidung wäre.
-- **Vier von neun Anlagen der DSB-Anfrage trugen einen falschen Sachverhalt** — korrigiert in [meiki-hub#138](https://github.com/meiki-lra/meiki-hub/pull/138) (offen, CLEAN). Sie führten die Dokumenten-Steuerung als „keine Sozialdaten · kein externer Auftragsverarbeiter · keine Anzeige" und schrieben, es komme in keiner Stufe ein lernendes Verfahren zum Einsatz. Kramer schrieb derselben Empfängerin 17 Minuten nach dem Versand der Vorfassung, die Post werde „KI-gestützt sortiert und verschlagwortet", dabei würden personenbezogene Daten verarbeitet. Betroffen war auch `anzeigetext-80-abs1-satz1-lra.pdf` — der Text an die Aufsicht selbst. `anzeigetext-80-abs1-satz2-hnu.pdf` blieb bewusst unverändert (sein „deterministisch" gilt dem Fristenmanagement und stimmt). **Zwei Rechtsfragen nebenbei geklärt:** Behörde zu sein schließt die Auftragsverarbeitung nicht aus — § 80 Abs. 1 Satz 2 SGB X **verdoppelt** die Anzeigepflicht (LRA an seine Aufsicht, HNU an ihre). Und Kramers „Anzeige nach § 80 Abs. 2" ist die falsche Fundstelle; Abs. 2 regelt den Verarbeitungsort.
-- **KONZ-038 D6 abgeschlossen** ([#1766](https://github.com/achimdehnert/platform/pull/1766) gemergt): Das Slug-Wörterbuch der eingefrorenen K1-Baseline hatte **keinen maschinellen Konsumenten** — „unmappbar = nicht bewertbar" und „Instrumentenwechsel ⇒ Neuberechnung" standen als Prosa im YAML-Kopf, der Ritual-Lauf verwies auf den „manuellen Teil". `retro_kpis.py --k1` rechnet den Ausgang jetzt und ist in `regel-ritual.yml` verdrahtet. Baseline nach dem eigenen Instrumentenwechsel neu berechnet (identisch: n=20, 10/7/3, Summen-Rate 1.000), Pin nachgezogen. Suite 23 → 36.
-- **Megatest: die „5 nicht scannbaren Repos" lagen nie am Token** ([#1768](https://github.com/achimdehnert/platform/pull/1768) gemergt). `megatest.yml` klonte alle 52 als `achimdehnert/$repo`; 11 liegen unter iilgmbh/meiki-lra/ttz-lif, 6 rettete GitHubs Redirect, **5 antworten mit 404** — darunter `iil-voice-agent` mit **Budget 39**, dem größten Posten von [#1682](https://github.com/achimdehnert/platform/issues/1682), nie im CI gescannt. Der Owner-Resolver lag fertig in der Registry und wurde nicht aufgerufen. Der Budget-Abbau selbst bleibt offen (App-Repos).
-- **[#1549](https://github.com/achimdehnert/platform/issues/1549) geschlossen, mit ehrlichem Rand:** Prod 0 unhealthy von 43, `devhub_beat` bei 45 % statt 89,5 %. Aber `dms_hub_*` und `coach_hub_*` laufen unter dem Freeze gar nicht — ihre Null kommt aus „läuft nicht", nicht aus „läuft gesund". Steht so im Issue.
-- **Neuer Skill mit eigenem Prüfer** ([#1770](https://github.com/achimdehnert/platform/pull/1770), offen, CI grün): `/arbeit-pruefen` + `tools/dokument_formalpruefung.py` (13 Prüfungen, 28 Tests) für die Formalprüfung eingereichter Arbeiten. Das Werkzeug widerlegte sofort die eigene Handprüfung (32 statt 17 betroffene Abbildungen, 26 statt 24 Belege, zwei zusätzliche Befunde). Das Quellen-Gate ist gemessen, nicht vorsichtig: von 9 belegbar falsch zugeschriebenen Literatureinträgen tragen 3 keinen Autor-Marker, 2 überhaupt keinen.
-- **Zwei offene Nebenbefunde:** [#1769](https://github.com/achimdehnert/platform/issues/1769) — `read_mail.py --list` liefert **0 von 221 geprüften** Nachrichten in jedem Ordner, `treffer: []`, `fehler: []`, Exit 0; dasselbe Werkzeug trägt den Schalter `--abwesenheitsbeweis`. [#1767](https://github.com/achimdehnert/platform/issues/1767) — fsn1 3 Container unhealthy aus **drei** Ursachen (Healthcheck probt HTTP auf einem Celery-Worker · `docker exec` scheitert seit 5 Wochen · `ib_gateway` ruft ein nicht installiertes `nc`). Der Neustart wurde vom Berechtigungs-Klassifikator geblockt, das Kommando steht im Issue. Vorfrage vor dem Neustart: Der Stack ist ein Juni-Worktree-Rest mit seit 3 Wochen totem Web-Container — `down` wäre womöglich richtiger als `up`.
-- **Gesendet hat der Owner selbst (verifiziert am gesendeten Text):** Rückmeldung an R. Frost zur Masterarbeit (13:24) · Rückfrage an C. Zeiner zu Verschlagwortungs-Verfahren, Azure-Verarbeitungsorten und geltendem AVV (12:49). Zeiners Antwort ist die Voraussetzung für M-6/M-7 in der Anzeigepflicht-Matrix.
-- **Eigene Fehler dieser Sitzung:** `git checkout` auf eine Datei mit ungetrackter Arbeit — das komplette K1-Modul war weg und musste neu geschrieben werden, obwohl genau diese Lehre im Memory steht (im selben Zug ein zweites Mal: ein Splice traf die Erwähnung im Konventions-Kommentar statt die Überschrift) · zwei falsche Zahlen in einer Rückmeldung an einen Studenten · eine Marker-Quote ohne exaktes Auszählen behauptet, deren Korrektur zugleich eine Detektionslücke freilegte (`[a-zäöüß]` kennt „Léo" nicht) · dreimal eine Null gemeldet, ohne die Positivprobe zu fahren — dreimal hat der Evidenz-Gate es abgefangen.
-
-
-**Nachtrag (2026-08-05 nachmittags, nach dem formalen Session-Ende) — Mail-Auswertung zweimal widerlegt, Verlaufsansicht gebaut:**
-
-- **Vier Mails sind raus, vom Owner selbst gesendet** (am gesendeten Text verifiziert): Rückfrage an C. Zeiner (12:49) · Rückmeldung an R. Frost zur Masterarbeit (13:24) · **MEiKI-Anzeige an die externe DSB S. Schmidt (13:35)** · Antwort an M. Raslan (13:40) · Antwort an S. Lohwieser mit zwei Anlagen (14:12).
-- **⚠️ OFFEN, konkret: Die MEiKI-Anzeige ging mit NULL Anlagen raus.** Der Text sagt an zwei Stellen „liegt bei" — Frau Schmidt hat den Sachstand, aber weder die beiden Anzeigetexte noch Anzeigepflicht-Matrix, AVV-/TOM-Entwürfe oder Erhebungsbogen. Alle neun PDFs liegen im meiki-hub-Worktree bereit. **Eine kurze Nachfass-Mail im selben Strang ist der nächste Schritt.** Inhaltlich war die gesendete Fassung korrekt (Tabelle mit `ja - OCOS`, Fristenmanagement Stufe 1 `synthetisch`, Pilot 2 `ja - HNU`); der Hinweis zu § 80 Abs. 2 fehlt, weil der Owner den Infrastruktur-Passus vor dem Senden entfernt hat — das nimmt zugleich den Termindruck von Zeiners Auskunft (Telefonat vereinbart für **Freitag 07.08.**).
-- **Zwei Mail-Auswertungen gebaut und beide widerlegt — der lehrreichste Teil des Tages.** Erste Fassung verglich INBOX gegen „Gesendete Objekte": Sie meldete 29 offene Stränge, übersah aber, dass Antworten in Betreuungs- und Projektordnern liegen (Realfall Nawaz: 7 von 9 Nachrichten in `Betreuungen/Nawaz-Muhammad`, darunter eine eigene Antwort). Zweite Fassung las alle Ordner über den `thread_key` — und lief in zwei **gegenläufige** Fehler: **Kollision** (33 Nachrichten von zehn Personen über 1,5 Jahre unter EINEM Schlüssel, weil alle „HNU Kontaktformular" heißen — ohne `References` fällt die Gruppierung auf den Betreff zurück) und **Fragmentierung** (dieselbe Unterhaltung in mehreren Schlüsseln; Abel und Ullah erschienen offen, obwohl beantwortet). Dritte Fassung gruppiert **nach Gesprächspartner** statt nach Strang und ist gegen beides robust.
-- **Was die dritte Fassung fand und die ersten beiden nicht:** `maryhenrietta.ezeobi@student.hnu.de`, „Re: Research Idea" vom 08.06. — **58 Tage, nie beantwortet**. In Fassung 1 unsichtbar (falscher Ordnervergleich), in Fassung 2 unsichtbar (kollidierter Strang). Ebenfalls offen: M. Schönherr fragt seit 30.07. nach einem Präsentationstermin „in der nächsten Woche" (= diese Woche); an dem Termin hängen sein ausführliches Feedback und die Note. Seine Masterarbeits-Idee vom 22.06. hat keine Mail-Antwort — in dieser Korrespondenz läuft aber vieles telefonisch.
-- **[dev-hub#249](https://github.com/achimdehnert/dev-hub/pull/249) — Verlaufsansicht.** `/mail-agent/verlauf/?id=<n>` zeigt den ganzen Faden, neueste zuerst, je Nachricht Von/An/Cc/Datum/Ordner/Betreff/Text/Anhänge. Anhänge über `/mail-agent/anhang/?id=<n>` **inline**, PDFs gehen im Browser auf. Der Anhang-Lesepfad liegt jetzt einmal in `services.anhang_bytes` statt je einmal im Kommando und im View; fehlender Rohtext gibt 404 mit Grund statt 200 mit null Bytes. 391 Tests grün, Rot-Beweis geführt.
-- **Zwei neue Arbeitsregeln als Memory** (Owner-Weisungen): (1) **In Abläufen mit Menschen schlage ich vor, warne und weise hin — entschieden wird vom Owner.** Anlass: Ich hatte geprüft, dass meiki-hub#138 unter SA-1 fällt, und wollte mergen; der PR ändert einen Anzeigetext an eine Aufsichtsbehörde. SA-1 beschreibt, was technisch zulässig ist, nicht was inhaltlich meine Entscheidung wäre. (2) **Mail-Umfangsregler** `knapp | normal | ausführlich` (Default `normal`) plus die davon unabhängige Regel: Jeder Fakt muss beantworten, was gefragt wurde, oder anstoßen, was ich brauche — sonst raus, auch wenn er stimmt. Dazu: **keine harten Zeilenumbrüche in Mails**, nur Absätze.
-- **Eigener Fehler mit Außenwirkung:** In der Lohwieser-Mail stand „In Günzburg ist es IKOL-WG" — abgeleitet aus einer Sammelzeile, tatsächlich ist es **OK.WOBIS**. Vor dem Versand korrigiert. Ein Gefälligkeitsdetail, nach dem niemand gefragt hatte; genau der Fall, den die neue Faktenregel adressiert.
-- **AV LRA–OCOS ist geklärt** (Owner 2026-08-05): Zusicherung von OCOS selbst, Zeiner ist Vertragspartei. Die HNU-Beauftragung über eBANF ist ein **Beratungsvertrag ohne Datenverarbeitung** — keine zweite Auftragsverarbeitung. Konstellation: LRA→OCOS Auftragsverarbeitung (angezeigt) · HNU→OCOS Beratung · HNU→LRA Fristenmanagement ab Pilot 2 (Satz 1 **und** Satz 2). Grenze: Sobald OCOS im Zuge der Beratung Zugriff auf echte Sozialdaten bekäme, kippt die Einordnung — Zeiner hat die Produktiv-Umgebungsvariablen „nach Zustimmung durch Herrn Kramer" angeboten.
-
-## ⚡ Älterer Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
-
-**Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
-
-**Nachtrag (2. Session-Ende 2026-08-02, HEAD `d24fd16f` · count 2769):**
-- **Retro 287b23** gemergt ([#1661](https://github.com/achimdehnert/platform/pull/1661)): 7 Survivors, alle Maßnahmen umgesetzt ([#1664](https://github.com/achimdehnert/platform/pull/1664) + Mode-Fix [#1660](https://github.com/achimdehnert/platform/pull/1660)); Aufrufpfad-Contract-Drill neu (drillt den ECHTEN settings-Pfad); #1186/#1190 als gebaut geschlossen; Welle-2-Rangliste auf [#705](https://github.com/achimdehnert/platform/issues/705) — **workaround-Slug bis 16.09. NICHT gaten (K1-Vergleichsgruppe!)**.
-- **Orchestrator-Token rotiert** (Gate 1, Owner-Wort): neuer Key in `.env.prod` + Container per compose **--force-recreate** (nicht restart!) + `~/.secrets/orchestrator_mcp_api_key` + settings.json konsistent; Container-Env-Präfix verifiziert, Service healthy. Kernlehre als 🌀-Memory: `docker restart` lädt env_file NIE neu — die Juli-Rotation war deshalb 16 Tage wirkungslos.
-- **⚠️ Rotation #2: Server-Hälfte FERTIG, Client-Hälfte OFFEN — Step 0 der NÄCHSTEN frischen Session:** `~/shared/finish_token_rotation2.sh` ausführen, **VOR jedem settings.json-Read** (der Datei-Watcher spiegelt jede settings.json-Änderung einer laufenden Session komplett ins Transkript — Token #3 wäre sofort wieder exponiert; deshalb NICHT in einer laufenden Session patchen). Bis dahin trägt settings.json **bewusst** den toten Token #2 — orchestrator-MCP ist sichtbar nicht verbindbar, das ist gewollt. Server-Hälfte (Owner „3 go", dokumentiert im [#1640-Kommentar](https://github.com/achimdehnert/platform/issues/1640)): Token #3 in `.env.prod` + compose --force-recreate; unabhängig nachverifiziert 19:10 UTC per SHA256-Präfix-Vergleich (nie Klartext): `~/.secrets/orchestrator_mcp_api_key` = Server-`.env.prod` = Container-Env, StartedAt 13:36:21Z; Token #2 serverseitig tot. **Korrektur eigener Fehldoku (#1693):** die Behauptung „kein Artefakt, Ausführende Session unbekannt" war falsch — das Artefakt existierte als #1640-Kommentar; außerdem hatte #1693 die ⚠️-Zeile fälschlich als komplett erledigt ersetzt und damit die Step-0-Anweisung von der Lesefläche entfernt. Altes Voll-Rotationsskript (`rotate_orchestrator_token.sh`) aus `~/shared/` entfernt — **`finish_token_rotation2.sh` liegt weiter dort und bleibt, bis Step 0 gelaufen ist.**
-- Hygiene-Kandidat (Owner): `/opt/mcp-hub/.env.prod.bak-*` tragen Alt-Keys im Klartext — Löschen ist irreversibel, daher nur vorgeschlagen.
-
-
-**Kern in einem Satz:** Die vollständige Kette zu einem Thema kommt jetzt in **unter
-120 ms aus der Datenbank** — über Ordner- **und** Kontengrenzen hinweg —, statt über
-mehrere IMAP-Durchläufe; beide vom Owner gesetzten Abnahmefälle sind bestanden.
-
-**Die beiden Abnahmefälle, gemessen:**
-
-| Fall | Transport | Ergebnis |
-|---|---|---|
-| Offner | IMAP (hnu + mittwald) | 3er-Kette, 51 ms, Kanten `verweis` |
-| Schmalberger | Graph (iil) | 11er-Kette, 119 ms, 3 Beteiligte, 4 Ordner, Kanten `konversation` |
-
-Keine einzige Kante kam über den Betreff — alle sind über `References` bzw. Graph-
-`conversationId` belegt. Bestand: **11.573 Nachrichten** aus drei Postfächern.
-
-**Fünf Stufen gebaut (S1–S5, alle gemergt und live):**
-- **S1 Antwortpfad** — `mail_suche` (dev-hub) + `tools/mail_agent/suche.py` (platform).
-  Jede Antwort trägt ihre **Deckung**: Konten, Umfang, Textzonen und ausdrücklich, was
-  NICHT durchsucht wurde. Ohne das liest sich ein leeres Ergebnis wie „gibt es nicht",
-  wo nur „habe ich nicht indexiert" gilt.
-- **S2 Vorgangs-Schicht** — `Vorgang` + `VorgangsZuordnung`, durabel, über einen
-  **natürlichen Schlüssel** (`LogicalMessage.kennung` = sha256(Mandant|Message-ID bzw.
-  Inhalts-Hash)). `PROTECT` macht verwaiste Kuration konstruktiv unmöglich.
-- **S3 Volltext** — `mail_volltext`, Tor an ADR-286 §4.5 (nur aktiver Vorgang), **kein**
-  Umgehungsschalter, als Test verankert.
-- **S4 Graph-Ingest** — `mail_ingest --transport graph` mit eigener App-Registrierung
-  (`iil-mail-ingest`, Client-Credentials). Dazu `mail_graph_pruefen`: vier Stufen
-  Datei→Token→Berechtigung→Postfach, jede mit dem nächsten konkreten Schritt.
-- **S5 Dossier** — `mail_dossier` mit Evidenz je Zeile und Ausgabezustand nach §4.6
-  (`open` nur bei vollständiger Deckung), Zustand nie ohne Gründe.
-- **Verkettung** — `mail_kette`, drei Kantenarten nach Verlässlichkeit; Betreff nur als
-  Rückfall und nur bis `BETREFF_MAX=12`, sonst ausdrücklich verworfen **mit Meldung**.
-
-**ADR-288 §4.1 geändert** ([#1598](https://github.com/achimdehnert/platform/pull/1598)):
-„durable Referenzen zeigen nie auf Surrogat-IDs" → „hängen an stabiler **Identität**".
-Der alte Wortlaut zwang dazu, an der Datenbank vorbeizubauen (Textkopie + Cache-FK +
-Neuverknüpfen + Waisen-Zähler); ein natürlicher Schlüssel erfüllt das Ziel mit **einer**
-Beziehung.
-
-**Sechs Befunde am echten Bestand — alle waren still:**
-1. **41 % des Index waren keine Post** — 2.488 IMAP-Platzhalter aus Kalender/Kontakte/
-   Aufgaben, ohne Datum und Absender ([#1584](https://github.com/achimdehnert/platform/pull/1584)).
-   Kein Deckungsproblem: es fehlte nichts, es stand zu viel drin, und die Deckung meldete
-   folgerichtig `complete`.
-2. **Betreff-Stränge verschmelzen Fremdes** — 43 Nachrichten *verschiedener* Studierender
-   unter „Request for Thesis Supervision", 43 ResearchGate-Meldungen, 33 „HNU
-   Kontaktformular"; umgekehrt zerreißt jeder Betreffwechsel eine echte Kette.
-3. **Verschieben erzeugte Duplikate** — die transportspezifische Identität enthält den
-   Ordner (id 1713/6045, byte-gleiche Message-ID). Behoben durch Message-ID-Korrelation
-   als zweite Stufe.
-4. **Der Index speicherte Sequenznummern statt UIDs**, `uidvalidity=0` fest verdrahtet.
-   Am Postfach belegt: `FETCH 185` lieferte die Mail, `UID FETCH 185` nichts, Server
-   meldet UIDVALIDITY 14. Eine Sequenznummer ist **nicht stabil**
-   ([#1656](https://github.com/achimdehnert/platform/pull/1656) + dev-hub#195).
-5. **`/opt/platform` driftet ungebremst** — 33 Commits hinter main, nichts synct
-   ([#1585](https://github.com/achimdehnert/platform/issues/1585)). Ein Merge nach main
-   wirkt dort **nicht**; er sieht nur so aus.
-6. **Der untested-command-Hook meldete siebenmal denselben Befund** — sein Fenster wächst
-   ohne Nutzereingabe unbegrenzt (166 Records, 27 Vorkommen). Entprellt
-   ([#1619](https://github.com/achimdehnert/platform/pull/1619)).
-
-**Zwingend für die nächste Session:**
-- **Ein Ingest-Lauf mit echten UIDs steht aus.** Die gespeicherten Nummern stammen noch
-  aus der Sequenznummer-Ära; `mail_volltext` kann bis dahin nichts abrufen.
-- **`mail_volltext` hat keinen Graph-Pfad** — Kopien mit `transport=graph` tragen kein
-  `uid`, `_roh_holen` gibt `None` zurück. Damit ist der Volltext für IIL blockiert und
-  für den Offner-Fall teilweise (dessen Kette spannt über beide Transporte).
-- **Nach jedem `platform`-Merge, der `tools/mail_agent/` berührt: `/opt/platform` ziehen.**
-  Sonst läuft der Container auf altem Werkzeugstand weiter.
-
-**Sicherheit:** Outline-API-Token lag im Klartext in `/etc/cron.d/adr-outline-sync` und
-geriet beim Suchen ins Transkript → als **kompromittiert** behandeln, Rotation offen
-([#1586](https://github.com/achimdehnert/platform/issues/1586)).
-
-**Eigene Fehler, benannt:** `git add -A` sammelte fremde Arbeit einer Parallel-Sitzung ein
-(zurückgenommen); ein `--amend` traf den Basis-Merge-Commit (Branch neu aufgesetzt);
-`ruff format .` über den ganzen Baum formatierte fremde, unfertige Dateien um. Und der
-Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dateien als
-„deine" — kostete mehrere Anläufe, bis ich es gemessen statt geglaubt habe.
-
 ## Nächste Schritte (kompakt)
 
 > **✅ hetzner-prod Speicherlage entschärft 2026-07-29 ([#1303](https://github.com/achimdehnert/platform/issues/1303), Messwerte als Kommentar):** Freies RAM **444 → 9.455 MB**, Swap von **4.095/4.095 auf 1.757/4.095**, laufende Container **113 → 45**. Auf Owner-Anweisung wurden 68 nicht benötigte Container **gestoppt** (nicht entfernt — `docker start` holt jeden zurück, Volumes unangetastet): ausschreibungs-hub, odoo, hub137, wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub, pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl. `ib_gateway`. **Weiter laufen** risk-hub (live), dev-hub, doc-hub, Outline, mcp-hub, authentik, weltenhub, illustration, dms-hub, writing-hub, aifw. **Die Lehre daraus ist wichtiger als die Zahl:** Ein cgroup-OOM sagt nicht, dass der Container zu klein ist — in die cgroup-Bilanz zählt der Seiten-Cache, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen. `devhub_celery` fiel **ohne jede Änderung an ihm** von 370,4 auf 305,9 MiB; ein Import, der dreimal mit `rc=137` starb, lief danach durch. „Limit erhöhen" wäre bei 924 MB freiem Host-RAM die gefährlichere Antwort gewesen. **Weiterhin ungeklärt:** warum die Container am 20.07. entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). **Nicht geheilt und deshalb eigenes Ticket ([#1549](https://github.com/achimdehnert/platform/issues/1549)):** `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Cache) und Health-Checks, die seit Tagen rot sind — `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9`; der Server antwortet weiter, der Worker ist tot.
 
-1. **Ritual-Lauf 1 vorbereiten (bis 16.08., KONZ-038)** — D6 VOR der Baseline (retro_kpis-Härtung + Slug-Wörterbuch einfrieren + Baseline-Artefakt committen), FP-Auswertung der zwei neuen advisory-Scanner, danach D4/D7/D8. Tracking: [#1640](https://github.com/achimdehnert/platform/issues/1640); Gate-Backlog 13/18 offen.
+1. **Ritual-Lauf 1 vorbereiten (bis 16.08., KONZ-038)** — D6 VOR der Baseline (retro_kpis-Härtung + Slug-Wörterbuch einfrieren + Baseline-Artefakt committen), FP-Auswertung der zwei neuen advisory-Scanner, danach D4/D7/D8. Tracking: [#1640](https://github.com/achimdehnert/platform/issues/1640); Gate-Backlog 13/18 offen. *(08-07: D4 186/253 + writing-hub 82/104, D8 gemergt, Trockenlauf 08.08. — danach Cron zurückbauen.)*
 2. **[#1682](https://github.com/achimdehnert/platform/issues/1682) — Megatest-Restabbau** (Nachfolger von Alt-Punkt 1): Budget-Abbau je Repo Richtung 0 und ein `owner`-Feld in `repo-registry.yaml` für die 5 Fremd-Org-Repos (meiki-lra/iilgmbh/ttz-lif), die der `MEGATEST_READ_TOKEN` nicht erreicht; optionaler Token-Tausch. Der Megatest selbst ist grün (Main-Lauf [30758611903](https://github.com/achimdehnert/platform/actions/runs/30758611903), `success`) — offen ist nur der Abbau.
 
 > **Kein Fortschritt an 1 und 2 am 2026-08-07 — bewusst, nicht vergessen.** Die Session
