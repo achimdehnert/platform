@@ -7,6 +7,14 @@ name: regel-ritual
 on:
   schedule:
     - cron: "23 6 2,16 * *" # 2.+16. des Monats, 06:23 UTC
+    # TROCKENLAUF, BEFRISTET (platform#1640): der Schedule-Pfad hat noch nie
+    # gefeuert — alle 7 bisherigen Laeufe waren pull_request/workflow_dispatch,
+    # und ein Dispatch beweist den Cron-Pfad nicht. Der Workflow kam am
+    # 2026-08-02 um 07:11 UTC auf main, 48 min NACH dem 06:23-Slot — der
+    # erste planmaessige Cron waere sonst Lauf 1 selbst (16.08.). Diese
+    # Zeile feuert einmalig am 08.08. und beweist den Pfad vorher.
+    # NACH dem 08.08. WIEDER ENTFERNEN (Vermerk in #1640).
+    - cron: "23 6 8 8 *" # einmalig 2026-08-08 06:23 UTC — Trockenlauf
   workflow_dispatch: {}
   pull_request:
     paths: [".github/workflows/regel-ritual.yml"]
