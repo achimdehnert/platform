@@ -35,7 +35,29 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-05 — Werkzeuge statt Prosa; ein Anzeigetext sagte das Gegenteil des Sachverhalts)
+## ⚡ Aktueller Stand (2026-08-07 — die Arbeitsliste ist nicht mehr flüchtig: todo.iil.pet)
+
+**Zeitanker:** HEAD `6266008d` · `rev-list --count` 3001 · geschrieben 2026-08-07
+
+**Zielzustand dieser Session:** erreicht mit einem offenen Rand. Der Auftrag entstand
+mitten im Lauf (`/mailcheck` → Owner-Frage „wäre ein persistentes todo.iil.pet nicht der
+bessere Weg?") und wurde in vier Stufen A–D akzeptiert. A–C sind verifiziert, D ist
+serverseitig verifiziert, aber vom Owner-Browser aus **nicht erreichbar** — siehe offener
+Punkt unten. **SA-4:** nicht ratifiziert (Stand `VORGESCHLAGEN`, `autonomy-gates.md`
+Z. 178) — kein Zähler zu führen.
+
+- **`todo.iil.pet` steht und ist geschützt** ([#1822](https://github.com/achimdehnert/platform/pull/1822) gemergt, [#1823](https://github.com/achimdehnert/platform/pull/1823) offen/grün). `tools/todo_board/todo_board.py` rendert das Vorgangs-Ledger als eine Seite: drei Abschnitte (dein Zug / ich kann sofort / wartet auf andere), Fristen aufsteigend zuerst, Ampel rot ab 3 Tagen Restlaufzeit. **Bewusst ein eigener Dienst** und nicht der Mail-Link-Dienst auf 8787 — der rendert Mail*körper* live aus dem Postfach und gehört nicht hinter dieselbe Tür wie eine Aufgabenliste. Dieser hier kennt nur das Ledger, spricht kein IMAP, hat genau `/` und `/healthz`, alles andere 404, und verweigert jede Bindung außerhalb Loopback ohne `--oeffentlich-hinter-auth`. Verdrahtung: `todo-board.service` (user, Port 8789) · Ingress im bestehenden `mail-links`-Tunnel · Access-App mit derselben Owner-Regel wie `mail.iil.pet` (`admin@wir-digital.de`, `achim.dehnert@iil.gmbh`) · Cron `30 6 * * 1-5` ruft `/mailcheck` headless.
+- **⚠️ OFFEN — `todo.iil.pet` ist vom Owner-Browser aus „nicht erreichbar", serverseitig aber grün.** Gemessen: DNS über 1.1.1.1 **und** 8.8.8.8 liefert `188.114.97.3/96.3` (identisch zu `mail.iil.pet`) · TLS-Zertifikat `CN=todo.iil.pet` gültig · Abruf ohne Session gibt `302` auf `iil-team.cloudflareaccess.com/.../todo.iil.pet`, die Login-Seite antwortet `200` · Tunnel um 09:35:43 nach der Konfig-Änderung (09:35:34) neu gestartet, vier Verbindungen registriert. **Wahrscheinlichste Ursache:** negativ zwischengespeichertes DNS beim Owner — zwischen 09:34 und 09:35 existierte der Name wirklich nicht (siehe nächster Punkt). **Was NICHT verifiziert ist:** der Weg *hinter* der Anmeldung (Access → Tunnel → 8789 → Board). Dafür braucht es eine der beiden zugelassenen Identitäten; ich habe keine. Nächster Schritt ist die Rückmeldung des Owners, welche der drei Fehlformen der Browser zeigt (NXDOMAIN / 502 bzw. Error 1033 / „Access denied") — daran hängt, wo weitergegraben wird.
+- **`cloudflared tunnel route dns` legt den Eintrag in der falschen Zone an.** `cloudflared tunnel route dns mail-links todo.iil.pet` erzeugte **`todo.iil.pet.iil.ai`** — das Werkzeug hängt die Standardzone des Zertifikats an, statt `iil.pet` als eigene Zone zu erkennen. Fehleintrag in `iil.ai` gelöscht, CNAME per API direkt in `iil.pet` gesetzt (proxied). **Für die nächste Subdomain unter `iil.pet`: nicht `tunnel route dns` benutzen, sondern den DNS-Record per API setzen** — und danach mit `dig @1.1.1.1` gegenprüfen, welcher Name wirklich entstanden ist. Nebenbefund: `cloudflare_api_token` darf DNS-Records **nicht** lesen (403), dafür braucht es `cloudflare_write_token`.
+- **`organize_mail.py --create-folder` konnte nie einen Ordner mit Leerzeichen anlegen** ([#1821](https://github.com/achimdehnert/platform/pull/1821) gemergt). `cmd_create_folder()` reichte den Namen unquotiert an `imap.create()`/`imap.subscribe()` weiter; auf Exchange bricht das mit `BAD Command Argument Error` ab, **ohne** dass ein Ordner entsteht. Der passende Helfer `_mailbox_arg()` lag zwanzig Zeilen darüber und beschreibt in seinem eigenen Docstring exakt diesen Fehlermodus — er wurde nur von `SELECT` und `UID MOVE` benutzt. Verifiziert durch die drei tatsächlich angelegten Ordner, nicht durch einen Trockenlauf.
+- **Mailcheck-Ertrag:** Zwei Entwürfe im HNU-Postfach, **nicht gesendet** — 23460 (Schönherr: Termin Mi 12.08. 11:00 bestätigt) und 23461 (Karatas: Proposal v3). Karatas hat alle drei Punkte der Vorrunde erledigt; die Effektstärke `d = 0.80` aus der Choung-Favorable-Subgruppe habe ich nachgerechnet, sie stimmt. Vier neue Punkte im Entwurf, der wichtigste: **N = 90 ist der Boden nach Ausschluss, nicht das Rekrutierungsziel** — bei 10–20 % Manipulation-Check-Ausfall bleiben ~75 übrig und die eben berechnete Power ist wieder weg. Nawaz-Entwurf 23459 war bereits gesendet (06.08. 10:10), Punkt geschlossen.
+- **Drei harte Fristen stehen jetzt sichtbar im Ledger** (vorher Freitext in Notizen): Euramco AV-Prüfung **19.08.** (TOM, Subdienstleisterliste, DSMS-Audit-Nachweis, Prüfprotokolle der Subdienstleister) · DSGVO-Löschung Scheppach **22.08.**, Vollzugsmeldung fehlt seit 11 Tagen · HNU-Ausschreibung 00970 „KI Werkleiterassistent" **31.08.**, Bieterfragen bis 19.08. (Fristen per OCR aus dem gescannten Aufforderungsschreiben gezogen).
+- **Ordner „Zur Löschung" in allen drei Konten**, 24 Mails einsortiert (HNU 14, Mittwald 9, IIL 1). Owner prüft und leert selbst. Verschieben löst kein Tracking aus: es ist eine reine Server-Operation ohne Body-Abruf, und weder `graph_mail` noch `organize_mail` beantworten `Disposition-Notification-To`.
+- **Der Cron geht ab morgen unbeaufsichtigt in die Postfächer.** `30 6 * * 1-5` ruft `/mailcheck` headless. Er sendet nie — er **legt aber Entwürfe an**, wie heute die beiden oben. Wenn das zu weit geht, ist der Rückbau eine Zeile in der crontab. [#1823](https://github.com/achimdehnert/platform/pull/1823) schließt die Lücke, die der Cron erst aufmacht: die Seite baut bei jedem Abruf neu und sieht deshalb **immer** frisch aus, auch wenn der nächtliche Lauf seit Tagen scheitert — ab zwei Tagen ohne Erhebung sagt sie das jetzt selbst.
+- **Zwei Memory-Dateien in der risk-hub-Lane hatten `name:` mit Bindestrichen statt passend zum Dateinamen** (`feedback_ci_last_log_line_lies`, `feedback_compose_interpolation_vs_env_file`) — vom Link-Guard gemeldet, korrigiert. Vorher geprüft, dass niemand auf die Bindestrich-Form verweist; `MEMORY.md` verlinkte bereits die Dateinamens-Form.
+- **Eigener Fehler dieser Sitzung:** Ich habe `cloudflared tunnel route dns` benutzt, ohne danach zu prüfen, welchen Namen es tatsächlich angelegt hat — der Fehler fiel nur auf, weil das Werkzeug seine Ausgabe druckte. Hätte es geschwiegen, wäre `todo.iil.pet` einfach nie aufgelöst worden, und die Suche hätte am falschen Ende begonnen.
+
+## ⚡ Vorheriger Stand (2026-08-05 — Werkzeuge statt Prosa; ein Anzeigetext sagte das Gegenteil des Sachverhalts)
 
 **Zeitanker:** HEAD `bd1ffb5a` · `rev-list --count` 2919 · geschrieben 2026-08-05
 
@@ -62,7 +84,7 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 - **Eigener Fehler mit Außenwirkung:** In der Lohwieser-Mail stand „In Günzburg ist es IKOL-WG" — abgeleitet aus einer Sammelzeile, tatsächlich ist es **OK.WOBIS**. Vor dem Versand korrigiert. Ein Gefälligkeitsdetail, nach dem niemand gefragt hatte; genau der Fall, den die neue Faktenregel adressiert.
 - **AV LRA–OCOS ist geklärt** (Owner 2026-08-05): Zusicherung von OCOS selbst, Zeiner ist Vertragspartei. Die HNU-Beauftragung über eBANF ist ein **Beratungsvertrag ohne Datenverarbeitung** — keine zweite Auftragsverarbeitung. Konstellation: LRA→OCOS Auftragsverarbeitung (angezeigt) · HNU→OCOS Beratung · HNU→LRA Fristenmanagement ab Pilot 2 (Satz 1 **und** Satz 2). Grenze: Sobald OCOS im Zuge der Beratung Zugriff auf echte Sozialdaten bekäme, kippt die Einordnung — Zeiner hat die Produktiv-Umgebungsvariablen „nach Zustimmung durch Herrn Kramer" angeboten.
 
-## ⚡ Vorheriger Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
+## ⚡ Älterer Stand (2026-08-02 — Mail-Index beantwortet Vorgangsketten aus der DB statt über IMAP)
 
 **Zeitanker:** HEAD `eaffc4c8` · `rev-list --count` 2757 · geschrieben 2026-08-02
 
@@ -158,6 +180,11 @@ Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dat
 
 1. **Ritual-Lauf 1 vorbereiten (bis 16.08., KONZ-038)** — D6 VOR der Baseline (retro_kpis-Härtung + Slug-Wörterbuch einfrieren + Baseline-Artefakt committen), FP-Auswertung der zwei neuen advisory-Scanner, danach D4/D7/D8. Tracking: [#1640](https://github.com/achimdehnert/platform/issues/1640); Gate-Backlog 13/18 offen.
 2. **[#1682](https://github.com/achimdehnert/platform/issues/1682) — Megatest-Restabbau** (Nachfolger von Alt-Punkt 1): Budget-Abbau je Repo Richtung 0 und ein `owner`-Feld in `repo-registry.yaml` für die 5 Fremd-Org-Repos (meiki-lra/iilgmbh/ttz-lif), die der `MEGATEST_READ_TOKEN` nicht erreicht; optionaler Token-Tausch. Der Megatest selbst ist grün (Main-Lauf [30758611903](https://github.com/achimdehnert/platform/actions/runs/30758611903), `success`) — offen ist nur der Abbau.
+
+> **Kein Fortschritt an 1 und 2 am 2026-08-07 — bewusst, nicht vergessen.** Die Session
+> startete mit `/mailcheck` und wuchs auf Owner-Zuruf zu `todo.iil.pet` aus (Stufen A-D
+> einzeln freigegeben). Beide Prios stehen unveraendert; der Ritual-Lauf-Termin **16.08.**
+> ist damit neun Tage entfernt.
 
 > **Reconciliation 2026-08-06 (Session-Start Phase 2.6, keine neue Arbeit):** Alt-Punkt 2
 > (**[#1549](https://github.com/achimdehnert/platform/issues/1549)** schließen) ist entfernt —
