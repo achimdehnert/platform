@@ -212,7 +212,7 @@ def test_should_match_to_and_cc_substring_case_insensitive():
     m.set_content("x")
     assert rm.matches_to(m, "martinkat")  # Treffer im To-Header
     assert rm.matches_to(m, "michalk")  # Treffer im Cc-Header
-    assert not rm.matches_to(m, "brandl")
+    assert not rm.matches_to(m, "mustermann")
     assert rm.matches_to(m, None)  # kein Filter -> True
 
 
@@ -282,10 +282,10 @@ def test_should_name_the_active_filters_in_the_summary():
         gezeigt=4,
         limit=500,
         from_filter="scheppach",
-        to_filter="brandl",
+        to_filter="mustermann",
     )
     assert "Absender~'scheppach'" in zeile
-    assert "Empfänger~'brandl'" in zeile
+    assert "Empfänger~'mustermann'" in zeile
     assert "UND" in zeile
 
 

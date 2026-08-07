@@ -65,6 +65,21 @@ run() {  # run <label> <cmd...>
 [ -f tools/check_publish_gate.py ] && \
   run "check_publish_gate (eigene Workflows)" python3 tools/check_publish_gate.py .
 
+# Mandantendaten: vergleicht die neuen Zeilen gegen die echten Namen aus Ledger,
+# Anker und docs.iil.pet. Die Quellen liegen nur lokal (88.99.38.75) — in CI ist
+# dieser Vergleich nicht fuehrbar, darum steht der Gate hier und nicht dort.
+if [ -f tools/checks/mandantendaten_gate.py ]; then
+  if [ -f "$HOME/.claude/schutzbegriffe.json" ]; then
+    run "Mandantendaten (oeffentliches Repo)" \
+      python3 tools/checks/mandantendaten_gate.py diff
+  else
+    # Kein stilles Grün: ein fehlender Cache ist eine Luecke und wird benannt.
+    echo "=== Mandantendaten (oeffentliches Repo) ==="
+    echo "  ⚠ uebersprungen — Begriffs-Cache fehlt, dieser Push ist UNGEPRUEFT."
+    echo "    python3 tools/checks/mandantendaten_gate.py sammle"
+  fi
+fi
+
 echo "==================================="
 if [ "$failed" -eq 0 ]; then
   echo "ALLE PLATFORM-GATES GRÜN — Push frei."

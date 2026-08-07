@@ -1,0 +1,16 @@
+# Begriffe, die trotz Treffer im Repo stehen duerfen.
+#
+# Eine Zeile je Begriff, Begruendung als Kommentar dahinter. So fein wie der
+# Befund halten — keine Praefixe, keine Wildcards, kein "alles unter X".
+# Grundlage: Bestandsaufnahme 2026-08-07 (446 Treffer, 22 verursachende Begriffe).
+
+# --- Technik-Lieferanten: stehen als Konfiguration im Repo, nicht als Mandant ---
+cerebras     # LLM-Anbieter, steht in adr-review.yml und Modell-Routing
+telekom      # Netzbetreiber, steht in Infrastruktur-Notizen
+
+# --- Ortsnamen: benennen keine Partei, kommen in Architektur-Doku vor ---
+guenzburg    # Ort; als Projektpartner ohnehin oeffentlich benannt
+günzburg     # Schreibweise mit Umlaut
+
+# --- Vornamen ohne Kennzeichnungskraft ---
+martin       # Vorname, trifft Variablennamen und Fliesstext
