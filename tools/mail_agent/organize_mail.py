@@ -138,10 +138,14 @@ def cmd_create_folder(imap: imaplib.IMAP4_SSL, name: str) -> None:
     if name in list_folders(imap):
         print(f"Ordner '{name}' existiert bereits — nichts zu tun.")
         return
-    typ, resp = imap.create(name)
+    # CREATE/SUBSCRIBE brauchen dieselbe Quotierung wie SELECT — ein Name mit
+    # Leerzeichen ("Zur Loeschung") scheitert auf Exchange sonst mit
+    # 'BAD Command Argument Error', ohne dass der Ordner entsteht.
+    arg = _mailbox_arg(name)
+    typ, resp = imap.create(arg)
     if typ != "OK":
         sys.exit(f"FEHLER: Ordner anlegen fehlgeschlagen: {resp}")
-    imap.subscribe(name)
+    imap.subscribe(arg)
     print(f"OK: Ordner '{name}' angelegt.")
 
 
