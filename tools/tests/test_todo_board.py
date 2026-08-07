@@ -84,13 +84,13 @@ class TestSeite:
         daten = {
             "letzte_pruefung": "2026-08-07",
             "vorgaenge": [
-                vorgang(bucket="owner", thread_key="Euramco", frist="2026-08-19"),
-                vorgang(bucket="agent", thread_key="Scheppach", frist="2026-08-22"),
-                vorgang(bucket="warten", thread_key="Kramer"),
+                vorgang(bucket="owner", thread_key="Alpha", frist="2026-08-19"),
+                vorgang(bucket="agent", thread_key="Beta", frist="2026-08-22"),
+                vorgang(bucket="warten", thread_key="Gamma"),
             ],
         }
         seite = tb.baue(daten, STICHTAG)
-        for name in ("Euramco", "Scheppach", "Kramer"):
+        for name in ("Alpha", "Beta", "Gamma"):
             assert name in seite
 
     def test_should_not_swallow_unknown_bucket(self):
@@ -113,10 +113,14 @@ class TestSeite:
 
     def test_should_escape_names_from_the_ledger(self):
         # Gegenüber-Namen kommen aus fremden Mails — sie dürfen kein Markup einschleusen.
-        daten = {"vorgaenge": [vorgang(gegenueber="<script>alert(1)</script>")]}
+        # Auf „<script> kommt gar nicht vor" lässt sich das nicht mehr stützen: die
+        # Seite bringt seit dem Overlay ein eigenes, statisches Skript mit. Geprüft
+        # wird darum die eingeschleuste Zeichenkette selbst, nicht das Tag an sich.
+        boese = "<script>alert(1)</script>"
+        daten = {"vorgaenge": [vorgang(gegenueber=boese)]}
         seite = tb.baue(daten, STICHTAG)
-        assert "<script>" not in seite
-        assert "&lt;script&gt;" in seite
+        assert boese not in seite
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in seite
 
 
 class TestBindGuard:
@@ -158,3 +162,54 @@ class TestFrische:
     def test_should_surface_the_banner_on_the_page(self):
         daten = {"letzte_pruefung": "2026-07-01", "vorgaenge": [vorgang()]}
         assert "37 Tage alt" in tb.baue(daten, STICHTAG)
+
+
+class TestVerlinkung:
+    """Jede Zeile fuehrt zum Vorgang — und keine Zeile fuehrt ins Leere."""
+
+    def test_should_link_the_thread_key(self):
+        markup = tb.zeile(vorgang(thread_key="vorgang-a"), STICHTAG)
+        assert "<a href='/t/vorgang-a'>" in markup
+
+    def test_should_render_plain_text_without_thread_key(self):
+        markup = tb.zeile(vorgang(thread_key=""), STICHTAG)
+        assert "<a " not in markup
+        assert "href=''" not in markup
+
+    def test_should_encode_special_characters_in_the_target(self):
+        markup = tb.zeile(vorgang(thread_key="Postfach #842 (neu)"), STICHTAG)
+        assert "/t/Postfach%20%23842%20%28neu%29" in markup
+
+    def test_should_prefix_an_absolute_base_when_given(self):
+        markup = tb.zeile(vorgang(thread_key="x"), STICHTAG, "http://127.0.0.1:8789")
+        assert "<a href='http://127.0.0.1:8789/t/x'>" in markup
+
+    def test_should_escape_markup_from_the_ledger(self):
+        boese = "<script>alert(1)</script>"
+        markup = tb.zeile(vorgang(gegenueber=boese), STICHTAG)
+        assert boese not in markup
+        assert "&lt;script&gt;" in markup
+
+    def test_should_carry_the_overlay_exactly_once(self):
+        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG)
+        assert seite.count("id=ovl-frame") == 1
+
+
+class TestDetailseite:
+    def test_should_show_the_notiz(self):
+        seite = tb.detail(vorgang(notiz="erst dies | dann das"))
+        assert "erst dies" in seite and "dann das" in seite
+
+    def test_should_show_a_dash_for_empty_fields(self):
+        seite = tb.detail(vorgang(zustand=None))
+        assert "—" in seite
+
+    def test_should_escape_markup_in_the_notiz(self):
+        boese = "<img src=x onerror=alert(1)>"
+        seite = tb.detail(vorgang(notiz=boese))
+        assert boese not in seite
+        assert "&lt;img" in seite
+
+    def test_should_title_the_page_with_the_thread_key(self):
+        seite = tb.detail(vorgang(thread_key="vorgang-a"))
+        assert "<title>vorgang-a</title>" in seite
