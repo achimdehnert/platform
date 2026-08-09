@@ -1,7 +1,7 @@
 ---
 retro_schema: 1
 date: 2026-07-13
-repo_scope: [iil-klickdummy, frist-hub, trading-hub, bahn-sqf/pg-hub]
+repo_scope: [iil-klickdummy, frist-hub, trading-hub, pg-hub]
 session_id: 04b5ac
 footprint: deep
 footprint_reduction_reason: "Kein Downscale angewendet — Rule B (≥3 Repos mit realen Merges: iil-klickdummy, frist-hub, trading-hub) UND ein echter Prod-Schritt (Auto-Deploy-on-Merge in trading-hub, ausgelöst durch PR #139) feuerten unabhängig voneinander. Die 3-Kriterien-Downscale-Prüfung (a: Prod-Schritt explizit freigegeben / b: voll rollback-fähig / c: findings_total≤10) scheitert an Kriterium (a) — der Prod-Deploy wurde dem User vor dem Merge nicht als solcher benannt, nur generisch 'PR 139 mergen' bestätigt. Deep bleibt bestehen."

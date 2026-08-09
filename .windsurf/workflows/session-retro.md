@@ -258,7 +258,9 @@ Längsschnitt maschinell auswertbar ist). Beginnt mit maschinenlesbarem YAML-Fro
 ---
 retro_schema: 1
 date: <YYYY-MM-DD>
-repo_scope: [<repo>, …]
+repo_scope: [<repo>, …]   # nur bare Repo-Slugs (a-z0-9_-): KEIN Pfad, KEIN owner/repo.
+                          # retro_kpis.py verwirft alles andere als Parse-Warnung —
+                          # `~/.claude` → `dotclaude-memory`, `bahn-sqf/pg-hub` → `pg-hub`.
 session_id: <kurz>
 footprint: lean|full|deep
 findings_total: <n>
@@ -387,6 +389,11 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **Phase-1-Collect liest lokalen `git log` ohne vorheriges `git fetch`** — die Frisch-Checkout-Pflicht gilt nicht nur für Phase-3-Skeptiker, sondern für JEDEN Collect-Schritt, auch inline bei `lean`.
 
 ## Changelog
+- 2026-08-09: `repo_scope`-Form im Report-Skelett benannt (bare Slug, kein Pfad, kein
+  `owner/repo`). Der Ritual-Trockenlauf vom 08.08. meldete drei Reports, deren
+  Scope-Einträge `retro_kpis.py` als nicht slug-förmig verwarf (`~/.claude` ×2,
+  `bahn-sqf/pg-hub`) — die Vorlage schrieb bis hierhin nur `[<repo>, …]` und ließ die
+  Form offen. Quelldateien normalisiert (platform#1640-Vorbereitung Lauf 1).
 - 2026-07-31 (v2.7): **Skeptiker-Auswahl nach Befund-Klasse** (Phase 0) + Folgeänderungen in
   Phase 3 und den Anti-Patterns. Bisher war das Agenten-Budget eine reine Mengenregel
   („≤5 Subagenten", „je Dimension, nicht je Befund") ohne Aussage darüber, **welche** Befunde

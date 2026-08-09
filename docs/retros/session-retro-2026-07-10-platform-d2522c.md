@@ -1,7 +1,7 @@
 ---
 retro_schema: 1
 date: 2026-07-10
-repo_scope: [platform, iil-adrfw, trading-hub, mcp-hub, "~/.claude", platform-pinned]
+repo_scope: [platform, iil-adrfw, trading-hub, mcp-hub, dotclaude-memory, platform-pinned]
 session_id: d2522c
 footprint: deep
 findings_total: 15
