@@ -63,10 +63,34 @@ _SKIP_DIRS = {
     ".tox",
     ".claude",
     ".windsurf",
-    # Klickdummys sind statische Prototypen ohne Django-URL-Aufloesung
-    # (ADR-211) — harte hrefs sind dort das Medium, kein Befund.
-    "klickdummy",
 }
+
+# Geparkter/prototypischer Code: Konfigurations- und Template-Regeln greifen hier
+# nicht, SECURITY-Regeln sehr wohl. Das ist der Unterschied zu _SKIP_DIRS, wo gar
+# nichts mehr gescannt wird.
+#
+# Warum getrennt (platform#1682, Retro 932035 Punkt 1): `klickdummy` stand bis
+# 2026-08 in _SKIP_DIRS und unterdrueckte damit ALLE Regelklassen — auch
+# V-SEC-01/02/03. Ein hartkodiertes Geheimnis in einem Prototyp waere unsichtbar
+# geblieben. Die Ausnahme muss so fein sein wie ihre Begruendung: harte hrefs
+# sind dort das Medium (ADR-211), ein Token ist es nicht.
+#
+# Gemessen beim Umbau (alle lokalen Klone, 2026-08-09): das Aufheben des
+# Klickdummy-Rundumschlags foerdert AKTUELL 0 Security-Funde zutage — die
+# Schaerfung kostet heute nichts und wirkt ab dem ersten Prototyp, der ein
+# echtes Geheimnis mitschleppt.
+_PARKED_DIRS = {
+    # Klickdummys sind statische Prototypen ohne Django-URL-Aufloesung (ADR-211).
+    "klickdummy",
+    # Stillgelegter Code, der nur noch als Nachschlagewerk im Repo liegt.
+    # Realfall mcp-hub: ein Drittel seiner VERMEIDBAR-Funde stammt aus _archive/ —
+    # Django-Settings-Zuweisungen in laengst abgeloesten MCP-Servern.
+    "_archive",
+    # Wegwerf-Experimente mit eigener Lebensdauer (docs/spikes/...).
+    # Realfall illustration-fw: 4 von 4 Funden.
+    "spikes",
+}
+_SECURITY_RULE_PREFIX = "V-SEC-"
 
 _SKIP_REPOS = {
     "platform",
@@ -341,6 +365,17 @@ def _should_skip_path(path: Path) -> bool:
     return any(part in _SKIP_DIRS for part in path.parts)
 
 
+def _is_parked_path(path: Path) -> bool:
+    """True fuer geparkten/prototypischen Code (siehe _PARKED_DIRS).
+
+    Bewusst auf Pfad-KOMPONENTEN statt Teilstrings: sonst faengt `klickdummy`
+    auch das Repo `iil-klickdummy` mit ein, dessen `src/iil_klickdummy/` normale
+    Bibliothek ist. Genau dieser Fehlgriff passierte 2026-08-09 in einer
+    Vorab-Messung und haette zwei lebende Funde als "geparkt" verbucht.
+    """
+    return any(part in _PARKED_DIRS for part in path.parts)
+
+
 def _is_test_file(path: Path) -> bool:
     return path.name.startswith("test_") or path.name == "conftest.py"
 
@@ -367,8 +402,29 @@ def _is_seed_or_fixture(path: Path) -> bool:
     return False
 
 
-def _check_line(rule: Rule, line: str, path: Path) -> bool:
-    """True wenn Regel auf diese Zeile/Datei zutrifft."""
+#: `os.environ["KEY"] = wert` — Schreibzugriff, kein durch decouple ersetzbarer Lesezugriff.
+_ENVIRON_WRITE = re.compile(r"\bos\.environ\[[^\]]+\]\s*=(?!=)")
+#: `name = os.environ.get("KEY")` — Name gefangen fuer die Folgezeilen-Pruefung.
+_ENVIRON_GET_ASSIGN = re.compile(
+    r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*os\.environ\.get\(\s*["\'][^"\']+["\']\s*\)\s*$'
+)
+
+
+def _hat_fallback_auf(name: str, folgezeile: str) -> bool:
+    """True wenn die Folgezeile genau `name` mit if/or/else absichert."""
+    if not re.search(rf"\b{re.escape(name)}\b", folgezeile):
+        return False
+    return bool(re.search(r"\b(?:if|or|else)\b", folgezeile))
+
+
+def _check_line(
+    rule: Rule, line: str, path: Path, next_line: str | None = None
+) -> bool:
+    """True wenn Regel auf diese Zeile/Datei zutrifft.
+
+    ``next_line`` ist optional, damit alle bestehenden Aufrufer (und Tests)
+    unveraendert weiterlaufen — nur V-CFG-02 wertet sie aus.
+    """
     # Dateiname-Ausschlüsse
     if path.name in rule.skip_filenames:
         return False
@@ -376,6 +432,9 @@ def _check_line(rule: Rule, line: str, path: Path) -> bool:
         return False
     # Test-Ausschluss
     if rule.skip_in_tests and _is_test_file(path):
+        return False
+    # Geparkter Code: nur Security-Regeln greifen weiter (siehe _PARKED_DIRS).
+    if not rule.rule_id.startswith(_SECURITY_RULE_PREFIX) and _is_parked_path(path):
         return False
     # INFO-Regeln: vendor / .github / seed-Dateien überspringen
     if rule.category == "INFO":
@@ -392,6 +451,23 @@ def _check_line(rule: Rule, line: str, path: Path) -> bool:
     # os.environ in Django-Boilerplate (setdefault ist NOTWENDIG)
     if rule.rule_id in ("V-CFG-01", "V-CFG-02") and "setdefault" in line:
         return False
+    # SCHREIBEN in die Umgebung ist kein Lesezugriff, den decouple.config()
+    # ersetzen koennte — dieselbe Logik wie beim setdefault-Ausschluss daneben.
+    # Realfall iil-adrfw cli.py: `os.environ["IIL_ADRFW_ADRS_DIR"] = resolved`
+    # veroeffentlicht einen aufgeloesten CLI-Parameter fuer die Subcommands.
+    # Die Alternative "decouple.config('KEY')" ergibt dort keinen Satz.
+    if rule.rule_id == "V-CFG-01" and _ENVIRON_WRITE.search(line):
+        return False
+    # V-CFG-02 mit Fallback in der FOLGEZEILE (platform#1682): der Lookahead in
+    # der Regex sieht nur dieselbe Zeile. `name = os.environ.get("X")` gefolgt
+    # von einer Zeile, die genau dieses `name` mit if/or/else absichert, IST
+    # Fallback-Logik — nur ueber zwei Zeilen geschrieben. Bewusst eng: es muss
+    # dieselbe Variable sein, sonst wuerde jede beliebige Folgezeile mit einem
+    # `if` den Fund verschlucken.
+    if rule.rule_id == "V-CFG-02" and next_line is not None:
+        zuweisung = _ENVIRON_GET_ASSIGN.match(line)
+        if zuweisung and _hat_fallback_auf(zuweisung.group(1), next_line):
+            return False
     # V-CFG-01/02 in standalone scripts (nicht apps/) sind oft OK → INFO statt VERMEIDBAR
     # aber weiter flaggen — Nutzer entscheidet
     # Kommentare überspringen
@@ -429,8 +505,9 @@ def scan_repo(repo_path: Path) -> RepoResult:
             continue
 
         for lineno, line in enumerate(lines, start=1):
+            folgezeile = lines[lineno] if lineno < len(lines) else None
             for rule in rules:
-                if _check_line(rule, line, fpath):
+                if _check_line(rule, line, fpath, next_line=folgezeile):
                     result.violations.append(
                         Violation(
                             rule=rule,
