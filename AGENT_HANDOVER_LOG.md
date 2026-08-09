@@ -1600,3 +1600,43 @@ mergen wollte, der einen Anzeigetext an eine Aufsichtsbehörde ändert, nur weil
 technisch unter eine Standing Authorization fiel. Und ein Umfangsregler für Mails samt
 der Regel, dass jeder Fakt beantworten oder anstoßen muss, sonst rausfliegt — ausgelöst
 an einem Gefälligkeitsdetail in einer Mail an ein Landratsamt, das schlicht falsch war.
+
+## 2026-08-09 — ein grünes Häkchen, das keins war
+
+Die Sitzung fing als Ritual-Vorbereitung an und war damit nach einer Stunde fertig: der
+Trockenlauf vom Vortag hatte den Schedule-Pfad bewiesen, die befristete Cron-Zeile konnte
+raus, die drei Parse-Warnungen ließen sich an der Quelle beheben statt am Instrument.
+Alles unspektakulär.
+
+Der Rest der Sitzung entstand aus einer Zeile im Session-Start-Board, die niemand
+bestellt hatte: ein fehlgeschlagener Deploy in einem Repo, das seit Wochen stillsteht.
+Von dort führte eine Kette, deren jedes Glied für sich harmlos aussah — ein falscher
+Pin, ein Fehlalarm-Scanner, ein Skip, der zu breit geschnitten war — und die am Ende
+zwei Befunde freilegte, die beide dieselbe Form haben: **ein Mechanismus arbeitet
+korrekt, und niemand liest sein Ergebnis.**
+
+Der Megatest meldet seit dem 04.08. jeden Morgen eine Regression. Vier Issues, alle
+offen, keins angesehen. Der Grund, warum das niemandem auffiel, ist beinahe elegant:
+der Testschritt trägt `continue-on-error: true`, der Run steht damit auf `success`, und
+im Handover stand „der Megatest selbst ist grün". Das war nicht gelogen — es war die
+Beobachtung der falschen Ebene. Der Melder hatte seine Arbeit getan; er schrieb in einen
+Raum, den keiner betritt.
+
+Der zweite Fall ist derselbe Gedanke, eine Etage tiefer. Ein GHCR-Fehler von 07/2026 war
+diagnostiziert, gefixt, getaggt und in einem Runbook dokumentiert. Beim Sprung auf die
+v1.1.x-Linie ist die eine Zeile, die den Fix trug, wieder herausgefallen — und der
+Vorfall wiederholte sich heute wortgleich. Dokumentation hält eine Zeile nicht fest.
+Ein Lint hätte es getan.
+
+Drei Dinge, die ich in dieser Sitzung falsch gemacht und selbst gefunden habe: Eine
+Flotten-Messung klassifizierte Pfade per Teilstring und hätte zwei lebende Funde als
+„geparkt" verschwinden lassen. Ich senkte zwei Budgets auf Basis lokaler Klone und nahm
+es zurück, als ein Repo bewies, dass diese Klone nicht die CI-Basis sind — dieselbe
+Lehre, die im Memory schon dreimal steht, diesmal aus eigener Hand. Und ein Befehl, den
+ich dem Owner zum Kopieren gab, war unvollständig und schlug bei ihm fehl.
+
+Was bleibt: Der Deploy ist immer noch rot, aber jetzt an einer benannten Stelle mit
+einem Einzeiler als Fix. Zwei eigene grüne PRs warten auf einen Review-Klick, den die
+Freigabe im Gespräch nicht ersetzen kann — das ist zum wiederholten Mal derselbe
+strukturelle Reibungspunkt und gehört ins Ritual am 16.08., nicht in ein weiteres
+Achselzucken.
