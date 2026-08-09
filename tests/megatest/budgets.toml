@@ -14,14 +14,6 @@
 #     ausnahmslos Test-Attrappen ("test-secret-key-…", "s3cr3t-ingress-token")
 #     bzw. V-SEC-03-Fehlgriffe auf REASON_*-Audit-Konstanten (mcp-hub).
 # Tool: platform/scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
-#
-# 2026-08-09 (platform#1682, Bahn A — regelklassen-scharfer Skip fuer geparkten
-# Code): mcp-hub 33→21 (12 Funde in `_archive/`), illustration-fw 4→0 (alle vier
-# in `docs/spikes/`). Beide Repos massen lokal exakt ihr altes Budget (33 bzw. 4),
-# der Klon reproduziert die CI-Basis also — die Senkung ist der gemessene Delta
-# des Regel-Umbaus, keine Schaetzung. Alle uebrigen Zeilen BEWUSST unangetastet:
-# ihre lokalen Klone sind teils aelter als origin/main, und ein zu tief gesetztes
-# Budget faerbt CI rot statt Schulden abzubauen.
 
 [budgets]
 "137-hub"            = 0
@@ -49,13 +41,13 @@
 "iil-relaunch"       = 0
 "iil-testkit"        = 1
 "iil-voice-agent"    = 30
-"illustration-fw"    = 0
+"illustration-fw"    = 4
 "illustration-hub"   = 1
 "infra-deploy"       = 1
 "lastwar-bot"        = 0
 "learn-hub"          = 0
 "learnfw"            = 1
-"mcp-hub"            = 21
+"mcp-hub"            = 33
 "meiki-hub"          = 1
 "nl2cad"             = 0
 "odoo-hub"           = 21

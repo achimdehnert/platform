@@ -189,7 +189,11 @@ def test_should_allow_environ_setdefault_in_boilerplate_rules():
         assert not chu._check_line(
             r, "os.environ.setdefault('X', 'TREFFER')", P("manage.py")
         )
-        assert chu._check_line(r, "os.environ['X'] = 'TREFFER'", P("manage.py"))
+        # Positiv-Kontrolle bewusst als LESE-Zugriff. Bis 2026-08-09 stand hier
+        # `os.environ['X'] = 'TREFFER'`; seit dem Schreib-Ausschluss
+        # (platform#1682) ist das kein Fund mehr — die Kontrolle haette danach
+        # stillschweigend das Falsche belegt.
+        assert chu._check_line(r, "wert = os.environ['X']  # TREFFER", P("manage.py"))
 
 
 # --- V-CFG-02: nur .get OHNE Default ist "ohne Fallback-Logik" ----------------
@@ -259,7 +263,9 @@ def test_should_not_flag_environ_get_with_same_line_ternary_fallback():
 def test_should_still_flag_a_bare_environ_get_after_the_fallback_change():
     """Gegenprobe: die Lockerung darf den echten Fall nicht mitnehmen."""
     r = _echte_regel("V-CFG-02")
-    assert chu._check_line(r, 'wert = os.environ.get("MAIL_AGENT_TOOLS")', P("apps/x.py"))
+    assert chu._check_line(
+        r, 'wert = os.environ.get("MAIL_AGENT_TOOLS")', P("apps/x.py")
+    )
 
 
 # ── V-SEC-03: Wortgrenze wurde geprueft und VERWORFEN (platform#1682) ────────
@@ -332,7 +338,7 @@ def test_should_not_treat_a_repo_named_like_a_parked_dir_as_parked():
 
 def test_should_suppress_config_rules_in_parked_code():
     r = _echte_regel("V-CFG-01")
-    zeile = 'os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings.development"'
+    zeile = '    host = os.environ["POSTGRES_HOST"]'
     assert chu._check_line(r, zeile, P("repo/apps/x.py"))
     assert not chu._check_line(r, zeile, P("repo/_archive/altserver/x.py"))
 
@@ -354,3 +360,57 @@ def test_should_still_hard_skip_generated_directories_entirely():
     """Geparkt != vendored: in node_modules wird weiterhin GAR NICHTS gescannt."""
     assert chu._should_skip_path(P("repo/node_modules/paket/x.py"))
     assert not chu._is_parked_path(P("repo/node_modules/paket/x.py"))
+
+
+# --- V-CFG-Praezisierungen (platform#1682) -----------------------------------
+
+
+def test_should_not_flag_writing_into_the_environment():
+    """`os.environ[X] = wert` ist ein Schreibzugriff — decouple.config() kann das nicht.
+
+    Realfall iil-adrfw: die CLI veroeffentlicht den aufgeloesten --adr-dir-Wert
+    fuer ihre Subcommands. Die vorgeschlagene Alternative ergibt dort keinen Satz.
+    """
+    r = _echte_regel("V-CFG-01")
+    assert not chu._check_line(
+        r, 'os.environ["IIL_ADRFW_ADRS_DIR"] = resolved', P("cli.py")
+    )
+
+
+def test_should_still_flag_reading_from_the_environment():
+    """Gegenfall: der Lesezugriff bleibt ein Fund — die Ausnahme ist nicht breiter."""
+    r = _echte_regel("V-CFG-01")
+    assert chu._check_line(r, 'host = os.environ["POSTGRES_HOST"]', P("settings.py"))
+
+
+def test_should_still_flag_an_equality_check_on_the_environment():
+    """`==` ist keine Zuweisung — der Schreib-Ausschluss darf nicht darauf anspringen."""
+    r = _echte_regel("V-CFG-01")
+    assert chu._check_line(r, 'if os.environ["MODUS"] == "prod":', P("app.py"))
+
+
+def test_should_not_flag_environ_get_with_fallback_on_the_next_line():
+    r = _echte_regel("V-CFG-02")
+    zeile = '    override = os.environ.get("IIL_ADRFW_SCHEMAS_DIR")'
+    folge = "    return Path(override).resolve() if override else get_schema_dir()"
+    assert chu._check_line(r, zeile, P("api.py"))  # ohne Folgezeile: Fund
+    assert not chu._check_line(r, zeile, P("api.py"), next_line=folge)
+
+
+def test_should_still_flag_when_the_next_line_guards_a_different_name():
+    """Eng geschnitten: es muss DIESELBE Variable sein.
+
+    Sonst verschluckt jede beliebige Folgezeile mit einem `if` den Fund.
+    """
+    r = _echte_regel("V-CFG-02")
+    zeile = '    override = os.environ.get("SCHEMAS_DIR")'
+    folge = "    return etwas_anderes if etwas_anderes else standard"
+    assert chu._check_line(r, zeile, P("api.py"), next_line=folge)
+
+
+def test_should_still_flag_when_the_next_line_only_mentions_the_name():
+    """Erwaehnung ohne Absicherung ist keine Fallback-Logik."""
+    r = _echte_regel("V-CFG-02")
+    zeile = '    override = os.environ.get("SCHEMAS_DIR")'
+    folge = "    print(override)"
+    assert chu._check_line(r, zeile, P("api.py"), next_line=folge)

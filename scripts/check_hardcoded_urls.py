@@ -402,8 +402,29 @@ def _is_seed_or_fixture(path: Path) -> bool:
     return False
 
 
-def _check_line(rule: Rule, line: str, path: Path) -> bool:
-    """True wenn Regel auf diese Zeile/Datei zutrifft."""
+#: `os.environ["KEY"] = wert` — Schreibzugriff, kein durch decouple ersetzbarer Lesezugriff.
+_ENVIRON_WRITE = re.compile(r"\bos\.environ\[[^\]]+\]\s*=(?!=)")
+#: `name = os.environ.get("KEY")` — Name gefangen fuer die Folgezeilen-Pruefung.
+_ENVIRON_GET_ASSIGN = re.compile(
+    r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*os\.environ\.get\(\s*["\'][^"\']+["\']\s*\)\s*$'
+)
+
+
+def _hat_fallback_auf(name: str, folgezeile: str) -> bool:
+    """True wenn die Folgezeile genau `name` mit if/or/else absichert."""
+    if not re.search(rf"\b{re.escape(name)}\b", folgezeile):
+        return False
+    return bool(re.search(r"\b(?:if|or|else)\b", folgezeile))
+
+
+def _check_line(
+    rule: Rule, line: str, path: Path, next_line: str | None = None
+) -> bool:
+    """True wenn Regel auf diese Zeile/Datei zutrifft.
+
+    ``next_line`` ist optional, damit alle bestehenden Aufrufer (und Tests)
+    unveraendert weiterlaufen — nur V-CFG-02 wertet sie aus.
+    """
     # Dateiname-Ausschlüsse
     if path.name in rule.skip_filenames:
         return False
@@ -430,6 +451,23 @@ def _check_line(rule: Rule, line: str, path: Path) -> bool:
     # os.environ in Django-Boilerplate (setdefault ist NOTWENDIG)
     if rule.rule_id in ("V-CFG-01", "V-CFG-02") and "setdefault" in line:
         return False
+    # SCHREIBEN in die Umgebung ist kein Lesezugriff, den decouple.config()
+    # ersetzen koennte — dieselbe Logik wie beim setdefault-Ausschluss daneben.
+    # Realfall iil-adrfw cli.py: `os.environ["IIL_ADRFW_ADRS_DIR"] = resolved`
+    # veroeffentlicht einen aufgeloesten CLI-Parameter fuer die Subcommands.
+    # Die Alternative "decouple.config('KEY')" ergibt dort keinen Satz.
+    if rule.rule_id == "V-CFG-01" and _ENVIRON_WRITE.search(line):
+        return False
+    # V-CFG-02 mit Fallback in der FOLGEZEILE (platform#1682): der Lookahead in
+    # der Regex sieht nur dieselbe Zeile. `name = os.environ.get("X")` gefolgt
+    # von einer Zeile, die genau dieses `name` mit if/or/else absichert, IST
+    # Fallback-Logik — nur ueber zwei Zeilen geschrieben. Bewusst eng: es muss
+    # dieselbe Variable sein, sonst wuerde jede beliebige Folgezeile mit einem
+    # `if` den Fund verschlucken.
+    if rule.rule_id == "V-CFG-02" and next_line is not None:
+        zuweisung = _ENVIRON_GET_ASSIGN.match(line)
+        if zuweisung and _hat_fallback_auf(zuweisung.group(1), next_line):
+            return False
     # V-CFG-01/02 in standalone scripts (nicht apps/) sind oft OK → INFO statt VERMEIDBAR
     # aber weiter flaggen — Nutzer entscheidet
     # Kommentare überspringen
@@ -467,8 +505,9 @@ def scan_repo(repo_path: Path) -> RepoResult:
             continue
 
         for lineno, line in enumerate(lines, start=1):
+            folgezeile = lines[lineno] if lineno < len(lines) else None
             for rule in rules:
-                if _check_line(rule, line, fpath):
+                if _check_line(rule, line, fpath, next_line=folgezeile):
                     result.violations.append(
                         Violation(
                             rule=rule,
