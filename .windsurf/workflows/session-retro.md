@@ -258,9 +258,10 @@ Längsschnitt maschinell auswertbar ist). Beginnt mit maschinenlesbarem YAML-Fro
 ---
 retro_schema: 1
 date: <YYYY-MM-DD>
-repo_scope: [<repo>, …]   # nur bare Repo-Slugs (a-z0-9_-): KEIN Pfad, KEIN owner/repo.
-                          # retro_kpis.py verwirft alles andere als Parse-Warnung —
-                          # `~/.claude` → `dotclaude-memory`, `bahn-sqf/pg-hub` → `pg-hub`.
+repo_scope: [<repo>, …]   # Konvention: bare Repo-Slugs (a-z0-9_-), kein Pfad, kein
+                          # owner/repo — `~/.claude` → `dotclaude-memory`,
+                          # `bahn-sqf/pg-hub` → `pg-hub`. Reine Lese-Hilfe: seit
+                          # #1840 prüft retro_kpis.py das Feld NICHT mehr.
 session_id: <kurz>
 footprint: lean|full|deep
 findings_total: <n>

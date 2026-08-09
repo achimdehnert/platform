@@ -53,7 +53,14 @@ import re
 import subprocess
 from collections import Counter, defaultdict
 
-LIST_KEYS = {"recurring_findings", "gate_candidates", "repo_scope"}
+# `repo_scope` steht hier BEWUSST NICHT (platform#1840, Owner-Entscheid B): das Feld
+# wurde geparst und formgeprüft, aber von keinem Konsumenten gelesen — der Schlüssel
+# kam in ganz platform nur in dieser Menge und in einer Test-Fixture vor. Die Warnung
+# "nicht slug-förmig — NICHT gezählt" war damit trivial wahr und verlangte trotzdem
+# Edits an historischen Reports (Trockenlauf 2026-08-08, drei Reports). Ein Prüfer, der
+# Arbeit auslöst ohne zu messen, wird zurückgebaut, nicht kalibriert. Das Feld bleibt
+# als menschenlesbare Doku im Frontmatter — es hat nur keinen Wächter mehr.
+LIST_KEYS = {"recurring_findings", "gate_candidates"}
 # D6-Härtung (KONZ-038, EXT2-AD-2/M-1): Listeneinträge müssen slug-förmig sein.
 # Realfall a50bc6: ein Inline-Kommentar HINTER der Liste wurde mitgesplittet und
 # erzeugte 3 Phantom-Slugs im Zähler — strip("[]") erwischt nur String-Enden.
