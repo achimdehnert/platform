@@ -65,6 +65,12 @@ metadata:
    **übersprungen**, AUSSER `<org>` benennt sie ausdrücklich (`org:ttz-lif`). Auch
    dann gilt das per-Issue-STOP-Gate (DSGVO/Security) unverändert. Im Report als
    `SOVEREIGN-SKIP` ausweisen. (Begründung: `~/.claude/CLAUDE.md` Daten-Souveränität.)
+2b. **❄ Frozen-Gate:** Repos mit `lifecycle: frozen` in
+   `platform/registry/canonical.yaml` werden übersprungen und im Report als
+   `FROZEN-SKIP` ausgewiesen — Issues dort NICHT auto-bearbeiten, nur melden.
+   (Stand 2026-08-09: research-hub, Entscheid research-hub#55. GitHub-archivierte
+   Repos wie bfagent fallen bereits durch `--no-archived` raus — dieses Gate
+   deckt die Lücke „eingefroren, aber nicht archiviert".)
 3. **`repo:<…>`-Filter** (optional): wenn angegeben, nur diese Repos aus der Liste.
 4. **Repo-Cap:** max **8 Repos/Lauf** scannen (Rest nächster Lauf). Bei mehr:
    alphabetisch die ersten 8 noch nicht in diesem Lauf behandelten.

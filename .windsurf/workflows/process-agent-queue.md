@@ -59,8 +59,10 @@ MCP: <orc>_deploy_check(action="health")
     state="open"
 )
 
-# Refactoring-Flags aus allen aktiven Repos (von /agentic-coding Step 3.5 D)
-for repo in risk-hub bfagent weltenhub tax-hub coach-hub ...:
+# Refactoring-Flags aus allen aktiven Repos (von /agentic-coding Step 3.5 D).
+# Aktiv = registry/canonical.yaml OHNE lifecycle frozen/archived — eingefrorene
+# Repos (Stand 2026-08-09: bfagent, research-hub#55) NIE in die Queue aufnehmen.
+for repo in risk-hub weltenhub tax-hub coach-hub ...:
     <gh>_list_issues(
         owner="achimdehnert", repo=<repo>,
         labels=["refactor", "auto"],
