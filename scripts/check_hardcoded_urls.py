@@ -63,10 +63,34 @@ _SKIP_DIRS = {
     ".tox",
     ".claude",
     ".windsurf",
-    # Klickdummys sind statische Prototypen ohne Django-URL-Aufloesung
-    # (ADR-211) — harte hrefs sind dort das Medium, kein Befund.
-    "klickdummy",
 }
+
+# Geparkter/prototypischer Code: Konfigurations- und Template-Regeln greifen hier
+# nicht, SECURITY-Regeln sehr wohl. Das ist der Unterschied zu _SKIP_DIRS, wo gar
+# nichts mehr gescannt wird.
+#
+# Warum getrennt (platform#1682, Retro 932035 Punkt 1): `klickdummy` stand bis
+# 2026-08 in _SKIP_DIRS und unterdrueckte damit ALLE Regelklassen — auch
+# V-SEC-01/02/03. Ein hartkodiertes Geheimnis in einem Prototyp waere unsichtbar
+# geblieben. Die Ausnahme muss so fein sein wie ihre Begruendung: harte hrefs
+# sind dort das Medium (ADR-211), ein Token ist es nicht.
+#
+# Gemessen beim Umbau (alle lokalen Klone, 2026-08-09): das Aufheben des
+# Klickdummy-Rundumschlags foerdert AKTUELL 0 Security-Funde zutage — die
+# Schaerfung kostet heute nichts und wirkt ab dem ersten Prototyp, der ein
+# echtes Geheimnis mitschleppt.
+_PARKED_DIRS = {
+    # Klickdummys sind statische Prototypen ohne Django-URL-Aufloesung (ADR-211).
+    "klickdummy",
+    # Stillgelegter Code, der nur noch als Nachschlagewerk im Repo liegt.
+    # Realfall mcp-hub: ein Drittel seiner VERMEIDBAR-Funde stammt aus _archive/ —
+    # Django-Settings-Zuweisungen in laengst abgeloesten MCP-Servern.
+    "_archive",
+    # Wegwerf-Experimente mit eigener Lebensdauer (docs/spikes/...).
+    # Realfall illustration-fw: 4 von 4 Funden.
+    "spikes",
+}
+_SECURITY_RULE_PREFIX = "V-SEC-"
 
 _SKIP_REPOS = {
     "platform",
@@ -341,6 +365,17 @@ def _should_skip_path(path: Path) -> bool:
     return any(part in _SKIP_DIRS for part in path.parts)
 
 
+def _is_parked_path(path: Path) -> bool:
+    """True fuer geparkten/prototypischen Code (siehe _PARKED_DIRS).
+
+    Bewusst auf Pfad-KOMPONENTEN statt Teilstrings: sonst faengt `klickdummy`
+    auch das Repo `iil-klickdummy` mit ein, dessen `src/iil_klickdummy/` normale
+    Bibliothek ist. Genau dieser Fehlgriff passierte 2026-08-09 in einer
+    Vorab-Messung und haette zwei lebende Funde als "geparkt" verbucht.
+    """
+    return any(part in _PARKED_DIRS for part in path.parts)
+
+
 def _is_test_file(path: Path) -> bool:
     return path.name.startswith("test_") or path.name == "conftest.py"
 
@@ -376,6 +411,9 @@ def _check_line(rule: Rule, line: str, path: Path) -> bool:
         return False
     # Test-Ausschluss
     if rule.skip_in_tests and _is_test_file(path):
+        return False
+    # Geparkter Code: nur Security-Regeln greifen weiter (siehe _PARKED_DIRS).
+    if not rule.rule_id.startswith(_SECURITY_RULE_PREFIX) and _is_parked_path(path):
         return False
     # INFO-Regeln: vendor / .github / seed-Dateien überspringen
     if rule.category == "INFO":

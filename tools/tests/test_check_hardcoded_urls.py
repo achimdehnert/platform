@@ -311,3 +311,46 @@ def test_should_treat_noqa_and_nosec_as_the_same_opt_out(marker):
     r = _echte_regel("V-SEC-01")
     zeile = 'SECRET_KEY = "test-wert-fuer-die-ableitung"'
     assert not chu._check_line(r, f"{zeile}  {marker}", P("apps/x.py"))
+
+
+# --- Geparkter Code: regelklassen-scharfer Skip (platform#1682) ---------------
+
+
+@pytest.mark.parametrize("teil", ["klickdummy", "_archive", "spikes"])
+def test_should_recognise_parked_directories(teil):
+    assert chu._is_parked_path(P(f"repo/docs/{teil}/modul.py"))
+
+
+def test_should_not_treat_a_repo_named_like_a_parked_dir_as_parked():
+    """`iil-klickdummy/src/iil_klickdummy/` ist Bibliothek, kein Prototyp.
+
+    Eine Teilstring-Pruefung haette hier zwei lebende Funde als geparkt
+    verbucht — der Fehlgriff passierte in der Vorab-Messung zu diesem PR.
+    """
+    assert not chu._is_parked_path(P("iil-klickdummy/src/iil_klickdummy/registry.py"))
+
+
+def test_should_suppress_config_rules_in_parked_code():
+    r = _echte_regel("V-CFG-01")
+    zeile = 'os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings.development"'
+    assert chu._check_line(r, zeile, P("repo/apps/x.py"))
+    assert not chu._check_line(r, zeile, P("repo/_archive/altserver/x.py"))
+
+
+def test_should_keep_scanning_security_rules_in_parked_code():
+    """Der Kern der Aenderung: die Ausnahme ist so fein wie ihre Begruendung.
+
+    Harte hrefs sind in einem Klickdummy das Medium (ADR-211) — ein
+    hartkodiertes Geheimnis ist es nicht. Vor 2026-08 unterdrueckte der
+    Verzeichnis-Skip beide gleichermassen.
+    """
+    r = _echte_regel("V-SEC-01")
+    zeile = 'SECRET_KEY = "nicht-nur-ein-prototyp-problem"'
+    assert chu._check_line(r, zeile, P("repo/klickdummy/demo/settings.py"))
+    assert chu._check_line(r, zeile, P("repo/_archive/alt/settings.py"))
+
+
+def test_should_still_hard_skip_generated_directories_entirely():
+    """Geparkt != vendored: in node_modules wird weiterhin GAR NICHTS gescannt."""
+    assert chu._should_skip_path(P("repo/node_modules/paket/x.py"))
+    assert not chu._is_parked_path(P("repo/node_modules/paket/x.py"))
