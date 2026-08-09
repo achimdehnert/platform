@@ -512,7 +512,7 @@ domains:
     deployed: true
     url: https://research.iil.pet
     type: django
-    lifecycle: production
+    lifecycle: frozen
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml

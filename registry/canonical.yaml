@@ -793,7 +793,10 @@ repos:
       deployed: true
       url: https://research.iil.pet
       type: django
-      lifecycle: production
+      # Eingefroren per Owner-Entscheid 2026-08-09 (research-hub#55): import-only-
+      # Funktionsspeicher, keine aktive Entwicklung, aus Auto-Queues aussparen.
+      # deployed bleibt true — Prod laeuft weiter; Abschaltung = eigener Vorgang.
+      lifecycle: frozen
       tenancy_mode: none
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
