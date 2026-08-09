@@ -1,7 +1,7 @@
 ---
 retro_schema: 1
 date: 2026-07-11
-repo_scope: [platform, mcp-hub, iil-adrfw, "~/.claude", platform-pinned]
+repo_scope: [platform, mcp-hub, iil-adrfw, dotclaude-memory, platform-pinned]
 session_id: d2522c-incr
 footprint: full
 footprint_reduction_reason: "Rule-B (≥3 Repos) sagt deep; Reduktion auf full per Increment-Regel 4: (a) kein Prod-Schritt im Increment (M1=Security-Config, explizit Owner-approved 'M1 approved'; #171 ungemergt=kein Auto-Deploy), (b) alle Änderungen reversibel, (c) Dichte-Schätzung ≤8 vor Lauf"
