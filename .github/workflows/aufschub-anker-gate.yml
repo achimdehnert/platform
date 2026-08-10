@@ -1,0 +1,147 @@
+name: Aufschub-Anker-Gate
+
+# Verdrahtet tools/deferral_anchor_check.py — EIN Gate fuer vier gate-pflichtige
+# Retro-Muster (deferred-item-no-tracking-issue, workaround-without-tracking-anchor,
+# planned-phase-no-issue, tracking-doc-stale-after-new-occurrence), die zusammen der
+# direkte Treiber der schwaechsten Score-Dimension risiko_debt sind (Ø 2,55/60 Messungen).
+#
+# WARUM DIESER PR: das Werkzeug lag seit ceb90db0 gebaut und getestet (22 Tests) im
+# Repo — mit NULL Aufrufern. `grep -rn deferral_anchor .github/` war leer. Genau das
+# Muster `built-but-never-called`: ein Gate, das nie laeuft, ist Dekoration, und der
+# Gate-Audit in #1650 haette es als "Fundstelle vorhanden" gezaehlt.
+#
+# MODUS: advisory (warn-only). Der Check laeuft OHNE --block und setzt nie setFailed.
+# Das ist keine Zaghaftigkeit, sondern die Konvention aus gate-registry.json
+# ("mode-Aenderungen advisory->blocking nur per eigenem PR nach 0-FP-Kalibrierfenster")
+# — ein Gate mit Fehlalarmen wird umgangen statt befolgt.
+#
+# Der Tool-Selbsttest (Step 1) ist bewusst BLOCKIEREND: die Gate-Logik selbst muss
+# korrekt sein, auch wenn ihr Verdikt nur warnt. Muster uebernommen von
+# test-claim-check.yml.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: aufschub-anker-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  aufschub-anker:
+    name: Aufgeschobene Arbeit braucht einen Anker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Bot-PRs (nur Dep-Bumps) auslassen — analog test-claim-check.yml/guardian.yml
+    if: >
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'renovate[bot]' &&
+      !startsWith(github.head_ref, 'dependabot/') &&
+      !startsWith(github.head_ref, 'renovate/')
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Step 1 (blockierend): die Gate-Logik muss korrekt sein.
+      - name: Tool-Selbsttest
+        run: |
+          pip install pytest --quiet --break-system-packages
+          python -m pytest tools/tests/test_deferral_anchor_check.py -q
+
+      - name: PR-Text sammeln
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" > /tmp/pr_body.txt
+
+      # --block liefert den Befund als Exit-Code (1 = Fund, 2 = Werkzeugfehler); der
+      # Job bleibt trotzdem gruen, weil das Gate advisory ist. Bewusst NICHT ueber
+      # "Ausgabe nicht leer" entschieden: der saubere Fall druckt ebenfalls eine
+      # Zeile ("✅ Aufschub-Anker: …"), ein -s-Test haette also IMMER "Befund"
+      # gemeldet. Beide Richtungen lokal falsifiziert, bevor das hier stand.
+      # Exit 2 (Werkzeugfehler) wird laut gemeldet statt als "kein Fund" verbucht.
+      - name: Aufschub-Anker-Check (advisory)
+        id: check
+        run: |
+          set +e
+          python tools/deferral_anchor_check.py --block /tmp/pr_body.txt > /tmp/verdict.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/verdict.txt
+          case "$rc" in
+            0) echo "hat_befund=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "hat_befund=true"  >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::deferral_anchor_check.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
+               exit 1 ;;
+          esac
+
+      - name: Kommentar setzen/aktualisieren (warn-only)
+        if: always()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = 'Aufschub-Anker-Gate';
+            const hatBefund = '${{ steps.check.outputs.hat_befund }}' === 'true';
+            let verdict = '';
+            try {
+              verdict = fs.readFileSync('/tmp/verdict.txt', 'utf8').trim();
+            } catch (e) {
+              console.log('Keine Gate-Ausgabe:', e.message);
+              return;
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes(MARKER)
+            );
+
+            const ok = `### ⚓ ${MARKER}\n\n✅ Keine angekündigte Auslassung ohne Tracking-Anker.`;
+            const warn = [
+              `### ⚓ ${MARKER}`,
+              '',
+              'Der PR-Text kündigt aufgeschobene Arbeit an, ohne in ihrer Nähe eine',
+              'Issue-Referenz zu nennen. Hausregel: **bewusst Ausgelassenes bekommt im',
+              'SELBEN Zug ein Tracking-Artefakt** — der PR-Text zählt ausdrücklich NICHT',
+              'als Tracking.',
+              '',
+              '```',
+              verdict,
+              '```',
+              '',
+              '_Advisory — dieses Gate blockiert nicht. Ein Treffer kann ein Fehlalarm sein;',
+              'in dem Fall bitte im PR kurz begründen, damit die FP-Kalibrierung ihn sieht._',
+            ].join('\n');
+
+            const body = hatBefund ? warn : ok;
+
+            if (!hatBefund && !existing) {
+              console.log('sauber — kein Kommentar noetig.');
+              return;
+            }
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

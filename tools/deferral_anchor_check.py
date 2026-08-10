@@ -24,6 +24,28 @@ import argparse
 import re
 import sys
 
+# Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gelesen und
+# gegen docs/governance/gate-registry.json abgeglichen. Ohne Kopf verrottet die
+# Registry still; ohne Registry-Eintrag drillt das Gate niemand.
+#
+# `covers` ist der Grund, warum dieses Gate existiert: EIN Mechanismus deckt vier
+# gate-pflichtige Retro-Slugs ab, statt vier Einzelgates zu bauen (Empfehlung aus
+# platform#1650). `deferred-item-no-tracking-issue` traegt zusaetzlich ein eigenes
+# Gate (deferred_item_scanner.py, Session-Kontext) — dieses hier greift im PR-Text.
+GATE_HEADER = {
+    "slug": "aufschub-anker",
+    "mode": "advisory",  # blocking erst nach 0-FP-Kalibrierfenster, s. Registry-frozen_note
+    "owner": "achim",
+    "last_drill_pass": "2026-08-10",
+    "evidence": "tools/tests/test_deferral_anchor_check.py",
+    "covers": [
+        "workaround-without-tracking-anchor",
+        "planned-phase-no-issue",
+        "tracking-doc-stale-after-new-occurrence",
+        "deferred-item-no-tracking-issue",
+    ],
+}
+
 # Wendungen, die eine Auslassung ankuendigen. Positivliste — Fliesstext, der
 # zufaellig "offen" enthaelt, soll NICHT feuern.
 AUFSCHUB = re.compile(
