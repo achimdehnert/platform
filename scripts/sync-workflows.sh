@@ -249,9 +249,29 @@ sync_repo() {
 
     # Ignore-Guard (ADR-265): ohne wirksamen .windsurf/-Ignore erzeugt jeder neue Link
     # ??-Dirt im Ziel-Repo. Repo überspringen, bis die .gitignore-Zeile committet ist.
-    if ! git -C "$repo_dir" check-ignore -q ".windsurf/workflows/__adr265_probe__.md" 2>/dev/null; then
+    #
+    # `check-ignore` kennt DREI Ausgaenge, nicht zwei: 0 = ignoriert, 1 = nicht
+    # ignoriert, 128 = git konnte gar nicht antworten (kein Repo, dubious ownership,
+    # kaputter Index). Die frühere Fassung warf 1 und 128 zusammen und meldete beides
+    # als "`.windsurf/` fehlt in .gitignore" — eine Diagnose, die im 128-Fall schlicht
+    # falsch ist und den echten Grund verdeckt. Realfall design-hub: die Zeile steht
+    # nachweislich in .gitignore auf `main` (per API geprueft 2026-08-10), der Melder
+    # meldete sie trotzdem seit Wochen als fehlend. Der Fund war deshalb nicht
+    # nachvollziehbar und blieb liegen.
+    local ci_rc=0
+    git -C "$repo_dir" check-ignore -q ".windsurf/workflows/__adr265_probe__.md" 2>/dev/null || ci_rc=$?
+    if [ "$ci_rc" -eq 1 ]; then
         echo "📦 ${repo_name}"
         echo "  SKIP-REPO: '.windsurf/' nicht in .gitignore — Zeile committen, dann sync (ADR-265)"
+        SKIP_REPO_NAMES+=("$repo_name")
+        return
+    elif [ "$ci_rc" -ne 0 ]; then
+        # Nicht als .gitignore-Fund ausgeben: das waere eine erfundene Ursache.
+        # Die Fehlermeldung von git selbst ist die einzige belastbare Auskunft.
+        echo "📦 ${repo_name}"
+        echo "  SKIP-REPO: check-ignore nicht auswertbar (git exit ${ci_rc}) — Repo-Zustand pruefen, NICHT die .gitignore"
+        git -C "$repo_dir" check-ignore -q ".windsurf/workflows/__adr265_probe__.md" 2>&1 >/dev/null \
+          | sed 's/^/    git: /' || true
         SKIP_REPO_NAMES+=("$repo_name")
         return
     fi

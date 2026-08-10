@@ -177,3 +177,65 @@ def test_should_fall_back_to_configured_org_when_repo_unknown(monkeypatch):
 
     monkeypatch.setattr(ppf, "_req", leer)
     assert ppf.gh_slug("gibtsnicht") == f"{ppf.ORG}/gibtsnicht"
+
+
+# --- Unerreichbare Repos faerben den Lauf nicht rot (platform#1856) ---------
+#
+# Drei Fremd-Org-Repos, die der Token nicht sieht, liessen den Cron seit dem
+# 15.06. taeglich rot laufen, obwohl 21 Repos korrekt bearbeitet wurden. Ein
+# dauerhaft roter Melder meldet nichts mehr — eine Steigerung von 3 auf 10
+# waere niemandem aufgefallen.
+
+
+def test_should_raise_repo_unerreichbar_when_the_head_is_not_readable(monkeypatch):
+    def kein_kopf(url, method="GET", body=None):
+        pfad = url.split("api.github.com")[-1]
+        if pfad.startswith("/repos/") and pfad.count("/") == 3:
+            return {"full_name": "ttz-lif/ttz-hub", "default_branch": "main"}
+        if "/git/ref/heads/" in pfad:
+            return None
+        if "/contents/" in pfad:
+            return None
+        return {}
+
+    monkeypatch.setattr(ppf, "_req", kein_kopf)
+    with pytest.raises(ppf.RepoUnerreichbar):
+        ppf.gh_push_file("ttz-hub", "project-facts.md", "# neu", "msg")
+
+
+def test_should_exit_zero_when_the_only_failures_are_unreachable_repos(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(ppf, "load_registry", lambda: {"a": {}, "b": {}})
+
+    def prozess(repo, reg, dry_run):
+        if repo == "b":
+            raise ppf.RepoUnerreichbar("Kopf von 'main' nicht lesbar")
+        return f"✅ {repo}: PR #1 angelegt"
+
+    monkeypatch.setattr(ppf, "process_repo", prozess)
+    monkeypatch.setattr(sys, "argv", ["push_project_facts.py"])
+    monkeypatch.setattr(ppf, "TOKEN", "x")
+
+    ppf.main()  # darf NICHT SystemExit werfen
+
+    ausgabe = capsys.readouterr().out
+    assert "1 unerreichbar" in ausgabe
+    assert "🚫 b" in ausgabe, "der Name muss fallen, eine Zahl allein faellt nicht auf"
+
+
+def test_should_still_exit_one_on_a_real_failure(monkeypatch):
+    monkeypatch.setattr(ppf, "load_registry", lambda: {"a": {}, "b": {}})
+
+    def prozess(repo, reg, dry_run):
+        if repo == "b":
+            raise ppf.ApiFehler("422 irgendwas kaputt")
+        return f"✅ {repo}: PR #1 angelegt"
+
+    monkeypatch.setattr(ppf, "process_repo", prozess)
+    monkeypatch.setattr(sys, "argv", ["push_project_facts.py"])
+    monkeypatch.setattr(ppf, "TOKEN", "x")
+
+    with pytest.raises(SystemExit) as exc:
+        ppf.main()
+    assert exc.value.code == 1
