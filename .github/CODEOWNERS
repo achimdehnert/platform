@@ -1,8 +1,39 @@
 # platform - Code Owners
+#
 # Bus-Faktor-Redundanz (KONZ-012 Phase A R-0): zweiter Reviewer wirdigital,
 # als Collaborator (write) verifiziert 2026-07-05 (gh collaborators → 204).
-* @achimdehnert @wirdigital
+#
+# PFAD-GESCOPT statt Catch-all — KONZ-platform-032 B1, Owner-Go 2026-08-10.
+#
+# Leitsatz des Owners: "ich und wirdigital agieren als Entscheidungsinstanz,
+# nicht als Auto-Freigeber." Genau daran scheiterte der Catch-all `*`: zusammen
+# mit dem Ruleset `main-required-checks` (require_code_owner_review=true,
+# required_approving_review_count=1) verlangte er ein Approval fuer JEDEN PR.
+#
+# Gemessen am 2026-08-10 ueber 30 Tage: 400 gemergte PRs, davon 0 ohne Approval,
+# 399 Approvals von einem einzigen Konto. In 7 Tagen beruehrten 85 von 117 PRs
+# (73%) keinen einzigen Governance-Pfad — Handover-Nachtraege, Konzepttexte,
+# Werkzeug-Fixes. Ein Approval, das 400-mal im Monat faellt, ist keine
+# Entscheidung mehr; es ist ein Reflex. Der Catch-all hat die Zwei-Augen-Kontrolle
+# nicht gestaerkt, er hat sie entwertet.
+#
+# Die Kontrolle wird NICHT abgeschafft, sondern auf die Pfade verengt, an denen
+# eine Entscheidung faellt:
+#
+#   /.github/    Workflows, Actions, die Kontrollebene selbst
+#   /registry/   Repo-/Port-/Kanon-Register, aus dem Automatismen lesen
+#   /packages/   veroeffentlichte Artefakte
+#   /docs/adr/   architekturelle Entscheide            (neu, KONZ-032 §5.1)
+#   /policies/   Autonomie-Gates und Routing           (neu, selbstbetreffend)
+#
+# Alles andere fliesst ohne Klick: docs/konzepte/, docs/retros/, tools/, tests/,
+# scripts/, AGENT_HANDOVER.md, CHANGELOG.
+#
+# Rueckbau, falls es schiefgeht: Zeile `* @achimdehnert @wirdigital` wieder
+# einsetzen. Mehr braucht es nicht (KONZ-032 kill_criteria (a)).
 
-/.github/ @achimdehnert @wirdigital
+/.github/  @achimdehnert @wirdigital
 /registry/ @achimdehnert @wirdigital
 /packages/ @achimdehnert @wirdigital
+/docs/adr/ @achimdehnert @wirdigital
+/policies/ @achimdehnert @wirdigital
