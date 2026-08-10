@@ -169,7 +169,10 @@ def test_should_report_expired_leases_via_additional_context(
         "additionalContext"
     ]
     assert "abgelaufene repo-session-Leases" in text
-    assert "dirty Baeume bleiben bewusst stehen" in text
+    # Seit #1866 nennt der Melder zwei Klassen statt einer Zahl. Dieses Lease hat
+    # keinen Worktree und faellt damit in die Sicht-Klasse.
+    assert "Kandidat(en)" in text and "zum Sichten" in text
+    assert "wollen angesehen, nicht entfernt werden" in text
 
 
 def test_should_exit_0_on_broken_stdin(tmp_path, monkeypatch):
@@ -189,3 +192,115 @@ def test_should_exit_0_when_nothing_exists_at_all(tmp_path, stdin_leer):
         )
         == 0
     )
+
+
+# --- Klassentrennung (#1866) -------------------------------------------------
+
+
+def _worktree(basis: pathlib.Path, name: str, *, dirty=False, detached=False):
+    """Ein echter git-Worktree — die Klassifikation ruft echtes git auf."""
+    import subprocess
+
+    d = basis / name
+    d.mkdir(parents=True)
+    lauf = lambda *a: subprocess.run(  # noqa: E731
+        ["git", "-C", str(d), *a], capture_output=True, check=True
+    )
+    lauf("init", "-q", "-b", "main")
+    lauf("config", "user.email", "t@example.org")
+    lauf("config", "user.name", "T")
+    (d / "datei.txt").write_text("eins", encoding="utf-8")
+    lauf("add", "-A")
+    lauf("commit", "-qm", "erster")
+    if detached:
+        sha = subprocess.run(
+            ["git", "-C", str(d), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        lauf("checkout", "-q", sha)
+    if dirty:
+        (d / "datei.txt").write_text("zwei", encoding="utf-8")
+    return d
+
+
+def _lease_mit_baum(d: pathlib.Path, name: str, baum: pathlib.Path):
+    (d / f"{name}.json").write_text(
+        json.dumps(
+            {"repo": "x", "expires_at": "2026-01-01T00:00:00Z", "worktree": str(baum)}
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_should_call_a_clean_worktree_a_candidate(tmp_path):
+    leases, baeume = tmp_path / "l", tmp_path / "b"
+    leases.mkdir()
+    _lease_mit_baum(leases, "sauber", _worktree(baeume, "sauber"))
+
+    k = hm.lease_klassen(JETZT, leases)
+
+    assert k["kandidat"] == ["sauber"]
+    assert k["dirty"] == [] and k["detached"] == []
+
+
+def test_should_not_call_a_dirty_worktree_a_candidate(tmp_path):
+    """Dirty heisst: da haengt jemandes unfertige Arbeit dran, das ist keine Aufgabe."""
+    leases, baeume = tmp_path / "l", tmp_path / "b"
+    leases.mkdir()
+    _lease_mit_baum(leases, "schmutzig", _worktree(baeume, "schmutzig", dirty=True))
+
+    k = hm.lease_klassen(JETZT, leases)
+
+    assert k["dirty"] == ["schmutzig"]
+    assert k["kandidat"] == []
+
+
+def test_should_not_call_a_detached_worktree_a_candidate(tmp_path):
+    leases, baeume = tmp_path / "l", tmp_path / "b"
+    leases.mkdir()
+    _lease_mit_baum(leases, "los", _worktree(baeume, "los", detached=True))
+
+    k = hm.lease_klassen(JETZT, leases)
+
+    assert k["detached"] == ["los"]
+    assert k["kandidat"] == []
+
+
+def test_should_flag_a_lease_whose_worktree_is_gone(tmp_path):
+    leases = tmp_path / "l"
+    leases.mkdir()
+    _lease_mit_baum(leases, "weg", tmp_path / "gibtsnicht")
+
+    assert hm.lease_klassen(JETZT, leases)["ohne_worktree"] == ["weg"]
+
+
+def test_should_ignore_leases_that_are_still_valid(tmp_path):
+    leases, baeume = tmp_path / "l", tmp_path / "b"
+    leases.mkdir()
+    baum = _worktree(baeume, "aktiv")
+    (leases / "aktiv.json").write_text(
+        json.dumps(
+            {"repo": "x", "expires_at": "2099-01-01T00:00:00Z", "worktree": str(baum)}
+        ),
+        encoding="utf-8",
+    )
+
+    k = hm.lease_klassen(JETZT, leases)
+
+    assert k["kandidat"] == [] and k["dirty"] == []
+
+
+def test_should_report_the_rest_as_unclassified_when_the_budget_runs_out(tmp_path):
+    """Zeitbudget gerissen ⇒ ehrlich unklassifiziert, nie stillschweigend 'in Ordnung'."""
+    leases, baeume = tmp_path / "l", tmp_path / "b"
+    leases.mkdir()
+    for i in range(3):
+        _lease_mit_baum(leases, f"w{i}", _worktree(baeume, f"w{i}"))
+
+    ticks = iter([0.0] + [99.0] * 20)  # erster Blick ok, danach Budget gerissen
+    k = hm.lease_klassen(JETZT, leases, zeitbudget=1.0, _uhr=lambda: next(ticks))
+
+    assert k["unklassifiziert"] == 3
+    assert k["kandidat"] == []

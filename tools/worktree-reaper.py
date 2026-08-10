@@ -199,15 +199,29 @@ def classify(
         return "SKIP", f"geschützter Branch ({branch})"
     if is_dirty(path):
         return "SKIP", "DIRTY — uncommitted changes (Guard)"
+    # Ein AKTIVES Lease schlaegt jeden Merge-Zustand (#1866). Bis 2026-08-10 stand
+    # die pr_state-Pruefung davor, und ein gemergter PR fuehrte sofort zu
+    # REAP_MERGED — das Lease wurde nie gelesen. Genau das ist der Normalfall am
+    # Ende einer Sitzung: PR gemergt, im selben Baum wird weitergearbeitet
+    # (Folge-Commits, session-ende, Handover). Gemessen am 2026-08-10 waren ALLE
+    # drei REAP_MERGED-Kandidaten der Flotte Worktrees einer laufenden Sitzung mit
+    # Lease bis 2026-08-17. Substanz haette das nicht gekostet (dirty ist SKIP,
+    # Branches gepusht, Restore-Manifest), aber es zieht einer lebenden Sitzung den
+    # Boden weg — und ohne diese Reihenfolge waere ein Auto-Reap nicht
+    # verantwortbar. Das Lease ist die Aussage "eine Sitzung besitzt diesen Baum";
+    # sie gilt, bis sie ablaeuft.
+    lease = lease_for(path)
+    if lease is not None and lease_expired(lease) is False:
+        return "KEEP", f"Lease aktiv bis {lease.get('expires_at')}"
+
     state = pr_state(branch, repo)
     if state == "merged":
-        return "REAP_MERGED", "PR gemergt (squash-aware)"
+        return "REAP_MERGED", "PR gemergt (squash-aware), kein aktives Lease"
     if state == "unknown":
         return "KEEP", "Merge-Status unbestimmbar → konservativ behalten"
     if state == "open":
         return "KEEP", "offener PR"
     # Stale-Entscheidung: Lease primär (ADR-233 §2.4), mtime nur als Fallback.
-    lease = lease_for(path)
     if lease is not None:
         exp = lease_expired(lease)
         if exp is True:
@@ -215,8 +229,6 @@ def classify(
                 "REAP_STALE",
                 f"Lease abgelaufen ({lease.get('expires_at')}), kein PR",
             )
-        if exp is False:
-            return "KEEP", f"Lease aktiv bis {lease.get('expires_at')}"
         # exp is None → expires_at unparsebar, falle auf mtime zurück
     age = commit_age_days(path)
     if age is not None and age > stale_days:
