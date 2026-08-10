@@ -25,9 +25,8 @@ concurrency:
   cancel-in-progress: true
 
 # Workflow-level default (least privilege, #818 permissions sweep); the
-# megatest job below already declares its own permissions (contents:
-# write for --update-budgets, issues: write for the failure report) and
-# overrides this.
+# megatest job below already declares its own permissions (issues: write
+# for the failure report) and overrides this.
 permissions:
   contents: read
 
@@ -36,7 +35,11 @@ jobs:
     name: Platform Hardcoding Megatest
     runs-on: self-hosted
     permissions:
-      contents: write     # für --update-budgets commit
+      # contents:write entfernt (#1682): es war fuer einen --update-budgets-Commit
+      # gedacht, den dieser Workflow nie hatte — budgets.toml ist ausschliesslich
+      # von Menschen commited worden (git log). Das Update-Ergebnis geht jetzt als
+      # Artefakt + Job-Summary raus, dafuer genuegt contents:read.
+      contents: read
       issues: write       # für Failure-Report als Issue
 
     steps:
@@ -159,6 +162,38 @@ jobs:
             --update-budgets \
             -v -q \
             2>&1 | tee megatest-output.txt
+
+      # #1682: der Update-Lauf schrieb budgets.toml bisher nur in den Workspace
+      # des Runners — kein Commit-Schritt, kein Artefakt. Das Ergebnis war nach
+      # dem Job weg, `contents: write` oben beschrieb einen Commit, den es nie
+      # gab. Bewusst KEIN Auto-Commit auf main: ein Automatismus, der die
+      # Budget-Zusagen der ganzen Flotte umschreibt, gehoert durch einen Review
+      # (autonomy-gates, "autonomous-no-human-review"). Stattdessen Diff in die
+      # Job-Summary + Datei als Artefakt zum Uebernehmen per PR.
+      - name: Budget-Diff sichtbar machen
+        if: ${{ inputs.update_budgets }}
+        run: |
+          cd ~/github/platform
+          {
+            echo "## Budget-Update (Ist-Werte aus diesem CI-Lauf)"
+            echo
+            if git diff --quiet -- tests/megatest/budgets.toml; then
+              echo "Keine Aenderung — die Budgets stehen bereits auf den Ist-Werten."
+            else
+              echo '```diff'
+              git diff -- tests/megatest/budgets.toml
+              echo '```'
+              echo
+              echo "Uebernahme per PR; ein Budget von 0 wird vom Writer nie angehoben."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aktualisierte budgets.toml
+        if: ${{ inputs.update_budgets }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: megatest-budgets-updated
+          path: ~/github/platform/tests/megatest/budgets.toml
 
       - name: Upload JUnit Results
         uses: actions/upload-artifact@v7
