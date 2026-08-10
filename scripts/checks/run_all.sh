@@ -22,10 +22,20 @@
 # Ohne `--baseline` bleibt das alte Verhalten: jeder Fehlschlag => exit 1.
 set -uo pipefail
 
-cd "$(dirname "$0")"
-
+# Den Baseline-Pfad VOR dem `cd` aufloesen. Der Aufrufer uebergibt ihn relativ zur
+# Repo-Wurzel (`scripts/checks/staging-baseline.txt`); nach dem Wechsel nach
+# scripts/checks/ zeigte derselbe Pfad auf scripts/checks/scripts/checks/… und das
+# Skript brach mit "BEDIENFEHLER: Baseline-Datei nicht gefunden" ab, ohne einen
+# einzigen Check zu fahren. Der Cron-Melder war dadurch seit 2026-08-03 taeglich rot
+# und hat in der Zeit nichts geprueft — ein dauerhaft roter Melder meldet nichts mehr.
 BASELINE=""
 [ "${1:-}" = "--baseline" ] && { BASELINE="${2:-}"; }
+if [ -n "$BASELINE" ] && [ "${BASELINE#/}" = "$BASELINE" ]; then
+  BASELINE="$PWD/$BASELINE"
+fi
+
+cd "$(dirname "$0")"
+
 [ -n "$BASELINE" ] && [ ! -f "$BASELINE" ] && {
   echo "BEDIENFEHLER: Baseline-Datei nicht gefunden: $BASELINE" >&2
   exit 2
