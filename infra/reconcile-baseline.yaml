@@ -6,33 +6,41 @@
 #
 # Ein Eintrag hier ist KEINE Lösung — er ist eine datierte Stundung.
 # Bei Ablauf: Drift beheben oder bewusst (mit neuem Grund) verlängern.
+#
+# ⚠️ ALLE FÜNF EINTRÄGE LAUFEN AM SELBEN TAG AB (2026-11-08).
+# Das ist am 2026-08-08 schon einmal passiert: alle fünf Waiver fielen
+# gleichzeitig, `registry-live-reconcile` brach beim ERSTEN ab (fail-closed)
+# und war zwei Tage rot, ohne dass die anderen vier je gemeldet wurden
+# (#1857). Wer den nächsten Ablauf bearbeitet, sollte die Daten staffeln,
+# statt sie wieder gleichzuschalten — ein gemeinsamer Stichtag macht aus
+# fünf einzelnen Entscheidungen einen einzigen Klippen-Termin.
 
 known_drift:
   # C4:8042 (apo-hub) entfernt 2026-07-10: mit Merge von PR #1036 registriert,
   # Fund verschwand im ersten CI-Lauf von selbst — Selbstheilung wie vorhergesagt.
 
   - id: "C3:recruiting-hub"
-    reason: "prod_url recruiting.iil.pet hat keinen DNS-Record, Container läuft healthy — bekannt seit PR #1036-Recherche, Entscheid offen (DNS anlegen vs. Domain ändern). Erster echter CI-Fund des Sweeps (Run 2026-07-10, nach #1036-Merge scharf geschaltet)."
+    reason: "prod_url recruiting.iil.pet hat keinen DNS-Record, Container läuft healthy — bekannt seit PR #1036-Recherche, Entscheid offen (DNS anlegen vs. Domain ändern). Erster echter CI-Fund des Sweeps (Run 2026-07-10, nach #1036-Merge scharf geschaltet). VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Drift am 2026-08-10 nachgemessen — recruiting.iil.pet weiterhin NXDOMAIN. Der Entscheid DNS-anlegen-vs-Domain-ändern steht weiter aus."
     owner: achim
-    expires_at: 2026-08-08
+    expires_at: 2026-11-08
 
   - id: "C4:8000"
-    reason: "mcp-hub-Orchestrator publiziert 8000, canonical sagt 3000, ports.yaml kennt ihn gar nicht — Klärung welcher Port normativ ist (Board-Item, KONZ-015 REC-4-Rest)."
+    reason: "mcp-hub-Orchestrator publiziert 8000, canonical sagt 3000, ports.yaml kennt ihn gar nicht — Klärung welcher Port normativ ist (Board-Item, KONZ-015 REC-4-Rest). VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Normativitäts-Entscheid weiter offen."
     owner: achim
-    expires_at: 2026-08-08
+    expires_at: 2026-11-08
 
   - id: "C4:15435"
-    reason: "pgvector-DB (mcp_hub_db) publiziert 15435 für den SSH-Tunnel der Agent-Sessions — bewusster Infra-Port, Registrierungs-Entscheid offen."
+    reason: "pgvector-DB (mcp_hub_db) publiziert 15435 für den SSH-Tunnel der Agent-Sessions — bewusster Infra-Port, Registrierungs-Entscheid offen. VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Registrierungs-Entscheid weiter offen."
     owner: achim
-    expires_at: 2026-08-08
+    expires_at: 2026-11-08
 
   - id: "C4:5900"
-    reason: "ib_gateway VNC-Port außerhalb der Finance-Range 4000-4099 — Registrierungs- oder Range-Entscheid offen."
+    reason: "ib_gateway VNC-Port außerhalb der Finance-Range 4000-4099 — Registrierungs- oder Range-Entscheid offen. VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Entscheid weiter offen."
     owner: achim
-    expires_at: 2026-08-08
+    expires_at: 2026-11-08
 
   - id: "C4:9443"
-    reason: "authentik publiziert 9443 (TLS) außerhalb der Auth-Range 9000-9099 — Registrierungs- oder Range-Entscheid offen."
+    reason: "authentik publiziert 9443 (TLS) außerhalb der Auth-Range 9000-9099 — Registrierungs- oder Range-Entscheid offen. VERLÄNGERT 2026-08-10 (Owner-Entscheid, #1857): Sachstand unverändert, Entscheid weiter offen."
     owner: achim
-    expires_at: 2026-08-08
+    expires_at: 2026-11-08
 
