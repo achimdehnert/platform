@@ -256,6 +256,12 @@ class MailLinkHandler(BaseHTTPRequestHandler):
         Der stabile Weg: `/m/<uid>` bricht, sobald die Mail den Ordner wechselt.
         Hier wird bei einem Fehlschlag über die Message-ID nachgesucht, der Anker
         nachgezogen und die Mail trotzdem ausgeliefert.
+
+        Für Graph-Konten (IIL) gibt es keinen IMAP-Anker; dort greift die
+        Kurz-ID-Registry. Ohne diesen Rückfall trügen HNU-Posten einen Link und
+        IIL-Posten keinen — genau die Lücke, an der die Hälfte des Boards
+        unverlinkt blieb. `/a/<nr>` ist damit für jeden Posten dieselbe Adresse,
+        unabhängig vom Konto.
         """
         if not teile:
             return self._fehler(HTTPStatus.BAD_REQUEST, "Board-Nummer fehlt.")
@@ -263,6 +269,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
         anker = anker_lade(self.anker_pfad)
         eintrag = anker.get(item)
         if not eintrag:
+            if lade_registry(self.registry_pfad).get(item):
+                return self._weiterleiten(item)
             return self._fehler(
                 HTTPStatus.NOT_FOUND, f"Für #{item} ist keine Mail verankert."
             )

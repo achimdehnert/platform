@@ -188,6 +188,26 @@ class TestAnkerRoute:
     def test_should_400_without_board_number(self, server, anker_pfad):
         assert _get(server, "/a")[0] in (400, 404)
 
+    def test_should_fall_back_to_graph_registry_for_iil_items(
+        self, server, anker_pfad, registry
+    ):
+        """IIL-Posten haben keinen IMAP-Anker — `/a/<nr>` muss sie trotzdem finden.
+
+        Ohne diesen Rückfall trägt die Hälfte des Boards (Graph-Konto) keinen Link.
+        """
+        registry.write_text(
+            json.dumps({"7": {"graph_id": "AAMkAGY0="}}), encoding="utf-8"
+        )
+        status, kopf, _ = _get(server, "/a/7")
+        assert status == 302
+        assert "AAMkAGY0%3D" in kopf["Location"]
+
+    def test_should_still_404_when_neither_anchor_nor_registry_knows_it(
+        self, server, anker_pfad, registry
+    ):
+        registry.write_text(json.dumps({"7": {"graph_id": "x"}}), encoding="utf-8")
+        assert _get(server, "/a/8")[0] == 404
+
     def test_should_list_anchored_items_on_index(self, server, anker_pfad):
         status, _, koerper = _get(server, "/")
         assert status == 200
