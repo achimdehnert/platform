@@ -510,7 +510,12 @@ def build_project_facts(
         "## Meta",
         "",
         f"- **Type**: `{rtype}`",
-        f"- **GitHub**: `https://github.com/{ORG}/{repo}`",
+        # `ORG` ist die Voreinstellung, nicht der Ist-Owner — dieselbe Falle wie
+        # in `gh_slug()`, nur eine Ebene weiter: die API-Aufrufe zeigten nach
+        # #1858 auf `meiki-lra/meiki-hub`, die ERZEUGTE Datei behauptete
+        # weiterhin `achimdehnert/meiki-hub`. Ein project-facts.md, das die
+        # eigene Repo-Adresse falsch angibt, ist schlimmer als keines.
+        f"- **GitHub**: `https://github.com/{gh_slug(repo)}`",
         "- **Branch**: `main` — push: `git push` (SSH-Key konfiguriert)",
         "",
         "## Lokale Umgebung (Dev Desktop — adehnert)",
