@@ -183,6 +183,7 @@ footer{color:var(--stumm);font-size:.78rem;margin-top:2rem;text-align:center}
 a.aktion{display:inline-block;padding:.35rem .7rem;border:1px solid var(--linie);
 border-radius:6px;background:var(--karte);text-decoration:none;font-size:.86rem}
 a.aktion:hover{border-color:var(--stumm)}
+.kein-ziel{color:var(--stumm);font-size:.84rem;font-style:italic;margin:.2rem 0 0}
 .sache a{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie)}
 .sache a:hover{border-bottom-color:currentColor}
 pre.notiz{white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.5;
@@ -288,22 +289,25 @@ def naechste_schritte(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") ->
     """Abschnitt 'Naechste Schritte': der Text aus dem Ledger plus erreichbare Ziele."""
     text = str(v.get("next_trigger") or "").strip()
     ziele = aktionen(v, mail_basis, basis)
-    if not text and not ziele:
-        return ""
     kopf = f"<p class='schritt-text'>{html.escape(text)}</p>" if text else ""
     # Ohne Ziel bleibt der Vorschlag Text. Ein Knopf ohne Ziel waere genau der tote
     # Link, den `zeile()` beim fehlenden thread_key schon vermeidet.
-    knoepfe = (
-        "<p class='aktionen'>"
-        + " ".join(
-            f"<a class='aktion' href='{html.escape(url)}'>{html.escape(label)}</a>"
-            for label, url in ziele
+    if ziele:
+        rest = (
+            "<p class='aktionen'>"
+            + " ".join(
+                f"<a class='aktion' href='{html.escape(url)}'>{html.escape(label)}</a>"
+                for label, url in ziele
+            )
+            + "</p>"
         )
-        + "</p>"
-        if ziele
-        else ""
-    )
-    return f"<h2>Naechste Schritte</h2>{kopf}{knoepfe}"
+    else:
+        # Die Luecke benennen statt sie zu verschweigen: am 2026-08-10 trugen 13 von
+        # 17 Vorgaengen keinen Anker, und eine leere Stelle sieht aus wie ein
+        # kaputter Link. Der Hinweis trennt "nichts hinterlegt" von "defekt" — und
+        # zeigt nebenbei, wo /mailcheck noch nachzutragen hat.
+        rest = "<p class='kein-ziel'>keine Mail verknuepft</p>"
+    return f"<h2>Naechste Schritte</h2>{kopf}{rest}"
 
 
 # Reihenfolge der Detailfelder: erst wer und was, dann Zustand, zuletzt der Verlauf.

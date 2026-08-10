@@ -1670,3 +1670,47 @@ falsche Mail-Zuordnungen rechtzeitig verhinderten, und die Entscheidung, 42
 D4-Extraktionen **nicht** zu schreiben, nachdem die Stichprobe vier von vier widerlegt
 hatte. Die drei schwersten Befunde dieser Retro stammen von Findern mit frischem Kontext,
 nicht aus meiner Selbsterzählung — das ist die Methode, die funktioniert hat.
+---
+
+## 2026-08-10 — Fünf rote CI-Läufe, drei echte Fehler, eine Anweisung nicht ausgeführt
+
+Der Auftrag kam als Link auf eine claude.ai/code-Session, die ich nicht lesen konnte
+(HTTP 403, auth-gated; lokal kein Transkript). Statt zu raten: beide billigsten Checks
+gefahren, Ergebnis gemeldet, nachgefragt. Antwort: „die Fehler waren im platform-repo,
+hol sie dir aus CI."
+
+Drei der fünf roten Läufe waren echte, stumme Dauerfehler — alle drei `schedule`- oder
+`issues`-getriggert, keiner blockierte je einen PR. Das ist der verbindende Befund, nicht
+die einzelnen Ursachen: `staging-registry-checks` löste einen repo-wurzel-relativen Pfad
+erst nach einem `cd` auf und brach neun Läufe lang mit exit 2 ab, bevor der erste Check
+lief — der Umbau vom 02.08., der das Gate scharf machen sollte, hatte es stumm
+geschaltet. `docu-update-agent` installierte eine auf PyPI vollständig zurückgezogene
+Distribution, die es gar nicht brauchte. `gen-project-facts` riet den Owner für drei
+Repos, die nie unter der Default-Org lagen.
+
+Der vierte rote Lauf war ein einmaliges 502 bei zeitgleich grünem `/readyz/` — bewusst
+kein Fix. Der fünfte, `registry-live-reconcile`, führte am weitesten: nach der vom Owner
+entschiedenen Waiver-Verlängerung maß das Werkzeug wieder und meldete vier Dienste als
+„Container läuft nicht". Der Owner entschied „Container-Namen korrigieren" — und genau
+das habe ich nicht getan. `docker ps` auf beiden Prod-Hosts zeigte, dass alle vier Namen
+zeichengleich mit der Realität sind; die Container laufen auf `prod-b`, der Melder sah
+nur `prod`. Umbenennen hätte korrekte Werte zerstört. Prämisse widerlegt, Beleg gezeigt,
+Host-Blindheit gefixt, Owner bestätigt.
+
+Der Gegentest zu dieser Frage brachte den unangenehmsten Fund des Tages: nur vier von
+neun `prod-b`-Diensten fielen auf, weil die anderen fünf **zusätzlich auf `prod`**
+laufen. 23 Container doppelt, fünf Postgres-Paare darunter, Image-Tags divergierend.
+Welche Instanz Verkehr bedient und welche Datenbank geschrieben wird, ist ungeklärt —
+deshalb Issue statt `docker rm`.
+
+Zwei eigene Fehler, beide fremdgefangen: Ich schrieb den Bypass-Aktenvermerk vor dem
+Merge, der Merge wurde dann abgelehnt, und der Vermerk beschrieb einen Vorgang, der nie
+stattfand. Und mein erster Wurf am Melder hätte bei leerer `ports.yaml` „keine Drift"
+gemeldet statt den toten Host zu bemerken — das fing der Bestandstest.
+
+Was bleibt: [#1877](https://github.com/achimdehnert/platform/pull/1877) wartet auf den
+Review-Klick, danach ist eine Entscheidung zum Zugang `prod` → `prod-b` fällig (gemessen:
+kein Key, kein Runner). [#1876](https://github.com/achimdehnert/platform/issues/1876) und
+[#1860](https://github.com/achimdehnert/platform/issues/1860) sind unbearbeitet. Und die
+Handover-Prio wurde in dieser Session nicht angefasst — die Frist 16.08. für Ritual-Lauf 1
+ist jetzt sechs Tage entfernt.

@@ -208,6 +208,12 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 - [ ] Beide Seiten geprüft (Eingang UND Gesendetes) — Korrelation nach Gesprächspartner
 - [ ] Ledger aktualisiert (geschlossene Punkte raus, neue Zustände drin)
 - [ ] Deckungsblock im Board — auch wenn das Board leer ist
+- [ ] **Anker-Stand ausgewiesen** (#1864): `python3 tools/mail_agent/board.py --pruefe`
+      laufen lassen und die Zahl der unverankerten Vorgänge **im Ergebnis nennen** —
+      auch und gerade dann, wenn sie unverändert ist. Ohne diese Zeile bleibt die
+      Lücke unsichtbar, sobald das Board „gut aussieht": ein Posten ohne Anker trägt
+      keinen Link in seine Mail und meldet das nirgends von selbst.
+      Stand beim Einbau (2026-08-10): **11 von 17** ohne Anker.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog

@@ -7,11 +7,30 @@ nginx-vhosts, DNS-Auflösung) und zählt Abweichungen — die Drift-Kennzahl,
 die im KONZ-015-Kill-Gate steht.
 
 Checks:
+  C0 host_unreachable     Nebenhost nicht erreichbar — C1/C2 dort ungeprüft
   C1 port_mismatch        deklarierter Prod-Port ≠ real publizierter Port des Containers
   C2 container_missing    deklarierter Container läuft nicht (nur bei rich.deployed=true)
   C3 dns_unresolved       deklarierte prod_url löst im DNS nicht auf
   C4 port_unregistered    real publizierter Host-Port ohne ports.yaml-Eintrag
   C5 duplicate_port       derselbe Prod-Port mehrfach in ports.yaml deklariert
+
+MEHRERE PROD-HOSTS (2026-08-10, #1876):
+Seit dem 2026-07-22 gibt es einen zweiten Prod-Host (`prod-b`), und `ports.yaml`
+führt je Dienst ein `prod_host`-Feld. Dieses Werkzeug las es nicht: es inspizierte
+NUR den Host, auf dem es lief, und meldete jeden dorthin ausgelagerten Dienst als
+"Container läuft nicht". Am 2026-08-10 waren das vier Falschmeldungen (apo-hub,
+research-hub, trading-hub, weltenhub) — alle vier liefen einwandfrei, nur eben auf
+`prod-b`, unter exakt dem deklarierten Namen.
+
+C1/C2 werden deshalb gegen den ZUSTÄNDIGEN Host geprüft (`prod_host`, Default
+`prod`), aufgelöst über `infra/hosts.yaml`. Der Host, auf dem das Werkzeug läuft,
+wird lokal gelesen, alle anderen per SSH.
+
+Ist ein Nebenhost nicht erreichbar, werden seine Dienste NICHT als fehlend
+gemeldet — das wäre derselbe Fehler in neuer Verkleidung. Stattdessen fällt ein
+eigener Befund `C0:<host>`, und C1/C2 werden für diesen Host übersprungen. Die
+blinde Stelle bleibt so sichtbar und ist wie jede andere Drift triagierbar
+(beheben oder mit owner+expires_at stunden), statt sich als Grün zu tarnen.
 
 Baseline: infra/reconcile-baseline.yaml — bekannte, triagierte Abweichungen mit
 PFLICHT-Feldern owner + expires_at (E2-Waiver-Muster aus KONZ-015 / ADR-264 D1:
@@ -24,8 +43,8 @@ Exit-Codes (⚠️ run-conclusion ≠ Tool-Health, siehe CC-Memory):
   2 = Tool-/Konfigurationsfehler (Baseline ungültig, Host unerreichbar, ...)
 
 Aufruf:
-  python3 tools/reconcile_registry_live.py                  # lokal auf dem Prod-Host (Runner)
-  python3 tools/reconcile_registry_live.py --ssh root@HOST  # remote von dev aus
+  python3 tools/reconcile_registry_live.py                  # host-aware (lokal + SSH je prod_host)
+  python3 tools/reconcile_registry_live.py --ssh root@HOST  # ALT: alles gegen EINEN Host
 """
 
 from __future__ import annotations
@@ -42,6 +61,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_PATH = REPO_ROOT / "infra" / "reconcile-baseline.yaml"
+HOSTS_PATH = REPO_ROOT / "infra" / "hosts.yaml"
+
+#: Dienste ohne `prod_host` in ports.yaml liegen auf dem historischen Einzelhost.
+DEFAULT_PROD_HOST = "prod"
 
 # Host-Ports, die bewusst außerhalb der Service-Registry leben (Infra-Stacks
 # mit eigener Verwaltung). Bewusst kurz — alles andere gehört in ports.yaml
@@ -80,6 +103,43 @@ def load_declared() -> tuple[dict, dict]:
     canonical = yaml.safe_load((REPO_ROOT / "registry" / "canonical.yaml").read_text())
     ports = yaml.safe_load((REPO_ROOT / "infra" / "ports.yaml").read_text())
     return canonical.get("repos", {}), ports.get("services", {})
+
+
+def _knapper_grund(e: Exception) -> str:
+    """Nur die Fehlerursache, ohne das komplette argv aus `sh()`.
+
+    `sh()` haengt das ganze Kommando vor die Meldung; in einer Drift-Zeile ist
+    das Rauschen, das die eigentliche Ursache ans Zeilenende draengt.
+    """
+    text = str(e)
+    _, sep, rest = text.partition("rc=")
+    return (rest.split(" ", 1)[-1] if sep else text).strip()[:120]
+
+
+def load_hosts() -> dict[str, dict]:
+    """`infra/hosts.yaml` → {hostname: {ssh, hostname, cloud_name, ...}}."""
+    return (yaml.safe_load(HOSTS_PATH.read_text()) or {}).get("hosts", {})
+
+
+def lokaler_host(hosts: dict[str, dict]) -> str | None:
+    """Welcher Eintrag aus hosts.yaml ist die Maschine, auf der wir laufen?
+
+    Verglichen wird der `hostname` der Maschine gegen die Felder `hostname` und
+    `cloud_name`. Beide sind in hosts.yaml gepflegt und beide kommen real vor:
+    `prod` meldet `ubuntu-8gb-nbg1-1` (= `hostname`), `prod-b` meldet
+    `iilgmbh-prod-b` (= `cloud_name`, `hostname` ist dort nicht gesetzt).
+
+    Kein Treffer (z.B. Lauf von einer Dev-Maschine) ist kein Fehler — dann wird
+    JEDER Host per SSH gelesen.
+    """
+    try:
+        eigen = sh(["hostname"]).strip()
+    except (RuntimeError, subprocess.SubprocessError, OSError):
+        return None
+    for name, cfg in hosts.items():
+        if eigen in {cfg.get("hostname"), cfg.get("cloud_name")}:
+            return name
+    return None
 
 
 def load_baseline() -> list[dict]:
@@ -145,13 +205,86 @@ def main() -> int:
     baseline = load_baseline()
     baseline_ids = {e["id"] for e in baseline}
 
-    try:
-        containers = live_containers(args.ssh)
-    except RuntimeError as e:
-        print(f"TOOL-FEHLER: Live-Zustand nicht lesbar: {e}", file=sys.stderr)
-        return 2
-
     drift: list[tuple[str, str]] = []  # (drift_id, beschreibung)
+
+    # ── Live-Zustand je zuständigem Host einsammeln ────────────────────────
+    # `--ssh` bleibt der alte Einzelhost-Modus: alles gegen genau diesen Host.
+    # Ohne `--ssh` wird pro `prod_host` gelesen — lokal für die eigene Maschine,
+    # sonst per SSH aus hosts.yaml.
+    hosts_cfg = load_hosts()
+    hier = lokaler_host(hosts_cfg)
+
+    if args.ssh:
+        benoetigt = {None}
+        ziel = {None: args.ssh}
+    else:
+        # Der Haupthost wird IMMER gelesen, auch wenn ihn kein Dienst nennt:
+        # C4 (unregistrierte Ports) braucht ihn unabhaengig von der Deklaration,
+        # und ein nicht erreichbarer Haupthost muss ein Tool-Fehler bleiben.
+        # Ohne dieses `|` fiel bei leerer ports.yaml gar kein Host mehr an und
+        # das Werkzeug meldete fröhlich "keine Drift" — gefangen vom
+        # Bestandstest `test_should_exit_2_on_unreadable_live_state`.
+        benoetigt = {DEFAULT_PROD_HOST} | {
+            cfg.get("prod_host") or DEFAULT_PROD_HOST for cfg in ports_decl.values()
+        }
+        ziel = {}
+        for h in benoetigt:
+            if h == hier:
+                ziel[h] = None  # lokal, kein SSH
+            elif h in hosts_cfg and hosts_cfg[h].get("ssh"):
+                ziel[h] = hosts_cfg[h]["ssh"]
+            else:
+                ziel[h] = False  # kein Zugang deklariert
+
+    je_host: dict[str | None, dict[str, list[int]]] = {}
+    unerreichbar: dict[str, str] = {}
+    for h in benoetigt:
+        if ziel.get(h) is False:
+            unerreichbar[h] = f"kein ssh-Feld für '{h}' in infra/hosts.yaml"
+            continue
+        try:
+            je_host[h] = live_containers(ziel[h])
+        except (RuntimeError, subprocess.SubprocessError, OSError) as e:
+            # Der Haupthost (bzw. das explizite --ssh-Ziel) ist die
+            # Betriebsgrundlage — faellt der aus, misst das Werkzeug im Kern
+            # nichts und meldet ehrlich einen Tool-Fehler statt einer Kennzahl
+            # (exit 2, unveraendert). Bewusst an DEFAULT_PROD_HOST festgemacht
+            # und NICHT an `hier`: sonst haenge das Exit-Verhalten davon ab, auf
+            # welcher Maschine der Lauf zufaellig startet.
+            if h == DEFAULT_PROD_HOST or args.ssh:
+                print(
+                    f"TOOL-FEHLER: Live-Zustand nicht lesbar: {e}",
+                    file=sys.stderr,
+                )
+                return 2
+            unerreichbar[h] = _knapper_grund(e)
+
+    for h, grund in sorted(unerreichbar.items()):
+        betroffen = sum(
+            1
+            for cfg in ports_decl.values()
+            if (cfg.get("prod_host") or DEFAULT_PROD_HOST) == h
+        )
+        drift.append(
+            (
+                f"C0:{h}",
+                f"Host '{h}' nicht erreichbar ({grund}) — C1/C2 für "
+                f"{betroffen} Dienst(e) ungeprüft, NICHT als fehlend gewertet",
+            )
+        )
+
+    def containers_of(host: str | None) -> dict[str, list[int]] | None:
+        """Container des zuständigen Hosts, oder None wenn ungeprüft."""
+        return je_host.get(None if args.ssh else host)
+
+    def ort(host: str | None) -> str:
+        """Was in der Meldung stehen soll: der TATSÄCHLICH inspizierte Host.
+
+        Im `--ssh`-Einzelhostmodus ist das immer das SSH-Ziel — dort den
+        deklarierten `prod_host` zu nennen wäre eine Falschaussage ("läuft
+        nicht auf 'prod'", während gegen prod-b gemessen wurde).
+        """
+        return args.ssh if args.ssh else str(host)
 
     # C5: doppelte Port-Deklaration — prod UND staging getrennt (das bekannte
     # 8099-Duplikat risk-hub/tax-hub lag auf staging, nicht prod)
@@ -170,11 +303,15 @@ def main() -> int:
                 )
             seen[p] = svc
 
-    # C1 + C2 je deklariertem Service
+    # C1 + C2 je deklariertem Service — gegen den ZUSTÄNDIGEN Host
     for svc, cfg in ports_decl.items():
         cname, p = cfg.get("container_name"), cfg.get("prod")
         if not cname or not isinstance(p, int):
             continue
+        host = cfg.get("prod_host") or DEFAULT_PROD_HOST
+        containers = containers_of(host)
+        if containers is None:
+            continue  # Host ungeprüft — bereits als C0 gemeldet
         rich = canonical.get(svc, {}).get("rich", {})
         deployed = rich.get("deployed") is True
         if cname in containers:
@@ -183,14 +320,16 @@ def main() -> int:
                 drift.append(
                     (
                         f"C1:{svc}",
-                        f"{svc}: deklariert {p}, Container {cname} publiziert {live_ports}",
+                        f"{svc}: deklariert {p}, Container {cname} publiziert "
+                        f"{live_ports} (auf {ort(host)})",
                     )
                 )
         elif deployed:
             drift.append(
                 (
                     f"C2:{svc}",
-                    f"{svc}: rich.deployed=true, aber Container {cname} läuft nicht",
+                    f"{svc}: rich.deployed=true, aber Container {cname} "
+                    f"läuft nicht auf '{ort(host)}'",
                 )
             )
 
@@ -210,15 +349,25 @@ def main() -> int:
         | {cfg.get("staging") for cfg in ports_decl.values()}
         | {cfg.get("dev") for cfg in ports_decl.values()}
     )
-    for cname, live_ports in containers.items():
-        for p in live_ports:
-            if p not in declared_ports and not in_infra_range(p):
-                drift.append(
-                    (
-                        f"C4:{p}",
-                        f"Port {p} ({cname}) publiziert, aber in ports.yaml unbekannt",
-                    )
-                )
+    # Über ALLE gelesenen Hosts. Die Drift-ID bleibt bewusst `C4:<port>` ohne
+    # Host-Anteil: die fünf Baseline-Einträge sind darauf ausgestellt, und ein
+    # Host-Suffix hätte sie stillschweigend entwertet (der Waiver griffe nicht
+    # mehr, der Lauf meldete "neue" Drift, die keine ist). Derselbe Port auf
+    # zwei Hosts — `mon_cadvisor` ist genau so ein Fall — wird deshalb einmal
+    # gemeldet; die Fundorte stehen in der Beschreibung.
+    gefunden: dict[int, list[str]] = {}
+    for h, containers in sorted(je_host.items(), key=lambda kv: str(kv[0])):
+        for cname, live_ports in containers.items():
+            for p in live_ports:
+                if p not in declared_ports and not in_infra_range(p):
+                    gefunden.setdefault(p, []).append(f"{cname} auf {ort(h)}")
+    for p, orte in sorted(gefunden.items()):
+        drift.append(
+            (
+                f"C4:{p}",
+                f"Port {p} ({', '.join(orte)}) publiziert, aber in ports.yaml unbekannt",
+            )
+        )
 
     new = [(i, d) for i, d in drift if i not in baseline_ids]
     suppressed = [(i, d) for i, d in drift if i in baseline_ids]

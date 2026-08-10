@@ -175,3 +175,171 @@ def test_should_exit_2_on_unreadable_live_state(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert rc == 2
     assert "TOOL-FEHLER" in err
+
+
+# ---------------------------------------------------------------------------
+# Mehrere Prod-Hosts (#1876) — C1/C2 gegen den ZUSTAENDIGEN Host
+# ---------------------------------------------------------------------------
+
+_HOSTS = {
+    "prod": {"ssh": "root@P", "hostname": "host-p"},
+    "prod-b": {"ssh": "root@B", "cloud_name": "host-b"},
+}
+
+
+def _patch_io_multi(monkeypatch, canonical, ports_decl, je_ssh, baseline=None):
+    """Wie `_patch_io`, aber mit einem Container-Bild PRO Host.
+
+    `je_ssh` bildet das ssh-Ziel auf Container ab; ein Wert vom Typ Exception
+    wird geworfen (Host nicht erreichbar). `lokaler_host` liefert bewusst None
+    — dann laeuft JEDER Host ueber den ssh-Zweig und der Test haengt nicht
+    davon ab, auf welcher Maschine er ausgefuehrt wird.
+    """
+
+    def containers(ssh):
+        wert = je_ssh[ssh]
+        if isinstance(wert, Exception):
+            raise wert
+        return wert
+
+    monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
+    monkeypatch.setattr(rrl, "load_baseline", lambda: baseline or [])
+    monkeypatch.setattr(rrl, "load_hosts", lambda: _HOSTS)
+    monkeypatch.setattr(rrl, "lokaler_host", lambda hosts: None)
+    monkeypatch.setattr(rrl, "live_containers", containers)
+    monkeypatch.setattr(rrl, "live_dns", lambda domain, ssh: True)
+
+
+def test_should_not_flag_c2_when_container_runs_on_its_declared_prod_host(
+    monkeypatch, capsys
+):
+    """Die Regression vom 2026-08-10: ein auf `prod-b` ausgelagerter Dienst
+    wurde als "Container laeuft nicht" gemeldet, weil nur `prod` inspiziert
+    wurde. Der Container laeuft — auf dem Host, den ports.yaml nennt."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": {"svc_b_web": [8088]}},
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C2:svc-b" not in out
+    assert rc == 0
+
+
+def test_should_still_flag_c2_when_container_missing_on_its_prod_host(
+    monkeypatch, capsys
+):
+    """Gegenprobe zum Test darueber — sonst waere die Host-Zuordnung nur ein
+    Weg, C2 generell stillzulegen."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        # Der Container laeuft auf dem FALSCHEN Host — auf seinem eigenen nicht.
+        je_ssh={"root@P": {"svc_b_web": [8088]}, "root@B": {}},
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C2:svc-b" in out
+    assert "prod-b" in out
+    assert rc == 1
+
+
+def test_should_report_c0_instead_of_false_c2_when_secondary_host_unreachable(
+    monkeypatch, capsys
+):
+    """Nebenhost nicht erreichbar: EIN C0-Befund, und die dortigen Dienste
+    duerfen NICHT als fehlend gelten — sonst waere die Falschmeldung nur
+    umbenannt."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={"root@P": {}, "root@B": RuntimeError("ssh: connect: no route")},
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert "C0:prod-b" in out
+    assert "C2:svc-b" not in out
+    assert rc == 1
+
+
+def test_should_exit_2_when_primary_host_unreachable_even_if_secondary_answers(
+    monkeypatch, capsys
+):
+    """Der Haupthost ist die Betriebsgrundlage — sein Ausfall bleibt ein
+    Tool-Fehler (exit 2) und wird nicht zu einem C0-Befund verharmlost."""
+    canonical = {"svc-b": {"rich": {"deployed": True}}}
+    ports_decl = {
+        "svc-b": {"prod": 8088, "container_name": "svc_b_web", "prod_host": "prod-b"},
+    }
+    _patch_io_multi(
+        monkeypatch,
+        canonical,
+        ports_decl,
+        je_ssh={
+            "root@P": RuntimeError("docker: connection refused"),
+            "root@B": {"svc_b_web": [8088]},
+        },
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    assert rc == 2
+    assert "TOOL-FEHLER" in capsys.readouterr().err
+
+
+def test_should_keep_c4_id_without_host_so_baseline_waivers_keep_matching(
+    monkeypatch, capsys
+):
+    """Ein Port auf BEIDEN Hosts (real: mon_cadvisor) faellt genau EINMAL und
+    behaelt die ID `C4:<port>` — die Baseline-Eintraege sind darauf ausgestellt.
+    Ein Host-Suffix haette die bestehenden Waiver still entwertet.
+
+    `svc-b` muss hier deklariert sein, sonst wird `prod-b` gar nicht gelesen:
+    inspiziert werden der Haupthost plus die Hosts, die ports.yaml nennt — ein
+    Host ohne jeden deklarierten Dienst ist nichts, wofuer dieses Werkzeug
+    zustaendig waere.
+    """
+    _patch_io_multi(
+        monkeypatch,
+        canonical={"svc-b": {"rich": {"deployed": True}}},
+        ports_decl={
+            "svc-b": {
+                "prod": 8088,
+                "container_name": "svc_b_web",
+                "prod_host": "prod-b",
+            }
+        },
+        je_ssh={
+            "root@P": {"mon_x": [9338]},
+            "root@B": {"mon_x": [9338], "svc_b_web": [8088]},
+        },
+    )
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert out.count("C4:9338") == 1
+    assert "mon_x auf prod" in out and "mon_x auf prod-b" in out
+    assert rc == 1
