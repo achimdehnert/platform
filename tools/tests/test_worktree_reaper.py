@@ -452,3 +452,100 @@ def test_should_remove_stale_worktree_with_include_stale_flag(tmp_path, monkeypa
     trees = rw.list_worktrees()
     assert not any(t["branch"] == "feature-stale-flag" for t in trees)
     assert not wt.is_dir()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ein AKTIVES Lease schlaegt den Merge-Zustand (#1866)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _lease(tmp_path, monkeypatch, wt, *, aktiv: bool):
+    monkeypatch.setattr(rw, "LEASE_DIR", tmp_path / "leases")
+    (tmp_path / "leases").mkdir(exist_ok=True)
+    wann = datetime.now(timezone.utc) + timedelta(days=7 if aktiv else -7)
+    (tmp_path / "leases" / "l1.json").write_text(
+        json.dumps(
+            {"worktree": str(wt), "expires_at": wann.strftime("%Y-%m-%dT%H:%M:%SZ")}
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_should_keep_a_merged_branch_while_its_lease_is_still_active(
+    tmp_path, monkeypatch
+):
+    """Der Normalfall am Sitzungsende: PR gemergt, im selben Baum geht es weiter.
+
+    Bis 2026-08-10 entschied hier der Merge-Zustand und das Lease wurde nie
+    gelesen — ein Auto-Reap haette lebende Sitzungen abgeraeumt.
+    """
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-merged-aktiv", "feature-merged-aktiv")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _lease(tmp_path, monkeypatch, wt, aktiv=True)
+
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-merged-aktiv"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+    )
+
+    assert verdict == "KEEP"
+    assert "Lease aktiv" in reason
+
+
+def test_should_reap_a_merged_branch_once_the_lease_has_expired(tmp_path, monkeypatch):
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-merged-alt", "feature-merged-alt")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _lease(tmp_path, monkeypatch, wt, aktiv=False)
+
+    verdict, _ = rw.classify(
+        _wt_dict(wt, "feature-merged-alt"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+    )
+
+    assert verdict == "REAP_MERGED"
+
+
+def test_should_still_reap_a_merged_branch_without_any_lease(tmp_path, monkeypatch):
+    """Kein Lease heisst: niemand beansprucht den Baum — die Altregel gilt weiter."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-merged-ohne", "feature-merged-ohne")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    monkeypatch.setattr(rw, "LEASE_DIR", tmp_path / "leer")
+
+    verdict, _ = rw.classify(
+        _wt_dict(wt, "feature-merged-ohne"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+    )
+
+    assert verdict == "REAP_MERGED"
+
+
+def test_should_keep_a_dirty_worktree_even_with_an_expired_lease(tmp_path, monkeypatch):
+    """Die dirty-Sperre steht vor allem anderen und bleibt es."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-dirty-alt", "feature-dirty-alt")
+    (wt / "neu.txt").write_text("ungespeichert", encoding="utf-8")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _lease(tmp_path, monkeypatch, wt, aktiv=False)
+
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-dirty-alt"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+    )
+
+    assert verdict == "SKIP"
+    assert "DIRTY" in reason

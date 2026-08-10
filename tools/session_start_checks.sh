@@ -142,6 +142,30 @@ else
   record "0.4.4 basis-abstand" "PASS" "${ABSTAND_ZEILE:-keine Lease ueber der Schwelle}"
 fi
 
+# ── 0.4.5 Auto-Reap der abgeraeumten Woche (nur das Ziel-Repo) ─────────────
+# Freigabe Owner 2026-08-10 (#1866). Bewusst eng geschnitten:
+#
+#   nur das TARGET_REPO   Ein Lauf ueber die ganze Flotte kostet einen
+#                         gh-Aufruf je Branch (gemessen: ~1 min). Wer in einem
+#                         Repo arbeitet, raeumt dessen Baeume auf — ueber die
+#                         Sitzungen konvergiert das, ohne je zu bremsen.
+#   nur REAP_MERGED       Kein --include-stale. Un-gemergte Baeume bleiben.
+#   Session-Start         Eine natuerliche Grenze, kein Timer. Ein Reaper, der
+#                         mitten in eine Sitzung faellt, zieht ihr den Boden weg.
+#
+# Voraussetzung war die Reihenfolge-Korrektur in worktree-reaper.py: bis zum
+# 2026-08-10 entschied der Merge-Zustand VOR dem Lease, und alle drei
+# REAP_MERGED-Kandidaten der Flotte waren Baeume einer laufenden Sitzung. Ohne
+# sie waere dieser Schritt nicht verantwortbar.
+REAP_OUT="$(bash "$PLATFORM_DIR/tools/repo-session.sh" reap "$GITHUB_DIR/$TARGET_REPO" 2>&1 || true)"
+REAP_N="$(printf '%s\n' "$REAP_OUT" | grep -c '^entfernt:' || true)"
+if [ "${REAP_N:-0}" -gt 0 ]; then
+  record "0.4.5 auto-reap" "PASS" "$REAP_N gemergte(r) Worktree(s) in $TARGET_REPO abgeraeumt (Restore-Zeilen im Manifest)"
+  printf '%s\n' "$REAP_OUT" | grep '^entfernt:' | head -5
+else
+  record "0.4.5 auto-reap" "PASS" "nichts abzuraeumen in $TARGET_REPO"
+fi
+
 # ── 0.4.1 REFLEX aktualisieren + Review (nur wenn reflex.yaml im Target) ────
 git -C "$GITHUB_DIR/iil-reflex" pull --rebase --quiet 2>/dev/null
 REFLEX_VER=$(cd "$GITHUB_DIR/iil-reflex" 2>/dev/null && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
