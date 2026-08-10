@@ -11,7 +11,7 @@ set -euo pipefail
 # tools/deploy-script-drift.sh gegen die Host-Kopien geprüft — die Host-Kopie
 # wird von Hand verteilt und lief messbar auseinander (Prod hing am 2026-07-25
 # eine Revision hinter Git+Staging, u.a. ohne den override-Fix aus platform#1075).
-DEPLOY_SH_VERSION="2026-07-25.1"
+DEPLOY_SH_VERSION="2026-08-10.1"
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
 APP_PATH="${2:?'APP_PATH fehlt'}"
@@ -416,7 +416,27 @@ if [[ "${SKIP_CRASHLOOP_GATE:-0}" != "1" ]]; then
       if (( _rc1 > ${_rc0["$_c"]:-0} )); then
         echo "❌ $_name crashloopt: RestartCount ${_rc0["$_c"]} → $_rc1 im Grace-Fenster"
         _bad="$_bad $_name"
-      elif [[ "$_state" == "restarting" || "$_state" == "exited" || "$_state" == "dead" ]]; then
+      elif [[ "$_state" == "exited" ]]; then
+        # platform#1849: "exited" ist NICHT per se ungesund. Ein One-Shot
+        # (migrate, seed, collectstatic) beendet sich planmäßig — das ist sein
+        # Erfolgsfall. Bis hierher galt jedes "exited" als Defekt; dadurch war
+        # z.B. jeder tax-hub-Deploy rot, obwohl Web lief, die Migrationen
+        # angewandt waren und /livez/ 200 lieferte (5 Läufe in Folge).
+        #
+        # Unterschieden wird über die Restart-Policy, nicht über den Namen:
+        # Dienste laufen mit "unless-stopped"/"always" und haben in "exited"
+        # nichts verloren — ein One-Shot läuft ohne Policy ("no"). Der
+        # ExitCode muss zusätzlich 0 sein; ein One-Shot, der mit Fehler
+        # abbricht (fehlgeschlagene Migration!), bleibt ein Befund.
+        _ec=$(docker inspect -f '{{.State.ExitCode}}' "$_c" 2>/dev/null || echo 1)
+        _pol=$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$_c" 2>/dev/null || echo "")
+        if (( _ec == 0 )) && [[ "$_pol" == "no" || -z "$_pol" ]]; then
+          echo "ℹ️  $_name beendet (ExitCode 0, restart=${_pol:-no}) — One-Shot, kein Befund"
+        else
+          echo "❌ $_name im Zustand 'exited' (ExitCode $_ec, restart=${_pol:-no})"
+          _bad="$_bad $_name"
+        fi
+      elif [[ "$_state" == "restarting" || "$_state" == "dead" ]]; then
         echo "❌ $_name im Zustand '$_state'"
         _bad="$_bad $_name"
       fi
