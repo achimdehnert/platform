@@ -19,6 +19,33 @@ berührt wird).
    anfassen. Ausnahme: explizit allowlistete, backup-first Wartungs-Wrapper.
    Merke: In Repos mit Auto-Deploy-on-main ist der **Merge selbst** ein
    Prod-Schritt und damit gate-pflichtig.
+
+   **Klarstellung `platform` (Owner-Go 2026-08-10, D3).** Ein Merge nach
+   `platform:main` löst `opt-platform-sync.yml` aus und zieht `/opt/platform`
+   nach — den read-only Werkzeugklon, aus dem der nächtliche Mail-Ingest liest.
+   Nach dem Buchstaben von Gate 2 wäre damit **jeder** platform-Merge
+   gate-pflichtig; praktisch wäre das die Rückkehr zum Zustand, den D1/D2 gerade
+   beenden.
+
+   Maßgeblich ist die **Zustandsfrage, nicht der Dateipfad**: der Sync ist ein
+   `git pull` eines Klons. Er startet keinen Dienst neu, führt keine Migration
+   aus, schreibt keine Daten und wechselt kein Image. Deshalb:
+
+   - **Gate 2 greift NICHT** für platform-Merges, deren Wirkung sich in diesem
+     Dateiabgleich erschöpft und die per `git revert` + nächstem Sync vollständig
+     zurücknehmbar sind. Das ist der Normalfall.
+   - **Gate 2 greift weiterhin**, sobald ein Merge darüber hinaus Zustand
+     anfasst: Dienst-/Container-Neustart, Migration, Schreibzugriff auf Prod-Daten,
+     Secret-/Token-Wechsel, oder eine Änderung an `opt-platform-sync.yml` selbst
+     (die liegt ohnehin unter `/.github/` und ist damit reviewpflichtig).
+
+   **Restrisiko, ausdrücklich benannt:** ein fehlerhaftes Werkzeug unter
+   `tools/` erreicht den nächtlichen Ingest, ohne dass ein Mensch zugestimmt hat.
+   Getragen wird das von der PR-CI (`make test` als Required Check) und davon,
+   dass zwischen Merge und 03:30-Lauf ein Revert genügt. Ein **paths-Filter am
+   Sync ist KEINE zulässige Antwort darauf** — er ist in dessen Kopf bewusst
+   ausgeschlossen, weil er genau die Drift wiederherstellt, die der Workflow
+   beseitigt hat (platform#1585).
 3. **Security-/Governance-Config** — Branch-Protection/Rulesets, Tokens,
    Org-Permissions, Workflow-Permissions (`issues:write` etc., deckt sich mit
    Gate `autonomous-no-human-review`).
@@ -46,13 +73,26 @@ berührt wird).
   Prod-Schritt → Gate 2 wirkt unverändert), und jeder PR mit Migrationen/
   destruktiven Änderungen (Gate 1).
 - **SA-2 — Merge eines CI-grünen NICHT-Governance-PR in `platform`.**
-  ⏸ **ZURÜCKGESTELLT bis KONZ-019 B1 (Entscheid Achim 2026-07-12).** Grund: SA-2
-  ist erst dann auch GitHub-seitig mergebar, wenn das platform-Review-Ruleset
-  pfad-gescopt ist (Catch-all-CODEOWNERS entfernt, nur Governance-Pfade
-  reviewpflichtig). Vorher wäre SA-2 nur eine Classifier-Freigabe, während der
-  Merge weiter am Review-Ruleset hängt — ein „deklariert-aber-nicht-durchsetzbar"-
-  Zustand, den wir vermeiden. **ID SA-2 bleibt reserviert**; die Klasse wird
-  gemeinsam mit B1 ratifiziert, nicht vorab.
+  ✅ **RATIFIZIERT (Achim, 2026-08-10, wörtliches „D1 D2 D3 D4 go").** Die
+  Vorbedingung ist im selben Zug erfüllt: der CODEOWNERS-Catch-all ist weg
+  (KONZ-platform-032 **B1** — der frühere Verweis auf „KONZ-019 B1" war ein
+  Fehlzeiger, B1 stand nie in KONZ-019; das erklärt vermutlich, warum die Klasse
+  vier Wochen lag).
+
+  **Nicht-Governance heißt:** der PR berührt keinen der reviewpflichtigen Pfade
+  aus `.github/CODEOWNERS` (`/.github/`, `/registry/`, `/packages/`, `/docs/adr/`,
+  `/policies/`). Berührt er einen, verlangt GitHub weiterhin das Approval — die
+  Klasse deckt genau die Menge ab, die GitHub durchlässt, und keinen Fall mehr.
+
+  **Motiv (Owner, 2026-08-10):** „ich und wirdigital agieren als
+  Entscheidungsinstanz, nicht als Auto-Freigeber." Gemessen über 30 Tage: 400
+  gemergte platform-PRs, 0 ohne Approval, 399 Approvals von einem Konto; 73 %
+  berührten keinen Governance-Pfad. Ein Approval, das 400-mal im Monat fällt,
+  ist kein Vier-Augen-Prinzip mehr.
+
+  **Ausdrücklich AUSGESCHLOSSEN:** Gate 1 (Migrationen/Destruktives), Gate 5
+  (Spend), und alles, was eine wartende Owner-Entscheidung überholen würde. Zu
+  Gate 2 siehe die platform-Klarstellung unten.
 - **SA-3 — Datei-Hausputz in `~/.secrets` / `~/shared` (Reconcile, KEIN Inhalts-Dump).**
   ✅ **RATIFIZIERT (Achim, 2026-07-12).** Verschieben/Deduplizieren/Löschen
   byte-identischer Secret-**Dateien** nach ihrer SSoT-Konvention (KONZ-010).
@@ -194,7 +234,10 @@ konvergiert, Policy schneiden, nicht flicken.
   „Standing-Authorization-Klassen" ergänzt (KONZ-platform-019 B2). SA-1 (Merge
   CI-grüner PR ohne Review-Pflicht+ohne Auto-Deploy) und SA-3 (Secret-Datei-
   Hausputz ohne Inhalts-Dump) gelten ab sofort. **SA-2 zurückgestellt** bis
-  KONZ-019 B1 (pfad-gescopte Review) — ID reserviert. Je Klasse >30%-Kill-Test
+  B1 (pfad-gescopte Review) — ID reserviert. *(Nachtrag 2026-08-10: hier stand
+  „KONZ-019 B1"; B1 steht in **KONZ-platform-032**, nicht in KONZ-019. Der
+  Fehlzeiger blieb vier Wochen unbemerkt, weil jede Prüfung in KONZ-019 nichts
+  fand.)* Je Klasse >30%-Kill-Test
   (ADR-267-Muster). Ziel: den vom Classifier erzeugten Einzelwort-Zwang für
   gate-freie Aktionen abbauen, ohne einen Gate zu senken. Re-Ratifikation im
   Kapitäns-Kanal 2026-07-17 (PR #1105-Kommentar); SA-1/SA-3 werden erste
