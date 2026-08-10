@@ -173,3 +173,40 @@ def test_should_mcp_issue_tool_als_tracking_erkennen(monkeypatch, capsys, tmp_pa
     rc, out = _run(monkeypatch, capsys, p)
     assert rc == 0
     assert out == {}, f"MCP-Tracking-Kanal nicht erkannt: {out}"
+
+
+class TestTrefferProtokoll:
+    """Die Verdrahtung an gate_hits — ohne sie hat die FP-Kalibrierung keine Daten."""
+
+    def test_should_record_the_hit_it_reports(self, tmp_path, monkeypatch, capsys):
+        ziel = tmp_path / "gate-hits.jsonl"
+        monkeypatch.setenv("GATE_HITS_DATEI", str(ziel))
+        import gate_hits
+
+        monkeypatch.setattr(gate_hits, "HITS", ziel)
+
+        pfad = _transcript(tmp_path, "Den Backfill ziehe ich später nach.")
+        rc, ausgabe = _run(monkeypatch, capsys, pfad, session_id="sitzung-1")
+
+        assert rc == 0
+        assert (
+            "deferred-item check" in ausgabe["hookSpecificOutput"]["additionalContext"]
+        )
+        zeilen = ziel.read_text(encoding="utf-8").strip().splitlines()
+        assert len(zeilen) == 1
+        eintrag = json.loads(zeilen[0])
+        assert eintrag["slug"] == "deferred-item-no-tracking-issue"
+        assert eintrag["session"] == "sitzung-1"
+        assert "später" in eintrag["ausschnitt"]
+
+    def test_should_write_nothing_when_it_does_not_report(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        ziel = tmp_path / "gate-hits.jsonl"
+        import gate_hits
+
+        monkeypatch.setattr(gate_hits, "HITS", ziel)
+        pfad = _transcript(tmp_path, "Alles erledigt, nichts offen.")
+        rc, ausgabe = _run(monkeypatch, capsys, pfad)
+        assert (rc, ausgabe) == (0, {})
+        assert not ziel.exists()
