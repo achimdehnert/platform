@@ -283,3 +283,25 @@ def test_should_not_expose_any_write_endpoint():
     ).read_text(encoding="utf-8")
     for verb in ("do_POST", "do_PUT", "do_DELETE", "do_PATCH"):
         assert verb not in quelle, f"{verb} widerspricht der read-only-Zusage"
+
+
+# --- Luecke benennen statt verschweigen (#1869, Nachtrag) ---------------------
+#
+# Am 2026-08-10 trugen 13 von 17 Vorgaengen keinen Anker. Eine leere Stelle unter
+# "Naechste Schritte" ist von einem kaputten Link nicht zu unterscheiden — der
+# Hinweis macht den Unterschied sichtbar und zeigt, wo /mailcheck nachzutragen hat.
+
+
+def test_should_name_the_gap_when_no_mail_is_linked():
+    v = vorgang(thread_key="Ohne Anker", next_trigger="Owner-Entscheidung")
+    html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert "keine Mail verknuepft" in html_out
+    assert "Mail oeffnen" not in html_out
+
+
+def test_should_not_name_a_gap_that_does_not_exist():
+    """Gegenprobe: mit Anker kein Luecken-Hinweis."""
+    v = vorgang(thread_key="Mit Anker", mail_ref="/a/118")
+    html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert "keine Mail verknuepft" not in html_out
+    assert "https://mail.example/a/118" in html_out
