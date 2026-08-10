@@ -18,6 +18,7 @@ Env-Vars:
 from __future__ import annotations
 
 import base64
+import functools
 import json
 import os
 import re
@@ -32,7 +33,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR = Path(__file__).parent
-REGISTRY_PATH = SCRIPT_DIR.parent.parent / "scripts" / "repo-registry.yaml"
+REPO_ROOT = SCRIPT_DIR.parent.parent
+TOOLS_DIR = REPO_ROOT / "tools"
+REGISTRY_PATH = REPO_ROOT / "scripts" / "repo-registry.yaml"
 ORG = os.environ.get("GITHUB_ORG", "achimdehnert")
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 API = "https://api.github.com"
@@ -81,6 +84,26 @@ def _req(
 _SLUGS: dict[str, str] = {}
 
 
+@functools.cache
+def _kanon_owner(repo: str) -> str | None:
+    """Ist-Owner laut kanonischer Registry — `tools/registry_api.owner()`.
+
+    Der Accessor kennt die Reihenfolge github-Feld > `meta.repo_owner` >
+    `meta.owner_prefix_rules` > Default-Org und ist die SSoT dafür (ADR-234 P0).
+    Hier wird sie nur konsumiert, nicht nachgebaut.
+
+    Fällt der Import aus (kein PyYAML in einer Standalone-Umgebung), liefert die
+    Funktion `None`; der Aufrufer fällt dann auf die alte API-Heuristik zurück.
+    """
+    try:
+        if str(TOOLS_DIR) not in sys.path:
+            sys.path.insert(0, str(TOOLS_DIR))
+        import registry_api  # noqa: PLC0415
+    except ImportError:
+        return None
+    return registry_api.owner(repo)
+
+
 def gh_slug(repo: str) -> str:
     """`owner/repo` wie es HEUTE heißt — nicht wie es in der Registry steht.
 
@@ -89,10 +112,23 @@ def gh_slug(repo: str) -> str:
     Weiterleitung und liefert den echten Namen; ein PUT folgt ihr NICHT (urllib
     leitet nur GET/HEAD weiter) und scheiterte deshalb mit `HTTP 307`.
     Vgl. feedback_github_redirect_masks_org_hardcode.
+
+    Die Weiterleitung deckt aber nur UMGEZOGENE Repos ab. Repos, die nie unter
+    `achimdehnert/` lagen — `meiki-lra/meiki-hub`, `meiki-lra/frist-hub`,
+    `ttz-lif/ttz-hub` — haben dort keinen Vorgänger, auf den GitHub verweisen
+    könnte: `GET /repos/achimdehnert/meiki-hub` ist schlicht 404. Der Fallback
+    riet dann `achimdehnert/<repo>`, und jeder Folge-Call lief ins Leere
+    ("Kopf von 'main' nicht lesbar", Lauf 31355771006, 3 von 24 Repos).
+    Deshalb fragt die Auflösung zuerst die kanonische Registry (`_kanon_owner`),
+    die genau diese drei bereits korrekt kennt, und erst danach die API.
     """
     if repo not in _SLUGS:
-        daten = _req(f"{API}/repos/{ORG}/{repo}")
-        _SLUGS[repo] = (daten or {}).get("full_name") or f"{ORG}/{repo}"
+        besitzer = _kanon_owner(repo)
+        if besitzer:
+            _SLUGS[repo] = f"{besitzer}/{repo}"
+        else:
+            daten = _req(f"{API}/repos/{ORG}/{repo}")
+            _SLUGS[repo] = (daten or {}).get("full_name") or f"{ORG}/{repo}"
     return _SLUGS[repo]
 
 

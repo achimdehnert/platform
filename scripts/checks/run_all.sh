@@ -22,10 +22,21 @@
 # Ohne `--baseline` bleibt das alte Verhalten: jeder Fehlschlag => exit 1.
 set -uo pipefail
 
-cd "$(dirname "$0")"
-
+# Argumente VOR dem `cd` auswerten: der Aufrufer uebergibt den Baseline-Pfad
+# relativ zu SEINEM Arbeitsverzeichnis. Der Workflow ruft aus der Repo-Wurzel
+# `--baseline scripts/checks/staging-baseline.txt` — nach dem `cd` unten waere
+# das `scripts/checks/scripts/checks/...` und damit nie auffindbar. Genau daran
+# lief das Gate vom 2026-08-02 bis 2026-08-10 in neun Laeufen mit exit 2
+# ("BEDIENFEHLER") ins Leere: die acht Checks liefen kein einziges Mal.
 BASELINE=""
 [ "${1:-}" = "--baseline" ] && { BASELINE="${2:-}"; }
+case "$BASELINE" in
+  ""|/*) ;;
+  *) BASELINE="$PWD/$BASELINE" ;;
+esac
+
+cd "$(dirname "$0")"
+
 [ -n "$BASELINE" ] && [ ! -f "$BASELINE" ] && {
   echo "BEDIENFEHLER: Baseline-Datei nicht gefunden: $BASELINE" >&2
   exit 2
