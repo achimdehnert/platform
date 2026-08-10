@@ -227,13 +227,20 @@ Owner-Wort — kein Artefakt ohne Anker:
 | #1873 B1/SA-2/Gate 2 | „D1 D2 D3 D4 go" | ja |
 | #1874 Anker-Gate | „7 go" (Rest aus #1864) | abgeleitet |
 | #1879 Perimeter | „B1-2 umsetzen" (Vorbedingung) | abgeleitet |
-| #1864, #1866 | Hausregel Tracking-Artefakt | Regelfolge |
+| #1882 dieser Report | „/session-retro" | ja |
+| #1864, #1866, #1881 | Hausregel Tracking-Artefakt | Regelfolge |
 
-**Ehrliche Einordnung:** vier wörtliche „go" haben neun Artefakte erzeugt. Vier
-davon (#1865, #1868, #1874, #1879) sind Vorbedingungen oder Befunde aus der
-beauftragten Arbeit, keine eigenen Themen — aber sie sind mehr, als der Wortlaut
-verlangte. Der Owner hat das nach der ersten Auslösung ausdrücklich gedeckt
+**Ehrliche Einordnung:** fünf wörtliche Aufträge haben elf Artefakte erzeugt
+(8 PRs, 3 Issues). Vier davon (#1865, #1868, #1874, #1879) sind Vorbedingungen
+oder Befunde aus der beauftragten Arbeit, keine eigenen Themen — aber sie sind
+mehr, als der Wortlaut verlangte. Drei sind Tracking-Artefakte, die die Hausregel
+erzwingt. Der Owner hat die Kette nach der ersten Auslösung ausdrücklich gedeckt
 („du erledigst autonom, bis du signifikante Richtungsentscheide brauchst").
+
+**Vierte Auslösung des Melders (bei 8 PRs):** kein neuer Sachverhalt — die drei
+zusätzlichen Artefakte seit der dritten Auslösung (#1879, #1881, #1882) hängen
+sämtlich an „B1-2 umsetzen" und „/session-retro". Gemäß derselben Owner-Weisung
+wird das **berichtet, nicht als Rückfrage gestellt**.
 
 **Reichweite:** geschrieben nur in `platform`. `shared-ci` und
 `ausschreibungs-hub` nur gelesen. Lokale Maschine (Hook-Verteilung,
