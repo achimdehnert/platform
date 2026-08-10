@@ -1714,3 +1714,65 @@ kein Key, kein Runner). [#1876](https://github.com/achimdehnert/platform/issues/
 [#1860](https://github.com/achimdehnert/platform/issues/1860) sind unbearbeitet. Und die
 Handover-Prio wurde in dieser Session nicht angefasst — die Frist 16.08. für Ritual-Lauf 1
 ist jetzt sechs Tage entfernt.
+
+---
+
+## 2026-08-10 — Sitzung `c45b39`: die Review-Pflicht wurde neu geschnitten, und der Retro fand die Fehler dabei
+
+Der Auftrag war eine Liste von fünf Punkten. Zwei davon waren schon erledigt, als ich sie
+anfasste — von einer Parallelsitzung desselben Morgens. Statt sie nachzubauen habe ich sie
+verifiziert und dabei in beiden Fällen etwas gefunden, das niemand las: der Megatest meldete
+senkbare Budgets in einen Kanal, den pytest verschluckt, und der Hygiene-Melder zählte 68
+Leases, von denen das empfohlene Werkzeug per Konstruktion keine abräumen konnte. Dasselbe
+Muster begegnete mir an dem Tag noch zweimal. Vier Melder, die korrekt arbeiteten und deren
+Ergebnis nirgends ankam.
+
+Der eigentliche Strang entstand aus einer Nebenbemerkung. Ich hatte behauptet, vier
+Review-Klicks hätten den Owner die Sitzung gekostet. Er widersprach — es fühle sich nach
+mehr an. Die Messung gab ihm recht und mir nicht: **400 gemergte PRs in 30 Tagen, kein
+einziger ohne Approval, 399 davon von einem Konto.** Meine Zahl war um zwei Größenordnungen
+daneben, und sie stammte aus dem Erleben der Sitzung statt aus einer Abfrage.
+
+Daraus wurde die Arbeit des Tages. Die Ursache lag nicht bei den Autonomie-Gates, sondern im
+GitHub-Ruleset: ein CODEOWNERS-Catch-all `*` zwang jeden PR zu einem Owner-Review, auch einen
+Handover-Nachtrag. Der Owner formulierte das Ziel schärfer, als ich es hatte: *„ich und
+wirdigital agieren als Entscheidungsinstanz, nicht als Auto-Freigeber."* Ein Approval, das
+400-mal im Monat fällt, ist keines mehr — die 40 von 40 leeren Review-Texte sind nicht
+Nachlässigkeit, sondern der Beleg dafür, dass die Pflicht auf den falschen Dingen lag.
+
+Der Umbau lief in zwei Stufen, und die Reihenfolge war der entscheidende Teil: erst den
+Perimeter schließen, dann die Zahl senken. Hätte ich `required_approving_review_count` zuerst
+auf 0 gesetzt, wären `governance/`, `deployment/`, `infra/` und `scripts/` ohne jedes
+menschliche Auge dagestanden — der Plan, dem ich folgte, hatte diese Pfade offengelassen,
+weil er unter der Annahme geschrieben war, dass jeder PR ohnehin ein Approval bekommt. Der
+Perimeter ist heute **breiter** als vor der Sitzung.
+
+Gegengeprüft habe ich in beide Richtungen, weil eine Probe allein nichts zeigt: ein PR auf
+`/policies/` bleibt blockiert, einer auf `docs/retros/` ist `clean` — beide mit identischen
+sechs grünen Checks, der Unterschied kommt allein vom Pfad. Den zweiten habe ich selbst
+gemergt, die erste reale Ausübung von SA-2.
+
+Die Retrospektive war der unangenehmste Teil und der nützlichste. Acht Subagenten mit
+frischem Kontext, 17 Befunde, 16 überlebten die Falsifikation. **Die drei schwersten sind
+meine.** `/governance/` fehlte in meiner ersten Fassung, obwohl der akzeptierte Plan es auf
+Zeile 165 listet — still verloren, in keiner Commit-Message erwähnt. Der neue Auto-Reap, den
+ich selbst gebaut hatte, meldet jeden Werkzeugfehler als grünes „nichts abzuräumen", dreißig
+Zeilen unter einer korrekten Lösung derselben Fehlerklasse. Und die fehlende Ruleset-Zahl
+habe ich als *Spezifikationslücke des Plans* gemeldet — sie stand wörtlich in B1-2. Der Plan
+war vollständig; meine Umsetzung war es nicht.
+
+Widerlegt wurde ausgerechnet ein Befund, den ich dem Owner als sicher gemeldet hatte: eine
+Kollision zweier paralleler Sitzungen am selben Ziel. Es gab sie nicht — der zweite PR
+entstand neunzehn Minuten nach dem Merge des ersten und baute auf ihm auf. Mein Einwand dazu
+stammte aus dem Issue-Text statt aus dem Diff.
+
+Ein Lichtblick: `claim-before-cheapest-check` steht bei 39 Vorkommen über alle Retros und
+bekam heute drei weitere. Aber erstmals ist belegt, dass das Gate dagegen **wirkt** — der
+`evidence_claim_scanner` wies mir einen Turn zurück und erzwang die Korrektur einer
+unbelegten Zahl. Der Mechanismus existiert nicht nur, er greift.
+
+Was liegen bleibt: elf von siebzehn Mail-Vorgängen ohne Anker, weil ein geratener Link
+schlimmer wäre als keiner. Der Auto-Reap-Fehler als #1881. Die IaC-Datei für das Ruleset,
+die ich nicht schreiben darf. Und die Erkenntnis, die keine Zeile Code braucht: die Reibung
+lag nie bei den Gates. Sie lag bei einer Zahl, die seit einem Monat in einem Plan stand, auf
+den ein Fehlzeiger im Policy-Text zeigte.

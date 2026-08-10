@@ -35,9 +35,63 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-10 — v1.1.6-Welle über 14 Consumer; die Retro fand einen 15., der stehenblieb)
+## ⚡ Aktueller Stand (2026-08-10 — zwei Sitzungen; Review-Pflicht neu geschnitten, v1.1.6-Welle mit einem Rest)
 
-**Zeitanker:** HEAD `5c47d852` · `rev-list --count` 3070 · geschrieben 2026-08-10
+**Zeitanker:** HEAD `9a1cb2d7` · geschrieben 2026-08-10 15:00 · vereinigt zwei Sitzungen
+desselben Tages (`504951` und `c45b39`). Der Block von `504951` steht unverändert
+darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstanden und
+**eine seiner Aussagen überholen** (siehe erster Punkt).
+
+### Strang `c45b39` — Review-Reichweite, Melder, Retro
+
+- **Die Ruleset-Zahl ist nicht mehr offen.** Der Punkt „`required_approving_review_count: 1`
+  gilt pfadunabhängig … gehört ins Ritual am 16.08." im Block darunter ist seit **14:45Z
+  erledigt**: B1-2 ist angewandt (`count: 0`, `require_code_owner_review: true`,
+  `bypass_actors: []`, `current_user_can_bypass: never`). **In beide Richtungen gegengeprüft**,
+  beide PRs mit identischen sechs grünen Checks: [#1889](https://github.com/achimdehnert/platform/pull/1889)
+  (`/policies/`) → `mergeable_state: blocked`; [#1890](https://github.com/achimdehnert/platform/pull/1890)
+  (`docs/retros/`) → `clean`, von mir gemergt — erste reale Ausübung von SA-2.
+- **Abnahme (Phase 0d): Zielzustand „Review verlangt platform nur noch dort, wo eine
+  Entscheidung fällt" — erreicht.** Kriterien einzeln: (a) Catch-all weg, Perimeter auf
+  14 Pfade ([#1873](https://github.com/achimdehnert/platform/pull/1873),
+  [#1879](https://github.com/achimdehnert/platform/pull/1879)); (b) Ruleset-Zahl 0; (c) beide
+  Gegenproben bestanden. **Auslösende Messung:** 400 gemergte PRs in 30 Tagen, **0** ohne
+  Approval, 399 von einem Konto; 73 % der PRs berührten keinen Governance-Pfad.
+- **Der Perimeter ist BREITER als vorher, nicht schmaler.** Neu unter Code-Owner-Schutz:
+  `/governance/`, `/deployment/`, `/infra/`, `/scripts/`, `/.windsurf/` + vier Security-Konfigs.
+  `/governance/` **fehlte** in der ersten Fassung entgegen KONZ-032 B1-1 Z.165 — still
+  verloren, in keiner Commit-Message erwähnt. `/tools/` bleibt bewusst frei (größter
+  Volumenposten, CI trägt).
+- **Vier Melder ohne Leser geschlossen:** Megatest zeigt senkbare Budgets wieder
+  ([#1865](https://github.com/achimdehnert/platform/pull/1865)); Hygiene-Melder trennt
+  Kandidat/Sichten und ein aktives Lease schlägt jetzt den Merge-Zustand
+  ([#1871](https://github.com/achimdehnert/platform/pull/1871)); advisory-Scanner
+  protokollieren ihre Treffer ([#1868](https://github.com/achimdehnert/platform/pull/1868));
+  Anker-Stand ist Pflichtzeile im Mailcheck ([#1874](https://github.com/achimdehnert/platform/pull/1874)).
+- **Mail-Board aus dem Ledger gerendert** ([#1863](https://github.com/achimdehnert/platform/pull/1863)):
+  stabile Nummern (nie wiederverwendet), eine Linkform `/a/<nr>` für IMAP **und** Graph,
+  inhaltsabhängige Aktionen aus `typ`. **Offen: 11 von 17 Vorgängen ohne Anker**
+  ([#1864](https://github.com/achimdehnert/platform/issues/1864)) — bewusst nicht geraten.
+- **Retro `deep`** (`docs/retros/session-retro-2026-08-10-platform-c45b39.md`,
+  [#1882](https://github.com/achimdehnert/platform/pull/1882)): 17 Befunde, 16 überlebt,
+  1 widerlegt — **der widerlegte war meiner**. Scores `3/3/4/2/3/3`. Die drei schwersten
+  Befunde sind selbstverschuldet; einer davon: ich habe meine eigene Auslassung als
+  Spezifikationslücke des Plans gemeldet (B1-2 stand wörtlich drin).
+- **SA-4-Zähler dieses Strangs: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung ·
+  0 Fehlanwendungen.** Jede Aktion trug ein wörtliches Owner-Wort. **`over_ask`: 1** — der
+  Artefakt-Checkpoint wurde als Frage mit Stopp gestellt statt gespiegelt; vom Owner
+  moniert, seither Bericht im Abschluss. **`over_act`: 0.**
+- **Was ich nicht selbst kann, gemessen statt vermutet:** Governance-Config schreiben.
+  Weder `gh api -X PUT …/rulesets/…` noch eine Datei unter `governance/rulesets/` — beides
+  Hard-Deny des Auto-Mode-Classifiers, Lesen geht. Keine Permission-Frage
+  (`permissions.allow` enthält `Bash(*)`). Der PUT lief über den Owner per `!`. **Rest:
+  die IaC-Datei fehlt weiterhin**, JSON liegt im Text von #1879.
+- **Offen für die nächste Sitzung:** [#1889](https://github.com/achimdehnert/platform/pull/1889)
+  (Changelog-Nachtrag, bewusst reviewpflichtig) · [#1881](https://github.com/achimdehnert/platform/issues/1881)
+  (Auto-Reap meldet Werkzeugfehler als grün, **hoch**) · [#1864](https://github.com/achimdehnert/platform/issues/1864)
+  (11 Anker) · IaC-Datei `governance/rulesets/`.
+
+### Strang `504951` — v1.1.6-Welle, todo.iil.pet, Ritual-Reste
 
 - **Abnahme (Phase 0d): Zielzustand „Vorgangsseite auf `todo.iil.pet` führt in die Mail und zeigt nächste Schritte" ([#1869](https://github.com/achimdehnert/platform/issues/1869)) — teilweise erreicht.** Einzeln: K1 **argumentiert statt gemessen** (`/mailcheck` schreibt `mail_ref` per Handgriff, nicht per Code); K2 **nicht erreicht** — der Auftrag verlangt Prüfung „durch Öffnen, nicht durch einen grünen Test", belegt wurde mit `curl`, und das Overlay ist in der gelieferten Fassung strukturell unmöglich (`todo_board.py` bindet es in `detail()` nicht ein, der Interceptor fängt nur `/t/`); K3/K4/K6 erreicht (Gegenprobe-Tests); K5 **zur Hälfte** (Schreib-Endpunkt-Test ja, `mtime`-Probe nie ausgeführt). PR [#1875](https://github.com/achimdehnert/platform/pull/1875) hängt auf `BLOCKED`.
 - **SA-4-Zähler: 1 Anwendung · 6 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Die sechs `m` sind wieder strukturell: das platform-Ruleset verlangt je PR ein Owner-Review, unabhängig vom Pfad — [#1873](https://github.com/achimdehnert/platform/pull/1873) ratifizierte SA-2 in der Annahme, CODEOWNERS-Scoping reiche, aber `required_approving_review_count: 1` gilt pfadunabhängig. **Das gehört ins Ritual am 16.08.**, nicht in eine weitere Einzelfall-Notiz.
