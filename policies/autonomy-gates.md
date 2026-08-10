@@ -223,6 +223,35 @@ konvergiert, Policy schneiden, nicht flicken.
   (`zielzustand.md` Pkt. 3) statt ans Agenten-Urteil; Probe an zwei Realfällen
   vom selben Tag: Canary-Rückbau wäre NICHT gedeckt (wartende Owner-Entscheidung),
   D4-Regel-Extraktion wäre gedeckt gewesen.
+- 2026-08-10: **SA-2 RATIFIZIERT + Gate-2-Klarstellung `platform` + B1-2 vollzogen**
+  (Achim, wörtlich „D1 D2 D3 D4 go", dann „B1-2 umsetzen"). Der Eintrag wurde beim
+  ursprünglichen PR (#1873) **nicht** geschrieben — der Permission-Classifier
+  verweigerte genau diese Einfügung zweimal, während er die inhaltlichen Edits
+  derselben Datei durchließ. Hier nachgetragen; das war der einzige ungetrackte
+  Rest jener Änderung (Retro-Befund #12, `deferred-item-no-tracking-issue`).
+
+  **Was gilt:** der CODEOWNERS-Catch-all `*` ist weg; Review-Pflicht besteht nur
+  noch auf `/.github/`, `/registry/`, `/packages/`, `/docs/adr/`, `/policies/`,
+  `/governance/`, `/deployment/`, `/infra/`, `/scripts/`, `/.windsurf/` sowie den
+  vier Sicherheits-Konfigs im Wurzelverzeichnis. Im Ruleset 17621471 steht
+  `required_approving_review_count` auf **0**, `require_code_owner_review` bleibt
+  **true**, `bypass_actors` bleibt **leer** — die Pflicht kommt damit
+  ausschließlich über CODEOWNERS. Zielzustand als IaC: siehe PR #1879.
+
+  **Auslösende Messung** (30 Tage `platform`): 400 gemergte PRs, **0** ohne
+  Approval, 399 Approvals von einem Konto; in 7 Tagen berührten 85 von 117 PRs
+  (73 %) keinen Governance-Pfad. Owner-Leitsatz: „ich und wirdigital agieren als
+  **Entscheidungsinstanz**, nicht als Auto-Freigeber."
+
+  **Zwei Korrekturen aus der Retrospektive desselben Tages**
+  (`docs/retros/session-retro-2026-08-10-platform-c45b39.md`): (a) `/governance/`
+  fehlte in der ersten Fassung entgegen KONZ-032 B1-1 Z.165 — still verloren, in
+  keiner Commit-Message erwähnt; (b) die Ruleset-Zahl war **kein** Fund, sondern
+  Teil desselben Plan-Schritts (B1-2 Z.166) — sie als Spezifikationslücke zu
+  melden war falsch. Fehlzeiger „KONZ-019 B1" → KONZ-032 korrigiert.
+
+  Rückbau: Catch-all-Zeile zurück **und** Zahl zurück auf 1 — beides zusammen
+  (KONZ-032 `kill_criteria (a)`).
 - 2026-08-02: Abschnitt **Budget-Deklaration** ergänzt (Owner-Input aus einem externen Papier).
   Ergänzt Gate 5, ersetzt es nicht: Gate 5 regelt die Erlaubnis, die Deklaration die Obergrenze.
   Vorgabewerte bewusst als engste Auslegung (ohne Angabe: ein Agent, keine Schreibzugriffe, kein
