@@ -35,23 +35,72 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-10 — fünf rote CI-Läufe abgearbeitet; eine Owner-Anweisung stand auf falscher Prämisse)
+## ⚡ Aktueller Stand (2026-08-10 — zwei Sitzungen; Review-Pflicht neu geschnitten, v1.1.6-Welle mit einem Rest)
 
-**Zeitanker:** HEAD `5c47d852` · `rev-list --count` 3070 · geschrieben 2026-08-10
+**Zeitanker:** HEAD `9a1cb2d7` · geschrieben 2026-08-10 15:00 · vereinigt zwei Sitzungen
+desselben Tages (`504951` und `c45b39`). Der Block von `504951` steht unverändert
+darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstanden und
+**eine seiner Aussagen überholen** (siehe erster Punkt).
 
-- **Abnahme (Phase 0d): Zielzustand „die roten CI-Läufe im platform-Repo beheben, soweit sinnvoll" — erreicht, mit einem benannten Rest.** Kriterien einzeln: (a) `staging-registry-checks`, `docu-update-agent`, `gen-project-facts` behoben und **im Zielkontext verifiziert**, nicht nur lokal — Trockenläufe [31371899567](https://github.com/achimdehnert/platform/actions/runs/31371899567) und [31378908344](https://github.com/achimdehnert/platform/actions/runs/31378908344) (24/24 Repos korrekter Owner, `0 unerreichbar, 0 fehler`); (b) `prod-uptime-canary` war ein einmaliges 502 auf `writing-hub/livez/` bei zeitgleich grünem `/readyz/` und 19 von 20 grünen Nachbarläufen → **bewusst kein Fix**, transient; (c) `registry-live-reconcile` ist der Rest: Waiver verlängert (unten), Ursachen-Fix wartet als [#1877](https://github.com/achimdehnert/platform/pull/1877) auf Code-Owner-Review. **Der Zielzustand wurde nicht vorab geklärt** — er stand als Anweisung im ersten Turn und war right-sized eindeutig (Phase 2.7 begründet übersprungen).
-- **SA-4-Zähler: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Jede Aktion trug ein explizites Owner-Wort („merge PR 1858", „1, und Issue anlegen", „Container-Namen korrigieren", „wirdigital hat gereviewed"). Ein **Scope-Checkpoint wurde von mir gefahren**, bevor die Triage der C2-Funde vier fremde Hub-Repos berührt hätte; ein zweiter kam vom Artefakt-Budget-Hook (4 PRs) und wurde gespiegelt statt weitergebaut.
-- **Der wichtigste Befund ist eine nicht ausgeführte Anweisung.** Auf die Entscheidung „Container-Namen in der Registry korrigieren" ergab die Messung (`docker ps` auf beiden Prod-Hosts), dass alle vier Namen **zeichengleich mit der Realität** sind — `apo_hub_web`, `research_hub_web`, `trading_hub_web`, `weltenhub_web` laufen auf `prod-b`, der Melder inspizierte nur `prod`. Umbenennen hätte korrekte Werte zerstört und die C1-Port-Prüfung für diese vier stillgelegt. Statt auszuführen: Prämisse widerlegt, Beleg gezeigt, richtige Ursache gefixt. Der Owner bestätigte den Weg.
-- **[#1858](https://github.com/achimdehnert/platform/pull/1858) (gemergt `4dc15795`) — drei stumme Dauerfehler.** (1) `run_all.sh` machte `cd "$(dirname "$0")"` **vor** der Prüfung des repo-wurzel-relativen `--baseline`-Pfads → `exit 2` vor dem ersten Check; **neun Läufe seit dem 02.08., die acht ADR-210-Checks liefen kein einziges Mal**. Parallel identisch gefixt in [#1859](https://github.com/achimdehnert/platform/pull/1859) — Konflikt zugunsten `main` aufgelöst, mein Duplikat raus. (2) `docu-update-agent.yml` installierte `aifw`, auf PyPI **vollständig zurückgezogen** (5/5 Releases yanked); das Skript importiert ohnehin nur `httpx` + `litellm`. (3) `gh_slug()` riet `achimdehnert/<repo>` für Repos, die **nie** dort lagen → harter 404.
-- **[#1861](https://github.com/achimdehnert/platform/pull/1861) (gemergt `0713bb9e`) — derselbe Fehler eine Ebene weiter.** Der Fix an der Owner-Auflösung machte die API-Aufrufe korrekt; der Markdown-Generator schrieb weiter `github.com/{ORG}/{repo}` in die **erzeugte** Datei. Aufgefallen erst im `--dry-run` **nach** dem Merge. Ohne Nachzug hätte der nächste echte Lauf in drei Repos einen PR geöffnet, der die eigene Repo-Adresse falsch angibt. **Lehre: bei Owner-Auflösungs-Befunden beide Ebenen greppen — Requests und gerenderte Artefakte.**
-- **[#1872](https://github.com/achimdehnert/platform/pull/1872) (gemergt `22c09812`) — alle fünf Waiver bis 2026-11-08 verlängert** (Owner-Entscheid, schließt [#1857](https://github.com/achimdehnert/platform/issues/1857)). Sie standen **alle** auf `2026-08-08`; das Werkzeug bricht beim ersten ab, weshalb die anderen vier nie gemeldet wurden. Für C3 ist der Sachstand **nachgemessen** statt übernommen (`recruiting.iil.pet` weiterhin NXDOMAIN) — hätte der Record existiert, wäre Streichen richtig gewesen. Im Dateikopf steht jetzt der Hinweis, beim nächsten Ablauf zu **staffeln** statt wieder gleichzuschalten.
-- **[#1877](https://github.com/achimdehnert/platform/pull/1877) (offen, alle Checks grün) — `reconcile_registry_live.py` host-aware.** C1/C2 prüfen gegen den zuständigen `prod_host` statt gegen den lokalen Host. Neu: **`C0:<host>`**, wenn ein Nebenhost unerreichbar ist — dessen Dienste werden **übersprungen**, nicht als fehlend gemeldet; Haupthost-Ausfall bleibt `exit 2`, festgemacht an `DEFAULT_PROD_HOST` statt am zufälligen Ausführungsort. C4-IDs bewusst **ohne** Host-Anteil belassen, sonst wären die fünf bestehenden Waiver still entwertet worden. Vorher 5 NEU (4 falsch), nachher 1 NEU (echt). Fünf neue Tests inkl. Gegenprobe.
-- **⚠️ Nach dem Merge von [#1877](https://github.com/achimdehnert/platform/pull/1877) ist eine Entscheidung fällig:** Gemessen erreicht der prod-Runner `prod-b` **nicht** (`Permission denied (publickey)`), und `prod-b` hat keinen eigenen Runner (`hosts_runners: []`). Der Lauf meldet dann `C0:prod-b` und bleibt rot — ehrlich, aber rot. Drei Wege: SSH-Key `prod`→`prod-b` ausrollen · Runner auf `prod-b` registrieren und als Matrix fahren · `C0:prod-b` datiert stunden. Alle drei berühren Infrastruktur oder Security-Config, deshalb nichts davon vorbereitet.
-- **[#1876](https://github.com/achimdehnert/platform/issues/1876) — 23 Container laufen doppelt auf `prod` UND `prod-b`, inklusive fünf Postgres-Paaren.** Aufgefallen beim Gegentest, warum nur vier von neun `prod-b`-Diensten gemeldet wurden: die anderen fünf laufen zusätzlich auf `prod`. Die **Image-Tags divergieren** (`prod` bei vier von fünf Apps Stunden alt, `prod-b` Tage) — die Deploys landen auf `prod`, während `ports.yaml` `prod_host: prod-b` deklariert. Welche Instanz Verkehr bedient und welche DB geschrieben wird, ist **ungeklärt**; deshalb ausdrücklich kein `docker rm`, sondern Reihenfolge messen → Deklaration angleichen → erst dann mit Backup abräumen. Die Auslagerung vom 22.07. hat die Altcontainer nie entfernt; die Entlastung ist nur zur Hälfte eingetreten.
-- **[#1860](https://github.com/achimdehnert/platform/issues/1860) — `project-facts.md` schreibt `~/CascadeProjects/<repo>`**, während die Registry `github_base: /home/devuser/github` führt. Trifft **alle 24 Repos** und löst eine entsprechende PR-Welle aus, deshalb bewusst nicht mitgenommen.
-- **Eigene Fehler, benannt:** Ich schrieb den Bypass-Aktenvermerk als PR-Kommentar **vor** dem Merge — `gh pr merge --admin` wurde dann abgelehnt („Waiting on code owner review from wirdigital"), der Vermerk beschrieb einen Vorgang, der nie stattfand; Korrektur als Folgekommentar ergänzt, der falsche Vermerk bewusst stehengelassen. · Mein erster Wurf am Melder las den Haupthost nur noch, wenn ein Dienst ihn nannte — bei leerer `ports.yaml` hätte er „keine Drift" gemeldet statt den toten Host zu bemerken; **gefangen hat das der Bestandstest**, nicht ich.
-- **Handover-Prio NICHT angefasst (bewusste Abweichung):** Die Session lief vollständig auf dem CI-Fehler-Auftrag; [#1640](https://github.com/achimdehnert/platform/issues/1640) (Ritual-Lauf 1, Frist 16.08.) und [#1682](https://github.com/achimdehnert/platform/issues/1682) (Budget-Ratchet) stehen unverändert als Prio 1 und 3. Die Frist 16.08. ist damit **sechs Tage entfernt und unbearbeitet**.
-- **Wissen gesichert:** zwei neue Outline-Lessons (Gate ohne Leser · host-blinder Melder) und ein **Nachtrag** an der bestehenden Lesson vom 16.07. — deren Entwarnung („Redirect-Stub maskiert den Hardcode") gilt **nur für umgezogene** Repos; nie-fremde geben harten 404. pgvector: `session:platform:20260810:ci-fehler-behebung`, `error:platform:20260810-relpath-before-cd`, `outline-refs:platform:20260810`.
+### Strang `c45b39` — Review-Reichweite, Melder, Retro
+
+- **Die Ruleset-Zahl ist nicht mehr offen.** Der Punkt „`required_approving_review_count: 1`
+  gilt pfadunabhängig … gehört ins Ritual am 16.08." im Block darunter ist seit **14:45Z
+  erledigt**: B1-2 ist angewandt (`count: 0`, `require_code_owner_review: true`,
+  `bypass_actors: []`, `current_user_can_bypass: never`). **In beide Richtungen gegengeprüft**,
+  beide PRs mit identischen sechs grünen Checks: [#1889](https://github.com/achimdehnert/platform/pull/1889)
+  (`/policies/`) → `mergeable_state: blocked`; [#1890](https://github.com/achimdehnert/platform/pull/1890)
+  (`docs/retros/`) → `clean`, von mir gemergt — erste reale Ausübung von SA-2.
+- **Abnahme (Phase 0d): Zielzustand „Review verlangt platform nur noch dort, wo eine
+  Entscheidung fällt" — erreicht.** Kriterien einzeln: (a) Catch-all weg, Perimeter auf
+  14 Pfade ([#1873](https://github.com/achimdehnert/platform/pull/1873),
+  [#1879](https://github.com/achimdehnert/platform/pull/1879)); (b) Ruleset-Zahl 0; (c) beide
+  Gegenproben bestanden. **Auslösende Messung:** 400 gemergte PRs in 30 Tagen, **0** ohne
+  Approval, 399 von einem Konto; 73 % der PRs berührten keinen Governance-Pfad.
+- **Der Perimeter ist BREITER als vorher, nicht schmaler.** Neu unter Code-Owner-Schutz:
+  `/governance/`, `/deployment/`, `/infra/`, `/scripts/`, `/.windsurf/` + vier Security-Konfigs.
+  `/governance/` **fehlte** in der ersten Fassung entgegen KONZ-032 B1-1 Z.165 — still
+  verloren, in keiner Commit-Message erwähnt. `/tools/` bleibt bewusst frei (größter
+  Volumenposten, CI trägt).
+- **Vier Melder ohne Leser geschlossen:** Megatest zeigt senkbare Budgets wieder
+  ([#1865](https://github.com/achimdehnert/platform/pull/1865)); Hygiene-Melder trennt
+  Kandidat/Sichten und ein aktives Lease schlägt jetzt den Merge-Zustand
+  ([#1871](https://github.com/achimdehnert/platform/pull/1871)); advisory-Scanner
+  protokollieren ihre Treffer ([#1868](https://github.com/achimdehnert/platform/pull/1868));
+  Anker-Stand ist Pflichtzeile im Mailcheck ([#1874](https://github.com/achimdehnert/platform/pull/1874)).
+- **Mail-Board aus dem Ledger gerendert** ([#1863](https://github.com/achimdehnert/platform/pull/1863)):
+  stabile Nummern (nie wiederverwendet), eine Linkform `/a/<nr>` für IMAP **und** Graph,
+  inhaltsabhängige Aktionen aus `typ`. **Offen: 11 von 17 Vorgängen ohne Anker**
+  ([#1864](https://github.com/achimdehnert/platform/issues/1864)) — bewusst nicht geraten.
+- **Retro `deep`** (`docs/retros/session-retro-2026-08-10-platform-c45b39.md`,
+  [#1882](https://github.com/achimdehnert/platform/pull/1882)): 17 Befunde, 16 überlebt,
+  1 widerlegt — **der widerlegte war meiner**. Scores `3/3/4/2/3/3`. Die drei schwersten
+  Befunde sind selbstverschuldet; einer davon: ich habe meine eigene Auslassung als
+  Spezifikationslücke des Plans gemeldet (B1-2 stand wörtlich drin).
+- **SA-4-Zähler dieses Strangs: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung ·
+  0 Fehlanwendungen.** Jede Aktion trug ein wörtliches Owner-Wort. **`over_ask`: 1** — der
+  Artefakt-Checkpoint wurde als Frage mit Stopp gestellt statt gespiegelt; vom Owner
+  moniert, seither Bericht im Abschluss. **`over_act`: 0.**
+- **Was ich nicht selbst kann, gemessen statt vermutet:** Governance-Config schreiben.
+  Weder `gh api -X PUT …/rulesets/…` noch eine Datei unter `governance/rulesets/` — beides
+  Hard-Deny des Auto-Mode-Classifiers, Lesen geht. Keine Permission-Frage
+  (`permissions.allow` enthält `Bash(*)`). Der PUT lief über den Owner per `!`. **Rest:
+  die IaC-Datei fehlt weiterhin**, JSON liegt im Text von #1879.
+- **Offen für die nächste Sitzung:** [#1889](https://github.com/achimdehnert/platform/pull/1889)
+  (Changelog-Nachtrag, bewusst reviewpflichtig) · [#1881](https://github.com/achimdehnert/platform/issues/1881)
+  (Auto-Reap meldet Werkzeugfehler als grün, **hoch**) · [#1864](https://github.com/achimdehnert/platform/issues/1864)
+  (11 Anker) · IaC-Datei `governance/rulesets/`.
+
+### Strang `504951` — v1.1.6-Welle, todo.iil.pet, Ritual-Reste
+
+- **Abnahme (Phase 0d): Zielzustand „Vorgangsseite auf `todo.iil.pet` führt in die Mail und zeigt nächste Schritte" ([#1869](https://github.com/achimdehnert/platform/issues/1869)) — teilweise erreicht.** Einzeln: K1 **argumentiert statt gemessen** (`/mailcheck` schreibt `mail_ref` per Handgriff, nicht per Code); K2 **nicht erreicht** — der Auftrag verlangt Prüfung „durch Öffnen, nicht durch einen grünen Test", belegt wurde mit `curl`, und das Overlay ist in der gelieferten Fassung strukturell unmöglich (`todo_board.py` bindet es in `detail()` nicht ein, der Interceptor fängt nur `/t/`); K3/K4/K6 erreicht (Gegenprobe-Tests); K5 **zur Hälfte** (Schreib-Endpunkt-Test ja, `mtime`-Probe nie ausgeführt). PR [#1875](https://github.com/achimdehnert/platform/pull/1875) hängt auf `BLOCKED`.
+- **SA-4-Zähler: 1 Anwendung · 6 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Die sechs `m` sind wieder strukturell: das platform-Ruleset verlangt je PR ein Owner-Review, unabhängig vom Pfad — [#1873](https://github.com/achimdehnert/platform/pull/1873) ratifizierte SA-2 in der Annahme, CODEOWNERS-Scoping reiche, aber `required_approving_review_count: 1` gilt pfadunabhängig. **Das gehört ins Ritual am 16.08.**, nicht in eine weitere Einzelfall-Notiz.
+- **Die Welle war nicht vollständig.** `writing-hub` steht als **15.** Consumer weiter auf `shared-ci@v1.1.2`. Mein Preflight-`grep` nahm den ersten `runs_on`-Treffer der Datei — der gehört zum **ci**-Job (`ubuntu-latest`), der **deploy**-Job übergibt gar keinen und läuft auf dem Default `self-hosted`. [#1845](https://github.com/achimdehnert/platform/issues/1845) wurde trotzdem geschlossen. Getrackt als [#1878](https://github.com/achimdehnert/platform/issues/1878); latent, nicht akut (Docker-Image liegt im lokalen Cache — genau der Zustand, in dem ausschreibungs-hub bis zum 06.08. war).
+- **Ein Mute steht ohne Begründung auf `main`.** [#1859](https://github.com/achimdehnert/platform/pull/1859) entfärbte drei rote project-facts-Repos als „Token-Reichweite" und berief sich auf [#1768](https://github.com/achimdehnert/platform/pull/1768) — dessen Titel lautet wörtlich „Owner aus der Registry aufloesen statt achimdehnert hartzukodieren", also genau die Ursache, die ich ausgeschlossen hatte. Eine Parallelsitzung fixte sie 30 Minuten später (#1858, `_kanon_owner`). Der `RepoUnerreichbar`-Zweig schluckt jetzt echte Unerreichbarkeit, ohne dass seine Begründung noch trägt.
+- **Der neue Regress-Wächter nennt sich „blockierend" und ist es nicht.** `iilgmbh/shared-ci` hat weder Ruleset noch Branch-Protection (`branches/main/protection` → 404); PR #48 wurde mit rotem `Validate Syntax` gemergt. Zusätzlich steht der reparierte Docker-Pin in der **platform-eigenen** Kopie von `_deploy-unified.yml` (Z. 245/357) unverändert weiter — der Wächter lebt in shared-ci und ist dafür strukturell blind.
+- **Geliefert und belegt:** Megatest-Budgets 167 → 105 aus CI-Lauf 31364294895 ([#1854](https://github.com/achimdehnert/platform/pull/1854)); der `--update-budgets`-Pfad war tot und ist repariert ([#1853](https://github.com/achimdehnert/platform/pull/1853)); zwei blinde Melder ([#1859](https://github.com/achimdehnert/platform/pull/1859), [#1855](https://github.com/achimdehnert/platform/pull/1855)); shared-cis zwei seit Einführung tote Gates verdrahtet ([shared-ci#50](https://github.com/iilgmbh/shared-ci/pull/50)) — erste Consumer der `workflow-guards`-Action überhaupt.
+- **Ritual-Reste ([#1640](https://github.com/achimdehnert/platform/issues/1640)):** D7 und D8 waren **bereits fertig** (Detektor verdrahtet, Smoke-Suite 250 grün, 7 Gates drill-frisch) — die Abnahmetabelle im KONZ nennt sie nur nicht. FP-Auswertung der zwei advisory-Scanner: **„nicht bewertbar"** (N=2 bzw. 3, unter K3-Mindest-N). D4: alle 69 offenen Dateien gelesen, **42 Extraktions-Entwürfe bewusst NICHT geschrieben** — die adversariale Stichprobe widerlegte 4 von 4.
+- **Retro:** `docs/retros/session-retro-2026-08-10-platform-504951.md` ([#1880](https://github.com/achimdehnert/platform/pull/1880)), 22 Befunde, Scores `3/3/4/2/2/3`. Phase 3 (Falsifikation) lief **nicht** — `refuted_rate 0.0` ist dort ausdrücklich als Lücke geführt, nicht als Qualität.
 
 ## ⚡ Vorheriger Stand (2026-08-09 — Ritual-Vorbereitung abgeschlossen; Megatest ist NICHT grün, war es seit dem 04.08. nicht)
 
