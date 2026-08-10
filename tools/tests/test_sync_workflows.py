@@ -248,3 +248,30 @@ def test_should_label_unknown_type_as_other(tmp_path):
     out = _run_sync(tmp_path, "infra-thing").stdout
     # infra ist weder django noch package → 'other' (kein django-hub/package-Label)
     assert "(django-hub)" not in out and "(package)" not in out
+
+
+# --- Guard 3b: check-ignore hat DREI Ausgaenge, nicht zwei (platform#1856) ---
+#
+# `git check-ignore` liefert 0 (ignoriert), 1 (nicht ignoriert) und 128 (git
+# konnte gar nicht antworten). Die frueherere Fassung warf 1 und 128 zusammen und
+# meldete beides als "'.windsurf/' nicht in .gitignore" — im 128-Fall eine
+# erfundene Ursache. Realfall design-hub: die Zeile steht nachweislich in
+# .gitignore auf main (API-geprueft 2026-08-10), der Melder meldete sie
+# trotzdem wochenlang als fehlend, und der Fund blieb unbearbeitet liegen.
+
+
+def test_should_not_blame_gitignore_when_git_cannot_answer(tmp_path):
+    _make_platform_root(tmp_path)
+    # Verzeichnis OHNE `git init` — check-ignore endet hier mit 128, nicht mit 1.
+    (tmp_path / "fixture-kein-repo").mkdir(parents=True)
+
+    res = _run_sync(tmp_path, "fixture-kein-repo")
+
+    assert res.returncode == 0, res.stderr
+    assert "SKIP-REPO" in res.stdout
+    assert "nicht auswertbar" in res.stdout, (
+        "der 128-Fall muss als solcher benannt werden"
+    )
+    assert "'.windsurf/' nicht in .gitignore" not in res.stdout, (
+        "eine nicht belegte Ursache darf nicht als Befund ausgegeben werden"
+    )

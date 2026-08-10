@@ -51,6 +51,17 @@ class ApiFehler(RuntimeError):
     """HTTP-Fehler der GitHub-API — mit der Meldung aus dem Body, nicht nur dem Code."""
 
 
+class RepoUnerreichbar(ApiFehler):
+    """Das Repo antwortet dem verwendeten Token nicht (Fremd-Org, 404/403).
+
+    Bewusst von den uebrigen Fehlern getrennt: ein Repo, das der Token nicht
+    sehen kann, ist eine Zugriffs-Luecke (platform#1768) und kein Defekt dieses
+    Laufs. Zusammengeworfen faerbten drei solche Repos den ganzen Lauf rot,
+    obwohl 21 andere korrekt bearbeitet wurden — und weil er dauerhaft rot war,
+    haette niemand bemerkt, wenn aus drei zehn geworden waeren.
+    """
+
+
 def _req(
     url: str, method: str = "GET", body: bytes | None = None
 ) -> dict | list | None:
@@ -190,7 +201,9 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
         .get("sha")
     )
     if not kopf:
-        raise ApiFehler(f"Kopf von '{basis}' nicht lesbar")
+        raise RepoUnerreichbar(
+            f"Kopf von '{basis}' nicht lesbar — Repo fuer diesen Token unsichtbar?"
+        )
     if _req(f"{API}/repos/{slug}/git/ref/heads/{branch}"):
         _req(
             f"{API}/repos/{slug}/git/refs/heads/{branch}",
@@ -630,6 +643,10 @@ def main() -> None:
             result = process_repo(repo_name, reg_cfg or {}, dry_run)
             results.append(result)
             print(f"  {result}", flush=True)
+        except RepoUnerreichbar as exc:
+            msg = f"🚫 {repo_name}: {exc}"
+            results.append(msg)
+            print(f"  {msg}", flush=True)
         except Exception as exc:
             msg = f"❌ {repo_name}: {exc}"
             results.append(msg)
@@ -638,7 +655,20 @@ def main() -> None:
     ok = sum(1 for r in results if r.startswith("✅"))
     gleich = sum(1 for r in results if r.startswith("⏭"))
     fail = sum(1 for r in results if r.startswith("❌"))
-    print(f"\n=== Fertig: {ok} PR(s), {gleich} unverändert, {fail} fehler ===")
+    unerreichbar = [r for r in results if r.startswith("🚫")]
+    print(
+        f"\n=== Fertig: {ok} PR(s), {gleich} unverändert, "
+        f"{len(unerreichbar)} unerreichbar, {fail} fehler ==="
+    )
+
+    # Unerreichbare Repos benannt ausgeben, nicht nur zaehlen: eine Zahl allein
+    # faellt niemandem auf, wenn sie waechst. Sie faerben den Lauf NICHT rot —
+    # das ist eine Token-Reichweiten-Frage (platform#1768), kein Defekt hier.
+    if unerreichbar:
+        print("\nUnerreichbar (Token sieht das Repo nicht — platform#1768):")
+        for zeile in unerreichbar:
+            print(f"  {zeile}")
+
     if fail:
         sys.exit(1)
 
