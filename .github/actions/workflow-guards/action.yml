@@ -1,0 +1,66 @@
+# Composite Action: workflow-guards
+#
+# Eine Quelle für die beiden Workflow-Guards, die bisher als lose Skripte in
+# platform lagen und deren Aufrufer in andere Repos kopiert wurden, ohne die
+# Skripte mitzunehmen (platform#1844). Folge: `silent-failure-lint.yml` und
+# `validate-workflows.yml` scheiterten in shared-ci, mcp-hub und iil-testkit an
+# `No such file or directory` — dauerhaft rot, also blind. Der erste fehlende
+# Pfad maskierte dabei den zweiten vollständig.
+#
+# Diese Action dreht die Richtung um: nicht die Skripte wandern zu den Repos,
+# sondern die Repos rufen die Skripte dort auf, wo sie leben. Ein Bugfix wirkt
+# damit sofort überall, statt N Kopien zu hinterlassen, die auseinanderlaufen.
+#
+# Der Aufrufer MUSS vorher `actions/checkout` ausgeführt haben — geprüft wird
+# das Repo des Aufrufers, ausgeführt wird der Code dieser Action.
+name: "workflow-guards"
+description: "Stille Fehlschläge in Workflows + ADR-226 publish-gate-Invariante — als eine Quelle statt kopierter Skripte"
+
+inputs:
+  checks:
+    description: >-
+      both = beide Guards |
+      silent-failures = nur die Suche nach still bleibenden Fehlschlägen |
+      publish-gate = nur die ADR-226-Invariante
+    required: false
+    default: "both"
+  workflows_dir:
+    description: "Verzeichnis mit den zu prüfenden Workflows"
+    required: false
+    default: ".github/workflows"
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Werkzeuge lokalisieren"
+      id: werkzeuge
+      shell: bash
+      run: |
+        set -euo pipefail
+        # github.action_path zeigt auf .../<platform>/.github/actions/workflow-guards
+        wurzel="$(cd "${{ github.action_path }}/../../.." && pwd)"
+        echo "wurzel=$wurzel" >> "$GITHUB_OUTPUT"
+
+        # Fehlt ein Skript, wird das laut. Ein stiller Übersprung wäre genau die
+        # Fehlerklasse, wegen der diese Action existiert.
+        for skript in "tools/check_silent_failures.py" "scripts/checks/publish_gate_invariant.sh"; do
+          if [ ! -f "$wurzel/$skript" ]; then
+            echo "::error title=workflow-guards::$skript nicht unter $wurzel gefunden — Repo-Layout geändert?"
+            exit 1
+          fi
+        done
+
+    - name: "Stille Fehlschläge in Workflows"
+      if: inputs.checks == 'both' || inputs.checks == 'silent-failures'
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m pip install --quiet pyyaml
+        python3 "${{ steps.werkzeuge.outputs.wurzel }}/tools/check_silent_failures.py" "${{ inputs.workflows_dir }}"
+
+    - name: "ADR-226 publish-gate-Invariante"
+      if: inputs.checks == 'both' || inputs.checks == 'publish-gate'
+      shell: bash
+      run: |
+        set -euo pipefail
+        bash "${{ steps.werkzeuge.outputs.wurzel }}/scripts/checks/publish_gate_invariant.sh"
