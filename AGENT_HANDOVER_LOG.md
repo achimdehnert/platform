@@ -1640,3 +1640,33 @@ einem Einzeiler als Fix. Zwei eigene grüne PRs warten auf einen Review-Klick, d
 Freigabe im Gespräch nicht ersetzen kann — das ist zum wiederholten Mal derselbe
 strukturelle Reibungspunkt und gehört ins Ritual am 16.08., nicht in ein weiteres
 Achselzucken.
+
+## 2026-08-10 (504951) — die Welle war vollständig, bis ein Finder nachzählte
+
+Vierzehn Repos auf shared-ci v1.1.6 gehoben, gestaffelt mit Pilot und Pausen, elf grüne
+Deploys, zwei rote an einem vorbestehenden Gate. Ich habe das als abgeschlossen gemeldet.
+
+Ein Finder der Retro hat dann nachgezählt und einen fünfzehnten gefunden. `writing-hub`
+steht weiter auf v1.1.2. Mein Preflight hatte per `grep` nach `runs_on` gesucht und den
+ersten Treffer genommen — der gehört zum `ci`-Job, der bewusst auf `ubuntu-latest` steht,
+weil der self-hosted Runner zeitweise offline war. Der `deploy`-Job kommt sechs Zeilen
+später und übergibt gar kein `runs_on`, läuft also auf dem Default `self-hosted`. Ich habe
+das Repo als „nie betroffen" ausgeschlossen und den Auftrag geschlossen.
+
+Dieselbe Bewegung dreimal an einem Tag. Beim Mail-Backfill schnitt meine Betreff-Extraktion
+am Doppelpunkt ab, sodass aus `AW: Request for Supervision` das Suchfragment `AW` wurde —
+ein Zwei-Buchstaben-Platzhalter, der auf jede Antwort passt. Und in einem PR habe ich eine
+Nummer als Beleg zitiert, ohne ihren Titel zu lesen; er sagte das Gegenteil dessen, wofür
+ich sie anführte, und der darauf gestützte Mute steht bis heute auf `main`, während eine
+Parallelsitzung die echte Ursache dreißig Minuten später behob.
+
+Das verbindende Muster ist nicht Schlamperei. Jedes dieser Kommandos lief fehlerfrei und
+lieferte eine korrekte Zahl — nur zu einer anderen Frage als der gestellten. Der Stop-Hook,
+der solche Behauptungen abfängt, prüft, **ob** ein Check lief. Ob der Check die Frage
+beantwortet, prüft er nicht, und genau dort ist diese Sitzung dreimal hindurchgefallen.
+
+Was gut lief, gehört daneben: die Staffelung der Welle, die zwei Gegenproben, die zwei
+falsche Mail-Zuordnungen rechtzeitig verhinderten, und die Entscheidung, 42
+D4-Extraktionen **nicht** zu schreiben, nachdem die Stichprobe vier von vier widerlegt
+hatte. Die drei schwersten Befunde dieser Retro stammen von Findern mit frischem Kontext,
+nicht aus meiner Selbsterzählung — das ist die Methode, die funktioniert hat.
