@@ -143,8 +143,20 @@ jobs:
           python3 -m pytest tests/megatest/ \
             -v \
             --tb=short \
+            -rP \
             --junitxml=megatest-results.xml \
             2>&1 | tee megatest-output.txt
+        # -rP (#1682): test_vermeidbar_total meldet per print(), wenn ein Repo
+        # UNTER seinem Budget liegt ("Budget auf X reduzierbar"). pytest faengt
+        # stdout bestandener Tests ab und zeigt es ohne -rP/-s nirgends — weder
+        # im Log noch in der JUnit-XML. Gemessen am Artefakt von Lauf
+        # 31367105746: 0 Treffer fuer "reduzierbar", obwohl der Hinweis lief.
+        # Damit war weiteres Ratchet-Potenzial nur ueber einen
+        # --update-budgets-Lauf sichtbar, und genau der ist gefaehrlich: er
+        # ueberschreibt Budget-0-Zusagen mit Ist-Werten. Derselbe Fehler wie
+        # #1508: ein Mechanismus arbeitet korrekt und niemand liest sein
+        # Ergebnis. Gegengeprobt: dieselben Flags ohne -rP zeigen den Hinweis
+        # 0x, mit -rP 1x.
         # Weichgestellt, damit ein roter Megatest den Zeitplan-Job nicht rot faerbt —
         # gemeldet wird er ueber steps.megatest_run.outcome im Issue-Schritt unten.
         # ACHTUNG (#1010, #1581): das maskiert auch harte Startfehler (z.B.
