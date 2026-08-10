@@ -101,7 +101,13 @@ $args_ = if ($Rein) { '-Rein' } else { '' }
 $befehl = '"{0}" -NoProfile -ExecutionPolicy Bypass -File "{1}" {2}' -f (Get-Command powershell).Source, $skript, $args_
 
 & schtasks /Delete /TN $Name /F 2>&1 | Out-Null
-& schtasks /Create /TN $Name /RU SYSTEM /RL HIGHEST /SC MINUTE /MO $AlleMinuten /F /TR $befehl 2>&1 |
+# NICHT als SYSTEM. Das Relais ist eine SMB-Freigabe, deren Anmeldung an der
+# Benutzersitzung haengt (net use zeigt sie dort als Z:/Q:). SYSTEM hat diese Anmeldung
+# nicht und erreicht die Freigabe nicht -- die Aufgabe laeuft dann zwar, kopiert aber
+# nichts, und niemand merkt es. Gemessen 2026-08-10: der interaktive Lauf um 20:18 schob
+# 24 Dateien durch, die geplanten SYSTEM-Laeufe danach keine einzige, obwohl die
+# Quelldatei seit 20:25 bereitlag.
+& schtasks /Create /TN $Name /RU $env:USERNAME /IT /SC MINUTE /MO $AlleMinuten /F /TR $befehl 2>&1 |
     ForEach-Object { Write-Host $_ }
 
 if ($LASTEXITCODE -ne 0) {
@@ -119,6 +125,9 @@ if ($Rein) {
 } else {
     Write-Host ("  rein: aus (mit -Rein einschalten)")
 }
+Write-Host ""
+Write-Host "Laeuft als '$env:USERNAME' und nur bei angemeldeter Sitzung." -ForegroundColor Yellow
+Write-Host "Grund: die SMB-Anmeldung an das Relais haengt an der Sitzung, SYSTEM hat sie nicht."
 
 Write-Host ""
 Write-Host "Sofort einmal abgleichen:" -ForegroundColor Cyan

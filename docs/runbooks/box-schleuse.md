@@ -159,3 +159,23 @@ Die dritte Zeile ist der Grund, warum das lange nicht auffiel: bei `.py` ist es 
 nur bei `.ps1` nicht. Regel deshalb: `.ps1` ohne Nicht-ASCII schreiben **und** einen
 UTF-8-BOM voranstellen, damit ein später ergänztes Sonderzeichen nicht dieselbe Falle
 aufstellt.
+
+### Der Abgleich läuft als Benutzer, nicht als SYSTEM
+
+Das Relais ist eine SMB-Freigabe, deren Anmeldung an der **Benutzersitzung** hängt —
+`net use` auf der Box zeigt sie dort als `Z:`/`Q:`. `SYSTEM` hat diese Anmeldung nicht und
+erreicht `\\10.99.0.1\scans` nicht.
+
+Gemessen am 2026-08-10, und die Zahlen sind der ganze Beleg:
+
+| Lauf | Konto | Ergebnis |
+|---|---|---|
+| 20:18 interaktiv | achim | 24 Dateien durchgeschoben |
+| ab 20:20 geplant | SYSTEM | **null**, obwohl die Quelldatei seit 20:25 bereitlag |
+
+Das Tückische ist wieder die Stille: die Aufgabe steht auf `Bereit`, meldet keinen Fehler,
+und kopiert nichts. Aufgefallen ist es nur, weil ein erwartetes Protokoll ausblieb.
+
+Deshalb `/RU <benutzer> /IT`. Preis: der Abgleich läuft nur bei angemeldeter Sitzung.
+Bildschirm sperren ist in Ordnung, abmelden nicht — dieselbe Bedingung wie beim
+LoRA-Nachtlauf, und aus verwandtem Grund.
