@@ -13,6 +13,24 @@
 > 07-15/07-13→07-20/21; ausgelagert im Zuge des Tools-Strang-Nachzugs, siehe Text unten).
 
 
+<!-- Ausgelagert 2026-08-09 (Handover-Refresh 08-07→08-09) -->
+
+## ⚡ Stand (2026-08-07 nachmittags — Zielzustand-Loop ratifiziert; Canary nach 9 Tagen wieder Alarm; zwei Aufträge Ende-zu-Ende)
+
+**Zeitanker:** HEAD `21c852c3` · `rev-list --count` 3015 · geschrieben 2026-08-07
+
+- **Abnahme (Phase 0d, erster Lauf des neuen Gegenstücks): Session-Zielzustand n/a (begründet)** — Phase 2.7 entstand erst MITTEN in dieser Session (PR #1819); gearbeitet wurde gegen drei je einzeln akzeptierte Auftrags-Artefakte: [#1820](https://github.com/achimdehnert/platform/issues/1820) **erreicht+geschlossen**, [#1827](https://github.com/achimdehnert/platform/issues/1827) **erreicht+geschlossen**, [dev-hub#259](https://github.com/achimdehnert/dev-hub/issues/259) **in Arbeit** (Inventar liegt, Rückbau-PRs noch nicht begonnen).
+- **SA-4-Zähler: 5 Anwendungen · 4 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Die 4× m sind STRUKTURELL: das platform-Review-Ruleset verlangt je PR ein Owner-Review — die Klasse deckte die Umsetzung, GitHub erzwang das Einzel-OK trotzdem. Das ist das zurückgestellte SA-2/KONZ-019-B1-Thema, kein SA-4-Zuschnittsfehler; m/n=80% risse den Kill-Test formal → als Befund fürs Regel-Ritual am 16.08. werten, nicht als Streich-Signal.
+- **Zielzustand-Loop steht komplett** (Owner-ratifiziert): SA-4 in `policies/autonomy-gates.md` (#1818 + wörtliches Go als PR-Kommentar) · `/prompt --auftrag` (Eingabe → Zielzustand-Prompt → HALT → Issue) · `session-start` 2.7 + `session-ende` 0d als Messstelle (#1819). Dreimal scharf benutzt (#1820, #1827, dev-hub#259).
+- **Canary ist wieder ein Alarm:** [#1303](https://github.com/achimdehnert/platform/issues/1303) autonom gelöst und geschlossen — 7 tote Freeze-Ziele raus (#1814), Register #1314 nachgezogen, Registry deployed:false, hub137 war von selbst zurück (#1778 zu). Erster grüner Lauf seit 29.07. um 06:42, [#1547](https://github.com/achimdehnert/platform/issues/1547) schloss sich nach 257 Auto-Kommentaren selbst. Reste: [#1815](https://github.com/achimdehnert/platform/issues/1815) · [137-hub#83](https://github.com/achimdehnert/137-hub/issues/83).
+- **D4 massiv voran:** platform-Lane 122→**186/253** („ohne rule_class=Nicht-Regel" falsifiziert: 56/97 trugen Regeln; 35 Extraktionen; Draft→Verify fing 5 echte Entwurfsfehler). writing-hub 0→**82/104** als erster `/d4-lane`-Fremdlauf (Skill #1817, verteilt); `d4-lane-status`-JSON-Datensätze auf [#1640](https://github.com/achimdehnert/platform/issues/1640).
+- **⚠️ MORGEN 08.08. 06:23 UTC feuert der Ritual-Trockenlauf-Cron** (#1816): sein #1640-Kommentar ist der Schedule-Pfad-Beweis — danach die Zusatz-Cron-Zeile in `regel-ritual.yml` WIEDER ENTFERNEN (Vermerk auf #1640). Ein 08.08.-Kommentar ist der Trockenlauf, NICHT Lauf 1.
+- **/mailcheck ist DB-first** (#1825, Echtlauf-Abnahme an #1820): Index 11.808 Nachrichten für die Historie, live nur Post-Ingest-Fenster + Original-Abruf; Mail-Action-Board mit Deckungsblock Pflicht; Skill verteilt.
+- **Rechnungsstrecke läuft** (#1827 zu, `/rechnungsstrecke` verteilt): `tools/sevdesk/beleg_entwurf.py` (#1828/#1829) legt NUR Entwürfe an; **drei Entwürfe warten auf Owner-Sichtprüfung** (152103230 Google 50,89 € Konto 6837 · 152105495 Groq $4,91 · 152105500 Railway $6,50 — USD via `propertyForeignCurrencyDeadline`, Rücklese-Kurs ~0,866 plausibel). Empfänger-Prüfung fing am ersten Tag 3 Fremd-Entitäten (Kronen privat · Placetel+Cerebras = Dehnert EDV, eigenes sevdesk, bewusst OHNE API). Ledger-Todos angelegt; Heroku-Klasse = Ablage-Ordner `~/shared/inbox/invoices/` (Owner-Entscheid B).
+- **dev-hub#259 wartet auf Fortsetzung:** Inventar als Kommentar (4 tote Apps inkl. portal 2.618 LOC, 6 Task-Leichen, 2 Dep-Kandidaten; content_store praktisch tot, aber nicht trivial entfernbar). VOR dem ersten Rückbau-PR: org-weiter Konsumenten-Check der URL-Präfixe. Merges dort einzeln Owner (Auto-Deploy = Gate 2).
+- **Eigene Fehler, benannt:** Alt-Branch der Vormittags-Session gelöscht und sofort wiederhergestellt (Inhalt war längst gemergt — Schaden 0, aber `git branch -D` ohne Herkunftsprüfung bleibt der Fehler) · erster Workflow-Start mit stringifiziertem args (385 Ein-Zeichen-Items) · vier USD-Rateversuche gegen die sevdesk-API, bevor die OpenAPI-Spec gelesen wurde — der Feldname stand dort.
+- **Bewusst verschoben (getrackt):** `/knowledge-capture` (Outline) — Kontext-Ende dieser Marathon-Session; nächste Session holt es nach (dieser Block + #1640-Kommentare sind die Quelle).
+
 <!-- Ausgelagert 2026-07-23 (Handover-Refresh 07-22→07-23) -->
 
 ## ⚡ Stand (2026-07-29 — Mail-Recherche-Werkzeug von der Frage bis zum Index gebaut)
