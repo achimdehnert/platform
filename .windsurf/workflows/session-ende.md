@@ -113,6 +113,34 @@ gh pr list --repo <owner>/<repo> --state open --json number,title,files \
   ihn explizit als „ersetzt durch PR #N" schließen, **bevor** der neue Stand gepusht wird.
 - **Kein Treffer** → normal weiter mit 0b.
 
+### 0a-merge: Den eigenen Handover-PR selbst mergen (PFLICHT — NEU 2026-08-10, Owner-Weisung)
+
+> **Ein Handover-PR ist ein Bericht über bereits Geschehenes, keine Entscheidung.** Der
+> Owner kann ihm nichts zustimmen, was nicht ohnehin schon passiert ist — und sein Inhalt
+> wird beim nächsten `/session-start` wieder eingelesen. Ihn zur Freigabe vorzulegen
+> verzögert genau die Information, für die er existiert, und erzeugt die Lage, gegen die
+> Phase 0a-handover-pr geschrieben wurde: zwei konkurrierende Stände nebeneinander
+> (Realfall 2026-07-14). Owner-Weisung 2026-08-10 (illustration-hub PR #197).
+
+Sobald der Handover-PR grün ist, **ohne Rückfrage mergen** und das Ergebnis im
+Abschlussbericht nennen:
+
+```bash
+gh pr merge <N> --squash --delete-branch     # CI grün? -> direkt
+gh pr merge <N> --squash --delete-branch --auto   # CI läuft noch -> Auto-Merge scharf
+```
+
+**Grenzen — hier gilt die Weisung NICHT, dann bleibt es bei der Vorlage:**
+
+| Bedingung | Warum |
+|---|---|
+| Der PR enthält mehr als Dokumentation | Code/Konfiguration ist eine Entscheidung, kein Bericht |
+| ADR-Statuswechsel (`implementation_status`) im selben PR | Das ist eine Aussage über Wirklichkeit, kein Protokoll |
+| Repo mit Auto-Deploy-on-`main` | Der Merge IST dort der Prod-Schritt → Gate 2 |
+| CI rot oder Required Checks fehlen | Grün ist die Bedingung, nicht die Formalie |
+
+→ Trifft eine Grenze zu: PR offen lassen, im Abschlussbericht **mit Grund** nennen.
+
 ### 0a-freshness: Handover-Rezenz erzwingen (PFLICHT — NEU 2026-08-02, Welle 1 KONZ-038, Issue #1457)
 
 > **Warum als Skill-Gate:** Das CI-Gate (`handoff-banner-gate.yml`) läuft nur, wenn
@@ -637,6 +665,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 13 | Handover-Freshness-Check gelaufen: Exit 0 oder begründet im Commit-/PR-Text (Phase 0a-freshness) | ☐ |
 | 14 | Abnahme gegen Session-Zielzustand im Stand-Block: erreicht/nicht erreicht/verschoben+Tracking bzw. n/a-begründet (Phase 0d) | ☐ |
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
+| 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
@@ -674,6 +703,14 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 > `mcpN_`-Nummern sind Windsurf-Ära und environment-volatil.
 
 ## Changelog
+
+- 2026-08-10: **Phase 0a-merge (PFLICHT) + Checklisten-Zeile 16** — Handover-PRs werden
+  ohne Rückfrage gemergt, sobald CI grün ist (Owner-Weisung, Anlass illustration-hub #197).
+  Begründung: ein Handover-PR ist ein Bericht über bereits Geschehenes, keine Entscheidung —
+  vorlegen verzögert genau die Information, für die er existiert, und erzeugt die Lage,
+  gegen die 0a-handover-pr geschrieben wurde. Vier Grenzen ausdrücklich benannt (mehr als
+  Doku, ADR-Statuswechsel, Auto-Deploy-Repo, CI nicht grün), damit die Weisung nicht zur
+  Blankovollmacht für „Docs-PR" als Etikett wird.
 
 - 2026-08-02: Phase 0a-freshness (PFLICHT) + Checklisten-Zeile 13 — Welle 1 KONZ-038,
   Issue #1457, Slug `handover-stale-vor-merge` (×12). Reconcile-Befund: das CI-Gate ist
