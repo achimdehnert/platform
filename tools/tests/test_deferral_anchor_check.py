@@ -139,3 +139,59 @@ def test_should_read_from_stdin_without_a_file(monkeypatch, capsys):
 
     assert dac.main(["--block"]) == 1
     assert "ohne Anker" in capsys.readouterr().out
+
+
+# --- Ueberschriften-Fenster (Live-Fehlalarm auf PR #1897) --------------------
+
+
+def test_should_ueberschrift_mit_anker_im_abschnitt_nicht_melden():
+    """Der erste echte Fehlalarm des Gates, als Test festgehalten.
+
+    "## Bewusst nicht in diesem PR" ist eine ABSCHNITTS-Ankuendigung; der Anker
+    steht bei den Punkten darunter. Mit dem engen +-4-Fenster lag `#1650` knapp
+    ausserhalb und das Gate meldete einen Fund auf seinem eigenen PR.
+    """
+    text = "\n".join(
+        [
+            "## Bewusst nicht in diesem PR",
+            "",
+            "- Der eine Punkt braucht noch einen GATE_HEADER und einen Drill,",
+            "  das ist hier nicht drin.",
+            "  Weitere Zeile ohne Anker.",
+            "  Und noch eine, damit der Anker jenseits von +4 liegt; getrackt in #1650.",
+        ]
+    )
+    assert stellen(text) == []
+
+
+def test_should_ueberschrift_ohne_anker_im_abschnitt_melden():
+    """Gegenprobe: das groessere Fenster darf das Gate nicht zahnlos machen."""
+    text = "\n".join(
+        [
+            "## Bewusst nicht in diesem PR",
+            "",
+            "- Der Rest folgt separat, irgendwann.",
+            "- Niemand nennt hier ein Issue.",
+        ]
+    )
+    assert [z for z, _ in stellen(text)] == [1, 3]
+
+
+def test_should_anker_hinter_naechster_ueberschrift_nicht_einsammeln():
+    """Das Abschnitts-Fenster endet an der naechsten Ueberschrift.
+
+    Sonst wuerde ein Anker aus einem voellig anderen Abschnitt den Fund
+    stillstellen — das Gate waere ueber lange PR-Texte praktisch blind.
+    """
+    text = "\n".join(
+        [
+            "## Bewusst nicht in diesem PR",
+            "",
+            "- Kein Anker in diesem Abschnitt.",
+            "",
+            "## Ganz anderes Thema",
+            "",
+            "Hier steht #1650, gehoert aber nicht dazu.",
+        ]
+    )
+    assert [z for z, _ in stellen(text)] == [1]

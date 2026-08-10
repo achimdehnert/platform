@@ -66,15 +66,44 @@ ANKER = re.compile(
 # Wie viele Zeilen um die Fundstelle als "Naehe" gelten.
 FENSTER = 4
 
+# Obergrenze fuer das Abschnitts-Fenster einer Ueberschrift (s. finde_ankerlose_stellen).
+# Begrenzt, damit eine Ueberschrift ohne folgende Ueberschrift nicht den ganzen
+# Resttext als "Naehe" verbucht und jeden Anker weiter unten einsammelt.
+ABSCHNITT_MAX = 20
+
+
+UEBERSCHRIFT = re.compile(r"^\s{0,3}#{1,6}\s")
+
 
 def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int, str]]:
-    """(Zeilennummer, Zeile) je Aufschub-Stelle ohne Anker in der Naehe."""
+    """(Zeilennummer, Zeile) je Aufschub-Stelle ohne Anker in der Naehe.
+
+    Ueberschriften bekommen ein groesseres Suchfenster: eine Zeile wie
+    "## Bewusst nicht in diesem PR" kuendigt einen ABSCHNITT an, und der Anker
+    steht dann bei den einzelnen Punkten darunter — regelmaessig mehr als
+    `fenster` Zeilen entfernt. Mit dem engen Fenster meldete das Gate genau
+    diesen Fall als Fund, obwohl der Anker zwei Zeilen spaeter dastand: der
+    erste Live-Fehlalarm, gefangen auf dem eigenen Einfuehrungs-PR (#1897).
+
+    Fuer eine Ueberschrift wird deshalb bis zur naechsten Ueberschrift gesucht
+    (hoechstens ABSCHNITT_MAX Zeilen). Bewusst NICHT: Ueberschriften ganz
+    ueberspringen — ein Abschnitt, der Aufschub ankuendigt und in seinem
+    gesamten Rumpf kein Issue nennt, bleibt ein Fund.
+    """
     zeilen = text.splitlines()
     funde: list[tuple[int, str]] = []
     for i, zeile in enumerate(zeilen):
         if not AUFSCHUB.search(zeile):
             continue
-        von, bis = max(0, i - fenster), min(len(zeilen), i + fenster + 1)
+        if UEBERSCHRIFT.match(zeile):
+            bis = min(len(zeilen), i + 1 + ABSCHNITT_MAX)
+            for j in range(i + 1, bis):
+                if UEBERSCHRIFT.match(zeilen[j]):
+                    bis = j
+                    break
+            von = i
+        else:
+            von, bis = max(0, i - fenster), min(len(zeilen), i + fenster + 1)
         if ANKER.search("\n".join(zeilen[von:bis])):
             continue
         funde.append((i + 1, zeile.strip()))
