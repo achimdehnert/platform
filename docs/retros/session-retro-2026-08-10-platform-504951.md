@@ -4,8 +4,8 @@ date: 2026-08-10
 repo_scope: [platform, shared-ci, writing-hub, tax-hub, ausschreibungs-hub]
 session_id: 504951
 footprint: full
-findings_total: 13
-findings_survived: 13
+findings_total: 22
+findings_survived: 22
 refuted_rate: 0.0
 phase3_refuted: 0
 pre_refuted: 0
@@ -16,7 +16,7 @@ scores:
   risiko_debt: 2
   prozess_effizienz: 2
   entscheidungsqualitaet: 3
-gate_candidates: [consumer-pin-not-covered-by-guard, mute-instead-of-root-cause]
+gate_candidates: [consumer-pin-not-covered-by-guard, mute-instead-of-root-cause, guard-claims-blocking-without-required-check]
 recurring_findings: [claim-before-cheapest-check, deferred-item-no-tracking-issue, scope-checkpoint-not-durably-recorded]
 ---
 
@@ -143,9 +143,12 @@ sie harness-seitig ohnehin blockiert war; die Vorlage war richtig, die Ankündig
   der Band-Regel wäre <0,2 „Falsifikation ist Theater" — hier trifft das buchstäblich zu.
   Billigster Check: zwei Sonnet-Skeptiker (~55k je) auf die Bewertungsanteile von #1, #6
   und #7.
-- **Der Finder „Entscheidungen & Fehler" hat nicht geliefert.** Eine von drei Dimensionen
-  fehlt vollständig; Befunde zu Design-Entscheidungen (Netzabruf im CI-Gate, Cross-Repo-Pin
-  auf eine fremde Composite-Action) sind ungeprüft.
+- **Der Finder „Entscheidungen & Fehler" lieferte NACH dem ersten Report-Entwurf.** Seine
+  9 Befunde stehen vollständig in §9 und sind im Frontmatter gezählt — aber Scorecard (§3)
+  und Soll-Ablauf (§4) sind **nicht** nachgezogen. Damit ist die Invariante
+  `|Soll-Schritte| == |überlebende Befunde|` verletzt (13 Soll-Schritte, 22 Befunde). Das
+  ist die zweite Methoden-Lücke dieser Retro; beide Befunde #14/#15 wären Score-relevant
+  (sie senken `architektur_design` und `risiko_debt` weiter).
 - **Zwei Befunde wurden von mir selbst gegengeprüft statt von einem Skeptiker** (#1, #2/#3)
   — dokumentierter Bruch von Regel 1, bewusst in Kauf genommen, weil #1 ein möglicherweise
   ungepatchtes Prod-Repo betraf.
@@ -163,3 +166,42 @@ Mute auf main).
 desselben Tages gehören Parallelsitzungen und wurden ausgeschlossen.
 **nicht verifizierbar** · siehe §8.
 **offen geblieben** · Phase 3, Phase 3.5-Gegenprüfung, Phase 5 Meta-Review.
+
+---
+
+## 9. Nachtrag — Dimension „Entscheidungen & Fehler"
+
+Dieser Finder lieferte **nach** dem ersten Report-Entwurf. Seine Befunde sind hier
+vollständig aufgenommen; Scorecard (§3) und Soll-Ablauf (§4) sind **nicht** nachgezogen —
+siehe §8.
+
+| # | Befund | Kategorie | Severity | Verdikt | Beleg |
+|---|---|---|---|---|---|
+| 14 | Der reparierte Docker-Pin steht **in platform** unverändert weiter | unvollständige Migration | hoch | SURVIVES | `platform:_deploy-unified.yml:245,357` = `scp-action@917f8b81` |
+| 15 | Wächter behauptet „blockierend" — shared-ci hat **keine** Branch-Protection | claim-before-cheapest-check | hoch | SURVIVES | `no_docker_actions_in_deploy.sh:23` vs. `…/branches/main/protection` → 404 |
+| 16 | SHA-Pin widerlegt die eigene Begründung „ein Fix wirkt sofort überall" | verfrühte Festlegung | mittel | SURVIVES | `validate-workflows.yml:102`, kein dependabot.yml in shared-ci |
+| 17 | Cross-Org-Pin koppelt Flotten-CI an die offene Sichtbarkeitsfrage von platform | verfrühte Festlegung | mittel | SURVIVES | KONZ-platform-039, `CLAUDE.md` |
+| 18 | Jetzt drei parallele Mechanismen; mcp-hub/iil-testkit unverdrahtet, ungetrackt | technische Schuld | mittel | SURVIVES | `action.yml:5-7` nennt drei Repos, verdrahtet ist eins |
+| 19 | Wächter hat zwei stille Durchlässe und meldet trotzdem Abdeckung | Wächter-Lücke | mittel | SURVIVES | Regex `:79` verfehlt zitierte `uses:`; `fetch_using` gibt bei Parse-Fehler leer + rc 0 |
+| 20 | #1875 kehrt Kriterium 3 um, ohne Scope-Checkpoint | Zielzustands-Abweichung | mittel | SURVIVES | #1869 K3 „weder Link noch leeren Platzhalter" vs. `kein-ziel`-Absatz |
+| 21 | Commit-Betreff nennt eine Änderung, geliefert werden bis zu 6 Releases | Kommunikation | niedrig | SURVIVES | learn-hub v1.1.0 → v1.1.6 |
+| 22 | Netzabruf im Gate ohne Timeout und unauthentifiziert | Werkzeug | niedrig | SURVIVES | `:42` ohne Auth-Header, Job ohne `timeout-minutes` |
+
+**Die zwei schweren Befunde sind Zustände auf `main`, nicht Prozesskritik.**
+
+**#14** ist die unangenehmste Erkenntnis dieser Retro: Ich habe den Docker-Action-Pin in
+`shared-ci` repariert und einen Wächter dagegen gebaut — die **platform-eigene Kopie**
+derselben Datei trägt den kaputten Pin unverändert weiter, und der Wächter ist dafür
+strukturell blind, weil er im falschen Repo lebt. Latent, weil kein Consumer die
+platform-Kopie nutzt; aber genau die Sorte Alt-Kopie, aus der der nächste Vorfall kommt.
+
+**#15** trifft den Wächter selbst: sein Kopf behauptet „Der Waechter ist blockierend."
+`shared-ci` hat weder Ruleset noch Branch-Protection — er ist rein beratend. Belegt hat
+das dieselbe Sitzung unfreiwillig: PR #48 wurde mit rotem „Validate Syntax" gemergt.
+Ein Gate, das sich für blockierend hält und es nicht ist, ist die Fehlerklasse, gegen die
+es gebaut wurde.
+
+**Entlastend und ausdrücklich vermerkt:** Der Finder hat sieben Prüfungen ohne Befund
+dokumentiert — darunter den Budget-Übernahme-Weg (Artefakt aus Run 31364294895 **byte-identisch**
+mit dem committeten `budgets.toml`), den 0-Schutz im Writer, den Open-Redirect-Wächter und
+die Frage, ob die 14 Consumer die Cross-Org-Abhängigkeit erben (tun sie nicht).
