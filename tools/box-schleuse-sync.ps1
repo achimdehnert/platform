@@ -72,6 +72,28 @@ if (-not $Einrichten) {
 }
 
 $skript = $MyInvocation.MyCommand.Path
+
+# Die Aufgabe laeuft als SYSTEM und sieht weder verbundene Laufwerke noch UNC-Pfade der
+# angemeldeten Sitzung. Liegt dieses Skript dort, wird die Aufgabe zwar angelegt, scheitert
+# aber bei jedem Lauf -- und zwar STILL: `schtasks /Query` zeigt dann ein "Letztes Ergebnis"
+# ungleich 0, sonst faellt nichts auf. Realfall 2026-08-10: aus Z:\schleuse\zur-box
+# eingerichtet, erster Aufgabenlauf endete mit -196608, waehrend der interaktive Testlauf
+# davor sauber durchlief -- in der Benutzersitzung gibt es Z: ja.
+$laufwerk = [System.IO.Path]::GetPathRoot($skript)
+$istNetz = $skript.StartsWith('\\') -or (
+    (Get-PSDrive -Name $laufwerk.TrimEnd(':\') -ErrorAction SilentlyContinue).DisplayRoot
+)
+if ($istNetz) {
+    Write-Host "Dieses Skript liegt auf einem Netzpfad: $skript" -ForegroundColor Red
+    Write-Host "Die Aufgabe laeuft als SYSTEM und kann ihn nicht aufloesen -- sie wuerde" -ForegroundColor Red
+    Write-Host "angelegt und dann bei jedem Lauf still scheitern." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Erst lokal ablegen, dann von dort einrichten:" -ForegroundColor Yellow
+    Write-Host "  copy $skript D:\ai-toolkit\"
+    Write-Host "  cd D:\ai-toolkit"
+    Write-Host "  powershell -ExecutionPolicy Bypass -File .\box-schleuse-sync.ps1 -Einrichten"
+    exit 1
+}
 $args_ = if ($Rein) { '-Rein' } else { '' }
 # Eine Zeile mit Absicht: eine Backtick-Fortsetzung ueberlebt zwar in einer Datei, aber
 # sie ist die Form, die beim Einfuegen in ein Terminal zerbricht. Wer den Ausdruck spaeter
