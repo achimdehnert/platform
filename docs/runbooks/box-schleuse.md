@@ -135,3 +135,27 @@ oder später etwas, das noch niemand geholt hatte.
 liegt ein echter Fehler vor. Deshalb steht im Skript **kein**
 `$ErrorActionPreference = 'Stop'` — damit würde jeder gewöhnliche Lauf abbrechen. Genau
 diese Falle hat am 2026-08-10 ein Übergabeskript zerlegt (platform#1888).
+
+### Eine `.ps1` muss reines ASCII sein und einen BOM tragen
+
+Windows PowerShell 5.1 liest eine `.ps1` **ohne BOM** in der ANSI-Codepage. Aus einem
+UTF-8-Em-Dash (`—`, drei Bytes) werden dabei drei Zeichen, und eines davon beendet die
+Zeichenfolge, in der es steht. Der Parser meldet das dann irgendwo weiter unten:
+
+```
+Die Zeichenfolge hat kein Abschlusszeichen: ".
+Die schließende "}" fehlt im Anweisungsblock oder der Typdefinition.
+```
+
+Gemessen am 2026-08-10 mit Positivkontrolle:
+
+| Datei | Nicht-ASCII | Ergebnis |
+|---|---|---|
+| `gpu-melder-autostart.ps1` | 0 | lief |
+| `box-schleuse-sync.ps1` (erste Fassung) | 7 Em-Dashes | Parser-Fehler |
+| `gpu_melder.py` | 8 | lief — Python liest UTF-8 von sich aus |
+
+Die dritte Zeile ist der Grund, warum das lange nicht auffiel: bei `.py` ist es harmlos,
+nur bei `.ps1` nicht. Regel deshalb: `.ps1` ohne Nicht-ASCII schreiben **und** einen
+UTF-8-BOM voranstellen, damit ein später ergänztes Sonderzeichen nicht dieselbe Falle
+aufstellt.
