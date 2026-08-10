@@ -29,6 +29,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import gate_hits  # noqa: E402  (haengt am sys.path oben)
 from evidence_claim_scanner import _last_turn_blocks  # noqa: E402
 
 GATE_HEADER = {
@@ -97,6 +99,16 @@ def main() -> int:
         return 0
     if _has_durable_artifact(evidence_text, tool_inputs):
         return 0
+
+    # Treffer mitschreiben, bevor gemeldet wird: ohne Spur laesst sich die
+    # FP-Kalibrierung (KONZ-038 D2) spaeter weder belegen noch bestreiten.
+    gate_hits.notiere(
+        "scope-checkpoint-not-durably-recorded",
+        m.group(0),
+        turn=assistant_text,
+        session=event.get("session_id", ""),
+        modus="advisory",
+    )
 
     msg = (
         "🧭 scope-checkpoint check: dieser Turn spricht einen Scope-Checkpoint aus "
