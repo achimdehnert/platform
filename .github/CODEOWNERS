@@ -26,14 +26,64 @@
 #   /docs/adr/   architekturelle Entscheide            (neu, KONZ-032 §5.1)
 #   /policies/   Autonomie-Gates und Routing           (neu, selbstbetreffend)
 #
-# Alles andere fliesst ohne Klick: docs/konzepte/, docs/retros/, tools/, tests/,
-# scripts/, AGENT_HANDOVER.md, CHANGELOG.
+# ── Nachtrag 2026-08-10, zweiter Schritt (B1-2) ────────────────────────────
+#
+# Zwei Korrekturen, beide aus einer Retrospektive desselben Tages:
+#
+# 1. `/governance/` FEHLTE. KONZ-032 B1-1 listet es ausdruecklich; beim Uebertrag
+#    von Plan zu Umsetzung ging es still verloren — nicht bewusst ausgeschlossen,
+#    in keiner Commit-Message erwaehnt. Darunter liegt
+#    `governance/rulesets/main-required-checks-template.json`, das
+#    `.github/workflows/apply-branch-protection.yml` mit `secrets.PROJECT_PAT`
+#    auf die gesamte Repo-Flotte anwendet. Eine Aenderung daran haette ohne
+#    Owner-Blick durchlaufen koennen.
+#
+# 2. Der Perimeter wird WEITER gezogen als in B1-1, weil sich die Voraussetzung
+#    geaendert hat. B1-1 wurde geschrieben, solange
+#    `required_approving_review_count: 1` galt — ein ungeschuetzter Pfad bekam
+#    immer noch ein Approval von irgendeinem Collaborator. Mit B1-2 (Zahl auf 0)
+#    bekommt ein ungeschuetzter Pfad **gar kein** menschliches Auge mehr. Was
+#    B1-1 als vertretbar einstufte, ist unter dieser Bedingung nicht mehr
+#    dasselbe Risiko.
+#
+#    Neu geschuetzt sind deshalb die Pfade, deren Aenderung auf Produktion oder
+#    auf die Kontrollebene wirkt, ohne dass ein Test sie faengt:
+#      /deployment/  Prod-Stacks, deploy-remote.sh, env-Templates
+#      /infra/       hosts.yaml — die SoT, gegen die der Session-Start prueft
+#      /scripts/     53 Dateien, darunter Deploy- und Rotations-Skripte
+#      /governance/  Ruleset-Vorlagen (s.o.)
+#      /.windsurf/   Skills, die verteilt und danach ausgefuehrt werden
+#    dazu die Sicherheits-Konfiguration im Wurzelverzeichnis
+#    (.sops.yaml, .gitleaks.toml, .pre-commit-config.yaml, bootstrap.sh).
+#
+# BEWUSST NICHT geschuetzt bleibt `/tools/` — es ist der groesste Einzelposten
+# des Volumens, und ein Fehler dort wird von der PR-CI (`make test`, Required
+# Check) gefangen. Das ist eine Abwaegung, kein Versehen: wuerde `/tools/`
+# mitgeschuetzt, faele der Gewinn von B1 zum grossen Teil wieder weg. Restrisiko
+# benannt in `policies/autonomy-gates.md` (Gate-2-Klarstellung): ein fehlerhaftes
+# Werkzeug erreicht den naechtlichen Mail-Ingest; getragen von der CI und davon,
+# dass bis 03:30 ein Revert genuegt.
+#
+# Alles andere fliesst ohne Klick: docs/ (ausser adr/), concepts/, baselines/,
+# agents/, tools/, tests/, AGENT_HANDOVER*.md, CHANGELOG, README.
 #
 # Rueckbau, falls es schiefgeht: Zeile `* @achimdehnert @wirdigital` wieder
-# einsetzen. Mehr braucht es nicht (KONZ-032 kill_criteria (a)).
+# einsetzen UND die Ruleset-Zahl zurueck auf 1 (governance/rulesets/
+# main-required-checks-platform.json). Beides zusammen, sonst haengt die
+# Kontrolle in der Luft (KONZ-032 kill_criteria (a)).
 
-/.github/  @achimdehnert @wirdigital
-/registry/ @achimdehnert @wirdigital
-/packages/ @achimdehnert @wirdigital
-/docs/adr/ @achimdehnert @wirdigital
-/policies/ @achimdehnert @wirdigital
+/.github/     @achimdehnert @wirdigital
+/registry/    @achimdehnert @wirdigital
+/packages/    @achimdehnert @wirdigital
+/docs/adr/    @achimdehnert @wirdigital
+/policies/    @achimdehnert @wirdigital
+/governance/  @achimdehnert @wirdigital
+/deployment/  @achimdehnert @wirdigital
+/infra/       @achimdehnert @wirdigital
+/scripts/     @achimdehnert @wirdigital
+/.windsurf/   @achimdehnert @wirdigital
+
+/.sops.yaml            @achimdehnert @wirdigital
+/.gitleaks.toml        @achimdehnert @wirdigital
+/.pre-commit-config.yaml @achimdehnert @wirdigital
+/bootstrap.sh          @achimdehnert @wirdigital
