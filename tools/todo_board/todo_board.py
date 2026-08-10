@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import sys
 from datetime import date, datetime
 from http import HTTPStatus
@@ -177,6 +178,11 @@ tr:last-child td{border-bottom:none}
 .alt{background:var(--karte);border:1px solid var(--rot);border-left-width:4px;
 border-radius:8px;color:var(--rot);font-size:.88rem;padding:.7rem .9rem;margin:0 0 1.25rem}
 footer{color:var(--stumm);font-size:.78rem;margin-top:2rem;text-align:center}
+.schritt-text{margin:.4rem 0 .6rem}
+.aktionen{display:flex;flex-wrap:wrap;gap:.5rem;margin:.2rem 0 0}
+a.aktion{display:inline-block;padding:.35rem .7rem;border:1px solid var(--linie);
+border-radius:6px;background:var(--karte);text-decoration:none;font-size:.86rem}
+a.aktion:hover{border-color:var(--stumm)}
 .sache a{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie)}
 .sache a:hover{border-bottom-color:currentColor}
 pre.notiz{white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.5;
@@ -243,6 +249,63 @@ OVERLAY = """
 })();
 </script>"""
 
+#: Basis fuer Mail-Links. Der Board-Dienst haengt an todo.iil.pet (Port 8789), der
+#: Mail-Renderer an mail.iil.pet (Port 8787) — ein relativer Pfad zeigt also ins
+#: Leere. Im Ledger steht deshalb nur der PFAD (`/a/118`), der Host kommt von hier
+#: und ist fuer lokale Laeufe ueberschreibbar. Host im Datenbestand waere Drift.
+MAIL_BASIS = os.environ.get("TODO_BOARD_MAIL_BASIS", "https://mail.iil.pet").rstrip("/")
+
+
+def aktionen(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> list[tuple]:
+    """Naechste Schritte als Ziele — ausschliesslich anzeigend.
+
+    Bewusste Grenze (#1869): hier entsteht KEIN Knopf, der etwas ausloest. Senden,
+    Buchen, Loeschen bleiben aussen vor, und es gibt keinen Rueckkanal, ueber den die
+    Seite einen Agenten beauftragen koennte — Kommandokanal ist allein die
+    interaktive Sitzung (Lotsen-Charta Art. 1). Wer hier spaeter einen POST ergaenzt,
+    hebt genau diese Zusage auf.
+
+    Rueckgabe: Liste aus (Beschriftung, Ziel-URL). Leere Liste heisst: kein Ziel
+    ableitbar — der Aufrufer zeigt dann den `next_trigger`-Text, keinen toten Knopf.
+    """
+    del basis  # noch kein Ziel, das die Board-Basis braucht — siehe unten
+    ziele: list[tuple] = []
+    ref = str(v.get("mail_ref") or "").strip()
+    # Nur serverseitige Pfade akzeptieren. Ein absoluter Wert im Ledger waere ein
+    # offener Weiterleitungspunkt — der Ledger speist sich aus fremden Mails.
+    if ref.startswith("/") and not ref.startswith("//"):
+        ziele.append(("Mail oeffnen", f"{mail_basis}{ref}"))
+    # Bewusst KEIN Selbstlink auf `/t/<thread_key>`: die Vorgangsseite ist genau das
+    # Ziel, auf dem dieser Abschnitt steht. Er waere ausserdem der einzige Grund,
+    # warum Bestandsvorgaenge ohne `mail_ref` ploetzlich einen Knopf trugen.
+    # „Antwort entwerfen" fehlt hier absichtlich: der Mail-Dienst hat keinen
+    # Entwurfs-Endpunkt, und einen zu bauen waere ein Schreibpfad — in #1869
+    # ausdruecklich out of scope.
+    return ziele
+
+
+def naechste_schritte(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> str:
+    """Abschnitt 'Naechste Schritte': der Text aus dem Ledger plus erreichbare Ziele."""
+    text = str(v.get("next_trigger") or "").strip()
+    ziele = aktionen(v, mail_basis, basis)
+    if not text and not ziele:
+        return ""
+    kopf = f"<p class='schritt-text'>{html.escape(text)}</p>" if text else ""
+    # Ohne Ziel bleibt der Vorschlag Text. Ein Knopf ohne Ziel waere genau der tote
+    # Link, den `zeile()` beim fehlenden thread_key schon vermeidet.
+    knoepfe = (
+        "<p class='aktionen'>"
+        + " ".join(
+            f"<a class='aktion' href='{html.escape(url)}'>{html.escape(label)}</a>"
+            for label, url in ziele
+        )
+        + "</p>"
+        if ziele
+        else ""
+    )
+    return f"<h2>Naechste Schritte</h2>{kopf}{knoepfe}"
+
+
 # Reihenfolge der Detailfelder: erst wer und was, dann Zustand, zuletzt der Verlauf.
 DETAIL_FELDER = (
     ("gegenueber", "Gegenueber"),
@@ -257,12 +320,13 @@ DETAIL_FELDER = (
 )
 
 
-def detail(v: dict) -> str:
+def detail(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> str:
     """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
     zeilen = "".join(
         f"<tr><th>{html.escape(label)}</th><td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
         for feld, label in DETAIL_FELDER
     )
+    schritte = naechste_schritte(v, mail_basis, basis)
     notiz = html.escape(str(v.get("notiz") or "")).replace(" | ", "\n\n")
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
@@ -273,6 +337,7 @@ def detail(v: dict) -> str:
 <h1>{html.escape(v.get("thread_key", "Vorgang"))}</h1>
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 <table><tbody>{zeilen}</tbody></table>
+{schritte}
 <h2>Verlauf</h2>
 <pre class="notiz">{notiz or "—"}</pre>
 <footer>Quelle: mail-vorgaenge.json</footer>

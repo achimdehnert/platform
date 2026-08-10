@@ -213,3 +213,73 @@ class TestDetailseite:
     def test_should_title_the_page_with_the_thread_key(self):
         seite = tb.detail(vorgang(thread_key="vorgang-a"))
         assert "<title>vorgang-a</title>" in seite
+
+
+# --- Mail-Link und Aktionsvorschlaege auf der Vorgangsseite (#1869) ------------
+#
+# Die Vorgangsseite fuehrte bisher nicht in die zugehoerige Mail, und der
+# `next_trigger` stand nur als Tabellenzeile da. Beides ist jetzt ein Abschnitt
+# "Naechste Schritte" — mit der harten Grenze, dass dort ausschliesslich
+# ANZEIGENDE Ziele stehen: kein Knopf loest etwas aus, und es gibt keinen
+# Rueckkanal, ueber den die Seite einen Agenten beauftragen koennte.
+
+
+def test_should_link_into_the_mail_when_a_reference_exists():
+    v = vorgang(thread_key="Foerderaufruf", mail_ref="/a/118")
+    html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert "https://mail.example/a/118" in html_out
+    assert "Mail oeffnen" in html_out
+
+
+def test_should_not_render_a_dead_link_without_a_mail_reference():
+    """Gegenprobe: ohne `mail_ref` weder Link noch leerer Platzhalter."""
+    v = vorgang(thread_key="Ohne Mail")
+    html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert "Mail oeffnen" not in html_out
+    assert "mail.example" not in html_out
+
+
+def test_should_ignore_an_absolute_mail_ref_from_the_ledger():
+    """Der Ledger speist sich aus fremden Mails — ein absoluter Wert waere ein
+    offener Weiterleitungspunkt und darf nicht zum Ziel werden."""
+    for boese in ("https://fremd.example/x", "//fremd.example/x"):
+        v = vorgang(thread_key="Boese", mail_ref=boese)
+        assert tb.aktionen(v, "https://mail.example", "") == []
+
+
+def test_should_show_the_next_step_as_a_section():
+    v = vorgang(thread_key="Foerderaufruf", next_trigger="Owner-Entscheidung")
+    html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert "Naechste Schritte" in html_out
+    assert "Owner-Entscheidung" in html_out
+
+
+def test_should_keep_a_suggestion_without_target_as_plain_text():
+    """Gegenprobe: kein ableitbares Ziel -> Text, kein Knopf."""
+    v = vorgang(thread_key="", next_trigger="Owner-Entscheidung")
+    html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert "Owner-Entscheidung" in html_out
+    assert "class='aktion'" not in html_out
+
+
+def test_should_render_unchanged_for_ledger_entries_without_the_new_field():
+    """Rueckwaerts: die 17 Bestandsvorgaenge tragen `mail_ref` nicht.
+
+    Geprueft wird Bruchfreiheit, nicht Pixelgleichheit: die Seite baut, traegt
+    ihren Titel, und es taucht KEIN Mail-Ziel auf. Der Abschnitt selbst darf
+    erscheinen — er ist der Zweck der Aenderung.
+    """
+    v = vorgang(thread_key="Bestand", next_trigger="Owner-Entscheidung")
+    html_out = tb.detail(v)
+    assert "<h1>Bestand</h1>" in html_out
+    assert "Mail oeffnen" not in html_out
+    assert "class='aktion'" not in html_out
+
+
+def test_should_not_expose_any_write_endpoint():
+    """Der Dienst bleibt read-only — Kriterium 5 aus #1869, mechanisch geprueft."""
+    quelle = (
+        Path(__file__).resolve().parents[1] / "todo_board" / "todo_board.py"
+    ).read_text(encoding="utf-8")
+    for verb in ("do_POST", "do_PUT", "do_DELETE", "do_PATCH"):
+        assert verb not in quelle, f"{verb} widerspricht der read-only-Zusage"

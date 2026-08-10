@@ -124,7 +124,24 @@ Punkte du verfolgst. Zwei Ebenen:
   Status dort fort — **nicht** in einer Parallelliste.
 - **Einfache Punkte (Antwort geschickt / erledigt) → lokales Ledger** `~/.claude/mail-vorgaenge.json`
   (nur lokal, **nie** Repo/Memory — enthält Adressen/Betreffs, Charta 2). Je Eintrag:
-  `{konto, thread_key, gegenueber, typ, zustand, next_trigger, angelegt, letzte_pruefung}`.
+  `{konto, thread_key, gegenueber, typ, zustand, next_trigger, angelegt, letzte_pruefung,
+  nr, mail_ref}`.
+  **`mail_ref` (optional, platform#1869):** der Pfad, unter dem der Mail-Renderer die
+  zugehörige Mail ausliefert — Regelfall `/a/<nr>`, weil der Anker die Mail auch nach einem
+  Ordnerwechsel über die Message-ID wiederfindet. Anlegen in zwei Schritten:
+
+  ```bash
+  python3 tools/mail_agent/read_mail.py --account <konto> --folder INBOX \
+      --subject-filter "<Betreff-Fragment>" --list 3 --json      # liefert "nummer" = UID
+  python3 tools/mail_agent/anker.py --setze <nr> --account <konto> --folder INBOX --uid <UID>
+  ```
+
+  Danach `mail_ref: "/a/<nr>"` in den Vorgang schreiben. **Nur serverseitige Pfade** —
+  ein absoluter Wert wäre ein offener Weiterleitungspunkt und wird vom Board verworfen.
+  Ohne Anker bleibt das Feld weg; die Vorgangsseite zeigt dann keinen Link statt eines toten
+  (`tools/todo_board/todo_board.py`, `aktionen()`). Der Wert ist stabil: zwei Läufe für
+  denselben Vorgang ergeben denselben Pfad, weil er nur aus `nr` besteht.
+
   `/briefing` legt neue offene Punkte an; `/mailcheck` aktualisiert/entfernt sie:
   **im Ordner „Gesendete Elemente" gefunden → Punkt als erledigt schließen und aus der
   offenen Liste nehmen.**
