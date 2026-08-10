@@ -2,7 +2,7 @@
 # ║  Docu-Update Agent — Stufe 1+2                                            ║
 # ║  Trigger: Issue mit Label "docu-update" oder manuell via workflow_dispatch ║
 # ║  Stufe 1: deterministisch (README version + CHANGELOG aus git log)        ║
-# ║  Stufe 2: --llm (aifw → gpt-4o-mini für CHANGELOG-Zusammenfassungen)     ║
+# ║  Stufe 2: --llm (litellm → gpt-4o-mini für CHANGELOG-Zusammenfassungen)  ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Docu-Update Agent
@@ -54,13 +54,22 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Installiert wird, was das Skript IMPORTIERT: httpx + litellm.
+      # Vorher stand hier `aifw` — nur als Traeger fuer die transitive
+      # litellm-Abhaengigkeit. Zwei Fehler in einem: (1) die Distribution
+      # heisst seit dem Umzug `iil-aifw`; `aifw` ist auf PyPI vollstaendig
+      # zurueckgezogen (alle 5 Releases yanked, letzte 0.5.0) -> pip meldet
+      # "no matching distribution found for aifw" und der Lauf faellt
+      # (2026-08-09, Issue #1850); (2) `docu_update_agent.py` importiert
+      # `litellm` ohnehin direkt (Regel in seinem Docstring: aifw in
+      # Django-Apps, litellm in Standalone-Skripten) — aifw war nie noetig.
       - name: Install dependencies
-        run: pip install httpx aifw
+        run: pip install httpx litellm
 
       - name: Run Docu-Update Agent
         env:
           PROJECT_PAT: ${{ secrets.PLATFORM_DEPLOY_TOKEN || secrets.PROJECT_PAT }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # aifw reads this
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # litellm reads this
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number || inputs.issue_number }}"
