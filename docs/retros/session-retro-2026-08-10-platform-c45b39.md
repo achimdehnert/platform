@@ -250,11 +250,33 @@ geblockt und nicht umgangen.
 
 ## 8. Nicht verifiziert (Restlücken)
 
-- **Wirkung von B1-2 ist unbelegt.** Die Ruleset-Änderung ist nicht angewandt;
-  ob `count: 0` + `require_code_owner_review: true` die Governance-Pfade
-  weiterhin schützt, ist **Hypothese**. Billigster Check nach dem Merge: ein PR
-  auf `/docs/adr/` muss blockiert bleiben, ein PR auf `docs/retros/` muss ohne
-  Approval mergebar sein. Geht der erste durch, ist die Kontrolle weg.
+- ~~**Wirkung von B1-2 ist unbelegt.**~~ **Nachgetragen 2026-08-10 14:45Z —
+  angewandt und gegengeprüft.** Der Owner hat den PUT ausgeführt (der
+  Auto-Mode-Classifier blockt agent-initiierte Schreibzugriffe auf
+  Governance-Config als Hard-Deny, siehe unten). Ist-Zustand:
+  `required_approving_review_count: 0`, `require_code_owner_review: true`,
+  `bypass_actors: []`, `current_user_can_bypass: never`.
+
+  Zwei Gegenproben, weil eine allein nichts beweist — die eine zeigt nur den
+  Gewinn, die andere nur die Kontrolle:
+
+  | Probe | Pfad | Erwartung | Ergebnis |
+  |---|---|---|---|
+  | geschützt | `/policies/` (#1889) | bleibt reviewpflichtig | *siehe Abschnitt unten* |
+  | frei | `docs/retros/` (dieser PR) | ohne Approval mergebar | *siehe Abschnitt unten* |
+
+  Fällt die geschützte Probe durch, ist die Kontrolle **weg** statt zugeschnitten;
+  dann gilt der Rückbau aus KONZ-032 `kill_criteria (a)`: Catch-all-Zeile zurück
+  **und** Zahl zurück auf 1, beides zusammen.
+
+- **Der Agent kann Governance-Config nicht selbst schreiben.** Weder das Ruleset
+  (`gh api -X PUT …/rulesets/…`) noch eine neue Datei unter
+  `governance/rulesets/` — beides vom Auto-Mode-Classifier hart verweigert,
+  Lesezugriff funktioniert. Das ist **keine** Permission-Einstellung:
+  `permissions.allow` enthält bereits `Bash(*)`. Dokumentiert in
+  `feedback_agent_push_publish_hardblocked_use_ci`. Folge für die Praxis: solche
+  Schritte laufen über den Menschen (`! <kommando>`) oder über CI — der Agent
+  bereitet vor und verifiziert danach.
 - **Ob `wirdigital` der Owner selbst ist**, konnte nicht aus Artefakten geklärt
   werden (`admin@wir-digital.de`, `type: User`, kein Name, kein Bio). Davon hängt
   ab, ob B1-2 dem Owner ~290 Approvals im Monat abnimmt oder jemand anderem.
