@@ -28,10 +28,10 @@ Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-08-03, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste (Stand 2026-08-10, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
 
 ```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub
+risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub,137-hub
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -109,3 +109,9 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   (bahn-sqf/pg-hub#8). Betriebs-Hinweis: orchestrator-Key-Rotation 2026-08-02 war in
   `~/.claude.json` nicht nachgezogen (403 beim MCP-Bind) — Client-Nachzug gehört zur
   Rotations-Checkliste (Wiederholung von 2026-07-12, mcp-hub#175).
+- 2026-08-10: Repo-Liste +137-hub (Discovery; `achimdehnert`, kein Gov-Marker → syncbar).
+  frist-hub (meiki-lra) und ttz-hub (ttz-lif) weiter gov-ausgeschlossen (E3). 164 Entries/
+  24 Repos, R3 PASS (164/164, 3 written, Rest content_hash-Dedup). Schema-WARNs:
+  design-hub (4 Module, neu — grounding/personas/datafields-Format), nl2iot-hub (2 Module,
+  neu), pg-hub (2, bereits getrackt bahn-sqf/pg-hub#8). Producer emittiert 137-hub:ADR-002
+  doppelt (byte-identisch, Zeile 163/164) — Duplikat-Bug-Muster wie iilgmbh/iil-klickdummy#188.
