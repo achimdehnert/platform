@@ -1,5 +1,5 @@
 ---
-description: Markdown → PDF mit Design-Switcher (meiki | iil | ttz) — Datei oder Ordner
+description: Markdown → PDF mit Design-Switcher (meiki | iil | ttz | buch) — Datei oder Ordner
 ---
 # /create-pdf — IIL Print Agent
 
@@ -10,8 +10,15 @@ Erzeugt ein PDF aus einer Markdown-Datei (oder allen `.md` eines Ordners) mit de
 - `/create-pdf <pfad_zum_folder>` — **alle** `.md`-Dateien im Ordner (rekursiv)
 - `/create-pdf <pfad> --design iil` — Design explizit angeben
 
-**Verfügbare Designs:** `meiki` (Standard) · `iil` · `ttz`
+**Verfügbare Designs:** `meiki` (Standard) · `iil` · `ttz` · `buch`
 **SSoT:** `achimdehnert/platform` → `tools/print_agent/` (lokal: `${GITHUB_DIR:-~/github}/platform/tools/print_agent/`)
+
+> **`buch` ist kein umgefärbtes Geschäftsdokument, sondern ein anderer Satz**
+> (platform#1919): A5 statt A4, Serifen, jedes Kapitel auf neuer Seite,
+> Kolumnentitel mit dem Werktitel — und **keine** Kopfzeile, kein Deckblatt-Label,
+> kein Footer, kein Executive-Summary-Kasten. Für Belletristik und lange Fließtexte.
+> Gemessen an einem 24-Kapitel-Roman: 209 A5-Seiten in ~6 s.
+> Immer mit `--no-enrich` fahren — ein Zusammenfassungs-Kasten gehört in keinen Roman.
 
 ---
 
@@ -27,6 +34,11 @@ Erzeugt ein PDF aus einer Markdown-Datei (oder allen `.md` eines Ordners) mit de
 - Pfad enthält `meiki-hub` oder `meiki` → `--design meiki`
 - Dateiname enthält `Angebot` oder `angebot` → `--design iil`
 - Sonst → `--design iil`
+
+> **`buch` wird bewusst NICHT automatisch erkannt.** Ein Dateiname sagt nicht, ob
+> ein Text ein Roman ist, und ein versehentlich als Buch gesetztes Angebot verliert
+> Kopfzeile und Absender — der teurere Irrtum. Buchsatz ist deshalb immer eine
+> ausdrückliche Wahl: `--design buch`.
 
 **Output-Verzeichnis (Spiegel-Logik):**
 

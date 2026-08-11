@@ -304,6 +304,27 @@ def build_css(d: dict, extra_css: str = "") -> str:
         if extra_css.strip()
         else ""
     )
+    # Ein Design darf eine eigene CSS-Datei mitbringen (`extra_css_file`,
+    # platform#1919). Grund: `buch` ist kein umgefärbtes Geschäftsdokument,
+    # sondern braucht einen anderen SATZ — A5 statt A4, Kapitel auf neuer
+    # Seite, Kolumnentitel statt Projektkopf. Das ist zu viel für die
+    # Farbfelder des Profils und zu wenig für einen Code-Zweig.
+    #
+    # Die Datei liegt bewusst NACH base.css und VOR dem Repo-CSS: sie darf den
+    # Standardsatz überschreiben, aber ein Repo behält das letzte Wort.
+    design_css = ""
+    css_name = d.get("extra_css_file")
+    if css_name:
+        css_path = _TEMPLATES_DIR / css_name
+        if css_path.exists():
+            design_css = f"\n/* --- Design-CSS ({css_name}) ---*/\n{css_path.read_text(encoding='utf-8')}"
+        else:
+            # Laut, nicht still: ein Design, dessen CSS fehlt, sieht sonst
+            # aus wie ein Design, das keine braucht — und liefert klammheimlich
+            # den A4-Geschäftssatz zurück.
+            raise FileNotFoundError(
+                f"Design nennt extra_css_file='{css_name}', aber {css_path} existiert nicht."
+            )
     font_css = f"\n/* --- Brand-Fonts ---*/\n{font_face}" if font_face else ""
     return (
         font_css
@@ -311,6 +332,7 @@ def build_css(d: dict, extra_css: str = "") -> str:
         + _BASE_CSS_STATIC
         + brand_css
         + body_override
+        + design_css
         + repo_css
     )
 

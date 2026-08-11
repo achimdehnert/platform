@@ -80,3 +80,34 @@ designs:
       accent:  { fill: "#2E7D32", stroke: "#1B5E20", color: "#FFFFFF" }
       support: { fill: "#A5D6A7", stroke: "#1B5E20", color: "#0A3D0A" }
       muted:   { fill: "#EDF7ED", stroke: "#1B5E20", color: "#0A3D0A" }
+
+  # Belletristik statt Geschäftsdokument (platform#1919).
+  #
+  # Die drei Profile darüber setzen ein Haus: Kopfzeile mit Projektnamen,
+  # Förder-Footer, Executive-Summary-Kasten. Ein Roman braucht davon nichts —
+  # und braucht, was dort fehlt: A5, Serifen, Kapitel auf neuer Seite,
+  # Kolumnentitel mit dem WERK-Titel. Die Farbfelder bleiben trotzdem gefüllt:
+  # sie sind Pflichtfelder (build_css liest sie ohne .get), und Tabellen oder
+  # Zitate in einem Buch sollen nicht ungestylt aussehen. Gewählt ist ein
+  # zurückhaltendes Tintenschwarz statt einer Hausfarbe.
+  buch:
+    primary:       "#1C1C1C"
+    bg_light:      "#F6F4F0"
+    border:        "#D8D2C8"
+    border_dark:   "#1C1C1C"
+    row_even:      "#FAF8F5"
+    row_odd:       "#FFFFFF"
+    gantt_bg:      "#FAF8F5"
+    flow_s1:       "#1C1C1C"
+    flow_s2:       "#4A4A4A"
+    flow_s3:       "#6E6E6E"
+    # Leer, nicht sinnvoll gefüllt: der Kolumnentitel trägt den Werktitel, und
+    # den kennt erst das Dokument. buch.css blendet die Corporate-Slots aus.
+    header_left:   ""
+    cover_label:   ""
+    subtitle:      ""
+    footer_suffix: ""
+    llm_context:   "belletristischer Fließtext (Roman, Erzählung)"
+    es_label_text: ""
+    meta_template: iil
+    extra_css_file: buch.css
