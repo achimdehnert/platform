@@ -56,26 +56,17 @@ KONTO_LABEL = {"iil": "IIL", "hnu": "HNU", "ad": "Mittwald", "": "—"}
 #: und ist fuer lokale Laeufe ueberschreibbar. Host im Datenbestand waere Drift.
 MAIL_BASIS = os.environ.get("TODO_BOARD_MAIL_BASIS", "https://mail.iil.pet").rstrip("/")
 
-#: Verankerungs-Index des Mail-Dienstes: welche Board-Nummer ueberhaupt auf eine
-#: Mail zeigt. Nur gelesen — geschrieben wird die Datei von `mail_link_server.py`.
+#: Verankerungs-Index des Mail-Dienstes (IMAP-Konten): Nummer → Ordner/UID.
+#: Nur gelesen — geschrieben wird die Datei von `mail_link_server.py`/`anker.py`.
 ANKER_DATEI = Path.home() / ".claude" / "mail-anker.json"
 
+#: Kurz-ID-Registry (Graph/IIL): Kurz-ID → Graph-Nachricht. Eine Board-Nummer ist
+#: eine gueltige Kurz-ID (`^[A-Za-z0-9_-]{1,24}$`), also dient sie hier als Schluessel.
+REGISTRY_DATEI = Path.home() / ".claude" / "mail-links.json"
 
-def anker_nummern(pfad: Path = ANKER_DATEI) -> frozenset[str]:
-    """Welche Nummern hat der Mail-Dienst verankert?
 
-    Warum das Board diese Datei ueberhaupt liest: `/a/<nr>` ist fuer jeden Posten
-    dieselbe Adresse, die Nummer steht ohnehin im Ledger — die Verlinkung liesse
-    sich also blind aus `nr` ableiten. Gemessen am 2026-08-11 waeren das aber
-    **14 von 18 Links, die zuverlaessig 404 liefern**: verankert sind nur 109,
-    110, 115, 118. Ein Link, der verlaesslich ins Leere fuehrt, ist schlechter
-    als der ehrliche Hinweis "keine Mail verknuepft" (#1875). Darum die Probe.
-
-    Bewusst nur diese eine Datei: das Board spricht weiterhin kein IMAP und
-    kennt keinen Postfachinhalt — es liest ausschliesslich, welche Nummern
-    aufloesbar sind. Fehlt oder bricht die Datei, faellt die Verlinkung auf den
-    Bestandsweg zurueck (nur ausdrueckliches `mail_ref`), statt zu scheitern.
-    """
+def _schluessel(pfad: Path) -> frozenset[str]:
+    """Die Schluessel einer JSON-Objektdatei — leer, wenn sie fehlt oder bricht."""
     try:
         with pfad.open(encoding="utf-8") as fh:
             daten = json.load(fh)
@@ -84,14 +75,48 @@ def anker_nummern(pfad: Path = ANKER_DATEI) -> frozenset[str]:
     return frozenset(str(k) for k in daten) if isinstance(daten, dict) else frozenset()
 
 
+def aufloesbare_nummern(
+    anker_pfad: Path = ANKER_DATEI, registry_pfad: Path = REGISTRY_DATEI
+) -> dict[str, str]:
+    """Nummer → Pfad-Praefix, unter dem der Mail-Dienst sie wirklich aufloest.
+
+    Warum das Board diese Dateien liest: die Nummer steht ohnehin im Ledger, ein
+    Link liesse sich also blind daraus ableiten. Gemessen am 2026-08-11 waeren das
+    aber 14 von 18 Links, die zuverlaessig 404 liefern. Ein Link, der verlaesslich
+    ins Leere fuehrt, ist schlechter als der ehrliche Hinweis "keine Mail
+    verknuepft" (#1875) — darum die Probe.
+
+    **Zwei Quellen, weil der Dienst zwei Wege hat** (Fehlerbericht 2026-08-11):
+    `anker.py --setze` laeuft ueber IMAP und erreicht die HNU-Konten; IIL/Graph
+    haengt an der Kurz-ID-Registry. Eine Probe nur gegen die Ankerdatei liess
+    darum **jeden IIL-Vorgang unverlinkt**, obwohl der Dienst ihn haette aufloesen
+    koennen — genau der gemeldete Fall (Vorgang 107, LS Bau). Diese Funktion
+    spiegelt jetzt beide Wege, so wie `mail_link_server._anker()` sie kennt.
+
+    Der Praefix unterscheidet sich bewusst:
+
+    * `/a/` fuer IMAP-Anker — der Dienst rendert die Mail selbst.
+    * `/r/` fuer Graph — rendert ebenfalls selbst. **Nicht** `/i/`: das leitet auf
+      OWA weiter, und OWA laesst sich weder einbetten noch schnell lesen.
+
+    Faellt eine Datei aus, faellt nur ihr Zweig weg — nicht die ganze Verlinkung.
+    """
+    ziele = {nr: "/r/" for nr in _schluessel(registry_pfad)}
+    # IMAP-Anker gewinnt: er traegt Ordner + UID + Message-ID und zieht bei einem
+    # Ordnerwechsel nach, waehrend die Registry nur eine Graph-id festhaelt.
+    ziele.update({nr: "/a/" for nr in _schluessel(anker_pfad)})
+    return ziele
+
+
 def mail_ziel(
-    v: dict, mail_basis: str = MAIL_BASIS, anker: frozenset[str] | None = None
+    v: dict, mail_basis: str = MAIL_BASIS, anker: dict[str, str] | None = None
 ) -> str | None:
     """Die URL zur Mail dieses Vorgangs — oder None, wenn keine erreichbar ist.
 
     Zwei Wege, in dieser Reihenfolge:
     1. ausdrueckliches `mail_ref` im Ledger (Bestandsweg, gewinnt immer),
-    2. Ableitung `/a/<nr>` — aber nur, wenn die Nummer wirklich verankert ist.
+    2. Ableitung aus `nr` — aber nur ueber den Praefix, unter dem der Dienst die
+       Nummer wirklich aufloest (`/a/` IMAP-Anker, `/r/` Graph-Registry).
 
     Weg 2 loest den Handgriff ab, mit dem `/mailcheck` `mail_ref` bisher von Hand
     nachtrug (K1 aus #1869): neue Vorgaenge tragen ihren Link, sobald der
@@ -108,8 +133,9 @@ def mail_ziel(
     nr = v.get("nr")
     if nr in (None, ""):
         return None
-    verankert = anker_nummern() if anker is None else anker
-    return f"{mail_basis}/a/{quote(str(nr), safe='')}" if str(nr) in verankert else None
+    ziele = aufloesbare_nummern() if anker is None else anker
+    praefix = ziele.get(str(nr))
+    return f"{mail_basis}{praefix}{quote(str(nr), safe='')}" if praefix else None
 
 
 def heute() -> date:
@@ -162,7 +188,7 @@ def zeile(
     stichtag: date,
     basis: str = "",
     mail_basis: str = MAIL_BASIS,
-    anker: frozenset[str] | None = None,
+    anker: dict[str, str] | None = None,
 ) -> str:
     tage = frist_tage(v, stichtag)
     klasse, text = ampel(tage)
@@ -211,7 +237,7 @@ def abschnitt(
     stichtag: date,
     basis: str = "",
     mail_basis: str = MAIL_BASIS,
-    anker: frozenset[str] | None = None,
+    anker: dict[str, str] | None = None,
 ) -> str:
     if not posten:
         return ""
@@ -359,7 +385,7 @@ def aktionen(
     v: dict,
     mail_basis: str = MAIL_BASIS,
     basis: str = "",
-    anker: frozenset[str] | None = None,
+    anker: dict[str, str] | None = None,
 ) -> list[tuple]:
     """Naechste Schritte als Ziele — ausschliesslich anzeigend.
 
@@ -390,7 +416,7 @@ def naechste_schritte(
     v: dict,
     mail_basis: str = MAIL_BASIS,
     basis: str = "",
-    anker: frozenset[str] | None = None,
+    anker: dict[str, str] | None = None,
 ) -> str:
     """Abschnitt 'Naechste Schritte': der Text aus dem Ledger plus erreichbare Ziele."""
     text = str(v.get("next_trigger") or "").strip()
@@ -435,7 +461,7 @@ def detail(
     v: dict,
     mail_basis: str = MAIL_BASIS,
     basis: str = "",
-    anker: frozenset[str] | None = None,
+    anker: dict[str, str] | None = None,
 ) -> str:
     """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
     zeilen = "".join(
@@ -473,14 +499,14 @@ def baue(
     stichtag: date,
     basis: str = "",
     mail_basis: str = MAIL_BASIS,
-    anker: frozenset[str] | None = None,
+    anker: dict[str, str] | None = None,
 ) -> str:
     posten = daten.get("vorgaenge", [])
     # Einmal je Seitenaufbau lesen statt einmal je Zeile: die Datei aendert sich
     # waehrend eines Aufbaus nicht, und 18 Dateizugriffe fuer 18 Zeilen waeren
     # Verschwendung. `None` heisst hier "noch nicht geladen", nicht "leer".
     if anker is None:
-        anker = anker_nummern()
+        anker = aufloesbare_nummern()
     nach_bucket: dict[str, list[dict]] = {k: [] for k, _, _ in BUCKETS}
     # Ein Vorgang ohne bekannten Bucket verschwindet nicht — er landet sichtbar
     # bei "Dein Zug", damit eine fehlende Klassifikation auffaellt statt zu schweigen.
