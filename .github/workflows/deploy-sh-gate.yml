@@ -48,6 +48,29 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           shellcheck -S warning scripts/deploy.sh tools/deploy-script-drift.sh
 
+      # platform#1078: ein Aenderung an deploy.sh OHNE Bump von DEPLOY_SH_VERSION
+      # macht die Drift unsichtbar — Git und Host tragen dann dieselbe Version bei
+      # unterschiedlichem Inhalt, und nur der md5-Vergleich faellt noch auf.
+      # Realfall: PR #1898 (+27 Zeilen) liess die Version auf 2026-08-10.1 stehen;
+      # deploy-script-drift.sh meldete DRIFT, die VERSION-Spalte sah unauffaellig aus.
+      - name: DEPLOY_SH_VERSION mitgezogen?
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git fetch -q origin "${{ github.base_ref }}"
+          if ! git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- scripts/deploy.sh; then
+            alt=$(git show "origin/${{ github.base_ref }}:scripts/deploy.sh" | grep -m1 '^DEPLOY_SH_VERSION=')
+            neu=$(grep -m1 '^DEPLOY_SH_VERSION=' scripts/deploy.sh)
+            if [ "$alt" = "$neu" ]; then
+              echo "::error title=DEPLOY_SH_VERSION nicht gebumpt::scripts/deploy.sh wurde geaendert, \
+          $neu ist unveraendert. Host-Drift waere danach nur noch per md5 erkennbar."
+              exit 1
+            fi
+            echo "✓ Version mitgezogen: $alt -> $neu"
+          else
+            echo "✓ deploy.sh unveraendert — kein Bump noetig"
+          fi
+
       - name: Vertragstest Migrations-Gate
         run: bash tests/test_deploy_migrate_gate.sh
 
