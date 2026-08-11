@@ -19,6 +19,7 @@ evidence_manifest:
   - {claim_id: C7, source_path: "dev-hub mail_vorgang liste (prod, via SSH)", commit_or_pr: "n/a (Laufausgabe)", opened_in_session: true}
   - {claim_id: C8, source_path: "zwei externe Reviews dieses Konzepts (Owner-Eingabe 2026-08-11, Sitzungs-Kanal; Rohtexte nicht im Repo)", commit_or_pr: "n/a", opened_in_session: true}
   - {claim_id: C9, source_path: "platform/docs/adr/ADR-288-mail-recherche-hybride-projektion.md §1.4.1 + §1.4.2", commit_or_pr: "status proposed", opened_in_session: true}
+  - {claim_id: C10, source_path: "dev-hub apps/mail_agent/management/commands/mail_wartet.py (REC-2-Umsetzung, Lauf gegen Produktivbestand 2026-08-11)", commit_or_pr: "dev-hub#267 (offen)", opened_in_session: true}
 created: 2026-08-11
 ---
 
@@ -369,28 +370,56 @@ Fähigkeiten damit wachsen, und damit befangen. Kriterien statt Antwort in §12 
 | B6 | ADR-293 hat die Volltext-Beschränkung für die Mail-Lane aufgehoben — die Schemaform stammt noch von davor | C5 |
 | B7 | 3 von 16 Vorgängen haben keinen Mailbezug | C6 |
 | B8 | Identität ist Gegenüber × Sache, nicht Gegenüber | C6 (13 Gegenüber / 16 Vorgänge) |
-| B9 | `UUID PK` in C1 widerspricht **ADR-109 Fix H-1**; `JSONB` ist in keinem ADR geregelt | C1 §5, ADR-109 §Fix H-1 |
+| B9 | `UUID PK` in C1 verletzt **keine** belegte plattformweite Norm — die Konvention wird als Standard behandelt, ohne einer zu sein | ADR-022, ADR-109, ADR-097/139/146/153/172 |
 | B10 | Zwei konkurrierende Vorgangsbestände existieren bereits | C6, C7 |
+| B11 | Die Wartezeit-Verteilung steigt monoton — kein Tal zwischen „wartet noch" und „vorbei" | dev-hub#267, Lauf gegen Prod 2026-08-11 (C10) |
 
-**Korrektur zu B9 (2026-08-11, nach externer Zweitmeinung C8).** Die erste Fassung dieses
-Befundes nannte ADR-022 als verletzte Norm. **Das ist falsch und wurde beim Nachprüfen
-widerlegt:** ADR-022 ist der *Platform Consistency Standard* und regelt Dockerfile,
-Compose, Ports, Health-Endpunkte und CI/CD — Primärschlüssel oder Spaltentypen kommen darin
-nicht vor (`grep -nE "UUID|JSONB" ADR-022*.md` → keine Treffer). Die tatsächlich
-einschlägige Norm ist **ADR-109 Fix H-1**: `id = BigAutoField(primary_key=True)` plus
-`public_id = UUIDField(...)`, beide als „Platform-Pflicht" bezeichnet.
+**Korrektur zu B9 — zweifach, und die erste Korrektur war selbst zu weit gefasst.**
 
-**Konsequenz — der Neubau folgt ADR-109 Fix H-1, nicht C1 §5.** Vorgangs- und Aufgaben-Objekte
-bekommen einen `BigAutoField`-Primärschlüssel und eine separate `public_id`. Die von der
-externen Zweitmeinung geforderte *stabile, nicht aus dem Inhalt berechnete* Vorgangsidentität
-ist damit erfüllt — sie hängt an der Existenz einer eigenen ID, nicht an deren Typ. Zwei
-Reste sind ausdrücklich benannt und **nicht** mit diesem Absatz erledigt:
+*Erste Fassung:* „widerspricht ADR-022". **Falsch.** ADR-022 ist der *Platform Consistency
+Standard* und entscheidet Dockerfile, Compose, Ports, Health-Endpunkte und CI/CD;
+`grep -nE "UUID|JSONB" ADR-022*.md` liefert **null Treffer**.
 
-- Die Plattform ist an dieser Stelle selbst nicht einheitlich (ADR-028 verwendet UUID-PKs;
-  ADR-137 §2.6 führt die Ablösung in risk-hub als offenen Hygiene-Punkt). Der Neubau folgt
-  der Norm, nicht dem verbreitetsten Muster.
-- Für `JSONB` existiert **keine** Norm. Die Wahl ist damit frei, aber begründungspflichtig
-  im ADR, das aus diesem Konzept entsteht — nicht stillschweigend aus C1 zu übernehmen.
+*Zweite Fassung (2026-08-11, ebenfalls hier):* „die einschlägige Norm ist ADR-109 Fix H-1".
+**Zu weit.** Der Text existiert wörtlich — `id = BigAutoField(primary_key=True)` und
+`public_id = UUIDField(...)`, beide mit dem Zusatz „Platform-Pflicht" —, aber er steht
+**innerhalb der Definition von `TenantModel`** aus `django_tenancy`, und ADR-109 adressiert
+laut Kopf „alle Django-Hub-Repos mit **Frontend-UI**" im Rahmen der Mandantenführung. Er
+bindet also mandantengeführte Modelle in Hubs mit aktiver Tenancy — kein flächendeckender
+Primärschlüssel-Standard für jedes Modell jedes Repos.
+
+*Belegter Stand.* Die Konvention lebt real in **App-ADRs** — ADR-097, 139, 146, 153, 172
+enthalten je 1–3 Treffer auf `BigAutoField`/`DEFAULT_AUTO_FIELD` — und wird in der
+Constraint-Liste des `/prompt`-Skills als „ADR-022 (Database-First)" geführt, also unter
+einer Nummer, die sie nicht enthält. Gegenläufig: ADR-028 verwendet UUID-PKs, ADR-137 §2.6
+führt die Ablösung in risk-hub als offenen Hygiene-Punkt.
+
+**Konsequenz.** Der Neubau folgt der App-Konvention `BigAutoField` + `public_id` — nicht,
+weil eine Norm ihn zwingt, sondern weil es das verbreitete Muster ist und die von der
+externen Zweitmeinung geforderte *stabile, nicht aus dem Inhalt berechnete* Identität erfüllt
+(sie hängt an der Existenz einer eigenen ID, nicht an deren Typ). Ob ADR-109 zusätzlich
+bindet, entscheidet sich erst mit REC-7 (Ort) und der dortigen Tenancy-Einstellung. Zwei
+Reste bleiben ausdrücklich offen:
+
+- **Eine als Standard behandelte Konvention ohne Standard ist selbst ein Befund.** Ob sie
+  einen eigenen ADR bekommt, ist zu entscheiden — nicht in diesem Konzept.
+- Für `JSONB` existiert **keine** Norm. Die Wahl ist frei, aber im Folge-ADR
+  begründungspflichtig, nicht stillschweigend aus C1 zu übernehmen.
+
+**Zu B11 — das ist die erste harte Messung zur Kernfrage.** Der MVP (REC-2, dev-hub#267)
+maß gegen den Produktivbestand: 28 Fälle im Fenster 7–14 Tage, 21 bei 15–30, 34 bei 31–60,
+14 bei 61–90, 65 bei 91–180, 120 bei 181–365, 149 darüber. Die Verteilung steigt **monoton
+mit dem Alter**; es gibt keine Senke, an der sich „wartet noch" von „ist längst vorbei"
+trennen ließe. Jede Obergrenze ist damit eine Setzung, keine Entdeckung — gewählt wurden 30
+Tage (Owner-Entscheid), Ergebnis 49 statt 431 Zeilen.
+
+**Zwei Folgerungen, die im MVP selbst nicht stehen.** Erstens: Das Alter allein trägt die
+Information nicht — genau das, was eine Vorgangs-Zustandsmaschine liefern soll. B11 spricht
+damit **für** Option C, nicht gegen sie. Zweitens: Die 49 sind **Gegenüber, keine Vorgänge**.
+Nach B8 ist Identität Gegenüber × Sache; ein Gegenüber mit zwei getrennten Sachen erzeugt im
+MVP eine Zeile statt zwei. **49 ist eine Untergrenze**, und der Abstand zur echten Zahl ist
+zugleich das erste greifbare Maß dafür, wie viel die Vorgangserkennung überhaupt hinzufügt.
+Er ist ungemessen und aus Kopfdaten allein erhebbar.
 
 ---
 
@@ -411,7 +440,7 @@ Reste sind ausdrücklich benannt und **nicht** mit diesem Absatz erledigt:
 | ID | Empfehlung | Konkret |
 |---|---|---|
 | REC-1 | Nutzen einmal messen, bevor gebaut wird | Zwei Wochen mitschreiben, wie lange das Auffinden offener Punkte dauert. Ohne diese Zahl ist die Aufwandsentscheidung gefühlsbasiert. |
-| REC-2 | Die kleine Lösung zuerst | „Gegenüber ohne Antwort seit N Tagen" rein aus Kopfdaten, ohne LLM und Vektor. Misst den Großteil des Nutzens zu einem Bruchteil der Kosten und ist die Vergleichsbasis für alles Weitere. |
+| REC-2 | Die kleine Lösung zuerst | **Gebaut am 2026-08-11** — `mail_wartet`, dev-hub#267 (C10): „Gegenüber ohne Antwort seit N Tagen" rein aus Kopfdaten, ohne LLM und Vektor, Deckung geerbt aus `mail_suche`. Ergebnis und Grenze in B11. Die Vergleichsbasis existiert damit; was sie **nicht** liefert, ist der Nutzenwert — dafür bleibt REC-1 offen. |
 | REC-3 | Vektoren erst nach Messung | Die Notwendigkeit ist an einem Fall belegt. Vor dem Einbau an einer geschichteten Stichprobe zeigen, wie oft Thread und Beteiligte allein nicht ausreichen. |
 | REC-4 | Referenzmenge klein und geschichtet | Statt 500 annotierter Mails: 60–80 über die schwierigen Klassen (Weiterleitung, generischer Betreff, Ordnerwechsel, Mehrfachkopien, zwei Sachen bei einem Gegenüber). Ablage im Geltungsbereich der Datenhoheit. |
 | REC-5 | Deckung ins Schema, nicht ins Dashboard | Jede aggregierte Aussage referenziert die Generation und den Deckungsstand, aus dem sie stammt. Nicht nachrüstbar. |
@@ -437,7 +466,7 @@ ohne Aufgaben-Ableitung), wenn eines eintritt:
 |---|---|---|
 | (a) Zuordnungsgenauigkeit **klar unter 80 %** — Bandregel unten | offen | Referenzmenge existiert nicht (REC-4) |
 | (b) Über 10 % der **in einem Produktionsmonat erzeugten** Aufgaben sind falsch | offen | Nenner und Fenster jetzt benannt |
-| (c) REC-2 zeigt: die kleine Lösung deckt den Nutzen bereits ab | offen | nicht gebaut |
+| (c) REC-2 zeigt: die kleine Lösung deckt den Nutzen bereits ab | **gebaut, unentschieden** | dev-hub#267 (C10), Auswertung unten |
 | (d) Für **eines** der drei Konten ist keine Verarbeitung zulässig — Nutzenanteil unten | offen | Klassifikation fehlt |
 | (e) Bis 2026-11-11 ist der Ort (REC-7) nicht entschieden | offen | `review_by` |
 
@@ -464,6 +493,15 @@ erzeugten Aufgaben. Grund für den Wechsel des Bezugs: Eine falsch erzeugte Aufg
 dort, wo sie jemandem vorgelegt wird, nicht auf einer Testmenge — und die Referenzmenge misst
 Zuordnung, nicht Aufgaben-Erzeugung. Die Zählung setzt voraus, dass Ablehnungen dauerhaft
 gespeichert werden (REC-9).
+
+**Zu (c) — gebaut, und die Messung entscheidet es nicht.** REC-2 existiert seit 2026-08-11
+(dev-hub#267, C10). Sie widerlegt (c) nicht und bestätigt es nicht: Der Melder liefert 49
+verwertbare Zeilen statt 431, aber B11 zeigt, dass er ab ~30 Tagen nicht mehr trennen kann,
+und die 49 sind Gegenüber statt Vorgänge. **Wer daraus jetzt „also die große Lösung" macht,
+ersetzt einen ungemessenen Schluss durch einen anderen** — ob 49 Zeilen den Bedarf decken,
+ist keine Eigenschaft der Verteilung, sondern die Frage von REC-1, und REC-1 ist ungemessen.
+Kriterium (c) bleibt deshalb ausdrücklich **unentschieden**, nicht „bestanden". Es wird
+entscheidbar, sobald REC-1 vorliegt und der Abstand Gegenüber→Vorgang (B11) beziffert ist.
 
 **Zu (d) — „zwei der drei Konten" war gegriffen.** Die Schwelle stand ohne Begründung und ist
 korrigiert. Die drei Konten tragen ungleichen Nutzen, und das entscheidende ist nicht die
@@ -582,3 +620,31 @@ stützt die Empfehlung — aber es gehört in §8, nicht in eine Fußnote der Kr
 
 **Eine dritte Runde jetzt würde den alten Stand kritisieren.** Sie ist erst nach Schließung
 der vier offenen Punkte sinnvoll.
+
+### 14.4 Gegenprobe am gebauten MVP
+
+Wenige Stunden nach dieser Auswertung wurde REC-2 gebaut (dev-hub#267, C10). Damit sind zwei
+Aussagen aus §14.1 nicht mehr Herleitung, sondern Befund — und eine dritte kommt hinzu, die
+keine der beiden Runden vorhergesehen hat.
+
+| Aussage in §14.1 | Stand nach dem MVP |
+|---|---|
+| REC-2 ist nicht schema-frei, die Deckung muss von Tag 1 mit | **belegt** — `open` nur bei vollständiger Deckung, sonst `likely_open`; geerbt aus `mail_suche`, nicht neu gebaut |
+| REC-2 ist vom Zirkularitäts-Einwand nicht berührt | **belegt** — `inhaltsfrage=False` ist ausdrückliche Festlegung; gelesen wird der Umschlag, nicht der Text |
+| — | **neu: B11**, die Verteilung hat kein Tal |
+
+Drei Grenzen des MVP bestätigen zugleich Festlegungen dieses Konzepts, ohne dass er sie
+verletzt — er beansprucht sie nicht:
+
+- **Aufgaben ohne Mailbezug (§7.3)** sind für ihn strukturell unsichtbar. Er kann *die*
+  Arbeitssicht nie sein, nur eine Spalte darin.
+- **B2 (22 Nachrichten ohne Datum)** trifft ihn unmittelbar, weil er über das Alter filtert:
+  Sie fallen aus jedem Fenster und erscheinen in keiner Zeile der Verteilung. Das ist der
+  praktische Fall zu **REC-10** — und dort in der schärferen Form, weil ein
+  `INTERNALDATE`-Fallback die Verteilung verschöbe, ohne dass es jemand sähe.
+- **B8 (Gegenüber × Sache)** wird von ihm bewusst nicht bedient; daher die Untergrenze in B11.
+
+Eine Festlegung des MVP ist **besser als alles, was dieses Konzept dazu schreibt**: Die
+Zweiseitigkeits-Bedingung („nur Gegenüber, denen ich selbst geschrieben habe") entfernt
+Verteiler, ohne dass jemand eine Ausschlussliste pflegt. §7.2 diskutiert Ausschlussregeln,
+ohne eine anzugeben, die sich selbst trägt. Sie gehört bei einem Neubau übernommen.
