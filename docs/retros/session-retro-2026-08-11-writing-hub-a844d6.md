@@ -70,7 +70,25 @@ recurring_findings: [drift-threshold-calibrated-unit-applied-blind, deferred-ite
 - **`risiko_debt` ist mit Ø 2,54 (n=74) die schwächste Dimension über alle Retros** — diese Sitzung liegt mit **2** darunter und bestätigt das Muster, statt es zu brechen.
 - `refuted_rate`-Band gesund (weder 3× >0,8 noch <0,2); dieser Lauf liegt mit **0,43** am oberen Rand der letzten acht Werte — die Finder-Phase war zu weich (siehe Self-Review).
 - Recurrence dieser Sitzung, mit den **Zahlen des Werkzeugs** statt eigener Zählung:
-  - `deferred-item-no-tracking-issue` → **×13** (mit F5 dieser Sitzung), längst gate-pflichtig. Dreizehn Vorkommen und weiterhin kein Gate: das ist der eigentliche Skandal dieses Längsschnitts, nicht F5.
+  - `deferred-item-no-tracking-issue` → **×13** (mit F5 dieser Sitzung), längst gate-pflichtig.
+
+    > **Korrektur 2026-08-11 (nach Owner-Rückfrage).** Hier stand: „Dreizehn Vorkommen und
+    > weiterhin kein Gate — das ist der eigentliche Skandal dieses Längsschnitts." **Das war
+    > falsch.** Das Gate existiert: `~/.claude/hooks/deferred_item_scanner.py` (ausführbar,
+    > angelegt 2026-08-10 11:52), in `settings.json` verdrahtet, an `gate_hits.py` (platform
+    > #1868) angeschlossen. `~/.claude/hooks/gate-hits.jsonl` zählt **66 Treffer** für diesen
+    > Slug und 36 für `scope-checkpoint-not-durably-recorded` — es feuert also laufend, auch
+    > während dieser Sitzung. Der Regel-Ritual-Workflow (`regel-ritual.yml`, cron 2./16.,
+    > zuletzt grün 2026-08-09) wertet die Zahlen gegen Tracking-Issue #1640 aus; offen ist
+    > dort nur noch die **Falsch-Positiv-Auswertung**, für die es seit 2026-08-10 erstmals
+    > Daten gibt.
+    >
+    > Der Fehler ist eine **Absenz-Behauptung ohne zweiten Suchpfad**: „kein Gate" wurde aus
+    > dem Zähler geschlossen, der nur Retro-Frontmatter liest, statt einmal `ls ~/.claude/hooks/`
+    > zu machen. Genau die Klasse, die in writing-hub als
+    > `drift-absence-claim-needs-second-search-path` dokumentiert ist — und sie stand in
+    > diesem Report als dessen zentrale Aussage. Die ×13 sind echt; sie zählen Retros, nicht
+    > fehlende Gates.
   - `drift-threshold-calibrated-unit-applied-blind` → **×1 im Retro-Korpus** (nur dieser Report). Die zweite Instanz liegt als **Repo-Memory** in writing-hub, nicht als Retro-Frontmatter — `retro_kpis.py` sieht sie deshalb nicht. Über beide Quellen gezählt ist es ×2; für die maschinelle Gate-Schwelle zählt aber nur die ×1. Wer hier „×2 ⇒ Gate" schreibt, überschreibt die Werkzeugzahl mit einer Handzählung — genau die Vermischung, die F7 zum Thema hat.
 
 ### 5b. Autonomie-Kalibrierung
