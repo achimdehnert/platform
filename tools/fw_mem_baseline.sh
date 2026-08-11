@@ -59,3 +59,31 @@ for c in $(ssh "$HOST" 'docker ps --format "{{.Names}}"' | grep -E '(web|worker|
     echo "| $c | kein python | — | — |"
   fi
 done
+
+# Optional: App-Boot-Analyse fuer EINEN Container — deckt Nicht-fw-Schwergewichte
+# auf (platform#1899, Option "Top-Importe je App-Boot").
+# Usage: bash tools/fw_mem_baseline.sh <host> <container>
+if [ $# -ge 2 ]; then
+  C="$2"
+  echo
+  echo "## App-Boot-Analyse: $C"
+  echo
+  echo "### RSS des vollen App-Imports (config.wsgi)"
+  echo '```'
+  echo '
+import resource
+base = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+try:
+    import config.wsgi  # noqa: F401
+    cur = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+    print(f"config.wsgi: +{cur - base:.1f} MiB")
+except Exception as exc:
+    print(f"config.wsgi nicht importierbar: {type(exc).__name__}")
+' | ssh "$HOST" "docker exec -i $C python -" 2>&1
+  echo '```'
+  echo
+  echo "### Top-15 Importe nach kumulierter Zeit (Proxy fuer Schwergewichte)"
+  echo '```'
+  ssh "$HOST" "docker exec $C python -X importtime -c 'import config.wsgi' 2>&1 | sort -t'|' -k2 -rn | head -15"
+  echo '```'
+fi
