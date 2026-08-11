@@ -115,3 +115,8 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   design-hub (4 Module, neu — grounding/personas/datafields-Format), nl2iot-hub (2 Module,
   neu), pg-hub (2, bereits getrackt bahn-sqf/pg-hub#8). Producer emittiert 137-hub:ADR-002
   doppelt (byte-identisch, Zeile 163/164) — Duplikat-Bug-Muster wie iilgmbh/iil-klickdummy#188.
+- 2026-08-11: Turnus-Lauf ohne Abweichung — 164 Entries/24 Repos, R3 PASS (164/164,
+  1 written: tax-hub ADR-001, Rest content_hash-Dedup). nl2iot-hub-Schema-WARNs jetzt
+  getrackt ([iilgmbh/nl2iot-hub#5](https://github.com/iilgmbh/nl2iot-hub/issues/5));
+  design-hub bereits getrackt (design-hub#36/#38). Hinweis: nl2iot-hub-Remote zeigt
+  lokal noch auf `achimdehnert` (Org-Transfer → GitHub-Redirect, stale-owner-Muster).
