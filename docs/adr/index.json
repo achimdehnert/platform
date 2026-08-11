@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-03",
-  "total": 239,
-  "next_free": 294,
+  "generated": "2026-08-11",
+  "total": 240,
+  "next_free": 295,
   "adrs": [
     {
       "number": 7,
@@ -5515,6 +5515,21 @@
         "ADR-288"
       ],
       "implementation_status": "partial"
+    },
+    {
+      "number": 294,
+      "id": "ADR-294",
+      "file": "ADR-294-llm-gateway-statt-litellm-je-prozess.md",
+      "title": "LLM-Gateway statt litellm in jedem Prozess",
+      "status": "proposed",
+      "date": "2026-08-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "not_started"
     },
     {
       "number": 400,
