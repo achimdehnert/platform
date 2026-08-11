@@ -1776,3 +1776,14 @@ schlimmer wäre als keiner. Der Auto-Reap-Fehler als #1881. Die IaC-Datei für d
 die ich nicht schreiben darf. Und die Erkenntnis, die keine Zeile Code braucht: die Reibung
 lag nie bei den Gates. Sie lag bei einer Zahl, die seit einem Monat in einem Plan stand, auf
 den ein Fehlzeiger im Policy-Text zeigte.
+
+---
+
+### 2026-08-11 · Session lazy-litellm/fw-wellen (Kapitäns-Kanal)
+
+- #1899 K1–K5 erfüllt (litellm lazy 0.11.7 + preload-Fleet, Host 15–16→13,4 GB)
+- #1900: 13 Consumer SSoT-konform, finaler Scan im Issue, Ausnahmen getrackt
+- ADR-294 proposed gemergt; SSoT-Regeln 5+6 in PR #1917 (Review offen)
+- wedding-hub /delete-repo Phase 0–2 (wartet auf ARCHIVIEREN-Formel)
+- weltenhub: Runner→prod-b, /opt/scripts provisioniert (IaC-Spiegel offen, #49)
+- Offen: risk-Prod-Redispatch (#578), 137-hub#86, travel-beat#79, tax-Preload-Trigger
