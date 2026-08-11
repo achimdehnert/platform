@@ -1787,3 +1787,9 @@ den ein Fehlzeiger im Policy-Text zeigte.
 - wedding-hub /delete-repo Phase 0–2 (wartet auf ARCHIVIEREN-Formel)
 - weltenhub: Runner→prod-b, /opt/scripts provisioniert (IaC-Spiegel offen, #49)
 - Offen: risk-Prod-Redispatch (#578), 137-hub#86, travel-beat#79, tax-Preload-Trigger
+
+### 2026-08-11 · Delta 11:30 (gleiche Session)
+
+- wedding-hub ARCHIVIERT (Owner-Formel), Tombstone #1924, Registry-Cleanup #1925 gemergt
+- risk-Prod verifiziert 0.11.8 + preload (letzte aifw-App live)
+- #1917 (SSoT-Regeln 5+6) + #1918 (Handover) gemergt; skip-ci-Substring-Falle in Memory nachgetragen
