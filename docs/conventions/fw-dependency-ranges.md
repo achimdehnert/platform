@@ -24,3 +24,13 @@
 4. **Long-Tail-Frameworks** (outlinefw, researchfw, nl2cadfw, learnfw, weltenfw,
    illustrationfw, riskfw, adrfw) sind nicht Teil dieser SSoT — je 1–3 Nutzer,
    Harmonisierung lohnt erst bei Mehrfachnutzung.
+5. **Lock-basierte Repos: Range-Bump OHNE Lock-Regenerierung ist wirkungslos.**
+   Wo ein Lockfile die Installations-SSoT ist (z. B. risk-hub: `uv.lock`, Dockerfile
+   exportiert den Lock), MUSS die Bump-Welle das Lock mit regenerieren
+   (`uv lock --upgrade-package …`) — sonst läuft Prod trotz gemergtem pyproject-Bump
+   auf dem alten Stand. Realfall 2026-08-11: risk-hub Prod blieb auf iil-aifw 0.11.5,
+   Fix iilgmbh/risk-hub#578. Kontroll-Scan muss deshalb Lockfiles mit prüfen,
+   nicht nur pyproject/requirements.
+6. **Rename-Altlasten:** Das alte PyPI-Paket `aifw` ist vollständig yanked, `weltenfw`
+   heißt auf PyPI `iil-weltenfw` — alte Namen brechen pip-audit/Resolver
+   (Realfall travel-beat#78). Beim Kontroll-Scan auf Alt-Namen mitprüfen.
