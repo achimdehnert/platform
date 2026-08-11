@@ -66,6 +66,16 @@
       "built": "2026-08-02",
       "ref": "Retro 287b23 #1 / PR #1660",
       "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad."
+    },
+    {
+      "slug": "aufschub-anker",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/deferral_anchor_check.py",
+      "drill": "tools/tests/test_deferral_anchor_check.py",
+      "built": "2026-08-10",
+      "ref": "platform#1650",
+      "note": "EIN Gate fuer vier Slugs (s. GATE_HEADER.covers): workaround-without-tracking-anchor, planned-phase-no-issue, tracking-doc-stale-after-new-occurrence, deferred-item-no-tracking-issue. Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut."
     }
   ]
 }
