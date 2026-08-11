@@ -413,6 +413,17 @@ domains:
     lifecycle: production
     tenancy_mode: subdomain
     demo_fixture: false
+    envs:
+    - dev
+    - prod
+    envs_evidence:
+      regel: 'KONZ-platform-022 L5: Staging nur bei (echte Daten/Nutzer) UND (>=8 Struktur-Aenderungs-Commits
+        pro Quartal)'
+      gemessen_am: 2026-08-11
+      struktur_commits_90d: 6
+      prod_datenbestand: 2 Mandanten, 0 Bescheide, 1 Nutzer
+      ergebnis: unter Schwelle (6 < 8) — kein Staging
+      entscheidung: Owner 2026-08-11 — nur dev und prod
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
     deploy:
