@@ -7,7 +7,7 @@ owner: Achim Dehnert
 spec_refs: []
 adr_threshold: org-weiter ADR
 review_by: 2026-11-11
-kill_criteria: "Die Genauigkeit der Vorgangs-Zuordnung bleibt auf einer annotierten Referenzmenge unter 80 % ODER der Anteil falsch erzeugter To-dos übersteigt 10 % — dann ist die abgeleitete Arbeitssicht nicht vertrauenswürdig und das Vorhaben endet bei Stufe 2 (Suche und Verlauf), ohne Aufgaben-Ableitung."
+kill_criteria: "Die Zuordnungsgenauigkeit liegt auf der geschichteten Referenzmenge samt Konfidenzintervall vollständig unter 80 % ODER der Anteil falsch erzeugter Aufgaben übersteigt im ersten Produktionsmonat 10 % der in diesem Monat erzeugten Aufgaben — dann ist die abgeleitete Arbeitssicht nicht vertrauenswürdig und das Vorhaben endet bei Stufe 2 (Semantic Foundation nach C1: Suche und Verlauf, ohne Aufgaben-Ableitung)."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "~/shared/Technisches Konzept_ Mail Activity Intelligence System.md", commit_or_pr: "n/a (Owner-Eingabe 2026-08-11)", opened_in_session: true}
@@ -17,6 +17,8 @@ evidence_manifest:
   - {claim_id: C5, source_path: "platform/docs/adr/ADR-293-mail-vollstaendige-verfuegbarkeit-statt-just-in-time.md", commit_or_pr: "73d2419e (main)", opened_in_session: true}
   - {claim_id: C6, source_path: "~/.claude/mail-vorgaenge.json", commit_or_pr: "n/a (lokal)", opened_in_session: true}
   - {claim_id: C7, source_path: "dev-hub mail_vorgang liste (prod, via SSH)", commit_or_pr: "n/a (Laufausgabe)", opened_in_session: true}
+  - {claim_id: C8, source_path: "zwei externe Reviews dieses Konzepts (Owner-Eingabe 2026-08-11, Sitzungs-Kanal; Rohtexte nicht im Repo)", commit_or_pr: "n/a", opened_in_session: true}
+  - {claim_id: C9, source_path: "platform/docs/adr/ADR-288-mail-recherche-hybride-projektion.md §1.4.1 + §1.4.2", commit_or_pr: "status proposed", opened_in_session: true}
 created: 2026-08-11
 ---
 
@@ -70,6 +72,48 @@ Konzept entstand. Was nicht gemessen wurde, ist als solches gekennzeichnet.
 Referenzmenge; die Laufzeit einer Einbettung über den Gesamtbestand; ob `pgvector` in der
 dev-hub-Datenbank aktiviert ist (nur im Orchestrator belegt). Alle drei gehören in Stufe 0
 jeder Variante.
+
+### 2.1 Zwei Zählungen, zwei Bezugsrahmen — keine Abweichung
+
+Dieses Dokument nennt zwei Bestandszahlen, die einander zu widersprechen scheinen. Sie
+messen Verschiedenes:
+
+| Zahl | Was gezählt wurde | Umfang | Quelle |
+|---|---|---|---|
+| **11.964** Nachrichten | **eingelesener** Bestand in `mail_agent`, normalisiert und persistiert | **drei** Konten | Messung 2026-08-11 (§1) |
+| **14.016** Kopfsätze | **read-only Kopfzeilen-Vollaufbau**, nichts geschrieben | **vier** Konten, 180 behaltene Ordner | ADR-288 §1.4.2, Lauf 2026-07-29 (C9) |
+
+Das vierte Konto ist in der Gate-5-Messung enthalten, im eingelesenen Bestand nicht. Zum
+Größenverhältnis: Gate 0 derselben ADR zählte am 2026-07-29 **66.580** Nachrichten über 246
+Ordner in vier Konten (C9) — die 14.016 sind die *behaltenen* Ordner nach Ausschluss, nicht
+der Gesamtbestand. Die 2,7 Minuten in §8 beziehen sich ausschließlich auf diesen
+Kopfzeilen-Lauf; Datenbankschreiben und Normalisierung sind darin **nicht** enthalten
+(ADR-288 §1.4.2 führt das als offenen Rest von Gate 5).
+
+### 2.2 Die Stufen aus C1 — Kurzfassung
+
+Dieses Dokument verweist an mehreren Stellen auf „Stufe 0/2/3/4+". Die Stufen sind in C1
+definiert, nicht hier; wer C1 nicht vorliegen hat, konnte das wichtigste Kriterium des
+Kill-Gates bisher nicht prüfen. Kurzfassung (Bezeichnungen wörtlich aus C1):
+
+| Stufe | Name in C1 | Was danach existiert |
+|---|---|---|
+| 0 | Technical Foundation | Schema, `pgvector`, Betriebsbasis |
+| 1 | Mail Ingestion | drei Konten angebunden, inkrementell, Nachrichten gespeichert |
+| 2 | Semantic Foundation | Bereinigung, Signatur/Zitat-Erkennung, Einbettungen — **Suche und Verlauf** |
+| 3 | Activity Detection **MVP** | Kandidatensuche + Hybrid-Scoring → Nachricht wird einem Vorgang zugeordnet |
+| 4 | Event Extraction | aus Nachrichten werden fachliche Ereignisse |
+| 5 | Todo Intelligence | Aktionen, getrennt nach „für mich" / „für andere" |
+| 6 | Activity State Engine | deterministische Zustandsmaschine über den Modellsignalen |
+| 7 | Management Cockpit | das eigentliche Produkt: offene Aktionen, Wartezustände |
+| 8 | Conversational Query | Fragen in natürlicher Sprache |
+| 9 | weitere Quellen | über Mail hinaus |
+
+**Zwei Lesarten sind damit auszuräumen.** Erstens: „endet bei Stufe 2" heißt *Suche und
+Verlauf bleiben, Aufgaben-Ableitung entfällt* — die Zuordnung beginnt erst mit Stufe 3, die
+Aufgaben erst mit Stufe 5. Zweitens: C1 trägt seinen **eigenen** MVP-Begriff (Stufe 3). Er ist
+nicht identisch mit REC-2 dieses Dokuments und auch nicht mit dem Zuschnitt aus der externen
+Zweitmeinung — siehe §14.1, wo die drei Größen nebeneinander stehen.
 
 ---
 
@@ -195,6 +239,13 @@ fanden vier Fehler, die dem Autor bei eigener Kritik entgangen waren. Es gibt ke
 anzunehmen, dass es hier anders wäre. **Die externe Zweitmeinung ist deshalb nicht optional,
 sondern Teil der Abnahme.**
 
+> **Nachtrag 2026-08-11:** Zwei unabhängige Runden sind eingegangen (C8) und in §14
+> ausgewertet. Die Erwartung hat sich bestätigt — beide fanden Mängel, die dem Autor bei
+> eigener Kritik entgangen waren, darunter einen Befund mit falscher Normreferenz (B9) und
+> ein Kill-Gate, dessen Schwellen statistisch nicht tragen (§13). Dieser Abschnitt bleibt
+> stehen, weil sein Grund fortbesteht: Die *Analyse* ist weiterhin aus einer Feder, geprüft
+> ist nur ihr Ergebnis.
+
 ---
 
 ## 7 Deep-Dive
@@ -318,8 +369,28 @@ Fähigkeiten damit wachsen, und damit befangen. Kriterien statt Antwort in §12 
 | B6 | ADR-293 hat die Volltext-Beschränkung für die Mail-Lane aufgehoben — die Schemaform stammt noch von davor | C5 |
 | B7 | 3 von 16 Vorgängen haben keinen Mailbezug | C6 |
 | B8 | Identität ist Gegenüber × Sache, nicht Gegenüber | C6 (13 Gegenüber / 16 Vorgänge) |
-| B9 | `UUID PK` und `JSONB` in C1 widersprechen ADR-022 | C1 §5 |
+| B9 | `UUID PK` in C1 widerspricht **ADR-109 Fix H-1**; `JSONB` ist in keinem ADR geregelt | C1 §5, ADR-109 §Fix H-1 |
 | B10 | Zwei konkurrierende Vorgangsbestände existieren bereits | C6, C7 |
+
+**Korrektur zu B9 (2026-08-11, nach externer Zweitmeinung C8).** Die erste Fassung dieses
+Befundes nannte ADR-022 als verletzte Norm. **Das ist falsch und wurde beim Nachprüfen
+widerlegt:** ADR-022 ist der *Platform Consistency Standard* und regelt Dockerfile,
+Compose, Ports, Health-Endpunkte und CI/CD — Primärschlüssel oder Spaltentypen kommen darin
+nicht vor (`grep -nE "UUID|JSONB" ADR-022*.md` → keine Treffer). Die tatsächlich
+einschlägige Norm ist **ADR-109 Fix H-1**: `id = BigAutoField(primary_key=True)` plus
+`public_id = UUIDField(...)`, beide als „Platform-Pflicht" bezeichnet.
+
+**Konsequenz — der Neubau folgt ADR-109 Fix H-1, nicht C1 §5.** Vorgangs- und Aufgaben-Objekte
+bekommen einen `BigAutoField`-Primärschlüssel und eine separate `public_id`. Die von der
+externen Zweitmeinung geforderte *stabile, nicht aus dem Inhalt berechnete* Vorgangsidentität
+ist damit erfüllt — sie hängt an der Existenz einer eigenen ID, nicht an deren Typ. Zwei
+Reste sind ausdrücklich benannt und **nicht** mit diesem Absatz erledigt:
+
+- Die Plattform ist an dieser Stelle selbst nicht einheitlich (ADR-028 verwendet UUID-PKs;
+  ADR-137 §2.6 führt die Ablösung in risk-hub als offenen Hygiene-Punkt). Der Neubau folgt
+  der Norm, nicht dem verbreitetsten Muster.
+- Für `JSONB` existiert **keine** Norm. Die Wahl ist damit frei, aber begründungspflichtig
+  im ADR, das aus diesem Konzept entsteht — nicht stillschweigend aus C1 zu übernehmen.
 
 ---
 
@@ -346,7 +417,10 @@ Fähigkeiten damit wachsen, und damit befangen. Kriterien statt Antwort in §12 
 | REC-5 | Deckung ins Schema, nicht ins Dashboard | Jede aggregierte Aussage referenziert die Generation und den Deckungsstand, aus dem sie stammt. Nicht nachrüstbar. |
 | REC-6 | Ablösung ist Lieferbestandteil | Eine Stufe gilt erst als fertig, wenn der abgelöste Bestand nachweislich leer oder nur noch Ausgabe ist. |
 | REC-7 | Ort entscheiden, nicht ableiten | Kriterien: Wo liegen die Daten? Wer darf lesen? Was passiert bei Ausfall? Welcher Wirkungsradius bei Schreibrechten nach außen? Der Autor ist befangen — die Antwort gehört zum Owner. |
-| REC-8 | Externe Zweitmeinung vor der Entscheidung | Die adversariale Analyse ist aus einer Feder; in derselben Sitzung fand ein unabhängiger Kritiker vier Fehler in einem vergleichbaren Dokument desselben Autors. |
+| REC-8 | Externe Zweitmeinung vor der Entscheidung | **Erledigt am 2026-08-11** (zwei unabhängige Runden, C8) — Auswertung in §14. Eine dritte Runde erst nach Einarbeitung, sonst kritisiert sie den alten Stand. |
+| REC-9 | Zustand wird gespeichert, nicht je Aufruf abgeleitet | §9 warf die Frage auf und ließ sie offen. **Entschieden: persistent.** Ein je Aufruf neu abgeleiteter Zustand ist nicht korrigierbar — dieselbe Nachricht kann in zwei Läufen verschieden eingeordnet werden, und die menschliche Korrektur hätte kein Objekt, an dem sie haftet. Der Preis (veralteter Zustand nach Modellwechsel) wird über `ProcessingRun`/Generation getragen, nicht über Neuberechnung. Gegenprobe für die Umstimmung: Wird nur recherchiert statt gearbeitet, ist die Persistenzschicht überflüssig. |
+| REC-10 | Nachrichten ohne Datum: eigenes Feld, kein stiller Fallback | B2 (22 Nachrichten) ist ein behebbarer Datenfehler, kein Naturgesetz. **Aber nicht durch Auffüllen von `date`:** Der naheliegende Fallback auf IMAP-`INTERNALDATE` ist der **Ankunftsstempel im Postfach**, nicht das Nachrichtendatum — bei umsortierten oder migrierten Nachrichten weichen beide um Jahre ab (bei uns belegte Fehlerklasse). Richtige Form: zweites Feld `received_at` mit Herkunftskennzeichen; jede Zeitabfrage entscheidet ausdrücklich, welches sie meint, und Aussagen über den Zeitraum weisen die Ersetzung aus. |
+| REC-11 | Aufwand von Option C schätzen | REC-1 misst den Nutzen; die Kostenseite trägt bisher nur das Etikett „mittel" (§8). Für die 30-Tage-Entscheidung fehlt eine grobe Schätzung in Wochen **mit Unsicherheitsband**. Ohne sie ist die Rechnung, die REC-1 aufmacht, einseitig. |
 
 ---
 
@@ -356,15 +430,50 @@ Fähigkeiten damit wachsen, und damit befangen. Kriterien statt Antwort in §12 
 Vorgangs- und Arbeitsschicht neu. **Nicht sofort umsetzen:** REC-1 und REC-2 gehen voraus,
 weil sie den Zuschnitt bestimmen.
 
-**Kill-Gate.** Das Vorhaben endet bei Stufe 2 (Suche und Verlauf), wenn eines eintritt:
+**Kill-Gate.** Das Vorhaben endet bei Stufe 2 (Semantic Foundation, §2.2 — Suche und Verlauf
+ohne Aufgaben-Ableitung), wenn eines eintritt:
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| (a) Zuordnungsgenauigkeit unter 80 % auf der Referenzmenge | offen | Referenzmenge existiert nicht (REC-4) |
-| (b) Anteil falsch erzeugter Aufgaben über 10 % | offen | — |
+| (a) Zuordnungsgenauigkeit **klar unter 80 %** — Bandregel unten | offen | Referenzmenge existiert nicht (REC-4) |
+| (b) Über 10 % der **in einem Produktionsmonat erzeugten** Aufgaben sind falsch | offen | Nenner und Fenster jetzt benannt |
 | (c) REC-2 zeigt: die kleine Lösung deckt den Nutzen bereits ab | offen | nicht gebaut |
-| (d) Datenhoheit lässt für zwei der drei Konten keine Verarbeitung zu | offen | Klassifikation fehlt |
+| (d) Für **eines** der drei Konten ist keine Verarbeitung zulässig — Nutzenanteil unten | offen | Klassifikation fehlt |
 | (e) Bis 2026-11-11 ist der Ort (REC-7) nicht entschieden | offen | `review_by` |
+
+**Zu (a) — die 80 % sind eine Grauzone, keine Schwelle.** Bei der in REC-4 vorgeschlagenen
+Menge von 60–80 Mails liegt das Konfidenzintervall um einen gemessenen Wert bei grob
+± 9–10 Prozentpunkten. Eine gemessene 80 % kann damit weder das Bestehen noch das Reißen
+belegen — eine harte Schwelle auf dieser Basis wäre Scheingenauigkeit. Es gilt darum eine
+Bandregel:
+
+| Gemessen (Punktschätzer, n = 60–80) | Lesart |
+|---|---|
+| Obergrenze des Intervalls **unter 80 %** | Kriterium (a) **gerissen**, Vorhaben endet bei Stufe 2 |
+| Intervall **überlappt 80 %** | **unentschieden** — Referenzmenge auf ≥ 200 aufstocken, dann erneut messen |
+| Untergrenze des Intervalls **über 80 %** | Kriterium (a) **bestanden** |
+
+Die Aufstockung ist der teure Fall und dann zu bezahlen — nicht vorab, weil der Bandbereich
+möglicherweise gar nicht eintritt. Der Datenhoheitsrahmen aus REC-4 gilt für die größere
+Menge unverändert.
+
+**Zu (b) — Nenner und Fenster waren offen.** „10 %" bezieht sich nicht auf die Referenzmenge,
+sondern auf den **laufenden Betrieb**: Anteil der als falsch markierten an allen in einem
+Kalendermonat automatisch erzeugten Aufgaben, gemessen ab dem ersten Monat mit mindestens 30
+erzeugten Aufgaben. Grund für den Wechsel des Bezugs: Eine falsch erzeugte Aufgabe schadet
+dort, wo sie jemandem vorgelegt wird, nicht auf einer Testmenge — und die Referenzmenge misst
+Zuordnung, nicht Aufgaben-Erzeugung. Die Zählung setzt voraus, dass Ablehnungen dauerhaft
+gespeichert werden (REC-9).
+
+**Zu (d) — „zwei der drei Konten" war gegriffen.** Die Schwelle stand ohne Begründung und ist
+korrigiert. Die drei Konten tragen ungleichen Nutzen, und das entscheidende ist nicht die
+Anzahl: Fällt das Konto mit der Mandantenkorrespondenz aus, verliert das Cockpit seinen
+Kernfall, während der Ausfall eines der beiden anderen es lediglich verkleinert. Das
+Kriterium greift deshalb schon bei **einem** Konto — aber erst, nachdem der Nutzenanteil je
+Konto beziffert ist. **Diese Bezifferung ist noch nicht erfolgt** und ist Teil von REC-1: Wer
+zwei Wochen mitschreibt, wie lange das Auffinden offener Punkte dauert, schreibt zugleich
+mit, aus welchem Konto der jeweilige Punkt stammt. Bis dahin ist (d) mit dieser Fassung
+schärfer, aber noch nicht messbar.
 
 **Exception-Budget:** bis **2026-11-11** dürfen die zwei Vorgangsbestände nebeneinander
 bestehen. Danach ist entweder abgelöst oder dieses Konzept auf `sunset`.
@@ -376,3 +485,100 @@ bestehen. Danach ist entweder abgelöst oder dieses Konzept auf `sunset`.
   Nachrichtenklasse liegt vor; Deckungs-Schemaentscheidung getroffen.
 - **90 Tage:** Zuordnung gemessen gegen die Referenzmenge; Entscheidung über Stufe 4+ auf
   Basis der Zahl, nicht der Absicht.
+
+---
+
+## 14 Externe Zweitmeinung (REC-8) — Eingang und Auswertung
+
+Am 2026-08-11 sind zwei unabhängige Runden eingegangen (C8). Die eine kritisiert dieses
+Dokument Punkt für Punkt; die andere hat das Ausgangsproblem **ohne Repo-Zugriff** eigenständig
+durchgearbeitet und einen eigenen Lösungsraum aufgespannt (ALT-1 Domänenmodell-first,
+ALT-2 Retrieval-first, ALT-3 temporaler Wissensgraph, Empfehlung ALT-1). Beide Runden
+bestätigen die Richtung; die Änderungen betreffen Genauigkeit, nicht Kurs.
+
+### 14.1 Drei MVP-Zuschnitte — die eigentliche Kollision
+
+Die schärfste Differenz liegt nicht zwischen Kritik und Dokument, sondern **zwischen den
+beiden Runden**. Runde 1 nennt REC-2 den klügsten Einzelvorschlag des Dokuments. Runde 2
+überspringt ihn und beginnt sofort mit der Domänenschicht, weil aus ihrer Sicht die eine
+tragende Entscheidung lautet: *Der Zustand der Arbeit muss persistent und korrigierbar sein.*
+REC-2 hat genau diese Persistenz nicht.
+
+| Merkmal | REC-2 (dieses Dokument) | Zuschnitt Runde 2 | Stufe 3 „MVP" (C1) |
+|---|---|---|---|
+| Beantwortet | „Wer antwortet nicht?" | „Was ist mein Arbeitszustand?" | „Wohin gehört diese Mail?" |
+| Neue Entitäten | keine | sieben | Vorgang + Zuordnung |
+| Zuordnung | keine | manuell/halbautomatisch | automatisch, Hybrid-Scoring |
+| LLM / Vektor | nein | optional | ja |
+| Persistenter Zustand | nein | ja, der Kern | teilweise |
+| Aufwand | Tage | Wochen | Monate |
+
+**Auflösung, und sie ist keine Vertagung:** Die drei beantworten verschiedene Fragen. REC-2
+misst, **ob** die große Lösung nötig ist — es ist die Vergleichsbasis für Kill-Kriterium (c)
+und sonst nichts. Der Zuschnitt aus Runde 2 ist die Antwort auf die Frage, **wie** Option C
+zugeschnitten wird, falls (c) nicht greift. Die Reihenfolge REC-1 → REC-2 → Option C bleibt
+damit unverändert. Zwei Folgerungen sind aber neu:
+
+**REC-2 ist nicht schema-frei.** Runde 2 verlangt, dass jede aggregierte Zahl an einen
+Deckungs-Schnappschuss gebunden ist — unabhängig hergeleitet und deckungsgleich mit §7.1.
+Das trifft REC-2 unmittelbar: „Gegenüber X hat seit 14 Tagen nicht geantwortet" ist genau
+eine Aussage, die sich umkehrt, wenn eine Nachricht fehlt. Der Kopfdaten-Melder muss die
+Generation von Tag 1 mitführen. Teuer ist das nicht — `CoverageSnapshot` und
+`BuildGeneration` existieren bereits (§3); Runde 2 führt sie ohne Repo-Kenntnis als *neu*
+anzulegende Objekte auf. Die Aussage in §9, REC-2 sei „in Tagen baubar", bleibt bestehen,
+aber nicht mehr in der Lesart „ohne Schema-Entscheidung".
+
+**REC-2 ist die einzige heute unstrittig zulässige Stufe.** Runde 1 erhebt den schärfsten
+Einwand des gesamten Eingangs gegen §7.2: Ein Klassifikator, der Inhalte liest, um zu
+entscheiden, ob Inhalte verarbeitet werden dürfen, **ist selbst Verarbeitung**. Der Einwand
+trifft; §7.2 spezifiziert die Sperre unvollständig, und die dort geforderte Positivkontrolle
+prüft in dieser Fassung das Falsche. Auflösung: Die Klassifikation muss lokal und vor jeder
+Ausleitung stattfinden — der Satz fehlt und ist nachzutragen (offen, siehe §14.3). **REC-2
+ist von dem Einwand nicht berührt**, weil es keine Inhalte anfasst: Absender, Empfänger,
+Zeitstempel. Das ist ein Argument für den Kopfdaten-Melder, das in keiner der beiden Runden
+steht und das dieses Dokument bisher nicht führte.
+
+### 14.2 Unabhängige Bestätigungen
+
+Runde 2 kannte weder Repo noch dieses Dokument und kam auf fünf derselben Festlegungen:
+
+| Runde 2 | hier |
+|---|---|
+| Deckung an jedem Aggregat, gebunden an einen Schnappschuss | §7.1, REC-5 |
+| Aufgaben ohne Mailbezug als vollwertige Objekte | §7.3 |
+| eigene Vorgangs-ID, nicht aus Betreff oder Gegenüber berechnet | B5, B8 |
+| Vektoren nur zur Kandidatenerzeugung, nie als Identitätsregel | REC-3 |
+| Ingest behalten, Vorgangsschicht neu bewerten | §8 Option C |
+
+Die letzte Zeile wiegt am schwersten. Runde 2 formuliert die Bedingung, unter der sie den
+Bestand verwerfen würde: wenn dessen Identität faktisch der normalisierte Betreff ist. Genau
+das ist bei uns der Fall — `thread_key` **ist** der normalisierte Betreff (§3). Option C ist
+damit von außen bestätigt, ohne dass der Kritiker den Code gesehen hat.
+
+### 14.3 Was eingearbeitet ist — und was offen bleibt
+
+| Punkt aus C8 | Status |
+|---|---|
+| Zahlen 11.964 vs. 14.016 unerklärt | **eingearbeitet** — §2.1 |
+| Stufen nur in C1 definiert, Kill-Gate dadurch ungeprüfbar | **eingearbeitet** — §2.2 |
+| Kill-Gate (a): 80 % statistisch nicht tragfähig bei n = 70 | **eingearbeitet** — §13 Bandregel |
+| Kill-Gate (b): Nenner und Zeitfenster offen | **eingearbeitet** — §13 |
+| Kill-Gate (d): „zwei der drei Konten" unbegründet | **eingearbeitet** — §13, Schwelle auf eines |
+| §9 ließ „Zustand speichern?" offen | **eingearbeitet** — REC-9 |
+| B2 (22 ohne Datum) konstatiert statt behandelt | **eingearbeitet** — REC-10, mit Gegenrede |
+| B9 ohne Konsequenz | **eingearbeitet** — §10, Normreferenz zugleich korrigiert |
+| Kosten von Option C bleiben qualitativ | **offen** — REC-11, Schätzung nicht geliefert |
+| Zirkularität der Datenhoheits-Klassifikation (§7.2) | **offen** — Lösung benannt (§14.1), Text nicht nachgezogen |
+| Korrektur-Operationen (zusammenführen, trennen, verschieben, nicht zugehörig) | **offen** — im Schema nicht vorgesehen |
+| Menschliche Korrektur als eigene Quelle, nicht als Überschreiben | **offen** — REC-9 nennt die Persistenz, nicht die Trennung |
+| Retrieval-first (ALT-2) wurde nie als Alternative geführt | **offen** — §8 führt vier *Bau*-Optionen, keine *Architektur*-Optionen |
+
+Die vier offenen Punkte sind **nicht vertagt, sondern hier verankert**: Sie stehen dieser
+Auswertung nach im Dokument und gehen in die Abnahme ein. Der letzte wiegt am schwersten —
+§8 hat den Lösungsraum nie geöffnet, sondern nur gefragt, worauf gebaut wird. Runde 2
+verwirft ALT-2 mit einem Argument, das hier nirgends steht: Dieselbe Nachricht wird bei zwei
+Läufen verschieden eingeordnet, womit Aggregate und Fristen unbelastbar werden. Das Argument
+stützt die Empfehlung — aber es gehört in §8, nicht in eine Fußnote der Kritik.
+
+**Eine dritte Runde jetzt würde den alten Stand kritisieren.** Sie ist erst nach Schließung
+der vier offenen Punkte sinnvoll.
