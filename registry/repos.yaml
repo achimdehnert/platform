@@ -556,11 +556,12 @@ domains:
       deploy_script: /opt/137-hub/deploy.sh
   - name: wedding-hub
     repo: wedding-hub
-    description: Wedding planning platform
+    description: Wedding planning platform (archiviert 2026-08-11, Tombstone platform#1924)
     github: achimdehnert/wedding-hub
-    deployed: true
+    deployed: false
+    archived: true
     type: django
-    lifecycle: experimental
+    lifecycle: archived
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
