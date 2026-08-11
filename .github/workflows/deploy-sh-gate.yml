@@ -16,12 +16,14 @@ on:
       - "scripts/deploy.sh"
       - "tools/deploy-script-drift.sh"
       - "tests/test_deploy_migrate_gate.sh"
+      - "tests/test_deploy_ghcr_isolation.sh"
       - ".github/workflows/deploy-sh-gate.yml"
   pull_request:
     paths:
       - "scripts/deploy.sh"
       - "tools/deploy-script-drift.sh"
       - "tests/test_deploy_migrate_gate.sh"
+      - "tests/test_deploy_ghcr_isolation.sh"
       - ".github/workflows/deploy-sh-gate.yml"
 
 permissions:
@@ -39,6 +41,7 @@ jobs:
           bash -n scripts/deploy.sh
           bash -n tools/deploy-script-drift.sh
           bash -n tests/test_deploy_migrate_gate.sh
+          bash -n tests/test_deploy_ghcr_isolation.sh
 
       - name: ShellCheck
         run: |
@@ -47,3 +50,9 @@ jobs:
 
       - name: Vertragstest Migrations-Gate
         run: bash tests/test_deploy_migrate_gate.sh
+
+      # platform#1078 Befund 4: die Credential-Isolation ist genauso unsichtbar
+      # brechbar wie das Migrations-Gate — ein Deploy, der wieder in die geteilte
+      # ~/.docker/config.json schreibt, sieht im Log identisch aus.
+      - name: Vertragstest GHCR-Credential-Isolation
+        run: bash tests/test_deploy_ghcr_isolation.sh

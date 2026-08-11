@@ -172,9 +172,36 @@ fi
 # (shared-ci#10 Facette A): so loggt JEDER Deploy mit eigenem ephemeren Token ein und hängt
 # nicht mehr an der manuell gepflegten /opt/scripts/.ghcr_token, die unbemerkt ablaufen kann.
 # Fallback auf die Host-Datei bleibt → rückwärtskompatibel für Konsumenten auf altem shared-ci-Ref.
+#
+# CREDENTIAL-ISOLATION (platform#1078 Befund 4): bis hierher schrieb `docker login`
+# in die GETEILTE ~/.docker/config.json des Deploy-Users — und es gab kein `logout`.
+# Die Credential blieb also nach jedem Deploy auf dem Host liegen. Ist sie abgelaufen,
+# faellt Docker beim naechsten Pull NICHT auf einen anonymen Zugriff zurueck, sondern
+# schickt die tote Credential mit und bekommt "denied". Genau daran starb der
+# ausschreibungs-hub-Deploy am 2026-08-10 (platform#1845) — dort im Job-Setup einer
+# Docker-Action, also an einer Stelle, die mit diesem Skript gar nichts zu tun hat.
+# Das ist der Kern des Befunds: die vergiftete Datei trifft FREMDE Pulls auf demselben Host.
+#
+# Bewusst NICHT `docker logout` am Ende: auf diesen Hosts laufen mehrere Hubs, ein
+# logout des einen Deploys wuerde einem zeitgleich laufenden anderen die Credential
+# unter den Fuessen wegziehen. Stattdessen bekommt der Login eine eigene, kurzlebige
+# DOCKER_CONFIG — die geteilte Datei wird nie angefasst, es gibt nichts aufzuraeumen
+# und nichts, was liegenbleiben koennte. Nebeneffekt: der Token landet in einem
+# mktemp-Verzeichnis (0700) statt in einer dauerhaften Datei.
+_GHCR_CONFIG_DIR=""
+_ghcr_config_cleanup() {
+  [[ -n "$_GHCR_CONFIG_DIR" && -d "$_GHCR_CONFIG_DIR" ]] && rm -rf "$_GHCR_CONFIG_DIR"
+  return 0
+}
+trap _ghcr_config_cleanup EXIT
+
 if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  _GHCR_CONFIG_DIR="$(mktemp -d)"
+  export DOCKER_CONFIG="$_GHCR_CONFIG_DIR"
   echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin
 elif [[ -f "/opt/scripts/.ghcr_token" ]]; then
+  _GHCR_CONFIG_DIR="$(mktemp -d)"
+  export DOCKER_CONFIG="$_GHCR_CONFIG_DIR"
   docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
 fi
 
