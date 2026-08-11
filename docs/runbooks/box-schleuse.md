@@ -135,3 +135,47 @@ oder später etwas, das noch niemand geholt hatte.
 liegt ein echter Fehler vor. Deshalb steht im Skript **kein**
 `$ErrorActionPreference = 'Stop'` — damit würde jeder gewöhnliche Lauf abbrechen. Genau
 diese Falle hat am 2026-08-10 ein Übergabeskript zerlegt (platform#1888).
+
+### Eine `.ps1` muss reines ASCII sein und einen BOM tragen
+
+Windows PowerShell 5.1 liest eine `.ps1` **ohne BOM** in der ANSI-Codepage. Aus einem
+UTF-8-Em-Dash (`—`, drei Bytes) werden dabei drei Zeichen, und eines davon beendet die
+Zeichenfolge, in der es steht. Der Parser meldet das dann irgendwo weiter unten:
+
+```
+Die Zeichenfolge hat kein Abschlusszeichen: ".
+Die schließende "}" fehlt im Anweisungsblock oder der Typdefinition.
+```
+
+Gemessen am 2026-08-10 mit Positivkontrolle:
+
+| Datei | Nicht-ASCII | Ergebnis |
+|---|---|---|
+| `gpu-melder-autostart.ps1` | 0 | lief |
+| `box-schleuse-sync.ps1` (erste Fassung) | 7 Em-Dashes | Parser-Fehler |
+| `gpu_melder.py` | 8 | lief — Python liest UTF-8 von sich aus |
+
+Die dritte Zeile ist der Grund, warum das lange nicht auffiel: bei `.py` ist es harmlos,
+nur bei `.ps1` nicht. Regel deshalb: `.ps1` ohne Nicht-ASCII schreiben **und** einen
+UTF-8-BOM voranstellen, damit ein später ergänztes Sonderzeichen nicht dieselbe Falle
+aufstellt.
+
+### Der Abgleich läuft als Benutzer, nicht als SYSTEM
+
+Das Relais ist eine SMB-Freigabe, deren Anmeldung an der **Benutzersitzung** hängt —
+`net use` auf der Box zeigt sie dort als `Z:`/`Q:`. `SYSTEM` hat diese Anmeldung nicht und
+erreicht `\\10.99.0.1\scans` nicht.
+
+Gemessen am 2026-08-10, und die Zahlen sind der ganze Beleg:
+
+| Lauf | Konto | Ergebnis |
+|---|---|---|
+| 20:18 interaktiv | achim | 24 Dateien durchgeschoben |
+| ab 20:20 geplant | SYSTEM | **null**, obwohl die Quelldatei seit 20:25 bereitlag |
+
+Das Tückische ist wieder die Stille: die Aufgabe steht auf `Bereit`, meldet keinen Fehler,
+und kopiert nichts. Aufgefallen ist es nur, weil ein erwartetes Protokoll ausblieb.
+
+Deshalb `/RU <benutzer> /IT`. Preis: der Abgleich läuft nur bei angemeldeter Sitzung.
+Bildschirm sperren ist in Ordnung, abmelden nicht — dieselbe Bedingung wie beim
+LoRA-Nachtlauf, und aus verwandtem Grund.

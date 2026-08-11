@@ -1,23 +1,23 @@
-# Schleusen-Abgleich auf der GPU-Box — die Box-Seite von platform/tools/box-schleuse.sh.
+﻿# Schleusen-Abgleich auf der GPU-Box -- die Box-Seite von platform/tools/box-schleuse.sh.
 #
 # WOZU
 #
 # Ohne diesen Abgleich muss ein Mensch jedes Mal von Hand kopieren, bevor ein Agent auf
 # dem Dev-Host etwas von der Box sehen kann. Mit ihm legt die Box selbstaendig ab und holt
-# selbstaendig — der Agent arbeitet dann ohne Zuruf.
+# selbstaendig -- der Agent arbeitet dann ohne Zuruf.
 #
 #     D:\schleuse\raus\   --->  \\10.99.0.1\scans\schleuse\von-box\    (immer an)
 #     \\...\zur-box\      --->  D:\schleuse\rein\                       (nur mit -Rein)
 #
 # WAS HIER NICHT PASSIERT
 #
-# Nichts wird ausgefuehrt. Der Abgleich kopiert Dateien und sonst nichts — eine Datei, die
+# Nichts wird ausgefuehrt. Der Abgleich kopiert Dateien und sonst nichts -- eine Datei, die
 # in `rein\` landet, ist ein Ablage-Vorgang, kein Befehl. Wer sie ausfuehren will, tut das
 # von Hand. Diese Grenze ist Absicht: ein Transportweg, den man zum Ausfuehren ueberreden
 # kann, ist kein Transportweg mehr.
 #
 # `-Rein` ist deshalb NICHT der Standard. Es erlaubt einer Gegenstelle, Dateien auf dieser
-# Maschine abzulegen — eine Ausweitung, die eine bewusste Entscheidung verdient und nicht
+# Maschine abzulegen -- eine Ausweitung, die eine bewusste Entscheidung verdient und nicht
 # nebenbei mitlaufen sollte.
 #
 # EINRICHTEN (PowerShell als Administrator, einzeilig):
@@ -38,7 +38,7 @@ param(
 
 # Kein $ErrorActionPreference = 'Stop': robocopy und schtasks schreiben im Normalfall nach
 # stderr und liefern Exit-Codes ungleich 0, die KEINE Fehler sind. Mit 'Stop' wuerde jeder
-# gewoehnliche Lauf abbrechen — genau diese Falle hat am 2026-08-10 ein Uebergabeskript
+# gewoehnliche Lauf abbrechen -- genau diese Falle hat am 2026-08-10 ein Uebergabeskript
 # zerlegt (platform#1888).
 
 $Name = 'Box-Schleuse-Sync'
@@ -47,7 +47,7 @@ function Abgleichen {
     New-Item -ItemType Directory -Force -Path $Raus, $Herein | Out-Null
 
     # /MIR waere falsch: es wuerde auf der Gegenseite loeschen, was hier nicht liegt.
-    # Die Schleuse ist ein Durchgang, kein Spiegel — geloescht wird nur bewusst,
+    # Die Schleuse ist ein Durchgang, kein Spiegel -- geloescht wird nur bewusst,
     # vom Dev-Host aus mit `box-schleuse.sh leere`.
     # /Z Wiederaufnahme, /R:1 /W:2 damit ein belegtes File den Lauf nicht 30x blockiert.
     & robocopy $Raus "$Relais\von-box" /E /Z /R:1 /W:2 /NFL /NDL /NJH /NJS | Out-Null
@@ -72,16 +72,46 @@ if (-not $Einrichten) {
 }
 
 $skript = $MyInvocation.MyCommand.Path
+
+# Die Aufgabe laeuft als SYSTEM und sieht weder verbundene Laufwerke noch UNC-Pfade der
+# angemeldeten Sitzung. Liegt dieses Skript dort, wird die Aufgabe zwar angelegt, scheitert
+# aber bei jedem Lauf -- und zwar STILL: `schtasks /Query` zeigt dann ein "Letztes Ergebnis"
+# ungleich 0, sonst faellt nichts auf. Realfall 2026-08-10: aus Z:\schleuse\zur-box
+# eingerichtet, erster Aufgabenlauf endete mit -196608, waehrend der interaktive Testlauf
+# davor sauber durchlief -- in der Benutzersitzung gibt es Z: ja.
+$laufwerk = [System.IO.Path]::GetPathRoot($skript)
+$istNetz = $skript.StartsWith('\\') -or (
+    (Get-PSDrive -Name $laufwerk.TrimEnd(':\') -ErrorAction SilentlyContinue).DisplayRoot
+)
+if ($istNetz) {
+    Write-Host "Dieses Skript liegt auf einem Netzpfad: $skript" -ForegroundColor Red
+    Write-Host "Die Aufgabe laeuft als SYSTEM und kann ihn nicht aufloesen -- sie wuerde" -ForegroundColor Red
+    Write-Host "angelegt und dann bei jedem Lauf still scheitern." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Erst lokal ablegen, dann von dort einrichten:" -ForegroundColor Yellow
+    Write-Host "  copy $skript D:\ai-toolkit\"
+    Write-Host "  cd D:\ai-toolkit"
+    Write-Host "  powershell -ExecutionPolicy Bypass -File .\box-schleuse-sync.ps1 -Einrichten"
+    exit 1
+}
 $args_ = if ($Rein) { '-Rein' } else { '' }
-$befehl = '"{0}" -NoProfile -ExecutionPolicy Bypass -File "{1}" {2}' -f `
-          (Get-Command powershell).Source, $skript, $args_
+# Eine Zeile mit Absicht: eine Backtick-Fortsetzung ueberlebt zwar in einer Datei, aber
+# sie ist die Form, die beim Einfuegen in ein Terminal zerbricht. Wer den Ausdruck spaeter
+# kopiert, soll ihn nicht erst reparieren muessen.
+$befehl = '"{0}" -NoProfile -ExecutionPolicy Bypass -File "{1}" {2}' -f (Get-Command powershell).Source, $skript, $args_
 
 & schtasks /Delete /TN $Name /F 2>&1 | Out-Null
-& schtasks /Create /TN $Name /RU SYSTEM /RL HIGHEST /SC MINUTE /MO $AlleMinuten /F /TR $befehl 2>&1 |
+# NICHT als SYSTEM. Das Relais ist eine SMB-Freigabe, deren Anmeldung an der
+# Benutzersitzung haengt (net use zeigt sie dort als Z:/Q:). SYSTEM hat diese Anmeldung
+# nicht und erreicht die Freigabe nicht -- die Aufgabe laeuft dann zwar, kopiert aber
+# nichts, und niemand merkt es. Gemessen 2026-08-10: der interaktive Lauf um 20:18 schob
+# 24 Dateien durch, die geplanten SYSTEM-Laeufe danach keine einzige, obwohl die
+# Quelldatei seit 20:25 bereitlag.
+& schtasks /Create /TN $Name /RU $env:USERNAME /IT /SC MINUTE /MO $AlleMinuten /F /TR $befehl 2>&1 |
     ForEach-Object { Write-Host $_ }
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "schtasks /Create fehlgeschlagen (Exit $LASTEXITCODE) — als Administrator gestartet?" -ForegroundColor Red
+    Write-Host "schtasks /Create fehlgeschlagen (Exit $LASTEXITCODE) -- als Administrator gestartet?" -ForegroundColor Red
     exit 1
 }
 
@@ -95,6 +125,9 @@ if ($Rein) {
 } else {
     Write-Host ("  rein: aus (mit -Rein einschalten)")
 }
+Write-Host ""
+Write-Host "Laeuft als '$env:USERNAME' und nur bei angemeldeter Sitzung." -ForegroundColor Yellow
+Write-Host "Grund: die SMB-Anmeldung an das Relais haengt an der Sitzung, SYSTEM hat sie nicht."
 
 Write-Host ""
 Write-Host "Sofort einmal abgleichen:" -ForegroundColor Cyan
