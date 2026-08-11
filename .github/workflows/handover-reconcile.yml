@@ -42,4 +42,18 @@ jobs:
         run: |
           python3 scripts/checks/agent_handover_reconcile.py AGENT_HANDOVER.md \
             --repo-slug "$GITHUB_REPOSITORY" \
-            --summary "$GITHUB_STEP_SUMMARY"
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --json reconcile-report.json
+
+      # platform#1908 Etappe 1 (L1): der Report muss den Lauf ueberleben. Bisher
+      # existierte er nur als Job-Summary — lesbar genau dann, wenn jemand den Lauf
+      # aufruft, und das tat ueber >=5 Naechte niemand (#1894). Als Artefakt kann die
+      # Leseflaeche ihn beim Sitzungsstart abholen.
+      - name: Report als Artefakt (Leseflaeche holt ihn ab)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: handover-reconcile-report
+          path: reconcile-report.json
+          retention-days: 14
+          if-no-files-found: warn

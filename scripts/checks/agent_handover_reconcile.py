@@ -77,6 +77,12 @@ def main() -> int:
         "--repo-slug", required=True, help="owner/repo für nackte #N-Referenzen"
     )
     ap.add_argument("--summary", type=Path, default=None)
+    ap.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        help="Maschinenlesbaren Befund-Datensatz hierhin schreiben (Leseflaeche, #1908 L1).",
+    )
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args()
 
@@ -138,6 +144,35 @@ def main() -> int:
     print(report)
     if args.summary:
         args.summary.write_text(report + "\n")
+    if args.json:
+        # Maschinenlesbare Zweitausgabe fuer die Leseflaeche (platform#1908 Etappe 1,
+        # Kriterium L1). Der Markdown-Report bleibt unveraendert die menschliche
+        # Ausgabe; ihn zu parsen waere die fragile Variante — genau daran scheiterte
+        # bisher jeder Versuch, das Ergebnis weiterzuverwenden.
+        args.json.write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "geprueft": len(rows),
+                    "befunde": [
+                        {
+                            "schluessel": f"{ref.owner}/{ref.repo}#{ref.number}",
+                            "klasse": klass,
+                            "detail": detail,
+                            "zeile_nr": ref.line_no,
+                            "zeile": ref.line[:200],
+                        }
+                        for klass, ref, detail in rows
+                        if klass in ("DISKREPANZ", "UNKNOWN")
+                    ],
+                    "nicht_gescannte_abschnitte": skipped_sections,
+                },
+                ensure_ascii=False,
+                indent=1,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     if args.strict and disc:
         return 1
     return 0

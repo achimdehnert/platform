@@ -76,6 +76,16 @@
       "built": "2026-08-10",
       "ref": "platform#1650",
       "note": "EIN Gate fuer vier Slugs (s. GATE_HEADER.covers): workaround-without-tracking-anchor, planned-phase-no-issue, tracking-doc-stale-after-new-occurrence, deferred-item-no-tracking-issue. Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut."
+    },
+    {
+      "slug": "melder-ohne-leser",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hooks/befund_leseflaeche.py",
+      "drill": "tools/tests/test_befund_leseflaeche.py",
+      "built": "2026-08-11",
+      "ref": "platform#1908 Etappe 1 / #1894",
+      "note": "Leseflaeche: bringt Melder-Befunde an den Sitzungsstart. Deckt L1-L4 aus #1908 Etappe 1. Erweitert KEINE Schreibrechte, haengt deshalb nicht am Pilot-Ausgang."
     }
   ]
 }
