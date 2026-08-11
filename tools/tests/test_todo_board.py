@@ -21,6 +21,19 @@ tb = pytest.importorskip("todo_board")
 STICHTAG = date(2026, 8, 7)
 
 
+@pytest.fixture(autouse=True)
+def _kein_echter_anker(monkeypatch, tmp_path):
+    """Kein Test liest die echte `~/.claude/mail-anker.json`.
+
+    Ohne das haengt jeder Aufruf ohne ausdrueckliches `anker`-Argument am Home des
+    Rechners, auf dem die Suite gerade laeuft: heute gruen, weil keine Fixture ein
+    `nr` traegt — aber die erste Fixture mit `nr=109` wuerde auf dem Rechner des
+    Owners verlinken und in CI nicht. Wer die Verankerung pruefen will, reicht sie
+    ausdruecklich herein.
+    """
+    monkeypatch.setattr(tb, "ANKER_DATEI", tmp_path / "kein-anker.json")
+
+
 def vorgang(**kw) -> dict:
     grund = {
         "konto": "iil",
@@ -232,11 +245,19 @@ def test_should_link_into_the_mail_when_a_reference_exists():
 
 
 def test_should_not_render_a_dead_link_without_a_mail_reference():
-    """Gegenprobe: ohne `mail_ref` weder Link noch leerer Platzhalter."""
+    """Gegenprobe: ohne `mail_ref` und ohne Anker entsteht kein Ziel.
+
+    Geprueft wird jetzt das ANKER-ELEMENT, nicht mehr das blosse Vorkommen der
+    Zeichenkette: seit das Overlay die erlaubte Mail-Basis an den Interceptor
+    uebergibt, steht sie als JS-Konstante auf jeder Seite. Ein Substring-Verbot
+    wuerde also anschlagen, ohne dass ein Link existiert — es haette die Aussage
+    "kein toter Link" gegen "Basis kommt nirgends vor" getauscht.
+    """
     v = vorgang(thread_key="Ohne Mail")
     html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
     assert "Mail oeffnen" not in html_out
-    assert "mail.example" not in html_out
+    assert "href='https://mail.example" not in html_out
+    assert "keine Mail verknuepft" in html_out
 
 
 def test_should_ignore_an_absolute_mail_ref_from_the_ledger():
@@ -305,3 +326,176 @@ def test_should_not_name_a_gap_that_does_not_exist():
     html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
     assert "keine Mail verknuepft" not in html_out
     assert "https://mail.example/a/118" in html_out
+
+
+# --- Nummerierung -------------------------------------------------------------
+#
+# Die Nummer ist `nr` aus dem Ledger, nicht ein Laufindex je Abschnitt: sie bleibt
+# ueber Bucket-Wechsel und ueber Tage hinweg dieselbe und ist genau die Nummer,
+# unter der die Mail als `/a/<nr>` erreichbar ist.
+
+
+class TestNummerierung:
+    def test_should_show_the_ledger_number_in_the_row(self):
+        markup = tb.zeile(vorgang(nr=118), STICHTAG)
+        assert "<td class='nr'>118</td>" in markup
+
+    def test_should_show_a_dash_when_the_number_is_missing(self):
+        markup = tb.zeile(vorgang(), STICHTAG)
+        assert "<td class='nr'>—</td>" in markup
+
+    def test_should_keep_the_ledger_number_across_buckets(self):
+        """Kein Laufindex: derselbe Vorgang traegt in jedem Bucket dieselbe Zahl."""
+        for eimer in ("owner", "agent", "warten"):
+            seite = tb.baue(
+                {"vorgaenge": [vorgang(nr=118, bucket=eimer)]},
+                STICHTAG,
+                anker=frozenset(),
+            )
+            assert "<td class='nr'>118</td>" in seite
+
+    def test_should_number_every_row_independently(self):
+        seite = tb.baue(
+            {
+                "vorgaenge": [
+                    vorgang(nr=107, thread_key="a"),
+                    vorgang(nr=124, thread_key="b"),
+                ]
+            },
+            STICHTAG,
+            anker=frozenset(),
+        )
+        assert "<td class='nr'>107</td>" in seite and "<td class='nr'>124</td>" in seite
+
+    def test_should_add_the_number_column_to_the_header(self):
+        seite = tb.baue({"vorgaenge": [vorgang(nr=1)]}, STICHTAG, anker=frozenset())
+        assert "<th>#</th>" in seite
+
+    def test_should_show_the_number_on_the_detail_page(self):
+        seite = tb.detail(
+            vorgang(nr=118, thread_key="Foerderaufruf"), anker=frozenset()
+        )
+        assert "#118" in seite
+
+    def test_should_escape_a_number_that_is_not_a_number(self):
+        """Der Ledger ist eine Datei — `nr` ist nicht garantiert eine Zahl."""
+        markup = tb.zeile(vorgang(nr="<script>x</script>"), STICHTAG)
+        assert "<script>x</script>" not in markup
+        assert "&lt;script&gt;" in markup
+
+
+# --- Mail-Link aus der Nummer, gegen den Anker geprueft ------------------------
+#
+# `/a/<nr>` liesse sich blind aus `nr` ableiten. Gemessen am 2026-08-11 waeren das
+# 14 von 18 Links, die 404 liefern — verankert sind nur 109, 110, 115, 118. Der
+# Anker-Index entscheidet darum, ob ein Link entsteht.
+
+
+class TestAnkerGate:
+    def test_should_derive_the_link_when_the_number_is_anchored(self):
+        ziel = tb.mail_ziel(vorgang(nr=109), "https://mail.example", frozenset({"109"}))
+        assert ziel == "https://mail.example/a/109"
+
+    def test_should_not_derive_a_link_for_an_unanchored_number(self):
+        assert (
+            tb.mail_ziel(vorgang(nr=107), "https://mail.example", frozenset({"109"}))
+            is None
+        )
+
+    def test_should_prefer_an_explicit_mail_ref_over_the_number(self):
+        v = vorgang(nr=109, mail_ref="/a/999")
+        ziel = tb.mail_ziel(v, "https://mail.example", frozenset({"109"}))
+        assert ziel == "https://mail.example/a/999"
+
+    def test_should_reject_an_absolute_mail_ref_without_falling_back(self):
+        """Ein vergifteter Eintrag wird nicht stillschweigend durch die Nummer geheilt."""
+        v = vorgang(nr=109, mail_ref="https://fremd.example/x")
+        assert tb.mail_ziel(v, "https://mail.example", frozenset({"109"})) is None
+
+    def test_should_treat_a_missing_anchor_file_as_no_anchors(self):
+        assert tb.anker_nummern(Path("/nicht/vorhanden/anker.json")) == frozenset()
+
+    def test_should_treat_a_broken_anchor_file_as_no_anchors(self, tmp_path):
+        kaputt = tmp_path / "anker.json"
+        kaputt.write_text("{kein json", encoding="utf-8")
+        assert tb.anker_nummern(kaputt) == frozenset()
+
+    def test_should_read_the_numbers_from_the_anchor_file(self, tmp_path):
+        gut = tmp_path / "anker.json"
+        gut.write_text('{"109": {"ordner": "INBOX"}, "110": {}}', encoding="utf-8")
+        assert tb.anker_nummern(gut) == frozenset({"109", "110"})
+
+    def test_should_link_the_mail_from_the_overview_row(self):
+        """Der Weg zur Mail kostet keinen Zwischenklick mehr."""
+        markup = tb.zeile(
+            vorgang(nr=109, thread_key="x"),
+            STICHTAG,
+            "",
+            "https://mail.example",
+            frozenset({"109"}),
+        )
+        assert "href='https://mail.example/a/109'" in markup
+
+    def test_should_not_link_an_unanchored_row(self):
+        markup = tb.zeile(
+            vorgang(nr=107, thread_key="x"),
+            STICHTAG,
+            "",
+            "https://mail.example",
+            frozenset({"109"}),
+        )
+        assert "maillink" not in markup
+
+
+# --- Overlay auf der Vorgangsseite + Praefix-Pruefung --------------------------
+#
+# K2 aus #1869 verlangte, dass die Vorgangsseite in die Mail fuehrt — urspruenglich
+# als Overlay gedacht. Am 2026-08-11 im Browser gemessen: das Modal ist fuer
+# Mail-Links strukturell unmoeglich. mail.iil.pet steht hinter Cloudflare Access;
+# Access leitet auf iil-team.cloudflareaccess.com um, das `frame-ancestors 'none'`
+# sendet. Der Rahmen oeffnete sich und zeigte "hat die Verbindung abgelehnt".
+#
+# Konsequenz, hier festgeschrieben: Mail-Links gehen in einen NEUEN TAB, das
+# Overlay bleibt den eigenen `/t/`-Seiten vorbehalten. Diese Tests halten beide
+# Haelften fest, damit niemand das Modal spaeter "repariert", ohne die Ursache
+# (getrennte Adressen) beseitigt zu haben.
+
+
+class TestMailLinkOeffnetNeuenTab:
+    def test_should_open_the_mail_in_a_new_tab_from_the_row(self):
+        markup = tb.zeile(
+            vorgang(nr=109, thread_key="x"),
+            STICHTAG,
+            "",
+            "https://mail.example",
+            frozenset({"109"}),
+        )
+        assert "target='_blank'" in markup
+        assert "rel='noreferrer'" in markup
+
+    def test_should_open_the_mail_in_a_new_tab_from_the_detail_page(self):
+        seite = tb.detail(
+            vorgang(thread_key="x", mail_ref="/a/109"), "https://mail.example"
+        )
+        assert "class='aktion'" in seite
+        assert "target='_blank'" in seite
+
+    def test_should_not_intercept_the_mail_basis(self):
+        """Gegenprobe: kein Interceptor-Zweig auf die Mail-Basis.
+
+        Faellt absichtlich um, wenn jemand das Modal fuer Mail-Links wieder
+        einbaut — dann muss zuerst die Ursache weg (gemeinsame Adresse), sonst
+        zeigt der Rahmen erneut nur "Verbindung abgelehnt".
+        """
+        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG, anker=frozenset())
+        assert "mail.iil.pet'" not in seite.split("<script>")[1]
+        assert "lastIndexOf(MB" not in seite
+
+    def test_should_still_intercept_vorgang_links(self):
+        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG, anker=frozenset())
+        assert "h.indexOf('/t/')>=0" in seite
+
+    def test_should_keep_the_overlay_on_the_index_only(self):
+        """Die Detailseite traegt kein Overlay — sie hat keinen `/t/`-Link."""
+        assert tb.baue({"vorgaenge": [vorgang()]}, STICHTAG).count("id=ovl-frame") == 1
+        assert "id=ovl-frame" not in tb.detail(vorgang(thread_key="x"))
