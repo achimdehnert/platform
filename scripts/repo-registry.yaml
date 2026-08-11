@@ -221,10 +221,7 @@ repos:
     health: /livez/
   wedding-hub:
     type: django
-    prod_url: wedding-hub.iil.pet
-    staging_url: staging.wedding-hub.iil.pet
-    port: 8093
-    health: /livez/
+    archived: true
   weltenfw:
     type: library
     pypi: weltenfw

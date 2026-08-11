@@ -18,3 +18,7 @@ archived:
     github: achimdehnert/testkit
     description: iil-testkit — Shared Test Factory Package (ADR-100, archiviert)
     lifecycle: archived
+  wedding-hub:
+    github: achimdehnert/wedding-hub
+    description: Wedding planning platform (archiviert 2026-08-11, Tombstone platform#1924)
+    lifecycle: archived

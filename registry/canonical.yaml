@@ -1012,19 +1012,17 @@ repos:
     in_rich: true
     flat:
       type: django
-      prod_url: wedding-hub.iil.pet
-      staging_url: staging.wedding-hub.iil.pet
-      port: 8093
-      health: /livez/
+      archived: true
     domain: Events & Lifestyle
     rich:
       name: wedding-hub
       repo: wedding-hub
-      description: Wedding planning platform
+      description: Wedding planning platform (archiviert 2026-08-11, Tombstone platform#1924)
       github: achimdehnert/wedding-hub
-      deployed: true
+      deployed: false
+      archived: true
       type: django
-      lifecycle: experimental
+      lifecycle: archived
       tenancy_mode: none
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
