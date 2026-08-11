@@ -32,6 +32,7 @@ def _kein_echter_anker(monkeypatch, tmp_path):
     ausdruecklich herein.
     """
     monkeypatch.setattr(tb, "ANKER_DATEI", tmp_path / "kein-anker.json")
+    monkeypatch.setattr(tb, "REGISTRY_DATEI", tmp_path / "keine-registry.json")
 
 
 def vorgang(**kw) -> dict:
@@ -350,7 +351,7 @@ class TestNummerierung:
             seite = tb.baue(
                 {"vorgaenge": [vorgang(nr=118, bucket=eimer)]},
                 STICHTAG,
-                anker=frozenset(),
+                anker={},
             )
             assert "<td class='nr'>118</td>" in seite
 
@@ -363,18 +364,16 @@ class TestNummerierung:
                 ]
             },
             STICHTAG,
-            anker=frozenset(),
+            anker={},
         )
         assert "<td class='nr'>107</td>" in seite and "<td class='nr'>124</td>" in seite
 
     def test_should_add_the_number_column_to_the_header(self):
-        seite = tb.baue({"vorgaenge": [vorgang(nr=1)]}, STICHTAG, anker=frozenset())
+        seite = tb.baue({"vorgaenge": [vorgang(nr=1)]}, STICHTAG, anker={})
         assert "<th>#</th>" in seite
 
     def test_should_show_the_number_on_the_detail_page(self):
-        seite = tb.detail(
-            vorgang(nr=118, thread_key="Foerderaufruf"), anker=frozenset()
-        )
+        seite = tb.detail(vorgang(nr=118, thread_key="Foerderaufruf"), anker={})
         assert "#118" in seite
 
     def test_should_escape_a_number_that_is_not_a_number(self):
@@ -393,37 +392,70 @@ class TestNummerierung:
 
 class TestAnkerGate:
     def test_should_derive_the_link_when_the_number_is_anchored(self):
-        ziel = tb.mail_ziel(vorgang(nr=109), "https://mail.example", frozenset({"109"}))
+        ziel = tb.mail_ziel(vorgang(nr=109), "https://mail.example", {"109": "/a/"})
         assert ziel == "https://mail.example/a/109"
 
     def test_should_not_derive_a_link_for_an_unanchored_number(self):
         assert (
-            tb.mail_ziel(vorgang(nr=107), "https://mail.example", frozenset({"109"}))
+            tb.mail_ziel(vorgang(nr=107), "https://mail.example", {"109": "/a/"})
             is None
         )
 
     def test_should_prefer_an_explicit_mail_ref_over_the_number(self):
         v = vorgang(nr=109, mail_ref="/a/999")
-        ziel = tb.mail_ziel(v, "https://mail.example", frozenset({"109"}))
+        ziel = tb.mail_ziel(v, "https://mail.example", {"109": "/a/"})
         assert ziel == "https://mail.example/a/999"
 
     def test_should_reject_an_absolute_mail_ref_without_falling_back(self):
         """Ein vergifteter Eintrag wird nicht stillschweigend durch die Nummer geheilt."""
         v = vorgang(nr=109, mail_ref="https://fremd.example/x")
-        assert tb.mail_ziel(v, "https://mail.example", frozenset({"109"})) is None
+        assert tb.mail_ziel(v, "https://mail.example", {"109": "/a/"}) is None
 
-    def test_should_treat_a_missing_anchor_file_as_no_anchors(self):
-        assert tb.anker_nummern(Path("/nicht/vorhanden/anker.json")) == frozenset()
+    def test_should_treat_a_missing_anchor_file_as_no_anchors(self, tmp_path):
+        fehlt = Path("/nicht/vorhanden/anker.json")
+        assert tb.aufloesbare_nummern(fehlt, tmp_path / "auch-nicht.json") == {}
 
     def test_should_treat_a_broken_anchor_file_as_no_anchors(self, tmp_path):
         kaputt = tmp_path / "anker.json"
         kaputt.write_text("{kein json", encoding="utf-8")
-        assert tb.anker_nummern(kaputt) == frozenset()
+        assert tb.aufloesbare_nummern(kaputt, tmp_path / "leer.json") == {}
 
     def test_should_read_the_numbers_from_the_anchor_file(self, tmp_path):
         gut = tmp_path / "anker.json"
         gut.write_text('{"109": {"ordner": "INBOX"}, "110": {}}', encoding="utf-8")
-        assert tb.anker_nummern(gut) == frozenset({"109", "110"})
+        assert tb.aufloesbare_nummern(gut, tmp_path / "leer.json") == {
+            "109": "/a/",
+            "110": "/a/",
+        }
+
+    def test_should_resolve_a_graph_number_via_the_registry(self, tmp_path):
+        """Der gemeldete Fehler: IIL-Vorgaenge blieben unverlinkt (2026-08-11).
+
+        `anker.py --setze` laeuft ueber IMAP und erreicht nur die HNU-Konten.
+        Wer nur die Ankerdatei prueft, laesst jeden IIL-Vorgang ohne Link —
+        obwohl der Mail-Dienst ihn ueber die Kurz-ID-Registry aufloesen kann.
+        """
+        reg = tmp_path / "links.json"
+        reg.write_text('{"107": {"graph_id": "AAA"}}', encoding="utf-8")
+        assert tb.aufloesbare_nummern(tmp_path / "leer.json", reg) == {"107": "/r/"}
+
+    def test_should_prefer_the_imap_anchor_over_the_registry(self, tmp_path):
+        """Der Anker traegt Ordner+UID und zieht bei Ordnerwechsel nach."""
+        ank = tmp_path / "anker.json"
+        ank.write_text('{"107": {"ordner": "INBOX"}}', encoding="utf-8")
+        reg = tmp_path / "links.json"
+        reg.write_text('{"107": {"graph_id": "AAA"}}', encoding="utf-8")
+        assert tb.aufloesbare_nummern(ank, reg) == {"107": "/a/"}
+
+    def test_should_render_the_graph_prefix_in_the_row(self):
+        markup = tb.zeile(
+            vorgang(nr=107, thread_key="x"),
+            STICHTAG,
+            "",
+            "https://mail.example",
+            {"107": "/r/"},
+        )
+        assert "href='https://mail.example/r/107'" in markup
 
     def test_should_link_the_mail_from_the_overview_row(self):
         """Der Weg zur Mail kostet keinen Zwischenklick mehr."""
@@ -432,7 +464,7 @@ class TestAnkerGate:
             STICHTAG,
             "",
             "https://mail.example",
-            frozenset({"109"}),
+            {"109": "/a/"},
         )
         assert "href='https://mail.example/a/109'" in markup
 
@@ -442,7 +474,7 @@ class TestAnkerGate:
             STICHTAG,
             "",
             "https://mail.example",
-            frozenset({"109"}),
+            {"109": "/a/"},
         )
         assert "maillink" not in markup
 
@@ -468,7 +500,7 @@ class TestMailLinkOeffnetNeuenTab:
             STICHTAG,
             "",
             "https://mail.example",
-            frozenset({"109"}),
+            {"109": "/a/"},
         )
         assert "target='_blank'" in markup
         assert "rel='noreferrer'" in markup
@@ -487,12 +519,12 @@ class TestMailLinkOeffnetNeuenTab:
         einbaut — dann muss zuerst die Ursache weg (gemeinsame Adresse), sonst
         zeigt der Rahmen erneut nur "Verbindung abgelehnt".
         """
-        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG, anker=frozenset())
+        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG, anker={})
         assert "mail.iil.pet'" not in seite.split("<script>")[1]
         assert "lastIndexOf(MB" not in seite
 
     def test_should_still_intercept_vorgang_links(self):
-        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG, anker=frozenset())
+        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG, anker={})
         assert "h.indexOf('/t/')>=0" in seite
 
     def test_should_keep_the_overlay_on_the_index_only(self):
