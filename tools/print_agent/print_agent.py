@@ -1099,7 +1099,11 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
         # Die Auftragnehmer-Zeile gehoert zum Angebots-Kontext. Ein IIL-Dokument, in dem
         # IIL selbst der Auftraggeber ist (z.B. ein Pruefbogen an eigene Dienstleister),
         # bekaeme sonst eine sachlich falsche Rollenzuweisung auf dem Deckblatt.
-        if meta.get("angebot_nr") or meta.get("gueltig_bis") or meta.get("auftraggeber"):
+        if (
+            meta.get("angebot_nr")
+            or meta.get("gueltig_bis")
+            or meta.get("auftraggeber")
+        ):
             rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
         return rows
     # meiki default
