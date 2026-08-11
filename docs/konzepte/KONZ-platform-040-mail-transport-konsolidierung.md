@@ -207,8 +207,82 @@ für /platform-audit.
 | Wheel-Umbau ≤3 PT, Ingest ≤7 Tage stabil (sonst Rückbau) | offen | — |
 | Kontrakt-Test läuft in dev-hub-CI gegen echtes Wheel | offen | — |
 | Doppel-Fix-Zähler <2 bis 2027-02-06 (sonst O1-Wiedervorlage) | offen (Stand 0) | — |
-| MVC-4-Backup existiert, 0 Personendaten im public Repo | offen | — |
+| MVC-4-Backup existiert, 0 Personendaten im public Repo | **teilweise erfüllt** | Off-Site-Archiv am 2026-08-11 geöffnet und Inhalt gezählt (§14.3); Hand-`.bak`-Kopien gelöscht. Offen: Atomic-Write statt Hand-Kopien. |
 | Betriebs-Inventar (2 App-Registrierungen, SPOF-Entscheid) | offen | — |
 
 **Enforcement-Grenze (ehrlich):** review_by/kill_criteria wirken als
 Review-Gate, kein CI-Exit-Code — das Lifecycle-Gate existiert noch nicht.
+
+---
+
+## 14 Amendment 2026-08-11 — MVC-4 nach gemessener Bestandsaufnahme
+
+**Anlass.** Der Owner fragte, ob der handgepflegte Vorgangs-Ledger
+`~/.claude/mail-vorgaenge.json` im `Vorgang`-Modell von `dev-hub/apps/mail_agent`
+aufgeht. Der erste Anlauf beantwortete das als eigenständiges Konzept
+([PR #1928](https://github.com/achimdehnert/platform/pull/1928), geschlossen) — falsch,
+in Form **und** Sache: er zitierte dieses Dokument nirgends und empfahl das Gegenteil
+seines Befundes D4. Zwei unabhängige Kritiker-Agenten haben das aufgedeckt. Der Inhalt,
+der überlebt, gehört hierher — in MVC-4.
+
+### 14.1 Die Frage ist beantwortet: nein, und zwar unverändert
+
+**Der Ledger geht nicht im `Vorgang`-Modell auf, und er soll es auch nicht.** MVC-4 hat
+das bereits entschieden („Kein neuer Vorgangsspeicher"), Befund D4 begründet es, und
+ADR-286 §4.9 („Ordnername ist die Vorgangskennung") ist der bindende Entscheid. Eine
+Migration des Ledgers in die Datenbank wäre die **vierte oder fünfte** Vorgangs-Quelle,
+nicht deren Zusammenführung.
+
+**Gate, ab jetzt bindend:** Wer den Ledger in einen Datenbank-Speicher überführen will,
+braucht ein **Amendment an ADR-286 §4.9** — vorher nicht. Ein Feld hinzuzufügen, ein
+Export-Kommando zu bauen oder „nur die Anzeige umzustellen" zählt bereits dazu, sobald
+dabei ein zweiter Ort entsteht, an dem ein Vorgangs-Zustand *geschrieben* wird.
+
+### 14.2 Was die Messung vom 2026-08-11 zu MVC-4 hinzufügt
+
+MVC-4 verlangt „EINE Inventar-Seite: Datei → Konto/Transport/Art". Die Erhebung zeigt,
+dass diese drei Spalten nicht reichen. **Die Inventar-Seite braucht zusätzlich `Leser`,
+`Schreiber` und `SSoT-Ort`** — jede der drei fehlenden Spalten deckt einen real
+existierenden Fallstrick auf:
+
+| Fund | Warum die Spalte fehlt, wenn man sie nicht führt |
+|---|---|
+| **Ein ungeführter dritter Leser:** `tools/checks/mandantendaten_gate.py` liest `mail-vorgaenge.json` auf `thread_key` und `gegenueber` — es ist der Riegel, der Mandantennamen aus dem **öffentlichen** platform-Repo hält. Bei fehlender Datei liefert er still eine **leere Menge**. | Ohne `Leser`-Spalte macht ein Umbenennen oder Verschieben des Ledgers diesen Riegel unbemerkt blind — für ein public Repo. Das ist die gefährlichste Einzelkopplung im Bestand. |
+| **Ein zweiter Schreiber:** `tools/mail_agent/board.py --vergib-nummern` schreibt den Ledger zurück (Z. 441-443). Der Ledger hat also nicht einen Schreiber (`/mailcheck`), sondern zwei. | Ohne `Schreiber`-Spalte hält man Atomic-Write für ausreichend, obwohl zwei Prozesse dieselbe Datei anfassen. |
+| **Ein Schatten fremder SSoT:** 1 der 18 Vorgänge trägt `typ: dsgvo-loeschung`. Der `/mailcheck`-Skill legt ausdrücklich fest, dass **risk-hub** dafür die Quelle der Wahrheit ist und nicht in einer Parallelliste fortgeschrieben werden darf. | Ohne `SSoT-Ort`-Spalte sieht diese Zeile aus wie die anderen 17 und wird beim nächsten Umbau mitmigriert — in genau die Parallelliste, die verboten ist. |
+
+**Nebenbefund zur Identität:** Die Anrede des Betreibers ist die Nummer `nr` („7 go"),
+und `mail-anker.json` ist **nach `nr` verschlüsselt**. `nr` ist damit ein
+Identitätsträger über Dateigrenzen hinweg, nicht ein Anzeigedetail — jeder Umbau muss
+sie erhalten. Die Inventar-Seite nennt sie als Schlüssel, nicht als Feld unter vielen.
+
+### 14.3 Was heute erledigt wurde
+
+- **Die Hand-`.bak`-Kopien sind weg.** Vier Klartext-Kopien mit Mandantennamen
+  (`.bak-20260727`, `.bak-20260805`, `.bak-2026-08-07`, `.backup-2026-08-10`) und ein
+  vier Tage alter Personendaten-Abzug (`boards/todo.html`, 2026-08-07) wurden am
+  2026-08-11 gelöscht. Vorher geprüft: Kein systemd-Unit, kein cron und kein Werkzeug
+  liest `boards/todo.html`; der Board-Dienst läuft im `serve`-Modus und baut je Abruf neu.
+- **Das Off-Site-Backup ist belegt, nicht nur konfiguriert.** `mail-state-backup.service`
+  lief am 2026-08-11 02:15 mit Status `SUCCESS`; das Archiv auf
+  `88.99.38.75:/opt/backups/mail-state` wurde geöffnet und enthält
+  `mail-vorgaenge.json` (Stand 2026-08-10, 17 Vorgänge) neben `mail-links.json`,
+  `mail-anker.json`, `mail-roles.json` und `mail-folders.env`. Retention 30.
+- **Damit ist die Kill-Gate-Zeile „MVC-4-Backup existiert" belegt** (§13, unten
+  nachgezogen). **Nicht** erledigt bleibt die zweite Hälfte von MVC-4: Atomic-Write
+  statt Hand-Kopien — gelöscht ist nicht dasselbe wie strukturell verhindert.
+
+**Offene Kante, ausdrücklich benannt:** Zwischen dem nächtlichen Lauf um 02:15 und dem
+`/mailcheck` am Vormittag existiert der Tagesstand nur auf dem Arbeitsrechner. Am
+2026-08-11 waren das 18 Vorgänge lokal gegen 17 im jüngsten Off-Site-Archiv. Das ist
+eine normale Wiederherstellungslücke, aber sie gehört auf die Inventar-Seite, nicht ins
+Gedächtnis.
+
+### 14.4 Was ausdrücklich NICHT beschlossen wird
+
+Kein Export-Kommando, kein Feld am `Vorgang`-Modell, keine Umstellung des Board-Dienstes
+auf die Datenbank. Der erste Anlauf empfahl alle drei; die Gegenlesung zeigte, dass die
+Sicherheitsbegründung dafür nicht trägt (sie verschiebt die Kopplung in einen
+Transportweg, den niemand beschrieben hatte) und dass die Feldabdeckung nicht reicht
+(neun von vierzehn Ledger-Feldern hätten keinen Ursprung). Wer das dennoch will, geht
+über 14.1 — Amendment an ADR-286 §4.9.
