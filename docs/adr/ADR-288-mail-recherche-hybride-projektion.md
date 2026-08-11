@@ -21,6 +21,14 @@ ai_sparring_by:
     date: 2026-07-29
     role: adversarial-review
     summary: "OpenAI o3 (Runde 4) auf DIESEN ADR-Text — erste Runde, die nicht die Vorstufe bewertet. Verdikt überarbeiten. Traf die drei in §11.5 selbst benannten Lücken: die Zahlenkorrektur bleibt Indizienbeweis (AD-1), die Zweckbindung macht eine Ausnahmeklausel von ADR-286 zur Default-Strategie (AD-3), und Gate 8 misst das likely_open-Problem, behebt es aber nicht (AD-4). 7 von 9 Befunden valid, 2 missverstehen den Kontext. Tag-Tabelle §11.6."
+  - tool: other
+    date: 2026-08-11
+    role: adversarial-review
+    summary: "Externes LLM (Runde 5, Pre-Mortem) auf ADR-288 v2: Verdikt ueberarbeiten. Kern: ein Accept beglaubigt einen Zustand, den der ADR selbst verbietet — zwei Wahrheitsstaende der Kuration und eine Gate-Entscheidung auf einer als vorlaeufig markierten Zahl. Fuenf Failure-Modes, fuenf Empfehlungen. Tag-Tabelle §11.7."
+  - tool: other
+    date: 2026-08-11
+    role: adversarial-review
+    summary: "Externes LLM (Runde 6, Pre-Mortem, anderer Anbieter) auf ADR-288 v2: Verdikt ueberarbeiten. Kern: die zentrale Zusage 'open nur bei vollstaendiger Deckung' ist aus der laufenden Anlage nicht aus einem autoritativen, generationenkonsistenten Zustand ableitbar. Acht Failure-Modes, acht Empfehlungen, darunter ein belegter interner Widerspruch (§1.4.2 vs §4.11). Tag-Tabelle §11.7."
 ---
 
 # ADR-288: Adopt a purpose-scoped local evidence store with source-side deltas, rebuildable projections and coverage-bound negative statements
@@ -29,11 +37,11 @@ ai_sparring_by:
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed — v2 nach vier externen Runden (§11.6)                      |
+| **Status**      | Proposed — v2 nach vier Runden; **sechs** nach dem Pre-Mortem-Paar (§11.7), das den Accept ausdruecklich blockiert |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-07-29                                                           |
 | **Autor**       | Achim Dehnert                                                        |
-| **Reviewer**    | offen · 4× externe KI-Zweitmeinung (non-accountable, §11)             |
+| **Reviewer**    | offen · 6× externe KI-Zweitmeinung (non-accountable, §11)             |
 | **Supersedes**  | – (**kein** Supersede von ADR-286 — siehe §3.2)                       |
 | **Superseded by** | –                                                                  |
 | **Relates to**  | ADR-286 (Persistenz — §4.10.7 wird korrigiert, der Rest bleibt gültig), KONZ-platform-036 (Vorstufe), KONZ-platform-035 (Deckungsausweis) |
@@ -872,3 +880,70 @@ REC-1, REC-3 und REC-5 — jeweils in eigener Formulierung, nicht als übernomme
 78,9 %) nicht angegriffen, sondern nur deren Folgen für ausgeschlossene Jahrgänge (AD-2). Die
 Zahl 52.552 und ihre Aufteilung auf die Ordnerklassen bleibt damit auch nach vier Runden
 ungeprüft — sie ist gemessen, aber nicht gegengelesen.
+
+---
+
+### 11.7 Runden 5 und 6 — Pre-Mortem auf v2 (2026-08-11)
+
+Zwei unabhängige externe Anbieter, beide im **Pre-Mortem**-Modus („was geht schief, *nachdem*
+das akzeptiert und gebaut ist"), beide ohne Sicht auf Repo oder frühere ADRs. Anlass war die
+Absicht, diesen ADR auf `accepted` zu heben.
+
+**Beide kommen unabhängig zum selben Verdikt: überarbeiten, nicht akzeptieren.** Nach vier
+Runden, die Wortschärfungen erwarten ließen, ist das kein Rauschen — es ist der erste Befund,
+den *beide* neuen Runden an dieselbe Stelle setzen: nicht an die Architektur, sondern an den
+**Zeitpunkt** des Accept.
+
+Die tragende Aussage, in Runde 1 formuliert: *Ein Accept in der jetzigen Lage beglaubigt einen
+Zustand, den der ADR selbst verbietet* — zwei Wahrheitsstände für die Kuration und eine
+Gate-Entscheidung auf einer ausdrücklich als vorläufig markierten Zahl (§8 Gate 0 sagt wörtlich,
+Gate-Entscheidungen dürften nicht auf 66.580 aufsetzen; der Accept wäre die größte davon).
+
+Volltext beider Runden: `~/shared/adr-handoff-ADR-288-premortem-2026-08-11-response.md`
+(ephemer). Dieser Abschnitt ist der durable Nachweis.
+
+#### Konvergenz der beiden Runden
+
+| Sache | R5 | R6 | Wirkung |
+|---|---|---|---|
+| Accept blockiert, bis Gate 0 wirklich trägt | REC-3 | REC-1 | §8 Gate 0, Status bleibt `proposed` |
+| Kuration hat zwei Wahrheitsstände — vor dem Accept auflösen | REC-1 | REC-2 | KONZ-platform-042, neues Gate 13 |
+| Dauermess-Gates brauchen mechanische Konsequenz, keine Lesepflicht | REC-4 | REC-7 | §8 Gates 6/8/10 |
+| `undated` ist eine eigene Deckungsdimension | REC-5 | REC-6 | §4.5 |
+
+Vier von fünf bzw. acht Empfehlungen decken sich paarweise. Die verbleibenden aus Runde 6 sind
+Schema-Befunde, die Runde 5 nicht hatte — darunter ein **im Dokument belegbarer Widerspruch**.
+
+#### Tag-Tabelle (Owner-Urteil vorbehalten)
+
+Eine Zeile je Empfehlungs-ID, 13 von 13 (mechanisch gegengezählt, Skill-Step 5a.2).
+**Die Einstufung unten ist ein Vorschlag, keine getroffene Entscheidung** — das Urteil über
+externe Befunde bleibt beim Owner.
+
+| ID | Verdikt | Aktion |
+|---|---|---|
+| R5-REC-1 | `[valid]` | Doppelquelle vor dem Accept auflösen. Deckt sich mit R6-REC-2 und mit einer eigenen Messung vom selben Tag (18 Vorgänge in der Datei, 4 Felder im Modell) → KONZ-platform-042 steigt vom Folge-Thema zum **Accept-Blocker**. Neues Gate 13 „Ein Wahrheitsstand der Kuration". |
+| R5-REC-2 | `[valid]` | Neuer Abschnitt „Ist-Anlage": was heute wirklich läuft (11.964 Nachrichten, 145 Ordner, 03:30-Lauf, keine Generationen), und je Gate, ob es dafür gilt. Bis P2 trägt jede Werkzeug-Ausgabe „Vor-ADR-Modus: keine Deckungsgarantie". **Der strukturell wichtigste Punkt beider Runden** — er trennt Zielbild von Ist. |
+| R5-REC-3 | `[valid]` | s. R6-REC-1 — die drei Zählungen vor dem Accept ausführen. Aufwand laut eigener Messung Minuten je Lauf. |
+| R5-REC-4 | `[valid]` | s. R6-REC-7 — mechanischer Trigger statt Lesepflicht. |
+| R5-REC-5 | `[valid]` | s. R6-REC-6 — `undated` als Deckungsdimension. Am 2026-08-11 im Produktivbestand gemessen: **22 Nachrichten ohne Datum**, sie fallen aus jeder Zeitfenster-Abfrage. |
+| R6-REC-1 | `[valid]` | Accept blockieren bis Gate 0 abgeschlossen **und** der Ist-Bestand reconciled ist, mit Manifest je Lauf und zeilenweiser Ursachenzuordnung der Differenz zu 11.964/145. „Anderer Scope" als Pauschalerklärung ist ausdrücklich nicht zulässig. |
+| R6-REC-2 | `[valid]` | s. R5-REC-1. Zusatz gegenüber R5: JSON nach dem Abgleich **gehasht und read-only** als Migrationsbeleg, plus Regressionstest, der fehlschlägt, sobald ein produktiver Befehl die Datei noch schreibt. |
+| R6-REC-3 | `[valid, teilweise vorweggenommen]` | Trennung in durable `message_identity` und generationengebundene `message_projection`. **Vor der Umsetzung gegen die real gebaute Fassung prüfen:** `VorgangsZuordnung` in `dev-hub` weicht laut eigenem Docstring (2026-07-31) bereits bewusst von §4.1 ab und hängt den Fremdschlüssel an `LogicalMessage.kennung`. Ob das die Kritik entkräftet oder bestätigt, ist offen — hier ist der billigste Check ein Rebuild-Test. |
+| R6-REC-4 | `[valid]` | `opened_by_observation` durch einen durablen Evidenzanker ersetzen; Test mit geändertem `parser_version` muss zeigen, dass ein Rebuild neue Beobachtungen erzeugen darf, ohne bestehende `action_item` umzudeuten. |
+| R6-REC-5 | `[valid]` | Discovery-Probe über ausgeschlossene Ordner vor jeder Negativaussage, plus gemessene Falsch-Ausschlussrate. Trifft **genau die Lücke, die §11.6 selbst benennt**: die 78,9 %/52.552 sind gemessen, aber nach vier Runden nie gegengelesen. Gate 11 deckt nur den bereits verlinkten Fall ab. |
+| R6-REC-6 | `[valid]` | Zeitliche Deckung als Vertrag: `coverage_cutoff` und Quell-Watermarks in jeder Ausgabe, Live-Nachzüge als Overlay-Generation, `undated`-Bereich setzt betroffene Aussagen auf `unknown`. |
+| R6-REC-7 | `[valid]` | Dreizehn Gates auf drei ausführbare Klassen reduzieren (Accept-Blocker · Laufzeitinvarianten · periodische Review-Metriken), je mit Check, Evidenzartefakt, Auswertungsfenster und fail-closed Konsequenz. |
+| R6-REC-8 | `[valid — im Dokument belegt]` | Widerspruch beseitigen: Zeile 194 hält fest, der tragende Graph-Weg sei **nicht** `$batch`, sondern Listen-Abruf mit `$top`+Paging; §4.11 schreibt weiterhin `$batch` + `$select` vor. Gate 5 als End-to-End-p95 mit dem produktiven Commit wiederholen. **Von außen gefunden, ohne Repo-Zugriff — und beim Gegenlesen bestätigt.** |
+
+**Bilanz: 13 Empfehlungen, 13 als `[valid]` vorgeschlagen, 0 als `[missversteht-Kontext]` oder
+`[out-of-scope]`.** Das ist ungewöhnlich hoch und selbst ein Befund: Beide Runden zielen fast
+ausschließlich auf die Lücke zwischen Dokument und laufender Anlage — eine Lücke, die keine der
+vier früheren Runden sehen konnte, weil sie das Konzept vor der Implementierung prüften.
+
+#### Was Runde 5 und 6 nicht geleistet haben
+
+Beide arbeiten am **Zeitpunkt und an der Verankerung**, keine greift die gewählte Architektur an
+— was korrekt ist, weil das Briefing sie ausdrücklich als settled ausgewiesen hat. Die
+Passungsmatrix aus Runde 3 bleibt damit auch nach sechs Runden ungegengelesen; sie ist begründet,
+aber nicht adversarial geprüft.
