@@ -417,9 +417,42 @@ Tage (Owner-Entscheid), Ergebnis 49 statt 431 Zeilen.
 Information nicht — genau das, was eine Vorgangs-Zustandsmaschine liefern soll. B11 spricht
 damit **für** Option C, nicht gegen sie. Zweitens: Die 49 sind **Gegenüber, keine Vorgänge**.
 Nach B8 ist Identität Gegenüber × Sache; ein Gegenüber mit zwei getrennten Sachen erzeugt im
-MVP eine Zeile statt zwei. **49 ist eine Untergrenze**, und der Abstand zur echten Zahl ist
-zugleich das erste greifbare Maß dafür, wie viel die Vorgangserkennung überhaupt hinzufügt.
-Er ist ungemessen und aus Kopfdaten allein erhebbar.
+MVP eine Zeile statt zwei. **49 ist eine Untergrenze.**
+
+### B12 — der Abstand Gegenüber → Faden ist gemessen
+
+Am 2026-08-11 nachgemessen, lesend gegen denselben Produktivbestand (C10, `--je-faden`;
+gleiches Fenster 7–30 Tage, gleicher Zeitraum ab 2025):
+
+| Größe | je Gegenüber | je Faden |
+|---|---:|---:|
+| Zeilen im Fenster | **49** | **168** |
+| davon „ich schulde" | 13 | **70** |
+| davon „ich warte" | 36 | 98 |
+| jenseits der Obergrenze | 382 | 3.161 |
+| beteiligte Gegenüber | 49 | **66** |
+
+Deckung: 11.964 Nachrichten, Zustand `likely_open`, eine Lücke — die 22 ohne Datum (B2).
+Die 49 reproduzieren die Erstmessung exakt; die Gruppierung je Adresse ist unverändert.
+
+**Drei Dinge stehen damit fest, die vorher Vermutung waren.**
+
+1. **Die Untergrenze ist um den Faktor 3,4 zu niedrig.** Aus 49 werden 168 Zeilen. Die
+   Vorgangserkennung fügt also nicht eine Nuance hinzu, sondern den Großteil der Liste.
+2. **Am stärksten verdeckt wird ausgerechnet „ich schulde": 13 → 70, Faktor 5,4** gegenüber
+   3,4 im Mittel. Das ist strukturell und nicht zufällig: Je Adresse kippt **jede** Antwort in
+   **irgendeiner** Sache die Richtung auf „ich warte" und verdeckt damit alle unbeantworteten
+   Fäden desselben Gegenübers. Der Fall, für den das Cockpit gebaut wird — *was schulde ich?* —
+   ist genau der, den die billige Gruppierung am zuverlässigsten verschluckt.
+3. **17 Gegenüber tauchen je Adresse überhaupt nicht auf** (66 gegen 49). 28 der 66 führen
+   mehr als einen Faden, einer führt 19.
+
+**Was die Messung nicht sagt.** `thread_key` ist der normalisierte Betreff, mit Fehlern in
+beide Richtungen (B5): Eine Sache mit wechselndem Betreff zerfällt, zwei Sachen unter „Re:
+Anfrage" fallen zusammen. Die 168 sind deshalb **kein** Vorgangs-Istwert — die 19 Fäden eines
+Gegenübers sind ebenso plausibel eine übertrennte Sache wie 19 echte. Falsifiziert ist
+trotzdem etwas: Ein Abstand nahe null hätte entweder B8 widerlegt oder dem Betreff jedes
+Trennsignal abgesprochen. Er ist nicht nahe null.
 
 ---
 
@@ -500,8 +533,13 @@ verwertbare Zeilen statt 431, aber B11 zeigt, dass er ab ~30 Tagen nicht mehr tr
 und die 49 sind Gegenüber statt Vorgänge. **Wer daraus jetzt „also die große Lösung" macht,
 ersetzt einen ungemessenen Schluss durch einen anderen** — ob 49 Zeilen den Bedarf decken,
 ist keine Eigenschaft der Verteilung, sondern die Frage von REC-1, und REC-1 ist ungemessen.
-Kriterium (c) bleibt deshalb ausdrücklich **unentschieden**, nicht „bestanden". Es wird
-entscheidbar, sobald REC-1 vorliegt und der Abstand Gegenüber→Vorgang (B11) beziffert ist.
+Kriterium (c) bleibt deshalb ausdrücklich **unentschieden**, nicht „bestanden".
+
+**Nachtrag desselben Tages:** Die zweite Hälfte dieser Bedingung ist erfüllt — der Abstand
+ist beziffert (B12: 49 → 168, bei „ich schulde" 13 → 70). Er spricht **gegen** (c): Die
+kleine Lösung deckt den Nutzen erkennbar *nicht* ab, sondern verschluckt bei der wichtigsten
+Frage rund vier Fünftel. Damit fehlt für (c) nur noch REC-1 — und REC-1 ist die Frage, ob der
+verbleibende Aufwand sich lohnt, nicht mehr, ob die Baseline reicht.
 
 **Zu (d) — „zwei der drei Konten" war gegriffen.** Die Schwelle stand ohne Begründung und ist
 korrigiert. Die drei Konten tragen ungleichen Nutzen, und das entscheidende ist nicht die
