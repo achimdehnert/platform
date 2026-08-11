@@ -50,6 +50,67 @@ BUCKETS = (
 )
 KONTO_LABEL = {"iil": "IIL", "hnu": "HNU", "ad": "Mittwald", "": "—"}
 
+#: Basis fuer Mail-Links. Der Board-Dienst haengt an todo.iil.pet (Port 8789), der
+#: Mail-Renderer an mail.iil.pet (Port 8787) — ein relativer Pfad zeigt also ins
+#: Leere. Im Ledger steht deshalb nur der PFAD (`/a/118`), der Host kommt von hier
+#: und ist fuer lokale Laeufe ueberschreibbar. Host im Datenbestand waere Drift.
+MAIL_BASIS = os.environ.get("TODO_BOARD_MAIL_BASIS", "https://mail.iil.pet").rstrip("/")
+
+#: Verankerungs-Index des Mail-Dienstes: welche Board-Nummer ueberhaupt auf eine
+#: Mail zeigt. Nur gelesen — geschrieben wird die Datei von `mail_link_server.py`.
+ANKER_DATEI = Path.home() / ".claude" / "mail-anker.json"
+
+
+def anker_nummern(pfad: Path = ANKER_DATEI) -> frozenset[str]:
+    """Welche Nummern hat der Mail-Dienst verankert?
+
+    Warum das Board diese Datei ueberhaupt liest: `/a/<nr>` ist fuer jeden Posten
+    dieselbe Adresse, die Nummer steht ohnehin im Ledger — die Verlinkung liesse
+    sich also blind aus `nr` ableiten. Gemessen am 2026-08-11 waeren das aber
+    **14 von 18 Links, die zuverlaessig 404 liefern**: verankert sind nur 109,
+    110, 115, 118. Ein Link, der verlaesslich ins Leere fuehrt, ist schlechter
+    als der ehrliche Hinweis "keine Mail verknuepft" (#1875). Darum die Probe.
+
+    Bewusst nur diese eine Datei: das Board spricht weiterhin kein IMAP und
+    kennt keinen Postfachinhalt — es liest ausschliesslich, welche Nummern
+    aufloesbar sind. Fehlt oder bricht die Datei, faellt die Verlinkung auf den
+    Bestandsweg zurueck (nur ausdrueckliches `mail_ref`), statt zu scheitern.
+    """
+    try:
+        with pfad.open(encoding="utf-8") as fh:
+            daten = json.load(fh)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return frozenset()
+    return frozenset(str(k) for k in daten) if isinstance(daten, dict) else frozenset()
+
+
+def mail_ziel(
+    v: dict, mail_basis: str = MAIL_BASIS, anker: frozenset[str] | None = None
+) -> str | None:
+    """Die URL zur Mail dieses Vorgangs — oder None, wenn keine erreichbar ist.
+
+    Zwei Wege, in dieser Reihenfolge:
+    1. ausdrueckliches `mail_ref` im Ledger (Bestandsweg, gewinnt immer),
+    2. Ableitung `/a/<nr>` — aber nur, wenn die Nummer wirklich verankert ist.
+
+    Weg 2 loest den Handgriff ab, mit dem `/mailcheck` `mail_ref` bisher von Hand
+    nachtrug (K1 aus #1869): neue Vorgaenge tragen ihren Link, sobald der
+    Mail-Dienst sie kennt — ohne dass jemand daran denken muss.
+    """
+    ref = str(v.get("mail_ref") or "").strip()
+    if ref:
+        # Nur serverseitige Pfade akzeptieren. Ein absoluter Wert im Ledger waere
+        # ein offener Weiterleitungspunkt — der Ledger speist sich aus fremden Mails.
+        # Ist der Wert unbrauchbar, gibt es KEIN Ziel: auf die Nummer auszuweichen
+        # wuerde einen vergifteten Eintrag stillschweigend heilen und die Zeile
+        # unauffaellig machen, die gerade auffallen soll.
+        return f"{mail_basis}{ref}" if ref.startswith("/") and ref[1:2] != "/" else None
+    nr = v.get("nr")
+    if nr in (None, ""):
+        return None
+    verankert = anker_nummern() if anker is None else anker
+    return f"{mail_basis}/a/{quote(str(nr), safe='')}" if str(nr) in verankert else None
+
 
 def heute() -> date:
     return date.today()
@@ -96,7 +157,13 @@ def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
     return (1, 0, v.get("thread_key", "")) if tage is None else (0, tage, "")
 
 
-def zeile(v: dict, stichtag: date, basis: str = "") -> str:
+def zeile(
+    v: dict,
+    stichtag: date,
+    basis: str = "",
+    mail_basis: str = MAIL_BASIS,
+    anker: frozenset[str] | None = None,
+) -> str:
     tage = frist_tage(v, stichtag)
     klasse, text = ampel(tage)
     konto = KONTO_LABEL.get(v.get("konto", ""), v.get("konto", "—"))
@@ -109,9 +176,25 @@ def zeile(v: dict, stichtag: date, basis: str = "") -> str:
         if schluessel
         else beschriftung
     )
+    # Die Nummer ist die ID aus dem Ledger, kein Laufindex je Abschnitt: sie bleibt
+    # ueber Bucket-Wechsel und ueber Tage hinweg dieselbe und ist genau die Nummer,
+    # unter der die Mail als `/a/<nr>` erreichbar ist. Ein Laufindex wuerde springen.
+    nr = v.get("nr")
+    nr_text = html.escape(str(nr)) if nr not in (None, "") else "—"
+    # Der Mail-Link steht schon in der Uebersicht, nicht erst auf der Vorgangsseite:
+    # der Weg zur Mail soll keinen Zwischenklick kosten (#1869).
+    ziel = mail_ziel(v, mail_basis, anker)
+    mail = (
+        f" <a class='maillink' href='{html.escape(ziel)}' target='_blank' "
+        f"rel='noreferrer' aria-label='Mail zu #{nr_text} oeffnen' "
+        f"title='Mail oeffnen'>&#9993;</a>"
+        if ziel
+        else ""
+    )
     return (
         "<tr>"
-        f"<td class='sache'>{sache}"
+        f"<td class='nr'>{nr_text}</td>"
+        f"<td class='sache'>{sache}{mail}"
         f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
         f"<td class='konto'>{html.escape(konto)}</td>"
         f"<td class='frist {klasse}'>{html.escape(text)}"
@@ -122,18 +205,25 @@ def zeile(v: dict, stichtag: date, basis: str = "") -> str:
 
 
 def abschnitt(
-    titel: str, unter: str, posten: list[dict], stichtag: date, basis: str = ""
+    titel: str,
+    unter: str,
+    posten: list[dict],
+    stichtag: date,
+    basis: str = "",
+    mail_basis: str = MAIL_BASIS,
+    anker: frozenset[str] | None = None,
 ) -> str:
     if not posten:
         return ""
     zeilen = "".join(
-        zeile(v, stichtag, basis)
+        zeile(v, stichtag, basis, mail_basis, anker)
         for v in sorted(posten, key=lambda x: sortschluessel(x, stichtag))
     )
     return f"""<section>
 <h2>{html.escape(titel)} <span class='zahl'>{len(posten)}</span></h2>
 <p class='unter'>{html.escape(unter)}</p>
-<table><thead><tr><th>Sache</th><th>Konto</th><th>Frist</th><th>Naechster Schritt</th></tr></thead>
+<table><thead><tr><th>#</th><th>Sache</th><th>Konto</th><th>Frist</th>
+<th>Naechster Schritt</th></tr></thead>
 <tbody>{zeilen}</tbody></table>
 </section>"""
 
@@ -152,6 +242,7 @@ body{margin:0;padding:2rem 1.25rem 4rem;background:var(--bg);color:var(--fg);
 font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:60rem;margin:0 auto}
 h1{font-size:1.5rem;margin:0 0 .25rem}
+.nr-marke{color:var(--stumm);font-weight:400;font-variant-numeric:tabular-nums}
 .stand{color:var(--stumm);font-size:.85rem;margin:0 0 2rem}
 section{background:var(--karte);border:1px solid var(--linie);border-radius:10px;
 padding:1.1rem 1.25rem;margin-bottom:1.25rem}
@@ -165,7 +256,12 @@ th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.04e
 color:var(--stumm);font-weight:600;padding:0 .6rem .4rem 0;border-bottom:1px solid var(--linie)}
 td{padding:.6rem .6rem .6rem 0;border-bottom:1px solid var(--linie);vertical-align:top}
 tr:last-child td{border-bottom:none}
+.nr{color:var(--stumm);font-variant-numeric:tabular-nums;white-space:nowrap;
+width:2.5rem;font-size:.85rem}
 .sache{font-weight:500;min-width:14rem}
+a.maillink{text-decoration:none;border-bottom:none;color:var(--stumm);
+margin-left:.35rem;font-size:.95rem}
+a.maillink:hover{color:var(--fg)}
 .wer{display:block;font-weight:400;font-size:.78rem;color:var(--stumm);margin-top:.15rem}
 .konto{color:var(--stumm);white-space:nowrap}
 .frist{white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -243,6 +339,14 @@ OVERLAY = """
   var h=a.getAttribute('href')||'';
   if(a.id==='ovl-x'){e.preventDefault();zu();return;}
   if(a===ext)return;
+  /* NUR eigene Vorgangsseiten. Mail-Links gehen bewusst NICHT ins Overlay:
+     mail.iil.pet steht hinter Cloudflare Access, und Access leitet auf
+     iil-team.cloudflareaccess.com um, das `frame-ancestors 'none'` sendet.
+     Am 2026-08-11 im Browser gemessen — das Overlay oeffnete sich und zeigte
+     "hat die Verbindung abgelehnt". Ein Rahmen, der verlaesslich leer bleibt,
+     ist schlechter als ein neuer Tab; die Mail-Links tragen darum target=_blank.
+     Wieder moeglich waere das Modal erst, wenn beide Dienste unter DERSELBEN
+     Adresse haengen (Pfad-Mount im Tunnel) — siehe #1869. */
   if(h.indexOf('/t/')>=0){e.preventDefault();auf(h);}
  });
  ovl.addEventListener('click',function(e){if(e.target===ovl)zu();});
@@ -250,14 +354,13 @@ OVERLAY = """
 })();
 </script>"""
 
-#: Basis fuer Mail-Links. Der Board-Dienst haengt an todo.iil.pet (Port 8789), der
-#: Mail-Renderer an mail.iil.pet (Port 8787) — ein relativer Pfad zeigt also ins
-#: Leere. Im Ledger steht deshalb nur der PFAD (`/a/118`), der Host kommt von hier
-#: und ist fuer lokale Laeufe ueberschreibbar. Host im Datenbestand waere Drift.
-MAIL_BASIS = os.environ.get("TODO_BOARD_MAIL_BASIS", "https://mail.iil.pet").rstrip("/")
 
-
-def aktionen(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> list[tuple]:
+def aktionen(
+    v: dict,
+    mail_basis: str = MAIL_BASIS,
+    basis: str = "",
+    anker: frozenset[str] | None = None,
+) -> list[tuple]:
     """Naechste Schritte als Ziele — ausschliesslich anzeigend.
 
     Bewusste Grenze (#1869): hier entsteht KEIN Knopf, der etwas ausloest. Senden,
@@ -271,11 +374,9 @@ def aktionen(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> list[tup
     """
     del basis  # noch kein Ziel, das die Board-Basis braucht — siehe unten
     ziele: list[tuple] = []
-    ref = str(v.get("mail_ref") or "").strip()
-    # Nur serverseitige Pfade akzeptieren. Ein absoluter Wert im Ledger waere ein
-    # offener Weiterleitungspunkt — der Ledger speist sich aus fremden Mails.
-    if ref.startswith("/") and not ref.startswith("//"):
-        ziele.append(("Mail oeffnen", f"{mail_basis}{ref}"))
+    ziel = mail_ziel(v, mail_basis, anker)
+    if ziel:
+        ziele.append(("Mail oeffnen", ziel))
     # Bewusst KEIN Selbstlink auf `/t/<thread_key>`: die Vorgangsseite ist genau das
     # Ziel, auf dem dieser Abschnitt steht. Er waere ausserdem der einzige Grund,
     # warum Bestandsvorgaenge ohne `mail_ref` ploetzlich einen Knopf trugen.
@@ -285,10 +386,15 @@ def aktionen(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> list[tup
     return ziele
 
 
-def naechste_schritte(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> str:
+def naechste_schritte(
+    v: dict,
+    mail_basis: str = MAIL_BASIS,
+    basis: str = "",
+    anker: frozenset[str] | None = None,
+) -> str:
     """Abschnitt 'Naechste Schritte': der Text aus dem Ledger plus erreichbare Ziele."""
     text = str(v.get("next_trigger") or "").strip()
-    ziele = aktionen(v, mail_basis, basis)
+    ziele = aktionen(v, mail_basis, basis, anker)
     kopf = f"<p class='schritt-text'>{html.escape(text)}</p>" if text else ""
     # Ohne Ziel bleibt der Vorschlag Text. Ein Knopf ohne Ziel waere genau der tote
     # Link, den `zeile()` beim fehlenden thread_key schon vermeidet.
@@ -296,7 +402,8 @@ def naechste_schritte(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") ->
         rest = (
             "<p class='aktionen'>"
             + " ".join(
-                f"<a class='aktion' href='{html.escape(url)}'>{html.escape(label)}</a>"
+                f"<a class='aktion' href='{html.escape(url)}' target='_blank' "
+                f"rel='noreferrer'>{html.escape(label)}</a>"
                 for label, url in ziele
             )
             + "</p>"
@@ -324,13 +431,26 @@ DETAIL_FELDER = (
 )
 
 
-def detail(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> str:
+def detail(
+    v: dict,
+    mail_basis: str = MAIL_BASIS,
+    basis: str = "",
+    anker: frozenset[str] | None = None,
+) -> str:
     """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
     zeilen = "".join(
         f"<tr><th>{html.escape(label)}</th><td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
         for feld, label in DETAIL_FELDER
     )
-    schritte = naechste_schritte(v, mail_basis, basis)
+    schritte = naechste_schritte(v, mail_basis, basis, anker)
+    nr = v.get("nr")
+    # Dieselbe Nummer wie in der Uebersicht — sie ist der Wiedererkennungsanker
+    # zwischen Liste, Chat-Board und Mail-Adresse `/a/<nr>`.
+    nr_marke = (
+        f"<span class='nr-marke'>#{html.escape(str(nr))}</span> "
+        if nr not in (None, "")
+        else ""
+    )
     notiz = html.escape(str(v.get("notiz") or "")).replace(" | ", "\n\n")
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
@@ -338,7 +458,7 @@ def detail(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> str:
 <meta name="robots" content="noindex,nofollow">
 <title>{html.escape(v.get("thread_key", "Vorgang"))}</title><style>{CSS}</style></head>
 <body><main>
-<h1>{html.escape(v.get("thread_key", "Vorgang"))}</h1>
+<h1>{nr_marke}{html.escape(v.get("thread_key", "Vorgang"))}</h1>
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 <table><tbody>{zeilen}</tbody></table>
 {schritte}
@@ -348,8 +468,19 @@ def detail(v: dict, mail_basis: str = MAIL_BASIS, basis: str = "") -> str:
 </main></body></html>"""
 
 
-def baue(daten: dict, stichtag: date, basis: str = "") -> str:
+def baue(
+    daten: dict,
+    stichtag: date,
+    basis: str = "",
+    mail_basis: str = MAIL_BASIS,
+    anker: frozenset[str] | None = None,
+) -> str:
     posten = daten.get("vorgaenge", [])
+    # Einmal je Seitenaufbau lesen statt einmal je Zeile: die Datei aendert sich
+    # waehrend eines Aufbaus nicht, und 18 Dateizugriffe fuer 18 Zeilen waeren
+    # Verschwendung. `None` heisst hier "noch nicht geladen", nicht "leer".
+    if anker is None:
+        anker = anker_nummern()
     nach_bucket: dict[str, list[dict]] = {k: [] for k, _, _ in BUCKETS}
     # Ein Vorgang ohne bekannten Bucket verschwindet nicht — er landet sichtbar
     # bei "Dein Zug", damit eine fehlende Klassifikation auffaellt statt zu schweigen.
@@ -357,7 +488,8 @@ def baue(daten: dict, stichtag: date, basis: str = "") -> str:
         schluessel = v.get("bucket")
         nach_bucket[schluessel if schluessel in nach_bucket else "owner"].append(v)
     abschnitte = "".join(
-        abschnitt(t, u, nach_bucket.get(k, []), stichtag, basis) for k, t, u in BUCKETS
+        abschnitt(t, u, nach_bucket.get(k, []), stichtag, basis, mail_basis, anker)
+        for k, t, u in BUCKETS
     )
     geprueft = html.escape(str(daten.get("letzte_pruefung", "unbekannt")))
     faellig = sum(
