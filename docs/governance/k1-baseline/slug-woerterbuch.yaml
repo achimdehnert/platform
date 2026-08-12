@@ -24,7 +24,13 @@ frozen_at: "2026-08-02"
 # + Report-Block). Reine Berichts-Ergaenzung, das Zaehlwerk blieb unangetastet —
 # der Baseline-Lauf mit der neuen Version liefert erneut n=20, 10/7/3,
 # Summen-Rate 1.000. sha cd925fce… → 43c29ee8….
-tool_sha256: 43c29ee8ea2d7edd8944438d8742046cfbbcd744c149cadc2f58d74761f7c7b3
+#
+# Erneut neuberechnet 2026-08-12/2 (platform#1650 Kriterium 1): retro_kpis.py
+# weist declined-Slugs (dokumentierte Nicht-Gate-Entscheidungen) gesondert aus
+# (registry_declined + Report-Block). Reine Berichts-Ergaenzung, das Zaehlwerk
+# blieb unangetastet — der Baseline-Lauf mit der neuen Version liefert erneut
+# n=20, 10/7/3, Summen-Rate 1.000. sha 43c29ee8… → fcdb0489….
+tool_sha256: fcdb0489245cc0c41100a9ca715a996e015e2754a67cdecd0a8d085734366bc7
 
 top3:
   - canonical: claim-before-cheapest-check

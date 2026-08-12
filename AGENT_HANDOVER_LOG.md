@@ -1830,3 +1830,20 @@ dieser Sitzung, der ein Risiko trägt statt nur Arbeit.
 Ein Lichtblick zum Schluss: Der Admin-Test, den ich wegen des Löschknopfs geschrieben hatte,
 hat zwei Stunden später den Bau der Kategorien-Tabelle angehalten — sie war nicht
 registriert. Ein Guard, der eine andere Lücke fängt als die, für die er gebaut wurde.
+### 2026-08-12 · Session gate-registry (Kapitäns-Kanal)
+
+- **#1650 Gate-Audit GESCHLOSSEN** — alle 3 Abnahme-Kriterien erfüllt, Checkboxen abgehakt.
+  Owner-Merges: #1938 (4 existierende Gates registriert + retro_kpis-Registry-Abgleich),
+  #1939 (declined-Liste ×3 + Ruleset-Wächter täglich), #1940 (nolimits ratifiziert),
+  #1941 (Test-Lücken-Gate, Baseline 162→3 Befunde, 0 FP).
+- Registry: 16 Einträge, alle drill-frisch (gate_drill_check); K1-Pin 2× regelkonform
+  nachgezogen (Kontroll-Läufe identisch: n=20, 10/7/3, Rate 1.000).
+- **Fund:** policies/nolimits.md lag seit 10.08. unratifiziert (untracked) in platform-pinned
+  und war aktiv eingespeist — Classifier blockte Agent-Commit korrekt; Owner ratifizierte
+  interaktiv, PR #1940, danach pinned bereinigt (clean, 0 hinter main, vorher 56).
+- Bewusste Reste getrackt: #1943 (Melder-Hook-Umzug ins Repo, 3 ungetestete Altfall-Module).
+- Neuer Auftrag materialisiert (Zielzustand-Loop): **#1945 Handover-Flotte** (SA-4-fähig).
+- **Abnahme (0d): Zielzustand #1650 ERREICHT** — Kriterien einzeln verifiziert
+  (Drill 16/16, retro_kpis-Echtlauf „✓ gedeckt oder entschieden", Issue-Checkboxen).
+- **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
+  alle Merges liefen bewusst als Owner-Einzel-Review (Perimeter-Pfade + Selbstbetreffendes).

@@ -200,6 +200,28 @@ def registry_coverage(path: str = GATE_REGISTRY) -> set[str] | None:
     return covered
 
 
+def registry_declined(path: str = GATE_REGISTRY) -> set[str] | None:
+    """Slugs mit dokumentierter bewusster Nicht-Gate-Entscheidung (`declined`).
+
+    platform#1650 Kriterium 1: ein GATE-PFLICHT-Slug darf statt eines Gates auch
+    eine dokumentierte Owner-Entscheidung tragen — getragenes Restrisiko statt
+    vergessener Luecke. Solche Slugs werden gesondert ausgewiesen, nicht als
+    Luecke gemeldet und nicht als gedeckt verschwiegen.
+
+    None = Registry nicht lesbar (gleiche Semantik wie registry_coverage).
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            reg = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return {
+        d["slug"]
+        for d in reg.get("declined", [])
+        if isinstance(d, dict) and d.get("slug")
+    }
+
+
 def _gate_issue_title(slug: str) -> str:
     return f"Gate: {slug}"
 
@@ -605,14 +627,25 @@ def main() -> int:
         )
         # Registry-Abgleich (platform#1650 Kriterium 3): Erwähnung ≠ Erzwingung —
         # gedeckt ist nur, was in der Gate-Registry steht (und damit gedrillt wird).
+        # Kriterium 1: ein Slug darf stattdessen eine dokumentierte Nicht-Gate-
+        # Entscheidung tragen (declined) — gesondert ausgewiesen, nie verschwiegen.
         covered = registry_coverage()
-        if covered is None:
+        declined = registry_declined()
+        if covered is None or declined is None:
             print(
                 "  ⚠ Gate-Registry nicht lesbar — Gate-Deckung NICHT bewertbar "
                 "(nie als ok werten)."
             )
         else:
-            ohne_gate = sorted(s for s in gated if s not in covered)
+            entschieden = sorted(s for s in gated if s in declined and s not in covered)
+            ohne_gate = sorted(
+                s for s in gated if s not in covered and s not in declined
+            )
+            if entschieden:
+                print(
+                    f"  ○ bewusst ohne Gate — dokumentierte Owner-Entscheidung "
+                    f"({len(entschieden)}): {', '.join(entschieden)}"
+                )
             if ohne_gate:
                 print(
                     f"  🚨 davon OHNE registriertes Gate ({len(ohne_gate)}): "
@@ -621,12 +654,12 @@ def main() -> int:
                 print(
                     "     → Gate bauen + in docs/governance/gate-registry.json "
                     "registrieren, oder die bewusste Nicht-Gate-Entscheidung "
-                    "dort als Eintrag dokumentieren."
+                    "dort in der declined-Liste dokumentieren."
                 )
             else:
                 print(
                     "  ✓ Registry-Abgleich: alle GATE-PFLICHT-Slugs tragen ein "
-                    "registriertes Gate."
+                    "registriertes Gate oder eine dokumentierte Entscheidung."
                 )
 
     # --- refuted_rate-Band ---
