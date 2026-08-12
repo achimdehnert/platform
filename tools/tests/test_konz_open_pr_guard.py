@@ -101,21 +101,26 @@ def test_should_pass_when_open_prs_claim_distinct_numbers(monkeypatch, capsys):
 
 
 def test_should_fail_on_the_real_konz043_collision(monkeypatch, capsys):
-    """Regressionsfall 2026-08-12: `konz-formatsatz` und
-    `konz043-activity-intelligence` beanspruchten beide die 043 mit
-    verschiedenem Slug. Ohne diesen Guard lief das durch."""
+    """Regressionsfall 2026-08-12: PR #1942 (`konz-formatsatz`) und #1934
+    (`konz043-activity-intelligence`) beanspruchten beide die 043 mit
+    verschiedenem Slug. Ohne diesen Guard lief das durch.
+
+    Die zweite Datei heisst hier bewusst NICHT wie im Original
+    (`...-mail-activity-intelligence.md`): dieser Pfad existiert real auf `main`,
+    und ein real existierender Pfad in einem Test zieht ihn in den
+    CI-Trigger-Filter von `tools-tests.yml` (siehe
+    test_ci_trigger_covers_test_inputs.py). Der Guard prueft die Nummer, nicht
+    den Slug — die Aussagekraft des Falls bleibt damit unveraendert."""
     monkeypatch.setenv("GITHUB_REPOSITORY", "achimdehnert/platform")
     monkeypatch.setenv("PR_NUMBER", "1942")
     monkeypatch.setattr(
         kpg,
         "gh",
         _make_fake_gh(
-            open_prs=[1942, 1943],
+            open_prs=[1942, 1934],
             views={
                 1942: [_p("docs/konzepte/KONZ-platform-043-formatsatz-paket.md")],
-                1943: [
-                    _p("docs/konzepte/KONZ-platform-043-mail-activity-intelligence.md")
-                ],
+                1934: [_p("docs/konzepte/KONZ-platform-043-activity-intelligence.md")],
             },
         ),
     )
