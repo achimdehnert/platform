@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-08-11
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -18,7 +18,7 @@ tags: [mail, datenhaltung, dsgvo, dev-umgebung, loeschung]
 > **Nummern-Hinweis:** 295 = nächste freie Nummer zum Draft-Zeitpunkt; final allokiert
 > zur Merge-Zeit (ADR-228).
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-08-12 durch den Owner; Entscheidung fiel am 2026-08-11)
 - **Datum:** 2026-08-11
 - **Amends:** ADR-293 (§4.3 „keine Auslagerung")
 - **Betrifft:** `dev-hub` `apps/mail_agent`, Dev-Desktop
@@ -108,9 +108,17 @@ niemand geplant hat — und Art. 17 gilt auch für sie.
 - Der Dev-Bestand ist **kein zweiter Primärbestand**. Er wird nicht fortgeschrieben,
   sondern periodisch ersetzt; zwischen zwei Ersetzungen ist er veraltet, und Aussagen aus
   ihm sind keine Aussagen über den echten Stand.
-- Der Bestand hat ein **Ablaufdatum**: Ohne ausdrückliche Verlängerung wird er zum
-  `review_by`-Termin dieses ADR gelöscht. Ein Bestand ohne Ablauf wird zum Dauerzustand,
-  den niemand mehr entschieden hat.
+- Der Bestand hat ein **Ablaufdatum: 2026-11-11.** Ohne ausdrückliche Verlängerung wird er
+  an diesem Tag gelöscht. Ein Bestand ohne Ablauf wird zum Dauerzustand, den niemand mehr
+  entschieden hat. Drei Monate, nicht sechs: Der Termin ist an KONZ-platform-043 gekoppelt,
+  weil dessen Entscheidung über Stufe 4+ ohnehin dann fällt — ist sie negativ, hat der
+  zweite Bestand keinen Anlass mehr.
+
+  > **Korrektur am Entwurf (2026-08-12).** Die erste Fassung verwies hier und in Gate 5 auf
+  > „den `review_by`-Termin dieses ADR". **Ein solches Feld gibt es im ADR-Schema nicht** —
+  > geprüft an ADR-288 und ADR-293, je null Vorkommen; ADRs führen `last_reviewed` +
+  > `staleness_months`, `review_by` ist ein KONZ-Feld. Der Ablauf hing damit an einem
+  > Datum, das nie existiert hätte. Jetzt steht er als fester Tag.
 
 ---
 
@@ -156,8 +164,9 @@ echten Ziel.
    auch das ausdrücklich da.
 4. **Gate 4 — eigener Schlüssel.** Der Produktionsschlüssel ist nachweislich nicht auf dem
    Dev-Host; der Dev-Bestand ist mit einem eigenen Schlüssel lesbar.
-5. **Gate 5 — Ablauf verankert.** Das Ablaufdatum steht nicht nur hier, sondern in einem
-   Artefakt, das zum Termin gelesen wird (Issue mit Fälligkeit oder Cron-Melder).
+5. **Gate 5 — Ablauf verankert.** Der **2026-11-11** steht nicht nur hier, sondern in einem
+   Artefakt, das zum Termin gelesen wird (Issue mit Fälligkeit oder Cron-Melder). Ein
+   Datum, das nur im ADR steht, wird am Stichtag von niemandem gesehen.
 
 ---
 
@@ -172,7 +181,53 @@ echten Ziel.
 
 ---
 
-## 7. Offenlegung
+## 7. Gate-Stand 2026-08-12 (erhoben, bevor übertragen wurde)
+
+Alle fünf Gates wurden am Tag der Annahme geprüft. **Kein Byte ist übertragen.** Zwei Gates
+stehen besser da als erwartet, zwei brauchen Arbeit, eines ist erledigt.
+
+| Gate | Stand | Beleg |
+|---|---|---|
+| 1 Löschung an beiden Orten | **offen, schwerer als gedacht** | `record_erasure` wird ausschließlich aus Tests aufgerufen |
+| 2 Zugang | **erfüllt, aber anders** | Dev-Instanz nur auf `127.0.0.1:8085`, kein nginx, kein cloudflared |
+| 3 Sicherungen | **geklärt: es gibt keine** | keine Backup-Cron, kein restic/borg auf dem Dev-Host |
+| 4 eigener Schlüssel | **frei, Mechanismus vorhanden** | `MAIL_AGENT_KEKS` auf dem Dev-Host nicht gesetzt |
+| 5 Ablauf verankert | **erledigt** | [dev-hub#270](https://github.com/achimdehnert/dev-hub/issues/270) |
+
+**Zu 1 — das ist der eigentliche Preis dieses Beschlusses.** Gesucht war eine Stelle, die
+den Löschweg über zwei Bestände führt. Gefunden wurde, dass es **überhaupt keine
+operative Stelle** gibt: `record_erasure` existiert als Funktion und ist getestet, aber
+aufgerufen wird sie nur aus `tests/`. Es gibt kein Management-Kommando, keine View, keine
+Admin-Aktion. Eine Löschanfrage ist heute ein Shell-Eingriff von Hand — und das gilt
+**schon für einen** Bestand. Der zweite verdoppelt keinen Mechanismus, sondern eine
+Handarbeit. Gate 1 ist damit nicht „noch zu verdrahten", sondern verlangt zuerst die
+Verdrahtung, die ADR-293 vorausgesetzt hat.
+
+**Zu 2 — „hinter Cloudflare" ist auf dev heute gar nicht die Schutzlage.** Der Container
+veröffentlicht ausschließlich auf die Loopback-Adresse; nginx und cloudflared sind auf dem
+Host inaktiv, ein Tunnelverzeichnis existiert nicht. Die Instanz ist also nur über einen
+SSH-Tunnel erreichbar — **strenger** als Cloudflare Access, nicht schwächer. Solange das so
+bleibt, ist Gate 2 in seiner schärfsten Form erfüllt. **Sobald die Oberfläche erreichbar
+gemacht wird, um sie zu benutzen, muss Gate 2 neu belegt werden**, dann mit der
+Positivkontrolle aus §5.
+
+**Zu 3 — die Antwort ist „keine", und die ist zulässig.** §2.3 verlangt eine Antwort, keine
+bestimmte. Auf dem Dev-Host laufen keine Sicherungen: `/etc/cron.d` enthält nur `certbot`,
+`e2scrub_all`, `sysstat`, die root-crontab keinen Backup-Eintrag, `restic`/`borg` sind nicht
+installiert. Damit entsteht keine dritte Kopie. *Restlücke:* Ein von außen ziehendes
+Backup (z. B. off-provider) wäre von dieser Prüfung nicht erfasst — geprüft ist der Host,
+nicht das Netz.
+
+**Zu 4 — der Produktionsschlüssel ist nicht auf dem Dev-Host.** Beide Wege geprüft, die
+`read_secret` benutzt: `/run/secrets/MAIL_AGENT_KEKS` existiert auf **keinem** der beiden
+Hosts, und die Zeile in `.env.prod` liefert auf Produktion einen Wert, auf dev nichts (der
+dortige Digest ist der der leeren Zeichenkette). Positivkontrolle: derselbe Griff findet auf
+Produktion etwas. Der Dev-Bestand braucht also vor dem ersten Body einen **eigenen** Wert —
+sonst greift der `SECRET_KEY`-Rückfall, den die Produktionseinstellungen ablehnen.
+
+---
+
+## 8. Offenlegung
 
 Der Autor dieses ADR hat gegen die Entscheidung argumentiert und ist ihr dann gefolgt. Die
 Argumente stehen in §1, §2 und Option C; sie sind nicht entkräftet, sondern überstimmt. Das
