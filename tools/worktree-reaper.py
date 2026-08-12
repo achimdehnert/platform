@@ -28,6 +28,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
 # docs/governance/gate-registry.json abgeglichen. Der Reaper ist das Gate gegen
@@ -42,7 +43,6 @@ GATE_HEADER = {
     "last_drill_pass": "2026-08-12",
     "evidence": "tools/tests/test_worktree_reaper.py",
 }
-from pathlib import Path
 
 PROTECTED_BRANCHES = {"main", "master"}
 LEASE_DIR = (
