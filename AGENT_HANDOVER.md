@@ -35,9 +35,9 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-12 — Mail Activity Intelligence: gemessen, beschlossen, gebaut)
+## ⚡ Aktueller Stand (2026-08-12 — Mail Activity Intelligence; parallele Sessions kollisionsfrei; Admin geprueft und abgesichert)
 
-**Zeitanker:** HEAD `f785431b` · `rev-list --count` 3151 · geschrieben 2026-08-12 07:35
+**Zeitanker:** HEAD `1a4e5659` · `rev-list --count` 3173 · geschrieben 2026-08-12 07:35, ergaenzt 13:55 · **vereinigt zwei Straenge desselben Tages** (`1f9813` Mail Activity Intelligence, `9ee08c2` parallele Sessions + Admin-Test)
 
 ### Strang `1f9813` — von zwei Review-Runden zur Kategorien-Tabelle
 
@@ -129,6 +129,69 @@ Löschtermin 2026-11-11).
 - **SA-4: 0 Anwendungen · 0 Fehlanwendungen.** Kein PR dieser Sitzung wurde autonom gemergt; jeder Merge kam vom Owner.
 - **Offen für die nächste Sitzung:** B9-Korrektur (oben) · [#1934](https://github.com/achimdehnert/platform/pull/1934) + [dev-hub#267](https://github.com/achimdehnert/dev-hub/pull/267) Review · Blind-Briefing unbenutzt (`~/shared/adr-handoff-KONZ-platform-043-blind-2026-08-11.md`) · **sieben Mail-Vorgänge unbearbeitet** (todo.iil.pet Nummern 125 (Frist war 11.08.), 108 (Frist 22.08.), 114, 126, 124, 109, 111 — Gegenüber stehen im lokalen Ledger, nicht hier).
 
+### Strang `9ee08c2` — parallele Sessions, und ein Admin, der mehr zeigt als gedacht
+
+Einstieg war eine Nummernkollision, Ausgang ein Zielzustand mit zwei gebauten Kriterien.
+
+- **Die Kollision war der Klassenfall, nicht die Ausnahme.** [#1942](https://github.com/achimdehnert/platform/pull/1942)
+  legte `KONZ-platform-043-formatsatz-paket.md` an, während `…-043-mail-activity-intelligence.md`
+  aus [#1934](https://github.com/achimdehnert/platform/pull/1934) schon auf `main` lag. **Beide
+  Sitzungen hatten korrekt `max+1` gegen `main` gerechnet** — zum jeweiligen Vergabezeitpunkt
+  war das für beide die 043. Umnummeriert auf 044.
+- **Zielzustand [#1944](https://github.com/achimdehnert/platform/issues/1944)** (Owner-akzeptiert,
+  Reihenfolge K5 zuerst, K2 gesondert). **K5 erfüllt** ([#1946](https://github.com/achimdehnert/platform/pull/1946)):
+  `tools/session_collision_meter.py` — 30 Tage, 559 PRs, 3061 gleichzeitig offene Paare,
+  **59 Kollisionspaare (1,9 %)**, davon 1 Nummern-, 37 Substanz-, 21 Generat-Fall.
+  **K1 erfüllt** in zwei Teilen: [#1947](https://github.com/achimdehnert/platform/pull/1947)
+  (Erkennung am PR, ADR-Muster auf KONZ übertragen) + [#1950](https://github.com/achimdehnert/platform/pull/1950)
+  (`scripts/naechste_nummer.py`, Vergabe gegen alle Refs + offene PRs + lokale Reservierungen).
+  Beleg am Kriterium: zwei Worktrees ohne Push dazwischen → 045 / 046; der alte Weg liefert
+  in denselben zwei Worktrees **zweimal 045**.
+- **K2 abgestuft, nicht gebaut — und meine erste Diagnose dazu war falsch.** Ich hatte
+  `next_free` als dominante Konfliktquelle benannt und wollte es entfernen. Der Gegentest
+  widerlegte beides: ohne `next_free` kollidiert `add+add` unverändert, **und der häufigere
+  `add+edit`-Fall wird dadurch erst rot** (die entfernten Zeilen sind der Kontext, an dem der
+  3-Wege-Merge verankert). Nach Trennung der Fälle bleiben von 12 geteilten Index-Berührungen
+  **4 echte Konflikte pro 30 Tage** — Owner-Entscheid: akzeptierte Restgröße, weil der einzige
+  wirksame Fix (Regeneration nach Merge) Schreibrecht eines Automaten auf `main` bräuchte und
+  damit unter das Out-of-Scope des Issues fällt.
+- **Der Mailbestands-Admin ist gebaut, live und zeigt den Volltext — bewusst.** Drei Testrunden
+  gegen eine ephemere Instanz mit Demo-Daten: 17/17 Modelle rendern HTTP 200, 15 komplett
+  schreibgeschützt, `Vorgang`/`VorgangsZuordnung` gewollt schreibbar, Löschen überall gesperrt,
+  `ciphertext`/`wrapped_dek` nirgends sichtbar (mit Positivkontrolle). **Runde 3 fand:
+  `TextUnit.text` steht auf der Detailseite vollständig da** — Ursache ist eine Asymmetrie
+  (`get_list_display` schließt drei Feldtypen aus, `get_readonly_fields` nur `BinaryField`).
+  Owner-Entscheid: **gewollt, kein Fix**; verankert und festgenagelt in
+  [dev-hub#273](https://github.com/achimdehnert/dev-hub/pull/273) inkl. Gegenprobe (die
+  „Reparatur" macht den Test rot).
+- **Die Prämisse dieses Entscheids stimmte nur halb — und ist jetzt hergestellt.**
+  `dev-hub.iil.pet/admin/` lief über Cloudflare, aber **ohne Access**: ein anonymer Aufruf
+  landete direkt auf der Django-Maske; von 25 Access-Anwendungen deckte **keine** dev-hub ab.
+  Werkzeug [#1949](https://github.com/achimdehnert/platform/pull/1949) gebaut und angewandt —
+  `/admin/` leitet jetzt nach `iil-team.cloudflareaccess.com`, alle anderen Routen (`/`,
+  `/healthz`, `/livez`) antworten unverändert 200. Rückbau ist ein `DELETE` auf die Anwendung.
+- **Eigener Fehler, benannt statt versteckt:** Ich meldete „`apps/mail_agent/admin.py` fehlt,
+  17 Modelle, 0 registriert" — und hatte die Abwesenheit sogar abgesichert, weil derselbe Grep
+  in 13 anderen Apps fündig wurde. **Genau diese Kontrolle erzeugte die Sicherheit, die den
+  Fehler durchgehen ließ:** sie belegte den Filter, nicht das Alter der Daten. Gelesen wurde
+  der Working Tree, der **einen** Commit zurückhing — und dieser eine Commit war der, der
+  `admin.py` anlegte. Der Owner musste den Chatverlauf zurückspiegeln. Als neue Facette in
+  `feedback_stale_local_clone_never_ground_truth` ergänzt: eine Abwesenheits-Aussage braucht
+  **zwei** Kontrollen — kann der Suchweg finden, **und** ist die Lesequelle der Ref.
+- **Abnahme (Phase 0d): Zielzustand #1944 — teilweise erreicht, Rest getrackt.**
+  K1 **erreicht** (beide Teile gemergt, Kriterium wörtlich geprüft) · K5 **erreicht**
+  (Ausgangszahl erhoben, Werkzeug gemergt) · K2 **abgestuft** (Owner-Entscheid, im Issue
+  begründet) · K3 und K4 **offen**, im Issue benannt. Zwei Konsolidierungen bewusst
+  aufgeschoben und dort vermerkt: die zwei Guard-Skripte und die zwei Vergabe-Kommandos —
+  beide brauchen eine Änderung an `adr-guard.yml`, deren `paths`-Filter sie im selben PR
+  nicht belegbar macht.
+- **SA-4: 1 Anwendung · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.**
+  Autonom gemergt wurde allein [#1946](https://github.com/achimdehnert/platform/pull/1946)
+  (`tools/`, außerhalb des Perimeters, CI grün). #1949/#1950 standen auf `BLOCKED`
+  (`infra/`, `scripts/` im Code-Owner-Perimeter), alles Übrige mergte der Owner. Der
+  Cloudflare-Schreibzugriff lief nicht unter SA-4: der Permission-Classifier blockte ihn
+  zunächst, ausgeführt wurde er erst nach ausdrücklicher Owner-Freigabe.
+
 ## ⚡ Vorheriger Stand (2026-08-10 — zwei Sitzungen; Review-Pflicht neu geschnitten, v1.1.6-Welle mit einem Rest)
 
 **Zeitanker:** HEAD `9a1cb2d7` · geschrieben 2026-08-10 15:00 · vereinigt zwei Sitzungen
@@ -211,6 +274,8 @@ darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstande
 > [#1941](https://github.com/achimdehnert/platform/pull/1941)): 16 Registry-Einträge drill-frisch,
 > 3 Slugs dokumentiert declined, `retro_kpis.py` meldet Lücken + declined selbst, nolimits-Policy
 > ratifiziert, platform-pinned clean. Bewusste Reste: [#1943](https://github.com/achimdehnert/platform/issues/1943).
+
+4. **[#1944](https://github.com/achimdehnert/platform/issues/1944) — parallele Sessions: K3 und K4 offen, zwei Konsolidierungen aufgeschoben.** K1 und K5 sind erfuellt und gemergt, K2 ist per Owner-Entscheid auf eine akzeptierte Restgroesse abgestuft (4 echte Konflikte/30 Tage, gemessen). Offen: **K3** (Kollision vor dem Push sichtbar machen) und **K4** (der Gate-Slug `parallel-session-pr-collision` deckt seinen Namen noch nicht — sein Drill prueft nur Task-Slug-Dopplung, nicht Nummer und Datei). Dazu zwei bewusst aufgeschobene Konsolidierungen: `adr_open_pr_guard`/`konz_open_pr_guard` und `adr_next_number`/`konz_number_check` → `naechste_nummer`. **Beide haengen an derselben Wand:** der `paths`-Filter von `adr-guard.yml` laesst eine Aenderung am scharfen ADR-Gate im selben PR nicht in CI auslaufen — wer sie angeht, muss den Filter zuerst erweitern (so wie es #1947 fuer `konz-guard.yml` bereits getan hat).
 
 > **Reconciliation 2026-08-10 (Session-Start, keine neue Feature-Arbeit): alle drei
 > Alt-Prios waren erledigt, bevor diese Session begann.** Einzeln gegen API/CI geprüft,

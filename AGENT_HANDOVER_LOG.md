@@ -1847,3 +1847,23 @@ registriert. Ein Guard, der eine andere Lücke fängt als die, für die er gebau
   (Drill 16/16, retro_kpis-Echtlauf „✓ gedeckt oder entschieden", Issue-Checkboxen).
 - **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
   alle Merges liefen bewusst als Owner-Einzel-Review (Perimeter-Pfade + Selbstbetreffendes).
+
+### 2026-08-12 · Strang 9ee08c2 — parallele Sessions kollisionsfrei + Admin-Test
+
+- Nummernkollision KONZ-043 aufgeloest (#1942 -> 044); Ursache: beide Sitzungen rechneten
+  korrekt max+1 gegen main, zum Vergabezeitpunkt fuer beide dieselbe Zahl.
+- Zielzustand #1944 (Owner-akzeptiert). K5 erfuellt (#1946 Kollisions-Meter: 59 Paare /
+  30 Tage, 1,9 %). K1 erfuellt (#1947 Erkennung + #1950 Vergabe; zwei Worktrees ohne Push
+  -> 045/046, alter Weg -> 2x 045). K2 abgestuft auf 4 echte Konflikte/30 Tage.
+- K2-Erstdiagnose (next_free) durch Gegentest widerlegt: haette add+add nicht geheilt und
+  add+edit erst kaputtgemacht. Im Issue korrigiert.
+- Mailbestands-Admin in 3 Runden geprueft: 17/17 rendern, 15 readonly, kein Body sichtbar.
+  Befund: TextUnit.text steht auf der Detailseite -> Owner-Entscheid "gewollt",
+  verankert + festgenagelt in dev-hub#273 (Gegenprobe: Reparatur macht den Test rot).
+- Praemisse dazu geprueft: dev-hub.iil.pet/admin lief ohne Cloudflare Access. Werkzeug
+  #1949 gebaut und angewandt -> /admin/ jetzt hinter Access, andere Routen unveraendert.
+- Eigener Fehler: "admin.py fehlt" aus dem Working Tree gelesen (1 Commit hinter main),
+  abgesichert durch eine Anti-Vakuum-Kontrolle, die nur den Filter prueft, nicht das
+  Datenalter. Als neue Facette in feedback_stale_local_clone_never_ground_truth ergaenzt.
+- Abnahme (0d): #1944 teilweise erreicht — K1+K5 erreicht, K2 abgestuft, K3/K4 offen.
+- SA-4: 1 Anwendung (#1946) · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
