@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) gate — blockt `git push` mit unformatierten Python-Dateien.
 #
+# GATE_HEADER (KONZ-038 D8) — auch in Shell maschinenlesbar gehalten, damit
+# tools/gate_drill_check.py Kopf und Registry gegeneinander pruefen kann:
+#   "slug": "lint-failure-no-local-gate"
+#   "mode": "blocking"
+#   "owner": "achim"
+#   "last_drill_pass": "2026-08-12"
+#   "evidence": "tools/claude-hooks/tests/test_block_unformatted_push_suite.py"
+# Bestand seit ff2981b0, registriert erst 2026-08-12 (platform#1650 Nachmessung).
+#
 # Hintergrund: recurring_finding `lint-failure-no-local-gate` (retro_kpis ≥2,
 # zuletzt Retro d2522c #9: iil-adrfw#59 ging mit ruff-format-Fehler in CI,
 # 19-Min-Rework-Loop; Repo-CLAUDE.md verlangte "make fmt before committing").

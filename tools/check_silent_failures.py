@@ -40,6 +40,20 @@ import re
 import sys
 from pathlib import Path
 
+# Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
+# docs/governance/gate-registry.json abgeglichen. Dieses Lint ist das Gate gegen
+# das Retro-Muster `ci-gate-maskiert-failure` (ein Melder, der beim Ausfall
+# schweigt, wird als "geprueft" gelesen): verdrahtet als CI-Lauf in
+# .github/workflows/silent-failure-lint.yml. Bestand seit d37acd9a, registriert
+# erst 2026-08-12 (platform#1650 Nachmessung: unregistriert = niemand drillt es).
+GATE_HEADER = {
+    "slug": "ci-gate-maskiert-failure",
+    "mode": "blocking",
+    "owner": "achim",
+    "last_drill_pass": "2026-08-12",
+    "evidence": "tools/tests/test_silent_failures.py",
+}
+
 try:
     import yaml
 except ImportError:  # pragma: no cover - Umgebungsfrage, kein Logikpfad

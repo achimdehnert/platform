@@ -28,6 +28,20 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+
+# Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gegen
+# docs/governance/gate-registry.json abgeglichen. Der Reaper ist das Gate gegen
+# das Retro-Muster `worktree-midsession-accumulation` (Worktrees sammeln sich an,
+# bis der naechste Merge kollidiert): aufgerufen via `repo-session.sh reap` und
+# session-start Phase 0.4.5. Bestand seit cf9ccb48, registriert erst 2026-08-12
+# (platform#1650 Nachmessung: ein unregistriertes Gate drillt niemand).
+GATE_HEADER = {
+    "slug": "worktree-midsession-accumulation",
+    "mode": "process",
+    "owner": "achim",
+    "last_drill_pass": "2026-08-12",
+    "evidence": "tools/tests/test_worktree_reaper.py",
+}
 from pathlib import Path
 
 PROTECTED_BRANCHES = {"main", "master"}
