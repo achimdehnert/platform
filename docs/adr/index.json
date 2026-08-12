@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-11",
-  "total": 240,
-  "next_free": 295,
+  "generated": "2026-08-12",
+  "total": 241,
+  "next_free": 296,
   "adrs": [
     {
       "number": 7,
@@ -5508,7 +5508,9 @@
       "amends": [
         "ADR-286"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-295"
+      ],
       "related": [
         "ADR-283",
         "ADR-284",
@@ -5530,6 +5532,27 @@
       "amended_by": [],
       "related": [],
       "implementation_status": "not_started"
+    },
+    {
+      "number": 295,
+      "id": "ADR-295",
+      "file": "ADR-295-mailbestand-zweiter-standort-dev.md",
+      "title": "Mailbestand an einem zweiten Standort (Dev-Host)",
+      "status": "accepted",
+      "date": "2026-08-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-293"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-286",
+        "ADR-288"
+      ],
+      "implementation_status": "none"
     },
     {
       "number": 400,

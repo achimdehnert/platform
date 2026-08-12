@@ -1,5 +1,6 @@
 """Tests für tools/retro_kpis.py (session-retro Längsschnitt-Hebel, v2.2)."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,7 @@ from retro_kpis import (  # noqa: E402
     load_reports,
     load_woerterbuch,
     parse_frontmatter,
+    registry_coverage,
     tool_sha256,
 )
 
@@ -524,3 +526,56 @@ def test_should_ohne_lesbares_woerterbuch_nicht_bewertbar_melden(tmp_path):
     out = _run_kpis("--k1", "--k1-woerterbuch", str(fehlt))
     assert "nicht lesbar/unvollständig" in out
     assert "nicht bewertbar" in out
+
+
+class TestRegistryCoverage:
+    """platform#1650 Kriterium 3: Registry-Abgleich der GATE-PFLICHT-Slugs.
+
+    Erwähnung ≠ Erzwingung (Nachmessung 2026-08-10: zwei "ja" des Audits waren
+    bloße Slug-Erwähnungen in Kommentaren) — gedeckt ist nur, was die
+    Gate-Registry als Eintrags-Slug ODER in dessen `covers`-Liste führt.
+    """
+
+    def test_should_collect_entry_slugs_and_covers(self, tmp_path):
+        reg = tmp_path / "gate-registry.json"
+        reg.write_text(
+            json.dumps(
+                {
+                    "gates": [
+                        {"slug": "familien-gate", "covers": ["slug-b", "slug-c"]},
+                        {"slug": "einzel-gate"},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert registry_coverage(str(reg)) == {
+            "familien-gate",
+            "slug-b",
+            "slug-c",
+            "einzel-gate",
+        }
+
+    def test_should_return_none_on_missing_registry(self, tmp_path):
+        assert registry_coverage(str(tmp_path / "fehlt.json")) is None
+
+    def test_should_return_none_on_invalid_json(self, tmp_path):
+        kaputt = tmp_path / "kaputt.json"
+        kaputt.write_text("{nope", encoding="utf-8")
+        assert registry_coverage(str(kaputt)) is None
+
+    def test_should_ignore_non_string_covers_entries(self, tmp_path):
+        reg = tmp_path / "gate-registry.json"
+        reg.write_text(
+            json.dumps({"gates": [{"slug": "g", "covers": ["ok", 42, None]}]}),
+            encoding="utf-8",
+        )
+        assert registry_coverage(str(reg)) == {"g", "ok"}
+
+    def test_should_real_registry_cover_the_1650_family(self):
+        """Die echte Registry ist lesbar und deckt die Aufschub-Familie (covers)."""
+        covered = registry_coverage()
+        assert covered is not None
+        assert "workaround-without-tracking-anchor" in covered
+        assert "tracking-doc-stale-after-new-occurrence" in covered
+        assert "lint-failure-no-local-gate" in covered

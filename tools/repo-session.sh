@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 # repo-session — verbindlicher Entry Point fuer editierende Coding-Sessions (ADR-233).
 #
+# GATE_HEADER (KONZ-038 D8) — auch in Shell maschinenlesbar gehalten, damit
+# tools/gate_drill_check.py Kopf und Registry gegeneinander pruefen kann:
+#   "slug": "parallel-session-pr-collision"
+#   "mode": "process"
+#   "owner": "achim"
+#   "last_drill_pass": "2026-08-12"
+#   "evidence": "tools/tests/test_repo_session_pr_collision.py"
+# Der Guard selbst: check_pr_collision() unten — harter Block beim `start`,
+# wenn ein offener PR denselben Task-Slug traegt (ADR-233 R-6). Bestand seit
+# 5cefbb0a, registriert erst 2026-08-12 (platform#1650 Nachmessung: ein echtes,
+# aber unregistriertes Gate drillt niemand).
+#
 # Statt im geteilten Haupt-Tree den Branch zu wechseln (HEAD-Flip-Kollision), legt
 # jede editierende Session hier einen isolierten git-Worktree VON origin/main an,
 # mit deterministischem Branch-Schema und einer maschinenlesbaren Lease, die der

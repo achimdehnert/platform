@@ -167,6 +167,39 @@ def load_reports(directories) -> list[dict]:
     return reports
 
 
+GATE_REGISTRY = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "docs",
+    "governance",
+    "gate-registry.json",
+)
+
+
+def registry_coverage(path: str = GATE_REGISTRY) -> set[str] | None:
+    """Slugs mit registriertem Gate: Eintrags-`slug` plus `covers`-Liste.
+
+    platform#1650 Abnahme-Kriterium 3: der Report meldet künftig selbst, wenn ein
+    GATE-PFLICHT-Slug kein registriertes Gate hat — der Audit dort fand 8 solche
+    Lücken erst durch Handarbeit, und zwei "ja" erwiesen sich als bloße
+    Slug-Erwähnung in Kommentaren. Die Registry ist die einzige Quelle, die
+    Erwähnung von Erzwingung unterscheidet (registriert ⇒ gedrillt, KONZ-038 D8).
+
+    None = Registry nicht lesbar — der Aufrufer meldet "nicht bewertbar", nie
+    stillschweigend "alles gedeckt" (ein Fetch-Fehler ist kein grüner Zustand).
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            reg = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+    covered: set[str] = set()
+    for g in reg.get("gates", []):
+        if g.get("slug"):
+            covered.add(g["slug"])
+        covered.update(c for c in g.get("covers", []) if isinstance(c, str))
+    return covered
+
+
 def _gate_issue_title(slug: str) -> str:
     return f"Gate: {slug}"
 
@@ -570,6 +603,31 @@ def main() -> int:
             f"{', '.join(sorted(gated))}. Als Gate (Hook/CI/Skill) verankern, "
             f"nicht als N-tes Memo."
         )
+        # Registry-Abgleich (platform#1650 Kriterium 3): Erwähnung ≠ Erzwingung —
+        # gedeckt ist nur, was in der Gate-Registry steht (und damit gedrillt wird).
+        covered = registry_coverage()
+        if covered is None:
+            print(
+                "  ⚠ Gate-Registry nicht lesbar — Gate-Deckung NICHT bewertbar "
+                "(nie als ok werten)."
+            )
+        else:
+            ohne_gate = sorted(s for s in gated if s not in covered)
+            if ohne_gate:
+                print(
+                    f"  🚨 davon OHNE registriertes Gate ({len(ohne_gate)}): "
+                    f"{', '.join(ohne_gate)}"
+                )
+                print(
+                    "     → Gate bauen + in docs/governance/gate-registry.json "
+                    "registrieren, oder die bewusste Nicht-Gate-Entscheidung "
+                    "dort als Eintrag dokumentieren."
+                )
+            else:
+                print(
+                    "  ✓ Registry-Abgleich: alle GATE-PFLICHT-Slugs tragen ein "
+                    "registriertes Gate."
+                )
 
     # --- refuted_rate-Band ---
     rates = []
