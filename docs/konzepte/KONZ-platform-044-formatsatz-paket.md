@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-043
+concept_id: KONZ-platform-044
 title: "iil-formatsatz — ein Satz-Motor als Paket, Design bleibt in design-hub"
 pipeline_status: idea
 tier: T3
@@ -32,7 +32,7 @@ evidence_manifest:
 created: 2026-08-12
 ---
 
-# KONZ-platform-043: iil-formatsatz — ein Satz-Motor als Paket, Design bleibt in design-hub
+# KONZ-platform-044: iil-formatsatz — ein Satz-Motor als Paket, Design bleibt in design-hub
 
 **Tier: T3.** Auto-Eskalation greift mehrfach: Cross-Repo (heute 7 Konsumenten von
 `print_agent`, C1/C14), neue Dependency, neue Boundary, Verschiebung einer SSoT
