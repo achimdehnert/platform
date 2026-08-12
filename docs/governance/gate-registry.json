@@ -132,6 +132,40 @@
       "built": "2026-07-31",
       "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
       "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12."
+    },
+    {
+      "slug": "autonomous-no-human-review",
+      "mode": "process",
+      "owner": "achim",
+      "module": "tools/ruleset_perimeter_check.py",
+      "drill": "tools/tests/test_ruleset_perimeter_check.py",
+      "built": "2026-08-12",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht."
+    }
+  ],
+  "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
+  "declined": [
+    {
+      "slug": "always-instruction-without-enforcement",
+      "decided": "2026-08-12",
+      "owner": "achim",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "reason": "Meta-Muster. Seit #1938 meldet retro_kpis.py automatisch jeden GATE-PFLICHT-Slug ohne Registry-Eintrag — genau die verlangte Durchsetzungs-Aufsicht. Ein Text-Scanner auf IMMER-Formulierungen haette hohe Fehlalarm-Quote und wuerde umgangen statt befolgt."
+    },
+    {
+      "slug": "ci-replace-requires-job-catalog-diff",
+      "decided": "2026-08-12",
+      "owner": "achim",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "reason": "Seltener, manueller Vorgang (CI-Umbau, wenige Male/Jahr). Eine Automatik muesste 'ersetzt statt ergaenzt' semantisch erkennen — unscharf. Die Review-Pflicht auf .github/** (CODEOWNERS-Perimeter, vom Ruleset-Waechter bewacht) deckt den Vorgang ab."
+    },
+    {
+      "slug": "issue-not-reconciled-after-cross-repo-fix",
+      "decided": "2026-08-12",
+      "owner": "achim",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "reason": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste."
     }
   ]
 }

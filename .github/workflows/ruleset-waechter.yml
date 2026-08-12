@@ -1,0 +1,60 @@
+name: Ruleset-Waechter
+
+# Taeglicher Echt-Lauf von tools/ruleset_perimeter_check.py — bestaetigt, dass
+# die Vier-Augen-Pflicht (Ruleset main-required-checks: require_code_owner_review
+# + CODEOWNERS-Perimeter, KONZ-032 B1/B1-2) noch scharf ist.
+#
+# WARUM: Das Enforcement gegen das Retro-Muster `autonomous-no-human-review`
+# lebt in der GitHub-Plattform, nicht im Repo — eine stille Lockerung saehe
+# niemand. Der Gate-Audit platform#1650 fand fuer den Slug nur Kommentare;
+# Owner-Entscheid 2026-08-12: Waechter bauen.
+#
+# ALARM-PFAD: Verletzung ODER "nicht bewertbar" => Job rot (fail-closed, ein
+# Fetch-Fehler ist kein gruener Zustand). Ein dauerhaft roter Scheduled-Run
+# erreicht die Leseflaeche ueber den cron-melder-Scan des Session-Starts
+# (Phase 0.7.2) — kein neuer, eigener Melde-Kanal noetig.
+#
+# Der Drill-Schritt davor ist bewusst blockierend: die Urteilslogik selbst muss
+# korrekt sein (Muster aufschub-anker-gate.yml / test-claim-check.yml).
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - tools/ruleset_perimeter_check.py
+      - tools/tests/test_ruleset_perimeter_check.py
+      - .github/workflows/ruleset-waechter.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ruleset-waechter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  waechter:
+    name: Vier-Augen-Pflicht noch scharf
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Drill (blockierend)
+        run: |
+          pip install pytest --quiet --break-system-packages
+          python -m pytest tools/tests/test_ruleset_perimeter_check.py -q
+
+      # Exit 0 = intakt, 1 = Verletzung, 2 = nicht bewertbar — beides Nicht-Null
+      # laesst den Job rot werden. Kein continue-on-error: der Waechter DARF
+      # beim Ausfall nicht schweigen (Silent-Failure-Lint-Prinzip).
+      - name: Waechter-Echtlauf
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/ruleset_perimeter_check.py
