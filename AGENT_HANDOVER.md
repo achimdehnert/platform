@@ -35,9 +35,76 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-11 — zwei parallele Sitzungen: FW-Speicher-/Drift-Welle · Mailcheck + Activity Intelligence)
+## ⚡ Aktueller Stand (2026-08-12 — Mail Activity Intelligence: gemessen, beschlossen, gebaut)
 
-**Zeitanker:** HEAD `e5efe77e` · geschrieben 2026-08-11 09:35 · eine Session (Kapitäns-Kanal, drei Owner-Aufträge)
+**Zeitanker:** HEAD `f785431b` · `rev-list --count` 3151 · geschrieben 2026-08-12 07:35
+
+### Strang `1f9813` — von zwei Review-Runden zur Kategorien-Tabelle
+
+**Was jetzt belegt ist und vorher Vermutung war.** [KONZ-043](docs/konzepte/KONZ-platform-043-mail-activity-intelligence.md)
+**B12**: Der Abstand Gegenüber → Faden ist gemessen, lesend gegen Produktion, vom Owner
+unabhängig reproduziert — **49 → 168 Zeilen**, bei „ich schulde" **13 → 70**. Die Asymmetrie
+ist der Befund: Je Adresse kippt *jede* Antwort in *irgendeiner* Sache die Richtung auf
+„ich warte" und verdeckt alle unbeantworteten Fäden desselben Gegenübers. Der Fall, für den
+das Cockpit gebaut wird, ist der, den die billige Gruppierung am zuverlässigsten
+verschluckt. **Kill-Kriterium (c) kippt damit**: Die kleine Lösung deckt den Nutzen
+erkennbar *nicht* ab; offen bleibt nur REC-1 (Nutzenmessung).
+
+**Gemergt und live:** [dev-hub#267](https://github.com/achimdehnert/dev-hub/pull/267)
+(`mail_wartet --je-faden`), [#268](https://github.com/achimdehnert/dev-hub/pull/268)
+(Buchungsansicht: Überschrift folgte der Sortierung nicht, Kappung nannte den Rest nicht),
+[#271](https://github.com/achimdehnert/dev-hub/pull/271) (Django-Admin, 17 Tabellen sichtbar,
+Bestand schreibgeschützt). Deploy grün **und** verifiziert: `admin.py` liegt im
+Prod-Container.
+
+**Offen mit CI:** [dev-hub#272](https://github.com/achimdehnert/dev-hub/pull/272) —
+Kategorie je Gegenüber. Polarität bewusst umgedreht („zeige, was bekannt ist" statt
+„verstecke Rauschen"), weil eine Absenderliste gegen wechselnde Adressen strukturell
+machtlos ist. Die Abwehr gegen neue Absender ist die **Zweiseitigkeit**, nicht die Tabelle.
+
+**[ADR-295](docs/adr/ADR-295-mailbestand-zweiter-standort-dev.md) accepted** — zweiter
+Mailbestand auf dem Dev-Host, HNU eingeschlossen (Owner-Entscheidung auf benannten
+Einwand). Gate-Stand am Tag der Annahme erhoben, **kein Byte übertragen**:
+Gate 2 erfüllt (Dev-Instanz nur auf `127.0.0.1:8085`, kein cloudflared — strenger als
+Cloudflare Access) · Gate 3 geklärt (keine Sicherungen auf dem Host) · Gate 4 sauber
+(Produktionsschlüssel nachweislich nicht dort, beide `read_secret`-Wege geprüft) ·
+Gate 5 verankert ([dev-hub#270](https://github.com/achimdehnert/dev-hub/issues/270),
+Löschtermin 2026-11-11).
+
+- **⚠️ Der eine offene Punkt mit Risiko — ADR-295 Gate 1.** `record_erasure` wird
+  **ausschließlich aus Tests** aufgerufen: kein Kommando, keine View, keine Admin-Aktion.
+  Eine Art.-17-Löschung ist heute Handarbeit, **schon für einen** Bestand. Das blockiert die
+  Datenübertragung nach dev und ist der Grund, warum der Löschknopf im Admin gesperrt ist.
+  Empfehlung: `mail_loeschen` bauen, bevor die Kategorien gefüllt werden.
+- **⚠️ Vor jedem Wipe des Bestands** (Owner-Plan: testen, dann sauber neu aufsetzen): Der
+  **Grabstein ist die Sperre**, nicht nur der Nachweis — `ingest_or_skip` fragt
+  `is_blocked()` (`services.py:109`). Ein Wipe löscht die Sperre, der nächste Ingest holt
+  die gelöschte Nachricht zurück. Grabsteine müssen den Wipe überleben und **vor** dem
+  ersten Ingest zurückgespielt werden. Heute genau 1 Grabstein, und der ist der
+  ADR-293-Gate-3-Nachweis, keine Betroffenen-Anfrage.
+- **B9 zweimal korrigiert.** Erst falsch (ADR-022 — enthält null Treffer), dann zu weit
+  (ADR-109 H-1 bindet `TenantModel` in Tenancy-UI-Hubs, nicht jedes Modell). Belegter
+  Stand: Die `BigAutoField`-Konvention lebt in **App-ADRs** (097/139/146/153/172) und wird
+  im `/prompt`-Skill unter einer Nummer geführt, die sie nicht enthält. Ein externer
+  Bearbeiter hatte sein Design auf die erste Zusage hin geändert — Rückmeldung an ihn steht
+  weiterhin aus (aus Strang `4f808a` übernommen).
+- **Dev-Host:** GHCR-Anmeldung gesetzt, Images gezogen, `mail_agent` jetzt dort vorhanden
+  (Tabellen migriert, leer). `/opt/dev-hub/.env` **neu angelegt** mit `PROD_HOST` —
+  Übergangslösung, Preis und Zielzustand in
+  [dev-hub#269](https://github.com/achimdehnert/dev-hub/issues/269): Aus dev-Containern
+  zeigen damit alle Plattform-Domains auf Produktion.
+- **Abnahme (Phase 0d):** Zielzustand bei Session-Start **n/a** (Einstieg war eine
+  Bewertungsfrage, kein Auftrag). Mid-session akzeptierte Ziele, alle **erreicht**:
+  Review-Ergebnisse in KONZ-043 eingearbeitet · MVP gegen die Reviews gestellt und
+  weitergebaut · Beschluss für den zweiten Standort geliefert · Admin gebaut. **Verschoben
+  mit Tracking:** Datenübertragung nach dev (Gate 1, s. o.), Kategorien füllen (#272 nicht
+  gemergt).
+- **SA-4: 0 Anwendungen · 0 Fehlanwendungen.** Kein platform-PR wurde autonom gemergt;
+  Prod-Zugriff und Credential-Op liefen über ausdrückliche Owner-Freigaben, eine
+  Klassifikator-Sperre wurde nicht umgangen, sondern durch einen schreibfreien Leseweg
+  ersetzt.
+
+### Strang `e5efe77e` — FW-Speicher- und Drift-Welle (2026-08-11, Kapitäns-Kanal)
 
 - **[#1899](https://github.com/achimdehnert/platform/issues/1899) FW-Speicher: alle 5 Akzeptanzkriterien erfüllt.** litellm lazy importiert (aifw#40 → Release 0.11.7, OIDC), gunicorn `--preload` kalibriert (writing-hub#551: 203→110 MiB) + Fleet-Rollout (dev/cad/risk/137/tax). Host hetzner-prod: belegt 15–16 → **13,4 GB**. Messkommando `tools/fw_mem_baseline.sh` (v2 mit App-Boot-Analyse, #1909). Alle Nachweise als Kommentare in #1899.
 - **[#1900](https://github.com/achimdehnert/platform/issues/1900) Version-Drift: 13 aktive Consumer auf SSoT** (`docs/conventions/fw-dependency-ranges.md`; Regeln 5+6 — Lock-Regenerierung + Rename-Altlasten — in PR [#1917](https://github.com/achimdehnert/platform/pull/1917), wartet auf Review). Finaler Kontroll-Scan als Abschluss-Kommentar im Issue. Ausnahmen einzeln getrackt: bfagent/research-hub (frozen) · ausschreibungs-hub (#1845) · trading-hub (Deploy rot) · apo-hub (aifw via shared-ci `iil-refresh`, kein Repo-Pin).

@@ -1793,3 +1793,40 @@ den ein Fehlzeiger im Policy-Text zeigte.
 - wedding-hub ARCHIVIERT (Owner-Formel), Tombstone #1924, Registry-Cleanup #1925 gemergt
 - risk-Prod verifiziert 0.11.8 + preload (letzte aifw-App live)
 - #1917 (SSoT-Regeln 5+6) + #1918 (Handover) gemergt; skip-ci-Substring-Falle in Memory nachgetragen
+
+### 2026-08-12 · Session mail-activity-intelligence (Strang 1f9813)
+
+Angefangen bei einer Bewertungsfrage — zwei externe Review-Runden gegen den MVP stellen —
+und geendet bei einer Kategorien-Tabelle. Neun Schritte, jeder vom Owner angestoßen.
+
+Der Ertrag ist eine Zahl: **49 → 168**. Der Kopfdaten-Melder zählt je Adresse, und je Faden
+werden aus 49 Zeilen 168. Bei „ich schulde" sind es 13 → 70. Diese Asymmetrie ist kein
+Rauschen, sie ist strukturell: Je Adresse kippt jede Antwort in irgendeiner Sache die
+Richtung auf „ich warte" und verdeckt damit alle unbeantworteten Fäden desselben
+Gegenübers. Der Fall, für den das Cockpit überhaupt gebaut wird, ist der, den die billige
+Gruppierung am zuverlässigsten verschluckt. Der Owner hat die Messung selbst reproduziert,
+Zeile für Zeile identisch.
+
+Zwei Korrekturen an eigenen Aussagen, beide innerhalb einer Stunde nach dem Push. B9 nannte
+zuerst ADR-022 als verletzte Norm (null Treffer darin), dann ADR-109 H-1 (zu weit gefasst —
+bindet `TenantModel` in Tenancy-UI-Hubs, nicht jedes Modell). Der belegte Stand ist
+unbequemer als beide: Die Konvention wird als Standard behandelt, ohne einer zu sein. Und
+im ADR-295-Entwurf hing der Löschtermin an einem Frontmatter-Feld, das im ADR-Schema gar
+nicht existiert.
+
+Der wertvollste Fund kam beim Prüfen einer eigenen Warnung. Ich hatte gesagt, ein Wipe des
+Bestands könne gelöschte Inhalte zurückholen — als Vermutung. Der Code sagt mehr: Der
+Grabstein **ist** die Sperre, `ingest_or_skip` fragt `is_blocked()` ab. Ein Wipe entfernt
+also nicht den Nachweis, sondern das Hindernis. Heute betrifft das genau eine Nachricht, und
+die ist der ADR-293-Gate-3-Nachweis, keine Betroffenen-Anfrage. Nach den geplanten
+Testrunden können es echte sein.
+
+Was liegen bleibt, ist das, was ich dreimal aktenkundig gemacht habe und nicht gebaut habe:
+`record_erasure` wird ausschließlich aus Tests aufgerufen. Eine DSGVO-Löschung ist Handarbeit
+— schon für einen Bestand, nicht erst für zwei. Es blockiert die Datenübertragung nach dev,
+es ist der Grund für den gesperrten Löschknopf im Admin, und es ist der einzige offene Punkt
+dieser Sitzung, der ein Risiko trägt statt nur Arbeit.
+
+Ein Lichtblick zum Schluss: Der Admin-Test, den ich wegen des Löschknopfs geschrieben hatte,
+hat zwei Stunden später den Bau der Kategorien-Tabelle angehalten — sie war nicht
+registriert. Ein Guard, der eine andere Lücke fängt als die, für die er gebaut wurde.
