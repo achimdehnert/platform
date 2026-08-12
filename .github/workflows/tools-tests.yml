@@ -157,6 +157,28 @@ jobs:
             --range "origin/${{ github.base_ref }}...HEAD" --format github
           exit 0
 
+      # Neue Module ohne Test-Spur — advisory (untested-tool-module-green-gate,
+      # platform#1650 Owner-Go 2026-08-12). Nur im PR HINZUGEFUEGTE .py unter
+      # tools/ + scripts/ (Bestandsschutz: die ~24 Altfaelle aus dem
+      # Ehrlichkeits-Hinweis oben bleiben unberuehrt — 0-FP-Baseline). Exit 1
+      # (Befund) laesst den Job gruen: advisory bis Kalibrierfenster
+      # (gate-registry frozen_note). Exit >=2 (Werkzeugfehler) macht ROT — ein
+      # Melder, der beim Ausfall schweigt, ist schlimmer als keiner.
+      - name: Neue Module ohne Test-Spur (advisory, non-gating)
+        if: github.event_name == 'pull_request' && steps.relevanz.outputs.relevant == 'true'
+        run: |
+          set +e
+          git fetch -q origin "${{ github.base_ref }}"
+          python3 tools/check_new_module_tests.py \
+            --range "origin/${{ github.base_ref }}...HEAD"
+          rc=$?
+          set -e
+          if [ "$rc" -ge 2 ]; then
+            echo "::error::check_new_module_tests.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
+            exit 1
+          fi
+          exit 0
+
       - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
         if: steps.relevanz.outputs.relevant == 'true'
         # Jeder Skill in .windsurf/workflows/ muss in workflow-index.md stehen
