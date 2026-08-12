@@ -18,6 +18,7 @@ from retro_kpis import (  # noqa: E402
     load_woerterbuch,
     parse_frontmatter,
     registry_coverage,
+    registry_declined,
     tool_sha256,
 )
 
@@ -579,3 +580,44 @@ class TestRegistryCoverage:
         assert "workaround-without-tracking-anchor" in covered
         assert "tracking-doc-stale-after-new-occurrence" in covered
         assert "lint-failure-no-local-gate" in covered
+
+
+class TestRegistryDeclined:
+    """platform#1650 Kriterium 1: dokumentierte Nicht-Gate-Entscheidungen.
+
+    declined-Slugs werden gesondert ausgewiesen ("bewusst ohne Gate"), nicht
+    als Luecke gemeldet und nicht als gedeckt verschwiegen.
+    """
+
+    def test_should_collect_declined_slugs(self, tmp_path):
+        reg = tmp_path / "gate-registry.json"
+        reg.write_text(
+            json.dumps(
+                {
+                    "gates": [{"slug": "echtes-gate"}],
+                    "declined": [
+                        {"slug": "kein-gate-a", "reason": "x"},
+                        {"slug": "kein-gate-b", "reason": "y"},
+                        {"kaputt": "ohne-slug"},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert registry_declined(str(reg)) == {"kein-gate-a", "kein-gate-b"}
+
+    def test_should_return_empty_set_without_declined_list(self, tmp_path):
+        reg = tmp_path / "gate-registry.json"
+        reg.write_text(json.dumps({"gates": []}), encoding="utf-8")
+        assert registry_declined(str(reg)) == set()
+
+    def test_should_return_none_on_unreadable_registry(self, tmp_path):
+        assert registry_declined(str(tmp_path / "fehlt.json")) is None
+
+    def test_should_real_registry_hold_the_three_owner_decisions(self):
+        """Owner-Entscheid 2026-08-12: drei Slugs bewusst ohne Gate."""
+        declined = registry_declined()
+        assert declined is not None
+        assert "always-instruction-without-enforcement" in declined
+        assert "ci-replace-requires-job-catalog-diff" in declined
+        assert "issue-not-reconciled-after-cross-repo-fix" in declined
