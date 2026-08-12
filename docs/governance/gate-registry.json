@@ -142,6 +142,16 @@
       "built": "2026-08-12",
       "ref": "platform#1650 Owner-Entscheid 2026-08-12",
       "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht."
+    },
+    {
+      "slug": "untested-tool-module-green-gate",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/check_new_module_tests.py",
+      "drill": "tools/tests/test_check_new_module_tests.py",
+      "built": "2026-08-12",
+      "ref": "platform#1650 Owner-Go 2026-08-12",
+      "note": "Diff-Check nur ueber im PR HINZUGEFUEGTE .py unter tools/+scripts/ (Bestandsschutz fuer die ~24 ungetesteten Altfaelle = 0-FP-Baseline). Test-Spur = test_<stem>.py ODER Stem-Erwaehnung in einer Testdatei. Verdrahtet als non-gating Step in tools-tests.yml; Exit 2 (Werkzeugfehler) macht den Step ROT statt still. advisory->blocking erst nach Kalibrierfenster (frozen_note)."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
