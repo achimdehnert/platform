@@ -18,7 +18,13 @@ frozen_at: "2026-08-02"
 # fiel aus LIST_KEYS, weil es geprueft, aber von keinem Konsumenten gelesen wurde.
 # Das Feld geht in KEINEN Zaehler ein — der Baseline-Lauf mit der neuen Version
 # liefert erneut n=20, 10/7/3, Summen-Rate 1.000. sha 54148695… → cd925fce….
-tool_sha256: cd925fcebaab976660370d68bbac2d838a3d84794c7b3314d39d7558cd1695c3
+#
+# Erneut neuberechnet 2026-08-12 (platform#1650 Kriterium 3): retro_kpis.py
+# meldet GATE-PFLICHT-Slugs ohne Eintrag in der Gate-Registry (registry_coverage
+# + Report-Block). Reine Berichts-Ergaenzung, das Zaehlwerk blieb unangetastet —
+# der Baseline-Lauf mit der neuen Version liefert erneut n=20, 10/7/3,
+# Summen-Rate 1.000. sha cd925fce… → 43c29ee8….
+tool_sha256: 43c29ee8ea2d7edd8944438d8742046cfbbcd744c149cadc2f58d74761f7c7b3
 
 top3:
   - canonical: claim-before-cheapest-check
