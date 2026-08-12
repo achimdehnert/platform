@@ -28,7 +28,10 @@ class TestIstPruefpflichtig:
         assert cnm.ist_pruefpflichtig("tools/conftest.py") is False
 
     def test_should_ignore_paths_outside_tools_and_scripts(self):
-        assert cnm.ist_pruefpflichtig("orchestrator_mcp/server.py") is False
+        # Bewusst KEIN realer Repo-Pfad: test_ci_trigger_covers_test_inputs liest
+        # Pfad-Literale aus Testdateien und wuerde einen echten (z.B.
+        # orchestrator_mcp/...) als Workflow-Eingabe werten (CI-Rot auf #1941).
+        assert cnm.ist_pruefpflichtig("anderswo/nicht_geprueft.py") is False
         assert cnm.ist_pruefpflichtig("docs/adr/ADR-001.md") is False
 
     def test_should_ignore_non_python(self):
