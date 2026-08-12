@@ -1,12 +1,21 @@
 name: KONZ Number Guard
 
+# Die Guard-Dateien stehen bewusst mit im Filter: sonst laeuft ein PR, der den
+# Guard selbst aendert, nie durch ihn hindurch — eine Aenderung am scharfen Gate
+# waere dann unbelegt mergebar (platform#1944, K1).
 on:
   push:
     paths:
       - "docs/konzepte/KONZ-*.md"
+      - "scripts/konz_number_check.py"
+      - "scripts/konz_open_pr_guard.py"
+      - ".github/workflows/konz-guard.yml"
   pull_request:
     paths:
       - "docs/konzepte/KONZ-*.md"
+      - "scripts/konz_number_check.py"
+      - "scripts/konz_open_pr_guard.py"
+      - ".github/workflows/konz-guard.yml"
 
 # Least privilege (analog adr-guard.yml) — kein GITHUB_TOKEN-Write nötig.
 permissions:
@@ -21,3 +30,13 @@ jobs:
 
       - name: Run KONZ Number Guard
         run: python3 scripts/konz_number_check.py --check
+
+      # Analog adr-guard.yml: der Baum-Check oben sieht nur den gemergten Stand.
+      # Zwei gleichzeitig offene PRs mit derselben Nummer bestehen ihn einzeln —
+      # genau so entstand KONZ-043 am 2026-08-12 (platform#1944, K1).
+      - name: KONZ open-PR collision guard (in-flight numbers)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/konz_open_pr_guard.py
