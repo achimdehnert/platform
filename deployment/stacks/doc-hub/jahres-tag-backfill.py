@@ -96,6 +96,7 @@ def main():
     neue_tags = collections.Counter()
     datums_korrekturen = []
     konflikte = []
+    ohne_datum = []
     schon_getaggt = 0
     betrachtet = 0
 
@@ -109,15 +110,27 @@ def main():
         content = doc.content or ""
 
         if args.nur_tags:
-            datum, korrigiert = doc.created, False
+            datum, quelle = doc.created, "paperless"
         else:
-            datum, korrigiert = hook.dokumentdatum_bestimmen(doc, content)
+            datum, quelle = hook.dokumentdatum_bestimmen(doc, content)
 
-        if korrigiert:
+        vorhandene = [t.name for t in doc.tags.all()]
+
+        # Ohne belastbares Datum wird nicht getaggt: der Jahres-Tag waere das
+        # Scanjahr und damit eine Behauptung ueber das Dokument, die niemand
+        # geprueft hat. Der Marker macht die Luecke stattdessen auffindbar.
+        if quelle == "unklar":
+            ohne_datum.append((doc.pk, doc.created))
+            if args.apply and hook.MARKER_TAG not in vorhandene:
+                hook.tag_anhaengen(
+                    doc, hook.tag_holen(hook.MARKER_TAG, hook.MARKER_TAG_FARBE)
+                )
+            continue
+
+        if quelle == "ocr":
             datums_korrekturen.append((doc.pk, doc.created, datum))
 
         jahr = str(datum.year)
-        vorhandene = [t.name for t in doc.tags.all()]
         fremde_jahre = [n for n in vorhandene if ist_jahres_tag(n) and n != jahr]
         if fremde_jahre:
             konflikte.append((doc.pk, jahr, fremde_jahre))
@@ -129,10 +142,11 @@ def main():
         neue_tags[jahr] += 1
 
         if args.apply:
-            if korrigiert:
+            if quelle == "ocr":
                 doc.created = datum
                 doc.save(update_fields=["created"])
             hook.jahres_tag_setzen(doc, datum)
+            hook.marker_entfernen(doc)
 
     print(f"\nBetrachtet:            {betrachtet}")
     print(f"Jahres-Tag schon da:   {schon_getaggt}")
@@ -140,6 +154,14 @@ def main():
     print("\nJe Jahr:")
     for jahr, anzahl in sorted(neue_tags.items()):
         print(f"  {jahr}: {anzahl}")
+
+    print(f"\nOhne Dokumentdatum:    {len(ohne_datum)}")
+    if ohne_datum:
+        print(f"  (kein Jahres-Tag, bekommen stattdessen '{hook.MARKER_TAG}')")
+        for pk, created in ohne_datum[:20]:
+            print(f"  Doc {pk}: created {created} nicht belastbar")
+        if len(ohne_datum) > 20:
+            print(f"  ... und {len(ohne_datum) - 20} weitere")
 
     print(f"\nDatumskorrekturen:     {len(datums_korrekturen)}")
     if datums_korrekturen:
