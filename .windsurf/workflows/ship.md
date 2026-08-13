@@ -17,7 +17,7 @@ mode: write
 `/ship` ist der **kanonische Standard-Pfad** für Prod-Deploys (Deploy-Trias-Kanon 2026-07-04).
 
 - **Wann `/ship`:** regulärer App-Deploy nach main-Merge — verify → push → CI → migrate →
-  health-check, server-seitig via Short-Trigger (Fallback GitHub Actions).
+  health-check, primär über GitHub Actions (Short-Trigger nur als Sonderfall, s. Schritt 3).
 - **Wann NICHT / stattdessen:**
   - Server/CI nicht erreichbar oder du brauchst einen manuellen Hand-Pfad direkt am
     `docker compose` → **`/run-prod`** (Notfall-Handpfad mit sauberem Ja/Nein-Gate).
@@ -138,7 +138,7 @@ git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 
 ---
 
-## Schritt 3 — Deploy triggern (ADR-156 Short-Trigger)
+## Schritt 3 — Deploy triggern (Actions primär, Short-Trigger als Sonderfall)
 
 ### ⚠️ GATE: Explizite Prod-Deploy-Freigabe erforderlich (vor Deploy-Trigger)
 
@@ -150,8 +150,34 @@ git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 > Prod-Deploy braucht **IMMER** Freigabe — kein Autopilot, auch nicht bei Routine.
 > Siehe `~/.claude/policies/autonomy-gates.md` Gate 2.
 
-**Primary (ADR-156):** Server-seitiges Deploy via Short-Trigger (~2s SSH, non-blocking).
-Deploy.sh führt Pull, Migrate, Recreate, Health-Check und ggf. Rollback automatisch aus.
+**Primary (ADR-075): GitHub Actions.** Der Workflow macht seinen eigenen `docker login`
+und pullt deshalb zuverlässig; er baut das Image für den aktuellen `main` mit, falls es
+noch nicht existiert.
+
+```
+gh workflow run {cd_workflow} --ref main -f target_environment=production
+```
+
+Ohne `gh`-CLI derselbe Aufruf über MCP:
+
+```
+mcp__deployment-mcp__cicd_manage:
+  action: dispatch
+  owner: achimdehnert
+  repo: {scope}
+  workflow_id: {cd_workflow}
+  ref: main
+```
+
+> ℹ️ Deploy-Meldung geht in den Session-Output, nicht nach Discord.
+> (`mcp__orchestrator__discord_notify` **existiert weiterhin** — der frühere Hinweis
+> „existiert nicht mehr" war eine Prefix-Drift-Fehldiagnose, siehe ADR-156-Nachtrag.
+> Ob Discord wieder aktiv werden soll, ist eine offene Entscheidung, kein Defekt.)
+
+**Sonderfall (ADR-156): Short-Trigger.** Server-seitiges Deploy, ~2s SSH, non-blocking —
+`deploy.sh` erledigt Pull, Migrate, Recreate, Health-Check und ggf. Rollback selbst.
+Schneller, aber er **baut nichts**: er kann nur ein Image ziehen, das schon in GHCR liegt,
+und er braucht dafür eine Registry-Credential **auf dem Host**.
 
 ```
 mcp__deployment-mcp__ssh_manage:
@@ -163,27 +189,39 @@ mcp__deployment-mcp__ssh_manage:
 
 Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
 
-> ℹ️ Deploy-Meldung geht in den Session-Output, nicht nach Discord.
-> (`mcp__orchestrator__discord_notify` **existiert weiterhin** — der frühere Hinweis
-> „existiert nicht mehr" war eine Prefix-Drift-Fehldiagnose, siehe ADR-156-Nachtrag.
-> Ob Discord wieder aktiv werden soll, ist eine offene Entscheidung, kein Defekt.)
-
-**Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
-
-```
-mcp__deployment-mcp__cicd_manage:
-  action: dispatch
-  owner: achimdehnert
-  repo: {scope}
-  workflow_id: {cd_workflow}
-  ref: main
-```
+> ⚠️ **Vorbedingung, gemessen 2026-08-13 auf prod:** `/root/.docker/config.json` enthielt
+> dort **null** Auth-Einträge — jeder Short-Trigger-Pull endet damit in
+> `error from registry: unauthorized`, und zwar **vor** dem Container-Tausch (kein
+> Ausfall, aber auch kein Deploy). Der Actions-Pfad war davon nie betroffen, weil er sich
+> pro Lauf selbst einloggt. Deshalb ist die Reihenfolge hier gedreht.
+> Vor der Nutzung des Short-Triggers prüfen:
+> `ssh root@<host> "python3 -c \"import json;print(list(json.load(open('/root/.docker/config.json')).get('auths',{}).keys()))\""`
+> — **leere Liste ⇒ Actions-Pfad nehmen**, der Short-Trigger schlägt dann fehl.
+> Beleg: platform#1969.
 
 ---
 
 ## Schritt 4 — Deploy-Status verfolgen
 
-**Bei Short-Trigger (Schritt 3 Primary):** Polle alle 15s via deploy-status.sh:
+**Bei Actions (Schritt 3 primär):** `gh run watch <run-id> --exit-status` oder pollen:
+
+```
+mcp__deployment-mcp__cicd_manage:
+  action: workflow_runs
+  owner: achimdehnert
+  repo: {scope}
+  workflow_id: {cd_workflow}
+  per_page: 1
+```
+
+Warte auf `conclusion: success`. Bei `failure` → Schritt 6.
+
+⚠️ **`conclusion` allein ist kein Beweis** — der Deploy-Schritt kann grün melden und die
+Instanz trotzdem alt sein. Immer Schritt 5 hinterherziehen und dabei das **laufende
+Image** gegen den erwarteten Commit halten:
+`docker ps --filter name={web_container} --format '{{.Image}}'`.
+
+**Bei Short-Trigger (Schritt 3 Sonderfall):** Polle alle 15s via deploy-status.sh:
 
 ```
 mcp__deployment-mcp__ssh_manage:
@@ -222,18 +260,7 @@ mcp__orchestrator__agent_memory_upsert(
 
 → Beim nächsten `/session-start` findet die Memory-Query (`filter_type: error_pattern`) wiederkehrende Probleme.
 
-**Bei GitHub Actions Fallback:**
-
-```
-mcp__deployment-mcp__cicd_manage:
-  action: workflow_runs
-  owner: achimdehnert
-  repo: {scope}
-  workflow_id: {cd_workflow}
-  per_page: 1
-```
-
-Warte auf `conclusion: success`. Bei `failure` → Schritt 6.
+(Der Actions-Pfad ist oben beschrieben — er ist seit 2026-08-13 der primäre.)
 
 ---
 
