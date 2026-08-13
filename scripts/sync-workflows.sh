@@ -129,6 +129,23 @@ repos = data.get('repos', {})
 print(' '.join(n for n, v in repos.items() if (v or {}).get('type') in ('library', 'framework')))
 ")"
 
+# Alle Registry-Namen — Grundlage fuer den Registry-Guard in sync_repo (s. dort).
+#
+# Quelle ist die KANONISCHE Registry, nicht die flache View oben: `repo-registry.yaml`
+# enthaelt nur Eintraege mit `in_flat` (53 von 59). Der erste Entwurf dieses Guards las
+# die View und haette damit `bahn-hub`, `nl2iot-hub` und `testkit` als "nicht
+# registriert" aus der Bewertung genommen — registrierte Repos waeren stillschweigend
+# aus dem Scan gefallen. Fallback auf die View nur, wenn die kanonische Datei fehlt.
+CANON_REGISTRY="${GITHUB_DIR}/platform/registry/canonical.yaml"
+read -r -a REGISTRY_REPOS <<< "$(python3 -c "
+import yaml, os
+quelle = '${CANON_REGISTRY}' if os.path.isfile('${CANON_REGISTRY}') else '${REGISTRY}'
+with open(quelle) as f:
+    data = yaml.safe_load(f)
+print(' '.join((data.get('repos') or {}).keys()))
+")"
+NOT_REGISTERED_NAMES=()
+
 # --- Parse Args ---
 
 for arg in "$@"; do
@@ -238,6 +255,7 @@ sync_repo() {
     # platform selbst skippen
     [[ "$repo_name" == "platform" ]] && return
 
+
     # SSoT-Skip (ADR-265): auch Pins/Worktrees des platform-Repos (z. B. platform-pinned)
     # nie besyncen — der Sync würde die SSoT-Dateien dort durch selbstreferenzielle
     # Symlinks ersetzen (Realfall 2026-07-04: 37 Typechanges in platform-pinned).
@@ -246,6 +264,27 @@ sync_repo() {
     case "$origin_url" in
         */platform|*/platform.git) return ;;
     esac
+
+    # Registry-Guard: die Schleife unten laeuft ueber VERZEICHNISSE in $GITHUB_DIR,
+    # `fleet_checkout.py` aktualisiert aber nur Repos AUS DER REGISTRY. Ein Klon, der
+    # in keiner Registry steht, wird also nie gezogen — und trotzdem beurteilt.
+    #
+    # Realfall design-hub (2026-06-01 bis 2026-08-13, ~10 Wochen): die `.windsurf/`-Zeile
+    # steht seit dem 01.06. in seiner `.gitignore` (Commit 8a0ee9ca). Der Melder meldete
+    # sie trotzdem woechentlich als fehlend, weil der Klon auf dem Runner aus der Zeit
+    # davor stammte. Ein frischer Klon liefert `check-ignore` = 0, der Runner-Klon = 1.
+    # Der Meter war damit dauerhaft rot auf einem Befund, den es auf `main` nicht gab —
+    # und ein dauerhaft roter Melder meldet nichts mehr (platform#1508, #1953).
+    #
+    # Nicht bewerten heisst nicht verschweigen: solche Verzeichnisse kommen als eigene
+    # Kategorie in die Summary, damit die Registry-Luecke sichtbar wird statt als Drift
+    # verkleidet (🌀 stale_local_clone_never_ground_truth).
+    if [[ ${#REGISTRY_REPOS[@]} -gt 0 ]] && ! in_array "$repo_name" "${REGISTRY_REPOS[@]}"; then
+        echo "📦 ${repo_name}"
+        echo "  NOT-REGISTERED: steht in keiner Registry — nicht bewertet (Klon wird nie aktualisiert)"
+        NOT_REGISTERED_NAMES+=("$repo_name")
+        return
+    fi
 
     # Ignore-Guard (ADR-265): ohne wirksamen .windsurf/-Ignore erzeugt jeder neue Link
     # ??-Dirt im Ziel-Repo. Repo überspringen, bis die .gitignore-Zeile committet ist.
@@ -373,6 +412,9 @@ echo "=== Done ==="
 # ein dauerhaft übersprungenes Repo nicht unbemerkt von Workflow-Updates
 # abgeschnitten bleibt. Rein additiv — die Per-Lauf-Echos oben bleiben
 # unverändert; --strict nutzt dieselbe Aggregation für einen CI-Fallback.
+if [[ ${#NOT_REGISTERED_NAMES[@]} -gt 0 ]]; then
+    echo "NOT-REGISTERED-SUMMARY: ${#NOT_REGISTERED_NAMES[@]} Verzeichnis(se) ohne Registry-Eintrag, nicht bewertet: $(IFS=,; echo "${NOT_REGISTERED_NAMES[*]-}")"
+fi
 TOTAL_SKIPS=$((${#SKIP_REPO_NAMES[@]} + ${#SKIP_TRACKED_NAMES[@]}))
 if [[ $TOTAL_SKIPS -gt 0 ]]; then
     echo "SKIP-SUMMARY: ${TOTAL_SKIPS} Repo(s) übersprungen (SKIP-REPO: $(IFS=,; echo "${SKIP_REPO_NAMES[*]-}"); SKIP-TRACKED: $(IFS=,; echo "${SKIP_TRACKED_NAMES[*]-}"))"
