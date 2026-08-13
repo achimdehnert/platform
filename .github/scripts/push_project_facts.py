@@ -630,10 +630,17 @@ def main() -> None:
         sys.exit(1)
 
     repos = load_registry()
+    # `archived` aus der Registry ausschliessen: ein archiviertes Repo ist auf GitHub
+    # read-only und antwortet auf jeden Schreibversuch mit HTTP 403. Realfall
+    # wedding-hub (archiviert 2026-08-11): der Lauf vom 2026-08-13 erledigte 23 Repos
+    # sauber — 8 PRs, davon erstmals frist-hub/meiki-hub/ttz-hub — und endete trotzdem
+    # ROT, weil das 24. Repo nicht mehr beschreibbar war. Ein Melder, der wegen eines
+    # bewusst stillgelegten Repos rot steht, wird binnen Wochen ueberlesen (#1953).
     django_repos = {
         name: cfg
         for name, cfg in repos.items()
         if (cfg or {}).get("type", "django") == "django"
+        and not (cfg or {}).get("archived")
     }
 
     targets = {target: repos.get(target, {})} if target else django_repos
@@ -653,7 +660,16 @@ def main() -> None:
             results.append(msg)
             print(f"  {msg}", flush=True)
         except Exception as exc:
-            msg = f"❌ {repo_name}: {exc}"
+            # Zweite Sicherung neben dem Registry-Filter oben: GitHub selbst weiss
+            # zuverlaessiger als die Registry, ob ein Repo archiviert ist — die Registry
+            # kann der Stilllegung nachhinken (oder ihr vorauseilen). Ein archiviertes
+            # Repo ist read-only; das ist kein Fehlschlag des Laufs, sondern ein
+            # Zustand, den der Lauf respektieren soll. Ohne diesen Zweig faerbt ein
+            # einziges stillgelegtes Repo den ganzen Melder rot (Realfall wedding-hub).
+            if "was archived" in str(exc):
+                msg = f"🗄 {repo_name}: archiviert auf GitHub — uebersprungen"
+            else:
+                msg = f"❌ {repo_name}: {exc}"
             results.append(msg)
             print(f"  {msg}", flush=True)
 
@@ -661,9 +677,10 @@ def main() -> None:
     gleich = sum(1 for r in results if r.startswith("⏭"))
     fail = sum(1 for r in results if r.startswith("❌"))
     unerreichbar = [r for r in results if r.startswith("🚫")]
+    archiviert = [r for r in results if r.startswith("🗄")]
     print(
         f"\n=== Fertig: {ok} PR(s), {gleich} unverändert, "
-        f"{len(unerreichbar)} unerreichbar, {fail} fehler ==="
+        f"{len(unerreichbar)} unerreichbar, {len(archiviert)} archiviert, {fail} fehler ==="
     )
 
     # Unerreichbare Repos benannt ausgeben, nicht nur zaehlen: eine Zahl allein
@@ -672,6 +689,13 @@ def main() -> None:
     if unerreichbar:
         print("\nUnerreichbar (Token sieht das Repo nicht — platform#1768):")
         for zeile in unerreichbar:
+            print(f"  {zeile}")
+
+    # Archivierte Repos ebenfalls benannt ausgeben — stillschweigend ueberspringen
+    # waere derselbe Fehler wie stillschweigend rot werden.
+    if archiviert:
+        print("\nArchiviert (read-only, bewusst uebersprungen):")
+        for zeile in archiviert:
             print(f"  {zeile}")
 
     if fail:
