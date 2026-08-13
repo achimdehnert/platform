@@ -1022,3 +1022,80 @@ def test_should_search_by_uid_not_by_sequence():
 
     assert rm.uid_liste(_Suche()) == [b"3", b"7", b"11"]
     assert aufrufe == ["SEARCH"]
+
+
+# --- Eingebettete message/rfc822-Nachrichten (platform#1964) -----------------
+#
+# Realfall 2026-08-13: Eine Weiterleitung trug ihren gesamten Sachinhalt als
+# eingebettete Nachricht. Die Anhangsliste zeigte 15 Signaturbilder und wirkte
+# vollstaendig; der Teil mit dem Inhalt fehlte, weil er keinen Dateinamen hat.
+
+
+def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"):
+    """Begleittext + eingebettete Nachricht ohne Dateinamen + Inline-Bild."""
+    innen = EmailMessage()
+    innen["From"] = "absender@extern.example"
+    innen["To"] = "dritter@extern.example"
+    innen["Subject"] = innen_betreff
+    innen["Date"] = "Tue, 11 Aug 2026 08:16:56 +0000"
+    innen.set_content("Bitte lassen Sie mir die fehlenden Unterlagen zukommen.")
+
+    aussen = EmailMessage()
+    aussen["From"] = "absender@extern.example"
+    aussen["Subject"] = "AW: Sachstand"
+    aussen.set_content(begleittext)
+    aussen.add_attachment(b"\x89PNG", maintype="image", subtype="png", filename="image004.png")
+    aussen.attach(_als_rfc822_teil(innen))  # add_attachment hat bereits multipart/mixed erzeugt
+    return aussen
+
+
+def _als_rfc822_teil(innen):
+    from email.mime.message import MIMEMessage
+
+    teil = MIMEMessage(innen)
+    teil.add_header("Content-Disposition", "attachment")  # bewusst OHNE filename
+    return teil
+
+
+def test_should_list_embedded_message_as_attachment_although_it_has_no_filename():
+    namen = rm.attachment_names(_weiterleitung())
+    assert any(n.endswith(".eml") for n in namen), namen
+    assert "Die-eigentliche-Sache.eml" in namen
+
+
+def test_should_expose_text_of_embedded_message():
+    eingebettet = rm.eingebettete_nachrichten(_weiterleitung())
+    assert len(eingebettet) == 1
+    kopf, text = eingebettet[0]
+    assert kopf["Subject"] == "Die eigentliche Sache"
+    assert kopf["To"] == "dritter@extern.example"
+    assert "fehlenden Unterlagen" in text
+
+
+def test_should_save_embedded_message_as_eml(tmp_path):
+    gespeichert = dict(rm.save_attachments(_weiterleitung(), tmp_path))
+    assert "Die-eigentliche-Sache.eml" in gespeichert
+    roh = (tmp_path / "Die-eigentliche-Sache.eml").read_bytes()
+    assert b"Subject: Die eigentliche Sache" in roh
+    assert b"fehlenden Unterlagen" in roh
+
+
+def test_should_fall_back_to_placeholder_when_embedded_message_has_no_subject():
+    innen = EmailMessage()
+    innen["From"] = "x@y.z"
+    innen.set_content("ohne Betreff")
+    aussen = EmailMessage()
+    aussen["From"] = "x@y.z"
+    aussen["Subject"] = "WG:"
+    aussen.set_content("s.u.")
+    aussen.make_mixed()
+    aussen.attach(_als_rfc822_teil(innen))
+    assert "eingebettete-nachricht.eml" in rm.attachment_names(aussen)
+
+
+def test_should_not_report_embedded_messages_when_there_are_none():
+    """Die Gegenprobe: ohne rfc822-Teil darf weder ein .eml auftauchen noch ein
+    leerer Abschnitt entstehen — sonst ist der Fix nur eine andere Fehlanzeige."""
+    schlicht = _msg(attachments=[("bericht.pdf", b"%PDF-1.4")])
+    assert rm.eingebettete_nachrichten(schlicht) == []
+    assert rm.attachment_names(schlicht) == ["bericht.pdf"]
