@@ -11,7 +11,9 @@ mit Begründung, „so fein wie der Befund, keine Pauschal-Ausnahmen".
 ## Der Stand in einem Satz
 
 Von 54 aktiven Repos tragen **23** ein `AGENT_HANDOVER.md`. Von diesen 23 haben nach dem
-Rollout **alle** das Gate. Die übrigen **31** stehen unten — nicht weil das Gate dort
+Rollout **alle** das Gate — nachgemessen am 2026-08-13 nach dem Merge der sechs Caller-PRs:
+`handover_fleet_check.py --gate` meldet für alle sechs `ja@v1.1.7`, „Frische-Gate nicht
+nachweisbar verdrahtet: 0". Die übrigen **31** stehen unten — nicht weil das Gate dort
 unerwünscht wäre, sondern weil es dort **nichts zu prüfen** gibt.
 
 ## Ausnahmegrund: kein Handover-Dokument vorhanden
@@ -70,19 +72,46 @@ vorhandenen, frischen und maschinell auf Veraltung geprüften Handover-Stand."* 
 Repos ist bereits das erste Wort — *vorhanden* — nicht erfüllt.
 
 **Das ist eine Owner-Entscheidung, keine Mechanik-Frage**, und sie wird hier bewusst nicht
-still beantwortet: ein automatisch erzeugtes Handover-Skelett in 31 Repos wäre 31 Dateien,
-die ab Tag 2 veralten und dann ein grünes Gate tragen — schlimmer als keine Datei, weil das
-Gate dann Frische *bescheinigt*, wo niemand etwas pflegt.
+still beantwortet.
+
+> **Korrektur 2026-08-13 (Owner-Rückfrage).** Die erste Fassung dieses Abschnitts begründete
+> das mit „31 Dateien, die ab Tag 2 veralten und dann ein grünes Gate tragen". Das ist
+> **falsch**, und zwar nachlesbar in `agent_handover_freshness_check.py`: der Check
+> vergleicht das Datum der Stand-Überschrift mit dem **letzten Commit, der die Datei
+> berührt hat** — nicht mit heute. In einem ruhenden Repo bewegt sich keiner der beiden
+> Werte, die Differenz bleibt null. Hinzu kommt: der Workflow hängt an einem `paths`-Filter
+> auf `AGENT_HANDOVER.md` und läuft dort überhaupt nie an. Ein Handover in einem ruhenden
+> Repo veraltet also nicht — er zeigt korrekt den letzten Stand, und das Gate bescheinigt
+> gar nichts, weil es nicht läuft.
+
+Der Einwand, der trägt, ist ein anderer — und er betrifft **aktive** Repos, nicht ruhende:
+das Gate greift nur, wenn eine PR `AGENT_HANDOVER.md` *anfasst*. Eine PR, die ein Issue
+schließt und den Handover unberührt lässt, läuft an ihm vorbei (belegt: apo-hub#56 und #60,
+zweimal dasselbe Muster). Ein automatisch erzeugtes Skelett wäre genau dort schädlich: eine
+Datei, die eine Session als Stand liest, während sie den Tag ihrer Erzeugung beschreibt —
+und die niemand anfasst, weil sie niemandem gehört. In einem ruhenden Repo wäre dasselbe
+Skelett dagegen bloß nutzlos, nicht gefährlich.
+
+Damit verschiebt sich die Frage: nicht „welche Repos halten ein Handover frisch?", sondern
+**„in welchen Repos laufen überhaupt Sessions, die einen Stand lesen und hinterlassen?"**
 
 Denkbare Wege, absteigend nach Aufwand:
 
 1. **Handover nur dort, wo Sessions laufen** — Kriterium: Repo hatte in den letzten 90 Tagen
-   eine Session/PR. Messbar mit denselben Mitteln wie diese Liste.
+   eine Session/PR. Messbar mit denselben Mitteln wie diese Liste. Nach der Korrektur oben
+   ist das der naheliegendste Weg: er trifft genau die Repos, in denen ein Stand gelesen
+   *und* hinterlassen wird.
 2. **Handover in allen aktiven Repos**, Rollout gestaffelt, Gate erst nach dem ersten
-   echten Stand-Block scharf.
+   echten Stand-Block scharf. Für ruhende Repos ist das billiger als gedacht (sie
+   verursachen keine Fehlalarme), aber es erzeugt Dateien ohne Leser.
 3. **Bewusst dabei bleiben**: Handover ist ein platform-/hub-Werkzeug, Bibliotheken und
    Infra-Repos brauchen keins — dann gehört genau dieser Satz als Regel hierher, und die
    Liste schrumpft auf die Repos, die er nicht deckt.
+
+Unabhängig vom gewählten Weg bleibt die Lücke aus der Korrektur bestehen: eine PR, die den
+Handover nicht anfasst, sieht das Gate nie. Dagegen wirkt der Melder aus Kriterium 3
+(`handover-prio-zeigt-auf-erledigtes`, Runner-Phase 0.7.4) — er prüft am Sitzungsstart, ob
+die Prio auf Erledigtes zeigt, unabhängig davon, ob je eine PR die Datei berührt hat.
 
 Tracking: [#1945](https://github.com/achimdehnert/platform/issues/1945) (Kommentar zur
 Erstmessung). Solange die Entscheidung offen ist, gilt Kriterium 2 als **im erreichbaren
