@@ -266,3 +266,64 @@ def test_should_not_print_a_date_column_for_repo_without_handover_file():
     ]
     # ohne Datei ist "kein Datum" keine Aussage über den Stand, sondern Rauschen
     assert "kein Datum" not in hfc.render_table(rows, False)
+
+
+# ── Aktivitäts-Messung (Weg 1, platform#1945) ─────────────────────────────────
+
+
+def test_should_count_session_branch_prs_not_all_prs(monkeypatch):
+    """Das Sitzungs-Signal ist die `head:session/`-Suche, nicht die PR-Gesamtzahl.
+
+    Nach der reinen PR-Zahl waren 29 von 31 handover-losen Repos „aktiv" — Weg 1 und
+    Weg 2 der Ausnahmeliste waren damit ununterscheidbar. Erst die Session-Branches
+    trennen (infra-deploy: PRs ja, Sitzungen null)."""
+    gesehen = {}
+
+    def fake(path, token, raw=False):
+        gesehen["q"] = path
+        return {"total_count": 7}
+
+    monkeypatch.setattr(hfc, "gh_api", fake)
+    assert hfc.sessions_seit("achimdehnert/dev-hub", "2026-05-15", "t") == 7
+    assert "head%3Asession/" in gesehen["q"]
+
+
+def test_should_return_none_when_search_is_unavailable(monkeypatch):
+    """Ein Rate-Limit ist kein leeres Ergebnis: None darf nicht als 0 durchgehen, sonst
+    steht ein aktives Repo als ruhend im Bericht (real passiert: mcp-hub, 50 Sitzungen)."""
+    monkeypatch.setattr(hfc, "gh_api", lambda *a, **k: None)
+    assert hfc.sessions_seit("achimdehnert/mcp-hub", "2026-05-15", "t") is None
+    assert hfc.prs_seit("achimdehnert/mcp-hub", "2026-05-15", "t") is None
+
+
+def test_should_retry_on_rate_limit_and_then_succeed(monkeypatch):
+    import urllib.error
+
+    antworten = [
+        urllib.error.HTTPError("u", 403, "rate limit", {"Retry-After": "0"}, None),
+        _FakeResponse('{"total_count": 3}'),
+    ]
+
+    def fake_urlopen(req, timeout=0):
+        a = antworten.pop(0)
+        if isinstance(a, Exception):
+            raise a
+        return a
+
+    monkeypatch.setattr(hfc.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(hfc.time, "sleep", lambda _s: None)
+    assert hfc.gh_api("/search/issues?q=x", "t") == {"total_count": 3}
+
+
+class _FakeResponse:
+    def __init__(self, body: str):
+        self._body = body.encode("utf-8")
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False

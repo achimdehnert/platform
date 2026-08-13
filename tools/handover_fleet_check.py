@@ -44,9 +44,11 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,6 +90,10 @@ USES_RE = re.compile(r"^\s*-?\s*uses\s*:")
 #: Das Repo führt den Check selbst aus, statt einen reusable Workflow zu rufen.
 NATIVE_RE = re.compile(r"agent_handover_freshness_check\.py")
 
+#: Aktivitäts-Fenster für `--aktiv` (Weg 1 aus docs/conventions/handover-gate-ausnahmen.md:
+#: „Handover dort, wo in 90 Tagen eine Session oder PR lief").
+AKTIV_TAGE = 90
+
 
 def token_from_env_or_gh() -> str:
     """GH_TOKEN/GITHUB_TOKEN, sonst `gh auth token` (lokaler Komfort-Fallback)."""
@@ -103,18 +109,40 @@ def token_from_env_or_gh() -> str:
     return res.stdout.strip() if res.returncode == 0 else ""
 
 
-def gh_api(path: str, token: str, raw: bool = False) -> object | None:
-    """GET auf api.github.com. None = nicht vorhanden/kein Zugriff (fail-soft)."""
+def gh_api(
+    path: str, token: str, raw: bool = False, versuche: int = 4
+) -> object | None:
+    """GET auf api.github.com. None = nicht vorhanden/kein Zugriff (fail-soft).
+
+    Wartet und wiederholt bei Rate-Limit (403/429). Ohne diese Schleife lieferte die
+    Search-API im Flotten-Lauf still `None` — die Search-Quote ist mit 30 Anfragen/Minute
+    zehnmal enger als die REST-Quote. Ergebnis war ein Messfehler mit Ansage: `mcp-hub`
+    stand im Vollauf als „ruhend", während die Einzelmessung 113 PRs zeigte. Ein
+    Rate-Limit ist kein leeres Ergebnis (🌀 fetch_failure_is_not_a_green_state).
+    """
     req = urllib.request.Request(f"https://api.github.com{path}")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header(
         "Accept",
         "application/vnd.github.raw" if raw else "application/vnd.github+json",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
-            body = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, TimeoutError, OSError):
+    body = None
+    for versuch in range(versuche):
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
+                body = resp.read().decode("utf-8", errors="replace")
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code in (403, 429) and versuch < versuche - 1:
+                warte = exc.headers.get("Retry-After")
+                time.sleep(
+                    int(warte) if warte and warte.isdigit() else 10 * (versuch + 1)
+                )
+                continue
+            return None
+        except (urllib.error.URLError, TimeoutError, OSError):
+            return None
+    if body is None:
         return None
     if raw:
         return body
@@ -148,6 +176,7 @@ def resolve_repo(name: str, token: str) -> dict | None:
         return {
             "full_name": meta["full_name"],
             "default_branch": meta.get("default_branch", "main"),
+            "pushed_at": (meta.get("pushed_at") or "")[:10],
             "gh_archived": bool(meta.get("archived")),
         }
     return None
@@ -173,6 +202,41 @@ def heading_date_from_text(text: str) -> date | None:
         if found is None or d > found:
             found = d
     return found
+
+
+def prs_seit(full_name: str, seit: str, token: str) -> int | None:
+    """Anzahl PRs, die seit `seit` (YYYY-MM-DD) angefasst wurden. None = nicht abfragbar.
+
+    Warum PRs und nicht `pushed_at`: gemessen werden soll „lief hier eine Session?".
+    Der Arbeitsablauf dieser Flotte erzeugt je Sitzung mindestens einen PR, während
+    `pushed_at` auch von Bot-Commits (Sync-Workflows, Dependabot) hochgezählt wird —
+    ein Repo, in dem seit Monaten nur ein Sync-Bot schreibt, wäre darüber fälschlich
+    „aktiv" und bekäme ein Handover, das niemand pflegt. `pushed_at` wird trotzdem
+    mitgeführt, aber als Nebeninformation, nicht als Kriterium.
+    """
+    return _search_count(f"repo:{full_name} is:pr updated:>={seit}", token)
+
+
+def _search_count(q: str, token: str) -> int | None:
+    res = gh_api(f"/search/issues?q={urllib.parse.quote(q)}&per_page=1", token)
+    if not isinstance(res, dict) or "total_count" not in res:
+        return None
+    return int(res["total_count"])
+
+
+def sessions_seit(full_name: str, seit: str, token: str) -> int | None:
+    """PRs aus SESSION-Branches (`session/<datum>/<owner>/<slug>`, ADR-233) seit `seit`.
+
+    Das ist das eigentliche „hier laufen Sitzungen"-Signal. Die reine PR-Zahl taugt dafür
+    nicht: nach ihr wären 29 von 31 handover-losen Repos „aktiv" — Weg 1 („Handover dort,
+    wo Sessions laufen") und Weg 2 („in allen aktiven Repos") fielen praktisch zusammen,
+    und die Entscheidung, die der Owner getroffen hat, hätte keine Wirkung. Gemessen an
+    Session-Branches trennt sie: `infra-deploy` und `nl2iot-hub` haben PRs, aber null
+    Sitzungen; `dev-hub` hat 127.
+    """
+    return _search_count(
+        f"repo:{full_name} is:pr head:session/ updated:>={seit}", token
+    )
 
 
 def _gate_ok(gate: str) -> bool:
@@ -223,7 +287,9 @@ def gate_state(full_name: str, token: str) -> str:
     return "unklar"
 
 
-def measure_repo(name: str, token: str, with_gate: bool) -> dict:
+def measure_repo(
+    name: str, token: str, with_gate: bool, seit: str | None = None
+) -> dict:
     """Ein Registry-Repo messen. Fehlendes Repo ist ein Ergebnis, kein Abbruch."""
     row: dict = {"repo": name}
     meta = resolve_repo(name, token)
@@ -239,6 +305,10 @@ def measure_repo(name: str, token: str, with_gate: bool) -> dict:
         )
         if with_gate:
             row["gate"] = "n/a"
+        if seit:
+            row["prs_seit"] = None
+            row["sessions_seit"] = None
+            row["letzter_push"] = None
         return row
 
     full_name = meta["full_name"]
@@ -254,20 +324,28 @@ def measure_repo(name: str, token: str, with_gate: bool) -> dict:
     row["stand"] = stand.isoformat() if stand else None
     if with_gate:
         row["gate"] = gate_state(full_name, token)
+    if seit:
+        row["prs_seit"] = prs_seit(full_name, seit, token)
+        row["sessions_seit"] = sessions_seit(full_name, seit, token)
+        row["letzter_push"] = meta.get("pushed_at") or None
     return row
 
 
-def render_table(rows: list[dict], with_gate: bool) -> str:
+def render_table(rows: list[dict], with_gate: bool, with_aktiv: bool = False) -> str:
     """Markdown-Tabelle. Sortiert, ohne Zeitstempel — zwei Läufe sind byte-gleich."""
     head = ["Repo", "Owner", "Handover", "Log", "Stand"]
     if with_gate:
         head.append("Gate")
+    if with_aktiv:
+        head += ["PRs/Fenster", "Sessions/Fenster", "letzter Push"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for r in rows:
         if not r["gefunden"]:
             cells = [r["repo"], "—", "nicht gefunden", "—", "—"]
             if with_gate:
                 cells.append("—")
+            if with_aktiv:
+                cells += ["—", "—", "—"]
             lines.append("| " + " | ".join(cells) + " |")
             continue
         cells = [
@@ -280,6 +358,13 @@ def render_table(rows: list[dict], with_gate: bool) -> str:
         if with_gate:
             g = r["gate"]
             cells.append(g if _gate_ok(g) else f"**{g}**")
+        if with_aktiv:
+            n, sess = r.get("prs_seit"), r.get("sessions_seit")
+            cells += [
+                "?" if n is None else str(n),
+                "?" if sess is None else ("**0**" if sess == 0 else str(sess)),
+                r.get("letzter_push") or "—",
+            ]
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
@@ -311,6 +396,13 @@ def main(argv: list[str]) -> int:
         help="zusätzlich prüfen, ob handover-stale-vor-merge verdrahtet ist (Kriterium 2)",
     )
     ap.add_argument("--repo", action="append", help="nur diese Repos messen (mehrfach)")
+    ap.add_argument(
+        "--aktiv",
+        nargs="?",
+        const="",
+        metavar="YYYY-MM-DD",
+        help=f"Aktivität mitmessen (PRs seit Datum, Default heute-{AKTIV_TAGE}d) — Weg 1",
+    )
     args = ap.parse_args(argv)
 
     token = token_from_env_or_gh()
@@ -327,14 +419,20 @@ def main(argv: list[str]) -> int:
         print(f"FEHLER: Registry nicht lesbar: {exc}", file=sys.stderr)
         return 2
 
+    seit = None
+    if args.aktiv is not None:
+        seit = args.aktiv or (date.today() - timedelta(days=AKTIV_TAGE)).isoformat()
+
     names = sorted(args.repo) if args.repo else active_repos(canon)
-    rows = [measure_repo(n, token, args.gate) for n in names]
+    rows = [measure_repo(n, token, args.gate, seit) for n in names]
 
     if args.json:
         print(json.dumps(rows, indent=2, ensure_ascii=False, sort_keys=True))
     else:
-        print(render_table(rows, args.gate))
+        print(render_table(rows, args.gate, bool(seit)))
         print()
+        if seit:
+            print(f"Aktivitäts-Fenster: PRs mit Aktivität seit {seit}")
         print(summarize(rows, args.gate))
     return 0
 
