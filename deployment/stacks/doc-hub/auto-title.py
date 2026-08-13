@@ -13,8 +13,9 @@ try:
     import django
 
     django.setup()
-    from documents.models import Document
+    from documents.models import Document, Tag
     from django.contrib.auth.models import User
+    from django.utils import timezone
 except Exception as e:
     print(f"Django setup error: {e}")
     sys.exit(0)
@@ -136,8 +137,8 @@ def titel_ist_aussagelos(titel):
     return bool(SCANNER_TITEL.match(t))
 
 
-def datum_aus_text(content):
-    """Erstes KALENDARISCH gueltiges Datum.
+def datum_objekt_aus_text(content):
+    """Erstes KALENDARISCH gueltiges Datum aus dem OCR-Text.
 
     Vorher wurde die erste datumsaehnliche Zeichenkette blind zusammengesetzt
     (f"{y}-{m}-{d}"), wodurch Titel wie "2025-09-31" entstanden - einen Tag,
@@ -146,10 +147,124 @@ def datum_aus_text(content):
     """
     for d, m, y in re.findall(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b", content):
         try:
-            return datetime.date(int(y), int(m), int(d)).isoformat()
+            return datetime.date(int(y), int(m), int(d))
         except ValueError:
             continue
     return None
+
+
+def datum_aus_text(content):
+    """Dasselbe Datum als ISO-Zeichenkette - so braucht es der Titel."""
+    datum = datum_objekt_aus_text(content)
+    return datum.isoformat() if datum else None
+
+
+FRUEHESTES_PLAUSIBLES_JAHR = 1900
+JAHRES_TAG_FARBE = "#c9c9c9"
+
+
+def datum_ist_plausibel(datum, heute):
+    """Ein Datum, das als Dokumentdatum ueberhaupt in Frage kommt.
+
+    Die Grenzen sind bewusst weit gezogen: der Bestand enthaelt echte Scans
+    bis zurueck ins Jahr 1933. Ausgeschlossen wird nur, was nicht sein kann -
+    ein Datum in der Zukunft (OCR liest Fristen, Gueltigkeits- und
+    Faelligkeitsangaben gleichrangig mit) und ein Jahr vor 1900, wo es sich
+    praktisch immer um verlesene Ziffern handelt.
+    """
+    return FRUEHESTES_PLAUSIBLES_JAHR <= datum.year and datum <= heute
+
+
+def einlesetag(doc):
+    """Der Tag, an dem Paperless das Dokument aufgenommen hat.
+
+    ``added`` ist ein Zeitpunkt in UTC, ``created`` ein reines Datum in
+    lokaler Zeit. Ohne die Umrechnung waeren die beiden am Tagesrand um
+    einen Tag versetzt und der Vergleich unten liefe ins Leere.
+    """
+    return timezone.localtime(doc.added).date()
+
+
+def dokumentdatum_bestimmen(doc, content, heute=None):
+    """Das Datum, das dieses Dokument traegt - und ob es korrigiert wurde.
+
+    Erste Quelle ist ``doc.created``: das ist, was Paperless selbst aus
+    Dateiname und Text ermittelt hat, und es bestimmt ueber
+    PAPERLESS_FILENAME_FORMAT={{ created_year }} schon heute den Ablagepfad.
+    Solange Paperless etwas gefunden hat, wird daran nicht geruettelt.
+
+    Findet Paperless nichts, faellt es auf den Einlesetag zurueck - und zwar
+    stillschweigend, das Ergebnis sieht aus wie ein ermitteltes Datum. Genau
+    dieser Fall ist hier der Aufhaenger: fallen ``created`` und Einlesetag
+    zusammen, wird der OCR-Text noch einmal befragt. Traegt er ein
+    plausibles, abweichendes Datum, gilt dieses.
+
+    Rueckgabe: ``(datum, wurde_korrigiert)``.
+    """
+    heute = heute or timezone.localdate()
+    created = doc.created
+    if created != einlesetag(doc):
+        return created, False
+
+    aus_text = datum_objekt_aus_text(content or "")
+    if aus_text is None or aus_text == created:
+        return created, False
+    if not datum_ist_plausibel(aus_text, heute):
+        return created, False
+    return aus_text, True
+
+
+def jahres_tag_setzen(doc, datum):
+    """Das Jahr des Dokumentdatums als Tag - ausschliesslich additiv.
+
+    Es wird nur hinzugefuegt, nie etwas entfernt. Ein bereits vorhandener
+    abweichender Jahres-Tag bleibt also stehen: bei einem Steuerbescheid aus
+    2025 fuer das Jahr 2024 ist "2024" eine fachliche Angabe des Menschen und
+    kein Fehler des Skripts - sie zu loeschen waere Informationsverlust.
+
+    Neu angelegte Jahres-Tags bekommen ausdruecklich MATCH_NONE. Ohne das
+    haengt Paperless den Tag spaeter von sich aus an jedes Dokument, in dem
+    die Jahreszahl irgendwo im Text auftaucht.
+    """
+    name = str(datum.year)
+    tag = Tag.objects.filter(name=name).first()
+    if tag is None:
+        # MATCH_NONE ist in Paperless 3.0.4 die 0 (nachgemessen, nicht geraten).
+        # Der Ersatzwert ist derselbe: waere die Konstante eines Tages weg,
+        # ist 0 immer noch das Feld-Default und damit die harmlose Wahl.
+        tag = Tag.objects.create(
+            name=name,
+            matching_algorithm=getattr(Tag, "MATCH_NONE", 0),
+            color=JAHRES_TAG_FARBE,
+        )
+        print(f"Jahres-Tag angelegt: {name}")
+    if doc.tags.filter(pk=tag.pk).exists():
+        print(f"Jahres-Tag bereits gesetzt: {name}")
+        return False
+    doc.tags.add(tag)
+    print(f"Jahres-Tag gesetzt: {name}")
+    return True
+
+
+def jahr_taggen(doc, content):
+    """Datum ermitteln, notfalls korrigieren, Jahr als Tag setzen.
+
+    Eigener Fehlerschirm: dieses Skript laeuft als Post-Consume-Hook. Was
+    hier schiefgeht, darf die Titel- und Owner-Zuweisung darunter nicht
+    mitreissen.
+    """
+    try:
+        datum, korrigiert = dokumentdatum_bestimmen(doc, content)
+        if korrigiert:
+            doc.created = datum
+            doc.save(update_fields=["created"])
+            print(f"Dokumentdatum korrigiert: {datum.isoformat()} (war Einlesetag)")
+        else:
+            print(f"Dokumentdatum: {datum.isoformat()}")
+        jahres_tag_setzen(doc, datum)
+    except Exception as e:
+        print(f"Jahres-Tag uebersprungen: {e}")
+        traceback.print_exc()
 
 
 def extract_title(doc, content):
@@ -187,6 +302,11 @@ if __name__ == "__main__":
         assign_permissions(doc)
 
         content = doc.content or ""
+
+        # Vor der Titelvergabe: der Titel traegt das Datum mit, und wenn
+        # created hier korrigiert wird, soll der Titel dazu passen.
+        jahr_taggen(doc, content)
+
         if len(content.strip()) < 10:
             print(f"Doc {doc_id}: too little content")
         else:
