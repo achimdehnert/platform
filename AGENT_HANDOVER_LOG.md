@@ -1825,3 +1825,50 @@ den ein Fehlzeiger im Policy-Text zeigte.
   ließ `None` als `0` zählen, mcp-hub stand mit 50 Sitzungen als „ruhend" im Bericht.
 - Nebenfunde getrackt: #1953 (zwei blinde Cron-Melder), 6 verschiedene Gate-Pins (3× `@main`).
 - Prio-Block auf diesen Stand nachgezogen; Melder `handover-prio-zeigt-auf-erledigtes` danach grün.
+
+### 2026-08-13 · Delta zur Sitzung handover-flotte (Nachmittag/Abend)
+
+Ergänzt den am selben Tag gemergten Stand-Block (#1960); der Stand-Block selbst wurde
+BEWUSST nicht erneut umgeschrieben, weil PR #1935 einer parallelen Sitzung ihn offen
+hält — ein dritter konkurrierender Stand hätte den Konflikt dort verschärft.
+
+- **#1962 GESCHLOSSEN** (Gate-Pins): Flotte auf einem Pin, gemessen 22× `ja@v1.1.7`,
+  keine Abweichung. `trading-hub` zeigte auf einen SHA, den GitHub nicht mehr auflöst
+  (HTTP 422) — das Gate lief dort seit 2026-07-16 nicht. Bump verhaltensneutral belegt
+  (Gate-Datei über v1.1.0–v1.1.7 byte-identisch, md5 `209e23cd5845`).
+- **#1953 GESCHLOSSEN** (zwei Melder): beide Eröffnungs-Diagnosen waren falsch.
+  Sync-Drift-Meter war Fehlalarm auf einem nie aktualisierten Klon (design-hub, auf main
+  seit 2026-06-01 behoben) → Registry-Guard #1961. `Gen project-facts.md` lief sehr wohl
+  und scheiterte an drei Fremd-Org-Repos ausserhalb der Token-Reichweite → neues
+  dediziertes PROJECT_PAT (classic, `repo`-Scope, **Ablauf 2027-08-12**, abgelegt in der
+  kanonischen Secret-Heimat).
+- **Zwei Folgefunde, die erst der ECHTE Lauf zeigte** (der Trockenlauf war grün):
+  archiviertes wedding-hub faerbte den Lauf rot (#1967) · die Commit-Message trug eine
+  CI-Unterdrueckungsmarke und machte 5 der 8 erzeugten PRs unmergbar, dev-hub#178 seit
+  dem 2026-07-31 (#1970). Beweis: leerer Commit auf denselben Tree, Checks 0 → 11–15.
+- **weltenhub#52 GESCHLOSSEN**: Coverage Gate scheiterte an fehlendem `pip` (exit 127),
+  mass keine Coverage und blockierte jede PR. Kette shared-ci#53 → Tag `v1.1.8` →
+  weltenhub#53 (Pin-Bump) → weltenhub#50 gemergt, **ohne Bypass**.
+- Flotte: **49 von 54** aktiven Repos mit `AGENT_HANDOVER.md` (Sitzungsbeginn: 23).
+
+**Abnahme (Phase 0d):** Zielzustand #1945 **erreicht** — alle vier Kriterien einzeln
+verifiziert und im Issue belegt (Messung determinismus-geprueft, Gate 23/23, Melder in
+beiden Zweigen im echten Runner-Pfad, Prio bereinigt). Folge-Zielzustaende #1962/#1953
+ebenfalls **erreicht**; ein Abnahmepunkt in #1953 bleibt bewusst offen (Wochenlauf-Beweis
+Montag 04:00 UTC) und ist als solcher gekennzeichnet statt abgehakt.
+
+**SA-4: ~40 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.**
+Der Permission-Classifier blockte dreimal einen Fan-out (Worktree-Reap, 6-fach-Merge,
+State-Abfrage-Schleife); alle drei danach vom Owner bzw. einzeln ausgefuehrt, keiner
+umgangen. Ein `--admin`-Bypass wurde einmal owner-angewiesen benutzt (mcp-hub#198, mit
+durablem Beleg am PR) und einmal versucht, aber vom Ruleset verweigert (weltenhub#50) —
+dort war der Fix der Weg.
+
+**Prozess-Fehler dieser Sitzung, benannt:** der Check auf offene `AGENT_HANDOVER.md`-PRs
+(session-ende Phase 0a-handover-pr) lief erst am Sitzungsende — #1960 entstand davor und
+hat #1935 damit überholt. Genau die Reihenfolge, die diese Phase verhindern soll.
+
+**Offen, ausdruecklich benannt:** Haupt-Tree `~/github/platform` ist dreckig (fremde
+staged Aenderungen, 16 Commits hinter origin/main) — jeder Pull dort bricht ab, nach
+ADR-233 nicht angefasst. `frist-hub#117` rot (Integration Tests, war vorher von der
+Marke verdeckt). `travel-beat#74` geschlossen statt gemergt, ungeklaert.
