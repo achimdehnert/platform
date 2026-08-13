@@ -54,9 +54,9 @@ def test_should_find_newest_dated_heading():
 
 def test_should_accept_the_other_dialect():
     """Zweiter etablierter Dialekt der Flotte — die Messung darf nicht auf einen festlegen."""
-    assert hfc.heading_date_from_text("## Current state (observed 2026-07-07)\n") == date(
-        2026, 7, 7
-    )
+    assert hfc.heading_date_from_text(
+        "## Current state (observed 2026-07-07)\n"
+    ) == date(2026, 7, 7)
 
 
 def test_should_ignore_dates_outside_the_head_window():
@@ -133,6 +133,44 @@ def test_should_detect_gate_wired_via_platform(monkeypatch):
     assert hfc.gate_state("achimdehnert/x", "t") == "ja@main"
 
 
+def test_should_not_count_a_reference_that_only_appears_in_a_comment(monkeypatch):
+    """platform trägt die Referenz im Kopf-Kommentar seiner eigenen Gate-Definition
+    (Beispielaufruf für Caller). Ohne die `uses:`-Bedingung meldete die Messung das
+    definierende Repo als „verdrahtet" — auf Basis von Prosa. Falsch-Grün ist in einer
+    Bestandsaufnahme der teuerste Fehler, weil danach niemand mehr hinsieht."""
+    _gate_env(
+        monkeypatch,
+        [{"name": "handoff-banner-gate.yml"}],
+        {
+            "handoff-banner-gate.yml": (
+                "# Andere Repos können\n"
+                "# `uses: achimdehnert/platform/.github/workflows/handoff-banner-gate.yml@main` aufrufen\n"
+                "on:\n  workflow_call: {}\n"
+            )
+        },
+    )
+    assert hfc.gate_state("achimdehnert/platform", "t") == "unklar"
+
+
+def test_should_report_nativ_when_repo_runs_the_check_itself(monkeypatch):
+    _gate_env(
+        monkeypatch,
+        [{"name": "handoff-banner-gate.yml"}],
+        {
+            "handoff-banner-gate.yml": (
+                "# `uses: platform/.github/workflows/handoff-banner-gate.yml@main` (Beispiel)\n"
+                "    - run: python3 scripts/checks/agent_handover_freshness_check.py AGENT_HANDOVER.md\n"
+            )
+        },
+    )
+    assert hfc.gate_state("achimdehnert/platform", "t") == "nativ"
+
+
+def test_should_count_nativ_as_wired():
+    assert hfc._gate_ok("nativ") and hfc._gate_ok("ja@v1.1.1")
+    assert not hfc._gate_ok("unklar") and not hfc._gate_ok("nein")
+
+
 def test_should_report_unklar_when_named_workflow_lacks_the_reference(monkeypatch):
     _gate_env(
         monkeypatch,
@@ -158,7 +196,9 @@ def test_should_report_na_when_workflow_dir_unreadable(monkeypatch):
 def test_should_record_missing_repo_as_result_not_as_crash(monkeypatch):
     monkeypatch.setattr(hfc, "resolve_repo", lambda *a, **k: None)
     row = hfc.measure_repo("gibtsnicht", "t", with_gate=True)
-    assert row["gefunden"] is False and row["handover"] is False and row["gate"] == "n/a"
+    assert (
+        row["gefunden"] is False and row["handover"] is False and row["gate"] == "n/a"
+    )
 
 
 def test_should_measure_repo_with_handover_and_log(monkeypatch):

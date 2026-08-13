@@ -80,6 +80,13 @@ GATE_WF_NAME_RE = re.compile(r"hand(off|over)", re.IGNORECASE)
 GATE_REF_RE = re.compile(
     r"(?:platform|shared-ci)/\.github/workflows/handoff-banner-gate\.yml@(\S+)"
 )
+#: Der Treffer muss auf einer `uses:`-Zeile stehen. platform selbst trägt die Referenz
+#: in einem **Kommentar** (Beispielaufruf im Kopf der Gate-Definition) — ohne diese
+#: Bedingung meldete die Messung das definierende Repo als „verdrahtet", auf Basis von
+#: Prosa. Ein Falsch-Grün ist in einer Bestandsaufnahme der teuerste Fehler.
+USES_RE = re.compile(r"^\s*-?\s*uses\s*:")
+#: Das Repo führt den Check selbst aus, statt einen reusable Workflow zu rufen.
+NATIVE_RE = re.compile(r"agent_handover_freshness_check\.py")
 
 
 def token_from_env_or_gh() -> str:
@@ -168,10 +175,16 @@ def heading_date_from_text(text: str) -> date | None:
     return found
 
 
+def _gate_ok(gate: str) -> bool:
+    """Zählt als verdrahtet: reusable-Aufruf oder nativer Lauf im Repo selbst."""
+    return str(gate).startswith("ja@") or gate == "nativ"
+
+
 def gate_state(full_name: str, token: str) -> str:
     """Ist der Frische-Check im Repo verdrahtet? (Kriterium 2, nur mit --gate)
 
-    'ja@<ref>' — ein Workflow referenziert den reusable Gate-Workflow (mit Pin)
+    'ja@<ref>' — eine `uses:`-Zeile referenziert den reusable Gate-Workflow (mit Pin)
+    'nativ'   — das Repo führt den Check selbst aus (platform: Definition des Gates)
     'unklar'  — namensverdächtiger Workflow vorhanden, aber ohne diese Referenz
     'nein'    — kein namensverdächtiger Workflow
     'n/a'     — kein .github/workflows-Verzeichnis lesbar
@@ -196,9 +209,17 @@ def gate_state(full_name: str, token: str) -> str:
         text = gh_api(
             f"/repos/{full_name}/contents/.github/workflows/{wf}", token, raw=True
         )
-        m = GATE_REF_RE.search(text) if isinstance(text, str) else None
-        if m:
-            return f"ja@{m.group(1)}"
+        if not isinstance(text, str):
+            continue
+        for line in text.splitlines():
+            code = line.split("#", 1)[0]  # Kommentar abschneiden
+            if not USES_RE.search(code):
+                continue
+            m = GATE_REF_RE.search(code)
+            if m:
+                return f"ja@{m.group(1)}"
+        if NATIVE_RE.search(text):
+            return "nativ"
     return "unklar"
 
 
@@ -258,7 +279,7 @@ def render_table(rows: list[dict], with_gate: bool) -> str:
         ]
         if with_gate:
             g = r["gate"]
-            cells.append(g if g.startswith("ja@") else f"**{g}**")
+            cells.append(g if _gate_ok(g) else f"**{g}**")
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
@@ -276,7 +297,7 @@ def summarize(rows: list[dict], with_gate: bool) -> str:
         f" · mit Datei aber ohne datierten Stand: {len(no_date)}",
     ]
     if with_gate:
-        no_gate = [r for r in found if not str(r.get("gate", "")).startswith("ja@")]
+        no_gate = [r for r in found if not _gate_ok(r.get("gate", ""))]
         out.append(f"Frische-Gate nicht nachweisbar verdrahtet: {len(no_gate)}")
     return "\n".join(out)
 
