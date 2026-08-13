@@ -316,16 +316,16 @@ def dokumentdatum_bestimmen(doc, content, heute=None):
     return created, "paperless"
 
 
-# Ein Dokumentdatum, das Jahrzehnte vor dem Scan liegt, waehrend der Text
-# selbst etwas viel Neueres nennt.
-ALTVERDACHT_JAHRE = 10
+# Ein Dokument kann nichts nennen, was zu seiner Entstehung noch nicht
+# geschehen war. Nennt der Text ein Datum, das so viele Jahre nach dem
+# Dokumentdatum liegt, stimmt eines von beiden nicht.
 TEXT_IST_NEUER_JAHRE = 5
 
 
 def created_ist_zweifelhaft(doc, created, content, heute):
-    """Ob ``created`` eher ein Geburtsdatum als ein Dokumentdatum ist.
+    """Ob ``created`` das Dokument beschreibt oder etwas anderes im Text.
 
-    Der Anlass ist gemessen, nicht ausgedacht: im Bestand tragen neun
+    Der Anlass ist gemessen, nicht ausgedacht. Im Bestand tragen neun
     Rechnungen und Befunde das created 1933-01-17 und sieben Versicherungs-
     unterlagen die 1961-02-05 - beides Geburtsdaten, die eine fruehere
     Fassung dieses Skripts als Dokumentdatum uebernommen hat, weil sie
@@ -334,22 +334,27 @@ def created_ist_zweifelhaft(doc, created, content, heute):
     im Briefkopf, die 17.01.1933 weiter unten als Geburtsdatum der
     begutachteten Person.
 
-    Solche Faelle werden hier NICHT umdatiert - dazu ist die Heuristik zu
-    grob, und ein echter Altvertrag mit spaeterem Nachtrag saehe genauso
-    aus. Sie werden nur als unklar gemeldet und bekommen damit den Marker
-    statt eines Jahres-Tags, den niemand geprueft hat.
-
-    Massgeblich ist das SPAETESTE Datum im Text, nicht das erste. Bei genau
-    diesen Dokumenten steht das Geburtsdatum ganz oben - es ist also selbst
+    Der Test ist das SPAETESTE Datum im Text, nicht das erste. Bei genau
+    diesen Dokumenten steht das falsche Datum ganz oben - es ist also selbst
     der frueheste Fund, und ein Vergleich damit ginge im Kreis. Erst das
     Rechnungsdatum weiter unten verraet, dass 1933 nicht stimmen kann.
+
+    Ein Abstand zum Scantag wird ausdruecklich NICHT mehr verlangt. Diese
+    Zusatzbedingung stand hier zuerst und liess Dokument 870 durch: created
+    2020-08-01, im Text aber nur 2024-12-18 und 2025-06-20 - ein Bescheid
+    des Landratsamts, dessen 2020 nirgends belegt ist. Sie war ueberfluessig,
+    weil ``datum_ist_plausibel`` kuenftige Daten ohnehin verwirft: Fristen
+    und Laufzeiten, das eigentliche Gegenargument, zaehlen hier gar nicht
+    erst mit. Ueber den Bestand kostet der Verzicht acht weitere Faelle.
+
+    Umdatiert wird trotzdem nichts - dafuer ist die Heuristik zu grob. Die
+    Faelle werden nur als unklar gemeldet und bekommen den Marker statt
+    eines Jahres-Tags, den niemand geprueft hat.
     """
     daten = [d for d in volle_daten_aus_text(content) if datum_ist_plausibel(d, heute)]
     if not daten:
         return False
-    ist_alt = created.year <= einlesetag(doc).year - ALTVERDACHT_JAHRE
-    text_ist_neuer = max(daten).year >= created.year + TEXT_IST_NEUER_JAHRE
-    return ist_alt and text_ist_neuer
+    return max(daten).year >= created.year + TEXT_IST_NEUER_JAHRE
 
 
 def tag_holen(name, farbe):
