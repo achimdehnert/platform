@@ -275,3 +275,43 @@ def test_should_not_blame_gitignore_when_git_cannot_answer(tmp_path):
     assert "'.windsurf/' nicht in .gitignore" not in res.stdout, (
         "eine nicht belegte Ursache darf nicht als Befund ausgegeben werden"
     )
+
+
+# ── Registry-Guard (platform#1953) ────────────────────────────────────────────
+
+
+def test_should_not_judge_a_checkout_that_is_in_no_registry(tmp_path):
+    """Ein Klon ohne Registry-Eintrag wird von `fleet_checkout.py` nie aktualisiert —
+    er darf deshalb nicht als Drift gemeldet werden.
+
+    Realfall design-hub: die `.windsurf/`-Zeile steht seit 2026-06-01 in seiner
+    `.gitignore` (Commit 8a0ee9ca). Der Meter meldete sie zehn Wochen lang woechentlich
+    als fehlend, weil der Klon auf dem Runner aelter war. Ein frischer Klon liefert
+    `check-ignore` = 0, der Runner-Klon = 1 — der Melder war dauerhaft rot auf einem
+    Befund, den es auf `main` nicht gab.
+    """
+    import subprocess
+
+    skript = SYNC_SH
+    quelle = skript.read_text(encoding="utf-8")
+
+    # Der Guard liest die KANONISCHE Registry, nicht die flache View: letztere
+    # enthaelt nur `in_flat`-Eintraege (53 von 59) und haette bahn-hub, nl2iot-hub
+    # und testkit faelschlich als "nicht registriert" aus der Bewertung genommen.
+    assert "CANON_REGISTRY=" in quelle
+    assert "registry/canonical.yaml" in quelle
+    assert "NOT-REGISTERED:" in quelle
+    assert "NOT-REGISTERED-SUMMARY:" in quelle
+
+    # Nicht bewerten heisst nicht verschweigen — die Kategorie muss in der Summary
+    # auftauchen, sonst verschwindet die Registry-Luecke still.
+    assert "NOT_REGISTERED_NAMES" in quelle
+    assert subprocess.run(["bash", "-n", str(skript)]).returncode == 0
+
+
+def test_should_place_the_registry_guard_after_the_platform_origin_check():
+    """Reihenfolge zaehlt: `platform-pinned` ist ein Worktree von platform selbst und
+    hat dafuer eine eigene, praezisere Meldung. Stuende der Registry-Guard davor,
+    bekaeme es die unspezifische NOT-REGISTERED-Zeile."""
+    quelle = SYNC_SH.read_text(encoding="utf-8")
+    assert quelle.index("*/platform|*/platform.git") < quelle.index("# Registry-Guard:")
