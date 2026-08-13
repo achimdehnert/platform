@@ -239,3 +239,29 @@ def test_should_still_exit_one_on_a_real_failure(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         ppf.main()
     assert exc.value.code == 1
+
+
+# ── Archivierte Repos (platform#1953) ─────────────────────────────────────────
+
+
+def test_should_skip_archived_repos_from_the_registry():
+    """Ein archiviertes Repo ist auf GitHub read-only und antwortet auf jeden
+    Schreibversuch mit HTTP 403.
+
+    Realfall wedding-hub (archiviert 2026-08-11): der echte Lauf am 2026-08-13
+    erledigte 23 Repos sauber — 8 PRs, davon erstmals frist-hub/meiki-hub/ttz-hub —
+    und endete trotzdem ROT, weil das 24. Repo nicht mehr beschreibbar war. Ein
+    Melder, der wegen eines bewusst stillgelegten Repos rot steht, wird binnen
+    Wochen überlesen.
+    """
+    quelle = _SRC.read_text(encoding="utf-8")
+    assert 'and not (cfg or {}).get("archived")' in quelle
+
+
+def test_should_treat_github_archived_403_as_skip_not_failure():
+    """Zweite Sicherung: die Registry kann der Stilllegung nachhinken. GitHubs
+    eigene Antwort ist die verlässlichere Quelle — sie darf den Lauf nicht rot färben."""
+    quelle = _SRC.read_text(encoding="utf-8")
+    assert '"was archived" in str(exc)' in quelle
+    # Nicht stillschweigend überspringen: der Fall muss benannt in der Ausgabe stehen.
+    assert "Archiviert (read-only, bewusst uebersprungen):" in quelle
