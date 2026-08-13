@@ -265,3 +265,24 @@ def test_should_treat_github_archived_403_as_skip_not_failure():
     assert '"was archived" in str(exc)' in quelle
     # Nicht stillschweigend überspringen: der Fall muss benannt in der Ausgabe stehen.
     assert "Archiviert (read-only, bewusst uebersprungen):" in quelle
+
+
+def test_should_not_put_a_ci_skip_marker_into_the_commit_message():
+    """Die Marke unterdrückt JEDEN Workflow — auch den, der den Required Check
+    `ci / gate` erzeugt. Ergebnis war ein PR, den niemand mergen kann.
+
+    Gemessen am 2026-08-13: 5 der 8 erzeugten PRs standen deshalb auf BLOCKED,
+    dev-hub#178 seit dem 2026-07-31. Nur die zwei Repos ohne `ci / gate`-Ruleset
+    liessen sich mergen. Rulesets können das nicht auf der Gegenseite lösen —
+    ihre Bedingungen sind ref-basiert, es gibt keine Pfad-Ausnahme.
+    """
+    quelle = _SRC.read_text(encoding="utf-8")
+    marke = "[skip" + " ci]"  # nicht wörtlich schreiben: derselbe Substring-Effekt
+    # In der Commit-Message-Zeile darf sie nicht stehen; im erklärenden Kommentar schon.
+    commit_zeilen = [
+        z
+        for z in quelle.splitlines()
+        if "project-facts.md aktualisiert" in z and not z.strip().startswith("#")
+    ]
+    assert commit_zeilen, "Commit-Message-Zeile nicht gefunden"
+    assert all(marke not in z for z in commit_zeilen)

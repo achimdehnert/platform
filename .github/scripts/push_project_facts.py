@@ -603,11 +603,30 @@ def process_repo(repo: str, reg: dict, dry_run: bool) -> str:
         return f"DRY-RUN: {repo}"
 
     # Push to repo root (über Branch + PR, siehe gh_push_file)
+    #
+    # KEIN `[skip ci]` in der Commit-Message. Die Marke unterdrueckt JEDEN Workflow —
+    # auch den, der den Required Check `ci / gate` erzeugt. Ergebnis war ein PR, den
+    # niemand mergen kann: der Pflicht-Check laeuft nie an und bleibt ewig ausstehend.
+    # Gemessen am 2026-08-13: 5 der 8 erzeugten PRs standen deshalb auf BLOCKED,
+    # dev-hub#178 seit dem 2026-07-31 — das Skript sabotierte sein eigenes Ergebnis.
+    # Nur die zwei Repos OHNE `ci / gate`-Ruleset liessen sich mergen.
+    #
+    # Rulesets koennen das nicht auf der Gegenseite loesen: ihre Bedingungen sind
+    # ref-basiert (`ref_name`), es gibt keine Pfad-Ausnahme fuer eine einzelne Datei.
+    # Und `--admin` greift nicht, solange `bypass_actors` leer ist (geprueft an
+    # ausschreibungs-hub). Die Marke wegzulassen ist der einzige Weg, der den
+    # Perimeter unangetastet laesst.
+    #
+    # Kosten: nur Repos mit tatsaechlicher Aenderung committen ueberhaupt (am
+    # 2026-08-13: 8 von 23) — der Rest bleibt `unveraendert` und loest nichts aus.
+    # Wird die Runner-Last spuerbar, gehoert der Hebel in `_ci-python.yml`
+    # (schwere Jobs bei Doku-PRs ueberspringen, Gate-Job trotzdem melden) —
+    # die Arbeit billig machen, nicht den Check verhindern.
     stand = gh_push_file(
         repo,
         "project-facts.md",
         content,
-        f"docs: project-facts.md aktualisiert ({TODAY}) [skip ci]",
+        f"docs: project-facts.md aktualisiert ({TODAY})",
     )
     zeichen = "⏭" if stand == "unverändert" else "✅"
     return f"{zeichen} {repo}: {stand}"
