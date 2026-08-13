@@ -1110,3 +1110,71 @@ Push-Gate meldet über den `HEAD~1`-Fallback **vorbestehende** unformatierte Dat
 - **Eigene Fehler, benannt:** Meine erste Flotten-Messung klassifizierte Pfade per Teilstring und verbuchte `iil-klickdummy/src/iil_klickdummy/` als „geparkt" — zwei lebende Funde wären verschwunden; als Test verankert. · Ich senkte zwei Budgets aus lokalen Klonen und nahm es zurück, nachdem `iil-adrfw` den Beweis lieferte, dass die Klone nicht die CI-Basis sind. · Ein `gh api`-Befehl, den ich dem Owner zum Kopieren gab, war unvollständig (`comment` ist Pflichtfeld) und schlug bei ihm mit 422 fehl.
 - **Nachtrag am selben Abend: [#1841](https://github.com/achimdehnert/platform/pull/1841) und [#1842](https://github.com/achimdehnert/platform/pull/1842) sind gemergt, und der Megatest ist wieder grün** — [Lauf 31317305855](https://github.com/achimdehnert/platform/actions/runs/31317305855) auf `main`: **127 passed, 0 failed**, erstmals seit dem 04.08. Die vier Regressions-Issues sind geschlossen. Beide Regressionen waren durch die Arbeit dieser Sitzung gedeckt: dev-hub durch den Marker (#260), iil-adrfw durch die Scanner-Präzisierungen — dort blieb das Repo unangetastet, weil alle vier Funde Fehlalarme waren. **Damit existiert jetzt die CI-Basis für den Budget-Ratchet**, der bewusst nicht aus lokalen Klonen gesetzt wurde. **[#1845](https://github.com/achimdehnert/platform/issues/1845) wartet auf ein Go** — shared-ci ist das fünfte Repo dieser Sitzung und eine flottenweite CI-Änderung, deshalb bewusst nicht angefasst.
 
+---
+
+## ⚡ Vorheriger Stand (2026-08-10 — zwei Sitzungen; Review-Pflicht neu geschnitten, v1.1.6-Welle mit einem Rest)
+
+**Zeitanker:** HEAD `9a1cb2d7` · geschrieben 2026-08-10 15:00 · vereinigt zwei Sitzungen
+desselben Tages (`504951` und `c45b39`). Der Block von `504951` steht unverändert
+darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstanden und
+**eine seiner Aussagen überholen** (siehe erster Punkt).
+
+### Strang `c45b39` — Review-Reichweite, Melder, Retro
+
+- **Die Ruleset-Zahl ist nicht mehr offen.** Der Punkt „`required_approving_review_count: 1`
+  gilt pfadunabhängig … gehört ins Ritual am 16.08." im Block darunter ist seit **14:45Z
+  erledigt**: B1-2 ist angewandt (`count: 0`, `require_code_owner_review: true`,
+  `bypass_actors: []`, `current_user_can_bypass: never`). **In beide Richtungen gegengeprüft**,
+  beide PRs mit identischen sechs grünen Checks: [#1889](https://github.com/achimdehnert/platform/pull/1889)
+  (`/policies/`) → `mergeable_state: blocked`; [#1890](https://github.com/achimdehnert/platform/pull/1890)
+  (`docs/retros/`) → `clean`, von mir gemergt — erste reale Ausübung von SA-2.
+- **Abnahme (Phase 0d): Zielzustand „Review verlangt platform nur noch dort, wo eine
+  Entscheidung fällt" — erreicht.** Kriterien einzeln: (a) Catch-all weg, Perimeter auf
+  14 Pfade ([#1873](https://github.com/achimdehnert/platform/pull/1873),
+  [#1879](https://github.com/achimdehnert/platform/pull/1879)); (b) Ruleset-Zahl 0; (c) beide
+  Gegenproben bestanden. **Auslösende Messung:** 400 gemergte PRs in 30 Tagen, **0** ohne
+  Approval, 399 von einem Konto; 73 % der PRs berührten keinen Governance-Pfad.
+- **Der Perimeter ist BREITER als vorher, nicht schmaler.** Neu unter Code-Owner-Schutz:
+  `/governance/`, `/deployment/`, `/infra/`, `/scripts/`, `/.windsurf/` + vier Security-Konfigs.
+  `/governance/` **fehlte** in der ersten Fassung entgegen KONZ-032 B1-1 Z.165 — still
+  verloren, in keiner Commit-Message erwähnt. `/tools/` bleibt bewusst frei (größter
+  Volumenposten, CI trägt).
+- **Vier Melder ohne Leser geschlossen:** Megatest zeigt senkbare Budgets wieder
+  ([#1865](https://github.com/achimdehnert/platform/pull/1865)); Hygiene-Melder trennt
+  Kandidat/Sichten und ein aktives Lease schlägt jetzt den Merge-Zustand
+  ([#1871](https://github.com/achimdehnert/platform/pull/1871)); advisory-Scanner
+  protokollieren ihre Treffer ([#1868](https://github.com/achimdehnert/platform/pull/1868));
+  Anker-Stand ist Pflichtzeile im Mailcheck ([#1874](https://github.com/achimdehnert/platform/pull/1874)).
+- **Mail-Board aus dem Ledger gerendert** ([#1863](https://github.com/achimdehnert/platform/pull/1863)):
+  stabile Nummern (nie wiederverwendet), eine Linkform `/a/<nr>` für IMAP **und** Graph,
+  inhaltsabhängige Aktionen aus `typ`. **Offen: 11 von 17 Vorgängen ohne Anker**
+  ([#1864](https://github.com/achimdehnert/platform/issues/1864)) — bewusst nicht geraten.
+- **Retro `deep`** (`docs/retros/session-retro-2026-08-10-platform-c45b39.md`,
+  [#1882](https://github.com/achimdehnert/platform/pull/1882)): 17 Befunde, 16 überlebt,
+  1 widerlegt — **der widerlegte war meiner**. Scores `3/3/4/2/3/3`. Die drei schwersten
+  Befunde sind selbstverschuldet; einer davon: ich habe meine eigene Auslassung als
+  Spezifikationslücke des Plans gemeldet (B1-2 stand wörtlich drin).
+- **SA-4-Zähler dieses Strangs: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung ·
+  0 Fehlanwendungen.** Jede Aktion trug ein wörtliches Owner-Wort. **`over_ask`: 1** — der
+  Artefakt-Checkpoint wurde als Frage mit Stopp gestellt statt gespiegelt; vom Owner
+  moniert, seither Bericht im Abschluss. **`over_act`: 0.**
+- **Was ich nicht selbst kann, gemessen statt vermutet:** Governance-Config schreiben.
+  Weder `gh api -X PUT …/rulesets/…` noch eine Datei unter `governance/rulesets/` — beides
+  Hard-Deny des Auto-Mode-Classifiers, Lesen geht. Keine Permission-Frage
+  (`permissions.allow` enthält `Bash(*)`). Der PUT lief über den Owner per `!`. **Rest:
+  die IaC-Datei fehlt weiterhin**, JSON liegt im Text von #1879.
+- **Offen für die nächste Sitzung:** [#1889](https://github.com/achimdehnert/platform/pull/1889)
+  (Changelog-Nachtrag, bewusst reviewpflichtig) · [#1881](https://github.com/achimdehnert/platform/issues/1881)
+  (Auto-Reap meldet Werkzeugfehler als grün, **hoch**) · [#1864](https://github.com/achimdehnert/platform/issues/1864)
+  (11 Anker) · IaC-Datei `governance/rulesets/`.
+
+### Strang `504951` — v1.1.6-Welle, todo.iil.pet, Ritual-Reste
+
+- **Abnahme (Phase 0d): Zielzustand „Vorgangsseite auf `todo.iil.pet` führt in die Mail und zeigt nächste Schritte" ([#1869](https://github.com/achimdehnert/platform/issues/1869)) — teilweise erreicht.** Einzeln: K1 **argumentiert statt gemessen** (`/mailcheck` schreibt `mail_ref` per Handgriff, nicht per Code); K2 **nicht erreicht** — der Auftrag verlangt Prüfung „durch Öffnen, nicht durch einen grünen Test", belegt wurde mit `curl`, und das Overlay ist in der gelieferten Fassung strukturell unmöglich (`todo_board.py` bindet es in `detail()` nicht ein, der Interceptor fängt nur `/t/`); K3/K4/K6 erreicht (Gegenprobe-Tests); K5 **zur Hälfte** (Schreib-Endpunkt-Test ja, `mtime`-Probe nie ausgeführt). PR [#1875](https://github.com/achimdehnert/platform/pull/1875) hängt auf `BLOCKED`.
+- **SA-4-Zähler: 1 Anwendung · 6 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Die sechs `m` sind wieder strukturell: das platform-Ruleset verlangt je PR ein Owner-Review, unabhängig vom Pfad — [#1873](https://github.com/achimdehnert/platform/pull/1873) ratifizierte SA-2 in der Annahme, CODEOWNERS-Scoping reiche, aber `required_approving_review_count: 1` gilt pfadunabhängig. **Das gehört ins Ritual am 16.08.**, nicht in eine weitere Einzelfall-Notiz.
+- **Die Welle war nicht vollständig.** `writing-hub` steht als **15.** Consumer weiter auf `shared-ci@v1.1.2`. Mein Preflight-`grep` nahm den ersten `runs_on`-Treffer der Datei — der gehört zum **ci**-Job (`ubuntu-latest`), der **deploy**-Job übergibt gar keinen und läuft auf dem Default `self-hosted`. [#1845](https://github.com/achimdehnert/platform/issues/1845) wurde trotzdem geschlossen. Getrackt als [#1878](https://github.com/achimdehnert/platform/issues/1878); latent, nicht akut (Docker-Image liegt im lokalen Cache — genau der Zustand, in dem ausschreibungs-hub bis zum 06.08. war).
+- **Ein Mute steht ohne Begründung auf `main`.** [#1859](https://github.com/achimdehnert/platform/pull/1859) entfärbte drei rote project-facts-Repos als „Token-Reichweite" und berief sich auf [#1768](https://github.com/achimdehnert/platform/pull/1768) — dessen Titel lautet wörtlich „Owner aus der Registry aufloesen statt achimdehnert hartzukodieren", also genau die Ursache, die ich ausgeschlossen hatte. Eine Parallelsitzung fixte sie 30 Minuten später (#1858, `_kanon_owner`). Der `RepoUnerreichbar`-Zweig schluckt jetzt echte Unerreichbarkeit, ohne dass seine Begründung noch trägt.
+- **Der neue Regress-Wächter nennt sich „blockierend" und ist es nicht.** `iilgmbh/shared-ci` hat weder Ruleset noch Branch-Protection (`branches/main/protection` → 404); PR #48 wurde mit rotem `Validate Syntax` gemergt. Zusätzlich steht der reparierte Docker-Pin in der **platform-eigenen** Kopie von `_deploy-unified.yml` (Z. 245/357) unverändert weiter — der Wächter lebt in shared-ci und ist dafür strukturell blind.
+- **Geliefert und belegt:** Megatest-Budgets 167 → 105 aus CI-Lauf 31364294895 ([#1854](https://github.com/achimdehnert/platform/pull/1854)); der `--update-budgets`-Pfad war tot und ist repariert ([#1853](https://github.com/achimdehnert/platform/pull/1853)); zwei blinde Melder ([#1859](https://github.com/achimdehnert/platform/pull/1859), [#1855](https://github.com/achimdehnert/platform/pull/1855)); shared-cis zwei seit Einführung tote Gates verdrahtet ([shared-ci#50](https://github.com/iilgmbh/shared-ci/pull/50)) — erste Consumer der `workflow-guards`-Action überhaupt.
+- **Ritual-Reste ([#1640](https://github.com/achimdehnert/platform/issues/1640)):** D7 und D8 waren **bereits fertig** (Detektor verdrahtet, Smoke-Suite 250 grün, 7 Gates drill-frisch) — die Abnahmetabelle im KONZ nennt sie nur nicht. FP-Auswertung der zwei advisory-Scanner: **„nicht bewertbar"** (N=2 bzw. 3, unter K3-Mindest-N). D4: alle 69 offenen Dateien gelesen, **42 Extraktions-Entwürfe bewusst NICHT geschrieben** — die adversariale Stichprobe widerlegte 4 von 4.
+- **Retro:** `docs/retros/session-retro-2026-08-10-platform-504951.md` ([#1880](https://github.com/achimdehnert/platform/pull/1880)), 22 Befunde, Scores `3/3/4/2/2/3`. Phase 3 (Falsifikation) lief **nicht** — `refuted_rate 0.0` ist dort ausdrücklich als Lücke geführt, nicht als Qualität.

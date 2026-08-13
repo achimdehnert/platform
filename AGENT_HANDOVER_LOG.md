@@ -1811,3 +1811,17 @@ den ein Fehlzeiger im Policy-Text zeigte.
   (Drill 16/16, retro_kpis-Echtlauf „✓ gedeckt oder entschieden", Issue-Checkboxen).
 - **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
   alle Merges liefen bewusst als Owner-Einzel-Review (Perimeter-Pfade + Selbstbetreffendes).
+
+### 2026-08-13 · Session handover-flotte (Kapitäns-Kanal)
+
+- **#1945 GESCHLOSSEN** — alle 4 Kriterien belegt: #1954 (K1 Messung, 2 Läufe byte-identisch),
+  #1955 (K2 Gate + K3 Melder als Runner-Phase 0.7.4, Registry + Drill), #1948 (K4).
+- Owner-Entscheidung **Weg 1** (#1958): 26 Erstanlage-PRs, 24 gemergt — Flotte 23 → **47 von 54**
+  Repos mit AGENT_HANDOVER.md. Kriterium zählt `session/`-Branch-PRs, nicht PRs (sonst 29/31 = wirkungslos).
+- Hängen geblieben: mcp-hub#198 (Review-Pflicht), weltenhub#50 (defektes Coverage Gate → weltenhub#52).
+  Kein `--admin` — dadurch wurde der weltenhub-Defekt überhaupt sichtbar.
+- **Zwei eigene Fehler, beide fremdgefangen:** „Handover veraltet in ruhenden Repos" war falsch
+  (Owner-Rückfrage → #1956, Check vergleicht gegen letzten berührenden Commit); Search-Rate-Limit
+  ließ `None` als `0` zählen, mcp-hub stand mit 50 Sitzungen als „ruhend" im Bericht.
+- Nebenfunde getrackt: #1953 (zwei blinde Cron-Melder), 6 verschiedene Gate-Pins (3× `@main`).
+- Prio-Block auf diesen Stand nachgezogen; Melder `handover-prio-zeigt-auf-erledigtes` danach grün.
