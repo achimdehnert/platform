@@ -137,19 +137,113 @@ def titel_ist_aussagelos(titel):
     return bool(SCANNER_TITEL.match(t))
 
 
-def datum_objekt_aus_text(content):
-    """Erstes KALENDARISCH gueltiges Datum aus dem OCR-Text.
+MONATE = {
+    "januar": 1,
+    "jan": 1,
+    "februar": 2,
+    "feb": 2,
+    "maerz": 3,
+    "märz": 3,
+    "mrz": 3,
+    "april": 4,
+    "apr": 4,
+    "mai": 5,
+    "juni": 6,
+    "jun": 6,
+    "juli": 7,
+    "jul": 7,
+    "august": 8,
+    "aug": 8,
+    "september": 9,
+    "sept": 9,
+    "sep": 9,
+    "oktober": 10,
+    "okt": 10,
+    "november": 11,
+    "nov": 11,
+    "dezember": 12,
+    "dez": 12,
+}
 
-    Vorher wurde die erste datumsaehnliche Zeichenkette blind zusammengesetzt
-    (f"{y}-{m}-{d}"), wodurch Titel wie "2025-09-31" entstanden - einen Tag,
-    den es nicht gibt. Paperless konnte ihn nicht lesen und setzte created
-    auf den Einlesetag.
+# Laengste zuerst, sonst schluckt "jun" den Anfang von "juni".
+_MONATSNAMEN = "|".join(sorted(MONATE, key=len, reverse=True))
+
+# Reihenfolge egal - es gewinnt, was im Text zuerst steht, nicht was hier
+# oben steht. Die Tupel benennen, welche Fundstelle Tag, Monat und Jahr ist.
+VOLLE_DATEN = [
+    (re.compile(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b"), ("d", "m", "y")),
+    (re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"), ("y", "m", "d")),
+    (
+        re.compile(rf"\b(\d{{1,2}})\.?\s+({_MONATSNAMEN})\.?\s+(\d{{4}})\b", re.I),
+        ("d", "M", "y"),
+    ),
+]
+
+NUR_MONAT_JAHR = re.compile(rf"\b({_MONATSNAMEN})\.?\s+(\d{{4}})\b", re.I)
+
+# Grober Rahmen gegen Zeichenketten, die nur wie ein Datum aussehen -
+# Rechnungsnummern der Form "1234-5-6" ergeben sonst das Jahr 1234.
+JAHR_VON, JAHR_BIS = 1900, 2100
+
+
+def _datum_bauen(fundstellen, rollen):
+    """Aus den Fundstellen eines Musters ein Datum - oder nichts."""
+    werte = dict(zip(rollen, fundstellen))
+    jahr = int(werte["y"])
+    if not (JAHR_VON <= jahr <= JAHR_BIS):
+        return None
+    monat = MONATE[werte["M"].lower()] if "M" in werte else int(werte["m"])
+    try:
+        return datetime.date(jahr, monat, int(werte["d"]))
+    except ValueError:
+        return None
+
+
+def volle_daten_aus_text(content):
+    """Alle kalendarisch gueltigen Volldaten, in der Reihenfolge im Text.
+
+    Getrennt von ``datum_objekt_aus_text``, weil zwei Fragen daran haengen,
+    die verschiedene Enden der Liste brauchen: welches Datum das Dokument
+    traegt (das erste) und ob ein sehr altes ``created`` glaubwuerdig ist
+    (dafuer zaehlt das spaeteste).
     """
-    for d, m, y in re.findall(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b", content):
-        try:
-            return datetime.date(int(y), int(m), int(d))
-        except ValueError:
-            continue
+    treffer = []
+    for muster, rollen in VOLLE_DATEN:
+        for fund in muster.finditer(content):
+            datum = _datum_bauen(fund.groups(), rollen)
+            if datum is not None:
+                treffer.append((fund.start(), datum))
+    treffer.sort(key=lambda t: t[0])
+    return [datum for _, datum in treffer]
+
+
+def datum_objekt_aus_text(content):
+    """Das erste KALENDARISCH gueltige Datum im OCR-Text.
+
+    Frueher wurde die erste datumsaehnliche Zeichenkette blind zusammengesetzt
+    (f"{y}-{m}-{d}"), wodurch Titel wie "2025-09-31" entstanden - einen Tag,
+    den es nicht gibt. Paperless konnte ihn nicht lesen und setzte created auf
+    den Einlesetag.
+
+    Massgeblich ist die Stelle im Text, nicht das Format: gesucht wird ueber
+    alle Muster gleichzeitig, gewonnen hat der frueheste gueltige Fund. Sonst
+    haette die Reihenfolge der Muster darueber entschieden, welches Datum ein
+    Dokument traegt - und die ist willkuerlich.
+
+    Monat und Jahr ohne Tag ("Maerz 2024") zaehlen nur, wenn sonst gar nichts
+    zu finden war; das Ergebnis ist dann der Monatserste. Fuer den Jahres-Tag
+    - den eigentlichen Zweck - reicht das, fuer den Tag im Monat ist es eine
+    Annahme, und die soll kein vollstaendiges Datum verdraengen.
+    """
+    daten = volle_daten_aus_text(content)
+    if daten:
+        return daten[0]
+
+    fund = NUR_MONAT_JAHR.search(content)
+    if fund:
+        jahr = int(fund.group(2))
+        if JAHR_VON <= jahr <= JAHR_BIS:
+            return datetime.date(jahr, MONATE[fund.group(1).lower()], 1)
     return None
 
 
@@ -159,8 +253,9 @@ def datum_aus_text(content):
     return datum.isoformat() if datum else None
 
 
-FRUEHESTES_PLAUSIBLES_JAHR = 1900
 JAHRES_TAG_FARBE = "#c9c9c9"
+MARKER_TAG = "jahr-unklar"
+MARKER_TAG_FARBE = "#e8a33d"
 
 
 def datum_ist_plausibel(datum, heute):
@@ -172,7 +267,7 @@ def datum_ist_plausibel(datum, heute):
     Faelligkeitsangaben gleichrangig mit) und ein Jahr vor 1900, wo es sich
     praktisch immer um verlesene Ziffern handelt.
     """
-    return FRUEHESTES_PLAUSIBLES_JAHR <= datum.year and datum <= heute
+    return JAHR_VON <= datum.year and datum <= heute
 
 
 def einlesetag(doc):
@@ -199,34 +294,72 @@ def dokumentdatum_bestimmen(doc, content, heute=None):
     zusammen, wird der OCR-Text noch einmal befragt. Traegt er ein
     plausibles, abweichendes Datum, gilt dieses.
 
-    Rueckgabe: ``(datum, wurde_korrigiert)``.
+    Rueckgabe: ``(datum, quelle)`` mit quelle aus ``paperless`` (created ist
+    belastbar), ``ocr`` (hier aus dem Text korrigiert) oder ``unklar`` (es
+    gibt kein Datum, dem zu trauen waere).
     """
     heute = heute or timezone.localdate()
     created = doc.created
-    if created != einlesetag(doc):
-        return created, False
-
     aus_text = datum_objekt_aus_text(content or "")
-    if aus_text is None or aus_text == created:
-        return created, False
-    if not datum_ist_plausibel(aus_text, heute):
-        return created, False
-    return aus_text, True
+
+    if created == einlesetag(doc):
+        if (
+            aus_text is not None
+            and aus_text != created
+            and datum_ist_plausibel(aus_text, heute)
+        ):
+            return aus_text, "ocr"
+        return created, "unklar"
+
+    if created_ist_zweifelhaft(doc, created, content or "", heute):
+        return created, "unklar"
+    return created, "paperless"
 
 
-def jahres_tag_setzen(doc, datum):
-    """Das Jahr des Dokumentdatums als Tag - ausschliesslich additiv.
+# Ein Dokumentdatum, das Jahrzehnte vor dem Scan liegt, waehrend der Text
+# selbst etwas viel Neueres nennt.
+ALTVERDACHT_JAHRE = 10
+TEXT_IST_NEUER_JAHRE = 5
 
-    Es wird nur hinzugefuegt, nie etwas entfernt. Ein bereits vorhandener
-    abweichender Jahres-Tag bleibt also stehen: bei einem Steuerbescheid aus
-    2025 fuer das Jahr 2024 ist "2024" eine fachliche Angabe des Menschen und
-    kein Fehler des Skripts - sie zu loeschen waere Informationsverlust.
 
-    Neu angelegte Jahres-Tags bekommen ausdruecklich MATCH_NONE. Ohne das
-    haengt Paperless den Tag spaeter von sich aus an jedes Dokument, in dem
-    die Jahreszahl irgendwo im Text auftaucht.
+def created_ist_zweifelhaft(doc, created, content, heute):
+    """Ob ``created`` eher ein Geburtsdatum als ein Dokumentdatum ist.
+
+    Der Anlass ist gemessen, nicht ausgedacht: im Bestand tragen neun
+    Rechnungen und Befunde das created 1933-01-17 und sieben Versicherungs-
+    unterlagen die 1961-02-05 - beides Geburtsdaten, die eine fruehere
+    Fassung dieses Skripts als Dokumentdatum uebernommen hat, weil sie
+    schlicht die erste Zahlenfolge im Text nahm. Bei Dokument 683 liess es
+    sich Zeile fuer Zeile nachsehen: das Briefdatum "02. Maerz 2023" steht
+    im Briefkopf, die 17.01.1933 weiter unten als Geburtsdatum der
+    begutachteten Person.
+
+    Solche Faelle werden hier NICHT umdatiert - dazu ist die Heuristik zu
+    grob, und ein echter Altvertrag mit spaeterem Nachtrag saehe genauso
+    aus. Sie werden nur als unklar gemeldet und bekommen damit den Marker
+    statt eines Jahres-Tags, den niemand geprueft hat.
+
+    Massgeblich ist das SPAETESTE Datum im Text, nicht das erste. Bei genau
+    diesen Dokumenten steht das Geburtsdatum ganz oben - es ist also selbst
+    der frueheste Fund, und ein Vergleich damit ginge im Kreis. Erst das
+    Rechnungsdatum weiter unten verraet, dass 1933 nicht stimmen kann.
     """
-    name = str(datum.year)
+    daten = [d for d in volle_daten_aus_text(content) if datum_ist_plausibel(d, heute)]
+    if not daten:
+        return False
+    ist_alt = created.year <= einlesetag(doc).year - ALTVERDACHT_JAHRE
+    text_ist_neuer = max(daten).year >= created.year + TEXT_IST_NEUER_JAHRE
+    return ist_alt and text_ist_neuer
+
+
+def tag_holen(name, farbe):
+    """Den Tag mit diesem Namen - angelegt, falls es ihn noch nicht gibt.
+
+    Neu angelegte Tags bekommen ausdruecklich MATCH_NONE. Ohne das haengt
+    Paperless sie spaeter von sich aus an jedes Dokument, in dem die
+    Zeichenkette irgendwo im Text auftaucht - bei Jahreszahlen waere das
+    so ziemlich jedes.
+    """
     tag = Tag.objects.filter(name=name).first()
     if tag is None:
         # MATCH_NONE ist in Paperless 3.0.4 die 0 (nachgemessen, nicht geraten).
@@ -235,33 +368,79 @@ def jahres_tag_setzen(doc, datum):
         tag = Tag.objects.create(
             name=name,
             matching_algorithm=getattr(Tag, "MATCH_NONE", 0),
-            color=JAHRES_TAG_FARBE,
+            color=farbe,
         )
-        print(f"Jahres-Tag angelegt: {name}")
+        print(f"Tag angelegt: {name}")
+    return tag
+
+
+def tag_anhaengen(doc, tag):
+    """Tag setzen, falls er noch nicht dranhaengt."""
     if doc.tags.filter(pk=tag.pk).exists():
-        print(f"Jahres-Tag bereits gesetzt: {name}")
+        print(f"Tag bereits gesetzt: {tag.name}")
         return False
     doc.tags.add(tag)
-    print(f"Jahres-Tag gesetzt: {name}")
+    print(f"Tag gesetzt: {tag.name}")
     return True
+
+
+def jahres_tag_setzen(doc, datum):
+    """Das Jahr des Dokumentdatums als Tag - ausschliesslich additiv.
+
+    Es wird nur hinzugefuegt, nie ein anderer Jahres-Tag entfernt. Ein
+    abweichender bleibt also stehen: bei einem Steuerbescheid aus 2025 fuer
+    das Jahr 2024 ist "2024" eine fachliche Angabe des Menschen und kein
+    Fehler des Skripts - sie zu loeschen waere Informationsverlust.
+    """
+    return tag_anhaengen(doc, tag_holen(str(datum.year), JAHRES_TAG_FARBE))
+
+
+def marker_entfernen(doc):
+    """Den Unklar-Marker abraeumen, sobald ein Datum feststeht.
+
+    Anders als die Jahres-Tags ist der Marker eine Aussage dieses Skripts
+    ueber sich selbst ("ich konnte es nicht bestimmen"). Stimmt sie nicht
+    mehr, gehoert sie weg - sonst sammelt sich ein Filter voll Faelle an,
+    die laengst erledigt sind.
+    """
+    tag = Tag.objects.filter(name=MARKER_TAG).first()
+    if tag and doc.tags.filter(pk=tag.pk).exists():
+        doc.tags.remove(tag)
+        print(f"Marker entfernt: {MARKER_TAG}")
+        return True
+    return False
 
 
 def jahr_taggen(doc, content):
     """Datum ermitteln, notfalls korrigieren, Jahr als Tag setzen.
+
+    Ohne belastbares Datum wird ausdruecklich NICHT getaggt. Ein Jahres-Tag
+    aus dem Scantag waere eine Behauptung ueber das Dokument, die niemand
+    geprueft hat - und weil er aussieht wie jeder andere Jahres-Tag, wuerde
+    er die Jahresfilter unbemerkt unzuverlaessig machen. Stattdessen setzt
+    das Skript den Marker und macht die Luecke damit auffindbar.
 
     Eigener Fehlerschirm: dieses Skript laeuft als Post-Consume-Hook. Was
     hier schiefgeht, darf die Titel- und Owner-Zuweisung darunter nicht
     mitreissen.
     """
     try:
-        datum, korrigiert = dokumentdatum_bestimmen(doc, content)
-        if korrigiert:
+        datum, quelle = dokumentdatum_bestimmen(doc, content)
+
+        if quelle == "unklar":
+            print("Kein Dokumentdatum erkennbar - kein Jahres-Tag")
+            tag_anhaengen(doc, tag_holen(MARKER_TAG, MARKER_TAG_FARBE))
+            return
+
+        if quelle == "ocr":
             doc.created = datum
             doc.save(update_fields=["created"])
             print(f"Dokumentdatum korrigiert: {datum.isoformat()} (war Einlesetag)")
         else:
             print(f"Dokumentdatum: {datum.isoformat()}")
+
         jahres_tag_setzen(doc, datum)
+        marker_entfernen(doc)
     except Exception as e:
         print(f"Jahres-Tag uebersprungen: {e}")
         traceback.print_exc()
