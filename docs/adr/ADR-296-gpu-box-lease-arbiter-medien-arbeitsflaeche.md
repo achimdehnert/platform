@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-08-14
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -38,7 +38,7 @@ ai_sparring_by:
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted                                                             |
 | **Scope**       | platform (cross-repo)                                                |
 | **Erstellt**    | 2026-08-14                                                           |
 | **Autor**       | Achim Dehnert                                                        |
@@ -642,3 +642,4 @@ AD-11 → Break-glass §4.4 `[valid]` · R2-AD-15 → Lane-Pfade §4.2 Nr. 2 `[v
 |-------|-------|----------|
 | 2026-08-14 | Achim Dehnert | Initial: Status Proposed — Synthese aus adversarialem Design-Panel |
 | 2026-08-14 | Achim Dehnert | Rev 2: 21 externe REC-Empfehlungen (2 Runden) eingearbeitet — Zustandsmaschine + Identitäten + Fehlermatrix (§4.2), Bezahlmatrix + Wrapper + Sofort-Alarm (§4.3), Break-glass (§4.4), Schema-Doc + Extraktions-Reihenfolge (§4.5), Kosten-Go/Kill (§4.6), 3. Vorab-Check + ACE-Step-Negativ-Pfad (§4.7), Phasen umgeschnitten (§5), Netzpfad Text-Lane entschieden (§4.1); Tag-Tabelle §Review-Rückfluss |
+| 2026-08-14 | Achim Dehnert | Accepted — Owner-Review nach 2 externen Runden, Merge platform#1979, Go im Kapitäns-Kanal |
