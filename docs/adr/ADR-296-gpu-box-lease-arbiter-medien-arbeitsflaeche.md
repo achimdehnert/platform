@@ -11,6 +11,15 @@ implementation_status: none
 last_reviewed: 2026-08-14
 staleness_months: 6
 tags: [gpu, lease-arbiter, illustration-hub, music-lab, writing-hub, aifw, medien-arbeitsflaeche, iil-gpufw]
+ai_sparring_by:
+  - tool: other
+    date: 2026-08-14
+    role: adversarial-review
+    summary: "Extern R1 (Anbieter nicht benannt): überarbeiten→annehmen; 7 RECs, alle [valid] eingearbeitet — Tag-Tabelle §Review-Rückfluss"
+  - tool: other
+    date: 2026-08-14
+    role: adversarial-review
+    summary: "Extern R2 (Anbieter nicht benannt): überarbeiten (Zustandsmaschine); 14 RECs, alle [valid] eingearbeitet — Tag-Tabelle §Review-Rückfluss"
 ---
 
 # ADR-296: GPU-Box über Hub-seitigen Lease-Arbiter bewirtschaften — Medien-Arbeitsfläche und Client-Paket folgen dem Hub
@@ -21,9 +30,9 @@ tags: [gpu, lease-arbiter, illustration-hub, music-lab, writing-hub, aifw, medie
 > **Entstehung:** Synthese aus einem adversarialen Design-Panel (2026-08-14):
 > 3 unabhängige Gesamtentwürfe (hub-zentriert, box-zentriert, minimal-inkrementell)
 > × je 2 adversariale Prüfungen (Betriebsrealität, Nebenläufigkeit) × 3 Richter mit
-> unterschiedlicher Treiber-Gewichtung. 2 von 3 Richtern kürten hub-zentriert; alle
-> 24 Schwer-Befunde des Panels sind unten als Vertragseigenschaften bzw. Risiken
-> eingearbeitet. Kein Entwurf trug einen unheilbaren Befund.
+> unterschiedlicher Treiber-Gewichtung; anschließend **zwei externe
+> Cross-Provider-Zweitmeinungen** (21 Empfehlungen, alle valid, Rev 2 —
+> Tag-Tabelle in §Review-Rückfluss). Kein Entwurf trug einen unheilbaren Befund.
 
 ## Metadaten
 
@@ -42,10 +51,10 @@ tags: [gpu, lease-arbiter, illustration-hub, music-lab, writing-hub, aifw, medie
 
 | Repo               | Rolle      | Betroffene Pfade / Komponenten                          |
 |--------------------|------------|---------------------------------------------------------|
-| `platform`         | Referenz   | `docs/adr/`                                             |
+| `platform`         | Referenz   | `docs/adr/`, `infra/ports.yaml` (writing-hub-Pin, Phase 6) |
 | `illustration-hub` | Primär     | `apps/jobs/` (Arbiter + Lease-API), NEU `apps/music/`   |
 | `music-lab`        | Sekundär   | `box-setup/` (bleibt), CLI wird Client der Hub-API      |
-| `writing-hub`      | Sekundär   | aifw-Routing Batch-Lane (Migrationsschritt 6)           |
+| `writing-hub`      | Sekundär   | aifw-Routing Batch-Lane (Phase 6; **braucht prod-Pin**) |
 | `aifw`             | Sekundär   | optionale Abhängigkeit `iil-gpufw` für Batch-Lane       |
 
 ---
@@ -54,7 +63,8 @@ tags: [gpu, lease-arbiter, illustration-hub, music-lab, writing-hub, aifw, medie
 
 - **Kosten**: Lokale Auslagerung soll bezahlte LLM-/Bild-Calls ersetzen; der stille
   Bezahl-Rückfall bei belegter Karte (illustration-hub#179, 2× reproduziert) darf in
-  keiner neuen Lane zurückkehren.
+  keiner neuen Lane zurückkehren — auch nicht als „harmlose" Groq-Umleitung ohne
+  Sichtbarkeit und Budget.
 - **Owner-Last**: Die Box ist nicht agent-deploybar (kein SSH/RDP/WinRM; jede
   Installation = manuelles PS1 über `~/shared` mit Minuten-Latenz und der
   music-lab#2-Fehlerklasse). Jede Komponente auf der Box ist eine dauerhafte
@@ -103,7 +113,7 @@ Offsite-Backup (ADR-289) läuft auf dem Prod-Host.
 | „belegt ≠ kaputt" + Bezahl-Gate | nur in der Bild-Lane (`BELEGT_MARKER`, `darf_bei_belegter_karte_bezahlen()`) |
 | Dritter Verbraucher (z.B. LoRA-Training) | von außen unsichtbar und unentladbar; `/system_stats vram_free` ist Melde-Artefakt (#187) |
 | Song-Arbeitsfläche | lose Dateien auf dem ungesicherten Dev-Server; 1 Song (69 MB WAV) existiert |
-| writing-hub → Box | noch kein Konsument; aifw v0.12 hat Provider `ollama` (base_url localhost), Route zur Box fehlt |
+| writing-hub → Box | noch kein Konsument; aifw v0.12 hat Provider `ollama` (base_url localhost), Route zur Box fehlt. writing-hub läuft heute auf Host `prod` (ports.yaml-Default, kein `prod_host`-Eintrag) — dem einzigen Host mit WG-Route |
 
 ### 1.2 Warum jetzt
 
@@ -120,8 +130,9 @@ widersprüchlichen Strategien erhöht die Rückbaukosten.
 Zustand und Intelligenz auf dem agent-deploybaren Prod-Host (Django/Postgres in
 illustration-hub); die Box bleibt dumm (nur die vorhandenen Dienst-APIs, kein
 neuer Box-Dienst im Regelbetrieb). Neue Django-App `apps/music` als Arbeitsfläche.
-Repariert um die Panel-Befunde (atomarer Grant, Grund-Taxonomie, Heartbeats,
-asymmetrische Degradation, Evidenzquellen-Kennzeichnung — Details §4).
+Repariert um die Panel- und Extern-Review-Befunde (Zustandsmaschine, atomarer
+Grant, Identitäten, Grund-Taxonomie, Heartbeats, asymmetrische Degradation,
+Bezahlmatrix, Ereignisjournal — Details §4).
 
 **Pros:**
 - Iterationsfähigste Komponente (Arbiter, 0.x-Phase mit häufigen Interface-Änderungen)
@@ -135,6 +146,7 @@ asymmetrische Degradation, Evidenzquellen-Kennzeichnung — Details §4).
 
 **Cons:**
 - Blast-Radius: ein illustration-hub-Deploy-Fehler trifft Bild **und** Song
+  (Mitigation + benannter Evolutionspfad: §6.2, §7)
 - Der Arbiter sieht nur die kooperativen Konsumenten — eine Lease ist ein
   Versprechen unter Freunden, keine Wahrheit über die Karte (Mitigation: §4.4)
 - Repo-Name illustration-hub wird unehrlich (Mitigation: Umbenennungs-Tracking, §5)
@@ -190,6 +202,12 @@ verfehlt den Owner-Zweck (Arbeitsfläche) und friert das falsche Interface ein.
 Die Stärken der Verlierer werden übernommen: messbare Ausbau-Trigger und
 Sofortsicherung aus C, Grund-Taxonomie, Außen-Abnahme und Eskalationspfad aus B.
 
+**Phasenschnitt (aus dem externen Review, R1-REC-2):** Die gewählte Umsetzung
+beginnt faktisch als die im Panel nie einzeln bewertete Hybride „Arbeitsfläche auf
+dem Hub + interaktiver Minimal-Arbiter": Phase 1 baut **nur den interaktiven
+Vertragsteil**; die Batch-Klasse ist spezifiziert, wird aber erst gebaut, wenn ihr
+realer Konsument ansteht und der Kosten-Nachweis (§4.6) Go sagt.
+
 ---
 
 ## 4. Implementation Details
@@ -204,51 +222,105 @@ Sofortsicherung aus C, Grund-Taxonomie, Außen-Abnahme und Eskalationspfad aus B
   erzeugender Job). Feste URLs `/music/song/<id>/`, MP3 fürs Abspielen, WAV bleibt
   Original. Suche/Vergleich über Postgres.
 - Song-Render ruft ACE-Step direkt über WG (`10.99.0.2:7865`) — der
-  Dev-Server-Tunnel-Umweg entfällt.
-- music-lab bleibt als Box-Setup-Repo (PS1-Skripte, `gpu-dienst.ps1` als
-  **dokumentierter Owner-Override** für den Havariefall — wird nicht verdrängt);
-  die CLI wird Client der Hub-API oder entfällt.
-- Text-Arbeitsfläche (writing-hub) ist **nicht** Teil von D1 — writing-hub hat
-  sein eigenes Datenmodell; es konsumiert nur die Batch-Lane (§4.3).
+  Dev-Server-Tunnel-Umweg entfällt. **Vorbedingung:** die Box-Abnahme aus §4.7
+  (Firewall 7865 von prod aus verifiziert) ist Phase 2 und liegt VOR der
+  Musik-Aktivierung (R2-REC-8).
+- music-lab bleibt als Box-Setup-Repo; `gpu-dienst.ps1` bleibt als
+  **Break-glass-Werkzeug** erhalten — mit Protokoll (§4.4), nicht als stiller
+  Parallel-Steuerpfad.
+- **Netzpfad der Text-Lane (R1-REC-1):** writing-hub läuft heute auf Host `prod`
+  (ports.yaml-Default) — dem einzigen Host mit WG-Route zur Box. Das ist
+  Zufall, keine Zusicherung: die ADR-292-Long-Tail-Migration verschiebt Repos
+  laufend nach prod-b. **Vor Phase 6 wird writing-hub explizit gepinnt**
+  (`prod_host: prod` mit Verweis auf ADR-296) — eine zweite, deklarativ billige
+  ADR-292-Ausnahme derselben Begründungsklasse wie illustration-hub (WG-Route
+  nötig). Ein Hub-Proxy wird verworfen: er machte illustration-hub zum
+  Durchlauferhitzer fremder Text-Calls (Blast-Radius ↑, §6.2).
+- Text-Arbeitsfläche (writing-hub-Datenmodell) ist **nicht** Teil von D1.
 - Umbenennung illustration-hub → media-hub: bewusst vertagt, Tracking siehe §5.
 
 ### 4.2 D2 — Lease-Arbiter in `apps/jobs` (Vertragseigenschaften)
 
-Tabelle `gpu_lease`: `verbraucher` (bild|song|text-batch), `klasse`
-(interaktiv|batch), `status` (aktiv|verdraengt|abgelaufen|freigegeben), `zweck`,
-`gueltig_bis` (TTL), `letzter_heartbeat`. Die folgenden Eigenschaften sind
-**zugesicherte Vertragsbestandteile**, nicht Implementierungszufall — jede
-adressiert einen konkreten Panel-Befund:
+Tabelle `gpu_lease` — Identitäten und Zustandsmaschine sind Vertragsbestandteil
+(R2-REC-2/-4):
 
-1. **Atomarer Grant:** partieller Unique-Index (`status='aktiv'`) + Transaktion —
-   zwei gleichzeitige Anforderungen können nie beide gewinnen.
+- **Identität:** `lease_id`, opakes `lease_token` (nicht erratbar), monoton
+  steigende `generation` je Ressource, `holder_instance`, `job_id`,
+  `idempotency_key`, `issued_at` (nur Serverzeit). Heartbeat/Release wirken nur
+  mit passender `lease_id` + `token` + `generation`.
+- **Verbraucher:** erweiterbarer Schlüssel (`bild`, `song`, `text-batch`, …) —
+  bewusst KEIN geschlossenes Enum (R2-REC-11; Treiber Evolvierbarkeit).
+  `klasse` ∈ {interaktiv, batch}.
+- **Zustände:** `reserviert` → `verdraengung_laeuft` → `aktiv` →
+  {`freigegeben` | `abgelaufen` | `verdraengt`}; dazu Client-seitig `ungewiss`
+  (Arbiter nicht erreichbar). `reserviert` ist **persistent** und blockiert
+  konkurrierende Grants (R2-REC-5).
+- **Ereignisjournal:** jede Zustandsänderung append-only in `gpu_lease_event`
+  (wer, wann, warum, Auslöser) — aggregierte Zähler ersetzen keine
+  Ursachenanalyse (R2-REC-14).
+
+Die folgenden Eigenschaften sind **zugesicherte Vertragsbestandteile**, nicht
+Implementierungszufall:
+
+1. **Normativer Grant-Algorithmus (R2-REC-1):** ausschließlich Serverzeit;
+   Expire abgelaufener aktiver Leases und der neue Grant laufen in **derselben
+   serialisierten Transaktion**; der partielle Unique-Index (`status='aktiv'`)
+   ist letzte Integritätssicherung, nicht der Mechanismus.
 2. **Dreiwertiges Ergebnis:** `GRANTED` / `BELEGT{von, klasse, grund}` /
-   `ARBITER_DOWN` — niemals auf einen Wert kollabiert. Bei `ARBITER_DOWN`
-   degradiert der Client auf heutiges direktes kooperatives Entladen (fail-open),
-   stampft aber **nie** einen laufenden fremden Job.
+   `ARBITER_DOWN` — niemals auf einen Wert kollabiert. `ARBITER_DOWN`-Zusage
+   präzise (R1-REC-5): der degradierte Client **stampft keine eigenen
+   koordinierten Jobs** (Batch pausiert fail-closed); über *fremde* Jobs kann
+   und wird nichts versprochen. Fail-open-Pfade **je Lane** (R2-REC-6):
+   Bild = heutiges direktes kooperatives Entladen; Song = Abbruch mit Meldung
+   (KEIN Rückgriff auf den Exklusiv-Umschalter — der ist Break-glass, §4.4);
+   Text = direkt zur Groq-Route (sichtbar, §4.3).
 3. **Grund-Taxonomie in jeder Belegt-Antwort:**
    `fremd | eigener_batch_weicht(retry_after_s) | interaktiver_halter`.
    Interaktive Anforderung bei weichendem eigenem Batch → `202 reserviert
-   {frei_in_max_s}` statt hartem 409.
+   {frei_in_max_s}`; `GRANTED` erst, wenn der bisherige Halter die Pause
+   bestätigt hat ODER der definierte Timeout-Pfad abgeschlossen ist (R2-REC-5) —
+   dazwischen `verdraengung_laeuft`.
 4. **Heartbeat/Renew für ALLE Leases** (auch interaktive): kurze TTL +
-   idempotentes Re-acquire — schließt beide TTL-Lücken (Ablauf mitten im Lauf;
-   Geister-Lease bis volle TTL).
+   idempotentes Re-acquire (via `idempotency_key`). **Deploy-Toleranz
+   (R1-REC-6):** Batch pausiert erst nach N verpassten Heartbeats
+   (Startwert N=3), damit kurze Hub-Deploy-Fenster nicht jeden Batch abbrechen;
+   deploy-bedingte Abbrüche sind eigener Zähler (§4.6).
 5. **Asymmetrische Degradation:** interaktiv fail-open (weiter wie heute), Batch
-   fail-closed (jeder Heartbeat-/Netzfehler → sofort pausieren, weiter erst nach
-   neuem Grant). Verhindert Doppelbelegungs-Races und lease-loses
-   Batch-Weiterlaufen während Hub-Deploys.
-6. **Vorrang:** interaktiv verdrängt Batch sofort (Lease → `verdraengt`,
+   fail-closed (nach N verpassten Heartbeats → pausieren, weiter erst nach
+   neuem Grant).
+6. **Vorrang:** interaktiv verdrängt Batch sofort (Zustand `verdraengung_laeuft`,
    physisch via `ollama_entladen()`); Batch bekommt die Karte nur in Lücken
    (keine interaktive Lease + Karenz seit letzter interaktiver Aktivität,
-   Startwert 10 min — wird gemessen, nicht geglaubt) und arbeitet chunk-weise.
+   Startwert 10 min — wird gemessen) und arbeitet chunk-weise.
+   **Batch-Warte-SLO (R2-REC-11):** überschreitet das Batch-Wartealter die
+   SLO-Schwelle (Startwert 24 h), reagiert das System definiert — Owner-Hinweis
+   mit Wahl: manuelles Batch-Fenster ODER expliziter Verwurf; niemals stilles
+   Dauerverhungern.
 7. **Interaktive Text-Einzel-Calls bleiben lease-frei**, aber nicht blind:
    billiger `GET /api/gpu/zustand`-Pre-Check vor jedem Ollama-Call; bei aktiver
-   Bild/Song-Lease wird der Call zu Groq umgeleitet (T1a, llm-routing) statt das
-   Modell mitten in den Render zu laden. Kaltstart nach einem Grant ist der
-   akzeptierte Preis dafür, dass Textarbeit nie blockiert.
+   Bild/Song-Lease Umleitung zur Groq-Route. **Der Pre-Check ist ein
+   dokumentiertes TOCTOU-Fenster (R2-REC-4, bewusst akzeptiert):** eine
+   Bild/Song-Lease kann zwischen Check und Modell-Laden entstehen; die Kollision
+   endet dann in einem OOM, das als `belegt` (nicht `kaputt`) klassifiziert wird
+   und gate-geschützt zur Groq-Route führt — begrenzter Schaden (ein Kaltstart),
+   kein stilles Geld. Eine Pflicht-Lease je Text-Call würde die Text-Latenz
+   für den Normalfall verteuern, um einen bereits gutartig endenden Randfall
+   zu verhindern — verworfen, Begründung hier festgehalten.
 8. **Starvation sichtbar:** maximales Batch-Wartealter ist Pflicht-Metrik in
-   `GET /api/gpu/zustand` — stilles Batch-Verhungern bekommt denselben Alarm wie
-   stiller Degrade.
+   `GET /api/gpu/zustand` — gekoppelt an die SLO-Reaktion aus (6).
+9. **Fehlermatrix (R2-REC-3)** — die Vertrags-Haltung je Störfall, statt
+   unvereinbarer Einzelversprechen:
+
+   | Störfall | Alte Operation | Neuer Grant | Auflösung |
+   |---|---|---|---|
+   | Heartbeat-Verlust interaktiv | darf weiterlaufen (fail-open) | nach TTL möglich | Doppelbelegung MÖGLICH und akzeptiert: die Karte arbitriert physisch; Verlierer scheitert mit `belegt`-Klassifikation, Gate zahlt nicht; Journal macht den Hergang rekonstruierbar |
+   | Heartbeat-Verlust Batch | pausiert nach N misses (fail-closed) | ja | keine Doppelbelegung durch eigene Batches |
+   | Hub-Restart/Deploy | interaktiv läuft weiter; Batch pausiert nach N misses | nach Rückkehr per Postgres-Stand | abgelaufene Leases sind tot; Journal lückenlos |
+   | Netzpartition Client↔Hub | Client-Zustand `ungewiss`; interaktiv weiter, Batch pausiert | ja | wie Zeile 1 |
+
+   Die Lease behauptet nie Karten-Wahrheit (§4.4) — deshalb ist „alte Operation
+   darf weiterlaufen UND neuer Grant möglich" kein Widerspruch, sondern die
+   dokumentierte Konsequenz, mit der Karte selbst als letzter Schiedsrichterin.
 
 ### 4.3 Bezahl-Gate (Erweiterung des Bestands, gilt in ALLEN Lanes)
 
@@ -256,80 +328,140 @@ adressiert einen konkreten Panel-Befund:
   Bild-Lane auf Song- und Text-Batch-Lane ausgedehnt; **aifw-Failover
   (default→fallback) muss das Gate respektieren** — sonst kehrt #179 in der
   Text-Lane zurück.
-- Bei `eigener_batch_weicht` wird **nie** bezahlt (retry_after abwarten).
-- **Evidenzquellen-Kennzeichnung:** jede Belegt-Einschätzung trägt ihre Quelle
-  (`melder` | `heuristik`); auf Heuristik-Evidenz zahlt das Gate höchstens so
-  großzügig wie heute. `nicht_erreichbar` (Box down) ist eine **eigene Klasse**
-  — weder belegt noch kaputt — und umgeht das Gate nicht still.
-- **Eskalationspfad gegen Blockade-Härte:** Fremd-Belegung > N Stunden + M lokale
-  Fehlversuche → Bezahl-Fallback **mit Alarm und Kosten-Log**. Verhindert das
-  Szenario „Gate blockiert 2 Wochen härter als der frühere Blindflug".
+- **Zentraler deny-by-default Provider-Wrapper (R2-REC-10):** jeder bezahlte
+  Call läuft durch genau eine Wrapper-Funktion, die das Gate erzwingt; ein
+  bezahlter Aufruf trotz belegter/unklarer Karte löst einen **Sofort-Alarm**
+  aus (Lane, Grund, Evidenzquelle, geschätzte Kosten) — nicht erst das
+  Monats-Ritual (R2-REC-10 gegen AD-12).
+- **Normative Bezahlmatrix (R2-REC-7)** — Startwerte, per §4.6 nachjustiert:
 
-### 4.4 Grenzen (ehrlich dokumentiert)
+  | Belegt-Grund | Evidenz | Aktion |
+  |---|---|---|
+  | `eigener_batch_weicht` | arbiter | **nie zahlen**; `retry_after_s` abwarten |
+  | `interaktiver_halter` | arbiter | warten oder Nutzerhinweis; zahlen nur auf expliziten Nutzer-Klick |
+  | `fremd` | heuristik | warten + Hinweis; Eskalation: > **N=4 h** UND ≥ **M=3** lokale Fehlversuche → zahlen MIT Sofort-Alarm + Kosten-Log |
+  | `nicht_erreichbar` (Box down) | – | eigene Klasse, weder belegt noch kaputt; zahlen erlaubt MIT Sofort-Alarm; niemals still |
+  | Groq-Umleitung interaktiver Text (§4.2 Nr. 7) | arbiter | erlaubt, aber **sichtbar**: eigener Zähler + Monatsbudget-Schwelle (Startwert 5 $/Monat, Alarm bei Überschreitung) |
+
+- **Evidenzquellen-Kennzeichnung:** jede Belegt-Einschätzung trägt ihre Quelle
+  (`arbiter` | `melder` | `heuristik`); auf Heuristik-Evidenz zahlt das Gate
+  höchstens so großzügig wie heute.
+
+### 4.4 Grenzen und Break-glass (ehrlich dokumentiert)
 
 - Der Arbiter koordiniert nur die Kooperativen. Der dritte Verbraucher
   (z.B. LoRA-Training) bleibt unsichtbar; die Verteidigung dagegen ist die
   Fehlerklassifikation + das Gate, nicht die Lease. „Keine Auskunft ist nicht
   Entwarnung" bleibt Doktrin.
+- **Break-glass-Protokoll für `gpu-dienst.ps1` (R2-REC-9):** Der Owner-Override
+  bleibt für den Havariefall — mit Vertrag statt als stiller Parallel-Pfad:
+  (1) VOR der Nutzung Wartungsmodus im Arbiter setzen (ein Flag, sperrt neue
+  Grants); (2) bestehende Leases werden sichtbar invalidiert (Zustand
+  `verdraengt`, Journal-Eintrag `grund=break_glass`); (3) NACH dem Eingriff
+  Außen-Abnahme (§4.7) und explizite Rückkehr in den Normalbetrieb
+  (Flag zurück). Ist der Hub selbst down, gilt: Override nutzen, Abnahme +
+  Journal-Nachtrag bei Rückkehr — der Vertrag fordert die Nachvollziehbarkeit,
+  nicht die Unmöglichkeit des Eingriffs.
 - Box-Ausfall bei Owner-Abwesenheit ist strukturell unheilbar (kein Fernzugriff)
   und trifft jede denkbare Architektur — akzeptiertes Restrisiko, §7.
 - Der optionale read-only `gpu-melder` (nvidia-smi-Endpunkt auf der Box) ist
   **der eine** erlaubte neue Box-Dienst — er wird ehrlich mit vollem Preisschild
-  deklariert (Port, Firewall, Autostart, Update-Weg) oder gestrichen; §5 Phase 4.
+  deklariert (Port, Firewall, Autostart, Update-Weg) oder gestrichen;
+  Go/Kill nach dem WDDM-Check (§4.7).
 
 ### 4.5 D3 — `iil-gpufw`: schmaler Client, terminierte Extraktion
 
 - Inhalt: Lease-Protokoll-Client (`lease_anfordern` → dreiwertig,
   `lease_heartbeat`, `lease_freigeben`), Fehlerklassifikation
-  (`BELEGT_MARKER`/`karte_belegt`), Bezahl-Gate. Kein Django-Import (der eine
-  `_setting`-Helfer wird durch injizierte Config ersetzt); reines HTTP.
-- **Die Einfrier-Grenze ist der HTTP-Vertrag, nicht die Python-API** — mit
-  Versionsfeld ab v0; Server tolerant-liberal, Brüche werden client-seitig
-  abgefedert (nur Agent-Deploys nötig). Einfrieren als 1.0 erst nach drei
+  (`BELEGT_MARKER`/`karte_belegt`), Bezahl-Gate-Wrapper. Kein Django-Import
+  (der eine `_setting`-Helfer wird durch injizierte Config ersetzt); reines HTTP.
+- **Die Einfrier-Grenze ist der HTTP-Vertrag, nicht die Python-API** — als
+  **versioniertes Schema-Dokument** in `illustration-hub/docs/`
+  (R2-REC-13): Endpunkte, Statuscodes, Fehlerobjekte, Timeout-Semantik,
+  Idempotenzregeln, unterstütztes Versionsfenster (Server trägt
+  `min_client_version`), leichtgewichtiger Deprecation-Prozess (angekündigt im
+  Schema-Doc, ein Release Vorlauf). Versionsfeld ab v0; Server tolerant-liberal,
+  Brüche werden client-seitig abgefedert. Einfrieren als 1.0 erst nach drei
   realen Konsumenten. Die Strategie (Vorrang, Karenz, Räum-Reihenfolge) bleibt
-  serverseitig und wird nicht ins Paket eingefroren.
-- **Extraktionszeitpunkt terminiert:** beim zweiten CODE-Konsumenten = wenn
-  writing-hub/aifw die Batch-Lane bekommt (§5 Phase 6). Bis dahin leben Arbiter
-  und Client-Funktionen in `illustration-hub/apps/jobs`; `apps/music` ruft
-  in-process auf und ist bewusst kein Extraktionsanlass. Release dann über den
-  etablierten `/release`-Weg (Präzedenz: ADR-084 / iil-illustrationfw).
+  serverseitig.
+- **Extraktions-Reihenfolge (R2-REC-8):** Die Extraktion erfolgt **vor** der
+  Aktivierung des zweiten Code-Konsumenten — Phase 5 extrahiert `iil-gpufw`
+  (Quelle: die in illustration-hub gereiften Client-Funktionen), Phase 6 lässt
+  writing-hub/aifw das fertige Paket konsumieren. Damit entsteht weder eine
+  temporär unmögliche Abhängigkeit noch duplizierte Gate-Logik. Auslöser der
+  Extraktion bleibt der **committete** zweite Konsument (Kosten-Go aus §4.6),
+  nicht sein Deployment. Release über den etablierten `/release`-Weg
+  (Präzedenz: ADR-084 / iil-illustrationfw).
 
 ### 4.6 Messen statt glauben (aus Option C übernommen, Pflichtteil der ersten PR)
 
 Pflicht-Zähler: fal-Calls trotz belegt · Failover-Calls je Grund (inkl. Groq) ·
-Batch-Backlog-Alter · Lease-Konflikte je Taxonomie-Grund · Kaltstartdauer ·
-Batch-Fenster-Ausbeute. **Auswertungs-Ritual:** monatlicher Eintrag ins
-`/briefing` mit hartem Schwellen-Vergleich — jeder Ausbau (Arbiter-Härtung,
-music-hub-Split, media-hub-Umbenennung, gpu-melder) bekommt ein Go-/Kill-Kriterium
-aus diesen Zählern statt Bauchgefühl.
+Groq-Umleitungs-Calls interaktiver Text (mit Budget-Schwelle, §4.3) ·
+deploy-bedingte Batch-Abbrüche (R1-REC-6) · Batch-Backlog-Alter vs. SLO ·
+Lease-Konflikte je Taxonomie-Grund · Kaltstartdauer · Batch-Fenster-Ausbeute.
+
+**Auswertungs-Ritual:** monatlicher Eintrag ins `/briefing` mit hartem
+Schwellen-Vergleich. Das Ritual trägt die *Trend*-Entscheidungen; die
+*akuten* Fehlerklassen (bezahlt trotz belegt/unklar, Budget-Überschreitung)
+haben Sofort-Alarme (§4.3) und hängen NICHT am Ritual (gegen R2-AD-12 /
+R1-M28-2).
+
+**Kosten-Go/Kill vor der Batch-Lane (R1-REC-3):** Vor Phase 5/6 wird gerechnet:
+erwartetes Text-Batch-Tokenvolumen/Monat × T1a-Preis (heute 0,59/0,79 $ pro 1M)
+vs. Arbitrierungs- und Kaltstart-Kosten. Liegt die Groq-Alternative unter
+**10 $/Monat**, ist die lokale Batch-Lane ökonomisch nicht begründbar und
+Phase 5/6 werden vertagt (Kill) — das Owner-Ziel „Unabhängigkeit" kann das
+überstimmen, aber dann steht die Begründung im Journal, nicht im Bauchgefühl.
+
+Jeder Ausbau (Batch-Lane, music-hub-Split, media-hub-Umbenennung, gpu-melder,
+Control-Plane-Split §6.2) bekommt ein Go-/Kill-Kriterium aus diesen Zählern.
 
 ### 4.7 Box-Handgriffe: Außen-Abnahme statt Selbsttest
 
-Jeder Box-seitige Schritt (Firewall 7865, Autostart der drei Dienste) gilt erst
-als „installiert", wenn er **von außen** verifiziert ist: curl vom Prod-Host über
-WG + echter Reboot-Test mit Log-Rückgabe über `~/shared` — nie per
-localhost-Selbsttest (Generalisierung der Lehre aus music-lab 375c171 /
-music-lab#2). **Zwei billige Vorab-Checks vor jeder darauf bauenden Automatik:**
-(1) ACE-Step-VRAM-Verhalten: ein Song + `nvidia-smi`-Ausgabe via `~/shared` —
-hat ACE-Step keinen Entlade-Pfad, ändert das die Song-Räum-Reihenfolge;
-(2) WDDM-Prüfzeile `nvidia-smi --query-compute-apps=...` einmal einsammeln —
-verifiziert oder beerdigt die Prozess-Evidenz-Klasse (und damit den gpu-melder),
-bevor sie geplant wird.
+Jeder Box-seitige Schritt (Firewall 7865, Autostart) gilt erst als „installiert",
+wenn er **von außen** verifiziert ist: curl vom Prod-Host über WG + echter
+Reboot-Test mit Log-Rückgabe über `~/shared` — nie per localhost-Selbsttest
+(Generalisierung der Lehre aus music-lab 375c171 / music-lab#2).
+
+**Drei billige Vorab-Checks vor jeder darauf bauenden Automatik:**
+
+1. **ACE-Step-VRAM-Verhalten — hartes Go/No-Go-Gate der Song-Lane (R2-REC-6):**
+   ein Song + `nvidia-smi`-Ausgabe via `~/shared`. **Negativ-Fall ausformuliert
+   (R1-REC-7):** hat ACE-Step keinen Entlade-Pfad, dann (a) ACE-Step kommt NICHT
+   in den Phase-2-Autostart (der umfasst dann nur ComfyUI + Ollama), (b) die
+   Song-Lane startet ACE-Step on-demand je Song-Session über einen dokumentierten
+   Owner-Handgriff (Verknüpfung auf dem Desktop; bewusst ein manueller Schritt
+   je Session statt einer dauerhaft belegten Karte), (c) die Räum-Reihenfolge
+   der Song-Lane beginnt mit „ACE-Step-Prozess beenden" als Teil des
+   Owner-Handgriffs. Die Song-Lane wird erst aktiviert, wenn einer der beiden
+   Pfade (entladbar ODER on-demand-Protokoll abgenommen) steht.
+2. **WDDM-Prüfzeile** `nvidia-smi --query-compute-apps=...` einmal einsammeln —
+   verifiziert oder beerdigt die Prozess-Evidenz-Klasse (und damit den
+   gpu-melder), bevor sie geplant wird.
+3. **Koresidenz-Check Klein-LLM (R1-REC-4):** VRAM-Fußabdruck eines residenten
+   quantisierten 7–8B-Modells parallel zu einem realen Bild-Render messen.
+   Reicht das Budget, koexistiert interaktiver Text dauerhaft neben Bild —
+   Vorrangregeln §4.2(6/7) vereinfachen sich erheblich (kein Kaltstart, keine
+   Groq-Umleitung im Normalfall). Ergebnis fließt VOR dem Bau der
+   Verdrängungs-Mechanik ein.
 
 ---
 
 ## 5. Migration Tracking
 
+Reihenfolge nach R1-REC-2 + R2-REC-8 umgeschnitten: interaktiv vor Batch,
+Box-Abnahme vor Musik-Aktivierung, Extraktion vor zweitem Konsumenten.
+
 | Repo / Service | Phase | Inhalt | Status | Datum | Notizen |
 |----------------|-------|--------|--------|-------|---------|
-| `illustration-hub` | 0 | Sofortsicherung: Songs → prod-media-Volume (rsync); Vorab-Checks §4.7 (ACE-Step-VRAM, WDDM) | ⬜ Ausstehend | – | vor allem anderen |
-| `illustration-hub` | 1 | Lease-Arbiter in `apps/jobs` (Vertrag §4.2) + Zähler §4.6 | ⬜ Ausstehend | – | Bild-Lane als erster Konsument |
-| `illustration-hub` | 2 | `apps/music`: Datenmodell, MP3, feste URLs, Player | ⬜ Ausstehend | – | löst music-lab#3 Krit. 1/2/6 |
-| `music-lab` | 3 | CLI → Hub-API; `gpu-dienst.ps1` als Owner-Override dokumentiert | ⬜ Ausstehend | – | Repo bleibt Box-Setup |
-| Box (Owner) | 4 | Autostart 3 Dienste + Firewall 7865, Abnahme per §4.7; gpu-melder go/kill nach WDDM-Check | ⬜ Ausstehend | – | einmalig; Außen-Abnahme Pflicht |
-| `writing-hub` / `aifw` | 5 | Batch-Lane: aifw-Failover ans Gate, Groq-Umleitung bei aktiver Lease | ⬜ Ausstehend | – | Trigger für Phase 6 |
-| `aifw` / neu `iil-gpufw` | 6 | Extraktion Client-Paket (zweiter Code-Konsument erreicht) | ⬜ Ausstehend | – | Release via /release, ADR-084-Muster |
-| `platform` | 7 | Umbenennungs-Entscheid illustration-hub → media-hub (Go/Kill aus §4.6-Zählern) | ⬜ Ausstehend | – | Tracking-Issue im selben Zug wie Phase 2 |
+| `illustration-hub` | 0 | Sofortsicherung Songs → prod-media-Volume; 3 Vorab-Checks §4.7 | ⬜ Ausstehend | – | vor allem anderen; Check 1 = Go/No-Go Song-Lane |
+| `illustration-hub` | 1 | Arbiter **interaktiver Vertragsteil** (§4.2 ohne Batch-Bau) + Zähler + Sofort-Alarme + Journal | ⬜ Ausstehend | – | Bild-Lane als erster Konsument; Batch bleibt spezifiziert, ungebaut |
+| Box (Owner) | 2 | Firewall 7865 + Autostart (ACE-Step nur bei positivem Check 1), Außen-Abnahme §4.7 | ⬜ Ausstehend | – | VOR Musik-Aktivierung (R2-REC-8) |
+| `illustration-hub` | 3 | `apps/music`: Datenmodell, MP3, feste URLs, Player | ⬜ Ausstehend | – | löst music-lab#3 Krit. 1/2/6; setzt Phase 2 voraus |
+| `music-lab` | 4 | CLI → Hub-API; `gpu-dienst.ps1` als Break-glass mit Protokoll §4.4 | ⬜ Ausstehend | – | Repo bleibt Box-Setup |
+| `aifw` / neu `iil-gpufw` | 5 | Kosten-Go/Kill (§4.6); bei Go: Extraktion Client-Paket | ⬜ Ausstehend | – | VOR writing-hub-Aktivierung (R2-REC-8); /release, ADR-084-Muster |
+| `writing-hub` / `platform` | 6 | Batch-Vertragsteil bauen; writing-hub-Batch-Lane via iil-gpufw. **Vorbedingung:** `prod_host: prod`-Pin in ports.yaml (Netzpfad §4.1) | ⬜ Ausstehend | – | zweite ADR-292-Ausnahme, deklarativ |
+| `platform` | 7 | Umbenennungs-Entscheid illustration-hub → media-hub (Go/Kill aus §4.6-Zählern) | ⬜ Ausstehend | – | Tracking-Issue im selben Zug wie Phase 3 |
 
 ---
 
@@ -342,19 +474,33 @@ bevor sie geplant wird.
 - Arbeitsfläche mit Versionen/Varianten/Suche auf gesicherter, deployter
   Infrastruktur — music-lab#3 Kriterien 1/2/6 werden von der Plattform erfüllt
   statt einzeln nachgebaut
-- „belegt ≠ kaputt" + Bezahl-Gate gelten in allen drei Lanes; stille
-  Bezahl-Rückfälle sind in jeder Lane verschlossen
+- „belegt ≠ kaputt" + Bezahl-Gate gelten in allen drei Lanes; jeder bezahlte
+  Ausweich-Call ist sichtbar, budgetiert und alarmiert — stille Rückfälle sind
+  in jeder Lane verschlossen
 - Null neue Box-Dienste im Regelbetrieb; die Box-Wartungslast des Owners wächst
   nicht mit der Iterationsgeschwindigkeit des Arbiters
+- Ereignisjournal macht jede Verdrängung/Doppelbelegung nachträglich
+  rekonstruierbar
 
 ### 6.2 Bad
 
 - Blast-Radius: illustration-hub wird Single Point of Failure für Bild UND Song
-  (Text degradiert auf Groq und bleibt arbeitsfähig)
+  (Text degradiert auf Groq und bleibt arbeitsfähig). Mitigation im Repo:
+  Arbiter-Endpunkte hängen am bestehenden Health-Gate (`/readyz`), Rollback-Ziel
+  = letztes grünes Image (dokumentierter Standard-Weg). **Benannter
+  Evolutionspfad (R2-REC-12):** zeigt der Zähler „deploy-bedingte
+  Batch-Abbrüche/Grant-Ausfälle" über 3 Monate wiederholt Störungen, wird der
+  Arbiter als eigenständiges Mini-Control-Plane auf dem Prod-Host
+  herausgelöst — bewusst NICHT vorab gebaut (ein zusätzlicher Dienst mit
+  eigener Auth/Monitoring/Rollback für einen Einzel-Owner ist heute nicht
+  begründbar).
 - Interaktive Text-Calls zahlen nach jedem Bild/Song-Grant einen
   Modell-Kaltstart — akzeptierter Preis für „Text blockiert nie"
+  (entfällt ggf. per Koresidenz-Check §4.7(3))
 - Eine Lease ist ein Absichts-Register, keine Karten-Wahrheit; gegen den dritten
-  Verbraucher hilft nur die Fehlerklassifikation
+  Verbraucher hilft nur die Fehlerklassifikation. Unter Partition ist
+  Doppelbelegung möglich und dokumentiert (§4.2 Nr. 9) — die Karte arbitriert
+  physisch, das Gate verhindert Folgekosten
 - Repo-Name illustration-hub ist bis Phase 7 unehrlich
 
 ### 6.3 Nicht in Scope
@@ -371,28 +517,80 @@ bevor sie geplant wird.
 
 | Risiko | W'keit | Impact | Mitigation |
 |--------|--------|--------|-----------|
-| Box-Ausfall bei Owner-Abwesenheit (strukturell: kein Fernzugriff) | Mittel | Hoch | Akzeptiert; Eskalationspfad §4.3 verhindert Doppelschaden „lokal tot + Gate blockiert bezahlt"; trifft jede Architektur gleich |
-| ACE-Step ohne Entlade-Pfad (2 Entlade-Calls für 3 residente Dienste) | Mittel | Mittel | Vorab-Check §4.7(1) VOR jeder Song-Automatik; ggf. Räum-Reihenfolge ändern oder ACE-Step nur on-demand starten (Owner-Override) |
-| aifw-Failover umgeht Gate (=#179 in Text-Lane) | Hoch ohne Fix | Mittel | Vertragspflicht §4.3; Zähler „Failover je Grund" macht Verstöße sichtbar |
-| Zähler werden erhoben, aber nie gelesen („Melder ohne Leser") | Mittel | Mittel | Auswertungs-Ritual §4.6 ist Pflichtteil der ersten PR, nicht Folgearbeit |
+| Box-Ausfall bei Owner-Abwesenheit (strukturell: kein Fernzugriff) | Mittel | Hoch | Akzeptiert; Bezahlmatrix §4.3 (`nicht_erreichbar` zahlt sichtbar statt gar nicht oder still); trifft jede Architektur gleich |
+| ACE-Step ohne Entlade-Pfad | Mittel | Mittel | Hartes Go/No-Go-Gate §4.7(1) mit ausformuliertem Negativ-Pfad (on-demand-Start, kein Autostart) VOR Aktivierung der Song-Lane |
+| aifw-Failover umgeht Gate (=#179 in Text-Lane) | Hoch ohne Fix | Mittel | deny-by-default Provider-Wrapper §4.3 + Sofort-Alarm; Zähler machen Verstöße sichtbar |
+| Doppelbelegung unter Partition (interaktiv fail-open + TTL-Ablauf) | Niedrig | Niedrig | Dokumentiert als akzeptiert (§4.2 Nr. 9): Karte arbitriert physisch, Verlierer endet gate-geschützt; Journal rekonstruiert Hergang |
+| Zähler werden erhoben, aber nie gelesen („Melder ohne Leser") | Mittel | Mittel | Akute Klassen haben Sofort-Alarme (ritualunabhängig, §4.3); Ritual trägt nur Trends; ausbleibende Briefing-Einträge sind selbst Befund (§8) |
 | Autostart-Fehlschlag detoniert erst beim nächsten Reboot | Mittel | Mittel | Außen-Abnahme mit echtem Reboot-Test §4.7 |
-| Interface friert zu früh ein (vor Konsument 3) | Niedrig | Mittel | Versionsfeld ab v0; 1.0 erst nach drei realen Konsumenten §4.5 |
+| Interface friert zu früh ein (vor Konsument 3) | Niedrig | Mittel | Versioniertes Schema-Doc + Kompatibilitätsfenster §4.5; 1.0 erst nach drei realen Konsumenten |
+| Phasen 5–7 treten nie ein; Batch-Vertrag bleibt totes Versprechen | Mittel | Niedrig | Phasenschnitt §3: Batch wird erst GEBAUT beim committeten Konsumenten + Kosten-Go; bis dahin existiert nur Spezifikation, kein toter Code |
+| writing-hub wandert per Long-Tail-Migration nach prod-b → Text-Lane bricht still | Mittel ohne Pin | Mittel | `prod_host: prod`-Pin als Phase-6-Vorbedingung (§4.1, §5) |
 
 ---
 
 ## 8. Confirmation
 
-1. **Vertrags-Tests im Arbiter (CI, illustration-hub):** Testfälle für die acht
+1. **Vertrags-Tests im Arbiter (CI, illustration-hub):** Testfälle für die
    Vertragseigenschaften aus §4.2 — insbesondere Doppel-Grant-Race (zwei
-   parallele Acquires, genau einer gewinnt), TTL-Ablauf + Re-acquire, Batch
-   fail-closed bei Heartbeat-Fehler. Merge-Gate wie üblich.
-2. **Gate-Abdeckungs-Grep (CI):** kein Aufruf eines Bezahl-Providers (fal,
-   litellm-Failover) außerhalb eines Pfads, der `darf_bei_belegter_karte_bezahlen()`
-   passiert — nachweisbar per Struktur-Test in illustration-hub bzw. aifw.
-3. **Monatliches Zähler-Ritual (§4.6):** Briefing-Eintrag existiert und enthält
+   parallele Acquires, genau einer gewinnt), Expire+Grant in einer Transaktion,
+   `reserviert`-Persistenz, Heartbeat-Toleranz (N misses), Batch fail-closed,
+   Journal-Vollständigkeit je Zustandswechsel. Merge-Gate wie üblich.
+2. **Gate-Abdeckung strukturell (CI):** Bezahl-Provider-Aufrufe sind NUR über
+   den deny-by-default-Wrapper (§4.3) möglich; CI prüft, dass außerhalb des
+   Wrappers kein Provider-SDK importiert/aufgerufen wird, UND der Wrapper hat
+   eigene Tests (Gate-Verweigerung, Sofort-Alarm-Pfad). Reiner Grep allein gilt
+   nicht als Nachweis (R2-M28-2).
+3. **Automatisierter Restore-Test (R2-REC-14):** periodisch (mind. je Quartal)
+   eine Stichprobe aus dem ADR-289-Backup zurückholen und Konsistenz prüfen:
+   DB-Datensatz ↔ WAV-Original ↔ MP3-Derivat ↔ feste URL antwortet 200.
+   Ergebnis ins Briefing; „Backup existiert" allein zählt nicht.
+4. **Monatliches Zähler-Ritual (§4.6):** Briefing-Eintrag existiert und enthält
    die Schwellen-Vergleiche; ausbleibende Einträge sind selbst ein Befund.
-4. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft —
+5. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft —
    Staleness-Schwelle: 6 Monate.
+
+---
+
+## Externer Review-Rückfluss (Rev 2, 2026-08-14)
+
+Zwei externe Cross-Provider-Runden (Transport: `~/shared/adr-handoff-ADR-296-…`,
+Anbieter vom Owner nicht benannt). Verdikt-Bilanz: **21 Empfehlungen, 21 valid,
+21 eingearbeitet** (0 missversteht-Kontext, 0 out-of-scope) — Zählprobe R1: 7/7,
+R2: 14/14. Befund-IDs sind über die REC-Spalte referenziert; PRO-Befunde beider
+Runden: `[valid]`, bestätigend, keine Aktion.
+
+| ID | Verdikt | Aktion |
+|---|---|---|
+| R1-REC-1 | [valid] | Netzpfad Text-Lane entschieden: prod-Pin writing-hub als Phase-6-Vorbedingung; Hub-Proxy verworfen (§4.1). Fakten-Check: writing-hub läuft heute per Default auf prod |
+| R1-REC-2 | [valid] | Phasen umgeschnitten: Phase 1 = nur interaktiver Vertragsteil; Batch spezifiziert, ungebaut bis Kosten-Go (§3, §5) |
+| R1-REC-3 | [valid] | Kosten-Go/Kill-Zahl vor Batch-Lane in §4.6 (Schwelle 10 $/Monat Groq-Äquivalent) |
+| R1-REC-4 | [valid] | Dritter Vorab-Check Koresidenz Klein-LLM in §4.7(3); Ergebnis kann §4.2(6/7) vereinfachen |
+| R1-REC-5 | [valid] | `ARBITER_DOWN`-Zusage präzisiert: nur eigene koordinierte Jobs; nichts über fremde (§4.2 Nr. 2) |
+| R1-REC-6 | [valid] | Heartbeat-Toleranz N=3 misses + Zähler deploy-bedingte Batch-Abbrüche (§4.2 Nr. 4, §4.6) |
+| R1-REC-7 | [valid] | Negativ-Fall ACE-Step ausformuliert: kein Autostart, on-demand-Protokoll je Session (§4.7(1)); s. a. R2-REC-6 |
+| R2-REC-1 | [valid] | Normativer Grant-Algorithmus: Serverzeit, Expire+Grant in einer serialisierten Transaktion, Index als Backstop (§4.2 Nr. 1) |
+| R2-REC-2 | [valid] | Identitäten in Vertrag: lease_id, Token, generation, holder_instance, job_id, idempotency_key, issued_at (§4.2) |
+| R2-REC-3 | [valid] | Fehlermatrix §4.2 Nr. 9; Haltung explizit: Doppelbelegung unter Partition möglich, Karte arbitriert, Gate schützt |
+| R2-REC-4 | [valid] | Zustände `reserviert`/`verdraengung_laeuft`/`ungewiss` übernommen; Pre-Check-Ersatz durch Pflicht-Lease bewusst NICHT übernommen — TOCTOU als begrenzt-gutartig dokumentiert, Begründung in §4.2 Nr. 7 |
+| R2-REC-5 | [valid] | `GRANTED` erst nach Pause-Bestätigung/Timeout; `reserviert` persistent, blockiert konkurrierende Grants (§4.2 Nr. 3) |
+| R2-REC-6 | [valid] | ACE-Step-Check = hartes Go/No-Go der Song-Lane; `ARBITER_DOWN`-Pfade je Lane benannt, Song-Fallback ≠ Exklusiv-Umschalter (§4.2 Nr. 2, §4.7(1)) |
+| R2-REC-7 | [valid] | Normative Bezahlmatrix mit Startwerten N=4 h, M=3, Groq-Budget 5 $/Monat; `nicht_erreichbar` als eigene sichtbare Klasse (§4.3) |
+| R2-REC-8 | [valid] | Migration umgeordnet: Box-Abnahme (Phase 2) vor Musik (Phase 3); Extraktion (Phase 5) vor writing-hub-Aktivierung (Phase 6) (§4.5, §5) |
+| R2-REC-9 | [valid] | Break-glass-Protokoll: Wartungsmodus-Flag, sichtbare Invalidierung, Außen-Abnahme, explizite Rückkehr (§4.4) |
+| R2-REC-10 | [valid] | deny-by-default Provider-Wrapper + Sofort-Alarm je bezahltem Call trotz belegt/unklar; ritualunabhängig (§4.3, §8 Nr. 2) |
+| R2-REC-11 | [valid] | Verbraucher als erweiterbarer Schlüssel; Batch-Warte-SLO (24 h) mit definierter Reaktion statt Dauer-Alarm (§4.2) |
+| R2-REC-12 | [valid] | Control-Plane-Split NICHT vorab gebaut, aber als benannter Evolutionspfad mit messbarem Auslöser; in-Repo-Mitigation Health-Gate + Rollback-Ziel (§6.2) |
+| R2-REC-13 | [valid] | HTTP-Vertrag als versioniertes Schema-Doc mit Fehlerobjekten, Timeout-/Idempotenz-Semantik, Kompatibilitätsfenster, leichtem Deprecation-Prozess (§4.5) |
+| R2-REC-14 | [valid] | Append-only `gpu_lease_event`-Journal (§4.2) + automatisierter Restore-Konsistenztest als Confirmation-Mechanismus (§8 Nr. 3) |
+
+Nicht REC-gebundene Befunde: R1-AD-2 → adressiert über Phasenschnitt-Absatz in §3
+`[valid]` · R1-M28-1 → §7 Risiko „Phasen treten nie ein" `[valid]` · R1-M28-2 /
+R2-AD-12 → Sofort-Alarme entkoppeln Akutes vom Ritual `[valid]` · R2-AD-14 /
+M28-7 → §6.2 Evolutionspfad `[valid]` · R2-M28-1 → §4.5 Schema-Doc `[valid]` ·
+R2-M28-2 → §8 Nr. 2 strukturell statt Grep `[valid]` · R2-M28-3/M28-5 →
+Journal + Restore-Test `[valid]` · R2-M28-4 → SLO §4.2 `[valid]` · R2-M28-6 /
+AD-11 → Break-glass §4.4 `[valid]` · R2-AD-15 → Lane-Pfade §4.2 Nr. 2 `[valid]`.
 
 ---
 
@@ -404,12 +602,15 @@ bevor sie geplant wird.
 | **Arbiter** | Die eine Stelle, die Leases erteilt, verdrängt und einsehbar macht (hier: Modul + HTTP-API in illustration-hub) |
 | **VRAM** | Grafikspeicher der GPU (hier 24 GB) — die knappe, umkämpfte Ressource |
 | **TTL** | Time to live — Ablauffrist einer Lease; verwaiste Leases sterben dadurch ohne Aufräum-Skript |
+| **TOCTOU** | Time-of-check-to-time-of-use — Lücke zwischen Prüfung und Nutzung, in der sich der Zustand ändern kann (§4.2 Nr. 7) |
 | **WDDM** | Windows Display Driver Model — Windows-Treibermodus, unter dem `nvidia-smi` Prozess-Details oft nicht liefert (unverifizierte Annahme → Vorab-Check §4.7) |
 | **WG / WireGuard** | VPN, über das Prod-Host und Box sich erreichen (`10.99.0.2`) |
 | **fal** | Bezahlter Cloud-Bildanbieter — der Rückfallpfad, dessen stille Nutzung #179 auslöste |
 | **aifw** | Haus-Framework für LLM-Routing (litellm-basiert); routet writing-hub-Calls auf Provider |
 | **Batch / interaktiv** | Aufschiebbare Massenläufe vs. sofort erwartete Einzelaufträge — die zwei Vorrang-Klassen dieses ADR |
 | **Kaltstart** | Neuladen eines entladenen Sprachmodells in den VRAM — Kostenfaktor der Verdrängung |
+| **Break-glass** | Dokumentierter Not-Eingriff am Regelmechanismus vorbei — erlaubt, aber protokolliert (§4.4) |
+| **SLO** | Service Level Objective — hier: maximal akzeptiertes Batch-Wartealter mit definierter Reaktion |
 | **ADR** | Architecture Decision Record — dokumentierte Architektur-Entscheidung |
 
 ---
@@ -426,10 +627,12 @@ bevor sie geplant wird.
   dieses ADR erfüllt)
 - ADR-084 — Präzedenz Paket-Extraktion (iil-illustrationfw)
 - ADR-289 — Offsite-Backup prod→netcup (Backup-Verdrahtung der Arbeitsfläche)
-- ADR-292 — Two-Lane-Deployment; dokumentierte illustration-hub-Ausnahme
-  (WG-Route zur Box)
+- ADR-292 — Two-Lane-Deployment; illustration-hub-Ausnahme (WG-Route zur Box);
+  writing-hub-Pin wird zweite Ausnahme derselben Klasse (Phase 6)
 - Design-Panel-Dossier 2026-08-14 (3 Entwürfe × 2 Prüfungen × 3 Richter) —
   Session-Artefakt, Kernergebnisse in §2/§4 eingearbeitet
+- Externe Zweitmeinungen R1+R2 2026-08-14 — Transport `~/shared/` (ephemer),
+  durabler Nachweis: Frontmatter `ai_sparring_by` + §Review-Rückfluss
 
 ---
 
@@ -438,3 +641,4 @@ bevor sie geplant wird.
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-08-14 | Achim Dehnert | Initial: Status Proposed — Synthese aus adversarialem Design-Panel |
+| 2026-08-14 | Achim Dehnert | Rev 2: 21 externe REC-Empfehlungen (2 Runden) eingearbeitet — Zustandsmaschine + Identitäten + Fehlermatrix (§4.2), Bezahlmatrix + Wrapper + Sofort-Alarm (§4.3), Break-glass (§4.4), Schema-Doc + Extraktions-Reihenfolge (§4.5), Kosten-Go/Kill (§4.6), 3. Vorab-Check + ACE-Step-Negativ-Pfad (§4.7), Phasen umgeschnitten (§5), Netzpfad Text-Lane entschieden (§4.1); Tag-Tabelle §Review-Rückfluss |
