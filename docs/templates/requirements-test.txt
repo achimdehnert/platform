@@ -1,9 +1,11 @@
 # requirements-test.txt — ADR-057 §2.1 standardised test dependencies
 # GENERATED via: python3 platform/scripts/gen_test_scaffold.py <repo>
-# DO NOT edit version pins manually — version comes from PyPI (iil-testkit SSoT)
+# Range-SSoT: docs/conventions/fw-dependency-ranges.md. Kanonischer (dynamischer)
+# Erzeugungsweg ist scripts/gen_test_scaffold.py (loest die aktuelle Version live
+# auf); diese statische Kopie manuell mit der SSoT synchron halten.
 
 # IIL Platform shared test factory (fixtures, assertions, smoke, ADR-048)
-iil-testkit[smoke]>=0.4.0,<1
+iil-testkit[smoke]>=0.5.3,<1
 
 # Test runner
 pytest>=8.0
