@@ -1872,3 +1872,36 @@ hat #1935 damit überholt. Genau die Reihenfolge, die diese Phase verhindern sol
 staged Aenderungen, 16 Commits hinter origin/main) — jeder Pull dort bricht ab, nach
 ADR-233 nicht angefasst. `frist-hub#117` rot (Integration Tests, war vorher von der
 Marke verdeckt). `travel-beat#74` geschlossen statt gemergt, ungeklaert.
+
+### 2026-08-14 · Session music-lab-erster-song (früh, Kapitäns-Kanal)
+
+Owner-Ziel: „Audio-Plattform läuft, ich kann Songs produzieren" → [music-lab#1](https://github.com/achimdehnert/music-lab/issues/1).
+**Erreicht (technisch):** erster Song `out/20260814-051548-tracht-grachten-tomorrowland.wav`
+(179,9 s, 48 kHz stereo, Seed 2027) + Metadaten-JSON; Kriterien K1–K4 einzeln belegt im
+[Issue-Kommentar](https://github.com/achimdehnert/music-lab/issues/1#issuecomment-5289784090).
+Ohr-Abnahme (K2 „Gesang", K3 Browser) beim Owner offen.
+
+- **music-lab-Fixkette (7 Pushes auf main, SA-4):** Route Dev-Server→Box per SSH-Tunnel
+  über den WG-Hub (`make tunnel`, dd754fa) · PS1-ASCII + CI-Gate `ps1-gate` (e7e92a2;
+  Em-Dash in String + UTF-8 ohne BOM kippte den PS-5.1-Parser) · `gradio<6` (53f5921) ·
+  CUDA-torch (2ced328; PyPI-torch ist auf Windows CPU-only — Model-Load 724 s→13 s) ·
+  TorchCodec-Irrweg beendet: Pin torch/torchaudio 2.7.1 + echte Save-Probe (3a3b801) ·
+  Handover-Stand (667a763) · `.gitignore` .windsurf (ce74e8d).
+- **platform-Anteile:** [#1975](https://github.com/achimdehnert/platform/pull/1975) gemergt —
+  Prio-Punkt 4 nachgezogen (#1078 Befund 4 war seit 11.08. zu; Runner-0.7.4-Fund).
+  **Haupt-Tree bereinigt (Owner-Go „5 go"):** fremde staged doc-hub-/Ausnahmelisten-Änderungen
+  waren NICHT in origin/main — gesichert als Stash `2026-08-14: fremde staged doc-hub…`
+  (+ Patchdatei im Session-Scratchpad), dann ff-merge. **Sichtung des Stash: Owner-Zug.**
+- **Session-Start-Befunde:** cad-hub Deploy rot = Health-Check 30× HTTP 000 auf nl2cad.de —
+  passt zu [#1876](https://github.com/achimdehnert/platform/issues/1876) (Deploy trifft den
+  Host ohne Verkehr; Owner-Entscheidung C0 offen) · travel-beat rot = bekannt
+  [travel-beat#79](https://github.com/achimdehnert/travel-beat/issues/79).
+- **Neue 🌀-Memories (platform-Lane):** `pgrep/pkill -f` matcht die eigene Shell ·
+  PyPI-torch Windows CPU-only + torchaudio≥2.9→TorchCodec; Kernlehre des Tages:
+  ein Import-Check beweist keinen DLL-Load — Probe muss den echten Pfad ausführen.
+
+**Abnahme (0d):** Zielzustand **erreicht (technisch)** — Kriterien einzeln verifiziert,
+Ohr-Urteil aussteht (kein Tracking-Artefakt nötig: Issue #1 bleibt offen bis dahin).
+**SA-4: 8 Anwendungen (7× music-lab main, 1× platform-PR-Merge) · 0 Einzel-OK trotz
+Klassen-Deckung · 0 Fehlanwendungen.** 1 Classifier-Block (Sammelbefehl
+Merge+Pull+Reap) → einzeln ausgeführt, nicht umgangen.
