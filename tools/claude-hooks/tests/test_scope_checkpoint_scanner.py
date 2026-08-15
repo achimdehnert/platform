@@ -18,6 +18,19 @@ _spec = importlib.util.spec_from_file_location(
 scanner = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(scanner)
 
+import gate_hits  # noqa: E402  (haengt am sys.path oben)
+
+
+@pytest.fixture(autouse=True)
+def _protokoll_isolieren(tmp_path, monkeypatch):
+    """Zweiter Gurt neben der pytest-Sperre in `gate_hits.notiere`.
+
+    `scanner.main()` protokolliert jeden Treffer ohne `pfad` — ohne Isolation
+    landen die Fixture-Saetze dieses Drills im echten Protokoll des Entwicklers
+    und verfaelschen die FP-Auswertung (Realfall 2026-08-15).
+    """
+    monkeypatch.setattr(gate_hits, "HITS", tmp_path / "gate-hits.jsonl")
+
 
 def _transcript(tmp_path, assistant_text: str, extra_records=()):
     p = tmp_path / "t.jsonl"
