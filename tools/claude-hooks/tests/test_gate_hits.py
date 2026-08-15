@@ -106,3 +106,54 @@ class TestBericht:
     def test_should_refuse_to_derive_a_rate_from_the_count(self, tmp_path):
         treffer = [{"zeit": "2026-08-10T10:00:00+00:00", "slug": "a", "modus": "x"}]
         assert "NICHT ableitbar" in gate_hits.bericht(treffer)
+
+
+class TestKeinTestrauschen:
+    """Der Drill darf das echte Protokoll nicht fuellen.
+
+    Realfall 2026-08-15: 212 von 212 Zeilen im Protokoll stammten aus pytest —
+    die Scanner-Drills rufen `scanner.main()`, und `main()` schreibt ohne `pfad`.
+    Die FP-Auswertung nach KONZ-038 D2 haette ueber ihr eigenes Rauschen geurteilt.
+    """
+
+    def test_should_not_write_to_the_real_log_during_a_test(
+        self, tmp_path, monkeypatch
+    ):
+        echt = tmp_path / "echt.jsonl"
+        monkeypatch.setattr(gate_hits, "HITS", echt)
+        assert gate_hits.notiere("g", "später", turn="mache ich später") is False
+        assert not echt.exists()
+
+    def test_should_still_write_when_a_path_is_given_on_purpose(self, tmp_path):
+        ziel = tmp_path / "absicht.jsonl"
+        assert (
+            gate_hits.notiere("g", "später", turn="mache ich später", pfad=ziel) is True
+        )
+        assert ziel.exists()
+
+
+class TestHerkunft:
+    def test_should_flag_lines_without_a_session_id(self):
+        treffer = [
+            {"zeit": "2026-08-10T10:00:00+00:00", "slug": "a", "modus": "advisory"},
+            {
+                "zeit": "2026-08-10T11:00:00+00:00",
+                "slug": "a",
+                "modus": "advisory",
+                "session": "abc",
+            },
+        ]
+        text = gate_hits.bericht(treffer)
+        assert "1 von 2" in text
+        assert "kein Beleg fuer irgendeine FP-Quote" in text
+
+    def test_should_confirm_when_every_line_is_attributable(self):
+        treffer = [
+            {
+                "zeit": "2026-08-10T10:00:00+00:00",
+                "slug": "a",
+                "modus": "advisory",
+                "session": "abc",
+            },
+        ]
+        assert "alle 1 Zeile(n) tragen eine session_id" in gate_hits.bericht(treffer)
