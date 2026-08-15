@@ -2027,3 +2027,32 @@ Ursprungsauftrag hinaus lief über eine wörtliche Owner-Freigabe („5 go", „
 „mach 1989 schritt 1", „merge 1991"). 2 Classifier-Blocks (Prod-Freigabe, Gate-Header-Edit)
 — beide gemeldet, keiner umgangen. Scope-Checkpoint bei 4 PRs durabel abgelegt
 ([#1640-Kommentar](https://github.com/achimdehnert/platform/issues/1640#issuecomment-5301883096)).
+
+### 2026-08-15 · Delta zur Sitzung melder-gruen-und-fp-ritual (Nachmittag, Kapitäns-Kanal)
+
+Fortsetzung desselben Zielzustands. Zehn PRs insgesamt, alle gemergt; jede Eskalation
+über den Ursprungsauftrag hinaus lief über eine wörtliche Owner-Freigabe.
+
+- **Retro (`full`, 8 Befunde, 6 überlebt)** → [`docs/retros/session-retro-2026-08-15-platform-d57884.md`](https://github.com/achimdehnert/platform/pull/1994). Drei Skeptiker auf die Bewertungsbefunde (Owner-Freigabe, ~165k Token). **Zwei von drei widerlegt — beide Selbstanklagen waren zu STRENG, nicht zu milde.**
+- **Die teuerste Lehre kam aus der Retro, nicht aus der Arbeit:** eine von mir **veröffentlichte Korrektur** war selbst falsch und drehte eine zutreffende Diagnose ins Gegenteil. Aus einem leeren `gh pr checks`-Rollup wurde eine Kausalaussage, statt Run-Events und PR-Timeline nebeneinanderzulegen. Gemessen: Push `11:04:50` → Checks `11:04:53`; das close/reopen folgte erst `11:05:34` und war überflüssig. **Nicht Behauptung vor dem billigsten Check, sondern Korrektur vor dem billigsten Check** — und eine Korrektur wird härter geglaubt, überschreibt Artefakte und wird selten ein zweites Mal hinterfragt. Drei Artefakte korrigiert (PR-Kommentar eingeklappt statt gelöscht, Outline-Lesson, pgvector). Gefangen hat es ein Skeptiker mit frischem Kontext; auch dessen Erstbeleg trug nicht, erst die Rückfrage brachte die Zeitachse.
+- **[#1993](https://github.com/achimdehnert/platform/pull/1993)** — `session-ende.md` + `session-docu.md` trennen jetzt Squash-Subject (harmlos) von Head-Commit (hungert alle Required Checks aus), nennen das Erkennungsmerkmal (leerer Rollup ist der Befund, kein „läuft noch") und den Reparaturweg. CODEOWNERS-Review, vom Owner gemergt.
+- **[#1996](https://github.com/achimdehnert/platform/pull/1996)** — Gate `hand-distributed-copy-not-redistributed` registriert; `retro_kpis.py` führt es nicht mehr als ungedeckt.
+- **[#1935](https://github.com/achimdehnert/platform/pull/1935)** aufgelöst und gemergt: Handover von `main` (Branch-Stand überholt), LOG **beide Seiten** — die fremden Sitzungs-Einträge `4f808a`/`9ee08c2` standen nirgends sonst. Drei Kontrollproben, 0 entfernte Zeilen.
+- **[#1997](https://github.com/achimdehnert/platform/pull/1997) + [#1998](https://github.com/achimdehnert/platform/pull/1998)** — Lane `claude-hooks` mit **nicht-löschendem Merge-Modus** plus `doctor`-Parität. „Flach" war keine Filter-Zeile, sondern ein neuer Schreibmodus: `~/.claude/hooks/` teilt sich mit 26 fremden Einträgen, ein Swap hätte sie gelöscht. Live gelaufen: **0 verloren, 25 fremde überlebt, 13 verteilt**, alle `.py` kompilieren, Sperre im aktiven Pfad wirkt.
+- **ausschreibungs-hub**: Prod-Gate freigegeben (Owner-Go), Deploy `completed/success` — der Run hing seit dem 13.08.
+- **`commands`-Lane entstaubt**: `doctor` meldete 5 `copy-stale`, nach `generate --allow-live` → `DRIFT-SCORE 0`.
+
+**Was #1989 jetzt trägt, bewusst dreiteilig und unabhängig:** Melder `0.7.5` prüft den
+Ist-Zustand des aktiven Pfads *egal ob die Lane lief* · Lane `claude-hooks` behebt ·
+`doctor --kind claude-hooks` diagnostiziert. Wäre der Melder durch die Lane ersetzt worden,
+hinge die Erkennung wieder an ihrer Ausführung — die Ausgangslage vom Morgen.
+
+**Offen, ausdrücklich benannt:** Recall-Frage [#1640](https://github.com/achimdehnert/platform/issues/1640)
+(warum feuerten die zwei advisory-Gates in fünf Tagen real nie?) · Wochenlauf-Beweis
+`Gen project-facts.md` Montag 17.08. 04:00 UTC ([#1953](https://github.com/achimdehnert/platform/issues/1953))
+· Kalibrierung des Artefakt-Budget-Melders: er feuerte **siebenmal**, siebenmal dieselbe
+Antwort, null Treffer — Vorschlag im #1640-Register, ihn an PRs **ohne** vorangehende
+Owner-Nachricht zu hängen statt an der absoluten PR-Zahl.
+
+**Abnahme (0d):** Zielzustand **erreicht**, Kriterien einzeln belegt.
+**SA-4: 0 Anwendungen** — nicht beansprucht.
