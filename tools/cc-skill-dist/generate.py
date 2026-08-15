@@ -25,6 +25,7 @@ SICHERHEIT: `--target` ist Pflicht; schreibt NIE ins Live-Ziel der Lane ohne exp
 
 import argparse
 import datetime
+import filecmp
 import hashlib
 import json
 import os
@@ -52,7 +53,36 @@ LANES = {
     # Verteilung != Enforcement — der SessionEnd-Eintrag in settings.json bleibt manuell
     # (doctor.py prüft das Wiring; bootstrap-hook.py zeigt den Patch).
     "hooks": {"src": "tools/hooks/", "live": "~/.claude/hooks/managed"},
+    # platform#1989: die Welle-1-Scanner liegen FLACH in ~/.claude/hooks/ und werden
+    # von settings.json von dort ausgeführt. Sie fielen aus der `hooks`-Lane durch
+    # zwei unabhängige Gründe: anderes Quellverzeichnis (tools/claude-hooks/) und ein
+    # Filter, der nur `.sh` matcht. Verteilt wurden sie deshalb VON HAND — mit der
+    # Folge, dass am 2026-08-15 alle drei aktiven Kopien von `main` abwichen und im
+    # aktiven `gate_hits.py` die pytest-Sperre aus #1986 fehlte: gemergt, grün, ohne
+    # Wirkung.
+    #
+    # Diese Lane schreibt `mode: merge` — KEIN Verzeichnis-Swap. Das ist keine
+    # Geschmacksfrage: `~/.claude/hooks/` enthält ein Dutzend fremder Einträge
+    # (`inject_policies.py`, `board_lint.py`, `state/`, `managed/`, das
+    # Treffer-Protokoll), die ein Swap wegwischen würde — genau der Unfall vom
+    # 2026-07-30, gegen den `pruefe_swap_ziel` existiert.
+    "claude-hooks": {
+        "src": "tools/claude-hooks/",
+        "live": "~/.claude/hooks",
+        "mode": "merge",
+        "suffixes": (".py", ".sh"),
+        "top_level_only": True,  # tests/ und __pycache__/ gehören nie in den aktiven Pfad
+    },
 }
+
+#: Dateiliste eines Merge-Laufs. Bewusst ein Dot-File und NICHT `manifest.json`:
+#: in einem gemischten Verzeichnis wäre der übliche Name ein Fehlsignal für
+#: `pruefe_swap_ziel`, das aus dessen Anwesenheit auf ein Swap-Lane-Ziel schliesst.
+MERGE_MANIFEST = ".cc-skill-dist-manifest.json"
+
+
+def lane_mode(kind):
+    return LANES[kind].get("mode", "swap")
 
 
 def git(args, cwd):
@@ -76,6 +106,17 @@ def collect(listing, kind):
         elif kind == "skills" and path.endswith("/SKILL.md"):
             blobs[os.path.basename(os.path.dirname(path))] = (p[2], path)
         elif kind == "hooks" and path.endswith(".sh"):
+            blobs[os.path.basename(path)] = (p[2], path)
+        elif kind == "claude-hooks":
+            lane = LANES[kind]
+            if not path.endswith(lane["suffixes"]):
+                continue
+            # Nur die oberste Ebene: `ls-tree -r` liefert auch `tests/…` und
+            # `__pycache__/…`. Ein Drill im aktiven Hook-Pfad wäre schlimmer als
+            # gar keine Verteilung — er würde bei jedem Stop-Event mitlaufen.
+            rest = path[len(lane["src"]) :]
+            if lane.get("top_level_only") and "/" in rest:
+                continue
             blobs[os.path.basename(path)] = (p[2], path)
     return blobs
 
@@ -156,6 +197,45 @@ def pruefe_swap_ziel(target, kind):
     )
 
 
+def merge_in_place(staging, target, manifest):
+    """Erzeugte Dateien EINZELN ins Ziel schreiben — nie löschen, nie swappen.
+
+    Die Lane `claude-hooks` teilt sich ihr Ziel mit hand-gepflegten Hooks, Zustand
+    (`state/`), einer zweiten Lane (`managed/`) und dem Treffer-Protokoll. Für so
+    ein Verzeichnis ist der atomare Swap die falsche Operation: er ist genau dann
+    korrekt, wenn das Ziel dem Generator allein gehört.
+
+    Gibt den Backup-Pfad zurück (oder ""), wenn eine bestehende Datei ersetzt wurde.
+    Ein Lauf, der nichts ersetzt, legt kein leeres Backup-Verzeichnis an.
+    """
+    os.makedirs(target, exist_ok=True)
+    stempel = manifest["generated_at"].replace(":", "").replace("-", "")[:15]
+    backup = os.path.join(target, f".cc-dist-backup-{stempel}")
+    ersetzt = 0
+
+    for eintrag in manifest["files"]:
+        name = eintrag["name"]
+        neu = os.path.join(staging, name)
+        alt = os.path.join(target, name)
+        if os.path.exists(alt):
+            # Die ersetzte Fassung ist der einzige Zeuge dessen, was zuletzt real
+            # lief — bei einem Fehlverhalten will man sie vergleichen können.
+            if filecmp.cmp(neu, alt, shallow=False):
+                continue  # identisch: nicht anfassen, kein Backup-Rauschen
+            os.makedirs(backup, exist_ok=True)
+            shutil.copy2(alt, os.path.join(backup, name))
+            ersetzt += 1
+        # copy2 erhält den Modus — das 0o755 setzt bereits der Staging-Schritt.
+        # Ein zweites chmod hier wäre toter Code: der Mutationstest zeigte, dass
+        # sein Entfernen keinen Drill umwirft, das Entfernen des Staging-chmod
+        # dagegen schon.
+        shutil.copy2(neu, alt)
+
+    with open(os.path.join(target, MERGE_MANIFEST), "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2)
+    return backup if ersetzt else ""
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--platform", default=os.path.expanduser("~/github/platform"))
@@ -182,7 +262,10 @@ def main():
             f"ABBRUCH: Ziel ist {lane['live']} — Prototyp schreibt nicht live (--allow-live nötig)."
         )
     # VOR dem Netz-/git-Zugriff: ein falsches --target darf nicht erst am Swap auffallen.
-    pruefe_swap_ziel(target, args.kind)
+    # Der Guard schuetzt den Verzeichnis-SWAP. Eine Merge-Lane loescht nichts und
+    # teilt ihr Ziel per Definition mit Fremdinhalt — dort waere er ein Dauer-Abbruch.
+    if lane_mode(args.kind) == "swap":
+        pruefe_swap_ziel(target, args.kind)
 
     git(["fetch", "origin", "main", "-q"], args.platform)
     commit = git(["rev-parse", args.ref], args.platform).strip()
@@ -217,8 +300,9 @@ def main():
             f"{MARK} · generated=true · source={path} · "
             f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit"
         )
-        if args.kind == "hooks":
-            # Shell-Skript: Footer als #-Kommentar (HTML-Kommentar wäre in .sh ungültig).
+        if args.kind in ("hooks", "claude-hooks"):
+            # Skript-Lane: Footer als #-Kommentar. Gilt fuer .sh UND .py — ein
+            # HTML-Kommentar waere in beiden ein Syntaxfehler.
             content = src.rstrip("\n") + f"\n\n# {meta}\n"
         else:
             content = src.rstrip("\n") + f"\n\n<!-- {meta} -->\n"
@@ -228,7 +312,7 @@ def main():
         else:  # commands + hooks: flach
             out = os.path.join(staging, name)
         open(out, "w", encoding="utf-8").write(content)
-        if args.kind == "hooks":
+        if args.kind in ("hooks", "claude-hooks"):
             os.chmod(
                 out, 0o755
             )  # Hooks müssen ausführbar sein (REC-6: 0755, kein world-write)
@@ -249,6 +333,15 @@ def main():
         f"source: achimdehnert/platform @ {commit}\n"
         f"regenerate: python3 tools/cc-skill-dist/generate.py --kind {args.kind} --target {target}{regen_live}\n"
     )
+
+    if lane_mode(args.kind) == "merge":
+        backup = merge_in_place(staging, target, manifest)
+        shutil.rmtree(staging)
+        print(f"=== generate.py — kind={args.kind}, resolved commit {commit[:12]} ===")
+        print(f"  Ziel: {target}  (Modus: merge — kein Verzeichnis-Swap)")
+        print(f"  geschrieben: {len(manifest['files'])} Datei(en) + {MERGE_MANIFEST}")
+        print(f"  Backup ersetzter Dateien: {backup or '— (nichts ersetzt)'}")
+        return
 
     # Atomarer Swap
     backup = target + ".bak"

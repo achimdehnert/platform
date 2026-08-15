@@ -158,3 +158,36 @@ class TestSync:
 def test_should_refuse_unknown_arguments(tmp_path, arg):
     rc, _, _ = _lauf(tmp_path, arg, quelle={"a.py": "x\n"}, aktiv={"a.py": "x\n"})
     assert rc == 64
+
+
+class TestFooterToleranz:
+    """platform#1989: seit die `claude-hooks`-Lane existiert, kann die aktive Kopie
+    einen generierten MANAGED-BY-Footer tragen. Ohne Ausblendung meldete dieser
+    Melder nach der ersten Verteilung ALLE Dateien dauerhaft als Drift."""
+
+    def test_should_ignore_a_generated_managed_by_footer(self, tmp_path):
+        rc, aus, _ = _lauf(
+            tmp_path,
+            "--quiet",
+            quelle={"a.py": "print(1)\n"},
+            aktiv={
+                "a.py": "print(1)\n\n# MANAGED-BY: platform/tools/cc-skill-dist · "
+                "source_commit=abc123 · do_not_edit\n"
+            },
+        )
+        assert "RESULT: OK" in aus
+        assert rc == 0
+
+    def test_should_still_see_a_real_change_behind_the_footer(self, tmp_path):
+        """Die Ausblendung darf nur den Footer schlucken, nicht den Inhalt."""
+        rc, aus, _ = _lauf(
+            tmp_path,
+            "--quiet",
+            quelle={"a.py": "print(1)\n"},
+            aktiv={
+                "a.py": "print(2)\n\n# MANAGED-BY: platform/tools/cc-skill-dist · "
+                "source_commit=abc123 · do_not_edit\n"
+            },
+        )
+        assert "RESULT: DRIFT" in aus
+        assert rc == 1

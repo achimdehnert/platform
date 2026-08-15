@@ -3,9 +3,15 @@
 #
 # Warum es das gibt (Messung 2026-08-15, platform#1989):
 #   Die Welle-1-Scanner liegen DIREKT in ~/.claude/hooks/ und werden von
-#   settings.json von dort ausgefuehrt. Eine Verteil-Lane gibt es fuer sie nicht:
-#   cc-skill-dist bespielt nur ~/.claude/hooks/managed/, das Makefile kennt kein
-#   Ziel. Der Stand kam am 2026-08-10 VON HAND dorthin.
+#   settings.json von dort ausgefuehrt. Der Stand kam am 2026-08-10 VON HAND
+#   dorthin — eine Verteil-Lane gab es fuer sie nicht: die `hooks`-Lane von
+#   cc-skill-dist liest `tools/hooks/` und matcht nur `.sh`.
+#
+#   Seit demselben Tag gibt es die Lane `claude-hooks` (merge-Modus, siehe
+#   generate.py). Dieser Melder bleibt trotzdem noetig und ist NICHT redundant:
+#   er prueft den Ist-Zustand des aktiven Pfads, unabhaengig davon, ob und wann
+#   jemand die Lane laufen liess. Genau diese Unabhaengigkeit ist der Punkt —
+#   eine Lane, auf deren Ausfuehrung man sich verlaesst, ist wieder Disziplin.
 #
 #   Am 2026-08-15 wichen daraufhin ALLE DREI Dateien von main ab. Der teuerste
 #   Fall war gate_hits.py: die pytest-Sperre aus platform#1986 — der ganze Zweck
@@ -38,10 +44,17 @@ for a in "$@"; do
   case "$a" in
     --sync)  DO_SYNC=1 ;;
     --quiet) QUIET=1 ;;
-    -h|--help) sed -n '1,27p' "$0"; exit 0 ;;
+    -h|--help) sed -n '1,34p' "$0"; exit 0 ;;
     *) echo "Unbekanntes Argument: $a" >&2; exit 64 ;;
   esac
 done
+
+_ohne_footer() {
+  # Generierten MANAGED-BY-Footer ausblenden — samt der Leerzeile davor, die der
+  # Generator mitschreibt. Ohne das Entfernen der Leerzeile bliebe ein Unterschied
+  # stehen und der Melder waere nach der ersten Verteilung dauerhaft rot.
+  grep -v 'MANAGED-BY' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
+}
 
 [[ -d "$SRC_DIR" ]] || { echo "FEHLER: $SRC_DIR nicht gefunden" >&2; exit 2; }
 
@@ -77,7 +90,14 @@ for f in "${SRC_FILES[@]}"; do
     continue
   fi
 
-  if cmp -s "$src" "$dst"; then
+  # Die MANAGED-BY-Zeile beim Vergleich ausblenden: seit platform#1989 kann die
+  # aktive Kopie aus der `claude-hooks`-Lane von cc-skill-dist stammen, und die
+  # haengt jeder verteilten Datei einen Footer mit `source_commit` an. Ohne diese
+  # Ausblendung meldete dieser Melder nach der ERSTEN Verteilung alle Dateien
+  # dauerhaft als Drift — zwei Mechanismen, die sich gegenseitig widerlegen, und
+  # ein dauerhaft roter Melder meldet nichts mehr (#1508).
+  # Der Footer ist generiert und traegt keine Semantik; alles andere zaehlt.
+  if diff -q <(_ohne_footer "$src") <(_ohne_footer "$dst") >/dev/null 2>&1; then
     SYNCED=$((SYNCED + 1))
     [[ $QUIET -eq 1 ]] || printf '%-40s %s\n' "$f" "✅ synchron"
     continue
