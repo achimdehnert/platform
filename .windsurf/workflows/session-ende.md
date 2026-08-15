@@ -495,8 +495,39 @@ fi
   breitere** PRs zusammenfassen, wo sie nicht kollidieren — 11/17 PRs dieser Session trugen
   Catch-up-Merge-Tax durch sequenzielles Selbst-Mergen gegen den wandernden eigenen main.
 
-→ Docs-only-Änderung in einem Deploy-on-push-Repo? **`[skip ci]` in die Commit-Message**
-  (🌀 `feedback_skip_ci_uniform_on_docs_merges` — sonst kickt ein README-Commit Prod).
+→ Docs-only-Änderung in einem Deploy-on-push-Repo? **`[skip ci]` gehört in das
+  Squash-Subject BEIM MERGEN — niemals in den Commit eines offenen PR-Branches.**
+  Der Marker wirkt gegenläufig, je nachdem wo er steht:
+
+  | Ort | Wirkung |
+  |---|---|
+  | **Squash-Subject** (`gh pr merge --squash --subject "… [skip ci]"`) | ✅ gewollt: der Merge-Commit auf `main` löst keinen Deploy aus (🌀 `feedback_skip_ci_uniform_on_docs_merges`) |
+  | **Head-Commit des offenen PRs** (`git commit -m "… [skip ci]"`) | ⛔ tödlich: GitHub überspringt **alle** Workflow-Läufe für diesen Push, auch das `pull_request`-Event. Required Checks melden sich nie → PR steht dauerhaft `BLOCKED`, ohne dass irgendwo etwas rot wird (🌀 `feedback_blocked_without_any_pull_request_run`) |
+
+  **GitHub matcht den Marker im GESAMTEN Commit-Body, nicht nur im Titel.** Wer den
+  Fehler im Erklärtext des Korrektur-Commits *beschreibt* („kein `[skip ci]`, weil …"),
+  setzt ihn damit erneut. Der Token darf in einer Commit-Message an keiner Stelle
+  vorkommen — auch nicht zitiert. Über den Marker schreiben gehört in den PR-Text.
+
+  **Erkennungsmerkmal:** der Check-Rollup ist leer bzw. zeigt nur `automerge: SKIPPED`.
+  Ein leerer Rollup ist **kein** „läuft noch" — er ist der Befund.
+
+  **Reparatur:** `git commit --amend` ohne den Token + Force-Push. Das genügt und wirkt
+  sofort. `gh pr close` + `gh pr reopen` ist **nicht** nötig.
+
+  **Messung 2026-08-15, platform#1992** (drei Anläufe, weil die Diagnose zweimal danebenlag):
+  Anlauf 1 trug den Marker im Titel, Anlauf 2 wörtlich im Erklärtext — beide Male lief
+  **nur** `pull_request_target` (`Dependabot auto-merge`), kein einziger Required Check.
+  Anlauf 3 ohne den Token: Force-Push `11:04:50` → alle zehn `pull_request`-Checks
+  gestartet `11:04:53`, drei Sekunden später. Das danach ausgeführte close/reopen
+  (`11:05:34`/`11:05:36`) war **überflüssig** und erzeugte nur einen Zweitlauf.
+
+  **Diagnose-Falle dabei:** `gh pr checks --watch` unmittelbar nach dem Push zeigte noch
+  den leeren Rollup, woraus fälschlich „Force-Push hilft nicht, nur close/reopen" gefolgert
+  wurde. Der billigste belastbare Check ist nicht der Rollup, sondern
+  `gh run list --json event,headSha,createdAt` gegen den neuen SHA plus
+  `gh api repos/<o>/<r>/issues/<n>/timeline` — erst die Zeitstempel nebeneinander zeigen,
+  welches Ereignis die Läufe wirklich ausgelöst hat.
 → **NICHT ausführen** wenn der User explizit sagt "nicht pushen" oder ein PR-Review läuft.
 → Fremde dirty Files (andere Session/unbekannte Herkunft): **liegen lassen + melden**,
   nicht einsammeln.
