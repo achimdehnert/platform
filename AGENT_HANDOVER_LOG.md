@@ -1794,6 +1794,42 @@ den ein Fehlzeiger im Policy-Text zeigte.
 - risk-Prod verifiziert 0.11.8 + preload (letzte aifw-App live)
 - #1917 (SSoT-Regeln 5+6) + #1918 (Handover) gemergt; skip-ci-Substring-Falle in Memory nachgetragen
 
+### 2026-08-12 · Session mail-activity-intelligence (Strang 1f9813)
+
+Angefangen bei einer Bewertungsfrage — zwei externe Review-Runden gegen den MVP stellen —
+und geendet bei einer Kategorien-Tabelle. Neun Schritte, jeder vom Owner angestoßen.
+
+Der Ertrag ist eine Zahl: **49 → 168**. Der Kopfdaten-Melder zählt je Adresse, und je Faden
+werden aus 49 Zeilen 168. Bei „ich schulde" sind es 13 → 70. Diese Asymmetrie ist kein
+Rauschen, sie ist strukturell: Je Adresse kippt jede Antwort in irgendeiner Sache die
+Richtung auf „ich warte" und verdeckt damit alle unbeantworteten Fäden desselben
+Gegenübers. Der Fall, für den das Cockpit überhaupt gebaut wird, ist der, den die billige
+Gruppierung am zuverlässigsten verschluckt. Der Owner hat die Messung selbst reproduziert,
+Zeile für Zeile identisch.
+
+Zwei Korrekturen an eigenen Aussagen, beide innerhalb einer Stunde nach dem Push. B9 nannte
+zuerst ADR-022 als verletzte Norm (null Treffer darin), dann ADR-109 H-1 (zu weit gefasst —
+bindet `TenantModel` in Tenancy-UI-Hubs, nicht jedes Modell). Der belegte Stand ist
+unbequemer als beide: Die Konvention wird als Standard behandelt, ohne einer zu sein. Und
+im ADR-295-Entwurf hing der Löschtermin an einem Frontmatter-Feld, das im ADR-Schema gar
+nicht existiert.
+
+Der wertvollste Fund kam beim Prüfen einer eigenen Warnung. Ich hatte gesagt, ein Wipe des
+Bestands könne gelöschte Inhalte zurückholen — als Vermutung. Der Code sagt mehr: Der
+Grabstein **ist** die Sperre, `ingest_or_skip` fragt `is_blocked()` ab. Ein Wipe entfernt
+also nicht den Nachweis, sondern das Hindernis. Heute betrifft das genau eine Nachricht, und
+die ist der ADR-293-Gate-3-Nachweis, keine Betroffenen-Anfrage. Nach den geplanten
+Testrunden können es echte sein.
+
+Was liegen bleibt, ist das, was ich dreimal aktenkundig gemacht habe und nicht gebaut habe:
+`record_erasure` wird ausschließlich aus Tests aufgerufen. Eine DSGVO-Löschung ist Handarbeit
+— schon für einen Bestand, nicht erst für zwei. Es blockiert die Datenübertragung nach dev,
+es ist der Grund für den gesperrten Löschknopf im Admin, und es ist der einzige offene Punkt
+dieser Sitzung, der ein Risiko trägt statt nur Arbeit.
+
+Ein Lichtblick zum Schluss: Der Admin-Test, den ich wegen des Löschknopfs geschrieben hatte,
+hat zwei Stunden später den Bau der Kategorien-Tabelle angehalten — sie war nicht
+registriert. Ein Guard, der eine andere Lücke fängt als die, für die er gebaut wurde.
 ### 2026-08-12 · Session gate-registry (Kapitäns-Kanal)
 
 - **#1650 Gate-Audit GESCHLOSSEN** — alle 3 Abnahme-Kriterien erfüllt, Checkboxen abgehakt.
@@ -1812,6 +1848,25 @@ den ein Fehlzeiger im Policy-Text zeigte.
 - **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
   alle Merges liefen bewusst als Owner-Einzel-Review (Perimeter-Pfade + Selbstbetreffendes).
 
+### 2026-08-12 · Strang 9ee08c2 — parallele Sessions kollisionsfrei + Admin-Test
+
+- Nummernkollision KONZ-043 aufgeloest (#1942 -> 044); Ursache: beide Sitzungen rechneten
+  korrekt max+1 gegen main, zum Vergabezeitpunkt fuer beide dieselbe Zahl.
+- Zielzustand #1944 (Owner-akzeptiert). K5 erfuellt (#1946 Kollisions-Meter: 59 Paare /
+  30 Tage, 1,9 %). K1 erfuellt (#1947 Erkennung + #1950 Vergabe; zwei Worktrees ohne Push
+  -> 045/046, alter Weg -> 2x 045). K2 abgestuft auf 4 echte Konflikte/30 Tage.
+- K2-Erstdiagnose (next_free) durch Gegentest widerlegt: haette add+add nicht geheilt und
+  add+edit erst kaputtgemacht. Im Issue korrigiert.
+- Mailbestands-Admin in 3 Runden geprueft: 17/17 rendern, 15 readonly, kein Body sichtbar.
+  Befund: TextUnit.text steht auf der Detailseite -> Owner-Entscheid "gewollt",
+  verankert + festgenagelt in dev-hub#273 (Gegenprobe: Reparatur macht den Test rot).
+- Praemisse dazu geprueft: dev-hub.iil.pet/admin lief ohne Cloudflare Access. Werkzeug
+  #1949 gebaut und angewandt -> /admin/ jetzt hinter Access, andere Routen unveraendert.
+- Eigener Fehler: "admin.py fehlt" aus dem Working Tree gelesen (1 Commit hinter main),
+  abgesichert durch eine Anti-Vakuum-Kontrolle, die nur den Filter prueft, nicht das
+  Datenalter. Als neue Facette in feedback_stale_local_clone_never_ground_truth ergaenzt.
+- Abnahme (0d): #1944 teilweise erreicht — K1+K5 erreicht, K2 abgestuft, K3/K4 offen.
+- SA-4: 1 Anwendung (#1946) · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
 ### 2026-08-13 · Session handover-flotte (Kapitäns-Kanal)
 
 - **#1945 GESCHLOSSEN** — alle 4 Kriterien belegt: #1954 (K1 Messung, 2 Läufe byte-identisch),
