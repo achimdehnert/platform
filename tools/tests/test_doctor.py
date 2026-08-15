@@ -617,3 +617,118 @@ def test_should_not_mention_kd_referenz_when_not_declared(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "KD-Referenz-Schema" not in r.stdout
     assert "0 legacy" in r.stdout
+
+
+# ------------------------------------------- claude-hooks Merge-Lane (platform#1989)
+def _make_claude_hooks_repo(root):
+    root.mkdir(parents=True)
+    _git(root, "init", "-b", "main")
+    _git(root, "config", "user.email", "t@t.t")
+    _git(root, "config", "user.name", "t")
+    (root / "tools" / "claude-hooks" / "tests").mkdir(parents=True)
+    (root / "tools" / "claude-hooks" / "scanner.py").write_text("print('scan')\n")
+    (root / "tools" / "claude-hooks" / "guard.sh").write_text("#!/bin/sh\nexit 0\n")
+    (root / "tools" / "claude-hooks" / "tests" / "test_scanner.py").write_text(
+        "def test_x():\n    assert True\n"
+    )
+    _git(root, "add", "-A")
+    _git(root, "commit", "-m", "init")
+    _git(root, "remote", "add", "origin", str(root))
+    _git(root, "fetch", "origin", "main", "-q")
+    return root
+
+
+def _doctor(repo, ziel):
+    return subprocess.run(
+        [
+            sys.executable,
+            str(_DOC),
+            "--kind",
+            "claude-hooks",
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--claude-hooks-dir",
+            str(ziel),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+
+def _verteile(repo, ziel):
+    subprocess.run(
+        [
+            sys.executable,
+            str(_GEN),
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(ziel),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_should_report_zero_drift_after_a_merge_lane_run(tmp_path):
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    ziel = tmp_path / "hooks"
+    _verteile(repo, ziel)
+    r = _doctor(repo, ziel)
+    assert "DRIFT-SCORE: 0" in r.stdout, r.stdout
+
+
+def test_should_not_call_foreign_entries_extra(tmp_path):
+    """Der Kern der Paritaet. Das Ziel teilt sich per Design mit Fremdinhalt —
+    zaehlte der Doctor ihn als `extra`, waere er ab dem ersten Lauf dauerhaft rot."""
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    ziel = tmp_path / "hooks"
+    _verteile(repo, ziel)
+    (ziel / "inject_policies.py").write_text("# hand-gepflegt\n")
+    (ziel / "gate-hits.jsonl").write_text("{}\n")
+    (ziel / "state").mkdir()
+    (ziel / "managed").mkdir()
+
+    r = _doctor(repo, ziel)
+    assert "extra (nicht in Quelle)=0" in r.stdout, r.stdout
+    assert "DRIFT-SCORE: 0" in r.stdout, r.stdout
+
+
+def test_should_see_a_drifted_distributed_copy(tmp_path):
+    """Die Fremd-Toleranz darf nicht blind machen fuer echte Drift."""
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    ziel = tmp_path / "hooks"
+    _verteile(repo, ziel)
+    (ziel / "scanner.py").write_text("print('MANIPULIERT')\n")
+    r = _doctor(repo, ziel)
+    assert "copy-stale" in r.stdout, r.stdout
+    assert "DRIFT-SCORE: 0" not in r.stdout
+
+
+def test_should_treat_a_missing_manifest_as_never_distributed(tmp_path):
+    """Kein Manifest ist kein Fehler, sondern die Aussage 'hier lief die Lane nie'."""
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    ziel = tmp_path / "hooks"
+    ziel.mkdir()
+    (ziel / "inject_policies.py").write_text("# hand-gepflegt\n")
+    r = _doctor(repo, ziel)
+    assert r.returncode != 2, r.stdout + r.stderr
+    assert "fehlend (in Quelle, nicht im Ziel)=2" in r.stdout, r.stdout
+    assert "extra (nicht in Quelle)=0" in r.stdout, r.stdout
+
+
+def test_should_not_expect_the_drills_in_the_active_path(tmp_path):
+    """tests/ darf weder verteilt noch als 'fehlend' eingefordert werden."""
+    repo = _make_claude_hooks_repo(tmp_path / "repo")
+    ziel = tmp_path / "hooks"
+    _verteile(repo, ziel)
+    r = _doctor(repo, ziel)
+    assert "2 kanonisch" in r.stdout, r.stdout
+    assert "test_scanner.py" not in r.stdout
