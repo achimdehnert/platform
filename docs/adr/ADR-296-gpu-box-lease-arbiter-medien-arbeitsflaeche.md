@@ -454,9 +454,9 @@ Box-Abnahme vor Musik-Aktivierung, Extraktion vor zweitem Konsumenten.
 
 | Repo / Service | Phase | Inhalt | Status | Datum | Notizen |
 |----------------|-------|--------|--------|-------|---------|
-| `illustration-hub` | 0 | Sofortsicherung Songs → prod-media-Volume; 3 Vorab-Checks §4.7 | ⬜ Ausstehend | – | vor allem anderen; Check 1 = Go/No-Go Song-Lane |
-| `illustration-hub` | 1 | Arbiter **interaktiver Vertragsteil** (§4.2 ohne Batch-Bau) + Zähler + Sofort-Alarme + Journal | ⬜ Ausstehend | – | Bild-Lane als erster Konsument; Batch bleibt spezifiziert, ungebaut |
-| Box (Owner) | 2 | Firewall 7865 + Autostart (ACE-Step nur bei positivem Check 1), Außen-Abnahme §4.7 | ⬜ Ausstehend | – | VOR Musik-Aktivierung (R2-REC-8) |
+| `illustration-hub` | 0 | Sofortsicherung Songs → prod-media-Volume; 3 Vorab-Checks §4.7 | 🟡 Teilweise | 2026-08-14/15 | 0a **erledigt**: Volume `music_media`, Song md5-identisch, Restore-Stichprobe aus restic bestanden (§8 Nr. 3, [music-lab#3](https://github.com/achimdehnert/music-lab/issues/3#issuecomment-5301622757)). 0b **offen**: `vorab-checks.ps1` liegt in `~/shared`, auf der Box noch nicht gelaufen |
+| `illustration-hub` | 1 | Arbiter **interaktiver Vertragsteil** (§4.2 ohne Batch-Bau) + Zähler + Sofort-Alarme + Journal | ✅ Erledigt | 2026-08-15 | Arbiter [#240](https://github.com/achimdehnert/illustration-hub/pull/240), Bild-Lane als Konsument [#242](https://github.com/achimdehnert/illustration-hub/pull/242). Live auf Prod seit Tag `v1.0.0` (Code + Migration 0005 im laufenden Container verifiziert). Batch bleibt spezifiziert, ungebaut |
+| Box (Owner) | 2 | Firewall 7865 + Autostart (ACE-Step nur bei positivem Check 1), Außen-Abnahme §4.7 | ⬜ Ausstehend | – | VOR Musik-Aktivierung (R2-REC-8); **wartet auf 0b** — Check 1 ist das Go/No-Go |
 | `illustration-hub` | 3 | `apps/music`: Datenmodell, MP3, feste URLs, Player | ⬜ Ausstehend | – | löst music-lab#3 Krit. 1/2/6; setzt Phase 2 voraus |
 | `music-lab` | 4 | CLI → Hub-API; `gpu-dienst.ps1` als Break-glass mit Protokoll §4.4 | ⬜ Ausstehend | – | Repo bleibt Box-Setup |
 | `aifw` / neu `iil-gpufw` | 5 | Kosten-Go/Kill (§4.6); bei Go: Extraktion Client-Paket | ⬜ Ausstehend | – | VOR writing-hub-Aktivierung (R2-REC-8); /release, ADR-084-Muster |
