@@ -261,4 +261,4 @@
 | 293 | Mail — vollständige Verfügbarkeit statt Just-in-Time; Option D fällt | Proposed | 🔶 | [ADR-293](ADR-293-mail-vollstaendige-verfuegbarkeit-statt-just-in-time.md) |
 | 294 | LLM-Gateway statt litellm in jedem Prozess | Proposed | ⬜ | [ADR-294](ADR-294-llm-gateway-statt-litellm-je-prozess.md) |
 | 295 | Mailbestand an einem zweiten Standort (Dev-Host) | Accepted | ⬜ | [ADR-295](ADR-295-mailbestand-zweiter-standort-dev.md) |
-| 296 | GPU-Box über Hub-seitigen Lease-Arbiter bewirtschaften — Medien-Arbeitsfläche und Client-Paket folgen dem Hub | Proposed | ⬜ | [ADR-296](ADR-296-gpu-box-lease-arbiter-medien-arbeitsflaeche.md) |
+| 296 | GPU-Box über Hub-seitigen Lease-Arbiter bewirtschaften — Medien-Arbeitsfläche und Client-Paket folgen dem Hub | Accepted | ⬜ | [ADR-296](ADR-296-gpu-box-lease-arbiter-medien-arbeitsflaeche.md) |

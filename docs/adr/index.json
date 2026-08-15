@@ -5559,7 +5559,7 @@
       "id": "ADR-296",
       "file": "ADR-296-gpu-box-lease-arbiter-medien-arbeitsflaeche.md",
       "title": "GPU-Box über Hub-seitigen Lease-Arbiter bewirtschaften — Medien-Arbeitsfläche und Client-Paket folgen dem Hub",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-08-14",
       "domains": [],
       "supersedes": [],
