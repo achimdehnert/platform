@@ -252,6 +252,38 @@ Falls diese Session eine Aufgabe aus der `## Prioritäten`-Tabelle des
    sofort als Befund melden, nicht nur zählen. `m` speist den Kill-Test (Signal G,
    >30 % → Klasse überarbeiten/streichen) — Auswertung im Regel-Ritual (KONZ-038).
 
+### 0e: Clear-Härte — was überlebt den Kontext-Verlust? (PFLICHT — NEU 2026-08-12)
+
+> **Der Skill räumt Flüchtiges weg (3.1b, 3.1c) und fragt nirgends, ob dort etwas
+> Dauerhaftes liegt.** Belegt am 2026-08-12 (illustration-hub): `grep -ic` findet in diesem
+> Dokument 36× „handover" und 16× „worktree", aber **0×** „clear" und 0× irgendeine
+> Formulierung für flüchtigen Gesprächskontext — die Null ist die Welt, nicht der Filter.
+
+Nach dem Handover-Block, **vor** Phase 1, drei Fragen stellen. Jede mit „ja" beantwortete
+Zeile bekommt im selben Zug ein dauerhaftes Artefakt (Issue-Kommentar, Handover-Zeile,
+Memory-Datei) — „steht im Gesprächsverlauf" zählt so wenig wie „steht im PR-Text".
+
+| # | Frage | Fix, falls ja |
+|---|-------|---------------|
+| 1 | Existiert eine **Entscheidung, ein Textvorschlag oder ein Messwert** nur im Gesprächsverlauf? | In das zugehörige Issue / den Handover schreiben |
+| 2 | Liegt etwas Dauerhaftes im **Scratchpad / `/tmp`**, das 3.1b gleich wegräumt? | Vorher an einen dauerhaften Ort — Issue-Kommentar oder Repo |
+| 3 | Verweist ein **dauerhaftes Dokument auf Flüchtiges** („siehe Sitzungsprotokoll", „wie oben besprochen", ein `/tmp`-Pfad)? | Verweis durch den Inhalt oder einen echten Link ersetzen |
+
+**Frage 3 ist die gefährlichste**, weil sie als einzige nicht auffällt: das Dokument
+*sieht* vollständig aus. Der Realfall, der diese Phase auslöste: ein frisch geschriebener
+Handover verwies auf „das Sitzungsprotokoll", also auf den Chat, und eine Datensicherung
+(alte Kanon-Texte vor einer Produktionsdaten-Änderung, ausdrücklich als Rückweg gefordert)
+lag ausschließlich im Session-Scratchpad — den Phase 3.1b gelöscht hätte. Beides fiel erst
+auf, als der Owner „also /clear?" fragte, nachdem die Session bereits zweimal als
+„sauber geschlossen" gemeldet worden war.
+
+**Kein automatisches `/clear` einbauen.** Das ist ein CLI-Builtin, kein Skill-Schritt; und
+es zu automatisieren beschleunigt den Verlust, statt ihn zu verhindern. Der Wert steckt in
+der Frage, nicht im Befehl.
+
+**Der Selbsttest in einem Satz:** nicht „ist alles gemergt?" fragen — das beantwortet eine
+andere Frage —, sondern **„was verschwindet, wenn dieses Fenster zugeht?"**
+
 ---
 
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
@@ -697,6 +729,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 14 | Abnahme gegen Session-Zielzustand im Stand-Block: erreicht/nicht erreicht/verschoben+Tracking bzw. n/a-begründet (Phase 0d) | ☐ |
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
+| 17 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
@@ -735,6 +768,18 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 
 ## Changelog
 
+- 2026-08-12: **Phase 0e Clear-Härte (PFLICHT) + Checklisten-Zeile 17** — der Skill hatte
+  Phasen, die Flüchtiges wegräumen (3.1b temporäre Dateien, 3.1c Worktree-Reaper), aber
+  keine, die vorher fragt, ob dort etwas Dauerhaftes liegt. Belegt per `grep -ic` auf dieses
+  Dokument: 36× „handover", 16× „worktree", **0×** „clear" und 0× jede Formulierung für
+  flüchtigen Gesprächskontext — mit Positivkontrolle, die Null ist also die Welt und nicht
+  der Filter. Anlass (illustration-hub, 2026-08-12): eine Session wurde zweimal als „sauber
+  geschlossen" gemeldet, während ein Textvorschlag nur im Chat lag und eine Datensicherung
+  vor einer Produktionsdaten-Änderung nur im Session-Scratchpad, den 3.1b gelöscht hätte;
+  der frisch geschriebene Handover verwies dafür auf „das Sitzungsprotokoll". Aufgefallen
+  erst durch die Owner-Frage „also /clear?". Bewusst **kein** automatisches `/clear`: das
+  ist ein CLI-Builtin und würde den Verlust beschleunigen statt verhindern — der Wert
+  steckt in der Frage „was verschwindet, wenn dieses Fenster zugeht?".
 - 2026-08-10: **Phase 0a-merge (PFLICHT) + Checklisten-Zeile 16** — Handover-PRs werden
   ohne Rückfrage gemergt, sobald CI grün ist (Owner-Weisung, Anlass illustration-hub #197).
   Begründung: ein Handover-PR ist ein Bericht über bereits Geschehenes, keine Entscheidung —
