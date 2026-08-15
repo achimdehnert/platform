@@ -239,3 +239,87 @@ def test_should_still_exit_one_on_a_real_failure(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         ppf.main()
     assert exc.value.code == 1
+
+
+# ── Archivierte Repos (platform#1953) ─────────────────────────────────────────
+
+
+def test_should_skip_archived_repos_from_the_registry(monkeypatch):
+    """Ein archiviertes Repo ist auf GitHub read-only und antwortet auf jeden
+    Schreibversuch mit HTTP 403.
+
+    Realfall wedding-hub (archiviert 2026-08-11): der echte Lauf am 2026-08-13
+    erledigte 23 Repos sauber — 8 PRs, davon erstmals frist-hub/meiki-hub/ttz-hub —
+    und endete trotzdem ROT, weil das 24. Repo nicht mehr beschreibbar war. Ein
+    Melder, der wegen eines bewusst stillgelegten Repos rot steht, wird binnen
+    Wochen überlesen.
+
+    Prüft das **Verhalten**, nicht den Quelltext: die Vorgänger-Fassung dieses
+    Tests suchte den Filter-Ausdruck als Zeichenkette in der Datei. So ein Test
+    bricht bei jedem Umformulieren und hält gleichzeitig jede Verhaltensänderung
+    für in Ordnung, solange die Zeichenkette stehen bleibt — er sichert die
+    Zusage also gar nicht ab (2026-08-15).
+    """
+    monkeypatch.setattr(
+        ppf, "load_registry", lambda: {"lebt": {}, "tot": {"archived": True}}
+    )
+    angefasst = []
+
+    def prozess(repo, reg, dry_run):
+        angefasst.append(repo)
+        return f"✅ {repo}: PR #1 angelegt"
+
+    monkeypatch.setattr(ppf, "process_repo", prozess)
+    monkeypatch.setattr(sys, "argv", ["push_project_facts.py"])
+    monkeypatch.setattr(ppf, "TOKEN", "x")
+
+    ppf.main()  # darf NICHT SystemExit werfen
+
+    assert angefasst == ["lebt"], "ein archiviertes Repo wird gar nicht erst angefasst"
+
+
+def test_should_treat_github_archived_403_as_skip_not_failure(monkeypatch, capsys):
+    """Zweite Sicherung: die Registry kann der Stilllegung nachhinken. GitHubs
+    eigene Antwort ist die verlässlichere Quelle — sie darf den Lauf nicht rot färben."""
+    monkeypatch.setattr(ppf, "load_registry", lambda: {"a": {}, "b": {}})
+
+    def prozess(repo, reg, dry_run):
+        if repo == "b":
+            raise ppf.ApiFehler(
+                "403 Forbidden — Repository was archived so is read-only."
+            )
+        return f"✅ {repo}: PR #1 angelegt"
+
+    monkeypatch.setattr(ppf, "process_repo", prozess)
+    monkeypatch.setattr(sys, "argv", ["push_project_facts.py"])
+    monkeypatch.setattr(ppf, "TOKEN", "x")
+
+    ppf.main()  # darf NICHT SystemExit werfen
+
+    ausgabe = capsys.readouterr().out
+    assert "1 archiviert" in ausgabe
+    assert "0 fehler" in ausgabe
+    # Nicht stillschweigend überspringen: der Fall muss benannt in der Ausgabe stehen.
+    assert "🗄 b" in ausgabe
+    assert "Archiviert (read-only, bewusst uebersprungen):" in ausgabe
+
+
+def test_should_not_put_a_ci_skip_marker_into_the_commit_message():
+    """Die Marke unterdrückt JEDEN Workflow — auch den, der den Required Check
+    `ci / gate` erzeugt. Ergebnis war ein PR, den niemand mergen kann.
+
+    Gemessen am 2026-08-13: 5 der 8 erzeugten PRs standen deshalb auf BLOCKED,
+    dev-hub#178 seit dem 2026-07-31. Nur die zwei Repos ohne `ci / gate`-Ruleset
+    liessen sich mergen. Rulesets können das nicht auf der Gegenseite lösen —
+    ihre Bedingungen sind ref-basiert, es gibt keine Pfad-Ausnahme.
+    """
+    quelle = _SRC.read_text(encoding="utf-8")
+    marke = "[skip" + " ci]"  # nicht wörtlich schreiben: derselbe Substring-Effekt
+    # In der Commit-Message-Zeile darf sie nicht stehen; im erklärenden Kommentar schon.
+    commit_zeilen = [
+        z
+        for z in quelle.splitlines()
+        if "project-facts.md aktualisiert" in z and not z.strip().startswith("#")
+    ]
+    assert commit_zeilen, "Commit-Message-Zeile nicht gefunden"
+    assert all(marke not in z for z in commit_zeilen)

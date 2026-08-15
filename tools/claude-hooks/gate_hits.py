@@ -25,8 +25,14 @@ Bewusst klein gehalten:
 - **Nie werfend.** Ein Scanner, der am Protokoll scheitert, waere schlimmer als
   gar kein Protokoll. Jeder Fehler wird geschluckt.
 
+- **Kein Schreiben aus pytest heraus** (siehe `notiere`). Die Drills fahren die
+  Scanner mit Fixture-Saetzen durch; ohne diese Sperre landet jeder Testlauf im
+  Protokoll des Entwicklers und die FP-Auswertung urteilt ueber sich selbst.
+
 Das Urteil selbst (`bewertung`) traegt die Zeile nicht — es entsteht beim
-Ritual-Lauf, von Hand, und wird dort nachgetragen.
+Ritual-Lauf, von Hand, und wird dort nachgetragen. `--bericht` weist vorher aus,
+wie viele Zeilen **keine** session_id tragen, also nicht aus einer Sitzung kamen:
+Herkunft vor Urteil.
 
 Kommandos:
   --bericht [--seit YYYY-MM-DD]   Treffer je Gate zaehlen
@@ -54,6 +60,15 @@ HITS = Path(
 KONTEXT = 120
 
 
+def _unter_test() -> bool:
+    """Laeuft dieser Aufruf gerade in pytest?
+
+    pytest setzt `PYTEST_CURRENT_TEST` je Test; ausserhalb ist die Variable nicht
+    gesetzt. Der Hook-Pfad ist davon nie betroffen.
+    """
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+
+
 def _ausschnitt(text: str, marker: str) -> str:
     if not text or not marker:
         return ""
@@ -78,7 +93,18 @@ def notiere(
 
     Wirft nie: ein Scanner, der am Protokoll stirbt, richtet mehr Schaden an als
     ein fehlender Datenpunkt.
+
+    **Schreibt unter pytest nicht in das echte Protokoll.** Die Scanner-Drills
+    fahren `scanner.main()` mit Fixture-Saetzen durch, und `main()` ruft diese
+    Funktion ohne `pfad` — die Treffer landeten damit im Protokoll des Entwicklers.
+    Realfall 2026-08-15: alle 212 protokollierten Treffer des Fensters 10.-13.08.
+    stammten aus `pytest`, kein einziger aus einer echten Sitzung (`session` war
+    durchgaengig leer). Die FP-Auswertung nach KONZ-038 D2 haette auf Rauschen
+    geurteilt, das wie Datengrundlage aussah. Wer bewusst aus einem Test heraus
+    schreiben will, gibt `pfad` an — dann greift die Sperre nicht.
     """
+    if pfad is None and _unter_test():
+        return False
     ziel = pfad or HITS
     zeile = {
         "zeit": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -134,6 +160,24 @@ def bericht(treffer: list[dict], seit: str = "") -> str:
     for slug, anzahl in je_slug.most_common():
         modi = {t.get("modus", "?") for t in gefiltert if t.get("slug") == slug}
         zeilen.append(f"  {anzahl:4d}  {slug}  ({'/'.join(sorted(modi))})")
+
+    # Herkunft VOR Urteil. Ein echter Hook-Lauf traegt die session_id des Events;
+    # eine Zeile ohne sie kam nicht aus einer Sitzung, sondern aus einem Direkt-
+    # oder Testaufruf. Ohne diese Trennung liest sich Rauschen wie Datengrundlage
+    # (Realfall 2026-08-15: 212 von 212 Zeilen stammten aus pytest).
+    ohne_session = [t for t in gefiltert if not t.get("session")]
+    zeilen.append("")
+    if ohne_session:
+        zeilen += [
+            f"⚠ {len(ohne_session)} von {len(gefiltert)} Zeile(n) ohne session_id —",
+            "  NICHT aus einer Sitzung, also kein Beleg fuer irgendeine FP-Quote.",
+            "  Vor dem Urteil aussortieren (Direkt-/Testaufrufe, Protokoll-Reste).",
+        ]
+    else:
+        zeilen.append(
+            f"Herkunft: alle {len(gefiltert)} Zeile(n) tragen eine session_id."
+        )
+
     zeilen += [
         "",
         "Fehlalarm-Quote: NICHT ableitbar aus dieser Zahl — jede Zeile muss von",

@@ -142,8 +142,54 @@ def extract_text(msg: Message, max_chars: int = 4000) -> str:
     return body_und_quelle(msg, max_chars)[0]
 
 
+def _eingebetteter_name(part: Message) -> str:
+    """Dateiname fuer einen `message/rfc822`-Teil — abgeleitet, nie vorhanden.
+
+    Eine eingebettete Nachricht traegt regelmaessig **keinen** `filename`-Parameter,
+    obwohl sie `Content-Disposition: attachment` hat. Genau daran fiel sie bis
+    2026-08-13 aus der Anhangsliste (platform#1964): der Filter fragte nach einem
+    Dateinamen, und wo keiner war, war fuer das Werkzeug auch kein Anhang. Der
+    Betreff der eingebetteten Nachricht ist der einzige sprechende Name, den es gibt.
+    """
+    inner = part.get_payload(0) if part.is_multipart() else None
+    betreff = decode_hdr(inner.get("Subject")) if inner is not None else ""
+    stamm = re.sub(r"[^\w\s.-]", "", betreff).strip()[:60].strip() or "eingebettete-nachricht"
+    return re.sub(r"\s+", "-", stamm) + ".eml"
+
+
+def _rfc822_teile(msg: Message) -> list[Message]:
+    return [p for p in msg.walk() if p.get_content_type() == "message/rfc822"]
+
+
 def attachment_names(msg: Message) -> list[str]:
-    return [decode_hdr(p.get_filename()) for p in msg.walk() if p.get_filename()]
+    """Anhangsnamen — Dateinamen **und** eingebettete Nachrichten.
+
+    Die eingebetteten Nachrichten stehen bewusst mit in derselben Liste: eine
+    Weiterleitung ohne Kommentar hat ihren ganzen Inhalt dort, und eine Liste, die
+    nur Signaturbilder zeigt, sieht vollstaendig aus, ohne es zu sein.
+    """
+    namen = [decode_hdr(p.get_filename()) for p in msg.walk() if p.get_filename()]
+    return namen + [_eingebetteter_name(p) for p in _rfc822_teile(msg)]
+
+
+def eingebettete_nachrichten(msg: Message, max_chars: int = 4000) -> list[tuple[dict[str, str], str]]:
+    """Kopfzeilen und Text jeder eingebetteten `message/rfc822`-Nachricht.
+
+    Damit eine Weiterleitung im `--fetch` nicht als dreizeiliger Begleittext
+    erscheint, wenn der Sachinhalt in der eingebetteten Nachricht steht.
+    """
+    ergebnis = []
+    for teil in _rfc822_teile(msg):
+        inner = teil.get_payload(0) if teil.is_multipart() else None
+        if inner is None:
+            continue
+        kopf = {
+            feld: decode_hdr(inner.get(feld))
+            for feld in ("From", "To", "Cc", "Date", "Subject")
+            if inner.get(feld)
+        }
+        ergebnis.append((kopf, body_und_quelle(inner, max_chars)[0]))
+    return ergebnis
 
 
 def save_attachments(msg: Message, target: Path) -> list[tuple[str, int]]:
@@ -155,6 +201,14 @@ def save_attachments(msg: Message, target: Path) -> list[tuple[str, int]]:
             continue
         name = Path(decode_hdr(fn)).name  # Pfad-Anteile strippen (kein Traversal)
         data = part.get_payload(decode=True) or b""
+        (target / name).write_bytes(data)
+        saved.append((name, len(data)))
+    for part in _rfc822_teile(msg):
+        inner = part.get_payload(0) if part.is_multipart() else None
+        if inner is None:
+            continue
+        name = Path(_eingebetteter_name(part)).name
+        data = inner.as_bytes()
         (target / name).write_bytes(data)
         saved.append((name, len(data)))
     return saved
@@ -1387,6 +1441,12 @@ def cmd_fetch(
     if quelle == "text/html":
         print("[nur HTML-Teil vorhanden — als Text dargestellt]")
     print(rumpf)
+    for kopf, text in eingebettete_nachrichten(msg, max_chars=max_chars):
+        print("\n--- Eingebettete Nachricht (message/rfc822) ---")
+        for feld, wert in kopf.items():
+            print(f"{feld + ':':9}{wert}")
+        print("---")
+        print(text)
     if save_dir:
         for name, size in save_attachments(msg, Path(save_dir).expanduser()):
             print(f"Anhang gespeichert: {name} ({size} Bytes)")

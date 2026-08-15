@@ -347,6 +347,28 @@ case "$CRON_OUT" in
   *)                     record "0.7.2 cron-melder" "WARN" "Cron-Melder-Check nicht auswertbar — manuell: platform/tools/cron_melder_check.py" ;;
 esac
 
+# ── 0.7.4 Prio zeigt auf Erledigtes (platform#1945 K3) ──────────────────────
+# Phase 2.6 des Skills verlangt denselben Abgleich von HAND ("Handover ↔ Memory
+# Reconciliation"). Genau daran haengt er: am 2026-08-12 zeigte die platform-Prio
+# ZWEIMAL an einem Tag auf Ueberholtes, gefangen hat es nur ein Mensch, der daran
+# dachte. Der Melder nimmt die Pflicht nicht weg, aber er faellt nicht aus, wenn
+# jemand die Phase ueberliest (🌀 execution_fidelity_long_documents).
+# Bewusst NUR das Ziel-Repo: ein Flotten-Lauf waere ein Netz-Call je Referenz und
+# gehoert nicht in den Sitzungsstart.
+STALE_REPO_DIR="$GITHUB_DIR/$TARGET_REPO"
+if [ -f "$STALE_REPO_DIR/AGENT_HANDOVER.md" ]; then
+  STALE_OUT=$(cd "$STALE_REPO_DIR" && python3 "$PLATFORM_DIR/tools/handover_stale_reference_check.py" AGENT_HANDOVER.md 2>/dev/null || true)
+  STALE_N=$(echo "$STALE_OUT" | grep -c '^STALE' || true)
+  case "$STALE_OUT" in
+    PASS*)  record "0.7.4 prio-referenzen" "PASS" "$(echo "$STALE_OUT" | head -1 | cut -c1-120)" ;;
+    SKIP*)  record "0.7.4 prio-referenzen" "PASS" "keine Prio-Liste im Handover — nichts zu pruefen" ;;
+    STALE*) record "0.7.4 prio-referenzen" "WARN" "$STALE_N Prio-Referenz(en) zeigen auf Erledigtes — Prio nachziehen VOR Arbeitsbeginn: $(echo "$STALE_OUT" | grep '^STALE' | head -3 | awk '{print $2}' | tr '\n' ' ')" ;;
+    *)      record "0.7.4 prio-referenzen" "WARN" "Prio-Referenz-Check nicht auswertbar — manuell: platform/tools/handover_stale_reference_check.py" ;;
+  esac
+else
+  record "0.7.4 prio-referenzen" "PASS" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts zu pruefen"
+fi
+
 # ── 0.7.3 /opt/platform Git↔Prod-Drift (platform#1585) ──────────────────────
 # Der Prod-Klon /opt/platform haengt read-only im Mail-Container; gezogen wird er
 # von Hand. Nichts meldet, wenn das unterbleibt — zwischen 2026-07-02 und
@@ -363,6 +385,22 @@ case "$OPTDRIFT_OUT" in
   "RESULT: HINTERHER"*)  record "0.7.3 opt-platform" "WARN" "${OPTDRIFT_OUT#RESULT: HINTERHER — }" ;;
   "RESULT: UNGEPRUEFT"*) record "0.7.3 opt-platform" "WARN" "${OPTDRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
   *)                     record "0.7.3 opt-platform" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/opt-platform-drift.sh" ;;
+esac
+
+# ── 0.7.5 Hook-Verteil-Drift (platform#1989) ────────────────────────────────
+# Dritter Fall derselben Klasse wie 0.7.1 und 0.7.3: die Welle-1-Scanner liegen
+# DIREKT in ~/.claude/hooks/ und werden von settings.json von dort ausgefuehrt —
+# eine Verteil-Lane gibt es fuer sie nicht (cc-skill-dist bespielt nur managed/).
+# Am 2026-08-15 wichen alle drei von main ab; im aktiven gate_hits.py fehlte die
+# pytest-Sperre aus #1986, also genau die Aenderung, die das neu gestartete
+# Kalibrierfenster (#1640) vor Testrauschen schuetzen sollte. Merge gruen, Sperre
+# im Repo vorhanden, Wirkung null. Die Kopie kann sich nicht selbst pruefen.
+HOOKDRIFT_OUT=$("$PLATFORM_DIR/tools/hook-dist-drift.sh" --quiet 2>/dev/null | tail -1 || true)
+case "$HOOKDRIFT_OUT" in
+  "RESULT: OK"*)         record "0.7.5 hook-dist" "PASS" "${HOOKDRIFT_OUT#RESULT: OK — }" ;;
+  "RESULT: DRIFT"*)      record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.5 hook-dist" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/hook-dist-drift.sh" ;;
 esac
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────

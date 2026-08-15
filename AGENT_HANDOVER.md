@@ -35,237 +35,46 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-12 — Mail Activity Intelligence; parallele Sessions kollisionsfrei; Admin geprueft und abgesichert)
+## ⚡ Aktueller Stand (2026-08-15 — FP-Kalibrierfenster maß sich selbst; Hook-Verteil-Drift jetzt sichtbar)
 
-**Zeitanker:** HEAD `1a4e5659` · `rev-list --count` 3173 · geschrieben 2026-08-12 07:35, ergaenzt 13:55 · **vereinigt zwei Straenge desselben Tages** (`1f9813` Mail Activity Intelligence, `9ee08c2` parallele Sessions + Admin-Test)
+**Zeitanker:** HEAD `1148dbde` · geschrieben 2026-08-15 · eine Sitzung (Kapitäns-Kanal, Session-Start-Items 4+5 + Owner-Folgeaufträge)
 
-### Strang `1f9813` — von zwei Review-Runden zur Kategorien-Tabelle
+- **Der Kernfund war nicht die Aufgabe.** Die FP-Datengrundlage für das Ritual am 16.08. ([#1640](https://github.com/achimdehnert/platform/issues/1640)) bestand aus 212 Treffern — **alle 212 aus `pytest`, null aus echten Sitzungen**. Die Scanner-Drills fahren `scanner.main()` mit Fixture-Sätzen durch, und `main()` protokolliert ohne `pfad`, also in das echte Protokoll. Belege: Ausschnitte wörtlich = Fixture-Sätze, `session` bei allen Zeilen leer, Marker-Verteilung exakt uniform (6×22, 4×20). Ein „0 Fehlalarme"-Urteil wäre **vakuum wahr** gewesen. Gesperrt mit [#1986](https://github.com/achimdehnert/platform/pull/1986); Fenster läuft ab 2026-08-15 neu, Termine in [#1987](https://github.com/achimdehnert/platform/pull/1987) und die GATE-HEADER in [#1988](https://github.com/achimdehnert/platform/pull/1988) (selbstbetreffend, Owner-Freigabe wörtlich).
+- **Teuerster Einzelfund:** nach dem Merge von #1988 wich der aktive Hook-Pfad `~/.claude/hooks/` in **allen drei** Welle-1-Dateien von `main` ab — im aktiven `gate_hits.py` fehlte die Sperre aus #1986, also genau die Änderung, die das neue Fenster schützen sollte. **Merge grün, Sperre im Repo, Wirkung null.** Ursache: diese Hooks werden von Hand verteilt (`cc-skill-dist` bespielt nur `managed/`). Nachgezogen + scharf geprüft; Ursache getrackt in [#1989](https://github.com/achimdehnert/platform/issues/1989), Schritt 1 gebaut in [#1991](https://github.com/achimdehnert/platform/pull/1991) (Runner-Phase **0.7.5**, im Haupt-Tree verifiziert).
+- **Vier weitere Drifts, die der neue Melder sofort fand — bewusst NICHT gesynct:** `block_unformatted_push.sh`, `hygiene_melder.py`, `memory_link_guard.py`, `model_change_detector.sh`; drei davon in `settings.json` verdrahtet. Einzeln ansehen statt Massenzug (#1989).
+- **Offene Frage gedreht:** nicht „wie viele Fehlalarme?", sondern **„warum feuert ein Gate mit ×8/×10-Regelverletzung in fünf arbeitsreichen Tagen nie?"** — Recall, nicht Precision. Advisory→blocking bleibt bis dahin unbegründbar.
+- **Zwei Quelltext-Grep-Tests durch Verhaltens-Tests ersetzt** (Archiv-Behandlung, #1953): `assert '…' in quelle` bricht bei jeder Umformulierung und hält jede Verhaltensänderung für in Ordnung. Falsifikation belegt.
+- **Abnahme (0d):** Zielzustand **erreicht** — K1 Messapparat misst nicht mehr sich selbst (Kontrollprobe 212→212 bei vollem Testlauf) · K2 Herkunft wird vor dem Urteil ausgewiesen · K3 Quelle↔aktiver-Pfad-Drift ist jede Session sichtbar · K4 Freigabe-Hürde steht im maschinenlesbaren Header. **SA-4: 0 Anwendungen** (nicht beansprucht; jede Eskalation lief über wörtliche Owner-Freigabe). 2 Classifier-Blocks gemeldet, keiner umgangen.
 
-**Was jetzt belegt ist und vorher Vermutung war.** [KONZ-043](docs/konzepte/KONZ-platform-043-mail-activity-intelligence.md)
-**B12**: Der Abstand Gegenüber → Faden ist gemessen, lesend gegen Produktion, vom Owner
-unabhängig reproduziert — **49 → 168 Zeilen**, bei „ich schulde" **13 → 70**. Die Asymmetrie
-ist der Befund: Je Adresse kippt *jede* Antwort in *irgendeiner* Sache die Richtung auf
-„ich warte" und verdeckt alle unbeantworteten Fäden desselben Gegenübers. Der Fall, für den
-das Cockpit gebaut wird, ist der, den die billige Gruppierung am zuverlässigsten
-verschluckt. **Kill-Kriterium (c) kippt damit**: Die kleine Lösung deckt den Nutzen
-erkennbar *nicht* ab; offen bleibt nur REC-1 (Nutzenmessung).
+## ⚡ Vorheriger Stand (2026-08-13 — Handover-Auftrag #1945 geschlossen; Flotte von 23 auf 47 Repos mit Handover)
 
-**Gemergt und live:** [dev-hub#267](https://github.com/achimdehnert/dev-hub/pull/267)
-(`mail_wartet --je-faden`), [#268](https://github.com/achimdehnert/dev-hub/pull/268)
-(Buchungsansicht: Überschrift folgte der Sortierung nicht, Kappung nannte den Rest nicht),
-[#271](https://github.com/achimdehnert/dev-hub/pull/271) (Django-Admin, 17 Tabellen sichtbar,
-Bestand schreibgeschützt). Deploy grün **und** verifiziert: `admin.py` liegt im
-Prod-Container.
+**Zeitanker:** geschrieben 2026-08-13 · eine Sitzung (Kapitäns-Kanal, Auftrag #1945 + Folgefunde)
 
-**Offen mit CI:** [dev-hub#272](https://github.com/achimdehnert/dev-hub/pull/272) —
-Kategorie je Gegenüber. Polarität bewusst umgedreht („zeige, was bekannt ist" statt
-„verstecke Rauschen"), weil eine Absenderliste gegen wechselnde Adressen strukturell
-machtlos ist. Die Abwehr gegen neue Absender ist die **Zweiseitigkeit**, nicht die Tabelle.
-
-**[ADR-295](docs/adr/ADR-295-mailbestand-zweiter-standort-dev.md) accepted** — zweiter
-Mailbestand auf dem Dev-Host, HNU eingeschlossen (Owner-Entscheidung auf benannten
-Einwand). Gate-Stand am Tag der Annahme erhoben, **kein Byte übertragen**:
-Gate 2 erfüllt (Dev-Instanz nur auf `127.0.0.1:8085`, kein cloudflared — strenger als
-Cloudflare Access) · Gate 3 geklärt (keine Sicherungen auf dem Host) · Gate 4 sauber
-(Produktionsschlüssel nachweislich nicht dort, beide `read_secret`-Wege geprüft) ·
-Gate 5 verankert ([dev-hub#270](https://github.com/achimdehnert/dev-hub/issues/270),
-Löschtermin 2026-11-11).
-
-- **⚠️ Der eine offene Punkt mit Risiko — ADR-295 Gate 1.** `record_erasure` wird
-  **ausschließlich aus Tests** aufgerufen: kein Kommando, keine View, keine Admin-Aktion.
-  Eine Art.-17-Löschung ist heute Handarbeit, **schon für einen** Bestand. Das blockiert die
-  Datenübertragung nach dev und ist der Grund, warum der Löschknopf im Admin gesperrt ist.
-  Empfehlung: `mail_loeschen` bauen, bevor die Kategorien gefüllt werden.
-- **⚠️ Vor jedem Wipe des Bestands** (Owner-Plan: testen, dann sauber neu aufsetzen): Der
-  **Grabstein ist die Sperre**, nicht nur der Nachweis — `ingest_or_skip` fragt
-  `is_blocked()` (`services.py:109`). Ein Wipe löscht die Sperre, der nächste Ingest holt
-  die gelöschte Nachricht zurück. Grabsteine müssen den Wipe überleben und **vor** dem
-  ersten Ingest zurückgespielt werden. Heute genau 1 Grabstein, und der ist der
-  ADR-293-Gate-3-Nachweis, keine Betroffenen-Anfrage.
-- **B9 zweimal korrigiert.** Erst falsch (ADR-022 — enthält null Treffer), dann zu weit
-  (ADR-109 H-1 bindet `TenantModel` in Tenancy-UI-Hubs, nicht jedes Modell). Belegter
-  Stand: Die `BigAutoField`-Konvention lebt in **App-ADRs** (097/139/146/153/172) und wird
-  im `/prompt`-Skill unter einer Nummer geführt, die sie nicht enthält. Ein externer
-  Bearbeiter hatte sein Design auf die erste Zusage hin geändert — Rückmeldung an ihn steht
-  weiterhin aus (aus Strang `4f808a` übernommen).
-- **Dev-Host:** GHCR-Anmeldung gesetzt, Images gezogen, `mail_agent` jetzt dort vorhanden
-  (Tabellen migriert, leer). `/opt/dev-hub/.env` **neu angelegt** mit `PROD_HOST` —
-  Übergangslösung, Preis und Zielzustand in
-  [dev-hub#269](https://github.com/achimdehnert/dev-hub/issues/269): Aus dev-Containern
-  zeigen damit alle Plattform-Domains auf Produktion.
-- **Abnahme (Phase 0d):** Zielzustand bei Session-Start **n/a** (Einstieg war eine
-  Bewertungsfrage, kein Auftrag). Mid-session akzeptierte Ziele, alle **erreicht**:
-  Review-Ergebnisse in KONZ-043 eingearbeitet · MVP gegen die Reviews gestellt und
-  weitergebaut · Beschluss für den zweiten Standort geliefert · Admin gebaut. **Verschoben
-  mit Tracking:** Datenübertragung nach dev (Gate 1, s. o.), Kategorien füllen (#272 nicht
-  gemergt).
-- **SA-4: 0 Anwendungen · 0 Fehlanwendungen.** Kein platform-PR wurde autonom gemergt;
-  Prod-Zugriff und Credential-Op liefen über ausdrückliche Owner-Freigaben, eine
-  Klassifikator-Sperre wurde nicht umgangen, sondern durch einen schreibfreien Leseweg
-  ersetzt.
-
-### Strang `e5efe77e` — FW-Speicher- und Drift-Welle (2026-08-11, Kapitäns-Kanal)
-
-- **[#1899](https://github.com/achimdehnert/platform/issues/1899) FW-Speicher: alle 5 Akzeptanzkriterien erfüllt.** litellm lazy importiert (aifw#40 → Release 0.11.7, OIDC), gunicorn `--preload` kalibriert (writing-hub#551: 203→110 MiB) + Fleet-Rollout (dev/cad/risk/137/tax). Host hetzner-prod: belegt 15–16 → **13,4 GB**. Messkommando `tools/fw_mem_baseline.sh` (v2 mit App-Boot-Analyse, #1909). Alle Nachweise als Kommentare in #1899.
-- **[#1900](https://github.com/achimdehnert/platform/issues/1900) Version-Drift: 13 aktive Consumer auf SSoT** (`docs/conventions/fw-dependency-ranges.md`; Regeln 5+6 — Lock-Regenerierung + Rename-Altlasten — in PR [#1917](https://github.com/achimdehnert/platform/pull/1917), wartet auf Review). Finaler Kontroll-Scan als Abschluss-Kommentar im Issue. Ausnahmen einzeln getrackt: bfagent/research-hub (frozen) · ausschreibungs-hub (#1845) · trading-hub (Deploy rot) · apo-hub (aifw via shared-ci `iil-refresh`, kein Repo-Pin).
-- **ADR-294 (LLM-Gateway, proposed) gemergt** — Accept-Voraussetzung: K4-Langzeitzahlen (wie viele Prozesse nach lazy-Rollout real LLM-aktiv).
-- **wedding-hub-Stilllegung ABGESCHLOSSEN (Delta 11:30):** Owner-Formel wörtlich erteilt → Repo **archiviert** (ID 1154747767, Topic `scheduled-deletion-2026-09-10`), DB-Dump verifiziert (42 Tabellen), Stack vollständig gestoppt (Volumes bleiben), Tombstone [#1924](https://github.com/achimdehnert/platform/issues/1924), Registry-Cleanup gemergt ([#1925](https://github.com/achimdehnert/platform/pull/1925), Code-Owner-Review lag vor). **Einziger Rest: DELETE frühestens 2026-09-10, ausschließlich Mensch** (Kommando im Tombstone).
-- **weltenhub:** Deploy-Kette repariert — Runner auf prod-b umgezogen (Owner-Skript) + `/opt/scripts` provisioniert (**Host-Eingriff, IaC-Spiegel offen** → weltenhub#49); Deploy grün, 0.11.7 live (web 92 statt 247 MiB). Kernlehre: `_deploy-unified` deployt per Design auf den **Runner-Host** (Z. 288), DEPLOY_HOST greift nur im SSH-Fallback.
-- **Offen (Owner-Zug, Delta 11:30):** ~~risk-Prod~~ **erledigt** (Dispatch 11:0x, Prod verifiziert **0.11.8 + preload**, web 230→180 MiB) · ~~#1917~~ **gemergt** (SSoT-Regeln 5+6 Kanon) · 137-hub GHCR dauerhaft ([137-hub#86](https://github.com/achimdehnert/137-hub/issues/86); Host-PAT-Relogin ist Übergangslösung, Wurzel #1078) · travel-beat Prod-Migration rot ([travel-beat#79](https://github.com/achimdehnert/travel-beat/issues/79), Vorbestand: erster Deploy seit 12.07.) · tax-Preload kommt mit dem nächsten Prod-Trigger · weltenhub#49 IaC-Spiegel `/opt/scripts`.
-- **Abnahme (Phase 0d):** #1899 **erreicht** (K1–K5 einzeln verifiziert) · #1900 **erreicht im erreichbaren Umfang** (Rest je Tracking-Artefakt) · wedding-hub **verschoben** (wartet auf Owner-Formel; Tracking: dieser Block + Issues).
-- **SA-4: ~20 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Prod-Dispatch, Publish-Tag, Credential-Ops und Runner-Registrierung liefen sauber über Owner/Classifier-Gates.
-
-### Strang `4f808a` — Mailcheck, todo-Board, Activity Intelligence (parallele Sitzung, 10:30–15:00)
-
-**Zeitanker:** HEAD `68d476dc` · geschrieben 2026-08-11 15:00 · Einstieg war `/mailcheck`
-
-- **⚠️ ZUERST LESEN — offener Fehler von mir in einem öffentlichen Repo.** [KONZ-043](https://github.com/achimdehnert/platform/pull/1934) Befund **B9** behauptet, `UUID PK` und `JSONB` widersprächen **ADR-022**. Das ist **falsch**: ADR-022 (627 Zeilen, `accepted`) entscheidet Deployment-Themen und enthält **null** Treffer für `BigAutoField`/`UUIDField`/`JSONField`/`DEFAULT_AUTO_FIELD`. Die Regel steht in der Constraint-Liste des `/prompt`-Skills (dort als „ADR-022 (Database-First)" attribuiert) und real in ADR-097/139/146/153/172 — **App-ADRs, kein plattformweiter Standard**. Folgeschaden: Ein externer Bearbeiter hat sein Design **auf meine Zusage hin geändert** (Integer-PK statt UUID). Zu tun: B9 korrigieren, dem Bearbeiter zurückmelden, und klären, ob die Konvention einen eigenen ADR bekommen soll — sie wird als Standard behandelt, ohne einer zu sein.
-- **todo.iil.pet trägt Nummern und Mail-Links** ([#1926](https://github.com/achimdehnert/platform/pull/1926) gemergt). Live verifiziert nach `systemctl --user restart todo-board.service` — der Dienst lädt **nicht** selbst neu, das ist der Deploy-Schritt dieses Repos. Das Modal für Mail-Links ist **gemessen unmöglich** (Cloudflare Access sendet `frame-ancestors 'none'`) → `target=_blank`, Ursache getrackt als [#1927](https://github.com/achimdehnert/platform/issues/1927).
-- **Nachtrag [#1932](https://github.com/achimdehnert/platform/pull/1932) (gemergt):** Die Board-Probe prüfte nur `mail-anker.json` (IMAP), der Dienst löst aber auch über die Kurz-ID-Registry (Graph) auf → **jeder IIL-Vorgang blieb unverlinkt**. `aufloesbare_nummern()` spiegelt jetzt beide Wege (`/a/` IMAP, `/r/` Graph).
-- **ADR-288: zwei externe Pre-Mortem-Runden verankert** ([#1930](https://github.com/achimdehnert/platform/pull/1930), §11.7, 13/13 Empfehlungen getaggt). **Beide raten unabhängig vom Accept ab** — ein Accept beglaubigt einen Zustand, den der ADR selbst verbietet (§8 Gate 0: „Gate-Entscheidungen dürfen nicht auf 66.580 aufsetzen"). Ein Befund ist im Dokument belegt: Z. 194 sagt „nicht `$batch`", §4.11 schreibt `$batch` vor. **Status bleibt bewusst `proposed`.**
-- **KONZ-042 zurückgezogen, Inhalt nach KONZ-040 §14** ([#1931](https://github.com/achimdehnert/platform/pull/1931)). Zwei Kritiker-Agenten widerlegten fünf tragende Aussagen; die Frage war zudem in KONZ-040 D4 längst entschieden. **Neuer Fund, der bleibt:** `tools/checks/mandantendaten_gate.py` liest denselben Ledger und fällt bei fehlender Datei still auf eine leere Menge zurück — ein Umzug hätte den Riegel für ein **öffentliches** Repo unbemerkt blind gemacht.
-- **MVP geliefert** ([dev-hub#267](https://github.com/achimdehnert/dev-hub/pull/267), offen): `mail_wartet` — deterministische Baseline ohne KI. Gemessen gegen Prod: 431 Zeilen ohne Obergrenze, **49 mit Fenster 7–30 Tage** (13 „ich schulde"). Der eigentliche Befund: Die Wartezeit-Verteilung steigt **monoton mit dem Alter** — der Bestand hat **kein natürliches Tal** zwischen „wartet noch" und „ist längst vorbei". Jede Grenze ist eine Setzung; ab ~30 Tagen kann die deterministische Regel nicht mehr trennen.
-- **Abnahme (Phase 0d):** Zielzustand bei Session-Start **n/a** (Einstieg war `/mailcheck`). Mid-session akzeptiert: [dev-hub#266](https://github.com/achimdehnert/dev-hub/issues/266) — Abnahme **teilweise erreicht**: Kriterium 2 (abgeleitet statt getippt) und 6 (Regel im Code + Test) durch #267 erfüllt, Kriterium 1/3/4/5 offen, PR nicht gemergt.
-- **SA-4: 0 Anwendungen · 0 Fehlanwendungen.** Kein PR dieser Sitzung wurde autonom gemergt; jeder Merge kam vom Owner.
-- **Offen für die nächste Sitzung:** B9-Korrektur (oben) · [#1934](https://github.com/achimdehnert/platform/pull/1934) + [dev-hub#267](https://github.com/achimdehnert/dev-hub/pull/267) Review · Blind-Briefing unbenutzt (`~/shared/adr-handoff-KONZ-platform-043-blind-2026-08-11.md`) · **sieben Mail-Vorgänge unbearbeitet** (todo.iil.pet Nummern 125 (Frist war 11.08.), 108 (Frist 22.08.), 114, 126, 124, 109, 111 — Gegenüber stehen im lokalen Ledger, nicht hier).
-
-### Strang `9ee08c2` — parallele Sessions, und ein Admin, der mehr zeigt als gedacht
-
-Einstieg war eine Nummernkollision, Ausgang ein Zielzustand mit zwei gebauten Kriterien.
-
-- **Die Kollision war der Klassenfall, nicht die Ausnahme.** [#1942](https://github.com/achimdehnert/platform/pull/1942)
-  legte `KONZ-platform-043-formatsatz-paket.md` an, während `…-043-mail-activity-intelligence.md`
-  aus [#1934](https://github.com/achimdehnert/platform/pull/1934) schon auf `main` lag. **Beide
-  Sitzungen hatten korrekt `max+1` gegen `main` gerechnet** — zum jeweiligen Vergabezeitpunkt
-  war das für beide die 043. Umnummeriert auf 044.
-- **Zielzustand [#1944](https://github.com/achimdehnert/platform/issues/1944)** (Owner-akzeptiert,
-  Reihenfolge K5 zuerst, K2 gesondert). **K5 erfüllt** ([#1946](https://github.com/achimdehnert/platform/pull/1946)):
-  `tools/session_collision_meter.py` — 30 Tage, 559 PRs, 3061 gleichzeitig offene Paare,
-  **59 Kollisionspaare (1,9 %)**, davon 1 Nummern-, 37 Substanz-, 21 Generat-Fall.
-  **K1 erfüllt** in zwei Teilen: [#1947](https://github.com/achimdehnert/platform/pull/1947)
-  (Erkennung am PR, ADR-Muster auf KONZ übertragen) + [#1950](https://github.com/achimdehnert/platform/pull/1950)
-  (`scripts/naechste_nummer.py`, Vergabe gegen alle Refs + offene PRs + lokale Reservierungen).
-  Beleg am Kriterium: zwei Worktrees ohne Push dazwischen → 045 / 046; der alte Weg liefert
-  in denselben zwei Worktrees **zweimal 045**.
-- **K2 abgestuft, nicht gebaut — und meine erste Diagnose dazu war falsch.** Ich hatte
-  `next_free` als dominante Konfliktquelle benannt und wollte es entfernen. Der Gegentest
-  widerlegte beides: ohne `next_free` kollidiert `add+add` unverändert, **und der häufigere
-  `add+edit`-Fall wird dadurch erst rot** (die entfernten Zeilen sind der Kontext, an dem der
-  3-Wege-Merge verankert). Nach Trennung der Fälle bleiben von 12 geteilten Index-Berührungen
-  **4 echte Konflikte pro 30 Tage** — Owner-Entscheid: akzeptierte Restgröße, weil der einzige
-  wirksame Fix (Regeneration nach Merge) Schreibrecht eines Automaten auf `main` bräuchte und
-  damit unter das Out-of-Scope des Issues fällt.
-- **Der Mailbestands-Admin ist gebaut, live und zeigt den Volltext — bewusst.** Drei Testrunden
-  gegen eine ephemere Instanz mit Demo-Daten: 17/17 Modelle rendern HTTP 200, 15 komplett
-  schreibgeschützt, `Vorgang`/`VorgangsZuordnung` gewollt schreibbar, Löschen überall gesperrt,
-  `ciphertext`/`wrapped_dek` nirgends sichtbar (mit Positivkontrolle). **Runde 3 fand:
-  `TextUnit.text` steht auf der Detailseite vollständig da** — Ursache ist eine Asymmetrie
-  (`get_list_display` schließt drei Feldtypen aus, `get_readonly_fields` nur `BinaryField`).
-  Owner-Entscheid: **gewollt, kein Fix**; verankert und festgenagelt in
-  [dev-hub#273](https://github.com/achimdehnert/dev-hub/pull/273) inkl. Gegenprobe (die
-  „Reparatur" macht den Test rot).
-- **Die Prämisse dieses Entscheids stimmte nur halb — und ist jetzt hergestellt.**
-  `dev-hub.iil.pet/admin/` lief über Cloudflare, aber **ohne Access**: ein anonymer Aufruf
-  landete direkt auf der Django-Maske; von 25 Access-Anwendungen deckte **keine** dev-hub ab.
-  Werkzeug [#1949](https://github.com/achimdehnert/platform/pull/1949) gebaut und angewandt —
-  `/admin/` leitet jetzt nach `iil-team.cloudflareaccess.com`, alle anderen Routen (`/`,
-  `/healthz`, `/livez`) antworten unverändert 200. Rückbau ist ein `DELETE` auf die Anwendung.
-- **Eigener Fehler, benannt statt versteckt:** Ich meldete „`apps/mail_agent/admin.py` fehlt,
-  17 Modelle, 0 registriert" — und hatte die Abwesenheit sogar abgesichert, weil derselbe Grep
-  in 13 anderen Apps fündig wurde. **Genau diese Kontrolle erzeugte die Sicherheit, die den
-  Fehler durchgehen ließ:** sie belegte den Filter, nicht das Alter der Daten. Gelesen wurde
-  der Working Tree, der **einen** Commit zurückhing — und dieser eine Commit war der, der
-  `admin.py` anlegte. Der Owner musste den Chatverlauf zurückspiegeln. Als neue Facette in
-  `feedback_stale_local_clone_never_ground_truth` ergänzt: eine Abwesenheits-Aussage braucht
-  **zwei** Kontrollen — kann der Suchweg finden, **und** ist die Lesequelle der Ref.
-- **Abnahme (Phase 0d): Zielzustand #1944 — teilweise erreicht, Rest getrackt.**
-  K1 **erreicht** (beide Teile gemergt, Kriterium wörtlich geprüft) · K5 **erreicht**
-  (Ausgangszahl erhoben, Werkzeug gemergt) · K2 **abgestuft** (Owner-Entscheid, im Issue
-  begründet) · K3 und K4 **offen**, im Issue benannt. Zwei Konsolidierungen bewusst
-  aufgeschoben und dort vermerkt: die zwei Guard-Skripte und die zwei Vergabe-Kommandos —
-  beide brauchen eine Änderung an `adr-guard.yml`, deren `paths`-Filter sie im selben PR
-  nicht belegbar macht.
-- **SA-4: 1 Anwendung · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.**
-  Autonom gemergt wurde allein [#1946](https://github.com/achimdehnert/platform/pull/1946)
-  (`tools/`, außerhalb des Perimeters, CI grün). #1949/#1950 standen auf `BLOCKED`
-  (`infra/`, `scripts/` im Code-Owner-Perimeter), alles Übrige mergte der Owner. Der
-  Cloudflare-Schreibzugriff lief nicht unter SA-4: der Permission-Classifier blockte ihn
-  zunächst, ausgeführt wurde er erst nach ausdrücklicher Owner-Freigabe.
-
-## ⚡ Vorheriger Stand (2026-08-10 — zwei Sitzungen; Review-Pflicht neu geschnitten, v1.1.6-Welle mit einem Rest)
-
-**Zeitanker:** HEAD `9a1cb2d7` · geschrieben 2026-08-10 15:00 · vereinigt zwei Sitzungen
-desselben Tages (`504951` und `c45b39`). Der Block von `504951` steht unverändert
-darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstanden und
-**eine seiner Aussagen überholen** (siehe erster Punkt).
-
-### Strang `c45b39` — Review-Reichweite, Melder, Retro
-
-- **Die Ruleset-Zahl ist nicht mehr offen.** Der Punkt „`required_approving_review_count: 1`
-  gilt pfadunabhängig … gehört ins Ritual am 16.08." im Block darunter ist seit **14:45Z
-  erledigt**: B1-2 ist angewandt (`count: 0`, `require_code_owner_review: true`,
-  `bypass_actors: []`, `current_user_can_bypass: never`). **In beide Richtungen gegengeprüft**,
-  beide PRs mit identischen sechs grünen Checks: [#1889](https://github.com/achimdehnert/platform/pull/1889)
-  (`/policies/`) → `mergeable_state: blocked`; [#1890](https://github.com/achimdehnert/platform/pull/1890)
-  (`docs/retros/`) → `clean`, von mir gemergt — erste reale Ausübung von SA-2.
-- **Abnahme (Phase 0d): Zielzustand „Review verlangt platform nur noch dort, wo eine
-  Entscheidung fällt" — erreicht.** Kriterien einzeln: (a) Catch-all weg, Perimeter auf
-  14 Pfade ([#1873](https://github.com/achimdehnert/platform/pull/1873),
-  [#1879](https://github.com/achimdehnert/platform/pull/1879)); (b) Ruleset-Zahl 0; (c) beide
-  Gegenproben bestanden. **Auslösende Messung:** 400 gemergte PRs in 30 Tagen, **0** ohne
-  Approval, 399 von einem Konto; 73 % der PRs berührten keinen Governance-Pfad.
-- **Der Perimeter ist BREITER als vorher, nicht schmaler.** Neu unter Code-Owner-Schutz:
-  `/governance/`, `/deployment/`, `/infra/`, `/scripts/`, `/.windsurf/` + vier Security-Konfigs.
-  `/governance/` **fehlte** in der ersten Fassung entgegen KONZ-032 B1-1 Z.165 — still
-  verloren, in keiner Commit-Message erwähnt. `/tools/` bleibt bewusst frei (größter
-  Volumenposten, CI trägt).
-- **Vier Melder ohne Leser geschlossen:** Megatest zeigt senkbare Budgets wieder
-  ([#1865](https://github.com/achimdehnert/platform/pull/1865)); Hygiene-Melder trennt
-  Kandidat/Sichten und ein aktives Lease schlägt jetzt den Merge-Zustand
-  ([#1871](https://github.com/achimdehnert/platform/pull/1871)); advisory-Scanner
-  protokollieren ihre Treffer ([#1868](https://github.com/achimdehnert/platform/pull/1868));
-  Anker-Stand ist Pflichtzeile im Mailcheck ([#1874](https://github.com/achimdehnert/platform/pull/1874)).
-- **Mail-Board aus dem Ledger gerendert** ([#1863](https://github.com/achimdehnert/platform/pull/1863)):
-  stabile Nummern (nie wiederverwendet), eine Linkform `/a/<nr>` für IMAP **und** Graph,
-  inhaltsabhängige Aktionen aus `typ`. **Offen: 11 von 17 Vorgängen ohne Anker**
-  ([#1864](https://github.com/achimdehnert/platform/issues/1864)) — bewusst nicht geraten.
-- **Retro `deep`** (`docs/retros/session-retro-2026-08-10-platform-c45b39.md`,
-  [#1882](https://github.com/achimdehnert/platform/pull/1882)): 17 Befunde, 16 überlebt,
-  1 widerlegt — **der widerlegte war meiner**. Scores `3/3/4/2/3/3`. Die drei schwersten
-  Befunde sind selbstverschuldet; einer davon: ich habe meine eigene Auslassung als
-  Spezifikationslücke des Plans gemeldet (B1-2 stand wörtlich drin).
-- **SA-4-Zähler dieses Strangs: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung ·
-  0 Fehlanwendungen.** Jede Aktion trug ein wörtliches Owner-Wort. **`over_ask`: 1** — der
-  Artefakt-Checkpoint wurde als Frage mit Stopp gestellt statt gespiegelt; vom Owner
-  moniert, seither Bericht im Abschluss. **`over_act`: 0.**
-- **Was ich nicht selbst kann, gemessen statt vermutet:** Governance-Config schreiben.
-  Weder `gh api -X PUT …/rulesets/…` noch eine Datei unter `governance/rulesets/` — beides
-  Hard-Deny des Auto-Mode-Classifiers, Lesen geht. Keine Permission-Frage
-  (`permissions.allow` enthält `Bash(*)`). Der PUT lief über den Owner per `!`. **Rest:
-  die IaC-Datei fehlt weiterhin**, JSON liegt im Text von #1879.
-- **Offen für die nächste Sitzung:** [#1889](https://github.com/achimdehnert/platform/pull/1889)
-  (Changelog-Nachtrag, bewusst reviewpflichtig) · [#1881](https://github.com/achimdehnert/platform/issues/1881)
-  (Auto-Reap meldet Werkzeugfehler als grün, **hoch**) · [#1864](https://github.com/achimdehnert/platform/issues/1864)
-  (11 Anker) · IaC-Datei `governance/rulesets/`.
-
-### Strang `504951` — v1.1.6-Welle, todo.iil.pet, Ritual-Reste
-
-- **Abnahme (Phase 0d): Zielzustand „Vorgangsseite auf `todo.iil.pet` führt in die Mail und zeigt nächste Schritte" ([#1869](https://github.com/achimdehnert/platform/issues/1869)) — teilweise erreicht.** Einzeln: K1 **argumentiert statt gemessen** (`/mailcheck` schreibt `mail_ref` per Handgriff, nicht per Code); K2 **nicht erreicht** — der Auftrag verlangt Prüfung „durch Öffnen, nicht durch einen grünen Test", belegt wurde mit `curl`, und das Overlay ist in der gelieferten Fassung strukturell unmöglich (`todo_board.py` bindet es in `detail()` nicht ein, der Interceptor fängt nur `/t/`); K3/K4/K6 erreicht (Gegenprobe-Tests); K5 **zur Hälfte** (Schreib-Endpunkt-Test ja, `mtime`-Probe nie ausgeführt). PR [#1875](https://github.com/achimdehnert/platform/pull/1875) hängt auf `BLOCKED`.
-- **SA-4-Zähler: 1 Anwendung · 6 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Die sechs `m` sind wieder strukturell: das platform-Ruleset verlangt je PR ein Owner-Review, unabhängig vom Pfad — [#1873](https://github.com/achimdehnert/platform/pull/1873) ratifizierte SA-2 in der Annahme, CODEOWNERS-Scoping reiche, aber `required_approving_review_count: 1` gilt pfadunabhängig. **Das gehört ins Ritual am 16.08.**, nicht in eine weitere Einzelfall-Notiz.
-- **Die Welle war nicht vollständig.** `writing-hub` steht als **15.** Consumer weiter auf `shared-ci@v1.1.2`. Mein Preflight-`grep` nahm den ersten `runs_on`-Treffer der Datei — der gehört zum **ci**-Job (`ubuntu-latest`), der **deploy**-Job übergibt gar keinen und läuft auf dem Default `self-hosted`. [#1845](https://github.com/achimdehnert/platform/issues/1845) wurde trotzdem geschlossen. Getrackt als [#1878](https://github.com/achimdehnert/platform/issues/1878); latent, nicht akut (Docker-Image liegt im lokalen Cache — genau der Zustand, in dem ausschreibungs-hub bis zum 06.08. war).
-- **Ein Mute steht ohne Begründung auf `main`.** [#1859](https://github.com/achimdehnert/platform/pull/1859) entfärbte drei rote project-facts-Repos als „Token-Reichweite" und berief sich auf [#1768](https://github.com/achimdehnert/platform/pull/1768) — dessen Titel lautet wörtlich „Owner aus der Registry aufloesen statt achimdehnert hartzukodieren", also genau die Ursache, die ich ausgeschlossen hatte. Eine Parallelsitzung fixte sie 30 Minuten später (#1858, `_kanon_owner`). Der `RepoUnerreichbar`-Zweig schluckt jetzt echte Unerreichbarkeit, ohne dass seine Begründung noch trägt.
-- **Der neue Regress-Wächter nennt sich „blockierend" und ist es nicht.** `iilgmbh/shared-ci` hat weder Ruleset noch Branch-Protection (`branches/main/protection` → 404); PR #48 wurde mit rotem `Validate Syntax` gemergt. Zusätzlich steht der reparierte Docker-Pin in der **platform-eigenen** Kopie von `_deploy-unified.yml` (Z. 245/357) unverändert weiter — der Wächter lebt in shared-ci und ist dafür strukturell blind.
-- **Geliefert und belegt:** Megatest-Budgets 167 → 105 aus CI-Lauf 31364294895 ([#1854](https://github.com/achimdehnert/platform/pull/1854)); der `--update-budgets`-Pfad war tot und ist repariert ([#1853](https://github.com/achimdehnert/platform/pull/1853)); zwei blinde Melder ([#1859](https://github.com/achimdehnert/platform/pull/1859), [#1855](https://github.com/achimdehnert/platform/pull/1855)); shared-cis zwei seit Einführung tote Gates verdrahtet ([shared-ci#50](https://github.com/iilgmbh/shared-ci/pull/50)) — erste Consumer der `workflow-guards`-Action überhaupt.
-- **Ritual-Reste ([#1640](https://github.com/achimdehnert/platform/issues/1640)):** D7 und D8 waren **bereits fertig** (Detektor verdrahtet, Smoke-Suite 250 grün, 7 Gates drill-frisch) — die Abnahmetabelle im KONZ nennt sie nur nicht. FP-Auswertung der zwei advisory-Scanner: **„nicht bewertbar"** (N=2 bzw. 3, unter K3-Mindest-N). D4: alle 69 offenen Dateien gelesen, **42 Extraktions-Entwürfe bewusst NICHT geschrieben** — die adversariale Stichprobe widerlegte 4 von 4.
-- **Retro:** `docs/retros/session-retro-2026-08-10-platform-504951.md` ([#1880](https://github.com/achimdehnert/platform/pull/1880)), 22 Befunde, Scores `3/3/4/2/2/3`. Phase 3 (Falsifikation) lief **nicht** — `refuted_rate 0.0` ist dort ausdrücklich als Lücke geführt, nicht als Qualität.
+- **[#1945](https://github.com/achimdehnert/platform/issues/1945) geschlossen — alle vier Kriterien einzeln belegt.** K1 Flotten-Messung `tools/handover_fleet_check.py` ([#1954](https://github.com/achimdehnert/platform/pull/1954), zwei `--json`-Läufe byte-identisch) · K2 Frische-Gate ([#1955](https://github.com/achimdehnert/platform/pull/1955), 23/23 Repos mit Handover verdrahtet, 5 Ausnahmen je einzeln begründet) · K3 Stale-Referenz-Melder als Runner-Phase **0.7.4** + Registry + Drill (beide Zweige im echten Runner-Pfad verifiziert) · K4 Prio bereinigt ([#1948](https://github.com/achimdehnert/platform/pull/1948)).
+- **Owner-Entscheidung Weg 1 (Handover dort, wo Sitzungen laufen)** umgesetzt ([#1958](https://github.com/achimdehnert/platform/pull/1958)): 26 Erstanlage-PRs, **24 gemergt**. Flotte jetzt **47 von 54** aktiven Repos mit `AGENT_HANDOVER.md` (vorher 23). Das Kriterium zählt PRs aus `session/`-Branches, nicht PRs — nach der PR-Zahl wären 29 von 31 Repos „aktiv" gewesen und die Entscheidung wirkungslos.
+- **Zwei Erstanlagen hängen, beide aus fremdem Grund:** [mcp-hub#198](https://github.com/achimdehnert/mcp-hub/pull/198) braucht ein Review (Branch-Protection, kein Defekt) · [weltenhub#50](https://github.com/achimdehnert/weltenhub/pull/50) blockiert von einem defekten Check → [weltenhub#52](https://github.com/achimdehnert/weltenhub/issues/52). Kein `--admin`-Bypass benutzt — genau dadurch wurde der weltenhub-Defekt überhaupt sichtbar.
+- **Zwei eigene Fehler, beide fremdgefangen und korrigiert:** die Begründung „ein Handover veraltet in ruhenden Repos" war falsch (der Check vergleicht gegen den letzten berührenden Commit, nicht gegen heute) — Owner-Rückfrage, korrigiert in [#1956](https://github.com/achimdehnert/platform/pull/1956) als datierter Block. Und die Search-API lief ins Rate-Limit (30 Anfragen/Minute), `None` wurde als `0` gezählt: `mcp-hub` stand mit 50 Sitzungen als „ruhend" im Bericht. Aufgefallen nur, weil vorher eine Stichprobe lief.
+- **Nebenfunde mit Tracking:** zwei blinde Cron-Melder ([#1953](https://github.com/achimdehnert/platform/issues/1953)) — `Gen project-facts.md` scheitert seit ≥6 geplanten Läufen, während manuelle Läufe grün sind. Sechs verschiedene Gate-Pins in der Flotte, davon 3× `@main`.
+- **SA-4:** Merges liefen im Rahmen des akzeptierten Auftrags; der Permission-Classifier blockte zweimal einen Fan-out (Worktree-Reap, 6-fach-Merge) — beide danach vom Owner bzw. einzeln ausgeführt, nicht umgangen.
 
 ## Nächste Schritte (kompakt)
 
 > **✅ hetzner-prod Speicherlage entschärft 2026-07-29 ([#1303](https://github.com/achimdehnert/platform/issues/1303), Messwerte als Kommentar):** Freies RAM **444 → 9.455 MB**, Swap von **4.095/4.095 auf 1.757/4.095**, laufende Container **113 → 45**. Auf Owner-Anweisung wurden 68 nicht benötigte Container **gestoppt** (nicht entfernt — `docker start` holt jeden zurück, Volumes unangetastet): ausschreibungs-hub, odoo, hub137, wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub, pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl. `ib_gateway`. **Weiter laufen** risk-hub (live), dev-hub, doc-hub, Outline, mcp-hub, authentik, weltenhub, illustration, dms-hub, writing-hub, aifw. **Die Lehre daraus ist wichtiger als die Zahl:** Ein cgroup-OOM sagt nicht, dass der Container zu klein ist — in die cgroup-Bilanz zählt der Seiten-Cache, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen. `devhub_celery` fiel **ohne jede Änderung an ihm** von 370,4 auf 305,9 MiB; ein Import, der dreimal mit `rc=137` starb, lief danach durch. „Limit erhöhen" wäre bei 924 MB freiem Host-RAM die gefährlichere Antwort gewesen. **Weiterhin ungeklärt:** warum die Container am 20.07. entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). **Nicht geheilt und deshalb eigenes Ticket ([#1549](https://github.com/achimdehnert/platform/issues/1549)):** `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Cache) und Health-Checks, die seit Tagen rot sind — `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9`; der Server antwortet weiter, der Worker ist tot.
 
-1. **[#1945](https://github.com/achimdehnert/platform/issues/1945) — Auftrag (SA-4-fähig): Handover funktioniert in jedem aktiven Repo.** Akzeptierter Zielzustand mit 4 prüfbaren Kriterien (Flotten-Messung `handover_fleet_check`, Frische-Gate flottenweit, Stale-Referenz-Melder, platform-Prio bereinigt — Kriterium 4 erledigt dieser PR). Owner-Go 2026-08-12, Kapitäns-Kanal. Realfall-Anker: die platform-Prio zeigte am 2026-08-12 **zweimal** auf Überholtes — nur der manuelle Diskrepanz-Check (session-start 2.6) fing es. Jeder PR verlinkt das Issue + das Kriterium, auf das er einzahlt.
-2. **FP-Auswertung der zwei advisory-Scanner — Datengrundlage existiert erst seit heute.** `deferred_item_scanner` und `scope_checkpoint_scanner` schrieben ihre Treffer **nirgends auf Platte**; das Treffer-Protokoll (`gate_hits.py`) ist erst mit [#1868](https://github.com/achimdehnert/platform/pull/1868) gemergt (2026-08-10 11:46Z). **Konsequenz für den Ritual-Lauf am 16.08.: das Ergebnis ist ein Teilbild** (Messfenster ab Merge + Verteilung in den aktiven Hook-Pfad, nicht ab 02.08.) und muss auch so beschriftet werden — eine „0 Fehlalarme"-Aussage auf dieser Basis wäre ein Eindruck, kein Messwert. Erst danach ist das Scharfschalten advisory→blocking nach D2 begründbar. Tracking: [#1640](https://github.com/achimdehnert/platform/issues/1640).
-3. **[#1078](https://github.com/achimdehnert/platform/issues/1078) Befund 4 — `deploy.sh` loggt sich bei GHCR ein und nie wieder aus.** Die tote Credential bleibt auf dem self-hosted Host liegen und vergiftet jeden späteren anonymen Pull. Das ist die **Wurzel** unter dem am 2026-08-10 geschlossenen [#1845](https://github.com/achimdehnert/platform/issues/1845): der Pin auf die composite-Action (shared-ci v1.1.6) nimmt der Klasse den heutigen Auslöser, heilt sie aber nicht — ein anderer Docker-Pull auf demselben Host trifft dieselbe Credential wieder.
+1. **Wochenlauf-Beweis `Gen project-facts.md` (Montag 17.08., 04:00 UTC) — der einzige offene Abnahmepunkt aus dem geschlossenen Melder-Vorgang.** Am Montag pruefen: erzeugt der Lauf PRs, die Checks tragen und ohne Bypass mergebar sind? **Teilantwort liegt seit 2026-08-15 vor** ([Nachpruefung](https://github.com/achimdehnert/platform/issues/1953#issuecomment-5301526382)): an den PRs des 13.08.-Laufs tragen risk-hub#596 13 und tax-hub#119 14 Checks — in Repos mit CI erscheinen sie also. Offen bleiben ttz-hub#28 und travel-beat#74 mit **0** Checks (haben die ueberhaupt PR-getriggerte Workflows?). **Korrektur der bisherigen Annahme:** die CI-Unterdrueckungsmarke war bei *keinem* der beiden roten Laeufe die Ursache — 10.08. scheiterte an Fremd-Org-Zugriff (#1768), 13.08. am archivierten wedding-hub (403). Beide sind adressiert; der gruene `schedule`-Lauf bleibt der ausstehende Beweis.
+2. **[frist-hub#117](https://github.com/meiki-lra/frist-hub/pull/117) — `ci / Integration Tests` rot, und das schon laenger.** Der Fehler war von derselben Unterdrueckungsmarke verdeckt: solange sie jede CI verhinderte, sah niemand den Defekt. Gehoert ins meiki-lra-Repo, nicht hierher; hier steht er, damit er nicht mit der Marke zusammen verschwindet. Ungeklaert daneben: [travel-beat#74](https://github.com/achimdehnert/travel-beat/pull/74) wurde mitten im Lauf geschlossen statt gemergt.
+3. **FP-Auswertung der zwei advisory-Scanner — Ritual-Termin 16.08. ist HINFÄLLIG, das Fenster startet neu.** Die Auswertung wurde am 2026-08-15 vorgezogen ([Ergebnis](https://github.com/achimdehnert/platform/issues/1640#issuecomment-5301524622)): von 212 protokollierten Treffern stammten **alle 212 aus `pytest`** — die Scanner-Drills schrieben über `gate_hits.notiere()` in das echte Protokoll. **0 Treffer aus echten Sitzungen.** Gesperrt mit [#1986](https://github.com/achimdehnert/platform/pull/1986) (pytest-Sperre + Isolations-Fixture + Herkunfts-Ausweis in `--bericht`); das verunreinigte Protokoll ist lokal gesichert, die Arbeitsdatei geleert. **Kalibrierfenster läuft neu ab 2026-08-15.** Nicht als erledigt abhaken: die offene Frage hat sich gedreht — nicht „wie viele Fehlalarme?", sondern **„warum feuert ein Gate mit ×8/×10-Regelverletzung in fünf arbeitsreichen Tagen nie?"** (Recall, nicht Precision). Advisory→blocking bleibt bis dahin unbegründbar. Tracking: [#1640](https://github.com/achimdehnert/platform/issues/1640).
+4. **ausschreibungs-hub: Prod-Freigabe hängt seit 2026-08-13 — Owner-Zug, Prod-Gate.** [Run 31720758982](https://github.com/achimdehnert/ausschreibungs-hub/actions/runs/31720758982) wartet am Environment-Gate `production` (id `16077522818`) und belegt die Concurrency-Group; jeder Folge-Deploy bleibt `pending` und erreicht Prod nie. Der Run trägt `2984518` = aktueller `main`-HEAD, ist also der **neueste** Stand → `approved`, **nicht** `rejected` (ein Reject würfe genau den Deploy weg, den man haben will). Der Permission-Classifier blockte den API-Call; Kommando: `gh api repos/achimdehnert/ausschreibungs-hub/actions/runs/31720758982/pending_deployments -X POST -F 'environment_ids[]=16077522818' -f state=approved`.
+5. **Vier hand-verteilte Hooks weichen von `main` ab — einzeln ansehen, nicht durchsyncen.** `block_unformatted_push.sh`, `hygiene_melder.py`, `memory_link_guard.py`, `model_change_detector.sh`; drei davon in `settings.json` verdrahtet, laufen also in einer anderen Fassung als der im Repo. Gefunden vom neuen Melder `0.7.5` ([#1991](https://github.com/achimdehnert/platform/pull/1991)) im ersten Scharflauf. Bewusst nicht gesynct: bei `memory_link_guard.py` und `block_unformatted_push.sh` kann die ältere aktive Fassung die absichtlich mildere sein. Danach erst Schritt 2 (Umzug in die `managed/`-Lane). Tracking: [#1989](https://github.com/achimdehnert/platform/issues/1989).
+6. **[#1935](https://github.com/achimdehnert/platform/pull/1935) offen und 44 Commits hinter `main` — Owner-Entscheidung, bewusst nicht geschlossen.** Sein `AGENT_HANDOVER.md`-Teil ist durch die Stände vom 13./14./15.08. überholt. Sein `AGENT_HANDOVER_LOG.md`-Teil (Strang 4f808a, 2026-08-11, Mailcheck/todo-Board/Activity Intelligence) steht dagegen **nirgends sonst** — geprüft: `grep 4f808a` auf `main` liefert 0 Treffer. Ein pauschales Schließen verlöre diesen Sitzungs-Eintrag. Sauberer Weg: den LOG-Teil herauslösen und anhängen (`merge=union`), den Handover-Teil verwerfen.
+> **Erledigt 2026-08-14 nachgezogen (Session-Start-Reconciliation, Arbeit war schon getan):**
+> Der frühere Punkt 4 — [#1078](https://github.com/achimdehnert/platform/issues/1078) Befund 4,
+> `deploy.sh` loggt sich bei GHCR ein und nie wieder aus — ist seit **2026-08-11 behoben**
+> (Issue-Kommentar „Befund 4 — Ursache **und** Rückstand behoben": isolierte `DOCKER_CONFIG`
+> statt geteilter `~/.docker/config.json` via [#1898](https://github.com/achimdehnert/platform/pull/1898)
+> + [#1907](https://github.com/achimdehnert/platform/pull/1907), `docker logout ghcr.io` auf
+> prod+staging owner-ausgeführt). Das Issue #1078 selbst bleibt offen (andere Befunde);
+> als Prio-Zeile hier war Befund 4 überholt.
 
 > **Erledigt 2026-08-12 (Session gate-registry, Details im Log-Eintrag unten):** Alt-Prio 1
 > ([#1650](https://github.com/achimdehnert/platform/issues/1650)) ist **CLOSED** — alle drei
@@ -274,8 +83,6 @@ darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstande
 > [#1941](https://github.com/achimdehnert/platform/pull/1941)): 16 Registry-Einträge drill-frisch,
 > 3 Slugs dokumentiert declined, `retro_kpis.py` meldet Lücken + declined selbst, nolimits-Policy
 > ratifiziert, platform-pinned clean. Bewusste Reste: [#1943](https://github.com/achimdehnert/platform/issues/1943).
-
-4. **[#1944](https://github.com/achimdehnert/platform/issues/1944) — parallele Sessions: K3 und K4 offen, zwei Konsolidierungen aufgeschoben.** K1 und K5 sind erfuellt und gemergt, K2 ist per Owner-Entscheid auf eine akzeptierte Restgroesse abgestuft (4 echte Konflikte/30 Tage, gemessen). Offen: **K3** (Kollision vor dem Push sichtbar machen) und **K4** (der Gate-Slug `parallel-session-pr-collision` deckt seinen Namen noch nicht — sein Drill prueft nur Task-Slug-Dopplung, nicht Nummer und Datei). Dazu zwei bewusst aufgeschobene Konsolidierungen: `adr_open_pr_guard`/`konz_open_pr_guard` und `adr_next_number`/`konz_number_check` → `naechste_nummer`. **Beide haengen an derselben Wand:** der `paths`-Filter von `adr-guard.yml` laesst eine Aenderung am scharfen ADR-Gate im selben PR nicht in CI auslaufen — wer sie angeht, muss den Filter zuerst erweitern (so wie es #1947 fuer `konz-guard.yml` bereits getan hat).
 
 > **Reconciliation 2026-08-10 (Session-Start, keine neue Feature-Arbeit): alle drei
 > Alt-Prios waren erledigt, bevor diese Session begann.** Einzeln gegen API/CI geprüft,
