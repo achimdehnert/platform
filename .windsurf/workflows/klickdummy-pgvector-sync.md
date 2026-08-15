@@ -120,3 +120,27 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   getrackt ([iilgmbh/nl2iot-hub#5](https://github.com/iilgmbh/nl2iot-hub/issues/5));
   design-hub bereits getrackt (design-hub#36/#38). Hinweis: nl2iot-hub-Remote zeigt
   lokal noch auf `achimdehnert` (Org-Transfer → GitHub-Redirect, stale-owner-Muster).
+- 2026-08-13: Turnus-Lauf — 164 Entries/24 Repos, R3 PASS (164/164 `ok`, 0 failed;
+  3 written, Rest content_hash-Dedup). Producer-Duplikat aus dem 2026-08-10-Lauf
+  (137-hub:ADR-002 doppelt) ist **weg**: 164 Zeilen = 164 unique `entry_key` unter
+  `iil-klickdummy 1.34.0`. Schema-WARNs unverändert und alle getrackt: pg-hub 110
+  (bahn-sqf/pg-hub#8), design-hub 36 (design-hub#36/#38), nl2iot-hub 31 (nl2iot-hub#5).
+- 2026-08-13 **NEUES ANTI-PATTERN — Trailing-Whitespace überlebt den Upsert-Schritt nicht
+  zuverlässig.** Genau die 3 Entries, deren `content` auf eine Leerzeile endet
+  (`ausschreibungs-hub:ADR-002`, `design-hub:ADR-007#2`, `sqf-hub:ADR-003`), kamen mit
+  `written: true` zurück — der abschließende `\n` ging beim Durchreichen durch den
+  Tool-Call verloren und wurde erst im zweiten Anlauf korrekt gespeichert. Ursache ist
+  der Mechanismus selbst: Step 3 reicht `content` über LLM-Textreproduktion weiter, und
+  endständiger Whitespace ist dabei die fragilste Stelle. **Konsequenz für Step 4:** ein
+  `written: true` bei einem Entry, dessen Quelldatei sich nachweislich nicht geändert hat,
+  ist ein **Fidelity-Verdacht**, kein Erfolg — Entry gegen die NDJSON-Zeile gegenlesen
+  (`mcp__orchestrator__agent_memory_search` gibt `content` vollständig JSON-kodiert zurück,
+  Tail direkt als `\n\n` ablesbar) statt blind neu zu schreiben. Der `content_hash` hat den
+  Verlust sichtbar gemacht; ohne ihn wäre er still durchgelaufen.
+  ❌ **Nicht** per Re-Upsert „verifizieren" — der Test überschreibt sein eigenes Prüfobjekt
+  und ein Transkriptionsfehler des Prüfers erzeugt einen Falschbefund gegen den Vorgänger.
+  Lesend prüfen ist billiger und nicht-destruktiv.
+- 2026-08-13 **Verteilungs-Drift:** die an risk-hub verteilte Skill-Kopie hing auf
+  `source_commit=bb17444e2d8f` (Repo-Liste ohne 137-hub, Changelog bis 2026-08-03) —
+  zwei Läufe hinter dieser Quelle. Wer nur die verteilte Kopie liest, syncte 23 statt
+  24 Repos. Vor „Repo-Liste erweitern" erst diese Quelldatei prüfen, nicht die Kopie.
