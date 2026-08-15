@@ -244,6 +244,19 @@ sauberen Ritual-Zyklus einzeln vorgeschlagen, jeweils markiert „erweitert mein
 Empfehlung: D1–D7 wie oben; Pilot = 3 Ritual-Zyklen (16.08., 02.09., 16.09.); ADR-Entscheid
 erst danach.
 
+> **Nachtrag 2026-08-15 — Zyklus 1 (16.08.) trägt für die zwei Welle-1-Gates kein Urteil.**
+> Die vorgezogene Auswertung ([#1640](https://github.com/achimdehnert/platform/issues/1640#issuecomment-5301524622))
+> ergab: alle 212 protokollierten Treffer von `deferred-item-no-tracking-issue` und
+> `scope-checkpoint-not-durably-recorded` stammten aus `pytest` — die Drills schrieben über
+> `gate_hits.notiere()` in das echte Protokoll. **Null Treffer aus echten Sitzungen.** Gesperrt
+> mit [#1986](https://github.com/achimdehnert/platform/pull/1986); das Kalibrierfenster läuft ab
+> 2026-08-15 neu. Die Zyklus-Termine 02.09. und 16.09. bleiben, der K1-Stichtag 2026-09-16 auch —
+> aber Zyklus 1 zählt für diese beiden Slugs als **nicht gemessen**, nicht als bestanden.
+>
+> **Methodische Lehre für D2 selbst:** „0 Fehlalarme" ist als Freigabekriterium unterbestimmt.
+> Ein Fenster ohne *jeden* Treffer erfüllt es wörtlich und beweist nichts. D2 braucht eine
+> Untergrenze an echten Treffern, sonst belohnt es ein Gate, das gar nicht feuert.
+
 **Kill-Gate-Kriterien (K1/K3 neu gefasst nach externem Review — Begründung §14):**
 - **K1 (dreistufig, vorab registriert — EXT2-AD-1):** Nach 3 Zyklen (Stichtag 2026-09-16),
   gemessen als normalisierte Verstoßrate (Verstöße/Retro) der eingefrorenen Baseline-Top-3
