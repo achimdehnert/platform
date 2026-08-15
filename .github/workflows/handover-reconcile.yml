@@ -51,7 +51,7 @@ jobs:
       # Leseflaeche ihn beim Sitzungsstart abholen.
       - name: Report als Artefakt (Leseflaeche holt ihn ab)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: handover-reconcile-report
           path: reconcile-report.json
