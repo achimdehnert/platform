@@ -455,13 +455,26 @@ Box-Abnahme vor Musik-Aktivierung, Extraktion vor zweitem Konsumenten.
 | Repo / Service | Phase | Inhalt | Status | Datum | Notizen |
 |----------------|-------|--------|--------|-------|---------|
 | `illustration-hub` | 0 | Sofortsicherung Songs → prod-media-Volume; 3 Vorab-Checks §4.7 | 🟡 Teilweise | 2026-08-14/15 | 0a **erledigt**: Volume `music_media`, Song md5-identisch, Restore-Stichprobe aus restic bestanden (§8 Nr. 3, [music-lab#3](https://github.com/achimdehnert/music-lab/issues/3#issuecomment-5301622757)). 0b **offen**: `vorab-checks.ps1` liegt in `~/shared`, auf der Box noch nicht gelaufen |
-| `illustration-hub` | 1 | Arbiter **interaktiver Vertragsteil** (§4.2 ohne Batch-Bau) + Zähler + Sofort-Alarme + Journal | ✅ Erledigt | 2026-08-15 | Arbiter [#240](https://github.com/achimdehnert/illustration-hub/pull/240), Bild-Lane als Konsument [#242](https://github.com/achimdehnert/illustration-hub/pull/242). Live auf Prod seit Tag `v1.0.0` (Code + Migration 0005 im laufenden Container verifiziert). Batch bleibt spezifiziert, ungebaut |
+| `illustration-hub` | 1 | Arbiter **interaktiver Vertragsteil** (§4.2 ohne Batch-Bau) + Zähler + Sofort-Alarme + Journal | 🟡 Teilweise | 2026-08-15 | Arbiter [#240](https://github.com/achimdehnert/illustration-hub/pull/240) **gemergt**, live auf Prod seit Tag `v1.0.0` (Code + Migration 0005 im laufenden Container verifiziert). Bild-Lane als Konsument [#242](https://github.com/achimdehnert/illustration-hub/pull/242) ist **offen** (CI grün nach Re-run; der erste Lauf scheiterte an einer Runner-Portkollision 5432, nicht am Code) — Merge = Prod-Deploy, wartet auf Owner-Wort. Batch bleibt spezifiziert, ungebaut |
 | Box (Owner) | 2 | Firewall 7865 + Autostart (ACE-Step nur bei positivem Check 1), Außen-Abnahme §4.7 | ⬜ Ausstehend | – | VOR Musik-Aktivierung (R2-REC-8); **wartet auf 0b** — Check 1 ist das Go/No-Go |
-| `illustration-hub` | 3 | `apps/music`: Datenmodell, MP3, feste URLs, Player | ⬜ Ausstehend | – | löst music-lab#3 Krit. 1/2/6; setzt Phase 2 voraus |
+| `illustration-hub` | 3 | `apps/music`: Datenmodell, MP3, feste URLs, Player | 🟡 Teilweise | 2026-08-15 | **Reihenfolge bewusst abgewichen** (Owner-Entscheid 2026-08-15, s. Notiz unter der Tabelle): der box-freie Teil — Datenmodell, Einlese-Befehl, feste URLs `/musik/song/<id>`, Player, Volume-Mount — liegt als [#243](https://github.com/achimdehnert/illustration-hub/pull/243) vor und löst music-lab#3 Krit. 1/2. Die **Generierungs-Lane** (Arbiter → Box) bleibt draußen und setzt Phase 2 weiterhin voraus |
 | `music-lab` | 4 | CLI → Hub-API; `gpu-dienst.ps1` als Break-glass mit Protokoll §4.4 | ⬜ Ausstehend | – | Repo bleibt Box-Setup |
 | `aifw` / neu `iil-gpufw` | 5 | Kosten-Go/Kill (§4.6); bei Go: Extraktion Client-Paket | ⬜ Ausstehend | – | VOR writing-hub-Aktivierung (R2-REC-8); /release, ADR-084-Muster |
 | `writing-hub` / `platform` | 6 | Batch-Vertragsteil bauen; writing-hub-Batch-Lane via iil-gpufw. **Vorbedingung:** `prod_host: prod`-Pin in ports.yaml (Netzpfad §4.1) | ⬜ Ausstehend | – | zweite ADR-292-Ausnahme, deklarativ |
 | `platform` | 7 | Umbenennungs-Entscheid illustration-hub → media-hub (Go/Kill aus §4.6-Zählern) | ⬜ Ausstehend | – | Tracking-Issue im selben Zug wie Phase 3 |
+
+**Notiz zur Reihenfolge Phase 2 → Phase 3 (2026-08-15).** R2-REC-8 ordnet die
+Box-Abnahme vor die Musik-Aktivierung. Beim Umsetzen fiel auf, dass Phase 3 zwei
+Dinge bündelt, die verschieden abhängig sind: die **Bibliothek** (Datenmodell,
+feste URLs, Player über das bereits gesicherte Volume) braucht die GPU an keiner
+Stelle, die **Generierungs-Lane** (Arbiter → Box) dagegen vollständig. Nur der
+zweite Teil trägt das Risiko, das die Reihenfolge abfangen soll — die Bibliothek
+liest Dateien, die seit Phase 0a ohnehin auf Prod liegen.
+
+Entscheid des Owners: den box-freien Teil vorziehen, die Generierungs-Lane hinter
+Phase 2 belassen. Damit werden music-lab#3 Kriterien 1+2 erreichbar, ohne die
+Abnahme vorwegzunehmen. Die Abweichung steht hier, damit die Reihenfolge nicht
+still driftet; R2-REC-8 bleibt für den GPU-abhängigen Teil unverändert gültig.
 
 ---
 
