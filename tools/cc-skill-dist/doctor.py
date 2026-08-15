@@ -78,6 +78,37 @@ def enumerate_hooks(root):
     return {f: os.path.join(root, f) for f in os.listdir(root) if f.endswith(".sh")}
 
 
+#: Merge-Lane-Manifest (platform#1989) — Dot-File, damit es im gemischten Ziel nicht
+#: wie ein Swap-Lane-Manifest aussieht. Muss zu generate.MERGE_MANIFEST passen.
+MERGE_MANIFEST = ".cc-skill-dist-manifest.json"
+
+
+def enumerate_merge_lane(root):
+    """Merge-Lane: name -> Pfad, aber NUR was das Manifest als eigen ausweist.
+
+    Eine Verzeichnis-Auflistung waere hier falsch: `~/.claude/hooks/` teilt sich mit
+    hand-gepflegten Hooks, Zustand, einer zweiten Lane und dem Treffer-Protokoll.
+    Jeder dieser Eintraege kaeme sonst als `extra` heraus — der Doctor waere ab dem
+    ersten Lauf dauerhaft rot und damit wertlos (#1508).
+
+    Fehlt das Manifest, ist das kein Fehler, sondern die Aussage „hier wurde nie
+    verteilt": alle kanonischen Namen erscheinen dann als `fehlend`.
+    """
+    import json as _json
+
+    pfad = os.path.join(root, MERGE_MANIFEST)
+    try:
+        with open(pfad, encoding="utf-8") as fh:
+            eintraege = _json.load(fh)["files"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    return {
+        e["name"]: os.path.join(root, e["name"])
+        for e in eintraege
+        if os.path.exists(os.path.join(root, e["name"]))
+    }
+
+
 # ADR-258 REC-3/4: stabiler Hook-Pfad + verpflichtende settings.json-Wiring-Prüfung.
 REAPER_HOOK = "reap_worktrees.sh"
 
@@ -169,7 +200,9 @@ def enumerate_skills(root):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--kind", choices=["commands", "skills", "hooks"], default="commands"
+        "--kind",
+        choices=["commands", "skills", "hooks", "claude-hooks"],
+        default="commands",
     )
     ap.add_argument("--platform", default=os.path.expanduser("~/github/platform"))
     ap.add_argument("--commands", default=os.path.expanduser("~/.claude/commands"))
@@ -177,6 +210,7 @@ def main():
     ap.add_argument(
         "--hooks-dir", default=os.path.expanduser("~/.claude/hooks/managed")
     )
+    ap.add_argument("--claude-hooks-dir", default=os.path.expanduser("~/.claude/hooks"))
     ap.add_argument("--ref", default="origin/main")
     ap.add_argument(
         "--fail-on-dangling",
@@ -196,6 +230,17 @@ def main():
             a.commands,
             enumerate_commands(a.commands),
             True,
+        )
+    elif a.kind == "claude-hooks":
+        src_path, suffix, key_of = (
+            "tools/claude-hooks/",
+            (".py", ".sh"),
+            _name_basename,
+        )
+        target_dir, target_files, rel_guard = (
+            a.claude_hooks_dir,
+            enumerate_merge_lane(a.claude_hooks_dir),
+            False,
         )
     elif a.kind == "hooks":
         src_path, suffix, key_of = "tools/hooks/", ".sh", _name_basename
@@ -218,6 +263,11 @@ def main():
     for line in listing.splitlines():
         parts = line.split()  # <mode> blob <sha>\t<path>
         if len(parts) >= 4 and parts[1] == "blob" and parts[-1].endswith(suffix):
+            # Nur die oberste Ebene der Merge-Lane: `tests/` gehoert nie in den
+            # aktiven Hook-Pfad, waere hier aber sonst „fehlend" (Parität zu
+            # generate.py top_level_only).
+            if a.kind == "claude-hooks" and "/" in parts[-1][len(src_path) :]:
+                continue
             canon[key_of(parts[-1])] = parts[2]
     if not canon:
         print(
