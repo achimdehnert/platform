@@ -98,6 +98,19 @@ def _make_repo(root):
     (root / "tools" / "hooks" / "reap_worktrees.sh").write_text(
         "#!/usr/bin/env bash\nexit 0\n"
     )
+    # platform#1989 claude-hooks-Lane: flach verteilte Scanner + ein Drill, der
+    # NICHT mitverteilt werden darf.
+    (root / "tools" / "claude-hooks" / "tests").mkdir(parents=True)
+    (root / "tools" / "claude-hooks" / "scanner.py").write_text(
+        "#!/usr/bin/env python3\nprint('scan')\n"
+    )
+    (root / "tools" / "claude-hooks" / "guard.sh").write_text(
+        "#!/usr/bin/env bash\nexit 0\n"
+    )
+    (root / "tools" / "claude-hooks" / "notizen.md").write_text("# keine Hook-Datei\n")
+    (root / "tools" / "claude-hooks" / "tests" / "test_scanner.py").write_text(
+        "def test_x():\n    assert True\n"
+    )
     _git(root, "add", "-A")
     _git(root, "commit", "-m", "init")
     _git(root, "remote", "add", "origin", str(root))
@@ -397,3 +410,198 @@ def test_should_refuse_managed_by_without_manifest(tmp_path):
     r = _run(["--platform", str(repo), "--ref", "HEAD", "--target", str(ziel)])
     assert r.returncode != 0
     assert "nicht gegen die Generator-Dateiliste prüfbar" in r.stderr
+
+
+# --------------------------------------------- claude-hooks-Lane (platform#1989)
+# Der Merge-Modus existiert, weil ~/.claude/hooks/ dem Generator NICHT allein
+# gehoert: dort liegen hand-gepflegte Hooks, Zustand, eine zweite Lane und das
+# Treffer-Protokoll. Ein Swap wuerde sie loeschen. Die Drills pruefen deshalb
+# vor allem, was NICHT passiert.
+
+
+def test_should_distribute_py_and_sh_but_not_other_suffixes(tmp_path):
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert r.returncode == 0, r.stderr
+    assert (out / "scanner.py").is_file()
+    assert (out / "guard.sh").is_file()
+    assert not (out / "notizen.md").exists(), "nur .py/.sh gehoeren in den Hook-Pfad"
+
+
+def test_should_never_distribute_the_drills(tmp_path):
+    """Ein Testfile im aktiven Hook-Pfad liefe bei JEDEM Stop-Event mit."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert not (out / "test_scanner.py").exists()
+    assert not (out / "tests").exists()
+
+
+def test_should_not_delete_foreign_entries_in_the_shared_target(tmp_path):
+    """Der Kern des Merge-Modus. Faellt dieser Test um, loescht die Lane fremde Hooks."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "inject_policies.py").write_text("# hand-gepflegt\n")
+    (out / "gate-hits.jsonl").write_text('{"a":1}\n')
+    (out / "state").mkdir()
+    (out / "state" / "x.json").write_text("{}\n")
+    (out / "managed").mkdir()
+
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert r.returncode == 0, r.stderr
+    assert (out / "inject_policies.py").read_text() == "# hand-gepflegt\n"
+    assert (out / "gate-hits.jsonl").read_text() == '{"a":1}\n'
+    assert (out / "state" / "x.json").is_file()
+    assert (out / "managed").is_dir()
+    assert (out / "scanner.py").is_file(), "und die Lane hat trotzdem geschrieben"
+
+
+def test_should_back_up_only_what_it_really_replaced(tmp_path):
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "scanner.py").write_text("#!/usr/bin/env python3\nprint('ALT')\n")
+    r = _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert r.returncode == 0, r.stderr
+    sicherungen = list(out.glob(".cc-dist-backup-*/scanner.py"))
+    assert sicherungen, "die ersetzte Fassung ist der einzige Zeuge dessen, was lief"
+    assert "ALT" in sicherungen[0].read_text()
+    assert "scan" in (out / "scanner.py").read_text()
+
+
+def test_should_not_create_an_empty_backup_on_a_no_op_run(tmp_path):
+    """Zweitlauf ohne Aenderung darf kein Backup-Rauschen erzeugen."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    vorher = set(p.name for p in out.iterdir())
+    _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert set(p.name for p in out.iterdir()) == vorher
+
+
+def test_should_write_a_dotfile_manifest_not_the_swap_lane_name(tmp_path):
+    """`manifest.json` im gemischten Ziel waere ein Fehlsignal fuer pruefe_swap_ziel."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert (out / ".cc-skill-dist-manifest.json").is_file()
+    assert not (out / "manifest.json").exists()
+    assert not (out / "MANAGED_BY").exists()
+
+
+def test_should_make_distributed_hooks_executable(tmp_path):
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    assert os.stat(out / "scanner.py").st_mode & 0o111
+
+
+def test_should_footer_python_hooks_as_comment_not_html(tmp_path):
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    _run(
+        [
+            "--platform",
+            str(repo),
+            "--ref",
+            "HEAD",
+            "--kind",
+            "claude-hooks",
+            "--target",
+            str(out),
+        ]
+    )
+    inhalt = (out / "scanner.py").read_text()
+    assert "# MANAGED-BY" in inhalt
+    assert "<!--" not in inhalt, "HTML-Kommentar waere in .py ein Syntaxfehler"
+    compile(inhalt, "scanner.py", "exec")  # muss weiterhin gueltiges Python sein
