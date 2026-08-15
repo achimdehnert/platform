@@ -387,6 +387,22 @@ case "$OPTDRIFT_OUT" in
   *)                     record "0.7.3 opt-platform" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/opt-platform-drift.sh" ;;
 esac
 
+# ── 0.7.5 Hook-Verteil-Drift (platform#1989) ────────────────────────────────
+# Dritter Fall derselben Klasse wie 0.7.1 und 0.7.3: die Welle-1-Scanner liegen
+# DIREKT in ~/.claude/hooks/ und werden von settings.json von dort ausgefuehrt —
+# eine Verteil-Lane gibt es fuer sie nicht (cc-skill-dist bespielt nur managed/).
+# Am 2026-08-15 wichen alle drei von main ab; im aktiven gate_hits.py fehlte die
+# pytest-Sperre aus #1986, also genau die Aenderung, die das neu gestartete
+# Kalibrierfenster (#1640) vor Testrauschen schuetzen sollte. Merge gruen, Sperre
+# im Repo vorhanden, Wirkung null. Die Kopie kann sich nicht selbst pruefen.
+HOOKDRIFT_OUT=$("$PLATFORM_DIR/tools/hook-dist-drift.sh" --quiet 2>/dev/null | tail -1 || true)
+case "$HOOKDRIFT_OUT" in
+  "RESULT: OK"*)         record "0.7.5 hook-dist" "PASS" "${HOOKDRIFT_OUT#RESULT: OK — }" ;;
+  "RESULT: DRIFT"*)      record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.5 hook-dist" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/hook-dist-drift.sh" ;;
+esac
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys
