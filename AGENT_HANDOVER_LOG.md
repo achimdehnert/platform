@@ -1905,3 +1905,70 @@ Ohr-Urteil aussteht (kein Tracking-Artefakt nötig: Issue #1 bleibt offen bis da
 **SA-4: 8 Anwendungen (7× music-lab main, 1× platform-PR-Merge) · 0 Einzel-OK trotz
 Klassen-Deckung · 0 Fehlanwendungen.** 1 Classifier-Block (Sammelbefehl
 Merge+Pull+Reap) → einzeln ausgeführt, nicht umgangen.
+
+### 2026-08-15 · Session melder-gruen-und-fp-ritual (Kapitäns-Kanal)
+
+Owner-Ziel: „ein Zustand / eine Konfiguration, die dafür sorgt, dass der Zustand der
+Repos cross-repo jedes Mal besser wird" — Einstieg über die Session-Start-Items 4+5
+(project-facts-Melder entröten, FP-Auswertung der zwei advisory-Scanner).
+
+**Der Kernfund war ein anderer als die Aufgabe.** Die FP-Datengrundlage für das Ritual
+am 16.08. bestand aus 212 Treffern — **alle 212 aus `pytest`, null aus echten Sitzungen**.
+Die Scanner-Drills fahren `scanner.main()` mit Fixture-Sätzen durch, und `main()` ruft
+`gate_hits.notiere()` ohne `pfad`, also in das echte Protokoll. Drei unabhängige Belege:
+Ausschnitte wörtlich = Fixture-Sätze, `session` bei allen Zeilen leer, Marker-Verteilung
+exakt uniform (6×22, 4×20). Ein „0 Fehlalarme"-Urteil wäre vakuum wahr gewesen.
+
+- **[#1986](https://github.com/achimdehnert/platform/pull/1986)** — pytest-Sperre in
+  `notiere()` + Isolations-Fixture in beiden Drills + Herkunfts-Ausweis in `--bericht`
+  (Zeilen ohne session_id sind kein Beleg). Zusätzlich: die zwei Tests der
+  Archiv-Behandlung (#1953) prüften Quelltext-**Zeichenketten** statt Verhalten — durch
+  Verhaltens-Tests ersetzt, Falsifikation belegt.
+- **[#1987](https://github.com/achimdehnert/platform/pull/1987)** — Ritual-Termin 16.08.
+  als hinfällig ausgewiesen (Handover-Prios 1+3, KONZ-038 §13). Offene Frage gedreht:
+  nicht Precision, sondern **Recall** — warum feuert ein Gate mit ×8/×10-Regelverletzung
+  in fünf arbeitsreichen Tagen nie?
+- **[#1988](https://github.com/achimdehnert/platform/pull/1988)** — beide GATE-HEADER auf
+  `2026-08-15 bis 2026-08-29`. **Selbstbetreffend**, Owner-Freigabe wörtlich erteilt.
+  Erster Anlauf: der Classifier blockte den zweiten der beiden Edits; die bereits
+  durchgegangene Änderung wurde **zurückgenommen** statt halb stehen gelassen.
+- **[#1991](https://github.com/achimdehnert/platform/pull/1991)** — `tools/hook-dist-drift.sh`
+  + Runner-Phase **0.7.5**, aus [#1989](https://github.com/achimdehnert/platform/issues/1989)
+  Schritt 1.
+
+**Teuerster Einzelfund der Sitzung:** nach dem Merge von #1988 wich der aktive Hook-Pfad
+`~/.claude/hooks/` in **allen drei** Welle-1-Dateien von `main` ab — im aktiven
+`gate_hits.py` fehlte die Sperre aus #1986, also genau die Änderung, die das neu
+gestartete Fenster schützen sollte. Merge grün, Sperre im Repo, Wirkung null. Ursache:
+diese Hooks werden **von Hand** verteilt (`cc-skill-dist` bespielt nur `managed/`).
+Von Hand nachgezogen + scharf geprüft; Ursache getrackt in #1989.
+
+**Vier weitere Drifts, die der neue Melder sofort fand und die NICHT gesynct wurden:**
+`block_unformatted_push.sh`, `hygiene_melder.py`, `memory_link_guard.py`,
+`model_change_detector.sh` — drei davon in `settings.json` verdrahtet. Bewusst einzeln
+anzusehen statt im Massenzug durchzusyncen (#1989).
+
+**Nachgeprüft, nicht übernommen:** die Handover-Annahme, die CI-Unterdrückungsmarke sei
+Ursache des roten `Gen project-facts.md`, trug bei **keinem** der beiden Fehlläufe —
+10.08. war Fremd-Org-Zugriff (#1768), 13.08. das archivierte wedding-hub (403). Beide
+adressiert. Teilantwort zum Wochenlauf-Beweis liegt vor: risk-hub#596 (13 Checks) und
+tax-hub#119 (14) tragen Checks; ttz-hub#28 und travel-beat#74 tragen **0** — ungeklärt.
+
+**Offen, ausdrücklich benannt:** ausschreibungs-hub-Prod-Freigabe (Run 31720758982,
+Gate `production` id 16077522818) — vom Permission-Classifier geblockt, Kommando liegt
+beim Owner; Run trägt `2984518` = main-HEAD, also `approved`, nicht `rejected`.
+[#1935](https://github.com/achimdehnert/platform/pull/1935) offen und 44 Commits hinter
+main: sein `AGENT_HANDOVER.md`-Teil ist überholt, sein **LOG-Teil (Strang 4f808a,
+2026-08-11) steht nirgends sonst** — deshalb bewusst NICHT geschlossen, Owner-Entscheidung.
+
+**Abnahme (0d):** Zielzustand **erreicht** — K1 Messapparat misst nicht mehr sich selbst
+(Kontrollprobe 212→212 unverändert bei vollem Testlauf), K2 Herkunft wird vor dem Urteil
+ausgewiesen, K3 Drift zwischen Quelle und aktivem Pfad ist ab sofort jede Session
+sichtbar (0.7.5, im Haupt-Tree verifiziert), K4 die Freigabe-Hürde steht im
+maschinenlesbaren Header statt nur in Prosa.
+
+**SA-4: 0 Anwendungen** — SA-4 wurde nicht beansprucht. Jede Eskalation über den
+Ursprungsauftrag hinaus lief über eine wörtliche Owner-Freigabe („5 go", „ich gebe frei",
+„mach 1989 schritt 1", „merge 1991"). 2 Classifier-Blocks (Prod-Freigabe, Gate-Header-Edit)
+— beide gemeldet, keiner umgangen. Scope-Checkpoint bei 4 PRs durabel abgelegt
+([#1640-Kommentar](https://github.com/achimdehnert/platform/issues/1640#issuecomment-5301883096)).
