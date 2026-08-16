@@ -149,3 +149,43 @@ def test_should_keep_reporting_per_session(tmp_path, monkeypatch):
     """Eine andere Sitzung faengt bei null an."""
     _lauf(tmp_path, monkeypatch, "s4", TEXT)
     assert "systemctl" in _lauf(tmp_path, monkeypatch, "s5", TEXT)
+
+
+# --- Entprellung gilt auch fuer Platzhalter (platform#2006, 2026-08-16) -------
+#
+# Die Entprellung oben filterte nur `untested`, und `_merken` speicherte nur die.
+# Ein Platzhalter-Befund kam deshalb bei JEDEM weiteren Stop erneut — auch nach
+# der Korrektur, weil `_last_turn` bis zur letzten echten Nutzernachricht
+# zurueckreicht. Real gemessen: derselbe Ausschnitt dreimal, zweimal davon nach
+# dem Fix. Genau die Klasse, gegen die die Entprellung gebaut wurde; einer ihrer
+# beiden Zweige fehlte.
+
+PLATZHALTER = (
+    'Setze das:\n```bash\ngh variable set FOO --repo o/r --body "<App ID>"\n```\n'
+)
+
+
+def test_should_report_a_placeholder_the_first_time(tmp_path, monkeypatch):
+    assert "Platzhalter" in _lauf(tmp_path, monkeypatch, "p1", PLATZHALTER)
+
+
+def test_should_not_report_the_same_placeholder_again(tmp_path, monkeypatch):
+    """Der eigentliche Fix: zweimal dasselbe ist einmal zu viel."""
+    _lauf(tmp_path, monkeypatch, "p2", PLATZHALTER)
+    assert _lauf(tmp_path, monkeypatch, "p2", PLATZHALTER) == ""
+
+
+def test_should_still_report_a_new_placeholder(tmp_path, monkeypatch):
+    """Entprellt wird die Wiederholung, nicht der Befund.
+
+    Ohne diesen Test waere „nie wieder melden" die billige Loesung — und der
+    Waechter waere ab dem ersten Treffer taub.
+    """
+    _lauf(tmp_path, monkeypatch, "p3", PLATZHALTER)
+    neuer = "Und noch:\n```bash\ngh secret set BAR --repo o/r < <pem-datei>\n```\n"
+    assert "Platzhalter" in _lauf(tmp_path, monkeypatch, "p3", neuer)
+
+
+def test_should_start_fresh_in_another_session_for_placeholders(tmp_path, monkeypatch):
+    _lauf(tmp_path, monkeypatch, "p4", PLATZHALTER)
+    assert "Platzhalter" in _lauf(tmp_path, monkeypatch, "p5", PLATZHALTER)
