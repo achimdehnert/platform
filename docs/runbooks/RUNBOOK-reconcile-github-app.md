@@ -35,27 +35,60 @@ stillen Ausfall. Ein abgelaufener PAT färbt den Nightly nicht rot; er meldet wi
 4. **In fünf Orgs installieren** — App-Seite → „Install App":
    `achimdehnert` · `iilgmbh` · `meiki-lra` · `ttz-lif` · `bahn-sqf`
    Je Org **„All repositories"** (sonst fehlen neue Repos still).
-5. **In `achimdehnert/platform` hinterlegen:**
-   - Variable `RECONCILE_APP_ID` = die App ID
-     (`Settings → Secrets and variables → Actions → Variables`)
-   - Secret `RECONCILE_APP_PRIVATE_KEY` = **kompletter** Inhalt der `.pem`,
-     inklusive `-----BEGIN…`/`-----END…`-Zeilen
-6. **`.pem` lokal löschen** (Wert lebt ab jetzt nur im Secret).
-   Zeiger auf den Fundort gehört in `~/.secrets/`, **nie** der Wert selbst.
+5. **Variable und Secret setzen** — ein Kommando, zwei echte Argumente, kein Klicken:
+
+   ```bash
+   bash tools/reconcile-app-setup.sh 1234567 ~/Downloads/dein-key.private-key.pem
+   ```
+
+   Vorher gefahrlos prüfen: dasselbe mit `--dry-run` anhängen — es wird nichts gesetzt.
+   Zum Löschen der `.pem` im selben Zug: `--shred` anhängen (bewusst opt-in).
+
+   Das Skript prüft **vor** jedem Schreibzugriff und bricht laut ab, wenn die App-ID
+   keine Zahl ist, die Argumente vertauscht sind oder die Datei kein PEM ist. Der
+   Grund ist konkret: ein still gesetzter Platzhalter wäre der teuerste Fehler hier —
+   die Token-Schritte im Workflow liefen an, scheiterten je Org, und der Lauf bliebe
+   dank `continue-on-error` **grün**. Ein Konfigurationsfehler sähe dann exakt aus wie
+   eine fehlende Installation.
+
+   Der Schlüssel geht ausschließlich über stdin an `gh` — nie als Argument (wäre in der
+   Prozessliste sichtbar), nie in der Shell-History, nie in einer Ausgabe.
+6. **`.pem` löschen** — mit `--shred` oben schon erledigt, sonst `shred -u <datei>`.
+   Der Wert lebt ab jetzt nur im Secret; in `~/.secrets/` gehört höchstens ein
+   **Zeiger** auf App-Name und Fundort, nie der Schlüssel selbst.
 
 ## Abnahme
 
-`gh workflow run handover-reconcile.yml -R achimdehnert/platform`, dann die Job-Summary
-lesen. **Erfolgskriterium ist eine Zeile, nicht ein grüner Haken:**
+Ein Lauf, eine Zeile — als Einzeiler kopierbar:
+
+```bash
+gh workflow run handover-reconcile.yml -R achimdehnert/platform && sleep 90 && \
+gh run list -R achimdehnert/platform --workflow handover-reconcile.yml -L1 \
+  --json databaseId -q '.[0].databaseId' | xargs -I{} \
+  gh run view {} -R achimdehnert/platform --log | grep -E "Geprüft|Token-Abdeckung"
+```
+
+**Erfolgskriterium ist die Abdeckungszeile, nicht der grüne Haken** — der Lauf ist auch
+dann grün, wenn keine einzige Installation greift (bewusst, siehe „Grenzen"):
 
 ```
 Token-Abdeckung: eigener Token für **achimdehnert, iilgmbh, meiki-lra, ttz-lif, bahn-sqf**
 ```
 
-Fehlt eine Org in dieser Aufzählung, ist ihre Installation nicht durchgekommen — der Lauf
-bleibt trotzdem grün (bewusst), die betroffenen Referenzen stehen unter „nicht prüfbar".
-Zusätzlich sollte `nicht prüfbar` deutlich sinken; `DISKREPANZ` **steigt** dabei, das ist
-der gewollte Effekt und kein Rückschritt.
+Fehlt eine Org in dieser Aufzählung, ist ihre Installation nicht durchgekommen; die
+betroffenen Referenzen stehen dann weiter unter „nicht prüfbar".
+
+**Vergleichswert vom 2026-08-16, gemessen auf `main` vor der App** ([Lauf
+31938846553](https://github.com/achimdehnert/platform/actions/runs/31938846553)):
+
+```
+Geprüft: 23 Referenzen · OK 3 · DISKREPANZ 8 · ADRESSFEHLER 0 · nicht prüfbar 12
+Token-Abdeckung: kein Org-Token · Default-Token für achimdehnert, iilgmbh, meiki-lra, ttz-lif
+```
+
+Erwartung nach der App: `nicht prüfbar` fällt Richtung 0, **`DISKREPANZ` steigt** Richtung
+18. Der Anstieg ist der gewollte Effekt — zehn veraltete Referenzen, die vorher niemand
+sehen konnte —, kein Rückschritt.
 
 ## Rückweg
 
