@@ -15,6 +15,17 @@
 
 <!-- Ausgelagert 2026-08-09 (Handover-Refresh 08-07→08-09) -->
 
+## ⚡ Vorheriger Stand (2026-08-13 — Handover-Auftrag #1945 geschlossen; Flotte von 23 auf 47 Repos mit Handover)
+
+**Zeitanker:** geschrieben 2026-08-13 · eine Sitzung (Kapitäns-Kanal, Auftrag #1945 + Folgefunde)
+
+- **[#1945](https://github.com/achimdehnert/platform/issues/1945) geschlossen — alle vier Kriterien einzeln belegt.** K1 Flotten-Messung `tools/handover_fleet_check.py` ([#1954](https://github.com/achimdehnert/platform/pull/1954), zwei `--json`-Läufe byte-identisch) · K2 Frische-Gate ([#1955](https://github.com/achimdehnert/platform/pull/1955), 23/23 Repos mit Handover verdrahtet, 5 Ausnahmen je einzeln begründet) · K3 Stale-Referenz-Melder als Runner-Phase **0.7.4** + Registry + Drill (beide Zweige im echten Runner-Pfad verifiziert) · K4 Prio bereinigt ([#1948](https://github.com/achimdehnert/platform/pull/1948)).
+- **Owner-Entscheidung Weg 1 (Handover dort, wo Sitzungen laufen)** umgesetzt ([#1958](https://github.com/achimdehnert/platform/pull/1958)): 26 Erstanlage-PRs, **24 gemergt**. Flotte jetzt **47 von 54** aktiven Repos mit `AGENT_HANDOVER.md` (vorher 23). Das Kriterium zählt PRs aus `session/`-Branches, nicht PRs — nach der PR-Zahl wären 29 von 31 Repos „aktiv" gewesen und die Entscheidung wirkungslos.
+- **Zwei Erstanlagen hängen, beide aus fremdem Grund:** [mcp-hub#198](https://github.com/achimdehnert/mcp-hub/pull/198) braucht ein Review (Branch-Protection, kein Defekt) · [weltenhub#50](https://github.com/achimdehnert/weltenhub/pull/50) blockiert von einem defekten Check → [weltenhub#52](https://github.com/achimdehnert/weltenhub/issues/52). Kein `--admin`-Bypass benutzt — genau dadurch wurde der weltenhub-Defekt überhaupt sichtbar.
+- **Zwei eigene Fehler, beide fremdgefangen und korrigiert:** die Begründung „ein Handover veraltet in ruhenden Repos" war falsch (der Check vergleicht gegen den letzten berührenden Commit, nicht gegen heute) — Owner-Rückfrage, korrigiert in [#1956](https://github.com/achimdehnert/platform/pull/1956) als datierter Block. Und die Search-API lief ins Rate-Limit (30 Anfragen/Minute), `None` wurde als `0` gezählt: `mcp-hub` stand mit 50 Sitzungen als „ruhend" im Bericht. Aufgefallen nur, weil vorher eine Stichprobe lief.
+- **Nebenfunde mit Tracking:** zwei blinde Cron-Melder ([#1953](https://github.com/achimdehnert/platform/issues/1953)) — `Gen project-facts.md` scheitert seit ≥6 geplanten Läufen, während manuelle Läufe grün sind. Sechs verschiedene Gate-Pins in der Flotte, davon 3× `@main`.
+- **SA-4:** Merges liefen im Rahmen des akzeptierten Auftrags; der Permission-Classifier blockte zweimal einen Fan-out (Worktree-Reap, 6-fach-Merge) — beide danach vom Owner bzw. einzeln ausgeführt, nicht umgangen.
+
 ## ⚡ Vorheriger Stand (2026-08-07 abends, ergänzt 2026-08-08 früh — AV-Paket versandt; Prüfbögen an die Unter-AV liegen bereit)
 
 **Zeitanker:** HEAD `5a9ee904` · `rev-list --count` 3023 · geschrieben 2026-08-07
