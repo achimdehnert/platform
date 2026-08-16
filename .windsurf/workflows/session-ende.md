@@ -286,6 +286,47 @@ andere Frage —, sondern **„was verschwindet, wenn dieses Fenster zugeht?"**
 
 ---
 
+### 0f: Cross-Repo-Befunde ins Zielrepo bringen (PFLICHT — NEU 2026-08-16, platform#2004)
+
+> **Der Befund über ein fremdes Repo bleibt sonst als Prosa in diesem Repo liegen.**
+> Gemessen am 2026-08-16: fünf offene `[deploy-health]`-Issues — apo-hub (10 Tage),
+> trading-hub (10 Tage), travel-beat, cad-hub, tax-hub — **alle im Repo `platform`**,
+> alle über andere Repos, **keins bearbeitet**. Der Melder war zuverlässig; ein Leser
+> fehlte. Dieselbe Klasse wie 🌀 `melder-ohne-leser`.
+
+Der Session-Start-Runner schreibt jeden Befund mit seinem **Zielrepo** ins Journal
+(`tools/befund_journal.py`). Hier wird abgefragt, ob die Fremd-Repo-Befunde einen
+Landeplatz haben:
+
+```bash
+python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/befund_journal.py" \
+  --offen-cross-repo --repo "$TARGET_REPO"
+```
+
+- **Exit 0** — nichts offen, weiter.
+- **Exit 1** — je genanntem Befund **einen** der beiden Wege gehen, nicht keinen:
+
+  | Weg | Wann | Kommando |
+  |---|---|---|
+  | Verankern | Der Befund gehört repariert | Issue **im Zielrepo** anlegen, dann `--verankert '<ID>' '<URL>'` |
+  | Verzicht | Bewusst nicht verfolgen | `--verzichtet '<ID>' '<Grund>'` — ohne Grund zählt es nicht |
+
+**Das Issue gehört ins Zielrepo, nicht hierher.** Ein roter Deploy in `cad-hub` wird von
+jemandem repariert, der in `cad-hub` arbeitet — ein Issue in `platform` erreicht diese
+Person nie. Genau daran sind die fünf Alt-Issues gescheitert.
+
+**Fremdes Repo = Scope-Checkpoint.** Ein Issue in einem dritten Repo anzulegen ist ein
+Schreibzugriff nach außen; bei mehr als zwei betroffenen Repos oder bei einer fremden Org
+(`meiki-lra`, `ttz-lif`, `iilgmbh`) vorher den Owner fragen, nicht im Durchlauf erledigen.
+
+**Warum das Gate eng ist:** es greift nur für Phasen aus `CROSS_REPO_PHASEN` (aktuell
+`0.7 deploy-scan`). Der erste scharfe Lauf hätte sonst auch `0.4 repo-sync ·
+risk-hub:GUARD(dirty)` eingefordert — ein **lokaler** Zustand des Arbeitsbaums, für den
+ein Issue in `risk-hub` Unsinn wäre. Die Liste wächst durch Belege: eine Phase kommt dazu,
+wenn ein konkreter Befund von ihr in einem fremden Repo repariert werden musste.
+
+---
+
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
 
 Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation
@@ -730,6 +771,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
 | 17 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
+| 18 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue

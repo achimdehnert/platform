@@ -53,7 +53,9 @@ class TestBefund:
         )
         assert "RESULT: DRIFT" in aus
         assert "a.py" in aus
-        assert rc == 1, "Drift muss einen Fehl-Exit tragen, sonst uebersieht ihn jeder Aufrufer"
+        assert rc == 1, (
+            "Drift muss einen Fehl-Exit tragen, sonst uebersieht ihn jeder Aufrufer"
+        )
 
     def test_should_name_every_drifted_file_not_just_count_them(self, tmp_path):
         """Eine Zahl allein faellt niemandem auf, wenn sie waechst (Lehre 0.7.1)."""
@@ -90,7 +92,9 @@ class TestKeinFehlalarm:
         assert "RESULT: OK" in aus
         assert rc == 0
 
-    def test_should_still_count_undistributed_files_so_they_stay_visible(self, tmp_path):
+    def test_should_still_count_undistributed_files_so_they_stay_visible(
+        self, tmp_path
+    ):
         """Kein Befund heisst nicht unsichtbar — sonst waere 'gebaut, aber nie
         verteilt' genau die Luecke, die dieser Melder schliessen soll."""
         _, aus, _ = _lauf(
@@ -191,3 +195,68 @@ class TestFooterToleranz:
         )
         assert "RESULT: DRIFT" in aus
         assert rc == 1
+
+
+# ── Basis-Hinweis (platform#2004) ────────────────────────────────────────────
+# Am 2026-08-16 gab dieses Skript demselben unveraenderten Hook zwei Urteile,
+# je nachdem wie frisch der Arbeitsbaum war. Verglichen wird gegen den
+# Arbeitsbaum; nach einem Merge WAEHREND der Sitzung ist der veraltet und der
+# Melder wird still gruen — im Moment seiner groessten Zustaendigkeit. Der Fix
+# ist nicht, gegen origin/main zu vergleichen (Dauerrot beim Bearbeiten eines
+# Hooks), sondern die Basis zu NENNEN.
+
+
+def _repo_mit_abstand(tmp_path, commits_voraus: int):
+    """Winziges Repo bauen, dessen HEAD n Commits hinter origin/main liegt."""
+    repo = tmp_path / "repo"
+    (repo / "tools" / "claude-hooks").mkdir(parents=True)
+    g = ["git", "-C", str(repo)]
+    subprocess.run(g + ["init", "-q", "-b", "main"], check=True)
+    subprocess.run(g + ["config", "user.email", "d@e.test"], check=True)
+    subprocess.run(g + ["config", "user.name", "Drill"], check=True)
+    for i in range(commits_voraus + 1):
+        (repo / "tools" / "claude-hooks" / "h.py").write_text(f"# {i}\n")
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["commit", "-qm", f"c{i}"], check=True)
+    subprocess.run(g + ["update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+    if commits_voraus:
+        subprocess.run(g + ["checkout", "-q", f"HEAD~{commits_voraus}"], check=True)
+    return repo
+
+
+def _lauf_mit_repo(tmp_path, repo, quelle, aktiv):
+    src, dst = tmp_path / "q", tmp_path / "a"
+    src.mkdir()
+    dst.mkdir()
+    for name, inhalt in quelle.items():
+        (src / name).write_text(inhalt, encoding="utf-8")
+    for name, inhalt in aktiv.items():
+        (dst / name).write_text(inhalt, encoding="utf-8")
+    fertig = subprocess.run(
+        ["bash", str(_SKRIPT), "--quiet"],
+        capture_output=True,
+        text=True,
+        env={
+            "HOOK_SRC_DIR": str(src),
+            "CLAUDE_HOOKS_DIR": str(dst),
+            "PLATFORM_DIR": str(repo),
+            "PATH": "/usr/bin:/bin",
+            "HOME": str(tmp_path),
+        },
+    )
+    return fertig.stdout
+
+
+def test_should_warn_when_the_comparison_base_is_behind_origin_main(tmp_path) -> None:
+    repo = _repo_mit_abstand(tmp_path, commits_voraus=2)
+    aus = _lauf_mit_repo(tmp_path, repo, {"h.py": "x\n"}, {"h.py": "x\n"})
+    assert "hinter origin/main" in aus
+    assert "2 Commit(s)" in aus
+
+
+def test_should_state_the_base_even_when_it_is_current(tmp_path) -> None:
+    """Auch das gruene Urteil nennt seine Basis — sonst weiss niemand, wogegen."""
+    repo = _repo_mit_abstand(tmp_path, commits_voraus=0)
+    aus = _lauf_mit_repo(tmp_path, repo, {"h.py": "x\n"}, {"h.py": "x\n"})
+    assert "Basis " in aus
+    assert "hinter origin/main" not in aus
