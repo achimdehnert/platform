@@ -238,9 +238,7 @@ def test_should_ignore_tool_results_as_owner_messages(tmp_path: Path) -> None:
     t = tmp_path / "nur_tool.jsonl"
     basis = _transcript(tmp_path, pr_creates=5).read_text().splitlines()
     rauschen = [
-        json.dumps(
-            {"type": "user", "message": {"content": [{"type": "tool_result"}]}}
-        ),
+        json.dumps({"type": "user", "message": {"content": [{"type": "tool_result"}]}}),
         json.dumps(
             {"type": "user", "isMeta": True, "message": {"content": "erinnerung"}}
         ),
@@ -255,7 +253,9 @@ def test_should_measure_repos_and_prod_step(tmp_path: Path) -> None:
     t.write_text(
         "\n".join(
             [
-                json.dumps({"type": "pr-link", "prRepository": "achimdehnert/risk-hub"}),
+                json.dumps(
+                    {"type": "pr-link", "prRepository": "achimdehnert/risk-hub"}
+                ),
                 json.dumps(
                     {
                         "type": "assistant",
@@ -277,7 +277,9 @@ def test_should_measure_repos_and_prod_step(tmp_path: Path) -> None:
                             "content": [
                                 {
                                     "type": "tool_use",
-                                    "input": {"command": "gh pr view 1 -R ttz-lif/ttz-hub"},
+                                    "input": {
+                                        "command": "gh pr view 1 -R ttz-lif/ttz-hub"
+                                    },
                                 }
                             ]
                         },
