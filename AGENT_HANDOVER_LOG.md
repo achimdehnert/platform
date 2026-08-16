@@ -2164,3 +2164,35 @@ Kandidat-Kriterium traf den Fall, den die absolute Schwelle verfehlt.
 
 **Abnahme:** Zielzustand erreicht. **SA-4: 0 Anwendungen.** Eine Eskalation ohne Auftrag
 (#2011) — vom Melder korrekt angezeigt, gespiegelt, danach vom Owner freigegeben.
+
+### 2026-08-16 · Nachtrag: GitHub App live (Strang cross-repo-befunde)
+
+Nach dem Sitzungs-Handover ausgeführt, deshalb eigener Eintrag. App
+`iil-handover-reconciler` (id 4612790) angelegt, in vier Orgs installiert, Secret
+gesetzt, Abnahme grün: `nicht prüfbar 12 → 0`, `DISKREPANZ 8 → 18`
+([Lauf 31947642164](https://github.com/achimdehnert/platform/actions/runs/31947642164)).
+Der Anstieg ist der Erfolg — exakt die zehn Referenzen, die als Prognose in #2009 standen.
+
+**Was auf dem Weg dahin dreimal geprüft statt geglaubt wurde:**
+
+1. Der Owner meldete zweimal „passt" — die Schlüsseldatei war beim ersten Mal **44 Bytes**
+   ohne PEM-Struktur (0 Zeilen, 0× `BEGIN`). Gegenprobe an der danebenliegenden, bekannt
+   gültigen Datei (27 Zeilen, 1× `BEGIN`) zeigte, dass der Test funktioniert. Ohne diese
+   Positivkontrolle wäre „keine PEM-Struktur" nicht von „mein Muster passt nicht" zu
+   trennen gewesen.
+2. **Welche App ein Schlüssel bedient, sagt nicht der Dateiname.** Im Secrets-Verzeichnis
+   lagen zwei fast gleich benannte App-Schlüssel (der neue und ein `…_admin`-Schlüssel von
+   Juni). Geprüft per JWT gegen `GET /app` → id 4612790, passt. Ein falscher Schlüssel hätte
+   zu leeren Token-Schritten geführt — und das sieht exakt aus wie eine fehlende Installation.
+3. Die vier Installationen waren mit dem User-Token **nicht** prüfbar
+   (`/user/installations` → 403). Erst der App-JWT zeigte sie: alle vier mit
+   `repository_selection: all` und genau den drei Read-Rechten.
+
+**Zwei Handgriffe, die sonst jeder neu sucht:** `gh api` sendet `Authorization: token …`,
+ein App-JWT braucht **`Bearer`** — `gh` kann ihn nicht tragen, der Check läuft über
+`urllib` mit eigenem Header. Und: eine Absence-Behauptung über die REST-API („es gibt
+keinen Endpunkt, um Installationen anzulegen") ist erst mit der Doku belegt; die erste
+API-Probe war wertlos, weil die Positivkontrolle am fehlenden `admin:org`-Scope scheiterte.
+
+`bahn-sqf` bewusst **nicht** installiert — kam im Report nie vor; der Workflow-Schritt
+bleibt wirkungslos statt rot.
