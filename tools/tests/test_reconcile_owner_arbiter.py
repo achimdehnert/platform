@@ -151,3 +151,75 @@ def test_should_separate_a_404_from_a_real_api_error(rec, monkeypatch) -> None:
     )
     klass, _ = rec.query_state(_ref(rec, "achimdehnert", "risk-hub", 596))
     assert klass == "UNKNOWN"
+
+
+# ── Owner-spezifische Tokens (platform#2006, GitHub App) ─────────────────────
+# Gemessen 2026-08-16: derselbe Handover ergab mit dem Repo-Token
+# `DISKREPANZ 8 · nicht pruefbar 12`, mit Flotten-Sicht `DISKREPANZ 18 · 0`.
+# Zehn echte veraltete Referenzen waren unsichtbar.
+
+
+def test_should_derive_the_env_name_from_the_owner(rec) -> None:
+    assert rec.token_env_name("iilgmbh") == "RECONCILE_TOKEN_IILGMBH"
+    assert rec.token_env_name("meiki-lra") == "RECONCILE_TOKEN_MEIKI_LRA"
+    assert rec.token_env_name("ttz-lif") == "RECONCILE_TOKEN_TTZ_LIF"
+
+
+def test_should_fall_back_when_no_org_token_is_set(rec, monkeypatch) -> None:
+    """Fehlende App-Installation darf den Lauf NICHT rot faerben.
+
+    Ein dauerrot laufender Nightly wird abgeschaltet und meldet danach gar nichts
+    mehr (#1508). Fehlt der Token, bleibt es beim Default — die betroffenen
+    Referenzen landen wie bisher unter „nicht pruefbar".
+    """
+    monkeypatch.delenv("RECONCILE_TOKEN_IILGMBH", raising=False)
+    assert rec.token_fuer("iilgmbh") is None
+
+
+def test_should_treat_an_empty_token_as_absent(rec, monkeypatch) -> None:
+    """`steps.x.outputs.token` ist ein LEERER String, wenn der Schritt uebersprungen
+    wurde — nicht unset. Ohne diese Behandlung liefe `gh` mit GH_TOKEN='' und
+    schluege fuer jede Referenz fehl."""
+    monkeypatch.setenv("RECONCILE_TOKEN_IILGMBH", "")
+    assert rec.token_fuer("iilgmbh") is None
+    monkeypatch.setenv("RECONCILE_TOKEN_IILGMBH", "   ")
+    assert rec.token_fuer("iilgmbh") is None
+
+
+def test_should_use_the_org_token_for_that_owner_only(rec, monkeypatch) -> None:
+    gesehen = {}
+
+    class _Proc:
+        returncode, stderr, stdout = 0, "", '{"state": "open"}'
+
+    def _fake_run(cmd, **kw):
+        gesehen[cmd[2]] = (kw.get("env") or {}).get("GH_TOKEN")
+        return _Proc()
+
+    monkeypatch.setenv("RECONCILE_TOKEN_IILGMBH", "ghs_org_token")
+    monkeypatch.delenv("RECONCILE_TOKEN_ACHIMDEHNERT", raising=False)
+    monkeypatch.setenv("GH_TOKEN", "default_token")
+    monkeypatch.setattr(rec.subprocess, "run", _fake_run)
+
+    rec.query_state(_ref(rec, "iilgmbh", "risk-hub", 596))
+    rec.query_state(_ref(rec, "achimdehnert", "platform", 1))
+
+    assert gesehen["repos/iilgmbh/risk-hub/issues/596"] == "ghs_org_token"
+    assert gesehen["repos/achimdehnert/platform/issues/1"] == "default_token"
+
+
+def test_should_say_deleted_not_private_when_an_org_token_was_used(
+    rec, monkeypatch
+) -> None:
+    """Mit Org-Token ist 404 eine andere Aussage — das gehoert in den Text."""
+
+    class _Proc:
+        returncode, stderr, stdout = 1, "gh: Not Found (HTTP 404)", ""
+
+    monkeypatch.setattr(rec.subprocess, "run", lambda *a, **k: _Proc())
+    monkeypatch.setenv("RECONCILE_TOKEN_IILGMBH", "ghs_org_token")
+    _, detail = rec.query_state(_ref(rec, "iilgmbh", "risk-hub", 596))
+    assert "geloescht/umbenannt" in detail
+    monkeypatch.delenv("RECONCILE_TOKEN_IILGMBH")
+    _, detail = rec.query_state(_ref(rec, "iilgmbh", "risk-hub", 596))
+    assert "privat oder geloescht" in detail

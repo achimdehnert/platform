@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from dataclasses import replace
@@ -113,14 +114,49 @@ def schiedsrichter(ref: Ref) -> tuple[Ref, tuple[str, str] | None]:
     )
 
 
+def token_env_name(owner: str) -> str:
+    """Name der Env-Variable, die den Token fuer diesen Owner traegt.
+
+    `iilgmbh` → ``RECONCILE_TOKEN_IILGMBH``; `meiki-lra` → ``RECONCILE_TOKEN_MEIKI_LRA``.
+    """
+    normal = "".join(c if c.isalnum() else "_" for c in owner).upper()
+    return f"RECONCILE_TOKEN_{normal}"
+
+
+def token_fuer(owner: str) -> str | None:
+    """Owner-spezifischer Token, falls vorhanden — sonst None (Default gilt).
+
+    Die Flotte liegt in fuenf Orgs (`achimdehnert`, `iilgmbh`, `meiki-lra`,
+    `ttz-lif`, `bahn-sqf`). Ein Installation-Token einer GitHub App gilt je
+    Installation, also je Org; deshalb ein Token PRO Owner statt eines fuer alles.
+    Fehlt einer, bleibt es beim Default-Token — die betroffenen Referenzen landen
+    dann wie bisher unter „nicht pruefbar". Ein fehlender Token darf den Lauf nie
+    rot faerben: ein dauerrot laufender Nightly wird abgeschaltet (#1508).
+
+    Gemessen am 2026-08-16, warum das ueberhaupt gebaut wird: derselbe Handover
+    ergab mit dem Repo-Token `DISKREPANZ 8 · nicht pruefbar 12`, mit einem Token
+    mit Flotten-Sicht `DISKREPANZ 18 · nicht pruefbar 0`. **Zehn echte veraltete
+    Referenzen** waren also unsichtbar — nicht hypothetisch, sondern gezaehlt.
+    """
+    wert = os.environ.get(token_env_name(owner), "").strip()
+    return wert or None
+
+
 def query_state(ref: Ref) -> tuple[str, str]:
     """Liefert (klasse, detail) für eine Referenz via gh api (issues-Endpoint deckt auch PRs)."""
+    umgebung = dict(os.environ)
+    tok = token_fuer(ref.owner)
+    if tok:
+        # NUR fuer diesen Aufruf; der Wert wird nirgends ausgegeben (auch nicht im
+        # Fehlerdetail — `gh` schreibt ihn nicht in stderr, und wir kuerzen ohnehin).
+        umgebung["GH_TOKEN"] = tok
     try:
         proc = subprocess.run(
             ["gh", "api", f"repos/{ref.owner}/{ref.repo}/issues/{ref.number}"],
             capture_output=True,
             text=True,
             timeout=30,
+            env=umgebung,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return "UNKNOWN", f"gh nicht ausführbar/Timeout: {exc}"
@@ -131,9 +167,17 @@ def query_state(ref: Ref) -> tuple[str, str]:
         # Abdeckungsluecke, kein Befund; als solche gehoert sie in eine eigene
         # Klasse, damit sie die echten Treffer nicht zudeckt (platform#2006).
         if "404" in fehler:
+            # Mit einem org-eigenen Token ist 404 eine ANDERE Aussage als ohne:
+            # dann faellt „privat" als Erklaerung weg und geloescht/umbenannt
+            # bleibt uebrig. Das gehoert in den Text, sonst liest man spaeter
+            # dieselbe Zeile mit der falschen Erwartung.
+            grund = (
+                "Org-Token vorhanden → nicht „privat“, sondern geloescht/umbenannt"
+                if tok
+                else "privat oder geloescht (ohne Org-Token nicht unterscheidbar)"
+            )
             return "NICHT_PRUEFBAR", (
-                f"{fehler} — Owner laut Registry korrekt, also privat oder "
-                "geloescht (mit diesem Token nicht unterscheidbar)"
+                f"{fehler} — Owner laut Registry korrekt, {grund}"
             )
         return "UNKNOWN", fehler
     try:
@@ -204,6 +248,24 @@ def main() -> int:
             "Lauf **nicht** von privaten Repos unterscheidbar — sie stehen unten "
             "gemeinsam unter „nicht prüfbar“."
         )
+
+    # Token-Abdeckung ausweisen: welche Orgs wurden mit eigenem Token geprueft und
+    # welche nur mit dem Default? Ohne diese Zeile liest sich „nicht prüfbar 12"
+    # wie ein Repo-Problem, obwohl es eine fehlende Installation sein kann —
+    # Herkunft vor Urteil, dieselbe Regel wie bei der Marker-Herkunft in #1986.
+    beruehrte_owner = sorted({ref.owner for _, ref, _ in rows})
+    mit_token = [o for o in beruehrte_owner if token_fuer(o)]
+    ohne_token = [o for o in beruehrte_owner if not token_fuer(o)]
+    out.append("")
+    out.append(
+        "Token-Abdeckung: "
+        + (
+            f"eigener Token für **{', '.join(mit_token)}**"
+            if mit_token
+            else "kein Org-Token"
+        )
+        + (f" · Default-Token für {', '.join(ohne_token)}" if ohne_token else "")
+    )
     if adressfehler:
         out.append("")
         out.append("### 🚩 Adressfehler (Referenz zeigt ins Leere)")
