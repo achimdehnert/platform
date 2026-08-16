@@ -83,6 +83,14 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 → **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
   - `0.4 … GUARD(dirty/branch=…)`: fremde Session möglich — Repo NICHT stashen/switchen
     (ADR-233 + 🌀 Shared-Worktree-Kollision), read-only weiterarbeiten.
+  - `0.7.6 leseflaeche`: Befunde des **nächtlichen** `handover-reconcile` — meist
+    Prio-Zeilen, die auf Geschlossenes zeigen. Sie sind **vor** dem Arbeitsbeginn
+    nachzuziehen, nicht danach (dieselbe Klasse wie 0.7.4). Erledigt oder bewusst
+    ignoriert? → `python3 platform/tools/hooks/befund_leseflaeche.py --alle-gesehen`,
+    sonst erscheinen sie jede Sitzung erneut. Die Zeile `◌ … NICHT pruefbar` ist
+    **kein** Befund, sondern die Abdeckungslücke: der Workflow-Token sieht die
+    privaten Repos nicht (NEU 2026-08-16,
+    [#2006](https://github.com/achimdehnert/platform/issues/2006)).
   - `0.7 failure:<repos>`: je Repo Deploy-Log lesen + User informieren —
     🌀 `feedback_deploy_green_not_change_live`: run-conclusion allein belegt nicht,
     dass die Änderung live ist. Optional als error_pattern sichern (/session-ende Phase 2).

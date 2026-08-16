@@ -67,6 +67,22 @@ ARTEFAKT = "handover-reconcile-report"
 WORKFLOW = "handover-reconcile.yml"
 MAX_ZEILEN = 8  # mehr als das liest beim Sitzungsstart niemand — Rest wird gezaehlt
 
+#: Klassen, die KEIN Befund sind, sondern eine Abdeckungsluecke.
+#:
+#: Gemessen beim Verdrahten (2026-08-16, platform#2006) am echten Report des Laufs
+#: 31927075538: 20 Eintraege, davon **12 `UNKNOWN`** — jeder mit dem Detail
+#: `gh: Not Found (HTTP 404)`, und jeder auf ein PRIVATES Repo (risk-hub, tax-hub,
+#: ttz-hub, travel-beat, frist-hub, mcp-hub, dev-hub). Der Workflow laeuft mit dem
+#: repo-eigenen Token; `platform` ist oeffentlich, die anderen nicht. `UNKNOWN`
+#: heisst hier also „mit diesem Token nicht pruefbar", nicht „stimmt nicht".
+#:
+#: Sie als Befunde zu rendern waere der sichere Weg, diese Leseflaeche wieder
+#: unlesbar zu machen: 12 von 20 Zeilen Rauschen, und ein dauerhaft lautes Werkzeug
+#: wird abgeschaltet — dann meldet es gar nichts mehr (#1508). Sie verschwinden aber
+#: auch nicht: sie werden als **eine** Abdeckungszeile ausgewiesen, so wie Phase 0.7
+#: des Runners ihre nicht abfragbaren Repos nennt statt sie wegzulassen.
+NICHT_PRUEFBAR = ("UNKNOWN",)
+
 
 def _jetzt() -> datetime:
     return datetime.now(timezone.utc)
@@ -106,9 +122,23 @@ def hole_report(repo_dir: Path) -> dict | None:
     """Letzten Reconcile-Report als Artefakt ziehen. None bei jedem Fehlschlag."""
     try:
         lauf = subprocess.run(
-            ["gh", "run", "list", "--workflow", WORKFLOW, "-L", "1",
-             "--json", "databaseId,conclusion", "--jq", ".[0].databaseId"],
-            capture_output=True, text=True, timeout=15, cwd=repo_dir,
+            [
+                "gh",
+                "run",
+                "list",
+                "--workflow",
+                WORKFLOW,
+                "-L",
+                "1",
+                "--json",
+                "databaseId,conclusion",
+                "--jq",
+                ".[0].databaseId",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=repo_dir,
         )
         lauf_id = lauf.stdout.strip()
         if lauf.returncode != 0 or not lauf_id.isdigit():
@@ -118,7 +148,10 @@ def hole_report(repo_dir: Path) -> dict | None:
         with tempfile.TemporaryDirectory() as tmp:
             dl = subprocess.run(
                 ["gh", "run", "download", lauf_id, "-n", ARTEFAKT, "-D", tmp],
-                capture_output=True, text=True, timeout=30, cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=repo_dir,
             )
             if dl.returncode != 0:
                 return None
@@ -147,9 +180,13 @@ def verschmelze(state: dict, report: dict) -> dict:
         eintrag = befunde.get(s)
         if eintrag is None:
             befunde[s] = {
-                "erstmals": jetzt, "zuletzt": jetzt, "wiederholungen": 1,
-                "klasse": b.get("klasse", "?"), "detail": b.get("detail", ""),
-                "zeile_nr": b.get("zeile_nr"), "bestaetigt": None,
+                "erstmals": jetzt,
+                "zuletzt": jetzt,
+                "wiederholungen": 1,
+                "klasse": b.get("klasse", "?"),
+                "detail": b.get("detail", ""),
+                "zeile_nr": b.get("zeile_nr"),
+                "bestaetigt": None,
             }
         else:
             # Nur hochzaehlen, wenn es ein NEUER Lauf ist — sonst wuerde jeder
@@ -169,11 +206,17 @@ def verschmelze(state: dict, report: dict) -> dict:
 
 
 def offene(state: dict) -> list[tuple[str, dict, int]]:
-    """(Schluessel, Eintrag, Alter in Tagen) je unbestaetigtem Befund, aeltester zuerst."""
+    """(Schluessel, Eintrag, Alter in Tagen) je unbestaetigtem Befund, aeltester zuerst.
+
+    Ohne die nicht pruefbaren Klassen — die sind eine Abdeckungsluecke und kein
+    Befund (siehe ``NICHT_PRUEFBAR``); sie stehen als eigene Zeile im Bericht.
+    """
     jetzt = _jetzt()
     raus = []
     for s, e in (state.get("befunde") or {}).items():
         if e.get("bestaetigt"):
+            continue
+        if e.get("klasse") in NICHT_PRUEFBAR:
             continue
         erst = _parse(e.get("erstmals", "")) or jetzt
         raus.append((s, e, (jetzt - erst).days))
@@ -181,9 +224,28 @@ def offene(state: dict) -> list[tuple[str, dict, int]]:
     return raus
 
 
+def ungeprueft(state: dict) -> list[str]:
+    """Schluessel, ueber die der Melder kein Urteil faellen konnte."""
+    return sorted(
+        s
+        for s, e in (state.get("befunde") or {}).items()
+        if not e.get("bestaetigt") and e.get("klasse") in NICHT_PRUEFBAR
+    )
+
+
 def rendere(state: dict) -> str:
     posten = offene(state)
+    luecken = ungeprueft(state)
     if not posten:
+        # Auch ein reiner Luecken-Stand wird gezeigt: „nichts gefunden" und
+        # „nichts pruefen koennen" sind zwei verschiedene Aussagen, und die
+        # zweite als Stille auszugeben ist genau die Falle, gegen die es geht.
+        if luecken:
+            return (
+                f"👁  Leseflaeche — 0 Befunde · {len(luecken)} Eintrag/Eintraege "
+                f"NICHT pruefbar (Token ohne Zugriff): {', '.join(luecken[:4])}"
+                + (" …" if len(luecken) > 4 else "")
+            )
         return ""
     ueberfaellig = [p for p in posten if timedelta(days=p[2]) >= SICHT_FRIST]
     kopf = f"👁  Leseflaeche — {len(posten)} offene(r) Melder-Befund(e)"
@@ -200,6 +262,12 @@ def rendere(state: dict) -> str:
         )
     if len(posten) > MAX_ZEILEN:
         zeilen.append(f"  … und {len(posten) - MAX_ZEILEN} weitere")
+    if luecken:
+        zeilen.append(
+            f"  ◌ {len(luecken)} Eintrag/Eintraege NICHT pruefbar (Token ohne Zugriff): "
+            + ", ".join(luecken[:4])
+            + (" …" if len(luecken) > 4 else "")
+        )
     zeilen.append(
         "  Gesehen? `befund_leseflaeche.py --alle-gesehen` — sonst erscheint es wieder."
     )
