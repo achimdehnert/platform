@@ -64,7 +64,20 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   "${TARGET_REPO:-$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null || echo platform)}"
 ```
 
-→ Ende = Summary-Tabelle `| Phase | Status | Note |` + `RESULT: OK|FAIL`.
+→ Ende = Summary-Tabelle `| Phase | Status | Repo | Note |` + Befund-Journal + `RESULT: OK|FAIL`.
+→ **Die Spalte `Repo` nennt das Repo, um das es GEHT** — nicht das, in dem die Sitzung
+  läuft (NEU 2026-08-16, [#2004](https://github.com/achimdehnert/platform/issues/2004)).
+  Ein roter Deploy in `cad-hub` ist ein Befund über `cad-hub`, auch wenn er in einer
+  platform-Sitzung auftaucht. Diese Unterscheidung fehlte, und der Befund blieb liegen:
+  fünf offene `[deploy-health]`-Issues, bis zu 10 Tage alt, **alle in `platform`**,
+  alle über andere Repos, keins bearbeitet.
+→ **Der Befund-Journal-Block darunter zeigt das Alter** (`⏳ ALTBEFUND … N Laeufe,
+  erstmals …`) — eine WARN-Zeile am zehnten Tag klang bis dahin wie eine am ersten.
+  Ein Altbefund gehört mit seinem Alter ins Board, nicht als Neuigkeit. Vollbild:
+  `python3 platform/tools/befund_journal.py --bericht`.
+→ Nennt der Block **Fremd-Repo-Befunde ohne Artefakt**, ist das kein Sofort-Auftrag:
+  `/session-ende` Phase 0f fragt sie ab und verlangt je Befund entweder ein Issue im
+  **Zielrepo** oder einen abgelegten Verzicht mit Grund.
 → **RESULT: FAIL** (einziger Hard-FAIL: pgvector-Tunnel, Phase 0.5) → Session NICHT
   fortsetzen, bis behoben — **kein** Fallback auf lokales Memory (ADR-154).
 → **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
@@ -325,6 +338,7 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 |---|-------|--------|
 | 1 | Runner `tools/session_start_checks.sh` gelaufen, Summary-Tabelle gezeigt (0.R) | ☐ |
 | 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt (0.R) | ☐ |
+| 2a | Befund-Journal gelesen: Altbefunde mit ihrem **Alter** gespiegelt, Fremd-Repo-Befunde benannt (0.R) | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |

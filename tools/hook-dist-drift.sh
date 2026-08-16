@@ -42,7 +42,9 @@
 # das echte ~/.claude/hooks/ (siehe tools/tests/test_hook_dist_drift.py).
 set -euo pipefail
 
-PLATFORM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Ueberschreibbar wie HOOK_SRC_DIR/CLAUDE_HOOKS_DIR — sonst laesst sich der
+# Basis-Hinweis unten nicht gegen ein Repo mit bekanntem Abstand pruefen.
+PLATFORM_DIR="${PLATFORM_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SRC_DIR="${HOOK_SRC_DIR:-$PLATFORM_DIR/tools/claude-hooks}"
 DST_DIR="${CLAUDE_HOOKS_DIR:-$HOME/.claude/hooks}"
 
@@ -65,6 +67,31 @@ _ohne_footer() {
 }
 
 [[ -d "$SRC_DIR" ]] || { echo "FEHLER: $SRC_DIR nicht gefunden" >&2; exit 2; }
+
+# Vergleichsbasis benennen — und melden, wenn sie selbst veraltet ist.
+#
+# Gemessen 2026-08-16 (platform#2004): derselbe unveraenderte Hook (md5 597225…)
+# bekam von diesem Skript zwei Urteile — `RESULT: OK` bei HEAD 1612cd94, `RESULT:
+# DRIFT` bei HEAD 2037dc5c. Verglichen wird gegen den ARBEITSBAUM, nicht gegen
+# origin/main. Zu Sitzungsbeginn stimmt das (Phase 0.2 zieht vorher), aber jeder
+# Merge WAEHREND einer Sitzung macht den Melder still gruen — genau in dem Moment,
+# in dem eine frisch gemergte Aenderung noch nicht im aktiven Pfad liegt. Das ist
+# der Fall, fuer den es diesen Melder ueberhaupt gibt (#1989).
+#
+# Bewusst KEIN automatischer Vergleich gegen origin/main: waehrend der Arbeit an
+# einem Hook weicht der eigene Worktree zu Recht ab, das waere Dauerrot. Der Melder
+# sagt stattdessen, WOGEGEN er geurteilt hat — ein Urteil ohne genannte Basis ist
+# der eigentliche Defekt.
+BASIS_HINWEIS=""
+if git -C "$PLATFORM_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  BASIS_SHA=$(git -C "$PLATFORM_DIR" log -1 --format=%h -- tools/claude-hooks 2>/dev/null || echo "?")
+  HINTEN=$(git -C "$PLATFORM_DIR" rev-list --count HEAD..origin/main -- tools/claude-hooks 2>/dev/null || echo 0)
+  if [[ "${HINTEN:-0}" -gt 0 ]]; then
+    BASIS_HINWEIS=" · ⚠ Basis ${BASIS_SHA} ist ${HINTEN} Commit(s) hinter origin/main — das Urteil gilt NUR fuer diese Basis (git pull, dann erneut pruefen)"
+  else
+    BASIS_HINWEIS=" · Basis ${BASIS_SHA}"
+  fi
+fi
 
 if [[ ! -d "$DST_DIR" ]]; then
   echo "RESULT: UNGEPRUEFT — aktiver Hook-Pfad $DST_DIR existiert nicht (nichts verteilt?)"
@@ -134,8 +161,8 @@ DRIFTED="${DRIFTED# }"; NICHT_VERTEILT="${NICHT_VERTEILT# }"
 NV_ANZAHL=$(wc -w <<<"$NICHT_VERTEILT")
 
 if [[ -n "$DRIFTED" ]]; then
-  echo "RESULT: DRIFT — aktive Kopie(n) weichen von tools/claude-hooks ab: $DRIFTED (beheben: tools/hook-dist-drift.sh --sync)"
+  echo "RESULT: DRIFT — aktive Kopie(n) weichen von tools/claude-hooks ab: $DRIFTED (beheben: tools/hook-dist-drift.sh --sync)${BASIS_HINWEIS}"
   exit 1
 else
-  echo "RESULT: OK — $SYNCED aktive Kopie(n) synchron · $NV_ANZAHL Quelldatei(en) nicht verteilt (kein Befund)"
+  echo "RESULT: OK — $SYNCED aktive Kopie(n) synchron · $NV_ANZAHL Quelldatei(en) nicht verteilt (kein Befund)${BASIS_HINWEIS}"
 fi

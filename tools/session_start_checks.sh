@@ -26,11 +26,27 @@ TARGET_REPO="${1:-platform}"
 PROD_HOST="88.198.191.108"
 STAGING_HOST="88.99.38.75"
 
-declare -a P_NAME P_STATUS P_NOTE
+declare -a P_NAME P_STATUS P_NOTE P_REPO P_UNGEPRUEFT
 FAILED=0
 
-record() { # record <phase> <PASS|WARN|FAIL> <note> — Pipes raus, sonst bricht die Summary-Tabelle
+# record <phase> <PASS|WARN|FAIL> <note> [ziel-repos] [ungeprueft-repos]
+#   Pipes raus, sonst bricht die Summary-Tabelle.
+#   Das 4. Argument nennt die Repos, um die es in dieser Zeile GEHT — nicht das
+#   Repo, in dem die Sitzung laeuft. Ohne Angabe ist es $TARGET_REPO, denn die
+#   meisten Phasen pruefen die eigene Umgebung. Genau diese Unterscheidung fehlte
+#   bis 2026-08-16 (platform#2004): ein roter Deploy in `cad-hub` war eine WARN-Zeile
+#   in einer platform-Sitzung, und der Befund blieb dort liegen — fuenf offene
+#   `[deploy-health]`-Issues, alle in platform, alle ueber andere Repos, keins gefixt.
+#
+#   Das 5. Argument nennt Repos, die diese Phase NICHT beurteilen konnte. Ohne das
+#   sieht eine Abdeckungsluecke im Journal aus wie eine Heilung: `trading-hub` ist
+#   fuer 0.7 regelmaessig nicht abfragbar — der Befund waere jedes Mal still
+#   verschwunden und beim naechsten erfolgreichen Scan als neu wieder aufgetaucht,
+#   ewig jung. Der teuerste Fehler, den ein Melder-Gedaechtnis machen kann.
+record() {
   P_NAME+=("$1"); P_STATUS+=("$2"); P_NOTE+=("$(echo "$3" | tr '|' '/')")
+  P_REPO+=("${4:-$TARGET_REPO}")
+  P_UNGEPRUEFT+=("${5:-}")
   [ "$2" = "FAIL" ] && FAILED=1
   printf '  [%s] %s — %s\n' "$2" "$1" "$3"
 }
@@ -106,7 +122,10 @@ for repo in "$TARGET_REPO" mcp-hub risk-hub; do
   SYNC_RESULTS="$SYNC_RESULTS $(sync_repo "$GITHUB_DIR/$repo")"
 done
 if echo "$SYNC_RESULTS" | grep -q "GUARD\|pull-fail"; then
-  record "0.4 repo-sync" "WARN" "${GUARD_NOTE}${SYNC_RESULTS# } (GUARD = nicht angefasst, fremde Session möglich)"
+  # Nur die Repos, die tatsaechlich GUARD/pull-fail tragen — nicht die geprueften.
+  SYNC_BETROFFEN=$(echo "$SYNC_RESULTS" | tr ' ' '\n' \
+    | grep -E "GUARD|pull-fail" | cut -d: -f1 | sort -u | tr '\n' ' ')
+  record "0.4 repo-sync" "WARN" "${GUARD_NOTE}${SYNC_RESULTS# } (GUARD = nicht angefasst, fremde Session möglich)" "${SYNC_BETROFFEN% }"
 else
   record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }"
 fi
@@ -299,15 +318,20 @@ done
 N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
 # Abdeckung immer mitschreiben (gescannt/gesamt) statt nur die Soll-Zahl zu nennen.
 COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfragbar:$DEPLOY_SKIPPED}"
+# Betroffene Repos maschinenlesbar mitgeben (K1, platform#2004): failure UND waiting
+# sind Befunde ueber ein FREMDES Repo — sie gehoeren dorthin, nicht in die
+# platform-Prosa. Die nicht abfragbaren stehen getrennt, damit das Journal eine
+# Abdeckungsluecke nicht als Heilung verbucht.
+DEPLOY_BETROFFEN=$(echo "$DEPLOY_WAITING $DEPLOY_FAILS" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
 if [ -n "$DEPLOY_WAITING" ]; then
-  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS} (${COVERAGE})"
+  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
 elif [ -n "$DEPLOY_FAILS" ]; then
-  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live) (${COVERAGE})"
+  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live) (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
 elif [ -z "$WAIT_CUTOFF" ]; then
   # F3: ohne Cutoff lief die waiting-Pruefung gar nicht — kein PASS behaupten.
-  record "0.7 deploy-scan" "WARN" "degraded: WAIT_CUTOFF leer (kein GNU-date?) — haengende Approval-Gates wurden NICHT geprueft; kein failure in ${COVERAGE}"
+  record "0.7 deploy-scan" "WARN" "degraded: WAIT_CUTOFF leer (kein GNU-date?) — haengende Approval-Gates wurden NICHT geprueft; kein failure in ${COVERAGE}" "$TARGET_REPO" "$DEPLOY_REPOS"
 elif [ -n "$DEPLOY_SKIPPED" ]; then
-  record "0.7 deploy-scan" "WARN" "unvollstaendig: ${COVERAGE} — kein failure/waiting in den geprueften, die uebrigen sind ungeprueft${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
+  record "0.7 deploy-scan" "WARN" "unvollstaendig: ${COVERAGE} — kein failure/waiting in den geprueften, die uebrigen sind ungeprueft${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}" "$TARGET_REPO" "$DEPLOY_SKIPPED"
 else
   record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
 fi
@@ -427,17 +451,39 @@ record "0.9 staging" "PASS" "$STAGING"
 
 # ── Summary (maschinenlesbar, Basis der Startklar-Checkliste Rows 1–7) ──────
 echo ""
-echo "| Phase | Status | Note |"
-echo "|---|---|---|"
+echo "| Phase | Status | Repo | Note |"
+echo "|---|---|---|---|"
 for i in "${!P_NAME[@]}"; do
   case "${P_STATUS[$i]}" in
     PASS) ICON="✅" ;;
     WARN) ICON="⚠️" ;;
     FAIL) ICON="❌" ;;
   esac
-  printf '| %s | %s %s | %s |\n' "${P_NAME[$i]}" "$ICON" "${P_STATUS[$i]}" "${P_NOTE[$i]}"
+  printf '| %s | %s %s | %s | %s |\n' \
+    "${P_NAME[$i]}" "$ICON" "${P_STATUS[$i]}" "${P_REPO[$i]:-$TARGET_REPO}" "${P_NOTE[$i]}"
 done
 echo ""
+
+# ── Befund-Journal: Alter je Befund + Fremd-Repo-Wecker (K1/K3, platform#2004) ──
+# Der Runner meldete jede Sitzung dieselben Zeilen in derselben Lautstaerke. Ein
+# Befund am zehnten Tag klang wie einer am ersten — und blieb entsprechend liegen
+# (Messung: fuenf `[deploy-health]`-Issues, bis zu 10 Tage alt, keins bearbeitet).
+# Das Journal ist bewusst NUR Gedaechtnis: es zaehlt und erinnert, es handelt nicht.
+# Nie werfend — ein Melder, der die Sitzung aufhaelt, wird abgeschaltet.
+if [ -f "$PLATFORM_DIR/tools/befund_journal.py" ]; then
+  JOURNAL_OUT=$(
+    for i in "${!P_NAME[@]}"; do
+      printf '%s\t%s\t%s\t%s\t%s\n' "${P_NAME[$i]}" "${P_STATUS[$i]}" \
+        "${P_REPO[$i]:-$TARGET_REPO}" "${P_NOTE[$i]}" "${P_UNGEPRUEFT[$i]:-}"
+    done | python3 "$PLATFORM_DIR/tools/befund_journal.py" --aufnehmen \
+             --repo "$TARGET_REPO" 2>/dev/null || true
+  )
+  if [ -n "$JOURNAL_OUT" ]; then
+    echo "Befund-Journal (Alter je Befund · tools/befund_journal.py --bericht):"
+    echo "$JOURNAL_OUT"
+    echo ""
+  fi
+fi
 if [ "$FAILED" -eq 1 ]; then
   echo "RESULT: FAIL — Session NICHT fortsetzen, bis alle ❌ behoben sind."
   exit 1
