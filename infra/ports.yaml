@@ -418,6 +418,13 @@ services:
     domain_prod: writing.iil.pet
     domain_staging: staging-writing.iil.pet
     repo: achimdehnert/writing-hub
+    prod_host: prod            # ⚠ ZWEITE AUSNAHME von ADR-292 (nach illustration-hub),
+                               # deklariert als Phase-6-Vorbedingung in ADR-296 §4.1/§5
+                               # (platform#2020 K4): die lokale LLM-Lane erreicht die
+                               # 4090 (10.99.0.2) nur ueber das WireGuard-Netz von prod;
+                               # eine Long-Tail-Migration nach prod-b braeche die
+                               # Text-Lane still — genau die Fehlerklasse der
+                               # illustration-Vorgeschichte (22.07.-06.08.2026).
 
   research-hub:
     prod: 8098
