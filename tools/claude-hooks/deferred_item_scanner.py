@@ -66,7 +66,19 @@ DEFERRAL_PATTERNS = re.compile(
     # Retro 287b23 #6: "verschieben" als Vertagungs-Verb fehlte (FN-Klasse). Eng:
     # nur Ich-Form/Arbeits-Kontext, damit "der Termin wurde verschoben" nicht feuert.
     r"|\bverschiebe\s+ich\s+(?:auf|in|nach)\b"
-    r"|\bauf\s+(?:sp(?:ä|ae)ter|die\s+n(?:ä|ae)chste\s+Session|morgen)\s+verschoben\b",
+    r"|\bauf\s+(?:sp(?:ä|ae)ter|die\s+n(?:ä|ae)chste\s+Session|morgen)\s+verschoben\b"
+    # Retro 9d861a #2 (2026-08-16): ZWEITE Instanz derselben FN-Klasse. Der reale
+    # Wortlaut war „ist hier bewusst nicht mitgemacht" — ein Aufschub in
+    # VERNEINUNGSFORM, den die Verb-Aufzaehlung oben nicht kannte. Der Befund
+    # (Konsolidierung zweier Befund-Gedaechtnisse) blieb dadurch ohne
+    # Tracking-Artefakt, obwohl genau dieser Scanner dafuer existiert. Gefunden
+    # nur, weil ein Retro den Turn-Text gegen das Muster replayte — nicht vom
+    # Scanner selbst.
+    #
+    # Bewusst eng: nur mit vorangehendem „bewusst|absichtlich|hier", damit ein
+    # blosses „das habe ich nicht mitgemacht" (Bericht ueber Fremdes) nicht feuert.
+    r"|\b(?:bewusst|absichtlich|hier)\s+nicht\s+"
+    r"(?:mitgemacht|mitgezogen|mitgenommen|mitgeliefert|angefasst)\b",
     re.I,
 )
 

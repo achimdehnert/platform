@@ -30,6 +30,10 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import gate_hits  # noqa: E402  (haengt am sys.path oben)
+
 # GATE-HEADER (KONZ-038 D8, maschinenlesbar — der Fenster-Prüflauf liest dieses Dict):
 # Umstellung advisory→blocking ist Welle-1-Vorabtest (b) aus KONZ-038 D2; Messfenster
 # 2026-08-02 bis 2026-08-16, Erfolgskriterium: Verstoßrate des Slugs sinkt im Retro-Delta.
@@ -671,6 +675,21 @@ def main() -> int:
         return 0
 
     kinds = ", ".join(sorted(set(fired)))
+
+    # Treffer mitschreiben (Retro 9d861a, Befund #1). Dieser Scanner meldete bis
+    # 2026-08-16 ausschliesslich in den Sitzungs-Kontext und schrieb NICHTS auf
+    # Platte — genau wie `untested_command_scanner`. Von fuenf aktiven Scannern
+    # protokollierten damit nur drei, und die Auswertung in platform#1640 stand
+    # unbemerkt auf einer unvollstaendigen Datenbasis: aus "16 von 16 Eintraegen
+    # stammen von einem Melder" liess sich ueber die uebrigen NICHTS folgern.
+    # Die pytest-Sperre in notiere() gilt unveraendert (platform#1986).
+    gate_hits.notiere(
+        GATE_HEADER["slug"],
+        f"kinds={kinds}",
+        session=str(event.get("session_id", "")),
+        modus=_mode(),
+    )
+
     msg = (
         "⚠️ evidence-discipline check: deine letzte Antwort enthält eine prüfbare "
         f"Behauptung ({kinds}), aber dieser Turn hat keinen Tool-Lauf, der sie belegt. "

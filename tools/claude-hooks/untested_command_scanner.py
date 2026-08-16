@@ -34,6 +34,23 @@ import shlex
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import gate_hits  # noqa: E402  (haengt am sys.path oben)
+
+# Maschinenlesbarer Kopf (KONZ-038 D8). Nachgetragen 2026-08-16 (Retro 9d861a):
+# dieser Scanner lief seit Wochen aktiv, war aber in KEINER Registry gefuehrt —
+# damit unsichtbar fuer `gate_drill_check.py` und fuer die Gate-Buchhaltung in
+# `retro_kpis.py`. Ein aktiver, unregistrierter Waechter ist kein halbes Gate,
+# sondern ein blinder Fleck in genau der Uebersicht, die Gates zaehlen soll.
+GATE_HEADER = {
+    "slug": "untested-command-handed-to-user",
+    "mode": "advisory",
+    "owner": "achim",
+    "last_drill_pass": "2026-08-16",
+    "evidence": "tools/claude-hooks/tests/test_untested_command_scanner.py",
+}
+
 # Fenced Code-Block: ```[sprache]\n<inhalt>```
 FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.S)
 
@@ -315,6 +332,20 @@ def main() -> int:
         if not untested and not placeholders:
             return 0
         _merken(session_id, {_abdruck(x) for x in (*untested, *placeholders)})
+
+    # Treffer mitschreiben (Retro 9d861a, Befund #1). Bis 2026-08-16 meldete dieser
+    # Scanner ausschliesslich in den Sitzungs-Kontext; von fuenf aktiven Scannern
+    # protokollierten nur drei, und die FP-/Recall-Auswertung in platform#1640 stand
+    # unbemerkt auf einer unvollstaendigen Datenbasis. Bewusst NACH der Entprellung:
+    # protokolliert wird, was auch gemeldet wird — sonst zaehlt das Protokoll
+    # Wiederholungen, die der Mensch nie zu sehen bekam.
+    if untested or placeholders:
+        gate_hits.notiere(
+            GATE_HEADER["slug"],
+            f"untested={len(untested)} placeholders={len(placeholders)}",
+            session=session_id,
+            modus=GATE_HEADER["mode"],
+        )
 
     reminder = build_reminder(untested, placeholders)
     if reminder:

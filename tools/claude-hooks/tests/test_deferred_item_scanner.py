@@ -229,3 +229,49 @@ class TestTrefferProtokoll:
         rc, ausgabe = _run(monkeypatch, capsys, pfad)
         assert (rc, ausgabe) == (0, {})
         assert not ziel.exists()
+
+
+# --- FN-Klasse Verneinungsform (Retro 9d861a #2, 2026-08-16) ------------------
+#
+# Zweite Instanz derselben Klasse wie Retro 287b23 #6 ("verschieben" fehlte).
+# Realer Wortlaut, der durchrutschte: "ist hier bewusst nicht mitgemacht" —
+# ein Aufschub in Verneinungsform. Der Befund blieb dadurch ohne Tracking,
+# obwohl genau dieser Scanner dafuer existiert.
+
+
+def test_should_catch_deferral_in_negated_form():
+    import deferred_item_scanner as d
+
+    realer_wortlaut = (
+        "Verschiedene Quellen, verschiedene Lebenszyklen — eine Zusammenlegung "
+        "waere ein eigener Umbau und ist hier bewusst nicht mitgemacht."
+    )
+    assert d.DEFERRAL_PATTERNS.search(realer_wortlaut), (
+        "Der Wortlaut, der am 2026-08-16 durchrutschte, muss treffen"
+    )
+
+
+def test_should_catch_negated_variants():
+    import deferred_item_scanner as d
+
+    for satz in (
+        "Das habe ich absichtlich nicht mitgezogen.",
+        "Die Migration ist bewusst nicht mitgeliefert.",
+        "Den Rest habe ich hier nicht angefasst.",
+    ):
+        assert d.DEFERRAL_PATTERNS.search(satz), satz
+
+
+def test_should_not_fire_on_a_report_about_others():
+    """Eng gehalten: ohne 'bewusst|absichtlich|hier' kein Treffer.
+
+    Sonst feuert jeder Bericht ueber fremdes Verhalten — und ein Scanner mit
+    hoher Fehlalarmquote wird abgeschaltet und meldet dann gar nichts mehr.
+    """
+    import deferred_item_scanner as d
+
+    for satz in (
+        "Die anderen haben das nicht mitgemacht.",
+        "Der Nachbar-PR hat den Test nicht mitgeliefert.",
+    ):
+        assert not d.DEFERRAL_PATTERNS.search(satz), satz

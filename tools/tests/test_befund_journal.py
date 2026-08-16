@@ -215,3 +215,27 @@ def test_should_ignore_broken_input_lines(journal: Path) -> None:
 def test_should_write_valid_json(journal: Path) -> None:
     _lauf(["0.7 deploy-scan\tWARN\tcad-hub\tfailure"], journal)
     assert json.loads(journal.read_text(encoding="utf-8"))["befunde"]
+
+
+def test_should_report_ungeprueft_when_the_journal_does_not_exist(tmp_path) -> None:
+    """Kein Journal = keine Datenbasis = kein Urteil (Retro 9d861a, Befund #9).
+
+    Beim allerersten Lauf meldete dieses Gate `OK`, obwohl die Datei gar nicht
+    existierte — ein vakuum wahres Freigabe-Signal. Genau die Fehlform, die am
+    2026-08-15 schon einmal ein „0 Fehlalarme"-Urteil wertlos machte.
+    """
+    fehlt = tmp_path / "gibt-es-nicht.json"
+    assert not fehlt.exists()
+    assert (
+        bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(fehlt)])
+        == 0
+    )
+
+
+def test_should_report_ok_only_with_an_existing_journal(journal: Path, capsys) -> None:
+    """Positivkontrolle: mit vorhandenem Journal ist OK weiterhin OK."""
+    _lauf(["0.1 server-probe\tPASS\tplatform\tok"], journal)
+    assert journal.exists()
+    bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(journal)])
+    aus = capsys.readouterr().out
+    assert "RESULT: OK" in aus and "UNGEPRUEFT" not in aus
