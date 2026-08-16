@@ -116,7 +116,7 @@ QUALITÄT:
 [ ] Alle Smoke-Tests bestehen (HTTP 200/302)
 [ ] Coverage >= 80% für services.py in jeder App
 [ ] Kein Test heißt test_<x> ohne test_should_ prefix
-[ ] requirements-test.txt hat iil-testkit[smoke]>=0.4.0,<1
+[ ] requirements-test.txt hat iil-testkit[smoke]>=0.5.3,<1
 [ ] pyproject.toml hat [tool.pytest.ini_options] mit DJANGO_SETTINGS_MODULE
 [ ] python3 platform/scripts/teste_repo.py <REPO_NAME> endet mit Exit-Code 0
 
@@ -138,10 +138,10 @@ QUALITÄT:
 ```
 Füge minimales Test-Setup zu <REPO_NAME> hinzu.
 
-Installiere iil-testkit[smoke]>=0.4.0,<1 und erstelle:
+Installiere iil-testkit[smoke]>=0.5.3,<1 und erstelle:
 1. tests/conftest.py mit `pytest_plugins = ["iil_testkit.fixtures"]`
 2. tests/test_views_smoke.py mit discover_smoke_urls() + test_should_view_return_200
-3. requirements-test.txt mit iil-testkit[smoke]>=0.4.0,<1 + pytest>=8.0 + pytest-django>=4.8
+3. requirements-test.txt mit iil-testkit[smoke]>=0.5.3,<1 + pytest>=8.0 + pytest-django>=4.8
 4. pyproject.toml [tool.pytest.ini_options] mit DJANGO_SETTINGS_MODULE aus config/settings/
 
 Nenne alle Tests test_should_<expected_behavior>.

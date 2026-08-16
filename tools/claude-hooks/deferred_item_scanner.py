@@ -13,8 +13,18 @@ die Regel existierte, wurde ×8 verletzt; dieser Hook macht sie ausführbar.
 
 GATE-HEADER (KONZ-038 D8, maschinenlesbar):
 mode=advisory BEWUSST: neue Muster-Familie ohne False-Positive-Baseline; nach
-SUGGEST-first-Disziplin (repo-health) erst ein Kalibrierfenster (bis 16.08.),
-blocking erst nach 0-FP-Fenster + eigenem PR.
+SUGGEST-first-Disziplin (repo-health) erst ein Kalibrierfenster (2026-08-15 bis
+2026-08-29), blocking erst nach 0-FP-Fenster + eigenem PR.
+
+Fenster neu datiert am 2026-08-15 (Owner-Freigabe, #1640): das erste
+(02.08.–16.08.) hat nichts gemessen. Alle 212 protokollierten Treffer stammten
+aus `pytest` — die Drills schrieben über `gate_hits.notiere()` in das echte
+Protokoll, kein einziger Treffer kam aus einer Sitzung. Gesperrt mit #1986; die
+Zählung beginnt ab dessen Merge neu.
+
+Ein Fenster OHNE echte Treffer qualifiziert NICHT für blocking — „0 Fehlalarme"
+wäre dann vakuum wahr. Vorrangig ist deshalb die Recall-Frage: warum feuerte ein
+Gate mit ×8-Regelverletzung in fünf arbeitsreichen Tagen kein einziges Mal?
 
 Contract: identisch zum evidence_claim_scanner — Stop-Event auf stdin, IMMER
 Exit 0, advisory via hookSpecificOutput.additionalContext.

@@ -161,6 +161,24 @@
       "drill": "tools/tests/test_handover_stale_reference_check.py",
       "built": "2026-08-13",
       "ref": "platform#1945"
+    },
+    {
+      "slug": "hand-distributed-copy-not-redistributed",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hook-dist-drift.sh",
+      "drill": "tools/tests/test_hook_dist_drift.py",
+      "built": "2026-08-15",
+      "ref": "platform#1991"
+    },
+    {
+      "slug": "artefakt-budget-schwelle-erreicht",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/artefakt_budget.py",
+      "drill": "tools/tests/test_artefakt_budget.py",
+      "built": "2026-08-16",
+      "ref": "platform#1640"
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",

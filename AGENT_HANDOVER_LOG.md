@@ -1794,6 +1794,42 @@ den ein Fehlzeiger im Policy-Text zeigte.
 - risk-Prod verifiziert 0.11.8 + preload (letzte aifw-App live)
 - #1917 (SSoT-Regeln 5+6) + #1918 (Handover) gemergt; skip-ci-Substring-Falle in Memory nachgetragen
 
+### 2026-08-12 · Session mail-activity-intelligence (Strang 1f9813)
+
+Angefangen bei einer Bewertungsfrage — zwei externe Review-Runden gegen den MVP stellen —
+und geendet bei einer Kategorien-Tabelle. Neun Schritte, jeder vom Owner angestoßen.
+
+Der Ertrag ist eine Zahl: **49 → 168**. Der Kopfdaten-Melder zählt je Adresse, und je Faden
+werden aus 49 Zeilen 168. Bei „ich schulde" sind es 13 → 70. Diese Asymmetrie ist kein
+Rauschen, sie ist strukturell: Je Adresse kippt jede Antwort in irgendeiner Sache die
+Richtung auf „ich warte" und verdeckt damit alle unbeantworteten Fäden desselben
+Gegenübers. Der Fall, für den das Cockpit überhaupt gebaut wird, ist der, den die billige
+Gruppierung am zuverlässigsten verschluckt. Der Owner hat die Messung selbst reproduziert,
+Zeile für Zeile identisch.
+
+Zwei Korrekturen an eigenen Aussagen, beide innerhalb einer Stunde nach dem Push. B9 nannte
+zuerst ADR-022 als verletzte Norm (null Treffer darin), dann ADR-109 H-1 (zu weit gefasst —
+bindet `TenantModel` in Tenancy-UI-Hubs, nicht jedes Modell). Der belegte Stand ist
+unbequemer als beide: Die Konvention wird als Standard behandelt, ohne einer zu sein. Und
+im ADR-295-Entwurf hing der Löschtermin an einem Frontmatter-Feld, das im ADR-Schema gar
+nicht existiert.
+
+Der wertvollste Fund kam beim Prüfen einer eigenen Warnung. Ich hatte gesagt, ein Wipe des
+Bestands könne gelöschte Inhalte zurückholen — als Vermutung. Der Code sagt mehr: Der
+Grabstein **ist** die Sperre, `ingest_or_skip` fragt `is_blocked()` ab. Ein Wipe entfernt
+also nicht den Nachweis, sondern das Hindernis. Heute betrifft das genau eine Nachricht, und
+die ist der ADR-293-Gate-3-Nachweis, keine Betroffenen-Anfrage. Nach den geplanten
+Testrunden können es echte sein.
+
+Was liegen bleibt, ist das, was ich dreimal aktenkundig gemacht habe und nicht gebaut habe:
+`record_erasure` wird ausschließlich aus Tests aufgerufen. Eine DSGVO-Löschung ist Handarbeit
+— schon für einen Bestand, nicht erst für zwei. Es blockiert die Datenübertragung nach dev,
+es ist der Grund für den gesperrten Löschknopf im Admin, und es ist der einzige offene Punkt
+dieser Sitzung, der ein Risiko trägt statt nur Arbeit.
+
+Ein Lichtblick zum Schluss: Der Admin-Test, den ich wegen des Löschknopfs geschrieben hatte,
+hat zwei Stunden später den Bau der Kategorien-Tabelle angehalten — sie war nicht
+registriert. Ein Guard, der eine andere Lücke fängt als die, für die er gebaut wurde.
 ### 2026-08-12 · Session gate-registry (Kapitäns-Kanal)
 
 - **#1650 Gate-Audit GESCHLOSSEN** — alle 3 Abnahme-Kriterien erfüllt, Checkboxen abgehakt.
@@ -1812,6 +1848,25 @@ den ein Fehlzeiger im Policy-Text zeigte.
 - **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
   alle Merges liefen bewusst als Owner-Einzel-Review (Perimeter-Pfade + Selbstbetreffendes).
 
+### 2026-08-12 · Strang 9ee08c2 — parallele Sessions kollisionsfrei + Admin-Test
+
+- Nummernkollision KONZ-043 aufgeloest (#1942 -> 044); Ursache: beide Sitzungen rechneten
+  korrekt max+1 gegen main, zum Vergabezeitpunkt fuer beide dieselbe Zahl.
+- Zielzustand #1944 (Owner-akzeptiert). K5 erfuellt (#1946 Kollisions-Meter: 59 Paare /
+  30 Tage, 1,9 %). K1 erfuellt (#1947 Erkennung + #1950 Vergabe; zwei Worktrees ohne Push
+  -> 045/046, alter Weg -> 2x 045). K2 abgestuft auf 4 echte Konflikte/30 Tage.
+- K2-Erstdiagnose (next_free) durch Gegentest widerlegt: haette add+add nicht geheilt und
+  add+edit erst kaputtgemacht. Im Issue korrigiert.
+- Mailbestands-Admin in 3 Runden geprueft: 17/17 rendern, 15 readonly, kein Body sichtbar.
+  Befund: TextUnit.text steht auf der Detailseite -> Owner-Entscheid "gewollt",
+  verankert + festgenagelt in dev-hub#273 (Gegenprobe: Reparatur macht den Test rot).
+- Praemisse dazu geprueft: dev-hub.iil.pet/admin lief ohne Cloudflare Access. Werkzeug
+  #1949 gebaut und angewandt -> /admin/ jetzt hinter Access, andere Routen unveraendert.
+- Eigener Fehler: "admin.py fehlt" aus dem Working Tree gelesen (1 Commit hinter main),
+  abgesichert durch eine Anti-Vakuum-Kontrolle, die nur den Filter prueft, nicht das
+  Datenalter. Als neue Facette in feedback_stale_local_clone_never_ground_truth ergaenzt.
+- Abnahme (0d): #1944 teilweise erreicht — K1+K5 erreicht, K2 abgestuft, K3/K4 offen.
+- SA-4: 1 Anwendung (#1946) · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
 ### 2026-08-13 · Session handover-flotte (Kapitäns-Kanal)
 
 - **#1945 GESCHLOSSEN** — alle 4 Kriterien belegt: #1954 (K1 Messung, 2 Läufe byte-identisch),
@@ -1866,3 +1921,178 @@ den ein Fehlzeiger im Policy-Text zeigte.
   Phase 2.7 lag zu Sitzungsbeginn nicht vor; das Ziel wurde im Kapitäns-Kanal gesetzt.
 - **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
   der einzige Merge (#1965) lief über die reguläre Code-Owner-Review.
+### 2026-08-13 · Delta zur Sitzung handover-flotte (Nachmittag/Abend)
+
+Ergänzt den am selben Tag gemergten Stand-Block (#1960); der Stand-Block selbst wurde
+BEWUSST nicht erneut umgeschrieben, weil PR #1935 einer parallelen Sitzung ihn offen
+hält — ein dritter konkurrierender Stand hätte den Konflikt dort verschärft.
+
+- **#1962 GESCHLOSSEN** (Gate-Pins): Flotte auf einem Pin, gemessen 22× `ja@v1.1.7`,
+  keine Abweichung. `trading-hub` zeigte auf einen SHA, den GitHub nicht mehr auflöst
+  (HTTP 422) — das Gate lief dort seit 2026-07-16 nicht. Bump verhaltensneutral belegt
+  (Gate-Datei über v1.1.0–v1.1.7 byte-identisch, md5 `209e23cd5845`).
+- **#1953 GESCHLOSSEN** (zwei Melder): beide Eröffnungs-Diagnosen waren falsch.
+  Sync-Drift-Meter war Fehlalarm auf einem nie aktualisierten Klon (design-hub, auf main
+  seit 2026-06-01 behoben) → Registry-Guard #1961. `Gen project-facts.md` lief sehr wohl
+  und scheiterte an drei Fremd-Org-Repos ausserhalb der Token-Reichweite → neues
+  dediziertes PROJECT_PAT (classic, `repo`-Scope, **Ablauf 2027-08-12**, abgelegt in der
+  kanonischen Secret-Heimat).
+- **Zwei Folgefunde, die erst der ECHTE Lauf zeigte** (der Trockenlauf war grün):
+  archiviertes wedding-hub faerbte den Lauf rot (#1967) · die Commit-Message trug eine
+  CI-Unterdrueckungsmarke und machte 5 der 8 erzeugten PRs unmergbar, dev-hub#178 seit
+  dem 2026-07-31 (#1970). Beweis: leerer Commit auf denselben Tree, Checks 0 → 11–15.
+- **weltenhub#52 GESCHLOSSEN**: Coverage Gate scheiterte an fehlendem `pip` (exit 127),
+  mass keine Coverage und blockierte jede PR. Kette shared-ci#53 → Tag `v1.1.8` →
+  weltenhub#53 (Pin-Bump) → weltenhub#50 gemergt, **ohne Bypass**.
+- Flotte: **49 von 54** aktiven Repos mit `AGENT_HANDOVER.md` (Sitzungsbeginn: 23).
+
+**Abnahme (Phase 0d):** Zielzustand #1945 **erreicht** — alle vier Kriterien einzeln
+verifiziert und im Issue belegt (Messung determinismus-geprueft, Gate 23/23, Melder in
+beiden Zweigen im echten Runner-Pfad, Prio bereinigt). Folge-Zielzustaende #1962/#1953
+ebenfalls **erreicht**; ein Abnahmepunkt in #1953 bleibt bewusst offen (Wochenlauf-Beweis
+Montag 04:00 UTC) und ist als solcher gekennzeichnet statt abgehakt.
+
+**SA-4: ~40 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.**
+Der Permission-Classifier blockte dreimal einen Fan-out (Worktree-Reap, 6-fach-Merge,
+State-Abfrage-Schleife); alle drei danach vom Owner bzw. einzeln ausgefuehrt, keiner
+umgangen. Ein `--admin`-Bypass wurde einmal owner-angewiesen benutzt (mcp-hub#198, mit
+durablem Beleg am PR) und einmal versucht, aber vom Ruleset verweigert (weltenhub#50) —
+dort war der Fix der Weg.
+
+**Prozess-Fehler dieser Sitzung, benannt:** der Check auf offene `AGENT_HANDOVER.md`-PRs
+(session-ende Phase 0a-handover-pr) lief erst am Sitzungsende — #1960 entstand davor und
+hat #1935 damit überholt. Genau die Reihenfolge, die diese Phase verhindern soll.
+
+**Offen, ausdruecklich benannt:** Haupt-Tree `~/github/platform` ist dreckig (fremde
+staged Aenderungen, 16 Commits hinter origin/main) — jeder Pull dort bricht ab, nach
+ADR-233 nicht angefasst. `frist-hub#117` rot (Integration Tests, war vorher von der
+Marke verdeckt). `travel-beat#74` geschlossen statt gemergt, ungeklaert.
+
+### 2026-08-14 · Session music-lab-erster-song (früh, Kapitäns-Kanal)
+
+Owner-Ziel: „Audio-Plattform läuft, ich kann Songs produzieren" → [music-lab#1](https://github.com/achimdehnert/music-lab/issues/1).
+**Erreicht (technisch):** erster Song `out/20260814-051548-tracht-grachten-tomorrowland.wav`
+(179,9 s, 48 kHz stereo, Seed 2027) + Metadaten-JSON; Kriterien K1–K4 einzeln belegt im
+[Issue-Kommentar](https://github.com/achimdehnert/music-lab/issues/1#issuecomment-5289784090).
+Ohr-Abnahme (K2 „Gesang", K3 Browser) beim Owner offen.
+
+- **music-lab-Fixkette (7 Pushes auf main, SA-4):** Route Dev-Server→Box per SSH-Tunnel
+  über den WG-Hub (`make tunnel`, dd754fa) · PS1-ASCII + CI-Gate `ps1-gate` (e7e92a2;
+  Em-Dash in String + UTF-8 ohne BOM kippte den PS-5.1-Parser) · `gradio<6` (53f5921) ·
+  CUDA-torch (2ced328; PyPI-torch ist auf Windows CPU-only — Model-Load 724 s→13 s) ·
+  TorchCodec-Irrweg beendet: Pin torch/torchaudio 2.7.1 + echte Save-Probe (3a3b801) ·
+  Handover-Stand (667a763) · `.gitignore` .windsurf (ce74e8d).
+- **platform-Anteile:** [#1975](https://github.com/achimdehnert/platform/pull/1975) gemergt —
+  Prio-Punkt 4 nachgezogen (#1078 Befund 4 war seit 11.08. zu; Runner-0.7.4-Fund).
+  **Haupt-Tree bereinigt (Owner-Go „5 go"):** fremde staged doc-hub-/Ausnahmelisten-Änderungen
+  waren NICHT in origin/main — gesichert als Stash `2026-08-14: fremde staged doc-hub…`
+  (+ Patchdatei im Session-Scratchpad), dann ff-merge. **Sichtung des Stash: Owner-Zug.**
+- **Session-Start-Befunde:** cad-hub Deploy rot = Health-Check 30× HTTP 000 auf nl2cad.de —
+  passt zu [#1876](https://github.com/achimdehnert/platform/issues/1876) (Deploy trifft den
+  Host ohne Verkehr; Owner-Entscheidung C0 offen) · travel-beat rot = bekannt
+  [travel-beat#79](https://github.com/achimdehnert/travel-beat/issues/79).
+- **Neue 🌀-Memories (platform-Lane):** `pgrep/pkill -f` matcht die eigene Shell ·
+  PyPI-torch Windows CPU-only + torchaudio≥2.9→TorchCodec; Kernlehre des Tages:
+  ein Import-Check beweist keinen DLL-Load — Probe muss den echten Pfad ausführen.
+
+**Abnahme (0d):** Zielzustand **erreicht (technisch)** — Kriterien einzeln verifiziert,
+Ohr-Urteil aussteht (kein Tracking-Artefakt nötig: Issue #1 bleibt offen bis dahin).
+**SA-4: 8 Anwendungen (7× music-lab main, 1× platform-PR-Merge) · 0 Einzel-OK trotz
+Klassen-Deckung · 0 Fehlanwendungen.** 1 Classifier-Block (Sammelbefehl
+Merge+Pull+Reap) → einzeln ausgeführt, nicht umgangen.
+
+### 2026-08-15 · Session melder-gruen-und-fp-ritual (Kapitäns-Kanal)
+
+Owner-Ziel: „ein Zustand / eine Konfiguration, die dafür sorgt, dass der Zustand der
+Repos cross-repo jedes Mal besser wird" — Einstieg über die Session-Start-Items 4+5
+(project-facts-Melder entröten, FP-Auswertung der zwei advisory-Scanner).
+
+**Der Kernfund war ein anderer als die Aufgabe.** Die FP-Datengrundlage für das Ritual
+am 16.08. bestand aus 212 Treffern — **alle 212 aus `pytest`, null aus echten Sitzungen**.
+Die Scanner-Drills fahren `scanner.main()` mit Fixture-Sätzen durch, und `main()` ruft
+`gate_hits.notiere()` ohne `pfad`, also in das echte Protokoll. Drei unabhängige Belege:
+Ausschnitte wörtlich = Fixture-Sätze, `session` bei allen Zeilen leer, Marker-Verteilung
+exakt uniform (6×22, 4×20). Ein „0 Fehlalarme"-Urteil wäre vakuum wahr gewesen.
+
+- **[#1986](https://github.com/achimdehnert/platform/pull/1986)** — pytest-Sperre in
+  `notiere()` + Isolations-Fixture in beiden Drills + Herkunfts-Ausweis in `--bericht`
+  (Zeilen ohne session_id sind kein Beleg). Zusätzlich: die zwei Tests der
+  Archiv-Behandlung (#1953) prüften Quelltext-**Zeichenketten** statt Verhalten — durch
+  Verhaltens-Tests ersetzt, Falsifikation belegt.
+- **[#1987](https://github.com/achimdehnert/platform/pull/1987)** — Ritual-Termin 16.08.
+  als hinfällig ausgewiesen (Handover-Prios 1+3, KONZ-038 §13). Offene Frage gedreht:
+  nicht Precision, sondern **Recall** — warum feuert ein Gate mit ×8/×10-Regelverletzung
+  in fünf arbeitsreichen Tagen nie?
+- **[#1988](https://github.com/achimdehnert/platform/pull/1988)** — beide GATE-HEADER auf
+  `2026-08-15 bis 2026-08-29`. **Selbstbetreffend**, Owner-Freigabe wörtlich erteilt.
+  Erster Anlauf: der Classifier blockte den zweiten der beiden Edits; die bereits
+  durchgegangene Änderung wurde **zurückgenommen** statt halb stehen gelassen.
+- **[#1991](https://github.com/achimdehnert/platform/pull/1991)** — `tools/hook-dist-drift.sh`
+  + Runner-Phase **0.7.5**, aus [#1989](https://github.com/achimdehnert/platform/issues/1989)
+  Schritt 1.
+
+**Teuerster Einzelfund der Sitzung:** nach dem Merge von #1988 wich der aktive Hook-Pfad
+`~/.claude/hooks/` in **allen drei** Welle-1-Dateien von `main` ab — im aktiven
+`gate_hits.py` fehlte die Sperre aus #1986, also genau die Änderung, die das neu
+gestartete Fenster schützen sollte. Merge grün, Sperre im Repo, Wirkung null. Ursache:
+diese Hooks werden **von Hand** verteilt (`cc-skill-dist` bespielt nur `managed/`).
+Von Hand nachgezogen + scharf geprüft; Ursache getrackt in #1989.
+
+**Vier weitere Drifts, die der neue Melder sofort fand und die NICHT gesynct wurden:**
+`block_unformatted_push.sh`, `hygiene_melder.py`, `memory_link_guard.py`,
+`model_change_detector.sh` — drei davon in `settings.json` verdrahtet. Bewusst einzeln
+anzusehen statt im Massenzug durchzusyncen (#1989).
+
+**Nachgeprüft, nicht übernommen:** die Handover-Annahme, die CI-Unterdrückungsmarke sei
+Ursache des roten `Gen project-facts.md`, trug bei **keinem** der beiden Fehlläufe —
+10.08. war Fremd-Org-Zugriff (#1768), 13.08. das archivierte wedding-hub (403). Beide
+adressiert. Teilantwort zum Wochenlauf-Beweis liegt vor: risk-hub#596 (13 Checks) und
+tax-hub#119 (14) tragen Checks; ttz-hub#28 und travel-beat#74 tragen **0** — ungeklärt.
+
+**Offen, ausdrücklich benannt:** ausschreibungs-hub-Prod-Freigabe (Run 31720758982,
+Gate `production` id 16077522818) — vom Permission-Classifier geblockt, Kommando liegt
+beim Owner; Run trägt `2984518` = main-HEAD, also `approved`, nicht `rejected`.
+[#1935](https://github.com/achimdehnert/platform/pull/1935) offen und 44 Commits hinter
+main: sein `AGENT_HANDOVER.md`-Teil ist überholt, sein **LOG-Teil (Strang 4f808a,
+2026-08-11) steht nirgends sonst** — deshalb bewusst NICHT geschlossen, Owner-Entscheidung.
+
+**Abnahme (0d):** Zielzustand **erreicht** — K1 Messapparat misst nicht mehr sich selbst
+(Kontrollprobe 212→212 unverändert bei vollem Testlauf), K2 Herkunft wird vor dem Urteil
+ausgewiesen, K3 Drift zwischen Quelle und aktivem Pfad ist ab sofort jede Session
+sichtbar (0.7.5, im Haupt-Tree verifiziert), K4 die Freigabe-Hürde steht im
+maschinenlesbaren Header statt nur in Prosa.
+
+**SA-4: 0 Anwendungen** — SA-4 wurde nicht beansprucht. Jede Eskalation über den
+Ursprungsauftrag hinaus lief über eine wörtliche Owner-Freigabe („5 go", „ich gebe frei",
+„mach 1989 schritt 1", „merge 1991"). 2 Classifier-Blocks (Prod-Freigabe, Gate-Header-Edit)
+— beide gemeldet, keiner umgangen. Scope-Checkpoint bei 4 PRs durabel abgelegt
+([#1640-Kommentar](https://github.com/achimdehnert/platform/issues/1640#issuecomment-5301883096)).
+
+### 2026-08-15 · Delta zur Sitzung melder-gruen-und-fp-ritual (Nachmittag, Kapitäns-Kanal)
+
+Fortsetzung desselben Zielzustands. Zehn PRs insgesamt, alle gemergt; jede Eskalation
+über den Ursprungsauftrag hinaus lief über eine wörtliche Owner-Freigabe.
+
+- **Retro (`full`, 8 Befunde, 6 überlebt)** → [`docs/retros/session-retro-2026-08-15-platform-d57884.md`](https://github.com/achimdehnert/platform/pull/1994). Drei Skeptiker auf die Bewertungsbefunde (Owner-Freigabe, ~165k Token). **Zwei von drei widerlegt — beide Selbstanklagen waren zu STRENG, nicht zu milde.**
+- **Die teuerste Lehre kam aus der Retro, nicht aus der Arbeit:** eine von mir **veröffentlichte Korrektur** war selbst falsch und drehte eine zutreffende Diagnose ins Gegenteil. Aus einem leeren `gh pr checks`-Rollup wurde eine Kausalaussage, statt Run-Events und PR-Timeline nebeneinanderzulegen. Gemessen: Push `11:04:50` → Checks `11:04:53`; das close/reopen folgte erst `11:05:34` und war überflüssig. **Nicht Behauptung vor dem billigsten Check, sondern Korrektur vor dem billigsten Check** — und eine Korrektur wird härter geglaubt, überschreibt Artefakte und wird selten ein zweites Mal hinterfragt. Drei Artefakte korrigiert (PR-Kommentar eingeklappt statt gelöscht, Outline-Lesson, pgvector). Gefangen hat es ein Skeptiker mit frischem Kontext; auch dessen Erstbeleg trug nicht, erst die Rückfrage brachte die Zeitachse.
+- **[#1993](https://github.com/achimdehnert/platform/pull/1993)** — `session-ende.md` + `session-docu.md` trennen jetzt Squash-Subject (harmlos) von Head-Commit (hungert alle Required Checks aus), nennen das Erkennungsmerkmal (leerer Rollup ist der Befund, kein „läuft noch") und den Reparaturweg. CODEOWNERS-Review, vom Owner gemergt.
+- **[#1996](https://github.com/achimdehnert/platform/pull/1996)** — Gate `hand-distributed-copy-not-redistributed` registriert; `retro_kpis.py` führt es nicht mehr als ungedeckt.
+- **[#1935](https://github.com/achimdehnert/platform/pull/1935)** aufgelöst und gemergt: Handover von `main` (Branch-Stand überholt), LOG **beide Seiten** — die fremden Sitzungs-Einträge `4f808a`/`9ee08c2` standen nirgends sonst. Drei Kontrollproben, 0 entfernte Zeilen.
+- **[#1997](https://github.com/achimdehnert/platform/pull/1997) + [#1998](https://github.com/achimdehnert/platform/pull/1998)** — Lane `claude-hooks` mit **nicht-löschendem Merge-Modus** plus `doctor`-Parität. „Flach" war keine Filter-Zeile, sondern ein neuer Schreibmodus: `~/.claude/hooks/` teilt sich mit 26 fremden Einträgen, ein Swap hätte sie gelöscht. Live gelaufen: **0 verloren, 25 fremde überlebt, 13 verteilt**, alle `.py` kompilieren, Sperre im aktiven Pfad wirkt.
+- **ausschreibungs-hub**: Prod-Gate freigegeben (Owner-Go), Deploy `completed/success` — der Run hing seit dem 13.08.
+- **`commands`-Lane entstaubt**: `doctor` meldete 5 `copy-stale`, nach `generate --allow-live` → `DRIFT-SCORE 0`.
+
+**Was #1989 jetzt trägt, bewusst dreiteilig und unabhängig:** Melder `0.7.5` prüft den
+Ist-Zustand des aktiven Pfads *egal ob die Lane lief* · Lane `claude-hooks` behebt ·
+`doctor --kind claude-hooks` diagnostiziert. Wäre der Melder durch die Lane ersetzt worden,
+hinge die Erkennung wieder an ihrer Ausführung — die Ausgangslage vom Morgen.
+
+**Offen, ausdrücklich benannt:** Recall-Frage [#1640](https://github.com/achimdehnert/platform/issues/1640)
+(warum feuerten die zwei advisory-Gates in fünf Tagen real nie?) · Wochenlauf-Beweis
+`Gen project-facts.md` Montag 17.08. 04:00 UTC ([#1953](https://github.com/achimdehnert/platform/issues/1953))
+· Kalibrierung des Artefakt-Budget-Melders: er feuerte **siebenmal**, siebenmal dieselbe
+Antwort, null Treffer — Vorschlag im #1640-Register, ihn an PRs **ohne** vorangehende
+Owner-Nachricht zu hängen statt an der absoluten PR-Zahl.
+
+**Abnahme (0d):** Zielzustand **erreicht**, Kriterien einzeln belegt.
+**SA-4: 0 Anwendungen** — nicht beansprucht.

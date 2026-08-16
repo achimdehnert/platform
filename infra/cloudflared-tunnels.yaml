@@ -55,6 +55,27 @@ tunnels:
       ⚠️ NICHT für strict-meiki-Bürgerdaten (Perimeter, ADR-249): der souveräne Pfad
          bleibt privates on-prem, nicht dieser öffentliche Tunnel.
 
+  chat-iil-pet:
+    id: f891afaa-331a-4c87-b62e-8c5841087f03
+    hostname: f891afaa-331a-4c87-b62e-8c5841087f03.cfargotunnel.com
+    server: dev            # 88.99.38.75 — erster registrierter Tunnel auf diesem Host
+    origin: "http://synapse:8008"   # Docker-Netz chathub-chat_default, kein Host-Port
+    no_tls_verify: null    # n/a — HTTP im Docker-Netz
+    created: "2026-08-15"
+    monitoring: "curl https://chat.iil.pet/_matrix/client/versions → 200"
+    notes: |
+      Matrix-Homeserver chat.iil.pet (chat-hub Phase 2a, chat-hub:ADR-002).
+      Löste ein HTTP 521 ab: chat.iil.pet war ein proxied A-Record auf
+      88.99.38.75, wo nichts auf 80/443 hört. Jetzt CNAME auf diesen Tunnel.
+      ⚠️ Betriebsart weicht ab: läuft als DOCKER-CONTAINER (chathub_chat_tunnel,
+         compose-Projekt chathub-chat), NICHT als systemd-Dienst wie bf-platform
+         und bf-staging. Der Container muss als Host-User laufen
+         (user: "${CF_UID}:${CF_GID}"), sonst kann er die 0400-Credentials in
+         ~/.cloudflared/ nicht lesen und geht in eine Restart-Schleife.
+      ⚠️ Nur Signalisierung. WebRTC-Medien für MatrixRTC/LiveKit können einen
+         Tunnel prinzipiell nicht nutzen (UDP) und brauchen einen zweiten,
+         DNS-only Hostnamen direkt auf die Host-IP — siehe chat-hub:ADR-002 §2.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Advanced Certificate Manager (ACM) — pro Zone aktivierbar
 #

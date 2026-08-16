@@ -140,7 +140,15 @@ git commit -m "docs: update reference docs via docs-agent [skip ci]"
 **Commit-Message enthält:**
 - Generator-Version + Timestamp
 - Welche Dateien geändert wurden
-- `[skip ci]` um Docs-Commit-Loop zu vermeiden
+- `[skip ci]` um Docs-Commit-Loop zu vermeiden — **aber nur, wenn direkt auf `main`
+  committet wird.** Läuft die Änderung über einen PR, gehört der Marker in das
+  **Squash-Subject beim Mergen**, nie in den Commit des offenen Branches: dort
+  überspringt GitHub auch das `pull_request`-Event, die Required Checks melden sich
+  nie, und der PR steht dauerhaft `BLOCKED`, ohne dass etwas rot wird
+  (🌀 `feedback_blocked_without_any_pull_request_run`). GitHub matcht den Token im
+  **gesamten** Commit-Body — auch ein Zitat im Erklärtext setzt ihn. Reparatur:
+  `--amend` ohne den Token + Force-Push, das wirkt sofort. Ausführlich in
+  `session-ende.md`, Phase 3.1.
 
 ---
 
