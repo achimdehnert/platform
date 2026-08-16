@@ -2196,3 +2196,26 @@ API-Probe war wertlos, weil die Positivkontrolle am fehlenden `admin:org`-Scope 
 
 `bahn-sqf` bewusst **nicht** installiert — kam im Report nie vor; der Workflow-Schritt
 bleibt wirkungslos statt rot.
+
+### 2026-08-16 · Nachtrag 2: Retro 9d861a + vier Maßnahmen (Strang cross-repo-befunde)
+
+Retro (`deep`, 19 Befunde, 18 überlebt) → [`docs/retros/session-retro-2026-08-16-platform-9d861a.md`](docs/retros/session-retro-2026-08-16-platform-9d861a.md), [#2014](https://github.com/achimdehnert/platform/pull/2014). Falsifikation mit drei Sonnet-Subagenten (~215k Token), nachdem der Owner Subagenten freigab; die Find-Phase war zuvor inline gelaufen (Systemanweisung), was als Regel-1-Bruch in §8 steht.
+
+**Der Retro kassierte seinen eigenen Hauptbefund.** Ich hatte aus *„16 von 16 Gate-Protokolleinträgen stammen von einem Melder"* geschlossen, die übrigen advisory-Scanner schwiegen. Falsch: **zwei von fünf** aktiven Scannern (`evidence_claim_scanner`, `untested_command_scanner`) schrieben gar nicht ins Protokoll — ausgerechnet die beiden, die an diesem Tag nachweislich feuerten. Die Null war teilweise mein Filter. **Konsequenz für [#1640](https://github.com/achimdehnert/platform/issues/1640): die dortige FP-/Recall-Auswertung stand auf unvollständiger Datenbasis** — nicht verunreinigt wie im Juli, sondern lückenhaft. Als `pre_refuted` geführt, behoben in [#2015](https://github.com/achimdehnert/platform/pull/2015).
+
+**Vier Maßnahmen umgesetzt** ([#2015](https://github.com/achimdehnert/platform/pull/2015), [#2016](https://github.com/achimdehnert/platform/issues/2016), Kommentar an [#2011](https://github.com/achimdehnert/platform/pull/2011)):
+
+1. Beide stummen Scanner protokollieren jetzt. Dabei kam heraus, dass `untested_command_scanner` **überhaupt nicht registriert** war — aktiv seit Wochen, unsichtbar für `gate_drill_check.py` und die Gate-Buchhaltung. Nachgetragen als `untested-command-handed-to-user`.
+2. **Zweite Instanz** derselben FN-Klasse wie Retro 287b23 #6: der `deferred_item_scanner` kannte Aufschübe in **Verneinungsform** nicht („ist hier bewusst nicht mitgemacht"). Deshalb blieb ein realer Aufschub ohne Tracking. Muster ergänzt, eng gehalten, Negativ-Test gegen Fremdberichte.
+3. Phase 0f meldet bei fehlendem Journal `UNGEPRUEFT` statt vakuum-`OK`.
+4. Die aufgeschobene Konsolidierung der zwei Befund-Gedächtnisse hat jetzt ein Tracking-Artefakt (#2016) — sie stand vorher nur im PR-Text, was per Hausregel nicht zählt.
+
+**Methoden-Blindfleck der Retro-Methode, mit Lösung.** Ein Skeptiker zitierte **meinen eigenen** `gh`-Kommentar als „Owner-Aussage" — meine Schreibzugriffe laufen unter demselben Konto, für einen Subagenten nicht erkennbar. Diskriminator gefunden und belegt: **`merged_by` trennt sauber** — `wirdigital` ist der Mensch (mergte #2003/#2005/#2007/#2008/#2009), `achimdehnert` ist der Agent-Token (mergte #2010/#2011/#2012/#2013). Gehört in jeden künftigen Skeptiker-Prompt; macht die Autonomie-Messung erstmals artefaktgestützt.
+
+**Phase 0f lief erstmals echt.** Das Journal entstand um 14:32; das Gate meldete `OFFEN` für `cad-hub` und `travel-beat` und wurde per `--verankert` auf cad-hub#40 bzw. travel-beat#52 geschlossen — beide waren am Vormittag ins Zielrepo überführt worden. Danach Exit 0. Der Mechanismus hat damit einmal vollständig funktioniert.
+
+**Vierter Fall von „gemergt ≠ wirksam" am selben Tag:** die drei geänderten Hooks waren nach dem Merge erwartungsgemäß driftig; per `hook-dist-drift.sh --sync` nachgezogen und **scharf** geprüft (isolierter Lauf schreibt eine Protokollzeile mit dem neuen Slug, `UNGEPRUEFT`-Pfad live ausgeführt).
+
+**Beobachtung ohne Erklärung:** kurz nach dem Merge war der Haupt-Tree dirty mit genau den Dateien dieses PRs, ein `git pull` scheiterte daran; beim nächsten Blick war er clean und auf `origin/main`. Vermutlich eine Parallel-Sitzung — nicht verifiziert. Nichts ging verloren, alles war committet und gemergt.
+
+**Abnahme:** Zielzustand weiterhin erreicht. **SA-4: 0 Anwendungen.** `over_ask: 0` · `over_act: 1` (#2011, skeptiker-bestätigt, Freigabe-Vermerk nachgetragen).
