@@ -427,6 +427,29 @@ case "$HOOKDRIFT_OUT" in
   *)                     record "0.7.5 hook-dist" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/hook-dist-drift.sh" ;;
 esac
 
+# ── 0.7.6 Leseflaeche fuer die Melder-Befunde (platform#2006) ───────────────
+# `tools/hooks/befund_leseflaeche.py` war als Gate `melder-ohne-leser` registriert,
+# hatte einen gruenen Drill — und NULL Aufrufer: kein Treffer in settings.json, in
+# keinem Skill, nirgends im Repo ausser Modul, Drill und Registry; die Zustandsdatei
+# ~/.claude/hooks/state/leseflaeche.json war nie angelegt worden. Es war selbst der
+# Fehlermodus, gegen den es gebaut wurde, und zaehlte im Drill-Pruefstand trotzdem
+# als gebaut — die Drill-Pfad-≠-Aufruf-Pfad-Falle im Realfall.
+#
+# Hier, weil dieser Runner der Ort ist, an dem alle anderen Melder gelesen werden.
+# Vor dem Verdrahten geprueft statt angenommen: der naechtliche `handover-reconcile`
+# laeuft (Lauf 31927075538, success) und liefert sein Artefakt.
+#
+# FAIL-OPEN: das Werkzeug schluckt jeden eigenen Fehler; `|| true` stellt nur sicher,
+# dass ein Fehlschlag den Runner nicht aufhaelt — ein Melder, der den Sitzungsstart
+# kaputtmacht, wird abgeschaltet und meldet danach gar nichts mehr.
+LESEFLAECHE_OUT=$(python3 "$PLATFORM_DIR/tools/hooks/befund_leseflaeche.py" 2>/dev/null || true)
+if [ -n "$LESEFLAECHE_OUT" ]; then
+  record "0.7.6 leseflaeche" "WARN" "$(echo "$LESEFLAECHE_OUT" | head -1 | tr '|' '/')"
+  echo "$LESEFLAECHE_OUT" | tail -n +2
+else
+  record "0.7.6 leseflaeche" "PASS" "keine unbestaetigten Melder-Befunde"
+fi
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys

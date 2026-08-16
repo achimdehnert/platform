@@ -64,7 +64,9 @@ def test_should_eingesaeter_befund_in_der_ausgabe_erscheinen(lf, tmp_path, capsy
     Das ist der Test, den das Original-Problem nie hatte — der Melder arbeitete,
     aber niemand pruefte je, ob sein Ergebnis irgendwo ankommt.
     """
-    rc = lf.main(["--report", str(_schreibe(tmp_path, _report("achimdehnert/platform#1549")))])
+    rc = lf.main(
+        ["--report", str(_schreibe(tmp_path, _report("achimdehnert/platform#1549")))]
+    )
     assert rc == 0
     assert "achimdehnert/platform#1549" in capsys.readouterr().out
 
@@ -152,7 +154,9 @@ def test_should_bestaetigten_befund_nicht_mehr_zeigen(lf, tmp_path, capsys):
 # --- L4: Exit-Kriterium ------------------------------------------------------
 
 
-def test_should_exit_kriterium_bei_ueberfaelligem_befund_scheitern(lf, tmp_path, capsys):
+def test_should_exit_kriterium_bei_ueberfaelligem_befund_scheitern(
+    lf, tmp_path, capsys
+):
     lf.main(["--report", str(_schreibe(tmp_path, _report("a/b#1")))])
     capsys.readouterr()
     zustand = json.loads(lf.STATE_PFAD.read_text())
@@ -184,3 +188,69 @@ def test_should_bei_kaputtem_report_still_scheitern(lf, tmp_path, capsys):
 
 def test_should_bei_fehlendem_state_nicht_abstuerzen(lf, capsys):
     assert lf.main(["--exit-kriterium"]) == 0
+
+
+# ── Abdeckungsluecke vs. Befund (platform#2006) ──────────────────────────────
+# Beim Verdrahten gemessen: der echte Report vom 2026-08-16 trug 20 Eintraege,
+# davon 12 `UNKNOWN` mit `gh: Not Found (HTTP 404)` — alle auf private Repos, die
+# der Workflow-Token nicht sehen kann. Als Befunde gerendert waeren 60 % der
+# Ausgabe Rauschen gewesen, und ein dauerhaft lautes Werkzeug wird abgeschaltet.
+
+
+def _gemischter_report(befunde: int, luecken: int) -> dict:
+    eintraege = [
+        {
+            "schluessel": f"achimdehnert/platform#{100 + i}",
+            "klasse": "DISKREPANZ",
+            "detail": "Issue geschlossen",
+            "zeile_nr": 1,
+            "zeile": "x",
+        }
+        for i in range(befunde)
+    ] + [
+        {
+            "schluessel": f"achimdehnert/privat-hub#{200 + i}",
+            "klasse": "UNKNOWN",
+            "detail": "gh: Not Found (HTTP 404)",
+            "zeile_nr": 1,
+            "zeile": "x",
+        }
+        for i in range(luecken)
+    ]
+    return {"schema": 1, "geprueft": len(eintraege), "befunde": eintraege}
+
+
+def test_should_not_count_unverifiable_entries_as_findings(lf) -> None:
+    state = lf.verschmelze(lf.lade_state(), _gemischter_report(2, 5))
+    assert len(lf.offene(state)) == 2
+    assert len(lf.ungeprueft(state)) == 5
+
+
+def test_should_still_name_the_coverage_gap(lf) -> None:
+    """Weglassen waere schlimmer als Rauschen — es sieht aus wie „alles geprueft"."""
+    state = lf.verschmelze(lf.lade_state(), _gemischter_report(2, 5))
+    aus = lf.rendere(state)
+    assert "NICHT pruefbar" in aus
+    assert "5 Eintrag" in aus
+
+
+def test_should_report_a_gap_only_state_instead_of_staying_silent(lf) -> None:
+    """„nichts gefunden" und „nichts pruefen koennen" sind zwei Aussagen."""
+    state = lf.verschmelze(lf.lade_state(), _gemischter_report(0, 3))
+    aus = lf.rendere(state)
+    assert aus, "stille Ausgabe bei reinem Luecken-Stand — genau die Falle"
+    assert "0 Befunde" in aus and "NICHT pruefbar" in aus
+
+
+def test_should_stay_silent_when_there_is_nothing_at_all(lf) -> None:
+    state = lf.verschmelze(lf.lade_state(), _gemischter_report(0, 0))
+    assert lf.rendere(state) == ""
+
+
+def test_should_keep_unverifiable_entries_out_of_the_exit_criterion(lf) -> None:
+    """Eine Luecke kann niemand „bestaetigen" — sie darf L4 nicht blockieren."""
+    state = lf.verschmelze(lf.lade_state(), _gemischter_report(0, 4))
+    for e in state["befunde"].values():
+        e["erstmals"] = lf._iso(lf._jetzt() - timedelta(days=30))
+    erfuellt, _ = lf.exit_kriterium(state)
+    assert erfuellt
