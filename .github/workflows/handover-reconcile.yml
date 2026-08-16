@@ -36,9 +36,111 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+
+      # ── Flotten-Sicht via GitHub App (platform#2006, Owner-Freigabe 2026-08-16) ──
+      # Warum ueberhaupt: derselbe Handover ergab mit dem Repo-Token
+      # `DISKREPANZ 8 · nicht pruefbar 12`, mit einem Token mit Flotten-Sicht
+      # `DISKREPANZ 18 · nicht pruefbar 0` — zehn echte veraltete Referenzen waren
+      # unsichtbar. Gezaehlt, nicht vermutet.
+      #
+      # Warum App statt PAT: die Flotte liegt in fuenf Orgs. Ein fine-grained PAT
+      # ist an GENAU EINEN Resource Owner gebunden — das waeren fuenf Tokens, fuenf
+      # Secrets, fuenf Ablaufdaten. Ein abgelaufener PAT faerbt den Lauf nicht rot,
+      # er meldet wieder „nicht pruefbar" fuer alles: ein Ausfall, der wie ein
+      # Zugriffsproblem aussieht. Die App praegt ihren Token je Lauf neu.
+      #
+      # Jeder Schritt ist EINZELN ausfallsicher (`continue-on-error`): fehlt eine
+      # Installation oder das Secret, bleibt es fuer diese Org beim Default-Token
+      # und die betroffenen Referenzen stehen wie bisher unter „nicht pruefbar".
+      # Der Report weist unter „Token-Abdeckung" aus, welche Org welchen Weg nahm —
+      # ein stiller Teilausfall waere sonst von einem Repo-Problem nicht zu
+      # unterscheiden.
+      - id: tok_achimdehnert
+        name: App-Token achimdehnert
+        if: ${{ vars.RECONCILE_APP_ID != '' }}
+        # Begruendung (Gate ci-gate-maskiert-failure): eine fehlende App-
+        # Installation fuer diese Org ist KEIN Defekt, sondern eine bekannte
+        # Abdeckungsluecke. Sie faerbt den Nightly nicht rot — sie erscheint
+        # im Report unter „Token-Abdeckung“ und die betroffenen Referenzen
+        # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
+        # abgeschaltet und meldet danach gar nichts mehr (#1508).
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RECONCILE_APP_ID }}
+          private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
+          owner: achimdehnert
+      - id: tok_iilgmbh
+        name: App-Token iilgmbh
+        if: ${{ vars.RECONCILE_APP_ID != '' }}
+        # Begruendung (Gate ci-gate-maskiert-failure): eine fehlende App-
+        # Installation fuer diese Org ist KEIN Defekt, sondern eine bekannte
+        # Abdeckungsluecke. Sie faerbt den Nightly nicht rot — sie erscheint
+        # im Report unter „Token-Abdeckung“ und die betroffenen Referenzen
+        # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
+        # abgeschaltet und meldet danach gar nichts mehr (#1508).
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RECONCILE_APP_ID }}
+          private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
+          owner: iilgmbh
+      - id: tok_meiki_lra
+        name: App-Token meiki-lra
+        if: ${{ vars.RECONCILE_APP_ID != '' }}
+        # Begruendung (Gate ci-gate-maskiert-failure): eine fehlende App-
+        # Installation fuer diese Org ist KEIN Defekt, sondern eine bekannte
+        # Abdeckungsluecke. Sie faerbt den Nightly nicht rot — sie erscheint
+        # im Report unter „Token-Abdeckung“ und die betroffenen Referenzen
+        # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
+        # abgeschaltet und meldet danach gar nichts mehr (#1508).
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RECONCILE_APP_ID }}
+          private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
+          owner: meiki-lra
+      - id: tok_ttz_lif
+        name: App-Token ttz-lif
+        if: ${{ vars.RECONCILE_APP_ID != '' }}
+        # Begruendung (Gate ci-gate-maskiert-failure): eine fehlende App-
+        # Installation fuer diese Org ist KEIN Defekt, sondern eine bekannte
+        # Abdeckungsluecke. Sie faerbt den Nightly nicht rot — sie erscheint
+        # im Report unter „Token-Abdeckung“ und die betroffenen Referenzen
+        # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
+        # abgeschaltet und meldet danach gar nichts mehr (#1508).
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RECONCILE_APP_ID }}
+          private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
+          owner: ttz-lif
+      - id: tok_bahn_sqf
+        name: App-Token bahn-sqf
+        if: ${{ vars.RECONCILE_APP_ID != '' }}
+        # Begruendung (Gate ci-gate-maskiert-failure): eine fehlende App-
+        # Installation fuer diese Org ist KEIN Defekt, sondern eine bekannte
+        # Abdeckungsluecke. Sie faerbt den Nightly nicht rot — sie erscheint
+        # im Report unter „Token-Abdeckung“ und die betroffenen Referenzen
+        # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
+        # abgeschaltet und meldet danach gar nichts mehr (#1508).
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RECONCILE_APP_ID }}
+          private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
+          owner: bahn-sqf
+
       - name: Reconcile AGENT_HANDOVER.md (Stufe 1, report-only)
         env:
           GH_TOKEN: ${{ github.token }}
+          # Leer, solange die App nicht existiert — das Skript faellt dann je Owner
+          # auf GH_TOKEN zurueck (siehe token_fuer()).
+          RECONCILE_TOKEN_ACHIMDEHNERT: ${{ steps.tok_achimdehnert.outputs.token }}
+          RECONCILE_TOKEN_IILGMBH: ${{ steps.tok_iilgmbh.outputs.token }}
+          RECONCILE_TOKEN_MEIKI_LRA: ${{ steps.tok_meiki_lra.outputs.token }}
+          RECONCILE_TOKEN_TTZ_LIF: ${{ steps.tok_ttz_lif.outputs.token }}
+          RECONCILE_TOKEN_BAHN_SQF: ${{ steps.tok_bahn_sqf.outputs.token }}
         run: |
           # Der Registry-Schiedsrichter (platform#2006) liest registry/canonical.yaml
           # ueber tools/registry_api. Ohne PyYAML faellt er still auf „kein Urteil"
