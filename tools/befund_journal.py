@@ -354,6 +354,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if a.offen_cross_repo:
+        # Kein Journal = keine Datenbasis = kein Urteil (Retro 9d861a, Befund #9).
+        # Beim allerersten Lauf meldete dieses Gate `OK`, obwohl die Datei noch gar
+        # nicht existierte — ein vakuum wahres Freigabe-Signal, genau die Fehlform,
+        # die am 2026-08-15 schon einmal ein „0 Fehlalarme"-Urteil wertlos machte
+        # (platform#1986). `UNGEPRUEFT` ist die ehrliche Antwort; Exit 0, weil das
+        # Fehlen der Datei kein Verstoss ist, sondern ein Zustand vor dem ersten Lauf.
+        if not pfad.exists():
+            print(
+                f"RESULT: UNGEPRUEFT — Journal {pfad} existiert nicht. Der "
+                "Session-Start-Runner legt es beim naechsten Lauf an; bis dahin ist "
+                "ueber Fremd-Repo-Befunde nichts ausgesagt (kein OK)."
+            )
+            return 0
         offen = _cross_repo_offen(daten, a.repo)
         if not offen:
             print("RESULT: OK — kein Fremd-Repo-Befund ohne Artefakt oder Verzicht.")

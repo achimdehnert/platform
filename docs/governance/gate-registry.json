@@ -188,6 +188,16 @@
    "drill": "tools/tests/test_befund_journal.py",
    "built": "2026-08-16",
    "ref": "platform#2004"
+  },
+  {
+   "slug": "untested-command-handed-to-user",
+   "mode": "advisory",
+   "owner": "achim",
+   "module": "tools/claude-hooks/untested_command_scanner.py",
+   "drill": "tools/claude-hooks/tests/test_untested_command_scanner.py",
+   "built": "2026-08-16",
+   "ref": "platform#2014 (Retro 9d861a Befund #1)",
+   "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits."
   }
  ],
  "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
