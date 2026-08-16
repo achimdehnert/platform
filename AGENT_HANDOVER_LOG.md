@@ -1881,6 +1881,46 @@ registriert. Ein Guard, der eine andere Lücke fängt als die, für die er gebau
 - Nebenfunde getrackt: #1953 (zwei blinde Cron-Melder), 6 verschiedene Gate-Pins (3× `@main`).
 - Prio-Block auf diesen Stand nachgezogen; Melder `handover-prio-zeigt-auf-erledigtes` danach grün.
 
+### 2026-08-13 · Session mailcheck + Mail-Ablage (Kapitäns-Kanal)
+
+- **AGENT_HANDOVER.md bewusst NICHT angefasst.** Phase 0a-handover-pr fand den offenen
+  PR #1935 (Strang 4f808a, heute 06:05 aktualisiert); sein Branch ist in einem fremden
+  Worktree ausgecheckt. Übernehmen hätte kollidiert, Schließen fremde offene Arbeit
+  verworfen — deshalb nur dieser Log-Eintrag (append-only, `merge=union`). Keine Prio
+  aus der Tabelle wurde erledigt oder verschoben, Phase 0c feuert nicht.
+- **Werkzeuglücke gefunden und geschlossen:** `read_mail` übersah eingebettete
+  `message/rfc822`-Nachrichten, weil die Anhangserkennung nach einem Dateinamen fragte
+  und ein rfc822-Teil keinen trägt. Eine Weiterleitung, deren Sachinhalt genau dort lag,
+  erschien als dreizeiliger Begleittext mit 15 Signaturbildern. Issue #1964 → PR #1965
+  (gemergt `0079f083`), 5 Regressionstests inkl. Gegenprobe ohne rfc822-Teil.
+- **Nachtrag zum Merge:** Der PR-Text sagte „Behebt #1964" — kein Schlüsselwort, das
+  GitHub kennt. Das Issue blieb nach dem Merge offen und wurde von Hand geschlossen.
+  Für den Automatismus braucht es `Closes`/`Fixes`/`Resolves`.
+- **Mail-Board-Hygiene:** unverankerte Posten von 13 auf 2 gesenkt (7 IMAP-Anker über
+  `anker.py`, 6 Graph-Kurzlinks über `mail_link_server.py --register`). Zwei Vorgänge
+  lagen ohne Bucket im Ledger und wurden dadurch auf **keiner** der beiden Listen
+  gerendert. `anker.py --account iil` läuft ins Leere (sucht eine `mail-iil.env`, die es
+  nicht gibt und nicht geben soll) — für Graph ist `--register` der Weg, der Fehlertext
+  sagt das aber nicht. Fortschritt kommentiert an #1864.
+- **Diagnose-Fund ohne Regel:** Der `\Recent`-Flag trennt „Werkzeug hat nicht abgelegt"
+  von „Client hat nicht geholt". Die Pflege-Regel 7 in `board.py` sagt „erst den Client
+  prüfen", nennt aber keinen Test. Realfall heute: zwei Entwürfe galten als fehlend,
+  lagen aber mit `\Draft \Recent` im Ordner — es war eine abgelaufene Sitzung. Nicht
+  eingebaut (Owner-Frage offen), deshalb hier notiert.
+- **Neuer Auftrag materialisiert (Zielzustand-Loop): #1966** — geschlossene Vorgänge
+  räumen ihre Mail aus dem Posteingang, Ziel A+B (Sach-/Kundenordner zuerst,
+  Jahresarchiv als Zweitregel), Trockenlauf-Standard, Vorschlag ≠ Vollzug nach
+  ADR-284 §7a. Owner-Freigabe im Kapitäns-Kanal, SA-4-fähig, noch nicht begonnen.
+- **Eigener Fehler, selbst gefangen:** Im Session-Worktree ein `git checkout main -- .`
+  an einen anderen Befehl gehängt → eigene Änderungen überschrieben und 8 fremde Dateien
+  auf einen älteren Stand gesetzt. Vor dem Commit bemerkt, per `git reset --hard` im
+  Worktree zurückgenommen; die Originale lagen unversehrt im Hauptbaum.
+- **Abnahme (0d): Zielzustand ERREICHT** — Mailcheck gelaufen (Deckung 12.095 Nachrichten /
+  145 Ordner / 3 Konten, Post-Ingest-Fenster live nachgezogen), Mail-Liste und Todo-Liste
+  neu erzeugt, 7 Mails gesendet, 7 Vorgänge geschlossen. Ein formaler Zielzustand nach
+  Phase 2.7 lag zu Sitzungsbeginn nicht vor; das Ziel wurde im Kapitäns-Kanal gesetzt.
+- **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen** —
+  der einzige Merge (#1965) lief über die reguläre Code-Owner-Review.
 ### 2026-08-13 · Delta zur Sitzung handover-flotte (Nachmittag/Abend)
 
 Ergänzt den am selben Tag gemergten Stand-Block (#1960); der Stand-Block selbst wurde
