@@ -50,6 +50,18 @@ class Ref:
     number: int
     line_no: int  # 1-basiert, für Report-Verortung
     line: str
+    #: Stand der Owner im Text (volle URL oder `owner/repo#N`) — oder wurde er
+    #: mangels Angabe angenommen (`repo#N`, blankes `#N`)?
+    #:
+    #: Die Unterscheidung entscheidet, ob eine spätere Abweichung ein **Befund**
+    #: ist oder nur eine Annahme dieses Parsers. Gemessen 2026-08-16
+    #: (platform#2006): vier Referenzen — `risk-hub#596`, `tax-hub#119`,
+    #: `ttz-hub#28`, `frist-hub#117` — bekamen hier `achimdehnert` zugewiesen,
+    #: obwohl die Repos in `iilgmbh`, `ttz-lif` bzw. `meiki-lra` liegen. Bei
+    #: `frist-hub#117` stand die **richtige** URL direkt daneben; gelesen wurde
+    #: nur der Label-Text. Ergebnis: vier 404 im Nightly, die wie ein
+    #: Zugriffsproblem aussahen und ein Parser-Problem waren.
+    owner_explizit: bool = True
 
 
 def open_section_lines(text: str) -> tuple[list[tuple[int, str]], list[str]]:
@@ -85,6 +97,7 @@ def extract_refs(
     refs: list[Ref] = []
     for line_no, line in lines:
         for m in REF_RE.finditer(line):
+            explizit = True
             if m.group("u_num"):
                 owner, repo, num = (
                     m.group("u_owner"),
@@ -99,11 +112,13 @@ def extract_refs(
                 )
             elif m.group("r_num"):
                 owner, repo, num = default_owner, m.group("r_repo"), m.group("r_num")
+                explizit = False  # `repo#N` — der Owner ist geraten, nicht gelesen
             else:
                 owner, repo, num = default_owner, default_repo, m.group("b_num")
+                explizit = False  # blankes `#N` — Owner UND Repo sind Annahme
             key = (owner, repo, int(num))
             if key in seen:
                 continue
             seen.add(key)
-            refs.append(Ref(owner, repo, int(num), line_no, line.strip()))
+            refs.append(Ref(owner, repo, int(num), line_no, line.strip(), explizit))
     return refs, skipped

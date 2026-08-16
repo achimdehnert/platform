@@ -40,6 +40,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Der Registry-Schiedsrichter (platform#2006) liest registry/canonical.yaml
+          # ueber tools/registry_api. Ohne PyYAML faellt er still auf „kein Urteil"
+          # zurueck — der Lauf bliebe gruen, der halbe Nutzen waere weg. Deshalb
+          # explizit installiert statt auf die Runner-Vorinstallation zu vertrauen.
+          pip install pyyaml -q
           python3 scripts/checks/agent_handover_reconcile.py AGENT_HANDOVER.md \
             --repo-slug "$GITHUB_REPOSITORY" \
             --summary "$GITHUB_STEP_SUMMARY" \
