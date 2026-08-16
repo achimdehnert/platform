@@ -295,10 +295,26 @@ def main() -> int:
         def _abdruck(zeile: str) -> str:
             return " ".join(zeile.split())
 
+        # Beide Befundarten entprellen, nicht nur `untested`.
+        #
+        # Bis 2026-08-16 filterte diese Stelle ausschliesslich `untested`, und
+        # `_merken` speicherte auch nur die. Folge: ein Platzhalter-Befund wurde bei
+        # JEDEM weiteren Stop erneut gemeldet, bis der Mensch etwas schrieb — auch
+        # dann noch, wenn er laengst behoben war. Real gemessen in der Sitzung, in
+        # der dieser Fix entstand: DERSELBE Ausschnitt dreimal, zweimal davon nach
+        # der Korrektur. Das ist exakt die Klasse, vor der der Kommentar oben warnt
+        # („ein Waechter, der ab dem ersten Treffer dauerhaft anschlaegt, meldet
+        # nichts mehr" — platform#1508); die Entprellung war dagegen gebaut und
+        # liess einen ihrer beiden Zweige aus.
+        #
+        # Der Fingerabdruck ist die normalisierte Zeile: ein NEUER Platzhalter in
+        # einer spaeteren Antwort traegt einen anderen Abdruck und meldet weiterhin.
+        # Entprellt wird die Wiederholung, nicht der Befund.
         untested = [b for b in untested if _abdruck(b) not in schon]
+        placeholders = [p for p in placeholders if _abdruck(p) not in schon]
         if not untested and not placeholders:
             return 0
-        _merken(session_id, {_abdruck(b) for b in untested})
+        _merken(session_id, {_abdruck(x) for x in (*untested, *placeholders)})
 
     reminder = build_reminder(untested, placeholders)
     if reminder:
