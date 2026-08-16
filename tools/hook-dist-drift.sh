@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # tools/hook-dist-drift.sh — Drift zwischen tools/claude-hooks/ und dem aktiven Hook-Pfad
 #
+# GATE_HEADER (KONZ-038 D8) — auch in Shell maschinenlesbar gehalten, damit
+# tools/gate_drill_check.py Kopf und Registry gegeneinander pruefen kann:
+#   "slug": "hand-distributed-copy-not-redistributed"
+#   "mode": "advisory"
+#   "owner": "achim"
+#   "last_drill_pass": "2026-08-16"
+#   "evidence": "tools/tests/test_hook_dist_drift.py"
+#
 # Warum es das gibt (Messung 2026-08-15, platform#1989):
 #   Die Welle-1-Scanner liegen DIREKT in ~/.claude/hooks/ und werden von
 #   settings.json von dort ausgefuehrt. Der Stand kam am 2026-08-10 VON HAND
