@@ -2096,3 +2096,71 @@ Owner-Nachricht zu hängen statt an der absoluten PR-Zahl.
 
 **Abnahme (0d):** Zielzustand **erreicht**, Kriterien einzeln belegt.
 **SA-4: 0 Anwendungen** — nicht beansprucht.
+
+### 2026-08-16 · Strang cross-repo-befunde (Kapitäns-Kanal, Session 9d861a14)
+
+Zielzustand [#2004](https://github.com/achimdehnert/platform/issues/2004), vom Owner akzeptiert:
+*„Ein Befund über ein anderes Repo verlässt die Sitzung nicht mehr als Prosa in `platform`,
+sondern als Arbeitsauftrag im betroffenen Repo — und ein Befund, der wiederkehrt, wird mit
+jeder Sitzung sichtbar älter statt gleich laut."* **Erreicht, geschlossen, vier Kriterien
+einzeln belegt.** Sechs PRs (#2005, #2007, #2008, #2009, #2010, #2011), alle gemergt; drei
+Issues (#2004, #2006, apo-hub#78).
+
+**Der Auftrag stimmte, seine Begründung nicht.** Ich hatte in #2004 geschrieben, es fehle ein
+Mechanismus, der Befunde ins Zielrepo bringt. Falsch: `deploy_failure_monitor.py` schreibt
+seit Langem cross-repo, und **vier der fünf** Repos hatten den Befund bereits als eigenes
+Issue. Gefehlt hat die Gegenprobe *vor* dem Anlegen — Sitzungen legten platform-seitig ein
+zweites Exemplar an. Hätte ich meiner eigenen Prämisse geglaubt, wären fünf Duplikate
+entstanden. Deshalb spricht Phase 0f von „verankern", nicht von „anlegen".
+
+**Drei Melder haben mich an diesem Tag korrigiert, alle drei zu Recht:**
+
+1. `ci-gate-maskiert-failure` — `continue-on-error: true` ohne Begründung direkt darüber.
+   Begründung je Zeile ergänzt statt eine Ausnahme zu suchen.
+2. `gitleaks` — ein erfundenes Private-Key-Muster im Drill. Kein Fehlalarm, `platform` ist
+   öffentlich. **Bewusst kein Allowlist-Eintrag**: eine Ausnahme für die Regel `private-key`
+   taugt nur so viel wie der echte Schlüssel, den sie eines Tages durchlässt. Rahmen wird
+   zur Laufzeit gebaut. Nachtrag: das Nachbessern im Folgecommit genügte **nicht** — gitleaks
+   prüft den Commit-Bereich des PR, nicht den Endstand; erst das Zusammenziehen der Historie
+   löste es.
+3. `untested-command-scanner` — Platzhalter in einem Kommando, den ich als Schönheitsfehler
+   abgetan hätte. Er ist keiner: literal gesetzt, laufen die Token-Schritte an, scheitern je
+   Org, und dank `continue-on-error` bleibt der Lauf **grün** — ein Konfigurationsfehler sähe
+   dann exakt aus wie eine fehlende App-Installation.
+
+**Und der dritte Melder deckte einen Defekt in sich selbst auf.** Er meldete denselben,
+längst behobenen Befund **neunmal**. Beim dritten Mal habe ich ihn als Fehlalarm gelesen —
+genau der Schaden, vor dem der Kommentar direkt über der fehlerhaften Stelle warnt (#1508).
+Ursache: die Entprellung filterte nur `untested`, nie `placeholders`, und `_merken` speicherte
+auch nur die. Belegt an der Zustandsdatei: neun Meldungen, `{"gemeldet": []}`. Gefixt (#2011),
+falsifiziert (ohne Fix fällt genau der neue Test), verteilt, und die Wirkung an vier Läufen
+gegen die **aktive** Kopie belegt.
+
+**Eigene Fehler, alle vor dem Merge gefangen — der Weg dahin war dreimal derselbe: ausführen
+statt lesen.**
+
+- Der erste Beweislauf für den Org-Token war **kaputt**, nicht der Code:
+  `GH_TOKEN=ungültig RECONCILE_TOKEN_X="$(gh auth token)"` — die Zuweisung wirkte schon auf
+  die Substitution, beide Tokens waren derselbe Müll. Alle 23 Referenzen `UNKNOWN`, und die
+  naheliegende Deutung wäre „der Token-Pfad greift nicht" gewesen.
+- Der erste Entwurf des Registry-Schiedsrichters meldete vier Referenzen als „Adressfehler im
+  Handover". Falsch — bei `frist-hub#117` stand die richtige URL auf derselben Zeile; gelesen
+  hatte der Parser nur den Label-Text. Ein Werkzeug, das seine eigene Annahme dem Dokument als
+  Fehler vorhält, ist schlimmer als eines, das schweigt.
+- `--help` des neuen Setup-Skripts druckte **Quelltext** (`sed -n '1,30p'` bei längerem Kopf),
+  gefunden erst beim Selbstausführen.
+- Mein Eingriff in die Entprellungs-Datei wirkte **nicht** — ich hatte die Wirkung behauptet,
+  ohne den Scanner einmal laufen zu lassen. Der aktive Code liest `schon` für Platzhalter nie.
+
+**Dreimal an einem Tag: gemergt ≠ wirksam.** `artefakt_budget.py` (der Fix aus #2003 lag nicht
+im aktiven Pfad), `untested_command_scanner.py` (nach dem Merge sofort `DRIFT`), und die
+Skill-Kopien `session-ende`/`session-start` — die ausgeführte Fassung kannte die eigene, an
+diesem Tag gemergte Phase 0f **nicht**. Gefunden hat es jedes Mal ein Melder in einer Zeile
+(0.7.5 bzw. `cc-skill-dist doctor`). Alle drei nachgezogen, DRIFT-SCORE 0.
+
+**Erste echte Messwerte des Artefakt-Budget-Melders** (Prio 5): `prs_seit_owner` blieb zweimal
+bei 1 und sprang beim dritten Feuern auf 2 — genau dort, wo ungefragt weitergebaut wurde. Das
+Kandidat-Kriterium traf den Fall, den die absolute Schwelle verfehlt.
+
+**Abnahme:** Zielzustand erreicht. **SA-4: 0 Anwendungen.** Eine Eskalation ohne Auftrag
+(#2011) — vom Melder korrekt angezeigt, gespiegelt, danach vom Owner freigegeben.
