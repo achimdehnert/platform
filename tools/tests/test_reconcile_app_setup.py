@@ -101,3 +101,17 @@ def test_should_not_delete_the_key_file_without_being_asked(pem) -> None:
     waere eine schlechte Vorgabe, und der Dry-Run darf ohnehin nie loeschen."""
     _lauf("123456", str(pem), "--dry-run", "--shred")
     assert pem.exists()
+
+
+def test_should_print_usage_not_source_code() -> None:
+    """`--help` druckte zuerst Quelltext (`sed -n '1,30p'` bei laengerem Kopf).
+
+    Aufgefallen erst beim Selbstausfuehren — kein Test hatte je hingesehen. Eine
+    feste Zeilenzahl driftet mit jedem Satz, den jemand oben ergaenzt; dieser Test
+    haelt fest, dass die Hilfe Hilfe bleibt.
+    """
+    r = _lauf("--help")
+    assert r.returncode == 0
+    assert "Aufruf:" in r.stdout and "--dry-run" in r.stdout
+    for quelltext in ("set -euo pipefail", "ARGS=()", 'case "$a" in'):
+        assert quelltext not in r.stdout, f"Quelltext in der Hilfe: {quelltext}"

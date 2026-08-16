@@ -22,6 +22,35 @@
 set -euo pipefail
 
 REPO="${RECONCILE_REPO:-achimdehnert/platform}"
+
+# Hilfe als eigener Text, NICHT als Ausschnitt des Kopfkommentars.
+# Der uebliche `sed -n '1,30p' "$0"`-Trick stand hier zuerst und druckte Quelltext
+# statt Hilfe: der Kopf dieser Datei ist laenger als 30 Zeilen. Aufgefallen erst
+# beim Selbstausfuehren. Eine feste Zeilenzahl driftet mit jedem Satz, den man
+# oben ergaenzt — die Hilfe waere also irgendwann in JEDEM solchen Skript falsch,
+# ohne dass ein Test es merkt.
+hilfe() {
+  cat <<'HILFE'
+reconcile-app-setup.sh — App-ID und Private Key des Handover-Reconcilers hinterlegen
+
+Aufruf:
+  tools/reconcile-app-setup.sh <APP_ID> <pfad/zur/private-key.pem> [--dry-run] [--shred]
+
+  <APP_ID>   Zahl, steht oben auf der App-Seite (github.com/settings/apps/<name>)
+  <pem>      die von GitHub heruntergeladene .private-key.pem
+
+  --dry-run  nur pruefen und zeigen, was passieren wuerde (schreibt nichts)
+  --shred    die .pem nach erfolgreichem Setzen sicher loeschen (opt-in)
+
+Beispiel:
+  tools/reconcile-app-setup.sh 1234567 ~/Downloads/app.private-key.pem --dry-run
+
+Der Schluessel geht ausschliesslich ueber stdin an `gh` — nie als Argument, nie in
+die Shell-History, nie in eine Ausgabe. Ziel-Repo ueberschreibbar: RECONCILE_REPO.
+Volles Verfahren: docs/runbooks/RUNBOOK-reconcile-github-app.md
+HILFE
+}
+
 DRY=0
 SHRED=0
 ARGS=()
@@ -29,7 +58,7 @@ for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
     --shred)   SHRED=1 ;;
-    -h|--help) sed -n '1,30p' "$0"; exit 0 ;;
+    -h|--help) hilfe; exit 0 ;;
     -*) echo "Unbekanntes Argument: $a" >&2; exit 64 ;;
     *) ARGS+=("$a") ;;
   esac
