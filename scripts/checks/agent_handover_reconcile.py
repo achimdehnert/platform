@@ -37,10 +37,80 @@ import argparse
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from handover_refs import Ref, extract_refs  # noqa: E402
+
+# Registry-Schiedsrichter (platform#2006): `tools/registry_api.owner()` loest den
+# Ist-Owner eines Repos auf — per-Repo `github:`-Feld, dann `repo_owner`-Override,
+# dann `owner_prefix_rules` (meiki-/ttz-/bahn-), dann Default. Bewusst KEIN zweiter
+# Aufloeser: den gibt es bereits, und eine Kopie waere die naechste Drift-Quelle.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+try:
+    import registry_api as _reg
+except Exception:  # noqa: BLE001 — yaml fehlt, Pfad anders, Registry unlesbar
+    _reg = None
+
+
+def registry_verfuegbar() -> bool:
+    """Kann der Schiedsrichter ueberhaupt urteilen?
+
+    Die Unterscheidung entscheidet ueber die Aussagekraft: ohne Registry liefert
+    `owner()` fuer JEDES Repo `None`, und ein naiver Aufruf wuerde die komplette
+    Flotte als „unbekanntes Repo" melden. Ein Werkzeug, das bei fehlender
+    Datenbasis maximal laut wird, ist schlimmer als eines, das dann schweigt.
+    """
+    if _reg is None:
+        return False
+    try:
+        return bool(_reg.load_canonical().get("repos"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def schiedsrichter(ref: Ref) -> tuple[Ref, tuple[str, str] | None]:
+    """Owner gegen die Registry halten. Liefert (korrigierte Referenz, Urteil).
+
+    Zwei verschiedene Faelle, und sie auseinanderzuhalten ist der ganze Punkt:
+
+    - **Der Owner stand nicht im Text** (`repo#N`, blankes `#N`). Dann hat der
+      Parser ihn angenommen, und eine Abweichung ist **kein Befund**, sondern eine
+      Korrektur: die Referenz wird auf den richtigen Owner umgeschrieben und ganz
+      normal abgefragt.
+    - **Der Owner stand im Text** (volle URL oder `owner/repo#N`) und widerspricht
+      der Registry. Das ist ein **echter** Befund — ein Link, der ins Leere zeigt
+      oder nur ueber einen GitHub-Redirect funktioniert.
+
+    Warum die Unterscheidung teuer erkauft ist: der erste Entwurf meldete alle vier
+    Abweichungen des 2026-08-16 als „Adressfehler im Handover". Der Blick in die
+    Quellzeile widerlegte das — bei `frist-hub#117` stand die **richtige** URL
+    (`meiki-lra/frist-hub`) unmittelbar daneben, gelesen wurde nur der Label-Text.
+    Vier der zwoelf `UNKNOWN` waren also nie ein Token-Problem, sondern eine
+    Annahme dieses Parsers. Ein Werkzeug, das seine eigene Annahme dem Dokument
+    als Fehler vorhaelt, ist schlimmer als eines, das schweigt.
+    """
+    if not registry_verfuegbar():
+        return ref, None
+    soll = _reg.owner(ref.repo)
+    if soll is None:
+        if not ref.owner_explizit:
+            # Nur geraten und die Registry kennt das Repo nicht — daraus laesst
+            # sich nichts folgern. Die API bekommt die Frage.
+            return ref, None
+        return ref, (
+            "UNBEKANNTES_REPO",
+            f"{ref.owner}/{ref.repo} steht nicht in registry/canonical.yaml",
+        )
+    if soll == ref.owner:
+        return ref, None
+    if not ref.owner_explizit:
+        return replace(ref, owner=soll), None
+    return ref, (
+        "FALSCHE_ORG",
+        f"real {soll}/{ref.repo} — im Text steht {ref.owner}/{ref.repo}",
+    )
 
 
 def query_state(ref: Ref) -> tuple[str, str]:
@@ -55,7 +125,17 @@ def query_state(ref: Ref) -> tuple[str, str]:
     except (OSError, subprocess.TimeoutExpired) as exc:
         return "UNKNOWN", f"gh nicht ausführbar/Timeout: {exc}"
     if proc.returncode != 0:
-        return "UNKNOWN", (proc.stderr.strip().split("\n")[0] or "gh api Fehler")[:120]
+        fehler = (proc.stderr.strip().split("\n")[0] or "gh api Fehler")[:120]
+        # 404 bei plausiblem Owner heisst mit diesem Token: privat oder geloescht —
+        # und die beiden lassen sich damit NICHT unterscheiden. Das ist eine
+        # Abdeckungsluecke, kein Befund; als solche gehoert sie in eine eigene
+        # Klasse, damit sie die echten Treffer nicht zudeckt (platform#2006).
+        if "404" in fehler:
+            return "NICHT_PRUEFBAR", (
+                f"{fehler} — Owner laut Registry korrekt, also privat oder "
+                "geloescht (mit diesem Token nicht unterscheidbar)"
+            )
+        return "UNKNOWN", fehler
     try:
         data = json.loads(proc.stdout)
     except json.JSONDecodeError:
@@ -96,20 +176,53 @@ def main() -> int:
     refs, skipped_sections = extract_refs(args.handover.read_text(), owner, repo)
     rows: list[tuple[str, Ref, str]] = []
     for ref in refs:
-        klass, detail = query_state(ref)
+        # Schiedsrichter zuerst: er korrigiert einen bloss angenommenen Owner
+        # (dann fragt die API das RICHTIGE Repo) und meldet nur einen im Text
+        # stehenden, widersprechenden Owner als Befund.
+        ref, vorab = schiedsrichter(ref)
+        klass, detail = vorab if vorab else query_state(ref)
         rows.append((klass, ref, detail))
 
     disc = [r for r in rows if r[0] == "DISKREPANZ"]
-    unknown = [r for r in rows if r[0] == "UNKNOWN"]
+    adressfehler = [r for r in rows if r[0] in ("FALSCHE_ORG", "UNBEKANNTES_REPO")]
+    unknown = [r for r in rows if r[0] in ("UNKNOWN", "NICHT_PRUEFBAR")]
 
     out: list[str] = []
     out.append("## Handover-Reconcile (Stufe 1, read-only)")
     out.append("")
     out.append(
         f"Geprüft: **{len(rows)}** Referenzen aus offenen Abschnitten · "
-        f"OK {len(rows) - len(disc) - len(unknown)} · "
-        f"DISKREPANZ {len(disc)} · UNKNOWN {len(unknown)}"
+        f"OK {len(rows) - len(disc) - len(adressfehler) - len(unknown)} · "
+        f"DISKREPANZ {len(disc)} · ADRESSFEHLER {len(adressfehler)} · "
+        f"nicht prüfbar {len(unknown)}"
     )
+    if not registry_verfuegbar():
+        out.append("")
+        out.append(
+            "> ⚠️ **Registry-Schiedsrichter inaktiv** (`registry/canonical.yaml` nicht "
+            "lesbar oder PyYAML fehlt). Falsch adressierte Referenzen sind in diesem "
+            "Lauf **nicht** von privaten Repos unterscheidbar — sie stehen unten "
+            "gemeinsam unter „nicht prüfbar“."
+        )
+    if adressfehler:
+        out.append("")
+        out.append("### 🚩 Adressfehler (Referenz zeigt ins Leere)")
+        out.append("")
+        out.append("| Referenz | Befund | Handover-Zeile |")
+        out.append("|---|---|---|")
+        for _, ref, detail in adressfehler:
+            out.append(
+                f"| {ref.owner}/{ref.repo}#{ref.number} | {detail} "
+                f"| Z.{ref.line_no}: {ref.line[:80].replace('|', '/')} |"
+            )
+        out.append("")
+        out.append(
+            "→ Das ist ein **echter** Befund, kein Zugriffsproblem: der Link im "
+            "Handover trägt die falsche Org (oder ein Repo, das die Registry nicht "
+            "kennt). Ein GitHub-Redirect kann das maskieren — die Referenz "
+            "funktioniert dann für Menschen und scheitert für jedes Werkzeug ohne "
+            "Zugriff. Org im Handover korrigieren, nicht den Token erweitern."
+        )
     if disc:
         out.append("")
         out.append("### ⚠️ Diskrepanzen (im Handover offen, auf GitHub zu)")
@@ -163,7 +276,14 @@ def main() -> int:
                             "zeile": ref.line[:200],
                         }
                         for klass, ref, detail in rows
-                        if klass in ("DISKREPANZ", "UNKNOWN")
+                        if klass
+                        in (
+                            "DISKREPANZ",
+                            "FALSCHE_ORG",
+                            "UNBEKANNTES_REPO",
+                            "NICHT_PRUEFBAR",
+                            "UNKNOWN",
+                        )
                     ],
                     "nicht_gescannte_abschnitte": skipped_sections,
                 },

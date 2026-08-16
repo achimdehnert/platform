@@ -81,7 +81,17 @@ MAX_ZEILEN = 8  # mehr als das liest beim Sitzungsstart niemand — Rest wird ge
 #: wird abgeschaltet — dann meldet es gar nichts mehr (#1508). Sie verschwinden aber
 #: auch nicht: sie werden als **eine** Abdeckungszeile ausgewiesen, so wie Phase 0.7
 #: des Runners ihre nicht abfragbaren Repos nennt statt sie wegzulassen.
-NICHT_PRUEFBAR = ("UNKNOWN",)
+#:
+#: Nachtrag desselben Tages: die Abdeckungszeile war die richtige Sofortmassnahme,
+#: aber sie behandelte ein **Klassifikations**problem als Anzeigeproblem. Drei der
+#: zwoelf Zeilen waren gar keine Luecke, sondern ein echter Befund — eine Referenz
+#: mit falscher Org (`achimdehnert/ttz-hub` statt `ttz-lif/…`). Die API liefert
+#: dafuer dasselbe 404 wie fuer ein privates Repo. Der Reconciler trennt das jetzt
+#: an der Quelle ueber die Registry und schickt `FALSCHE_ORG`/`UNBEKANNTES_REPO`
+#: als Befund und `NICHT_PRUEFBAR` als Luecke. `UNKNOWN` bleibt hier drin: aeltere
+#: Reports im Zustand tragen es noch, und ein Klassenwechsel darf keinen
+#: Bestandseintrag ploetzlich laut werden lassen.
+NICHT_PRUEFBAR = ("UNKNOWN", "NICHT_PRUEFBAR")
 
 
 def _jetzt() -> datetime:
