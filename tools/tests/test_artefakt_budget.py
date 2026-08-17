@@ -20,60 +20,76 @@ HOOK = (
 )
 
 
+def _aufruf(tid: str, cmd: str) -> str:
+    """assistant-Zeile mit einem Bash-tool_use."""
+    return json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "name": "Bash",
+                        "id": tid,
+                        "input": {"command": cmd},
+                    }
+                ]
+            },
+        }
+    )
+
+
+def _ergebnis(tid: str, text: str) -> str:
+    """user-Zeile mit dem tool_result zu `tid` — der BELEG der Anlage.
+
+    Ohne diese Zeile gibt es kein Artefakt: der Hook zaehlt seit 2026-08-17
+    die zurueckgemeldete URL, nicht das Kommando (Prio 4 — 8 gemeldet vs. 37
+    tatsaechlich). Ein Transkript aus lauter Kommandos ohne Ergebnisse ist
+    deshalb kein gueltiger Drill mehr, sondern die alte Fehlmessung selbst.
+    """
+    return json.dumps(
+        {
+            "type": "user",
+            "isMeta": True,
+            "message": {
+                "content": [
+                    {"type": "tool_result", "tool_use_id": tid, "content": text}
+                ]
+            },
+        }
+    )
+
+
+def _pr_url(nr: int, repo: str = "achimdehnert/platform") -> str:
+    return f"https://github.com/{repo}/pull/{nr}"
+
+
+def _issue_url(nr: int, repo: str = "achimdehnert/platform") -> str:
+    return f"https://github.com/{repo}/issues/{nr}"
+
+
 def _transcript(tmp_path: Path, pr_creates: int, issue_creates: int = 0) -> Path:
-    """Synthetisches Session-Transkript mit N gh-pr-create-Bash-Aufrufen."""
+    """Synthetisches Transkript: N belegte PR-Anlagen, M belegte Issue-Anlagen."""
     p = tmp_path / "session.jsonl"
     zeilen = []
     for i in range(pr_creates):
-        zeilen.append(
-            json.dumps(
-                {
-                    "type": "assistant",
-                    "message": {
-                        "content": [
-                            {
-                                "type": "tool_use",
-                                "name": "Bash",
-                                "id": f"t{i}",
-                                "input": {"command": f'gh pr create --title "x{i}"'},
-                            }
-                        ]
-                    },
-                }
-            )
-        )
+        zeilen.append(_aufruf(f"t{i}", f'gh pr create --title "x{i}"'))
+        zeilen.append(_ergebnis(f"t{i}", _pr_url(100 + i)))
     for i in range(issue_creates):
-        zeilen.append(
-            json.dumps(
-                {
-                    "type": "assistant",
-                    "message": {
-                        "content": [
-                            {
-                                "type": "tool_use",
-                                "name": "Bash",
-                                "id": f"i{i}",
-                                "input": {"command": "gh issue create --title y"},
-                            }
-                        ]
-                    },
-                }
-            )
-        )
-    # Rauschen, das NICHT zaehlen darf: view/merge/list + Text, der create erwaehnt
+        zeilen.append(_aufruf(f"i{i}", "gh issue create --title y"))
+        zeilen.append(_ergebnis(f"i{i}", _issue_url(900 + i)))
+    # Rauschen, das NICHT zaehlen darf: view/merge/list + Text, der create
+    # erwaehnt. Das view-Ergebnis traegt bewusst eine echte PR-URL — genau
+    # daran wuerde eine reine URL-Zaehlung ohne Absichts-Bindung scheitern.
+    zeilen.append(_aufruf("n1", "gh pr view 7 && gh pr merge 7"))
+    zeilen.append(_ergebnis("n1", f"state OPEN {_pr_url(7)}"))
     zeilen.append(
         json.dumps(
             {
                 "type": "assistant",
                 "message": {
                     "content": [
-                        {
-                            "type": "tool_use",
-                            "name": "Bash",
-                            "id": "n1",
-                            "input": {"command": "gh pr view 7 && gh pr merge 7"},
-                        },
-                        {"type": "text", "text": "wir koennten gh pr create nutzen"},
+                        {"type": "text", "text": "wir koennten gh pr create nutzen"}
                     ]
                 },
             }
@@ -227,7 +243,9 @@ def test_should_count_prs_since_last_owner_message(tmp_path: Path) -> None:
     t = tmp_path / "mit_owner.jsonl"
     basis = _transcript(tmp_path, pr_creates=5).read_text().splitlines()
     # Owner meldet sich nach dem dritten PR -> nur die letzten zwei zaehlen.
-    t.write_text("\n".join(basis[:3] + [_owner_nachricht()] + basis[3:]) + "\n")
+    # Je PR zwei Zeilen (Aufruf + Ergebnis), der Schnitt liegt also bei 6 —
+    # bei 3 fiele der Beleg des dritten PR hinter die Owner-Nachricht.
+    t.write_text("\n".join(basis[:6] + [_owner_nachricht()] + basis[6:]) + "\n")
     assert ab.messe_kontext(t)["prs_seit_owner"] == 2
 
 
@@ -243,7 +261,7 @@ def test_should_ignore_tool_results_as_owner_messages(tmp_path: Path) -> None:
             {"type": "user", "isMeta": True, "message": {"content": "erinnerung"}}
         ),
     ]
-    t.write_text("\n".join(basis[:3] + rauschen + basis[3:]) + "\n")
+    t.write_text("\n".join(basis[:6] + rauschen + basis[6:]) + "\n")
     assert ab.messe_kontext(t)["prs_seit_owner"] == 5
 
 
@@ -300,6 +318,127 @@ def test_should_not_flag_merge_as_prod_step(tmp_path: Path) -> None:
     ab = _modul()
     t = _transcript(tmp_path, pr_creates=4)  # enthaelt `gh pr merge 7`
     assert ab.messe_kontext(t)["prod"] == 0
+
+
+# --------------------------------------------------------------------------
+# Die drei gemessenen Fehlmessungen der Kommando-Zaehlung (Prio 4, 2026-08-17).
+# Am 17.08. meldete der Melder 8 PRs, tatsaechlich waren es 37. Jeder Test hier
+# ist einer der drei Wege, auf denen die Zahl entstand — plus zwei Faelle, die
+# der neue Weg nicht neu kaputt machen darf.
+# --------------------------------------------------------------------------
+
+
+def test_should_count_every_pr_from_a_single_loop_command(tmp_path: Path) -> None:
+    """Eine Schleife legt N PRs an und steht EINMAL im Kommando.
+
+    Der teuerste der drei Fehler: 17 PRs aus einer Schleife zaehlten als eins —
+    der Melder war genau bei der Massenaktion blind, wegen der es ihn gibt.
+    """
+    ab = _modul()
+    t = tmp_path / "schleife.jsonl"
+    urls = " ".join(_pr_url(n) for n in (11, 12, 13, 14, 15))
+    t.write_text(
+        "\n".join(
+            [
+                _aufruf("s1", "for r in a b c d e; do gh pr create -R o/$r -t x; done"),
+                _ergebnis("s1", urls),
+            ]
+        )
+        + "\n"
+    )
+    assert ab.zaehle_artefakte(t) == (5, 0)
+
+
+def test_should_count_prs_created_via_rest_api(tmp_path: Path) -> None:
+    """`gh api .../pulls -X POST` enthaelt kein `gh pr create` und zaehlte gar
+    nicht — der Weg, den man nimmt, wenn GraphQL 503 wirft (Realfall 17.08.)."""
+    ab = _modul()
+    t = tmp_path / "api.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                _aufruf("a1", "gh api repos/o/r/pulls -X POST --input -"),
+                _ergebnis("a1", json.dumps({"html_url": _pr_url(57, "o/r")})),
+            ]
+        )
+        + "\n"
+    )
+    assert ab.zaehle_artefakte(t) == (1, 0)
+
+
+def test_should_not_count_a_code_search_for_the_pattern(tmp_path: Path) -> None:
+    """Die Gegenrichtung: eine blosse Codesuche nach dem Muster erhoehte den
+    Zaehler um 1. Ihr Ergebnis traegt Quellzeilen, keine Artefakt-URL."""
+    ab = _modul()
+    t = tmp_path / "suche.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                _aufruf("g1", "grep -rn 'gh pr create' tools/"),
+                _ergebnis(
+                    "g1", "tools/claude-hooks/artefakt_budget.py:70: gh pr create"
+                ),
+            ]
+        )
+        + "\n"
+    )
+    assert ab.zaehle_artefakte(t) == (0, 0)
+
+
+def test_should_not_count_a_failed_creation_attempt(tmp_path: Path) -> None:
+    """Ein gescheiterter Versuch legt nichts an. In dieser Sitzung liefen zwei
+    `gh pr create` in HTTP 503 — die alte Zaehlung haette beide als PR gebucht."""
+    ab = _modul()
+    t = tmp_path / "fehl.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                _aufruf("f1", "gh pr create --title x"),
+                _ergebnis("f1", "HTTP 503: No server is currently available"),
+            ]
+        )
+        + "\n"
+    )
+    assert ab.zaehle_artefakte(t) == (0, 0)
+
+
+def test_should_not_count_a_comment_as_a_new_issue(tmp_path: Path) -> None:
+    """`gh api .../issues/40/comments -X POST` ist ein Kommentar, kein Issue —
+    und sein html_url sieht dem eines Issues zum Verwechseln aehnlich."""
+    ab = _modul()
+    t = tmp_path / "kommentar.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                _aufruf("k1", "gh api repos/o/r/issues/40/comments -X POST -f body=x"),
+                _ergebnis(
+                    "k1",
+                    "https://github.com/o/r/issues/40#issuecomment-5301524622",
+                ),
+            ]
+        )
+        + "\n"
+    )
+    assert ab.zaehle_artefakte(t) == (0, 0)
+
+
+def test_should_count_the_same_pr_url_only_once(tmp_path: Path) -> None:
+    """Idempotenz: derselbe PR, zweimal belegt, bleibt ein Artefakt. Sonst
+    zaehlt ein Wiederholungslauf nach einem Teilfehlschlag doppelt."""
+    ab = _modul()
+    t = tmp_path / "doppelt.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                _aufruf("d1", "gh pr create -t x"),
+                _ergebnis("d1", _pr_url(42)),
+                _aufruf("d2", "gh pr create -t x"),
+                _ergebnis("d2", f"a pull request already exists {_pr_url(42)}"),
+            ]
+        )
+        + "\n"
+    )
+    assert ab.zaehle_artefakte(t) == (1, 0)
 
 
 def test_should_never_fail_on_garbage_stdin(tmp_path: Path) -> None:
