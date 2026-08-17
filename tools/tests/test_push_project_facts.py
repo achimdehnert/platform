@@ -45,6 +45,9 @@ class FakeApi:
         self.branch_da = branch_da
         self.slug = slug
         self.offene_prs = offene_prs or []
+        #: Nummern, die GitHub inzwischen geschlossen hat — der Einzelabruf
+        #: `/pulls/<n>` trägt diesen Zustand, die Liste kann ihm nachhinken.
+        self.geschlossen: set[int] = set()
         self.aufrufe: list[tuple[str, str]] = []
 
     def __call__(self, url, method="GET", body=None):
@@ -64,6 +67,14 @@ class FakeApi:
             return self.offene_prs
         if method == "POST" and pfad.endswith("/pulls"):
             return {"number": 42}
+        teile = pfad.split("/pulls/")
+        if len(teile) == 2 and teile[1].isdigit():
+            nummer = int(teile[1])
+            if method == "PATCH":
+                self.geschlossen.discard(nummer)
+                return {"number": nummer, "state": "open"}
+            zustand = "closed" if nummer in self.geschlossen else "open"
+            return {"number": nummer, "state": zustand}
         return {}
 
     def methoden_auf(self, teil):
@@ -302,6 +313,79 @@ def test_should_treat_github_archived_403_as_skip_not_failure(monkeypatch, capsy
     # Nicht stillschweigend überspringen: der Fall muss benannt in der Ausgabe stehen.
     assert "🗄 b" in ausgabe
     assert "Archiviert (read-only, bewusst uebersprungen):" in ausgabe
+
+
+# ── Ein offener PR überlebt den Lauf (platform#2025) ─────────────────────────
+
+
+class PrSchliesstBeimResetApi(FakeApi):
+    """GitHub-Doppelgänger, der den offenen PR beim force-Reset schliesst.
+
+    Das ist das reale Verhalten: ein Branch, der auf den Kopf des
+    Default-Branch zurückgesetzt wird, steht gegenüber der Basis auf null
+    Commits — GitHub schliesst den PR daraufhin (`no commit found on the pull
+    request`). Realfall meiki-lra/frist-hub#117 am 2026-08-17: `closed
+    04:15:37Z`, `head_ref_force_pushed 04:15:38Z`.
+
+    Die Listen-Abfrage `pulls?state=open` bleibt hier bewusst noch einen
+    Aufruf lang stale — genau so kam die Fehlmeldung "aktualisiert" zustande.
+    """
+
+    def __call__(self, url, method="GET", body=None):
+        pfad = url.split("api.github.com")[-1]
+        if method == "PATCH" and "/git/refs/heads/chore" in pfad:
+            self.geschlossen |= {p["number"] for p in self.offene_prs}
+        return super().__call__(url, method, body)
+
+
+def test_should_not_reset_the_branch_while_a_pull_request_is_open(monkeypatch):
+    """Der Reset war der Auslöser — ohne offenen PR bleibt er erlaubt, mit nicht."""
+    api = FakeApi(datei="# alt", branch_da=True, offene_prs=[{"number": 7}])
+    monkeypatch.setattr(ppf, "_req", api)
+    ppf.gh_push_file("learn-hub", "project-facts.md", "# neu", "msg")
+    assert "PATCH" not in api.methoden_auf("/git/refs/heads/chore"), (
+        "ein force-Reset nimmt dem offenen PR alle Commits — GitHub schliesst ihn"
+    )
+
+
+def test_should_keep_the_open_pull_request_alive(monkeypatch):
+    """Falsifikation: ohne den Verzicht auf den Reset schliesst dieser
+    Doppelgänger den PR, und das Skript legt einen neuen an (#42) statt den
+    bestehenden zu aktualisieren."""
+    api = PrSchliesstBeimResetApi(
+        datei="# alt", branch_da=True, offene_prs=[{"number": 7}]
+    )
+    monkeypatch.setattr(ppf, "_req", api)
+    assert (
+        ppf.gh_push_file("learn-hub", "project-facts.md", "# neu", "msg")
+        == "PR #7 aktualisiert"
+    )
+    assert not api.geschlossen, "der PR darf den Lauf überleben"
+
+
+def test_should_not_report_updated_for_a_pull_request_that_is_closed(monkeypatch):
+    """Der stale Listen-Treffer darf die Meldung nicht mehr tragen.
+
+    Hier wird der PR unabhängig vom Skript geschlossen (fremder Eingriff);
+    `pulls?state=open` liefert ihn noch einmal als offen. Die Altfassung machte
+    daraus "PR #7 aktualisiert" — die Aussage, die bei frist-hub#117 falsch war.
+    """
+    api = PrSchliesstBeimResetApi(
+        datei="# alt", branch_da=True, offene_prs=[{"number": 7}]
+    )
+    api.geschlossen = {7}  # schon zu, bevor das Skript etwas tut
+    monkeypatch.setattr(ppf, "_req", api)
+    ergebnis = ppf.gh_push_file("learn-hub", "project-facts.md", "# neu", "msg")
+    assert "aktualisiert" not in ergebnis
+    assert ergebnis == "PR #7 war geschlossen, wieder geöffnet"
+
+
+def test_should_still_reset_a_leftover_branch_without_an_open_pull_request(monkeypatch):
+    """Gegenprobe: die Divergenz-Sicherung darf durch den Fix nicht wegfallen."""
+    api = FakeApi(datei="# alt", branch_da=True)
+    monkeypatch.setattr(ppf, "_req", api)
+    ppf.gh_push_file("learn-hub", "project-facts.md", "# neu", "msg")
+    assert "PATCH" in api.methoden_auf("/git/refs/heads/chore")
 
 
 def test_should_not_put_a_ci_skip_marker_into_the_commit_message():
