@@ -9,10 +9,18 @@ Sessions aber ueber die ARTEFAKT-Zahl: Am 2026-07-31 wurde aus "analysiere
 SB-Neu" eine Kette von 12 PRs in 2 Repos — der Repo-Trigger feuerte nie
 (Retro 8ed6a2, Massnahme "Artefakt-Budget je Auftrag").
 
-Der Hook zaehlt im Session-Transkript angelegte Artefakte (`gh pr create`,
-`gh issue create`) und erinnert ab der Schwelle an den Scope-Checkpoint:
-"ist das noch der Auftrag?". Er blockiert NICHTS — der Checkpoint ist eine
-Frage an den Menschen, kein Verbot.
+Der Hook zaehlt im Session-Transkript angelegte Artefakte und erinnert ab der
+Schwelle an den Scope-Checkpoint: "ist das noch der Auftrag?". Er blockiert
+NICHTS — der Checkpoint ist eine Frage an den Menschen, kein Verbot.
+
+**Gezaehlt wird das Artefakt, nicht das Kommando** (Fix 2026-08-17, Prio 4 des
+Handovers). Bis dahin matchte er `gh pr create` im Bash-Kommando und lag damit
+in BEIDE Richtungen falsch: 8 gemeldet, 37 tatsaechlich. 17 PRs aus einer
+Schleife zaehlten als eins, PRs via `gh api …/pulls -X POST` gar nicht — und
+eine blosse Codesuche nach dem Muster erhoehte den Zaehler um 1. Untererfassung
+und Uebererfassung heben sich nicht auf: blind bei der Massenaktion, laut bei
+der harmlosen Suche. Beides derselbe Fehler, den der Tag dreimal zeigte: **die
+Bedingung prueft eine Schreibweise und meint eine Sache.** Details in `sammle`.
 
 Contract (wie evidence_claim_scanner.py): Stop-Event-JSON auf stdin, IMMER
 exit 0. Bei Feuern: additionalContext-JSON auf stdout. Feuert je Schwelle
@@ -65,9 +73,22 @@ GATE_HEADER = {
     "evidence": "tools/tests/test_artefakt_budget.py",
 }
 
-# gh pr create / gh issue create in Bash-tool_use-Kommandos.
-# Bewusst NUR create — view/list/merge sind keine neuen Artefakte.
-_CREATE = re.compile(r"\bgh\s+(pr|issue)\s+create\b")
+# --- Anlage-ABSICHT im Kommando -------------------------------------------
+# Zwei Wege, ein Artefakt anzulegen. Der zweite fehlte bis 2026-08-17 komplett.
+_CREATE_CLI = re.compile(r"\bgh\s+(?:pr|issue)\s+create\b")
+_POST = re.compile(r"(?:-X|--method)[=\s\"',]*POST\b")
+_API_ZIEL = re.compile(r"/(?:pulls|issues)\b")
+# Ein Kommentar/Review am Artefakt ist kein neues Artefakt — sein html_url
+# sieht aber fast genauso aus. Ohne diesen Ausschluss zaehlt jeder
+# `gh api .../issues/40/comments -X POST` als neu angelegtes Issue.
+_API_NICHT = re.compile(r"/(?:comments|reviews|labels|assignees)\b")
+
+# --- Anlage-BELEG im Ergebnis ---------------------------------------------
+# Die URL des Artefakts. `(?![\w#/-])` schliesst `#issuecomment-...` und
+# tiefere Pfade aus — sonst waere jeder Kommentar-Link ein Artefakt.
+_ARTEFAKT_URL = re.compile(
+    r"https://github\.com/([\w.-]+/[\w.-]+)/(pull|issues)/(\d+)(?![\w#/-])"
+)
 
 # Repo-Bezug eines gh-Aufrufs, falls er nicht im Repo-Verzeichnis lief.
 _REPO_FLAG = re.compile(r"(?:\B-R|--repo)[= ]\s*([\w.-]+/[\w.-]+)")
@@ -82,61 +103,98 @@ _PROD = re.compile(
 )
 
 
-def zaehle_artefakte(transcript_path: Path) -> tuple[int, int]:
-    """(prs, issues) — gezaehlt ueber tool_use-Bash-Kommandos im Transkript."""
-    prs = issues = 0
-    try:
-        fh = transcript_path.open(encoding="utf-8", errors="replace")
-    except OSError:
-        return 0, 0
-    with fh:
-        for raw in fh:
-            if '"tool_use"' not in raw or "gh " not in raw:
-                continue  # billiger Vorfilter vor dem JSON-Parse
-            try:
-                obj = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            msg = obj.get("message", obj)
-            content = msg.get("content", [])
-            if not isinstance(content, list):
-                continue
-            for c in content:
-                if not (isinstance(c, dict) and c.get("type") == "tool_use"):
-                    continue
-                cmd = str((c.get("input") or {}).get("command", ""))
-                for m in _CREATE.finditer(cmd):
-                    if m.group(1) == "pr":
-                        prs += 1
-                    else:
-                        issues += 1
-    return prs, issues
+# Zeilen-Schluessel, die zur Messung beitragen koennen — Vorfilter in `sammle`.
+# Wer hier etwas ergaenzt, ergaenzt es auch dort, und umgekehrt.
+_TRAGENDE_SCHLUESSEL = (
+    '"tool_use"',  # Kommando: Anlage-Absicht, --repo, Prod-Marker
+    '"tool_result"',  # Beleg: Artefakt-URL
+    '"user"',  # Nachricht des Menschen (setzt prs_seit_owner zurueck)
+    "prRepository",  # beruehrtes Repo ohne Kommando
+    '"cwd"',  # beruehrtes Repo ueber das Arbeitsverzeichnis
+)
 
 
-def messe_kontext(transcript_path: Path) -> dict:
-    """Die drei Kandidat-Kriterien aus dem #1640-Register.
+def _ist_anlage_absicht(cmd: str) -> bool:
+    """Sieht dieses Kommando aus, als solle es ein Artefakt ANLEGEN?
 
-    Zweiter Durchlauf ueber das Transkript, absichtlich **nur beim Feuern**
-    aufgerufen: der Zaehl-Durchlauf oben laeuft bei jedem Stop und bleibt
-    deshalb mit seinem Vorfilter billig; diese Messung darf teurer sein, weil
-    sie selten passiert.
-
-    ``prs_seit_owner`` zaehlt die PR-Anlagen NACH der letzten Nachricht des
-    Menschen. Eine Nachricht ist ein `user`-Eintrag, dessen Inhalt Text ist —
-    Tool-Ergebnisse und System-Erinnerungen (`isMeta`) sind es nicht, obwohl
-    sie denselben Typ tragen. Ohne diese Unterscheidung waere jeder Wert 0.
+    Absicht allein zaehlt nichts — sie qualifiziert nur das Ergebnis fuer die
+    Auswertung (siehe ``sammle``). Genau deshalb darf sie grob sein.
     """
-    kontext = {"repos": 0, "prs_seit_owner": 0, "prod": 0}
+    if _CREATE_CLI.search(cmd):
+        return True
+    return bool(
+        _POST.search(cmd) and _API_ZIEL.search(cmd) and not _API_NICHT.search(cmd)
+    )
+
+
+def _text_von(block: dict) -> str:
+    """Ergebnistext eines tool_result — flach oder als Block-Liste."""
+    inhalt = block.get("content")
+    if isinstance(inhalt, list):
+        return " ".join(str(t.get("text", "")) for t in inhalt if isinstance(t, dict))
+    return str(inhalt or "")
+
+
+def sammle(transcript_path: Path) -> dict:
+    """Angelegte Artefakte + die drei Kandidat-Kriterien, in EINEM Durchlauf.
+
+    **Gezaehlt wird das Artefakt, nicht das Kommando.** Ein Kommando mit
+    Anlage-Absicht wird ueber seine ``tool_use``-Id mit seinem ``tool_result``
+    verbunden; gezaehlt werden die *verschiedenen* Artefakt-URLs, die dort
+    zurueckkommen. Das behebt drei gemessene Fehler der Kommando-Zaehlung
+    (Stand 2026-08-17: 8 gemeldet, 37 tatsaechlich):
+
+    1. **Schleife.** ``for r in ...; do gh pr create ...; done`` steht EINMAL
+       im Kommando und legt N PRs an. Die alte Zaehlung sah 1, das Ergebnis
+       zeigt N URLs.
+    2. **API-Pfad.** ``gh api .../pulls -X POST`` enthaelt kein ``gh pr
+       create`` und zaehlte gar nicht — der Weg, den man nimmt, wenn GraphQL
+       503 wirft.
+    3. **Blosse Erwaehnung.** Eine Codesuche nach dem Muster erhoehte den
+       Zaehler um 1. Ihr Ergebnis enthaelt Quellzeilen, keine Artefakt-URL —
+       sie zaehlt jetzt 0.
+
+    Ein gescheiterter Anlageversuch (HTTP 503, Konflikt) liefert keine URL und
+    zaehlt damit ebenfalls 0 — richtig, denn es entstand kein Artefakt.
+
+    **Benannte Restluecke:** wird die Ausgabe eines echten ``gh pr create``
+    weggeworfen (``>/dev/null``, ``| wc -l``), fehlt der Beleg und der PR
+    bleibt ungezaehlt. Bewusst so: der Melder soll eine verdeckte Anlage
+    untererfassen, statt sich eine aus einer Erwaehnung zu erfinden.
+
+    ``prs_seit_owner`` zaehlt die PRs, die NACH der letzten Nachricht des
+    Menschen erstmals auftauchen. Eine Nachricht ist ein ``user``-Eintrag mit
+    Text-Inhalt — Tool-Ergebnisse und System-Erinnerungen (``isMeta``) sind es
+    nicht, obwohl sie denselben Typ tragen.
+    """
+    ergebnis = {
+        "prs": set(),
+        "issues": set(),
+        "prs_seit_owner": 0,
+        "repos": 0,
+        "prod": 0,
+    }
     try:
         fh = transcript_path.open(encoding="utf-8", errors="replace")
     except OSError:
-        return kontext
+        return ergebnis
 
+    absichten: set[str] = set()
+    prs: set[str] = set()
+    issues: set[str] = set()
+    seit_owner: set[str] = set()
     repos: set[str] = set()
-    seit_owner = 0
     prod = False
+
     with fh:
         for raw in fh:
+            # Billiger Vorfilter vor dem JSON-Parse. Er muss JEDEN Beitrag
+            # abdecken, den die Auswertung unten kennt — sonst ist er selbst
+            # wieder eine Bedingung, die eine Schreibweise prueft statt der
+            # Sache. Erster Entwurf liess `prRepository` weg und verlor damit
+            # still ein Repo; `test_should_measure_repos_and_prod_step` fing es.
+            if not any(k in raw for k in _TRAGENDE_SCHLUESSEL):
+                continue
             try:
                 obj = json.loads(raw)
             except json.JSONDecodeError:
@@ -145,7 +203,7 @@ def messe_kontext(transcript_path: Path) -> dict:
             if obj.get("type") == "user" and not obj.get("isMeta"):
                 inhalt = (obj.get("message") or {}).get("content")
                 if isinstance(inhalt, str) and inhalt.strip():
-                    seit_owner = 0  # der Mensch hat sich gemeldet — Kette neu
+                    seit_owner.clear()  # der Mensch hat sich gemeldet — Kette neu
 
             if obj.get("prRepository"):
                 repos.add(str(obj["prRepository"]).split("/")[-1])
@@ -158,17 +216,52 @@ def messe_kontext(transcript_path: Path) -> dict:
             if not isinstance(content, list):
                 continue
             for c in content:
-                if not (isinstance(c, dict) and c.get("type") == "tool_use"):
+                if not isinstance(c, dict):
                     continue
-                cmd = str((c.get("input") or {}).get("command", ""))
-                if not cmd:
-                    continue
-                seit_owner += len(_CREATE.findall(cmd))
-                repos.update(m.split("/")[-1] for m in _REPO_FLAG.findall(cmd))
-                prod = prod or bool(_PROD.search(cmd))
 
-    kontext.update(repos=len(repos), prs_seit_owner=seit_owner, prod=int(prod))
-    return kontext
+                if c.get("type") == "tool_use":
+                    cmd = str((c.get("input") or {}).get("command", ""))
+                    if not cmd:
+                        continue
+                    repos.update(m.split("/")[-1] for m in _REPO_FLAG.findall(cmd))
+                    prod = prod or bool(_PROD.search(cmd))
+                    if _ist_anlage_absicht(cmd) and c.get("id"):
+                        absichten.add(str(c["id"]))
+                    continue
+
+                if c.get("type") != "tool_result":
+                    continue
+                if str(c.get("tool_use_id", "")) not in absichten:
+                    continue  # ein Ergebnis ohne Anlage-Absicht belegt nichts
+                for repo, art, nr in _ARTEFAKT_URL.findall(_text_von(c)):
+                    url = f"{repo}#{art}{nr}"
+                    ziel = prs if art == "pull" else issues
+                    if url not in ziel:
+                        ziel.add(url)
+                        repos.add(repo.split("/")[-1])
+                        if art == "pull":
+                            seit_owner.add(url)
+
+    ergebnis.update(
+        prs=prs,
+        issues=issues,
+        prs_seit_owner=len(seit_owner),
+        repos=len(repos),
+        prod=int(prod),
+    )
+    return ergebnis
+
+
+def zaehle_artefakte(transcript_path: Path) -> tuple[int, int]:
+    """(prs, issues) — belegte Anlagen, siehe ``sammle``."""
+    d = sammle(transcript_path)
+    return len(d["prs"]), len(d["issues"])
+
+
+def messe_kontext(transcript_path: Path) -> dict:
+    """Die drei Kandidat-Kriterien aus dem #1640-Register."""
+    d = sammle(transcript_path)
+    return {k: d[k] for k in ("repos", "prs_seit_owner", "prod")}
 
 
 def _state_file(session_id: str) -> Path:
@@ -188,7 +281,8 @@ def main() -> int:
     tp = event.get("transcript_path")
     if not tp:
         return 0
-    prs, issues = zaehle_artefakte(Path(tp))
+    gesammelt = sammle(Path(tp))
+    prs, issues = len(gesammelt["prs"]), len(gesammelt["issues"])
     if prs < budget:
         return 0
 
@@ -205,7 +299,7 @@ def main() -> int:
     except OSError:
         pass  # State-Verlust heisst schlimmstenfalls ein Reminder mehr — nie blocken
 
-    ktx = messe_kontext(Path(tp))
+    ktx = gesammelt  # dieselbe Messung, kein zweiter Durchlauf
 
     # Treffer mitschreiben, BEVOR gemeldet wird — ohne Spur laesst sich die
     # Kalibrierung ueber mehrere Sitzungen weder belegen noch bestreiten
