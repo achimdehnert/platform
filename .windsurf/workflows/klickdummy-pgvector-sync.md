@@ -144,3 +144,26 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   `source_commit=bb17444e2d8f` (Repo-Liste ohne 137-hub, Changelog bis 2026-08-03) —
   zwei Läufe hinter dieser Quelle. Wer nur die verteilte Kopie liest, syncte 23 statt
   24 Repos. Vor „Repo-Liste erweitern" erst diese Quelldatei prüfen, nicht die Kopie.
+- 2026-08-17: Turnus-Lauf — 164 Entries/24 Repos, R3 PASS (164/164 `ok`, 0 failed;
+  **0 written**, alles content_hash-Dedup). Keine Verteilungs-Drift (Quelle und verteilte
+  Kopie beide `39efc9aa`). Discovery fand 26 Repos mit `klickdummy/`; frist-hub (meiki-lra)
+  und ttz-hub (ttz-lif) bleiben gov-ausgeschlossen (E3) → Liste unverändert 24.
+  Schema-WARNs unverändert und alle getrackt: pg-hub 110 (bahn-sqf/pg-hub#8),
+  design-hub 36 (design-hub#36/#38), nl2iot-hub 31 (nl2iot-hub#5). 164 Zeilen =
+  164 unique `entry_key` (kein Producer-Duplikat) unter `iil-klickdummy 1.34.0`.
+- 2026-08-17 **Präzisierung zum Trailing-Whitespace-Anti-Pattern:** die Notiz vom
+  2026-08-13 las sich, als beträfe das Risiko drei Sonderfälle. Gemessen enden
+  **alle 164** Entries auf `\n` und **6** auf `\n\n` (ausschreibungs-hub:ADR-002,
+  design-hub:ADR-007 + #2 + #3, risk-hub:ADR-046, sqf-hub:ADR-003) — endständiger
+  Whitespace ist also bei *jedem* Entry die fragile Stelle, nicht bei einer Handvoll.
+  Lesende Gegenprobe über 6 Entries (inkl. eines `\n\n`-Falls): Tails byte-genau.
+- 2026-08-17 **NEUES ANTI-PATTERN — `written: false` ist ein vollständiger No-Op, nicht
+  „Content unverändert".** Alle 164 Calls dieses Laufs setzten weisungsgemäß
+  `agent="klickdummy-sync"`; trotzdem trägt `klickdummy-adr:iilgmbh:risk-hub:ADR-055`
+  im Store weiterhin `agent="iil-klickdummy-sync"`. Bei Hash-Gleichheit wird **kein**
+  Feld aktualisiert, auch keine Metadaten. Ursache des Mischbestands: das NDJSON führt
+  selbst ein Feld `"agent": "iil-klickdummy-sync"`, während Step 3 `klickdummy-sync`
+  vorschreibt — je nachdem, welcher Wert beim *ersten* Schreiben eines Entry-Keys galt,
+  ist er dort eingefroren. **Konsequenz:** Metadaten-Korrekturen (agent, tags) sind über
+  den Upsert-Pfad nicht durchsetzbar, solange der Content gleich bleibt; ein `agent`-Filter
+  auf dem Store ist damit unzuverlässig. Getrackt: iilgmbh/iil-klickdummy#221.
