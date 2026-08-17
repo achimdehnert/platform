@@ -9,7 +9,7 @@ Siehe [platform#2037](https://github.com/achimdehnert/platform/issues/2037), Bef
 | Skript | Zweck |
 |---|---|
 | `pin_landschaft.py` | Misst, welche shared-ci-Version jedes Repo in welcher Datei pinnt. Deckt **Workflows und Actions** ab — die Action-Ebene fehlte in der ersten Messung und verbarg acht Repos mit `gitleaks-scan@v1.0.0`. |
-| `pin_sync.py` | Hebt **alle** shared-ci-Referenzen eines Repos auf eine Zielversion, legt Branch + Commits an. Erst `--apply` schreibt; ohne Flag Trockenlauf. |
+|  `pin_sync.py` | Hebt **alle** shared-ci-Referenzen eines Repos auf eine Zielversion, legt Branch + Commits an. Erst `--apply` schreibt; ohne Flag Trockenlauf. |
 | `pin_liste.sh` | Liest je Repo/Datei den exakt gepinnten Ref aus. Eingabe: `repo pfad` je Zeile. |
 
 ## Vor jedem Einsatz
@@ -28,3 +28,14 @@ Siehe [platform#2037](https://github.com/achimdehnert/platform/issues/2037), Bef
 `scripts/repo-registry.yaml` als Quelle (siehe `policies/ssot-vor-individualloesung.md`);
 die Liste stammt aus dem Sweep-Tag und ist bewusst als Schuld hinterlassen, nicht
 als Entwurf. Wer das Werkzeug das nächste Mal anfasst, zieht sie aus der Registry.
+
+## Aufrufe
+
+```bash
+# Was pinnt die Flotte gerade?
+python3 tools/sharedci/pin_landschaft.py
+
+# Trockenlauf, dann anwenden (Zielversion oben in ZIEL, Branch via SHAREDCI_BRANCH)
+python3 tools/sharedci/pin_sync.py "owner/repo-a,owner/repo-b"
+python3 tools/sharedci/pin_sync.py "owner/repo-a,owner/repo-b" --apply
+```
