@@ -12,6 +12,12 @@ on:
       - '.github/workflows/*.yml'
       - '.github/actions/**'
       - 'scripts/checks/publish_gate_invariant.sh'
+      - 'scripts/checks/no_docker_actions_in_deploy.sh'
+      # Ohne diese Zeile prueft der Gate seine eigene Konfiguration nie vor dem
+      # Merge: der push-Trigger unten kennt den Pfad, der pull_request-Trigger
+      # kannte ihn nicht. Ein PR, der nur actionlint.yaml aendert, loeste den Job
+      # deshalb gar nicht aus — und ein Job, der nicht laeuft, ist kein Gate.
+      - '.github/actionlint.yaml'
   push:
     branches: [main]
     paths:
@@ -19,6 +25,7 @@ on:
       - '.github/workflows/*.yml'
       - '.github/actions/**'
       - 'scripts/checks/publish_gate_invariant.sh'
+      - 'scripts/checks/no_docker_actions_in_deploy.sh'
       - '.github/actionlint.yaml'
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
@@ -27,6 +34,18 @@ permissions:
   contents: read
 
 jobs:
+  # Eigener Job statt Step im `validate`-Job. In shared-ci angelegt, als dessen
+  # letzter Step dauerhaft rot war und jeder Step danach nie lief — ein Waechter
+  # hinter einem roten Step meldet nichts. Bleibt eigenstaendig, damit sein
+  # Status unabhaengig von Lint-/Struktur-Befunden lesbar ist.
+  no-docker-actions:
+    name: "Keine Docker-Actions in Deploy-Reusables"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Actions aufloesen und auf runs.using pruefen (platform#1845)
+        run: bash scripts/checks/no_docker_actions_in_deploy.sh
+
   validate:
     name: "Validate Syntax"
     runs-on: ubuntu-latest

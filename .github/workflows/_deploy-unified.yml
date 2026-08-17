@@ -167,6 +167,39 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Eigene Docker-Anmeldung je Lauf statt der des Runner-Benutzers.
+      #
+      # `runs_on` ist ein selbst-gehosteter Runner, und die laufen als root auf
+      # dem Prod-Host (`systemctl cat 'actions.runner*'` → User=root). Ohne
+      # diese Umleitung schreibt `docker/login-action` nach
+      # /root/.docker/config.json — also in genau die Anmeldung, aus der der
+      # Host seine eigenen Images zieht — und räumt sie am Ende des Laufs
+      # wieder ab.
+      #
+      # Auf dem Host liegen die Runner von rund zwanzig Repos. Belegt am
+      # 2026-08-11: um 07:12:00 stand dort `auths: []`, zeitgleich mit einem
+      # Lauf von cad-hub; ein Deploy von Hand für risk-hub scheiterte in
+      # derselben Minute mit `unauthorized` — fünf Minuten nach einem
+      # nachweislich erfolgreichen `docker manifest inspect`.
+      #
+      # `unauthorized` sieht dabei aus wie ein fehlender Tag. Nur ein Gegentest
+      # gegen den LAUFENDEN Tag trennt beides; ohne ihn lautet der Schluss
+      # „Image wurde nicht gebaut" — und der hielt einen Prod-Deploy über
+      # 98 Commits blockiert, ohne dass es jemand merkte.
+      #
+      # Warum als Schritt und nicht als `env:` am Job: der `runner`-Kontext ist
+      # auf Job-Ebene nicht verfügbar (actionlint: „context 'runner' is not
+      # allowed here"). Über `$GITHUB_ENV` gilt die Variable ab hier für ALLE
+      # folgenden Schritte — auch für künftige, die jemand später ergänzt.
+      #
+      # Siehe risk-hub:KONZ-014 und iilgmbh/risk-hub#576.
+      - name: "Docker-Anmeldung dieses Laufs vom Host trennen"
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/.docker"
+          echo "DOCKER_CONFIG=${RUNNER_TEMP}/.docker" >> "$GITHUB_ENV"
+          echo "Docker-Anmeldung dieses Laufs: ${RUNNER_TEMP}/.docker"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -242,7 +275,10 @@ jobs:
       # removed service / wrong image path / outdated port mapping).
       - name: Sync docker-compose.staging.yml to host
         if: hashFiles('docker-compose.staging.yml') != ''
-        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
+        # v1.0.0 ist composite. v0.1.7 war eine Docker-Action, deren Image GitHub
+        # bereits im Job-Setup baut — auf self-hosted Runnern stirbt der Job dort,
+        # bevor ein Step laeuft (#1845, Wiederholung von shared-ci#22).
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
@@ -354,7 +390,8 @@ jobs:
 
       - name: Sync compose + manifest to host (remote runner)
         if: startsWith(inputs.runs_on, 'ubuntu')
-        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
+        # composite statt Docker-Action — siehe Begruendung oben (#1845).
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
