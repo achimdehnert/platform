@@ -40,16 +40,28 @@ sondern "Auftrag oder ungefragt gewachsene Kette?":
 
 - ``prs_seit_owner``  PRs seit der letzten Nachricht des Menschen. **Das** ist
   der Runaway-Indikator; die absolute PR-Zahl ist es nicht.
-- ``repos``           beruehrte Repos (Hausregel checkpointet am dritten).
+- ``repos``           GENANNTE Repos — traegt keine Schwelle, s.u.
+- ``repos_mit_artefakt``  Repos, in denen wirklich etwas entstand.
 - ``prod``            ob ein Prod-/Publish-Schritt vorkam (grobe Marker, s.u.).
 
-Die Schwelle selbst bleibt unveraendert — welches Kriterium sie kuenftig
-traegt, ist eine offene Owner-Entscheidung. Dieser Hook liefert ihr Daten,
-er nimmt sie nicht vorweg.
+**Die Schwelle liegt seit 2026-08-17 auf ``prs_seit_owner``** (Owner-Entscheid
+zur Auswertung in #1640). Die absolute PR-Zahl loeste sie ab, weil sie nicht
+misst, was sie vorgibt: bei 4 feuerte sie in sechs von acht echten Sitzungen,
+mehrfach je Sitzung, und stieg monoton — sie misst Arbeitsmenge, nicht
+Scope-Drift. ``prs_seit_owner`` dagegen lag in sieben von acht Sitzungen bei
+<= 2 und erreichte genau einmal 17: in der Sitzung, in der eine einzelne
+Schleife 17 PRs anlegte.
+
+``repos`` bleibt im Protokoll, traegt aber bewusst **keine** Schwelle: es zaehlt
+jedes genannte Repo, Lesezugriffe eingeschlossen, und kam in echten Sitzungen
+auf 50 bzw. 26 — waehrend die Hausregel am dritten *bearbeiteten* checkpointet.
+Dafuer gibt es jetzt ``repos_mit_artefakt``.
 
 Env:
-  ARTEFAKT_BUDGET_PRS  Schwelle (Default 4). 0 deaktiviert den Hook.
-  GATE_HITS_DATEI      Protokoll-Ziel (siehe gate_hits.py; Tests setzen es).
+  ARTEFAKT_BUDGET_SEIT_OWNER       Schwelle (Default 5). 0 deaktiviert den Hook.
+  ARTEFAKT_BUDGET_SEIT_OWNER_PROD  Gesenkte Schwelle, wenn ein Prod-/Publish-
+                                   Schritt in der Kette vorkam (Default 3).
+  GATE_HITS_DATEI                  Protokoll-Ziel (gate_hits.py; Tests setzen es).
 """
 
 from __future__ import annotations
@@ -172,6 +184,8 @@ def sammle(transcript_path: Path) -> dict:
         "issues": set(),
         "prs_seit_owner": 0,
         "repos": 0,
+        "repos_mit_artefakt": 0,
+        "owner_nachrichten": 0,
         "prod": 0,
     }
     try:
@@ -184,6 +198,19 @@ def sammle(transcript_path: Path) -> dict:
     issues: set[str] = set()
     seit_owner: set[str] = set()
     repos: set[str] = set()
+    # `repos` zaehlt jedes GENANNTE Repo (--repo-Flag, cwd) — auch reine
+    # Lesezugriffe. Gemessen am 2026-08-17 ergab das 50 bzw. 26 Repos in echten
+    # Sitzungen, waehrend die Hausregel am DRITTEN bearbeiteten checkpointet.
+    # Deshalb daneben die belastbare Zahl: Repos, in denen wirklich etwas
+    # entstanden ist. `repos` bleibt fuer die Vergleichbarkeit des
+    # Kalibrierregisters erhalten, traegt aber keine Schwelle (#1640).
+    repos_mit_artefakt: set[str] = set()
+    # Wie oft der Mensch gesprochen hat. Kein Kriterium, sondern der ANKER fuer
+    # die Entprellung: `prs_seit_owner` allein reicht nicht, weil der Hook nur
+    # den Endstand jedes Stop sieht und den Einbruch auf 0 dazwischen nie —
+    # eine zweite Kette, die wieder genau 5 erreicht, waere sonst von der
+    # ersten ununterscheidbar und bliebe stumm.
+    owner_nachrichten = 0
     prod = False
 
     with fh:
@@ -204,6 +231,7 @@ def sammle(transcript_path: Path) -> dict:
                 inhalt = (obj.get("message") or {}).get("content")
                 if isinstance(inhalt, str) and inhalt.strip():
                     seit_owner.clear()  # der Mensch hat sich gemeldet — Kette neu
+                    owner_nachrichten += 1
 
             if obj.get("prRepository"):
                 repos.add(str(obj["prRepository"]).split("/")[-1])
@@ -239,6 +267,7 @@ def sammle(transcript_path: Path) -> dict:
                     if url not in ziel:
                         ziel.add(url)
                         repos.add(repo.split("/")[-1])
+                        repos_mit_artefakt.add(repo.split("/")[-1])
                         if art == "pull":
                             seit_owner.add(url)
 
@@ -247,6 +276,8 @@ def sammle(transcript_path: Path) -> dict:
         issues=issues,
         prs_seit_owner=len(seit_owner),
         repos=len(repos),
+        repos_mit_artefakt=len(repos_mit_artefakt),
+        owner_nachrichten=owner_nachrichten,
         prod=int(prod),
     )
     return ergebnis
@@ -274,7 +305,8 @@ def main() -> int:
     except (json.JSONDecodeError, ValueError):
         return 0
 
-    budget = int(os.environ.get("ARTEFAKT_BUDGET_PRS", "4") or 0)
+    budget = int(os.environ.get("ARTEFAKT_BUDGET_SEIT_OWNER", "5") or 0)
+    budget_prod = int(os.environ.get("ARTEFAKT_BUDGET_SEIT_OWNER_PROD", "3") or 0)
     if budget <= 0:
         return 0
 
@@ -283,19 +315,34 @@ def main() -> int:
         return 0
     gesammelt = sammle(Path(tp))
     prs, issues = len(gesammelt["prs"]), len(gesammelt["issues"])
-    if prs < budget:
+    seit_owner = gesammelt["prs_seit_owner"]
+
+    # Ein Prod-/Publish-Schritt in der Kette senkt die Schwelle.
+    schwelle = budget_prod if (gesammelt["prod"] and budget_prod > 0) else budget
+    if seit_owner < schwelle:
         return 0
 
     # Einmal je erreichtem Stand feuern, nicht bei jedem Stop danach.
+    #
+    # Entprellt wird gegen (Gespraechsrunde, Stand), nicht gegen den Stand
+    # allein. Grund: der Hook sieht bei jedem Stop nur den ENDSTAND, nie den
+    # Einbruch dazwischen. Meldet sich der Mensch und waechst die naechste Kette
+    # erneut auf denselben Wert, waere sie am Zaehler nicht von der ersten zu
+    # unterscheiden — der Melder bliebe fuer den Rest der Sitzung stumm. Ein
+    # erster Entwurf verglich nur "gefallen?" und hatte genau diese Luecke;
+    # `test_should_fire_again_after_owner_spoke_and_chain_regrew` fand sie.
     sf = _state_file(str(event.get("session_id", "")))
+    runde = gesammelt["owner_nachrichten"]
     try:
-        last = int(sf.read_text().strip() or 0)
+        letzte_runde, last = (int(x) for x in sf.read_text().strip().split(":", 1))
     except (OSError, ValueError):
-        last = 0
-    if prs <= last:
+        letzte_runde, last = -1, 0
+    if runde != letzte_runde:
+        last = 0  # neue Kette — der Merker der vorigen gilt nicht mehr
+    if seit_owner <= last:
         return 0
     try:
-        sf.write_text(str(prs))
+        sf.write_text(f"{runde}:{seit_owner}")
     except OSError:
         pass  # State-Verlust heisst schlimmstenfalls ein Reminder mehr — nie blocken
 
@@ -306,24 +353,29 @@ def main() -> int:
     # (#1640; Realfall 2026-08-15: achtmal gefeuert, null Daten).
     gate_hits.notiere(
         GATE_HEADER["slug"],
-        f"prs={prs} issues={issues} schwelle={budget} "
-        f"repos={ktx['repos']} prs_seit_owner={ktx['prs_seit_owner']} "
-        f"prod={ktx['prod']}",
+        f"prs={prs} issues={issues} schwelle={schwelle} "
+        f"repos={ktx['repos']} repos_mit_artefakt={ktx['repos_mit_artefakt']} "
+        f"prs_seit_owner={ktx['prs_seit_owner']} prod={ktx['prod']}",
         session=str(event.get("session_id", "")),
         modus=GATE_HEADER["mode"],
     )
 
     hinweis = (
-        f"📦 Artefakt-Budget: {prs} PRs"
+        f"📦 Artefakt-Budget: {seit_owner} PRs seit deiner letzten Nachricht"
+        + (
+            f" (Schwelle {schwelle}, wegen Prod-Schritt gesenkt)"
+            if schwelle == budget_prod and ktx["prod"]
+            else f" (Schwelle {schwelle})"
+        )
+        + f". Insgesamt in dieser Session: {prs} PRs"
         + (f" + {issues} Issues" if issues else "")
-        + f" in dieser Session (Schwelle {budget}); davon "
-        f"{ktx['prs_seit_owner']} seit der letzten Nachricht des Menschen, "
-        f"{ktx['repos']} Repo(s) beruehrt"
+        + f" in {ktx['repos_mit_artefakt']} Repo(s)"
         + (", Prod-/Publish-Schritt dabei" if ktx["prod"] else "")
         + ". Scope-Checkpoint: ist das noch "
         "der urspruengliche Auftrag? Wenn ja — kurz dem Menschen spiegeln, woraus "
         "die Kette entstand; wenn unklar — Zwischenstand statt weiterbauen. "
-        "(scope-checkpoint x9 im Retro-Register; Schwelle via ARTEFAKT_BUDGET_PRS)"
+        "(scope-checkpoint x9 im Retro-Register; Schwelle via "
+        "ARTEFAKT_BUDGET_SEIT_OWNER)"
     )
     print(
         json.dumps(
