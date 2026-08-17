@@ -65,6 +65,11 @@ on:
       - "infra/**"               # test_check_registry_view_readers
       - "registry/**"            # test_check_registry_view_readers
       - "governance/**"          # test_backup_meter (Soll-Liste expected-apps.json)
+      # 2026-08-17: test_shared_ci_tag_drift haelt die Guard-Zuordnung im
+      # Drift-Check gegen `.github/actions/workflow-guards/action.yml`. Benennt
+      # dort jemand ein Skript um, laeuft die Wache ohne diesen Pfad NICHT —
+      # und der Vergleich normalisierte still am falschen Ort (#2049).
+      - ".github/actions/**"     # test_shared_ci_tag_drift
   # #1414: KEIN `paths`-Filter auf pull_request — bewusst.
   #
   # Ein *required* Check mit paths-Filter läuft auf PRs, die keinen der Pfade
