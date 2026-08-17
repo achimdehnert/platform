@@ -170,6 +170,22 @@ def _ohne_datum(text: str) -> str:
     return _DATUMSZEILE.sub("> Letzte Aktualisierung: <datum>", text or "")
 
 
+def _offener_pr(slug: str, branch: str) -> int | None:
+    """Nummer des offenen PRs zu `branch` — oder None.
+
+    Wird VOR dem Schreiben gebraucht: darf der Branch zurueckgesetzt werden?
+    Fuer die Meldung DANACH ist diese Listen-Abfrage nicht geeignet — sie gab
+    einen geschlossenen PR noch als offen zurueck (platform#2025); dort wird
+    der bekannte PR einzeln gelesen.
+    """
+    offen = _req(
+        f"{API}/repos/{slug}/pulls?head={slug.split('/')[0]}:{branch}&state=open"
+    )
+    if isinstance(offen, list) and offen:
+        return offen[0].get("number")
+    return None
+
+
 def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
     """Datei über einen Branch + Pull Request aktualisieren.
 
@@ -193,8 +209,6 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
         if _ohne_datum(alt) == _ohne_datum(content):
             return "unverändert"
 
-    # Branch auf den aktuellen Stand von `basis` setzen (anlegen oder umbiegen),
-    # damit ein liegengebliebener Branch aus einem Vorlauf nicht divergiert.
     kopf = (
         (_req(f"{API}/repos/{slug}/git/ref/heads/{basis}") or {})
         .get("object", {})
@@ -204,7 +218,20 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
         raise RepoUnerreichbar(
             f"Kopf von '{basis}' nicht lesbar — Repo fuer diesen Token unsichtbar?"
         )
-    if _req(f"{API}/repos/{slug}/git/ref/heads/{branch}"):
+
+    # Der Zustand VOR dem Schreiben entscheidet ueber den Umgang mit dem Branch.
+    vorher = _offener_pr(slug, branch)
+
+    if vorher:
+        # Kein Reset. Ein force-Reset auf `basis` nimmt dem offenen PR alle
+        # Commits; GitHub schliesst ihn daraufhin automatisch, der neue Commit
+        # landet an einem geschlossenen PR und die Aenderung ist verwaist
+        # (platform#2025, real: frist-hub#117 am 2026-08-17, travel-beat#74 am
+        # 2026-08-13). Der Branch bleibt stehen und bekommt den Commit obendrauf.
+        pass
+    elif _req(f"{API}/repos/{slug}/git/ref/heads/{branch}"):
+        # Liegengebliebener Branch ohne offenen PR — zuruecksetzen, damit er
+        # nicht aus einem Vorlauf divergiert.
         _req(
             f"{API}/repos/{slug}/git/refs/heads/{branch}",
             method="PATCH",
@@ -231,11 +258,30 @@ def gh_push_file(repo: str, path: str, content: str, message: str) -> str:
         body=json.dumps(payload).encode(),
     )
 
-    offen = _req(
-        f"{API}/repos/{slug}/pulls?head={slug.split('/')[0]}:{branch}&state=open"
-    )
-    if isinstance(offen, list) and offen:
-        return f"PR #{offen[0]['number']} aktualisiert"
+    if vorher:
+        # Den bekannten PR DIREKT lesen, nicht wieder über die Liste. Die
+        # Altfassung fragte zwar auch erst nach dem Schreiben, aber über
+        # `pulls?state=open` — und bekam frist-hub#117 als offen zurück,
+        # eine Sekunde nachdem derselbe Lauf ihn geschlossen hatte. Aus einem
+        # Listen-Treffer wurde so die Meldung "aktualisiert" für einen
+        # geschlossenen PR. Ein Einzelabruf trägt den Zustand selbst.
+        zustand = (_req(f"{API}/repos/{slug}/pulls/{vorher}") or {}).get("state")
+        if zustand == "open":
+            return f"PR #{vorher} aktualisiert"
+        # Sollte ohne Reset nicht mehr vorkommen. Falls doch, ist der Verlust
+        # zu melden statt zu beschönigen — und zu heilen.
+        wieder = _req(
+            f"{API}/repos/{slug}/pulls/{vorher}",
+            method="PATCH",
+            body=json.dumps({"state": "open"}).encode(),
+        )
+        if isinstance(wieder, dict) and wieder.get("state") == "open":
+            return f"PR #{vorher} war geschlossen, wieder geöffnet"
+        return f"PR #{vorher} wurde geschlossen — Änderung liegt auf '{branch}'"
+
+    nachher = _offener_pr(slug, branch)
+    if nachher:
+        return f"PR #{nachher} aktualisiert"
     neu = (
         _req(
             f"{API}/repos/{slug}/pulls",
