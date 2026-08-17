@@ -286,6 +286,49 @@ andere Frage —, sondern **„was verschwindet, wenn dieses Fenster zugeht?"**
 
 ---
 
+### 0g: Fremder Blick auf 0d und 0e (PFLICHT ab `full` — NEU 2026-08-17, Owner-Freigabe)
+
+> **Zwei Phasen dieses Skills sind Selbstbeurteilung, und genau dafür hat `/session-retro`
+> die Regel „Richter ≠ Angeklagter".** In 0d beurteile ich, ob ich mein eigenes Ziel
+> erreicht habe; in 0e, was von meinem eigenen Kontext verschwindet. Beides ist strukturell
+> voreingenommen: die Restmenge definiere ich selbst, und was nur im Gesprächsverlauf lebt,
+> **fühlt sich für mich vorhanden an**. Realfall 2026-08-17 (`37e8e0`): „Zielzustand
+> erreicht, mit benannter Restmenge" — Restmenge von mir gesetzt, niemand gegengelesen;
+> derselbe Retro musste `refuted_rate 0.00` ausweisen, weil Falsifikation nicht lief.
+
+**Right-Sizing zuerst — dieselbe Logik wie `/session-retro` Phase 0:**
+
+| Footprint | Regel |
+|---|---|
+| **lean** (1 Repo, ≤2 PRs, kein Prod/Migration/Publish) | **überspringen** — die Selbstabnahme ist billig nachprüfbar, der Schaden klein |
+| **full / deep** (≥3 Repos ODER Prod/Publish ODER Migration) | **zwei Subagenten**, eng geführt |
+
+**Kosten, damit die Entscheidung bewusst fällt:** ~55k Token je eng geführtem Agenten
+(gemessen, `/session-retro` Phase 0), also **~110k je Sitzungsende** dieser Klasse. Das ist
+kein Rundungsfehler — deshalb der Footprint-Schalter statt „immer".
+
+**Agent 1 — Abnahme (zu 0d).** Bekommt **nur** den Zielzustand (Issue/ADR/KONZ-Text) und die
+Artefakte (PRs, CI-Läufe, Dateien), **nicht** meine Erzählung und **nicht** meinen
+Abnahme-Entwurf. Auftrag wörtlich: *„Ist jedes Akzeptanzkriterium erfüllt? Antworte je
+Kriterium mit ERFÜLLT / NICHT ERFÜLLT / NICHT PRÜFBAR und nenne den Beleg. Du lieferst NUR
+Text zurück — keine Dateien, Commits, PRs."* Weicht sein Urteil von meinem ab, gewinnt
+**seins** im Stand-Block; meine abweichende Sicht kommt als Satz daneben, nicht an seine Stelle.
+
+**Agent 2 — Clear-Härte (zu 0e).** Bekommt **ausschließlich die durablen Artefakte**
+(Handover, Issues, Memory-Einträge, Repo-Dateien) und die drei Fragen aus 0e. Auftrag:
+*„Welche Entscheidung, welcher Messwert, welcher Textvorschlag ist in diesen Dokumenten
+NICHT auffindbar, wird aber vorausgesetzt? Wo verweist ein dauerhaftes Dokument auf
+Flüchtiges?"* Er darf den Gesprächsverlauf **nicht** sehen — das ist der ganze Punkt.
+
+**Beide Ergebnisse landen im Stand-Block**, auch wenn sie unbequem sind. Ein Agent, dessen
+Befund nur im Chat bleibt, ist genau der Fehler, gegen den 0e geschrieben wurde.
+
+**Wenn Subagenten in der Umgebung untersagt sind:** 0d/0e inline machen wie bisher, aber
+den Regel-1-Bruch **im Stand-Block benennen** (ein Satz: „Abnahme ohne fremden Blick") —
+nicht stillschweigend als geprüft ausgeben.
+
+---
+
 ### 0f: Cross-Repo-Befunde ins Zielrepo bringen (PFLICHT — NEU 2026-08-16, platform#2004)
 
 > **Der Befund über ein fremdes Repo bleibt sonst als Prosa in diesem Repo liegen.**
@@ -772,6 +815,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
 | 17 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
 | 18 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
+| 19 | Ab `full`-Footprint: Abnahme (0d) und Clear-Härte (0e) von je einem Subagenten mit fremdem Kontext gegengelesen, Ergebnis im Stand-Block — oder `lean` begründet bzw. Regel-1-Bruch benannt (Phase 0g) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
@@ -810,6 +854,19 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 
 ## Changelog
 
+- 2026-08-17: **Phase 0g Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 19** —
+  Owner-Freigabe für Subagenten in den Session-Skills. Bewusst **nur zwei** Phasen bekommen
+  fremden Kontext: 0d (Abnahme) und 0e (Clear-Härte). Beide sind Selbstbeurteilung, für die
+  `/session-retro` seit jeher die Regel „Richter ≠ Angeklagter" führt — und die dieser Skill
+  bis hierhin ohne sie durchführte. Alles andere im Skill bleibt mechanisch (Deploy-Status,
+  Freshness, Drift-Checks, Reaper, Git-Sync); dort wäre ein Agent teurer und unzuverlässiger
+  als das vorhandene Skript. **`/session-start` bekommt bewusst KEINE Subagenten:** am
+  Sitzungsanfang ist der Agent selbst der frische Kontext, das Problem existiert dort nicht;
+  eine Verdichtungsschicht zwischen Agent und Handover würde sogar schaden. Footprint-Schalter
+  statt „immer", weil ~110k Token je Sitzungsende kein Rundungsfehler sind. Anlass:
+  `docs/retros/session-retro-2026-08-17-platform-37e8e0.md` — dort ist die Selbstabnahme
+  („Zielzustand erreicht, mit benannter Restmenge", Restmenge selbst gesetzt) neben einer
+  `refuted_rate 0.00` dokumentiert.
 - 2026-08-12: **Phase 0e Clear-Härte (PFLICHT) + Checklisten-Zeile 17** — der Skill hatte
   Phasen, die Flüchtiges wegräumen (3.1b temporäre Dateien, 3.1c Worktree-Reaper), aber
   keine, die vorher fragt, ob dort etwas Dauerhaftes liegt. Belegt per `grep -ic` auf dieses
