@@ -5,9 +5,9 @@ repo_scope: [platform, shared-ci, frist-hub, trading-hub, billing-hub, weltenhub
 session_id: 37e8e0
 footprint: deep
 findings_total: 11
-findings_survived: 8
-refuted_rate: 0.0
-phase3_refuted: 0
+findings_survived: 10
+refuted_rate: 0.09
+phase3_refuted: 1
 pre_refuted: 0
 scores:
   zielerreichung: 4
@@ -28,6 +28,14 @@ recurring_findings: [claim-before-cheapest-check, gate-matches-spelling-not-subs
 > Restlücke geführt. Acht der elf Befunde sind **kommandobelegt** und damit von der
 > Selbstbeurteilung unabhängig; die drei **Bewertungsbefunde** sind ausdrücklich
 > **nicht falsifiziert** und als solche markiert.
+>
+> **NACHTRAG 2026-08-17, nach Owner-Freigabe fuer Subagenten:** Die drei
+> Bewertungsbefunde #9/#10/#11 wurden in
+> [`...-37e8e0-incr.md`](session-retro-2026-08-17-platform-37e8e0-incr.md)
+> nachtraeglich falsifiziert. **Befund #11 ist widerlegt**, #10 trug eine falsche
+> Kategorie, #9 ueberlebt mit unbelegter Kausal-Haelfte. Die Tabelle unten ist
+> korrigiert; `refuted_rate` von `0.0` auf `0.09` gehoben. Die urspruengliche `0.0`
+> bedeutete **nicht** laxe Falsifikation, sondern eine nicht gelaufene.
 
 ## 1. Executive Summary
 
@@ -60,9 +68,9 @@ recurring_findings: [claim-before-cheapest-check, gate-matches-spelling-not-subs
 | 6 | Der Artefakt-Budget-Melder unterzählt strukturell: 14 gemeldet, **37** tatsächlich; 17 PRs aus einer Schleife zählen als eins, `gh api …/pulls -X POST` gar nicht | Werkzeug | hoch | SURVIVES (kommandobelegt) | `tools/claude-hooks/artefakt_budget.py:70` `_CREATE = re.compile(r"\bgh\s+(pr\|issue)\s+create\b")`; Zählstände 6→7→8→14 | `gate-matches-spelling-not-substance` |
 | 7 | Derselbe Melder **übererfasst**: eine Codesuche nach seinem Muster erhöhte seinen Zähler um 1; das Dokumentieren des Defekts verstärkt ihn | Werkzeug | niedrig | SURVIVES (kommandobelegt) | Zähler 6→7 ohne PR-Anlage; einziges Bash-Kommando dazwischen enthielt das Muster als `grep`-Argument | `gate-matches-spelling-not-substance` |
 | 8 | Der Handover-PR wurde mit rotem `context-review` gemergt | Prozesslücke | niedrig | SURVIVES (kommandobelegt) | #2034 gemergt trotz `context-review=fail`; Log: `429 Too Many Requests` beim Download von `actions/github-script` | — |
-| 9 | Scope-Eskalation von „Wochenlauf prüfen" auf 37 PRs über ~30 Repos — jeder Schritt freigegeben, aber die Freigaben stützten sich auf einen Melder, der die Größe um Faktor 2,6 unterschätzte | Prozesslücke | mittel | **NICHT FALSIFIZIERT** (Bewertungsbefund) | Melder-Zählstände vs. tatsächliche PR-Liste | — |
-| 10 | `bahn-hub#13` wurde mit rotem `lint` gemergt (9 Ruff-Fehler, Repo seit 4. Juli unberührt) | verfrühte Festlegung | mittel | **NICHT FALSIFIZIERT** (Bewertungsbefund) | `gh pr checks 13` → `lint fail`; letzter grüner main-Lauf 2026-07-04 | — |
-| 11 | Rework: die zwölf PRs der ersten Welle mussten nach dem Merge-Angebot erneut geöffnet und erweitert werden, weil die vollständige Landschaftsmessung erst danach lief | Prozesslücke | mittel | **NICHT FALSIFIZIERT** (Bewertungsbefund) | PR-Bodies der ersten Welle wurden nachträglich per `gh pr edit` ersetzt; zweiter Commit je Branch | — |
+| 9 | Scope-Eskalation von „Wochenlauf prüfen" auf 37 PRs über ~30 Repos — jeder Schritt freigegeben, aber die Freigaben stützten sich auf einen Melder, der die Größe um Faktor 2,6 unterschätzte | Prozesslücke | mittel | **SURVIVES** (Skeptiker `37e8e0-incr`; Kausal-Haelfte bleibt Hypothese) | Melder-Zählstände vs. tatsächliche PR-Liste | — |
+| 10 | `bahn-hub#13` wurde mit rotem `lint` gemergt (9 Ruff-Fehler, Repo seit 4. Juli unberührt) | verfrühte Festlegung | mittel | **SURVIVES, Kategorie korrigiert** -> bewusste Inkaufnahme, Severity niedrig | `gh pr checks 13` → `lint fail`; letzter grüner main-Lauf 2026-07-04 | — |
+| 11 | Rework: die zwölf PRs der ersten Welle mussten nach dem Merge-Angebot erneut geöffnet und erweitert werden, weil die vollständige Landschaftsmessung erst danach lief | Prozesslücke | mittel | **REFUTED** (Skeptiker `37e8e0-incr`) | PR-Bodies der ersten Welle wurden nachträglich per `gh pr edit` ersetzt; zweiter Commit je Branch | — |
 
 ## 3. Scorecard
 
