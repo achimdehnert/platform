@@ -445,6 +445,32 @@ Reboot-Test mit Log-Rückgabe über `~/shared` — nie per localhost-Selbsttest
    Groq-Umleitung im Normalfall). Ergebnis fließt VOR dem Bau der
    Verdrängungs-Mechanik ein.
 
+**Ergebnisse der drei Checks (2026-08-17, Box mit ACE-Step 1.5 `xl-base`/LM 1.7B,
+RTX 4090 mit 24564 MiB):**
+
+| Check | Ergebnis | Folge |
+|---|---|---|
+| 1 ACE-Step-VRAM | **`haelt`** | Negativpfad (a)/(b)/(c) oben ist **in Kraft** |
+| 2 WDDM | 29 Prozesszeilen sichtbar | Prozess-Evidenz-Klasse lebt |
+| 3 Koresidenz | **nicht gemessen** | offen, [music-lab#22](https://github.com/achimdehnert/music-lab/issues/22) |
+
+Zahlen zu Check 1: leere Karte 1628 MiB · Server läuft und ruht 2115 MiB
+(**Ruhe-Kosten 487 MiB**) · Song-Spitze 14761 MiB · 20 Minuten nach dem Song
+14534 MiB (**+12419 MiB über Ruhe**) · nach Beenden des Prozesses 2227 MiB.
+Der Speicher kommt also erst mit der Initialisierung (`initialize_service`, von
+der UI ausgelöst) und geht erst mit dem Prozess — ein *ruhender* ACE-Step
+blockiert die Karte dagegen nicht.
+
+**Methodischer Nachtrag, der hierher gehört (R2-REC-6 ist ein Gate, kein Ritual):**
+Der erste 0b-Lauf (2026-08-16) lieferte eine Datei mit Messwerten, die nichts
+belegte — zwischen „vor Song" und „nach Song" lagen 3 Sekunden bei identischem
+VRAM, weil das Skript per `Read-Host` darauf vertraute, dass zwischen zwei
+Tastendrücken ein Song entsteht. Ein Gate, dessen Messung von einer
+Bedienreihenfolge abhängt, ist überspringbar, ohne dass es auffällt. Die
+Wiederholung erkennt die Last selbst am VRAM-Anstieg und **verweigert** ein
+Verdikt (`nicht_aussagekraeftig`), wenn sie keine gesehen hat. Diese Eigenschaft
+— Messung erkennt ihren eigenen Leerlauf — gilt für jeden weiteren Box-Check.
+
 ---
 
 ## 5. Migration Tracking
@@ -456,7 +482,7 @@ Box-Abnahme vor Musik-Aktivierung, Extraktion vor zweitem Konsumenten.
 |----------------|-------|--------|--------|-------|---------|
 | `illustration-hub` | 0 | Sofortsicherung Songs → prod-media-Volume; 3 Vorab-Checks §4.7 | 🟡 Teilweise | 2026-08-14/15 | 0a **erledigt**: Volume `music_media`, Song md5-identisch, Restore-Stichprobe aus restic bestanden (§8 Nr. 3, [music-lab#3](https://github.com/achimdehnert/music-lab/issues/3#issuecomment-5301622757)). 0b **offen**: `vorab-checks.ps1` liegt in `~/shared`, auf der Box noch nicht gelaufen. Ergänzt 2026-08-15: `make sichern` (music-lab) bringt Songs, MP3s **und** Song-Texte wiederholbar ins Volume, mit md5-Gegenprobe je Datei — vorher lagen dort nur WAV+JSON, die MP3 fehlte. Damit music-lab#3 Krit. 6 vollständig |
 | `illustration-hub` | 1 | Arbiter **interaktiver Vertragsteil** (§4.2 ohne Batch-Bau) + Zähler + Sofort-Alarme + Journal | ✅ Erledigt | 2026-08-15 | Arbiter [#240](https://github.com/achimdehnert/illustration-hub/pull/240) **gemergt**, live auf Prod seit Tag `v1.0.0` (Code + Migration 0005 im laufenden Container verifiziert). Bild-Lane als Konsument [#242](https://github.com/achimdehnert/illustration-hub/pull/242) **gemergt** (CI grün nach Re-run; der erste Lauf scheiterte an einer Runner-Portkollision 5432, nicht am Code), live mit Tag `v1.1.0`. Batch bleibt spezifiziert, ungebaut |
-| Box (Owner) | 2 | Firewall 7865 + Autostart (ACE-Step nur bei positivem Check 1), Außen-Abnahme §4.7 | ⬜ Ausstehend | – | VOR Musik-Aktivierung (R2-REC-8); **wartet auf 0b** — Check 1 ist das Go/No-Go |
+| Box (Owner) | 2 | Firewall 7865 + Autostart (ACE-Step nur bei positivem Check 1), Außen-Abnahme §4.7 | 🟡 Teilweise | 2026-08-17 | **Check 1 beantwortet: `haelt`** (Zahlen in §4.7 Nr. 1) → Negativpfad in Kraft, ACE-Step bewusst NICHT im Autostart. Firewall gesetzt: eingehend TCP 11434/8001/7860/7865/8000, je auf `10.99.0.0/24` beschränkt. Außen-Abnahme vom Prod-Host: `10.99.0.2:11434` offen, HTTP 200, `/api/tags` liefert 4 Modelle → **Text-Lane abgenommen**; Song-Ports still (bei `haelt` erwartet). **Portkorrektur:** die Box läuft seit 2026-08-16 auf ACE-Step **1.5** (UI 7860, REST-API 8001) — das „7865" in dieser Zeile und in §4.1 ist der v1-Stand; tragend für die Agent-Lane ist **8001**. **Offen:** Autostart-Beweis nach echtem Neustart + Check 3 → [music-lab#22](https://github.com/achimdehnert/music-lab/issues/22). Belege: [#2020-Kommentar](https://github.com/achimdehnert/platform/issues/2020#issuecomment-5316116114) |
 | `illustration-hub` | 3 | `apps/music`: Datenmodell, MP3, feste URLs, Player | 🟡 Teilweise | 2026-08-15 | **Reihenfolge bewusst abgewichen** (Owner-Entscheid 2026-08-15, s. Notiz unter der Tabelle): box-freier Teil [#243](https://github.com/achimdehnert/illustration-hub/pull/243) **gemergt und live** mit Tag `v1.1.0` — Datenmodell, `songs_einlesen`, feste URLs `/musik/song/<id>/`, Player, Volume read-only gemountet. Bestandsprobe auf Prod bestanden: Song vom 14.08. eingelesen, Titel/Datum/Dauer/Seed/Prompt vollständig, MP3 (4,3 MB) registriert. Damit music-lab#3 Krit. 2 belegt; Krit. 1 als Dienst erfüllt, aber hinter Login + Cloudflare Access (anonymer `curl` liefert 302, nicht 200 — bewusst, Repo-Konvention). Die **Generierungs-Lane** (Arbiter → Box) bleibt draußen und setzt Phase 2 weiterhin voraus |
 | `music-lab` | 4 | CLI → Hub-API; `gpu-dienst.ps1` als Break-glass mit Protokoll §4.4 | 🟡 Teilweise | 2026-08-16 | Auftrag [platform#2020](https://github.com/achimdehnert/platform/issues/2020) (SA-4). Client-Seite gebaut: HTTP-Vertrag v0 als Schema-Doc ([illustration-hub#258](https://github.com/achimdehnert/illustration-hub/pull/258), R2-REC-13-Nachzug — fehlte seit Phase 1), CLI-Lease-Client + `generate.py`-Integration + Break-glass-Protokoll ([music-lab#15](https://github.com/achimdehnert/music-lab/pull/15)); Selbsttest gegen Stub-Arbiter (4 Pfade) grün. **Offen:** End-to-End-Beleg mit Journal-Event (wartet auf Box 0b/2), Auth-Einrichtung (Owner-Befehlsdatei `~/gpu_lease_token_einrichten.sh` liegt bereit), §4.4-Wartungsmodus-Flag serverseitig ([illustration-hub#257](https://github.com/achimdehnert/illustration-hub/issues/257)) |
 | `aifw` / neu `iil-gpufw` | 5 | Kosten-Go/Kill (§4.6); bei Go: Extraktion Client-Paket | 🟡 Teilweise | 2026-08-16 | **Kosten-Go/Kill gerechnet** ([Beleg](https://github.com/achimdehnert/platform/issues/2020#issuecomment-5308713540)): writing-hub-Volumen ≈ 0,57 $/Monat zu T1a-Preisen — ökonomisch **Kill** (Faktor ~17 unter der 10-$-Schwelle). Owner-Override nach §4.6 dokumentiert: Begründung ist Content-Souveränität (unzensierte Modelle — keine Cloud-Alternative), nicht Kosten. Konsequenz: Phase 5/6 auf das Minimum geschnitten, das platform#2020-K4 erfüllt; Extraktion selbst noch offen |
