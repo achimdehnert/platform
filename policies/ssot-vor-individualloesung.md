@@ -1,15 +1,22 @@
 # Policy: SSoT vor Individuallösung
 <!-- rule_class: A | assessed_with: claude-opus-5 | reassess_by: 2026-12-01 -->
 
-**Trigger words:** ssot, single source of truth, hardcod, hartcod, hartkod, hart kodiert, magic number, konstante, individuall, einzellös, einzelloes, sonderfall, sonderweg, extralocke, duplizier, kopieren, symmetrie, elegante lös, elegante loes, punktlös, punktloes, workaround
+**Trigger words:** ssot, single source of truth, hardcod, hard cod, hartcod, hartkod, hart cod, hart kod, magic number, konstante, individuall, individuell, einzellös, einzelloes, einzelfall, sonderfall, sonderweg, sonderreg, extralocke, punktlös, punktloes, punktuell, duplizier, redundan, kopieren, symmetrie, elegante lös, elegante loes, workaround
 
-<!-- Trigger absichtlich als STÄMME, nicht als ganze Wörter: der Hook prüft per
-     Substring (`wort in prompt`). „hardcoded" verfehlt „hardcoden", und
-     „individuallösung" verfehlt das umlautlose „Individualloesung" — beides
-     gemessen beim Anlegen dieser Datei. Ein Trigger, der Schreibweisen matcht
-     statt Begriffe, ist genau der Fehler, gegen den diese Policy geschrieben
-     ist. Beim Ergänzen weiterer Trigger: Stamm wählen, dann beide Schreibweisen
-     gegen `wort in prompt.lower()` gegenprüfen. -->
+<!-- Trigger als STÄMME über die WORTKLASSE, nicht als Liste beobachteter
+     Schreibweisen. Der Hook prüft per Substring (`wort in prompt.lower()`),
+     also deckt ein Stamm alle Beugungen ab — aber nur die, an deren Wortstamm
+     man gedacht hat.
+     Zweimal gemessen und beide Male zu eng: (1) „hardcoded" verfehlte
+     „hardcoden", „individuallösung" das umlautlose „Individualloesung";
+     (2) der Fix darauf verfehlte weiterhin „individuell lösen" (e statt a),
+     „punktuelle Lösung", „Sonderregel" und „hart codiert" (c statt k) —
+     gefunden von einem Prüfer mit fremdem Kontext, nicht von mir.
+     Lehre: nach dem Ergänzen NICHT die zwei gemeldeten Varianten testen,
+     sondern die Wortklasse durchdeklinieren (Verb/Adjektiv/Substantiv, c/k,
+     Umlaut/ae-oe-ue) — sonst patcht man das Symptom, das gerade vorlag.
+     Das ist exakt der Fehler, gegen den diese Policy geschrieben ist; er ist
+     ihr hier zweimal selbst unterlaufen. -->
 
 
 ## Rule (User-Weisung 2026-08-17, org-weit)
