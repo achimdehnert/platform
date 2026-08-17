@@ -1202,3 +1202,25 @@ darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstande
 - **Offen (Owner-Zug, Delta 11:30):** ~~risk-Prod~~ **erledigt** (Dispatch 11:0x, Prod verifiziert **0.11.8 + preload**, web 230→180 MiB) · ~~#1917~~ **gemergt** (SSoT-Regeln 5+6 Kanon) · 137-hub GHCR dauerhaft ([137-hub#86](https://github.com/achimdehnert/137-hub/issues/86); Host-PAT-Relogin ist Übergangslösung, Wurzel #1078) · travel-beat Prod-Migration rot ([travel-beat#79](https://github.com/achimdehnert/travel-beat/issues/79), Vorbestand: erster Deploy seit 12.07.) · tax-Preload kommt mit dem nächsten Prod-Trigger · weltenhub#49 IaC-Spiegel `/opt/scripts`.
 - **Abnahme (Phase 0d):** #1899 **erreicht** (K1–K5 einzeln verifiziert) · #1900 **erreicht im erreichbaren Umfang** (Rest je Tracking-Artefakt) · wedding-hub **verschoben** (wartet auf Owner-Formel; Tracking: dieser Block + Issues).
 - **SA-4: ~20 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Prod-Dispatch, Publish-Tag, Credential-Ops und Runner-Registrierung liefen sauber über Owner/Classifier-Gates.
+
+## ⚡ Stand (2026-08-15 — FP-Kalibrierfenster maß sich selbst; Hook-Verteil-Drift sichtbar UND behebbar)
+
+**Zeitanker:** HEAD `e8714db8` · geschrieben 2026-08-15 18:1x · eine Sitzung (Kapitäns-Kanal, Session-Start-Items 4+5 + Owner-Folgeaufträge), 10 PRs
+
+> **Nachmittags-Delta (Details im LOG-Eintrag „Delta zur Sitzung melder-gruen-und-fp-ritual"):**
+> [#1993](https://github.com/achimdehnert/platform/pull/1993) Skill-Fix (Squash-Subject vs. Head-Commit) ·
+> [#1994](https://github.com/achimdehnert/platform/pull/1994) Retro-Report ·
+> [#1996](https://github.com/achimdehnert/platform/pull/1996) Gate registriert ·
+> [#1997](https://github.com/achimdehnert/platform/pull/1997)/[#1998](https://github.com/achimdehnert/platform/pull/1998)
+> Lane `claude-hooks` (Merge-Modus, live gelaufen: 0 verloren, 25 fremde überlebt) + doctor-Parität ·
+> [#1935](https://github.com/achimdehnert/platform/pull/1935) fremder Handover-PR aufgelöst ·
+> ausschreibungs-hub Prod-Deploy `success`. **Die teuerste Lehre kam aus der Retro:** eine
+> veröffentlichte **Korrektur** von mir war selbst falsch — nicht Behauptung, sondern
+> *Korrektur* vor dem billigsten Check. Drei Artefakte richtiggestellt.
+
+- **Der Kernfund war nicht die Aufgabe.** Die FP-Datengrundlage für das Ritual am 16.08. ([#1640](https://github.com/achimdehnert/platform/issues/1640)) bestand aus 212 Treffern — **alle 212 aus `pytest`, null aus echten Sitzungen**. Die Scanner-Drills fahren `scanner.main()` mit Fixture-Sätzen durch, und `main()` protokolliert ohne `pfad`, also in das echte Protokoll. Belege: Ausschnitte wörtlich = Fixture-Sätze, `session` bei allen Zeilen leer, Marker-Verteilung exakt uniform (6×22, 4×20). Ein „0 Fehlalarme"-Urteil wäre **vakuum wahr** gewesen. Gesperrt mit [#1986](https://github.com/achimdehnert/platform/pull/1986); Fenster läuft ab 2026-08-15 neu, Termine in [#1987](https://github.com/achimdehnert/platform/pull/1987) und die GATE-HEADER in [#1988](https://github.com/achimdehnert/platform/pull/1988) (selbstbetreffend, Owner-Freigabe wörtlich).
+- **Teuerster Einzelfund:** nach dem Merge von #1988 wich der aktive Hook-Pfad `~/.claude/hooks/` in **allen drei** Welle-1-Dateien von `main` ab — im aktiven `gate_hits.py` fehlte die Sperre aus #1986, also genau die Änderung, die das neue Fenster schützen sollte. **Merge grün, Sperre im Repo, Wirkung null.** Ursache: diese Hooks werden von Hand verteilt (`cc-skill-dist` bespielt nur `managed/`). Nachgezogen + scharf geprüft; Ursache getrackt in [#1989](https://github.com/achimdehnert/platform/issues/1989), Schritt 1 gebaut in [#1991](https://github.com/achimdehnert/platform/pull/1991) (Runner-Phase **0.7.5**, im Haupt-Tree verifiziert).
+- **Vier weitere Drifts, die der neue Melder sofort fand — bewusst NICHT gesynct:** `block_unformatted_push.sh`, `hygiene_melder.py`, `memory_link_guard.py`, `model_change_detector.sh`; drei davon in `settings.json` verdrahtet. Einzeln ansehen statt Massenzug (#1989).
+- **Offene Frage gedreht:** nicht „wie viele Fehlalarme?", sondern **„warum feuert ein Gate mit ×8/×10-Regelverletzung in fünf arbeitsreichen Tagen nie?"** — Recall, nicht Precision. Advisory→blocking bleibt bis dahin unbegründbar.
+- **Zwei Quelltext-Grep-Tests durch Verhaltens-Tests ersetzt** (Archiv-Behandlung, #1953): `assert '…' in quelle` bricht bei jeder Umformulierung und hält jede Verhaltensänderung für in Ordnung. Falsifikation belegt.
+- **Abnahme (0d):** Zielzustand **erreicht** — K1 Messapparat misst nicht mehr sich selbst (Kontrollprobe 212→212 bei vollem Testlauf) · K2 Herkunft wird vor dem Urteil ausgewiesen · K3 Quelle↔aktiver-Pfad-Drift ist jede Session sichtbar · K4 Freigabe-Hürde steht im maschinenlesbaren Header. **SA-4: 0 Anwendungen** (nicht beansprucht; jede Eskalation lief über wörtliche Owner-Freigabe). 2 Classifier-Blocks gemeldet, keiner umgangen.

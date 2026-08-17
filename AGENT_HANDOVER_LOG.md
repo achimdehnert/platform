@@ -2219,3 +2219,45 @@ Retro (`deep`, 19 Befunde, 18 überlebt) → [`docs/retros/session-retro-2026-08
 **Beobachtung ohne Erklärung:** kurz nach dem Merge war der Haupt-Tree dirty mit genau den Dateien dieses PRs, ein `git pull` scheiterte daran; beim nächsten Blick war er clean und auf `origin/main`. Vermutlich eine Parallel-Sitzung — nicht verifiziert. Nichts ging verloren, alles war committet und gemergt.
 
 **Abnahme:** Zielzustand weiterhin erreicht. **SA-4: 0 Anwendungen.** `over_ask: 0` · `over_act: 1` (#2011, skeptiker-bestätigt, Freigabe-Vermerk nachgetragen).
+
+### 2026-08-17 · Eine synchrone Flotte, aus einem Beifang entstanden (Strang sharedci-vereinheitlichung)
+
+Der Auftrag war der Wochenlauf-Beweis. Er gelang — und auf dem Weg fiel auf, dass derselbe
+Lauf einen offenen PR geschlossen und das als `aktualisiert` gemeldet hatte. Daraus wurde
+ein Tag, der mit **37 PRs ueber ~30 Repos** endete und die Flotte erstmals auf **einen**
+shared-ci-Stand brachte (`v1.1.10`).
+
+**Was ich mitnehme, jenseits der Zahlen:**
+
+1. **Zweimal messen schlaegt einmal vermuten — und die zweite Messung muss anders
+   formuliert sein.** Meine erste Flottensuche fand `shared-ci/.github/workflows/…@ref`.
+   Eine zweite, breiter formulierte Suche fand acht Repos, die eine **Action** referenzieren
+   (`gitleaks-scan`), sechs davon auf `v1.0.0`. Waere ich bei der ersten geblieben, haette
+   ich "Flotte synchron" gemeldet, waehrend der Secret-Scanner auf dem allerersten Tag lief.
+2. **Ein Bump, der nur `ci.yml` anfasst, zementiert die Asynchronitaet.** Alle zwoelf Repos
+   der ersten Welle trugen im Deploy-Pfad einen aelteren Pin. Der Owner-Satz "keine
+   Extralocken" war der Grund, die schon offenen PRs nochmal aufzumachen statt sie zu mergen.
+3. **Drei Defekte, eine Klasse.** shared-ci prueft Exit `5` statt "wurden Tests
+   eingesammelt"; shared-ci prueft "Verzeichnis existiert" statt "Projektdatei vorhanden";
+   der Artefakt-Melder matcht `gh pr create` statt "wurde ein PR angelegt". Jedes Mal wird
+   eine **Schreibweise** geprueft und eine **Sache** gemeint. Das ist keine Sammlung von
+   Einzelfehlern, sondern ein Muster, nach dem sich suchen laesst.
+4. **`skip_tests: true` blind zu kippen waere der Fehler des Tages gewesen.** Sechs von acht
+   Repos hatten einen dokumentierten Grund, eines davon woertlich als Owner-Entscheidung.
+   Meine eigene Erstaussage ("acht Repos gruen ohne einen einzigen Test") war fuer sechs
+   davon falsch — aufgefallen nur, weil ich vor dem Sweep jede Datei einzeln gelesen habe.
+5. **Bei den zwei echten Faellen wandert der Fehler nach vorn, und das ist der Ertrag.**
+   trading-hub: Install → DB → 559 gruene Tests → TimescaleDB. Jede Schicht war unsichtbar,
+   solange die darueber liegende den Job abbrach.
+6. **Zwei eigene Falschaussagen fielen beim Bauen auf, nicht beim Behaupten** — `set +e`
+   stand direkt ueber der Zeile, die ich fuer unerreichbar erklaert hatte, und der
+   `coverage_threshold`-Input speist einen ganz anderen Job als behauptet. Beide standen da
+   schon eine Stunde in gemergten Artefakten. Korrigiert in #2032 und an shared-ci#54.
+
+**Deploys:** 7 gruen. weltenhub neu rot (openai/litellm ohne Obergrenze, weltenhub#56 —
+Ausloeser war mein Merge, Ursache nicht). cad-hub, tax-hub, travel-beat waren vorher schon
+rot. bahn-hub: 9 Ruff-Fehler in einem seit Juli unberuehrten Repo.
+
+**Abnahme:** Zielzustand erreicht mit benannter Restmenge (5 Repos, je ein Grund).
+**SA-4: 0 Anwendungen** · `over_ask: 0` · `over_act: 0`.
+
