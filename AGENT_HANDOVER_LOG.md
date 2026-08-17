@@ -2261,3 +2261,47 @@ rot. bahn-hub: 9 Ruff-Fehler in einem seit Juli unberuehrten Repo.
 **Abnahme:** Zielzustand erreicht mit benannter Restmenge (5 Repos, je ein Grund).
 **SA-4: 0 Anwendungen** · `over_ask: 0` · `over_act: 0`.
 
+### 2026-08-17 · Nachtrag: Subagenten freigegeben, und sie haben mich viermal korrigiert
+
+Nach dem ersten Sitzungsende kamen vier Owner-Auftraege: Skill-PR fuer den fremden Blick,
+SSoT-Policy, Konzept-Friedhof, Increment-Retro. Der Owner gab dabei **Subagenten fuer
+/session-retro frei** — der erste Retro-Lauf mit echter Phase 3.
+
+**Das Ergebnis der Falsifikation ist die Nachricht.** Vier Agenten, vier Mal aenderte sich
+mein Bild, kein einziger bestaetigte nur: Parent-Befund #11 widerlegt (mit Zeitstempeln:
+alle 12 PRs haben 4 Commits, mergedAt liegt ueberall NACH dem letzten Commit -- Iteration,
+kein Rework), #10 mit falscher Kategorie (der Diff war EINE Zeile in secret-scan.yml, der
+rote Lint bestand vorher), #9 ueberlebt mit unbelegter Kausal-Haelfte, und der Finder fand
+vier Trigger-Fehlschuesse in einer Liste, die ich als vollstaendig gemeldet hatte.
+refuted_rate im Parent von 0.0 auf 0.09 -- die urspruengliche Null war keine Schaerfe,
+sondern eine nicht gelaufene Pruefung.
+
+**Der Fehler ueber mich selbst ist der interessantere.** Die Kalibrier-Pflicht fuer
+Nullbefunde stand in ZWEI von VIER Agent-Prompts. Genau der Agent ohne sie las eine 404 als
+Abwesenheit und erzeugte einen falschen hoch-Befund; ein fuenfter Agent musste ihn
+entfernen. Die beiden mit Pflicht fuehrten ihre 404 korrekt als ungeklaert. Dieselbe
+Anweisung, halb vergeben, mit exakt dem vorhersagbaren Unterschied. Fremder Kontext macht
+unabhaengig, nicht richtig.
+
+**Das Tagesmuster hat jetzt ein Gate-Mandat.** gate-matches-spelling-not-substance steht
+nach dem Increment bei x2 und ist damit gate-pflichtig -- ausgeloest davon, dass mein
+eigener Trigger-Fix die zwei gemeldeten Schreibweisen patchte statt der Wortklasse
+(individuell loesen, punktuelle Loesung, Sonderregel, hart codiert feuerten weiter nicht).
+Fuenfte Instanz derselben Klasse an einem Tag.
+
+**Konzept-Friedhof gemessen statt gefuehlt:** 44 Dokumente, 34 auf `idea`, 12 ueberfaellig
+(nicht 21 -- meine erste Zahl zaehlte review_by-ZEILEN, mehrere Dokumente tragen zwei).
+Sechs auf Owner-Entscheid entfernt (platform#2040), 007 NICHT: dessen Statusfeld ist keine
+Statusangabe, sondern eine Entscheidung mit Wiedereintrittsbedingung -- mein Parser las den
+Satzanfang als 'sunset'. Zwei Vorbehalte im PR benannt (002 laeuft real, 003 ist der
+Umsetzungsplan fuer das akzeptierte ADR-045).
+
+**Und die Antwort auf die Owner-Frage "woher kommt loeschen?": Messfehler.** Mein
+Loeschsignal war `pipeline_status: idea` + Alter. Beides misst Vernachlaessigung, nicht
+Wert -- und haette 34 von 44 Dokumenten getroffen. In der einzigen Stichprobe, die ich
+gegen den INHALT geprueft habe (007), lag der Proxy sofort daneben.
+
+**Offen am Ende:** drei PRs warten auf Owner-Review (#2036 Skill-Phase 0g, #2038 Policy,
+#2040 Loeschung) -- der Owner hat keinen gh-Zugriff. Ohne Merge keine Verteilung; die
+Skill-Phase 0g und die Policy sind damit geschrieben, aber noch nicht wirksam.
+
