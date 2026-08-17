@@ -25,6 +25,7 @@ The `inject_policies.py` hook and `claude-policy` CLI read that path unchanged.
 | `autonomy-gates.md` | Autonom durcharbeiten; Freigabe nur an 5 Gates (Irreversibles, Prod, Security-Config, Scope, Spend) |
 | `data-sovereignty.md` | 🟡 DRAFT — ttz-lif/meiki-lra LLM-Egress-Perimeter + enge E1–E7-Ausnahme für PII-freie Arch-ADRs |
 | `error-handling.md` | Fehler mit Schadens-/Wiederholungspotenzial: Ursache belegen + fixen, Quick-Fix nur mit Folge-Ticket, ab 2. Auftreten Gate (Owner-Weisung 2026-08-03) |
+| `ssot-vor-individualloesung.md` | SSoT so oft wie sinnvoll, Individuallösung nur begründet, DB/SSoT vor Hardcoding — drei Fragen VOR dem Umsetzen (Owner-Weisung 2026-08-17) |
 
 ## Override pattern (per-repo)
 
