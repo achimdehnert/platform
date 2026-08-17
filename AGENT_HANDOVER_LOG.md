@@ -2305,3 +2305,61 @@ gegen den INHALT geprueft habe (007), lag der Proxy sofort daneben.
 #2040 Loeschung) -- der Owner hat keinen gh-Zugriff. Ohne Merge keine Verteilung; die
 Skill-Phase 0g und die Policy sind damit geschrieben, aber noch nicht wirksam.
 
+
+### 2026-08-17 abends · Der blinde Melder hatte recht — vier Prod-Datenbanken ohne Backup
+
+Die Sitzung begann mit sieben Owner-Punkten und endete bei einem Befund, der groesser war
+als alle sieben: **`risk-hub` (produktiv live) hatte seit vier Tagen kein Datenbank-Backup**,
+zusammen mit `iil_dochub_db`, `wedding_hub_db` und `travel_beat_db`.
+
+**Gefunden wurde er, weil drei Meldungen nebeneinander gelesen wurden.** Der Session-Start
+fuehrt den ADR-241-Backup-Melder seit dem 15.08. als *blinden Melder* — „ein dauerhaft roter
+Melder meldet nichts mehr". Diese Einordnung war falsch, und zwar auf die gefaehrlichere
+Art: rot war kein Rauschen. 26,5 h → 50,6 h → 74,7 h, exakt +24 h pro Tag. Jede einzelne
+Zeile las sich wie eine muede Warnung; erst der Trend war die Diagnose.
+
+**Meine erste Hypothese dazu war falsch**, und die Korrektur ist lehrreicher als der Fund:
+ich schrieb „der naechtliche Push laeuft nicht mehr". Er lief — in derselben Nacht sicherte
+er acht Datenbanken. `risk_hub_db` war nur nicht in der Liste. Die Erkennung filtert die
+Image-Spalte von `docker ps` auf `postgres|pgvector`; diese Spalte zeigt eine **nackte
+Image-ID**, sobald die Referenz lokal nicht mehr getaggt ist. Der Container lief gesund
+weiter, nur sein Anzeigename aenderte sich — und der war das Kriterium.
+
+**Warum es vier Tage hielt, ist der eigentliche Befund:** ein Lauf, der WENIGER Datenbanken
+sichert als der vorige, sieht in Log und Exit-Code exakt aus wie ein erfolgreicher. Deshalb
+bekam #2047 nicht nur eine neue Erkennung (`pg_isready` — das Verhalten statt des Namens),
+sondern einen **Rueckgang-Waechter**. Auf prod rein lesend verifiziert: 20 statt 17.
+
+**Der Artefakt-Budget-Melder widerlegte sich waehrend seiner eigenen Reparatur, dreimal.**
+Die alte Kopie meldete 12, dann 15 PRs; tatsaechlich waren es 2 PRs und 1 Issue. Zehn der
+zwoelf Phantom-PRs stammten aus der Commit-Message und dem PR-Text von #2044 **selbst** —
+beide beschreiben das Muster `gh pr create`. Er verzaehlte sich um Faktor 6, weil er das
+Dokument las, das erklaert, dass er sich verzaehlt. Nach Merge UND Verteilung echt gefahren:
+die neue Kopie schweigt bei 2 PRs.
+
+**Zwei eigene Denkfehler fanden Bestandstests, nicht ich.** Mein neuer Vorfilter verwarf
+still eine `prRepository`-Zeile — dieselbe Klasse wie der Befund selbst, eine Ebene tiefer.
+Und die Entprellung der neuen Schwelle setzte den Merker zurueck, „wenn der Zaehler faellt";
+den Einbruch sieht der Hook aber nie, er kennt nur den Endstand jedes Stop. Eine zweite
+Kette gleicher Laenge waere stumm geblieben.
+
+**Der Schwellen-Entscheid ist umgesetzt (#2050):** `prs_seit_owner` statt absoluter PR-Zahl.
+Verlaufs-Replay ueber 84 echte Transkripte: 401 → 40 Ausloesungen, konzentriert auf acht
+Sitzungen — darunter der im Docstring benannte Anlassfall. Vorher hatte ich die
+Registerdaten selbst entwertet: sie stammten vom defekten Zaehler.
+
+**Ein Handover-Vorschlag war falsch und wurde nicht uebernommen.** Prio 2 schlug fuer
+weltenhub `openai>=1.12.0,<2` vor. litellm 1.97 verlangt `openai>=2.20,<3` — der Pin haette
+den Build von einem Versions- in einen Aufloesungskonflikt verwandelt. Richtig war, die drei
+transitiven Pins zu streichen; `anthropic` faellt dabei komplett aus dem Baum, es war ein
+toter Pin ohne Konsumenten.
+
+**Rahmenbedingung des Tages:** eine GitHub-Stoerung mit dauerhaften HTTP 503. Zwei
+`gh pr create` scheiterten, Merges brauchten bis zu neun Anlaeufe, `context-review` faellt
+seither an mehreren PRs rot aus (kein Required Check). Vermutlich dieselbe Ursache dafuer,
+dass der trading-hub-Merge **keinen einzigen** Workflow-Lauf ausloeste — nicht von Hand
+nachgeholt, weil der Stack bewusst gestoppt ist.
+
+**Abnahme:** je Owner-Punkt erreicht und einzeln belegt; offen bleiben die zwei
+Prod-Schritte fuer #2047 und der trading-hub-Deploy, beide bewusst.
+**SA-4: 0 Anwendungen** · `over_ask: 0` · `over_act: 0`.
