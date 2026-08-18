@@ -229,6 +229,18 @@ else
   record "0.5.1 secret-zone" "PASS" "Drop-Zone leer"
 fi
 
+# ── 0.5.2 Schleuse: was liegt zu lange? (KONZ-045, warn) ────────────────────
+# Die Schleuse ist ein Foerderband, kein Regal. Ohne diese Zeile faellt erst auf,
+# dass sie ein Lager geworden ist, wenn jemand hinsieht -- gemessen 2026-08-18:
+# 247 Eintraege, 3,8 GB, der aelteste 119 Tage alt.
+SCHLEUSE_OUT=$(python3 "$GITHUB_DIR/platform/tools/schleuse.py" 2>/dev/null | tail -1)
+SCHLEUSE_N=$(echo "$SCHLEUSE_OUT" | grep -oE '^Zusammenfassung: [0-9]+' | grep -oE '[0-9]+' || echo 0)
+if [ "${SCHLEUSE_N:-0}" -gt 0 ]; then
+  record "0.5.2 schleuse" "WARN" "$SCHLEUSE_OUT — Bericht: platform/tools/schleuse.py (KONZ-045)"
+else
+  record "0.5.2 schleuse" "PASS" "nichts ueberfaellig"
+fi
+
 # ── 0.6 Deploy-Infrastruktur (ADR-156) ──────────────────────────────────────
 ADR156_OUT=$(bash "$GITHUB_DIR/mcp-hub/scripts/verify-adr156.sh" 2>&1 | tail -2 | tr '\n' ' ')
 if echo "$ADR156_OUT" | grep -q "ALL .* PASSED"; then
