@@ -213,3 +213,49 @@ class TestRendern:
     def test_should_render_without_care_rules_present(self, pfade, monkeypatch):
         monkeypatch.setattr(board, "REGELN", pfade / "gibtsnicht.md")
         assert board.render(_ledger(_v(nr=3)), "2026-08-10").startswith("# Mail")
+
+
+class TestErledigt:
+    """Der Zustand `erledigt` — bis 2026-08-18 gab es die Aktion, aber kein Ziel.
+
+    Geschlossene Vorgänge wurden aus dem Ledger entfernt. Damit war weder sichtbar,
+    was fertig wurde, noch hatte eine Nachlogik am Abschluss einen Auslöser.
+    """
+
+    def test_should_render_a_recently_closed_item_in_its_own_section(self, pfade):
+        heute = "2026-08-18"
+        ausgabe = board.render(
+            _ledger(_v(nr=3, bucket="erledigt", erledigt_am=heute, kurz="Fertig")), heute
+        )
+        assert "✅ Erledigt" in ausgabe
+        assert "Fertig" in ausgabe
+
+    def test_should_hide_an_old_closure_but_still_count_it(self, pfade):
+        """Nach dem Fenster verschwindet die Zeile, nicht der Vorgang."""
+        heute = "2026-08-18"
+        alt = (
+            board.date.fromisoformat(heute)
+            - board.timedelta(days=board.ERLEDIGT_FENSTER_TAGE + 1)
+        ).isoformat()
+        ausgabe = board.render(
+            _ledger(_v(nr=3, bucket="erledigt", erledigt_am=alt, kurz="Uralt")), heute
+        )
+        assert "Uralt" not in ausgabe
+        assert "1 weitere" in ausgabe
+
+    def test_should_report_a_closed_item_without_a_closing_date(self, pfade):
+        befunde = board.pruefe(_ledger(_v(nr=3, bucket="erledigt"), naechste=4))
+        assert any("erledigt_am" in b for b in befunde)
+
+    def test_should_not_offer_follow_up_actions_on_a_closed_item(self, pfade):
+        """„Nachfassen entwerfen" auf einem geschlossenen Vorgang wäre sinnlos."""
+        aktionen = dict(board.aktionen_fuer(_v(bucket="erledigt")))
+        assert "n" not in aktionen
+        assert "z" not in aktionen
+        assert "o" in aktionen
+
+    def test_should_treat_an_unreadable_closing_date_as_a_finding(self, pfade):
+        befunde = board.pruefe(
+            _ledger(_v(nr=3, bucket="erledigt", erledigt_am="gestern"), naechste=4)
+        )
+        assert any("erledigt_am" in b for b in befunde)

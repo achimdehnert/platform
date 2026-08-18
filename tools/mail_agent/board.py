@@ -47,7 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,25 @@ BUCKETS: list[tuple[str, str]] = [
     ("owner", "🟢 Offen — dein Zug"),
     ("agent", "🔵 Offen — ich kann sofort"),
     ("warten", "🟡 Wartend — Ball liegt aussen"),
+    ("erledigt", "✅ Erledigt"),
 ]
+
+#: Wie lange ein geschlossener Vorgang im Board sichtbar bleibt.
+#:
+#: Warum es diesen Zustand ueberhaupt gibt: Bis 2026-08-18 kannte der Ledger nur
+#: `owner`, `agent` und `warten`. Ein geschlossener Vorgang wurde deshalb **aus der
+#: Datei entfernt** — obwohl der Mailcheck-Skill seit jeher einen Abschnitt
+#: „✅ Erledigt seit letztem Check" vorsieht und `AKTIONEN_IMMER` die Aktion
+#: „Erledigt — Vorgang schliessen" anbietet. Es gab die Aktion, aber kein Ziel.
+#:
+#: Das Loeschen kostet zweierlei: Man sieht nicht, was fertig wurde, und jede
+#: Nachlogik, die am Abschluss haengt (z. B. die zugehoerigen Mails aus dem
+#: Posteingang raeumen), verliert mit dem Posten auch ihren Ausloeser.
+#:
+#: Sichtbar bleiben heisst nicht ewig: Nach diesem Fenster zaehlt das Board sie nur
+#: noch, statt sie zu zeigen. Der Eintrag selbst bleibt in der Datei — er traegt den
+#: Anker, ueber den die Mails spaeter auffindbar sind.
+ERLEDIGT_FENSTER_TAGE = 14
 
 #: Naheliegende Aktionen je Vorgangstyp.
 #:
@@ -155,9 +173,15 @@ AKTIONEN_WARTEN: list[tuple[str, str]] = [
     ("f", "Frist verlaengern"),
 ]
 
-#: Haengt an jedem Posten, unabhaengig vom Typ.
+#: Haengt an jedem offenen Posten, unabhaengig vom Typ.
 AKTIONEN_IMMER: list[tuple[str, str]] = [
     ("z", "Erledigt — Vorgang schliessen"),
+]
+
+#: Ein geschlossener Vorgang bekommt genau eine Aktion: die Ruecknahme. Ihm
+#: „Nachfassen entwerfen" anzubieten waere sinnlos, „Erledigt schliessen" absurd.
+AKTIONEN_ERLEDIGT: list[tuple[str, str]] = [
+    ("o", "Wieder oeffnen — Bucket zuruecksetzen"),
 ]
 
 #: Greift, wenn ein Typ (noch) nicht im Katalog steht. Bewusst nicht leer: ein
@@ -189,6 +213,8 @@ def aktionen_fuer(vorgang: dict) -> list[tuple[str, str]]:
     maessigen. Ein wartender Vorgang bekommt zusaetzlich das Nachfassen — bei
     einem eigenen Zug waere das sinnlos.
     """
+    if vorgang.get("bucket") == "erledigt":
+        return list(AKTIONEN_ERLEDIGT)
     typ = (vorgang.get("typ") or "").strip()
     aktionen = list(AKTIONEN_JE_TYP.get(typ, AKTIONEN_FALLBACK))
     if vorgang.get("bucket") == "warten":
@@ -256,6 +282,26 @@ def vergib_nummern(ledger: dict) -> tuple[dict, list[tuple[int, str]]]:
     return ledger, neu
 
 
+def tage_seit(datum: str | None, stichtag: str | None = None) -> int | None:
+    """Tage zwischen `datum` (ISO) und dem Stichtag; None, wenn unlesbar oder leer.
+
+    Der Stichtag wird hereingereicht statt aus der Systemuhr gelesen — dieselbe
+    Entscheidung wie bei `render(ledger, heute)`. Ein Board, dessen Ausgabe von der
+    Uhr abhaengt, laesst sich nicht pruefen.
+
+    Bewusst tolerant gegen Unfug im Ledger: ein kaputtes Datum ist ein Befund der
+    Pruefung, kein Absturz der Anzeige.
+    """
+    if not datum:
+        return None
+    try:
+        gemessen = date.fromisoformat(str(datum)[:10])
+        bezug = date.fromisoformat(stichtag[:10]) if stichtag else date.today()
+    except (ValueError, TypeError):
+        return None
+    return (bezug - gemessen).days
+
+
 def pruefe(ledger: dict) -> list[str]:
     """Invarianten pruefen. Rueckgabe ist die Liste der Verstoesse, leer = gut."""
     posten = vorgaenge_von(ledger)
@@ -299,6 +345,19 @@ def pruefe(ledger: dict) -> list[str]:
             befunde.append(
                 f"#{vorgang.get('nr', '?')} '{vorgang.get('kurz')}': bucket="
                 f"{vorgang.get('bucket')!r} — gehoert in keinen Abschnitt"
+            )
+
+    # Ohne Abschlussdatum ist ein erledigter Vorgang nicht einordenbar: Er faellt
+    # weder aus dem Anzeigefenster heraus noch kann eine spaetere Nachlogik sagen,
+    # seit wann er geschlossen ist.
+    for vorgang in posten:
+        if vorgang.get("bucket") != "erledigt":
+            continue
+        if tage_seit(vorgang.get("erledigt_am")) is None:
+            befunde.append(
+                f"#{vorgang.get('nr', '?')} '{vorgang.get('kurz')}': bucket="
+                f"'erledigt', aber erledigt_am fehlt oder ist unlesbar "
+                f"({vorgang.get('erledigt_am')!r})"
             )
 
     for vorgang in posten:
@@ -373,12 +432,32 @@ def render(ledger: dict, heute: str) -> str:
             (v for v in posten if v.get("bucket") == bucket),
             key=lambda v: (v.get("nr") is None, v.get("nr") or 0),
         )
-        if not gruppe:
+        aelter = 0
+        if bucket == "erledigt":
+            # Nur die juengsten Abschluesse zeigen. Alles davor bleibt in der Datei
+            # (der Anker wird gebraucht), verschwindet aber aus der Ansicht — sonst
+            # waechst der Abschnitt, der am wenigsten Aufmerksamkeit braucht, am
+            # staerksten.
+            frisch = []
+            for vorgang in gruppe:
+                tage = tage_seit(vorgang.get("erledigt_am"), heute)
+                if tage is not None and tage > ERLEDIGT_FENSTER_TAGE:
+                    aelter += 1
+                else:
+                    frisch.append(vorgang)
+            gruppe = frisch
+        if not gruppe and not aelter:
             continue
         aus += [f"## {ueberschrift}", ""]
         for vorgang in gruppe:
             aus += _posten_zeile(vorgang, anker, links)
             aus.append("")
+        if aelter:
+            aus += [
+                f"_{aelter} weitere vor mehr als {ERLEDIGT_FENSTER_TAGE} Tagen "
+                f"geschlossen — im Ledger, nicht im Board._",
+                "",
+            ]
 
     ohne = [v for v in posten if v.get("bucket") not in {b for b, _ in BUCKETS}]
     if ohne:

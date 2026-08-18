@@ -47,7 +47,11 @@ BUCKETS = (
     ("owner", "Dein Zug", "Entscheidung, Berechtigung oder Inhalt, den nur du hast"),
     ("agent", "Ich kann sofort", "Braucht kein Gate — sag zu, dann laeuft es"),
     ("warten", "Wartet auf andere", "Der naechste Zug kommt von aussen"),
+    ("erledigt", "Zuletzt erledigt", "Geschlossen — steht hier, bis das Fenster ablaeuft"),
 )
+
+#: Deckungsgleich mit `board.py`: geschlossene Vorgaenge bleiben so lange sichtbar.
+ERLEDIGT_FENSTER_TAGE = 14
 KONTO_LABEL = {"iil": "IIL", "hnu": "HNU", "ad": "Mittwald", "": "—"}
 
 #: Basis fuer Mail-Links. Der Board-Dienst haengt an todo.iil.pet (Port 8789), der
@@ -147,6 +151,22 @@ def lade(pfad: Path) -> dict:
         sys.exit(f"FEHLER: Ledger {pfad} fehlt — erst /mailcheck laufen lassen.")
     with pfad.open(encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def frisch_erledigt(vorgang: dict, stichtag) -> bool:
+    """Liegt der Abschluss innerhalb des Anzeigefensters?
+
+    Ohne lesbares `erledigt_am` wird der Posten gezeigt statt versteckt — ein
+    fehlendes Datum ist ein Pflegefehler, den man sehen soll.
+    """
+    roh = vorgang.get("erledigt_am")
+    if not roh:
+        return True
+    try:
+        geschlossen = date.fromisoformat(str(roh)[:10])
+    except ValueError:
+        return True
+    return (stichtag - geschlossen).days <= ERLEDIGT_FENSTER_TAGE
 
 
 def frist_tage(v: dict, stichtag: date) -> int | None:
@@ -512,12 +532,15 @@ def baue(
     # bei "Dein Zug", damit eine fehlende Klassifikation auffaellt statt zu schweigen.
     for v in posten:
         schluessel = v.get("bucket")
+        if schluessel == "erledigt" and not frisch_erledigt(v, stichtag):
+            continue  # laengst geschlossen — bleibt im Ledger, nicht auf der Seite
         nach_bucket[schluessel if schluessel in nach_bucket else "owner"].append(v)
     abschnitte = "".join(
         abschnitt(t, u, nach_bucket.get(k, []), stichtag, basis, mail_basis, anker)
         for k, t, u in BUCKETS
     )
     geprueft = html.escape(str(daten.get("letzte_pruefung", "unbekannt")))
+    offen = sum(1 for v in posten if v.get("bucket") != "erledigt")
     faellig = sum(
         1 for v in posten if (d := frist_tage(v, stichtag)) is not None and d <= 3
     )
@@ -533,7 +556,7 @@ def baue(
 <title>Arbeitsliste</title><style>{CSS}</style></head>
 <body><main>
 <h1>Arbeitsliste</h1>
-<p class="stand">{len(posten)} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
+<p class="stand">{offen} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
 {frische_banner(daten, stichtag)}
 {abschnitte}
 <footer>Quelle: mail-vorgaenge.json · gebaut {html.escape(stichtag.isoformat())} ·
