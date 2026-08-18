@@ -29,6 +29,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -78,15 +79,24 @@ def ssh_ziel(hosts_datei: Path | None = None) -> str:
 
 
 def befehl_bauen(argv: list[str], ziel: str) -> list[str]:
-    """SSH-Aufruf als Argumentliste — ohne Shell-Verkettung.
+    """SSH-Aufruf als Argumentliste, der ferne Teil einzeln gequotet.
 
-    Kein zusammengebauter Shell-String: Suchbegriffe enthalten Leerzeichen,
-    Anfuehrungszeichen und Umlaute. Eine Liste laesst `subprocess` quoten, ein
-    String ueberlaesst das der entfernten Shell — und genau dort zerfaellt
-    `--begriff "Rechnung Mittwald"` in zwei Argumente.
+    Die Argumentliste schuetzt nur die **lokale** Seite. `ssh` haengt alles, was
+    nach dem Ziel steht, zu EINEM String zusammen und uebergibt ihn der entfernten
+    Shell — die zerlegt ihn erneut an den Leerzeichen. Ein Suchbegriff aus zwei
+    Woertern kam deshalb als zwei Argumente an.
+
+    Gemessen am 2026-08-18: `--begriff "Ihre Rueckfragen"` endete in
+    `manage.py mail_suche: error: unrecognized arguments: Rueckfragen`. Einwortige
+    Begriffe funktionierten, weshalb der Fehler lange unsichtbar blieb.
+
+    Der frueher hier stehende Kommentar beschrieb genau diese Gefahr — und die
+    Umsetzung schuetzte trotzdem nur lokal. Der zugehoerige Test pruefte
+    ebenfalls die lokale Seite und war deshalb gruen.
     """
     fern = ["docker", "exec", CONTAINER, "python", "manage.py", "mail_suche", *argv]
-    return ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", ziel, *fern]
+    gequotet = " ".join(shlex.quote(teil) for teil in fern)
+    return ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", ziel, gequotet]
 
 
 def _durchgereichte(args: argparse.Namespace) -> list[str]:

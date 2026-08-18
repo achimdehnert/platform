@@ -166,3 +166,152 @@ class TestUmlautschreibweisen:
 
     def test_should_still_separate_names_that_only_look_similar(self):
         assert ablage._slug("Mueller") != ablage._slug("Moeller")
+
+
+class TestGraphBindung:
+    """Graph-Konten binden über eine Kurz-ID-Registry, nicht über den IMAP-Anker.
+
+    Nur `anker` zu prüfen hätte jeden Vorgang eines Graph-Kontos fälschlich als
+    ungebunden gemeldet — `board.anker_zustand()` akzeptiert seit jeher beide.
+    """
+
+    def test_should_accept_a_graph_link_instead_of_an_imap_anchor(self):
+        (zeile,) = ablage.plane(
+            {"vorgaenge": [_v(gegenueber="Kastenmayer")]},
+            {},
+            {"iil": IIL_ORDNER},
+            {},
+            {"1": {"graph_id": "AAMk="}},
+        )
+        assert zeile.status == "bereit"
+
+    def test_should_still_report_a_vorgang_bound_by_neither(self):
+        (zeile,) = ablage.plane(
+            {"vorgaenge": [_v(gegenueber="Kastenmayer")]},
+            {},
+            {"iil": IIL_ORDNER},
+            {},
+            {},
+        )
+        assert zeile.status == "kein_anker"
+
+
+def _suche_attrappe(treffer_je_kriterium):
+    """Index-Attrappe: bildet Aufrufe auf feste Antworten ab.
+
+    Bewusst eine Attrappe und keine echte Abfrage — der Index haengt an einer
+    Datenbank hinter SSH, und ein Test, der davon abhaengt, prüfte die Verbindung
+    statt der Logik.
+    """
+
+    def suche(**kriterien):
+        if "strang" in kriterien:
+            return treffer_je_kriterium.get("strang", [])
+        return treffer_je_kriterium.get("begriff", [])
+
+    return suche
+
+
+def _n(betreff="Vorgang X", ordner="INBOX", strang="s1", datum="2026-08-18"):
+    return {"betreff": betreff, "ordner": [ordner], "strang": strang, "datum": datum}
+
+
+class TestStrangAufloesung:
+    def test_should_find_the_thread_via_the_subject(self):
+        strang, grund = ablage.strang_fuer(
+            {"thread_key": "Vorgang X", "konto": "hnu"},
+            _suche_attrappe({"begriff": [_n(), _n()]}),
+        )
+        assert strang == "s1"
+        assert "Betreff" in grund
+
+    def test_should_refuse_when_two_threads_share_the_subject(self):
+        """Zwei Stränge unter einem Betreff sind zwei Gespräche."""
+        strang, grund = ablage.strang_fuer(
+            {"thread_key": "Vorgang X", "konto": "hnu"},
+            _suche_attrappe({"begriff": [_n(strang="s1"), _n(strang="s2")]}),
+        )
+        assert strang is None
+        assert "mehrdeutig" in grund
+
+    def test_should_report_a_vorgang_without_a_thread_key(self):
+        strang, grund = ablage.strang_fuer({"konto": "hnu"}, _suche_attrappe({}))
+        assert strang is None
+        assert "thread_key" in grund
+
+
+class TestBewegungen:
+    def test_should_move_only_from_the_inbox(self):
+        """Gemessen an einem echten Strang: Gesendetes und bereits Abgelegtes bleiben."""
+        bewegungen, liegen = ablage.bewegungen_fuer(
+            {"nr": 5, "konto": "hnu"},
+            "Archiv/2026",
+            "s1",
+            _suche_attrappe(
+                {
+                    "strang": [
+                        _n(ordner="INBOX"),
+                        _n(ordner="INBOX"),
+                        _n(ordner="Gesendete Objekte"),
+                        _n(ordner="MEIKI/Landkreis"),
+                    ]
+                }
+            ),
+        )
+        assert len(bewegungen) == 2
+        assert all(b.von_ordner == "INBOX" for b in bewegungen)
+        assert liegen == {"Gesendete Objekte": 1, "MEIKI/Landkreis": 1}
+
+    def test_should_carry_the_target_into_every_movement(self):
+        bewegungen, _ = ablage.bewegungen_fuer(
+            {"nr": 5, "konto": "iil"},
+            "IIL.Kunden/Talmuehle",
+            "s1",
+            _suche_attrappe({"strang": [_n(ordner="Posteingang")]}),
+        )
+        assert bewegungen[0].nach_ordner == "IIL.Kunden/Talmuehle"
+
+    def test_should_produce_nothing_when_the_inbox_holds_none_of_the_thread(self):
+        bewegungen, liegen = ablage.bewegungen_fuer(
+            {"nr": 5, "konto": "hnu"},
+            "Archiv/2026",
+            "s1",
+            _suche_attrappe({"strang": [_n(ordner="Archiv/2025")]}),
+        )
+        assert bewegungen == []
+        assert liegen == {"Archiv/2025": 1}
+
+
+class TestBetreffkern:
+    """Der Index sucht in Betreff, Text UND Anhängen — das ist zu grob.
+
+    Gemessen am 2026-08-18: 18 von 23 Vorgängen kamen als „mehrdeutig" zurück,
+    weil ein `thread_key` wie „Lizenz" Dutzende fremder Gespräche traf.
+    """
+
+    def test_should_treat_reply_prefixes_as_the_same_subject(self):
+        assert ablage.betreff_kern("AW: RE: Postsortierung") == ablage.betreff_kern(
+            "Postsortierung"
+        )
+
+    def test_should_ignore_a_full_text_hit_with_a_different_subject(self):
+        strang, grund = ablage.strang_fuer(
+            {"thread_key": "Lizenz", "konto": "hnu"},
+            _suche_attrappe(
+                {
+                    "begriff": [
+                        _n(betreff="Lizenz", strang="s1"),
+                        _n(betreff="Ganz anderes Thema", strang="s2"),
+                    ]
+                }
+            ),
+        )
+        assert strang == "s1"
+
+    def test_should_say_so_when_only_body_hits_remain(self):
+        strang, grund = ablage.strang_fuer(
+            {"thread_key": "Lizenz", "konto": "hnu"},
+            _suche_attrappe({"begriff": [_n(betreff="Etwas anderes", strang="s2")]}),
+        )
+        assert strang is None
+        assert "kein gleicher Betreff" in grund

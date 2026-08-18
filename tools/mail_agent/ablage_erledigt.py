@@ -50,10 +50,30 @@ from pathlib import Path
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 ANKER = Path.home() / ".claude" / "mail-anker.json"
+LINKS = Path.home() / ".claude" / "mail-links.json"
 ZIELE = Path.home() / ".claude" / "mail-ablage-ziele.json"
 
 #: Fuer diese Vorgangstypen wird in den Betreuungsordnern gesucht.
 BETREUUNGS_TYPEN = ("betreuung",)
+
+#: Ordner, aus denen ueberhaupt bewegt wird — je Konto, weil sie anders heissen.
+#:
+#: Gemessen am 2026-08-18 an einem echten Strang mit neun Nachrichten: drei lagen
+#: im Posteingang, drei in "Gesendete Objekte", drei bereits in Fachordnern. Wer den
+#: ganzen Strang bewegte, zoege das eigene Gesendete aus seinem Ordner und machte
+#: eine bereits getroffene Ablage-Entscheidung rueckgaengig. Aufgeraeumt werden soll
+#: der Posteingang — sonst nichts.
+#:
+#: Der Ordnername ist zugleich der einzige Hinweis auf das Konto, den der Index
+#: liefert (siehe ``index_suche``). "Posteingang" gehoert zum Graph-Konto,
+#: "INBOX" zu den IMAP-Konten — zwischen den IMAP-Konten trennt er NICHT.
+QUELLORDNER_JE_KONTO: dict[str, tuple[str, ...]] = {
+    "iil": ("Posteingang",),
+    "hnu": ("INBOX",),
+    "ad": ("INBOX",),
+    "default": ("INBOX",),
+}
+QUELLORDNER = ("INBOX", "Posteingang")
 
 #: Woran die Zeile haengt, wenn sie nicht ``bereit`` ist. Reihenfolge = Dringlichkeit.
 STATUS_REIHENFOLGE = (
@@ -207,8 +227,17 @@ def plane(
     anker: dict,
     ordner_je_konto: dict[str, list[str]],
     zuordnung: dict | None = None,
+    links: dict | None = None,
 ) -> list[Zeile]:
-    """Fuer jeden geschlossenen Vorgang eine Zeile mit Ziel und Status."""
+    """Fuer jeden geschlossenen Vorgang eine Zeile mit Ziel und Status.
+
+    ``anker`` haelt IMAP-Anker, ``links`` Graph-Kurz-IDs — beide ueber die
+    Board-Nummer verschluesselt. Ein Posten gilt als gebunden, wenn EINER von
+    beiden ihn kennt; ``board.anker_zustand()`` entscheidet genauso. Nur den
+    IMAP-Anker zu pruefen haette jeden Graph-Vorgang faelschlich als ungebunden
+    gemeldet.
+    """
+    links = links or {}
     zuordnung = zuordnung or {}
     zeilen: list[Zeile] = []
     for vorgang in ledger.get("vorgaenge") or []:
@@ -225,7 +254,7 @@ def plane(
         elif ziel not in bestand:
             # Kein Ordner wird angelegt — das ist eine Owner-Handlung.
             status = "ordner_fehlt"
-        elif str(vorgang.get("nr")) not in anker:
+        elif str(vorgang.get("nr")) not in anker and str(vorgang.get("nr")) not in links:
             # Ohne Anker ist nicht bestimmbar, welche Mails gemeint sind.
             status = "kein_anker"
         else:
@@ -275,6 +304,162 @@ def bericht(zeilen: list[Zeile]) -> str:
     return "\n".join(aus)
 
 
+@dataclass
+class Bewegung:
+    """Eine geplante Verschiebung — Nachricht, woher, wohin, warum."""
+
+    vorgang_nr: int | None
+    konto: str
+    betreff: str
+    von_ordner: str
+    nach_ordner: str
+    datum: str
+
+    def als_zeile(self) -> str:
+        return (
+            f"{str(self.vorgang_nr or '?'):>4}  {self.datum:<10}  "
+            f"{self.von_ordner:<12} -> {self.nach_ordner:<30}  {self.betreff[:40]}"
+        )
+
+
+#: Antwort- und Weiterleitungspraefixe, die vor dem Betreffvergleich fallen.
+_PRAEFIX = re.compile(r"^\s*(?:(?:aw|re|wg|fw|fwd|antw)\s*:\s*)+", re.IGNORECASE)
+
+
+def betreff_kern(betreff: str) -> str:
+    """Betreff ohne Antwortpraefixe, klein, ohne Mehrfach-Leerzeichen.
+
+    'AW: RE: Postsortierung' und 'Postsortierung' sind derselbe Betreff.
+    """
+    ohne = _PRAEFIX.sub("", betreff or "")
+    return re.sub(r"\s+", " ", ohne).strip().lower()
+
+
+def strang_fuer(vorgang: dict, suche) -> tuple[str | None, str]:
+    """Strang-Kennung des Vorgangs aus dem Index holen.
+
+    ``suche`` wird hereingereicht (Signatur ``suche(**kriterien) -> list[dict]``),
+    damit dieser Pfad ohne Datenbank pruefbar bleibt.
+
+    Gesucht wird ueber den Betreff des Vorgangs, weil der Index keine Suche nach
+    Message-ID kennt. Trifft mehr als ein Strang, ist das **kein** Ergebnis: Zwei
+    Straenge unter demselben Betreff sind zwei Gespraeche, und welches gemeint ist,
+    kann dieses Werkzeug nicht entscheiden.
+
+    Ohne Konto-Filter: ``--tenant`` des Index erwartet eine Mandanten-UUID, kein
+    Kontokuerzel — gemessen am 2026-08-18. Die Suche laeuft deshalb ueber alle drei
+    Konten, und die Trennung passiert erst beim Ordnervergleich unten.
+    """
+    betreff = (vorgang.get("thread_key") or "").strip()
+    if not betreff:
+        return None, "kein thread_key im Vorgang"
+    treffer = suche(begriff=betreff)
+    # Der Index sucht in Betreff, Text UND Anhaengen. Ein `thread_key` wie
+    # "Lizenz" trifft damit Dutzende fremder Gespraeche. Gemessen am 2026-08-18:
+    # 18 von 23 Vorgaengen kamen so als "mehrdeutig" zurueck. Massgeblich ist
+    # deshalb der Betreff selbst, und zwar ohne Antwortpraefixe.
+    kern = betreff_kern(betreff)
+    genau = [t for t in treffer if betreff_kern(t.get("betreff") or "") == kern]
+    straenge = {t.get("strang") for t in genau if t.get("strang")}
+    if not straenge:
+        if treffer:
+            return None, f"{len(treffer)} Volltexttreffer, aber kein gleicher Betreff"
+        return None, "im Index nicht gefunden"
+    if len(straenge) > 1:
+        return None, f"{len(straenge)} Straenge unter diesem Betreff — mehrdeutig"
+    return straenge.pop(), "ueber den Betreff"
+
+
+def bewegungen_fuer(
+    vorgang: dict, ziel: str, strang: str, suche
+) -> tuple[list[Bewegung], dict[str, int]]:
+    """Welche Nachrichten des Strangs bewegt wuerden — und was liegen bleibt.
+
+    Bewegt wird ausschliesslich aus dem Quellordner **des Kontos**. Gesendetes
+    bleibt in seinem Ordner, bereits Abgelegtes bleibt abgelegt: Eine getroffene
+    Ablage-Entscheidung wird nicht rueckgaengig gemacht, nur eine fehlende
+    nachgeholt.
+
+    Bekannte Grenze: Zwischen den beiden IMAP-Konten trennt der Ordnername nicht
+    (beide heissen "INBOX"). Traegt derselbe Strang in beiden Konten Nachrichten,
+    erscheinen sie hier gemeinsam. Der Schreibpfad muss das aufloesen, bevor er
+    bewegt — deshalb gibt es ihn noch nicht.
+    """
+    konto = (vorgang.get("konto") or "").lower()
+    quellen = QUELLORDNER_JE_KONTO.get(konto, QUELLORDNER_JE_KONTO["default"])
+    bewegungen: list[Bewegung] = []
+    liegen: dict[str, int] = {}
+    for nachricht in suche(strang=strang):
+        ordner = (nachricht.get("ordner") or [""])[0]
+        if ordner not in quellen:
+            liegen[ordner or "(ohne Ordner)"] = liegen.get(ordner or "(ohne Ordner)", 0) + 1
+            continue
+        bewegungen.append(
+            Bewegung(
+                vorgang_nr=vorgang.get("nr"),
+                konto=konto,
+                betreff=nachricht.get("betreff") or "",
+                von_ordner=ordner,
+                nach_ordner=ziel,
+                datum=str(nachricht.get("datum") or "")[:10],
+            )
+        )
+    return bewegungen, liegen
+
+
+def index_suche(**kriterien) -> list[dict]:
+    """Echte Index-Abfrage ueber ``suche.py`` — der einzige Ort mit Aussenkontakt.
+
+    Bewusst als eigene Funktion, damit die Logik oben sie als Parameter bekommt
+    und ohne Datenbank pruefbar bleibt.
+    """
+    import subprocess
+
+    hier = Path(__file__).resolve().parent
+    befehl = [sys.executable, str(hier / "suche.py"), "--json"]
+    for name, wert in kriterien.items():
+        if wert:
+            befehl += [f"--{name}", str(wert)]
+    fertig = subprocess.run(befehl, capture_output=True, text=True)
+    if fertig.returncode != 0:
+        raise SystemExit(f"FEHLER: Index-Abfrage fehlgeschlagen — {fertig.stderr[:300]}")
+    try:
+        return json.loads(fertig.stdout).get("treffer") or []
+    except json.JSONDecodeError:
+        raise SystemExit("FEHLER: Index lieferte kein JSON")
+
+
+def strang_bericht(zeilen: list[Zeile], ledger: dict, suche) -> str:
+    """Welche Nachrichten je bereitem Vorgang bewegt wuerden — immer noch trocken."""
+    nach_nr = {v.get("nr"): v for v in ledger.get("vorgaenge") or []}
+    aus = ["Betroffene Nachrichten (Trockenlauf)", ""]
+    gesamt = 0
+    for zeile in zeilen:
+        if zeile.status != "bereit":
+            continue
+        vorgang = nach_nr.get(zeile.nr) or {}
+        strang, grund = strang_fuer(vorgang, suche)
+        if not strang:
+            aus.append(f"{str(zeile.nr):>4}  — kein Strang: {grund}")
+            continue
+        bewegungen, liegen = bewegungen_fuer(vorgang, zeile.ziel or "", strang, suche)
+        gesamt += len(bewegungen)
+        rest = ", ".join(f"{n}x {o}" for o, n in sorted(liegen.items())) or "nichts"
+        aus.append(
+            f"{str(zeile.nr):>4}  {len(bewegungen)} aus dem Posteingang · "
+            f"bleibt liegen: {rest}"
+        )
+        for b in bewegungen:
+            aus.append("      " + b.als_zeile())
+    aus += [
+        "",
+        f"Summe: {gesamt} Nachrichten wuerden bewegt. Es wurde nichts bewegt.",
+        "Der Index ist ein Schnappschuss von 03:30 — was danach umsortiert wurde,",
+        "steht hier moeglicherweise mit dem alten Ordner.",
+    ]
+    return "\n".join(aus)
+
+
 def _lade(pfad: Path, standard):
     if not pfad.exists():
         return standard
@@ -298,6 +483,11 @@ def main() -> None:
         help="Ordnerliste je Konto (eine Zeile je Ordner); mehrfach moeglich",
     )
     p.add_argument("--ledger", type=Path, default=LEDGER)
+    p.add_argument(
+        "--straenge",
+        action="store_true",
+        help="zusaetzlich die betroffenen Nachrichten je Vorgang aufloesen (Index-Abfrage)",
+    )
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
@@ -318,11 +508,16 @@ def main() -> None:
         _lade(ANKER, {}),
         ordner_je_konto,
         _lade(ZIELE, {}),
+        _lade(LINKS, {}),
     )
     if args.json:
         print(json.dumps([z.__dict__ for z in zeilen], ensure_ascii=False, indent=2))
     else:
         print(bericht(zeilen))
+
+    if args.straenge:
+        print()
+        print(strang_bericht(zeilen, _lade(args.ledger, {}), index_suche))
     sys.exit(0)
 
 
