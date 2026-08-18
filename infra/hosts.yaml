@@ -111,6 +111,13 @@ hosts:
       (Register-Eintraege in platform#1752/#1753). Wandernde Hubs gehoeren
       hierher, nicht auf den `netcup`-Host (dort nur Backup, ADR-289 R1).
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
+      # BELEGT 2026-08-18, was dieses TODO kostet: pptx-hub. Der Runner blieb
+      # auf prod-a, `_deploy-unified.yml` deployt auf einem self-hosted Runner
+      # DIREKT auf dessen Host -- also lieferte jeder Merge nach prod-a, waehrend
+      # prezimo.de auf prod-b weiterlief. Stand prod-a 7ed1566 (17.08.),
+      # Stand prod-b 0c49ae4 (03.08.): SECHS Commits Rueckstand auf der
+      # Live-Seite, ohne eine einzige rote Zeile. Werkzeug dagegen:
+      # infra/host-maintenance/runner-umziehen.sh
     verified: 2026-08-04               # docker stats beide Hosts + Marker je App
 
   staging:
