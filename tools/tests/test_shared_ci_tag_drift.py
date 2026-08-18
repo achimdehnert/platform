@@ -109,7 +109,7 @@ def test_should_not_flag_mirror_path_rewrite_as_stale(monkeypatch):
     monkeypatch.setattr(dc, "_get_content_at", fake_content_at)
     monkeypatch.setattr(dc, "_SHARED_CI_STATE", None)
     state = dc._shared_ci_state("")
-    assert state == {"latest_tag": "v1.0.4", "stale_files": []}
+    assert state == {"latest_tag": "v1.0.4", "stale_files": [], "richtungen": {}}
 
 
 def test_should_flag_genuine_content_difference_as_stale(monkeypatch):
@@ -251,3 +251,137 @@ def test_should_read_the_checkout_directory_from_the_file_itself():
     tree = yaml.safe_load(_workflow(_SHARED, "_irgendwas_eigenes"))
     assert dc._eigenes_checkout_verzeichnis(tree, _SHARED) == "_irgendwas_eigenes"
     assert dc._eigenes_checkout_verzeichnis(tree, "fremd/repo") is None
+
+
+# ── Dritte Port-Mechanik: der Waechter-Aufruf (platform#2049) ────────────────
+#
+# shared-ci besitzt die Guard-Skripte nicht und ruft sie ueber die
+# Composite-Action `workflow-guards` auf; platform ruft sie direkt auf. Beides
+# tut dasselbe. Vor diesen Tests meldete der Vergleich genau dafuer zwei Dateien
+# dauerhaft als stale — ein Error, den niemand schliessen konnte.
+
+_KANON_SILENT = """
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'tools/check_silent_failures.py'
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: PyYAML bereitstellen
+        run: python3 -m pip install --quiet pyyaml
+      - name: Pruefen
+        run: python3 tools/check_silent_failures.py .github/workflows
+"""
+
+_PORT_SILENT = """
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pruefen
+        uses: achimdehnert/platform/.github/actions/workflow-guards@92a7b75
+        with:
+          checks: silent-failures
+          workflows_dir: .github/workflows
+"""
+
+
+def test_should_not_flag_the_guard_action_as_drift():
+    """Derselbe Waechter, zwei Aufrufformen — kein Drift."""
+    assert dc.shared_ci_deckt_kanon(_PORT_SILENT, _KANON_SILENT)
+
+
+def test_should_still_flag_a_missing_guard():
+    """Gegenprobe: faellt der Waechter WEG, ist das sehr wohl Drift.
+
+    Ohne diesen Test koennte die Normalisierung jeden Unterschied schlucken und
+    beide Faelle gleich beantworten — sie wuerde dann nichts mehr messen.
+    """
+    ohne = _PORT_SILENT.replace("checks: silent-failures", "checks: publish-gate")
+    assert not dc.shared_ci_deckt_kanon(ohne, _KANON_SILENT)
+
+
+def test_should_treat_both_as_the_pair_of_single_checks():
+    beide = _PORT_SILENT.replace("checks: silent-failures", "checks: both")
+    kanon = _KANON_SILENT.replace(
+        "        run: python3 tools/check_silent_failures.py .github/workflows",
+        "        run: |\n"
+        "          python3 tools/check_silent_failures.py .github/workflows\n"
+        "          bash scripts/checks/publish_gate_invariant.sh",
+    )
+    assert dc.shared_ci_deckt_kanon(beide, kanon)
+
+
+def test_should_keep_an_unrelated_pip_install_step():
+    """Nur der PyYAML-Schritt faellt weg — nicht jeder pip-Aufruf."""
+    kanon = _KANON_SILENT.replace(
+        "        run: python3 -m pip install --quiet pyyaml",
+        "        run: python3 -m pip install --quiet ruff",
+    )
+    assert not dc.shared_ci_deckt_kanon(_PORT_SILENT, kanon)
+
+
+def test_should_match_the_guard_action():
+    """Die Zuordnung im Drift-Check muss zur echten Action passen.
+
+    Sie ist eine zweite Kopie einer Information, die in `action.yml` lebt. Ohne
+    diese Wache laeuft sie still auseinander, sobald jemand dort ein Skript
+    umbenennt — und der Vergleich normalisiert dann am falschen Ort.
+    """
+    aktion = (
+        Path(__file__).resolve().parents[2]
+        / ".github/actions/workflow-guards/action.yml"
+    )
+    text = aktion.read_text(encoding="utf-8")
+    for name, skript in dc._GUARD_SKRIPTE.items():
+        assert skript in text, f"{skript} steht nicht mehr in {aktion.name}"
+        assert name in text, f"Check-Name '{name}' steht nicht mehr in {aktion.name}"
+
+
+# ── Richtung: gemessen statt geraten ─────────────────────────────────────────
+
+
+def test_should_report_shared_ci_ahead():
+    kanon = "jobs:\n  a:\n    steps:\n      - run: eins\n"
+    tag = "jobs:\n  a:\n    steps:\n      - run: eins\n      - run: zwei\n      - run: drei\n"
+    nur_tag, nur_kanon = dc.kanon_richtung(tag, kanon)
+    assert nur_tag > nur_kanon
+
+
+def test_should_report_platform_ahead():
+    kanon = "jobs:\n  a:\n    steps:\n      - run: eins\n      - run: zwei\n      - run: drei\n"
+    tag = "jobs:\n  a:\n    steps:\n      - run: eins\n"
+    nur_tag, nur_kanon = dc.kanon_richtung(tag, kanon)
+    assert nur_kanon > nur_tag
+
+
+def test_should_name_the_direction_in_the_error_message(monkeypatch):
+    """Der alte fix_hint behauptete IMMER 'platform nach shared-ci portieren'.
+
+    Am 2026-08-17 lag shared-ci in drei von fuenf Dateien vorne; dieser Hinweis
+    haette dort echte Fixes geloescht.
+    """
+    _mock_repo_files(monkeypatch, CI_YML.format(ref="v1.1.10"))
+    state = {
+        "latest_tag": "v1.1.10",
+        "stale_files": ["_ci-python.yml"],
+        "richtungen": {"_ci-python.yml": (9, 2)},
+    }
+    drifts = dc.check_shared_ci_tag_drift("demo-hub", "", state=state)
+    stale = [d for d in drifts if d.rule == "shared-ci-tag-stale"]
+    assert len(stale) == 1
+    assert "shared-ci ist VORAUS" in stale[0].message
+    assert "nach platform" in stale[0].fix_hint
+    # Der alte Hinweis lautete woertlich so — er darf hier NICHT mehr stehen.
+    assert (
+        "platform .github/workflows nach shared-ci portieren" not in stale[0].fix_hint
+    )

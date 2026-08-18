@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import json
 import os
 import re
@@ -531,6 +532,106 @@ _SHARED_CI_STATE: dict | None = None
 _SELF_REPO = "<SELF_REPO>"
 _SELF_DIR = "<SELF_DIR>"
 
+# ── Dritte Port-Mechanik: der Waechter-Aufruf ────────────────────────────────
+#
+# Es gibt eine Umschreibung, die beim Portieren zwangslaeufig entsteht und die
+# obige Normalisierung nicht kennt. `shared-ci` besitzt weder
+# `tools/check_silent_failures.py` noch `scripts/checks/publish_gate_invariant.sh`
+# — die liegen in platform. Ein `run:` darauf lief dort ins Leere (exit 127,
+# Gate dauerhaft rot und damit blind, platform#1844). Die Loesung war die
+# Composite-Action `.github/actions/workflow-guards`: shared-ci ruft die Pruefer
+# dort auf, wo sie leben, platform ruft sie direkt auf.
+#
+# Beides TUT dasselbe. Ohne diese Zuordnung meldet der Vergleich zwei Dateien
+# dauerhaft als stale, ohne dass es etwas zu beheben gaebe — und ein Error, der
+# sich nicht schliessen laesst, wird zu Hintergrundrauschen. Genau dann uebersieht
+# man den naechsten, der echt ist (platform#2049).
+#
+# Quelle der Zuordnung ist die Action selbst; `test_should_match_the_guard_action`
+# haelt diese Tabelle dagegen, damit sie nicht still auseinanderlaeuft.
+_GUARD_ACTION_PFAD = ".github/actions/workflow-guards"
+_GUARD_SKRIPTE = {
+    "silent-failures": "tools/check_silent_failures.py",
+    "publish-gate": "scripts/checks/publish_gate_invariant.sh",
+}
+# Die Action installiert PyYAML selbst. Der direkte Aufrufer braucht einen
+# eigenen Schritt dafuer — auch der ist Port-Mechanik, kein Verhaltensunterschied.
+_GUARD_VORBEREITUNG_RE = re.compile(
+    r"^\s*(python3?\s+-m\s+)?pip\s+install\b.*\bpyyaml\b", re.I | re.M
+)
+
+
+def _guard_marker(namen: list[str]) -> dict[str, list[str]]:
+    return {"<GUARD>": sorted(set(namen))}
+
+
+def _guard_aus_uses(step: dict) -> dict | None:
+    """Der Waechter als Composite-Action-Aufruf — oder None."""
+    if _GUARD_ACTION_PFAD not in str(step.get("uses", "")):
+        return None
+    mit = step.get("with") or {}
+    checks = str(mit.get("checks", "both")) if isinstance(mit, dict) else "both"
+    return _guard_marker(list(_GUARD_SKRIPTE) if checks == "both" else [checks])
+
+
+def _guard_aus_run(step: dict) -> dict | None:
+    """Derselbe Waechter als direkter Skript-Aufruf — oder None."""
+    run = step.get("run")
+    if not isinstance(run, str):
+        return None
+    treffer = [name for name, skript in _GUARD_SKRIPTE.items() if skript in run]
+    return _guard_marker(treffer) if treffer else None
+
+
+def _ist_guard_vorbereitung(step: dict) -> bool:
+    """Ein Schritt, der NUR PyYAML fuer den Waechter bereitstellt."""
+    run = step.get("run")
+    if not isinstance(run, str) or step.get("uses"):
+        return False
+    zeilen = [z for z in run.splitlines() if z.strip()]
+    return len(zeilen) == 1 and bool(_GUARD_VORBEREITUNG_RE.search(run))
+
+
+def _normalisiere_guards(tree: Any) -> Any:
+    """Ersetzt beide Aufrufformen des Waechters durch denselben Marker.
+
+    Zusaetzlich fallen weg: der reine PyYAML-Vorbereitungsschritt und
+    Pfad-Trigger auf die Waechter-Skripte — beide existieren nur auf der Seite,
+    die die Skripte selbst besitzt.
+    """
+    if not isinstance(tree, dict):
+        return tree
+    tree = copy.deepcopy(tree)
+
+    # `on:` wird von YAML 1.1 als bool True gelesen — beide Schluessel pruefen.
+    for schluessel in ("on", True):
+        ausloeser = tree.get(schluessel)
+        if not isinstance(ausloeser, dict):
+            continue
+        for bedingung in ausloeser.values():
+            if not isinstance(bedingung, dict):
+                continue
+            pfade = bedingung.get("paths")
+            if isinstance(pfade, list):
+                bedingung["paths"] = [
+                    p for p in pfade if str(p) not in _GUARD_SKRIPTE.values()
+                ]
+
+    for job in (tree.get("jobs") or {}).values():
+        if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
+            continue
+        neu = []
+        for step in job["steps"]:
+            if not isinstance(step, dict):
+                neu.append(step)
+                continue
+            if _ist_guard_vorbereitung(step):
+                continue
+            marker = _guard_aus_uses(step) or _guard_aus_run(step)
+            neu.append(marker if marker is not None else step)
+        job["steps"] = neu
+    return tree
+
 
 def _eigenes_checkout_verzeichnis(tree: Any, repo: str) -> str | None:
     """`with.path` des Steps, der `repo` selbst auscheckt (oder None)."""
@@ -599,16 +700,52 @@ def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
         kanon_tree = yaml.safe_load(canonical)
     except yaml.YAMLError:
         return tagged == canonical
-    tag_norm = normalisiere_port(
-        tag_tree,
-        SHARED_CI_REPO,
-        _eigenes_checkout_verzeichnis(tag_tree, SHARED_CI_REPO),
+    return _kanon_normalform(tag_tree, SHARED_CI_REPO) == _kanon_normalform(
+        kanon_tree, f"{GITHUB_ORG}/platform"
     )
-    kanon_repo = f"{GITHUB_ORG}/platform"
-    kanon_norm = normalisiere_port(
-        kanon_tree, kanon_repo, _eigenes_checkout_verzeichnis(kanon_tree, kanon_repo)
+
+
+def _kanon_normalform(tree: Any, repo: str) -> Any:
+    """Beide Port-Mechaniken in einem Zug: Pfade und Waechter-Aufruf."""
+    return normalisiere_port(
+        _normalisiere_guards(tree), repo, _eigenes_checkout_verzeichnis(tree, repo)
     )
-    return tag_norm == kanon_norm
+
+
+def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
+    """(nur im Tag, nur im Kanon) — Zeilen der normalisierten Baeume.
+
+    Der Fix-Hinweis der Regel behauptete jahrelang eine Richtung ("platform nach
+    shared-ci portieren"), die nirgends gemessen wurde. Am 2026-08-17 lag
+    shared-ci in drei von fuenf Dateien VORNE; ein Port in Hinweis-Richtung
+    haette dort echte Fixes geloescht (Docker-Anmeldungs-Isolierung,
+    CF-Access-Kopfzeilen, ein Gate, ein 16 Monate neuerer Action-Pin).
+    Deshalb wird die Richtung jetzt genannt statt geraten.
+    """
+    import difflib
+
+    def zeilen(text: str, repo: str) -> list[str]:
+        return json.dumps(
+            _kanon_normalform(yaml.safe_load(text), repo),
+            indent=1,
+            sort_keys=True,
+            default=str,
+        ).splitlines()
+
+    try:
+        a = zeilen(canonical, f"{GITHUB_ORG}/platform")
+        b = zeilen(tagged, SHARED_CI_REPO)
+    except yaml.YAMLError:
+        return (0, 0)
+    diff = [
+        z
+        for z in difflib.unified_diff(a, b, n=0)
+        if z.startswith(("+", "-")) and not z.startswith(("+++", "---"))
+    ]
+    return (
+        sum(1 for z in diff if z[0] == "+"),
+        sum(1 for z in diff if z[0] == "-"),
+    )
 
 
 def parse_shared_ci_pins(content: str) -> list[tuple[str, str]]:
@@ -646,6 +783,7 @@ def _shared_ci_state(token: str) -> dict:
     tags = [t.get("name", "") for t in tags_data if isinstance(t, dict)]
     latest = latest_shared_ci_tag(tags)
     stale_files: list[str] = []
+    richtungen: dict[str, tuple[int, int]] = {}
     if latest:
         listing = (
             _api_get(
@@ -672,7 +810,12 @@ def _shared_ci_state(token: str) -> dict:
             # und Messung siehe `shared_ci_deckt_kanon`.
             if tagged is not None and not shared_ci_deckt_kanon(tagged, canonical):
                 stale_files.append(name)
-    _SHARED_CI_STATE = {"latest_tag": latest, "stale_files": stale_files}
+                richtungen[name] = kanon_richtung(tagged, canonical)
+    _SHARED_CI_STATE = {
+        "latest_tag": latest,
+        "stale_files": stale_files,
+        "richtungen": richtungen,
+    }
     return _SHARED_CI_STATE
 
 
@@ -708,6 +851,25 @@ def check_shared_ci_tag_drift(
                 )
             )
         if pinned_file in stale_files:
+            nur_tag, nur_kanon = state.get("richtungen", {}).get(pinned_file, (0, 0))
+            if nur_tag > nur_kanon:
+                richtung = (
+                    f"shared-ci ist VORAUS ({nur_tag} zu {nur_kanon} Zeilen) — "
+                    "Kanon nachziehen, NICHT portieren"
+                )
+                hinweis = (
+                    "shared-ci hat den neueren Stand: dessen Aenderungen nach "
+                    "platform/.github/workflows uebernehmen"
+                )
+            elif nur_kanon > nur_tag:
+                richtung = (
+                    f"platform ist voraus ({nur_kanon} zu {nur_tag} Zeilen) — "
+                    "shared-ci nachziehen + neuen Tag schneiden"
+                )
+                hinweis = "platform .github/workflows nach shared-ci portieren + neuen Tag schneiden"
+            else:
+                richtung = "beide Seiten haben Eigenes — Datei fuer Datei entscheiden"
+                hinweis = "keine Seite ist Obermenge: zusammenfuehren, nicht portieren"
             drifts.append(
                 DriftItem(
                     rule="shared-ci-tag-stale",
@@ -715,9 +877,9 @@ def check_shared_ci_tag_drift(
                     file=f".github/workflows/{wf_file}",
                     message=(
                         f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
-                        "Tag ist stale, neuen Tag schneiden (🌀 Tag≠main)"
+                        f"{richtung} (🌀 Tag≠main)"
                     ),
-                    fix_hint="platform .github/workflows nach shared-ci portieren + neuen Tag schneiden",
+                    fix_hint=hinweis,
                 )
             )
     return drifts
