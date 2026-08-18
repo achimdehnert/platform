@@ -104,6 +104,7 @@ def _fahre(
     transcript: Path,
     *,
     budget: str = "4",
+    budget_prod: str = "3",
     session: str = "test",
 ) -> subprocess.CompletedProcess[str]:
     event = {"transcript_path": str(transcript), "session_id": session}
@@ -114,7 +115,11 @@ def _fahre(
         text=True,
         env={
             "PATH": "/usr/bin:/bin",
-            "ARTEFAKT_BUDGET_PRS": budget,
+            # Seit 2026-08-17 liegt die Schwelle auf `prs_seit_owner`, nicht auf
+            # der absoluten PR-Zahl (#1640). Die Fixture enthaelt keine
+            # Owner-Nachricht, daher gilt hier prs_seit_owner == pr_creates.
+            "ARTEFAKT_BUDGET_SEIT_OWNER": budget,
+            "ARTEFAKT_BUDGET_SEIT_OWNER_PROD": budget_prod,
             "TMPDIR": str(tmp_path),
             # PFLICHT, nicht Kosmetik: der Hook laeuft hier als Subprozess mit
             # ersetzter Umgebung — `PYTEST_CURRENT_TEST` kommt dort nie an, die
@@ -439,6 +444,102 @@ def test_should_count_the_same_pr_url_only_once(tmp_path: Path) -> None:
         + "\n"
     )
     assert ab.zaehle_artefakte(t) == (1, 0)
+
+
+# --------------------------------------------------------------------------
+# Schwelle auf prs_seit_owner statt auf der absoluten PR-Zahl (#1640, 2026-08-17).
+# Begruendung aus echten Sitzungen: die absolute Zahl feuerte bei 4 in sechs von
+# acht Sitzungen und stieg monoton; prs_seit_owner lag in sieben von acht bei <= 2
+# und erreichte genau einmal 17 — in der Sitzung mit der 17-PR-Schleife.
+# --------------------------------------------------------------------------
+
+
+def test_should_not_fire_on_absolute_count_alone(tmp_path: Path) -> None:
+    """Viele PRs, aber der Mensch hat zwischendurch gesprochen — kein Alarm.
+
+    Das ist die Kernaenderung: die alte Schwelle haette hier gefeuert, obwohl
+    nach der letzten Nachricht nur ein einziger PR entstand.
+    """
+    t = tmp_path / "viele_aber_begleitet.jsonl"
+    basis = _transcript(tmp_path, pr_creates=6).read_text().splitlines()
+    # Owner meldet sich nach dem fuenften PR (je PR zwei Zeilen) -> danach 1.
+    t.write_text("\n".join(basis[:10] + [_owner_nachricht()] + basis[10:]) + "\n")
+    e = _fahre(tmp_path, t, budget="5")
+    assert e.stdout.strip() == "", e.stdout
+
+
+def test_should_fire_when_chain_grows_without_owner(tmp_path: Path) -> None:
+    """Dieselbe PR-Zahl, aber ohne Zwischenmeldung — genau dann feuert er."""
+    e = _fahre(tmp_path, _transcript(tmp_path, pr_creates=6), budget="5")
+    assert "seit deiner letzten Nachricht" in e.stdout
+
+
+def test_should_lower_threshold_when_prod_step_present(tmp_path: Path) -> None:
+    """Ein Prod-/Publish-Schritt senkt die Schwelle von 5 auf 3."""
+    t = tmp_path / "mit_prod.jsonl"
+    basis = _transcript(tmp_path, pr_creates=3).read_text().splitlines()
+    prod = _aufruf("p1", "bash deploy.sh prod")
+    t.write_text("\n".join(basis + [prod]) + "\n")
+    ohne = _fahre(tmp_path, _transcript(tmp_path, pr_creates=3), budget="5")
+    assert ohne.stdout.strip() == "", "3 PRs ohne Prod-Schritt duerfen nicht feuern"
+    zweit = tmp_path / "b"
+    zweit.mkdir()
+    mit = _fahre(zweit, t, budget="5", budget_prod="3")
+    assert "Prod-/Publish-Schritt dabei" in mit.stdout
+
+
+def test_should_fire_again_after_owner_spoke_and_chain_regrew(tmp_path: Path) -> None:
+    """Nach einer Owner-Nachricht faellt der Zaehler — der Merker muss mit.
+
+    Sonst schweigt der Melder nach dem ersten Feuern fuer den Rest der Sitzung:
+    er vergleicht gegen den alten Hoechststand, den die neue Kette erst wieder
+    ueberschreiten muesste. Genau dieser Fehler steckte im ersten Entwurf der
+    Umstellung.
+    """
+    lang = _transcript(tmp_path, pr_creates=5).read_text().splitlines()
+    erste = tmp_path / "kette1.jsonl"
+    erste.write_text("\n".join(lang) + "\n")
+    assert _fahre(tmp_path, erste, budget="5").stdout.strip() != "", "1. Kette"
+
+    # Der Mensch meldet sich, danach entsteht eine ZWEITE Kette gleicher Laenge.
+    # Die PR-Nummern muessen sich unterscheiden — gleiche URLs waeren derselbe
+    # PR und wuerden korrekt entdupliziert, der Test wuerde am eigenen Aufbau
+    # scheitern statt an der Logik.
+    weitere = []
+    for i in range(5):
+        weitere.append(_aufruf(f"z{i}", f'gh pr create --title "z{i}"'))
+        weitere.append(_ergebnis(f"z{i}", _pr_url(500 + i)))
+    zweite = tmp_path / "kette2.jsonl"
+    zweite.write_text("\n".join(lang + [_owner_nachricht()] + weitere) + "\n")
+    e = _fahre(tmp_path, zweite, budget="5")
+    assert e.stdout.strip() != "", "2. Kette nach Owner-Nachricht muss erneut feuern"
+
+
+def test_should_report_repos_with_artefacts_not_mentions(tmp_path: Path) -> None:
+    """`repos` zaehlt Erwaehnungen (50 bzw. 26 in echten Sitzungen) und traegt
+    deshalb keine Schwelle. `repos_mit_artefakt` ist die belastbare Zahl."""
+    ab = _modul()
+    t = tmp_path / "erwaehnt.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                # drei Repos nur GENANNT, in reinen Lesezugriffen
+                _aufruf("l1", "gh pr view 1 -R o/alpha"),
+                _ergebnis("l1", "state OPEN"),
+                _aufruf("l2", "gh issue list --repo o/beta"),
+                _ergebnis("l2", "keine"),
+                _aufruf("l3", "gh pr list -R o/gamma"),
+                _ergebnis("l3", "keine"),
+                # ein Repo, in dem wirklich etwas entstand
+                _aufruf("c1", "gh pr create -t x"),
+                _ergebnis("c1", _pr_url(9, "o/delta")),
+            ]
+        )
+        + "\n"
+    )
+    d = ab.sammle(t)
+    assert d["repos"] == 4, d
+    assert d["repos_mit_artefakt"] == 1, d
 
 
 def test_should_never_fail_on_garbage_stdin(tmp_path: Path) -> None:
