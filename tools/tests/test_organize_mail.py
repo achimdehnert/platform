@@ -253,3 +253,60 @@ def test_should_not_store_when_no_matches():
     imap = _FlagImap(b"1001", _fetch_exchange(1001, "alice@x.de", "Frist"))
     om.cmd_flag(imap, "INBOX", "niemand", None, yes=True, add=True)
     assert imap.stored is None
+
+
+# --- Genau eine Nachricht verschieben (--uid) --------------------------------
+#
+# Bis 2026-08-18 konnte `--move` nur nach Absender oder Betreff filtern. Wer eine
+# einzelne Mail bewegen wollte, musste einen Betreff-Filter nehmen — der trifft
+# auch fremde Mails mit demselben Wort.
+
+
+def test_should_restrict_matches_to_the_named_uids():
+    fetch = _fetch_exchange(1001, "alice@x.de", "Hallo") + _fetch_exchange(
+        1002, "bob@y.de", "Tschuess"
+    )
+    imap = _FakeUidImap(b"1001 1002", fetch)
+    hits = om._matches(imap, "INBOX", None, None, nur_uids=["1002"])
+    assert [h[0] for h in hits] == [b"1002"]
+
+
+def test_should_combine_uid_and_sender_filter_as_and():
+    """Beide gesetzt heißt beides muss passen — nicht eines von beiden."""
+    fetch = _fetch_exchange(1001, "alice@x.de", "Hallo") + _fetch_exchange(
+        1002, "bob@y.de", "Tschuess"
+    )
+    imap = _FakeUidImap(b"1001 1002", fetch)
+    assert om._matches(imap, "INBOX", "alice", None, nur_uids=["1002"]) == []
+
+
+def test_should_return_nothing_for_a_uid_that_is_not_in_the_folder():
+    fetch = _fetch_exchange(1001, "alice@x.de", "Hallo")
+    imap = _FakeUidImap(b"1001", fetch)
+    assert om._matches(imap, "INBOX", None, None, nur_uids=["9999"]) == []
+
+
+class _FakeUidImapMitOrdnern(_FakeUidImap):
+    """Wie `_FakeUidImap`, kennt zusätzlich `list()`.
+
+    `cmd_move` prüft über `list_folders()`, ob der Zielordner existiert. Der
+    Basis-Fake lässt jeden Nicht-UID-Aufruf absichtlich scheitern, damit der alte
+    Sequenznummer-Regress sofort auffällt — diese Zusicherung bleibt unangetastet,
+    deshalb eine eigene Klasse statt eines `list()` in der Basis.
+    """
+
+    def list(self):
+        return "OK", [b'(\\HasNoChildren) "/" "INBOX"', b'(\\HasNoChildren) "/" "Archiv/2026"']
+
+
+def test_should_name_a_missing_uid_instead_of_reporting_nothing_to_do(capsys):
+    """Eine nicht gefundene UID ist ein Hinweis, kein stilles 'nichts zu tun'.
+
+    Sonst liest sich ein Tippfehler oder eine zwischenzeitlich verschobene Mail
+    wie ein erledigter Lauf.
+    """
+    fetch = _fetch_exchange(1001, "alice@x.de", "Hallo")
+    imap = _FakeUidImapMitOrdnern(b"1001", fetch)
+    om.cmd_move(imap, "INBOX", "Archiv/2026", None, None, True, ["9999"])
+    ausgabe = capsys.readouterr()
+    assert "9999" in ausgabe.err
