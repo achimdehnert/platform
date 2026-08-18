@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -235,7 +236,7 @@ class TestErledigt:
         heute = "2026-08-18"
         alt = (
             board.date.fromisoformat(heute)
-            - board.timedelta(days=board.ERLEDIGT_FENSTER_TAGE + 1)
+            - timedelta(days=board.ERLEDIGT_FENSTER_TAGE + 1)
         ).isoformat()
         ausgabe = board.render(
             _ledger(_v(nr=3, bucket="erledigt", erledigt_am=alt, kurz="Uralt")), heute
