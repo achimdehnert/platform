@@ -20,12 +20,32 @@ LOG_TAG=offsite-backup
 [[ -r "$ENV_FILE" ]] || { echo "FEHLER: $ENV_FILE fehlt — erst prod-offsite-init.sh." >&2; exit 1; }
 set -a; . "$ENV_FILE"; set +a
 
+# Unter welchem Host-Namen die Snapshots im Repository stehen.
+#
+# Frueher stand hier fest `--host prod`. Das reichte, solange nur ein Host
+# sicherte. Seit dem ADR-292-Umzug tragen `prod` und `prod-b` teils
+# GLEICHNAMIGE Container (cad_hub_db, coach_hub_db, dms_hub_db, pptx_hub_db,
+# trading_hub_db) — mit festem `--host prod` waeren deren Snapshots im selben
+# Repository nicht mehr auseinanderzuhalten. Genau daran haette sich sonst die
+# Frage "welche der beiden Datenbanken liegt hier eigentlich?" nicht mehr
+# beantworten lassen (platform#2058).
+#
+# Voreinstellung bleibt bewusst `prod` — NICHT `hostname`. Der Hostname luegt
+# hier (die Box heisst bis heute `ubuntu-8gb-nbg1-1`, siehe infra/hosts.yaml),
+# und ein Wechsel des Host-Namens haette die 297 bestehenden Snapshots still in
+# einen anderen Namensraum verschoben. Jeder WEITERE Host setzt `OFFSITE_HOST`
+# in seiner /etc/offsite-backup.env; vergisst er es, sichert er unter `prod`
+# und der Fehler faellt beim ersten Blick in `restic snapshots` auf, statt
+# unbemerkt zu bleiben.
+RESTIC_HOST="${OFFSITE_HOST:-prod}"
+
 redact() { sed -E 's#(://[^:/@]+):[^@]*@#\1:***@#g'; }
 log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 
 rc_total=0
 
 # ─────────────────────────────────────────────────────────────────────────────
+log "Sicherung laeuft unter Host-Name: $RESTIC_HOST"
 log "Postgres-Instanzen sichern (pg_dumpall)"
 
 # Erkennung ueber das VERHALTEN, nicht ueber den Namen des Images.
@@ -87,11 +107,48 @@ printf '%s' "${#PGC[@]}" > "$ZAEHLER_DATEI" 2>/dev/null || true
 log "  ${#PGC[@]} Postgres-Instanz(en) erkannt (Vorlauf: $vorher)"
 
 for c in "${PGC[@]}"; do
-  # Superuser ermitteln: die Images setzen POSTGRES_USER, Default ist 'postgres'.
+  # Dump-Rolle bestimmen. Frueher wurde blind POSTGRES_USER genommen — in fast
+  # allen Images IST das der Superuser, aber eben nicht in allen: pptx_hub_db
+  # setzt POSTGRES_USER=pptx_hub_app, eine App-Rolle OHNE Attribute, waehrend
+  # der Superuser daneben `pptx_hub` heisst. pg_dumpall liest als Erstes die
+  # Rollen aus pg_authid, scheiterte dort an fehlenden Rechten und lieferte
+  # 229 Byte statt 145 KB (platform#2057).
+  #
+  # Deshalb: POSTGRES_USER bleibt die erste Wahl, aber nur wenn es wirklich ein
+  # Superuser ist; sonst wird eine login-faehige Superuser-Rolle gesucht.
+  # `pg_roles` ist eine fuer jeden lesbare Sicht (anders als pg_authid), die
+  # Abfrage gelingt also auch mit der App-Rolle. Gemessen 2026-08-18 ueber alle
+  # 21 Instanzen: 20 liefern exakt POSTGRES_USER zurueck (nichts aendert sich),
+  # nur pptx_hub_db weicht ab.
   u=$(docker exec "$c" sh -c 'printf "%s" "${POSTGRES_USER:-postgres}"' 2>/dev/null || echo postgres)
+  su=$(docker exec "$c" psql -U "$u" -d postgres -tAc \
+        "SELECT rolname FROM pg_roles WHERE rolsuper AND rolcanlogin
+         ORDER BY (rolname = current_user) DESC, rolname LIMIT 1" 2>/dev/null \
+       | tr -d '[:space:]')
+  if [[ -n "$su" && "$su" != "$u" ]]; then
+    log "  · $c: POSTGRES_USER=$u ist kein Superuser — nutze $su"
+    u="$su"
+  fi
+
+  # Vorbedingung pruefen, BEVOR etwas hochgeladen wird. Der eigentliche Schaden
+  # in #2057 war nicht der Fehlschlag, sondern dass `restic backup --stdin` den
+  # abgebrochenen 229-Byte-Strom klaglos als Snapshot speicherte: die Frage
+  # "gibt es einen Snapshot fuer pptx_hub_db?" wurde mit JA beantwortet, obwohl
+  # die Datenbank nicht gesichert war. Ein Groessen-Check nach dem Upload waere
+  # zu spaet, und den Dump erst in eine Datei zu schreiben scheidet aus
+  # (devhub_db allein sind 14,6 GB). pg_authid ist genau das, woran pg_dumpall
+  # als Erstes scheitert — die Abfrage kostet nichts und faengt die Klasse ab.
+  if ! docker exec "$c" psql -U "$u" -d postgres -tAc \
+         "SELECT 1 FROM pg_authid LIMIT 1" >/dev/null 2>&1; then
+    log "  ✗ $c — $u darf pg_authid nicht lesen; pg_dumpall wuerde leer abbrechen."
+    log "        NICHT hochgeladen (ein Leer-Snapshot taeuscht Abdeckung vor)."
+    rc_total=1
+    continue
+  fi
+
   if docker exec "$c" pg_dumpall -U "$u" 2>/dev/null \
      | restic backup --stdin --stdin-filename "${c}.sql" \
-         --tag pgdump --tag "$c" --host prod 2>&1 | redact; then
+         --tag pgdump --tag "$c" --host "$RESTIC_HOST" 2>&1 | redact; then
     log "  ✓ $c (als $u)"
   else
     log "  ✗ $c — Dump oder Upload fehlgeschlagen"
@@ -111,7 +168,7 @@ while read -r v; do
 done < <(docker volume ls --format '{{.Name}}' | grep -iE 'minio|media|upload|documents' | sort)
 
 if [[ ${#TARGETS[@]} -gt 0 ]]; then
-  if restic backup --tag volumes --host prod "${TARGETS[@]}" 2>&1 | redact; then
+  if restic backup --tag volumes --host "$RESTIC_HOST" "${TARGETS[@]}" 2>&1 | redact; then
     log "  ✓ ${#TARGETS[@]} Volume(s)"
   else
     log "  ✗ Volume-Sicherung fehlgeschlagen"; rc_total=1
