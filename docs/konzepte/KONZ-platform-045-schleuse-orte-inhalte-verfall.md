@@ -1,3 +1,18 @@
+---
+concept_id: KONZ-platform-045
+title: "Die Schleuse — Orte, Inhalte, Verfall"
+pipeline_status: idea
+tier: T2
+owner: "Achim Dehnert"
+spec_refs: []
+adr_threshold: "kein ADR — Aufraeum-Regel und Werkzeug, keine Architekturentscheidung"
+review_by: 2026-11-18
+kill_criteria: >
+  Die Zahl der Eintraege aelter als 30 Tage steigt ueber drei Sitzungen in Folge,
+  obwohl das Werkzeug laeuft — dann taugt entweder eine Frist nicht oder ein
+  Zielort fehlt, und die Regel wird nachgezogen statt die Zahl ignoriert.
+---
+
 # KONZ-platform-045: Die Schleuse — Orte, Inhalte, Verfall
 
 **Status:** Vorschlag · **Datum:** 2026-08-18 · **Anlass:** Owner-Befund
