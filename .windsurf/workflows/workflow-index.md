@@ -55,6 +55,7 @@ mode: read-only
 | ADR-Zweitmeinung an externes LLM übergeben | `/adr-handoff-extern` |
 | Problem → entscheidungsreifes Konzept (T1/T2/T3) | `/konzept` |
 | Eingereichte Arbeit formal prüfen (Zitate, Abbildungen, Belege) | `/arbeit-pruefen` |
+| Gutachten zur Abschlussarbeit (Punkteschema, Kritik-Tabelle, Note als Vorschlag) | `/gutachten` |
 | Memory-Lane D4-klassifizieren (A/B/C, Regel-Extraktion, KONZ-038) | `/d4-lane` |
 | Rechnungs-Mails → Paperless + sevdesk-Entwurf (nie buchen) | `/rechnungsstrecke` |
 
