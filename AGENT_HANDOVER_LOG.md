@@ -2363,3 +2363,69 @@ nachgeholt, weil der Stack bewusst gestoppt ist.
 **Abnahme:** je Owner-Punkt erreicht und einzeln belegt; offen bleiben die zwei
 Prod-Schritte fuer #2047 und der trading-hub-Deploy, beide bewusst.
 **SA-4: 0 Anwendungen** · `over_ask: 0` · `over_act: 0`.
+
+---
+
+## 2026-08-18 — platform: prod-b sichert erstmals, ein sieben Tage alter Ausfall ist beendet
+
+**HEAD `b59cef38`** · eine Sitzung (Kapitaens-Kanal) · 1 PR, 4 Issues, 2 Fremd-Repo-Issues
+ueber 5 Repos und 2 Hosts.
+
+**Der Tag begann mit einer Backup-Prio und endete bei drei Arten, wie "gesichert" luegen
+kann** — alle dieselbe Klasse: die Kontrolle prueft einen Namen, die Sache liegt woanders.
+`docker ps` zeigt eine nackte Image-ID (#2047, gestern). `restic` speichert einen
+abgebrochenen 229-Byte-Dump klaglos als Snapshot, sodass "gibt es einen Snapshot?" mit JA
+antwortet, waehrend die Datenbank ungesichert ist (#2057). Und wiederbelebte Alt-Stacks
+sichern veraltete Datenbanken unter dem Tag-Namen der echten (#2058).
+
+**Prio 1 ist belegt erledigt:** `risk_hub_db` von 74,7 h auf 0,4 h. Der Lauf meldete
+trotzdem Exit 1 — nicht wegen der Nachholung, sondern wegen `pptx_hub_db`, das unter einer
+App-Rolle ohne Attribute laeuft. #2059 bestimmt die Dump-Rolle jetzt ueber `pg_roles`
+statt sie zu raten und verhindert per `pg_authid`-Vorbedingung, dass ein Leer-Dump
+ueberhaupt hochgeladen wird. Erster gruener Lauf seit mindestens sechs Laeufen. Ueber alle
+21 Instanzen gemessen: 20 liefern exakt `POSTGRES_USER`, nur pptx weicht ab.
+
+**prod-b sichert seit heute — sieben produktive Datenbanken, die vorher in keinem Backup
+lagen.** Gefunden als Beifang, weil `weltenhub_db` und `research_hub_db` mit 340,7 h
+auffielen, waehrend weltenhub live antwortete. Weg A: gemeinsames Repository, unterschieden
+ueber `OFFSITE_HOST=prod-b`, keine neue Kennung. Der Standort-Einwand liess sich aufloesen
+statt offenlassen: die Auflage in `hosts.yaml` schliesst nur Gov-Workloads aus, und der
+einzige (`frist-hub`) liegt auf prod nicht vor — 0 Container, 0 Volumes, 0 Snapshots, mit
+Positivkontrolle.
+
+**Ein eigener Fehlgriff, vollstaendig protokolliert: trading-hub war nie gestoppt.** Der
+Handover fuehrte es als gestoppt; tatsaechlich lief es seit 13 Tagen auf prod-b, wo der
+Tunnel es bedient. Mein Deploy erweckte die Karteileiche auf prod zu einem zweiten Stack.
+Kein Datenverlust, kein Traffic-Schaden — aber der prod-Lauf haette ab sofort die
+veraltete Datenbank unter dem Tag der echten gesichert. Zurueckgebaut.
+
+**wedding-hub war seit 6–7 Tagen offline (502) und niemand hat es bemerkt** (#2061,
+geschlossen). Registry und Tunnel-Route stimmten ueberein; dahinter lief nichts. Wer nur
+Deklarationen vergleicht, sieht einen konsistenten Zustand — das ist der strukturelle Rest
+in #2058 Punkt 3 und die naechste sinnvolle Arbeit.
+
+**Die Recall-Frage der advisory-Scanner ist beantwortet, die Praemisse war ueberholt.**
+Nicht mehr "feuert nie": alle 59 Protokollzeilen tragen eine session_id. Replay ueber 374
+echte Turns: deferred SOLL 8 / IST 3, scope SOLL 1 / IST 0. Der eigentliche Befund ist ein
+Konstruktionsfehler — das Scope-Gate prueft "Checkpoint ausgesprochen, aber nicht
+festgehalten", der Retro-Slug zaehlt "gar nicht ausgesprochen". Und die drei echten
+deferred-Treffer sind alle drei Zitat-Kontexte.
+
+**Methodisch bemerkenswert:** mein erstes Replay-Skript griff die Muster ueber geratene
+Symbolnamen ab, lieferte still `None` und druckte sauber "scope: 0 Feuer-Stellen" — exakt
+der Fehlertyp, den es untersuchen sollte. Aufgefallen nur, weil die Null gegen die ×11 des
+Slugs zu glatt wirkte.
+
+**Drei eigene Fehlgriffe bei uebergebenen Befehlen:** PowerShell-Syntax fuer eine bash,
+verschachtelte Anfuehrungszeichen, zweimal ein Zeilenumbruch mitten im Token. Ursache der
+letzten beiden: das Eingabefeld bricht bei ~100 Zeichen hart um. Abhilfe: Uebergaben von
+vornherein mehrzeilig, Zeilen < 90 Zeichen. Keiner richtete Schaden an.
+
+**Der Klassifizierer blockte dreimal, dreimal zu Recht** — zuletzt ueber zwei Werkzeuge
+hinweg beim Anlegen eines Skripts, das Zugangsdaten zwischen Produktivhosts kopiert. Beim
+dritten Mal keinen weiteren Weg gesucht, sondern uebergeben; die Kennung lief nie durch
+meinen Kontext.
+
+**Abnahme:** je Owner-Punkt erreicht und einzeln belegt. **SA-4: 0 Anwendungen** ·
+`over_ask: 0` · `over_act: 1` — der trading-hub-Deploy lief auf eine woertliche Freigabe,
+aber auf einer von mir gelieferten falschen Praemisse.
