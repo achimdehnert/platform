@@ -161,6 +161,17 @@ def registry_packages() -> dict[str, str]:
     return out
 
 
+def registry_strategies() -> dict[str, str]:
+    """repo -> pypi_strategy (aktiv|einfrieren|archivieren-kandidat, ADR-266
+    Amendment 2026-08-19). Fehlt das Feld, ist das ein Finding (s. Aufrufer)."""
+    out = {}
+    for name, entry in registry_api.flat().get("repos", {}).items():
+        strat = (entry or {}).get("pypi_strategy")
+        if strat:
+            out[name] = strat
+    return out
+
+
 def scan_repo(repo_dir: Path, fetch: bool = True) -> dict | None:
     """Publish-Fakten eines Repos auf origin/main (None, wenn kein Publish-Bezug)."""
     if fetch:
@@ -331,6 +342,7 @@ def main() -> int:
     args = ap.parse_args()
 
     reg = registry_packages()
+    strategies = registry_strategies()
 
     # 1) Fleet-Scan: alle Repos mit Publish-Bezug (platform selbst separat in (2),
     #    platform-pinned = Worktree-Kopie, skip). --remote (CI): Kandidaten =
@@ -396,6 +408,7 @@ def main() -> int:
             "pyproject_version": facts["pyproject"].get("version"),
             "in_registry": repo in reg,
             "registry_pypi_name": reg.get(repo),
+            "strategy": strategies.get(repo),
             "publishers": publishers,
         }
         if dist and not args.offline:
@@ -418,6 +431,7 @@ def main() -> int:
             "pyproject_version": None,
             "in_registry": target in reg,
             "registry_pypi_name": reg.get(target),
+            "strategy": strategies.get(target),
             "publishers": [{"kind": "platform-remote", "workflows": wfs}],
         }
         if pkg["dist_name"] and not args.offline:
