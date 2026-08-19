@@ -2693,3 +2693,18 @@ obwohl die Sitzung zwei Repos, zwei Produktivsysteme und einen Prod-Deploy berü
 Stop-Hook musste ihn einfordern.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+
+---
+
+## Session 2026-08-19 abends — LLM-Readiness-Audit illustration-hub/music-lab/writing-hub (Kapitaens-Kanal, Fable)
+
+Auftrag: drei Repos auf optimale LLM-Nutzung (cloud+lokal) auditieren, Verbesserungen fuer sofortiges Aufsetzen staerkerer LLMs; Prinzipien Adv. Diaboli / OOTB / Continuous Improvement / Predictive Maintenance. Owner-Erweiterungen in-session: Pakete A/B/C als Entwurf, Empfehlungsreihenfolge F/G/J/D/H/E/I/K, Public→Private-Strategie + iilgmbh-Wanderung.
+
+Geliefert (alles Entwurf, 0 Merges, 0 Prod): 14 Draft-PRs — wh#638/#639(+prompt_hash)/#641/#644, ill#283/#284/#285, ml#38, platform#2109/#2110, frist-hub#120, iil-django-commons#15, meiki-dms#15, meiki-hub#145. 2 KONZ-Entwuerfe (048 Doku-Drift-Melder, 049 Box-Cluster-Wachhund). Tracking: platform#2111–#2119, wh#640/#643/#645, meiki-dms#16. Private-Klassifikation (22/5/2) + G-Messung + F-Anleitung durabel in #2119; Welle-1-Flip bewusst NICHT ausgefuehrt (Freigabe ausstehend).
+
+Wichtigste Beifaenge: infra-deploy seit 30.07. ohne Runner (#2114, beruehrt #2086) · shared-ci-Duplikat (#2113) · music-lab fehlte in jeder Registry (#2109) · writing-hub ist public ohne Beschluss-Artefakt (#2119).
+
+Arbeitsweise: 3 Explore-Audits + 10 Umsetzer-Subagents parallel; 3 Audit-Praemissen von Umsetzern falsifiziert (Test-DB-Mechanik, #601-Fallback-Claim, „nur Fehlerpfad getestet") — adversariale Zweitpruefung wirkte. Fehler dieser Sitzung: Scope-Checkpoint erst auf Stop-Hook-Anstoss ausgesprochen; J-Caller-Liste zunaechst aus stale lokalen Klonen erhoben (Agenten korrigierten gegen origin); zwei Warte-Agenten liefen in CI-Idle-Loops und mussten per Nachricht beendet werden.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
