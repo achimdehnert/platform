@@ -170,6 +170,11 @@ repos:
       C4:8000)
   meiki-hub:
     type: django
+  music-lab:
+    type: python
+    note: Song-/Sprach-Generierung auf der lokalen GPU-Box (ACE-Step, MOSS-TTS, Groq-Textvorschlag); kein
+      Deploy - Box nur via WireGuard/SSH-Tunnel; Cluster-Nachbarn illustration-hub (ComfyUI) und writing-hub
+      (Ollama)
   nl2cad:
     type: library
     pypi: nl2cad
