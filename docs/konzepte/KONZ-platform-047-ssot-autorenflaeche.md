@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-046
+concept_id: KONZ-platform-047
 title: "SSoT der Autorenflaeche — git-first Eingaben, DB-first Erzeugnis"
 pipeline_status: idea
 tier: T2
@@ -19,7 +19,7 @@ kill_criteria: >
   behaupten, den die Implementierung nicht traegt.
 ---
 
-# KONZ-platform-046: SSoT der Autorenflaeche
+# KONZ-platform-047: SSoT der Autorenflaeche
 
 **Status:** Vorschlag · **Datum:** 2026-08-19 · **Groesse:** T2
 **Anlass:** Fund beim Schleusen-Durchgang — eine entscheidungsreife
