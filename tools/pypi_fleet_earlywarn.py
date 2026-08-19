@@ -129,7 +129,10 @@ def find_org(repo: str, token: str) -> str | None:
         # full_name gegen die Anfrage prüfen: GitHub folgt Transfer-Redirects,
         # sonst zählte ein umgezogenes Repo für seine ALTE Org (Heimat-Drift
         # wäre per Konstruktion unsichtbar).
-        if isinstance(meta, dict) and meta.get("full_name", "").lower() == f"{org}/{repo}".lower():
+        if (
+            isinstance(meta, dict)
+            and meta.get("full_name", "").lower() == f"{org}/{repo}".lower()
+        ):
             return org
     return None
 
@@ -175,7 +178,9 @@ def scan_package(repo: str, org: str, token: str, today: dt.date) -> list[str]:
         if status == "eol":
             findings.append(f"M2 python_eol: Untergrenze {m.group(1)!r} ist EOL")
         elif status == "eol_soon":
-            findings.append(f"M2 python_eol: Untergrenze {m.group(1)!r} EOL in <6 Monaten")
+            findings.append(
+                f"M2 python_eol: Untergrenze {m.group(1)!r} EOL in <6 Monaten"
+            )
 
     m3_texts: dict[str, str] = {}
     for fname in M3_FILES:
@@ -189,13 +194,21 @@ def scan_package(repo: str, org: str, token: str, today: dt.date) -> list[str]:
         else []
     )
     for name in wf_names:
-        text = _api(f"/repos/{org}/{repo}/contents/.github/workflows/{name}", token, raw=True)
+        text = _api(
+            f"/repos/{org}/{repo}/contents/.github/workflows/{name}", token, raw=True
+        )
         if not isinstance(text, str):
             continue
         m3_texts[f".github/workflows/{name}"] = text
         for owner_repo, wf, ref in parse_reusable_refs(text):
-            if owner_repo.endswith("/platform") and wf == "_ci-pypi.yml" and ref != "main":
-                findings.append(f"M4 reusable_lag: {name} pinnt _ci-pypi.yml@{ref} (!= main)")
+            if (
+                owner_repo.endswith("/platform")
+                and wf == "_ci-pypi.yml"
+                and ref != "main"
+            ):
+                findings.append(
+                    f"M4 reusable_lag: {name} pinnt _ci-pypi.yml@{ref} (!= main)"
+                )
             elif owner_repo.endswith("/shared-ci") and ref != "main":
                 newest = latest_tag(owner_repo, token)
                 if newest is None:
@@ -203,7 +216,9 @@ def scan_package(repo: str, org: str, token: str, today: dt.date) -> list[str]:
                         f"M4 nicht prüfbar: {name} pinnt {owner_repo}@{ref}, "
                         "neuester Tag nicht auflösbar"
                     )
-                elif semver_key(ref) is not None and semver_key(ref) < semver_key(newest):
+                elif semver_key(ref) is not None and semver_key(ref) < semver_key(
+                    newest
+                ):
                     findings.append(
                         f"M4 reusable_lag: {name} pinnt {owner_repo}/{wf}@{ref} "
                         f"(neuester Tag: {newest})"
@@ -221,7 +236,9 @@ def main() -> int:
         "--fleet-file", type=Path, default=PLATFORM_DIR / "registry" / "pypi-fleet.yaml"
     )
     ap.add_argument("--today", type=dt.date.fromisoformat, default=None)
-    ap.add_argument("--strict", action="store_true", help="rc 1 bei Findings (blocking)")
+    ap.add_argument(
+        "--strict", action="store_true", help="rc 1 bei Findings (blocking)"
+    )
     args = ap.parse_args()
     today = args.today or dt.date.today()
 
@@ -245,7 +262,9 @@ def main() -> int:
         findings = scan_package(repo, org, token, today)
         dl = (fleet["packages"][repo].get("pypi") or {}).get("downloads_30d")
         if isinstance(dl, int) and dl < DOWNLOAD_FLOOR_30D:
-            findings.append(f"M5 archival_info: nur {dl} Downloads/30d (<{DOWNLOAD_FLOOR_30D})")
+            findings.append(
+                f"M5 archival_info: nur {dl} Downloads/30d (<{DOWNLOAD_FLOOR_30D})"
+            )
         for f in findings:
             print(f"{repo}: {f}")
         total += len(findings)

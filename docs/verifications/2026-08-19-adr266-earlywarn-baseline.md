@@ -32,6 +32,17 @@ Die Fleet konsumiert `_ci-pypi.yml` de facto aus der shared-ci-Kopie
 (14 Pin-Nachweise), nicht aus platform (ADR-226-Kanon). Kanon-Entscheid nötig:
 Kopie zurückbauen oder Kanon offiziell umziehen — nicht parallel pflegen.
 
+## CI-Kontext-Grenze (gemessen im PR-Dry-Run, Run 32230457699)
+
+Der Wochenlauf nutzt das repo-gebundene `GITHUB_TOKEN` und sieht **fremde
+private Repos nicht**: die 6 privaten aktiv-Repos (django-lms-lite, gpufw,
+iil-doc-templates, iil-fieldprefill, illustration-fw, nl2cad) erscheinen dort
+als lautes „ORG NICHT AUFLÖSBAR" statt ihrer 7 real vorhandenen Findings
+(CI: 39 Zeilen, lokal: 38 — Delta vollständig erklärt). Kein stilles Grün;
+volle Abdeckung liefert der lokale Lauf mit User-Token. Ein PAT im Workflow
+wäre die Alternative — Security-Config, bewusst nicht ohne Owner-Entscheid
+(vermerkt in #2089).
+
 ## Advisory-Kontrakt
 
 rc immer 0 (`--strict` existiert für späteres Blocking, erst nach
