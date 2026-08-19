@@ -1,6 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: PyPI Library CI (Lint, Secret-Scan, Test, Audit)       ║
-# ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-pypi.yml@main    ║
+# ║  DEPRECATED (ADR-226 Amendment 2026-08-19, #2084): Kanon ist              ║
+# ║  iilgmbh/shared-ci/.github/workflows/_ci-pypi.yml — NICHT hier ändern.    ║
 # ║  ADR-226: binding CI for every PyPI-published platform package.            ║
 # ║  Library-shaped — NO Django settings, NO Postgres. Apps use _ci-python.yml ║
 # ║  Caller needs only `permissions: { contents: read }` (secret-scan is       ║
