@@ -101,7 +101,7 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
 ## Ausgabeformat: Mail-Action-Board mit Deckungsblock (#1820 Kriterium 3)
 
 - **Buckets in fester Reihenfolge**, leere weglassen: 🟢 *dein Zug* · 🔵 *ich kann sofort*
-  · 🟡 *wartet auf Antwort* · ✅ *erledigt seit letztem Check*. Nummerierte Zeilen mit
+  · 🟡 *wartet auf Antwort* · ✅ *erledigt* (Bucket `erledigt`, Fenster 14 Tage). Nummerierte Zeilen mit
   **kurzen Labellinks** (nie nackte IDs, nie Fließtext in Zellen).
 - **Quellen-Tag je Bucket-Abschnitt:** `[db]`, `[live]` oder `[db+live]`.
 - **Umfang-Regler** `knapp | normal | ausführlich`, Default **normal** (Owner-Weisung
@@ -125,7 +125,7 @@ Punkte du verfolgst. Zwei Ebenen:
 - **Einfache Punkte (Antwort geschickt / erledigt) → lokales Ledger** `~/.claude/mail-vorgaenge.json`
   (nur lokal, **nie** Repo/Memory — enthält Adressen/Betreffs, Charta 2). Je Eintrag:
   `{konto, thread_key, gegenueber, typ, zustand, next_trigger, angelegt, letzte_pruefung,
-  nr, mail_ref}`.
+  nr, bucket, mail_ref, erledigt_am}`.
   **`mail_ref` (optional, platform#1869):** der Pfad, unter dem der Mail-Renderer die
   zugehörige Mail ausliefert — Regelfall `/a/<nr>`, weil der Anker die Mail auch nach einem
   Ordnerwechsel über die Message-ID wiederfindet. Anlegen in zwei Schritten:
@@ -142,9 +142,18 @@ Punkte du verfolgst. Zwei Ebenen:
   (`tools/todo_board/todo_board.py`, `aktionen()`). Der Wert ist stabil: zwei Läufe für
   denselben Vorgang ergeben denselben Pfad, weil er nur aus `nr` besteht.
 
-  `/briefing` legt neue offene Punkte an; `/mailcheck` aktualisiert/entfernt sie:
-  **im Ordner „Gesendete Elemente" gefunden → Punkt als erledigt schließen und aus der
-  offenen Liste nehmen.**
+  `/briefing` legt neue offene Punkte an; `/mailcheck` schreibt sie fort:
+  **im Ordner „Gesendete Elemente" gefunden → Punkt schließen.**
+
+  **Schließen heißt `bucket: "erledigt"` plus `erledigt_am: "<ISO-Datum>"` — nicht löschen**
+  (neu 2026-08-18). Der Eintrag verlässt damit die offenen Abschnitte, bleibt aber in der
+  Datei. Zwei Gründe: Man sieht, was in den letzten Tagen fertig wurde, und jede Logik, die
+  am Abschluss hängt, behält ihren Auslöser. Wer den Posten löscht, löscht mit ihm den Anker
+  — und damit den einzigen verlässlichen Weg zurück zu den zugehörigen Mails.
+
+  `board.py` zeigt geschlossene Vorgänge **14 Tage** lang (`ERLEDIGT_FENSTER_TAGE`), danach
+  nur noch als Zähler. Ohne `erledigt_am` meldet `board.py --pruefe` einen Befund; der Posten
+  bleibt dann sichtbar, statt still zu verschwinden.
 
 ## Rauschen erkennen + wegräumen
 
