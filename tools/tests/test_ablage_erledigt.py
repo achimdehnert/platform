@@ -1,4 +1,4 @@
-"""Tests für tools/mail_agent/ablage_erledigt.py — Zielauflösung, kein Schreibpfad.
+"""Tests für tools/mail_agent/ablage.py — Zielauflösung, kein Schreibpfad.
 
 Geprüft wird die Frage, an der die Automatik scheitern würde: Landet eine Mail in
 der richtigen Schublade, und wird zugegeben, wenn keine passt? Kein Test fasst ein
@@ -7,7 +7,9 @@ Postfach an; der Ordnerbestand wird hereingereicht.
 
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -69,8 +71,11 @@ class TestZielauflösung:
     def test_should_match_a_student_folder_despite_different_name_shape(self):
         """'Winterhalt, Nele Sophie' und 'Winterhalt-Nele-Sophie' sind derselbe Mensch."""
         ziel, _ = ablage.ziel_fuer(
-            _v(konto="hnu", typ="betreuung-masterarbeit",
-               gegenueber="HNU / N. S. Winterhalt (Masterthesis)"),
+            _v(
+                konto="hnu",
+                typ="betreuung-masterarbeit",
+                gegenueber="HNU / N. S. Winterhalt (Masterthesis)",
+            ),
             HNU_ORDNER,
             {},
         )
@@ -315,3 +320,250 @@ class TestBetreffkern:
         )
         assert strang is None
         assert "kein gleicher Betreff" in grund
+
+
+# --- Schreibpfad -------------------------------------------------------------
+#
+# Der Index ist ein Schnappschuss von 03:30. Zwischen ihm und dem Verschieben
+# liegt eine Nacht, in der der Owner selbst Mails bewegt. Der Abgleich gegen den
+# LEBENDEN Ordner ist deshalb kein Feinschliff, sondern die Bedingung dafür, dass
+# überhaupt etwas Richtiges bewegt wird.
+
+
+def _b(
+    betreff="Vorgang X",
+    datum="2026-08-18",
+    konto="hnu",
+    von="INBOX",
+    nach="Archiv/2026",
+    nr=5,
+):
+    return ablage.Bewegung(
+        vorgang_nr=nr,
+        konto=konto,
+        betreff=betreff,
+        von_ordner=von,
+        nach_ordner=nach,
+        datum=datum,
+    )
+
+
+class TestGraphAusgabeLesen:
+    """`graph_mail --find` kennt kein --json — die eine Textstelle, hart getestet."""
+
+    ROH = """3 Treffer in 'Posteingang' (letzte 365 Tage), neueste zuerst:
+  · 2026-08-18T07:27  steffen.beispiel@example.com   AW: Abstimmung Termin
+    id: AAMkAAA=
+  · 2026-08-17T13:01  info@example.org               Ein anderer Betreff
+    id: AAMkBBB=
+"""
+
+    def test_should_pair_each_hit_with_its_identifier(self):
+        aus = ablage.graph_zeilen_lesen(self.ROH)
+        assert [e["kennung"] for e in aus] == ["AAMkAAA=", "AAMkBBB="]
+
+    def test_should_cut_the_date_to_ten_characters(self):
+        assert ablage.graph_zeilen_lesen(self.ROH)[0]["datum"] == "2026-08-18"
+
+    def test_should_keep_the_subject_without_the_sender(self):
+        assert (
+            ablage.graph_zeilen_lesen(self.ROH)[0]["betreff"] == "AW: Abstimmung Termin"
+        )
+
+    def test_should_ignore_a_hit_without_an_identifier(self):
+        assert (
+            ablage.graph_zeilen_lesen("  · 2026-08-18T07:27  a@b.de  Ohne ID\n") == []
+        )
+
+
+class TestDatumKern:
+    def test_should_pass_an_iso_date_through(self):
+        assert ablage._datum_kern("2026-08-18T07:27") == "2026-08-18"
+
+    def test_should_understand_an_rfc_date_header(self):
+        assert ablage._datum_kern("Tue, 18 Aug 2026 11:01:00 +0000") == "2026-08-18"
+
+    def test_should_not_crash_on_nonsense(self):
+        assert ablage._datum_kern("gestern") == "gestern"
+
+
+class TestAbgleich:
+    def test_should_match_subject_and_date_to_a_live_identifier(self):
+        bestand = [{"kennung": "42", "betreff": "AW: Vorgang X", "datum": "2026-08-18"}]
+        paare, fehlt = ablage.abgleichen([_b()], bestand)
+        assert paare == [(paare[0][0], "42")]
+        assert fehlt == []
+
+    def test_should_skip_a_message_that_is_gone_from_the_source_folder(self):
+        paare, fehlt = ablage.abgleichen([_b()], [])
+        assert paare == []
+        assert "nicht mehr vorhanden" in fehlt[0][1]
+
+    def test_should_not_confuse_two_messages_of_the_same_thread(self):
+        """Gleicher Betreff, verschiedene Tage — das Datum entscheidet."""
+        bestand = [
+            {"kennung": "1", "betreff": "AW: Vorgang X", "datum": "2026-08-17"},
+            {"kennung": "2", "betreff": "AW: Vorgang X", "datum": "2026-08-18"},
+        ]
+        paare, _ = ablage.abgleichen([_b(datum="2026-08-18")], bestand)
+        assert paare[0][1] == "2"
+
+    def test_should_use_each_live_message_only_once(self):
+        """Zwei erwartete Nachrichten, nur eine im Ordner — die zweite fehlt."""
+        bestand = [{"kennung": "1", "betreff": "Vorgang X", "datum": "2026-08-18"}]
+        paare, fehlt = ablage.abgleichen([_b(), _b()], bestand)
+        assert len(paare) == 1
+        assert len(fehlt) == 1
+
+
+class TestAnwenden:
+    def _lauf(self, tmp_path, paare):
+        bewegt = []
+        n = ablage.anwenden(
+            paare,
+            "lauf-1",
+            verschieben=lambda k, q, ids, z: bewegt.append((k, q, tuple(ids), z)),
+            protokoll=tmp_path / "protokoll.jsonl",
+        )
+        return n, bewegt
+
+    def test_should_move_nothing_and_write_nothing_for_an_empty_plan(self, tmp_path):
+        n, bewegt = self._lauf(tmp_path, [])
+        assert (n, bewegt) == (0, [])
+        assert not (tmp_path / "protokoll.jsonl").exists()
+
+    def test_should_group_moves_by_account_and_folder_pair(self, tmp_path):
+        paare = [
+            (_b(konto="hnu", nach="Archiv/2026"), "1"),
+            (_b(konto="hnu", nach="Archiv/2026"), "2"),
+            (_b(konto="iil", von="Posteingang", nach="IIL.Kunden/Muster"), "AAMk="),
+        ]
+        n, bewegt = self._lauf(tmp_path, paare)
+        assert n == 3
+        assert len(bewegt) == 2
+        hnu = next(x for x in bewegt if x[0] == "hnu")
+        assert hnu[2] == ("1", "2")
+
+    def test_should_write_the_protocol_before_moving(self, tmp_path):
+        """Ein Abbruch mitten im Umzug darf den Lauf nicht unauffindbar machen."""
+        pfad = tmp_path / "protokoll.jsonl"
+        gesehen = {}
+
+        def verschieben(k, q, ids, z):
+            gesehen["protokoll_da"] = pfad.exists()
+
+        ablage.anwenden(
+            [(_b(), "1")], "lauf-2", verschieben=verschieben, protokoll=pfad
+        )
+        assert gesehen["protokoll_da"] is True
+
+    def test_should_record_source_and_target_so_the_run_can_be_undone(self, tmp_path):
+        import json as _json
+
+        pfad = tmp_path / "protokoll.jsonl"
+        ablage.anwenden(
+            [(_b(), "1")], "lauf-3", verschieben=lambda *a: None, protokoll=pfad
+        )
+        eintrag = _json.loads(pfad.read_text(encoding="utf-8").splitlines()[0])
+        assert eintrag["quellordner"] == "INBOX"
+        assert eintrag["zielordner"] == "Archiv/2026"
+        assert eintrag["lauf_id"] == "lauf-3"
+
+
+# --- Ruecknahme: die protokollierte Kennung ist nach dem Umzug wertlos --------
+# Beide Faelle sind am 2026-08-19 an einer echten Nachricht aufgetreten und
+# waeren von einem Trockenlauf nie gefunden worden.
+
+
+def test_should_carry_konto_through_ruecknahme():
+    """Ohne Konto im Rueckplan greift die Ruecknahme zum falschen Transport.
+
+    Realfall: der Eintrag war Graph (iil), der Rueckweg fiel auf IMAP zurueck
+    und scheiterte an einem Ordner, den es dort nicht gibt.
+    """
+    import regeln
+
+    with tempfile.TemporaryDirectory() as tmp:
+        pfad = Path(tmp) / "protokoll.jsonl"
+        regeln.protokollieren(
+            [
+                {
+                    "id": "ID-ALT",
+                    "konto": "iil",
+                    "betreff": "Sache",
+                    "datum": "2026-07-25",
+                    "quellordner": "Posteingang",
+                    "zielordner": "Kunden/Muster",
+                    "aktion": "verschieben",
+                }
+            ],
+            pfad,
+            "lauf-1",
+        )
+        zurueck = regeln.ruecknahme(pfad, "lauf-1")
+
+    assert zurueck[0]["konto"] == "iil"
+    assert zurueck[0]["datum"] == "2026-07-25"
+
+
+def test_should_resolve_ruecknahme_identifier_at_current_location():
+    """Die Kennung wird am jetzigen Ort neu geholt, nicht aus dem Protokoll."""
+    eintrag = {
+        "id": "ID-ALT",
+        "konto": "iil",
+        "betreff": "AW: Sache",
+        "datum": "2026-07-25",
+        "quellordner": "Kunden/Muster",
+        "zielordner": "Posteingang",
+    }
+    bestand = [{"kennung": "ID-NEU", "betreff": "Sache", "datum": "2026-07-25"}]
+
+    paare, offen = ablage.ruecknahme_aufloesen(
+        [eintrag], auflisten=lambda k, o: list(bestand)
+    )
+
+    assert offen == []
+    assert paare[0][1] == "ID-NEU"
+
+
+def test_should_skip_ruecknahme_when_subject_is_ambiguous_without_date():
+    """Ohne Datum und mit mehreren gleichen Betreffen: lieber nichts bewegen."""
+    eintrag = {
+        "id": "ID-ALT",
+        "konto": "hnu",
+        "betreff": "Sache",
+        "datum": "",
+        "quellordner": "Archiv/2026",
+        "zielordner": "INBOX",
+    }
+    bestand = [
+        {"kennung": "7", "betreff": "Sache", "datum": "2026-07-25"},
+        {"kennung": "9", "betreff": "AW: Sache", "datum": "2026-08-01"},
+    ]
+
+    paare, offen = ablage.ruecknahme_aufloesen(
+        [eintrag], auflisten=lambda k, o: list(bestand)
+    )
+
+    assert paare == []
+    assert "nicht eindeutig" in offen[0][1]
+
+
+def test_should_record_date_in_protocol_for_later_ruecknahme():
+    """Ohne Datum im Protokoll ist die Nachricht spaeter nicht eindeutig."""
+    b = ablage.Bewegung(
+        vorgang_nr=1,
+        konto="iil",
+        betreff="Sache",
+        von_ordner="Posteingang",
+        nach_ordner="Kunden/Muster",
+        datum="2026-07-25",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        pfad = Path(tmp) / "protokoll.jsonl"
+        ablage.anwenden(
+            [(b, "ID-ALT")], "lauf-1", verschieben=lambda *a: None, protokoll=pfad
+        )
+        eintrag = json.loads(pfad.read_text(encoding="utf-8").splitlines()[0])
+
+    assert eintrag["datum"] == "2026-07-25"
