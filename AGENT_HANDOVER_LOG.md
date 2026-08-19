@@ -2472,3 +2472,12 @@ verlangt dort eine Rueckfrage vorher. Kein Schaden, aber die Regel wurde ueberga
 
 **Abnahme:** erreicht fuer 6, 7a, 8 · nicht begonnen 2 und 4 (freigegeben, Sitzung endete
 vorher) · beim Owner 1 und 3a. SA-4: 0 Anwendungen · over_ask 0 · over_act 1.
+
+## 2026-08-19 (nachmittags) — PyPI-Fleet-Programm #2075: K1–K4 + Kanon-Umzug (#2084)
+
+Session im Kapitäns-Kanal, ~40 PRs über 20 Repos, alle gemergt. K1 Inventar+Klassifikation
+(#2077), K2 Cold-Start 19/19 + AGENTS.md 19/19 + T1a-Eval 19/19 (#2081/#2100), K3
+Frühwarn-Scanner Baseline 38 (#2090), K4 Loop-Erstzyklus real (#2095→#2096→#2097).
+Kanon `_ci-pypi.yml` → iilgmbh/shared-ci (#2103) + M4-Sweep 15 Repos auf v1.1.11.
+gpufw → iilgmbh transferiert. Offen (Owner): #2098, #2089, shared-ci-Überbleibsel,
+risk-hub#618. Verifikations-Docs: docs/verifications/2026-08-19-adr266-*.md.
