@@ -495,7 +495,12 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
         r = graph_mail._http(
             "GET",
             f"{graph_mail.GRAPH}/me/messages/{quote(graph_id, safe='')}"
-            "/attachments?$select=id,name,size,contentType,isInline,@odata.type",
+            # `@odata.type` gehoert NICHT ins $select — Graph antwortet darauf 400
+            # (am 2026-08-19 live gemessen). Die Typangabe kommt ohnehin mit: sie
+            # ist eine OData-Annotation, keine Eigenschaft. Und ohne
+            # `contentBytes` im $select bleibt die Antwort leicht — sonst zoege
+            # jeder Seitenaufruf jeden Anhang komplett nach.
+            "/attachments?$select=id,name,size,contentType,isInline",
             headers=graph_mail._auth(tok),
         )
         if r.status_code != 200:
