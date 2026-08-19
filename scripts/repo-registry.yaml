@@ -25,6 +25,7 @@ repos:
   aifw:
     type: library
     pypi: aifw
+    pypi_strategy: aktiv
   ausschreibungs-hub:
     type: django
     prod_url: bieterpilot.de
@@ -34,6 +35,7 @@ repos:
   authoringfw:
     type: library
     pypi: authoringfw
+    pypi_strategy: aktiv
   bfagent:
     type: agent
     archived: true
@@ -67,6 +69,7 @@ repos:
   django-lms-lite:
     type: library
     pypi: iil-django-lms-lite
+    pypi_strategy: aktiv
   dms-hub:
     type: django
     prod_url: dms.iil.pet
@@ -80,37 +83,48 @@ repos:
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
+    pypi_strategy: archivieren-kandidat
   gpufw:
     type: library
     pypi: iil-gpufw
+    pypi_strategy: aktiv
   iil-adrfw:
     type: library
     pypi: iil-adrfw
+    pypi_strategy: aktiv
   iil-codeguard:
     type: library
     pypi: iil-codeguard
+    pypi_strategy: aktiv
   iil-django-commons:
     type: library
     pypi: iil-django-commons
+    pypi_strategy: einfrieren
   iil-doc-templates:
     type: library
     pypi: iil-doc-templates
+    pypi_strategy: aktiv
   iil-enrichment:
     type: library
     pypi: iil-enrichment
+    pypi_strategy: einfrieren
   iil-fieldprefill:
     type: library
     pypi: iil-fieldprefill
+    pypi_strategy: aktiv
   iil-ingest:
     type: library
     pypi: iil-ingest
+    pypi_strategy: aktiv
     note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
   iil-klickdummy:
     type: library
     pypi: iil-klickdummy
+    pypi_strategy: aktiv
   iil-reflex:
     type: library
     pypi: iil-reflex
+    pypi_strategy: aktiv
     note: Web/PDF provider library — HttpxWebProvider, PubChemAdapter, GESTISAdapter
   iil-relaunch:
     type: infra
@@ -118,6 +132,7 @@ repos:
   iil-testkit:
     type: library
     pypi: iil-testkit
+    pypi_strategy: aktiv
     note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
   iil-voice-agent:
     type: library
@@ -126,6 +141,7 @@ repos:
   illustration-fw:
     type: library
     pypi: illustration-fw
+    pypi_strategy: aktiv
   illustration-hub:
     type: django
     prod_url: illustration.iil.pet
@@ -145,6 +161,7 @@ repos:
   learnfw:
     type: library
     pypi: learnfw
+    pypi_strategy: aktiv
   mcp-hub:
     type: infra
     prod_url: orchestrator.iil.pet
@@ -156,6 +173,7 @@ repos:
   nl2cad:
     type: library
     pypi: nl2cad
+    pypi_strategy: aktiv
   odoo-hub:
     type: infra
     prod_url: odoo.iil.pet
@@ -170,6 +188,7 @@ repos:
   outlinefw:
     type: library
     pypi: outlinefw
+    pypi_strategy: aktiv
   platform:
     type: infra
     note: ADRs, architecture docs, shared workflows, repo-registry
@@ -183,6 +202,7 @@ repos:
   promptfw:
     type: library
     pypi: promptfw
+    pypi_strategy: aktiv
   recruiting-hub:
     type: django
     prod_url: recruiting.iil.pet
@@ -196,9 +216,11 @@ repos:
   researchfw:
     type: library
     pypi: researchfw
+    pypi_strategy: aktiv
   riskfw:
     type: library
     pypi: riskfw
+    pypi_strategy: archivieren-kandidat
   risk-hub:
     type: django
     prod_url: schutztat.de
@@ -234,6 +256,7 @@ repos:
   weltenfw:
     type: library
     pypi: weltenfw
+    pypi_strategy: aktiv
   weltenhub:
     type: django
     prod_url: weltenforger.com

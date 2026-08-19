@@ -152,6 +152,7 @@ repos:
     flat:
       type: library
       pypi: aifw
+      pypi_strategy: aktiv
   # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
   # in_flat/in_rich beide false → projiziert in KEINE aktive View (gen_flat/gen_rich
   # filtern), nur in die Archiv-View. lifecycle top-level (kein rich-Block nötig).
@@ -191,6 +192,7 @@ repos:
     flat:
       type: library
       pypi: authoringfw
+      pypi_strategy: aktiv
   bahn-hub:
     in_flat: false
     in_rich: true
@@ -409,6 +411,7 @@ repos:
     flat:
       type: library
       pypi: iil-django-lms-lite
+      pypi_strategy: aktiv
   dms-hub:
     in_flat: true
     in_rich: true
@@ -448,6 +451,7 @@ repos:
     flat:
       type: library
       pypi: gaeb-toolkit
+      pypi_strategy: archivieren-kandidat
     domain: Engineering & Construction
     rich:
       name: gaeb-toolkit
@@ -465,6 +469,7 @@ repos:
     flat:
       type: library
       pypi: iil-gpufw
+      pypi_strategy: aktiv
   ifc-mcp:
     in_flat: false
     in_rich: false
@@ -477,42 +482,49 @@ repos:
     flat:
       type: library
       pypi: iil-adrfw
+      pypi_strategy: aktiv
   iil-codeguard:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-codeguard
+      pypi_strategy: aktiv
   iil-django-commons:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-django-commons
+      pypi_strategy: einfrieren
   iil-doc-templates:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-doc-templates
+      pypi_strategy: aktiv
   iil-enrichment:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-enrichment
+      pypi_strategy: einfrieren
   iil-fieldprefill:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-fieldprefill
+      pypi_strategy: aktiv
   iil-ingest:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-ingest
+      pypi_strategy: aktiv
       note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
   iil-klickdummy:
     in_flat: true
@@ -520,12 +532,14 @@ repos:
     flat:
       type: library
       pypi: iil-klickdummy
+      pypi_strategy: aktiv
   iil-reflex:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: iil-reflex
+      pypi_strategy: aktiv
       note: Web/PDF provider library — HttpxWebProvider, PubChemAdapter, GESTISAdapter
   iil-relaunch:
     in_flat: true
@@ -539,6 +553,7 @@ repos:
     flat:
       type: library
       pypi: iil-testkit
+      pypi_strategy: aktiv
       note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
   iil-voice-agent:
     in_flat: true
@@ -553,6 +568,7 @@ repos:
     flat:
       type: library
       pypi: illustration-fw
+      pypi_strategy: aktiv
   illustration-hub:
     in_flat: true
     in_rich: true
@@ -619,6 +635,7 @@ repos:
     flat:
       type: library
       pypi: learnfw
+      pypi_strategy: aktiv
   mcp-hub:
     in_flat: true
     in_rich: true
@@ -654,6 +671,7 @@ repos:
     flat:
       type: library
       pypi: nl2cad
+      pypi_strategy: aktiv
   nl2iot-hub:
     in_flat: false
     in_rich: true
@@ -721,6 +739,7 @@ repos:
     flat:
       type: library
       pypi: outlinefw
+      pypi_strategy: aktiv
   platform:
     in_flat: true
     in_rich: true
@@ -768,6 +787,7 @@ repos:
     flat:
       type: library
       pypi: promptfw
+      pypi_strategy: aktiv
   recruiting-hub:
     in_flat: true
     in_rich: true
@@ -828,12 +848,14 @@ repos:
     flat:
       type: library
       pypi: researchfw
+      pypi_strategy: aktiv
   riskfw:
     in_flat: true
     in_rich: false
     flat:
       type: library
       pypi: riskfw
+      pypi_strategy: archivieren-kandidat
   risk-hub:
     in_flat: true
     in_rich: true
@@ -1063,6 +1085,7 @@ repos:
     flat:
       type: library
       pypi: weltenfw
+      pypi_strategy: aktiv
   weltenhub:
     in_flat: true
     in_rich: true
