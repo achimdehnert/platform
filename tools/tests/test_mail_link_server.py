@@ -388,16 +388,19 @@ class TestGraphAnhaenge:
         """graph_mail durch eine Attrappe ersetzen, die genau diese Anhänge kennt."""
         import types
 
+        gesehen: list[str] = []
         modul = types.SimpleNamespace(
             GRAPH="https://graph.example",
             load_cfg=lambda: {},
             token=lambda cfg, konto: "tok",
             _auth=lambda tok: {},
-            _http=lambda methode, url, headers=None: types.SimpleNamespace(
-                status_code=200, json=lambda: {"value": anhaenge}
-            ),
+            _http=lambda methode, url, headers=None: (
+                gesehen.append(url),
+                types.SimpleNamespace(status_code=200, json=lambda: {"value": anhaenge}),
+            )[1],
         )
         monkeypatch.setitem(sys.modules, "graph_mail", modul)
+        return gesehen
 
     def test_should_list_file_attachment_as_link(self, server, monkeypatch):
         self._graph(monkeypatch, [
@@ -440,3 +443,20 @@ class TestGraphAnhaenge:
         """Die neue Route darf keine unbekannte Kurz-ID durchreichen."""
         status, _, _ = _get(server, "/r/kennichnicht/anhaenge/x.pdf")
         assert status == 404
+
+    def test_should_not_put_odata_type_into_select(self, server, monkeypatch):
+        """`@odata.type` im $select beantwortet Graph mit 400.
+
+        Live gemessen am 2026-08-19: mit der Angabe 400, ohne sie 200 — und die
+        Typangabe kommt ohnehin mit, sie ist eine Annotation. Der erste Anlauf
+        hatte sie drin und ging in Produktion; die damalige Attrappe nahm jede
+        URL an und konnte es darum nicht sehen. Genau diese Luecke schliesst
+        dieser Test.
+        """
+        gesehen = self._graph(monkeypatch, [])
+        mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert gesehen, "die Attrappe hat gar keine Anfrage gesehen"
+        assert "@odata.type" not in gesehen[0]
+        assert "$select=" in gesehen[0]
