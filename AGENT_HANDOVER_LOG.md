@@ -2533,3 +2533,37 @@ zweites Postfach.
 
 **SA-4:** 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen
 (Gates einzeln vorgelegt, jeweils Owner-Go).
+
+## 2026-08-19 (Nachtrag zur Vormittagssitzung) — gemergt ist nicht wirksam
+
+Die vier Punkte, die mittags beim Owner lagen, sind erledigt und gegengeprueft:
+Environment-Gate ausschreibungs-hub freigegeben (Run completed/success, Folge-Lauf
+"Push on main" gruen -> Merge #190 live, Issue iilgmbh/ausschreibungs-hub#191
+geschlossen) · Volume-Loeschlauf 40 verarbeitet / 0 uebersprungen / 0 Fehler, plus
+mcp-hub_mcp_hub_grafana_data auf Owner-Wort = 41 · benannte verwaiste Volumes auf prod
+72 -> 32 · platform#2085 gemergt.
+
+DER EIGENTLICHE BEFUND kam NACH dem Merge: hook-dist-drift.sh meldete
+scope_checkpoint_scanner.py als DRIFT. Die aktive Hook-Kopie lief weiter auf Rev 1,
+obwohl Rev 2 auf main stand. Erst --sync machte den Umbau wirksam (13 Kopien synchron,
+gegengeprueft). Ohne diesen Schritt waere das neue Gate gebaut, gemergt, gruen — und
+wirkungslos gewesen. Genau die Klasse aus
+feedback_hand_distributed_copy_merge_is_not_effect; die Lehre ist bekannt und hat
+trotzdem wieder gegriffen. Konsequenz fuer kuenftige Hook-Aenderungen: der
+Verteilungs-Check gehoert in denselben Zug wie der Merge, nicht in den naechsten
+Session-Start.
+
+Grafana-Volume: die Vorsicht war unbegruendet. Ein Dashboard, provisioniert aus
+mcp-hub:grafana/provisioning/dashboards/agent_controlling.json. allowUiUpdates: true,
+Handaenderungen waeren also erlaubt gewesen — liegen aber nicht vor: DB-Eintrag
+updated 2026-05-10, Repo-Datei danach noch viermal geaendert. Der Datenbankstand ist
+AELTER als die Datei; eine Handaenderung wuerde das Gegenteil zeigen.
+
+Nebenbefund zur Handover-Hygiene: beim Nachtragen lagen ZWEI "Aktueller Stand"-Bloecke
+nebeneinander (Vormittag + Nachmittag), obwohl der Dateikopf genau einen erlaubt. Die
+Nachmittagssitzung hatte ihren Block vorangestellt, ohne den aelteren herabzustufen.
+Hier aufgeloest: Nachmittag = Aktueller, Vormittag = Vorheriger, 2026-08-18 abends ins
+Archiv.
+
+Abnahme: erreicht fuer 6, 7a, 8 sowie nachtraeglich 1 und 3a. Nicht begonnen 2 und 4.
+SA-4: 0 Anwendungen · over_ask 0 · over_act 1.
