@@ -373,3 +373,70 @@ class TestKontenAufloesung:
         with pytest.raises(SystemExit) as exc:
             mls.konten_aufloesen(["ad"])
         assert "ad=default" in str(exc.value)
+
+
+class TestGraphAnhaenge:
+    """Anhänge einer Graph-Nachricht (IIL) — vorher nur ein Hinweistext.
+
+    Der Satz "im OWA-Deeplink abrufbar" sah wie ein Hinweis aus und wirkte wie
+    eine Wand: auf einem Rechner ohne angemeldetes OWA war der Anhang gar nicht
+    erreichbar. Der IMAP-Zweig konnte das die ganze Zeit.
+    """
+
+    @staticmethod
+    def _graph(monkeypatch, anhaenge):
+        """graph_mail durch eine Attrappe ersetzen, die genau diese Anhänge kennt."""
+        import types
+
+        modul = types.SimpleNamespace(
+            GRAPH="https://graph.example",
+            load_cfg=lambda: {},
+            token=lambda cfg, konto: "tok",
+            _auth=lambda tok: {},
+            _http=lambda methode, url, headers=None: types.SimpleNamespace(
+                status_code=200, json=lambda: {"value": anhaenge}
+            ),
+        )
+        monkeypatch.setitem(sys.modules, "graph_mail", modul)
+
+    def test_should_list_file_attachment_as_link(self, server, monkeypatch):
+        self._graph(monkeypatch, [
+            {"name": "01_VVT.pdf", "size": 2048, "@odata.type": "#microsoft.graph.fileAttachment"},
+        ])
+        html = mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert '/r/az1/anhaenge/01_VVT.pdf' in html
+        assert "2 kB" in html
+
+    def test_should_name_embedded_message_without_linking_it(self, server, monkeypatch):
+        """Eine eingebettete Mail hat keine Bytes — benennen, nicht verlinken.
+
+        Sie stumm wegzulassen war der Fehler, an dem der weitergeleitete
+        Mailanhang am 2026-08-19 spurlos aus der Ansicht verschwand.
+        """
+        self._graph(monkeypatch, [
+            {"name": "AW: Unterlagen", "size": 900, "@odata.type": "#microsoft.graph.itemAttachment"},
+        ])
+        html = mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert "AW: Unterlagen" in html
+        assert "anhaenge/AW" not in html
+        assert "eingebettete Nachricht" in html
+
+    def test_should_skip_inline_images(self, server, monkeypatch):
+        """Signaturbilder sind kein Anhang, den jemand herunterladen will."""
+        self._graph(monkeypatch, [
+            {"name": "image001.png", "size": 900, "isInline": True,
+             "@odata.type": "#microsoft.graph.fileAttachment"},
+        ])
+        html = mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert html == ""
+
+    def test_should_404_attachment_route_for_unknown_short_id(self, server):
+        """Die neue Route darf keine unbekannte Kurz-ID durchreichen."""
+        status, _, _ = _get(server, "/r/kennichnicht/anhaenge/x.pdf")
+        assert status == 404

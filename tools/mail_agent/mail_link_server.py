@@ -24,6 +24,7 @@ Gegenüber dem Postfach strikt read-only (`select(readonly=True)` + `BODY.PEEK`)
 
 from __future__ import annotations
 
+import base64
 import argparse
 import html
 import json
@@ -242,6 +243,8 @@ class MailLinkHandler(BaseHTTPRequestHandler):
             return self._weiterleiten(teile[1])
         if teile[0] == "r" and len(teile) == 2:
             return self._graph_rendern(teile[1])
+        if teile[0] == "r" and len(teile) == 4 and teile[2] == "anhaenge":
+            return self._graph_anhang(teile[1], teile[3])
         if teile[0] == "a":
             return self._anker(teile[1:])
         if teile[0] == "m":
@@ -459,11 +462,9 @@ verfügbar: {html.escape(konten)}.</p>
         text = body.get("content", "")
         if body.get("contentType", "").lower() == "html":
             text = graph_mail._strip_html(text)
-        anhang = (
-            "<p style='color:#a60'>📎 Anhänge vorhanden — im OWA-Deeplink abrufbar.</p>"
-            if m.get("hasAttachments")
-            else ""
-        )
+        anhang = self._graph_anhang_liste(kurz, ziel["graph_id"], tok) if m.get(
+            "hasAttachments"
+        ) else ""
         seite = f"""<!doctype html><meta charset=utf-8><title>{html.escape(m.get("subject") or kurz)}</title>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <body style="font:14px/1.55 -apple-system,Segoe UI,sans-serif;max-width:52rem;margin:1rem auto;padding:0 1rem">
@@ -474,6 +475,100 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
 {anhang}<hr>
 <div style="white-space:pre-wrap">{html.escape(text)}</div>"""
         self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _graph_anhang_liste(self, kurz: str, graph_id: str, tok: str) -> str:
+        """Anhänge einer Graph-Nachricht als klickbare Liste.
+
+        Vorher stand hier nur der Satz "im OWA-Deeplink abrufbar" — auf einem
+        Rechner ohne angemeldetes OWA heisst das: gar nicht abrufbar. Der
+        IMAP-Zweig liefert Anhänge längst aus (`/m/<uid>/anhaenge/<name>`); der
+        Graph-Zweig zog nur nicht nach. Für IIL-Vorgänge blieb damit jeder Anhang
+        hinter einer Anzeige, die aussah wie ein Hinweis und wirkte wie eine Wand.
+
+        Eingebettete Nachrichten (`itemAttachment`) werden hier **benannt**, aber
+        nicht verlinkt: sie haben keine Bytes, die man ausliefern könnte. Sie
+        stumm wegzulassen wäre der schlimmere Fehler — genau so verschwand am
+        2026-08-19 ein weitergeleiteter Mailanhang spurlos aus der Ansicht.
+        """
+        import graph_mail  # noqa: PLC0415
+
+        r = graph_mail._http(
+            "GET",
+            f"{graph_mail.GRAPH}/me/messages/{quote(graph_id, safe='')}"
+            "/attachments?$select=id,name,size,contentType,isInline,@odata.type",
+            headers=graph_mail._auth(tok),
+        )
+        if r.status_code != 200:
+            return (
+                "<p style='color:#a60'>📎 Anhänge vorhanden — Abruf scheiterte "
+                f"(Graph {r.status_code}).</p>"
+            )
+        zeilen = []
+        for a in r.json().get("value", []):
+            name = a.get("name") or "(ohne Namen)"
+            if a.get("isInline"):
+                continue
+            if "itemAttachment" in (a.get("@odata.type") or ""):
+                zeilen.append(
+                    f"<li>{html.escape(name)} — eingebettete Nachricht, "
+                    "nicht als Datei abrufbar</li>"
+                )
+                continue
+            groesse = a.get("size") or 0
+            ziel = f"/r/{quote(kurz)}/anhaenge/{quote(name)}"
+            zeilen.append(
+                f'<li><a href="{html.escape(ziel)}">{html.escape(name)}</a> '
+                f"<span style='color:#777'>({groesse // 1024} kB)</span></li>"
+            )
+        if not zeilen:
+            return ""
+        return "<p style='color:#a60'>📎 Anhänge</p><ul>" + "".join(zeilen) + "</ul>"
+
+    def _graph_anhang(self, kurz: str, name: str) -> None:
+        """`/r/<kurz>/anhaenge/<name>` — einen Anhang ausliefern."""
+        if not _KURZ_ID.match(kurz):
+            return self._fehler(HTTPStatus.BAD_REQUEST, "Unzulässige Kurz-ID.")
+        rein = sicherer_dateiname(name)
+        if not rein:
+            return self._fehler(HTTPStatus.BAD_REQUEST, "Unzulässiger Anhangsname.")
+        ziel = lade_registry(self.registry_pfad).get(kurz)
+        if not ziel:
+            return self._fehler(HTTPStatus.NOT_FOUND, f"Kurz-ID '{kurz}' unbekannt.")
+        try:
+            import graph_mail  # noqa: PLC0415
+
+            cfg = graph_mail.load_cfg()
+            tok = graph_mail.token(cfg, self.graph_konto)
+        except SystemExit as e:
+            return self._fehler(HTTPStatus.SERVICE_UNAVAILABLE, str(e))
+        if not tok:
+            return self._fehler(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                f"{self.graph_konto} nicht angemeldet — graph_mail.py --login nötig.",
+            )
+        r = graph_mail._http(
+            "GET",
+            f"{graph_mail.GRAPH}/me/messages/{quote(ziel['graph_id'], safe='')}"
+            "/attachments",
+            headers=graph_mail._auth(tok),
+        )
+        if r.status_code != 200:
+            return self._fehler(HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}.")
+        for a in r.json().get("value", []):
+            if sicherer_dateiname(a.get("name") or "") != rein:
+                continue
+            roh = a.get("contentBytes")
+            if not roh:
+                return self._fehler(
+                    HTTPStatus.NOT_FOUND,
+                    "Dieser Anhang hat keinen Dateiinhalt (eingebettete Nachricht).",
+                )
+            return self._sende(
+                HTTPStatus.OK,
+                base64.b64decode(roh),
+                a.get("contentType") or "application/octet-stream",
+            )
+        return self._fehler(HTTPStatus.NOT_FOUND, "Anhang nicht gefunden.")
 
     def _mail(self, teile: list[str]) -> None:
         if not teile:
