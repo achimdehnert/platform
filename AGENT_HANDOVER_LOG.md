@@ -2567,3 +2567,129 @@ Archiv.
 
 Abnahme: erreicht fuer 6, 7a, 8 sowie nachtraeglich 1 und 3a. Nicht begonnen 2 und 4.
 SA-4: 0 Anwendungen · over_ask 0 · over_act 1.
+
+---
+
+## 2026-08-19 nachmittags — DSB-Strang: Mailvorgänge, LSBAU-Import in Prod, doc-hub-Schleuse
+
+**Zeitanker:** geschrieben 2026-08-19 · Sitzung parallel zur PyPI-Fleet-Sitzung (#2075) im
+selben Repo — deren Stand-Block in `AGENT_HANDOVER.md` bewusst **nicht** überschrieben.
+
+### Was geliefert wurde
+
+**platform** — vier PRs gemergt, einer offen:
+
+| PR | Inhalt |
+|---|---|
+| [#2071](https://github.com/achimdehnert/platform/pull/2071) | `organize_mail`: Server-Fähigkeiten nach der Anmeldung lesen. `imap.capabilities` trägt nur das Begrüßungs-Banner; der Mittwald-Server nennt `UIDPLUS`/`MOVE` erst danach. Ursache der 89 Dubletten vom 18.08. Am Server gegengemessen: neu ja/ja, alt nein/nein. Schließt #2069. |
+| [#2072](https://github.com/achimdehnert/platform/pull/2072) | Schreibpfad der Erledigt-Ablage mit Protokoll und Rücknahme. **Zwei Defekte, die nur der scharfe Lauf zeigte:** der Umzug entwertet die Kennung, die ihn protokolliert (Graph-ID vorher `…AAvAxr8eAAA=`, danach `…AAwtgyJyAAA=`; IMAP-UID genauso) — die Rücknahme löst jetzt am jetzigen Ort neu auf; und `regeln.ruecknahme()` reichte das Konto nicht durch, der Graph-Rückweg fiel auf IMAP. |
+| [#2078](https://github.com/achimdehnert/platform/pull/2078) | Anhänge von Graph-Nachrichten ausliefern statt nur ankündigen. Route `/r/<id>/anhaenge/<name>`. Eingebettete Nachrichten werden benannt, nicht verlinkt — sie haben keine Bytes. |
+| [#2079](https://github.com/achimdehnert/platform/pull/2079) | `@odata.type` gehört nicht ins `$select` — Graph antwortet 400. Die Attrappe im Test nahm jede URL an und konnte es nicht sehen; sie merkt sich jetzt die Anfrage. |
+| [#2073](https://github.com/achimdehnert/platform/pull/2073) | **OFFEN** — `/mailcheck` Schritt 7a (Erledigtes wegräumen). `/.windsurf/` steht in CODEOWNERS, wartet auf @wirdigital. |
+
+**risk-hub** — drei PRs gemergt:
+
+| PR | Inhalt |
+|---|---|
+| [#619](https://github.com/iilgmbh/risk-hub/pull/619) | `manage.py import_dsb_docs` — TOM-Checkliste, VVT-Nachstrukturierung, Mandanten-Rückmeldungen. Trockenlauf als Voreinstellung; ohne Sicherungsfunktion wird nicht gelöscht. |
+| [#620](https://github.com/iilgmbh/risk-hub/pull/620) | Zuordnungsfehler aus dem Probelauf: `Datenquelle`→`data_source` statt `Auftragsverarbeiter` (86 vs. 23 Vorkommen), 25 von 49 Tools-Abschnitten tragen in Wahrheit Datenkategorien und werden verworfen, verschachtelte `(Details: …)`-Klammern. Neu erfasst: DSFA und Schutzbedarf. |
+| [#622](https://github.com/iilgmbh/risk-hub/pull/622) | Konzept Tätigkeitsnachweis für den DSB (`concepts/DSB_Taetigkeitsnachweis.md`). |
+
+### Produktive Eingriffe — beide gegengezählt
+
+**risk-hub Prod, Mandant LSBAU** (Deploy `6762ec8` via `workflow_dispatch`, Owner-Freigabe):
+
+| | vorher | nachher |
+|---|---|---|
+| Verarbeitungstätigkeiten | 89 | 90 |
+| Zugriffsberechtigte gefüllt | 0 | 85 |
+| Datenquelle | 0 | 85 |
+| Werkzeuge/Anwendungen | 0 | **23** (nicht 48 — 25 Fehlwerte abgewiesen) |
+| DSFA markiert | 0 | 14 |
+| Verknüpfungen | 0 | 761 |
+| technische / organisatorische Maßnahmen | 0 / 0 | 24 / 9 |
+
+Der gelöschte `Online-Shop`-Eintrag liegt als Rückweg zweifach: im Container unter
+`/tmp/lsbau-geloescht.jsonl` und als `~/shared/2026-08-19-dsb/lsbau-online-shop-geloescht.json`.
+
+**doc-hub Prod (`88.198.191.108`)** — Eingriff aus dieser Sitzung, **an
+[#2083](https://github.com/achimdehnert/platform/issues/2083) gemeldet**, weil dort eine
+Parallelsitzung am selben Problem arbeitet und den Stack versioniert ausrollen will:
+
+`/opt/doc-hub/docker-compose.yml` um `PAPERLESS_CONSUMER_IGNORE_DIRS` (`schleuse`,
+`.thumbs`) und `IGNORE_PATTERN` (`.safetensors`, `.ckpt`, `.pt`) ergänzt, Sicherungskopie
+`docker-compose.yml.bak-vor-ignorepattern`. Container zweimal neu gestartet. 1.796
+fehlgeschlagene Aufgaben und das Schlagwort `raus` (ID 113, 0 Dokumente) gelöscht.
+Wirkung: 810 → **0** Fehler je fünf Minuten bei gleichzeitig 19 → 123 Dateien.
+
+**Wichtig für den versionierten Rollout:** `IGNORE_PATTERN` sind in Paperless 3.0.4
+**reguläre Ausdrücke gegen den Dateinamen**, keine Glob-Muster gegen den Pfad.
+Verzeichnisse gehen ausschließlich über `IGNORE_DIRS`, und zwar über den **Namen**. Der
+erste Versuch mit `schleuse/**` war gesetzt, gemeldet und wirkungslos.
+
+Der älteste Schleusen-Fehlschlag stammt vom **10.08. 15:47** — neun Tage, 1.757
+Fehlschläge, unbemerkt.
+
+### Mailvorgänge (lokales Ledger, 24 Vorgänge, 0 ohne Anker)
+
+Acht Entwürfe vom Owner gesendet: Scherer (LSBAU), Herrmann (Gröger NIS2), Gessler
+(Marold), Schröder (HNU), Gerstlauer (HNU, zweimal), Zeiner (Ocos).
+
+Fachliche Ergebnisse, die nicht im Code stehen:
+
+- **LSBAU**: Das Portal führte die Liste von 2018; keine der drei Kundenanmerkungen von
+  2025 war eingearbeitet. Zwei Fragen aus ihrer Mail vom 22.07.2025 waren **elf Monate**
+  unbeantwortet. Die TOM-Checkliste kam nie ausgefüllt zurück — 33 Maßnahmen, 0 angekreuzt.
+- **Gröger**: § 28 Abs. 4 BSIG zielt auf die Unabhängigkeit der **Systeme** gegenüber den
+  verbundenen Unternehmen, nicht auf getrennte Dienstleister. Fünf von sechs Punkten
+  getrennt → Ausnahme trägt, Registrierung entfällt. Eigene frühere Formulierung („ein
+  einziges *gemeinsam* trägt bereits die Zusammenrechnung") ausdrücklich zurückgenommen.
+- **Ocos/LRA Günzburg**: AVV ist ein 14-seitiger **Scan ohne Textschicht**. Form ist
+  unveränderte EU-SCC. Vier Beanstandungen: Supabase (Singapur) und Render (USA) ohne
+  Übermittlungsgrundlage; Render und Google Cloud gelistet aber „nicht im Einsatz";
+  Klausel 7.5 verlangt für die genannten sensiblen Daten Garantien, Anhang III nennt
+  keine; Verfügbarkeitsmaßnahme ist „automatische Skalierung".
+- **Marold/DeutschlandGPT**: Trainings-Beanstandung **zurückgenommen** (AV Ziff. 1.7 in
+  Anhang III, gilt für alle; Ziff. 4.1 Vorrang; NB 11.5 in Teil A). Neuer, härterer
+  Befund vom Owner: Ziff. 7.7 a) erlaubt Änderung der Unterauftragnehmerliste mit **14
+  Tagen** Frist, während die unveränderten Klauseln **30** nennen (belegt am Ocos-AVV) —
+  und das Dokument behauptet in Ziff. 2 b) die Unabänderbarkeit. Wirkt zulasten des
+  Verantwortlichen. **Per Telefonat übergeben, Gessler klärt mit dem Auftragsverarbeiter.**
+
+### Beschaffung HNU (Vorgang 141)
+
+eBANF-Spezifikation für eine KI-Workstation liegt in `~/shared/2026-08-19-hnu/`. Empfehlung
+nach Recherche **geändert**: Mac Studio M3 Ultra (819 GB/s, ~4.875 € netto) statt
+RTX-PRO-6000-Workstation (1.750 GB/s, 15.000–19.000 €), solange mit Modellen gearbeitet
+und nicht trainiert wird. DGX Spark (273 GB/s) und Dell PowerEdge XE7745 (Rackserver)
+verworfen. Anfrage läuft, ob der Mac Studio über die Rahmenvereinbarung abrufbar ist.
+
+### Nächste Schritte
+
+1. **#2073** braucht @wirdigital — ohne Merge bleibt `ablage_erledigt.py` gebaut und
+   unaufgerufen.
+2. **#2083** — meinen doc-hub-Eingriff beim versionierten Rollout mitnehmen, sonst kommen
+   die 655 Fehler zurück.
+3. **#622** — Entscheidung über feste Fremdschlüssel steht; danach Schritte 1, 2, 5.
+4. **Vorgang 141** — eBANF absenden oder Mac Studio, je nach Gerstlauers Antwort.
+5. **LSBAU** — Vorlage der Mitarbeitenden-Datenschutzerklärung liegt in
+   `~/shared/2026-08-19-dsb/`; in der gesendeten Mail steht die Zusage, sie zu liefern.
+
+### Abnahme
+
+Zielzustand des Owners („mailcheck und todo list erkennen alle Änderungen, stellen
+relevante neue Mails strukturiert dar und räumen Erledigtes auf; alles mit Tests geprüft
+und fehlerfrei"): **erreicht** — Schreibpfad mit Rücknahme belegt (Rundlauf beide
+Richtungen), `make test` 2556 grün, Ablage in Prod ausgeführt und gegengezählt. Die
+Verdrahtung in `/mailcheck` hängt an #2073.
+
+**Fehler dieser Sitzung, die genannt gehören:** Vier eigene Aussagen scheiterten an der
+Nachprüfung — drei davon, weil ein Filter die Null erzeugte (`head -12` schnitt `schleuse`
+ab, Statusabfrage suchte `FAILURE` statt `failure`, Firmennamen-Suche fand keine
+Systemanbieter), eine, weil eine verkürzte Seitenwiedergabe für den Volltext gehalten
+wurde (DeutschlandGPT 11.5). Beim Marold-Vorgang lag ich dreimal daneben; alle Korrekturen
+kamen vom Owner oder von der Gegenseite. **Und: kein Scope-Checkpoint ausgesprochen**,
+obwohl die Sitzung zwei Repos, zwei Produktivsysteme und einen Prod-Deploy berührte — der
+Stop-Hook musste ihn einfordern.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
