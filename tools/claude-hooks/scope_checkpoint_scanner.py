@@ -1,34 +1,54 @@
 #!/usr/bin/env python3
-"""Claude Code Stop hook — Scope-Checkpoint-Artefakt-Scanner (Welle 1, KONZ-038 D2).
+"""Claude Code Stop hook — Scope-Checkpoint-Gate (Rev 2, Ausloeser aus Tool-Evidenz).
 
-Slug `scope-checkpoint-not-durably-recorded` (×10, retro_kpis): Der
-Scope-Checkpoint (Hausregel: drittes Repo ODER Prod/Publish -> innehalten +
-spiegeln) passiert im Chat und hinterlaesst kein durables Artefakt — spaetere
-Sessions/Retros koennen nicht pruefen, ob und mit welchem Ergebnis
-gecheckpointet wurde. Dies ist Option A aus Issue #1081 (Hook, automatisch);
-Option B (reine Board-Konvention) waere dieselbe Merksatz-Gattung, deren
-Wirkungslosigkeit die ×10 belegen.
+Hausregel: sobald eine Aufgabe ein DRITTES Repo beruehrt ODER Prod/Publish
+erreicht, einmal innehalten, den gewachsenen Scope spiegeln und die Antwort
+durabel festhalten.
 
-Der Hook feuert, wenn der Turn-Text einen Scope-Checkpoint AUSSPRICHT, der Turn
-aber kein durables Artefakt traegt (PR-/Issue-Kommentar oder Doku-Write).
+WARUM REV 2 (Messung 2026-08-18/19, #1640)
+------------------------------------------
+Rev 1 las den Antworttext und feuerte, wenn er einen Checkpoint AUSSPRACH,
+ohne ein durables Artefakt zu hinterlassen. Der Retro-Slug zaehlt aber die
+andere Haelfte: Checkpoint GAR NICHT ausgesprochen (x10). Beide Mengen sind
+disjunkt — schweigt man, sah Rev 1 nichts, und Schweigen ist der Fehler.
+Replay ueber 374 echte Turns: SOLL 1, IST 0; der Fehler selbst passierte x10.
+
+Gegen Nicht-Gesagtes ist ein Wortlaut-Scanner strukturell blind. Rev 2 dreht
+die Richtung um: die BEDINGUNG kommt aus Tool-Evidenz (welche Repos wurden
+beschrieben, lief ein Prod-/Publish-Schritt) — die ist sichtbar, egal ob
+jemand den Mund aufmacht. Der Wortlaut wird erst danach geprueft, und zwar
+als ERFUELLUNG, nicht als Ausloeser.
+
+ZWEI FEHLERFORMEN, GETRENNT GEMELDET
+------------------------------------
+A ``kein-checkpoint``   Bedingung erfuellt, in der ganzen Sitzung kein
+                        Checkpoint ausgesprochen. Das ist der x10-Fehler,
+                        fuer den Rev 1 blind war.
+B ``nicht-festgehalten`` Checkpoint ausgesprochen, aber kein durables
+                        Artefakt in der Sitzung. Das ist Rev 1, behalten.
+
+MESSGROESSE FUER "DRITTES REPO"
+-------------------------------
+NICHT die Zahl der genannten Repos: ``artefakt_budget`` hat am 2026-08-17
+gemessen, dass die in echten Sitzungen 50 bzw. 26 ergibt, weil sie jede
+Erwaehnung mitzaehlt. Gezaehlt werden Repos mit einem SCHREIBZUGRIFF —
+Write/Edit auf einen Pfad im Repo oder ein schreibendes git/gh-Kommando im
+Repo-Verzeichnis. Das ist "beruehrt" im Sinn der Hausregel und liegt
+zwischen der Erwaehnungs-Zahl (zu laut) und ``repos_mit_artefakt`` (zu eng,
+verlangt einen angelegten PR/Issue).
+
+Beide Meldungen sind pro Sitzung und Fehlerform EINMALIG (Entprellung ueber
+eine Merkdatei) — die Pflicht entsteht einmal, wenn Repo drei dazukommt,
+nicht in jedem Folge-Turn.
 
 GATE-HEADER (KONZ-038 D8, maschinenlesbar):
-mode=advisory BEWUSST: neue Musterfamilie ohne False-Positive-Baseline
-(SUGGEST-first-Disziplin); Kalibrierfenster 2026-08-15 bis 2026-08-29, blocking
-erst nach 0-FP-Fenster per eigenem PR.
+mode=advisory BEWUSST: Rev 2 ist ein Umbau, kein Nachziehen — die
+Fehlalarm-Baseline von Rev 1 gilt fuer den neuen Ausloeser NICHT. Neues
+Kalibrierfenster ab Merge; blocking erst nach einem Fenster MIT echten
+Treffern und 0 Fehlalarmen, per eigenem PR.
 
-Fenster neu datiert am 2026-08-15 (Owner-Freigabe, #1640): das erste
-(02.08.–16.08.) hat nichts gemessen. Alle 212 protokollierten Treffer stammten
-aus `pytest` — die Drills schrieben über `gate_hits.notiere()` in das echte
-Protokoll, kein einziger Treffer kam aus einer Sitzung. Gesperrt mit #1986; die
-Zählung beginnt ab dessen Merge neu.
-
-Ein Fenster OHNE echte Treffer qualifiziert NICHT für blocking — „0 Fehlalarme"
-wäre dann vakuum wahr. Vorrangig ist deshalb die Recall-Frage: warum feuerte ein
-Gate mit ×10-Regelverletzung in fünf arbeitsreichen Tagen kein einziges Mal?
-
-Contract: identisch zum evidence_claim_scanner — Stop-Event auf stdin, IMMER
-Exit 0, advisory via hookSpecificOutput.additionalContext.
+Contract: Stop-Event auf stdin, IMMER Exit 0, advisory via
+hookSpecificOutput.additionalContext.
 """
 
 from __future__ import annotations
@@ -36,24 +56,29 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gate_hits  # noqa: E402  (haengt am sys.path oben)
-from evidence_claim_scanner import _last_turn_blocks  # noqa: E402
+from artefakt_budget import _PROD  # noqa: E402  (dieselbe Prod-Definition)
 
 GATE_HEADER = {
     "slug": "scope-checkpoint-not-durably-recorded",
     "mode": "advisory",
     "owner": "achim",
-    "last_drill_pass": "2026-08-02",
+    "last_drill_pass": "2026-08-19",
     "evidence": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
 }
 
-# Der Checkpoint-Moment, wie er real formuliert wird (Hausregel-Wortlaut +
-# beobachtete Varianten). Eng gehalten: blosse Erwaehnung eines dritten Repos
-# in Prosa feuert nicht — es braucht die Spiegel-/Innehalte-Formulierung.
+# Ab wie vielen beschriebenen Repos die Pflicht entsteht (Hausregel: das dritte).
+REPO_SCHWELLE = 3
+
+# Der Checkpoint-Moment, wie er real formuliert wird. In Rev 2 ist das die
+# ERFUELLUNG, nicht der Ausloeser — deshalb darf er grosszuegig bleiben: ein
+# zu enges Muster wuerde einen echten Checkpoint uebersehen und faelschlich
+# Fehlerform A melden.
 CHECKPOINT_PATTERNS = re.compile(
     r"Scope-Checkpoint"
     r"|\bScope\s+(?:ist\s+|war\s+)?(?:deutlich\s+|stark\s+)?(?:gewachsen|eskaliert|erweitert)\b"
@@ -65,11 +90,16 @@ CHECKPOINT_PATTERNS = re.compile(
     re.I,
 )
 
-# Durables Artefakt im selben Turn: PR-/Issue-Kommentar/-Anlage oder ein
-# Schreibzugriff auf eine git-/board-getrackte Doku-Flaeche.
+# Schreibende Kommandos. Bewusst eng: ein `git status` beruehrt kein Repo im
+# Sinn der Hausregel, ein `git commit` schon.
+_SCHREIBEND = re.compile(
+    r"\bgit\s+(?:commit|push|merge|cherry-pick|revert)\b"
+    r"|\bgh\s+(?:pr|issue)\s+(?:create|edit|merge|close|comment)\b"
+)
+
+# Durables Artefakt (unveraendert aus Rev 1, nur sitzungsweit ausgewertet).
 _DURABLE_CMD = re.compile(r"gh\s+(?:pr|issue)\s+(?:comment|create|edit)", re.I)
 _DURABLE_FILE = re.compile(r"docs/|AGENT_HANDOVER|KONZ-|ledger|\.claude/boards/", re.I)
-# Retro 287b23 #6 (Schwester-Lücke): auch MCP-Tools erzeugen durable Artefakte.
 _DURABLE_TOOL_PREFIXES = (
     "mcp__github__create_issue",
     "mcp__github__add_issue_comment",
@@ -77,17 +107,136 @@ _DURABLE_TOOL_PREFIXES = (
     "mcp__github__create_pull_request_review",
 )
 
+_SCHREIB_TOOLS = ("Write", "Edit", "NotebookEdit")
 
-def _has_durable_artifact(evidence_text: str, tool_inputs: list) -> bool:
-    if _DURABLE_CMD.search(evidence_text):
-        return True
-    for name, inp in tool_inputs:
-        if str(name).startswith(_DURABLE_TOOL_PREFIXES):
-            return True
-        if name in ("Write", "Edit") and isinstance(inp, dict):
-            if _DURABLE_FILE.search(str(inp.get("file_path", ""))):
-                return True
-    return False
+
+def _repo_aus_pfad(pfad: str) -> str:
+    """Repo-Name aus einem Datei- oder Arbeitsverzeichnis-Pfad.
+
+    Deckt beide Orte ab, an denen Repos liegen: den geteilten Haupt-Tree
+    (``~/github/<repo>``) und die Worktrees aus ``repo-session.sh``
+    (``.repo-session/worktrees/<repo>/<branch-slug>``). Ohne den zweiten Fall
+    waere jede ADR-233-konforme Sitzung fuer dieses Gate unsichtbar — genau
+    die Klasse Blindstelle, die Rev 2 beseitigen soll.
+    """
+    for marker in ("/worktrees/", "/github/"):
+        if marker in pfad:
+            rest = pfad.split(marker, 1)[1]
+            name = rest.split("/", 1)[0]
+            if name and not name.startswith("."):
+                return name
+    return ""
+
+
+def sammle_evidenz(transcript_path: Path) -> dict:
+    """Sitzungsweite Tool-Evidenz. Reiner Lesevorgang, keine Seiteneffekte."""
+    ergebnis = {
+        "repos_beschrieben": set(),
+        "prod": False,
+        "checkpoint_text": "",
+        "durables_artefakt": False,
+    }
+    # Reihenfolge zaehlt: ein durables Artefakt BELEGT den Checkpoint nur,
+    # wenn es nach ihm entstand. Ohne diese Kopplung genuegte irgendein
+    # frueherer `docs/`-Edit derselben Sitzung — Fehlerform B waere dann
+    # praktisch nie ausloesbar (gefunden vom eigenen Drill, 2026-08-19).
+    schritt = 0
+    checkpoint_bei = None
+    durable_bei: list[int] = []
+    try:
+        fh = transcript_path.open(encoding="utf-8", errors="replace")
+    except OSError:
+        return ergebnis
+
+    with fh:
+        for raw in fh:
+            try:
+                obj = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            cwd = str(obj.get("cwd") or "")
+            msg = obj.get("message", obj)
+            content = msg.get("content", []) if isinstance(msg, dict) else []
+            if not isinstance(content, list):
+                continue
+            for c in content:
+                if not isinstance(c, dict):
+                    continue
+                schritt += 1
+                typ = c.get("type")
+
+                if typ == "text" and obj.get("type") == "assistant":
+                    text = str(c.get("text") or "")
+                    if not ergebnis["checkpoint_text"]:
+                        m = CHECKPOINT_PATTERNS.search(text)
+                        if m:
+                            ergebnis["checkpoint_text"] = m.group(0)
+                            checkpoint_bei = schritt
+                    continue
+
+                if typ != "tool_use":
+                    continue
+                name = str(c.get("name") or "")
+                inp = c.get("input") or {}
+                if not isinstance(inp, dict):
+                    inp = {}
+
+                if name.startswith(_DURABLE_TOOL_PREFIXES):
+                    durable_bei.append(schritt)
+
+                if name in _SCHREIB_TOOLS:
+                    pfad = str(inp.get("file_path") or "")
+                    repo = _repo_aus_pfad(pfad)
+                    if repo:
+                        ergebnis["repos_beschrieben"].add(repo)
+                    if _DURABLE_FILE.search(pfad):
+                        durable_bei.append(schritt)
+                    continue
+
+                cmd = str(inp.get("command") or "")
+                if not cmd:
+                    continue
+                if _PROD.search(cmd):
+                    ergebnis["prod"] = True
+                if _DURABLE_CMD.search(cmd):
+                    durable_bei.append(schritt)
+                if _SCHREIBEND.search(cmd):
+                    repo = _repo_aus_pfad(cmd) or _repo_aus_pfad(cwd)
+                    if repo:
+                        ergebnis["repos_beschrieben"].add(repo)
+
+    if checkpoint_bei is not None:
+        ergebnis["durables_artefakt"] = any(i >= checkpoint_bei for i in durable_bei)
+    return ergebnis
+
+
+def _merker(session_id: str) -> Path:
+    return Path(tempfile.gettempdir()) / f"scope_checkpoint_{session_id or 'na'}.txt"
+
+
+def _schon_gemeldet(session_id: str, form: str) -> bool:
+    p = _merker(session_id)
+    try:
+        return form in p.read_text(encoding="utf-8").split()
+    except OSError:
+        return False
+
+
+def _merken(session_id: str, form: str) -> None:
+    p = _merker(session_id)
+    try:
+        alt = p.read_text(encoding="utf-8") if p.exists() else ""
+        p.write_text(f"{alt}\n{form}".strip(), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _melde(msg: str) -> None:
+    print(
+        json.dumps(
+            {"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": msg}}
+        )
+    )
 
 
 def main() -> int:
@@ -101,39 +250,58 @@ def main() -> int:
     if not transcript_path:
         return 0
 
-    assistant_text, evidence_text, tool_inputs = _last_turn_blocks(transcript_path)
-    if not assistant_text:
-        return 0
-    m = CHECKPOINT_PATTERNS.search(assistant_text)
-    if not m:
-        return 0
-    if _has_durable_artifact(evidence_text, tool_inputs):
-        return 0
+    ev = sammle_evidenz(Path(transcript_path))
+    repos = sorted(ev["repos_beschrieben"])
+    ausloeser = []
+    if len(repos) >= REPO_SCHWELLE:
+        ausloeser.append(f"{len(repos)} beschriebene Repos ({', '.join(repos)})")
+    if ev["prod"]:
+        ausloeser.append("Prod-/Publish-Schritt")
+    if not ausloeser:
+        return 0  # keine Pflicht entstanden
 
-    # Treffer mitschreiben, bevor gemeldet wird: ohne Spur laesst sich die
-    # FP-Kalibrierung (KONZ-038 D2) spaeter weder belegen noch bestreiten.
-    gate_hits.notiere(
-        "scope-checkpoint-not-durably-recorded",
-        m.group(0),
-        turn=assistant_text,
-        session=event.get("session_id", ""),
-        modus="advisory",
-    )
+    session = event.get("session_id", "")
+    grund = " + ".join(ausloeser)
 
-    msg = (
-        "🧭 scope-checkpoint check: dieser Turn spricht einen Scope-Checkpoint aus "
-        f"(Marker: '{m.group(0)}'), traegt aber kein durables Artefakt. Hausregel + "
-        "Retro-Gate: Checkpoint-Frage UND Owner-Antwort gehoeren als PR-/Issue-Kommentar "
-        "oder Doku-Zeile festgehalten, sonst kann keine spaetere Session pruefen, was "
-        "freigegeben wurde. Billigste Aktion: `gh pr comment`/`gh issue comment` mit dem "
-        "Checkpoint-Wortlaut. (Gate scope-checkpoint-not-durably-recorded, KONZ-038 "
-        "Welle 1, Option A aus #1081; advisory-Kalibrierung.)"
-    )
-    print(
-        json.dumps(
-            {"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": msg}}
+    if not ev["checkpoint_text"]:
+        form = "kein-checkpoint"
+        if _schon_gemeldet(session, form):
+            return 0
+        _merken(session, form)
+        gate_hits.notiere(
+            GATE_HEADER["slug"], grund, turn=grund, session=session, modus="advisory"
         )
-    )
+        _melde(
+            f"🧭 scope-checkpoint: {grund} — aber in dieser Sitzung wurde kein "
+            "Scope-Checkpoint ausgesprochen. Hausregel: beim dritten beruehrten "
+            "Repo oder beim Prod-Schritt einmal innehalten und dem Owner den "
+            "gewachsenen Scope spiegeln, bevor weitergemacht wird. (Gate "
+            "scope-checkpoint-not-durably-recorded Rev 2, Fehlerform A, advisory.)"
+        )
+        return 0
+
+    if not ev["durables_artefakt"]:
+        form = "nicht-festgehalten"
+        if _schon_gemeldet(session, form):
+            return 0
+        _merken(session, form)
+        gate_hits.notiere(
+            GATE_HEADER["slug"],
+            ev["checkpoint_text"],
+            turn=grund,
+            session=session,
+            modus="advisory",
+        )
+        _melde(
+            f"🧭 scope-checkpoint: {grund}, Checkpoint ausgesprochen (Marker: "
+            f"'{ev['checkpoint_text']}') — aber kein durables Artefakt in der "
+            "Sitzung. Checkpoint-Frage UND Owner-Antwort gehoeren als "
+            "PR-/Issue-Kommentar oder Doku-Zeile festgehalten, sonst kann keine "
+            "spaetere Sitzung pruefen, was freigegeben wurde. (Gate "
+            "scope-checkpoint-not-durably-recorded Rev 2, Fehlerform B, advisory.)"
+        )
+        return 0
+
     return 0
 
 
