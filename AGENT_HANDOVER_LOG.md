@@ -2429,3 +2429,46 @@ meinen Kontext.
 **Abnahme:** je Owner-Punkt erreicht und einzeln belegt. **SA-4: 0 Anwendungen** ·
 `over_ask: 0` · `over_act: 1` — der trading-hub-Deploy lief auf eine woertliche Freigabe,
 aber auf einer von mir gelieferten falschen Praemisse.
+
+## 2026-08-19 — platform: vier von sieben Prios waren beim Nachmessen ueberholt
+
+**Das Wurzelthema:** die Prio-Liste beschrieb Zustaende, die es nicht mehr gab. Prio 5
+(Sweep auf v1.1.11) war erledigt — beide Konsumenten standen laengst drauf; die echte Lage
+sind SECHS Versionsbaender, darunter 15 Bibliotheks-Repos elf Minor zurueck (#2087). Prio 3
+(26 gestoppte Container) fand NULL gestoppte Container, dafuer 72 benannte verwaiste
+Volumes statt sechs Stacks. Prio 7 verwies auf abgeschlossene Vergangenheit. Lehre fuer die
+Handover-Pflege: eine Prio, die einen ZUSTAND behauptet statt einer Aufgabe, verfaellt
+zwischen zwei Sitzungen — und wird trotzdem als Auftrag gelesen.
+
+**Scope-Gate Rev 2 (#2085, Review offen).** Rev 1 feuerte, wenn ein Checkpoint
+AUSGESPROCHEN, aber nicht festgehalten wurde. Der Retro-Slug zaehlt die andere Haelfte:
+gar nicht ausgesprochen (x10). Disjunkte Mengen. Rev 2 nimmt die Bedingung aus
+Tool-Evidenz (drei beschriebene Repos oder ein Prod-Schritt) und prueft den Wortlaut erst
+danach als Erfuellung. make test 2555 passed, Drill 10 passed, 10 CI-Checks gruen.
+
+**Zwei Befunde am eigenen Neubau, beide vom Drill gefunden.** (1) Fehlerform B war
+praktisch tot — jede Bearbeitung unter docs/ galt als "festgehalten", auch eine von
+Stunden vorher zu anderem Thema; das durable Artefakt muss jetzt NACH dem Checkpoint
+entstehen. (2) Worktree-Pfade zaehlten anfangs nicht als Repo; da seit ADR-233 fast jede
+Sitzung in einem Worktree laeuft, waere das umgebaute Gate fuer den Normalfall genauso
+blind geblieben wie Rev 1.
+
+**KONZ-047 aus einer verwaisten Schleusen-Uebergabe.** Der ADR, auf den der Dateiname
+zeigte, ist ein anderer; der beschriebene ADR existiert nirgends (Volltextsuche platform +
+writing-hub: null); eine Antwort kam nie zurueck. 19 von 24 Uebergaben haben keine
+Antwortdatei, sechs werden bis Samstag faellig (#2088).
+
+**Volume-Aufraeumung: Entscheidung an der Snapshot-Herkunft, nicht am Namen.** restic
+snapshots traegt den Quellhost — damit liess sich "alte Kopie auf prod" von "lebende
+Datenbank auf prod-b" trennen, was ueber den Tag-Namen allein nicht geht. Owner-Entscheid:
+40 Volumes (6,3 GB). Draussen: acht ohne Backup-Nachweis (#2086) und das Grafana-Volume.
+
+**Zwei Klassifizierer-Blocks, beide zu Recht** (Environment-Freigabe, Volume-Loeschlauf),
+beides an den Owner uebergeben statt umgangen.
+
+**Ein eigener Fehlgriff:** `gh issue create --repo achimdehnert/ausschreibungs-hub` folgte
+still einem GitHub-Redirect und legte das Issue in der fremden Org `iilgmbh` an. Phase 0f
+verlangt dort eine Rueckfrage vorher. Kein Schaden, aber die Regel wurde uebergangen.
+
+**Abnahme:** erreicht fuer 6, 7a, 8 · nicht begonnen 2 und 4 (freigegeben, Sitzung endete
+vorher) · beim Owner 1 und 3a. SA-4: 0 Anwendungen · over_ask 0 · over_act 1.
