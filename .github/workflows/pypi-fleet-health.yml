@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      seed_canary:
+        description: "Loop-Canary säen (#2075 K4): Auto-Issue für Canary-Datei"
+        required: false
+        default: false
+        type: boolean
   # Wiring-Beweis by-construction (Gate autonomous-no-human-review): jede
   # Änderung an Workflow/Tool läuft im PR als ERZWUNGENER Dry-Run (s. unten,
   # pull_request ⇒ nie Issue-Write) — kein lokaler Lauf zählt als Beweis.
@@ -29,6 +34,7 @@ on:
       - ".github/workflows/pypi-fleet-health.yml"
       - "tools/pypi_fleet_inventory.py"
       - "tools/pypi_fleet_earlywarn.py"
+      - "tools/pypi_fleet_issue_emitter.py"
 
 permissions:
   contents: read
@@ -68,6 +74,30 @@ jobs:
             echo ""
             python3 tools/pypi_fleet_earlywarn.py
           } | tee -a fleet-findings.txt
+
+      # #2075 K4: Befund→Auto-Issue-Emitter. Allowlist default NUR canary;
+      # echte Klassen erst nach Owner-Entscheid (#2084). PR-Event ⇒ erzwungener
+      # Dry-Run (Wiring-Beweis); Canary-Seed nur per explizitem Dispatch-Input.
+      - name: Auto-Issue-Emitter (Loop #2075 K4)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEED: ${{ inputs.seed_canary }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ARGS="--seed-canary --dry-run"
+          elif [ "${SEED}" = "true" ]; then
+            ARGS="--seed-canary"
+          fi
+          if [ -n "$ARGS" ]; then
+            python3 tools/pypi_fleet_earlywarn.py --json > earlywarn.json
+            python3 tools/pypi_fleet_issue_emitter.py --findings earlywarn.json $ARGS \
+              | tee -a fleet-findings.txt
+          else
+            echo "Emitter: kein Seed angefordert, keine Allowlist-Klasse aktiv — übersprungen." \
+              | tee -a fleet-findings.txt
+          fi
 
       # Retro e17299-incr B2/B5 + Gate critical-alert-no-ticket (×2): der Report
       # hält (a) offene Bot-PRs und (b) rote Checks auf main je Paket-Repo sichtbar —
