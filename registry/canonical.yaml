@@ -403,6 +403,12 @@ repos:
         prod_redirect: https://devhub.iil.pet/oidc/callback/
         staging_app_slug: dev-hub-staging
         staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
+  django-lms-lite:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-django-lms-lite
   dms-hub:
     in_flat: true
     in_rich: true
@@ -453,6 +459,12 @@ repos:
       lifecycle: active
       tenancy_mode: none
       coverage_threshold: 80
+  gpufw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-gpufw
   ifc-mcp:
     in_flat: false
     in_rich: false
@@ -477,6 +489,12 @@ repos:
     flat:
       type: library
       pypi: iil-django-commons
+  iil-doc-templates:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-doc-templates
   iil-enrichment:
     in_flat: true
     in_rich: false
