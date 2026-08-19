@@ -55,26 +55,35 @@ def test_should_fail_loudly_when_hosts_yaml_is_missing(monkeypatch, tmp_path):
 # --- Aufbau des Aufrufs -----------------------------------------------------
 
 
-def test_should_build_an_argument_list_not_a_shell_string():
-    """Ein Suchbegriff mit Leerzeichen darf unterwegs nicht zerfallen."""
+def test_should_quote_the_remote_part_so_a_phrase_survives_the_second_shell():
+    """Ein Suchbegriff mit Leerzeichen darf unterwegs nicht zerfallen.
+
+    Die frühere Fassung dieses Tests prüfte, dass der Begriff als EIN Element in
+    der lokalen Liste steht — das war er, und der Aufruf brach trotzdem: `ssh`
+    fügt den fernen Teil zu einem String zusammen, den die entfernte Shell erneut
+    zerlegt. Gemessen am 2026-08-18 endete `--begriff "Ihre Rückfragen"` in
+    `unrecognized arguments: Rückfragen`. Geprüft wird deshalb jetzt die ferne
+    Seite: Der Begriff muss dort gequotet ankommen.
+    """
     befehl = su.befehl_bauen(["--begriff", "Rechnung Mittwald"], "hetzner-prod")
     assert isinstance(befehl, list)
-    assert "Rechnung Mittwald" in befehl
     assert befehl[0] == "ssh"
+    fern = befehl[-1]
+    assert "'Rechnung Mittwald'" in fern
+
+
+def test_should_leave_a_single_word_term_usable_as_before():
+    befehl = su.befehl_bauen(["--begriff", "Postsortierung"], "hetzner-prod")
+    assert "Postsortierung" in befehl[-1]
 
 
 def test_should_call_the_management_command_in_the_container():
     befehl = su.befehl_bauen(["--json"], "hetzner-prod")
-    assert befehl[-4:] == ["python", "manage.py", "mail_suche", "--json"]
+    assert befehl[-1].endswith("python manage.py mail_suche --json")
     assert befehl[:3] == ["ssh", "-o", "BatchMode=yes"]
     assert "hetzner-prod" in befehl
-    assert befehl[
-        befehl.index("hetzner-prod") + 1 : befehl.index("hetzner-prod") + 4
-    ] == [
-        "docker",
-        "exec",
-        su.CONTAINER,
-    ]
+    fern = befehl[befehl.index("hetzner-prod") + 1]
+    assert fern.startswith(f"docker exec {su.CONTAINER} ")
 
 
 def test_should_use_batchmode_so_it_never_waits_for_a_password():
