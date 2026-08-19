@@ -2481,3 +2481,55 @@ Frühwarn-Scanner Baseline 38 (#2090), K4 Loop-Erstzyklus real (#2095→#2096→
 Kanon `_ci-pypi.yml` → iilgmbh/shared-ci (#2103) + M4-Sweep 15 Repos auf v1.1.11.
 gpufw → iilgmbh transferiert. Offen (Owner): #2098, #2089, shared-ci-Überbleibsel,
 risk-hub#618. Verifikations-Docs: docs/verifications/2026-08-19-adr266-*.md.
+
+## 2026-08-19 nachmittags — doc-hub: Schleuse aus dem Paperless-Einzug, Dokumentversand per Mail
+
+**Zielzustand** (platform#2083, Owner-Go im Kapitäns-Kanal): doc-hub-Stack versioniert,
+Box-Schleuse ausserhalb des Einzugs, Dokumentversand aus der Oberflaeche.
+**Abnahme: teilweise erreicht** — Kriterien 2, 3, 4, 5 erfuellt; Kriterium 1
+(Host als Auscheckung des Repos) nicht.
+
+**Ausloeser:** zwei Fehlermeldungen an docs.iil.pet (`PermissionError` in `.thumbs/`,
+`SubprocessOutputError`). Ursache war eine falsche Praemisse in `tools/box-schleuse.sh`:
+`/opt/paperless-consume` und der Paperless-Mount sind derselbe Inode (2064:3733153).
+Die Gegenprobe von 2026-08-10 suchte den Pfad-String in den Container-Mounts, wo Docker
+den `_data`-Pfad meldet — sie pruefte die Schreibweise, nicht die Identitaet.
+
+**Erledigt:**
+- Schleuse nach `/srv/box-schleuse` (scansnap:scanner 2775), eigene Samba-Freigabe
+  `[schleuse]`, smbd reload. Windows-Pfad jetzt `\\10.99.0.1\schleuse\von-box\`.
+  Gegenprobe `find /opt/paperless-consume -path '*schleuse*'` → 0. 817 Dateien, keine
+  Quelldatei fehlt in der Kopie. PR #2101 (gemergt), Korrektur an #1888.
+- 55 Fehl-Dokumente (54 Trainingsbilder + LIESMICH.txt) aus dem Archiv entfernt,
+  9 verwaiste Tags geloescht. Aktiver Bestand 1004.
+- Neues privates Repo `achimdehnert/doc-hub` (Commit c09625e): Compose vom Host plus
+  `mailrelay/` — SMTP→Graph-Vermittler, weil Paperless nur Django-SMTP spricht und
+  achim.dehnert@iil.gmbh keinen SMTP-Zugang hat.
+- Entra: App `iil-mail-send` `f237ca44-50fd-4988-8699-5716f6951869`, genau eine Rolle
+  `Mail.Send`, `ApplicationAccessPolicy RestrictAccess` auf ein Postfach.
+  Echter Versand belegt: `gesendet an ad@dehnert.team (390906 Bytes)`.
+- Rotation `risk@dehnert.team` (Anlass: Leak, siehe unten) auf Dev- und Prod-Host,
+  SMTP-Anmeldung verifiziert. iilgmbh/risk-hub#621.
+- Secret-Leak-Guard `~/.claude/hooks/block_env_cat.sh` gepatcht: `grep` galt nur als
+  nachgeschalteter Filter und konnte die Secret-Datei selbst ausgeben. 5/7 → 7/7.
+  achimdehnert/dev-hub#282.
+
+**Eigene Fehler, beide gemeldet und behoben:**
+1. `grep -rhiE` auf eine Secret-Datei schrieb ein Prod-Passwort ins Transkript
+   (risk@dehnert.team). Rotiert, Gate gepatcht.
+2. `mv` als root machte die Prod-Secret-Datei `root:root` — `read_secret()` fing den
+   `PermissionError` und fiel still auf die Umgebungsvariable mit dem ALTEN Wert
+   zurueck. Sichtbar nur an `len(EMAIL_HOST_PASSWORD)` 10 statt 13.
+
+**Messbefund nebenbei:** die ID-Folge der Dokumente lag 716 vor dem Bestand, 705 Nummern
+fehlten in 18 Luecken. Ursache belegt per 1:1-Korrelation (6 fehlgeschlagene
+`consume_file`-Tasks in der letzten Stunde ↔ 6 verbrannte Nummern): jeder Fehlversuch
+zieht eine Sequenznummer und verwirft sie.
+
+**Offen:** Kriterium 1 aus #2083 (Host ist noch keine Auscheckung von `doc-hub`, die vier
+`.bak-*` liegen noch daneben). Nicht verifiziert: ob die Access-Policy einen ANDEREN
+Absender wirklich abweist — billigster Check `Test-ApplicationAccessPolicy` gegen ein
+zweites Postfach.
+
+**SA-4:** 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen
+(Gates einzeln vorgelegt, jeweils Owner-Go).
