@@ -239,6 +239,11 @@ def main() -> int:
     ap.add_argument(
         "--strict", action="store_true", help="rc 1 bei Findings (blocking)"
     )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="Findings als JSON-Liste [{repo, org, metric, text}] (Emitter-Input)",
+    )
     args = ap.parse_args()
     today = args.today or dt.date.today()
 
@@ -251,13 +256,22 @@ def main() -> int:
     active = sorted(
         name for name, p in fleet["packages"].items() if p.get("strategy") == "aktiv"
     )
-    total = 0
-    print(f"== Frühwarn-Scan (advisory) — {len(active)} aktiv-Pakete, Stand {today} ==")
+    records: list[dict] = []
+    if not args.json:
+        print(
+            f"== Frühwarn-Scan (advisory) — {len(active)} aktiv-Pakete, Stand {today} =="
+        )
     for repo in active:
         org = find_org(repo, token)
         if org is None:
-            print(f"{repo}: ORG NICHT AUFLÖSBAR (Zugriff/Umbenennung prüfen)")
-            total += 1
+            records.append(
+                {
+                    "repo": repo,
+                    "org": None,
+                    "metric": "unresolved",
+                    "text": "ORG NICHT AUFLÖSBAR (Zugriff/Umbenennung prüfen)",
+                }
+            )
             continue
         findings = scan_package(repo, org, token, today)
         dl = (fleet["packages"][repo].get("pypi") or {}).get("downloads_30d")
@@ -266,10 +280,16 @@ def main() -> int:
                 f"M5 archival_info: nur {dl} Downloads/30d (<{DOWNLOAD_FLOOR_30D})"
             )
         for f in findings:
-            print(f"{repo}: {f}")
-        total += len(findings)
-    print(f"== {total} Frühwarn-Findings über {len(active)} Pakete ==")
-    return 1 if (args.strict and total) else 0
+            records.append(
+                {"repo": repo, "org": org, "metric": f.split(" ", 1)[0], "text": f}
+            )
+    if args.json:
+        print(json.dumps(records, ensure_ascii=False, indent=1))
+    else:
+        for r in records:
+            print(f"{r['repo']}: {r['text']}")
+        print(f"== {len(records)} Frühwarn-Findings über {len(active)} Pakete ==")
+    return 1 if (args.strict and records) else 0
 
 
 if __name__ == "__main__":
