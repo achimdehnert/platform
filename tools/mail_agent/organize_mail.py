@@ -214,10 +214,43 @@ def _matches(
     return hits
 
 
+def faehigkeiten(imap: imaplib.IMAP4_SSL) -> frozenset[str]:
+    """Server-Faehigkeiten NACH der Anmeldung — nicht die Bannerliste.
+
+    ``imap.capabilities`` haelt, was der Server im Begruessungsbanner **vor** dem
+    Login angekuendigt hat. Viele Server nennen dort nur einen Bruchteil und
+    melden den Rest erst der angemeldeten Sitzung.
+
+    Gemessen am 2026-08-18 gegen ein produktives Konto (Issue #2069):
+
+        vor-auth  (imap.capabilities):  MOVE False · UIDPLUS False   (9 Eintraege)
+        nach-auth (imap.capability()):  MOVE True  · UIDPLUS True   (30+ Eintraege)
+
+    Die Folge war nicht theoretisch: ``_move`` nahm deshalb IMMER den
+    COPY-Fallback, und weil dort auch UIDPLUS als fehlend galt, unterblieb das
+    ``UID EXPUNGE``. Die Kopien lagen im Ziel, die Originale blieben sichtbar im
+    Quellordner — 89 Dubletten bei einer einzigen Aufraeumaktion.
+
+    Faellt die Abfrage aus, wird auf die Bannerliste zurueckgefallen: lieber der
+    vorsichtige Weg als ein Abbruch mitten im Verschieben.
+    """
+    try:
+        typ, dat = imap.capability()
+        if typ == "OK" and dat:
+            roh = b" ".join(t for t in dat if isinstance(t, (bytes, bytearray)))
+            return frozenset(roh.decode("ascii", "ignore").upper().split())
+    except (imaplib.IMAP4.error, OSError, AttributeError):
+        # AttributeError deckt Verbindungsobjekte ab, die CAPABILITY gar nicht
+        # anbieten. Auch dann gilt: lieber die vorsichtige Bannerliste als ein
+        # Abbruch mitten im Verschieben.
+        pass
+    return frozenset(str(c).upper() for c in getattr(imap, "capabilities", ()))
+
+
 def _move(imap: imaplib.IMAP4_SSL, source: str, target: str, uids: list[bytes]) -> None:
     imap.select(_mailbox_arg(source))  # read-write
     uid_set = b",".join(uids)
-    caps = getattr(imap, "capabilities", ())
+    caps = faehigkeiten(imap)
     if "MOVE" in caps:
         typ, resp = imap.uid("MOVE", uid_set, _mailbox_arg(target))
         if typ != "OK":
@@ -230,11 +263,16 @@ def _move(imap: imaplib.IMAP4_SSL, source: str, target: str, uids: list[bytes]) 
     if "UIDPLUS" in caps:
         imap.uid("EXPUNGE", uid_set)  # nur die betroffenen UIDs
     else:
-        print(
+        # Auf BEIDE Kanaele: eine Warnung, die nur auf stderr steht, verschwindet
+        # in jeder Pipeline. Genau so blieben am 2026-08-18 89 Dubletten
+        # unbemerkt — die Schleife las mit `2>&1 | tail -1` nur die Erfolgszeile.
+        hinweis = (
             "Hinweis: Server ohne UIDPLUS — Quell-Mails sind als gelöscht MARKIERT und "
-            "verschwinden beim nächsten Client-Sync; ordner-weites EXPUNGE wird bewusst NICHT ausgeführt.",
-            file=sys.stderr,
+            "verschwinden beim nächsten Client-Sync; ordner-weites EXPUNGE wird "
+            "bewusst NICHT ausgeführt."
         )
+        print(hinweis, file=sys.stderr)
+        print(f"  ! {hinweis}")
 
 
 def cmd_move(
