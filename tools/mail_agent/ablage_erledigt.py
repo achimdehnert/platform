@@ -141,7 +141,9 @@ def _namensteile(gegenueber: str) -> list[str]:
     return [t for t in roh.split() if len(t) >= 4]
 
 
-def ordner_finden(gegenueber: str, ordnerbestand: list[str], praefix: str) -> str | None:
+def ordner_finden(
+    gegenueber: str, ordnerbestand: list[str], praefix: str
+) -> str | None:
     """Ordner unter ``praefix`` suchen, dessen Name einen Namensteil enthaelt.
 
     Gesucht wird im **vorhandenen** Bestand statt einen Namen zu bauen: Ein
@@ -254,7 +256,9 @@ def plane(
         elif ziel not in bestand:
             # Kein Ordner wird angelegt — das ist eine Owner-Handlung.
             status = "ordner_fehlt"
-        elif str(vorgang.get("nr")) not in anker and str(vorgang.get("nr")) not in links:
+        elif (
+            str(vorgang.get("nr")) not in anker and str(vorgang.get("nr")) not in links
+        ):
             # Ohne Anker ist nicht bestimmbar, welche Mails gemeint sind.
             status = "kein_anker"
         else:
@@ -288,7 +292,7 @@ def bericht(zeilen: list[Zeile]) -> str:
         kopf,
         "",
         f"{'Nr':>4}  {'Kto':<4}  {'Status':<15}  {'Ziel':<34}  Vorgang",
-        f"{'-'*4}  {'-'*4}  {'-'*15}  {'-'*34}  {'-'*38}",
+        f"{'-' * 4}  {'-' * 4}  {'-' * 15}  {'-' * 34}  {'-' * 38}",
     ]
     rang = {s: i for i, s in enumerate(STATUS_REIHENFOLGE)}
     for z in sorted(zeilen, key=lambda z: (rang.get(z.status, 99), z.nr or 0)):
@@ -392,7 +396,9 @@ def bewegungen_fuer(
     for nachricht in suche(strang=strang):
         ordner = (nachricht.get("ordner") or [""])[0]
         if ordner not in quellen:
-            liegen[ordner or "(ohne Ordner)"] = liegen.get(ordner or "(ohne Ordner)", 0) + 1
+            liegen[ordner or "(ohne Ordner)"] = (
+                liegen.get(ordner or "(ohne Ordner)", 0) + 1
+            )
             continue
         bewegungen.append(
             Bewegung(
@@ -422,7 +428,9 @@ def index_suche(**kriterien) -> list[dict]:
             befehl += [f"--{name}", str(wert)]
     fertig = subprocess.run(befehl, capture_output=True, text=True)
     if fertig.returncode != 0:
-        raise SystemExit(f"FEHLER: Index-Abfrage fehlgeschlagen — {fertig.stderr[:300]}")
+        raise SystemExit(
+            f"FEHLER: Index-Abfrage fehlgeschlagen — {fertig.stderr[:300]}"
+        )
     try:
         return json.loads(fertig.stdout).get("treffer") or []
     except json.JSONDecodeError:
@@ -460,6 +468,265 @@ def strang_bericht(zeilen: list[Zeile], ledger: dict, suche) -> str:
     return "\n".join(aus)
 
 
+#: Wohin der Lauf protokolliert wird. Dieselbe Datei wie bei `regeln.py`, damit
+#: es EINEN Ort gibt, an dem steht, was dieses System an Mails bewegt hat.
+PROTOKOLL = Path.home() / ".claude" / "mail-regeln-protokoll.jsonl"
+
+
+class AblageFehler(RuntimeError):
+    """Abbruch mit Grund — nie stillschweigend weitermachen."""
+
+
+def _cli(*teile: str) -> str:
+    """Ein Werkzeug aus diesem Verzeichnis aufrufen und stdout zurueckgeben."""
+    import subprocess
+
+    hier = Path(__file__).resolve().parent
+    fertig = subprocess.run(
+        [sys.executable, str(hier / teile[0]), *teile[1:]],
+        capture_output=True,
+        text=True,
+    )
+    if fertig.returncode != 0:
+        raise AblageFehler(f"{teile[0]} fehlgeschlagen: {fertig.stderr[:300]}")
+    return fertig.stdout
+
+
+def graph_zeilen_lesen(ausgabe: str) -> list[dict]:
+    """Die zweizeilige Fundausgabe von ``graph_mail --find`` in Datensaetze.
+
+    Format je Treffer::
+
+        · 2026-08-18T07:27  absender@example.com   Betreff
+          id: AAMk...=
+
+    Bewusst als eigene Funktion mit eigenem Test: das ist die einzige Stelle,
+    an der dieses Modul auf eine Textausgabe angewiesen ist — ``graph_mail``
+    kennt kein ``--json``.
+    """
+    aus: list[dict] = []
+    offen: dict | None = None
+    for zeile in ausgabe.splitlines():
+        roh = zeile.strip()
+        if roh.startswith("·"):
+            rest = roh.lstrip("· ").strip()
+            teile = rest.split(None, 1)
+            if not teile:
+                continue
+            datum = teile[0]
+            spur = teile[1] if len(teile) > 1 else ""
+            stueck = spur.split(None, 1)
+            betreff = stueck[1].strip() if len(stueck) > 1 else spur.strip()
+            offen = {"datum": datum[:10], "betreff": betreff, "kennung": None}
+        elif roh.startswith("id:") and offen is not None:
+            offen["kennung"] = roh[3:].strip()
+            aus.append(offen)
+            offen = None
+    return [e for e in aus if e["kennung"]]
+
+
+def postfach_auflisten(konto: str, ordner: str) -> list[dict]:
+    """Live-Bestand eines Ordners: Kennung, Betreff, Datum.
+
+    Die Kennung ist kontoabhaengig — IMAP-UID oder Graph-messageId. Sie wird
+    nur weitergereicht, nie interpretiert.
+    """
+    if konto == "iil":
+        roh = _cli(
+            "graph_mail.py", "--find", "--all", "--source", ordner, "--days", "365"
+        )
+        return graph_zeilen_lesen(roh)
+    roh = _cli(
+        "read_mail.py",
+        "--account",
+        konto,
+        "--folder",
+        ordner,
+        "--list",
+        "500",
+        "--json",
+    )
+    daten = json.loads(roh)
+    return [
+        {
+            "kennung": str(t.get("nummer")),
+            "betreff": t.get("betreff") or "",
+            "datum": _datum_kern(t.get("datum") or ""),
+        }
+        for t in (daten.get("treffer") or [])
+    ]
+
+
+def postfach_verschieben(
+    konto: str, ordner: str, kennungen: list[str], ziel: str
+) -> None:
+    """Genau die benannten Nachrichten bewegen — kein Suchmuster."""
+    if not kennungen:
+        return
+    if konto == "iil":
+        args = ["graph_mail.py", "--move", "--to", ziel, "--yes"]
+        for k in kennungen:
+            args += ["--id", k]
+    else:
+        args = [
+            "organize_mail.py",
+            "--account",
+            konto,
+            "--move",
+            "--source",
+            ordner,
+            "--to",
+            ziel,
+            "--yes",
+        ]
+        for k in kennungen:
+            args += ["--uid", k]
+    _cli(*args)
+
+
+def _datum_kern(roh: str) -> str:
+    """Ein Datum aus verschiedenen Schreibweisen auf ``YYYY-MM-DD`` bringen."""
+    roh = (roh or "").strip()
+    if re.match(r"^\d{4}-\d{2}-\d{2}", roh):
+        return roh[:10]
+    from email.utils import parsedate_to_datetime
+
+    try:
+        return parsedate_to_datetime(roh).date().isoformat()
+    except (TypeError, ValueError):
+        return roh[:10]
+
+
+def abgleichen(
+    bewegungen: list["Bewegung"], bestand: list[dict]
+) -> tuple[list[tuple["Bewegung", str]], list[tuple["Bewegung", str]]]:
+    """Erwartete Nachrichten auf echte Kennungen des Postfachs abbilden.
+
+    **Warum dieser Schritt ueberhaupt existiert:** Der Index ist ein
+    Schnappschuss von 03:30. Was seither bewegt, geloescht oder umsortiert
+    wurde, steht dort noch mit dem alten Ordner. Ohne Abgleich wuerde der
+    Schreibpfad auf einen Bestand zielen, den es nicht mehr gibt.
+
+    Abgeglichen wird ueber Betreff-Kern **und** Datum. Der Betreff allein
+    genuegt nicht: ein Strang enthaelt oft mehrere Nachrichten mit demselben
+    Betreff, und ohne Datum waere nicht entscheidbar, welche gemeint ist.
+
+    Rueckgabe: (zuordenbar, uebersprungen mit Grund).
+    """
+    frei = list(bestand)
+    treffer: list[tuple[Bewegung, str]] = []
+    fehlend: list[tuple[Bewegung, str]] = []
+    for b in bewegungen:
+        kern = betreff_kern(b.betreff)
+        passend = [
+            e
+            for e in frei
+            if betreff_kern(e.get("betreff", "")) == kern
+            and _datum_kern(e.get("datum", "")) == b.datum
+        ]
+        if not passend:
+            fehlend.append((b, "im Quellordner nicht mehr vorhanden"))
+            continue
+        gewaehlt = passend[0]
+        frei.remove(gewaehlt)
+        treffer.append((b, gewaehlt["kennung"]))
+    return treffer, fehlend
+
+
+def ruecknahme_aufloesen(
+    eintraege: list[dict], auflisten=None
+) -> tuple[list[tuple[dict, str]], list[tuple[dict, str]]]:
+    """Protokollierte Rueckbewegungen auf **heute gueltige** Kennungen abbilden.
+
+    **Warum das noetig ist:** Der Umzug entwertet die Kennung, die ihn
+    protokolliert hat — die Graph-messageId wird beim Verschieben neu
+    vergeben, die IMAP-UID ebenso (gemessen 2026-08-19 an einer echten
+    Nachricht). Die Rücknahme muss die Nachricht daher an ihrem *jetzigen*
+    Ort neu finden: ueber Betreff-Kern und, wenn protokolliert, das Datum.
+
+    Ohne Datum wird nur der Betreff verglichen; bleiben dann mehrere
+    Kandidaten uebrig, wird die Nachricht **nicht** bewegt. Lieber eine
+    Fehlanzeige als die falsche Mail zurueckgeholt.
+    """
+    hole = auflisten or postfach_auflisten
+    bestaende: dict[tuple[str, str], list[dict]] = {}
+    treffer: list[tuple[dict, str]] = []
+    offen: list[tuple[dict, str]] = []
+    for e in eintraege:
+        konto = e.get("konto")
+        if not konto:
+            offen.append((e, "kein Konto im Protokoll — Transport unbestimmbar"))
+            continue
+        e["konto"] = konto
+        schluessel = (konto, e["quellordner"])
+        if schluessel not in bestaende:
+            bestaende[schluessel] = hole(konto, e["quellordner"])
+        frei = bestaende[schluessel]
+        kern = betreff_kern(e.get("betreff", ""))
+        datum = _datum_kern(e.get("datum", "")) if e.get("datum") else ""
+        passend = [
+            k
+            for k in frei
+            if betreff_kern(k.get("betreff", "")) == kern
+            and (not datum or _datum_kern(k.get("datum", "")) == datum)
+        ]
+        if not passend:
+            offen.append((e, f"in '{e['quellordner']}' nicht gefunden"))
+            continue
+        if len(passend) > 1:
+            offen.append(
+                (e, f"{len(passend)} gleiche Betreffe — ohne Datum nicht eindeutig")
+            )
+            continue
+        frei.remove(passend[0])
+        treffer.append((e, passend[0]["kennung"]))
+    return treffer, offen
+
+
+def anwenden(
+    paare: list[tuple["Bewegung", str]],
+    lauf_id: str,
+    verschieben=postfach_verschieben,
+    protokoll: Path | None = None,
+) -> int:
+    """Bewegungen ausfuehren und protokollieren. Ohne Protokoll keine Ausfuehrung.
+
+    Das Protokoll wird **vor** dem Verschieben geschrieben. Bricht der Umzug in
+    der Mitte ab, ist der begonnene Lauf trotzdem rueckabwickelbar; ein Eintrag
+    zu einer nicht bewegten Nachricht kostet bei der Ruecknahme nur eine
+    Fehlanzeige. Andersherum waere eine bewegte Nachricht ohne Eintrag
+    unauffindbar.
+    """
+    if not paare:
+        return 0
+    ziel_protokoll = protokoll or PROTOKOLL
+    eintraege = [
+        {
+            "id": kennung,
+            "konto": b.konto,
+            "betreff": b.betreff,
+            "datum": b.datum,
+            "quellordner": b.von_ordner,
+            "zielordner": b.nach_ordner,
+            "aktion": "verschieben",
+            "regel_id": f"vorgang-{b.vorgang_nr}",
+            "grund": "Vorgang geschlossen",
+        }
+        for b, kennung in paare
+    ]
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import regeln
+
+    regeln.protokollieren(eintraege, ziel_protokoll, lauf_id)
+
+    gruppen: dict[tuple[str, str, str], list[str]] = {}
+    for b, kennung in paare:
+        gruppen.setdefault((b.konto, b.von_ordner, b.nach_ordner), []).append(kennung)
+    for (konto, quelle, ziel), kennungen in gruppen.items():
+        verschieben(konto, quelle, kennungen, ziel)
+    return len(paare)
+
+
 def _lade(pfad: Path, standard):
     if not pfad.exists():
         return standard
@@ -489,18 +756,53 @@ def main() -> None:
         help="zusaetzlich die betroffenen Nachrichten je Vorgang aufloesen (Index-Abfrage)",
     )
     p.add_argument("--json", action="store_true")
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="tatsaechlich verschieben (Default ist Trockenlauf); setzt --straenge voraus",
+    )
+    p.add_argument(
+        "--ruecknahme",
+        metavar="LAUF_ID",
+        help="einen protokollierten Lauf rueckgaengig machen",
+    )
     args = p.parse_args()
+
+    if args.ruecknahme:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import regeln
+
+        zurueck = regeln.ruecknahme(PROTOKOLL, args.ruecknahme)
+        paare, offen = ruecknahme_aufloesen(zurueck)
+        for e, grund in offen:
+            print(f"  uebersprungen: {e.get('betreff', '')[:50]} — {grund}")
+        if not paare:
+            raise SystemExit("FEHLER: keine der Nachrichten war am Zielort auffindbar.")
+        gruppen: dict[tuple[str, str, str], list[str]] = {}
+        for e, kennung in paare:
+            schluessel = (e["konto"], e["quellordner"], e["zielordner"])
+            gruppen.setdefault(schluessel, []).append(kennung)
+        for (konto, quelle, ziel), kennungen in gruppen.items():
+            postfach_verschieben(konto, quelle, kennungen, ziel)
+        neue_id = f"ruecknahme-{args.ruecknahme}"
+        regeln.protokollieren([{**e, "id": k} for e, k in paare], PROTOKOLL, neue_id)
+        print(f"OK: {len(paare)} Nachricht(en) zurueckbewegt (Lauf {neue_id}).")
+        sys.exit(0)
 
     ordner_je_konto: dict[str, list[str]] = {}
     for eintrag in args.ordner or []:
         if "=" not in eintrag:
-            raise SystemExit(f"FEHLER: --ordner erwartet KONTO=DATEI, nicht {eintrag!r}")
+            raise SystemExit(
+                f"FEHLER: --ordner erwartet KONTO=DATEI, nicht {eintrag!r}"
+            )
         konto, datei = eintrag.split("=", 1)
         pfad = Path(datei).expanduser()
         if not pfad.exists():
             raise SystemExit(f"FEHLER: Ordnerliste {pfad} fehlt")
         ordner_je_konto[konto.lower()] = [
-            z.strip() for z in pfad.read_text(encoding="utf-8").splitlines() if z.strip()
+            z.strip()
+            for z in pfad.read_text(encoding="utf-8").splitlines()
+            if z.strip()
         ]
 
     zeilen = plane(
@@ -515,9 +817,47 @@ def main() -> None:
     else:
         print(bericht(zeilen))
 
+    if args.apply and not args.straenge:
+        raise SystemExit(
+            "FEHLER: --apply setzt --straenge voraus — ohne aufgeloeste Straenge "
+            "gibt es nichts zu verschieben."
+        )
+
     if args.straenge:
         print()
         print(strang_bericht(zeilen, _lade(args.ledger, {}), index_suche))
+
+    if args.apply:
+        ledger = _lade(args.ledger, {})
+        nach_nr = {v.get("nr"): v for v in ledger.get("vorgaenge") or []}
+        lauf_id = f"ablage-{max((z.erledigt_am or '') for z in zeilen) or 'lauf'}-{len(zeilen)}"
+        alle: list[tuple[Bewegung, str]] = []
+        uebersprungen: list[tuple[Bewegung, str]] = []
+        bestaende: dict[tuple[str, str], list[dict]] = {}
+        for zeile in zeilen:
+            if zeile.status != "bereit":
+                continue
+            vorgang = nach_nr.get(zeile.nr) or {}
+            strang, _ = strang_fuer(vorgang, index_suche)
+            if not strang:
+                continue
+            bewegungen, _ = bewegungen_fuer(
+                vorgang, zeile.ziel or "", strang, index_suche
+            )
+            for b in bewegungen:
+                schluessel = (b.konto, b.von_ordner)
+                if schluessel not in bestaende:
+                    bestaende[schluessel] = postfach_auflisten(*schluessel)
+                paare, fehlt = abgleichen([b], bestaende[schluessel])
+                alle += paare
+                uebersprungen += fehlt
+        print()
+        print(f"Anwenden — Lauf {lauf_id}")
+        for b, grund in uebersprungen:
+            print(f"  uebersprungen: {b.betreff[:50]} — {grund}")
+        bewegt = anwenden(alle, lauf_id)
+        print(f"OK: {bewegt} Nachricht(en) bewegt, {len(uebersprungen)} uebersprungen.")
+        print(f"Ruecknahme: --ruecknahme {lauf_id}")
     sys.exit(0)
 
 
