@@ -12,19 +12,34 @@
 # `\\10.99.0.1\...`). Genau die wird hier zum Transportweg: Prod ist die Relais-Station,
 # beide Seiten legen dort ab und holen dort.
 #
-#     Box  --SMB-->  Prod:/opt/paperless-consume/schleuse/  <--ssh--  Dev-Host
+#     Box  --SMB-->  Prod:/srv/box-schleuse/  <--ssh--  Dev-Host
 #
-# WARUM DIESER ORDNER
+# WARUM DIESER ORDNER — UND WARUM NICHT MEHR DER ALTE
 #
-# Er liegt unter der bestehenden Samba-Freigabe `scans`, damit KEINE Samba-Aenderung und
-# kein Dienst-Neustart noetig ist (das waere Gate 2). Geprueft am 2026-08-10: der Pfad
-# `/opt/paperless-consume` ist in keinem laufenden Container gemountet (Gegenprobe: dasselbe
-# Muster findet den echten Paperless-Mount sehr wohl) und steht in keinem Cron-Eintrag
-# (Gegenprobe: die crontab hat 18 Zeilen, ist also lesbar). Es wird dort nichts verarbeitet.
+# Bis 2026-08-19 lag die Schleuse unter `/opt/paperless-consume/schleuse/`, mit der
+# Begruendung, der Pfad sei "in keinem laufenden Container gemountet (geprueft
+# 2026-08-10)". Diese Praemisse war FALSCH. `/opt/paperless-consume` und der
+# Paperless-Mount sind derselbe Inode (2064:3733153) — der Pfad ist ein Bind auf das
+# Volume `doc-hub-stack_dochub_consume/_data`, und `/opt/doc-hub/consume` ist ein
+# Symlink darauf.
 #
-# Sauberer waere eine eigene Freigabe `[schleuse]` mit eigenem Pfad — das aendert
-# `smb.conf` und verlangt einen Samba-Reload, also Gate 2. Als Vorschlag notiert, nicht
-# umgesetzt.
+# Warum die damalige Gegenprobe die Fehlannahme STUETZTE statt sie zu kippen: gesucht
+# wurde der String `/opt/paperless-consume` in den Container-Mounts. Docker meldet dort
+# aber den `_data`-Pfad des Volumes. Der Treffer blieb aus, ein anderer Mount wurde
+# gefunden — und daraus wurde "zwei verschiedene Verzeichnisse" geschlossen. Der Check
+# hat die Schreibweise des Pfades geprueft, nicht die Identitaet des Verzeichnisses.
+# Richtig waere `stat -c '%d:%i'` auf beide Pfade gewesen.
+#
+# Folge: mit `PAPERLESS_CONSUMER_RECURSIVE=true` + `SUBDIRS_AS_TAGS=true` hat Paperless
+# den gesamten Schleuseninhalt eingezogen — 1,7 GB Trainingsdaten, ~700 fehlgeschlagene
+# Einzugsversuche, und ab dem 19.08. auch erfolgreich: 55 Bilder landeten als
+# "Dokumente" im Archiv. Der gefaehrlichere Teil ist nicht der Muell, sondern dass
+# Paperless die Quelldatei nach erfolgreichem Einzug ENTFERNT: eine Datei, die zur Box
+# transportiert werden soll, verschwindet aus der Schleuse und taucht im Archiv auf.
+#
+# Seit 2026-08-19 liegt die Schleuse deshalb unter `/srv/box-schleuse/` mit eigener
+# Samba-Freigabe `[schleuse]` (scansnap:scanner, 2775). Kein Container mountet diesen
+# Pfad. Siehe platform#2083.
 #
 # KEINE SECRETS. Die Schleuse ist ein Durchgang, kein Lager — sie ist fuer den
 # scansnap-Nutzer lesbar und wird nicht ueberwacht.
@@ -38,13 +53,13 @@
 #
 # Auf der Box (PowerShell, einzeilig, ohne Anfuehrungszeichen):
 #
-#     copy <quelle> \\10.99.0.1\scans\schleuse\von-box\
-#     copy \\10.99.0.1\scans\schleuse\zur-box\<datei> <ziel>
+#     copy <quelle> \\10.99.0.1\schleuse\von-box\
+#     copy \\10.99.0.1\schleuse\zur-box\<datei> <ziel>
 
 set -euo pipefail
 
 RELAIS="${BOX_SCHLEUSE_HOST:-root@88.198.191.108}"
-FERN="${BOX_SCHLEUSE_PFAD:-/opt/paperless-consume/schleuse}"
+FERN="${BOX_SCHLEUSE_PFAD:-/srv/box-schleuse}"
 LOKAL="${BOX_SCHLEUSE_LOKAL:-$HOME/shared}"
 
 : "${1:?Verwendung: hol [ziel] | bring <datei>... | liste | leere <von-box|zur-box>}"
@@ -76,7 +91,7 @@ case "$BEFEHL" in
     scp -q -r "$@" "$RELAIS:$FERN/zur-box/"
     _rechte_richten
     echo "abgelegt in zur-box — auf der Box abzuholen unter:"
-    for f in "$@"; do echo "  \\\\10.99.0.1\\scans\\schleuse\\zur-box\\$(basename "$f")"; done
+    for f in "$@"; do echo "  \\\\10.99.0.1\\schleuse\\zur-box\\$(basename "$f")"; done
     ;;
 
   liste)
