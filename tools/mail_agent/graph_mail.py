@@ -618,7 +618,91 @@ def cmd_move(
     source_path: str,
     yes: bool,
     subject_sub: str = "",
+    nur_ids: list[str] | None = None,
 ) -> None:
+    """Verschieben nach Absender/Betreff — oder genau eine benannte Nachricht.
+
+    Der Weg zu einer einzelnen Nachricht war ueber ``--trash <messageId>`` schon
+    da, fuer ``--move`` aber nicht freigelegt. Ohne ihn bliebe nur der Umweg ueber
+    einen Betreff-Filter, und der traefe auch fremde Mails mit demselben Wort.
+    """
+    if nur_ids:
+        # Eine messageId aus einer Pipeline traegt gern Zeilenumbrueche oder
+        # Reste der Fundzeile mit sich. Ungeprueft landete das in der URL und
+        # endete in einem Stacktrace ("URL can't contain control characters")
+        # statt in einer Meldung — gemessen am 2026-08-18 beim eigenen Testlauf.
+        sauber = []
+        for roh in nur_ids:
+            mid = (roh or "").strip()
+            if not mid or any(z in mid for z in "\r\n\t "):
+                print(
+                    f"  ! Keine brauchbare messageId: {roh!r:.60}", file=sys.stderr
+                )
+                continue
+            sauber.append(mid)
+        if not sauber:
+            sys.exit("FEHLER: keine brauchbare messageId uebergeben.")
+        nur_ids = sauber
+
+        hits = []
+        for mid in nur_ids:
+            r = _http(
+                "GET",
+                f"{GRAPH}/me/messages/{mid}"
+                "?$select=id,subject,receivedDateTime,from",
+                headers=_auth(tok),
+            )
+            if r.status_code != 200:
+                print(
+                    f"  ! Nachricht nicht lesbar (HTTP {r.status_code}): {mid[:24]}…",
+                    file=sys.stderr,
+                )
+                continue
+            m = r.json()
+            absender = (
+                (m.get("from") or {}).get("emailAddress", {}).get("address") or "—"
+            )
+            hits.append(
+                (
+                    m.get("id"),
+                    (m.get("receivedDateTime") or "")[:16],
+                    absender,
+                    m.get("subject") or "",
+                )
+            )
+        if not hits:
+            print("Keine der angegebenen Nachrichten lesbar — nichts verschoben.")
+            return
+        kriterium = f"{len(hits)} benannte Nachricht(en)"
+        print(f"Verschieben ({kriterium}) nach '{target_path}':")
+        for _, d, frm, subj in hits:
+            print(f"  · {d}  {frm:<38} {subj}")
+        if not yes:
+            try:
+                if input("Verschieben? [j/N] ").strip().lower() not in (
+                    "j", "ja", "y", "yes",
+                ):
+                    sys.exit("Abgebrochen.")
+            except EOFError:
+                sys.exit("Kein --yes und keine Eingabe — abgebrochen.")
+        dest = ensure_path(tok, target_path)
+        bewegt = 0
+        for mid, *_ in hits:
+            r = _http(
+                "POST",
+                f"{GRAPH}/me/messages/{mid}/move",
+                headers=_auth(tok),
+                json_body={"destinationId": dest},
+            )
+            if r.status_code in (200, 201):
+                bewegt += 1
+            else:
+                print(
+                    f"  ! Fehler bei einer Mail: HTTP {r.status_code}", file=sys.stderr
+                )
+        print(f"OK: {bewegt} Mail(s) nach '{target_path}' verschoben.")
+        return
+
     hits = _find_messages(tok, from_sub, source_path, subject_sub)
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
@@ -1186,6 +1270,13 @@ def main() -> None:
     ap.add_argument("--from", dest="from_sub")
     ap.add_argument("--to")
     ap.add_argument("--source", default="inbox")
+    ap.add_argument(
+        "--id",
+        action="append",
+        metavar="MESSAGEID",
+        help="genau diese Nachricht verschieben (Graph-messageId); mehrfach "
+        "moeglich. Alternative zu --from bei --move.",
+    )
     ap.add_argument("--subject", default="")
     ap.add_argument("--body-file")
     ap.add_argument("--reply-to")
@@ -1234,9 +1325,14 @@ def main() -> None:
     elif args.scan_senders:
         cmd_scan(tok, args.days, args.source)
     elif args.move:
-        if not (args.from_sub and args.to):
-            ap.error("--move braucht --from und --to")
-        cmd_move(tok, args.from_sub, args.to, args.source, args.yes, args.subject)
+        if not args.to:
+            ap.error("--move braucht --to")
+        if not (args.from_sub or args.id):
+            ap.error("--move braucht --from oder --id")
+        cmd_move(
+            tok, args.from_sub or "", args.to, args.source, args.yes, args.subject,
+            args.id,
+        )
     elif args.flag or args.unflag:
         if not (args.from_sub or args.subject):
             ap.error("--flag/--unflag braucht --from und/oder --subject")

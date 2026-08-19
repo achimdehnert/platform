@@ -550,3 +550,111 @@ def test_should_filter_messages_by_category(monkeypatch):
     ]
     # ohne Filter bleibt alles sichtbar
     assert len(mod._match_messages("tok")) == 3
+
+
+# --- Genau eine Nachricht verschieben (--id) ---------------------------------
+#
+# Bis 2026-08-18 verlangte `--move` einen Absender-Filter. Wer eine einzelne Mail
+# bewegen wollte, musste über einen Betreff-Filter gehen — der trifft auch fremde
+# Mails mit demselben Wort. Der Weg zu einer einzelnen Nachricht war über
+# `--trash <messageId>` längst da, für `--move` nur nicht freigelegt.
+
+
+def test_should_move_exactly_the_named_message(monkeypatch):
+    import json as _json
+
+    mod = _load()
+    gerufen = []
+
+    def fake_http(method, url, **kw):
+        gerufen.append((method, url))
+        if method == "GET":
+            return mod._Resp(
+                200,
+                _json.dumps(
+                    {
+                        "id": "m1",
+                        "subject": "Vorgang",
+                        "receivedDateTime": "2026-08-18T07:00:00Z",
+                        "from": {"emailAddress": {"address": "a@b.de"}},
+                    }
+                ),
+            )
+        return mod._Resp(200, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    monkeypatch.setattr(mod, "ensure_path", lambda *a, **k: "zielid")
+
+    mod.cmd_move("tok", "", "Archiv/2026", "inbox", True, "", ["m1"])
+
+    bewegungen = [u for m, u in gerufen if m == "POST" and u.endswith("/move")]
+    assert len(bewegungen) == 1
+    assert "/me/messages/m1/move" in bewegungen[0]
+
+
+def test_should_not_search_by_sender_when_an_id_is_given(monkeypatch):
+    """Mit --id darf kein Absender-Suchlauf stattfinden — sonst träfe er Fremdes."""
+    mod = _load()
+    monkeypatch.setattr(
+        mod,
+        "_find_messages",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("Absender-Suche trotz --id")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_http",
+        lambda method, url, **kw: mod._Resp(
+            200,
+            '{"id":"m1","subject":"x","receivedDateTime":"2026-08-18T07:00:00Z",'
+            '"from":{"emailAddress":{"address":"a@b.de"}}}',
+        ),
+    )
+    monkeypatch.setattr(mod, "ensure_path", lambda *a, **k: "zielid")
+    mod.cmd_move("tok", "", "Archiv/2026", "inbox", True, "", ["m1"])
+
+
+def test_should_report_an_unreadable_message_instead_of_moving_nothing(monkeypatch, capsys):
+    mod = _load()
+    monkeypatch.setattr(mod, "_http", lambda *a, **k: mod._Resp(404, "{}"))
+    monkeypatch.setattr(mod, "ensure_path", lambda *a, **k: "zielid")
+    mod.cmd_move("tok", "", "Archiv/2026", "inbox", True, "", ["fehlt"])
+    aus = capsys.readouterr()
+    assert "nicht lesbar" in aus.err
+
+
+def test_should_reject_a_message_id_with_whitespace_instead_of_crashing(monkeypatch, capsys):
+    """Eine ID aus einer Pipeline trägt gern Zeilenreste mit sich.
+
+    Ungeprüft landete das in der URL und endete in
+    `URL can't contain control characters` — ein Stacktrace statt einer Meldung.
+    Gemessen am 2026-08-18 beim eigenen Testlauf.
+    """
+    import pytest as _pytest
+
+    mod = _load()
+    monkeypatch.setattr(mod, "ensure_path", lambda *a, **k: "zielid")
+    with _pytest.raises(SystemExit):
+        mod.cmd_move("tok", "", "Archiv/2026", "inbox", True, "", ["AAMk=\nzeile2"])
+    assert "Keine brauchbare messageId" in capsys.readouterr().err
+
+
+def test_should_still_accept_an_id_with_surrounding_spaces(monkeypatch):
+    mod = _load()
+    bewegt = []
+
+    def fake_http(method, url, **kw):
+        if method == "GET":
+            return mod._Resp(
+                200,
+                '{"id":"m1","subject":"x","receivedDateTime":"2026-08-18T07:00:00Z",'
+                '"from":{"emailAddress":{"address":"a@b.de"}}}',
+            )
+        bewegt.append(url)
+        return mod._Resp(200, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    monkeypatch.setattr(mod, "ensure_path", lambda *a, **k: "zielid")
+    mod.cmd_move("tok", "", "Archiv/2026", "inbox", True, "", ["  m1  "])
+    assert any("/me/messages/m1/move" in u for u in bewegt)

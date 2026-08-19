@@ -150,7 +150,11 @@ def cmd_create_folder(imap: imaplib.IMAP4_SSL, name: str) -> None:
 
 
 def _matches(
-    imap: imaplib.IMAP4_SSL, source: str, from_sub: str | None, subj_sub: str | None
+    imap: imaplib.IMAP4_SSL,
+    source: str,
+    from_sub: str | None,
+    subj_sub: str | None,
+    nur_uids: list[str] | None = None,
 ):
     # WICHTIG: UID-basiert suchen UND holen, damit die zurückgegebenen IDs echte
     # UIDs sind — _move() verschiebt mit UID MOVE. Sequenz-Nummern (imap.search/
@@ -161,6 +165,18 @@ def _matches(
     if typ != "OK" or not data or not data[0]:
         return []
     all_uids = data[0].split()
+    # Genau diese Nachrichten, keine anderen. Die Einschraenkung wirkt zweimal:
+    # vor dem FETCH, damit weniger geholt wird, und noch einmal auf das Ergebnis.
+    # Der zweite Durchgang ist der massgebliche — welche UIDs eine Antwort
+    # tatsaechlich enthaelt, bestimmt der Server, nicht die Anfrage.
+    #
+    # Eine angefragte UID, die es im Ordner nicht gibt, wird NICHT stillschweigend
+    # uebergangen: cmd_move meldet sie, damit ein Tippfehler oder eine
+    # zwischenzeitlich verschobene Mail auffaellt statt als "nichts zu tun"
+    # durchzugehen.
+    gewuenscht = {str(u).strip().encode() for u in nur_uids} if nur_uids else None
+    if gewuenscht:
+        all_uids = [u for u in all_uids if u in gewuenscht] or all_uids
     hits = []
     # In Blöcken holen (ein FETCH je Block) — sonst ein Round-Trip je Mail (bei
     # 1000+ Mails > 2 min). UID FETCH liefert je Treffer "<seq> (UID <n> BODY...)".
@@ -186,6 +202,8 @@ def _matches(
             if not m:
                 continue
             uid = m.group(1)
+            if gewuenscht and uid not in gewuenscht:
+                continue
             msg = email.message_from_bytes(part[1])
             frm, subj = _decode(msg.get("From")), _decode(msg.get("Subject"))
             if from_sub and from_sub.lower() not in frm.lower():
@@ -226,12 +244,21 @@ def cmd_move(
     from_sub: str | None,
     subj_sub: str | None,
     yes: bool,
+    nur_uids: list[str] | None = None,
 ) -> None:
     if target not in list_folders(imap):
         sys.exit(
             f"FEHLER: Zielordner '{target}' existiert nicht — erst --create-folder \"{target}\"."
         )
-    hits = _matches(imap, source, from_sub, subj_sub)
+    hits = _matches(imap, source, from_sub, subj_sub, nur_uids)
+    if nur_uids:
+        gefunden = {u.decode() if isinstance(u, bytes) else str(u) for u, *_ in hits}
+        fehlend = [str(u).strip() for u in nur_uids if str(u).strip() not in gefunden]
+        if fehlend:
+            print(
+                f"  ! Nicht in '{source}': UID " + ", ".join(fehlend),
+                file=sys.stderr,
+            )
     if not hits:
         print("Keine passenden Mails gefunden — nichts verschoben.")
         return
@@ -355,6 +382,13 @@ def main() -> None:
     ap.add_argument("--from", dest="from_sub", help="Absender-Substring")
     ap.add_argument("--subject", dest="subj_sub", help="Betreff-Substring")
     ap.add_argument(
+        "--uid",
+        action="append",
+        metavar="UID",
+        help="genau diese Nachricht (IMAP-UID, nicht Sequenznummer); mehrfach "
+        "moeglich. Kombiniert mit --from/--subject als UND-Bedingung.",
+    )
+    ap.add_argument(
         "--yes", action="store_true", help="ohne Rückfrage (Anzeige-Gate aus)"
     )
     ap.add_argument(
@@ -389,14 +423,18 @@ def main() -> None:
         elif args.create_folder:
             cmd_create_folder(imap, args.create_folder)
         elif args.to_trash:
-            if not (args.from_sub or args.subj_sub):
+            if not (args.from_sub or args.subj_sub or args.uid):
                 ap.error(
-                    "--to-trash braucht --from und/oder --subject (Sicherheit: kein Pauschal-Papierkorb)"
+                    "--to-trash braucht --from, --subject oder --uid "
+                    "(Sicherheit: kein Pauschal-Papierkorb)"
                 )
             trash = resolve_trash(imap)
             if not trash:
                 sys.exit("FEHLER: kein Papierkorb-Ordner gefunden.")
-            cmd_move(imap, args.source, trash, args.from_sub, args.subj_sub, args.yes)
+            cmd_move(
+                imap, args.source, trash, args.from_sub, args.subj_sub, args.yes,
+                args.uid,
+            )
         elif args.flag or args.unflag:
             if not (args.from_sub or args.subj_sub):
                 ap.error(
@@ -408,11 +446,18 @@ def main() -> None:
         else:  # --move
             if not args.to:
                 ap.error("--move braucht --to ZIELORDNER")
-            if not (args.from_sub or args.subj_sub):
+            # --uid ist ein gleichwertiger Selektor: Er benennt die Nachrichten
+            # sogar genauer als ein Substring. Der Guard richtet sich gegen das
+            # Verschieben OHNE jede Auswahl, nicht gegen eine praezise Auswahl.
+            if not (args.from_sub or args.subj_sub or args.uid):
                 ap.error(
-                    "--move braucht --from und/oder --subject (Sicherheit: kein Pauschal-Verschieben)"
+                    "--move braucht --from, --subject oder --uid "
+                    "(Sicherheit: kein Pauschal-Verschieben)"
                 )
-            cmd_move(imap, args.source, args.to, args.from_sub, args.subj_sub, args.yes)
+            cmd_move(
+                imap, args.source, args.to, args.from_sub, args.subj_sub, args.yes,
+                args.uid,
+            )
     finally:
         try:
             imap.logout()
