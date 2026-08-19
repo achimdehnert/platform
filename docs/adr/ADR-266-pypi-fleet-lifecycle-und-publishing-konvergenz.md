@@ -168,6 +168,107 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
 4. Offender-Issues (K2-Backlog, Stand 2026-06-30): iil-adrfw#14, iil-codeguard#3,
    iil-ingest#3, nl2cad#24, iil-enrichment (Meter-Fund).
 
+## Amendment 2026-08-19 — Vier-Org-Vollerhebung + Strategie-Klassifikation ([#2075](https://github.com/achimdehnert/platform/issues/2075) Kriterium 1)
+
+### Vollerhebungs-Nachweis (kein Sampling, kein Search-Index)
+
+Alle Repos je Org paginiert enumeriert, je Repo `pyproject.toml` + `publish*.yml`
+gezielt gegen die GitHub-API geprüft (Contents-API, authoritativ):
+
+| Org | Repos gesamt | davon privat | Treffer pyproject/publish | davon PyPI-Fleet-relevant |
+|---|---|---|---|---|
+| `achimdehnert` | 58 | 29 | 46 | 20 (Registry) + gpufw, iil-demo-fixture |
+| `iilgmbh` | 15 | 14 | 9 | iil-fieldprefill, iil-klickdummy, illustration-fw (Registry) + django-lms-lite, iil-doc-templates |
+| `ttz-lif` | 1 | 1 | 1 (ttz-hub, App) | 0 |
+| `meiki-lra` | 3 | 3 | 2 (Apps) | 0 |
+
+Messfehler in der Erhebung selbst gefunden und korrigiert: `/users/<login>/repos`
+liefert nur **öffentliche** Repos (35 statt 58) — für das eigene Konto ist
+`/user/repos?affiliation=owner` nötig. Erst damit ist die Erhebung eine Vollerhebung.
+
+### Registry-Lücken (in diesem PR geschlossen → Fleet 20 → 23 Pakete)
+
+| Paket (dist) | Repo | Beleg publiziert | Consumer-Evidenz |
+|---|---|---|---|
+| `iil-gpufw` | iilgmbh/gpufw (Transfer 2026-08-19, s.u.) | PyPI v0.1.1, Upload 2026-08-16, Author iil.gmbh | writing-hub `requirements.txt` |
+| `iil-django-lms-lite` | iilgmbh/django-lms-lite | PyPI v0.1.1, Upload 2026-07-27 | coach-hub `requirements.txt` |
+| `iil-doc-templates` | iilgmbh/iil-doc-templates | PyPI v0.3.1, Upload 2026-07-08 | risk-hub `pyproject.toml` |
+
+Damit ist der Handover-Entscheid „django-lms-lite publizieren oder `pypi:`-Feld
+entfernen" durch die Realität entschieden: es **ist** publiziert und konsumiert.
+
+### Befunde ohne Registry-Änderung (Folge-Issues, je verlinkt)
+
+- **ifc-mcp:** PyPI-Name `ifc-mcp` gehört einem Dritten (Author „Imants",
+  github.com/imants/ifc-mcp) — Namenskollision; unter diesem Namen nie publizieren.
+  (Kein Folge-Issue: reine Dokumentation, keine aufgeschobene Arbeit.)
+- **nl2cad ist eine 6-Dist-Familie** (`iil-nl2cadfw`-Umbrella + `nl2cad-core/
+  -areas/-brandschutz/-gaeb/-nlp`); Registry und Inventar-Tool zählen 1 Zeile
+  pro Repo, nicht pro Dist. risk-hub/cad-hub konsumieren `nl2cad-core` von PyPI.
+  → [platform#2076](https://github.com/achimdehnert/platform/issues/2076)
+- **shared-ci stale:** `install-iil-packages/action.yml` behauptet „iil-fieldprefill
+  not on PyPI" — falsch (auf PyPI, 3 372 Downloads/30d) und installiert per Git+PAT.
+  → [shared-ci#1](https://github.com/achimdehnert/shared-ci/issues/1)
+- **dms-hub vendored `iil-ingest`** (`vendor/iil-ingest/`) statt PyPI-Bezug.
+  → [dms-hub#64](https://github.com/achimdehnert/dms-hub/issues/64)
+- **riskfw doppelt:** risk-hub trägt eine eingebettete Kopie (`src/riskfw/`) und
+  importiert sie; das PyPI-Paket (letzter Upload 2026-03-03) ist umgangen —
+  Doppel-Pflege-Risiko, Konsolidierungsentscheid nötig.
+  → [risk-hub#618](https://github.com/iilgmbh/risk-hub/issues/618)
+- **iil-demo-fixture publish.yml-Rückbau** (Klasse einfrieren, s. Tabelle).
+  → [iil-demo-fixture#4](https://github.com/achimdehnert/iil-demo-fixture/issues/4)
+
+### Strategie-Klassifikation (Stand 2026-08-19)
+
+Downloads = pypistats 30 Tage, enthalten Mirror-Rauschen — nur **relativ** lesen.
+Consumer-Evidenz = Grep über die lokale Fleet (Hinweis, kein Beweis). Klassen:
+**aktiv** = Invest-Ziel für #2075 K2–K4; **einfrieren** = kein Invest, kein
+Publish, Repo bleibt; **archivieren-Kandidat** = Owner-Entscheid, nur Vorschlag.
+
+| Paket | letzter Upload | dl/30d | Consumer | Klasse |
+|---|---|---|---|---|
+| aifw | 2026-08-12 | 4 969 | breit (aifw-Ökosystem) | aktiv |
+| promptfw | 2026-07-19 | 4 640 | writing-hub u.a. | aktiv |
+| authoringfw | 2026-07-31 | 4 559 | writing-hub | aktiv |
+| weltenfw | 2026-08-14 | 4 475 | weltenhub | aktiv |
+| iil-testkit | 2026-05-14 | 3 517 | Test-Fleet | aktiv |
+| iil-fieldprefill | 2026-04-08 | 3 372 | writing-hub, risk-hub, shared-ci | aktiv |
+| iil-reflex | 2026-07-27 | 2 490 | — (jung) | aktiv |
+| iil-adrfw | 2026-08-06 | 1 685 | platform-Tooling | aktiv |
+| iil-klickdummy | 2026-08-02 | 1 018 | KD-Fleet (ADR-211) | aktiv |
+| illustration-fw | 2026-08-04 | 653 | illustration-hub | aktiv |
+| iil-codeguard | 2026-05-10 | 497 | dev-hub, risk-hub, shared-ci | aktiv |
+| iil-ingest | 2026-05-05 | 405 | dms-hub (vendored), ausschreibungs-hub | aktiv |
+| iil-gpufw | 2026-08-16 | 236 | writing-hub | aktiv (NEU) |
+| iil-django-lms-lite | 2026-07-27 | 200 | coach-hub | aktiv (NEU) |
+| learnfw | 2026-04-29 | 177 | coach-hub, onboarding-hub | aktiv |
+| iil-doc-templates | 2026-07-08 | 149 | risk-hub | aktiv (NEU) |
+| outlinefw | 2026-07-19 | 80 | writing-hub (git-Pin) | aktiv |
+| researchfw | 2026-04-17 | 61 | writing-hub (git-Pin) | aktiv |
+| nl2cad-Familie | 2026-06-14 | 21+ | risk-hub, cad-hub | aktiv (Sonderweg uv-Monorepo, ≠ `_ci-pypi`) |
+| iil-django-commons | 2026-03-24 | 35 | keine gefunden | einfrieren |
+| iil-enrichment | nie publiziert | — | keine gefunden | einfrieren |
+| iil-demo-fixture | nie publiziert | — | nur platform-Governance-Refs, kein pip-Consumer | einfrieren (publish.yml zurückbauen) |
+| riskfw | 2026-03-03 | 19 | keine (risk-hub nutzt eigene Kopie) | archivieren-Kandidat |
+| gaeb-toolkit | nie publiziert | — | Funktion lebt in nl2cad-gaeb | archivieren-Kandidat |
+
+Konsequenz für #2075: K2–K4 (Cold-Start, Kontextdateien, Readiness-Score)
+laufen **nur** über die 19 aktiv-Pakete. Archivierung selbst bleibt Owner-Gate
+(Out of Scope #2075); dieses Amendment ist der Klassifikations-Beschluss,
+wirksam mit Merge dieses PRs (Required-Owner-Review = Freigabe).
+
+### Heimat-Regel (Owner-Weisung 2026-08-19, Kapitäns-Kanal)
+
+**„iilgmbh ist die Heimat unserer Pakete"** — als **Zielbild**, nicht als
+Sofort-Fanout: Die Umsetzung je Paket läuft weiter über die ADR-255-Migrationsbahn
+(`registry/iil-migration.yaml`), weil bestehende Trusted-Publisher-Bindings an
+`achimdehnert/<repo>` gebunden sind und ein Transfer ohne Binding-Umzugsplan den
+Publish-Pfad bricht. Erstvollzug: **gpufw** am 2026-08-19 nach `iilgmbh/gpufw`
+transferiert (einziger Fall ohne bestehendes Binding — nichts zu brechen;
+org-weite Code-Search: 1 Doku-Treffer, kein Install-Pfad). Durchsetzungs-Gate:
+der K3-Health-Lauf (#2075) meldet künftig `org != iilgmbh` je aktivem Paket als
+Advisory-Metrik „Heimat-Drift".
+
 ## Glossar
 
 - **Trusted Publishing (OIDC):** PyPI akzeptiert kurzlebige GitHub-Actions-

@@ -64,6 +64,9 @@ repos:
     prod_url: dev-hub.iil.pet
     port: 8085
     health: /livez/
+  django-lms-lite:
+    type: library
+    pypi: iil-django-lms-lite
   dms-hub:
     type: django
     prod_url: dms.iil.pet
@@ -77,6 +80,9 @@ repos:
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
+  gpufw:
+    type: library
+    pypi: iil-gpufw
   iil-adrfw:
     type: library
     pypi: iil-adrfw
@@ -86,6 +92,9 @@ repos:
   iil-django-commons:
     type: library
     pypi: iil-django-commons
+  iil-doc-templates:
+    type: library
+    pypi: iil-doc-templates
   iil-enrichment:
     type: library
     pypi: iil-enrichment
