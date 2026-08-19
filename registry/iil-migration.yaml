@@ -432,5 +432,30 @@ packages:
       verified: "repo_current=achimdehnert/weltenfw (gh 2026-06-23)"
       unverified: "canonical dist; consumer scan; publisher"
 
+  gpufw:
+    dist: iil-gpufw
+    pypi_current: [iil-gpufw]
+    repo_current: iilgmbh/gpufw
+    repo_final: iilgmbh/gpufw
+    rename: false
+    workflow: null                    # KEIN publish.yml — v0.1.1 wurde ausserhalb
+                                      # der CI publiziert; Aufbau getrackt in gpufw#1
+    environment: null
+    publisher_current: null           # kein Trusted-Publisher-Binding vorhanden
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [writing-hub]
+    status: pending                   # done erst mit Release-Beweis durch finalen
+                                      # Publisher (Schema-Kontrakt oben)
+    notes: "Repo-Transfer achimdehnert->iilgmbh am 2026-08-19 vollzogen (explizites
+      Owner-Go, Kapitaens-Kanal; platform#2075 K1-Nacharbeit). Binding-Gluecksfall:
+      es gab noch kein OIDC-Binding, das umzuziehen war — publish.yml + Binding
+      werden direkt auf iilgmbh/gpufw aufgebaut (gpufw#1)."
+    verification:
+      verified: "repo unter iilgmbh (gh repo view 2026-08-19); iil-gpufw 0.1.1 auf
+        PyPI, Author iil.gmbh (pypi json 2026-08-19); kein publish-Workflow im Repo
+        (contents-API 2026-08-19); Consumer writing-hub via PyPI-Pin"
+      unverified: "PyPI-Projekt-Owner-Account (iildehnert vs. org iil) — Web-UI-Check"
+
 # Out of family scope (ADR-255): gaeb-toolkit (no iil-* prefix), and the ~36
 # non-package achimdehnert hubs/apps — later waves, do not block publishing.

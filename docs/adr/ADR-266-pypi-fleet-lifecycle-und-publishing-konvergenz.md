@@ -190,7 +190,7 @@ liefert nur **öffentliche** Repos (35 statt 58) — für das eigene Konto ist
 
 | Paket (dist) | Repo | Beleg publiziert | Consumer-Evidenz |
 |---|---|---|---|
-| `iil-gpufw` | achimdehnert/gpufw | PyPI v0.1.1, Upload 2026-08-16, Author iil.gmbh | writing-hub `requirements.txt` |
+| `iil-gpufw` | iilgmbh/gpufw (Transfer 2026-08-19, s.u.) | PyPI v0.1.1, Upload 2026-08-16, Author iil.gmbh | writing-hub `requirements.txt` |
 | `iil-django-lms-lite` | iilgmbh/django-lms-lite | PyPI v0.1.1, Upload 2026-07-27 | coach-hub `requirements.txt` |
 | `iil-doc-templates` | iilgmbh/iil-doc-templates | PyPI v0.3.1, Upload 2026-07-08 | risk-hub `pyproject.toml` |
 
@@ -256,6 +256,18 @@ Konsequenz für #2075: K2–K4 (Cold-Start, Kontextdateien, Readiness-Score)
 laufen **nur** über die 19 aktiv-Pakete. Archivierung selbst bleibt Owner-Gate
 (Out of Scope #2075); dieses Amendment ist der Klassifikations-Beschluss,
 wirksam mit Merge dieses PRs (Required-Owner-Review = Freigabe).
+
+### Heimat-Regel (Owner-Weisung 2026-08-19, Kapitäns-Kanal)
+
+**„iilgmbh ist die Heimat unserer Pakete"** — als **Zielbild**, nicht als
+Sofort-Fanout: Die Umsetzung je Paket läuft weiter über die ADR-255-Migrationsbahn
+(`registry/iil-migration.yaml`), weil bestehende Trusted-Publisher-Bindings an
+`achimdehnert/<repo>` gebunden sind und ein Transfer ohne Binding-Umzugsplan den
+Publish-Pfad bricht. Erstvollzug: **gpufw** am 2026-08-19 nach `iilgmbh/gpufw`
+transferiert (einziger Fall ohne bestehendes Binding — nichts zu brechen;
+org-weite Code-Search: 1 Doku-Treffer, kein Install-Pfad). Durchsetzungs-Gate:
+der K3-Health-Lauf (#2075) meldet künftig `org != iilgmbh` je aktivem Paket als
+Advisory-Metrik „Heimat-Drift".
 
 ## Glossar
 
