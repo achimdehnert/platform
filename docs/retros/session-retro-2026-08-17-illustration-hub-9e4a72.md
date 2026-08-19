@@ -44,8 +44,8 @@ recurring_findings: [claim-before-cheapest-check, deferred-item-no-tracking-issu
 | 2 | „Kein einziges Byte JavaScript" verallgemeinert aus `grep <script` — `onsubmit` existierte | fehlende Validierung | mittel | SURVIVES | `git show origin/main:apps/comics/templates/comics/project_detail.html` → `<script` 0, `onsubmit` 1 | claim-before-cheapest-check |
 | 3 | Vier aufgeschobene Punkte ohne durables Artefakt (3 ungepushte Zweige, Ruleset-Änderung, `cover`-Entscheidung) | Prozesslücke | hoch | SURVIVES | `gh issue list`: nur #263 neu; kein Ledger unter `~/shared/` oder im Repo | deferred-item-no-tracking-issue |
 | 4 | Erster N+1-Fix unvollständig — nur Vorlagen-`.count` gegrept, Property `welt` übersehen | fehlende Validierung | niedrig | SURVIVES | `git show --stat ee8a7eb` → Nachzug in `apps/comics/models.py` (+10) | neu |
-| 5 | Zweig-Bündelung: `selbstaktualisierung` in `panel-fehler-sichtbar` gemergt → ein PR, zwei Themen, `wip:`-Commit in der Historie | verfrühte Festlegung | mittel | UNVERIFIZIERT | `git log`: `5679a92` Merge, `8009924` wip | — |
-| 6 | Punkt 6 und Punkt 21 hätten zusammen gedacht gehört — ohne Fehlerzustand lief die Selbstaktualisierung bei dauerhaftem Fehlschlag 30 Minuten leer | verfrühte Festlegung | mittel | UNVERIFIZIERT | `9bfc400`: `laeuft=offen > 0`, kein Fehlerbegriff | — |
+| 5 | ~~Zweig-Bündelung: ein PR, zwei Themen, `wip:`-Commit in der Historie~~ | verfrühte Festlegung | mittel | **REFUTED** (2026-08-19) | `merge-base --is-ancestor 8009924 origin/main` → nein (Squash); `pr-schnitt-und-stapel.md` empfiehlt bei Dateiüberlappung **einen** PR | — |
+| 6 | Ohne Fehlerzustand hätte die Selbstaktualisierung bei dauerhaftem Fehlschlag 30 Min. leer gefragt — ~~als verfrühte Festlegung gewertet~~ | Mechanismus real, Wertung fällt | niedrig | **PARTIALLY REFUTED** (2026-08-19) | `MAX_VERSUCHE = 360` × 5 s = 30 Min. steht im Quelltext; `9bfc400` war nie auf `main`, 25 Min. später selbst geschlossen | — |
 | 7 | *(vorab widerlegt)* „`9bfc400` enthielt eine Endlos-Neuladeschleife" | — | — | PRE-REFUTED | `git show 9bfc400`: `beobachten` und `laeuft` nutzten **dieselbe** Bedingung, konnten nicht auseinanderlaufen | — |
 
 ## 3. Scorecard
@@ -160,8 +160,8 @@ offene Weiche (`cover` entfernen) ist eine Owner-Entscheidung, kein ADR.
 
 | Lücke | Warum offen | Billigster Check |
 |---|---|---|
-| **Regel-1-Bruch: Find-Phase lief inline** | Systemanweisung dieser Umgebung untersagt das Agent-Tool ohne Anforderung; die Skill sieht dafür den Inline-Fallback vor | Zwei Sonnet-Skeptiker auf #5/#6, ~55k je |
-| Befunde #5 und #6 unfalsifiziert | dito — es sind Bewertungsbefunde, genau die Klasse, für die Richter≠Angeklagter zählt | wie oben |
+| ~~Regel-1-Bruch: Find-Phase lief inline~~ | **geschlossen 2026-08-19**: Owner hat die Skeptiker freigegeben (illustration-hub#265 Entscheidung 3), zwei Sonnet-Agenten gelaufen | — |
+| ~~Befunde #5 und #6 unfalsifiziert~~ | **geschlossen 2026-08-19** — s. Abschnitt 9 | — |
 | Phase-5 Meta-Review des Reports | derselbe Grund | 1 Sonnet-Agent auf Report + Skill |
 | `deep`-Footprint ohne volle Pipeline gefahren | Migration `0009` triggert `deep`; Herunterstufen war nicht zulässig (Regel verlangt „keine DB-Migration") | — |
 | Ob `ih_cover_jobs` auf Prod Zeilen hat | Kein benannter Management-Befehl dafür; `manage.py shell` ist auf Prod geblockt | Zählbefehl bauen oder Owner fragt die DB |
@@ -172,3 +172,48 @@ offene Weiche (`cover` entfernen) ist eine Owner-Entscheidung, kein ADR.
 **Angenommen:** dass die vier Zweige nach dem Push grün durchlaufen (lokal 877–911 grün).
 **Nicht verifizierbar:** alles Serverseitige während des Ausfalls.
 **Offen geblieben:** Punkte 19/20 (Ruleset), Punkt 24 (Owner-Entscheid), Push aller Zweige.
+
+## 9. Falsifikation der Bewertungsbefunde (nachgetragen 2026-08-19)
+
+Zwei unabhängige Skeptiker, je einer auf einen Befund, beide mit dem Auftrag zu
+**widerlegen** und der Vorgabe „im Zweifel refuted". Der Verfasser dieser Retro war an
+beiden Läufen nicht beteiligt (Richter ≠ Angeklagter). Die tragenden Belege sind danach
+**unabhängig nachgeprüft** worden, nicht übernommen — bei jeder Abwesenheitsaussage
+einschliesslich Positivkontrolle.
+
+### Befund #5 — REFUTED
+
+Beide Hälften fallen, und zwar an geprüften Tatsachen statt an Geschmack:
+
+* **Der `wip:`-Commit steht nicht in der Historie.** `git merge-base --is-ancestor 8009924
+  origin/main` verneint; derselbe Befehl bejaht für einen bekannt gemergten Commit
+  (Positivkontrolle). Der Squash-Merge hat ihn nie durchgelassen. Die Behauptung war eine
+  Tatsachenannahme, die niemand geprüft hatte.
+* **Die Regel, gegen die gemessen wurde, gibt es nicht.**
+  `docs/conventions/pr-schnitt-und-stapel.md` sagt wörtlich: „Die Trennlinie ist nicht
+  ‚ein Issue = ein PR', sondern ob der Diff ohne den anderen überhaupt Sinn ergibt."
+  Für „fachlich gekoppelt" steht dort als Empfehlung **ein PR**. Beide Zweige fassten
+  dieselben zwei Dateien an, und der PR-Text legte die Bündelung offen.
+
+Damit ist #5 dieselbe Klasse wie #2 dieser Retro — eine Bewertung auf ungeprüfter
+Prämisse. Der Unterschied: dort war die Prämisse eine `grep`-Null, hier eine **erfundene
+Konvention**. Das ist der schärfere Fall, weil eine erfundene Regel jeden Befund trägt,
+den man an sie hält.
+
+### Befund #6 — PARTIALLY REFUTED
+
+* **Der Mechanismus ist real und bleibt stehen.** `laeuft = offen > 0` kennt keinen
+  Fehlerbegriff; Celery gibt nach `max_retries` auf, das Panel bleibt DB-seitig „offen".
+* **Die Zahl war nicht erfunden.** `MAX_VERSUCHE = 360` bei `ABSTAND_MS = 5000` sind exakt
+  30 Minuten, mit Kommentar im Quelltext. Der naheliegendste Refutationsgrund trägt nicht.
+* **Die Wertung „verfrühte Festlegung" fällt.** `9bfc400` war nie eigenständig auf `main`,
+  wurde nie deployt, und derselbe Autor fand und schloss die Lücke 25 Minuten später in
+  derselben Sitzung — vor jedem PR. Eine Trennung, die vor dem Merge aufgelöst wird, ist
+  kein Prozessmangel, sondern der normale Verlauf von Arbeit.
+
+### Was das über die Retro selbst sagt
+
+Von zwei Bewertungsbefunden hielt **keiner** in seiner ursprünglichen Form. Beide
+beschrieben etwas Reales und werteten es falsch. Das ist kein Argument gegen
+Bewertungsbefunde, sondern eines für die Falsifikationsstufe: sie hat hier zwei von zwei
+korrigiert, und in beiden Fällen war der billigste Check ein Einzeiler.
