@@ -295,6 +295,24 @@ Danach in fester Reihenfolge:
   `<auto-memory>/MEMORY.md` abgleichen (gleiche Kategorie mehrfach in dieser Session ODER schon als
   Drift-Memory **belegt vorhanden** — Existenz per `grep` prüfen). Der maschinelle Zähler ersetzt das
   manuelle Erinnern (Realfall 2026-06-14: `worktree-orphan-accumulation` ×2 erst vom Tool gefangen).
+- **5a. Rückfall-Prüfung — hat ein GEBAUTES Gate versagt? (PFLICHT, NEU 2026-08-20):**
+  **PFLICHT** `python3 tools/gate_wirkung.py` laufen lassen. Es trennt, was `retro_kpis.py`
+  zusammenwirft: Vorkommen **vor** dem Bau eines Gates von Vorkommen **danach**.
+  **Regel:** Kehrt ein Slug wieder, für den bereits ein Gate in
+  `docs/governance/gate-registry.json` steht, dann ist der Befund dieser Retro
+  **nicht** „Slug X zum N-ten Mal", sondern **„Gate X ist rückfällig"** — eine eigene
+  Klasse mit eigenem Slug (`gate-<name>-wirkungslos`) und genau drei zulässigen Antworten:
+  1. **ausweiten** — das Gate sieht die Familie nicht (Marker-Scanner gegen neues Muster),
+  2. **umbauen** — es feuert zu spät oder am falschen Pfad,
+  3. **herabstufen** — bewusst kein Gate mehr, begründet in der `declined`-Liste der Registry.
+  Ein vierter Weg („nochmal aufschreiben") ist ausdrücklich **keiner**.
+  **Warum die Klasse existiert:** Am 2026-08-20 über 82 Retros gemessen — 8 von 20 Gates
+  waren rückfällig, `claim-before-cheapest-check` **16×** seit Bau am 2026-08-02, obwohl
+  als Stop-Hook verdrahtet und mit grünem Drill. Jede dieser 16 Retros buchte ihn als
+  Wiederholung des Befunds statt als Befund über das Gate — deshalb wuchs der Zähler und
+  nicht die Wirkung. `retro_kpis.py` konnte das nicht zeigen: es zählt Slugs, nicht Rückfälle.
+  **Ehrlichkeits-Sperre beachten:** ein Gate mit `zu-frueh` oder `unerprobt` ist **nicht**
+  wirksam, sondern ungeprüft — diese Zeilen sind kein Erfolg, den man berichten darf.
 - **5b. Autonomie-Kalibrierung (integriert, gegen statische Charter):** zusätzlich zwei KPIs gegen die
   Artefakte messen und im Frontmatter führen — `over_ask` (etwas dem Menschen als „dein Zug" vorgelegt,
   das nachweislich **deterministisch/reversibel** war → hätte autonom laufen sollen) und `over_act`
@@ -332,6 +350,10 @@ Er sieht nur den Report + diese Skill. Checkliste:
 - Scores ganzzahlig 1–5, je an Befund verankert? (fängt erfundene Halbwerte wie `2.5`)
 - **Invariante** `|Soll-Schritte| == |überlebende Befunde|` erfüllt?
 - Frontmatter schema-valide (alle Pflichtfelder)? Report-Pfad kollisionsfrei (repo+session-id)?
+- **Wurde `gate_wirkung.py` gelaufen (Phase 4, Punkt 5a)?** Und falls es ein Gate als
+  `RUECKFAELLIG` meldet, das dieser Report als `recurring_finding` fuehrt: steht im Report
+  die Klasse **„Gate rückfällig"** mit einer der drei Antworten (ausweiten/umbauen/herabstufen)
+  — oder nur der Slug ein weiteres Mal? Nur der Slug ⇒ **Befund am Report**, nicht am Gate.
 - `refuted_rate` plausibel? Der Meta-Reviewer kommentiert sie **ausschließlich numerisch** als
   Band-Vergleich (aktueller Wert vs. die vorangehenden Retros via `retro_kpis.py`) — er beurteilt
   **NICHT**, ob einzelne SURVIVES/REFUTED-Entscheide inhaltlich korrekt sind (das wäre Session-Urteil).
@@ -342,6 +364,12 @@ Er sieht nur den Report + diese Skill. Checkliste:
 > **Längsschnitt der Skill selbst (PFLICHT in Phase 4, nicht optional):** `python3 tools/retro_kpis.py`
 > liest die Frontmatter aller `platform/docs/retros/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert
 > jeden `recurring_finding` mit Zähler **≥2 über Retros** zum Gate-PR-Pflicht-Item. Stdlib-only, kein Setup.
+>
+> **Zweites Werkzeug, andere Frage (PFLICHT seit 2026-08-20):** `python3 tools/gate_wirkung.py`
+> beantwortet nicht „wie oft kam der Slug?", sondern „wie oft kam er, **nachdem** sein Gate
+> gebaut war?". Der Zähler von `retro_kpis.py` kann steigen, während das Gate wirkt (alte
+> Vorkommen zählen mit) — und er kann ruhig aussehen, während ein Gate seit Wochen versagt.
+> Erst beide zusammen sagen, ob der Loop besser wird oder nur länger protokolliert.
 
 **Agenten-Budget-Hinweis:** ein `full`-Lauf mit Phase 5 braucht den 6. Subagenten (Meta) — das `≤5` in der
 Phase-0-Tabelle gilt für die Find/Verify-Pipeline; der Meta-Reviewer kommt **obendrauf** (also `full` ≤6,
@@ -390,6 +418,13 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **Phase-1-Collect liest lokalen `git log` ohne vorheriges `git fetch`** — die Frisch-Checkout-Pflicht gilt nicht nur für Phase-3-Skeptiker, sondern für JEDEN Collect-Schritt, auch inline bei `lean`.
 
 ## Changelog
+
+- 2026-08-20: **Phase 4 Punkt 5a — Rückfall-Prüfung** (`tools/gate_wirkung.py`) als PFLICHT
+  ergänzt, plus Abfrage in der Meta-Agent-Checkliste (Phase 5). Kehrt ein Slug wieder, für den
+  bereits ein Gate registriert ist, lautet der Befund **Gate rückfällig** — mit drei zulässigen
+  Antworten (ausweiten/umbauen/herabstufen) statt des Slugs zum N-ten Mal. `retro_kpis.py`
+  konnte das strukturell nicht zeigen: es zählt Slugs über die ganze Historie, ohne am
+  Bau-Datum zu trennen.
 - 2026-08-09: `repo_scope`-Form im Report-Skelett benannt (bare Slug, kein Pfad, kein
   `owner/repo`). Der Ritual-Trockenlauf vom 08.08. meldete drei Reports, deren
   Scope-Einträge `retro_kpis.py` als nicht slug-förmig verwarf (`~/.claude` ×2,

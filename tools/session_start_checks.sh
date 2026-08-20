@@ -462,6 +462,27 @@ else
   record "0.7.6 leseflaeche" "PASS" "keine unbestaetigten Melder-Befunde"
 fi
 
+# ── 0.7.7 Gate-Wirkung: Rueckfaelle nach dem Bau (platform, 2026-08-20) ─────
+# Der Loop hatte drei Messpunkte und eine Luecke: die Registry sagt "gebaut",
+# der Drill sagt "feuert", `retro_kpis.py` zaehlt Slugs INSGESAMT. Keiner davon
+# trennt am Bau-Datum — und damit sah ein Gate mit 16 Rueckfaellen seit dem Bau
+# aus wie eines, das gestern entstand. Gemessen am 2026-08-20 ueber 82 Retros:
+# 8 von 20 Gates sind rueckfaellig, `claim-before-cheapest-check` 16x seit dem
+# 2026-08-02 — verdrahtet als Stop-Hook, Drill gruen, Verhalten unveraendert.
+#
+# Ein Rueckfall ist ein Befund UEBER das Gate, nicht die N-te Wiederholung des
+# Slugs. Er steht hier, weil der Sitzungsstart der einzige Ort ist, den jede
+# Sitzung durchlaeuft — die Retro laeuft seltener als der Rueckfall passiert.
+#
+# FAIL-OPEN wie 0.7.6: `|| true`, damit ein kaputter Melder nicht den Start blockt.
+WIRKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_wirkung.py" --kurz 2>/dev/null || true)
+if [ -n "$WIRKUNG_OUT" ]; then
+  record "0.7.7 gate-wirkung" "WARN" "$(echo "$WIRKUNG_OUT" | head -1 | tr '|' '/')"
+  echo "$WIRKUNG_OUT" | tail -n +2
+else
+  record "0.7.7 gate-wirkung" "PASS" "kein Gate rueckfaellig"
+fi
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys

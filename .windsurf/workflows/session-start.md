@@ -111,6 +111,13 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     bei docs-only-Merges ist genau das der gewollte Weg (Gate zu, Concurrency-Group
     frei). Der Scan trennt das ueber den Approval-Eintrag des Runs — echte Fehlschlaege
     haben keinen. Nur wenn eine Ablehnung *nicht* beabsichtigt war, ist sie ein Befund.
+  - `0.7.7 gate-wirkung`: **ein gebautes Gate hat versagt** — der Befund kam nach dem
+    Bau des Gates mindestens 2× wieder. Das ist **kein** Punkt für „später mal": es heißt,
+    dass eine Regel, auf die sich der Loop verlässt, nachweislich nicht trägt. Vollbild:
+    `python3 platform/tools/gate_wirkung.py`. Behandlung gehört in die Retro (Phase 4,
+    Punkt 5a) — hier zählt nur, dass es **gesehen** und im Board benannt wird. Zeilen mit
+    `zu-frueh`/`unerprobt` sind ausdrücklich **kein** Wirksamkeits-Beleg, sondern
+    „hatte noch keine Gelegenheit".
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
@@ -347,6 +354,7 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 1 | Runner `tools/session_start_checks.sh` gelaufen, Summary-Tabelle gezeigt (0.R) | ☐ |
 | 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt (0.R) | ☐ |
 | 2a | Befund-Journal gelesen: Altbefunde mit ihrem **Alter** gespiegelt, Fremd-Repo-Befunde benannt (0.R) | ☐ |
+| 2b | Rückfällige Gates aus 0.7.7 im Board benannt — ein versagendes Gate ist ein Befund über den Loop selbst | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
@@ -415,6 +423,13 @@ nicht in einem Folge-Commit "irgendwann".
 
 ## Changelog
 
+
+- 2026-08-20: **Phase 0.7.7 `gate-wirkung`** ergänzt — meldet Gates, deren Befund nach dem
+  Bau mindestens 2x wiederkam. Gemessen über 82 Retros: 8 von 20 Gates rückfällig,
+  `claim-before-cheapest-check` 16x seit dem 2026-08-02 trotz verdrahtetem Stop-Hook und
+  grünem Drill. Der Sitzungsstart ist der einzige Ort, den jede Sitzung durchläuft — die
+  Retro läuft seltener als der Rückfall passiert. Startklar-Checkliste um Zeile 2b ergänzt
+  (eine neue WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
 - 2026-07-18: v3 — Deterministischer Runner `tools/session_start_checks.sh` ersetzt die
   mechanischen Einzel-Blöcke 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9
   (Ausführungstreue-Programm #1167, Retro c494a2: lange Phasenlisten werden beim

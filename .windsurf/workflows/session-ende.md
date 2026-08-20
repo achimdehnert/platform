@@ -294,6 +294,20 @@ andere Frage —, sondern **„was verschwindet, wenn dieses Fenster zugeht?"**
 > alle über andere Repos, **keins bearbeitet**. Der Melder war zuverlässig; ein Leser
 > fehlte. Dieselbe Klasse wie 🌀 `melder-ohne-leser`.
 
+**Ebenfalls hier abzufragen: rückfällige Gates aus Phase 0.7.7 (NEU 2026-08-20).**
+Meldet der Session-Start ein Gate als `RUECKFAELLIG`, dann hat eine Regel versagt, auf
+die sich der Loop verlässt — der Befund gehört ins selbe Netz wie ein Fremd-Repo-Befund
+und **nicht** ins Vergessen. Zulässig sind genau zwei Abschlüsse:
+- **behandelt** — Gate ausgeweitet/umgebaut/herabgestuft, Registry-Eintrag im selben PR
+  nachgezogen (`docs/governance/gate-registry.json`, bei Herabstufung die `declined`-Liste
+  mit Begründung), oder
+- **Verzicht mit Grund** — ein Satz, warum in dieser Sitzung nicht (Scope, Freigabe,
+  Aufwand), abgelegt wie jeder andere Verzicht in diesem Journal.
+
+Was **nicht** zulässig ist: die Zeile stehen lassen und die Sitzung beenden. Genau das ist
+die Mechanik, mit der `claim-before-cheapest-check` 16 Rückfälle sammeln konnte, ohne dass
+je jemand das Gate anfasste — jede einzelne Sitzung hielt es für die Aufgabe der nächsten.
+
 Der Session-Start-Runner schreibt jeden Befund mit seinem **Zielrepo** ins Journal
 (`tools/befund_journal.py`). Hier wird abgefragt, ob die Fremd-Repo-Befunde einen
 Landeplatz haben:
@@ -770,6 +784,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 14 | Abnahme gegen Session-Zielzustand im Stand-Block: erreicht/nicht erreicht/verschoben+Tracking bzw. n/a-begründet (Phase 0d) | ☐ |
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
+| 17 | Rückfälliges Gate aus Session-Start 0.7.7: in dieser Sitzung behandelt ODER Verzicht mit Grund abgelegt (Phase 0f) | ☐ |
 | 17 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
 | 18 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
 
@@ -810,6 +825,12 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 
 ## Changelog
 
+
+- 2026-08-20: **Phase 0f um rückfällige Gates erweitert** + Checklisten-Zeile 17. Ein vom
+  Session-Start gemeldetes rückfälliges Gate braucht denselben Abschluss wie ein
+  Fremd-Repo-Befund: behandelt (Registry im selben PR nachgezogen) oder Verzicht mit Grund.
+  Ohne diese Zeile hielt jede Sitzung das Gate für die Aufgabe der nächsten — genau die
+  Mechanik, mit der ein Gate 16 Rückfälle sammelte, ohne dass es je jemand anfasste.
 - 2026-08-12: **Phase 0e Clear-Härte (PFLICHT) + Checklisten-Zeile 17** — der Skill hatte
   Phasen, die Flüchtiges wegräumen (3.1b temporäre Dateien, 3.1c Worktree-Reaper), aber
   keine, die vorher fragt, ob dort etwas Dauerhaftes liegt. Belegt per `grep -ic` auf dieses
