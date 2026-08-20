@@ -30,6 +30,26 @@ recurring_findings: [claim-before-cheapest-check, gate-claim-before-cheapest-che
 - **Sechs von elf Befunden wurden widerlegt** — darunter drei, die als Anklage gegen die Sitzung formuliert waren, und einer, den die Sitzung selbst schon als Treffer akzeptiert hatte. Die Fehlerrichtung war beidseitig: zu streng häufiger als zu milde.
 - Der überlebende Kern-Befund ist ein **Gate-Rückfall**, nicht ein neuer Fehler: `claim-before-cheapest-check` traf zu, obwohl sein Gate gebaut, verdrahtet und drill-grün ist — begangen in derselben Sitzung, die den Rückfall vermessen hat.
 
+## 1a. Nachtrag — die Zahl dieses Reports wurde durch seine eigenen Befunde korrigiert
+
+Befund #2 und #3 wurden noch am selben Tag behoben ([#2157](https://github.com/achimdehnert/platform/pull/2157)).
+Das aendert die Schlagzeile, die dieser Report und die Sitzung davor gefuehrt haben:
+
+| | vor dem Fix | nach dem Fix |
+|---|---:|---:|
+| rueckfaellige Gates | **8** von 20 | **7** von 20 |
+| `claim-before-cheapest-check` | 16 Rueckfaelle | **14** |
+| `hand-distributed-copy-not-redistributed` | RUECKFAELLIG (2) | beobachten (1) |
+| `worktree-midsession-accumulation` | 2 | **3** |
+
+Beide Richtungen sind real: der Bau-Tag-Ausschluss senkt Zaehler, der Parser-Fix **hebt**
+sie, weil er Slugs freilegt, die vorher still verloren gingen. Die urspruengliche Zahl war
+also nicht bloss zu hoch, sondern in beide Richtungen falsch.
+
+Der Report bleibt im Uebrigen unveraendert stehen — er dokumentiert, was zum Zeitpunkt der
+Messung galt. Diese Zeilen stehen hier, weil eine wissentlich falsche Kennzahl in einem
+durablen Dokument genau der Fehlermodus ist, den der Report beschreibt.
+
 ## 2. Befund-Tabelle
 
 | # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
