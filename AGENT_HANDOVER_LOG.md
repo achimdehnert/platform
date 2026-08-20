@@ -2708,3 +2708,19 @@ Wichtigste Beifaenge: infra-deploy seit 30.07. ohne Runner (#2114, beruehrt #208
 Arbeitsweise: 3 Explore-Audits + 10 Umsetzer-Subagents parallel; 3 Audit-Praemissen von Umsetzern falsifiziert (Test-DB-Mechanik, #601-Fallback-Claim, „nur Fehlerpfad getestet") — adversariale Zweitpruefung wirkte. Fehler dieser Sitzung: Scope-Checkpoint erst auf Stop-Hook-Anstoss ausgesprochen; J-Caller-Liste zunaechst aus stale lokalen Klonen erhoben (Agenten korrigierten gegen origin); zwei Warte-Agenten liefen in CI-Idle-Loops und mussten per Nachricht beendet werden.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-20 nachts — Fortsetzung der abgestuerzten Sitzung: MEiKI-Statusbericht, Mailcheck, Plattenplatz der Box
+
+Einstieg war „mach weiter wo wir aufgehoert haben" ohne Themenangabe. Die abgestuerzte Sitzung (23b5d073, Abbruch 02:31) wurde ueber die Transkripte identifiziert statt erraten: letzter Owner-Turn „142 g", danach Greps in meiki-hub nach der Laufzeit. Offen war also nicht der Statusbericht selbst (docx und Entwurf lagen seit 02:22), sondern der Laufzeit-Widerspruch darin.
+
+Aufgeloest gegen drei Primaerquellen ausserhalb des Repos: Projektskizze (Start 01.11.2025 = Antrags-Planung), Projektleitung LRA 09.12.2025 (Antrag mit Starttermin 01.03./01.04., vorzeitiger Massnahmenbeginn ausdruecklich nicht beantragt), Weiterleitungsvertrag mit Zuwendungsbescheid vom 27.01.2026. Ein Nov-2025-Beginn laege vor dem Bescheid. Gueltig: 01.04.2026-31.03.2027. Der Weiterleitungsvertrag war ein reines Bild-PDF — pdftotext lieferte 0 Bytes, die Belegkette entstand erst nach OCR. Doku-Drift korrigiert in meiki-hub#146 (CI gruen, offen gelassen).
+
+Mailcheck: 24 offene Vorgaenge geprueft, DB-first plus Live-Restfenster ueber alle drei Konten inkl. beider Gesendet-Ordner. Genau eine Nachricht war unverbucht (Vorgang 126, 00:37) — die abgestuerzte Sitzung hatte sie gesehen, aber nicht mehr ins Ledger geschrieben. Owner-Weisungen abgearbeitet: 111/124 telefonisch geschlossen, 107 nachgelesen, drei Entwuerfe gebaut (108 Nachfass im Loeschvorgang, 126 Thesis-Betreuung, 141 Beschaffung). Beim 108-Entwurf lief der erste Versuch falsch: createReply auf die EIGENE gesendete Mail setzt den Absender als Empfaenger — der Entwurf waere an den Owner selbst gegangen. Verworfen, ueber die Ursprungsmail der Gegenseite neu gebaut.
+
+Plattenplatz: zwei TreeSize-Berichte, Ebene 1 und Ebene 2. Der interessanteste Befund war keine Zahl, sondern eine Rate — 7,2 GB in 14 Minuten weniger frei, waehrend gemessen wurde. Zweitwichtigster: ein Nebenprofil mit 124 GB Groesse gegen 6,3 GB belegt, Faktor 19,7 — wer nach Groesse aufraeumt statt nach Belegt, loescht dort 124 GB Inhalt fuer sechs Gigabyte Gewinn. Zwei Skripte gebaut und eingeschleust; die Box ist vom Dev-Host aus nicht erreichbar (ping und Ports 8765/5985/22 gemessen), die Schleuse darf laut KONZ-046 nichts ausfuehren — die Freigabe „mach 1-8 autonom" konnte deshalb nur als Werkzeug eingeloest werden, nicht als Ausfuehrung. Das wurde so benannt statt umgangen.
+
+Fehler dieser Sitzung: beim Archivieren des alten Handover-Blocks schnitt der erste Einfuege-Versuch 718 Zeilen aus AGENT_HANDOVER_ARCHIVE.md heraus — vom diffstat gefangen, zurueckgesetzt, korrekt neu eingefuegt. Ausserdem einmal eine Graph-Message-ID der falschen Zeile zugeordnet (die id-Zeile folgt ihrer Nachricht, sie geht ihr nicht voraus) und dadurch die falsche Mail gelesen.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
