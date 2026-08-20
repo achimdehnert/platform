@@ -10,7 +10,9 @@
       "module": "tools/claude-hooks/evidence_claim_scanner.py",
       "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
       "built": "2026-08-02",
-      "ref": "platform#1643"
+      "ref": "platform#1643",
+      "revised": "2026-08-20",
+      "revision_note": "Ausweitung um die Subjektbindung (platform#2143, Owner-Entscheid 'ausweiten'): die Korroboration fragte nur, OB belegartiges Werkzeug lief, nicht ob es den GENANNTEN Gegenstand beruehrt hat. Kalibrierfenster bis 2026-09-03: der Fall wird protokolliert (kinds=subjekt-unbelegt-kalibrierung), scharf erst mit EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf."
     },
     {
       "slug": "deferred-item-no-tracking-issue",
@@ -28,7 +30,9 @@
       "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
-      "ref": "platform#1646"
+      "ref": "platform#1646",
+      "revised": "2026-08-19",
+      "revision_note": "Rev 2 des Scanners: Bedingung kommt aus Tool-Evidenz statt aus dem Wortlaut (gegen Nicht-Gesagtes ist ein Wortlaut-Scanner blind). Offen bleibt, dass der Stop-Hook erst nach der Arbeit feuert — als scope-checkpoint-advisory-fires-too-late benannt."
     },
     {
       "slug": "stale-local-clone-as-ground-truth",
