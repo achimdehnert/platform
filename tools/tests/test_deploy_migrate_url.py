@@ -65,3 +65,70 @@ def test_should_use_single_quotes_so_the_variable_expands_inside_the_container()
             "Das -c-Argument muss einfach gequotet sein, sonst expandiert "
             f"${{DATABASE_URL_MIGRATE}} auf dem Host: {zeile.strip()}"
         )
+
+
+# --- Verhalten statt Text (Retro beefc148, Befund #4) ------------------------
+# Die Pruefungen oben vergleichen Zeichenketten. Sie waeren blind gegenueber einer
+# textlich aehnlichen, in der Shell aber kaputten Zeile — z.B. doppelte statt
+# einfacher Anfuehrungszeichen um das `-c`-Argument. Der folgende Test fuehrt das
+# Fragment REAL aus und prueft die Aufloesung am Ergebnis.
+
+import subprocess  # noqa: E402
+
+
+def _fragment() -> str:
+    """Das `-c`-Argument aus deploy.sh, mit `printenv` statt `manage.py` als Sonde.
+
+    **`printenv` und nicht `printf %s "$DATABASE_URL"`** — und das ist keine
+    Geschmacksfrage: bei `VAR=wert kommando` expandiert die Shell `"$VAR"` im
+    Argument, BEVOR die Zuweisung wirkt. Eine `printf`-Sonde zeigt deshalb den
+    ALTEN Wert und laesst den Mechanismus kaputt aussehen, obwohl er traegt.
+    `printenv` liest seine EIGENE Umgebung — genau wie `manage.py` es tut
+    (`os.environ`). Der erste Anlauf dieses Tests fiel darauf herein; genau dafuer
+    fuehrt man das Fragment aus, statt es zu greppen.
+    """
+    return 'DATABASE_URL="${DATABASE_URL_MIGRATE:-$DATABASE_URL}" printenv DATABASE_URL'
+
+
+def _lauf(umgebung: dict[str, str]) -> str:
+    ergebnis = subprocess.run(
+        ["sh", "-c", _fragment()],
+        capture_output=True,
+        text=True,
+        env=umgebung,
+        check=True,
+    )
+    return ergebnis.stdout.rstrip("\n")
+
+
+def test_should_prefer_migrate_url_when_both_are_set():
+    assert (
+        _lauf({"DATABASE_URL": "laufzeit", "DATABASE_URL_MIGRATE": "privilegiert"})
+        == "privilegiert"
+    )
+
+
+def test_should_fall_back_to_database_url_when_migrate_is_unset():
+    """Repos ohne die Variable muessen sich unveraendert verhalten."""
+    assert _lauf({"DATABASE_URL": "laufzeit"}) == "laufzeit"
+
+
+def test_should_fall_back_when_migrate_is_set_but_empty():
+    """`:-` statt `-`: auch eine LEERE Variable faellt zurueck.
+
+    Mit `-` statt `:-` liefe der Deploy mit leerer DATABASE_URL — der Fehler
+    waere ein Verbindungsfehler weit weg von seiner Ursache.
+    """
+    assert _lauf({"DATABASE_URL": "laufzeit", "DATABASE_URL_MIGRATE": ""}) == "laufzeit"
+
+
+def test_should_not_leak_the_assignment_into_the_surrounding_shell():
+    """Die Zuweisung gilt nur fuer den einen Prozess, nicht fuer den Stack danach."""
+    ergebnis = subprocess.run(
+        ["sh", "-c", _fragment() + '; printf ":%s" "$DATABASE_URL"'],
+        capture_output=True,
+        text=True,
+        env={"DATABASE_URL": "laufzeit", "DATABASE_URL_MIGRATE": "privilegiert"},
+        check=True,
+    )
+    assert ergebnis.stdout == "privilegiert\n:laufzeit"

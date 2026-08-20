@@ -83,7 +83,11 @@ RUECKFALL_SCHWELLE = 2
 _DATUM_AUS_NAME = re.compile(r"session-retro-(\d{4}-\d{2}-\d{2})-")
 _INLINE = re.compile(r"^recurring_findings\s*:\s*\[(.*?)\]", re.S | re.M)
 _BLOCK_START = re.compile(r"^recurring_findings\s*:\s*$")
-_LISTEN_EINTRAG = re.compile(r"^\s*-\s*([a-z0-9][a-z0-9-]*)\s*$")
+# Kommentar-Toleranz ist nicht kosmetisch: ohne sie brach der Block beim ersten
+# `- slug  # Notiz` ab und ALLE folgenden Slugs fielen still weg — die Fehlrichtung,
+# die echte Rueckfaelle verdeckt (Retro beefc148, Befund #3).
+_LISTEN_EINTRAG = re.compile(r"^\s*-\s*([a-z0-9][a-z0-9-]*)\s*(?:#.*)?$")
+_LEER_ODER_KOMMENTAR = re.compile(r"^\s*(?:#.*)?$")
 
 
 def standard_verzeichnisse() -> list[str]:
@@ -129,7 +133,10 @@ def _slugs_aus_frontmatter(text: str) -> list[str]:
     inline = _INLINE.search(frontmatter)
     if inline:
         roh = inline.group(1).replace("\n", " ")
-        return [s.strip() for s in roh.split(",") if s.strip()]
+        # Auch in der Inline-Form kann ein Kommentar stehen (`[a, b]  # Notiz` faengt
+        # der Regex nicht, aber `[a, # weg\n b]` schon) — je Eintrag abschneiden.
+        eintraege = (e.split("#", 1)[0].strip() for e in roh.split(","))
+        return [e for e in eintraege if e]
 
     slugs: list[str] = []
     im_block = False
@@ -141,6 +148,8 @@ def _slugs_aus_frontmatter(text: str) -> list[str]:
             eintrag = _LISTEN_EINTRAG.match(zeile)
             if eintrag:
                 slugs.append(eintrag.group(1))
+            elif _LEER_ODER_KOMMENTAR.match(zeile):
+                continue  # Leerzeile/Kommentarzeile beendet die Liste nicht
             else:
                 im_block = False
     return slugs
@@ -160,11 +169,27 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
         slug = gate.get("slug", "")
         gebaut = gate.get("built") or ""
         vorkommen = sorted(d for d, slugs, _ in retros if slug in slugs)
+        # Das Retro des BAU-TAGS zaehlt in keinen der beiden Toepfe. Es ist in aller
+        # Regel genau der Befund, AUS DEM das Gate entstand — als "vorher" wuerde es
+        # den Erfolg schoenen, als "nachher" ist es ein Rueckfall gegen ein Gate, das
+        # es selbst ausgeloest hat. Zweiteres war bis 2026-08-20 der Fall (`d >= gebaut`)
+        # und machte die Schwelle faktisch zu 1 statt 2: ein fremder Pruefer reproduzierte
+        # `RUECKFAELLIG` aus zwei Retros, von denen eines der Bau-Tag war (Retro beefc148,
+        # Befund #2). Der Kommentar an RUECKFALL_SCHWELLE behauptete genau das Gegenteil.
         vorher = [d for d in vorkommen if gebaut and d < gebaut]
-        nachher = [d for d in vorkommen if gebaut and d >= gebaut]
-        fenster = len({d for d, _, _ in retros if gebaut and d >= gebaut})
+        nachher = [d for d in vorkommen if gebaut and d > gebaut]
+        fenster = len({d for d, _, _ in retros if gebaut and d > gebaut})
         vorher_messbar = bool(gebaut) and bool(aeltestes) and gebaut > aeltestes
 
+        # Reihenfolge mit Absicht: RUECKFAELLIG steht VOR der Fenster-Sperre.
+        # Die Sperre schuetzt die POSITIVE Aussage ("wirksam") vor einem zu kurzen
+        # Beobachtungszeitraum — sie darf einen tatsaechlich beobachteten Rueckfall
+        # nicht verschlucken. Zwei echte Vorkommen nach dem Bau sind Evidenz, egal wie
+        # kurz das Fenster ist; sie als "zu-frueh" zu fuehren waere genau die Sorte
+        # Beschoenigung, gegen die dieses Werkzeug gebaut wurde. Die Retro beefc148
+        # schlug vor, die Reihenfolge zu drehen — der reproduzierte Fehlfall verschwindet
+        # aber bereits durch den Bau-Tag-Ausschluss oben, und das Drehen haette echte
+        # Signale unterdrueckt. Bewusst nicht uebernommen.
         if not gebaut:
             urteil = "ohne-datum"
         elif len(nachher) >= RUECKFALL_SCHWELLE:
