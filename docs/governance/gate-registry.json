@@ -189,6 +189,16 @@
    "built": "2026-08-16",
    "ref": "platform#2004"
   },
+    {
+      "slug": "gate-rueckfall-unbemerkt",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/gate_wirkung.py",
+      "drill": "tools/tests/test_gate_wirkung.py",
+      "built": "2026-08-20",
+      "ref": "platform#2142",
+      "note": "Misst Rueckfaelle NACH dem Bau eines Gates — die Luecke zwischen 'gebaut' (Registry), 'feuert' (Drill) und 'Slug kam wieder' (retro_kpis). Unterliegt selbst diesem Mass."
+    },
   {
    "slug": "untested-command-handed-to-user",
    "mode": "advisory",
