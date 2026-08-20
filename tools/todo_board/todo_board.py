@@ -227,9 +227,15 @@ def zeile(
     # unter der die Mail als `/a/<nr>` erreichbar ist. Ein Laufindex wuerde springen.
     nr = v.get("nr")
     nr_text = html.escape(str(nr)) if nr not in (None, "") else "—"
-    # Der Mail-Link steht schon in der Uebersicht, nicht erst auf der Vorgangsseite:
-    # der Weg zur Mail soll keinen Zwischenklick kosten (#1869).
-    ziel = mail_ziel(v, mail_basis, anker)
+    # Das Briefsymbol steht nur noch da, wo es KEINE Vorgangsansicht gibt.
+    # Grund (Owner-Befund 2026-08-20): `/a/<nr>` loest ueber die verankerte
+    # Message-ID auf, und verankert ist der ANFANG des Strangs. Der Klick landete
+    # also verlaesslich auf der aeltesten Mail, waehrend die Frage „was ist der
+    # Stand?" lautet. Solange der Dienst keine „letzte Mail des Vorgangs" kennt
+    # (platform#2160), ist der Weg ueber den Verlauf der richtige — und der haengt
+    # am Sache-Link daneben. Ohne thread_key bleibt das Briefsymbol die einzige
+    # Spur zur Mail und darum erhalten.
+    ziel = None if schluessel else mail_ziel(v, mail_basis, anker)
     mail = (
         f" <a class='maillink' href='{html.escape(ziel)}' target='_blank' "
         f"rel='noreferrer' aria-label='Mail zu #{nr_text} oeffnen' "
