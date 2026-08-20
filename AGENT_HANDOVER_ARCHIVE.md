@@ -612,6 +612,18 @@ verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern �
 
 ---
 
+## ⚡ Stand (2026-08-19 nachmittags — PyPI-Fleet-Programm #2075: K1–K4 Basis geliefert, Kanon-Umzug vollzogen, ~40 PRs über 20 Repos)
+
+**Zeitanker:** HEAD `12d75be1` · `rev-list --count` 3360 · geschrieben 2026-08-19 14:0x · Kapitäns-Kanal, parallele Vormittags-Session siehe Block darunter
+
+- **Programm-Anker [#2075](https://github.com/achimdehnert/platform/issues/2075) (Zielzustand-Issue, SA-4) — alle vier Basiskriterien geliefert und einzeln verifiziert.** K1: Vier-Org-Vollerhebung + 3 Registry-Lücken geschlossen (iil-gpufw/iil-django-lms-lite/iil-doc-templates, Fleet 20→23) + Klassifikation 19 aktiv / 2 einfrieren / 2 archivieren-Kandidaten als ADR-266-Amendment (#2077). K2: Cold-Start deterministisch **19/19** (`make setup && make test`, je real im frischen Clone bewiesen) + AGENTS.md-Rollout **1/19 → 19/19** (Generator, Schema pkg-agents-v1) + **T1a-LLM-Eval 19/19 PASS** (#2081, #2100). K3: Frühwarn-Scanner M1–M5 advisory im Wochenlauf, Baseline 38 Findings (#2090). K4: Befund→Auto-Issue→Queue→PR→Merge-Loop **einmal real durchlaufen** (Canary #2095→#2096, Doc #2097).
+- **Owner-Entscheid #2084 umgesetzt: `_ci-pypi.yml`-Kanon offiziell nach `iilgmbh/shared-ci`** (ADR-226-Amendment #2103, platform-Kopie deprecated). Messbasis: 0 reale platform-`uses:`, Kopien inhaltlich identisch. **M4-Sweep 15/15 Repos auf shared-ci v1.1.11 gemergt** (2 Piloten + gestaffelte Welle) — die 22 Reusable-Lag-Findings der Baseline sind remediert; Gegenprobe = nächster Wochenlauf Mo 06:30.
+- **gpufw nach iilgmbh transferiert** (Heimat-Regel als Zielbild im ADR-266-Amendment; Binding-Glücksfall: kein OIDC-Publisher zu brechen; Publish-Aufbau: gpufw#1).
+- **Instrumenten-Lektionen, alle in Verifikations-Docs:** (1) `/users/`-API zeigt nur public — Vollerhebung braucht `/user/repos` (Messfehler in-session gefunden); (2) erste M4-Fassung schwieg bei 22 realen Findings (falsches shared-ci-Repo + stumme Tag-Auflösung) — Null-aus-Messgerät-Regel griff; (3) Groq-Katalog stale ggü. llm-routing.md, `llama-3.3-70b-versatile` tot → `openai/gpt-oss-120b` ([#2098](https://github.com/achimdehnert/platform/issues/2098)); (4) Cloudflare blockt `Python-urllib`-UA mit 403; (5) **zwei shared-ci-Repos** — achimdehnert-Überbleibsel (nur Tag v1) erzeugte ein fehlplatziertes Issue, Archivierung = Owner-Rest von #2084.
+- **Abnahme (0d):** Zielzustand #2075 — **erreicht in Basis-Ausbaustufe** (K1–K4 je gegen die Akzeptanzkriterien verifiziert, K5 „kein stiller Rest" durchgehend: jede Auslassung hat ein Issue). **Verschoben mit Tracking:** K2-Ausbau [#2099](https://github.com/achimdehnert/platform/issues/2099) (Eval-Stufe 2, CI-Doppellauf, copier, Mutation-Probe), K3-Ausbau + PAT + Canary-Periodik + unbeaufsichtigter Queue-Lauf [#2089](https://github.com/achimdehnert/platform/issues/2089). **SA-4: ~40 Anwendungen** (Paket-Repo-Merges nach grüner CI: 19 Rollout + 15 Sweep + 3 Cold-Start-Fixes + Canary; platform-Merges liefen alle über Owner-Review) · 0 Einzel-OK trotz Klassen-Deckung · **0 Fehlanwendungen**.
+- **Offene Owner-Punkte aus dieser Session:** [#2098](https://github.com/achimdehnert/platform/issues/2098) llm-routing-Refresh · [#2089](https://github.com/achimdehnert/platform/issues/2089) PAT/Loop-Ausbau · Überbleibsel `achimdehnert/shared-ci` archivieren (#2084-Rest) · risk-hub-Entscheid riskfw Kopie vs. Paket ([risk-hub#618](https://github.com/iilgmbh/risk-hub/issues/618)).
+
+
 ## ⚡ Stand (2026-06-19 — comic-hub ADR-252: ADR→Code, end-to-end live verifiziert)
 
 **Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis zum **lauffähigen,
