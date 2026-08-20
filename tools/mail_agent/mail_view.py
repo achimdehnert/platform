@@ -79,6 +79,24 @@ _REMOTE_ATTR = re.compile(
 _EVENT_ATTR = re.compile(r"""\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.I)
 _CSS_URL = re.compile(r"""url\(\s*['"]?(?!cid:|data:)[^)]*\)""", re.I)
 
+#: Inline-``style``-Attribute — Ansatzpunkt fuer die Hellschrift-Entschaerfung.
+_STYLE_ATTR = re.compile(r"""style\s*=\s*(?P<q>["'])(?P<val>[^"']*)(?P=q)""", re.I)
+_COLOR_DECL = re.compile(r"(^|;)(\s*color\s*:\s*)([^;]+)", re.I)
+_RGB_WERTE = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", re.I)
+
+
+def _ist_helle_schrift(wert: str) -> bool:
+    """Naeherungsweise: liegt die Farbe so nah an Weiss, dass sie auf hellem Grund verschwindet?"""
+    w = wert.strip().lower()
+    if w in ("white", "#fff", "#ffffff", "#fffffe"):
+        return True
+    m = _RGB_WERTE.search(w)
+    if m:
+        return all(int(k) >= 230 for k in m.groups())
+    if re.fullmatch(r"#[0-9a-f]{6}", w):
+        return all(int(w[i : i + 2], 16) >= 230 for i in (1, 3, 5))
+    return False
+
 
 def slugify(text: str, max_len: int = 40) -> str:
     """Betreff → dateisystemtauglicher Slug (ASCII, keine Pfadanteile)."""
@@ -125,7 +143,39 @@ def sanitize_html(raw: str) -> tuple[str, int]:
 
     raw = _REMOTE_ATTR.sub(_neutralize, raw)
     raw, css_hits = _CSS_URL.subn("none", raw)
+    raw = _entschaerfe_helle_schrift(raw)
     return raw, blocked + css_hits
+
+
+def _entschaerfe_helle_schrift(raw: str) -> str:
+    """Fast weisse Inline-Schriftfarbe auf ``inherit`` zuruecksetzen — aber nur,
+    wenn dasselbe ``style``-Attribut keine eigene Flaeche mitbringt.
+
+    Grund: ``<style>``-Bloecke fliegen oben raus (``_TAG_BLACKLIST``). Eine Mail,
+    die ihre dunkle Flaeche dort definiert und ihren Text inline hell faerbt,
+    behaelt danach die helle Schrift und verliert den Grund — auf der hellen
+    Flaeche der Ansicht steht sie dann weiss auf weiss. Traegt das Element seine
+    Flaeche selbst (``background`` im selben Attribut), bleibt alles unangetastet:
+    dort ist die helle Schrift gewollt und funktioniert weiter.
+    """
+
+    def _pro_attribut(m: re.Match[str]) -> str:
+        val = m.group("val")
+        if re.search(r"background", val, re.I):
+            return m.group(0)
+
+        def _pro_farbe(c: re.Match[str]) -> str:
+            if not _ist_helle_schrift(c.group(3)):
+                return c.group(0)
+            return f"{c.group(1)}{c.group(2)}inherit"
+
+        neu_val = _COLOR_DECL.sub(_pro_farbe, val)
+        if neu_val == val:
+            return m.group(0)
+        q = m.group("q")
+        return f"style={q}{neu_val}{q}"
+
+    return _STYLE_ATTR.sub(_pro_attribut, raw)
 
 
 def _body_parts(msg: Message) -> tuple[str, str]:

@@ -115,6 +115,29 @@ class TestRender:
         assert "--flaeche:" not in dunkel, "Dark-Mode darf die Flaeche nicht umfaerben"
         assert "--flaeche-text:" not in dunkel
 
+    def test_should_neutralize_light_text_when_mail_lost_its_own_surface(self, tmp_path):
+        """Die dunkle Flaeche kommt als <style> (wird gestrippt), die Schrift inline hell —
+        ohne Entschaerfung stuende sie weiss auf der hellen Flaeche der Ansicht."""
+        msg = _nachricht(
+            html_teil=(
+                "<style>.k{background:#101418}</style>"
+                '<div class="k"><span style="color:#ffffff">unsichtbar</span></div>'
+            )
+        )
+        datei = mail_view.render(msg, "hnu", "INBOX", "10", tmp_path)
+        inhalt = datei.read_text(encoding="utf-8")
+        assert "color:#ffffff" not in inhalt
+        assert "color:inherit" in inhalt
+
+    def test_should_keep_light_text_that_carries_its_own_background(self, tmp_path):
+        """Gegenprobe: bringt das Element seine Flaeche selbst mit, bleibt die helle
+        Schrift stehen — sonst wuerde ein farbiger Button unlesbar."""
+        msg = _nachricht(
+            html_teil='<a style="background:#0b57d0;color:#ffffff">Knopf</a>'
+        )
+        datei = mail_view.render(msg, "hnu", "INBOX", "11", tmp_path)
+        assert "color:#ffffff" in datei.read_text(encoding="utf-8")
+
     def test_should_warn_when_remote_references_were_blocked(self, tmp_path):
         msg = _nachricht(html_teil='<p>hi<img src="https://track.example/p.gif"></p>')
         datei = mail_view.render(msg, "hnu", "INBOX", "2", tmp_path)
