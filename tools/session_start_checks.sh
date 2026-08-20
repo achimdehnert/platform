@@ -486,6 +486,23 @@ else
   record "0.7.7 gate-wirkung" "PASS" "kein Gate rueckfaellig"
 fi
 
+# ── 0.7.10 Kennzahl-Verfall: nachrechenbare Zahlen in durablen Dokumenten ───
+# Am 2026-08-20 stand dieselbe Kennzahl binnen zwei Stunden bei 16, dann 14, dann
+# 15 — jedes Mal korrekt gemessen, jedes Mal aus anderem Grund. Zu dem Zeitpunkt
+# stand sie bereits in einem Issue-Titel, einem Handover, einem Memory-Eintrag und
+# zwei PR-Texten. Wer eine Kennzahl in ein durables Dokument schreibt, schreibt ein
+# Verfallsdatum mit — und niemand merkt sich, es zu pruefen.
+#
+# OPT-IN: geprueft wird nur, was ausdruecklich mit <!--kz:NAME--> markiert ist. Ein
+# Stand-Block SOLL altern duerfen; eine Prio-Zeile behauptet Gegenwart.
+KZ_OUT=$(timeout 300 python3 "$PLATFORM_DIR/tools/kennzahl_verfall.py" --kurz 2>/dev/null || true)
+if [ -n "$KZ_OUT" ]; then
+  record "0.7.10 kennzahl-verfall" "WARN" "$(echo "$KZ_OUT" | head -1 | tr '|' '/')"
+  echo "$KZ_OUT" | tail -n +2
+else
+  record "0.7.10 kennzahl-verfall" "PASS" "alle markierten Kennzahlen aktuell"
+fi
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys
