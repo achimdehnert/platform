@@ -1099,3 +1099,35 @@ def test_should_not_report_embedded_messages_when_there_are_none():
     schlicht = _msg(attachments=[("bericht.pdf", b"%PDF-1.4")])
     assert rm.eingebettete_nachrichten(schlicht) == []
     assert rm.attachment_names(schlicht) == ["bericht.pdf"]
+
+
+class TestOrdnerImap:
+    """Klartext-Ordnernamen -> IMAP modified UTF-7 (RFC 3501 §5.1.3).
+
+    Anlass 2026-08-20: `read_mail.py --folder "Entwürfe"` brach mit
+    UnicodeEncodeError ab; erreichbar war der Ordner nur ueber die von Hand
+    getippte Form 'Entw&APw-rfe'.
+    """
+
+    def test_should_encode_umlaut_folder(self):
+        assert rm.ordner_imap("Entwürfe") == "Entw&APw-rfe"
+
+    def test_should_encode_umlaut_folder_with_space(self):
+        assert rm.ordner_imap("Gelöschte Objekte") == "Gel&APY-schte Objekte"
+
+    def test_should_leave_pure_ascii_untouched(self):
+        assert rm.ordner_imap("Gesendete Objekte") == "Gesendete Objekte"
+
+    def test_should_escape_literal_ampersand(self):
+        assert rm.ordner_imap("A&B") == "A&-B"
+
+    def test_should_pass_through_already_encoded_name(self):
+        """Aufrufer reichen teils die kodierte Form durch — kein zweites Escaping."""
+        assert rm.ordner_imap("Entw&APw-rfe") == "Entw&APw-rfe"
+
+    def test_should_roundtrip_with_ordner_klartext(self):
+        for name in ("Entwürfe", "Gelöschte Objekte", "INBOX"):
+            assert rm.ordner_klartext(rm.ordner_imap(name)) == name
+
+    def test_should_quote_and_encode_for_select(self):
+        assert rm._mailbox_arg("Gelöschte Objekte") == '"Gel&APY-schte Objekte"'
