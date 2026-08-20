@@ -167,6 +167,36 @@ def repo_urls() -> dict[str, list[str]]:
     return out
 
 
+def hat_prod_gate(repo: str, owner: str = "achimdehnert") -> bool:
+    """True, wenn der Deploy bei push bewusst nur nach staging geht.
+
+    Realfall risk-hub (2026-08-20): `target_environment: ${{ inputs.target_environment
+    || 'staging' }}` — bei einem push-Event ist `inputs` leer, der Deploy landet also auf
+    staging. Prod erfordert einen bewussten `workflow_dispatch` mit Environment-Freigabe.
+    Der Live-Stand hinkt `main` dann moeglicherweise **absichtlich** hinterher.
+    Das Ergebnis unterdrueckt den Befund NICHT, es kennzeichnet ihn nur: tax-hub
+    liefert hier ebenfalls True, hat aber einen seit Tagen roten Build — eine
+    Unterdrueckung haette den echten Fehler verborgen.
+
+    Wird nur fuer Repos aufgerufen, bei denen bereits ein Rueckstand feststeht — das
+    haelt die Zahl der API-Aufrufe klein.
+    """
+    code, out = sh(
+        ["gh", "api", f"repos/{owner}/{repo}/contents/.github/workflows/deploy.yml",
+         "--jq", ".content"],
+        timeout=30,
+    )
+    if code != 0 or not out:
+        return False
+    import base64
+
+    try:
+        text = base64.b64decode(out).decode("utf-8", "replace")
+    except (ValueError, TypeError):
+        return False
+    return bool(re.search(r"target_environment:.*\|\|\s*'staging'", text))
+
+
 def main_sha(repo: str, owner: str = "achimdehnert") -> str | None:
     code, out = sh(["gh", "api", f"repos/{owner}/{repo}/commits/main", "--jq", ".sha"], timeout=30)
     return out.strip() if code == 0 and out.strip() else None
@@ -244,6 +274,16 @@ def main() -> int:
             eintrag["rueckstand"] = None
             eintrag["zuordnung_unklar"] = True
 
+        # Bewusstes Prod-Gate: als HINWEIS ausweisen, den Befund aber NICHT
+        # unterdruecken. Grund (gemessen 2026-08-20): risk-hub hat ein echtes Gate
+        # (staging-Default, Rueckstand gewollt) — tax-hub aber ebenfalls, und dort
+        # ist der Rueckstand ein seit sechs Tagen roter Build. Wer hier unterdrueckt,
+        # versteckt echte Fehlschlaege hinter einer plausiblen Ausrede. Der Hinweis
+        # kostet eine Zeile Lesen, das Verstecken kostet Tage.
+        # Nur pruefen, wenn ein Rueckstand feststeht — spart API-Aufrufe.
+        if eintrag.get("rueckstand") and hat_prod_gate(repo):
+            eintrag["prod_gate"] = True
+
         eintrag["lifecycle"] = lifecycles.get(repo)
         # Ein stillgelegtes Repo DARF hinterherhinken — das ist der gewollte Zustand,
         # kein Befund. Der Doppellauf bleibt trotzdem einer (divergierende Daten).
@@ -270,6 +310,8 @@ def main() -> int:
             marker.append("DOPPELLAUF:" + ",".join(e["hosts_mit_manifest"]))
         if e.get("zuordnung_unklar"):
             marker.append("ZUORDNUNG UNKLAR")
+        if e.get("prod_gate"):
+            marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
         if e.get("ruhend"):
             marker.append(f"ruhend({e['lifecycle']}) — Rueckstand gewollt")
         alter = f"{e['alter_tage']}d" if e.get("alter_tage") is not None else "-"
