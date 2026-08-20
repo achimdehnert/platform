@@ -175,7 +175,8 @@ _PAGE = """<!doctype html>
  h1 {{ font-size: 1.15rem; margin: 0 0 .7rem; }}
  .hinweis {{ background: #fff6e0; border: 1px solid #e8cf95; padding: .5rem .8rem;
              border-radius: 4px; font-size: .85rem; margin-bottom: 1.4rem; }}
- .inhalt {{ overflow-x: auto; }}
+ .inhalt {{ overflow-x: auto; background: #ffffff; color: #1a1a1a;
+            padding: .9rem 1rem; border-radius: 6px; }}
  .inhalt img {{ max-width: 100%; }}
  pre {{ white-space: pre-wrap; word-wrap: break-word; font: 14px/1.5 ui-monospace, monospace; }}
  footer {{ margin-top: 2.5rem; border-top: 1px solid #ddd; padding-top: .7rem;
@@ -186,6 +187,11 @@ _PAGE = """<!doctype html>
    .hinweis {{ background: #2c2718; border-color: #5c5230; }}
    footer {{ border-color: #333; color: #888; }}
    a {{ color: #7fb2f0; }}
+   /* Der Rumpf bleibt ein weisses Blatt: Mail-HTML bringt eigene
+      Inline-Farben mit (Outlook setzt color:black), die auf dunklem
+      Grund unlesbar waeren. Nur der Rahmen wird dunkel. */
+   .inhalt {{ box-shadow: 0 0 0 1px #333; }}
+   .inhalt a {{ color: #0b57d0; }}
  }}
 </style></head><body>
 <header>
