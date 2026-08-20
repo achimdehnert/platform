@@ -250,6 +250,16 @@
       "owner": "achim",
       "ref": "platform#1650 Owner-Entscheid 2026-08-12",
       "reason": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste."
+    },
+    {
+      "slug": "melder-ohne-praezisionsmass",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/befund_journal.py",
+      "drill": "tools/tests/test_befund_praezision.py",
+      "built": "2026-08-20",
+      "ref": "platform#2170",
+      "note": "Misst je Melder, wie oft seine Befunde echt waren. Vier Fehlalarme in einer Sitzung, null Messung — ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen."
     }
   ]
 }
