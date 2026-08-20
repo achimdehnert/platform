@@ -100,7 +100,7 @@ def test_should_read_recurring_findings_from_block_and_inline_form(tmp_path):
     _retro(tmp_path, "2026-07-11", "block", ["a-slug"], inline=False)
     retros = gw.lies_retros([str(tmp_path)])
 
-    assert sorted(slugs for _, slugs, _ in retros) == [["a-slug"], ["a-slug", "b-slug"]]
+    assert sorted(r[1] for r in retros) == [["a-slug"], ["a-slug", "b-slug"]]
 
 
 def test_should_ignore_extern_briefings(tmp_path):
@@ -261,3 +261,51 @@ class TestUmbauDatum:
         e = gw.bewerte(gates, retros)[0]
         assert e["gebaut"] == "2026-08-01"
         assert e["umgebaut"] is False
+
+
+class TestGefangenerBefund:
+    """Ein Befund, den das Gate gefangen hat, zaehlt nicht gegen dieses Gate."""
+
+    def test_should_not_count_a_caught_finding_as_recurrence(self):
+        gates = [{"slug": "g", "built": "2026-08-01"}]
+        retros = [
+            ("2026-08-05", ["g"], "a", ["g"]),
+            ("2026-08-06", ["g"], "b", ["g"]),
+            ("2026-08-07", [], "c", []),
+            ("2026-08-08", [], "d", []),
+            ("2026-08-09", [], "e", []),
+        ]
+        e = gw.bewerte(gates, retros)[0]
+        assert e["nachher"] == 0
+        assert e["gefangen"] == 2
+        assert e["urteil"] != "RUECKFAELLIG"
+
+    def test_should_still_count_an_uncaught_finding(self):
+        """Die Markierung gilt je Retro, nicht pauschal fuer den Slug."""
+        gates = [{"slug": "g", "built": "2026-08-01"}]
+        retros = [
+            ("2026-08-05", ["g"], "a", ["g"]),
+            ("2026-08-06", ["g"], "b", []),
+            ("2026-08-07", ["g"], "c", []),
+            ("2026-08-08", [], "d", []),
+        ]
+        e = gw.bewerte(gates, retros)[0]
+        assert e["nachher"] == 2
+        assert e["gefangen"] == 1
+        assert e["urteil"] == "RUECKFAELLIG"
+
+    def test_should_read_gates_caught_from_frontmatter(self, tmp_path):
+        (tmp_path / "session-retro-2026-08-05-platform-x.md").write_text(
+            "---\nrecurring_findings: [g-slug]\ngates_caught: [g-slug]\n---\n",
+            encoding="utf-8",
+        )
+        retros = gw.lies_retros([str(tmp_path)])
+        assert retros[0][1] == ["g-slug"]
+        assert retros[0][3] == ["g-slug"]
+
+    def test_should_accept_old_three_tuples(self):
+        """Aeltere Aufrufer reichen Dreier-Tupel — die duerfen nicht brechen."""
+        gates = [{"slug": "g", "built": "2026-08-01"}]
+        e = gw.bewerte(gates, [("2026-08-05", ["g"], "a")])[0]
+        assert e["nachher"] == 1
+        assert e["gefangen"] == 0

@@ -83,6 +83,12 @@ RUECKFALL_SCHWELLE = 2
 _DATUM_AUS_NAME = re.compile(r"session-retro-(\d{4}-\d{2}-\d{2})-")
 _INLINE = re.compile(r"^recurring_findings\s*:\s*\[(.*?)\]", re.S | re.M)
 _BLOCK_START = re.compile(r"^recurring_findings\s*:\s*$")
+#: Zweite Liste im selben Frontmatter: Slugs, deren Befund in dieser Sitzung von
+#: einem BESTEHENDEN Gate gefangen wurde. Sie stehen zusaetzlich in
+#: `recurring_findings` (der Befund trat ja auf, `retro_kpis.py` zaehlt ihn weiter),
+#: sind hier aber Evidenz FUER das Gate und nicht gegen es.
+_INLINE_GEFANGEN = re.compile(r"^gates_caught\s*:\s*\[(.*?)\]", re.S | re.M)
+_BLOCK_START_GEFANGEN = re.compile(r"^gates_caught\s*:\s*$")
 # Kommentar-Toleranz ist nicht kosmetisch: ohne sie brach der Block beim ersten
 # `- slug  # Notiz` ab und ALLE folgenden Slugs fielen still weg — die Fehlrichtung,
 # die echte Rueckfaelle verdeckt (Retro beefc148, Befund #3).
@@ -117,12 +123,24 @@ def lies_retros(verzeichnisse: list[str]) -> list[tuple[str, list[str], str]]:
                 text = open(pfad, encoding="utf-8", errors="replace").read()
             except OSError:
                 continue
-            gesehen[name] = (treffer.group(1), _slugs_aus_frontmatter(text), name)
+            gesehen[name] = (
+                treffer.group(1),
+                _slugs_aus_frontmatter(text),
+                name,
+                _slugs_aus_frontmatter(
+                    text, _INLINE_GEFANGEN, _BLOCK_START_GEFANGEN
+                ),
+            )
     return sorted(gesehen.values())
 
 
-def _slugs_aus_frontmatter(text: str) -> list[str]:
-    """`recurring_findings` als Inline-Liste ODER als YAML-Block — beide Formen kommen vor."""
+def _slugs_aus_frontmatter(
+    text: str, inline=_INLINE, block_start=_BLOCK_START
+) -> list[str]:
+    """`recurring_findings` als Inline-Liste ODER als YAML-Block — beide Formen kommen vor.
+
+    Mit `inline`/`block_start` liest dieselbe Mechanik auch `gates_caught`.
+    """
     if not text.startswith("---"):
         return []
     teile = text.split("---", 2)
@@ -130,9 +148,9 @@ def _slugs_aus_frontmatter(text: str) -> list[str]:
         return []
     frontmatter = teile[1]
 
-    inline = _INLINE.search(frontmatter)
-    if inline:
-        roh = inline.group(1).replace("\n", " ")
+    treffer = inline.search(frontmatter)
+    if treffer:
+        roh = treffer.group(1).replace("\n", " ")
         # Auch in der Inline-Form kann ein Kommentar stehen (`[a, b]  # Notiz` faengt
         # der Regex nicht, aber `[a, # weg\n b]` schon) — je Eintrag abschneiden.
         eintraege = (e.split("#", 1)[0].strip() for e in roh.split(","))
@@ -141,7 +159,7 @@ def _slugs_aus_frontmatter(text: str) -> list[str]:
     slugs: list[str] = []
     im_block = False
     for zeile in frontmatter.splitlines():
-        if _BLOCK_START.match(zeile):
+        if block_start.match(zeile):
             im_block = True
             continue
         if im_block:
@@ -155,7 +173,16 @@ def _slugs_aus_frontmatter(text: str) -> list[str]:
     return slugs
 
 
-def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list[dict]:
+def _zerlege(retro) -> tuple[str, list[str], str, list[str]]:
+    """(datum, slugs, name[, gefangen]) — die vierte Stelle kam 2026-08-20 dazu.
+
+    Aeltere Aufrufer und Tests reichen Dreier-Tupel; die werden weiter angenommen,
+    statt sie mit einer Signaturaenderung stillzulegen.
+    """
+    return retro[0], retro[1], retro[2], (retro[3] if len(retro) > 3 else [])
+
+
+def bewerte(gates: list[dict], retros: list) -> list[dict]:
     """Je Gate: Vorkommen vor/nach Bau-Datum + Urteil.
 
     `vorher_messbar` ist der zweite Ehrlichkeits-Marker: liegt das Bau-Datum vor
@@ -163,7 +190,8 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
     das Ende des Datenfensters. Ohne diesen Marker liest sich ein Gate von 2026-06-01
     wie eines, das nie gebraucht wurde — obwohl der Zeitraum davor schlicht fehlt.
     """
-    aeltestes = min((d for d, _, _ in retros), default="")
+    zerlegt = [_zerlege(r) for r in retros]
+    aeltestes = min((d for d, _, _, _ in zerlegt), default="")
     ergebnis = []
     for gate in gates:
         slug = gate.get("slug", "")
@@ -178,7 +206,16 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
         # den Beleg dafuer im Diff.
         gebaut = gate.get("revised") or gate.get("built") or ""
         umgebaut = bool(gate.get("revised"))
-        vorkommen = sorted(d for d, slugs, _ in retros if slug in slugs)
+        # Ein Befund, den das Gate GEFANGEN hat, ist kein Rueckfall gegen dieses
+        # Gate — er ist der Beleg, dass es wirkt. Bis 2026-08-20 zaehlte beides
+        # gleich: ein Gate, das seine Arbeit tat, sammelte dieselben Ausrufezeichen
+        # wie eines, das blind war. Die Markierung setzt die Retro je Fall
+        # (`gates_caught`), nicht das Werkzeug — und sie ist eng: „hat gefangen"
+        # heisst rechtzeitig, nicht „hat sich hinterher gemeldet".
+        gefangen = sorted(d for d, _, _, g in zerlegt if slug in g)
+        vorkommen = sorted(
+            d for d, slugs, _, g in zerlegt if slug in slugs and slug not in g
+        )
         # Das Retro des BAU-TAGS zaehlt in keinen der beiden Toepfe. Es ist in aller
         # Regel genau der Befund, AUS DEM das Gate entstand — als "vorher" wuerde es
         # den Erfolg schoenen, als "nachher" ist es ein Rueckfall gegen ein Gate, das
@@ -188,7 +225,7 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
         # Befund #2). Der Kommentar an RUECKFALL_SCHWELLE behauptete genau das Gegenteil.
         vorher = [d for d in vorkommen if gebaut and d < gebaut]
         nachher = [d for d in vorkommen if gebaut and d > gebaut]
-        fenster = len({d for d, _, _ in retros if gebaut and d > gebaut})
+        fenster = len({d for d, _, _, _ in zerlegt if gebaut and d > gebaut})
         vorher_messbar = bool(gebaut) and bool(aeltestes) and gebaut > aeltestes
         # "vorher" heisst bei einem umgebauten Gate: vor dem Umbau, nicht vor dem
         # Erstbau — die Zahl bleibt ehrlich, nur ihr Bezugspunkt wandert mit.
@@ -230,6 +267,7 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
                 "vorher": len(vorher),
                 "vorher_messbar": vorher_messbar,
                 "nachher": len(nachher),
+                "gefangen": len([d for d in gefangen if gebaut and d > gebaut]),
                 "letzter_rueckfall": nachher[-1] if nachher else None,
                 "fenster_retros": fenster,
                 "urteil": urteil,
@@ -298,7 +336,7 @@ def main() -> int:
                 )
         return 0
 
-    daten = [d for d, _, _ in retros]
+    daten = [_zerlege(r)[0] for r in retros]
     spanne = f"{daten[0]} .. {daten[-1]}" if daten else "keine"
     print(f"# Gate-Wirkung ueber {len(retros)} Retro-Reports ({spanne})\n")
     kopf = f"{'slug':<46}{'gebaut':<12}{'modus':<10}{'vor':>4}{'NACH':>6}  {'urteil':<19}letzter Rueckfall"
@@ -338,6 +376,13 @@ def main() -> int:
         )
 
     zu_frueh = [e for e in bewertet if e["urteil"] == "zu-frueh"]
+    gefangen_gesamt = [e for e in bewertet if e.get("gefangen")]
+    if gefangen_gesamt:
+        namen = ", ".join(f"{e['slug']} ({e['gefangen']}x)" for e in gefangen_gesamt)
+        print(
+            f"  ({len(gefangen_gesamt)} Gate(s) haben ihren Befund GEFANGEN: {namen} — "
+            "diese Vorkommen zaehlen nicht als Rueckfall, sie sind der Wirksamkeits-Beleg.)"
+        )
     if zu_frueh:
         print(
             f"  ({len(zu_frueh)} Gate(s) 'zu-frueh' — weniger als {MIN_FENSTER} Retros seit Bau. "
