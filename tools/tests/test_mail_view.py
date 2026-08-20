@@ -100,6 +100,24 @@ class TestRender:
         )
         assert "nur text" in datei.read_text(encoding="utf-8")
 
+    def test_should_keep_mail_body_on_a_light_surface(self, tmp_path):
+        """Outlook schreibt color:black in den Rumpf. Ohne eigene helle Flaeche
+        stuende dieser Text im Dark-Mode auf #16181a — unlesbar (Befund /a/142)."""
+        msg = _nachricht(
+            html_teil='<p><span style="color:black">unlesbar im Dunkeln</span></p>'
+        )
+        datei = mail_view.render(msg, "hnu", "INBOX", "9", tmp_path)
+        inhalt = datei.read_text(encoding="utf-8")
+        assert "color:black" in inhalt, "Inline-Farbe der Mail bleibt erhalten"
+        flaeche = [
+            z
+            for z in inhalt.splitlines()
+            if z.strip().startswith(".inhalt {{".replace("{{", "{"))
+        ]
+        assert flaeche, ".inhalt-Regel fehlt"
+        assert "background: #ffffff" in flaeche[0]
+        assert "color: #1a1a1a" in flaeche[0]
+
     def test_should_warn_when_remote_references_were_blocked(self, tmp_path):
         msg = _nachricht(html_teil='<p>hi<img src="https://track.example/p.gif"></p>')
         datei = mail_view.render(msg, "hnu", "INBOX", "2", tmp_path)
