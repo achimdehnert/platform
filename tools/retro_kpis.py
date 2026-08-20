@@ -94,9 +94,29 @@ def parse_frontmatter(text: str) -> dict | None:
     body = m.group(1)
     out: dict = {"scores": {}}
     in_scores = False
+    # Offener Listen-Key der YAML-BLOCK-Form (`recurring_findings:` + Zeilen `  - slug`).
+    # Ohne diesen Zustand verlor der Parser jeden Slug in Block-Form STILL: hinter dem
+    # Doppelpunkt steht nichts, die Klammer-Suche unten findet nichts, der Key landet als
+    # leere Liste — und die `  - slug`-Zeilen haben keinen Doppelpunkt und fielen durch.
+    # Gemessen am 2026-08-20: 62 verlorene Slug-Vorkommen aus 11 von 84 Retros (#2163).
+    # Fehlrichtung: der Zaehler bleibt zu NIEDRIG, die GATE-PFLICHT wird also verfehlt —
+    # `host-fix-not-mirrored-to-iac` galt als x1 statt x3.
+    offener_listen_key: str | None = None
     for raw in body.splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):
-            continue
+            continue  # Leer-/Kommentarzeile beendet einen Block NICHT
+        if offener_listen_key:
+            eintrag = re.match(r"^\s+-\s*(.+?)\s*$", raw)
+            if eintrag:
+                wert = eintrag.group(1).split("#", 1)[0].strip().strip("'\"")
+                if SLUG_RE.match(wert):
+                    out[offener_listen_key].append(wert)
+                elif wert:
+                    out.setdefault("_parse_warnings", []).append(
+                        f"{offener_listen_key}: {wert!r} (nicht slug-förmig — NICHT gezählt)"
+                    )
+                continue
+            offener_listen_key = None
         indented = raw[0] in " \t"
         line = raw.strip()
         if line.rstrip(":") == "scores" and line.endswith(":"):
@@ -117,6 +137,11 @@ def parse_frontmatter(text: str) -> dict | None:
         k, v = line.split(":", 1)
         k, v = k.strip(), v.strip()
         if k in LIST_KEYS:
+            if not v or v.startswith("#"):
+                # Block-Form: die Slugs stehen in den Folgezeilen, nicht hier.
+                out[k] = []
+                offener_listen_key = k
+                continue
             # Nur den Klammer-Inhalt nehmen — Inline-Kommentare nach "]" bleiben draußen.
             m_list = re.search(r"\[(.*?)\]", v)
             inner = m_list.group(1) if m_list else v.split("#", 1)[0].strip("[]")

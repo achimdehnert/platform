@@ -621,3 +621,65 @@ class TestRegistryDeclined:
         assert "always-instruction-without-enforcement" in declined
         assert "ci-replace-requires-job-catalog-diff" in declined
         assert "issue-not-reconciled-after-cross-repo-fix" in declined
+
+
+# --- Block-Form-Regression (platform#2163, gefunden 2026-08-20) ---------------
+# Der Parser las Listen-Keys nur in der Inline-Form. Bei der YAML-Block-Form stand
+# hinter dem Doppelpunkt nichts, die Klammer-Suche fand nichts, der Key wurde eine
+# LEERE Liste — und die `  - slug`-Folgezeilen hatten keinen Doppelpunkt und fielen
+# durch die Schleife. Kein Fehler, keine Warnung: 62 Slug-Vorkommen aus 11 von 84
+# Retros waren unsichtbar, die GATE-PFLICHT wurde dadurch verfehlt.
+
+
+def test_should_read_recurring_findings_in_block_form():
+    text = (
+        "---\n"
+        "retro_schema: 1\n"
+        "recurring_findings:\n"
+        "  - claim-before-cheapest-check\n"
+        "  - host-fix-not-mirrored-to-iac\n"
+        "session_id: abc123\n"
+        "---\n\n# Retro\n"
+    )
+    fm = parse_frontmatter(text)
+
+    assert fm["recurring_findings"] == [
+        "claim-before-cheapest-check",
+        "host-fix-not-mirrored-to-iac",
+    ]
+    assert fm["session_id"] == "abc123", (
+        "der Key NACH dem Block muss weiter gelesen werden"
+    )
+
+
+def test_should_not_end_a_block_on_blank_or_comment_lines():
+    text = (
+        "---\n"
+        "recurring_findings:\n"
+        "  - erster-slug\n"
+        "\n"
+        "  # Zwischenkommentar\n"
+        "  - zweiter-slug\n"
+        "---\n"
+    )
+    assert parse_frontmatter(text)["recurring_findings"] == [
+        "erster-slug",
+        "zweiter-slug",
+    ]
+
+
+def test_should_keep_reading_inline_form_unchanged():
+    """Gegenprobe: die bisher einzige unterstuetzte Form darf nicht kaputtgehen."""
+    text = "---\nrecurring_findings: [a-slug, b-slug]  # Notiz\n---\n"
+    assert parse_frontmatter(text)["recurring_findings"] == ["a-slug", "b-slug"]
+
+
+def test_should_warn_about_non_slug_entries_in_block_form():
+    """Der Warn-Kanal muss auch im Block gelten — sonst deckt er nur die halbe Welt."""
+    text = (
+        "---\nrecurring_findings:\n  - guter-slug\n  - Kein Slug Mit Leerzeichen\n---\n"
+    )
+    fm = parse_frontmatter(text)
+
+    assert fm["recurring_findings"] == ["guter-slug"]
+    assert any("nicht slug-förmig" in w for w in fm.get("_parse_warnings", []))
