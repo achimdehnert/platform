@@ -1,7 +1,7 @@
 ---
 id: ADR-168
 title: "Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern"
-status: proposed
+status: void
 decision_date: 2026-04-21
 amended: 2026-04-21
 deciders: [achimdehnert]
@@ -12,6 +12,19 @@ product_name: Schulungspass
 domains: [schulungspass.de, schulungspass.com]
 implementation_status: none
 ---
+> **Void seit 2026-08-20.** Dieser ADR baut die Onboarding-Plattform ausdruecklich
+> „on coach-hub primitives" — und coach-hub ist am 2026-08-20 auf Owner-Weisung
+> abgeschaltet worden (Container gestoppt, DNS entfernt, Registry `lifecycle: frozen`;
+> platform#2125). Damit entfaellt die Grundlage der Entscheidung.
+>
+> Umgesetzt wurde nie etwas: `implementation_status: none`, und das Zielrepo
+> onboarding-hub ist seinerseits archiviert (platform#2123). Der ADR wird deshalb
+> **nicht** als `superseded` gefuehrt — es gibt keinen Nachfolger, die Frage stellt
+> sich derzeit nicht mehr.
+>
+> Wird der Schulungspass spaeter wieder aufgegriffen, ist das ein neuer ADR mit
+> neuer Grundlage, kein Reaktivieren dieses hier.
+
 
 <!-- Drift-Detector-Felder
 staleness_months: 3
