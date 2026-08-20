@@ -23,9 +23,12 @@ muss morgen denselben Vorgang meinen wie heute. Die alte Pflege-Regel („die Li
 wird lueckenlos neu durchgezaehlt") widersprach dem und ist damit aufgehoben —
 Luecken sind der Preis der Stabilitaet und ausdruecklich gewollt.
 
-**Jeder Posten traegt einen Link in seine Mail**, und zwar ueber `/a/<nr>`, das
-ueber die Message-ID aufloest und ein Verschieben ueberlebt. Der Linktext ist der
-naechste Zug, nie Absender oder Betreff.
+**Jeder Posten traegt einen Link in seine Vorgangsansicht** (`/t/<thread_key>`):
+Verlauf mit dem neuesten Eintrag zuerst, Frist, naechster Schritt, naheliegende
+Aktionen. Der Mail-Link `/a/<nr>` bleibt der Rueckfall fuer Vorgaenge ohne
+Schluessel — er zeigt auf die verankerte, also aelteste Mail und beantwortet
+darum die Frage „was ist der Stand?" gerade nicht. Der Linktext ist der naechste
+Zug, nie Absender oder Betreff.
 
 **Jeder Posten schlaegt naheliegende Aktionen vor**, abgeleitet aus `typ` und
 `bucket` des Ledgers. Sie sind adressierbar (`7a`, `7b`), damit eine Anweisung
@@ -47,6 +50,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from urllib.parse import quote
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -69,6 +73,9 @@ REGELN = Path.home() / ".claude" / "mail-board-regeln.md"
 #: Der Link-Dienst haengt hinter Cloudflare Access und ist damit geraeteunabhaengig.
 #: `/a/<nr>` loest ueber die Message-ID auf: ein Ordnerwechsel bricht ihn nicht.
 LINK_BASIS = "https://mail.iil.pet"
+
+#: Vorgangsansicht (Verlauf, Stand, Fristen, naheliegende Aktionen).
+TODO_BASIS = "https://todo.iil.pet"
 
 #: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
 BUCKETS: list[tuple[str, str]] = [
@@ -237,13 +244,22 @@ def anker_zustand(nr: int, anker: dict, links: dict) -> str:
     return "fehlt"
 
 
-def link_fuer(nr: int, zustand: str) -> str | None:
-    """Eine Linkform fuer alle Konten: `/a/<nr>`.
+def link_fuer(nr: int, zustand: str, vorgang: dict | None = None) -> str | None:
+    """Der Posten fuehrt in die **Vorgangsansicht**, nicht in eine einzelne Mail.
 
-    Der Dienst loest sie fuer IMAP ueber die Message-ID auf und faellt fuer
-    Graph-Konten auf die Kurz-ID-Registry zurueck. Zwei Linkformen im Board
-    waeren eine Unterscheidung, die den Leser nichts angeht.
+    Bis 2026-08-20 zeigte jeder Posten auf `/a/<nr>` — und das ist der **verankerte**
+    Anfang des Strangs, also die aelteste Mail. Wer den Posten anklickt, will aber
+    den Stand sehen, nicht den Anfang (Owner-Weisung: „dieser Link zeigt auf die
+    erste Mail … wenn ueberhaupt eine Mail, dann die letzte").
+
+    `/t/<thread_key>` traegt Verlauf (neueste zuerst), Frist, naechsten Schritt und
+    die naheliegenden Aktionen — und existiert fuer **jeden** Vorgang, auch fuer die
+    ohne verankerte Mail. Nur wenn der Schluessel fehlt, bleibt der alte Mail-Link
+    als Rueckfall.
     """
+    schluessel = (vorgang or {}).get("thread_key")
+    if schluessel:
+        return f"{TODO_BASIS}/t/{quote(str(schluessel), safe='')}"
     if zustand == "fehlt":
         return None
     return f"{LINK_BASIS}/a/{nr}"
@@ -364,10 +380,13 @@ def pruefe(ledger: dict) -> list[str]:
         nr = vorgang.get("nr")
         if not isinstance(nr, int) or vorgang.get("bucket") not in {"owner", "agent"}:
             continue
-        if anker_zustand(nr, anker, links) == "fehlt":
+        # Seit der Umstellung auf `/t/<thread_key>` traegt ein Posten mit Schluessel
+        # immer einen Link. Ein Befund entsteht nur noch, wenn beides fehlt —
+        # sonst meldete die Pruefung ein Problem, das die Anzeige gar nicht hat.
+        if anker_zustand(nr, anker, links) == "fehlt" and not vorgang.get("thread_key"):
             befunde.append(
-                f"#{nr} '{vorgang.get('kurz')}': keine Mail verankert — "
-                f"der Posten hat keinen Link (anker.py bzw. --register)"
+                f"#{nr} '{vorgang.get('kurz')}': keine Mail verankert und kein "
+                f"thread_key — der Posten hat keinen Link (anker.py bzw. --register)"
             )
 
     for vorgang in posten:
@@ -381,7 +400,7 @@ def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
     nr = vorgang.get("nr")
     kurz = vorgang.get("kurz") or vorgang.get("next_trigger") or "(ohne Kurztext)"
     zustand = anker_zustand(nr, anker, links) if isinstance(nr, int) else "fehlt"
-    link = link_fuer(nr, zustand) if isinstance(nr, int) else None
+    link = link_fuer(nr, zustand, vorgang) if isinstance(nr, int) else None
 
     # Der Aktionstext IST der Link — keine rohe URL, keine eigene Link-Spalte.
     kopf = f"[{kurz}]({link})" if link else f"{kurz} ⚠️ keine Mail verankert"
@@ -421,8 +440,8 @@ def render(ledger: dict, heute: str) -> str:
         "> **Anrede:** `7` meint den Vorgang, `7a` die Aktion darunter.",
         "> Nummern sind stabil und werden nie wiederverwendet — Lücken sind normal"
         " und gewollt.",
-        "> Der Linktext ist der nächste Zug und führt über `/a/<nr>` in die Mail;"
-        " ein Ordnerwechsel bricht ihn nicht.",
+        "> Der Linktext ist der nächste Zug und führt in die Vorgangsansicht"
+        " (Verlauf neueste zuerst, Frist, Aktionen).",
         "> **Nach außen entsteht immer nur ein Entwurf** — gesendet wird von Hand.",
         "",
     ]
