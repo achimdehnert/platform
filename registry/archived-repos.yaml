@@ -14,6 +14,15 @@ archived:
     github: achimdehnert/bfagent
     description: Book Factory Agent — AI-assisted book creation
     lifecycle: archived
+  onboarding-hub:
+    github: achimdehnert/onboarding-hub
+    description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via
+      Cloudflare Access statt App-OIDC) und seit 2026-08-20 auch nicht mehr im Betrieb.
+    lifecycle: archived
+  recruiting-hub:
+    github: achimdehnert/recruiting-hub
+    description: Recruiting-/Bewerbermanagement-Plattform
+    lifecycle: archived
   testkit:
     github: achimdehnert/testkit
     description: iil-testkit — Shared Test Factory Package (ADR-100, archiviert)
