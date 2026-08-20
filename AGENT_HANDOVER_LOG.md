@@ -2724,3 +2724,21 @@ Plattenplatz: zwei TreeSize-Berichte, Ebene 1 und Ebene 2. Der interessanteste B
 Fehler dieser Sitzung: beim Archivieren des alten Handover-Blocks schnitt der erste Einfuege-Versuch 718 Zeilen aus AGENT_HANDOVER_ARCHIVE.md heraus — vom diffstat gefangen, zurueckgesetzt, korrekt neu eingefuegt. Ausserdem einmal eine Graph-Message-ID der falschen Zeile zugeordnet (die id-Zeile folgt ihrer Nachricht, sie geht ihr nicht voraus) und dadurch die falsche Mail gelesen.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## Session 2026-08-20 frueh — Celery-Healthcheck deckte Deploy-Fehlzuordnung auf (Kapitaens-Kanal, Sitzung 64ce2183, Opus)
+
+Auftrag: Handover-Prio 1 (Celery-Healthcheck) + Schleuse; in-session erweitert um Stilllegung recruiting-hub/onboarding-hub/coach-hub, Runner-Umzuege, Wirkungs-Melder und Backlog-Konvergenz.
+
+**Kern:** `pidof -x celery` statt `pidof python3` in 137-hub/dms-hub/coach-hub (137-hub#91, dms-hub#65, coach-hub#65) — 137-hub FailingStreak **2761 → 0**. dms-hub meldete `success`, war aber **nicht live**: `_deploy-unified.yml` deployt auf dem Host des self-hosted Runners, und nach der Umzugswelle vom 04.08. standen sechs Runner auf prod-a, waehrend die Apps auf prod-b liefen. 16 Tage gruene Runs ohne Wirkung, kein roter Check (#2122). Alle sechs umgezogen und je gegen das Deploy-Manifest verifiziert; das Umzugs-Skript hatte selbst einen Rechte-Bug (#2130), Host-Fix und Skript-Fix im selben Zug.
+
+**Stilllegungen:** recruiting-hub (#2121) und onboarding-hub (#2123) archiviert, Backups verifiziert; coach-hub abgeschaltet (#2125, +362 MB RAM, DNS entfernt, E-Mail-Records bewusst unangetastet).
+
+**Gebaut:** `tools/deploy_wirkung.py` (#2137) — prueft Wirkung statt Deklaration, erster Lauf 11 Befunde von 21 Repos inkl. drei unbekannter Rueckstaende. Nachgebessert: Prod-Gate kennzeichnen statt unterdruecken (#2138, weil tax-hub dasselbe Muster mit echtem Fehler traegt), Owner aus der Registry (#2139, 16 Repos liegen in iilgmbh).
+
+**Backlog:** 314 → 291 (#2140), 24 geschlossen. Drei Wurzeln: rollende Melder legen an statt zu aktualisieren · `adr-nightly-metrics` seit 02.07. tot · ADR-`review_status` 115 → 236 (eskaliert). Betterstack: 6 pausierte Monitore fuer laufende Dienste reaktiviert (#2127). Schleuse 3 faellig → 0.
+
+**Fehler dieser Sitzung:** vier Aussagen scheiterten an der Nachpruefung — falscher Host abgefragt, `pg_stat` fuer exakt gehalten, PR-Status `UNKNOWN` **viermal** als „offen" statt „gemergt" gelesen (kostete einen kaputten ADR-Index auf main, nachgezogen in #2129), ein „gepusht"-Echo ohne Beweis. Alle vier waren uebersprungene Checks, keine Denkfehler. Die drei Merges erzeugten auf prod-a acht Schatten-Container (nach Freigabe gestoppt). Und beim Prio-Umbau in diesem Handover ersetzte ein zu weiter Regex-Slice 129 statt 10 Zeilen — vom diffstat gefangen, zurueckgesetzt, mit festen Zeilengrenzen neu gemacht. Exakt der Fehler, den die parallele Sitzung im Eintrag darueber beschreibt.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
