@@ -109,14 +109,11 @@ class TestRender:
         datei = mail_view.render(msg, "hnu", "INBOX", "9", tmp_path)
         inhalt = datei.read_text(encoding="utf-8")
         assert "color:black" in inhalt, "Inline-Farbe der Mail bleibt erhalten"
-        flaeche = [
-            z
-            for z in inhalt.splitlines()
-            if z.strip().startswith(".inhalt {{".replace("{{", "{"))
-        ]
-        assert flaeche, ".inhalt-Regel fehlt"
-        assert "background: #ffffff" in flaeche[0]
-        assert "color: #1a1a1a" in flaeche[0]
+        assert "--flaeche: #ffffff" in inhalt, "helle Flaeche als Token definiert"
+        assert "background: var(--flaeche)" in inhalt, ".inhalt nutzt das Token"
+        dunkel = inhalt.split("prefers-color-scheme: dark")[1]
+        assert "--flaeche:" not in dunkel, "Dark-Mode darf die Flaeche nicht umfaerben"
+        assert "--flaeche-text:" not in dunkel
 
     def test_should_warn_when_remote_references_were_blocked(self, tmp_path):
         msg = _nachricht(html_teil='<p>hi<img src="https://track.example/p.gif"></p>')
