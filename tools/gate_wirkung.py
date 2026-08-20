@@ -167,7 +167,17 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
     ergebnis = []
     for gate in gates:
         slug = gate.get("slug", "")
-        gebaut = gate.get("built") or ""
+        # `revised` schlaegt `built`: ein umgebautes Gate wird ab seinem Umbau
+        # gemessen. Ohne das bleibt es fuer immer RUECKFAELLIG — die Vorkommen von
+        # vor der Reparatur zaehlen weiter mit, das Signal wird zu Laerm, und der
+        # naechste Leser lernt, die Zeile zu ueberblaettern. Genau die Mechanik, die
+        # dieses Werkzeug abstellen soll. Die Abnahme in #2143 verlangt es woertlich:
+        # "die behandelten Gates stehen auf zu-frueh (Zaehler neu ab neuem Bau-Datum)".
+        # Missbrauchsschutz: `revised` ist ein Datum wie `built` und steht im selben
+        # oeffentlichen Registry-Eintrag — wer es setzt, ohne umzubauen, hinterlaesst
+        # den Beleg dafuer im Diff.
+        gebaut = gate.get("revised") or gate.get("built") or ""
+        umgebaut = bool(gate.get("revised"))
         vorkommen = sorted(d for d, slugs, _ in retros if slug in slugs)
         # Das Retro des BAU-TAGS zaehlt in keinen der beiden Toepfe. Es ist in aller
         # Regel genau der Befund, AUS DEM das Gate entstand — als "vorher" wuerde es
@@ -180,6 +190,8 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
         nachher = [d for d in vorkommen if gebaut and d > gebaut]
         fenster = len({d for d, _, _ in retros if gebaut and d > gebaut})
         vorher_messbar = bool(gebaut) and bool(aeltestes) and gebaut > aeltestes
+        # "vorher" heisst bei einem umgebauten Gate: vor dem Umbau, nicht vor dem
+        # Erstbau — die Zahl bleibt ehrlich, nur ihr Bezugspunkt wandert mit.
 
         # Reihenfolge mit Absicht: RUECKFAELLIG steht VOR der Fenster-Sperre.
         # Die Sperre schuetzt die POSITIVE Aussage ("wirksam") vor einem zu kurzen
@@ -213,6 +225,7 @@ def bewerte(gates: list[dict], retros: list[tuple[str, list[str], str]]) -> list
                 "modus": gate.get("mode", "?"),
                 "modul": gate.get("module"),
                 "gebaut": gebaut,
+                "umgebaut": umgebaut,
                 "ref": gate.get("ref"),
                 "vorher": len(vorher),
                 "vorher_messbar": vorher_messbar,
@@ -294,8 +307,11 @@ def main() -> int:
     for e in bewertet:
         marke = "🚨" if e["urteil"] == "RUECKFAELLIG" else "  "
         vor = f"{e['vorher']}" + ("" if e["vorher_messbar"] else "*")
+        # ~ markiert ein Datum, das vom Umbau stammt statt vom Erstbau — sonst liest
+        # sich die Spalte, als sei das Gate erst gestern entstanden.
+        datum = e["gebaut"] + ("~" if e.get("umgebaut") else "")
         print(
-            f"{marke}{e['slug']:<44}{e['gebaut']:<12}{e['modus']:<10}"
+            f"{marke}{e['slug']:<44}{datum:<12}{e['modus']:<10}"
             f"{vor:>4}{e['nachher']:>6}  {e['urteil']:<19}{e['letzter_rueckfall'] or '—'}"
         )
 

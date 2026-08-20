@@ -101,7 +101,9 @@
       "drill": "tools/tests/test_repo_session_pr_collision.py",
       "built": "2026-07-03",
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
-      "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12."
+      "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12.",
+      "revised": "2026-08-12",
+      "revision_note": "check_pr_collision in repo-session.sh (Commit 1ba83e91) — harter Block beim Abzweigen, wenn zum selben Task-Slug schon ein offener PR existiert. Kam NACH dem letzten gemessenen Rueckfall (2026-07-31)."
     },
     {
       "slug": "worktree-midsession-accumulation",
@@ -111,7 +113,9 @@
       "drill": "tools/tests/test_worktree_reaper.py",
       "built": "2026-06-01",
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
-      "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum."
+      "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum.",
+      "revised": "2026-08-20",
+      "revision_note": "Karenzregel + reap --alle (platform#2150) — der Reaper hielt jeden fertigen Baum sieben Tage, weil ein aktives Lease jeden Merge-Zustand schlug."
     },
     {
       "slug": "lint-failure-no-local-gate",

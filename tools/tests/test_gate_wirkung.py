@@ -221,3 +221,43 @@ def test_should_not_end_the_block_on_a_blank_or_comment_line(tmp_path):
     retros = gw.lies_retros([str(tmp_path)])
 
     assert retros[0][1] == ["a-slug", "b-slug"]
+
+
+class TestUmbauDatum:
+    """Ein umgebautes Gate wird ab seinem Umbau gemessen, nicht ab dem Erstbau."""
+
+    def test_should_measure_from_revised_date(self):
+        gates = [{"slug": "g", "built": "2026-06-01", "revised": "2026-08-01"}]
+        retros = [
+            ("2026-07-10", ["g"], "a"),
+            ("2026-07-20", ["g"], "b"),
+            ("2026-08-10", [], "c"),
+            ("2026-08-12", [], "d"),
+            ("2026-08-14", [], "e"),
+        ]
+        e = gw.bewerte(gates, retros)[0]
+        assert e["nachher"] == 0, "Vorkommen vor dem Umbau zaehlen nicht mehr als Rueckfall"
+        assert e["vorher"] == 2
+        assert e["urteil"] != "RUECKFAELLIG"
+        assert e["umgebaut"] is True
+
+    def test_should_still_see_recurrence_after_the_rebuild(self):
+        """Der Umbau ist kein Freibrief: was danach passiert, zaehlt weiter."""
+        gates = [{"slug": "g", "built": "2026-06-01", "revised": "2026-08-01"}]
+        retros = [
+            ("2026-07-10", ["g"], "a"),
+            ("2026-08-05", ["g"], "b"),
+            ("2026-08-09", ["g"], "c"),
+            ("2026-08-11", [], "d"),
+            ("2026-08-13", [], "e"),
+        ]
+        e = gw.bewerte(gates, retros)[0]
+        assert e["nachher"] == 2
+        assert e["urteil"] == "RUECKFAELLIG"
+
+    def test_should_fall_back_to_built_without_revised(self):
+        gates = [{"slug": "g", "built": "2026-08-01"}]
+        retros = [("2026-08-05", ["g"], "a"), ("2026-08-06", ["g"], "b")]
+        e = gw.bewerte(gates, retros)[0]
+        assert e["gebaut"] == "2026-08-01"
+        assert e["umgebaut"] is False
