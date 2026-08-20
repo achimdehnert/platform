@@ -11,7 +11,7 @@ set -euo pipefail
 # tools/deploy-script-drift.sh gegen die Host-Kopien geprüft — die Host-Kopie
 # wird von Hand verteilt und lief messbar auseinander (Prod hing am 2026-07-25
 # eine Revision hinter Git+Staging, u.a. ohne den override-Fix aus platform#1075).
-DEPLOY_SH_VERSION="2026-08-11.1"
+DEPLOY_SH_VERSION="2026-08-20.1"
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
 APP_PATH="${2:?'APP_PATH fehlt'}"
