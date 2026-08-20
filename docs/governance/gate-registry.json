@@ -262,6 +262,16 @@
       "owner": "achim",
       "ref": "platform#1650 Owner-Entscheid 2026-08-12",
       "reason": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste."
+    },
+    {
+      "slug": "kennzahl-ohne-verfallsdatum",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/kennzahl_verfall.py",
+      "drill": "tools/tests/test_kennzahl_verfall.py",
+      "built": "2026-08-20",
+      "ref": "platform#2168",
+      "note": "Rechnet mit <!--kz:NAME--> markierte Zahlen in durablen Dokumenten nach. Opt-in: ein Stand-Block darf altern, eine Prio-Zeile nicht."
     }
   ]
 }

@@ -2786,3 +2786,25 @@ Beides behoben (#2157) mit vier Regressionstests, deren Nicht-Trivialitaet gemes
 **Nebenbefund aus dem Drill-Bau:** die erste Sonde des Shell-Tests fiel selbst herein. `DATABASE_URL="${...}" printf %s "$DATABASE_URL"` zeigt den ALTEN Wert, weil die Shell das Argument expandiert, bevor die Zuweisung wirkt. `printenv` liest die eigene Umgebung, so wie `manage.py` es tut. Ein Substring-Grep haette das nie gezeigt — genau der Unterschied zwischen einem Test, der Text vergleicht, und einem, der Verhalten prueft.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## Session 2026-08-20 nachmittags — vier Loop-Werkzeuge gebaut, ein Zaehlwerk-Fehler und ein totes Backup gefunden (beefc148, Fortsetzung)
+
+Auftrag nach der Retro: „limitless, siehst du weitere Optimierungen?" — sechs vorgeschlagen, sechs freigegeben, vier gebaut. Die zwei uebrigen (Gate am Behauptungstyp, Retro-Kalibrierung) sind in #2173 verankert; sie veraendern, **wie** das System urteilt, und nicht nur, was es sieht.
+
+**Gebaut und je mit echtem Runner-Lauf belegt:** `gate_deckung.py` beantwortet die vierte Achse — nicht „wirkt ein Gate", sondern „wurde je eines gebaut". Antwort: von 100 Befund-Slugs tragen 19 eine Entscheidung, 16 sind mehrfach aufgetreten und haben nichts. `zeitplan_wach.py` findet von GitHub abgeschaltete Zeitplaene. `kennzahl_verfall.py` rechnet markierte Zahlen in durablen Dokumenten nach. Und das Befund-Journal nimmt jetzt Urteile je Melder-Befund, woraus eine Trefferquote faellt.
+
+**Der wertvollste Fund kam aus einem Widerspruch.** Das neue Deckungs-Werkzeug meldete 16 ungedeckte Slugs, `retro_kpis.py` meldete 5. Der bequeme Weg waere gewesen, die Differenz wegzudefinieren — Definitionsfrage, zwei Sichtweisen, beide vertretbar. Sie war stattdessen ein Fehler: `parse_frontmatter` las Listen-Keys ausschliesslich in der Inline-Form. Bei YAML-Block-Form steht hinter dem Doppelpunkt nichts, der Key wurde eine leere Liste, und die `  - slug`-Folgezeilen fielen durch die Schleife. Keine Warnung, kein Fehler: 62 Slug-Vorkommen aus 11 von 84 Retros waren unsichtbar. Nach dem Fix springt die GATE-PFLICHT von 21 auf 34 Slugs — dreizehn waren immer pflichtig, und niemand konnte es sehen.
+
+Das zwang zur Neuberechnung der eingefrorenen K1-Baseline: sie war mit einem defekten Instrument gemessen. Summen-Rate 1.000 wird 1.600 bei unveraenderten n=20 und unveraendertem Fenster. Das ist Messfehler-Korrektur, keine Zielverschiebung — aber das Kill-Kriterium ist relativ zur Baseline, und diese Konsequenz gehoert dem Owner, nicht dem Werkzeug. Als offene Frage im Baseline-Dokument vermerkt.
+
+**Derselbe Fehlermodus traf mich beim naechsten Werkzeug erneut.** Der erste Vollflotten-Lauf der Zeitplan-Wache meldete **null** abgeschaltete Zeitplaene — waehrend zwei davon seit drei Wochen tot waren. Die Repo-Liste kam aus der Registry, und ausgerechnet `infra-deploy` traegt dort kein `rich.github`-Feld: 29 von 78 Repos abgedeckt. Eine Null aus dem eigenen Filter. Aufgefallen ist es nur, weil ich vorher die Positivkontrolle auf den bekannten Fall laufen liess. Ohne sie haette ich einen blinden Melder verdrahtet, der genau den Fehler nicht sieht, gegen den er gebaut ist.
+
+**Der dringlichste Fund ueberhaupt war Beifang:** `infra-deploy` hat seit dem 2026-07-30 kein Datenbank-Backup mehr gefahren. GitHub schaltet `schedule`-Trigger nach 60 Tagen Repo-Inaktivitaet ab; letzter Push war der 30.05., plus 60 Tage ergibt exakt den Tag, an dem die Laeufe aufhoeren. Die Ursache im offenen Issue #2114 („kein Runner nimmt das Label an") ist widerlegt — der Runner ist online, und ein Workflow mit demselben Label lief am selben Tag gruen. Niemand hatte den Workflow-**Zustand** angesehen, weil kein Werkzeug ihn abfragte. Reaktivieren blockte der Klassifizierer; zwei Zeilen stehen im Issue.
+
+**Eigene Fehler dieser Haelfte:** die erste Fassung von `gate_deckung.py` las nur das `slug`-Feld der Registry und ignorierte `covers` — daher die 19 statt 16. Die eval-Umgebung von `kennzahl_verfall.py` sperrte zuerst ALLE Builtins und damit `sum`/`len`; jede Kennzahl meldete „nicht berechenbar", der Schutzwall hatte das Werkzeug erledigt statt es abzusichern. Und beim Merge-Konflikt in `session_start_checks.sh` schnitt die Konfliktgrenze mitten durch einen `if`-Block: mein erster Aufloesungsversuch liess das `fi` verschwinden, gefangen von `bash -n`.
+
+**Eine Owner-Weisung ist neu dazugekommen und als Regel abgelegt:** keine unnoetigen Freigaben erzwingen, wenn die Loesung bereits feststeht. Ausloeser war ein Punkt, dessen Fix ich vollstaendig ausformuliert und trotzdem als „dein Zug" vorgelegt hatte. Prueffrage vor jeder solchen Zeile: aendert die Antwort des Owners, was ich tue?
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.

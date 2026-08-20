@@ -1,0 +1,31 @@
+{
+  "_doc": "Lebende Kennzahlen (platform#2168). Jede Zahl hier laesst sich aus einem Werkzeug NEU berechnen. Dokumente markieren eine solche Zahl mit <!--kz:NAME--> davor; tools/kennzahl_verfall.py rechnet nach und meldet Abweichungen. OPT-IN mit Absicht: ein Stand-Block SOLL eine Momentaufnahme bleiben, eine Prio-Zeile nicht.",
+  "_warum": "Am 2026-08-20 stand dieselbe Kennzahl binnen zwei Stunden bei 16, dann 14, dann 15 — jedes Mal korrekt gemessen, jedes Mal aus einem anderen Grund (Messfehler, dessen Korrektur, ein neuer Retro-Report). Sie war da bereits in einen Issue-Titel, einen Handover, einen Memory-Eintrag und zwei PR-Texte geschrieben. Wer eine Kennzahl in ein durables Dokument schreibt, schreibt ein Verfallsdatum mit.",
+  "_ausdruck": "Der Ausdruck wird mit eval() auf das JSON des Werkzeugs angewandt (Variable `d`). Das ist bewusst: diese Datei ist git-getrackte Governance, kein Nutzereingabe-Kanal. Ein eigener Mini-Pfad-Parser waere der vierte handgeschriebene Parser in diesem Verzeichnis — und zwei der drei bisherigen hatten Fehler.",
+  "kennzahlen": [
+    {
+      "name": "gate-rueckfaellig",
+      "beschreibung": "Gates, deren Befund nach dem Bau mindestens zweimal wiederkam",
+      "werkzeug": ["python3", "tools/gate_wirkung.py", "--json"],
+      "ausdruck": "sum(1 for g in d['gates'] if g['urteil'] == 'RUECKFAELLIG')"
+    },
+    {
+      "name": "gate-gesamt",
+      "beschreibung": "Registrierte Gates insgesamt",
+      "werkzeug": ["python3", "tools/gate_wirkung.py", "--json"],
+      "ausdruck": "len(d['gates'])"
+    },
+    {
+      "name": "gate-pflicht-offen",
+      "beschreibung": "Befunde >=2x aufgetreten, ohne Gate und ohne dokumentierten Verzicht",
+      "werkzeug": ["python3", "tools/gate_deckung.py", "--json"],
+      "ausdruck": "len(d['offene_pflichten'])"
+    },
+    {
+      "name": "zeitplan-abgeschaltet",
+      "beschreibung": "Workflows, die GitHub wegen Repo-Inaktivitaet abgeschaltet hat",
+      "werkzeug": ["python3", "tools/zeitplan_wach.py", "--json"],
+      "ausdruck": "len(d['still_abgeschaltet'])"
+    }
+  ]
+}
