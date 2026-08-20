@@ -1,194 +1,194 @@
 {
- "_doc": "Gate-Registry (KONZ-038 D8). SSoT fuer gebaute Gates: Slug, Modus, Modul, Drill. Der Fenster-Prueflauf (tools/gate_drill_check.py, verdrahtet im regel-ritual-Workflow) fuehrt jeden Drill ECHT aus — ein Gate mit rotem Drill gilt K4-konform als NICHT gebaut, egal was hier steht. Bewusst JSON statt YAML: stdlib-parsebar ohne Mini-Parser (die a50bc6-Lehre). Neue Gates werden hier registriert, sonst drillt sie niemand.",
- "_wording_convention": "Blocking-Gates formulieren stderr/reason als MASCHINEN-Feedback, nie als Ablehnung ('dies ist KEINE Nutzer-Ablehnung ...') und begrenzen auf 1 erzwungenen Korrektur-Zug pro Turn (stop_hook_active-Guard) — EXT2-M28-5.",
- "frozen_note": "mode-Aenderungen (advisory→blocking) nur per eigenem PR nach 0-FP-Kalibrierfenster.",
- "gates": [
-  {
-   "slug": "claim-before-cheapest-check",
-   "mode": "blocking",
-   "owner": "achim",
-   "module": "tools/claude-hooks/evidence_claim_scanner.py",
-   "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
-   "built": "2026-08-02",
-   "ref": "platform#1643"
-  },
-  {
-   "slug": "deferred-item-no-tracking-issue",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/claude-hooks/deferred_item_scanner.py",
-   "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
-   "built": "2026-08-02",
-   "ref": "platform#1645"
-  },
-  {
-   "slug": "scope-checkpoint-not-durably-recorded",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
-   "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
-   "built": "2026-08-02",
-   "ref": "platform#1646"
-  },
-  {
-   "slug": "stale-local-clone-as-ground-truth",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/hooks/stale_clone_check.sh",
-   "drill": "tools/tests/test_stale_clone_check.py",
-   "built": "2026-08-02",
-   "ref": "platform#1644"
-  },
-  {
-   "slug": "handover-stale-vor-merge",
-   "mode": "process",
-   "owner": "achim",
-   "module": "scripts/checks/agent_handover_freshness_check.py",
-   "drill": "tools/tests/test_agent_handover_freshness_check.py",
-   "built": "2026-08-02",
-   "ref": "platform#1648"
-  },
-  {
-   "slug": "model-change-detection",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/claude-hooks/model_change_detector.sh",
-   "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
-   "built": "2026-08-02",
-   "ref": "KONZ-038 D7"
-  },
-  {
-   "slug": "drill-path-not-invocation-path",
-   "mode": "meta",
-   "owner": "achim",
-   "module": "",
-   "drill": "tools/claude-hooks/tests/test_hook_invocation_contract.py",
-   "built": "2026-08-02",
-   "ref": "Retro 287b23 #1 / PR #1660",
-   "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad."
-  },
-  {
-   "slug": "aufschub-anker",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/deferral_anchor_check.py",
-   "drill": "tools/tests/test_deferral_anchor_check.py",
-   "built": "2026-08-10",
-   "ref": "platform#1650",
-   "covers": [
-    "workaround-without-tracking-anchor",
-    "planned-phase-no-issue",
-    "tracking-doc-stale-after-new-occurrence",
-    "deferred-item-no-tracking-issue"
-   ],
-   "note": "EIN Gate fuer vier Slugs (covers, gespiegelt aus GATE_HEADER.covers). Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut."
-  },
-  {
-   "slug": "melder-ohne-leser",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/hooks/befund_leseflaeche.py",
-   "drill": "tools/tests/test_befund_leseflaeche.py",
-   "built": "2026-08-11",
-   "ref": "platform#1908 Etappe 1 / #1894",
-   "note": "Leseflaeche: bringt Melder-Befunde an den Sitzungsstart. Deckt L1-L4 aus #1908 Etappe 1. Erweitert KEINE Schreibrechte, haengt deshalb nicht am Pilot-Ausgang."
-  },
-  {
-   "slug": "parallel-session-pr-collision",
-   "mode": "process",
-   "owner": "achim",
-   "module": "tools/repo-session.sh",
-   "drill": "tools/tests/test_repo_session_pr_collision.py",
-   "built": "2026-07-03",
-   "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
-   "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12."
-  },
-  {
-   "slug": "worktree-midsession-accumulation",
-   "mode": "process",
-   "owner": "achim",
-   "module": "tools/worktree-reaper.py",
-   "drill": "tools/tests/test_worktree_reaper.py",
-   "built": "2026-06-01",
-   "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233",
-   "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12."
-  },
-  {
-   "slug": "lint-failure-no-local-gate",
-   "mode": "blocking",
-   "owner": "achim",
-   "module": "tools/claude-hooks/block_unformatted_push.sh",
-   "drill": "tools/claude-hooks/tests/test_block_unformatted_push_suite.py",
-   "built": "2026-08-04",
-   "ref": "platform#1650 Nachmessung 2026-08-10",
-   "note": "Bestand seit ff2981b0 (PreToolUse-Hook blockt push mit unformatiertem Stand), war aber nie registriert. `blocking` ist hier keine Eskalation, sondern der Ist-Zustand des Hooks seit Einbau. Registriert 2026-08-12."
-  },
-  {
-   "slug": "ci-gate-maskiert-failure",
-   "mode": "blocking",
-   "owner": "achim",
-   "module": "tools/check_silent_failures.py",
-   "drill": "tools/tests/test_silent_failures.py",
-   "built": "2026-07-31",
-   "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
-   "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12."
-  },
-  {
-   "slug": "autonomous-no-human-review",
-   "mode": "process",
-   "owner": "achim",
-   "module": "tools/ruleset_perimeter_check.py",
-   "drill": "tools/tests/test_ruleset_perimeter_check.py",
-   "built": "2026-08-12",
-   "ref": "platform#1650 Owner-Entscheid 2026-08-12",
-   "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht."
-  },
-  {
-   "slug": "untested-tool-module-green-gate",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/check_new_module_tests.py",
-   "drill": "tools/tests/test_check_new_module_tests.py",
-   "built": "2026-08-12",
-   "ref": "platform#1650 Owner-Go 2026-08-12",
-   "note": "Diff-Check nur ueber im PR HINZUGEFUEGTE .py unter tools/+scripts/ (Bestandsschutz fuer die ~24 ungetesteten Altfaelle = 0-FP-Baseline). Test-Spur = test_<stem>.py ODER Stem-Erwaehnung in einer Testdatei. Verdrahtet als non-gating Step in tools-tests.yml; Exit 2 (Werkzeugfehler) macht den Step ROT statt still. advisory->blocking erst nach Kalibrierfenster (frozen_note)."
-  },
-  {
-   "slug": "handover-prio-zeigt-auf-erledigtes",
-   "mode": "process",
-   "owner": "achim",
-   "module": "tools/handover_stale_reference_check.py",
-   "drill": "tools/tests/test_handover_stale_reference_check.py",
-   "built": "2026-08-13",
-   "ref": "platform#1945"
-  },
-  {
-   "slug": "hand-distributed-copy-not-redistributed",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/hook-dist-drift.sh",
-   "drill": "tools/tests/test_hook_dist_drift.py",
-   "built": "2026-08-15",
-   "ref": "platform#1991"
-  },
-  {
-   "slug": "artefakt-budget-schwelle-erreicht",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/claude-hooks/artefakt_budget.py",
-   "drill": "tools/tests/test_artefakt_budget.py",
-   "built": "2026-08-16",
-   "ref": "platform#1640"
-  },
-  {
-   "slug": "cross-repo-befund-ohne-artefakt-im-zielrepo",
-   "mode": "process",
-   "owner": "achim",
-   "module": "tools/befund_journal.py",
-   "drill": "tools/tests/test_befund_journal.py",
-   "built": "2026-08-16",
-   "ref": "platform#2004"
-  },
+  "_doc": "Gate-Registry (KONZ-038 D8). SSoT fuer gebaute Gates: Slug, Modus, Modul, Drill. Der Fenster-Prueflauf (tools/gate_drill_check.py, verdrahtet im regel-ritual-Workflow) fuehrt jeden Drill ECHT aus — ein Gate mit rotem Drill gilt K4-konform als NICHT gebaut, egal was hier steht. Bewusst JSON statt YAML: stdlib-parsebar ohne Mini-Parser (die a50bc6-Lehre). Neue Gates werden hier registriert, sonst drillt sie niemand.",
+  "_wording_convention": "Blocking-Gates formulieren stderr/reason als MASCHINEN-Feedback, nie als Ablehnung ('dies ist KEINE Nutzer-Ablehnung ...') und begrenzen auf 1 erzwungenen Korrektur-Zug pro Turn (stop_hook_active-Guard) — EXT2-M28-5.",
+  "frozen_note": "mode-Aenderungen (advisory→blocking) nur per eigenem PR nach 0-FP-Kalibrierfenster.",
+  "gates": [
+    {
+      "slug": "claim-before-cheapest-check",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/claude-hooks/evidence_claim_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1643"
+    },
+    {
+      "slug": "deferred-item-no-tracking-issue",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/deferred_item_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1645"
+    },
+    {
+      "slug": "scope-checkpoint-not-durably-recorded",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
+      "built": "2026-08-02",
+      "ref": "platform#1646"
+    },
+    {
+      "slug": "stale-local-clone-as-ground-truth",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hooks/stale_clone_check.sh",
+      "drill": "tools/tests/test_stale_clone_check.py",
+      "built": "2026-08-02",
+      "ref": "platform#1644"
+    },
+    {
+      "slug": "handover-stale-vor-merge",
+      "mode": "process",
+      "owner": "achim",
+      "module": "scripts/checks/agent_handover_freshness_check.py",
+      "drill": "tools/tests/test_agent_handover_freshness_check.py",
+      "built": "2026-08-02",
+      "ref": "platform#1648"
+    },
+    {
+      "slug": "model-change-detection",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/model_change_detector.sh",
+      "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
+      "built": "2026-08-02",
+      "ref": "KONZ-038 D7"
+    },
+    {
+      "slug": "drill-path-not-invocation-path",
+      "mode": "meta",
+      "owner": "achim",
+      "module": "",
+      "drill": "tools/claude-hooks/tests/test_hook_invocation_contract.py",
+      "built": "2026-08-02",
+      "ref": "Retro 287b23 #1 / PR #1660",
+      "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad."
+    },
+    {
+      "slug": "aufschub-anker",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/deferral_anchor_check.py",
+      "drill": "tools/tests/test_deferral_anchor_check.py",
+      "built": "2026-08-10",
+      "ref": "platform#1650",
+      "covers": [
+        "workaround-without-tracking-anchor",
+        "planned-phase-no-issue",
+        "tracking-doc-stale-after-new-occurrence",
+        "deferred-item-no-tracking-issue"
+      ],
+      "note": "EIN Gate fuer vier Slugs (covers, gespiegelt aus GATE_HEADER.covers). Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut."
+    },
+    {
+      "slug": "melder-ohne-leser",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hooks/befund_leseflaeche.py",
+      "drill": "tools/tests/test_befund_leseflaeche.py",
+      "built": "2026-08-11",
+      "ref": "platform#1908 Etappe 1 / #1894",
+      "note": "Leseflaeche: bringt Melder-Befunde an den Sitzungsstart. Deckt L1-L4 aus #1908 Etappe 1. Erweitert KEINE Schreibrechte, haengt deshalb nicht am Pilot-Ausgang."
+    },
+    {
+      "slug": "parallel-session-pr-collision",
+      "mode": "process",
+      "owner": "achim",
+      "module": "tools/repo-session.sh",
+      "drill": "tools/tests/test_repo_session_pr_collision.py",
+      "built": "2026-07-03",
+      "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
+      "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12."
+    },
+    {
+      "slug": "worktree-midsession-accumulation",
+      "mode": "process",
+      "owner": "achim",
+      "module": "tools/worktree-reaper.py",
+      "drill": "tools/tests/test_worktree_reaper.py",
+      "built": "2026-06-01",
+      "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
+      "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum."
+    },
+    {
+      "slug": "lint-failure-no-local-gate",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/claude-hooks/block_unformatted_push.sh",
+      "drill": "tools/claude-hooks/tests/test_block_unformatted_push_suite.py",
+      "built": "2026-08-04",
+      "ref": "platform#1650 Nachmessung 2026-08-10",
+      "note": "Bestand seit ff2981b0 (PreToolUse-Hook blockt push mit unformatiertem Stand), war aber nie registriert. `blocking` ist hier keine Eskalation, sondern der Ist-Zustand des Hooks seit Einbau. Registriert 2026-08-12."
+    },
+    {
+      "slug": "ci-gate-maskiert-failure",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/check_silent_failures.py",
+      "drill": "tools/tests/test_silent_failures.py",
+      "built": "2026-07-31",
+      "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
+      "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12."
+    },
+    {
+      "slug": "autonomous-no-human-review",
+      "mode": "process",
+      "owner": "achim",
+      "module": "tools/ruleset_perimeter_check.py",
+      "drill": "tools/tests/test_ruleset_perimeter_check.py",
+      "built": "2026-08-12",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht."
+    },
+    {
+      "slug": "untested-tool-module-green-gate",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/check_new_module_tests.py",
+      "drill": "tools/tests/test_check_new_module_tests.py",
+      "built": "2026-08-12",
+      "ref": "platform#1650 Owner-Go 2026-08-12",
+      "note": "Diff-Check nur ueber im PR HINZUGEFUEGTE .py unter tools/+scripts/ (Bestandsschutz fuer die ~24 ungetesteten Altfaelle = 0-FP-Baseline). Test-Spur = test_<stem>.py ODER Stem-Erwaehnung in einer Testdatei. Verdrahtet als non-gating Step in tools-tests.yml; Exit 2 (Werkzeugfehler) macht den Step ROT statt still. advisory->blocking erst nach Kalibrierfenster (frozen_note)."
+    },
+    {
+      "slug": "handover-prio-zeigt-auf-erledigtes",
+      "mode": "process",
+      "owner": "achim",
+      "module": "tools/handover_stale_reference_check.py",
+      "drill": "tools/tests/test_handover_stale_reference_check.py",
+      "built": "2026-08-13",
+      "ref": "platform#1945"
+    },
+    {
+      "slug": "hand-distributed-copy-not-redistributed",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hook-dist-drift.sh",
+      "drill": "tools/tests/test_hook_dist_drift.py",
+      "built": "2026-08-15",
+      "ref": "platform#1991"
+    },
+    {
+      "slug": "artefakt-budget-schwelle-erreicht",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/artefakt_budget.py",
+      "drill": "tools/tests/test_artefakt_budget.py",
+      "built": "2026-08-16",
+      "ref": "platform#1640"
+    },
+    {
+      "slug": "cross-repo-befund-ohne-artefakt-im-zielrepo",
+      "mode": "process",
+      "owner": "achim",
+      "module": "tools/befund_journal.py",
+      "drill": "tools/tests/test_befund_journal.py",
+      "built": "2026-08-16",
+      "ref": "platform#2004"
+    },
     {
       "slug": "gate-rueckfall-unbemerkt",
       "mode": "advisory",
@@ -199,39 +199,39 @@
       "ref": "platform#2142",
       "note": "Misst Rueckfaelle NACH dem Bau eines Gates — die Luecke zwischen 'gebaut' (Registry), 'feuert' (Drill) und 'Slug kam wieder' (retro_kpis). Unterliegt selbst diesem Mass."
     },
-  {
-   "slug": "untested-command-handed-to-user",
-   "mode": "advisory",
-   "owner": "achim",
-   "module": "tools/claude-hooks/untested_command_scanner.py",
-   "drill": "tools/claude-hooks/tests/test_untested_command_scanner.py",
-   "built": "2026-08-16",
-   "ref": "platform#2014 (Retro 9d861a Befund #1)",
-   "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits."
-  }
- ],
- "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
- "declined": [
-  {
-   "slug": "always-instruction-without-enforcement",
-   "decided": "2026-08-12",
-   "owner": "achim",
-   "ref": "platform#1650 Owner-Entscheid 2026-08-12",
-   "reason": "Meta-Muster. Seit #1938 meldet retro_kpis.py automatisch jeden GATE-PFLICHT-Slug ohne Registry-Eintrag — genau die verlangte Durchsetzungs-Aufsicht. Ein Text-Scanner auf IMMER-Formulierungen haette hohe Fehlalarm-Quote und wuerde umgangen statt befolgt."
-  },
-  {
-   "slug": "ci-replace-requires-job-catalog-diff",
-   "decided": "2026-08-12",
-   "owner": "achim",
-   "ref": "platform#1650 Owner-Entscheid 2026-08-12",
-   "reason": "Seltener, manueller Vorgang (CI-Umbau, wenige Male/Jahr). Eine Automatik muesste 'ersetzt statt ergaenzt' semantisch erkennen — unscharf. Die Review-Pflicht auf .github/** (CODEOWNERS-Perimeter, vom Ruleset-Waechter bewacht) deckt den Vorgang ab."
-  },
-  {
-   "slug": "issue-not-reconciled-after-cross-repo-fix",
-   "decided": "2026-08-12",
-   "owner": "achim",
-   "ref": "platform#1650 Owner-Entscheid 2026-08-12",
-   "reason": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste."
-  }
- ]
+    {
+      "slug": "untested-command-handed-to-user",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/untested_command_scanner.py",
+      "drill": "tools/claude-hooks/tests/test_untested_command_scanner.py",
+      "built": "2026-08-16",
+      "ref": "platform#2014 (Retro 9d861a Befund #1)",
+      "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits."
+    }
+  ],
+  "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
+  "declined": [
+    {
+      "slug": "always-instruction-without-enforcement",
+      "decided": "2026-08-12",
+      "owner": "achim",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "reason": "Meta-Muster. Seit #1938 meldet retro_kpis.py automatisch jeden GATE-PFLICHT-Slug ohne Registry-Eintrag — genau die verlangte Durchsetzungs-Aufsicht. Ein Text-Scanner auf IMMER-Formulierungen haette hohe Fehlalarm-Quote und wuerde umgangen statt befolgt."
+    },
+    {
+      "slug": "ci-replace-requires-job-catalog-diff",
+      "decided": "2026-08-12",
+      "owner": "achim",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "reason": "Seltener, manueller Vorgang (CI-Umbau, wenige Male/Jahr). Eine Automatik muesste 'ersetzt statt ergaenzt' semantisch erkennen — unscharf. Die Review-Pflicht auf .github/** (CODEOWNERS-Perimeter, vom Ruleset-Waechter bewacht) deckt den Vorgang ab."
+    },
+    {
+      "slug": "issue-not-reconciled-after-cross-repo-fix",
+      "decided": "2026-08-12",
+      "owner": "achim",
+      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
+      "reason": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste."
+    }
+  ]
 }

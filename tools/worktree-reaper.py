@@ -199,7 +199,12 @@ def pr_state(branch: str, repo: str | None) -> str:
 
 
 def classify(
-    wt: dict, primary: str, current: str, repo: str | None, stale_days: int
+    wt: dict,
+    primary: str,
+    current: str,
+    repo: str | None,
+    stale_days: int,
+    karenz_stunden: float = 12.0,
 ) -> tuple[str, str]:
     """→ (verdict, reason). verdict ∈ {KEEP, REAP_MERGED, REAP_STALE, SKIP}."""
     path, branch = wt["path"], wt["branch"]
@@ -226,6 +231,25 @@ def classify(
     # sie gilt, bis sie ablaeuft.
     lease = lease_for(path)
     if lease is not None and lease_expired(lease) is False:
+        # Karenz statt Kadenz (Retro 8d6869, 2026-08-20): die Regel oben schuetzt die
+        # Weiterarbeit unmittelbar NACH dem Merge — sie soll nicht bedeuten, dass ein
+        # fertiger Baum sieben Tage stehenbleibt. `gate_wirkung.py` hat das Gate genau
+        # deshalb als rueckfaellig gemessen: nach dem Merge passiert nichts mehr, und
+        # bis zum Lease-Ablauf raeumt niemand. Ist der Baum sauber, sein PR gemergt und
+        # seit `karenz_stunden` kein Commit mehr gefallen, ist die Sitzung erkennbar
+        # vorbei — dann greift der Reaper trotz aktivem Lease. Eine lebende Sitzung
+        # committet innerhalb dieser Frist und bleibt damit unangetastet.
+        alter = commit_age_days(path)
+        if (
+            alter is not None
+            and alter * 24 >= karenz_stunden
+            and pr_state(branch, repo) == "merged"
+        ):
+            return (
+                "REAP_MERGED",
+                f"PR gemergt, Lease aktiv, aber seit {alter * 24:.0f}h unberuehrt "
+                f"(Karenz {karenz_stunden:.0f}h)",
+            )
         return "KEEP", f"Lease aktiv bis {lease.get('expires_at')}"
 
     state = pr_state(branch, repo)
@@ -273,6 +297,14 @@ def main() -> int:
     ap.add_argument(
         "--repo", default=None, help="OWNER/REPO für gh (default: aus Remote)."
     )
+    ap.add_argument(
+        "--karenz-stunden",
+        type=float,
+        default=12.0,
+        dest="karenz_stunden",
+        help="Stunden ohne Commit, nach denen ein gemergter Baum trotz aktivem "
+        "Lease abgeraeumt wird (Default 12).",
+    )
     ap.add_argument("--manifest", default=None, help="Restore-Manifest-Pfad (JSONL).")
     args = ap.parse_args()
 
@@ -282,7 +314,9 @@ def main() -> int:
 
     plan, reap = [], []
     for wt in trees:
-        verdict, reason = classify(wt, primary, current, args.repo, args.stale_days)
+        verdict, reason = classify(
+            wt, primary, current, args.repo, args.stale_days, args.karenz_stunden
+        )
         plan.append((verdict, wt, reason))
         if verdict == "REAP_MERGED" or (verdict == "REAP_STALE" and args.include_stale):
             reap.append((wt, reason))
