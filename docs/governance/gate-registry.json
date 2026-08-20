@@ -210,6 +210,16 @@
       "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag."
     },
     {
+      "slug": "zeitplan-still-abgeschaltet",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/zeitplan_wach.py",
+      "drill": "tools/tests/test_zeitplan_wach.py",
+      "built": "2026-08-20",
+      "ref": "platform#2114",
+      "note": "GitHub schaltet schedule-Trigger nach 60 Tagen Repo-Inaktivitaet ab. infra-deploy lief dadurch drei Wochen ohne Datenbank-Backup, ohne dass ein Check rot wurde."
+    },
+    {
       "slug": "untested-command-handed-to-user",
       "mode": "advisory",
       "owner": "achim",
