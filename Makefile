@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu test lint setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -26,6 +26,11 @@ PROD_SERVER := hetzner-prod
 # =============================================================================
 # HELP & MENU
 # =============================================================================
+
+boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
+	@python3 tools/mail_agent/board.py --pruefe
+	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
+	@python3 tools/todo_board/todo_board.py build
 
 help: ## Diese Hilfe anzeigen
 	@echo ""
