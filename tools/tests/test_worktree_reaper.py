@@ -302,6 +302,55 @@ def test_should_keep_when_lease_active_even_if_commit_old(tmp_path, monkeypatch)
     assert "Lease" in reason
 
 
+def _lease_aktiv(tmp_path, monkeypatch, wt):
+    monkeypatch.setattr(rw, "LEASE_DIR", tmp_path / "leases")
+    (tmp_path / "leases").mkdir(exist_ok=True)
+    future = (datetime.now(timezone.utc) + timedelta(days=7)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    (tmp_path / "leases" / "l1.json").write_text(
+        json.dumps({"worktree": str(wt), "expires_at": future}), encoding="utf-8"
+    )
+
+
+def test_should_reap_merged_tree_after_karenz_despite_active_lease(
+    tmp_path, monkeypatch
+):
+    """Fertig heisst fertig: PR gemergt, sauber, seit Tagen kein Commit — dann raeumt
+    der Reaper, ohne den Lease-Ablauf abzuwarten (Retro 8d6869, Gate-Rueckfall)."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-merged-alt", "feature-merged-alt", days_old=3)
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _lease_aktiv(tmp_path, monkeypatch, wt)
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-merged-alt"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+    )
+    assert verdict == "REAP_MERGED"
+    assert "Karenz" in reason
+
+
+def test_should_keep_merged_tree_that_is_still_being_worked_in(tmp_path, monkeypatch):
+    """Gegenprobe zu #1866: direkt nach dem Merge wird im selben Baum weitergearbeitet.
+    Ein frischer Commit haelt den Baum, auch wenn der PR schon gemergt ist."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-merged-warm", "feature-merged-warm")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _lease_aktiv(tmp_path, monkeypatch, wt)
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-merged-warm"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+    )
+    assert verdict == "KEEP"
+    assert "Lease aktiv" in reason
+
+
 def test_should_fallback_to_mtime_when_no_lease_present(tmp_path, monkeypatch):
     repo = _make_repo(tmp_path)
     wt = _add_worktree(
