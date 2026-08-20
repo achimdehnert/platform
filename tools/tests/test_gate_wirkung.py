@@ -154,3 +154,70 @@ def test_should_stay_exit_zero_on_unreadable_registry(tmp_path):
     )
     assert lauf.returncode == 0
     assert lauf.stdout.strip() == ""
+
+
+# --- Regressionen aus Retro beefc148 (2026-08-20) ----------------------------
+# Beide Faelle wurden von einem fremden Pruefer reproduziert und von KEINEM der
+# acht Tests darueber gefangen. Sie stehen hier bewusst als eigener Block: was
+# ein Aussenstehender findet und die eigene Suite nicht, gehoert markiert.
+
+
+def test_should_not_count_the_build_day_retro_as_a_relapse(tmp_path):
+    """Das Retro des Bau-Tags ist der Ausloeser des Gates, nicht sein Rueckfall.
+
+    Vorher zaehlte es als Rueckfall mit (`d >= gebaut`) — damit reichte EIN
+    weiteres Vorkommen fuer das Urteil RUECKFAELLIG, obwohl die Schwelle 2 ist.
+    """
+    _retro(tmp_path, "2026-07-10", "bautag", ["schludrigkeit"])  # Bau-Tag selbst
+    _retro(tmp_path, "2026-07-11", "danach", ["schludrigkeit"])  # ein echter Rueckfall
+    urteile = _urteile(
+        tmp_path, [{"slug": "schludrigkeit", "mode": "blocking", "built": "2026-07-10"}]
+    )
+
+    assert urteile["schludrigkeit"]["nachher"] == 1, "Bau-Tag darf nicht mitzaehlen"
+    assert urteile["schludrigkeit"]["urteil"] != "RUECKFAELLIG"
+
+
+def test_should_still_report_two_real_relapses_in_a_short_window(tmp_path):
+    """Gegenprobe zur Sperre: zwei ECHTE Rueckfaelle bleiben RUECKFAELLIG.
+
+    Die Fenster-Sperre schuetzt die positive Aussage ("wirksam") — sie darf
+    beobachtete Rueckfaelle nicht verschlucken, auch nicht bei kurzem Fenster.
+    """
+    _retro(tmp_path, "2026-07-10", "bautag", ["schludrigkeit"])
+    _retro(tmp_path, "2026-07-11", "r1", ["schludrigkeit"])
+    _retro(tmp_path, "2026-07-12", "r2", ["schludrigkeit"])
+    urteile = _urteile(
+        tmp_path, [{"slug": "schludrigkeit", "mode": "blocking", "built": "2026-07-10"}]
+    )
+
+    assert urteile["schludrigkeit"]["nachher"] == 2
+    assert urteile["schludrigkeit"]["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_keep_reading_slugs_after_an_inline_comment(tmp_path):
+    """Ein `- slug  # Notiz` beendete die Liste und verschluckte alles danach.
+
+    Die Fehlrichtung ist die gefaehrlichere: fehlende Slugs lassen ein Gate
+    wirksam aussehen, obwohl es rueckfaellig ist.
+    """
+    (tmp_path / "session-retro-2026-07-10-platform-kommentar.md").write_text(
+        "---\nretro_schema: 1\nrecurring_findings:\n"
+        "  - erster-slug  # hier stand frueher der Abbruch\n"
+        "  - zweiter-slug\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    retros = gw.lies_retros([str(tmp_path)])
+
+    assert retros[0][1] == ["erster-slug", "zweiter-slug"]
+
+
+def test_should_not_end_the_block_on_a_blank_or_comment_line(tmp_path):
+    (tmp_path / "session-retro-2026-07-10-platform-leer.md").write_text(
+        "---\nrecurring_findings:\n  - a-slug\n\n  # Zwischenkommentar\n  - b-slug\n---\n",
+        encoding="utf-8",
+    )
+    retros = gw.lies_retros([str(tmp_path)])
+
+    assert retros[0][1] == ["a-slug", "b-slug"]
