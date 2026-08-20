@@ -497,7 +497,12 @@ def detail(
         if nr not in (None, "")
         else ""
     )
-    notiz = html.escape(str(v.get("notiz") or "")).replace(" | ", "\n\n")
+    # Neuester Eintrag zuerst. Die Notiz waechst durch Anhaengen, chronologisch
+    # gelesen steht der aktuelle Stand also ganz unten — bei Vorgaengen mit
+    # 15.000 Zeichen Verlauf muss man dafuer erst ans Ende scrollen. Umgedreht
+    # steht der Stand da, wo man hinsieht (Owner-Weisung 2026-08-20).
+    eintraege = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
+    notiz = "\n\n".join(html.escape(t) for t in reversed(eintraege))
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -508,7 +513,7 @@ def detail(
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 <table><tbody>{zeilen}</tbody></table>
 {schritte}
-<h2>Verlauf</h2>
+<h2>Verlauf <span class='stand'>neueste zuerst</span></h2>
 <pre class="notiz">{notiz or "—"}</pre>
 <footer>Quelle: mail-vorgaenge.json</footer>
 </main></body></html>"""

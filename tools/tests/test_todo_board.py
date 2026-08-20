@@ -214,6 +214,18 @@ class TestDetailseite:
         seite = tb.detail(vorgang(notiz="erst dies | dann das"))
         assert "erst dies" in seite and "dann das" in seite
 
+    def test_should_show_the_newest_note_first(self):
+        """Der Verlauf waechst durch Anhaengen — angezeigt wird er umgekehrt,
+        damit der aktuelle Stand oben steht und nicht hinter 15.000 Zeichen."""
+        seite = tb.detail(vorgang(notiz="erst dies | dann das | zuletzt jenes"))
+        rumpf = seite.split("<h2>Verlauf")[1]
+        assert rumpf.index("zuletzt jenes") < rumpf.index("dann das") < rumpf.index("erst dies")
+
+    def test_should_drop_empty_note_segments(self):
+        seite = tb.detail(vorgang(notiz="a |  | b"))
+        assert seite.count("\n\n") >= 1
+        assert "a" in seite and "b" in seite
+
     def test_should_show_a_dash_for_empty_fields(self):
         seite = tb.detail(vorgang(zustand=None))
         assert "—" in seite
