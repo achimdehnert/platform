@@ -327,8 +327,24 @@ if [[ "${DEPLOY_MIGRATE:-1}" == "1" ]]; then
     # Override kommt "python manage.py migrate" nur als dessen ARGUMENT an, der
     # Container antwortet mit Usage-Text und Exit 1 — die Migration liefe nie,
     # der Deploy bräche mit irreführender Meldung ab (gemessen 2026-07-25).
+    #
+    # Der Override hat aber einen Preis, der 2026-08-20 in travel-beat sichtbar
+    # wurde: er umgeht damit AUCH die Logik IM Entrypoint. travel-beat hatte nach
+    # einem Crash-Loop (2026-06-17) genau richtig `DATABASE_URL_MIGRATE` eingebaut
+    # — privilegierte DDL als Migrations-Rolle, Laufzeit weiter als restricted
+    # User — und dieser Mechanismus war auf dem Deploy-Pfad **wirkungslos**, weil
+    # der Entrypoint hier nie läuft. Ergebnis: `migrate_schemas` lief als
+    # restricted Rolle, die auf den Tenant-Schemata kein USAGE hat, und starb mit
+    # "no schema has been selected to create in" — exakt der Fehler, den der
+    # Entrypoint-Kommentar vorhersagt. Der Prod-Stand hing dadurch seit dem
+    # 2026-08-11 zurück (travel-beat#79).
+    #
+    # Deshalb wird die Ableitung hier nachgezogen, mit derselben Semantik wie im
+    # Entrypoint: `DATABASE_URL_MIGRATE` gewinnt, sonst bleibt `DATABASE_URL`.
+    # Repos ohne die Variable verhalten sich damit unverändert — die Zuweisung
+    # wirkt nur für diesen einen Prozess, nicht für den laufenden Stack.
     if ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
-           "$_MIG_SVC" -c 'python manage.py migrate --noinput'; then
+           "$_MIG_SVC" -c 'DATABASE_URL="${DATABASE_URL_MIGRATE:-$DATABASE_URL}" python manage.py migrate --noinput'; then
       _restore_image_tag
       echo "::error::Migration fehlgeschlagen — Deploy abgebrochen. Der ALTE Stack läuft unverändert weiter." >&2
       echo "         DB kann teilmigriert sein: 'manage.py showmigrations' prüfen." >&2
@@ -339,7 +355,7 @@ if [[ "${DEPLOY_MIGRATE:-1}" == "1" ]]; then
     # Teil-Applies und --fake-Artefakte (assets.0002 aus #66), die 'migrate'
     # selbst mit Exit 0 hinterlassen kann.
     if ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
-           "$_MIG_SVC" -c 'python manage.py migrate --check --noinput' >/dev/null 2>&1; then
+           "$_MIG_SVC" -c 'DATABASE_URL="${DATABASE_URL_MIGRATE:-$DATABASE_URL}" python manage.py migrate --check --noinput' >/dev/null 2>&1; then
       _restore_image_tag
       echo "::error::Nach 'migrate' sind weiter Migrationen pending — Schema-Drift, Deploy abgebrochen." >&2
       echo "         Kein Auto-Rollback: Teil-Migrationen lassen sich nicht sicher zurückrollen." >&2
