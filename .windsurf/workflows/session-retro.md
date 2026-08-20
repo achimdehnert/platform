@@ -278,6 +278,15 @@ scores:                                   # ganzzahlig 1–5, KEINE Halbwerte
   entscheidungsqualitaet: <1-5>
 gate_candidates: [<slug>, …]
 recurring_findings: [<slug>, …]
+gates_caught: [<slug>, …]        # Teilmenge von recurring_findings: Befunde, die ein
+                                 # BESTEHENDES Gate in dieser Sitzung gefangen hat.
+                                 # `retro_kpis.py` zaehlt sie weiter (der Befund trat auf),
+                                 # `gate_wirkung.py` wertet sie als Beleg FUER das Gate
+                                 # statt als Rueckfall. Ohne diese Trennung sammelt ein
+                                 # Gate, das seine Arbeit tut, dieselben Ausrufezeichen
+                                 # wie eines, das blind ist (Realfall 2026-08-20:
+                                 # der Scope-Checkpoint-Hook feuerte, der Scope wurde
+                                 # durabel abgelegt — und galt trotzdem als Wiederholung).
 ---
 ```
 Danach in fester Reihenfolge:

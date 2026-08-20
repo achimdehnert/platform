@@ -107,12 +107,20 @@ def gedeckte_slugs(registry: dict) -> set[str]:
 
 
 def bewerte(retros, gedeckt: set[str]) -> dict:
+    # `lies_retros` liefert seit 2026-08-20 ein VIERTES Feld (`gates_caught`).
+    # Hier zaehlt weiter jedes Vorkommen — dieses Werkzeug fragt "gibt es ueberhaupt
+    # eine Entscheidung zu dem Slug?", nicht "hat ein Gate ihn gefangen". Der Zugriff
+    # ueber den Index nimmt drei- wie vierstellige Tupel.
     zaehler = Counter()
-    for _datum, slugs, _name in retros:
-        zaehler.update(slugs)
+    for retro in retros:
+        zaehler.update(retro[1])
 
     offen = [
-        {"slug": s, "vorkommen": n, "letztes": max(d for d, sl, _ in retros if s in sl)}
+        {
+            "slug": s,
+            "vorkommen": n,
+            "letztes": max(r[0] for r in retros if s in r[1]),
+        }
         for s, n in zaehler.items()
         if s not in gedeckt and n >= PFLICHT_SCHWELLE
     ]
