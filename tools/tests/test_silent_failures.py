@@ -183,3 +183,45 @@ def test_should_find_no_silent_failure_in_repo_workflows(datei):
     """Regression: die echten Workflows bleiben sauber."""
     funde = csf.pruefe_datei(datei)
     assert funde == [], "\n".join(str(f) for f in funde)
+
+
+# ── Zweite Familie: stille Schlucker in Shell-Code (Ausweitung 2026-08-20) ────
+
+
+def _sh(tmp_path, name: str, inhalt: str):
+    p = tmp_path / name
+    p.write_text(inhalt, encoding="utf-8")
+    return p
+
+
+def test_should_flag_tee_pipeline_without_pipefail(tmp_path):
+    """Retro 932035: pytest hinter `| tee` — die Pipeline meldet den Exit des tee."""
+    datei = _sh(tmp_path, "lauf.sh", "#!/bin/bash\npytest tools/tests | tee log.txt\n")
+    funde = csf.pruefe_shell(datei)
+    assert [f.art for f in funde] == ["Pipeline schluckt den Exit-Code"]
+
+
+def test_should_accept_tee_pipeline_with_pipefail(tmp_path):
+    """Gegenprobe: mit pipefail ist die Pipeline ehrlich."""
+    datei = _sh(
+        tmp_path,
+        "lauf.sh",
+        "#!/bin/bash\nset -o pipefail\npytest tools/tests | tee log.txt\n",
+    )
+    assert csf.pruefe_shell(datei) == []
+
+
+def test_should_flag_error_turned_into_a_number(tmp_path):
+    """Retro c45b39: `reap 2>&1 || true` + `grep -c` meldete Fehler als gruene Null."""
+    datei = _sh(
+        tmp_path,
+        "reap.sh",
+        '#!/bin/bash\nN=$(reap 2>&1 | grep -c "^entfernt" || true)\n',
+    )
+    funde = csf.pruefe_shell(datei)
+    assert any(f.art == "Fehler wird zu einer Zahl" for f in funde)
+
+
+def test_should_leave_a_plain_script_alone(tmp_path):
+    datei = _sh(tmp_path, "ruhig.sh", "#!/bin/bash\nset -euo pipefail\necho hallo\n")
+    assert csf.pruefe_shell(datei) == []
