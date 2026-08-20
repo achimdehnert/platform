@@ -665,6 +665,14 @@ repos:
     in_rich: false
     flat:
       type: django
+  music-lab:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: python
+      note: Song-/Sprach-Generierung auf der lokalen GPU-Box (ACE-Step, MOSS-TTS,
+        Groq-Textvorschlag); kein Deploy - Box nur via WireGuard/SSH-Tunnel; Cluster-Nachbarn
+        illustration-hub (ComfyUI) und writing-hub (Ollama)
   nl2cad:
     in_flat: true
     in_rich: false
