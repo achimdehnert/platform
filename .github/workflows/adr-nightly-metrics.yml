@@ -36,13 +36,28 @@
 #      committet nichts mehr, Ergebnis geht in Job-Summary + Artefakt.
 #      Bewusste Folge: die Metriken landen NICHT mehr in den ADR-Frontmattern.
 #
-# Der schedule-Trigger bleibt bewusst AUS. Ihn wieder scharf zu schalten ist eine
-# eigene Entscheidung (nächtliche Läufe + Issue-Erzeugung) und gehört nicht in
-# einen Reparatur-PR — als Folgefrage in #1338 vermerkt.
+# STAND 2026-08-20 (#1338): schedule-Trigger ist ZURÜCK. Die Entscheidung, die der
+# Reparatur-PR bewusst offengelassen hatte, ist getroffen — mit dem Beleg, der ihr
+# vorher fehlte: Lauf 32359300251 auf main war `success`. Die zweite Hälfte der
+# Frage ("nächtliche Läufe + Issue-Erzeugung") loest sich von selbst: der
+# Issue-Schritt haengt an `inputs.create_issues`, und bei `schedule` sind die
+# Inputs leer. Naechtlich laeuft der Bericht, nicht die Issue-Erzeugung.
 
 name: "📊 ADR Nightly Metrics"
 
 on:
+  # Zeitplan zurueck am 2026-08-20 (#1338). Die drei Ursachen der 30 roten Naechte
+  # sind seit dem 2026-07-22 behoben; was fehlte, war der Beleg, dass ein Lauf heute
+  # durchgeht — nachgeholt mit Lauf 32359300251 (`success`) und geprueft:
+  # `iil-adrfw metrics --help` vorhanden, `validate docs/adr` 242/242, `--write` raus.
+  #
+  # Die Sorge, ein naechtlicher Lauf wuerde den Backlog aufblaehen, traegt NICHT:
+  # der Issue-erzeugende Schritt haengt an `if: inputs.create_issues == 'true'`, und
+  # bei einem `schedule`-Event sind die Inputs leer. Naechtlich laeuft damit der
+  # BERICHT (Job-Summary + Artefakt), nicht die Issue-Erzeugung — genau der
+  # Mittelweg, der in #1338 als Option stand. Wer Issues will, dispatcht bewusst.
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       write_metrics:
@@ -140,9 +155,14 @@ jobs:
             echo "[WARN] pgvector sync failed (DB unreachable?) — continuing"
 
       - name: Run audit + create issues for errors
-        # NOTE: schedule trigger removed (see header) — this workflow now
-        # only runs via workflow_dispatch, so the former
-        # `|| github.event_name == 'schedule'` fallback is dead and dropped.
+        # NOTE: Der frühere Fallback `|| github.event_name == 'schedule'` bleibt
+        # ABSICHTLICH draussen, auch seit der schedule-Trigger am 2026-08-20 zurueck
+        # ist (#1338). Genau dadurch laeuft naechtlich nur der Bericht: `inputs` ist
+        # bei einem schedule-Event leer, die Bedingung damit falsch, der Schritt
+        # uebersprungen. Wer Issues erzeugen will, dispatcht mit create_issues=true.
+        # Diese Zeile wieder um den schedule-Fallback zu erweitern, macht aus dem
+        # Controlling-Loop einen naechtlichen Issue-Erzeuger — siehe platform#2140,
+        # Wurzel "rollende Melder legen an statt zu aktualisieren".
         if: inputs.create_issues == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
