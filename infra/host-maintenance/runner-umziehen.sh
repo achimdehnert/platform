@@ -54,14 +54,24 @@ if [ ! -f config.sh ]; then
   curl -fsSL -o runner.tar.gz \"https://github.com/actions/runner/releases/download/v\${V}/actions-runner-linux-x64-\${V}.tar.gz\"
   tar xzf runner.tar.gz && rm -f runner.tar.gz
 fi
-# Der Runner laeuft nicht als root -- das lehnt config.sh ab. Wie bei den
-# bestehenden Runnern auf diesen Hosts uebernimmt ein eigener Dienstbenutzer.
-id runner >/dev/null 2>&1 || useradd -r -m -d /home/runner -s /bin/bash runner
-chown -R runner:runner '$VERZ'
-sudo -u runner ./config.sh --unattended --replace \
+# ALS ROOT, nicht unter einem Dienstbenutzer. `config.sh` weigert sich zwar
+# standardmaessig als root zu laufen -- dafuer gibt es RUNNER_ALLOW_RUNASROOT.
+#
+# Der frueher hier stehende Dienstbenutzer `runner` war ein Fehler (platform#2130):
+# das Deploy-Ziel /opt/<repo> gehoert root:root 0755, `chown` unten trifft nur das
+# Runner-Arbeitsverzeichnis. Ergebnis war ein Runner, der sich selbst verwalten,
+# aber nicht deployen konnte:
+#   cp: cannot create regular file '/opt/cad-hub/docker-compose.prod.yml.tmpXXXX':
+#   Permission denied
+# Der alte Kommentar behauptete, die bestehenden Runner liefen unter einem eigenen
+# Benutzer. Gemessen am 2026-08-20 auf prod-b stimmt das nicht: pptx-hub und
+# weltenhub laufen beide als root -- dieses Skript war offenbar nie erfolgreich
+# durchgelaufen, obwohl sein Beispiel pptx-hub nennt.
+export RUNNER_ALLOW_RUNASROOT=1
+./config.sh --unattended --replace \
   --url 'https://github.com/$OWNER/$REPO' --token '$TOKEN' \
   --name '$NAME' --labels 'self-hosted,Linux,X64,$NAME' --work _work
-./svc.sh install runner
+./svc.sh install
 ./svc.sh start
 ./svc.sh status | head -5
 "
@@ -76,7 +86,7 @@ if [ -n "$QUELL" ]; then
   cd \"\$D\"
   ./svc.sh stop || true
   ./svc.sh uninstall || true
-  sudo -u runner ./config.sh remove --token '$ALT_TOKEN' || ./config.sh remove --token '$ALT_TOKEN' || true
+  RUNNER_ALLOW_RUNASROOT=1 ./config.sh remove --token '$ALT_TOKEN' || true
   echo 'Alter Runner abgemeldet.'
   "
 fi
