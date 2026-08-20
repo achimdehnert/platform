@@ -209,6 +209,19 @@ class TestVerlinkung:
         assert seite.count("id=ovl-frame") == 1
 
 
+class TestMailSymbol:
+    """Kein Briefsymbol, wo es nur auf die aelteste Mail zeigen wuerde."""
+
+    def test_should_hide_mail_icon_when_a_vorgangsansicht_exists(self):
+        z = tb.zeile(vorgang(thread_key="Mit Ansicht", mail_ref="/a/7"), STICHTAG)
+        assert "maillink" not in z
+        assert "/t/Mit%20Ansicht" in z
+
+    def test_should_keep_mail_icon_without_thread_key(self):
+        z = tb.zeile(vorgang(thread_key="", mail_ref="/a/7"), STICHTAG)
+        assert "maillink" in z
+
+
 class TestDetailseite:
     def test_should_show_the_notiz(self):
         seite = tb.detail(vorgang(notiz="erst dies | dann das"))
@@ -460,8 +473,9 @@ class TestAnkerGate:
         assert tb.aufloesbare_nummern(ank, reg) == {"107": "/a/"}
 
     def test_should_render_the_graph_prefix_in_the_row(self):
+        """Graph-Praefix, gemessen an einer Zeile ohne Vorgangsansicht."""
         markup = tb.zeile(
-            vorgang(nr=107, thread_key="x"),
+            vorgang(nr=107, thread_key=""),
             STICHTAG,
             "",
             "https://mail.example",
@@ -470,9 +484,14 @@ class TestAnkerGate:
         assert "href='https://mail.example/r/107'" in markup
 
     def test_should_link_the_mail_from_the_overview_row(self):
-        """Der Weg zur Mail kostet keinen Zwischenklick mehr."""
+        """Der Weg zur Mail kostet keinen Zwischenklick — dort, wo es ihn noch gibt.
+
+        Seit 2026-08-20 traegt eine Zeile MIT Vorgangsansicht kein Briefsymbol mehr
+        (es zeigte auf die aelteste Mail); geprueft wird die Form also an einer
+        Zeile ohne thread_key.
+        """
         markup = tb.zeile(
-            vorgang(nr=109, thread_key="x"),
+            vorgang(nr=109, thread_key=""),
             STICHTAG,
             "",
             "https://mail.example",
@@ -507,8 +526,9 @@ class TestAnkerGate:
 
 class TestMailLinkOeffnetNeuenTab:
     def test_should_open_the_mail_in_a_new_tab_from_the_row(self):
+        """Ohne thread_key bleibt das Briefsymbol — dann muss es sauber oeffnen."""
         markup = tb.zeile(
-            vorgang(nr=109, thread_key="x"),
+            vorgang(nr=109, thread_key=""),
             STICHTAG,
             "",
             "https://mail.example",
