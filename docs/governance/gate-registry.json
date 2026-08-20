@@ -200,6 +200,16 @@
       "note": "Misst Rueckfaelle NACH dem Bau eines Gates — die Luecke zwischen 'gebaut' (Registry), 'feuert' (Drill) und 'Slug kam wieder' (retro_kpis). Unterliegt selbst diesem Mass."
     },
     {
+      "slug": "gate-pflicht-nie-eingeloest",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/gate_deckung.py",
+      "drill": "tools/tests/test_gate_deckung.py",
+      "built": "2026-08-20",
+      "ref": "platform#2164",
+      "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag."
+    },
+    {
       "slug": "untested-command-handed-to-user",
       "mode": "advisory",
       "owner": "achim",
