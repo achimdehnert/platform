@@ -2764,3 +2764,25 @@ Verdrahtet an allen drei Stellen des Loops, weil eine Messung ohne Leser die Kla
 Zielzustand erreicht, Kriterien einzeln verifiziert. Bewusst ausgelassen und getrackt: die acht rueckfaelligen Gates selbst (#2143), risk-hubs Prod-Deploy (#2148, `main` bewegte sich waehrend des Dispatches).
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## Session 2026-08-20 vormittags, Nachtrag — die Retro fand zwei Fehler im Werkzeug derselben Sitzung (beefc148)
+
+Nach dem ersten `/session-ende` folgte auf Owner-Wunsch `/session-retro`. Footprint `deep` (5 Repos, 3 Prod-Deploys, Migrationen — die Abstufung auf `full` scheiterte an Bedingung (b), weil Migrationen gefahren wurden).
+
+**11 Befunde, 5 ueberlebt, 6 widerlegt.** Bemerkenswert ist die Richtung: drei der Widerlegungen betrafen **Selbstanklagen**. Der Finder warf vor, Prio 5 sei nirgends erwaehnt (steht als Prio 6 im selben Dokument), der Auftrag sei halb eingeloest (Gate-Reparatur war ausdruecklich Out-of-Scope mit Tracking), und „Zeitplan ist zurueck" sei als vollzogen behauptet (der Klammerzusatz qualifiziert es). Ein vierter Befund traf den Ermittler selbst: er hatte zwei PRs als Bearbeiter eines Issues genannt, die es nirgends referenzieren. Die Erwartung war Selbstnachsicht; real war die Sitzung strenger mit sich, als die Belege trugen.
+
+**Der teuerste Befund war einer, den kein eigener Test finden konnte.** Ein fremder Pruefer reproduzierte zwei Fehler in `gate_wirkung.py` — dem Werkzeug, das an diesem Vormittag gebaut wurde, um Wirksamkeit zu messen. Erstens zaehlte das Retro des Bau-Tags als Rueckfall (`d >= gebaut`); da ein Gate meist genau aus dem Befund dieses Tages entsteht, lag die effektive Schwelle bei 1 statt 2 — und der Code-Kommentar an der Konstanten behauptete ausdruecklich, die Schwelle 2 schuetze davor. Zweitens brach der Frontmatter-Parser den YAML-Block beim ersten Inline-Kommentar ab und verschluckte alle folgenden Slugs; diese Fehlrichtung **verdeckt** Rueckfaelle, ist also die gefaehrlichere.
+
+Beides behoben (#2157) mit vier Regressionstests, deren Nicht-Trivialitaet gemessen wurde: gegen `origin/main` fallen sie (4 failed / 8 passed), gegen die neue Fassung greifen sie (12 passed).
+
+**Die veroeffentlichte Kennzahl war dadurch falsch: 8 rueckfaellige Gates sind 7**, `claim-before-cheapest-check` 16 sind 14. Und die Korrektur wirkte in **beide** Richtungen — ein Zaehler stieg, weil der Parser-Fix vorher verlorene Slugs freilegte. Die Zahl stand da bereits in einem Issue-Titel, einem Handover, einem Memory-Eintrag und zwei PR-Texten; alle vier wurden nachgezogen.
+
+**Der einzige ueberlebende Prozess-Befund fiel in ein Gate, das gebaut, verdrahtet und drill-gruen ist.** Nach der Regel, die diese Sitzung selbst geschrieben hat, wird er deshalb nicht als „Slug zum 48. Mal" gefuehrt, sondern als **Gate rueckfaellig**. Die Regel hat bei ihrer ersten Anwendung ihren Autor getroffen — das ist der beste Beleg dafuer, dass sie nicht nur beschreibt.
+
+**Ein Vorschlag der Retro wurde bewusst nicht uebernommen:** die Fenster-Sperre vor die Rueckfall-Pruefung zu ziehen. Der reproduzierte Fehlfall verschwindet bereits durch den Bau-Tag-Ausschluss, und das Drehen haette echte Signale unterdrueckt — die Sperre schuetzt die positive Aussage („wirksam"), nicht die negative. Begruendung steht im Code, damit der naechste Leser sie nicht erneut ableiten muss.
+
+**Nebenbefund aus dem Drill-Bau:** die erste Sonde des Shell-Tests fiel selbst herein. `DATABASE_URL="${...}" printf %s "$DATABASE_URL"` zeigt den ALTEN Wert, weil die Shell das Argument expandiert, bevor die Zuweisung wirkt. `printenv` liest die eigene Umgebung, so wie `manage.py` es tut. Ein Substring-Grep haette das nie gezeigt — genau der Unterschied zwischen einem Test, der Text vergleicht, und einem, der Verhalten prueft.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
