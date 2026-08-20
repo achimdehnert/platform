@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-16",
+  "generated": "2026-08-20",
   "total": 242,
   "next_free": 297,
   "adrs": [
@@ -2718,7 +2718,7 @@
       "id": "ADR-168",
       "file": "ADR-168-onboarding-platform-architecture.md",
       "title": "Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern",
-      "status": "proposed",
+      "status": "void",
       "date": "2026-04-21",
       "domains": [
         "schulungspass.de",
