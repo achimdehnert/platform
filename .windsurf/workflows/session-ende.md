@@ -294,6 +294,26 @@ andere Frage —, sondern **„was verschwindet, wenn dieses Fenster zugeht?"**
 > alle über andere Repos, **keins bearbeitet**. Der Melder war zuverlässig; ein Leser
 > fehlte. Dieselbe Klasse wie 🌀 `melder-ohne-leser`.
 
+**Und drittens: jeder behandelte Melder-Befund bekommt ein Urteil (NEU 2026-08-20).**
+War der Befund berechtigt oder ein Fehlalarm? Ohne diese Einstufung ist die Präzision
+eines Melders unbekannt — und ein Melder mit vielen Fehlalarmen sieht aus wie einer,
+der viel findet.
+
+```bash
+python3 platform/tools/befund_journal.py --echt   '<ID>' '<kurze Notiz>'
+python3 platform/tools/befund_journal.py --falsch '<ID>' '<warum Fehlalarm>'
+```
+
+**Warum das zählt:** Am 2026-08-20 waren in einer einzigen Sitzung vier Melder-Befunde
+falsch — ein `DOPPELLAUF` ohne laufende Container, drei `required-file`-Errors für
+Dateien, die existieren (nur an anderer Stelle), ein Footer-Hash, der jede korrekte
+Kopie als Drift meldet, und zwei Melder, die gemergte PRs als offene Referenz lesen.
+Vier Melder, vier Fehlalarme, null Messung. Ein Melder, der öfter irrt als trifft,
+erzieht zum Wegsehen — und das trifft dann auch seine **richtigen** Befunde.
+
+Die Quote erscheint im Session-Start als Phase `0.7.11`, aber erst ab drei Urteilen
+je Melder: darunter ist jede Quote Zufall.
+
 **Ebenfalls hier abzufragen: rückfällige Gates aus Phase 0.7.7 (NEU 2026-08-20).**
 Meldet der Session-Start ein Gate als `RUECKFAELLIG`, dann hat eine Regel versagt, auf
 die sich der Loop verlässt — der Befund gehört ins selbe Netz wie ein Fremd-Repo-Befund

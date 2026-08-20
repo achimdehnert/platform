@@ -486,6 +486,27 @@ else
   record "0.7.7 gate-wirkung" "PASS" "kein Gate rueckfaellig"
 fi
 
+# ── 0.7.11 Melder-Praezision: wer haeufiger irrt als trifft ─────────────────
+# Am 2026-08-20 waren in EINER Sitzung vier Melder-Befunde falsch: ein DOPPELLAUF
+# ohne laufende Container, drei required-file-Errors fuer Dateien, die es gibt (nur
+# woanders), ein Footer-Hash, der jede korrekte Kopie als Drift meldet, und zwei
+# Melder, die gemergte PRs als offene Referenz lesen. Vier Melder, vier Fehlalarme,
+# null Messung.
+#
+# Ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen — und das trifft dann
+# auch seine RICHTIGEN Befunde. Dieselbe Klasse wie ein rueckfaelliges Gate (0.7.7),
+# nur auf der Erkennungsseite.
+#
+# Die Urteile kommen aus /session-ende (--echt / --falsch). Ohne Urteile bleibt die
+# Zeile still: eine Praezision unter drei Urteilen ist Rauschen, kein Befund.
+PRAEZ_OUT=$(python3 "$PLATFORM_DIR/tools/befund_journal.py" --praezision --kurz 2>/dev/null || true)
+if [ -n "$PRAEZ_OUT" ]; then
+  record "0.7.11 melder-praezision" "WARN" "$(echo "$PRAEZ_OUT" | head -1 | tr '|' '/')"
+  echo "$PRAEZ_OUT" | tail -n +2
+else
+  record "0.7.11 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
+fi
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys
