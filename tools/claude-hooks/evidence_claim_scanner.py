@@ -485,6 +485,47 @@ def _published_bodies(tool_inputs: list) -> list:
     return bodies
 
 
+#: Woran ein Satz seinen Gegenstand nennt: Datei, PR/Issue, Lauf-ID, Repo,
+#: Backtick-Bezeichner. Bewusst eng — ein nicht erkanntes Subjekt fuehrt zum
+#: bisherigen Verhalten zurueck (generische Korroboration), nie zu einem Block
+#: aus dem Nichts.
+_SUBJEKT_MUSTER = (
+    re.compile(r"\b[\w./-]+\.(?:py|md|ya?ml|json|sh|toml|ts|tsx|js|sql)\b"),
+    re.compile(r"#\d{2,6}\b"),
+    re.compile(r"\b\d{9,}\b"),
+    re.compile(r"`([^`\n]{3,60})`"),
+    re.compile(r"\b[a-z][a-z0-9]+-(?:hub|beat|lab|agent)\b"),
+)
+
+#: Rauschen, das als Backtick-Bezeichner durchrutscht und nichts identifiziert.
+_SUBJEKT_STOPP = {"ja", "nein", "ok", "main", "true", "false", "null"}
+
+
+def _subjekte(text: str) -> list[str]:
+    """Die Gegenstaende, ueber die der Text etwas behauptet.
+
+    Leere Liste heisst: kein benennbarer Gegenstand — dann bleibt es beim alten
+    Verhalten. Der Scanner darf nie werfen, deshalb ist alles hier tolerant.
+    """
+    gefunden: list[str] = []
+    try:
+        for muster in _SUBJEKT_MUSTER:
+            for treffer in muster.findall(text or ""):
+                wert = (treffer if isinstance(treffer, str) else treffer[0]).strip()
+                if len(wert) >= 3 and wert.lower() not in _SUBJEKT_STOPP:
+                    gefunden.append(wert)
+    except Exception:  # noqa: BLE001 — Scanner darf nie werfen
+        return []
+    # Reihenfolge erhalten, Dubletten raus
+    gesehen: set[str] = set()
+    ergebnis = []
+    for w in gefunden:
+        if w.lower() not in gesehen:
+            gesehen.add(w.lower())
+            ergebnis.append(w)
+    return ergebnis[:12]
+
+
 def _last_turn_blocks(transcript_path: str):
     """Return (assistant_text, tool_evidence_text, tool_inputs) for the turn since
     the last user message. tool_evidence_text concatenates tool_result/tool_use
@@ -627,9 +668,34 @@ def main() -> int:
     if lauf_fired and not RUN_EVIDENCE_TOKENS.search(evidence_text):
         fired.extend(lauf_fired)
 
+    # Subjektbindung (2026-08-20, Ausweitung nach #2143): die Korroboration unten
+    # fragt bisher nur, OB im Zug ueberhaupt belegartiges Werkzeug lief — nicht, ob
+    # es den GENANNTEN Gegenstand beruehrt hat. Wer zwanzig Kommandos zu Thema A
+    # ausfuehrt und danach etwas ueber Thema B behauptet, kommt durch. Genau so
+    # liefen die Rueckfaelle nach dem letzten Umbau: zwei falsche Ursachen in
+    # gemergten Artefakten und eine Abwesenheits-Behauptung ueber ein Issue, das
+    # seit 13 Tagen existierte (Retros 37e8e0 und f9cbb7, 2026-08-17/20).
+    subjekte = _subjekte(assistant_text)
+    subjekt_unbelegt = bool(subjekte) and not any(
+        sub.lower() in evidence_text.lower() for sub in subjekte
+    )
+
     # Corroboration: did the turn run any tool whose output looks like real
     # test/deploy/publish evidence?
-    if fired and EVIDENCE_TOKENS.search(evidence_text):
+    # Ein unbelegtes Subjekt entwaffnet die generische Korroboration: dieselbe
+    # Logik wie bei `lauf_fired` oben, nur nach Gegenstand statt nach Belegart.
+    # Kalibrierfenster (2026-08-20 bis 2026-09-03): die Subjektbindung entwaffnet
+    # die Korroboration nur, wenn sie ausdruecklich scharf geschaltet ist. Sonst
+    # meldet sie den Fall als Hinweis, ohne zu blocken — dieselbe SUGGEST-first-
+    # Disziplin wie bei den anderen neuen Mustern. Ein Gate, das am ersten Tag
+    # blockt, wird abgeschaltet statt kalibriert.
+    subjekt_scharf = os.environ.get("EVIDENCE_SCANNER_SUBJEKTBINDUNG", "") == "scharf"
+    kalibrier_fall = bool(
+        fired and subjekt_unbelegt and EVIDENCE_TOKENS.search(evidence_text)
+    )
+    if fired and EVIDENCE_TOKENS.search(evidence_text) and not (
+        subjekt_unbelegt and subjekt_scharf
+    ):
         fired = [
             label
             for label in fired
@@ -670,6 +736,21 @@ def main() -> int:
                 fired.append(
                     "published-body (PR/Issue-Body-Claim ohne Read-Beleg im Turn)"
                 )
+
+    if kalibrier_fall and not subjekt_scharf:
+        # Im Kalibrierfenster wird der Fall PROTOKOLLIERT, nicht gemeldet: so
+        # entstehen Messdaten, ohne die Sitzung mit Hinweisen zu fluten. Scharf
+        # geschaltet (EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf) entwaffnet er
+        # stattdessen die Korroboration weiter oben.
+        try:
+            gate_hits.notiere(
+                GATE_HEADER["slug"],
+                "kinds=subjekt-unbelegt-kalibrierung",
+                session=str(event.get("session_id", "")),
+                modus="advisory",
+            )
+        except Exception:  # noqa: BLE001 — Protokoll darf den Hook nie kippen
+            pass
 
     if not fired:
         return 0

@@ -10,7 +10,9 @@
       "module": "tools/claude-hooks/evidence_claim_scanner.py",
       "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
       "built": "2026-08-02",
-      "ref": "platform#1643"
+      "ref": "platform#1643",
+      "revised": "2026-08-20",
+      "revision_note": "Ausweitung um die Subjektbindung (platform#2143, Owner-Entscheid 'ausweiten'): die Korroboration fragte nur, OB belegartiges Werkzeug lief, nicht ob es den GENANNTEN Gegenstand beruehrt hat. Kalibrierfenster bis 2026-09-03: der Fall wird protokolliert (kinds=subjekt-unbelegt-kalibrierung), scharf erst mit EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf."
     },
     {
       "slug": "deferred-item-no-tracking-issue",
@@ -28,7 +30,9 @@
       "module": "tools/claude-hooks/scope_checkpoint_scanner.py",
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
-      "ref": "platform#1646"
+      "ref": "platform#1646",
+      "revised": "2026-08-19",
+      "revision_note": "Rev 2 des Scanners: Bedingung kommt aus Tool-Evidenz statt aus dem Wortlaut (gegen Nicht-Gesagtes ist ein Wortlaut-Scanner blind). Offen bleibt, dass der Stop-Hook erst nach der Arbeit feuert — als scope-checkpoint-advisory-fires-too-late benannt."
     },
     {
       "slug": "stale-local-clone-as-ground-truth",
@@ -135,7 +139,9 @@
       "drill": "tools/tests/test_silent_failures.py",
       "built": "2026-07-31",
       "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
-      "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12."
+      "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12.",
+      "revised": "2026-08-20",
+      "revision_note": "Ausweitung um die zweite Familie (platform#2143): der Checker sah nur continue-on-error in Workflows. Die beiden juengsten Rueckfaelle lagen daneben — pytest hinter `| tee` ohne pipefail (Retro 932035) und `|| true` neben `grep -c` (Retro c45b39). `--shell` prueft jetzt Shell-Dateien darauf, advisory (keine False-Positive-Baseline, und der Checker selbst ist blockierend); `--shell-strict` zaehlt sie fuer den Exit-Code."
     },
     {
       "slug": "autonomous-no-human-review",
@@ -212,6 +218,16 @@
       "built": "2026-08-20",
       "ref": "platform#2164",
       "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag."
+    },
+    {
+      "slug": "zeitplan-still-abgeschaltet",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/zeitplan_wach.py",
+      "drill": "tools/tests/test_zeitplan_wach.py",
+      "built": "2026-08-20",
+      "ref": "platform#2114",
+      "note": "GitHub schaltet schedule-Trigger nach 60 Tagen Repo-Inaktivitaet ab. infra-deploy lief dadurch drei Wochen ohne Datenbank-Backup, ohne dass ein Check rot wurde."
     },
     {
       "slug": "untested-command-handed-to-user",

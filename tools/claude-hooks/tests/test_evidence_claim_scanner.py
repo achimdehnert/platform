@@ -180,3 +180,90 @@ def test_should_ohne_claim_still_bleiben_auch_im_blocking_mode(
     rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
     assert rc == 0
     assert out == {}, "Kein Claim, aber Hook feuerte — False-Positive-Drill verletzt"
+
+
+# ── Subjektbindung (Ausweitung 2026-08-20, #2143) ───────────────────────────
+# Die Korroboration fragte bisher nur, OB belegartiges Werkzeug lief. Diese Tests
+# halten fest, dass sie nach dem GENANNTEN Gegenstand fragt.
+
+
+def _transcript_mit_evidenz(tmp_path, assistant_text: str, tool_input: dict, ergebnis: str):
+    import json as _json
+
+    p = tmp_path / "transcript_ev.jsonl"
+    zeilen = [
+        {"type": "user", "message": {"content": "mach mal"}},
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "name": "Bash", "input": tool_input},
+                    {"type": "text", "text": assistant_text},
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [{"type": "tool_result", "content": ergebnis}]
+            },
+        },
+    ]
+    p.write_text("\n".join(_json.dumps(z) for z in zeilen), encoding="utf-8")
+    return p
+
+
+def test_should_subjekt_aus_dem_satz_ziehen():
+    gefunden = scanner._subjekte(
+        "Der Fix in tools/mail_agent/mail_view.py ist live, PR #2147 gemergt."
+    )
+    assert "tools/mail_agent/mail_view.py" in gefunden
+    assert "#2147" in gefunden
+
+
+def test_should_ohne_benennbaren_gegenstand_leer_bleiben():
+    """Kein Subjekt heisst: altes Verhalten, kein Block aus dem Nichts."""
+    assert scanner._subjekte("Alles gruen und fertig.") == []
+
+
+def test_should_claim_ueber_fremden_gegenstand_scharf_geschaltet_melden(
+    monkeypatch, capsys, tmp_path
+):
+    """Zwanzig Kommandos zu Thema A belegen keine Behauptung ueber Thema B.
+
+    Scharf geschaltet entwaffnet die fremde Evidenz den Claim nicht mehr.
+    """
+    monkeypatch.setenv("EVIDENCE_SCANNER_SUBJEKTBINDUNG", "scharf")
+    p = _transcript_mit_evidenz(
+        tmp_path,
+        "Die Tests in tools/tests/test_ganz_anderes.py sind 8/8 gruen.",
+        {"command": "pytest tools/tests/test_mail_view.py"},
+        "20 passed in 0.4s",
+    )
+    rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert rc != 0 or out, "unbelegtes Subjekt muss scharf geschaltet gemeldet werden"
+
+
+def test_should_im_kalibrierfenster_nicht_blocken(monkeypatch, capsys, tmp_path):
+    """Ohne Scharfschaltung bleibt derselbe Fall still — er wird nur protokolliert."""
+    monkeypatch.delenv("EVIDENCE_SCANNER_SUBJEKTBINDUNG", raising=False)
+    p = _transcript_mit_evidenz(
+        tmp_path,
+        "Die Tests in tools/tests/test_ganz_anderes.py sind 8/8 gruen.",
+        {"command": "pytest tools/tests/test_mail_view.py"},
+        "20 passed in 0.4s",
+    )
+    rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert rc == 0 and not out
+
+
+def test_should_claim_mit_passendem_beleg_durchlassen(monkeypatch, capsys, tmp_path):
+    """Gegenprobe: nennt die Evidenz denselben Gegenstand, bleibt es still."""
+    p = _transcript_mit_evidenz(
+        tmp_path,
+        "Die Tests in tools/tests/test_mail_view.py sind 8/8 gruen.",
+        {"command": "pytest tools/tests/test_mail_view.py"},
+        "8 passed in 0.4s",
+    )
+    rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert rc == 0 and not out
