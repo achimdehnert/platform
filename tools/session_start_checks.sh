@@ -486,6 +486,41 @@ else
   record "0.7.7 gate-wirkung" "PASS" "kein Gate rueckfaellig"
 fi
 
+# ── 0.7.8 Zeitplan-Wache: von GitHub still abgeschaltete Workflows ──────────
+# GitHub schaltet `schedule`-Trigger nach 60 Tagen ohne Repo-Aktivitaet ab. Der
+# Workflow verschwindet dann nicht, er laeuft nur nie wieder — kein roter Lauf,
+# keine Meldung, nur eine Luecke in der Historie. Realfall 2026-08-20:
+# `infra-deploy` hatte `Database Backup` und `Health Check` seit dem 2026-07-30
+# in `disabled_inactivity`. Drei Wochen ohne Datenbank-Backup, und das offene
+# Issue dazu (#2114) vermutete eine ganz andere Ursache.
+#
+# Besonders betroffen sind Repos, die NUR Zeitplaene fahren: je verlaesslicher der
+# Automatismus, desto weniger Grund, ins Repo zu pushen — sie schalten sich
+# zwangslaeufig selbst ab.
+#
+# Repo-Liste kommt aus den ORGS, nicht nur aus der Registry: der erste Lauf meldete
+# null, weil ausgerechnet `infra-deploy` dort kein `rich.github`-Feld traegt.
+WACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/zeitplan_wach.py" --kurz 2>/dev/null || true)
+if [ -n "$WACH_OUT" ]; then
+  record "0.7.8 zeitplan-wache" "WARN" "$(echo "$WACH_OUT" | head -1 | tr '|' '/')"
+  echo "$WACH_OUT" | tail -n +2
+else
+  record "0.7.8 zeitplan-wache" "PASS" "kein Zeitplan still abgeschaltet"
+fi
+
+# ── 0.7.9 Gate-Deckung: GATE-PFLICHT gezaehlt, nie eingeloest ───────────────
+# retro_kpis eskaliert jeden Slug >=2 zur GATE-PFLICHT. Die Pflicht wird gezaehlt,
+# ihre Einloesung nirgends — 16 Slugs sind mehrfach aufgetreten und tragen weder
+# Gate noch declined-Eintrag. Das ist die stille Schwester des Rueckfalls (0.7.7):
+# dort versagt ein gebautes Gate, hier entstand nie eines.
+DECKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --kurz 2>/dev/null || true)
+if [ -n "$DECKUNG_OUT" ]; then
+  record "0.7.9 gate-deckung" "WARN" "$(echo "$DECKUNG_OUT" | head -1 | tr '|' '/')"
+  echo "$DECKUNG_OUT" | tail -n +2
+else
+  record "0.7.9 gate-deckung" "PASS" "keine offene Gate-Pflicht"
+fi
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys
