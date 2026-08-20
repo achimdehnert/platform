@@ -214,7 +214,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--registry", default=DEFAULT_REGISTRY)
     parser.add_argument("--dir", action="append", dest="dirs")
-    parser.add_argument("--kurz", action="store_true", help="eine Zeile fuer den Runner")
+    parser.add_argument(
+        "--kurz", action="store_true", help="eine Zeile fuer den Runner"
+    )
     parser.add_argument("--json", action="store_true", dest="als_json")
     args = parser.parse_args()
 
@@ -233,13 +235,19 @@ def main() -> int:
     rueckfaellig = [e for e in bewertet if e["urteil"] == "RUECKFAELLIG"]
 
     if args.als_json:
-        print(json.dumps({"retros": len(retros), "gates": bewertet}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"retros": len(retros), "gates": bewertet}, ensure_ascii=False, indent=2
+            )
+        )
         return 0
 
     if args.kurz:
         if rueckfaellig:
             spitze = rueckfaellig[0]
-            weitere = f" (+{len(rueckfaellig) - 1} weitere)" if len(rueckfaellig) > 1 else ""
+            weitere = (
+                f" (+{len(rueckfaellig) - 1} weitere)" if len(rueckfaellig) > 1 else ""
+            )
             print(
                 f"{len(rueckfaellig)} Gate(s) rueckfaellig — "
                 f"{spitze['slug']}: {spitze['nachher']}x seit Bau {spitze['gebaut']}, "
