@@ -260,3 +260,25 @@ class TestErledigt:
             _ledger(_v(nr=3, bucket="erledigt", erledigt_am="gestern"), naechste=4)
         )
         assert any("erledigt_am" in b for b in befunde)
+
+
+class TestLinkZiel:
+    """Der Posten fuehrt in die Vorgangsansicht, nicht in die aelteste Mail."""
+
+    def test_should_link_to_the_vorgangsansicht(self):
+        ziel = board.link_fuer(7, "imap", {"thread_key": "Muster Vorgang"})
+        assert ziel == "https://todo.iil.pet/t/Muster%20Vorgang"
+
+    def test_should_encode_umlauts_in_the_thread_key(self):
+        ziel = board.link_fuer(7, "imap", {"thread_key": "Löschung Konto"})
+        assert ziel == "https://todo.iil.pet/t/L%C3%B6schung%20Konto"
+
+    def test_should_fall_back_to_the_mail_anchor_without_thread_key(self):
+        assert board.link_fuer(7, "imap", {}) == "https://mail.iil.pet/a/7"
+
+    def test_should_return_nothing_when_neither_exists(self):
+        assert board.link_fuer(7, "fehlt", {}) is None
+
+    def test_should_link_even_without_anchored_mail(self):
+        """Genau die Luecke, die vorher 'nicht anklickbar' hiess."""
+        assert board.link_fuer(7, "fehlt", {"thread_key": "Ohne Anker"}) is not None
