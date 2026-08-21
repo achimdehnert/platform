@@ -136,6 +136,26 @@ Analyse-Bahn ableiten. Der Satz ist inhaltlich eine, sagt es aber nicht — und 
 falsch einsortierter Satz behauptet eine Gliederung, die der Autor nie gemeint
 hat. Dieselbe Linie wie `ablage_erledigt.py`: nichts wird geraten.
 
+**PFLICHT — jeder Eintrag, der eine Mail meint, nennt ihre Nummer MIT Ordner.**
+Nicht als Stilfrage, sondern damit der Eintrag spaeter noch pruefbar ist: Wer in
+vier Wochen wissen will, worauf sich ein Satz stuetzt, kommt mit einem Klick hin
+— oder gar nicht. Gemessen am 2026-08-21 ueber alle 283 Verlaufseintraege waren
+**20** ueberhaupt einer Mail zuzuordnen und **4** klickbar; der Rest nennt weder
+Nummer noch Betreff in Anfuehrungszeichen. Das ist der Grund fuer diese Zeile.
+
+Kanonische Formen (alles andere bleibt stumm):
+
+| Fall | Schreibweise |
+|---|---|
+| Eingang | `INBOX #164024` |
+| Eigene Mail | `Ordner 'Gesendete Objekte' (#34349)` |
+| Entwurf | `Entwuerfe #23611` |
+
+Steht keine Nummer zur Verfuegung (Telefonat, Owner-Ansage, Beobachtung), gehoert
+statt einer erfundenen Nummer **Betreff in Anfuehrungszeichen plus Datum** in den
+Satz — daraus baut `tools/mail_agent/eintrag_mails.py` wenigstens die
+Identifikation in der Kopfzeile.
+
 **Referenzen so schreiben, dass sie klickbar werden:** Der Renderer verlinkt eine
 Nachrichten-Nummer nur, wenn der **Ordner danebensteht** (`INBOX #164024`,
 `Ordner 'Gesendete Objekte' (#34349)`). Ohne Ordner loest `/m/<konto>/<uid>`
