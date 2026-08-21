@@ -110,22 +110,59 @@ _DURABLE_TOOL_PREFIXES = (
 _SCHREIB_TOOLS = ("Write", "Edit", "NotebookEdit")
 
 
-def _repo_aus_pfad(pfad: str) -> str:
-    """Repo-Name aus einem Datei- oder Arbeitsverzeichnis-Pfad.
+#: Woraus ein Repo-Name bestehen darf. Der erste Buchstabe muss alphanumerisch
+#: sein — das haelt versteckte Verzeichnisse (``.repo-session``) heraus, ohne
+#: dafuer eine eigene Bedingung zu brauchen.
+_REPO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
-    Deckt beide Orte ab, an denen Repos liegen: den geteilten Haupt-Tree
-    (``~/github/<repo>``) und die Worktrees aus ``repo-session.sh``
-    (``.repo-session/worktrees/<repo>/<branch-slug>``). Ohne den zweiten Fall
-    waere jede ADR-233-konforme Sitzung fuer dieses Gate unsichtbar — genau
-    die Klasse Blindstelle, die Rev 2 beseitigen soll.
+#: Die beiden Orte, an denen Repos liegen: der geteilte Haupt-Tree
+#: (``~/github/<repo>``) und die Worktrees aus ``repo-session.sh``
+#: (``.repo-session/worktrees/<repo>/<branch-slug>``).
+_REPO_MARKER = ("/worktrees/", "/github/")
+
+
+def _repo_aus_pfad(pfad: str) -> str:
+    """Repo-Name aus einem echten Datei- oder Arbeitsverzeichnis-Pfad.
+
+    Bis 2026-08-21 stand hier ``rest.split("/", 1)[0]`` — alles bis zum naechsten
+    Schraegstrich. Auf einem Pfad ist das richtig; die zweite Aufrufstelle
+    uebergibt aber einen ganzen **Bash-Kommandostring**, und dort steht hinter
+    dem Repo-Namen kein Schraegstrich, sondern Shell-Syntax. Aus
+    ``cd ~/github/platform && cat > /tmp/x`` wurde so der "Repo-Name"
+    ``'platform && cat > '``. ``repos_beschrieben`` ist ein Set von Strings:
+    drei Schreibweisen desselben Repos sind darin drei Eintraege, und die
+    Schwelle war erreicht.
+
+    Die Wirkung war schlimmer als eine Fehlmeldung. Das Gate soll bei echtem
+    Scope-Wachstum innehalten lassen; wenn es in Ein-Repo-Sitzungen anschlaegt,
+    sobald jemand ``cd <repo> && …`` schreibt — also fast immer —, gewoehnt es
+    genau das Weghoeren an, gegen das es gebaut ist. Ein spaeterer Rueckfall
+    liefe dann als "Gate wirkt nicht", obwohl die Ursache Messrauschen ist.
     """
-    for marker in ("/worktrees/", "/github/"):
+    for marker in _REPO_MARKER:
         if marker in pfad:
-            rest = pfad.split(marker, 1)[1]
-            name = rest.split("/", 1)[0]
-            if name and not name.startswith("."):
-                return name
+            treffer = _REPO_NAME.match(pfad.split(marker, 1)[1])
+            if treffer:
+                return treffer.group(0)
     return ""
+
+
+def _repos_aus_kommando(cmd: str) -> set[str]:
+    """ALLE Repos, die ein Kommando anfasst — nicht nur das erste.
+
+    ``_repo_aus_pfad`` bricht beim ersten Treffer ab; das ist fuer einen Pfad
+    richtig und fuer ein Kommando falsch. Ein ``cp ~/github/a/x ~/github/b/y``
+    beruehrt zwei Repos, und ausgerechnet dieses Gate zaehlt Repos. Ein
+    Untertreiben ist hier die gefaehrlichere Richtung: es verschweigt genau den
+    Cross-Repo-Sprung, den der Checkpoint sichtbar machen soll.
+    """
+    gefunden: set[str] = set()
+    for marker in _REPO_MARKER:
+        for teil in cmd.split(marker)[1:]:
+            treffer = _REPO_NAME.match(teil)
+            if treffer:
+                gefunden.add(treffer.group(0))
+    return gefunden
 
 
 def sammle_evidenz(transcript_path: Path) -> dict:
@@ -201,9 +238,10 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                 if _DURABLE_CMD.search(cmd):
                     durable_bei.append(schritt)
                 if _SCHREIBEND.search(cmd):
-                    repo = _repo_aus_pfad(cmd) or _repo_aus_pfad(cwd)
-                    if repo:
-                        ergebnis["repos_beschrieben"].add(repo)
+                    repos = _repos_aus_kommando(cmd)
+                    if not repos and (aus_cwd := _repo_aus_pfad(cwd)):
+                        repos = {aus_cwd}
+                    ergebnis["repos_beschrieben"].update(repos)
 
     if checkpoint_bei is not None:
         ergebnis["durables_artefakt"] = any(i >= checkpoint_bei for i in durable_bei)
