@@ -235,6 +235,28 @@ class TestVerlinkung:
         assert seite.count("id=ovl-frame") == 1
 
 
+class TestEntwurfInDerListe:
+    """Ein wartender Entwurf ist der haeufigste Grund fuer 'dein Zug' — und stand
+    bisher einen Klick entfernt (Owner-Befund 2026-08-21: 'MUSS bekannt sein')."""
+
+    def test_should_link_a_draft_from_the_newest_entry(self):
+        v = vorgang(konto="hnu", notiz="alt | 2026-08-21 ENTWURF (HNU, Entwuerfe #23611)")
+        assert tb.entwurf_link(v, "https://m.example") == "https://m.example/m/hnu/entwuerfe/23611"
+
+    def test_should_ignore_a_draft_from_an_older_entry(self):
+        """Ein Entwurf von vorletzter Woche ist gesendet oder verworfen."""
+        v = vorgang(konto="hnu", notiz="2026-08-01 ENTWURF (Entwuerfe #111) | 2026-08-21 gesendet")
+        assert tb.entwurf_link(v, "https://m.example") == ""
+
+    def test_should_stay_silent_without_an_account(self):
+        v = vorgang(konto="", notiz="ENTWURF (Entwuerfe #23611)")
+        assert tb.entwurf_link(v, "https://m.example") == ""
+
+    def test_should_show_the_marker_in_the_row(self):
+        v = vorgang(konto="hnu", notiz="2026-08-21 ENTWURF (Entwuerfe #23611)")
+        assert "entwurf-marke" in tb.zeile(v, STICHTAG, "", "https://m.example")
+
+
 class TestVorgangsKopf:
     """Der erste Blick zeigt Information, nicht Stammdaten (Owner-Befund 2026-08-21)."""
 

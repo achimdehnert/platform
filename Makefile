@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards kette test lint setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards kette aufraeumen test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -27,12 +27,16 @@ PROD_SERVER := hetzner-prod
 # HELP & MENU
 # =============================================================================
 
+aufraeumen: ## Erledigte Vorgaenge archivieren und Titellose melden (Anzeige)
+	@python3 tools/mail_agent/vorgaenge_archivieren.py
+
 kette: ## Mail-/Todo-Kette pruefen (Postfach -> Ledger -> Vorhersage -> Board -> Ansicht)
 	@python3 tools/mail_agent/kettencheck.py
 
 boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	@python3 tools/mail_agent/board.py --pruefe
 	@python3 tools/mail_agent/faelligkeit.py --schreibe >/dev/null || echo "  (Faelligkeit uebersprungen — Mail-Index nicht erreichbar)"
+	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
 	@python3 tools/todo_board/todo_board.py build
 

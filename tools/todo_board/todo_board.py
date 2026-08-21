@@ -45,6 +45,9 @@ ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-archiv.json"
 #: Erwartete Antwortdaten aus echten Mailzeiten (tools/mail_agent/faelligkeit.py).
 #: Die Datei ist optional — fehlt sie, sieht die Liste aus wie vorher.
 FAELLIGKEIT = Path.home() / ".claude" / "mail-faelligkeit.json"
+#: Zuordnung Verlaufseintrag → Mail (tools/mail_agent/eintrag_mails.py). Optional:
+#: fehlt die Datei, bleiben die Eintraege nummeriert, aber ohne Mail-Bezug.
+EINTRAG_LINKS = Path.home() / ".claude" / "mail-eintrag-links.json"
 AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
 PORT = 8789
 # Ab wie vielen Tagen ohne Erhebung die Seite ihren eigenen Stand in Frage stellt.
@@ -241,6 +244,29 @@ def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
     return (1, 0, v.get("thread_key", "")) if tage is None else (0, tage, "")
 
 
+#: Ein wartender Entwurf im juengsten Verlaufseintrag. Er ist der haeufigste Grund,
+#: warum ein Posten „dein Zug" ist — und stand bisher nur im Verlauf, also einen
+#: Klick entfernt (Owner-Befund 2026-08-21: „MUSS bekannt sein").
+_ENTWURF_REF = re.compile(r"Entw(?:ue|ü)rfe\s*#(?P<uid>\d{3,7})", re.I)
+
+
+def entwurf_link(v: dict, mail_basis: str = MAIL_BASIS) -> str:
+    """URL des wartenden Entwurfs — leer, wenn der juengste Eintrag keinen nennt.
+
+    Bewusst nur der JUENGSTE Eintrag: ein Entwurf von vorletzter Woche ist
+    entweder gesendet oder verworfen, und ein Link darauf verspricht einen
+    Zustand, den es nicht mehr gibt.
+    """
+    eintraege = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
+    konto = str(v.get("konto") or "")
+    if not eintraege or not konto:
+        return ""
+    treffer = _ENTWURF_REF.search(eintraege[-1])
+    if not treffer:
+        return ""
+    return f"{mail_basis.rstrip('/')}/m/{konto}/entwuerfe/{treffer.group('uid')}"
+
+
 def zeile(
     v: dict,
     stichtag: date,
@@ -296,6 +322,13 @@ def zeile(
     # am Sache-Link daneben. Ohne thread_key bleibt das Briefsymbol die einzige
     # Spur zur Mail und darum erhalten.
     ziel = None if schluessel else mail_ziel(v, mail_basis, anker)
+    entwurf = entwurf_link(v, mail_basis)
+    entwurf_marke = (
+        f" <a class='entwurf-marke' href='{html.escape(entwurf)}' target='_blank'"
+        f" rel='noreferrer' title='Entwurf oeffnen'>Entwurf</a>"
+        if entwurf
+        else ""
+    )
     mail = (
         f" <a class='maillink' href='{html.escape(ziel)}' target='_blank' "
         f"rel='noreferrer' aria-label='Mail zu #{nr_text} oeffnen' "
@@ -306,7 +339,7 @@ def zeile(
     return (
         "<tr>"
         f"<td class='nr'>{nr_text}</td>"
-        f"<td class='sache'>{sache}{mail}"
+        f"<td class='sache'>{sache}{mail}{entwurf_marke}"
         f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
         f"<td class='konto'>{html.escape(konto)}</td>"
         f"<td class='frist {klasse}'>{html.escape(text)}"
@@ -600,6 +633,16 @@ def _erwartung(nr, pfad: Path | None = None) -> dict:
     return eintrag if isinstance(eintrag, dict) else {}
 
 
+def _eintrag_links(nr, pfad: Path | None = None) -> dict:
+    """Mail-Bezuege der Verlaufseintraege eines Vorgangs — leer, wenn keine da sind."""
+    try:
+        daten = json.loads((pfad or EINTRAG_LINKS).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    eintrag = daten.get(str(nr)) if isinstance(daten, dict) else None
+    return eintrag if isinstance(eintrag, dict) else {}
+
+
 def _archiv_eintraege(nr, pfad: Path | None = None) -> list[str]:
     """Der ausgelagerte Teil des Verlaufs — leer, wenn es kein Archiv gibt.
 
@@ -866,10 +909,12 @@ def zerlege_eintrag(roh: str) -> dict:
 
 
 def verlauf(
-    eintraege: list[str],
+    eintraege: list,
     konto: str = "",
     mail_basis: str = MAIL_BASIS,
     neueste_zuerst: bool = True,
+    nr=None,
+    links: dict | None = None,
 ) -> str:
     """Der Verlauf als Karten — Beiwerk eingeklappt.
 
@@ -879,8 +924,15 @@ def verlauf(
     if not eintraege:
         return "<p class='kein-ziel'>Kein Verlauf.</p>"
     karten: list[str] = []
-    for roh in eintraege:
+    stille: list = []
+    links = links if links is not None else _eintrag_links(nr)
+    for eintrag in eintraege:
+        # Nummer und Text kommen als Paar herein: gezaehlt wird vom AELTESTEN Ende,
+        # damit `#132-4` derselbe Eintrag bleibt, wenn oben zehn neue dazukommen.
+        # Eine Nummer, die sich mit der Anzeige verschiebt, taugt nicht zum Zeigen.
+        nummer, roh = eintrag if isinstance(eintrag, tuple) else (None, eintrag)
         t = zerlege_eintrag(roh)
+        bezug = links.get(str(nummer), {}) if nummer is not None else {}
 
         def bahn(schluessel: str, klasse: str, label: str = "") -> str:
             wert = t[schluessel]
@@ -893,6 +945,11 @@ def verlauf(
             )
 
         marken = []
+        if nummer is not None:
+            marke_nr = f"#{html.escape(str(nr))}-{nummer}" if nr else f"#{nummer}"
+            marken.append(
+                f"<a class='eintrag-nr' id='e{nummer}' href='#e{nummer}'>{marke_nr}</a>"
+            )
         if t["datum"]:
             zeit = f" {t['zeit']}" if t["zeit"] else ""
             marken.append(
@@ -902,6 +959,17 @@ def verlauf(
             marken.append(f"<span class='ereignis'>{html.escape(t['ereignis'])}</span>")
         if t["quelle"]:
             marken.append(f"<span class='quelle'>{html.escape(t['quelle'])}</span>")
+        # Der Mail-Bezug steht im Kopf, nicht im Text: er sagt, WELCHE Mail dieser
+        # Eintrag meint. Ohne adressierbare Nummer bleibt es bei Betreff und Datum
+        # — identifizierend, aber ohne Klick, der ins Leere fuehrt.
+        if bezug.get("betreff"):
+            titel = html.escape(f"{bezug.get('datum', '')} {bezug['betreff']}"[:110])
+            marken.append(
+                f"<a class='mail-bezug' href='{html.escape(bezug['url'])}'"
+                f" target='_blank' rel='noreferrer'>✉ {titel}</a>"
+                if bezug.get("url")
+                else f"<span class='mail-bezug ohne-link'>✉ {titel}</span>"
+            )
         # Die Deckung sitzt IM Kopf, nicht im Text: sie ist eine Eigenschaft der
         # Erhebung, keine Aussage ueber den Vorgang.
         if t["deckung"]:
@@ -919,10 +987,47 @@ def verlauf(
         )
         if not rumpf:
             # Ein Eintrag, der nur aus Deckung besteht, ist trotzdem ein Eintrag —
-            # er belegt, dass an dem Tag geprueft und nichts gefunden wurde.
-            rumpf = "<p class='bahn-inhalt kein-ziel'>Nur Erhebung, kein neuer Sachstand.</p>"
+            # er belegt, dass an dem Tag geprueft und nichts gefunden wurde. Aber
+            # vier solche Karten hintereinander sind vier Karten, die dasselbe
+            # sagen: die Erhebung lief, der Vorgang stand still. Sie werden zu
+            # EINER Zeile zusammengefasst (Owner-Befund 2026-08-21, „keine
+            # wiederkehrenden Redundanzen"); die Nummern bleiben nennbar, damit
+            # ein einzelner Tag weiter adressierbar ist.
+            stille.append((nummer, t["datum"]))
+            continue
+        karten.extend(_stille_karte(stille))
+        stille.clear()
         karten.append(f"<article class='eintrag'>{kopfzeile}{rumpf}</article>")
+    karten.extend(_stille_karte(stille))
     return "".join(reversed(karten))
+
+
+def _stille_karte(stille: list) -> list[str]:
+    """Aus einer Folge ereignisloser Erhebungen wird eine Zeile."""
+    if not stille:
+        return []
+    if len(stille) == 1:
+        nummer, datum = stille[0]
+        marke = f"<span class='eintrag-nr'>#{nummer}</span> " if nummer else ""
+        return [
+            f"<article class='eintrag still'>{marke}"
+            f"<time class='eintrag-datum'>{html.escape(datum or '')}</time>"
+            " <span class='kein-ziel'>Nur Erhebung, kein neuer Sachstand.</span>"
+            "</article>"
+        ]
+    datteln = [d for _, d in stille if d]
+    spanne = (
+        f"{datteln[0]} bis {datteln[-1]}"
+        if len(datteln) > 1
+        else (datteln[0] if datteln else "")
+    )
+    nummern = ", ".join(f"#{n}" for n, _ in stille if n)
+    return [
+        "<article class='eintrag still'>"
+        f"<time class='eintrag-datum'>{html.escape(spanne)}</time> "
+        f"<span class='kein-ziel'>{len(stille)} Erhebungen ohne neuen Sachstand</span>"
+        f"<span class='eintrag-nr'> {html.escape(nummern)}</span></article>"
+    ]
 
 
 def detail(
@@ -969,10 +1074,17 @@ def detail(
     # Archivierte Eintraege davorsetzen: sie sind aelter, und die Anzeige dreht
     # gleich um. So bleibt der Verlauf vollstaendig, obwohl der Ledger gekappt ist.
     eintraege = _archiv_eintraege(v.get("nr")) + eintraege
+    # Erst nummerieren, dann drehen: die Nummer gehoert zum Eintrag, nicht zur
+    # Anzeige. Sonst waere `#132-1` je nach Sortierung ein anderer Eintrag.
+    nummeriert = list(enumerate(eintraege, start=1))
     if alt_zuerst:
-        eintraege = list(reversed(eintraege))
+        nummeriert = list(reversed(nummeriert))
     verlaufskarten = verlauf(
-        eintraege, str(v.get("konto") or ""), mail_basis, neueste_zuerst=not alt_zuerst
+        nummeriert,
+        str(v.get("konto") or ""),
+        mail_basis,
+        neueste_zuerst=not alt_zuerst,
+        nr=v.get("nr"),
     )
     schalter = (
         "<a class='reihenfolge' href='?'>neueste zuerst</a>"
