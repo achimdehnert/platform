@@ -244,6 +244,29 @@ def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
     return (1, 0, v.get("thread_key", "")) if tage is None else (0, tage, "")
 
 
+#: Ein wartender Entwurf im juengsten Verlaufseintrag. Er ist der haeufigste Grund,
+#: warum ein Posten „dein Zug" ist — und stand bisher nur im Verlauf, also einen
+#: Klick entfernt (Owner-Befund 2026-08-21: „MUSS bekannt sein").
+_ENTWURF_REF = re.compile(r"Entw(?:ue|ü)rfe\s*#(?P<uid>\d{3,7})", re.I)
+
+
+def entwurf_link(v: dict, mail_basis: str = MAIL_BASIS) -> str:
+    """URL des wartenden Entwurfs — leer, wenn der juengste Eintrag keinen nennt.
+
+    Bewusst nur der JUENGSTE Eintrag: ein Entwurf von vorletzter Woche ist
+    entweder gesendet oder verworfen, und ein Link darauf verspricht einen
+    Zustand, den es nicht mehr gibt.
+    """
+    eintraege = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
+    konto = str(v.get("konto") or "")
+    if not eintraege or not konto:
+        return ""
+    treffer = _ENTWURF_REF.search(eintraege[-1])
+    if not treffer:
+        return ""
+    return f"{mail_basis.rstrip('/')}/m/{konto}/entwuerfe/{treffer.group('uid')}"
+
+
 def zeile(
     v: dict,
     stichtag: date,
@@ -299,6 +322,13 @@ def zeile(
     # am Sache-Link daneben. Ohne thread_key bleibt das Briefsymbol die einzige
     # Spur zur Mail und darum erhalten.
     ziel = None if schluessel else mail_ziel(v, mail_basis, anker)
+    entwurf = entwurf_link(v, mail_basis)
+    entwurf_marke = (
+        f" <a class='entwurf-marke' href='{html.escape(entwurf)}' target='_blank'"
+        f" rel='noreferrer' title='Entwurf oeffnen'>Entwurf</a>"
+        if entwurf
+        else ""
+    )
     mail = (
         f" <a class='maillink' href='{html.escape(ziel)}' target='_blank' "
         f"rel='noreferrer' aria-label='Mail zu #{nr_text} oeffnen' "
@@ -309,7 +339,7 @@ def zeile(
     return (
         "<tr>"
         f"<td class='nr'>{nr_text}</td>"
-        f"<td class='sache'>{sache}{mail}"
+        f"<td class='sache'>{sache}{mail}{entwurf_marke}"
         f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
         f"<td class='konto'>{html.escape(konto)}</td>"
         f"<td class='frist {klasse}'>{html.escape(text)}"
