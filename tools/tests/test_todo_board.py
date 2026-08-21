@@ -240,12 +240,20 @@ class TestEntwurfInDerListe:
     bisher einen Klick entfernt (Owner-Befund 2026-08-21: 'MUSS bekannt sein')."""
 
     def test_should_link_a_draft_from_the_newest_entry(self):
-        v = vorgang(konto="hnu", notiz="alt | 2026-08-21 ENTWURF (HNU, Entwuerfe #23611)")
-        assert tb.entwurf_link(v, "https://m.example") == "https://m.example/m/hnu/entwuerfe/23611"
+        v = vorgang(
+            konto="hnu", notiz="alt | 2026-08-21 ENTWURF (HNU, Entwuerfe #23611)"
+        )
+        assert (
+            tb.entwurf_link(v, "https://m.example")
+            == "https://m.example/m/hnu/entwuerfe/23611"
+        )
 
     def test_should_ignore_a_draft_from_an_older_entry(self):
         """Ein Entwurf von vorletzter Woche ist gesendet oder verworfen."""
-        v = vorgang(konto="hnu", notiz="2026-08-01 ENTWURF (Entwuerfe #111) | 2026-08-21 gesendet")
+        v = vorgang(
+            konto="hnu",
+            notiz="2026-08-01 ENTWURF (Entwuerfe #111) | 2026-08-21 gesendet",
+        )
         assert tb.entwurf_link(v, "https://m.example") == ""
 
     def test_should_stay_silent_without_an_account(self):
@@ -780,11 +788,50 @@ class TestVerlaufZerlegung:
         assert t["action"] == ""
         assert "offenbar" in t["inhalt"]
 
+    def test_should_read_the_span_chronologically_in_both_orders(self):
+        """Die Spanne beschreibt einen Zeitraum — '12. bis 10.' ist keiner."""
+        stille = " | ".join(
+            f"2026-08-1{i} (/mailcheck): kein neuer Eingang im Strang."
+            for i in range(3)
+        )
+        for umgedreht in (False, True):
+            seite = tb.detail(vorgang(notiz=stille), alt_zuerst=umgedreht)
+            assert "2026-08-10 bis 2026-08-12" in seite
+
     def test_should_show_an_entry_that_is_only_coverage_as_a_check_that_happened(self):
         nur_deckung = (
             "2026-08-19 (/mailcheck): kein neuer Eingang im Strang (DB bis 19.08.)."
         )
         assert "Nur Erhebung" in tb.verlauf([nur_deckung], "hnu")
+
+
+class TestEntwurfLink:
+    """Der Link zeigt auf einen Entwurf, den es noch gibt — oder auf nichts."""
+
+    def test_should_link_a_waiting_draft(self):
+        v = vorgang(
+            konto="hnu", notiz="2026-08-21 ENTWURF (Entwuerfe #23611) liegt bereit"
+        )
+        assert tb.entwurf_link(v).endswith("/m/hnu/entwuerfe/23611")
+
+    def test_should_stay_silent_when_the_same_entry_says_it_was_sent(self):
+        v = vorgang(
+            konto="hnu",
+            notiz="2026-08-21 GESENDET: Entwurf aus Entwuerfe #23611 wurde versendet.",
+        )
+        assert tb.entwurf_link(v) == "", "ein toter Link ist schlechter als keiner"
+
+
+class TestArchivLeser:
+    """Archivieren darf aus Sicht eines Lesezeichens kein Loeschen sein."""
+
+    def test_should_read_the_archive_file(self, tmp_path):
+        ziel = tmp_path / "erledigt.json"
+        ziel.write_text('{"vorgaenge": [{"nr": 9}]}', encoding="utf-8")
+        assert tb.archivierte_vorgaenge(ziel) == [{"nr": 9}]
+
+    def test_should_survive_a_missing_archive(self, tmp_path):
+        assert tb.archivierte_vorgaenge(tmp_path / "gibt-es-nicht.json") == []
 
 
 class TestVerlaufVerweise:

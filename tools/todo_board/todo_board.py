@@ -39,6 +39,11 @@ from pathlib import Path
 from urllib.parse import quote, unquote
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
+#: Vorgaenge, die `vorgaenge_archivieren.py` aus dem Ledger genommen hat. Sie
+#: verschwinden aus der LISTE, aber nicht aus dem Netz: ein Link, der gestern
+#: funktionierte, zeigt auch morgen die Akte. Ohne diesen Leser waere das
+#: Archivieren ein stilles Loeschen aus Sicht jedes Lesezeichens.
+ERLEDIGT_ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-erledigt.json"
 #: Der gekappte Teil des Verlaufs (tools/mail_agent/ledger_kappen.py). Die
 #: Vorgangsansicht setzt beides zusammen — gekappt heisst verschoben, nicht weg.
 ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-archiv.json"
@@ -168,6 +173,18 @@ def lade(pfad: Path) -> dict:
         return json.load(fh)
 
 
+def archivierte_vorgaenge(pfad: Path | None = None) -> list[dict]:
+    """Die ausgelagerten Vorgaenge — leere Liste, wenn es noch kein Archiv gibt."""
+    try:
+        roh = (pfad or ERLEDIGT_ARCHIV).read_text(encoding="utf-8")
+    except OSError:
+        return []
+    try:
+        return json.loads(roh).get("vorgaenge", [])
+    except json.JSONDecodeError:
+        return []
+
+
 def frisch_erledigt(vorgang: dict, stichtag) -> bool:
     """Liegt der Abschluss innerhalb des Anzeigefensters?
 
@@ -248,6 +265,10 @@ def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
 #: warum ein Posten „dein Zug" ist — und stand bisher nur im Verlauf, also einen
 #: Klick entfernt (Owner-Befund 2026-08-21: „MUSS bekannt sein").
 _ENTWURF_REF = re.compile(r"Entw(?:ue|ü)rfe\s*#(?P<uid>\d{3,7})", re.I)
+#: Woerter, mit denen derselbe Eintrag sagt, dass es den Entwurf nicht mehr gibt.
+_ENTWURF_ERLEDIGT = re.compile(
+    r"gesendet|versendet|verschickt|abgeschickt|verworfen|nicht mehr", re.I
+)
 
 
 def entwurf_link(v: dict, mail_basis: str = MAIL_BASIS) -> str:
@@ -261,8 +282,14 @@ def entwurf_link(v: dict, mail_basis: str = MAIL_BASIS) -> str:
     konto = str(v.get("konto") or "")
     if not eintraege or not konto:
         return ""
-    treffer = _ENTWURF_REF.search(eintraege[-1])
+    juengster = eintraege[-1]
+    treffer = _ENTWURF_REF.search(juengster)
     if not treffer:
+        return ""
+    # Die Nummer allein sagt nur, dass ein Entwurf ERWAEHNT wird. Steht im selben
+    # Eintrag, dass er gesendet oder verworfen wurde, zeigt der Link auf etwas,
+    # das dort nicht mehr liegt — und ein toter Link ist schlechter als keiner.
+    if _ENTWURF_ERLEDIGT.search(juengster):
         return ""
     return f"{mail_basis.rstrip('/')}/m/{konto}/entwuerfe/{treffer.group('uid')}"
 
@@ -999,7 +1026,11 @@ def verlauf(
         stille.clear()
         karten.append(f"<article class='eintrag'>{kopfzeile}{rumpf}</article>")
     karten.extend(_stille_karte(stille))
-    return "".join(reversed(karten))
+    # Gebaut wird IMMER chronologisch, gedreht wird erst am Schluss. Vorher
+    # drehte der Aufrufer die Liste und diese Funktion drehte das Ergebnis noch
+    # einmal — die Karten standen dadurch richtig, die Datumsspanne der
+    # zusammengefassten Erhebungen aber rueckwaerts ("12. bis 10.").
+    return "".join(reversed(karten) if neueste_zuerst else karten)
 
 
 def _stille_karte(stille: list) -> list[str]:
@@ -1015,7 +1046,9 @@ def _stille_karte(stille: list) -> list[str]:
             " <span class='kein-ziel'>Nur Erhebung, kein neuer Sachstand.</span>"
             "</article>"
         ]
-    datteln = [d for _, d in stille if d]
+    # Chronologisch, nicht in Eingabereihenfolge: die Spanne beschreibt einen
+    # Zeitraum, und "12. bis 10." ist keiner.
+    datteln = sorted(d for _, d in stille if d)
     spanne = (
         f"{datteln[0]} bis {datteln[-1]}"
         if len(datteln) > 1
@@ -1077,8 +1110,6 @@ def detail(
     # Erst nummerieren, dann drehen: die Nummer gehoert zum Eintrag, nicht zur
     # Anzeige. Sonst waere `#132-1` je nach Sortierung ein anderer Eintrag.
     nummeriert = list(enumerate(eintraege, start=1))
-    if alt_zuerst:
-        nummeriert = list(reversed(nummeriert))
     verlaufskarten = verlauf(
         nummeriert,
         str(v.get("konto") or ""),
@@ -1201,7 +1232,7 @@ class Handler(BaseHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR, body, "text/html; charset=utf-8"
             )
             return
-        for v in daten.get("vorgaenge", []):
+        for v in list(daten.get("vorgaenge", [])) + archivierte_vorgaenge():
             if v.get("thread_key") == schluessel and schluessel:
                 self._sende(
                     HTTPStatus.OK,

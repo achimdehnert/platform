@@ -2,13 +2,13 @@
 name: schreibstil
 description: "Schreibt Texte in Achim Dehnerts Stimme — Mails, Konzepte, Issue- und PR-Texte, Antworten im Kapitäns-Kanal. Vier Stimmen (HNU, IIL/DSB, privat, intern), je mit Do/Don't aus echten Korrekturen. Enthält den Umfangs-Regler, die Faktenregel, einen Pre-Send-Selbstcheck und die Korrektur-Schleife, über die jede Owner-Änderung an einem Entwurf zur Regel wird. Gilt für JEDEN Text, der nach außen geht oder dem Owner vorgelegt wird — ohne dass er ihn Wort für Wort prüfen muss."
 metadata:
-  version: v1.0
+  version: v1.1
   stand: 2026-08-21
 ---
 
 # Schreibstil
 
-*v1.0 · Stand 2026-08-21*
+*v1.1 · Stand 2026-08-21*
 
 **Zweck.** Der Owner soll nicht jede Mail, jedes Konzept und jeden PR-Text Wort für
 Wort gegenlesen müssen. Dieser Skill hält fest, wie er schreibt — belegt an
@@ -64,14 +64,21 @@ Jede Zeile hier stammt aus einer echten Streichung.
 
 ## 3 — Umfangs-Regler und Faktenregel
 
-Der Owner gibt pro Text eine Stufe an; ohne Angabe gilt `normal`.
+Der Owner gibt pro Text eine Stufe an; **ohne Angabe gilt `knapp`**
+(Owner-Korrektur 2026-08-21; bis dahin stand hier `normal`).
 
-- `knapp` — Antwort + nächster Schritt. Sonst nichts.
+- `knapp` — **Vorgabe.** Antwort + nächster Schritt. Sonst nichts.
 - `normal` — zusätzlich Struktur und Begründung dort, wo entschieden werden muss.
 - `ausführlich` — zusätzlich Hintergrund, Alternativen, Einordnung.
 
 Optional ein Tenor-Wort, wenn er vom Neutralen abweicht: *förmlich · kollegial ·
 bestimmt · entgegenkommend*.
+
+**„Wieso so und nicht so" ist der teuerste Ballast.** Eine Herleitung, die der Anhang
+ohnehin trägt, macht den Text länger, ohne die Antwort näher zu bringen — und sie klingt
+defensiv, als müsste eine Entscheidung verteidigt werden, die niemand angegriffen hat.
+Die Prüffrage ist nicht „stimmt es?", sondern „**muss der Empfänger es lesen, um antworten
+zu können?**". Rechtfertigung gehört in den Anhang, ins Konzept oder ins Gespräch.
 
 **Die Faktenregel gilt unabhängig vom Regler, auch bei `ausführlich`:** Jeder Fakt
 muss entweder beantworten, was gefragt wurde, oder anstoßen, was wir brauchen.
@@ -125,16 +132,24 @@ Drei Regeln dazu:
 - 2026-08-20 · iil · gekürzt: 297 → 178 Wörter, ohne dass ein Sachpunkt verloren ging · Grund: „kürzer und auf Umlaute achten"
 - 2026-08-20 · iil · gestrichen: „Ein einziges ‚gemeinsam' trägt bereits die Zusammenrechnung." · Grund: die Aussage war am Vortag zurückgenommen worden — ein Entwurf darf nichts wiederholen, was schon kassiert ist
 - 2026-08-21 · hnu · behalten: „Die Skizze." als kompletter zweiter Absatz · Grund: die Entscheidung steht vor der Begründung, nicht dahinter
+- 2026-08-21 · iil · gestrichen: zwei Begründungsabsätze à 4 Sätze vor einer Mail mit
+  Anhang (warum zwei Steckbriefe, warum unterschiedlicher Status) · Grund: beides stand im
+  Anhang selbst; 1.673 → 565 Zeichen
 - 2026-08-21 · intern · gestrichen: Erkenntnis-Absätze unter dem Action Board · Grund: Erkenntnisse gehören als eigener Bucket ins Board, Prosa nur für das, was keine Item-Struktur hat
 
 ---
 
 ## 7 — Verhältnis zu anderen Regeln
 
-Dieser Skill ist die **kanonische Quelle für den Stil**. Die Repo-Memories
+Dieser Skill ist die **kanonische Quelle für den Stil**. Die vier Repo-Memories
 (`feedback_client_mail_style_no_ai_preamble`, `feedback_mail_umfang_regler_und_faktenregel`,
-`feedback_mail_utf8_german_chars`, `feedback_iil_mail_signature`) bleiben als
-Fundstellen bestehen und zeigen hierher; bei Widerspruch gewinnt diese Datei.
+`feedback_mail_utf8_german_chars`, `feedback_iil_mail_signature`) tragen seit dem
+2026-08-21 einen Zeiger hierher; bei Widerspruch gewinnt diese Datei.
+
+**Der Anspruch war zunächst unbelegt.** Als er hier zum ersten Mal stand, zeigte keine der
+vier Memories auf diesen Skill, und die Owner-Korrektur „Vorgabe ist `knapp`" stand nur in
+einer davon — der Skill erzeugte also genau die Doppelquelle, vor der er warnt. Lehre: ein
+Kanonizitätsanspruch ist erst mit dem **Abgleich** fertig, nicht mit dem Satz.
 Zwei Quellen für dieselbe Regel driften — das ist in dieser Umgebung mehrfach
 belegt, zuletzt am Action-Board-Format über fünf Korrekturen hinweg.
 
