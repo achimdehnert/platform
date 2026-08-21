@@ -10,6 +10,8 @@ import http.client
 import json
 import sys
 import threading
+from http import HTTPStatus
+from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -608,3 +610,81 @@ class TestUidOhneOrdner:
             h._ordner_ohne_angabe(imap, "hnu", "42")
         assert frage.value.ordner == ["INBOX", "Entwürfe"]
         assert frage.value.uid == "42"
+
+
+class TestOrdneransicht:
+    """`/m/<konto>/<ordner>` ohne Nummer ist eine Frage, kein Tippfehler.
+
+    Bis 2026-08-21 antwortete der Dienst darauf "UID muss eine Zahl sein" — ein
+    Fehler auf eine sinnvolle Frage. Ein Link auf EINE Mail beantwortet "zeig
+    mir diese"; er beantwortet nicht "lass mich hier weitermachen". Wer einen
+    Entwurf pruefen will, will ihn neben den anderen sehen.
+    """
+
+    @pytest.fixture
+    def gerufen(self, tmp_path, registry, monkeypatch):
+        protokoll = []
+        monkeypatch.setattr(
+            mls.MailLinkHandler,
+            "_ordner_liste",
+            lambda self, konto, slug: (
+                protokoll.append((konto, slug)),
+                self._sende(HTTPStatus.OK, b"<h1>Liste</h1>", "text/html"),
+            )[-1],
+        )
+        monkeypatch.setattr(
+            mls.MailLinkHandler,
+            "_rendern",
+            lambda self, konto, uid, ordner=None: (_ for _ in ()).throw(
+                AssertionError("Einzelmail-Pfad haette nicht laufen duerfen")
+            ),
+        )
+        mls.MailLinkHandler.konten = {"hnu": "hnu"}
+        mls.MailLinkHandler.default_konto = "hnu"
+        mls.MailLinkHandler.registry_pfad = registry
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), mls.MailLinkHandler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        yield srv, protokoll
+        srv.shutdown()
+
+    def _hole(self, srv, pfad):
+        c = HTTPConnection("127.0.0.1", srv.server_address[1])
+        c.request("GET", pfad)
+        r = c.getresponse()
+        r.read()
+        return r.status
+
+    def test_should_show_the_folder_instead_of_complaining_about_a_missing_uid(
+        self, gerufen
+    ):
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/hnu/entwuerfe") == 200
+        assert protokoll == [("hnu", "entwuerfe")]
+
+    def test_should_tolerate_a_trailing_slash(self, gerufen):
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/hnu/entwuerfe/") == 200
+        assert protokoll == [("hnu", "entwuerfe")]
+
+    def test_should_keep_rejecting_a_bare_non_uid_without_an_account(self, gerufen):
+        """`/m/kein-uid` bleibt ein sauberer 400.
+
+        Die Ordner-Route gilt nur bei ausdruecklich genanntem Konto. Sonst
+        wuerde jeder vertippte Link zu einer IMAP-Runde auf der Suche nach
+        einem Ordner, den niemand gemeint hat.
+        """
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/kein-uid") == 400
+        assert protokoll == []
+
+    def test_should_still_treat_a_number_as_a_message(self, gerufen):
+        """Die Gegenprobe: die Ordner-Route darf den Einzelmail-Pfad nicht fressen.
+
+        Der Stub oben wirft, sobald `_rendern` liefe — der 502 aus dem
+        Fehlerzweig von `_mail` ist hier also der
+        BEWEIS, dass die Route den Einzelfall weiterhin an die Mail gibt und
+        nicht als Ordner missversteht.
+        """
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/hnu/entwuerfe/23612") == 502
+        assert protokoll == []
