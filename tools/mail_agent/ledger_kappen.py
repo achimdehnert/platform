@@ -81,10 +81,15 @@ def verarbeite(ledger: dict, archiv: dict, grenze: int = GRENZE) -> list[dict]:
             continue
         schluessel = archiv_key(v.get("nr"))
         vorhanden = archiv.get(schluessel, [])
-        # Dubletten vermeiden: ein zweiter Lauf darf denselben Eintrag nicht
-        # doppelt ablegen (Idempotenz).
-        neu = [e for e in weg if e not in vorhanden]
-        archiv[schluessel] = vorhanden + neu
+        # ALLE verschobenen Eintraege anhaengen, ohne Textvergleich. Der frühere
+        # Dublettenfilter (`e not in vorhanden`) hat Daten verloren: steht ein
+        # neuer Eintrag zufaellig wortgleich zu einem laengst archivierten — bei
+        # wiederkehrenden Zeilen wie "kein neuer Eingang" der Normalfall —, wurde
+        # er weder archiviert noch blieb er im Ledger, und der Bericht meldete
+        # trotzdem "verschoben". Reproduziert in der Retro 2026-08-21.
+        # Idempotenz braucht ihn nicht: was verschoben wurde, steht nicht mehr im
+        # Ledger, kann also kein zweites Mal verschoben werden.
+        archiv[schluessel] = vorhanden + list(weg)
         vorher = len(v.get("notiz", ""))
         v["notiz"] = TRENNER.join(bleibt)
         bericht.append(

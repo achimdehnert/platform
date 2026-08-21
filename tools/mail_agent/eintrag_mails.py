@@ -140,9 +140,20 @@ def treffer(text: str, nachrichten: list[dict], bezugsjahr: int) -> dict | None:
 #: nicht: seine `id` ist ein Datenbankschluessel, keine IMAP-UID — ein daraus
 #: gebauter Link ergab 404 (gemessen 2026-08-21). Adressierbar ist nur, was der
 #: Eintrag selbst nennt.
-_UID_IM_TEXT = re.compile(r"(?:UID|INBOX\s*#|Objekte'?\s*\(#|#)\s*(\d{4,6})", re.I)
+# Ein blosses `#` reicht NICHT: `platform#2176` und `meiki-hub#146` schrieben sich
+# sonst als Mail-UID, und der Link zeigte auf eine fremde oder gar keine Mail —
+# genau das, was der Kopf dieser Datei ausschliessen will. Reproduziert in der
+# Retro 2026-08-21. Ein `#` allein zaehlt jetzt nur, wenn davor KEIN Wortzeichen
+# und kein Bindestrich steht (also kein Repo-Name).
+_UID_IM_TEXT = re.compile(
+    r"(?:UID\s*|INBOX\s*#|Entw(?:ue|ü)rfe\s*#|Objekte'?\s*\(#|(?<![\w/-])#)(\d{4,6})",
+    re.I,
+)
 #: Steht die Nummer im Umfeld des Sendeordners, liegt die Mail dort.
 _SENDEORDNER_NAH = re.compile(r"gesendet|sendeordner|gesendete", re.I)
+#: Ein Entwurf liegt weder in INBOX noch im Sendeordner — ohne dieses Segment
+#: laeuft der Link gegen INBOX und endet im 404.
+_ENTWURF_NAH = re.compile(r"entw(?:ue|ü)rfe|entwurf", re.I)
 
 
 def url_aus_text(text: str, konto: str, basis: str) -> str:
@@ -157,7 +168,12 @@ def url_aus_text(text: str, konto: str, basis: str) -> str:
         return ""
     nummer = treffer_.group(1)
     umfeld = text[max(0, treffer_.start() - 60) : treffer_.end() + 20]
-    ordner = "gesendete/" if _SENDEORDNER_NAH.search(umfeld) else ""
+    if _ENTWURF_NAH.search(umfeld):
+        ordner = "entwuerfe/"
+    elif _SENDEORDNER_NAH.search(umfeld):
+        ordner = "gesendete/"
+    else:
+        ordner = ""
     return f"{basis.rstrip('/')}/m/{konto}/{ordner}{nummer}"
 
 

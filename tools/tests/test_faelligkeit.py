@@ -102,3 +102,20 @@ def test_should_report_its_own_error_in_the_backtest():
 def test_should_refuse_a_statement_on_thin_history():
     """Vier Datenpunkte sind keine Aussage — das Werkzeug sagt das, statt zu raten."""
     assert fk.backtest([fk.Paar(1, "b", "a@b")] * 4)["genug"] is False
+
+
+class TestQuantilBeiWenigDaten:
+    """Ein 90-%-Quantil aus drei Werten ist das Maximum, kein Quantil."""
+
+    def test_should_not_return_the_maximum_as_a_90_percent_quantile(self):
+        assert fk.quantil([0, 0, 12], 0.9) < 12
+
+    def test_should_interpolate_between_neighbours(self):
+        assert fk.quantil([0, 10], 0.5) == 5
+
+    def test_should_take_the_limit_from_the_fleet_when_the_own_history_is_thin(self):
+        eigene = [fk.Paar(t, "b.example", "a@b.example") for t in (0, 0, 12)]
+        flotte = [fk.Paar(t, "x.example", "z@x.example") for t in range(12)]
+        _, grenze, quelle = fk.profil(eigene + flotte, adresse="a@b.example")
+        assert "Flotte" in quelle
+        assert grenze <= 12

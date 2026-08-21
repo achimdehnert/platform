@@ -113,9 +113,7 @@ def paare(nachrichten: list[dict]) -> list[Paar]:
             if not offen:
                 continue
             try:
-                tage = (
-                    date.fromisoformat(m["datum"]) - date.fromisoformat(offen)
-                ).days
+                tage = (date.fromisoformat(m["datum"]) - date.fromisoformat(offen)).days
             except (KeyError, ValueError):
                 offen = None
                 continue
@@ -126,28 +124,62 @@ def paare(nachrichten: list[dict]) -> list[Paar]:
     return out
 
 
+#: Ab wie vielen Werten ein 90-%-Quantil mehr ist als "der groesste Wert".
+#: Bei n <= 10 liefert jede Index-Formel fuer p=0.9 den letzten Platz — die Zahl
+#: waere dann der langsamste je gemessene Abstand, nicht ein Quantil. Gemessen in
+#: der Retro 2026-08-21: quantil([0,0,12], 0.9) ergab 12.
+MIN_FUER_QUANTIL = 11
+
+
 def quantil(werte: list[int], p: float) -> int:
+    """Quantil mit linearer Interpolation — und ohne Genauigkeit vorzutaeuschen.
+
+    Der Median (p=0.5) ist auch bei drei Werten sinnvoll. Ein 90-%-Quantil ist es
+    nicht: dafuer braucht es genug Werte, damit oben ueberhaupt etwas abgeschnitten
+    werden kann. Sonst ist das Ergebnis das Maximum, und ein einziger Ausreisser
+    (eine Urlaubsantwort nach drei Wochen) wuerde zur Frist fuer alle kuenftigen
+    Vorgaenge desselben Gegenuebers.
+    """
     if not werte:
         return 0
     geordnet = sorted(werte)
-    return geordnet[min(len(geordnet) - 1, int(len(geordnet) * p))]
+    if len(geordnet) == 1:
+        return geordnet[0]
+    stelle = p * (len(geordnet) - 1)
+    unten = int(stelle)
+    oben = min(unten + 1, len(geordnet) - 1)
+    rest = stelle - unten
+    return round(geordnet[unten] + rest * (geordnet[oben] - geordnet[unten]))
 
 
-def profil(paare_: list[Paar], adresse: str = "", domain: str = "") -> tuple[int, int, str]:
+def profil(
+    paare_: list[Paar], adresse: str = "", domain: str = ""
+) -> tuple[int, int, str]:
     """→ (erwartet_tage, ueberfaellig_tage, Quelle) für ein Gegenüber."""
+    alle = [p.tage for p in paare_]
+
+    def _mit_grenze(werte: list[int], quelle: str) -> tuple[int, int, str]:
+        """Median vom Gegenueber, Grenze nur, wenn dafuer genug Werte da sind.
+
+        Sonst kommt die Grenze aus der Flotte — sie ist die Aussage darueber, ab
+        wann Schweigen auffaellig ist, und die braucht mehr als drei Datenpunkte.
+        """
+        if len(werte) >= MIN_FUER_QUANTIL:
+            return quantil(werte, 0.5), quantil(werte, 0.9), f"{quelle} ({len(werte)})"
+        return (
+            quantil(werte, 0.5),
+            quantil(alle, 0.9),
+            f"{quelle} ({len(werte)}), Grenze aus der Flotte",
+        )
+
     if adresse:
         eigene = [p.tage for p in paare_ if p.adresse == adresse.lower()]
         if len(eigene) >= MIN_PAARE:
-            return quantil(eigene, 0.5), quantil(eigene, 0.9), f"Adresse ({len(eigene)})"
+            return _mit_grenze(eigene, "Adresse")
     if domain:
         je_domain = [p.tage for p in paare_ if p.domain == domain.lower()]
         if len(je_domain) >= MIN_PAARE:
-            return (
-                quantil(je_domain, 0.5),
-                quantil(je_domain, 0.9),
-                f"Domain ({len(je_domain)})",
-            )
-    alle = [p.tage for p in paare_]
+            return _mit_grenze(je_domain, "Domain")
     return quantil(alle, 0.5), quantil(alle, 0.9), f"Flotte ({len(alle)})"
 
 
@@ -202,7 +234,9 @@ def backtest(paare_: list[Paar]) -> dict:
         "median_tage": statistics.median(werte),
         "median_fehler_tage": round(statistics.median(fehler), 1),
         "ueberfaellig_grenze_tage": grenze,
-        "deckung_prozent": round(100 * sum(1 for w in werte if w <= grenze) / len(werte)),
+        "deckung_prozent": round(
+            100 * sum(1 for w in werte if w <= grenze) / len(werte)
+        ),
     }
 
 
@@ -211,8 +245,12 @@ def main() -> int:
     ap.add_argument("--ledger", default=str(LEDGER))
     ap.add_argument("--seit", default="2026-06-01", help="Fenster für den Index")
     ap.add_argument("--limit", type=int, default=900)
-    ap.add_argument("--index-cache", default=None, help="Index-Antwort zwischenspeichern")
-    ap.add_argument("--backtest", action="store_true", help="nur den eigenen Fehler messen")
+    ap.add_argument(
+        "--index-cache", default=None, help="Index-Antwort zwischenspeichern"
+    )
+    ap.add_argument(
+        "--backtest", action="store_true", help="nur den eigenen Fehler messen"
+    )
     ap.add_argument("--heute", default=None)
     ap.add_argument(
         "--schreibe",

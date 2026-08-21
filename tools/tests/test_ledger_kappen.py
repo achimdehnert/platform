@@ -60,11 +60,18 @@ class TestVerarbeite:
         assert zweiter == []
         assert archiv["7"] == ["alt"]
 
-    def test_should_append_to_an_existing_archive_without_duplicates(self):
-        ledger = {"vorgaenge": [{"nr": 7, "notiz": _notiz("alt", "neu1", "neu2")}]}
-        archiv = {"7": ["alt"]}
-        lk.verarbeite(ledger, archiv, grenze=10)
-        assert archiv["7"].count("alt") == 1
+    def test_should_not_lose_an_entry_whose_text_already_exists_in_the_archive(self):
+        """Wortgleich heisst nicht dasselbe Ereignis.
+
+        Der frühere Dublettenfilter warf einen neuen Eintrag weg, wenn sein Text
+        schon im Archiv stand — bei wiederkehrenden Zeilen ('kein neuer Eingang')
+        der Normalfall. Reproduziert in der Retro 2026-08-21: der Eintrag war
+        danach weder im Ledger noch im Archiv, der Bericht meldete 'verschoben'.
+        """
+        ledger = {"vorgaenge": [{"nr": 7, "notiz": _notiz("gelesen", "neu1", "neu2")}]}
+        archiv = {"7": ["gelesen"]}
+        lk.verarbeite(ledger, archiv, grenze=8)
+        assert archiv["7"].count("gelesen") == 2, "beide Vorkommen bleiben erhalten"
 
     def test_should_leave_a_vorgang_without_history_alone(self):
         ledger = {"vorgaenge": [{"nr": 7, "notiz": ""}]}

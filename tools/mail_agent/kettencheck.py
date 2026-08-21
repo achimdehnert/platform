@@ -84,10 +84,19 @@ def pruefe_artefakt(name: str, pfad: Path, heute: date, hinweis: str) -> Befund:
     alter = _alter_tage(pfad, heute)
     if alter is None:
         return Befund(name, False, f"{pfad} fehlt", hinweis)
-    if alter > MAX_ALTER_TAGE:
+    if alter < 0:
+        # Eine Datei aus der Zukunft ist kein frisches Artefakt, sondern ein
+        # Hinweis auf eine falsch gehende Uhr oder eine kopierte Datei. Bis
+        # 2026-08-21 meldete der Melder sie als "OK, -5 Tage alt" — ein Alarm,
+        # der Unmoegliches durchwinkt, prueft die falsche Richtung.
         return Befund(
-            name, False, f"{pfad.name} ist {alter:.0f} Tage alt", hinweis
+            name,
+            False,
+            f"{pfad.name} traegt ein Datum {abs(alter):.0f} Tage in der Zukunft",
+            "Systemuhr pruefen (timedatectl); kopierte Datei mit falscher mtime?",
         )
+    if alter > MAX_ALTER_TAGE:
+        return Befund(name, False, f"{pfad.name} ist {alter:.0f} Tage alt", hinweis)
     return Befund(name, True, f"{pfad.name}, {alter:.0f} Tage alt")
 
 
@@ -136,7 +145,15 @@ def pruefe_index(seit: str) -> Befund:
     """Der Index ist die Quelle der Vorhersage — hinkt er, hinkt alles danach."""
     try:
         roh = subprocess.run(
-            [sys.executable, str(HIER / "suche.py"), "--seit", seit, "--limit", "5", "--json"],
+            [
+                sys.executable,
+                str(HIER / "suche.py"),
+                "--seit",
+                seit,
+                "--limit",
+                "5",
+                "--json",
+            ],
             capture_output=True,
             text=True,
             timeout=120,
@@ -190,7 +207,9 @@ def pruefe_timer(einheit: str = "sendeabgleich.timer") -> Befund:
 def alle(heute: date, mit_index: bool = True) -> list[Befund]:
     seit = (heute - timedelta(days=3)).isoformat()
     befunde = [
-        pruefe_index(seit) if mit_index else Befund("Mail-Index", True, "uebersprungen"),
+        pruefe_index(seit)
+        if mit_index
+        else Befund("Mail-Index", True, "uebersprungen"),
         # Pfade hier explizit durchreichen statt als Default-Argument: ein Default
         # wird beim Definieren ausgewertet und laesst sich im Test nicht ersetzen —
         # der erste Anlauf meldete deshalb zwei kaputte Glieder als heil.

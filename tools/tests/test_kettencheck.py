@@ -53,6 +53,14 @@ class TestArtefakte:
         assert "Tage alt" in befund.ort
         assert befund.hinweis == "make boards"
 
+    def test_should_flag_a_file_dated_in_the_future(self, tmp_path):
+        """Ein Alarm, der Unmoegliches durchwinkt, prueft die falsche Richtung."""
+        p = tmp_path / "board.md"
+        p.write_text("x", encoding="utf-8")
+        befund = kc.pruefe_artefakt("Board", p, HEUTE - timedelta(days=5), "make boards")
+        assert not befund.ok
+        assert "Zukunft" in befund.ort
+
     def test_should_accept_a_fresh_artefact(self, tmp_path):
         p = tmp_path / "board.md"
         p.write_text("x", encoding="utf-8")
