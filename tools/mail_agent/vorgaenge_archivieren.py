@@ -101,7 +101,7 @@ def main() -> int:
         )
     if titellos:
         print(
-            f"\n  Ohne Titel (erscheinen als leere Zeile): "
+            "\n  Ohne Titel (erscheinen als leere Zeile): "
             + ", ".join(f"#{n}" for n in titellos)
             + "\n  → `kurz` setzen; das Werkzeug raet hier nicht."
         )
@@ -109,15 +109,21 @@ def main() -> int:
         print("Nichts zu archivieren.")
         return 0
 
-    print(f"\n{len(wandert)} Vorgang/Vorgaenge · Ledger {len(ledger['vorgaenge'])} → {len(bleibt)}")
+    print(
+        f"\n{len(wandert)} Vorgang/Vorgaenge · Ledger {len(ledger['vorgaenge'])} → {len(bleibt)}"
+    )
     if args.apply:
         vorhanden = {v.get("nr") for v in archiv.get("vorgaenge", [])}
         archiv["vorgaenge"] = archiv.get("vorgaenge", []) + [
             v for v in wandert if v.get("nr") not in vorhanden
         ]
         ledger["vorgaenge"] = bleibt
-        ap_.write_text(json.dumps(archiv, ensure_ascii=False, indent=2), encoding="utf-8")
-        lp.write_text(json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8")
+        ap_.write_text(
+            json.dumps(archiv, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        lp.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         print(f"Geschrieben: {lp.name} + {ap_.name}")
     else:
         print("(Anzeige — mit --apply werden Ledger und Archiv geschrieben.)")
