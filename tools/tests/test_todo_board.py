@@ -209,6 +209,27 @@ class TestVerlinkung:
         assert seite.count("id=ovl-frame") == 1
 
 
+class TestErwartetesAntwortdatum:
+    """Ohne gesetzte Frist tritt die Erwartung an ihre Stelle (#2176 Kriterium 5)."""
+
+    def test_should_read_the_forecast_for_a_vorgang(self, tmp_path):
+        datei = tmp_path / "f.json"
+        datei.write_text(
+            '{"7": {"erwartet": "2026-08-22", "spaetestens": "2026-08-28",'
+            ' "ueberfaellig": false}}',
+            encoding="utf-8",
+        )
+        assert tb._erwartung(7, datei)["spaetestens"] == "2026-08-28"
+
+    def test_should_return_nothing_without_a_forecast_file(self, tmp_path):
+        assert tb._erwartung(7, tmp_path / "fehlt.json") == {}
+
+    def test_should_survive_a_broken_forecast_file(self, tmp_path):
+        kaputt = tmp_path / "k.json"
+        kaputt.write_text("{kaputt", encoding="utf-8")
+        assert tb._erwartung(7, kaputt) == {}
+
+
 class TestArchivierterVerlauf:
     """Gekappt heisst verschoben, nicht weg — die Ansicht setzt beides zusammen."""
 
