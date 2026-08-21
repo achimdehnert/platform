@@ -110,6 +110,40 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
 - **Deckungsblock am Ende, immer** — auch bei leerem Board: Konten, Umfang, Zeitraum,
   NICHT-Durchsuchtes, Post-Ingest-Fenster und ob es live nachgezogen wurde.
 
+## Wie ein Verlaufseintrag geschrieben wird (NEU 2026-08-21)
+
+Die Vorgangsseite (`tools/todo_board/todo_board.py`) rendert den Verlauf seit dem
+2026-08-21 nicht mehr als Prosa-Block, sondern als Karten mit Bahnen. Sie erkennt
+Struktur, die im Text **steht** — sie erfindet keine. Wer beim Schreiben drei
+Konventionen einhaelt, bekommt eine lesbare Seite; wer sie nicht einhaelt, bekommt
+die alte Textwand. Nichts geht verloren, es wird nur nicht getrennt.
+
+1. **Kopf zuerst:** `YYYY-MM-DD[ HH:MM] [EREIGNIS] (Quelle): …` — z.B.
+   `2026-08-21 (/mailcheck):` oder `2026-08-20 13:41 GESENDET (Owner):`.
+   Datum, Uhrzeit, Ereignis und Quelle werden zur Kopfzeile der Karte.
+2. **Erhebungsprotokoll in einen eigenen Satz.** Saetze mit `DB bis …`,
+   `Restfenster …`, `live nachgezogen`, `kein neuer Eingang` klappt die Seite
+   hinter „Deckung" weg. Das ist rund die Haelfte eines typischen Eintrags.
+   Deshalb: nicht mit dem Sachstand in EINEN Satz mischen — sonst verschwindet
+   der Sachstand mit.
+3. **Offene Punkte sagen, dass sie offen sind.** Ein Satz, der mit `Offen …`,
+   `Unveraendert offen: …`, `Naechster Schritt: …` oder `Owner: …` beginnt, wird
+   als eigene Bahn hervorgehoben. Analog `Fazit:`, `Ergebnis:`, `HAUPTBEFUND:`
+   fuer die Einordnung.
+
+**Was die Seite ausdruecklich NICHT tut:** aus „… ist damit abgeschlossen" eine
+Analyse-Bahn ableiten. Der Satz ist inhaltlich eine, sagt es aber nicht — und ein
+falsch einsortierter Satz behauptet eine Gliederung, die der Autor nie gemeint
+hat. Dieselbe Linie wie `ablage_erledigt.py`: nichts wird geraten.
+
+**Referenzen so schreiben, dass sie klickbar werden:** Der Renderer verlinkt eine
+Nachrichten-Nummer nur, wenn der **Ordner danebensteht** (`INBOX #164024`,
+`Ordner 'Gesendete Objekte' (#34349)`). Ohne Ordner loest `/m/<konto>/<uid>`
+ausschliesslich gegen INBOX auf — eine Entwurfs-UID ergaebe dort einen 404,
+darum wird sie nur ausgezeichnet statt verlinkt. `UID 23589` ohne Ordnerangabe
+bleibt also stumm; `Entwuerfe #23589` wird ein Link. GitHub-Referenzen
+(`meiki-lra/meiki-hub#146`, `platform#2183`) verlinken von selbst.
+
 ## Vorgangs-Speicher (Ledger)
 
 Damit „Status fortschreiben" und „automatisch aus der Liste entfernen" verlässlich sind,
