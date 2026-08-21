@@ -80,5 +80,21 @@ class TestReposAusKommando:
         cmd = "diff ~/github/platform/a ~/.repo-session/worktrees/platform/s/a"
         assert sc._repos_aus_kommando(cmd) == {"platform"}
 
+    @pytest.mark.parametrize(
+        "kommando",
+        [
+            "cd ~/github/platform && make test | tee log",
+            "cd ~/github/platform; git status",
+            "(cd ~/github/platform && ruff check .)",
+            "for f in $(ls); do cd ~/github/platform && echo $f; done",
+            'echo "~/github/platform" && cd ~/github/platform',
+            "cd ~/github/platform/tools/todo_board",
+        ],
+    )
+    def test_should_stop_at_every_shell_boundary(self, kommando):
+        """Der Fix ersetzte drei gesehene Schreibweisen durch eine Zeichenklasse —
+        getestet waren danach weiter nur die drei. Das hier ist die Klasse."""
+        assert sc._repos_aus_kommando(kommando) == {"platform"}
+
     def test_should_return_an_empty_set_without_a_marker(self):
         assert sc._repos_aus_kommando("echo hallo") == set()
