@@ -37,6 +37,9 @@ from pathlib import Path
 from urllib.parse import quote, unquote
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
+#: Der gekappte Teil des Verlaufs (tools/mail_agent/ledger_kappen.py). Die
+#: Vorgangsansicht setzt beides zusammen — gekappt heisst verschoben, nicht weg.
+ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-archiv.json"
 AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
 PORT = 8789
 # Ab wie vielen Tagen ohne Erhebung die Seite ihren eigenen Stand in Frage stellt.
@@ -483,6 +486,22 @@ DETAIL_FELDER = (
 )
 
 
+def _archiv_eintraege(nr, pfad: Path | None = None) -> list[str]:
+    """Der ausgelagerte Teil des Verlaufs — leer, wenn es kein Archiv gibt.
+
+    Faellt die Datei aus oder ist sie kaputt, zeigt die Seite den gekappten
+    Verlauf statt gar keinen: eine unvollstaendige Ansicht ist besser als eine
+    Fehlerseite, und der Stand steht ohnehin im aktiven Teil.
+    """
+    ziel = pfad or ARCHIV
+    try:
+        daten = json.loads(ziel.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    eintraege = daten.get(str(nr), []) if isinstance(daten, dict) else []
+    return [str(e).strip() for e in eintraege if str(e).strip()]
+
+
 def detail(
     v: dict,
     mail_basis: str = MAIL_BASIS,
@@ -508,6 +527,9 @@ def detail(
     # 15.000 Zeichen Verlauf muss man dafuer erst ans Ende scrollen. Umgedreht
     # steht der Stand da, wo man hinsieht (Owner-Weisung 2026-08-20).
     eintraege = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
+    # Archivierte Eintraege davorsetzen: sie sind aelter, und die Anzeige dreht
+    # gleich um. So bleibt der Verlauf vollstaendig, obwohl der Ledger gekappt ist.
+    eintraege = _archiv_eintraege(v.get("nr")) + eintraege
     notiz = "\n\n".join(html.escape(t) for t in reversed(eintraege))
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
