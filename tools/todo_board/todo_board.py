@@ -40,6 +40,9 @@ LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 #: Der gekappte Teil des Verlaufs (tools/mail_agent/ledger_kappen.py). Die
 #: Vorgangsansicht setzt beides zusammen — gekappt heisst verschoben, nicht weg.
 ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-archiv.json"
+#: Erwartete Antwortdaten aus echten Mailzeiten (tools/mail_agent/faelligkeit.py).
+#: Die Datei ist optional — fehlt sie, sieht die Liste aus wie vorher.
+FAELLIGKEIT = Path.home() / ".claude" / "mail-faelligkeit.json"
 AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
 PORT = 8789
 # Ab wie vielen Tagen ohne Erhebung die Seite ihren eigenen Stand in Frage stellt.
@@ -217,6 +220,16 @@ def zeile(
     klasse, text = ampel(tage)
     konto = KONTO_LABEL.get(v.get("konto", ""), v.get("konto", "—"))
     frist = v.get("frist") or ""
+    # Ohne gesetzte Frist tritt die Erwartung an ihre Stelle: „wartet" allein sagt
+    # nicht, ob das normal ist oder ob seit zwei Wochen niemand antwortet.
+    if tage is None and v.get("bucket") == "warten":
+        erwartung = _erwartung(v.get("nr"))
+        if erwartung.get("spaetestens"):
+            frist = f"erwartet {erwartung.get('erwartet', '')}"
+            if erwartung.get("ueberfaellig"):
+                klasse, text = "rot", "ueberfaellig"
+            else:
+                klasse, text = "gruen", f"bis {erwartung['spaetestens']}"
     schluessel = v.get("thread_key", "")
     beschriftung = html.escape(schluessel or "—")
     # Ohne thread_key gibt es kein Ziel — dann bleibt es Text statt totem Link.
@@ -484,6 +497,21 @@ DETAIL_FELDER = (
     ("letzte_pruefung", "Zuletzt geprueft"),
     ("next_trigger", "Naechster Schritt"),
 )
+
+
+def _erwartung(nr, pfad: Path | None = None) -> dict:
+    """Erwartetes Antwortdatum eines Vorgangs — leer, wenn keine Vorhersage vorliegt.
+
+    Bewusst eine Datei statt eines Aufrufs: die Vorhersage braucht den Mail-Index
+    (SSH, Sekunden). Ein Seitenaufruf, der darauf wartet, ist eine Ansicht, die
+    man nicht mehr aufmacht.
+    """
+    try:
+        daten = json.loads((pfad or FAELLIGKEIT).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    eintrag = daten.get(str(nr)) if isinstance(daten, dict) else None
+    return eintrag if isinstance(eintrag, dict) else {}
 
 
 def _archiv_eintraege(nr, pfad: Path | None = None) -> list[str]:
