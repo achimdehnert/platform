@@ -29,7 +29,9 @@ import argparse
 import html
 import json
 import os
+import re
 import sys
+import unicodedata
 from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -53,7 +55,11 @@ BUCKETS = (
     ("owner", "Dein Zug", "Entscheidung, Berechtigung oder Inhalt, den nur du hast"),
     ("agent", "Ich kann sofort", "Braucht kein Gate — sag zu, dann laeuft es"),
     ("warten", "Wartet auf andere", "Der naechste Zug kommt von aussen"),
-    ("erledigt", "Zuletzt erledigt", "Geschlossen — steht hier, bis das Fenster ablaeuft"),
+    (
+        "erledigt",
+        "Zuletzt erledigt",
+        "Geschlossen — steht hier, bis das Fenster ablaeuft",
+    ),
 )
 
 #: Deckungsgleich mit `board.py`: geschlossene Vorgaenge bleiben so lange sichtbar.
@@ -389,8 +395,34 @@ a.aktion:hover{border-color:var(--stumm)}
 .sache a{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie)}
 .sache a:hover{border-bottom-color:currentColor}
 .kopf-rot{color:var(--rot,#b3261e)}
-pre.notiz{white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.5;
-background:var(--karte);border:1px solid var(--linie);border-radius:6px;padding:.8rem}
+h2.verlauf-kopf{display:block;margin:1.75rem 0 .6rem}
+h2.verlauf-kopf .zusatz{display:block;font-size:.76rem;font-weight:400;color:var(--stumm);
+margin-top:.15rem}
+.eintrag{background:var(--karte);border:1px solid var(--linie);border-radius:8px;
+padding:.75rem .9rem;margin:0 0 .6rem;font-size:.88rem;line-height:1.55}
+.eintrag-kopf{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;
+margin:0 0 .45rem;font-size:.74rem;color:var(--stumm)}
+.eintrag-datum{font-variant-numeric:tabular-nums;font-weight:600}
+.ereignis{text-transform:uppercase;letter-spacing:.05em;font-weight:600;
+border:1px solid var(--linie);border-radius:999px;padding:.02rem .45rem}
+.quelle{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.deckung{margin-left:auto}
+.deckung summary{cursor:pointer;color:var(--stumm);list-style:none;
+border-bottom:1px dotted var(--linie)}
+.deckung summary::-webkit-details-marker{display:none}
+.deckung p{margin:.4rem 0 0;max-width:42rem;font-size:.74rem;word-break:break-word}
+.eintrag p{margin:0 0 .35rem;word-break:break-word}
+.eintrag p:last-child{margin-bottom:0}
+.bahn-marke{display:inline-block;font-size:.68rem;text-transform:uppercase;
+letter-spacing:.05em;font-weight:600;color:var(--stumm);margin-right:.4rem}
+.bahn-analyse{border-left:2px solid var(--linie);padding-left:.6rem}
+.bahn-action{border-left:2px solid var(--gelb);padding-left:.6rem;font-weight:500}
+.bahn-action .bahn-marke{color:var(--gelb)}
+a.ref{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie);
+font-variant-numeric:tabular-nums}
+a.ref:hover{border-bottom-color:currentColor}
+.datei{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
+background:var(--bg);border:1px solid var(--linie);border-radius:4px;padding:0 .25rem}
 """
 
 
@@ -534,7 +566,9 @@ DETAIL_FELDER = (
     ("bucket", "Bucket"),
     ("angelegt", "Angelegt"),
     ("letzte_pruefung", "Zuletzt geprueft"),
-    ("next_trigger", "Naechster Schritt"),
+    # `next_trigger` steht bewusst NICHT hier: der Abschnitt "Naechste Schritte"
+    # zeigt denselben Satz zwei Zeilen tiefer, und eine Seite, die dieselbe
+    # Aussage zweimal macht, kostet Lesezeit ohne etwas hinzuzufuegen.
 )
 
 
@@ -569,6 +603,314 @@ def _archiv_eintraege(nr, pfad: Path | None = None) -> list[str]:
     return [str(e).strip() for e in eintraege if str(e).strip()]
 
 
+# --- Verlauf: aus einem Prosa-Block wird Struktur ---------------------------
+#
+# Der Verlauf war bis 2026-08-21 ein einziges <pre>: alle Eintraege als
+# Fliesstext, durch Leerzeilen getrennt. Bei einem Vorgang mit drei Eintraegen
+# geht das noch; das eigentliche Problem ist nicht die Laenge, sondern das
+# Mischungsverhaeltnis. In einem typischen /mailcheck-Eintrag sind rund 45 % der
+# Zeichen Erhebungsprotokoll ("DB bis …, Restfenster live nachgezogen … — leer"),
+# das in JEDEM Eintrag JEDES Vorgangs wortgleich wiederkehrt. Es ist der Beleg
+# dafuer, dass sauber gemessen wurde, und es gehoert deshalb auf die Seite —
+# aber nicht in die Leselinie.
+#
+# Drei Eingriffe, alle regelbasiert:
+#
+# 1. **Kopf abtrennen.** Datum, Uhrzeit, Ereignis und Quelle stehen am Anfang
+#    jedes Eintrags in fester Form. Sie werden zur Kopfzeile der Karte, nicht
+#    zum ersten Drittel des ersten Satzes.
+# 2. **Deckung einklappen.** Saetze, die sich selbst als Erhebungsprotokoll zu
+#    erkennen geben, wandern hinter ein <details>. Sichtbar bleibt, DASS gemessen
+#    wurde; der Messwert ist einen Klick entfernt.
+# 3. **Markierte Saetze in eigene Bahnen.** NUR Saetze, die ihre Funktion selbst
+#    benennen ("Offen bleibt …", "HAUPTBEFUND: …", "Fazit: …"), werden
+#    herausgezogen. Alles andere bleibt Inhalt.
+#
+# Punkt 3 ist bewusst eng. Die Versuchung ist gross, aus "… damit abgeschlossen"
+# eine Analyse-Bahn zu erraten — dieselbe Versuchung, der `ablage_erledigt.py`
+# ausdruecklich widersteht ("Nichts wird geraten"). Ein falsch einsortierter Satz
+# ist schlimmer als ein nicht einsortierter: er behauptet eine Gliederung, die der
+# Autor nie gemeint hat. Wer die Bahnen will, schreibt sie hin — der Renderer
+# belohnt es, er erfindet es nicht.
+
+#: Kopf eines Eintrags. Beide real vorkommenden Formen: "2026-08-21 (/mailcheck):"
+#: und "2026-08-20 13:41 GESENDET (Owner):".
+_EINTRAG_KOPF = re.compile(
+    # Manche Eintraege stellen eine Marke VOR das Datum ("NEU 2026-08-20 (…)").
+    # Ohne diesen Zweig faellt der ganze Kopf durch und das Datum steht mitten im
+    # Fliesstext — auf der Seite von Vorgang 142 traf das den aeltesten Eintrag.
+    r"^(?P<marke>[A-ZÄÖÜ]{2,10}\s+)?"
+    r"(?P<datum>\d{4}-\d{2}-\d{2})"
+    r"(?:\s+(?P<zeit>\d{1,2}:\d{2}))?"
+    r"\s*(?:(?P<ereignis>[A-ZÄÖÜ]{4,14})\s*)?"
+    r"(?:\((?P<quelle>[^)]{1,40})\)\s*)?"
+    r":\s*"
+)
+
+#: Satzgrenze. Der Lookbehind auf zwei Ziffern schuetzt deutsche Datumsformen
+#: ("20.08. Klimm" bleibt EIN Satz); gesplittet wird nur vor einem Grossbuchstaben.
+_SATZGRENZE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÄÖÜ„\"'/])")
+
+#: Ein Satz ist Erhebungsprotokoll, wenn er sich selbst so ausweist. Absichtlich
+#: an den Werkzeug-Vokabeln festgemacht, nicht an "klingt technisch".
+_DECKUNG_WORTE = ("nachgezogen", "restfenster", "db bis", "kein neuer eingang")
+
+#: Saetze, die ihre Funktion im ersten Wort nennen. Nur diese werden umgehaengt.
+#: Ein Satz meldet einen offenen Punkt, wenn er das in den ersten Worten sagt.
+#: Bis zu zwei qualifizierende Woerter davor sind erlaubt — "Unveraendert offen:"
+#: und "Weiterhin offen ist …" sind dieselbe Ansage wie "Offen bleibt …", und der
+#: reine Wortanfangs-Vergleich hat sie auf der Seite von Vorgang 142 uebersehen.
+#: `\b` hinter "offen" haelt "offenbar" und "offensichtlich" heraus.
+_ACTION_MUSTER = re.compile(
+    r"^(?:\w+[\s,]+){0,2}(?:offen\b|zu tun\b|to-?do\b|n(?:ae|ä)chste[rn]? schritt|owner:)",
+    re.I,
+)
+_ANALYSE_WORTE = (
+    "hauptbefund",
+    "befund:",
+    "ergebnis:",
+    "fazit:",
+    "analyse:",
+    "bedeutung:",
+    "schluss:",
+)
+
+#: Ordnernamen, die der Mail-Dienst als Slug kennt. Bewusst eine geschlossene
+#: Liste echter Ordner — Prosa-Woerter wie "Papierkorb" oder "Entwurfsordner"
+#: stehen NICHT drin: der HNU-Papierkorb heisst `Gelöschte Objekte`, ein Link auf
+#: `/m/hnu/papierkorb/<uid>` waere ein 404 mit Selbstbewusstsein.
+_ORDNER = (
+    "INBOX",
+    "Entwürfe",
+    "Entwuerfe",
+    "Gesendete Objekte",
+    "Gesendete Elemente",
+    "Gelöschte Objekte",
+    "Geloeschte Objekte",
+    "Gelöschte Elemente",
+    "Geloeschte Elemente",
+    "Junk-E-Mail",
+    "Posteingang",
+)
+_ORDNER_RE = re.compile("|".join(re.escape(o) for o in _ORDNER))
+
+#: Was zwischen Ordnername und Nummer stehen darf, ohne den Bezug zu loesen.
+#: `&#x27;` ist das escapte Apostroph — der Text ist hier schon HTML-escaped.
+_NUR_TRENNER = re.compile(r"(?:\s|[('\"’„]|&#x27;|&quot;|UID)*")
+#: Jede Nummer, die als Nachrichten-Referenz auftritt — mit oder ohne Ordner.
+_REF_NUMMER = re.compile(r"(?:\bUID\s+|#)(?P<uid>\d{3,7})\b")
+#: GitHub-Referenzen im Verlauf: `meiki-lra/meiki-hub#146` oder `platform#2183`.
+#: Muessen VOR den Mail-Nummern greifen — sonst haelt die Nummernregel `#146`
+#: fuer eine Mail-UID und zeichnet einen PR als "nicht aufloesbar" aus. Genau das
+#: tat die erste Fassung; aufgefallen ist es erst beim Nachsehen, was `#146`
+#: eigentlich ist.
+_REF_GITHUB = re.compile(
+    r"\b(?:(?P<owner>[A-Za-z][\w.-]*)/)?(?P<repo>[a-z][\w.-]*(?:-hub|-beat|-lab|platform|[\w.-]*))#(?P<nr>\d{1,6})\b"
+)
+#: Ohne Owner ist die Heimat dieser Repos die Standard-Org.
+_GITHUB_STANDARD_OWNER = "achimdehnert"
+
+#: Anhaenge bekommen KEINEN Link: der Dienst liefert sie nur unter `<uid>/anhaenge/<name>`
+#: aus, und die UID steht im Text nicht verlaesslich daneben.
+_DATEI = re.compile(
+    r"\b[\w.\-]{3,60}\.(?:pdf|docx?|xlsx?|pptx?|csv|zip|txt|md)\b", re.I
+)
+
+
+def _slug(text: str) -> str:
+    """Ordnername → URL-Segment, gleichlautend zu `mail_view.slugify`.
+
+    Muss zeichengleich sein, sonst zeigt der Link auf einen Ordner, den der
+    Mail-Dienst nicht kennt. Umlaute ZUERST, sonst frisst NFKD sie ersatzlos.
+    """
+    for umlaut, ersatz in (
+        ("ä", "ae"),
+        ("ö", "oe"),
+        ("ü", "ue"),
+        ("ß", "ss"),
+        ("Ä", "Ae"),
+        ("Ö", "Oe"),
+        ("Ü", "Ue"),
+    ):
+        text = text.replace(umlaut, ersatz)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return re.sub(r"[^A-Za-z0-9]+", "-", text).strip("-").lower()[:40].rstrip("-")
+
+
+def _ordner_des_satzes(satz: str) -> str | None:
+    """Der Ordner, auf den sich eine Nummer in diesem Satz bezieht — oder None.
+
+    Verlangt Eindeutigkeit in BEIDE Richtungen: genau ein Ordnername und genau
+    eine Nummer im Satz. Der reale Gegenfall stand im Ledger und hat die Regel
+    erzwungen — ein Satz nennt zwei Entwuerfe und einen Ordner ("Vorfassung UID
+    A in 'Geloeschte Objekte' verschoben … die gueltige Fassung UID B"), und die
+    zweite Nummer liegt gerade NICHT dort. Mehrdeutig heisst darum: kein Link.
+    """
+    ordner = _ORDNER_RE.findall(satz)
+    nummern = _REF_NUMMER.findall(satz)
+    if len(ordner) == 1 and len(nummern) == 1:
+        return ordner[0]
+    return None
+
+
+def verweise(text: str, konto: str, mail_basis: str = MAIL_BASIS) -> str:
+    """Erkannte Referenzen verlinken. `text` ist bereits HTML-escaped.
+
+    Verlinkt wird nur, wenn der Zielordner FESTSTEHT. Ohne Ordnersegment loest
+    `/m/<konto>/<uid>` ausschliesslich gegen INBOX auf (mail_link_server `_mail`)
+    — eine Entwurfs- oder Gesendet-UID ergaebe dort einen 404. Ein toter Link ist
+    schlechter als gar keiner: er sieht aus wie ein Beleg und ist keiner. Nicht
+    aufloesbare Nummern werden darum nur ausgezeichnet, nicht verlinkt.
+
+    Ohne `konto` wird gar nichts verlinkt — `/m/<uid>` ginge dann auf das
+    Default-Konto des Dienstes und damit in eine fremde Mailbox.
+    """
+    if not konto:
+        return text
+    basis = mail_basis.rstrip("/")
+    fest = _ordner_des_satzes(text)
+
+    def nachbar(start: int) -> str | None:
+        """Der Ordnername unmittelbar vor der Nummer — oder None.
+
+        Zwischen Ordnername und Nummer duerfen nur Anfuehrungszeichen, Klammern,
+        Leerraum und das Wort UID stehen. Alles andere heisst: der Ordner gehoert
+        zu einem anderen Satzteil. Genau daran scheiterte die erste Fassung — sie
+        nahm den naechstbesten Ordnernamen im Umkreis und verlinkte eine
+        Gesendet-UID nach INBOX.
+        """
+        fenster = text[max(0, start - 40) : start]
+        letzter = None
+        for treffer in _ORDNER_RE.finditer(fenster):
+            letzter = treffer
+        if letzter is None:
+            return None
+        zwischen = fenster[letzter.end() :]
+        return letzter.group(0) if _NUR_TRENNER.fullmatch(zwischen) else None
+
+    def nummer(m: re.Match) -> str:
+        roh = m.group(0)
+        ordner = nachbar(m.start()) or fest
+        if not ordner:
+            return f"<span class='ref-roh' title='Ordner unbekannt — nicht aufloesbar'>{roh}</span>"
+        ziel = f"{basis}/m/{konto}/{_slug(ordner)}/{m.group('uid')}"
+        return (
+            f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'>{roh}</a>"
+        )
+
+    def schrittweise(roh: str, muster: re.Pattern, ersatz) -> str:
+        teile = re.split(
+            r"(<(?:a class='ref'|span class='ref-roh').*?</(?:a|span)>)", roh
+        )
+        return "".join(
+            t
+            if t.startswith(("<a class='ref'", "<span class='ref-roh'"))
+            else muster.sub(ersatz, t)
+            for t in teile
+        )
+
+    def github(m: re.Match) -> str:
+        owner = m.group("owner") or _GITHUB_STANDARD_OWNER
+        ziel = f"https://github.com/{owner}/{m.group('repo')}/issues/{m.group('nr')}"
+        return f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'>{m.group(0)}</a>"
+
+    text = schrittweise(text, _REF_GITHUB, github)
+    text = schrittweise(text, _REF_NUMMER, nummer)
+    return schrittweise(
+        text, _DATEI, lambda m: f"<span class='datei'>{m.group(0)}</span>"
+    )
+
+
+def zerlege_eintrag(roh: str) -> dict:
+    """Einen Verlaufseintrag in Kopf, Deckung, Inhalt, Analyse und Action zerlegen.
+
+    Rueckgabe immer vollstaendig besetzt (leere Strings statt fehlender Schluessel),
+    damit der Aufrufer nicht jedes Feld einzeln absichern muss.
+    """
+    kopf = _EINTRAG_KOPF.match(roh)
+    if kopf:
+        rest = roh[kopf.end() :].strip()
+        marken = kopf.groupdict()
+    else:
+        rest, marken = roh.strip(), {}
+    saetze = [s.strip() for s in _SATZGRENZE.split(rest) if s.strip()]
+    deckung: list[str] = []
+    analyse: list[str] = []
+    action: list[str] = []
+    inhalt: list[str] = []
+    for satz in saetze:
+        klein = satz.lower()
+        if any(w in klein for w in _DECKUNG_WORTE):
+            deckung.append(satz)
+        elif _ACTION_MUSTER.match(satz):
+            action.append(satz)
+        elif klein.startswith(_ANALYSE_WORTE):
+            analyse.append(satz)
+        else:
+            inhalt.append(satz)
+    return {
+        "datum": marken.get("datum") or "",
+        "zeit": marken.get("zeit") or "",
+        "ereignis": marken.get("ereignis") or "",
+        "quelle": marken.get("quelle") or "",
+        "deckung": " ".join(deckung),
+        "inhalt": " ".join(inhalt),
+        "analyse": " ".join(analyse),
+        "action": " ".join(action),
+    }
+
+
+def verlauf(eintraege: list[str], konto: str = "", mail_basis: str = MAIL_BASIS) -> str:
+    """Der Verlauf als Karten — neueste zuerst, Beiwerk eingeklappt."""
+    if not eintraege:
+        return "<p class='kein-ziel'>Kein Verlauf.</p>"
+    karten: list[str] = []
+    for roh in eintraege:
+        t = zerlege_eintrag(roh)
+
+        def bahn(schluessel: str, klasse: str, label: str = "") -> str:
+            wert = t[schluessel]
+            if not wert:
+                return ""
+            marke = f"<span class='bahn-marke'>{label}</span>" if label else ""
+            return (
+                f"<p class='{klasse}'>{marke}"
+                f"{verweise(html.escape(wert), konto, mail_basis)}</p>"
+            )
+
+        marken = []
+        if t["datum"]:
+            zeit = f" {t['zeit']}" if t["zeit"] else ""
+            marken.append(
+                f"<time class='eintrag-datum'>{html.escape(t['datum'] + zeit)}</time>"
+            )
+        if t["ereignis"]:
+            marken.append(f"<span class='ereignis'>{html.escape(t['ereignis'])}</span>")
+        if t["quelle"]:
+            marken.append(f"<span class='quelle'>{html.escape(t['quelle'])}</span>")
+        # Die Deckung sitzt IM Kopf, nicht im Text: sie ist eine Eigenschaft der
+        # Erhebung, keine Aussage ueber den Vorgang.
+        if t["deckung"]:
+            marken.append(
+                "<details class='deckung'><summary>Deckung</summary>"
+                f"<p>{verweise(html.escape(t['deckung']), konto, mail_basis)}</p></details>"
+            )
+        kopfzeile = (
+            f"<header class='eintrag-kopf'>{''.join(marken)}</header>" if marken else ""
+        )
+        rumpf = (
+            bahn("inhalt", "bahn-inhalt")
+            + bahn("analyse", "bahn-analyse", "Analyse")
+            + bahn("action", "bahn-action", "Offen")
+        )
+        if not rumpf:
+            # Ein Eintrag, der nur aus Deckung besteht, ist trotzdem ein Eintrag —
+            # er belegt, dass an dem Tag geprueft und nichts gefunden wurde.
+            rumpf = "<p class='bahn-inhalt kein-ziel'>Nur Erhebung, kein neuer Sachstand.</p>"
+        karten.append(f"<article class='eintrag'>{kopfzeile}{rumpf}</article>")
+    return "".join(reversed(karten))
+
+
 def detail(
     v: dict,
     mail_basis: str = MAIL_BASIS,
@@ -597,7 +939,7 @@ def detail(
     # Archivierte Eintraege davorsetzen: sie sind aelter, und die Anzeige dreht
     # gleich um. So bleibt der Verlauf vollstaendig, obwohl der Ledger gekappt ist.
     eintraege = _archiv_eintraege(v.get("nr")) + eintraege
-    notiz = "\n\n".join(html.escape(t) for t in reversed(eintraege))
+    verlaufskarten = verlauf(eintraege, str(v.get("konto") or ""), mail_basis)
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -608,8 +950,9 @@ def detail(
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 <table><tbody>{zeilen}</tbody></table>
 {schritte}
-<h2>Verlauf <span class='stand'>neueste zuerst</span></h2>
-<pre class="notiz">{notiz or "—"}</pre>
+<h2 class="verlauf-kopf">Verlauf
+<span class='zusatz'>neueste zuerst · Erhebungsdetails unter „Deckung"</span></h2>
+{verlaufskarten}
 <footer>Quelle: mail-vorgaenge.json</footer>
 </main></body></html>"""
 
