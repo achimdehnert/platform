@@ -47,7 +47,13 @@ from anker import (  # noqa: E402
 from anker import lade as anker_lade  # noqa: E402
 from anker import speichere as anker_speichere  # noqa: E402
 from anker import uebernehme as anker_uebernehme  # noqa: E402
-from read_mail import alle_ordner, ordner_klartext  # noqa: E402
+from read_mail import (  # noqa: E402
+    alle_ordner,
+    bulk_kopfsaetze,
+    decode_hdr,
+    ordner_klartext,
+    uid_liste,
+)
 from mail_view import (  # noqa: E402
     CACHE_ROOT,
     MailNichtGefunden,
@@ -595,6 +601,79 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Anhang nicht gefunden.")
 
+    #: Wie viele Nachrichten die Ordneransicht zeigt. Genug, um einen Entwurf
+    #: oder eine gesendete Mail wiederzufinden; wenig genug, dass ein Aufruf
+    #: nicht in einen Vollscan von 277 Nachrichten laeuft.
+    ORDNER_ANZAHL = 40
+
+    def _ordner_liste(self, konto: str, ordner_slug: str) -> None:
+        """Die neuesten Nachrichten eines Ordners — der Weg zum Weiterarbeiten.
+
+        Ein Link auf EINE Mail beantwortet "zeig mir diese". Er beantwortet
+        nicht "lass mich hier weitermachen": wer einen Entwurf pruefen will,
+        will ihn neben den anderen sehen. Dafuer gab es bis 2026-08-21 keine
+        Adresse — `/m/<konto>/<ordner>` endete in "UID muss eine Zahl sein".
+
+        **Was diese Ansicht ausdruecklich NICHT ist:** ein Mail-Client. Sie ist
+        read-only; Bearbeiten und Senden bleiben im Postfach des Menschen. Ein
+        Deeplink in das HNU-Webmail waere der naheliegende Wunsch und ist
+        geprueft und verworfen — outlook.hnu.de sitzt hinter einem
+        Citrix-Gateway, ein Link dorthin landet auf einer Anmeldemaske ohne
+        Ziel.
+        """
+        cfg = parse_env(_resolve_config(None, self.konten.get(konto, konto)))
+        imap = connect(cfg)
+        try:
+            ordner = self._ordner_aufloesen(imap, ordner_slug)
+            imap.select(_mailbox_arg(ordner), readonly=True)
+            uids = uid_liste(imap)
+            gesamt = len(uids)
+            saetze = bulk_kopfsaetze(imap, uids[-self.ORDNER_ANZAHL :])
+        except MailNichtGefunden as fehlt:
+            return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
+        except Exception as fehler:
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Postfach nicht lesbar: {fehler}"
+            )
+        finally:
+            try:
+                imap.close()
+            except Exception:
+                pass
+            imap.logout()
+
+        klartext = ordner_klartext(ordner)
+        slug = slugify(klartext)
+        zeilen = []
+        for uid, msg in reversed(saetze):  # neueste zuerst
+            zeilen.append(
+                "<li>"
+                f"<a href='/m/{html.escape(konto)}/{html.escape(slug)}/{html.escape(uid)}'>"
+                f"{html.escape(decode_hdr(msg.get('Subject')) or '(ohne Betreff)')}</a>"
+                f"<small> · {html.escape(decode_hdr(msg.get('From')) or '—')}"
+                f" · {html.escape((msg.get('Date') or '')[:31])}</small></li>"
+            )
+        gezeigt = len(saetze)
+        rest = (
+            f" (von {gesamt}, neueste zuerst)"
+            if gesamt > gezeigt
+            else " (vollstaendig)"
+        )
+        seite = (
+            "<!doctype html><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            f"<title>{html.escape(klartext)} — {html.escape(konto)}</title>"
+            "<style>body{font:15px/1.5 ui-sans-serif,system-ui,sans-serif;"
+            "max-width:52rem;margin:2rem auto;padding:0 1rem}"
+            "li{margin:.5rem 0}small{color:#666;display:block}"
+            "a{color:inherit}</style>"
+            f"<h1>{html.escape(klartext)}</h1>"
+            f"<p><small>Konto {html.escape(konto)} · {gezeigt} Nachricht(en){rest} · "
+            "read-only, Bearbeiten und Senden im Postfach</small></p>"
+            f"<ol reversed>{''.join(zeilen) or '<li>leer</li>'}</ol>"
+        )
+        self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
     def _auswahl(self, mehrdeutig: MailMehrdeutig) -> None:
         """Welche der gleichnamigen UIDs war gemeint? — der Mensch entscheidet.
 
@@ -628,13 +707,26 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
         if not teile:
             return self._fehler(HTTPStatus.BAD_REQUEST, "UID fehlt.")
         konto = self.default_konto
-        if teile[0] in self.konten:
+        # Ob das Konto AUSDRUECKLICH genannt wurde, entscheidet weiter unten
+        # darueber, ob ein einzelnes nicht-numerisches Segment ein Ordner sein
+        # darf. Ohne diese Unterscheidung wuerde `/m/kein-uid` — bisher ein
+        # sauberer 400 — zu einer IMAP-Runde auf der Suche nach einem Ordner,
+        # den niemand gemeint hat.
+        konto_genannt = teile[0] in self.konten
+        if konto_genannt:
             konto, teile = teile[0], teile[1:]
         # Ein nicht-numerisches Segment vor der UID ist der Ordner: /m/hnu/entwuerfe/23254.
         # Ohne diese Route war nur INBOX erreichbar — ein Entwurf lag ausserhalb (404).
         ordner_slug = None
         if len(teile) >= 2 and not _UID.match(teile[0]):
             ordner_slug, teile = teile[0], teile[1:]
+        # `/m/<konto>/<ordner>` ohne Nummer ist keine kaputte Mail-Adresse,
+        # sondern die Frage nach dem Ordner. Vorher endete das in "UID muss eine
+        # Zahl sein" — ein Fehler auf eine sinnvolle Frage.
+        if ordner_slug and not teile:
+            return self._ordner_liste(konto, ordner_slug)
+        if konto_genannt and len(teile) == 1 and not _UID.match(teile[0]):
+            return self._ordner_liste(konto, teile[0])
         if not teile or not _UID.match(teile[0]):
             return self._fehler(HTTPStatus.BAD_REQUEST, "UID muss eine Zahl sein.")
         uid, rest = teile[0], teile[1:]
