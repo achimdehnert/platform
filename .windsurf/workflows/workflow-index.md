@@ -29,6 +29,7 @@ mode: read-only
 | Die 3 sinnvollsten nächsten Schritte fürs Repo | `/next` |
 | Handoff fortsetzen / offene Issues weiterbearbeiten | `/issues-abarbeiten` |
 | Antwort-Format auf Kompakt-/Struktur-Modus umstellen | `/antwort-modus-schablone` |
+| In Achims Stimme schreiben (Mail, Konzept, PR-Text) | `/schreibstil` |
 
 ### Coding-Flow
 
