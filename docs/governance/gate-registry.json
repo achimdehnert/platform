@@ -50,7 +50,9 @@
       "module": "scripts/checks/agent_handover_freshness_check.py",
       "drill": "tools/tests/test_agent_handover_freshness_check.py",
       "built": "2026-08-02",
-      "ref": "platform#1648"
+      "ref": "platform#1648",
+      "revised": "2026-08-20",
+      "revision_note": "Ausweitung (platform#2143): der Pruefer lief nur ueber handoff-banner-gate.yml mit paths-Filter und ueber die session-ende-Phase 0a-freshness. Die Verstoss-Klasse ist aber, AGENT_HANDOVER.md GAR NICHT anzufassen — dann greift kein Pfadfilter, und wer kein session-ende faehrt, sieht den Pruefer nie. Neue Datei .github/workflows/handover-freshness-advisory.yml laeuft bei JEDEM PR, advisory (continue-on-error mit Begruendung, nicht in den Required Checks)."
     },
     {
       "slug": "model-change-detection",
