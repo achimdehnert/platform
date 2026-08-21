@@ -1,0 +1,18 @@
+[Unit]
+Description=Mail-Vorgaenge gegen den Sendeordner abgleichen (platform#2176 Kriterium 2)
+Documentation=https://github.com/achimdehnert/platform/tree/main/infra/host-maintenance
+
+[Service]
+Type=oneshot
+# --tage 2 statt 1: ein Lauf, der wegen Standby oder Netzausfall ausfaellt, holt
+# den Vortag mit auf (Persistent=true im Timer holt nur EINEN Lauf nach).
+# --apply schreibt nur bei GENAU EINER passenden Mail; mehrdeutige Faelle bleiben
+# liegen und werden gemeldet — die Regel steckt im Werkzeug, nicht hier.
+ExecStart=/usr/bin/python3 %h/github/platform/tools/mail_agent/sendeabgleich.py --tage 2 --apply
+Nice=10
+IOSchedulingClass=idle
+# Observability wie beim worktree-reaper: ohne Journal ist ein stiller Fehllauf
+# nur daran erkennbar, dass niemandem etwas auffaellt.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sendeabgleich

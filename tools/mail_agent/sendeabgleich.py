@@ -135,10 +135,17 @@ def vorschlaege(ledger: dict, mails: dict[str, list[Gesendet]]) -> list[dict]:
         ]
         if not kandidaten:
             lage = "offen"
-        elif len(kandidaten) == 1:
-            lage = "treffer"
         else:
-            lage = "mehrdeutig"
+            # Mehrere Treffer waren bis 2026-08-21 ein Abbruch ("mehrdeutig").
+            # Die Positivkontrolle zeigte, warum das zu streng war: bei einem
+            # laufenden Strang passen naturgemaess mehrere gesendete Mails auf
+            # DENSELBEN Vorgang — und der Bucket-Wechsel ist in jedem Fall
+            # derselbe, egal welche davon der Beleg ist. Gefaehrlich waere
+            # Mehrdeutigkeit ZWISCHEN Vorgaengen; die entsteht hier nicht, weil
+            # jeder Vorgang fuer sich geprueft wird. Also: juengste Mail als
+            # Beleg nehmen, statt den Fall liegen zu lassen.
+            kandidaten = sorted(kandidaten, key=lambda m: m.datum, reverse=True)
+            lage = "treffer"
         out.append({"nr": v.get("nr"), "vorgang": v, "lage": lage, "mails": kandidaten})
     return out
 
