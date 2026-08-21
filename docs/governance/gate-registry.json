@@ -238,6 +238,16 @@
       "built": "2026-08-16",
       "ref": "platform#2014 (Retro 9d861a Befund #1)",
       "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits."
+    },
+    {
+      "slug": "verification-proves-absence-not-success",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/lint_blind_verification.py",
+      "drill": "tools/tests/test_lint_blind_verification.py",
+      "built": "2026-08-21",
+      "ref": "platform#2203",
+      "revision_note": "Findet `<befehl> | grep -q <muster>`. Zwei Fehler in einer Gestalt: als PRUEFUNG belegt das nur ein Muster im Ausgabetext, nicht den Erfolg (ein gescheiterter Befehl ohne das Muster gilt als gruen); unter `set -o pipefail` erzeugt es zusaetzlich SIGPIPE und laesst die Pipeline zufaellig scheitern. Anlass 2026-08-21 chat-hub: `git fetch --dry-run | grep -qi 'moved|redirect'` stellte die Remotes auf ein nicht existierendes Repo und meldete Erfolg; dieselbe Falle steckte am selben Tag in 4 weiteren Pipelines. Erster Lauf gegen platform/tools: 9 Funde, darunter session_start_checks.sh."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
