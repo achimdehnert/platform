@@ -209,6 +209,24 @@ class TestVerlinkung:
         assert seite.count("id=ovl-frame") == 1
 
 
+class TestArchivierterVerlauf:
+    """Gekappt heisst verschoben, nicht weg — die Ansicht setzt beides zusammen."""
+
+    def test_should_show_archived_entries_before_the_active_ones(self, tmp_path):
+        archiv = tmp_path / "archiv.json"
+        archiv.write_text('{"7": ["ganz alt"]}', encoding="utf-8")
+        assert tb._archiv_eintraege(7, archiv) == ["ganz alt"]
+
+    def test_should_return_nothing_without_an_archive(self, tmp_path):
+        assert tb._archiv_eintraege(7, tmp_path / "fehlt.json") == []
+
+    def test_should_survive_a_broken_archive(self, tmp_path):
+        """Eine unvollstaendige Ansicht ist besser als eine Fehlerseite."""
+        kaputt = tmp_path / "kaputt.json"
+        kaputt.write_text("{nicht json", encoding="utf-8")
+        assert tb._archiv_eintraege(7, kaputt) == []
+
+
 class TestMailSymbol:
     """Kein Briefsymbol, wo es nur auf die aelteste Mail zeigen wuerde."""
 
