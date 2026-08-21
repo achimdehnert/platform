@@ -750,22 +750,6 @@ def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "-", text).strip("-").lower()[:40].rstrip("-")
 
 
-def _ordner_des_satzes(satz: str) -> str | None:
-    """Der Ordner, auf den sich eine Nummer in diesem Satz bezieht — oder None.
-
-    Verlangt Eindeutigkeit in BEIDE Richtungen: genau ein Ordnername und genau
-    eine Nummer im Satz. Der reale Gegenfall stand im Ledger und hat die Regel
-    erzwungen — ein Satz nennt zwei Entwuerfe und einen Ordner ("Vorfassung UID
-    A in 'Geloeschte Objekte' verschoben … die gueltige Fassung UID B"), und die
-    zweite Nummer liegt gerade NICHT dort. Mehrdeutig heisst darum: kein Link.
-    """
-    ordner = _ORDNER_RE.findall(satz)
-    nummern = _REF_NUMMER.findall(satz)
-    if len(ordner) == 1 and len(nummern) == 1:
-        return ordner[0]
-    return None
-
-
 def verweise(text: str, konto: str, mail_basis: str = MAIL_BASIS) -> str:
     """Erkannte Referenzen verlinken. `text` ist bereits HTML-escaped.
 
@@ -781,7 +765,6 @@ def verweise(text: str, konto: str, mail_basis: str = MAIL_BASIS) -> str:
     if not konto:
         return text
     basis = mail_basis.rstrip("/")
-    fest = _ordner_des_satzes(text)
 
     def nachbar(start: int) -> str | None:
         """Der Ordnername unmittelbar vor der Nummer — oder None.
@@ -803,22 +786,31 @@ def verweise(text: str, konto: str, mail_basis: str = MAIL_BASIS) -> str:
 
     def nummer(m: re.Match) -> str:
         roh = m.group(0)
-        ordner = nachbar(m.start()) or fest
-        if not ordner:
-            return f"<span class='ref-roh' title='Ordner unbekannt — nicht aufloesbar'>{roh}</span>"
-        ziel = f"{basis}/m/{konto}/{_slug(ordner)}/{m.group('uid')}"
+        ordner = nachbar(m.start())
+        if ordner:
+            # Ordner steht daneben: die vollqualifizierte Route ist eindeutig und
+            # erspart dem Dienst die Suche.
+            ziel = f"{basis}/m/{konto}/{_slug(ordner)}/{m.group('uid')}"
+            hinweis = ""
+        else:
+            # Ohne Ordner traegt der Dienst die Aufloesung
+            # (mail_link_server._ordner_ohne_angabe): er durchsucht seine
+            # Suchordner und fragt zurueck, wenn die Nummer mehrdeutig ist.
+            # Bis 2026-08-21 blieben solche Nummern stummer Text — mit der
+            # Folge, dass die Prosa daneben erklaeren musste, was ein Klick
+            # zeigt. Die Verlinkung ist damit nicht nur Bequemlichkeit: sie ist
+            # die Voraussetzung dafuer, den Text kuerzen zu duerfen.
+            ziel = f"{basis}/m/{konto}/{m.group('uid')}"
+            hinweis = " title='Ordner wird beim Oeffnen gesucht'"
         return (
-            f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'>{roh}</a>"
+            f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'"
+            f"{hinweis}>{roh}</a>"
         )
 
     def schrittweise(roh: str, muster: re.Pattern, ersatz) -> str:
-        teile = re.split(
-            r"(<(?:a class='ref'|span class='ref-roh').*?</(?:a|span)>)", roh
-        )
+        teile = re.split(r"(<a class='ref'.*?</a>)", roh)
         return "".join(
-            t
-            if t.startswith(("<a class='ref'", "<span class='ref-roh'"))
-            else muster.sub(ersatz, t)
+            t if t.startswith("<a class='ref'") else muster.sub(ersatz, t)
             for t in teile
         )
 
@@ -941,6 +933,7 @@ def detail(
     alt_zuerst: bool = False,
 ) -> str:
     """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
+
     def _reihe(felder) -> str:
         return "".join(
             f"<tr><th>{html.escape(label)}</th>"
@@ -1101,7 +1094,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._sende(
                     HTTPStatus.OK,
                     detail(v, alt_zuerst=alt_zuerst).encode("utf-8"),
-                    "text/html; charset=utf-8"
+                    "text/html; charset=utf-8",
                 )
                 return
         self._sende(

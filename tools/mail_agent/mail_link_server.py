@@ -187,6 +187,22 @@ def sicherer_dateiname(name: str) -> str | None:
     return rein
 
 
+class MailMehrdeutig(LookupError):
+    """Eine UID ohne Ordnerangabe kommt in mehreren Ordnern vor.
+
+    Kein Fehlerfall im engeren Sinn, sondern eine Frage an den Menschen: IMAP
+    vergibt UIDs je Ordner, dieselbe Zahl steht also fuer verschiedene
+    Nachrichten. Wer hier den ersten Treffer ausliefert, zeigt irgendwann die
+    falsche Mail — und weil sie plausibel aussieht, faellt es niemandem auf.
+    """
+
+    def __init__(self, konto: str, uid: str, ordner: list[str]) -> None:
+        super().__init__(f"UID {uid} kommt in {len(ordner)} Ordnern vor")
+        self.konto = konto
+        self.uid = uid
+        self.ordner = ordner
+
+
 class MailLinkHandler(BaseHTTPRequestHandler):
     server_version = "mail-link-server/1.0"
 
@@ -462,9 +478,11 @@ verfügbar: {html.escape(konten)}.</p>
         text = body.get("content", "")
         if body.get("contentType", "").lower() == "html":
             text = graph_mail._strip_html(text)
-        anhang = self._graph_anhang_liste(kurz, ziel["graph_id"], tok) if m.get(
-            "hasAttachments"
-        ) else ""
+        anhang = (
+            self._graph_anhang_liste(kurz, ziel["graph_id"], tok)
+            if m.get("hasAttachments")
+            else ""
+        )
         seite = f"""<!doctype html><meta charset=utf-8><title>{html.escape(m.get("subject") or kurz)}</title>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <body style="font:14px/1.55 -apple-system,Segoe UI,sans-serif;max-width:52rem;margin:1rem auto;padding:0 1rem">
@@ -558,7 +576,9 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             headers=graph_mail._auth(tok),
         )
         if r.status_code != 200:
-            return self._fehler(HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}.")
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}."
+            )
         for a in r.json().get("value", []):
             if sicherer_dateiname(a.get("name") or "") != rein:
                 continue
@@ -574,6 +594,35 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
                 a.get("contentType") or "application/octet-stream",
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Anhang nicht gefunden.")
+
+    def _auswahl(self, mehrdeutig: MailMehrdeutig) -> None:
+        """Welche der gleichnamigen UIDs war gemeint? — der Mensch entscheidet.
+
+        Die Seite verlinkt jeden Kandidaten auf seine **vollqualifizierte** Route.
+        Wer einmal geklickt hat, hat damit die eindeutige Adresse in der
+        Browserzeile und kann sie zurueck in den Vorgang schreiben.
+        """
+        zeilen = "".join(
+            f"<li><a href='/m/{html.escape(mehrdeutig.konto)}/"
+            f"{html.escape(slugify(o))}/{html.escape(mehrdeutig.uid)}'>"
+            f"{html.escape(o)}</a></li>"
+            for o in mehrdeutig.ordner
+        )
+        seite = (
+            "<!doctype html><meta charset='utf-8'>"
+            "<title>Welche Nachricht?</title>"
+            f"<h1>UID {html.escape(mehrdeutig.uid)} gibt es mehrfach</h1>"
+            "<p>IMAP vergibt Nummern je Ordner — diese Zahl steht in mehreren "
+            "Ordnern fuer verschiedene Nachrichten. Bitte den gemeinten Ordner "
+            "waehlen; der Link darunter ist eindeutig und laesst sich in den "
+            "Vorgang zurueckschreiben.</p>"
+            f"<ul>{zeilen}</ul>"
+        )
+        self._sende(
+            HTTPStatus.MULTIPLE_CHOICES,
+            seite.encode("utf-8"),
+            "text/html; charset=utf-8",
+        )
 
     def _mail(self, teile: list[str]) -> None:
         if not teile:
@@ -592,6 +641,8 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
 
         try:
             datei = self._rendern(konto, uid, ordner_slug)
+        except MailMehrdeutig as mehrdeutig:
+            return self._auswahl(mehrdeutig)
         except MailNichtGefunden as fehlt:
             return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
         except Exception as fehler:  # Netz/IMAP — dem Browser sagen, was los ist
@@ -614,6 +665,61 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
                 HTTPStatus.OK, anhang.read_bytes(), "application/octet-stream"
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Unterpfad.")
+
+    #: Wo eine UID gesucht wird, wenn der Aufruf keinen Ordner nennt. Bewusst
+    #: eine kurze, geordnete Liste statt aller ~120 Ordner: jeder Kandidat kostet
+    #: ein SELECT, und die Jahresarchive enthalten keine Nachricht, auf die ein
+    #: laufender Vorgang verweist. INBOX zuerst, weil dort der Regelfall liegt.
+    UID_SUCHORDNER = (
+        "inbox",
+        "posteingang",
+        "entwuerfe",
+        "drafts",
+        "gesendete-objekte",
+        "gesendete-elemente",
+        "sent",
+        "sent-items",
+        "geloeschte-objekte",
+        "geloeschte-elemente",
+        "papierkorb",
+        "trash",
+        "junk-e-mail",
+        "junk",
+    )
+
+    def _ordner_mit_uid(self, imap, uid: str) -> list[str]:
+        """Alle Suchordner, die diese UID fuehren — in der Reihenfolge oben.
+
+        IMAP-UIDs sind **je Ordner** vergeben: dieselbe Zahl bezeichnet in
+        INBOX und Entwuerfen zwei verschiedene Nachrichten. Deshalb wird nicht
+        beim ersten Treffer abgebrochen, sondern vollstaendig gesammelt. Ein
+        Treffer heisst rendern, mehrere heissen **fragen** — und keiner heisst
+        sagen, wo gesucht wurde. Stillschweigend den ersten Fund auszuliefern
+        waere die bequeme Variante und genau die, die irgendwann die falsche
+        Mail zeigt, ohne dass es jemandem auffaellt.
+
+        Gesucht wird mit SEARCH, nicht mit FETCH: das kostet keinen Nachrichten-
+        Body und macht die Runde ueber ein Dutzend Ordner bezahlbar.
+        """
+        namen, _ = alle_ordner(imap)
+        nach_slug: dict[str, str] = {}
+        for name in namen:
+            nach_slug.setdefault(slugify(ordner_klartext(name)), name)
+        treffer: list[str] = []
+        for slug in self.UID_SUCHORDNER:
+            name = nach_slug.get(slug)
+            if not name:
+                continue
+            try:
+                typ, _ = imap.select(_mailbox_arg(name), readonly=True)
+                if typ != "OK":
+                    continue
+                typ, data = imap.uid("SEARCH", "UID", str(uid))
+            except Exception:
+                continue  # ein zickiger Ordner darf die Suche nicht abbrechen
+            if typ == "OK" and data and (data[0] or b"").split():
+                treffer.append(name)
+        return treffer
 
     def _ordner_aufloesen(self, imap, slug: str) -> str:
         """URL-Slug → echter (kodierter) Ordnername. Wirft MailNichtGefunden.
@@ -640,15 +746,46 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             + ", ".join(sorted(s for s, _ in paare)[:8])
         )
 
+    def _ordner_ohne_angabe(self, imap, konto: str, uid: str) -> str:
+        """Der Ordner einer UID, wenn der Aufruf keinen nennt.
+
+        Bis 2026-08-21 war die Antwort schlicht `self.ordner` (INBOX). Das machte
+        jede Referenz auf einen Entwurf, eine gesendete oder geloeschte Nachricht
+        unverlinkbar — und weil ein toter Link schlechter ist als keiner, blieben
+        auf der Vorgangsseite die meisten Nachrichten-Nummern stummer Text. Der
+        Preis dafuer stand nicht im Renderer, sondern in der Prosa daneben: wer
+        nicht klicken kann, muss erklaeren, was in der Mail steht.
+        """
+        treffer = self._ordner_mit_uid(imap, uid)
+        if len(treffer) == 1:
+            return treffer[0]
+        if not treffer:
+            # Der haeufigste Grund ist KEIN Fehler: eine IMAP-UID gilt nur
+            # innerhalb ihres Ordners. Verschiebt jemand die Nachricht — oder
+            # sendet einen Entwurf —, bekommt sie im Zielordner eine NEUE
+            # Nummer, und die alte existiert nirgends mehr. Real nachgemessen
+            # am 2026-08-21: zwei Entwuerfe, im Ledger als UID 23588/23589
+            # notiert, lagen nach dem Verschieben als 104322/104323 im
+            # Papierkorb. Ohne diesen Satz liest sich der 404 wie ein defektes
+            # Werkzeug statt wie eine bewegte Mail.
+            raise MailNichtGefunden(
+                f"UID {uid} liegt in keinem der durchsuchten Ordner "
+                f"({', '.join(self.UID_SUCHORDNER)}). "
+                "Haeufigster Grund: die Nachricht wurde verschoben oder gesendet "
+                "— eine IMAP-UID gilt nur in ihrem Ordner und wird beim Wechsel "
+                "neu vergeben. Der dauerhafte Weg zu einem Vorgang ist /a/<nummer>, "
+                "das ueber die Message-ID aufloest."
+            )
+        raise MailMehrdeutig(konto, uid, [ordner_klartext(n) for n in treffer])
+
     def _rendern(self, konto: str, uid: str, ordner_slug: str | None = None) -> Path:
         cfg = parse_env(_resolve_config(None, self.konten.get(konto, konto)))
         imap = connect(cfg)
         try:
-            ordner = (
-                self._ordner_aufloesen(imap, ordner_slug)
-                if ordner_slug
-                else self.ordner
-            )
+            if ordner_slug:
+                ordner = self._ordner_aufloesen(imap, ordner_slug)
+            else:
+                ordner = self._ordner_ohne_angabe(imap, konto, uid)
             slug = slugify(ordner_klartext(ordner))
             ziel = self.cache_root / slugify(konto) / slug
             imap.select(_mailbox_arg(ordner), readonly=True)
