@@ -235,6 +235,37 @@ class TestVerlinkung:
         assert seite.count("id=ovl-frame") == 1
 
 
+class TestVorgangsKopf:
+    """Der erste Blick zeigt Information, nicht Stammdaten (Owner-Befund 2026-08-21)."""
+
+    def test_should_keep_only_two_fields_in_the_head(self):
+        seite = tb.detail(vorgang(gegenueber="Wer", frist="2026-08-30"))
+        kopf = seite.split("Stammdaten")[0]
+        assert "Gegenueber" in kopf and "Frist" in kopf
+        assert "Zustand" not in kopf and "Angelegt" not in kopf
+
+    def test_should_move_the_rest_into_a_collapsed_block(self):
+        seite = tb.detail(vorgang())
+        assert "<details class=\"stammdaten\">" in seite
+        assert "Zustand" in seite.split("Stammdaten")[1]
+
+    def test_should_offer_the_other_order(self):
+        seite = tb.detail(vorgang(notiz="a | b"))
+        assert "aelteste zuerst" in seite
+        umgedreht = tb.detail(vorgang(notiz="a | b"), alt_zuerst=True)
+        assert "neueste zuerst" in umgedreht
+
+    def test_should_reverse_the_entries_with_the_switch(self):
+        seite = tb.detail(vorgang(notiz="erst dies | dann das"), alt_zuerst=True)
+        rumpf = seite.split("Verlauf")[1]
+        assert rumpf.index("erst dies") < rumpf.index("dann das")
+
+    def test_should_name_what_the_mail_button_opens(self):
+        """'Mail oeffnen' las sich wie 'die aktuelle' — es ist die erste."""
+        seite = tb.detail(vorgang(mail_ref="/a/7"))
+        assert "Erste Mail des Strangs" in seite
+
+
 class TestErwartetesAntwortdatum:
     """Ohne gesetzte Frist tritt die Erwartung an ihre Stelle (#2176 Kriterium 5)."""
 
@@ -344,7 +375,9 @@ def test_should_link_into_the_mail_when_a_reference_exists():
     v = vorgang(thread_key="Foerderaufruf", mail_ref="/a/118")
     html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
     assert "https://mail.example/a/118" in html_out
-    assert "Mail oeffnen" in html_out
+    # Beschriftung seit 2026-08-21 praeziser: der Link fuehrt zur ERSTEN Mail des
+    # Strangs, nicht zur aktuellen (platform#2160 haelt die offene Faehigkeit fest).
+    assert "Erste Mail des Strangs" in html_out
 
 
 def test_should_not_render_a_dead_link_without_a_mail_reference():

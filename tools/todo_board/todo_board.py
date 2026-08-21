@@ -515,7 +515,11 @@ def aktionen(
     ziele: list[tuple] = []
     ziel = mail_ziel(v, mail_basis, anker)
     if ziel:
-        ziele.append(("Mail oeffnen", ziel))
+        # Beschriftung sagt, was der Link WIRKLICH oeffnet: `/a/<nr>` loest ueber
+        # die verankerte Message-ID auf, und verankert ist der Anfang des Strangs.
+        # "Mail oeffnen" las sich wie "die aktuelle" (Owner-Befund 2026-08-20);
+        # die juengste Mail kann der Dienst noch nicht (platform#2160).
+        ziele.append(("Erste Mail des Strangs", ziel))
     # Bewusst KEIN Selbstlink auf `/t/<thread_key>`: die Vorgangsseite ist genau das
     # Ziel, auf dem dieser Abschnitt steht. Er waere ausserdem der einzige Grund,
     # warum Bestandsvorgaenge ohne `mail_ref` ploetzlich einen Knopf trugen.
@@ -557,18 +561,27 @@ def naechste_schritte(
 
 
 # Reihenfolge der Detailfelder: erst wer und was, dann Zustand, zuletzt der Verlauf.
+#: Was beim Aufschlagen zaehlt. Alles andere steht unter „Details" —
+#: Beifang-Felder oben kosten 350 Pixel, bevor die erste Information kommt
+#: (gemessen an der Seite von Vorgang 142, Owner-Befund 2026-08-21).
 DETAIL_FELDER = (
     ("gegenueber", "Gegenueber"),
-    ("konto", "Konto"),
-    ("typ", "Typ"),
-    ("zustand", "Zustand"),
     ("frist", "Frist"),
-    ("bucket", "Bucket"),
-    ("angelegt", "Angelegt"),
-    ("letzte_pruefung", "Zuletzt geprueft"),
     # `next_trigger` steht bewusst NICHT hier: der Abschnitt "Naechste Schritte"
     # zeigt denselben Satz zwei Zeilen tiefer, und eine Seite, die dieselbe
     # Aussage zweimal macht, kostet Lesezeit ohne etwas hinzuzufuegen.
+)
+
+#: Zweite Reihe: richtig, aber selten gebraucht. Der Zustands-Slug etwa ist eine
+#: Maschinenmarke ("klimm-hat-statusbericht-bestaetigt-2026-08-20-1448") — er
+#: gehoert in die Akte, nicht in den ersten Blick.
+DETAIL_FELDER_ZWEITE_REIHE = (
+    ("konto", "Konto"),
+    ("bucket", "Bucket"),
+    ("typ", "Typ"),
+    ("zustand", "Zustand"),
+    ("angelegt", "Angelegt"),
+    ("letzte_pruefung", "Zuletzt geprueft"),
 )
 
 
@@ -860,8 +873,17 @@ def zerlege_eintrag(roh: str) -> dict:
     }
 
 
-def verlauf(eintraege: list[str], konto: str = "", mail_basis: str = MAIL_BASIS) -> str:
-    """Der Verlauf als Karten — neueste zuerst, Beiwerk eingeklappt."""
+def verlauf(
+    eintraege: list[str],
+    konto: str = "",
+    mail_basis: str = MAIL_BASIS,
+    neueste_zuerst: bool = True,
+) -> str:
+    """Der Verlauf als Karten — Beiwerk eingeklappt.
+
+    Die Reihenfolge entscheidet der Aufrufer: der Stand steht oben (Default), die
+    Entstehung liest sich von unten (`?alt=1`).
+    """
     if not eintraege:
         return "<p class='kein-ziel'>Kein Verlauf.</p>"
     karten: list[str] = []
@@ -916,12 +938,27 @@ def detail(
     mail_basis: str = MAIL_BASIS,
     basis: str = "",
     anker: dict[str, str] | None = None,
+    alt_zuerst: bool = False,
 ) -> str:
     """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
-    zeilen = "".join(
-        f"<tr><th>{html.escape(label)}</th><td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
-        for feld, label in DETAIL_FELDER
-    )
+    def _reihe(felder) -> str:
+        return "".join(
+            f"<tr><th>{html.escape(label)}</th>"
+            f"<td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
+            for feld, label in felder
+        )
+
+    zeilen = _reihe(DETAIL_FELDER)
+    # Erwartung statt leerer Frist: bei einem wartenden Vorgang ohne Frist ist
+    # „bis wann ist das normal" die Frage, die man an die Seite hat.
+    erwartung = _erwartung(v.get("nr"))
+    if not v.get("frist") and erwartung.get("spaetestens"):
+        wort = "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
+        zeilen = zeilen.replace(
+            "<th>Frist</th><td>—</td>",
+            f"<th>Frist</th><td>{wort} {html.escape(erwartung['spaetestens'])}</td>",
+        )
+    zweite = _reihe(DETAIL_FELDER_ZWEITE_REIHE)
     schritte = naechste_schritte(v, mail_basis, basis, anker)
     nr = v.get("nr")
     # Dieselbe Nummer wie in der Uebersicht — sie ist der Wiedererkennungsanker
@@ -939,7 +976,16 @@ def detail(
     # Archivierte Eintraege davorsetzen: sie sind aelter, und die Anzeige dreht
     # gleich um. So bleibt der Verlauf vollstaendig, obwohl der Ledger gekappt ist.
     eintraege = _archiv_eintraege(v.get("nr")) + eintraege
-    verlaufskarten = verlauf(eintraege, str(v.get("konto") or ""), mail_basis)
+    if alt_zuerst:
+        eintraege = list(reversed(eintraege))
+    verlaufskarten = verlauf(
+        eintraege, str(v.get("konto") or ""), mail_basis, neueste_zuerst=not alt_zuerst
+    )
+    schalter = (
+        "<a class='reihenfolge' href='?'>neueste zuerst</a>"
+        if alt_zuerst
+        else "<a class='reihenfolge' href='?alt=1'>aelteste zuerst</a>"
+    )
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -949,9 +995,11 @@ def detail(
 <h1>{nr_marke}{html.escape(v.get("thread_key", "Vorgang"))}</h1>
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 <table><tbody>{zeilen}</tbody></table>
+<details class="stammdaten"><summary>Stammdaten</summary>
+<table><tbody>{zweite}</tbody></table></details>
 {schritte}
 <h2 class="verlauf-kopf">Verlauf
-<span class='zusatz'>neueste zuerst · Erhebungsdetails unter „Deckung"</span></h2>
+<span class='zusatz'>{schalter} · Erhebungsdetails unter „Deckung"</span></h2>
 {verlaufskarten}
 <footer>Quelle: mail-vorgaenge.json</footer>
 </main></body></html>"""
@@ -1035,7 +1083,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_HEAD(self) -> None:  # noqa: N802
         self.do_GET()
 
-    def _vorgang(self, schluessel: str) -> None:
+    def _vorgang(self, schluessel: str, alt_zuerst: bool = False) -> None:
         """Einen Vorgang ausliefern. Der Schluessel wird gegen das Ledger geprueft,
         nicht gegen das Dateisystem — es gibt hier keinen Pfad, der entgleiten kann."""
         try:
@@ -1051,7 +1099,9 @@ class Handler(BaseHTTPRequestHandler):
         for v in daten.get("vorgaenge", []):
             if v.get("thread_key") == schluessel and schluessel:
                 self._sende(
-                    HTTPStatus.OK, detail(v).encode("utf-8"), "text/html; charset=utf-8"
+                    HTTPStatus.OK,
+                    detail(v, alt_zuerst=alt_zuerst).encode("utf-8"),
+                    "text/html; charset=utf-8"
                 )
                 return
         self._sende(
@@ -1066,7 +1116,12 @@ class Handler(BaseHTTPRequestHandler):
             self._sende(HTTPStatus.OK, b"ok\n", "text/plain; charset=utf-8")
             return
         if pfad.startswith("/t/"):
-            self._vorgang(unquote(pfad[3:]))
+            # `?alt=1` dreht den Verlauf auf aelteste-zuerst. Beide Richtungen haben
+            # ihren Fall: der Stand steht oben (Default), die Entstehung liest sich
+            # von unten. Ein Schalter kostet weniger als eine Entscheidung, die fuer
+            # jeden Vorgang falsch waere.
+            alt_zuerst = "alt=1" in (self.path.split("?", 1)[1:] or [""])[0]
+            self._vorgang(unquote(pfad[3:]), alt_zuerst)
             return
         if pfad != "/":
             self._sende(
