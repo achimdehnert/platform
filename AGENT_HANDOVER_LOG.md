@@ -2808,3 +2808,19 @@ Das zwang zur Neuberechnung der eingefrorenen K1-Baseline: sie war mit einem def
 **Eine Owner-Weisung ist neu dazugekommen und als Regel abgelegt:** keine unnoetigen Freigaben erzwingen, wenn die Loesung bereits feststeht. Ausloeser war ein Punkt, dessen Fix ich vollstaendig ausformuliert und trotzdem als „dein Zug" vorgelegt hatte. Prueffrage vor jeder solchen Zeile: aendert die Antwort des Owners, was ich tue?
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-21 vormittags — Sitzung 8d6869 (Increment): die Retro fand, was die Tests nicht fanden
+
+Fortsetzung derselben Sitzung. Inhalt: die sechs Kriterien aus #2176 zu Ende gebaut (#2177–#2194), dann die Increment-Retro darauf.
+
+**Ergebnis der Retro: 13 Befunde, alle ueberlebt, `risiko_debt` 2.** Neun davon sind Fehler in Code, der weniger als 24 Stunden alt war. Vier fand ein fremder Pruefer (#2196), vier weitere ein zweiter Finder (#2200), einen habe ich selbst gemeldet.
+
+**Der Befund ueber den Retro selbst wiegt schwerer als die Befunde in ihm.** Der erste Durchgang lieferte acht Befunde und wirkte vollstaendig — er hatte aber nur acht der sechzehn PRs angesehen, weil alle Befunde aus dem Fehlerkatalog des ersten fremden Pruefers stammten und dessen Umfang mir als Umfang der Arbeit galt. Aufgefallen ist das der Meta-Review, nicht mir. Wer mit einem fremden Katalog startet, haelt dessen Umfang fuer den Umfang der Arbeit.
+
+**Zwei Klassen liefen doppelt auf:** eine Gegenstelle fehlte zweimal — `ledger_kappen.py` ohne Ausloeser, `mail-vorgaenge-erledigt.json` ohne Leser. Beides sieht im PR wie Fertigstellung aus und bewegt nichts; im zweiten Fall wirkte Archivieren aus Sicht jedes Lesezeichens wie Loeschen.
+
+**Eigene Fehler dieser Haelfte:** die Abnahme von Kriterium 2 nannte einen Beleg, der am zitierten Ort nicht steht — genau die Klasse, gegen die ich das Werkzeug gebaut hatte, das dort abgenommen wurde. Der Schreibstil-Skill beanspruchte Kanonizitaet, ohne die vier genannten Altquellen anzufassen, und widersprach dabei einer Owner-Korrektur vom selben Tag. Und `refuted_rate 0,0` ueber drei Skeptiker steht als Restluecke im Report: der billigste Gegentest wurde nicht gefahren.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
