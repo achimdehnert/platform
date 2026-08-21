@@ -246,7 +246,7 @@ class TestVorgangsKopf:
 
     def test_should_move_the_rest_into_a_collapsed_block(self):
         seite = tb.detail(vorgang())
-        assert "<details class=\"stammdaten\">" in seite
+        assert '<details class="stammdaten">' in seite
         assert "Zustand" in seite.split("Stammdaten")[1]
 
     def test_should_offer_the_other_order(self):
@@ -780,15 +780,32 @@ class TestVerlaufVerweise:
         html = tb.verweise(roh, "hnu", "https://mail.example")
         assert "https://mail.example/m/hnu/gesendete-objekte/34349" in html
 
-    def test_should_not_link_a_uid_when_two_numbers_share_one_folder_name(self):
-        """Der teuerste Fall: ein Satz nennt zwei Entwuerfe und EINEN Ordner —
-        die zweite Nummer liegt dort gerade nicht. Ohne Ordnersegment loest der
-        Dienst nur gegen INBOX auf, der Link waere ein 404 mit Selbstbewusstsein."""
+    def test_should_not_claim_a_folder_it_did_not_verify(self):
+        """Ein Satz nennt zwei Entwuerfe und EINEN Ordner — die zweite Nummer
+        liegt dort gerade nicht.
+
+        Bis 2026-08-21 blieben beide Nummern unverlinkt, weil `/m/<konto>/<uid>`
+        nur gegen INBOX aufloeste und ein Link ins Leere gezeigt haette. Seit
+        der Dienst eine UID ohne Ordnerangabe selbst sucht
+        (`mail_link_server._ordner_ohne_angabe`), sind sie klickbar — aber
+        ueber die **unqualifizierte** Route. Die Zusicherung ist damit nicht
+        mehr "kein Link", sondern die schaerfere: kein Link behauptet einen
+        Ordner, der nicht danebensteht.
+        """
         roh = "Vorfassung UID 23588 in Geloeschte Objekte verschoben, gueltig ist UID 23589."
         html = tb.verweise(roh, "hnu", "https://mail.example")
-        assert "23589" in html
-        assert "/m/hnu/" not in html
-        assert "ref-roh" in html
+        assert "https://mail.example/m/hnu/23589" in html
+        assert "geloeschte-objekte/23589" not in html
+
+    def test_should_link_a_bare_number_over_the_unqualified_route(self):
+        """Der Grund fuer die ganze Umstellung: eine Nummer, die niemand
+        verlinken konnte, zwang die Prosa daneben dazu, ihren Inhalt zu
+        erklaeren. Klickbarkeit ist hier die Voraussetzung fuers Kuerzen."""
+        html = tb.verweise(
+            "Der Entwurf (UID 23597) liegt im Papierkorb.", "hnu", "https://m.x"
+        )
+        assert "https://m.x/m/hnu/23597" in html
+        assert "Ordner wird beim Oeffnen gesucht" in html
 
     def test_should_link_a_github_reference_instead_of_calling_it_unresolvable(self):
         html = tb.verweise(
