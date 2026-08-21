@@ -755,9 +755,73 @@ class TestVerlaufZerlegung:
         assert "abgeschlossen" in t["inhalt"]
 
     def test_should_keep_a_date_from_splitting_the_sentence(self):
-        """ "20.08. Klimm" darf keine Satzgrenze sein — sonst zerfaellt jeder Eintrag."""
+        """ "20.08. Klimm" darf keine Satzgrenze sein — geprueft an der ZERLEGUNG.
+
+        Die fruehere Fassung assertierte auf `t["inhalt"]` und war damit vakuos:
+        die Bahn fuegt ihre Saetze mit `" ".join()` wieder zusammen, und zwei
+        falsch getrennte Fragmente ergeben exakt denselben String wie ein
+        ungetrennter Satz. Der Test bestand, waehrend die Regex den Satz zerriss
+        (Retro 2026-08-21, Befund #2). Assertiert wird deshalb auf `saetze`.
+        """
         t = tb.zerlege_eintrag("2026-08-21: Eingang 20.08. Klimm meldet sich.")
-        assert t["inhalt"] == "Eingang 20.08. Klimm meldet sich."
+        assert t["saetze"] == ["Eingang 20.08. Klimm meldet sich."]
+
+    def test_should_keep_an_ordinal_before_a_month_from_splitting(self):
+        """ "1. Januar" — dieselbe Klasse, andere Form."""
+        t = tb.zerlege_eintrag(
+            "2026-08-21: Die Frist laeuft am 1. Januar ab. Bitte pruefen."
+        )
+        assert t["saetze"] == ["Die Frist laeuft am 1. Januar ab.", "Bitte pruefen."]
+
+    def test_should_split_after_a_time_of_day(self):
+        """Gegenprobe 1: "16:41." endet auf eine Ziffer und ist trotzdem ein Satzende.
+
+        Die erste Fassung dieses Fixes sperrte auf "jede Ziffer vor dem Punkt"
+        und verschluckte damit genau diese Grenze — der Sachstand ganzer
+        Eintraege fiel dadurch in die Deckungs-Bahn.
+        """
+        t = tb.zerlege_eintrag("2026-08-21: Stand 16:41. Klimm meldet sich.")
+        assert t["saetze"] == ["Stand 16:41.", "Klimm meldet sich."]
+
+    def test_should_split_when_a_date_ends_the_sentence_before_a_marker(self):
+        """Gegenprobe 2: ein Datum kann einen Satz auch BEENDEN.
+
+        "Ruecksendefrist 28.08. OFFEN: …" ist von "20.08. Klimm bestaetigt."
+        nur am Folgewort zu unterscheiden. Ohne die Marker-Ausnahme verschwand
+        genau ein realer offener Punkt aus seiner Bahn (302 Eintraege, 1 Verlust).
+        """
+        t = tb.zerlege_eintrag(
+            "2026-08-20: Ruecksendefrist 28.08. OFFEN: Adresse fehlt."
+        )
+        assert t["saetze"] == ["Ruecksendefrist 28.08.", "OFFEN: Adresse fehlt."]
+        assert t["action"].startswith("OFFEN:")
+
+    def test_should_still_split_a_plain_sentence_boundary(self):
+        """Gegenprobe 3: die schaerfste Sperre waere eine, die nie trennt.
+
+        Ohne diese Zeile bestuenden alle Tests darueber auch dann, wenn die
+        Regex ueberhaupt keine Satzgrenze mehr faende.
+        """
+        t = tb.zerlege_eintrag(
+            "2026-08-21: Der Bericht ist raus. Klimm hat bestaetigt."
+        )
+        assert t["saetze"] == ["Der Bericht ist raus.", "Klimm hat bestaetigt."]
+
+    def test_should_not_read_a_negation_as_an_open_item(self):
+        """ "Nichts zu tun." traegt den Action-Marker und meint das Gegenteil.
+
+        Ohne die Verneinungs-Sperre hob die Seite den Satz als offenen Punkt
+        hervor — eine Bedeutungsumkehr, die schlimmer ist als gar keine Bahn
+        (Retro 2026-08-21, Befund #3).
+        """
+        t = tb.zerlege_eintrag("2026-08-20: Nichts zu tun.")
+        assert t["action"] == ""
+        assert t["inhalt"] == "Nichts zu tun."
+
+    def test_should_still_recognise_a_real_open_item(self):
+        """Gegenprobe zur Verneinungs-Sperre: echte offene Punkte bleiben."""
+        t = tb.zerlege_eintrag("2026-08-20: Offen bleibt der Termin.")
+        assert t["action"] == "Offen bleibt der Termin."
 
     def test_should_read_the_head_behind_a_leading_marker(self):
         """Reale Form aus dem Ledger: "NEU 2026-08-20 (/mailcheck): …".
