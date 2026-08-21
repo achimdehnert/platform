@@ -80,12 +80,21 @@ class TestVorschlaege:
         b = sa.vorschlaege(ledger, {"iil": [_mail("AW: NIS2 Einstufung")]})
         assert [x["lage"] for x in b] == ["treffer"]
 
-    def test_should_refuse_when_two_mails_match(self):
-        """Mehrdeutig heißt mehrdeutig — nicht 'nimm die erste'."""
+    def test_should_take_the_newest_when_several_mails_match(self):
+        """Ein laufender Strang hat mehrere passende Mails — der Wechsel ist derselbe.
+
+        Bis 2026-08-21 brach der Abgleich hier ab. Die Positivkontrolle am echten
+        Ledger zeigte, dass genau das den Normalfall traf: zwei Mails desselben
+        Vorgangs, Ergebnis 'mehrdeutig' statt einer Umstellung.
+        """
         ledger = {"vorgaenge": [_vorgang()]}
-        mails = [_mail("AW: NIS2 Einstufung"), _mail("WG: NIS2 Nachtrag")]
+        mails = [
+            _mail("AW: NIS2 Einstufung", datum="2026-08-20"),
+            _mail("WG: NIS2 Nachtrag", datum="2026-08-21"),
+        ]
         b = sa.vorschlaege(ledger, {"iil": mails})
-        assert b[0]["lage"] == "mehrdeutig"
+        assert b[0]["lage"] == "treffer"
+        assert b[0]["mails"][0].datum == "2026-08-21", "juengste Mail ist der Beleg"
 
     def test_should_report_open_when_nothing_matches(self):
         ledger = {"vorgaenge": [_vorgang()]}
