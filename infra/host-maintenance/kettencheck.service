@@ -1,0 +1,15 @@
+[Unit]
+Description=Kette Postfach -> Ledger -> Vorhersage -> Board -> Ansicht pruefen (platform#2176 Kriterium 6)
+Documentation=https://github.com/achimdehnert/platform/tree/main/infra/host-maintenance
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/github/platform/tools/mail_agent/kettencheck.py
+Nice=10
+IOSchedulingClass=idle
+# Der Melder endet mit Exit 1, sobald ein Glied bricht — der Dienst wird dann
+# als 'failed' gefuehrt. Das ist gewollt: 'systemctl --user --failed' ist die
+# Stelle, an der ein stiller Bruch sichtbar wird, ohne dass jemand ein Log liest.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kettencheck

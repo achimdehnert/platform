@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards test lint setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards kette test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -26,6 +26,9 @@ PROD_SERVER := hetzner-prod
 # =============================================================================
 # HELP & MENU
 # =============================================================================
+
+kette: ## Mail-/Todo-Kette pruefen (Postfach -> Ledger -> Vorhersage -> Board -> Ansicht)
+	@python3 tools/mail_agent/kettencheck.py
 
 boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	@python3 tools/mail_agent/board.py --pruefe
