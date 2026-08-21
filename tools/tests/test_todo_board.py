@@ -116,8 +116,34 @@ class TestSeite:
         assert "Dein Zug" in seite
 
     def test_should_warn_about_imminent_deadlines(self):
+        """Die Kopfzeile nennt die Zahl — seit 2026-08-21 knapper formuliert."""
         daten = {"vorgaenge": [vorgang(frist="2026-08-08", thread_key="Morgen")]}
-        assert "1 in den naechsten 3 Tagen faellig" in tb.baue(daten, STICHTAG)
+        assert "1 faellig in 3 Tagen" in tb.baue(daten, STICHTAG)
+
+    def test_should_count_silent_vorgaenge_in_the_header(self, tmp_path, monkeypatch):
+        """Der dritte Zustand ist der, der bisher fehlte: hier passiert nichts mehr."""
+        datei = tmp_path / "f.json"
+        datei.write_text(
+            '{"1": {"erwartet": "2026-08-01", "spaetestens": "2026-08-05",'
+            ' "ueberfaellig": true}}',
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(tb, "FAELLIGKEIT", datei)
+        daten = {"vorgaenge": [vorgang(nr=1, bucket="warten", frist=None)]}
+        assert "1 still" in tb.baue(daten, STICHTAG)
+
+    def test_should_name_the_three_states(self, tmp_path, monkeypatch):
+        datei = tmp_path / "f.json"
+        datei.write_text(
+            '{"1": {"erwartet": "2026-08-20", "spaetestens": "2026-08-30",'
+            ' "ueberfaellig": false}}',
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(tb, "FAELLIGKEIT", datei)
+        wartet = tb.zustand({"nr": 1, "bucket": "warten"}, STICHTAG)
+        ohne = tb.zustand({"nr": 99, "bucket": "warten"}, STICHTAG)
+        assert wartet[0] == "wartet"
+        assert ohne == ("kein-signal", "kein Signal")
 
     def test_should_omit_empty_sections(self):
         daten = {"vorgaenge": [vorgang(bucket="owner")]}

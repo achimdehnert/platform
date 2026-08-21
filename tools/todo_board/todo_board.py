@@ -203,6 +203,32 @@ def ampel(tage: int | None) -> tuple[str, str]:
     return "gruen", f"in {tage} Tagen"
 
 
+def zustand(v: dict, stichtag: date) -> tuple[str, str]:
+    """→ (Klasse, Text) für den Zustand eines wartenden Vorgangs.
+
+    Drei Zustaende, weil "wartet" allein die Frage nicht beantwortet, die man an
+    die Liste hat (#2176 Kriterium 4):
+
+    * **wartet**  — die Antwort ist noch im normalen Rahmen (bis zum 90-%-Quantil).
+    * **still**   — der Rahmen ist ueberschritten; hier passiert nichts mehr von
+      selbst. Das ist der Zustand, der bisher unsichtbar war.
+    * **kein Signal** — es gibt keinen datierten Versand, also auch keine
+      Erwartung. Ehrlicher als eine erfundene Frist.
+    """
+    if v.get("bucket") != "warten":
+        return "", ""
+    erwartung = _erwartung(v.get("nr"))
+    if not erwartung.get("spaetestens"):
+        return "kein-signal", "kein Signal"
+    if erwartung.get("ueberfaellig"):
+        try:
+            tage = (stichtag - date.fromisoformat(erwartung["spaetestens"])).days
+        except ValueError:
+            tage = 0
+        return "still", f"still seit {tage} Tagen" if tage > 0 else "still"
+    return "wartet", f"bis {erwartung['spaetestens']}"
+
+
 def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
     """Fristen zuerst, aufsteigend; Fristlose danach, alphabetisch."""
     tage = frist_tage(v, stichtag)
@@ -223,13 +249,25 @@ def zeile(
     # Ohne gesetzte Frist tritt die Erwartung an ihre Stelle: „wartet" allein sagt
     # nicht, ob das normal ist oder ob seit zwei Wochen niemand antwortet.
     if tage is None and v.get("bucket") == "warten":
-        erwartung = _erwartung(v.get("nr"))
-        if erwartung.get("spaetestens"):
-            frist = f"erwartet {erwartung.get('erwartet', '')}"
-            if erwartung.get("ueberfaellig"):
-                klasse, text = "rot", "ueberfaellig"
-            else:
-                klasse, text = "gruen", f"bis {erwartung['spaetestens']}"
+        zust_klasse, zust_text = zustand(v, stichtag)
+        if zust_text:
+            # "still" ist der Befund, nicht die Erwartung — deshalb rot und im
+            # selben Feld, in dem sonst die Frist steht. Die Erwartung wandert in
+            # die kleine Zeile darunter, wo sie erklaert statt zu behaupten.
+            klasse = {"still": "rot", "wartet": "gruen", "kein-signal": "keine"}[
+                zust_klasse
+            ]
+            text = zust_text
+            erwartung = _erwartung(v.get("nr"))
+            frist = (
+                f"erwartet war {erwartung.get('erwartet', '')}"
+                if zust_klasse == "still"
+                else (
+                    f"erwartet {erwartung.get('erwartet', '')}"
+                    if zust_klasse == "wartet"
+                    else "kein datierter Versand"
+                )
+            )
     schluessel = v.get("thread_key", "")
     beschriftung = html.escape(schluessel or "—")
     # Ohne thread_key gibt es kein Ziel — dann bleibt es Text statt totem Link.
@@ -350,6 +388,7 @@ a.aktion:hover{border-color:var(--stumm)}
 .kein-ziel{color:var(--stumm);font-size:.84rem;font-style:italic;margin:.2rem 0 0}
 .sache a{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie)}
 .sache a:hover{border-bottom-color:currentColor}
+.kopf-rot{color:var(--rot,#b3261e)}
 pre.notiz{white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.5;
 background:var(--karte);border:1px solid var(--linie);border-radius:6px;padding:.8rem}
 """
@@ -605,11 +644,16 @@ def baue(
     faellig = sum(
         1 for v in posten if (d := frist_tage(v, stichtag)) is not None and d <= 3
     )
-    warnung = (
-        f" · <strong>{faellig} in den naechsten 3 Tagen faellig</strong>"
-        if faellig
-        else ""
-    )
+    # Der Drei-Sekunden-Blick (#2176 Kriterium 4): die Seite beantwortet die drei
+    # Fragen schon in der Kopfzeile, bevor jemand eine Tabelle liest.
+    still = sum(1 for v in posten if zustand(v, stichtag)[0] == "still")
+    dein_zug = sum(1 for v in posten if v.get("bucket") == "owner")
+    teile = [f"<strong>{dein_zug} dein Zug</strong>"]
+    if faellig:
+        teile.append(f"<strong class='kopf-rot'>{faellig} faellig in 3 Tagen</strong>")
+    if still:
+        teile.append(f"<strong class='kopf-rot'>{still} still</strong>")
+    warnung = " · " + " · ".join(teile)
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
