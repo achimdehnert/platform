@@ -65,7 +65,7 @@ Nummer. platform ist ein öffentliches Repo.
 | 5 | Die Abnahme von **Kriterium 2** in [#2176](https://github.com/achimdehnert/platform/issues/2176) nennt als Beleg „Stichprobe über 11 owner-Vorgänge: 0 Fehlstände" und zitiert dafür [#2177](https://github.com/achimdehnert/platform/pull/2177) — **am zitierten Ort steht der Beleg nicht**, und die Null kam aus dem eigenen Filter ohne Positivkontrolle. | fehlende Validierung | hoch | SURVIVES (Skeptiker) | `gh pr view 2177 --json body,comments` — kein solcher Satz | `claim-before-cheapest-check` ×58 |
 | 6 | `ledger_kappen.py` hat **keinen Aufrufer und keinen Zeitplan**. Der Ledger steht wieder bei 67.771 Zeichen; drei Vorgänge liegen über der 2.000-Grenze (max 4.175). | Prozesslücke | hoch | SURVIVES (Skeptiker + kommandobelegt) | `grep -rl ledger_kappen` → nur Test + zwei Docstrings; `systemctl --user list-timers --all` liefert acht Timer, keiner davon `ledger_kappen` | `built-but-never-called` (neu) |
 | 7 | `skills/schreibstil/SKILL.md` §7 beansprucht Kanonizität für den Stil, **erzeugt damit aber die Doppelquelle, vor der es warnt**: die vier genannten Memories zeigen nicht auf den Skill, und eine Owner-Korrektur (`knapp` als Vorgabe) steht nur in einer davon. | verfrühte Festlegung | mittel | SURVIVES (Skeptiker) | [#2193](https://github.com/achimdehnert/platform/pull/2193); `grep -ril schreibstil` in den Memories → 0 Treffer | `canon-claim-without-source-reconcile` (neu) |
-| 8 | Der Arbeitsbaum-Reaper lief mit `--karenz-stunden 0` und entfernte weit mehr Bäume als die zwei besprochenen. Kein Verlust (keiner war voraus), aber der Umfang war nicht freigegeben. | Prozesslücke | hoch | SURVIVES (selbst gemeldet, Kommando im Transkript) | `--karenz-stunden 0`, 2× im Transkript | `scope-checkpoint-not-durably-recorded` ×17 |
+| 8 | Der Arbeitsbaum-Reaper lief mit `--karenz-stunden 0` und entfernte **69** Bäume (90 → 21) statt der zwei besprochenen. Kein Verlust (0 Branches voraus), aber der Umfang war nicht freigegeben. | Prozesslücke | hoch | SURVIVES (selbst gemeldet) | `AGENT_HANDOVER.md`, Stand 2026-08-20 nachmittags | `scope-checkpoint-not-durably-recorded` ×17 |
 
 | 9 | `_stille_karte()` gibt die Datumsspanne der zusammengefassten Erhebungen **rückwärts** aus, sobald die Ansicht auf „älteste zuerst“ steht: `verlauf()` drehte das Ergebnis unbedingt, obwohl der Aufrufer die Eingabe schon gedreht hatte. | fehlende Validierung | mittel | SURVIVES (kommandobelegt) | `2026-08-12 bis 2026-08-10`; Fix in diesem PR | — |
 | 10 | `mail-vorgaenge-erledigt.json` hat **keinen Leser**: `git grep` findet die Datei nur im Schreiber. Ein archivierter Vorgang verschwand damit aus jedem Lesezeichen — Archivieren wirkte wie Löschen. | Werkzeug | hoch | SURVIVES (kommandobelegt) | `git grep -n mail-vorgaenge-erledigt origin/main` → 1 Treffer; Fix in diesem PR | `melder-ohne-leser` |
@@ -187,8 +187,11 @@ wäre genau die Doppelquelle aus Befund #7.
   Grenze) frisch nachgezählt.
 - **Angenommen:** dass die drei Skeptiker-Verdikte (#5, #6, #7) die Sache treffen — jeder
   lief mit engem Auftrag und benannten Artefakten, aber keiner wurde seinerseits geprüft.
-- **Nicht verifizierbar:** die genaue Zahl der vom Reaper entfernten Arbeitsbäume (#8) —
-  das Kommando steht im Transkript, die Bäume sind fort, ein Vorher-Stand existiert nicht.
+- **Nicht verifizierbar:** nichts, was hier stünde. Die zunächst hier notierte Lücke („die
+  genaue Zahl der entfernten Arbeitsbäume") war keine: die Zahl **69** samt Vorher/Nachher
+  (90 → 21) und der Gegenprobe „0 Branches voraus" steht seit dem Vortag im
+  `AGENT_HANDOVER.md`. Ich hatte im Transkript gesucht statt im dauerhaften Artefakt —
+  dieselbe Klasse wie Befund #5, nur in die andere Richtung.
 - **Offen geblieben:** `refuted_rate 0,0`. Drei Skeptiker, drei Mal SURVIVES — entweder
   waren die Befunde ungewöhnlich gut belegt, oder die Aufträge waren zu eng geschnitten,
   um zu widerlegen. Der billigste Gegentest wäre ein vierter Skeptiker auf den
