@@ -167,3 +167,36 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   ist er dort eingefroren. **Konsequenz:** Metadaten-Korrekturen (agent, tags) sind über
   den Upsert-Pfad nicht durchsetzbar, solange der Content gleich bleibt; ein `agent`-Filter
   auf dem Store ist damit unzuverlässig. Getrackt: iilgmbh/iil-klickdummy#221.
+- 2026-08-22: Turnus-Lauf — **165** Entries/24 Repos, R3 PASS (165/165 `ok`, 0 failed;
+  **0 written**, alles content_hash-Dedup). Keine Verteilungs-Drift (verteilte Kopie
+  `5f31af77` byte-identisch zur Quelle). Discovery fand weiter 26 Repos mit `klickdummy/`;
+  frist-hub (meiki-lra) und ttz-hub (ttz-lif) bleiben gov-ausgeschlossen (E3) → Liste
+  unverändert 24. 165 Zeilen = 165 unique `entry_key` (kein Producer-Duplikat) unter
+  `iil-klickdummy 1.34.0`. Schema-WARNs unverändert und alle getrackt: pg-hub
+  (bahn-sqf/pg-hub#8), design-hub (design-hub#36/#38), nl2iot-hub (nl2iot-hub#5).
+  164→165 kommt von `klickdummy:iilgmbh:risk-hub:grundschutz` (Spec neu seit 2026-08-18).
+- 2026-08-22 **Falsifiziert — „neues ADR fehlt im NDJSON" ist kein Producer-Gap.**
+  writing-hub bekam seit dem letzten Lauf `ADR-203` und `ADR-204`; beide tauchen im
+  NDJSON nicht auf, `ADR-203` nennt „Klickdummy" sogar im Fließtext. Der Producer
+  selektiert aber über **`tags: [klickdummy]` im Frontmatter** (Gegenprobe: das
+  aufgenommene `ADR-199` trägt den Tag, `ADR-203` nicht). Ein Volltext-`grep` auf
+  „klickdummy" ist als Vollständigkeits-Check des Sync also untauglich — er erzeugt
+  Falsch-Positive.
+- 2026-08-22 **NEUER BEFUND — Gov-Daten liegen im Store, E3 räumt Altbestand nicht ab.**
+  Eine einzige lesende Suche fand ≥6 `meiki-lra:frist-hub`-Entries (ADR-003 + fünf
+  Iterations-Zeilen), alle mit `agent="klickdummy-sync"`. `frist-hub:ADR-003` ist auf
+  2026-07-21 datiert, die Datei existiert also erst seit dem 21.07. — der Erstschreib
+  fiel damit **hinter** die E3-Einführung (12.07.). E3 verhindert Neuschreiben, nicht
+  Bestand. Zahl nach oben unbekannt; der billigste Check ist store-seitig
+  (`tags @> '{"klickdummy:org:meiki-lra"}'`), über `agent_memory_search` nicht zu
+  bekommen. Entscheidung Owner (löschen / dokumentieren / als Restlücke führen):
+  iilgmbh/risk-hub#666.
+- 2026-08-22 **NEUER BEFUND — es gab einen Lauf ohne Changelog-Eintrag.** `grundschutz`
+  tauchte heute erstmals im NDJSON auf und kam trotzdem mit `written: false` zurück; im
+  Store trägt der Entry `agent="klickdummy-sync"`. Das NDJSON führt selbst
+  `"agent": "iil-klickdummy-sync"`, `klickdummy-sync` setzt nur **Step 3 dieses Skills**,
+  und `agent` friert beim Erstschreib ein (Eintrag 2026-08-17). Der Spec-Inhalt (v1.5)
+  existiert erst seit 2026-08-18 ⇒ zwischen 18.08. und 21.08. lief dieser Skill mindestens
+  einmal, ohne hier eine Zeile zu hinterlassen. Konsequenz für die Lauf-Buchführung: der
+  Changelog ist **kein** vollständiges Lauf-Register — „N seit letztem Eintrag" ist keine
+  belastbare Delta-Basis.
