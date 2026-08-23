@@ -12,7 +12,15 @@
       "built": "2026-08-02",
       "ref": "platform#1643",
       "revised": "2026-08-20",
-      "revision_note": "Ausweitung um die Subjektbindung (platform#2143, Owner-Entscheid 'ausweiten'): die Korroboration fragte nur, OB belegartiges Werkzeug lief, nicht ob es den GENANNTEN Gegenstand beruehrt hat. Kalibrierfenster bis 2026-09-03: der Fall wird protokolliert (kinds=subjekt-unbelegt-kalibrierung), scharf erst mit EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf."
+      "revision_note": "Ausweitung um die Subjektbindung (platform#2143, Owner-Entscheid 'ausweiten'): die Korroboration fragte nur, OB belegartiges Werkzeug lief, nicht ob es den GENANNTEN Gegenstand beruehrt hat. Frist und Mindestzahl des Kalibrierfensters stehen jetzt maschinenlesbar in `kalibrierfenster` — die erste Fassung nannte nur ein Datum in diesem Prosafeld, und genau das war der Fehler (s. dort).",
+      "kalibrierfenster": {
+        "klasse": "kinds=subjekt-unbelegt-kalibrierung",
+        "seit": "2026-08-23",
+        "bis": "2026-09-20",
+        "min_beurteilbar": 10,
+        "scharf_per": "EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf",
+        "note": "Zweiter Anlauf. Die erste Frist (2026-09-03, gesetzt am 2026-08-20) lief ins Leere, und zwar aus zwei Gruenden gleichzeitig: (1) `gate_hits.notiere()` wurde ohne `turn=` gerufen, jede Zeile trug einen leeren Ausschnitt — behoben in platform#2226, aber in der aktiven Hook-Kopie erst am 2026-08-23 12:17 wirksam, als 0.7.5 die Verteil-Drift heilte; (2) die Klasse feuerte in drei Tagen genau EINMAL (2026-08-23 03:32). 59 Zeilen standen im Protokoll, aber sie gehoerten dem regulaeren Treffer, nicht dem Kalibrierfall — die Zahl beschrieb nie das Fenster. Am 2026-08-23 gegengeprobt: der Scanner schreibt seither einen gefuellten Ausschnitt (synthetischer Stop-Event gegen die AKTIVE Kopie). Deshalb zaehlt jetzt eine Mindestzahl beurteilbarer Zeilen, nicht ein Datum allein: bei 1 Zeile / 3 Tagen waere auch der 2026-09-20 mit ~10 Zeilen erreicht — kommt weniger zusammen, ist das selbst der Befund und das Fenster gehoert aufgegeben statt verlaengert."
+      }
     },
     {
       "slug": "deferred-item-no-tracking-issue",

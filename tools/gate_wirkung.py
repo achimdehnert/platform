@@ -57,6 +57,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — steht im Modul, nicht nur in der Registry,
 # damit `gate_drill_check.py` ihn gegen die Registry pruefen kann.
@@ -75,6 +76,13 @@ DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.
 # 3 ist bewusst niedrig: es geht um den Unterschied "hatte ueberhaupt Gelegenheit"
 # gegen "hatte keine", nicht um statistische Signifikanz.
 MIN_FENSTER = 3
+
+# Protokoll der Gate-Treffer (lokal, angelegt von tools/claude-hooks/gate_hits.py).
+# Ueberschreibbar ueber dieselbe Env-Variable wie dort, damit ein Test nicht das
+# echte Protokoll des Entwicklers liest.
+GATE_HITS = os.environ.get(
+    "GATE_HITS_DATEI", os.path.join(os.path.expanduser("~"), ".claude", "hooks", "gate-hits.jsonl")
+)
 
 # Ab so vielen Rueckfaellen gilt ein Gate als rueckfaellig. 2 statt 1, weil ein
 # einzelner Rueckfall auch der Lauf sein kann, in dem das Gate gebaut WURDE.
@@ -286,6 +294,86 @@ def bewerte(gates: list[dict], retros: list) -> list[dict]:
     return ergebnis
 
 
+def kalibrier_stand(gate: dict, heute: str, hits_datei: str = "") -> dict | None:
+    """Wie weit ist das Kalibrierfenster dieses Gates? ``None`` = keins offen.
+
+    Ein Kalibrierfenster ist die Zusage "wir schalten spaeter scharf, wenn die
+    Fehlalarm-Quote es hergibt". Bis zum 2026-08-23 stand diese Zusage nur als
+    Prosa in `revision_note` — ein Datum, das niemand liest und nichts prueft.
+    Die Frist 2026-09-03 des Claim-Gates lief deshalb auf **einer** Protokollzeile
+    zu, und die trug einen leeren Ausschnitt: zaehlbar, nicht beurteilbar.
+
+    Gezaehlt wird darum nicht "Treffer", sondern **beurteilbare** Treffer der
+    genannten Klasse: eine Zeile ohne Ausschnitt ist kein Datenpunkt, sie ist ein
+    Strich auf einem Zettel.
+    """
+    fenster = gate.get("kalibrierfenster")
+    if not fenster:
+        return None
+    beurteilbar = 0
+    gesamt = 0
+    try:
+        with open(hits_datei or GATE_HITS, encoding="utf-8") as datei:
+            for zeile in datei:
+                zeile = zeile.strip()
+                if not zeile:
+                    continue
+                try:
+                    treffer = json.loads(zeile)
+                except ValueError:
+                    continue
+                if treffer.get("slug") != gate.get("slug"):
+                    continue
+                if fenster.get("klasse", "") not in treffer.get("marker", ""):
+                    continue
+                if treffer.get("zeit", "")[:10] < fenster.get("seit", ""):
+                    continue
+                gesamt += 1
+                if treffer.get("ausschnitt"):
+                    beurteilbar += 1
+    except OSError:
+        # Fail-open: kein Protokoll heisst "nichts gemessen", nicht "alles gut".
+        pass
+
+    mindest = int(fenster.get("min_beurteilbar", 0))
+    if beurteilbar >= mindest and mindest > 0:
+        zustand = "entscheidungsreif"
+    elif heute > fenster.get("bis", "9999-12-31"):
+        zustand = "abgelaufen"
+    else:
+        zustand = "sammelt"
+    return {
+        "slug": gate.get("slug", "?"),
+        "seit": fenster.get("seit", "?"),
+        "bis": fenster.get("bis", "?"),
+        "min_beurteilbar": mindest,
+        "beurteilbar": beurteilbar,
+        "gesamt": gesamt,
+        "zustand": zustand,
+    }
+
+
+def kalibrier_zeile(stand: dict) -> str:
+    if stand["zustand"] == "entscheidungsreif":
+        return (
+            f"Kalibrierfenster {stand['slug']}: {stand['beurteilbar']} beurteilbare "
+            f"Zeile(n) — Mindestzahl {stand['min_beurteilbar']} erreicht, entscheiden "
+            f"(scharf schalten oder Modus herabstufen)"
+        )
+    if stand["zustand"] == "abgelaufen":
+        return (
+            f"Kalibrierfenster {stand['slug']}: Frist {stand['bis']} abgelaufen mit "
+            f"{stand['beurteilbar']} von {stand['min_beurteilbar']} beurteilbaren "
+            f"Zeile(n) ({stand['gesamt']} protokolliert) — Frist traegt keine "
+            f"Entscheidung, neu setzen oder Fenster aufgeben"
+        )
+    return (
+        f"Kalibrierfenster {stand['slug']}: {stand['beurteilbar']}/"
+        f"{stand['min_beurteilbar']} beurteilbar seit {stand['seit']}, Frist "
+        f"{stand['bis']} — sammelt noch"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--registry", default=DEFAULT_REGISTRY)
@@ -309,16 +397,29 @@ def main() -> int:
     retros = lies_retros(args.dirs or standard_verzeichnisse())
     bewertet = bewerte(gates, retros)
     rueckfaellig = [e for e in bewertet if e["urteil"] == "RUECKFAELLIG"]
+    heute = datetime.now(timezone.utc).date().isoformat()
+    staende = [k for k in (kalibrier_stand(g, heute) for g in gates) if k]
+    # Nur ein Fenster, das eine ENTSCHEIDUNG traegt, ist im Runner laut. Ein noch
+    # sammelndes wuerde die Phase jede Sitzung auf WARN drehen — und ein Melder,
+    # der immer feuert, wird gelesen wie einer, der nie feuert.
+    laut = [k for k in staende if k["zustand"] in ("entscheidungsreif", "abgelaufen")]
 
     if args.als_json:
         print(
             json.dumps(
-                {"retros": len(retros), "gates": bewertet}, ensure_ascii=False, indent=2
+                {"retros": len(retros), "gates": bewertet, "kalibrierfenster": staende},
+                ensure_ascii=False,
+                indent=2,
             )
         )
         return 0
 
     if args.kurz:
+        if not rueckfaellig and laut:
+            print(kalibrier_zeile(laut[0]))
+            for stand in laut[1:]:
+                print(f"  · {kalibrier_zeile(stand)}")
+            return 0
         if rueckfaellig:
             spitze = rueckfaellig[0]
             weitere = (
@@ -334,6 +435,8 @@ def main() -> int:
                     f"  · {eintrag['slug']} — {eintrag['nachher']}x seit {eintrag['gebaut']}, "
                     f"zuletzt {eintrag['letzter_rueckfall']}"
                 )
+            for stand in laut:
+                print(f"  · {kalibrier_zeile(stand)}")
         return 0
 
     daten = [_zerlege(r)[0] for r in retros]
@@ -387,6 +490,19 @@ def main() -> int:
         print(
             f"  ({len(zu_frueh)} Gate(s) 'zu-frueh' — weniger als {MIN_FENSTER} Retros seit Bau. "
             "Kein Rueckfall ist hier KEIN Wirksamkeits-Beleg.)"
+        )
+
+    if staende:
+        print()
+        print("Offene Kalibrierfenster (Zusage 'spaeter scharf', mit Datum und Mindestzahl):")
+        for stand in staende:
+            zeichen = {"entscheidungsreif": "🚨", "abgelaufen": "🚨"}.get(
+                stand["zustand"], "  "
+            )
+            print(f"  {zeichen} {kalibrier_zeile(stand)}")
+        print(
+            "  Gezaehlt werden BEURTEILBARE Zeilen (mit Ausschnitt), nicht Treffer: "
+            "ein Fenster, das nichts beurteilen kann, kann auch nichts scharfschalten."
         )
     return 0
 
