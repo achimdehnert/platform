@@ -141,7 +141,10 @@
       "drill": "tools/claude-hooks/tests/test_block_unformatted_push_suite.py",
       "built": "2026-08-04",
       "ref": "platform#1650 Nachmessung 2026-08-10",
-      "note": "Bestand seit ff2981b0 (PreToolUse-Hook blockt push mit unformatiertem Stand), war aber nie registriert. `blocking` ist hier keine Eskalation, sondern der Ist-Zustand des Hooks seit Einbau. Registriert 2026-08-12."
+      "note": "Bestand seit ff2981b0 (PreToolUse-Hook blockt push mit unformatiertem Stand), war aber nie registriert. `blocking` ist hier keine Eskalation, sondern der Ist-Zustand des Hooks seit Einbau. Registriert 2026-08-12. · 2026-08-23 (platform#2234): `local-test-gate-narrower-than-ci` gehoert hierher — dieselbe Naht (lokal gruen, CI rot), nur fuer Tests statt Lint. Realfall 2026-07-27: ein Test las das echte Home-Verzeichnis. Ausweitung noch NICHT gebaut, der Slug ist hier verankert statt in einem zweiten Gate.",
+      "covers": [
+        "local-test-gate-narrower-than-ci"
+      ]
     },
     {
       "slug": "ci-gate-maskiert-failure",
@@ -264,9 +267,10 @@
       "built": "2026-08-23",
       "ref": "platform#2211 (Antwort auf #2143 fuer deferred-item-no-tracking-issue: umbauen statt ausweiten)",
       "covers": [
+        "accepted-plan-item-silently-dropped",
         "deferred-item-no-tracking-issue"
       ],
-      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker)."
+      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214."
     },
     {
       "slug": "skill-copy-not-redistributed",
@@ -277,6 +281,16 @@
       "built": "2026-08-23",
       "ref": "platform#2143 (gate_deckung.py: 3x aufgetreten, nie gegated)",
       "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt: platform#2235)."
+    },
+    {
+      "slug": "platform-pinned-perma-dirty-loop",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/policy_frische.py",
+      "drill": "tools/tests/test_policy_frische.py",
+      "built": "2026-08-23",
+      "ref": "platform#2234 (3x in den Retros, nie gegated)",
+      "note": "Gebaut statt abgelegt, nachdem die Pruefung die eigene Empfehlung widerlegte: der Slug klang nach 'Arbeitsbaum dauerhaft dirty' und meint tatsaechlich 'Policy-Pin ohne Frische-Garantie zur Nutzungszeit' (Retro 2026-07-31, Befund 9: Pin 17 Commits zurueck, darunter PR #1601 mit genau zwei der injizierten Policies). Vergleich am Inhalt gegen origin/main, nicht an der mtime. Verdrahtet als Runner-Phase 0.7.14. Beim Bauen selbst ausgeloest: eine Probe hing an ~/.claude/policies an, das SYMLINKS in den Pin sind — der Pin wurde dirty, zurueckgenommen und mit origin/main gegengeprueft."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
@@ -311,6 +325,41 @@
       "built": "2026-08-20",
       "ref": "platform#2168",
       "note": "Rechnet mit <!--kz:NAME--> markierte Zahlen in durablen Dokumenten nach. Opt-in: ein Stand-Block darf altern, eine Prio-Zeile nicht."
+    },
+    {
+      "slug": "gate-matches-spelling-not-substance",
+      "decided": "2026-08-23",
+      "owner": "achim",
+      "ref": "platform#2234 (Sichtung der 18 ungedeckten Slugs)",
+      "reason": "Meta-Muster. Kein Scanner kann generisch erkennen, dass ein Gate die Schreibweise statt der Sache trifft — das faellt erst auf, wenn der Befund trotz Gate wiederkommt. Genau diese FOLGE wird bereits gemessen (`gate-rueckfall-unbemerkt`, Phase 0.7.7), und die konkreten Instanzen bekamen konkrete Antworten: #2216 (Zusage-Typ statt Wortlaut) und #2225 (Reichweite an der Wirkung). Ein zusaetzliches Meta-Gate haette keinen eigenen Messpunkt."
+    },
+    {
+      "slug": "partial-fix-not-generalized-to-sibling-artifacts",
+      "decided": "2026-08-23",
+      "owner": "achim",
+      "ref": "platform#2234",
+      "reason": "Meta-Muster wie oben: 'haettest du auch das Geschwister angefasst' ist erst im Rueckblick entscheidbar. Bemerkenswert dabei: der Slug hat sich am 2026-08-23 zweimal selbst bestaetigt (0.7.5 deckte die Hook-Lane, nicht die Skill-Lane; 0.7.13 deckte skills+commands, nicht `hooks`) — beide Male fiel es beim BAUEN auf, nicht durch einen Melder. Die wirksame Gegenmassnahme ist die Lane-Liste in 0.7.13, nicht ein Textscanner."
+    },
+    {
+      "slug": "test-asserts-the-case-in-mind-not-the-harmful-one",
+      "decided": "2026-08-23",
+      "owner": "achim",
+      "ref": "platform#2234",
+      "reason": "Kein mechanisches Signal: ein Test, der den gedachten statt den schaedlichen Fall prueft, ist syntaktisch von einem richtigen nicht zu unterscheiden. Die praktische Gegenmassnahme ist die Positivkontrolle vor dem Verdrahten (zweimal am 2026-08-23 wirksam: die Footer-Blindstelle in doctor.py und die Symlink-Falle bei den Policies fielen genau dort auf) — eine Arbeitsweise, kein Scanner."
+    },
+    {
+      "slug": "critical-alert-no-ticket",
+      "decided": "2026-08-23",
+      "owner": "achim",
+      "ref": "platform#2234",
+      "reason": "Von zwei bestehenden Mechanismen abgedeckt: Phase 0.7.2 (`cron-melder`) findet dauerhaft rote Melder, und `cross-repo-befund-ohne-artefakt-im-zielrepo` verlangt je Fremd-Repo-Befund ein Artefakt oder einen abgelegten Verzicht. Letztes Vorkommen 2026-07-09, seither kein Rueckfall."
+    },
+    {
+      "slug": "deploy-green-not-prod-healthy",
+      "decided": "2026-08-23",
+      "owner": "achim",
+      "ref": "platform#2234",
+      "reason": "Seit dem 2026-08-23 misst Phase 0.7.12 (`prod-wirkung`) den Stand HINTER dem gruenen Haken bei jedem Sitzungsstart — laufende Container gegen origin/main, `cancelled` als eigene Klasse. Das ist die Messung, die der Slug verlangt; ein eigenes Gate waere ein zweiter Zaehler auf dieselbe Zahl."
     }
   ]
 }

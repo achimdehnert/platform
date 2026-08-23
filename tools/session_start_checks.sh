@@ -669,6 +669,23 @@ print(f"STATUS={status}|{note}|{" ".join(betroffen)}")
   record "0.7.12 prod-wirkung" "${WIRK_STATUS:-WARN}" "${WIRK_NOTE:-nicht auswertbar}" "$WIRK_REPOS"
 fi
 
+# ── 0.7.14 Policy-Frische (Slug `platform-pinned-perma-dirty-loop`) ────────
+# `inject_policies.py` schiebt bei JEDEM Prompt Policies in den Kontext und prueft
+# dabei keine Frische. Der Refresh dahinter hat eine stille Bremse:
+# `refresh_pinned_policies.sh` ueberspringt ihn, wenn `~/github/platform-pinned`
+# DIRTY ist — sein Hinweis erscheint einmal beim Sitzungsstart und verschwindet,
+# injiziert wird stundenlang weiter. Gemessen am 2026-07-31: ein Pin lag 17 Commits
+# zurueck, darunter PR #1601, der genau zwei der injizierten Policies aenderte.
+#
+# Geurteilt wird am INHALT gegen origin/main, nicht an der mtime: am 2026-08-23
+# trugen 16 von 16 ausgelieferten Dateien den 3. August und waren trotzdem aktuell.
+POLFRISCHE_OUT=$(timeout 60 python3 "$PLATFORM_DIR/tools/policy_frische.py" --kurz 2>/dev/null || true)
+if [ -n "$POLFRISCHE_OUT" ]; then
+  record "0.7.14 policy-frische" "WARN" "$(echo "$POLFRISCHE_OUT" | head -1 | tr '|' '/')"
+else
+  record "0.7.14 policy-frische" "PASS" "ausgelieferte Policies inhaltsgleich mit origin/main"
+fi
+
 # ── 0.7.13 Skill-Verteil-Drift (Slug `skill-copy-not-redistributed`) ────────
 # Schwester von 0.7.5, und zwar die unbeaufsichtigte: 0.7.5 deckt AUSSCHLIESSLICH
 # die Lane `claude-hooks` (~/.claude/hooks). Skills und Commands haben eine
@@ -708,7 +725,7 @@ done
 if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
   record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — aktive Kopie weicht von origin/main ab (beheben: tools/cc-skill-dist/generate.py --ref origin/main --kind <lane> --allow-live)"
 else
-  record "0.7.13 skill-dist" "PASS" "beide Lanes synchron (${SKILLDRIFT_NOTE% })"
+  record "0.7.13 skill-dist" "PASS" "alle Lanes synchron (${SKILLDRIFT_NOTE% })"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
