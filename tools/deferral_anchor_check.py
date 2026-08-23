@@ -21,8 +21,14 @@ Exit: 0 = sauber oder nur Warnung, 1 = Fund im --block-Modus, 2 = Werkzeugfehler
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from github_referenzen import ohne_pr_referenzen  # noqa: E402  (haengt am sys.path oben)
+from markdown_klartext import normalisiere_zeilen  # noqa: E402
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — von tools/gate_drill_check.py gelesen und
 # gegen docs/governance/gate-registry.json abgeglichen. Ohne Kopf verrottet die
@@ -90,7 +96,10 @@ def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int
     ueberspringen — ein Abschnitt, der Aufschub ankuendigt und in seinem
     gesamten Rumpf kein Issue nennt, bleibt ein Fund.
     """
-    zeilen = text.splitlines()
+    # Zeilentreu entschmuecken, bevor gematcht wird: der reale Rueckfall stand
+    # als `bewusst **nicht** mitgemacht` da und war fuer AUFSCHUB unsichtbar
+    # (gemessen an PR #2007, docs/governance/verankerung-kalibrierung-2026-08-23.md).
+    zeilen = normalisiere_zeilen(text).splitlines()
     funde: list[tuple[int, str]] = []
     for i, zeile in enumerate(zeilen):
         if not AUFSCHUB.search(zeile):
@@ -104,7 +113,10 @@ def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int
             von = i
         else:
             von, bis = max(0, i - fenster), min(len(zeilen), i + fenster + 1)
-        if ANKER.search("\n".join(zeilen[von:bis])):
+        # Ein PR-Verweis ist kein Anker: er belegt Herkunft, nicht Zustaendigkeit.
+        # Ohne diesen Schritt raeumt `#2005` im selben Satz den Fund ab, den
+        # Retro 9d861a als Befund #3 fuehrt (PR #2007).
+        if ANKER.search(ohne_pr_referenzen("\n".join(zeilen[von:bis]))):
             continue
         funde.append((i + 1, zeile.strip()))
     return funde
