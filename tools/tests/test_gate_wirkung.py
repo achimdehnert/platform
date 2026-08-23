@@ -395,3 +395,26 @@ def test_should_survive_a_missing_protocol_without_claiming_success(tmp_path):
 
 def test_should_return_none_for_a_gate_without_a_window():
     assert gw.kalibrier_stand({"slug": "g"}, "2026-08-26") is None
+
+
+def test_should_flag_a_window_without_a_minimum_as_misconfigured(tmp_path):
+    """Ohne Mindestzahl kann das Fenster nie entscheidungsreif werden.
+
+    Der Rand war bis 2026-08-23 ungetestet und still: `mindest > 0` schlug fehl,
+    das Fenster blieb in "sammelt" haengen und fiel bei Fristablauf durch, ohne
+    dass jemand erfuhr, warum (Retro a84f71 Befund 4).
+    """
+    gate = {"slug": "g", "kalibrierfenster": {
+        "klasse": "kinds=x", "seit": "2026-08-23", "bis": "2026-09-20"}}
+    datei = _hits(tmp_path / "hits.jsonl", [_zeile("belegt", klasse="kinds=x")])
+    stand = gw.kalibrier_stand(gate, "2026-08-26", datei)
+    assert stand["zustand"] == "unbestimmt"
+    assert "keine Mindestzahl gesetzt" in gw.kalibrier_zeile(stand)
+
+
+def test_should_treat_an_explicit_zero_minimum_the_same_way(tmp_path):
+    gate = {"slug": "g", "kalibrierfenster": {
+        "klasse": "kinds=x", "seit": "2026-08-23", "bis": "2026-09-20",
+        "min_beurteilbar": 0}}
+    datei = _hits(tmp_path / "hits.jsonl", [])
+    assert gw.kalibrier_stand(gate, "2026-08-26", datei)["zustand"] == "unbestimmt"

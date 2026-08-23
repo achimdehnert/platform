@@ -336,7 +336,13 @@ def kalibrier_stand(gate: dict, heute: str, hits_datei: str = "") -> dict | None
         pass
 
     mindest = int(fenster.get("min_beurteilbar", 0))
-    if beurteilbar >= mindest and mindest > 0:
+    if mindest <= 0:
+        # Ohne Mindestzahl kann das Fenster NIE entscheidungsreif werden — es
+        # haengt bis zum Fristablauf in "sammelt" und faellt dann durch. Das ist
+        # ein Konfigurationsfehler und gehoert gesagt, nicht ausgesessen
+        # (Retro a84f71 Befund 4: der Rand war ungetestet und still).
+        zustand = "unbestimmt"
+    elif beurteilbar >= mindest:
         zustand = "entscheidungsreif"
     elif heute > fenster.get("bis", "9999-12-31"):
         zustand = "abgelaufen"
@@ -354,6 +360,12 @@ def kalibrier_stand(gate: dict, heute: str, hits_datei: str = "") -> dict | None
 
 
 def kalibrier_zeile(stand: dict) -> str:
+    if stand["zustand"] == "unbestimmt":
+        return (
+            f"Kalibrierfenster {stand['slug']}: keine Mindestzahl gesetzt "
+            f"(`min_beurteilbar`) — das Fenster kann nie entscheidungsreif werden, "
+            f"Frist {stand['bis']} liefe ins Leere"
+        )
     if stand["zustand"] == "entscheidungsreif":
         return (
             f"Kalibrierfenster {stand['slug']}: {stand['beurteilbar']} beurteilbare "
@@ -402,7 +414,11 @@ def main() -> int:
     # Nur ein Fenster, das eine ENTSCHEIDUNG traegt, ist im Runner laut. Ein noch
     # sammelndes wuerde die Phase jede Sitzung auf WARN drehen — und ein Melder,
     # der immer feuert, wird gelesen wie einer, der nie feuert.
-    laut = [k for k in staende if k["zustand"] in ("entscheidungsreif", "abgelaufen")]
+    laut = [
+        k
+        for k in staende
+        if k["zustand"] in ("entscheidungsreif", "abgelaufen", "unbestimmt")
+    ]
 
     if args.als_json:
         print(
@@ -496,9 +512,11 @@ def main() -> int:
         print()
         print("Offene Kalibrierfenster (Zusage 'spaeter scharf', mit Datum und Mindestzahl):")
         for stand in staende:
-            zeichen = {"entscheidungsreif": "🚨", "abgelaufen": "🚨"}.get(
-                stand["zustand"], "  "
-            )
+            zeichen = {
+                "entscheidungsreif": "🚨",
+                "abgelaufen": "🚨",
+                "unbestimmt": "🚨",
+            }.get(stand["zustand"], "  ")
             print(f"  {zeichen} {kalibrier_zeile(stand)}")
         print(
             "  Gezaehlt werden BEURTEILBARE Zeilen (mit Ausschnitt), nicht Treffer: "
