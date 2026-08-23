@@ -189,3 +189,26 @@ den Pruefer schicken — meldet er dann nichts, ist die Naehe die Ursache.
 (#2196 und #2220), 2 saubere Texte. Praezision faellt von 0,50 auf **0,33**.
 Das ist ein Argument gegen Scharfschaltung, kein Argument fuer eine weitere
 Musterzeile — dieselbe Lehre wie beim Gate, das der Pruefer ersetzen soll.
+
+---
+
+## 6. Fenster-Zeilen (fortlaufend)
+
+### 2026-08-23, Phase 0g auf den eigenen PR-Texten dieser Sitzung
+
+| Text | Meldung | Urteil |
+|---|---|---|
+| PR #2232 (Sweep-Werkzeug) | `[vertagung]` „umzubauen (13): ..." | **Fehlalarm** — Ergebnisliste eines Trockenlaufs, keine Zusage |
+| PR #2232 | `[vertagung]` „übersprungen (14)" | **Fehlalarm** — dieselbe Liste, andere Haelfte |
+| Flotten-PR-Text (13× identisch) | `✅` keine Meldung | richtig: der Abschnitt „Nicht verifiziert" traegt seine Issue-Nummer |
+
+Dieselbe Schwaeche wie beim Meta-Text in §2a: eine Aufzaehlung von Repos, die
+umgebaut *werden sollen*, liest sich fuer den Klassifikator wie eine Vertagung.
+Der Unterschied zwischen „steht noch aus" und „ist das Ergebnis einer Messung"
+ist genau die Grenze, an der die Klasse `vertagung` bisher scheitert.
+
+**Stand des Fensters:** 5 gepruefte Texte · 7 Meldungen · 1 richtig · 6 Fehlalarme,
+davon 5 aus Meta-Texten (Berichte ueber Vertagungen, Trockenlauf-Listen). Ein
+Vorschlag fuer Welle 2 folgt daraus unmittelbar und steht in
+[#2214](https://github.com/achimdehnert/platform/issues/2214): Meta-Texte sind
+eine eigene Klasse und muessen getrennt ausgewertet werden.
