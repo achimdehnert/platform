@@ -199,7 +199,7 @@ if [ -f "$GITHUB_DIR/$TARGET_REPO/reflex.yaml" ]; then
   fi
   rm -f /tmp/ssc_reflex.$$
 else
-  record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)"
+  record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)"
 fi
 
 # ── 0.4.2 ADR-Schema-Validierung ────────────────────────────────────────────
@@ -400,12 +400,12 @@ if [ -f "$STALE_REPO_DIR/AGENT_HANDOVER.md" ]; then
   STALE_N=$(echo "$STALE_OUT" | grep -c '^STALE' || true)
   case "$STALE_OUT" in
     PASS*)  record "0.7.4 prio-referenzen" "PASS" "$(echo "$STALE_OUT" | head -1 | cut -c1-120)" ;;
-    SKIP*)  record "0.7.4 prio-referenzen" "PASS" "keine Prio-Liste im Handover — nichts zu pruefen" ;;
+    SKIP*)  record "0.7.4 prio-referenzen" "SKIP" "keine Prio-Liste im Handover — nichts geprueft" ;;
     STALE*) record "0.7.4 prio-referenzen" "WARN" "$STALE_N Prio-Referenz(en) zeigen auf Erledigtes — Prio nachziehen VOR Arbeitsbeginn: $(echo "$STALE_OUT" | grep '^STALE' | head -3 | awk '{print $2}' | tr '\n' ' ')" ;;
     *)      record "0.7.4 prio-referenzen" "WARN" "Prio-Referenz-Check nicht auswertbar — manuell: platform/tools/handover_stale_reference_check.py" ;;
   esac
 else
-  record "0.7.4 prio-referenzen" "PASS" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts zu pruefen"
+  record "0.7.4 prio-referenzen" "SKIP" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts geprueft"
 fi
 
 # ── 0.7.3 /opt/platform Git↔Prod-Drift (platform#1585) ──────────────────────
@@ -580,6 +580,13 @@ for i in "${!P_NAME[@]}"; do
     PASS) ICON="✅" ;;
     WARN) ICON="⚠️" ;;
     FAIL) ICON="❌" ;;
+    # SKIP ist KEIN Gruen. Die Phase konnte nicht pruefen — das ist weder ein
+    # Befund noch eine Entwarnung, und genau diese dritte Moeglichkeit fehlte:
+    # ein SKIP wurde als PASS verbucht und war in der Tabelle von einer echten
+    # Pruefung nicht zu unterscheiden. Realfall 2026-08-23: `0.7.4` meldete
+    # "keine Prio-Liste im Handover" gegen eine Datei mit sieben Prio-Zeilen,
+    # eine seit 19 Tagen erledigte Prio blieb dadurch stehen (KONZ-platform-050).
+    SKIP) ICON="◌" ;;
   esac
   printf '| %s | %s %s | %s | %s |\n' \
     "${P_NAME[$i]}" "$ICON" "${P_STATUS[$i]}" "${P_REPO[$i]:-$TARGET_REPO}" "${P_NOTE[$i]}"
@@ -609,5 +616,10 @@ fi
 if [ "$FAILED" -eq 1 ]; then
   echo "RESULT: FAIL — Session NICHT fortsetzen, bis alle ❌ behoben sind."
   exit 1
+fi
+SKIP_N=0
+for s in "${P_STATUS[@]}"; do [ "$s" = "SKIP" ] && SKIP_N=$((SKIP_N+1)); done
+if [ "$SKIP_N" -gt 0 ]; then
+  echo "HINWEIS: $SKIP_N Phase(n) konnten nicht pruefen (◌ SKIP) — kein Befund, aber auch keine Entwarnung."
 fi
 echo "RESULT: OK — mechanische Phasen komplett; weiter mit 0.4.3 (Worktree), 0.8 (Modell-Tier), Phase 1–3."
