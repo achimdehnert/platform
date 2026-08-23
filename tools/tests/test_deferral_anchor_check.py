@@ -195,3 +195,67 @@ def test_should_anker_hinter_naechster_ueberschrift_nicht_einsammeln():
         ]
     )
     assert [z for z, _ in stellen(text)] == [1]
+
+
+# ── Fehlermodus „Auszeichnung" (2026-08-23, platform#2211) ───────────────────
+
+
+def test_should_aufschub_trotz_fettschrift_im_wortlaut_finden():
+    """Der reale Rueckfall aus PR #2007 — vorher unsichtbar.
+
+    `bewusst **nicht** mitgemacht`: die vier Sternchen stehen zwischen den
+    beiden Woertern, auf die `AUFSCHUB` wartet. Vor der Normalisierung meldete
+    das Gate auf dem echten PR-Text `✅ jede angekuendigte Auslassung hat eine
+    Issue-Referenz` — auf genau dem Text, den Retro 9d861a als Befund #3 fuehrt.
+    """
+    text = (
+        "## Bewusste Restueberschneidung\n\n"
+        "Eine Zusammenlegung waere ein eigener Umbau und ist hier bewusst "
+        "**nicht** mitgemacht.\n"
+    )
+    funde = dac.finde_ankerlose_stellen(text)
+    assert funde, "Aufschub mit Fettschrift wurde nicht gefunden"
+
+
+def test_should_ohne_normalisierung_blind_gewesen_sein():
+    """Gegenprobe: derselbe Satz, roh gematcht, trifft nicht.
+
+    Ohne diesen Test waere „die Fettschrift war die Ursache" eine Behauptung
+    ueber den eigenen Fix statt eine Messung.
+    """
+    roh = "ist hier bewusst **nicht** mitgemacht"
+    assert dac.AUFSCHUB.search(roh) is None
+    assert dac.AUFSCHUB.search(roh.replace("**", "")) is not None
+
+
+def test_should_pr_referenz_nicht_mehr_als_anker_gelten_lassen():
+    """`#2005` als /pull/-Link belegt Herkunft, nicht Zustaendigkeit."""
+    text = (
+        "Zwei Gedaechtnisse, aus [#2005](https://github.com/a/b/pull/2005) — "
+        "eine Zusammenlegung ist hier bewusst **nicht** mitgemacht.\n"
+    )
+    assert dac.finde_ankerlose_stellen(text), "PR-Link darf keinen Fund abraeumen"
+
+
+def test_should_die_grenze_der_naehe_festhalten():
+    """**Bekannte Grenze, absichtlich als Test festgehalten.**
+
+    Eine fremde Issue-Nummer im Naehe-Fenster raeumt den Fund ab, auch wenn sie
+    mit der aufgeschobenen Arbeit nichts zu tun hat. Am Realfall gemessen: im
+    PR-Text von #2007 ist es `#1953` aus einer Beleg-Aufzaehlung vier Zeilen
+    darueber — die Stelle bleibt fuer dieses Gate unsichtbar, auch nach
+    Normalisierung und PR-Ausschluss.
+
+    Genau deshalb prueft `tools/verankerung_pruefer.py` den Anker **im Segment**
+    statt in einem Zeilenfenster. Dieser Test faellt, sobald jemand die Naehe
+    doch enger zieht — dann gehoert die Grenze neu bewertet, nicht der Test
+    stillschweigend angepasst.
+    """
+    text = (
+        "- Die 8 Befunde decken sich mit Phase 0.7.4 (u.a. #1953).\n"
+        "\n"
+        "## Bewusste Restueberschneidung\n"
+        "\n"
+        "Eine Zusammenlegung ist hier bewusst **nicht** mitgemacht.\n"
+    )
+    assert dac.finde_ankerlose_stellen(text) == []

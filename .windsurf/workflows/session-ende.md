@@ -341,6 +341,38 @@ wenn ein konkreter Befund von ihr in einem fremden Repo repariert werden musste.
 
 ---
 
+### 0g: Zusagen dieser Sitzung gegen Tracking-Artefakte prüfen (PFLICHT — NEU 2026-08-23, platform#2211)
+
+> **Der Slug `deferred-item-no-tracking-issue` steht bei 23 Vorkommen und hat seit dem
+> 2026-08-02 ein Gate — mit 9 Rückfällen danach.** Der Grund ist gemessen, nicht vermutet
+> (`docs/governance/verankerung-kalibrierung-2026-08-23.md`): die bestehenden Gates sind
+> Wortlisten, und der reale Rückfall stand als `bewusst **nicht** mitgemacht` da — mit
+> Markdown-Fettschrift zwischen den Wörtern, die jedes Muster zerreißt, und einer
+> PR-Referenz im selben Satz, die jeden Anker-Test besteht, ohne irgendetwas zu verfolgen.
+
+Dieser Schritt prüft nicht den Wortlaut, sondern den **Typ** der Zusage — über die
+PR-Texte, die diese Sitzung erzeugt hat:
+
+```bash
+for nr in $(gh pr list --author @me --state all --search "created:>=$(date -I)" --json number --jq '.[].number'); do
+  python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/verankerung_pruefer.py"     --pr "$nr" --repo "<owner>/$TARGET_REPO"
+done
+```
+
+- **`✅`** — jede erkannte Zusage trägt ein Tracking-Issue. Weiter.
+- **`⚠️`** — je gemeldeter Stelle **eine** von zwei Antworten, nie keine: Issue anlegen und
+  die Nummer **im selben Abschnitt** des PR-Textes nennen, **oder** die Meldung als
+  Fehlalarm in der Kalibrier-Datei notieren (mit Zitat — das Fenster lebt von diesen Zeilen).
+- **`◌ NICHT PRUEFBAR`** — kein Modell erreichbar (`ollama` aus). Das ist **kein** grünes
+  Ergebnis und wird als Lücke benannt, nicht stillschweigend übergangen.
+
+**Modus `advisory`, bewusst.** Die gemessene Präzision liegt bei 0,50 auf vier echten
+PR-Texten (1 Treffer, 1 Fehlalarm, 2 saubere Texte); ein blockierendes Gate mit dieser
+Quote wird umgangen statt befolgt. Scharfschaltung erst nach Auswertung des
+Kalibrierfensters — als eigene Entscheidung, nicht als Nebeneffekt eines Edits.
+
+---
+
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
 
 Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation
@@ -785,8 +817,9 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
 | 17 | Rückfälliges Gate aus Session-Start 0.7.7: in dieser Sitzung behandelt ODER Verzicht mit Grund abgelegt (Phase 0f) | ☐ |
-| 17 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
-| 18 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
+| 18 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
+| 19 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
+| 20 | `verankerung_pruefer.py` über die eigenen PR-Texte gelaufen: `✅`, oder je Meldung Issue bzw. dokumentierter Fehlalarm (Phase 0g) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
