@@ -250,3 +250,28 @@ def test_should_nur_gemessene_slugs_beanspruchen():
 
 def test_should_ankerurteil_default_nicht_verankert_sein():
     assert Ankerurteil(False, "").verankert is False
+
+
+def test_should_belegen_dass_beide_musterlisten_bei_neuer_formulierung_schweigen():
+    """Der Generalisierungs-Beleg, deterministisch gefasst.
+
+    Wortlaut: „Das Aufraeumen der Altlast hebe ich mir fuer den naechsten
+    Durchgang auf." Eine gewoehnliche Vertagung — und in **keiner** der beiden
+    Musterlisten enthalten. Der Typ-Pruefer meldet sie im Lauf vom 2026-08-23
+    korrekt als `vertagung` (Zitat „hebe ich mir fuer den naechsten Durchgang
+    auf", siehe Kalibrier-Datei); dieser Test haelt die andere Haelfte fest,
+    die ohne Modell pruefbar ist: dass die Muster schweigen.
+
+    Faellt er, weil jemand das Muster nachtraegt, ist das die Rueckkehr genau
+    des Verfahrens, das 9 Rueckfaelle erzeugt hat — dann gehoert die Aufzaehlung
+    besprochen, nicht der Test angepasst.
+    """
+    from deferral_anchor_check import AUFSCHUB
+    from deferred_item_scanner import DEFERRAL_PATTERNS
+
+    satz = (
+        "Das Aufraeumen der Altlast in der alten Struktur hebe ich mir fuer den "
+        "naechsten Durchgang auf."
+    )
+    assert DEFERRAL_PATTERNS.search(satz) is None
+    assert AUFSCHUB.search(satz) is None

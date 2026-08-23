@@ -101,6 +101,23 @@ mit Drills und ohne Anspruch auf mehr:
 Die letzte Zeile steht als Test im Drill (`test_should_die_grenze_der_naehe_festhalten`),
 damit die Grenze nicht wieder in Vergessenheit geraet.
 
+## 2b. Generalisierung — der eigentliche Punkt des Umbaus
+
+Ein Muster-Scanner kann nur finden, was jemand aufgezaehlt hat. Gegenprobe mit
+einer gewoehnlichen, aber unaufgezaehlten Vertagung:
+
+> „Das Aufraeumen der Altlast in der alten Struktur hebe ich mir fuer den
+> naechsten Durchgang auf."
+
+| Werkzeug | Ergebnis |
+|---|---|
+| `DEFERRAL_PATTERNS` (Stop-Hook) | kein Treffer |
+| `AUFSCHUB` (PR-Gate) | kein Treffer |
+| `verankerung_pruefer.py` | **`[vertagung]`**, Zitat „hebe ich mir fuer den naechsten Durchgang auf" |
+
+Die Haelfte dieser Messung, die ohne Modell auskommt (beide Muster schweigen),
+steht als Drill fest: `test_should_belegen_dass_beide_musterlisten_bei_neuer_formulierung_schweigen`.
+
 ## 3. Was die einzelnen Stufen gebracht haben
 
 | Schritt | Befunde auf #2007 | davon richtig |
