@@ -730,9 +730,49 @@ _EINTRAG_KOPF = re.compile(
     r":\s*"
 )
 
-#: Satzgrenze. Der Lookbehind auf zwei Ziffern schuetzt deutsche Datumsformen
-#: ("20.08. Klimm" bleibt EIN Satz); gesplittet wird nur vor einem Grossbuchstaben.
-_SATZGRENZE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÄÖÜ„\"'/])")
+#: Satzgrenze. Gesplittet wird nur vor einem Grossbuchstaben — und NICHT, wenn
+#: dem Punkt eine Ziffer vorausgeht. Das schuetzt deutsche Datums- und
+#: Ordinalformen: "20.08. Klimm" und "1. Januar" bleiben EIN Satz.
+#:
+#: Bis 2026-08-21 behauptete der Kommentar an dieser Stelle genau diesen Schutz,
+#: waehrend die Regex ihn nicht enthielt — sie hatte nur den Lookbehind auf den
+#: Punkt selbst. "Termin am 20.08. Klimm bestaetigt." zerfiel dadurch in zwei
+#: Saetze. Der Kommentar ueberlebte eine Vereinfachung des Musters und las sich
+#: danach wie ein Beleg. Die zweite Lookbehind-Gruppe unten ist der Schutz, der
+#: bis dahin nur behauptet war.
+#:
+#: Die Sperre greift NUR an den beiden deutschen Formen, nicht an "jeder Ziffer
+#: vor dem Punkt". Die erste Fassung dieses Fixes tat genau das — und verschluckte
+#: damit echte Satzgrenzen nach Uhrzeiten ("… 16:41. Klimm meldet …"), weil auch
+#: dort eine Ziffer vor dem Punkt steht. Gemessen am realen Bestand fiel dadurch
+#: der Sachstand ganzer Eintraege in die Deckungs-Bahn. Zwei enge Lookbehinds
+#: statt eines breiten:
+#:   (?<!\d\.\d\d[.])   — Datum "20.08."  (Uhrzeit "16:41." hat dort ':')
+#:   (?!\s+<Monat>)      — Ordinal "1. Januar"
+#:
+#: Die zweite Bedingung haengt am MONATSNAMEN, nicht an "Ziffer vor dem Punkt".
+#: Auch das war eine Zwischenfassung dieses Fixes, und auch sie fiel am realen
+#: Bestand: " 2." blockierte die echte Satzgrenze vor einem "OFFEN: …", dessen
+#: Vorsatz auf "Anlage 2." endete — der offene Punkt verschwand aus seiner Bahn.
+#: Ein Ordinal ist ohne den Monat dahinter nicht von einem Satzende nach einer
+#: Zahl zu unterscheiden; also wird nur der Fall gesperrt, der eindeutig ist.
+_MONATE = (
+    "Januar|Februar|M(?:ä|ae)rz|April|Mai|Juni|Juli|August|"
+    "September|Oktober|November|Dezember"
+)
+#: Die dritte Bedingung ist eine AUSNAHME von der ersten, kein weiterer Filter.
+#: Ein deutsches Datum kann einen Satz auch BEENDEN ("Ruecksendefrist 28.08.
+#: OFFEN: …"), und von "20.08. Klimm bestaetigt." ist das regelbasiert nicht zu
+#: unterscheiden — ausser am Folgewort. Steht dort ein durchgaengig grosses Wort,
+#: ist es ein Marker, der nur am Satzanfang vorkommt (OFFEN, FRIST, HAUPTBEFUND).
+#: Ohne diese Ausnahme verschwand genau ein realer offener Punkt aus seiner Bahn
+#: — gemessen, nicht vermutet: 302 Eintraege, 1 Verlust.
+_SATZGRENZE = re.compile(
+    r"(?<=[.!?])"
+    r"(?:(?<!\d\.\d\d[.])|(?=\s+[A-ZÄÖÜ]{4,}\b))"
+    r"(?!\s+(?:" + _MONATE + r")\b)"
+    r"\s+(?=[A-ZÄÖÜ„\"'/])"
+)
 
 #: Ein Satz ist Erhebungsprotokoll, wenn er sich selbst so ausweist. Absichtlich
 #: an den Werkzeug-Vokabeln festgemacht, nicht an "klingt technisch".
@@ -744,6 +784,13 @@ _DECKUNG_WORTE = ("nachgezogen", "restfenster", "db bis", "kein neuer eingang")
 #: und "Weiterhin offen ist …" sind dieselbe Ansage wie "Offen bleibt …", und der
 #: reine Wortanfangs-Vergleich hat sie auf der Seite von Vorgang 142 uebersehen.
 #: `\b` hinter "offen" haelt "offenbar" und "offensichtlich" heraus.
+#: Verneinungen am Satzanfang. "Nichts zu tun." enthaelt den Action-Marker
+#: "zu tun" und meint das Gegenteil — ohne diese Sperre wurde der Satz als
+#: offener Punkt hervorgehoben. Bewusst nur der Satzanfang: eine Verneinung
+#: mitten im Satz ("Der Termin steht, nichts weiter offen") laesst sich nicht
+#: mehr regelbasiert zuordnen, und Raten ist hier schlimmer als Nicht-Trennen.
+_KEINE_ACTION = re.compile(r"^(?:nichts|kein|keine|keinerlei|nicht)\b", re.I)
+
 _ACTION_MUSTER = re.compile(
     r"^(?:\w+[\s,]+){0,2}(?:offen\b|zu tun\b|to-?do\b|n(?:ae|ä)chste[rn]? schritt|owner:)",
     re.I,
@@ -917,13 +964,20 @@ def zerlege_eintrag(roh: str) -> dict:
         klein = satz.lower()
         if any(w in klein for w in _DECKUNG_WORTE):
             deckung.append(satz)
-        elif _ACTION_MUSTER.match(satz):
+        elif _ACTION_MUSTER.match(satz) and not _KEINE_ACTION.match(satz):
             action.append(satz)
         elif klein.startswith(_ANALYSE_WORTE):
             analyse.append(satz)
         else:
             inhalt.append(satz)
     return {
+        # Die Zerlegung selbst wird mitgegeben, nicht nur ihr Ergebnis. Grund:
+        # ein Test, der nur `inhalt` prueft, kann einen Zerlegungsfehler NICHT
+        # sehen — die Bahn fuegt ihre Saetze mit " ".join() wieder zusammen, und
+        # zwei falsch getrennte Fragmente ergeben denselben String wie ein
+        # ungetrennter Satz. Genau daran war die Zusicherung "ein Datum trennt
+        # keinen Satz" vakuos: der Test bestand, waehrend die Regex falsch lag.
+        "saetze": saetze,
         "datum": marken.get("datum") or "",
         "zeit": marken.get("zeit") or "",
         "ereignis": marken.get("ereignis") or "",
