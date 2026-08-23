@@ -2850,3 +2850,21 @@ Einstieg war ein Mailcheck mit Aufräumauftrag, das Ende ein Retro über die eig
 **Offen:** [#2183](https://github.com/achimdehnert/platform/issues/2183) (Strang-Auflösung), [#2054](https://github.com/achimdehnert/platform/issues/2054) (drei Melder derselben Wurzel, jetzt mit reproduzierbarem Beleg), die drei Kleinbefunde #5/#6/#7 des Retro-Reports, und der Entwurfs-Konflikt im HNU-Postfach.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-23 mittags — Sitzung 28eddc: Zusagen am Typ pruefen, und der Prod-Rueckstand verliert seine Stille
+
+Auftrag zu Beginn: „analysiere die Codebase und deine Rolle, schlage ein Ziel vor". Die Messung stand am Anfang und hat die ganze Sitzung getragen — 104 Befund-Klassen ueber 88 Retros, davon 21 mit einer Entscheidung, `risiko_debt` seit 88 Messungen die schwaechste Dimension. Werkzeugbau war nie der Engpass; Verankerung ist es.
+
+**Gebaut: ein Gate, das den Zusage-TYP klassifiziert statt Verben aufzuzaehlen** (#2216). Der Beleg dafuer, dass Aufzaehlen nicht traegt, kam aus dem Realfall: im PR-Text #2007 steht `bewusst **nicht** mitgemacht` — vier Sternchen mitten im Satz, und kein Muster trifft. Selbst nach dem Entfernen der Auszeichnung raeumt eine fremde `#1953` aus einer Beleg-Aufzaehlung vier Zeilen darueber den Fund ab. Zwei unabhaengige Gruende, und beide sind gegen „ein Muster mehr" immun. Der neue Pruefer segmentiert, klassifiziert lokal (kein Egress) und prueft den Anker IM Segment. Praezision 0,50 auf vier echten PR-Texten — und 0,20, wenn man den eigenen Meta-PR mitzaehlt, weil ein Text UEBER Vertagungen sich fuer den Klassifikator wie eine liest. Beide Zahlen stehen in der Kalibrier-Datei, nicht nur die schoenere.
+
+**Drei weitere rueckfaellige Gates bekamen ihre Antwort** (#2224, #2225, #2226). Zwei davon fielen anders aus als vorgeschlagen: die Schreibweisen-Verdopplung im Scope-Melder war seit dem 21.08. behoben (aufgefallen beim Lesen des Codes, nicht beim Vorschlagen), und `claim-before-cheapest-check` bekam **keine** der drei zulaessigen Antworten — alle 59 Protokollzeilen hatten einen leeren Ausschnitt, weil der Scanner `notiere()` ohne `turn=` aufruft. Zaehlbar, nicht beurteilbar. Ein Kalibrierfenster, das nichts beurteilen kann, kann auch nichts scharfschalten.
+
+**Der Prod-Rueckstand hoerte auf, lautlos zu sein** (#2224, #2229). `deploy_wirkung.py` misst DOPPELLAUF jetzt an laufenden Containern statt an Manifest-Dateien — trading-hubs Falschmeldung verschwand, sechs verwaiste Manifeste wurden sichtbar und sind abgeloest. Das Werkzeug hatte seit seinem Bau **null Aufrufer**; jetzt laeuft es als Phase 0.7.12 bei jedem Sitzungsstart.
+
+**Und dann passierte Weg (c) live.** Der freigegebene Prod-Dispatch fuer risk-hub startete um 10:17, ein Handover-Push um 10:24 raeumte ihn ueber die gemeinsame Concurrency-Gruppe ab, `ci / gate` wurde rot, der Lauf endete als `cancelled`, Prod blieb stehen. Genau die Mechanik, die bei tax-hub sieben Tage gekostet hat — diesmal am eigenen Leib und mit Zeitstempeln. Fix in risk-hub gemergt, 13 gleichlautende PRs stehen in der Flotte.
+
+**Eigene Fehler:** Der erste Live-Beleg fuer die neue Runner-Phase mass den Hauptbaum statt des Worktrees — `PLATFORM_DIR` zeigt immer auf `$GITHUB_DIR/platform`, und aufgefallen ist es nur, weil das Ergebnis dem Direktlauf widersprach. Ein PR-Text nannte eine Issue-Nummer, bevor das Issue existierte (#2227 behauptet, #2229 angelegt, Text korrigiert) — dieselbe Klasse, die eine risk-hub-Retro schon einmal aufgeschrieben hat. Und ein `--body` mit Backticks lief in die Shell, obwohl genau dafuer eine Regel existiert.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
