@@ -19,7 +19,7 @@
         "bis": "2026-09-20",
         "min_beurteilbar": 10,
         "scharf_per": "EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf",
-        "note": "Zweiter Anlauf. Die erste Frist (2026-09-03, gesetzt am 2026-08-20) lief ins Leere, und zwar aus zwei Gruenden gleichzeitig: (1) `gate_hits.notiere()` wurde ohne `turn=` gerufen, jede Zeile trug einen leeren Ausschnitt — behoben in platform#2226, aber in der aktiven Hook-Kopie erst am 2026-08-23 12:17 wirksam, als 0.7.5 die Verteil-Drift heilte; (2) die Klasse feuerte in drei Tagen genau EINMAL (2026-08-23 03:32). 59 Zeilen standen im Protokoll, aber sie gehoerten dem regulaeren Treffer, nicht dem Kalibrierfall — die Zahl beschrieb nie das Fenster. Am 2026-08-23 gegengeprobt: der Scanner schreibt seither einen gefuellten Ausschnitt (synthetischer Stop-Event gegen die AKTIVE Kopie). Deshalb zaehlt jetzt eine Mindestzahl beurteilbarer Zeilen, nicht ein Datum allein: bei 1 Zeile / 3 Tagen waere auch der 2026-09-20 mit ~10 Zeilen erreicht — kommt weniger zusammen, ist das selbst der Befund und das Fenster gehoert aufgegeben statt verlaengert."
+        "note": "Zweiter Anlauf. Die erste Frist (2026-09-03, gesetzt am 2026-08-20) lief ins Leere, und zwar aus zwei Gruenden gleichzeitig: (1) `gate_hits.notiere()` wurde ohne `turn=` gerufen, jede Zeile trug einen leeren Ausschnitt — behoben in platform#2226, aber in der aktiven Hook-Kopie erst am 2026-08-23 12:17 wirksam, als 0.7.5 die Verteil-Drift heilte; (2) die Klasse feuerte in drei Tagen genau EINMAL (2026-08-23 03:32). 59 Zeilen standen im Protokoll, aber sie gehoerten dem regulaeren Treffer, nicht dem Kalibrierfall — die Zahl beschrieb nie das Fenster. Am 2026-08-23 gegengeprobt: der Scanner schreibt seither einen gefuellten Ausschnitt (synthetischer Stop-Event gegen die AKTIVE Kopie). Deshalb zaehlt jetzt eine Mindestzahl beurteilbarer Zeilen, nicht ein Datum allein: bei 1 Zeile / 3 Tagen waere auch der 2026-09-20 mit ~10 Zeilen erreicht — kommt weniger zusammen, ist das selbst der Befund und das Fenster gehoert aufgegeben statt verlaengert. Stand 2026-08-23 (Ziel #2143): dieses Gate bleibt als einziges der vier BEWUSST offen. Die Antwort ('ausweiten') ist gegeben und umgesetzt; was fehlt, sind Daten. Ein `revised`-Datum ohne Verhaltensaenderung waere hier reines Zuruecksetzen der Messung — genau die Steigerbarkeit durch Neubauen, gegen die gate_wirkung.py seine Ehrlichkeits-Sperren hat."
       }
     },
     {
@@ -29,7 +29,9 @@
       "module": "tools/claude-hooks/deferred_item_scanner.py",
       "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
       "built": "2026-08-02",
-      "ref": "platform#1645"
+      "ref": "platform#1645",
+      "revised": "2026-08-23",
+      "revision_note": "UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23."
     },
     {
       "slug": "scope-checkpoint-not-durably-recorded",
@@ -128,8 +130,8 @@
       "built": "2026-06-01",
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
       "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum.",
-      "revised": "2026-08-20",
-      "revision_note": "Karenzregel + reap --alle (platform#2150) — der Reaper hielt jeden fertigen Baum sieben Tage, weil ein aktives Lease jeden Merge-Zustand schlug."
+      "revised": "2026-08-23",
+      "revision_note": "UMBAU (platform#2143). Die Karenz vom 2026-08-20 konnte den Fall, fuer den sie gebaut wurde, strukturell nie erreichen: der SessionEnd-Hook `reap_worktrees.sh` laeuft bei JEDEM Sitzungsende, aber keine Sitzung dauert 12 Stunden — der eigene, gerade gemergte Baum war beim Aufraeumen immer zu jung. Zwei Rueckfaelle danach (chat-hub 2026-08-21: sechs Baeume; ausschreibungs-hub 2026-08-23: drei nach drei Merges). Neu: `--sitzungsende <pfad>` hebt die Karenz fuer den Baum der ENDENDEN Sitzung auf; der Hook liest den Pfad aus dem `cwd` des SessionEnd-Events. Alle anderen Regeln unveraendert (clean, PR gemergt, nicht primaer), und die Karenz gilt fuer fremde Baeume weiter — sie schuetzt parallele Sitzungen (am 2026-08-23 waren es 14). Live belegt am eigenen Baum von PR #2236: ohne Flag KEEP, mit Flag REAP_MERGED, 22 fremde Baeume unberuehrt."
     },
     {
       "slug": "lint-failure-no-local-gate",
@@ -249,7 +251,9 @@
       "drill": "tools/claude-hooks/tests/test_untested_command_scanner.py",
       "built": "2026-08-16",
       "ref": "platform#2014 (Retro 9d861a Befund #1)",
-      "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits."
+      "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits.",
+      "revised": "2026-08-23",
+      "revision_note": "AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht)."
     },
     {
       "slug": "zusage-ohne-verankerung",

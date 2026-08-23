@@ -598,3 +598,111 @@ def test_should_keep_a_dirty_worktree_even_with_an_expired_lease(tmp_path, monke
 
     assert verdict == "SKIP"
     assert "DIRTY" in reason
+
+
+# ── Karenz-Ausnahme fuer den Baum der endenden Sitzung ──────────────────────
+# Die Karenz (12h) kam am 2026-08-20 als Antwort auf das rueckfaellige Gate
+# `worktree-midsession-accumulation` — und konnte den Fall, fuer den sie gedacht
+# war, strukturell nie erreichen: der SessionEnd-Hook laeuft bei jedem Ende, aber
+# keine Sitzung dauert 12 Stunden. Zwei Rueckfaelle danach (2026-08-21 sechs
+# Baeume, 2026-08-23 drei). Diese Tests halten beide Richtungen fest: der eigene
+# Baum wird abgeraeumt, der FREMDE weiterhin nicht.
+
+
+def _leased(monkeypatch, expires="2099-01-01T00:00:00Z"):
+    monkeypatch.setattr(rw, "lease_for", lambda path: {"expires_at": expires})
+
+
+def test_should_reap_own_tree_of_ending_session_despite_active_lease(
+    tmp_path, monkeypatch
+):
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-eigen", "feature-eigen")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _leased(monkeypatch)
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-eigen"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(wt),),
+    )
+    assert verdict == "REAP_MERGED"
+    assert "endenden Sitzung" in reason
+
+
+def test_should_keep_a_foreign_leased_tree_even_during_session_end(
+    tmp_path, monkeypatch
+):
+    """Die Karenz schuetzt PARALLEL laufende Sitzungen — am 2026-08-23 waren es 14."""
+    repo = _make_repo(tmp_path)
+    fremd = _add_worktree(repo, tmp_path, "wt-fremd", "feature-fremd")
+    eigen = _add_worktree(repo, tmp_path, "wt-eigen2", "feature-eigen2")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _leased(monkeypatch)
+    monkeypatch.setattr(rw, "commit_age_days", lambda path: 0.0)
+    verdict, _ = rw.classify(
+        _wt_dict(fremd, "feature-fremd"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(eigen),),
+    )
+    assert verdict == "KEEP"
+
+
+def test_should_still_require_a_merged_pr_for_the_own_tree(tmp_path, monkeypatch):
+    """`--sitzungsende` hebt die Karenz auf, nicht die Merge-Bedingung."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-offen", "feature-offen")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "open")
+    _leased(monkeypatch)
+    monkeypatch.setattr(rw, "commit_age_days", lambda path: 0.0)
+    verdict, _ = rw.classify(
+        _wt_dict(wt, "feature-offen"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(wt),),
+    )
+    assert verdict == "KEEP"
+
+
+def test_should_not_reap_a_dirty_own_tree(tmp_path, monkeypatch):
+    """Der Dirty-Guard steht VOR der Lease-Regel und bleibt unberuehrt."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-dirty2", "feature-dirty2")
+    (wt / "neu.txt").write_text("uncommitted", encoding="utf-8")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _leased(monkeypatch)
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-dirty2"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(wt),),
+    )
+    assert verdict == "SKIP"
+    assert "DIRTY" in reason
+
+
+def test_should_ignore_an_unrelated_path_in_sitzungsende(tmp_path, monkeypatch):
+    """Ein Pfad, der zu keinem Baum gehoert, aendert nichts — kein Blanko-Reap."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-egal", "feature-egal")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _leased(monkeypatch)
+    monkeypatch.setattr(rw, "commit_age_days", lambda path: 0.0)
+    verdict, _ = rw.classify(
+        _wt_dict(wt, "feature-egal"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(tmp_path / "gibtsnicht"),),
+    )
+    assert verdict == "KEEP"
