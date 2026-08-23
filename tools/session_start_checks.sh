@@ -23,6 +23,13 @@ export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 # alte Fassung. Genau daran scheiterte der erste Test von 0.4.4.
 PLATFORM_DIR="${PLATFORM_DIR:-$GITHUB_DIR/platform}"
 TARGET_REPO="${1:-platform}"
+# Repo, dem die plattformweiten Phasen GEHOEREN (Default des 4. record-Arguments).
+# Literal, NICHT `basename "$PLATFORM_DIR"`: $PLATFORM_DIR ist ueberschreibbar,
+# damit eine Aenderung vor dem Merge pruefbar ist — der Basisname waere dann der
+# Worktree-Name. Genau daran scheiterte der erste Testlauf dieser Zeile am
+# 2026-08-23: 20 Phasen standen unter "2026-08-23-achim-dehnert-gate-...-122530".
+# Der Name des Repos steht ohnehin schon als Literal in TARGET_REPO's Default.
+PLATTFORM_REPO="platform"
 PROD_HOST="88.198.191.108"
 STAGING_HOST="88.99.38.75"
 
@@ -32,8 +39,23 @@ FAILED=0
 # record <phase> <PASS|WARN|FAIL> <note> [ziel-repos] [ungeprueft-repos]
 #   Pipes raus, sonst bricht die Summary-Tabelle.
 #   Das 4. Argument nennt die Repos, um die es in dieser Zeile GEHT — nicht das
-#   Repo, in dem die Sitzung laeuft. Ohne Angabe ist es $TARGET_REPO, denn die
-#   meisten Phasen pruefen die eigene Umgebung. Genau diese Unterscheidung fehlte
+#   Repo, in dem die Sitzung laeuft. Ohne Angabe ist es $PLATTFORM_REPO, denn die
+#   meisten Phasen messen platform-eigene Daten (Gate-Registry, Schleuse, Leases,
+#   Cron-Melder, ports.yaml); die vier Phasen, die wirklich das Sitzungs-Repo
+#   pruefen, geben "$TARGET_REPO" ausdruecklich an.
+#
+#   Der Default war bis 2026-08-23 $TARGET_REPO, und das war die teurere Fehl-
+#   richtung: der Fingerabdruck im Befund-Journal lautet `phase::repo`, also
+#   wanderte ein plattformweiter Befund mit jeder Sitzung in einen anderen Eimer.
+#   Die naechste Sitzung mit anderem Ziel HEILTE den Eintrag der vorigen und legte
+#   ihn neu an — ewig jung. Gemessen am 2026-08-23: `0.7.7 gate-wirkung` stand mit
+#   `laeufe=1, erstmals=2026-08-23` im Journal, obwohl das Gate seit dem 2026-08-20
+#   rueckfaellig ist; sieben weitere plattformweite Phasen lagen unter `writing-hub`.
+#   Genau das Alter (K3) war damit zerstoert, fuer das das Journal existiert.
+#   Ein vergessenes 4. Argument ist jetzt hoechstens ein falsches, aber STABILES
+#   Etikett — vorher war es ein wanderndes.
+#
+#   Diese Unterscheidung fehlte
 #   bis 2026-08-16 (platform#2004): ein roter Deploy in `cad-hub` war eine WARN-Zeile
 #   in einer platform-Sitzung, und der Befund blieb dort liegen — fuenf offene
 #   `[deploy-health]`-Issues, alle in platform, alle ueber andere Repos, keins gefixt.
@@ -45,7 +67,7 @@ FAILED=0
 #   ewig jung. Der teuerste Fehler, den ein Melder-Gedaechtnis machen kann.
 record() {
   P_NAME+=("$1"); P_STATUS+=("$2"); P_NOTE+=("$(echo "$3" | tr '|' '/')")
-  P_REPO+=("${4:-$TARGET_REPO}")
+  P_REPO+=("${4:-$PLATTFORM_REPO}")
   P_UNGEPRUEFT+=("${5:-}")
   [ "$2" = "FAIL" ] && FAILED=1
   printf '  [%s] %s — %s\n' "$2" "$1" "$3"
@@ -132,10 +154,10 @@ fi
 
 if [ -n "$PARALLEL_SESSIONS" ]; then
   n=$(printf '%s\n' "$PARALLEL_SESSIONS" | grep -c .)
-  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen"
+  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen" "$TARGET_REPO"
   printf '%s\n' "$PARALLEL_SESSIONS"
 else
-  record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO"
+  record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO" "$TARGET_REPO"
 fi
 
 # ── 0.4.4 Basis-Abstand der offenen Leases ─────────────────────────────────
@@ -147,6 +169,10 @@ fi
 ABSTAND_OUT="$(bash "$PLATFORM_DIR/tools/repo-session.sh" abstand 2>/dev/null)" && ABSTAND_RC=0 || ABSTAND_RC=$?
 ABSTAND_ZEILE="$(printf '%s\n' "$ABSTAND_OUT" | tail -3 | head -1)"
 ABSTAND_N="$(printf '%s\n' "$ABSTAND_OUT" | grep -c '^  ⚠' || true)"
+# Bewusst OHNE Repo-Aufschluesselung, obwohl die ⚠-Zeilen sie hergaeben (Feld 2,
+# gemessen: 12 Repos): die Note ist eine Summe ("57 Lease(s) ueber der Schwelle"),
+# und 12 wandernde Journal-Eintraege pro Lauf wuerden genau die Flaeche zumuellen,
+# die alte Befunde sichtbar machen soll. Aggregat bleibt Aggregat.
 if [ "${ABSTAND_RC:-0}" -ne 0 ] && [ "${ABSTAND_N:-0}" -eq 0 ]; then
   # Exit ungleich 0 OHNE Befundzeilen heisst nicht "alles ueber der Schwelle",
   # sondern "das Unterkommando gibt es hier nicht" (alte Skript-Fassung, exit 2).
@@ -193,13 +219,13 @@ git -C "$GITHUB_DIR/iil-reflex" pull --rebase --quiet 2>/dev/null
 REFLEX_VER=$(cd "$GITHUB_DIR/iil-reflex" 2>/dev/null && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
 if [ -f "$GITHUB_DIR/$TARGET_REPO/reflex.yaml" ]; then
   if (cd "$GITHUB_DIR/iil-reflex" && .venv/bin/python -m reflex review all "$TARGET_REPO" --fail-on block --emit-metrics >/tmp/ssc_reflex.$$ 2>&1); then
-    record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, review ohne BLOCK"
+    record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, review ohne BLOCK" "$TARGET_REPO"
   else
-    record "0.4.1 reflex" "WARN" "v${REFLEX_VER}, BLOCK-Findings — vor Weiterarbeit fixen (Log: reflex review all $TARGET_REPO)"
+    record "0.4.1 reflex" "WARN" "v${REFLEX_VER}, BLOCK-Findings — vor Weiterarbeit fixen (Log: reflex review all $TARGET_REPO)" "$TARGET_REPO"
   fi
   rm -f /tmp/ssc_reflex.$$
 else
-  record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)"
+  record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)" "$TARGET_REPO"
 fi
 
 # ── 0.4.2 ADR-Schema-Validierung ────────────────────────────────────────────
@@ -413,13 +439,13 @@ if [ -f "$STALE_REPO_DIR/AGENT_HANDOVER.md" ]; then
   STALE_OUT=$(cd "$STALE_REPO_DIR" && python3 "$PLATFORM_DIR/tools/handover_stale_reference_check.py" AGENT_HANDOVER.md 2>/dev/null || true)
   STALE_N=$(echo "$STALE_OUT" | grep -c '^STALE' || true)
   case "$STALE_OUT" in
-    PASS*)  record "0.7.4 prio-referenzen" "PASS" "$(echo "$STALE_OUT" | head -1 | cut -c1-120)" ;;
-    SKIP*)  record "0.7.4 prio-referenzen" "SKIP" "keine Prio-Liste im Handover — nichts geprueft" ;;
-    STALE*) record "0.7.4 prio-referenzen" "WARN" "$STALE_N Prio-Referenz(en) zeigen auf Erledigtes — Prio nachziehen VOR Arbeitsbeginn: $(echo "$STALE_OUT" | grep '^STALE' | head -3 | awk '{print $2}' | tr '\n' ' ')" ;;
-    *)      record "0.7.4 prio-referenzen" "WARN" "Prio-Referenz-Check nicht auswertbar — manuell: platform/tools/handover_stale_reference_check.py" ;;
+    PASS*)  record "0.7.4 prio-referenzen" "PASS" "$(echo "$STALE_OUT" | head -1 | cut -c1-120)" "$TARGET_REPO" ;;
+    SKIP*)  record "0.7.4 prio-referenzen" "SKIP" "keine Prio-Liste im Handover — nichts geprueft" "$TARGET_REPO" ;;
+    STALE*) record "0.7.4 prio-referenzen" "WARN" "$STALE_N Prio-Referenz(en) zeigen auf Erledigtes — Prio nachziehen VOR Arbeitsbeginn: $(echo "$STALE_OUT" | grep '^STALE' | head -3 | awk '{print $2}' | tr '\n' ' ')" "$TARGET_REPO" ;;
+    *)      record "0.7.4 prio-referenzen" "WARN" "Prio-Referenz-Check nicht auswertbar — manuell: platform/tools/handover_stale_reference_check.py" "$TARGET_REPO" ;;
   esac
 else
-  record "0.7.4 prio-referenzen" "SKIP" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts geprueft"
+  record "0.7.4 prio-referenzen" "SKIP" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts geprueft" "$TARGET_REPO"
 fi
 
 # ── 0.7.3 /opt/platform Git↔Prod-Drift (platform#1585) ──────────────────────
@@ -590,9 +616,13 @@ fi
 # diese ist die einzige, die das Ziel selbst befragt. wedding-hub war sechs bis
 # sieben Tage tot, waehrend Registry und Tunnel-Route uebereinstimmten.
 ERR_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/erreichbarkeit_melder.py" --kurz 2>/dev/null || true)
+# "1 von 26 Prod-Zielen antworten nicht — bahn-hub (route-ohne-backend)":
+# hinter dem Gedankenstrich stehen die Repos, in denen repariert wird.
+ERR_REPOS="$(printf '%s' "$ERR_OUT" | sed 's/.*— //' | tr ',' '\n' \
+            | sed 's/(.*//; s/^ *//; s/ *$//' | grep -E '^[a-z0-9._-]+$' | sort -u | tr '\n' ' ')"
 case "$ERR_OUT" in
   ""|*"alle antworten"*) record "0.7.11 erreichbarkeit" "PASS" "${ERR_OUT:-nicht ausgefuehrt}" ;;
-  *) record "0.7.11 erreichbarkeit" "WARN" "$ERR_OUT" ;;
+  *) record "0.7.11 erreichbarkeit" "WARN" "$ERR_OUT" "${ERR_REPOS% }" ;;
 esac
 
 # ── 0.7.12 Prod-Wirkung: was liegt WIRKLICH auf den Hosts? (platform#2148) ──
@@ -637,6 +667,42 @@ print(f"STATUS={status}|{note}|{" ".join(betroffen)}")
   # Rueckstand und Doppellauf sind Befunde ueber FREMDE Repos (K1, platform#2004):
   # die Repo-Liste geht mit, sonst landet der Befund als platform-Prosa im Nichts.
   record "0.7.12 prod-wirkung" "${WIRK_STATUS:-WARN}" "${WIRK_NOTE:-nicht auswertbar}" "$WIRK_REPOS"
+fi
+
+# ── 0.7.13 Skill-Verteil-Drift (Slug `skill-copy-not-redistributed`) ────────
+# Schwester von 0.7.5, und zwar die unbeaufsichtigte: 0.7.5 deckt AUSSCHLIESSLICH
+# die Lane `claude-hooks` (~/.claude/hooks). Skills und Commands haben eine
+# eigene Verteil-Lane (cc-skill-dist) — und `doctor.py` prueft sie seit Monaten
+# read-only, mit Drill (tools/tests/test_doctor.py) und Exit-Code-Vertrag.
+# Aufgerufen hat es im Sitzungs-Loop nie jemand: der Slug
+# `skill-copy-not-redistributed` steht 3x in den Retros und hatte kein Gate,
+# waehrend das Werkzeug dafuer fertig danebenlag. Genau die Klasse
+# `melder-ohne-leser` — dieselbe, in der `deploy_wirkung.py` bis zum 2026-08-23
+# stand (0.7.12).
+#
+# Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code: `doctor.py` beendet auch mit
+# 0, wenn es Hinweise ausgibt, und ein Aufruf in einer Pipeline liefert ohnehin
+# den Status des letzten Glieds. Fehlt die Score-Zeile, ist das UNGEPRUEFT und
+# nicht gruen (die SKIP-ist-kein-PASS-Lehre aus KONZ-platform-050).
+SKILLDRIFT_NOTE=""
+SKILLDRIFT_STATUS="PASS"
+for LANE in skills commands; do
+  LANE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
+  LANE_SCORE=$(printf '%s' "$LANE_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+  if [ -z "$LANE_SCORE" ]; then
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:UNGEPRUEFT "
+  elif [ "$LANE_SCORE" -gt 0 ]; then
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:Drift-Score ${LANE_SCORE} "
+  else
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:0 "
+  fi
+done
+if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
+  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — aktive Kopie weicht von origin/main ab (beheben: tools/cc-skill-dist/generate.py --ref origin/main --kind <lane> --allow-live)"
+else
+  record "0.7.13 skill-dist" "PASS" "beide Lanes synchron (${SKILLDRIFT_NOTE% })"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
