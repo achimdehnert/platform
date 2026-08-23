@@ -57,6 +57,19 @@ def kanonisch(repo: Path, name: str, ref: str = "origin/main") -> str | None:
     return out if rc == 0 else None
 
 
+def ref_alter(repo: Path, ref: str = "origin/main") -> str:
+    """Wie alt ist der Ref, gegen den verglichen wird? "" = nicht bestimmbar.
+
+    Das Modul fetcht bewusst NICHT (ein Melder soll keine Netzwerk-Last je Aufruf
+    erzeugen) — es vergleicht gegen den LOKALEN Tracking-Ref. Im Runner-Pfad ist
+    das entschaerft, weil Phase 0.2 kurz zuvor pullt; bei einem Aufruf von Hand
+    kann der Ref beliebig alt sein. Dann ist "inhaltsgleich" eine Aussage ueber
+    einen alten Stand, und das muss dranstehen (Retro a84f71 Befund 3).
+    """
+    rc, out = _git(repo, "log", "-1", "--format=%cr", ref)
+    return out.strip() if rc == 0 else ""
+
+
 def pin_dirty(pin: Path = PIN_WORKTREE) -> bool | None:
     """True/False ob der Pin-Worktree dirty ist; None wenn es ihn nicht gibt.
 
@@ -94,14 +107,16 @@ def vergleiche(policies: Path, repo: Path, ref: str = "origin/main") -> dict:
     return {"geprueft": geprueft, "abweichend": abweichend, "unbekannt": unbekannt}
 
 
-def bericht(stand: dict, dirty: bool | None, kurz: bool) -> str:
+def bericht(stand: dict, dirty: bool | None, kurz: bool, alter: str = "") -> str:
     if stand.get("kein_verzeichnis"):
         return "" if kurz else "Kein Policy-Verzeichnis — nichts geprueft."
     if not stand["abweichend"]:
         if kurz:
             return ""
         return (
-            f"{stand['geprueft']} Policy-Datei(en) inhaltsgleich mit origin/main."
+            f"{stand['geprueft']} Policy-Datei(en) inhaltsgleich mit origin/main"
+            + (f" (Ref-Stand: {alter})" if alter else "")
+            + "."
             + (f" ({len(stand['unbekannt'])} nicht in main: "
                f"{', '.join(stand['unbekannt'])})" if stand["unbekannt"] else "")
         )
@@ -131,7 +146,9 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     stand = vergleiche(Path(args.policies), Path(args.repo), args.ref)
-    text = bericht(stand, pin_dirty(Path(args.pin)), args.kurz)
+    text = bericht(
+        stand, pin_dirty(Path(args.pin)), args.kurz, ref_alter(Path(args.repo), args.ref)
+    )
     if text:
         print(text)
     return 0

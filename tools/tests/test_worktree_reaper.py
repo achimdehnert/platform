@@ -706,3 +706,89 @@ def test_should_ignore_an_unrelated_path_in_sitzungsende(tmp_path, monkeypatch):
         sitzungsende=(str(tmp_path / "gibtsnicht"),),
     )
     assert verdict == "KEEP"
+
+
+# ── Fremde Aktivitaet im geteilten Baum (Retro a84f71 Befund 2) ────────────
+# Der `--sitzungsende`-Bypass verzichtet auf die Karenz, weil die besitzende
+# Sitzung sagt, sie sei fertig. Ein GETEILTER Baum macht diese Aussage unvollstaendig:
+# Sitzung A endet, Sitzung B arbeitet dort weiter. Der Dirty-Guard faengt das nur,
+# solange B uncommitted Aenderungen hat.
+
+
+def test_should_keep_the_own_tree_while_a_git_operation_is_running(
+    tmp_path, monkeypatch
+):
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-lock", "feature-lock")
+    # Linked-Worktree: `.git` ist eine Datei, der Lock liegt im echten gitdir.
+    gitdir = subprocess.run(
+        ["git", "-C", str(wt), "rev-parse", "--absolute-git-dir"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    with open(os.path.join(gitdir, "index.lock"), "w", encoding="utf-8") as f:
+        f.write("")
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    _leased(monkeypatch)
+    monkeypatch.setattr(rw, "commit_age_days", lambda path: 0.0)
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-lock"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(wt),),
+    )
+    assert verdict == "KEEP"
+    assert "index.lock" in reason
+
+
+def test_should_keep_the_own_tree_when_two_leases_point_at_it(tmp_path, monkeypatch):
+    """Zwei Sitzungen haben sich denselben Baum genommen — dann gilt die Karenz."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-shared", "feature-shared")
+    leases = tmp_path / "leases"
+    leases.mkdir()
+    for i in (1, 2):
+        (leases / f"s{i}.json").write_text(
+            json.dumps({"worktree": str(wt), "expires_at": "2099-01-01T00:00:00Z"}),
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(rw, "LEASE_DIR", leases)
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    monkeypatch.setattr(rw, "commit_age_days", lambda path: 0.0)
+    verdict, reason = rw.classify(
+        _wt_dict(wt, "feature-shared"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(wt),),
+    )
+    assert verdict == "KEEP"
+    assert "2 offene Leases" in reason
+
+
+def test_should_still_reap_the_own_tree_when_nothing_indicates_activity(
+    tmp_path, monkeypatch
+):
+    """Gegenrichtung: ohne Anzeichen bleibt der Bypass wirksam."""
+    repo = _make_repo(tmp_path)
+    wt = _add_worktree(repo, tmp_path, "wt-quiet", "feature-quiet")
+    leases = tmp_path / "leases-one"
+    leases.mkdir()
+    (leases / "s1.json").write_text(
+        json.dumps({"worktree": str(wt), "expires_at": "2099-01-01T00:00:00Z"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(rw, "LEASE_DIR", leases)
+    monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
+    monkeypatch.setattr(rw, "commit_age_days", lambda path: 0.0)
+    verdict, _ = rw.classify(
+        _wt_dict(wt, "feature-quiet"),
+        primary=str(repo),
+        current=str(tmp_path / "current"),
+        repo=None,
+        stale_days=14,
+        sitzungsende=(str(wt),),
+    )
+    assert verdict == "REAP_MERGED"

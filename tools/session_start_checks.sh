@@ -139,9 +139,11 @@ FOREIGN_WT=$(git -C "$PLATFORM_DIR" worktree list 2>/dev/null | grep -c "session
 PARALLEL_SESSIONS=$(python3 "$PLATFORM_DIR/tools/session-leases" \
   --repo "$TARGET_REPO" --brief 2>/dev/null)
 SYNC_RESULTS=""
+SYNC_GEPRUEFT=""
 for repo in "$TARGET_REPO" mcp-hub risk-hub; do
   [ -d "$GITHUB_DIR/$repo" ] || continue
   SYNC_RESULTS="$SYNC_RESULTS $(sync_repo "$GITHUB_DIR/$repo")"
+  SYNC_GEPRUEFT="$SYNC_GEPRUEFT$repo "
 done
 if echo "$SYNC_RESULTS" | grep -q "GUARD\|pull-fail"; then
   # Nur die Repos, die tatsaechlich GUARD/pull-fail tragen — nicht die geprueften.
@@ -149,7 +151,10 @@ if echo "$SYNC_RESULTS" | grep -q "GUARD\|pull-fail"; then
     | grep -E "GUARD|pull-fail" | cut -d: -f1 | sort -u | tr '\n' ' ')
   record "0.4 repo-sync" "WARN" "${GUARD_NOTE}${SYNC_RESULTS# } (GUARD = nicht angefasst, fremde Session möglich)" "${SYNC_BETROFFEN% }"
 else
-  record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }"
+  # Auch der Gruen-Fall nennt die geprueften Repos: der Default ist `platform`,
+  # und diese Phase synct TARGET_REPO + mcp-hub + risk-hub (Retro a84f71 #1 —
+  # der Default-Flip war nur an den WARN-Zweigen nachgezogen worden).
+  record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }" "${SYNC_GEPRUEFT% }"
 fi
 
 if [ -n "$PARALLEL_SESSIONS" ]; then
@@ -388,7 +393,9 @@ elif [ -z "$WAIT_CUTOFF" ]; then
 elif [ -n "$DEPLOY_SKIPPED" ]; then
   record "0.7 deploy-scan" "WARN" "unvollstaendig: ${COVERAGE} — kein failure/waiting in den geprueften, die uebrigen sind ungeprueft${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}" "$TARGET_REPO" "$DEPLOY_SKIPPED"
 else
-  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
+  # dito (Retro a84f71 #1): diese Phase scannt AUSSCHLIESSLICH Fremd-Repos —
+  # `platform` steht in DEPLOY_REPOS gar nicht drin.
+  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}" "$DEPLOY_REPOS"
 fi
 
 # ── 0.7.1 deploy.sh Git↔Host-Drift ──────────────────────────────────────────
