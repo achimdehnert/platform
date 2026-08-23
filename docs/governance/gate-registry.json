@@ -20,7 +20,17 @@
         "min_beurteilbar": 10,
         "scharf_per": "EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf",
         "note": "Zweiter Anlauf. Die erste Frist (2026-09-03, gesetzt am 2026-08-20) lief ins Leere, und zwar aus zwei Gruenden gleichzeitig: (1) `gate_hits.notiere()` wurde ohne `turn=` gerufen, jede Zeile trug einen leeren Ausschnitt — behoben in platform#2226, aber in der aktiven Hook-Kopie erst am 2026-08-23 12:17 wirksam, als 0.7.5 die Verteil-Drift heilte; (2) die Klasse feuerte in drei Tagen genau EINMAL (2026-08-23 03:32). 59 Zeilen standen im Protokoll, aber sie gehoerten dem regulaeren Treffer, nicht dem Kalibrierfall — die Zahl beschrieb nie das Fenster. Am 2026-08-23 gegengeprobt: der Scanner schreibt seither einen gefuellten Ausschnitt (synthetischer Stop-Event gegen die AKTIVE Kopie). Deshalb zaehlt jetzt eine Mindestzahl beurteilbarer Zeilen, nicht ein Datum allein: bei 1 Zeile / 3 Tagen waere auch der 2026-09-20 mit ~10 Zeilen erreicht — kommt weniger zusammen, ist das selbst der Befund und das Fenster gehoert aufgegeben statt verlaengert. Stand 2026-08-23 (Ziel #2143): dieses Gate bleibt als einziges der vier BEWUSST offen. Die Antwort ('ausweiten') ist gegeben und umgesetzt; was fehlt, sind Daten. Ein `revised`-Datum ohne Verhaltensaenderung waere hier reines Zuruecksetzen der Messung — genau die Steigerbarkeit durch Neubauen, gegen die gate_wirkung.py seine Ehrlichkeits-Sperren hat."
-      }
+      },
+      "faengt": [
+        {
+          "fall": "pruefbare Behauptung im Turn ohne belegenden Werkzeuglauf",
+          "probe": "unbelegt"
+        },
+        {
+          "fall": "Werkzeug lief, beruehrt aber nicht den genannten Gegenstand (Subjektbindung)",
+          "probe": "subjekt"
+        }
+      ]
     },
     {
       "slug": "deferred-item-no-tracking-issue",
@@ -31,7 +41,13 @@
       "built": "2026-08-02",
       "ref": "platform#1645",
       "revised": "2026-08-23",
-      "revision_note": "UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23."
+      "revision_note": "UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23.",
+      "faengt": [
+        {
+          "fall": "aufgeschobene Arbeit ohne Issue-Nummer im selben Zug",
+          "probe": "vertagt"
+        }
+      ]
     },
     {
       "slug": "scope-checkpoint-not-durably-recorded",
@@ -42,7 +58,17 @@
       "built": "2026-08-02",
       "ref": "platform#1646",
       "revised": "2026-08-23",
-      "revision_note": "Rev 3, Ausweitung der MESSGROESSE (platform#2143): Reichweite wird an der Wirkung gemessen, nicht an den Argumenten. Anlass ist der Rueckfall aus Retro 8d6869-incr #8 — ein Flottenlauf entfernte 69 Arbeitskopien und blieb unter der Drei-Repo-Schwelle, weil im Aufruf ein einziger Pfad stand. Rev 3 zaehlt zusaetzlich die Repos, die ein WIRKENDES Kommando laut seiner eigenen Ausgabe angefasst hat; wirkend heisst: git/gh-Schreibkommando ODER die hauseigene Wirkungs-Konvention (--apply/--allow-live/--sync/reap), die vom Trockenlauf unterscheidet. Lesende Kommandos mit derselben Ausgabe zaehlen ausdruecklich nicht (eigener Drill). Die frueher gemeldete Schreibweisen-Verdopplung war bereits am 2026-08-21 behoben und ist NICHT Gegenstand dieser Revision."
+      "revision_note": "Rev 3, Ausweitung der MESSGROESSE (platform#2143): Reichweite wird an der Wirkung gemessen, nicht an den Argumenten. Anlass ist der Rueckfall aus Retro 8d6869-incr #8 — ein Flottenlauf entfernte 69 Arbeitskopien und blieb unter der Drei-Repo-Schwelle, weil im Aufruf ein einziger Pfad stand. Rev 3 zaehlt zusaetzlich die Repos, die ein WIRKENDES Kommando laut seiner eigenen Ausgabe angefasst hat; wirkend heisst: git/gh-Schreibkommando ODER die hauseigene Wirkungs-Konvention (--apply/--allow-live/--sync/reap), die vom Trockenlauf unterscheidet. Lesende Kommandos mit derselben Ausgabe zaehlen ausdruecklich nicht (eigener Drill). Die frueher gemeldete Schreibweisen-Verdopplung war bereits am 2026-08-21 behoben und ist NICHT Gegenstand dieser Revision.",
+      "faengt": [
+        {
+          "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
+          "probe": "third_repo"
+        },
+        {
+          "fall": "Reichweite aus der Ausgabe eines wirkenden Kommandos",
+          "probe": "reichweite"
+        }
+      ]
     },
     {
       "slug": "stale-local-clone-as-ground-truth",
@@ -51,7 +77,13 @@
       "module": "tools/hooks/stale_clone_check.sh",
       "drill": "tools/tests/test_stale_clone_check.py",
       "built": "2026-08-02",
-      "ref": "platform#1644"
+      "ref": "platform#1644",
+      "faengt": [
+        {
+          "fall": "lokaler Klon liegt hinter origin und wird als Wahrheit gelesen",
+          "probe": "stalen_klon"
+        }
+      ]
     },
     {
       "slug": "handover-stale-vor-merge",
@@ -62,7 +94,17 @@
       "built": "2026-08-02",
       "ref": "platform#1648",
       "revised": "2026-08-20",
-      "revision_note": "Ausweitung (platform#2143): der Pruefer lief nur ueber handoff-banner-gate.yml mit paths-Filter und ueber die session-ende-Phase 0a-freshness. Die Verstoss-Klasse ist aber, AGENT_HANDOVER.md GAR NICHT anzufassen — dann greift kein Pfadfilter, und wer kein session-ende faehrt, sieht den Pruefer nie. Neue Datei .github/workflows/handover-freshness-advisory.yml laeuft bei JEDEM PR, advisory (continue-on-error mit Begruendung, nicht in den Required Checks)."
+      "revision_note": "Ausweitung (platform#2143): der Pruefer lief nur ueber handoff-banner-gate.yml mit paths-Filter und ueber die session-ende-Phase 0a-freshness. Die Verstoss-Klasse ist aber, AGENT_HANDOVER.md GAR NICHT anzufassen — dann greift kein Pfadfilter, und wer kein session-ende faehrt, sieht den Pruefer nie. Neue Datei .github/workflows/handover-freshness-advisory.yml laeuft bei JEDEM PR, advisory (continue-on-error mit Begruendung, nicht in den Required Checks).",
+      "faengt": [
+        {
+          "fall": "Handover ohne datierte Ueberschrift",
+          "probe": "datierte"
+        },
+        {
+          "fall": "Ueberschrift aelter als der letzte Commit der Datei",
+          "probe": "stale_vs_last_commit"
+        }
+      ]
     },
     {
       "slug": "model-change-detection",
@@ -71,7 +113,13 @@
       "module": "tools/claude-hooks/model_change_detector.sh",
       "drill": "tools/claude-hooks/tests/test_model_change_detector.py",
       "built": "2026-08-02",
-      "ref": "KONZ-038 D7"
+      "ref": "KONZ-038 D7",
+      "faengt": [
+        {
+          "fall": "Modellwechsel zwischen zwei Sitzungen",
+          "probe": "modell"
+        }
+      ]
     },
     {
       "slug": "drill-path-not-invocation-path",
@@ -81,7 +129,17 @@
       "drill": "tools/claude-hooks/tests/test_hook_invocation_contract.py",
       "built": "2026-08-02",
       "ref": "Retro 287b23 #1 / PR #1660",
-      "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad."
+      "note": "Cross-cutting: drillt Executable-Bit + Shebang + Direktaufruf ALLER registrierten Module — der echte settings.json-Pfad, nicht der Interpreter-Pfad.",
+      "faengt": [
+        {
+          "fall": "registriertes Modul ist nicht executable",
+          "probe": "executable"
+        },
+        {
+          "fall": "registriertes Modul ohne Shebang",
+          "probe": "shebang"
+        }
+      ]
     },
     {
       "slug": "aufschub-anker",
@@ -97,7 +155,13 @@
         "tracking-doc-stale-after-new-occurrence",
         "deferred-item-no-tracking-issue"
       ],
-      "note": "EIN Gate fuer vier Slugs (covers, gespiegelt aus GATE_HEADER.covers). Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut."
+      "note": "EIN Gate fuer vier Slugs (covers, gespiegelt aus GATE_HEADER.covers). Das Werkzeug lag seit ceb90db0 gebaut und getestet im Repo, aber mit NULL Aufrufern — verdrahtet erst in .github/workflows/aufschub-anker-gate.yml. Deshalb steht `built` auf dem Verdrahtungs-, nicht auf dem Schreibdatum: ein Gate ohne Aufrufer ist nicht gebaut.",
+      "faengt": [
+        {
+          "fall": "Aufschub im PR-Text ohne Anker",
+          "probe": "anker"
+        }
+      ]
     },
     {
       "slug": "melder-ohne-leser",
@@ -107,7 +171,13 @@
       "drill": "tools/tests/test_befund_leseflaeche.py",
       "built": "2026-08-11",
       "ref": "platform#1908 Etappe 1 / #1894",
-      "note": "Leseflaeche: bringt Melder-Befunde an den Sitzungsstart. Deckt L1-L4 aus #1908 Etappe 1. Erweitert KEINE Schreibrechte, haengt deshalb nicht am Pilot-Ausgang."
+      "note": "Leseflaeche: bringt Melder-Befunde an den Sitzungsstart. Deckt L1-L4 aus #1908 Etappe 1. Erweitert KEINE Schreibrechte, haengt deshalb nicht am Pilot-Ausgang.",
+      "faengt": [
+        {
+          "fall": "Melder-Befund erreicht den Sitzungsstart nicht",
+          "probe": "leseflaeche"
+        }
+      ]
     },
     {
       "slug": "parallel-session-pr-collision",
@@ -119,7 +189,13 @@
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
       "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12.",
       "revised": "2026-08-12",
-      "revision_note": "check_pr_collision in repo-session.sh (Commit 1ba83e91) — harter Block beim Abzweigen, wenn zum selben Task-Slug schon ein offener PR existiert. Kam NACH dem letzten gemessenen Rueckfall (2026-07-31)."
+      "revision_note": "check_pr_collision in repo-session.sh (Commit 1ba83e91) — harter Block beim Abzweigen, wenn zum selben Task-Slug schon ein offener PR existiert. Kam NACH dem letzten gemessenen Rueckfall (2026-07-31).",
+      "faengt": [
+        {
+          "fall": "zweiter Worktree zum selben Task-Slug bei offenem PR",
+          "probe": "kollision"
+        }
+      ]
     },
     {
       "slug": "worktree-midsession-accumulation",
@@ -179,7 +255,17 @@
       "ref": "platform#1650 / Anlass Megatest-Stille 2026-07-31",
       "note": "Silent-Failure-Lint: continue-on-error braucht Begruendung, outputs-Konsum braucht outcome-Pfad. Verdrahtet als CI-Lauf in .github/workflows/silent-failure-lint.yml (Exit 1 bei Fund). Bestand seit d37acd9a, war aber nie registriert. Registriert 2026-08-12.",
       "revised": "2026-08-20",
-      "revision_note": "Ausweitung um die zweite Familie (platform#2143): der Checker sah nur continue-on-error in Workflows. Die beiden juengsten Rueckfaelle lagen daneben — pytest hinter `| tee` ohne pipefail (Retro 932035) und `|| true` neben `grep -c` (Retro c45b39). `--shell` prueft jetzt Shell-Dateien darauf, advisory (keine False-Positive-Baseline, und der Checker selbst ist blockierend); `--shell-strict` zaehlt sie fuer den Exit-Code."
+      "revision_note": "Ausweitung um die zweite Familie (platform#2143): der Checker sah nur continue-on-error in Workflows. Die beiden juengsten Rueckfaelle lagen daneben — pytest hinter `| tee` ohne pipefail (Retro 932035) und `|| true` neben `grep -c` (Retro c45b39). `--shell` prueft jetzt Shell-Dateien darauf, advisory (keine False-Positive-Baseline, und der Checker selbst ist blockierend); `--shell-strict` zaehlt sie fuer den Exit-Code.",
+      "faengt": [
+        {
+          "fall": "continue-on-error maskiert einen Fehlschlag im Workflow",
+          "probe": "continue-on-error"
+        },
+        {
+          "fall": "Fehlschlag bleibt in Shell-Code still",
+          "probe": "still"
+        }
+      ]
     },
     {
       "slug": "autonomous-no-human-review",
@@ -189,7 +275,13 @@
       "drill": "tools/tests/test_ruleset_perimeter_check.py",
       "built": "2026-08-12",
       "ref": "platform#1650 Owner-Entscheid 2026-08-12",
-      "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht."
+      "note": "Waechter, nicht Enforcement: die Wirkung selbst ist das GitHub-Ruleset main-required-checks (require_code_owner_review) + CODEOWNERS-Perimeter (KONZ-032 B1/B1-2). Das Modul bestaetigt taeglich (.github/workflows/ruleset-waechter.yml), dass beides noch scharf ist — eine stille Lockerung wird binnen eines Tages rot statt nie. Bekannter Trade-off: tools/ liegt selbst NICHT im Perimeter; das gepinnte Soll in der Moduldatei koennte review-frei geaendert werden, CODEOWNERS/.github aber nicht — die zweite Haelfte bleibt also immer bewacht.",
+      "faengt": [
+        {
+          "fall": "Ruleset ohne erzwungenes Code-Owner-Review",
+          "probe": "code_owner"
+        }
+      ]
     },
     {
       "slug": "untested-tool-module-green-gate",
@@ -199,7 +291,13 @@
       "drill": "tools/tests/test_check_new_module_tests.py",
       "built": "2026-08-12",
       "ref": "platform#1650 Owner-Go 2026-08-12",
-      "note": "Diff-Check nur ueber im PR HINZUGEFUEGTE .py unter tools/+scripts/ (Bestandsschutz fuer die ~24 ungetesteten Altfaelle = 0-FP-Baseline). Test-Spur = test_<stem>.py ODER Stem-Erwaehnung in einer Testdatei. Verdrahtet als non-gating Step in tools-tests.yml; Exit 2 (Werkzeugfehler) macht den Step ROT statt still. advisory->blocking erst nach Kalibrierfenster (frozen_note)."
+      "note": "Diff-Check nur ueber im PR HINZUGEFUEGTE .py unter tools/+scripts/ (Bestandsschutz fuer die ~24 ungetesteten Altfaelle = 0-FP-Baseline). Test-Spur = test_<stem>.py ODER Stem-Erwaehnung in einer Testdatei. Verdrahtet als non-gating Step in tools-tests.yml; Exit 2 (Werkzeugfehler) macht den Step ROT statt still. advisory->blocking erst nach Kalibrierfenster (frozen_note).",
+      "faengt": [
+        {
+          "fall": "neu hinzugefuegtes Werkzeug-Modul ohne Test",
+          "probe": "flag_new"
+        }
+      ]
     },
     {
       "slug": "handover-prio-zeigt-auf-erledigtes",
@@ -208,7 +306,13 @@
       "module": "tools/handover_stale_reference_check.py",
       "drill": "tools/tests/test_handover_stale_reference_check.py",
       "built": "2026-08-13",
-      "ref": "platform#1945"
+      "ref": "platform#1945",
+      "faengt": [
+        {
+          "fall": "Prio-Zeile verweist auf gemergten PR oder geschlossenes Issue",
+          "probe": "merged"
+        }
+      ]
     },
     {
       "slug": "hand-distributed-copy-not-redistributed",
@@ -219,7 +323,13 @@
       "built": "2026-08-15",
       "ref": "platform#1991",
       "revised": "2026-08-23",
-      "revision_note": "Ausweitung am AUSLOESEZEITPUNKT (platform#2143), nicht am Muster. Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte trotzdem 2x. Die Diagnose stand schon in Retro 9d861a: die Luecke ist der Zeitpunkt, nicht der Melder. Zwischen Merge und naechstem Sitzungsstart ist die aktive Kopie alt, und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin. Runner-Phase 0.7.5 heilt jetzt selbst (cc-skill-dist Lane `claude-hooks`, merge-Modus mit Backup, Quelle origin/main statt Arbeitsbaum) und meldet nur noch, wenn die Heilung NICHT gelingt. Positivkontrolle im HOME-Sandkasten gefahren: kuenstliche Drift -> DRIFT -> Heilung -> OK, 13 Dateien."
+      "revision_note": "Ausweitung am AUSLOESEZEITPUNKT (platform#2143), nicht am Muster. Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte trotzdem 2x. Die Diagnose stand schon in Retro 9d861a: die Luecke ist der Zeitpunkt, nicht der Melder. Zwischen Merge und naechstem Sitzungsstart ist die aktive Kopie alt, und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin. Runner-Phase 0.7.5 heilt jetzt selbst (cc-skill-dist Lane `claude-hooks`, merge-Modus mit Backup, Quelle origin/main statt Arbeitsbaum) und meldet nur noch, wenn die Heilung NICHT gelingt. Positivkontrolle im HOME-Sandkasten gefahren: kuenstliche Drift -> DRIFT -> Heilung -> OK, 13 Dateien.",
+      "faengt": [
+        {
+          "fall": "aktive Hook-Kopie weicht von der Quelle ab",
+          "probe": "drift"
+        }
+      ]
     },
     {
       "slug": "artefakt-budget-schwelle-erreicht",
@@ -228,7 +338,13 @@
       "module": "tools/claude-hooks/artefakt_budget.py",
       "drill": "tools/tests/test_artefakt_budget.py",
       "built": "2026-08-16",
-      "ref": "platform#1640"
+      "ref": "platform#1640",
+      "faengt": [
+        {
+          "fall": "Artefakt-Zahl ueber der Schwelle ohne Scope-Checkpoint",
+          "probe": "schwelle"
+        }
+      ]
     },
     {
       "slug": "cross-repo-befund-ohne-artefakt-im-zielrepo",
@@ -237,7 +353,17 @@
       "module": "tools/befund_journal.py",
       "drill": "tools/tests/test_befund_journal.py",
       "built": "2026-08-16",
-      "ref": "platform#2004"
+      "ref": "platform#2004",
+      "faengt": [
+        {
+          "fall": "Fremd-Repo-Befund ohne Issue im Zielrepo",
+          "probe": "cross"
+        },
+        {
+          "fall": "abgelegter Verzicht mit Grund zaehlt als Abschluss",
+          "probe": "verzicht"
+        }
+      ]
     },
     {
       "slug": "gate-rueckfall-unbemerkt",
@@ -267,7 +393,13 @@
       "drill": "tools/tests/test_gate_deckung.py",
       "built": "2026-08-20",
       "ref": "platform#2164",
-      "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag."
+      "note": "Misst die vierte Achse: fuer wie viele Befunde wurde je etwas gebaut. retro_kpis zaehlt die GATE-PFLICHT, niemand ihre Einloesung — 16 Slugs sind >=2x aufgetreten und tragen weder Gate noch declined-Eintrag.",
+      "faengt": [
+        {
+          "fall": "Slug >=2x aufgetreten, weder Gate noch declined-Eintrag",
+          "probe": "declined"
+        }
+      ]
     },
     {
       "slug": "zeitplan-still-abgeschaltet",
@@ -277,7 +409,13 @@
       "drill": "tools/tests/test_zeitplan_wach.py",
       "built": "2026-08-20",
       "ref": "platform#2114",
-      "note": "GitHub schaltet schedule-Trigger nach 60 Tagen Repo-Inaktivitaet ab. infra-deploy lief dadurch drei Wochen ohne Datenbank-Backup, ohne dass ein Check rot wurde."
+      "note": "GitHub schaltet schedule-Trigger nach 60 Tagen Repo-Inaktivitaet ab. infra-deploy lief dadurch drei Wochen ohne Datenbank-Backup, ohne dass ein Check rot wurde.",
+      "faengt": [
+        {
+          "fall": "schedule-Workflow von GitHub still deaktiviert",
+          "probe": "disabled"
+        }
+      ]
     },
     {
       "slug": "untested-command-handed-to-user",
@@ -313,7 +451,13 @@
         "accepted-plan-item-silently-dropped",
         "deferred-item-no-tracking-issue"
       ],
-      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214."
+      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214.",
+      "faengt": [
+        {
+          "fall": "Zusage vom Typ Vertagung ohne Anker im selben Segment",
+          "probe": "vertagung"
+        }
+      ]
     },
     {
       "slug": "skill-copy-not-redistributed",
@@ -448,5 +592,5 @@
       "widerlegung": "Am selben Tag dreimal aufgetreten, jedes Mal mechanisch sichtbar: 0.7.5 deckte die Hook-Lane und nicht die Skill-Lane; 0.7.13 deckte `skills`+`commands` und nicht `hooks`; und der Default-Flip in `record()` wurde nur an den WARN-Zweigen nachgezogen, wodurch zwei PASS-Zweige fremde Repos als `platform` etikettierten (Retro a84f71 Befund 1, belegt an Zeile 152 und 391). Die Verzichts-Begruendung ('erst im Rueckblick entscheidbar') traegt damit nicht: in allen drei Faellen war die Geschwister-Stelle im selben Diff bzw. in derselben Aufzaehlung sichtbar. Ein Ansatz mit Messpunkt: beim Aendern eines Defaults oder beim Aufnehmen einer Lane pruefen, ob ALLE Aufrufstellen bzw. Lanes derselben Familie mitgezogen wurden."
     }
   ],
-  "_faengt_doc": "Je Gate die Faelle, gegen die es schuetzt, mit einer `probe` — einem Textfragment, das im Drill vorkommen muss. Ausgewertet von tools/gate_namensdeckung.py. Ein Gate ohne dieses Feld gilt als `ungeprueft`, nicht als gedeckt. `drill_extra` nennt weitere Dateien, in denen die Faelle liegen duerfen (z.B. eine Bash-Suite, die der Python-Drill nur aufruft)."
+  "_faengt_doc": "Je Gate die Faelle, gegen die es schuetzt, mit einer `probe` — einem Textfragment, das im Drill vorkommen muss. Ausgewertet von tools/gate_namensdeckung.py. Ein Gate ohne dieses Feld gilt als `ungeprueft`, nicht als gedeckt. `drill_extra` nennt weitere Dateien, in denen die Faelle liegen duerfen (z.B. eine Bash-Suite, die der Python-Drill nur aufruft). ZWEITE GRENZE, gemessen beim Bestandslauf 2026-08-23: die `probe` muss aus dem VOKABULAR des Drills stammen, nicht aus der Beschreibung des Falls. Beim Nachtragen der 20 Bestands-Gates meldete der Pruefer vier Luecken — alle vier waren Wortlaut-Fragen (`drittes` vs. `third_repo`, `hinter` vs. `stalen_klon`, `aelter` vs. `stale_vs_last_commit`, `ohne test` vs. `flag_new`), keine echte fehlte. Daraus folgt die Grenze: wer die probe setzt, kann sie so waehlen, dass sie trifft. Das Gate schuetzt gegen VERGESSEN, nicht gegen Absicht — und der Unterschied liegt im Zeitpunkt: erst pruefen, OB der Fall gedrillt ist, dann die Bezeichnung anpassen. Ist er es nicht (Realfall E402), wird der DRILL ergaenzt, nicht die probe."
 }
