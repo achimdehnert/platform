@@ -185,6 +185,8 @@ services:
                                # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
     container_name: coach_hub_web
     domain_prod: coach-hub.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-23 (platform#2215). Gemessen: alle 5 Container auf prod-b seit ~2026-08-20 Exited(0); weder coach-hub.iil.pet noch das unten genannte kiohnerisiko.de loesen auf. nginx-vhost auf prod-b existiert noch — Aufraeumen offen, coach-hub#67"
     domain_staging: staging-coaching.iil.pet
     domain_aliases:
       - kiohnerisiko.de
