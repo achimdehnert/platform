@@ -180,3 +180,46 @@ def test_should_register_the_gate_header_slug_in_the_registry():
     )
     slugs = {g["slug"] for g in reg["gates"]}
     assert hsrc.GATE_HEADER["slug"] in slugs
+
+
+# --- Prio-Tabellen (Regression 2026-08-23, KONZ-platform-050) -----------------
+# Der Parser kannte nur nummerierte Listen. `iil-klickdummy` fuehrt seine Prios als
+# Markdown-Tabelle — der Check meldete dort `keine_prio_items`, der Runner verbuchte
+# das als PASS. Grün stand fuer "konnte nicht lesen", nicht fuer "nichts gefunden".
+
+
+def test_should_read_prio_items_from_a_markdown_table():
+    section = [
+        "| Prio | Task | Tier |",
+        "|---|---|---|",
+        "| 0 | Erstes Item | `[Sonnet]` |",
+        "| 1 | Zweites Item | `[Opus]` |",
+    ]
+    zeilen = [line for _o, line in hsrc.prio_items(section)]
+    assert zeilen == [
+        "| 0 | Erstes Item | `[Sonnet]` |",
+        "| 1 | Zweites Item | `[Opus]` |",
+    ]
+
+
+def test_should_not_mistake_table_head_or_separator_for_items():
+    """Kopf- und Trennzeile sind Struktur, keine Prioritaeten."""
+    section = ["| Prio | Task |", "|:---|---:|"]
+    assert hsrc.prio_items(section) == []
+
+
+def test_should_find_a_settled_reference_inside_a_table_row():
+    """Gegenprobe zur Abwesenheit: der Check muss in Tabellen auch WIRKLICH finden.
+
+    Ohne diesen Fall belegt ein leeres Ergebnis nichts — es koennte der Filter sein
+    statt der Befund (evidence-discipline, Realfall 2026-07-31).
+    """
+    section = [
+        "| Prio | Task |",
+        "|---|---|",
+        "| 0 | [#7](https://github.com/meiki-lra/meiki-hub/pull/7) nachziehen |",
+    ]
+    items = hsrc.prio_items(section)
+    refs = hsrc.refs_in([line for _o, line in items])
+    assert len(refs) == 1
+    assert (refs[0]["repo"], refs[0]["number"]) == ("meiki-hub", 7)
