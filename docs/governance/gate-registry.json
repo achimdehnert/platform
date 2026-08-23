@@ -131,7 +131,17 @@
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
       "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum.",
       "revised": "2026-08-23",
-      "revision_note": "UMBAU (platform#2143). Die Karenz vom 2026-08-20 konnte den Fall, fuer den sie gebaut wurde, strukturell nie erreichen: der SessionEnd-Hook `reap_worktrees.sh` laeuft bei JEDEM Sitzungsende, aber keine Sitzung dauert 12 Stunden — der eigene, gerade gemergte Baum war beim Aufraeumen immer zu jung. Zwei Rueckfaelle danach (chat-hub 2026-08-21: sechs Baeume; ausschreibungs-hub 2026-08-23: drei nach drei Merges). Neu: `--sitzungsende <pfad>` hebt die Karenz fuer den Baum der ENDENDEN Sitzung auf; der Hook liest den Pfad aus dem `cwd` des SessionEnd-Events. Alle anderen Regeln unveraendert (clean, PR gemergt, nicht primaer), und die Karenz gilt fuer fremde Baeume weiter — sie schuetzt parallele Sitzungen (am 2026-08-23 waren es 14). Live belegt am eigenen Baum von PR #2236: ohne Flag KEEP, mit Flag REAP_MERGED, 22 fremde Baeume unberuehrt."
+      "revision_note": "UMBAU (platform#2143). Die Karenz vom 2026-08-20 konnte den Fall, fuer den sie gebaut wurde, strukturell nie erreichen: der SessionEnd-Hook `reap_worktrees.sh` laeuft bei JEDEM Sitzungsende, aber keine Sitzung dauert 12 Stunden — der eigene, gerade gemergte Baum war beim Aufraeumen immer zu jung. Zwei Rueckfaelle danach (chat-hub 2026-08-21: sechs Baeume; ausschreibungs-hub 2026-08-23: drei nach drei Merges). Neu: `--sitzungsende <pfad>` hebt die Karenz fuer den Baum der ENDENDEN Sitzung auf; der Hook liest den Pfad aus dem `cwd` des SessionEnd-Events. Alle anderen Regeln unveraendert (clean, PR gemergt, nicht primaer), und die Karenz gilt fuer fremde Baeume weiter — sie schuetzt parallele Sitzungen (am 2026-08-23 waren es 14). Live belegt am eigenen Baum von PR #2236: ohne Flag KEEP, mit Flag REAP_MERGED, 22 fremde Baeume unberuehrt.",
+      "faengt": [
+        {
+          "fall": "Baum der endenden Sitzung wird trotz aktiver Lease abgeraeumt",
+          "probe": "sitzungsende"
+        },
+        {
+          "fall": "geteilter Baum mit laufender git-Operation bleibt stehen",
+          "probe": "index.lock"
+        }
+      ]
     },
     {
       "slug": "lint-failure-no-local-gate",
@@ -144,6 +154,19 @@
       "note": "Bestand seit ff2981b0 (PreToolUse-Hook blockt push mit unformatiertem Stand), war aber nie registriert. `blocking` ist hier keine Eskalation, sondern der Ist-Zustand des Hooks seit Einbau. Registriert 2026-08-12. · 2026-08-23 (platform#2234): `local-test-gate-narrower-than-ci` gehoert hierher — dieselbe Naht (lokal gruen, CI rot), nur fuer Tests statt Lint. Realfall 2026-07-27: ein Test las das echte Home-Verzeichnis. Ausweitung noch NICHT gebaut, der Slug ist hier verankert statt in einem zweiten Gate.",
       "covers": [
         "local-test-gate-narrower-than-ci"
+      ],
+      "faengt": [
+        {
+          "fall": "Import nach Modul-Zuweisung (ruff E402) — Linter-Regel, kein Layout",
+          "probe": "e402"
+        },
+        {
+          "fall": "nicht ruff-formatierte Datei (Layout)",
+          "probe": "unformatiert"
+        }
+      ],
+      "drill_extra": [
+        "tools/claude-hooks/tests/test_block_unformatted_push.sh"
       ]
     },
     {
@@ -224,7 +247,17 @@
       "drill": "tools/tests/test_gate_wirkung.py",
       "built": "2026-08-20",
       "ref": "platform#2142",
-      "note": "Misst Rueckfaelle NACH dem Bau eines Gates — die Luecke zwischen 'gebaut' (Registry), 'feuert' (Drill) und 'Slug kam wieder' (retro_kpis). Unterliegt selbst diesem Mass."
+      "note": "Misst Rueckfaelle NACH dem Bau eines Gates — die Luecke zwischen 'gebaut' (Registry), 'feuert' (Drill) und 'Slug kam wieder' (retro_kpis). Unterliegt selbst diesem Mass.",
+      "faengt": [
+        {
+          "fall": "Befund kehrt nach dem Bau des Gates wieder",
+          "probe": "relapse"
+        },
+        {
+          "fall": "Kalibrierfenster ohne beurteilbare Zeilen",
+          "probe": "kalibrier"
+        }
+      ]
     },
     {
       "slug": "gate-pflicht-nie-eingeloest",
@@ -256,7 +289,17 @@
       "ref": "platform#2014 (Retro 9d861a Befund #1)",
       "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits.",
       "revised": "2026-08-23",
-      "revision_note": "AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht)."
+      "revision_note": "AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht).",
+      "faengt": [
+        {
+          "fall": "uebergebener Befehl mit `!`-Praefix (Claude-Code-Uebergabekonvention)",
+          "probe": "bang_prefix"
+        },
+        {
+          "fall": "Befehl ohne Praefix, nie ausgefuehrt",
+          "probe": "never_run"
+        }
+      ]
     },
     {
       "slug": "zusage-ohne-verankerung",
@@ -280,7 +323,13 @@
       "drill": "tools/tests/test_doctor.py",
       "built": "2026-08-23",
       "ref": "platform#2143 (gate_deckung.py: 3x aufgetreten, nie gegated)",
-      "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt: platform#2235)."
+      "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt: platform#2235).",
+      "faengt": [
+        {
+          "fall": "aktive Skill-Kopie weicht von der Quelle ab (Drift-Score > 0)",
+          "probe": "drift"
+        }
+      ]
     },
     {
       "slug": "platform-pinned-perma-dirty-loop",
@@ -290,7 +339,37 @@
       "drill": "tools/tests/test_policy_frische.py",
       "built": "2026-08-23",
       "ref": "platform#2234 (3x in den Retros, nie gegated)",
-      "note": "Gebaut statt abgelegt, nachdem die Pruefung die eigene Empfehlung widerlegte: der Slug klang nach 'Arbeitsbaum dauerhaft dirty' und meint tatsaechlich 'Policy-Pin ohne Frische-Garantie zur Nutzungszeit' (Retro 2026-07-31, Befund 9: Pin 17 Commits zurueck, darunter PR #1601 mit genau zwei der injizierten Policies). Vergleich am Inhalt gegen origin/main, nicht an der mtime. Verdrahtet als Runner-Phase 0.7.14. Beim Bauen selbst ausgeloest: eine Probe hing an ~/.claude/policies an, das SYMLINKS in den Pin sind — der Pin wurde dirty, zurueckgenommen und mit origin/main gegengeprueft."
+      "note": "Gebaut statt abgelegt, nachdem die Pruefung die eigene Empfehlung widerlegte: der Slug klang nach 'Arbeitsbaum dauerhaft dirty' und meint tatsaechlich 'Policy-Pin ohne Frische-Garantie zur Nutzungszeit' (Retro 2026-07-31, Befund 9: Pin 17 Commits zurueck, darunter PR #1601 mit genau zwei der injizierten Policies). Vergleich am Inhalt gegen origin/main, nicht an der mtime. Verdrahtet als Runner-Phase 0.7.14. Beim Bauen selbst ausgeloest: eine Probe hing an ~/.claude/policies an, das SYMLINKS in den Pin sind — der Pin wurde dirty, zurueckgenommen und mit origin/main gegengeprueft.",
+      "faengt": [
+        {
+          "fall": "ausgelieferte Policy weicht inhaltlich von origin/main ab",
+          "probe": "stale"
+        },
+        {
+          "fall": "gleicher Inhalt mit uraltem Datum ist KEIN Befund (mtime-Falle)",
+          "probe": "mtime"
+        }
+      ]
+    },
+    {
+      "slug": "gate-modul-prueft-weniger-als-sein-name",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/gate_namensdeckung.py",
+      "drill": "tools/tests/test_gate_namensdeckung.py",
+      "built": "2026-08-23",
+      "ref": "platform#2234 (Owner-Auftrag nach dem Widerruf von gate-matches-spelling-not-substance)",
+      "note": "Antwort auf den widerrufenen Verzicht: die Begruendung lautete, kein Scanner koenne generisch erkennen, dass ein Gate die Schreibweise statt der Sache trifft. Fuer den Realfall genuegte eine Abdeckungsfrage — beruehrt der registrierte Drill den Fall, der im Slug-Namen steht? Das verlangt keine Bedeutungsanalyse, sondern ein Feld `faengt` je Gate und eine `probe` je Fall. GRENZE, bewusst benannt: gemessen wird das BERUEHREN, nicht das Abfangen — dafuer braeuchte es einen Mutationstest. Wer aus einem gruenen Lauf mehr liest, wiederholt genau den Fehler, gegen den das Gate gebaut ist. `ungeprueft` (kein `faengt`) ist ausdruecklich kein Gruen.",
+      "faengt": [
+        {
+          "fall": "Gate nennt einen Fall, den sein Drill nicht beruehrt",
+          "probe": "luecke"
+        },
+        {
+          "fall": "Gate ohne `faengt`-Feld gilt als ungeprueft, nicht als gruen",
+          "probe": "ungeprueft"
+        }
+      ]
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
@@ -368,5 +447,6 @@
       "damalige_begruendung": "Meta-Muster wie oben: 'haettest du auch das Geschwister angefasst' ist erst im Rueckblick entscheidbar. Bemerkenswert dabei: der Slug hat sich am 2026-08-23 zweimal selbst bestaetigt (0.7.5 deckte die Hook-Lane, nicht die Skill-Lane; 0.7.13 deckte skills+commands, nicht `hooks`) — beide Male fiel es beim BAUEN auf, nicht durch einen Melder. Die wirksame Gegenmassnahme ist die Lane-Liste in 0.7.13, nicht ein Textscanner.",
       "widerlegung": "Am selben Tag dreimal aufgetreten, jedes Mal mechanisch sichtbar: 0.7.5 deckte die Hook-Lane und nicht die Skill-Lane; 0.7.13 deckte `skills`+`commands` und nicht `hooks`; und der Default-Flip in `record()` wurde nur an den WARN-Zweigen nachgezogen, wodurch zwei PASS-Zweige fremde Repos als `platform` etikettierten (Retro a84f71 Befund 1, belegt an Zeile 152 und 391). Die Verzichts-Begruendung ('erst im Rueckblick entscheidbar') traegt damit nicht: in allen drei Faellen war die Geschwister-Stelle im selben Diff bzw. in derselben Aufzaehlung sichtbar. Ein Ansatz mit Messpunkt: beim Aendern eines Defaults oder beim Aufnehmen einer Lane pruefen, ob ALLE Aufrufstellen bzw. Lanes derselben Familie mitgezogen wurden."
     }
-  ]
+  ],
+  "_faengt_doc": "Je Gate die Faelle, gegen die es schuetzt, mit einer `probe` — einem Textfragment, das im Drill vorkommen muss. Ausgewertet von tools/gate_namensdeckung.py. Ein Gate ohne dieses Feld gilt als `ungeprueft`, nicht als gedeckt. `drill_extra` nennt weitere Dateien, in denen die Faelle liegen duerfen (z.B. eine Bash-Suite, die der Python-Drill nur aufruft)."
 }
