@@ -208,11 +208,18 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   bleiben gov-ausgeschlossen (E3) → Liste unverändert 24. Schema-WARNs unverändert und
   alle getrackt: pg-hub 110 (bahn-sqf/pg-hub#8), design-hub 36 (design-hub#36/#38),
   nl2iot-hub 31 (nl2iot-hub#5).
-- 2026-08-23 **Der nächtliche Lauf fiel aus.** `~/logs/klickdummy-pgvector-sync.log`
-  endet auf dem Block `2026-08-22`, mtime 2026-08-22 03:32 — der Cron-Eintrag (`17 3 * * *`)
-  hat am 23.08. nichts angehängt. Der manuelle Lauf ersetzt ihn; die Ursache des
-  Ausfalls ist **nicht** untersucht. Billigster Check beim nächsten Mal: `systemctl
-  status cron` bzw. Uptime des Hosts um 03:17 gegenprüfen.
+- 2026-08-23 **Falsifiziert — der nächtliche Lauf fiel NICHT aus.** Dieser Eintrag
+  entstand im Lauf vom 2026-08-23 03:17 selbst; er hielt sich für einen manuellen
+  Ersatzlauf, weil `~/logs/klickdummy-pgvector-sync.log` beim Hineinschauen nur bis zum
+  `2026-08-22`-Block reichte. Dagegen: der Cron-Eintrag (`17 3 * * *`) existiert, `cron`
+  ist `active`, der Host lief durch (uptime seit 2026-05-07), und Log-Datei wie
+  Changelog-Datei tragen dieselbe mtime `03:32:16` — beide wurden von **einem** Prozess
+  geschrieben. Der Log-Tail ist der Report dieses Laufs, inklusive der Fehlmeldung selbst.
+  **Root Cause der Fehldiagnose:** ein Cron-Job, dessen stdout per `>>` in genau die Datei
+  läuft, die er prüfen will, sieht darin nie sich selbst — seine Ausgabe erscheint erst
+  beim Prozessende. Diese Selbstprüfung ist strukturell blind, nicht gelegentlich falsch.
+  **Konsequenz:** „Log endet auf gestern“ ist von innen **kein** Ausfall-Beleg. Billigster
+  echter Check: `stat -c %y` auf die Log-Datei bzw. `systemctl is-active cron`.
 - 2026-08-23 **NEUES ANTI-PATTERN — „0 written bei gewachsener Entry-Zahl" ist keine
   Anomalie, und der Changelog ist die falsche Referenz dafür.** Heute stieg die
   Entry-Zahl von 164 auf 165, während *kein* Entry geschrieben wurde. Das sieht nach
