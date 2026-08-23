@@ -140,6 +140,25 @@ def tunnel_namen(ssh_ziel: str) -> set[str]:
     return {m.group(1) for m in re.finditer(r"hostname:\s*(\S+)", out)}
 
 
+def repo_owner() -> dict[str, str]:
+    """{repo: owner} aus dem `github:`-Feld der Registry.
+
+    NICHT hardcoden: 16 Repos liegen inzwischen in der Org `iilgmbh` (Stand
+    2026-08-20), darunter Prod-Systeme wie risk-hub, ausschreibungs-hub und
+    tax-hub. Ein fest verdrahtetes `achimdehnert` funktioniert dort nur, weil
+    GitHub still weiterleitet — und ein Redirect ist keine Zusage, sondern eine
+    Uebergangsfrist. Gemessen: die Registry fuehrt den Owner korrekt (0 falsche
+    Eintraege), sie wurde bloss nicht gelesen.
+    """
+    data = load_yaml(CANON_YAML)
+    out = {}
+    for name, eintrag in (data.get("repos") or {}).items():
+        gh = (eintrag.get("rich") or {}).get("github")
+        if gh and "/" in str(gh):
+            out[name] = str(gh).split("/")[0]
+    return out
+
+
 def repo_lifecycle() -> dict[str, str]:
     """{repo: lifecycle} — abgeschaltete Repos sind kein Rueckstands-Befund."""
     data = load_yaml(CANON_YAML)
@@ -167,7 +186,7 @@ def repo_urls() -> dict[str, list[str]]:
     return out
 
 
-def hat_prod_gate(repo: str, owner: str = "achimdehnert") -> bool:
+def hat_prod_gate(repo: str, owner: str) -> bool:
     """True, wenn der Deploy bei push bewusst nur nach staging geht.
 
     Realfall risk-hub (2026-08-20): `target_environment: ${{ inputs.target_environment
@@ -197,9 +216,16 @@ def hat_prod_gate(repo: str, owner: str = "achimdehnert") -> bool:
     return bool(re.search(r"target_environment:.*\|\|\s*'staging'", text))
 
 
-def main_sha(repo: str, owner: str = "achimdehnert") -> str | None:
-    code, out = sh(["gh", "api", f"repos/{owner}/{repo}/commits/main", "--jq", ".sha"], timeout=30)
-    return out.strip() if code == 0 and out.strip() else None
+def main_sha(repo: str, owner: str) -> tuple[str | None, str | None]:
+    """(sha, tatsaechlicher_owner) — deckt Org-Umzuege per Redirect auf."""
+    code, out = sh(
+        ["gh", "api", f"repos/{owner}/{repo}", "--jq", ".full_name"], timeout=30
+    )
+    echt = out.strip().split("/")[0] if code == 0 and "/" in out else None
+    code2, sha = sh(
+        ["gh", "api", f"repos/{owner}/{repo}/commits/main", "--jq", ".sha"], timeout=30
+    )
+    return (sha.strip() if code2 == 0 and sha.strip() else None), echt
 
 
 def main() -> int:
@@ -228,6 +254,7 @@ def main() -> int:
         return 2
 
     urls = repo_urls()
+    owners = repo_owner()
     lifecycles = repo_lifecycle()
     RUHEND = {"archived", "frozen"}
     alle_repos = sorted({r for m in je_host.values() for r in m})
@@ -255,13 +282,21 @@ def main() -> int:
             bedient = [h for h, namen in je_host_namen.items() if any(u in namen for u in urls.get(repo, []))]
             ziel_host = bedient[0] if len(bedient) == 1 else None
 
-        sha = main_sha(repo)
+        owner = owners.get(repo, "achimdehnert")
+        sha, echter_owner = main_sha(repo, owner)
+        # Redirect = die Registry beschreibt einen Umzug, der schon stattgefunden hat.
+        if echter_owner and echter_owner != owner:
+            eintrag_owner_drift = echter_owner
+        else:
+            eintrag_owner_drift = None
         eintrag = {
             "repo": repo,
             "hosts_mit_manifest": sorted(vorhanden),
             "bedient_von": ziel_host,
             "main": (sha or "")[:8] or None,
             "doppellauf": len(vorhanden) > 1,
+            "owner": owner,
+            "owner_drift": eintrag_owner_drift,
         }
 
         if ziel_host and ziel_host in vorhanden:
@@ -281,7 +316,7 @@ def main() -> int:
         # versteckt echte Fehlschlaege hinter einer plausiblen Ausrede. Der Hinweis
         # kostet eine Zeile Lesen, das Verstecken kostet Tage.
         # Nur pruefen, wenn ein Rueckstand feststeht — spart API-Aufrufe.
-        if eintrag.get("rueckstand") and hat_prod_gate(repo):
+        if eintrag.get("rueckstand") and hat_prod_gate(repo, owner):
             eintrag["prod_gate"] = True
 
         eintrag["lifecycle"] = lifecycles.get(repo)
@@ -290,7 +325,12 @@ def main() -> int:
         if eintrag["lifecycle"] in RUHEND and eintrag.get("rueckstand"):
             eintrag["rueckstand"] = False
             eintrag["ruhend"] = True
-        if eintrag.get("rueckstand") or eintrag["doppellauf"] or eintrag.get("zuordnung_unklar"):
+        if (
+            eintrag.get("rueckstand")
+            or eintrag["doppellauf"]
+            or eintrag.get("zuordnung_unklar")
+            or eintrag.get("owner_drift")
+        ):
             befunde.append(eintrag)
         zeilen.append(eintrag)
 
@@ -310,6 +350,8 @@ def main() -> int:
             marker.append("DOPPELLAUF:" + ",".join(e["hosts_mit_manifest"]))
         if e.get("zuordnung_unklar"):
             marker.append("ZUORDNUNG UNKLAR")
+        if e.get("owner_drift"):
+            marker.append(f"OWNER-DRIFT: Registry sagt {e['owner']}, GitHub {e['owner_drift']}")
         if e.get("prod_gate"):
             marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
         if e.get("ruhend"):
