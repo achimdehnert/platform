@@ -58,10 +58,34 @@ Vier echte PR-Texte, Standardaufruf (`--klassen vertagung`, Gegenprobe an):
 | [#2196](https://github.com/achimdehnert/platform/pull/2196) | 10 | 1 | 0 | **Fehlalarm**: „Dublettenfilter entfernt. Idempotenz braucht ihn nicht" ist erledigte Arbeit |
 | [#2209](https://github.com/achimdehnert/platform/pull/2209) | 7 | 0 | — | sauber |
 | [#2200](https://github.com/achimdehnert/platform/pull/2200) | 8 | 0 | — | sauber |
-| **Summe** | **37** | **2** | **1** | Praezision 0,50 · Recall am bekannten Zielfall 1/1 |
+| PR dieses Umbaus (Text vor dem Anlegen geprueft) | 25 | 3 | 0 | **alle drei falsch** — siehe unten |
+| **Summe** | **62** | **5** | **1** | Praezision 0,20 · ohne den Meta-Text 0,50 · Recall am bekannten Zielfall 1/1 |
 
-Ein Fehlalarm auf vier Texte ist der Grund fuer `mode=advisory`. Der Vergleich,
-der zaehlt: auf demselben Zielfall melden die beiden bestehenden Scanner **null**.
+Der Vergleich, der zaehlt: auf demselben Zielfall melden die beiden bestehenden
+Scanner **null**. Der Grund fuer `mode=advisory` steht trotzdem in derselben
+Tabelle — vier von fuenf Meldungen sind Fehlalarme.
+
+### Die unangenehmste Messung: Texte UEBER Vertagungen
+
+Der PR-Text dieses Umbaus wurde vor dem Anlegen durch das eigene Werkzeug
+geschickt. Ergebnis: 3 Meldungen, **keine** davon richtig.
+
+| Stelle | warum es keine Zusage ist |
+|---|---|
+| „ist bewusst nicht mitgemacht" | **Zitat des Zielfalls**, nicht eigene Vertagung |
+| „NICHT PRUEFBAR, Exit 2" | Beschreibung des gebauten Verhaltens |
+| „wirkt sie nicht" | Messergebnis ueber die Gegenprobe |
+
+Ein Text, der von Vertagungen handelt, liest sich fuer den Klassifikator wie
+eine. Umgekehrt hat derselbe Lauf den **echten** Aufschub-Abschnitt dieses PRs
+(„Bewusst nicht in diesem PR") korrekt **nicht** gemeldet — er traegt seine
+Issue-Nummer im selben Abschnitt. Der Anker-Teil arbeitet also richtig; die
+Schwaeche sitzt allein in der Klassifikation.
+
+Konsequenz fuer das Kalibrierfenster: Retro-Reports, Gate-Dokumentation und
+Meta-PRs sind eine eigene Textklasse und muessen getrennt ausgewertet werden —
+sonst faerbt sie die Quote fuer den Normalfall ein. Getrackt in
+[#2214](https://github.com/achimdehnert/platform/issues/2214).
 
 ## 2a. Was die Reparatur des alten Gates gebracht hat
 
