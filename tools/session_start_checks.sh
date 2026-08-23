@@ -693,6 +693,28 @@ else
   record "0.7.14 policy-frische" "PASS" "ausgelieferte Policies inhaltsgleich mit origin/main"
 fi
 
+# ── 0.7.15 Namensdeckung der Gates (Slug `gate-modul-prueft-weniger-als-sein-name`) ──
+# Drei Messpunkte des Loops sagen "gebaut" (Registry), "feuert" (Drill) und
+# "rueckfaellig" (0.7.7). Keiner fragt, ob der Drill den Fall beruehrt, der im
+# SLUG-NAMEN steht. Realfall 2026-08-23: `lint-failure-no-local-gate` ist
+# `blocking`, heisst "lint" und fuehrt `ruff format --check` aus — E402 lag seit
+# dem Bau am 04.08. ausserhalb seiner Reichweite, und PR #2236 wurde daran
+# zweimal rot, waehrend alle drei Messpunkte gruen standen.
+#
+# Laut wird die Phase nur bei einer LUECKE (Fall benannt, Drill beruehrt ihn
+# nicht). Die Zahl der `ungeprueft`-Gates steht in der PASS-Note statt in einer
+# WARN-Zeile: sie ist Bestandsarbeit, keine Stoerung — aber sie verschwindet
+# auch nicht, sonst waere aus "nie gefragt" wieder ein stilles Gruen.
+NAMDECK_OUT=$(timeout 60 python3 "$PLATFORM_DIR/tools/gate_namensdeckung.py" --kurz 2>/dev/null || true)
+NAMDECK_ZAHLEN=$(timeout 60 python3 "$PLATFORM_DIR/tools/gate_namensdeckung.py" 2>/dev/null \
+                  | grep -oE "(gedeckt|ungeprueft) +: +[0-9]+" | tr -s ' ' | tr '\n' ' ' || true)
+if [ -n "$NAMDECK_OUT" ]; then
+  record "0.7.15 namensdeckung" "WARN" "$(echo "$NAMDECK_OUT" | head -1 | tr '|' '/')"
+  echo "$NAMDECK_OUT" | tail -n +2
+else
+  record "0.7.15 namensdeckung" "PASS" "kein Gate nennt einen ungedrillten Fall (${NAMDECK_ZAHLEN:-keine Zahlen})"
+fi
+
 # ── 0.7.13 Skill-Verteil-Drift (Slug `skill-copy-not-redistributed`) ────────
 # Schwester von 0.7.5, und zwar die unbeaufsichtigte: 0.7.5 deckt AUSSCHLIESSLICH
 # die Lane `claude-hooks` (~/.claude/hooks). Skills und Commands haben eine

@@ -34,6 +34,16 @@ y  =  2'
 B="$FIX/b"; mkdir -p "$B"; setup_repo "$B" 'x = 1'
 ( cd "$B" && { command -v ruff >/dev/null && ruff format . || python3 -m ruff format .; } >/dev/null 2>&1
   git add -A && git -c user.email=t@t -c user.name=t commit -qm fmt )
+# Repo E: sauber FORMATIERT, aber mit Linter-Verstoss E402 (Import nach
+# Modul-Zuweisung). Der namensgebende Fall des Gates `lint-failure-no-local-gate`
+# — und bis zum 2026-08-23 ungedrillt: der Hook fuehrte nur `ruff format --check`
+# aus, fuer das E402 unsichtbar ist. Realfall platform#2236, CI zweimal rot.
+E="$FIX/e"; mkdir -p "$E"; setup_repo "$E" 'import os
+
+Y = 2
+import re
+
+print(os, re, Y)'
 # Dir C: kein ruff-Repo
 C="$FIX/c"; mkdir -p "$C"; git -C "$C" init -q
 git -C "$C" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
@@ -47,6 +57,7 @@ check "T7 pushd wird erkannt"                 deny   "$(run_hook "pushd $A && gi
 # --- Negativ-/Fallback-Zweig ---
 check "T4 formatiertes Repo silent"           silent "$(run_hook "cd $B && git push")"
 check "T5 kein ruff-Repo silent"              silent "$(run_hook "cd $C && git push")"
+check "T11 E402 (Lint, nicht Layout) blockt"   deny   "$(run_hook "cd $E && git push")"
 check "T6 Variable nicht auflösbar → fail-open" silent "$(run_hook "cd \\\"\$SCRATCH\\\" && git push")"
 check "T8 kein push → silent"                 silent "$(run_hook "cd $A && git status")"
 # --- Fallback-Zweig POSITIV isoliert (CWD=Repo, kein cd im Kommando) ---
