@@ -538,6 +538,17 @@ else
   record "0.7.10 kennzahl-verfall" "PASS" "alle markierten Kennzahlen aktuell"
 fi
 
+# ── 0.7.11 Erreichbarkeit der deklarierten Prod-Ziele ───────────────────────
+# Fragt jedes AKTIVE `domain_prod` aus infra/ports.yaml einmal an. Alle anderen
+# Phasen hier vergleichen Zusagen miteinander (Registry, Route, run-conclusion);
+# diese ist die einzige, die das Ziel selbst befragt. wedding-hub war sechs bis
+# sieben Tage tot, waehrend Registry und Tunnel-Route uebereinstimmten.
+ERR_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/erreichbarkeit_melder.py" --kurz 2>/dev/null || true)
+case "$ERR_OUT" in
+  ""|*"alle antworten"*) record "0.7.11 erreichbarkeit" "PASS" "${ERR_OUT:-nicht ausgefuehrt}" ;;
+  *) record "0.7.11 erreichbarkeit" "WARN" "$ERR_OUT" ;;
+esac
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys

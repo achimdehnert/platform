@@ -26,6 +26,18 @@
 #     8110-8199   App-Hubs Block B (Erweiterung)
 #     9000-9099   Auth + Object Storage (Authentik 9000, MinIO 9001/9010)
 #
+#
+#   LEBENSZYKLUS (betriebsstatus, seit 2026-08-23 — platform#2215)
+#
+#     betriebsstatus: aktiv         Vorgabe, muss nicht geschrieben werden
+#     betriebsstatus: stillgelegt   absichtlich aus
+#     betriebsstatus: blockiert     soll laufen, wartet auf eine Entscheidung
+#
+#   Alles ausser `aktiv` verlangt ein `betriebsstatus_grund`. `tools/erreichbarkeit_melder.py`
+#   fragt die `domain_prod` jedes AKTIVEN Dienstes einmal an; ein nicht-aktiver Dienst
+#   erzeugt keinen Befund, ein nicht-aktiver OHNE Grund dagegen schon — eine stumme
+#   Ausnahme ist so wenig wert wie gar keine Pruefung.
+#
 #   Regeln:
 #     1. Jeder Hub hat genau EINEN Web-Port pro Umgebung (kein Bereich!)
 #     2. Staging-Port = Prod-Port (immer, ADR-157 §4)
@@ -151,6 +163,8 @@ services:
     dev: 8111
     container_name: frist_hub_web
     domain_prod: frist-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "prod blockiert auf Hosting-ADR (meiki-lra Sozialdaten-Pilot) — nur Konzept-Staging; frist-hub.iil.pet hat bewusst keinen DNS-Eintrag"
     note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
 
   coach-hub:
@@ -497,6 +511,8 @@ services:
     dev: 8103
     container_name: recruiting_hub_web
     domain_prod: hr.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "GitHub-Repo archiviert (gh api repos/achimdehnert/recruiting-hub .archived = true, seit ~2026-08-20); hr.iil.pet antwortet 502, das ist gewollt"
     domain_staging: staging-hr.iil.pet
     repo: achimdehnert/recruiting-hub
 

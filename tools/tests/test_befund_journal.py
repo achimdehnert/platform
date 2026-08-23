@@ -239,3 +239,92 @@ def test_should_report_ok_only_with_an_existing_journal(journal: Path, capsys) -
     bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(journal)])
     aus = capsys.readouterr().out
     assert "RESULT: OK" in aus and "UNGEPRUEFT" not in aus
+
+
+# ── Wiedervorlage (platform#2215) ───────────────────────────────────────────
+#
+# Der Anlass ist gemessen, nicht ausgedacht: der Deploy-Befund zu coach-hub war
+# seit dem 2026-08-20 in coach-hub#67 verankert und erschien trotzdem in 22
+# aufeinanderfolgenden Laeufen wortgleich. `--verankert` hing eine URL an und
+# aenderte nichts an der Lautstaerke.
+
+ZEILE = "0.7 deploy-scan\tWARN\tcoach-hub\tfailure: coach-hub"
+
+
+def _n_laeufe(pfad: Path, n: int, zeile: str = ZEILE) -> list[str]:
+    for _ in range(n - 1):
+        _lauf([zeile], pfad)
+    meldungen, _ = _lauf([zeile], pfad)
+    return meldungen
+
+
+def test_should_report_old_finding_loudly_while_nobody_decided(journal: Path) -> None:
+    meldungen = _n_laeufe(journal, 4)
+    assert any("⏳ ALTBEFUND" in m for m in meldungen)
+
+
+def test_should_silence_anchored_finding_until_the_deadline(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    assert bj.main(["--verankert", "0.7 deploy-scan::coach-hub", "https://x/67",
+                    "--datei", str(journal)]) == 0
+    meldungen = _n_laeufe(journal, 1)
+    assert not any("⏳ ALTBEFUND" in m for m in meldungen)
+    assert any("ruhen bis zur Wiedervorlage" in m for m in meldungen)
+
+
+def test_should_never_let_a_resting_finding_vanish_without_trace(journal: Path) -> None:
+    """Schweigen darf nicht von Vergessen ununterscheidbar sein."""
+    _n_laeufe(journal, 4)
+    bj.main(["--verankert", "0.7 deploy-scan::coach-hub", "https://x/67",
+             "--datei", str(journal)])
+    meldungen = _n_laeufe(journal, 1)
+    assert len([m for m in meldungen if "⏸" in m]) == 1
+    assert "--bericht" in "".join(meldungen)
+
+
+def test_should_wake_the_finding_when_the_deadline_passed(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    bj.main(["--verankert", "0.7 deploy-scan::coach-hub", "https://x/67",
+             "--frist", "0", "--datei", str(journal)])
+    daten = json.loads(journal.read_text(encoding="utf-8"))
+    daten["befunde"]["0.7 deploy-scan::coach-hub"]["wiedervorlage"] = "2020-01-01"
+    journal.write_text(json.dumps(daten), encoding="utf-8")
+    meldungen = _n_laeufe(journal, 1)
+    assert any("⏰ WIEDERVORLAGE" in m for m in meldungen)
+    assert any("2020-01-01 abgelaufen" in m for m in meldungen)
+
+
+def test_should_wake_the_finding_when_the_symptom_changed(journal: Path) -> None:
+    """Eine Parkerlaubnis gilt dem Befund, der beim Parken vorlag — keinem anderen."""
+    _n_laeufe(journal, 4)
+    bj.main(["--verankert", "0.7 deploy-scan::coach-hub", "https://x/67",
+             "--datei", str(journal)])
+    ruhig = _n_laeufe(journal, 1)
+    assert not any("⏳ ALTBEFUND" in m for m in ruhig)
+
+    anders = "0.7 deploy-scan\tWARN\tcoach-hub\tfailure: coach-hub UND apo-hub"
+    meldungen = _n_laeufe(journal, 1, zeile=anders)
+    assert any("⏳ ALTBEFUND" in m for m in meldungen)
+
+
+def test_should_apply_the_longer_deadline_to_a_deliberate_waiver(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    bj.main(["--verzichtet", "0.7 deploy-scan::coach-hub", "Repo wird stillgelegt",
+             "--datei", str(journal)])
+    e = json.loads(journal.read_text(encoding="utf-8"))["befunde"]["0.7 deploy-scan::coach-hub"]
+    assert e["wiedervorlage"] == bj._frist(bj.FRIST_VERZICHT_TAGE)
+    assert bj.ruhezustand(e, bj._heute()) == "ruht"
+
+
+def test_should_treat_a_finding_without_deadline_as_loud(journal: Path) -> None:
+    """Kein gesetzter Zustand ist kein Ruhe-Zustand — die Vorgabe muss laut sein."""
+    assert bj.ruhezustand({"letzte_note": "x"}, "2026-08-23") == "laut"
+
+
+def test_should_show_the_deadline_in_the_full_report(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    bj.main(["--verankert", "0.7 deploy-scan::coach-hub", "https://x/67",
+             "--datei", str(journal)])
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert "ruht bis" in text
+    assert "https://x/67" in text
