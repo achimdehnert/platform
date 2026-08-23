@@ -285,7 +285,7 @@ OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
 DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
-DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; N_SCANNED=0
+DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; DEPLOY_CANCELLED=""; N_SCANNED=0
 # Leerer Cutoff (kein GNU-date) wuerde die waiting-Erkennung still abschalten —
 # das Ergebnis waere ein PASS, das eine nie gelaufene Pruefung als bestanden
 # ausgibt. Deshalb wird der Zustand unten als degraded gemeldet, nicht verschluckt.
@@ -325,6 +325,17 @@ EOF
       DEPLOY_FAILS="$DEPLOY_FAILS $r"
     fi
   fi
+  # (2b) `cancelled` ist weder gruen noch rot — und faellt deshalb bis heute
+  #      durch jedes Netz (platform#2148, Weg c). Realfall 2026-08-20 risk-hub:
+  #      ein Prod-Dispatch wurde von einem gleichzeitigen Staging-Push ueber die
+  #      Concurrency-Group abgeraeumt. Kein Check wurde rot, der Stand erreichte
+  #      Prod nie. Was hier NICHT versucht wird: zwischen Handabbruch und
+  #      Concurrency zu unterscheiden — dafuer gibt es keinen billigen Check, und
+  #      die Frage, die zaehlt, ist ohnehin eine andere: ist der Stand live?
+  #      Die beantwortet Phase 0.7.11 an der Wirkung.
+  if [ "$C" = "cancelled" ]; then
+    DEPLOY_CANCELLED="$DEPLOY_CANCELLED $r"
+  fi
   # erst ab 24h melden: ein frisches Gate ist der Normalfall, kein Befund
   if [ "$W" != "none" ] && [ -n "$WAIT_CUTOFF" ] && [[ "$W" < "$WAIT_CUTOFF" ]]; then
     DEPLOY_WAITING="$DEPLOY_WAITING $r"
@@ -337,11 +348,14 @@ COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfrag
 # sind Befunde ueber ein FREMDES Repo — sie gehoeren dorthin, nicht in die
 # platform-Prosa. Die nicht abfragbaren stehen getrennt, damit das Journal eine
 # Abdeckungsluecke nicht als Heilung verbucht.
-DEPLOY_BETROFFEN=$(echo "$DEPLOY_WAITING $DEPLOY_FAILS" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
+DEPLOY_BETROFFEN=$(echo "$DEPLOY_WAITING $DEPLOY_FAILS $DEPLOY_CANCELLED" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
+CANCEL_ZUSATZ="${DEPLOY_CANCELLED:+ · cancelled:$DEPLOY_CANCELLED — weder gruen noch rot; Wirkung pruefen (0.7.11)}"
 if [ -n "$DEPLOY_WAITING" ]; then
-  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
+  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS}${CANCEL_ZUSATZ} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
 elif [ -n "$DEPLOY_FAILS" ]; then
-  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live) (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
+  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live)${CANCEL_ZUSATZ} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
+elif [ -n "$DEPLOY_CANCELLED" ]; then
+  record "0.7 deploy-scan" "WARN" "cancelled:${DEPLOY_CANCELLED} — letzter Deploy-Lauf wurde abgeraeumt (Concurrency-Group oder Handabbruch); kein Check wird davon rot. Wirkung pruefen: platform/tools/deploy_wirkung.py --repo <r> (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
 elif [ -z "$WAIT_CUTOFF" ]; then
   # F3: ohne Cutoff lief die waiting-Pruefung gar nicht — kein PASS behaupten.
   record "0.7 deploy-scan" "WARN" "degraded: WAIT_CUTOFF leer (kein GNU-date?) — haengende Approval-Gates wurden NICHT geprueft; kein failure in ${COVERAGE}" "$TARGET_REPO" "$DEPLOY_REPOS"
@@ -437,7 +451,39 @@ esac
 HOOKDRIFT_OUT=$("$PLATFORM_DIR/tools/hook-dist-drift.sh" --quiet 2>/dev/null | tail -1 || true)
 case "$HOOKDRIFT_OUT" in
   "RESULT: OK"*)         record "0.7.5 hook-dist" "PASS" "${HOOKDRIFT_OUT#RESULT: OK — }" ;;
-  "RESULT: DRIFT"*)      record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: DRIFT"*)
+    # Selbstheilung statt Meldung (platform#2143, Gate rueckfaellig).
+    #
+    # Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte
+    # trotzdem zweimal. Retro 9d861a hatte die Diagnose schon: „Die Luecke ist
+    # nicht der Melder, sondern sein Ausloesezeitpunkt." Zwischen dem Merge und
+    # dem naechsten Sitzungsstart liegt die Zeit, in der die aktive Kopie alt ist,
+    # und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin.
+    #
+    # Vertretbar, weil die Lane `claude-hooks` im `merge`-Modus arbeitet: kein
+    # Verzeichnis-Swap, Datei fuer Datei, mit Backup des Vorstands. Die Quelle ist
+    # `origin/main` — kanonisch, nicht der lokale Arbeitsbaum, der veraltet sein kann.
+    #
+    # Bewusst NICHT `hook-dist-drift.sh --sync`, obwohl es das gibt: es kopiert aus
+    # `$PLATFORM_DIR/tools/claude-hooks`, also aus dem Arbeitsbaum. Genau der ist
+    # beim Sitzungsstart regelmaessig Commits hinter `origin/main` — die Heilung
+    # wuerde dann einen alten Stand als „synchron" festschreiben. `--sync` bleibt
+    # der Handgriff fuer den Fall, dass man bewusst den lokalen Stand verteilen will.
+    #
+    # Positivkontrolle vor dem Verdrahten gefahren (2026-08-23, HOME-Sandkasten):
+    # kuenstliche Drift in gate_hits.py -> DRIFT -> Heilung -> OK, 13 Dateien,
+    # Backup angelegt. Ohne diesen Beleg waere „heilt sich selbst" eine Behauptung.
+    HEIL_OUT=$(python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+                 --ref origin/main --kind claude-hooks \
+                 --target "$HOME/.claude/hooks" --allow-live 2>&1 | tail -2 || true)
+    NACHHER=$("$PLATFORM_DIR/tools/hook-dist-drift.sh" --quiet 2>/dev/null | tail -1 || true)
+    case "$NACHHER" in
+      "RESULT: OK"*) record "0.7.5 hook-dist" "PASS" "Drift selbst geheilt — ${NACHHER#RESULT: OK — } (vorher: ${HOOKDRIFT_OUT#RESULT: DRIFT — })" ;;
+      # Heilung versucht und NICHT gelungen ist der interessantere Fall: dann ist
+      # die Annahme falsch, dass die Lane diesen Pfad bespielt. Das gehoert gesagt.
+      *)             record "0.7.5 hook-dist" "WARN" "Drift NICHT heilbar — ${HOOKDRIFT_OUT#RESULT: DRIFT — } · Verteil-Versuch: ${HEIL_OUT}" ;;
+    esac
+    ;;
   "RESULT: UNGEPRUEFT"*) record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
   *)                     record "0.7.5 hook-dist" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/hook-dist-drift.sh" ;;
 esac
@@ -548,6 +594,50 @@ case "$ERR_OUT" in
   ""|*"alle antworten"*) record "0.7.11 erreichbarkeit" "PASS" "${ERR_OUT:-nicht ausgefuehrt}" ;;
   *) record "0.7.11 erreichbarkeit" "WARN" "$ERR_OUT" ;;
 esac
+
+# ── 0.7.12 Prod-Wirkung: was liegt WIRKLICH auf den Hosts? (platform#2148) ──
+# `tools/deploy_wirkung.py` existiert seit dem 2026-08-20 und hatte bis hierhin
+# NULL Aufrufer — es stand nur in Handover, Log und Archiv. Genau die Klasse
+# `melder-ohne-leser`: gebaut, gruen gedrillt, nie gelesen. Dabei ist es das
+# einzige Werkzeug, das den Stand HINTER dem oeffentlichen Namen mit origin/main
+# vergleicht; die Wege (b) und (c) aus #2148 werden nur hier sichtbar — ein
+# `staging`-Default und ein abgeraeumter Dispatch machen keinen Check rot.
+# Kosten: rund 20 s (2x ssh + je Repo eine API-Abfrage), fail-open.
+WIRK_JSON=$(timeout 150 python3 "$PLATFORM_DIR/tools/deploy_wirkung.py" --json 2>/dev/null || true)
+if [ -z "$WIRK_JSON" ]; then
+  record "0.7.12 prod-wirkung" "WARN" "Melder nicht auswertbar (ssh/timeout) — manuell: platform/tools/deploy_wirkung.py"
+else
+  # Zusammenfassen in Python: der JSON-Baum ist zu verschachtelt fuer jq-Akrobatik
+  # in einer Zeile, und ein halb geparster Melder ist schlimmer als keiner.
+  WIRK_OUT=$(printf '%s' "$WIRK_JSON" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except (json.JSONDecodeError, ValueError):
+    print("STATUS=WARN|Melder-Ausgabe nicht parsebar|"); raise SystemExit(0)
+b = d.get("befunde", [])
+# Ruhende Repos duerfen hinterherhinken — das ist der gewollte Zustand.
+def na(e, k): return bool(e.get(k)) and not e.get("ruhend")
+dop  = [e["repo"] for e in b if e.get("doppellauf")]
+rueck= [e["repo"] for e in b if na(e, "rueckstand")]
+verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
+unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
+teile, betroffen = [], sorted(set(dop + rueck))
+if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
+if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
+if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
+if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
+status = "WARN" if (dop or rueck) else "PASS"
+note = " · ".join(teile) if teile else f"{d.get("geprueft", 0)} Repo(s): deployter Stand == origin/main"
+print(f"STATUS={status}|{note}|{" ".join(betroffen)}")
+' 2>/dev/null || echo "STATUS=WARN|Melder-Ausgabe nicht parsebar|")
+  WIRK_STATUS=$(printf '%s' "$WIRK_OUT" | sed -n 's/^STATUS=\([A-Z]*\)|.*/\1/p')
+  WIRK_NOTE=$(printf '%s' "$WIRK_OUT" | cut -d'|' -f2)
+  WIRK_REPOS=$(printf '%s' "$WIRK_OUT" | cut -d'|' -f3)
+  # Rueckstand und Doppellauf sind Befunde ueber FREMDE Repos (K1, platform#2004):
+  # die Repo-Liste geht mit, sonst landet der Befund als platform-Prosa im Nichts.
+  record "0.7.12 prod-wirkung" "${WIRK_STATUS:-WARN}" "${WIRK_NOTE:-nicht auswertbar}" "$WIRK_REPOS"
+fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'

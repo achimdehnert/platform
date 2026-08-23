@@ -110,7 +110,12 @@ FRIST_VERZICHT_TAGE = 30
 #: falsch feuert, wird abgeschaltet — dann meldet es gar nichts mehr (#1508).
 #: Das Journal fuehrt trotzdem ALLE Repos: Alter (K3) gilt fuer jeden Befund,
 #: nur die Artefakt-Pflicht (K2) ist eng.
-CROSS_REPO_PHASEN = ("0.7 deploy-scan",)
+#: `0.7.12 prod-wirkung` kam am 2026-08-23 dazu, und zwar mit Beleg statt aus
+#: Symmetrie: risk-hub stand beim ersten Lauf vier Tage hinter `origin/main`
+#: (Prod-Gate, `staging`-Default) und writing-hub frisch — beides Befunde, die
+#: in ihrem eigenen Repo repariert werden, nicht hier. Bei tax-hub blieb genau
+#: diese Klasse sieben Tage unsichtbar, weil kein Check davon rot wird (#2148).
+CROSS_REPO_PHASEN = ("0.7 deploy-scan", "0.7.12 prod-wirkung")
 
 
 def _heute() -> str:
