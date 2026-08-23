@@ -263,6 +263,16 @@
         "deferred-item-no-tracking-issue"
       ],
       "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker)."
+    },
+    {
+      "slug": "skill-copy-not-redistributed",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/cc-skill-dist/doctor.py",
+      "drill": "tools/tests/test_doctor.py",
+      "built": "2026-08-23",
+      "ref": "platform#2143 (gate_deckung.py: 3x aufgetreten, nie gegated)",
+      "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt, s. Issue im ref des Fensters)."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",

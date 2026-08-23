@@ -669,6 +669,42 @@ print(f"STATUS={status}|{note}|{" ".join(betroffen)}")
   record "0.7.12 prod-wirkung" "${WIRK_STATUS:-WARN}" "${WIRK_NOTE:-nicht auswertbar}" "$WIRK_REPOS"
 fi
 
+# ── 0.7.13 Skill-Verteil-Drift (Slug `skill-copy-not-redistributed`) ────────
+# Schwester von 0.7.5, und zwar die unbeaufsichtigte: 0.7.5 deckt AUSSCHLIESSLICH
+# die Lane `claude-hooks` (~/.claude/hooks). Skills und Commands haben eine
+# eigene Verteil-Lane (cc-skill-dist) — und `doctor.py` prueft sie seit Monaten
+# read-only, mit Drill (tools/tests/test_doctor.py) und Exit-Code-Vertrag.
+# Aufgerufen hat es im Sitzungs-Loop nie jemand: der Slug
+# `skill-copy-not-redistributed` steht 3x in den Retros und hatte kein Gate,
+# waehrend das Werkzeug dafuer fertig danebenlag. Genau die Klasse
+# `melder-ohne-leser` — dieselbe, in der `deploy_wirkung.py` bis zum 2026-08-23
+# stand (0.7.12).
+#
+# Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code: `doctor.py` beendet auch mit
+# 0, wenn es Hinweise ausgibt, und ein Aufruf in einer Pipeline liefert ohnehin
+# den Status des letzten Glieds. Fehlt die Score-Zeile, ist das UNGEPRUEFT und
+# nicht gruen (die SKIP-ist-kein-PASS-Lehre aus KONZ-platform-050).
+SKILLDRIFT_NOTE=""
+SKILLDRIFT_STATUS="PASS"
+for LANE in skills commands; do
+  LANE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
+  LANE_SCORE=$(printf '%s' "$LANE_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+  if [ -z "$LANE_SCORE" ]; then
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:UNGEPRUEFT "
+  elif [ "$LANE_SCORE" -gt 0 ]; then
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:Drift-Score ${LANE_SCORE} "
+  else
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:0 "
+  fi
+done
+if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
+  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — aktive Kopie weicht von origin/main ab (beheben: tools/cc-skill-dist/generate.py --ref origin/main --kind <lane> --allow-live)"
+else
+  record "0.7.13 skill-dist" "PASS" "beide Lanes synchron (${SKILLDRIFT_NOTE% })"
+fi
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys
