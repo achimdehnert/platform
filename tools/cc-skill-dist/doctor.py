@@ -23,6 +23,9 @@ wo der normale Exit-Code dauerhaft 1 ist und deshalb nichts unterscheidet.
 
 import argparse
 import os
+import re
+import subprocess
+import sys
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — steht im Modul, nicht nur in der Registry,
 # damit `gate_drill_check.py` ihn gegen die Registry pruefen kann. Dieses Werkzeug
@@ -35,9 +38,7 @@ GATE_HEADER = {
     "last_drill_pass": "2026-08-23",
     "evidence": "tools/tests/test_doctor.py",
 }
-import re
-import subprocess
-import sys
+
 
 # Relativlink-Guard (nur Lane `commands`): das flache Ziel ~/.claude/commands kann keine
 # Pfad-Slash-Links auflösen → dangling. http(s)/Anker/mailto sind ok. Verlangt Pfad-Slash
