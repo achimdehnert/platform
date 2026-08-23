@@ -212,3 +212,31 @@ davon 5 aus Meta-Texten (Berichte ueber Vertagungen, Trockenlauf-Listen). Ein
 Vorschlag fuer Welle 2 folgt daraus unmittelbar und steht in
 [#2214](https://github.com/achimdehnert/platform/issues/2214): Meta-Texte sind
 eine eigene Klasse und muessen getrennt ausgewertet werden.
+
+### 2026-08-23 abends, Phase 0g auf den vier Gate-PRs (#2236–#2239)
+
+| Text | Meldung | Urteil |
+|---|---|---|
+| PR #2236 (22 Segmente) | `✅` keine Meldung | richtig — jede Zusage traegt #2234/#2235 |
+| PR #2237 (11 Segmente) | `✅` keine Meldung | richtig |
+| PR #2238 (12 Segmente) | `✅` keine Meldung | richtig — die neun offenen Slugs nennen #2234 im selben Abschnitt |
+| PR #2239 | `[vertagung]` „haette still bis zum Fristablauf gesammelt" | **Fehlalarm** — Konjunktiv II ueber den BEHOBENEN Zustand |
+
+Der Satz im Volltext lautet: *„… konnte nie entscheidungsreif werden und haette
+still bis zum Fristablauf gesammelt; das ist jetzt ein eigener, lauter Zustand
+`unbestimmt`."* Der Nebensatz nach dem Semikolon sagt, dass es behoben ist — der
+Klassifikator sieht den Konjunktiv davor und liest eine Vertagung.
+
+**Neue Fehlalarm-Klasse, verwandt mit den Meta-Texten aus §6, aber nicht dieselbe:**
+bisher waren es *Berichte ueber* Vertagungen (Trockenlauf-Listen, Meta-PRs). Hier ist
+es die **Beschreibung des alten Verhaltens im Konjunktiv**, unmittelbar gefolgt von
+der Behebung. Ein PR-Text, der erklaert, was ohne den Fix passiert waere, klingt
+zwangslaeufig nach einer offenen Zusage. Das ist kein Randfall: so ist fast jede
+gute Fehlerbeschreibung gebaut.
+
+**Stand des Fensters:** 9 gepruefte Texte · 8 Meldungen · 1 richtig · 7 Fehlalarme.
+Praezision faellt damit von 0,14 auf 0,125. Der Vorschlag aus
+[#2214](https://github.com/achimdehnert/platform/issues/2214) traegt weiter, muss
+aber um diese zweite Klasse ergaenzt werden: **Tempus/Modus des Segments** ist ein
+Signal, das der Klassifikator bisher nicht auswertet — „haette gesammelt" ist keine
+Zusage, „sammelt weiter" waere eine.
