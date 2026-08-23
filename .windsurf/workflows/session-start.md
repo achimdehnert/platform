@@ -75,6 +75,12 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   erstmals …`) — eine WARN-Zeile am zehnten Tag klang bis dahin wie eine am ersten.
   Ein Altbefund gehört mit seinem Alter ins Board, nicht als Neuigkeit. Vollbild:
   `python3 platform/tools/befund_journal.py --bericht`.
+→ **Drei Lautstärken seit 2026-08-23** ([#2215](https://github.com/achimdehnert/platform/issues/2215)):
+  `⏳ ALTBEFUND` = niemand hat je entschieden · `⏸ … ruhen bis zur Wiedervorlage` = verankert
+  oder mit Verzicht abgelegt, kommt zur Frist von selbst zurück · `⏰ WIEDERVORLAGE` = die
+  Frist ist abgelaufen, der Stand gehört geprüft. Verankern setzt die Frist automatisch
+  (14 Tage, Verzicht 30, `--frist N` überschreibt). Ändert sich der Symptomtext, wird der
+  Befund sofort wieder laut — eine Parkerlaubnis gilt dem Befund, der beim Parken vorlag.
 → Nennt der Block **Fremd-Repo-Befunde ohne Artefakt**, ist das kein Sofort-Auftrag:
   `/session-ende` Phase 0f fragt sie ab und verlangt je Befund entweder ein Issue im
   **Zielrepo** oder einen abgelegten Verzicht mit Grund.
@@ -118,6 +124,15 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     Punkt 5a) — hier zählt nur, dass es **gesehen** und im Board benannt wird. Zeilen mit
     `zu-frueh`/`unerprobt` sind ausdrücklich **kein** Wirksamkeits-Beleg, sondern
     „hatte noch keine Gelegenheit".
+  - `0.7.11 erreichbarkeit`: **die einzige Phase, die ein Ziel anfragt statt Zusagen zu
+    vergleichen.** Jedes aktive `domain_prod` aus `infra/ports.yaml` bekommt einen HTTPS-GET.
+    Zwei Befundklassen, die auseinandergehalten gehören: **5xx** = Route steht, Dienst tot
+    (Reparatur im Ziel-Repo) · **NXDOMAIN** = die *Deklaration* ist falsch, der Dienst
+    vielleicht gesund (Korrektur in `ports.yaml`). 401/403 sind **kein** Befund — hinter
+    Cloudflare Access antwortet der Perimeter, und dass jemand antwortet, ist der Beleg.
+    Ein bewusst abgeschalteter Dienst bekommt `betriebsstatus:` + `betriebsstatus_grund:`
+    in `ports.yaml`; **ohne Grund ist die Ausnahme selbst der Befund**. Anlass: wedding-hub
+    war 6–7 Tage tot, während Registry und Tunnel-Route übereinstimmten.
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
@@ -355,6 +370,7 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt (0.R) | ☐ |
 | 2a | Befund-Journal gelesen: Altbefunde mit ihrem **Alter** gespiegelt, Fremd-Repo-Befunde benannt (0.R) | ☐ |
 | 2b | Rückfällige Gates aus 0.7.7 im Board benannt — ein versagendes Gate ist ein Befund über den Loop selbst | ☐ |
+| 2c | `0.7.11 erreichbarkeit`: 5xx von NXDOMAIN getrennt; jede Ausnahme in `ports.yaml` trägt einen Grund | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
