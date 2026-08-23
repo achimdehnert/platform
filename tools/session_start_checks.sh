@@ -686,7 +686,13 @@ fi
 # nicht gruen (die SKIP-ist-kein-PASS-Lehre aus KONZ-platform-050).
 SKILLDRIFT_NOTE=""
 SKILLDRIFT_STATUS="PASS"
-for LANE in skills commands; do
+# `hooks` steht bewusst mit in der Liste, obwohl 0.7.5 schon "Hooks" im Namen traegt:
+# das sind ZWEI Lanes. 0.7.5 deckt `claude-hooks` (~/.claude/hooks, flach), die Lane
+# `hooks` liegt darunter in managed/ und war von KEINER Phase beaufsichtigt. Beim
+# Aufnehmen am 2026-08-23 war sie sofort rot: `stale_clone_check.sh` lag als Kopie vom
+# 2026-07-26 live, waehrend die Quelle am 2026-08-06 ihren GATE_HEADER bekam — vier
+# Wochen Drift, die niemand meldete.
+for LANE in skills commands hooks; do
   LANE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
   LANE_SCORE=$(printf '%s' "$LANE_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
   if [ -z "$LANE_SCORE" ]; then

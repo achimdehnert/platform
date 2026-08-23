@@ -85,7 +85,17 @@ COMMAND_STARTERS = {
 PLACEHOLDER_RE = re.compile(r"<[^>\s][^>]{0,40}>|DEIN_[A-Z_]+|<pfad|\bXXX\b")
 
 # Zeilen, die im Block stehen dürfen, ohne ihn zu einem Befehl zu machen.
-PROMPT_PREFIX_RE = re.compile(r"^\s*(?:[\$#>]|\w+@[\w.-]+:[^$#]*[$#])\s*")
+#
+# `!` steht bewusst in dieser Klasse, und es ist der wichtigste Eintrag darin:
+# in Claude Code bedeutet `! <befehl>`, dass der OWNER ihn selbst ausfuehrt — das
+# ist die Uebergabe-Konvention und damit die praeziseste Form dessen, wonach
+# dieser Scanner sucht. Bis 2026-08-23 machte genau dieses Zeichen ihn blind:
+# `bash install-certbot-token.sh` feuerte, `! bash install-certbot-token.sh`
+# nicht. Realfall ausschreibungs-hub 2026-08-23: ein nie ausgefuehrtes Skript
+# ging so an den Owner und schrieb seine eigenen Zeilen in eine
+# Prod-Credential-Datei. Gate war gebaut, Drill gruen, Familie ungesehen
+# (platform#2230, Antwort "ausweiten" aus derselben Retro).
+PROMPT_PREFIX_RE = re.compile(r"^\s*(?:[\$#>!]|\w+@[\w.-]+:[^$#]*[$#])\s*")
 
 
 def _iter_command_lines(block: str):

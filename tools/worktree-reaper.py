@@ -198,6 +198,23 @@ def pr_state(branch: str, repo: str | None) -> str:
     return "none"
 
 
+def _gleicher_pfad(pfad: str, kandidaten: tuple[str, ...]) -> bool:
+    """Kanonischer Vergleich — ein Lease-/Hook-Pfad kann `/./` oder Symlinks tragen."""
+    if not kandidaten:
+        return False
+    try:
+        ziel = Path(pfad).resolve()
+    except OSError:
+        return False
+    for k in kandidaten:
+        try:
+            if Path(k).resolve() == ziel:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def classify(
     wt: dict,
     primary: str,
@@ -205,6 +222,7 @@ def classify(
     repo: str | None,
     stale_days: int,
     karenz_stunden: float = 12.0,
+    sitzungsende: tuple[str, ...] = (),
 ) -> tuple[str, str]:
     """→ (verdict, reason). verdict ∈ {KEEP, REAP_MERGED, REAP_STALE, SKIP}."""
     path, branch = wt["path"], wt["branch"]
@@ -239,7 +257,24 @@ def classify(
         # seit `karenz_stunden` kein Commit mehr gefallen, ist die Sitzung erkennbar
         # vorbei — dann greift der Reaper trotz aktivem Lease. Eine lebende Sitzung
         # committet innerhalb dieser Frist und bleibt damit unangetastet.
+        # Die Sitzung, die diesen Baum besitzt, sagt selbst, dass sie fertig ist:
+        # dann ist die Karenz gegenstandslos. Sie schuetzt die Weiterarbeit einer
+        # LEBENDEN Sitzung — und genau die gibt es hier nicht mehr.
+        #
+        # Ohne diese Ausnahme konnte die Karenz den Fall, fuer den sie gebaut wurde,
+        # strukturell nie erreichen: der SessionEnd-Hook `reap_worktrees.sh` laeuft
+        # bei JEDEM Sitzungsende, aber 12 Stunden sind laenger als jede Sitzung —
+        # der eigene, frisch gemergte Baum war beim Aufraeumen immer zu jung.
+        # Gemessen als zwei Rueckfaelle des Gates `worktree-midsession-accumulation`
+        # NACH dem Karenz-Umbau vom 2026-08-20 (chat-hub 2026-08-21: sechs Baeume;
+        # ausschreibungs-hub 2026-08-23: drei Baeume nach drei Merges).
+        eigener = _gleicher_pfad(path, sitzungsende)
         alter = commit_age_days(path)
+        if eigener and pr_state(branch, repo) == "merged":
+            return (
+                "REAP_MERGED",
+                "PR gemergt, Baum der endenden Sitzung (Karenz entfaellt)",
+            )
         if (
             alter is not None
             and alter * 24 >= karenz_stunden
@@ -305,6 +340,15 @@ def main() -> int:
         help="Stunden ohne Commit, nach denen ein gemergter Baum trotz aktivem "
         "Lease abgeraeumt wird (Default 12).",
     )
+    ap.add_argument(
+        "--sitzungsende",
+        action="append",
+        default=[],
+        metavar="PFAD",
+        help="Worktree(s) der gerade endenden Sitzung: fuer sie entfaellt die Karenz, "
+        "alle anderen Regeln (clean, PR gemergt, nicht primaer) gelten unveraendert. "
+        "Mehrfach angebbar.",
+    )
     ap.add_argument("--manifest", default=None, help="Restore-Manifest-Pfad (JSONL).")
     args = ap.parse_args()
 
@@ -315,7 +359,13 @@ def main() -> int:
     plan, reap = [], []
     for wt in trees:
         verdict, reason = classify(
-            wt, primary, current, args.repo, args.stale_days, args.karenz_stunden
+            wt,
+            primary,
+            current,
+            args.repo,
+            args.stale_days,
+            args.karenz_stunden,
+            tuple(args.sitzungsende),
         )
         plan.append((verdict, wt, reason))
         if verdict == "REAP_MERGED" or (verdict == "REAP_STALE" and args.include_stale):
