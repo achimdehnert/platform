@@ -139,7 +139,11 @@ class Segment:
         „## Bewusste Restueberschneidung" allein feuert bei keinem Muster; als
         Kontext des Absatzes darunter ist sie fuer die Klassifikation wesentlich.
         """
-        return f"{self.ueberschrift}\n{self.text}".strip() if self.ueberschrift else self.text
+        return (
+            f"{self.ueberschrift}\n{self.text}".strip()
+            if self.ueberschrift
+            else self.text
+        )
 
 
 def segmentiere(text: str) -> list[Segment]:
@@ -267,7 +271,11 @@ def ollama_klassifikator(
         except (json.JSONDecodeError, ValueError):
             # Ein einzelner unparsbarer Abschnitt ist kein Grund, den Lauf
             # abzubrechen — aber er gilt als NICHT geprueft, nicht als sauber.
-            return {"klasse": "unklar", "zitat": "", "begruendung": "Antwort nicht parsbar"}
+            return {
+                "klasse": "unklar",
+                "zitat": "",
+                "begruendung": "Antwort nicht parsbar",
+            }
         klasse = str(d.get("klasse", "")).strip().lower()
         return {
             "klasse": klasse if klasse in KLASSEN else "unklar",
@@ -356,7 +364,9 @@ class Ankerurteil:
     unsicher: bool = False
 
 
-def pruefe_anker(segment_text: str, mit_github: bool = True, repo: str = "") -> Ankerurteil:
+def pruefe_anker(
+    segment_text: str, mit_github: bool = True, repo: str = ""
+) -> Ankerurteil:
     """Traegt das Segment eine Issue-Referenz, die diese Zusage verfolgt?
 
     Ein ``/pull/``-Link ist ausdruecklich KEIN Anker: er belegt Herkunft, nicht
@@ -365,7 +375,9 @@ def pruefe_anker(segment_text: str, mit_github: bool = True, repo: str = "") -> 
     als Anker, und die Unsicherheit wird ausgewiesen.
     """
     if _ISSUE_URL.search(segment_text):
-        return Ankerurteil(True, f"Issue-Link {_ISSUE_URL.search(segment_text).group(0)}")
+        return Ankerurteil(
+            True, f"Issue-Link {_ISSUE_URL.search(segment_text).group(0)}"
+        )
 
     # Nummern, die im selben Segment als /pull/-Link ausgeschrieben stehen, sind
     # ohne jede Rueckfrage als Pull Request erkannt — die Markdown-Form
@@ -375,16 +387,22 @@ def pruefe_anker(segment_text: str, mit_github: bool = True, repo: str = "") -> 
     if not kurz:
         pr = _PR_URL.search(segment_text)
         if pr:
-            return Ankerurteil(False, f"nur PR-Link {pr.group(0)} — belegt Herkunft, nicht Tracking")
+            return Ankerurteil(
+                False, f"nur PR-Link {pr.group(0)} — belegt Herkunft, nicht Tracking"
+            )
         return Ankerurteil(False, "keine Issue-Referenz im Segment")
 
     if not mit_github:
-        return Ankerurteil(True, f"#{kurz[0][1]} ungeprueft als Anker gewertet", unsicher=True)
+        return Ankerurteil(
+            True, f"#{kurz[0][1]} ungeprueft als Anker gewertet", unsicher=True
+        )
 
     for besitzer, nummer in kurz:
         ziel = besitzer or repo
         if not ziel:
-            return Ankerurteil(True, f"#{nummer} ohne Repo-Kontext gewertet", unsicher=True)
+            return Ankerurteil(
+                True, f"#{nummer} ohne Repo-Kontext gewertet", unsicher=True
+            )
         art = _art_der_referenz(ziel, nummer)
         if art == "issue":
             return Ankerurteil(True, f"{ziel}#{nummer} ist ein Issue")
@@ -404,7 +422,13 @@ def _art_der_referenz(repo: str, nummer: str) -> str:
     ergebnis = "unbekannt"
     try:
         lauf = subprocess.run(
-            ["gh", "api", f"repos/{repo}/issues/{nummer}", "--jq", ".pull_request.url // \"issue\""],
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/issues/{nummer}",
+                "--jq",
+                '.pull_request.url // "issue"',
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -464,7 +488,9 @@ def pruefe(
     return befunde, segmente
 
 
-def bericht(befunde: list[Befund], segmente: list[Segment], quelle: str, block: bool) -> str:
+def bericht(
+    befunde: list[Befund], segmente: list[Segment], quelle: str, block: bool
+) -> str:
     if not segmente:
         return f"◌ {quelle}: kein pruefbares Segment (Text zu kurz oder nur Code)."
     if not befunde:
@@ -484,7 +510,10 @@ def bericht(befunde: list[Befund], segmente: list[Segment], quelle: str, block: 
         zeilen.append(f"  [{b.klasse}] {ort}")
         if b.zitat:
             zeilen.append(f"      Zitat: „{b.zitat}“")
-        zeilen.append(f"      Anker: {b.anker.grund}" + (" (unsicher)" if b.anker.unsicher else ""))
+        zeilen.append(
+            f"      Anker: {b.anker.grund}"
+            + (" (unsicher)" if b.anker.unsicher else "")
+        )
     zeilen.append(
         "\nDer Artefakt-Text zaehlt nicht als Tracking (Hausregel). Billigste Aktion: "
         "`gh issue create` und die Issue-Nummer IM selben Abschnitt nennen."
@@ -493,14 +522,24 @@ def bericht(befunde: list[Befund], segmente: list[Segment], quelle: str, block: 
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Zusagen am Typ pruefen, nicht am Wortlaut.")
+    ap = argparse.ArgumentParser(
+        description="Zusagen am Typ pruefen, nicht am Wortlaut."
+    )
     quelle = ap.add_mutually_exclusive_group()
     quelle.add_argument("--pr", help="PR-Nummer; Text via gh")
     quelle.add_argument("--datei", help="Datei mit Markdown-Text")
-    ap.add_argument("--repo", default=os.environ.get("VERANKERUNG_REPO", ""), help="owner/repo fuer --pr und #N-Aufloesung")
-    ap.add_argument("--modell", default=os.environ.get("VERANKERUNG_MODELL", DEFAULT_MODELL))
+    ap.add_argument(
+        "--repo",
+        default=os.environ.get("VERANKERUNG_REPO", ""),
+        help="owner/repo fuer --pr und #N-Aufloesung",
+    )
+    ap.add_argument(
+        "--modell", default=os.environ.get("VERANKERUNG_MODELL", DEFAULT_MODELL)
+    )
     ap.add_argument("--host", default=os.environ.get("OLLAMA_HOST", DEFAULT_HOST))
-    ap.add_argument("--ohne-github", action="store_true", help="keine gh-Abfragen (offline)")
+    ap.add_argument(
+        "--ohne-github", action="store_true", help="keine gh-Abfragen (offline)"
+    )
     ap.add_argument(
         "--klassen",
         default="vertagung",
@@ -525,7 +564,10 @@ def main(argv: list[str] | None = None) -> int:
             befehl[3:3] = ["--repo", args.repo]
         lauf = subprocess.run(befehl, capture_output=True, text=True, timeout=60)
         if lauf.returncode != 0:
-            print(f"FEHLER: PR {args.pr} nicht lesbar: {lauf.stderr.strip()}", file=sys.stderr)
+            print(
+                f"FEHLER: PR {args.pr} nicht lesbar: {lauf.stderr.strip()}",
+                file=sys.stderr,
+            )
             return 2
         text, name = lauf.stdout, f"PR #{args.pr}"
     elif args.datei:
@@ -543,7 +585,9 @@ def main(argv: list[str] | None = None) -> int:
         klassen = tuple(k.strip() for k in args.klassen.split(",") if k.strip())
         unbekannt = [k for k in klassen if k not in ZUSAGE_KLASSEN]
         if unbekannt:
-            print(f"FEHLER: unbekannte Klasse(n): {', '.join(unbekannt)}", file=sys.stderr)
+            print(
+                f"FEHLER: unbekannte Klasse(n): {', '.join(unbekannt)}", file=sys.stderr
+            )
             return 2
         befunde, segmente = pruefe(
             text,
@@ -551,7 +595,9 @@ def main(argv: list[str] | None = None) -> int:
             mit_github=not args.ohne_github,
             repo=args.repo,
             klassen=klassen,
-            bestaetiger=None if args.ohne_gegenprobe else ollama_bestaetiger(args.modell, args.host),
+            bestaetiger=None
+            if args.ohne_gegenprobe
+            else ollama_bestaetiger(args.modell, args.host),
         )
     except NichtPruefbar as exc:
         # Ehrlichkeits-Sperre: kein Urteil ist NICHT dasselbe wie ein sauberes.

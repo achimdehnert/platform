@@ -138,7 +138,10 @@ def test_should_issue_link_als_anker_gelten_lassen():
 
 
 def test_should_ohne_referenz_nicht_verankert_sein():
-    assert pruefe_anker("nur Prosa ohne jede Referenz", mit_github=False).verankert is False
+    assert (
+        pruefe_anker("nur Prosa ohne jede Referenz", mit_github=False).verankert
+        is False
+    )
 
 
 def test_should_blosse_nummer_offline_als_unsicher_werten():
@@ -156,7 +159,9 @@ def test_should_realfall_pr2007_finden():
     )
     assert len(befunde) == 1, [b.segment.text[:60] for b in befunde]
     assert befunde[0].klasse == "vertagung"
-    assert "Pull Request" in befunde[0].anker.grund or "PR-Link" in befunde[0].anker.grund
+    assert (
+        "Pull Request" in befunde[0].anker.grund or "PR-Link" in befunde[0].anker.grund
+    )
 
 
 def test_should_bei_issue_anker_schweigen():
@@ -165,7 +170,9 @@ def test_should_bei_issue_anker_schweigen():
         "Sichtbar wird sie sofort.",
         "Getrackt in https://github.com/achimdehnert/platform/issues/2099.",
     )
-    befunde, _ = pruefe(mit_anker, _stub("vertagung"), mit_github=False, klassen=("vertagung",))
+    befunde, _ = pruefe(
+        mit_anker, _stub("vertagung"), mit_github=False, klassen=("vertagung",)
+    )
     assert befunde == []
 
 
