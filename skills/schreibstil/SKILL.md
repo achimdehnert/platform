@@ -136,6 +136,8 @@ Drei Regeln dazu:
   Anhang (warum zwei Steckbriefe, warum unterschiedlicher Status) · Grund: beides stand im
   Anhang selbst; 1.673 → 565 Zeichen
 - 2026-08-21 · intern · gestrichen: Erkenntnis-Absätze unter dem Action Board · Grund: Erkenntnisse gehören als eigener Bucket ins Board, Prosa nur für das, was keine Item-Struktur hat
+- 2026-08-23 · dsb · gestrichen: „Sind die bestätigt, entfällt die Registrierung des Container Service.“ und die Klartext-Aufzählung der Bögen 4 bis 7 · Grund: „kürzer und stringenter“ — beides steht in den Unterlagen, die der Empfänger vor sich hat; 196 → 115 Wörter
+- 2026-08-23 · dsb · Rollenwahl korrigiert: Entwurf lag mit `--role iil` ab, weil NIS2 keine DSB-Tätigkeit ist → Owner: `dsb` · Grund: die Rolle hängt am **Kanal** (Mandanten-Fachmail), nicht am Rechtsgebiet
 
 ---
 
