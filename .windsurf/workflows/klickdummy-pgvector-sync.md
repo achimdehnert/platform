@@ -200,3 +200,43 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   einmal, ohne hier eine Zeile zu hinterlassen. Konsequenz für die Lauf-Buchführung: der
   Changelog ist **kein** vollständiges Lauf-Register — „N seit letztem Eintrag" ist keine
   belastbare Delta-Basis.
+- 2026-08-23: **Manueller Lauf** — 165 Entries/24 Repos, R3 PASS (165/165 `ok`, 0 failed;
+  **0 written**, alles content_hash-Dedup). 165 Zeilen = 165 unique `entry_key` unter
+  `iil-klickdummy 1.34.0`; Producer deterministisch (zweiter Lauf byte-identisch).
+  Keine Verteilungs-Drift (Quelle und verteilte Kopie beide `5f31af776fa5`).
+  Discovery fand 26 Repos mit `klickdummy/`; frist-hub (meiki-lra) und ttz-hub (ttz-lif)
+  bleiben gov-ausgeschlossen (E3) → Liste unverändert 24. Schema-WARNs unverändert und
+  alle getrackt: pg-hub 110 (bahn-sqf/pg-hub#8), design-hub 36 (design-hub#36/#38),
+  nl2iot-hub 31 (nl2iot-hub#5).
+- 2026-08-23 **Der nächtliche Lauf fiel aus.** `~/logs/klickdummy-pgvector-sync.log`
+  endet auf dem Block `2026-08-22`, mtime 2026-08-22 03:32 — der Cron-Eintrag (`17 3 * * *`)
+  hat am 23.08. nichts angehängt. Der manuelle Lauf ersetzt ihn; die Ursache des
+  Ausfalls ist **nicht** untersucht. Billigster Check beim nächsten Mal: `systemctl
+  status cron` bzw. Uptime des Hosts um 03:17 gegenprüfen.
+- 2026-08-23 **NEUES ANTI-PATTERN — „0 written bei gewachsener Entry-Zahl" ist keine
+  Anomalie, und der Changelog ist die falsche Referenz dafür.** Heute stieg die
+  Entry-Zahl von 164 auf 165, während *kein* Entry geschrieben wurde. Das sieht nach
+  Widerspruch aus (ein neuer `entry_key` kann nicht dedupliziert werden) und kostete
+  vier Checks. Auflösung: der Skill schreibt vor, dass **Nightly-Läufe still bleiben**,
+  solange R3 PASS und die Abweichung <10 % ist — die Läufe vom 18.–22.08. haben also
+  gearbeitet und den neuen Entry (`klickdummy:iilgmbh:risk-hub:grundschutz`, Erst-Commit
+  2026-08-17 20:52, also nach dem 08-17-Lauf um 03:35 UTC) längst geschrieben, ohne hier
+  eine Zeile zu hinterlassen. **Konsequenz:** Der Changelog ist ein Log der *manuellen/
+  auffälligen* Läufe, nicht der Bestandsstand. Wer „written" gegen den letzten
+  Changelog-Eintrag prüft, misst gegen eine bis zu mehrere Läufe alte Basis. Richtige
+  Referenz ist der letzte Report-Block in `~/logs/klickdummy-pgvector-sync.log`.
+  Nebenbefund derselben Spur: eine Spec-Änderung, die nur Felder betrifft, die der
+  Producer nicht in den `content` rendert (hier `off_ramp_status` → `parity-green`,
+  risk-hub #610), erzeugt korrekt **kein** `written` — die Versions-History im Entry
+  bewegt sich trotzdem, weil sie aus der Git-History kommt.
+- 2026-08-23 **E3-Altlast jetzt getrackt: [iilgmbh/risk-hub#667](https://github.com/iilgmbh/risk-hub/issues/667).**
+  Der Lauf vom 2026-08-22 hatte notiert, dass `meiki-lra/frist-hub`-Einträge im Store
+  liegen, obwohl das Repo gov-ausgeschlossen ist — ohne Tracking-Artefakt. Lesend
+  bestätigt: mindestens 7 `klickdummy-iter:meiki-lra:frist-hub:*`-Entries, `agent=
+  klickdummy-sync`, Tag `klickdummy:org:meiki-lra`; Inhalt sind KD-Iterationsprotokolle
+  und ADR-Texte (LRA-Verfahrenslogik), **keine** personenbezogenen Daten. Die
+  Gesamtzahl bleibt unbelegt — die semantische Suche kann keine Vollständigkeit zeigen,
+  und einen Lösch- oder Filter-Pfad gibt es über die MCP-Tools nicht (nur `upsert`/
+  `search`). **Lehre für den Skill selbst:** ein Befund im stillen Nightly-Report ist
+  faktisch unsichtbar — Gov-/Datensouveränitäts-Funde müssen den Still-Modus
+  durchbrechen und sofort ein Issue bekommen, sonst liegen sie tagelang nur im Log.
