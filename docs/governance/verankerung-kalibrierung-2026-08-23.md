@@ -152,3 +152,40 @@ vorliegen — getrackt, nicht vergessen.
    tragbar, fuer einen Hook je Turn nicht — deshalb ist das Gate dort **nicht** verdrahtet.
 3. `covers` beansprucht bewusst nur `deferred-item-no-tracking-issue`. Jede weitere
    Zeile braucht einen eigenen Positivbeleg, keine Plausibilitaet.
+
+## 6. Fehlalarm 2026-08-23 (Sitzungsende) — Anker im Segment, aber nicht gesehen
+
+Lauf ueber die eigenen PR-Texte der Sitzung. Gemeldet wurde
+[#2220](https://github.com/achimdehnert/platform/pull/2220):
+
+> Zitat: „Bewusst nicht in diesem PR"
+> Anker: keine Issue-Referenz im Segment
+
+**Das ist ein Fehlalarm.** Der Abschnitt lautet vollstaendig:
+
+```
+## Bewusst nicht in diesem PR
+
+- **Verteilung der Skill-Aenderung** (`session-start.md`) erst **nach** dem Merge —
+  eine hand-verteilte Kopie aus einem ungemergten Zweig waere ungeprueffter Kontext.
+- **Wiedervorlage fuer die Gate-Registry** (`gate_wirkung.py`) — dieselbe Krankheit,
+  anderes Register. Beides als Checkliste in #2215.
+- Reparatur von coach-hub und bahn-hub selbst.
+```
+
+`#2215` steht drei Zeilen unter der Ueberschrift, im selben Abschnitt — und das
+Issue traegt die beiden Punkte tatsaechlich als Checkliste
+([Kommentar](https://github.com/achimdehnert/platform/issues/2215#issuecomment-5385174586)).
+Das Tracking existiert also; der Pruefer hat es nicht gefunden.
+
+**Vermutete Ursache, nicht verifiziert:** der Anker sitzt nicht neben der
+Vertagungsformulierung („erst nach dem Merge"), sondern eine Aufzaehlungsebene
+tiefer und **hinter** einem zweiten Satz. Ein Anker-Test, der im unmittelbaren
+Umfeld der Formulierung sucht, verfehlt ihn. Billigster Check fuer die Auswertung:
+denselben Text mit `#2215` direkt hinter „erst **nach** dem Merge" erneut durch
+den Pruefer schicken — meldet er dann nichts, ist die Naehe die Ursache.
+
+**Stand des Fensters damit:** 5 echte PR-Texte, 1 Treffer, **2 Fehlalarme**
+(#2196 und #2220), 2 saubere Texte. Praezision faellt von 0,50 auf **0,33**.
+Das ist ein Argument gegen Scharfschaltung, kein Argument fuer eine weitere
+Musterzeile — dieselbe Lehre wie beim Gate, das der Pruefer ersetzen soll.
