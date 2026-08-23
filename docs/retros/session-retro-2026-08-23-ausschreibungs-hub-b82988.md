@@ -86,7 +86,7 @@ footprint_reduction_reason: "keine Reduktion — Rule-B-Trigger Prod-Schritt, Do
 
 `gate_wirkung.py` über 88 Reports:
 
-- **`untested-command-handed-to-user` — RÜCKFÄLLIG.** Gebaut 2026-08-16 (advisory), vor Bau 0, nach Bau 1, mit dieser Sitzung **2**. Antwort: **ausweiten**. Das Gate kennt übergebene *Kommandos*; hier ging eine *Skriptdatei* über `! bash <pfad>` hinaus. Die Familie ist „Artefakt, das der Owner ausführt und das der Agent nie ausgeführt hat" — ein Marker auf `!`-Handoffs mit Schreibzugriff auf Pfade außerhalb des Repos.
+- **`untested-command-handed-to-user` — RÜCKFÄLLIG.** Gebaut 2026-08-16 (advisory), vor Bau 0, nach Bau 1, mit dieser Sitzung **2**. Antwort: **ausweiten**. Das Gate kennt übergebene *Kommandos*; hier ging eine *Skriptdatei* über `! bash <pfad>` hinaus. Die Familie ist „Artefakt, das der Owner ausführt und das der Agent nie ausgeführt hat" — ein Marker auf `!`-Handoffs mit Schreibzugriff auf Pfade außerhalb des Repos. Verfolgt in achimdehnert/platform#2230.
 - **`claim-before-cheapest-check` — GEFANGEN (2×).** Der Stop-Hook stoppte Befund #9, bevor die Aussage stehen blieb. Zählt als Wirksamkeits-Beleg, nicht als Rückfall.
 - **`prod-as-test-environment` (4×) und `host-fix-not-mirrored-to-iac` (4×)** haben weiterhin **kein** registriertes Gate — beide Kandidaten aus dieser Sitzung.
 
@@ -150,7 +150,7 @@ bevor der PR geschlossen wird. Verwandt: [[host-fix-not-mirrored-to-iac]].
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|------|------|--------------|--------|-----------|
-| M1 | Gate ausweiten auf `!`-Skript-Handoffs | platform | gate-registry.json | 🟢 offen | Marker ergänzen (du/ich) |
+| M1 | Gate ausweiten auf `!`-Skript-Handoffs | platform | [#2230](https://github.com/achimdehnert/platform/issues/2230) | 🟢 offen | Marker ergänzen (du/ich) |
 | M2 | Alten Cloudflare-Token löschen | — | — | 🟢 offen | Dashboard (du) |
 
 ### 🔵 Offen — ich kann sofort
