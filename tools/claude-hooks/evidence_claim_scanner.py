@@ -609,6 +609,11 @@ def main() -> int:
     assistant_text, evidence_text, tool_inputs = _last_turn_blocks(transcript_path)
 
     fired = []
+    #: Erstes woertliches Treffer-Zitat — der Beleg, an dem die Kalibrierung
+    #: spaeter FEHLALARM oder ECHT entscheidet. Ohne ihn stehen im Protokoll nur
+    #: Zeitstempel und Label, und die Fehlalarm-Quote ist nicht ableitbar
+    #: (gemessen 2026-08-23: 59 von 59 Zeilen dieses Gates ohne Ausschnitt).
+    erster_beleg = ""
     if assistant_text:
         for pat, label in CLAIM_PATTERNS:
             if label == "affirmative-cause":
@@ -617,8 +622,10 @@ def main() -> int:
                 if _affirmative_cause_fires(assistant_text):
                     fired.append(label)
                 continue
-            if pat.search(assistant_text):
+            if m := pat.search(assistant_text):
                 fired.append(label)
+                if not erster_beleg:
+                    erster_beleg = m.group(0)
 
     # Absence-Claims separat behandeln, BEVOR die generische Korroboration greift:
     # ein `gh pr list --search` (in EVIDENCE_TOKENS als "gh pr list" enthalten) darf
@@ -693,8 +700,10 @@ def main() -> int:
     kalibrier_fall = bool(
         fired and subjekt_unbelegt and EVIDENCE_TOKENS.search(evidence_text)
     )
-    if fired and EVIDENCE_TOKENS.search(evidence_text) and not (
-        subjekt_unbelegt and subjekt_scharf
+    if (
+        fired
+        and EVIDENCE_TOKENS.search(evidence_text)
+        and not (subjekt_unbelegt and subjekt_scharf)
     ):
         fired = [
             label
@@ -746,6 +755,8 @@ def main() -> int:
             gate_hits.notiere(
                 GATE_HEADER["slug"],
                 "kinds=subjekt-unbelegt-kalibrierung",
+                turn=assistant_text,
+                beleg=erster_beleg,
                 session=str(event.get("session_id", "")),
                 modus="advisory",
             )
@@ -767,6 +778,8 @@ def main() -> int:
     gate_hits.notiere(
         GATE_HEADER["slug"],
         f"kinds={kinds}",
+        turn=assistant_text,
+        beleg=erster_beleg,
         session=str(event.get("session_id", "")),
         modus=_mode(),
     )
