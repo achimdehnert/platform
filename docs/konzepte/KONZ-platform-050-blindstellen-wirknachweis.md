@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-049
+concept_id: KONZ-platform-050
 title: "Beweis der Wirkung statt gruener Haken — Blindstellen der Flotten-Detektoren"
 pipeline_status: idea
 tier: T2
@@ -18,7 +18,7 @@ kill_criteria: >
   der Advocatus Diabolus warnt — dann ersatzlos entfernen, nicht erweitern.
 ---
 
-# KONZ-platform-049: Beweis der Wirkung statt gruener Haken
+# KONZ-platform-050: Beweis der Wirkung statt gruener Haken
 
 ## Fakt
 
