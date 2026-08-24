@@ -33,6 +33,24 @@ meta:
     # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
     # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
     frist-hub: meiki-lra
+    # ADR-297 (2026-08-24, platform#2264): der neue Org-Zuordnungs-Melder
+    # (tools/org_zuordnung_melder.py) hat acht Repos gefunden, deren realer Owner
+    # dem hier deklarierten widersprach — verifiziert ueber `.owner.login` der
+    # API-Antwort, nicht ueber den angefragten Pfad (GitHub leitet still um und
+    # bestaetigt sonst jede Behauptung mit 200).
+    ausschreibungs-hub: iilgmbh
+    django-lms-lite: iilgmbh
+    gpufw: iilgmbh
+    iil-doc-templates: iilgmbh
+    nl2iot-hub: iilgmbh
+    risk-hub: iilgmbh
+    tax-hub: iilgmbh
+    # bahn-hub ist der Gegenfall: die Praefix-Regel `bahn-` -> bahn-sqf schickte
+    # jede Anfrage nach bahn-sqf/bahn-hub (404), waehrend das Repo unter
+    # achimdehnert liegt. Der 404 tarnte die Drift als "nicht pruefbar" — deshalb
+    # probiert der Melder seit demselben Tag die uebrigen bekannten Konten durch,
+    # bevor er ein Repo als ungeprueft ablegt.
+    bahn-hub: achimdehnert
   owner_prefix_rules:
   - prefix: meiki-
     owner: meiki-lra

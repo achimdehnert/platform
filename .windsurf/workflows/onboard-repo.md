@@ -112,6 +112,56 @@ ls "${GITHUB_DIR}/${REPO_NAME}" 2>/dev/null && echo "ℹ️  Repo existiert loka
 
 ---
 
+## Step 0.05: Zielorganisation pruefen (ADR-297 — PFLICHT vor allem Weiteren)
+
+Dieser Workflow legt das Repo nicht an; es existiert bereits. Genau deshalb ist
+**hier** der Punkt, an dem die Org-Zuordnung noch billig ist: es gibt noch kein
+GHCR-Package, keine Deploy-Secrets, keine Fundstellen in Registry und Werkzeugen.
+Nach dem Onboarding kostet derselbe Umzug einen GHCR-Neuaufbau — [ADR-297](../../docs/adr/ADR-297-org-zuordnung-der-repos.md)
+listet die Posten.
+
+Ein Onboarding **ist** ein Anlass im Sinne von ADR-297 Ebene 2 (erster Prod-Deploy
+wird eingerichtet). Die Frage ist also nicht, ob sie gestellt werden muss, sondern
+nur, ob die Antwort schon stimmt.
+
+```bash
+REPO="<name>"
+# Der wahre Owner steht in .owner.login der ANTWORT — GitHub leitet still um und
+# bestaetigt sonst jeden angefragten Pfad mit 200.
+gh api "repos/achimdehnert/$REPO" --jq '.owner.login, .owner.type' 2>/dev/null   || gh api "repos/iilgmbh/$REPO" --jq '.owner.login, .owner.type'
+```
+
+**Zuordnung nach ADR-297, erste zutreffende Klasse gewinnt:**
+
+| Klasse | Ziel | Trifft zu, wenn |
+|---|---|---|
+| 1 Souveraenes Mandat | `ttz-lif` / `meiki-lra` | Verarbeitung im Auftrag einer Behoerde |
+| 2 Vertraglich vorgegeben | wie im Vertrag | der Kunde schreibt die Org vor |
+| 3 Produktiver/geteilter Betrieb | Org `iilgmbh` | Auto-Deploy, oeffentlicher Endpunkt, oder ≥2 Repos haengen daran |
+| 4 Kundenbezug ohne Betrieb | Org `iilgmbh` | Kundendaten oder geschuldetes Artefakt |
+| 5 Experiment, Sandbox, Privates | `achimdehnert` | keine Betriebsverantwortung |
+
+Im Zweifel entscheidet die Custody-Frage: **darf Betrieb, Wiederherstellung oder
+Rechtevergabe dieses Repos von genau einer natuerlichen Person abhaengen?** Nein →
+Organisation.
+
+**Wer dieses Onboarding fuer eine App mit Prod-Domain fahrt, ist per Definition in
+Klasse 3** — Step 0.1 fragt gleich nach der Production-Domain. Liegt das Repo dann
+auf `achimdehnert`, ist das ein Befund, kein Detail:
+
+- **Transfer jetzt** (billigster Zeitpunkt), oder
+- **bewusste Ausnahme** mit Begruendung — dann Eintrag in `registry/canonical.yaml`
+  unter `meta.repo_owner` **und** ein Satz, warum. Eine Ausnahme ohne Grund ist
+  selbst der Befund.
+
+Beides ist eine Owner-Entscheidung; der Agent legt sie vor, er faellt sie nicht.
+
+**Danach die Registry wahr halten** — sonst meldet der naechtliche Melder genau das:
+
+```bash
+python3 "$GITHUB_DIR/platform/tools/org_zuordnung_melder.py" --offline
+```
+
 ## Step 0.1: Gather Information
 
 Ask the user:
@@ -930,6 +980,12 @@ Branch name pattern:  main
 
 ```text
 ✅ Verifikation für [REPO]
+
+Org-Zuordnung (ADR-297):
+  [ ] Zielorganisation gegen die Klassentabelle geprueft (Step 0.05)
+  [ ] Bei Klasse 1-4 auf einem persoenlichen Konto: Transfer gemacht ODER
+      Ausnahme mit Grund in registry/canonical.yaml eingetragen
+  [ ] tools/org_zuordnung_melder.py --offline meldet dieses Repo nicht
 
 Repo-Struktur:
   [ ] docker/app/Dockerfile existiert (KEIN HEALTHCHECK drin — gehört in Compose!)

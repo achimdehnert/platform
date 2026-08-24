@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-08-24
 deciders: [Achim Dehnert]
 consulted: [Claude Code, Zweitmeinung A (extern, LLM), Zweitmeinung B (extern, LLM)]
@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: [ADR-236, ADR-255, ADR-268]
-implementation_status: not-started
+implementation_status: partial
 last_reviewed: 2026-08-24
 staleness_months: 6
 tags: [governance, github, organisation, repo-zuordnung, ownership]
@@ -242,7 +242,25 @@ war, und einmal als Ausgangslage zitiert, die längst überholt war.
 Es gibt damit keine Regel, gegen die man verstoßen könnte — nur eine gewachsene
 Verteilung und einen Fakt, aus dem nie eine Regel wurde.
 
-## Entscheidung (Vorschlag)
+## Annahme
+
+**Angenommen am 2026-08-24** durch den Owner (Kapitäns-Kanal: *„adr 297 reviewed und
+merged -> go"*, dann *„4 5 6 go"*). Wirksam ist damit **Ebene 1** — der Leitsatz für
+Neuzugänge. **Ebene 2** (Bestandstransfers) bleibt unverändert hinter V1–V3 gegated;
+die Annahme entscheidet sie ausdrücklich nicht vor.
+
+**Zu Offenem Punkt 5 (Gegenzeichnung) — was belegt ist und was nicht.** Der Punkt
+verlangte eine menschliche Gegenzeichnung aus der operativen Org-Administration.
+Faktenlage: PR [#2265](https://github.com/achimdehnert/platform/pull/2265) wurde am
+2026-08-24 um 11:11:51Z vom Konto `wirdigital` gemergt — dem zweiten Org-Owner, also
+genau der Rolle, die der Punkt meint. **Das ist ein Handlungs-, kein Inhaltsbeleg:**
+ein Merge zeigt Handlungsfähigkeit und Zustimmung zum Veröffentlichen, nicht eine
+inhaltliche Prüfung der Kontinuitätsannahme. Der Punkt gilt deshalb als vom Owner
+**entschieden**, nicht als sachlich erledigt — und die Substanz dahinter wandert
+dorthin, wo sie messbar statt attestiert ist: nach **V1** (getesteter Vertretungsweg,
+[#2263](https://github.com/achimdehnert/platform/issues/2263)).
+
+## Entscheidung
 
 Die Entscheidung hat **zwei Ebenen mit getrennten Kosten und getrennten Gates**. Der
 Erstentwurf koppelte beide, und damit hing eine praktisch kostenlose Regel für
@@ -370,14 +388,36 @@ Eine Regel ohne Melder ist derselbe Fehler eine Ebene höher.
 **Deshalb bekommt Ebene 1 einen Melder statt einer Ermahnung**, und zwar unabhängig davon,
 wie über Ebene 2 entschieden wird:
 
-- ein geplanter Abgleich `gh repo list` über alle Konten gegen `registry/canonical.yaml`
-  (`repo_owner` + `owner_prefix_rules`) und die Klassentabelle oben; Abweichung → Issue.
-  Vorlage ist `tools/iil_migration_check.py` (ADR-255) — read-only, idempotent, fängt
-  bereits „Registry behauptet X, `gh` löst zu Y auf". Zu erweitern von `iil-*` auf die
-  Flotte und in einen Zeitplan zu hängen.
-- **die `CLAUDE.md`-Org-Tabelle wird generiert, nicht gepflegt.** Sie ist der zweite
-  Wahrheitsstand, an dem der Auslöser dieses ADR entstanden ist; solange sie von Hand
-  geführt wird, ist die nächste Abweichung eine Frage der Zeit.
+**1. Der Melder — gebaut, verdrahtet, kalibriert** (`tools/org_zuordnung_melder.py`,
+Workflow `org-zuordnung-melder.yml`, täglich 05:23 UTC, `ROT-IST-BEFUND`). Drei Checks:
+registry-intern (`rich.github` gegen `repo_owner`), Deklaration gegen GitHub, und der
+Leitsatz selbst — Letzterer **nur für Repos, die nach dem Annahmedatum angelegt wurden**.
+Ohne diesen Stichtag meldete er die gewachsenen 56 als Verstoß und wäre nach einem Lauf
+abgeschaltet; er ist die Grenze zwischen Ebene 1 und Ebene 2, kein Bequemlichkeitsfilter.
+
+Damit ist der Melder zugleich das **Messinstrument des Kill-Gates Ebene 1**.
+
+*Erster Lauf am 2026-08-24 — die Kalibrierung, nicht nur der Bau:* elf Funde, davon acht
+Repos, deren Registry-Owner GitHub widersprach (`risk-hub`, `tax-hub`,
+`ausschreibungs-hub`, `nl2iot-hub`, `django-lms-lite`, `gpufw`, `iil-doc-templates`,
+`bahn-hub`). Alle acht sind in `registry/canonical.yaml` korrigiert; danach lief er grün.
+Ein Melder, der nie rot war, ist ungeprüft — und einer, der nie grün wird, wird
+abgeschaltet.
+
+*Was der erste Lauf über den Melder selbst lehrte:* `bahn-hub` erschien zunächst als
+„nicht prüfbar", weil die Präfixregel `bahn-` jede Anfrage nach `bahn-sqf/bahn-hub`
+schickte (404) — **die falsche Deklaration versteckte sich hinter ihrem eigenen 404.**
+Der Melder probiert seither die übrigen bekannten Konten durch, bevor er ein Repo als
+ungeprüft ablegt; beide vermeintlichen Lücken waren in Wahrheit Drift.
+
+**2. Die `CLAUDE.md`-Org-Tabelle wird generiert, nicht gepflegt.** Sie ist der zweite
+Wahrheitsstand, an dem der Auslöser dieses ADR entstanden ist; solange sie von Hand
+geführt wird, ist die nächste Abweichung eine Frage der Zeit. *Noch offen.*
+
+**3. `/onboard-repo` fragt vor dem Onboarding nach der Zielorganisation** (Step 0.05).
+Das ist der billigste Zeitpunkt: noch kein GHCR-Package, keine Deploy-Secrets, keine
+Fundstellen. Ein Onboarding **ist** ein Anlass im Sinne von Ebene 2 — wer hier nicht
+fragt, verschiebt dieselbe Frage in den teuersten Moment.
 
 Tracking: [#2264](https://github.com/achimdehnert/platform/issues/2264).
 
@@ -496,8 +536,8 @@ Jeder Punkt trägt ein eigenes Tracking-Artefakt; keiner blockiert die Annahme v
 | 1a | `filled_seats: 3` bei `seats: 2`, während ADR-236 zwei Sitze nennt und Kostenneutralität an „keine 3. Person" knüpft. **Befund über ADR-236**, hier nur weitergereicht. | nichts hier | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
 | 2 | Org-Rulesets von `iilgmbh` prüfen (`admin:org`-Scope fehlt). | nichts | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
 | 3 | V1–V3 herstellen und Pilot fahren. | jeder Bestandstransfer | [#2263](https://github.com/achimdehnert/platform/issues/2263) |
-| 4 | Org-Zuordnungs-Melder + generierte `CLAUDE.md`-Tabelle. | nichts | [#2264](https://github.com/achimdehnert/platform/issues/2264) |
-| 5 | Menschliche Gegenzeichnung der operativen Org-Administration (der zweite Owner) vor der Annahme — ohne sie bleibt gerade die Kontinuitätsbehauptung organisatorisch unbelegt. | Annahme | dieser ADR, `consulted` |
+| 4 | Melder **gebaut und verdrahtet** (`tools/org_zuordnung_melder.py`, täglicher Workflow). Offen bleibt die generierte `CLAUDE.md`-Tabelle. | nichts | [#2264](https://github.com/achimdehnert/platform/issues/2264) |
+| 5 | ~~Gegenzeichnung vor der Annahme~~ — vom Owner am 2026-08-24 entschieden, Substanz nach V1 verschoben (siehe Annahme). | erledigt | [#2263](https://github.com/achimdehnert/platform/issues/2263) |
 
 **Haltbarkeit der Messungen:** Die entscheidungstragenden Fakten (Teams, 2FA, Owner,
 Mitglieder, Enterprise-Zugehörigkeit) sind Momentaufnahmen vom 2026-08-24 mit belegter
