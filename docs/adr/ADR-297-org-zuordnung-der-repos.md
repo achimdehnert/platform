@@ -66,7 +66,13 @@ gh api  orgs/iilgmbh/members            --jq '.[].login'    -> achimdehnert, wir
 gh api  orgs/iilgmbh/outside_collaborators                  -> []
 ```
 
-Vier Dinge folgen daraus, und drei davon widersprechen dem, was vor der Messung
+> **Nachtrag vom Nachmittag desselben Tages — zwei dieser Werte sind überholt.**
+> `teams` steht auf **1** (`maintainers`, besetzt, trägt `maintain` auf `risk-hub`) und
+> `two_factor_requirement_enabled` auf **true**. Die Zeilen oben bleiben stehen, weil die
+> daraus gezogenen Schlüsse den Weg dorthin erklären — aber wer sie als heutigen Stand
+> liest, liegt falsch. Details unter „Migration → Voraussetzungen".
+
+Vier Dinge folgen daraus, und drei davon widersprachen dem, was vor der Messung
 plausibel schien:
 
 1. **Es gibt bereits zwei Org-Owner**, nicht einen. Die Kritik „eine Org mit einem
@@ -82,12 +88,21 @@ plausibel schien:
    nicht-privilegiertes Mitglied** hinzukommt — dann bekommt es Leserechte auf **alle**
    Org-Repos, auch die kunden- und auftragsbezogenen. Das ist keine Bedingung für die
    Annahme, sondern eine Bedingung für den ersten Nicht-Owner-Zugang (Bedingung B1).
-3. **Null Teams, keine 2FA-Pflicht.** Die granulare Rechteverwaltung existiert erst, wenn
-   sie eingerichtet wird. Ein Repo dorthin zu verschieben bringt heute vor allem
-   Eigentümer-Kontinuität — und die steht und fällt mit Punkt 1.
+3. **Null Teams, keine 2FA-Pflicht** — zum Zeitpunkt dieser Messung. Die granulare
+   Rechteverwaltung existiert erst, wenn sie eingerichtet wird; bis dahin brächte ein
+   Transfer vor allem Eigentümer-Kontinuität, und die stand und fiel mit Punkt 1.
+   **Beides ist noch am selben Tag eingerichtet worden** (V2 und V3, siehe Migration) —
+   der Satz beschreibt damit die Ausgangslage der Entscheidung, nicht den Ist-Zustand.
 4. `members_can_create_repositories: true` heißt: der Leitsatz dieses ADR wird von der
    Org-Konfiguration **nicht** durchgesetzt. Er wirkt nur, solange ihn jemand anwendet
    (siehe „Durchsetzung").
+
+> **Auch das ist überholt — und der Irrtum ist lehrreicher als die Messung.** Der Satz
+> unten schloss von der `gh`-Anmeldung auf „nicht messbar". Tatsächlich lag im
+> Secrets-Store ein Enterprise-PAT mit `admin:org` **und** `admin:enterprise`; beide
+> vermeintlich verschlossenen Fragen waren in Minuten beantwortet (Rulesets: keine;
+> Enterprise: vier Member-Orgs). **Die Grenze lag nicht am Zugang, sondern daran, wo ich
+> nachgesehen habe.**
 
 **Nicht messbar mit dem aktuellen Token** (Scopes: `read:org`, `repo`, `workflow`,
 `write:packages`, `gist`, `admin:public_key`): Org-Rulesets (`admin:org`) und die
@@ -492,13 +507,17 @@ auf und ließ dabei offen, was heute wirkt und was erst noch gebaut werden muss:
 | Vorteil | Heute |
 |---|---|
 | Enterprise-Security-Posture (Secret Scanning, Push Protection; Config 17 als Default-for-new) | **wirkt sofort** — die Org ist Enterprise-Mitglied, es ist nichts einzurichten |
-| Eigentümer-Kontinuität | **teilweise** — zwei Owner vorhanden, Vertretungsweg ungeprüft (V1) |
-| Rechtevergabe über Teams | **unrealisiert** — null Teams (V2) |
-| 2FA-Pflicht | **unrealisiert** (V3) |
+| Eigentümer-Kontinuität | **belegt seit 2026-08-24** — `wirdigital` hat mit eigener Anmeldung Team und Repo-Recht angelegt (Audit-Log: `team.create`/`add_member`/`add_repository`, `actor: wirdigital`). Recovery-Weg owner-attestiert, nicht messbar (V1) |
+| Rechtevergabe über Teams | **wirkt seit 2026-08-24** — Team `maintainers`, besetzt, trägt `maintain` auf `risk-hub` (V2) |
+| 2FA-Pflicht | **wirkt seit 2026-08-24** in `iilgmbh` und `bahn-sqf` (V3); `ttz-lif`/`meiki-lra` offen |
 | **Org-Secrets** einmal statt je Repo | **wirkt sofort** — neun sind angelegt und in Benutzung, darunter `DEPLOY_*`, `STAGING_*`, `PYPI_API_TOKEN` |
 | Org-Rulesets einmal statt je Repo | **unrealisiert** — `gh api orgs/iilgmbh/rulesets` → `[]` |
 
-Zwei Zeilen sind Beleg, nicht Absicht: die Enterprise-Posture **und** die neun
+**Stand am Abend des 2026-08-24: fünf von sechs Zeilen wirken.** Als der Entwurf
+geschrieben wurde, war es eine. Offen ist allein die Ruleset-Zeile.
+
+Der ursprüngliche Satz dieses Abschnitts lautete: die übrigen Zeilen seien der Grund für
+Ebene 2. Das galt einen halben Tag. Zwei Zeilen sind Beleg, nicht Absicht: die Enterprise-Posture **und** die neun
 Org-Secrets. Gerade die zweite war im Entwurf als „unrealisiert" geführt — falsch, und
 zwar zuungunsten der eigenen Entscheidung: ein Repo, das in die Org wandert, erbt die
 kompletten Deploy- und Staging-Zugänge, statt sie je Repo zu pflegen. Die übrigen Zeilen
@@ -515,11 +534,32 @@ mit jedem nach `iilgmbh` transferierten Kunden-Repo teurer.
 
 ### Voraussetzungen — vor jedem Bestandstransfer
 
-| # | Voraussetzung | Messpunkt |
-|---|---|---|
-| V1 | **Getestete, unabhängige Vertretung.** Nicht der Owner-Zähler, sondern ein durchgeführter Test: der zweite Owner kann ohne Zutun des ersten ein Repo-Recht setzen und sich mit eigenem 2FA-Faktor anmelden. | Protokollnotiz mit Datum im Tracking-Issue |
-| V2 | **Mindestens ein Team mit realer Besetzung**, das ein Repo-Recht tatsächlich trägt — ein leeres Team ist kein erfüllter Punkt. | `gh api orgs/iilgmbh/teams --jq length` > 0 **und** `.../teams/<slug>/members` nicht leer **und** `.../teams/<slug>/repos` nicht leer |
-| V3 | **2FA-Pflicht aktiv.** | `gh api orgs/iilgmbh --jq .two_factor_requirement_enabled` -> `true` |
+| # | Voraussetzung | Messpunkt | Stand 2026-08-24 |
+|---|---|---|---|
+| V1 | **Getestete, unabhängige Vertretung.** Nicht der Owner-Zähler, sondern ein durchgeführter Test: der zweite Owner kann ohne Zutun des ersten ein Repo-Recht setzen und sich mit eigenem 2FA-Faktor anmelden. | Audit-Log nennt den zweiten Owner als `actor` | **erfüllt** |
+| V2 | **Mindestens ein Team mit realer Besetzung**, das ein Repo-Recht tatsächlich trägt — ein leeres Team ist kein erfüllter Punkt. | `gh api orgs/iilgmbh/teams --jq length` > 0 **und** `.../teams/<slug>/members` nicht leer **und** `.../teams/<slug>/repos` nicht leer | **erfüllt** |
+| V3 | **2FA-Pflicht aktiv.** | `gh api orgs/iilgmbh --jq .two_factor_requirement_enabled` -> `true` | **erfüllt** |
+
+**Alle drei erfüllt am 2026-08-24, drei Monate vor der Frist** ([#2263](https://github.com/achimdehnert/platform/issues/2263)):
+
+- **V2 und V1 in einem Zug.** `wirdigital` hat Team, Mitgliedschaft und Repo-Recht mit
+  **seiner eigenen** Anmeldung angelegt — nicht mit einem Token des ersten Owners. Der
+  Beleg kommt deshalb nicht aus seinem Vollzugsbericht, sondern aus dem Enterprise-Audit-Log:
+  `team.create`, `team.add_member`, `team.add_repository`, alle mit `actor: wirdigital`.
+  Positivkontrolle: derselbe Filter findet 22 `pull_request`-Aktionen, er kann also finden.
+- **V3** steht in `iilgmbh` und `bahn-sqf` auf `true`; niemand wurde beim Einschalten
+  entfernt (Mitgliederzahl vorher und nachher 2, null Outside Collaborators).
+
+**Was an V1 nicht gemessen ist:** die *Handlung* ist belegt, der *Recovery-Weg* nicht. Dass
+der zweite Faktor auf eigenem Gerät liegt und eigene Recovery-Codes existieren, beruht auf
+der Owner-Bestätigung vom 2026-08-24. Keine API kann das sehen — die Lücke gehört benannt,
+nicht weggerundet.
+
+**Was am ersten Anlauf schiefging, weil es sich wiederholen wird:** Der Versuch, V3 über
+`gh api -X PATCH orgs/iilgmbh -F two_factor_requirement_enabled=true` zu setzen, läuft
+durch und ändert nichts — das Feld ist in der REST-API ein Antwortfeld, kein Eingabefeld.
+Wer nur den Exit-Code prüft, hält V3 danach für erledigt. Der Schalter sitzt in der
+Web-UI unter Organization → Settings → Authentication security.
 
 Zusätzlich zu entscheiden, aber kein Blocker: Org-Secrets und Org-Rulesets — entweder
 genutzt oder mit einem Satz begründet nicht genutzt.
@@ -587,6 +627,14 @@ entweder falsch geschnitten oder braucht den Melder aus OP-4 — in beiden Fäll
 **Ebene 2 (Bestandsmigration).** Sind V1–V3 bis zum **2026-11-24** nicht erfüllt, wird
 **keine** Bestandsmigration begonnen und Ebene 2 auf `deferred` gesetzt — mit erneuter
 Bewertung. Ebene 1 bleibt davon unberührt und in Kraft.
+
+> **Nicht ausgelöst: V1–V3 sind am 2026-08-24 erfüllt worden, drei Monate vor der Frist.**
+> Damit sperrt die Readiness keinen Bestandstransfer mehr. Was bleibt, sind die beiden
+> anderen Gate-Bedingungen aus Ebene 2 — **Anlass eingetreten** und **repo-spezifische
+> Nutzenrechnung positiv** —, und die gelten je Repo, nicht pauschal. Der Wegfall der
+> Readiness-Sperre ist ausdrücklich **keine** Freigabe für `writing-hub` und `weltenhub`:
+> beide bleiben `kandidat`, bis ihr Anlass eintritt und der Pilot mit GHCR-Probe
+> bestanden ist ([#2263](https://github.com/achimdehnert/platform/issues/2263)).
 
 ## Zweitmeinungen (2026-08-24)
 
