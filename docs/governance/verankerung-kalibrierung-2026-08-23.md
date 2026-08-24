@@ -277,3 +277,38 @@ eine **Eigenschaft** beschreibt („sie gehören zusammen").
 Präzision 0,111 (vorher 0,125). Die Zahl fällt weiter, und zwar mit jedem Lauf über
 gut geschriebene Texte — das ist der eigentliche Befund: der Klassifikator bestraft
 Texte, die ihre Bedingungen ausformulieren.
+
+---
+
+## Nachtrag 2026-08-24 — PR #2265, vierte Fehlalarm-Klasse: der Verweis steht im Dokument, nicht im Segment
+
+Gemeldet wurde in [#2265](https://github.com/achimdehnert/platform/pull/2265):
+
+> Zitat: „blockiert sie ausdruecklich"
+> Anker: keine Issue-Referenz im Segment
+
+Der Satz lautet vollständig: *„Offener Punkt 5 (Gegenzeichnung des zweiten Owners)
+blockiert sie ausdrücklich."* Er beschreibt keine Vertagung, sondern **verweist auf einen
+Punkt, der im selben PR eine eigene Zeile in der Offene-Punkte-Tabelle des ADR hat** —
+mitsamt Tracking-Spalte. Der Klassifikator liest das Segment, das Tracking steht eine
+Tabelle weiter oben im selben Diff.
+
+**Fehlalarm.** Nachweis, dass der Punkt getrackt war und nicht versandete: OP-5 ist am
+selben Tag entschieden worden, dokumentiert im Abschnitt „Annahme" von ADR-297, mit
+Verweis auf [#2263](https://github.com/achimdehnert/platform/issues/2263), wohin die
+Substanz (getesteter Vertretungsweg) verschoben wurde.
+
+**Die Klasse:** Bisher waren die Fehlalarme Meta-Text (§6), Konjunktiv über Behobenes
+(#2239) und Bedingungen im Entscheidungstext (#2259). Diese vierte ist strukturell anders:
+das Segment ist **korrekt als Verweis erkannt**, nur ist der Anker nicht im Segment,
+sondern im Dokument. Ein Text, der seine offenen Punkte sauber in einer Tabelle führt und
+im Fließtext darauf verweist, wird dafür bestraft — dieselbe Perversion wie bei #2259,
+nur eine Ebene höher: dort traf es ausformulierte Bedingungen, hier trifft es
+**Querverweise auf die eigene Struktur**.
+
+Nötig wäre, den Anker-Test nicht auf das Segment, sondern auf das **Dokument** zu
+erweitern: nennt der Text an anderer Stelle eine Tabellenzeile oder Überschrift, die
+denselben Punkt trägt, ist er verankert.
+
+**Stand des Fensters:** 14 geprüfte Texte · 10 Meldungen · 1 richtig · 9 Fehlalarme.
+Präzision 0,100 (vorher 0,111).
