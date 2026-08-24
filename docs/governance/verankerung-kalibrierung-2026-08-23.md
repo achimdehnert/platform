@@ -240,3 +240,40 @@ Praezision faellt damit von 0,14 auf 0,125. Der Vorschlag aus
 aber um diese zweite Klasse ergaenzt werden: **Tempus/Modus des Segments** ist ein
 Signal, das der Klassifikator bisher nicht auswertet — „haette gesammelt" ist keine
 Zusage, „sammelt weiter" waere eine.
+
+---
+
+## Lauf 2026-08-24 — vier PR-Texte (ADR-297-Strang)
+
+| PR | Meldung | Verdikt |
+|---|---|---|
+| #2247 | `[vertagung]` „gehoeren gemeinsam verschoben" | **Fehlalarm** — Kopplungs-Bedingung, keine Zusage |
+| #2252 | — | sauber |
+| #2255 | — | sauber |
+| #2257 | — | sauber |
+
+Der Satz im Volltext lautet: *„`writing-hub` und `weltenhub` sind über `iil-weltenfw`
+und eine laufende API verbunden. Sie gehören **zusammen** verschoben oder gar nicht —
+eine Aufteilung auf zwei Orgs wäre schlechter als der Ist-Zustand."*
+
+**Warum kein Tracking fehlt:** Das ist keine aufgeschobene Arbeit, sondern eine
+**Bedingung für den Fall, dass** etwas getan wird — ein Konditional ohne Zusage. Der
+Text sagt nicht „wir verschieben sie später", sondern „falls verschoben wird, dann
+gemeinsam". Das Tracking-Artefakt für den Transfer selbst ist das ADR, in dem der
+Satz steht: `status: proposed`, mit vier offenen Punkten und einem Kill-Gate zum
+2026-11-24.
+
+**Dritte Fehlalarm-Klasse, und die schwerste bisher:** nicht Meta-Text (§6), nicht
+Konjunktiv über Behobenes (#2239), sondern eine **Bedingung im Entscheidungstext
+selbst**. Ein ADR besteht wesentlich aus solchen Sätzen — „wenn X, dann gemeinsam mit
+Y", „nur nach Z", „erst wenn". Ein Klassifikator, der jede Konditionalstruktur als
+Vertagung liest, meldet auf ADRs strukturell falsch, und ADRs sind genau die Texte,
+in denen Vertagungen am teuersten wären. Das Signal aus #2239 (Tempus/Modus) reicht
+hier nicht — „gehören verschoben" steht im Indikativ Präsens. Nötig wäre die Frage,
+ob das Segment ein **Subjekt mit Handlungsabsicht** hat („wir machen später") oder
+eine **Eigenschaft** beschreibt („sie gehören zusammen").
+
+**Stand des Fensters:** 13 geprüfte Texte · 9 Meldungen · 1 richtig · 8 Fehlalarme.
+Präzision 0,111 (vorher 0,125). Die Zahl fällt weiter, und zwar mit jedem Lauf über
+gut geschriebene Texte — das ist der eigentliche Befund: der Klassifikator bestraft
+Texte, die ihre Bedingungen ausformulieren.
