@@ -207,73 +207,33 @@ umgebaut *werden sollen*, liest sich fuer den Klassifikator wie eine Vertagung.
 Der Unterschied zwischen „steht noch aus" und „ist das Ergebnis einer Messung"
 ist genau die Grenze, an der die Klasse `vertagung` bisher scheitert.
 
-**Stand des Fensters:** 5 gepruefte Texte · 7 Meldungen · 1 richtig · 6 Fehlalarme,
-davon 5 aus Meta-Texten (Berichte ueber Vertagungen, Trockenlauf-Listen). Ein
-Vorschlag fuer Welle 2 folgt daraus unmittelbar und steht in
-[#2214](https://github.com/achimdehnert/platform/issues/2214): Meta-Texte sind
-eine eigene Klasse und muessen getrennt ausgewertet werden.
+**Vierte Fehlalarm-Klasse: das Stichwort ist ein Fachbegriff der Domaene.** Drei
+Meldungen in einer Sitzung (risk-hub, 2026-08-24), alle drei auf demselben Wort, und
+keine davon war eine Vertagung:
 
-### 2026-08-23 abends, Phase 0g auf den vier Gate-PRs (#2236–#2239)
+- **#672** *„Anhang III auf **02.12.2027** verschoben, Anhang I auf 02.08.2028"* — das
+  ist eine **Rechtsfrist**, die der europaeische Gesetzgeber verschoben hat. Der Autor
+  des PR-Textes verschiebt nichts; er berichtet, was verschoben WURDE.
+- **#673** *„die Meldung, der AI Act sei verschoben worden"* — eine **zitierte
+  Fremdaussage**, die der Text im selben Absatz **widerlegt** („verschoben wurden die
+  Hochrisiko-Pflichten, die Kennzeichnung nicht"). Der Klassifikator meldet also genau
+  den Satz, der eine Vertagung **bestreitet**.
+- **#674** *„Schwerpunkt verschiebt sich vollstaendig"* — eine **Metapher** ueber
+  Gewichtung zwischen zwei Dokumenten.
 
-| Text | Meldung | Urteil |
-|---|---|---|
-| PR #2236 (22 Segmente) | `✅` keine Meldung | richtig — jede Zusage traegt #2234/#2235 |
-| PR #2237 (11 Segmente) | `✅` keine Meldung | richtig |
-| PR #2238 (12 Segmente) | `✅` keine Meldung | richtig — die neun offenen Slugs nennen #2234 im selben Abschnitt |
-| PR #2239 | `[vertagung]` „haette still bis zum Fristablauf gesammelt" | **Fehlalarm** — Konjunktiv II ueber den BEHOBENEN Zustand |
+Das unterscheidet diese Klasse von den drei bisherigen: bei Meta-Text (§6), Konjunktiv
+ueber Behobenes (#2239) und Konditional (#2247) trug das Wort noch seine
+Vertagungs-Bedeutung, nur eben nicht als Zusage des Autors. Hier trifft es einen
+**anderen Wortsinn**. Kein Tempus-, Modus- oder Subjekt-Signal hilft: „verschoben"
+in *„die Frist wurde verschoben"* ist grammatisch identisch mit *„wir haben das
+verschoben"*. Der Unterschied liegt allein daran, **wer** verschiebt — und das steht
+im Satz, nicht in seiner Form.
 
-Der Satz im Volltext lautet: *„… konnte nie entscheidungsreif werden und haette
-still bis zum Fristablauf gesammelt; das ist jetzt ein eigener, lauter Zustand
-`unbestimmt`."* Der Nebensatz nach dem Semikolon sagt, dass es behoben ist — der
-Klassifikator sieht den Konjunktiv davor und liest eine Vertagung.
+Praktische Folge fuer die Auswertung: jedes Repo, dessen Fachsprache ein
+Vertagungs-Stichwort als Terminus fuehrt — Recht (Fristen), Bau (Termine), Logistik
+(Sendungen) —, erzeugt strukturell Fehlalarme. risk-hub ist als Compliance-Plattform
+der Regelfall dafuer, nicht die Ausnahme.
 
-**Neue Fehlalarm-Klasse, verwandt mit den Meta-Texten aus §6, aber nicht dieselbe:**
-bisher waren es *Berichte ueber* Vertagungen (Trockenlauf-Listen, Meta-PRs). Hier ist
-es die **Beschreibung des alten Verhaltens im Konjunktiv**, unmittelbar gefolgt von
-der Behebung. Ein PR-Text, der erklaert, was ohne den Fix passiert waere, klingt
-zwangslaeufig nach einer offenen Zusage. Das ist kein Randfall: so ist fast jede
-gute Fehlerbeschreibung gebaut.
-
-**Stand des Fensters:** 9 gepruefte Texte · 8 Meldungen · 1 richtig · 7 Fehlalarme.
-Praezision faellt damit von 0,14 auf 0,125. Der Vorschlag aus
-[#2214](https://github.com/achimdehnert/platform/issues/2214) traegt weiter, muss
-aber um diese zweite Klasse ergaenzt werden: **Tempus/Modus des Segments** ist ein
-Signal, das der Klassifikator bisher nicht auswertet — „haette gesammelt" ist keine
-Zusage, „sammelt weiter" waere eine.
-
----
-
-## Lauf 2026-08-24 — vier PR-Texte (ADR-297-Strang)
-
-| PR | Meldung | Verdikt |
-|---|---|---|
-| #2247 | `[vertagung]` „gehoeren gemeinsam verschoben" | **Fehlalarm** — Kopplungs-Bedingung, keine Zusage |
-| #2252 | — | sauber |
-| #2255 | — | sauber |
-| #2257 | — | sauber |
-
-Der Satz im Volltext lautet: *„`writing-hub` und `weltenhub` sind über `iil-weltenfw`
-und eine laufende API verbunden. Sie gehören **zusammen** verschoben oder gar nicht —
-eine Aufteilung auf zwei Orgs wäre schlechter als der Ist-Zustand."*
-
-**Warum kein Tracking fehlt:** Das ist keine aufgeschobene Arbeit, sondern eine
-**Bedingung für den Fall, dass** etwas getan wird — ein Konditional ohne Zusage. Der
-Text sagt nicht „wir verschieben sie später", sondern „falls verschoben wird, dann
-gemeinsam". Das Tracking-Artefakt für den Transfer selbst ist das ADR, in dem der
-Satz steht: `status: proposed`, mit vier offenen Punkten und einem Kill-Gate zum
-2026-11-24.
-
-**Dritte Fehlalarm-Klasse, und die schwerste bisher:** nicht Meta-Text (§6), nicht
-Konjunktiv über Behobenes (#2239), sondern eine **Bedingung im Entscheidungstext
-selbst**. Ein ADR besteht wesentlich aus solchen Sätzen — „wenn X, dann gemeinsam mit
-Y", „nur nach Z", „erst wenn". Ein Klassifikator, der jede Konditionalstruktur als
-Vertagung liest, meldet auf ADRs strukturell falsch, und ADRs sind genau die Texte,
-in denen Vertagungen am teuersten wären. Das Signal aus #2239 (Tempus/Modus) reicht
-hier nicht — „gehören verschoben" steht im Indikativ Präsens. Nötig wäre die Frage,
-ob das Segment ein **Subjekt mit Handlungsabsicht** hat („wir machen später") oder
-eine **Eigenschaft** beschreibt („sie gehören zusammen").
-
-**Stand des Fensters:** 13 geprüfte Texte · 9 Meldungen · 1 richtig · 8 Fehlalarme.
-Präzision 0,111 (vorher 0,125). Die Zahl fällt weiter, und zwar mit jedem Lauf über
-gut geschriebene Texte — das ist der eigentliche Befund: der Klassifikator bestraft
-Texte, die ihre Bedingungen ausformulieren.
+**Stand des Fensters:** 19 geprueste Texte · 12 Meldungen · 1 richtig · 11 Fehlalarme.
+Praezision 0,083 (vorher 0,111). Sechs weitere Texte, drei weitere Meldungen, keine
+davon richtig — die Richtung des Fensters ist damit deutlicher als sein Endstand.
