@@ -2908,3 +2908,23 @@ Drei owner-akzeptierte Ziele nacheinander: Hygiene-Runde, „Voraussage statt Ob
 **Eigene Fehler:** Erst-Hypothese „Runner am 30.07. falsch re-registriert" (Registrierung war von Februar, die Workflows aenderten sich am 04.03.); „erster gruener Lauf seit Maerz" als Erfolg gemeldet, bevor die Artefakt-Groesse geprueft war; Retention-Wirkung im PR-Text falsch behauptet und selbst korrigiert; Klasse-3-TOT-Verdikt (Service- vs. Container-Namen) vor Veroeffentlichung kassiert.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-24 nachmittags — Sitzung 61e5fc: zwei Zweitmeinungen, und der Fehler steckte am Ende im eigenen Werkzeug
+
+Fuenf PRs: [#2265](https://github.com/achimdehnert/platform/pull/2265) Zweitmeinungen eingearbeitet, [#2266](https://github.com/achimdehnert/platform/pull/2266) ADR angenommen + Melder gebaut, [#2268](https://github.com/achimdehnert/platform/pull/2268) ADR-236-Sitz-Amendment, [#2271](https://github.com/achimdehnert/platform/pull/2271) V1-V3 erfuellt — dazu [#2272](https://github.com/achimdehnert/platform/pull/2272) und [#2273](https://github.com/achimdehnert/platform/pull/2273) offen.
+
+**Die Enterprise-Frage kostete zwei Fehlschluesse in entgegengesetzte Richtungen.** Der Erstentwurf nahm `.plan.name = "enterprise"` als Beleg — richtig geraten, ohne Kontrolle. Die „Korrektur" verwarf ihn mit einer Gegenprobe aus `bahn-sqf`, `ttz-lif` und `meiki-lra`, weil sie ADR-236 §1.1 (Ausgangslage) fuer den geltenden Stand hielt; ADR-236 hebt diese Lage mit seiner eigenen, am selben Tag ausgefuehrten Entscheidung auf. Alle drei „Kontrollen" waren Mitglieder. Erst `pactive-de` — von ADR-236 §2.1 ausdruecklich nicht aufgenommen — trennt: `"name":"team"` gegen `"name":"enterprise"`. Der Enterprise-PAT bestaetigte am Goldstandard ueber GraphQL (REST liefert dort 404): vier Member-Orgs.
+
+**Der schwerste Nebenbefund traf nicht ADR-297, sondern ADR-236.** `consumed-licenses`: 3 verbraucht bei 2 gekauft. Die dritte Person war `wirdigital`, der Entwicklungspartner — dasselbe Konto, das als zweiter Org-Owner die Eigentuemer-Kontinuitaet traegt. Redundanz kostet einen Sitz; das ist strukturell, kein Versehen. Aufgeloest durch Entfernen des seit Log-Beginn inaktiven `iljalerch` aus `bahn-sqf` (DB-Kunde, vom Owner informiert und einverstanden), belegt vor dem Entzug mit Positivkontrolle: kein Audit-Eintrag inklusive git-Events, waehrend derselbe Filter 22 andere Aktionen findet.
+
+**Zwei Befehle, die dem Owner zur Ausfuehrung uebergeben wurden, taten nichts.** `two_factor_requirement_enabled` ist in der REST-API ein Antwortfeld, kein Eingabefeld — der PATCH laeuft durch und aendert nichts. Und `audit-log?phrase=actor:X+action:team` filtert nicht. Beide waeren beim Owner als erledigt durchgegangen. Aufgedeckt hat sie der Evidenz-Hook, nicht ich. Der Slug `untested-command-handed-to-user` hat seit gestern ein Gate; das hier ist sein erstes Vorkommen danach.
+
+**Eigene Fehler, die Werkzeuge fingen:** ein `str.replace` ohne `assert`, der ins Leere lief, weil `ruff format` die Zielzeile vorher umgebrochen hatte — der davon abhaengige Fallback lief danach ueber eine leere Liste und war wirkungslos, sichtbar nur daran, dass ein Repo weiterhin als „nicht pruefbar" gemeldet wurde; Backticks in einem doppelt gequoteten Shell-String, die drei Codestellen aus einem Issue-Kommentar loeschten; und die Fehldiagnose „Permission-Classifier blockiert dauerhaft", obwohl die Meldung sich beim dritten Mal selbst als transient bezeichnete.
+
+**Der Retro (deep, 11 Befunde, 8 ueberlebt) fand den schwersten Punkt dort, wo ich ihn nicht gesucht hatte:** in dem Melder, den ich Stunden zuvor gebaut und gemergt hatte. `check_c` fehlt der `bekannte_konten`-Fallback, den `check_b` nach dem bahn-hub-Vorfall bekam, und ueberspringt bei fehlender Antwort ohne Zaehlung — der Leitsatzverstoss, sein einziger Zweck, verschwindet lautlos. Zwei Finder-Befunde waren dagegen zu **streng** und wurden kassiert: die Rework-Kaskade (der Zustand aenderte sich real zwischen den PRs) und die Schwere der 2FA-Ausweitung (faktischer No-Op, dieselben zwei Personen).
+
+**Offen:** der kritische `check_c`-Fehler auf `main` ([#2264](https://github.com/achimdehnert/platform/issues/2264)), zwei offene PRs, drei tote Praefixregeln in `registry/canonical.yaml`, zwei Tracking-Issues mit Vormittagsstand, die generierte `CLAUDE.md`-Tabelle (Owner-Sache) und die kaufmaennische Sitzfrage.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
