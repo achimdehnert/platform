@@ -42,8 +42,7 @@ kunden-/auftragsbezogen, ist aber nirgends ausgesprochen.
 ### Der Befund, der die Entscheidung trägt
 
 ```
-gh api users/achimdehnert --jq .type      -> "User"
-gh api orgs/iilgmbh --jq .plan.name       -> "enterprise"
+gh api users/achimdehnert --jq .type   -> "User"
 ```
 
 **`achimdehnert` ist ein persönliches Konto, keine Organisation.** Das ist keine
@@ -52,8 +51,8 @@ Teams, keine organisationsweiten Rulesets, keine Org-Secrets und keine
 Org-Sicherheitsrichtlinien — und die Repos hängen an **einer** Person. 56 von 73 Repos,
 darunter produktive Dienste, liegen dort.
 
-`iilgmbh` ist eine Organisation auf dem `enterprise`-Plan, 3 Sitze, unbegrenzt private
-Repos, `default_repository_permission: read`.
+`iilgmbh` ist demgegenüber eine Organisation, mit `default_repository_permission: read`.
+**Das allein ist der belegte Unterschied** — und er trägt die Entscheidung.
 
 ### Was heute *gegen* Eile spricht — ebenfalls gemessen
 
@@ -67,14 +66,38 @@ gh api orgs/iilgmbh --jq .two_factor_requirement_enabled -> false
 allem **Eigentümer-Kontinuität** — die granulare Rechteverwaltung existiert erst, wenn
 sie eingerichtet wird.
 
-**Nicht messbar mit dem aktuellen Token** (`admin:org` / `admin:enterprise` fehlen):
-Org-Rulesets und der Enterprise-Sitzverbrauch. Diese beiden Zeilen sind offen und
-gehören vor der Annahme geprüft — sie könnten das Bild verschieben.
+**Nicht messbar mit dem aktuellen Token** (Scopes: `read:org`, `repo`, `workflow`,
+`write:packages`, `gist`, `admin:public_key`): Org-Rulesets (`admin:org`) und der
+Enterprise-Sitzverbrauch (`admin:enterprise`). Beides ist offen und gehört vor der
+Annahme geprüft.
 
-**Widerspruch zu ADR-236 (Stand 2026-06-03):** Dort steht, die Org `iilgmbh` laufe auf
-einem *separaten Team-Plan außerhalb* der Enterprise. Die API sagt heute
-`plan: enterprise`. Entweder hat sich der Stand geändert oder ADR-236 ist an dieser
-Stelle überholt. Billigster Re-Check ist genau der obige Aufruf.
+### Korrektur: „iilgmbh hat Enterprise" ist mit diesem Zugang nicht belegbar
+
+Ein erster Entwurf dieses ADR führte `gh api orgs/iilgmbh --jq .plan.name -> "enterprise"`
+als Vorteil an und leitete daraus einen Widerspruch zu ADR-236 ab. **Beides war falsch,
+weil das Feld nicht unterscheidet.** Die Gegenprobe über alle vier Orgs:
+
+| Org | `.plan` |
+|---|---|
+| `iilgmbh` | `{"filled_seats":3,"name":"enterprise","private_repos":999999,"seats":2,"space":976562499}` |
+| `bahn-sqf` | *byte-identisch* |
+| `ttz-lif` | *byte-identisch* |
+| `meiki-lra` | *byte-identisch* |
+
+ADR-236 stellt ausdrücklich fest, dass `ttz-lif` und `meiki-lra` **außerhalb** der
+Enterprise laufen. Trotzdem melden sie dieselben Plandaten. Ein Wert, der bei
+Zugehörigen und Nicht-Zugehörigen identisch ist, ist kein Nachweis der Zugehörigkeit —
+er ist ein Artefakt der Abrechnungssicht, die dieser Token sieht. Auffällig zusätzlich:
+`filled_seats: 3` bei `seats: 2`, überall gleich.
+
+**ADR-236 bleibt damit unwidersprochen.** Ob `iilgmbh` heute in der Enterprise ist, ist
+mit `read:org` **nicht** feststellbar; der Nachweis braucht `admin:enterprise`.
+Vorbereitet in `platform/scripts/checks/enterprise-zugehoerigkeit.sh` — der Lauf braucht
+eine interaktive Anmeldung und gehört dem Owner.
+
+Für die Entscheidung ist das **nicht tragend**: sie steht auf „Organisation vs.
+persönliches Konto", nicht auf dem Abrechnungsplan. Ein etwaiger Enterprise-Vorteil käme
+obendrauf.
 
 ### Was die bestehenden ADRs *nicht* sagen
 
@@ -168,8 +191,9 @@ je Repo gesetzt.
 1. Org-Rulesets von `iilgmbh` prüfen (`admin:org`-Scope fehlt).
 2. Enterprise-Sitzverbrauch prüfen (`admin:enterprise`-Scope fehlt) — kostet ein Transfer
    Sitze?
-3. Widerspruch zu ADR-236 auflösen: Team-Plan oder Enterprise?
-4. Ist die 3-Sitze-Grenze für den geplanten Umfang ausreichend?
+3. Enterprise-Zugehörigkeit von `iilgmbh` klären — mit `admin:enterprise`, nicht über
+   `orgs/*/plan` (siehe Korrektur oben). Skript liegt bereit.
+4. Sitzverbrauch: `filled_seats: 3` bei `seats: 2` — kostet ein Transfer Sitze?
 
 ## Kill-Gate
 
