@@ -632,6 +632,24 @@ case "$ERR_OUT" in
   *) record "0.7.11 erreichbarkeit" "WARN" "$ERR_OUT" "${ERR_REPOS% }" ;;
 esac
 
+# ── 0.7.16 Origin-TLS: was liefert der Server WIRKLICH aus? ────────────────
+# 0.7.11 fragt am Edge. Eine 200 von dort ist KEIN TLS-Beleg: Cloudflare steht
+# auf `full`, nicht `full (strict)`, und akzeptiert ein abgelaufenes oder gar
+# kein Origin-Zertifikat, ohne dass von aussen etwas rot wird. Realfall
+# ausschreibungs-hub 2026-08-23: der certbot-Cloudflare-Token war seit dem 08.08.
+# ungueltig, 10 von 15 Origin-Zertifikaten abgelaufen — zwei Wochen unbemerkt,
+# gefunden beiher bei einer anderen Aufgabe. Diese Phase misst auf dem Host.
+# Kosten: rund 30 s (1 ssh je Prod-Host, Handshakes lokal), fail-open.
+TLS_OUT=$(timeout 240 python3 "$PLATFORM_DIR/tools/origin_tls_melder.py" --kurz 2>/dev/null || true)
+# "2 Origin-Zertifikat(e) auffaellig — doc-hub (fallback-zertifikat, 3453d), …":
+# hinter dem Gedankenstrich stehen die Repos, in denen repariert wird.
+TLS_REPOS="$(printf '%s' "$TLS_OUT" | sed 's/.*— //' | tr ',' '\n' \
+            | sed 's/(.*//; s/^ *//; s/ *$//' | grep -E '^[a-z0-9._-]+$' | sort -u | tr '\n' ' ')"
+case "$TLS_OUT" in
+  ""|*"Zertifikat(e) gueltig,"*) record "0.7.16 origin-tls" "PASS" "${TLS_OUT:-nicht ausgefuehrt}" ;;
+  *) record "0.7.16 origin-tls" "WARN" "$TLS_OUT" "${TLS_REPOS% }" ;;
+esac
+
 # ── 0.7.12 Prod-Wirkung: was liegt WIRKLICH auf den Hosts? (platform#2148) ──
 # `tools/deploy_wirkung.py` existiert seit dem 2026-08-20 und hatte bis hierhin
 # NULL Aufrufer — es stand nur in Handover, Log und Archiv. Genau die Klasse
