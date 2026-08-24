@@ -99,18 +99,56 @@ Für die Entscheidung ist das **nicht tragend**: sie steht auf „Organisation v
 persönliches Konto", nicht auf dem Abrechnungsplan. Ein etwaiger Enterprise-Vorteil käme
 obendrauf.
 
-### Was die bestehenden ADRs *nicht* sagen
+### Was die bestehenden ADRs sagen — und was nicht
 
-**ADR-268** zieht die einzige benachbarte Linie — und sie verläuft anders als vermutet:
-`achimdehnert` und `iilgmbh` stehen dort gemeinsam auf der Seite `nicht-sovereign`,
-gegenüber `ttz-lif`/`meiki-lra` (`sovereign`). Die Beispieltabelle führt `writing-hub`
-(achimdehnert) und `ausschreibungs-hub` (iilgmbh) im **selben** Quadranten Q2. Auf der
-Souveränitätsachse ist die Org-Wahl also ausdrücklich **ohne** Bedeutung.
+**[ADR-268](ADR-268-projekt-assurance-tiers.md)** zieht die einzige benachbarte Linie, und
+sie verläuft anders als vermutet: `achimdehnert` und `iilgmbh` stehen dort gemeinsam auf
+der Seite `nicht-sovereign`, gegenüber `ttz-lif`/`meiki-lra` (`sovereign`). Die
+Beispieltabelle führt `writing-hub` (achimdehnert) und `ausschreibungs-hub` (iilgmbh) im
+**selben** Quadranten Q2. Auf der Souveränitätsachse ist die Org-Wahl also ausdrücklich
+**ohne** Bedeutung.
 
-**ADR-236** regelt die Enterprise-Grenze, nicht die Zuordnung einzelner Repos.
+**[ADR-236](ADR-236-altd-enterprise-boundary.md) hat den entscheidenden Satz bereits.**
+Ein erster Entwurf dieses ADR schrieb, ADR-236 regele „die Enterprise-Grenze, nicht die
+Zuordnung einzelner Repos" — das stimmt für die *Zuordnung*, verschweigt aber, dass dort
+seit dem 2026-06-03 API-verifiziert steht:
+
+> Der User-Account **`achimdehnert`** hält 54 Repos und kann **keiner** Enterprise
+> beitreten (User ≠ Org).
+
+Das ist genau der Befund, auf dem die Entscheidung hier steht. Er ist keine Entdeckung
+dieses ADR, sondern eine **Wiederentdeckung** — zweieinhalb Monate später, weil niemand
+die Konsequenz gezogen hatte. Das ist selbst ein Datenpunkt: ein Fakt in einem ADR wirkt
+nicht, solange keine Regel ihn anwendet.
+
+ADR-236 hält zusätzlich fest, dass die Abrechnung **pro Person** läuft (damals 2 Sitze),
+nicht pro Org oder Repo — ein Transfer kostet demnach keine zusätzlichen Sitze.
+
+### Der Widerspruch, der die Begründung schwächt
+
+ADR-236 §1.1 sagt weiter:
+
+> Enterprise **`iilgmbh`** enthält **nur** `bahn-sqf` (1 Member-Org). Vier weitere Orgs
+> laufen auf **separaten Team-Plänen außerhalb** der Enterprise: `iilgmbh` (Org ≠
+> Enterprise-Slug), `ttz-lif`, `meiki-lra`, `pactive-de`.
+>
+> Die Enterprise hat bereits die **richtige Security-Config** … aber angewandt auf **nur
+> 3 `bahn-sqf`-Repos**.
+
+**Wenn das noch gilt, ist ein hier oft unterstellter Vorteil keiner:** ein Repo, das nach
+`iilgmbh` (die *Org*) wandert, erbt die Security-Konfiguration der *Enterprise* `iilgmbh`
+**nicht** — die Org liegt außerhalb. Der Gewinn beschränkte sich dann auf das, was jede
+Organisation bietet: Teams, Org-Secrets, Org-Rulesets, Eigentümer-Kontinuität. Das trägt
+die Entscheidung immer noch, aber es ist weniger, als der Name „Enterprise" nahelegt.
+
+Ob es noch gilt, ist **offen** (Offener Punkt 3). Der Stand ist eine Momentaufnahme vom
+2026-06-03, und ADR-236 sagt selbst, er sei „nicht eingefroren gemeint". Die Messung dazu
+ist damit **entscheidungstragend**, nicht kosmetisch: fällt sie so aus wie ADR-236, bleibt
+die Begründung „Organisation statt persönliches Konto" — fällt sie anders aus, kommt der
+Enterprise-Vorteil obendrauf.
 
 Es gibt damit keine Regel, gegen die man verstoßen könnte — nur eine gewachsene
-Verteilung.
+Verteilung und einen Fakt, aus dem nie eine Regel wurde.
 
 ## Entscheidung (Vorschlag)
 
@@ -191,8 +229,11 @@ je Repo gesetzt.
 1. Org-Rulesets von `iilgmbh` prüfen (`admin:org`-Scope fehlt).
 2. Enterprise-Sitzverbrauch prüfen (`admin:enterprise`-Scope fehlt) — kostet ein Transfer
    Sitze?
-3. Enterprise-Zugehörigkeit von `iilgmbh` klären — mit `admin:enterprise`, nicht über
-   `orgs/*/plan` (siehe Korrektur oben). Skript liegt bereit.
+3. **Entscheidungstragend:** Enterprise-Zugehörigkeit von `iilgmbh` klären — mit
+   `admin:enterprise`, nicht über `orgs/*/plan` (siehe Korrektur oben). Liegt die Org
+   weiterhin außerhalb der Enterprise (so ADR-236, Stand 2026-06-03), entfällt der
+   Security-Config-Vorteil und die Begründung ruht allein auf „Organisation statt
+   persönliches Konto". Skript: `scripts/checks/enterprise-zugehoerigkeit.sh`.
 4. Sitzverbrauch: `filled_seats: 3` bei `seats: 2` — kostet ein Transfer Sitze?
 
 ## Kill-Gate
