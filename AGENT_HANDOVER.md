@@ -35,7 +35,57 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-23 abends — die vier rueckfaelligen Gates haben ihre Antwort, und ein blocking-Gate prueft seit heute die Sache statt des Namens)
+## ⚡ Aktueller Stand (2026-08-24 — ADR-297 zur Org-Zuordnung, und eine Messung, die nichts maß)
+
+**Entstanden aus einer writing-hub-Sitzung:** ein Befund über `weltenhub` sollte verankert
+werden, und dabei fiel auf, dass nirgends geregelt ist, welches Repo in welche GitHub-Org
+gehört. Die `CLAUDE.md`-Tabelle führt `risk-hub` unter `achimdehnert`; `git remote` sagt
+`iilgmbh/risk-hub`. Die Beschreibung war falsch, und es gab keine Regel, an der man es
+hätte messen können.
+
+**Gemergt:** **#2247** ([ADR-297](docs/adr/ADR-297-org-zuordnung-der-repos.md), `proposed`,
++ `scripts/checks/enterprise-zugehoerigkeit.sh`) · **#2252** (Skript wartet nicht mehr auf
+den Browser) · **#2255** (ADR-236 verlinkt, Enterprise-Widerspruch nachgezogen).
+
+**Der tragende Befund:** `gh api users/achimdehnert --jq .type` → **`"User"`**. Ein
+persönliches Konto, keine Organisation — keine Teams, keine Org-Rulesets, keine
+Org-Secrets, und 56 von 73 Repos hängen an einer Person. ADR-236 hielt das seit dem
+2026-06-03 fest („kann **keiner** Enterprise beitreten"); ADR-297 hat es wiederentdeckt
+statt darauf aufzubauen. **Ein Fakt in einem ADR wirkt nicht, solange keine Regel ihn
+anwendet** — das ist die eigentliche Lehre und steht so im ADR.
+
+**Die Fehlmessung, die im ADR dokumentiert bleibt:** Ein erster Entwurf führte
+`gh api orgs/iilgmbh --jq .plan.name` → `"enterprise"` als Vorteil an. Die Gegenprobe über
+alle vier Orgs zeigt **byte-identische** `.plan`-Objekte — auch bei `ttz-lif` und
+`meiki-lra`, die laut ADR-236 außerhalb der Enterprise laufen. Ein Wert, der bei
+Zugehörigen und Nicht-Zugehörigen gleich ist, belegt keine Zugehörigkeit. Der behauptete
+Widerspruch zu ADR-236 war damit keiner; ADR-236 steht unwidersprochen.
+
+**Ruleset-Erfahrung, belegt:** `gh pr merge --admin` wird auf `platform` **abgelehnt**
+(„Repository rule violations found — Waiting on code owner review"). Das Ruleset hat keine
+Bypass-Actors; CODEOWNERS verlangt für `/docs/adr/` und `/scripts/` zwei Namen. Auch der
+Repo-Eigentümer kommt nicht allein vorbei — Auto-Merge scharf schalten und auf die zweite
+Review warten ist der Weg.
+
+**Offen — Punkt 1 ist entscheidungstragend:**
+1. Enterprise-Zugehörigkeit von `iilgmbh` messen:
+   `bash scripts/checks/enterprise-zugehoerigkeit.sh`. Braucht vorab **in einem normalen
+   Terminal** `gh auth refresh -h github.com -s admin:enterprise -s admin:org` — der
+   Device-Flow wartet auf den Browser und bricht in einer Shell mit Zeitlimit ab. Liegt
+   die Org außerhalb der Enterprise, entfällt der Security-Config-Vorteil und die
+   Begründung ruht allein auf „Organisation statt persönliches Konto".
+2. ADR-297 annehmen oder ablehnen. Kill-Gate: sind bis **2026-11-24** weder ein Team noch
+   die 2FA-Pflicht in `iilgmbh` eingerichtet, war der Org-Vorteil nicht der wahre Grund.
+3. Externe Zweitmeinung: Briefing liegt unter `~/shared/adr-handoff-ADR-297-2026-08-24.md`
+   (Wegwerf-Ort — jederzeit neu erzeugbar mit `/adr-handoff-extern ADR-297`). Rückfluss
+   nach Step 5: jede `REC-`ID einzeln taggen, Auszähl-Gegenprobe nicht überspringen.
+4. `CLAUDE.md`-Org-Tabelle korrigieren — sie ist nachweislich falsch (`risk-hub`).
+
+**Zielzustand-Abnahme (Phase 0d):** n/a (begründet) — die Aufgabe war, einen
+Entscheidungsentwurf zu erstellen, nicht einen Zielzustand zu erreichen; das Ergebnis ist
+ein ADR im Status `proposed`. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
+
+## ⚡ Vorheriger Stand (2026-08-23 abends — die vier rueckfaelligen Gates haben ihre Antwort, und ein blocking-Gate prueft seit heute die Sache statt des Namens)
 
 **Zeitanker:** HEAD `f2249ce8` · `rev-list --count` 3521 · geschrieben 2026-08-23 19:0x · Kapitaens-Kanal, Sitzung a84f71 (Gate-Entscheidungen + Retro)
 
@@ -52,18 +102,6 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 - **Der widerrufene Verzicht hat eine Antwort bekommen** ([#2242](https://github.com/achimdehnert/platform/pull/2242), [#2243](https://github.com/achimdehnert/platform/pull/2243)). `tools/gate_namensdeckung.py` beantwortet je Gate die Frage, an der `gate-matches-spelling-not-substance` scheiterte — nicht als Bedeutungsanalyse, sondern als **Abdeckungsfrage**: die Registry nennt je Gate die Faelle (`faengt`), jeder Fall traegt eine `probe`, die im Drill vorkommen muss. Stand: **27 von 27 gedeckt, 0 Luecken, 0 ungeprueft**, Phase 0.7.15.
 - **Die erste Luecke fand es im eigenen Fix desselben Tages:** der `ruff check`-Zweig aus #2239 hatte keinen Drill — weder im Python-Test noch in der Bash-Suite stand E402. Jetzt als **T11** drin, gruen, ohne Regression. Beim Nachtragen der uebrigen 20 Gates meldete der Pruefer vier weitere Luecken; **alle vier waren Wortlaut-Fragen** (`drittes` vs. `third_repo` usw.), keine echte fehlte — dort wurde die probe korrigiert, nicht der Drill gebogen.
 - **Zwei Grenzen des Werkzeugs stehen ausdruecklich in `_faengt_doc`**, damit niemand mehr hineinliest: es misst das **Beruehren** des Falls, nicht das Abfangen (dafuer braeuchte es einen Mutationstest, als eigener Test festgehalten) — und wer die probe setzt, kann sie treffend waehlen, also schuetzt es gegen **Vergessen, nicht gegen Absicht**.
-
-## ⚡ Vorheriger Stand (2026-08-23 mittags — Zusagen werden am Typ geprueft, und der Prod-Rueckstand hat aufgehoert, lautlos zu sein)
-
-**Zeitanker:** HEAD `6ebae572` · `rev-list --count` 3511 · geschrieben 2026-08-23 11:3x · Kapitaens-Kanal, Sitzung 28eddc (Verankerung + Prod-Rueckstand)
-
-- **Zielzustand ([#2211](https://github.com/achimdehnert/platform/issues/2211), vom Owner akzeptiert): ERREICHT**, fuenf Kriterien einzeln belegt ([#2216](https://github.com/achimdehnert/platform/pull/2216), gemergt). `tools/verankerung_pruefer.py` klassifiziert den Zusage-**Typ** je Segment ueber ein loopback-lokales Modell und prueft den Anker **im Segment** — Registry-Slug `zusage-ohne-verankerung`, Modus `advisory`, verdrahtet in `/session-ende` Phase 0g. **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.**
-- **Die Antwort auf [#2143](https://github.com/achimdehnert/platform/issues/2143) fuer `deferred-item-no-tracking-issue` lautet umbauen — und sie ist gemessen, nicht begruendet.** Am Realfall (PR [#2007](https://github.com/achimdehnert/platform/pull/2007), Retro 9d861a #3) sehen **beide** Muster-Scanner vorbei, aus zwei unabhaengigen Gruenden: Markdown-Fettschrift zerreisst den Wortlaut `bewusst **nicht** mitgemacht`, und eine fremde Nummer im Naehe-Fenster (`#1953` aus einer Beleg-Aufzaehlung vier Zeilen darueber) raeumt den Fund ab. Zwei Reparaturen am Altgate (Normalisierung, PR-Ausschluss) sind echte Verbesserungen und heilen den Realfall **nicht**; diese Grenze steht jetzt als Test fest.
-- **Drei weitere rueckfaellige Gates behandelt.** `hand-distributed-copy-not-redistributed`: Phase 0.7.5 **heilt selbst** statt zu melden (Quelle `origin/main`, nicht der Arbeitsbaum; Positivkontrolle im HOME-Sandkasten gefahren). `scope-checkpoint-not-durably-recorded` Rev 3: Reichweite wird an der **Ausgabe** eines wirkenden Kommandos gemessen — der Flottenlauf, der 69 Arbeitskopien entfernte, blieb unter der Schwelle, weil im Aufruf ein einziger Pfad stand. `claim-before-cheapest-check`: **keine** der drei Antworten, weil die Datenlage sie nicht traegt — alle 59 Protokollzeilen hatten einen leeren Ausschnitt ([#2226](https://github.com/achimdehnert/platform/pull/2226) behebt die Ursache); die Frist 2026-09-03 traegt damit keine Entscheidung mehr.
-- **Prod-Rueckstand ist nicht mehr lautlos.** `deploy_wirkung.py` misst DOPPELLAUF an laufenden Containern statt am Manifest, `cancelled` ist im Deploy-Scan eine eigene Klasse, und der Melder ist als Phase `0.7.12 prod-wirkung` verdrahtet — er hatte seit dem 2026-08-20 **null Aufrufer** ([#2224](https://github.com/achimdehnert/platform/pull/2224), gemergt). Sechs verwaiste Manifeste auf prod sind abgeloest, mit Gegenprobe: Befunde 9 → 4.
-- **Weg (c) aus [#2148](https://github.com/achimdehnert/platform/issues/2148) live erlebt:** der freigegebene Prod-Dispatch fuer risk-hub (10:17) wurde von einem Handover-Push (10:24) ueber die gemeinsame Concurrency-Gruppe abgeraeumt; vier CI-Jobs `cancelled`, `ci / gate` rot, Prod unveraendert. Fix in [iilgmbh/risk-hub#668](https://github.com/iilgmbh/risk-hub/pull/668) gemergt (Gruppe je Ziel-Umgebung), **13 gleichlautende PRs** stehen in der Flotte offen — Werkzeug + Trockenlauf in [#2232](https://github.com/achimdehnert/platform/pull/2232), Tracking [#2229](https://github.com/achimdehnert/platform/issues/2229).
-- **Offen und ausdruecklich beim Owner:** risk-hub steht **41 Commits** hinter Prod; der Dispatch wird vom Berechtigungs-Klassifizierer abgelehnt und braucht seit heute zusaetzlich einen Freigabe-Klick (das `production`-Environment hat jetzt einen Pflicht-Reviewer). Die 13 Flotten-PRs sind bewusst **nicht** gemergt — dreizehn Merges sind dreizehn Staging-Deployments in zwei Organisationen.
-- **Eigene Fehler dieser Sitzung:** (1) der erste „Live-Beleg" fuer die neue Runner-Phase mass den **Hauptbaum** statt des Worktrees — `PLATFORM_DIR` zeigt immer auf `$GITHUB_DIR/platform`; aufgefallen nur, weil das Ergebnis dem Direktlauf des Werkzeugs widersprach. (2) Ein PR-Text nannte „getrackt in platform#2227", bevor das Issue existierte; angelegt wurde **#2229**, der Text ist korrigiert. (3) Zwei von mir vorgeschlagene Ursachen hielten dem Nachsehen nicht stand: die Schreibweisen-Verdopplung im Scope-Melder war seit dem 21.08. behoben, und die 59 Protokollzeilen waren gar nicht erst beurteilbar.
 
 ## Nächste Schritte (kompakt)
 
