@@ -133,6 +133,18 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     Ein bewusst abgeschalteter Dienst bekommt `betriebsstatus:` + `betriebsstatus_grund:`
     in `ports.yaml`; **ohne Grund ist die Ausnahme selbst der Befund**. Anlass: wedding-hub
     war 6–7 Tage tot, während Registry und Tunnel-Route übereinstimmten.
+  - `0.7.16 origin-tls`: **0.7.11 fragt am Edge, diese Phase misst am Origin.** Eine 200
+    vom Edge ist kein TLS-Beleg — Cloudflare steht auf `full`, nicht `full (strict)`, und
+    liefert vor einem abgelaufenen Origin-Zertifikat eine tadellose 200 aus. Drei Klassen
+    auseinanderhalten: **`abgelaufen`/`laeuft-ab`** = das Renewal ist kaputt (Reparatur auf
+    dem Host, `certbot`-Token prüfen) · **`fallback-zertifikat`** = nginx antwortet mit
+    seinem Platzhalter, für diesen Namen existiert am Origin **gar kein** Zertifikat
+    (fehlender vhost/cert — die Domain lebt nur von Cloudflares `full`-Modus) ·
+    **`nicht-messbar`** = ssh/Handshake gescheitert, ausdrücklich **kein** Grün.
+    `cloudflare-origin-ca` (Laufzeit bis 2041) und `kein-tls-am-origin` (Tunnel-Host ohne
+    TLS-Terminierung, z.B. `prod-b`) sind **kein** Befund. Anlass: ausschreibungs-hub
+    2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
+    abgelaufen, zwei Wochen lang kein einziger roter Melder.
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
@@ -371,6 +383,7 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 2a | Befund-Journal gelesen: Altbefunde mit ihrem **Alter** gespiegelt, Fremd-Repo-Befunde benannt (0.R) | ☐ |
 | 2b | Rückfällige Gates aus 0.7.7 im Board benannt — ein versagendes Gate ist ein Befund über den Loop selbst | ☐ |
 | 2c | `0.7.11 erreichbarkeit`: 5xx von NXDOMAIN getrennt; jede Ausnahme in `ports.yaml` trägt einen Grund | ☐ |
+| 2d | `0.7.16 origin-tls`: `abgelaufen`/`laeuft-ab` (kaputtes Renewal) von `fallback-zertifikat` (kein Zertifikat für diesen Namen) getrennt; `nicht-messbar` nicht als grün gelesen | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
@@ -440,6 +453,18 @@ nicht in einem Folge-Commit "irgendwann".
 ## Changelog
 
 
+- 2026-08-24: **Phase 0.7.16 `origin-tls`** ergänzt — misst auf dem Host, welches
+  Zertifikat nginx je Domain wirklich ausliefert (TLS-Handshake gegen `127.0.0.1:443`
+  mit der Domain als SNI). 0.7.11 fragt am Edge, und dort ist eine 200 kein TLS-Beleg:
+  Cloudflare steht auf `full`, nicht `full (strict)`. Anlass: ausschreibungs-hub
+  2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
+  abgelaufen, zwei Wochen lang kein roter Melder, gefunden beiher. Der **Aussteller**
+  wird mitgemessen, weil der Erstlauf drei Betriebsarten hinter derselben grünen 200
+  zeigte: Let's Encrypt (kurzlebig, Renewal-Gesundheit), Cloudflare Origin CA (bis 2041,
+  kein Befund) und `CN=invalid.localhost` (nginx-Platzhalter = **gar kein** Zertifikat
+  für diesen Namen, Laufzeit bis 2036 — eine reine Datums-Prüfung meldet das grün).
+  Erstlauf fand zwei Fälle der dritten Klasse. Startklar-Checkliste um Zeile 2d ergänzt
+  (eine neue WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
 - 2026-08-20: **Phase 0.7.7 `gate-wirkung`** ergänzt — meldet Gates, deren Befund nach dem
   Bau mindestens 2x wiederkam. Gemessen über 82 Retros: 8 von 20 Gates rückfällig,
   `claim-before-cheapest-check` 16x seit dem 2026-08-02 trotz verdrahtetem Stop-Hook und
