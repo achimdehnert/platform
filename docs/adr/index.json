@@ -5579,7 +5579,7 @@
       "id": "ADR-297",
       "file": "ADR-297-org-zuordnung-der-repos.md",
       "title": "In welche GitHub-Organisation gehört ein Repo?",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-08-24",
       "domains": [],
       "supersedes": [],
@@ -5591,7 +5591,7 @@
         "ADR-255",
         "ADR-268"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "partial"
     },
     {
       "number": 400,

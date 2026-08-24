@@ -117,7 +117,7 @@ ls "${GITHUB_DIR}/${REPO_NAME}" 2>/dev/null && echo "ℹ️  Repo existiert loka
 Dieser Workflow legt das Repo nicht an; es existiert bereits. Genau deshalb ist
 **hier** der Punkt, an dem die Org-Zuordnung noch billig ist: es gibt noch kein
 GHCR-Package, keine Deploy-Secrets, keine Fundstellen in Registry und Werkzeugen.
-Nach dem Onboarding kostet derselbe Umzug einen GHCR-Neuaufbau — [ADR-297](../../docs/adr/ADR-297-org-zuordnung-der-repos.md)
+Nach dem Onboarding kostet derselbe Umzug einen GHCR-Neuaufbau — [ADR-297](https://github.com/achimdehnert/platform/blob/main/docs/adr/ADR-297-org-zuordnung-der-repos.md)
 listet die Posten.
 
 Ein Onboarding **ist** ein Anlass im Sinne von ADR-297 Ebene 2 (erster Prod-Deploy

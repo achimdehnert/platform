@@ -262,4 +262,4 @@
 | 294 | LLM-Gateway statt litellm in jedem Prozess | Proposed | ⬜ | [ADR-294](ADR-294-llm-gateway-statt-litellm-je-prozess.md) |
 | 295 | Mailbestand an einem zweiten Standort (Dev-Host) | Accepted | ⬜ | [ADR-295](ADR-295-mailbestand-zweiter-standort-dev.md) |
 | 296 | GPU-Box über Hub-seitigen Lease-Arbiter bewirtschaften — Medien-Arbeitsfläche und Client-Paket folgen dem Hub | Accepted | 🔶 | [ADR-296](ADR-296-gpu-box-lease-arbiter-medien-arbeitsflaeche.md) |
-| 297 | In welche GitHub-Organisation gehört ein Repo? | Proposed | ⬜ | [ADR-297](ADR-297-org-zuordnung-der-repos.md) |
+| 297 | In welche GitHub-Organisation gehört ein Repo? | Accepted | 🔶 | [ADR-297](ADR-297-org-zuordnung-der-repos.md) |
