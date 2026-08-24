@@ -105,7 +105,7 @@ infra:
   authentik:
     port: 9000
     server: prod
-    domain_prod: auth.iil.pet
+    domain_prod: id.iil.pet
     note: "SSO/Identity Provider — 9443 for HTTPS"
 
   outline:
