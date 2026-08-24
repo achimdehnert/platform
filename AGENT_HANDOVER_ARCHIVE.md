@@ -1459,3 +1459,54 @@ darunter; die Ergänzungen von `c45b39` stehen davor, weil sie später entstande
 - **Die erste Luecke fand es im eigenen Fix desselben Tages:** der `ruff check`-Zweig aus #2239 hatte keinen Drill — weder im Python-Test noch in der Bash-Suite stand E402. Jetzt als **T11** drin, gruen, ohne Regression. Beim Nachtragen der uebrigen 20 Gates meldete der Pruefer vier weitere Luecken; **alle vier waren Wortlaut-Fragen** (`drittes` vs. `third_repo` usw.), keine echte fehlte — dort wurde die probe korrigiert, nicht der Drill gebogen.
 - **Zwei Grenzen des Werkzeugs stehen ausdruecklich in `_faengt_doc`**, damit niemand mehr hineinliest: es misst das **Beruehren** des Falls, nicht das Abfangen (dafuer braeuchte es einen Mutationstest, als eigener Test festgehalten) — und wer die probe setzt, kann sie treffend waehlen, also schuetzt es gegen **Vergessen, nicht gegen Absicht**.
 
+---
+
+## ⚡ Archivierter Stand (2026-08-24 — ADR-297 zur Org-Zuordnung, und eine Messung, die nichts maß)
+
+**Entstanden aus einer writing-hub-Sitzung:** ein Befund über `weltenhub` sollte verankert
+werden, und dabei fiel auf, dass nirgends geregelt ist, welches Repo in welche GitHub-Org
+gehört. Die `CLAUDE.md`-Tabelle führt `risk-hub` unter `achimdehnert`; `git remote` sagt
+`iilgmbh/risk-hub`. Die Beschreibung war falsch, und es gab keine Regel, an der man es
+hätte messen können.
+
+**Gemergt:** **#2247** ([ADR-297](docs/adr/ADR-297-org-zuordnung-der-repos.md), `proposed`,
++ `scripts/checks/enterprise-zugehoerigkeit.sh`) · **#2252** (Skript wartet nicht mehr auf
+den Browser) · **#2255** (ADR-236 verlinkt, Enterprise-Widerspruch nachgezogen).
+
+**Der tragende Befund:** `gh api users/achimdehnert --jq .type` → **`"User"`**. Ein
+persönliches Konto, keine Organisation — keine Teams, keine Org-Rulesets, keine
+Org-Secrets, und 56 von 73 Repos hängen an einer Person. ADR-236 hielt das seit dem
+2026-06-03 fest („kann **keiner** Enterprise beitreten"); ADR-297 hat es wiederentdeckt
+statt darauf aufzubauen. **Ein Fakt in einem ADR wirkt nicht, solange keine Regel ihn
+anwendet** — das ist die eigentliche Lehre und steht so im ADR.
+
+**Die Fehlmessung, die im ADR dokumentiert bleibt:** Ein erster Entwurf führte
+`gh api orgs/iilgmbh --jq .plan.name` → `"enterprise"` als Vorteil an. Die Gegenprobe über
+alle vier Orgs zeigt **byte-identische** `.plan`-Objekte — auch bei `ttz-lif` und
+`meiki-lra`, die laut ADR-236 außerhalb der Enterprise laufen. Ein Wert, der bei
+Zugehörigen und Nicht-Zugehörigen gleich ist, belegt keine Zugehörigkeit. Der behauptete
+Widerspruch zu ADR-236 war damit keiner; ADR-236 steht unwidersprochen.
+
+**Ruleset-Erfahrung, belegt:** `gh pr merge --admin` wird auf `platform` **abgelehnt**
+(„Repository rule violations found — Waiting on code owner review"). Das Ruleset hat keine
+Bypass-Actors; CODEOWNERS verlangt für `/docs/adr/` und `/scripts/` zwei Namen. Auch der
+Repo-Eigentümer kommt nicht allein vorbei — Auto-Merge scharf schalten und auf die zweite
+Review warten ist der Weg.
+
+**Offen — Punkt 1 ist entscheidungstragend:**
+1. Enterprise-Zugehörigkeit von `iilgmbh` messen:
+   `bash scripts/checks/enterprise-zugehoerigkeit.sh`. Braucht vorab **in einem normalen
+   Terminal** `gh auth refresh -h github.com -s admin:enterprise -s admin:org` — der
+   Device-Flow wartet auf den Browser und bricht in einer Shell mit Zeitlimit ab. Liegt
+   die Org außerhalb der Enterprise, entfällt der Security-Config-Vorteil und die
+   Begründung ruht allein auf „Organisation statt persönliches Konto".
+2. ADR-297 annehmen oder ablehnen. Kill-Gate: sind bis **2026-11-24** weder ein Team noch
+   die 2FA-Pflicht in `iilgmbh` eingerichtet, war der Org-Vorteil nicht der wahre Grund.
+3. Externe Zweitmeinung: Briefing liegt unter `~/shared/adr-handoff-ADR-297-2026-08-24.md`
+   (Wegwerf-Ort — jederzeit neu erzeugbar mit `/adr-handoff-extern ADR-297`). Rückfluss
+   nach Step 5: jede `REC-`ID einzeln taggen, Auszähl-Gegenprobe nicht überspringen.
+4. `CLAUDE.md`-Org-Tabelle korrigieren — sie ist nachweislich falsch (`risk-hub`).
+
+**Zielzustand-Abnahme (Phase 0d):** n/a (begründet) — die Aufgabe war, einen
+Entscheidungsentwurf zu erstellen, nicht einen Zielzustand zu erreichen; das Ergebnis ist
+ein ADR im Status `proposed`. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.

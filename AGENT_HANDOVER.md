@@ -35,7 +35,39 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-24 vormittags — drei Ziele an einem Vormittag: Hygiene, Voraussage statt Obduktion, Naht-Inventur)
+## ⚡ Aktueller Stand (2026-08-24 nachmittags — ADR-297 angenommen, Readiness erfüllt, ein kritischer Fehler im eigenen Werkzeug)
+
+**Zeitanker:** HEAD `71cb0262` · `rev-list --count` 3555 · geschrieben 2026-08-24 18:0x · Kapitäns-Kanal, Sitzung 61e5fc (Auftrag: zwei externe Zweitmeinungen zu ADR-297 einarbeiten — daraus wurde eine Kette)
+
+**Zielzustand: erreicht.** Jede REC beider Zweitmeinungen ist eingearbeitet oder mit Grund abgelehnt (Antworttabelle im ADR), Owner-Gates sind benannt, Ausgelassenes ist in drei Issues getrackt. Die Folgeaufträge (Annahme, Melder, Org-Konfiguration, ADR-236-Amendment) kamen nummeriert vom Owner dazu.
+
+**SA-4:** 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+**Der Kern in einem Satz:** ADR-297 ist `accepted`, die Voraussetzungen V1–V3 sind drei Monate vor der Frist erfüllt, alle sechs Vorteilszeilen wirken — und in dem Melder, der das durchsetzen soll, steckt ein kritischer Fehler auf `main`.
+
+**Was der Enterprise-Frage passierte, zweimal falsch, dann entschieden.** Der Erstentwurf nahm `.plan.name = "enterprise"` als Beleg. Die „Korrektur" verwarf ihn — mit einer Gegenprobe aus drei Orgs, die alle selbst Mitglieder waren, weil sie ADR-236 §1.1 (Ausgangslage) für den geltenden Stand hielt. Erst `pactive-de` als echte Negativkontrolle (`"name":"team"` gegen `"name":"enterprise"`) trennte, und der Enterprise-PAT bestätigte am Goldstandard: vier Member-Orgs, `iilgmbh` darunter. **Beide Irrtümer stehen im ADR, nicht getilgt** — in einem Dokument, das existiert, weil ein Fakt übersehen wurde, wäre Wegschreiben die falsche Reaktion.
+
+**Der Sitz-Befund traf ADR-236, nicht ADR-297.** `consumed-licenses` meldete 3 verbraucht bei 2 gekauft; die dritte Person war `wirdigital`, der Entwicklungspartner — dasselbe Konto, das als zweiter Org-Owner die Kontinuität trägt. **Redundanz kostet einen Sitz**, das ist der strukturelle Zielkonflikt. Aufgelöst durch Entfernen des seit Log-Beginn inaktiven `iljalerch` aus `bahn-sqf` (DB-Kunde, vom Owner informiert und einverstanden) → 2/2. Preis: `bahn-sqf` hatte danach einen Owner, deshalb wurde `wirdigital` dort befördert — sitzneutral.
+
+**V1 und V2 wurden in einem Zug belegt.** `wirdigital` legte Team, Mitgliedschaft und Repo-Recht mit **seiner eigenen** Anmeldung an; der Nachweis kommt aus dem Audit-Log (`team.create`/`add_member`/`add_repository`, `actor: wirdigital`), nicht aus seinem Vollzugsbericht. Positivkontrolle: derselbe Filter findet 22 `pull_request`-Aktionen. Nicht gemessen und so vermerkt: der Recovery-Weg beruht auf Owner-Attest, keine API sieht ihn.
+
+**Zwei Befehle, die ich dem Owner gab, taten nichts.** `two_factor_requirement_enabled` ist in der REST-API ein Antwortfeld — der PATCH läuft durch und ändert nichts. Und `audit-log?phrase=...+action:team` filtert nicht, es liefert alles vom Actor. Beide wären als erledigt durchgegangen. Aufgedeckt hat sie der Evidenz-Hook, nicht ich.
+
+**Eigene Fehler, die Werkzeuge fingen und nicht ich:** ein stiller `str.replace` ohne `assert`, den `ruff format` durch eine Zeilenumbruch-Änderung ins Leere laufen ließ (der Fallback lief danach über eine leere Liste und war wirkungslos); Backticks in einem doppelt gequoteten Shell-String, die drei Codestellen aus einem Issue-Kommentar löschten; die Fehldiagnose „Classifier blockiert dauerhaft", obwohl die Meldung sich beim dritten Mal selbst als transient bezeichnete.
+
+**Retro (deep, 11 Befunde, 8 überlebt, `refuted_rate` 0,27):** Zwei Finder-Befunde waren zu **streng** — die Rework-Kaskade (der Zustand änderte sich real zwischen den PRs) und die Schwere der 2FA-Ausweitung (faktischer No-Op). `claim-before-cheapest-check` feuerte dreimal und fand zweimal einen echten Defekt: als `gates_caught` geführt, nicht als Rückfall. `risiko_debt: 2`, unter dem Flottenmittel 2,56 — der Grund liegt auf `main`.
+
+### Prioritäten für die nächste Sitzung
+
+1. **Kritisch, auf `main`, von mir verursacht: `check_c` im Org-Zuordnungs-Melder fehlt der `bekannte_konten`-Fallback**, den `check_b` Stunden zuvor bekam, und überspringt bei `fetch → None` ohne Zählung. Der Leitsatzverstoß — sein einziger Zweck — verschwindet lautlos. Mechanisch: `bekannte_konten` steht 1× in `check_b`, 0× in `check_c`. Dazu: `_gh_json` fängt weder `FileNotFoundError` noch `TimeoutExpired`, ein Werkzeugfehler endet mit Exit 1 und ist damit von einem Fund nicht unterscheidbar — genau der Vertrag, den der `ROT-IST-BEFUND`-Marker trägt. Beides in [#2264](https://github.com/achimdehnert/platform/issues/2264).
+2. **Zwei PRs offen:** [#2272](https://github.com/achimdehnert/platform/pull/2272) (ADR-Konsequenzentabelle, CI grün) und [#2273](https://github.com/achimdehnert/platform/pull/2273) (Retro-Report).
+3. **Drei tote Präfixregeln in `registry/canonical.yaml`:** `sqf-` und `pg-` treffen null Repos, `bahn-` trifft genau `bahn-hub` — und das ist per Override ausgehebelt. Die als falsch erwiesene Regel wurde umgangen statt korrigiert.
+4. **Tracking-Issues [#2262](https://github.com/achimdehnert/platform/issues/2262) und [#2263](https://github.com/achimdehnert/platform/issues/2263) tragen den Vormittagsstand**, während der ADR dieselben Punkte als erledigt führt. Der ADR ist aktueller als sein eigenes Tracking-Artefakt.
+5. **Offen aus dem ADR:** die generierte `CLAUDE.md`-Org-Tabelle ([#2264](https://github.com/achimdehnert/platform/issues/2264), Teil 2 — Profil-Datei, Charta Art. 3, gehört dem Owner) und die kaufmännische Sitzfrage aus dem ADR-236-Amendment (3 verbraucht / 2 gekauft).
+6. **Zwei Gates mit erstem Vorkommen nach dem Bau:** `scope-checkpoint-not-durably-recorded` → **ausweiten** (sieht Scope-Erweiterungen über die GitHub-API nicht); `untested-command-handed-to-user` → **umbauen** (greift an der Ausführung, der Fehler passiert an der Übergabe).
+7. **Der `gh`-Zugang dieser Maschine ist geteilt.** Ein `gh auth login` für einen Partner-Account überschreibt ihn für alle — PR [#2271](https://github.com/achimdehnert/platform/pull/2271) entstand deshalb unter fremder Identität. Vor jedem Fremd-Login den Account notieren und danach zurückwechseln.
+
+## ⚡ Vorheriger Stand (2026-08-24 vormittags — drei Ziele an einem Vormittag: Hygiene, Voraussage statt Obduktion, Naht-Inventur)
 
 **Zeitanker:** HEAD `99c09051` · `rev-list --count` 3538 · geschrieben 2026-08-24 09:5x · Kapitaens-Kanal, Sitzung 8ef44a (drei owner-akzeptierte Ziele nacheinander)
 
@@ -47,57 +79,6 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 - **Ziel B „Rueckfall-Prognose" ([#2253](https://github.com/achimdehnert/platform/issues/2253), pre-registriert): regulaeres NEGATIVERGEBNIS.** Kill-Gate feuerte an der Mindestgroesse (Test-Split 8 < 10), bevor eine Merkmals-Stunde floss. Basisrate 30d = 42 % (28/66). **Wiedervorlage 2026-08-28** — Verfahren + Werkzeug haengen am Issue, Registry-Ablage [#2254](https://github.com/achimdehnert/platform/pull/2254) gemergt. Die Erwartung der vorschlagenden Parallel-Sitzung (~37 %) war fast exakt.
 - **Nebenschauplaetze:** PR #2073 via close/reopen entsperrt (guardian haengte 121h serverseitig, selbst force-cancel gab 500; frischer Run 8s gruen) — Owner hat gemergt. [platform#2251](https://github.com/achimdehnert/platform/pull/2251) (auth.iil.pet → id.iil.pet, SSO lief gesund unterm anderen Namen) gemergt. Adversarial-Bilanz des Tages: **5 Falsifizierer, 4 kassierte/praezisierte Eigen-Verdikte** (Klon-Epidemie-Mechanismus, Unterstrich-These, Swap-Risiko, Retention-Behauptung) — der Prozess traegt.
 - **Zielzustand-Abnahme:** #2250 erreicht · #2253 erreicht in der vorgesehenen Alternative (Negativergebnis mit Wiedervorlage) · #2256 erreicht. **SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.**
-
-## ⚡ Vorheriger Stand (2026-08-24 — ADR-297 zur Org-Zuordnung, und eine Messung, die nichts maß)
-
-**Entstanden aus einer writing-hub-Sitzung:** ein Befund über `weltenhub` sollte verankert
-werden, und dabei fiel auf, dass nirgends geregelt ist, welches Repo in welche GitHub-Org
-gehört. Die `CLAUDE.md`-Tabelle führt `risk-hub` unter `achimdehnert`; `git remote` sagt
-`iilgmbh/risk-hub`. Die Beschreibung war falsch, und es gab keine Regel, an der man es
-hätte messen können.
-
-**Gemergt:** **#2247** ([ADR-297](docs/adr/ADR-297-org-zuordnung-der-repos.md), `proposed`,
-+ `scripts/checks/enterprise-zugehoerigkeit.sh`) · **#2252** (Skript wartet nicht mehr auf
-den Browser) · **#2255** (ADR-236 verlinkt, Enterprise-Widerspruch nachgezogen).
-
-**Der tragende Befund:** `gh api users/achimdehnert --jq .type` → **`"User"`**. Ein
-persönliches Konto, keine Organisation — keine Teams, keine Org-Rulesets, keine
-Org-Secrets, und 56 von 73 Repos hängen an einer Person. ADR-236 hielt das seit dem
-2026-06-03 fest („kann **keiner** Enterprise beitreten"); ADR-297 hat es wiederentdeckt
-statt darauf aufzubauen. **Ein Fakt in einem ADR wirkt nicht, solange keine Regel ihn
-anwendet** — das ist die eigentliche Lehre und steht so im ADR.
-
-**Die Fehlmessung, die im ADR dokumentiert bleibt:** Ein erster Entwurf führte
-`gh api orgs/iilgmbh --jq .plan.name` → `"enterprise"` als Vorteil an. Die Gegenprobe über
-alle vier Orgs zeigt **byte-identische** `.plan`-Objekte — auch bei `ttz-lif` und
-`meiki-lra`, die laut ADR-236 außerhalb der Enterprise laufen. Ein Wert, der bei
-Zugehörigen und Nicht-Zugehörigen gleich ist, belegt keine Zugehörigkeit. Der behauptete
-Widerspruch zu ADR-236 war damit keiner; ADR-236 steht unwidersprochen.
-
-**Ruleset-Erfahrung, belegt:** `gh pr merge --admin` wird auf `platform` **abgelehnt**
-(„Repository rule violations found — Waiting on code owner review"). Das Ruleset hat keine
-Bypass-Actors; CODEOWNERS verlangt für `/docs/adr/` und `/scripts/` zwei Namen. Auch der
-Repo-Eigentümer kommt nicht allein vorbei — Auto-Merge scharf schalten und auf die zweite
-Review warten ist der Weg.
-
-**Offen — Punkt 1 ist entscheidungstragend:**
-1. Enterprise-Zugehörigkeit von `iilgmbh` messen:
-   `bash scripts/checks/enterprise-zugehoerigkeit.sh`. Braucht vorab **in einem normalen
-   Terminal** `gh auth refresh -h github.com -s admin:enterprise -s admin:org` — der
-   Device-Flow wartet auf den Browser und bricht in einer Shell mit Zeitlimit ab. Liegt
-   die Org außerhalb der Enterprise, entfällt der Security-Config-Vorteil und die
-   Begründung ruht allein auf „Organisation statt persönliches Konto".
-2. ADR-297 annehmen oder ablehnen. Kill-Gate: sind bis **2026-11-24** weder ein Team noch
-   die 2FA-Pflicht in `iilgmbh` eingerichtet, war der Org-Vorteil nicht der wahre Grund.
-3. Externe Zweitmeinung: Briefing liegt unter `~/shared/adr-handoff-ADR-297-2026-08-24.md`
-   (Wegwerf-Ort — jederzeit neu erzeugbar mit `/adr-handoff-extern ADR-297`). Rückfluss
-   nach Step 5: jede `REC-`ID einzeln taggen, Auszähl-Gegenprobe nicht überspringen.
-4. `CLAUDE.md`-Org-Tabelle korrigieren — sie ist nachweislich falsch (`risk-hub`).
-
-**Zielzustand-Abnahme (Phase 0d):** n/a (begründet) — die Aufgabe war, einen
-Entscheidungsentwurf zu erstellen, nicht einen Zielzustand zu erreichen; das Ergebnis ist
-ein ADR im Status `proposed`. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
-
 ## Nächste Schritte (kompakt)
 
 > **✅ hetzner-prod Speicherlage entschärft 2026-07-29 ([#1303](https://github.com/achimdehnert/platform/issues/1303), Messwerte als Kommentar):** Freies RAM **444 → 9.455 MB**, Swap von **4.095/4.095 auf 1.757/4.095**, laufende Container **113 → 45**. Auf Owner-Anweisung wurden 68 nicht benötigte Container **gestoppt** (nicht entfernt — `docker start` holt jeden zurück, Volumes unangetastet): ausschreibungs-hub, odoo, hub137, wedding-hub, coach-hub, recruiting-hub, research-hub, travel-beat, billing-hub, cad-hub, pptx-hub, learn-hub, tax-hub, ttz, bahn-hub, decks-hub, onboarding-hub, trading-hub inkl. `ib_gateway`. **Weiter laufen** risk-hub (live), dev-hub, doc-hub, Outline, mcp-hub, authentik, weltenhub, illustration, dms-hub, writing-hub, aifw. **Die Lehre daraus ist wichtiger als die Zahl:** Ein cgroup-OOM sagt nicht, dass der Container zu klein ist — in die cgroup-Bilanz zählt der Seiten-Cache, und unter Host-Druck kann der Kernel ihn nicht zurückgewinnen. `devhub_celery` fiel **ohne jede Änderung an ihm** von 370,4 auf 305,9 MiB; ein Import, der dreimal mit `rc=137` starb, lief danach durch. „Limit erhöhen" wäre bei 924 MB freiem Host-RAM die gefährlichere Antwort gewesen. **Weiterhin ungeklärt:** warum die Container am 20.07. entfernt statt neu gestartet wurden (`restart: unless-stopped` griff nicht). **Nicht geheilt und deshalb eigenes Ticket ([#1549](https://github.com/achimdehnert/platform/issues/1549)):** `devhub_beat` bei 89,5 % seines 256-MiB-Limits (echter Verbrauch, kein Cache) und Health-Checks, die seit Tagen rot sind — `iil_authentik_worker` seit **12 Tagen**, Log endet am 18.07. mit `code -9`; der Server antwortet weiter, der Worker ist tot.
