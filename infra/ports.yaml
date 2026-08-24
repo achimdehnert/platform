@@ -231,8 +231,9 @@ services:
 
   weltenhub:
     prod: 8081
-    staging: 8081
-    dev: 8081
+    staging: 8082               # Ground Truth compose.staging: 127.0.0.1:8082:8000
+    dev: 8082                   # lokale Konvention (docker-compose.local.yml, writing-hub
+                                # sucht weltenhub lokal auf 8082) — Registry stand auf 8081
     prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04, erste App mit
                                # aktivem Beat. Verfahren: Beat+Celery auf der Quelle
                                # ZUERST gestoppt, auf dem Ziel zuletzt gestartet —
