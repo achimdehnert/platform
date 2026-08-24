@@ -134,12 +134,19 @@ der unabhängigen Enterprise-PAT-Messung in ADR-236.
 der Erstentwurf als „entscheidungstragend offen" führte, **beantwortet** — nicht durch
 einen neuen Zugang, sondern durch eine Kontrolle, die vorher fehlte.
 
-*Grenze der Aussage:* `.plan` ist ein abgeleitetes Signal, nicht die
-Mitgliedschafts-API. Belastbar ist es hier, weil es mit Positiv- **und** Negativfall
-kontrolliert ist und mit einer unabhängigen Messung (ADR-236, Enterprise-PAT) übereinstimmt.
-Der Goldstandard `gh api enterprises/iilgmbh/organizations` (Scope `admin:enterprise`,
-vorbereitet in `scripts/checks/enterprise-zugehoerigkeit.sh`) bleibt sinnvoll — als
-**Bestätigung und wiederkehrende Messung**, nicht mehr als Voraussetzung.
+**Am Goldstandard bestätigt (2026-08-24, noch am selben Tag).** Der Enterprise-PAT aus
+`~/.secrets/github_Enterprise_PAT` trägt `admin:enterprise`; die Mitgliederliste kommt
+nicht über REST (`enterprises/<slug>/organizations` → 404), sondern über GraphQL:
+
+```
+gh api graphql -f query='query { enterprise(slug:"iilgmbh") {
+  organizations(first:20) { totalCount nodes { login } } } }'
+-> totalCount 4: bahn-sqf, iilgmbh, meiki-lra, ttz-lif
+```
+
+Vier Mitglieder, `iilgmbh` darunter, `pactive-de` nicht. Damit ist die
+Negativkontroll-Methode nicht nur plausibel, sondern **gegen den Goldstandard geprüft**
+— `.plan.name` und die Mitgliedschaft stimmen bei allen fünf gemessenen Orgs überein.
 
 **Was daraus für diesen ADR folgt:** Der Enterprise-Vorteil ist kein „käme obendrauf,
 wenn", sondern eine heute vorhandene Eigenschaft des Ziels. Ein Repo, das nach Org
@@ -150,15 +157,27 @@ erst eingerichtet werden muss — anders als Teams und 2FA. Er verbessert die Nu
 von Ebene 2, ändert aber an Ebene 1 nichts: die Regel „Organisation statt persönliches
 Konto" trägt auch ohne ihn.
 
-**Was offen bleibt — und was es wirklich ist:** `filled_seats: 3` bei `seats: 2`. ADR-236
-nennt zwei Sitze (`achimdehnert`, `iljalerch`) und knüpft die dort attestierte
-Kostenneutralität ausdrücklich an die Bedingung „**keine 3. Person**". Heute hat Org
-`iilgmbh` einen zweiten Owner `wirdigital`, den ADR-236 nicht kennt. Der überzählige
-belegte Sitz ist damit **kein Kuriosum der Abrechnungssicht, sondern der plausible
-Hinweis auf genau die Bedingung, unter der ADR-236 seine Kostenaussage gestellt hat.**
+**Der Nebenbefund war kein Kuriosum — er ist gemessen bestätigt.** `filled_seats: 3` bei
+`seats: 2` sah nach einem Artefakt der Abrechnungssicht aus. Die Enterprise-Abfrage sagt
+etwas anderes:
+
+```
+gh api enterprises/iilgmbh/consumed-licenses
+-> {"total_seats_purchased": 2, "total_seats_consumed": 3}
+-> Verbraucher: achimdehnert, iljalerch, wirdigital
+```
+
+ADR-236 nennt zwei Sitze (`achimdehnert`, `iljalerch`) und stellt die dort attestierte
+Kostenneutralität ausdrücklich unter die Bedingung „**keine 3. Person** + keine
+Vertrags-Floor". **`wirdigital` ist die dritte Person** — dieselbe, die als zweiter
+Org-Owner die Eigentümer-Kontinuität trägt. Die Bedingung, unter der ADR-236 seine
+Kostenaussage gestellt hat, gilt nicht mehr.
+
 Das ist ein Befund über **ADR-236**, nicht über die Repo-Zuordnung: ein Repo-Transfer
-kostet weiterhin keine Sitze (Abrechnung pro Person), aber die Sitzzahl selbst ist
-erklärungsbedürftig geworden. Getrackt als eigener Punkt, nicht als Blocker hier.
+kostet weiterhin keine Sitze (Abrechnung pro Person). Aber drei verbrauchte gegen zwei
+gekaufte Sitze ist eine offene kaufmännische Frage, kein Rundungsfehler → **Amendment an
+ADR-236 vorgeschlagen**, Owner-Entscheidung
+([#2262](https://github.com/achimdehnert/platform/issues/2262)).
 
 ### Was die bestehenden ADRs sagen — und was nicht
 
@@ -476,9 +495,14 @@ auf und ließ dabei offen, was heute wirkt und was erst noch gebaut werden muss:
 | Eigentümer-Kontinuität | **teilweise** — zwei Owner vorhanden, Vertretungsweg ungeprüft (V1) |
 | Rechtevergabe über Teams | **unrealisiert** — null Teams (V2) |
 | 2FA-Pflicht | **unrealisiert** (V3) |
-| Org-Secrets, Org-Rulesets einmal statt je Repo | **unrealisiert / ungemessen** (OP-2) |
+| **Org-Secrets** einmal statt je Repo | **wirkt sofort** — neun sind angelegt und in Benutzung, darunter `DEPLOY_*`, `STAGING_*`, `PYPI_API_TOKEN` |
+| Org-Rulesets einmal statt je Repo | **unrealisiert** — `gh api orgs/iilgmbh/rulesets` → `[]` |
 
-Nur die erste Zeile ist ein Beleg; die übrigen sind der Grund für Ebene 2.
+Zwei Zeilen sind Beleg, nicht Absicht: die Enterprise-Posture **und** die neun
+Org-Secrets. Gerade die zweite war im Entwurf als „unrealisiert" geführt — falsch, und
+zwar zuungunsten der eigenen Entscheidung: ein Repo, das in die Org wandert, erbt die
+kompletten Deploy- und Staging-Zugänge, statt sie je Repo zu pflegen. Die übrigen Zeilen
+bleiben der Grund für Ebene 2.
 
 **Bedingung B1 — der erste Nicht-Owner-Zugang:** Sobald ein drittes Mitglied ohne
 Owner-Rolle in die Org kommt, wirkt `default_repository_permission: read` auf **alle**
@@ -532,9 +556,9 @@ Jeder Punkt trägt ein eigenes Tracking-Artefakt; keiner blockiert die Annahme v
 
 | # | Punkt | Blockiert | Tracking |
 |---|---|---|---|
-| 1 | **Bestätigung** der Enterprise-Zugehörigkeit über `gh api enterprises/iilgmbh/organizations` (`admin:enterprise`) — die Frage ist über die Negativkontrolle beantwortet, der Goldstandard fehlt noch. | nichts | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
-| 1a | `filled_seats: 3` bei `seats: 2`, während ADR-236 zwei Sitze nennt und Kostenneutralität an „keine 3. Person" knüpft. **Befund über ADR-236**, hier nur weitergereicht. | nichts hier | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
-| 2 | Org-Rulesets von `iilgmbh` prüfen (`admin:org`-Scope fehlt). | nichts | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
+| 1 | ~~Enterprise-Zugehörigkeit bestätigen~~ — **erledigt 2026-08-24** am Goldstandard (GraphQL, 4 Member-Orgs). | — | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
+| 1a | ~~Sitz-Anomalie klären~~ — **erledigt**: 3 verbraucht / 2 gekauft, dritte Person ist `wirdigital`. Offen ist die **Konsequenz**: Amendment an ADR-236. | nichts hier | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
+| 2 | ~~Org-Rulesets prüfen~~ — **erledigt**: keine vorhanden. Org-Secrets dagegen neun, in Benutzung. | — | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
 | 3 | V1–V3 herstellen und Pilot fahren. | jeder Bestandstransfer | [#2263](https://github.com/achimdehnert/platform/issues/2263) |
 | 4 | Melder **gebaut und verdrahtet** (`tools/org_zuordnung_melder.py`, täglicher Workflow). Offen bleibt die generierte `CLAUDE.md`-Tabelle. | nichts | [#2264](https://github.com/achimdehnert/platform/issues/2264) |
 | 5 | ~~Gegenzeichnung vor der Annahme~~ — vom Owner am 2026-08-24 entschieden, Substanz nach V1 verschoben (siehe Annahme). | erledigt | [#2263](https://github.com/achimdehnert/platform/issues/2263) |
