@@ -569,6 +569,14 @@
       "owner": "achim",
       "ref": "platform#2234",
       "reason": "Seit dem 2026-08-23 misst Phase 0.7.12 (`prod-wirkung`) den Stand HINTER dem gruenen Haken bei jedem Sitzungsstart — laufende Container gegen origin/main, `cancelled` als eigene Klasse. Das ist die Messung, die der Slug verlangt; ein eigenes Gate waere ein zweiter Zaehler auf dieselbe Zahl."
+    },
+    {
+      "slug": "rueckfall-prognose-aus-retro-daten",
+      "decided": "2026-08-24",
+      "owner": "achim",
+      "ref": "platform#2253",
+      "wiedervorlage": "2026-08-28",
+      "reason": "Pre-registrierte Messung (Zeit-Split 2026-07-15, Rueckfall = 2. Auftritt binnen 30 Tagen, Marge Lift >= 1,5x Basisrate, Mindestgroesse 10 Test-Klassen). Kill-Gate feuerte an der MINDESTGROESSE: Test-Split hat 8 Klassen (< 10). Gemessen, nicht geschaetzt: Basisrate 30d = 28/66 = 42% (Train 25/58 = 43%, Test 3/8 = 38%). Kein Urteil ueber das Signal selbst — die 10. Test-Klasse reift am 2026-08-26, bis Mitte September waechst der Split auf bis zu 46. Wiedervorlage 2026-08-28: identisches Verfahren, Test = alle Erstauftritte >= 2026-07-15 mit gereiftem 30-Tage-Fenster; Merkmale weiterhin NUR aus Vor-Cutoff-Texten."
     }
   ],
   "_widerrufen_doc": "Verzichte, die zurueckgenommen wurden. Sie stehen NICHT mehr in `declined` — sonst zaehlten `gate_deckung.py` und `retro_kpis.py` sie weiter als getroffene Entscheidung, und der Widerruf waere deklariert statt wirksam. Die Slugs sind damit wieder offen und erscheinen in der GATE-PFLICHT-Liste. Diese Sektion bewahrt, warum der Verzicht einmal galt und woran er gescheitert ist — die Widerlegung ist der wertvollere Teil.",
