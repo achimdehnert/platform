@@ -2892,3 +2892,19 @@ Vier PRs, alle gemergt: [#2236](https://github.com/achimdehnert/platform/pull/22
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
 
 **Nachtrag zur Sitzung a84f71 (abends, nach dem Retro):** Der Owner hat die zwei widerlegten Verzichte widerrufen ([#2241](https://github.com/achimdehnert/platform/pull/2241)) und den Bau des Nachfolgers beauftragt. `tools/gate_namensdeckung.py` ([#2242](https://github.com/achimdehnert/platform/pull/2242)) beantwortet die Frage, an der `gate-matches-spelling-not-substance` als „nicht mechanisch erkennbar" abgelegt worden war — als Abdeckungsfrage statt als Bedeutungsanalyse: nennt die Registry je Gate die Faelle, gegen die es schuetzt, laesst sich pruefen, ob der Drill sie beruehrt. Die erste Antwort war eine Luecke im eigenen Fix desselben Tages (E402 ungedrillt, jetzt T11). Beim Nachtragen der uebrigen 20 Gates ([#2243](https://github.com/achimdehnert/platform/pull/2243)) meldete der Pruefer vier weitere Luecken, von denen sich alle vier als Wortlaut-Fragen erwiesen — dort wurde die probe korrigiert, nicht der Drill gebogen. Stand: 27 von 27 gedeckt. Zwei Grenzen stehen dokumentiert: gemessen wird das Beruehren, nicht das Abfangen, und wer die probe setzt, kann sie treffend waehlen — das Gate schuetzt gegen Vergessen, nicht gegen Absicht.
+
+---
+
+## 2026-08-24 vormittags — Sitzung 8ef44a: drei Ziele, und jede reparierte Schicht zeigte die naechste
+
+Drei owner-akzeptierte Ziele nacheinander: Hygiene-Runde, „Voraussage statt Obduktion" (#2250), Naht-Inventur (#2256); dazu pre-registriert #2253 (Negativergebnis am Kill-Gate, Wiedervorlage 28.08.).
+
+**Der Backup-Strang als Kette:** Label-Fix (Owner) → Lane laeuft an → erster „gruener" Lauf ist hohl (2/9 Dumps echt, `|| true` seit Februar) → infra-deploy#3 macht Erfolge ehrlich → Beweis-Lauf: dev-hub 6,3 GB, erstes echtes Backup dieser Live-DB → und genau das datiert den naechsten Ausfall: Root-Platte voll ~31.08. (infra-deploy#5, OFFEN). Vier Instanzen der Klasse „Pruefer prueft weniger als sein Name" an einem Tag: Lint-Gate (Vortag), hohles Backup-Gruen, bfagent-Cron (seit 27.01. taeglich Leerlauf), shared-ci Runner-Label-Check (gruen vor Existenz des Labels — shared-ci#59 mit Drill-Fall).
+
+**Naht-Inventur-Antwort:** tote Naehte flottenweit, Schadensmechanismus fast einzigartig — die Flotte ueberlebt durch Umgehung statt Reparatur (deploy.sh git-frei, Skript-Spiegelung, Crons auf Leichen). Der Preis: Bodensatz, in dem ein Klartext-PAT lag (tot, 401). KONZ-Kandidat: „Umgehung verpflichtet zum Grabstein". weltenhub-Pin live bewiesen (Run 32713006001, alle Host-Jobs prod-b, livez 200); 5 tote Runner-Registrierungen abgemeldet (Owner).
+
+**Adversarial-Bilanz:** 5 Falsifizierer (Sonnet), 4 kassierte oder praezisierte Eigen-Verdikte — Klon-Epidemie-Mechanismus, Unterstrich-These, Swap-Risiko, Retention-Behauptung im eigenen PR-Text. Zwei Evidenz-Hook-Feedbacks, beide mit nachgeliefertem Check beantwortet.
+
+**Eigene Fehler:** Erst-Hypothese „Runner am 30.07. falsch re-registriert" (Registrierung war von Februar, die Workflows aenderten sich am 04.03.); „erster gruener Lauf seit Maerz" als Erfolg gemeldet, bevor die Artefakt-Groesse geprueft war; Retention-Wirkung im PR-Text falsch behauptet und selbst korrigiert; Klasse-3-TOT-Verdikt (Service- vs. Container-Namen) vor Veroeffentlichung kassiert.
+
+SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
