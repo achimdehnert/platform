@@ -94,6 +94,10 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
    Nachricht bestimmen (bei Bedarf Original holen, „Projektion sucht, Quelle verifiziert"),
    dann **genau die eine** nächste Aktion vorschlagen/anlegen.
 7. **Ledger zurückschreiben** — neue Zustände speichern, geschlossene Punkte entfernen.
+7a. **Geschlossene Vorgänge aus dem Posteingang räumen** — `ablage_erledigt.py`
+   (siehe unten „Erledigtes wegräumen"). Ohne diesen Schritt bleibt der Posteingang
+   voll, obwohl das Ledger sauber ist: das Board sagt „erledigt", der Owner sieht die
+   Mail weiter oben liegen.
 8. **Als Mail-Action-Board ausgeben** (s.u. „Ausgabeformat"). Auf „go":
    den nächsten Draft mit `graph_mail.py --draft` anlegen (IIL) bzw. den HNU-Draft per
    IMAP-Append (siehe `/iil-mail`-Werkzeuglücke: HNU-Drafts nur via IMAP-Append) — **nie senden**.
@@ -223,6 +227,32 @@ Sammel-/Archiv-Ordner verschieben (reversibel):
   „unklar" listen; nie in den Papierkorb, wenn Aufbewahrung denkbar ist. Der Owner bestätigt
   neue „unwichtig"-Absender einmal, dann dürfen sie stehen.
 
+## Erledigtes wegräumen (Schritt 7a)
+
+Rauschen (Schritt 4) und Erledigtes sind zwei verschiedene Dinge. Rauschen erkennt man am
+**Absender**; Erledigtes erkennt man am **Ledger** — ein Vorgang steht auf `erledigt`, also
+darf sein Strang aus dem Posteingang. Dafür gibt es ein eigenes Werkzeug:
+
+```bash
+python3 tools/mail_agent/ablage_erledigt.py --straenge            # Trockenlauf: was ginge?
+python3 tools/mail_agent/ablage_erledigt.py --straenge --apply    # bewegen, mit Protokoll
+python3 tools/mail_agent/ablage_erledigt.py --ruecknahme LAUF_ID  # kompletten Lauf zurück
+```
+
+**Der Trockenlauf ist Pflicht, das Anwenden nicht.** Zeigt er unerwartet viele Nachrichten
+oder einen Zielordner, der nicht passt, wird er dem Owner vorgelegt statt ausgeführt.
+
+**Ziel-Reihenfolge** (die erste greifende gewinnt): ausdrückliches `ablage_ziel` im Vorgang →
+Zuordnungstabelle → vorhandener Kunden-/Studenten-/Personenordner → `Archiv/<Jahr>`.
+
+**Was der Trockenlauf nicht sehen kann — und darum jeden scharfen Lauf begleitet:** Die
+Kennung einer Nachricht wird vom Verschieben selbst entwertet (Graph vergibt eine neue
+`messageId`, IMAP eine neue UID). Die Rücknahme sucht die Nachricht deshalb an ihrem
+*jetzigen* Ort neu, über Betreff-Kern und Datum. Bleiben mehrere Kandidaten, bewegt sie
+nichts — eine Fehlanzeige ist besser als die falsche Mail. Nach einem scharfen Lauf gehört
+darum **eine Zählung beider Seiten** ins Board, nicht die Erfolgszeile des Werkzeugs
+(Realfall 2026-08-18: 89 Mails kopiert, nicht entfernt, Werkzeug meldete `OK`).
+
 ## Zustandsabhängige Prozesse (der eigentliche Grund für /mailcheck)
 
 Mehrstufige Vorgänge dürfen **nicht** vorab als Drafts durchgestellt werden — jede Stufe
@@ -277,6 +307,12 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
       Lücke unsichtbar, sobald das Board „gut aussieht": ein Posten ohne Anker trägt
       keinen Link in seine Mail und meldet das nirgends von selbst.
       Stand beim Einbau (2026-08-10): **11 von 17** ohne Anker.
+- [ ] **Schritt 7a gelaufen** — `ablage_erledigt.py --straenge` mindestens als
+      Trockenlauf, Ergebnis im Board genannt (auch „0 Nachrichten"). Ein Board, das
+      Vorgänge als erledigt führt, während ihre Mails im Posteingang liegen, hat die
+      Aufräum-Hälfte seiner Aufgabe nicht erledigt.
+- [ ] Nach einem scharfen Lauf: **beide Seiten gezählt** (Quelle leer, Ziel voll) — nicht
+      die Erfolgsmeldung des Werkzeugs übernommen
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog
