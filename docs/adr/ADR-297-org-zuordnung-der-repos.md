@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-08-24
 deciders: [Achim Dehnert]
 consulted: [Claude Code, Zweitmeinung A (extern, LLM), Zweitmeinung B (extern, LLM)]
@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: [ADR-236, ADR-255, ADR-268]
-implementation_status: not-started
+implementation_status: partial
 last_reviewed: 2026-08-24
 staleness_months: 6
 tags: [governance, github, organisation, repo-zuordnung, ownership]
@@ -134,12 +134,19 @@ der unabhängigen Enterprise-PAT-Messung in ADR-236.
 der Erstentwurf als „entscheidungstragend offen" führte, **beantwortet** — nicht durch
 einen neuen Zugang, sondern durch eine Kontrolle, die vorher fehlte.
 
-*Grenze der Aussage:* `.plan` ist ein abgeleitetes Signal, nicht die
-Mitgliedschafts-API. Belastbar ist es hier, weil es mit Positiv- **und** Negativfall
-kontrolliert ist und mit einer unabhängigen Messung (ADR-236, Enterprise-PAT) übereinstimmt.
-Der Goldstandard `gh api enterprises/iilgmbh/organizations` (Scope `admin:enterprise`,
-vorbereitet in `scripts/checks/enterprise-zugehoerigkeit.sh`) bleibt sinnvoll — als
-**Bestätigung und wiederkehrende Messung**, nicht mehr als Voraussetzung.
+**Am Goldstandard bestätigt (2026-08-24, noch am selben Tag).** Der Enterprise-PAT aus
+`~/.secrets/github_Enterprise_PAT` trägt `admin:enterprise`; die Mitgliederliste kommt
+nicht über REST (`enterprises/<slug>/organizations` → 404), sondern über GraphQL:
+
+```
+gh api graphql -f query='query { enterprise(slug:"iilgmbh") {
+  organizations(first:20) { totalCount nodes { login } } } }'
+-> totalCount 4: bahn-sqf, iilgmbh, meiki-lra, ttz-lif
+```
+
+Vier Mitglieder, `iilgmbh` darunter, `pactive-de` nicht. Damit ist die
+Negativkontroll-Methode nicht nur plausibel, sondern **gegen den Goldstandard geprüft**
+— `.plan.name` und die Mitgliedschaft stimmen bei allen fünf gemessenen Orgs überein.
 
 **Was daraus für diesen ADR folgt:** Der Enterprise-Vorteil ist kein „käme obendrauf,
 wenn", sondern eine heute vorhandene Eigenschaft des Ziels. Ein Repo, das nach Org
@@ -150,15 +157,27 @@ erst eingerichtet werden muss — anders als Teams und 2FA. Er verbessert die Nu
 von Ebene 2, ändert aber an Ebene 1 nichts: die Regel „Organisation statt persönliches
 Konto" trägt auch ohne ihn.
 
-**Was offen bleibt — und was es wirklich ist:** `filled_seats: 3` bei `seats: 2`. ADR-236
-nennt zwei Sitze (`achimdehnert`, `iljalerch`) und knüpft die dort attestierte
-Kostenneutralität ausdrücklich an die Bedingung „**keine 3. Person**". Heute hat Org
-`iilgmbh` einen zweiten Owner `wirdigital`, den ADR-236 nicht kennt. Der überzählige
-belegte Sitz ist damit **kein Kuriosum der Abrechnungssicht, sondern der plausible
-Hinweis auf genau die Bedingung, unter der ADR-236 seine Kostenaussage gestellt hat.**
+**Der Nebenbefund war kein Kuriosum — er ist gemessen bestätigt.** `filled_seats: 3` bei
+`seats: 2` sah nach einem Artefakt der Abrechnungssicht aus. Die Enterprise-Abfrage sagt
+etwas anderes:
+
+```
+gh api enterprises/iilgmbh/consumed-licenses
+-> {"total_seats_purchased": 2, "total_seats_consumed": 3}
+-> Verbraucher: achimdehnert, iljalerch, wirdigital
+```
+
+ADR-236 nennt zwei Sitze (`achimdehnert`, `iljalerch`) und stellt die dort attestierte
+Kostenneutralität ausdrücklich unter die Bedingung „**keine 3. Person** + keine
+Vertrags-Floor". **`wirdigital` ist die dritte Person** — dieselbe, die als zweiter
+Org-Owner die Eigentümer-Kontinuität trägt. Die Bedingung, unter der ADR-236 seine
+Kostenaussage gestellt hat, gilt nicht mehr.
+
 Das ist ein Befund über **ADR-236**, nicht über die Repo-Zuordnung: ein Repo-Transfer
-kostet weiterhin keine Sitze (Abrechnung pro Person), aber die Sitzzahl selbst ist
-erklärungsbedürftig geworden. Getrackt als eigener Punkt, nicht als Blocker hier.
+kostet weiterhin keine Sitze (Abrechnung pro Person). Aber drei verbrauchte gegen zwei
+gekaufte Sitze ist eine offene kaufmännische Frage, kein Rundungsfehler → **Amendment an
+ADR-236 vorgeschlagen**, Owner-Entscheidung
+([#2262](https://github.com/achimdehnert/platform/issues/2262)).
 
 ### Was die bestehenden ADRs sagen — und was nicht
 
@@ -242,7 +261,25 @@ war, und einmal als Ausgangslage zitiert, die längst überholt war.
 Es gibt damit keine Regel, gegen die man verstoßen könnte — nur eine gewachsene
 Verteilung und einen Fakt, aus dem nie eine Regel wurde.
 
-## Entscheidung (Vorschlag)
+## Annahme
+
+**Angenommen am 2026-08-24** durch den Owner (Kapitäns-Kanal: *„adr 297 reviewed und
+merged -> go"*, dann *„4 5 6 go"*). Wirksam ist damit **Ebene 1** — der Leitsatz für
+Neuzugänge. **Ebene 2** (Bestandstransfers) bleibt unverändert hinter V1–V3 gegated;
+die Annahme entscheidet sie ausdrücklich nicht vor.
+
+**Zu Offenem Punkt 5 (Gegenzeichnung) — was belegt ist und was nicht.** Der Punkt
+verlangte eine menschliche Gegenzeichnung aus der operativen Org-Administration.
+Faktenlage: PR [#2265](https://github.com/achimdehnert/platform/pull/2265) wurde am
+2026-08-24 um 11:11:51Z vom Konto `wirdigital` gemergt — dem zweiten Org-Owner, also
+genau der Rolle, die der Punkt meint. **Das ist ein Handlungs-, kein Inhaltsbeleg:**
+ein Merge zeigt Handlungsfähigkeit und Zustimmung zum Veröffentlichen, nicht eine
+inhaltliche Prüfung der Kontinuitätsannahme. Der Punkt gilt deshalb als vom Owner
+**entschieden**, nicht als sachlich erledigt — und die Substanz dahinter wandert
+dorthin, wo sie messbar statt attestiert ist: nach **V1** (getesteter Vertretungsweg,
+[#2263](https://github.com/achimdehnert/platform/issues/2263)).
+
+## Entscheidung
 
 Die Entscheidung hat **zwei Ebenen mit getrennten Kosten und getrennten Gates**. Der
 Erstentwurf koppelte beide, und damit hing eine praktisch kostenlose Regel für
@@ -370,14 +407,36 @@ Eine Regel ohne Melder ist derselbe Fehler eine Ebene höher.
 **Deshalb bekommt Ebene 1 einen Melder statt einer Ermahnung**, und zwar unabhängig davon,
 wie über Ebene 2 entschieden wird:
 
-- ein geplanter Abgleich `gh repo list` über alle Konten gegen `registry/canonical.yaml`
-  (`repo_owner` + `owner_prefix_rules`) und die Klassentabelle oben; Abweichung → Issue.
-  Vorlage ist `tools/iil_migration_check.py` (ADR-255) — read-only, idempotent, fängt
-  bereits „Registry behauptet X, `gh` löst zu Y auf". Zu erweitern von `iil-*` auf die
-  Flotte und in einen Zeitplan zu hängen.
-- **die `CLAUDE.md`-Org-Tabelle wird generiert, nicht gepflegt.** Sie ist der zweite
-  Wahrheitsstand, an dem der Auslöser dieses ADR entstanden ist; solange sie von Hand
-  geführt wird, ist die nächste Abweichung eine Frage der Zeit.
+**1. Der Melder — gebaut, verdrahtet, kalibriert** (`tools/org_zuordnung_melder.py`,
+Workflow `org-zuordnung-melder.yml`, täglich 05:23 UTC, `ROT-IST-BEFUND`). Drei Checks:
+registry-intern (`rich.github` gegen `repo_owner`), Deklaration gegen GitHub, und der
+Leitsatz selbst — Letzterer **nur für Repos, die nach dem Annahmedatum angelegt wurden**.
+Ohne diesen Stichtag meldete er die gewachsenen 56 als Verstoß und wäre nach einem Lauf
+abgeschaltet; er ist die Grenze zwischen Ebene 1 und Ebene 2, kein Bequemlichkeitsfilter.
+
+Damit ist der Melder zugleich das **Messinstrument des Kill-Gates Ebene 1**.
+
+*Erster Lauf am 2026-08-24 — die Kalibrierung, nicht nur der Bau:* elf Funde, davon acht
+Repos, deren Registry-Owner GitHub widersprach (`risk-hub`, `tax-hub`,
+`ausschreibungs-hub`, `nl2iot-hub`, `django-lms-lite`, `gpufw`, `iil-doc-templates`,
+`bahn-hub`). Alle acht sind in `registry/canonical.yaml` korrigiert; danach lief er grün.
+Ein Melder, der nie rot war, ist ungeprüft — und einer, der nie grün wird, wird
+abgeschaltet.
+
+*Was der erste Lauf über den Melder selbst lehrte:* `bahn-hub` erschien zunächst als
+„nicht prüfbar", weil die Präfixregel `bahn-` jede Anfrage nach `bahn-sqf/bahn-hub`
+schickte (404) — **die falsche Deklaration versteckte sich hinter ihrem eigenen 404.**
+Der Melder probiert seither die übrigen bekannten Konten durch, bevor er ein Repo als
+ungeprüft ablegt; beide vermeintlichen Lücken waren in Wahrheit Drift.
+
+**2. Die `CLAUDE.md`-Org-Tabelle wird generiert, nicht gepflegt.** Sie ist der zweite
+Wahrheitsstand, an dem der Auslöser dieses ADR entstanden ist; solange sie von Hand
+geführt wird, ist die nächste Abweichung eine Frage der Zeit. *Noch offen.*
+
+**3. `/onboard-repo` fragt vor dem Onboarding nach der Zielorganisation** (Step 0.05).
+Das ist der billigste Zeitpunkt: noch kein GHCR-Package, keine Deploy-Secrets, keine
+Fundstellen. Ein Onboarding **ist** ein Anlass im Sinne von Ebene 2 — wer hier nicht
+fragt, verschiebt dieselbe Frage in den teuersten Moment.
 
 Tracking: [#2264](https://github.com/achimdehnert/platform/issues/2264).
 
@@ -436,9 +495,14 @@ auf und ließ dabei offen, was heute wirkt und was erst noch gebaut werden muss:
 | Eigentümer-Kontinuität | **teilweise** — zwei Owner vorhanden, Vertretungsweg ungeprüft (V1) |
 | Rechtevergabe über Teams | **unrealisiert** — null Teams (V2) |
 | 2FA-Pflicht | **unrealisiert** (V3) |
-| Org-Secrets, Org-Rulesets einmal statt je Repo | **unrealisiert / ungemessen** (OP-2) |
+| **Org-Secrets** einmal statt je Repo | **wirkt sofort** — neun sind angelegt und in Benutzung, darunter `DEPLOY_*`, `STAGING_*`, `PYPI_API_TOKEN` |
+| Org-Rulesets einmal statt je Repo | **unrealisiert** — `gh api orgs/iilgmbh/rulesets` → `[]` |
 
-Nur die erste Zeile ist ein Beleg; die übrigen sind der Grund für Ebene 2.
+Zwei Zeilen sind Beleg, nicht Absicht: die Enterprise-Posture **und** die neun
+Org-Secrets. Gerade die zweite war im Entwurf als „unrealisiert" geführt — falsch, und
+zwar zuungunsten der eigenen Entscheidung: ein Repo, das in die Org wandert, erbt die
+kompletten Deploy- und Staging-Zugänge, statt sie je Repo zu pflegen. Die übrigen Zeilen
+bleiben der Grund für Ebene 2.
 
 **Bedingung B1 — der erste Nicht-Owner-Zugang:** Sobald ein drittes Mitglied ohne
 Owner-Rolle in die Org kommt, wirkt `default_repository_permission: read` auf **alle**
@@ -492,12 +556,12 @@ Jeder Punkt trägt ein eigenes Tracking-Artefakt; keiner blockiert die Annahme v
 
 | # | Punkt | Blockiert | Tracking |
 |---|---|---|---|
-| 1 | **Bestätigung** der Enterprise-Zugehörigkeit über `gh api enterprises/iilgmbh/organizations` (`admin:enterprise`) — die Frage ist über die Negativkontrolle beantwortet, der Goldstandard fehlt noch. | nichts | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
-| 1a | `filled_seats: 3` bei `seats: 2`, während ADR-236 zwei Sitze nennt und Kostenneutralität an „keine 3. Person" knüpft. **Befund über ADR-236**, hier nur weitergereicht. | nichts hier | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
-| 2 | Org-Rulesets von `iilgmbh` prüfen (`admin:org`-Scope fehlt). | nichts | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
+| 1 | ~~Enterprise-Zugehörigkeit bestätigen~~ — **erledigt 2026-08-24** am Goldstandard (GraphQL, 4 Member-Orgs). | — | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
+| 1a | ~~Sitz-Anomalie klären~~ — **erledigt**: 3 verbraucht / 2 gekauft, dritte Person ist `wirdigital`. Offen ist die **Konsequenz**: Amendment an ADR-236. | nichts hier | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
+| 2 | ~~Org-Rulesets prüfen~~ — **erledigt**: keine vorhanden. Org-Secrets dagegen neun, in Benutzung. | — | [#2262](https://github.com/achimdehnert/platform/issues/2262) |
 | 3 | V1–V3 herstellen und Pilot fahren. | jeder Bestandstransfer | [#2263](https://github.com/achimdehnert/platform/issues/2263) |
-| 4 | Org-Zuordnungs-Melder + generierte `CLAUDE.md`-Tabelle. | nichts | [#2264](https://github.com/achimdehnert/platform/issues/2264) |
-| 5 | Menschliche Gegenzeichnung der operativen Org-Administration (der zweite Owner) vor der Annahme — ohne sie bleibt gerade die Kontinuitätsbehauptung organisatorisch unbelegt. | Annahme | dieser ADR, `consulted` |
+| 4 | Melder **gebaut und verdrahtet** (`tools/org_zuordnung_melder.py`, täglicher Workflow). Offen bleibt die generierte `CLAUDE.md`-Tabelle. | nichts | [#2264](https://github.com/achimdehnert/platform/issues/2264) |
+| 5 | ~~Gegenzeichnung vor der Annahme~~ — vom Owner am 2026-08-24 entschieden, Substanz nach V1 verschoben (siehe Annahme). | erledigt | [#2263](https://github.com/achimdehnert/platform/issues/2263) |
 
 **Haltbarkeit der Messungen:** Die entscheidungstragenden Fakten (Teams, 2FA, Owner,
 Mitglieder, Enterprise-Zugehörigkeit) sind Momentaufnahmen vom 2026-08-24 mit belegter
