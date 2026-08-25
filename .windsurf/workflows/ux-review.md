@@ -218,7 +218,7 @@ Gate-Vorlage Routen-vs-Templates; getippte URLs im Bericht = 2.
 ### Test 3 — `blind` ist nie gruen (E4)
 
 ```
-/ux-review <repo> --kette "Login > X" --basis http://127.0.0.1:9   # nichts lauscht
+/ux-review <repo> --kette "Login > X" --basis http://127.0.0.1:65530   # nichts lauscht (kein Chromium-„unsafe port" wie :9 — der misst den Browser, nicht den Dienst)
 ```
 **Erwartung:** Station 1 `blind: Dienst antwortet nicht`, Zaehler `ok 0`, kein Issue,
 Exit-Zeile „Nicht verifiziert: gesamte Kette".
@@ -230,4 +230,6 @@ Exit-Zeile „Nicht verifiziert: gesamte Kette".
   keine PRs dorthin); Issue-Schema lebt im Skill statt als platform-Issue-Template (das gaelte
   nur fuer Issues in platform — Doppelquelle). Klassen-Katalog mit acht Klassen aus
   writing-hub/ausschreibungs-hub. Dogfood-Tests 1–2 sind die Positivkontrolle des Kill-Gates
-  und laufen im Pilot, nicht im PR dieses Skills.
+  und laufen im Pilot, nicht im PR dieses Skills. Dogfood beim Bau: Test 3 stand zuerst auf
+  Port 9 — Chromium lehnt den als „unsafe port" ab (`ERR_UNSAFE_PORT`), der Test haette den
+  Browser gemessen, nicht den Dienst; auf 65530 korrigiert (`ERR_CONNECTION_REFUSED` = `blind`).
