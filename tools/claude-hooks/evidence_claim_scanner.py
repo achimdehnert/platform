@@ -307,12 +307,24 @@ CLAIM_PATTERNS = [
     # Der absence-claim-Block oben verlangt ein Objekt aus fester Liste (Referenz/
     # Verweis/Doku/Treffer) oder die Wortfolge „hat kein" — ein blosser Allquantor
     # ueber ein beliebiges Objekt faellt durch.
+    #
+    # Ausweitung 2026-08-25 (Retro fdd368 §5a, Owner-Entscheid „ausweiten"): das
+    # Muster verlangte eine ZIFFER. Gemessen am Realfall:
+    #   „alle sieben Checks grün" -> VERFEHLT · „alle 7 Checks grün" -> TRIFFT
+    # Genau der erste Satz stand am 2026-08-25 in einer Antwort, während zwei
+    # Checks rot waren; der Owner sah es, das Gate nicht. Dieselbe Aussage,
+    # dieselbe Unwahrheit, zwei Schreibweisen — der Slug dafür heisst
+    # `gate-matches-spelling-not-substance` und stand mit ×5 ohne Gate da.
+    # Zahlwoerter bis zwoelf decken den realen Sprachgebrauch ab; darueber
+    # schreibt niemand mehr aus. „beide" ist derselbe Fall mit n=2.
     (
         re.compile(
             r"\bkein(?:e|en)?\s+einzig(?:er|e|es|en)\b"
             r"|\b(?:keine[rs]?|in\s+keine[rm])\s+(?:der|dieser|von\s+den)\b"
             r"|\b(?:ausnahmslos|durchweg|s(?:ä|ae)mtliche[nrs]?)\b"
-            r"|\balle[nrs]?\s+\d+\s+[A-Za-zÄÖÜäöüß-]{3,}\b"
+            r"|\balle[nrs]?\s+(?:\d+|zwei|drei|vier|f(?:ü|ue)nf|sechs|sieben|acht|"
+            r"neun|zehn|elf|zw(?:ö|oe)lf)\s+[A-Za-zÄÖÜäöüß-]{3,}\b"
+            r"|\bbeide[nrs]?\s+[A-Za-zÄÖÜäöüß-]{3,}\s+(?:sind|waren|liefen|stehen)\b"
             r"|\bnot\s+(?:a\s+)?single\b|\bnone\s+of\s+(?:the|these)\b|\bevery\s+single\b",
             re.I,
         ),
@@ -643,6 +655,52 @@ def _check_nach_push(tool_inputs: list):
     return False
 
 
+# Ausweitung 2026-08-25 (Retro fdd368 §5a): ein Beleg, der durch `head`/`tail`
+# abgeschnitten wurde, traegt keine Aussage ueber ALLE Elemente einer Liste.
+#
+# Realfall: `gh pr checks 761 | tail -12` zeigte zwoelf gruene Zeilen, die zwei
+# roten standen weiter oben. Der billigste Check LIEF — deshalb griff die
+# bestehende Korroboration und winkte „alle Checks gruen" durch. Das Gate fragt
+# bisher „gab es ein Belegkommando?", nicht „konnte dessen Ausgabe die Aussage
+# ueberhaupt tragen?".
+#
+# Bewusst eng: nur LISTEN-Kommandos, deren Zeilenfolge nichts garantiert. Ein
+# `make test | tail -3` bleibt gueltig, weil pytest seine Summenzeile ans Ende
+# schreibt — dort ist der Anschnitt die richtige Stelle, nicht ein Verlust.
+_ABSCHNITT_RE = re.compile(r"\|\s*(?:head|tail)\b", re.I)
+_LISTEN_KOMMANDO_RE = re.compile(
+    r"gh\s+pr\s+checks\b|gh\s+run\s+list\b|gh\s+(?:pr|issue)\s+list\b|"
+    r"gh\s+api\b|git\s+status\b|git\s+branch\b|docker\s+ps\b|\bls\s+-",
+    re.I,
+)
+#: Gegenprobe im selben Zug: wer nach dem GEGENTEIL filtert, hat die Liste
+#: vollstaendig befragt — `awk '$2!="pass"'`, `grep -v`, `grep -c`. Eine leere
+#: Ausgabe ist dann der Beleg, kein Ausschnitt.
+_GEGENPROBE_RE = re.compile(
+    r"grep\s+-[a-zA-Z]*[vc]|awk\s+[^\n]*!=|\|\s*wc\s+-l|--jq\b|-q\s+['\"][^\n]*select",
+    re.I,
+)
+
+
+def _beleg_abgeschnitten(tool_inputs: list) -> bool:
+    """Lief ein Listen-Kommando dieses Zuges durch `head`/`tail` — ohne Gegenprobe?
+
+    True = ja, die Ausgabe kann eine Allaussage nicht tragen. False = kein
+    solcher Fall ODER im selben Zug wurde zusaetzlich nach dem Gegenteil
+    gefiltert (dann ist die Liste vollstaendig befragt worden).
+    """
+    abgeschnitten = False
+    for name, inp in tool_inputs:
+        if name != "Bash" or not isinstance(inp, dict):
+            continue
+        cmd = str(inp.get("command", ""))
+        if _GEGENPROBE_RE.search(cmd) and _LISTEN_KOMMANDO_RE.search(cmd):
+            return False
+        if _LISTEN_KOMMANDO_RE.search(cmd) and _ABSCHNITT_RE.search(cmd):
+            abgeschnitten = True
+    return abgeschnitten
+
+
 def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
@@ -717,7 +775,12 @@ def main() -> int:
         for label in fired
         if label not in ("universal-claim", "soft-quantifier-claim")
     ]
-    if universal_fired and not ABSENCE_EVIDENCE_TOKENS.search(evidence_text):
+    # Zweite Bedingung seit 2026-08-25: selbst eine Breitsuche belegt nichts ueber
+    # ALLE Elemente, wenn ihre Ausgabe durch head/tail abgeschnitten wurde.
+    if universal_fired and (
+        not ABSENCE_EVIDENCE_TOKENS.search(evidence_text)
+        or _beleg_abgeschnitten(tool_inputs)
+    ):
         fired.extend(universal_fired)
 
     # Funktions-Negation und Zeit-Claim brauchen den Lauf, nicht den Code.

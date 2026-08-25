@@ -355,3 +355,79 @@ def test_should_ci_status_ohne_push_im_turn_nicht_ordnungsgebunden_feuern(
     )
     _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
     assert out.get("decision") != "block", out
+
+
+# --- Ausweitung 2026-08-25: Schreibweise und abgeschnittener Beleg ----------------
+# Anlass: Retro fdd368 §5a. Zwei getrennte Luecken im selben Realfall — der Satz
+# „alle sieben Checks gruen" stand in einer Antwort, waehrend zwei Checks rot waren.
+
+
+@pytest.mark.parametrize(
+    "satz",
+    [
+        # Der woertliche Satz vom 2026-08-25. Traf das alte Muster NICHT, weil es
+        # eine Ziffer verlangte.
+        "PR #761 ist MERGEABLE, alle sieben Checks grün, reviewDecision leer.",
+        "alle drei Repos sind sauber",
+        "alle zwölf Sessions laufen noch",
+        # Die Ziffern-Variante muss weiterhin treffen (keine Regression).
+        "alle 7 Checks grün",
+        "alle 3 Repos sind sauber",
+    ],
+)
+def test_should_allaussage_auch_bei_ausgeschriebener_zahl_erkennen(satz: str) -> None:
+    assert "universal-claim" in _klassen(satz), (
+        f"{satz!r} rutscht durch — dieselbe Aussage in Ziffern wuerde treffen "
+        "(gate-matches-spelling-not-substance)"
+    )
+
+
+@pytest.mark.parametrize(
+    "satz",
+    [
+        # Zahlwort ohne Allquantor ist keine Allaussage.
+        "Ich habe sieben Checks angesehen.",
+        "Drei Repos waren betroffen.",
+        # „alle" ohne Zahlwort/Objekt bleibt ausserhalb dieses Musters.
+        "alle weiteren Schritte folgen morgen",
+    ],
+)
+def test_should_zahlwoerter_ohne_allquantor_in_ruhe_lassen(satz: str) -> None:
+    assert "universal-claim" not in _klassen(satz), f"{satz!r} ist ein Fehlalarm"
+
+
+def _bash(cmd: str) -> tuple[str, dict]:
+    return ("Bash", {"command": cmd})
+
+
+def test_should_abgeschnittenes_listen_kommando_als_beleg_verwerfen() -> None:
+    """Der Originalfall: `gh pr checks | tail -12` zeigte nur die gruenen Zeilen."""
+    assert scanner._beleg_abgeschnitten([_bash("gh pr checks 761 | tail -12")])
+
+
+def test_should_gegenprobe_im_selben_zug_gelten_lassen() -> None:
+    """Wer nach dem GEGENTEIL filtert, hat die Liste vollstaendig befragt."""
+    zug = [
+        _bash("gh pr checks 761 | tail -12"),
+        _bash('gh pr checks 761 | awk \'$2!="pass" && $2!="skipping"\''),
+    ]
+    assert not scanner._beleg_abgeschnitten(zug)
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # pytest schreibt seine Summenzeile ans Ende — dort ist `tail` die richtige
+        # Stelle, kein Verlust. Kein Listen-Kommando, also kein Treffer.
+        "make test-pg ARGS='-q' | tail -3",
+        "python3 -m pytest tests/ -q | tail -5",
+        # Listen-Kommando OHNE Anschnitt ist unverdaechtig.
+        "gh pr checks 761",
+        # Anschnitt OHNE Listen-Kommando ebenfalls.
+        "cat CHANGELOG.md | head -20",
+    ],
+)
+def test_should_legitimen_anschnitt_nicht_verwerfen(cmd: str) -> None:
+    assert not scanner._beleg_abgeschnitten([_bash(cmd)]), (
+        f"{cmd!r} ist ein Fehlalarm — hier traegt der Anschnitt die Aussage"
+    )
