@@ -16,6 +16,13 @@
 # ROT IST BEFUND, kein Defekt: 46 ungedeckte Volumes am Erstlauf sind Arbeit,
 # nicht ein kaputter Melder. Exit 2 (blind) bekommt ein eigenes Issue, weil ein
 # Melder, der nichts messen konnte, nicht wie "0 Befunde" aussehen darf.
+#
+# Exit 3 (Scope-Luecke, hier immer: prod-b) ist seit dem 2026-08-25 "bekannt"
+# (Owner-Entscheid Weg B, platform#2284 K5): kein Runner-Key nach prod-b, prod-b
+# bleibt Sache des Sitzungsstarts von der Dev-Maschine. Ein taeglicher Kommentar
+# ueber denselben Zustand waere Rauschen, das niemand mehr liest. Deshalb: Exit 3
+# allein erzeugt weder Issue noch roten Lauf — nur eine Notice und eine Zeile in
+# der Job-Summary. Sobald Exit 1 oder 2 dazukommt, gilt wieder Issue + rot.
 name: backup-deckung
 
 on:
@@ -83,12 +90,19 @@ jobs:
         if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEKANNT: "3"
         run: |
           set -euo pipefail
           RC_D=$(cat /tmp/deckung.rc 2>/dev/null || echo "?")
           RC_S=$(cat /tmp/speicher.rc 2>/dev/null || echo "?")
           KURZ_D=$(cat /tmp/deckung.kurz 2>/dev/null || true)
           KURZ_S=$(cat /tmp/speicher.kurz 2>/dev/null || true)
+          # Weg B: nur Scope-Luecke(n) -> bekannt, kein Issue, kein Kommentar.
+          if [ "$RC_D" = "0" -o "$RC_D" = "$BEKANNT" ] && [ "$RC_S" = "0" -o "$RC_S" = "$BEKANNT" ]; then
+            echo "::notice title=Scope-Luecke bekannt::prod-b ohne Runner-Leser (Weg B, #2284 K5) — kein Issue. Deckung rc=$RC_D · Speicher rc=$RC_S"
+            { echo "### Scope-Luecke bekannt (Weg B)"; echo; echo "| Melder | Exit | Kurz |"; echo "|---|---|---|"; echo "| backup_deckung | $RC_D | ${KURZ_D:-—} |"; echo "| speicher_melder | $RC_S | ${KURZ_S:-—} |"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           gh api "repos/${GITHUB_REPOSITORY}/labels" \
             -f name="backup-deckung" -f color="b60205" \
             -f description="#2284: Volume ohne Backup-Antwort oder Platte unter Vorlauf" \
@@ -124,5 +138,9 @@ jobs:
       - name: "Gate: Ergebnis durchreichen"
         if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
         run: |
-          echo "Deckung rc=$(cat /tmp/deckung.rc 2>/dev/null || echo '?') · Speicher rc=$(cat /tmp/speicher.rc 2>/dev/null || echo '?') — ROT IST BEFUND (Issue angelegt/kommentiert)"
+          RC_D=$(cat /tmp/deckung.rc 2>/dev/null || echo "?"); RC_S=$(cat /tmp/speicher.rc 2>/dev/null || echo "?")
+          if [ "$RC_D" = "0" -o "$RC_D" = "3" ] && [ "$RC_S" = "0" -o "$RC_S" = "3" ]; then
+            echo "Nur bekannte Scope-Luecke (Exit 3, Weg B) — Lauf bleibt gruen."; exit 0
+          fi
+          echo "Deckung rc=$RC_D · Speicher rc=$RC_S — ROT IST BEFUND (Issue angelegt/kommentiert)"
           exit 1
