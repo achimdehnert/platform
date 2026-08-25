@@ -518,6 +518,16 @@
           "probe": "ungeprueft"
         }
       ]
+    },
+    {
+      "slug": "no-checks-reported-read-as-green",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/claude-hooks/block_merge_without_gate.sh",
+      "drill": "tools/claude-hooks/tests/test_block_merge_without_gate.py",
+      "built": "2026-08-25",
+      "ref": "platform#2304",
+      "note": "Retro 3106ae Befund #1: `gh pr checks 51` meldete 'no checks reported', das wurde als gruenes Licht gelesen, der PR gemergt und iil-aifw==0.13.0 nach PyPI veroeffentlicht. Erst die Retro fand, dass das CI jenes Repos seit sechs Tagen VOR jedem Job scheiterte (Workflow-Referenz mit einem Pfadteil zu viel, aifw#53). Eine leere Pruefliste sieht aus wie Ruhe und heisst 'hier prueft nichts'. Eigener Slug statt Ausweitung von `claim-before-cheapest-check`: jener liest die SPRACHE einer Behauptung, hier wurde nichts behauptet sondern gehandelt — fuer einen Textscanner ist die Familie unsichtbar. Owner-Entscheid 2026-08-25 'ausweiten', umgesetzt als eigenstaendiges PreToolUse-Gate. `--admin` passiert bewusst: das ist der benannte Bypass eines Menschen, nicht der stille Fall."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
