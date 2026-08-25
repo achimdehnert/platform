@@ -20,6 +20,17 @@ berührt wird).
    Merke: In Repos mit Auto-Deploy-on-main ist der **Merge selbst** ein
    Prod-Schritt und damit gate-pflichtig.
 
+   **Allowlist (Owner-Go 2026-08-25, Kapitäns-Kanal „5 go"):**
+   - **Backup-Zielpfad- und Retention-Wartung in `infra-deploy`** (`scripts/db-backup.sh`:
+     `BACKUP_BASE`, `RETENTION_DAYS`, Platten-Floor) darf autonom gemergt und per
+     `git pull` auf `/opt/infra-deploy` nachgezogen werden, **wenn** (a) IaC zuerst,
+     Host danach (🌀 host_fix_must_mirror_to_iac), (b) bestehende Dumps verschoben,
+     nie gelöscht werden, und (c) der Beweislauf **am Artefakt** erfolgt (neuer Dump
+     liegt am neuen Ort, Root-Platte gewinnt messbar). Anlass: infra-deploy#5 lag
+     als „dein Zug" bei ~5 Tagen Restlaufzeit der Root-Platte — die Klasse ist
+     backup-first und reversibel (`mv` zurück), das Gate war je Einzelfall gezogen
+     statt je Klasse.
+
    **Klarstellung `platform` (Owner-Go 2026-08-10, D3).** Ein Merge nach
    `platform:main` löst `opt-platform-sync.yml` aus und zieht `/opt/platform`
    nach — den read-only Werkzeugklon, aus dem der nächtliche Mail-Ingest liest.
