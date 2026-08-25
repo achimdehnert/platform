@@ -96,23 +96,43 @@ def lade_hosts(pfad: Path) -> dict[str, str]:
     return raus
 
 
-def lade_verzicht(pfad: Path) -> dict[tuple[str, str], dict]:
-    """{(host, volume): eintrag} — nur Eintraege MIT Grund zaehlen.
+def lade_verzicht(pfad: Path) -> dict:
+    """Verzichtsliste in zwei Formen: exakt je (host, volume) und Regeln (Regex).
 
+    Rueckgabe: {(host, volume): eintrag, ..., "__regeln__": [(compiled, eintrag), ...]}.
     Ein Verzicht ohne Grund ist keine Entscheidung, sondern ein Loch in der
     Liste; er wird wie „nicht vorhanden" behandelt und im Bericht genannt.
+    Regeln gelten auf allen Hosts — sie beschreiben Klassen, die per Bauart
+    keinen Nutzdatenanspruch haben (Cache, static, Build-Cache, Staging).
     """
     if not pfad.exists():
-        return {}
+        return {"__regeln__": []}
     daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
-    raus = {}
+    raus: dict = {"__regeln__": []}
     for e in daten.get("verzicht") or []:
         if not isinstance(e, dict):
             continue
         host, volume = str(e.get("host", "")), str(e.get("volume", ""))
         if host and volume:
             raus[(host, volume)] = e
+    for r in daten.get("regeln") or []:
+        if not isinstance(r, dict) or not r.get("muster"):
+            continue
+        try:
+            raus["__regeln__"].append((re.compile(str(r["muster"]), re.I), r))
+        except re.error:
+            continue  # kaputte Regel deckt nichts — lieber rot als still gruen
     return raus
+
+
+def verzicht_fuer(verzicht: dict, host: str, name: str) -> dict | None:
+    """Exakter Eintrag schlaegt Regel; None = kein Verzicht."""
+    if (host, name) in verzicht:
+        return verzicht[(host, name)]
+    for muster, eintrag in verzicht.get("__regeln__", []):
+        if muster.search(name):
+            return {**eintrag, "_regel": muster.pattern}
+    return None
 
 
 def fernbefehl_volumes() -> str:
@@ -263,10 +283,13 @@ def bewerte_host(host: str, daten: dict, frisch: dict, verzicht: dict) -> list[d
             eintrag.update(klasse="pgdump", durch=dump_deckt[name])
         elif name in frisch_host["volumes"]:
             eintrag.update(klasse="volumes", durch="Sammel-Snapshot")
-        elif (host, name) in verzicht:
-            grund = verzicht[(host, name)].get("grund")
+        elif (v_e := verzicht_fuer(verzicht, host, name)) is not None:
+            grund = v_e.get("grund")
             if grund:
-                eintrag.update(klasse="verzicht", durch=str(grund))
+                durch = str(grund)
+                if v_e.get("_regel"):
+                    durch += f" [Regel: {v_e['_regel']}]"
+                eintrag.update(klasse="verzicht", durch=durch)
             else:
                 eintrag.update(klasse="UNGEDECKT", durch="Verzicht OHNE Grund")
         elif ANONYM_LABEL in labels:
