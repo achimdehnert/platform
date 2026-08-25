@@ -66,7 +66,7 @@ jobs:
           exit "$rc"
 
       - name: "Issue bei Rot oder Blind (Label backup-deckung)"
-        if: steps.deckung.outputs.rc != '0' || steps.speicher.outputs.rc != '0'
+        if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RC_D: ${{ steps.deckung.outputs.rc }}
@@ -108,7 +108,7 @@ jobs:
           fi
 
       - name: "Gate: Ergebnis durchreichen"
-        if: steps.deckung.outputs.rc != '0' || steps.speicher.outputs.rc != '0'
+        if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
         run: |
           echo "Deckung rc=${{ steps.deckung.outputs.rc }} · Speicher rc=${{ steps.speicher.outputs.rc }} — ROT IST BEFUND (Issue angelegt/kommentiert)"
           exit 1
