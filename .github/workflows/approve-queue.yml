@@ -1,0 +1,91 @@
+# approve-queue.yml — Owner-Go 2026-08-25 ("3 go"): die Approve-Entscheidung
+# bleibt beim Menschen (KONZ-032: Entscheidungsinstanz, kein Auto-Freigeber),
+# aber sie soll EINE Liste sein, nicht N Einzelklicks, die man suchen muss.
+#
+# Taeglich: alle offenen PRs, die nur noch am Code-Owner-Review haengen
+# (mergeStateStatus BLOCKED, Checks gruen, kein Draft), als eine Liste mit
+# /files-Links in ein rollendes Issue [approve-queue]. Ist die Liste leer,
+# wird das Issue geschlossen. Rot ist hier kein Befund — die Liste ist Arbeit.
+#
+# Was der Workflow NICHT tut: approven. Das waere ein Bot-Reviewer (Owner-Go
+# "6 bot reviewer", eigener PR mit Security-Config-Schritten).
+name: approve-queue
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # taeglich 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Blockierte PRs sammeln"
+        id: sammeln
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title,url,mergeStateStatus,reviewDecision,isDraft,author,updatedAt,files \
+            > /tmp/prs.json
+          python3 - <<'PY'
+          import json, datetime
+          prs = json.load(open("/tmp/prs.json"))
+          zeilen = []
+          for p in sorted(prs, key=lambda p: p["updatedAt"]):
+              if p["isDraft"] or p["mergeStateStatus"] != "BLOCKED":
+                  continue
+              if p.get("reviewDecision") == "APPROVED":
+                  continue  # blockiert aus anderem Grund (Checks) — nicht unsere Liste
+              pfade = sorted({f["path"].split("/")[0] + "/" for f in p.get("files", [])})
+              alter = (datetime.datetime.now(datetime.timezone.utc)
+                       - datetime.datetime.fromisoformat(p["updatedAt"].replace("Z", "+00:00"))).days
+              zeilen.append(f"- [ ] **#{p['number']}** {p['title'][:70]} — {p['url']}/files · {', '.join(pfade)} · {alter} d")
+          heute = datetime.date.today().isoformat()
+          if zeilen:
+              body = (f"## Approve-Queue {heute} — {len(zeilen)} PR(s) warten nur noch auf das Code-Owner-Review\n\n"
+                      "Checks grün, kein Draft, blockiert allein durch CODEOWNERS. Ein Klick je Zeile (/files → Review → Approve).\n\n"
+                      + "\n".join(zeilen)
+                      + "\n\nDiese Liste wird täglich 07:00 UTC neu erzeugt; ist sie leer, schließt sich das Issue.")
+          else:
+              body = f"## Approve-Queue {heute} — leer\n\nKein PR wartet auf ein Code-Owner-Review."
+          open("/tmp/queue.md", "w").write(body)
+          open("/tmp/anzahl", "w").write(str(len(zeilen)))
+          PY
+          echo "anzahl=$(cat /tmp/anzahl)" >> "$GITHUB_OUTPUT"
+
+      - name: "Rollendes Issue pflegen"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANZAHL: ${{ steps.sammeln.outputs.anzahl }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/labels" -f name="approve-queue" -f color="0e8a16" \
+            -f description="PRs, die nur noch auf das Code-Owner-Review warten" >/dev/null 2>&1 || true
+          existing=$(gh issue list --label approve-queue --state open --json number --jq '.[0].number // empty')
+          if [ "${ANZAHL}" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body-file /tmp/queue.md
+              gh issue close "$existing" --reason completed
+              echo "Queue leer — #$existing geschlossen"
+            else
+              echo "Queue leer, kein Issue offen"
+            fi
+            exit 0
+          fi
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file /tmp/queue.md --title "[approve-queue] ${ANZAHL} PR(s) warten auf Code-Owner-Review"
+            echo "Issue #$existing aktualisiert"
+          else
+            # --assignee IST die Zustellung.
+            gh issue create --title "[approve-queue] ${ANZAHL} PR(s) warten auf Code-Owner-Review" \
+              --label approve-queue --assignee "wirdigital" --assignee "achimdehnert" \
+              --body-file /tmp/queue.md
+          fi
