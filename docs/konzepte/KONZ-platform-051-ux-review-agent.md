@@ -183,4 +183,4 @@ Stufe 2 wird nicht gebaut; zwei verfehlt -> `sunset`.
 - `/kd-review` (C6), ADR-251 (C7) — das Gate davor
 - `policies/platform-agents.md` — Ort fuer Stufe 2
 - #2253 — Kill-Gate vor der ersten Zahl pre-registrieren
-- ALT-1 als eigenes Issue: Klassen-Tests flottenweit (risk-hub, billing-hub, weltenhub, bfagent)
+- ALT-1 als eigenes Issue: [#2326](https://github.com/achimdehnert/platform/issues/2326) — Klassen-Tests flottenweit (risk-hub, billing-hub, weltenhub, bfagent)
