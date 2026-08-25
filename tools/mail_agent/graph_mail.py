@@ -97,6 +97,18 @@ DEFAULT_CLIENT_ID = (
 SCOPES = "Mail.ReadWrite offline_access openid profile"
 GRAPH = "https://graph.microsoft.com/v1.0"
 
+# Postfach, auf das sich die Aufrufe beziehen. None = das angemeldete eigene
+# Postfach (/me). Ein freigegebenes Postfach wird ueber /users/<adresse>/
+# angesprochen; das genuegt mit dem vorhandenen Scope, solange der angemeldete
+# Benutzer Vollzugriff darauf hat — am 2026-08-25 gegen kontakt@iil.gmbh und
+# buchhaltung@iil.gmbh gemessen, ohne zusaetzliche Zustimmung in Entra.
+POSTFACH: str | None = None
+
+
+def _basis() -> str:
+    """Basis-URL: das eigene Postfach oder ein freigegebenes."""
+    return f"{GRAPH}/me" if POSTFACH is None else f"{GRAPH}/users/{POSTFACH}"
+
 
 def parse_env(path: Path) -> dict:
     v = {}
@@ -227,9 +239,9 @@ def _folders(tok: str) -> list[dict]:
 
     def walk(parent_id: str | None, prefix: str):
         url = (
-            f"{GRAPH}/me/mailFolders"
+            f"{_basis()}/mailFolders"
             if parent_id is None
-            else f"{GRAPH}/me/mailFolders/{parent_id}/childFolders"
+            else f"{_basis()}/mailFolders/{parent_id}/childFolders"
         )
         url += "?$top=100&$select=id,displayName,childFolderCount"
         r = _http("GET", url, headers=_auth(tok))
@@ -257,9 +269,9 @@ def ensure_path(tok: str, path: str) -> str:
         fid = find_folder(tok, prefix)
         if fid is None:
             url = (
-                f"{GRAPH}/me/mailFolders"
+                f"{_basis()}/mailFolders"
                 if parent_id is None
-                else f"{GRAPH}/me/mailFolders/{parent_id}/childFolders"
+                else f"{_basis()}/mailFolders/{parent_id}/childFolders"
             )
             r = _http("POST", url, headers=_auth(tok), json_body={"displayName": part})
             if r.status_code not in (200, 201):
@@ -284,7 +296,7 @@ def cmd_move_folder(tok: str, src_path: str, dest_parent_path: str) -> None:
     dest_id = ensure_path(tok, dest_parent_path)
     r = _http(
         "POST",
-        f"{GRAPH}/me/mailFolders/{src_id}/move",
+        f"{_basis()}/mailFolders/{src_id}/move",
         headers=_auth(tok),
         json_body={"destinationId": dest_id},
     )
@@ -317,7 +329,7 @@ def cmd_scan(tok: str, days: int, source_path: str = "inbox") -> None:
     label = "Posteingang" if src == "inbox" else source_path
     since = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() - days * 86400))
     url = (
-        f"{GRAPH}/me/mailFolders/{src}/messages?$top=200&$select=from"
+        f"{_basis()}/mailFolders/{src}/messages?$top=200&$select=from"
         f"&$filter=receivedDateTime ge {since}"
     )
     dom = Counter()
@@ -359,7 +371,7 @@ def _match_messages(
     hits, url = (
         [],
         (
-            f"{GRAPH}/me/mailFolders/{src}/messages?$top=100"
+            f"{_basis()}/mailFolders/{src}/messages?$top=100"
             "&$select=id,subject,from,receivedDateTime,categories"
             f"&$filter=receivedDateTime ge {since}"
             "&$orderby=receivedDateTime desc"
@@ -481,7 +493,7 @@ def download_attachments(
     """
     r = _http(
         "GET",
-        f"{GRAPH}/me/messages/{urllib.parse.quote(msg_id, safe='')}/attachments",
+        f"{_basis()}/messages/{urllib.parse.quote(msg_id, safe='')}/attachments",
         headers=_auth(tok),
     )
     if r.status_code != 200:
@@ -525,7 +537,7 @@ def cmd_show(
         mid = which
     r = _http(
         "GET",
-        f"{GRAPH}/me/messages/{urllib.parse.quote(mid, safe='')}"
+        f"{_basis()}/messages/{urllib.parse.quote(mid, safe='')}"
         "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
         headers=_auth(tok),
     )
@@ -578,7 +590,7 @@ def _find_messages(tok: str, from_sub: str, source_path: str, subject_sub: str =
     hits, url = (
         [],
         (
-            f"{GRAPH}/me/mailFolders/{src}/messages?$top=100"
+            f"{_basis()}/mailFolders/{src}/messages?$top=100"
             "&$select=id,subject,from,receivedDateTime"
         ),
     )
@@ -648,7 +660,7 @@ def cmd_move(
         for mid in nur_ids:
             r = _http(
                 "GET",
-                f"{GRAPH}/me/messages/{mid}"
+                f"{_basis()}/messages/{mid}"
                 "?$select=id,subject,receivedDateTime,from",
                 headers=_auth(tok),
             )
@@ -690,7 +702,7 @@ def cmd_move(
         for mid, *_ in hits:
             r = _http(
                 "POST",
-                f"{GRAPH}/me/messages/{mid}/move",
+                f"{_basis()}/messages/{mid}/move",
                 headers=_auth(tok),
                 json_body={"destinationId": dest},
             )
@@ -731,7 +743,7 @@ def cmd_move(
     for mid, *_ in hits:
         r = _http(
             "POST",
-            f"{GRAPH}/me/messages/{mid}/move",
+            f"{_basis()}/messages/{mid}/move",
             headers=_auth(tok),
             json_body={"destinationId": dest},
         )
@@ -805,7 +817,7 @@ def cmd_mark(
     for m in hits:
         r = _http(
             "PATCH",
-            f"{GRAPH}/me/messages/{urllib.parse.quote(m['id'], safe='')}",
+            f"{_basis()}/messages/{urllib.parse.quote(m['id'], safe='')}",
             headers=_auth(tok),
             json_body=patch,
         )
@@ -828,7 +840,7 @@ def cmd_trash(tok: str, msg_id: str) -> None:
     """
     r = _http(
         "POST",
-        f"{GRAPH}/me/messages/{msg_id}/move",
+        f"{_basis()}/messages/{msg_id}/move",
         headers=_auth(tok),
         json_body={"destinationId": "deleteditems"},
     )
@@ -872,7 +884,7 @@ def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
         payload = _file_attachment_payload(path)
         r = _http(
             "POST",
-            f"{GRAPH}/me/messages/{msg_id}/attachments",
+            f"{_basis()}/messages/{msg_id}/attachments",
             headers=_auth(tok),
             json_body=payload,
         )
@@ -1058,7 +1070,7 @@ def cmd_kategorisieren(
             continue
         r = _http(
             "PATCH",
-            f"{GRAPH}/me/messages/{urllib.parse.quote(m['id'], safe='')}",
+            f"{_basis()}/messages/{urllib.parse.quote(m['id'], safe='')}",
             headers=_auth(tok),
             json_body={"categories": nachher},
         )
@@ -1115,7 +1127,7 @@ def cmd_draft(
     if reply_to:
         r = _http(
             "POST",
-            f"{GRAPH}/me/messages/{reply_to}/createReply",
+            f"{_basis()}/messages/{reply_to}/createReply",
             headers=_auth(tok),
             json_body={},
         )
@@ -1146,7 +1158,7 @@ def cmd_draft(
         if cc:
             patch["ccRecipients"] = _empfaenger(cc)
         _http(
-            "PATCH", f"{GRAPH}/me/messages/{did}", headers=_auth(tok), json_body=patch
+            "PATCH", f"{_basis()}/messages/{did}", headers=_auth(tok), json_body=patch
         )
         if attach:
             _attach_files(tok, did, attach)
@@ -1162,7 +1174,7 @@ def cmd_draft(
     }
     if cc:
         body_json["ccRecipients"] = _empfaenger(cc)
-    r = _http("POST", f"{GRAPH}/me/messages", headers=_auth(tok), json_body=body_json)
+    r = _http("POST", f"{_basis()}/messages", headers=_auth(tok), json_body=body_json)
     if r.status_code not in (200, 201):
         sys.exit(
             f"FEHLER: Entwurf anlegen fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}"
@@ -1266,6 +1278,11 @@ def main() -> None:
     )
     ap.add_argument("--to-parent", help="Ziel-Elternordner bei --move-folder")
     ap.add_argument("--account")
+    ap.add_argument(
+        "--postfach",
+        help="freigegebenes Postfach statt des eigenen (z.B. buchhaltung@iil.gmbh); "
+        "setzt Vollzugriff des angemeldeten Benutzers voraus",
+    )
     ap.add_argument("--days", type=int, default=180)
     ap.add_argument("--from", dest="from_sub")
     ap.add_argument("--to")
@@ -1308,6 +1325,8 @@ def main() -> None:
         help="Kopfzeile über der Anrede bei --design (Default: Betreff)",
     )
     args = ap.parse_args()
+    if getattr(args, "postfach", None):
+        globals()["POSTFACH"] = args.postfach
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except AttributeError:
