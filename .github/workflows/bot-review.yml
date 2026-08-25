@@ -1,0 +1,85 @@
+# bot-review.yml — Owner-Go 2026-08-25 ("6 bot reviewer").
+#
+# VORSCHLAG, DER MEINE MACHT ERWEITERT (Lotsen-Charta Art. 3): dieser Workflow
+# gibt das Code-Owner-Review, das seit KONZ-032 als menschliche Entscheidung
+# gedacht war, fuer einen Teil der Pfade an ein Bot-Konto. Er wird erst
+# wirksam, wenn der Owner drei Dinge selbst tut (siehe PR-Text): Bot-Konto
+# anlegen, als Collaborator (write) eintragen, dessen PAT als Secret hinterlegen.
+# Bis dahin ist die Datei tot — der Secret-Check unten beendet den Lauf.
+#
+# Was der Bot NIE approvet (bleibt Mensch):
+#   - .github/CODEOWNERS und diese Datei selbst (Regeln ueber die eigene Macht)
+#   - policies/  (Verhaltensregeln des Lotsen)
+#   - docs/adr/  (Architekturentscheidungen)
+# Was er approvet: alles andere im CODEOWNERS-Perimeter, wenn (a) kein Draft,
+# (b) Autor ist der Owner-Account (Sitzungen laufen darunter), (c) ALLE Checks
+# gruen — kein pending, kein fail —, (d) der Context-Reviewer kommentiert hat.
+# Der Bot urteilt nicht inhaltlich; er stellt fest, dass jedes Gate-als-Code
+# gruen ist, und ersetzt den Reflex-Klick, der 400x im Monat gefallen ist.
+name: bot-review
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Bot-Token vorhanden?"
+        id: token
+        env:
+          BOT_REVIEW_TOKEN: ${{ secrets.BOT_REVIEW_TOKEN }}
+        run: |
+          if [ -z "${BOT_REVIEW_TOKEN}" ]; then
+            echo "BOT_REVIEW_TOKEN fehlt — Bot-Review nicht scharf (Owner-Schritt 3 offen)."
+            echo "scharf=nein" >> "$GITHUB_OUTPUT"
+          else
+            echo "scharf=ja" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Kandidaten pruefen und approven"
+        if: steps.token.outputs.scharf == 'ja'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_REVIEW_TOKEN }}
+          OWNER_LOGIN: achimdehnert
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,isDraft,author,mergeStateStatus,reviewDecision,files,statusCheckRollup,url \
+            > /tmp/prs.json
+          python3 - <<'PY'
+          import json
+          TABU = ("policies/", "docs/adr/", ".github/CODEOWNERS", ".github/workflows/bot-review.yml")
+          prs = json.load(open("/tmp/prs.json"))
+          out = []
+          for p in prs:
+              if p["isDraft"] or p["author"]["login"] != "achimdehnert":
+                  continue
+              if p["mergeStateStatus"] != "BLOCKED" or p.get("reviewDecision") == "APPROVED":
+                  continue
+              pfade = [f["path"] for f in p.get("files", [])]
+              if any(pf.startswith(t) or pf == t for pf in pfade for t in TABU):
+                  print(f"#{p['number']}: Tabu-Pfad — bleibt Mensch"); continue
+              checks = p.get("statusCheckRollup") or []
+              if not checks or any(c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL") for c in checks if c.get("status") != "COMPLETED" or True):
+                  offen = [c.get("name") or c.get("context") for c in checks if c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL")]
+                  print(f"#{p['number']}: Checks nicht komplett gruen ({offen[:3]}) — kein Approve"); continue
+              out.append(p["number"])
+          open("/tmp/kandidaten", "w").write("\n".join(str(n) for n in out))
+          PY
+          while read -r n; do
+            [ -n "$n" ] || continue
+            if ! gh pr view "$n" --repo "$GITHUB_REPOSITORY" --comments --json comments --jq '.comments[].author.login' | grep -q "github-actions"; then
+              echo "#$n: kein Context-Reviewer-Kommentar — kein Approve"; continue
+            fi
+            gh pr review "$n" --repo "$GITHUB_REPOSITORY" --approve \
+              --body "Bot-Review (bot-review.yml): alle Checks gruen, Context-Reviewer hat kommentiert, kein Tabu-Pfad (policies/, docs/adr/, CODEOWNERS). Kein inhaltliches Urteil — Gate-als-Code-Bilanz. Owner-Go 2026-08-25."
+            echo "#$n approved"
+          done < /tmp/kandidaten
