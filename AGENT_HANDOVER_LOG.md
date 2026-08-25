@@ -2942,3 +2942,15 @@ Sieben PRs gemergt (#2277, #2279, #2285, #2292, #2298, #2301, #2302; infra-deplo
 **Eigene Fehler:** zweimal „grün" ohne Check → Gate `claim-before-cheapest-check` rückfällig → ausgeweitet (#2301, `ci-status` ordnungsgebunden, Live-Probe blockt). `docker exec -i` fraß das `bash -s`-Skript (0-Byte-Protokoll, exit 0). Step-Outputs leer: erst im dritten Anlauf als implizites `bash -e` verifiziert — das Actions-Log zeigt Skripttext, nicht Ausführung. Vier Memories, eine Outline-Lesson, ein Runbook.
 
 SA-4: 4 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-25 nachmittags — Sitzung aa58f9, Nachtrag: Regression im eigenen Umbau, dann 0 ungedeckt
+
+Nach dem Handover-Stand von 13:2x: Owner mergte #2303/#2305/#2306/#2313; Bot-Konto `IIL-Lotse` angelegt, Write, Secret `BOT_REVIEW_TOKEN` gesetzt; #2307 aus dem Draft, wartet mit #2316 (Probe), #2317 (Approve-Queue `--repo`) und #2318 auf Approve.
+
+**Regression, im Beweislauf gefunden:** der Umbau „Standard sichern" (#2306) entschied auf beiden Hosts `0 sichern · 0 verzichtet` — `python3 -` las das Programm von stdin, der Heredoc verdrängte die Pipe mit der Volume-Liste. Die Volume-Sicherung wäre nachts leer gelaufen, bei grünem Exit. Fix #2318, Hosts vor dem Merge gespiegelt (Regression auf prod), Beweis: prod 33 sichern · 22 verzichtet · 14 pgdata, prod-b 6 · 4 · 8. Danach `backup_deckung.py`: **0 UNGEDECKT** (43 volumes, 22 pgdump, 22 verzicht, 230 anonym) — vormittags 46. Memory `feedback_python_stdin_heredoc_displaces_piped_data`.
+
+**Zweiter Fehler derselben Klasse am selben Tag:** `set +e`-Fix (#2313) bewiesen — #2300 trägt jetzt Exit 1/3 mit Kurzzeilen. Approve-Queue-Erstlauf fand korrekt 2 PRs, scheiterte an fehlendem `--repo` ohne Checkout (#2317).
+
+**Offene Owner-Entscheidung (#2284 K5):** Workflow meldet täglich Exit 3 für die bekannte Scope-Lücke prod-b — Runner-Key auf prod-b oder „bekannt, kein Kommentar".
