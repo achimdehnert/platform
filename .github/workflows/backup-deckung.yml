@@ -1,0 +1,114 @@
+# backup-deckung.yml — #2284 K5: kein Melder ohne Leser.
+#
+# Die beiden Melder aus #2284 speisen in den Sitzungsstart (0.7.17 / 0.7.18).
+# Der laeuft aber nur, wenn jemand eine Sitzung startet. Dieser Workflow ist der
+# zweite Leser: taeglich, nach dem Offsite-Push (02:30) und dem backup-meter
+# (05:00), und bei Rot ein Issue an den Owner — dasselbe Muster wie backup-meter.
+#
+# SCOPE-GRENZE, bewusst: der self-hosted Runner laeuft als root auf `prod` und
+# hat KEINEN ssh-Zugang zu sich selbst oder prod-b (gemessen 2026-08-25:
+# Permission denied). Er misst deshalb prod LOKAL (`--lokal prod --nur prod`).
+# prod-b und die uebrigen Hosts stehen in jedem Bericht als "nicht im Scope" —
+# keine Aussage, keine Entwarnung; der Sitzungsstart misst sie per ssh von der
+# Dev-Maschine. Den Runner-Key auf prod-b zu autorisieren waere Security-Config
+# und ist Owner-Sache (#2284).
+#
+# ROT IST BEFUND, kein Defekt: 46 ungedeckte Volumes am Erstlauf sind Arbeit,
+# nicht ein kaputter Melder. Exit 2 (blind) bekommt ein eigenes Issue, weil ein
+# Melder, der nichts messen konnte, nicht wie "0 Befunde" aussehen darf.
+name: backup-deckung
+
+on:
+  schedule:
+    - cron: "30 5 * * *" # taeglich 05:30 UTC — nach Offsite-Push und backup-meter
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  deckung:
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Backup-Deckung (prod lokal)"
+        id: deckung
+        # Begruendung: Exit 1 = Befund, 2 = blind, 3 = Scope-Luecke — alle drei
+        # sind erwartete Ergebnisse, nicht Abstuerze. Der Fehlerpfad ist der
+        # Issue-Schritt unten, der rc != 0 in ein Issue verwandelt; das Gate
+        # "Ergebnis durchreichen" macht den Lauf danach ohnehin rot.
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 tools/backup_deckung.py --lokal prod --nur prod | tee /tmp/deckung.md
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "kurz=$(python3 tools/backup_deckung.py --lokal prod --nur prod --kurz 2>/dev/null | head -c 200)" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: "Speicher-Vorlauf (prod lokal)"
+        id: speicher
+        # Begruendung: wie oben — Exit 1/2/3 sind Befundklassen, kein Absturz;
+        # Fehlerpfad = Issue-Schritt + rotes Gate am Ende.
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          # Journal des Runners: ~/.claude/speicher-journal.jsonl unter /root —
+          # ein eigenes Journal neben dem der Dev-Maschine, beide fuehren
+          # Tagespunkte, keines ist das andere.
+          python3 tools/speicher_melder.py --lokal prod --nur prod | tee /tmp/speicher.md
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "kurz=$(python3 tools/speicher_melder.py --lokal prod --nur prod --kurz 2>/dev/null | head -c 200)" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: "Issue bei Rot oder Blind (Label backup-deckung)"
+        if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RC_D: ${{ steps.deckung.outputs.rc }}
+          RC_S: ${{ steps.speicher.outputs.rc }}
+          KURZ_D: ${{ steps.deckung.outputs.kurz }}
+          KURZ_S: ${{ steps.speicher.outputs.kurz }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="backup-deckung" -f color="b60205" \
+            -f description="#2284: Volume ohne Backup-Antwort oder Platte unter Vorlauf" \
+            >/dev/null 2>&1 || true
+          {
+            echo "## Backup-Deckung / Speicher-Vorlauf — $(date -u +%Y-%m-%d) (prod lokal)"
+            echo
+            echo "| Melder | Exit | Kurz |"
+            echo "|---|---|---|"
+            echo "| backup_deckung | ${RC_D:-?} | ${KURZ_D:-—} |"
+            echo "| speicher_melder | ${RC_S:-?} | ${KURZ_S:-—} |"
+            echo
+            echo "Exit 1 = Befund · Exit 2 = **blind**, nichts gemessen · Exit 3 = **Scope-Luecke**, ein Host wurde bewusst nicht gemessen (prod-b: kein ssh vom Runner, #2284)."
+            echo
+            echo "<details><summary>Backup-Deckung</summary>"; echo; cat /tmp/deckung.md 2>/dev/null || echo "(keine Ausgabe)"; echo; echo "</details>"
+            echo "<details><summary>Speicher-Vorlauf</summary>"; echo; cat /tmp/speicher.md 2>/dev/null || echo "(keine Ausgabe)"; echo; echo "</details>"
+            echo
+            echo "Lauf: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} · Zielzustand #2284"
+          } > /tmp/issue.md
+          existing=$(gh issue list --label backup-deckung --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/issue.md
+            echo "Kommentar an bestehendes Issue #$existing"
+          else
+            # --assignee IST die Zustellung — ohne sie benachrichtigt das Issue niemanden.
+            gh issue create \
+              --title "[backup-deckung] $(date -u +%Y-%m-%d): ${KURZ_D:-Melder ohne Ausgabe}" \
+              --label backup-deckung \
+              --assignee "achimdehnert" \
+              --body-file /tmp/issue.md
+          fi
+
+      - name: "Gate: Ergebnis durchreichen"
+        if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
+        run: |
+          echo "Deckung rc=${{ steps.deckung.outputs.rc }} · Speicher rc=${{ steps.speicher.outputs.rc }} — ROT IST BEFUND (Issue angelegt/kommentiert)"
+          exit 1

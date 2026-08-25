@@ -1,0 +1,50 @@
+[
+ {
+  "Name": "illustration-hub_illustration_db_data",
+  "Links": "1",
+  "Size": "49.52MB",
+  "Labels": ""
+ },
+ {
+  "Name": "weltenhub_media_prod",
+  "Links": "2",
+  "Size": "0B",
+  "Labels": ""
+ },
+ {
+  "Name": "pptx-hub_media_data",
+  "Links": "2",
+  "Size": "0B",
+  "Labels": ""
+ },
+ {
+  "Name": "coach-hub_coach_hub_pgdata",
+  "Links": "1",
+  "Size": "74.27MB",
+  "Labels": ""
+ },
+ {
+  "Name": "weltenhub_static_prod",
+  "Links": "1",
+  "Size": "3.37MB",
+  "Labels": ""
+ },
+ {
+  "Name": "26145c5187ee370812c80baebfd63fdb6040d8ad1c1951802b87dfa380b5260f",
+  "Links": "1",
+  "Size": "88B",
+  "Labels": "com.docker.volume.anonymous="
+ },
+ {
+  "Name": "f8444865f8d92bfd5a1f681cde64299537728d38bae58d321e4b9ac6c871003c",
+  "Links": "0",
+  "Size": "50.57MB",
+  "Labels": "com.docker.volume.anonymous="
+ }
+]
+### CONTAINERS
+/weltenhub_web|ghcr.io/org/app:main-5a7cc30|weltenhub|weltenhub_static_prod,weltenhub_media_prod,
+/weltenhub_celery|ghcr.io/org/app:main-5a7cc30|weltenhub|weltenhub_media_prod,
+/pptx_hub_web|ghcr.io/org/app:main-7ed1566|pptx-hub|pptx-hub_media_data,
+/pptx_hub_worker|ghcr.io/org/app:main-7ed1566|pptx-hub|pptx-hub_media_data,
+/pptx_hub_redis|redis:7-alpine|pptx-hub|26145c5187ee370812c80baebfd63fdb6040d8ad1c1951802b87dfa380b5260f,
