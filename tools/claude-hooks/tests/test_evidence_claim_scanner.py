@@ -187,7 +187,9 @@ def test_should_ohne_claim_still_bleiben_auch_im_blocking_mode(
 # halten fest, dass sie nach dem GENANNTEN Gegenstand fragt.
 
 
-def _transcript_mit_evidenz(tmp_path, assistant_text: str, tool_input: dict, ergebnis: str):
+def _transcript_mit_evidenz(
+    tmp_path, assistant_text: str, tool_input: dict, ergebnis: str
+):
     import json as _json
 
     p = tmp_path / "transcript_ev.jsonl"
@@ -204,9 +206,7 @@ def _transcript_mit_evidenz(tmp_path, assistant_text: str, tool_input: dict, erg
         },
         {
             "type": "user",
-            "message": {
-                "content": [{"type": "tool_result", "content": ergebnis}]
-            },
+            "message": {"content": [{"type": "tool_result", "content": ergebnis}]},
         },
     ]
     p.write_text("\n".join(_json.dumps(z) for z in zeilen), encoding="utf-8")
@@ -267,3 +267,91 @@ def test_should_claim_mit_passendem_beleg_durchlassen(monkeypatch, capsys, tmp_p
     )
     rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
     assert rc == 0 and not out
+
+
+# --- ci-status: ordnungsgebundene Korroboration (Retro aa58f9, 2026-08-25) ---------
+# Zwei Rueckfaelle in einer Sitzung: "CI gruen" nach dem Push, der die CI rot
+# machte, und "laeuft im Hintergrund" nach einem Dispatch mit 404. Beide Turns
+# hatten FRUEHER ein `gh pr checks` — die generische Korroboration war erfuellt
+# und belegte den falschen Zeitpunkt.
+
+
+def _transcript_mit_werkzeugen(tmp_path, kommandos: list[str], assistant_text: str):
+    import json as _json
+
+    p = tmp_path / "transcript_ci.jsonl"
+    inhalt = [
+        {"type": "tool_use", "name": "Bash", "input": {"command": k}} for k in kommandos
+    ]
+    inhalt.append({"type": "text", "text": assistant_text})
+    zeilen = [
+        {"type": "user", "message": {"content": "mach mal"}},
+        {"type": "assistant", "message": {"content": inhalt}},
+        {
+            "type": "user",
+            "message": {"content": [{"type": "tool_result", "content": "ok"}]},
+        },
+    ]
+    p.write_text("\n".join(_json.dumps(z) for z in zeilen), encoding="utf-8")
+    return p
+
+
+def test_should_ci_status_nach_push_ohne_check_blocken(monkeypatch, capsys, tmp_path):
+    """Der Realfall: gh pr checks VOR dem Push, dann Push, dann 'CI gruen'."""
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["gh pr checks 2285", "git push origin HEAD"],
+        "Gepusht — CI grün, wartet auf Code-Owner.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") == "block", out
+    assert "ci-status" in out.get("reason", "")
+
+
+def test_should_ci_status_mit_check_nach_push_durchlassen(
+    monkeypatch, capsys, tmp_path
+):
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["git push origin HEAD", "gh pr checks 2285"],
+        "Gepusht — CI grün, wartet auf Code-Owner.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") != "block", out
+
+
+def test_should_check_im_selben_kommando_hinter_dem_push_zaehlen(
+    monkeypatch, capsys, tmp_path
+):
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["git push origin HEAD && gh pr checks 2285"],
+        "Gepusht — CI grün.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") != "block", out
+
+
+def test_should_hintergrundlauf_nach_dispatch_ohne_run_view_blocken(
+    monkeypatch, capsys, tmp_path
+):
+    """Der zweite Realfall: Dispatch lieferte 404, die Schleife lief auf leerer Run-ID."""
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["gh workflow run backup-deckung.yml --ref session/x"],
+        "Der Beweislauf läuft im Hintergrund.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") == "block", out
+    assert "ci-status" in out.get("reason", "")
+
+
+def test_should_ci_status_ohne_push_im_turn_nicht_ordnungsgebunden_feuern(
+    monkeypatch, capsys, tmp_path
+):
+    """Ohne push/dispatch entscheidet die generische Korroboration — hier: gh pr checks lief."""
+    p = _transcript_mit_werkzeugen(
+        tmp_path, ["gh pr checks 2285"], "Stand: CI grün auf #2285."
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") != "block", out
