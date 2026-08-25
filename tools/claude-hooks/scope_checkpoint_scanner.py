@@ -117,6 +117,27 @@ _WIRKUNGS_FLAGGE = re.compile(
     r"--apply\b|--allow-live\b|--sync\b|\breap\b|\bworktree\s+remove\b", re.I
 )
 
+#: Rev 4, Ausweitung 2026-08-25 (Retro fdd368 §5a, Owner-Entscheid „ausweiten"):
+#: dritter Ausloeser — eine LAUFENDE Ressource beendet, die diese Sitzung nicht
+#: gestartet hat.
+#:
+#: Anlass: am 2026-08-25 wurde ein seit dem Vortag laufender Entwicklungsserver
+#: per `kill <pid>` beendet, waehrend zwoelf Sitzungen parallel liefen. Die
+#: Zugehoerigkeit wurde erst DANACH ueber `/proc/<pid>/cwd` plausibilisiert. Beide
+#: bestehenden Ausloeser griffen nicht: es war kein drittes beschriebenes Repo und
+#: kein Prod-Schritt. Der Ausgang war harmlos — aber der Checkpoint fragt nach dem
+#: gewachsenen SCOPE, nicht nach dem entstandenen Schaden. Genau diese
+#: Harmlosigkeits-Ausnahme hoehlt ihn aus, und genau so kam der Slug wieder.
+#:
+#: Bewusst eng: nur das Beenden fremder Prozesse und Dienste. `docker compose
+#: up/down` auf den eigenen Stack ist Alltag und faellt absichtlich nicht darunter.
+_FREMDE_RESSOURCE = re.compile(
+    r"\bkill\s+(?:-\w+\s+)?\d{2,}\b|\bpkill\b|\bkillall\b"
+    r"|\bsystemctl\s+(?:stop|restart|disable|mask)\b"
+    r"|\bdocker\s+(?:kill|stop)\s+\S",
+    re.I,
+)
+
 # Durables Artefakt (unveraendert aus Rev 1, nur sitzungsweit ausgewertet).
 _DURABLE_CMD = re.compile(r"gh\s+(?:pr|issue)\s+(?:comment|create|edit)", re.I)
 _DURABLE_FILE = re.compile(r"docs/|AGENT_HANDOVER|KONZ-|ledger|\.claude/boards/", re.I)
@@ -228,6 +249,7 @@ def sammle_evidenz(transcript_path: Path) -> dict:
         "prod": False,
         "checkpoint_text": "",
         "durables_artefakt": False,
+        "fremde_ressource": "",
     }
     # Reihenfolge zaehlt: ein durables Artefakt BELEGT den Checkpoint nur,
     # wenn es nach ihm entstand. Ohne diese Kopplung genuegte irgendein
@@ -300,6 +322,13 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                     continue
                 if _PROD.search(cmd):
                     ergebnis["prod"] = True
+                # Rev 4: fremde laufende Ressource beendet — eigener Ausloeser,
+                # unabhaengig von Repo-Zahl und Prod. Der erste Treffer traegt
+                # den Beleg; spaetere ueberschreiben ihn nicht.
+                if not ergebnis["fremde_ressource"] and (
+                    m := _FREMDE_RESSOURCE.search(cmd)
+                ):
+                    ergebnis["fremde_ressource"] = m.group(0).strip()
                 if _DURABLE_CMD.search(cmd):
                     durable_bei.append(schritt)
                 # Die Ausgabe eines wirkenden Kommandos traegt seine Reichweite.
@@ -369,6 +398,8 @@ def main() -> int:
         ausloeser.append(f"{len(repos)} beschriebene Repos ({', '.join(repos)})")
     if ev["prod"]:
         ausloeser.append("Prod-/Publish-Schritt")
+    if ev["fremde_ressource"]:
+        ausloeser.append(f"fremde Ressource beendet ({ev['fremde_ressource']})")
     if not ausloeser:
         return 0  # keine Pflicht entstanden
 

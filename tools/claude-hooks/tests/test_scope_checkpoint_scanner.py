@@ -345,3 +345,52 @@ def test_should_lange_ausgabe_beschneiden():
     """Kostenbremse: nur der Anfang der Ausgabe wird abgesucht."""
     text = "x" * (scanner._AUSGABE_MAX + 500) + "/home/devuser/github/spaet-hub/x"
     assert "spaet-hub" not in scanner._repos_aus_ausgabe(text)
+
+
+# --- Rev 4 (2026-08-25): fremde laufende Ressource beendet ------------------------
+# Anlass: Retro fdd368 §5a. Ein seit dem Vortag laufender Dev-Server wurde per
+# `kill <pid>` beendet, waehrend zwoelf Sitzungen parallel liefen; die Zugehoerigkeit
+# wurde erst danach ueber /proc/<pid>/cwd geprueft. Weder drittes Repo noch Prod —
+# beide bestehenden Ausloeser griffen nicht.
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Der Realfall, woertlich.
+        "kill 2333741",
+        "kill -9 2333741",
+        "pkill -f runserver",
+        "killall python3",
+        "sudo systemctl stop ssh-tunnel-postgres",
+        "systemctl restart nginx",
+        "docker kill writing_hub_web_dev",
+        "docker stop weltenhub_local_db",
+    ],
+)
+def test_should_fremde_ressource_als_ausloeser_erkennen(cmd: str) -> None:
+    from scope_checkpoint_scanner import _FREMDE_RESSOURCE
+
+    assert _FREMDE_RESSOURCE.search(cmd), f"{cmd!r} loest den Checkpoint nicht aus"
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Der eigene Stack hoch- und runterfahren ist Alltag, kein Scope-Wachstum.
+        "docker compose up -d web worker",
+        "docker compose down",
+        "docker compose restart web",
+        # Lesende Prozess-Sicht ist ausdruecklich erlaubt — sie ist sogar das,
+        # was VOR einem kill passieren soll.
+        "ps -o lstart= -p 2333741",
+        "ss -tlnp | grep :8082",
+        "docker ps --format '{{.Names}}'",
+        # Wortbestandteile duerfen nicht treffen.
+        "git log --oneline | grep killer-feature",
+    ],
+)
+def test_should_alltagskommandos_nicht_als_ausloeser_werten(cmd: str) -> None:
+    from scope_checkpoint_scanner import _FREMDE_RESSOURCE
+
+    assert not _FREMDE_RESSOURCE.search(cmd), f"{cmd!r} ist ein Fehlalarm"

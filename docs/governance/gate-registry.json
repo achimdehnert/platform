@@ -11,8 +11,8 @@
       "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1643",
-      "revised": "2026-08-20",
-      "revision_note": "Ausweitung um die Subjektbindung (platform#2143, Owner-Entscheid 'ausweiten'): die Korroboration fragte nur, OB belegartiges Werkzeug lief, nicht ob es den GENANNTEN Gegenstand beruehrt hat. Frist und Mindestzahl des Kalibrierfensters stehen jetzt maschinenlesbar in `kalibrierfenster` — die erste Fassung nannte nur ein Datum in diesem Prosafeld, und genau das war der Fehler (s. dort).",
+      "revised": "2026-08-25",
+      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt.",
       "kalibrierfenster": {
         "klasse": "kinds=subjekt-unbelegt-kalibrierung",
         "seit": "2026-08-23",
@@ -61,8 +61,8 @@
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1646",
-      "revised": "2026-08-23",
-      "revision_note": "Rev 3, Ausweitung der MESSGROESSE (platform#2143): Reichweite wird an der Wirkung gemessen, nicht an den Argumenten. Anlass ist der Rueckfall aus Retro 8d6869-incr #8 — ein Flottenlauf entfernte 69 Arbeitskopien und blieb unter der Drei-Repo-Schwelle, weil im Aufruf ein einziger Pfad stand. Rev 3 zaehlt zusaetzlich die Repos, die ein WIRKENDES Kommando laut seiner eigenen Ausgabe angefasst hat; wirkend heisst: git/gh-Schreibkommando ODER die hauseigene Wirkungs-Konvention (--apply/--allow-live/--sync/reap), die vom Trockenlauf unterscheidet. Lesende Kommandos mit derselben Ausgabe zaehlen ausdruecklich nicht (eigener Drill). Die frueher gemeldete Schreibweisen-Verdopplung war bereits am 2026-08-21 behoben und ist NICHT Gegenstand dieser Revision.",
+      "revised": "2026-08-25",
+      "revision_note": "Rev 4, DRITTER AUSLOESER nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'): eine laufende Ressource beenden, die diese Sitzung nicht gestartet hat (kill/pkill/killall, systemctl stop|restart|disable|mask, docker kill|stop). Anlass: am 2026-08-25 wurde ein seit dem Vortag laufender Dev-Server per 'kill <pid>' beendet, waehrend zwoelf Sitzungen parallel liefen; die Zugehoerigkeit wurde erst DANACH ueber /proc/<pid>/cwd plausibilisiert. Beide bestehenden Ausloeser griffen nicht — kein drittes beschriebenes Repo, kein Prod-Schritt. Der Ausgang war harmlos, und genau das ist der Punkt: der Checkpoint fragt nach dem gewachsenen SCOPE, nicht nach dem entstandenen Schaden; eine Harmlosigkeits-Ausnahme hoehlt ihn aus. Bewusst eng: 'docker compose up/down' auf den eigenen Stack faellt nicht darunter (eigener Drill), lesende Prozess-Sicht (ps, ss) ebenfalls nicht — sie ist das, was VOR einem kill passieren soll.",
       "faengt": [
         {
           "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
