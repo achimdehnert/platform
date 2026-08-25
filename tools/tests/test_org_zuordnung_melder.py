@@ -21,6 +21,7 @@ from org_zuordnung_melder import (  # noqa: E402
     check_b,
     check_c,
     main,
+    mit_zwischenspeicher,
     real_owner,
 )
 
@@ -130,7 +131,7 @@ PROD = {"rich": {"github": "achimdehnert/neu-hub", "lifecycle": "production"}}
 
 def test_should_flag_new_productive_repo_on_personal_account():
     reg = _registry({"neu-hub": PROD})
-    funde = check_c(
+    funde, _ = check_c(
         reg,
         lambda o, n: _antwort("achimdehnert", "2026-08-25T09:00:00Z"),
         lambda login: "User",
@@ -142,7 +143,7 @@ def test_should_flag_new_productive_repo_on_personal_account():
 def test_should_not_flag_existing_repo_before_stichtag():
     """ADR-297 Ebene 2: Bestand wandert nicht pauschal — sonst 50 Zeilen beim ersten Lauf."""
     reg = _registry({"neu-hub": PROD})
-    funde = check_c(
+    funde, _ = check_c(
         reg,
         lambda o, n: _antwort("achimdehnert", "2026-08-23T23:59:59Z"),
         lambda login: "User",
@@ -153,7 +154,7 @@ def test_should_not_flag_existing_repo_before_stichtag():
 
 def test_should_not_flag_new_repo_inside_an_organisation():
     reg = _registry({"neu-hub": PROD})
-    funde = check_c(
+    funde, _ = check_c(
         reg,
         lambda o, n: _antwort("iilgmbh", "2026-08-25T09:00:00Z"),
         lambda login: "Organization",
@@ -165,13 +166,55 @@ def test_should_not_flag_new_repo_inside_an_organisation():
 def test_should_not_flag_new_sandbox_repo():
     """Klasse 5 hat keine Betriebsverantwortung — der Leitsatz erlaubt sie ausdruecklich."""
     reg = _registry({"spiel-hub": {"rich": {"github": "achimdehnert/spiel-hub"}}})
-    funde = check_c(
+    funde, _ = check_c(
         reg,
         lambda o, n: _antwort("achimdehnert", "2026-08-25T09:00:00Z"),
         lambda login: "User",
         STICHTAG,
     )
     assert funde == []
+
+
+def test_should_find_leitsatz_verstoss_when_declaration_points_nowhere():
+    """Der Kernbefund aus platform#2264 — check_c hatte den Fallback aus check_b nie.
+
+    Ein produktives Repo, dessen Deklaration ins Leere zeigt, verliess check_c ueber
+    ein stilles `continue`: kein Fund, keine Zaehlung. Ausgerechnet der Fall, in dem
+    Deklaration UND Konto falsch sind, war der einzige, den der Leitsatz-Check nicht
+    sah. Ohne den Fallback endet dieser Test bei 0 Funden.
+    """
+    reg = _registry({"neu-hub": PROD}, repo_owner={"neu-hub": "iilgmbh"})
+    reg.bekannte_konten = ["iilgmbh", "achimdehnert"]
+
+    def fetch(owner, name):
+        if owner != "achimdehnert":
+            return None  # die Deklaration zeigt ins Leere
+        return _antwort("achimdehnert", "2026-08-25T09:00:00Z")
+
+    funde, unerreichbar = check_c(reg, fetch, lambda login: "User", STICHTAG)
+    assert unerreichbar == []
+    assert len(funde) == 1 and funde[0].gefunden == "achimdehnert (User)"
+
+
+def test_should_report_unreachable_productive_repo_as_unchecked():
+    """Nicht abrufbar heisst ungeprueft, nicht regelkonform — und muss gezaehlt werden."""
+    reg = _registry({"neu-hub": PROD})
+    reg.bekannte_konten = ["achimdehnert", "iilgmbh"]
+    funde, unerreichbar = check_c(reg, lambda o, n: None, lambda login: "User", STICHTAG)
+    assert funde == [] and unerreichbar == ["neu-hub"]
+
+
+def test_should_report_productive_repo_without_creation_date_as_unchecked():
+    """Ohne `created_at` ist die Grenze Ebene 1 / Ebene 2 nicht entscheidbar.
+
+    Dasselbe stille `continue` wie beim fehlenden Abruf, nur eine Zeile spaeter —
+    deshalb im selben Zug behoben und nicht als Geschwisterfall liegengelassen.
+    """
+    reg = _registry({"neu-hub": PROD})
+    funde, unerreichbar = check_c(
+        reg, lambda o, n: {"owner": {"login": "achimdehnert"}}, lambda login: "User", STICHTAG
+    )
+    assert funde == [] and unerreichbar == ["neu-hub"]
 
 
 # --- CLI ----------------------------------------------------------------------
@@ -204,6 +247,47 @@ def test_should_exit_1_on_finding_and_0_when_clean(tmp_path, capsys):
 
 def test_should_exit_2_when_registry_is_unreadable(tmp_path, capsys):
     assert main(["--registry", str(tmp_path / "gibt-es-nicht.yaml"), "--offline"]) == 2
+
+
+def test_should_exit_2_when_no_repo_is_reachable(tmp_path, capsys, monkeypatch):
+    """Der Totalausfall des Zugangs war bis dahin das gruenste Ergebnis des Melders.
+
+    Kein `gh`-Login -> jeder Abruf None -> check_b meldet alles als "nicht pruefbar",
+    check_c uebersprang alles, `funde` blieb leer und main gab 0 zurueck. Ein blindes
+    Messgeraet darf nicht wie ein sauberer Befund aussehen (Exit 2, nicht 0).
+    """
+    import org_zuordnung_melder as melder
+
+    pfad = tmp_path / "canonical.yaml"
+    pfad.write_text(
+        yaml.safe_dump(
+            {
+                "meta": {"server": {"github_org": "achimdehnert"}},
+                "repos": {"a-hub": {}, "b-hub": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(melder, "repo_abrufen", lambda owner, name: None)
+    assert melder.main(["--registry", str(pfad)]) == 2
+    ausgabe = capsys.readouterr().out
+    assert "Kein Fund" not in ausgabe
+    assert "misst nichts" in ausgabe
+
+
+def test_should_not_call_github_twice_for_the_same_repo():
+    """B und C fragen dieselben Repos — der Zwischenspeicher halbiert die Aufrufe."""
+    aufrufe: list[tuple[str, str]] = []
+
+    def fetch(owner, name):
+        aufrufe.append((owner, name))
+        return _antwort("achimdehnert", "2026-08-25T09:00:00Z")
+
+    geholt = mit_zwischenspeicher(fetch)
+    reg = _registry({"neu-hub": PROD})
+    check_b(reg, geholt)
+    check_c(reg, geholt, lambda login: "User", STICHTAG)
+    assert aufrufe == [("achimdehnert", "neu-hub")]
 
 
 def test_should_find_repo_under_another_owner_when_declaration_points_nowhere():
