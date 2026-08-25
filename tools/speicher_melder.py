@@ -43,6 +43,8 @@ Exit-Codes
 ----------
 0 = OK oder SAMMELPHASE · 1 = ≥1 Platte < 7 Tage oder < 10 % frei
 2 = kein einziger Host erreichbar — blind ist nicht gruen.
+3 = sauber gemessen, aber `--nur HOST` liess Hosts aus (Scope-Luecke) — gleicher
+    Vertrag wie backup_deckung.py, damit der Workflow beide gleich liest.
 Ein einzelner unerreichbarer Host ist ein WARN-Befund, kein Werkzeugfehler.
 
 Usage
@@ -371,7 +373,9 @@ def main(argv: list[str] | None = None) -> int:
         print(bericht(e))
     if e["blind"]:
         return 2
-    return 1 if any(p["warn"] for p in e["platten"]) else 0
+    if any(p["warn"] for p in e["platten"]):
+        return 1
+    return 3 if ausserhalb else 0
 
 
 if __name__ == "__main__":

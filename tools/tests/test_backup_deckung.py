@@ -240,3 +240,26 @@ def test_should_name_hosts_outside_the_scope_instead_of_calling_them_green(tmp_p
     zeile = bd.kurzzeile(e)
     assert zeile.startswith("OK:") and "nicht im Scope: prod-b" in zeile
     assert "prod-b" in bd.bericht(e)
+
+
+def test_should_exit_3_when_hosts_were_left_out_but_everything_measured_is_clean(
+    tmp_path,
+):
+    """Retro aa58f9 #3: ohne diesen Zustand war prod-b im Workflow ein Host ohne
+    Leser, der wie ein Host ohne Befund aussah. Befund (1) und blind (2) haben
+    Vorrang — die Luecke ist der schwaechste, nicht der lauteste Zustand."""
+    hosts = tmp_path / "hosts.yaml"
+    hosts.write_text(
+        "hosts:\n  prod:\n    ssh: root@1.1.1.1\n  prod-b:\n    ssh: root@2.2.2.2\n",
+        encoding="utf-8",
+    )
+    fx = tmp_path / "fx"
+    fx.mkdir()
+    (fx / "host_prod.txt").write_text(
+        _host([_vol("a", anonym=True)], []), encoding="utf-8"
+    )
+    (fx / "snapshots.json").write_text("[]", encoding="utf-8")
+    rc = bd.main(
+        ["--fixtures", str(fx), "--hosts", str(hosts), "--nur", "prod", "--kurz"]
+    )
+    assert rc == 3

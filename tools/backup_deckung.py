@@ -36,6 +36,10 @@ Exit-Codes
 2 = ein Host oder das restic-Repo war nicht erreichbar — der Lauf hat NICHT
     gemessen. Ein blindes Werkzeug darf nicht wie ein sauberer Befund aussehen
     ([#2278](https://github.com/achimdehnert/platform/issues/2278)).
+3 = sauber gemessen, aber NICHT die ganze Grundgesamtheit (`--nur HOST` liess
+    Hosts aus). Retro aa58f9 fand: ohne diesen Zustand lieferte der Workflow fuer
+    prod-b dauerhaft 0 — ein Host ohne Leser sah aus wie ein Host ohne Befund.
+    Befund (1) und blind (2) haben Vorrang; 3 gilt nur, wenn sonst alles gruen ist.
 
 Usage
 -----
@@ -495,7 +499,9 @@ def main(argv: list[str] | None = None) -> int:
         print(bericht(e))
     if e["blind"]:
         return 2
-    return 1 if e["klassen"].get("UNGEDECKT") else 0
+    if e["klassen"].get("UNGEDECKT"):
+        return 1
+    return 3 if ausserhalb else 0
 
 
 if __name__ == "__main__":

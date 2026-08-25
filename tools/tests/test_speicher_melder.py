@@ -236,3 +236,28 @@ def test_should_name_hosts_outside_the_scope():
     e = sm.bewerte(_messung("prod", "/", 150, 36), [], HEUTE)
     e["ausserhalb"] = ["prod-b", "netcup"]
     assert "nicht im Scope: prod-b, netcup" in sm.kurzzeile(e)
+
+
+def test_should_exit_3_when_hosts_were_left_out(tmp_path):
+    hosts = tmp_path / "hosts.yaml"
+    hosts.write_text(
+        "hosts:\n  prod:\n    ssh: root@1.1.1.1\n  prod-b:\n    ssh: root@2.2.2.2\n",
+        encoding="utf-8",
+    )
+    fx = tmp_path / "fx"
+    fx.mkdir()
+    (fx / "prod.txt").write_text("/ 150000000000 100000000000\n", encoding="utf-8")
+    rc = sm.main(
+        [
+            "--hosts",
+            str(hosts),
+            "--df-fixtures",
+            str(fx),
+            "--nur",
+            "prod",
+            "--journal",
+            str(tmp_path / "j.jsonl"),
+            "--kurz",
+        ]
+    )
+    assert rc == 3
