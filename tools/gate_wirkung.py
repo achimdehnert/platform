@@ -81,7 +81,8 @@ MIN_FENSTER = 3
 # Ueberschreibbar ueber dieselbe Env-Variable wie dort, damit ein Test nicht das
 # echte Protokoll des Entwicklers liest.
 GATE_HITS = os.environ.get(
-    "GATE_HITS_DATEI", os.path.join(os.path.expanduser("~"), ".claude", "hooks", "gate-hits.jsonl")
+    "GATE_HITS_DATEI",
+    os.path.join(os.path.expanduser("~"), ".claude", "hooks", "gate-hits.jsonl"),
 )
 
 # Ab so vielen Rueckfaellen gilt ein Gate als rueckfaellig. 2 statt 1, weil ein
@@ -135,9 +136,7 @@ def lies_retros(verzeichnisse: list[str]) -> list[tuple[str, list[str], str]]:
                 treffer.group(1),
                 _slugs_aus_frontmatter(text),
                 name,
-                _slugs_aus_frontmatter(
-                    text, _INLINE_GEFANGEN, _BLOCK_START_GEFANGEN
-                ),
+                _slugs_aus_frontmatter(text, _INLINE_GEFANGEN, _BLOCK_START_GEFANGEN),
             )
     return sorted(gesehen.values())
 
@@ -402,8 +401,18 @@ def main() -> int:
     except (OSError, ValueError) as fehler:
         # Fail-open: ein Melder, der den Sitzungsstart aufhaelt, wird abgeschaltet
         # und meldet danach gar nichts mehr.
+        # `--kurz` schrieb diese Zeile bisher gar nicht, und im Nicht-kurz-Fall
+        # ging sie nach stderr. Der Sitzungsstart ruft `--kurz 2>/dev/null` auf:
+        # beide Unterdrueckungen zugleich. Leere Ausgabe liest der Runner als
+        # PASS und behauptet dann "kein Gate rueckfaellig" — ein Satz ueber Gates, die nie
+        # gelesen wurden. Fail-open bleibt (Exit 0, der Start laeuft weiter),
+        # aber die Zeile geht nach STDOUT, damit daraus ein WARN wird statt
+        # eines stillen Gruens (platform#2278).
+        print(
+            "Registry nicht lesbar — dieser Lauf misst nichts, kein Urteil ueber Gates"
+        )
         if not args.kurz:
-            print(f"Registry nicht lesbar ({fehler}) — kein Urteil.", file=sys.stderr)
+            print(f"  Grund: {fehler}", file=sys.stderr)
         return 0
 
     retros = lies_retros(args.dirs or standard_verzeichnisse())
@@ -510,7 +519,9 @@ def main() -> int:
 
     if staende:
         print()
-        print("Offene Kalibrierfenster (Zusage 'spaeter scharf', mit Datum und Mindestzahl):")
+        print(
+            "Offene Kalibrierfenster (Zusage 'spaeter scharf', mit Datum und Mindestzahl):"
+        )
         for stand in staende:
             zeichen = {
                 "entscheidungsreif": "🚨",

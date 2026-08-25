@@ -52,6 +52,8 @@ import json
 import os
 import sys
 from collections import Counter
+from datetime import datetime, timezone
+from statistics import median
 
 # Maschinenlesbarer Kopf (KONZ-038 D8)
 GATE_HEADER = {
@@ -106,7 +108,56 @@ def gedeckte_slugs(registry: dict) -> set[str]:
     return {s for s in gedeckt if s}
 
 
-def bewerte(retros, gedeckt: set[str]) -> dict:
+def _liegezeit(zaehler, retros, gedeckt: set[str], heute: str) -> dict | None:
+    """Wie lange liegt ein unentschiedener Befund schon da?
+
+    Bis hierhin misst dieses Werkzeug nur den BESTAND: wie viele Slugs ohne
+    Entscheidung. Ein Bestand allein sagt nicht, ob der Loop schneller entscheidet
+    als er findet — er kann bei 77 stehen, weil gestern 77 neue dazukamen, oder
+    weil dieselben 77 seit Monaten liegen. Das sind zwei verschiedene Lagen mit
+    derselben Zahl.
+
+    Gemessen wird ab dem ERSTEN Vorkommen, nicht ab dem letzten: ein Slug, der
+    seit Mai wiederkehrt, liegt seit Mai, auch wenn er gestern zuletzt auftrat.
+
+    Median statt Mittelwert, weil ein einzelner sehr alter Slug den Mittelwert
+    traegt und dann eine Verbesserung vortaeuscht, sobald er endlich entschieden
+    wird.
+
+    **Die Zahl ist eine Untergrenze, keine Messung.** Sie kann nur so weit
+    zurueckreichen wie der Retro-Korpus. Ein Slug, der schon vor dem aeltesten
+    Report auftrat, bekommt das Korpus-Anfangsdatum und erscheint dadurch
+    juenger, als er ist. Gemessen am 2026-08-25: der aelteste unentschiedene
+    Slug lag bei 56 Tagen — bei einem Korpus von exakt 56 Tagen. Ein Wert am
+    Rand ist also abgeschnitten, nicht bestaetigt. Deshalb traegt die
+    Berichtszeile das Korpus-Anfangsdatum mit; ohne es liest sich die Zahl
+    genauer, als sie ist.
+    """
+    tage = []
+    stichtag = datetime.strptime(heute, "%Y-%m-%d").date()
+    for slug in zaehler:
+        if slug in gedeckt:
+            continue
+        erstes = min(r[0] for r in retros if slug in r[1])
+        try:
+            alter = (stichtag - datetime.strptime(erstes, "%Y-%m-%d").date()).days
+        except ValueError:
+            continue  # unparsbares Retro-Datum: nicht raten, weglassen
+        tage.append((alter, slug))
+    if not tage:
+        return None
+    tage.sort()
+    aeltester = tage[-1]
+    return {
+        "slugs": len(tage),
+        "median_tage": int(median(a for a, _ in tage)),
+        "aeltester_tage": aeltester[0],
+        "aeltester_slug": aeltester[1],
+        "korpus_ab": min(r[0] for r in retros),
+    }
+
+
+def bewerte(retros, gedeckt: set[str], heute: str | None = None) -> dict:
     # `lies_retros` liefert seit 2026-08-20 ein VIERTES Feld (`gates_caught`).
     # Hier zaehlt weiter jedes Vorkommen — dieses Werkzeug fragt "gibt es ueberhaupt
     # eine Entscheidung zu dem Slug?", nicht "hat ein Gate ihn gefangen". Der Zugriff
@@ -135,7 +186,29 @@ def bewerte(retros, gedeckt: set[str]) -> dict:
         "offene_pflichten": offen,
         "einmalig_ungedeckt": einmalig,
         "retros": len(retros),
+        "liegezeit": _liegezeit(
+            zaehler,
+            retros,
+            gedeckt,
+            heute or datetime.now(timezone.utc).date().isoformat(),
+        ),
     }
+
+
+def liegezeit_zeile(lz: dict, kurz: bool = False) -> str:
+    if kurz:
+        # Die Runner-Summary ist eine Tabelle; eine lange Notiz sprengt die
+        # Zeile. Das `>=` bleibt auch hier stehen — es ist der Unterschied
+        # zwischen einer Messung und einer Untergrenze, nicht Zierrat.
+        return (
+            f"Liegezeit Median >={lz['median_tage']} d, "
+            f"aeltester >={lz['aeltester_tage']} d ({lz['slugs']} offen)"
+        )
+    return (
+        f"Liegezeit unentschieden: Median >= {lz['median_tage']} d, "
+        f"aeltester >= {lz['aeltester_tage']} d ({lz['aeltester_slug']}), "
+        f"{lz['slugs']} Slugs — Untergrenze, Korpus ab {lz['korpus_ab']}"
+    )
 
 
 def main() -> int:
@@ -144,6 +217,11 @@ def main() -> int:
     parser.add_argument("--dir", action="append", dest="dirs")
     parser.add_argument("--kurz", action="store_true")
     parser.add_argument("--json", action="store_true", dest="als_json")
+    parser.add_argument(
+        "--liegezeit",
+        action="store_true",
+        help="nur die eine Zeile: wie lange unentschiedene Befunde liegen",
+    )
     args = parser.parse_args()
 
     try:
@@ -151,8 +229,18 @@ def main() -> int:
     except (OSError, ValueError) as fehler:
         # Fail-open wie die Geschwister-Werkzeuge: ein Melder, der den
         # Sitzungsstart aufhaelt, wird abgeschaltet und meldet danach gar nichts.
+        # `--kurz` schrieb diese Zeile bisher gar nicht, und im Nicht-kurz-Fall
+        # ging sie nach stderr. Der Sitzungsstart ruft `--kurz 2>/dev/null` auf:
+        # beide Unterdrueckungen zugleich. Leere Ausgabe liest der Runner als
+        # PASS und behauptet dann "keine offene Gate-Pflicht" — ein Satz ueber Gates, die nie
+        # gelesen wurden. Fail-open bleibt (Exit 0, der Start laeuft weiter),
+        # aber die Zeile geht nach STDOUT, damit daraus ein WARN wird statt
+        # eines stillen Gruens (platform#2278).
+        print(
+            "Registry nicht lesbar — dieser Lauf misst nichts, kein Urteil ueber Gates"
+        )
         if not args.kurz:
-            print(f"Registry nicht lesbar ({fehler}) — kein Urteil.", file=sys.stderr)
+            print(f"  Grund: {fehler}", file=sys.stderr)
         return 0
 
     gw = _lade_gate_wirkung()
@@ -162,6 +250,16 @@ def main() -> int:
 
     if args.als_json:
         print(json.dumps(ergebnis, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.liegezeit:
+        # Eigener Aufruf statt Anhaengsel an `--kurz`: der Runner entscheidet PASS
+        # und WARN allein an der LAENGE der `--kurz`-Ausgabe. Wuerde die Liegezeit
+        # dort mitlaufen, waere 0.7.9 dauerhaft gelb, und ein Melder, der jede
+        # Sitzung warnt, wird nicht gelesen. Dieselbe Zweitabfrage nutzt der
+        # Runner schon fuer die Zahlen von `gate_namensdeckung` (Phase 0.7.15).
+        if lz := ergebnis["liegezeit"]:
+            print(liegezeit_zeile(lz, args.kurz))
         return 0
 
     if args.kurz:
@@ -187,6 +285,8 @@ def main() -> int:
     print(f"Befund-Slugs insgesamt : {gesamt}")
     print(f"  mit Gate oder Verzicht: {gedeckt_n}  ({quote} %)")
     print(f"  ohne jede Entscheidung: {gesamt - gedeckt_n}")
+    if ergebnis["liegezeit"]:
+        print(f"  {liegezeit_zeile(ergebnis['liegezeit'])}")
     print()
 
     if offen:
