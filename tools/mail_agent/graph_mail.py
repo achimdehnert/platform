@@ -94,7 +94,12 @@ TOKEN_DIR = Path.home() / ".claude" / "graph-mail-tokens"
 DEFAULT_CLIENT_ID = (
     "14d82eec-204b-4c2f-b7e8-296a70dab67e"  # MS Graph Command Line Tools (public)
 )
-SCOPES = "Mail.ReadWrite offline_access openid profile"
+# Mail.ReadWrite.Shared ist der Scope fuer FREMDE Postfaecher (/users/<adresse>/).
+# Mail.ReadWrite allein deckt nur /me ab — am 2026-08-25 gemessen: ohne .Shared
+# antwortet Graph auf /users/<freigegebenes Postfach>/mailFolders mit
+# ErrorAccessDenied, und zwar auch dann, wenn der Benutzer in Exchange
+# Vollzugriff hat und dasselbe Postfach in Outlook Web problemlos oeffnet.
+SCOPES = "Mail.ReadWrite Mail.ReadWrite.Shared offline_access openid profile"
 GRAPH = "https://graph.microsoft.com/v1.0"
 
 # Postfach, auf das sich die Aufrufe beziehen. None = das angemeldete eigene
@@ -1195,6 +1200,37 @@ def cmd_attach_to(tok: str, msg_id: str, attach: list[str]) -> None:
     )
 
 
+def _postfach_pruefen(cfg: dict, args) -> None:
+    """Fremdes Postfach EINMAL laut pruefen, bevor irgendetwas gemeldet wird.
+
+    Der Grund steht in einem konkreten Fehlgriff vom 2026-08-25: `_http(...).json()`
+    liefert auch Fehlerkoerper als Wortverzeichnis zurueck. Ein Aufrufer, der
+    `body.get("value", [])` liest, macht daraus eine leere Liste — und ein
+    `ErrorAccessDenied` sieht am Ende exakt aus wie ein leeres Postfach. Genau so
+    wurde dreimal „erreichbar, leer" gemeldet, wo in Wahrheit gar kein Zugriff
+    bestand. Ein Melder, der Nichtzugriff als Nichts meldet, ist schlimmer als
+    keiner: er beruhigt.
+
+    Darum bricht dieser Aufruf ab, statt still weiterzulaufen.
+    """
+    tok = token(cfg, args.account or cfg["accounts"][0])
+    if not tok:
+        sys.exit(f"FEHLER: nicht angemeldet — erst: --login {args.account or cfg['accounts'][0]}")
+    body = _http("GET", f"{_basis()}/mailFolders?$top=1", headers=_auth(tok)).json()
+    if "error" not in body:
+        return
+    code = body["error"].get("code", "?")
+    sys.exit(
+        f"FEHLER: kein Zugriff auf {POSTFACH} ({code}).\n"
+        "Zwei Ursachen kommen in Frage, beide muessen erfuellt sein:\n"
+        "  1. OAuth-Scope: dieser Zugang braucht Mail.ReadWrite.Shared. Fehlt er im\n"
+        "     gespeicherten Token, hilft nur ein neuer --login (Zustimmung erneut erteilen).\n"
+        "  2. Exchange-Berechtigung: der angemeldete Benutzer braucht Vollzugriff auf\n"
+        "     das Postfach. Gegenprobe im Browser: https://outlook.office.com/mail/"
+        f"{POSTFACH}/ — oeffnet sich das Postfach dort nicht, fehlt der Vollzugriff."
+    )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -1327,6 +1363,7 @@ def main() -> None:
     args = ap.parse_args()
     if getattr(args, "postfach", None):
         globals()["POSTFACH"] = args.postfach
+        _postfach_pruefen(load_cfg(), args)
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except AttributeError:
