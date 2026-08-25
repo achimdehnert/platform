@@ -60,10 +60,17 @@ jobs:
           prs = json.load(open("/tmp/prs.json"))
           out = []
           for p in prs:
-              if p["isDraft"] or p["author"]["login"] != "achimdehnert":
-                  continue
-              if p["mergeStateStatus"] != "BLOCKED" or p.get("reviewDecision") == "APPROVED":
-                  continue
+              # Jeder Skip nennt seinen Grund. Beim Erstlauf (32869088343) fehlte #2316
+              # im Log voellig — still uebersprungen, weil sein Branch BEHIND war.
+              # Ein stummer Skip ist dieselbe Klasse wie ein stummer Melder.
+              if p["isDraft"]:
+                  print(f"#{p['number']}: Draft — kein Approve"); continue
+              if p["author"]["login"] != "achimdehnert":
+                  print(f"#{p['number']}: Autor {p['author']['login']} — nur Owner-PRs"); continue
+              if p.get("reviewDecision") == "APPROVED":
+                  print(f"#{p['number']}: bereits approved"); continue
+              if p["mergeStateStatus"] not in ("BLOCKED", "BEHIND"):
+                  print(f"#{p['number']}: mergeState {p['mergeStateStatus']} — nicht review-blockiert"); continue
               pfade = [f["path"] for f in p.get("files", [])]
               if any(pf.startswith(t) or pf == t for pf in pfade for t in TABU):
                   print(f"#{p['number']}: Tabu-Pfad — bleibt Mensch"); continue
