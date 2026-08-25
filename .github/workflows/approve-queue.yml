@@ -61,6 +61,8 @@ jobs:
           PY
           echo "anzahl=$(cat /tmp/anzahl)" >> "$GITHUB_OUTPUT"
 
+      # Kein Checkout in diesem Job -> jedes gh-Kommando braucht --repo, sonst
+      # "not a git repository" (Erstlauf 32862596373, ANZAHL war korrekt 2).
       - name: "Rollendes Issue pflegen"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,11 +71,11 @@ jobs:
           set -euo pipefail
           gh api "repos/${GITHUB_REPOSITORY}/labels" -f name="approve-queue" -f color="0e8a16" \
             -f description="PRs, die nur noch auf das Code-Owner-Review warten" >/dev/null 2>&1 || true
-          existing=$(gh issue list --label approve-queue --state open --json number --jq '.[0].number // empty')
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label approve-queue --state open --json number --jq '.[0].number // empty')
           if [ "${ANZAHL}" = "0" ]; then
             if [ -n "$existing" ]; then
-              gh issue comment "$existing" --body-file /tmp/queue.md
-              gh issue close "$existing" --reason completed
+              gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/queue.md
+              gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --reason completed
               echo "Queue leer — #$existing geschlossen"
             else
               echo "Queue leer, kein Issue offen"
@@ -81,11 +83,11 @@ jobs:
             exit 0
           fi
           if [ -n "$existing" ]; then
-            gh issue edit "$existing" --body-file /tmp/queue.md --title "[approve-queue] ${ANZAHL} PR(s) warten auf Code-Owner-Review"
+            gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/queue.md --title "[approve-queue] ${ANZAHL} PR(s) warten auf Code-Owner-Review"
             echo "Issue #$existing aktualisiert"
           else
             # --assignee IST die Zustellung.
-            gh issue create --title "[approve-queue] ${ANZAHL} PR(s) warten auf Code-Owner-Review" \
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "[approve-queue] ${ANZAHL} PR(s) warten auf Code-Owner-Review" \
               --label approve-queue --assignee "wirdigital" --assignee "achimdehnert" \
               --body-file /tmp/queue.md
           fi
