@@ -3,7 +3,7 @@
 
 **Trigger words:** welches modell, which model, günstig, cheap, free, kosten,
 cost, llm, provider, haiku, opus, sonnet, groq, llama, cerebras, qwen,
-mistral, together, openai
+together, openai
 
 ## Rule
 
@@ -22,7 +22,6 @@ models for equivalent quality on mechanical tasks.
 | **Groq** | `groq_api_key` | `groq/` | ~500+ tok/s, paid tier available |
 | **Anthropic** | `anthropic_api_key` | `anthropic/` | Frontier reasoning + tool use |
 | **OpenAI** | `openai_api_key` | `openai/` | GPT-4o / o-series |
-| **Mistral** | `mistral_api_key` | `mistral/` | EU-hosted alternative |
 | **Together** | `together_api_key` | `together_ai/` | Long-tail open models |
 
 ## Tier list
@@ -53,12 +52,17 @@ ADR-208-Resolver. Was dort rot wird, gehoert hier nachgezogen.
   `claude-haiku-4-5-20251001` sowie die 4-x-Vorgaenger.
 - **OpenAI** (136 IDs): u.a. die `gpt-5.x`-Familie und `gpt-4.1`/`gpt-4o`.
 - **Together** (169 Chat-Modelle).
-- **Mistral**: der Schluessel in `~/.secrets/mistral_api_key` wird mit
-  `Invalid API Key` (HTTP 401) abgelehnt — der EU-Pfad unten traegt derzeit **nicht**
-  (achimdehnert/aifw#50).
 
-EU-/data-sovereignty workloads → `mistral/mistral-large-latest` instead of any
-US-hosted provider. For `ttz-lif` / `meiki-lra` repos see per-repo overrides.
+**EU-/Datensouveränität: Mistral ist kein Weg mehr** (Owner-Entscheid 2026-08-25).
+Der Schlüssel in `~/.secrets/mistral_api_key` wurde am selben Tag mit
+`Invalid API Key` (HTTP 401) abgelehnt, und statt ihn zu erneuern, fällt der
+Anbieter aus dieser Policy. Damit steht hier **kein** EU-gehosteter Anbieter mehr
+— wer einen Workload hat, der das braucht, entscheidet ihn einzeln und schreibt
+die Entscheidung als Repo-Override fest, statt sich auf eine Zeile zu verlassen,
+deren Schlüssel niemand geprüft hat.
+
+Für `ttz-lif` / `meiki-lra` gilt weiterhin der lokale Weg (Ollama) laut den
+Repo-Overrides unten — der ist von dieser Streichung nicht berührt.
 
 ## Choosing between Cerebras and Groq (Tier 1)
 
@@ -132,8 +136,10 @@ Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
   `run_prompt.py` liest jetzt den Resolver statt eines eigenen Pins, adr-review-CLI
   repinned. **Neu und der eigentliche Punkt:** eine naechtliche Liveness-Pruefung
   (mcp-hub `check-model-liveness.py`) fragt die Anbieter, statt Deklarationen zu
-  vergleichen — es war der zweite Fall dieser Klasse. Mistral-Schluessel abgelehnt
-  (aifw#50), der EU-Pfad traegt bis zur Rotation nicht.
+  vergleichen — es war der zweite Fall dieser Klasse. **Mistral ist raus**
+  (Owner-Entscheid, aifw#50): der Schluessel wurde mit HTTP 401 abgelehnt, und
+  statt einer Rotation faellt der Anbieter aus der Policy. Ein EU-gehosteter
+  Anbieter steht damit nicht mehr drin.
 
 - 2026-07-04: Secret-Pfad-Fix — Keys liegen real in `~/.secrets/`, nicht
   `~/shared/secrets-inbox/` (seit 2026-05-30 konsolidiert, existiert nicht mehr).
