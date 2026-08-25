@@ -69,7 +69,12 @@ jobs:
                   print(f"#{p['number']}: Autor {p['author']['login']} — nur Owner-PRs"); continue
               if p.get("reviewDecision") == "APPROVED":
                   print(f"#{p['number']}: bereits approved"); continue
-              if p["mergeStateStatus"] not in ("BLOCKED", "BEHIND"):
+              # UNKNOWN ist kein Zustand, sondern "noch nicht berechnet": GitHub liefert
+              # ihn dem Bot-Token beim ersten Aufruf fuer JEDEN PR (Lauf 32871455115:
+              # acht PRs, alle UNKNOWN, waehrend der Owner-Token BLOCKED sah). Ein
+              # Approve auf einen nicht-blockierten PR schadet nicht — die Entscheidung
+              # traegt reviewDecision + Checks + Tabu, nicht der Merge-Zustand.
+              if p["mergeStateStatus"] not in ("BLOCKED", "BEHIND", "UNKNOWN"):
                   print(f"#{p['number']}: mergeState {p['mergeStateStatus']} — nicht review-blockiert"); continue
               pfade = [f["path"] for f in p.get("files", [])]
               if any(pf.startswith(t) or pf == t for pf in pfade for t in TABU):
