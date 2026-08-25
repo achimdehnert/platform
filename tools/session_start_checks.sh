@@ -593,11 +593,21 @@ fi
 # Gate noch declined-Eintrag. Das ist die stille Schwester des Rueckfalls (0.7.7):
 # dort versagt ein gebautes Gate, hier entstand nie eines.
 DECKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --kurz 2>/dev/null || true)
+# Liegezeit in einem ZWEITEN Aufruf, nicht als Anhaengsel an `--kurz`: der Zweig
+# unten entscheidet PASS/WARN allein an der Laenge von $DECKUNG_OUT. Liefe die
+# Liegezeit dort mit, waere 0.7.9 dauerhaft gelb — und ein Melder, der jede
+# Sitzung warnt, wird nicht gelesen. Dieselbe Zweitabfrage nutzt 0.7.15 schon.
+#
+# Sie steht in BEIDEN Zweigen, weil gerade der PASS-Fall sie braucht: "keine
+# offene Gate-Pflicht" heisst nur, dass kein Slug ZWEIMAL ungedeckt auftrat.
+# Die Einmal-Slugs liegen trotzdem, und der Bestand allein sagt nicht, ob der
+# Loop schneller entscheidet als er findet (platform#2278 K3).
+DECKUNG_LIEGE=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --liegezeit --kurz 2>/dev/null || true)
 if [ -n "$DECKUNG_OUT" ]; then
-  record "0.7.9 gate-deckung" "WARN" "$(echo "$DECKUNG_OUT" | head -1 | tr '|' '/')"
+  record "0.7.9 gate-deckung" "WARN" "$(echo "$DECKUNG_OUT" | head -1 | tr '|' '/')${DECKUNG_LIEGE:+ · $DECKUNG_LIEGE}"
   echo "$DECKUNG_OUT" | tail -n +2
 else
-  record "0.7.9 gate-deckung" "PASS" "keine offene Gate-Pflicht"
+  record "0.7.9 gate-deckung" "PASS" "keine offene Gate-Pflicht${DECKUNG_LIEGE:+ · $DECKUNG_LIEGE}"
 fi
 
 # ── 0.7.10 Kennzahl-Verfall: nachrechenbare Zahlen in durablen Dokumenten ───
