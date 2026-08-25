@@ -19,6 +19,32 @@ scope:
 
 # ADR-255 — iilgmbh org migration for the iil-* PyPI family
 
+> Rev 5 (2026-08-25): **PyPI Organization `iil` — deliberately NOT put into
+> service (owner decision, captain's channel, tracked in
+> [#2291](https://github.com/achimdehnert/platform/issues/2291)).** What the
+> authenticated check finally showed: the org exists and was *approved* — as a
+> **Company organization whose billing was never activated** (PyPI notice
+> 2026-08-10 to achim.dehnert@iil.gmbh: "approved, but does not currently have an
+> active subscription"). It holds **0 projects**. Its owner is a **third** PyPI
+> account, `achimdehnert` — not `iildehnert`, which owns all 49 iil-* projects
+> (47 of them as sole owner). The Rev-3 evidence `pypi_org_iil_exists: true`
+> was an HTTP 200 on the org page: true, and blind to *whose* and *usable*.
+> Verified price: $5 per member per month for Company orgs; Community orgs are
+> free but at the PyPI admin's discretion ("commercial entities pay").
+> **Decision:** the PyPI half of this ADR is **sunset**. The iil-* projects stay
+> under `iildehnert`; publishing stays on Trusted Publishing (GitHub OIDC), so
+> the *GitHub* org owners already control who can publish — the PyPI owner is
+> only needed for rare admin acts (trusted-publisher entries, yank, transfer).
+> The REC-1 continuity goal for the PyPI side is met **without** a second human
+> owner: (a) 2FA recovery codes of `iildehnert` in the company vault, (b) the
+> account's primary address is the company mailbox `achim.dehnert@iil.gmbh`,
+> which the GmbH can recover without the person. Both are owner actions in
+> #2291. The empty org is to be converted to Community or closed (support
+> mail drafted, owner sends). **Unchanged:** the GitHub half — per-repo
+> transfers into `iilgmbh` are governed by ADR-297 level 2 (per-repo gate), not
+> by this revision. The KONZ-012 kill-gate condition "PyPI 2nd owner" is
+> replaced by "PyPI account hardened" (see KONZ-012 §13).
+
 > Rev 4 (2026-07-05): **REC-1 owner condition — GitHub half now MET.** The
 > `iilgmbh` GitHub org holds **≥ 2 independent owners** — `achimdehnert` and
 > `wirdigital`, both `role=admin`, `state=active` (verified live:
