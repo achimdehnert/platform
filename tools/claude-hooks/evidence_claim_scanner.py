@@ -125,6 +125,23 @@ CLAIM_PATTERNS = [
         ),
         "deploy/publish",
     ),
+    # CI-/Hintergrund-Status (Retro aa58f9, 2026-08-25 — Gate rueckfaellig, Antwort:
+    # AUSWEITEN). Zwei Rueckfaelle in einer Sitzung hatten dieselbe Form: "CI gruen"
+    # nach einem Push, der die CI rot machte, und "laeuft im Hintergrund" nach
+    # einem Dispatch, der 404 lieferte. Beide Male hatte der Turn frueher ein
+    # `gh pr checks` — die generische Korroboration war deshalb erfuellt, obwohl
+    # sie den Stand VOR dem Push belegte. Deshalb hier ordnungsgebundene
+    # Korroboration (_check_nach_push) statt der generischen.
+    (
+        re.compile(
+            r"\b(?:CI|Checks?|Pipeline|Workflow)\s+(?:ist\s+|sind\s+|bleibt\s+)?"
+            r"(?:grün|gruen|green|rot|red|bestanden|passed|durch|sauber)\b"
+            r"|\bl(?:ä|ae)uft\s+im\s+Hintergrund\b"
+            r"|\b(?:dispatcht|dispatched|angesto(?:ß|ss)en)\b",
+            re.I,
+        ),
+        "ci-status",
+    ),
     (re.compile(r"\b\d+/\d+\s*(?:grün|gruen|green|passed|ok)\b", re.I), "ratio-claim"),
     # PR/Issue-Claim (Lehre 2026-06-25, claim-before-cheapest-check gate-pflicht):
     # eine konkrete PR/Issue-Nummer als angelegt/gemergt/existent behauptet.
@@ -591,6 +608,41 @@ def _last_turn_blocks(transcript_path: str):
     return "\n".join(assistant_text), "\n".join(evidence_text), tool_inputs
 
 
+_PUSH_RE = re.compile(r"\bgit\s+push\b|\bgh\s+workflow\s+run\b|\bgh\s+pr\s+merge\b")
+_CHECK_RE = re.compile(
+    r"\bgh\s+pr\s+checks\b|\bgh\s+run\s+(?:view|list|watch)\b|\bgh\s+pr\s+view\b"
+)
+
+
+def _check_nach_push(tool_inputs: list):
+    """Lief NACH dem letzten push/dispatch/merge dieses Turns noch ein gh-Check?
+
+    None = kein push/dispatch im Turn (die Aussage ist nicht ordnungsgebunden,
+    die generische Korroboration entscheidet). True = ja. False = nein — dann
+    belegt ein frueheres `gh pr checks` nur den Stand VOR dem Push (aa58f9 #2).
+    Ein Check im SELBEN Kommando zaehlt, wenn er im Text hinter dem Push steht
+    (`git push && gh pr checks`).
+    """
+    letzter = None
+    for i, (name, inp) in enumerate(tool_inputs):
+        if name != "Bash" or not isinstance(inp, dict):
+            continue
+        cmd = str(inp.get("command", ""))
+        treffer = list(_PUSH_RE.finditer(cmd))
+        if treffer:
+            letzter = (i, cmd[treffer[-1].end() :])
+    if letzter is None:
+        return None
+    idx, rest = letzter
+    if _CHECK_RE.search(rest):
+        return True
+    for name, inp in tool_inputs[idx + 1 :]:
+        if name == "Bash" and isinstance(inp, dict):
+            if _CHECK_RE.search(str(inp.get("command", ""))):
+                return True
+    return False
+
+
 def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
@@ -626,6 +678,13 @@ def main() -> int:
                 fired.append(label)
                 if not erster_beleg:
                     erster_beleg = m.group(0)
+
+    # CI-/Hintergrund-Status: ordnungsgebunden. Ein Check, der VOR dem letzten
+    # push/dispatch lief, belegt nichts ueber den Stand danach.
+    ci_fired = [label for label in fired if label == "ci-status"]
+    fired = [label for label in fired if label != "ci-status"]
+    if ci_fired and _check_nach_push(tool_inputs) is False:
+        fired.extend(ci_fired)
 
     # Absence-Claims separat behandeln, BEVOR die generische Korroboration greift:
     # ein `gh pr list --search` (in EVIDENCE_TOKENS als "gh pr list" enthalten) darf
@@ -720,6 +779,9 @@ def main() -> int:
                 # von Code oder einen gruenen Test — die generische Korroboration
                 # darf sie deshalb nicht entwaffnen (s. lauf_fired oben).
                 "affirmative-cause",
+                # Ordnungsgebunden entschieden (s. ci_fired oben) — ein frueherer
+                # Check im Turn darf den Stand nach dem Push nicht belegen.
+                "ci-status",
             )
         ]
 

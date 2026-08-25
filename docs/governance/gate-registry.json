@@ -29,6 +29,10 @@
         {
           "fall": "Werkzeug lief, beruehrt aber nicht den genannten Gegenstand (Subjektbindung)",
           "probe": "subjekt"
+        },
+        {
+          "fall": "CI-/Hintergrund-Status nach push/dispatch behauptet, ohne dass DANACH ein gh-Check lief",
+          "probe": "ci-status"
         }
       ]
     },
