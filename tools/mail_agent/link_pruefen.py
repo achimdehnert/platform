@@ -29,7 +29,12 @@ Aufrufe::
     board.py --render | python3 tools/mail_agent/link_pruefen.py --stdin
     python3 tools/mail_agent/link_pruefen.py --datei antwort.md
 
-Exit 0 nur, wenn JEDER geprueffaehige Link 200 liefert.
+Exit 0 nur, wenn JEDER Link 200 liefert. Ein Link auf einem Host, der nicht in
+der Ingress-Liste steht, gilt als **ungeprueft** und damit als Fehler — das ist
+der Standard. Der Grund steht in der Entstehungsgeschichte: der Ausgangsfehler
+war ein Link auf `todo.iil.pet`, und ein Pruefer, der unbekannte Hosts
+durchwinkt, haette genau den durchgelassen, waere der Host nicht zufaellig in
+der Liste gewesen. Wer bewusst fremde Hosts erlauben will, sagt `--nachsichtig`.
 """
 
 from __future__ import annotations
@@ -130,8 +135,15 @@ def urls_aus(text: str) -> list[str]:
         merke(treffer)
     rest = _MD_LINK.sub(" ", text)
     rest = _CODE.sub(" ", rest)
-    for treffer in _URL.findall(rest):
-        merke(treffer.rstrip(".,;:)"))
+    # `finditer` statt `findall`, weil das Zeichen NACH dem Treffer entscheidet:
+    # das URL-Muster bricht an `<` ab, aus `…/i/<kurz-id>` wird also `…/i/` —
+    # eine abgeschnittene Schablone, die den Schablonen-Filter unterlaufen
+    # wuerde, weil ihr die spitze Klammer fehlt. Am 2026-08-25 vom eigenen Test
+    # gefangen, nicht vom Auge.
+    for treffer in _URL.finditer(rest):
+        if rest[treffer.end() : treffer.end() + 1] == "<":
+            continue
+        merke(treffer.group(0).rstrip(".,;:)"))
     return gesehen
 
 
@@ -141,9 +153,10 @@ def main() -> int:
     p.add_argument("--stdin", action="store_true", help="Links aus stdin herauslesen")
     p.add_argument("--datei", type=Path, help="Links aus einer Datei herauslesen")
     p.add_argument(
-        "--streng",
+        "--nachsichtig",
         action="store_true",
-        help="uebersprungene Links (fremder Host) als Fehler werten",
+        help="Links auf fremden Hosts durchwinken, statt sie als ungeprueft zu werten "
+        "(Ausnahme — der Standard ist streng)",
     )
     args = p.parse_args()
 
@@ -167,7 +180,7 @@ def main() -> int:
         status, hinweis = pruefe(url, karte)
         marke = {"ok": "OK  ", "fehler": "TOT ", "uebersprungen": "?   "}[status]
         print(f"{marke} {url}\n     {hinweis}")
-        if status == "fehler" or (status == "uebersprungen" and args.streng):
+        if status == "fehler" or (status == "uebersprungen" and not args.nachsichtig):
             schlecht += 1
 
     print(f"\n{len(kandidaten)} geprueft, {schlecht} nicht in Ordnung.")
@@ -175,7 +188,9 @@ def main() -> int:
         print(
             "Ein toter Link geht NICHT raus. Erzeugen statt tippen: board.py --render\n"
             "liefert die Vorgangs-Links, der Mail-Link ist /m/<konto>/<ordner-slug>/<uid>\n"
-            "auf mail.iil.pet — der Ordner-Teil ist Pflicht, nicht Zierde.",
+            "auf mail.iil.pet — der Ordner-Teil ist Pflicht, nicht Zierde.\n"
+            "Ein '?'-Link liegt auf einem Host ohne Loopback-Dienst und ist damit"
+            " nicht geprueft, nicht in Ordnung — '--nachsichtig' winkt ihn durch.",
             file=sys.stderr,
         )
     return 1 if schlecht else 0

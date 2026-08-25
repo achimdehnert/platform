@@ -104,9 +104,10 @@ GRAPH = "https://graph.microsoft.com/v1.0"
 
 # Postfach, auf das sich die Aufrufe beziehen. None = das angemeldete eigene
 # Postfach (/me). Ein freigegebenes Postfach wird ueber /users/<adresse>/
-# angesprochen; das genuegt mit dem vorhandenen Scope, solange der angemeldete
-# Benutzer Vollzugriff darauf hat — am 2026-08-25 gegen kontakt@iil.gmbh und
-# buchhaltung@iil.gmbh gemessen, ohne zusaetzliche Zustimmung in Entra.
+# angesprochen und braucht BEIDES: den Scope Mail.ReadWrite.Shared im Token
+# (siehe SCOPES) und Vollzugriff des angemeldeten Benutzers in Exchange. Fehlt
+# eines davon, antwortet Graph mit ErrorAccessDenied — _postfach_pruefen()
+# faengt das ab, bevor irgendetwas gemeldet wird.
 POSTFACH: str | None = None
 
 
@@ -223,6 +224,29 @@ def token(cfg: dict, acc: str) -> str | None:
     return b["access_token"]
 
 
+def _daten(r, kontext: str) -> dict:
+    """Antwortkoerper als Daten — oder ein Abbruch mit benannter Ursache.
+
+    `_http(...).json()` gibt auch Fehlerantworten als Wortverzeichnis zurueck.
+    Wer davon `.get("value", [])` liest, macht aus einem `ErrorAccessDenied`
+    eine leere Liste: Nichtzugriff und leeres Postfach werden ununterscheidbar.
+    Genau so wurden am 2026-08-25 drei Postfaecher als „erreichbar, leer"
+    gemeldet, auf die der Zugriff nie bestand — der Fehler fiel erst auf, weil
+    der Owner dasselbe Postfach im Browser oeffnete.
+
+    Ein Melder, der Nichtzugriff als Nichts meldet, ist schlimmer als keiner:
+    er beruhigt. Deshalb liegt die Pruefung hier an der Wurzel und nicht bei
+    jedem einzelnen Aufrufer, der sie vergessen kann.
+    """
+    body = r.json()
+    if isinstance(body, dict) and "error" in body:
+        fehler = body["error"]
+        code = fehler.get("code", "?") if isinstance(fehler, dict) else str(fehler)
+        text = fehler.get("message", "") if isinstance(fehler, dict) else ""
+        sys.exit(f"FEHLER: {kontext} — Graph antwortet {code}: {text[:160]}")
+    return body
+
+
 def _auth(tok: str) -> dict:
     return {"Authorization": f"Bearer {tok}"}
 
@@ -250,7 +274,7 @@ def _folders(tok: str) -> list[dict]:
         )
         url += "?$top=100&$select=id,displayName,childFolderCount"
         r = _http("GET", url, headers=_auth(tok))
-        for f in r.json().get("value", []):
+        for f in _daten(r, "Ordner lesen").get("value", []):
             path = f["displayName"] if not prefix else f"{prefix}/{f['displayName']}"
             out.append({"id": f["id"], "path": path, "name": f["displayName"]})
             if f.get("childFolderCount", 0):
@@ -340,7 +364,7 @@ def cmd_scan(tok: str, days: int, source_path: str = "inbox") -> None:
     dom = Counter()
     while url:
         r = _http("GET", url, headers=_auth(tok))
-        j = r.json()
+        j = _daten(r, "Absender sammeln")
         for m in j.get("value", []):
             addr = ((m.get("from") or {}).get("emailAddress") or {}).get("address", "")
             if "@" in addr:
@@ -386,7 +410,7 @@ def _match_messages(
     ohne_smtp = 0  # Absenderfeld ohne "@": Exchange-X.500-DN oder leer (Entwuerfe)
     while url:
         r = _http("GET", url, headers=_auth(tok))
-        j = r.json()
+        j = _daten(r, "Nachrichten abgleichen")
         for m in j.get("value", []):
             gesehen += 1
             em = (m.get("from") or {}).get("emailAddress") or {}
@@ -601,7 +625,7 @@ def _find_messages(tok: str, from_sub: str, source_path: str, subject_sub: str =
     )
     while url:
         r = _http("GET", url, headers=_auth(tok))
-        j = r.json()
+        j = _daten(r, "Nachrichten lesen")
         for m in j.get("value", []):
             addr = ((m.get("from") or {}).get("emailAddress") or {}).get("address", "")
             name = ((m.get("from") or {}).get("emailAddress") or {}).get("name", "")
