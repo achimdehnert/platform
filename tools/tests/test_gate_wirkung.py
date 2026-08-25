@@ -140,7 +140,14 @@ def test_should_print_nothing_in_kurz_mode_without_rueckfall(tmp_path):
 
 
 def test_should_stay_exit_zero_on_unreadable_registry(tmp_path):
-    """Fail-open: ein Melder, der den Sitzungsstart aufhaelt, wird abgeschaltet."""
+    """Fail-open: ein Melder, der den Sitzungsstart aufhaelt, wird abgeschaltet.
+
+    Fail-open heisst weiterlaufen, nicht schweigen. Die frueher hier stehende
+    Zeile `assert lauf.stdout.strip() == ""` hielt genau den Defekt fest, den
+    platform#2278 behebt: der Runner liest leere Ausgabe als PASS und behauptet
+    dann "kein Gate rueckfaellig" ueber Gates, die nie gelesen wurden. Der
+    Exit-Code-Vertrag bleibt (0), die Stille nicht.
+    """
     lauf = subprocess.run(
         [
             sys.executable,
@@ -153,7 +160,7 @@ def test_should_stay_exit_zero_on_unreadable_registry(tmp_path):
         text=True,
     )
     assert lauf.returncode == 0
-    assert lauf.stdout.strip() == ""
+    assert "misst nichts" in lauf.stdout
 
 
 # --- Regressionen aus Retro beefc148 (2026-08-20) ----------------------------
@@ -236,7 +243,9 @@ class TestUmbauDatum:
             ("2026-08-14", [], "e"),
         ]
         e = gw.bewerte(gates, retros)[0]
-        assert e["nachher"] == 0, "Vorkommen vor dem Umbau zaehlen nicht mehr als Rueckfall"
+        assert e["nachher"] == 0, (
+            "Vorkommen vor dem Umbau zaehlen nicht mehr als Rueckfall"
+        )
         assert e["vorher"] == 2
         assert e["urteil"] != "RUECKFAELLIG"
         assert e["umgebaut"] is True
@@ -328,8 +337,13 @@ def _hits(pfad: Path, zeilen: list[dict]) -> str:
     return str(pfad)
 
 
-def _zeile(ausschnitt: str, *, klasse: str = "kinds=subjekt-unbelegt-kalibrierung",
-           zeit: str = "2026-08-25T10:00:00+00:00", slug: str = "g") -> dict:
+def _zeile(
+    ausschnitt: str,
+    *,
+    klasse: str = "kinds=subjekt-unbelegt-kalibrierung",
+    zeit: str = "2026-08-25T10:00:00+00:00",
+    slug: str = "g",
+) -> dict:
     return {"zeit": zeit, "slug": slug, "marker": klasse, "ausschnitt": ausschnitt}
 
 
@@ -404,8 +418,14 @@ def test_should_flag_a_window_without_a_minimum_as_misconfigured(tmp_path):
     das Fenster blieb in "sammelt" haengen und fiel bei Fristablauf durch, ohne
     dass jemand erfuhr, warum (Retro a84f71 Befund 4).
     """
-    gate = {"slug": "g", "kalibrierfenster": {
-        "klasse": "kinds=x", "seit": "2026-08-23", "bis": "2026-09-20"}}
+    gate = {
+        "slug": "g",
+        "kalibrierfenster": {
+            "klasse": "kinds=x",
+            "seit": "2026-08-23",
+            "bis": "2026-09-20",
+        },
+    }
     datei = _hits(tmp_path / "hits.jsonl", [_zeile("belegt", klasse="kinds=x")])
     stand = gw.kalibrier_stand(gate, "2026-08-26", datei)
     assert stand["zustand"] == "unbestimmt"
@@ -413,8 +433,14 @@ def test_should_flag_a_window_without_a_minimum_as_misconfigured(tmp_path):
 
 
 def test_should_treat_an_explicit_zero_minimum_the_same_way(tmp_path):
-    gate = {"slug": "g", "kalibrierfenster": {
-        "klasse": "kinds=x", "seit": "2026-08-23", "bis": "2026-09-20",
-        "min_beurteilbar": 0}}
+    gate = {
+        "slug": "g",
+        "kalibrierfenster": {
+            "klasse": "kinds=x",
+            "seit": "2026-08-23",
+            "bis": "2026-09-20",
+            "min_beurteilbar": 0,
+        },
+    }
     datei = _hits(tmp_path / "hits.jsonl", [])
     assert gw.kalibrier_stand(gate, "2026-08-26", datei)["zustand"] == "unbestimmt"

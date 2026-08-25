@@ -151,8 +151,18 @@ def main() -> int:
     except (OSError, ValueError) as fehler:
         # Fail-open wie die Geschwister-Werkzeuge: ein Melder, der den
         # Sitzungsstart aufhaelt, wird abgeschaltet und meldet danach gar nichts.
+        # `--kurz` schrieb diese Zeile bisher gar nicht, und im Nicht-kurz-Fall
+        # ging sie nach stderr. Der Sitzungsstart ruft `--kurz 2>/dev/null` auf:
+        # beide Unterdrueckungen zugleich. Leere Ausgabe liest der Runner als
+        # PASS und behauptet dann "keine offene Gate-Pflicht" — ein Satz ueber Gates, die nie
+        # gelesen wurden. Fail-open bleibt (Exit 0, der Start laeuft weiter),
+        # aber die Zeile geht nach STDOUT, damit daraus ein WARN wird statt
+        # eines stillen Gruens (platform#2278).
+        print(
+            "Registry nicht lesbar — dieser Lauf misst nichts, kein Urteil ueber Gates"
+        )
         if not args.kurz:
-            print(f"Registry nicht lesbar ({fehler}) — kein Urteil.", file=sys.stderr)
+            print(f"  Grund: {fehler}", file=sys.stderr)
         return 0
 
     gw = _lade_gate_wirkung()
