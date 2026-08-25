@@ -6,7 +6,7 @@
 #   "mode": "blocking"
 #   "owner": "achim"
 #   "last_drill_pass": "2026-08-25"
-#   "evidence": "tools/claude-hooks/tests/test_block_merge_without_gate.sh"
+#   "evidence": "tools/claude-hooks/tests/test_block_merge_without_gate.py"
 #
 # Hintergrund: Retro 3106ae Befund #1. `gh pr checks 51` meldete
 # "no checks reported"; das wurde als gruenes Licht gelesen, der PR gemergt und
