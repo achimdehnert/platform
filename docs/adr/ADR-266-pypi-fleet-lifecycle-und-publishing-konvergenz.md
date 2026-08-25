@@ -149,7 +149,7 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
 1. `python3 tools/pypi_fleet_inventory.py` laufen lassen (regeneriert Ground
    Truth; `--offline` ohne Netz). Diff gegen eingecheckten Stand lesen.
 2. Offene Owner-Aktionen (nur Mensch kann sie tun):
-   - **PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).
+   - ~~**PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).~~ **Entfallen 2026-08-25:** die PyPI-Org wird bewusst nicht in Betrieb genommen (ADR-255 Rev 5, platform#2291); an ihre Stelle tritt die Härtung des Kontos `iildehnert` (Recovery-Codes im Vault, Firmenadresse).
    - **Trusted-Publisher-Bindings auf pypi.org anlegen/prüfen** für alle 7
      Nicht-pur-OIDC-Repos: iil-codeguard, iil-django-commons, iil-ingest
      (pur Token) + aifw, learnfw, promptfw, weltenfw (hybrid; aifw/learnfw
