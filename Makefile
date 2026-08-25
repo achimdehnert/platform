@@ -178,6 +178,17 @@ backup-audit: ## Beweislauf #2284: Deckung vom Host aus + Speicher-Vorlauf (read
 	 python3 tools/speicher_melder.py; rc2=$$?; echo "exit=$$rc2"; \
 	 [ $$rc -lt 2 ] && [ $$rc2 -lt 2 ]
 
+PROD_SSH ?= $(shell python3 -c "import yaml;print(yaml.safe_load(open('infra/hosts.yaml'))['hosts']['prod']['ssh'].split()[0])")
+APP ?= risk_hub_db
+DB ?= risk_hub
+TABLE ?= dsb_technical_measure
+restore-drill: ## Restore-Feuerübung ADR-241 §5 (#2284 K4): Snapshot → Wegwerf-Postgres → Zählprobe → Protokoll ins Repo
+	@out="docs/runbooks/restore-drills/$$(date -u +%Y-%m-%d)-$$(echo $(APP) | sed 's/_db$$//; s/_/-/g').md"; \
+	 echo "$(BOLD)Restore-Feuerübung $(APP) auf $(PROD_SSH) → $$out$(RESET)"; \
+	 ssh -o ConnectTimeout=10 -o BatchMode=yes $(PROD_SSH) bash -s -- $(APP) $(DB) $(TABLE) \
+	   < infra/host-maintenance/restore-drill.sh > "$$out.tmp" && [ -s "$$out.tmp" ] && mv "$$out.tmp" "$$out" && sed -n '1,20p' "$$out" \
+	   || { rm -f "$$out.tmp"; echo "FEHLER: kein Protokoll erzeugt (exit 0 + leere Ausgabe = Kind hat stdin gefressen?)"; exit 2; }
+
 # =============================================================================
 # REGISTRY LINTING (ADR-212 Issue #247)
 # =============================================================================

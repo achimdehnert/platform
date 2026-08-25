@@ -86,6 +86,7 @@ jobs:
           python3 tools/backup_meter.py \
             --expected governance/backup/expected-apps.json \
             --drills-dir docs/runbooks/restore-drills \
+            --enforce-drill \
             ${{ steps.snap.outputs.args }} \
             --report /tmp/backup-meter-report.md
 
