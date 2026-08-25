@@ -145,6 +145,26 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     TLS-Terminierung, z.B. `prod-b`) sind **kein** Befund. Anlass: ausschreibungs-hub
     2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
     abgelaufen, zwei Wochen lang kein einziger roter Melder.
+  - `0.7.17 backup-deckung`: **geht vom Host aus, nicht von einer Liste.** `backup-meter`
+    prüft die Apps aus `expected-apps.json`; was dort nicht steht, ist für ihn unsichtbar —
+    so lagen acht Volumes ohne Snapshot da ([#2086](https://github.com/achimdehnert/platform/issues/2086)),
+    während der Meter grün war. Jedes Volume aus `docker volume ls` braucht eine von vier
+    Antworten: `pgdump` (Container-Dump < 26 h) · `volumes` (Sammel-Snapshot < 26 h) ·
+    `verzicht` (`governance/backup/volume-verzicht.yaml`, **mit** Grund) · `anonym`
+    (Docker-Scratch, gezählt, nicht bewertet). Alles andere ist **UNGEDECKT** und der
+    Befund. Drei Lagen je rotem Volume: *in Nutzung* (läuft, wird nicht gesichert —
+    ins Backup-Skript), *Container steht* (`Links` zählt gestoppte mit — Dienst prüfen),
+    *verwaist* (löschen oder verzichten, Owner). `NICHT messbar` = ssh/restic gescheitert,
+    **kein** Grün. Erstlauf 2026-08-25: 46 Volumes, 7,2 GB, darunter drei doc-hub-Volumes
+    in Nutzung ([#2284](https://github.com/achimdehnert/platform/issues/2284)).
+  - `0.7.18 speicher`: **Vorlaufzeit statt Schwelle.** Je (Host, Mount) ein Tagespunkt
+    im Journal, Rate = Median der Tagesdifferenzen, WARN unter **7 Tagen bis voll** oder
+    unter 10 % frei. `SAMMELPHASE n/2` heißt „noch keine Rate", nicht „alles gut" — die
+    10-%-Untergrenze gilt trotzdem; `vorläufig` = Rate aus einem einzigen Tagespaar.
+    Alle Hosts mit ssh, auch der Offsite-Host: eine volle Offsite-Platte beendet das
+    Backup lautlos. Anlass: das reparierte dev-hub-Backup schrieb ab 2026-08-24 rund
+    6,3 GB/Tag auf die Root-Platte von prod — sieben Tage bis voll, kein Melder
+    ([infra-deploy#5](https://github.com/achimdehnert/infra-deploy/pull/5)).
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
@@ -384,6 +404,8 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 2b | Rückfällige Gates aus 0.7.7 im Board benannt — ein versagendes Gate ist ein Befund über den Loop selbst | ☐ |
 | 2c | `0.7.11 erreichbarkeit`: 5xx von NXDOMAIN getrennt; jede Ausnahme in `ports.yaml` trägt einen Grund | ☐ |
 | 2d | `0.7.16 origin-tls`: `abgelaufen`/`laeuft-ab` (kaputtes Renewal) von `fallback-zertifikat` (kein Zertifikat für diesen Namen) getrennt; `nicht-messbar` nicht als grün gelesen | ☐ |
+| 2e | `0.7.17 backup-deckung`: rote Volumes nach Lage getrennt (*in Nutzung* / *Container steht* / *verwaist*); `NICHT messbar` nicht als grün gelesen; jeder Verzicht trägt einen Grund | ☐ |
+| 2f | `0.7.18 speicher`: Platten unter 7 Tagen Vorlauf im Board benannt; `SAMMELPHASE` als „keine Rate" gelesen, nicht als Entwarnung | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
@@ -452,6 +474,15 @@ nicht in einem Folge-Commit "irgendwann".
 
 ## Changelog
 
+- 2026-08-25: **Phasen 0.7.17 `backup-deckung` und 0.7.18 `speicher`** ergänzt
+  ([#2284](https://github.com/achimdehnert/platform/issues/2284)). Beide drehen die
+  Messrichtung um: nicht „stimmt die Liste mit sich selbst überein?", sondern „was sagt
+  der Host?". 0.7.17 verlangt für jedes `docker volume` eine von vier Antworten und fand
+  im Erstlauf 46 ungedeckte Volumes (7,2 GB), wo `backup-meter` täglich grün war. 0.7.18
+  rechnet aus einem Tagesjournal die Tage bis voll und warnt sieben Tage vorher — Anlass
+  war ein repariertes Backup, das die Root-Platte in sieben Tagen gefüllt hätte, ohne dass
+  irgendein Melder Platten misst. Startklar-Checkliste um 2e/2f ergänzt (eine neue
+  WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
 
 - 2026-08-24: **Phase 0.7.16 `origin-tls`** ergänzt — misst auf dem Host, welches
   Zertifikat nginx je Domain wirklich ausliefert (TLS-Handshake gegen `127.0.0.1:443`

@@ -171,6 +171,13 @@ backup-db: ## Datenbank-Backup erstellen
 	@echo "$(BOLD)Datenbank-Backup:$(RESET)"
 	@echo "  (noch nicht implementiert - siehe /backup Workflow)"
 
+backup-audit: ## Beweislauf #2284: Deckung vom Host aus + Speicher-Vorlauf (read-only, ssh)
+	@echo "$(BOLD)Backup-Deckung (tools/backup_deckung.py):$(RESET)"
+	@python3 tools/backup_deckung.py; rc=$$?; echo "exit=$$rc"; \
+	 echo; echo "$(BOLD)Speicher-Vorlauf (tools/speicher_melder.py):$(RESET)"; \
+	 python3 tools/speicher_melder.py; rc2=$$?; echo "exit=$$rc2"; \
+	 [ $$rc -lt 2 ] && [ $$rc2 -lt 2 ]
+
 # =============================================================================
 # REGISTRY LINTING (ADR-212 Issue #247)
 # =============================================================================

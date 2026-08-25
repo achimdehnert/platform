@@ -1,0 +1,21 @@
+# governance/backup/volume-verzicht.yaml — #2284 K1
+#
+# Ein Prod-Volume hat gegenueber tools/backup_deckung.py genau vier Antworten:
+# pgdump, volumes, verzicht, anonym. Diese Datei ist die dritte. Alles, was hier
+# NICHT steht und in keinem frischen Snapshot liegt, ist UNGEDECKT und haelt den
+# Sitzungsstart rot.
+#
+# Ein Eintrag ist eine Entscheidung, keine Ausrede: `grund` ist Pflicht (ohne ihn
+# zaehlt der Eintrag als UNGEDECKT mit Hinweis "Verzicht OHNE Grund"). Die Liste
+# ist so fein wie der Befund — je (host, volume), keine Muster. Ein Verzicht
+# gilt fuer das Volume, das beim Eintragen vorlag; wird es spaeter von einem
+# Container gemountet, gehoert der Eintrag neu geprueft (`bis` als Wiedervorlage).
+#
+# Loeschen ist der andere zulaessige Abschluss und bleibt Owner-Sache (#2258).
+
+verzicht: []
+# - host: prod
+#   volume: beispiel_cache
+#   grund: "Redis-Cache, wird beim Start neu aufgebaut — kein Nutzdatenverlust"
+#   bis: 2026-11-30
+#   quelle: "platform#NNNN"

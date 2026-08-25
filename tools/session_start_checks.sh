@@ -660,6 +660,40 @@ case "$TLS_OUT" in
   *) record "0.7.16 origin-tls" "WARN" "$TLS_OUT" "${TLS_REPOS% }" ;;
 esac
 
+# ── 0.7.17 Backup-Deckung: jedes Prod-Volume gedeckt, verzichtet oder rot ────
+# backup-meter (ADR-241 §4) prueft die Apps einer gepflegten Soll-Liste. Was in
+# keiner Liste steht, sieht er nicht — so lagen acht Volumes mit 2,1 GB ohne
+# einen einzigen Snapshot da (#2086), waehrend der Meter jeden Morgen gruen war.
+# Diese Phase geht vom Host aus (`docker volume ls`) und verlangt fuer JEDES
+# Volume eine Antwort. Erstlauf 2026-08-25: 46 ungedeckt, 7,2 GB, darunter drei
+# doc-hub-Volumes in Nutzung. Kosten: 3 ssh (2 Hosts + restic), ~20 s.
+#
+# Kein `""`-Zweig auf PASS: die Werkzeuge reden IMMER (#2280). Leere Ausgabe
+# heisst hier "nicht gelaufen" und ist ein WARN, kein Gruen.
+DECKUNG_VOL_OUT=$(timeout 180 python3 "$PLATFORM_DIR/tools/backup_deckung.py" --kurz 2>/dev/null || true)
+case "$DECKUNG_VOL_OUT" in
+  OK:*) record "0.7.17 backup-deckung" "PASS" "$DECKUNG_VOL_OUT" ;;
+  "")   record "0.7.17 backup-deckung" "WARN" "Melder nicht gelaufen — keine Aussage zur Deckung" ;;
+  *)    record "0.7.17 backup-deckung" "WARN" "$DECKUNG_VOL_OUT" ;;
+esac
+
+# ── 0.7.18 Speicher-Vorlauf: Platten melden VORHER, nicht bei 90 % ──────────
+# Am 2026-08-24 begann das reparierte dev-hub-Backup, 6,3 GB pro Tag auf die
+# Root-Platte von prod zu schreiben — sieben Tage bis voll, und kein Melder
+# haette es gesagt, weil keiner Platten misst. Eine Schwelle bei 90 % ruft am
+# sechsten Tag; ein Wochenende dazwischen, und die Platte ist voll. Diese Phase
+# fuehrt je (Host, Mount) ein Tagesjournal (~/.claude/speicher-journal.jsonl)
+# und rechnet aus dem Median der Tagesdifferenzen die Tage bis voll — WARN
+# unter 7 Tagen oder unter 10 % frei. SAMMELPHASE ist ausdruecklich KEINE
+# Entwarnung, nur "noch keine Rate". Alle Hosts mit ssh, auch Offsite: eine
+# volle Offsite-Platte beendet das Backup lautlos.
+SPEICHER_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/speicher_melder.py" --kurz 2>/dev/null || true)
+case "$SPEICHER_OUT" in
+  OK:*|SAMMELPHASE*) record "0.7.18 speicher" "PASS" "$SPEICHER_OUT" ;;
+  "")   record "0.7.18 speicher" "WARN" "Melder nicht gelaufen — keine Aussage zur Speicherlage" ;;
+  *)    record "0.7.18 speicher" "WARN" "$SPEICHER_OUT" ;;
+esac
+
 # ── 0.7.12 Prod-Wirkung: was liegt WIRKLICH auf den Hosts? (platform#2148) ──
 # `tools/deploy_wirkung.py` existiert seit dem 2026-08-20 und hatte bis hierhin
 # NULL Aufrufer — es stand nur in Handover, Log und Archiv. Genau die Klasse
