@@ -2954,3 +2954,15 @@ Nach dem Handover-Stand von 13:2x: Owner mergte #2303/#2305/#2306/#2313; Bot-Kon
 **Zweiter Fehler derselben Klasse am selben Tag:** `set +e`-Fix (#2313) bewiesen — #2300 trägt jetzt Exit 1/3 mit Kurzzeilen. Approve-Queue-Erstlauf fand korrekt 2 PRs, scheiterte an fehlendem `--repo` ohne Checkout (#2317).
 
 **Offene Owner-Entscheidung (#2284 K5):** Workflow meldet täglich Exit 3 für die bekannte Scope-Lücke prod-b — Runner-Key auf prod-b oder „bekannt, kein Kommentar".
+
+---
+
+## 2026-08-25 abends — Sitzung aa58f9, Abschluss: Bot-Reviewer live, alle vier Klassen bewiesen
+
+**Bot-Reviewer (`IIL-Lotse`) ist wirksam:** Approves auf #2317, #2320, #2316, #2276 (Log mit Grund je Skip: Draft, Tabu-Pfad, Checks nicht grün). Drei Läufe brauchten drei Fixes: stummer Skip (#2321), dann der eigentliche Grund — `mergeStateStatus` ist **lazy je Token**, der Bot sah `UNKNOWN` für alle PRs (#2323). Entscheidung hängt jetzt an reviewDecision + Checks + Tabu. Memory-Nachtrag in `feedback_pr_unknown_mergestate_can_mean_merged`.
+
+**Approve-Queue** läuft: #2322 listet wartende PRs mit /files-Links (Erstlauf brauchte `--repo`, #2317). **Weg B** (#2320, Owner-Entscheid): Exit 3 = bekannte Scope-Lücke prod-b, kein Issue, Lauf grün — bewiesen (#2300 ohne neuen Kommentar). Beide wurden vom Bot approved — die Klasse „Approve" ist damit vom Reflex-Klick auf Tabu-Pfade reduziert (policies/, docs/adr/, CODEOWNERS, bot-review.yml).
+
+**Regression im eigenen Umbau** (#2306 → #2318): `python3 -` mit Heredoc verdrängte die gepipte Volume-Liste — „0 sichern" auf beiden Hosts, grüner Exit. Gefunden nur durch den Beweislauf, der die Entscheidungszeile liest. Danach prod 33 / prod-b 6 Volumes, `backup_deckung`: **0 UNGEDECKT**. Vier Fehler derselben Klasse an einem Tag (stdin-Kind, `bash -e`, Heredoc/Pipe, stummer Skip) — jedes Mal Exit 0 und Stille; jedes Mal hat der Beweislauf am Artefakt gefangen, was der Test nicht sah.
+
+**Offen für die nächste Sitzung:** K3-Positivkontrolle (zweiter Tagespunkt ab 26.08.) · #2322 abarbeiten · PyPI-Antwort (Vorgang 152, Frist 08.09.) · infra-deploy `runner-health.yml` rot, nicht untersucht · Modell-Tier: Rest ist Sonnet-Arbeit.
