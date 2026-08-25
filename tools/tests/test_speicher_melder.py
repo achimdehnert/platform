@@ -219,3 +219,20 @@ def test_should_never_print_an_empty_line_for_the_runner():
         ),
     ):
         assert sm.kurzzeile(e).strip()
+
+
+def test_should_run_locally_for_the_host_it_is_on():
+    gesehen = []
+
+    def laeufer(cmd):
+        gesehen.append(cmd[0])
+        return 0, "/ 100 50\n"
+
+    sm.messe({"prod": "root@1", "prod-b": "root@2"}, laeufer, lokal={"prod"})
+    assert gesehen == ["bash", "ssh"]
+
+
+def test_should_name_hosts_outside_the_scope():
+    e = sm.bewerte(_messung("prod", "/", 150, 36), [], HEUTE)
+    e["ausserhalb"] = ["prod-b", "netcup"]
+    assert "nicht im Scope: prod-b, netcup" in sm.kurzzeile(e)

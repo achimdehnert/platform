@@ -309,7 +309,17 @@ def _lage(v: dict) -> str:
     return "verwaist"
 
 
+def _scope(e: dict) -> str:
+    """Hosts, die dieser Lauf bewusst NICHT gemessen hat — kein Gruen fuer sie."""
+    a = e.get("ausserhalb") or []
+    return f" · nicht im Scope: {', '.join(a)}" if a else ""
+
+
 def kurzzeile(e: dict) -> str:
+    return _kurzzeile(e) + _scope(e)
+
+
+def _kurzzeile(e: dict) -> str:
     if e["blind"]:
         return (
             f"Deckung NICHT messbar — nicht erreichbar: {', '.join(e['blind'])} "
@@ -339,6 +349,12 @@ def kurzzeile(e: dict) -> str:
 
 def bericht(e: dict) -> str:
     z = [f"# Backup-Deckung vom Host aus — Stand {e['stichtag']}", ""]
+    if e.get("ausserhalb"):
+        z.append(
+            f"◌ Nicht im Scope dieses Laufs: {', '.join(e['ausserhalb'])} — "
+            "keine Aussage, keine Entwarnung (der Sitzungsstart misst beide Hosts)."
+        )
+        z.append("")
     if e["blind"]:
         z.append(
             f"⛔ NICHT messbar: {', '.join(e['blind'])} — dieser Lauf hat nicht gemessen."
@@ -377,15 +393,34 @@ def bericht(e: dict) -> str:
 # --- CLI ----------------------------------------------------------------------
 
 
-def erhebe_live(hosts: dict[str, str], laeufer=None) -> tuple[dict, list | None]:
+def _aufruf(name: str, ziel: str, befehl: str, lokal: set[str]) -> list[str]:
+    """ssh — oder `bash -c`, wenn wir auf diesem Host SIND.
+
+    Der prod-server-Runner laeuft als root auf prod und hat keinen ssh-Zugang
+    zu sich selbst (gemessen 2026-08-25: Permission denied). Ein Workflow dort
+    misst prod lokal; was er nicht erreicht, steht als Scope-Luecke im Bericht,
+    nicht als Gruen.
+    """
+    if name in lokal:
+        return ["bash", "-c", befehl]
+    return SSH + [ziel, befehl]
+
+
+def erhebe_live(
+    hosts: dict[str, str], laeufer=None, lokal: set[str] | None = None
+) -> tuple[dict, list | None]:
     laeufer = laeufer or (lambda cmd: _sh(cmd, SSH_TIMEOUT_S))
+    lokal = lokal or set()
     roh: dict[str, str | None] = {}
     for name, ziel in hosts.items():
-        code, out = laeufer(SSH + [ziel, fernbefehl_volumes()])
+        code, out = laeufer(_aufruf(name, ziel, fernbefehl_volumes(), lokal))
         roh[name] = out if out.strip() else None
     snapshots = None
-    for ziel in hosts.values():
-        code, out = laeufer(SSH + [ziel, fernbefehl_snapshots()])
+    # Lokaler Host zuerst: dort liegt das Env garantiert lesbar (backup-meter
+    # nutzt es an derselben Stelle), und es spart einen ssh.
+    reihenfolge = sorted(hosts.items(), key=lambda kv: kv[0] not in lokal)
+    for name, ziel in reihenfolge:
+        code, out = laeufer(_aufruf(name, ziel, fernbefehl_snapshots(), lokal))
         if out.strip():
             try:
                 snapshots = json.loads(out)
@@ -413,6 +448,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fixtures", type=Path, help="Rohdaten statt ssh (Tests/offline)")
     p.add_argument("--dump-fixtures", type=Path, help="Rohdaten dieses Laufs ablegen")
     p.add_argument("--hosts", type=Path, default=HOSTS_YAML)
+    p.add_argument(
+        "--nur",
+        action="append",
+        default=None,
+        help="nur diese(n) Host(s) messen — die Luecke wird im Bericht genannt",
+    )
+    p.add_argument(
+        "--lokal",
+        action="append",
+        default=None,
+        help="Host, auf dem dieser Prozess laeuft (bash -c statt ssh)",
+    )
     p.add_argument("--verzicht", type=Path, default=VERZICHT_YAML)
     p.add_argument("--now", default=None, help="ISO-Zeitpunkt (Tests)")
     a = p.parse_args(argv)
@@ -420,10 +467,13 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.fromisoformat(a.now) if a.now else datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
+    alle = lade_hosts(a.hosts)
+    hosts = {h: z for h, z in alle.items() if not a.nur or h in a.nur}
+    ausserhalb = sorted(set(alle) - set(hosts))
     if a.fixtures:
         roh, snapshots = lade_fixtures(a.fixtures)
     else:
-        roh, snapshots = erhebe_live(lade_hosts(a.hosts))
+        roh, snapshots = erhebe_live(hosts, lokal=set(a.lokal or []))
     if a.dump_fixtures:
         a.dump_fixtures.mkdir(parents=True, exist_ok=True)
         for host, text in roh.items():
@@ -435,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
                 json.dumps(snapshots, indent=1), encoding="utf-8"
             )
     e = bewerte(roh, snapshots, lade_verzicht(a.verzicht), now)
+    e["ausserhalb"] = ausserhalb
 
     if a.als_json:
         print(json.dumps(e, ensure_ascii=False, indent=2))

@@ -216,3 +216,27 @@ def test_should_never_print_an_empty_line_for_the_runner():
 )
 def test_should_parse_docker_sizes(size, mb):
     assert abs(bd._mb(size) - mb) < 0.01
+
+
+# --- Workflow-Modus: lokal statt ssh, Scope-Luecke benannt ------------------
+
+
+def test_should_run_locally_for_the_host_it_is_on_and_ssh_for_the_rest():
+    """Der prod-server-Runner (root auf prod) hat keinen ssh zu sich selbst."""
+    gesehen = []
+
+    def laeufer(cmd):
+        gesehen.append(cmd[0])
+        return 0, ""
+
+    bd.erhebe_live({"prod": "root@1", "prod-b": "root@2"}, laeufer, lokal={"prod"})
+    assert gesehen[0] == "bash" and "ssh" in gesehen[1:]
+
+
+def test_should_name_hosts_outside_the_scope_instead_of_calling_them_green(tmp_path):
+    roh = {"prod": _host([_vol("a", anonym=True)], [])}
+    e = bd.bewerte(roh, [], {}, NOW)
+    e["ausserhalb"] = ["prod-b"]
+    zeile = bd.kurzzeile(e)
+    assert zeile.startswith("OK:") and "nicht im Scope: prod-b" in zeile
+    assert "prod-b" in bd.bericht(e)

@@ -128,11 +128,21 @@ def parse_df(text: str) -> list[dict]:
     return raus
 
 
-def messe(hosts: dict[str, str], laeufer=None) -> dict[str, list[dict] | None]:
+def messe(
+    hosts: dict[str, str], laeufer=None, lokal: set[str] | None = None
+) -> dict[str, list[dict] | None]:
+    """`lokal` = Hosts, auf denen dieser Prozess selbst laeuft (bash -c statt ssh).
+    Der prod-server-Runner hat keinen ssh-Zugang zu sich selbst."""
     laeufer = laeufer or (lambda cmd: _sh(cmd, SSH_TIMEOUT_S))
+    lokal = lokal or set()
     raus: dict = {}
     for name, ziel in hosts.items():
-        _, out = laeufer(SSH + [ziel, fernbefehl()])
+        cmd = (
+            ["bash", "-c", fernbefehl()]
+            if name in lokal
+            else SSH + [ziel, fernbefehl()]
+        )
+        _, out = laeufer(cmd)
         platten = parse_df(out)
         raus[name] = platten if platten else None
     return raus
@@ -260,6 +270,11 @@ def _platte_kurz(p: dict) -> str:
 
 
 def kurzzeile(e: dict) -> str:
+    a = e.get("ausserhalb") or []
+    return _kurzzeile(e) + (f" · nicht im Scope: {', '.join(a)}" if a else "")
+
+
+def _kurzzeile(e: dict) -> str:
     if e["blind"]:
         return "Speicher NICHT messbar — kein Host erreichbar (kein Urteil, keine Entwarnung)"
     warn = [p for p in e["platten"] if p["warn"]]
@@ -320,12 +335,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--df-fixtures", type=Path, help="Verzeichnis mit <host>.txt statt ssh"
     )
+    p.add_argument("--nur", action="append", default=None, help="nur diese(n) Host(s)")
+    p.add_argument(
+        "--lokal", action="append", default=None, help="Host = dieser Prozess"
+    )
     a = p.parse_args(argv)
 
     heute = (
         date.fromisoformat(a.heute) if a.heute else datetime.now(timezone.utc).date()
     )
-    hosts = lade_hosts(a.hosts)
+    alle = lade_hosts(a.hosts)
+    hosts = {h: z for h, z in alle.items() if not a.nur or h in a.nur}
+    ausserhalb = sorted(set(alle) - set(hosts))
     if a.df_fixtures:
         messung = {
             h: (
@@ -337,9 +358,10 @@ def main(argv: list[str] | None = None) -> int:
             for h in hosts
         }
     else:
-        messung = messe(hosts)
+        messung = messe(hosts, lokal=set(a.lokal or []))
     journal = schreibe_journal(a.journal, lies_journal(a.journal), heute, messung)
     e = bewerte(messung, journal, heute)
+    e["ausserhalb"] = ausserhalb
 
     if a.als_json:
         print(json.dumps(e, ensure_ascii=False, indent=2))
