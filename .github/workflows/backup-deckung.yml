@@ -42,10 +42,15 @@ jobs:
         # "Ergebnis durchreichen" macht den Lauf danach ohnehin rot.
         continue-on-error: true
         run: |
+          # GitHub startet run: mit `bash -e -o pipefail`. Die Melder-Pipeline liefert
+          # bei Befund Exit 1 — mit -e endet der Schritt GENAU DORT, und die Zeilen
+          # danach (rc/kurz schreiben) laufen nie; das Log zeigt sie trotzdem, weil
+          # es den Skripttext zeigt, nicht die Ausfuehrung (Laeufe 32844785736,
+          # 32850000840). Deshalb set +e; der Exit kommt am Ende bewusst.
+          set +e
           set -o pipefail
-          # rc/kurz als DATEIEN, nicht als Step-Outputs: im Beweislauf #2300 kamen
-          # die Outputs eines mit Exit != 0 beendeten Schritts leer im Issue an
-          # ("?"/"—"). Ursache nicht verifiziert; Dateien umgehen die Frage.
+          # rc/kurz als Dateien (seit #2302); die Ursache der leeren Werte war das
+          # implizite -e oben, nicht der Uebergabemechanismus.
           python3 tools/backup_deckung.py --lokal prod --nur prod | tee /tmp/deckung.md
           rc=${PIPESTATUS[0]}
           echo "$rc" > /tmp/deckung.rc
@@ -58,6 +63,12 @@ jobs:
         # Fehlerpfad = Issue-Schritt + rotes Gate am Ende.
         continue-on-error: true
         run: |
+          # GitHub startet run: mit `bash -e -o pipefail`. Die Melder-Pipeline liefert
+          # bei Befund Exit 1 — mit -e endet der Schritt GENAU DORT, und die Zeilen
+          # danach (rc/kurz schreiben) laufen nie; das Log zeigt sie trotzdem, weil
+          # es den Skripttext zeigt, nicht die Ausfuehrung (Laeufe 32844785736,
+          # 32850000840). Deshalb set +e; der Exit kommt am Ende bewusst.
+          set +e
           set -o pipefail
           # Journal des Runners: ~/.claude/speicher-journal.jsonl unter /root —
           # ein eigenes Journal neben dem der Dev-Maschine, beide fuehren
