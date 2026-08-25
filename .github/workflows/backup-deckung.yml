@@ -42,11 +42,19 @@ jobs:
         # "Ergebnis durchreichen" macht den Lauf danach ohnehin rot.
         continue-on-error: true
         run: |
+          # GitHub startet run: mit `bash -e -o pipefail`. Die Melder-Pipeline liefert
+          # bei Befund Exit 1 — mit -e endet der Schritt GENAU DORT, und die Zeilen
+          # danach (rc/kurz schreiben) laufen nie; das Log zeigt sie trotzdem, weil
+          # es den Skripttext zeigt, nicht die Ausfuehrung (Laeufe 32844785736,
+          # 32850000840). Deshalb set +e; der Exit kommt am Ende bewusst.
+          set +e
           set -o pipefail
+          # rc/kurz als Dateien (seit #2302); die Ursache der leeren Werte war das
+          # implizite -e oben, nicht der Uebergabemechanismus.
           python3 tools/backup_deckung.py --lokal prod --nur prod | tee /tmp/deckung.md
           rc=${PIPESTATUS[0]}
-          echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          echo "kurz=$(python3 tools/backup_deckung.py --lokal prod --nur prod --kurz 2>/dev/null | head -c 200)" >> "$GITHUB_OUTPUT"
+          echo "$rc" > /tmp/deckung.rc
+          python3 tools/backup_deckung.py --lokal prod --nur prod --kurz 2>/dev/null | head -c 200 > /tmp/deckung.kurz || true
           exit "$rc"
 
       - name: "Speicher-Vorlauf (prod lokal)"
@@ -55,26 +63,32 @@ jobs:
         # Fehlerpfad = Issue-Schritt + rotes Gate am Ende.
         continue-on-error: true
         run: |
+          # GitHub startet run: mit `bash -e -o pipefail`. Die Melder-Pipeline liefert
+          # bei Befund Exit 1 — mit -e endet der Schritt GENAU DORT, und die Zeilen
+          # danach (rc/kurz schreiben) laufen nie; das Log zeigt sie trotzdem, weil
+          # es den Skripttext zeigt, nicht die Ausfuehrung (Laeufe 32844785736,
+          # 32850000840). Deshalb set +e; der Exit kommt am Ende bewusst.
+          set +e
           set -o pipefail
           # Journal des Runners: ~/.claude/speicher-journal.jsonl unter /root —
           # ein eigenes Journal neben dem der Dev-Maschine, beide fuehren
           # Tagespunkte, keines ist das andere.
           python3 tools/speicher_melder.py --lokal prod --nur prod | tee /tmp/speicher.md
           rc=${PIPESTATUS[0]}
-          echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          echo "kurz=$(python3 tools/speicher_melder.py --lokal prod --nur prod --kurz 2>/dev/null | head -c 200)" >> "$GITHUB_OUTPUT"
+          echo "$rc" > /tmp/speicher.rc
+          python3 tools/speicher_melder.py --lokal prod --nur prod --kurz 2>/dev/null | head -c 200 > /tmp/speicher.kurz || true
           exit "$rc"
 
       - name: "Issue bei Rot oder Blind (Label backup-deckung)"
         if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RC_D: ${{ steps.deckung.outputs.rc }}
-          RC_S: ${{ steps.speicher.outputs.rc }}
-          KURZ_D: ${{ steps.deckung.outputs.kurz }}
-          KURZ_S: ${{ steps.speicher.outputs.kurz }}
         run: |
           set -euo pipefail
+          RC_D=$(cat /tmp/deckung.rc 2>/dev/null || echo "?")
+          RC_S=$(cat /tmp/speicher.rc 2>/dev/null || echo "?")
+          KURZ_D=$(cat /tmp/deckung.kurz 2>/dev/null || true)
+          KURZ_S=$(cat /tmp/speicher.kurz 2>/dev/null || true)
           gh api "repos/${GITHUB_REPOSITORY}/labels" \
             -f name="backup-deckung" -f color="b60205" \
             -f description="#2284: Volume ohne Backup-Antwort oder Platte unter Vorlauf" \
@@ -110,5 +124,5 @@ jobs:
       - name: "Gate: Ergebnis durchreichen"
         if: steps.deckung.outcome != 'success' || steps.speicher.outcome != 'success'
         run: |
-          echo "Deckung rc=${{ steps.deckung.outputs.rc }} · Speicher rc=${{ steps.speicher.outputs.rc }} — ROT IST BEFUND (Issue angelegt/kommentiert)"
+          echo "Deckung rc=$(cat /tmp/deckung.rc 2>/dev/null || echo '?') · Speicher rc=$(cat /tmp/speicher.rc 2>/dev/null || echo '?') — ROT IST BEFUND (Issue angelegt/kommentiert)"
           exit 1

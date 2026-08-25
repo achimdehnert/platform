@@ -263,3 +263,63 @@ def test_should_exit_3_when_hosts_were_left_out_but_everything_measured_is_clean
         ["--fixtures", str(fx), "--hosts", str(hosts), "--nur", "prod", "--kurz"]
     )
     assert rc == 3
+
+
+# --- Verzicht per Regel (Owner-Go 2026-08-25: Standard sichern, Verzicht explizit) --
+
+
+def _regeln_datei(tmp_path, text: str) -> Path:
+    p = tmp_path / "verzicht.yaml"
+    p.write_text(text, encoding="utf-8")
+    return p
+
+
+def test_should_apply_a_rule_based_waiver_on_every_host(tmp_path):
+    vz = bd.lade_verzicht(
+        _regeln_datei(
+            tmp_path, 'regeln:\n  - muster: "(^|_)redis(_|$)"\n    grund: "Cache"\n'
+        )
+    )
+    roh = {"prod-b": _host([_vol("app_redis_data")], [])}
+    e = bd.bewerte(roh, [], vz, NOW)
+    assert e["klassen"] == {"verzicht": 1}
+    assert "[Regel:" in e["volumes"][0]["durch"]
+
+
+def test_should_ignore_a_rule_without_a_reason(tmp_path):
+    vz = bd.lade_verzicht(_regeln_datei(tmp_path, 'regeln:\n  - muster: "redis"\n'))
+    roh = {"prod": _host([_vol("app_redis_data")], [])}
+    assert bd.bewerte(roh, [], vz, NOW)["klassen"] == {"UNGEDECKT": 1}
+
+
+def test_should_let_an_exact_entry_win_over_a_rule(tmp_path):
+    vz = bd.lade_verzicht(
+        _regeln_datei(
+            tmp_path,
+            'regeln:\n  - muster: "redis"\n    grund: "Regelgrund"\n'
+            'verzicht:\n  - host: prod\n    volume: app_redis_data\n    grund: "Einzelgrund"\n',
+        )
+    )
+    roh = {"prod": _host([_vol("app_redis_data")], [])}
+    assert bd.bewerte(roh, [], vz, NOW)["volumes"][0]["durch"] == "Einzelgrund"
+
+
+def test_should_not_let_a_broken_rule_cover_anything(tmp_path):
+    vz = bd.lade_verzicht(
+        _regeln_datei(tmp_path, 'regeln:\n  - muster: "(["\n    grund: "kaputt"\n')
+    )
+    roh = {"prod": _host([_vol("x")], [])}
+    assert bd.bewerte(roh, [], vz, NOW)["klassen"] == {"UNGEDECKT": 1}
+
+
+def test_should_classify_the_real_first_run_with_the_shipped_rules():
+    """Die ausgelieferten Regeln gegen die Echtdaten-Fixtures: Redis/static/buildx
+    werden verzichtet, doc-hub-Volumes bleiben rot — die Regeln duerfen Nutzdaten
+    nicht wegdefinieren."""
+    roh, snaps = bd.lade_fixtures(FIXTURES)
+    e = bd.bewerte(roh, snaps, bd.lade_verzicht(bd.VERZICHT_YAML), NOW)
+    klasse = {v["volume"]: v["klasse"] for v in e["volumes"]}
+    assert klasse["travel-beat_travelbeat_redis"] == "verzicht"
+    assert klasse["weltenhub_static_prod"] == "verzicht"
+    assert klasse["doc-hub-stack_dochub_export"] == "UNGEDECKT"
+    assert klasse["doc-hub-stack_dochub_data"] == "UNGEDECKT"
