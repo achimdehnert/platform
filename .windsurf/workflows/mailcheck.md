@@ -288,6 +288,14 @@ python3 tools/mail_agent/link_pruefen.py --datei <antwort.md>   # Exit 0 oder es
 python3 tools/mail_agent/link_pruefen.py <url> [<url> …]
 ```
 
+**Der Standard ist streng, und das ist Absicht.** Ein Link auf einem Hostnamen, den
+die Ingress-Liste nicht kennt, gilt als **ungeprüft** und damit als Fehler — nicht
+als „geht schon". Der Ausgangsfall zeigt, warum: der falsche Link lag auf
+`todo.iil.pet`, einem Host, den die Liste kennt. Läge er auf einem erfundenen, hätte
+eine nachsichtige Variante ihn wortlos durchgewinkt und Exit 0 gemeldet. Wer fremde
+Hosts bewusst erlauben will (etwa eine Antwort mit GitHub-Links), sagt das mit
+`--nachsichtig` — und weiß dann, dass diese Links **nicht** geprüft sind.
+
 Der Prüfer übersetzt den Hostnamen über die cloudflared-Ingress-Liste in seinen
 Loopback-Port und fragt **dort** an. Das ist der einzige Weg, der von dieser
 Maschine aus etwas beweist: von außen steht Cloudflare Access davor und liefert
