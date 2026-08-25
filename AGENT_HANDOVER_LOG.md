@@ -2928,3 +2928,17 @@ Fuenf PRs: [#2265](https://github.com/achimdehnert/platform/pull/2265) Zweitmein
 **Offen:** der kritische `check_c`-Fehler auf `main` ([#2264](https://github.com/achimdehnert/platform/issues/2264)), zwei offene PRs, drei tote Praefixregeln in `registry/canonical.yaml`, zwei Tracking-Issues mit Vormittagsstand, die generierte `CLAUDE.md`-Tabelle (Owner-Sache) und die kaufmaennische Sitzfrage.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-25 mittags — Sitzung aa58f9: Melder-Schweigen, Backup-Wahrheit, PyPI-Org gelassen, Klassen-Gates
+
+Sieben PRs gemergt (#2277, #2279, #2285, #2292, #2298, #2301, #2302; infra-deploy#5/#6), fünf offen (#2303, #2305, #2306, #2313, #2307 Draft). Zielzustände: #2278 erreicht und geschlossen; #2284 K1/K4/K6 erfüllt, K3/K5 teilweise, K2 offen — als Checkboxen dort.
+
+**Die Klasse hinter allem:** „existiert" ≠ „benutzbar". Sechs Werkzeuge kannten zwei Zustände für eine Welt mit dreien; der dritte („konnte nicht messen") fiel jedes Mal auf grün. Zwei davon habe ich am selben Tag selbst gebaut. Jetzt: Exit 2 = blind, Exit 3 = Scope-Lücke, Positivkontrollen auf dem Prod-Pfad (Dummy-Volume 46→47→46; Floor → Exit 2; Restore 352=352).
+
+**Owner-Korrektur, die die zweite Hälfte prägte:** „gerade dafür möchte ich eine automatisierbare Lösung" — vier „nur du"-Klassen (Approve, Volumes, Platte, PyPI-Antwort) in Regel + Werkzeug überführt: Approve-Queue + Bot-Reviewer (Draft, Machterweiterung markiert), Standard sichern/Verzicht per Regel, Platten-Floor + Gate-2-Allowlist, Vorgang im Mail-Ledger. Lehre für die Charta: jede wiederkehrende Owner-Frage ist ein Klassen-Gate, nicht ein Board-Punkt.
+
+**Eigene Fehler:** zweimal „grün" ohne Check → Gate `claim-before-cheapest-check` rückfällig → ausgeweitet (#2301, `ci-status` ordnungsgebunden, Live-Probe blockt). `docker exec -i` fraß das `bash -s`-Skript (0-Byte-Protokoll, exit 0). Step-Outputs leer: erst im dritten Anlauf als implizites `bash -e` verifiziert — das Actions-Log zeigt Skripttext, nicht Ausführung. Vier Memories, eine Outline-Lesson, ein Runbook.
+
+SA-4: 4 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
