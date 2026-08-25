@@ -165,11 +165,11 @@ Pilot an R2 (Login) haengt und das dokumentiert ist.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 Positivkontrolle: >= 7 der 9 bekannten Defekte (writing-hub 3, ausschreibungs-hub 6) wiedergefunden am Stand vor den Fixes | offen | — |
-| K2 Fehlbefund-Quote <= 30 % ueber alle Pilot-Issues (Owner-Urteil je Issue) | offen | — |
-| K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | offen | — |
-| K4 Jede getippte URL im Pilot erscheint als Befund im Bericht (D3-Probe) | offen | — |
-| K5 Kein Screenshot mit Personendaten ausserhalb des Zielrepos (R4-Probe: grep der PR-Diffs in platform) | offen | — |
+| K1 Positivkontrolle: >= 7 der 9 bekannten Defekte (writing-hub 3, ausschreibungs-hub 6) wiedergefunden am Stand vor den Fixes | teilweise (3/9) | writing-hub 3/3 am 2026-08-25, Stand 493dc19 — writing-hub#767; ausschreibungs-hub offen |
+| K2 Fehlbefund-Quote <= 30 % ueber alle Pilot-Issues (Owner-Urteil je Issue) | offen | 1 neues Issue (writing-hub#766), Owner-Urteil steht aus |
+| K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | offen | Vorschlag liegt in writing-hub#766 (Meldung liest dieselbe Quelle wie der Aufruf; Reseed invalidiert Cache) |
+| K4 Jede getippte URL im Pilot erscheint als Befund im Bericht (D3-Probe) | erfuellt (Lauf 1) | 0 getippte URLs, Kette komplett per Klick — writing-hub#767 |
+| K5 Kein Screenshot mit Personendaten ausserhalb des Zielrepos (R4-Probe: grep der PR-Diffs in platform) | erfuellt (Lauf 1) | keine Screenshots erzeugt; synthetischer Nutzer, Stack mit Volumes geloescht |
 
 Alle fuenf erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
 Bot-Token, Dry-Run in CI). Eines verfehlt -> Stufe 1 bleibt manuell aufrufbar,

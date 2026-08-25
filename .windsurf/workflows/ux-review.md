@@ -53,6 +53,16 @@ nicht als neues Issue (Voraussetzung aus KONZ-051 ALT-1, platform#2326).
    `.env` bei 12 parallelen Sessions umgestellt.
 4. **Synthetische Daten.** Der Lauf legt eigene Objekte an (Prefix `uxr-<datum>`); Screenshots
    von echten Mandanten sind ein Abbruchgrund (R4 — `platform` ist oeffentlich).
+5. **Seed und Doctor des Repos ausfuehren** (`grep -n 'seed\|doctor\|setup_' Makefile` bzw.
+   `manage.py help | grep -i seed`), bevor die erste Station bewertet wird. Eine leere Registry
+   ist eine Umgebungsluecke, kein Befund — Pilot writing-hub 2026-08-25: `AIActionType` leer,
+   „No model configured", erst nach `setup_aifw_actions` messbar.
+6. **Nach jedem Reseed den Cache des Repos leeren** (aifw: Redis, TTL 600 s — ein Web-Neustart
+   reicht nicht). Sonst misst der Lauf den alten Stand, und eine Fehlermeldung, die frisch aus
+   der DB liest, fuehrt in die Irre (writing-hub#766).
+7. **Testkonto:** Zeiger aus `~/.secrets/`; fehlt er, im eigenen Stack `createsuperuser` mit einem
+   Wegwerf-Passwort, das mit dem Stack stirbt. Es steht dann im Transkript — deshalb nur im
+   eigenen, geloeschten Stack, nie in einem geteilten.
 
 ## Step 2: Einstieg, dann Klick-only (E1)
 
@@ -233,3 +243,9 @@ Exit-Zeile „Nicht verifiziert: gesamte Kette".
   und laufen im Pilot, nicht im PR dieses Skills. Dogfood beim Bau: Test 3 stand zuerst auf
   Port 9 — Chromium lehnt den als „unsafe port" ab (`ERR_UNSAFE_PORT`), der Test haette den
   Browser gemessen, nicht den Dienst; auf 65530 korrigiert (`ERR_CONNECTION_REFUSED` = `blind`).
+- 2026-08-25 (Pilot K1 writing-hub, Stand vor #761 — writing-hub#767): Kette Login → Ideen-Studio
+  → Projekt → Konzept → Kapitel → Export klick-only, 0 getippte URLs, **3 von 3 bekannten
+  Defekten wiedergefunden** (#758 escapejs, #759 konzept_vorschlag ohne Fallback, #762 Wortzahl
+  nicht gespeichert) und **1 neuer Befund** (Meldung ≠ Aufruf: aifw-Cache vs. frische DB-Abfrage,
+  writing-hub#766). Fehlbefund-Kandidat #760 als Rendering-Bedingung erkannt (E2). Step 1 um
+  Seed/Doctor, Cache-Leerung und Testkonto ergaenzt — ohne beides war Station 2 `blind`.
