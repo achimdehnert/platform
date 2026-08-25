@@ -11,7 +11,9 @@ Env:
   GITHUB_TOKEN        (required) — PR read + comment/label write
   CEREBRAS_API_KEY    — for cerebras/* models   (one LLM key required)
   GROQ_API_KEY        — for groq/* models       (used for fallback)
-  ADR_REVIEW_MODEL          (optional) default 'groq/llama-3.3-70b-versatile'
+  ADR_REVIEW_MODEL          (optional) default aus dem ADR-208-Resolver
+                            (`iil/adr-review`); der Default unten greift nur,
+                            wenn die Variable nicht gesetzt ist.
   ADR_REVIEW_FALLBACK       (optional) default 'cerebras/llama3.1-8b'
   ADR_REVIEW_DEEP_MODEL     (optional) default 'cerebras/zai-glm-4.7' (Eskalation)
   ADR_REVIEW_ESCALATE_BELOW (optional) default 6  (Score-Schwelle)
@@ -38,7 +40,11 @@ GH = "https://api.github.com"
 MARKER = "<!-- adr-review -->"
 
 # Tier-1a (policy: user-visible prose), Flatrate Cerebras/Groq — kein Anthropic.
-PRIMARY = os.environ.get("ADR_REVIEW_MODEL", "groq/llama-3.3-70b-versatile")
+# 2026-08-25: der bisherige Default `groq/llama-3.3-70b-versatile` ist bei Groq
+# abgemeldet (13 gelistete IDs, nicht darunter). SSoT fuer diesen Slot ist
+# `iil/adr-review` im ADR-208-Resolver; die naechtliche Liveness-Pruefung in
+# mcp-hub meldet, wenn auch dieser Pin faellt.
+PRIMARY = os.environ.get("ADR_REVIEW_MODEL", "cerebras/gpt-oss-120b")
 # Cross-Provider-Failover (Policy): Primary groq -> Fallback cerebras.
 # Beide nicht deprecating; löst qwen-3-235b ab (Cerebras-EOL 2026-05-27).
 FALLBACK = os.environ.get("ADR_REVIEW_FALLBACK", "cerebras/llama3.1-8b").strip()

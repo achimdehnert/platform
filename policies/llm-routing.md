@@ -31,28 +31,41 @@ Same rungs as `session-routing.md` — one ladder for actions and sessions alike
 
 | Tier | Default model | $/1M in → out | Use case |
 |---|---|---|---|
-| **T1a** | `groq/llama-3.3-70b-versatile` *or* `cerebras/gpt-oss-120b` | — | Background jobs, summaries, classification, reports — prefer when output is user-visible prose |
-| **T1b** | `cerebras/llama3.1-8b` *or* `groq/llama-3.1-8b-instant` | — | Same rung, when 8B is sufficient and you want lower spend |
+| **T1a** | `groq/openai/gpt-oss-120b` *or* `cerebras/gpt-oss-120b` | — | Background jobs, summaries, classification, reports — prefer when output is user-visible prose |
+| **T1b** | `groq/openai/gpt-oss-20b` | — | Same rung, when the smaller model is sufficient and you want lower spend |
 | **T2** | `anthropic/claude-haiku-4-5` | 1 → 5 | If T1a/T1b fail on instruction following or nuance |
 | **T3** | `anthropic/claude-sonnet-5` | 3 → 15 (intro 2 → 10 until 2026-08-31) | Code review, planning, multi-step reasoning |
 | **T4** | `anthropic/claude-opus-5` | 5 → 25 | Only with explicit justification — agentic flows, complex synthesis |
 | **T5** | `anthropic/claude-fable-5` | 10 → 50 | Top rung — deepest reasoning, long-horizon agentic work; needs a named reason |
 
-**Verified available** as of 2026-05-13 (via `GET /v1/models`):
-- Cerebras account: `gpt-oss-120b`, `zai-glm-4.7`, `llama3.1-8b`
-  (`qwen-3-235b-a22b-instruct-2507` **DEPRECATED 2026-05-27** — nicht mehr nutzen)
-  (no Llama-3.3-70b on this Cerebras account — use Groq for the 70B Llama instead)
-- Groq Llama family: `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`,
-  `meta-llama/llama-4-scout-17b-16e-instruct`
+**Verified available** as of 2026-08-25 (via `GET /models`, all six providers asked
+in one run). Diese Liste ist eine **Messung mit Datum**, keine Zusage — sie veraltet,
+und genau deshalb laeuft in `mcp-hub` naechtlich `check-model-liveness.py` gegen den
+ADR-208-Resolver. Was dort rot wird, gehoert hier nachgezogen.
+
+- **Groq** (13 IDs): `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`,
+  `groq/compound`, `groq/compound-mini`, `whisper-large-v3` (+ Guard-/Audio-Modelle).
+  **Die gesamte Llama-Familie ist weg** — `llama-3.3-70b-versatile` und
+  `llama-3.1-8b-instant` waren bis zu diesem Datum T1a bzw. T1b und existieren nicht mehr.
+- **Cerebras** (2 IDs): `gpt-oss-120b`, `gemma-4-31b`.
+  `zai-glm-4.7` und `llama3.1-8b` sind ebenfalls **weg**.
+- **Anthropic** (10 IDs): `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`,
+  `claude-haiku-4-5-20251001` sowie die 4-x-Vorgaenger.
+- **OpenAI** (136 IDs): u.a. die `gpt-5.x`-Familie und `gpt-4.1`/`gpt-4o`.
+- **Together** (169 Chat-Modelle).
+- **Mistral**: der Schluessel in `~/.secrets/mistral_api_key` wird mit
+  `Invalid API Key` (HTTP 401) abgelehnt — der EU-Pfad unten traegt derzeit **nicht**
+  (achimdehnert/aifw#50).
 
 EU-/data-sovereignty workloads → `mistral/mistral-large-latest` instead of any
 US-hosted provider. For `ttz-lif` / `meiki-lra` repos see per-repo overrides.
 
 ## Choosing between Cerebras and Groq (Tier 1)
 
-- **Cerebras**: ultra-fast on its hosted models; Llama family currently 8B only,
-  high-quality option is `gpt-oss-120b` (qwen-3-235b deprecated 2026-05-27)
-- **Groq**: broader Llama catalogue (incl. 70B), `llama-3.1-8b-instant` for cheap fast paths
+- **Cerebras**: ultra-fast; der Katalog ist auf diesem Konto sehr schmal (2 Modelle),
+  die T1a-Wahl ist `gpt-oss-120b`
+- **Groq**: breiterer Katalog, dieselbe T1a-Familie (`openai/gpt-oss-120b`) plus
+  `openai/gpt-oss-20b` fuer den guenstigen schnellen Pfad
 - **Round-robin / fallback**: configure both in aifw with one as `default_model`
   and the other as `fallback_model` — automatic failover on rate-limit or 5xx
 
@@ -70,8 +83,8 @@ groq, _ = Provider.objects.get_or_create(
     defaults={"api_key_env_var": "GROQ_API_KEY"},
 )
 m, _ = Model.objects.get_or_create(
-    provider=groq, name="llama-3.3-70b-versatile",
-    defaults={"display_name": "Groq Llama 3.3 70B Versatile"},
+    provider=groq, name="openai/gpt-oss-120b",
+    defaults={"display_name": "GPT-OSS 120B (Groq)"},
 )
 ActionType.objects.update_or_create(
     code="<your_action_code>",
@@ -79,14 +92,14 @@ ActionType.objects.update_or_create(
 )
 ```
 
-With Groq→Cerebras failover (70B → 8B fallback):
+With Groq→Cerebras failover (gleiche Modellfamilie bei beiden Anbietern):
 
 ```python
 cerebras, _ = Provider.objects.get_or_create(
     name="cerebras", defaults={"api_key_env_var": "CEREBRAS_API_KEY"},
 )
 m_cb, _ = Model.objects.get_or_create(
-    provider=cerebras, name="llama3.1-8b",
+    provider=cerebras, name="gpt-oss-120b",
 )
 ActionType.objects.update_or_create(
     code="<your_action_code>",
@@ -107,6 +120,20 @@ Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
 - **meiki-hub** (meiki-lra): citizen-data — same applies if PII touched.
 
 ## Changelog
+
+- 2026-08-25: **Reality-Check ueber alle sechs Anbieter** — T1a und T1b waren auf
+  BEIDEN Anbietern tot: `groq/llama-3.3-70b-versatile`, `groq/llama-3.1-8b-instant`,
+  `cerebras/llama3.1-8b`, `cerebras/zai-glm-4.7` werden nicht mehr gelistet. Neue
+  Sprossen: T1a `groq/openai/gpt-oss-120b` oder `cerebras/gpt-oss-120b`, T1b
+  `groq/openai/gpt-oss-20b`. Der Fund kam nicht aus dieser Datei, sondern aus einem
+  fehlgeschlagenen `/prompt`-Lauf (`model_not_found`) — die Policy selbst hatte den
+  toten Pin seit dem 2026-05-17 gefuehrt. Konsumenten nachgezogen: ADR-208-Resolver
+  (mcp-hub#230), aifw-Seed + neuer `check_aifw_config --liveness` (aifw#51),
+  `run_prompt.py` liest jetzt den Resolver statt eines eigenen Pins, adr-review-CLI
+  repinned. **Neu und der eigentliche Punkt:** eine naechtliche Liveness-Pruefung
+  (mcp-hub `check-model-liveness.py`) fragt die Anbieter, statt Deklarationen zu
+  vergleichen — es war der zweite Fall dieser Klasse. Mistral-Schluessel abgelehnt
+  (aifw#50), der EU-Pfad traegt bis zur Rotation nicht.
 
 - 2026-07-04: Secret-Pfad-Fix — Keys liegen real in `~/.secrets/`, nicht
   `~/shared/secrets-inbox/` (seit 2026-05-30 konsolidiert, existiert nicht mehr).
