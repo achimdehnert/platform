@@ -1363,7 +1363,7 @@ def main() -> None:
     args = ap.parse_args()
     if getattr(args, "postfach", None):
         globals()["POSTFACH"] = args.postfach
-        _postfach_pruefen(cfg_for_probe := load_cfg(), args)
+        _postfach_pruefen(load_cfg(), args)
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except AttributeError:
