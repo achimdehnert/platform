@@ -6,6 +6,8 @@ Zwei Dinge muessen bewiesen sein, nicht nur behauptet:
 2. Policy und Werkzeug bleiben synchron — die Regel hat genau eine Quelle.
 """
 
+import base64
+import json
 import sys
 from pathlib import Path
 
@@ -101,14 +103,14 @@ def test_should_reject_prod_deploy_with_plain_approval():
     u = classify(
         _facts(wirkung="W3", mandat="M2", files=["app/x.py"], checks_total=2), REGELN
     )
-    assert u.erlaubt is False and "braucht M3" in u.grund
+    assert u.erlaubt is False and "fehlt: M3" in u.grund
 
 
 def test_should_reject_doc_pr_in_prod_repo_without_named_approval():
     """Der Fall, an dem SA-6 zu weit war: Doku aendert nichts, der Deploy laeuft
     trotzdem."""
     u = classify(_facts(wirkung="W3", mandat="M1", files=["README.md"]), REGELN)
-    assert u.erlaubt is False and "braucht M3" in u.grund
+    assert u.erlaubt is False and "fehlt: M3" in u.grund
 
 
 def test_should_reject_sync_repo_without_mandat():
@@ -122,7 +124,7 @@ def test_should_reject_sync_repo_without_mandat():
         ),
         REGELN,
     )
-    assert u.erlaubt is False and "braucht M1" in u.grund
+    assert u.erlaubt is False and "fehlt: M1" in u.grund
 
 
 def test_should_reject_governance_path_without_approval():
@@ -157,9 +159,11 @@ def test_should_raise_unklar_when_file_list_is_empty():
         classify(_facts(files=[]), REGELN)
 
 
-def test_should_raise_unklar_when_checks_still_running():
-    with pytest.raises(Unklar):
-        classify(_facts(files=["a.py"], checks_total=2, checks_pending=1), REGELN)
+def test_should_hand_pending_checks_to_auto_merge():
+    """Laufende Checks sind kein Ablehnungsgrund mehr — GitHub merged, sobald sie
+    gruen sind. Wartet einer rot, merged GitHub nicht."""
+    u = classify(_facts(files=["a.py"], checks_total=2, checks_pending=1), REGELN)
+    assert u.erlaubt is True and u.auto is True
 
 
 def test_should_raise_unklar_when_mergeable_stays_unknown():
@@ -230,3 +234,59 @@ def test_should_recognize_doc_paths(pfad, erwartet):
 )
 def test_should_recognize_governance_paths(pfad):
     assert ist_governance(pfad, REGELN["governance_pfade"]) is True
+
+
+# --- Journal: ohne Zaehlung keine pruefbare Ratsche ---------------------------
+
+
+def test_should_journal_every_decision(monkeypatch, tmp_path):
+    import pr_merge_sa
+
+    ziel = tmp_path / "journal.jsonl"
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", ziel)
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: _facts(mandat="M0"))
+    assert pr_merge_sa.main(["7", "owner/repo", "--dry-run"]) == 0
+
+    zeilen = [json.loads(z) for z in ziel.read_text().splitlines()]
+    assert len(zeilen) == 1
+    assert zeilen[0]["pr"] == 7 and zeilen[0]["erlaubt"] is True
+    assert zeilen[0]["dry_run"] is True
+
+
+def test_should_not_block_merge_when_journal_is_unwritable(monkeypatch, tmp_path):
+    """Ein blindes Journal darf keinen gedeckten Merge verhindern."""
+    import pr_merge_sa
+
+    monkeypatch.setattr(pr_merge_sa, "JOURNAL", tmp_path / "nicht" / "da" / "x.jsonl")
+    monkeypatch.setattr(
+        pr_merge_sa.pathlib.Path,
+        "mkdir",
+        lambda *_a, **_k: (_ for _ in ()).throw(OSError("read-only")),
+    )
+    monkeypatch.setattr(pr_merge_sa, "regeln", lambda *_a, **_k: REGELN)
+    monkeypatch.setattr(pr_merge_sa, "gather", lambda *_a, **_k: _facts())
+    assert pr_merge_sa.main(["8", "owner/repo", "--dry-run"]) == 0
+
+
+def test_should_fetch_workflows_once_per_repo(monkeypatch):
+    """Der Cache spart die N Datei-Calls beim zweiten PR desselben Repos."""
+    import pr_merge_sa
+
+    pr_merge_sa._WORKFLOW_CACHE.clear()
+    aufrufe = []
+
+    def _fake(args):
+        aufrufe.append(args[1])
+        if args[1].endswith("/workflows"):
+            return [{"name": "ci.yml", "url": "u1"}]
+        return {
+            "content": base64.b64encode(
+                b"on:\n  push:\n    branches: [main]\njobs: {}\n"
+            ).decode()
+        }
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _fake)
+    pr_merge_sa.workflow_texte("owner/repo")
+    pr_merge_sa.workflow_texte("owner/repo")
+    assert len(aufrufe) == 2  # Verzeichnis + eine Datei, nicht viermal
