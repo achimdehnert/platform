@@ -1,5 +1,5 @@
 ---
-description: Eine benannte Kette klick-only durch die laufende App pruefen — Begehbarkeit, Konsole, Antwortkoerper; je Befund ein Issue mit Klassen-Gate-Vorschlag (KONZ-051 Stufe 1)
+description: PFLICHT bei JEDER Arbeit an GUI, Templates, Views oder einer Bedien-Kette (Owner-Weisung 2026-08-26) — vor dem ersten Klick aufrufen, nicht danach. Prueft eine Kette klick-only durch die laufende App: Begehbarkeit ohne getippte URL, Konsole, Antwortkoerper, Funktionen ohne Aufrufer; je Befund ein Issue mit Klassen-Gate-Vorschlag (KONZ-051 Stufe 1). Ausloeser: GUI, Oberflaeche, Template, Screen, Knopf, Formular, Durchlauf, e2e, klicken, Bedienbarkeit, „funktioniert das im Browser"
 mode: write
 scope: geteilt
 statefulness: zustandslos
@@ -8,9 +8,17 @@ trigger: interaktiv
 
 # /ux-review — Kette klick-only pruefen, je Befund ein Klassen-Gate
 
-> **Wann:** Eine App hat eine Kette aus mehreren Screens (Recherche → Angebot → Freigabe,
-> Idee → Buch → Export), und niemand weiss, ob ein Mensch sie **ohne getippte URL** von Anfang
-> bis Ende begehen kann. Operationalisiert **KONZ-platform-051** (Stufe 1).
+> **Wann:** Immer, wenn GUI, Templates, Views oder eine Bedien-Kette im Spiel sind
+> (Owner-Weisung 2026-08-26). Typischer Fall: eine App hat eine Kette aus mehreren Screens
+> (Recherche → Angebot → Freigabe, Idee → Buch → Export), und niemand weiss, ob ein Mensch
+> sie **ohne getippte URL** von Anfang bis Ende begehen kann. Operationalisiert
+> **KONZ-platform-051** (Stufe 1).
+>
+> **Vor dem ersten Klick aufrufen, nicht danach.** Am 2026-08-25/26 lief ein kompletter
+> GUI-Durchlauf durch writing-hub ohne diesen Skill — drei Fehler, gegen die er ausdruecklich
+> geschrieben ist, passierten dabei erneut: die geteilte `.env` wurde umgestellt (Step 1.3),
+> eine Absenz ohne zweiten Suchpfad behauptet (Step 4), und ein „0 erstellt" im Erfolgston
+> uebersehen (Step 5). Alle drei standen zu dem Zeitpunkt bereits als Regel hier drin.
 > **Wann NICHT:** Klickdummy pruefen → `/kd-review` (statisch, kein Login). App-Struktur
 > auditieren ohne zu klicken → `/repo-ux-opt`. Einen bekannten Defekt fixen → normaler PR-Flow.
 > Dieser Skill **aendert keinen Code** — er klickt, urteilt und legt Issues an.
