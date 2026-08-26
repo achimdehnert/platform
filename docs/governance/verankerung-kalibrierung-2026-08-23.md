@@ -237,3 +237,5 @@ der Regelfall dafuer, nicht die Ausnahme.
 **Stand des Fensters:** 19 geprueste Texte · 12 Meldungen · 1 richtig · 11 Fehlalarme.
 Praezision 0,083 (vorher 0,111). Sechs weitere Texte, drei weitere Meldungen, keine
 davon richtig — die Richtung des Fensters ist damit deutlicher als sein Endstand.
+
+**Nachtrag 2026-08-26 (Sitzung 0d4b7c, zwei Meldungen, beide Fehlalarm):** `verankerung_pruefer.py` meldete #2327 und #2329 (je „Bewusst ausgelassen, getrackt"). Zitat #2329: „Pilot (K1–K5) → KONZ-051 Kill-Gate-Tabelle, Frist 2026-09-30" — das Tracking-Artefakt ist eine KONZ-Zeile mit Datum (laut Hausregel gleichwertig zum Issue), die der Pruefer nur als Issue-Nummer erkennt. Zitat #2327: „Skill `/ux-review` selbst: Folge-PR nach Akzeptanz dieses Konzepts" — inzwischen erfuellt (#2329). Stand des Fensters: 21 gepruefte Texte · 14 Meldungen · 1 richtig · 13 Fehlalarme (Praezision 0,071). Neue Fehlalarm-Klasse: **Tracking per KONZ-/Ledger-Zeile statt Issue** — der Pruefer kennt nur den Issue-Anker.
