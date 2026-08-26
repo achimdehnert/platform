@@ -96,6 +96,37 @@ belegen kann, wird zur **Frage**, nicht zum Satz.
 
 ---
 
+## 3b — Issues, PRs, Antworten an den Owner
+
+**Owner-Weisung 2026-08-26:** „viel zu umständlich formuliert — ich soll es lesen und
+verstehen. Präzise auf den Punkt, unmissverständlich."
+
+**Feste Form für Issue und PR:**
+
+```
+Titel      was sich ändert, aktiv, unter 70 Zeichen
+Erste Zeile der Kern in einem Satz — was ist jetzt anders
+Danach     höchstens fünf Zeilen: was drin ist, was offen bleibt
+```
+
+Mehr nicht. Was raus muss, auch wenn es stimmt:
+
+- **Der Werdegang.** Was ich versucht habe, was blockiert wurde, in welcher
+  Reihenfolge — interessiert niemanden, der den PR liest.
+- **Die Prosa-Wiederholung des Diffs.** Wer den PR öffnet, sieht die Dateien.
+- **Belegketten in Klammern.** Ein Link genügt, die Herleitung steht im Commit.
+- **Selbstkommentare** („mein Vorschlag war an diesem Punkt zu weit"). Die
+  Korrektur selbst ist die Aussage.
+- **Motiv-Absätze**, die begründen, warum die Entscheidung richtig war. Sie liest
+  nur, wer schon widerspricht — und der braucht das Gespräch, nicht den Absatz.
+
+**Antworten im Kapitäns-Kanal:** Board zuerst (Regeln in `~/.claude/CLAUDE.md`),
+darunter höchstens drei kurze Absätze. Ein Absatz sagt eine Sache. Steht dieselbe
+Information schon im Board, wird der Absatz gestrichen, nicht umformuliert.
+
+**Prüffrage vor dem Absenden:** Kann der Owner nach dem ersten Satz entscheiden?
+Wenn nein, steht die Entscheidung zu weit hinten.
+
 ## 4 — Pre-Send-Selbstcheck
 
 Vor dem Ablegen eines Entwurfs jede Zeile einmal gegen diese sechs Fragen:
@@ -160,6 +191,8 @@ Drei Regeln dazu:
 - 2026-08-25 · dsb · ergänzt: dreischrittige Herleitung (Schwellenwerte allein nicht erreicht → Verbund-Betrachtung → Ausnahme scheitert an der IT), 90 → 259 Wörter · Grund: „bitte das nochmal darlegen (eigentlich nicht aber wegen Tochter schon)“ — die Kürzungsregel endet dort, wo der Empfänger das Ergebnis nicht selbst herleiten kann
 
 ---
+
+- 2026-08-26 · intern · Weisung: „deine issues und PR sind viel zu umständlich formuliert … präzise auf den Punkt … unmissverständlich" · Grund: PR-Texte trugen Werdegang, Belegketten und Selbstkommentare; der Owner musste drei Absätze lesen, bevor er entscheiden konnte. Neue Form: § 3b.
 
 ## 7 — Verhältnis zu anderen Regeln
 
