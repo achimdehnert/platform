@@ -29,7 +29,11 @@ evidence_manifest:
   - {claim_id: C7, source_path: docs/adr/ADR-251-reengineering-pipeline-ux-gate-am-klickdummy.md, commit_or_pr: "accepted", opened_in_session: true}
   - {claim_id: C8, source_path: "pgvector error:ausschreibungs-hub:20260825-screen-ohne-weg", commit_or_pr: "agent_memory_search 2026-08-25", opened_in_session: true}
   - {claim_id: C9, source_path: "pgvector error:ausschreibungs-hub:f8820cc8a690", commit_or_pr: "agent_memory_search 2026-08-25", opened_in_session: true}
+  - {claim_id: C10, source_path: "writing-hub/klickdummy/roman-autoren-spine/spec.yaml", commit_or_pr: "main 2026-08-26", opened_in_session: true}
+  - {claim_id: C11, source_path: "writing-hub AGENT_HANDOVER.md — Stand 2026-08-26", commit_or_pr: "#778", opened_in_session: true}
+  - {claim_id: C12, source_path: docs/adr/ADR-211-spec-zentrierte-klickdummies.md, commit_or_pr: "accepted", opened_in_session: true}
 created: 2026-08-25
+updated: 2026-08-26
 ---
 
 # KONZ-platform-051: ux-review-agent
@@ -94,6 +98,11 @@ Mensch.
 | R1 | Agent findet, Mensch fixt einzeln — Klassen-Gate bleibt Prosa im Issue | Risiko | A2; Gegenmittel: Gate-Vorschlag ist Pflichtfeld des Issue-Templates, Retro zaehlt gebaute Gates | offen |
 | R2 | Login/CF-Access blockiert autonomen Lauf | Risiko | C1: Test-Creds per `fill`, CF-Access einmal als pytest-playwright verdrahten | offen, Pilot |
 | R3 | Vision-Urteil („Optimierung") erzeugt Geschmacks-Issues | Risiko | Severity `optimierung` nur mit Referenz auf Design-System/ADR-048/049 oder Nielsen-Heuristik-Nummer | offen |
+| E10 | **Klickdummy als Soll-Gegencheck** (`-kd <name>`, optional): existiert eine KD-Spec zur Kette, wird sie in **beide** Richtungen abgeglichen — KD-Screen ohne App-Weg und App-Station ohne KD-Screen. Der Befund ist der **Dissens**, nie „die App ist falsch" | Entscheidung | C10: `roman-autoren-spine` spezifiziert 6 Screens, der reale Durchlauf hatte 7 Phasen — „Serien-Zuordnung" nie berührt, „Welt & Figuren"/„Recherche" im KD unbekannt. Alternative: KD als Wahrheit setzen (= Fehlalarm bei jedem gewachsenen Feature, R5) | gesetzt |
+| E11 | **Inhaltliche Prüfung = Durchgängigkeit, nicht Qualität.** Ein Eigenname aus Station 1 wird in jeder Folgestation gesucht, plus ein Kontrollmarker, der 0 ergeben MUSS | Entscheidung | C11: Protagonist hiess im Konzept „Milo Heller", in der erzeugten Gliederung „Franz" — HTTP-grün, inhaltlich gerissen. Alternative: Textqualität bewerten (= Geschmacks-Issues, R3) | gesetzt |
+| E12 | **Blaupause statt Einzelwerkzeug**: der Skill nennt keine repo-spezifischen Pfade; Kette, KD-Name und Marker kommen als Parameter. Ein neues Repo braucht keine Skill-Änderung | Entscheidung | Owner-Weisung 2026-08-26. Alternative: je Repo eine Kopie (= Drift zwischen Kopien, dieselbe Klasse wie `skill-copy-not-redistributed`) | gesetzt |
+| R5 | **KD veraltet → Fehlalarm.** Ein KD, der einer gewachsenen App hinterherhinkt, erzeugt bei jedem Lauf dieselben Dissense | Risiko | Gegenmittel: Dissens hat zwei Severities — `spec-luecke` (KD kennt die Station nicht) ist `optimierung`, `weg-fehlt` (KD-Screen ohne App-Weg) ist `fehler`. Zählt K2 mit; > 30 % `spec-luecke` über drei Läufe = der KD gehört gepflegt, nicht der Agent geschärft | offen, Pilot |
+| R6 | **Marker verfälscht das Ergebnis.** Ein Eigenname, den der Autor nie schreiben würde, verzerrt die Erzeugung | Risiko | Gegenmittel: Marker sind plausible Eigennamen im Genre, kein `ZZZ-TEST`. Der Kontrollmarker (der 0 ergeben muss) ist die Gegenprobe gegen einen Filter, der nie etwas findet | offen, Pilot |
 | R4 | Testdaten aus Prod im Screenshot (Personendaten, platform ist public) | Risiko | Screenshots nur ins Zielrepo-Issue (privat), nie nach platform; Pilot mit synthetischen Mandanten | offen |
 
 ## MVC (Stufe 1)
@@ -106,12 +115,97 @@ Mensch.
 | Positivkontrolle | Pilot-Lauf gegen writing-hub `git checkout <sha vor #761>` und ausschreibungs-hub vor dem Erreichbarkeits-Fix | Trefferliste gegen die 9 bekannten Defekte |
 | Gate-Katalog (Vorschlaege, die der Agent kennt) | im Skill | Routen-vs-Templates (C4) · mehrzeilige Django-Kommentare ueber alle Templates (C3) · `htmx:responseError` global (C5) · `hx-headers` CSRF am body (C3) · Invariante ueber Datenbestand statt Ursache (C3 Regel 3) · escapejs-Familie (C2) |
 
+### MVC-Ergaenzung 2026-08-26
+
+| Was | Wo | Inhalt |
+|---|---|---|
+| `-kd <name>` | Skill, neuer optionaler Parameter | Laedt `klickdummy/<name>/spec.yaml` des Zielrepos, zieht die Screen-Titel, gleicht sie gegen die besuchten Stationen ab. Zwei Befundklassen: `weg-fehlt` (`fehler`) und `spec-luecke` (`optimierung`) |
+| `-marker <name>[,<name>]` | Skill, neuer optionaler Parameter | Eigennamen, die in Station 1 eingegeben und in jeder Folgestation gesucht werden; zusaetzlich ein fest eingebauter Kontrollmarker, der 0 ergeben muss |
+| Step 3b Gegenrichtung | Skill, bereits gebaut (PR #2343) | URL-Namen ohne Template-Referenz; je Treffer einhaengen ODER entfernen |
+| Klassen `built-but-never-called`, `sichtbar-nur-unter-falscher-bedingung`, `gemockt-und-deshalb-blind` | Skill, Klassentabelle (PR #2343) | je mit Gate-Vorlage und Realfall |
+| Hook `gui-geaendert-ohne-klick` | `tools/claude-hooks/`, gebaut + gemergt (PR #2344) | Stop-Hook: GUI-Datei geschrieben, aber kein Browser-Werkzeug und kein `/ux-review` in der Sitzung. Advisory. |
+
 **Ausfuehrungsform (Step 2a):** mehrere Schritte ja; Schrittfolge steht fest
 (Kette) — innerhalb einer Station entscheidet der Agent den naechsten Klick zur
 Laufzeit; Stationen sequenziell (jede haengt vom Zustand der vorigen ab); keine
 Barriere; kein Graph. **Schleife nur innerhalb einer Station**, Abbruch
 messbar: Station erreicht ODER 25 Klicks ohne neue Seite -> Zustand `blind` mit
 Grund. Budget je Lauf: eine Kette, deklariert vor dem Start.
+
+## Erweiterung 2026-08-26 — Blaupause statt Einzelwerkzeug
+
+**Owner-Weisung:** generisch, „als Blaupause für GUI-Tests", entlang der vier
+Prinzipien-Anker. Was jeder davon hier konkret bedeutet — keiner ist Dekoration:
+
+| Prinzip | Was er in diesem Konzept erzwingt | Woran man sieht, dass er wirkt |
+|---|---|---|
+| **Continuous Improvement** | Der Gate-Katalog wächst aus Befunden, nicht aus Vorausdenken. Jeder bestätigte Befund liefert einen Klassen-Gate-Vorschlag (E3, Pflichtfeld); gebaute Gates zählt die Retro. | Katalog-Länge über Läufe. Wächst er nicht, ist A2 falsifiziert (Kill-Gate). |
+| **Predictive Maintenance** | Der KD-Gegencheck (E10) meldet Drift **bevor** ein Nutzer stolpert: ein spezifizierter Screen ohne Weg ist ein Defekt, den noch niemand erlebt hat. | Anteil `weg-fehlt`-Befunde, die **vor** der ersten Nutzermeldung entstehen. |
+| **Out-of-the-box** | Drei Blickrichtungen statt einer: Kette von vorn (E1), Code → Oberfläche (Step 3b), Spec → Oberfläche (E10). Jede findet, wofür die anderen strukturell blind sind. | Befunde je Richtung. Findet eine Richtung über drei Läufe nichts, wird sie gestrichen — nicht behalten, weil sie schön klingt. |
+| **Advocatus Diabolus** | Unten als eigener Abschnitt, mit der Frage, die das Konzept kippen könnte. | Jede Erweiterung trägt ihren stärksten Einwand im Dokument, nicht im Kopf des Autors. |
+
+### Die SSoT-Frage, ausdrücklich beantwortet
+
+ADR-211 setzt: **Spec = System of Record, der Klickdummy rendert sie, der
+Parity-Test ist das Konformitäts-Gate** (C12). Ein KD-Gegencheck schafft damit
+**keine** zweite Wahrheit — er liest die vorhandene.
+
+Aber er darf sie nicht als Urteil lesen. Gemessen an writing-hub (C10):
+`roman-autoren-spine` kennt sechs Screens, der reale Durchlauf hatte sieben
+Phasen. „Welt & Figuren" und „Recherche" fehlen im KD — die App ist deshalb
+nicht falsch, der KD ist älter. Umgekehrt kennt der KD „Serien-Zuordnung", und
+die war im ganzen Durchlauf nie sichtbar.
+
+Daraus folgt die Trennung in E10: **der Befund ist der Dissens**, und er hat
+zwei Severities. `weg-fehlt` (KD-Screen ohne App-Weg) ist ein Fehler — das ist
+die Klasse `built-but-never-called`, die 2026-08-26 fünfmal an einem Tag auftrat.
+`spec-luecke` (App-Station ohne KD-Screen) ist eine Optimierung und trifft
+den KD, nicht die App.
+
+Ein Werkzeug, das automatisch „App falsch" sagt, wäre bei jedem gewachsenen
+Feature ein Fehlalarm — und würde nach dem dritten abgeschaltet (R5).
+
+### Warum inhaltlich = Durchgängigkeit und nicht Qualität
+
+Der teuerste Defekt des writing-hub-Durchlaufs war keiner, den HTTP sieht: der
+Protagonist hiess im Konzept „Milo Heller", in der daraus erzeugten Gliederung
+„Franz" (C11). Jede Station war grün, die Kette inhaltlich gerissen.
+
+Das ist messbar — aber nur als **Durchgängigkeit**: ein Eigenname aus Station 1
+wird in jeder Folgestation gesucht. Nicht messbar ist „ist der Text gut". Wer
+das versucht, produziert Geschmacks-Issues (R3, bereits belegt).
+
+Der Kontrollmarker ist dabei kein Beiwerk: ein Suchlauf, der nie etwas findet,
+ist von einem kaputten Suchlauf nicht zu unterscheiden. Er **muss** 0 ergeben,
+und dass er 0 ergibt, ist Teil des Belegs.
+
+## Advocatus Diabolus — Erweiterung 2026-08-26
+
+**Der stärkste Einwand: der KD-Gegencheck misst zwei veraltete Dinge gegeneinander.**
+Ein Klickdummy ist ein Anforderungsartefakt aus der Planungsphase. Die App
+wächst. Nach sechs Monaten ist der Dissens der Normalzustand, nicht der Befund —
+und ein Werkzeug, das den Normalzustand meldet, wird ignoriert. Genau so sind
+die fünf `[deploy-health]`-Issues in platform verrottet.
+
+*Antwort:* deshalb `-kd` **optional** und die Severity-Trennung in E10. Ein Lauf
+ohne KD verliert nichts von seiner Kernleistung. Und R5 hat eine harte Schwelle:
+über 30 % `spec-luecke` in drei Läufen heisst, dass der KD gepflegt gehört —
+das ist dann der Befund, nicht die Liste der Dissense.
+
+**Zweiter Einwand: drei Blickrichtungen sind drei Gelegenheiten für Fehlalarme.**
+Jede zusätzliche Richtung erhöht die Fehlbefund-Quote, und A3 sagt: über 30 %
+kostet der Agent mehr Owner-Zeit als er spart.
+
+*Antwort:* die Quote ist bereits das Kill-Kriterium (K2). Die Erweiterung ändert
+die Schwelle nicht, sie muss sie **halten** — mit mehr Richtungen. Hält sie
+nicht, fällt die schwächste Richtung raus, nicht die Schwelle.
+
+**Dritter Einwand: „Blaupause" ist ein Wort, kein Mechanismus.** Ein Skill wird
+generisch, weil jemand die repo-spezifischen Pfade herausnimmt — und unspezifisch,
+sobald der erste Sonderfall hineingeschrieben wird.
+
+*Antwort:* E12 ist als Invariante formuliert und im Kill-Gate messbar (K5): der
+Skill darf keinen Repo-Namen tragen. Das ist per `grep` prüfbar, nicht per Meinung.
 
 ## Steelman
 
@@ -170,10 +264,19 @@ Pilot an R2 (Login) haengt und das dokumentiert ist.
 | K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | offen | Vorschlag liegt in writing-hub#766 (Meldung liest dieselbe Quelle wie der Aufruf; Reseed invalidiert Cache) |
 | K4 Jede getippte URL im Pilot erscheint als Befund im Bericht (D3-Probe) | erfuellt (Lauf 1) | 0 getippte URLs, Kette komplett per Klick — writing-hub#767 |
 | K5 Kein Screenshot mit Personendaten ausserhalb des Zielrepos (R4-Probe: grep der PR-Diffs in platform) | erfuellt (Lauf 1) | keine Screenshots erzeugt; synthetischer Nutzer, Stack mit Volumes geloescht |
+| **K6** (Erweiterung 26.08.) Blaupause haelt: `grep -icE 'writing-hub\|ausschreibungs-hub\|meiki\|risk-hub' .windsurf/workflows/ux-review.md` findet **nur** Zeilen, die als Realfall-Beleg gekennzeichnet sind — kein Repo-Name in einer Anweisung | offen | per `grep` pruefbar, nicht per Meinung (E12) |
+| **K7** (Erweiterung 26.08.) KD-Gegencheck traegt: in mindestens einem Pilot-Lauf mit `-kd` entsteht ein `weg-fehlt`-Befund, den der Klick-Durchlauf allein **nicht** gefunden hat | offen | Gegenprobe zur Frage, ob die dritte Blickrichtung eigenen Ertrag hat (OOTB-Prinzip: findet sie nichts, wird sie gestrichen) |
+| **K8** (Erweiterung 26.08.) Marker-Durchgaengigkeit traegt: der Kontrollmarker ergibt in **jedem** Lauf 0, und mindestens ein echter Marker-Riss wird gefunden | offen | ohne den ersten Teil ist der Suchlauf womoeglich der Filter; ohne den zweiten hat E11 keinen belegten Ertrag (C11 ist der bekannte Fall) |
 
-Alle fuenf erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
+Alle acht erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
 Bot-Token, Dry-Run in CI). Eines verfehlt -> Stufe 1 bleibt manuell aufrufbar,
 Stufe 2 wird nicht gebaut; zwei verfehlt -> `sunset`.
+
+**K6-K8 fallen einzeln, nicht als Block.** Verfehlt nur K7, wird der
+KD-Gegencheck gestrichen und der Rest laeuft weiter — eine Blickrichtung ohne
+Ertrag ist Ballast, kein Grund, das Werkzeug aufzugeben. Dasselbe fuer K8 und
+die Marker-Pruefung. Das ist der Unterschied zwischen einer Erweiterung und
+einer Neukonzeption: sie darf scheitern, ohne das Bestehende mitzureissen.
 
 ## Bezug
 
