@@ -118,11 +118,24 @@ Schleife je Station, Abbruch messbar: **Station erreicht** ODER `--max-klicks` o
 Nach dem Klick-Durchlauf **einmal umgekehrt** fragen — rein statisch, also billig:
 
 ```bash
-# URL-Namen, die kein Template referenziert
+# URL-Namen ohne JEDEN Aufrufer. Drei Orte, nicht einer — im Pilot 2026-08-26
+# gemessen: templates/ allein meldete 12, davon hatten 6 einen Aufrufer in JS
+# oder in einem Python-`redirect(...)`.
 for name in $(grep -rhoP 'name="\K[a-z_]+' "$WT"/apps/*/urls*.py | sort -u); do
-  grep -rqF "$name" "$WT"/templates || echo "ohne Template-Aufrufer: $name"
+  treffer=$(grep -rnF "$name" --include=*.py --include=*.html --include=*.js "$WT" \
+            | grep -vE 'urls\.py|/tests?/|\.pyc' | wc -l)
+  [ "$treffer" -eq 0 ] && echo "ohne Aufrufer: $name"
 done
 ```
+
+**Feste Zeichenketten suchen, nicht gequotete.** Ein Muster wie `"$name"` (mit
+Anführungszeichen) übersieht `redirect("projects:$name")` — der Code schreibt den
+Namensraum davor. Im Pilot meldete genau dieser Fehler **alle zwölf** Kandidaten
+als aufruferlos; erst `grep -F` auf den nackten Namen trennte sie in 6 und 6.
+
+**Positivkontrolle Pflicht:** ein Name, von dem ein Aufrufer BEKANNT ist, muss aus
+der Liste herausfallen. Fällt er nicht heraus, ist der Filter kaputt und die Null
+sagt nichts über die Welt.
 
 Je Treffer **eine** von zwei Antworten, nie keine: **einhaengen** (der Weg fehlt) oder
 **entfernen** (die Funktion ist tot). Halb liegen lassen ist genau der Zustand, der die
