@@ -165,6 +165,17 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     Backup lautlos. Anlass: das reparierte dev-hub-Backup schrieb ab 2026-08-24 rund
     6,3 GB/Tag auf die Root-Platte von prod — sieben Tage bis voll, kein Melder
     ([infra-deploy#5](https://github.com/achimdehnert/infra-deploy/pull/5)).
+  - `0.7.12 prod-wirkung`: **zwei Zustände, die gleich aussehen und es nicht sind.**
+    `RUECKSTAND:` heißt, dass hinter dem öffentlichen Namen ein anderer Stand läuft als
+    in `main` — das ist der Befund. `wartet auf Prod-Freigabe (kein Befund):repo(Nd)`
+    dagegen ist der **Normalfall** eines Repos mit Prod-Gate: sein Deploy geht bei push
+    nur nach staging, Prod verlangt eine bewusste Freigabe, und bis zur Frist von
+    **14 Tagen** ist ein Rückstand dort gewollt. Danach kippt dieselbe Zeile nach
+    `RUECKSTAND:` — denn ab da ist „wartet auf Freigabe" nicht mehr von „vergessen" zu
+    unterscheiden. Unterdrückt wird nichts: ein Prod-Gate schließt einen echten Fehler
+    nicht aus (`hat_prod_gate` begründet das am tax-hub-Fall — Gate **und** roter Build).
+    Anlass: risk-hub stand 23 Läufe lang als WARN, worin ein echter Fund untergegangen
+    wäre.
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
