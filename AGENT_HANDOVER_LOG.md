@@ -2982,3 +2982,17 @@ Ausgangsfrage: „macht es Sinn, meine Kompetenzen um einen GUI-Test-Agenten zu 
 **Offen:** Pilot K1 ausschreibungs-hub (6 Defekte → K1 ≥ 7/9) · K3: Gate aus #766 als Test · risk-hub#680 · weltenhub#70 · zwei rückfällige Gates (`deferred-item-no-tracking-issue`, `untested-tool-module-green-gate`) mit Verzicht im Befund-Journal an die nächste Retro.
 
 SA-4: 0 · 0 · 0. SA-5: 1 Anwendung · 0 Fehlanwendungen.
+
+## 2026-08-26 mittag — SA-M: eine Merge-Regel für alle Repos
+
+Auftrag: unnötige Approve-/Merge-/Deploy-Klicks abschaffen. Ergebnis: SA-1/2/5/6 sind zu
+**SA-M** zusammengeführt (Mandat deckt Wirkung), das Werkzeug `tools/pr_merge_sa.py` setzt
+sie durch, liest die Regel aus der Policy und protokolliert jede Entscheidung.
+
+PRs: #2340 (SA-M) · #2341 (Schreibstil-Kurzform) · #2342 (Journal, Cache, Auto-Merge) ·
+#2348 (Werkzeug reviewpflichtig) · #2349 (Approval-Erkennung) · #2351 (erster SA-M-Merge).
+Issues: #2336 (Klick-Minimierung) · #2338 (Wrapper).
+
+Der eigentliche Befund des Tages: SA-1 war seit dem 2026-07-12 ratifiziert und
+wirkungslos, weil der Harness-Eintrag fehlte. Eine Klasse ohne Eintrag in `autoMode.allow`
+ist Papier — das gilt für jede künftige auch.
