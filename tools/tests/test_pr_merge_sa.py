@@ -40,7 +40,7 @@ def _facts(**over) -> Facts:
 def test_should_accept_pure_doc_pr_without_ci():
     urteil = classify(_facts())
     assert urteil.erlaubt is True
-    assert urteil.klasse == "SA-5"
+    assert urteil.klasse == "SA-6"
 
 
 def test_should_accept_code_pr_with_green_checks():

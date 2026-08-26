@@ -42,7 +42,7 @@ from dataclasses import dataclass, field, asdict
 
 # --- Klassifikations-Konstanten ------------------------------------------------
 
-# Reine Doku (SA-5). Bewusst eng: was hier nicht steht, ist kein Doku-PR.
+# Reine Doku (SA-6). Bewusst eng: was hier nicht steht, ist kein Doku-PR.
 DOKU_PATTERNS = (
     re.compile(r"\.md$"),
     re.compile(r"\.rst$"),
@@ -95,7 +95,7 @@ class Facts:
 
 @dataclass
 class Verdict:
-    klasse: str  # "SA-1" | "SA-5" | "-"
+    klasse: str  # "SA-1" | "SA-6" | "-"
     erlaubt: bool
     grund: str
 
@@ -128,7 +128,7 @@ def classify(f: Facts) -> Verdict:
         return Verdict("-", False, f"Governance-Pfad beruehrt: {governance[0]}")
 
     if f.auto_deploy:
-        # Gate 2: in diesen Repos IST der Merge der Prod-Schritt. SA-5 wuerde
+        # Gate 2: in diesen Repos IST der Merge der Prod-Schritt. SA-6 wuerde
         # reine Doku auch hier decken, sobald platform#2334 ratifiziert ist —
         # bis dahin ist der konservative Schnitt der richtige (Issue #2338, K4).
         return Verdict(
@@ -152,7 +152,7 @@ def classify(f: Facts) -> Verdict:
 
     nicht_doku = [p for p in f.files if not ist_doku(p)]
     if not nicht_doku:
-        return Verdict("SA-5", True, f"reiner Doku-PR ({len(f.files)} Datei(en))")
+        return Verdict("SA-6", True, f"reiner Doku-PR ({len(f.files)} Datei(en))")
 
     if f.checks_total == 0:
         return Verdict(
