@@ -43,6 +43,24 @@ die Laeufe nicht mehr — genau daran ist die erste Fassung gescheitert
 
 Das Kaestchen-Zeichen ist davon nicht betroffen — es ueberlebt die Konvertierung
 unveraendert und wird erst in Schritt 2 ersetzt.
+
+**Dritter Schritt, nach dem Schreiben: die Felder anklickbar machen.** WeasyPrint
+(gemessen an 68.1) schreibt jedes Widget-Rechteck als ``[x1, y_oben, x2, y_unten]``,
+also mit vertauschter y-Reihenfolge, und nimmt dafuer die Content-Box des Inputs —
+bei einem Kaestchen mit Rahmen bleiben davon rund 3,6 pt Trefferflaeche, waehrend
+der gezeichnete Kasten 10 pt gross ist. Beides zusammen liess die Felder in
+gaengigen Viewern tot erscheinen (gemessen 2026-08-26 an einem realen
+Erfassungsbogen: 77 Felder, keines anklickbar). ``formularfelder_nachbessern()`` normalisiert die Rechtecke und zieht
+jedes Kaestchen auf eine Mindest-Trefferflaeche — am fertigen PDF, weil die Ursache
+in WeasyPrint liegt und nicht ueber CSS erreichbar ist.
+
+    pfad = HTML(...).write_pdf(..., pdf_forms=True)
+    formularfelder_nachbessern(pfad)           # 3. NACH dem Schreiben
+
+**Querformat je Dokument** ueber ``querformat: true`` im Frontmatter — breite
+Erfassungstabellen (Massnahme + drei Kreuze + Datum + Begruendung) brauchen die
+Seitenbreite, und eine lose CSS-Datei neben dem Markdown wuerde beim naechsten
+Erzeugen vergessen.
 """
 
 from __future__ import annotations
@@ -70,6 +88,14 @@ def formulare_gewuenscht(meta: dict) -> bool:
     """``forms: true`` im Frontmatter? Tolerant gegen Schreibweisen."""
     wert = meta.get("forms")
     if isinstance(wert, list):  # python-markdown `meta` liefert Listen
+        wert = wert[0] if wert else ""
+    return str(wert).strip().lower() in {"true", "ja", "yes", "1", "on"}
+
+
+def querformat_gewuenscht(meta: dict) -> bool:
+    """``querformat: true`` im Frontmatter? Gleiche Toleranz wie ``forms``."""
+    wert = meta.get("querformat", meta.get("landscape"))
+    if isinstance(wert, list):
         wert = wert[0] if wert else ""
     return str(wert).strip().lower() in {"true", "ja", "yes", "1", "on"}
 
@@ -145,10 +171,15 @@ def html_mit_formularfeldern(html: str) -> str:
     rest = re.sub(re.escape(CHECKBOX) + r"[ \t]*([^\s<]+)?", _checkbox, rest)
 
     def _textfeld(treffer: re.Match) -> str:
+        # Breite UND Mindestbreite: in einer Tabellenzelle wird die Breite auf
+        # 100 % der Zelle gesetzt (siehe FORMULAR_CSS) — ohne Mindestbreite
+        # schrumpft die Spalte dann auf ihre Ueberschrift, und aus "______"
+        # fuer ein Datum wurde ein 10 pt breites Feld.
         breite = _feldbreite_em(int(treffer.group(1)))
         return (
             f'<input type="text" name="{_naechster_name()}" '
-            f'class="pdf-formularfeld-text" style="width:{breite:.1f}em">'
+            f'class="pdf-formularfeld-text" '
+            f'style="width:{breite:.1f}em; min-width:{breite:.1f}em">'
         )
 
     # Platzhalter aus Schritt 1 …
@@ -175,6 +206,7 @@ input.pdf-formularfeld-text {
   font-family: inherit;
   font-size: inherit;
   line-height: 1.2;
+  min-height: 1.35em;
   padding: 0 2pt;
   vertical-align: baseline;
 }
@@ -186,8 +218,8 @@ span.pdf-formularfeld-gruppe {
   margin-right: 0.5em;
 }
 input.pdf-formularfeld-box {
-  width: 1.05em;
-  height: 1.05em;
+  width: 1.15em;
+  height: 1.15em;
   border: 0.7pt solid #52606d;
   background: transparent;
   vertical-align: -0.15em;
@@ -196,4 +228,82 @@ input.pdf-formularfeld-box {
 /* In Tabellenzellen fuellt das Textfeld die Zelle — dort ist die Zelle der
    Platzhalter, nicht die Unterstrich-Laenge. */
 td input.pdf-formularfeld-text { width: 100% !important; }
+/* Steht ein Kaestchen allein in seiner Zelle, ist die Spaltenueberschrift seine
+   Beschriftung ("umgesetzt" / "offen" / "entfaellt"). Dann gehoert es unter die
+   Ueberschrift und nicht an den linken Zellenrand — sonst kreuzt man daneben. */
+td > input.pdf-formularfeld-box:only-child { display: block; margin: 0 auto; }
 """
+
+QUERFORMAT_CSS = """
+@page { size: A4 landscape; }
+"""
+
+
+# Mindest-Trefferflaeche eines Kaestchens in pt. 10 pt entspricht dem gezeichneten
+# Kasten (1.15em bei 9 pt Tabellenschrift); kleiner trifft man mit der Maus nicht.
+MIN_KASTEN_PT = 10.0
+# Mindesthoehe eines Textfeldes: eine Zeile 9-pt-Schrift mit etwas Luft.
+MIN_TEXT_HOEHE_PT = 11.0
+
+
+def _rect_nachbessern(rect: list[float], feldtyp: str) -> list[float]:
+    """Normalisiert ein Widget-Rechteck und sichert die Mindest-Trefferflaeche.
+
+    Reine Funktion ueber ``[x1, y1, x2, y2]`` in PDF-Punkten, damit sie ohne
+    PDF-Bibliothek testbar ist. Ein Kaestchen wird um seinen Mittelpunkt auf
+    ein Quadrat von mindestens ``MIN_KASTEN_PT`` gezogen; ein Textfeld waechst
+    nach oben bis ``MIN_TEXT_HOEHE_PT`` — die Grundlinie, auf der WeasyPrint
+    den Unterstrich zeichnet, bleibt, wo sie ist.
+    """
+    x1, y1, x2, y2 = rect
+    x1, x2 = sorted((x1, x2))
+    y1, y2 = sorted((y1, y2))
+    if feldtyp == "/Btn":
+        seite = max(x2 - x1, y2 - y1, MIN_KASTEN_PT)
+        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+        x1, x2 = mx - seite / 2, mx + seite / 2
+        y1, y2 = my - seite / 2, my + seite / 2
+    elif feldtyp == "/Tx" and (y2 - y1) < MIN_TEXT_HOEHE_PT:
+        y2 = y1 + MIN_TEXT_HOEHE_PT
+    return [round(v, 3) for v in (x1, y1, x2, y2)]
+
+
+def formularfelder_nachbessern(pdf_pfad) -> int:
+    """Schritt 3 — Widget-Rechtecke am fertigen PDF normalisieren.
+
+    Gibt die Zahl der geaenderten Felder zurueck. Ohne PDF-Bibliothek bleibt
+    das PDF unveraendert, und das wird gesagt — ein stilles Ueberspringen saehe
+    aus wie Erfolg.
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter
+        from pypdf.generic import ArrayObject, FloatObject, NameObject
+    except ImportError:
+        try:
+            from PyPDF2 import PdfReader, PdfWriter
+            from PyPDF2.generic import ArrayObject, FloatObject, NameObject
+        except ImportError:
+            print(
+                "⚠️  pypdf fehlt — Formularfelder bleiben, wie WeasyPrint sie "
+                "schreibt (in vielen Viewern nicht anklickbar)"
+            )
+            return 0
+
+    writer = PdfWriter(clone_from=PdfReader(str(pdf_pfad)))
+    geaendert = 0
+    for seite in writer.pages:
+        for ref in seite.get("/Annots") or []:
+            annot = ref.get_object()
+            if annot.get("/Subtype") != "/Widget":
+                continue
+            feldtyp = annot.get("/FT")
+            if feldtyp is None and "/Parent" in annot:  # Radio-Kinder erben den Typ
+                feldtyp = annot["/Parent"].get_object().get("/FT")
+            alt = [float(v) for v in annot["/Rect"]]
+            neu = _rect_nachbessern(alt, str(feldtyp or ""))
+            if neu != alt:
+                annot[NameObject("/Rect")] = ArrayObject(FloatObject(v) for v in neu)
+                geaendert += 1
+    with open(pdf_pfad, "wb") as ausgabe:
+        writer.write(ausgabe)
+    return geaendert
