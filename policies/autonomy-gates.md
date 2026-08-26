@@ -133,6 +133,43 @@ berührt wird).
   Profilen/Permissions (selbstbetreffend — immer Owner), sowie alles, was eine
   wartende Owner-Entscheidung überholen würde (erkennbar an „wartet auf
   Entscheidung/Go" im Artefakt).
+- **SA-5 — Merge ist Vollzug, nicht Entscheidung: (a) PRs zu vom Owner gestarteten
+  Issues/Aufträgen, (b) jeder PR nach erteiltem Approval.** 🟡 **EINGEBRACHT auf
+  Owner-Weisung (Achim, 2026-08-26, Kapitäns-Kanal wörtlich: „merges bei gestarteten
+  issues autonom freigeben → sind nun Klickaufgabe und verzögern unnötig" und „nach
+  ‚approved' komplett autonom mergen") — selbstbetreffend, deshalb ungebündelter
+  Policy-PR; Ratifikation = Owner-Approve dieses PR.**
+
+  **Motiv:** Am 2026-08-25/26 standen Handover-PR, Skill-PR und drei Konsumenten-PRs
+  je Stunden als „🟢 dein Zug: approven" im Board, obwohl der Owner den Auftrag
+  dahinter längst mit „N go" gestartet hatte. Die Entscheidung fällt beim Start des
+  Auftrags oder beim Approve — der Merge danach ist Vollzug. Bot-Reviewer
+  `IIL-Lotse` und Approve-Queue (#2305/#2307) existieren genau für diesen Schnitt.
+
+  **(a) Gestartetes Issue/Auftrag:** Der PR verlinkt das Issue/den Auftrag, den der
+  Owner wörtlich gestartet hat („N go", Auftrag im Kapitäns-Kanal, akzeptierter
+  Zielzustand nach `zielzustand.md`), alle Required Checks sind grün, und der PR
+  berührt keinen reviewpflichtigen Pfad aus `.github/CODEOWNERS` → **plain-Merge
+  ohne Rückfrage.** Berührt er einen Governance-Pfad, wartet er auf das Approval —
+  und fällt dann unter (b).
+
+  **(b) Nach Approval:** Sobald ein Approval vorliegt (Owner, Zweit-Reviewer oder
+  Bot-Reviewer im Rahmen seiner Tabu-Liste), wird bei grünen Checks **sofort
+  gemergt** — auch Governance-PRs, auch selbstbetreffende Policy-PRs: das Approval
+  *ist* die Entscheidung, der Klick danach nicht. Kein „🟢 mergen?" mehr im Board;
+  der Merge steht als ✅ mit Link.
+
+  **Ausdrücklich AUSGESCHLOSSEN (Gates gewinnen):** Gate 1 (Migrationen/Destruktives
+  im PR), **Publish** (PyPI/GHCR — der Merge oder Dispatch, der ein Artefakt
+  veröffentlicht, braucht das Wort und wird vom Classifier ohnehin gesperrt),
+  **Gate 2 in Auto-Deploy-on-main-Repos, deren `main` nach Prod deployt** (Staging-
+  Default ist kein Prod-Schritt); dort gilt (b) nur, wenn das Approval den Deploy
+  benennt (🌀 `feedback_prod_write_must_be_named_in_the_approval_line`). Ein
+  Classifier-Hard-Deny wird nicht umgangen: dann ein `!`-Kommando an den Owner.
+
+  **Ratsche:** wie SA-4 — die erste Fehlanwendung (Merge ohne gestartetes Issue/
+  Approval, oder an einem Gate vorbei) setzt die Klasse auf Einzelfreigabe zurück;
+  Zählung über Signal G.
 
 **Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
 liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
