@@ -263,6 +263,15 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
+- 2026-08-26: **SA-5 (Merge ist Vollzug: gestartete Issues + nach Approval)
+  RATIFIZIERT** (Achim, Approve+Merge #2332, Weisung im Kapitäns-Kanal wörtlich:
+  „merges bei gestarteten issues autonom freigeben → sind nun Klickaufgabe und
+  verzögern unnötig" / „nach ‚approved' komplett autonom mergen"). Anlass: fünf PRs
+  (Handover #2330, Skill #2329, Konsumenten-PRs risk-hub#681/billing-hub#42/
+  weltenhub#71) lagen als „dein Zug" im Board, obwohl der Auftrag dahinter
+  gestartet war. Gates 1/2 (Prod), Publish und Classifier-Hard-Deny bleiben
+  unverändert. Diese Zeile kam getrennt (#2332 trug sie nicht: der Auto-Mode-
+  Classifier blockte den Edit als Selbstmodifikation).
 - 2026-08-07: **SA-4 (Zielzustand-Konvergenz) VORGESCHLAGEN** — selbstbetreffend
   eingebracht (erweitert die Reichweite des Agenten), deshalb ungebündelter
   Policy-PR; Ratifikation nur durch wörtliches Owner-Go beim Review. Anlass:
