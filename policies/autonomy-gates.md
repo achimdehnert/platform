@@ -64,145 +64,102 @@ berührt wird).
    Automatismen mit Schreibrecht (Scope-Checkpoint, house rule).
 5. **Nennenswerter Spend** — Modell-Tier-Upgrade, Cloud-/Ultra-Runs, bezahlte APIs.
 
-## Standing-Authorization-Klassen (dauerhaft freigegeben, KEIN Einzelwort nötig)
+## Merge-Autonomie: eine Regel, zwei Achsen (SA-M)
 
 > **Motiv (KONZ-platform-019 B2):** Der Permission-Classifier blockte wiederholt
 > Aktionen, die *keinen* der fünf Gates berühren, nur weil die Freigabe nicht
 > *benannt* war (Realfall 2026-07-12: „go autonom" reichte nicht, „merge PR #N"
-> schon). Diese **Positiv-Liste** benennt vorab freigegebene Aktionsklassen —
-> innerhalb ihrer gilt die Freigabe als **stehend erteilt**, kein Einzel-OK pro
-> Fall. Es ist eine **Positiv-Liste, kein Catch-all**: was nicht gelistet ist,
-> bleibt gate-geregelt wie oben. Die Klassen liegen ausschließlich **unterhalb**
-> der fünf Gates; berührt eine Aktion einen Gate, gewinnt der Gate.
+> schon). Was daraus wuchs, waren sechs Einzelklassen (SA-1 … SA-6), die dieselbe
+> Frage viermal beantworteten und sich an den Rändern widersprachen. **SA-M ersetzt
+> sie durch eine Regel, die für jedes Repo gilt.** Die Herkunft steht unten; keine
+> Freigabe geht verloren.
 
-- **SA-1 — Merge eines CI-grünen PR in ein Repo OHNE GitHub-Review-Pflicht UND
-  OHNE Auto-Deploy-on-main.** ✅ **RATIFIZIERT (Achim, 2026-07-12).** Voraussetzung:
-  alle Required Checks grün, kein Ruleset verlangt Review, und `main` triggert
-  **keinen** Prod-Deploy. Deckt die Hub-Repo-Merges ab, die heute an Gate 2
-  hängen, obwohl der Merge dort *kein* Prod-Schritt ist. **Ausdrücklich
-  AUSGESCHLOSSEN:** jedes Auto-Deploy-on-main-Repo (dort ist der Merge ein
-  Prod-Schritt → Gate 2 wirkt unverändert), und jeder PR mit Migrationen/
-  destruktiven Änderungen (Gate 1).
-- **SA-2 — Merge eines CI-grünen NICHT-Governance-PR in `platform`.**
-  ✅ **RATIFIZIERT (Achim, 2026-08-10, wörtliches „D1 D2 D3 D4 go").** Die
-  Vorbedingung ist im selben Zug erfüllt: der CODEOWNERS-Catch-all ist weg
-  (KONZ-platform-032 **B1** — der frühere Verweis auf „KONZ-019 B1" war ein
-  Fehlzeiger, B1 stand nie in KONZ-019; das erklärt vermutlich, warum die Klasse
-  vier Wochen lag).
+**Die Regel: autonom mergen, wenn das Mandat die Wirkung deckt.**
 
-  **Nicht-Governance heißt:** der PR berührt keinen der reviewpflichtigen Pfade
-  aus `.github/CODEOWNERS` (`/.github/`, `/registry/`, `/packages/`, `/docs/adr/`,
-  `/policies/`). Berührt er einen, verlangt GitHub weiterhin das Approval — die
-  Klasse deckt genau die Menge ab, die GitHub durchlässt, und keinen Fall mehr.
+Beides wird am PR gemessen, nicht geschätzt:
 
-  **Motiv (Owner, 2026-08-10):** „ich und wirdigital agieren als
-  Entscheidungsinstanz, nicht als Auto-Freigeber." Gemessen über 30 Tage: 400
-  gemergte platform-PRs, 0 ohne Approval, 399 Approvals von einem Konto; 73 %
-  berührten keinen Governance-Pfad. Ein Approval, das 400-mal im Monat fällt,
-  ist kein Vier-Augen-Prinzip mehr.
+**Wirkung W — was löst der Merge nach `main` aus?** (Quelle: die Workflow-Trigger
+des Repos, nicht der Dateiname und nicht der Diff.)
 
-  **Ausdrücklich AUSGESCHLOSSEN:** Gate 1 (Migrationen/Destruktives), Gate 5
-  (Spend), und alles, was eine wartende Owner-Entscheidung überholen würde. Zu
-  Gate 2 siehe die platform-Klarstellung unten.
-- **SA-3 — Datei-Hausputz in `~/.secrets` / `~/shared` (Reconcile, KEIN Inhalts-Dump).**
-  ✅ **RATIFIZIERT (Achim, 2026-07-12).** Verschieben/Deduplizieren/Löschen
-  byte-identischer Secret-**Dateien** nach ihrer SSoT-Konvention (KONZ-010).
-  **Auflage:** Secret-**Inhalte** werden NIE ins Transkript gelesen (kein
-  `cat`/`grep` über Dateiinhalte) — nur Dateinamen, Größen, Hashes. Divergente/
-  nicht-identische Dateien bleiben stehen + werden gemeldet (kein blindes
-  Überschreiben). Secret-**Rotation** bleibt Gate 1.
-- **SA-4 — Zielzustand-Konvergenz: Umbauten, die den IST-Stand einem AKZEPTIERTEN
-  Zielzustand nachweisbar näherbringen.** 🟡 **VORGESCHLAGEN (2026-08-07, Policy-PR,
-  selbstbetreffend eingebracht — Ratifikation = wörtliches Owner-Go beim Review,
-  nicht der Merge allein.)** Autonome Umsetzung inklusive plain-Merge, wenn ALLE
-  Bedingungen erfüllt sind:
-  1. Ein **akzeptiertes Artefakt** (ADR/KONZ/Issue mit Akzeptanzkriterien,
-     `zielzustand.md` Pkt. 3) beschreibt den Zielzustand. „Naheliegend" heißt
-     ausschließlich: der PR verlinkt das Artefakt UND benennt das
-     Akzeptanzkriterium, auf das er einzahlt — nie das eigene Urteil des Agenten.
-  2. Die Änderung ist **reversibel** und berührt weder Gate 1 (Irreversibles),
-     Gate 2 (Prod-Zustand — in Auto-Deploy-Repos ist der Merge selbst Gate 2),
-     Gate 3 (Security-/Governance-Config) noch Gate 5 (Spend). Gate 4 (drittes
-     Repo) nur, wenn das Artefakt die Repos selbst benennt.
-  3. **Abweichung vom Artefakt = Stopp + Scope-Checkpoint** — Zielzustand
-     aktualisieren und erneut akzeptieren lassen, nicht stillschweigend erweitern.
-  4. **Ratsche:** befristet bis Ritual-Lauf 2 (KONZ-038); die erste Fehlanwendung
-     (Umbau ohne tragendes Artefakt oder an einem Gate vorbei) setzt die Klasse
-     auf Einzelfreigabe zurück. Zählung über den Kill-Test unten (Signal G).
-  **Ausdrücklich AUSGESCHLOSSEN:** Änderungen an dieser Policy, an Charta/
-  Profilen/Permissions (selbstbetreffend — immer Owner), sowie alles, was eine
-  wartende Owner-Entscheidung überholen würde (erkennbar an „wartet auf
-  Entscheidung/Go" im Artefakt).
-- **SA-5 — Merge ist Vollzug, nicht Entscheidung: (a) PRs zu vom Owner gestarteten
-  Issues/Aufträgen, (b) jeder PR nach erteiltem Approval.** 🟡 **EINGEBRACHT auf
-  Owner-Weisung (Achim, 2026-08-26, Kapitäns-Kanal wörtlich: „merges bei gestarteten
-  issues autonom freigeben → sind nun Klickaufgabe und verzögern unnötig" und „nach
-  ‚approved' komplett autonom mergen") — selbstbetreffend, deshalb ungebündelter
-  Policy-PR; Ratifikation = Owner-Approve dieses PR.**
+| W | Was passiert | Beispiel |
+|---|---|---|
+| W0 | nichts läuft an | Bibliotheks-Repo ohne push-Workflow |
+| W1 | Dateiabgleich eines Klons — kein Dienst, keine DB, kein Image | `platform` → `/opt/platform` |
+| W2 | Deploy nach Staging | org-Standard `deploy.yml` ohne Prod-Ziel |
+| W3 | Deploy nach Prod, Migration, Image-Wechsel oder Publish | App-Repos, PyPI/GHCR |
 
-  **Motiv:** Am 2026-08-25/26 standen Handover-PR, Skill-PR und drei Konsumenten-PRs
-  je Stunden als „🟢 dein Zug: approven" im Board, obwohl der Owner den Auftrag
-  dahinter längst mit „N go" gestartet hatte. Die Entscheidung fällt beim Start des
-  Auftrags oder beim Approve — der Merge danach ist Vollzug. Bot-Reviewer
-  `IIL-Lotse` und Approve-Queue (#2305/#2307) existieren genau für diesen Schnitt.
+Greift ein `paths-ignore` des Deploy-Workflows für **alle** Dateien des PR, läuft
+nichts an: dann gilt W0, unabhängig von der Repo-Klasse.
 
-  **(a) Gestartetes Issue/Auftrag:** Der PR verlinkt das Issue/den Auftrag, den der
-  Owner wörtlich gestartet hat („N go", Auftrag im Kapitäns-Kanal, akzeptierter
-  Zielzustand nach `zielzustand.md`), alle Required Checks sind grün, und der PR
-  berührt keinen reviewpflichtigen Pfad aus `.github/CODEOWNERS` → **plain-Merge
-  ohne Rückfrage.** Berührt er einen Governance-Pfad, wartet er auf das Approval —
-  und fällt dann unter (b).
+**Mandat M — woher kommt die Entscheidung?**
 
-  **(b) Nach Approval:** Sobald ein Approval vorliegt (Owner, Zweit-Reviewer oder
-  Bot-Reviewer im Rahmen seiner Tabu-Liste), wird bei grünen Checks **sofort
-  gemergt** — auch Governance-PRs, auch selbstbetreffende Policy-PRs: das Approval
-  *ist* die Entscheidung, der Klick danach nicht. Kein „🟢 mergen?" mehr im Board;
-  der Merge steht als ✅ mit Link.
+| M | Woher | Beleg am PR |
+|---|---|---|
+| M0 | keins | — |
+| M1 | Owner hat den Auftrag gestartet | PR verlinkt Issue/Auftrag mit wörtlichem Go |
+| M2 | Approval liegt vor | Owner, Zweit-Reviewer oder Bot im Rahmen seiner Tabu-Liste |
+| M3 | Approval **benennt** die Prod-Wirkung | Deploy/Publish steht in der Freigabezeile |
 
-  **Ausdrücklich AUSGESCHLOSSEN (Gates gewinnen):** Gate 1 (Migrationen/Destruktives
-  im PR), **Publish** (PyPI/GHCR — der Merge oder Dispatch, der ein Artefakt
-  veröffentlicht, braucht das Wort und wird vom Classifier ohnehin gesperrt),
-  **Gate 2 in Auto-Deploy-on-main-Repos, deren `main` nach Prod deployt** (Staging-
-  Default ist kein Prod-Schritt); dort gilt (b) nur, wenn das Approval den Deploy
-  benennt (🌀 `feedback_prod_write_must_be_named_in_the_approval_line`). Ein
-  Classifier-Hard-Deny wird nicht umgangen: dann ein `!`-Kommando an den Owner.
+**Deckung:** W0/W1 brauchen M1 · W2 braucht M2 · W3 braucht M3.
 
-  **Ratsche:** wie SA-4 — die erste Fehlanwendung (Merge ohne gestartetes Issue/
-  Approval, oder an einem Gate vorbei) setzt die Klasse auf Einzelfreigabe zurück;
-  Zählung über Signal G.
+**Drei Vorbedingungen, die unabhängig vom Mandat gelten** — fehlt eine, wird nicht
+gemergt, egal wie hoch M ist:
 
-- **SA-6 — Merge reiner Doku-PRs, in jedem Repo, samt Wirksamwerden.**
-  ✅ **RATIFIZIERT (Achim, 2026-08-26, Kapitäns-Kanal — Auswahl „Doku + SA-1
-  scharfstellen" auf eine selbstbetreffend gekennzeichnete Vorlage).** Ein PR, dessen
-  Diff **ausschließlich** Dokumentation berührt (`*.md`, `docs/**`, `README*`), wird
-  autonom gemergt und der daraus folgende Doku-Sync/Deploy ausgelöst — **auch in
-  Auto-Deploy-on-main-Repos**. Tragend ist dieselbe Zustandsfrage wie in der
-  platform-Klarstellung zu Gate 2: ein reiner Doku-Merge startet keinen Dienst neu,
-  führt keine Migration aus, schreibt keine Daten und wechselt kein Image.
+1. Alle Required Checks grün. Ein Repo ohne einen einzigen Check erfüllt das nur
+   für PRs, die ausschließlich Dokumentation ändern (`*.md`, `docs/**`, `README*`,
+   `CHANGELOG*`) — sonst fehlt jeder Beleg.
+2. Kein reviewpflichtiger Pfad aus `.github/CODEOWNERS` ohne vorliegendes Approval
+   (Governance-Pfade sind Steuerung, auch wenn die Datei `.md` heißt).
+3. Kein Gate 1 im Diff (Migrationen, Löschungen, Destruktives) — Gates gewinnen
+   immer gegen SA-M.
 
-  **Ausdrücklich AUSGESCHLOSSEN**, auch wenn die Datei `.md` heißt: `/.github/`,
-  `CODEOWNERS`, `/docs/adr/`, `/policies/`, `/registry/`, `/packages/`. Dort ist der
-  Inhalt Governance, nicht Doku — diese Datei selbst fällt darunter. Ebenso
-  ausgeschlossen: PRs mit gemischtem Diff (eine Code-Datei genügt) und alles, was
-  eine wartende Owner-Entscheidung überholen würde.
+**Unklar ist nie ein Ja.** API-Fehler, laufende Checks, unlesbarer Workflow,
+`mergeable=UNKNOWN` nach zweiter Abfrage: kein Merge, Exit ≠ 0. Ein Classifier-
+Hard-Deny wird nicht umgangen — dann ein `!`-Kommando an den Owner.
 
-**Harness-Voraussetzung (2026-08-26, gemessen):** SA-1 und SA-6 wirken nur, wenn
-`Bash(gh pr merge:*)` in **`autoMode.allow`** steht. `permissions.allow` genügt nicht —
-das sind zwei getrennte Listen (Drift-Beleg 2026-08-24). Und **Präfix heißt
-Zeilenanfang**: `cd <repo> && gh pr merge …` matcht das Muster **nicht**, der Aufruf
-muss mit `gh pr merge` beginnen (`-R owner/repo` statt `cd`). SA-1 stand seit dem
-2026-07-12 ratifiziert in dieser Datei und blieb genau daran wirkungslos — die
-Ratifikation einer Klasse ist ohne den Harness-Eintrag folgenlos.
-(Nummer 6, weil SA-5 am selben Tag anderweitig vergeben wurde — #2332.)
+**Ratsche:** Die erste Fehlanwendung (Merge ohne Deckung oder an einem Gate vorbei)
+setzt SA-M auf Einzelfreigabe zurück; Zählung über Signal G. Kalibrierfenster bis
+2026-10-26.
 
-**Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
-liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
-Realfall-Memory: User-Erlaubnis + Permission-Rule + Settings-Edit heben ihn nicht
-auf). Sie füllen den *Graubereich*, den heute das Einzelwort füllt, nicht die
-harten Denys. Neue Klasse nötig? → wird wie diese hier **ratifiziert** (Achim,
-wörtlich), nicht still ergänzt.
+**Ausdrücklich AUSGESCHLOSSEN:** Änderungen an dieser Policy, an Charta, Profilen
+oder Permissions bleiben selbstbetreffend und damit beim Owner — SA-M erlaubt ihren
+**Merge nach Approval** (M2 deckt W0/W1), nie ihr Verfassen im Alleingang.
 
-**Kill-Test je Klasse (bindend, ADR-267-Reibungs-Kill-Muster):** Muss in >30 %
+**Woher SA-M kommt (Herkunft, keine dieser Freigaben ist erloschen):**
+
+| alt | Ratifiziert | geht auf in |
+|---|---|---|
+| SA-1 CI-grün, kein Review, kein Auto-Deploy | 2026-07-12 | W0 + M1 |
+| SA-2 Nicht-Governance in `platform` | 2026-08-10 | W1 + M1 |
+| SA-5 Merge ist Vollzug (gestartet / approved) | 2026-08-26 | M1 bzw. M2 |
+| SA-6 reine Doku-PRs | 2026-08-26 | Vorbedingung 1, nicht eigene Klasse |
+
+**Zwei Widersprüche, die SA-M auflöst** (beide am 2026-08-26 gemessen):
+
+- SA-6 erlaubte reine Doku-PRs „in jedem Repo, auch Auto-Deploy" — ein Doku-PR in
+  einem Prod-Repo löst aber denselben Deploy aus wie jeder andere: gleiche Wirkung,
+  gleiche Mandatsschwelle. Der Diff entscheidet nicht über die Wirkung, der Trigger
+  tut es. **Die Doku-Ausnahme gilt nur noch dort, wo der Workflow sie ausnimmt
+  (`paths-ignore`) oder gar nicht existiert.**
+- SA-1 verlangte „CI-grün", ließ aber offen, was in einem Repo ganz ohne Checks
+  gilt. Vorbedingung 1 entscheidet das jetzt ausdrücklich.
+
+**SA-3 (Datei-Hausputz in `~/.secrets`/`~/shared`) und SA-4 (Zielzustand-Konvergenz)
+bleiben unverändert bestehen** — sie regeln keine Merges und sind von SA-M nicht
+berührt.
+
+**Maschinenlesbar (SSoT für `tools/pr_merge_sa.py`, Test hält beides synchron):**
+
+```yaml
+sa_m:
+  deckung: {W0: M1, W1: M1, W2: M2, W3: M3}
+  doku_glob: ["*.md", "docs/**", "README*", "CHANGELOG*"]
+  governance_pfade: [".github/", "docs/adr/", "policies/", "registry/", "packages/", "CODEOWNERS"]
+  sync_only_repos: ["achimdehnert/platform"]
+  fail_closed: true
+```
+
+**Kill-Test (bindend, ADR-267-Reibungs-Kill-Muster):** Muss in >30 %
 der Fälle, die unter eine SA-Klasse fallen, doch ein Einzel-OK eingeholt werden
 (weil die Klasse zu weit/falsch schnitt oder ein Gate übersehen wurde), ist die
 Klasse **zu überarbeiten oder zu streichen**, nicht zu flicken. Gemessen über
@@ -286,6 +243,13 @@ Baseline: Session 2026-07-02 = 3 Roundtrips für 1 Entscheidungskomplex
 konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
+
+- 2026-08-26: **SA-1/2/5/6 zu SA-M zusammengefuehrt** (eine Regel, zwei Achsen:
+  Wirkung des Merges gegen Mandat der Entscheidung). Anlass: Owner-Weisung
+  "stringent, widerspruchsfrei und redundanzfrei fuer alle Repos". Zwei gemessene
+  Widersprueche aufgeloest: SA-6 haette Doku-PRs auch dort gemergt, wo der Merge
+  einen Prod-Deploy ausloest (die Wirkung haengt am Trigger, nicht am Diff), und
+  SA-1 liess offen, was ohne einen einzigen Check gilt. SA-3 und SA-4 unberuehrt.
 
 - 2026-08-26: **SA-5 (Merge ist Vollzug: gestartete Issues + nach Approval)
   RATIFIZIERT** (Achim, Approve+Merge #2332, Weisung im Kapitäns-Kanal wörtlich:
