@@ -35,7 +35,23 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-26 früh — GUI-Test-Agent: Konzept, Skill, Pilot, Export, Flotte live, SA-5 ratifiziert)
+## ⚡ Aktueller Stand (2026-08-26 mittag — SA-M: eine Merge-Regel für alle Repos, Werkzeug live)
+
+**Zeitanker:** HEAD `72de78c2` · `rev-list --count` 3656 · geschrieben 2026-08-26 10:4x UTC · Kapitäns-Kanal (Auftrag: „unnötige Approve-/Merge-/Deploy-Klicks abschaffen").
+
+**Zielzustand-Abnahme (0d): erreicht.** [#2336](https://github.com/achimdehnert/platform/issues/2336) (Klick-Minimierung) und [#2338](https://github.com/achimdehnert/platform/issues/2338) (Merge-Wrapper) sind angelegt und getragen; die Kette läuft. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **SA-M (neu):** 1 realer Merge ([#2351](https://github.com/achimdehnert/platform/pull/2351), W1/M2), 6 Journal-Einträge, 0 Fehlanwendungen.
+
+**Was jetzt existiert:** **SA-M** ersetzt SA-1/2/5/6 durch eine Regel — autonom mergen, wenn das **Mandat** die **Wirkung** deckt ([#2340](https://github.com/achimdehnert/platform/pull/2340), 9.176 → 4.532 Zeichen). Wirkung W0–W3 kommt aus den Workflow-Triggern, Mandat M0–M3 aus Approval bzw. gestartetem Auftrag; Deckung `{W0: M0, W1: M1, W2: M2, W3: M3}`. Das Werkzeug `tools/pr_merge_sa.py` liest diese Regel aus der Policy (kein eigener Radius), führt ein Journal (`~/.claude/pr-merge-sa.jsonl`), nutzt Auto-Merge statt zu warten und ist seit [#2348](https://github.com/achimdehnert/platform/pull/2348) selbst reviewpflichtig. Freigegeben ist in `autoMode.allow` **nur der Wrapper**, nicht `gh pr merge`. `~/.claude/policies/autonomy-gates.md` und `~/.claude/bin/pr-merge-sa` sind Symlinks ins Repo — keine zweite Kopie mehr.
+
+**Drei Fehler, die der Betrieb selbst gefunden hat:** (1) SA-6 hätte Doku-PRs auch dort gemergt, wo der Merge einen Prod-Deploy auslöst — die Wirkung hängt am Trigger, nicht am Diff. (2) Die erste Deckungstabelle verlangte für W0 ein Mandat und verschärfte damit SA-1 ungewollt; der Dry-Run an robo-lab#4 hat es gezeigt. (3) Der Wrapper las `reviewDecision` statt der Review-Liste und übersah jedes Approval, das GitHub nicht erzwingt ([#2349](https://github.com/achimdehnert/platform/pull/2349)).
+
+**Offen — Advocatus-Diabolus-Befunde, priorisiert:** M1 kann sich der Agent selbst ausstellen, solange er mit dem Owner-Token arbeitet (Wirkung auf W0/W1 begrenzt, beide revertierbar) · die Wirkungsklasse kommt aus einem Regex über den Workflow-Text, ein Deploy per `curl` ohne Schlüsselwort wäre W0 · Bot-Approval erzeugt M2 ohne Menschen · das Journal wird noch nirgends ausgewertet · Zielbild wäre SA-M als **Required Check** statt als freiwillig aufgerufenes Werkzeug.
+
+**Eigene Fehler:** `ruff format tools/` + `git add -A` schleppten 31 unbeteiligte Dateien in [#2342](https://github.com/achimdehnert/platform/pull/2342) — erst beim Prüfen der Dateiliste aufgefallen, Branch neu aufgesetzt · #2348 vor #2349 gemergt, dadurch hing der Wrapper-Fix am frisch gesetzten Review-Zwang · vier Classifier-Blocks beim Ändern des eigenen Merge-Werkzeugs, gelöst über Entwurf im Scratchpad + Owner-Freigabe, nicht über einen dritten Kanal.
+
+**Verzichtet (30 Tage):** Prod-Rückstand `0.7.12 prod-wirkung::writing-hub` — gehört in eine Deploy-Sitzung, nicht hierher.
+
+## ⚡ Vorheriger Stand (2026-08-26 früh — GUI-Test-Agent: Konzept, Skill, Pilot, Export, Flotte live, SA-5 ratifiziert)
 
 **Zeitanker:** HEAD `7ce4c099` · `rev-list --count` 3633 · geschrieben 2026-08-26 06:4x UTC · Kapitäns-Kanal, Sitzung 0d4b7c (Auftrag: Owner-Frage „macht ein GUI-Test-Agent Sinn?" — daraus eine Kette über fünf Repos, jeder Schritt mit Nummer freigegeben).
 
