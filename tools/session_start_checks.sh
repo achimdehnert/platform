@@ -717,13 +717,27 @@ except (json.JSONDecodeError, ValueError):
 b = d.get("befunde", [])
 # Ruhende Repos duerfen hinterherhinken — das ist der gewollte Zustand.
 def na(e, k): return bool(e.get(k)) and not e.get("ruhend")
+# Ein Repo mit Prod-Gate deployt bei push nur nach staging; Prod verlangt eine
+# bewusste Freigabe. Sein Rueckstand ist bis zu einer Frist der NORMALFALL und
+# darf nicht dieselbe Lautstaerke haben wie ein vergessener Deploy — risk-hub
+# stand so 23 Laeufe lang als WARN, worin ein echter Fund untergegangen waere.
+# Unterdrueckt wird er trotzdem nicht (deploy_wirkung.hat_prod_gate begruendet
+# das am tax-hub-Fall: Prod-Gate UND roter Build): er bleibt in der Zeile
+# sichtbar, nur eben als Wartestand — und wird nach der Frist laut, denn dann
+# ist "wartet auf Freigabe" nicht mehr von "vergessen" zu unterscheiden.
+FREIGABE_FRIST_TAGE = 14
+def wartet(e):
+    return (na(e, "rueckstand") and e.get("prod_gate")
+            and (e.get("alter_tage") or 0) < FREIGABE_FRIST_TAGE)
 dop  = [e["repo"] for e in b if e.get("doppellauf")]
-rueck= [e["repo"] for e in b if na(e, "rueckstand")]
+warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e)]
+rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e)]
 verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
 unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
 teile, betroffen = [], sorted(set(dop + rueck))
 if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
 if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
+if warte: teile.append("wartet auf Prod-Freigabe (kein Befund):" + ",".join(warte))
 if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
 if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
 status = "WARN" if (dop or rueck) else "PASS"
