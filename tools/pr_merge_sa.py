@@ -109,6 +109,7 @@ class Verdict:
     mandat: str
     erlaubt: bool
     grund: str
+    auto: bool = False  # Checks laufen noch -> GitHub merged, sobald sie gruen sind
 
 
 def ist_doku(pfad: str, globs: list) -> bool:
@@ -139,12 +140,12 @@ def classify(f: Facts, r: dict) -> Verdict:
             f.wirkung,
             f.mandat,
             False,
-            f"Governance-Pfad ohne Approval: {governance[0]}",
+            f"fehlt: ein Approval (Governance-Pfad {governance[0]})",
         )
 
     if f.review_required and RANG[f.mandat] < RANG["M2"]:
         return Verdict(
-            f.wirkung, f.mandat, False, "Ruleset verlangt Review, kein Approval"
+            f.wirkung, f.mandat, False, "fehlt: ein Approval (Ruleset verlangt Review)"
         )
 
     if f.mergeable != "MERGEABLE":
@@ -153,10 +154,11 @@ def classify(f: Facts, r: dict) -> Verdict:
         return Verdict(f.wirkung, f.mandat, False, f"mergeStateStatus={f.merge_state}")
 
     if f.checks_failing:
-        return Verdict(f.wirkung, f.mandat, False, f"{f.checks_failing} Check(s) rot")
-    if f.checks_pending:
-        raise Unklar(
-            f"{f.checks_pending} Check(s) laufen noch — Abwesenheit von Beweis"
+        return Verdict(
+            f.wirkung,
+            f.mandat,
+            False,
+            f"fehlt: gruenes CI ({f.checks_failing} Check(s) rot)",
         )
     if f.checks_total == 0:
         nicht_doku = [p for p in f.files if not ist_doku(p, r["doku_glob"])]
@@ -176,7 +178,15 @@ def classify(f: Facts, r: dict) -> Verdict:
             f.wirkung,
             f.mandat,
             False,
-            f"{f.wirkung} braucht {noetig}, vorliegt {f.mandat}",
+            f"fehlt: {noetig} — {f.wirkung} verlangt es, vorliegt {f.mandat}",
+        )
+    if f.checks_pending:
+        return Verdict(
+            f.wirkung,
+            f.mandat,
+            True,
+            f"{f.mandat} deckt {f.wirkung}; {f.checks_pending} Check(s) laufen — Auto-Merge",
+            auto=True,
         )
     return Verdict(f.wirkung, f.mandat, True, f"{f.mandat} deckt {f.wirkung}")
 
@@ -201,27 +211,45 @@ def _paths_ignore_deckt_alles(kopf: str, dateien: list) -> bool:
     return all(any(fnmatch.fnmatch(d, g) for g in globs) for d in dateien)
 
 
-def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
-    """Trigger lesen, nicht Dateinamen raten. Unlesbar => Unklar."""
-    if repo in r.get("sync_only_repos", []):
-        return "W1"
+_WORKFLOW_CACHE: dict = {}
+
+
+def workflow_texte(repo: str) -> list:
+    """Die Workflow-Dateien eines Repos — je Prozess einmal geholt. Bei Repos mit
+    30 Workflows sind das sonst 30 API-Calls pro geprueftem PR."""
+    if repo in _WORKFLOW_CACHE:
+        return _WORKFLOW_CACHE[repo]
     try:
         eintraege = _gh(["api", f"repos/{repo}/contents/.github/workflows"])
     except Unklar as exc:
         if "404" in str(exc) or "Not Found" in str(exc):
-            return "W0"
+            _WORKFLOW_CACHE[repo] = []
+            return []
         raise
     if not isinstance(eintraege, list):
         raise Unklar("Workflow-Verzeichnis nicht als Liste erhalten")
 
-    stufe = "W0"
+    texte = []
     for e in eintraege:
         if not e.get("name", "").endswith((".yml", ".yaml")):
             continue
         datei = _gh(["api", e["url"]])
         if not datei.get("content"):
             raise Unklar(f"Workflow {e['name']} ohne Inhalt")
-        text = base64.b64decode(datei["content"]).decode("utf-8", errors="replace")
+        texte.append(
+            base64.b64decode(datei["content"]).decode("utf-8", errors="replace")
+        )
+    _WORKFLOW_CACHE[repo] = texte
+    return texte
+
+
+def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
+    """Trigger lesen, nicht Dateinamen raten. Unlesbar => Unklar."""
+    if repo in r.get("sync_only_repos", []):
+        return "W1"
+
+    stufe = "W0"
+    for text in workflow_texte(repo):
         kopf = text.split("jobs:", 1)[0]
         if "push:" not in kopf or not re.search(r"\bmain\b", kopf):
             continue
@@ -312,6 +340,21 @@ def repo_aus_cwd() -> str:
     )
 
 
+JOURNAL = pathlib.Path.home() / ".claude" / "pr-merge-sa.jsonl"
+
+
+def journal(zeile: dict) -> None:
+    """Jede Entscheidung wird protokolliert. Die Policy verlangt eine Ratsche
+    ("erste Fehlanwendung setzt zurueck") — ohne Zaehlung waere sie nicht
+    pruefbar, und eine unpruefbare Ratsche ist keine."""
+    try:
+        JOURNAL.parent.mkdir(parents=True, exist_ok=True)
+        with JOURNAL.open("a") as f:
+            f.write(json.dumps(zeile, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # ein blindes Journal darf keinen Merge verhindern
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="SA-M: Merge nur mit gedecktem Mandat")
     ap.add_argument("nummer", type=int)
@@ -341,30 +384,42 @@ def main(argv=None) -> int:
             f"{marke} {repo}#{args.nummer}: {urteil.wirkung}/{urteil.mandat} — {urteil.grund}"
         )
 
+    journal(
+        {
+            "repo": repo,
+            "pr": args.nummer,
+            "wirkung": urteil.wirkung,
+            "mandat": urteil.mandat,
+            "erlaubt": urteil.erlaubt,
+            "grund": urteil.grund,
+            "dry_run": bool(args.dry_run),
+        }
+    )
+
     if not urteil.erlaubt:
         return 2
     if args.dry_run:
         print("(dry-run — nicht gemergt)")
         return 0
 
-    p = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "merge",
-            str(args.nummer),
-            "-R",
-            repo,
-            "--squash",
-            "--delete-branch",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    befehl = [
+        "gh",
+        "pr",
+        "merge",
+        str(args.nummer),
+        "-R",
+        repo,
+        "--squash",
+        "--delete-branch",
+    ]
+    if urteil.auto:
+        befehl.append("--auto")
+    p = subprocess.run(befehl, capture_output=True, text=True)
     if p.returncode != 0:
         print(f"Merge fehlgeschlagen: {p.stderr.strip()[:300]}", file=sys.stderr)
         return 3
-    print(f"gemergt: {repo}#{args.nummer} ({urteil.mandat} deckt {urteil.wirkung})")
+    wie = "Auto-Merge gesetzt" if urteil.auto else "gemergt"
+    print(f"{wie}: {repo}#{args.nummer} ({urteil.mandat} deckt {urteil.wirkung})")
     return 0
 
 
