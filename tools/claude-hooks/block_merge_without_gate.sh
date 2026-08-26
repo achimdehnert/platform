@@ -25,7 +25,17 @@
 #   - `--admin` passiert: das ist der ausdrueckliche, benannte Bypass eines Menschen
 #   - blockt, wenn der letzte Lauf auf dem Default-Branch `failure` ist
 #   - blockt, wenn es GAR KEINEN Lauf gibt — das ist der eigentliche Fall
+#   - blockt, wenn der PR SELBST null Check-Runs hat (s.u.)
 #   - FAIL-OPEN: kein gh, kein Netz, Repo nicht bestimmbar -> exit 0
+#
+# AUSWEITUNG 2026-08-26 (writing-hub, Retro fdd368): das Gate pruefte
+# ausschliesslich den Default-Branch. Ein PR, dessen eigener Head-SHA NULL
+# Check-Runs hat, fiel bei gesundem `main` glatt durch — genau der Fall, der
+# an dem Tag eintrat: `gh pr checks` meldete "no checks reported", meine
+# Pruefschleife las das als gruen, der Merge scheiterte danach mit BLOCKED.
+# Ursache war ein GitHub-Actions-Ausfall; der Hook haette es vorher sagen
+# koennen und schwieg, weil er woanders hinsah. Ein Gate, das weniger prueft
+# als sein Name verspricht, ist die Klasse `gate-modul-prueft-weniger-als-sein-name`.
 set -uo pipefail
 
 input="$(cat 2>/dev/null)" || exit 0
@@ -59,6 +69,22 @@ melde() {
 
 if [ -z "$laeufe" ]; then
   melde "⛔ Merge/Publish geblockt: ${repo} hat auf ${zweig} KEINEN abgeschlossenen CI-Lauf (Gate no-checks-reported-read-as-green). Eine leere Pruefliste heisst 'hier prueft nichts', nicht 'nichts zu beanstanden' — Realfall aifw#53: sechs Tage tote Workflow-Referenz, in dem Fenster ging 0.13.0 nach PyPI. Pruefen: gh run list --repo ${repo} --branch ${zweig} --limit 3"
+fi
+
+# Der PR selbst: hat sein Head-SHA ueberhaupt Check-Runs?
+#
+# Nicht der Rollup (`gh pr checks`), sondern die Zaehlung am Commit — der Rollup
+# antwortet mit einer Prosa-Zeile, die sich als "0 rote, 0 offene" lesen laesst.
+# `total_count` kennt diese Zweideutigkeit nicht.
+pr="$(printf '%s' "$cmd" | grep -oE 'gh pr merge[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+$')"
+if [ -n "$pr" ]; then
+  sha="$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid 2>/dev/null || true)"
+  if [ -n "$sha" ]; then
+    anzahl="$(gh api "repos/${repo}/commits/${sha}/check-runs" --jq .total_count 2>/dev/null || true)"
+    if [ "$anzahl" = "0" ]; then
+      melde "⛔ Merge geblockt: PR #${pr} (${repo}) hat auf seinem Head-Commit ${sha:0:7} NULL Check-Runs (Gate no-checks-reported-read-as-green). 'no checks reported' ist ein Befund, kein Zustand — kein Required Check ist gelaufen, der PR bleibt BLOCKED, ohne dass irgendwo etwas rot wird. Erst nachsehen, ob CI ueberhaupt laeuft: gh run list --repo ${repo} --limit 3 — und bei flaechendeckender Stille https://www.githubstatus.com pruefen, bevor im Repo gesucht wird."
+    fi
+  fi
 fi
 
 erster="${laeufe%%,*}"
