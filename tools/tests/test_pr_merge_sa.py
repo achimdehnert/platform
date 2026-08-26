@@ -35,6 +35,7 @@ REGELN = {
         "registry/",
         "packages/",
         "CODEOWNERS",
+        "tools/pr_merge_sa.py",
     ],
     "sync_only_repos": ["achimdehnert/platform"],
 }
