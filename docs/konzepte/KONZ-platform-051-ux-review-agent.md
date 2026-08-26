@@ -324,6 +324,19 @@ Ertrag ist Ballast, kein Grund, das Werkzeug aufzugeben. Dasselbe fuer K8 und
 die Marker-Pruefung. Das ist der Unterschied zwischen einer Erweiterung und
 einer Neukonzeption: sie darf scheitern, ohne das Bestehende mitzureissen.
 
+## Backlog — bewusst NICHT jetzt
+
+| Idee | Warum vertagt | Wann bewerten |
+|---|---|---|
+| **Fehlerfall-Modus**: der Laeufer biegt bewusst falsch ab (leeres Pflichtfeld, fremde Rolle, doppelter Klick) statt nur den Happy Path zu gehen | Die einzige der drei am 2026-08-26 erwogenen Achsen mit eigenem Ertrag: UC-002 in writing-hub sagt „Titel leer -> Fehlermeldung, Formular bleibt offen" — das prueft heute kein Test und kein Durchlauf. Aber der Kern ist noch nicht pilotiert (K1 bei 3/9) | Nach dem Kill-Gate 2026-09-30, falls K1-K5 erfuellt |
+| **`-uc <id>`** als dritte Soll-Quelle neben `-kd` | Mechanisch identisch zu E10, nur eine andere Datei; writing-hub hat 3 Use-Cases gegen 12 Klickdummies. Marginaler Zuwachs bei gleichem Wartungspreis | dito, und nur falls K7 (KD-Gegencheck traegt) erfuellt ist |
+| **Eigener UC-Agent** | Zweiter Laeufer auf derselben Kette = zweite Umgebung, zweiter Login, zwei Issue-Stroeme und beim ersten Widerspruch die Frage, wer recht hat. Owner-Frage 2026-08-26, hier verneint | nicht vorgesehen |
+
+**Warum das hier steht und nicht im Konzepttext:** eine Achse, die vor dem Pilot
+eingebaut wird, verwaessert genau die Messung, die den Pilot rechtfertigt. Und
+eine Idee, die nirgends steht, ist beim naechsten Mal weg — dazwischen liegt
+diese Tabelle.
+
 ## Bezug
 
 - Memory `project_ux_review_agent_program` (C1) — Owner-Prio 2026-07-22, wird durch dieses Dokument abgeloest
