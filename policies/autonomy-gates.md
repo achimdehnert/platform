@@ -171,6 +171,30 @@ berührt wird).
   Approval, oder an einem Gate vorbei) setzt die Klasse auf Einzelfreigabe zurück;
   Zählung über Signal G.
 
+- **SA-6 — Merge reiner Doku-PRs, in jedem Repo, samt Wirksamwerden.**
+  ✅ **RATIFIZIERT (Achim, 2026-08-26, Kapitäns-Kanal — Auswahl „Doku + SA-1
+  scharfstellen" auf eine selbstbetreffend gekennzeichnete Vorlage).** Ein PR, dessen
+  Diff **ausschließlich** Dokumentation berührt (`*.md`, `docs/**`, `README*`), wird
+  autonom gemergt und der daraus folgende Doku-Sync/Deploy ausgelöst — **auch in
+  Auto-Deploy-on-main-Repos**. Tragend ist dieselbe Zustandsfrage wie in der
+  platform-Klarstellung zu Gate 2: ein reiner Doku-Merge startet keinen Dienst neu,
+  führt keine Migration aus, schreibt keine Daten und wechselt kein Image.
+
+  **Ausdrücklich AUSGESCHLOSSEN**, auch wenn die Datei `.md` heißt: `/.github/`,
+  `CODEOWNERS`, `/docs/adr/`, `/policies/`, `/registry/`, `/packages/`. Dort ist der
+  Inhalt Governance, nicht Doku — diese Datei selbst fällt darunter. Ebenso
+  ausgeschlossen: PRs mit gemischtem Diff (eine Code-Datei genügt) und alles, was
+  eine wartende Owner-Entscheidung überholen würde.
+
+**Harness-Voraussetzung (2026-08-26, gemessen):** SA-1 und SA-6 wirken nur, wenn
+`Bash(gh pr merge:*)` in **`autoMode.allow`** steht. `permissions.allow` genügt nicht —
+das sind zwei getrennte Listen (Drift-Beleg 2026-08-24). Und **Präfix heißt
+Zeilenanfang**: `cd <repo> && gh pr merge …` matcht das Muster **nicht**, der Aufruf
+muss mit `gh pr merge` beginnen (`-R owner/repo` statt `cd`). SA-1 stand seit dem
+2026-07-12 ratifiziert in dieser Datei und blieb genau daran wirkungslos — die
+Ratifikation einer Klasse ist ohne den Harness-Eintrag folgenlos.
+(Nummer 6, weil SA-5 am selben Tag anderweitig vergeben wurde — #2332.)
+
 **Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
 liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
 Realfall-Memory: User-Erlaubnis + Permission-Rule + Settings-Edit heben ihn nicht
@@ -272,6 +296,12 @@ konvergiert, Policy schneiden, nicht flicken.
   gestartet war. Gates 1/2 (Prod), Publish und Classifier-Hard-Deny bleiben
   unverändert. Diese Zeile kam getrennt (#2332 trug sie nicht: der Auto-Mode-
   Classifier blockte den Edit als Selbstmodifikation).
+- 2026-08-26: **SA-6 (reine Doku-PRs) RATIFIZIERT** und die Harness-Voraussetzung
+  für SA-1/SA-5 benannt. Anlass: robo-lab#3 (ein reines Doku-Dokument) hing am
+  Classifier, obwohl SA-1 den Fall seit sechs Wochen deckt — die Klasse war
+  ratifiziert, der Eintrag in `autoMode.allow` fehlte. Owner-Auswahl im
+  Kapitäns-Kanal auf eine selbstbetreffend gekennzeichnete Vorlage (Charta Art. 3).
+
 - 2026-08-07: **SA-4 (Zielzustand-Konvergenz) VORGESCHLAGEN** — selbstbetreffend
   eingebracht (erweitert die Reichweite des Agenten), deshalb ungebündelter
   Policy-PR; Ratifikation nur durch wörtliches Owner-Go beim Review. Anlass:
