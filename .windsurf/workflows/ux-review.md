@@ -1,5 +1,5 @@
 ---
-description: Eine benannte Kette klick-only durch die laufende App pruefen — Begehbarkeit, Konsole, Antwortkoerper; je Befund ein Issue mit Klassen-Gate-Vorschlag (KONZ-051 Stufe 1)
+description: PFLICHT bei JEDER Arbeit an GUI, Templates, Views oder einer Bedien-Kette (Owner-Weisung 2026-08-26) — vor dem ersten Klick aufrufen, nicht danach. Prueft eine Kette klick-only durch die laufende App: Begehbarkeit ohne getippte URL, Konsole, Antwortkoerper, Funktionen ohne Aufrufer; je Befund ein Issue mit Klassen-Gate-Vorschlag (KONZ-051 Stufe 1). Ausloeser: GUI, Oberflaeche, Template, Screen, Knopf, Formular, Durchlauf, e2e, klicken, Bedienbarkeit, „funktioniert das im Browser"
 mode: write
 scope: geteilt
 statefulness: zustandslos
@@ -8,9 +8,17 @@ trigger: interaktiv
 
 # /ux-review — Kette klick-only pruefen, je Befund ein Klassen-Gate
 
-> **Wann:** Eine App hat eine Kette aus mehreren Screens (Recherche → Angebot → Freigabe,
-> Idee → Buch → Export), und niemand weiss, ob ein Mensch sie **ohne getippte URL** von Anfang
-> bis Ende begehen kann. Operationalisiert **KONZ-platform-051** (Stufe 1).
+> **Wann:** Immer, wenn GUI, Templates, Views oder eine Bedien-Kette im Spiel sind
+> (Owner-Weisung 2026-08-26). Typischer Fall: eine App hat eine Kette aus mehreren Screens
+> (Recherche → Angebot → Freigabe, Idee → Buch → Export), und niemand weiss, ob ein Mensch
+> sie **ohne getippte URL** von Anfang bis Ende begehen kann. Operationalisiert
+> **KONZ-platform-051** (Stufe 1).
+>
+> **Vor dem ersten Klick aufrufen, nicht danach.** Am 2026-08-25/26 lief ein kompletter
+> GUI-Durchlauf durch writing-hub ohne diesen Skill — drei Fehler, gegen die er ausdruecklich
+> geschrieben ist, passierten dabei erneut: die geteilte `.env` wurde umgestellt (Step 1.3),
+> eine Absenz ohne zweiten Suchpfad behauptet (Step 4), und ein „0 erstellt" im Erfolgston
+> uebersehen (Step 5). Alle drei standen zu dem Zeitpunkt bereits als Regel hier drin.
 > **Wann NICHT:** Klickdummy pruefen → `/kd-review` (statisch, kein Login). App-Struktur
 > auditieren ohne zu klicken → `/repo-ux-opt`. Einen bekannten Defekt fixen → normaler PR-Flow.
 > Dieser Skill **aendert keinen Code** — er klickt, urteilt und legt Issues an.
@@ -92,6 +100,39 @@ Schleife je Station, Abbruch messbar: **Station erreicht** ODER `--max-klicks` o
    - `blind` — mit Grund (kein Testkonto, Login scheitert, Klickbudget erschoepft, Dienst
      antwortet nicht). **`blind` ist nie gruen** und zaehlt im Bericht getrennt.
 
+## Step 3b: Gegenrichtung — vom Code zur Oberflaeche (E8, PFLICHT)
+
+> Die Steps 2 und 3 gehen die Kette **von vorn** und finden, was auf dem Weg kaputt ist.
+> Sie finden strukturell **nicht**, was gar nicht erst auf dem Weg liegt: eine fertige
+> Funktion ohne Aufrufer. Gemessen writing-hub 2026-08-26 — an einem Tag fuenf Faelle,
+> alle gebaut, alle getestet, keiner erreichbar:
+>
+> | Baustein | Zustand |
+> |---|---|
+> | `extract_from_text` (generisch seit #567) | null Aufrufer |
+> | `ProjectItemLink` (seit #699) | kein Erzeugungsweg |
+> | `CharacterRelationship` | vollstaendig, nie gefuellt |
+> | `refine_character_with_llm` | ein Aufrufer, pro Einzelobjekt |
+> | zwei neue Knoepfe | im falschen `{% if %}` |
+
+Nach dem Klick-Durchlauf **einmal umgekehrt** fragen — rein statisch, also billig:
+
+```bash
+# URL-Namen, die kein Template referenziert
+for name in $(grep -rhoP 'name="\K[a-z_]+' "$WT"/apps/*/urls*.py | sort -u); do
+  grep -rqF "$name" "$WT"/templates || echo "ohne Template-Aufrufer: $name"
+done
+```
+
+Je Treffer **eine** von zwei Antworten, nie keine: **einhaengen** (der Weg fehlt) oder
+**entfernen** (die Funktion ist tot). Halb liegen lassen ist genau der Zustand, der die
+fuenf Faelle oben erzeugt hat.
+
+**Und die Umkehrung der Umkehrung:** ein Knopf, der im Template steht, ist damit noch
+nicht sichtbar. Steht er in einem `{% if %}`, gehoert die Frage dazu, ob diese Bedingung
+zu seiner **Phase** passt — ein Knopf, der aus dem Konzept arbeitet, darf nicht an der
+Gliederung haengen.
+
 ## Step 4: Absenz-Gegenprobe (E2 — Pflicht vor jedem „fehlt")
 
 Bevor ein Befund „Feld/Knopf/Funktion fehlt" heisst: zweiter Suchpfad in der Quelle —
@@ -148,6 +189,9 @@ nach — daraus rechnet das Kill-Gate K2 die Quote.
 | `fallback-als-erfolg` | plausibler Text statt Fehler | Aufrufer wertet das Fehlerfeld der Bibliothek aus; was nicht extrahiert wurde, wird nicht gespeichert |
 | `eine-meldung-drei-ursachen` | derselbe Fehlersatz fuer verschiedene Faelle | Meldung traegt die Ursache aus dem Audit-Trail |
 | `escape-familie` | Sonderzeichen brechen Seite/JS | Gate ueber alle `{{ … }}` in `<script>`/`on*` — writing-hub #761 |
+| `built-but-never-called` | Funktion existiert im Code, kein Weg in der Oberflaeche fuehrt hin | Test: jede seitenrendernde View gegen die `{% url %}`/`action=` aller Templates, Ausnahmen mit Grund — writing-hub 2026-08-26, fuenf Faelle an einem Tag |
+| `sichtbar-nur-unter-falscher-bedingung` | Knopf/Feld steht in einem `{% if %}`, das nicht zu seiner Phase gehoert | UX-Test rendert die Seite **ohne** die Bedingung und prueft die Sichtbarkeit — writing-hub #775: zwei Knoepfe, die aus dem KONZEPT arbeiten, standen in `{% if has_outline %}` |
+| `gemockt-und-deshalb-blind` | Alle Tests gruen, erster echter Klick bricht | Test, der die gemockte Schicht **echt** ausfuehrt (Vorlagen rendern, Router aufrufen) — writing-hub #774: drei Prompt-Vorlagen brachen, weil jeder Test den Renderer ersetzt hatte |
 | `daten-invariante` | Anzeige widerspricht der Sache (abgelaufene Frist bei laufender Ausschreibung) | Invarianten-Melder ueber den Datenbestand, **SKIP ist kein PASS** |
 
 Neue Klasse gefunden → Zeile hier ergaenzen (PR nach platform), nicht nur im Issue beschreiben.
