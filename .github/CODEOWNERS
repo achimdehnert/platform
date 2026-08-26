@@ -92,3 +92,8 @@
 /.gitleaks.toml        @achimdehnert @wirdigital @iil-lotse
 /.pre-commit-config.yaml @achimdehnert @wirdigital @iil-lotse
 /bootstrap.sh          @achimdehnert @wirdigital @iil-lotse
+
+# Das Merge-Werkzeug des Agenten: es entscheidet, was er ohne Klick mergen darf.
+# Ohne diese Zeile koennte er es selbst aendern und den Merge selbst fahren
+# (/tools/ ist sonst bewusst ungeschuetzt, s.o.).
+/tools/pr_merge_sa.py  @achimdehnert @wirdigital

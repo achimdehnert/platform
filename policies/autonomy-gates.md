@@ -157,7 +157,7 @@ berührt.
 sa_m:
   deckung: {W0: M0, W1: M1, W2: M2, W3: M3}
   doku_glob: ["*.md", "docs/**", "README*", "CHANGELOG*"]
-  governance_pfade: [".github/", "docs/adr/", "policies/", "registry/", "packages/", "CODEOWNERS"]
+  governance_pfade: [".github/", "docs/adr/", "policies/", "registry/", "packages/", "CODEOWNERS", "tools/pr_merge_sa.py"]
   sync_only_repos: ["achimdehnert/platform"]
   fail_closed: true
 ```
