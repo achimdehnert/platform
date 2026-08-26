@@ -101,6 +101,11 @@ Mensch.
 | E10 | **Klickdummy als Soll-Gegencheck** (`-kd <name>`, optional): existiert eine KD-Spec zur Kette, wird sie in **beide** Richtungen abgeglichen — KD-Screen ohne App-Weg und App-Station ohne KD-Screen. Der Befund ist der **Dissens**, nie „die App ist falsch" | Entscheidung | C10: `roman-autoren-spine` spezifiziert 6 Screens, der reale Durchlauf hatte 7 Phasen — „Serien-Zuordnung" nie berührt, „Welt & Figuren"/„Recherche" im KD unbekannt. Alternative: KD als Wahrheit setzen (= Fehlalarm bei jedem gewachsenen Feature, R5) | gesetzt |
 | E11 | **Inhaltliche Prüfung = Durchgängigkeit, nicht Qualität.** Ein Eigenname aus Station 1 wird in jeder Folgestation gesucht, plus ein Kontrollmarker, der 0 ergeben MUSS | Entscheidung | C11: Protagonist hiess im Konzept „Milo Heller", in der erzeugten Gliederung „Franz" — HTTP-grün, inhaltlich gerissen. Alternative: Textqualität bewerten (= Geschmacks-Issues, R3) | gesetzt |
 | E12 | **Blaupause statt Einzelwerkzeug**: der Skill nennt keine repo-spezifischen Pfade; Kette, KD-Name und Marker kommen als Parameter. Ein neues Repo braucht keine Skill-Änderung | Entscheidung | Owner-Weisung 2026-08-26. Alternative: je Repo eine Kopie (= Drift zwischen Kopien, dieselbe Klasse wie `skill-copy-not-redistributed`) | gesetzt |
+| E13 | **Kurzer Zyklus mit Agenten** (`--fix`, optional): Laeufer findet → je Befund ein **eigener Fixer-Agent** in frischem Kontext, der NUR das Issue und das Repo sieht → **erneuter Klick-Lauf** derselben Kette als Pruefer. Der Fixer ist nie sein eigener Pruefer | Entscheidung | Muster aus `/session-retro` (Richter ≠ Angeklagter, dort gemessen: der Skeptiker kippte einen Befund, den der Autor fuer sicher hielt). Alternative: Laeufer fixt selbst (= niemand prueft den Fix, C11-Klasse) | gesetzt |
+| E14 | **Abbruch nach 2 Runden je Befund.** Ist die Station im zweiten Lauf noch rot, bleibt das Issue offen und geht an den Menschen — mit beiden Fix-Versuchen als Kommentar | Entscheidung | Step 2a Frage 6: eine Schleife ohne messbare Schwelle laeuft bis zum Budget und meldet das als Ende, nicht als Fehler. Alternative: bis gruen (= offene Rechnung) | gesetzt |
+| E15 | **Der Merge bleibt draussen.** `--fix` erzeugt PRs, mergt nie — in Repos mit Auto-Deploy-on-main ist der Merge der Prod-Schritt (Gate 2) | Entscheidung | policies/autonomy-gates.md. Alternative: autonom mergen (= Deploy ohne Freigabe) | gesetzt |
+| R7 | **Der Zyklus repariert Symptome schneller, als jemand die Klasse versteht.** Zwei Runden Gruen koennen einen Fix bedeuten, der nur diesen einen Klickpfad heilt | Risiko | Gegenmittel: der Klassen-Gate-Vorschlag (E3) bleibt Pflichtfeld AUCH im `--fix`-Modus, und K3 misst, ob daraus je ein Test wurde. Ohne das ist der Zyklus eine schnellere Symptommaschine |
+| R8 | **Fixer-Agenten kollidieren**, wenn zwei Befunde dieselbe Datei treffen | Risiko | Gegenmittel: Befunde vor dem Fan-out nach Datei gruppiert; eine Datei = ein Agent = ein PR. Belegt: `parallel-session-pr-collision` ist ein registriertes Gate mit 7 Vorkommen |
 | R5 | **KD veraltet → Fehlalarm.** Ein KD, der einer gewachsenen App hinterherhinkt, erzeugt bei jedem Lauf dieselben Dissense | Risiko | Gegenmittel: Dissens hat zwei Severities — `spec-luecke` (KD kennt die Station nicht) ist `optimierung`, `weg-fehlt` (KD-Screen ohne App-Weg) ist `fehler`. Zählt K2 mit; > 30 % `spec-luecke` über drei Läufe = der KD gehört gepflegt, nicht der Agent geschärft | offen, Pilot |
 | R6 | **Marker verfälscht das Ergebnis.** Ein Eigenname, den der Autor nie schreiben würde, verzerrt die Erzeugung | Risiko | Gegenmittel: Marker sind plausible Eigennamen im Genre, kein `ZZZ-TEST`. Der Kontrollmarker (der 0 ergeben muss) ist die Gegenprobe gegen einen Filter, der nie etwas findet | offen, Pilot |
 | R4 | Testdaten aus Prod im Screenshot (Personendaten, platform ist public) | Risiko | Screenshots nur ins Zielrepo-Issue (privat), nie nach platform; Pilot mit synthetischen Mandanten | offen |
@@ -115,6 +120,44 @@ Mensch.
 | Positivkontrolle | Pilot-Lauf gegen writing-hub `git checkout <sha vor #761>` und ausschreibungs-hub vor dem Erreichbarkeits-Fix | Trefferliste gegen die 9 bekannten Defekte |
 | Gate-Katalog (Vorschlaege, die der Agent kennt) | im Skill | Routen-vs-Templates (C4) · mehrzeilige Django-Kommentare ueber alle Templates (C3) · `htmx:responseError` global (C5) · `hx-headers` CSRF am body (C3) · Invariante ueber Datenbestand statt Ursache (C3 Regel 3) · escapejs-Familie (C2) |
 
+### Der kurze Zyklus (`--fix`) — Ablauf und seine Grenze
+
+Owner-Weisung 2026-08-26: Review und Behebung sollen kurzzyklisch zusammenspielen.
+Der frühere Einwand („der Skill ändert keinen Code, sonst prüft niemand den Fix")
+fällt mit Agenten — aber nur, wenn die Rollen wirklich getrennt bleiben:
+
+```
+Runde 1   Läufer (Browser)          → N Befunde, je eines ein Issue
+          │
+          ├─ Befunde nach DATEI gruppieren        (R8: eine Datei = ein Agent)
+          │
+Fan-out   Fixer-Agent je Gruppe     → PR, frischer Kontext,
+          (sieht NUR Issue + Repo)     sieht den Läufer-Verlauf nicht
+          │
+Runde 2   Läufer erneut, dieselbe Kette
+          │
+          ├─ Station grün  → PR bleibt offen zur Freigabe (E15), Issue schließt
+          └─ Station rot   → zweiter Versuch, danach Schluss (E14)
+```
+
+**Warum der Prüfer ein erneuter Klick-Lauf ist und kein Test.** Am 2026-08-26
+waren 180 Tests grün, während drei Prompt-Vorlagen beim Rendern brachen — jeder
+Test hatte die brechende Schicht gemockt. Ein Fixer, der seinen eigenen Fix mit
+seinen eigenen Tests belegt, reproduziert genau diese Lage. Der Klick kann das
+nicht: er sieht, was ein Mensch sieht.
+
+**Die Grenze ist E14 und sie ist nicht verhandelbar.** Zwei Runden, dann geht das
+Issue an den Menschen — mit beiden Fix-Versuchen als Kommentar, damit die nächste
+Person nicht bei null anfängt. Eine Schleife ohne messbare Schwelle läuft bis zum
+Budget und meldet das als Ende, nicht als Fehler (Step 2a, Frage 6).
+
+**Und die unangenehme Frage dazu (R7):** ein schneller Zyklus repariert Symptome
+schneller, als jemand die Klasse versteht. Zwei Runden Grün können einen Fix
+bedeuten, der genau diesen einen Klickpfad heilt und die Familie stehen lässt.
+Deshalb bleibt der **Klassen-Gate-Vorschlag Pflichtfeld auch im `--fix`-Modus**,
+und K3 misst, ob daraus je ein Test wurde. Ohne das ist der Zyklus eine schnellere
+Symptommaschine — messbar am Verhältnis gebaute Gates zu gemergten Fix-PRs.
+
 ### MVC-Ergaenzung 2026-08-26
 
 | Was | Wo | Inhalt |
@@ -123,6 +166,8 @@ Mensch.
 | `-marker <name>[,<name>]` | Skill, neuer optionaler Parameter | Eigennamen, die in Station 1 eingegeben und in jeder Folgestation gesucht werden; zusaetzlich ein fest eingebauter Kontrollmarker, der 0 ergeben muss |
 | Step 3b Gegenrichtung | Skill, bereits gebaut (PR #2343) | URL-Namen ohne Template-Referenz; je Treffer einhaengen ODER entfernen |
 | Klassen `built-but-never-called`, `sichtbar-nur-unter-falscher-bedingung`, `gemockt-und-deshalb-blind` | Skill, Klassentabelle (PR #2343) | je mit Gate-Vorlage und Realfall |
+| `--fix` | Skill, neuer optionaler Parameter | Fan-out je Befund-Gruppe (nach Datei), Fixer-Agent in frischem Kontext, danach zweiter Klick-Lauf als Prüfer. Max 2 Runden je Befund. Erzeugt PRs, mergt nie |
+| Zyklus-Zähler | Sammel-Issue | je Befund: `Runde 1 rot → Fix #<pr> → Runde 2 grün` bzw. `→ Runde 2 rot, an Mensch`. Plus die Quote gebaute Gates / gemergte Fix-PRs (R7) |
 | Hook `gui-geaendert-ohne-klick` | `tools/claude-hooks/`, gebaut + gemergt (PR #2344) | Stop-Hook: GUI-Datei geschrieben, aber kein Browser-Werkzeug und kein `/ux-review` in der Sitzung. Advisory. |
 
 **Ausfuehrungsform (Step 2a):** mehrere Schritte ja; Schrittfolge steht fest
@@ -267,8 +312,9 @@ Pilot an R2 (Login) haengt und das dokumentiert ist.
 | **K6** (Erweiterung 26.08.) Blaupause haelt: `grep -icE 'writing-hub\|ausschreibungs-hub\|meiki\|risk-hub' .windsurf/workflows/ux-review.md` findet **nur** Zeilen, die als Realfall-Beleg gekennzeichnet sind — kein Repo-Name in einer Anweisung | offen | per `grep` pruefbar, nicht per Meinung (E12) |
 | **K7** (Erweiterung 26.08.) KD-Gegencheck traegt: in mindestens einem Pilot-Lauf mit `-kd` entsteht ein `weg-fehlt`-Befund, den der Klick-Durchlauf allein **nicht** gefunden hat | offen | Gegenprobe zur Frage, ob die dritte Blickrichtung eigenen Ertrag hat (OOTB-Prinzip: findet sie nichts, wird sie gestrichen) |
 | **K8** (Erweiterung 26.08.) Marker-Durchgaengigkeit traegt: der Kontrollmarker ergibt in **jedem** Lauf 0, und mindestens ein echter Marker-Riss wird gefunden | offen | ohne den ersten Teil ist der Suchlauf womoeglich der Filter; ohne den zweiten hat E11 keinen belegten Ertrag (C11 ist der bekannte Fall) |
+| **K9** (Erweiterung 26.08.) Der Zyklus heilt nicht nur Symptome: ueber alle `--fix`-Laeufe des Pilots ist das Verhaeltnis **gebaute Klassen-Gates zu gemergten Fix-PRs mindestens 1:5** | offen | R7. Darunter ist der Zyklus eine schnellere Symptommaschine — dann `--fix` streichen, Laeufer behalten |
 
-Alle acht erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
+Alle neun erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
 Bot-Token, Dry-Run in CI). Eines verfehlt -> Stufe 1 bleibt manuell aufrufbar,
 Stufe 2 wird nicht gebaut; zwei verfehlt -> `sunset`.
 
