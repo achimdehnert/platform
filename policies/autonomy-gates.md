@@ -100,7 +100,10 @@ nichts an: dann gilt W0, unabhängig von der Repo-Klasse.
 | M2 | Approval liegt vor | Owner, Zweit-Reviewer oder Bot im Rahmen seiner Tabu-Liste |
 | M3 | Approval **benennt** die Prod-Wirkung | Deploy/Publish steht in der Freigabezeile |
 
-**Deckung:** W0/W1 brauchen M1 · W2 braucht M2 · W3 braucht M3.
+**Deckung:** W0 braucht kein Mandat · W1 braucht M1 · W2 braucht M2 · W3 braucht M3.
+Dass W0 ohne Mandat auskommt, ist die getreue Uebersetzung von SA-1 (2026-07-12):
+wo kein Workflow anlaeuft, aendert der Merge nur Repo-Inhalt und ist ein `git revert`
+weit von seiner Ruecknahme entfernt. Die Vorbedingungen unten gelten trotzdem.
 
 **Drei Vorbedingungen, die unabhängig vom Mandat gelten** — fehlt eine, wird nicht
 gemergt, egal wie hoch M ist:
@@ -129,7 +132,7 @@ oder Permissions bleiben selbstbetreffend und damit beim Owner — SA-M erlaubt 
 
 | alt | Ratifiziert | geht auf in |
 |---|---|---|
-| SA-1 CI-grün, kein Review, kein Auto-Deploy | 2026-07-12 | W0 + M1 |
+| SA-1 CI-grün, kein Review, kein Auto-Deploy | 2026-07-12 | W0, mandatsfrei |
 | SA-2 Nicht-Governance in `platform` | 2026-08-10 | W1 + M1 |
 | SA-5 Merge ist Vollzug (gestartet / approved) | 2026-08-26 | M1 bzw. M2 |
 | SA-6 reine Doku-PRs | 2026-08-26 | Vorbedingung 1, nicht eigene Klasse |
@@ -152,7 +155,7 @@ berührt.
 
 ```yaml
 sa_m:
-  deckung: {W0: M1, W1: M1, W2: M2, W3: M3}
+  deckung: {W0: M0, W1: M1, W2: M2, W3: M3}
   doku_glob: ["*.md", "docs/**", "README*", "CHANGELOG*"]
   governance_pfade: [".github/", "docs/adr/", "policies/", "registry/", "packages/", "CODEOWNERS"]
   sync_only_repos: ["achimdehnert/platform"]
