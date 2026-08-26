@@ -291,3 +291,38 @@ def test_should_fetch_workflows_once_per_repo(monkeypatch):
     pr_merge_sa.workflow_texte("owner/repo")
     pr_merge_sa.workflow_texte("owner/repo")
     assert len(aufrufe) == 2  # Verzeichnis + eine Datei, nicht viermal
+
+
+# --- Approval erkennen, auch ohne erzwungenes Review ---------------------------
+
+
+def test_should_read_approval_from_latest_reviews():
+    """platform#2348: reviewDecision leer, latestReviews approved, State CLEAN."""
+    import pr_merge_sa
+
+    pr = {"reviewDecision": None, "latestReviews": [{"state": "APPROVED", "body": ""}]}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M2"
+
+
+def test_should_read_m3_when_approval_names_prod():
+    import pr_merge_sa
+
+    pr = {
+        "reviewDecision": None,
+        "latestReviews": [{"state": "APPROVED", "body": "ok, deploy nach prod"}],
+    }
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M3"
+
+
+def test_should_not_read_mandat_from_a_changes_requested_review(monkeypatch):
+    import pr_merge_sa
+
+    monkeypatch.setattr(
+        pr_merge_sa, "_gh", lambda *_a, **_k: {"body": "", "state": "OPEN"}
+    )
+    pr = {
+        "reviewDecision": None,
+        "latestReviews": [{"state": "CHANGES_REQUESTED"}],
+        "body": "",
+    }
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M0"

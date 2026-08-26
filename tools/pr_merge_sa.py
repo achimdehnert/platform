@@ -263,11 +263,18 @@ def wirkung_des_merges(repo: str, dateien: list, r: dict) -> str:
 
 
 def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
-    if pr.get("reviewDecision") == "APPROVED":
-        for review in pr.get("reviews", []):
-            if review.get("state") == "APPROVED" and PROD_IM_APPROVAL.search(
-                review.get("body") or ""
-            ):
+    # `reviewDecision` bleibt leer, wenn GitHub kein Review ERZWINGT — auch dann,
+    # wenn ein Code-Owner approved hat. Gemessen an platform#2348: latestReviews
+    # trug "wirdigital:APPROVED", reviewDecision war leer, mergeState CLEAN.
+    # Massgeblich ist also die Review-Liste, nicht die Gesamtentscheidung.
+    approvals = [
+        rv
+        for rv in (pr.get("latestReviews") or pr.get("reviews") or [])
+        if rv.get("state") == "APPROVED"
+    ]
+    if approvals or pr.get("reviewDecision") == "APPROVED":
+        for rv in approvals:
+            if PROD_IM_APPROVAL.search(rv.get("body") or ""):
                 return "M3"
         return "M2"
 
@@ -295,7 +302,7 @@ def review_ist_pflicht(repo: str, branch: str) -> bool:
 
 def gather(repo: str, nummer: int, r: dict) -> Facts:
     felder = (
-        "state,isDraft,mergeable,mergeStateStatus,reviewDecision,reviews,"
+        "state,isDraft,mergeable,mergeStateStatus,reviewDecision,latestReviews,"
         "files,baseRefName,statusCheckRollup,body"
     )
     pr = _gh(["pr", "view", str(nummer), "-R", repo, "--json", felder])
