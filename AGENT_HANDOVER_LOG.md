@@ -2966,3 +2966,19 @@ Nach dem Handover-Stand von 13:2x: Owner mergte #2303/#2305/#2306/#2313; Bot-Kon
 **Regression im eigenen Umbau** (#2306 → #2318): `python3 -` mit Heredoc verdrängte die gepipte Volume-Liste — „0 sichern" auf beiden Hosts, grüner Exit. Gefunden nur durch den Beweislauf, der die Entscheidungszeile liest. Danach prod 33 / prod-b 6 Volumes, `backup_deckung`: **0 UNGEDECKT**. Vier Fehler derselben Klasse an einem Tag (stdin-Kind, `bash -e`, Heredoc/Pipe, stummer Skip) — jedes Mal Exit 0 und Stille; jedes Mal hat der Beweislauf am Artefakt gefangen, was der Test nicht sah.
 
 **Offen für die nächste Sitzung:** K3-Positivkontrolle (zweiter Tagespunkt ab 26.08.) · #2322 abarbeiten · PyPI-Antwort (Vorgang 152, Frist 08.09.) · infra-deploy `runner-health.yml` rot, nicht untersucht · Modell-Tier: Rest ist Sonnet-Arbeit.
+
+---
+
+## 2026-08-26 früh — Sitzung 0d4b7c: GUI-Test-Agent — von der Owner-Frage zur Flotte in fünf Repos
+
+Ausgangsfrage: „macht es Sinn, meine Kompetenzen um einen GUI-Test-Agenten zu erweitern?" Antwort in fünf Artefakten, jedes mit Nummer freigegeben: **KONZ-platform-051** (#2327; Ziel umformuliert auf *Begehbarkeit klick-only + Klassen-Gate je Befund*, Lehre ausschreibungs-hub 2 → 14), **Skill `/ux-review`** (#2329, drei reale Dogfoods — Test 3 stand auf Chromium-„unsafe port" 9 und hätte den Browser gemessen), **Pilot K1 writing-hub** am Stand vor #761 in eigenem Stack: 3/3 bekannte Defekte per Klick wiedergefunden, 0 getippte URLs, ein **neuer** Befund (writing-hub#766: aifw hält die Verdrahtung 600 s im Redis-Cache, die Fehlermeldung liest die DB frisch — „verdrahtet: groq", Aufruf ging an OpenAI), Fehlbefund #760 per zweitem Suchpfad korrekt als Rendering-Bedingung erkannt. Owner-Rüge dazu: „Test exportieren und optimieren" statt kopieren → **`iil_testkit.oberflaeche` 0.6.0** (iil-testkit#20; `get_app_template_dirs` statt `apps/`-Hardcode, Weiterleitungen als zweite Quelle, reine Kerne mit Mini-Repo-Positivkontrolle). Release **nicht** über den Merge — meine Prämisse war falsch, KONZ-018 hat den repo-seitigen Publish stillgelegt; der Dispatch von `publish-iil-testkit.yml` blieb Owner-Klick.
+
+**Flotte (#2326, geschlossen 4/4):** risk-hub#681 — 960 Routen, 353 seitenrendernd, **28 verwaist, 16 echte Waisen** in #680; billing-hub#42 — 3, alle Einstiegspunkte; weltenhub#71 — **0**, Null belegt (9 DRF-Router-Namespaces gelesen, Positivkontrolle im Test) + #69 (c)+(d). Alle drei am Ziel belegt (`livez` 200), nicht nur am grünen Run. bfagent bleibt frozen.
+
+**SA-5 (#2332/#2333):** Owner: „merges bei gestarteten issues autonom freigeben → sind nun Klickaufgabe" und „nach ‚approved' komplett autonom mergen." Erste Anwendung risk-hub#681 (Staging). billing-hub/weltenhub deployen bei Merge sofort nach Prod (`production` ohne Environment-Schutz) → Gate 2, Owner-Wort eingeholt und benannt. Der Classifier sperrte drei Dinge: PyPI-Publish, `--admin`-Bypass auf `policies/`, und — inkonsistent — eine Changelog-Zeile derselben Datei, deren SA-5-Block er durchließ; jedes Mal `!`-Kommando an den Owner statt Umgehung.
+
+**Eigene Fehler:** deutsche Anführungszeichen brachen viermal Inline-Strings (3× Python, 1× Bash) — Memory + error_pattern; Push-Guard blockt den ganzen Aufruf vor Ausführung; Agent-Auftrag ohne `ruff format`; Scope-Checkpoint erst nach dem Stop-Hook als Artefakt. #2331 (Runner 4 vs. Kennzahl 2 rückfällige Gates) war ein Vergleich zweier Commits — #2328 setzte dazwischen `revised` auf zwei Gates — kein Werkzeug-Widerspruch.
+
+**Offen:** Pilot K1 ausschreibungs-hub (6 Defekte → K1 ≥ 7/9) · K3: Gate aus #766 als Test · risk-hub#680 · weltenhub#70 · zwei rückfällige Gates (`deferred-item-no-tracking-issue`, `untested-tool-module-green-gate`) mit Verzicht im Befund-Journal an die nächste Retro.
+
+SA-4: 0 · 0 · 0. SA-5: 1 Anwendung · 0 Fehlanwendungen.
