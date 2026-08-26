@@ -800,21 +800,65 @@ SKILLDRIFT_STATUS="PASS"
 # Aufnehmen am 2026-08-23 war sie sofort rot: `stale_clone_check.sh` lag als Kopie vom
 # 2026-07-26 live, waehrend die Quelle am 2026-08-06 ihren GATE_HEADER bekam — vier
 # Wochen Drift, die niemand meldete.
+# HEILEN STATT MELDEN (2026-08-26). Bis hierhin endete diese Phase mit einer
+# WARN-Zeile und dem Kommando im Text — und niemand fuehrte es aus. Realfall vom
+# selben Tag: `/ux-review` existierte seit dem Vorabend in origin/main, die Lane
+# `commands` war acht Stunden hinterher, der Skill stand nicht zur Auswahl. Die
+# Sitzung schrieb die Drift-Zeile brav ins Board und arbeitete dann einen ganzen
+# GUI-Durchlauf lang ohne den Skill, der genau dafuer gebaut ist. Drei Fehler,
+# gegen die er geschrieben ist, passierten dabei erneut.
+#
+# Das ist dieselbe Klasse `melder-ohne-leser`, die im Kommentar oben schon steht —
+# nur eine Ebene hoeher: der Melder wurde gelesen, und trotzdem geschah nichts.
+# Ein Hinweis, dessen Behebung ein Kommando im Fliesstext ist, wird nicht
+# ausgefuehrt; er wird zitiert.
+#
+# Vertretbar wie bei 0.7.5: Quelle ist `origin/main` (kanonisch, nicht der
+# Arbeitsbaum), `generate.py` legt ein Backup an und ist idempotent.
 for LANE in skills commands hooks; do
   LANE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
   LANE_SCORE=$(printf '%s' "$LANE_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+
+  if [ -n "$LANE_SCORE" ] && [ "$LANE_SCORE" -gt 0 ]; then
+    # Ziel je Lane: `skills`/`commands` liegen flach unter ~/.claude, die Lane
+    # `hooks` darunter in managed/ (siehe Kommentar oben — zwei Lanes, ein Name).
+    case "$LANE" in
+      skills)   LANE_TARGET="$HOME/.claude/skills" ;;
+      commands) LANE_TARGET="$HOME/.claude/commands" ;;
+      hooks)    LANE_TARGET="$HOME/.claude/hooks/managed" ;;
+    esac
+    timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live \
+      >/dev/null 2>&1 || true
+    # Nachmessen, nicht annehmen: die Heilung gilt erst, wenn doctor sie bestaetigt.
+    NACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
+    NACH_SCORE=$(printf '%s' "$NACH_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+    if [ "${NACH_SCORE:-1}" = "0" ]; then
+      SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:geheilt(${LANE_SCORE}->0) "
+      continue
+    fi
+    # Heilung versucht und nicht gelungen ist der interessantere Fall: dann stimmt
+    # die Annahme ueber den Ziel-Pfad nicht. Das gehoert gesagt, nicht verschwiegen.
+    LANE_SCORE="${NACH_SCORE:-}"
+    if [ -z "$LANE_SCORE" ]; then
+      SKILLDRIFT_STATUS="WARN"
+      SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(ungeprueft) "
+      continue
+    fi
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}) "
+    continue
+  fi
+
   if [ -z "$LANE_SCORE" ]; then
     SKILLDRIFT_STATUS="WARN"
     SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:UNGEPRUEFT "
-  elif [ "$LANE_SCORE" -gt 0 ]; then
-    SKILLDRIFT_STATUS="WARN"
-    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:Drift-Score ${LANE_SCORE} "
   else
     SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:0 "
   fi
 done
 if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
-  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — aktive Kopie weicht von origin/main ab (beheben: tools/cc-skill-dist/generate.py --ref origin/main --kind <lane> --allow-live)"
+  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — Selbstheilung versucht und NICHT gelungen; der Ziel-Pfad der Lane stimmt vermutlich nicht (manuell: tools/cc-skill-dist/doctor.py --kind <lane>)"
 else
   record "0.7.13 skill-dist" "PASS" "alle Lanes synchron (${SKILLDRIFT_NOTE% })"
 fi
