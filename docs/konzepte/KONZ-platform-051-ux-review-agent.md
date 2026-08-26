@@ -100,9 +100,9 @@ Mensch.
 
 | Was | Wo | Inhalt |
 |---|---|---|
-| Skill | `platform/.windsurf/workflows/ux-review.md` (Verteilung via cc-skill-dist) | Phasen: (0) Umgebung E5 · (1) Einstieg = Startseite nach Login, ab dann Klick-only E1 · (2) je Station: Snapshot, Konsole, Netzwerk E6 · (3) Urteil: Befund/OK/blind E4 · (4) Absenz-Gegenprobe E2 · (5) Issue je Befund E3 · (6) Bericht |
-| Issue-Template | `platform/.github/ISSUE_TEMPLATE/ux-befund.md` | Felder: Kette/Station · Screenshot · Antwortkoerper · Repro · Severity · **Klassen-Gate-Vorschlag** (Pflicht) · Gegenprobe (E2, Pflicht bei Absenz) |
-| Bericht | stdout + `docs/retros/ux-review-<repo>-<datum>.md` im Zielrepo | drei Zustaende je Station, Zaehler: Befunde / OK / blind / Fehlbefund (Owner traegt nach) |
+| Skill | `platform/.windsurf/workflows/ux-review.md` (Verteilung via cc-skill-dist) — **gebaut 2026-08-25** | Phasen: (0) Umgebung E5 · (1) Einstieg = Startseite nach Login, ab dann Klick-only E1 · (2) je Station: Snapshot, Konsole, Netzwerk E6 · (3) Urteil: Befund/OK/blind E4 · (4) Absenz-Gegenprobe E2 · (5) Issue je Befund E3 · (6) Bericht |
+| Issue-Schema | **im Skill** (Step 6) — *Abweichung 2026-08-25 beim Bau:* ein platform-Issue-Template gaelte nur fuer Issues in platform, die Issues landen aber im Zielrepo (Doppelquelle, D1) | Felder: Kette/Station · Screenshot · Antwortkoerper · Repro · Severity · **Klassen-Gate-Vorschlag** (Pflicht) · Gegenprobe (E2, Pflicht bei Absenz) |
+| Bericht | stdout + **Sammel-Issue** `[ux-review] <repo> · <kette> · <datum>` im Zielrepo — *Abweichung 2026-08-25:* eine Datei im Zielrepo braeuchte einen PR, den E3 ausschliesst | drei Zustaende je Station, Zaehler: Befunde / OK / blind / bekannt; Owner labelt Fehlbefunde (`fehlbefund`) → K2 |
 | Positivkontrolle | Pilot-Lauf gegen writing-hub `git checkout <sha vor #761>` und ausschreibungs-hub vor dem Erreichbarkeits-Fix | Trefferliste gegen die 9 bekannten Defekte |
 | Gate-Katalog (Vorschlaege, die der Agent kennt) | im Skill | Routen-vs-Templates (C4) · mehrzeilige Django-Kommentare ueber alle Templates (C3) · `htmx:responseError` global (C5) · `hx-headers` CSRF am body (C3) · Invariante ueber Datenbestand statt Ursache (C3 Regel 3) · escapejs-Familie (C2) |
 
@@ -165,11 +165,11 @@ Pilot an R2 (Login) haengt und das dokumentiert ist.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 Positivkontrolle: >= 7 der 9 bekannten Defekte (writing-hub 3, ausschreibungs-hub 6) wiedergefunden am Stand vor den Fixes | offen | — |
-| K2 Fehlbefund-Quote <= 30 % ueber alle Pilot-Issues (Owner-Urteil je Issue) | offen | — |
-| K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | offen | — |
-| K4 Jede getippte URL im Pilot erscheint als Befund im Bericht (D3-Probe) | offen | — |
-| K5 Kein Screenshot mit Personendaten ausserhalb des Zielrepos (R4-Probe: grep der PR-Diffs in platform) | offen | — |
+| K1 Positivkontrolle: >= 7 der 9 bekannten Defekte (writing-hub 3, ausschreibungs-hub 6) wiedergefunden am Stand vor den Fixes | teilweise (3/9) | writing-hub 3/3 am 2026-08-25, Stand 493dc19 — writing-hub#767; ausschreibungs-hub offen |
+| K2 Fehlbefund-Quote <= 30 % ueber alle Pilot-Issues (Owner-Urteil je Issue) | offen | 1 neues Issue (writing-hub#766), Owner-Urteil steht aus |
+| K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | offen | Vorschlag liegt in writing-hub#766 (Meldung liest dieselbe Quelle wie der Aufruf; Reseed invalidiert Cache) |
+| K4 Jede getippte URL im Pilot erscheint als Befund im Bericht (D3-Probe) | erfuellt (Lauf 1) | 0 getippte URLs, Kette komplett per Klick — writing-hub#767 |
+| K5 Kein Screenshot mit Personendaten ausserhalb des Zielrepos (R4-Probe: grep der PR-Diffs in platform) | erfuellt (Lauf 1) | keine Screenshots erzeugt; synthetischer Nutzer, Stack mit Volumes geloescht |
 
 Alle fuenf erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
 Bot-Token, Dry-Run in CI). Eines verfehlt -> Stufe 1 bleibt manuell aufrufbar,
