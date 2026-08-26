@@ -92,6 +92,39 @@ Schleife je Station, Abbruch messbar: **Station erreicht** ODER `--max-klicks` o
    - `blind` — mit Grund (kein Testkonto, Login scheitert, Klickbudget erschoepft, Dienst
      antwortet nicht). **`blind` ist nie gruen** und zaehlt im Bericht getrennt.
 
+## Step 3b: Gegenrichtung — vom Code zur Oberflaeche (E8, PFLICHT)
+
+> Die Steps 2 und 3 gehen die Kette **von vorn** und finden, was auf dem Weg kaputt ist.
+> Sie finden strukturell **nicht**, was gar nicht erst auf dem Weg liegt: eine fertige
+> Funktion ohne Aufrufer. Gemessen writing-hub 2026-08-26 — an einem Tag fuenf Faelle,
+> alle gebaut, alle getestet, keiner erreichbar:
+>
+> | Baustein | Zustand |
+> |---|---|
+> | `extract_from_text` (generisch seit #567) | null Aufrufer |
+> | `ProjectItemLink` (seit #699) | kein Erzeugungsweg |
+> | `CharacterRelationship` | vollstaendig, nie gefuellt |
+> | `refine_character_with_llm` | ein Aufrufer, pro Einzelobjekt |
+> | zwei neue Knoepfe | im falschen `{% if %}` |
+
+Nach dem Klick-Durchlauf **einmal umgekehrt** fragen — rein statisch, also billig:
+
+```bash
+# URL-Namen, die kein Template referenziert
+for name in $(grep -rhoP 'name="\K[a-z_]+' "$WT"/apps/*/urls*.py | sort -u); do
+  grep -rqF "$name" "$WT"/templates || echo "ohne Template-Aufrufer: $name"
+done
+```
+
+Je Treffer **eine** von zwei Antworten, nie keine: **einhaengen** (der Weg fehlt) oder
+**entfernen** (die Funktion ist tot). Halb liegen lassen ist genau der Zustand, der die
+fuenf Faelle oben erzeugt hat.
+
+**Und die Umkehrung der Umkehrung:** ein Knopf, der im Template steht, ist damit noch
+nicht sichtbar. Steht er in einem `{% if %}`, gehoert die Frage dazu, ob diese Bedingung
+zu seiner **Phase** passt — ein Knopf, der aus dem Konzept arbeitet, darf nicht an der
+Gliederung haengen.
+
 ## Step 4: Absenz-Gegenprobe (E2 — Pflicht vor jedem „fehlt")
 
 Bevor ein Befund „Feld/Knopf/Funktion fehlt" heisst: zweiter Suchpfad in der Quelle —
@@ -148,6 +181,9 @@ nach — daraus rechnet das Kill-Gate K2 die Quote.
 | `fallback-als-erfolg` | plausibler Text statt Fehler | Aufrufer wertet das Fehlerfeld der Bibliothek aus; was nicht extrahiert wurde, wird nicht gespeichert |
 | `eine-meldung-drei-ursachen` | derselbe Fehlersatz fuer verschiedene Faelle | Meldung traegt die Ursache aus dem Audit-Trail |
 | `escape-familie` | Sonderzeichen brechen Seite/JS | Gate ueber alle `{{ … }}` in `<script>`/`on*` — writing-hub #761 |
+| `built-but-never-called` | Funktion existiert im Code, kein Weg in der Oberflaeche fuehrt hin | Test: jede seitenrendernde View gegen die `{% url %}`/`action=` aller Templates, Ausnahmen mit Grund — writing-hub 2026-08-26, fuenf Faelle an einem Tag |
+| `sichtbar-nur-unter-falscher-bedingung` | Knopf/Feld steht in einem `{% if %}`, das nicht zu seiner Phase gehoert | UX-Test rendert die Seite **ohne** die Bedingung und prueft die Sichtbarkeit — writing-hub #775: zwei Knoepfe, die aus dem KONZEPT arbeiten, standen in `{% if has_outline %}` |
+| `gemockt-und-deshalb-blind` | Alle Tests gruen, erster echter Klick bricht | Test, der die gemockte Schicht **echt** ausfuehrt (Vorlagen rendern, Router aufrufen) — writing-hub #774: drei Prompt-Vorlagen brachen, weil jeder Test den Renderer ersetzt hatte |
 | `daten-invariante` | Anzeige widerspricht der Sache (abgelaufene Frist bei laufender Ausschreibung) | Invarianten-Melder ueber den Datenbestand, **SKIP ist kein PASS** |
 
 Neue Klasse gefunden → Zeile hier ergaenzen (PR nach platform), nicht nur im Issue beschreiben.
