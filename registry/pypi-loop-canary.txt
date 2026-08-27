@@ -1,3 +1,0 @@
-last_cycle: 2026-08-19
-# Wird vom PyPI-Fleet-Loop (#2075 K4) per Auto-Issue + Queue-PR nachgezogen.
-# Traegt die Datei ein altes Datum, ist der Loop tot — genau das prueft die Canary.
