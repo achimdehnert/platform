@@ -17,8 +17,13 @@ berührt wird).
    destruktive Migrationen.
 2. **Prod-Zustandsänderung** — Deploy auslösen, Prod-Dateien/-Container/-DBs
    anfassen. Ausnahme: explizit allowlistete, backup-first Wartungs-Wrapper.
-   Merke: In Repos mit Auto-Deploy-on-main ist der **Merge selbst** ein
-   Prod-Schritt und damit gate-pflichtig.
+   **Eingegrenzt durch Owner-Weisung 2026-08-27 (org-weit, alle Repos):** Hier
+   stand bis dahin „In Repos mit Auto-Deploy-on-main ist der **Merge selbst** ein
+   Prod-Schritt und damit gate-pflichtig." Das gilt so **nicht mehr**. Auto-Deploy
+   ist in diesen Repos der Normalbetrieb und für sich genommen **kein**
+   Vorlagegrund — siehe „Die Prüffrage" unten. Gate 2 greift weiterhin für
+   Prod-Zugriffe **neben** dem Merge (Container, Dateien, DBs von Hand anfassen)
+   und für die dort genannten Klassen.
 
    **Allowlist (Owner-Go 2026-08-25, Kapitäns-Kanal „5 go"):**
    - **Backup-Zielpfad- und Retention-Wartung in `infra-deploy`** (`scripts/db-backup.sh`:
@@ -100,10 +105,50 @@ nichts an: dann gilt W0, unabhängig von der Repo-Klasse.
 | M2 | Approval liegt vor | Owner, Zweit-Reviewer oder Bot im Rahmen seiner Tabu-Liste |
 | M3 | Approval **benennt** die Prod-Wirkung | Deploy/Publish steht in der Freigabezeile |
 
-**Deckung:** W0 braucht kein Mandat · W1 braucht M1 · W2 braucht M2 · W3 braucht M3.
+**Deckung:** W0 braucht kein Mandat · W1 braucht M1 · W2 braucht M2 · W3 braucht
+M1 **plus** die Prüffrage unten (bis 2026-08-27: M3 — die Verschärfung ist durch
+die Owner-Weisung ersetzt, nicht ergänzt).
 Dass W0 ohne Mandat auskommt, ist die getreue Uebersetzung von SA-1 (2026-07-12):
 wo kein Workflow anlaeuft, aendert der Merge nur Repo-Inhalt und ist ein `git revert`
 weit von seiner Ruecknahme entfernt. Die Vorbedingungen unten gelten trotzdem.
+
+### Die Prüffrage (Owner-Weisung 2026-08-27, org-weit — alle Repos)
+
+> Wörtlich: „soll für alle repos gelten: Die Prüffrage ist ab jetzt »gibt es hier
+> etwas zu entscheiden?« und nicht »ist das ein Prod-Schritt?«. Auto-Deploy ist der
+> Normalbetrieb dieses Repos, kein Vorlagegrund. Vorgelegt wird noch bei
+> Datenmigration, Irreversiblem, Security-Config — und bei echten Wahlfragen."
+
+**Gibt es hier etwas zu entscheiden?** Wenn nein: mergen, Auto-Deploy
+eingeschlossen. Wenn ja: vorlegen.
+
+Vorlagepflichtig bleiben genau vier Klassen:
+
+| Klasse | Warum |
+|---|---|
+| **Datenmigration** | verändert Bestand, nicht sicher rücknehmbar |
+| **Irreversibles** | Löschung, force-push, Publish, Secret-Rotation (Gate 1) |
+| **Security-Config** | Berechtigungen, Tokens, Auth-Pfade (Gate 3) |
+| **Echte Wahlfrage** | zwei vertretbare Antworten, deren Wahl dem Owner gehört |
+
+Eine **additive** Migration (neue, leere Tabelle; neue nullable Spalte) ist keine
+Datenmigration. Ein Schema-Umbau, der Bestand umschreibt oder Spalten entfernt, ist
+einer.
+
+**Woran man eine echte Wahlfrage erkennt:** man kann sie als „A oder B?"
+aufschreiben, und beide Antworten sind vertretbar. Realfall, an dem die Regel
+kalibriert wurde (writing-hub#806, 2026-08-27): ein Knopf hieß „Alles generieren /
+aktualisieren", aktualisierte aber nie. **A** ehrlich beschriften, **B**
+Aktualisieren wirklich bauen — B berührt zusätzlich, was bei einer Abweichung
+gewinnt. Das ist eine Entscheidung. Dass daneben zwei Prod-Merges (#804, #807)
+autonom liefen, ist kein Widerspruch: dort gab es nichts zu wählen, nur zu tun.
+
+**Warum die Weisung nötig war** — der Fehler war nicht fehlendes Wissen, sondern
+eine Regelkollision: `feedback-durchwink-prs-autonom-mergen` (2026-08-25) erlaubte
+den autonomen Merge bereits, während Gate 2 und `W3 braucht M3` „Auto-Deploy" als
+eigenständigen Vorlagegrund lasen. Am 2026-08-27 wurden deshalb zwei PRs ohne
+jeden Entscheidungsgehalt vorgelegt statt gemergt. Die schärfere Regel gewann,
+obwohl die Freigabe längst vorlag.
 
 **Drei Vorbedingungen, die unabhängig vom Mandat gelten** — fehlt eine, wird nicht
 gemergt, egal wie hoch M ist:
@@ -246,6 +291,15 @@ Baseline: Session 2026-07-02 = 3 Roundtrips für 1 Entscheidungskomplex
 konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
+
+- 2026-08-27: **Prüffrage ersetzt „ist das ein Prod-Schritt?" (Owner-Weisung,
+  org-weit).** Auto-Deploy-on-main ist kein Vorlagegrund mehr — der Satz in Gate 2
+  ist eingegrenzt, `W3 braucht M3` wird zu `W3 braucht M1 + Prüffrage`.
+  Vorlagepflichtig bleiben Datenmigration, Irreversibles, Security-Config und
+  echte Wahlfragen. Anlass: am selben Tag wurden zwei PRs ohne
+  Entscheidungsgehalt vorgelegt statt gemergt, weil Gate 2 gegen die seit dem
+  2026-08-25 geltende Durchwink-Freigabe gewann. **Selbstbetreffend** — als
+  Vorschlag eingereicht, vom Owner gemergt.
 
 - 2026-08-26: **SA-1/2/5/6 zu SA-M zusammengefuehrt** (eine Regel, zwei Achsen:
   Wirkung des Merges gegen Mandat der Entscheidung). Anlass: Owner-Weisung
