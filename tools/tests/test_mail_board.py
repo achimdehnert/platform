@@ -282,3 +282,15 @@ class TestLinkZiel:
     def test_should_link_even_without_anchored_mail(self):
         """Genau die Luecke, die vorher 'nicht anklickbar' hiess."""
         assert board.link_fuer(7, "fehlt", {"thread_key": "Ohne Anker"}) is not None
+
+
+def test_should_render_buckets_in_loesungsweg_order():
+    """Stand vor Zug: erledigt, wartend, dann was noch zu tun ist.
+
+    Die Reihenfolge ist eine Owner-Weisung vom 2026-08-27 und lebte bis dahin
+    nur als Reihenfolge eines Listen-Literals — eine Zusage ohne Prüfung. Wer
+    einen Bucket ergänzt, hängt ihn erfahrungsgemäß ans Ende; ohne diesen Test
+    fiele das erst im gerenderten Board auf, und dort auch nur jemandem, der
+    die Regel kennt.
+    """
+    assert [b for b, _ in board.BUCKETS] == ["erledigt", "warten", "agent", "owner"]
