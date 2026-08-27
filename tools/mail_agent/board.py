@@ -78,11 +78,18 @@ LINK_BASIS = "https://mail.iil.pet"
 TODO_BASIS = "https://todo.iil.pet"
 
 #: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
+#:
+#: Sie folgt seit dem 2026-08-27 dem Loesungsweg: erst der Stand (was fertig ist,
+#: was draussen haengt), dann der Zug (was ich tun kann, was der Owner entscheiden
+#: muss). Owner-Weisung, dieselbe Reihenfolge wie im Antwortformat des Kapitaens-
+#: Kanals — vorher stand "dein Zug" oben und "erledigt" unten. Zwei Quellen fuer
+#: dieselbe Reihenfolge laufen auseinander, darum wird sie hier mitgezogen und
+#: nicht neu entschieden.
 BUCKETS: list[tuple[str, str]] = [
-    ("owner", "🟢 Offen — dein Zug"),
-    ("agent", "🔵 Offen — ich kann sofort"),
-    ("warten", "🟡 Wartend — Ball liegt aussen"),
     ("erledigt", "✅ Erledigt"),
+    ("warten", "🟡 Wartend — Ball liegt aussen"),
+    ("agent", "🔵 Offen — ich kann sofort"),
+    ("owner", "🟢 Offen — dein Zug"),
 ]
 
 #: Wie lange ein geschlossener Vorgang im Board sichtbar bleibt.
