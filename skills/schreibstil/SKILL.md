@@ -196,6 +196,8 @@ Drei Regeln dazu:
 
 - 2026-08-27 · dsb · gestrichen: „aus einer Akte mit zweihundert Seiten" → „aus rund zweihundert Akten und Dokumenten zu einer einzigen Person" · Grund: Owner-Korrektur „falsch: aus ca. 200 Akten / Dokumenten eines einzigen Bürgers" — die Zahl war richtig, die Einheit falsch; ein Rahmen-Satz, der die Sache des Empfängers falsch beschreibt, entwertet den ganzen Teaser, auch wenn alles Weitere stimmt. Vor dem ersten Satz eines Kundentexts die Sache beim Owner gegenprüfen, nicht aus dem Konzept ableiten
 
+- 2026-08-27 · intern · gestrichen: Board-Zeile mit Nebensatz und Erklärung („Prod-Freigabe + Branch-Policy zurücksetzen: … — Skript stellt custom wieder her, gibt frei") → „Skript ausführen: <Befehl> → Prod ist live" · Grund: Owner „zu umständlich dargestellt — klare präzise unverschnörkelte Sprache". Eine Board-Zeile ist Imperativ plus Ziel; das Warum steht im Artefakt, nicht in der Zelle
+
 ## 7 — Verhältnis zu anderen Regeln
 
 Dieser Skill ist die **kanonische Quelle für den Stil**. Die vier Repo-Memories
