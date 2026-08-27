@@ -194,6 +194,8 @@ Drei Regeln dazu:
 
 - 2026-08-26 · intern · Weisung: „deine issues und PR sind viel zu umständlich formuliert … präzise auf den Punkt … unmissverständlich" · Grund: PR-Texte trugen Werdegang, Belegketten und Selbstkommentare; der Owner musste drei Absätze lesen, bevor er entscheiden konnte. Neue Form: § 3b.
 
+- 2026-08-27 · dsb · gestrichen: „aus einer Akte mit zweihundert Seiten" → „aus rund zweihundert Akten und Dokumenten zu einer einzigen Person" · Grund: Owner-Korrektur „falsch: aus ca. 200 Akten / Dokumenten eines einzigen Bürgers" — die Zahl war richtig, die Einheit falsch; ein Rahmen-Satz, der die Sache des Empfängers falsch beschreibt, entwertet den ganzen Teaser, auch wenn alles Weitere stimmt. Vor dem ersten Satz eines Kundentexts die Sache beim Owner gegenprüfen, nicht aus dem Konzept ableiten
+
 ## 7 — Verhältnis zu anderen Regeln
 
 Dieser Skill ist die **kanonische Quelle für den Stil**. Die vier Repo-Memories
