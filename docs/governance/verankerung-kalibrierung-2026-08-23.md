@@ -239,3 +239,25 @@ Praezision 0,083 (vorher 0,111). Sechs weitere Texte, drei weitere Meldungen, ke
 davon richtig — die Richtung des Fensters ist damit deutlicher als sein Endstand.
 
 **Nachtrag 2026-08-26 (Sitzung 0d4b7c, zwei Meldungen, beide Fehlalarm):** `verankerung_pruefer.py` meldete #2327 und #2329 (je „Bewusst ausgelassen, getrackt"). Zitat #2329: „Pilot (K1–K5) → KONZ-051 Kill-Gate-Tabelle, Frist 2026-09-30" — das Tracking-Artefakt ist eine KONZ-Zeile mit Datum (laut Hausregel gleichwertig zum Issue), die der Pruefer nur als Issue-Nummer erkennt. Zitat #2327: „Skill `/ux-review` selbst: Folge-PR nach Akzeptanz dieses Konzepts" — inzwischen erfuellt (#2329). Stand des Fensters: 21 gepruefte Texte · 14 Meldungen · 1 richtig · 13 Fehlalarme (Praezision 0,071). Neue Fehlalarm-Klasse: **Tracking per KONZ-/Ledger-Zeile statt Issue** — der Pruefer kennt nur den Issue-Anker.
+
+**Nachtrag 2026-08-27 (Sitzung 329244, drei Texte, eine Meldung, Fehlalarm):**
+`verankerung_pruefer.py` lief ueber #2370, #2371 und #2375. Die ersten beiden sauber
+(4 bzw. 3 Segmente). Bei #2375 eine Meldung, Klasse `vertagung`, Zitat:
+*„~/.claude/CLAUDE.md bleibt unversioniert"*.
+
+Das ist **keine Vertagung, sondern eine getroffene Entscheidung**. Der Owner hat den
+Vorschlag, die Datei zu versionieren, an diesem Tag ausdruecklich abgelehnt; es gibt
+keine aufgeschobene Restarbeit, die ein Issue verfolgen koennte. Durabel abgelegt ist
+der Entscheid als Memory-Datei (`feedback_global_claude_md_stays_unversioned`) samt der
+Folge, die daraus fuer den Code gilt — der Pruefer kennt diesen Anker-Typ nicht, wie
+schon beim Nachtrag vom 2026-08-26 die KONZ-/Ledger-Zeile.
+
+Neue Fehlalarm-Klasse: **abgelehnte Option statt aufgeschobener Arbeit.** „bleibt X"
+und „wird nicht Y" beschreiben einen Endzustand, kein Spaeter. Die Unterscheidung ist
+praktisch wichtig, weil die Gegenmassnahme sonst Issue-Spam erzeugt: jede bewusst
+verworfene Option bekaeme ein Ticket, das nie geschlossen wird. Signal, das hier traegt
+und in den bisherigen Klassen fehlte: die Aussage nennt **keinen spaeteren Zeitpunkt und
+keine Bedingung** — weder „spaeter", „sobald", „nach", noch ein Datum.
+
+**Stand des Fensters:** 24 gepruefte Texte · 15 Meldungen · 1 richtig · 14 Fehlalarme.
+Praezision 0,067 (vorher 0,071).
