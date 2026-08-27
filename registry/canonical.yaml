@@ -469,7 +469,7 @@ repos:
     flat:
       type: library
       pypi: gaeb-toolkit
-      pypi_strategy: archivieren-kandidat
+      pypi_strategy: einfrieren   # 2026-08-27 Owner: nicht archivieren — ausschreibungs-hub KONZ-003/ADR-001 integrieren TOOL-GAEB-TOOLKIT (review_by 2026-09-15)
     domain: Engineering & Construction
     rich:
       name: gaeb-toolkit

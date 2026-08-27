@@ -83,7 +83,7 @@ repos:
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
-    pypi_strategy: archivieren-kandidat
+    pypi_strategy: einfrieren
   gpufw:
     type: library
     pypi: iil-gpufw
