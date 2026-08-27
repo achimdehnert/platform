@@ -22,7 +22,7 @@ superseded_by_spec: null
 evidence_manifest:
   - {claim_id: F1, source_path: .github/workflows/publish-iil-testkit.yml, commit_or_pr: "Z.61-62, geprueft 2026-08-27", opened_in_session: true}
   - {claim_id: F2, source_path: tools/check_publish_oidc_auth.py, commit_or_pr: "Lauf 2026-08-27 rc0 gegen F1", opened_in_session: true}
-  - {claim_id: F3, source_path: "PyPI Integrity API (scratchpad prov.py, 5 Releases)", commit_or_pr: "Messung 2026-08-27", opened_in_session: true}
+  - {claim_id: F3, source_path: docs/konzepte/anhaenge/KONZ-platform-052-befunde.md, commit_or_pr: "Messung 2026-08-27", opened_in_session: true}
   - {claim_id: F4, source_path: tools/pypi_fleet_issue_emitter.py, commit_or_pr: "Z.41 DEFAULT_ALLOWLIST", opened_in_session: true}
   - {claim_id: F5, source_path: docs/konzepte/KONZ-platform-018-pypi-fleet-predictive-standard-funktional.md, commit_or_pr: "Frontmatter pipeline_status idea, §13", opened_in_session: true}
   - {claim_id: F6, source_path: docs/adr/ADR-234-clean-state-invariant.md, commit_or_pr: "Z.94-95 P0.5a", opened_in_session: true}
@@ -144,7 +144,7 @@ Findet: ein Provenance-Feld je Release (V10), eine Kohorten-Datei mit Datum (V11
 
 ## Kill-Gate + Threshold
 
-Siehe Frontmatter `kill_criteria`. Messpunkte: PyPI-Integrity-API (V10, prov.py), `pipeline_status` von KONZ-018, `gh issue list --label pypi-fleet`. Termin: 2026-10-19 (mit ADR-278 zusammengelegt, ein Review statt zwei).
+Siehe Frontmatter `kill_criteria`. Messpunkte: PyPI-Integrity-API (V10, Skript im Anhang anhaenge/KONZ-platform-052-befunde.md), `pipeline_status` von KONZ-018, `gh issue list --label pypi-fleet`. Termin: 2026-10-19 (mit ADR-278 zusammengelegt, ein Review statt zwei).
 
 ## Bezug
 
