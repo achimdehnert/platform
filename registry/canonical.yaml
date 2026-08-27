@@ -873,6 +873,7 @@ repos:
     in_rich: false
     flat:
       type: library
+      archived: true   # 2026-08-27 Owner archiviert (GitHub); Kopie in iilgmbh/risk-hub src/riskfw ist kanonisch; Backup ~/backups/repo-graveyard/achimdehnert--riskfw--2026-08-27
       pypi: riskfw
       pypi_strategy: archivieren-kandidat
   risk-hub:
