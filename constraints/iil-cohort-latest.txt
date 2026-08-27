@@ -1,0 +1,41 @@
+# iil-Dependency-Cohort 2026.08
+#
+# Zentral erzeugt — NICHT von Hand editieren.
+#   regenerieren: python3 tools/iil_cohort.py build
+#   pruefen:      python3 tools/iil_cohort.py check --file <diese Datei>
+#   Alter:        python3 tools/iil_cohort.py age
+#
+# Verwendung im Konsumenten (statt Einzel-Obergrenzen je iil-Paket):
+#   pip install -c constraints/iil-cohort-latest.txt -r requirements.txt
+#
+# cohort: 2026.08
+# generated_at: 2026-08-27
+# support_days: 60
+# support_until: 2026-10-26
+# source: registry/canonical.yaml (pypi_strategy) + registry/pypi-fleet.yaml (dist_name) + pypi.org JSON-API
+# tool: tools/iil_cohort.py (ADR-234 P0.5a, KONZ-platform-052 V11)
+# packages: 20 (19 aktiv, 1 eingefroren)
+# excluded_not_on_pypi: gaeb-toolkit (einfrieren), iil-enrichment (aktiv)
+#   ^ PyPI antwortet 404: Paket ist dort nie erschienen. Bewusst ausgeschlossen
+#     statt still gedroppt — Registry und PyPI widersprechen sich hier.
+#
+iil-adrfw==0.8.0  # strategy=aktiv, released=2026-08-06
+iil-aifw==0.13.0  # strategy=aktiv, released=2026-08-25
+iil-authoringfw==0.11.6  # strategy=aktiv, released=2026-07-31
+iil-codeguard==2026.5.1  # strategy=aktiv, released=2026-05-10
+iil-django-commons==0.3.0  # strategy=einfrieren, released=2026-03-24
+iil-django-lms-lite==0.1.1  # strategy=aktiv, released=2026-07-27
+iil-doc-templates==0.3.1  # strategy=aktiv, released=2026-07-08
+iil-fieldprefill==0.2.0  # strategy=aktiv, released=2026-04-08
+iil-gpufw==0.1.1  # strategy=aktiv, released=2026-08-16
+iil-illustrationfw==0.6.0  # strategy=aktiv, released=2026-08-04
+iil-ingest==0.1.0  # strategy=aktiv, released=2026-05-05
+iil-klickdummy==1.35.0  # strategy=aktiv, released=2026-08-02
+iil-learnfw==0.5.4  # strategy=aktiv, released=2026-04-29
+iil-nl2cadfw==0.2.1  # strategy=aktiv, released=2026-06-14
+iil-outlinefw==0.3.2  # strategy=aktiv, released=2026-07-19
+iil-promptfw==0.8.1  # strategy=aktiv, released=2026-07-19
+iil-reflex==0.6.1  # strategy=aktiv, released=2026-07-27
+iil-researchfw==0.6.0  # strategy=aktiv, released=2026-04-17
+iil-testkit==0.6.0  # strategy=aktiv, released=2026-08-26
+iil-weltenfw==0.5.0  # strategy=aktiv, released=2026-08-21
