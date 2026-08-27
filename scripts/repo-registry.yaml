@@ -219,6 +219,7 @@ repos:
     pypi_strategy: aktiv
   riskfw:
     type: library
+    archived: true
     pypi: riskfw
     pypi_strategy: archivieren-kandidat
   risk-hub:
