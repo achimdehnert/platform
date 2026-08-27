@@ -14,7 +14,6 @@ drift_check_paths:
   - "tools/check_publish_oidc_auth.py"
   - ".github/workflows/publish-iil-codeguard.yml"
   - ".github/workflows/publish-iil-ingest.yml"
-  - ".github/workflows/publish-iil-testkit.yml"
   - ".github/workflows/validate-workflows.yml"
 ---
 
