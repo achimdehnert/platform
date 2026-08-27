@@ -1,6 +1,6 @@
 # KONZ-platform-052 — Anhang: Befunde, Diabolus-Verdikte, Messskript (2026-08-27)
 
-> Rohmaterial zu [KONZ-platform-052](KONZ-platform-052-pypi-flotte-subtrahieren-statt-melden.md). Vier Read-only-Befundlaeufe (Subagenten), der Erstentwurf P1-P18, das Diabolus-Verdikt je Vorschlag, die OOTB-Optionen und das Provenance-Messskript. Stand der Messungen: 2026-08-27, gegen origin/main und PyPI.
+> Rohmaterial zu [KONZ-platform-052](../KONZ-platform-052-pypi-flotte-subtrahieren-statt-melden.md). Vier Read-only-Befundlaeufe (Subagenten), der Erstentwurf P1-P18, das Diabolus-Verdikt je Vorschlag, die OOTB-Optionen und das Provenance-Messskript. Stand der Messungen: 2026-08-27, gegen origin/main und PyPI.
 
 ---
 
