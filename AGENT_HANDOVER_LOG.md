@@ -3011,3 +3011,14 @@ Eigene Fehler: deutsche Anfuehrungszeichen in gh-Bodies (2x), Poll auf reviewDec
 Timeout), YAML-Doppelpunkt, Trusted-Publisher-Repo nicht vorab benannt (Owner band das
 archivierte testkit).
 
+## 2026-08-27 mittag — Sitzung f2a180, zweiter Block: KONZ-052 V1–V11 vollzogen
+
+Owner-Entscheide im Kapitaens-Kanal (1 go, 2 go, 3 annehmen, 4 ja, 5 publish, Release 0.6.1,
+1 go --admin) am selben Tag umgesetzt: 14 Merges ueber 6 Repos, 7 Subagenten. Der Beweis
+am Artefakt: iil-testkit 0.6.1 traegt eine PyPI-Attestation, 0.6.0 nicht. Nebenbefund mit
+Realschaden: dev-hub installierte per Dockerfile-Wildcard ein Alt-Wheel ueber die
+PyPI-Version; der Frische-Melder rechnete mit Celerys Wanduhr (beides live gefixt).
+Eigene Fehler: Trusted-Publisher-Repo nicht vorab benannt (Owner band das archivierte
+testkit), Poll auf reviewDecision, KONZ-Anhang im Nummern-Guard, zwei Werkzeug-Luecken
+in pr_merge_sa (#2359, #2385) jeweils per Kommentar + Ruleset-Merge ueberbrueckt.
+
