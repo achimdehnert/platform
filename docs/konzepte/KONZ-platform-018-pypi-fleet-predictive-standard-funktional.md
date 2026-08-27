@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-018
 title: "PyPI-Fleet: Predictive statt Repair · Standard statt Exception · Funktionales Portfolio"
-pipeline_status: idea
+pipeline_status: pilot   # 2026-08-27: Owner-Entscheid "annehmen" (KONZ-052 V6) — W1-1…W1-4 als MVP, Fristen laut §13 laufen ab heute neu
 tier: T3
 owner: "Achim Dehnert"
 spec_refs: []
