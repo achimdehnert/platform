@@ -266,7 +266,7 @@ def pypistats_recent(dist: str, timeout: int = 10) -> dict:
 
 
 def pypi_live(dist: str, timeout: int = 10) -> dict:
-    """Live-Stand von PyPI (Version, letzter Upload). Fail-soft: {} bei Fehlern."""
+    """Live-Stand von PyPI (Version, letzter Upload, Provenance). Fail-soft: {} bei Fehlern."""
     url = f"https://pypi.org/pypi/{dist}/json"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
@@ -279,10 +279,96 @@ def pypi_live(dist: str, timeout: int = 10) -> dict:
         for files in data.get("releases", {}).values()
         for f in files
     ]
-    return {
-        "version": info.get("version"),
+    version = info.get("version")
+    result = {
+        "version": version,
         "last_upload": max(uploads) if uploads else None,
     }
+    if version:
+        result["provenance"] = provenance_for(dist, version, data.get("urls", []))
+    return result
+
+
+# --------------------------------------------------------------------------
+# K4 am Artefakt (KONZ-platform-052 V10, ADR-278): Provenance der neuesten
+# Version über die PyPI-Integrity-API messen statt den Workflow-Text zu lesen
+# (der Guard prüft Schreibweise, nicht Wirkung — Befund F1/F2 des Konzepts).
+# 🌀 Null aus dem eigenen Fehlerfall ist keine Abwesenheit: Netzfehler/Timeout/
+# kaputtes JSON/kein Release-File → status "unbekannt", NIE bundles=0.
+# --------------------------------------------------------------------------
+
+
+def select_release_file(urls: list[dict]) -> dict | None:
+    """Wheel bevorzugt, sonst sdist, sonst die erste Datei — None ohne Dateien."""
+    wheels = [f for f in urls if f.get("filename", "").endswith(".whl")]
+    if wheels:
+        return wheels[0]
+    sdists = [f for f in urls if f.get("filename", "").endswith(".tar.gz")]
+    if sdists:
+        return sdists[0]
+    return urls[0] if urls else None
+
+
+def fetch_provenance(
+    dist: str, version: str, filename: str, timeout: int = 10
+) -> tuple[int | None, bytes]:
+    """PyPI Integrity API — reines Netz-I/O. status None = Timeout/Netzfehler."""
+    url = f"https://pypi.org/integrity/{dist}/{version}/{filename}/provenance"
+    req = urllib.request.Request(
+        url, headers={"Accept": "application/vnd.pypi.integrity.v1+json"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None, b""
+
+
+def provenance_for(
+    dist: str, version: str, urls: list[dict], fetch=fetch_provenance
+) -> dict:
+    """Provenance-Status der übergebenen Version (K4, ADR-278/KONZ-052 V10).
+
+    status: attested (>=1 Bundle) | unattested (0 Bundles, 200 oder 404) |
+    unbekannt (kein Wheel/sdist, Netzfehler, Timeout, kaputtes JSON-Body).
+    `fetch` ist injizierbar (Tests: Fixtures statt echtem Netz).
+    """
+    checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    base = {"version": version, "checked_at": checked_at}
+    file = select_release_file(urls)
+    if file is None:
+        return {**base, "wheel": None, "bundles": None, "status": "unbekannt"}
+    filename = file.get("filename", "")
+    status_code, body = fetch(dist, version, filename)
+    if status_code == 404:
+        return {**base, "wheel": filename, "bundles": 0, "status": "unattested"}
+    if status_code == 200 and body:
+        try:
+            bundles = len(json.loads(body).get("attestation_bundles", []))
+        except json.JSONDecodeError:
+            return {**base, "wheel": filename, "bundles": None, "status": "unbekannt"}
+        return {
+            **base,
+            "wheel": filename,
+            "bundles": bundles,
+            "status": "attested" if bundles > 0 else "unattested",
+        }
+    return {**base, "wheel": filename, "bundles": None, "status": "unbekannt"}
+
+
+def provenance_counts(packages: dict) -> dict[str, int]:
+    """K4 am Artefakt: attested/unattested/unbekannt über die ganze Flotte.
+
+    Pakete ohne `provenance`-Feld (offline, nicht auf PyPI) zählen nicht mit.
+    """
+    counts = {"attested": 0, "unattested": 0, "unbekannt": 0}
+    for pkg in packages.values():
+        status = ((pkg.get("pypi") or {}).get("provenance") or {}).get("status")
+        if status in counts:
+            counts[status] += 1
+    return counts
 
 
 # --------------------------------------------------------------------------
@@ -475,6 +561,11 @@ def main() -> int:
             print(f"{o}: registry_orphan_without_publisher")
         for d in dead_platform_workflows:
             print(f"platform/{d['file']}: dead_path {d['missing_path']}")
+        counts = provenance_counts(packages)
+        print(
+            f"K4 am Artefakt: {counts['attested']} attested / "
+            f"{counts['unattested']} unattested / {counts['unbekannt']} nicht messbar"
+        )
         return 0
 
     FLEET_FILE.write_text(

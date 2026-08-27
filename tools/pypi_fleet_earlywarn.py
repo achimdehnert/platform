@@ -14,6 +14,10 @@ mit `strategy: aktiv` aus registry/pypi-fleet.yaml:
   M4 reusable_lag   — `_ci-pypi.yml@REF` mit REF != main bzw. shared-ci-Pin
                       hinter dem neuesten shared-ci-Release
   M5 archival_info  — downloads_30d unter Schwelle (nur Info, Trend folgt)
+  K4 unattested_release — Release nach ADR-278 (2026-07-24) ohne PyPI-
+                      Attestation-Bundle (`pypi.provenance` aus dem Inventar,
+                      KONZ-platform-052 V10). `unbekannt` (Netzfehler/Timeout/
+                      kein Wheel) ist KEIN Finding, wird aber gezählt.
 
 Advisory-Kontrakt (ADR-266-Amendment / #2075 K3): rc ist IMMER 0, außer mit
 `--strict` (für späteres Blocking nach Präzisions-Nachweis). Braucht GH_TOKEN.
@@ -54,6 +58,9 @@ EOL_WARN_WINDOW = dt.timedelta(days=183)
 
 # Dateien, in denen versionsgekoppelte Strings brechen (M3).
 M3_FILES = ("Makefile", "Dockerfile", "docker-compose.yml", "docker-compose.prod.yml")
+
+# ADR-278 Decision-Date: Releases danach ohne Attestation-Bundle sind K4-Findings.
+ADR278_DATE = dt.date(2026, 7, 24)
 
 
 # --------------------------------------------------------------------------
@@ -98,6 +105,35 @@ def parse_reusable_refs(workflow_text: str) -> list[tuple[str, str, str]]:
             workflow_text,
         )
     ]
+
+
+def unattested_release_finding(
+    pkg: dict, threshold: dt.date = ADR278_DATE
+) -> str | None:
+    """K4 unattested_release: Release nach ADR-278 ohne Attestation-Bundle.
+
+    `unbekannt` (Netzfehler/Timeout/kein Wheel — 🌀 Null aus dem eigenen
+    Fehlerfall ist keine Abwesenheit) ist bewusst KEIN Finding; der Aufrufer
+    zählt es separat ("nicht messbar: N").
+    """
+    prov = (pkg.get("pypi") or {}).get("provenance") or {}
+    if prov.get("status") != "unattested":
+        return None
+    last_upload = (pkg.get("pypi") or {}).get("last_upload")
+    if not last_upload:
+        return None
+    try:
+        upload_date = dt.datetime.fromisoformat(
+            last_upload.replace("Z", "+00:00")
+        ).date()
+    except ValueError:
+        return None
+    if upload_date <= threshold:
+        return None
+    return (
+        f"K4 unattested_release: {prov.get('version')} ({upload_date.isoformat()}) "
+        "ohne Attestation-Bundle seit ADR-278"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -257,6 +293,7 @@ def main() -> int:
         name for name, p in fleet["packages"].items() if p.get("strategy") == "aktiv"
     )
     records: list[dict] = []
+    unmeasurable = 0
     if not args.json:
         print(
             f"== Frühwarn-Scan (advisory) — {len(active)} aktiv-Pakete, Stand {today} =="
@@ -274,11 +311,19 @@ def main() -> int:
             )
             continue
         findings = scan_package(repo, org, token, today)
-        dl = (fleet["packages"][repo].get("pypi") or {}).get("downloads_30d")
+        pkg = fleet["packages"][repo]
+        dl = (pkg.get("pypi") or {}).get("downloads_30d")
         if isinstance(dl, int) and dl < DOWNLOAD_FLOOR_30D:
             findings.append(
                 f"M5 archival_info: nur {dl} Downloads/30d (<{DOWNLOAD_FLOOR_30D})"
             )
+        k4 = unattested_release_finding(pkg)
+        if k4:
+            findings.append(k4)
+        if ((pkg.get("pypi") or {}).get("provenance") or {}).get(
+            "status"
+        ) == "unbekannt":
+            unmeasurable += 1
         for f in findings:
             records.append(
                 {"repo": repo, "org": org, "metric": f.split(" ", 1)[0], "text": f}
@@ -288,7 +333,10 @@ def main() -> int:
     else:
         for r in records:
             print(f"{r['repo']}: {r['text']}")
-        print(f"== {len(records)} Frühwarn-Findings über {len(active)} Pakete ==")
+        print(
+            f"== {len(records)} Frühwarn-Findings über {len(active)} Pakete "
+            f"(K4 nicht messbar: {unmeasurable}) =="
+        )
     return 1 if (args.strict and records) else 0
 
 
