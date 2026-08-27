@@ -2996,3 +2996,18 @@ Issues: #2336 (Klick-Minimierung) · #2338 (Wrapper).
 Der eigentliche Befund des Tages: SA-1 war seit dem 2026-07-12 ratifiziert und
 wirkungslos, weil der Harness-Eintrag fehlte. Eine Klasse ohne Eintrag in `autoMode.allow`
 ist Papier — das gilt für jede künftige auch.
+
+## 2026-08-27 frueh — Sitzung f2a180: PyPI-Flotte, KONZ-052, Publish-Pfad ans Artefakt
+
+Auftrag: platform, dev-hub, mcp-hub und alle PyPI-Paket-Repos analysieren (CI, Predictive
+Maintenance, OOTB, Diabolus). Ergebnis KONZ-platform-052 (#2362) + Anhang. Sechs Subagenten,
+alle read-only; Owner-Entscheide am selben Tag vollzogen (iil-testkit#21, #2363, #2365, #2367,
+risk-hub#708, riskfw#4/#11). Session-Start davor: #2358, #2359.
+
+Der Befund des Tages: Predictive Maintenance hat hier keine Datengrundlage — Downloads messen
+die eigene CI, Kadenz 0 ist meist Absicht. Der einzige Ausfall (Token-Upload, zweimal) ist
+deterministisch verhinderbar, und PyPI selbst beweist ihn: Provenance 404 vs. 1 Bundle.
+Eigene Fehler: deutsche Anfuehrungszeichen in gh-Bodies (2x), Poll auf reviewDecision (25 min
+Timeout), YAML-Doppelpunkt, Trusted-Publisher-Repo nicht vorab benannt (Owner band das
+archivierte testkit).
+
