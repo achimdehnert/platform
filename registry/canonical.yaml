@@ -528,7 +528,7 @@ repos:
     flat:
       type: library
       pypi: iil-enrichment
-      pypi_strategy: einfrieren
+      pypi_strategy: aktiv   # 2026-08-27 Owner: Konsument risk-hub geplant — Exschutz-Dokument, ADR-008 §6.2 GESTIS statisch -> GESTISProvider/PubChemProvider
   iil-fieldprefill:
     in_flat: true
     in_rich: false

@@ -107,7 +107,7 @@ repos:
   iil-enrichment:
     type: library
     pypi: iil-enrichment
-    pypi_strategy: einfrieren
+    pypi_strategy: aktiv
   iil-fieldprefill:
     type: library
     pypi: iil-fieldprefill
