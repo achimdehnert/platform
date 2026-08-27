@@ -35,6 +35,8 @@ on:
       - "tools/pypi_fleet_earlywarn.py"
       - "tools/pypi_fleet_issue_emitter.py"
       - "tools/pypi_fleet_sections.py"
+      - "tools/iil_cohort.py"
+      - "constraints/**"
 
 permissions:
   contents: read
@@ -121,6 +123,28 @@ jobs:
               done
             done
             echo "(Repos ohne Zeile: 0 Bot-PRs, 0 rote Checks)"
+          } | tee -a fleet-findings.txt
+
+      # KONZ-052 V11 / ADR-234 P0.5a: Alterungs-Signal der iil-Dependency-Cohort.
+      # BEWUSST kein neuer Melder und keine neue Runner-Phase — eine Zeile im
+      # bestehenden Wochenreport (KONZ-052 subtrahiert Melder, es addiert keine).
+      # `age` liefert Exit 2 wenn abgelaufen; das darf den Report nicht abbrechen,
+      # deshalb `set +e` um genau diesen Aufruf (sonst endete der Step still nach
+      # der Zeile und der Rest des Blocks liefe nie — run: ist bash -e).
+      - name: Kohorten-Alter (ADR-234 P0.5a)
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "== iil-Dependency-Cohort (ADR-234 P0.5a) =="
+            set +e
+            python3 tools/iil_cohort.py age
+            rc=$?
+            set -e
+            if [ "$rc" != "0" ]; then
+              echo "-> Supportfenster abgelaufen/unklar: neue Kohorte erzeugen"
+              echo "   (tools/iil_cohort.py build, dann check) und Konsumenten nachziehen."
+            fi
           } | tee -a fleet-findings.txt
 
       - name: Sektion "health" im EINEN Flotten-Issue pflegen

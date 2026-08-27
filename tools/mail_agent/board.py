@@ -77,14 +77,19 @@ LINK_BASIS = "https://mail.iil.pet"
 #: Vorgangsansicht (Verlauf, Stand, Fristen, naheliegende Aktionen).
 TODO_BASIS = "https://todo.iil.pet"
 
-#: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
+#: Welche Buckets den Stand beschreiben und welche einen Zug verlangen.
 #:
-#: Sie folgt seit dem 2026-08-27 dem Loesungsweg: erst der Stand (was fertig ist,
-#: was draussen haengt), dann der Zug (was ich tun kann, was der Owner entscheiden
-#: muss). Owner-Weisung, dieselbe Reihenfolge wie im Antwortformat des Kapitaens-
-#: Kanals — vorher stand "dein Zug" oben und "erledigt" unten. Zwei Quellen fuer
-#: dieselbe Reihenfolge laufen auseinander, darum wird sie hier mitgezogen und
-#: nicht neu entschieden.
+#: Das ist der Anker, nicht die Liste darunter: Wer einen fuenften Bucket
+#: ergaenzt, muss ihn hier einsortieren, sonst schlaegt der Test fehl. Die
+#: Anzeige-Reihenfolge "erst Stand, dann Zug" folgt daraus und wird nicht
+#: getrennt behauptet.
+#:
+#: Die Regel selbst steht genau einmal, im Antwortformat des Kapitaens-Kanals
+#: (~/.claude/CLAUDE.md, Regel 1). Hier steht nur ihre Umsetzung.
+STAND_BUCKETS = ("erledigt", "warten")
+ZUG_BUCKETS = ("agent", "owner")
+
+#: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
 BUCKETS: list[tuple[str, str]] = [
     ("erledigt", "✅ Erledigt"),
     ("warten", "🟡 Wartend — Ball liegt aussen"),

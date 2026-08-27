@@ -102,6 +102,8 @@ Befund: Downloads, Release-Kadenz und Python-EOL prognostizieren bei dieser Flot
 |---|---|---|---|---|---|
 | V10 | **Provenance-Feld im Inventar** (O5): je Release `attestation_bundles` aus der PyPI-Integrity-API; K4 wird am Artefakt gemessen; ADR-278-Kill-Gate 2026-10-19 wird mit Beleg entscheidbar | F3, ADR-278 Z.41/74 | S (1-2 d) | <50 % der Releases seit 24.07. tragen Attestation | haelt |
 | V11 | **iil-Cohort vollziehen** (O4 = ADR-234 P0.5a): `constraints/iil-cohort-YYYY.MM.txt`, dev-hub/mcp-hub pinnen die Kohorte statt 5 Einzelpakete; Alterungs-WARN im selben PR | F6, F12 | M (5-8 d) | erste Kohorte installiert nicht gruen in beiden Konsumenten | Vollzug |
+
+**V11 Stand 2026-08-27 (Teil 1 gebaut):** `tools/iil_cohort.py` + erste Kohorte `constraints/iil-cohort-2026.08.txt` (20 Pakete, `support_until: 2026-10-26`, `check` gruen); Alterungs-Signal als eine Zeile im bestehenden Wochenreport `pypi-fleet-health.yml` (kein neuer Melder). **Offen (Teil 2):** die Konsumenten-Umstellung selbst — Issue-Entwuerfe liegen als [dev-hub](anhaenge/KONZ-platform-052-issue-dev-hub-kohorte.md) und [mcp-hub](anhaenge/KONZ-platform-052-issue-mcp-hub-kohorte.md) im Anhang; das Kill-Kriterium ("installiert gruen in beiden Konsumenten") ist damit noch **nicht** gemessen.
 | V12 | Konsumenten-Kanten in die Registry (`consumers:`) als einzige Nutzungsmetrik; ersetzt Downloads | F10, F11 | S | — | haelt |
 
 ### Linse 3 — Out-of-the-Box: was das Problem anders schneidet
