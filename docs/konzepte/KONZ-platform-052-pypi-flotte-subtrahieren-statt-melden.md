@@ -144,7 +144,7 @@ Findet: ein Provenance-Feld je Release (V10), eine Kohorten-Datei mit Datum (V11
 
 ## Kill-Gate + Threshold
 
-Siehe Frontmatter `kill_criteria`. Messpunkte: PyPI-Integrity-API (V10, Skript im Anhang KONZ-052-anhang-befunde.md), `pipeline_status` von KONZ-018, `gh issue list --label pypi-fleet`. Termin: 2026-10-19 (mit ADR-278 zusammengelegt, ein Review statt zwei).
+Siehe Frontmatter `kill_criteria`. Messpunkte: PyPI-Integrity-API (V10, Skript im Anhang anhaenge/KONZ-platform-052-befunde.md), `pipeline_status` von KONZ-018, `gh issue list --label pypi-fleet`. Termin: 2026-10-19 (mit ADR-278 zusammengelegt, ein Review statt zwei).
 
 ## Bezug
 
