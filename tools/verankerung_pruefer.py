@@ -83,7 +83,7 @@ GATE_HEADER = {
     "slug": "zusage-ohne-verankerung",
     "mode": "advisory",  # blocking erst nach Kalibrierfenster mit ECHTEN Treffern
     "owner": "achim",
-    "last_drill_pass": "2026-08-23",
+    "last_drill_pass": "2026-08-28",
     "evidence": "tools/tests/test_verankerung_pruefer.py",
     "covers": ["deferred-item-no-tracking-issue"],
 }

@@ -519,7 +519,7 @@
         "accepted-plan-item-silently-dropped",
         "deferred-item-no-tracking-issue"
       ],
-      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214.",
+      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214. · 2026-08-28 (platform#2418): Das Gate war fuer seine eigene Kernklasse `vertagung` BLIND. Die Gegenprobe fragte nach dem Zustand ('steht die Arbeit noch aus?'), der Klassifikator nach dem Typ ('wird Arbeit ausgelassen?') — fuer eine bewusst abgelehnte Arbeit ist die Zustandsfrage korrekt mit nein zu beantworten, das Modell begruendete sein false woertlich mit 'Zusammenlegung ausgeschlagen'. Die zweite Stufe nahm die erste damit systematisch zurueck, und der dokumentierte Zielfall PR #2007 fiel durch. Gegenprobe auf die Klassifikator-Definition umgestellt; gemessen an beiden Faellen der Kalibrierdatei (Zielfall #2007 wieder true, Fehlalarm #2196 weiter false). Die gemessene Praezision 0,50 stammt aus der Zeit davor und ist neu zu erheben.",
       "faengt": [
         {
           "fall": "Zusage vom Typ Vertagung ohne Anker im selben Segment",
@@ -527,7 +527,8 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-23"
+      "erzwungen_seit": "2026-08-23",
+      "drill_pass": "2026-08-28"
     },
     {
       "slug": "skill-copy-not-redistributed",
