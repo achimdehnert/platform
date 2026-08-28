@@ -11,8 +11,8 @@
       "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1643",
-      "revised": "2026-08-25",
-      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt.",
+      "revised": "2026-08-28",
+      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt. · Rev 4 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig ×70 → 'ausweiten'): (3) BYPASS-CLAIM: 'Admin-Merge'/'Ruleset-Bypass'/'--admin' in einem publizierten PR-/Issue-Body ist ein eigener Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den Merge-WEG (platform#2397: wirdigital hatte regulaer gemergt, der Bypass-Kommentar stand trotzdem). (4) KOMMENTAR-VOR-MERGE: ein Status-/Bypass-Kommentar, der in derselben Bash-Kette VOR `gh pr merge` abgesetzt wird, kann das Ergebnis nicht kennen — feuert unabhaengig vom Beleg. Drill: tests/test_evidence_claim_scanner_bypass.py (Realfall als Fixture, drei Nicht-Treffer daneben).",
       "kalibrierfenster": {
         "klasse": "kinds=subjekt-unbelegt-kalibrierung",
         "seit": "2026-08-23",
@@ -33,6 +33,14 @@
         {
           "fall": "CI-/Hintergrund-Status nach push/dispatch behauptet, ohne dass DANACH ein gh-Check lief",
           "probe": "ci-status"
+        },
+        {
+          "fall": "Bypass-Kommentar ohne mergedBy-Beleg (platform#2397)",
+          "probe": "bypass-claim"
+        },
+        {
+          "fall": "gh pr comment mit Statuswort VOR gh pr merge in einer Kette",
+          "probe": "comment-before-merge"
         }
       ],
       "zustand": "schranke",
@@ -265,13 +273,23 @@
         {
           "fall": "nicht ruff-formatierte Datei (Layout)",
           "probe": "unformatiert"
+        },
+        {
+          "fall": "infra/hosts.yaml im Diff, hosts_audit rot",
+          "probe": "T12"
+        },
+        {
+          "fall": "tools/*.py im Diff, pytest tools/tests rot",
+          "probe": "T14"
         }
       ],
       "drill_extra": [
         "tools/claude-hooks/tests/test_block_unformatted_push.sh"
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-04"
+      "erzwungen_seit": "2026-08-04",
+      "revised": "2026-08-28",
+      "revision_note": "Rev 2 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig 2× seit Bau → 'ausweiten'): pfadgetriggerte Zusatzpruefungen VOR dem Push — `infra/hosts.yaml` im Diff → `infra/scripts/hosts_audit.py` (rc 1 = deny), `tools/*.py` im Diff → `pytest tools/tests -q -x` (rc 1 = deny; rc >1 fail-open). Realfall platform#2397: Schema-Fund (runner.host ohne Host-Block) und Zeitbomben-Test gingen in CI rot, obwohl beide Werkzeuge lokal in Sekunden laufen. Drill T12–T14 in test_block_unformatted_push.sh (Stub-hosts_audit exit 1/0, roter tools-Test)."
     },
     {
       "slug": "ci-gate-maskiert-failure",

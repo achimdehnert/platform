@@ -41,7 +41,7 @@ GATE_HEADER = {
     "slug": "claim-before-cheapest-check",
     "mode": "blocking",  # Laufzeit-Opt-out: state-Datei, s. _mode()
     "owner": "achim",
-    "last_drill_pass": "2026-08-02",  # Drill = test_should_block_* in tests/
+    "last_drill_pass": "2026-08-28",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py
     "evidence": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
 }
 
@@ -518,6 +518,44 @@ def _published_bodies(tool_inputs: list) -> list:
 #: Backtick-Bezeichner. Bewusst eng — ein nicht erkanntes Subjekt fuehrt zum
 #: bisherigen Verhalten zurueck (generische Korroboration), nie zu einem Block
 #: aus dem Nichts.
+# Rev 4 (Retro 62f875 §5a, Gate rueckfaellig → ausweiten): platform#2397, 06:56:41Z —
+# `gh pr comment … "Admin-Merge (Ruleset-Bypass …)" && gh pr merge --admin` in EINER Kette.
+# Der Merge lief ins Leere ("already merged", wirdigital hatte regulaer gemergt), der
+# Kommentar stand trotzdem. Zwei Luecken: (1) eine BYPASS-Behauptung ist ein eigener
+# Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den
+# Merge-WEG; (2) ein Status-Kommentar, der in derselben Befehlskette VOR dem Merge
+# abgesetzt wird, kann das Ergebnis per Konstruktion nicht kennen.
+BYPASS_CLAIM_RE = re.compile(
+    r"admin-merge|admin merge|--admin\b|ruleset-bypass|\bbypass\b", re.I
+)
+MERGEDBY_EVIDENCE_RE = re.compile(
+    r"mergedBy|merged_by|Merged pull request|✓ Merged|merge_commit", re.I
+)
+_GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
+_GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
+_STATUS_IN_COMMENT_RE = re.compile(
+    r"gemergt|merged\b|admin-merge|bypass|deployed|gr(?:ü|ue)n\b", re.I
+)
+
+
+def _kommentar_vor_merge(tool_inputs: list) -> bool:
+    """True, wenn EIN Bash-Kommando einen gh-Kommentar mit Status-/Bypass-Wortlaut
+    absetzt und DANACH in derselben Kette `gh pr merge` folgt — der Kommentar behauptet
+    dann ein Ergebnis, das erst der spaetere Befehl erzeugt (oder verweigert)."""
+    for name, inp in tool_inputs:
+        if name != "Bash" or not isinstance(inp, dict):
+            continue
+        cmd = str(inp.get("command", ""))
+        mc = _GH_COMMENT_RE.search(cmd)
+        mm = _GH_MERGE_RE.search(cmd)
+        if not (mc and mm) or mc.start() > mm.start():
+            continue
+        zwischen = cmd[mc.start() : mm.start()]
+        if _STATUS_IN_COMMENT_RE.search(zwischen):
+            return True
+    return False
+
+
 _SUBJEKT_MUSTER = (
     re.compile(r"\b[\w./-]+\.(?:py|md|ya?ml|json|sh|toml|ts|tsx|js|sql)\b"),
     re.compile(r"#\d{2,6}\b"),
@@ -871,6 +909,21 @@ def main() -> int:
                     "published-body (PR/Issue-Body-Claim ohne Read-Beleg im Turn)"
                 )
 
+    # Rev 4: Bypass-Behauptung in publizierten Bodies + Kommentar-vor-Merge
+    if (
+        bodies
+        and BYPASS_CLAIM_RE.search("\n".join(bodies))
+        and not MERGEDBY_EVIDENCE_RE.search(evidence_text)
+    ):
+        fired.append(
+            "bypass-claim (Admin-/Ruleset-Bypass im PR-/Issue-Kommentar behauptet, "
+            "aber kein mergedBy-Beleg im Turn — `state: MERGED` belegt den Merge-WEG nicht)"
+        )
+    if _kommentar_vor_merge(tool_inputs):
+        fired.append(
+            "comment-before-merge (Status-/Bypass-Kommentar in derselben Befehlskette VOR "
+            "`gh pr merge` — das Ergebnis kann der Kommentar noch nicht kennen)"
+        )
     if kalibrier_fall and not subjekt_scharf:
         # Im Kalibrierfenster wird der Fall PROTOKOLLIERT, nicht gemeldet: so
         # entstehen Messdaten, ohne die Sitzung mit Hinweisen zu fluten. Scharf
