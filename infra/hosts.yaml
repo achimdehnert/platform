@@ -286,6 +286,24 @@ runners:
       (`travel-beat-staging-ci`). Weitere Hubs gestaffelt via ADR-222-Familie.
     verified: 2026-06-28
 
+  gpu-box:
+    host: 10.99.0.2                    # wg0-Peer, nur von prod erreichbar (siehe prod-Block)
+    status: planned                    # 2026-08-28: Box verifiziert (Windows 11 + WSL2 Ubuntu 22.04,
+                                       # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
+                                       # Runner noch NICHT registriert — Bootstrap braucht sudo vor Ort
+    labels: [self-hosted, Linux, X64, ci-gpu]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro
+    service: actions.runner.achimdehnert-<repo>.<repo>-ci-gpu.service
+    runner_user: github-ci             # REC-5, in docker-Gruppe (Postgres-Service-Container)
+    bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh
+    consumers: [writing-hub]           # KONZ-021-Opt-out, Grund: 70 % der hosted Minuten (platform#2392)
+    note: >
+      Owner-Desktop, nicht Teil der Hetzner-Flotte: laeuft nur, wenn die Box an ist.
+      Windows-Seite muss die WSL offen halten (.wslconfig vmIdleTimeout=-1 + Aufgabenplanung
+      "wsl -d Ubuntu -u root -- sleep infinity"). Deploy-Jobs bleiben auf prod-server;
+      hier laufen nur `_ci-python`-Block und der writing-hub-Eigenjob `integration-tests`.
+    verified: 2026-08-28               # Box-Fakten; Runner-Status offen
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
     status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)
