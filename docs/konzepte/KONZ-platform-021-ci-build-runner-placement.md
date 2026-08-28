@@ -237,7 +237,9 @@ MVC + Default-Flip in shared-ci, Fleet-Welle über alle 10 Hubs (inkl. explizite
 |---|---|---|
 | (a) shared-ci-Deploy-Verzweigung gefixt + Consumer-Canary grün | offen | — |
 | (b) 1 echter Build+Deploy mit Misch-Config grün (billing-hub, dispatch/staging) | offen | — |
-| (c) Minuten-Baseline gemessen, Prognose <80% Freikontingent ODER Spending-Limit-Entscheid dokumentiert | offen | — |
+| (c) Minuten-Baseline gemessen, Prognose <80% Freikontingent ODER Spending-Limit-Entscheid dokumentiert | **erfüllt 2026-08-28** (Spending-Entscheid) | Usage-Report (Billing-API, `user`-Scope) 1.–28.8.: 27.159 Linux-min, davon 11.386 `platform` (public, gratis); Konto am 27.8. real bei 100 % (hosted Jobs kontoweit gesperrt), 31,15 $ Überschuss bezahlt, writing-hub 77 %. Prognose >80 % → Owner-Entscheid: Budget 200 $ mit Stop „bis Situation bereinigt". Beleg: [platform#2392](https://github.com/achimdehnert/platform/issues/2392), Retro [#2408](https://github.com/achimdehnert/platform/pull/2408) |
+
+**Opt-out gpu-box (2026-08-28, KONZ-Regel „getrackter Opt-out mit Grund"):** writing-hub verursachte 70 % der hosted Minuten der Flotte (9.577 von 13.122 privaten Minuten im August). Statt Kompakt-Profil oder Spend wurde ein per-Repo-Runner `ci-gpu` auf der Owner-GPU-Box (Windows 11 + WSL2, RTX 4090) registriert — `infra/hosts.yaml` `runners.gpu-box` mit `consumers: [writing-hub]`, Bootstrap `infra/scripts/bootstrap_ci_runner_wsl.sh` (platform#2397/#2400). Deploy-Jobs bleiben auf `prod-server`; hosted verbleibt nur `Runner-Label-Check` (1 min/Lauf, Owner-Entscheid „31 nicht bauen" — Frühwarnung, falls die Box aus ist). Beweis: drei CI-Läufe mit je 1 hosted Job von 10–13 (Retro #2408 §2). Begleitfunde: shared-ci v1.1.12 (`concurrency` je Job, 23 Konsumenten), 18 Repos mit Absolut-Symlinks ins Owner-Home ([#2401](https://github.com/achimdehnert/platform/issues/2401)). Ergänzt KONZ-042 (Placement-Achse), keine ADR-Revision nötig (adr-threshold: bestehendes Muster ADR-257 Alt. B).
 
 **30/60/90:** T+30: MVC komplett (REC-1/2/4/5), #30/#17 gemergt, erster echter Deploy beobachtet. T+60: Rev-4-PR-Zug gemergt (REC-6), Default-Flip (REC-3) auf ≥3 Consumern. T+90 (= Stichtag): Fleet-Welle abgeschlossen oder Kill-Gate-Entscheid; Fleet-Scan live mit einem nachgewiesenen roten Testlauf.
 
@@ -245,5 +247,6 @@ MVC + Default-Flip in shared-ci, Fleet-Welle über alle 10 Hubs (inkl. explizite
 
 ## Changelog
 
+- 2026-08-28: Kill-Gate (c) erfüllt per Spending-Entscheid (Usage-Report als Baseline); Opt-out `gpu-box`/`ci-gpu` für writing-hub eingetragen. Quelle: platform#2392, Retro #2408 (R7).
 - 2026-07-16: Initial (T3, aus platform#1217). Drei blinde Agenten + Konfliktmatrix K1–K5;
   Entwurfs-These in K3 revidiert (Minimal-Bootstrap wird eingecheckt, Zombie-Runner deregistriert).
