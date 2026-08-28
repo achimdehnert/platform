@@ -300,13 +300,13 @@ runners:
 
   gpu-box:
     host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
-    status: planned                    # 2026-08-28: Box verifiziert (Windows 11 + WSL2 Ubuntu 22.04,
+    status: online                     # 2026-08-28 09:00 CEST registriert + online (gh api runners);
                                        # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
-                                       # Runner noch NICHT registriert — Bootstrap braucht sudo vor Ort
+                                       # Bootstrap lief als root via `wsl -u root` ueber den prod-Hop
     labels: [self-hosted, Linux, X64, ci-gpu]
     scope: per-repo
     install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro
-    service: actions.runner.achimdehnert-<repo>.<repo>-ci-gpu.service
+    service: actions.runner.achimdehnert-<repo>.DESKTOP-G1MN89S.service   # Runner-Name = Hostname
     runner_user: github-ci             # REC-5, in docker-Gruppe (Postgres-Service-Container)
     bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh
     consumers: [writing-hub]           # KONZ-021-Opt-out, Grund: 70 % der hosted Minuten (platform#2392)
