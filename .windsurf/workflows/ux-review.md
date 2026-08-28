@@ -49,6 +49,47 @@ Vorher ein Blick, was der Agent **nicht** neu melden darf: `gh issue list -R <ow
 --label ux-review --state all` — bekannte Befunde werden im Bericht als „bekannt (#N)" gefuehrt,
 nicht als neues Issue (Voraussetzung aus KONZ-051 ALT-1, platform#2326).
 
+## Step 0.5: Das gemeldete Objekt zuerst — im Browser (E10, PFLICHT bei jedem Befund)
+
+> **Owner-Weisung 2026-08-28 (org-weit, woertlich):** „Playwright und/oder Cloudflare
+> KONSEQUENT einsetzen um Browser-Inhalte zu sehen und zu analysieren."
+>
+> **Realfall, der sie ausgeloest hat** (writing-hub, 2026-08-27/28): Der Owner meldete
+> dreimal „Kapitel schreiben -> keine Reaktion". Es wurden **sieben** Hypothesen durch
+> Code-Lesen und serverseitiges Rendern geprueft — JS-Syntax (`node --check` gruen),
+> `data-action`-Verdrahtung, CSRF-Cookie, API-Routen (403 statt 404), CSP-Header,
+> Kapitelzahl, Celery-Worker. **Alle sieben waren falsch.** Der erste echte Klick auf
+> der gemeldeten Seite zeigte die Ursache in der ersten Sekunde:
+>
+>     SyntaxError: Unexpected token ']' … is not valid JSON
+>         at JSON.parse (…/write/:1231:28)
+>
+> Ein nachgestelltes Komma in einem handgebauten JSON-Block riss das gesamte Skript
+> mit. Drei Prod-Projekte waren tot, seit 24 Tagen entstand kein einziger Job.
+> **Warum keine statische Pruefung ihn finden konnte:** `node --check` prueft Syntax,
+> der Fehler lag in den **Daten**, die zur Laufzeit geparst werden.
+
+Bei einem **gemeldeten** Befund (Owner, Ticket, Support) gilt vor allem anderen:
+
+1. **Browser vor Code.** Erst `browser_navigate` + `browser_console_messages` +
+   `browser_network_requests` auf der gemeldeten Seite, dann Quelltext lesen. Nicht
+   umgekehrt. Jede Minute Code-Analyse vor dem ersten Klick ist eine Wette darauf,
+   dass man das Richtige vermutet.
+2. **Am gemeldeten Objekt messen, nicht an einem neuen.** Step 1.4 verlangt fuer den
+   *explorativen* Durchlauf synthetische Daten — fuer die *Reproduktion eines
+   gemeldeten Befunds* gilt das ausdruecklich **nicht**. Ein frisch angelegtes Objekt
+   ist per Konstruktion leer und zeigt datenabhaengige Defekte nie (siehe Klasse
+   `nur-mit-daten-sichtbar`).
+3. **Kein Zugang zum Zielsystem?** Zwei Wege, beide billiger als Raten:
+   - **read-only rendern**: View im Ziel-Container ueber `RequestFactory` aufrufen und
+     das HTML ansehen. Zeigt Serverfehler, aber **keine** Laufzeitfehler im Browser —
+     im Realfall oben war dieses HTML tadellos.
+   - **kurzlebige Diagnose-Session**: Session-Eintrag fuer den betroffenen Benutzer
+     anlegen, Cookie im Browser setzen, messen, Session **loeschen**. Das ist ein
+     Schreibvorgang auf dem Zielsystem und braucht eine **ausdrueckliche Freigabe**
+     (Gate 2, `autonomy-gates.md`); der Loeschvorgang gehoert in denselben Zug.
+4. **Erst wenn der Befund im Browser sichtbar ist**, beginnt die Ursachensuche im Code.
+
 ## Step 1: Eigene Umgebung (E5 — nie die geteilte)
 
 1. **Worktree**, nie der Haupt-Tree: `bash platform/tools/repo-session.sh start ~/github/<repo>
@@ -59,8 +100,15 @@ nicht als neues Issue (Voraussetzung aus KONZ-051 ALT-1, platform#2326).
 3. **Keine Aenderung an einer geteilten `.env`.** Braucht der Lauf eine Variable, dann als
    eigene `.env.ux-review` im Worktree (gitignored) — Realfall writing-hub 2026-08-25: geteilte
    `.env` bei 12 parallelen Sessions umgestellt.
-4. **Synthetische Daten.** Der Lauf legt eigene Objekte an (Prefix `uxr-<datum>`); Screenshots
-   von echten Mandanten sind ein Abbruchgrund (R4 — `platform` ist oeffentlich).
+4. **Synthetische Daten** — mit **Bestand**, nicht bloss angelegt. Der Lauf legt eigene
+   Objekte an (Prefix `uxr-<datum>`); Screenshots von echten Mandanten sind ein
+   Abbruchgrund (R4 — `platform` ist oeffentlich). **Aber:** ein frisch angelegtes Objekt
+   ist leer, und leere Objekte verdecken jeden datenabhaengigen Defekt. Mindestens **ein**
+   Objekt der Kette bekommt deshalb den Zustand, den ein benutztes traegt — Unterobjekte,
+   Belege, Inhalt, Verknuepfungen. Der Bericht nennt den Zustand je Station (s. Step 3.2).
+   Gemessen im Realfall: 0 von 22 UX-Tests des Repos legten Belege an, 0 von 22 oeffneten
+   die betroffene Seite — die Suite war gruen, drei Prod-Projekte waren tot.
+   Fuer die Reproduktion eines **gemeldeten** Befunds gilt stattdessen Step 0.5.2.
 5. **Seed und Doctor des Repos ausfuehren** (`grep -n 'seed\|doctor\|setup_' Makefile` bzw.
    `manage.py help | grep -i seed`), bevor die erste Station bewertet wird. Eine leere Registry
    ist eine Umgebungsluecke, kein Befund — Pilot writing-hub 2026-08-25: `AIActionType` leer,
@@ -91,6 +139,14 @@ Schleife je Station, Abbruch messbar: **Station erreicht** ODER `--max-klicks` o
 2. `browser_console_messages` → Errors/Warnings; `browser_network_requests` → jede 4xx/5xx
    **mit Antwortkoerper**. Bei HTMX: eine 4xx ohne sichtbare Aenderung im DOM ist der Befund
    `stiller-fehler` (kein `htmx:responseError`-Handler), nicht „Klick tut nichts".
+   - **Ein JS-Fehler in der Konsole macht die Station `befund` — ohne Ausnahme**, auch
+     wenn die Seite normal aussieht und alle Elemente da sind. Ein Fehler, der frueh im
+     Skript geworfen wird, reisst **alles danach** mit: keine Event-Verdrahtung, kein
+     Knopf, keine Meldung. Genau so sah der Realfall aus (Seite tadellos, jeder Knopf tot).
+   - **„0 Fehler" ist nur ein Beleg fuer den geprueften Datenzustand.** Der Bericht nennt
+     ihn deshalb mit (Station 3: `ok (Bestand: 12 Kapitel, 16 Belege)` statt bloss `ok`).
+     Ohne diese Angabe ist die Null wertlos: im Realfall meldete derselbe Lauf auf einem
+     frischen Objekt 0 Fehler, waehrend die Prod-Seite genau einen hatte.
 3. **Diagnose aus dem Antwortkoerper, nie aus dem Statuscode**: 403 ist CSRF *und*
    Tenant-Sperre derselben View — nur der Body unterscheidet.
 4. `browser_take_screenshot` als Beleg — nur, wenn Step 1.4 gilt.
@@ -206,6 +262,7 @@ nach — daraus rechnet das Kill-Gate K2 die Quote.
 | `sichtbar-nur-unter-falscher-bedingung` | Knopf/Feld steht in einem `{% if %}`, das nicht zu seiner Phase gehoert | UX-Test rendert die Seite **ohne** die Bedingung und prueft die Sichtbarkeit — writing-hub #775: zwei Knoepfe, die aus dem KONZEPT arbeiten, standen in `{% if has_outline %}` |
 | `gemockt-und-deshalb-blind` | Alle Tests gruen, erster echter Klick bricht | Test, der die gemockte Schicht **echt** ausfuehrt (Vorlagen rendern, Router aufrufen) — writing-hub #774: drei Prompt-Vorlagen brachen, weil jeder Test den Renderer ersetzt hatte |
 | `daten-invariante` | Anzeige widerspricht der Sache (abgelaufene Frist bei laufender Ausschreibung) | Invarianten-Melder ueber den Datenbestand, **SKIP ist kein PASS** |
+| `nur-mit-daten-sichtbar` | Seite ist auf einem frischen Objekt tadellos und auf einem benutzten tot; Tests und Probelauf sind gruen, echte Nutzer stehen an | Test, der die Seite **mit Bestand** rendert und pruefte, was der Browser wirklich bekommt — im Realfall: jeden ausgelieferten `application/json`-Block parsen. Ausnahmen mit Grund — writing-hub#820: ein handgebauter JSON-Block trug ein nachgestelltes Komma, aber nur wenn Belege vorlagen; 3 Prod-Projekte tot, 22 UX-Tests gruen, 24 Tage kein Melder |
 
 Neue Klasse gefunden → Zeile hier ergaenzen (PR nach platform), nicht nur im Issue beschreiben.
 
@@ -218,10 +275,13 @@ Umgebung
   Worktree: <pfad> · Stack: <eigen|staging> · Port frei: ja · Testkonto: <zeiger|blind>
 
 Stationen
-  # | Station         | Zustand | Klasse            | Beleg
-  1 | Login           | ok      | —                 | —
-  2 | Angebotsentwurf | befund  | nicht-begehbar    | URL getippt: /angebote/review/ (kein Link ab Station 1)
-  3 | Freigabe        | blind   | Klickbudget 25    | —
+  # | Station         | Zustand | Datenlage          | Klasse            | Beleg
+  1 | Login           | ok      | —                  | —                 | —
+  2 | Angebotsentwurf | befund  | 3 Pos., 2 Belege   | nicht-begehbar    | URL getippt: /angebote/review/ (kein Link ab Station 1)
+  3 | Freigabe        | blind   | frisch (leer)      | Klickbudget 25    | —
+
+  Die Spalte `Datenlage` ist Pflicht: `ok` auf einem leeren Objekt sagt nichts
+  ueber ein benutztes (Klasse `nur-mit-daten-sichtbar`).
 
 Getippte URLs (K4): <n> — <liste>
 Zaehler: befund <b> · ok <o> · blind <x> · bekannt <k>
@@ -244,6 +304,11 @@ Nicht verifiziert: <was der Lauf nicht sehen konnte, und der billigste Check daf
 - ❌ **Cloudflare-Access-Domain als Basis** — Auth-Wand, kein Pruefmittel (`/kd-review`-Lehre).
 - ❌ **Screenshot mit Mandanten-/Personendaten** in ein oeffentliches Repo (platform ist public).
 - ❌ **Zwei Zustaende** — `blind` als `ok` gezaehlt ist die Klasse, die am 2026-08-25 sechsmal versagte.
+- ❌ **Code lesen, bevor die gemeldete Seite einmal im Browser stand** (Step 0.5). Sieben
+  widerlegte Hypothesen gegen einen Klick, der in einer Sekunde traf — 2026-08-28.
+- ❌ **Einen gemeldeten Befund an einem neu angelegten Objekt nachstellen.** Frisch ist leer,
+  und leer verdeckt genau die Klasse, die den Nutzer getroffen hat.
+- ❌ **`ok` ohne Datenlage berichten** — die Null gilt nur fuer den Zustand, den man geprueft hat.
 - ❌ **`optimierung` ohne Referenz** als Issue — Geschmack ist kein Befund.
 - ❌ **Check-Listen durch `tail`/`head` filtern** und dann „alles gruen" melden (Retro #2325 #1).
 - ❌ **Issue ohne Klassen-Gate-Vorschlag** — dann ist der Agent ein Melder, und Kill-Gate K3 faellt.
@@ -290,7 +355,35 @@ Gate-Vorlage Routen-vs-Templates; getippte URLs im Bericht = 2.
 **Erwartung:** Station 1 `blind: Dienst antwortet nicht`, Zaehler `ok 0`, kein Issue,
 Exit-Zeile „Nicht verifiziert: gesamte Kette".
 
+### Test 4 — Ein leeres Objekt darf nicht gruen machen (E10, Klasse `nur-mit-daten-sichtbar`)
+
+```
+/ux-review writing-hub --kette "Login > Projekt > Schreiben" --vor <sha vor #820> --no-issues
+```
+**Erwartung, zweigeteilt — genau hier ist der Skill am 2026-08-27 durchgefallen:**
+- Mit einem **frisch angelegten** Projekt: Station „Schreiben" meldet `ok`, Konsole leer.
+  Dieser Lauf ist **kein** Beleg und muss im Bericht die Datenlage `frisch (leer)` tragen.
+- Mit einem Projekt **mit Bestand** (Kapitel + Belege): Station `befund`, Klasse
+  `nur-mit-daten-sichtbar`, Konsole zeigt `SyntaxError … JSON.parse`, und der Bericht
+  fuehrt die Datenlage mit.
+
+Besteht der Skill nur den ersten Teil, ist die Erweiterung wirkungslos.
+
 ## Changelog
+
+- 2026-08-28: **Step 0.5 „Das gemeldete Objekt zuerst — im Browser"** ergaenzt
+  (Owner-Weisung, woertlich: „Playwright und/oder Cloudflare KONSEQUENT einsetzen um
+  Browser-Inhalte zu sehen und zu analysieren"), dazu **Konsole als Kill-Kriterium**
+  (Step 3.2), **Datenlage als Pflichtangabe** in Step 1.4 und im Bericht, und die neue
+  Klasse **`nur-mit-daten-sichtbar`**. Anlass: writing-hub#820. Der Owner meldete dreimal
+  „Knopf reagiert nicht"; sieben Hypothesen wurden durch Code-Lesen geprueft und alle
+  sieben waren falsch, waehrend der erste echte Klick die Ursache in der ersten Sekunde
+  zeigte (`SyntaxError` bei `JSON.parse`, nachgestelltes Komma in einem handgebauten
+  Block). Besonders unbequem: **dieser Skill lief an dem Tag und fand nichts** — sein
+  eigener Step 1.4 (synthetische Daten) legt frische, leere Objekte an, und der Defekt
+  trat nur mit Bestand auf. „0 Konsolenfehler" wurde als Beleg gelesen, obwohl er nur
+  fuer den leeren Zustand galt. Gemessen im Zielrepo: 0 von 22 UX-Tests legten Belege an,
+  0 von 22 oeffneten die betroffene Seite; 3 Prod-Projekte waren tot, 24 Tage ohne Melder.
 
 - 2026-08-25: Initial — Stufe 1 aus KONZ-platform-051 (Owner „3 go"). Abweichungen vom
   KONZ-MVC, dort nachgetragen: Bericht = Sammel-Issue statt Datei im Zielrepo (E3 erlaubt
