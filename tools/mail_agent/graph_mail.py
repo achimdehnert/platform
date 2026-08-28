@@ -567,7 +567,7 @@ def cmd_show(
     r = _http(
         "GET",
         f"{_basis()}/messages/{urllib.parse.quote(mid, safe='')}"
-        "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+        "?$select=subject,from,toRecipients,ccRecipients,receivedDateTime,body,hasAttachments",
         headers=_auth(tok),
     )
     if r.status_code != 200:
@@ -580,6 +580,13 @@ def cmd_show(
         ((t.get("emailAddress") or {}).get("address", ""))
         for t in m.get("toRecipients", [])
     )
+    # Ohne diese Zeile kann ein Versandbeleg den Cc nicht belegen — er stand nur
+    # im Schreibpfad. Realfall 2026-08-28: ein Issue-Kommentar fuehrte "Versand
+    # belegt ... Cc X", obwohl kein Aufruf dieses Werkzeugs den Cc je zeigte.
+    ccs = ", ".join(
+        ((c.get("emailAddress") or {}).get("address", ""))
+        for c in m.get("ccRecipients", [])
+    )
     body = m.get("body") or {}
     text = body.get("content", "")
     if (body.get("contentType") or "").lower() == "html":
@@ -587,6 +594,8 @@ def cmd_show(
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     print(f"Von:     {em.get('name', '')} <{em.get('address', '')}>")
     print(f"An:      {tos}")
+    if ccs:
+        print(f"Cc:      {ccs}")
     print(f"Datum:   {m.get('receivedDateTime', '')}")
     print(f"Betreff: {m.get('subject', '')}")
     print("--- Body ---")
