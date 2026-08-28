@@ -304,18 +304,21 @@ def ollama_klassifikator(
     return klassifiziere
 
 
-GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage eingestuft
-(Arbeit steht noch aus). Pruefe das nach.
+GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage
+eingestuft. Pruefe das nach.
 
-Frage: Steht die genannte Arbeit zum Zeitpunkt dieses Textes NOCH AUS?
+Frage: Weist der Abschnitt Arbeit als bewusst AUSGELASSEN, VERSCHOBEN oder einem
+eigenen spaeteren Umbau ueberlassen aus — oder benennt er eine Restschuld, die
+hier nicht behoben wird?
 
-"nein" ist richtig, wenn der Abschnitt erledigte Arbeit beschreibt, einen Fix
-berichtet, misst, begruendet oder belegt — auch wenn er dabei Einschraenkungen
-oder Zahlen nennt.
-"ja" ist richtig, wenn die Arbeit ausdruecklich verschoben, ausgelassen oder als
-offene Restschuld benannt wird.
+Wichtig: Es geht NICHT darum, ob jemand die Arbeit eingeplant hat oder ob sie je
+wieder aufgegriffen wird. Eine ausdruecklich NICHT gemachte Arbeit zaehlt als
+"ja", auch wenn der Text sie fuer erledigt-durch-Verzicht haelt.
 
-Antworte NUR mit JSON: {"steht_aus": true|false}
+"nein" nur, wenn der Abschnitt ausschliesslich erledigte Arbeit beschreibt,
+einen Fix berichtet, misst oder belegt.
+
+Antworte NUR mit JSON: {"trifft_zu": true|false}
 
 Eingestuft als: %s
 Zitat: %s
@@ -332,6 +335,14 @@ def ollama_bestaetiger(
     keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str, str, str], bool]:
     """Zweite, unabhaengige Frage an dasselbe Modell — Gegenprobe je Kandidat.
+
+    Die Frage lautet bewusst NICHT "steht die Arbeit noch aus?". Genau diese
+    Formulierung liess den dokumentierten Zielfall (PR #2007) durchfallen: das
+    Modell antwortete `false` mit der Begruendung "Zusammenlegung ausgeschlagen"
+    — eine abgelehnte Arbeit steht in der Tat nicht mehr aus. Klassifikator und
+    Gegenprobe fragten damit nach verschiedenen Dingen (Typ vs. Zustand), und die
+    zweite Stufe nahm die erste zurueck. Gemessen am 2026-08-28 gegen beide Faelle
+    der Kalibrierdatei: Zielfall wieder gefunden, Fehlalarm #2196 weiter verworfen.
 
     Warum ueberhaupt: der Kalibrierlauf 2026-08-23 zeigte, dass die
     Klassifikation abgeschlossene Arbeit gelegentlich als Zusage liest
@@ -366,7 +377,7 @@ def ollama_bestaetiger(
         except (json.JSONDecodeError, ValueError):
             # Unlesbare Gegenprobe darf einen Fund nicht still schlucken.
             return True
-        return bool(d.get("steht_aus", True))
+        return bool(d.get("trifft_zu", True))
 
     _ = roh  # gemeinsame Fehlerbehandlung oben, Aufruf getrennt gehalten
     return bestaetige
