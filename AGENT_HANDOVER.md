@@ -35,7 +35,24 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-28 nachmittag — Herstellervergleich, Retro-Increment, und ein Gate, das seinen Zielfall verlor)
+## ⚡ Aktueller Stand (2026-08-28 abend — Schranke-Kandidat in der Registry, Rueckfall-Prognose beantwortet, drei Mails an den LUCA-Kanal)
+
+**Zeitanker:** HEAD `2bbfccad` · `rev-list --count` 3717 · geschrieben 2026-08-28
+
+**Zielzustand (Owner):** kein vorab formulierter — die Sitzung lief als Kette einzelner Auftraege (Dateisuche → Mailversand → SB-Neu-Analyse → Optimierung → Wiedervorlage #2253). **Zielzustand: n/a (begruendet).** SA-4: 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 5 Merges ([#2402](https://github.com/achimdehnert/platform/pull/2402), [#2403](https://github.com/achimdehnert/platform/pull/2403), [#2405](https://github.com/achimdehnert/platform/pull/2405), [#2407](https://github.com/achimdehnert/platform/pull/2407), [#2415](https://github.com/achimdehnert/platform/pull/2415)) · 0 Fehlanwendungen.
+
+**Der Befund, der zaehlt:** `tools/mail_agent/send_mail.py` war seit dem **2026-08-06 unbenutzbar** — zwei Merges legten je ein `--cc`-Argument an, argparse brach bei JEDEM Aufruf mit `ArgumentError` ab, vor dem Parsen. Drei Wochen lang konnte `/send-mail` nichts versenden, und niemandem fiel es auf, weil der Fehler erst beim Aufruf entsteht und kein Test das Skript startet. Behoben in [#2402](https://github.com/achimdehnert/platform/pull/2402). **Die Klasse ist nicht der Tippfehler, sondern der ungestartete Einstiegspunkt** — dieselbe Familie wie `built-but-never-called`.
+
+**Gate-Registry hat einen Zwischenzustand bekommen** ([#2405](https://github.com/achimdehnert/platform/pull/2405)): die 13 Slugs mit ausgeloester, aber nicht eingeloester Gate-Pflicht standen bisher ausschliesslich in der Ausgabe von `gate_deckung.py` — zwischen zwei Laeufen existierten sie nicht. Sie sind jetzt Sektion `kandidaten` mit Zaehler, letztem Vorkommen und Erhebungsdatum; die 29 gebauten Gates tragen `zustand` und `erzwungen_seit`. `gate_deckung.py` prueft gegen, ob jeder offene Slug aktenkundig ist (Negativ-Meldung an verkuerzter Registry belegt: 2 von 13 fehlend). Vorbild ist der Drift-Index aus Ilja Lerchs SB-Neu. Dazu zwei Regeln in `policies/evidence-discipline.md` ([#2407](https://github.com/achimdehnert/platform/pull/2407)): **Kein Pruefrabatt** und der **Vier-Punkte-Berichtsvertrag** (getan · angenommen · nicht verifizierbar · offen geblieben). Die Auslieferung hing danach noch am `platform-pinned`-Pin (Refresh war beim Session-Start fehlgeschlagen) — nachgezogen, `policy_frische.py` meldet 16 von 16 inhaltsgleich.
+
+**[#2253](https://github.com/achimdehnert/platform/issues/2253) ist beantwortet und geschlossen** ([#2415](https://github.com/achimdehnert/platform/pull/2415)): Rueckfall von Befund-Klassen ist aus den Retro-Daten **nicht** vorhersagbar. Diesmal lief das pre-registrierte Verfahren vollstaendig durch — Mindestgroesse erfuellt (Test 13 >= 10), das Kill-Gate feuerte an der **Marge**. Basisrate 28/71 = 39 % (Train 25/58 = 43 %, Test 3/13 = 23 %); die beste auf TRAIN entwickelte Regel („Erstretro trug < 5 Befunde", 73 %, Lift 1,70) waehlt auf TEST drei Klassen und trifft keine: 0/3, Lift 0,00 gegen Marge 1,50. Keine dritte Runde — sie wuerde denselben Test-Split zweimal verbrauchen. Das Messskript lag nur im Scratchpad und liegt jetzt unter `tools/messungen/rueckfall_prognose_2253.py`.
+
+**Aussenwirkung, alles ueber `ad@dehnert.team` mit CC an den Owner:** drei Mails an Ilja Lerch (privates Buch + Song, Rueckfrage zu seinem MTM-Foliensatz, Analyse seines SB-Neu-Systems mit Rueckmeldedokument). Neue Owner-Weisung dazu ist verankert ([#2403](https://github.com/achimdehnert/platform/pull/2403) + Memory): **IIL und HNU bekommen nur Entwuerfe, echter Versand ausschliesslich als `ad@dehnert.team`.** `send_mail.py` deckt das heute strukturell (kein `--account`); faellt die Beschraenkung, sind `--from`/`--role` das Schlupfloch.
+
+**Offen:** [#2413](https://github.com/achimdehnert/platform/issues/2413) HEAD-Stempel im Handover (Freshness-Checker ist als reusable Workflow in 18 Repos verdrahtet — additiv und advisory bauen) · [robo-lab#21](https://github.com/achimdehnert/robo-lab/issues/21) MTM-Normzeiten als Zeitmassstab fuer den Twin · Phase 0g dieser Sitzung **nicht pruefbar** (Verankerungs-Pruefer laeuft in den Timeout, CPU-Inferenz — von Hand gegengelesen: jede Vertagung dieser Sitzung hat ein Artefakt) · Beobachtung aus #2253, die kein Verdikt ist: das Merkmal „beim Erstauftritt gefangen" hat auf TRAIN Support 0 — ob das die Realitaet ist oder die Extraktion aus `gates_caught`, ist ungeprueft.
+
+
+## ⚡ Vorheriger Stand (2026-08-28 nachmittag — Herstellervergleich, Retro-Increment, und ein Gate, das seinen Zielfall verlor)
 
 **Zeitanker:** HEAD `f9c58abe` · `rev-list --count` 3716 · geschrieben 2026-08-28
 
@@ -49,16 +66,6 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
 **Offen:** [#2418](https://github.com/achimdehnert/platform/pull/2418) und [robo-lab#24](https://github.com/achimdehnert/robo-lab/pull/24) warten auf Review · [#2412](https://github.com/achimdehnert/platform/issues/2412) Stapel-Umbau + Verlagerung auf einen Runner mit GPU (`ci-gpu` ist per-Repo nur fuer writing-hub registriert) · Ausweitung von Phase 0g auf Retro-Massnahmentabellen (Vorschlag mit Messpunkt in [#2409](https://github.com/achimdehnert/platform/pull/2409) §5a) · zwei Memory-Kandidaten aus §6 des Retros warten auf Owner-Verankerung · [robo-lab#22](https://github.com/achimdehnert/robo-lab/issues/22) Wiedervorlage **2026-09-11** (UBTech-Antwort) · [robo-lab#23](https://github.com/achimdehnert/robo-lab/issues/23) CI ruft drei vorhandene Testdateien nicht auf.
 
-
-## ⚡ Vorheriger Stand (2026-08-28 vormittag — Actions-Minuten: Ursache gemessen, writing-hub auf GPU-Box, Gates ausgeweitet)
-
-**Zielzustand (Owner):** „unnötige Actions-Ausgaben vermeiden" + „writing-hub verursacht keine Kosten" — **erreicht** (verifiziert einzeln): (a) shared-ci v1.1.12 bricht überholte PR-Läufe in 23 Konsumenten ab (Wirkungsnachweis dev-hub-Run 33103182338); (b) writing-hub läuft auf dem GPU-Box-Runner `ci-gpu`, drei Läufe mit je **1** hosted Job (`Runner-Label-Check`, Owner: „31 nicht bauen"); (c) Budget 200 $ mit Stop „bis Situation bereinigt". SA-4: n/a (Klassen-Freigaben liefen als wörtliche Owner-Worte je Welle, siehe PR-Texte).
-
-- **Messung:** Usage-Report (Billing-API, `user`-Scope): 27.159 Linux-min 1.–28.8., writing-hub 77 % der bezahlten 31,15 $; Konto war am 27.8. real bei 100 % (hosted Jobs kontoweit gesperrt). Programm: [#2392](https://github.com/achimdehnert/platform/issues/2392).
-- **Gebaut:** shared-ci#60 + Tag v1.1.12, Pin-Bump 23/23; platform#2397/#2400 (`bootstrap_ci_runner_wsl.sh`, `hosts.yaml` `gpu-box`); writing-hub#826/#833; Absolut-Symlinks in 14 Repos entfernt ([#2401](https://github.com/achimdehnert/platform/issues/2401), Rest: Vendor-Bäume + Fleet-Scan-Gate).
-- **Retro [#2408](https://github.com/achimdehnert/platform/pull/2408)** (deep, 15/9): kritisch — Required-Check-Reduktion hatte writing-hubs `Integration Tests` aus dem Merge-Gate genommen (repariert, Owner „r1 go"). Zwei Gates rückfällig → ausgeweitet und Maschinenkopien gesynct ([#2411](https://github.com/achimdehnert/platform/pull/2411): Scanner Rev 4 Bypass-Claim/Kommentar-vor-Merge, Push-Gate Rev 2 hosts_audit/pytest). KONZ-021 Kill-Gate (c) erfüllt ([#2410](https://github.com/achimdehnert/platform/pull/2410)).
-- **Deploy-Sonde am Session-Ende:** coach-hub rot seit 20.8. (COMPOSE_PROJECT_NAME-Mismatch, [coach-hub#70](https://github.com/achimdehnert/coach-hub/issues/70), platform#2246); bahn-hub rot seit 23.8. (SSH-Pfad ohne Key, Misch-Config F-1 → [bahn-hub#19](https://github.com/achimdehnert/bahn-hub/issues/19)). Beide vorbestehend, von den Session-Merges nur erneut ausgelöst.
-- **Offen:** #2401 Punkt 2/3; writing-hub#824 (Dreifach-Test, 4.800 min/Monat); Usage-Report nach dem 1.9. als Monatsbeleg; Kompakt-Profil W2 nur noch für apo-hub/nl2cad relevant.
 
 ## Nächste Schritte (kompakt)
 
