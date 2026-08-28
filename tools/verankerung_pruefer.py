@@ -91,6 +91,20 @@ GATE_HEADER = {
 DEFAULT_MODELL = "qwen2.5:7b"
 DEFAULT_HOST = "http://127.0.0.1:11434"
 
+#: Die Antwort ist ein kurzes JSON-Objekt. Ohne Deckel laeuft ein Modell im
+#: Zweifel bis zum Kontextende weiter — auf einer Maschine ohne GPU kostet das
+#: Minuten je Segment, ohne dass ein besseres Urteil dabei herauskommt.
+MAX_ANTWORT_TOKEN = 160
+#: Je Segment im Stapel; der Deckel waechst mit der Stapelgroesse.
+STAPEL_ANTWORT_TOKEN = 96
+#: Wie viele Segmente in EINEN Aufruf gehen. 0 schaltet den Stapel ab.
+#: Der Instruktionsteil ist rund 600 Token lang und wird sonst je Segment erneut
+#: durch die Vorverarbeitung geschickt.
+STAPEL_GROESSE = 8
+#: Das 7b-Modell belegt rund 4,8 GB. Faellt es zwischen zwei PRs aus dem
+#: Speicher, zahlt der naechste Lauf das Laden erneut.
+DEFAULT_KEEP_ALIVE = "30m"
+
 KLASSEN = ("vertagung", "restarbeit", "freigabe", "keine")
 # Nur diese Klassen verlangen ein durables Artefakt. `keine` ist der Normalfall.
 ZUSAGE_KLASSEN = ("vertagung", "restarbeit", "freigabe")
@@ -235,7 +249,10 @@ Abschnitt:
 
 
 def ollama_klassifikator(
-    modell: str = DEFAULT_MODELL, host: str = DEFAULT_HOST, timeout: int = 120
+    modell: str = DEFAULT_MODELL,
+    host: str = DEFAULT_HOST,
+    timeout: int = 120,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str], dict]:
     """Klassifikator ueber einen loopback-lokalen Ollama.
 
@@ -251,7 +268,8 @@ def ollama_klassifikator(
                 "prompt": PROMPT % text,
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0},
+                "keep_alive": keep_alive,
+                "options": {"temperature": 0, "num_predict": MAX_ANTWORT_TOKEN},
             }
         ).encode()
         req = urllib.request.Request(
@@ -308,7 +326,10 @@ Abschnitt:
 
 
 def ollama_bestaetiger(
-    modell: str = DEFAULT_MODELL, host: str = DEFAULT_HOST, timeout: int = 120
+    modell: str = DEFAULT_MODELL,
+    host: str = DEFAULT_HOST,
+    timeout: int = 120,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str, str, str], bool]:
     """Zweite, unabhaengige Frage an dasselbe Modell — Gegenprobe je Kandidat.
 
@@ -328,7 +349,8 @@ def ollama_bestaetiger(
                 "prompt": GEGENPROBE % (klasse, zitat or "—", text),
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0},
+                "keep_alive": keep_alive,
+                "options": {"temperature": 0, "num_predict": MAX_ANTWORT_TOKEN},
             }
         ).encode()
         req = urllib.request.Request(
