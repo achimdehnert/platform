@@ -17,7 +17,12 @@ DIR="/opt/actions-runner-$REPO"
 NAME="${NAME:-$REPO-$LABEL}"
 
 echo "== 1/5 Docker (nativ in WSL, ohne Docker Desktop)"
-if ! command -v docker >/dev/null; then
+# Docker Desktop hinterlaesst in der Distro einen Stub `docker`, der nur "not found" ausgibt —
+# `command -v docker` ist deshalb KEIN Beweis fuer einen Daemon. Massgeblich ist die systemd-Unit.
+if ! systemctl list-unit-files docker.service 2>/dev/null | grep -q '^docker.service'; then
+  if [ -x /usr/bin/docker ] && ! dpkg -S /usr/bin/docker >/dev/null 2>&1; then
+    sudo mv /usr/bin/docker /usr/bin/docker.desktop-stub   # Stub aus dem Weg, sonst kollidiert das Paket
+  fi
   sudo apt-get update -qq
   sudo apt-get install -y -qq ca-certificates curl gnupg
   sudo install -m 0755 -d /etc/apt/keyrings
