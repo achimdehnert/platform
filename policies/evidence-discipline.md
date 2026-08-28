@@ -132,40 +132,6 @@ ohne diese Validierung wäre dieselbe Klasse Scheinsicherheit wie ein grünes
 Run on or after **2026-06-15** (~10 sessions post-merge). R ≥ 0.70 = policy working.
 If R does not beat the ~6-incident baseline, the policy is cut per the effectiveness test above.
 
-## Kein Prüfrabatt
-
-Prüfende und messende Arbeit läuft **nie** mit geringerem Aufwand als die bauende.
-Gespart wird bei Recherche und Zuarbeit, nicht bei der Kontrolle. Ein Modellwechsel
-nach unten, ein kürzerer Prompt oder ein Stichprobenlauf sind für den Prüfschritt
-keine zulässige Ersparnis — wer billiger prüft als er baut, erzeugt genau das grüne
-Ergebnis, das er sich wünscht.
-
-Praktisch: läuft der Bau auf dem starken Tier, läuft die Prüfung dort auch. Wird für
-die Prüfung ein schwächeres Tier gewählt, steht der Grund im Artefakt (PR-Text,
-Issue), nicht im Kopf des Bearbeiters.
-
-Herkunft: Arbeitsordnung SB-Neu (Ilja Lerch, 2026), Abschnitt „Kein Prüfrabatt";
-übernommen 2026-08-28.
-
-## Berichtsvertrag: vier Punkte am Schluss
-
-Jeder Bericht einer delegierten Arbeit — Subagent, Skill-Lauf, Werkzeuglauf — endet
-mit vier Punkten, in dieser Reihenfolge:
-
-1. **getan** — was tatsächlich ausgeführt wurde, mit Artefakt.
-2. **angenommen** — worauf gebaut wurde, ohne es zu prüfen.
-3. **nicht verifizierbar** — was mit den vorhandenen Mitteln nicht prüfbar war.
-4. **offen geblieben** — was bewusst nicht erledigt wurde.
-
-Der Vertrag zielt auf die Verwechslung, die uns am häufigsten trifft: **angenommen**
-wird als **getan** berichtet. Wer die zweite Zeile leer lässt, behauptet, nichts
-vorausgesetzt zu haben — das ist fast nie wahr und damit selbst ein prüfbarer
-Anspruch. Punkt 4 ist zugleich der Auslöser für die Tracking-Pflicht: bewusst
-Ausgelassenes bekommt im selben Zug ein Artefakt.
-
-Herkunft: Arbeitsordnung SB-Neu (Ilja Lerch, 2026), Abschnitt 4.1; übernommen
-2026-08-28.
-
 ## Changelog
 
 - 2026-08-02: **Signal K ergänzt (unvalidiert, Beobachtung)** — Rücknahme-Quote als
