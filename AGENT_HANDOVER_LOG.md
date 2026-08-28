@@ -3022,3 +3022,14 @@ Eigene Fehler: Trusted-Publisher-Repo nicht vorab benannt (Owner band das archiv
 testkit), Poll auf reviewDecision, KONZ-Anhang im Nummern-Guard, zwei Werkzeug-Luecken
 in pr_merge_sa (#2359, #2385) jeweils per Kommentar + Ruleset-Merge ueberbrueckt.
 
+
+## 2026-08-28 vormittag — Actions-Minuten-Programm (62f875)
+
+Alarm 90 % → Ursache gemessen (writing-hub 77 % der bezahlten Minuten, Rundung je Job,
+kein concurrency, Dreifach-Test). shared-ci v1.1.12 in 23 Konsumenten; writing-hub auf
+GPU-Box-Runner ci-gpu (WSL2, Bootstrap als root ueber prod/wg0-Hop); 14 Repos von
+Absolut-Symlinks befreit. Retro #2408: Required-Check-Reduktion hatte den Sibling-Job
+Integration Tests verloren (repariert); zwei Gates rueckfaellig → #2411, Kopien gesynct.
+Eigene Fehler: Bypass-Kommentar vor dem Merge-Ergebnis (#2397), --admin auf generische
+Formel (mcp-hub#234), Fast-Forward ohne fetch ("synchron" bei fehlendem Merge).
+Deploy-Sonde: coach-hub (seit 20.8.) und bahn-hub (seit 23.8.) rot, vorbestehend, getrackt.
