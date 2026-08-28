@@ -27,6 +27,7 @@ sys.path.insert(0, str(TOOL_DIR / "claude-hooks"))
 
 from verankerung_pruefer import (  # noqa: E402
     GATE_HEADER,
+    GEGENPROBE,
     Ankerurteil,
     bericht,
     normalisiere,
@@ -204,6 +205,24 @@ def test_should_leere_pruefung_nicht_als_sauber_ausgeben():
 def test_should_sauberen_lauf_als_solchen_ausweisen():
     segmente = segmentiere(normalisiere(PR2007_ABSATZ))
     assert "✅" in bericht([], segmente, "x", block=False)
+
+
+def test_should_gegenprobe_nach_dem_typ_fragen_nicht_nach_dem_zustand():
+    """Die zwei Stufen muessen dieselbe Frage stellen — sonst hebt die zweite die erste auf.
+
+    Gemessen am 2026-08-28: der frueher hier stehende Wortlaut („Steht die
+    genannte Arbeit NOCH AUS?") liess den dokumentierten Zielfall aus PR #2007
+    durchfallen. Das Modell antwortete `false` und begruendete das mit
+    „Zusammenlegung ausgeschlagen" — eine abgelehnte Arbeit steht tatsaechlich
+    nicht mehr aus. Der Klassifikator fragt aber nach dem TYP (wird Arbeit
+    ausgelassen?), nicht nach dem ZUSTAND. Dieser Test haelt die Definitionen
+    zusammen; er ersetzt keinen Modelllauf, aber er faengt das Zurueckdrehen.
+    """
+    assert "NOCH AUS" not in GEGENPROBE
+    assert "AUSGELASSEN" in GEGENPROBE
+    assert "trifft_zu" in GEGENPROBE
+    # Der Verzicht darf nicht als Erledigung durchgehen — genau daran scheiterte es.
+    assert "erledigt-durch-Verzicht" in GEGENPROBE
 
 
 def test_should_nicht_erreichbares_modell_als_nicht_pruefbar_melden():
