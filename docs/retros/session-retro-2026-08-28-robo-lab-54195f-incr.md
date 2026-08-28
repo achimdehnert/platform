@@ -48,7 +48,7 @@ gates_caught: []
 | # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
 |---|---|---|---|---|---|---|
 | 1 | Gesendete Mail an UBTech behauptet Betrieb eines physischen G1 („we run both as hardware and as a MuJoCo digital twin"); Repo sagt „ohne Geraet", Mietanfrage offen | fehlende Validierung | hoch | SURVIVES | Mail 2026-08-28T09:43:58Z (Gesendete Elemente) vs. `robo-lab origin/main:README.md:4`, `docs/beschaffung-miete-leasing.md`, `docs/konzepte/KONZ-robo-lab-001.md:58` | `claim-before-cheapest-check` (85 Retros) |
-| 2 | Kommentar an robo-lab#22 fuehrt Cc als „Versand belegt", das Werkzeug kann Cc nicht lesen | Werkzeug | mittel | SURVIVES | `graph_mail.py` `$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments`; `cmd_show` druckt Von/An/Datum/Betreff, kein Cc; `ccRecipients` nur im Schreibpfad | `claim-before-cheapest-check` |
+| 2 | Kommentar an robo-lab#22 fuehrt Cc als „Versand belegt", das Werkzeug kann Cc nicht lesen | Werkzeug | mittel | SURVIVES | `tools/mail_agent/graph_mail.py:570` (`$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments`), `cmd_show` ab :544 druckt zuletzt `An:` in :589 — keine Cc-Zeile; `ccRecipients` nur im Schreibpfad | `claim-before-cheapest-check` |
 | 3 | CI in robo-lab ruft `sim/test_stream_gate.py`, `sim/test_view.py`, `sim/test_z2_chain.py` nicht auf; Luecke steht nur im Text von PR #15, kein Issue — Aktionspunkt der Eltern-Retro, im Increment nicht angefasst | Prozesslücke | mittel | SURVIVES | `robo-lab origin/main:.github/workflows/ci.yml` ohne `pytest`; `ls-tree` zeigt die drei Dateien; `gh issue list --state open` (8) ohne CI-Thema | `deferred-item-no-tracking-issue` (32 Retros, Gate RUECKFAELLIG) |
 | 4 | Eltern-Retro lag als offener PR #2406 (approved, CLEAN, 8/8 gruen) statt auf `main` — ihre Gate-Kandidaten waren dadurch nicht wirksam | Prozesslücke | mittel | SURVIVES | `git ls-tree origin/main -- docs/retros/ \| grep 54195f` → leer (10:10Z); Bot-Approval 10:03:55Z, `autoMergeRequest: null` | `proof-artifact-left-unmerged` (1 Retro) |
 | 5 | Wiedervorlage 2026-09-11 in robo-lab#22 haengt an keinem Mechanismus | fehlende Validierung | niedrig | SURVIVES | `gh issue view 22 --json labels,milestone` → `labels: []`, `milestone: null`; `.github/workflows/` enthaelt nur `ci.yml` | neu |
@@ -93,6 +93,10 @@ Invariante erfuellt: 5 Soll-Schritte zu 5 ueberlebenden Befunden.
 - `refuted_rate`-Band der letzten Laeufe: 0,27 · 0,00 · 0,25 · 0,00 · 0,33 · 0,14 · 0,00 · 0,07.
   Das Werkzeug warnt: „letzte 3 <0,2 → Falsifikation ist Theater". Dieser Lauf liegt bei 0,29
   brutto; die echte Quote `phase3_refuted/(findings_total − pre_refuted)` betraegt 1/6 = 0,17.
+  **Damit setzt dieser Report den Warntrend fort, er bricht ihn nicht:** 0,17 liegt unter der
+  Schwelle und ist der vierte Lauf in Folge darunter (0,14 · 0,00 · 0,07 · 0,17). Die brutto-Zahl
+  0,29 sieht nur deshalb besser aus, weil eine vor Phase 3 verworfene Collector-Angabe mitzaehlt —
+  die misst die Schaerfe der Skeptiker nicht.
 - Slug-Existenz vor der Wiederholungs-Behauptung geprueft: `claim-before-cheapest-check` in 85,
   `deferred-item-no-tracking-issue` in 32, `proof-artifact-left-unmerged` in 1 Retro-Datei;
   `wiedervorlage-ohne-mechanismus` in 0 → wird als **neu** gefuehrt, nicht als Wiederholung.
@@ -104,14 +108,21 @@ Invariante erfuellt: 5 Soll-Schritte zu 5 ueberlebenden Befunden.
 | `deferred-item-no-tracking-issue` | advisory | 2026-08-23~ | **RUECKFAELLIG** (24 vor / 4 nach, letzter 2026-08-26) | Befund #3 ist ein weiteres Vorkommen nach dem Bau |
 | `claim-before-cheapest-check` | blocking | 2026-08-25~ | `zu-frueh` (60 vor / 0 nach, Kalibrierfenster 1/10 bis 2026-09-20) | Befunde #1 und #2 sind die **ersten Vorkommen nach dem Bau** |
 
-**Zu `deferred-item-no-tracking-issue` — Antwort: ausweiten.** Das Gate prueft PR-Texte auf
-Aufschub-Formulierungen (`verankerung_pruefer.py --pr`). Der reale Fall entzieht sich ihm auf
-zwei Wegen: die Zusage stand nicht in einem PR-Text, sondern als Aktionspunkt in einer
-**Retro-Datei**, und der Traeger des Aufschubs war ein Aktionspunkt, den niemand als Zusage
-formulierte. Vorschlag mit Messpunkt: der Pruefer liest zusaetzlich die
-`## 7. Massnahmen`-Tabelle der jeweils juengsten Retro des Zielrepos und meldet jede
-🔵-Zeile, die beim naechsten `/session-ende` weder erledigt noch mit Issue-Link versehen ist.
-Messbar an genau diesem Fall: er haette Befund #3 gefangen.
+**Zu `deferred-item-no-tracking-issue` — Antwort: ausweiten, und zwar am Aufruf, nicht an der
+Faehigkeit.** Eine erste Fassung dieses Absatzes behauptete, der Pruefer koenne Retro-Dateien
+nicht lesen. Das ist falsch: `tools/verankerung_pruefer.py:529-530` nimmt **zwei** Quellen,
+`--pr` (PR-Text via gh) **und `--datei` (beliebige Markdown-Datei)**, gelesen in :575. Die
+Faehigkeit ist da; was fehlt, ist der **Aufruf**: `session-ende` Phase 0g schleift ausschliesslich
+ueber die PRs des Tages und fasst keine Retro-Datei an. Vorschlag mit Messpunkt: Phase 0g ruft
+zusaetzlich `--datei` auf die juengste Retro des Zielrepos auf und meldet jede 🔵-Zeile ihrer
+`## 7. Massnahmen`-Tabelle, die weder erledigt noch mit Issue-Link versehen ist. Messbar an genau
+diesem Fall: so waere Befund #3 gefangen worden.
+
+*Anlass der Korrektur:* Der Evidenz-Hook fing die urspruengliche Formulierung als ungedeckte
+Behauptung ueber die Faehigkeit eines Werkzeugs. Der billigste Check war ein `grep` auf
+`add_argument` — genau die Klasse, die dieser Report unter Befund #1 und #2 fuehrt. Damit
+enthaelt dieser Retro ein drittes Vorkommen derselben Familie, diesmal im Retro-Text selbst
+und vom Gate gefangen.
 
 **Zu `claim-before-cheapest-check` — keine Herabstufung, das Fenster laeuft.** Die beiden
 Vorkommen sind Datenpunkte fuer das offene Kalibrierfenster (Frist 2026-09-20), keine
@@ -220,6 +231,11 @@ Architekturentscheidungen — CHANGELOG/PR genuegt.
 - **Ob die Falschaussage die Antwort von UBTech tatsaechlich beeinflusst.** Nicht messbar,
   bevor eine Antwort da ist. Der Schweregrad „hoch" ist die Einschaetzung des Skeptikers zur
   plausiblen Wirkung, kein gemessener Effekt.
+- **Ob `verankerung_pruefer.py` an einem echten Text tatsaechlich anschlaegt.** Die Faehigkeits-
+  Aussage oben stuetzt sich auf die gelesenen `add_argument`-Zeilen, nicht auf einen Lauf: die
+  Positivkontrolle (`--pr 2409`) lief in ein Zeitlimit, vermutlich weil kein Modell erreichbar ist.
+  Ohne sie ist offen, ob der Pruefer eine bekannte Zusage auch findet. Billigster Check: `ollama`
+  starten und den Lauf wiederholen.
 - **Der Chat-Verlauf des Vergleichs.** Kein Finder konnte ihn sehen; beurteilt wurde nur, was
   in robo-lab#22 und in der Mail steht.
 
