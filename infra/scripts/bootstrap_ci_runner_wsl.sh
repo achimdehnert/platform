@@ -33,6 +33,13 @@ echo "== 2/5 Runner-Nutzer github-ci"
 id github-ci >/dev/null 2>&1 || sudo useradd -m -s /bin/bash github-ci
 sudo usermod -aG docker github-ci
 
+echo "== 2b/5 Playwright-Systemabhaengigkeiten (einmalig als root, der Runner-Nutzer bekommt kein sudo)"
+# writing-hub installiert Chromium im Job per `playwright install chromium` (ohne --with-deps);
+# die OS-Libs dafuer liegen nach diesem Schritt bereits auf der Box.
+sudo apt-get install -y -qq python3-pip python3-venv >/dev/null
+sudo python3 -m pip install -q playwright >/dev/null 2>&1 || true
+sudo python3 -m playwright install-deps chromium >/dev/null 2>&1 || echo "WARN: playwright install-deps fehlgeschlagen — Chromium-Libs von Hand nachziehen"
+
 echo "== 3/5 Runner-Paket $RUNNER_VERSION nach $DIR"
 if [ ! -x "$DIR/config.sh" ]; then
   sudo mkdir -p "$DIR" && sudo chown github-ci:github-ci "$DIR"
