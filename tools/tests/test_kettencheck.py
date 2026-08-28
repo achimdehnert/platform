@@ -8,7 +8,8 @@ import importlib.util
 import json
 import pathlib
 import sys
-from datetime import date, timedelta
+import os
+from datetime import date, datetime, timedelta
 
 _SRC = pathlib.Path(__file__).resolve().parents[1] / "mail_agent" / "kettencheck.py"
 _spec = importlib.util.spec_from_file_location("kettencheck", _SRC)
@@ -48,6 +49,10 @@ class TestArtefakte:
     def test_should_flag_a_stale_artefact_with_its_age(self, tmp_path):
         p = tmp_path / "board.md"
         p.write_text("x", encoding="utf-8")
+        # mtime explizit auf HEUTE setzen: die reale Uhr darf das Alter nicht bestimmen
+        # (Zeitbombe 2026-08-28: HEUTE ist fix, die Datei war ploetzlich "frisch").
+        ts = datetime.combine(HEUTE, datetime.min.time()).timestamp()
+        os.utime(p, (ts, ts))
         befund = kc.pruefe_artefakt("Board", p, HEUTE + timedelta(days=9), "make boards")
         assert not befund.ok
         assert "Tage alt" in befund.ort

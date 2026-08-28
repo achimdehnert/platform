@@ -156,6 +156,18 @@ hosts:
     hosts_runners: [staging-ci]
     verified: 2026-07-30               # SSH-Probe on-host (RAM/Swap/Disk/Container/docker stats)
 
+  gpu-box:
+    ip: 10.99.0.2                      # wg0-Peer von prod (10.99.0.1); von aussen nicht erreichbar
+    ssh: achim@10.99.0.2               # Windows-OpenSSH, nur ueber prod (ProxyJump hetzner-prod)
+    hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
+    provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
+    server_type: rtx4090               # RTX 4090 24 GB; WSL2: 8 vCPU / 12 GB / 4 GB Swap (.wslconfig)
+    role: >
+      GPU-Box fuer lokale LLM-Inferenz (illustration-hub-Render ueber wg0) und ab 2026-08-28
+      CI-Runner `ci-gpu` fuer writing-hub (KONZ-021-Opt-out, platform#2392). Kein Prod-Deploy.
+    hosts_runners: [gpu-box]
+    verified: 2026-08-28               # read-only Probe ueber prod/wg0 (WSL, Docker, sudo, GitHub-Reach)
+
   staging-dedicated:
     ip: 178.104.184.168
     ssh: root@178.104.184.168
@@ -287,7 +299,7 @@ runners:
     verified: 2026-06-28
 
   gpu-box:
-    host: 10.99.0.2                    # wg0-Peer, nur von prod erreichbar (siehe prod-Block)
+    host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
     status: planned                    # 2026-08-28: Box verifiziert (Windows 11 + WSL2 Ubuntu 22.04,
                                        # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
                                        # Runner noch NICHT registriert — Bootstrap braucht sudo vor Ort
