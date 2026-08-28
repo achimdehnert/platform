@@ -673,11 +673,10 @@
     },
     {
       "slug": "rueckfall-prognose-aus-retro-daten",
-      "decided": "2026-08-24",
+      "decided": "2026-08-28",
       "owner": "achim",
       "ref": "platform#2253",
-      "wiedervorlage": "2026-08-28",
-      "reason": "Pre-registrierte Messung (Zeit-Split 2026-07-15, Rueckfall = 2. Auftritt binnen 30 Tagen, Marge Lift >= 1,5x Basisrate, Mindestgroesse 10 Test-Klassen). Kill-Gate feuerte an der MINDESTGROESSE: Test-Split hat 8 Klassen (< 10). Gemessen, nicht geschaetzt: Basisrate 30d = 28/66 = 42% (Train 25/58 = 43%, Test 3/8 = 38%). Kein Urteil ueber das Signal selbst — die 10. Test-Klasse reift am 2026-08-26, bis Mitte September waechst der Split auf bis zu 46. Wiedervorlage 2026-08-28: identisches Verfahren, Test = alle Erstauftritte >= 2026-07-15 mit gereiftem 30-Tage-Fenster; Merkmale weiterhin NUR aus Vor-Cutoff-Texten."
+      "reason": "Endverdikt der Wiedervorlage 2026-08-28: Rueckfall ist aus den vorhandenen Retro-Daten NICHT vorhersagbar. Das pre-registrierte Verfahren lief diesmal vollstaendig durch — die Mindestgroesse ist erfuellt (Test-Split 13 Klassen >= 10), das Kill-Gate feuerte an der MARGE. Gemessen an 100 Retros, 111 Klassen, davon 71 mit vollem 30-Tage-Fenster: Basisrate 28/71 = 39 % (Train 25/58 = 43 %, Test 3/13 = 23 %). Auf TRAIN entwickelt und dort vollstaendig ausgewiesen wurden zehn Merkmale aus dem Erstauftritts-Text; bestes war 'Erstretro trug < 5 Befunde' mit 11/15 = 73 %, Lift 1,70. Genau diese eine Regel wurde einmalig auf TEST angewandt: sie waehlt dort 3 Klassen aus, keine davon faellt zurueck — 0/3 = 0 %, Lift 0,00 gegen die Marge 1,50. Zusatzbeobachtung, nicht Teil des Verdikts: die Basisrate selbst wandert (43 % Train vs. 23 % Test), was jede auf Train geeichte Schwelle zusaetzlich entwertet. Ergebnis ist ein sauberes Negativergebnis, kein Abbruch: die Frage ist beantwortet, die Antwort lautet nein. Keine Wiedervorlage mehr — eine dritte Runde wuerde denselben Test-Split mehrfach verbrauchen."
     }
   ],
   "_widerrufen_doc": "Verzichte, die zurueckgenommen wurden. Sie stehen NICHT mehr in `declined` — sonst zaehlten `gate_deckung.py` und `retro_kpis.py` sie weiter als getroffene Entscheidung, und der Widerruf waere deklariert statt wirksam. Die Slugs sind damit wieder offen und erscheinen in der GATE-PFLICHT-Liste. Diese Sektion bewahrt, warum der Verzicht einmal galt und woran er gescheitert ist — die Widerlegung ist der wertvollere Teil.",
