@@ -12,9 +12,9 @@ footprint_reduction_reason: >
   "145 go"); (b) voll rollback-faehig, keine DB-Migration — die Ausgangswerte der
   zwei Jobs wurden vor der Aenderung gesichert und im Transkript festgehalten;
   (c) findings_total-Schaetzung <=10 (real 13, knapp darueber).
-findings_total: 13
-findings_survived: 10
-refuted_rate: 0.23
+findings_total: 14
+findings_survived: 11
+refuted_rate: 0.21
 phase3_refuted: 3
 pre_refuted: 0
 scores:
@@ -26,11 +26,13 @@ scores:
   entscheidungsqualitaet: 4
 gate_candidates:
   - regressionstest-faellt-in-eigene-falle
+  - skip-ci-marker-quoted-in-message
   - cross-session-nummer-ohne-gegenpruefung
   - session-ende-uebersieht-eigenen-roten-deploy
 recurring_findings:
   - claim-before-cheapest-check
   - partial-fix-not-generalized-to-sibling-artifacts
+  - skip-ci-marker-quoted-in-message
 gates_caught:
   - claim-before-cheapest-check
 ---
@@ -54,6 +56,10 @@ gates_caught:
 - **Drei Selbstanklagen wurden vom Skeptiker widerlegt.** Die Entscheidungen waren besser
   als die eigene Kritik: `alert()` korrekt ausgenommen, PR #818 eigenstaendig wertvoll,
   die `ProjectPhaseExecution`-Ausnahme notwendig statt ueberfluessig.
+- **Der Report selbst lief in eine dokumentierte Falle:** seine Commit-Message zitierte
+  `[skip ci]` im Erklaertext, GitHub las den Marker als Anweisung und startete keinen
+  einzigen Required Check. Nach dem Amend: 9 statt 1. Genau der Fall, den
+  `drift-skip-ci-marker-quoted-in-message` beschreibt.
 - **Zwei echte Maengel im neuen Dialog ueberlebten die Falsifikation** — fehlende
   Fokus-Falle und ein Promise, das bei Mehrfach-Oeffnung fuer immer haengt. Der zweite
   erzeugt genau die Symptomatik, gegen die der Dialog gebaut wurde.
@@ -74,6 +80,7 @@ gates_caught:
 | 10 | Beat-Zeitplan nur in `docker-compose.prod.yml`, nicht in dev/staging — dort altern Wartezustaende weiter unbegrenzt | Prozessluecke | niedrig | SURVIVES | `docker-compose.yml`, `.staging.yml`; `tests/test_alterung_ist_verdrahtet.py:56` | neu |
 | 11 | `alert()` an 8 Stellen nicht ersetzt — angeblich unbegruendete Luecke | verfruehte Festlegung | mittel | **REFUTED** | `chapter_writer.html:544-546,549-550,768,770` · `editing.html:136` · `review.html:132` · `publishing.html:349,351` — 6 Guard-Klauseln mit unbedingtem `return`, 2 Meldungen nach abgeschlossenem Fetch. Kein Aufruf prueft einen Rueckgabewert, Unterdrueckung aendert den Kontrollfluss nie. | — |
 | 12 | #818 wurde 2h14min nach #825 mit einer widerlegten Kausalbehauptung gemergt | verfruehte Festlegung | mittel | **REFUTED** | #818s Body behauptet **keine** Exklusivitaet; der `confirm()`-Defekt ist real, unabhaengig gemessen und klassenweit ueber 10 Aufrufstellen behoben. Zwei unabhaengige Fehler teilten ein Symptomfenster. | — |
+| 14 | Die Commit-Message **dieses Reports** zitierte den `[skip ci]`-Marker im Erklaertext — GitHub matchte ihn im gesamten Body und startete **keinen** der drei Required Checks. Der PR haette nie gemergt werden koennen | Wissensluecke | **hoch** | SURVIVES | platform#2420: vor dem Amend 1 Check (`automerge=SKIPPED`), nach dem Force-Push **9 Checks**, alle COMPLETED | `skip-ci-marker-quoted-in-message` |
 | 13 | `ProjectPhaseExecution`-Ausnahme fuer ein totes Modell geschrieben | Wissensluecke | mittel | **REFUTED** | Die Zaehlung stimmt (kein Aufrufer ausser Admin/Migration), aber sie ist die **Begruendung** der Ausnahme, nicht ihr Widerlegung: ohne sie faellt `test_should_give_every_waiting_state_a_deadline_or_a_reason` bei **jedem** Lauf, weil die Registry-Sonde das Modell findet. | — |
 
 ## 3. Scorecard
@@ -100,6 +107,7 @@ gates_caught:
 | „Sieben PRs" geschrieben, acht aufgezaehlt | Zahlwoerter vor Aufzaehlungen im Abschlussdokument gegen die Liste zaehlen — oder weglassen. Eine Zahl, die nicht traegt, entwertet den Rest des Absatzes. | #7 |
 | Fristen 6h/24h gewaehlt, waehrend der eigene Kommentar eine Messung fordert | Entweder die realen Laufzeiten einmal messen (`max(updated_at - created_at)` ueber die `done`-Zeilen) und die Frist daraus ableiten, oder den Wert ausdruecklich als vorlaeufig markieren — nicht beides im selben Kommentar behaupten. | #8 |
 | Zielzustand von drei Prod-Klick-Befunden verdraengt, ohne Neuverhandlung | Wenn ein ungeplanter Prod-Defekt den Zielzustand verdraengt, den Zielzustand **im selben Zug** neu aushandeln (ein Satz an den Owner), statt ihn am Ende als „teilweise erreicht" zu berichten. | #9 |
+| Der Marker `[skip ci]` wurde im Erklaertext einer Commit-Message zitiert; GitHub las ihn als Anweisung und startete keinen Required Check | Ueber den Marker wird im **PR-Text** geschrieben, nie in einer Commit-Message — auch nicht zitiert, auch nicht verneint. Der Token darf in einer Commit-Message an keiner Stelle vorkommen. Erkennungsmerkmal: ein Rollup mit nur `automerge` ist kein „laeuft noch", sondern der Befund. | #14 |
 | Beat-Dienst nur in der Prod-Compose | Ein wiederkehrender Lauf, der einen Datenzustand korrigiert, gehoert in **jede** Umgebung, die diesen Zustand erzeugt — oder die Auslassung bekommt eine Zeile im Test, die sagt warum. | #10 |
 
 ## 5. Laengsschnitt
@@ -159,9 +167,23 @@ gefuehrt.
 
 ## 5b. Autonomie-Kalibrierung
 
-- **`over_ask: 0`** — Kein deterministischer, reversibler Schritt wurde unnoetig
-  vorgelegt. Die vier Vorlagen (Diagnose-Session ×2, Altjobs altern, Beat verdrahten)
-  waren alle Prod-Zustandsaenderungen und damit Gate 2.
+- **`over_ask: 2`** — beide vom Owner ausdruecklich zurueckgewiesen, nachdem der
+  erste Entwurf dieses Abschnitts noch `0` behauptete:
+  1. **writing-hub#836 zum Merge vorgelegt.** Der PR war `CLEAN`, behob einen roten
+     `main` und war reversibel. Ein Hook meldete „der letzte CI-Lauf auf main ist
+     FAILURE" — das ist ein **Pruefauftrag** („erst die Ursache ansehen"), keine
+     Freigabefrage. Die Ursache war angesehen, belegt und behoben; der Merge war die
+     Aufloesung. Owner: „203 ist abwinken -> autonomes go".
+  2. **platform#2420 als „dein Zug" gelabelt**, obwohl der PR nur auf Checks wartete.
+     Owner: „checks pending -> damit ist das nicht mein Zug". Der eigentliche Grund war
+     schlimmer als Warten: die Checks liefen gar nicht (Befund #14).
+  Die vier echten Vorlagen (Diagnose-Session ×2, Altjobs altern, Beat verdrahten) waren
+  Prod-Zustandsaenderungen und damit korrekt Gate 2.
+- **Muster:** beide Faelle sind derselbe Fehler — **eine technische Blockade als
+  Entscheidungsfrage gelesen**. Ein Gate, das eine Pruefung verlangt, und ein Check, der
+  nicht gestartet ist, sind Aufgaben fuer den Agenten, nicht Fragen an den Owner. Mit
+  ≥2 Vorkommen ist das laut Skill ein Kandidat fuer die Gate-Liste in
+  `feedback_autonomy_charter`.
 - **`over_act: 0`** — Kein Gate wurde autonom ueberschritten. Der blockierte Versuch,
   eine Prod-Session ohne Freigabe anzulegen, wurde vom Classifier abgefangen **und nicht
   umgangen**; die Freigabe wurde stattdessen eingeholt.
