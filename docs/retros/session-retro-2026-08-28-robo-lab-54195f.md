@@ -16,7 +16,7 @@ scores:
   risiko_debt: 2
   prozess_effizienz: 2
   entscheidungsqualitaet: 4
-gate_candidates: [untested-command-handed-to-user, ci-gate-narrower-than-local-test, issue-open-after-its-fix-merged, branch-from-wrong-base-orphans-pr]
+gate_candidates: [untested-command-handed-to-user, ci-gate-narrower-than-local-test, issue-open-after-its-fix-merged, branch-from-wrong-base-orphans-pr, gate-deferred-item-no-tracking-issue-rueckfaellig]
 recurring_findings: [untested-command-handed-to-user, same-file-serial-prs, built-but-never-called, ci-gate-narrower-than-local-test, issue-open-after-its-fix-merged, branch-from-wrong-base-orphans-pr, test-asserts-literal-against-itself, deferred-item-no-tracking-issue]
 gates_caught: [no-checks-reported-read-as-green]
 ---
@@ -46,9 +46,9 @@ gates_caught: [no-checks-reported-read-as-green]
 | 9 | Die bezahlte Mandanten-Einschätzung hat **kein Artefakt in irgendeinem Repo** — Ledger und PDF liegen außerhalb von git | Prozesslücke | mittel | SURVIVES | `git grep -ilE "retention"` über beide Repos: nur Fehltreffer zu Daten-Retention | deferred-item-no-tracking-issue |
 | 10 | Der „Owner-Entscheid" in robo-lab#12 trägt keine Gegenzeichnung — Kommentator und Ausführender sind dieselbe Instanz | Kommunikation | niedrig | SURVIVES | Issue-Kommentar 2026-08-28T05:15:18Z | — |
 | 11 | „Der Handover behauptet, `~/.claude/CLAUDE.md` sei umgestellt — die Datei zeigt die alte Reihenfolge" | Kommunikation | kritisch | **REFUTED** | Direktlesung: Regel 1 Zeile 83–87 trägt „Vergangenheit → Herleitung → Zukunft", Regel 7 Zeile 95 „Prosa **DAZWISCHEN**", Regel 10 Zeile 98 existiert. Der Prüfer verglich mit dem Sitzungs-Schnappschuss | — |
-| 12 | „Das Kriterium der Stufe 2 in #12 wurde still abgeschwächt" | Prozesslücke | hoch | **REFUTED** | Der Grund ist eine belegte Architektur-Inkompatibilität (mjlab trainiert 29 DoF); die Positivkontrolle wurde nach Kriterium 5 verschoben, nicht gestrichen | — |
-| 13 | „Kill-Gate-Schwellen ohne Messreihe sind eine verfrühte Festlegung" | verfrühte Festlegung | niedrig | **REFUTED** | Vorab-Bindung **ist** der Zweck eines Kill-Gates; die Alternative wäre Zielscheibenverschiebung durch denselben Akteur, der misst und bewertet | — |
-| 14 | Drei rote Flaggen des Collectors (platform #2387/#2388, #2369/#2404) | — | — | **pre-refuted** | Gehören fremden Sitzungen; Session-Grenze ist die Konversation, nicht der Kalendertag | — |
+| 12 | „Das Kriterium der Stufe 2 in #12 wurde still abgeschwächt" | Prozesslücke | hoch | **REFUTED** | Skeptiker-Prüfung gegen `origin/main:docs/mjlab-workstation.md` und `gh issue view 12 --json body,comments`: mjlab trainiert 29 DoF, die Positivkontrolle wurde nach Kriterium 5 verschoben, nicht gestrichen | — |
+| 13 | „Kill-Gate-Schwellen ohne Messreihe sind eine verfrühte Festlegung" | verfrühte Festlegung | niedrig | **REFUTED** | Skeptiker-Prüfung gegen `origin/main:docs/konzepte/KONZ-robo-lab-001.md` und `-002.md`: beide tragen `pipeline_status: idea`, alle Kriterien `offen`, und den Satz, die Schwellen dürften nicht nachjustiert werden. Vorab-Bindung ist der Zweck eines Kill-Gates | — |
+| 14 | Drei rote Flaggen des Collectors (platform #2387/#2388, #2369/#2404) | — | — | **pre-refuted** | `gh pr list --search updated:>=2026-08-27` liefert Branch-Präfixe `schreibstil-200-akten`, `send-mail-konto-regel` u.a., die keiner Aktion dieser Konversation entsprechen; Session-Grenze ist die Konversation, nicht der Kalendertag | — |
 
 ## 3. Scorecard
 
@@ -91,11 +91,27 @@ Wiederkehrend in dieser Sitzung und bereits gate-pflichtig:
 
 ## 5a. Rückfall-Prüfung
 
-`python3 tools/gate_wirkung.py`: **2 Gates rückfällig**, 3 haben ihren Befund gefangen, 4 stehen auf `zu-frueh`.
+`python3 tools/gate_wirkung.py`, Stand 2026-08-28: **zwei Gates rückfällig**, drei haben ihren Befund gefangen, vier stehen auf `zu-frueh`.
 
-**Ein Gate hat in dieser Sitzung nachweislich gewirkt:** `no-checks-reported-read-as-green` blockierte den Merge von robo-lab#14 mit der Begründung, `main` habe keinen abgeschlossenen CI-Lauf. Ohne diesen Block wären auch #14 und #15 ungeprüft gemergt worden; der Block war der Anlass, überhaupt CI zu bauen. Das ist der Wirksamkeits-Beleg, kein Rückfall — entsprechend in `gates_caught` geführt.
+| Gate | gebaut | Vorkommen vorher | **danach** | letzter Rückfall |
+|---|---|---|---|---|
+| `deferred-item-no-tracking-issue` | 2026-08-23 | 24 | **4** | 2026-08-26 |
+| `untested-tool-module-green-gate` | 2026-08-12 | 6 | **2** | 2026-08-25 |
 
-Dasselbe Gate hat dabei eine **Klemme** offengelegt: es prüft `main`, nicht den PR, und ist für ein Repo ohne CI damit nicht erfüllbar — der PR, der CI einführt, wird von der Bedingung blockiert, die er erfüllen würde. Festgehalten als platform#2396 mit einem konkreten Vorschlag (Durchlass, wenn der PR selbst grün ist **und** einen Workflow hinzufügt, wo vorher keiner war).
+**Das erste Gate ist in dieser Sitzung erneut rückfällig geworden.** Die Befunde #8 und #9 tragen den Slug `deferred-item-no-tracking-issue` — sie sind damit **nicht** „der Slug zum 28. Mal", sondern der Befund **„Gate `deferred-item-no-tracking-issue` ist rückfällig"**.
+
+**Antwort: ausweiten.** Das Gate sucht aufgeschobene Arbeitspunkte in PR-Texten. Beide neuen Vorkommen sind aber keine Vertagungen in seinem Sinn und trotzdem dieselbe Klasse:
+
+- **#8** — ein Akzeptanzkriterium gilt als erfüllt, sein Beleg zeigt aber auf `~/shared/`, eine Schleuse, die planmäßig geleert wird. Kein aufgeschobener Punkt, sondern ein **flüchtiger Beleg**.
+- **#9** — eine bezahlte Leistung erzeugt in keinem Repo ein Artefakt. Nichts wurde vertagt; es entstand nur nichts Auffindbares.
+
+Der gemeinsame Kern ist enger als „Vertagung ohne Ticket": **etwas, das später auffindbar sein muss, ist es nicht.** Der Marker-Scanner müsste zwei Muster dazunehmen — einen Beleg-Pfad, der auf eine als transient deklarierte Ablage zeigt, und einen als erbracht gemeldeten Auftrag ohne Artefakt-Referenz.
+
+**`untested-tool-module-green-gate` ist in dieser Sitzung nicht zurückgekehrt**, grenzt aber an Befund #3 (`sim/test_stream_gate.py` existiert, CI führt ihn nicht aus). Das ist die Spiegelform — nicht „Modul ohne Test", sondern „Test ohne Aufrufer". Ob das Gate ausgeweitet oder ein eigenes gebaut wird, ist eine Entscheidung, keine Feststellung; sie steht als M5 im Action-Board.
+
+**Ein Gate hat in dieser Sitzung nachweislich gewirkt:** `no-checks-reported-read-as-green` blockierte den Merge von robo-lab#14 mit der Begründung, `main` habe keinen abgeschlossenen CI-Lauf. Ohne diesen Block wären auch #14 und #15 ungeprüft gemergt worden; der Block war der Anlass, überhaupt CI zu bauen. Wirksamkeits-Beleg, kein Rückfall — entsprechend in `gates_caught` geführt.
+
+Dasselbe Gate legte dabei eine **Klemme** offen: es prüft `main`, nicht den PR, und ist für ein Repo ohne CI nicht erfüllbar — der PR, der CI einführt, wird von der Bedingung blockiert, die er erfüllen würde. Festgehalten als platform#2396 mit konkretem Vorschlag.
 
 ## 5b. Autonomie-Kalibrierung
 
