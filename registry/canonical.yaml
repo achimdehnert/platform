@@ -647,6 +647,29 @@ repos:
       compose: docker-compose.prod.yml
       deploy:
         port: 8100
+  news-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: news.iil.pet
+      port: 8113
+      health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: news-hub
+      repo: news-hub
+      description: Hot-Topics-Letter — Newsletter-Postfaecher zu belegten Themen (ADR-299)
+      github: achimdehnert/news-hub
+      deployed: false
+      url: https://news.iil.pet
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: docker/app/Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        port: 8113
   learnfw:
     in_flat: true
     in_rich: false
