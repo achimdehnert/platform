@@ -1,0 +1,4 @@
+{
+  "_doc": "Begründete Ausnahmen für Befund B1 (Tests vorhanden, kein CI-Testjob) — platform#2428 Kriterium 4. Jede Ausnahme braucht reason + issue.",
+  "repos": {}
+}
