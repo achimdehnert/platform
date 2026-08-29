@@ -619,6 +619,25 @@
       "revision_note": "Owner-Weisung 2026-08-26: geht es um GUI oder Templates, wird /ux-review verwendet. Ein Memory reicht dafuer nicht — es wird gelesen, wenn jemand sucht, und der Fehler passiert gerade dann, wenn niemand sucht. Anlass: ein kompletter GUI-Durchlauf durch writing-hub am 2026-08-25/26 ohne einen einzigen /ux-review-Aufruf, obwohl der Skill die Kette abdeckt UND die Fehler der Vorsitzung bereits als Realfaelle nennt; drei davon passierten erneut. Bedingung aus Tool-Evidenz (GUI-Datei geschrieben) statt aus dem Antworttext — gegen Nicht-Gesagtes ist ein Wortlaut-Scanner blind, dieselbe Lehre wie scope_checkpoint_scanner Rev 2. Erfuellung ist bewusst niedrig: EIN Browser-Aufruf genuegt, der Scanner verlangt nicht den ganzen Skill.",
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-26"
+    },
+    {
+      "slug": "built-but-never-called",
+      "mode": "blocking",
+      "owner": "achim",
+      "repo": "iilgmbh/ausschreibungs-hub",
+      "module": "tests/test_adapterfelder_werden_gelesen.py",
+      "drill": "tests/test_adapterfelder_werden_gelesen.py",
+      "built": "2026-08-29",
+      "ref": "iilgmbh/ausschreibungs-hub#278",
+      "note": "Erstes fremd verankertes Gate (platform#2429). Der Slug stand bei >=2 Vorkommen ohne jedes Gate -- eine von 14 Klassen in dieser Lage. Er faengt den mechanisch fassbaren Teil: ein String-Schluessel, den ein Adapter in RawAusschreibung.raw_data schreibt und den niemand liest. Gemessen beim Bau: 13 Schluessel, 7 mit Leser, 6 ohne -- fuenf davon Herkunftsnachweise mit Grund in der Ausnahmeliste, `dokument_urls` mit Verweis auf #272. Der zweite Teil der Klasse (eine Faehigkeit nur per Shell erreichbar) bleibt ungegated und ist als Restluecke im Retro e70d11 benannt.",
+      "faengt": [
+        {
+          "fall": "String-Schluessel in RawAusschreibung.raw_data ohne Leser ausserhalb der Adapter",
+          "probe": "dokument_urls -- vom DOE-Adapter erzeugt, `git log -S` findet sechs Commits, alle Erzeuger"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-08-29"
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
