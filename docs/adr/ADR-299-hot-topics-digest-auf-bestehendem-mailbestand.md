@@ -13,10 +13,10 @@ staleness_months: 6
 ---
 
 <!--
-  ADR-298 — Basis: docs/templates/adr-template.md v2.1
+  ADR-299 — Basis: docs/templates/adr-template.md v2.1
 -->
 
-# ADR-298: Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang
+# ADR-299: Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang
 
 ## Metadaten
 
