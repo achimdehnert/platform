@@ -33,7 +33,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | learn-hub | B2 Pin < 0.6.0 | 4 | shared:_ci-python@v1.1.0 | >=0.1 |
 | meiki-hub | B1 Test ohne Leser | 1 | wf-ohne-test | - |
 | pptx-hub | B2 Pin < 0.6.0 | 23 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
-| robo-lab | B1 Test ohne Leser | 9 | wf-ohne-test | - |
+| robo-lab | B1 Test ohne Leser | 3 | wf-ohne-test | - |
 | tax-hub | B2 Pin < 0.6.0 | 15 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | trading-hub | B2 Pin < 0.6.0 | 72 | shared:_ci-python@v1.1.10 | >=0.2.0 |
 | travel-beat | B2 Pin < 0.6.0 | 43 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
@@ -53,27 +53,27 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | writing-hub | 2026-08-29 | 305 | 333 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.12 | kanonisch |
 | platform | 2026-08-29 | 299 | 610 | ja | - | - | own-pytest | kanonisch |
 | risk-hub | 2026-08-27 | 260 | 694 | ja | >=0.6.0,<1 | - | shared:_ci-python@v1.1.11 | kanonisch |
-| mcp-hub | 2026-08-27 | 154 | 596 | ja | - | - | shared:_ci-python@v1.1.11 | gemischt |
-| bfagent | 2026-06-09 | 132 | 1116 | ja | >=0.2.0 | 14 | shared:platform/_ci-python@main | kanonisch |
+| mcp-hub | 2026-08-27 | 154 | 594 | ja | - | - | shared:_ci-python@v1.1.11 | gemischt |
+| bfagent | 2026-06-09 | 130 | 1084 | ja | >=0.2.0 | 14 | shared:platform/_ci-python@main | kanonisch |
 | dev-hub | 2026-08-25 | 111 | 241 | ja | >=0.5.3,<1 | 65 | shared:_ci-python@v1.1.11 | kanonisch |
 | ausschreibungs-hub | 2026-08-29 | 84 | 333 | ja | >=0.5,<1 | 80 | shared:_ci-python@v1.1.12 | kanonisch |
 | illustration-hub | 2026-08-24 | 72 | 152 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | - |
-| trading-hub | 2026-08-20 | 72 | 196 | ja | >=0.2.0 | - | shared:_ci-python@v1.1.10 | - |
+| trading-hub | 2026-08-20 | 72 | 186 | ja | >=0.2.0 | - | shared:_ci-python@v1.1.10 | - |
 | travel-beat | 2026-08-25 | 43 | 326 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | kanonisch |
 | iil-voice-agent | 2026-08-17 | 40 | 47 | ja | - | - | own-pytest | - |
 | coach-hub | 2026-08-20 | 35 | 159 | ja | >=0.5.3,<1 | 60 | shared:_ci-python@v1.1.10 | - |
-| dms-hub | 2026-08-25 | 34 | 99 | - | - | - | shared:_ci-python@v1.1.10 | - |
 | nl2cad | 2026-08-02 | 34 | 63 | ja | - | - | own-pytest | - |
 | iil-klickdummy | 2026-08-23 | 26 | 80 | ja | - | - | shared:_ci-pypi@v1.1.11 | - |
-| weltenhub | 2026-08-25 | 25 | 188 | ja | >=0.5.3,<1 | 80 | shared:_ci-python@v1.1.10 | kanonisch |
+| weltenhub | 2026-08-25 | 25 | 176 | ja | >=0.5.3,<1 | 80 | shared:_ci-python@v1.1.10 | kanonisch |
 | frist-hub | 2026-08-02 | 24 | 43 | ja | >=0.5.3,<1 | 80 | shared:_ci-python@v1.0.11 | - |
 | iil-pet-portal | 2026-07-28 | 24 | 10 | - | - | - | wf-ohne-test | - |
 | iil-reflex | 2026-08-25 | 24 | 35 | ja | - | - | shared:_ci-pypi@v1.1.11 | kanonisch |
+| dms-hub | 2026-08-25 | 23 | 73 | - | - | - | shared:_ci-python@v1.1.10 | - |
 | pptx-hub | 2026-08-25 | 23 | 96 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | - |
 | aifw | 2026-08-25 | 20 | 33 | ja | - | 45 | shared:_ci-pypi@v1.1.11 | - |
 | iil-adrfw | 2026-08-02 | 20 | 24 | ja | - | 85 | shared:_ci-pypi@v1.1.0 | - |
 | research-hub | 2026-08-09 | 17 | 62 | - | - | 40 | shared:_ci-python@v1.0.11 | reqid |
-| cad-hub | 2026-08-25 | 15 | 220 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | - |
+| cad-hub | 2026-08-25 | 15 | 149 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | - |
 | promptfw | 2026-07-07 | 15 | 26 | ja | - | - | shared:_ci-pypi@v1.0.8 | - |
 | tax-hub | 2026-08-23 | 15 | 131 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | - |
 | apo-hub | 2026-08-18 | 14 | 74 | ja | - | 80 | shared:_ci-python@v1.1.11 | reqid |
@@ -86,10 +86,9 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | 137-hub | 2026-08-25 | 10 | 80 | ja | - | - | shared:_ci-python@v1.1.10 | - |
 | iil-ingest | 2026-06-15 | 10 | 17 | - | - | - | own-pytest | - |
 | iil-django-commons | 2026-07-19 | 9 | 25 | ja | - | 70 | shared:platform/_ci-pypi@main | - |
-| meiki-dms | 2026-07-07 | 9 | 68 | - | - | - | own-pytest | - |
-| robo-lab | 2026-08-28 | 9 | 286 | - | - | - | wf-ohne-test | - |
 | weltenfw | 2026-08-21 | 9 | 35 | ja | - | - | shared:_ci-pypi@v1.1.11 | - |
 | iil-codeguard | 2026-08-02 | 8 | 15 | - | - | - | shared:_ci-pypi@v1 | - |
+| meiki-dms | 2026-07-07 | 8 | 63 | - | - | - | own-pytest | - |
 | recruiting-hub | 2026-08-17 | 8 | 59 | ja | - | - | shared:_ci-python@v1.1.10 | - |
 | testkit | 2026-06-06 | 8 | 12 | ja | - | 80 | own-pytest | - |
 | ttz-hub | 2026-06-30 | 8 | 33 | ja | - | - | own-pytest | - |
@@ -106,6 +105,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | learn-hub | 2026-08-02 | 4 | 30 | ja | >=0.1 | 80 | shared:_ci-python@v1.1.0 | - |
 | odoo-hub | 2026-07-26 | 4 | 199 | - | - | - | own-pytest | - |
 | onboarding-hub | 2026-08-18 | 3 | 38 | - | - | 80 | shared:_ci-python@v1.1.11 | - |
+| robo-lab | 2026-08-28 | 3 | 15 | - | - | - | wf-ohne-test | - |
 | chat-hub | 2026-08-23 | 2 | 4 | ja | - | - | own-pytest | reqid |
 | django-lms-lite | 2026-08-03 | 2 | 8 | - | - | - | wf-ohne-test | - |
 | iil-doc-templates | 2026-08-03 | 2 | 12 | - | - | - | keiner | - |

@@ -54,6 +54,7 @@ SKIP_DIRS = {
     "__pycache__",
     ".tox",
     ".mypy_cache",
+    "vendor",  # Fremdcode: dessen Tests sind nicht unsere
 }
 SRC_SKIP_DIRS = SKIP_DIRS | {"tests", "test", "migrations"}
 TEST_FILE_RE = re.compile(r"^(test_.*|.*_test)\.py$")
