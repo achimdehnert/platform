@@ -1,7 +1,7 @@
 {
   "generated": "2026-08-29",
-  "total": 244,
-  "next_free": 299,
+  "total": 245,
+  "next_free": 300,
   "adrs": [
     {
       "number": 7,
@@ -5632,6 +5632,26 @@
         "ADR-233"
       ],
       "implementation_status": "in_progress"
+    },
+    {
+      "number": 299,
+      "id": "ADR-299",
+      "file": "ADR-299-hot-topics-digest-auf-bestehendem-mailbestand.md",
+      "title": "Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang",
+      "status": "accepted",
+      "date": "2026-08-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-286",
+        "ADR-293",
+        "ADR-294",
+        "ADR-295"
+      ],
+      "implementation_status": "not_started"
     },
     {
       "number": 400,
