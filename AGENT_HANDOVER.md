@@ -35,7 +35,23 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-29 vormittag — Teststrategie der Flotte: eine Regel, drei Gates, ein Meter)
+## ⚡ Aktueller Stand (2026-08-29 mittag — Robot-Ergebnisse nach robo-lab, Aufgabenkatalog, zwei Werkzeugdefekte am Merge-Pfad)
+
+**Zeitanker:** HEAD `7c3364f6` · `rev-list --count` 3749 · geschrieben 2026-08-29
+
+**Zielzustand (Owner):** [robo-lab#28](https://github.com/achimdehnert/robo-lab/issues/28) „alle Robot-/Twin-Ergebnisse stehen in robo-lab" — **erreicht** (K1–K6 einzeln verifiziert, K5 geteilt: Registry ja, `ports.yaml` nein). Danach zwei Folgeaufträge mit Go: KONZ-robo-lab-003 und M1-Iteration 2. SA-4: 0 Anwendungen in platform (robo-lab-Zähler steht im dortigen Handover) · SA-M: [#2438](https://github.com/achimdehnert/platform/pull/2438) am Werkzeug vorbei gemergt (siehe #2440) · 0 Fehlanwendungen.
+
+**Robot-Wissen hat jetzt einen Ort.** Die Sessions 24.–28.08. liefen aus `cwd=platform`; Marktanalyse, Fehlermuster und Stand lagen nur in platform-Memory und pgvector. Jetzt: `robo-lab/AGENT_HANDOVER.md`, `docs/marktanalyse-2026-08.md`, `docs/lessons.md`, eigene CC-Memory-Lane; die platform-Memory `project_humanoid_robot_exploration` ist nur noch Zeiger. **Robot-Arbeit künftig aus `~/github/robo-lab` starten.** Dazu robo-lab in `registry/canonical.yaml` ([#2441](https://github.com/achimdehnert/platform/pull/2441), Klasse 5, kein Deploy) — `ports.yaml` bewusst nicht: `robot.iil.pet` ist eine User-Unit auf dem staging-Host, ein `domain_prod` wäre eine Fehldeklaration, die `0.7.12` sofort meldete.
+
+**Zwei Werkzeugdefekte am Merge-Pfad, beide getrackt:** [#2440](https://github.com/achimdehnert/platform/issues/2440) `pr_merge_sa.py::review_ist_pflicht` liest Regel-Existenz statt Regel-Inhalt (`approving=0, codeowner=true`) — jeder CLEAN-PR ist über SA-M unmergebar, die letzten vier Handover-PRs liefen am Journal vorbei. [#2442](https://github.com/achimdehnert/platform/issues/2442) `bot-review.yml` lässt #2441 in zwei Dispatch-Läufen stumm aus, während der Cron-Lauf ihn sah — trotz „jeder Skip nennt seinen Grund".
+
+**Bewertung ROS 2 (Owner-Frage):** für robo-lab heute nicht — Bus ist DDS direkt, `unitree_ros2` nennt Foxy/Humble und kein G1, VM ist 24.04. Relevant an genau einer Stelle: MoveIt2 für Manipulation; Entscheidung am Ende von Z3a (KONZ-003 D3). Erste Messungen: Bodennähe mit fixiertem Becken **unerreichbar**, Hand schließt nur bis 1,95 cm; M1 nach Iteration 2 weiter 0/10, Engpass Quetschkraft — Details und Iteration-3-Optionen im robo-lab-Handover.
+
+**Eigene Fehler:** Merge bei „no checks reported" (#2438-Vorläufer-Klasse, einmal), „Closes #28 … NICHT" schloss das Issue vorzeitig, Konflikt-PR ohne Actions-Lauf sechs Calls lang für einen Actions-Ausfall gehalten (Memory `feedback_conflicting_pr_gets_no_actions_run`), Inline-Python zweimal an Anführungszeichen zerbrochen. Session-Start-Hook zeigte bei `/clear` eine Prio-Liste vom 25.08. (Hypothese: CC cached Hook-Output).
+
+**Offen:** [#2440](https://github.com/achimdehnert/platform/issues/2440), [#2442](https://github.com/achimdehnert/platform/issues/2442) (beide Sonnet-tauglich) · [#2454](https://github.com/achimdehnert/platform/issues/2454) robo-lab README · `gh secret delete PYPI_API_TOKEN` (Owner-Wort, Prio 3a) · Phase 0g dieser Sitzung: Verankerungs-Prüfer lief im Hintergrund, Ergebnis siehe LOG-Eintrag.
+
+## ⚡ Vorheriger Stand (2026-08-29 vormittag — Teststrategie der Flotte: eine Regel, drei Gates, ein Meter)
 
 **Zeitanker:** HEAD `796d0301` · `rev-list --count` 3743 · geschrieben 2026-08-29
 
@@ -49,7 +65,7 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
 **Offen:** shared-ci-Tag + gestaffelter Rollout (Owner) · ADR-298 Accept (Owner) · risk-hub: Deploy-Gate blockiert die Concurrency-Group >24 h, Folge-Deploys erreichen Prod nicht (iilgmbh-Issue braucht Owner-Wort; Verzicht im Befund-Journal, 2026-08-29) · [writing-hub#861](https://github.com/achimdehnert/writing-hub/issues/861) UX-Flake (`outlines_outlinetiefelauf` fehlt im Worker-Test-DB, 2 von 3 Läufen) · writing-hub-Deploy nach #855/#858 bei Redaktionsschluss `pending` (Run 33242399258, Queue hinter fremden Session-Runs) · coach-hub Deploy 4× rot seit 20.08. (vorbestehend, [coach-hub#70](https://github.com/achimdehnert/coach-hub/issues/70)) · robo-lab#23/#27 Skript-Tests → GPU-Box.
 
-## ⚡ Vorheriger Stand (2026-08-28 abend — Schranke-Kandidat in der Registry, Rueckfall-Prognose beantwortet, drei Mails an den LUCA-Kanal)
+## ⚡ Aelterer Stand (2026-08-28 abend — Schranke-Kandidat in der Registry, Rueckfall-Prognose beantwortet, drei Mails an den LUCA-Kanal)
 
 **Zeitanker:** HEAD `2bbfccad` · `rev-list --count` 3717 · geschrieben 2026-08-28
 

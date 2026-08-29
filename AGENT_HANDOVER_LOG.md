@@ -3043,3 +3043,16 @@ CI-Leser-Jobs gemergt; Ausnahmen mit Issue. Beifang shared-ci#63 runs_on_light.
 Deploy-Sonde: coach-hub weiter rot (#70, 4. Mal), writing-hub-Deploy pending (Queue).
 Eigene Fehler: 2x Heredoc-Edit-Leerlauf mit irrefuehrender Commit-Message (korrigiert,
 Memory angelegt); coach-hub#72 Duplikat von #70 (geschlossen).
+
+## 2026-08-29 mittag — Sitzung 0d2dc6e8: Robot-Ergebnisse nach robo-lab, KONZ-003, M1 Iteration 2
+
+Auftrag: alle Robot-/Twin-Ergebnisse nach robo-lab migrieren (robo-lab#28, erreicht K1–K6),
+dann Aufgabenkatalog Haushalts-/Montage-Helfer (KONZ-robo-lab-003, T2, #30), Erreichbarkeit
+gemessen (#5 K1–K4/K6, #31), M1-MVC (#32) und Iteration 2 (#33) — Griff schliesst, traegt nicht.
+platform: #2438 Handover-Nachzug, #2441 Registry (Klasse 5), Issues #2440/#2442/#2454.
+Session-Start: 17 WARN, 0 FAIL; Verzicht fuer 0.7.7 abgelegt (Gates hier nicht ausgeloest).
+Eigene Fehler: Merge bei leerem Rollup, Closes-Schluesselwort verneint, Konflikt-PR als
+Actions-Ausfall gelesen, Inline-Python an Anfuehrungszeichen (2x). Zwei Subagenten (Opus),
+einer 2 h statt 60 min. Phase 0g: Verankerungs-Pruefer im Hintergrund gestartet (Ergebnis
+im Abschlussbericht der Sitzung, nicht hier — bei Timeout: NICHT PRUEFBAR, von Hand gegengelesen:
+jede Vertagung traegt ein Issue: #2440, #2442, #2454, robo-lab#5/#33).
