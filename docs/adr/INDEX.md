@@ -263,4 +263,4 @@
 | 295 | Mailbestand an einem zweiten Standort (Dev-Host) | Accepted | ⬜ | [ADR-295](ADR-295-mailbestand-zweiter-standort-dev.md) |
 | 296 | GPU-Box über Hub-seitigen Lease-Arbiter bewirtschaften — Medien-Arbeitsfläche und Client-Paket folgen dem Hub | Accepted | 🔶 | [ADR-296](ADR-296-gpu-box-lease-arbiter-medien-arbeitsflaeche.md) |
 | 297 | In welche GitHub-Organisation gehört ein Repo? | Accepted | 🔶 | [ADR-297](ADR-297-org-zuordnung-der-repos.md) |
-| 298 | Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang | Proposed | ⬜ | [ADR-298](ADR-298-hot-topics-digest-auf-bestehendem-mailbestand.md) |
+| 298 | Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang | Accepted | ⬜ | [ADR-298](ADR-298-hot-topics-digest-auf-bestehendem-mailbestand.md) |

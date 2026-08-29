@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-08-29
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -22,7 +22,7 @@ staleness_months: 6
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted                                                             |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-08-29                                                           |
 | **Autor**       | Achim Dehnert                                                        |
@@ -156,11 +156,14 @@ Vertrag je Nachricht, bewusst schmal:
 | `konto`, `ordner` | Herkunft, zugleich Filter des Laufs |
 | `betreff`, `datum` | Beleg-Angabe im Digest |
 | `text` | Eingabe der Themenbildung |
+| `absender` | Zusatzfilter, wo der Ordner allein nicht der Umfang ist |
 | `nachricht_ref` | Rückverweis; der Digest speichert **keinen** Zweittext dauerhaft |
 
 Die Ordnerliste ist **Pflichtargument** des Laufs. Kein implizites „alle Ordner": der
 Umfang eines Laufs ist genau die übergebene Liste, und ein leeres Argument ist ein
 Fehler, kein Vollscan.
+
+Fuer Konten, deren Newsletter in einem gemischten Ordner liegen, ist der Umfang **Ordner geschnitten mit einer Absender-Allowlist**. Eine Mail ohne Treffer wird mit Grund verworfen und protokolliert, nicht still weggelassen.
 
 ### 4.2 Themenbildung und Recherche
 
@@ -277,3 +280,4 @@ sie deckt ausschließlich Newsletter-Ordner.
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-08-29 | Achim Dehnert | Initial: Status Proposed |
+| 2026-08-29 | Achim Dehnert | Owner-Entscheidung: Option A angenommen, Status Accepted |

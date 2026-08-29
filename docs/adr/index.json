@@ -5598,7 +5598,7 @@
       "id": "ADR-298",
       "file": "ADR-298-hot-topics-digest-auf-bestehendem-mailbestand.md",
       "title": "Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-08-29",
       "domains": [],
       "supersedes": [],
