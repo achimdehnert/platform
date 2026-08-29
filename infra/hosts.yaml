@@ -168,6 +168,22 @@ hosts:
     hosts_runners: [gpu-box]
     verified: 2026-08-28               # read-only Probe ueber prod/wg0 (WSL, Docker, sudo, GitHub-Reach)
 
+  gx10:
+    hostname: TBD                      # bei Inbetriebnahme eintragen (Zugang: wg0-Peer wie gpu-box)
+    provider: owner-hardware           # keine Cloud, kein IaC — laeuft nur, wenn das Geraet an ist
+    server_type: gx10                  # ASUS Ascent GX10 (NVIDIA GB10), ~126 GB unified memory
+    arch: aarch64                      # ACHTUNG: Flotten-Images sind amd64 (_deploy-unified.yml Z.218)
+    os: DGX OS (Linux, nativ)          # KEIN WSL2 — anders als gpu-box; die WSL-Fallen entfallen
+    status: geplant                    # ab KW 36/2026, noch nicht in Betrieb
+    role: >
+      IIL-interner Inferenz- und Trainingsknoten (KONZ-platform-053, Owner-Entscheid
+      2026-08-29). Ausserhalb des Buergerdaten-Perimeters: keine Sozial-/Buergerdaten
+      aus der MEiKI-Kette, gleich in welcher Form. Zugang ueber wg0, KEIN oeffentlicher
+      Tunnel (das war der Fehler bei ollama.iil.pet). Phase 1 ohne GitHub-Runner,
+      kein Prod-Deploy, kein Build-Ziel fuer Flotten-Images.
+    hosts_runners: []                  # Phase 1 bewusst leer — KONZ-053 §6
+    verified: false                    # explizit unverifiziert — nichts gemessen, siehe KONZ-053 §8
+
   staging-dedicated:
     ip: 178.104.184.168
     ssh: root@178.104.184.168
