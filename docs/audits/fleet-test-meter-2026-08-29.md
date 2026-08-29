@@ -14,7 +14,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | shared-ci-Nutzer | 41 |
 | Marker-Schema reqid/gemischt | 4 |
 | Repos mit ≥1 Contract-Test | 2 |
-| Verletzungen | 21 |
+| Verletzungen | 20 |
 | übersprungene Worktrees | platform-pinned |
 
 ## Verletzungen
@@ -30,7 +30,6 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | doc-hub | B1 Test ohne Leser | 1 | keiner | - |
 | frist-hub | B2 Pin < 0.6.0 | 24 | shared:_ci-python@v1.0.11 | >=0.5.3,<1 |
 | iil-doc-templates | B1 Test ohne Leser | 2 | keiner | - |
-| iil-pet-portal | B1 Test ohne Leser | 24 | wf-ohne-test | - |
 | illustration-hub | B2 Pin < 0.6.0 | 72 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | learn-hub | B2 Pin < 0.6.0 | 4 | shared:_ci-python@v1.1.0 | >=0.1 |
 | meiki-hub | B1 Test ohne Leser | 1 | wf-ohne-test | - |
@@ -45,7 +44,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 
 ## Ausnahmen (begründet)
 
-keine
+- iil-pet-portal: Playwright-KD-Paritaetstests ohne CI-Runner; Leser ist /kd-review (https://github.com/iilgmbh/iil-pet-portal/issues/41)
 
 ## Alle Repos
 
