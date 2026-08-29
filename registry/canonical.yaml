@@ -682,7 +682,7 @@ repos:
     in_flat: true
     in_rich: false
     flat:
-      type: django
+      type: static
   nl2cad:
     in_flat: true
     in_rich: false

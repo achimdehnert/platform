@@ -169,7 +169,7 @@ repos:
     note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
       C4:8000)
   meiki-hub:
-    type: django
+    type: static
   nl2cad:
     type: library
     pypi: nl2cad
