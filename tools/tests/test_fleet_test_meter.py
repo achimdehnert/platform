@@ -80,13 +80,20 @@ def fleet(tmp_path: Path) -> Path:
         test_body="import pytest\n@pytest.mark.f1\ndef test_should_y():\n    pass\n",
     )
     _repo(root, "delta", tests=0, src=2)
+    _repo(
+        root,
+        "epsilon",
+        tests=1,
+        src=1,
+        workflow="jobs:\n  t:\n    steps:\n      - run: python sim/test_gate.py\n",
+    )
     _repo(root, "alpha-pinned", tests=2, src=5, worktree=True)
     return root
 
 
 def test_should_skip_linked_worktrees(fleet: Path) -> None:
     repos, skipped = meter.find_repos(fleet)
-    assert [r.name for r in repos] == ["alpha", "beta", "delta", "gamma"]
+    assert [r.name for r in repos] == ["alpha", "beta", "delta", "epsilon", "gamma"]
     assert skipped == ["alpha-pinned"]
 
 
@@ -105,6 +112,7 @@ def test_should_detect_own_pytest_in_multiline_run_and_reqid_markers(
     row = meter.scan_repo(fleet / "gamma", use_git=False)
     assert row.ci_test == "own-pytest"
     assert row.markers == "reqid"
+    assert meter.scan_repo(fleet / "epsilon", use_git=False).ci_test == "own-pytest"
 
 
 def test_should_flag_tests_without_reader_and_old_pin(fleet: Path) -> None:

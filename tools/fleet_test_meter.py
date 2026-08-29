@@ -8,7 +8,8 @@ Misst pro Git-Repo unter ``--root`` (Default ``~/github``) deterministisch:
 - ``make_test``      Makefile hat Target ``test``
 - ``testkit_pin``    Versionsband von ``iil-testkit`` aus pyproject/requirements (oder ``-``)
 - ``coverage``       ``coverage_threshold`` aus Workflows bzw. ``fail_under`` aus Config (oder ``-``)
-- ``ci_test``        ``shared:<workflow>@<ref>`` · ``own-pytest`` · ``wf-ohne-test`` · ``keiner``
+- ``ci_test``        ``shared:<workflow>@<ref>`` · ``own-pytest`` (pytest oder direkter
+                     ``test_*.py``-Start in einem run-Step) · ``wf-ohne-test`` · ``keiner``
 - ``markers``        Marker-Schema: ``kanonisch`` · ``reqid`` (Traceability-IDs wie ``f1``) ·
                      ``gemischt`` · ``-``
 - ``contract_tests`` Anzahl ``@pytest.mark.contract`` — 0 heißt: der shared-ci Contract-Job
@@ -63,8 +64,10 @@ FAIL_UNDER_RE = re.compile(r"fail[_-]under\s*[=:]\s*(\d+)")
 SHARED_USES_RE = re.compile(
     r"uses:\s*[^/\s]+/(shared-ci|platform)/\.github/workflows/(_ci-[a-z]+)\.yml@(\S+)"
 )
+# Ein Testlauf im Workflow ist ein pytest-Aufruf ODER der direkte Start einer test_*.py
+# (Skript-Tests wie robo-lab `python sim/test_stream_gate.py`).
 PYTEST_LINE_RE = re.compile(
-    r"^\s*(?:-\s*)?(?:run:\s*)?(?:\|)?.*\bpytest\b", re.MULTILINE
+    r"^\s*(?:-\s*)?(?:run:\s*)?(?:\|)?.*(?:\bpytest\b|\btest_\w+\.py\b)", re.MULTILINE
 )
 MARKER_RE = re.compile(r"@pytest\.mark\.([A-Za-z_][A-Za-z0-9_]*)")
 REQID_MARKER_RE = re.compile(r"^[a-z]\d+$")

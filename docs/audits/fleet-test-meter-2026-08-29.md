@@ -21,7 +21,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 
 | Repo | Befund | Tests | CI | Pin |
 |---|---|---|---|---|
-| ausschreibungs-hub | B2 Pin < 0.6.0 | 83 | shared:_ci-python@v1.1.12 | >=0.5,<1 |
+| ausschreibungs-hub | B2 Pin < 0.6.0 | 84 | shared:_ci-python@v1.1.12 | >=0.5,<1 |
 | bfagent | B2 Pin < 0.6.0 | 132 | shared:platform/_ci-python@main | >=0.2.0 |
 | cad-hub | B2 Pin < 0.6.0 | 15 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | coach-hub | B2 Pin < 0.6.0 | 35 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
@@ -56,7 +56,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | mcp-hub | 2026-08-27 | 154 | 596 | ja | - | - | shared:_ci-python@v1.1.11 | gemischt |
 | bfagent | 2026-06-09 | 132 | 1116 | ja | >=0.2.0 | 14 | shared:platform/_ci-python@main | kanonisch |
 | dev-hub | 2026-08-25 | 111 | 241 | ja | >=0.5.3,<1 | 65 | shared:_ci-python@v1.1.11 | kanonisch |
-| ausschreibungs-hub | 2026-08-28 | 83 | 332 | ja | >=0.5,<1 | 80 | shared:_ci-python@v1.1.12 | kanonisch |
+| ausschreibungs-hub | 2026-08-29 | 84 | 333 | ja | >=0.5,<1 | 80 | shared:_ci-python@v1.1.12 | kanonisch |
 | illustration-hub | 2026-08-24 | 72 | 152 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | - |
 | trading-hub | 2026-08-20 | 72 | 196 | ja | >=0.2.0 | - | shared:_ci-python@v1.1.10 | - |
 | travel-beat | 2026-08-25 | 43 | 326 | ja | >=0.5.3,<1 | - | shared:_ci-python@v1.1.10 | kanonisch |
