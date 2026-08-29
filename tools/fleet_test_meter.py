@@ -3,7 +3,7 @@
 
 Misst pro Git-Repo unter ``--root`` (Default ``~/github``) deterministisch:
 
-- ``test_files``     Anzahl ``test_*.py`` / ``*_test.py`` (ohne venv/node_modules/.git)
+- ``test_files``     Anzahl ``test_*.py`` / ``*_test.py`` (ohne venv/node_modules/vendor/.git — Fremdcode zählt nicht)
 - ``src_py``         Anzahl ``.py`` außerhalb tests/, migrations/, venv
 - ``make_test``      Makefile hat Target ``test``
 - ``testkit_pin``    Versionsband von ``iil-testkit`` aus pyproject/requirements (oder ``-``)
