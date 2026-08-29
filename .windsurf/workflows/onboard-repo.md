@@ -209,7 +209,8 @@ CLOUDFLARE_API_TOKEN=<token> python ${GITHUB_DIR:-$HOME/github}/platform/infra/s
 
 **Dann Registry eintragen:**
 - `platform/infra/ports.yaml` — Service-Eintrag
-- `platform/registry/github_repos.yaml` — Repo-Eintrag (PFLICHT — SSoT für alle Automationen)
+- `platform/registry/canonical.yaml` — Repo-Eintrag (SSoT, ADR-275); Views danach mit
+  `tools/registry-canonical.py flip` regenerieren
 - `python infra/scripts/validate_repos.py` — Konsistenz prüfen
 
 ## Step 0.9: Architecture Context laden (iil-adrfw v0.4.0)
@@ -822,49 +823,74 @@ ssh root@88.198.191.108 "certbot certonly --webroot -w /var/www/html -d <DOMAIN>
 
 ## Step 6: Platform-Integration
 
-### 6.1 Registry aktualisieren (PFLICHT — beide Dateien, keine Ausnahme)
+### 6.1 Registry aktualisieren (PFLICHT — EINE Quelle, zwei generierte Views)
 
-> **Warum beide?** `github_repos.yaml` ist SSoT für alle Plattform-Automationen:
-> `runner-health.yml` (täglicher Label-Check), `sync-workflows.sh`, concurrency-batch-fixes.
-> Fehlt ein Repo hier → runner-health ignoriert es → stuck deploys nicht erkannt.
-> **Kein "Operator" nötig — Onboarding IS die Registrierung.**
+> ⛔ **Nur `registry/canonical.yaml` wird von Hand gepflegt** (ADR-234/ADR-275).
+> `registry/repos.yaml` und `scripts/repo-registry.yaml` sind **generierte Views**;
+> `registry/github_repos.yaml` existiert **nicht** (mehr) — eine frühere Fassung
+> dieses Skills nannte sie, und wer ihr folgt, trägt ins Leere ein.
+>
+> Fehlt ein Repo in der Registry → `runner-health.yml` ignoriert es täglich,
+> stuck deploys fallen nicht auf. **Onboarding IST die Registrierung.**
 
-#### 6.1a `platform/registry/repos.yaml` (Catalog-Sync)
-
-```yaml
-- name: <REPO_NAME>
-  repo: <REPO_NAME>
-  description: <DESCRIPTION>
-  github: achimdehnert/<REPO_NAME>
-  deployed: true
-  url: https://<DOMAIN>
-  type: django
-  lifecycle: experimental   # → production wenn stabil
-  dockerfile: docker/app/Dockerfile
-  compose: docker-compose.prod.yml
-  coverage_threshold: 80
-```
-
-**Danach:** GitHub Action `sync-registry-to-devhub.yml` triggert automatisch → devhub.iil.pet/repos zeigt das neue Repo.
-
-#### 6.1b `platform/registry/github_repos.yaml` (Automation SSoT — PFLICHT)
+#### 6.1a Eintrag in `platform/registry/canonical.yaml`
 
 ```yaml
-# In django_apps: section eintragen:
-django_apps:
   <REPO_NAME>:
-    github: achimdehnert/<REPO_NAME>
-    description: <DESCRIPTION>
-    deployed: true
-    domain: <DOMAIN>
-    port: <PORT>
-    lifecycle: experimental
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: <DOMAIN>
+      port: <PORT>
+      health: /livez/
+    domain: <Fachdomäne, z.B. Content & Publishing>
+    rich:
+      name: <REPO_NAME>
+      repo: <REPO_NAME>
+      description: <DESCRIPTION>
+      github: achimdehnert/<REPO_NAME>
+      deployed: false          # true erst, wenn es wirklich läuft
+      url: https://<DOMAIN>
+      type: django
+      lifecycle: experimental   # → production wenn stabil
+      tenancy_mode: none
+      dockerfile: docker/app/Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        port: <PORT>
 ```
+
+#### 6.1b Views regenerieren — nicht von Hand nachziehen
 
 ```bash
-# Konsistenz prüfen nach dem Eintrag:
-python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/validate_repos.py
+P="${GITHUB_DIR:-$HOME/github}/platform"
+python3 "$P/tools/registry-canonical.py" flip     # schreibt flat + rich + archived
+python3 "$P/tools/registry-canonical.py" verify   # muss dreimal ✅ melden
+python3 "$P/infra/scripts/validate_repos.py"      # canonical vs ports.yaml
 ```
+
+> Der CI-Gate „Registry-Konsistenz prüfen" diffed die generierten Views gegen den
+> Commit. Wer nur `canonical.yaml` und `repos.yaml` von Hand anfasst, bekommt
+> `🔴 flat-View weicht ab: + nur generiert: /repos/<name>` — gemessen 2026-08-29.
+
+#### 6.1c `platform/infra/ports.yaml`
+
+```yaml
+  <REPO_NAME>:
+    prod: <PORT>
+    staging: <PORT>
+    dev: <PORT>
+    container_name: <repo_underscore>_web
+    domain_prod: <DOMAIN>
+    betriebsstatus: blockiert        # aktiv | stillgelegt | blockiert — NUR diese drei
+    betriebsstatus_grund: "<warum es (noch) nicht läuft>"
+```
+
+> `betriebsstatus` kennt genau drei Werte (`tools/erreichbarkeit_melder.py`
+> `STATUS_ERLAUBT`). Ein ausgedachter vierter — etwa „vorbereitet" — lässt
+> `test_should_nur_erlaubte_betriebsstatus_werte_verwenden` fallen. Ein Repo, das
+> bewusst noch nicht läuft, ist `blockiert` **mit Grund**.
 
 > **Ohne diesen Eintrag:** `runner-health.yml` ignoriert das Repo täglich.
 > Der nächste Runner-Health-Run meldet `⚠️ UNREGISTERED RUNNER` als Drift-Warning —
@@ -1014,7 +1040,7 @@ Testing (ADR-058):
   [ ] `make test` läuft lokal ohne Fehler (Fallback nur falls kein Makefile-Target `test` existiert: `pytest tests/ -v`)
 
 Platform-Integration:
-  [ ] platform/registry/repos.yaml Eintrag hinzugefügt
+  [ ] platform/registry/canonical.yaml Eintrag hinzugefügt + `registry-canonical.py flip` gelaufen
   [ ] platform/infra/ports.yaml Port registriert + port_audit.py grün
   [ ] devhub.iil.pet/repos zeigt neues Repo (nach GitHub Action)
   [ ] deploy.md Tabelle aktualisiert
