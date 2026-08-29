@@ -96,7 +96,7 @@ def test_should_measure_alpha_row(fleet: Path) -> None:
     assert row.testkit_pin == ">=0.6.0,<1"
     assert row.coverage == "42"
     assert row.ci_test == "shared:_ci-python@v1.1.12"
-    assert row.markers == "kanonisch"
+    assert (row.markers, row.contract_tests) == ("kanonisch", 0)
 
 
 def test_should_detect_own_pytest_in_multiline_run_and_reqid_markers(

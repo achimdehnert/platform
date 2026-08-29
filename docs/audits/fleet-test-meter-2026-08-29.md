@@ -13,6 +13,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | Coverage-Schwelle gesetzt | 20 |
 | shared-ci-Nutzer | 41 |
 | Marker-Schema reqid/gemischt | 4 |
+| Repos mit ≥1 Contract-Test | 2 |
 | Verletzungen | 21 |
 | übersprungene Worktrees | platform-pinned |
 

@@ -11,6 +11,8 @@ Misst pro Git-Repo unter ``--root`` (Default ``~/github``) deterministisch:
 - ``ci_test``        ``shared:<workflow>@<ref>`` · ``own-pytest`` · ``wf-ohne-test`` · ``keiner``
 - ``markers``        Marker-Schema: ``kanonisch`` · ``reqid`` (Traceability-IDs wie ``f1``) ·
                      ``gemischt`` · ``-``
+- ``contract_tests`` Anzahl ``@pytest.mark.contract`` — 0 heißt: der shared-ci Contract-Job
+                     ist in diesem Repo leer-grün (exit 5, bewusst so; sichtbar machen statt härten)
 - ``last_commit``    Datum des letzten Commits (``git log -1``)
 
 Befunde (Sektion „Verletzungen" im Report):
@@ -92,6 +94,7 @@ class RepoRow:
     coverage: str = "-"
     ci_test: str = "keiner"
     markers: str = "-"
+    contract_tests: int = 0
     exception: str = ""
     findings: list[str] = field(default_factory=list)
 
@@ -184,21 +187,25 @@ def _ci_test(repo: Path) -> str:
     return "wf-ohne-test"
 
 
-def _markers(repo: Path) -> str:
+def _markers(repo: Path) -> tuple[str, int]:
+    """Marker-Schema und Anzahl ``@pytest.mark.contract``-Stellen (0 = Contract-Job ist leer-grün)."""
     names: set[str] = set()
+    contract = 0
     for path in _iter_files(repo, SKIP_DIRS):
         if path.suffix == ".py" and TEST_FILE_RE.match(path.name):
-            names.update(MARKER_RE.findall(_read(path)))
+            found = MARKER_RE.findall(_read(path))
+            names.update(found)
+            contract += found.count("contract")
     names -= PYTEST_BUILTIN
     if not names:
-        return "-"
+        return "-", contract
     reqid = {n for n in names if REQID_MARKER_RE.match(n)}
     canonical = names & CANONICAL_MARKERS
     if reqid and canonical:
-        return "gemischt"
+        return "gemischt", contract
     if reqid:
-        return "reqid"
-    return "kanonisch" if canonical else "frei"
+        return "reqid", contract
+    return ("kanonisch" if canonical else "frei"), contract
 
 
 def scan_repo(repo: Path, *, use_git: bool) -> RepoRow:
@@ -215,7 +222,7 @@ def scan_repo(repo: Path, *, use_git: bool) -> RepoRow:
     row.testkit_pin = _testkit_pin(repo)
     row.coverage = _coverage(repo)
     row.ci_test = _ci_test(repo)
-    row.markers = _markers(repo)
+    row.markers, row.contract_tests = _markers(repo)
     return row
 
 
@@ -271,6 +278,7 @@ def render_report(
         f"| Coverage-Schwelle gesetzt | {sum(r.coverage != '-' for r in rows)} |",
         f"| shared-ci-Nutzer | {sum(r.ci_test.startswith('shared:') for r in rows)} |",
         f"| Marker-Schema reqid/gemischt | {sum(r.markers in {'reqid', 'gemischt'} for r in rows)} |",
+        f"| Repos mit ≥1 Contract-Test | {sum(r.contract_tests > 0 for r in rows)} |",
         f"| Verletzungen | {len(violations)} |",
         f"| übersprungene Worktrees | {', '.join(skipped) or '—'} |",
         "",
