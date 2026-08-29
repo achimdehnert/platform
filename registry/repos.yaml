@@ -205,6 +205,19 @@ domains:
     compose: docker-compose.prod.yml
     deploy:
       port: 8100
+  - name: news-hub
+    repo: news-hub
+    description: Hot-Topics-Letter — Newsletter-Postfaecher zu belegten Themen (ADR-299)
+    github: achimdehnert/news-hub
+    deployed: false
+    url: https://news.iil.pet
+    type: django
+    lifecycle: experimental
+    tenancy_mode: none
+    dockerfile: docker/app/Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      port: 8113
   - name: onboarding-hub
     repo: onboarding-hub
     description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via
