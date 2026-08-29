@@ -135,6 +135,41 @@ Eine **additive** Migration (neue, leere Tabelle; neue nullable Spalte) ist kein
 Datenmigration. Ein Schema-Umbau, der Bestand umschreibt oder Spalten entfernt, ist
 einer.
 
+### Ein CI-Zustand ist NIE ein Vorlagegrund (Owner-Weisung 2026-08-29)
+
+**Selbstbetreffend — diese Zeile erweitert meine Befugnis.** Sie wird deshalb
+ungebündelt vorgelegt und benennt das ausdrücklich.
+
+Wörtlich, zweimal in einer Sitzung und beim zweiten Mal in Großbuchstaben:
+
+> „203 ist abwinken -> autonomes go !!"
+>
+> „204 -> checks pending -> damit ist das **nicht mein Zug** !!!!"
+
+Ein Check, der **rot**, **pending** oder **hängend** ist, gehört dem Agenten.
+Er ist kein Fall der vier Klassen oben: es gibt nichts zu entscheiden, sondern
+etwas zu tun oder abzuwarten. Konkret heißt das:
+
+| Zustand | Wer | Was |
+|---|---|---|
+| Check **rot** | Agent | Ursache lesen, beheben, erneut laufen lassen |
+| Check **pending** | Agent | abwarten — kein Zwischenbericht als Frage getarnt |
+| Check **hängt** (Runner, Queue) | Agent | Ursache messen, Blockierer lösen, sonst melden **mit** Befund |
+| Gate verlangt eine **Prüfung** | Agent | die Prüfung durchführen, nicht die Aufforderung weiterreichen |
+
+**Warum das eine eigene Zeile braucht.** Die vier Klassen oben lesen sich
+vollständig, und trotzdem rutschte der CI-Zustand zweimal durch — weil ein
+blockierter Merge sich *anfühlt* wie eine Freigabefrage. Er ist keine. Gemessen
+im Increment-Retro 2026-08-28 (`docs/retros/session-retro-2026-08-28-writing-hub-73073b-incr.md`,
+Befund 6): `over_ask` = 2, beide Fälle CI-Zustände, beide vom Owner emphatisch
+korrigiert. Ein Muster mit ≥2 Vorkommen schärft die Gate-Liste, statt sie neu zu
+raten.
+
+**Die Grenze:** Vorgelegt wird weiterhin, wenn hinter dem roten Check eine echte
+Wahlfrage steckt — etwa „der Test schlägt fehl, weil die Anforderung sich
+geändert hat: Test anpassen oder Verhalten?". Dann ist nicht der CI-Zustand der
+Vorlagegrund, sondern die Frage dahinter.
+
 **Woran man eine echte Wahlfrage erkennt:** man kann sie als „A oder B?"
 aufschreiben, und beide Antworten sind vertretbar. Realfall, an dem die Regel
 kalibriert wurde (writing-hub#806, 2026-08-27): ein Knopf hieß „Alles generieren /
@@ -291,6 +326,13 @@ Baseline: Session 2026-07-02 = 3 Roundtrips für 1 Entscheidungskomplex
 konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
+
+- 2026-08-29: **Ein CI-Zustand ist nie ein Vorlagegrund** ergaenzt (rot, pending,
+  haengend). Selbstbetreffend, ungebuendelt vorgelegt. Anlass: `over_ask` = 2 im
+  Increment-Retro `session-retro-2026-08-28-writing-hub-73073b-incr.md`, beide Faelle
+  CI-Zustaende, beide vom Owner emphatisch korrigiert. Die vier Klassen lasen sich
+  vollstaendig — der CI-Zustand rutschte trotzdem durch, weil ein blockierter Merge
+  sich anfuehlt wie eine Freigabefrage.
 
 - 2026-08-27: **Prüffrage ersetzt „ist das ein Prod-Schritt?" (Owner-Weisung,
   org-weit).** Auto-Deploy-on-main ist kein Vorlagegrund mehr — der Satz in Gate 2
