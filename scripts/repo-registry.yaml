@@ -231,6 +231,8 @@ repos:
     health: /livez/
     extra_containers:
     - minio
+  robo-lab:
+    type: python
   tax-hub:
     type: django
     prod_url: tax.iil.pet
