@@ -14,7 +14,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | shared-ci-Nutzer | 41 |
 | Marker-Schema reqid/gemischt | 4 |
 | Repos mit ≥1 Contract-Test | 2 |
-| Verletzungen | 18 |
+| Verletzungen | 17 |
 | übersprungene Worktrees | platform-pinned |
 
 ## Verletzungen
@@ -33,7 +33,6 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | learn-hub | B2 Pin < 0.6.0 | 4 | shared:_ci-python@v1.1.0 | >=0.1 |
 | meiki-hub | B1 Test ohne Leser | 1 | wf-ohne-test | - |
 | pptx-hub | B2 Pin < 0.6.0 | 23 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
-| robo-lab | B1 Test ohne Leser | 3 | wf-ohne-test | - |
 | tax-hub | B2 Pin < 0.6.0 | 15 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | trading-hub | B2 Pin < 0.6.0 | 72 | shared:_ci-python@v1.1.10 | >=0.2.0 |
 | travel-beat | B2 Pin < 0.6.0 | 43 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
@@ -44,6 +43,7 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 
 - bfagent: Prod-frozen (Function-Store), kein Bump ohne Owner-Wort (https://github.com/achimdehnert/platform/issues/2428)
 - iil-pet-portal: Playwright-KD-Paritaetstests ohne CI-Runner; Leser ist /kd-review (https://github.com/iilgmbh/iil-pet-portal/issues/41)
+- robo-lab: Skript-Tests (sim/test_*.py) brauchen scene/DDS/osmesa + laufenden twin_web-Dienst — nur GPU-Box-Runner (https://github.com/achimdehnert/robo-lab/issues/27)
 - wedding-hub: Repo archiviert (read-only, PR-Anlage abgelehnt 2026-08-29) (https://github.com/achimdehnert/platform/issues/2428)
 
 ## Alle Repos

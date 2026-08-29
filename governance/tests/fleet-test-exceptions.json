@@ -22,6 +22,11 @@
         "B2"
       ],
       "since": "2026-08-29"
+    },
+    "robo-lab": {
+      "reason": "Skript-Tests (sim/test_*.py) brauchen scene/DDS/osmesa + laufenden twin_web-Dienst — nur GPU-Box-Runner",
+      "issue": "https://github.com/achimdehnert/robo-lab/issues/27",
+      "since": "2026-08-29"
     }
   }
 }
