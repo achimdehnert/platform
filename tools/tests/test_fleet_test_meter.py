@@ -134,6 +134,13 @@ def test_should_accept_documented_exception_for_b1(fleet: Path) -> None:
     assert beta.exception == "Doku-Repo (org/beta#1)"
 
 
+def test_should_excuse_only_listed_findings(fleet: Path) -> None:
+    rows = [meter.scan_repo(r, use_git=False) for r in meter.find_repos(fleet)[0]]
+    exc = {"beta": {"reason": "archiviert", "issue": "x#1", "findings": ["B1", "B2"]}}
+    meter.apply_findings(rows, exc, "0.6.0")
+    assert next(r for r in rows if r.repo == "beta").findings == []
+
+
 def test_should_be_reproducible_and_exit_one_on_violations(
     fleet: Path, tmp_path: Path
 ) -> None:

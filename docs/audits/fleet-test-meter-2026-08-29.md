@@ -9,12 +9,12 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | Repos gescannt | 74 |
 | davon mit Tests | 62 |
 | `make test` | 45 |
-| testkit-Pin ≥ 0.6.0 | 1/16 |
+| testkit-Pin ≥ 0.6.0 | 3/16 |
 | Coverage-Schwelle gesetzt | 20 |
 | shared-ci-Nutzer | 41 |
 | Marker-Schema reqid/gemischt | 4 |
 | Repos mit ≥1 Contract-Test | 2 |
-| Verletzungen | 20 |
+| Verletzungen | 18 |
 | übersprungene Worktrees | platform-pinned |
 
 ## Verletzungen
@@ -22,7 +22,6 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | Repo | Befund | Tests | CI | Pin |
 |---|---|---|---|---|
 | ausschreibungs-hub | B2 Pin < 0.6.0 | 84 | shared:_ci-python@v1.1.12 | >=0.5,<1 |
-| bfagent | B2 Pin < 0.6.0 | 132 | shared:platform/_ci-python@main | >=0.2.0 |
 | cad-hub | B2 Pin < 0.6.0 | 15 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | coach-hub | B2 Pin < 0.6.0 | 35 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | dev-hub | B2 Pin < 0.6.0 | 111 | shared:_ci-python@v1.1.11 | >=0.5.3,<1 |
@@ -38,13 +37,14 @@ Quelle: `tools/fleet_test_meter.py --root /home/devuser/github` · Auftrag platf
 | tax-hub | B2 Pin < 0.6.0 | 15 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | trading-hub | B2 Pin < 0.6.0 | 72 | shared:_ci-python@v1.1.10 | >=0.2.0 |
 | travel-beat | B2 Pin < 0.6.0 | 43 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
-| wedding-hub | B2 Pin < 0.6.0 | 6 | shared:_ci-python@v1.0.11+_ci-python@v1.0.5 | >=0.2.0 |
 | weltenhub | B2 Pin < 0.6.0 | 25 | shared:_ci-python@v1.1.10 | >=0.5.3,<1 |
 | writing-hub | B2 Pin < 0.6.0 | 305 | shared:_ci-python@v1.1.12 | >=0.5.3,<1 |
 
 ## Ausnahmen (begründet)
 
+- bfagent: Prod-frozen (Function-Store), kein Bump ohne Owner-Wort (https://github.com/achimdehnert/platform/issues/2428)
 - iil-pet-portal: Playwright-KD-Paritaetstests ohne CI-Runner; Leser ist /kd-review (https://github.com/iilgmbh/iil-pet-portal/issues/41)
+- wedding-hub: Repo archiviert (read-only, PR-Anlage abgelehnt 2026-08-29) (https://github.com/achimdehnert/platform/issues/2428)
 
 ## Alle Repos
 

@@ -5,6 +5,23 @@
       "reason": "Playwright-KD-Paritaetstests ohne CI-Runner; Leser ist /kd-review",
       "issue": "https://github.com/iilgmbh/iil-pet-portal/issues/41",
       "since": "2026-08-29"
+    },
+    "wedding-hub": {
+      "reason": "Repo archiviert (read-only, PR-Anlage abgelehnt 2026-08-29)",
+      "issue": "https://github.com/achimdehnert/platform/issues/2428",
+      "findings": [
+        "B1",
+        "B2"
+      ],
+      "since": "2026-08-29"
+    },
+    "bfagent": {
+      "reason": "Prod-frozen (Function-Store), kein Bump ohne Owner-Wort",
+      "issue": "https://github.com/achimdehnert/platform/issues/2428",
+      "findings": [
+        "B2"
+      ],
+      "since": "2026-08-29"
     }
   }
 }

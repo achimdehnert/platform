@@ -20,7 +20,9 @@ Befunde (Sektion „Verletzungen" im Report):
 
 - **B1 Test ohne Leser**: ``test_files > 0`` und ``ci_test`` in {``wf-ohne-test``, ``keiner``},
   außer das Repo steht mit Begründung + Issue in ``--exceptions``
-  (Default ``governance/tests/fleet-test-exceptions.json``).
+  (Default ``governance/tests/fleet-test-exceptions.json``; Schlüssel ``findings``
+  nennt die ausgenommenen Befunde, Default ``["B1"]`` — ``["B1", "B2"]`` z. B. für
+  archivierte oder eingefrorene Repos).
 - **B2 Pin veraltet**: ``testkit_pin`` gesetzt, aber Untergrenze < ``--min-testkit`` (Default 0.6.0).
 
 Verlinkte Worktrees (``.git`` ist eine Datei) werden übersprungen — sie doppeln ihr Haupt-Repo.
@@ -245,14 +247,20 @@ def apply_findings(
 ) -> None:
     min_v = _version_tuple(min_testkit)
     for row in rows:
-        exc = exceptions.get(row.repo)
+        exc = exceptions.get(row.repo) or {}
+        # `findings` nennt die ausgenommenen Befunde; Default nur B1 (Test ohne Leser).
+        excused = set(exc.get("findings", ["B1"])) if exc else set()
         if exc:
             row.exception = (
                 f"{exc.get('reason', '?')} ({exc.get('issue', 'kein Issue')})"
             )
-        if row.test_files > 0 and row.ci_test in {"wf-ohne-test", "keiner"} and not exc:
+        if (
+            row.test_files > 0
+            and row.ci_test in {"wf-ohne-test", "keiner"}
+            and "B1" not in excused
+        ):
             row.findings.append("B1 Test ohne Leser")
-        if row.testkit_pin != "-":
+        if row.testkit_pin != "-" and "B2" not in excused:
             m = PIN_LOWER_RE.search(row.testkit_pin)
             if not m or _version_tuple(m.group(1)) < min_v:
                 row.findings.append(f"B2 Pin < {min_testkit}")
