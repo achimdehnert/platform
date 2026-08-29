@@ -934,6 +934,15 @@ repos:
         prod_redirect: https://schutztat.com/oidc/callback/
         staging_app_slug: risk-hub-staging
         staging_redirect: https://staging.schutztat.de/oidc/callback/
+  # robo-lab (ADR-297 Klasse 5, angelegt 2026-08-25): Experiment Digital Twin Unitree G1.
+  # Kein Deploy, kein Container, kein Prod — robot.iil.pet ist eine User-Unit auf dem
+  # staging-Host und gehoert deshalb NICHT in infra/ports.yaml (Owner-Entscheid 2026-08-29,
+  # robo-lab#28 K5: Registry ja, ports nein). Status kein-anlass (ohne Feld = Default).
+  robo-lab:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: python
   schutztat-reporting:
     in_flat: false
     in_rich: false
