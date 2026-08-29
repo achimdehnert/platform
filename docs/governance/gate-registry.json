@@ -54,12 +54,16 @@
       "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1645",
-      "revised": "2026-08-23",
-      "revision_note": "UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23.",
+      "revised": "2026-08-29",
+      "revision_note": "UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23. AUSWEITUNG 2026-08-29 (Retro e70d11, Owner-Entscheid 'ausweiten'): zweite Trefferklasse `_board_befund_ohne_anker`. Der sechste Rueckfall nach Gate-Bau trug KEIN Vertagungs-Verb — drei in Prod gemessene Defekte standen als offene Board-Zeilen ('| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |') und existierten nur im Gespraechsverlauf. Ein offener Befund im Board IST die haeufigste Form aufgeschobener Arbeit in diesem Setup; er sagt nicht 'vertagt', sondern zeigt es. Bewusst eng: offener Status-Marker UND Befund-Wort UND kein Anker (URL oder #<nummer>) in derselben Zeile — sonst feuert jedes Statusboard.",
       "faengt": [
         {
           "fall": "aufgeschobene Arbeit ohne Issue-Nummer im selben Zug",
           "probe": "vertagt"
+        },
+        {
+          "fall": "offene Board-Zeile mit Befund-Charakter ohne Issue-Link im selben Zug",
+          "probe": "| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |"
         }
       ],
       "zustand": "schranke",
