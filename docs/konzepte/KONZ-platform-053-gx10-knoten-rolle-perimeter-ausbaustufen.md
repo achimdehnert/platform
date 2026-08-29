@@ -98,11 +98,40 @@ Der Knoten wird wie `ollama.iil.pet` behandelt (B8), nicht strenger und nicht la
 | C4 | aifw, mcp-hub | lokaler T1a-Zwilling (`gpt-oss-120b`) | Eintrag im ADR-208-Resolver |
 | C5 | ttz-hub | lokaler Pfad mit großem statt kleinem Modell | Ollama auf aarch64 (H2) |
 | C6 | robo-lab | zweite Trainings-Karte, keine Konkurrenz mit Medien | mjlab auf aarch64 (H3) |
-| C7 | doc-hub, sevdesk-Strecke | Belegextraktion ohne Cloud-Abfluss | Kandidatenliste, §10 |
+| C7 | doc-hub, sevdesk-Strecke | Belegextraktion lokal | **offen**, siehe §5b |
 | C8 | shared-ci | Multi-Arch-Bilder | `platforms`-Input existiert, Deploy hart (B2) |
 
 C4 und C8 sind die einzigen Zeilen, die überhaupt eine Änderung in einem fremden Repo
 verlangen. Alles Übrige läuft über den Knoten selbst.
+
+## 5b. Anwendungsfälle ab Werk — und was davon bei uns andockt
+
+Der Knoten bringt den NVIDIA-AI-Stack mit. Die folgende Liste ist **Herstellerebene,
+von uns nicht gemessen**, und steht unter demselben aarch64-Vorbehalt wie §8.
+
+| #  | Anwendungsfall | Andockstelle | Vorbehalt |
+|----|----------------|--------------|-----------|
+| A1 | Spracherkennung | iil-voice-agent, Besprechungsmitschriften | Modell auf aarch64 |
+| A2 | Sprachsynthese | iil-voice-agent | Lizenz je Stimme |
+| A3 | Dokumentenverstehen, OCR + Layout | doc-hub, Rechnungsstrecke, ausschreibungs-hub | **kein belegter Bedarf**, s.u. |
+| A4 | Embeddings in großen Mengen | pgvector-Neuaufbau, klickdummy-search | reiner Durchsatz |
+| A5 | Bild- und Videoerzeugung | illustration-hub | 4090 bleibt für Latenz besser |
+| A6 | Robotik-Simulation, Policy-Training | robo-lab | H3/H6 ungeprüft |
+| A7 | Reranking, lokale Suche | alle Hubs mit Recherche | klein, ständig gebraucht |
+| A8 | Code-Modelle lokal | Review ohne Abfluss | Qualität unter Frontier |
+
+**Reihenfolge nach Nutzen je Aufwand: A4, dann A1.** A4 ist reiner Durchsatz ohne
+Qualitätsrisiko. A1 hat in `iil-voice-agent` bereits beide Wege verdrahtet — Cloud
+**und** lokal —, der Knoten ersetzt dort also einen bestehenden Pfad statt einen neuen
+zu erfinden.
+
+**A3 bleibt ausdrücklich offen.** Die Annahme, Belege und Ausschreibungen liefen heute
+über Cloud-Modelle, hat sich bei der Gegenprobe **nicht** bestätigt: in `doc-hub` findet
+die Suche nach Cloud-Anbietern null Treffer, in `ausschreibungs-hub` genau einen, und der
+liegt in einer Testdatei. Positivkontrolle des Suchmusters an `iil-voice-agent` bestanden
+(dort werden Cloud-Anbieter **und** der Ollama-Pfad gefunden), die Null ist also echt.
+Damit wäre A3 keine Verlagerung eines Abflusses, sondern eine **neue** Fähigkeit — und
+die braucht eine eigene Begründung, bevor sie auf diese Liste rutscht.
 
 ## 5a. writing-hub im Einzelnen — Kosten und Qualität
 
@@ -212,3 +241,6 @@ Tracking für O2/O3: siehe Auftrags-Issue in §10.
 ## 10. Nachträge
 
 - 2026-08-29: Konzept angelegt, Owner-Entscheid E1–E3 aufgenommen.
+- 2026-08-29: §5b ergänzt (Anwendungsfälle ab Werk, A1–A8). C7 von „ohne Cloud-Abfluss"
+  auf „offen" korrigiert — die zugrunde liegende Annahme war ungeprüft und hielt der
+  Gegenprobe nicht stand.
