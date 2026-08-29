@@ -158,6 +158,11 @@ repos:
     prod_url: learn.iil.pet
     port: 8100
     health: /livez/
+  news-hub:
+    type: django
+    prod_url: news.iil.pet
+    port: 8113
+    health: /livez/
   learnfw:
     type: library
     pypi: learnfw
