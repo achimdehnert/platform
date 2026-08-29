@@ -448,6 +448,11 @@ Vollständige Anleitung: `.windsurf/workflows/testing-setup.md`
 platform-context[testing]>=0.3.1
 pytest-django>=4.8
 factory-boy>=3.3
+# PFLICHT: _ci-python.yml ruft pytest mit `-n <workers> --dist=loadscope` auf.
+# Fehlt xdist, scheitert der Unit-Test-Job an `unrecognized arguments` — der
+# Lauf sieht aus wie ein roter Test, ist aber eine fehlende Testabhaengigkeit
+# (gemessen 2026-08-29, news-hub Lauf 33239053913).
+pytest-xdist>=3.5
 ```
 
 ```python
@@ -505,7 +510,7 @@ jobs:
     # jeder PR unmergebar).
     # Versionierte shared-ci-Referenz statt floating platform@main (KONZ-017
     # W0-2): neue Repos werden auf der Paved Road geboren, nicht daneben.
-    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.0.10
+    uses: iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.1.12
     with:
       python_version: "3.12"
       coverage_threshold: 80
@@ -521,7 +526,7 @@ jobs:
     name: "Build"
     needs: [ci]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.0.10
+    uses: iilgmbh/shared-ci/.github/workflows/_build-docker.yml@v1.1.12
     with:
       dockerfile: "docker/app/Dockerfile"
       scan_image: true
@@ -531,7 +536,7 @@ jobs:
     name: "Deploy"
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.0.10
+    uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@v1.1.12
     with:
       app_name: <REPO_NAME>
       deploy_path: /opt/<REPO_NAME>
