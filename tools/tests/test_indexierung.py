@@ -35,12 +35,14 @@ def test_should_exclude_imap_utf7_encoded_trash_name():
 
 
 def test_should_exclude_editorial_folders():
+    """Was werblich bleibt.
+
+    Bis zum 2026-08-29 standen hier auch MediumDaily, AI-News, DSGVO - News und
+    Newsletter. Sie sind seither die Quelle des Hot-Topics-Digests (ADR-299) und
+    muessen indexiert werden — siehe den Test darunter. Der Rest bleibt draussen.
+    """
     for name in (
-        "Posteingang/MediumDaily",
-        "AI-News",
-        "Posteingang/DSGVO - News",
         "Trading/Zacks",
-        "Newsletter",
         "Werbung",
         "RSS-Abonnements",
     ):
@@ -187,3 +189,34 @@ def test_should_apply_local_exclusion_list(tmp_path):
 
 def test_should_tolerate_missing_local_list():
     assert ix.ist_ausgeschlossen("INBOX", LEER) is None
+
+
+# --- Digest-Quelle (ADR-299, Owner-Go 2026-08-29) ----------------------------
+
+
+def test_should_index_the_digest_source_folders():
+    """Die vier Ordner des Hot-Topics-Digests muessen durch die Regel kommen.
+
+    Sie standen bis zum 2026-08-29 als 'redaktionell/werblich' im Ausschluss —
+    und waren damit unsichtbar fuer genau die Anwendung, die auf ihnen aufsetzt.
+    Der Test haelt die Umkehr fest, damit sie nicht beim naechsten Aufraeumen
+    still zurueckgedreht wird.
+    """
+    for ordner in (
+        "Posteingang/MediumDaily",
+        "Posteingang/DSGVO - News",
+        "AI-News",
+        "Newsletter",
+    ):
+        assert not _aus(ordner), ordner
+
+
+def test_should_still_exclude_advertising_and_feeds():
+    """Gegenprobe: die Regel ist nicht einfach abgeschaltet."""
+    for ordner in ("Werbung", "Zacks", "RSS-Abonnements"):
+        assert _aus(ordner), ordner
+
+
+def test_should_still_exclude_trash_and_non_mail():
+    for ordner in ("Papierkorb", "Junk-E-Mail", "Kalender", "Archiv/2019"):
+        assert _aus(ordner), ordner

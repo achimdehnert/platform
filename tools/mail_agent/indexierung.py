@@ -48,8 +48,18 @@ _PAPIERKORB = re.compile(
     r"|junk-?e-?mail|junk|spam)$",
     re.I,
 )
+# 2026-08-29 (Owner-Go, platform ADR-299): Vier dieser Ordner sind seit heute die
+# QUELLE des Hot-Topics-Digests — genau das, was hier bisher als "werblich" wegfiel.
+# Die Ausschlussregel ist laut ADR-293 §3.2 zugleich die Speichergrenze; wer die
+# Ordner lesen will, muss sie also indexieren, nicht am Ausschluss vorbeilesen.
+# Ein zweites Regelwerk daneben waere genau der Zustand, den ADR-299 vermeidet.
+#
+# `werbung` bleibt bewusst DRIN: der Ordner ist gemischt (Newsletter neben
+# Werbepost), und der Digest filtert ihn ohnehin ueber eine Absender-Allowlist.
+# Ihn zu indexieren hiesse, Werbepost dauerhaft zu speichern, um drei Absender
+# lesen zu koennen. Wenn das AD-Konto dazukommt, ist das eine eigene Entscheidung.
 _REDAKTIONELL = re.compile(
-    r"^(newsletter|mediumdaily|ai-news|dsgvo - news|zacks|werbung|rss-abonnements)$",
+    r"^(zacks|werbung|rss-abonnements)$",
     re.I,
 )
 _TECHNISCH = re.compile(r"^(synchronisierungsprobleme|sync issues)$", re.I)
