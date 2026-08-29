@@ -23,34 +23,6 @@ meta:
     iil-relaunch: iilgmbh
     illustration-fw: iilgmbh
     iil-klickdummy: iilgmbh
-    # iil-voice-agent liegt real unter iilgmbh (verifiziert: git@github.com:iilgmbh/
-    # iil-voice-agent.git); kein "iil-"-owner_prefix_rule → ohne Override fiele es auf
-    # achimdehnert-Default zurück (gleiche Klasse wie frist-hub unten).
-    iil-voice-agent: iilgmbh
-    # C-11 (repo-optimize 2026-07-03): frist-hub liegt real unter meiki-lra
-    # (verifiziert: gh api repos/meiki-lra/frist-hub → 200; achimdehnert/
-    # iilgmbh → 404). Der Name matcht KEINE owner_prefix_rules (kein
-    # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
-    # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
-    frist-hub: meiki-lra
-    # ADR-297 (2026-08-24, platform#2264): der neue Org-Zuordnungs-Melder
-    # (tools/org_zuordnung_melder.py) hat acht Repos gefunden, deren realer Owner
-    # dem hier deklarierten widersprach — verifiziert ueber `.owner.login` der
-    # API-Antwort, nicht ueber den angefragten Pfad (GitHub leitet still um und
-    # bestaetigt sonst jede Behauptung mit 200).
-    ausschreibungs-hub: iilgmbh
-    django-lms-lite: iilgmbh
-    gpufw: iilgmbh
-    iil-doc-templates: iilgmbh
-    nl2iot-hub: iilgmbh
-    risk-hub: iilgmbh
-    tax-hub: iilgmbh
-    # bahn-hub ist der Gegenfall: die Praefix-Regel `bahn-` -> bahn-sqf schickte
-    # jede Anfrage nach bahn-sqf/bahn-hub (404), waehrend das Repo unter
-    # achimdehnert liegt. Der 404 tarnte die Drift als "nicht pruefbar" — deshalb
-    # probiert der Melder seit demselben Tag die uebrigen bekannten Konten durch,
-    # bevor er ein Repo als ungeprueft ablegt.
-    bahn-hub: achimdehnert
   owner_prefix_rules:
   - prefix: meiki-
     owner: meiki-lra
@@ -70,41 +42,9 @@ meta:
     ttz-hub: TTZ-Hub
     sqf-hub: SQF-Hub
     pg-hub: PG-Hub
-  _note: 'KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via `registry-canonical.py
-    flip`). Union aus scripts/repo-registry.yaml + registry/repos.yaml; beide Altdateien
-    sind jetzt generierte, gate-erzwungene Views (verify-Gate in registry-consistency.yml).
-    Edits nur hier, nie in den Views. Accessor: tools/registry_api.py.'
-
-# DECOMMISSIONED (KONZ-platform-015 REC-2, 2026-07-17) — Registry der abgeschalteten
-# Apps/Hosts, aus denen tote Runtime-Referenzen (Env-Werte, Hostnamen, IPs) entstehen
-# können, die kein anderes Gate sieht. Wird von tools/validate_registry.py gegen
-# {name, date, dead_hostnames|dead_ids} geprüft — dead_hostnames/dead_ips zusammen
-# dürfen nicht beide leer sein. Konsument (Gate-Modus, REC-3, noch nicht scharf):
-# tools/decommission_check.py prüft aufgelöste Compose-/Env-Werte eines Deploys
-# gegen diese Liste, fail-closed vor `compose up`.
-decommissioned:
-  - name: bfagent
-    date: "2026-07-09"
-    dead_hostnames: [bfagent_redis, bfagent_db]
-    dead_ips: []
-    note: "Import-only eingefroren (#bfagent_frozen_function_store); Referenzen fanden sich noch in weltenhub/.env.prod (Incident, KONZ-015 §5.2)."
-  - name: staging-platform-legacy-host-adr210
-    date: "2026-07-09"
-    dead_hostnames: []
-    dead_ips: ["178.104.184.168"]
-    note: "ADR-210-Ära-Host 'staging-platform'; staging-demo.schutztat.de zeigte per DNS-A-Record noch darauf (#1043, entschieden). ACHTUNG: staging_naming.sh/staging_tunnel_ingress.sh (REC-1) haben denselben Host 2026-07-17 weiterhin mit aktiven, korrekt benannten Staging-Containern vorgefunden — Host ist NICHT vollständig tot, nur der DNS-Record war es. Vor jeder Automatisierung gegen diese IP: Doppelbedeutung auflösen (Host lebt weiter, nur der spezifische DNS-Zeiger war stale)."
-
-# OVERRIDE-MANIFEST (KONZ-platform-015 REC-2/E2, 2026-07-17) — Host-only Compose-
-# Override-Dateien (git-unsichtbar) MÜSSEN hier deklariert sein, sonst fail-closed
-# im Deploy-Gate (REC-3, noch nicht scharf). Schema pro Eintrag: {repo, path, reason,
-# owner, expires_at} — Vorbild ADR-264-D1-Waiver ("ohne Ablaufdatum -> blockiert").
-# Noch keine Einträge: der aus KONZ-015 §2 bekannte Fall
-# (/opt/hub-builds/weltenhub/docker-compose.override.yml) braucht eine frische
-# Live-Verifikation (Stand 2026-07-09, nicht in dieser Session erneut geprüft),
-# bevor er hier eingetragen wird — sonst würde eine evtl. bereits aufgeräumte
-# Override-Datei fälschlich als "bekannt+erlaubt" fortgeschrieben.
-overrides: []
-
+  _note: 'KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via `registry-canonical.py flip`). Union
+    aus scripts/repo-registry.yaml + registry/repos.yaml; beide Altdateien sind jetzt generierte, gate-erzwungene
+    Views (verify-Gate in registry-consistency.yml). Edits nur hier, nie in den Views. Accessor: tools/registry_api.py.'
 repos:
   137-hub:
     in_flat: true
@@ -138,6 +78,13 @@ repos:
         multi_tenant: false
         port: 8095
         deploy_script: /opt/137-hub/deploy.sh
+  aifw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: aifw
+      pypi_strategy: aktiv
   apo-hub:
     in_flat: true
     in_rich: true
@@ -163,23 +110,9 @@ repos:
         web_container: apo_hub_web
         web_service: web
         port: 8042
-      notes: "GEFUNDEN 2026-07-10: war in KEINER der drei Registries (canonical/ports/repos.yaml) erfasst, obwohl seit mind. 2 Tagen live+healthy läuft (apo.iil.pet, nginx-vhost vorhanden). Erstmalig hier nachgetragen."
-  aifw:
-    in_flat: true
-    in_rich: false
-    flat:
-      type: library
-      pypi: aifw
-      pypi_strategy: aktiv
-  # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
-  # in_flat/in_rich beide false → projiziert in KEINE aktive View (gen_flat/gen_rich
-  # filtern), nur in die Archiv-View. lifecycle top-level (kein rich-Block nötig).
-  adr-doctor:
-    in_flat: false
-    in_rich: false
-    lifecycle: archived
-    github: achimdehnert/adr-doctor
-    description: "Surgical healing tool for ADR supersession hygiene (archiviert)"
+      notes: 'GEFUNDEN 2026-07-10: war in KEINER der drei Registries (canonical/ports/repos.yaml) erfasst,
+        obwohl seit mind. 2 Tagen live+healthy läuft (apo.iil.pet, nginx-vhost vorhanden). Erstmalig hier
+        nachgetragen.'
   ausschreibungs-hub:
     in_flat: true
     in_rich: true
@@ -347,7 +280,11 @@ repos:
         web_container: coach_hub_web
         web_service: web
         port: 8007
-      notes: 'Abgeschaltet 2026-08-20 (Owner-Weisung, platform#2125): alle 5 Container auf prod-b gestoppt (+362 MB RAM frei). Tunnel-CNAMEs fuer kiohnerisiko.de, www.kiohnerisiko.de und coach-hub.iil.pet in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert (pgdump: 83 Tabellen, 17 auth_user). Repo lebt weiter, Volumes unangetastet - docker start ist der Rueckweg. Letzter Login war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
+      notes: 'Abgeschaltet 2026-08-20 (Owner-Weisung, platform#2125): alle 5 Container auf prod-b gestoppt
+        (+362 MB RAM frei). Tunnel-CNAMEs fuer kiohnerisiko.de, www.kiohnerisiko.de und coach-hub.iil.pet
+        in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert (pgdump: 83 Tabellen,
+        17 auth_user). Repo lebt weiter, Volumes unangetastet - docker start ist der Rueckweg. Letzter
+        Login war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
   decks-hub:
     in_flat: true
     in_rich: true
@@ -373,10 +310,9 @@ repos:
         web_container: decks_hub_web
         web_service: web
         port: 8112
-      notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern.
-        LIVE seit 2026-07-10 (Run 29093692166, healthz 200, Container healthy auf 8112).
-        Onboarding legte 4 unabhaengige Luecken offen (Registry/permissions/Runner/Secrets)
-        — Befund am Tombstone-/Onboarding-Thema #1045. ADR-253 Schiene 1.
+      notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. LIVE seit 2026-07-10
+        (Run 29093692166, healthz 200, Container healthy auf 8112). Onboarding legte 4 unabhaengige Luecken
+        offen (Registry/permissions/Runner/Secrets) — Befund am Tombstone-/Onboarding-Thema
   dev-hub:
     in_flat: true
     in_rich: true
@@ -443,7 +379,8 @@ repos:
     rich:
       name: dms-hub
       repo: dms-hub
-      description: Dokumentenmanagement-Anwendung (nicht zu verwechseln mit dem separat laufenden Paperless-Stack "doc-hub")
+      description: Dokumentenmanagement-Anwendung (nicht zu verwechseln mit dem separat laufenden Paperless-Stack
+        "doc-hub")
       github: achimdehnert/dms-hub
       deployed: true
       url: https://dms.iil.pet
@@ -469,7 +406,7 @@ repos:
     flat:
       type: library
       pypi: gaeb-toolkit
-      pypi_strategy: einfrieren   # 2026-08-27 Owner: nicht archivieren — ausschreibungs-hub KONZ-003/ADR-001 integrieren TOOL-GAEB-TOOLKIT (review_by 2026-09-15)
+      pypi_strategy: einfrieren
     domain: Engineering & Construction
     rich:
       name: gaeb-toolkit
@@ -488,12 +425,6 @@ repos:
       type: library
       pypi: iil-gpufw
       pypi_strategy: aktiv
-  ifc-mcp:
-    in_flat: false
-    in_rich: false
-    lifecycle: active
-    github: achimdehnert/ifc-mcp
-    description: IFC/BIM MCP Server — Model Context Protocol Server for IFC building models (DIN 277, fire protection, accessibility checks)
   iil-adrfw:
     in_flat: true
     in_rich: false
@@ -528,7 +459,7 @@ repos:
     flat:
       type: library
       pypi: iil-enrichment
-      pypi_strategy: aktiv   # 2026-08-27 Owner: Konsument risk-hub geplant — Exschutz-Dokument, ADR-008 §6.2 GESTIS statisch -> GESTISProvider/PubChemProvider
+      pypi_strategy: aktiv
   iil-fieldprefill:
     in_flat: true
     in_rich: false
@@ -578,8 +509,8 @@ repos:
     in_rich: false
     flat:
       type: library
-      note: Souveräner Telefon-/Sprachagent (mPA/Telefonagent, iilgmbh) — Hexagonal-Core
-        mit swappable LLM/Voice/Knowledge-Ports (platform:ADR-249). Scaffold/MVP, kein Deploy.
+      note: Souveräner Telefon-/Sprachagent (mPA/Telefonagent, iilgmbh) — Hexagonal-Core mit swappable
+        LLM/Voice/Knowledge-Ports (platform:ADR-249). Scaffold/MVP, kein Deploy.
   illustration-fw:
     in_flat: true
     in_rich: false
@@ -659,9 +590,10 @@ repos:
     in_rich: true
     flat:
       type: infra
-      prod_url: orchestrator.iil.pet  # war mcp.iil.pet (NXDOMAIN) — Fund reconcile-Sweep 2026-07-10, live 200 verifiziert
+      prod_url: orchestrator.iil.pet
       port: 3000
-      note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline C4:8000)
+      note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
+        C4:8000)
     domain: Developer Platform
     rich:
       name: mcp-hub
@@ -673,16 +605,11 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
-  # ADR-275 P0.5: souveräner django-Hub (meiki-lra), lokal geklont + workflow-
-  # synchronisiert. Fehlte in canonical → wäre bei der sync-workflows-Migration (P1)
-  # auf 'other' gefallen (Regression). Nur Metadaten (Typ/Owner), KEINE Mandantendaten.
-  # in_flat:true (Flotten-Inventar), in_rich:false (nicht im Plattform-Deploy-Subset —
-  # souverän auf eigener Infra, kein Plattform-Port/prod_url).
   meiki-hub:
     in_flat: true
     in_rich: false
     flat:
-      type: django
+      type: static
   nl2cad:
     in_flat: true
     in_rich: false
@@ -711,7 +638,7 @@ repos:
     in_rich: true
     flat:
       type: infra
-      prod_url: odoo.iil.pet  # war odoo-hub.iil.pet (NXDOMAIN) — Fund reconcile-Sweep 2026-07-10, live 200 verifiziert
+      prod_url: odoo.iil.pet
       port: 8069
       health: /web/health
     domain: Business & Safety
@@ -738,13 +665,17 @@ repos:
     rich:
       name: onboarding-hub
       repo: onboarding-hub
-      description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via Cloudflare Access statt App-OIDC) und seit 2026-08-20 auch nicht mehr im Betrieb.
+      description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via
+        Cloudflare Access statt App-OIDC) und seit 2026-08-20 auch nicht mehr im Betrieb.
       github: achimdehnert/onboarding-hub
       deployed: false
       url: https://schulungspass.de
       type: django
       lifecycle: archived
-      notes: 'Stillgelegt 2026-08-20 (platform#2123): Repo archiviert, Topic scheduled-deletion-2026-09-19, Runner deaktiviert. Lief zum Zeitpunkt der Archivierung auf keinem Host und hatte nie eine Datenbank; schulungspass.de war bereits nur noch ein 302. Backup verifiziert. DELETE fruehestens 2026-09-19, Human-Only.'
+      notes: 'Stillgelegt 2026-08-20 (platform#2123): Repo archiviert, Topic scheduled-deletion-2026-09-19,
+        Runner deaktiviert. Lief zum Zeitpunkt der Archivierung auf keinem Host und hatte nie eine Datenbank;
+        schulungspass.de war bereits nur noch ein 302. Backup verifiziert. DELETE fruehestens 2026-09-19,
+        Human-Only.'
       tenancy_mode: none
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
@@ -832,7 +763,9 @@ repos:
         web_container: recruiting_hub_web
         web_service: web
         port: 8103
-      notes: 'Stillgelegt 2026-08-20 (platform#2121): Repo archiviert, Topic scheduled-deletion-2026-09-19, alle 5 Container gestoppt, Runner deaktiviert. DB war leer (0 Kandidaten, 0 Dokumente, 1 Admin-Konto). Backup inkl. pgdump in ~/backups/repo-graveyard/. DELETE fruehestens 2026-09-19, Human-Only.'
+      notes: 'Stillgelegt 2026-08-20 (platform#2121): Repo archiviert, Topic scheduled-deletion-2026-09-19,
+        alle 5 Container gestoppt, Runner deaktiviert. DB war leer (0 Kandidaten, 0 Dokumente, 1 Admin-Konto).
+        Backup inkl. pgdump in ~/backups/repo-graveyard/. DELETE fruehestens 2026-09-19, Human-Only.'
   research-hub:
     in_flat: true
     in_rich: true
@@ -850,9 +783,6 @@ repos:
       deployed: true
       url: https://research.iil.pet
       type: django
-      # Eingefroren per Owner-Entscheid 2026-08-09 (research-hub#55): import-only-
-      # Funktionsspeicher, keine aktive Entwicklung, aus Auto-Queues aussparen.
-      # deployed bleibt true — Prod laeuft weiter; Abschaltung = eigener Vorgang.
       lifecycle: frozen
       tenancy_mode: none
       dockerfile: Dockerfile
@@ -868,14 +798,6 @@ repos:
       type: library
       pypi: researchfw
       pypi_strategy: aktiv
-  riskfw:
-    in_flat: true
-    in_rich: false
-    flat:
-      type: library
-      archived: true   # 2026-08-27 Owner archiviert (GitHub); Kopie in iilgmbh/risk-hub src/riskfw ist kanonisch; Backup ~/backups/repo-graveyard/achimdehnert--riskfw--2026-08-27
-      pypi: riskfw
-      pypi_strategy: archivieren-kandidat
   risk-hub:
     in_flat: true
     in_rich: true
@@ -918,13 +840,6 @@ repos:
         web_service: risk-hub-staging-web
         migrate_cmd: python manage.py migrate --noinput
         port: 19001
-        # host: dev-desktop nachgetragen 2026-07-17 (KONZ-platform-015, #1227) —
-        # `docker ps` auf 88.99.38.75 bestaetigt risk_hub_staging_{web,worker,
-        # celery,redis,litellm_proxy,db,minio} live dort, NICHT auf
-        # staging-platform (178.104.184.168, dort nur dev-hub). Ungeklaert
-        # (nicht in dieser Session verifiziert): staging.schutztat.de taucht
-        # auch in staging-platforms nginx-vhost-Liste auf — moeglicher
-        # Reverse-Proxy/Tunnel oder eigenstaendige Drift, nicht aufgeloest.
         host: dev-desktop
         hostnames:
         - staging.schutztat.de
@@ -934,21 +849,19 @@ repos:
         prod_redirect: https://schutztat.com/oidc/callback/
         staging_app_slug: risk-hub-staging
         staging_redirect: https://staging.schutztat.de/oidc/callback/
-  # robo-lab (ADR-297 Klasse 5, angelegt 2026-08-25): Experiment Digital Twin Unitree G1.
-  # Kein Deploy, kein Container, kein Prod — robot.iil.pet ist eine User-Unit auf dem
-  # staging-Host und gehoert deshalb NICHT in infra/ports.yaml (Owner-Entscheid 2026-08-29,
-  # robo-lab#28 K5: Registry ja, ports nein). Status kein-anlass (ohne Feld = Default).
+  riskfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      archived: true
+      pypi: riskfw
+      pypi_strategy: archivieren-kandidat
   robo-lab:
     in_flat: true
     in_rich: false
     flat:
       type: python
-  schutztat-reporting:
-    in_flat: false
-    in_rich: false
-    lifecycle: active
-    github: achimdehnert/schutztat-reporting
-    description: Odoo 18 management module for Schutztat risk assessments (syncs from risk-hub Django API)
   tax-hub:
     in_flat: true
     in_rich: true
@@ -969,14 +882,12 @@ repos:
       lifecycle: production
       tenancy_mode: subdomain
       demo_fixture: false
-      # Staging-Berechtigung nach KONZ-platform-022 (L5/L9). Erste Befuellung
-      # dieser Felder ueberhaupt — bis hierhin war die Regel aufgeschrieben,
-      # aber nirgends angewandt.
-      envs: [dev, prod]
+      envs:
+      - dev
+      - prod
       envs_evidence:
-        regel: >-
-          KONZ-platform-022 L5: Staging nur bei (echte Daten/Nutzer) UND
-          (>=8 Struktur-Aenderungs-Commits pro Quartal)
+        regel: 'KONZ-platform-022 L5: Staging nur bei (echte Daten/Nutzer) UND (>=8 Struktur-Aenderungs-Commits
+          pro Quartal)'
         gemessen_am: 2026-08-11
         struktur_commits_90d: 6
         prod_datenbestand: 2 Mandanten, 0 Bescheide, 1 Nutzer
@@ -988,19 +899,15 @@ repos:
         web_container: tax_hub_web
         web_service: web
         port: 8099
-      # staging nachgetragen 2026-07-17 (KONZ-platform-015, #1227) — `docker ps`
-      # auf dev-desktop (88.99.38.75) bestaetigt tax_hub_staging_{web,worker,
-      # beat,db,redis} live dort; vorher KEIN staging-Eintrag in der Registry
-      # (Registrierungsluecke, nicht nur Host-Frage). NUR die per SSH direkt
-      # verifizierten Felder eingetragen (host, web_container, hostnames) —
-      # port/image/server_path bewusst NICHT geraten, folgt bei Bedarf per
-      # eigenem Check (kein Blindflug-Claim).
       staging:
         host: dev-desktop
         web_container: tax_hub_staging_web
         hostnames:
         - staging-tax.iil.pet
-      notes: "GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix) — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed. Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung: Re-Deploy nötig, bevor 8104 hier eingetragen wird."
+      notes: 'GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix)
+        — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed.
+        Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung:
+        Re-Deploy nötig, bevor 8104 hier eingetragen wird.'
   trading-hub:
     in_flat: true
     in_rich: true
@@ -1024,22 +931,6 @@ repos:
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
       coverage_threshold: 60
-  # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
-  # War fälschlich NICHT in canonical; steht auch nicht in github_repos.yaml.archive
-  # (deren 68er-Liste war zu 96% Fiktion — 0 real archiviert, 65 gelöscht).
-  testkit:
-    in_flat: false
-    in_rich: false
-    lifecycle: archived
-    github: achimdehnert/testkit
-    description: "iil-testkit — Shared Test Factory Package (ADR-100, archiviert)"
-  # ADR-275 P0.5: souveräner django-Hub (ttz-lif), lokal geklont + workflow-
-  # synchronisiert. Analog meiki-hub — s. dort. Nur Metadaten, keine Mandantendaten.
-  ttz-hub:
-    in_flat: true
-    in_rich: false
-    flat:
-      type: django
   travel-beat:
     in_flat: true
     in_rich: true
@@ -1076,6 +967,11 @@ repos:
           and ''migrate_schemas --tenant''. deploy-remote.sh has a known bug using ''migrate --noinput''.
 
           '
+  ttz-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
   wedding-hub:
     in_flat: true
     in_rich: true
@@ -1166,3 +1062,15 @@ repos:
       coverage_threshold: 60
       notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-180 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
         offen (Rev-9/11-Migration).'
+  adr-doctor:
+    in_flat: false
+    in_rich: false
+    lifecycle: archived
+    github: achimdehnert/adr-doctor
+    description: Surgical healing tool for ADR supersession hygiene (archiviert)
+  testkit:
+    in_flat: false
+    in_rich: false
+    lifecycle: archived
+    github: achimdehnert/testkit
+    description: iil-testkit — Shared Test Factory Package (ADR-100, archiviert)
