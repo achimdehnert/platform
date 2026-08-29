@@ -3033,3 +3033,13 @@ Integration Tests verloren (repariert); zwei Gates rueckfaellig → #2411, Kopie
 Eigene Fehler: Bypass-Kommentar vor dem Merge-Ergebnis (#2397), --admin auf generische
 Formel (mcp-hub#234), Fast-Forward ohne fetch ("synchron" bei fehlendem Merge).
 Deploy-Sonde: coach-hub (seit 20.8.) und bahn-hub (seit 23.8.) rot, vorbestehend, getrackt.
+
+## 2026-08-29 vormittag — Teststrategie-Auftrag #2428 (Session 6399d6fd)
+Zielzustand erreicht (5/5 Kriterien, Abschluss-Kommentar in #2428). Coverage-Gate konnte
+nie rot werden (combine auf XML) — behoben shared-ci#61, Pilot writing-hub kalibriert
+(rot@99, gruen@87, Ist 87,54 %). ADR-298 proposed (#2432, ersetzt 057/058/155/184 bei
+Accept). Fleet-Test-Meter #2431 (74 Repos, B1=0, Pins 14/16). 12 testkit-Bumps + 5
+CI-Leser-Jobs gemergt; Ausnahmen mit Issue. Beifang shared-ci#63 runs_on_light.
+Deploy-Sonde: coach-hub weiter rot (#70, 4. Mal), writing-hub-Deploy pending (Queue).
+Eigene Fehler: 2x Heredoc-Edit-Leerlauf mit irrefuehrender Commit-Message (korrigiert,
+Memory angelegt); coach-hub#72 Duplikat von #70 (geschlossen).
