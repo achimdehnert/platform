@@ -231,9 +231,15 @@ hosts:
     os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
     server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
     role: >
-      ROLLE per ADR-292 (2026-08-02) right-sized: NUR R1 Off-Provider-Backup/DR-Ziel
-      (rest-server läuft, append-only). Die weiteren ADR-289-Rollen R2 Monitoring,
-      R3 CI-/Build-Runner, R4 DR-Standby sind VERTAGT — je neuer Owner-Beschluss.
+      ROLLE per ADR-292 (2026-08-02) right-sized: R1 Off-Provider-Backup/DR-Ziel
+      (rest-server läuft, append-only).
+      ⚡ R3 CI-/Build-Runner AKTIVIERT durch Owner-Beschluss 2026-08-30 (Kapitäns-Kanal,
+      „R3 auf netcup aktivieren -> jetzt"). Anlass: writing-hub hing an einem einzigen
+      CI-Runner (writing-hub#875); die beiden anderen Kandidaten fielen an ADR-257 §1
+      aus — auf dem Dev-Desktop läuft `praes-iil-ai-*` (produktiv, getunnelt, vom Owner
+      am 2026-08-30 bestätigt), auf prod-b läuft WeltenHub-Prod. netcup trug 1 Container
+      (restserver) bei Load 0,00 und 30,6 von 31,3 GB freiem RAM.
+      R2 Monitoring und R4 DR-Standby bleiben VERTAGT — je neuer Owner-Beschluss.
       Ausdrücklich KEINE App-Hubs.
       ⛔ NEGATIV-REGEL (ADR-289 §4.6): hier läuft KEIN App-Hub-Stack. Wandernde Hubs
       gehen nach `prod-b` oder `staging-dedicated` (7 % bzw. 23 % RAM-Belegung) —
@@ -319,7 +325,7 @@ runners:
     status: online                     # 2026-08-28 09:00 CEST registriert + online (gh api runners);
                                        # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
                                        # Bootstrap lief als root via `wsl -u root` ueber den prod-Hop
-    labels: [self-hosted, Linux, X64, ci-gpu]
+    labels: [self-hosted, Linux, X64, ci-gpu, ci-nonprod]   # ci-nonprod am 2026-08-30 ergaenzt
     scope: per-repo
     install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro
     service: actions.runner.achimdehnert-<repo>.DESKTOP-G1MN89S.service   # Runner-Name = Hostname
@@ -332,6 +338,30 @@ runners:
       "wsl -d Ubuntu -u root -- sleep infinity"). Deploy-Jobs bleiben auf prod-server;
       hier laufen nur `_ci-python`-Block und der writing-hub-Eigenjob `integration-tests`.
     verified: 2026-08-28               # Box-Fakten; Runner-Status offen
+  netcup-ci:
+    host: netcup                       # 152.53.136.219
+    status: online                     # 2026-08-30 08:59 CEST registriert + verifiziert (gh api runners)
+    labels: [self-hosted, Linux, X64, ci-nonprod]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>
+    service: actions.runner.achimdehnert-<repo>.writing-hub-netcup-ci.service
+    runner_user: github-ci             # REC-5, nicht root, in docker-Gruppe
+    bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh   # WSL-Teil wird uebersprungen, Docker war da
+    consumers: [writing-hub]
+    note: >
+      Zweiter Traeger fuer `ci-nonprod`, damit CI nicht mehr an einer Maschine haengt
+      (writing-hub#875). Der Bootstrap brach beim ersten Lauf in Schritt 2b ab —
+      veraltete apt-Indizes, 404 auf libexpat1; nach `apt-get update` lief er durch.
+      Die Playwright-Systemabhaengigkeiten kamen NICHT mit (Schritt 2b faengt seinen
+      eigenen Fehlschlag mit `|| true` ab): am Host gemessen fehlten libnss3, libnspr4,
+      libatk-1.0, libgbm, libasound. Nachinstalliert per venv
+      (`/opt/pw-venv/bin/python -m playwright install-deps chromium`) und am Host
+      verifiziert — je 1 Treffer in ldconfig, Negativkontrolle 0.
+      ADR-257 §1 erfuellt: auf dieser Engine laeuft kein produktiver App-Container
+      (nur `restserver`, das R1-Backup-Ziel), und die Negativ-Regel ADR-289 §4.6
+      haelt das so.
+    verified: 2026-08-30
+
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
     status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)
