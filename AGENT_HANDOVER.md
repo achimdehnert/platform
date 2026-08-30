@@ -35,7 +35,29 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-30 nachts — zwei Werkzeugdefekte am Merge-Pfad behoben, beide PRs haengen an @wirdigital)
+## ⚡ Aktueller Stand (2026-08-30 vormittags — Merge-Pfad-Defekte behoben, Fehlermeldung des Verankerungs-Pruefers korrigiert, KONZ-051 Vorgaenger-Staende bestimmt)
+
+**Zeitanker:** HEAD `7dc44fe9` · `rev-list --count` 3773 · geschrieben 2026-08-30
+
+**Zielzustand:** n/a (begruendet) — Sitzung war Fortsetzung ohne eigenen `/session-start`-Block; gearbeitet an Handover-Prio 1 (Merge-Pfad-Defekte) und an KONZ-051 (#2474).
+
+**[#2477](https://github.com/achimdehnert/platform/pull/2477) `tools/umgebung.py` — der Merge-Blocker aus dem letzten Stand ist aufgeloest, ohne dass jemand `--admin` brauchte.** Skill-Verteilung war stale (`doctor.py` Drift-Score 1 — `session-ende.md`-Kopie hinkte den Merges aus #2172/#2476 hinterher); neu verteilt (`generate.py --kind commands --allow-live`), danach `bot-review.yml` per `workflow_dispatch` gefahren: `Kandidaten: [2477]` → approved → GitHub-Auto-Merge (vom Ersteller selbst scharf geschaltet) griff. Zweite Gegenprobe zu [#2464](https://github.com/achimdehnert/platform/issues/2464) (Ein-Kandidat-Fall) live erbracht, unabhaengig vom ersten Beleg.
+
+**[#2478](https://github.com/achimdehnert/platform/pull/2478) — Zeitueberschreitung heisst im Verankerungs-Pruefer nicht mehr "nicht erreichbar".** Teil 2 von [#2456](https://github.com/achimdehnert/platform/issues/2456) (Teil 1 — Gesamtbudget — steckt in #2476, gemergt). `URLError`/`OSError`/`TimeoutError` liefen in einer Meldung zusammen und haben die Diagnose zweimal in die falsche Richtung geschickt (#2456, #2436: „ollama aus" vermutet, obwohl der Host mit 200 antwortete). Jetzt getrennt, mit Sekunden + Promptlaenge in der Meldung. Falsifiziert (`git stash` auf die Fix-Datei → 3 von 4 neuen Tests rot), 36 Tests gruen, CI gruen (`OPEN CLEAN`, 0 rot, 0 pending). **Haengt an M0** — `pr_merge_sa.py` verlangt fuer Code-Aenderungen ein Review (M1/M2), der Bot nimmt nur review-blockierte PRs; `/tools/` ist bewusst nicht CODEOWNERS-geschuetzt, damit genau das nicht automatisch durchlaeuft.
+
+**Modellmessung zu #2456 Punkt 3 (num_ctx/kleineres Modell) — verneint, Ergebnis in #2456 nachgetragen:** `qwen2.5:7b` 78,6 s je Segment, `+num_ctx=8192` 75,7 s, `qwen2.5:3b` 88,1 s (langsamer, nicht schneller). Ursache liegt am Host: `ollama /api/ps` meldet `size_vram: 0`, `lspci` zeigt nur virtio-VGA — keine GPU, 16 Kerne, ~4 GB frei. Ein Modellwechsel loest die Laufzeit nicht; die einzige Abhilfe waere ein GPU-Host (4090 ueber WireGuard, laut `ports.yaml`-Kommentar zu writing-hub erreichbar) — Egress-Entscheidung, Owner-Wort noetig, nicht in dieser Sitzung entschieden.
+
+**[KONZ-platform-051](docs/konzepte/KONZ-platform-051-ux-review-agent.md) / [#2474](https://github.com/achimdehnert/platform/issues/2474) — mechanischer Teil von Punkt 1 erledigt:** die sechs Defekte aus E19 haengen an nur **vier** unterschiedlichen Vorgaenger-Staenden (`f1f600c`, `dbf86ce`, `2259b8e`, `e6ee77c`), jede Zuordnung am Commit-Text im Klon `iilgmbh/ausschreibungs-hub` belegt, als Kommentar in #2474 verankert. Der eigentliche Lauf (ux-review-Agent gegen alle vier Staende, App lauffaehig machen je Stand) ist ein Mehrstunden-Cross-Repo-Strang und steht noch aus — Scope-Checkpoint gegenueber dem User ausgesprochen, nicht begonnen.
+
+**Owner-Auftrag „Gesamtsystem-Analyse + Konzept (Adv-Diab/OotB/Predictive/Continuous-Improvement)" — als Zielzustand-Prompt entworfen, KEIN Issue angelegt (Auftrag-Modus, Halt vor Materialisierung).** Wird laut Owner in anderer Sitzung umgesetzt; der Entwurf (Ziel `KONZ-platform-054`, sieben Akzeptanzkriterien inkl. Bestandsaufnahme der 35 `tools/*`-Melder + 20 Phasen `0.7.x` gegen 6 verwandte Vorgaenger-Konzepte) liegt nur im Gespraechsverlauf dieser Sitzung — **nicht** verankert, absichtlich (Owner hat noch kein Go gegeben).
+
+**Eigene Fehler:** keine.
+
+**SA-4: 0 Anwendungen · SA-M: 0 (kein PR von mir selbst gemergt — #2477 lief ueber GitHub-Auto-Merge, von der PR-eroeffnenden Sitzung selbst scharf geschaltet) · 0 Fehlanwendungen.**
+
+**Offen:** [#2478](https://github.com/achimdehnert/platform/pull/2478) wartet auf ein Review/Approval (M1) · [#2474](https://github.com/achimdehnert/platform/issues/2474) Punkt 2 (K1-Nenner) entschieden (Weg A, #2475/E20), Punkt 1 mechanischer Teil erledigt, der Lauf selbst offen · Vorschlag KONZ-054 wartet auf Owner-Go in anderer Sitzung · unveraendert: shared-ci-Tag `v1.1.13` (Prio 3/4 unten), `gh secret delete PYPI_API_TOKEN`, [#2454](https://github.com/achimdehnert/platform/issues/2454) robo-lab README.
+
+## ⚡ Vorheriger Stand (2026-08-30 nachts — zwei Werkzeugdefekte am Merge-Pfad behoben, beide PRs haengen an @wirdigital)
 
 **Zeitanker:** HEAD `ca1af5aa` · `rev-list --count` 3756 · geschrieben 2026-08-30
 
@@ -52,22 +74,6 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 **Eigene Fehler:** `--admin` als Loesung angeboten, ohne `bypass_actors` vorher zu lesen — der Owner hat eine Freigabe erteilt, die mechanisch nichts bewirken konnte. Ausserdem `sed '/^import pytest$/,+1d'` loeschte die Folgezeile mit (`import yaml`), gefangen vom Testlauf.
 
 **Offen:** **shared-ci-Tag `v1.1.13` fehlt** — Owner-Go 21 (Tag+Ratchet-Rollout+ADR-298-Accept) erteilt, Push classifier-geblockt, API-Weg vom Owner abgelehnt; Ein-Zeiler + Rollout-Plan im [#2428-Kommentar 2026-08-30](https://github.com/achimdehnert/platform/issues/2428) · [#2460](https://github.com/achimdehnert/platform/pull/2460) + [#2461](https://github.com/achimdehnert/platform/pull/2461) warten auf @wirdigital · [#2459](https://github.com/achimdehnert/platform/pull/2459) `policies/` ebenso · [#2464](https://github.com/achimdehnert/platform/issues/2464) Gegenprobe · `gh secret delete PYPI_API_TOKEN` (Owner-Wort, Prio 3a) · [#2454](https://github.com/achimdehnert/platform/issues/2454) robo-lab README. **Nicht gelaufen:** `verankerung_pruefer.py` ueber #2460/#2461 (Timeout 240 s je PR, ollama erreichbar — kein gruenes Ergebnis, sondern eine Luecke; die eine erkennbare Zusage in #2461 ist ueber #2464 von Hand verankert).
-
-## ⚡ Vorheriger Stand (2026-08-29 mittag — Robot-Ergebnisse nach robo-lab, Aufgabenkatalog, zwei Werkzeugdefekte am Merge-Pfad)
-
-**Zeitanker:** HEAD `7c3364f6` · `rev-list --count` 3749 · geschrieben 2026-08-29
-
-**Zielzustand (Owner):** [robo-lab#28](https://github.com/achimdehnert/robo-lab/issues/28) „alle Robot-/Twin-Ergebnisse stehen in robo-lab" — **erreicht** (K1–K6 einzeln verifiziert, K5 geteilt: Registry ja, `ports.yaml` nein). Danach zwei Folgeaufträge mit Go: KONZ-robo-lab-003 und M1-Iteration 2. SA-4: 0 Anwendungen in platform (robo-lab-Zähler steht im dortigen Handover) · SA-M: [#2438](https://github.com/achimdehnert/platform/pull/2438) am Werkzeug vorbei gemergt (siehe #2440) · 0 Fehlanwendungen.
-
-**Robot-Wissen hat jetzt einen Ort.** Die Sessions 24.–28.08. liefen aus `cwd=platform`; Marktanalyse, Fehlermuster und Stand lagen nur in platform-Memory und pgvector. Jetzt: `robo-lab/AGENT_HANDOVER.md`, `docs/marktanalyse-2026-08.md`, `docs/lessons.md`, eigene CC-Memory-Lane; die platform-Memory `project_humanoid_robot_exploration` ist nur noch Zeiger. **Robot-Arbeit künftig aus `~/github/robo-lab` starten.** Dazu robo-lab in `registry/canonical.yaml` ([#2441](https://github.com/achimdehnert/platform/pull/2441), Klasse 5, kein Deploy) — `ports.yaml` bewusst nicht: `robot.iil.pet` ist eine User-Unit auf dem staging-Host, ein `domain_prod` wäre eine Fehldeklaration, die `0.7.12` sofort meldete.
-
-**Zwei Werkzeugdefekte am Merge-Pfad, beide getrackt:** [#2440](https://github.com/achimdehnert/platform/issues/2440) `pr_merge_sa.py::review_ist_pflicht` liest Regel-Existenz statt Regel-Inhalt (`approving=0, codeowner=true`) — jeder CLEAN-PR ist über SA-M unmergebar, die letzten vier Handover-PRs liefen am Journal vorbei. [#2442](https://github.com/achimdehnert/platform/issues/2442) `bot-review.yml` lässt #2441 in zwei Dispatch-Läufen stumm aus, während der Cron-Lauf ihn sah — trotz „jeder Skip nennt seinen Grund".
-
-**Bewertung ROS 2 (Owner-Frage):** für robo-lab heute nicht — Bus ist DDS direkt, `unitree_ros2` nennt Foxy/Humble und kein G1, VM ist 24.04. Relevant an genau einer Stelle: MoveIt2 für Manipulation; Entscheidung am Ende von Z3a (KONZ-003 D3). Erste Messungen: Bodennähe mit fixiertem Becken **unerreichbar**, Hand schließt nur bis 1,95 cm; M1 nach Iteration 2 weiter 0/10, Engpass Quetschkraft — Details und Iteration-3-Optionen im robo-lab-Handover.
-
-**Eigene Fehler:** Merge bei „no checks reported" (#2438-Vorläufer-Klasse, einmal), „Closes #28 … NICHT" schloss das Issue vorzeitig, Konflikt-PR ohne Actions-Lauf sechs Calls lang für einen Actions-Ausfall gehalten (Memory `feedback_conflicting_pr_gets_no_actions_run`), Inline-Python zweimal an Anführungszeichen zerbrochen. Session-Start-Hook zeigte bei `/clear` eine Prio-Liste vom 25.08. (Hypothese: CC cached Hook-Output).
-
-**Offen:** [#2440](https://github.com/achimdehnert/platform/issues/2440), [#2442](https://github.com/achimdehnert/platform/issues/2442) (beide Sonnet-tauglich) · [#2454](https://github.com/achimdehnert/platform/issues/2454) robo-lab README · `gh secret delete PYPI_API_TOKEN` (Owner-Wort, Prio 3a) · Phase 0g dieser Sitzung: Verankerungs-Prüfer lief im Hintergrund, Ergebnis siehe LOG-Eintrag.
 
 ## Nächste Schritte (kompakt)
 
