@@ -179,11 +179,18 @@ def _check_auflage_block(name: str, h: dict) -> list[str]:
     return issues
 
 
-def check_auflage(data: dict, ports: dict) -> list[str]:
+def check_auflage(
+    data: dict, ports: dict, hinweise: list[str] | None = None
+) -> list[str]:
     """Klasse (f) auf Deklarationsebene: zeigt ports.yaml einen Dienst auf einen
     Knoten, dessen Auflage ihn ausschliesst? Liest `prod_host` (Default 'prod'),
     `betriebsstatus` und `datenklasse` je Dienst. Was ports.yaml nicht kennt,
-    kann diese Pruefung nicht sehen — der Live-Abgleich am Knoten bleibt noetig."""
+    kann diese Pruefung nicht sehen — der Live-Abgleich am Knoten bleibt noetig.
+
+    `hinweise`: wird eine Liste uebergeben, landen Verstoesse von Diensten mit
+    `betriebsstatus: blockiert` dort statt in den Findings. Das ist der PR-Modus:
+    ein deklarierter, getrackter Verstoss (platform#2507) darf keinen fremden PR
+    blocken — ein NEUER Dienst auf einem gesperrten Knoten bleibt ein Finding."""
     issues: list[str] = []
     hosts = data.get("hosts", {}) or {}
     dienste = (ports or {}).get("services") or {}
@@ -193,36 +200,38 @@ def check_auflage(data: dict, ports: dict) -> list[str]:
         # Nur `stillgelegt` ist raus. `blockiert` heisst "laeuft, wartet auf Entscheidung" —
         # genau der Fall, den dieser Check sichtbar halten muss (Lauf-2-Kritik 2026-08-30:
         # der Check war gruen auf den vier dev-desktop-Diensten, fuer die er gebaut wurde).
-        if str(cfg.get("betriebsstatus", "aktiv")).lower() == "stillgelegt":
+        status = str(cfg.get("betriebsstatus", "aktiv")).lower()
+        if status == "stillgelegt":
             continue
+        senke = hinweise if (hinweise is not None and status == "blockiert") else issues
         ziel = str(cfg.get("prod_host", "prod"))
         h = hosts.get(ziel)
         if not isinstance(h, dict):
-            issues.append(
+            senke.append(
                 f"auflage: dienst '{dienst}' zeigt auf prod_host '{ziel}', den hosts.yaml "
                 f"nicht kennt"
             )
             continue
         a = h.get("auflage") or {}
         if a.get("prod_container") is False:
-            issues.append(
+            senke.append(
                 f"auflage: dienst '{dienst}' ist auf '{ziel}' deklariert, dort sind "
                 f"Prod-Container untersagt ({a.get('grund', 'ohne Grund')})"
             )
         if a.get("app_hubs") is False:
-            issues.append(
+            senke.append(
                 f"auflage: dienst '{dienst}' ist auf '{ziel}' deklariert, dort sind "
                 f"App-Hubs untersagt ({a.get('grund', 'ohne Grund')})"
             )
         nur = a.get("nur_dienste")
         if isinstance(nur, list) and dienst not in nur:
-            issues.append(
+            senke.append(
                 f"auflage: dienst '{dienst}' ist auf '{ziel}' deklariert, erlaubt sind "
                 f"dort nur {nur} ({a.get('grund', 'ohne Grund')})"
             )
         dk = cfg.get("datenklasse")
         if dk and dk in (a.get("datenklassen_verboten") or []):
-            issues.append(
+            senke.append(
                 f"auflage: dienst '{dienst}' fuehrt Datenklasse '{dk}' und ist auf '{ziel}' "
                 f"deklariert, wo sie untersagt ist ({a.get('grund', 'ohne Grund')})"
             )
@@ -392,10 +401,17 @@ def main() -> None:
         default=Path(__file__).resolve().parents[1] / "ports.yaml",
         help="ports.yaml fuer den Auflage-Abgleich (Klasse f, Deklarationsebene)",
     )
+    p.add_argument(
+        "--blockiert-als-hinweis",
+        action="store_true",
+        help="PR-Modus: Verstoesse von Diensten mit betriebsstatus=blockiert nur "
+        "als Hinweis ausgeben, nicht als Finding (Schedule/Push bleiben rot)",
+    )
     args = p.parse_args()
 
     data = load_hosts_yaml(args.hosts)
     issues: list[str] = []
+    hinweise: list[str] = []
 
     if args.check in ("schema", "all"):
         issues += check_schema(data)
@@ -403,7 +419,11 @@ def main() -> None:
         issues += check_staleness(data, args.max_age_days)
     if args.check in ("auflage", "all"):
         if args.ports.exists():
-            issues += check_auflage(data, yaml.safe_load(args.ports.read_text()) or {})
+            issues += check_auflage(
+                data,
+                yaml.safe_load(args.ports.read_text()) or {},
+                hinweise if args.blockiert_als_hinweis else None,
+            )
         elif args.check == "auflage":
             print(f"FEHLER: {args.ports} nicht gefunden", file=sys.stderr)
             sys.exit(2)
@@ -414,6 +434,8 @@ def main() -> None:
             print("FEHLER: --check labels braucht --workflows <dir>", file=sys.stderr)
             sys.exit(2)
 
+    for h in hinweise:
+        print(f"⚠ deklariert (blockiert, kein Finding im PR-Modus): {h}")
     if issues:
         print(f"❌ hosts_audit: {len(issues)} Finding(s):")
         for i in issues:

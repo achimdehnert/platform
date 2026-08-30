@@ -42,5 +42,11 @@ jobs:
       - name: Install PyYAML
         run: pip install pyyaml
 
-      - name: Audit (schema + staleness + labels)
-        run: python3 infra/scripts/hosts_audit.py --check all --workflows .github/workflows
+      # Ausserhalb von main (PR-Lauf UND push auf den Feature-Branch — der Bot-Reviewer
+      # liest beide): deklarierte `blockiert`-Dienste (platform#2507) sind Hinweis, kein
+      # Finding — sonst ist jeder Workflow-PR rot, bis der Owner entschieden hat
+      # (Realfall 2026-08-30: #2519 blockiert). Auf main bleibt der Lauf rot.
+      - name: Audit (schema + staleness + labels + auflage)
+        run: >-
+          python3 infra/scripts/hosts_audit.py --check all --workflows .github/workflows
+          ${{ github.ref != 'refs/heads/main' && '--blockiert-als-hinweis' || '' }}
