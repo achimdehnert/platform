@@ -59,9 +59,16 @@ _PAPIERKORB = re.compile(
 # Ihn zu indexieren hiesse, Werbepost dauerhaft zu speichern, um drei Absender
 # lesen zu koennen. Wenn das AD-Konto dazukommt, ist das eine eigene Entscheidung.
 _REDAKTIONELL = re.compile(
-    r"^(zacks|werbung|rss-abonnements)$",
+    r"^(zacks|rss-abonnements)$",
     re.I,
 )
+# `Werbung` haengt am Konto (Owner-Entscheid 2026-08-30, ADR-299): im IIL-Postfach
+# ist es ein gemischter Ordner, den niemand dauerhaft speichern will; im AD-Postfach
+# ist es die QUELLE des Hot-Topics-Digests, gefiltert ueber eine Absender-Allowlist.
+# Die Alternative — den Ordner fuer alle oeffnen — haette Werbepost eines fremden
+# Kontos dauerhaft in den Bestand geholt, um drei Absender lesen zu koennen.
+_WERBUNG = re.compile(r"^werbung$", re.I)
+WERBUNG_IM_UMFANG = frozenset({"ad"})
 _TECHNISCH = re.compile(r"^(synchronisierungsprobleme|sync issues)$", re.I)
 # Exchange legt Kalender, Kontakte, Aufgaben, Notizen und Journal als IMAP-Ordner
 # aus, gibt ihren Inhalt ueber IMAP aber NICHT als RFC822 heraus. Der Abruf
@@ -93,13 +100,19 @@ def _lokale_muster(pfad: Path | None = None) -> list[str]:
     return [z.strip() for z in zeilen if z.strip() and not z.strip().startswith("#")]
 
 
-def ist_ausgeschlossen(ordner: str, lokal: Path | None = None) -> str | None:
+def ist_ausgeschlossen(
+    ordner: str, lokal: Path | None = None, konto: str | None = None
+) -> str | None:
     """Grund für den Ausschluss — oder ``None``, wenn der Ordner indexiert wird.
 
     Der Rückgabewert ist bewusst der **Grund** und nicht ``True``: Er landet
     unverändert im Deckungsausweis, damit nachvollziehbar bleibt, warum ein Ordner
     fehlt. Ein blosses ``True`` erzeugte genau die stille Lücke, die vermieden
     werden soll.
+
+    ``konto`` ist optional und wirkt nur auf ``Werbung`` (s. ``WERBUNG_IM_UMFANG``).
+    Ohne Angabe bleibt der Ordner ausgeschlossen — die sichere Richtung: ein
+    Aufrufer, der das Konto nicht mitgibt, holt sich keine Werbepost ins Haus.
     """
     segmente = _segmente(ordner)
     if any(_PAPIERKORB.match(s) for s in segmente):
@@ -112,6 +125,8 @@ def ist_ausgeschlossen(ordner: str, lokal: Path | None = None) -> str | None:
         return "keine Mail (Kalender/Kontakte/Aufgaben) — ueber IMAP nicht abrufbar"
     if any(_REDAKTIONELL.match(s) for s in segmente):
         return "redaktionell/werblich — bewusst nicht indexiert"
+    if any(_WERBUNG.match(s) for s in segmente) and (konto or "").lower() not in WERBUNG_IM_UMFANG:
+        return "werblich — nur fuer Konten im Digest-Umfang indexiert"
 
     if m := _JAHRESARCHIV.match(ordner):
         jahr = int(m.group("jahr"))
@@ -126,13 +141,13 @@ def ist_ausgeschlossen(ordner: str, lokal: Path | None = None) -> str | None:
 
 
 def aufteilen(
-    ordner: list[str], lokal: Path | None = None
+    ordner: list[str], lokal: Path | None = None, konto: str | None = None
 ) -> tuple[list[str], list[tuple[str, str]]]:
     """(zu_indexieren, [(ordner, grund), ...]) — beide Mengen, nie nur die erste."""
     behalten: list[str] = []
     raus: list[tuple[str, str]] = []
     for o in ordner:
-        if grund := ist_ausgeschlossen(o, lokal):
+        if grund := ist_ausgeschlossen(o, lokal, konto):
             raus.append((o, grund))
         else:
             behalten.append(o)

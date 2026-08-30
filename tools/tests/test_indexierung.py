@@ -220,3 +220,35 @@ def test_should_still_exclude_advertising_and_feeds():
 def test_should_still_exclude_trash_and_non_mail():
     for ordner in ("Papierkorb", "Junk-E-Mail", "Kalender", "Archiv/2019"):
         assert _aus(ordner), ordner
+
+
+# --- Werbung haengt am Konto (Owner-Entscheid 2026-08-30) --------------------
+
+
+def test_should_exclude_werbung_without_account():
+    """Sichere Richtung: wer das Konto nicht mitgibt, bekommt keine Werbepost."""
+    assert ix.ist_ausgeschlossen("Werbung") is not None
+    assert ix.ist_ausgeschlossen("Werbung", None, "iil") is not None
+
+
+def test_should_index_werbung_for_the_digest_account():
+    assert ix.ist_ausgeschlossen("Werbung", None, "ad") is None
+    assert ix.ist_ausgeschlossen("Werbung", None, "AD") is None
+
+
+def test_should_keep_other_editorial_folders_excluded_for_every_account():
+    """Gegenprobe: die Kontenabhaengigkeit gilt NUR fuer Werbung."""
+    for ordner in ("Trading/Zacks", "RSS-Abonnements"):
+        assert ix.ist_ausgeschlossen(ordner, None, "ad") is not None, ordner
+
+
+def test_should_pass_the_account_through_aufteilen():
+    behalten, raus = ix.aufteilen(["Werbung", "Newsletter"], None, "ad")
+
+    assert behalten == ["Werbung", "Newsletter"]
+    assert raus == []
+
+    behalten_iil, raus_iil = ix.aufteilen(["Werbung", "Newsletter"], None, "iil")
+
+    assert behalten_iil == ["Newsletter"]
+    assert [o for o, _ in raus_iil] == ["Werbung"]
