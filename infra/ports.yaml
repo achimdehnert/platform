@@ -593,3 +593,60 @@ services:
     domain_prod: decks-hub.iil.pet
     repo: achimdehnert/decks-hub
     note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true."
+  # ── dev-desktop-Workloads (164, 2026-08-30) ────────────────────────────────
+  # Vier Dienste mit oeffentlichen Namen liefen auf dem Dev-Desktop, ohne dass eine
+  # SoT sie kannte. Sie stehen hier als `blockiert`: der Auflage-Check (hosts_audit)
+  # und die Erreichbarkeits-Pruefung ueberspringen sie, der Deploy-Preflight blockt
+  # sie — und jeder Leser sieht, dass es sie gibt. Ports = Host-/Loopback-Port am
+  # dev-desktop; Ingress laeuft ueber eigene cloudflared-Tunnel, nicht ueber nginx.
+  praes-iil-ai:
+    prod: 8120
+    staging: 8120
+    dev: 8120
+    prod_host: dev-desktop
+    container_name: praes-iil-ai-web-1
+    domain_prod: praes.iil.ai
+    domain_staging: null
+    repo: achimdehnert/decks-hub          # deploy/praes
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  chat-hub:
+    prod: 8008
+    staging: 8008
+    dev: 8008
+    prod_host: dev-desktop
+    container_name: chathub_chat_synapse  # 7 Container: synapse, db, element, rtc_{jwt,proxy,livekit}, tunnel
+    domain_prod: chat.iil.pet
+    domain_staging: null
+    domain_aliases:
+      - rtc-chat.iil.pet
+      - app-chat.iil.pet
+    repo: achimdehnert/chat-hub           # deploy/
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  robo-twin:
+    prod: 8790
+    staging: 8790
+    dev: 8790
+    prod_host: dev-desktop
+    container_name: null                  # systemd --user robo-twin.service, kein Container
+    domain_prod: robot.iil.pet
+    domain_staging: null
+    repo: achimdehnert/robo-lab
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  mail-links:
+    prod: 8787
+    staging: 8787
+    dev: 8787
+    prod_host: dev-desktop
+    container_name: null                  # systemd --user mail-links.service (Loopback), cloudflared-mail-links
+    domain_prod: mail.iil.pet
+    domain_staging: null
+    domain_aliases:
+      - lotse.iil.pet
+      - todo.iil.pet
+    repo: owner-home                      # kein Repo bekannt — Owner
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+
