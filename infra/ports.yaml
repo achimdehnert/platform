@@ -124,6 +124,7 @@ infra:
     note: "Wiki/Knowledge Base — maps 3100→3000 internal"
 
   grafana:
+    prod_host: odoo            # Monitoring-Stack liegt auf dem odoo-Host, nicht auf prod (bis 2026-08-30 hier falsch deklariert)
     port: 3000
     server: prod
     domain_prod: grafana.iil.pet
@@ -245,6 +246,9 @@ services:
     dev: 8069
     container_name: odoo_web
     domain_prod: odoo.iil.pet
+    prod_host: odoo            # lief nie auf prod — eigener Host 46.225.127.211 (hosts.yaml `odoo`); bis 2026-08-30 hier falsch deklariert
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (#160): bis auf weiteres still. pg_dumpall (odoo 84 MB, aifw 9 MB) nach /opt/backups/stilllegung-2026-08-30/ auf dem odoo-Host; odoo_web + odoo_db gestoppt mit restart=no, Filestore-Volume odoo_hub_data bleibt. Monitoring-Stack auf demselben Host laeuft weiter (Prometheus = Flotten-Monitor seit KONZ-054 A2). odoo-hub#22: Auto-Deploy bei Push abgeschaltet. Reste (odoo.iil.pet 520, aifw_service, Repo): platform#2480"
     domain_staging: staging-odoo.iil.pet
     repo: achimdehnert/odoo-hub
 
@@ -314,6 +318,8 @@ services:
     dev: 8089
     container_name: travel_beat_web
     domain_prod: drifttales.com
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (#120), Reste platform#2480. Ausgefuehrt: 6 Container auf prod gestoppt mit restart=no, Dump /opt/backups/stilllegung-2026-08-30/travel_beat_db.sql.gz (Kontrollprobe Tabellen Dump = DB), 6 vhosts (drifttales.*, travel-beat.iil.pet, travel.schutztat.de) nach /root/stillgelegt-vhosts-2026-08-30/, Backup-Cron auskommentiert. Gemessen 14 Tage nginx: 3878 Zeilen, 0 Login-Erfolge, alle POSTs WordPress-Sonden, 396 Ein-Treffer-IPs ohne Referrer — Scanner, keine Nutzer. DNS/Cloudflare, Runner, Volumes stehen noch."
     domain_staging: staging.drifttales.com
     domain_aliases:
       - drifttales.de
