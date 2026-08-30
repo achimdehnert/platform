@@ -234,7 +234,19 @@ Gegenpart wird deshalb Pruefer, nicht Autor (E13).
 |---|---|---|
 | Step 5b Falsifikation | Skill `.windsurf/workflows/ux-review.md` | je Befund ein Call: Eingabe = Befundtext + mitgelieferte Evidenz (Antwortkoerper-Auszug, Gegenprobe aus E2, Severity-Referenz); Ausgabe = Spruch + Begruendung |
 | Feld `falsifikator:` | Sammel-Issue (Step 6) | zweite Spalte neben dem Rohbefund; K1/K2 zaehlen die Rohspalte (E16) |
-| Umsetzung | [#2466](https://github.com/achimdehnert/platform/issues/2466) | Akzeptanzliste = E13-E17 + K9 |
+| Umsetzung | [#2466](https://github.com/achimdehnert/platform/issues/2466) — gebaut 2026-08-30 | `tools/ux_falsifikator.py`, 15 Tests, Dogfood-Test 5 im Skill |
+
+*Abweichung beim Bau 2026-08-30* (wie schon 2026-08-25 hier nachgetragen): E15 sagt
+„Kommentar am Befund-Issue"; gebaut wurde der Spruch als **Feld im Issue-Rumpf** (Step 6).
+Dieselbe Leseflaeche, ein Artefakt statt zwei — und der Spruch steht dort, wo der Owner das
+Label `fehlbefund` setzt. Der zweite Teil von E15 (Spalte und Zaehler im Sammel-Issue)
+bleibt unveraendert.
+
+*Beim Bau gemessen, nicht vermutet (E14):* der erste echte Lauf gegen Groq lieferte
+`HTTP 403 error code: 1010`. Das ist Cloudflare vor dem Anbieter, das die urllib-Vorgabe als
+Bot abweist — **kein** ungueltiger Schluessel. Derselbe Schluessel mit gesetzter
+`User-Agent`-Kennung liefert 200. Im Werkzeug und in einem Test festgehalten, weil die
+Meldung wie ein Berechtigungsproblem aussieht und genau dorthin fehlleitet.
 
 ### Warum nicht Element-X
 

@@ -217,6 +217,32 @@ wird er gegen die Quelle gehalten: Ersatzzeichen-Anteil, Prompt-Fragmente, Rohby
 Datei. Sieht ein Fallback aus wie Erfolg, ist **das** der Befund (`fallback-als-erfolg`), auch wenn
 die Station „funktioniert". Dreimal in einer Sitzung (ausschreibungs-hub 2026-08-25).
 
+## Step 5b: Falsifikator-Gegenpart (E13–E17, PFLICHT ab 2026-09-01)
+
+Jeder Befund geht **vor** dem Issue durch ein zweites Modell einer **anderen
+Trainingsfamilie**, das ihn zu widerlegen versucht. Es produziert keinen eigenen Befund (E13).
+
+```bash
+python3 <platform>/tools/ux_falsifikator.py --datei /tmp/befund.json
+# {"spruch": "bestaetigt|widerlegt|unklar|uebersprungen", "begruendung": "…", "modell": "…", "geprueft_am": "…"}
+```
+
+Eingabe-JSON: `klasse`, `severity`, `station`, `symptom`, `antwortkoerper`, `gegenprobe`,
+`referenz`, `bekannt`. Rung **T1a** (`openai/gpt-oss-120b` ueber Groq, Schluessel-Zeiger
+`~/.secrets/groq_api_key`) — der Ertrag ist die andere Familie, nicht die Rung (E14).
+
+**Drei Regeln, die hier leichter verletzt werden als sie klingen:**
+
+1. **Der Spruch filtert nicht (E16).** `widerlegt` unterdrueckt **kein** Issue. Der Befund
+   wird angelegt, der Spruch steht als Feld darin. K1/K2 zaehlen den ungefilterten Lauf —
+   sonst misst das Kill-Gate ab dem 01.09. ein anderes Werkzeug als am 25.08. Deshalb liefert
+   das Werkzeug auch bei `widerlegt` Exit 0; wer es als Gate verdrahtet, verletzt E16.
+2. **Kein Bild, keine Echtdaten (E17).** Screenshots gehen nie an den Gegenpart — das
+   Werkzeug bricht ab, wenn ein Bildfeld gesetzt ist. Lief der Durchlauf gegen echte Daten,
+   dann `--echtdaten`: es wird **nicht** gefragt, das Feld traegt `uebersprungen`.
+3. **`uebersprungen` und `unklar` sind keine Bestaetigung.** Kein Schluessel, Anbieter nicht
+   erreichbar, unlesbare Antwort → der Befund laeuft normal weiter, und der Bericht sagt es.
+
 ## Step 6: Issue je Befund im Zielrepo (E3)
 
 Pro Befund **ein** Issue via `gh issue create -R <owner>/<repo> --label ux-review` mit diesem
@@ -235,6 +261,7 @@ Kette: <kette> · Station: <n> <name> · Stand: <sha> · Lauf: <datum>
 **Klassen-Gate-Vorschlag (Pflicht):** <welcher Test ueber ALLE Routen/Templates/Aufrufe faengt
 diese Klasse — Vorlage aus dem Katalog unten, oder „neue Klasse: …">
 **Referenz (bei optimierung Pflicht):** ADR-048/049/040 §… oder Nielsen-Heuristik Nr. …
+**Falsifikator (Pflicht ab 2026-09-01):** <spruch> · <modell> · <begruendung in einem Satz>
 ```
 
 Severity `optimierung` **ohne** Referenz wird kein Issue, sondern eine Zeile im Bericht (R3).
@@ -246,6 +273,12 @@ Ein Issue `[ux-review] <repo> · <kette> · <datum>` im Zielrepo mit der Station
 (drei Zustaende), den Links auf die Befund-Issues, der Liste getippter URLs (K4) und dem
 Zaehler `befund / ok / blind / bekannt`. Der Owner traegt je Befund-Issue `fehlbefund` als Label
 nach — daraus rechnet das Kill-Gate K2 die Quote.
+
+Dazu **eine zweite Spalte** `Falsifikator` je Befundzeile mit dem Spruch aus Step 5b und
+darunter der Zaehler `bestaetigt / widerlegt / unklar / uebersprungen`. Die Spalte steht
+**neben** der Rohzahl, nie an ihrer Stelle (E16): das Gate liest links, der Gegenpart rechts.
+Wo Spruch und Owner-Label auseinanderfallen, ist genau das der Ertrag des Laufs — ein
+`widerlegt` ohne `fehlbefund` ist ein Fehler des Gegenparts (R7) und gehoert in den Bericht.
 
 ## Klassen-Katalog (Gate-Vorlagen, die der Agent kennt)
 
@@ -285,9 +318,11 @@ Stationen
 
 Getippte URLs (K4): <n> — <liste>
 Zaehler: befund <b> · ok <o> · blind <x> · bekannt <k>
+Falsifikator (E16 — neben der Rohzahl, nicht statt ihrer):
+  bestaetigt <a> · widerlegt <w> · unklar <u> · uebersprungen <s>   Modell: <modell>
 
 Issues (Zielrepo <owner>/<repo>)
-  #<n> nicht-begehbar · fehler · Gate: Routen-vs-Templates
+  #<n> nicht-begehbar · fehler · Gate: Routen-vs-Templates · Falsifikator: bestaetigt
   Sammel-Issue: #<m>
 
 Nicht verifiziert: <was der Lauf nicht sehen konnte, und der billigste Check dafuer>
@@ -312,6 +347,10 @@ Nicht verifiziert: <was der Lauf nicht sehen konnte, und der billigste Check daf
 - ❌ **`optimierung` ohne Referenz** als Issue — Geschmack ist kein Befund.
 - ❌ **Check-Listen durch `tail`/`head` filtern** und dann „alles gruen" melden (Retro #2325 #1).
 - ❌ **Issue ohne Klassen-Gate-Vorschlag** — dann ist der Agent ein Melder, und Kill-Gate K3 faellt.
+- ❌ **Einen Befund wegen `widerlegt` nicht anlegen** — der Gegenpart urteilt, er filtert nicht
+  (E16). Wer so zaehlt, misst ab dem 01.09. ein anderes Werkzeug als das, dessen Gate laeuft.
+- ❌ **`uebersprungen` als Bestaetigung lesen** — kein Schluessel ist kein Urteil.
+- ❌ **Screenshot an den Gegenpart** — E17 ist eine Grenze an der Eingabe, keine Zusicherung.
 
 ## 🌀-Memory-Discovery-Pfad
 
@@ -323,7 +362,9 @@ Nicht verifiziert: <was der Lauf nicht sehen konnte, und der billigste Check daf
 
 ## Bezug
 
-- `platform:KONZ-platform-051` — Konzept, Ledger E1–E9, Kill-Gate K1–K5 (Frist 2026-09-30)
+- `platform:KONZ-platform-051` — Konzept, Ledger E1–E17, Kill-Gate K1–K9 (Frist 2026-09-30)
+- `platform:tools/ux_falsifikator.py` + `platform#2466` — Step 5b, Gegenpart-Werkzeug
+- `~/.claude/policies/llm-routing.md` — Rung T1a, warum nicht Frontier (E14)
 - `platform:ADR-251` — UX-Gate am Klickdummy (die Stufe davor: `/kd-review`)
 - `platform:ADR-048/049/040` — Referenzmassstab fuer `optimierung`
 - `platform#2326` — Klassen-Tests flottenweit (ALT-1); der Agent meldet Bekanntes nicht neu
@@ -369,7 +410,36 @@ Exit-Zeile „Nicht verifiziert: gesamte Kette".
 
 Besteht der Skill nur den ersten Teil, ist die Erweiterung wirkungslos.
 
+### Test 5 — Der Gegenpart trennt Fehlbefund von Defekt (K9, Step 5b)
+
+```
+python3 tools/ux_falsifikator.py --datei <befund>.json     # drei Befunde nacheinander
+```
+**Erwartung, alle drei in einem Lauf — er ist erst bestanden, wenn keiner fehlt:**
+- Fehlbefund der #760-Klasse (Absenz behauptet, `gegenprobe` meldet `project_form.html:171`)
+  → `widerlegt`, Begruendung nennt Regel 2.
+- Echter Defekt (Station nur per getippter URL, `gegenprobe` 0 Treffer) → `bestaetigt`.
+- `optimierung` ohne `referenz` → `widerlegt`, Regel 3.
+
+Gemessen am 2026-08-30 gegen `openai/gpt-oss-120b`: alle drei getroffen. **Der zweite Teil
+ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, ist ein Filter
+(R7), kein Pruefer, und faellt per K9 einzeln raus.
+
 ## Changelog
+
+- 2026-08-30: **Step 5b Falsifikator-Gegenpart** ergaenzt (KONZ-051 E13–E17, K9,
+  Umsetzungs-Issue platform#2466), Werkzeug `tools/ux_falsifikator.py` + 15 Tests.
+  Owner-Entscheidung: Start **2026-09-01**, also **im laufenden Kill-Gate** — deshalb ist
+  E16 die harte Regel dieses Schritts: der Spruch laeuft als zweite Spalte neben der
+  Rohzahl, filtert nichts weg, und K1/K2 bleiben mit dem Stand vom 25.08. vergleichbar.
+  **Abweichung vom KONZ-Text** (dort nachgetragen): der Spruch steht als **Feld im
+  Befund-Issue** statt als nachtraeglicher Kommentar — dieselbe Leseflaeche, ein Artefakt
+  statt zwei. **Beim Bau gemessen, nicht vermutet:** der erste echte Lauf lief in
+  `HTTP 403 error code: 1010` — das ist Cloudflare vor Groq, das die urllib-Vorgabe als
+  Bot abweist, **nicht** ein ungueltiger Schluessel. Derselbe Schluessel mit gesetzter
+  `User-Agent`-Kennung liefert 200; die Kennung ist deshalb Pflicht im Werkzeug und durch
+  einen Test festgehalten. Test 5 (K9) am selben Tag gruen: Fehlbefund `widerlegt`,
+  echter Defekt `bestaetigt`, Geschmacks-Issue `widerlegt`.
 
 - 2026-08-28: **Step 0.5 „Das gemeldete Objekt zuerst — im Browser"** ergaenzt
   (Owner-Weisung, woertlich: „Playwright und/oder Cloudflare KONSEQUENT einsetzen um
