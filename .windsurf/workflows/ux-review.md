@@ -210,6 +210,20 @@ Treffer → es ist eine **Rendering-Bedingung** (leere Liste, Rolle, Feature-Fla
 lautet so — mit Datei:Zeile. Kein Treffer in beiden Pfaden → erst dann `fehlt`.
 Realfall: writing-hub #760 („Stil nicht zuweisbar") — das Feld stand in `project_form.html:171`.
 
+**Das Feld `gegenprobe` beginnt mit einer Zahl, nicht mit einem Satz (E18).** Also
+`0 Treffer in {% url %} ueber alle Templates/JS`, und erst danach, optional, die Erklaerung.
+Realfall 2026-08-30: dieselbe Tatsache als Satz formuliert („nur `tests/test_route_coverage.py`")
+liess Step 5b den Befund als Rendering-Bedingung `widerlegt` melden, obwohl der Browser die
+Station nur ueber eine getippte URL erreichte. Als Zahl passiert das nicht.
+
+**Der Zaehler muss beide Kontrollen bestehen** — dieselbe Regel wie in Step 3b: ein Name mit
+bekanntem Aufrufer faellt aus der Liste heraus, ein Name mit bekannt **fehlendem** Aufrufer steht
+drin. Im selben Lauf meldete ein erster Zaehler nur **1** verwaisten Namen: er zaehlte die
+View-Definition als Aufrufer, und `grep -vE '/tests?/'` griff nicht, weil die Pfade ohne
+fuehrenden Schraegstrich beginnen (`tests/test_...`). Nach der Korrektur — nur `{% url %}` in
+Templates/JS und `reverse`/`redirect` im Python als Aufrufer, Testpfade als `(^|/)tests?/`
+ausgeschlossen — waren es **19**, und die Negativkontrolle (`review` muss drin stehen) hielt.
+
 ## Step 5: Erfolgsaussehende Ausgaben pruefen (E7)
 
 Zeigt eine Station generierten oder extrahierten Inhalt (Angebotstext, Dokumenttext, Export),
@@ -426,6 +440,21 @@ ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, is
 (R7), kein Pruefer, und faellt per K9 einzeln raus.
 
 ## Changelog
+
+- 2026-08-30 (Pilot K1 ausschreibungs-hub, Stand 8c8090e — Trockenlauf, keine Issues):
+  Kette Einstieg → Anmeldung → Ausschreibungen → Detail → Bid/No-Bid → Angebot → Freigabe →
+  Abgabe. **2 von 6 bekannten Defekten wiedergefunden** (mehrzeiliger `{# #}` als sichtbarer
+  Text auf zwei Seiten; beide unbegehbaren Stationen `angebote:review` und
+  `submission_workflow`), **2 getippte URLs**, beide als Befund im Bericht (K4 gehalten).
+  Dazu zwei Defekte, die erst **nach** dem Stichtag gefixt wurden und der Lauf trotzdem fand:
+  „Anmelden" fuehrte auf der Startseite zur Preisliste, und `development.py` verdrahtete die
+  geteilte Dev-Datenbank fest — Letzteres traf den Lauf selbst: der erste
+  `migrate_schemas --shared` landete trotz gesetzter `DB_*`-Variablen auf `localhost:5436`.
+  **Drei Defekte blieben blind** (R8): sie liegen hinter dem Portal-Abruf der
+  Vergabeunterlagen, und die Upload-Tuer daneben weist `.docx` serverseitig ab. **Einer ist
+  fuer jeden Browser-Lauf unsichtbar** (fehlendes `docx`-Extra — das fand CI). Step 5b lief
+  ueber alle sieben Befunde: 6 `bestaetigt`, 1 `widerlegt` — und dieses eine war der Fehler
+  des Gegenparts (R7), Anlass fuer E18 in Step 4.
 
 - 2026-08-30: **Step 5b Falsifikator-Gegenpart** ergaenzt (KONZ-051 E13–E17, K9,
   Umsetzungs-Issue platform#2466), Werkzeug `tools/ux_falsifikator.py` + 15 Tests.
