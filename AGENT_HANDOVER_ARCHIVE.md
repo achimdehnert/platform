@@ -16,6 +16,25 @@
 <!-- Ausgelagert 2026-08-09 (Handover-Refresh 08-07→08-09) -->
 
 
+
+## ⚡ Stand (2026-08-30 nachts — zwei Werkzeugdefekte am Merge-Pfad behoben, beide PRs haengen an @wirdigital)
+
+**Zeitanker:** HEAD `ca1af5aa` · `rev-list --count` 3756 · geschrieben 2026-08-30
+
+**Zielzustand (Owner):** „#2440 und #2442 beheben" (Handover-Offen-Liste vom 2026-08-29 mittag) — **erreicht in der Sache, nicht im Merge.** Beide Fixes sind gebaut, falsifiziert und CI-gruen; der Merge scheitert an einer Tatsache, die vorher niemand geprueft hatte (siehe unten). SA-4: 0 Anwendungen · SA-M: 0 (das Werkzeug ist selbst Gegenstand von #2460) · 0 Fehlanwendungen.
+
+**[#2440](https://github.com/achimdehnert/platform/issues/2440) — `pr_merge_sa` las Regel-Existenz statt Regel-Inhalt.** Auf `main` steht die `pull_request`-Regel mit `required_approving_review_count=0`; fuer Dateien ohne CODEOWNERS-Treffer verlangt GitHub gar kein Review, `reviewDecision` bleibt leer bei `CLEAN`. Jetzt getrennt: `pull_request_regel()` als Plausibilitaetsanker, `review_ist_pflicht(pr, …)` netzfrei an der Aussage ueber **diesen** PR. Gemessen nach dem Fix: #2452 `review_required` true → false, Urteil `M2 deckt W1`; #2459 weiter abgelehnt, jetzt aus dem richtigen Grund (Governance-Pfad). PR [#2460](https://github.com/achimdehnert/platform/pull/2460).
+
+**[#2442](https://github.com/achimdehnert/platform/issues/2442) — die Hypothese im Issue war falsch, die Ursache liegt eine Zeile spaeter.** Nicht schedule-vs-dispatch: der Filter schrieb die Kandidaten mit `"\n".join(...)`, also **ohne Zeilenende**, und `while read -r n` gibt bei EOF-ohne-Trenner 1 zurueck — der Rumpf laeuft nicht. Bei einem Kandidaten fiel er ganz aus, bei mehreren immer der letzte. Reproduziert (`printf '2441' > k`), deckungsgleich mit Lauf 33240983631. Fix: Zeilenende + `|| [ -n "$n" ]` + PR-/Kandidatenliste ins Log. PR [#2461](https://github.com/achimdehnert/platform/pull/2461).
+
+**Der Merge-Blocker, und er ist strukturell:** `gh pr merge --admin` wirkt hier fuer **niemanden** — das Ruleset `main-required-checks` (id 17621471) hat `bypass_actors: []`, gemessen ueber die API. Beide PRs brauchen ein Approval von **@wirdigital**; der Bot-Pfad ist zu: `/tools/pr_merge_sa.py` listet in CODEOWNERS absichtlich nur `@achimdehnert @wirdigital` (damit der Agent sein eigenes Merge-Werkzeug nicht durchwinkt), und `bot-review.yml` steht auf der Tabu-Liste des Bots. Das ist gewollt und hat korrekt gehalten — die Freigabe des Owners konnte es nicht ersetzen.
+
+**Live-Gegenprobe, unfreiwillig erbracht:** der Bot-Lauf [33279534904](https://github.com/achimdehnert/platform/actions/runs/33279534904) nennt zehn PRs mit Grund und laesst **#2460 vollstaendig aus** — der Defekt aus #2442, beobachtet in freier Wildbahn, waehrend sein Fix auf Review wartet. Die kuenftige Gegenprobe (Lauf mit genau einem Kandidaten, der ihn nennt) haengt an [#2464](https://github.com/achimdehnert/platform/issues/2464), nicht am PR-Text.
+
+**Eigene Fehler:** `--admin` als Loesung angeboten, ohne `bypass_actors` vorher zu lesen — der Owner hat eine Freigabe erteilt, die mechanisch nichts bewirken konnte. Ausserdem `sed '/^import pytest$/,+1d'` loeschte die Folgezeile mit (`import yaml`), gefangen vom Testlauf.
+
+**Offen:** **shared-ci-Tag `v1.1.13` fehlt** — Owner-Go 21 (Tag+Ratchet-Rollout+ADR-298-Accept) erteilt, Push classifier-geblockt, API-Weg vom Owner abgelehnt; Ein-Zeiler + Rollout-Plan im [#2428-Kommentar 2026-08-30](https://github.com/achimdehnert/platform/issues/2428) · [#2460](https://github.com/achimdehnert/platform/pull/2460) + [#2461](https://github.com/achimdehnert/platform/pull/2461) warten auf @wirdigital · [#2459](https://github.com/achimdehnert/platform/pull/2459) `policies/` ebenso · [#2464](https://github.com/achimdehnert/platform/issues/2464) Gegenprobe · `gh secret delete PYPI_API_TOKEN` (Owner-Wort, Prio 3a) · [#2454](https://github.com/achimdehnert/platform/issues/2454) robo-lab README. **Nicht gelaufen:** `verankerung_pruefer.py` ueber #2460/#2461 (Timeout 240 s je PR, ollama erreichbar — kein gruenes Ergebnis, sondern eine Luecke; die eine erkennbare Zusage in #2461 ist ueber #2464 von Hand verankert).
+
 ## ⚡ Stand (2026-08-20 nachts — abgestuerzte Sitzung fortgesetzt: MEiKI-Statusbericht, Mailcheck, Plattenplatz-Analyse der 4090-Box)
 
 **Zeitanker:** HEAD `adefc936` · `rev-list --count` nicht erhoben · geschrieben 2026-08-20 04:4x · Kapitaens-Kanal, Fortsetzung der um 02:31 abgestuerzten Sitzung 23b5d073
