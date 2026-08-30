@@ -190,7 +190,10 @@ def check_auflage(data: dict, ports: dict) -> list[str]:
     for dienst, cfg in dienste.items():
         if not isinstance(cfg, dict):
             continue
-        if str(cfg.get("betriebsstatus", "aktiv")).lower() != "aktiv":
+        # Nur `stillgelegt` ist raus. `blockiert` heisst "laeuft, wartet auf Entscheidung" —
+        # genau der Fall, den dieser Check sichtbar halten muss (Lauf-2-Kritik 2026-08-30:
+        # der Check war gruen auf den vier dev-desktop-Diensten, fuer die er gebaut wurde).
+        if str(cfg.get("betriebsstatus", "aktiv")).lower() == "stillgelegt":
             continue
         ziel = str(cfg.get("prod_host", "prod"))
         h = hosts.get(ziel)

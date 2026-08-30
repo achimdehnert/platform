@@ -148,6 +148,8 @@ INFRA_PHASEN = (
     "0.7.18 speicher",
     "0.7.2 cron-melder",
     "0.7.20 umgebung",
+    "0.7.21 alarmweg",
+    "0.7.22 flottenbild",
 )
 
 #: Entscheidungsfrist in Tagen fuer einen NEUEN Befund: bis dahin verankern oder mit
