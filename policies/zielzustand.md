@@ -1,5 +1,5 @@
 # Policy: Zielzustand-first
-<!-- rule_class: A | assessed_with: claude-fable-5 | reassess_by: 2026-12-01 -->
+<!-- rule_class: A | assessed_with: claude-opus-5 | reassess_by: 2027-01-15 -->
 
 **Trigger words:** zielzustand, zielbild, target state, akzeptanzkriterien, acceptance criteria, definition of done, soll-zustand, endzustand, woran erkennen wir
 
