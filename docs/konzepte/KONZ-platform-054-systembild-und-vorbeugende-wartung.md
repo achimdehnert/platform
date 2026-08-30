@@ -284,10 +284,14 @@ neuer Erheber, kein neuer privilegierter Pfad, keine Persistenz im öffentlichen
 
 | Kriterium | Messung | Status | Beleg |
 |---|---|---|---|
-| K-a Präzision je scharfer Klasse ≥ 0,6 bei ≥ 3 Urteilen | `python3 tools/befund_journal.py --praezision` | offen | — |
-| K-b ≥ 90 % der offenen platform-Befunde mit Wiedervorlage | `python3 tools/befund_journal.py --bericht` | offen | Ausgangswert 0 von 17 |
-| K-c kein Melder-Workflow wertet eine Scope-Lücke als grün | `grep -n "Exit 3" .github/workflows/*.yml` | offen | heute: `backup-deckung.yml` tut es |
-| K-d GX10 nach Runbook aufgenommen, ohne Sonderregel | Diff der Aufnahme gegen `docs/runbooks/neuer-knoten.md` | offen | Runbook existiert noch nicht |
+| K-a Präzision je scharfer Klasse ≥ 0,6 bei ≥ 3 Urteilen | `python3 tools/befund_journal.py --praezision` | offen | 2026-08-30: 8 Urteile gesamt, je Phase < 3 — nicht bewertbar; E2 (#2495) liefert Frist und Belegfelder, Urteile kommen aus /session-ende |
+| K-b ≥ 90 % der offenen platform-Befunde mit Wiedervorlage | `python3 tools/befund_journal.py --bericht --json` | offen | Ausgangswert 0 von 17; seit E2 (#2495) trägt jeder neue Befund `entscheiden_bis`, 6 von 17 stehen im Gate (vorher 0) |
+| K-c kein Melder-Workflow wertet eine Scope-Lücke als grün | `grep -n "Exit 3" .github/workflows/*.yml` | **erfüllt (gebaut)**, Wirkung im geplanten Lauf offen | E3 (#2498): backup-deckung und backup-meter färben Exit 3 rot ohne Issue; `backup_meter.py` meldet „Geprüft N von M". Erster geplanter Lauf 2026-08-31 05:00/05:30 UTC zu prüfen |
+| K-d GX10 nach Runbook aufgenommen, ohne Sonderregel | Diff der Aufnahme gegen `docs/runbooks/neuer-knoten.md` | offen | E5 (#2493): Runbook, `auflage:`-Feld, `verified_bis` für gx10 (2026-09-30) stehen; Aufnahme selbst KW 37 |
+
+**Umsetzungsstand 2026-08-30:** E1 #2488 · E2 #2495 · E3 #2498 · E4 #2500 · E5 #2493 — alle fünf
+Stufen gemergt am Tag des Konzepts; Rückbau R1 (#2506), S1 (#2508), R2a und die Wiederanlauf-
+Punkte 118/125–127/144 (#2503, #2505, odoo-hub#22) ebenfalls. Offen bei Owner: #2486, #2504, #2507.
 
 Verfehlt ein Kriterium am Stichtag sein Ziel, wird die zugehörige Stufe **abgeschaltet**, nicht
 nachgebessert. Exception-Budget: einmalige Verlängerung bis 2026-11-15, danach ersatzlos.
