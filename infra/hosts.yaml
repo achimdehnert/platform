@@ -13,6 +13,12 @@
 #   Hosts prüfen:   python infra/scripts/server_probe.py --host <ip>
 #   Runner prüfen:  gh api repos/<owner>/<repo>/actions/runners
 #   Ports:          siehe infra/ports.yaml (eigene SoT)
+#   Auflagen:       je Host als Block `auflage:` (maschinenlesbar, KONZ-054 E5) —
+#                   Felder: datenklassen_verboten, prod_container, app_hubs, runner,
+#                   oeffentlicher_ingress, nur_dienste, grund (Pflicht). Fehlt ein Feld,
+#                   gilt "erlaubt". Prueft: infra/scripts/hosts_audit.py --check auflage
+#   Neuer Knoten:   docs/runbooks/neuer-knoten.md — Reihenfolge ist Absicht.
+#   verified: false ist nur mit `verified_bis: <Datum>` gueltig (sonst Dauerausnahme).
 #
 # Ground-Truth-Stand: 2026-07-30 (verifiziert per SSH-Probe; siehe `verified` je Host).
 #   Neu 2026-07-30: `netcup` (152.53.136.219) — erster Nicht-Hetzner-Host, noch ohne Rolle.
@@ -23,6 +29,7 @@
 hosts:
   prod:
     ip: 88.198.191.108
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@88.198.191.108
     ssh_alias: hetzner-prod            # ~/.ssh/config
     hostname: ubuntu-8gb-nbg1-1        # ⚠ LEGACY-NAME, LÜGT: die Box wurde vergrößert.
@@ -56,6 +63,7 @@ hosts:
 
   prod-b:
     ip: 89.167.43.30
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@89.167.43.30
     cloud_name: iilgmbh-prod-b         # id 123575372, vormals `lastwar-bot`
     server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
@@ -111,6 +119,9 @@ hosts:
       (Register-Eintraege in platform#1752/#1753). Wandernde Hubs gehoeren
       hierher, nicht auf den `netcup`-Host (dort nur Backup, ADR-289 R1).
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
+    auflage:
+      datenklassen_verboten: [gov-sozialdaten]
+      grund: "Standort Helsinki — Owner-Freigabe 2026-07-22 fuer alles AUSSER Gov-Workloads (meiki-lra/frist-hub)"
       # BELEGT 2026-08-18, was dieses TODO kostet: pptx-hub. Der Runner blieb
       # auf prod-a, `_deploy-unified.yml` deployt auf einem self-hosted Runner
       # DIREKT auf dessen Host -- also lieferte jeder Merge nach prod-a, waehrend
@@ -122,6 +133,7 @@ hosts:
 
   staging:
     ip: 88.99.38.75
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@88.99.38.75              # Admin/Deploy-Zugang
     ssh_interactive: devuser@88.99.38.75  # interaktiver Dev-Account — Default für Dev-Arbeit auf diesem Host
     hostname: dev-desktop              # Label in infra-Skripten; OS-Hostname real: ubuntu-32gb-fsn1-1
@@ -154,10 +166,14 @@ hosts:
       den ci-nonprod-Runner. Entlastungs-Kandidat: Runner nach `netcup` verlagern
       (12 freie Kerne, 31 GB frei; I/O-Eignung gemessen — siehe netcup-Eintrag).
     hosts_runners: [staging-ci]
+    auflage:
+      prod_container: false
+      grund: "ADR-257 Entscheidung 1 + ADR-292 Zielrolle: nur Dev + Desktop-Streaming, KEINE Prod-Container"
     verified: 2026-07-30               # SSH-Probe on-host (RAM/Swap/Disk/Container/docker stats)
 
   gpu-box:
     ip: 10.99.0.2                      # wg0-Peer von prod (10.99.0.1); von aussen nicht erreichbar
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: achim@10.99.0.2               # Windows-OpenSSH, nur ueber prod (ProxyJump hetzner-prod)
     hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
     provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
@@ -166,6 +182,10 @@ hosts:
       GPU-Box fuer lokale LLM-Inferenz (illustration-hub-Render ueber wg0) und ab 2026-08-28
       CI-Runner `ci-gpu` fuer writing-hub (KONZ-021-Opt-out, platform#2392). Kein Prod-Deploy.
     hosts_runners: [gpu-box]
+    auflage:
+      prod_container: false
+      oeffentlicher_ingress: false
+      grund: "hosts.yaml-Rolle: kein Prod-Deploy; Zugang nur ueber wg0 (KONZ-053 §4)"
     verified: 2026-08-28               # read-only Probe ueber prod/wg0 (WSL, Docker, sudo, GitHub-Reach)
 
   gx10:
@@ -182,10 +202,19 @@ hosts:
       Tunnel (das war der Fehler bei ollama.iil.pet). Phase 1 ohne GitHub-Runner,
       kein Prod-Deploy, kein Build-Ziel fuer Flotten-Images.
     hosts_runners: []                  # Phase 1 bewusst leer — KONZ-053 §6
+    auflage:
+      datenklassen_verboten: [gov-sozialdaten]
+      prod_container: false
+      app_hubs: false
+      runner: false
+      oeffentlicher_ingress: false
+      grund: "KONZ-platform-053 §3/§4/§6 (Owner-Entscheid 2026-08-29): Phase 1 reiner Rechenknoten, ausserhalb des Buergerdaten-Perimeters, kein Tunnel"
     verified: false                    # explizit unverifiziert — nichts gemessen, siehe KONZ-053 §8
+    verified_bis: 2026-09-30           # Frist der Ausnahme (KONZ-054 E5) — danach messen oder mit Grund verlaengern
 
   staging-dedicated:
     ip: 178.104.184.168
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@178.104.184.168
     cloud_name: staging-platform       # id 127038422
     server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
@@ -204,10 +233,15 @@ hosts:
       301 GB Disk (3 %), 12 Container, Uptime 106 Tage. Diente als NVMe-Referenz für
       die I/O-Messung des netcup-Hosts (siehe dessen Eintrag).
     hosts_runners: []
+    auflage:
+      nur_dienste: [risk-hub, frist-hub, dev-hub]
+      grund: "ADR-292 Lane G: Preprod nur risk-hub und meiki/frist; dev-hub-Staging steht dort noch (Abbau offen) und ist deshalb bis zum Abbau gelistet"
     verified: 2026-07-30               # SSH-Probe on-host + dd-I/O-Referenzmessung
 
   odoo:
     ip: 46.225.127.211
+    ssh: root@46.225.127.211           # wie ssh_alias hetzner-odoo (~/.ssh/config); gemessen 2026-08-30
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh_alias: hetzner-odoo            # ~/.ssh/config
     os: Ubuntu (4 vCPU / 8 GB / 150 GB)
     role: >
@@ -225,6 +259,7 @@ hosts:
 
   netcup:
     ip: 152.53.136.219
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@152.53.136.219
     hostname: v2202604344838448611     # DNS: v2202604344838448611.goodsrv.de
     provider: netcup (Nürnberg, DE)    # ERSTER Nicht-Hetzner-Host im Bestand
@@ -275,6 +310,11 @@ hosts:
       die Build-Eignung — dafür laeuft ADR-289 Phase 5b (gleicher Docker-Build auf
       netcup vs. staging). Ebenfalls offen: Verhalten über Wochen (noisy neighbour).
     hosts_runners: []
+    auflage:
+      datenklassen_verboten: [personenbezogen]
+      app_hubs: false
+      runner: false
+      grund: "ADR-289 R1 + §4.6: nur Off-Provider-Backup; R3 Runner vertagt; personenbezogene Daten erst nach AVV (offen, platform#2486)"
     verified: 2026-07-30               # SSH-Probe + dd + fio; Grundinstallation gelaufen
 
 # ─────────────────────────────────────────────────────────────────────────────
