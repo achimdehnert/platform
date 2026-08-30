@@ -193,6 +193,25 @@ als aufruferlos; erst `grep -F` auf den nackten Namen trennte sie in 6 und 6.
 der Liste herausfallen. Fällt er nicht heraus, ist der Filter kaputt und die Null
 sagt nichts über die Welt.
 
+**Zwei Zaehlungen, nicht eine — und sie beantworten verschiedene Fragen** (gemessen
+2026-08-30 am E19-Stand `dbf86ce`, platform#2474):
+
+| Zaehlung | Als Aufrufer zaehlt | Frage | Ergebnis am Stand |
+|---|---|---|---|
+| **(a) ohne jeden Aufrufer** | `{% url %}` **und** `reverse`/`redirect` im Python | Ist der Code tot? | 16 von 48 |
+| **(b) ohne Template-Verlinkung** | nur `{% url %}` in Templates/JS | Kommt ein **Mensch** per Klick hin? | 18 von 57 |
+
+Fuer die Klasse `nicht-begehbar` gilt **(b)**. `angebote:review` ist der Beleg, dass die
+Unterscheidung nicht akademisch ist: die Route hat drei `redirect("angebote:review", …)`
+im Python und **keine** einzige Template-Verlinkung — in (a) faellt sie heraus, in (b)
+steht sie drin, und im Browser war sie nur ueber eine getippte URL erreichbar. Wer nur
+(a) misst, meldet die Station als versorgt.
+
+**Kontrollen je Zaehlung, beide Pflicht:** in (b) muss `angebote:review` drinstehen
+(negativ) und eine nachweislich verlinkte Route wie `ausschreibungen:detail` draussen
+bleiben (positiv). Eine Positivkontrolle mit einem Namen, den es gar nicht gibt, ist
+keine — sie besteht immer.
+
 Je Treffer **eine** von zwei Antworten, nie keine: **einhaengen** (der Weg fehlt) oder
 **entfernen** (die Funktion ist tot). Halb liegen lassen ist genau der Zustand, der die
 fuenf Faelle oben erzeugt hat.
@@ -451,6 +470,20 @@ ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, is
 (R7), kein Pruefer, und faellt per K9 einzeln raus.
 
 ## Changelog
+
+- 2026-08-30 (3, E19-Lauf gegen vier Staende — platform#2474, Owner „25 weg 1; 30 go"):
+  **K1 steht auf 8/9 und ist damit erfuellt.** ausschreibungs-hub 5 von 6, je am Commit vor
+  dem eigenen Fix: `f1f600c` (sichtbarer `{# #}` auf zwei Seiten; CSRF-403 an „Analyse starten",
+  Antwortkoerper `CSRF token missing`), `dbf86ce` (18 Routen ohne Template-Verlinkung; die
+  Sammelmeldung „Alle Extraktions-Calls sind gescheitert." im Browser, Ursache nur im
+  Audit-Trail), `2259b8e` (`.docx` als ZIP-Rohbytes, `text` beginnt mit `PK\x03\x04`).
+  **Nicht reproduzierbar:** das fehlende `docx`-Extra — ein Deklarationsdefekt, den eine
+  Laufzeitumgebung mit installierter Abhaengigkeit nie zeigt. Zwei Lehren stehen oben:
+  die **zwei Zaehlungen** in Step 3b (a: toter Code, b: klickbar) und **E21** im Konzept
+  (die Aufzeichnung wird auf den Stand aufgesetzt, nicht der Stand gehoben — ein Cherry-pick
+  des Fixture-Commits scheitert an den Staenden, weil er einen spaeteren Refactor mitbringt).
+  Handwerklicher Nebenbefund: `pkill -f "manage.py runserver …"` traf die eigene Shell mit
+  (Exit 144) — der bekannte Selbsttreffer, hier real.
 
 - 2026-08-30 (Pilot K1 ausschreibungs-hub, Stand 8c8090e — Trockenlauf, keine Issues):
   Kette Einstieg → Anmeldung → Ausschreibungen → Detail → Bid/No-Bid → Angebot → Freigabe →
