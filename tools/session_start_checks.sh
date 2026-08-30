@@ -910,6 +910,33 @@ case "$ALARM_RC" in
   *) record "0.7.21 alarmweg" "SKIP" "${ALARM_OUT:-blind: Probe-Laeufe nicht lesbar}" ;;
 esac
 
+# ── 0.7.22 Flottenbild: liegt ein frisches Systembild vor, und was sagt es? ──
+# KONZ-054, 189. Das Bild rendert ein Timer taeglich (infra/host-maintenance/
+# flottenbild.timer) nach ~/.claude/flottenbild/latest.json; hier wird nur gelesen —
+# ein Volllauf dauert Minuten und gehoert nicht in den Sitzungsstart. Aelter als
+# 30 h oder nicht alle Knoten gemessen = WARN; keine Datei = SKIP (nie PASS).
+FB="$HOME/.claude/flottenbild/latest.json"
+if [ -f "$FB" ]; then
+  FB_OUT=$(python3 - "$FB" <<'PYEOF' 2>/dev/null
+import json, sys, time, os
+p = sys.argv[1]; d = json.load(open(p))
+alter_h = (time.time() - os.stat(p).st_mtime) / 3600
+kn = d.get("knoten", []); gem = [k for k in kn if k["zustand"] == "gemessen"]
+fehlt = [k["knoten"] for k in kn if k["zustand"] not in ("gemessen", "geplant")]
+prom = d.get("prometheus", {}); feuern = [a for a in prom.get("alerts", []) if a.get("state") == "firing"]
+j = d.get("melder", {}).get("journal", {}); aw = d.get("melder", {}).get("alarmwege", {}).get("kanaele", [])
+status = "PASS"
+if alter_h > 30 or fehlt or feuern: status = "WARN"
+print(status)
+print(f"{len(gem)}/{len(kn)} Knoten · {len(feuern)} Alerts · Journal {j.get('im_gate','?')}/{j.get('gesamt','?')} im Gate · Alarmwege {sum(1 for k in aw if k.get('ok'))}/{len(aw)} · Stand {d.get('stand','?')}"
+      + (f" · FEHLT: {','.join(fehlt)}" if fehlt else "") + (f" · {alter_h:.0f} h alt" if alter_h > 30 else ""))
+PYEOF
+)
+  record "0.7.22 flottenbild" "$(echo "$FB_OUT" | head -1)" "$(echo "$FB_OUT" | tail -1)"
+else
+  record "0.7.22 flottenbild" "SKIP" "kein Flottenbild unter ~/.claude/flottenbild/ — Timer flottenbild.timer aktivieren (infra/host-maintenance)"
+fi
+
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
 # Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
 # WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung
