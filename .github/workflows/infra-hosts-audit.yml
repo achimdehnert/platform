@@ -20,6 +20,11 @@ on:
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# seit 2026-08-30 meldet --check auflage die vier dev-desktop-Dienste gegen
+# prod_container=false (platform#2507). Rot heisst hier "Entscheidung offen",
+# nicht "Audit kaputt" — bis der Owner deklariert/umzieht/stoppt.
+
 permissions:
   contents: read
 

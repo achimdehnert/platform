@@ -45,18 +45,20 @@ def validate(data: dict) -> list[str]:
                     f"{name}: staging-Port {staging_port} außerhalb Range 1024–9999"
                 )
             else:
-                port_usage[staging_port].append(f"{name}/staging")
+                port_usage[("staging", staging_port)].append(f"{name}/staging")
 
         prod_port = config.get("prod")
         if prod_port is not None:
             if not isinstance(prod_port, int):
                 errors.append(f"{name}: prod-Port muss int sein")
             else:
-                port_usage[prod_port].append(f"{name}/prod")
+                # Kollision nur INNERHALB einer Umgebung: staging == prod ist seit
+                # ADR-164 das Ziel, keine Kollision (Lauf 2: 33 Fehlalarme dieser Art).
+                port_usage[("prod", prod_port)].append(f"{name}/prod")
 
-    for port, users in port_usage.items():
+    for (env, port), users in port_usage.items():
         if len(users) > 1:
-            errors.append(f"Port-Kollision {port}: {', '.join(users)}")
+            errors.append(f"Port-Kollision {env} {port}: {', '.join(users)}")
 
     return errors
 
@@ -101,6 +103,11 @@ def main():
     ports_file = Path(__file__).parent.parent / "ports.yaml"
     data = load_ports(ports_file)
     errors = validate(data)
+    hosts_file = ports_file.parent / "hosts.yaml"
+    if hosts_file.exists():
+        import yaml
+
+        errors += validate_servers(data, yaml.safe_load(hosts_file.read_text()) or {})
 
     if errors:
         print("❌ Validierungs-Fehler in ports.yaml:")

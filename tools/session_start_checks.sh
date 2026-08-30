@@ -926,10 +926,17 @@ fehlt = [k["knoten"] for k in kn if k["zustand"] not in ("gemessen", "geplant")]
 prom = d.get("prometheus", {}); feuern = [a for a in prom.get("alerts", []) if a.get("state") == "firing"]
 j = d.get("melder", {}).get("journal", {}); aw = d.get("melder", {}).get("alarmwege", {}).get("kanaele", [])
 status = "PASS"
-if alter_h > 30 or fehlt or feuern: status = "WARN"
+# Lauf-2-Kritik 2026-08-30: die Phase sagte PASS bei 4 unhealthy Containern und 98 % Swap —
+# ein Bild, das nicht kippt, ist kein Melder. Jetzt kippen auch Knotenwerte.
+unh = [f"{k['knoten']}:{u}" for k in gem for u in k.get("unhealthy", [])]
+rst = [f"{k['knoten']}:{r}" for k in gem for r in k.get("restarting", [])]
+heiss = [k["knoten"] for k in gem if (k.get("swap_pct") or 0) >= 90 or (k.get("disk_pct") or 0) >= 90]
+if alter_h > 30 or fehlt or feuern or unh or rst or heiss: status = "WARN"
 print(status)
 print(f"{len(gem)}/{len(kn)} Knoten · {len(feuern)} Alerts · Journal {j.get('im_gate','?')}/{j.get('gesamt','?')} im Gate · Alarmwege {sum(1 for k in aw if k.get('ok'))}/{len(aw)} · Stand {d.get('stand','?')}"
-      + (f" · FEHLT: {','.join(fehlt)}" if fehlt else "") + (f" · {alter_h:.0f} h alt" if alter_h > 30 else ""))
+      + (f" · FEHLT: {','.join(fehlt)}" if fehlt else "") + (f" · {alter_h:.0f} h alt" if alter_h > 30 else "")
+      + (f" · unhealthy {','.join(unh)}" if unh else "") + (f" · restart {','.join(rst)}" if rst else "")
+      + (f" · Swap/Platte>=90% {','.join(heiss)}" if heiss else ""))
 PYEOF
 )
   record "0.7.22 flottenbild" "$(echo "$FB_OUT" | head -1)" "$(echo "$FB_OUT" | tail -1)"

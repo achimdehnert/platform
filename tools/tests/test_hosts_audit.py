@@ -192,7 +192,12 @@ def test_should_pass_schema_and_auflage_on_real_repo_files():
     data = yaml.safe_load((WURZEL / "infra" / "hosts.yaml").read_text())
     ports = yaml.safe_load((WURZEL / "infra" / "ports.yaml").read_text())
     assert ha.check_schema(data) == []
-    assert ha.check_auflage(data, ports) == []
+    # Seit 2026-08-30 (164/Lauf-2-Kritik) sind vier dev-desktop-Dienste als `blockiert`
+    # deklariert und verstossen gegen auflage.prod_container=false — der Check MUSS das
+    # zeigen, bis platform#2507 entschieden ist. Jeder andere Befund waere neu.
+    befunde = ha.check_auflage(data, ports)
+    erwartet = {"praes-iil-ai", "chat-hub", "robo-twin", "mail-links"}
+    assert {b.split("'")[1] for b in befunde} == erwartet, befunde
 
 
 def test_should_find_gx10_deadline_in_real_repo_file():
@@ -215,3 +220,16 @@ def test_should_expose_every_known_host_with_ssh_and_arch_except_planned_ones():
     assert ohne == []
     ohne_arch = [n for n, h in data["hosts"].items() if not h.get("arch")]
     assert ohne_arch == []
+
+
+def test_should_flag_blocked_service_on_host_that_forbids_prod_containers():
+    """Lauf-2-Kritik: `blockiert` war uebersprungen — der Check war gruen auf genau
+    dem Fall, fuer den er gebaut wurde."""
+    data = _hosts(
+        dev={
+            "verified": "2026-08-30",
+            "auflage": {"grund": "x", "prod_container": False},
+        }
+    )
+    ports = _ports(foo={"prod_host": "dev", "betriebsstatus": "blockiert"})
+    assert any("foo" in i for i in ha.check_auflage(data, ports))
