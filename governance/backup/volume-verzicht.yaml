@@ -1,0 +1,45 @@
+# governance/backup/volume-verzicht.yaml — #2284 K1 / Owner-Go 2026-08-25 ("2 3 4 go")
+#
+# Vorzeichen gedreht: gesichert wird STANDARDMAESSIG jedes benannte Volume auf
+# den Prod-Hosts (prod-offsite-daily.sh, Sammel-Snapshot `volumes`) — ausser
+# pgdata laufender Postgres-Container (die kommen konsistent per pg_dumpall) und
+# ausser dem, was HIER mit Grund verzichtet ist. Ein Volume hat gegenueber
+# tools/backup_deckung.py genau vier Antworten: pgdump, volumes, verzicht, anonym.
+#
+# Zwei Formen:
+#   regeln:   Muster (Python-Regex, case-insensitive) — gilt auf ALLEN Hosts.
+#             Fuer Klassen, die per Bauart keinen Nutzdatenanspruch haben.
+#   verzicht: (host, volume) exakt — fuer Einzelfaelle.
+#
+# `grund` ist in beiden Formen Pflicht; ohne ihn zaehlt der Eintrag als UNGEDECKT
+# mit Hinweis "Verzicht OHNE Grund". `bis` ist die Wiedervorlage.
+# Loeschen verwaister Volumes ist der andere Abschluss und bleibt Owner-Sache
+# (#2258): erst Snapshot (kommt jetzt automatisch, weil Standard = sichern),
+# dann 30 Tage Frist, dann Loeschliste.
+
+regeln:
+  - muster: "(^|_|-)redis(_|-|$)"
+    grund: "Cache/Broker — wird beim Start neu aufgebaut, kein Nutzdatenverlust"
+    quelle: "platform#2284"
+  - muster: "(^|_|-)static(_|-|$)"
+    grund: "collectstatic-Ausgabe — aus dem Image regenerierbar"
+    quelle: "platform#2284"
+  - muster: "^buildx_buildkit_"
+    grund: "Build-Cache von docker buildx — reproduzierbar, kein Nutzdatenanspruch"
+    quelle: "platform#2284"
+  - muster: "_beatdata$"
+    grund: "Celery-Beat-Zeitplanstand — wird beim Start aus dem Code neu erzeugt"
+    quelle: "platform#2284"
+  - muster: "(^|_|-)staging(_|-)"
+    grund: "Staging fuehrt synthetische Daten (Owner-Regel 2026-06-11: nur writing-hub, risk-hub, meiki-* halten Prod-Daten) — Neuaufbau per migrate"
+    quelle: "platform#2284"
+    bis: 2026-11-30
+
+# Bot-Review-Probe 2026-08-25 (platform#2307): diese Kommentarzeile ist die einzige
+# Aenderung eines PRs ohne Tabu-Pfad — der erste Approve von @iil-lotse ist der Beweis.
+verzicht: []
+# - host: prod
+#   volume: beispiel_cache
+#   grund: "…"
+#   bis: 2026-11-30
+#   quelle: "platform#NNNN"

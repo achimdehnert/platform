@@ -18,9 +18,16 @@ Env:
 Aufruf (empfohlen):
     python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/run_prompt.py ...
 
+Modellwahl:
+    Der Pin kommt aus dem ADR-208-Resolver (`iil/fast-current`), NICHT aus dieser
+    Datei. Ein Retirement kostet damit einen PR an der Resolver-Datei — vorher
+    stand hier ein harter String, der am 2026-08-25 seit Wochen tot war, ohne
+    dass irgendetwas rot wurde.
+
 Cost:
-    Mit Groq Llama-3.3-70B: ~0.000 USD (Free Tier: 14.400 req/day)
-    Ohne Groq: 0 USD, aber weniger kontextsensitiver Output
+    Tier-1a-Modell laut llm-routing-Policy — Groessenordnung Cent pro Lauf.
+    Ohne Schluessel/LLM: 0 USD, aber weniger kontextsensitiver Output; der Lauf
+    sagt dann ausdruecklich, dass die Vorlage genommen wurde.
 """
 
 from __future__ import annotations
@@ -36,12 +43,50 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 
+#: Anbieter -> (Env-Variable, Datei in ~/.secrets). Eine Stelle, kein Raten.
+_KEY_ENV = {
+    "groq": "GROQ_API_KEY",
+    "cerebras": "CEREBRAS_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "together_ai": "TOGETHER_API_KEY",
+}
+_KEY_DATEI = {
+    "groq": "groq_api_key",
+    "cerebras": "cerebras_api_key",
+    "openai": "openai_api_key",
+    "anthropic": "anthropic_api_key",
+    "mistral": "mistral_api_key",
+    "together_ai": "together_api_key",
+}
+
+
+def _schluessel_fuer(anbieter: str) -> str:
+    """Env zuerst, dann ~/.secrets — der Wert wird nie ausgegeben."""
+    var = _KEY_ENV.get(anbieter, "")
+    if var and os.environ.get(var):
+        return os.environ[var]
+    datei = Path.home() / ".secrets" / _KEY_DATEI.get(anbieter, "")
+    if _KEY_DATEI.get(anbieter) and datei.exists():
+        return datei.read_text().strip()
+    return ""
+
+
+def _modell() -> str:
+    """Der Pin aus dem ADR-208-Resolver — nicht aus dieser Datei."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    from iil_modell import modell_fuer  # noqa: PLC0415
+
+    return modell_fuer("iil/fast-current")
+
+
 def _call_groq(system_prompt: str, user_prompt: str, api_key: str) -> str | None:
     try:
         import litellm  # noqa: PLC0415
 
         resp = litellm.completion(
-            model="groq/llama-3.3-70b-versatile",
+            model=_modell(),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -52,7 +97,19 @@ def _call_groq(system_prompt: str, user_prompt: str, api_key: str) -> str | None
         )
         return resp.choices[0].message.content.strip()
     except Exception as exc:
-        print(f"[run_prompt] Groq-Fehler: {exc}", file=sys.stderr)
+        # Laut, nicht leise. Bis 2026-08-25 stand hier ein harter Pin auf ein
+        # bei Groq abgemeldetes Modell; der Lauf fiel auf die Template-Variante
+        # zurueck, und deren Akzeptanzkriterium lautet woertlich "... funktioniert
+        # korrekt" — genau das, was der /prompt-Skill in seinem eigenen
+        # Qualitaets-Check verbietet. Ein schlechterer Output ohne Hinweis ist
+        # teurer als ein Fehlschlag mit Hinweis.
+        print(f"[run_prompt] LLM-Pfad FEHLGESCHLAGEN ({exc})", file=sys.stderr)
+        print(
+            "[run_prompt] Der folgende Prompt kommt aus der Vorlage und ist "
+            "deutlich weniger kontextsensitiv. Bei 'model_not_found': Pin im "
+            "ADR-208-Resolver pruefen (mcp-hub, naechtliche Liveness-Pruefung).",
+            file=sys.stderr,
+        )
         return None
 
 
@@ -327,13 +384,13 @@ def main() -> None:
     )
     affected = [f.strip() for f in args.affected_files.split(",") if f.strip()]
 
-    # Load Groq key
-    api_key = (
-        os.environ.get("GROQ_API_KEY")
-        or Path.home().joinpath(".secrets/groq_api_key").read_text().strip()
-        if Path.home().joinpath(".secrets/groq_api_key").exists()
-        else ""
-    )
+    # Der Schluessel folgt dem Modell, nicht umgekehrt. Vorher stand hier fest
+    # "Groq" — nachdem der Pin aus dem Resolver kommt, war der erste Lauf gegen
+    # ein Cerebras-Modell prompt "Wrong API Key", weil weiter der Groq-Schluessel
+    # mitging.
+    modell = _modell()
+    anbieter = modell.split("/", 1)[0]
+    api_key = _schluessel_fuer(anbieter)
 
     result = None
     if api_key:
@@ -346,10 +403,16 @@ Date: {today}
 --- project-facts.md ---
 {context[:3000] if context else "[nicht verfügbar]"}
 """
-        print("[run_prompt] Rufe Groq Llama-3.3-70B...", file=sys.stderr)
+        print(f"[run_prompt] Rufe {modell}...", file=sys.stderr)
         result = _call_groq(SYSTEM_PROMPT, user_msg, api_key)
 
     if not result:
+        if not api_key:
+            print(
+                f"[run_prompt] Kein Schluessel fuer Anbieter '{anbieter}' "
+                f"({_KEY_ENV.get(anbieter, '?')}) — LLM-Pfad uebersprungen.",
+                file=sys.stderr,
+            )
         print("[run_prompt] Fallback: Template-Generierung", file=sys.stderr)
         result = _build_template(
             args.repo, args.instruction, args.task_type, context, affected, today

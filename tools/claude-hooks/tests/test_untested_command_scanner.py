@@ -189,3 +189,42 @@ def test_should_still_report_a_new_placeholder(tmp_path, monkeypatch):
 def test_should_start_fresh_in_another_session_for_placeholders(tmp_path, monkeypatch):
     _lauf(tmp_path, monkeypatch, "p4", PLATZHALTER)
     assert "Platzhalter" in _lauf(tmp_path, monkeypatch, "p5", PLATZHALTER)
+
+
+# ── Uebergabe-Praefix `!` (platform#2230, Antwort "ausweiten") ──────────────
+# In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt. Das ist die
+# Uebergabe-Konvention — und machte den Scanner bis 2026-08-23 blind: derselbe
+# Befehl feuerte ohne `!` und nicht mit. Realfall ausschreibungs-hub 2026-08-23:
+# ein nie ausgefuehrtes Skript ging so an den Owner und schrieb seine eigenen
+# Zeilen in eine Prod-Credential-Datei.
+
+
+def test_should_fire_on_a_handed_over_script_with_bang_prefix():
+    text = "```bash\n! bash /root/install-certbot-token.sh\n```\n"
+    untested, _ = find_untested(text, [])
+    assert untested == ["bash /root/install-certbot-token.sh"]
+
+
+def test_should_fire_on_a_handed_over_ssh_command_with_bang_prefix():
+    text = "```bash\n! ssh root@host 'systemctl restart nginx'\n```\n"
+    untested, _ = find_untested(text, [])
+    assert untested and "ssh root@host" in untested[0]
+
+
+def test_should_still_fire_without_the_bang_prefix():
+    """Regressionsschutz: die alte, funktionierende Richtung bleibt."""
+    untested, _ = find_untested("```bash\nbash /root/x.sh\n```\n", [])
+    assert untested == ["bash /root/x.sh"]
+
+
+def test_should_stay_silent_when_the_bang_command_was_actually_run():
+    untested, _ = find_untested(
+        "```bash\n! bash /root/x.sh\n```\n", ["bash /root/x.sh"]
+    )
+    assert untested == []
+
+
+def test_should_not_treat_prose_starting_with_bang_as_a_command():
+    """`!` allein macht keine Zeile zum Befehl — der Starter muss folgen."""
+    untested, _ = find_untested("```\n! das ist Prosa, kein Befehl\n```\n", [])
+    assert untested == []

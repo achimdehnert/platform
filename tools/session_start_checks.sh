@@ -23,6 +23,13 @@ export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 # alte Fassung. Genau daran scheiterte der erste Test von 0.4.4.
 PLATFORM_DIR="${PLATFORM_DIR:-$GITHUB_DIR/platform}"
 TARGET_REPO="${1:-platform}"
+# Repo, dem die plattformweiten Phasen GEHOEREN (Default des 4. record-Arguments).
+# Literal, NICHT `basename "$PLATFORM_DIR"`: $PLATFORM_DIR ist ueberschreibbar,
+# damit eine Aenderung vor dem Merge pruefbar ist — der Basisname waere dann der
+# Worktree-Name. Genau daran scheiterte der erste Testlauf dieser Zeile am
+# 2026-08-23: 20 Phasen standen unter "2026-08-23-achim-dehnert-gate-...-122530".
+# Der Name des Repos steht ohnehin schon als Literal in TARGET_REPO's Default.
+PLATTFORM_REPO="platform"
 PROD_HOST="88.198.191.108"
 STAGING_HOST="88.99.38.75"
 
@@ -32,8 +39,23 @@ FAILED=0
 # record <phase> <PASS|WARN|FAIL> <note> [ziel-repos] [ungeprueft-repos]
 #   Pipes raus, sonst bricht die Summary-Tabelle.
 #   Das 4. Argument nennt die Repos, um die es in dieser Zeile GEHT — nicht das
-#   Repo, in dem die Sitzung laeuft. Ohne Angabe ist es $TARGET_REPO, denn die
-#   meisten Phasen pruefen die eigene Umgebung. Genau diese Unterscheidung fehlte
+#   Repo, in dem die Sitzung laeuft. Ohne Angabe ist es $PLATTFORM_REPO, denn die
+#   meisten Phasen messen platform-eigene Daten (Gate-Registry, Schleuse, Leases,
+#   Cron-Melder, ports.yaml); die vier Phasen, die wirklich das Sitzungs-Repo
+#   pruefen, geben "$TARGET_REPO" ausdruecklich an.
+#
+#   Der Default war bis 2026-08-23 $TARGET_REPO, und das war die teurere Fehl-
+#   richtung: der Fingerabdruck im Befund-Journal lautet `phase::repo`, also
+#   wanderte ein plattformweiter Befund mit jeder Sitzung in einen anderen Eimer.
+#   Die naechste Sitzung mit anderem Ziel HEILTE den Eintrag der vorigen und legte
+#   ihn neu an — ewig jung. Gemessen am 2026-08-23: `0.7.7 gate-wirkung` stand mit
+#   `laeufe=1, erstmals=2026-08-23` im Journal, obwohl das Gate seit dem 2026-08-20
+#   rueckfaellig ist; sieben weitere plattformweite Phasen lagen unter `writing-hub`.
+#   Genau das Alter (K3) war damit zerstoert, fuer das das Journal existiert.
+#   Ein vergessenes 4. Argument ist jetzt hoechstens ein falsches, aber STABILES
+#   Etikett — vorher war es ein wanderndes.
+#
+#   Diese Unterscheidung fehlte
 #   bis 2026-08-16 (platform#2004): ein roter Deploy in `cad-hub` war eine WARN-Zeile
 #   in einer platform-Sitzung, und der Befund blieb dort liegen — fuenf offene
 #   `[deploy-health]`-Issues, alle in platform, alle ueber andere Repos, keins gefixt.
@@ -45,7 +67,7 @@ FAILED=0
 #   ewig jung. Der teuerste Fehler, den ein Melder-Gedaechtnis machen kann.
 record() {
   P_NAME+=("$1"); P_STATUS+=("$2"); P_NOTE+=("$(echo "$3" | tr '|' '/')")
-  P_REPO+=("${4:-$TARGET_REPO}")
+  P_REPO+=("${4:-$PLATTFORM_REPO}")
   P_UNGEPRUEFT+=("${5:-}")
   [ "$2" = "FAIL" ] && FAILED=1
   printf '  [%s] %s — %s\n' "$2" "$1" "$3"
@@ -117,9 +139,11 @@ FOREIGN_WT=$(git -C "$PLATFORM_DIR" worktree list 2>/dev/null | grep -c "session
 PARALLEL_SESSIONS=$(python3 "$PLATFORM_DIR/tools/session-leases" \
   --repo "$TARGET_REPO" --brief 2>/dev/null)
 SYNC_RESULTS=""
+SYNC_GEPRUEFT=""
 for repo in "$TARGET_REPO" mcp-hub risk-hub; do
   [ -d "$GITHUB_DIR/$repo" ] || continue
   SYNC_RESULTS="$SYNC_RESULTS $(sync_repo "$GITHUB_DIR/$repo")"
+  SYNC_GEPRUEFT="$SYNC_GEPRUEFT$repo "
 done
 if echo "$SYNC_RESULTS" | grep -q "GUARD\|pull-fail"; then
   # Nur die Repos, die tatsaechlich GUARD/pull-fail tragen — nicht die geprueften.
@@ -127,15 +151,18 @@ if echo "$SYNC_RESULTS" | grep -q "GUARD\|pull-fail"; then
     | grep -E "GUARD|pull-fail" | cut -d: -f1 | sort -u | tr '\n' ' ')
   record "0.4 repo-sync" "WARN" "${GUARD_NOTE}${SYNC_RESULTS# } (GUARD = nicht angefasst, fremde Session möglich)" "${SYNC_BETROFFEN% }"
 else
-  record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }"
+  # Auch der Gruen-Fall nennt die geprueften Repos: der Default ist `platform`,
+  # und diese Phase synct TARGET_REPO + mcp-hub + risk-hub (Retro a84f71 #1 —
+  # der Default-Flip war nur an den WARN-Zweigen nachgezogen worden).
+  record "0.4 repo-sync" "PASS" "${GUARD_NOTE}${SYNC_RESULTS# }" "${SYNC_GEPRUEFT% }"
 fi
 
 if [ -n "$PARALLEL_SESSIONS" ]; then
   n=$(printf '%s\n' "$PARALLEL_SESSIONS" | grep -c .)
-  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen"
+  record "0.4 parallel-sessions" "WARN" "$n aktive Session(s) auf $TARGET_REPO — vor Merge/Deploy abgleichen" "$TARGET_REPO"
   printf '%s\n' "$PARALLEL_SESSIONS"
 else
-  record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO"
+  record "0.4 parallel-sessions" "PASS" "keine andere aktive Session auf $TARGET_REPO" "$TARGET_REPO"
 fi
 
 # ── 0.4.4 Basis-Abstand der offenen Leases ─────────────────────────────────
@@ -147,6 +174,10 @@ fi
 ABSTAND_OUT="$(bash "$PLATFORM_DIR/tools/repo-session.sh" abstand 2>/dev/null)" && ABSTAND_RC=0 || ABSTAND_RC=$?
 ABSTAND_ZEILE="$(printf '%s\n' "$ABSTAND_OUT" | tail -3 | head -1)"
 ABSTAND_N="$(printf '%s\n' "$ABSTAND_OUT" | grep -c '^  ⚠' || true)"
+# Bewusst OHNE Repo-Aufschluesselung, obwohl die ⚠-Zeilen sie hergaeben (Feld 2,
+# gemessen: 12 Repos): die Note ist eine Summe ("57 Lease(s) ueber der Schwelle"),
+# und 12 wandernde Journal-Eintraege pro Lauf wuerden genau die Flaeche zumuellen,
+# die alte Befunde sichtbar machen soll. Aggregat bleibt Aggregat.
 if [ "${ABSTAND_RC:-0}" -ne 0 ] && [ "${ABSTAND_N:-0}" -eq 0 ]; then
   # Exit ungleich 0 OHNE Befundzeilen heisst nicht "alles ueber der Schwelle",
   # sondern "das Unterkommando gibt es hier nicht" (alte Skript-Fassung, exit 2).
@@ -193,13 +224,13 @@ git -C "$GITHUB_DIR/iil-reflex" pull --rebase --quiet 2>/dev/null
 REFLEX_VER=$(cd "$GITHUB_DIR/iil-reflex" 2>/dev/null && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
 if [ -f "$GITHUB_DIR/$TARGET_REPO/reflex.yaml" ]; then
   if (cd "$GITHUB_DIR/iil-reflex" && .venv/bin/python -m reflex review all "$TARGET_REPO" --fail-on block --emit-metrics >/tmp/ssc_reflex.$$ 2>&1); then
-    record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, review ohne BLOCK"
+    record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, review ohne BLOCK" "$TARGET_REPO"
   else
-    record "0.4.1 reflex" "WARN" "v${REFLEX_VER}, BLOCK-Findings — vor Weiterarbeit fixen (Log: reflex review all $TARGET_REPO)"
+    record "0.4.1 reflex" "WARN" "v${REFLEX_VER}, BLOCK-Findings — vor Weiterarbeit fixen (Log: reflex review all $TARGET_REPO)" "$TARGET_REPO"
   fi
   rm -f /tmp/ssc_reflex.$$
 else
-  record "0.4.1 reflex" "PASS" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)"
+  record "0.4.1 reflex" "SKIP" "v${REFLEX_VER}, $TARGET_REPO ohne reflex.yaml — Review übersprungen (by design)" "$TARGET_REPO"
 fi
 
 # ── 0.4.2 ADR-Schema-Validierung ────────────────────────────────────────────
@@ -285,7 +316,7 @@ OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
 DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
-DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; N_SCANNED=0
+DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; DEPLOY_CANCELLED=""; N_SCANNED=0
 # Leerer Cutoff (kein GNU-date) wuerde die waiting-Erkennung still abschalten —
 # das Ergebnis waere ein PASS, das eine nie gelaufene Pruefung als bestanden
 # ausgibt. Deshalb wird der Zustand unten als degraded gemeldet, nicht verschluckt.
@@ -325,6 +356,17 @@ EOF
       DEPLOY_FAILS="$DEPLOY_FAILS $r"
     fi
   fi
+  # (2b) `cancelled` ist weder gruen noch rot — und faellt deshalb bis heute
+  #      durch jedes Netz (platform#2148, Weg c). Realfall 2026-08-20 risk-hub:
+  #      ein Prod-Dispatch wurde von einem gleichzeitigen Staging-Push ueber die
+  #      Concurrency-Group abgeraeumt. Kein Check wurde rot, der Stand erreichte
+  #      Prod nie. Was hier NICHT versucht wird: zwischen Handabbruch und
+  #      Concurrency zu unterscheiden — dafuer gibt es keinen billigen Check, und
+  #      die Frage, die zaehlt, ist ohnehin eine andere: ist der Stand live?
+  #      Die beantwortet Phase 0.7.11 an der Wirkung.
+  if [ "$C" = "cancelled" ]; then
+    DEPLOY_CANCELLED="$DEPLOY_CANCELLED $r"
+  fi
   # erst ab 24h melden: ein frisches Gate ist der Normalfall, kein Befund
   if [ "$W" != "none" ] && [ -n "$WAIT_CUTOFF" ] && [[ "$W" < "$WAIT_CUTOFF" ]]; then
     DEPLOY_WAITING="$DEPLOY_WAITING $r"
@@ -337,18 +379,23 @@ COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfrag
 # sind Befunde ueber ein FREMDES Repo — sie gehoeren dorthin, nicht in die
 # platform-Prosa. Die nicht abfragbaren stehen getrennt, damit das Journal eine
 # Abdeckungsluecke nicht als Heilung verbucht.
-DEPLOY_BETROFFEN=$(echo "$DEPLOY_WAITING $DEPLOY_FAILS" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
+DEPLOY_BETROFFEN=$(echo "$DEPLOY_WAITING $DEPLOY_FAILS $DEPLOY_CANCELLED" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
+CANCEL_ZUSATZ="${DEPLOY_CANCELLED:+ · cancelled:$DEPLOY_CANCELLED — weder gruen noch rot; Wirkung pruefen (0.7.11)}"
 if [ -n "$DEPLOY_WAITING" ]; then
-  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
+  record "0.7 deploy-scan" "WARN" "waiting>24h:${DEPLOY_WAITING} — Gate blockiert die Concurrency-Group, Folge-Deploys erreichen Prod NICHT; altes Gate mit state=rejected beantworten${DEPLOY_FAILS:+ · failure:$DEPLOY_FAILS}${CANCEL_ZUSATZ} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
 elif [ -n "$DEPLOY_FAILS" ]; then
-  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live) (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
+  record "0.7 deploy-scan" "WARN" "failure:${DEPLOY_FAILS} — Logs lesen + User informieren (run-conclusion ≠ Änderung live)${CANCEL_ZUSATZ} (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
+elif [ -n "$DEPLOY_CANCELLED" ]; then
+  record "0.7 deploy-scan" "WARN" "cancelled:${DEPLOY_CANCELLED} — letzter Deploy-Lauf wurde abgeraeumt (Concurrency-Group oder Handabbruch); kein Check wird davon rot. Wirkung pruefen: platform/tools/deploy_wirkung.py --repo <r> (${COVERAGE})" "${DEPLOY_BETROFFEN% }" "$DEPLOY_SKIPPED"
 elif [ -z "$WAIT_CUTOFF" ]; then
   # F3: ohne Cutoff lief die waiting-Pruefung gar nicht — kein PASS behaupten.
   record "0.7 deploy-scan" "WARN" "degraded: WAIT_CUTOFF leer (kein GNU-date?) — haengende Approval-Gates wurden NICHT geprueft; kein failure in ${COVERAGE}" "$TARGET_REPO" "$DEPLOY_REPOS"
 elif [ -n "$DEPLOY_SKIPPED" ]; then
   record "0.7 deploy-scan" "WARN" "unvollstaendig: ${COVERAGE} — kein failure/waiting in den geprueften, die uebrigen sind ungeprueft${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}" "$TARGET_REPO" "$DEPLOY_SKIPPED"
 else
-  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}"
+  # dito (Retro a84f71 #1): diese Phase scannt AUSSCHLIESSLICH Fremd-Repos —
+  # `platform` steht in DEPLOY_REPOS gar nicht drin.
+  record "0.7 deploy-scan" "PASS" "kein failure, kein haengendes Approval-Gate (${COVERAGE})${DEPLOY_REJECTED:+ · bewusst abgelehnte Freigabe (kein Befund):$DEPLOY_REJECTED}" "$DEPLOY_REPOS"
 fi
 
 # ── 0.7.1 deploy.sh Git↔Host-Drift ──────────────────────────────────────────
@@ -399,13 +446,13 @@ if [ -f "$STALE_REPO_DIR/AGENT_HANDOVER.md" ]; then
   STALE_OUT=$(cd "$STALE_REPO_DIR" && python3 "$PLATFORM_DIR/tools/handover_stale_reference_check.py" AGENT_HANDOVER.md 2>/dev/null || true)
   STALE_N=$(echo "$STALE_OUT" | grep -c '^STALE' || true)
   case "$STALE_OUT" in
-    PASS*)  record "0.7.4 prio-referenzen" "PASS" "$(echo "$STALE_OUT" | head -1 | cut -c1-120)" ;;
-    SKIP*)  record "0.7.4 prio-referenzen" "PASS" "keine Prio-Liste im Handover — nichts zu pruefen" ;;
-    STALE*) record "0.7.4 prio-referenzen" "WARN" "$STALE_N Prio-Referenz(en) zeigen auf Erledigtes — Prio nachziehen VOR Arbeitsbeginn: $(echo "$STALE_OUT" | grep '^STALE' | head -3 | awk '{print $2}' | tr '\n' ' ')" ;;
-    *)      record "0.7.4 prio-referenzen" "WARN" "Prio-Referenz-Check nicht auswertbar — manuell: platform/tools/handover_stale_reference_check.py" ;;
+    PASS*)  record "0.7.4 prio-referenzen" "PASS" "$(echo "$STALE_OUT" | head -1 | cut -c1-120)" "$TARGET_REPO" ;;
+    SKIP*)  record "0.7.4 prio-referenzen" "SKIP" "keine Prio-Liste im Handover — nichts geprueft" "$TARGET_REPO" ;;
+    STALE*) record "0.7.4 prio-referenzen" "WARN" "$STALE_N Prio-Referenz(en) zeigen auf Erledigtes — Prio nachziehen VOR Arbeitsbeginn: $(echo "$STALE_OUT" | grep '^STALE' | head -3 | awk '{print $2}' | tr '\n' ' ')" "$TARGET_REPO" ;;
+    *)      record "0.7.4 prio-referenzen" "WARN" "Prio-Referenz-Check nicht auswertbar — manuell: platform/tools/handover_stale_reference_check.py" "$TARGET_REPO" ;;
   esac
 else
-  record "0.7.4 prio-referenzen" "PASS" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts zu pruefen"
+  record "0.7.4 prio-referenzen" "SKIP" "$TARGET_REPO ohne AGENT_HANDOVER.md — nichts geprueft" "$TARGET_REPO"
 fi
 
 # ── 0.7.3 /opt/platform Git↔Prod-Drift (platform#1585) ──────────────────────
@@ -437,7 +484,39 @@ esac
 HOOKDRIFT_OUT=$("$PLATFORM_DIR/tools/hook-dist-drift.sh" --quiet 2>/dev/null | tail -1 || true)
 case "$HOOKDRIFT_OUT" in
   "RESULT: OK"*)         record "0.7.5 hook-dist" "PASS" "${HOOKDRIFT_OUT#RESULT: OK — }" ;;
-  "RESULT: DRIFT"*)      record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: DRIFT"*)
+    # Selbstheilung statt Meldung (platform#2143, Gate rueckfaellig).
+    #
+    # Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte
+    # trotzdem zweimal. Retro 9d861a hatte die Diagnose schon: „Die Luecke ist
+    # nicht der Melder, sondern sein Ausloesezeitpunkt." Zwischen dem Merge und
+    # dem naechsten Sitzungsstart liegt die Zeit, in der die aktive Kopie alt ist,
+    # und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin.
+    #
+    # Vertretbar, weil die Lane `claude-hooks` im `merge`-Modus arbeitet: kein
+    # Verzeichnis-Swap, Datei fuer Datei, mit Backup des Vorstands. Die Quelle ist
+    # `origin/main` — kanonisch, nicht der lokale Arbeitsbaum, der veraltet sein kann.
+    #
+    # Bewusst NICHT `hook-dist-drift.sh --sync`, obwohl es das gibt: es kopiert aus
+    # `$PLATFORM_DIR/tools/claude-hooks`, also aus dem Arbeitsbaum. Genau der ist
+    # beim Sitzungsstart regelmaessig Commits hinter `origin/main` — die Heilung
+    # wuerde dann einen alten Stand als „synchron" festschreiben. `--sync` bleibt
+    # der Handgriff fuer den Fall, dass man bewusst den lokalen Stand verteilen will.
+    #
+    # Positivkontrolle vor dem Verdrahten gefahren (2026-08-23, HOME-Sandkasten):
+    # kuenstliche Drift in gate_hits.py -> DRIFT -> Heilung -> OK, 13 Dateien,
+    # Backup angelegt. Ohne diesen Beleg waere „heilt sich selbst" eine Behauptung.
+    HEIL_OUT=$(python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+                 --ref origin/main --kind claude-hooks \
+                 --target "$HOME/.claude/hooks" --allow-live 2>&1 | tail -2 || true)
+    NACHHER=$("$PLATFORM_DIR/tools/hook-dist-drift.sh" --quiet 2>/dev/null | tail -1 || true)
+    case "$NACHHER" in
+      "RESULT: OK"*) record "0.7.5 hook-dist" "PASS" "Drift selbst geheilt — ${NACHHER#RESULT: OK — } (vorher: ${HOOKDRIFT_OUT#RESULT: DRIFT — })" ;;
+      # Heilung versucht und NICHT gelungen ist der interessantere Fall: dann ist
+      # die Annahme falsch, dass die Lane diesen Pfad bespielt. Das gehoert gesagt.
+      *)             record "0.7.5 hook-dist" "WARN" "Drift NICHT heilbar — ${HOOKDRIFT_OUT#RESULT: DRIFT — } · Verteil-Versuch: ${HEIL_OUT}" ;;
+    esac
+    ;;
   "RESULT: UNGEPRUEFT"*) record "0.7.5 hook-dist" "WARN" "${HOOKDRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
   *)                     record "0.7.5 hook-dist" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/hook-dist-drift.sh" ;;
 esac
@@ -486,7 +565,319 @@ else
   record "0.7.7 gate-wirkung" "PASS" "kein Gate rueckfaellig"
 fi
 
-# ── 0.7.11 Melder-Praezision: wer haeufiger irrt als trifft ─────────────────
+# ── 0.7.8 Zeitplan-Wache: von GitHub still abgeschaltete Workflows ──────────
+# GitHub schaltet `schedule`-Trigger nach 60 Tagen ohne Repo-Aktivitaet ab. Der
+# Workflow verschwindet dann nicht, er laeuft nur nie wieder — kein roter Lauf,
+# keine Meldung, nur eine Luecke in der Historie. Realfall 2026-08-20:
+# `infra-deploy` hatte `Database Backup` und `Health Check` seit dem 2026-07-30
+# in `disabled_inactivity`. Drei Wochen ohne Datenbank-Backup, und das offene
+# Issue dazu (#2114) vermutete eine ganz andere Ursache.
+#
+# Besonders betroffen sind Repos, die NUR Zeitplaene fahren: je verlaesslicher der
+# Automatismus, desto weniger Grund, ins Repo zu pushen — sie schalten sich
+# zwangslaeufig selbst ab.
+#
+# Repo-Liste kommt aus den ORGS, nicht nur aus der Registry: der erste Lauf meldete
+# null, weil ausgerechnet `infra-deploy` dort kein `rich.github`-Feld traegt.
+WACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/zeitplan_wach.py" --kurz 2>/dev/null || true)
+if [ -n "$WACH_OUT" ]; then
+  record "0.7.8 zeitplan-wache" "WARN" "$(echo "$WACH_OUT" | head -1 | tr '|' '/')"
+  echo "$WACH_OUT" | tail -n +2
+else
+  record "0.7.8 zeitplan-wache" "PASS" "kein Zeitplan still abgeschaltet"
+fi
+
+# ── 0.7.9 Gate-Deckung: GATE-PFLICHT gezaehlt, nie eingeloest ───────────────
+# retro_kpis eskaliert jeden Slug >=2 zur GATE-PFLICHT. Die Pflicht wird gezaehlt,
+# ihre Einloesung nirgends — 16 Slugs sind mehrfach aufgetreten und tragen weder
+# Gate noch declined-Eintrag. Das ist die stille Schwester des Rueckfalls (0.7.7):
+# dort versagt ein gebautes Gate, hier entstand nie eines.
+DECKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --kurz 2>/dev/null || true)
+# Liegezeit in einem ZWEITEN Aufruf, nicht als Anhaengsel an `--kurz`: der Zweig
+# unten entscheidet PASS/WARN allein an der Laenge von $DECKUNG_OUT. Liefe die
+# Liegezeit dort mit, waere 0.7.9 dauerhaft gelb — und ein Melder, der jede
+# Sitzung warnt, wird nicht gelesen. Dieselbe Zweitabfrage nutzt 0.7.15 schon.
+#
+# Sie steht in BEIDEN Zweigen, weil gerade der PASS-Fall sie braucht: "keine
+# offene Gate-Pflicht" heisst nur, dass kein Slug ZWEIMAL ungedeckt auftrat.
+# Die Einmal-Slugs liegen trotzdem, und der Bestand allein sagt nicht, ob der
+# Loop schneller entscheidet als er findet (platform#2278 K3).
+DECKUNG_LIEGE=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --liegezeit --kurz 2>/dev/null || true)
+if [ -n "$DECKUNG_OUT" ]; then
+  record "0.7.9 gate-deckung" "WARN" "$(echo "$DECKUNG_OUT" | head -1 | tr '|' '/')${DECKUNG_LIEGE:+ · $DECKUNG_LIEGE}"
+  echo "$DECKUNG_OUT" | tail -n +2
+else
+  record "0.7.9 gate-deckung" "PASS" "keine offene Gate-Pflicht${DECKUNG_LIEGE:+ · $DECKUNG_LIEGE}"
+fi
+
+# ── 0.7.10 Kennzahl-Verfall: nachrechenbare Zahlen in durablen Dokumenten ───
+# Am 2026-08-20 stand dieselbe Kennzahl binnen zwei Stunden bei 16, dann 14, dann
+# 15 — jedes Mal korrekt gemessen, jedes Mal aus anderem Grund. Zu dem Zeitpunkt
+# stand sie bereits in einem Issue-Titel, einem Handover, einem Memory-Eintrag und
+# zwei PR-Texten. Wer eine Kennzahl in ein durables Dokument schreibt, schreibt ein
+# Verfallsdatum mit — und niemand merkt sich, es zu pruefen.
+#
+# OPT-IN: geprueft wird nur, was ausdruecklich mit <!--kz:NAME--> markiert ist. Ein
+# Stand-Block SOLL altern duerfen; eine Prio-Zeile behauptet Gegenwart.
+KZ_OUT=$(timeout 300 python3 "$PLATFORM_DIR/tools/kennzahl_verfall.py" --kurz 2>/dev/null || true)
+if [ -n "$KZ_OUT" ]; then
+  record "0.7.10 kennzahl-verfall" "WARN" "$(echo "$KZ_OUT" | head -1 | tr '|' '/')"
+  echo "$KZ_OUT" | tail -n +2
+else
+  record "0.7.10 kennzahl-verfall" "PASS" "alle markierten Kennzahlen aktuell"
+fi
+
+# ── 0.7.11 Erreichbarkeit der deklarierten Prod-Ziele ───────────────────────
+# Fragt jedes AKTIVE `domain_prod` aus infra/ports.yaml einmal an. Alle anderen
+# Phasen hier vergleichen Zusagen miteinander (Registry, Route, run-conclusion);
+# diese ist die einzige, die das Ziel selbst befragt. wedding-hub war sechs bis
+# sieben Tage tot, waehrend Registry und Tunnel-Route uebereinstimmten.
+ERR_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/erreichbarkeit_melder.py" --kurz 2>/dev/null || true)
+# "1 von 26 Prod-Zielen antworten nicht — bahn-hub (route-ohne-backend)":
+# hinter dem Gedankenstrich stehen die Repos, in denen repariert wird.
+ERR_REPOS="$(printf '%s' "$ERR_OUT" | sed 's/.*— //' | tr ',' '\n' \
+            | sed 's/(.*//; s/^ *//; s/ *$//' | grep -E '^[a-z0-9._-]+$' | sort -u | tr '\n' ' ')"
+case "$ERR_OUT" in
+  ""|*"alle antworten"*) record "0.7.11 erreichbarkeit" "PASS" "${ERR_OUT:-nicht ausgefuehrt}" ;;
+  *) record "0.7.11 erreichbarkeit" "WARN" "$ERR_OUT" "${ERR_REPOS% }" ;;
+esac
+
+# ── 0.7.16 Origin-TLS: was liefert der Server WIRKLICH aus? ────────────────
+# 0.7.11 fragt am Edge. Eine 200 von dort ist KEIN TLS-Beleg: Cloudflare steht
+# auf `full`, nicht `full (strict)`, und akzeptiert ein abgelaufenes oder gar
+# kein Origin-Zertifikat, ohne dass von aussen etwas rot wird. Realfall
+# ausschreibungs-hub 2026-08-23: der certbot-Cloudflare-Token war seit dem 08.08.
+# ungueltig, 10 von 15 Origin-Zertifikaten abgelaufen — zwei Wochen unbemerkt,
+# gefunden beiher bei einer anderen Aufgabe. Diese Phase misst auf dem Host.
+# Kosten: rund 30 s (1 ssh je Prod-Host, Handshakes lokal), fail-open.
+TLS_OUT=$(timeout 240 python3 "$PLATFORM_DIR/tools/origin_tls_melder.py" --kurz 2>/dev/null || true)
+# "2 Origin-Zertifikat(e) auffaellig — doc-hub (fallback-zertifikat, 3453d), …":
+# hinter dem Gedankenstrich stehen die Repos, in denen repariert wird.
+TLS_REPOS="$(printf '%s' "$TLS_OUT" | sed 's/.*— //' | tr ',' '\n' \
+            | sed 's/(.*//; s/^ *//; s/ *$//' | grep -E '^[a-z0-9._-]+$' | sort -u | tr '\n' ' ')"
+case "$TLS_OUT" in
+  ""|*"Zertifikat(e) gueltig,"*) record "0.7.16 origin-tls" "PASS" "${TLS_OUT:-nicht ausgefuehrt}" ;;
+  *) record "0.7.16 origin-tls" "WARN" "$TLS_OUT" "${TLS_REPOS% }" ;;
+esac
+
+# ── 0.7.17 Backup-Deckung: jedes Prod-Volume gedeckt, verzichtet oder rot ────
+# backup-meter (ADR-241 §4) prueft die Apps einer gepflegten Soll-Liste. Was in
+# keiner Liste steht, sieht er nicht — so lagen acht Volumes mit 2,1 GB ohne
+# einen einzigen Snapshot da (#2086), waehrend der Meter jeden Morgen gruen war.
+# Diese Phase geht vom Host aus (`docker volume ls`) und verlangt fuer JEDES
+# Volume eine Antwort. Erstlauf 2026-08-25: 46 ungedeckt, 7,2 GB, darunter drei
+# doc-hub-Volumes in Nutzung. Kosten: 3 ssh (2 Hosts + restic), ~20 s.
+#
+# Kein `""`-Zweig auf PASS: die Werkzeuge reden IMMER (#2280). Leere Ausgabe
+# heisst hier "nicht gelaufen" und ist ein WARN, kein Gruen.
+DECKUNG_VOL_OUT=$(timeout 180 python3 "$PLATFORM_DIR/tools/backup_deckung.py" --kurz 2>/dev/null || true)
+case "$DECKUNG_VOL_OUT" in
+  OK:*) record "0.7.17 backup-deckung" "PASS" "$DECKUNG_VOL_OUT" ;;
+  "")   record "0.7.17 backup-deckung" "WARN" "Melder nicht gelaufen — keine Aussage zur Deckung" ;;
+  *)    record "0.7.17 backup-deckung" "WARN" "$DECKUNG_VOL_OUT" ;;
+esac
+
+# ── 0.7.18 Speicher-Vorlauf: Platten melden VORHER, nicht bei 90 % ──────────
+# Am 2026-08-24 begann das reparierte dev-hub-Backup, 6,3 GB pro Tag auf die
+# Root-Platte von prod zu schreiben — sieben Tage bis voll, und kein Melder
+# haette es gesagt, weil keiner Platten misst. Eine Schwelle bei 90 % ruft am
+# sechsten Tag; ein Wochenende dazwischen, und die Platte ist voll. Diese Phase
+# fuehrt je (Host, Mount) ein Tagesjournal (~/.claude/speicher-journal.jsonl)
+# und rechnet aus dem Median der Tagesdifferenzen die Tage bis voll — WARN
+# unter 7 Tagen oder unter 10 % frei. SAMMELPHASE ist ausdruecklich KEINE
+# Entwarnung, nur "noch keine Rate". Alle Hosts mit ssh, auch Offsite: eine
+# volle Offsite-Platte beendet das Backup lautlos.
+SPEICHER_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/speicher_melder.py" --kurz 2>/dev/null || true)
+case "$SPEICHER_OUT" in
+  OK:*|SAMMELPHASE*) record "0.7.18 speicher" "PASS" "$SPEICHER_OUT" ;;
+  "")   record "0.7.18 speicher" "WARN" "Melder nicht gelaufen — keine Aussage zur Speicherlage" ;;
+  *)    record "0.7.18 speicher" "WARN" "$SPEICHER_OUT" ;;
+esac
+
+# ── 0.7.12 Prod-Wirkung: was liegt WIRKLICH auf den Hosts? (platform#2148) ──
+# `tools/deploy_wirkung.py` existiert seit dem 2026-08-20 und hatte bis hierhin
+# NULL Aufrufer — es stand nur in Handover, Log und Archiv. Genau die Klasse
+# `melder-ohne-leser`: gebaut, gruen gedrillt, nie gelesen. Dabei ist es das
+# einzige Werkzeug, das den Stand HINTER dem oeffentlichen Namen mit origin/main
+# vergleicht; die Wege (b) und (c) aus #2148 werden nur hier sichtbar — ein
+# `staging`-Default und ein abgeraeumter Dispatch machen keinen Check rot.
+# Kosten: rund 20 s (2x ssh + je Repo eine API-Abfrage), fail-open.
+WIRK_JSON=$(timeout 150 python3 "$PLATFORM_DIR/tools/deploy_wirkung.py" --json 2>/dev/null || true)
+if [ -z "$WIRK_JSON" ]; then
+  record "0.7.12 prod-wirkung" "WARN" "Melder nicht auswertbar (ssh/timeout) — manuell: platform/tools/deploy_wirkung.py"
+else
+  # Zusammenfassen in Python: der JSON-Baum ist zu verschachtelt fuer jq-Akrobatik
+  # in einer Zeile, und ein halb geparster Melder ist schlimmer als keiner.
+  WIRK_OUT=$(printf '%s' "$WIRK_JSON" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except (json.JSONDecodeError, ValueError):
+    print("STATUS=WARN|Melder-Ausgabe nicht parsebar|"); raise SystemExit(0)
+b = d.get("befunde", [])
+# Ruhende Repos duerfen hinterherhinken — das ist der gewollte Zustand.
+def na(e, k): return bool(e.get(k)) and not e.get("ruhend")
+# Ein Repo mit Prod-Gate deployt bei push nur nach staging; Prod verlangt eine
+# bewusste Freigabe. Sein Rueckstand ist bis zu einer Frist der NORMALFALL und
+# darf nicht dieselbe Lautstaerke haben wie ein vergessener Deploy — risk-hub
+# stand so 23 Laeufe lang als WARN, worin ein echter Fund untergegangen waere.
+# Unterdrueckt wird er trotzdem nicht (deploy_wirkung.hat_prod_gate begruendet
+# das am tax-hub-Fall: Prod-Gate UND roter Build): er bleibt in der Zeile
+# sichtbar, nur eben als Wartestand — und wird nach der Frist laut, denn dann
+# ist "wartet auf Freigabe" nicht mehr von "vergessen" zu unterscheiden.
+FREIGABE_FRIST_TAGE = 14
+def wartet(e):
+    return (na(e, "rueckstand") and e.get("prod_gate")
+            and (e.get("alter_tage") or 0) < FREIGABE_FRIST_TAGE)
+dop  = [e["repo"] for e in b if e.get("doppellauf")]
+warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e)]
+rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e)]
+verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
+unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
+teile, betroffen = [], sorted(set(dop + rueck))
+if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
+if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
+if warte: teile.append("wartet auf Prod-Freigabe (kein Befund):" + ",".join(warte))
+if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
+if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
+status = "WARN" if (dop or rueck) else "PASS"
+note = " · ".join(teile) if teile else f"{d.get("geprueft", 0)} Repo(s): deployter Stand == origin/main"
+print(f"STATUS={status}|{note}|{" ".join(betroffen)}")
+' 2>/dev/null || echo "STATUS=WARN|Melder-Ausgabe nicht parsebar|")
+  WIRK_STATUS=$(printf '%s' "$WIRK_OUT" | sed -n 's/^STATUS=\([A-Z]*\)|.*/\1/p')
+  WIRK_NOTE=$(printf '%s' "$WIRK_OUT" | cut -d'|' -f2)
+  WIRK_REPOS=$(printf '%s' "$WIRK_OUT" | cut -d'|' -f3)
+  # Rueckstand und Doppellauf sind Befunde ueber FREMDE Repos (K1, platform#2004):
+  # die Repo-Liste geht mit, sonst landet der Befund als platform-Prosa im Nichts.
+  record "0.7.12 prod-wirkung" "${WIRK_STATUS:-WARN}" "${WIRK_NOTE:-nicht auswertbar}" "$WIRK_REPOS"
+fi
+
+# ── 0.7.14 Policy-Frische (Slug `platform-pinned-perma-dirty-loop`) ────────
+# `inject_policies.py` schiebt bei JEDEM Prompt Policies in den Kontext und prueft
+# dabei keine Frische. Der Refresh dahinter hat eine stille Bremse:
+# `refresh_pinned_policies.sh` ueberspringt ihn, wenn `~/github/platform-pinned`
+# DIRTY ist — sein Hinweis erscheint einmal beim Sitzungsstart und verschwindet,
+# injiziert wird stundenlang weiter. Gemessen am 2026-07-31: ein Pin lag 17 Commits
+# zurueck, darunter PR #1601, der genau zwei der injizierten Policies aenderte.
+#
+# Geurteilt wird am INHALT gegen origin/main, nicht an der mtime: am 2026-08-23
+# trugen 16 von 16 ausgelieferten Dateien den 3. August und waren trotzdem aktuell.
+POLFRISCHE_OUT=$(timeout 60 python3 "$PLATFORM_DIR/tools/policy_frische.py" --kurz 2>/dev/null || true)
+if [ -n "$POLFRISCHE_OUT" ]; then
+  record "0.7.14 policy-frische" "WARN" "$(echo "$POLFRISCHE_OUT" | head -1 | tr '|' '/')"
+else
+  record "0.7.14 policy-frische" "PASS" "ausgelieferte Policies inhaltsgleich mit origin/main"
+fi
+
+# ── 0.7.15 Namensdeckung der Gates (Slug `gate-modul-prueft-weniger-als-sein-name`) ──
+# Drei Messpunkte des Loops sagen "gebaut" (Registry), "feuert" (Drill) und
+# "rueckfaellig" (0.7.7). Keiner fragt, ob der Drill den Fall beruehrt, der im
+# SLUG-NAMEN steht. Realfall 2026-08-23: `lint-failure-no-local-gate` ist
+# `blocking`, heisst "lint" und fuehrt `ruff format --check` aus — E402 lag seit
+# dem Bau am 04.08. ausserhalb seiner Reichweite, und PR #2236 wurde daran
+# zweimal rot, waehrend alle drei Messpunkte gruen standen.
+#
+# Laut wird die Phase nur bei einer LUECKE (Fall benannt, Drill beruehrt ihn
+# nicht). Die Zahl der `ungeprueft`-Gates steht in der PASS-Note statt in einer
+# WARN-Zeile: sie ist Bestandsarbeit, keine Stoerung — aber sie verschwindet
+# auch nicht, sonst waere aus "nie gefragt" wieder ein stilles Gruen.
+NAMDECK_OUT=$(timeout 60 python3 "$PLATFORM_DIR/tools/gate_namensdeckung.py" --kurz 2>/dev/null || true)
+NAMDECK_ZAHLEN=$(timeout 60 python3 "$PLATFORM_DIR/tools/gate_namensdeckung.py" 2>/dev/null \
+                  | grep -oE "(gedeckt|ungeprueft) +: +[0-9]+" | tr -s ' ' | tr '\n' ' ' || true)
+if [ -n "$NAMDECK_OUT" ]; then
+  record "0.7.15 namensdeckung" "WARN" "$(echo "$NAMDECK_OUT" | head -1 | tr '|' '/')"
+  echo "$NAMDECK_OUT" | tail -n +2
+else
+  record "0.7.15 namensdeckung" "PASS" "kein Gate nennt einen ungedrillten Fall (${NAMDECK_ZAHLEN:-keine Zahlen})"
+fi
+
+# ── 0.7.13 Skill-Verteil-Drift (Slug `skill-copy-not-redistributed`) ────────
+# Schwester von 0.7.5, und zwar die unbeaufsichtigte: 0.7.5 deckt AUSSCHLIESSLICH
+# die Lane `claude-hooks` (~/.claude/hooks). Skills und Commands haben eine
+# eigene Verteil-Lane (cc-skill-dist) — und `doctor.py` prueft sie seit Monaten
+# read-only, mit Drill (tools/tests/test_doctor.py) und Exit-Code-Vertrag.
+# Aufgerufen hat es im Sitzungs-Loop nie jemand: der Slug
+# `skill-copy-not-redistributed` steht 3x in den Retros und hatte kein Gate,
+# waehrend das Werkzeug dafuer fertig danebenlag. Genau die Klasse
+# `melder-ohne-leser` — dieselbe, in der `deploy_wirkung.py` bis zum 2026-08-23
+# stand (0.7.12).
+#
+# Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code: `doctor.py` beendet auch mit
+# 0, wenn es Hinweise ausgibt, und ein Aufruf in einer Pipeline liefert ohnehin
+# den Status des letzten Glieds. Fehlt die Score-Zeile, ist das UNGEPRUEFT und
+# nicht gruen (die SKIP-ist-kein-PASS-Lehre aus KONZ-platform-050).
+SKILLDRIFT_NOTE=""
+SKILLDRIFT_STATUS="PASS"
+# `hooks` steht bewusst mit in der Liste, obwohl 0.7.5 schon "Hooks" im Namen traegt:
+# das sind ZWEI Lanes. 0.7.5 deckt `claude-hooks` (~/.claude/hooks, flach), die Lane
+# `hooks` liegt darunter in managed/ und war von KEINER Phase beaufsichtigt. Beim
+# Aufnehmen am 2026-08-23 war sie sofort rot: `stale_clone_check.sh` lag als Kopie vom
+# 2026-07-26 live, waehrend die Quelle am 2026-08-06 ihren GATE_HEADER bekam — vier
+# Wochen Drift, die niemand meldete.
+# HEILEN STATT MELDEN (2026-08-26). Bis hierhin endete diese Phase mit einer
+# WARN-Zeile und dem Kommando im Text — und niemand fuehrte es aus. Realfall vom
+# selben Tag: `/ux-review` existierte seit dem Vorabend in origin/main, die Lane
+# `commands` war acht Stunden hinterher, der Skill stand nicht zur Auswahl. Die
+# Sitzung schrieb die Drift-Zeile brav ins Board und arbeitete dann einen ganzen
+# GUI-Durchlauf lang ohne den Skill, der genau dafuer gebaut ist. Drei Fehler,
+# gegen die er geschrieben ist, passierten dabei erneut.
+#
+# Das ist dieselbe Klasse `melder-ohne-leser`, die im Kommentar oben schon steht —
+# nur eine Ebene hoeher: der Melder wurde gelesen, und trotzdem geschah nichts.
+# Ein Hinweis, dessen Behebung ein Kommando im Fliesstext ist, wird nicht
+# ausgefuehrt; er wird zitiert.
+#
+# Vertretbar wie bei 0.7.5: Quelle ist `origin/main` (kanonisch, nicht der
+# Arbeitsbaum), `generate.py` legt ein Backup an und ist idempotent.
+for LANE in skills commands hooks; do
+  LANE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
+  LANE_SCORE=$(printf '%s' "$LANE_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+
+  if [ -n "$LANE_SCORE" ] && [ "$LANE_SCORE" -gt 0 ]; then
+    # Ziel je Lane: `skills`/`commands` liegen flach unter ~/.claude, die Lane
+    # `hooks` darunter in managed/ (siehe Kommentar oben — zwei Lanes, ein Name).
+    case "$LANE" in
+      skills)   LANE_TARGET="$HOME/.claude/skills" ;;
+      commands) LANE_TARGET="$HOME/.claude/commands" ;;
+      hooks)    LANE_TARGET="$HOME/.claude/hooks/managed" ;;
+    esac
+    timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live \
+      >/dev/null 2>&1 || true
+    # Nachmessen, nicht annehmen: die Heilung gilt erst, wenn doctor sie bestaetigt.
+    NACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
+    NACH_SCORE=$(printf '%s' "$NACH_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+    if [ "${NACH_SCORE:-1}" = "0" ]; then
+      SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:geheilt(${LANE_SCORE}->0) "
+      continue
+    fi
+    # Heilung versucht und nicht gelungen ist der interessantere Fall: dann stimmt
+    # die Annahme ueber den Ziel-Pfad nicht. Das gehoert gesagt, nicht verschwiegen.
+    LANE_SCORE="${NACH_SCORE:-}"
+    if [ -z "$LANE_SCORE" ]; then
+      SKILLDRIFT_STATUS="WARN"
+      SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(ungeprueft) "
+      continue
+    fi
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}) "
+    continue
+  fi
+
+  if [ -z "$LANE_SCORE" ]; then
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:UNGEPRUEFT "
+  else
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:0 "
+  fi
+done
+if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
+  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — Selbstheilung versucht und NICHT gelungen; der Ziel-Pfad der Lane stimmt vermutlich nicht (manuell: tools/cc-skill-dist/doctor.py --kind <lane>)"
+else
+  record "0.7.13 skill-dist" "PASS" "alle Lanes synchron (${SKILLDRIFT_NOTE% })"
+fi
+
+# ── 0.7.19 Melder-Praezision: wer haeufiger irrt als trifft ─────────────────
 # Am 2026-08-20 waren in EINER Sitzung vier Melder-Befunde falsch: ein DOPPELLAUF
 # ohne laufende Container, drei required-file-Errors fuer Dateien, die es gibt (nur
 # woanders), ein Footer-Hash, der jede korrekte Kopie als Drift meldet, und zwei
@@ -501,10 +892,10 @@ fi
 # Zeile still: eine Praezision unter drei Urteilen ist Rauschen, kein Befund.
 PRAEZ_OUT=$(python3 "$PLATFORM_DIR/tools/befund_journal.py" --praezision --kurz 2>/dev/null || true)
 if [ -n "$PRAEZ_OUT" ]; then
-  record "0.7.11 melder-praezision" "WARN" "$(echo "$PRAEZ_OUT" | head -1 | tr '|' '/')"
+  record "0.7.19 melder-praezision" "WARN" "$(echo "$PRAEZ_OUT" | head -1 | tr '|' '/')"
   echo "$PRAEZ_OUT" | tail -n +2
 else
-  record "0.7.11 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
+  record "0.7.19 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
 fi
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
@@ -538,6 +929,13 @@ for i in "${!P_NAME[@]}"; do
     PASS) ICON="✅" ;;
     WARN) ICON="⚠️" ;;
     FAIL) ICON="❌" ;;
+    # SKIP ist KEIN Gruen. Die Phase konnte nicht pruefen — das ist weder ein
+    # Befund noch eine Entwarnung, und genau diese dritte Moeglichkeit fehlte:
+    # ein SKIP wurde als PASS verbucht und war in der Tabelle von einer echten
+    # Pruefung nicht zu unterscheiden. Realfall 2026-08-23: `0.7.4` meldete
+    # "keine Prio-Liste im Handover" gegen eine Datei mit sieben Prio-Zeilen,
+    # eine seit 19 Tagen erledigte Prio blieb dadurch stehen (KONZ-platform-050).
+    SKIP) ICON="◌" ;;
   esac
   printf '| %s | %s %s | %s | %s |\n' \
     "${P_NAME[$i]}" "$ICON" "${P_STATUS[$i]}" "${P_REPO[$i]:-$TARGET_REPO}" "${P_NOTE[$i]}"
@@ -567,5 +965,10 @@ fi
 if [ "$FAILED" -eq 1 ]; then
   echo "RESULT: FAIL — Session NICHT fortsetzen, bis alle ❌ behoben sind."
   exit 1
+fi
+SKIP_N=0
+for s in "${P_STATUS[@]}"; do [ "$s" = "SKIP" ] && SKIP_N=$((SKIP_N+1)); done
+if [ "$SKIP_N" -gt 0 ]; then
+  echo "HINWEIS: $SKIP_N Phase(n) konnten nicht pruefen (◌ SKIP) — kein Befund, aber auch keine Entwarnung."
 fi
 echo "RESULT: OK — mechanische Phasen komplett; weiter mit 0.4.3 (Worktree), 0.8 (Modell-Tier), Phase 1–3."

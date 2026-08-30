@@ -139,15 +139,15 @@ Kein Dissens bestand darin, dass die **Richtung** langfristig sinnvoll ist — n
 
 **Entscheidungs-Vorlage an den Owner:** Phase A freigeben (reversibel, hoher Nutzen, kein Gate berührt außer Org-Secret-Anlage). Phase C bleibt eine **separate, spätere** Freigabe (irreversibel, Gate 1+2+3).
 
-**Kill-Gate (messbar):** Wenn bis **2026-09-15** die Coupling-Indirektion (OOTB-5) nicht existiert ODER PyPI-`iil` keinen verifizierten 2. Owner hat → **kein Transfer-Termin**; Konzept bleibt in Phase A oder `sunset`. Exception-Budget: einmalige Verlängerung um 30 Tage mit datierter Begründung, dann Zwangs-Sunset.
+**Kill-Gate (messbar):** Wenn bis **2026-09-15** die Coupling-Indirektion (OOTB-5) nicht existiert ODER das PyPI-Konto `iildehnert` nicht gehärtet ist (Recovery-Codes im Vault, Firmenadresse; ersetzt seit 2026-08-25 die Bedingung "PyPI-`iil` 2. Owner" — ADR-255 Rev 5, #2291) → **kein Transfer-Termin**; Konzept bleibt in Phase A oder `sunset`. Exception-Budget: einmalige Verlängerung um 30 Tage mit datierter Begründung, dann Zwangs-Sunset.
 
 **30/60/90:**
-- **30 Tage:** Phase A komplett (PyPI-Owner, Recovery-Runbook, CODEOWNERS, Org-Spiegelung). Messpunkt: `gh api` zeigt PyPI-2.-Owner + Branch-Protection required-reviewer aktiv.
+- **30 Tage:** Phase A komplett (PyPI-Konto gehärtet statt PyPI-2.-Owner — ADR-255 Rev 5, Recovery-Runbook, CODEOWNERS, Org-Spiegelung). Messpunkt: #2291 Häkchen "iildehnert gehärtet" + Branch-Protection required-reviewer aktiv.
 - **60 Tage:** Phase B — OOTB-5-Alias-Stelle gebaut + Runner-Runbook; ein Consumer-Repo testweise auf die Alias-Stelle gezogen, CI grün.
 - **90 Tage:** Go/No-Go für Phase C anhand Kill-Gate; bei Go: gegateter Transfer mit vollem Runbook, sonst Sunset-Entscheid.
 
 ## Verwandt
-- **ADR-255** (iil-* PyPI-Familien-Migration; platform = Nicht-Ziel/Konsument) — Rev 4 hält den REC-1-GitHub-Owner-Stand fest.
+- **ADR-255** (iil-* PyPI-Familien-Migration; platform = Nicht-Ziel/Konsument) — Rev 4 hält den REC-1-GitHub-Owner-Stand fest; **Rev 5 (2026-08-25) setzt die PyPI-Org-Hälfte auf sunset** (Org `iil` nie in Betrieb, Konto-Härtung statt 2. Owner).
 - **KONZ-platform-002** (Enterprise-Konsolidierung, pilot) — platform-Transfer ist ein KONZ-002-S3-Fall.
 - **docs/runbooks/KONZ-002-s3-repo-transfer.md** (Transfer-Runbook; schließt gekoppelte Repos aus) · **docs/runbooks/iil-migration-breakglass-pypi-token.md** (Break-Glass-Muster).
 

@@ -31,13 +31,15 @@ def _retro(verzeichnis: Path, datum: str, kuerzel: str, slugs: list[str]) -> Non
     )
 
 
-def _bewerte(verzeichnis: Path, registry: dict) -> dict:
+def _bewerte(verzeichnis: Path, registry: dict, heute: str | None = None) -> dict:
     import importlib.util as iu
 
     s = iu.spec_from_file_location("gw", _QUELLE.parent / "gate_wirkung.py")
     gw = iu.module_from_spec(s)
     s.loader.exec_module(gw)
-    return gd.bewerte(gw.lies_retros([str(verzeichnis)]), gd.gedeckte_slugs(registry))
+    return gd.bewerte(
+        gw.lies_retros([str(verzeichnis)]), gd.gedeckte_slugs(registry), heute
+    )
 
 
 def test_should_count_covers_as_decided():
@@ -132,3 +134,118 @@ def test_should_stay_exit_zero_on_unreadable_registry(tmp_path):
     )
 
     assert lauf.returncode == 0
+
+
+# --- Liegezeit: der Loop misst bisher nur Bestand, nicht Durchsatz -----------
+# platform#2278 K3. Ein Bestand von 77 unentschiedenen Slugs kann heissen, dass
+# gestern 77 neue dazukamen — oder dass dieselben 77 seit Monaten liegen. Gleiche
+# Zahl, verschiedene Lage. Erst die Liegezeit trennt die beiden.
+
+_LEER = {"gates": [], "declined": []}
+
+
+def test_should_measure_lying_time_from_first_occurrence_not_last(tmp_path):
+    """Ein Slug, der seit Juni wiederkehrt, liegt seit Juni — nicht seit gestern.
+
+    Waere das letzte Vorkommen der Anker, wuerde ausgerechnet der hartnaeckigste
+    Befund als der juengste erscheinen: jede Wiederholung setzte seine Uhr zurueck.
+    """
+    _retro(tmp_path, "2026-06-01", "a", ["hartnaeckig"])
+    _retro(tmp_path, "2026-08-01", "b", ["hartnaeckig"])
+
+    lz = _bewerte(tmp_path, _LEER, heute="2026-08-25")["liegezeit"]
+
+    assert lz["aeltester_tage"] == 85  # ab 2026-06-01, nicht ab 2026-08-01
+    assert lz["aeltester_slug"] == "hartnaeckig"
+
+
+def test_should_ignore_slugs_that_already_have_a_decision(tmp_path):
+    _retro(tmp_path, "2026-06-01", "a", ["entschieden", "offen"])
+
+    lz = _bewerte(tmp_path, {"gates": [], "declined": ["entschieden"]}, "2026-08-25")[
+        "liegezeit"
+    ]
+
+    assert lz["slugs"] == 1 and lz["aeltester_slug"] == "offen"
+
+
+def test_should_use_the_median_so_one_ancient_slug_does_not_carry_the_number(tmp_path):
+    """Mit dem Mittelwert taeuscht ein einzelner Uralt-Slug eine Verbesserung vor,
+    sobald er endlich entschieden wird — obwohl sich an den uebrigen nichts aendert."""
+    _retro(tmp_path, "2026-08-20", "a", ["jung1", "jung2"])
+    _retro(tmp_path, "2026-01-01", "b", ["uralt"])
+
+    lz = _bewerte(tmp_path, _LEER, "2026-08-25")["liegezeit"]
+
+    assert lz["median_tage"] == 5  # Mittelwert waere 82
+    assert lz["aeltester_tage"] == 236
+
+
+def test_should_report_the_corpus_start_so_the_number_reads_as_a_lower_bound(tmp_path):
+    """Die Zahl kann nur so weit zurueckreichen wie der Retro-Korpus.
+
+    Gemessen am 2026-08-25 lag der aelteste unentschiedene Slug bei 56 Tagen — bei
+    einem Korpus von exakt 56 Tagen. Ein Wert am Rand ist abgeschnitten, nicht
+    bestaetigt; ohne das Korpus-Datum liest sich die Zahl genauer, als sie ist.
+    """
+    _retro(tmp_path, "2026-07-01", "a", ["irgendwas"])
+
+    lz = _bewerte(tmp_path, _LEER, "2026-08-25")["liegezeit"]
+
+    assert lz["korpus_ab"] == "2026-07-01"
+    assert ">=" in gd.liegezeit_zeile(lz)
+    assert "Korpus ab 2026-07-01" in gd.liegezeit_zeile(lz)
+    assert ">=" in gd.liegezeit_zeile(lz, kurz=True), (
+        "auch kompakt bleibt es Untergrenze"
+    )
+
+
+def test_should_stay_none_when_every_slug_is_decided(tmp_path):
+    _retro(tmp_path, "2026-08-01", "a", ["entschieden"])
+
+    assert (
+        _bewerte(tmp_path, {"gates": [], "declined": ["entschieden"]})["liegezeit"]
+        is None
+    )
+
+
+def test_should_print_the_lying_time_without_the_finding_list(tmp_path):
+    """`--liegezeit` ist ein eigener Aufruf, weil der Runner PASS/WARN an der
+    LAENGE der `--kurz`-Ausgabe entscheidet. Liefe die Zahl dort mit, waere 0.7.9
+    dauerhaft gelb — und ein Melder, der jede Sitzung warnt, wird nicht gelesen."""
+    _retro(tmp_path, "2026-08-01", "a", ["offen"])
+    registry = tmp_path / "reg.json"
+    registry.write_text(json.dumps(_LEER), encoding="utf-8")
+
+    lauf = subprocess.run(
+        [
+            sys.executable,
+            str(_QUELLE),
+            "--liegezeit",
+            "--kurz",
+            "--registry",
+            str(registry),
+            "--dir",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert "Liegezeit" in lauf.stdout
+    assert "offen" not in lauf.stdout.split("(")[0], (
+        "Befundliste gehoert hier nicht hin"
+    )
+
+
+def test_should_keep_the_runner_showing_lying_time_in_both_branches():
+    """Gerade der PASS-Fall braucht sie: 'keine offene Gate-Pflicht' heisst nur,
+    dass kein Slug ZWEIMAL ungedeckt auftrat. Die Einmal-Slugs liegen trotzdem."""
+    runner = (_QUELLE.parent / "session_start_checks.sh").read_text(encoding="utf-8")
+    record_zeilen = [
+        z for z in runner.splitlines() if 'record "0.7.9 gate-deckung"' in z
+    ]
+    assert len(record_zeilen) == 2, record_zeilen
+    for zeile in record_zeilen:  # WARN- und PASS-Zweig
+        assert "${DECKUNG_LIEGE:+" in zeile, zeile

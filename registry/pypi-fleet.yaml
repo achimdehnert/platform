@@ -1,5 +1,5 @@
 _meta:
-  generated_at: '2026-08-19T07:50:30Z'
+  generated_at: '2026-08-27T11:16:56Z'
   generated_by: tools/pypi_fleet_inventory.py (ADR-266 Stufe 1)
   note: Reiner Ground-Truth-Scan — nicht von Hand editieren. Entscheidungen, Owner-Aktionen und Stufen-Status
     leben in docs/adr/ADR-266.
@@ -17,10 +17,16 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 4969
-      last_upload: '2026-08-12T09:51:43.610983Z'
-      version: 0.12.0
-    pyproject_version: 0.12.0
+      downloads_30d: 4406
+      last_upload: '2026-08-25T10:57:44.641147Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:37Z'
+        status: unattested
+        version: 0.13.0
+        wheel: iil_aifw-0.13.0-py3-none-any.whl
+      version: 0.13.0
+    pyproject_version: 0.13.0
     registry_pypi_name: aifw
     repo: aifw
     strategy: aktiv
@@ -35,8 +41,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 4559
+      downloads_30d: 3888
       last_upload: '2026-07-31T06:36:14.357798Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:39Z'
+        status: attested
+        version: 0.11.6
+        wheel: iil_authoringfw-0.11.6-py3-none-any.whl
       version: 0.11.6
     pyproject_version: 0.11.6
     registry_pypi_name: authoringfw
@@ -53,8 +65,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 200
+      downloads_30d: 90
       last_upload: '2026-07-27T12:11:28.436232Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:40Z'
+        status: attested
+        version: 0.1.1
+        wheel: iil_django_lms_lite-0.1.1-py3-none-any.whl
       version: 0.1.1
     pyproject_version: 0.1.1
     registry_pypi_name: iil-django-lms-lite
@@ -70,15 +88,21 @@ packages:
     pyproject_version: 0.2.0
     registry_pypi_name: gaeb-toolkit
     repo: gaeb-toolkit
-    strategy: archivieren-kandidat
+    strategy: einfrieren
   gpufw:
     dist_name: iil-gpufw
     findings: []
     in_registry: true
     publishers: []
     pypi:
-      downloads_30d: 236
+      downloads_30d: 1611
       last_upload: '2026-08-16T19:25:45.061909Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:41Z'
+        status: unattested
+        version: 0.1.1
+        wheel: iil_gpufw-0.1.1-py3-none-any.whl
       version: 0.1.1
     pyproject_version: 0.1.1
     registry_pypi_name: iil-gpufw
@@ -95,7 +119,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
+      downloads_30d: 2385
       last_upload: '2026-08-06T14:54:43.181271Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:43Z'
+        status: attested
+        version: 0.8.0
+        wheel: iil_adrfw-0.8.0-py3-none-any.whl
       version: 0.8.0
     pyproject_version: 0.8.0
     registry_pypi_name: iil-adrfw
@@ -113,8 +144,14 @@ packages:
         remote_repo: achimdehnert/iil-codeguard
         reusable: false
     pypi:
-      downloads_30d: 497
+      downloads_30d: 466
       last_upload: '2026-05-10T09:08:37.770568Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:44Z'
+        status: unattested
+        version: 2026.5.1
+        wheel: iil_codeguard-2026.5.1-py3-none-any.whl
       version: 2026.5.1
     pyproject_version: null
     registry_pypi_name: iil-codeguard
@@ -132,8 +169,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 35
+      downloads_30d: 28
       last_upload: '2026-03-24T15:56:10.939862Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:44Z'
+        status: unattested
+        version: 0.3.0
+        wheel: iil_django_commons-0.3.0-py3-none-any.whl
       version: 0.3.0
     pyproject_version: 0.3.0
     registry_pypi_name: iil-django-commons
@@ -145,7 +188,14 @@ packages:
     in_registry: true
     publishers: []
     pypi:
+      downloads_30d: 139
       last_upload: '2026-07-08T07:39:30.623343Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:45Z'
+        status: unattested
+        version: 0.3.1
+        wheel: iil_doc_templates-0.3.1-py3-none-any.whl
       version: 0.3.1
     pyproject_version: 0.3.1
     registry_pypi_name: iil-doc-templates
@@ -166,7 +216,7 @@ packages:
     pyproject_version: 0.2.0
     registry_pypi_name: iil-enrichment
     repo: iil-enrichment
-    strategy: einfrieren
+    strategy: aktiv
   iil-fieldprefill:
     dist_name: iil-fieldprefill
     findings: []
@@ -178,8 +228,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 3372
+      downloads_30d: 3303
       last_upload: '2026-04-08T17:45:36.971692Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:48Z'
+        status: attested
+        version: 0.2.0
+        wheel: iil_fieldprefill-0.2.0-py3-none-any.whl
       version: 0.2.0
     pyproject_version: 0.2.0
     registry_pypi_name: iil-fieldprefill
@@ -197,8 +253,14 @@ packages:
         remote_repo: achimdehnert/iil-ingest
         reusable: false
     pypi:
-      downloads_30d: 405
+      downloads_30d: 1606
       last_upload: '2026-05-05T11:57:55.711633Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:48Z'
+        status: unattested
+        version: 0.1.0
+        wheel: iil_ingest-0.1.0-py3-none-any.whl
       version: 0.1.0
     pyproject_version: 0.1.0
     registry_pypi_name: iil-ingest
@@ -215,8 +277,14 @@ packages:
         file: publish-pypi.yml
         reusable: false
     pypi:
-      downloads_30d: 1018
+      downloads_30d: 515
       last_upload: '2026-08-02T12:13:19.562996Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:49Z'
+        status: attested
+        version: 1.35.0
+        wheel: iil_klickdummy-1.35.0-py3-none-any.whl
       version: 1.35.0
     pyproject_version: 1.35.0
     registry_pypi_name: iil-klickdummy
@@ -233,8 +301,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 2490
+      downloads_30d: 2354
       last_upload: '2026-07-27T07:03:10.662082Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:50Z'
+        status: unattested
+        version: 0.6.1
+        wheel: iil_reflex-0.6.1-py3-none-any.whl
       version: 0.6.1
     pyproject_version: 0.6.1
     registry_pypi_name: iil-reflex
@@ -243,9 +317,15 @@ packages:
   iil-testkit:
     dist_name: iil-testkit
     findings:
+    - double_publisher
     - token_auth
     in_registry: true
     publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
     - kind: platform-remote
       workflows:
       - auth: token
@@ -253,10 +333,16 @@ packages:
         remote_repo: achimdehnert/iil-testkit
         reusable: false
     pypi:
-      downloads_30d: 3517
-      last_upload: '2026-05-14T14:48:12.138957Z'
-      version: 0.5.3
-    pyproject_version: 0.5.3
+      downloads_30d: 2904
+      last_upload: '2026-08-26T05:02:44.811762Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:50Z'
+        status: unattested
+        version: 0.6.0
+        wheel: iil_testkit-0.6.0-py3-none-any.whl
+      version: 0.6.0
+    pyproject_version: 0.6.0
     registry_pypi_name: iil-testkit
     repo: iil-testkit
     strategy: aktiv
@@ -271,8 +357,13 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 653
       last_upload: '2026-08-04T05:50:08.092908Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:51Z'
+        status: attested
+        version: 0.6.0
+        wheel: iil_illustrationfw-0.6.0-py3-none-any.whl
       version: 0.6.0
     pyproject_version: 0.6.0
     registry_pypi_name: illustration-fw
@@ -289,8 +380,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 177
+      downloads_30d: 132
       last_upload: '2026-04-29T14:50:14.771955Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:51Z'
+        status: unattested
+        version: 0.5.4
+        wheel: iil_learnfw-0.5.4-py3-none-any.whl
       version: 0.5.4
     pyproject_version: 0.5.4
     registry_pypi_name: learnfw
@@ -308,8 +405,13 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 21
       last_upload: '2026-06-14T14:32:59.978077Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:52Z'
+        status: attested
+        version: 0.2.1
+        wheel: iil_nl2cadfw-0.2.1-py3-none-any.whl
       version: 0.2.1
     pyproject_version: 0.3.0
     registry_pypi_name: nl2cad
@@ -326,8 +428,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 80
+      downloads_30d: 65
       last_upload: '2026-07-19T07:36:08.837088Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:52Z'
+        status: attested
+        version: 0.3.2
+        wheel: iil_outlinefw-0.3.2-py3-none-any.whl
       version: 0.3.2
     pyproject_version: 0.3.2
     registry_pypi_name: outlinefw
@@ -344,8 +452,14 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 4640
+      downloads_30d: 3894
       last_upload: '2026-07-19T07:02:17.533023Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:53Z'
+        status: attested
+        version: 0.8.1
+        wheel: iil_promptfw-0.8.1-py3-none-any.whl
       version: 0.8.1
     pyproject_version: 0.8.1
     registry_pypi_name: promptfw
@@ -363,8 +477,13 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 61
       last_upload: '2026-04-17T05:50:22.925068Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:54Z'
+        status: attested
+        version: 0.6.0
+        wheel: iil_researchfw-0.6.0-py3-none-any.whl
       version: 0.6.0
     pyproject_version: 0.6.2
     registry_pypi_name: researchfw
@@ -381,13 +500,44 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 19
+      downloads_30d: 12
       last_upload: '2026-03-03T09:19:38.239730Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:55Z'
+        status: attested
+        version: 0.1.0
+        wheel: riskfw-0.1.0-py3-none-any.whl
       version: 0.1.0
     pyproject_version: 0.1.0
     registry_pypi_name: riskfw
     repo: riskfw
     strategy: archivieren-kandidat
+  testkit:
+    dist_name: iil-testkit
+    findings:
+    - registry_missing
+    in_registry: false
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
+    pypi:
+      downloads_30d: 2904
+      last_upload: '2026-08-26T05:02:44.811762Z'
+      provenance:
+        bundles: 0
+        checked_at: '2026-08-27T11:16:55Z'
+        status: unattested
+        version: 0.6.0
+        wheel: iil_testkit-0.6.0-py3-none-any.whl
+      version: 0.6.0
+    pyproject_version: 0.6.0
+    registry_pypi_name: null
+    repo: testkit
+    strategy: null
   weltenfw:
     dist_name: iil-weltenfw
     findings: []
@@ -399,10 +549,16 @@ packages:
         file: publish.yml
         reusable: false
     pypi:
-      downloads_30d: 4475
-      last_upload: '2026-08-14T15:46:43.027001Z'
-      version: 0.4.4
-    pyproject_version: 0.4.4
+      downloads_30d: 3940
+      last_upload: '2026-08-21T09:45:50.932457Z'
+      provenance:
+        bundles: 1
+        checked_at: '2026-08-27T11:16:55Z'
+        status: attested
+        version: 0.5.0
+        wheel: iil_weltenfw-0.5.0-py3-none-any.whl
+      version: 0.5.0
+    pyproject_version: 0.5.0
     registry_pypi_name: weltenfw
     repo: weltenfw
     strategy: aktiv

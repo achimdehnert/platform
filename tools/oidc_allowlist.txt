@@ -1,0 +1,14 @@
+# ADR-278 Enforcement-Gate (tools/check_publish_oidc_auth.py) — befristete
+# Ausnahmen, KEINE Sonderfaelle im Guard-Code. Nach dem Ablaufdatum ignoriert
+# der Guard den Eintrag automatisch: der Fund zaehlt dann wieder, der Schritt
+# "OIDC-only Publish-Guard" in .github/workflows/validate-workflows.yml wird rot.
+#
+# Format je Zeile: <workflow-pfad relativ zum Repo-Root> | <ablauf YYYY-MM-DD> | <referenz>
+#
+#   Ist-Beleg 2026-08-27 (KONZ-052 V4): twine upload + TWINE_USERNAME/
+#   TWINE_PASSWORD in einem run:-Block, kein pypa/gh-action-pypi-publish.
+#   Grund fuer die Frist statt sofortigem Fix: Umstellung auf OIDC braucht eine
+#   neue Trusted-Publisher-Bindung im PyPI-UI (Owner-Schritt, ADR-266-Grenze),
+#   analog zum bereits erledigten Umbau von publish-iil-codeguard.yml/
+#   publish-iil-ingest.yml. Ablauf faellt mit dem ADR-278 Kill-Gate-Termin
+#   (2026-10-19) zusammen.

@@ -26,6 +26,18 @@
 #     8110-8199   App-Hubs Block B (Erweiterung)
 #     9000-9099   Auth + Object Storage (Authentik 9000, MinIO 9001/9010)
 #
+#
+#   LEBENSZYKLUS (betriebsstatus, seit 2026-08-23 — platform#2215)
+#
+#     betriebsstatus: aktiv         Vorgabe, muss nicht geschrieben werden
+#     betriebsstatus: stillgelegt   absichtlich aus
+#     betriebsstatus: blockiert     soll laufen, wartet auf eine Entscheidung
+#
+#   Alles ausser `aktiv` verlangt ein `betriebsstatus_grund`. `tools/erreichbarkeit_melder.py`
+#   fragt die `domain_prod` jedes AKTIVEN Dienstes einmal an; ein nicht-aktiver Dienst
+#   erzeugt keinen Befund, ein nicht-aktiver OHNE Grund dagegen schon — eine stumme
+#   Ausnahme ist so wenig wert wie gar keine Pruefung.
+#
 #   Regeln:
 #     1. Jeder Hub hat genau EINEN Web-Port pro Umgebung (kein Bereich!)
 #     2. Staging-Port = Prod-Port (immer, ADR-157 §4)
@@ -93,7 +105,7 @@ infra:
   authentik:
     port: 9000
     server: prod
-    domain_prod: auth.iil.pet
+    domain_prod: id.iil.pet
     note: "SSO/Identity Provider — 9443 for HTTPS"
 
   outline:
@@ -151,7 +163,19 @@ services:
     dev: 8111
     container_name: frist_hub_web
     domain_prod: frist-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "prod blockiert auf Hosting-ADR (meiki-lra Sozialdaten-Pilot) — nur Konzept-Staging; frist-hub.iil.pet hat bewusst keinen DNS-Eintrag"
     note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
+
+  news-hub:
+    prod: 8113
+    staging: 8113
+    dev: 8113
+    container_name: news_hub_web
+    domain_prod: news.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "noch nicht deployt — Artefakte stehen (news-hub#18), der Deploy haengt bewusst an workflow_dispatch, weil es noch keinen Bestand gibt; DNS/SSL/Deploy-Secrets sind Owner-Schritte. news.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "ADR-299 · Digest liest den Mail-Agent-Bestand ueber die Lesenaht (dev-hub#307)"
 
   coach-hub:
     prod: 8007
@@ -171,6 +195,8 @@ services:
                                # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
     container_name: coach_hub_web
     domain_prod: coach-hub.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-23 (platform#2215). Gemessen: alle 5 Container auf prod-b seit ~2026-08-20 Exited(0); weder coach-hub.iil.pet noch das unten genannte kiohnerisiko.de loesen auf. nginx-vhost auf prod-b existiert noch — Aufraeumen offen, coach-hub#67"
     domain_staging: staging-coaching.iil.pet
     domain_aliases:
       - kiohnerisiko.de
@@ -215,8 +241,9 @@ services:
 
   weltenhub:
     prod: 8081
-    staging: 8081
-    dev: 8081
+    staging: 8082               # Ground Truth compose.staging: 127.0.0.1:8082:8000
+    dev: 8082                   # lokale Konvention (docker-compose.local.yml, writing-hub
+                                # sucht weltenhub lokal auf 8082) — Registry stand auf 8081
     prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04, erste App mit
                                # aktivem Beat. Verfahren: Beat+Celery auf der Quelle
                                # ZUERST gestoppt, auf dem Ziel zuletzt gestartet —
@@ -497,6 +524,8 @@ services:
     dev: 8103
     container_name: recruiting_hub_web
     domain_prod: hr.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "GitHub-Repo archiviert (gh api repos/achimdehnert/recruiting-hub .archived = true, seit ~2026-08-20); hr.iil.pet antwortet 502, das ist gewollt"
     domain_staging: staging-hr.iil.pet
     repo: achimdehnert/recruiting-hub
 

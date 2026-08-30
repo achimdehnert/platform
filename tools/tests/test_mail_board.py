@@ -282,3 +282,29 @@ class TestLinkZiel:
     def test_should_link_even_without_anchored_mail(self):
         """Genau die Luecke, die vorher 'nicht anklickbar' hiess."""
         assert board.link_fuer(7, "fehlt", {"thread_key": "Ohne Anker"}) is not None
+
+
+def test_should_classify_every_bucket_as_stand_or_zug():
+    """Jeder Bucket gehoert genau einer Haelfte an — sonst ist die Reihenfolge undefiniert.
+
+    Ohne diese Zusage koennte ein fuenfter Bucket hinzukommen, ohne dass
+    irgendwo entschieden waere, ob er den Stand beschreibt oder einen Zug
+    verlangt; er landete erfahrungsgemaess am Listenende und damit hinter
+    "dein Zug".
+    """
+    benannt = set(board.STAND_BUCKETS) | set(board.ZUG_BUCKETS)
+    assert {b for b, _ in board.BUCKETS} == benannt
+    assert not set(board.STAND_BUCKETS) & set(board.ZUG_BUCKETS)
+
+
+def test_should_render_stand_before_zug():
+    """Erst was war, dann was zu tun ist — die Regel, nicht die konkrete Liste.
+
+    Der Test prueft die Eigenschaft statt der Reihenfolge selbst: er ueberlebt
+    das Hinzufuegen eines Buckets und faellt trotzdem, wenn jemand "dein Zug"
+    wieder nach oben zieht.
+    """
+    stellen = {b: i for i, (b, _) in enumerate(board.BUCKETS)}
+    assert max(stellen[b] for b in board.STAND_BUCKETS) < min(
+        stellen[b] for b in board.ZUG_BUCKETS
+    )

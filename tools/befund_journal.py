@@ -53,7 +53,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 #: Nur lokal — die Notizen tragen Ausschnitte des eigenen Laufs (Charta Art. 2).
@@ -77,6 +77,22 @@ GATE_HEADER = {
 #: Drei, weil zwei noch Zufall sein koennen und vier schon eine Woche ist.
 ALT_AB_LAEUFEN = 3
 
+#: Wiedervorlage-Fristen in Tagen. Ein verankerter oder mit Verzicht abgelegter
+#: Befund ruht bis zum Fristende — er verschwindet NICHT, er wird nur leise.
+#:
+#: Warum ueberhaupt: `--verankert` hing bis 2026-08-23 nur eine URL an die Zeile und
+#: aenderte an ihrer Lautstaerke nichts. Der Deploy-Befund zu `coach-hub` war seit dem
+#: 2026-08-20 in coach-hub#67 verankert und erschien trotzdem in **22 aufeinander-
+#: folgenden Laeufen** wortgleich. Wer 22-mal dieselbe Zeile liest, liest die 23. nicht
+#: mehr — und uebersieht darin den neuen Befund. Das Journal misst Alter (K3) seit
+#: 2026-08-16; was fehlte, war die Erlaubnis zu schweigen.
+#:
+#: 14 Tage fuer ein Artefakt: lang genug, dass ein Issue bearbeitet werden kann, kurz
+#: genug, dass ein liegengebliebenes im selben Monat zurueckkommt. 30 fuer den Verzicht:
+#: er ist eine getroffene Entscheidung, wird aber nicht unbefristet geglaubt.
+FRIST_VERANKERT_TAGE = 14
+FRIST_VERZICHT_TAGE = 30
+
 #: Phasen, deren Befund ein **Arbeitsauftrag im genannten Repo** ist — nur sie
 #: laufen in das Abschluss-Gate von `/session-ende`.
 #:
@@ -94,11 +110,40 @@ ALT_AB_LAEUFEN = 3
 #: falsch feuert, wird abgeschaltet — dann meldet es gar nichts mehr (#1508).
 #: Das Journal fuehrt trotzdem ALLE Repos: Alter (K3) gilt fuer jeden Befund,
 #: nur die Artefakt-Pflicht (K2) ist eng.
-CROSS_REPO_PHASEN = ("0.7 deploy-scan",)
+#: `0.7.12 prod-wirkung` kam am 2026-08-23 dazu, und zwar mit Beleg statt aus
+#: Symmetrie: risk-hub stand beim ersten Lauf vier Tage hinter `origin/main`
+#: (Prod-Gate, `staging`-Default) und writing-hub frisch — beides Befunde, die
+#: in ihrem eigenen Repo repariert werden, nicht hier. Bei tax-hub blieb genau
+#: diese Klasse sieben Tage unsichtbar, weil kein Check davon rot wird (#2148).
+CROSS_REPO_PHASEN = ("0.7 deploy-scan", "0.7.12 prod-wirkung")
 
 
 def _heute() -> str:
     return datetime.now(timezone.utc).date().isoformat()
+
+
+def _frist(tage: int) -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=tage)).date().isoformat()
+
+
+def ruhezustand(eintrag: dict, heute: str) -> str:
+    """Wie laut darf dieser Befund sein? ``laut`` | ``faellig`` | ``ruht``.
+
+    Drei Wege aus der Ruhe, und alle drei sind Absicht:
+      * keine Frist gesetzt        -> laut (nichts hat je jemand entschieden)
+      * Frist abgelaufen           -> faellig (die Entscheidung ist zu pruefen)
+      * Symptomtext hat sich geaendert -> laut (es ist nicht mehr derselbe Befund,
+        auf den sich die Entscheidung bezog)
+
+    Die dritte ist die wichtigste: eine Parkerlaubnis gilt fuer den Befund, der
+    beim Parken vorlag, nicht fuer alles, was spaeter unter derselben ID auftaucht.
+    """
+    frist = eintrag.get("wiedervorlage")
+    if not frist:
+        return "laut"
+    if eintrag.get("ruht_note") is not None and eintrag.get("letzte_note") != eintrag["ruht_note"]:
+        return "laut"
+    return "faellig" if heute > str(frist) else "ruht"
 
 
 def lade(pfad: Path | None = None) -> dict:
@@ -223,21 +268,38 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
         ):
             del befunde[fid]
 
+    ruhend = []
     for fid, e in sorted(befunde.items(), key=lambda kv: -int(kv[1].get("laeufe", 0))):
         if fid not in noch_gemeldet:
             continue
         laeufe = int(e.get("laeufe", 0))
-        if laeufe < ALT_AB_LAEUFEN:
+        zustand = ruhezustand(e, heute)
+        if zustand == "ruht":
+            ruhend.append(e)
             continue
-        marke = "⏳ ALTBEFUND"
+        if laeufe < ALT_AB_LAEUFEN and zustand != "faellig":
+            continue
+        marke = "⏰ WIEDERVORLAGE" if zustand == "faellig" else "⏳ ALTBEFUND"
         anhang = ""
         if e.get("artefakt"):
             anhang = f" · verankert: {e['artefakt']}"
         elif e.get("verzicht"):
             anhang = f" · Verzicht: {e['verzicht'].get('grund', '')}"
+        if zustand == "faellig":
+            anhang += f" · Frist {e.get('wiedervorlage')} abgelaufen — Stand pruefen"
         meldungen.append(
             f"  {marke} {e['phase']} · Repo {e['repo']} — "
             f"{laeufe} Laeufe, erstmals {e['erstmals']}{anhang}"
+        )
+
+    # Nichts verschwindet still: die Ruhenden bekommen EINE Sammelzeile mit der
+    # naechsten faelligen Frist. Ohne sie waere Schweigen von Vergessen nicht zu
+    # unterscheiden — und genau das waere die schlimmere Krankheit.
+    if ruhend:
+        naechste = min(str(e.get("wiedervorlage", "")) for e in ruhend)
+        meldungen.append(
+            f"  ⏸ {len(ruhend)} Befund(e) ruhen bis zur Wiedervorlage "
+            f"(naechste {naechste}) — Vollbild: tools/befund_journal.py --bericht"
         )
     return meldungen
 
@@ -372,10 +434,15 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
             )
         )
         fremd = " [FREMD]" if e.get("repo") not in ("-", eigenes_repo) else ""
+        zustand = ruhezustand(e, _heute())
+        ruhe = {
+            "ruht": f" · ruht bis {e.get('wiedervorlage')}",
+            "faellig": f" · ⏰ Frist {e.get('wiedervorlage')} abgelaufen",
+        }.get(zustand, "")
         zeilen.append(
             f"  {fid}{fremd}\n"
             f"      {e.get('laeufe', 0)} Laeufe · erstmals {e.get('erstmals', '?')} · "
-            f"zuletzt {e.get('zuletzt', '?')} · {stand}"
+            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}"
         )
     offen = _cross_repo_offen(daten, eigenes_repo)
     zeilen.append("")
@@ -406,6 +473,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--praezision", action="store_true", help="Trefferquote je Melder")
     p.add_argument("--kurz", action="store_true", help="eine Zeile fuer den Runner")
     p.add_argument("--verzichtet", nargs=2, metavar=("ID", "GRUND"))
+    p.add_argument(
+        "--frist",
+        type=int,
+        default=None,
+        metavar="TAGE",
+        help=f"Ruhefrist ueberschreiben (Vorgabe: {FRIST_VERANKERT_TAGE} verankert / {FRIST_VERZICHT_TAGE} Verzicht)",
+    )
     p.add_argument(
         "--repo", default="platform", help="eigenes Repo (Default: platform)"
     )
@@ -466,8 +540,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Kein Befund mit ID {fid}", file=sys.stderr)
             return 2
         e["artefakt"] = url
+        tage = a.frist if a.frist is not None else FRIST_VERANKERT_TAGE
+        e["wiedervorlage"] = _frist(tage)
+        e["ruht_note"] = e.get("letzte_note")
         sichere(daten, pfad)
-        print(f"verankert: {fid} -> {url}")
+        print(f"verankert: {fid} -> {url} · ruht bis {e['wiedervorlage']} ({tage} Tage)")
         return 0
 
     if a.verzichtet:
@@ -480,8 +557,14 @@ def main(argv: list[str] | None = None) -> int:
             print("Verzicht ohne Grund zaehlt nicht.", file=sys.stderr)
             return 2
         e["verzicht"] = {"grund": grund.strip(), "am": _heute()}
+        tage = a.frist if a.frist is not None else FRIST_VERZICHT_TAGE
+        e["wiedervorlage"] = _frist(tage)
+        e["ruht_note"] = e.get("letzte_note")
         sichere(daten, pfad)
-        print(f"Verzicht abgelegt: {fid} — {grund.strip()}")
+        print(
+            f"Verzicht abgelegt: {fid} — {grund.strip()} · ruht bis "
+            f"{e['wiedervorlage']} ({tage} Tage)"
+        )
         return 0
 
     if a.offen_cross_repo:

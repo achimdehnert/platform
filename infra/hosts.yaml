@@ -156,6 +156,34 @@ hosts:
     hosts_runners: [staging-ci]
     verified: 2026-07-30               # SSH-Probe on-host (RAM/Swap/Disk/Container/docker stats)
 
+  gpu-box:
+    ip: 10.99.0.2                      # wg0-Peer von prod (10.99.0.1); von aussen nicht erreichbar
+    ssh: achim@10.99.0.2               # Windows-OpenSSH, nur ueber prod (ProxyJump hetzner-prod)
+    hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
+    provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
+    server_type: rtx4090               # RTX 4090 24 GB; WSL2: 8 vCPU / 12 GB / 4 GB Swap (.wslconfig)
+    role: >
+      GPU-Box fuer lokale LLM-Inferenz (illustration-hub-Render ueber wg0) und ab 2026-08-28
+      CI-Runner `ci-gpu` fuer writing-hub (KONZ-021-Opt-out, platform#2392). Kein Prod-Deploy.
+    hosts_runners: [gpu-box]
+    verified: 2026-08-28               # read-only Probe ueber prod/wg0 (WSL, Docker, sudo, GitHub-Reach)
+
+  gx10:
+    hostname: TBD                      # bei Inbetriebnahme eintragen (Zugang: wg0-Peer wie gpu-box)
+    provider: owner-hardware           # keine Cloud, kein IaC — laeuft nur, wenn das Geraet an ist
+    server_type: gx10                  # ASUS Ascent GX10 (NVIDIA GB10), ~126 GB unified memory
+    arch: aarch64                      # ACHTUNG: Flotten-Images sind amd64 (_deploy-unified.yml Z.218)
+    os: DGX OS (Linux, nativ)          # KEIN WSL2 — anders als gpu-box; die WSL-Fallen entfallen
+    status: geplant                    # ab KW 36/2026, noch nicht in Betrieb
+    role: >
+      IIL-interner Inferenz- und Trainingsknoten (KONZ-platform-053, Owner-Entscheid
+      2026-08-29). Ausserhalb des Buergerdaten-Perimeters: keine Sozial-/Buergerdaten
+      aus der MEiKI-Kette, gleich in welcher Form. Zugang ueber wg0, KEIN oeffentlicher
+      Tunnel (das war der Fehler bei ollama.iil.pet). Phase 1 ohne GitHub-Runner,
+      kein Prod-Deploy, kein Build-Ziel fuer Flotten-Images.
+    hosts_runners: []                  # Phase 1 bewusst leer — KONZ-053 §6
+    verified: false                    # explizit unverifiziert — nichts gemessen, siehe KONZ-053 §8
+
   staging-dedicated:
     ip: 178.104.184.168
     ssh: root@178.104.184.168
@@ -286,6 +314,24 @@ runners:
       (`travel-beat-staging-ci`). Weitere Hubs gestaffelt via ADR-222-Familie.
     verified: 2026-06-28
 
+  gpu-box:
+    host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
+    status: online                     # 2026-08-28 09:00 CEST registriert + online (gh api runners);
+                                       # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
+                                       # Bootstrap lief als root via `wsl -u root` ueber den prod-Hop
+    labels: [self-hosted, Linux, X64, ci-gpu]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro
+    service: actions.runner.achimdehnert-<repo>.DESKTOP-G1MN89S.service   # Runner-Name = Hostname
+    runner_user: github-ci             # REC-5, in docker-Gruppe (Postgres-Service-Container)
+    bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh
+    consumers: [writing-hub]           # KONZ-021-Opt-out, Grund: 70 % der hosted Minuten (platform#2392)
+    note: >
+      Owner-Desktop, nicht Teil der Hetzner-Flotte: laeuft nur, wenn die Box an ist.
+      Windows-Seite muss die WSL offen halten (.wslconfig vmIdleTimeout=-1 + Aufgabenplanung
+      "wsl -d Ubuntu -u root -- sleep infinity"). Deploy-Jobs bleiben auf prod-server;
+      hier laufen nur `_ci-python`-Block und der writing-hub-Eigenjob `integration-tests`.
+    verified: 2026-08-28               # Box-Fakten; Runner-Status offen
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
     status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)

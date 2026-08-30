@@ -36,13 +36,45 @@
 #      committet nichts mehr, Ergebnis geht in Job-Summary + Artefakt.
 #      Bewusste Folge: die Metriken landen NICHT mehr in den ADR-Frontmattern.
 #
-# Der schedule-Trigger bleibt bewusst AUS. Ihn wieder scharf zu schalten ist eine
-# eigene Entscheidung (nächtliche Läufe + Issue-Erzeugung) und gehört nicht in
-# einen Reparatur-PR — als Folgefrage in #1338 vermerkt.
+# STAND 2026-08-20 (#1338): schedule-Trigger ist ZURÜCK. Die Entscheidung, die der
+# Reparatur-PR bewusst offengelassen hatte, ist getroffen. Sie stuetzt sich auf ZWEI
+# Aussagen mit UNTERSCHIEDLICHER Beweislage — bewusst getrennt aufgeschrieben, weil
+# die Retro dieser Sitzung genau ihre Vermischung als Befund markiert hat:
+#
+#   A) "Ein Lauf geht heute durch."  BELEGT durch Lauf 32359300251 auf main
+#      (`success`). Der Lauf war ein `workflow_dispatch` — das genuegt fuer diese
+#      Aussage vollstaendig, denn gefragt war, ob die drei Ursachen der 30 roten
+#      Naechte behoben sind.
+#
+#   B) "Ein naechtlicher Lauf erzeugt KEINE Issues."  NICHT durch einen Lauf belegt,
+#      sondern aus der GitHub-Semantik abgeleitet: der `inputs`-Context ist nur bei
+#      `workflow_dispatch`/`workflow_call` befuellt; bei `schedule` ist er leer,
+#      `null == 'true'` ist falsch, der Schritt wird uebersprungen. Ein `dispatch`-Lauf
+#      kann das NICHT zeigen — dort sind die Inputs ja gesetzt. Der erste echte
+#      Beweis ist der erste naechtliche Lauf; bis dahin ist B eine begruendete
+#      Erwartung, keine Messung.
+#
+# Damit B nicht als Versprechen liegen bleibt, macht der Job-Summary-Schritt das
+# Ereignis und die Issue-Entscheidung sichtbar: der erste Lauf um 02:00 UTC
+# protokolliert sich selbst.
 
 name: "📊 ADR Nightly Metrics"
 
 on:
+  # Zeitplan zurueck am 2026-08-20 (#1338). Die drei Ursachen der 30 roten Naechte
+  # sind seit dem 2026-07-22 behoben; was fehlte, war der Beleg, dass ein Lauf heute
+  # durchgeht — nachgeholt mit Lauf 32359300251 (`success`) und geprueft:
+  # `iil-adrfw metrics --help` vorhanden, `validate docs/adr` 242/242, `--write` raus.
+  #
+  # Die Sorge, ein naechtlicher Lauf wuerde den Backlog aufblaehen, traegt
+  # VORAUSSICHTLICH nicht: der Issue-erzeugende Schritt haengt an
+  # `if: inputs.create_issues == 'true'`, und bei `schedule` ist der `inputs`-Context
+  # leer. Das ist aus der GitHub-Semantik abgeleitet, NICHT an einem schedule-Lauf
+  # gemessen — es gab bis zu diesem PR keinen. Der Job-Summary zeigt Ereignis und
+  # Entscheidung an; der erste naechtliche Lauf ist der Beleg. Wer Issues will,
+  # dispatcht bewusst mit `create_issues=true`.
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       write_metrics:
@@ -113,8 +145,19 @@ jobs:
           iil-adrfw metrics --adr-dir docs/adr --json > /tmp/metrics.json || true
 
       - name: Write Job Summary
+        env:
+          # Macht Aussage B aus dem Dateikopf pruefbar, statt sie zu behaupten:
+          # der erste naechtliche Lauf schreibt sein Ereignis und die daraus
+          # folgende Issue-Entscheidung in die Summary. Wer wissen will, ob
+          # `schedule` die Issue-Erzeugung wirklich ueberspringt, liest sie dort ab
+          # — kein Nachrechnen der GitHub-Semantik noetig.
+          EREIGNIS: ${{ github.event_name }}
+          ISSUES_AN: ${{ inputs.create_issues == 'true' }}
         run: |
           echo "## 📊 ADR Controlling — $(date -u +%Y-%m-%d)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ereignis: \`$EREIGNIS\` · Issue-Erzeugung: \`$ISSUES_AN\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           cat /tmp/metrics_report.txt >> "$GITHUB_STEP_SUMMARY"
 
       # Ersetzt den frueheren "Commit metrics updates"-Step (#1338 Weg 3). Der Push
@@ -140,9 +183,14 @@ jobs:
             echo "[WARN] pgvector sync failed (DB unreachable?) — continuing"
 
       - name: Run audit + create issues for errors
-        # NOTE: schedule trigger removed (see header) — this workflow now
-        # only runs via workflow_dispatch, so the former
-        # `|| github.event_name == 'schedule'` fallback is dead and dropped.
+        # NOTE: Der frühere Fallback `|| github.event_name == 'schedule'` bleibt
+        # ABSICHTLICH draussen, auch seit der schedule-Trigger am 2026-08-20 zurueck
+        # ist (#1338). Genau dadurch laeuft naechtlich nur der Bericht: `inputs` ist
+        # bei einem schedule-Event leer, die Bedingung damit falsch, der Schritt
+        # uebersprungen. Wer Issues erzeugen will, dispatcht mit create_issues=true.
+        # Diese Zeile wieder um den schedule-Fallback zu erweitern, macht aus dem
+        # Controlling-Loop einen naechtlichen Issue-Erzeuger — siehe platform#2140,
+        # Wurzel "rollende Melder legen an statt zu aktualisieren".
         if: inputs.create_issues == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

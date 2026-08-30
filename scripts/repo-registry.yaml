@@ -83,7 +83,7 @@ repos:
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
-    pypi_strategy: archivieren-kandidat
+    pypi_strategy: einfrieren
   gpufw:
     type: library
     pypi: iil-gpufw
@@ -107,7 +107,7 @@ repos:
   iil-enrichment:
     type: library
     pypi: iil-enrichment
-    pypi_strategy: einfrieren
+    pypi_strategy: aktiv
   iil-fieldprefill:
     type: library
     pypi: iil-fieldprefill
@@ -158,6 +158,11 @@ repos:
     prod_url: learn.iil.pet
     port: 8100
     health: /livez/
+  news-hub:
+    type: django
+    prod_url: news.iil.pet
+    port: 8113
+    health: /livez/
   learnfw:
     type: library
     pypi: learnfw
@@ -169,7 +174,7 @@ repos:
     note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
       C4:8000)
   meiki-hub:
-    type: django
+    type: static
   nl2cad:
     type: library
     pypi: nl2cad
@@ -219,6 +224,7 @@ repos:
     pypi_strategy: aktiv
   riskfw:
     type: library
+    archived: true
     pypi: riskfw
     pypi_strategy: archivieren-kandidat
   risk-hub:
@@ -230,6 +236,8 @@ repos:
     health: /livez/
     extra_containers:
     - minio
+  robo-lab:
+    type: python
   tax-hub:
     type: django
     prod_url: tax.iil.pet

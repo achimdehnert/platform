@@ -140,7 +140,14 @@ def test_should_print_nothing_in_kurz_mode_without_rueckfall(tmp_path):
 
 
 def test_should_stay_exit_zero_on_unreadable_registry(tmp_path):
-    """Fail-open: ein Melder, der den Sitzungsstart aufhaelt, wird abgeschaltet."""
+    """Fail-open: ein Melder, der den Sitzungsstart aufhaelt, wird abgeschaltet.
+
+    Fail-open heisst weiterlaufen, nicht schweigen. Die frueher hier stehende
+    Zeile `assert lauf.stdout.strip() == ""` hielt genau den Defekt fest, den
+    platform#2278 behebt: der Runner liest leere Ausgabe als PASS und behauptet
+    dann "kein Gate rueckfaellig" ueber Gates, die nie gelesen wurden. Der
+    Exit-Code-Vertrag bleibt (0), die Stille nicht.
+    """
     lauf = subprocess.run(
         [
             sys.executable,
@@ -153,7 +160,7 @@ def test_should_stay_exit_zero_on_unreadable_registry(tmp_path):
         text=True,
     )
     assert lauf.returncode == 0
-    assert lauf.stdout.strip() == ""
+    assert "misst nichts" in lauf.stdout
 
 
 # --- Regressionen aus Retro beefc148 (2026-08-20) ----------------------------
@@ -236,7 +243,9 @@ class TestUmbauDatum:
             ("2026-08-14", [], "e"),
         ]
         e = gw.bewerte(gates, retros)[0]
-        assert e["nachher"] == 0, "Vorkommen vor dem Umbau zaehlen nicht mehr als Rueckfall"
+        assert e["nachher"] == 0, (
+            "Vorkommen vor dem Umbau zaehlen nicht mehr als Rueckfall"
+        )
         assert e["vorher"] == 2
         assert e["urteil"] != "RUECKFAELLIG"
         assert e["umgebaut"] is True
@@ -309,3 +318,129 @@ class TestGefangenerBefund:
         e = gw.bewerte(gates, [("2026-08-05", ["g"], "a")])[0]
         assert e["nachher"] == 1
         assert e["gefangen"] == 0
+
+
+# ── Kalibrierfenster ────────────────────────────────────────────────────────
+# Die Zusage "spaeter scharf" ist eine Vertagung mit Datum. Sie war bis zum
+# 2026-08-23 Prosa in `revision_note`, und die erste Frist verfiel unbemerkt:
+# das Protokoll trug 59 Zeilen, aber KEINE davon war beurteilbar (leerer
+# Ausschnitt) und nur EINE gehoerte ueberhaupt der Kalibrierklasse. Deshalb
+# zaehlen diese Tests genau die Trennung, an der es scheiterte — Treffer ist
+# nicht gleich Datenpunkt.
+
+
+def _hits(pfad: Path, zeilen: list[dict]) -> str:
+    pfad.write_text(
+        "\n".join(json.dumps(z, ensure_ascii=False) for z in zeilen) + "\n",
+        encoding="utf-8",
+    )
+    return str(pfad)
+
+
+def _zeile(
+    ausschnitt: str,
+    *,
+    klasse: str = "kinds=subjekt-unbelegt-kalibrierung",
+    zeit: str = "2026-08-25T10:00:00+00:00",
+    slug: str = "g",
+) -> dict:
+    return {"zeit": zeit, "slug": slug, "marker": klasse, "ausschnitt": ausschnitt}
+
+
+_FENSTER = {
+    "slug": "g",
+    "kalibrierfenster": {
+        "klasse": "kinds=subjekt-unbelegt-kalibrierung",
+        "seit": "2026-08-23",
+        "bis": "2026-09-20",
+        "min_beurteilbar": 3,
+    },
+}
+
+
+def test_should_not_count_a_hit_without_a_snippet_as_judgeable(tmp_path):
+    """Der Realfall: zaehlbar, aber nicht beurteilbar — und damit wertlos."""
+    datei = _hits(tmp_path / "hits.jsonl", [_zeile(""), _zeile(""), _zeile("")])
+    stand = gw.kalibrier_stand(_FENSTER, "2026-08-26", datei)
+    assert stand["gesamt"] == 3
+    assert stand["beurteilbar"] == 0
+    assert stand["zustand"] == "sammelt"
+
+
+def test_should_ignore_hits_of_another_class_of_the_same_gate(tmp_path):
+    """59 Zeilen im Protokoll gehoerten dem regulaeren Treffer, nicht dem Fenster."""
+    datei = _hits(
+        tmp_path / "hits.jsonl",
+        [_zeile("belegt", klasse="kinds=published-body") for _ in range(59)]
+        + [_zeile("belegt")],
+    )
+    stand = gw.kalibrier_stand(_FENSTER, "2026-08-26", datei)
+    assert stand["gesamt"] == 1
+    assert stand["beurteilbar"] == 1
+
+
+def test_should_ignore_hits_from_before_the_window_started(tmp_path):
+    datei = _hits(
+        tmp_path / "hits.jsonl",
+        [_zeile("belegt", zeit="2026-08-19T10:00:00+00:00"), _zeile("belegt")],
+    )
+    assert gw.kalibrier_stand(_FENSTER, "2026-08-26", datei)["gesamt"] == 1
+
+
+def test_should_call_the_window_decidable_once_the_minimum_is_reached(tmp_path):
+    datei = _hits(tmp_path / "hits.jsonl", [_zeile("belegt") for _ in range(3)])
+    stand = gw.kalibrier_stand(_FENSTER, "2026-08-26", datei)
+    assert stand["zustand"] == "entscheidungsreif"
+
+
+def test_should_report_an_expired_window_that_never_gathered_enough(tmp_path):
+    """Genau der Fall vom 2026-09-03, der stumm verfallen waere."""
+    datei = _hits(tmp_path / "hits.jsonl", [_zeile("belegt")])
+    stand = gw.kalibrier_stand(_FENSTER, "2026-09-21", datei)
+    assert stand["zustand"] == "abgelaufen"
+    assert "neu setzen oder Fenster aufgeben" in gw.kalibrier_zeile(stand)
+
+
+def test_should_survive_a_missing_protocol_without_claiming_success(tmp_path):
+    stand = gw.kalibrier_stand(_FENSTER, "2026-08-26", str(tmp_path / "fehlt.jsonl"))
+    assert stand["beurteilbar"] == 0
+    assert stand["zustand"] == "sammelt"
+
+
+def test_should_return_none_for_a_gate_without_a_window():
+    assert gw.kalibrier_stand({"slug": "g"}, "2026-08-26") is None
+
+
+def test_should_flag_a_window_without_a_minimum_as_misconfigured(tmp_path):
+    """Ohne Mindestzahl kann das Fenster nie entscheidungsreif werden.
+
+    Der Rand war bis 2026-08-23 ungetestet und still: `mindest > 0` schlug fehl,
+    das Fenster blieb in "sammelt" haengen und fiel bei Fristablauf durch, ohne
+    dass jemand erfuhr, warum (Retro a84f71 Befund 4).
+    """
+    gate = {
+        "slug": "g",
+        "kalibrierfenster": {
+            "klasse": "kinds=x",
+            "seit": "2026-08-23",
+            "bis": "2026-09-20",
+        },
+    }
+    datei = _hits(tmp_path / "hits.jsonl", [_zeile("belegt", klasse="kinds=x")])
+    stand = gw.kalibrier_stand(gate, "2026-08-26", datei)
+    assert stand["zustand"] == "unbestimmt"
+    assert "keine Mindestzahl gesetzt" in gw.kalibrier_zeile(stand)
+
+
+def test_should_treat_an_explicit_zero_minimum_the_same_way(tmp_path):
+    gate = {
+        "slug": "g",
+        "kalibrierfenster": {
+            "klasse": "kinds=x",
+            "seit": "2026-08-23",
+            "bis": "2026-09-20",
+            "min_beurteilbar": 0,
+        },
+    }
+    datei = _hits(tmp_path / "hits.jsonl", [])
+    assert gw.kalibrier_stand(gate, "2026-08-26", datei)["zustand"] == "unbestimmt"

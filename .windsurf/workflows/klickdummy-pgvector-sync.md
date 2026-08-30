@@ -167,3 +167,83 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   ist er dort eingefroren. **Konsequenz:** Metadaten-Korrekturen (agent, tags) sind über
   den Upsert-Pfad nicht durchsetzbar, solange der Content gleich bleibt; ein `agent`-Filter
   auf dem Store ist damit unzuverlässig. Getrackt: iilgmbh/iil-klickdummy#221.
+- 2026-08-22: Turnus-Lauf — **165** Entries/24 Repos, R3 PASS (165/165 `ok`, 0 failed;
+  **0 written**, alles content_hash-Dedup). Keine Verteilungs-Drift (verteilte Kopie
+  `5f31af77` byte-identisch zur Quelle). Discovery fand weiter 26 Repos mit `klickdummy/`;
+  frist-hub (meiki-lra) und ttz-hub (ttz-lif) bleiben gov-ausgeschlossen (E3) → Liste
+  unverändert 24. 165 Zeilen = 165 unique `entry_key` (kein Producer-Duplikat) unter
+  `iil-klickdummy 1.34.0`. Schema-WARNs unverändert und alle getrackt: pg-hub
+  (bahn-sqf/pg-hub#8), design-hub (design-hub#36/#38), nl2iot-hub (nl2iot-hub#5).
+  164→165 kommt von `klickdummy:iilgmbh:risk-hub:grundschutz` (Spec neu seit 2026-08-18).
+- 2026-08-22 **Falsifiziert — „neues ADR fehlt im NDJSON" ist kein Producer-Gap.**
+  writing-hub bekam seit dem letzten Lauf `ADR-203` und `ADR-204`; beide tauchen im
+  NDJSON nicht auf, `ADR-203` nennt „Klickdummy" sogar im Fließtext. Der Producer
+  selektiert aber über **`tags: [klickdummy]` im Frontmatter** (Gegenprobe: das
+  aufgenommene `ADR-199` trägt den Tag, `ADR-203` nicht). Ein Volltext-`grep` auf
+  „klickdummy" ist als Vollständigkeits-Check des Sync also untauglich — er erzeugt
+  Falsch-Positive.
+- 2026-08-22 **NEUER BEFUND — Gov-Daten liegen im Store, E3 räumt Altbestand nicht ab.**
+  Eine einzige lesende Suche fand ≥6 `meiki-lra:frist-hub`-Entries (ADR-003 + fünf
+  Iterations-Zeilen), alle mit `agent="klickdummy-sync"`. `frist-hub:ADR-003` ist auf
+  2026-07-21 datiert, die Datei existiert also erst seit dem 21.07. — der Erstschreib
+  fiel damit **hinter** die E3-Einführung (12.07.). E3 verhindert Neuschreiben, nicht
+  Bestand. Zahl nach oben unbekannt; der billigste Check ist store-seitig
+  (`tags @> '{"klickdummy:org:meiki-lra"}'`), über `agent_memory_search` nicht zu
+  bekommen. Entscheidung Owner (löschen / dokumentieren / als Restlücke führen):
+  iilgmbh/risk-hub#666.
+- 2026-08-22 **NEUER BEFUND — es gab einen Lauf ohne Changelog-Eintrag.** `grundschutz`
+  tauchte heute erstmals im NDJSON auf und kam trotzdem mit `written: false` zurück; im
+  Store trägt der Entry `agent="klickdummy-sync"`. Das NDJSON führt selbst
+  `"agent": "iil-klickdummy-sync"`, `klickdummy-sync` setzt nur **Step 3 dieses Skills**,
+  und `agent` friert beim Erstschreib ein (Eintrag 2026-08-17). Der Spec-Inhalt (v1.5)
+  existiert erst seit 2026-08-18 ⇒ zwischen 18.08. und 21.08. lief dieser Skill mindestens
+  einmal, ohne hier eine Zeile zu hinterlassen. Konsequenz für die Lauf-Buchführung: der
+  Changelog ist **kein** vollständiges Lauf-Register — „N seit letztem Eintrag" ist keine
+  belastbare Delta-Basis.
+- 2026-08-23: **Manueller Lauf** — 165 Entries/24 Repos, R3 PASS (165/165 `ok`, 0 failed;
+  **0 written**, alles content_hash-Dedup). 165 Zeilen = 165 unique `entry_key` unter
+  `iil-klickdummy 1.34.0`; Producer deterministisch (zweiter Lauf byte-identisch).
+  Keine Verteilungs-Drift (Quelle und verteilte Kopie beide `5f31af776fa5`).
+  Discovery fand 26 Repos mit `klickdummy/`; frist-hub (meiki-lra) und ttz-hub (ttz-lif)
+  bleiben gov-ausgeschlossen (E3) → Liste unverändert 24. Schema-WARNs unverändert und
+  alle getrackt: pg-hub 110 (bahn-sqf/pg-hub#8), design-hub 36 (design-hub#36/#38),
+  nl2iot-hub 31 (nl2iot-hub#5).
+- 2026-08-23 **Falsifiziert — der nächtliche Lauf fiel NICHT aus.** Dieser Eintrag
+  entstand im Lauf vom 2026-08-23 03:17 selbst; er hielt sich für einen manuellen
+  Ersatzlauf, weil `~/logs/klickdummy-pgvector-sync.log` beim Hineinschauen nur bis zum
+  `2026-08-22`-Block reichte. Dagegen: der Cron-Eintrag (`17 3 * * *`) existiert, `cron`
+  ist `active`, der Host lief durch (uptime seit 2026-05-07), und Log-Datei wie
+  Changelog-Datei tragen dieselbe mtime `03:32:16` — beide wurden von **einem** Prozess
+  geschrieben. Der Log-Tail ist der Report dieses Laufs, inklusive der Fehlmeldung selbst.
+  **Root Cause der Fehldiagnose:** ein Cron-Job, dessen stdout per `>>` in genau die Datei
+  läuft, die er prüfen will, sieht darin nie sich selbst — seine Ausgabe erscheint erst
+  beim Prozessende. Diese Selbstprüfung ist strukturell blind, nicht gelegentlich falsch.
+  **Konsequenz:** „Log endet auf gestern“ ist von innen **kein** Ausfall-Beleg. Billigster
+  echter Check: `stat -c %y` auf die Log-Datei bzw. `systemctl is-active cron`.
+- 2026-08-23 **NEUES ANTI-PATTERN — „0 written bei gewachsener Entry-Zahl" ist keine
+  Anomalie, und der Changelog ist die falsche Referenz dafür.** Heute stieg die
+  Entry-Zahl von 164 auf 165, während *kein* Entry geschrieben wurde. Das sieht nach
+  Widerspruch aus (ein neuer `entry_key` kann nicht dedupliziert werden) und kostete
+  vier Checks. Auflösung: der Skill schreibt vor, dass **Nightly-Läufe still bleiben**,
+  solange R3 PASS und die Abweichung <10 % ist — die Läufe vom 18.–22.08. haben also
+  gearbeitet und den neuen Entry (`klickdummy:iilgmbh:risk-hub:grundschutz`, Erst-Commit
+  2026-08-17 20:52, also nach dem 08-17-Lauf um 03:35 UTC) längst geschrieben, ohne hier
+  eine Zeile zu hinterlassen. **Konsequenz:** Der Changelog ist ein Log der *manuellen/
+  auffälligen* Läufe, nicht der Bestandsstand. Wer „written" gegen den letzten
+  Changelog-Eintrag prüft, misst gegen eine bis zu mehrere Läufe alte Basis. Richtige
+  Referenz ist der letzte Report-Block in `~/logs/klickdummy-pgvector-sync.log`.
+  Nebenbefund derselben Spur: eine Spec-Änderung, die nur Felder betrifft, die der
+  Producer nicht in den `content` rendert (hier `off_ramp_status` → `parity-green`,
+  risk-hub #610), erzeugt korrekt **kein** `written` — die Versions-History im Entry
+  bewegt sich trotzdem, weil sie aus der Git-History kommt.
+- 2026-08-23 **E3-Altlast jetzt getrackt: [iilgmbh/risk-hub#667](https://github.com/iilgmbh/risk-hub/issues/667).**
+  Der Lauf vom 2026-08-22 hatte notiert, dass `meiki-lra/frist-hub`-Einträge im Store
+  liegen, obwohl das Repo gov-ausgeschlossen ist — ohne Tracking-Artefakt. Lesend
+  bestätigt: mindestens 7 `klickdummy-iter:meiki-lra:frist-hub:*`-Entries, `agent=
+  klickdummy-sync`, Tag `klickdummy:org:meiki-lra`; Inhalt sind KD-Iterationsprotokolle
+  und ADR-Texte (LRA-Verfahrenslogik), **keine** personenbezogenen Daten. Die
+  Gesamtzahl bleibt unbelegt — die semantische Suche kann keine Vollständigkeit zeigen,
+  und einen Lösch- oder Filter-Pfad gibt es über die MCP-Tools nicht (nur `upsert`/
+  `search`). **Lehre für den Skill selbst:** ein Befund im stillen Nightly-Report ist
+  faktisch unsichtbar — Gov-/Datensouveränitäts-Funde müssen den Still-Modus
+  durchbrechen und sofort ein Issue bekommen, sonst liegen sie tagelang nur im Log.

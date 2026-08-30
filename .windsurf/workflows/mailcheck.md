@@ -94,6 +94,10 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
    Nachricht bestimmen (bei Bedarf Original holen, „Projektion sucht, Quelle verifiziert"),
    dann **genau die eine** nächste Aktion vorschlagen/anlegen.
 7. **Ledger zurückschreiben** — neue Zustände speichern, geschlossene Punkte entfernen.
+7a. **Geschlossene Vorgänge aus dem Posteingang räumen** — `ablage_erledigt.py`
+   (siehe unten „Erledigtes wegräumen"). Ohne diesen Schritt bleibt der Posteingang
+   voll, obwohl das Ledger sauber ist: das Board sagt „erledigt", der Owner sieht die
+   Mail weiter oben liegen.
 8. **Als Mail-Action-Board ausgeben** (s.u. „Ausgabeformat"). Auf „go":
    den nächsten Draft mit `graph_mail.py --draft` anlegen (IIL) bzw. den HNU-Draft per
    IMAP-Append (siehe `/iil-mail`-Werkzeuglücke: HNU-Drafts nur via IMAP-Append) — **nie senden**.
@@ -109,6 +113,60 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
   plus Kontextzeile je Item. Keine harten Zeilenumbrüche in Mail-Entwürfen.
 - **Deckungsblock am Ende, immer** — auch bei leerem Board: Konten, Umfang, Zeitraum,
   NICHT-Durchsuchtes, Post-Ingest-Fenster und ob es live nachgezogen wurde.
+
+## Wie ein Verlaufseintrag geschrieben wird (NEU 2026-08-21)
+
+Die Vorgangsseite (`tools/todo_board/todo_board.py`) rendert den Verlauf seit dem
+2026-08-21 nicht mehr als Prosa-Block, sondern als Karten mit Bahnen. Sie erkennt
+Struktur, die im Text **steht** — sie erfindet keine. Wer beim Schreiben drei
+Konventionen einhaelt, bekommt eine lesbare Seite; wer sie nicht einhaelt, bekommt
+die alte Textwand. Nichts geht verloren, es wird nur nicht getrennt.
+
+1. **Kopf zuerst:** `YYYY-MM-DD[ HH:MM] [EREIGNIS] (Quelle): …` — z.B.
+   `2026-08-21 (/mailcheck):` oder `2026-08-20 13:41 GESENDET (Owner):`.
+   Datum, Uhrzeit, Ereignis und Quelle werden zur Kopfzeile der Karte.
+2. **Erhebungsprotokoll in einen eigenen Satz.** Saetze mit `DB bis …`,
+   `Restfenster …`, `live nachgezogen`, `kein neuer Eingang` klappt die Seite
+   hinter „Deckung" weg. Das ist rund die Haelfte eines typischen Eintrags.
+   Deshalb: nicht mit dem Sachstand in EINEN Satz mischen — sonst verschwindet
+   der Sachstand mit.
+3. **Offene Punkte sagen, dass sie offen sind.** Ein Satz, der mit `Offen …`,
+   `Unveraendert offen: …`, `Naechster Schritt: …` oder `Owner: …` beginnt, wird
+   als eigene Bahn hervorgehoben. Analog `Fazit:`, `Ergebnis:`, `HAUPTBEFUND:`
+   fuer die Einordnung.
+
+**Was die Seite ausdruecklich NICHT tut:** aus „… ist damit abgeschlossen" eine
+Analyse-Bahn ableiten. Der Satz ist inhaltlich eine, sagt es aber nicht — und ein
+falsch einsortierter Satz behauptet eine Gliederung, die der Autor nie gemeint
+hat. Dieselbe Linie wie `ablage_erledigt.py`: nichts wird geraten.
+
+**PFLICHT — jeder Eintrag, der eine Mail meint, nennt ihre Nummer MIT Ordner.**
+Nicht als Stilfrage, sondern damit der Eintrag spaeter noch pruefbar ist: Wer in
+vier Wochen wissen will, worauf sich ein Satz stuetzt, kommt mit einem Klick hin
+— oder gar nicht. Gemessen am 2026-08-21 ueber alle 283 Verlaufseintraege waren
+**20** ueberhaupt einer Mail zuzuordnen und **4** klickbar; der Rest nennt weder
+Nummer noch Betreff in Anfuehrungszeichen. Das ist der Grund fuer diese Zeile.
+
+Kanonische Formen (alles andere bleibt stumm):
+
+| Fall | Schreibweise |
+|---|---|
+| Eingang | `INBOX #164024` |
+| Eigene Mail | `Ordner 'Gesendete Objekte' (#34349)` |
+| Entwurf | `Entwuerfe #23611` |
+
+Steht keine Nummer zur Verfuegung (Telefonat, Owner-Ansage, Beobachtung), gehoert
+statt einer erfundenen Nummer **Betreff in Anfuehrungszeichen plus Datum** in den
+Satz — daraus baut `tools/mail_agent/eintrag_mails.py` wenigstens die
+Identifikation in der Kopfzeile.
+
+**Referenzen so schreiben, dass sie klickbar werden:** Der Renderer verlinkt eine
+Nachrichten-Nummer nur, wenn der **Ordner danebensteht** (`INBOX #164024`,
+`Ordner 'Gesendete Objekte' (#34349)`). Ohne Ordner loest `/m/<konto>/<uid>`
+ausschliesslich gegen INBOX auf — eine Entwurfs-UID ergaebe dort einen 404,
+darum wird sie nur ausgezeichnet statt verlinkt. `UID 23589` ohne Ordnerangabe
+bleibt also stumm; `Entwuerfe #23589` wird ein Link. GitHub-Referenzen
+(`meiki-lra/meiki-hub#146`, `platform#2183`) verlinken von selbst.
 
 ## Vorgangs-Speicher (Ledger)
 
@@ -169,6 +227,32 @@ Sammel-/Archiv-Ordner verschieben (reversibel):
   „unklar" listen; nie in den Papierkorb, wenn Aufbewahrung denkbar ist. Der Owner bestätigt
   neue „unwichtig"-Absender einmal, dann dürfen sie stehen.
 
+## Erledigtes wegräumen (Schritt 7a)
+
+Rauschen (Schritt 4) und Erledigtes sind zwei verschiedene Dinge. Rauschen erkennt man am
+**Absender**; Erledigtes erkennt man am **Ledger** — ein Vorgang steht auf `erledigt`, also
+darf sein Strang aus dem Posteingang. Dafür gibt es ein eigenes Werkzeug:
+
+```bash
+python3 tools/mail_agent/ablage_erledigt.py --straenge            # Trockenlauf: was ginge?
+python3 tools/mail_agent/ablage_erledigt.py --straenge --apply    # bewegen, mit Protokoll
+python3 tools/mail_agent/ablage_erledigt.py --ruecknahme LAUF_ID  # kompletten Lauf zurück
+```
+
+**Der Trockenlauf ist Pflicht, das Anwenden nicht.** Zeigt er unerwartet viele Nachrichten
+oder einen Zielordner, der nicht passt, wird er dem Owner vorgelegt statt ausgeführt.
+
+**Ziel-Reihenfolge** (die erste greifende gewinnt): ausdrückliches `ablage_ziel` im Vorgang →
+Zuordnungstabelle → vorhandener Kunden-/Studenten-/Personenordner → `Archiv/<Jahr>`.
+
+**Was der Trockenlauf nicht sehen kann — und darum jeden scharfen Lauf begleitet:** Die
+Kennung einer Nachricht wird vom Verschieben selbst entwertet (Graph vergibt eine neue
+`messageId`, IMAP eine neue UID). Die Rücknahme sucht die Nachricht deshalb an ihrem
+*jetzigen* Ort neu, über Betreff-Kern und Datum. Bleiben mehrere Kandidaten, bewegt sie
+nichts — eine Fehlanzeige ist besser als die falsche Mail. Nach einem scharfen Lauf gehört
+darum **eine Zählung beider Seiten** ins Board, nicht die Erfolgszeile des Werkzeugs
+(Realfall 2026-08-18: 89 Mails kopiert, nicht entfernt, Werkzeug meldete `OK`).
+
 ## Zustandsabhängige Prozesse (der eigentliche Grund für /mailcheck)
 
 Mehrstufige Vorgänge dürfen **nicht** vorab als Drafts durchgestellt werden — jede Stufe
@@ -193,6 +277,50 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 - **Identität vor Löschauftrag:** ohne bestätigte Identität des Betroffenen **kein**
   Löschauftrag an die Firma.
 
+## Links erzeugen, nicht tippen (NEU 2026-08-25)
+
+Ein Link im Board oder in der Antwort an den Owner wird **nie von Hand
+zusammengesetzt**. Er kommt aus `board.py --render` (Vorgangs-Links) oder folgt der
+vollqualifizierten Mail-Route — und geht vor dem Absenden durch den Prüfer:
+
+```bash
+python3 tools/mail_agent/link_pruefen.py --datei <antwort.md>   # Exit 0 oder es geht nichts raus
+python3 tools/mail_agent/link_pruefen.py <url> [<url> …]
+```
+
+**Der Standard ist streng, und das ist Absicht.** Ein Link auf einem Hostnamen, den
+die Ingress-Liste nicht kennt, gilt als **ungeprüft** und damit als Fehler — nicht
+als „geht schon". Der Ausgangsfall zeigt, warum: der falsche Link lag auf
+`todo.iil.pet`, einem Host, den die Liste kennt. Läge er auf einem erfundenen, hätte
+eine nachsichtige Variante ihn wortlos durchgewinkt und Exit 0 gemeldet. Wer fremde
+Hosts bewusst erlauben will (etwa eine Antwort mit GitHub-Links), sagt das mit
+`--nachsichtig` — und weiß dann, dass diese Links **nicht** geprüft sind.
+
+Der Prüfer übersetzt den Hostnamen über die cloudflared-Ingress-Liste in seinen
+Loopback-Port und fragt **dort** an. Das ist der einzige Weg, der von dieser
+Maschine aus etwas beweist: von außen steht Cloudflare Access davor und liefert
+**302 für jede Route**, die existierende wie die erfundene.
+
+**Zwei Hostnamen, ein Verwechslungsrisiko** — beide hängen im selben Tunnel:
+
+| Route | Hostname | Dienst |
+|---|---|---|
+| `/t/<thread_key>`, `/a/<nr>` | `todo.iil.pet` | Arbeitsliste, Port 8789 — liest nur das Ledger, **spricht kein IMAP** |
+| `/m/<konto>/<ordner-slug>/<uid>` | `mail.iil.pet` | Mail-Renderer, Port 8787 — holt den Körper live aus dem Postfach |
+
+**Der Ordner-Teil ist Pflicht.** `/m/<konto>/<uid>` funktioniert nur, solange der
+laufende Dienst die Ordnersuche kennt (seit 61f4480d, 2026-08-21) — und ein
+Dienstprozess, der davor gestartet wurde, löst weiter nur gegen INBOX auf. Genau das
+war am 2026-08-25 der Fall: der Prozess lief seit dem 20.08., eine Entwurfs-UID gab
+404. Mit Ordner-Slug (`/m/hnu/entwuerfe/23630`) ist der Link von der Laufzeit des
+Dienstes unabhängig.
+
+**Anlass (2026-08-25):** In einer Antwort an den Owner stand
+`https://todo.iil.pet/m/hnu/23630` auf einen frisch abgelegten Entwurf — falscher
+Hostname, fehlender Ordner, nie geprüft. Der Owner musste ihn anklicken, um den
+Fehler zu finden. Drei Fehler in einem getippten Link; keiner davon hätte den
+Prüfer überlebt.
+
 ## Sicherheit (Lotsen-Charta)
 
 - **Kein Senden, kein Hard-Delete.** Ausgang bleibt beim Menschen; `--trash` ist reversibel (Papierkorb).
@@ -208,6 +336,7 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 - ❌ Folge-Stufen eines Prozesses vorab als Drafts durchstellen (Vorgriff ohne Auslöser-Antwort)
 - ❌ Senden — auch nicht „nur die Bestätigung"
 - ❌ Auslöser-Antwort vermuten statt sie im Postfach zu belegen
+- ❌ Einen Lotsen-Link **tippen** statt ihn erzeugen zu lassen — und ihn von außen (`https://…`) prüfen wollen, wo Cloudflare Access mit 302 antwortet, egal ob die Route existiert
 
 ## Abschluss-Checkliste (PFLICHT — jede Zeile explizit abhaken, #1820 Kriterium 5)
 
@@ -223,6 +352,15 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
       Lücke unsichtbar, sobald das Board „gut aussieht": ein Posten ohne Anker trägt
       keinen Link in seine Mail und meldet das nirgends von selbst.
       Stand beim Einbau (2026-08-10): **11 von 17** ohne Anker.
+- [ ] **Schritt 7a gelaufen** — `ablage_erledigt.py --straenge` mindestens als
+      Trockenlauf, Ergebnis im Board genannt (auch „0 Nachrichten"). Ein Board, das
+      Vorgänge als erledigt führt, während ihre Mails im Posteingang liegen, hat die
+      Aufräum-Hälfte seiner Aufgabe nicht erledigt.
+- [ ] Nach einem scharfen Lauf: **beide Seiten gezählt** (Quelle leer, Ziel voll) — nicht
+      die Erfolgsmeldung des Werkzeugs übernommen
+- [ ] **Jeder Link in der Antwort durch `link_pruefen.py` gelaufen** (Abschnitt „Links
+      erzeugen, nicht tippen") — Exit 0, und die Zahl der geprüften Links im Ergebnis
+      genannt. Ein getippter Link ist kein Link, sondern eine Behauptung.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog

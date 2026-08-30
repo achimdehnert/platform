@@ -77,12 +77,24 @@ LINK_BASIS = "https://mail.iil.pet"
 #: Vorgangsansicht (Verlauf, Stand, Fristen, naheliegende Aktionen).
 TODO_BASIS = "https://todo.iil.pet"
 
+#: Welche Buckets den Stand beschreiben und welche einen Zug verlangen.
+#:
+#: Das ist der Anker, nicht die Liste darunter: Wer einen fuenften Bucket
+#: ergaenzt, muss ihn hier einsortieren, sonst schlaegt der Test fehl. Die
+#: Anzeige-Reihenfolge "erst Stand, dann Zug" folgt daraus und wird nicht
+#: getrennt behauptet.
+#:
+#: Die Regel selbst steht genau einmal, im Antwortformat des Kapitaens-Kanals
+#: (~/.claude/CLAUDE.md, Regel 1). Hier steht nur ihre Umsetzung.
+STAND_BUCKETS = ("erledigt", "warten")
+ZUG_BUCKETS = ("agent", "owner")
+
 #: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
 BUCKETS: list[tuple[str, str]] = [
-    ("owner", "🟢 Offen — dein Zug"),
-    ("agent", "🔵 Offen — ich kann sofort"),
-    ("warten", "🟡 Wartend — Ball liegt aussen"),
     ("erledigt", "✅ Erledigt"),
+    ("warten", "🟡 Wartend — Ball liegt aussen"),
+    ("agent", "🔵 Offen — ich kann sofort"),
+    ("owner", "🟢 Offen — dein Zug"),
 ]
 
 #: Wie lange ein geschlossener Vorgang im Board sichtbar bleibt.

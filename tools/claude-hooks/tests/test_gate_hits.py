@@ -157,3 +157,46 @@ class TestHerkunft:
             },
         ]
         assert "alle 1 Zeile(n) tragen eine session_id" in gate_hits.bericht(treffer)
+
+
+# ── Beurteilbarkeit: ein Treffer ohne Beleg ist kein Datenpunkt ──────────────
+
+
+def test_should_beleg_zitat_in_den_ausschnitt_nehmen(tmp_path):
+    """Der Ausschnitt zentriert auf dem Zitat, nicht auf dem Label.
+
+    Der Marker ist ein Label (`kinds=published-body`) und kommt im Turn nicht
+    vor. Ohne `beleg` stuende im Protokoll das Label — also genau das, was man
+    ohnehin schon weiss.
+    """
+    ziel = tmp_path / "hits.jsonl"
+    turn = "Vorspann " * 30 + "die Suite ist gruen" + " Nachsatz" * 30
+    gate_hits.notiere(
+        "x", "kinds=published-body", turn=turn, beleg="die Suite ist gruen", pfad=ziel
+    )
+    eintrag = json.loads(ziel.read_text(encoding="utf-8").splitlines()[-1])
+    assert "die Suite ist gruen" in eintrag["ausschnitt"]
+
+
+def test_should_ohne_beleg_wenigstens_den_turn_anfang_sichern(tmp_path):
+    """Rueckfall: Label nicht im Text ⇒ Anfang des Turns statt Label-Echo.
+
+    Realfall 2026-08-23: alle 59 protokollierten Treffer von
+    `claim-before-cheapest-check` hatten einen leeren Ausschnitt, weil der
+    Scanner `turn=` gar nicht mitgab. Zaehlbar waren sie, beurteilbar nicht —
+    und ein Fenster, das man nicht beurteilen kann, kann nichts scharfschalten.
+    """
+    ziel = tmp_path / "hits.jsonl"
+    gate_hits.notiere(
+        "x", "kinds=absence-claim", turn="Es gibt dazu kein Issue.", pfad=ziel
+    )
+    eintrag = json.loads(ziel.read_text(encoding="utf-8").splitlines()[-1])
+    assert "kein Issue" in eintrag["ausschnitt"]
+
+
+def test_should_ohne_turn_den_marker_behalten(tmp_path):
+    """Ganz ohne Turn bleibt der Marker — schlechter als ein Zitat, besser als leer."""
+    ziel = tmp_path / "hits.jsonl"
+    gate_hits.notiere("x", "kinds=absence-claim", pfad=ziel)
+    eintrag = json.loads(ziel.read_text(encoding="utf-8").splitlines()[-1])
+    assert eintrag["ausschnitt"] == "kinds=absence-claim"

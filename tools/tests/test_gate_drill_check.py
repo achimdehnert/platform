@@ -113,3 +113,60 @@ def test_should_modullosem_nicht_meta_gate_widersprechen(tmp_path):
     """Gegenprobe: ausserhalb von `meta` bleibt ein fehlendes Modul ein Befund."""
     r = _run(_reg_mit(tmp_path, {"slug": "quer", "mode": "advisory", "module": ""}))
     assert "kein `module` in der Registry" in r.stdout, r.stdout
+
+
+# --- Fremd verankerte Gates (platform#2429) ---------------------------------
+#
+# Die Klassen dieser Flotte entstehen in den Hub-Repos, und ihr natuerliches Gate
+# ist ein Test in ebendiesem Repo. Bis 2026-08-29 konnte die Registry das nicht
+# fuehren: ein Eintrag mit fremdem Pfad wurde als "NICHT GEBAUT" zurueckgestuft --
+# eine Aussage ueber die Ausfuehrbarkeit HIER, gelesen als Aussage ueber die
+# Wirksamkeit DORT. Realfall `built-but-never-called` (ausschreibungs-hub#278).
+
+
+def _fremd_registry(tmp_path, **abweichung):
+    eintrag = {
+        "slug": "fremd",
+        "mode": "blocking",
+        "repo": "iilgmbh/ausschreibungs-hub",
+        "module": "tests/test_x.py",
+        "drill": "tests/test_x.py",
+        "ref": "iilgmbh/ausschreibungs-hub#278",
+    }
+    eintrag.update(abweichung)
+    reg = tmp_path / "reg.json"
+    reg.write_text(json.dumps({"gates": [eintrag]}), encoding="utf-8")
+    return reg
+
+
+def test_should_fremdes_gate_nicht_als_nicht_gebaut_zaehlen(tmp_path):
+    """Der Pfad liegt nicht in diesem Arbeitsbaum — das macht das Gate nicht tot."""
+    r = _run(_fremd_registry(tmp_path))
+
+    assert r.returncode == 0
+    assert "K4: NICHT GEBAUT" not in r.stdout, r.stdout
+    assert "fremd verankert in iilgmbh/ausschreibungs-hub" in r.stdout
+    assert "alle registrierten Gates Drill-frisch" in r.stdout
+
+
+def test_should_beim_fremden_gate_den_beleg_verlangen(tmp_path):
+    """Ohne `ref` waere `repo` bloss ein Weg, sich der Pruefung zu entziehen."""
+    r = _run(_fremd_registry(tmp_path, ref=""))
+
+    assert r.returncode == 0
+    assert "ohne `ref`" in r.stdout, r.stdout
+    assert "zurückgestuft" in r.stdout
+
+
+def test_should_beim_fremden_gate_den_pfad_verlangen(tmp_path):
+    r = _run(_fremd_registry(tmp_path, drill=""))
+
+    assert r.returncode == 0
+    assert "ohne `drill`" in r.stdout, r.stdout
+
+
+def test_should_ein_platform_gate_weiterhin_wirklich_drillen(tmp_path):
+    """Gegenprobe: `repo: platform` (oder fehlend) laeuft unveraendert durch den Drill."""
+    r = _run(_fremd_registry(tmp_path, repo="platform", drill="gibt/es/nicht.py"))
+
+    assert "K4: NICHT GEBAUT" in r.stdout and "Drill-Datei fehlt" in r.stdout

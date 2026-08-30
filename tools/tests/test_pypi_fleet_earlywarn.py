@@ -9,9 +9,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pypi_fleet_earlywarn import (  # noqa: E402
+    ADR278_DATE,
     eol_status,
     parse_requires_python,
     parse_reusable_refs,
+    unattested_release_finding,
     version_coupled,
 )
 
@@ -52,3 +54,67 @@ def test_should_order_semver_tags():
     assert semver_key("v1.1.11") > semver_key("v1.1.10") > semver_key("v1.1.0")
     assert semver_key("v1") == (1, 0, 0)
     assert semver_key("main") is None
+
+
+# --------------------------------------------------------------------------
+# K4 unattested_release (KONZ-platform-052 V10, ADR-278)
+# --------------------------------------------------------------------------
+
+
+def test_should_flag_unattested_release_after_adr278():
+    pkg = {
+        "pypi": {
+            "provenance": {"status": "unattested", "version": "0.6.0"},
+            "last_upload": "2026-08-26T10:00:00Z",
+        }
+    }
+    finding = unattested_release_finding(pkg)
+    assert finding is not None
+    assert finding.startswith("K4 unattested_release:")
+    assert "0.6.0" in finding
+
+
+def test_should_not_flag_unattested_release_before_adr278():
+    pkg = {
+        "pypi": {
+            "provenance": {"status": "unattested", "version": "0.4.1"},
+            "last_upload": "2026-06-01T10:00:00Z",
+        }
+    }
+    assert unattested_release_finding(pkg) is None
+
+
+def test_should_not_flag_release_exactly_on_adr278_date():
+    pkg = {
+        "pypi": {
+            "provenance": {"status": "unattested", "version": "0.1.0"},
+            "last_upload": f"{ADR278_DATE.isoformat()}T00:00:00Z",
+        }
+    }
+    assert unattested_release_finding(pkg) is None
+
+
+def test_should_not_flag_attested_release():
+    pkg = {
+        "pypi": {
+            "provenance": {"status": "attested", "version": "0.5.0"},
+            "last_upload": "2026-08-21T10:00:00Z",
+        }
+    }
+    assert unattested_release_finding(pkg) is None
+
+
+def test_should_not_flag_unbekannt_status_as_finding():
+    """🌀 unbekannt ist keine Abwesenheit — es darf nie wie unattested gemeldet werden."""
+    pkg = {
+        "pypi": {
+            "provenance": {"status": "unbekannt", "version": "0.1.0"},
+            "last_upload": "2026-08-26T10:00:00Z",
+        }
+    }
+    assert unattested_release_finding(pkg) is None
+
+
+def test_should_not_flag_without_provenance_data():
+    assert unattested_release_finding({"pypi": {}}) is None
+    assert unattested_release_finding({}) is None

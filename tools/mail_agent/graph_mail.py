@@ -94,8 +94,26 @@ TOKEN_DIR = Path.home() / ".claude" / "graph-mail-tokens"
 DEFAULT_CLIENT_ID = (
     "14d82eec-204b-4c2f-b7e8-296a70dab67e"  # MS Graph Command Line Tools (public)
 )
-SCOPES = "Mail.ReadWrite offline_access openid profile"
+# Mail.ReadWrite.Shared ist der Scope fuer FREMDE Postfaecher (/users/<adresse>/).
+# Mail.ReadWrite allein deckt nur /me ab — am 2026-08-25 gemessen: ohne .Shared
+# antwortet Graph auf /users/<freigegebenes Postfach>/mailFolders mit
+# ErrorAccessDenied, und zwar auch dann, wenn der Benutzer in Exchange
+# Vollzugriff hat und dasselbe Postfach in Outlook Web problemlos oeffnet.
+SCOPES = "Mail.ReadWrite Mail.ReadWrite.Shared offline_access openid profile"
 GRAPH = "https://graph.microsoft.com/v1.0"
+
+# Postfach, auf das sich die Aufrufe beziehen. None = das angemeldete eigene
+# Postfach (/me). Ein freigegebenes Postfach wird ueber /users/<adresse>/
+# angesprochen und braucht BEIDES: den Scope Mail.ReadWrite.Shared im Token
+# (siehe SCOPES) und Vollzugriff des angemeldeten Benutzers in Exchange. Fehlt
+# eines davon, antwortet Graph mit ErrorAccessDenied — _postfach_pruefen()
+# faengt das ab, bevor irgendetwas gemeldet wird.
+POSTFACH: str | None = None
+
+
+def _basis() -> str:
+    """Basis-URL: das eigene Postfach oder ein freigegebenes."""
+    return f"{GRAPH}/me" if POSTFACH is None else f"{GRAPH}/users/{POSTFACH}"
 
 
 def parse_env(path: Path) -> dict:
@@ -206,6 +224,29 @@ def token(cfg: dict, acc: str) -> str | None:
     return b["access_token"]
 
 
+def _daten(r, kontext: str) -> dict:
+    """Antwortkoerper als Daten — oder ein Abbruch mit benannter Ursache.
+
+    `_http(...).json()` gibt auch Fehlerantworten als Wortverzeichnis zurueck.
+    Wer davon `.get("value", [])` liest, macht aus einem `ErrorAccessDenied`
+    eine leere Liste: Nichtzugriff und leeres Postfach werden ununterscheidbar.
+    Genau so wurden am 2026-08-25 drei Postfaecher als „erreichbar, leer"
+    gemeldet, auf die der Zugriff nie bestand — der Fehler fiel erst auf, weil
+    der Owner dasselbe Postfach im Browser oeffnete.
+
+    Ein Melder, der Nichtzugriff als Nichts meldet, ist schlimmer als keiner:
+    er beruhigt. Deshalb liegt die Pruefung hier an der Wurzel und nicht bei
+    jedem einzelnen Aufrufer, der sie vergessen kann.
+    """
+    body = r.json()
+    if isinstance(body, dict) and "error" in body:
+        fehler = body["error"]
+        code = fehler.get("code", "?") if isinstance(fehler, dict) else str(fehler)
+        text = fehler.get("message", "") if isinstance(fehler, dict) else ""
+        sys.exit(f"FEHLER: {kontext} — Graph antwortet {code}: {text[:160]}")
+    return body
+
+
 def _auth(tok: str) -> dict:
     return {"Authorization": f"Bearer {tok}"}
 
@@ -227,13 +268,13 @@ def _folders(tok: str) -> list[dict]:
 
     def walk(parent_id: str | None, prefix: str):
         url = (
-            f"{GRAPH}/me/mailFolders"
+            f"{_basis()}/mailFolders"
             if parent_id is None
-            else f"{GRAPH}/me/mailFolders/{parent_id}/childFolders"
+            else f"{_basis()}/mailFolders/{parent_id}/childFolders"
         )
         url += "?$top=100&$select=id,displayName,childFolderCount"
         r = _http("GET", url, headers=_auth(tok))
-        for f in r.json().get("value", []):
+        for f in _daten(r, "Ordner lesen").get("value", []):
             path = f["displayName"] if not prefix else f"{prefix}/{f['displayName']}"
             out.append({"id": f["id"], "path": path, "name": f["displayName"]})
             if f.get("childFolderCount", 0):
@@ -257,9 +298,9 @@ def ensure_path(tok: str, path: str) -> str:
         fid = find_folder(tok, prefix)
         if fid is None:
             url = (
-                f"{GRAPH}/me/mailFolders"
+                f"{_basis()}/mailFolders"
                 if parent_id is None
-                else f"{GRAPH}/me/mailFolders/{parent_id}/childFolders"
+                else f"{_basis()}/mailFolders/{parent_id}/childFolders"
             )
             r = _http("POST", url, headers=_auth(tok), json_body={"displayName": part})
             if r.status_code not in (200, 201):
@@ -284,7 +325,7 @@ def cmd_move_folder(tok: str, src_path: str, dest_parent_path: str) -> None:
     dest_id = ensure_path(tok, dest_parent_path)
     r = _http(
         "POST",
-        f"{GRAPH}/me/mailFolders/{src_id}/move",
+        f"{_basis()}/mailFolders/{src_id}/move",
         headers=_auth(tok),
         json_body={"destinationId": dest_id},
     )
@@ -317,13 +358,13 @@ def cmd_scan(tok: str, days: int, source_path: str = "inbox") -> None:
     label = "Posteingang" if src == "inbox" else source_path
     since = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() - days * 86400))
     url = (
-        f"{GRAPH}/me/mailFolders/{src}/messages?$top=200&$select=from"
+        f"{_basis()}/mailFolders/{src}/messages?$top=200&$select=from"
         f"&$filter=receivedDateTime ge {since}"
     )
     dom = Counter()
     while url:
         r = _http("GET", url, headers=_auth(tok))
-        j = r.json()
+        j = _daten(r, "Absender sammeln")
         for m in j.get("value", []):
             addr = ((m.get("from") or {}).get("emailAddress") or {}).get("address", "")
             if "@" in addr:
@@ -359,7 +400,7 @@ def _match_messages(
     hits, url = (
         [],
         (
-            f"{GRAPH}/me/mailFolders/{src}/messages?$top=100"
+            f"{_basis()}/mailFolders/{src}/messages?$top=100"
             "&$select=id,subject,from,receivedDateTime,categories"
             f"&$filter=receivedDateTime ge {since}"
             "&$orderby=receivedDateTime desc"
@@ -369,7 +410,7 @@ def _match_messages(
     ohne_smtp = 0  # Absenderfeld ohne "@": Exchange-X.500-DN oder leer (Entwuerfe)
     while url:
         r = _http("GET", url, headers=_auth(tok))
-        j = r.json()
+        j = _daten(r, "Nachrichten abgleichen")
         for m in j.get("value", []):
             gesehen += 1
             em = (m.get("from") or {}).get("emailAddress") or {}
@@ -481,7 +522,7 @@ def download_attachments(
     """
     r = _http(
         "GET",
-        f"{GRAPH}/me/messages/{urllib.parse.quote(msg_id, safe='')}/attachments",
+        f"{_basis()}/messages/{urllib.parse.quote(msg_id, safe='')}/attachments",
         headers=_auth(tok),
     )
     if r.status_code != 200:
@@ -525,8 +566,8 @@ def cmd_show(
         mid = which
     r = _http(
         "GET",
-        f"{GRAPH}/me/messages/{urllib.parse.quote(mid, safe='')}"
-        "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+        f"{_basis()}/messages/{urllib.parse.quote(mid, safe='')}"
+        "?$select=subject,from,toRecipients,ccRecipients,receivedDateTime,body,hasAttachments",
         headers=_auth(tok),
     )
     if r.status_code != 200:
@@ -539,6 +580,13 @@ def cmd_show(
         ((t.get("emailAddress") or {}).get("address", ""))
         for t in m.get("toRecipients", [])
     )
+    # Ohne diese Zeile kann ein Versandbeleg den Cc nicht belegen — er stand nur
+    # im Schreibpfad. Realfall 2026-08-28: ein Issue-Kommentar fuehrte "Versand
+    # belegt ... Cc X", obwohl kein Aufruf dieses Werkzeugs den Cc je zeigte.
+    ccs = ", ".join(
+        ((c.get("emailAddress") or {}).get("address", ""))
+        for c in m.get("ccRecipients", [])
+    )
     body = m.get("body") or {}
     text = body.get("content", "")
     if (body.get("contentType") or "").lower() == "html":
@@ -546,6 +594,8 @@ def cmd_show(
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     print(f"Von:     {em.get('name', '')} <{em.get('address', '')}>")
     print(f"An:      {tos}")
+    if ccs:
+        print(f"Cc:      {ccs}")
     print(f"Datum:   {m.get('receivedDateTime', '')}")
     print(f"Betreff: {m.get('subject', '')}")
     print("--- Body ---")
@@ -578,13 +628,13 @@ def _find_messages(tok: str, from_sub: str, source_path: str, subject_sub: str =
     hits, url = (
         [],
         (
-            f"{GRAPH}/me/mailFolders/{src}/messages?$top=100"
+            f"{_basis()}/mailFolders/{src}/messages?$top=100"
             "&$select=id,subject,from,receivedDateTime"
         ),
     )
     while url:
         r = _http("GET", url, headers=_auth(tok))
-        j = r.json()
+        j = _daten(r, "Nachrichten lesen")
         for m in j.get("value", []):
             addr = ((m.get("from") or {}).get("emailAddress") or {}).get("address", "")
             name = ((m.get("from") or {}).get("emailAddress") or {}).get("name", "")
@@ -648,7 +698,7 @@ def cmd_move(
         for mid in nur_ids:
             r = _http(
                 "GET",
-                f"{GRAPH}/me/messages/{mid}"
+                f"{_basis()}/messages/{mid}"
                 "?$select=id,subject,receivedDateTime,from",
                 headers=_auth(tok),
             )
@@ -690,7 +740,7 @@ def cmd_move(
         for mid, *_ in hits:
             r = _http(
                 "POST",
-                f"{GRAPH}/me/messages/{mid}/move",
+                f"{_basis()}/messages/{mid}/move",
                 headers=_auth(tok),
                 json_body={"destinationId": dest},
             )
@@ -731,7 +781,7 @@ def cmd_move(
     for mid, *_ in hits:
         r = _http(
             "POST",
-            f"{GRAPH}/me/messages/{mid}/move",
+            f"{_basis()}/messages/{mid}/move",
             headers=_auth(tok),
             json_body={"destinationId": dest},
         )
@@ -805,7 +855,7 @@ def cmd_mark(
     for m in hits:
         r = _http(
             "PATCH",
-            f"{GRAPH}/me/messages/{urllib.parse.quote(m['id'], safe='')}",
+            f"{_basis()}/messages/{urllib.parse.quote(m['id'], safe='')}",
             headers=_auth(tok),
             json_body=patch,
         )
@@ -828,7 +878,7 @@ def cmd_trash(tok: str, msg_id: str) -> None:
     """
     r = _http(
         "POST",
-        f"{GRAPH}/me/messages/{msg_id}/move",
+        f"{_basis()}/messages/{msg_id}/move",
         headers=_auth(tok),
         json_body={"destinationId": "deleteditems"},
     )
@@ -872,7 +922,7 @@ def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
         payload = _file_attachment_payload(path)
         r = _http(
             "POST",
-            f"{GRAPH}/me/messages/{msg_id}/attachments",
+            f"{_basis()}/messages/{msg_id}/attachments",
             headers=_auth(tok),
             json_body=payload,
         )
@@ -1058,7 +1108,7 @@ def cmd_kategorisieren(
             continue
         r = _http(
             "PATCH",
-            f"{GRAPH}/me/messages/{urllib.parse.quote(m['id'], safe='')}",
+            f"{_basis()}/messages/{urllib.parse.quote(m['id'], safe='')}",
             headers=_auth(tok),
             json_body={"categories": nachher},
         )
@@ -1115,7 +1165,7 @@ def cmd_draft(
     if reply_to:
         r = _http(
             "POST",
-            f"{GRAPH}/me/messages/{reply_to}/createReply",
+            f"{_basis()}/messages/{reply_to}/createReply",
             headers=_auth(tok),
             json_body={},
         )
@@ -1146,7 +1196,7 @@ def cmd_draft(
         if cc:
             patch["ccRecipients"] = _empfaenger(cc)
         _http(
-            "PATCH", f"{GRAPH}/me/messages/{did}", headers=_auth(tok), json_body=patch
+            "PATCH", f"{_basis()}/messages/{did}", headers=_auth(tok), json_body=patch
         )
         if attach:
             _attach_files(tok, did, attach)
@@ -1162,7 +1212,7 @@ def cmd_draft(
     }
     if cc:
         body_json["ccRecipients"] = _empfaenger(cc)
-    r = _http("POST", f"{GRAPH}/me/messages", headers=_auth(tok), json_body=body_json)
+    r = _http("POST", f"{_basis()}/messages", headers=_auth(tok), json_body=body_json)
     if r.status_code not in (200, 201):
         sys.exit(
             f"FEHLER: Entwurf anlegen fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}"
@@ -1180,6 +1230,37 @@ def cmd_attach_to(tok: str, msg_id: str, attach: list[str]) -> None:
     print(
         f"OK: {len(attach)} Anhang/Anhänge an Entwurf {msg_id[:12]}… gehängt (NICHT gesendet). "
         "Prüfe und sende ihn selbst aus Outlook."
+    )
+
+
+def _postfach_pruefen(cfg: dict, args) -> None:
+    """Fremdes Postfach EINMAL laut pruefen, bevor irgendetwas gemeldet wird.
+
+    Der Grund steht in einem konkreten Fehlgriff vom 2026-08-25: `_http(...).json()`
+    liefert auch Fehlerkoerper als Wortverzeichnis zurueck. Ein Aufrufer, der
+    `body.get("value", [])` liest, macht daraus eine leere Liste — und ein
+    `ErrorAccessDenied` sieht am Ende exakt aus wie ein leeres Postfach. Genau so
+    wurde dreimal „erreichbar, leer" gemeldet, wo in Wahrheit gar kein Zugriff
+    bestand. Ein Melder, der Nichtzugriff als Nichts meldet, ist schlimmer als
+    keiner: er beruhigt.
+
+    Darum bricht dieser Aufruf ab, statt still weiterzulaufen.
+    """
+    tok = token(cfg, args.account or cfg["accounts"][0])
+    if not tok:
+        sys.exit(f"FEHLER: nicht angemeldet — erst: --login {args.account or cfg['accounts'][0]}")
+    body = _http("GET", f"{_basis()}/mailFolders?$top=1", headers=_auth(tok)).json()
+    if "error" not in body:
+        return
+    code = body["error"].get("code", "?")
+    sys.exit(
+        f"FEHLER: kein Zugriff auf {POSTFACH} ({code}).\n"
+        "Zwei Ursachen kommen in Frage, beide muessen erfuellt sein:\n"
+        "  1. OAuth-Scope: dieser Zugang braucht Mail.ReadWrite.Shared. Fehlt er im\n"
+        "     gespeicherten Token, hilft nur ein neuer --login (Zustimmung erneut erteilen).\n"
+        "  2. Exchange-Berechtigung: der angemeldete Benutzer braucht Vollzugriff auf\n"
+        "     das Postfach. Gegenprobe im Browser: https://outlook.office.com/mail/"
+        f"{POSTFACH}/ — oeffnet sich das Postfach dort nicht, fehlt der Vollzugriff."
     )
 
 
@@ -1266,6 +1347,11 @@ def main() -> None:
     )
     ap.add_argument("--to-parent", help="Ziel-Elternordner bei --move-folder")
     ap.add_argument("--account")
+    ap.add_argument(
+        "--postfach",
+        help="freigegebenes Postfach statt des eigenen (z.B. buchhaltung@iil.gmbh); "
+        "setzt Vollzugriff des angemeldeten Benutzers voraus",
+    )
     ap.add_argument("--days", type=int, default=180)
     ap.add_argument("--from", dest="from_sub")
     ap.add_argument("--to")
@@ -1308,6 +1394,9 @@ def main() -> None:
         help="Kopfzeile über der Anrede bei --design (Default: Betreff)",
     )
     args = ap.parse_args()
+    if getattr(args, "postfach", None):
+        globals()["POSTFACH"] = args.postfach
+        _postfach_pruefen(load_cfg(), args)
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except AttributeError:
