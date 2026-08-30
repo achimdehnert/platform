@@ -3056,3 +3056,26 @@ Actions-Ausfall gelesen, Inline-Python an Anfuehrungszeichen (2x). Zwei Subagent
 einer 2 h statt 60 min. Phase 0g: Verankerungs-Pruefer im Hintergrund gestartet (Ergebnis
 im Abschlussbericht der Sitzung, nicht hier — bei Timeout: NICHT PRUEFBAR, von Hand gegengelesen:
 jede Vertagung traegt ein Issue: #2440, #2442, #2454, robo-lab#5/#33).
+
+## 2026-08-30 nachts — zwei Werkzeugdefekte am Merge-Pfad, beide PRs an @wirdigital haengend
+
+Fortsetzung der Offen-Liste vom 2026-08-29 mittag. #2440 (`pr_merge_sa` las Regel-Existenz
+statt Regel-Inhalt) und #2442 (bot-review verlor Kandidaten ohne Zeilenende) behoben,
+je mit Falsifikation gegen den Vor-Fix-Stand: #2440 fuenf neue Tests inkl. Urteils-Wirkung,
+#2442 vier von fuenf Tests rot vor dem Fix. Volle Suite 2867 passed / 3 skipped.
+PRs #2460 und #2461, alle Checks SUCCESS.
+
+Merge nicht moeglich: Ruleset `main-required-checks` (17621471) hat `bypass_actors: []`,
+`--admin` wirkt fuer niemanden; `/tools/pr_merge_sa.py` und `/.github/` sind in CODEOWNERS
+bewusst ohne den Bot gefuehrt. Owner-Freigabe zum Merge lag vor und konnte mechanisch
+nichts bewirken — der Fehler war meiner: `--admin` angeboten, ohne die Bypass-Actors
+vorher zu lesen.
+
+Ursachenkorrektur zu #2442: die Issue-Hypothese (schedule sieht andere PRs als dispatch)
+ist widerlegt. `"\n".join(...)` schrieb die letzte Zeile ohne Trenner; `while read` gibt
+dann 1 zurueck und der Rumpf laeuft nicht. Bei einem Kandidaten faellt er ganz aus.
+Live bestaetigt im Lauf 33279534904, der #2460 als einzigen Kandidaten stumm verlor.
+
+Phase 0g: `verankerung_pruefer.py` beide Male in 240 s Timeout gelaufen (ollama erreichbar)
+— NICHT PRUEFBAR, keine gruene Aussage. Von Hand gegengelesen: die einzige Vertagung
+(Gegenprobe am lebenden Werkzeug) traegt jetzt ein eigenes Issue, #2464, im PR verlinkt.
