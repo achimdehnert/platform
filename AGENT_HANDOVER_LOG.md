@@ -3086,3 +3086,14 @@ redundant zu v1.1.12 bewiesen (12/12 Gruppen upstream) und verworfen, Klon clean
 Go 21 NICHT vollzogen: Tag-Push classifier-geblockt, API-Weg vom Owner abgelehnt --
 v1.1.13 existiert nirgends; Ein-Zeiler + Rollout im #2428-Kommentar. writing-hub-Deploy
 success (4ea6efb); coach-hub nach #70 konsolidiert (#72 Duplikat, zu).
+
+## 2026-08-30 nachmittags — KONZ-051 Kill-Gate + aifw-Wurzel
+
+Aus „Stand second-brain partner" wurde: K1 8/9 (#2497), K2 0/1 (#2499), K3 (#2512),
+K9 (#2490) — K7/K8 bleiben offen, Frist 30.09. Der Falsifikator fragt jetzt dreimal
+und legt die Streuung offen (#2492). A/B gegen OpenAI-Frontier gefahren: das neueste
+Modell (gpt-5.6-terra) faellt durch K9, T1a bleibt. Klassen-Gate in writing-hub#903
+fand drei weitere Meldestellen. Dahinter der eigentliche Fund: aifws
+Cache-Invalidierung feuerte nie (4 Eintraege, 0 lebende Empfaenger, weak=True) —
+aifw#56, veroeffentlicht als iil-aifw 0.13.1. Flotten-Bump 1 von 12 (writing-hub#906),
+Rest wegen Host-Last 11-20 bewusst gestoppt; Deploy-Plan in #2502.
