@@ -3079,3 +3079,10 @@ Live bestaetigt im Lauf 33279534904, der #2460 als einzigen Kandidaten stumm ver
 Phase 0g: `verankerung_pruefer.py` beide Male in 240 s Timeout gelaufen (ollama erreichbar)
 — NICHT PRUEFBAR, keine gruene Aussage. Von Hand gegengelesen: die einzige Vertagung
 (Gegenprobe am lebenden Werkzeug) traegt jetzt ein eigenes Issue, #2464, im PR verlinkt.
+
+## 2026-08-30 frueh — Nachtrag zu #2428 (Owner-Gos 21/27/28, Session 6399d6fd)
+Go 27: risk-hub#716 angelegt + Journal verankert. Go 28: staged shared-ci-Patch als
+redundant zu v1.1.12 bewiesen (12/12 Gruppen upstream) und verworfen, Klon clean.
+Go 21 NICHT vollzogen: Tag-Push classifier-geblockt, API-Weg vom Owner abgelehnt --
+v1.1.13 existiert nirgends; Ein-Zeiler + Rollout im #2428-Kommentar. writing-hub-Deploy
+success (4ea6efb); coach-hub nach #70 konsolidiert (#72 Duplikat, zu).
