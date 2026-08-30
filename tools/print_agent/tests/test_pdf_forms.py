@@ -251,3 +251,103 @@ def test_should_carry_the_intended_width_through_the_placeholder():
 def test_should_leave_fenced_code_untouched_in_the_markdown_step():
     quelle = "```\ntabelle_____spalte\n```\n"
     assert pf.markdown_mit_platzhaltern(quelle) == quelle
+
+
+# ── Anklickbarkeit: das Widget-Rechteck ──────────────────────────────────────
+#
+# Die Uebersetzung nach oben erzeugt Felder, die ein PDF-Parser findet — das
+# belegt aber NICHT, dass ein Mensch sie anklicken kann. WeasyPrint 68.1
+# schreibt jedes Rechteck als [x1, y_oben, x2, y_unten] (verdrehte y-Achse) und
+# nimmt die Content-Box: bei einem Kaestchen mit Rahmen bleiben davon rund
+# 3,6 pt Trefferflaeche. Beides zusammen liess einen realen Erfassungsbogen am
+# 2026-08-26 mit 77 gefundenen, aber toten Feldern dastehen.
+
+
+def test_should_turn_a_flipped_rectangle_the_right_way_round():
+    """y1 > y2 ist die Schreibweise, die Viewer als leeres Rechteck lesen."""
+    assert pf._rect_nachbessern([10.0, 100.0, 20.0, 90.0], "/Tx")[1] < 100.0
+    x1, y1, x2, y2 = pf._rect_nachbessern([10.0, 100.0, 20.0, 90.0], "/Tx")
+    assert x1 < x2 and y1 < y2
+
+
+def test_should_grow_a_tiny_checkbox_to_a_clickable_size():
+    x1, y1, x2, y2 = pf._rect_nachbessern([10.0, 103.6, 13.6, 100.0], "/Btn")
+    assert x2 - x1 >= pf.MIN_KASTEN_PT
+    assert y2 - y1 >= pf.MIN_KASTEN_PT
+
+
+def test_should_keep_the_checkbox_centred_while_growing_it():
+    """Waechst der Kasten einseitig, rutscht er von seinem gezeichneten Rahmen weg."""
+    alt = [10.0, 100.0, 13.6, 103.6]
+    neu = pf._rect_nachbessern(alt, "/Btn")
+    assert (neu[0] + neu[2]) / 2 == pytest.approx((alt[0] + alt[2]) / 2)
+    assert (neu[1] + neu[3]) / 2 == pytest.approx((alt[1] + alt[3]) / 2)
+
+
+def test_should_not_shrink_a_checkbox_that_is_already_big_enough():
+    alt = [10.0, 100.0, 30.0, 120.0]
+    assert pf._rect_nachbessern(alt, "/Btn") == alt
+
+
+def test_should_grow_a_text_field_upwards_only():
+    """Die Grundlinie ist der gezeichnete Unterstrich — sie darf nicht wandern."""
+    neu = pf._rect_nachbessern([10.0, 100.0, 80.0, 102.0], "/Tx")
+    assert neu[1] == 100.0
+    assert neu[3] - neu[1] >= pf.MIN_TEXT_HOEHE_PT
+
+
+def test_should_leave_a_wide_text_field_alone():
+    alt = [10.0, 100.0, 80.0, 115.0]
+    assert pf._rect_nachbessern(alt, "/Tx") == alt
+
+
+# ── Querformat ───────────────────────────────────────────────────────────────
+
+
+def test_should_only_switch_to_landscape_when_asked():
+    assert pf.querformat_gewuenscht({"querformat": "true"})
+    assert pf.querformat_gewuenscht({"querformat": ["ja"]})
+    assert pf.querformat_gewuenscht({"landscape": "yes"})
+    assert not pf.querformat_gewuenscht({})
+    assert not pf.querformat_gewuenscht({"querformat": "nein"})
+
+
+# ── End-to-End: sind die Felder im fertigen PDF wirklich erreichbar? ─────────
+
+
+@pytest.mark.slow
+def test_should_produce_clickable_rectangles_in_the_finished_pdf(tmp_path):
+    """Die eigentliche Zusage des Bogens: man kann hineinklicken.
+
+    Geprueft am fertigen PDF, nicht am HTML — die Ursache lag unterhalb von CSS.
+    """
+    pdf = _erzeuge(
+        tmp_path,
+        "forms: true\n\n# Probe\n\n| Nr. | umgesetzt | seit |\n|---|---|---|\n"
+        "| 1 | ☐ | ______ |\n",
+    )
+    reader = _pdf_reader()(str(pdf))
+    rechtecke = [
+        (a.get_object().get("/FT"), [float(v) for v in a.get_object()["/Rect"]])
+        for seite in reader.pages
+        for a in seite.get("/Annots") or []
+        if a.get_object().get("/Subtype") == "/Widget"
+    ]
+    assert rechtecke, "keine Widgets im PDF"
+    for feldtyp, (x1, y1, x2, y2) in rechtecke:
+        assert x2 > x1 and y2 > y1, f"{feldtyp}: verdrehtes Rechteck"
+        mindest = pf.MIN_KASTEN_PT if feldtyp == "/Btn" else pf.MIN_TEXT_HOEHE_PT
+        assert y2 - y1 >= mindest - 0.01, f"{feldtyp}: nur {y2 - y1:.1f} pt hoch"
+
+
+@pytest.mark.slow
+def test_should_keep_the_page_upright_without_the_landscape_opt_in(tmp_path):
+    """Negativprobe — sonst belegt der Querformat-Pfad nur, dass IRGENDWAS kippt."""
+    hoch = _pdf_reader()(str(_erzeuge(tmp_path, "# Probe\n\nText.\n"))).pages[0]
+    breite = float(hoch.mediabox.width)
+    quer_dir = tmp_path / "quer"
+    quer_dir.mkdir()
+    quer = _pdf_reader()(
+        str(_erzeuge(quer_dir, "querformat: true\n\n# Probe\n\nText.\n"))
+    ).pages[0]
+    assert float(quer.mediabox.width) > breite

@@ -509,12 +509,14 @@ auf und ließ dabei offen, was heute wirkt und was erst noch gebaut werden muss:
 | Enterprise-Security-Posture (Secret Scanning, Push Protection; Config 17 als Default-for-new) | **wirkt sofort** — die Org ist Enterprise-Mitglied, es ist nichts einzurichten |
 | Eigentümer-Kontinuität | **belegt seit 2026-08-24** — `wirdigital` hat mit eigener Anmeldung Team und Repo-Recht angelegt (Audit-Log: `team.create`/`add_member`/`add_repository`, `actor: wirdigital`). Recovery-Weg owner-attestiert, nicht messbar (V1) |
 | Rechtevergabe über Teams | **wirkt seit 2026-08-24** — Team `maintainers`, besetzt, trägt `maintain` auf `risk-hub` (V2) |
-| 2FA-Pflicht | **wirkt seit 2026-08-24** in `iilgmbh` und `bahn-sqf` (V3); `ttz-lif`/`meiki-lra` offen |
+| 2FA-Pflicht | **wirkt seit 2026-08-24 in allen vier Member-Orgs** (V3) — `iilgmbh`, `bahn-sqf`, `ttz-lif`, `meiki-lra` je `true` |
 | **Org-Secrets** einmal statt je Repo | **wirkt sofort** — neun sind angelegt und in Benutzung, darunter `DEPLOY_*`, `STAGING_*`, `PYPI_API_TOKEN` |
-| Org-Rulesets einmal statt je Repo | **unrealisiert** — `gh api orgs/iilgmbh/rulesets` → `[]` |
+| Org-Rulesets einmal statt je Repo | **wirkt seit 2026-08-24** — Ruleset `default-branch-schutz` (ID 21308574), `~ALL` Repos, `~DEFAULT_BRANCH`, blockt `deletion` und `non_fast_forward`, `enforcement: active` |
 
-**Stand am Abend des 2026-08-24: fünf von sechs Zeilen wirken.** Als der Entwurf
-geschrieben wurde, war es eine. Offen ist allein die Ruleset-Zeile.
+**Stand am Abend des 2026-08-24: alle sechs Zeilen wirken.** Als der Entwurf am Vormittag
+geschrieben wurde, war es eine. Die Vorteile, mit denen der ADR argumentiert, sind damit
+nicht mehr potenziell, sondern eingerichtet — und die Nutzenrechnung für Ebene 2 sieht
+anders aus als beim Entwurf.
 
 Der ursprüngliche Satz dieses Abschnitts lautete: die übrigen Zeilen seien der Grund für
 Ebene 2. Das galt einen halben Tag. Zwei Zeilen sind Beleg, nicht Absicht: die Enterprise-Posture **und** die neun

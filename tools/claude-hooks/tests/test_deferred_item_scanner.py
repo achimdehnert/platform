@@ -275,3 +275,78 @@ def test_should_not_fire_on_a_report_about_others():
         "Der Nachbar-PR hat den Test nicht mitgeliefert.",
     ):
         assert not d.DEFERRAL_PATTERNS.search(satz), satz
+
+
+# --- Zweite Trefferklasse: die Board-Zeile (Retro e70d11) --------------------
+#
+# Der reale Rueckfall vom 2026-08-28: drei in Prod gemessene Defekte standen als
+# offene Board-Zeilen ohne Anker und blieben ungetrackt. Kein Vertagungs-Verb war
+# im Turn -- der Scanner schwieg nach damaligem Wortlaut zu Recht.
+
+BOARD_ECHT = """### 📌 Was der Prod-Lauf zeigte
+
+| # | Befund | Beleg |
+|---|---|---|
+| 7 | 3 Dateien doppelt | gleiche `sha256`, einmal `upload://` |
+
+### 🟢 Offen — dein Zug
+
+| # | Item | Repo | PR/Issue | Status | Next Step |
+|---|---|---|---|---|---|
+| 4 | Dubletten zusammenführen | a-hub | — | 🟢 Befund | fixen (ich) |
+| 5 | Zwei PDFs ohne Text | a-hub | — | 🟢 Befund | prüfen (ich) |
+"""
+
+
+def test_should_offenen_board_befund_ohne_anker_melden(monkeypatch, capsys, tmp_path):
+    """Der Realfall, gegen den diese Klasse geschrieben ist."""
+    rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, BOARD_ECHT))
+
+    assert rc == 0
+    assert "deferred-item check" in out.get("hookSpecificOutput", {}).get("additionalContext", "")
+    assert "Board" in out["hookSpecificOutput"]["additionalContext"]
+
+
+def test_should_schweigen_wenn_die_zeile_einen_anker_traegt(monkeypatch, capsys, tmp_path):
+    """Gegenprobe: mit Issue-Nummer ist der Befund verankert."""
+    text = BOARD_ECHT.replace("| a-hub | — | 🟢 Befund | fixen (ich) |", "| a-hub | #275 | 🟢 Befund | fixen (ich) |")
+    text = text.replace("| a-hub | — | 🟢 Befund | prüfen (ich) |", "| a-hub | #276 | 🟢 Befund | prüfen (ich) |")
+
+    rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, text))
+
+    assert rc == 0 and out == {}
+
+
+@pytest.mark.parametrize(
+    "zeile",
+    [
+        "| 2 | Deploy `08b24aa` | a-hub | — | ⛔ wartet am Gate | freigeben (du) |",
+        "| 1 | Portal-Abruf per Knopf | a-hub | — | 🟡 CI läuft | warten (CI) |",
+        "| 3 | Retro-Report | platform | — | ✅ gemergt | — |",
+        "| 9 | Konzept-Schritt | a-hub | — | ✅ fehlt nicht mehr | — |",
+    ],
+)
+def test_should_bei_gewoehnlichen_boardzeilen_schweigen(monkeypatch, capsys, tmp_path, zeile):
+    """Ein Scanner, der bei jedem Statusboard feuert, wird abgeschaltet."""
+    rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, f"### Stand\n\n{zeile}\n"))
+
+    assert rc == 0 and out == {}
+
+
+def test_should_schweigen_wenn_im_selben_turn_ein_issue_entstand(monkeypatch, capsys, tmp_path):
+    """Der Anker darf auch als Handlung kommen, nicht nur als Text."""
+    pfad = _transcript(tmp_path, BOARD_ECHT, extra_records=[_bash_record("gh issue create -R o/r --title x")])
+
+    rc, out = _run(monkeypatch, capsys, pfad)
+
+    assert rc == 0 and out == {}
+
+
+def test_should_auch_die_nummerierte_boardform_sehen(monkeypatch, capsys, tmp_path):
+    """Sobald volle URLs noetig sind, ist das Board eine Liste — dieselbe Pflicht."""
+    text = "### 🟢 Offen\n\n- **[4]** 🟢 Dublette in der Analyse — noch kein Issue\n"
+
+    rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, text))
+
+    assert rc == 0
+    assert "deferred-item check" in out.get("hookSpecificOutput", {}).get("additionalContext", "")

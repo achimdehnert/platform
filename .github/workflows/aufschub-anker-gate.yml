@@ -61,6 +61,18 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: printf '%s' "$PR_BODY" > /tmp/pr_body.txt
 
+      # Ergaenzt 2026-08-29: eine Vertagung im CODE zaehlt so wenig als Tracking
+      # wie eine im PR-Text. Der Rueckfall, der das ausgeloest hat, stand in
+      # einem Docstring (writing-hub#851) — dort konnte der PR-Text-Scanner ihn
+      # per Konstruktion nicht sehen.
+      - name: Diff des PR holen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" > /tmp/pr.diff || : > /tmp/pr.diff
+          wc -l < /tmp/pr.diff | sed 's/^/Diff-Zeilen: /'
+
       # --block liefert den Befund als Exit-Code (1 = Fund, 2 = Werkzeugfehler); der
       # Job bleibt trotzdem gruen, weil das Gate advisory ist. Bewusst NICHT ueber
       # "Ausgabe nicht leer" entschieden: der saubere Fall druckt ebenfalls eine
@@ -71,7 +83,7 @@ jobs:
         id: check
         run: |
           set +e
-          python tools/deferral_anchor_check.py --block /tmp/pr_body.txt > /tmp/verdict.txt 2>&1
+          python tools/deferral_anchor_check.py --block --diff /tmp/pr.diff /tmp/pr_body.txt > /tmp/verdict.txt 2>&1
           rc=$?
           set -e
           cat /tmp/verdict.txt

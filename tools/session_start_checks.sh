@@ -593,11 +593,21 @@ fi
 # Gate noch declined-Eintrag. Das ist die stille Schwester des Rueckfalls (0.7.7):
 # dort versagt ein gebautes Gate, hier entstand nie eines.
 DECKUNG_OUT=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --kurz 2>/dev/null || true)
+# Liegezeit in einem ZWEITEN Aufruf, nicht als Anhaengsel an `--kurz`: der Zweig
+# unten entscheidet PASS/WARN allein an der Laenge von $DECKUNG_OUT. Liefe die
+# Liegezeit dort mit, waere 0.7.9 dauerhaft gelb — und ein Melder, der jede
+# Sitzung warnt, wird nicht gelesen. Dieselbe Zweitabfrage nutzt 0.7.15 schon.
+#
+# Sie steht in BEIDEN Zweigen, weil gerade der PASS-Fall sie braucht: "keine
+# offene Gate-Pflicht" heisst nur, dass kein Slug ZWEIMAL ungedeckt auftrat.
+# Die Einmal-Slugs liegen trotzdem, und der Bestand allein sagt nicht, ob der
+# Loop schneller entscheidet als er findet (platform#2278 K3).
+DECKUNG_LIEGE=$(python3 "$PLATFORM_DIR/tools/gate_deckung.py" --liegezeit --kurz 2>/dev/null || true)
 if [ -n "$DECKUNG_OUT" ]; then
-  record "0.7.9 gate-deckung" "WARN" "$(echo "$DECKUNG_OUT" | head -1 | tr '|' '/')"
+  record "0.7.9 gate-deckung" "WARN" "$(echo "$DECKUNG_OUT" | head -1 | tr '|' '/')${DECKUNG_LIEGE:+ · $DECKUNG_LIEGE}"
   echo "$DECKUNG_OUT" | tail -n +2
 else
-  record "0.7.9 gate-deckung" "PASS" "keine offene Gate-Pflicht"
+  record "0.7.9 gate-deckung" "PASS" "keine offene Gate-Pflicht${DECKUNG_LIEGE:+ · $DECKUNG_LIEGE}"
 fi
 
 # ── 0.7.10 Kennzahl-Verfall: nachrechenbare Zahlen in durablen Dokumenten ───
@@ -650,6 +660,40 @@ case "$TLS_OUT" in
   *) record "0.7.16 origin-tls" "WARN" "$TLS_OUT" "${TLS_REPOS% }" ;;
 esac
 
+# ── 0.7.17 Backup-Deckung: jedes Prod-Volume gedeckt, verzichtet oder rot ────
+# backup-meter (ADR-241 §4) prueft die Apps einer gepflegten Soll-Liste. Was in
+# keiner Liste steht, sieht er nicht — so lagen acht Volumes mit 2,1 GB ohne
+# einen einzigen Snapshot da (#2086), waehrend der Meter jeden Morgen gruen war.
+# Diese Phase geht vom Host aus (`docker volume ls`) und verlangt fuer JEDES
+# Volume eine Antwort. Erstlauf 2026-08-25: 46 ungedeckt, 7,2 GB, darunter drei
+# doc-hub-Volumes in Nutzung. Kosten: 3 ssh (2 Hosts + restic), ~20 s.
+#
+# Kein `""`-Zweig auf PASS: die Werkzeuge reden IMMER (#2280). Leere Ausgabe
+# heisst hier "nicht gelaufen" und ist ein WARN, kein Gruen.
+DECKUNG_VOL_OUT=$(timeout 180 python3 "$PLATFORM_DIR/tools/backup_deckung.py" --kurz 2>/dev/null || true)
+case "$DECKUNG_VOL_OUT" in
+  OK:*) record "0.7.17 backup-deckung" "PASS" "$DECKUNG_VOL_OUT" ;;
+  "")   record "0.7.17 backup-deckung" "WARN" "Melder nicht gelaufen — keine Aussage zur Deckung" ;;
+  *)    record "0.7.17 backup-deckung" "WARN" "$DECKUNG_VOL_OUT" ;;
+esac
+
+# ── 0.7.18 Speicher-Vorlauf: Platten melden VORHER, nicht bei 90 % ──────────
+# Am 2026-08-24 begann das reparierte dev-hub-Backup, 6,3 GB pro Tag auf die
+# Root-Platte von prod zu schreiben — sieben Tage bis voll, und kein Melder
+# haette es gesagt, weil keiner Platten misst. Eine Schwelle bei 90 % ruft am
+# sechsten Tag; ein Wochenende dazwischen, und die Platte ist voll. Diese Phase
+# fuehrt je (Host, Mount) ein Tagesjournal (~/.claude/speicher-journal.jsonl)
+# und rechnet aus dem Median der Tagesdifferenzen die Tage bis voll — WARN
+# unter 7 Tagen oder unter 10 % frei. SAMMELPHASE ist ausdruecklich KEINE
+# Entwarnung, nur "noch keine Rate". Alle Hosts mit ssh, auch Offsite: eine
+# volle Offsite-Platte beendet das Backup lautlos.
+SPEICHER_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/speicher_melder.py" --kurz 2>/dev/null || true)
+case "$SPEICHER_OUT" in
+  OK:*|SAMMELPHASE*) record "0.7.18 speicher" "PASS" "$SPEICHER_OUT" ;;
+  "")   record "0.7.18 speicher" "WARN" "Melder nicht gelaufen — keine Aussage zur Speicherlage" ;;
+  *)    record "0.7.18 speicher" "WARN" "$SPEICHER_OUT" ;;
+esac
+
 # ── 0.7.12 Prod-Wirkung: was liegt WIRKLICH auf den Hosts? (platform#2148) ──
 # `tools/deploy_wirkung.py` existiert seit dem 2026-08-20 und hatte bis hierhin
 # NULL Aufrufer — es stand nur in Handover, Log und Archiv. Genau die Klasse
@@ -673,13 +717,27 @@ except (json.JSONDecodeError, ValueError):
 b = d.get("befunde", [])
 # Ruhende Repos duerfen hinterherhinken — das ist der gewollte Zustand.
 def na(e, k): return bool(e.get(k)) and not e.get("ruhend")
+# Ein Repo mit Prod-Gate deployt bei push nur nach staging; Prod verlangt eine
+# bewusste Freigabe. Sein Rueckstand ist bis zu einer Frist der NORMALFALL und
+# darf nicht dieselbe Lautstaerke haben wie ein vergessener Deploy — risk-hub
+# stand so 23 Laeufe lang als WARN, worin ein echter Fund untergegangen waere.
+# Unterdrueckt wird er trotzdem nicht (deploy_wirkung.hat_prod_gate begruendet
+# das am tax-hub-Fall: Prod-Gate UND roter Build): er bleibt in der Zeile
+# sichtbar, nur eben als Wartestand — und wird nach der Frist laut, denn dann
+# ist "wartet auf Freigabe" nicht mehr von "vergessen" zu unterscheiden.
+FREIGABE_FRIST_TAGE = 14
+def wartet(e):
+    return (na(e, "rueckstand") and e.get("prod_gate")
+            and (e.get("alter_tage") or 0) < FREIGABE_FRIST_TAGE)
 dop  = [e["repo"] for e in b if e.get("doppellauf")]
-rueck= [e["repo"] for e in b if na(e, "rueckstand")]
+warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e)]
+rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e)]
 verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
 unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
 teile, betroffen = [], sorted(set(dop + rueck))
 if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
 if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
+if warte: teile.append("wartet auf Prod-Freigabe (kein Befund):" + ",".join(warte))
 if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
 if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
 status = "WARN" if (dop or rueck) else "PASS"
@@ -756,21 +814,65 @@ SKILLDRIFT_STATUS="PASS"
 # Aufnehmen am 2026-08-23 war sie sofort rot: `stale_clone_check.sh` lag als Kopie vom
 # 2026-07-26 live, waehrend die Quelle am 2026-08-06 ihren GATE_HEADER bekam — vier
 # Wochen Drift, die niemand meldete.
+# HEILEN STATT MELDEN (2026-08-26). Bis hierhin endete diese Phase mit einer
+# WARN-Zeile und dem Kommando im Text — und niemand fuehrte es aus. Realfall vom
+# selben Tag: `/ux-review` existierte seit dem Vorabend in origin/main, die Lane
+# `commands` war acht Stunden hinterher, der Skill stand nicht zur Auswahl. Die
+# Sitzung schrieb die Drift-Zeile brav ins Board und arbeitete dann einen ganzen
+# GUI-Durchlauf lang ohne den Skill, der genau dafuer gebaut ist. Drei Fehler,
+# gegen die er geschrieben ist, passierten dabei erneut.
+#
+# Das ist dieselbe Klasse `melder-ohne-leser`, die im Kommentar oben schon steht —
+# nur eine Ebene hoeher: der Melder wurde gelesen, und trotzdem geschah nichts.
+# Ein Hinweis, dessen Behebung ein Kommando im Fliesstext ist, wird nicht
+# ausgefuehrt; er wird zitiert.
+#
+# Vertretbar wie bei 0.7.5: Quelle ist `origin/main` (kanonisch, nicht der
+# Arbeitsbaum), `generate.py` legt ein Backup an und ist idempotent.
 for LANE in skills commands hooks; do
   LANE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
   LANE_SCORE=$(printf '%s' "$LANE_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+
+  if [ -n "$LANE_SCORE" ] && [ "$LANE_SCORE" -gt 0 ]; then
+    # Ziel je Lane: `skills`/`commands` liegen flach unter ~/.claude, die Lane
+    # `hooks` darunter in managed/ (siehe Kommentar oben — zwei Lanes, ein Name).
+    case "$LANE" in
+      skills)   LANE_TARGET="$HOME/.claude/skills" ;;
+      commands) LANE_TARGET="$HOME/.claude/commands" ;;
+      hooks)    LANE_TARGET="$HOME/.claude/hooks/managed" ;;
+    esac
+    timeout 180 python3 "$PLATFORM_DIR/tools/cc-skill-dist/generate.py" \
+      --ref origin/main --kind "$LANE" --target "$LANE_TARGET" --allow-live \
+      >/dev/null 2>&1 || true
+    # Nachmessen, nicht annehmen: die Heilung gilt erst, wenn doctor sie bestaetigt.
+    NACH_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/cc-skill-dist/doctor.py" --kind "$LANE" 2>/dev/null || true)
+    NACH_SCORE=$(printf '%s' "$NACH_OUT" | grep -o 'DRIFT-SCORE: [0-9]*' | head -1 | grep -o '[0-9]*')
+    if [ "${NACH_SCORE:-1}" = "0" ]; then
+      SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:geheilt(${LANE_SCORE}->0) "
+      continue
+    fi
+    # Heilung versucht und nicht gelungen ist der interessantere Fall: dann stimmt
+    # die Annahme ueber den Ziel-Pfad nicht. Das gehoert gesagt, nicht verschwiegen.
+    LANE_SCORE="${NACH_SCORE:-}"
+    if [ -z "$LANE_SCORE" ]; then
+      SKILLDRIFT_STATUS="WARN"
+      SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(ungeprueft) "
+      continue
+    fi
+    SKILLDRIFT_STATUS="WARN"
+    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:NICHT-HEILBAR(Score ${LANE_SCORE}) "
+    continue
+  fi
+
   if [ -z "$LANE_SCORE" ]; then
     SKILLDRIFT_STATUS="WARN"
     SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:UNGEPRUEFT "
-  elif [ "$LANE_SCORE" -gt 0 ]; then
-    SKILLDRIFT_STATUS="WARN"
-    SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:Drift-Score ${LANE_SCORE} "
   else
     SKILLDRIFT_NOTE="${SKILLDRIFT_NOTE}${LANE}:0 "
   fi
 done
 if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
-  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — aktive Kopie weicht von origin/main ab (beheben: tools/cc-skill-dist/generate.py --ref origin/main --kind <lane> --allow-live)"
+  record "0.7.13 skill-dist" "WARN" "${SKILLDRIFT_NOTE% } — Selbstheilung versucht und NICHT gelungen; der Ziel-Pfad der Lane stimmt vermutlich nicht (manuell: tools/cc-skill-dist/doctor.py --kind <lane>)"
 else
   record "0.7.13 skill-dist" "PASS" "alle Lanes synchron (${SKILLDRIFT_NOTE% })"
 fi

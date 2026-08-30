@@ -2928,3 +2928,154 @@ Fuenf PRs: [#2265](https://github.com/achimdehnert/platform/pull/2265) Zweitmein
 **Offen:** der kritische `check_c`-Fehler auf `main` ([#2264](https://github.com/achimdehnert/platform/issues/2264)), zwei offene PRs, drei tote Praefixregeln in `registry/canonical.yaml`, zwei Tracking-Issues mit Vormittagsstand, die generierte `CLAUDE.md`-Tabelle (Owner-Sache) und die kaufmaennische Sitzfrage.
 
 SA-4: 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-25 mittags — Sitzung aa58f9: Melder-Schweigen, Backup-Wahrheit, PyPI-Org gelassen, Klassen-Gates
+
+Sieben PRs gemergt (#2277, #2279, #2285, #2292, #2298, #2301, #2302; infra-deploy#5/#6), fünf offen (#2303, #2305, #2306, #2313, #2307 Draft). Zielzustände: #2278 erreicht und geschlossen; #2284 K1/K4/K6 erfüllt, K3/K5 teilweise, K2 offen — als Checkboxen dort.
+
+**Die Klasse hinter allem:** „existiert" ≠ „benutzbar". Sechs Werkzeuge kannten zwei Zustände für eine Welt mit dreien; der dritte („konnte nicht messen") fiel jedes Mal auf grün. Zwei davon habe ich am selben Tag selbst gebaut. Jetzt: Exit 2 = blind, Exit 3 = Scope-Lücke, Positivkontrollen auf dem Prod-Pfad (Dummy-Volume 46→47→46; Floor → Exit 2; Restore 352=352).
+
+**Owner-Korrektur, die die zweite Hälfte prägte:** „gerade dafür möchte ich eine automatisierbare Lösung" — vier „nur du"-Klassen (Approve, Volumes, Platte, PyPI-Antwort) in Regel + Werkzeug überführt: Approve-Queue + Bot-Reviewer (Draft, Machterweiterung markiert), Standard sichern/Verzicht per Regel, Platten-Floor + Gate-2-Allowlist, Vorgang im Mail-Ledger. Lehre für die Charta: jede wiederkehrende Owner-Frage ist ein Klassen-Gate, nicht ein Board-Punkt.
+
+**Eigene Fehler:** zweimal „grün" ohne Check → Gate `claim-before-cheapest-check` rückfällig → ausgeweitet (#2301, `ci-status` ordnungsgebunden, Live-Probe blockt). `docker exec -i` fraß das `bash -s`-Skript (0-Byte-Protokoll, exit 0). Step-Outputs leer: erst im dritten Anlauf als implizites `bash -e` verifiziert — das Actions-Log zeigt Skripttext, nicht Ausführung. Vier Memories, eine Outline-Lesson, ein Runbook.
+
+SA-4: 4 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+---
+
+## 2026-08-25 nachmittags — Sitzung aa58f9, Nachtrag: Regression im eigenen Umbau, dann 0 ungedeckt
+
+Nach dem Handover-Stand von 13:2x: Owner mergte #2303/#2305/#2306/#2313; Bot-Konto `IIL-Lotse` angelegt, Write, Secret `BOT_REVIEW_TOKEN` gesetzt; #2307 aus dem Draft, wartet mit #2316 (Probe), #2317 (Approve-Queue `--repo`) und #2318 auf Approve.
+
+**Regression, im Beweislauf gefunden:** der Umbau „Standard sichern" (#2306) entschied auf beiden Hosts `0 sichern · 0 verzichtet` — `python3 -` las das Programm von stdin, der Heredoc verdrängte die Pipe mit der Volume-Liste. Die Volume-Sicherung wäre nachts leer gelaufen, bei grünem Exit. Fix #2318, Hosts vor dem Merge gespiegelt (Regression auf prod), Beweis: prod 33 sichern · 22 verzichtet · 14 pgdata, prod-b 6 · 4 · 8. Danach `backup_deckung.py`: **0 UNGEDECKT** (43 volumes, 22 pgdump, 22 verzicht, 230 anonym) — vormittags 46. Memory `feedback_python_stdin_heredoc_displaces_piped_data`.
+
+**Zweiter Fehler derselben Klasse am selben Tag:** `set +e`-Fix (#2313) bewiesen — #2300 trägt jetzt Exit 1/3 mit Kurzzeilen. Approve-Queue-Erstlauf fand korrekt 2 PRs, scheiterte an fehlendem `--repo` ohne Checkout (#2317).
+
+**Offene Owner-Entscheidung (#2284 K5):** Workflow meldet täglich Exit 3 für die bekannte Scope-Lücke prod-b — Runner-Key auf prod-b oder „bekannt, kein Kommentar".
+
+---
+
+## 2026-08-25 abends — Sitzung aa58f9, Abschluss: Bot-Reviewer live, alle vier Klassen bewiesen
+
+**Bot-Reviewer (`IIL-Lotse`) ist wirksam:** Approves auf #2317, #2320, #2316, #2276 (Log mit Grund je Skip: Draft, Tabu-Pfad, Checks nicht grün). Drei Läufe brauchten drei Fixes: stummer Skip (#2321), dann der eigentliche Grund — `mergeStateStatus` ist **lazy je Token**, der Bot sah `UNKNOWN` für alle PRs (#2323). Entscheidung hängt jetzt an reviewDecision + Checks + Tabu. Memory-Nachtrag in `feedback_pr_unknown_mergestate_can_mean_merged`.
+
+**Approve-Queue** läuft: #2322 listet wartende PRs mit /files-Links (Erstlauf brauchte `--repo`, #2317). **Weg B** (#2320, Owner-Entscheid): Exit 3 = bekannte Scope-Lücke prod-b, kein Issue, Lauf grün — bewiesen (#2300 ohne neuen Kommentar). Beide wurden vom Bot approved — die Klasse „Approve" ist damit vom Reflex-Klick auf Tabu-Pfade reduziert (policies/, docs/adr/, CODEOWNERS, bot-review.yml).
+
+**Regression im eigenen Umbau** (#2306 → #2318): `python3 -` mit Heredoc verdrängte die gepipte Volume-Liste — „0 sichern" auf beiden Hosts, grüner Exit. Gefunden nur durch den Beweislauf, der die Entscheidungszeile liest. Danach prod 33 / prod-b 6 Volumes, `backup_deckung`: **0 UNGEDECKT**. Vier Fehler derselben Klasse an einem Tag (stdin-Kind, `bash -e`, Heredoc/Pipe, stummer Skip) — jedes Mal Exit 0 und Stille; jedes Mal hat der Beweislauf am Artefakt gefangen, was der Test nicht sah.
+
+**Offen für die nächste Sitzung:** K3-Positivkontrolle (zweiter Tagespunkt ab 26.08.) · #2322 abarbeiten · PyPI-Antwort (Vorgang 152, Frist 08.09.) · infra-deploy `runner-health.yml` rot, nicht untersucht · Modell-Tier: Rest ist Sonnet-Arbeit.
+
+---
+
+## 2026-08-26 früh — Sitzung 0d4b7c: GUI-Test-Agent — von der Owner-Frage zur Flotte in fünf Repos
+
+Ausgangsfrage: „macht es Sinn, meine Kompetenzen um einen GUI-Test-Agenten zu erweitern?" Antwort in fünf Artefakten, jedes mit Nummer freigegeben: **KONZ-platform-051** (#2327; Ziel umformuliert auf *Begehbarkeit klick-only + Klassen-Gate je Befund*, Lehre ausschreibungs-hub 2 → 14), **Skill `/ux-review`** (#2329, drei reale Dogfoods — Test 3 stand auf Chromium-„unsafe port" 9 und hätte den Browser gemessen), **Pilot K1 writing-hub** am Stand vor #761 in eigenem Stack: 3/3 bekannte Defekte per Klick wiedergefunden, 0 getippte URLs, ein **neuer** Befund (writing-hub#766: aifw hält die Verdrahtung 600 s im Redis-Cache, die Fehlermeldung liest die DB frisch — „verdrahtet: groq", Aufruf ging an OpenAI), Fehlbefund #760 per zweitem Suchpfad korrekt als Rendering-Bedingung erkannt. Owner-Rüge dazu: „Test exportieren und optimieren" statt kopieren → **`iil_testkit.oberflaeche` 0.6.0** (iil-testkit#20; `get_app_template_dirs` statt `apps/`-Hardcode, Weiterleitungen als zweite Quelle, reine Kerne mit Mini-Repo-Positivkontrolle). Release **nicht** über den Merge — meine Prämisse war falsch, KONZ-018 hat den repo-seitigen Publish stillgelegt; der Dispatch von `publish-iil-testkit.yml` blieb Owner-Klick.
+
+**Flotte (#2326, geschlossen 4/4):** risk-hub#681 — 960 Routen, 353 seitenrendernd, **28 verwaist, 16 echte Waisen** in #680; billing-hub#42 — 3, alle Einstiegspunkte; weltenhub#71 — **0**, Null belegt (9 DRF-Router-Namespaces gelesen, Positivkontrolle im Test) + #69 (c)+(d). Alle drei am Ziel belegt (`livez` 200), nicht nur am grünen Run. bfagent bleibt frozen.
+
+**SA-5 (#2332/#2333):** Owner: „merges bei gestarteten issues autonom freigeben → sind nun Klickaufgabe" und „nach ‚approved' komplett autonom mergen." Erste Anwendung risk-hub#681 (Staging). billing-hub/weltenhub deployen bei Merge sofort nach Prod (`production` ohne Environment-Schutz) → Gate 2, Owner-Wort eingeholt und benannt. Der Classifier sperrte drei Dinge: PyPI-Publish, `--admin`-Bypass auf `policies/`, und — inkonsistent — eine Changelog-Zeile derselben Datei, deren SA-5-Block er durchließ; jedes Mal `!`-Kommando an den Owner statt Umgehung.
+
+**Eigene Fehler:** deutsche Anführungszeichen brachen viermal Inline-Strings (3× Python, 1× Bash) — Memory + error_pattern; Push-Guard blockt den ganzen Aufruf vor Ausführung; Agent-Auftrag ohne `ruff format`; Scope-Checkpoint erst nach dem Stop-Hook als Artefakt. #2331 (Runner 4 vs. Kennzahl 2 rückfällige Gates) war ein Vergleich zweier Commits — #2328 setzte dazwischen `revised` auf zwei Gates — kein Werkzeug-Widerspruch.
+
+**Offen:** Pilot K1 ausschreibungs-hub (6 Defekte → K1 ≥ 7/9) · K3: Gate aus #766 als Test · risk-hub#680 · weltenhub#70 · zwei rückfällige Gates (`deferred-item-no-tracking-issue`, `untested-tool-module-green-gate`) mit Verzicht im Befund-Journal an die nächste Retro.
+
+SA-4: 0 · 0 · 0. SA-5: 1 Anwendung · 0 Fehlanwendungen.
+
+## 2026-08-26 mittag — SA-M: eine Merge-Regel für alle Repos
+
+Auftrag: unnötige Approve-/Merge-/Deploy-Klicks abschaffen. Ergebnis: SA-1/2/5/6 sind zu
+**SA-M** zusammengeführt (Mandat deckt Wirkung), das Werkzeug `tools/pr_merge_sa.py` setzt
+sie durch, liest die Regel aus der Policy und protokolliert jede Entscheidung.
+
+PRs: #2340 (SA-M) · #2341 (Schreibstil-Kurzform) · #2342 (Journal, Cache, Auto-Merge) ·
+#2348 (Werkzeug reviewpflichtig) · #2349 (Approval-Erkennung) · #2351 (erster SA-M-Merge).
+Issues: #2336 (Klick-Minimierung) · #2338 (Wrapper).
+
+Der eigentliche Befund des Tages: SA-1 war seit dem 2026-07-12 ratifiziert und
+wirkungslos, weil der Harness-Eintrag fehlte. Eine Klasse ohne Eintrag in `autoMode.allow`
+ist Papier — das gilt für jede künftige auch.
+
+## 2026-08-27 frueh — Sitzung f2a180: PyPI-Flotte, KONZ-052, Publish-Pfad ans Artefakt
+
+Auftrag: platform, dev-hub, mcp-hub und alle PyPI-Paket-Repos analysieren (CI, Predictive
+Maintenance, OOTB, Diabolus). Ergebnis KONZ-platform-052 (#2362) + Anhang. Sechs Subagenten,
+alle read-only; Owner-Entscheide am selben Tag vollzogen (iil-testkit#21, #2363, #2365, #2367,
+risk-hub#708, riskfw#4/#11). Session-Start davor: #2358, #2359.
+
+Der Befund des Tages: Predictive Maintenance hat hier keine Datengrundlage — Downloads messen
+die eigene CI, Kadenz 0 ist meist Absicht. Der einzige Ausfall (Token-Upload, zweimal) ist
+deterministisch verhinderbar, und PyPI selbst beweist ihn: Provenance 404 vs. 1 Bundle.
+Eigene Fehler: deutsche Anfuehrungszeichen in gh-Bodies (2x), Poll auf reviewDecision (25 min
+Timeout), YAML-Doppelpunkt, Trusted-Publisher-Repo nicht vorab benannt (Owner band das
+archivierte testkit).
+
+## 2026-08-27 mittag — Sitzung f2a180, zweiter Block: KONZ-052 V1–V11 vollzogen
+
+Owner-Entscheide im Kapitaens-Kanal (1 go, 2 go, 3 annehmen, 4 ja, 5 publish, Release 0.6.1,
+1 go --admin) am selben Tag umgesetzt: 14 Merges ueber 6 Repos, 7 Subagenten. Der Beweis
+am Artefakt: iil-testkit 0.6.1 traegt eine PyPI-Attestation, 0.6.0 nicht. Nebenbefund mit
+Realschaden: dev-hub installierte per Dockerfile-Wildcard ein Alt-Wheel ueber die
+PyPI-Version; der Frische-Melder rechnete mit Celerys Wanduhr (beides live gefixt).
+Eigene Fehler: Trusted-Publisher-Repo nicht vorab benannt (Owner band das archivierte
+testkit), Poll auf reviewDecision, KONZ-Anhang im Nummern-Guard, zwei Werkzeug-Luecken
+in pr_merge_sa (#2359, #2385) jeweils per Kommentar + Ruleset-Merge ueberbrueckt.
+
+
+## 2026-08-28 vormittag — Actions-Minuten-Programm (62f875)
+
+Alarm 90 % → Ursache gemessen (writing-hub 77 % der bezahlten Minuten, Rundung je Job,
+kein concurrency, Dreifach-Test). shared-ci v1.1.12 in 23 Konsumenten; writing-hub auf
+GPU-Box-Runner ci-gpu (WSL2, Bootstrap als root ueber prod/wg0-Hop); 14 Repos von
+Absolut-Symlinks befreit. Retro #2408: Required-Check-Reduktion hatte den Sibling-Job
+Integration Tests verloren (repariert); zwei Gates rueckfaellig → #2411, Kopien gesynct.
+Eigene Fehler: Bypass-Kommentar vor dem Merge-Ergebnis (#2397), --admin auf generische
+Formel (mcp-hub#234), Fast-Forward ohne fetch ("synchron" bei fehlendem Merge).
+Deploy-Sonde: coach-hub (seit 20.8.) und bahn-hub (seit 23.8.) rot, vorbestehend, getrackt.
+
+## 2026-08-29 vormittag — Teststrategie-Auftrag #2428 (Session 6399d6fd)
+Zielzustand erreicht (5/5 Kriterien, Abschluss-Kommentar in #2428). Coverage-Gate konnte
+nie rot werden (combine auf XML) — behoben shared-ci#61, Pilot writing-hub kalibriert
+(rot@99, gruen@87, Ist 87,54 %). ADR-298 proposed (#2432, ersetzt 057/058/155/184 bei
+Accept). Fleet-Test-Meter #2431 (74 Repos, B1=0, Pins 14/16). 12 testkit-Bumps + 5
+CI-Leser-Jobs gemergt; Ausnahmen mit Issue. Beifang shared-ci#63 runs_on_light.
+Deploy-Sonde: coach-hub weiter rot (#70, 4. Mal), writing-hub-Deploy pending (Queue).
+Eigene Fehler: 2x Heredoc-Edit-Leerlauf mit irrefuehrender Commit-Message (korrigiert,
+Memory angelegt); coach-hub#72 Duplikat von #70 (geschlossen).
+
+## 2026-08-29 mittag — Sitzung 0d2dc6e8: Robot-Ergebnisse nach robo-lab, KONZ-003, M1 Iteration 2
+
+Auftrag: alle Robot-/Twin-Ergebnisse nach robo-lab migrieren (robo-lab#28, erreicht K1–K6),
+dann Aufgabenkatalog Haushalts-/Montage-Helfer (KONZ-robo-lab-003, T2, #30), Erreichbarkeit
+gemessen (#5 K1–K4/K6, #31), M1-MVC (#32) und Iteration 2 (#33) — Griff schliesst, traegt nicht.
+platform: #2438 Handover-Nachzug, #2441 Registry (Klasse 5), Issues #2440/#2442/#2454.
+Session-Start: 17 WARN, 0 FAIL; Verzicht fuer 0.7.7 abgelegt (Gates hier nicht ausgeloest).
+Eigene Fehler: Merge bei leerem Rollup, Closes-Schluesselwort verneint, Konflikt-PR als
+Actions-Ausfall gelesen, Inline-Python an Anfuehrungszeichen (2x). Zwei Subagenten (Opus),
+einer 2 h statt 60 min. Phase 0g: Verankerungs-Pruefer im Hintergrund gestartet (Ergebnis
+im Abschlussbericht der Sitzung, nicht hier — bei Timeout: NICHT PRUEFBAR, von Hand gegengelesen:
+jede Vertagung traegt ein Issue: #2440, #2442, #2454, robo-lab#5/#33).
+
+## 2026-08-30 nachts — zwei Werkzeugdefekte am Merge-Pfad, beide PRs an @wirdigital haengend
+
+Fortsetzung der Offen-Liste vom 2026-08-29 mittag. #2440 (`pr_merge_sa` las Regel-Existenz
+statt Regel-Inhalt) und #2442 (bot-review verlor Kandidaten ohne Zeilenende) behoben,
+je mit Falsifikation gegen den Vor-Fix-Stand: #2440 fuenf neue Tests inkl. Urteils-Wirkung,
+#2442 vier von fuenf Tests rot vor dem Fix. Volle Suite 2867 passed / 3 skipped.
+PRs #2460 und #2461, alle Checks SUCCESS.
+
+Merge nicht moeglich: Ruleset `main-required-checks` (17621471) hat `bypass_actors: []`,
+`--admin` wirkt fuer niemanden; `/tools/pr_merge_sa.py` und `/.github/` sind in CODEOWNERS
+bewusst ohne den Bot gefuehrt. Owner-Freigabe zum Merge lag vor und konnte mechanisch
+nichts bewirken — der Fehler war meiner: `--admin` angeboten, ohne die Bypass-Actors
+vorher zu lesen.
+
+Ursachenkorrektur zu #2442: die Issue-Hypothese (schedule sieht andere PRs als dispatch)
+ist widerlegt. `"\n".join(...)` schrieb die letzte Zeile ohne Trenner; `while read` gibt
+dann 1 zurueck und der Rumpf laeuft nicht. Bei einem Kandidaten faellt er ganz aus.
+Live bestaetigt im Lauf 33279534904, der #2460 als einzigen Kandidaten stumm verlor.
+
+Phase 0g: `verankerung_pruefer.py` beide Male in 240 s Timeout gelaufen (ollama erreichbar)
+— NICHT PRUEFBAR, keine gruene Aussage. Von Hand gegengelesen: die einzige Vertagung
+(Gegenprobe am lebenden Werkzeug) traegt jetzt ein eigenes Issue, #2464, im PR verlinkt.

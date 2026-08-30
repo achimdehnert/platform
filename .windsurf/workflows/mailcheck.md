@@ -277,6 +277,50 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 - **Identität vor Löschauftrag:** ohne bestätigte Identität des Betroffenen **kein**
   Löschauftrag an die Firma.
 
+## Links erzeugen, nicht tippen (NEU 2026-08-25)
+
+Ein Link im Board oder in der Antwort an den Owner wird **nie von Hand
+zusammengesetzt**. Er kommt aus `board.py --render` (Vorgangs-Links) oder folgt der
+vollqualifizierten Mail-Route — und geht vor dem Absenden durch den Prüfer:
+
+```bash
+python3 tools/mail_agent/link_pruefen.py --datei <antwort.md>   # Exit 0 oder es geht nichts raus
+python3 tools/mail_agent/link_pruefen.py <url> [<url> …]
+```
+
+**Der Standard ist streng, und das ist Absicht.** Ein Link auf einem Hostnamen, den
+die Ingress-Liste nicht kennt, gilt als **ungeprüft** und damit als Fehler — nicht
+als „geht schon". Der Ausgangsfall zeigt, warum: der falsche Link lag auf
+`todo.iil.pet`, einem Host, den die Liste kennt. Läge er auf einem erfundenen, hätte
+eine nachsichtige Variante ihn wortlos durchgewinkt und Exit 0 gemeldet. Wer fremde
+Hosts bewusst erlauben will (etwa eine Antwort mit GitHub-Links), sagt das mit
+`--nachsichtig` — und weiß dann, dass diese Links **nicht** geprüft sind.
+
+Der Prüfer übersetzt den Hostnamen über die cloudflared-Ingress-Liste in seinen
+Loopback-Port und fragt **dort** an. Das ist der einzige Weg, der von dieser
+Maschine aus etwas beweist: von außen steht Cloudflare Access davor und liefert
+**302 für jede Route**, die existierende wie die erfundene.
+
+**Zwei Hostnamen, ein Verwechslungsrisiko** — beide hängen im selben Tunnel:
+
+| Route | Hostname | Dienst |
+|---|---|---|
+| `/t/<thread_key>`, `/a/<nr>` | `todo.iil.pet` | Arbeitsliste, Port 8789 — liest nur das Ledger, **spricht kein IMAP** |
+| `/m/<konto>/<ordner-slug>/<uid>` | `mail.iil.pet` | Mail-Renderer, Port 8787 — holt den Körper live aus dem Postfach |
+
+**Der Ordner-Teil ist Pflicht.** `/m/<konto>/<uid>` funktioniert nur, solange der
+laufende Dienst die Ordnersuche kennt (seit 61f4480d, 2026-08-21) — und ein
+Dienstprozess, der davor gestartet wurde, löst weiter nur gegen INBOX auf. Genau das
+war am 2026-08-25 der Fall: der Prozess lief seit dem 20.08., eine Entwurfs-UID gab
+404. Mit Ordner-Slug (`/m/hnu/entwuerfe/23630`) ist der Link von der Laufzeit des
+Dienstes unabhängig.
+
+**Anlass (2026-08-25):** In einer Antwort an den Owner stand
+`https://todo.iil.pet/m/hnu/23630` auf einen frisch abgelegten Entwurf — falscher
+Hostname, fehlender Ordner, nie geprüft. Der Owner musste ihn anklicken, um den
+Fehler zu finden. Drei Fehler in einem getippten Link; keiner davon hätte den
+Prüfer überlebt.
+
 ## Sicherheit (Lotsen-Charta)
 
 - **Kein Senden, kein Hard-Delete.** Ausgang bleibt beim Menschen; `--trash` ist reversibel (Papierkorb).
@@ -292,6 +336,7 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
 - ❌ Folge-Stufen eines Prozesses vorab als Drafts durchstellen (Vorgriff ohne Auslöser-Antwort)
 - ❌ Senden — auch nicht „nur die Bestätigung"
 - ❌ Auslöser-Antwort vermuten statt sie im Postfach zu belegen
+- ❌ Einen Lotsen-Link **tippen** statt ihn erzeugen zu lassen — und ihn von außen (`https://…`) prüfen wollen, wo Cloudflare Access mit 302 antwortet, egal ob die Route existiert
 
 ## Abschluss-Checkliste (PFLICHT — jede Zeile explizit abhaken, #1820 Kriterium 5)
 
@@ -313,6 +358,9 @@ ist der Ort, an dem dieser Auslöser erkannt wird.
       Aufräum-Hälfte seiner Aufgabe nicht erledigt.
 - [ ] Nach einem scharfen Lauf: **beide Seiten gezählt** (Quelle leer, Ziel voll) — nicht
       die Erfolgsmeldung des Werkzeugs übernommen
+- [ ] **Jeder Link in der Antwort durch `link_pruefen.py` gelaufen** (Abschnitt „Links
+      erzeugen, nicht tippen") — Exit 0, und die Zahl der geprüften Links im Ergebnis
+      genannt. Ein getippter Link ist kein Link, sondern eine Behauptung.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog

@@ -1,0 +1,110 @@
+"""Tests fuer .github/workflows/bot-review.yml (#2442).
+
+Der Defekt war lautlos: bei genau EINEM Kandidaten schrieb der Filter
+`2441` ohne Zeilenende, und `while read -r n` gibt bei EOF-ohne-Trenner 1
+zurueck — die Schleife laeuft dann gar nicht. Im Log standen acht
+Skip-Zeilen mit Grund und danach nichts; der PR fiel aus dem Werkzeug,
+ohne dass irgendwer es sehen konnte.
+
+Deshalb wird hier nicht die Schreibweise geprueft, sondern beides
+ausgefuehrt: der echte Filter aus dem Workflow gegen eine Ein-Kandidat-Lage,
+und die echte Schleifen-Zeile ueber die Datei, die er schreibt.
+"""
+
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+WF = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "bot-review.yml"
+
+
+def _run_script() -> str:
+    doc = yaml.safe_load(WF.read_text(encoding="utf-8"))
+    for step in doc["jobs"]["review"]["steps"]:
+        if "Kandidaten" in (step.get("name") or ""):
+            return step["run"]
+    raise AssertionError("Schritt 'Kandidaten pruefen und approven' nicht gefunden")
+
+
+def _filter_code() -> str:
+    m = re.search(r"python3 - <<'PY'\n(.*?)\n\s*PY\n", _run_script(), re.S)
+    assert m, "Python-Filter im Workflow nicht gefunden"
+    return "\n".join(z[10:] if z.startswith(" " * 10) else z for z in m.group(1).split("\n"))
+
+
+def _schleifen_kopf() -> str:
+    for zeile in _run_script().split("\n"):
+        if zeile.strip().startswith("while read"):
+            return zeile.strip()
+    raise AssertionError("while-read-Schleife im Workflow nicht gefunden")
+
+
+def _pr(nummer: int) -> dict:
+    return {
+        "number": nummer,
+        "isDraft": False,
+        "author": {"login": "achimdehnert"},
+        "mergeStateStatus": "BLOCKED",
+        "reviewDecision": "",
+        "files": [{"path": "registry/canonical.yaml"}],
+        "statusCheckRollup": [
+            {"name": "ci", "status": "COMPLETED", "conclusion": "SUCCESS"}
+        ],
+        "url": f"https://github.com/achimdehnert/platform/pull/{nummer}",
+    }
+
+
+def _filter_lauf(tmp_path: Path, prs: list) -> tuple[str, Path]:
+    """Fuehrt den ECHTEN Filter aus dem Workflow aus, nur mit umgelenkten Pfaden."""
+    prs_datei = tmp_path / "prs.json"
+    kandidaten = tmp_path / "kandidaten"
+    prs_datei.write_text(json.dumps(prs), encoding="utf-8")
+    code = _filter_code().replace("/tmp/prs.json", str(prs_datei)).replace(
+        "/tmp/kandidaten", str(kandidaten)
+    )
+    p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr
+    return p.stdout, kandidaten
+
+
+def test_should_write_candidate_file_with_trailing_newline(tmp_path):
+    """Ein einzelner Kandidat muss als vollstaendige Zeile herauskommen."""
+    _, kandidaten = _filter_lauf(tmp_path, [_pr(2441)])
+    assert kandidaten.read_text() == "2441\n"
+
+
+def test_should_enter_loop_body_for_a_single_candidate(tmp_path):
+    """Der Fall #2441: eine Datei, ein Kandidat — die Schleife MUSS laufen."""
+    _, kandidaten = _filter_lauf(tmp_path, [_pr(2441)])
+    skript = f'{_schleifen_kopf()}\n  echo "gesehen:$n"\ndone < {kandidaten}\n'
+    p = subprocess.run(["bash", "-c", skript], capture_output=True, text=True)
+    assert "gesehen:2441" in p.stdout, p.stdout + p.stderr
+
+
+def test_should_not_lose_the_last_of_several_candidates(tmp_path):
+    """Gegenprobe: auch der letzte von mehreren darf nicht verschwinden."""
+    _, kandidaten = _filter_lauf(tmp_path, [_pr(2441), _pr(2452)])
+    skript = f'{_schleifen_kopf()}\n  echo "gesehen:$n"\ndone < {kandidaten}\n'
+    p = subprocess.run(["bash", "-c", skript], capture_output=True, text=True)
+    assert "gesehen:2441" in p.stdout and "gesehen:2452" in p.stdout, p.stdout
+
+
+def test_should_name_every_pr_it_saw_before_filtering(tmp_path):
+    """Ohne die Liste VOR dem Filter ist die naechste Luecke wieder stumm."""
+    stdout, _ = _filter_lauf(tmp_path, [_pr(2441), _pr(2452)])
+    assert "2441" in stdout.splitlines()[0] and "2452" in stdout.splitlines()[0]
+    assert "Kandidaten:" in stdout
+
+
+def test_should_still_skip_a_tabu_path_with_a_reason(tmp_path):
+    """Positivkontrolle in die andere Richtung — der Filter darf nicht
+    plötzlich alles durchlassen."""
+    pr = _pr(2038)
+    pr["files"] = [{"path": "policies/nur-fuer-diesen-test.md"}]
+    stdout, kandidaten = _filter_lauf(tmp_path, [pr])
+    assert "Tabu-Pfad" in stdout
+    assert kandidaten.read_text() == ""

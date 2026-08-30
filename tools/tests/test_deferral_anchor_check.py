@@ -259,3 +259,103 @@ def test_should_die_grenze_der_naehe_festhalten():
         "Eine Zusammenlegung ist hier bewusst **nicht** mitgemacht.\n"
     )
     assert dac.finde_ankerlose_stellen(text) == []
+
+
+# ── Ausweitung 2026-08-29: Vertagung im Code, und der fehlende Wortschatz ──
+#
+# Anlass ist ein gemessener Rueckfall, kein Gedankenspiel. `gate_wirkung.py`
+# fuehrte `deferred-item-no-tracking-issue` als RUECKFAELLIG (24 Vorkommen vor
+# dem Gate-Bau, 6 danach). Der konkrete Fall: writing-hub#851, Datei
+# `apps/core/langlauf.py`. Die Vertagung stand woertlich als
+#
+#     »`FigurenVertiefenLauf` bleibt vorerst eigenstaendig — Owner-Konvention
+#      2026-08-28: nachziehen nur, wenn wir es ohnehin anfassen.«
+#
+# Zwei Dinge waren daran neu, und die Reihenfolge der Erkenntnis zaehlt:
+#
+# 1. Der Satz stand in einem **Docstring im Code**, nicht im PR-Text. Ein
+#    PR-Text-Scanner kann ihn per Konstruktion nicht sehen.
+# 2. Wichtiger: er haette auch dann NICHT gefeuert, wenn man ihn dem Gate
+#    direkt eingespeist haette — **kein einziges** Wort der Positivliste kam
+#    darin vor. Das wurde vor dem Bau gemessen; die naheliegende Fix-Idee
+#    (»das Gate muss auch Docstrings lesen«) waere allein wirkungslos geblieben.
+
+DER_REALE_SATZ = (
+    "Gemeinsame Basis fuer lange Laeufe.\n"
+    "\n"
+    "`FigurenVertiefenLauf` bleibt vorerst eigenstaendig — Owner-Konvention\n"
+    "2026-08-28: »nachziehen nur, wenn wir es ohnehin anfassen«.\n"
+)
+
+DIFF_NEUE_DATEI = """diff --git a/apps/core/langlauf.py b/apps/core/langlauf.py
+new file mode 100644
+--- /dev/null
++++ b/apps/core/langlauf.py
+@@ -0,0 +1,7 @@
++\"\"\"Gemeinsame Basis fuer lange Laeufe mit Fortschritt und Teilergebnis.
++
++`FigurenVertiefenLauf` bleibt vorerst eigenstaendig — Owner-Konvention
++2026-08-28: »nachziehen nur, wenn wir es ohnehin anfassen«.
++\"\"\"
++
++from django.db import models
+"""
+
+
+def test_should_catch_the_wording_that_slipped_through():
+    """Positivkontrolle am echten Rueckfall — vorher lieferte dieser Satz null Funde."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen
+
+    funde = finde_ankerlose_stellen(DER_REALE_SATZ)
+    assert funde, "Der Satz, der das Gate ueberlistet hat, faellt immer noch durch"
+
+
+def test_should_read_added_docstring_lines_from_a_diff():
+    """Eine Vertagung im Code zaehlt so wenig als Tracking wie eine im PR-Text."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
+
+    prosa = prosa_aus_diff(DIFF_NEUE_DATEI)
+    assert "bleibt vorerst eigenstaendig" in prosa, "Der Docstring wurde nicht aus dem Diff gelesen"
+    assert finde_ankerlose_stellen(prosa), "Die Vertagung im Code bleibt unbemerkt"
+
+
+def test_should_accept_an_anchor_inside_the_code_comment():
+    """Wer das Issue im Docstring nennt, hat getrackt — das Gate muss schweigen."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
+
+    mit_anker = DIFF_NEUE_DATEI.replace("anfassen«.", "anfassen«. Refs #851")
+    assert not finde_ankerlose_stellen(prosa_aus_diff(mit_anker))
+
+
+def test_should_not_fire_on_ordinary_code():
+    """Negativkontrolle: ohne Vertagung kein Fund — sonst wird das Gate umgangen."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
+
+    harmlos = (
+        "--- /dev/null\n"
+        "+++ b/apps/core/klein.py\n"
+        "@@ -0,0 +1,3 @@\n"
+        '+"""Eine ganz normale Hilfsfunktion ohne jede Vertagung."""\n'
+        "+# Das hier rechnet nur.\n"
+        "+def f(): return 1\n"
+    )
+    assert not finde_ankerlose_stellen(prosa_aus_diff(harmlos))
+
+
+def test_should_ignore_removed_lines_and_foreign_file_types():
+    """Nur HINZUGEFUEGTE Zeilen aus Quelldateien zaehlen.
+
+    Eine geloeschte Vertagung ist erledigt, keine offene; und eine Textdatei
+    ohne Code-Endung ist der PR-Text-Pfad, nicht dieser.
+    """
+    from tools.deferral_anchor_check import prosa_aus_diff
+
+    geloescht = (
+        "--- a/x.py\n+++ b/x.py\n@@ -1,2 +1,1 @@\n"
+        "-# bleibt vorerst so\n"
+        "+# jetzt erledigt\n"
+    )
+    assert "bleibt vorerst" not in prosa_aus_diff(geloescht)
+
+    fremd = "--- /dev/null\n+++ b/notizen.rst\n@@ -0,0 +1 @@\n+.. bleibt vorerst offen\n"
+    assert prosa_aus_diff(fremd) == ""

@@ -167,6 +167,16 @@ services:
     betriebsstatus_grund: "prod blockiert auf Hosting-ADR (meiki-lra Sozialdaten-Pilot) — nur Konzept-Staging; frist-hub.iil.pet hat bewusst keinen DNS-Eintrag"
     note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
 
+  news-hub:
+    prod: 8113
+    staging: 8113
+    dev: 8113
+    container_name: news_hub_web
+    domain_prod: news.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "noch nicht deployt — Artefakte stehen (news-hub#18), der Deploy haengt bewusst an workflow_dispatch, weil es noch keinen Bestand gibt; DNS/SSL/Deploy-Secrets sind Owner-Schritte. news.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "ADR-299 · Digest liest den Mail-Agent-Bestand ueber die Lesenaht (dev-hub#307)"
+
   coach-hub:
     prod: 8007
     staging: 8007

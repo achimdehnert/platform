@@ -91,6 +91,20 @@ GATE_HEADER = {
 DEFAULT_MODELL = "qwen2.5:7b"
 DEFAULT_HOST = "http://127.0.0.1:11434"
 
+#: Die Antwort ist ein kurzes JSON-Objekt. Ohne Deckel laeuft ein Modell im
+#: Zweifel bis zum Kontextende weiter — auf einer Maschine ohne GPU kostet das
+#: Minuten je Segment, ohne dass ein besseres Urteil dabei herauskommt.
+MAX_ANTWORT_TOKEN = 160
+#: Je Segment im Stapel; der Deckel waechst mit der Stapelgroesse.
+STAPEL_ANTWORT_TOKEN = 96
+#: Wie viele Segmente in EINEN Aufruf gehen. 0 schaltet den Stapel ab.
+#: Der Instruktionsteil ist rund 600 Token lang und wird sonst je Segment erneut
+#: durch die Vorverarbeitung geschickt.
+STAPEL_GROESSE = 8
+#: Das 7b-Modell belegt rund 4,8 GB. Faellt es zwischen zwei PRs aus dem
+#: Speicher, zahlt der naechste Lauf das Laden erneut.
+DEFAULT_KEEP_ALIVE = "30m"
+
 KLASSEN = ("vertagung", "restarbeit", "freigabe", "keine")
 # Nur diese Klassen verlangen ein durables Artefakt. `keine` ist der Normalfall.
 ZUSAGE_KLASSEN = ("vertagung", "restarbeit", "freigabe")
@@ -235,7 +249,10 @@ Abschnitt:
 
 
 def ollama_klassifikator(
-    modell: str = DEFAULT_MODELL, host: str = DEFAULT_HOST, timeout: int = 120
+    modell: str = DEFAULT_MODELL,
+    host: str = DEFAULT_HOST,
+    timeout: int = 120,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str], dict]:
     """Klassifikator ueber einen loopback-lokalen Ollama.
 
@@ -251,7 +268,8 @@ def ollama_klassifikator(
                 "prompt": PROMPT % text,
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0},
+                "keep_alive": keep_alive,
+                "options": {"temperature": 0, "num_predict": MAX_ANTWORT_TOKEN},
             }
         ).encode()
         req = urllib.request.Request(
@@ -286,18 +304,21 @@ def ollama_klassifikator(
     return klassifiziere
 
 
-GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage eingestuft
-(Arbeit steht noch aus). Pruefe das nach.
+GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage
+eingestuft. Pruefe das nach.
 
-Frage: Steht die genannte Arbeit zum Zeitpunkt dieses Textes NOCH AUS?
+Frage: Weist der Abschnitt Arbeit als bewusst AUSGELASSEN, VERSCHOBEN oder einem
+eigenen spaeteren Umbau ueberlassen aus — oder benennt er eine Restschuld, die
+hier nicht behoben wird?
 
-"nein" ist richtig, wenn der Abschnitt erledigte Arbeit beschreibt, einen Fix
-berichtet, misst, begruendet oder belegt — auch wenn er dabei Einschraenkungen
-oder Zahlen nennt.
-"ja" ist richtig, wenn die Arbeit ausdruecklich verschoben, ausgelassen oder als
-offene Restschuld benannt wird.
+Wichtig: Es geht NICHT darum, ob jemand die Arbeit eingeplant hat oder ob sie je
+wieder aufgegriffen wird. Eine ausdruecklich NICHT gemachte Arbeit zaehlt als
+"ja", auch wenn der Text sie fuer erledigt-durch-Verzicht haelt.
 
-Antworte NUR mit JSON: {"steht_aus": true|false}
+"nein" nur, wenn der Abschnitt ausschliesslich erledigte Arbeit beschreibt,
+einen Fix berichtet, misst oder belegt.
+
+Antworte NUR mit JSON: {"trifft_zu": true|false}
 
 Eingestuft als: %s
 Zitat: %s
@@ -308,9 +329,20 @@ Abschnitt:
 
 
 def ollama_bestaetiger(
-    modell: str = DEFAULT_MODELL, host: str = DEFAULT_HOST, timeout: int = 120
+    modell: str = DEFAULT_MODELL,
+    host: str = DEFAULT_HOST,
+    timeout: int = 120,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str, str, str], bool]:
     """Zweite, unabhaengige Frage an dasselbe Modell — Gegenprobe je Kandidat.
+
+    Die Frage lautet bewusst NICHT "steht die Arbeit noch aus?". Genau diese
+    Formulierung liess den dokumentierten Zielfall (PR #2007) durchfallen: das
+    Modell antwortete `false` mit der Begruendung "Zusammenlegung ausgeschlagen"
+    — eine abgelehnte Arbeit steht in der Tat nicht mehr aus. Klassifikator und
+    Gegenprobe fragten damit nach verschiedenen Dingen (Typ vs. Zustand), und die
+    zweite Stufe nahm die erste zurueck. Gemessen am 2026-08-28 gegen beide Faelle
+    der Kalibrierdatei: Zielfall wieder gefunden, Fehlalarm #2196 weiter verworfen.
 
     Warum ueberhaupt: der Kalibrierlauf 2026-08-23 zeigte, dass die
     Klassifikation abgeschlossene Arbeit gelegentlich als Zusage liest
@@ -328,7 +360,8 @@ def ollama_bestaetiger(
                 "prompt": GEGENPROBE % (klasse, zitat or "—", text),
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0},
+                "keep_alive": keep_alive,
+                "options": {"temperature": 0, "num_predict": MAX_ANTWORT_TOKEN},
             }
         ).encode()
         req = urllib.request.Request(
@@ -344,7 +377,7 @@ def ollama_bestaetiger(
         except (json.JSONDecodeError, ValueError):
             # Unlesbare Gegenprobe darf einen Fund nicht still schlucken.
             return True
-        return bool(d.get("steht_aus", True))
+        return bool(d.get("trifft_zu", True))
 
     _ = roh  # gemeinsame Fehlerbehandlung oben, Aufruf getrennt gehalten
     return bestaetige

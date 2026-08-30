@@ -56,6 +56,8 @@ Jede Zeile hier stammt aus einer echten Streichung.
 | „In Günzburg ist es IKOL-WG" (abgeleitet, nicht belegt) | die Rückfrage stellen | ein unverdienter Fakt schafft ein Angriffsziel |
 | ae/ue/ss-Ersatz in Mailtexten | echte Umlaute | unprofessionell, und die Werkzeuge können UTF-8 |
 | Handumbrüche bei 76 Zeichen | fortlaufende Absätze, getrennt durch Leerzeilen | harte Umbrüche zerfallen beim Zitieren |
+| Was im Anhang oder in der Mail des Empfängers schon steht | nur der Satz, der es einordnet — oder nichts | Wiederholung liest sich als Misstrauen und kostet die Aufmerksamkeit, die der neue Teil braucht |
+| „X hat A gesagt, Sie sagen B, ich lege B zugrunde“ | die tragfähige Angabe verwenden, den Widerspruch im Vorgang festhalten | eine Mail ist kein Protokoll; Zeugenaussagen gegeneinanderstellen zwingt Dritte in eine Rolle, die sie nicht wollten |
 
 **Der erste Satz trägt die Entscheidung.** „Nehmen Sie Variante 2." „Die Skizze."
 „Sie können unterschreiben." Danach kommt die Begründung — nie davor.
@@ -80,12 +82,50 @@ defensiv, als müsste eine Entscheidung verteidigt werden, die niemand angegriff
 Die Prüffrage ist nicht „stimmt es?", sondern „**muss der Empfänger es lesen, um antworten
 zu können?**". Rechtfertigung gehört in den Anhang, ins Konzept oder ins Gespräch.
 
+**Der Regler kennt eine Gegenrichtung.** Alle drei Stufen zeigen nach unten; es gibt aber
+einen Fall, in dem der Text wachsen muss: **wer das Ergebnis nicht selbst herleiten kann,
+bekommt den Weg — auch bei `knapp`.** Am 2026-08-25 gab ein IT-Verantwortlicher eine reine
+Sachauskunft und bekam darauf eine Rechtsfolge für seine Firma zurück; ohne die drei
+Zwischenschritte war das ein Sprung. 90 → 259 Wörter, auf ausdrückliche Owner-Weisung.
+Kürze ist ein Mittel gegen Ballast, kein Mittel gegen Begründung.
+
 **Die Faktenregel gilt unabhängig vom Regler, auch bei `ausführlich`:** Jeder Fakt
 muss entweder beantworten, was gefragt wurde, oder anstoßen, was wir brauchen.
 Alles andere fliegt raus — **auch wenn es stimmt**. Ein Zusatzfakt, den ich nicht
 belegen kann, wird zur **Frage**, nicht zum Satz.
 
 ---
+
+## 3b — Issues, PRs, Antworten an den Owner
+
+**Owner-Weisung 2026-08-26:** „viel zu umständlich formuliert — ich soll es lesen und
+verstehen. Präzise auf den Punkt, unmissverständlich."
+
+**Feste Form für Issue und PR:**
+
+```
+Titel      was sich ändert, aktiv, unter 70 Zeichen
+Erste Zeile der Kern in einem Satz — was ist jetzt anders
+Danach     höchstens fünf Zeilen: was drin ist, was offen bleibt
+```
+
+Mehr nicht. Was raus muss, auch wenn es stimmt:
+
+- **Der Werdegang.** Was ich versucht habe, was blockiert wurde, in welcher
+  Reihenfolge — interessiert niemanden, der den PR liest.
+- **Die Prosa-Wiederholung des Diffs.** Wer den PR öffnet, sieht die Dateien.
+- **Belegketten in Klammern.** Ein Link genügt, die Herleitung steht im Commit.
+- **Selbstkommentare** („mein Vorschlag war an diesem Punkt zu weit"). Die
+  Korrektur selbst ist die Aussage.
+- **Motiv-Absätze**, die begründen, warum die Entscheidung richtig war. Sie liest
+  nur, wer schon widerspricht — und der braucht das Gespräch, nicht den Absatz.
+
+**Antworten im Kapitäns-Kanal:** Board zuerst (Regeln in `~/.claude/CLAUDE.md`),
+darunter höchstens drei kurze Absätze. Ein Absatz sagt eine Sache. Steht dieselbe
+Information schon im Board, wird der Absatz gestrichen, nicht umformuliert.
+
+**Prüffrage vor dem Absenden:** Kann der Owner nach dem ersten Satz entscheiden?
+Wenn nein, steht die Entscheidung zu weit hinten.
 
 ## 4 — Pre-Send-Selbstcheck
 
@@ -97,6 +137,9 @@ Vor dem Ablegen eines Entwurfs jede Zeile einmal gegen diese sechs Fragen:
 4. Echte Umlaute, keine Handumbrüche?
 5. Trägt die Mail die richtige Signatur (IIL: §35a; Rolle setzt sie, nicht ich)?
 6. Steht ein Satz drin, der nur erklärt, **warum** etwas so ist? → streichen.
+7. Lässt ein Satz mit **Rechtsfolge oder Risikoaussage** eine zweite Lesart zu? → prüfe ihn
+   gegen die *falsche* Lesart, nicht gegen die gemeinte. Bei „gilt einheitlich für beide“ ist
+   „eine gemeinsame Registrierung“ die falsche Lesart — und sie ist die naheliegendere.
 
 Der Check ist Pflicht, nicht Kür — die Regel „Lean-Zellen" wurde 2026-07-10
 zweimal in derselben Sitzung verletzt, **nachdem** sie aufgeschrieben war. Das
@@ -139,8 +182,19 @@ Drei Regeln dazu:
 - 2026-08-23 · dsb · gestrichen: „Sind die bestätigt, entfällt die Registrierung des Container Service.“ und die Klartext-Aufzählung der Bögen 4 bis 7 · Grund: „kürzer und stringenter“ — beides steht in den Unterlagen, die der Empfänger vor sich hat; 196 → 115 Wörter
 - 2026-08-23 · dsb · Rollenwahl korrigiert: Entwurf lag mit `--role iil` ab, weil NIS2 keine DSB-Tätigkeit ist → Owner: `dsb` · Grund: die Rolle hängt am **Kanal** (Mandanten-Fachmail), nicht am Rechtsgebiet
 - 2026-08-23 · dsb · gestrichen: „Bogen 3 kommt teilweise vorher: Die Kontaktstelle in Teil 3 ist dieselbe Person wie die Meldestelle in Bogen 3“ → „Das Portal verlangt schon bei der Registrierung eine NIS2-Kontaktstelle … dieselbe Person, die im Meldeprozess die Meldestelle besetzt“ · Grund: Owner-Rückfrage „was heißt das?“ — „Teil 3“ meinte Bogen 1, „Bogen 3“ ein anderes Formular; **Nummern-Bezüge sind nur innerhalb eines Dokuments eindeutig, sonst die Sache benennen, nicht die Fundstelle**
+- 2026-08-25 · hnu · gestrichen: „Die Fristwerte in P2 stehen als Referenzwerte unter Vorbehalt von Fachbereich 20 und Rechtsamt.“ + die Nummerierung der drei offenen Felder + „Wenn ihr am Zuschnitt etwas anders seht, telefonieren wir darüber.“ · Grund: „viel zu lang, aufs Wesentliche“ — der Vorbehalt stand zweimal im Anhang selbst; 110 → 43 Wörter
+- 2026-08-25 · hnu · gestrichen: „P1 erzeugt das klassifizierte Dokument-Ereignis, auf dem P2 aufsetzt“ → „Der Dokumentenworkflow erzeugt das klassifizierte Dokument-Ereignis, auf dem das Fristenmanagement aufsetzt“ · Grund: Projektkürzel sind Binnensprache; der Empfänger liest ein Dokument, keine Projektablage
+- 2026-08-25 · hnu · ersetzt: kompletter Entwurf mit Bescheid-Einordnung, Rechtsbehelfsfrist und vier Fragebogen-Befunden → vier Sätze mit der Bitte um Rückruf · Grund: der Owner hatte die Sache telefonisch geklärt — eine Mail, die einen anderen Kanal dupliziert, ist keine Kürzungsfrage, sondern überflüssig
+- 2026-08-25 · dsb · gestrichen: die Aufzählung der sechs IT-Punkte und der Absatz „Herr Herrmann hat am 19. August das ERP als separate Installation beschrieben, Sie sagen das Gegenteil.“ · Grund: „nichts Bekanntes unnötig wiederholen, kein der hat gesagt und der hat gesagt“ — die sechs Punkte standen wörtlich in der Mail des Empfängers; 210 → 90 Wörter
+- 2026-08-25 · dsb · gestrichen: „über den Lichtwellenleiter erreicht ein Vorfall im einen Werk das andere ohne Hürde“ → „nicht die Strecke ist der Punkt, sondern dass beide Netze eine Umgebung bilden … Trennung und Redundanz sind zwei verschiedene Baustellen“ · Grund: Owner-Rückfrage „ist ein Lichtwellenleiter nicht eher ein Risiko, 2 wäre besser weil redundant“ — ein Risikohinweis, der das Medium statt der Ursache benennt, provoziert die falsche Gegenmaßnahme
+- 2026-08-25 · dsb · gestrichen: „Registrierung, Meldeprozess und Nachweise gelten einheitlich für beide.“ → „Er registriert sich eigenständig beim BSI … Der Verbund entscheidet nur darüber, ob er betroffen ist, nicht darüber, wer die Pflichten erfüllt.“ · Grund: Owner-Rückfrage „eigene Registrierung ist doch damit Pflicht oder?“ — „einheitlich für beide“ ließ die Lesart „eine gemeinsame Registrierung“ zu
+- 2026-08-25 · dsb · ergänzt: dreischrittige Herleitung (Schwellenwerte allein nicht erreicht → Verbund-Betrachtung → Ausnahme scheitert an der IT), 90 → 259 Wörter · Grund: „bitte das nochmal darlegen (eigentlich nicht aber wegen Tochter schon)“ — die Kürzungsregel endet dort, wo der Empfänger das Ergebnis nicht selbst herleiten kann
 
 ---
+
+- 2026-08-26 · intern · Weisung: „deine issues und PR sind viel zu umständlich formuliert … präzise auf den Punkt … unmissverständlich" · Grund: PR-Texte trugen Werdegang, Belegketten und Selbstkommentare; der Owner musste drei Absätze lesen, bevor er entscheiden konnte. Neue Form: § 3b.
+
+- 2026-08-27 · dsb · gestrichen: „aus einer Akte mit zweihundert Seiten" → „aus rund zweihundert Akten und Dokumenten zu einer einzigen Person" · Grund: Owner-Korrektur „falsch: aus ca. 200 Akten / Dokumenten eines einzigen Bürgers" — die Zahl war richtig, die Einheit falsch; ein Rahmen-Satz, der die Sache des Empfängers falsch beschreibt, entwertet den ganzen Teaser, auch wenn alles Weitere stimmt. Vor dem ersten Satz eines Kundentexts die Sache beim Owner gegenprüfen, nicht aus dem Konzept ableiten
 
 ## 7 — Verhältnis zu anderen Regeln
 

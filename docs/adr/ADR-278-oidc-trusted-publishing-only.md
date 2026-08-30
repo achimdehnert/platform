@@ -14,6 +14,7 @@ drift_check_paths:
   - "tools/check_publish_oidc_auth.py"
   - ".github/workflows/publish-iil-codeguard.yml"
   - ".github/workflows/publish-iil-ingest.yml"
+  - ".github/workflows/validate-workflows.yml"
 ---
 
 # ADR-278: OIDC Trusted Publishing als einziger PyPI-Publish-Pfad für iil-Pakete
@@ -106,3 +107,22 @@ ist die Enforcement-Verdrahtung zu überarbeiten (nicht das Prinzip).
   gescannt — **0 würden rot** (13 OIDC-clean, 5 ohne publish-Workflow, 1
   TestPyPI-only/ausgenommen). Der blockierende Guard schreibt also den bereits
   erreichten OIDC-Stand fest, statt neue Rot-Fälle zu erzeugen.
+- **2026-08-27 (KONZ-platform-052 V4): Guard erweitert, bekommt ersten Aufrufer
+  im platform-Repo.** Ist-Befund: `tools/check_publish_oidc_auth.py` prüfte nur
+  `password:` im `with:`-Block der pypa-Action — `.github/workflows/publish-iil-testkit.yml`
+  lädt seinen Build per `twine upload` (`TWINE_USERNAME`/`TWINE_PASSWORD` als
+  env auf einem `run:`-Step) hoch und wurde vom Guard nicht gesehen (`rc 0`
+  "✅ OIDC-only"). Der Guard hatte zudem in `platform` selbst **keinen
+  Aufrufer** — `validate-workflows.yml` fuhr nur den ADR-226-Invariant, nicht
+  diesen Guard. Fix: (1) `check_publish_oidc_auth.py` erkennt jetzt zusätzlich
+  Token-Publish-Kommandos in `run:`-Blöcken (`twine upload`, `uv publish`,
+  `hatch publish`, `flit publish`, `poetry publish`) und Token-Envs
+  (`TWINE_PASSWORD`/`TWINE_USERNAME`/`UV_PUBLISH_TOKEN`/`HATCH_INDEX_AUTH`/
+  `POETRY_PYPI_TOKEN_*`), TestPyPI weiter ausgenommen. (2) `validate-workflows.yml`
+  bekommt den Step "OIDC-only Publish-Guard (ADR-278)"
+  (`check_publish_oidc_auth.py --block .github/workflows/publish-*.yml`) als
+  ersten Aufrufer im Repo. `publish-iil-testkit.yml` bleibt ein echter, befristet
+  allowlisteter Verstoß (`tools/oidc_allowlist.txt`, Ablauf 2026-10-19 — fällt
+  mit dem Kill-Gate-Termin oben zusammen —, Referenz KONZ-052 V1); die Allowlist
+  wird generisch vom Guard gelesen (kein Sonderfall im Guard-Code) und verliert
+  ihre Wirkung automatisch mit Ablaufdatum.

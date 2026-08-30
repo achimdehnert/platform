@@ -469,7 +469,7 @@ repos:
     flat:
       type: library
       pypi: gaeb-toolkit
-      pypi_strategy: archivieren-kandidat
+      pypi_strategy: einfrieren   # 2026-08-27 Owner: nicht archivieren — ausschreibungs-hub KONZ-003/ADR-001 integrieren TOOL-GAEB-TOOLKIT (review_by 2026-09-15)
     domain: Engineering & Construction
     rich:
       name: gaeb-toolkit
@@ -528,7 +528,7 @@ repos:
     flat:
       type: library
       pypi: iil-enrichment
-      pypi_strategy: einfrieren
+      pypi_strategy: aktiv   # 2026-08-27 Owner: Konsument risk-hub geplant — Exschutz-Dokument, ADR-008 §6.2 GESTIS statisch -> GESTISProvider/PubChemProvider
   iil-fieldprefill:
     in_flat: true
     in_rich: false
@@ -647,6 +647,29 @@ repos:
       compose: docker-compose.prod.yml
       deploy:
         port: 8100
+  news-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: news.iil.pet
+      port: 8113
+      health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: news-hub
+      repo: news-hub
+      description: Hot-Topics-Letter — Newsletter-Postfaecher zu belegten Themen (ADR-299)
+      github: achimdehnert/news-hub
+      deployed: false
+      url: https://news.iil.pet
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: docker/app/Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        port: 8113
   learnfw:
     in_flat: true
     in_rich: false
@@ -682,7 +705,7 @@ repos:
     in_flat: true
     in_rich: false
     flat:
-      type: django
+      type: static
   nl2cad:
     in_flat: true
     in_rich: false
@@ -873,6 +896,7 @@ repos:
     in_rich: false
     flat:
       type: library
+      archived: true   # 2026-08-27 Owner archiviert (GitHub); Kopie in iilgmbh/risk-hub src/riskfw ist kanonisch; Backup ~/backups/repo-graveyard/achimdehnert--riskfw--2026-08-27
       pypi: riskfw
       pypi_strategy: archivieren-kandidat
   risk-hub:
@@ -933,6 +957,15 @@ repos:
         prod_redirect: https://schutztat.com/oidc/callback/
         staging_app_slug: risk-hub-staging
         staging_redirect: https://staging.schutztat.de/oidc/callback/
+  # robo-lab (ADR-297 Klasse 5, angelegt 2026-08-25): Experiment Digital Twin Unitree G1.
+  # Kein Deploy, kein Container, kein Prod — robot.iil.pet ist eine User-Unit auf dem
+  # staging-Host und gehoert deshalb NICHT in infra/ports.yaml (Owner-Entscheid 2026-08-29,
+  # robo-lab#28 K5: Registry ja, ports nein). Status kein-anlass (ohne Feld = Default).
+  robo-lab:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: python
   schutztat-reporting:
     in_flat: false
     in_rich: false

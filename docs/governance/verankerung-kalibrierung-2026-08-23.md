@@ -207,11 +207,60 @@ umgebaut *werden sollen*, liest sich fuer den Klassifikator wie eine Vertagung.
 Der Unterschied zwischen „steht noch aus" und „ist das Ergebnis einer Messung"
 ist genau die Grenze, an der die Klasse `vertagung` bisher scheitert.
 
-**Stand des Fensters:** 5 gepruefte Texte · 7 Meldungen · 1 richtig · 6 Fehlalarme,
-davon 5 aus Meta-Texten (Berichte ueber Vertagungen, Trockenlauf-Listen). Ein
-Vorschlag fuer Welle 2 folgt daraus unmittelbar und steht in
-[#2214](https://github.com/achimdehnert/platform/issues/2214): Meta-Texte sind
-eine eigene Klasse und muessen getrennt ausgewertet werden.
+**Vierte Fehlalarm-Klasse: das Stichwort ist ein Fachbegriff der Domaene.** Drei
+Meldungen in einer Sitzung (risk-hub, 2026-08-24), alle drei auf demselben Wort, und
+keine davon war eine Vertagung:
+
+- **#672** *„Anhang III auf **02.12.2027** verschoben, Anhang I auf 02.08.2028"* — das
+  ist eine **Rechtsfrist**, die der europaeische Gesetzgeber verschoben hat. Der Autor
+  des PR-Textes verschiebt nichts; er berichtet, was verschoben WURDE.
+- **#673** *„die Meldung, der AI Act sei verschoben worden"* — eine **zitierte
+  Fremdaussage**, die der Text im selben Absatz **widerlegt** („verschoben wurden die
+  Hochrisiko-Pflichten, die Kennzeichnung nicht"). Der Klassifikator meldet also genau
+  den Satz, der eine Vertagung **bestreitet**.
+- **#674** *„Schwerpunkt verschiebt sich vollstaendig"* — eine **Metapher** ueber
+  Gewichtung zwischen zwei Dokumenten.
+
+Das unterscheidet diese Klasse von den drei bisherigen: bei Meta-Text (§6), Konjunktiv
+ueber Behobenes (#2239) und Konditional (#2247) trug das Wort noch seine
+Vertagungs-Bedeutung, nur eben nicht als Zusage des Autors. Hier trifft es einen
+**anderen Wortsinn**. Kein Tempus-, Modus- oder Subjekt-Signal hilft: „verschoben"
+in *„die Frist wurde verschoben"* ist grammatisch identisch mit *„wir haben das
+verschoben"*. Der Unterschied liegt allein daran, **wer** verschiebt — und das steht
+im Satz, nicht in seiner Form.
+
+Praktische Folge fuer die Auswertung: jedes Repo, dessen Fachsprache ein
+Vertagungs-Stichwort als Terminus fuehrt — Recht (Fristen), Bau (Termine), Logistik
+(Sendungen) —, erzeugt strukturell Fehlalarme. risk-hub ist als Compliance-Plattform
+der Regelfall dafuer, nicht die Ausnahme.
+
+**Stand des Fensters:** 19 geprueste Texte · 12 Meldungen · 1 richtig · 11 Fehlalarme.
+Praezision 0,083 (vorher 0,111). Sechs weitere Texte, drei weitere Meldungen, keine
+davon richtig — die Richtung des Fensters ist damit deutlicher als sein Endstand.
+
+**Nachtrag 2026-08-26 (Sitzung 0d4b7c, zwei Meldungen, beide Fehlalarm):** `verankerung_pruefer.py` meldete #2327 und #2329 (je „Bewusst ausgelassen, getrackt"). Zitat #2329: „Pilot (K1–K5) → KONZ-051 Kill-Gate-Tabelle, Frist 2026-09-30" — das Tracking-Artefakt ist eine KONZ-Zeile mit Datum (laut Hausregel gleichwertig zum Issue), die der Pruefer nur als Issue-Nummer erkennt. Zitat #2327: „Skill `/ux-review` selbst: Folge-PR nach Akzeptanz dieses Konzepts" — inzwischen erfuellt (#2329). Stand des Fensters: 21 gepruefte Texte · 14 Meldungen · 1 richtig · 13 Fehlalarme (Praezision 0,071). Neue Fehlalarm-Klasse: **Tracking per KONZ-/Ledger-Zeile statt Issue** — der Pruefer kennt nur den Issue-Anker.
+
+**Nachtrag 2026-08-27 (Sitzung 329244, drei Texte, eine Meldung, Fehlalarm):**
+`verankerung_pruefer.py` lief ueber #2370, #2371 und #2375. Die ersten beiden sauber
+(4 bzw. 3 Segmente). Bei #2375 eine Meldung, Klasse `vertagung`, Zitat:
+*„~/.claude/CLAUDE.md bleibt unversioniert"*.
+
+Das ist **keine Vertagung, sondern eine getroffene Entscheidung**. Der Owner hat den
+Vorschlag, die Datei zu versionieren, an diesem Tag ausdruecklich abgelehnt; es gibt
+keine aufgeschobene Restarbeit, die ein Issue verfolgen koennte. Durabel abgelegt ist
+der Entscheid als Memory-Datei (`feedback_global_claude_md_stays_unversioned`) samt der
+Folge, die daraus fuer den Code gilt — der Pruefer kennt diesen Anker-Typ nicht, wie
+schon beim Nachtrag vom 2026-08-26 die KONZ-/Ledger-Zeile.
+
+Neue Fehlalarm-Klasse: **abgelehnte Option statt aufgeschobener Arbeit.** „bleibt X"
+und „wird nicht Y" beschreiben einen Endzustand, kein Spaeter. Die Unterscheidung ist
+praktisch wichtig, weil die Gegenmassnahme sonst Issue-Spam erzeugt: jede bewusst
+verworfene Option bekaeme ein Ticket, das nie geschlossen wird. Signal, das hier traegt
+und in den bisherigen Klassen fehlte: die Aussage nennt **keinen spaeteren Zeitpunkt und
+keine Bedingung** — weder „spaeter", „sobald", „nach", noch ein Datum.
+
+**Stand des Fensters:** 24 gepruefte Texte · 15 Meldungen · 1 richtig · 14 Fehlalarme.
+Praezision 0,067 (vorher 0,071).
 
 ### 2026-08-23 abends, Phase 0g auf den vier Gate-PRs (#2236–#2239)
 
@@ -234,7 +283,6 @@ der Behebung. Ein PR-Text, der erklaert, was ohne den Fix passiert waere, klingt
 zwangslaeufig nach einer offenen Zusage. Das ist kein Randfall: so ist fast jede
 gute Fehlerbeschreibung gebaut.
 
-**Stand des Fensters:** 9 gepruefte Texte · 8 Meldungen · 1 richtig · 7 Fehlalarme.
 Praezision faellt damit von 0,14 auf 0,125. Der Vorschlag aus
 [#2214](https://github.com/achimdehnert/platform/issues/2214) traegt weiter, muss
 aber um diese zweite Klasse ergaenzt werden: **Tempus/Modus des Segments** ist ein
@@ -273,8 +321,6 @@ hier nicht — „gehören verschoben" steht im Indikativ Präsens. Nötig wäre
 ob das Segment ein **Subjekt mit Handlungsabsicht** hat („wir machen später") oder
 eine **Eigenschaft** beschreibt („sie gehören zusammen").
 
-**Stand des Fensters:** 13 geprüfte Texte · 9 Meldungen · 1 richtig · 8 Fehlalarme.
-Präzision 0,111 (vorher 0,125). Die Zahl fällt weiter, und zwar mit jedem Lauf über
 gut geschriebene Texte — das ist der eigentliche Befund: der Klassifikator bestraft
 Texte, die ihre Bedingungen ausformulieren.
 
@@ -310,5 +356,24 @@ Nötig wäre, den Anker-Test nicht auf das Segment, sondern auf das **Dokument**
 erweitern: nennt der Text an anderer Stelle eine Tabellenzeile oder Überschrift, die
 denselben Punkt trägt, ist er verankert.
 
-**Stand des Fensters:** 14 geprüfte Texte · 10 Meldungen · 1 richtig · 9 Fehlalarme.
 Präzision 0,100 (vorher 0,111).
+
+---
+
+## Zusammenfuehrung 2026-08-30 (Konfliktaufloesung PR #2276)
+
+Die drei Abschnitte oben lagen seit dem 2026-08-24 auf einem Branch, waehrend `main`
+dieselbe Datei in einer zweiten Linie weiterschrieb (19 → 21 → 24 gepruefte Texte).
+Inhaltlich ueberschneiden sie sich nicht: `main` kennt weder #2236, ADR-297, #2259
+noch #2265.
+
+**Die Zaehlerstaende sind bewusst NICHT addiert.** Der Branch zaehlte 5 → 9 → 13 → 14,
+`main` unabhaengig davon bis 24 — beide zaehlen dasselbe Kalibrierfenster ab demselben
+Start. Ob die hier dokumentierten Laeufe in den 24 von `main` schon enthalten sind,
+laesst sich aus den Dokumenten **nicht** entscheiden; eine Summe waere eine erfundene
+Zahl in genau dem Dokument, das vor erfundenen Zahlen warnt.
+
+**Massgeblich bleibt daher der Stand aus `main`: 24 gepruefte Texte · 15 Meldungen ·
+1 richtig · 14 Fehlalarme (Praezision 0,067).** Die Abschnitte oben tragen die
+Fehlalarm-**Klassen** bei, nicht die Zahlen. Die Rekonstruktion des tatsaechlichen
+Zaehlerstands haengt an #2469.

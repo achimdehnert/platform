@@ -67,7 +67,13 @@ def pruefe_gate(gate: dict, repo: str = REPO_ROOT) -> dict:
     faelle = gate.get("faengt")
     slug = gate.get("slug", "?")
     if not faelle:
-        return {"slug": slug, "zustand": "ungeprueft", "gedeckt": [], "fehlend": [], "dateien": 0}
+        return {
+            "slug": slug,
+            "zustand": "ungeprueft",
+            "gedeckt": [],
+            "fehlend": [],
+            "dateien": 0,
+        }
 
     quellen = [gate.get("drill", "")] + list(gate.get("drill_extra") or [])
     text = "\n".join(_lies(repo, q) for q in quellen).lower()
@@ -126,7 +132,10 @@ def bericht(staende: list[dict], kurz: bool) -> str:
         zeilen.append(f"  ✓ {s['slug']} — {len(s['gedeckt'])} Fall/Faelle gedrillt")
     if ungeprueft:
         zeilen.append("")
-        zeilen.append("  ungeprueft (Reihenfolge = Registry): " + ", ".join(s["slug"] for s in ungeprueft))
+        zeilen.append(
+            "  ungeprueft (Reihenfolge = Registry): "
+            + ", ".join(s["slug"] for s in ungeprueft)
+        )
         zeilen.append(
             "  → `faengt: [{fall, probe}]` je Gate nachtragen. Das ist Bestandsarbeit,"
         )
@@ -152,8 +161,18 @@ def main(argv: list[str] | None = None) -> int:
         with open(args.registry, encoding="utf-8") as f:
             gates = json.load(f).get("gates", [])
     except (OSError, ValueError) as fehler:
+        # `--kurz` schrieb diese Zeile bisher gar nicht, und im Nicht-kurz-Fall
+        # ging sie nach stderr. Der Sitzungsstart ruft `--kurz 2>/dev/null` auf:
+        # beide Unterdrueckungen zugleich. Leere Ausgabe liest der Runner als
+        # PASS und behauptet dann "kein Gate nennt einen ungedrillten Fall" — ein
+        # Satz ueber Gates, die nie gelesen wurden. Fail-open bleibt (Exit 0, der
+        # Start laeuft weiter), aber die Zeile geht nach STDOUT, damit daraus ein
+        # WARN wird statt eines stillen Gruens (platform#2278).
+        print(
+            "Registry nicht lesbar — dieser Lauf misst nichts, kein Urteil ueber Gates"
+        )
         if not args.kurz:
-            print(f"Registry nicht lesbar ({fehler}) — kein Urteil.", file=sys.stderr)
+            print(f"  Grund: {fehler}", file=sys.stderr)
         return 0
 
     staende = [pruefe_gate(g, args.repo) for g in gates]

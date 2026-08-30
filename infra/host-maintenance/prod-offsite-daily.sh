@@ -157,15 +157,64 @@ for c in "${PGC[@]}"; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
-log "Datei-Volumes mit Nutzdaten sichern"
+log "Datei-Volumes sichern — Standard: ALLES Benannte, Verzicht explizit (platform#2284, 2026-08-25)"
+# Bis 2026-08-25 sicherte dieser Block nur Volumes, deren Name auf
+# minio|media|upload|documents passte. Alles andere war unsichtbar — 46 Volumes
+# mit 7,2 GB, darunter drei doc-hub-Volumes in Nutzung (platform#2284 K1).
+# Jetzt ist das Vorzeichen gedreht: gesichert wird jedes benannte Volume, AUSSER
+#   (a) pgdata der oben gedumpten Postgres-Container (konsistent per pg_dumpall),
+#   (b) was governance/backup/volume-verzicht.yaml MIT Grund verzichtet
+#       (Regeln = Klassen ohne Nutzdatenanspruch, exakt = Einzelfaelle).
+# Fehlt die Verzichtsliste, wird ALLES Benannte gesichert und das laut gesagt —
+# die Fehlerrichtung ist "zu viel Backup", nie "zu wenig".
 VOLROOT="$(docker info --format '{{.DockerRootDir}}')/volumes"
-TARGETS=()
-# Nur Volumes mit echtem Nutzdaten-Charakter. Bewusst KEINE pgdata-Volumes —
-# die kommen oben konsistent per pg_dumpall.
-while read -r v; do
+VERZICHT_YAML="${VERZICHT_YAML:-/opt/platform/governance/backup/volume-verzicht.yaml}"
+TARGETS=(); N_VERZICHT=0; N_PGDATA=0
+# pgdata-Volumes der gedumpten Container
+PG_VOLS=""
+for c in "${PGC[@]}"; do
+  PG_VOLS+="$(docker inspect "$c" --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' 2>/dev/null)"$'\n'
+done
+# Volume-Liste in eine Datei — NICHT in eine Pipe: `python3 -` liest das
+# Programm von stdin, und ein Heredoc dort verdraengt die Pipe. Der Erstlauf
+# nach platform#2306 entschied so "0 sichern · 0 verzichtet" auf beiden Hosts
+# (2026-08-25 15:00) — die Liste war weg, bevor Python sie sah.
+VOL_LISTE=$(mktemp)
+docker volume ls --format '{{.Name}}\t{{.Labels}}' > "$VOL_LISTE"
+if [[ -f "$VERZICHT_YAML" ]]; then
+  # Entscheidung je Volume in Python (Regex + YAML), eine Zeile "NAME<TAB>sichern|verzicht"
+  ENTSCHEID=$(python3 - "$VERZICHT_YAML" "$RESTIC_HOST" "$VOL_LISTE" <<'PY'
+import re, sys, yaml
+pfad, host, liste = sys.argv[1], sys.argv[2], sys.argv[3]
+d = yaml.safe_load(open(pfad, encoding="utf-8")) or {}
+exakt = {(str(e.get("host")), str(e.get("volume"))) for e in d.get("verzicht") or [] if isinstance(e, dict) and e.get("grund")}
+regeln = [re.compile(str(r["muster"]), re.I) for r in d.get("regeln") or [] if isinstance(r, dict) and r.get("muster") and r.get("grund")]
+for zeile in open(liste, encoding="utf-8"):
+    name, _, labels = zeile.rstrip("\n").partition("\t")
+    if not name or "com.docker.volume.anonymous" in labels:
+        continue
+    if (host, name) in exakt or any(r.search(name) for r in regeln):
+        print(f"{name}\tverzicht")
+    else:
+        print(f"{name}\tsichern")
+PY
+)
+else
+  log "  WARNUNG: Verzichtsliste $VERZICHT_YAML fehlt — sichere ALLES Benannte (Fehlerrichtung: zu viel, nie zu wenig)"
+  ENTSCHEID=$(awk -F'\t' '$2 !~ /com.docker.volume.anonymous/ {print $1"\tsichern"}' "$VOL_LISTE")
+fi
+rm -f "$VOL_LISTE"
+# Ein leerer Entscheid ist ein Werkzeugfehler, keine Lage: 175 Volumes auf prod
+# verschwinden nicht ueber Nacht. Laut sagen, nicht still "0 sichern".
+[[ -n "$ENTSCHEID" ]] || { log "  FEHLER: Volume-Entscheidung leer — Volume-Sicherung NICHT gelaufen (Werkzeugfehler)"; rc_total=1; }
+while IFS=$'\t' read -r v was; do
+  [[ -n "$v" ]] || continue
+  if grep -qxF "$v" <<<"$PG_VOLS"; then N_PGDATA=$((N_PGDATA+1)); continue; fi
+  if [[ "$was" == "verzicht" ]]; then N_VERZICHT=$((N_VERZICHT+1)); continue; fi
   d="$VOLROOT/$v/_data"
   [[ -d "$d" ]] && TARGETS+=("$d")
-done < <(docker volume ls --format '{{.Name}}' | grep -iE 'minio|media|upload|documents' | sort)
+done <<<"$ENTSCHEID"
+log "  Entscheidung: ${#TARGETS[@]} sichern · $N_VERZICHT verzichtet (Regel/Liste) · $N_PGDATA pgdata (per Dump gedeckt)"
 
 if [[ ${#TARGETS[@]} -gt 0 ]]; then
   if restic backup --tag volumes --host "$RESTIC_HOST" "${TARGETS[@]}" 2>&1 | redact; then

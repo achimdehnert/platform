@@ -41,6 +41,11 @@ haelt das fest.
 Exit-Codes
 ----------
 0 = kein Fund · 1 = Fund (ROT IST BEFUND, kein Defekt) · 2 = Werkzeugfehler.
+
+Werkzeugfehler ist dabei nicht nur die unlesbare Registry, sondern auch der blinde
+Lauf: war **kein einziges** Repo abrufbar, meldet der Melder 2 statt 0. Sonst waere
+ausgerechnet der Totalausfall des Zugangs das gruenste Ergebnis, das dieses Werkzeug
+kennt.
 """
 
 from __future__ import annotations
@@ -187,6 +192,51 @@ def check_a(reg: Registry) -> list[Finding]:
     return funde
 
 
+def antwort_holen(
+    reg: Registry,
+    fetch: Callable[[str, str], dict | None],
+    repo: str,
+) -> dict | None:
+    """Repo-Metadaten holen — erst beim deklarierten Owner, dann bei den uebrigen.
+
+    Die Deklaration kann selbst der Fehler sein. Dann fuehrt der angefragte Pfad ins
+    Leere, und der Fund versteckt sich als "nicht pruefbar" — der Melder wuerde
+    ausgerechnet die schwerste Drift verschweigen. Realfall bahn-hub (2026-08-24):
+    die Regel `bahn-` -> bahn-sqf schickte die Anfrage nach bahn-sqf/bahn-hub (404),
+    waehrend das Repo unter achimdehnert liegt.
+
+    Gemeinsam fuer B und C, nicht zweimal geschrieben: der Fallback entstand zuerst
+    nur in `check_b`. `check_c` uebersprang dadurch stillschweigend genau die Repos,
+    deren Deklaration falsch ist — also die, fuer die er gebaut wurde (platform#2264).
+    """
+    erwartet = reg.deklarierter_owner(repo)
+    antwort = fetch(erwartet, repo)
+    if antwort is not None:
+        return antwort
+    for kandidat in reg.bekannte_konten:
+        if kandidat == erwartet:
+            continue
+        antwort = fetch(kandidat, repo)
+        if antwort is not None:
+            return antwort
+    return None
+
+
+def mit_zwischenspeicher(
+    fetch: Callable[[str, str], dict | None],
+) -> Callable[[str, str], dict | None]:
+    """Jede (owner, repo)-Anfrage hoechstens einmal — B und C fragen dieselben Repos."""
+    cache: dict[tuple[str, str], dict | None] = {}
+
+    def geholt(owner: str, name: str) -> dict | None:
+        schluessel = (owner, name)
+        if schluessel not in cache:
+            cache[schluessel] = fetch(owner, name)
+        return cache[schluessel]
+
+    return geholt
+
+
 def check_b(
     reg: Registry,
     fetch: Callable[[str, str], dict | None],
@@ -196,23 +246,7 @@ def check_b(
     namen = sorted(nur) if nur is not None else sorted(reg.repos)
     for repo in namen:
         erwartet = reg.deklarierter_owner(repo)
-        antwort = fetch(erwartet, repo)
-        if antwort is None:
-            # Die Deklaration kann selbst der Fehler sein. Dann fuehrt der
-            # angefragte Pfad ins Leere, und der Fund versteckt sich als
-            # "nicht pruefbar" — der Melder wuerde ausgerechnet die schwerste
-            # Drift verschweigen. Realfall bahn-hub (2026-08-24): die Regel
-            # `bahn-` -> bahn-sqf schickte die Anfrage nach bahn-sqf/bahn-hub
-            # (404), waehrend das Repo unter achimdehnert liegt.
-            # Deshalb Gegenprobe ueber die uebrigen bekannten Konten, bevor
-            # "nicht pruefbar" ausgesprochen wird.
-            for kandidat in reg.bekannte_konten:
-                if kandidat == erwartet:
-                    continue
-                antwort = fetch(kandidat, repo)
-                if antwort is not None:
-                    break
-        tatsaechlich = real_owner(antwort)
+        tatsaechlich = real_owner(antwort_holen(reg, fetch, repo))
         if tatsaechlich is None:
             unerreichbar.append(repo)
             continue
@@ -235,23 +269,34 @@ def check_c(
     typ: Callable[[str], str | None],
     stichtag: str,
     nur: Iterable[str] | None = None,
-) -> list[Finding]:
+) -> tuple[list[Finding], list[str]]:
+    """Leitsatz-Verstoesse — Rueckgabe: (Funde, nicht pruefbar).
+
+    Die zweite Liste ist kein Beiwerk. Ein produktives Repo, das der Melder nicht
+    abrufen kann, ist **ungeprueft**, nicht regelkonform; frueher fiel es hier ohne
+    jede Zaehlung heraus und der einzige Zweck dieses Checks verschwand lautlos.
+    """
     funde: list[Finding] = []
+    unerreichbar: list[str] = []
     typ_cache: dict[str, str | None] = {}
     namen = sorted(nur) if nur is not None else sorted(reg.repos)
     for repo in namen:
         eintrag = reg.repos.get(repo) or {}
         if not ist_klasse_1_bis_4(eintrag):
             continue
-        antwort = fetch(reg.deklarierter_owner(repo), repo)
-        if not antwort:
-            continue
-        angelegt = (antwort.get("created_at") or "")[:10]
-        if not angelegt or angelegt < stichtag:
-            continue  # Bestand — Ebene 2, wandert nur mit Anlass
+        antwort = antwort_holen(reg, fetch, repo)
         besitzer = real_owner(antwort)
         if besitzer is None:
+            unerreichbar.append(repo)
             continue
+        angelegt = (antwort.get("created_at") or "")[:10]
+        if not angelegt:
+            # Ohne Anlagedatum ist die Grenze Ebene 1 / Ebene 2 nicht entscheidbar.
+            # Dasselbe stille `continue` wie oben, nur eine Zeile spaeter.
+            unerreichbar.append(repo)
+            continue
+        if angelegt < stichtag:
+            continue  # Bestand — Ebene 2, wandert nur mit Anlass
         if besitzer not in typ_cache:
             typ_cache[besitzer] = typ(besitzer)
         if typ_cache[besitzer] == "User":
@@ -264,17 +309,29 @@ def check_c(
                     f"nach dem Stichtag {stichtag} angelegt, produktiv, aber auf einem persoenlichen Konto",
                 )
             )
-    return funde
+    return funde, unerreichbar
 
 
 # --- CLI ----------------------------------------------------------------------
 
 
-def bericht(funde: list[Finding], unerreichbar: list[str], stichtag: str) -> str:
+def bericht(
+    funde: list[Finding],
+    unerreichbar: list[str],
+    stichtag: str,
+    blind: bool = False,
+) -> str:
     zeilen = [f"ADR-297 Org-Zuordnungs-Melder — Stichtag Leitsatz: {stichtag}", ""]
-    if not funde:
+    if blind:
+        zeilen.append("Werkzeugfehler: kein einziges Repo war abrufbar.")
+        zeilen.append(
+            "  Dieser Lauf misst nichts. Ein Schweigen aus dem eigenen Messgeraet "
+            "ist keine Entwarnung."
+        )
+        zeilen.append("")
+    if not funde and not blind:
         zeilen.append("Kein Fund: Deklaration und Realitaet stimmen ueberein.")
-    else:
+    elif funde:
         for check, titel in (
             ("A", "Registry-intern uneins"),
             ("B", "Deklaration weicht von GitHub ab"),
@@ -320,10 +377,19 @@ def main(argv: list[str] | None = None) -> int:
 
     funde = check_a(reg)
     unerreichbar: list[str] = []
+    blind = False
     if not args.offline:
-        b, unerreichbar = check_b(reg, repo_abrufen)
-        funde += b
-        funde += check_c(reg, repo_abrufen, konto_typ, args.stichtag)
+        geholt = mit_zwischenspeicher(repo_abrufen)
+        b, unerreichbar_b = check_b(reg, geholt)
+        c, unerreichbar_c = check_c(reg, geholt, konto_typ, args.stichtag)
+        funde += b + c
+        unerreichbar = sorted(set(unerreichbar_b) | set(unerreichbar_c))
+        # check_b fragt JEDES Repo. Ist keines abrufbar, hat nicht die Flotte
+        # bestanden — dann fehlt der Zugang (gh nicht angemeldet, Token ohne
+        # Sichtbarkeit, kein Netz). Ohne diesen Zweig endet genau dieser Fall
+        # mit Exit 0 und der Zeile "Kein Fund": ein gruener Bericht aus einem
+        # blinden Werkzeug.
+        blind = bool(reg.repos) and len(unerreichbar_b) == len(reg.repos)
 
     if args.json:
         print(
@@ -332,13 +398,16 @@ def main(argv: list[str] | None = None) -> int:
                     "stichtag": args.stichtag,
                     "funde": [f.__dict__ for f in funde],
                     "nicht_pruefbar": unerreichbar,
+                    "blind": blind,
                 },
                 indent=2,
                 ensure_ascii=False,
             )
         )
     else:
-        print(bericht(funde, unerreichbar, args.stichtag))
+        print(bericht(funde, unerreichbar, args.stichtag, blind))
+    if blind:
+        return 2
     return 1 if funde else 0
 
 

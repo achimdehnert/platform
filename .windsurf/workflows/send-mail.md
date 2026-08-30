@@ -23,6 +23,21 @@ steht in dieser Skill-Datei** (Hardcoding-Verbot).
 ⚠️ **Nicht idempotent** — jeder Aufruf verschickt real eine Mail. Bei Wiederholung nach Fehler zuerst
 prüfen, ob die erste Mail nicht doch rausging (Sent-Ordner / Empfänger fragen).
 
+## Welches Konto darf senden (Owner-Weisung 2026-08-28)
+
+Die Regel hängt am **Absender-Konto**, nicht am Empfänger:
+
+| Konto | Was erlaubt ist |
+|---|---|
+| `ad@dehnert.team` | **echter Versand** über `send_mail.py` — hier läuft auch der Ilja/LUCA-Kanal |
+| `achim.dehnert@iil.gmbh` (IIL) | **nur Entwurf** (`draft_mail.py --account iil`) — gesendet wird vom Owner |
+| `achim.dehnert@hnu.de` (HNU) | **nur Entwurf** (`draft_mail.py --account hnu`) — gesendet wird vom Owner |
+
+Ein „ja, schick das raus" im Chat bezieht sich bei IIL und HNU auf den **Entwurf**, nicht auf
+den Sendeknopf. `send_mail.py` kennt heute weder `--account` noch `--config` und sendet daher
+ohnehin nur als `ad@dehnert.team`; wer das ändert, muss diese Regel mit ändern — `--from`
+und `--role` setzen sonst eine fremde Absenderadresse auf denselben Transport.
+
 ## Entwurf statt Versand (Draft-first)
 
 Soll die Mail **nicht** rausgehen, sondern zur Prüfung im Postfach landen:
