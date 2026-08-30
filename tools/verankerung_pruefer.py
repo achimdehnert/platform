@@ -72,6 +72,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import sys
 import urllib.error
 import urllib.request
@@ -493,11 +494,26 @@ def pruefe(
     repo: str = "",
     klassen: tuple[str, ...] = ZUSAGE_KLASSEN,
     bestaetiger: Callable[[str, str, str], bool] | None = None,
-) -> tuple[list[Befund], list[Segment]]:
-    """(Befunde, geprüfte Segmente) — Befund = Zusage-Typ ohne gueltigen Anker."""
+    budget_sekunden: float | None = None,
+    uhr: Callable[[], float] = time.monotonic,
+) -> tuple[list[Befund], list[Segment], list[Segment]]:
+    """(Befunde, geprüfte Segmente, ungeprüfte Segmente).
+
+    Befund = Zusage-Typ ohne gueltigen Anker.
+
+    `budget_sekunden` begrenzt den GESAMTEN Lauf, nicht die einzelne Anfrage.
+    Der Pro-Anfrage-Timeout allein genuegt nicht: er gilt je Segment, und ein
+    langer PR-Text hat viele. Gemessen 2026-08-30 (#2469): rund 8 s je Aufruf
+    bei `qwen2.5:7b`, bei 20 Segmenten also Minuten — die Sitzung brach beide
+    Laeufe nach 240 s ab und bekam GAR KEIN Ergebnis. Mit Budget liefert das
+    Werkzeug, was es bis dahin geprueft hat, und sagt, was offen blieb.
+    """
     segmente = segmentiere(normalisiere(text))
     befunde: list[Befund] = []
-    for seg in segmente:
+    start = uhr()
+    for i, seg in enumerate(segmente):
+        if budget_sekunden is not None and uhr() - start >= budget_sekunden:
+            return befunde, segmente[:i], list(segmente[i:])
         urteil = klassifikator(seg.volltext)
         klasse = urteil.get("klasse", "unklar")
         if klasse not in klassen:
@@ -518,15 +534,35 @@ def pruefe(
                 anker=anker,
             )
         )
-    return befunde, segmente
+    return befunde, segmente, []
 
 
 def bericht(
-    befunde: list[Befund], segmente: list[Segment], quelle: str, block: bool
+    befunde: list[Befund],
+    segmente: list[Segment],
+    quelle: str,
+    block: bool,
+    ungeprueft: int = 0,
 ) -> str:
-    if not segmente:
+    if not segmente and not ungeprueft:
         return f"◌ {quelle}: kein pruefbares Segment (Text zu kurz oder nur Code)."
+    # Budget erschoepft ist die dritte Klasse: nicht gruen (es wurde nicht alles
+    # gesehen) und nicht "kein Modell erreichbar" (es lief ja). Sie muss ihren
+    # eigenen Namen haben, sonst liest sich ein Teillauf wie ein Freispruch.
+    rest = (
+        f"\n◌ {ungeprueft} Segment(e) UNGEPRUEFT — Zeitbudget erschoepft. "
+        "Das ist keine Entwarnung: mit --budget-sekunden erhoehen oder "
+        "--modell auf ein kleineres setzen."
+        if ungeprueft
+        else ""
+    )
     if not befunde:
+        if ungeprueft:
+            return (
+                f"◌ Verankerung {quelle}: {len(segmente)} von "
+                f"{len(segmente) + ungeprueft} Segment(en) geprueft, darin keine "
+                "Zusage ohne Tracking-Issue." + rest
+            )
         return (
             f"✅ Verankerung {quelle}: {len(segmente)} Segment(e) geprueft, "
             "jede Zusage traegt ein Tracking-Issue."
@@ -549,7 +585,7 @@ def bericht(
         )
     zeilen.append(
         "\nDer Artefakt-Text zaehlt nicht als Tracking (Hausregel). Billigste Aktion: "
-        "`gh issue create` und die Issue-Nummer IM selben Abschnitt nennen."
+        "`gh issue create` und die Issue-Nummer IM selben Abschnitt nennen." + rest
     )
     return "\n".join(zeilen)
 
@@ -587,6 +623,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Kandidaten nicht zweitpruefen (schneller, ungenauer)",
     )
+    ap.add_argument(
+        "--budget-sekunden",
+        type=float,
+        default=float(os.environ.get("VERANKERUNG_BUDGET", "300")),
+        help=(
+            "Gesamtbudget des Laufs in Sekunden (0 = unbegrenzt). Default 300. "
+            "Der Pro-Anfrage-Timeout begrenzt nur EINE Anfrage; ein langer "
+            "PR-Text hat viele (#2469)."
+        ),
+    )
     ap.add_argument("--block", action="store_true", help="Exit 1 bei Fund")
     ap.add_argument("--json", action="store_true", help="Maschinenlesbare Ausgabe")
     args = ap.parse_args(argv)
@@ -622,15 +668,23 @@ def main(argv: list[str] | None = None) -> int:
                 f"FEHLER: unbekannte Klasse(n): {', '.join(unbekannt)}", file=sys.stderr
             )
             return 2
-        befunde, segmente = pruefe(
+        # Der Pro-Anfrage-Timeout wird auf das Budget gedeckelt: sonst laeuft der
+        # Lauf im schlimmsten Fall Budget + 120 s, weil das Budget nur ZWISCHEN
+        # den Segmenten geprueft wird. Gemessen am 2026-08-30 (PR #2461,
+        # `qwen2.5:7b`): rund 80 s je Segment bei echtem PR-Text, 11 Segmente —
+        # ein vollstaendiger Lauf braucht dort rund 15 Minuten.
+        budget = args.budget_sekunden or None
+        anfrage_timeout = int(min(120, budget)) if budget else 120
+        befunde, segmente, ungeprueft = pruefe(
             text,
-            ollama_klassifikator(args.modell, args.host),
+            ollama_klassifikator(args.modell, args.host, anfrage_timeout),
             mit_github=not args.ohne_github,
             repo=args.repo,
             klassen=klassen,
             bestaetiger=None
             if args.ohne_gegenprobe
-            else ollama_bestaetiger(args.modell, args.host),
+            else ollama_bestaetiger(args.modell, args.host, anfrage_timeout),
+            budget_sekunden=budget,
         )
     except NichtPruefbar as exc:
         # Ehrlichkeits-Sperre: kein Urteil ist NICHT dasselbe wie ein sauberes.
@@ -643,6 +697,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "quelle": name,
                     "segmente": len(segmente),
+                    "ungeprueft": len(ungeprueft),
                     "befunde": [
                         {
                             "klasse": b.klasse,
@@ -660,7 +715,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
     else:
-        print(bericht(befunde, segmente, name, args.block))
+        print(bericht(befunde, segmente, name, args.block, len(ungeprueft)))
     return 1 if (befunde and args.block) else 0
 
 

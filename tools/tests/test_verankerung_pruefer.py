@@ -155,7 +155,7 @@ def test_should_blosse_nummer_offline_als_unsicher_werten():
 
 def test_should_realfall_pr2007_finden():
     """Positivkontrolle am echten Rueckfall (Retro 9d861a #3)."""
-    befunde, segmente = pruefe(
+    befunde, segmente, _ = pruefe(
         PR2007_ABSATZ, _stub("vertagung"), mit_github=False, klassen=("vertagung",)
     )
     assert len(befunde) == 1, [b.segment.text[:60] for b in befunde]
@@ -171,21 +171,21 @@ def test_should_bei_issue_anker_schweigen():
         "Sichtbar wird sie sofort.",
         "Getrackt in https://github.com/achimdehnert/platform/issues/2099.",
     )
-    befunde, _ = pruefe(
+    befunde, _, _ = pruefe(
         mit_anker, _stub("vertagung"), mit_github=False, klassen=("vertagung",)
     )
     assert befunde == []
 
 
 def test_should_nur_die_gewaehlten_klassen_melden():
-    befunde, _ = pruefe(
+    befunde, _, _ = pruefe(
         PR2007_ABSATZ, _stub("restarbeit"), mit_github=False, klassen=("vertagung",)
     )
     assert befunde == []
 
 
 def test_should_gegenprobe_einen_kandidaten_verwerfen_koennen():
-    befunde, _ = pruefe(
+    befunde, _, _ = pruefe(
         PR2007_ABSATZ,
         _stub("vertagung"),
         mit_github=False,
@@ -294,3 +294,78 @@ def test_should_belegen_dass_beide_musterlisten_bei_neuer_formulierung_schweigen
     )
     assert DEFERRAL_PATTERNS.search(satz) is None
     assert AUFSCHUB.search(satz) is None
+
+
+# ── Zeitbudget (#2469) ───────────────────────────────────────────────────────
+
+
+def _langer_text(n: int) -> str:
+    """n Absaetze, damit segmentiere() n Segmente liefert."""
+    return "\n\n".join(
+        f"Absatz {i}: Das machen wir spaeter, sobald die Migration steht."
+        for i in range(n)
+    )
+
+
+def test_should_stop_when_the_overall_budget_is_used_up():
+    """Der Pro-Anfrage-Timeout begrenzt EINE Anfrage, nicht den Lauf.
+
+    Gemessen 2026-08-30: rund 8 s je Aufruf; bei vielen Segmenten laeuft das
+    Werkzeug minutenlang, und die Sitzung bricht es ab — dann liegt GAR KEIN
+    Ergebnis vor. Mit Budget liefert es das bis dahin Gepruefte.
+    """
+    text = _langer_text(10)
+    uhr = iter([0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0])
+    befunde, geprueft, ungeprueft = pruefe(
+        text,
+        _stub("vertagung"),
+        mit_github=False,
+        klassen=("vertagung",),
+        budget_sekunden=3.0,
+        uhr=lambda: next(uhr),
+    )
+    assert ungeprueft, "Budget hat nicht gegriffen"
+    assert len(geprueft) + len(ungeprueft) == 10
+    assert len(geprueft) < 10
+
+
+def test_should_check_everything_when_budget_is_generous():
+    """Positivkontrolle: ohne Druck bleibt nichts ungeprueft."""
+    text = _langer_text(5)
+    befunde, geprueft, ungeprueft = pruefe(
+        text,
+        _stub("vertagung"),
+        mit_github=False,
+        klassen=("vertagung",),
+        budget_sekunden=3600.0,
+    )
+    assert ungeprueft == []
+    assert len(geprueft) == 5
+
+
+def test_should_not_call_a_partial_run_clean():
+    """Ein Teillauf darf sich NIE wie ein Freispruch lesen — das ist der Kern.
+
+    Ohne eigene Klasse wuerde ein abgebrochener Lauf mit dem gruenen Haken
+    enden und genau die Zusagen decken, die er nie gesehen hat.
+    """
+    segmente = segmentiere(normalisiere(PR2007_ABSATZ))
+    text = bericht([], segmente, "x", block=False, ungeprueft=7)
+    assert "✅" not in text
+    assert "UNGEPRUEFT" in text and "7" in text
+    assert "keine Entwarnung" in text
+
+
+def test_should_still_mark_a_complete_clean_run_green():
+    """Gegenprobe: ohne Rest bleibt der gruene Haken gruen."""
+    segmente = segmentiere(normalisiere(PR2007_ABSATZ))
+    assert "✅" in bericht([], segmente, "x", block=False, ungeprueft=0)
+
+
+def test_should_append_the_rest_note_to_a_finding_report():
+    """Auch mit Befund muss der ungepruefte Rest sichtbar bleiben."""
+    befunde, segmente, _ = pruefe(
+        PR2007_ABSATZ, _stub("vertagung"), mit_github=False, klassen=("vertagung",)
+    )
+    text = bericht(befunde, segmente, "x", block=False, ungeprueft=3)
+    assert "UNGEPRUEFT" in text

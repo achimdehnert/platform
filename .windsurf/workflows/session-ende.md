@@ -365,6 +365,13 @@ done
   Fehlalarm in der Kalibrier-Datei notieren (mit Zitat — das Fenster lebt von diesen Zeilen).
 - **`◌ NICHT PRUEFBAR`** — kein Modell erreichbar (`ollama` aus). Das ist **kein** grünes
   Ergebnis und wird als Lücke benannt, nicht stillschweigend übergangen.
+- **`◌ … Segment(e) UNGEPRUEFT — Zeitbudget erschoepft`** — der Lauf lief, wurde aber nicht
+  fertig. Die dritte Klasse, ergänzt am 2026-08-30 ([#2469](https://github.com/achimdehnert/platform/issues/2469)):
+  gemessen rund **80 s je Segment** (`qwen2.5:7b`, echter PR-Text), bei elf Segmenten also
+  rund eine Viertelstunde — die Sitzung davor brach beide Läufe nach 240 s ab und hatte
+  **gar kein** Ergebnis. Auch das ist keine Entwarnung: der ungeprüfte Rest steht in der
+  Ausgabe, und die dort genannten Segmente sind schlicht nicht angesehen worden.
+  `--budget-sekunden` (Default 300, `0` = unbegrenzt) steuert das.
 
 **Modus `advisory`, bewusst.** Die gemessene Präzision liegt bei 0,50 auf vier echten
 PR-Texten (1 Treffer, 1 Fehlalarm, 2 saubere Texte); ein blockierendes Gate mit dieser
