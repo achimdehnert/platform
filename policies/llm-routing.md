@@ -30,8 +30,8 @@ Same rungs as `session-routing.md` — one ladder for actions and sessions alike
 
 | Tier | Default model | $/1M in → out | Use case |
 |---|---|---|---|
-| **T1a** | `groq/openai/gpt-oss-120b` *or* `cerebras/gpt-oss-120b` | — | Background jobs, summaries, classification, reports — prefer when output is user-visible prose |
-| **T1b** | `groq/openai/gpt-oss-20b` | — | Same rung, when the smaller model is sufficient and you want lower spend |
+| **T1a** | `cerebras/gpt-oss-120b` *(Vorrang, schneller)* · `groq/openai/gpt-oss-120b` | 0,25 → 0,69 · 0,15 → 0,75 | Background jobs, summaries, classification, reports — prefer when output is user-visible prose |
+| **T1b** | `groq/openai/gpt-oss-20b` | 0,10 → 0,50 | Same rung, when the smaller model is sufficient and you want lower spend |
 | **T2** | `anthropic/claude-haiku-4-5` | 1 → 5 | If T1a/T1b fail on instruction following or nuance |
 | **T3** | `anthropic/claude-sonnet-5` | 3 → 15 (intro 2 → 10 until 2026-08-31) | Code review, planning, multi-step reasoning |
 | **T4** | `anthropic/claude-opus-5` | 5 → 25 | Only with explicit justification — agentic flows, complex synthesis |
@@ -63,6 +63,29 @@ deren Schlüssel niemand geprüft hat.
 
 Für `ttz-lif` / `meiki-lra` gilt weiterhin der lokale Weg (Ollama) laut den
 Repo-Overrides unten — der ist von dieser Streichung nicht berührt.
+
+## Preise — Herkunft und zwei Fallen
+
+Die Zahlen der Spalte stammen aus der litellm-Preistabelle, die unser eigener
+Stack fuer `cost_per_token` benutzt (`model_prices_and_context_window_backup.json`,
+Stand **2026-06-03**). Sie sind damit **eine Messung mit Datum**, keine Zusage —
+dieselbe Einschraenkung wie bei der Verfuegbarkeitsliste oben.
+
+**Falle 1 — die echte Cerebras-ID heisst `gpt-oss-120b`, nicht `openai/gpt-oss-120b`.**
+Live geprueft am 2026-08-29: der Cerebras-Katalog fuehrt genau zwei IDs,
+`gpt-oss-120b` und `gemma-4-31b`. Der Groq-Katalog fuehrt `openai/gpt-oss-120b`.
+Wer die Groq-Schreibweise bei Cerebras verdrahtet, bekommt `model_not_found`.
+
+**Falle 2 — fuer die echte Cerebras-ID kennt litellm keinen Preis.** In der Tabelle
+steht nur `cerebras/openai/gpt-oss-120b`; `cerebras/gpt-oss-120b` fehlt. Eine
+Verdrahtung auf die korrekte ID liefert also funktionierende Aufrufe **und**
+Kosten von null in der Auswertung — und null sieht aus wie „billig", nicht wie
+„nicht gefunden". Vor jeder Kostenaussage ueber den Cerebras-Pfad diesen Punkt
+pruefen (Realfall: writing-hub, 2026-08-29).
+
+**Vorrang innerhalb T1a: Cerebras vor Groq** (Owner-Entscheid 2026-08-29, Begruendung
+Geschwindigkeit). Groq bleibt der Ausweichweg — zwei Anbieter, damit Drosselung oder
+5xx nicht beide Wege zugleich treffen.
 
 ## Choosing between Cerebras and Groq (Tier 1)
 
@@ -124,6 +147,15 @@ Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
 - **meiki-hub** (meiki-lra): citizen-data — same applies if PII touched.
 
 ## Changelog
+
+- 2026-08-29: **Preisspalte fuer T1a/T1b gefuellt** (vorher „—") und **Cerebras als
+  Vorrang** innerhalb T1a gesetzt (Owner-Entscheid, Begruendung Geschwindigkeit).
+  Quelle der Zahlen ist die litellm-Tabelle vom 2026-06-03. Neu dokumentiert sind
+  zwei Fallen, die beim Verdrahten in writing-hub auffielen: die echte Cerebras-ID
+  lautet `gpt-oss-120b` (nicht `openai/gpt-oss-120b`), und genau fuer diese ID kennt
+  litellm keinen Preis — Kostenauswertungen ueber den Cerebras-Pfad zeigen sonst
+  still null. Umsetzung auf Prod haengt an drei Voraussetzungen
+  (writing-hub#879: Schluessel, Provider-Zeile, Preis-Schluessel).
 
 - 2026-08-25: **Reality-Check ueber alle sechs Anbieter** — T1a und T1b waren auf
   BEIDEN Anbietern tot: `groq/llama-3.3-70b-versatile`, `groq/llama-3.1-8b-instant`,
