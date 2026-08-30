@@ -3097,3 +3097,14 @@ fand drei weitere Meldestellen. Dahinter der eigentliche Fund: aifws
 Cache-Invalidierung feuerte nie (4 Eintraege, 0 lebende Empfaenger, weak=True) —
 aifw#56, veroeffentlicht als iil-aifw 0.13.1. Flotten-Bump 1 von 12 (writing-hub#906),
 Rest wegen Host-Last 11-20 bewusst gestoppt; Deploy-Plan in #2502.
+
+## 2026-08-30 abends — Infra-Sitzung: KONZ-054, Stilllegungen, Rueckbau, Preflight-Welle
+
+Zeitanker HEAD `0ac61021` · count 3801. Beginn war „Healthstatus des Hetzner-Systems"; Ende sind
+fuenf gemergte Konzeptstufen (E1–E5), vier Stilllegungen (coach, wedding, travel-beat, Odoo),
+Rueckbau R1/S1/R2a, Wiederanlauf (Swap, Tag `config`, Drill, Prometheus-Flotte), zwei
+Systembild-Laeufe (164 → 30 behoben/102 offen/29 neu/11 verschlechtert) und der Deploy-
+Preflight in 10 realen Deploys. Owner-Punkte: #2486, #2504, #2507, #2516; Reste #2480.
+Zwei eigene Regressionen (odoo_db via depends_on, Runner stillgelegter Stacks) im selben
+Zug gefangen. Naechste Sitzung: Nachtlaeufe pruefen (E3 rot ohne Issue, config-Tag, Timer).
+
