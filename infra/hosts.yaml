@@ -127,7 +127,9 @@ hosts:
   gpu-box:
     ip: 10.99.0.2                      # wg0-Peer von prod (10.99.0.1); von aussen nicht erreichbar
     arch: amd64                        # uname -m 2026-08-30: x86_64
-    ssh: achim@10.99.0.2               # Windows-OpenSSH, nur ueber prod (ProxyJump hetzner-prod)
+    ssh: achim@10.99.0.2
+    ssh_via: root@88.198.191.108        # Schluessel fuer achim@10.99.0.2 liegt nur auf prod — ssh laeuft von dort (flottenbild.py)
+    ssh_shell: "wsl -d Ubuntu -u root -e bash -s"   # Windows-OpenSSH landet in cmd; die Probe gehoert in die WSL
     hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
     provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
     server_type: rtx4090               # RTX 4090 24 GB; WSL2: 8 vCPU / 12 GB / 4 GB Swap (.wslconfig)
