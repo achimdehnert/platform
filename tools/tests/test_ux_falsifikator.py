@@ -145,3 +145,114 @@ def test_should_send_user_agent_because_cloudflare_blocks_urllib_default():
 
     # urllib normalisiert Header-Namen auf Kapitalisierung der ersten Buchstaben
     assert gesehen.get("User-agent") == uf.KENNUNG
+
+
+# --- Option B aus platform#2489: Streuung offenlegen (R9) -------------------
+
+
+def _drei(*sprueche):
+    """Erzeugt eine Folge von Anbieter-Antworten fuer aufeinanderfolgende Aufrufe."""
+    antworten = iter(
+        _antwort(json.dumps({"spruch": s, "begruendung": f"Regel X ({s})."})) for s in sprueche
+    )
+    return lambda *a, **k: next(antworten)
+
+
+def test_should_ask_three_times_by_default_because_one_call_is_a_throw():
+    """R9: ein Aufruf ist keine Messung — die Vorgabe fragt dreimal."""
+    aufrufe = []
+    monkey = _drei("bestaetigt", "bestaetigt", "bestaetigt")
+
+    def zaehlend(*a, **k):
+        aufrufe.append(1)
+        return monkey()
+
+    import io as _io
+
+    orig_stdin = sys.stdin
+    sys.stdin = _io.StringIO(json.dumps(BEFUND))
+    orig_key, orig_frage = uf.schluessel_lesen, uf.frage
+    uf.schluessel_lesen, uf.frage = (lambda: "test"), zaehlend
+    try:
+        assert uf.main([]) == 0
+    finally:
+        sys.stdin, uf.schluessel_lesen, uf.frage = orig_stdin, orig_key, orig_frage
+    assert len(aufrufe) == uf.LAEUFE == 3
+
+
+def test_should_expose_disagreement_instead_of_hiding_it(monkeypatch, capsys):
+    """Zwei zu eins ist eine Mehrheit — und muss als uneinig sichtbar bleiben."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
+    monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
+    monkeypatch.setattr(uf, "frage", _drei("bestaetigt", "unklar", "bestaetigt"))
+    assert uf.main([]) == 0
+    satz = json.loads(capsys.readouterr().out)
+    assert satz["spruch"] == "bestaetigt"
+    assert satz["einig"] is False
+    assert satz["sprueche"] == ["bestaetigt", "unklar", "bestaetigt"]
+    assert satz["laeufe"] == 3
+
+
+def test_should_mark_unanimous_verdict_as_einig(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
+    monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
+    monkeypatch.setattr(uf, "frage", _drei("widerlegt", "widerlegt", "widerlegt"))
+    assert uf.main([]) == 0
+    satz = json.loads(capsys.readouterr().out)
+    assert satz["spruch"] == "widerlegt"
+    assert satz["einig"] is True
+
+
+def test_should_return_unklar_when_all_three_verdicts_differ(monkeypatch, capsys):
+    """Ohne Mehrheit gibt es kein Urteil — auch keins, das zufaellig zuerst kam."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
+    monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
+    monkeypatch.setattr(uf, "frage", _drei("bestaetigt", "widerlegt", "unklar"))
+    assert uf.main([]) == 0
+    satz = json.loads(capsys.readouterr().out)
+    assert satz["spruch"] == "unklar"
+    assert satz["einig"] is False
+    assert "Keine Mehrheit" in satz["begruendung"]
+
+
+def test_should_keep_exit_zero_when_majority_is_widerlegt_e16(monkeypatch, capsys):
+    """E16 bleibt: auch eine Mehrheit `widerlegt` ist kein Gate."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
+    monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
+    monkeypatch.setattr(uf, "frage", _drei("widerlegt", "widerlegt", "bestaetigt"))
+    assert uf.main([]) == 0
+    assert json.loads(capsys.readouterr().out)["spruch"] == "widerlegt"
+
+
+def test_should_survive_one_failing_call_of_three(monkeypatch, capsys):
+    """Ein Anbieterfehler in einem von drei Laeufen kippt die Mehrheit nicht."""
+    folge = iter([
+        _antwort('{"spruch":"bestaetigt","begruendung":"Regel 6."}'),
+        OSError("connection reset"),
+        _antwort('{"spruch":"bestaetigt","begruendung":"Regel 6."}'),
+    ])
+
+    def wechselhaft(*a, **k):
+        naechste = next(folge)
+        if isinstance(naechste, Exception):
+            raise naechste
+        return naechste
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
+    monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
+    monkeypatch.setattr(uf, "frage", wechselhaft)
+    assert uf.main([]) == 0
+    satz = json.loads(capsys.readouterr().out)
+    assert satz["spruch"] == "bestaetigt"
+    assert satz["einig"] is False
+    assert "unklar" in satz["sprueche"]
+
+
+def test_should_not_claim_agreement_when_it_never_asked(monkeypatch, capsys):
+    """Uebersprungen ist kein Spruch — dann gibt es auch kein `einig`."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
+    monkeypatch.setattr(uf, "schluessel_lesen", lambda: "")
+    assert uf.main([]) == 0
+    satz = json.loads(capsys.readouterr().out)
+    assert satz["spruch"] == "uebersprungen"
+    assert "einig" not in satz
