@@ -32,8 +32,11 @@ evidence_manifest:
   - {claim_id: C10, source_path: "writing-hub/klickdummy/roman-autoren-spine/spec.yaml", commit_or_pr: "main 2026-08-26", opened_in_session: true}
   - {claim_id: C11, source_path: "writing-hub AGENT_HANDOVER.md — Stand 2026-08-26", commit_or_pr: "#778", opened_in_session: true}
   - {claim_id: C12, source_path: docs/adr/ADR-211-spec-zentrierte-klickdummies.md, commit_or_pr: "accepted", opened_in_session: true}
+  - {claim_id: C13, source_path: docs/konzepte/KONZ-platform-007-adr-handoff-extern-automation.md, commit_or_pr: "pipeline_status sunset 2026-07-24 — review_by verstrichen, 0 --auto-Laeufe", opened_in_session: true}
+  - {claim_id: C14, source_path: "~/.claude/policies/llm-routing.md", commit_or_pr: "Tierliste, Anbieter-Messung 2026-08-25", opened_in_session: true}
+  - {claim_id: C15, source_path: "~/github/chat-hub/README.md", commit_or_pr: "main ad0bf1b", opened_in_session: true}
 created: 2026-08-25
-updated: 2026-08-26
+updated: 2026-08-30
 ---
 
 # KONZ-platform-051: ux-review-agent
@@ -104,6 +107,12 @@ Mensch.
 | R5 | **KD veraltet → Fehlalarm.** Ein KD, der einer gewachsenen App hinterherhinkt, erzeugt bei jedem Lauf dieselben Dissense | Risiko | Gegenmittel: Dissens hat zwei Severities — `spec-luecke` (KD kennt die Station nicht) ist `optimierung`, `weg-fehlt` (KD-Screen ohne App-Weg) ist `fehler`. Zählt K2 mit; > 30 % `spec-luecke` über drei Läufe = der KD gehört gepflegt, nicht der Agent geschärft | offen, Pilot |
 | R6 | **Marker verfälscht das Ergebnis.** Ein Eigenname, den der Autor nie schreiben würde, verzerrt die Erzeugung | Risiko | Gegenmittel: Marker sind plausible Eigennamen im Genre, kein `ZZZ-TEST`. Der Kontrollmarker (der 0 ergeben muss) ist die Gegenprobe gegen einen Filter, der nie etwas findet | offen, Pilot |
 | R4 | Testdaten aus Prod im Screenshot (Personendaten, platform ist public) | Risiko | Screenshots nur ins Zielrepo-Issue (privat), nie nach platform; Pilot mit synthetischen Mandanten | offen |
+| E13 | **Der Gegenpart falsifiziert, er produziert nicht.** Eingabe ist ein fertiger Befund des Laufs, Ausgabe ein Spruch `bestaetigt` / `widerlegt` / `unklar` mit Begruendung. Er darf keinen eigenen Befund eroeffnen | Entscheidung | Die belegte Schwaeche ist der Fehlbefund (C2 #760), nicht Befundmangel — 12 echte Befunde in drei Repo-Tagen. Alternative: zweiter Produzent (= A3-Quote steigt, K2 kippt) | gesetzt |
+| E14 | **Modell: andere Familie, Rung T1a** (`groq/openai/gpt-oss-120b`). Der Ertrag ist die andere Trainingsfamilie, nicht die Rung; T4/T5 erst, wenn T1a an Instruktionstreue scheitert | Entscheidung | C14: Frontier-Rung braucht einen benannten Grund, „anderer Anbieter" allein ist keiner | gesetzt |
+| E15 | **Ausgabe auf die Leseflaeche, nicht in einen Raum:** Kommentar am bestehenden Befund-Issue im Zielrepo, plus Feld `falsifikator:` im Sammel-Issue. Kein eigenes Issue, kein PR, kein Chat | Entscheidung | Tracking-Artefakt-Regel; C13: der externe Kanal war gebaut und blieb ungenutzt | gesetzt |
+| E16 | **Rohzahl bleibt massgeblich:** K1 und K2 zaehlen den ungefilterten Lauf; der Spruch ist eine zweite Spalte, nie eine Subtraktion | Entscheidung | Der Start am 01.09. liegt **im** laufenden Kill-Gate (Frist 30.09.). Ohne diese Regel misst das Gate ab dem 01.09. ein anderes Werkzeug als am 25.08. | gesetzt |
+| E17 | **Kein Bild, keine Echtdaten an den Gegenpart:** uebergeben werden Befundtext und Evidenz-Auszuege aus Laeufen mit synthetischen Mandanten; Repos mit echten Daten sind ausgeschlossen | Entscheidung | R4; T1a laeuft bei einem US-Anbieter (C14) — der Souveraenitaets-Schnitt liegt an der Eingabe, nicht an einer Zusicherung | gesetzt |
+| R7 | **Der Gegenpart wird zum Filter** und drueckt echte Befunde weg | Risiko | Gegenmittel: K9 (Gegenprobe an den 9 bekannten Defekten) und E16. Ein `widerlegt` auf einen bekannten echten Defekt ist ein Fehler des Gegenparts, kein Fehler des Laufs | offen, Pilot |
 
 ## MVC (Stufe 1)
 
@@ -207,6 +216,63 @@ sobald der erste Sonderfall hineingeschrieben wird.
 *Antwort:* E12 ist als Invariante formuliert und im Kill-Gate messbar (K5): der
 Skill darf keinen Repo-Namen tragen. Das ist per `grep` prüfbar, nicht per Meinung.
 
+## Erweiterung 2026-08-30 — Falsifikator-Gegenpart (Stufe 1b)
+
+**Owner-Entscheidung 2026-08-30: Start 2026-09-01**, also im laufenden Kill-Gate.
+Anlass war die Frage, ob ein zweites System — Vorbild SB-Neu (Ilja Lerch), eigenes
+Modell bei einem anderen Anbieter — als Gegenpart taugt und ueber Element-X
+angebunden werden sollte. Uebernommen wird davon die **Unabhaengigkeit des
+Urteils**; nicht uebernommen wird der **eigene Kanal**.
+
+Die Richtung folgt aus der Befundlage, nicht aus der Idee: in drei Repo-Tagen
+standen 12 echte Befunde **einem** Fehlbefund gegenueber (#760, „Feld fehlt" aus
+leerem DOM, C2). Ein zweiter Produzent verbessert eine Zahl, die nicht das
+Problem ist, und verschlechtert die, die es ist — K2 liegt bei 30 %. Der
+Gegenpart wird deshalb Pruefer, nicht Autor (E13).
+
+| Was | Wo | Inhalt |
+|---|---|---|
+| Step 5b Falsifikation | Skill `.windsurf/workflows/ux-review.md` | je Befund ein Call: Eingabe = Befundtext + mitgelieferte Evidenz (Antwortkoerper-Auszug, Gegenprobe aus E2, Severity-Referenz); Ausgabe = Spruch + Begruendung |
+| Feld `falsifikator:` | Sammel-Issue (Step 6) | zweite Spalte neben dem Rohbefund; K1/K2 zaehlen die Rohspalte (E16) |
+| Umsetzung | [#2466](https://github.com/achimdehnert/platform/issues/2466) | Akzeptanzliste = E13-E17 + K9 |
+
+### Warum nicht Element-X
+
+| # | Grund | Beleg |
+|---|---|---|
+| 1 | Ein Raumverlauf ist keine Leseflaeche — der Befund muss dort stehen, wo ohnehin gelesen wird | Tracking-Artefakt-Regel; E15 |
+| 2 | Ein Bot im E2EE-Raum braucht eigene Device-Verifikation und Key-Pflege; E2EE lebt im Client | C15 |
+| 3 | Zwei redende Agenten bilden strukturell einen zweiten Kommandokanal | Lotsen-Charta Art. 1 |
+| 4 | chat-hub ist ein Produkt fuer Menschen (Wire/Threema-Analogon), keine Agenten-Infrastruktur | C15 |
+
+Element-X als **Push an den Owner** (Freigabe vom Telefon) ist davon unberuehrt und
+bleibt offen. Es aendert Charta-Artikel 1 und ist damit selbstbetreffend — es
+gehoert in ein eigenes Konzept mit Vorlage an den Owner, nicht hierher.
+
+### Warum das nicht endet wie KONZ-007
+
+KONZ-007 hat denselben Gedanken schon einmal gebaut: Briefing, Souveraenitaets-Gate,
+**ein** externer Call, Antwort als `.md`. Nach vier Wochen null Aufrufe, Kill-Gate
+gezogen, `sunset` (C13). Der Unterschied ist nicht der Anbieter und nicht der
+Transport, sondern die Stelle: dort war der Call ein **eigener Pfad, den jemand
+aufrufen musste**, hier ist er **Schritt 5b eines Laufs, den man ohnehin startet**.
+Wer `/ux-review` aufruft, ruft ihn mit. Faellt die Nutzung trotzdem auf null,
+faellt K9 — und mit ihm der Gegenpart, einzeln.
+
+### Advocatus Diabolus — Erweiterung 2026-08-30
+
+**Ein T1a-Modell ist schwaecher als der Produzent; ein schwaecherer Pruefer
+widerlegt das Falsche.** *Antwort:* er prueft nicht die Sachfrage, sondern
+mechanische Eigenschaften des Befunds — liegt zu einer Absenz-Behauptung die
+Gegenprobe aus E2 vor, deckt der zitierte Antwortkoerper die Aussage, traegt eine
+`optimierung` ihre Referenz (R3). Das sind Pruefungen gegen **mitgelieferte**
+Evidenz, nicht gegen Weltwissen. Genau daran misst K9.
+
+**Der Start im laufenden Gate verfaelscht die Messung.** *Antwort:* ja — deshalb
+E16. Gemessen wird der ungefilterte Lauf; der Spruch laeuft als zweite Spalte mit.
+Damit liegen am 30.09. beide Zahlen vor, die rohe und die gefilterte, und K1/K2
+bleiben mit dem Stand vom 25.08. vergleichbar.
+
 ## Steelman
 
 Zwoelf Befunde in drei Repo-Tagen, keiner durch 329 + n gruene Tests sichtbar —
@@ -245,6 +311,7 @@ Screenshots mit Kundendaten in einem oeffentlichen Repo (R4).
 |---|---|---|
 | ALT-1 | **Nur die Klassen-Tests flottenweit ausrollen** (`test_erreichbarkeit_screens.py`, Kommentar-Test, `htmx:responseError`) ohne Agenten | Richtig und unabhaengig davon zu tun (eigenes Issue). Deckt aber nur die **bekannten** Klassen; die naechste unbekannte findet wieder nur ein Tresen-Gang. Kein Ersatz, sondern Voraussetzung: der Agent darf Bekanntes nicht neu melden. |
 | ALT-2 | **Stagehand/BrowserUse als freier Explorer** statt kettengebundenem Skill | LLM-natives `page.act` erkundet breiter, aber ohne Kette gibt es kein „Station erreicht" und damit kein messbares Abbruchkriterium (Step 2a Frage 6). Fuer Stufe 2 als Erweiterung denkbar, wenn Stufe 1 die Kettenform belegt hat. |
+| ALT-3 | **Gegenpart ueber Element-X / chat-hub als Agent-zu-Agent-Bus** | Loest den Transport; der Engpass war nie der Transport (C13: Kanal gebaut, 0 Laeufe). Dazu die vier Gruende in der Erweiterung 2026-08-30. Als Push-Kanal an den **Menschen** separat denkbar — dann eigenes Konzept mit Charta-Vorlage, weil Artikel 1 beruehrt wird. |
 
 ## Top-3-Risiken
 
@@ -267,15 +334,16 @@ Pilot an R2 (Login) haengt und das dokumentiert ist.
 | **K6** (Erweiterung 26.08.) Blaupause haelt: `grep -icE 'writing-hub\|ausschreibungs-hub\|meiki\|risk-hub' .windsurf/workflows/ux-review.md` findet **nur** Zeilen, die als Realfall-Beleg gekennzeichnet sind — kein Repo-Name in einer Anweisung | offen | per `grep` pruefbar, nicht per Meinung (E12) |
 | **K7** (Erweiterung 26.08.) KD-Gegencheck traegt: in mindestens einem Pilot-Lauf mit `-kd` entsteht ein `weg-fehlt`-Befund, den der Klick-Durchlauf allein **nicht** gefunden hat | offen | Gegenprobe zur Frage, ob die dritte Blickrichtung eigenen Ertrag hat (OOTB-Prinzip: findet sie nichts, wird sie gestrichen) |
 | **K8** (Erweiterung 26.08.) Marker-Durchgaengigkeit traegt: der Kontrollmarker ergibt in **jedem** Lauf 0, und mindestens ein echter Marker-Riss wird gefunden | offen | ohne den ersten Teil ist der Suchlauf womoeglich der Filter; ohne den zweiten hat E11 keinen belegten Ertrag (C11 ist der bekannte Fall) |
+| **K9** (Erweiterung 30.08.) Gegenpart traegt: er markiert mindestens einen Fehlbefund der #760-Klasse `widerlegt` und **keinen** der 9 bekannten echten Defekte | offen | Gegenprobe an der Positivkontrolle. Ohne den zweiten Teil ist er ein Filter (R7), kein Pruefer — [#2466](https://github.com/achimdehnert/platform/issues/2466) |
 
-Alle acht erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
+Alle neun erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
 Bot-Token, Dry-Run in CI). Eines verfehlt -> Stufe 1 bleibt manuell aufrufbar,
 Stufe 2 wird nicht gebaut; zwei verfehlt -> `sunset`.
 
-**K6-K8 fallen einzeln, nicht als Block.** Verfehlt nur K7, wird der
+**K6-K9 fallen einzeln, nicht als Block.** Verfehlt nur K7, wird der
 KD-Gegencheck gestrichen und der Rest laeuft weiter — eine Blickrichtung ohne
 Ertrag ist Ballast, kein Grund, das Werkzeug aufzugeben. Dasselbe fuer K8 und
-die Marker-Pruefung. Das ist der Unterschied zwischen einer Erweiterung und
+die Marker-Pruefung, und dasselbe fuer K9 und den Gegenpart. Das ist der Unterschied zwischen einer Erweiterung und
 einer Neukonzeption: sie darf scheitern, ohne das Bestehende mitzureissen.
 
 ## Bezug
@@ -286,4 +354,6 @@ einer Neukonzeption: sie darf scheitern, ohne das Bestehende mitzureissen.
 - `/kd-review` (C6), ADR-251 (C7) — das Gate davor
 - `policies/platform-agents.md` — Ort fuer Stufe 2
 - #2253 — Kill-Gate vor der ersten Zahl pre-registrieren
+- [KONZ-platform-007](KONZ-platform-007-adr-handoff-extern-automation.md) (C13) — derselbe Gedanke 2026-07, `sunset` bei 0 Laeufen
+- Step 5b als Umsetzungs-Issue: [#2466](https://github.com/achimdehnert/platform/issues/2466)
 - ALT-1 als eigenes Issue: [#2326](https://github.com/achimdehnert/platform/issues/2326) — Klassen-Tests flottenweit (risk-hub, billing-hub, weltenhub, bfagent)
