@@ -238,14 +238,15 @@ Trainingsfamilie**, das ihn zu widerlegen versucht. Es produziert keinen eigenen
 
 ```bash
 python3 <platform>/tools/ux_falsifikator.py --datei /tmp/befund.json
-# {"spruch": "bestaetigt|widerlegt|unklar|uebersprungen", "begruendung": "…", "modell": "…", "geprueft_am": "…"}
+# {"spruch": "bestaetigt|widerlegt|unklar|uebersprungen", "begruendung": "…", "modell": "…",
+#  "geprueft_am": "…", "laeufe": 3, "einig": true, "sprueche": ["bestaetigt", …]}
 ```
 
 Eingabe-JSON: `klasse`, `severity`, `station`, `symptom`, `antwortkoerper`, `gegenprobe`,
 `referenz`, `bekannt`. Rung **T1a** (`openai/gpt-oss-120b` ueber Groq, Schluessel-Zeiger
 `~/.secrets/groq_api_key`) — der Ertrag ist die andere Familie, nicht die Rung (E14).
 
-**Drei Regeln, die hier leichter verletzt werden als sie klingen:**
+**Vier Regeln, die hier leichter verletzt werden als sie klingen:**
 
 1. **Der Spruch filtert nicht (E16).** `widerlegt` unterdrueckt **kein** Issue. Der Befund
    wird angelegt, der Spruch steht als Feld darin. K1/K2 zaehlen den ungefilterten Lauf —
@@ -256,6 +257,12 @@ Eingabe-JSON: `klasse`, `severity`, `station`, `symptom`, `antwortkoerper`, `geg
    dann `--echtdaten`: es wird **nicht** gefragt, das Feld traegt `uebersprungen`.
 3. **`uebersprungen` und `unklar` sind keine Bestaetigung.** Kein Schluessel, Anbieter nicht
    erreichbar, unlesbare Antwort → der Befund laeuft normal weiter, und der Bericht sagt es.
+4. **Der Spruch ist eine Mehrheit aus drei Laeufen, kein Wurf (R9, E20).** Das Werkzeug fragt
+   dreimal und gibt `laeufe`, `einig` und die Einzelsprueche mit aus. **`einig: false` gehoert
+   in den Bericht**, auch wenn die Mehrheit eindeutig ist — gemessen am 2026-08-30 kippten zwei
+   von elf Datensaetzen bei `temperature: 0` ([#2489](https://github.com/achimdehnert/platform/issues/2489)).
+   Drei verschiedene Sprueche ergeben `unklar`, nie den zuerst gezogenen. `--laeufe 1` ist ein
+   Testschalter, kein Sparmodus.
 
 ## Step 6: Issue je Befund im Zielrepo (E3)
 
@@ -276,6 +283,7 @@ Kette: <kette> · Station: <n> <name> · Stand: <sha> · Lauf: <datum>
 diese Klasse — Vorlage aus dem Katalog unten, oder „neue Klasse: …">
 **Referenz (bei optimierung Pflicht):** ADR-048/049/040 §… oder Nielsen-Heuristik Nr. …
 **Falsifikator (Pflicht ab 2026-09-01):** <spruch> · <modell> · <begruendung in einem Satz>
+  · <bei `einig: false`: „uneinig: bestaetigt/unklar/bestaetigt“ — sonst weglassen>
 ```
 
 Severity `optimierung` **ohne** Referenz wird kein Issue, sondern eine Zeile im Bericht (R3).
@@ -289,7 +297,8 @@ Zaehler `befund / ok / blind / bekannt`. Der Owner traegt je Befund-Issue `fehlb
 nach — daraus rechnet das Kill-Gate K2 die Quote.
 
 Dazu **eine zweite Spalte** `Falsifikator` je Befundzeile mit dem Spruch aus Step 5b und
-darunter der Zaehler `bestaetigt / widerlegt / unklar / uebersprungen`. Die Spalte steht
+darunter der Zaehler `bestaetigt / widerlegt / unklar / uebersprungen` **plus** `uneinig: <n>`
+(Befunde mit `einig: false`, R9). Die Spalte steht
 **neben** der Rohzahl, nie an ihrer Stelle (E16): das Gate liest links, der Gegenpart rechts.
 Wo Spruch und Owner-Label auseinanderfallen, ist genau das der Ertrag des Laufs — ein
 `widerlegt` ohne `fehlbefund` ist ein Fehler des Gegenparts (R7) und gehoert in den Bericht.
@@ -434,6 +443,8 @@ python3 tools/ux_falsifikator.py --datei <befund>.json     # drei Befunde nachei
   → `widerlegt`, Begruendung nennt Regel 2.
 - Echter Defekt (Station nur per getippter URL, `gegenprobe` 0 Treffer) → `bestaetigt`.
 - `optimierung` ohne `referenz` → `widerlegt`, Regel 3.
+- Jede der drei Ausgaben traegt `laeufe: 3` und ein `einig`-Feld (R9/E20). Fehlt eines davon,
+  laeuft eine alte Kopie des Werkzeugs — dann ist der Spruch ein Wurf, kein Urteil.
 
 Gemessen am 2026-08-30 gegen `openai/gpt-oss-120b`: alle drei getroffen. **Der zweite Teil
 ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, ist ein Filter
@@ -456,6 +467,11 @@ ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, is
   ueber alle sieben Befunde: 6 `bestaetigt`, 1 `widerlegt` — und dieses eine war der Fehler
   des Gegenparts (R7), Anlass fuer E18 in Step 4.
 
+- 2026-08-30 (2): **Der Spruch ist eine Mehrheit aus drei Laeufen** (Option B aus platform#2489,
+  Ledger E20). Die K9-Gegenprobe zeigte, dass zwei von elf Datensaetzen bei `temperature: 0`
+  ueber drei Laeufe kippten — ein einzelner Aufruf ist damit keine Messung. Das Werkzeug gibt
+  jetzt `laeufe`, `einig` und die Einzelsprueche aus; `einig: false` gehoert in den Bericht,
+  drei verschiedene Sprueche ergeben `unklar`.
 - 2026-08-30: **Step 5b Falsifikator-Gegenpart** ergaenzt (KONZ-051 E13–E17, K9,
   Umsetzungs-Issue platform#2466), Werkzeug `tools/ux_falsifikator.py` + 15 Tests.
   Owner-Entscheidung: Start **2026-09-01**, also **im laufenden Kill-Gate** — deshalb ist

@@ -19,13 +19,22 @@ verdrahtet, verletzt E16.
 E17: keine Bilder, keine Echtdaten. Screenshots werden nicht uebergeben; ein
 Lauf gegen echte Daten wird mit --echtdaten uebersprungen statt gefragt.
 
+R9 (gemessen 2026-08-30, platform#2489): derselbe Befund bekommt beim
+gleichen Modell nicht immer denselben Spruch — zwei von elf Datensaetzen
+kippten ueber drei Laeufe, obwohl `temperature: 0` gesetzt war. Deshalb fragt
+dieses Werkzeug **dreimal** und legt die Streuung offen (Option B): `spruch`
+ist die Mehrheit, `einig` sagt, ob sie einstimmig war. Ein Aufruf ist kein
+Urteil, sondern ein Wurf — wer nur `spruch` liest, liest die Mehrheit.
+
 Aufruf:
     python3 tools/ux_falsifikator.py --datei befund.json
     python3 tools/ux_falsifikator.py < befund.json
+    python3 tools/ux_falsifikator.py --datei befund.json --laeufe 1   # nur fuer Tests
 
 Eingabe (JSON): klasse, severity, symptom, station, antwortkoerper,
 gegenprobe, referenz, bekannt (bool).
-Ausgabe (JSON): spruch, begruendung, modell, geprueft_am.
+Ausgabe (JSON): spruch, begruendung, modell, geprueft_am, laeufe, einig,
+sprueche.
 """
 
 from __future__ import annotations
@@ -43,6 +52,7 @@ SCHLUESSEL_DATEI = pathlib.Path.home() / ".secrets" / "groq_api_key"
 ENDPUNKT = "https://api.groq.com/openai/v1/chat/completions"
 MODELL = "openai/gpt-oss-120b"  # T1a, andere Familie als der Produzent (E14)
 SPRUECHE = ("bestaetigt", "widerlegt", "unklar")
+LAEUFE = 3  # R9: ein Aufruf ist ein Wurf, kein Urteil (platform#2489)
 
 # Pflicht, kein Schmuck: vor Groq steht Cloudflare, und die urllib-Vorgabe
 # ("Python-urllib/3.x") faellt in dessen Bot-Regel — die Antwort ist dann
@@ -152,9 +162,50 @@ def schluessel_lesen() -> str:
     return ""
 
 
+def mehrheit(sprueche: list[dict]) -> dict:
+    """Fasst mehrere Laeufe zusammen — Mehrheit, und ob sie einstimmig war.
+
+    Ohne Mehrheit (drei verschiedene Sprueche) ist das Ergebnis `unklar`: der
+    Gegenpart hat sich nicht entschieden, und das darf nicht wie eine
+    Entscheidung aussehen.
+    """
+    werte = [s["spruch"] for s in sprueche]
+    zaehler = {w: werte.count(w) for w in set(werte)}
+    spitze = max(zaehler.values())
+    gewinner = sorted(w for w, n in zaehler.items() if n == spitze)
+    einig = len(zaehler) == 1
+
+    if len(gewinner) > 1:
+        return {
+            "spruch": "unklar",
+            "begruendung": (
+                f"Keine Mehrheit ueber {len(werte)} Laeufe: {', '.join(werte)}. "
+                "Der Gegenpart hat sich nicht entschieden (R9)."
+            ),
+            "laeufe": len(werte),
+            "einig": False,
+            "sprueche": werte,
+        }
+
+    erster = next(s for s in sprueche if s["spruch"] == gewinner[0])
+    return {
+        "spruch": gewinner[0],
+        "begruendung": erster.get("begruendung", ""),
+        "laeufe": len(werte),
+        "einig": einig,
+        "sprueche": werte,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--datei", help="Befund als JSON-Datei (sonst stdin)")
+    p.add_argument(
+        "--laeufe",
+        type=int,
+        default=LAEUFE,
+        help=f"Anzahl Aufrufe je Befund (Vorgabe {LAEUFE}, R9 — weniger verschweigt die Streuung)",
+    )
     p.add_argument(
         "--echtdaten",
         action="store_true",
@@ -186,14 +237,19 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
 
-    try:
-        antwort = frage(befund, schluessel)
-    except (urllib.error.URLError, TimeoutError, OSError) as fehler:
-        return raus({"spruch": "unklar", "begruendung": f"Anbieter nicht erreichbar: {fehler}"})
-    except (KeyError, ValueError) as fehler:
-        return raus({"spruch": "unklar", "begruendung": f"Antwort unlesbar: {fehler}"})
+    einzeln = []
+    for _ in range(max(1, args.laeufe)):
+        try:
+            antwort = frage(befund, schluessel)
+        except (urllib.error.URLError, TimeoutError, OSError) as fehler:
+            einzeln.append({"spruch": "unklar", "begruendung": f"Anbieter nicht erreichbar: {fehler}"})
+            continue
+        except (KeyError, ValueError) as fehler:
+            einzeln.append({"spruch": "unklar", "begruendung": f"Antwort unlesbar: {fehler}"})
+            continue
+        einzeln.append(lies_spruch(antwort))
 
-    return raus(lies_spruch(antwort))
+    return raus(mehrheit(einzeln))
 
 
 if __name__ == "__main__":
