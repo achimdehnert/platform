@@ -17,6 +17,7 @@ Wortlaut, an dem beide bestehenden Muster-Scanner nachweislich vorbeisehen.
 
 import subprocess
 import sys
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ TOOL_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOL_DIR))
 sys.path.insert(0, str(TOOL_DIR / "claude-hooks"))
 
+import verankerung_pruefer  # noqa: E402
 from verankerung_pruefer import (  # noqa: E402
     GATE_HEADER,
     GEGENPROBE,
@@ -369,3 +371,74 @@ def test_should_append_the_rest_note_to_a_finding_report():
     )
     text = bericht(befunde, segmente, "x", block=False, ungeprueft=3)
     assert "UNGEPRUEFT" in text
+
+
+# ── Fehlerpfad: Zeitueberschreitung ist kein Ausfall (platform#2456) ─────────
+#
+# Beide Faelle liefen bisher in dieselbe Meldung »nicht erreichbar«. Die hat die
+# Diagnose zweimal in die falsche Richtung geschickt (#2456, #2436): gesucht
+# wurde bei ollama, obwohl der Host antwortete und nur laenger rechnete als der
+# Timeout. Die Tests unterscheiden genau das — ohne den Fix faellt der erste
+# durch, weil die Meldung »nicht erreichbar« lautet.
+
+
+def _urlopen_wirft(exc):
+    """Ersetzt urlopen im Modul durch einen Werfer — kein Netz, kein Modell."""
+
+    def wirf(*_a, **_k):
+        raise exc
+
+    return wirf
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        TimeoutError("timed out"),
+        # Beim Verbindungsaufbau verpackt urllib denselben Fall in URLError.
+        urllib.error.URLError(TimeoutError("timed out")),
+    ],
+    ids=["lesetimeout", "verbindungstimeout"],
+)
+def test_should_name_a_timeout_a_timeout_not_an_outage(monkeypatch, exc):
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request, "urlopen", _urlopen_wirft(exc)
+    )
+    klassifiziere = verankerung_pruefer.ollama_klassifikator(timeout=90)
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        klassifiziere("Das mache ich spaeter.")
+    meldung = str(fehler.value)
+    assert "Zeitueberschreitung" in meldung, meldung
+    assert "90 s" in meldung, meldung
+    assert "Zeichen Prompt" in meldung, meldung
+    assert "nicht erreichbar" not in meldung, meldung
+
+
+def test_should_still_call_a_real_outage_unreachable(monkeypatch):
+    """Gegenprobe: ein echter Verbindungsfehler behaelt seinen Namen."""
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request,
+        "urlopen",
+        _urlopen_wirft(urllib.error.URLError(ConnectionRefusedError(111, "refused"))),
+    )
+    klassifiziere = verankerung_pruefer.ollama_klassifikator()
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        klassifiziere("Das mache ich spaeter.")
+    meldung = str(fehler.value)
+    assert "nicht erreichbar" in meldung, meldung
+    assert "Zeitueberschreitung" not in meldung, meldung
+
+
+def test_should_name_the_countercheck_when_it_times_out(monkeypatch):
+    """Auch die Gegenprobe nennt die Zeit — sie lief in dieselbe Sammelmeldung."""
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request,
+        "urlopen",
+        _urlopen_wirft(TimeoutError("timed out")),
+    )
+    bestaetige = verankerung_pruefer.ollama_bestaetiger(timeout=45)
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        bestaetige("Das mache ich spaeter.", "vertagung", "spaeter")
+    meldung = str(fehler.value)
+    assert "Gegenprobe" in meldung, meldung
+    assert "Zeitueberschreitung nach 45 s" in meldung, meldung
