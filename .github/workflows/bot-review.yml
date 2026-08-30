@@ -58,6 +58,7 @@ jobs:
           import json
           TABU = ("policies/", "docs/adr/", ".github/CODEOWNERS", ".github/workflows/bot-review.yml")
           prs = json.load(open("/tmp/prs.json"))
+          print(f"{len(prs)} offene PRs: {[p['number'] for p in prs]}")
           out = []
           for p in prs:
               # Jeder Skip nennt seinen Grund. Beim Erstlauf (32869088343) fehlte #2316
@@ -84,9 +85,14 @@ jobs:
                   offen = [c.get("name") or c.get("context") for c in checks if c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL")]
                   print(f"#{p['number']}: Checks nicht komplett gruen ({offen[:3]}) — kein Approve"); continue
               out.append(p["number"])
-          open("/tmp/kandidaten", "w").write("\n".join(str(n) for n in out))
+          print(f"Kandidaten: {out}")
+          # Zeilenende PFLICHT: `while read` liefert bei EOF ohne Trenner zwar den
+          # Rest in die Variable, gibt aber 1 zurueck — die Schleife laeuft dann
+          # NICHT. Bei genau einem Kandidaten fiel der dadurch lautlos aus
+          # (#2442, #2441 am 2026-08-29: acht Skip-Zeilen, danach nichts).
+          open("/tmp/kandidaten", "w").write("".join(f"{n}\n" for n in out))
           PY
-          while read -r n; do
+          while read -r n || [ -n "$n" ]; do   # Guard gegen fehlendes Zeilenende (#2442)
             [ -n "$n" ] || continue
             if ! gh pr view "$n" --repo "$GITHUB_REPOSITORY" --comments --json comments --jq '.comments[].author.login' | grep -q "github-actions"; then
               echo "#$n: kein Context-Reviewer-Kommentar — kein Approve"; continue
