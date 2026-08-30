@@ -79,16 +79,25 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # --- Server-Definitionen (ADR-157 §4.2) ---
+# servers: ist eine PROJEKTION von infra/hosts.yaml, keine zweite Wahrheit.
+# Jede Umgebung zeigt per `host:` auf einen Knoten dort; ip/ssh muessen mit dem
+# Knoten uebereinstimmen — tools/tests/test_ports_servers_projection.py bricht,
+# wenn sie auseinanderlaufen (KONZ-054 §12 S1, 2026-08-30). Vorher deckte dieser
+# Block 3 von 8 Knoten, und `staging` meinte hier eine ANDERE Maschine als in
+# hosts.yaml (dort hiess der Dev-Desktop `staging`) — jetzt heisst er dev-desktop.
 servers:
   prod:
+    host: prod                         # -> hosts.yaml
     ip: 88.198.191.108
     name: Hetzner Dedicated (Production)
     ssh: root@88.198.191.108
   dev:
+    host: dev-desktop                  # -> hosts.yaml (frueher dort `staging`)
     ip: 88.99.38.75
     name: Dev Desktop (Development)
     ssh: root@88.99.38.75
   staging:
+    host: staging-dedicated            # -> hosts.yaml (Lane G, ADR-292)
     ip: 178.104.184.168
     name: Hetzner Staging (Dedicated)
     ssh: root@178.104.184.168

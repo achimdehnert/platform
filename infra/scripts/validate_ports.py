@@ -61,6 +61,42 @@ def validate(data: dict) -> list[str]:
     return errors
 
 
+def validate_servers(data: dict, hosts: dict) -> list[str]:
+    """`servers:` ist eine Projektion von hosts.yaml — hier wird sie nachgerechnet.
+
+    KONZ-054 §12 S1 (2026-08-30): der Block deckte 3 von 8 Knoten, und `staging`
+    meinte hier eine andere Maschine als in hosts.yaml. Eine Projektion ohne
+    Rueckpruefung ist eine zweite Wahrheit; mit ihr ist sie ein Cache.
+    """
+    errors: list[str] = []
+    knoten = (hosts or {}).get("hosts", {}) or {}
+    for env, s in (data.get("servers", {}) or {}).items():
+        if not isinstance(s, dict):
+            errors.append(f"servers.{env}: kein dict")
+            continue
+        host = s.get("host")
+        if not host:
+            errors.append(
+                f"servers.{env}: 'host' fehlt — muss auf einen Knoten in hosts.yaml zeigen"
+            )
+            continue
+        k = knoten.get(host)
+        if not isinstance(k, dict):
+            errors.append(
+                f"servers.{env}: host '{host}' steht nicht in hosts.yaml ({', '.join(sorted(knoten))})"
+            )
+            continue
+        if str(s.get("ip", "")) != str(k.get("ip", "")):
+            errors.append(
+                f"servers.{env}: ip {s.get('ip')} != hosts.yaml {host}.ip {k.get('ip')}"
+            )
+        if s.get("ssh") and k.get("ssh") and str(s["ssh"]) != str(k["ssh"]):
+            errors.append(
+                f"servers.{env}: ssh {s['ssh']} != hosts.yaml {host}.ssh {k['ssh']}"
+            )
+    return errors
+
+
 def main():
     ports_file = Path(__file__).parent.parent / "ports.yaml"
     data = load_ports(ports_file)
