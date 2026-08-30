@@ -23,6 +23,7 @@ from pr_merge_sa import (  # noqa: E402
     ist_doku,
     ist_governance,
     regeln,
+    review_ist_pflicht,
 )
 
 REGELN = {
@@ -326,3 +327,54 @@ def test_should_not_read_mandat_from_a_changes_requested_review(monkeypatch):
         "body": "",
     }
     assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M0"
+
+
+# --- #2440: Regel-Existenz ist nicht Review-Pflicht ---------------------------
+
+
+def test_should_not_require_review_when_github_leaves_decision_empty():
+    """Der Fall #2438: Regel liegt, aber GitHub verlangt fuer diese Dateien
+    kein Approval — reviewDecision leer bei CLEAN. Wer nur die Regel liest,
+    macht jeden solchen PR unmergebar."""
+    pr = {"reviewDecision": "", "mergeStateStatus": "CLEAN"}
+    assert review_ist_pflicht(pr, hat_regel=True) is False
+
+
+def test_should_require_review_when_github_says_review_required():
+    pr = {"reviewDecision": "REVIEW_REQUIRED", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=True) is True
+
+
+def test_should_require_review_when_blocked_without_red_or_pending_checks():
+    """Leerer reviewDecision + BLOCKED + alles gruen: es blockt etwas anderes
+    als das CI — konservativ als Review-Pflicht lesen."""
+    pr = {"reviewDecision": "", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=True, checks_failing=0) is True
+
+
+def test_should_not_call_pending_checks_a_missing_review():
+    """BLOCKED, weil Checks noch laufen — das ist kein fehlendes Approval."""
+    pr = {"reviewDecision": "", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=True, checks_pending=2) is False
+
+
+def test_should_never_require_review_without_a_rule():
+    pr = {"reviewDecision": "REVIEW_REQUIRED", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=False) is False
+
+
+def test_should_merge_clean_doc_pr_that_github_does_not_block():
+    """Die Wirkung des Fixes am Urteil, nicht nur an der Hilfsfunktion:
+    #2438-Form (nur AGENT_HANDOVER.md, CLEAN, kein Approval) ist erlaubt."""
+    u = classify(
+        _facts(
+            repo="achimdehnert/platform",
+            mandat="M0",
+            wirkung="W0",
+            files=["AGENT_HANDOVER.md"],
+            review_required=False,
+            checks_total=9,
+        ),
+        REGELN,
+    )
+    assert u.erlaubt is True
