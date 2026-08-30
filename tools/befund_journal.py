@@ -45,6 +45,21 @@ Kommandos:
   --offen-cross-repo       Exit 1, wenn ein Fremd-Repo-Befund ohne Artefakt/Verzicht offen ist.
   --verankert ID URL       Artefakt im Zielrepo hinterlegen.
   --verzichtet ID GRUND    Bewusst nicht verfolgen — mit Grund, sonst zaehlt es nicht.
+  --beleg ID ...           Kommando, Ausgabe, Knoten, Positivkontrolle an einen Befund haengen.
+  --bericht --json         Dieselben Daten maschinenlesbar — fuer eine Leseflaeche
+                           ausserhalb dieser Maschine (KONZ-054 E2).
+
+Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messung:
+    17 Befunde offen, 0 verankert, 12 ohne Frist — und 7 davon waren platform-eigene
+    Infra-Befunde, die das Gate per Eigen-Repo-Ausnahme gar nicht sah. Deshalb:
+    (1) Infra-Phasen (``INFRA_PHASEN``) laufen ins Gate, auch wenn ihr Repo `platform`
+        ist — ein Swap-Befund auf prod ist ein Arbeitsauftrag, kein lokaler Zustand.
+    (2) Jeder neue Befund bekommt eine Entscheidungsfrist (``entscheiden_bis``): bis
+        dahin ist er zu verankern oder mit Grund abzulegen. Ein Befund ohne Frist
+        gilt nicht — er wuerde nur altern, und Alter allein hat niemanden bewegt.
+    (3) Ein Befund traegt Kommando, Ausgabe, Knoten und Positivkontrolle, wenn der
+        Melder sie liefert. Ohne sie muss der Leser jede Zeile selbst nachmessen —
+        und dann spart der Melder nichts (Maintainer-2028-Einwand zu KONZ-054).
 """
 
 from __future__ import annotations
@@ -117,6 +132,35 @@ FRIST_VERZICHT_TAGE = 30
 #: diese Klasse sieben Tage unsichtbar, weil kein Check davon rot wird (#2148).
 CROSS_REPO_PHASEN = ("0.7 deploy-scan", "0.7.12 prod-wirkung")
 
+#: Phasen, deren Befund ein **Infra-Arbeitsauftrag** ist — egal in welchem Repo er
+#: gefuehrt wird. Sie laufen ins Abschluss-Gate auch dann, wenn `repo` das eigene ist.
+#:
+#: Anlass (gemessen 2026-08-30, KONZ-platform-054): 7 von 17 offenen Befunden waren
+#: platform-eigene Infra-Befunde — Swap 99,8 % auf prod, tote vhosts, Backup-Luecke —
+#: und genau die nahm `_cross_repo_offen` per `repo == eigenes_repo` vom Gate aus.
+#: Die Ausnahme war fuer lokale Zustaende gedacht (dirty Arbeitsbaum), nicht fuer
+#: Befunde ueber Produktionsknoten. Die Liste ist eng und waechst durch Belege.
+INFRA_PHASEN = (
+    "0.1 server-probe",
+    "0.7.11 erreichbarkeit",
+    "0.7.16 origin-tls",
+    "0.7.17 backup-deckung",
+    "0.7.18 speicher",
+    "0.7.2 cron-melder",
+    "0.7.20 umgebung",
+)
+
+#: Entscheidungsfrist in Tagen fuer einen NEUEN Befund: bis dahin verankern oder mit
+#: Grund ablegen. Sieben, weil das eine Arbeitswoche ist und ein Befund, ueber den
+#: eine Woche lang niemand entschieden hat, nicht leiser werden darf, sondern lauter.
+#: Getrennt von `wiedervorlage` (Ruhefrist NACH einer Entscheidung) — ein Feld fuer
+#: beides haette jeden neuen Befund zum Schweigen gebracht.
+FRIST_ENTSCHEIDUNG_TAGE = 7
+
+#: Beleg-Felder je Befund (KONZ-054 E2). Optional — aber ein Befund ohne sie ist
+#: fuer den Leser um 03:00 eine Behauptung, kein Befund.
+BELEG_FELDER = ("knoten", "kommando", "ausgabe", "positivkontrolle")
+
 
 def _heute() -> str:
     return datetime.now(timezone.utc).date().isoformat()
@@ -141,7 +185,10 @@ def ruhezustand(eintrag: dict, heute: str) -> str:
     frist = eintrag.get("wiedervorlage")
     if not frist:
         return "laut"
-    if eintrag.get("ruht_note") is not None and eintrag.get("letzte_note") != eintrag["ruht_note"]:
+    if (
+        eintrag.get("ruht_note") is not None
+        and eintrag.get("letzte_note") != eintrag["ruht_note"]
+    ):
         return "laut"
     return "faellig" if heute > str(frist) else "ruht"
 
@@ -199,15 +246,21 @@ def _zeilen_lesen(text: str) -> list[dict]:
         repos = teile[2].strip() if len(teile) > 2 else ""
         note = teile[3].strip() if len(teile) > 3 else ""
         ungeprueft = teile[4].strip() if len(teile) > 4 else ""
-        saetze.append(
-            {
-                "phase": phase,
-                "status": status,
-                "repos": [r for r in repos.split() if r],
-                "note": note,
-                "ungeprueft": [r for r in ungeprueft.split() if r],
-            }
-        )
+        satz = {
+            "phase": phase,
+            "status": status,
+            "repos": [r for r in repos.split() if r],
+            "note": note,
+            "ungeprueft": [r for r in ungeprueft.split() if r],
+        }
+        # Spalten 6-9 sind die Beleg-Felder, in der Reihenfolge von BELEG_FELDER.
+        # Ein Melder, der sie nicht liefert, laesst sie leer — der Befund wird
+        # trotzdem gefuehrt, nur eben als unbelegter.
+        for i, feld in enumerate(BELEG_FELDER, start=5):
+            wert = teile[i].strip() if len(teile) > i else ""
+            if wert:
+                satz[feld] = wert
+        saetze.append(satz)
     return saetze
 
 
@@ -239,6 +292,7 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
             fid = fingerabdruck(satz["phase"], repo)
             noch_gemeldet.add(fid)
             eintrag = befunde.get(fid)
+            belege = {f: satz[f] for f in BELEG_FELDER if satz.get(f)}
             if eintrag is None:
                 befunde[fid] = {
                     "phase": satz["phase"],
@@ -249,6 +303,8 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
                     "letzte_note": satz["note"],
                     "artefakt": None,
                     "verzicht": None,
+                    "entscheiden_bis": _frist(FRIST_ENTSCHEIDUNG_TAGE),
+                    **belege,
                 }
                 continue
             eintrag["laeufe"] = int(eintrag.get("laeufe", 0)) + 1
@@ -256,6 +312,11 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
             eintrag["letzte_note"] = satz["note"]
             eintrag["repo"] = repo
             eintrag["phase"] = satz["phase"]
+            # Altbestand ohne Frist bekommt sie jetzt — ab heute, nicht rueckwirkend:
+            # rueckwirkend waeren alle 17 sofort ueberfaellig und das Gate wuerde
+            # als Rauschen abgeschaltet, statt gelesen.
+            eintrag.setdefault("entscheiden_bis", _frist(FRIST_ENTSCHEIDUNG_TAGE))
+            eintrag.update(belege)
 
     # Heilung: nur fuer Phasen, die in DIESEM Lauf tatsaechlich geurteilt haben —
     # und nur fuer Repos, die diese Phase auch erreichen konnte.
@@ -398,22 +459,70 @@ def praezisions_bericht(daten: dict) -> str:
 
 
 def _cross_repo_offen(daten: dict, eigenes_repo: str) -> list[tuple[str, dict]]:
-    """Fremd-Repo-Befunde ohne Artefakt und ohne abgelegten Verzicht.
+    """Befunde ohne Artefakt und ohne abgelegten Verzicht, die das Gate sehen muss.
 
-    Nur Phasen aus ``CROSS_REPO_PHASEN`` — siehe die Begruendung dort, warum das
-    Gate eng anfaengt statt jede Zeile mit einem Repo-Namen einzusammeln.
+    Zwei Wege hinein, beide eng und beide belegt:
+      * Fremd-Repo-Befund einer ``CROSS_REPO_PHASEN``-Phase — der Arbeitsauftrag
+        liegt in einem anderen Repo.
+      * Befund einer ``INFRA_PHASEN``-Phase — der Arbeitsauftrag liegt auf einem
+        Knoten, und zwar unabhaengig davon, unter welchem Repo er gefuehrt wird.
+        Bis 2026-08-30 fielen genau diese durch die Eigen-Repo-Ausnahme.
+    Lokale Zustaende (dirty Arbeitsbaum, `0.4 repo-sync`) bleiben draussen.
     """
     offen = []
     for fid, e in sorted(daten.get("befunde", {}).items()):
         repo = str(e.get("repo", "-"))
-        if repo in ("-", eigenes_repo):
-            continue
-        if str(e.get("phase", "")) not in CROSS_REPO_PHASEN:
+        phase = str(e.get("phase", ""))
+        fremd = repo not in ("-", eigenes_repo) and phase in CROSS_REPO_PHASEN
+        infra = phase in INFRA_PHASEN
+        if not (fremd or infra):
             continue
         if e.get("artefakt") or e.get("verzicht"):
             continue
         offen.append((fid, e))
     return offen
+
+
+def ueberfaellig(eintrag: dict, heute: str) -> bool:
+    """Entscheidungsfrist verstrichen, ohne dass verankert oder verzichtet wurde."""
+    frist = eintrag.get("entscheiden_bis")
+    if not frist or eintrag.get("artefakt") or eintrag.get("verzicht"):
+        return False
+    return heute > str(frist)
+
+
+def bericht_json(daten: dict, eigenes_repo: str) -> list[dict]:
+    """Ein Datensatz je Befund, vollstaendig — die Leseflaeche baut sich daraus.
+
+    Bewusst keine Kuerzung: was hier fehlt, muss der Leser am Knoten nachmessen.
+    """
+    heute = _heute()
+    offen_ids = {fid for fid, _ in _cross_repo_offen(daten, eigenes_repo)}
+    aus = []
+    for fid, e in sorted(daten.get("befunde", {}).items()):
+        aus.append(
+            {
+                "id": fid,
+                "phase": e.get("phase"),
+                "repo": e.get("repo"),
+                "fremd": e.get("repo") not in ("-", eigenes_repo),
+                "infra": e.get("phase") in INFRA_PHASEN,
+                "im_gate": fid in offen_ids,
+                "erstmals": e.get("erstmals"),
+                "zuletzt": e.get("zuletzt"),
+                "laeufe": int(e.get("laeufe", 0)),
+                "note": e.get("letzte_note"),
+                "artefakt": e.get("artefakt"),
+                "verzicht": e.get("verzicht"),
+                "wiedervorlage": e.get("wiedervorlage"),
+                "ruhezustand": ruhezustand(e, heute),
+                "entscheiden_bis": e.get("entscheiden_bis"),
+                "ueberfaellig": ueberfaellig(e, heute),
+                "urteil": e.get("urteil"),
+                **{f: e.get(f) for f in BELEG_FELDER},
+            }
+        )
+    return aus
 
 
 def bericht(daten: dict, eigenes_repo: str) -> str:
@@ -439,21 +548,34 @@ def bericht(daten: dict, eigenes_repo: str) -> str:
             "ruht": f" · ruht bis {e.get('wiedervorlage')}",
             "faellig": f" · ⏰ Frist {e.get('wiedervorlage')} abgelaufen",
         }.get(zustand, "")
+        infra = " [INFRA]" if e.get("phase") in INFRA_PHASEN else ""
+        frist = ""
+        if ueberfaellig(e, _heute()):
+            frist = f" · ⏰ Entscheidung seit {e.get('entscheiden_bis')} ueberfaellig"
+        elif e.get("entscheiden_bis") and not (e.get("artefakt") or e.get("verzicht")):
+            frist = f" · entscheiden bis {e.get('entscheiden_bis')}"
+        beleg = ""
+        if e.get("kommando"):
+            beleg = f"\n      {e.get('knoten') or '?'}$ {e['kommando']}"
+            if e.get("ausgabe"):
+                beleg += f" → {e['ausgabe']}"
+        elif not e.get("kommando"):
+            beleg = "\n      (ohne Beleg — Kommando/Knoten fehlen, --beleg nachtragen)"
         zeilen.append(
-            f"  {fid}{fremd}\n"
+            f"  {fid}{fremd}{infra}\n"
             f"      {e.get('laeufe', 0)} Laeufe · erstmals {e.get('erstmals', '?')} · "
-            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}"
+            f"zuletzt {e.get('zuletzt', '?')} · {stand}{ruhe}{frist}{beleg}"
         )
     offen = _cross_repo_offen(daten, eigenes_repo)
     zeilen.append("")
     if offen:
         zeilen.append(
-            f"RESULT: OFFEN — {len(offen)} Fremd-Repo-Befund(e) ohne Artefakt im Zielrepo: "
-            + ", ".join(e["repo"] for _, e in offen)
+            f"RESULT: OFFEN — {len(offen)} Fremd-Repo-/Infra-Befund(e) ohne Artefakt: "
+            + ", ".join(sorted({e["repo"] for _, e in offen}))
         )
     else:
         zeilen.append(
-            "RESULT: OK — kein Fremd-Repo-Befund ohne Artefakt oder Verzicht."
+            "RESULT: OK — kein Fremd-Repo- oder Infra-Befund ohne Artefakt oder Verzicht."
         )
     return "\n".join(zeilen)
 
@@ -462,6 +584,10 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--aufnehmen", action="store_true", help="TSV von stdin einlesen")
     p.add_argument("--bericht", action="store_true")
+    p.add_argument("--json", action="store_true", help="Bericht maschinenlesbar")
+    p.add_argument("--beleg", metavar="ID", help="Beleg-Felder an einen Befund haengen")
+    for feld in BELEG_FELDER:
+        p.add_argument(f"--{feld}", default=None, help=f"mit --beleg: {feld}")
     p.add_argument("--offen-cross-repo", action="store_true")
     p.add_argument("--verankert", nargs=2, metavar=("ID", "URL"))
     p.add_argument(
@@ -497,10 +623,34 @@ def main(argv: list[str] | None = None) -> int:
         offen = _cross_repo_offen(daten, a.repo)
         if offen:
             print(
-                f"  ⚠ {len(offen)} Fremd-Repo-Befund(e) ohne Artefakt im Zielrepo: "
+                f"  ⚠ {len(offen)} Fremd-Repo-/Infra-Befund(e) ohne Artefakt: "
                 + ", ".join(sorted({e["repo"] for _, e in offen}))
                 + " — /session-ende fragt danach"
             )
+        return 0
+
+    if a.beleg:
+        e = daten.get("befunde", {}).get(a.beleg)
+        if e is None:
+            print(f"Kein Befund mit ID {a.beleg}", file=sys.stderr)
+            return 2
+        gesetzt = {f: getattr(a, f) for f in BELEG_FELDER if getattr(a, f)}
+        if not gesetzt:
+            print(
+                "--beleg ohne Feld: mindestens eines von "
+                + ", ".join(f"--{f}" for f in BELEG_FELDER),
+                file=sys.stderr,
+            )
+            return 2
+        e.update(gesetzt)
+        sichere(daten, pfad)
+        print(
+            f"Beleg an {a.beleg}: " + ", ".join(f"{k}={v}" for k, v in gesetzt.items())
+        )
+        return 0
+
+    if a.bericht and a.json:
+        print(json.dumps(bericht_json(daten, a.repo), ensure_ascii=False, indent=1))
         return 0
 
     if a.echt or a.falsch:
@@ -544,7 +694,9 @@ def main(argv: list[str] | None = None) -> int:
         e["wiedervorlage"] = _frist(tage)
         e["ruht_note"] = e.get("letzte_note")
         sichere(daten, pfad)
-        print(f"verankert: {fid} -> {url} · ruht bis {e['wiedervorlage']} ({tage} Tage)")
+        print(
+            f"verankert: {fid} -> {url} · ruht bis {e['wiedervorlage']} ({tage} Tage)"
+        )
         return 0
 
     if a.verzichtet:
@@ -586,14 +738,20 @@ def main(argv: list[str] | None = None) -> int:
             print("RESULT: OK — kein Fremd-Repo-Befund ohne Artefakt oder Verzicht.")
             return 0
         print(
-            f"RESULT: OFFEN — {len(offen)} Fremd-Repo-Befund(e) brauchen ein Artefakt "
-            f"im Zielrepo (oder einen abgelegten Verzicht):"
+            f"RESULT: OFFEN — {len(offen)} Fremd-Repo-/Infra-Befund(e) brauchen ein "
+            f"Artefakt im Zielrepo (oder einen abgelegten Verzicht):"
         )
+        heute = _heute()
         for fid, e in offen:
+            marke = " ⏰ UEBERFAELLIG" if ueberfaellig(e, heute) else ""
+            art = " [INFRA]" if e.get("phase") in INFRA_PHASEN else ""
             print(
-                f"  {fid} — {e.get('laeufe', 0)} Laeufe, erstmals {e.get('erstmals', '?')}"
+                f"  {fid}{art}{marke} — {e.get('laeufe', 0)} Laeufe, erstmals "
+                f"{e.get('erstmals', '?')}, entscheiden bis {e.get('entscheiden_bis', '?')}"
             )
             print(f"      {e.get('letzte_note', '')}")
+            if e.get("kommando"):
+                print(f"      {e.get('knoten') or '?'}$ {e['kommando']}")
         print(
             "\nVerankern:  python3 tools/befund_journal.py --verankert '<ID>' '<URL>'"
             "\nVerzichten: python3 tools/befund_journal.py --verzichtet '<ID>' '<Grund>'"
