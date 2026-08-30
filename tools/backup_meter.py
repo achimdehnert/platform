@@ -17,7 +17,14 @@ Prüft täglich zwei Dinge:
    sobald der Offsite-Modus scharf ist (`--snapshots` gesetzt), ist das eine
    Verletzung; im Scaffold-Modus nur ein Hinweis.
 
-Exit-Codes: 0 = konform (oder deferred) · 1 = ≥1 Verletzung · 2 = Aufruffehler
+Exit-Codes: 0 = konform · 1 = ≥1 Verletzung · 2 = Aufruffehler ·
+            3 = Scope-Luecke: keine Verletzung, aber ≥1 App deferred (KONZ-054 E3)
+
+Warum Exit 3 (2026-08-30): der Meter stand 12 Tage auf gruen, weil sein Nenner
+EINE App war — 8 von 10 Soll-Apps waren `deferred`, und deferred zaehlte als
+konform. Ein Melder, der ungemessenes Gebiet als gruen verbucht, belohnt kleine
+Nenner. Deshalb ist "nicht gemessen" jetzt ein eigener Zustand, der nie gruen
+ist — und der Bericht sagt in der ersten Zeile, wie viel er ueberhaupt sieht.
 
 Usage:
     # scharf (auf self-hosted Runner mit restic-Env):
@@ -202,6 +209,7 @@ def render_report(results: list) -> str:
     violations = [r for r in results if r["status"] == "violation"]
 
     lines = ["# backup-meter (ADR-241)", ""]
+    lines.append(deckungszeile(results))
     lines.append(
         f"**{len(ok)} konform · {len(violations)} Verletzungen · {len(deferred)} deferred**"
     )
@@ -219,6 +227,32 @@ def render_report(results: list) -> str:
         for r in ok:
             lines.append(f"- {r['app']}")
     return "\n".join(lines) + "\n"
+
+
+def deckungszeile(results: list) -> str:
+    """Erste Zeile jedes Berichts: wie viel vom Soll dieser Lauf ueberhaupt gemessen hat.
+
+    Der Nenner ist Teil der Meldung. "2 konform" ohne "von 10" liest sich wie
+    Vollstaendigkeit — und genau so wurde es 12 Tage lang gelesen.
+    """
+    apps = [r for r in results if r["app"] != "restore-drill"]
+    gemessen = [r for r in apps if r["status"] != "deferred"]
+    if not apps:
+        return "**Geprueft 0 von 0 Soll-Apps** — keine Soll-Liste, keine Aussage"
+    quote = 100 * len(gemessen) / len(apps)
+    marke = "" if len(gemessen) == len(apps) else " — Scope-Luecke, kein Gruen"
+    return (
+        f"**Geprueft {len(gemessen)} von {len(apps)} Soll-Apps ({quote:.0f} %)**{marke}"
+    )
+
+
+def exit_code(results: list) -> int:
+    """0 nur, wenn alles gemessen und nichts verletzt ist. 3 fuer "nicht alles gemessen"."""
+    if any(r["status"] == "violation" for r in results):
+        return 1
+    if any(r["status"] == "deferred" for r in results):
+        return 3
+    return 0
 
 
 def load_expected(paths: list) -> list:
@@ -279,12 +313,14 @@ def main() -> int:
             fh.write(report)
 
     violations = sum(1 for r in results if r["status"] == "violation")
+    deferred = sum(1 for r in results if r["status"] == "deferred")
     gh_output = os.environ.get("GITHUB_OUTPUT")
     if gh_output:
         with open(gh_output, "a") as fh:
             fh.write(f"violations={violations}\n")
+            fh.write(f"deferred={deferred}\n")
 
-    return 1 if violations else 0
+    return exit_code(results)
 
 
 if __name__ == "__main__":
