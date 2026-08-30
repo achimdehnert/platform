@@ -188,6 +188,36 @@ def test_should_flag_service_pointing_at_unknown_host():
 # ── Positivkontrolle an den echten Dateien ───────────────────────────────────
 
 
+def test_should_route_blockiert_services_to_hinweise_in_pr_mode():
+    data = _hosts(
+        n={
+            "verified": "2026-08-30",
+            "auflage": {"grund": "x", "prod_container": False},
+        }
+    )
+    ports = {
+        "services": {
+            "alt": {"prod_host": "n", "betriebsstatus": "blockiert"},
+            "neu": {"prod_host": "n"},
+        }
+    }
+    hinweise: list[str] = []
+    befunde = ha.check_auflage(data, ports, hinweise)
+    assert [b.split("'")[1] for b in befunde] == ["neu"]
+    assert [h.split("'")[1] for h in hinweise] == ["alt"]
+
+
+def test_should_keep_blockiert_services_as_findings_without_pr_mode():
+    data = _hosts(
+        n={
+            "verified": "2026-08-30",
+            "auflage": {"grund": "x", "prod_container": False},
+        }
+    )
+    ports = {"services": {"alt": {"prod_host": "n", "betriebsstatus": "blockiert"}}}
+    assert [b.split("'")[1] for b in ha.check_auflage(data, ports)] == ["alt"]
+
+
 def test_should_pass_schema_and_auflage_on_real_repo_files():
     data = yaml.safe_load((WURZEL / "infra" / "hosts.yaml").read_text())
     ports = yaml.safe_load((WURZEL / "infra" / "ports.yaml").read_text())
@@ -198,6 +228,10 @@ def test_should_pass_schema_and_auflage_on_real_repo_files():
     befunde = ha.check_auflage(data, ports)
     erwartet = {"praes-iil-ai", "chat-hub", "robo-twin", "mail-links"}
     assert {b.split("'")[1] for b in befunde} == erwartet, befunde
+    # PR-Modus: dieselben vier sind Hinweis, kein PR in platform ist dadurch rot.
+    hinweise: list[str] = []
+    assert ha.check_auflage(data, ports, hinweise) == []
+    assert {h.split("'")[1] for h in hinweise} == erwartet
 
 
 def test_should_find_gx10_deadline_in_real_repo_file():
