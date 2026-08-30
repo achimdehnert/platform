@@ -79,8 +79,9 @@ jetzt ein Finding, kein Freifahrtschein.
 
 - Schlüssel auf dem Knoten hinterlegen; `ssh` und `ip` in `hosts.yaml` eintragen.
 - Knoten hinter `wg0` (GPU-Box, GX10): der Weg führt über den prod-Hop. In
-  `hosts.yaml` steht dann `ssh: <user>@<wg0-IP>` **und** ein Satz im `role:`-Feld,
-  über welchen Hop. Das Werkzeug muss den Hop kennen, sonst meldet es „unerreichbar"
+  `hosts.yaml` steht dann `ssh: <user>@<wg0-IP>`, `ssh_via: root@<hop>` (der Schlüssel
+  liegt nur dort) und bei Windows-Knoten `ssh_shell: "wsl -d Ubuntu -u root -e bash -s"`.
+  `tools/flottenbild.py` liest genau diese Felder. Das Werkzeug muss den Hop kennen, sonst meldet es „unerreichbar"
   und zählt den Knoten stillschweigend nicht (Diabolus-Befund zu KONZ-054: 2 von 8
   Knoten hatten kein `ssh`-Feld).
 - Kein `PasswordAuthentication`. Der Befund auf prod-b (50.983 Fehlversuche in 7
