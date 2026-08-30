@@ -898,6 +898,21 @@ else
   record "0.7.19 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
 fi
 
+# ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
+# Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
+# WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung
+# antwortet. Beides klang zu selbstverstaendlich, um gefragt zu werden, und war
+# am 2026-08-30 viermal falsch: eine Sitzung hielt den Staging-Host fuer einen
+# Entwicklungsrechner, meldete ein vorhandenes Staging als nicht existent, hielt
+# eine fremde App hinter einem 200 fuer writing-hub und las ein E-Mail-Login aus
+# einer OAuth-URL. Ein Statuscode belegt nicht, WER antwortet — der Titel schon.
+UMG_OUT=$(timeout 90 python3 "$PLATFORM_DIR/tools/umgebung.py" --repo "$TARGET_REPO" --kurz 2>/dev/null || true)
+case "$UMG_OUT" in
+  "")            record "0.7.20 umgebung" "WARN" "nicht ausgefuehrt — Standort ungeprueft" ;;
+  *"UNBEKANNT"*) record "0.7.20 umgebung" "WARN" "$UMG_OUT" ;;
+  *)             record "0.7.20 umgebung" "PASS" "$UMG_OUT" ;;
+esac
+
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'
 import yaml, socket, os, sys

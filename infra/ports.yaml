@@ -259,6 +259,9 @@ services:
                                # Alle 3 Volumes auf prod erhalten (Rueckweg).
     container_name: weltenhub_web
     domain_prod: weltenforger.com
+    titel_marker: weltenforger   # das Produkt heisst anders als das Repo —
+                                 # ohne diese Zeile schlaegt tools/umgebung.py
+                                 # zu Recht an, weil der Titel 'weltenhub' nicht nennt
     domain_staging: staging.weltenforger.com
     repo: achimdehnert/weltenhub
 
