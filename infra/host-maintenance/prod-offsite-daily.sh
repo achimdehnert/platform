@@ -227,6 +227,34 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+log "Konfiguration sichern — was ein Host von Null braucht (KONZ-054 §12, 2026-08-30)"
+# Gemessen 2026-08-30: 689 Snapshots im Repo, 0 Pfade unter /etc, 0 unter /opt.
+# Datenbanken und Volumes waren gesichert — nginx-vhosts, Tunnel-Credential,
+# Compose-Dateien und .env je App nicht. Ein Wiederanlauf haette an der ersten
+# Datei gescheitert, die kein Backup kannte. Das Repo ist verschluesselt; die
+# .env-Dateien gehoeren deshalb hinein, nicht heraus — ohne sie startet kein Stack.
+CONF=()
+for p in /etc/nginx /etc/cloudflared /root/.cloudflared /etc/cron.d /etc/systemd/system \
+         /etc/fstab /etc/offsite-backup.env /usr/local/bin /etc/ufw/user.rules; do
+  [[ -e "$p" ]] && CONF+=("$p")
+done
+for d in /opt/*/; do
+  for f in docker-compose.yml docker-compose.prod.yml docker-compose.override.yml \
+           .env .env.prod .env.production secrets.enc.env Caddyfile; do
+    [[ -f "$d$f" ]] && CONF+=("$d$f")
+  done
+done
+if [[ ${#CONF[@]} -gt 0 ]]; then
+  if restic backup --tag config --host "$RESTIC_HOST" "${CONF[@]}" 2>&1 | redact; then
+    log "  ✓ ${#CONF[@]} Konfigurationspfade (Tag config)"
+  else
+    log "  ✗ Konfigurations-Sicherung fehlgeschlagen"; rc_total=1
+  fi
+else
+  log "  ✗ keine Konfigurationspfade gefunden — das ist ein Befund, kein Leerlauf"; rc_total=1
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 log "Aufraeumen (Retention)"
 # Append-only am Server: 'forget --prune' scheitert dort bewusst. Wir markieren
 # nur; das tatsaechliche Prune laeuft mit einem GETRENNTEN Zugang auf dem

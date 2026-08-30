@@ -41,6 +41,9 @@ hosts:
     datacenter: nbg1-dc3
     os: Ubuntu 24.04.3 LTS
     provider: Hetzner (nbg1)
+    # Swap 2026-08-30: /swapfile2 (4 GB, prio -3) ergaenzt, gesamt 8 GB — /swapfile war
+    # seit 2026-08-24 taeglich 88-100 % voll (sar). Eingetragen in /etc/fstab.
+    # Rueckweg: swapoff /swapfile2 && rm /swapfile2 && fstab-Zeile entfernen.
     role: >
       Produktions-Multi-Hub-Host. Trägt ALLE Prod-Container aller Hubs
       (risk-hub→schutztat.de, billing-hub, trading-hub, …) als getrennte
