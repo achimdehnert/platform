@@ -638,6 +638,16 @@
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-29"
+    },
+    {
+      "slug": "melder-ohne-praezisionsmass",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/befund_journal.py",
+      "drill": "tools/tests/test_befund_praezision.py",
+      "built": "2026-08-20",
+      "ref": "platform#2170",
+      "note": "Misst je Melder, wie oft seine Befunde echt waren. Vier Fehlalarme in einer Sitzung, null Messung — ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",

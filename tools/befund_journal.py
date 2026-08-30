@@ -304,6 +304,99 @@ def aufnehmen(saetze: list[dict], daten: dict) -> list[str]:
     return meldungen
 
 
+# Ab so vielen Urteilen wird eine Praezision ueberhaupt ausgewiesen. Darunter ist
+# jede Quote ein Zufallswert — und ein Melder wegen zweier Fehlalarme abzuwerten
+# waere schlimmer als gar nicht zu messen.
+MIN_URTEILE = 3
+
+# Unter dieser Praezision erzieht ein Melder zum Wegsehen. Kein Automatismus haengt
+# daran: die Zahl ist ein Gespraechsanlass, keine Abschaltung.
+PRAEZISION_SCHWELLE = 0.6
+
+
+def urteile_dazu(daten: dict, fid: str, urteil: str, grund: str) -> dict | None:
+    """Ein Urteil ueber einen Befund festhalten: war er echt oder ein Fehlalarm?
+
+    **Die Historie liegt bewusst NEBEN den Befunden, nicht in ihnen.** Ein Eintrag
+    verschwindet, sobald seine Phase ihn nicht mehr meldet (Heilung) — und mit ihm
+    waere jedes Urteil weg. Die Praezision eines Melders liesse sich dann genau so
+    lange messen, wie sein Fehlalarm noch offen steht: also nie.
+    """
+    eintrag = daten.get("befunde", {}).get(fid)
+    daten.setdefault("urteile", []).append(
+        {
+            "fid": fid,
+            "phase": (eintrag or {}).get("phase") or fid.split("::")[0],
+            "repo": (eintrag or {}).get("repo") or (fid.split("::") + ["-"])[1],
+            "urteil": urteil,
+            "grund": grund,
+            "datum": _heute(),
+        }
+    )
+    if eintrag is not None:
+        eintrag["urteil"] = urteil
+    return eintrag
+
+
+def praezision(daten: dict) -> list[dict]:
+    """Je Melder-Phase: wie viele Befunde waren echt, wie viele Fehlalarm."""
+    je_phase: dict[str, dict] = {}
+    for u in daten.get("urteile", []):
+        z = je_phase.setdefault(
+            u["phase"], {"phase": u["phase"], "echt": 0, "falsch": 0}
+        )
+        if u["urteil"] == "echt":
+            z["echt"] += 1
+        elif u["urteil"] == "falsch":
+            z["falsch"] += 1
+    ergebnis = []
+    for z in je_phase.values():
+        gesamt = z["echt"] + z["falsch"]
+        z["urteile"] = gesamt
+        z["praezision"] = (z["echt"] / gesamt) if gesamt else None
+        z["bewertbar"] = gesamt >= MIN_URTEILE
+        ergebnis.append(z)
+    ergebnis.sort(key=lambda z: (z["praezision"] if z["bewertbar"] else 2, z["phase"]))
+    return ergebnis
+
+
+def praezisions_bericht(daten: dict) -> str:
+    zeilen = praezision(daten)
+    if not zeilen:
+        return (
+            "Keine Urteile erfasst. Ein Melder-Befund wird beim Abschluss mit\n"
+            "  befund_journal.py --echt <ID> '<Notiz>'   bzw.   --falsch <ID> '<Grund>'\n"
+            "eingestuft — ohne das ist die Praezision eines Melders unbekannt, und\n"
+            "ein Melder mit vielen Fehlalarmen sieht aus wie einer, der viel findet."
+        )
+    aus = ["Melder-Praezision (echt / Fehlalarm):", ""]
+    schwach = []
+    for z in zeilen:
+        if not z["bewertbar"]:
+            aus.append(
+                f"  {z['phase']:<28} {z['echt']} echt / {z['falsch']} falsch  "
+                f"— unter {MIN_URTEILE} Urteilen, NICHT bewertbar"
+            )
+            continue
+        quote = z["praezision"]
+        marke = "🚨" if quote < PRAEZISION_SCHWELLE else "  "
+        aus.append(
+            f"{marke}{z['phase']:<28} {z['echt']} echt / {z['falsch']} falsch  "
+            f"= {quote:.0%}"
+        )
+        if quote < PRAEZISION_SCHWELLE:
+            schwach.append(z["phase"])
+    if schwach:
+        aus += [
+            "",
+            f"→ {len(schwach)} Melder unter {PRAEZISION_SCHWELLE:.0%}: {', '.join(schwach)}.",
+            "  Ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen — und das",
+            "  trifft dann auch seine richtigen Befunde. Dieselben drei Antworten wie",
+            "  beim rueckfaelligen Gate: schaerfen, umbauen, oder ehrlich herabstufen.",
+        ]
+    return "\n".join(aus)
+
+
 def _cross_repo_offen(daten: dict, eigenes_repo: str) -> list[tuple[str, dict]]:
     """Fremd-Repo-Befunde ohne Artefakt und ohne abgelegten Verzicht.
 
@@ -371,6 +464,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--bericht", action="store_true")
     p.add_argument("--offen-cross-repo", action="store_true")
     p.add_argument("--verankert", nargs=2, metavar=("ID", "URL"))
+    p.add_argument(
+        "--echt", nargs=2, metavar=("ID", "NOTIZ"), help="Befund war berechtigt"
+    )
+    p.add_argument(
+        "--falsch", nargs=2, metavar=("ID", "GRUND"), help="Fehlalarm des Melders"
+    )
+    p.add_argument("--praezision", action="store_true", help="Trefferquote je Melder")
+    p.add_argument("--kurz", action="store_true", help="eine Zeile fuer den Runner")
     p.add_argument("--verzichtet", nargs=2, metavar=("ID", "GRUND"))
     p.add_argument(
         "--frist",
@@ -400,6 +501,36 @@ def main(argv: list[str] | None = None) -> int:
                 + ", ".join(sorted({e["repo"] for _, e in offen}))
                 + " — /session-ende fragt danach"
             )
+        return 0
+
+    if a.echt or a.falsch:
+        fid, text = a.echt or a.falsch
+        urteil = "echt" if a.echt else "falsch"
+        urteile_dazu(daten, fid, urteil, text)
+        sichere(daten, pfad)
+        print(f"{urteil}: {fid} — {text}")
+        return 0
+
+    if a.praezision:
+        zeilen = praezision(daten)
+        schwach = [
+            z
+            for z in zeilen
+            if z["bewertbar"] and z["praezision"] < PRAEZISION_SCHWELLE
+        ]
+        if a.kurz:
+            if schwach:
+                spitze = schwach[0]
+                weitere = f" (+{len(schwach) - 1} weitere)" if len(schwach) > 1 else ""
+                print(
+                    f"{len(schwach)} Melder unter {PRAEZISION_SCHWELLE:.0%} Trefferquote — "
+                    f"{spitze['phase']}: {spitze['praezision']:.0%} "
+                    f"({spitze['echt']} echt / {spitze['falsch']} falsch){weitere}"
+                )
+                for z in schwach[1:5]:
+                    print(f"  · {z['phase']} — {z['praezision']:.0%}")
+            return 0
+        print(praezisions_bericht(daten))
         return 0
 
     if a.verankert:
