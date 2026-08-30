@@ -898,6 +898,18 @@ else
   record "0.7.19 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
 fi
 
+# ── 0.7.21 Alarmweg: erreicht ein Alarm ueberhaupt einen Menschen? ─────────
+# KONZ-054 E4. Ein Kanal gilt erst, wenn er in den letzten Tagen einmal
+# nachweislich benutzt wurde (woechentliche Probe, .github/workflows/alarmweg-
+# probe.yml). Gemessen 2026-08-30: 177 Tage `| mail` ohne MTA, ein Discord-Secret,
+# das drei Workflows nennen und das nicht existiert. Exit 2 = blind, kein PASS.
+ALARM_OUT=$(python3 "$PLATFORM_DIR/tools/alarmweg_probe.py" --pruefen --kurz 2>/dev/null); ALARM_RC=$?
+case "$ALARM_RC" in
+  0) record "0.7.21 alarmweg" "PASS" "${ALARM_OUT:-belegt}" ;;
+  1) record "0.7.21 alarmweg" "WARN" "${ALARM_OUT:-Alarmweg fehlt}" ;;
+  *) record "0.7.21 alarmweg" "SKIP" "${ALARM_OUT:-blind: Probe-Laeufe nicht lesbar}" ;;
+esac
+
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
 # Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
 # WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung

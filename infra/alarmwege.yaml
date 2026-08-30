@@ -1,0 +1,77 @@
+# platform/infra/alarmwege.yaml — Register der Alarmwege (KONZ-platform-054 E4)
+#
+# Ein Kanal gilt nur als vorhanden, wenn er in den letzten `max_alter_tage` Tagen
+# EINMAL ERFOLGREICH BENUTZT wurde — und der Beleg dafuer maschinell lesbar ist.
+# Anlass, gemessen 2026-08-30:
+#   * Der lauteste Host-Melder der Flotte (healthcheck.sh auf prod) meldete 177 Tage
+#     lang 100 % FAIL an `| mail` — ohne MTA. Niemand hat je eine Mail bekommen.
+#   * cert-expiry-check.sh auf prod: Webhook-Variable auskommentiert, `curl … || true`.
+#   * Drei Workflows in diesem Repo senden an `secrets.DISCORD_WEBHOOK` — das Secret
+#     existiert nicht (`gh secret list`, 2026-08-30). Jeder Lauf sagt "nicht gesetzt,
+#     uebersprungen", exit 0, und niemand liest es.
+# Gemeinsame Form: ein Kanal, der existiert, weil ein Skript ihn NENNT. Dieses
+# Register kehrt die Beweislast um. Prueft: tools/alarmweg_probe.py --pruefen
+#
+# Felder je Kanal:
+#   art            discord-webhook | github-issue | mail
+#   ziel           Zeiger auf das Ziel — NIE der Wert (Secret-Name, Label, Host)
+#   leser          wer am anderen Ende sitzt
+#   genutzt_von    Skripte/Workflows, die diesen Kanal als Alarmweg annehmen
+#   probe          workflow  -> .github/workflows/alarmweg-probe.yml, Job = Kanal-ID
+#                  keine     -> Kanal ist nicht pruefbar => gilt als NICHT vorhanden
+#   max_alter_tage Beleg darf hoechstens so alt sein
+#   stand          gemessener Zustand mit Datum (Fliesstext, nur fuer Menschen)
+
+kanaele:
+  discord-owner:
+    art: discord-webhook
+    ziel: "GitHub-Secret DISCORD_WEBHOOK (Repo achimdehnert/platform)"
+    leser: Owner (Discord)
+    genutzt_von:
+      - .github/workflows/backup-meter.yml
+      - .github/workflows/branch-protection-meter.yml
+      - .github/workflows/_deploy-unified.yml
+    probe: workflow
+    max_alter_tage: 10
+    stand: >
+      2026-08-30: Secret existiert NICHT (gh secret list). Alle drei Nutzer
+      ueberspringen still mit exit 0. Der Kanal war nie da.
+
+  github-issue-owner:
+    art: github-issue
+    ziel: "Issue in achimdehnert/platform mit --assignee achimdehnert (die Zuweisung IST die Zustellung)"
+    leser: Owner (GitHub-Benachrichtigung)
+    genutzt_von:
+      - .github/workflows/backup-deckung.yml
+      - .github/workflows/backup-meter.yml
+      - .github/workflows/prod-uptime-canary.yml
+      - .github/workflows/approve-queue.yml
+    probe: workflow
+    max_alter_tage: 10
+    stand: >
+      2026-08-30: funktioniert — backup-deckung hat am 2026-08-25 ein Issue angelegt.
+      Aber ohne Probe ist "hat einmal funktioniert" keine Aussage ueber heute.
+
+  prod-healthcheck-mail:
+    art: mail
+    ziel: "prod: /opt/scripts/healthcheck.sh | mail (Cron */5)"
+    leser: niemand
+    genutzt_von:
+      - "prod:/opt/scripts/healthcheck.sh"
+    probe: keine
+    max_alter_tage: 10
+    stand: >
+      2026-08-30: kein MTA auf prod. 177 Tage 100 % FAIL ins Leere. Steht auf der
+      Rueckbau-Liste von KONZ-054 §12 — abschalten, nicht reparieren.
+
+  prod-cert-expiry-discord:
+    art: discord-webhook
+    ziel: "prod: Cron 06:30, Webhook-Variable in der Cert-Monitor-Umgebungsdatei"
+    leser: niemand
+    genutzt_von:
+      - "prod:/opt/scripts/cert-expiry-check.sh"
+    probe: keine
+    max_alter_tage: 10
+    stand: >
+      2026-08-30: Variable auskommentiert, `curl … || true` verschluckt den Fehler.
+      Ein echter Zertifikats-Ablauf kaeme hier nie an.
