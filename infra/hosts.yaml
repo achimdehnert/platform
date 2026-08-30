@@ -134,7 +134,7 @@ hosts:
       # infra/host-maintenance/runner-umziehen.sh
     verified: 2026-08-04               # docker stats beide Hosts + Marker je App
 
-  staging:
+  dev-desktop:                         # bis 2026-08-30 `staging` — der Name meinte in ports.yaml eine ANDERE Maschine (S1)
     ip: 88.99.38.75
     arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@88.99.38.75              # Admin/Deploy-Zugang
@@ -343,7 +343,7 @@ runners:
     verified: 2026-06-17
 
   staging-ci:
-    host: staging                      # 88.99.38.75
+    host: dev-desktop                  # 88.99.38.75 (Key bis 2026-08-30: staging)
     status: online                     # 2026-06-28 registriert + verifiziert (gh api)
     labels: [self-hosted, Linux, X64, ci-nonprod]
     scope: per-repo
