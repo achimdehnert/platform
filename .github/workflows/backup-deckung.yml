@@ -21,8 +21,16 @@
 # (Owner-Entscheid Weg B, platform#2284 K5): kein Runner-Key nach prod-b, prod-b
 # bleibt Sache des Sitzungsstarts von der Dev-Maschine. Ein taeglicher Kommentar
 # ueber denselben Zustand waere Rauschen, das niemand mehr liest. Deshalb: Exit 3
-# allein erzeugt weder Issue noch roten Lauf — nur eine Notice und eine Zeile in
-# der Job-Summary. Sobald Exit 1 oder 2 dazukommt, gilt wieder Issue + rot.
+# allein erzeugt KEIN Issue und keinen Kommentar.
+#
+# ABER — Praezisierung 2026-08-30 (KONZ-054 E3, Owner-Go zu KONZ-054): Exit 3 macht
+# den Lauf ROT. Vorher blieb er gruen, und "gruen" las sich als "die Flotte ist
+# gedeckt", waehrend 1 von 8 Knoten gemessen war. Rot ohne Issue ist das Mittel
+# gegen beides: kein Dauerlaerm (Weg B bleibt), aber auch kein Gruen ueber
+# ungemessenem Gebiet. Der Leser des roten Laufs ist cron_melder_check (0.7.2),
+# dessen Befund seit E2 mit Entscheidungsfrist im Journal steht.
+#
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py.
 name: backup-deckung
 
 on:
@@ -140,7 +148,12 @@ jobs:
         run: |
           RC_D=$(cat /tmp/deckung.rc 2>/dev/null || echo "?"); RC_S=$(cat /tmp/speicher.rc 2>/dev/null || echo "?")
           if [ "$RC_D" = "0" -o "$RC_D" = "3" ] && [ "$RC_S" = "0" -o "$RC_S" = "3" ]; then
-            echo "Nur bekannte Scope-Luecke (Exit 3, Weg B) — Lauf bleibt gruen."; exit 0
+            # Deckungsgrad aus der SoT, nicht aus dem Gefuehl: dieser Lauf misst prod,
+            # hosts.yaml kennt M Knoten. Die Zahl steht in Summary und Log.
+            M=$(python3 -c "import yaml;print(len(yaml.safe_load(open('infra/hosts.yaml'))['hosts']))" 2>/dev/null || echo "?")
+            echo "::warning title=Scope-Luecke::Geprueft 1 von ${M} Knoten (prod lokal). Kein Issue (Weg B) — aber kein Gruen ueber ungemessenem Gebiet (KONZ-054 E3)."
+            echo "**Geprueft 1 von ${M} Knoten** — Scope-Luecke, Lauf rot ohne Issue (KONZ-054 E3)." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
           echo "Deckung rc=$RC_D · Speicher rc=$RC_S — ROT IST BEFUND (Issue angelegt/kommentiert)"
           exit 1

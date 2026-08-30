@@ -224,3 +224,45 @@ def test_should_treat_real_expected_apps_entry_as_multipart():
     assert tags == {"risk_hub_db", "volumes"}
     volumes = next(c for c in eintrag["checks"] if c["tag"] == "volumes")
     assert any("minio" in p for p in volumes["paths_contain"])
+
+
+# ── KONZ-054 E3: der Nenner ist Teil der Meldung, deferred ist kein Gruen ─────
+
+
+def _r(app, status):
+    return {"app": app, "status": status, "reasons": ["x"] if status != "ok" else []}
+
+
+def test_should_exit_3_when_nothing_violated_but_not_everything_measured():
+    from backup_meter import exit_code
+
+    assert exit_code([_r("a", "ok"), _r("b", "deferred")]) == 3
+
+
+def test_should_exit_1_when_violations_outrank_scope_gap():
+    from backup_meter import exit_code
+
+    assert exit_code([_r("a", "violation"), _r("b", "deferred")]) == 1
+
+
+def test_should_exit_0_only_when_everything_is_measured_and_ok():
+    from backup_meter import exit_code
+
+    assert exit_code([_r("a", "ok"), _r("b", "ok")]) == 0
+
+
+def test_should_put_the_denominator_in_the_first_report_line():
+    from backup_meter import deckungszeile, render_report
+
+    results = [_r("a", "ok")] + [_r(f"d{i}", "deferred") for i in range(8)]
+    zeile = deckungszeile(results)
+    assert "1 von 9" in zeile and "Scope-Luecke" in zeile
+    assert render_report(results).splitlines()[2] == zeile
+
+
+def test_should_not_count_the_drill_as_an_app_in_the_denominator():
+    from backup_meter import deckungszeile
+
+    assert "2 von 2" in deckungszeile(
+        [_r("a", "ok"), _r("b", "ok"), _r("restore-drill", "ok")]
+    )

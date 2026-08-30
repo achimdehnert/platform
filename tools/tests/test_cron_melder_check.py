@@ -144,3 +144,15 @@ def test_should_report_cancelled_run_as_not_red():
         _lauf("2026-07-26T06:00:00Z"),
     ]
     assert cmc.rote_serien(runs, 3) == {}
+
+
+def test_should_classify_both_backup_workflows_as_rot_ist_befund():
+    """KONZ-054 E3: seit ein roter Lauf dort ein Fund ist (Scope-Luecke), muss der
+    cron-melder ihn als Befund fuehren, nicht als kaputten Melder."""
+    from pathlib import Path
+
+    from cron_melder_check import geplante_workflows
+
+    wf = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+    _, befund = geplante_workflows(wf)
+    assert {"backup-deckung", "ADR-241: Backup Meter"} <= set(befund)
