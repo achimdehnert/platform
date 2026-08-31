@@ -111,7 +111,14 @@ def test_should_load_the_real_register_and_find_every_workflow_job_declared():
         k for k, v in kanaele.items() if v.get("probe") == "workflow" and k not in jobs
     ]
     assert fehlend == []
-    assert any(v.get("probe") == "keine" for v in kanaele.values())
+    # Positivkontrolle: die Pruefung oben ist nur dann aussagekraeftig, wenn das
+    # Register ueberhaupt verschiedene Probe-Klassen kennt — waeren alle Kanaele
+    # `workflow`, koennte `fehlend == []` auch bei kaputter Logik gruen sein.
+    # Frueher stand hier `probe == "keine"`; seit dem Rueckbau der beiden toten
+    # Host-Kanaele (2026-08-30/31) gibt es keinen solchen Kanal mehr, und das ist
+    # Fortschritt, kein Defekt. Geprueft wird deshalb die Vielfalt, nicht ein Wert.
+    klassen = {v.get("probe") for v in kanaele.values()}
+    assert len(klassen) >= 2, f"nur eine Probe-Klasse im Register: {klassen}"
 
 
 def test_should_declare_every_discord_user_in_the_repo():

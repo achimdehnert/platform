@@ -75,7 +75,9 @@ kanaele:
     leser: niemand
     genutzt_von:
       - "prod:/opt/scripts/cert-expiry-check.sh"
-    probe: keine
+    probe: zurueckgebaut
+    zurueckgebaut_am: "2026-08-31"
+    ersetzt_durch: "Sitzungsstart-Phase 0.7.16 origin-tls"
     max_alter_tage: 10
     stand: >
       2026-08-30: Variable auskommentiert, `curl … || true` verschluckt den Fehler.
@@ -84,7 +86,13 @@ kanaele:
       healthcheck-Kanal ist hier nichts zurueckgebaut, es meldet nur nichts. Der
       Kanal bleibt damit eine echte Luecke und wird NICHT stummgeschaltet.
       Brisant, weil Phase 0.7.16 am selben Tag drei auffaellige
-      Origin-Zertifikate fand: der einzige automatische Melder dafuer ist tot,
-      die Entdeckung haengt am Sitzungsstart. Offene Entscheidung (Owner):
-      abschalten, weil 0.7.16 den Job tut — oder an `github-issue-owner` haengen,
-      den einzigen belegten Kanal. Ein Rueckbau ohne Ersatz waere hier falsch.
+      Origin-Zertifikate fand. Owner-Entscheid 2026-08-31: **abschalten**, weil
+      0.7.16 den Job nicht nur ersetzt, sondern besser macht — sie prueft neben
+      dem Ablaufdatum auch den Aussteller und erkennt Fallback-Zertifikate, also
+      genau die Klasse, die eine reine Datumspruefung gruen meldet. Der Cron auf
+      prod ist seitdem auskommentiert (Rueckweg: /root/crontab-root.vor-2026-08-31).
+      Bewusst NICHT an `github-issue-owner` gehaengt: das haette bedeutet, ein
+      Skript vom Mai ins Repo zu holen und zu pflegen, das schwaecher misst als
+      die Phase, die es ersetzen soll — zwei Melder fuer dieselbe Sache, und der
+      schlechtere gewinnt keine Wette. Verbleibende Luecke, bewusst getragen: die
+      Pruefung laeuft nur, wenn jemand eine Sitzung startet.
