@@ -412,6 +412,23 @@ case "$DRIFT_OUT" in
   *)                     record "0.7.1 deploy-script" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/deploy-script-drift.sh" ;;
 esac
 
+# ── 0.7.1b Verteilte Host-Kopien aus infra/host-maintenance/ (platform#2529) ──
+# 0.7.1 deckt genau EINE Datei ab: scripts/deploy.sh. Die uebrigen verteilten
+# Dateien — das Offsite-Skript, die systemd-Units der Timer — hatten keinen
+# Melder. Am 2026-08-31 fiel beim Ausrollen eines Backup-Fixes auf, dass die
+# prod-Kopie einen Tag alt war; /opt/platform stand da laengst auf dem neuen
+# Commit. Ein gemergter Fix an einer Datei aus diesem Verzeichnis ist ohne
+# diesen Check KEIN Beleg, dass er auf dem Host wirkt
+# (🌀 feedback_hand_distributed_copy_merge_is_not_effect).
+# Erstlauf 2026-08-31: 12 Kopien ueber 7 Hosts, davon 2 driftend.
+HDD_OUT=$(python3 "$PLATFORM_DIR/tools/host_datei_drift.py" --quiet 2>/dev/null | tail -1 || true)
+case "$HDD_OUT" in
+  "RESULT: OK"*)         record "0.7.1b host-kopien" "PASS" "${HDD_OUT#RESULT: OK — }" ;;
+  "RESULT: DRIFT"*)      record "0.7.1b host-kopien" "WARN" "${HDD_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.1b host-kopien" "WARN" "${HDD_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.1b host-kopien" "WARN" "Host-Kopien-Check nicht auswertbar — manuell: platform/tools/host_datei_drift.py" ;;
+esac
+
 # ── 0.7.2 Blinde Cron-Melder (platform#1508) ────────────────────────────────
 # 0.7 prüft Deploy-Läufe, aber NICHT den Zustand der Cron-Workflows auf main.
 # Deshalb liefen `Runner Health Check` und `Deploy Failure Monitor` sechs Tage
