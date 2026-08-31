@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-055
 title: Betriebseinheit vs. Repo-Identität — den Flotten-Monitor aus dem Produktprojekt lösen
-pipeline_status: idea
+pipeline_status: pilot
 tier: T3
 owner: Achim Dehnert
 spec_refs: []
@@ -323,8 +323,21 @@ Achse.
 
 ## 13 Entscheidung, Kill-Gate, 30/60/90
 
-**Entscheidung (Owner):** A3 — eigenes Repo für den Flotten-Monitor, Schnitt nach
-gemeinsamem Lebensende, `aifw_service` und `traefik` bleiben beim Produkt.
+**Entscheidung (Owner, 2026-08-31): A3 — eigenes Repo.** Der Flotten-Monitor wird
+aus `odoo-hub` herausgelöst; `aifw_service` und `traefik` bleiben beim Produkt, der
+Schnitt folgt dem gemeinsamen Lebensende (§5).
+
+Damit ist die Richtung entschieden, **nicht** der Termin. Zwei Dinge stehen zwischen
+Entscheidung und Umzug, beide aus dem Konzept selbst:
+
+1. **#2546 zuerst** (REC-5). Solange offen ist, welche `aifw_service`-Fassung die
+   Wahrheit ist, würde der Umzug den älteren Stand zementieren.
+2. **Das Umzugsfenster** (§7.1). Zwei von drei Prod-Hosts sind währenddessen
+   unbeobachtet — belegt durch die 7 aktiven Targets (C11). Das Fenster gehört
+   angekündigt, nicht beiläufig genommen.
+
+Der Umsetzungspfad steht als eigenes Issue; dieses Dokument bleibt die Begründung,
+nicht die Checkliste.
 
 **Kill-Gate am 2026-11-30.** Verfehlt (1) oder (2) sein Ziel, wird zurückgerollt und
 A5 gewählt — dokumentierte Kopplung statt halbem Schnitt.
