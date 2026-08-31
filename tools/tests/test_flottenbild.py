@@ -18,32 +18,118 @@ def _daten():
     return {
         "stand": "2026-08-30 12:00 UTC",
         "knoten": [
-            {"knoten": "prod", "zustand": "gemessen", "load": "1.6 1.6 1.4", "kerne": 12, "ram_pct": 42,
-             "swap_pct": 49, "swap_mb": 8191, "disk_pct": 70, "container": 63, "container_gesamt": 75,
-             "unhealthy": [], "restarting": ["travel_beat_celery_beat"], "uptime_tage": 55,
-             "rolle": "Prod", "auflage": {}, "historie": ["2026-08-30: Swap 8 GB"], "verified": "2026-08-30",
-             "verified_bis": "", "ip": "88.198.191.108", "arch": "amd64", "provider": "Hetzner", "server_type": "cpx52"},
-            {"knoten": "netcup", "zustand": "unerreichbar", "grund": "Connection timed out",
-             "rolle": "Backup", "auflage": {"runner": False, "grund": "ADR-289"}, "historie": [], "verified": "2026-08-30",
-             "verified_bis": "", "ip": "152.53.136.219", "arch": "amd64", "provider": "netcup", "server_type": ""},
-            {"knoten": "gx10", "zustand": "geplant", "rolle": "Inferenz", "auflage": {}, "historie": [],
-             "verified": "False", "verified_bis": "2026-09-30", "ip": None, "arch": "aarch64", "provider": "owner", "server_type": "gx10"},
+            {
+                "knoten": "prod",
+                "zustand": "gemessen",
+                "load": "1.6 1.6 1.4",
+                "kerne": 12,
+                "ram_pct": 42,
+                "swap_pct": 49,
+                "swap_mb": 8191,
+                "disk_pct": 70,
+                "container": 63,
+                "container_gesamt": 75,
+                "unhealthy": [],
+                "restarting": ["travel_beat_celery_beat"],
+                "uptime_tage": 55,
+                "rolle": "Prod",
+                "auflage": {},
+                "historie": ["2026-08-30: Swap 8 GB"],
+                "verified": "2026-08-30",
+                "verified_bis": "",
+                "ip": "88.198.191.108",
+                "arch": "amd64",
+                "provider": "Hetzner",
+                "server_type": "cpx52",
+            },
+            {
+                "knoten": "netcup",
+                "zustand": "unerreichbar",
+                "grund": "Connection timed out",
+                "rolle": "Backup",
+                "auflage": {"runner": False, "grund": "ADR-289"},
+                "historie": [],
+                "verified": "2026-08-30",
+                "verified_bis": "",
+                "ip": "152.53.136.219",
+                "arch": "amd64",
+                "provider": "netcup",
+                "server_type": "",
+            },
+            {
+                "knoten": "gx10",
+                "zustand": "geplant",
+                "rolle": "Inferenz",
+                "auflage": {},
+                "historie": [],
+                "verified": "False",
+                "verified_bis": "2026-09-30",
+                "ip": None,
+                "arch": "aarch64",
+                "provider": "owner",
+                "server_type": "gx10",
+            },
         ],
-        "dienste_je_host": {"prod": {"aktiv": ["risk-hub"], "stillgelegt": ["travel-beat"], "blockiert": []}},
-        "prometheus": {"zustand": "gemessen",
-                       "targets": [{"job": "fleet-node", "host": "prod-b", "health": "up"}],
-                       "alerts": [{"name": "HostSwapHigh", "host": "prod", "name_": "", "state": "firing"}]},
-        "melder": {"journal": {"gesamt": 2, "im_gate": 1, "ueberfaellig": 0, "mit_kommando": 0,
-                               "eintraege": [{"id": "0.7.18 speicher::platform", "laeufe": 6, "im_gate": True, "ueberfaellig": False, "note": "Swap"}]},
-                   "alarmwege": {"exit": 1, "kanaele": [{"kanal": "discord-owner", "ok": False, "blind": False, "grund": "letzte Probe failure"},
-                                                         {"kanal": "github-issue-owner", "ok": True, "blind": False, "grund": "Erfolg vor 0 d"}]},
-                   "erreichbarkeit": {"exit": 1, "kurz": "1 von 27"}, "hosts_audit": {"exit": 0, "kurz": "keine Findings"}},
+        "dienste_je_host": {
+            "prod": {
+                "aktiv": ["risk-hub"],
+                "stillgelegt": ["travel-beat"],
+                "blockiert": [],
+            }
+        },
+        "prometheus": {
+            "zustand": "gemessen",
+            "targets": [{"job": "fleet-node", "host": "prod-b", "health": "up"}],
+            "alerts": [
+                {"name": "HostSwapHigh", "host": "prod", "name_": "", "state": "firing"}
+            ],
+        },
+        "melder": {
+            "journal": {
+                "gesamt": 2,
+                "im_gate": 1,
+                "ueberfaellig": 0,
+                "mit_kommando": 0,
+                "eintraege": [
+                    {
+                        "id": "0.7.18 speicher::platform",
+                        "laeufe": 6,
+                        "im_gate": True,
+                        "ueberfaellig": False,
+                        "note": "Swap",
+                    }
+                ],
+            },
+            "alarmwege": {
+                "exit": 1,
+                "kanaele": [
+                    {
+                        "kanal": "discord-owner",
+                        "ok": False,
+                        "blind": False,
+                        "grund": "letzte Probe failure",
+                    },
+                    {
+                        "kanal": "github-issue-owner",
+                        "ok": True,
+                        "blind": False,
+                        "grund": "Erfolg vor 0 d",
+                    },
+                ],
+            },
+            "erreichbarkeit": {"exit": 1, "kurz": "1 von 27"},
+            "hosts_audit": {"exit": 0, "kurz": "keine Findings"},
+        },
     }
 
 
 def test_should_render_unreachable_node_as_its_own_state_not_omit_it():
     seite = fb.render(_daten())
-    assert "netcup" in seite and "unerreichbar" in seite and "Connection timed out" in seite
+    assert (
+        "netcup" in seite
+        and "unerreichbar" in seite
+        and "Connection timed out" in seite
+    )
 
 
 def test_should_put_the_denominator_from_hosts_yaml_in_the_first_kpi():
@@ -86,3 +172,41 @@ def test_should_parse_probe_line_with_twelve_fields():
     f = zeile.split("|")
     assert len(f) == 12
     assert fb.HOST_KOMMANDO.count("%s") == 12
+
+
+def test_should_tell_a_sleeping_node_apart_from_a_broken_one():
+    """`betrieb: auf_zuruf` heisst: aus wie vorgesehen, nicht ausgefallen.
+
+    Ohne diese Unterscheidung stuende die gpu-box nach dem Wechsel auf Wake-on-LAN
+    dauerhaft als "unerreichbar" im Bild — und ein Melder, der dauerhaft dasselbe
+    sagt, wird nicht mehr gelesen (platform#2545).
+    """
+    daten = _daten()
+    daten["knoten"].append(
+        {
+            "knoten": "gpu-box",
+            "zustand": "schlaeft",
+            "grund": "Connection timed out",
+            "rolle": "GPU",
+            "auflage": {},
+            "historie": [],
+            "verified": "2026-08-30",
+            "verified_bis": "",
+            "ip": "10.99.0.2",
+            "arch": "amd64",
+            "provider": "owner-desktop",
+            "server_type": "rtx4090",
+        }
+    )
+    seite = fb.render(daten)
+    assert "gpu-box" in seite and "schlaeft" in seite
+
+
+def test_should_still_flag_an_expected_node_that_is_silent():
+    """Gegenprobe: ein Knoten OHNE `auf_zuruf` bleibt `unerreichbar`.
+
+    Ohne diesen Test koennte die Aenderung jeden stummen Knoten beschoenigen —
+    dann waere der Melder blind statt praezise.
+    """
+    seite = fb.render(_daten())
+    assert "unerreichbar" in seite, "netcup schweigt und muss als Ausfall stehen"

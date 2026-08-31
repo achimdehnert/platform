@@ -97,6 +97,23 @@ def lade_hosts(pfad: Path) -> dict[str, str]:
     return raus
 
 
+def lade_shells(pfad: Path) -> dict[str, str]:
+    """Knoten mit eigener Fern-Shell: Name -> `ssh_shell` aus `infra/hosts.yaml`.
+
+    Windows-Knoten (gpu-box) landen ueber OpenSSH in `cmd`. Der Fernbefehl enthaelt
+    eine Pipe — die fuehrt `cmd` selbst aus, statt sie an die Ziel-Shell
+    durchzureichen. `flottenbild.py` loest das laengst ueber stdin an `bash -s`;
+    hier fehlte es, und die gpu-box fiel still aus der Zeitreihe (platform#2541).
+    """
+    daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
+    roh = daten.get("hosts", daten) or {}
+    return {
+        name: str(cfg["ssh_shell"])
+        for name, cfg in roh.items()
+        if isinstance(cfg, dict) and cfg.get("ssh_shell")
+    }
+
+
 def lade_hops(pfad: Path) -> dict[str, str]:
     """Knoten hinter einem Sprung: Name -> `ssh_via` aus `infra/hosts.yaml`.
 
@@ -120,9 +137,11 @@ def fernbefehl() -> str:
     return f"df -B1 --output=target,size,avail {ausschluss} 2>/dev/null | tail -n +2"
 
 
-def _sh(cmd: list[str], timeout: int) -> tuple[int, str]:
+def _sh(cmd: list[str], timeout: int, stdin: str | None = None) -> tuple[int, str]:
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout, input=stdin
+        )
         return p.returncode, p.stdout
     except subprocess.TimeoutExpired:
         return 124, ""
@@ -153,23 +172,39 @@ def messe(
     laeufer=None,
     lokal: set[str] | None = None,
     hops: dict[str, str] | None = None,
+    shells: dict[str, str] | None = None,
 ) -> dict[str, list[dict] | None]:
     """`lokal` = Hosts, auf denen dieser Prozess selbst laeuft (bash -c statt ssh).
     Der prod-server-Runner hat keinen ssh-Zugang zu sich selbst.
-    `hops` = Knoten hinter einem Sprung (`ssh_via`): das df laeuft dann vom Hop aus."""
-    laeufer = laeufer or (lambda cmd: _sh(cmd, SSH_TIMEOUT_S))
+    `hops` = Knoten hinter einem Sprung (`ssh_via`): das df laeuft dann vom Hop aus.
+    `shells` = Knoten mit eigener Fern-Shell (`ssh_shell`, Windows/WSL): der Befehl
+    geht dann ueber **stdin**, weil die Zwischenstation `cmd` sonst die Pipe im df
+    selbst ausfuehrt."""
+    laeufer = laeufer or (lambda cmd, stdin=None: _sh(cmd, SSH_TIMEOUT_S, stdin))
     lokal = lokal or set()
     hops = hops or {}
+    shells = shells or {}
     raus: dict = {}
     for name, ziel in hosts.items():
+        shell, stdin = shells.get(name), None
         if name in lokal:
             cmd = ["bash", "-c", fernbefehl()]
+        elif shell:
+            stdin = fernbefehl()
+            if hops.get(name):
+                innen = f'ssh -o BatchMode=yes -o ConnectTimeout=10 {ziel} "{shell}"'
+                cmd = SSH + [hops[name], innen]
+            else:
+                cmd = SSH + [ziel, shell]
         elif hops.get(name):
             innen = f'ssh -o BatchMode=yes -o ConnectTimeout=10 {ziel} "{fernbefehl()}"'
             cmd = SSH + [hops[name], innen]
         else:
             cmd = SSH + [ziel, fernbefehl()]
-        _, out = laeufer(cmd)
+        # Ein-Argument-Aufruf bleibt der Normalfall: die vorhandenen Test-Doubles
+        # (und jeder andere Aufrufer) nehmen nur `cmd`. Nur der Windows-Weg braucht
+        # das zweite Argument.
+        _, out = laeufer(cmd) if stdin is None else laeufer(cmd, stdin)
         platten = parse_df(out)
         raus[name] = platten if platten else None
     return raus
@@ -385,7 +420,12 @@ def main(argv: list[str] | None = None) -> int:
             for h in hosts
         }
     else:
-        messung = messe(hosts, lokal=set(a.lokal or []), hops=lade_hops(a.hosts))
+        messung = messe(
+            hosts,
+            lokal=set(a.lokal or []),
+            hops=lade_hops(a.hosts),
+            shells=lade_shells(a.hosts),
+        )
     journal = schreibe_journal(a.journal, lies_journal(a.journal), heute, messung)
     e = bewerte(messung, journal, heute)
     e["ausserhalb"] = ausserhalb

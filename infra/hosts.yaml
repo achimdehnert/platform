@@ -17,6 +17,10 @@
 #                   Felder: datenklassen_verboten, prod_container, app_hubs, runner,
 #                   oeffentlicher_ingress, nur_dienste, grund (Pflicht). Fehlt ein Feld,
 #                   gilt "erlaubt". Prueft: infra/scripts/hosts_audit.py --check auflage
+#   betrieb:        erwartet_an (Vorgabe, weglassen) | auf_zuruf — ein Knoten, der
+#                   planmaessig nur auf Zuruf laeuft. flottenbild.py meldet ihn dann
+#                   als 'schlaeft' statt 'unerreichbar'; ein erwartet_an-Knoten, der
+#                   nicht antwortet, bleibt ein Befund (platform#2545).
 #   Neuer Knoten:   docs/runbooks/neuer-knoten.md — Reihenfolge ist Absicht.
 #   verified: false ist nur mit `verified_bis: <Datum>` gueltig (sonst Dauerausnahme).
 #
@@ -131,6 +135,9 @@ hosts:
     ssh_via: root@88.198.191.108        # Schluessel fuer achim@10.99.0.2 liegt nur auf prod — ssh laeuft von dort (flottenbild.py)
     ssh_shell: "wsl -d Ubuntu -u root -e bash -s"   # Windows-OpenSSH landet in cmd; die Probe gehoert in die WSL
     hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
+    betrieb: auf_zuruf                 # Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf
+                                       # (Wake-on-LAN). Ein schlafender Knoten ist KEIN Ausfall —
+                                       # flottenbild.py zeigt ihn als 'schlaeft' (platform#2545).
     provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
     server_type: rtx4090               # RTX 4090 24 GB; WSL2: 8 vCPU / 12 GB / 4 GB Swap (.wslconfig)
     role: >

@@ -291,3 +291,40 @@ def test_should_ohne_ssh_via_direkt_verbinden():
     sm.messe({"prod": "root@1.2.3.4"}, lambda cmd: (gesehen.append(cmd), (0, ""))[1])
     assert gesehen[0][-2] == "root@1.2.3.4"
     assert not gesehen[0][-1].startswith("ssh ")
+
+
+def test_should_send_command_over_stdin_for_windows_hosts():
+    """Windows-Knoten (gpu-box) bekommen den Befehl ueber stdin, nicht als Argument.
+
+    Als Argument landet er in `cmd`, und die Pipe im df wird dort ausgefuehrt statt
+    durchgereicht — deshalb meldete das Werkzeug fuer die gpu-box monatelang
+    "kein Host erreichbar" (platform#2541).
+    """
+    gesehen = []
+
+    def laeufer(cmd, stdin=None):
+        gesehen.append((cmd, stdin))
+        return 0, ""
+
+    sm.messe(
+        {"gpu-box": "achim@10.99.0.2"},
+        laeufer,
+        hops={"gpu-box": "root@prod"},
+        shells={"gpu-box": "wsl -d Ubuntu -u root -e bash -s"},
+    )
+    cmd, stdin = gesehen[0]
+    assert cmd[-2] == "root@prod"
+    assert "wsl -d Ubuntu -u root -e bash -s" in cmd[-1]
+    assert stdin is not None and "df -B1" in stdin, "der Befehl geht ueber stdin"
+    assert "df -B1" not in cmd[-1], "und NICHT als Argument"
+
+
+def test_should_keep_single_argument_call_for_plain_hosts():
+    """Gegenprobe: ohne ssh_shell bleibt der Aufruf einargumentig.
+
+    Ohne diesen Test waere jedes vorhandene Test-Double kaputtgegangen, ohne dass
+    es auffaellt — die Aenderung darf die Aufrufkonvention nicht verschieben.
+    """
+    gesehen = []
+    sm.messe({"prod": "root@1.2.3.4"}, lambda cmd: (gesehen.append(cmd), (0, ""))[1])
+    assert "df -B1" in gesehen[0][-1]
