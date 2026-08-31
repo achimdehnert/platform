@@ -163,6 +163,43 @@ Der `ollama/`-Pfad existiert dort bereits — inklusive der dokumentierten Falle
 litellm im Prod-Container auf `localhost:11434` zeigt statt auf den Knoten. Genau diese
 Zeile ist die Arbeit, kein Umbau.
 
+## 5c. Zielbild: derselbe Stack beim Landratsamt (Owner-Entscheid 2026-08-31)
+
+Der Owner hat am 2026-08-31 entschieden: **Der Bueroknoten ist der Aufbau, nicht das
+Ziel.** Das LRA erwaegt einen eigenen GX10-Stack im eigenen Haus; was hier entsteht,
+wird dort produktiv laufen.
+
+Das aendert die Rechnung aus §2 an genau einer Stelle — und zwar zugunsten der Sache:
+
+| | Geraet in Owner-/IIL-Raeumen | Geraet **beim Landratsamt** |
+|---|---|---|
+| Verantwortlicher | LRA | LRA |
+| Zusaetzlicher Auftragsverarbeiter | **ja** (IIL kommt neu in die Kette) | **nein** |
+| Anzeige § 80 Abs. 2 SGB X | noetig | entfaellt |
+| Sicherheitsnachweis | Buero, kein Testat | Haus des Verantwortlichen |
+| Daten verlassen das Haus | ja | **nein** |
+
+§2 sagt: ein Geraet bei uns bringt fuer Buergerdaten kein besseres Schutzniveau,
+sondern nur ein zusaetzliches Unterauftragsverhaeltnis. Ein Geraet **beim LRA** dreht
+das um. Es ist damit nicht die Ausnahme von E1, sondern seine Fortsetzung mit dem
+richtigen Standort.
+
+**Was das fuer E1 bedeutet: nichts.** Der Bueroknoten bleibt ausserhalb des
+Buergerdaten-Perimeters, die Auflage `datenklassen_verboten: [gov-sozialdaten]` in
+`infra/hosts.yaml` bleibt unveraendert bestehen. Gearbeitet wird hier ausschliesslich
+mit **synthetischen** Daten — so, wie es fuer MEiKI ohnehin gilt, bis eine Umstellung
+ausdruecklich kommuniziert ist.
+
+**Anschluss an KONZ-frist-hub-005:** Dessen offener Punkt O2 fragt nach dem
+Betriebsort fuer OCR und Verschlagwortung — beim Dienstleister oder im Haus. Ein
+GX10 beim LRA ist die dritte, saubere Antwort: im Haus des Verantwortlichen. Die
+Messung entscheidet weiterhin die Qualitaet, nicht dieser Abschnitt.
+
+**Was daraus folgt, wenn das LRA sich dafuer entscheidet:** Der Knoten dort ist ein
+fremder Knoten in fremdem Haus — er gehoert nicht in `infra/hosts.yaml`, wird nicht
+von unseren Werkzeugen gemessen und faellt nicht unter unsere Auflagen. Was wir
+liefern, ist der Stack und seine Beschreibung, nicht der Betrieb.
+
 ## 6. Ausbaustufen
 
 **Phase 1 (ab KW 36, kein Enddatum):** reiner Inferenz- und Trainingsknoten. Kein
@@ -244,3 +281,11 @@ Tracking für O2/O3: siehe Auftrags-Issue in §10.
 - 2026-08-29: §5b ergänzt (Anwendungsfälle ab Werk, A1–A8). C7 von „ohne Cloud-Abfluss"
   auf „offen" korrigiert — die zugrunde liegende Annahme war ungeprüft und hielt der
   Gegenprobe nicht stand.
+- 2026-08-31: Knoten in Betrieb genommen (wg0-Peer 10.99.0.4, `verified` gesetzt).
+  Zwei Hypothesen aus §8 sind damit belegt statt vermutet: Torch laeuft auf aarch64
+  **mit** CUDA (`2.13.0+cu130`, `cuda:0`, GB10, CC 12.1), und der Embedder-Spike aus
+  ADR-188 liefert dort 9,0 ms p50 statt 114 ms auf Hetzner-CPU (681,6 statt 57
+  chunks/sec). Nachtrag in ADR-188 §E2.
+- 2026-08-31: §5c ergaenzt — LRA-on-premise-Stack als Zielbild, Bueroknoten als
+  Aufbau dafuer, ausschliesslich synthetische Daten. E1 und die Auflage bleiben
+  unveraendert.
