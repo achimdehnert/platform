@@ -234,11 +234,23 @@ def test_should_pass_schema_and_auflage_on_real_repo_files():
     assert {h.split("'")[1] for h in hinweise} == erwartet
 
 
-def test_should_find_gx10_deadline_in_real_repo_file():
+def test_should_keep_gx10_measured_or_under_a_deadline_in_real_repo_file():
+    """Der GX10 ist entweder gemessen — oder unverifiziert MIT Frist.
+
+    Vorher pruefte dieser Test den Schnappschuss `verified is False`. Am 2026-08-31
+    wurde der Knoten gemessen, und der Test fiel um, obwohl die Regel eingehalten
+    war: die Ausnahme braucht eine Frist, ein gemessener Knoten braucht keine.
+    Geprueft wird jetzt die Invariante, nicht der Zustand eines Tages.
+    """
     data = yaml.safe_load((WURZEL / "infra" / "hosts.yaml").read_text())
     gx = data["hosts"]["gx10"]
-    assert gx["verified"] is False
-    assert gx["verified_bis"] >= dt.date(2026, 9, 30)
+    if gx["verified"] is False:
+        assert gx["verified_bis"] >= dt.date(2026, 9, 30), (
+            "unverifiziert ist nur mit Frist zulaessig (KONZ-054 E5)"
+        )
+    else:
+        assert isinstance(gx["verified"], dt.date), "verified traegt ein Datum"
+        assert "verified_bis" not in gx, "gemessen heisst: keine Frist mehr"
     assert gx["auflage"]["runner"] is False
 
 
