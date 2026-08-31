@@ -593,7 +593,12 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-23"
+      "erzwungen_seit": "2026-08-23",
+      "covers": [
+        "gate-matches-spelling-not-substance"
+      ],
+      "revised": "2026-08-31",
+      "revision_note": "covers-Eintrag 2026-08-31 (Gate-Deckungs-Triage, platform#2234): dieses Gate IST der Nachfolge-Vorschlag zum widerrufenen Verzicht auf gate-matches-spelling-not-substance (Owner-Kommentar #2234 vom 2026-08-23) und war seit dem Bau nie als Deckung registriert — der Slug lief deshalb 11 Laeufe lang als ungedeckt mit. Zusatzdeckung: evidence_claim_scanner Rev 3 (Zahlwoerter). BEKANNTE REICHWEITEN-GRENZE (Retro fdd368 2026-08-26, 'ausweiten'): geprueft werden Registry-Drills in platform, nicht Test-Gates in Produkt-Repos — die Ausweitung ist Programm-Punkt in #2234."
     },
     {
       "slug": "no-checks-reported-read-as-green",
@@ -604,9 +609,33 @@
       "built": "2026-08-25",
       "ref": "platform#2304",
       "note": "Retro 3106ae Befund #1: `gh pr checks 51` meldete 'no checks reported', das wurde als gruenes Licht gelesen, der PR gemergt und iil-aifw==0.13.0 nach PyPI veroeffentlicht. Erst die Retro fand, dass das CI jenes Repos seit sechs Tagen VOR jedem Job scheiterte (Workflow-Referenz mit einem Pfadteil zu viel, aifw#53). Eine leere Pruefliste sieht aus wie Ruhe und heisst 'hier prueft nichts'. Eigener Slug statt Ausweitung von `claim-before-cheapest-check`: jener liest die SPRACHE einer Behauptung, hier wurde nichts behauptet sondern gehandelt — fuer einen Textscanner ist die Familie unsichtbar. Owner-Entscheid 2026-08-25 'ausweiten', umgesetzt als eigenstaendiges PreToolUse-Gate. `--admin` passiert bewusst: das ist der benannte Bypass eines Menschen, nicht der stille Fall. AUSGEWEITET 2026-08-26 (writing-hub, Retro fdd368): das Gate pruefte ausschliesslich den Default-Branch. Ein PR mit NULL Check-Runs am eigenen Head-SHA fiel bei gesundem main durch — genau der Fall trat ein (GitHub-Actions-Ausfall, 'no checks reported' als gruen gelesen, Merge danach BLOCKED). Der Hook zaehlt jetzt zusaetzlich die Check-Runs des PR am Commit (nicht den zweideutigen Rollup) und nennt githubstatus.com als ersten Check bei flaechendeckender Stille.",
-      "last_drill_pass": "2026-08-26",
+      "last_drill_pass": "2026-08-31",
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-25"
+      "erzwungen_seit": "2026-08-25",
+      "covers": [
+        "merge-bypass-without-explicit-word",
+        "gate-approval-needs-pr-comment"
+      ],
+      "revised": "2026-08-31",
+      "revision_note": "AUSWEITUNG 2026-08-31 (Gate-Deckungs-Triage, platform#2234): --admin war ein Freifahrschein ('benannter Bypass eines Menschen'). Vier Retro-Faelle widerlegen die Annahme (f4a546 #2, dms-hub C4, dev-hub-8f9a23 #4: 10 Dependabot-PRs per --admin auf '1 --admin' im Chat, 62f875 #3): der Bypass lief auf generische Zustimmung ohne durables Wort am Artefakt. --admin passiert jetzt nur mit menschlichem Freigabe-Kommentar am PR (Login ohne 'bot', Text nennt freigabe/admin/bypass). Deckt merge-bypass-without-explicit-word (4x) und gate-approval-needs-pr-comment (4x). GRENZE fail-open: Merge per URL/Branch ohne extrahierbare PR-Nummer passiert ungefragt (im Hook-Header dokumentiert).",
+      "faengt": [
+        {
+          "fall": "Merge/Publish ohne einen einzigen abgeschlossenen CI-Lauf",
+          "probe": "no_run_ever"
+        },
+        {
+          "fall": "PR-Head-Commit ohne Check-Runs bei gruenem Default-Branch",
+          "probe": "has_no_check_runs"
+        },
+        {
+          "fall": "--admin-Merge ohne menschlichen Freigabe-Kommentar am PR",
+          "probe": "without_any_approval_comment"
+        },
+        {
+          "fall": "Bot-Kommentar mit Freigabe-Woertern als Freigabe gelesen",
+          "probe": "only_bots_commented"
+        }
+      ]
     },
     {
       "slug": "gui-geaendert-ohne-klick",
@@ -648,6 +677,37 @@
       "built": "2026-08-20",
       "ref": "platform#2170",
       "note": "Misst je Melder, wie oft seine Befunde echt waren. Vier Fehlalarme in einer Sitzung, null Messung — ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen."
+    },
+    {
+      "slug": "secret-leak-via-safe-pattern",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/claude-hooks/block_env_cat.sh",
+      "drill": "tools/claude-hooks/tests/test_block_env_cat.py",
+      "built": "2026-08-31",
+      "ref": "platform#2234 (Gate-Deckungs-Triage 2026-08-31; Prio-1-Empfehlung der Sichtung)",
+      "note": "Der Guard existierte seit 2026-07-03 als ~/.claude/hooks/block_env_cat.sh, war aber NIE im Repo versioniert — fuer die 0.7.5-Drift-Messung unsichtbar (die Lane misst Quelldateien, nicht Kopien ohne Quelle) und ohne Drill. v4 versioniert ihn erstmals und schliesst den dritten Vektor: bash -x auf ein Skript, das Secrets liest oder erzeugt, schreibt jede expandierte Variable ins Transkript (retro b62038 #4, 2026-08-21 — Passphrase-Erzeugung im Klartext im Trace). Positivkontrolle beim Bau: die alte v3-Kopie liess den bash-x-Fall stumm durch. GRENZEN dokumentiert im Header: sed/python-open/cp/Var-Indirektion und `set -x` als eigenes Kommando werden bewusst nicht erkannt.",
+      "faengt": [
+        {
+          "fall": "Reader (cat/head/...) gibt Secret-Datei roh aus",
+          "probe": "raw_reader"
+        },
+        {
+          "fall": "cut/awk auf Secret-Datei ohne verifizierbare KV-Struktur",
+          "probe": "kv_structure"
+        },
+        {
+          "fall": "Glob/Loop ueber das Secrets-Verzeichnis mit Reader",
+          "probe": "glob_loop"
+        },
+        {
+          "fall": "bash -x auf Skript, das Secrets liest oder erzeugt (Trace-Leak)",
+          "probe": "xtrace"
+        }
+      ],
+      "last_drill_pass": "2026-08-31",
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-08-31"
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
@@ -753,14 +813,6 @@
       "quelle": "tools/gate_deckung.py"
     },
     {
-      "slug": "gate-matches-spelling-not-substance",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 5,
-      "letztes_vorkommen": "2026-08-23",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
       "slug": "host-fix-not-mirrored-to-iac",
       "zustand": "schranke-kandidat",
       "vorkommen": 4,
@@ -773,38 +825,6 @@
       "zustand": "schranke-kandidat",
       "vorkommen": 4,
       "letztes_vorkommen": "2026-08-23",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "gate-approval-needs-pr-comment",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 3,
-      "letztes_vorkommen": "2026-08-25",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "merge-bypass-without-explicit-word",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 3,
-      "letztes_vorkommen": "2026-08-26",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "secret-leak-via-safe-pattern",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 3,
-      "letztes_vorkommen": "2026-08-21",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "built-but-never-called",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 2,
-      "letztes_vorkommen": "2026-08-26",
       "erhoben": "2026-08-28",
       "quelle": "tools/gate_deckung.py"
     },
@@ -838,6 +858,14 @@
       "vorkommen": 2,
       "letztes_vorkommen": "2026-07-31",
       "erhoben": "2026-08-28",
+      "quelle": "tools/gate_deckung.py"
+    },
+    {
+      "slug": "proof-artifact-left-unmerged",
+      "zustand": "schranke-kandidat",
+      "vorkommen": 2,
+      "letztes_vorkommen": "2026-08-28",
+      "erhoben": "2026-08-31",
       "quelle": "tools/gate_deckung.py"
     }
   ]
