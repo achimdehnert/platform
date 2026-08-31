@@ -3132,3 +3132,17 @@ verwerfen oder committen ist Owner-Call.
 Zielzustand (Owner-Freigabe „z1 bis z4 ok go"): **erreicht** — alle 5 Nachtlauf-Checks belegt,
 B1/B11/B12 abgeräumt. SA-4: 0 Anwendungen · SA-M: 1 eigener PR selbst gemergt (#2531, docs-only,
 CI grün).
+
+## 2026-08-31 nachmittags — Gate-Deckungs-Triage: die 0.7.9-Altlast ist entschieden
+
+Alle 13 ungedeckten Mehrfach-Slugs (34 Läufe alt) haben eine Entscheidung: 4 gedeckt
+(#2549, gemergt nach Owner-Wort "1 go 2 go" mit Freigabe-Kommentar am PR), 9 als
+Bau-Programm mit Messpunkt je Zeile in #2234. Gebaut: secret-leak-via-safe-pattern
+(block_env_cat.sh erstmals versioniert — lief 8 Wochen als 0.7.5-blinde ~/.claude-Kopie —
+plus bash-x-Vektor); ausgeweitet: --admin am Merge-Gate verlangt jetzt Freigabe-Kommentar
+(deckt merge-bypass + gate-approval); covers: Namensdeckung → spelling-Slug. Wirkung
+gemessen: gate_deckung 13→9; Hooks verteilt, Live-Probe deny. Geschwister-Sweep fand
+6 weitere unversionierte Hooks (u.a. inject_policies.py) → #2554. Befund 0.7.9 verankert,
+ruht bis 14.09. Zielzustand (Owner "go 10"): erreicht — 13/13 Entscheidungen, dokumentiert.
+SA-4: 0 · SA-M: 0 autonome Merges (#2549 nach Owner-Wort; pr_merge_sa hatte M0 korrekt
+verweigert, bot-review approved nur review-blockierte PRs — Memory ergänzt).
