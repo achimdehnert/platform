@@ -28,10 +28,10 @@ Sync **default-ausgeschlossen**, bis deren Datensouveränitäts-Check die Ablage
 Hetzner-pgvector explizit erlaubt (Repo-CLAUDE.md der Gov-Repos lesen). Das `gov-data`-Tag
 im Sync-Code ist Such-Filter-Hilfe, **keine Push-Erlaubnis**.
 
-Repo-Liste (Stand 2026-08-10, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
+Repo-Liste (Stand 2026-08-31, bei neuen KD-Repos erweitern — Discovery: `ls -d $GITHUB_DIR/*/klickdummy`):
 
 ```
-risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub,137-hub
+risk-hub,ausschreibungs-hub,design-hub,apo-hub,nl2iot-hub,pg-hub,iil-voice-agent,illustration-hub,travel-beat,writing-hub,iil-klickdummy,sqf-hub,tax-hub,trading-hub,coach-hub,dms-hub,onboarding-hub,research-hub,billing-hub,recruiting-hub,weltenhub,dev-hub,pptx-hub,137-hub,cad-hub
 ```
 
 ## Step 2 — NDJSON erzeugen
@@ -247,3 +247,17 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   `search`). **Lehre für den Skill selbst:** ein Befund im stillen Nightly-Report ist
   faktisch unsichtbar — Gov-/Datensouveränitäts-Funde müssen den Still-Modus
   durchbrechen und sofort ein Issue bekommen, sonst liegen sie tagelang nur im Log.
+- 2026-08-31: **Manueller Lauf (Session risk-hub) + Repo-Liste `+cad-hub`.** 171 Entries/
+  25 Repos, R3 PASS (171/171 `ok`, 0 failed; **0 written**, alles content_hash-Dedup —
+  deckungsgleich mit dem Cron-Lauf 2026-08-30, damit selbstverifizierend). Producer
+  `iil-klickdummy 1.35.0`; 171 Zeilen = 171 unique `entry_key` (kein Duplikat). cad-hub
+  (Org `achimdehnert`, kein Gov-Marker → syncbar, 2 Entries) stand seit dem 30.08. im
+  Cron-Lauf, fehlte aber in dieser Quelldatei — nachgezogen, schließt
+  [achimdehnert/platform#2357](https://github.com/achimdehnert/platform/issues/2357).
+  frist-hub (meiki-lra) und ttz-hub (ttz-lif) bleiben gov-ausgeschlossen (E3) →
+  Discovery 27 − 2 = 25. Schema-WARNs 177, unverändert und alle getrackt: pg-hub 110
+  (bahn-sqf/pg-hub#8), design-hub 36 (design-hub#36/#38), nl2iot-hub 31 (nl2iot-hub#5).
+  Offen bleiben aus dem 30.08.-Report: Cron-Env/Step-3-Wartelimit
+  ([platform#2462](https://github.com/achimdehnert/platform/issues/2462)),
+  Gov-Issue-Dubletten (risk-hub#583/#666/#667) und die K1-Entscheidung
+  ([risk-hub#717](https://github.com/iilgmbh/risk-hub/issues/717), Frist 2026-08-31).
