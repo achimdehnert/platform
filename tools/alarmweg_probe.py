@@ -221,6 +221,33 @@ def beurteile(
     aus = []
     for kid, k in kanaele.items():
         max_tage = int(k.get("max_alter_tage", 10))
+        # Ein bewusst abgeschalteter Kanal ist keine Luecke — aber nur, wenn der
+        # Rueckbau BELEGT ist. Ohne `zurueckgebaut_am` UND `ersetzt_durch` waere
+        # `probe: zurueckgebaut` ein bequemer Stummschalter, und die Zahl
+        # "N von M belegt" liesse sich durch Umschreiben gruen machen statt durch
+        # Arbeit. Dieselbe Absicherung wie `betriebsstatus_grund` in ports.yaml.
+        if k.get("probe") == "zurueckgebaut":
+            am = k.get("zurueckgebaut_am")
+            ersatz = k.get("ersetzt_durch")
+            if am and ersatz:
+                aus.append(
+                    {
+                        "kanal": kid,
+                        "vorhanden": True,
+                        "zurueckgebaut": True,
+                        "grund": f"zurueckgebaut {am}, ersetzt durch {ersatz}",
+                    }
+                )
+            else:
+                aus.append(
+                    {
+                        "kanal": kid,
+                        "vorhanden": False,
+                        "grund": "als zurueckgebaut deklariert, aber ohne "
+                        "zurueckgebaut_am/ersetzt_durch — unbelegt",
+                    }
+                )
+            continue
         if k.get("probe") != "workflow":
             aus.append(
                 {
@@ -289,13 +316,18 @@ def exit_code(urteile: list[dict]) -> int:
 def kurzzeile(urteile: list[dict]) -> str:
     fehlt = [u for u in urteile if u["vorhanden"] is False]
     blind = [u for u in urteile if u["vorhanden"] is None]
-    n = len(urteile)
+    rueckbau = [u for u in urteile if u.get("zurueckgebaut")]
+    # Zurueckgebaute zaehlen nicht in den Nenner: sonst waere "4 von 6 belegt"
+    # dauerhaft rot fuer Kanaele, die es absichtlich nicht mehr gibt.
+    n = len(urteile) - len(rueckbau)
+    anhang = f" · {len(rueckbau)} zurueckgebaut" if rueckbau else ""
     if blind:
-        return f"blind: {len(blind)} von {n} Kanaelen nicht pruefbar — keine Entwarnung"
+        return f"blind: {len(blind)} von {n} Kanaelen nicht pruefbar — keine Entwarnung{anhang}"
     if not fehlt:
-        return f"{n} von {n} Alarmwegen belegt"
-    return f"{len(fehlt)} von {n} Alarmwegen NICHT vorhanden — " + "; ".join(
-        f"{u['kanal']} ({u['grund']})" for u in fehlt
+        return f"{n} von {n} Alarmwegen belegt{anhang}"
+    return (
+        f"{len(fehlt)} von {n} Alarmwegen NICHT vorhanden{anhang} — "
+        + "; ".join(f"{u['kanal']} ({u['grund']})" for u in fehlt)
     )
 
 
