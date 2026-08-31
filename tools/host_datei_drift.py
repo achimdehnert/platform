@@ -55,6 +55,12 @@ SSH = ("ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes")
 # alles andere wird verworfen, nicht riskant gequotet.
 SICHER = re.compile(r"^[A-Za-z0-9._-]+$")
 
+# Ein Versionsmarker macht aus "weicht ab" ein "Host haengt N Staende zurueck".
+VERSIONS_MARKER = re.compile(r'^[A-Z_]+_VERSION="([^"]*)"', re.MULTILINE)
+
+# Von host_hashes() nebenbei gefuellt: Remote-Pfad -> Version der Host-Kopie.
+VERSIONEN: dict[str, str] = {}
+
 
 def _remote_pfad(ort: str, name: str) -> str:
     """Ein Ablageort als Remote-Shell-Wort.
@@ -109,7 +115,13 @@ def host_hashes(ssh_ziel: str, namen: list[str]) -> dict[str, str] | None:
     )
     # `md5sum` schweigt ueber nicht existierende Pfade (2>/dev/null); der Glob
     # expandiert in der Remote-Shell, unexpandierte Muster fallen so heraus.
-    befehl = f"for p in {muster}; do [ -f \"$p\" ] && md5sum \"$p\"; done 2>/dev/null"
+    # md5 UND Versionsmarker in einem Durchgang: der Hash sagt "weicht ab", der
+    # Marker sagt "wie weit". Dateien ohne Marker liefern einfach keine VER-Zeile.
+    befehl = (
+        f"for p in {muster}; do [ -f \"$p\" ] || continue; md5sum \"$p\"; "
+        f"v=$(grep -m1 -oE '^[A-Z_]+_VERSION=\"[^\"]*\"' \"$p\" 2>/dev/null); "
+        f"[ -n \"$v\" ] && echo \"VER $p $v\"; done 2>/dev/null"
+    )
     try:
         aus = subprocess.run(
             [*SSH, ssh_ziel, befehl],
@@ -121,6 +133,10 @@ def host_hashes(ssh_ziel: str, namen: list[str]) -> dict[str, str] | None:
         return None
     treffer: dict[str, str] = {}
     for zeile in aus.stdout.splitlines():
+        if zeile.startswith("VER "):
+            _, pfad, marker = zeile.split(None, 2)
+            VERSIONEN[pfad] = marker.split("=", 1)[1].strip('"')
+            continue
         teile = zeile.split(None, 1)
         if len(teile) == 2:
             treffer[teile[1].strip()] = teile[0]
@@ -133,6 +149,12 @@ def pruefe(platform_dir: Path) -> tuple[list[str], list[str], int]:
     if not quellen:
         return [], [], 0
     soll = {name: md5(p) for name, p in quellen.items()}
+    soll_versionen = {
+        name: m.group(1)
+        for name, p in quellen.items()
+        if (m := VERSIONS_MARKER.search(p.read_text(errors="replace")))
+    }
+    VERSIONEN.clear()
 
     drift: list[str] = []
     unpruefbar: list[str] = []
@@ -147,7 +169,14 @@ def pruefe(platform_dir: Path) -> tuple[list[str], list[str], int]:
             name = pfad.rsplit("/", 1)[-1]
             gezaehlt += 1
             if soll.get(name) and ist != soll[name]:
-                drift.append(f"{host}:{pfad}")
+                ist_ver = VERSIONEN.get(pfad)
+                soll_ver = soll_versionen.get(name)
+                zusatz = (
+                    f" (Host {ist_ver} / Repo {soll_ver})"
+                    if ist_ver and soll_ver and ist_ver != soll_ver
+                    else ""
+                )
+                drift.append(f"{host}:{pfad}{zusatz}")
     return drift, unpruefbar, gezaehlt
 
 

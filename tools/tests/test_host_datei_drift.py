@@ -81,3 +81,51 @@ def test_should_treat_unreadable_host_as_gap_not_as_green(tmp_path, monkeypatch)
     monkeypatch.setattr(hdd, "host_hashes", lambda ziel, namen: None)
     drift, unpruefbar, gezaehlt = hdd.pruefe(pd)
     assert (drift, unpruefbar, gezaehlt) == ([], ["prod"], 0)
+
+
+# ── Versionsmarker (platform#2529) ───────────────────────────────────────────
+# Ein Hash sagt "weicht ab". Erst der Marker sagt, WIE weit: prod-b lief am
+# 2026-08-31 sechs Tage zurueck und hatte deshalb nie einen config-Snapshot —
+# aus einem blossen Hash-Unterschied war das nicht ablesbar.
+def _mit_marker(tmp_path, repo_version):
+    d = tmp_path / "infra/host-maintenance"
+    d.mkdir(parents=True)
+    (d / "skript.sh").write_text(f'#!/bin/sh\nOFFSITE_SH_VERSION="{repo_version}"\n')
+    (tmp_path / "infra/hosts.yaml").write_text("hosts:\n  prod:\n    ssh: root@1.2.3.4\n")
+    return tmp_path
+
+
+def test_should_name_both_versions_when_a_marked_file_drifts(tmp_path, monkeypatch):
+    pd = _mit_marker(tmp_path, "2026-08-31.1")
+    pfad = "/usr/local/bin/skript.sh"
+
+    def fake(ziel, namen):
+        hdd.VERSIONEN[pfad] = "2026-08-25.0"
+        return {pfad: "abweichend"}
+
+    monkeypatch.setattr(hdd, "host_hashes", fake)
+    drift, _, _ = hdd.pruefe(pd)
+    assert drift == [f"prod:{pfad} (Host 2026-08-25.0 / Repo 2026-08-31.1)"]
+
+
+def test_should_stay_plain_when_the_file_carries_no_marker(tmp_path, monkeypatch):
+    # Ohne Marker bleibt die Meldung wie bisher — kein leeres Klammerpaar.
+    d = tmp_path / "infra/host-maintenance"
+    d.mkdir(parents=True)
+    (d / "ohne.sh").write_text("#!/bin/sh\necho hi\n")
+    (tmp_path / "infra/hosts.yaml").write_text("hosts:\n  prod:\n    ssh: root@1.2.3.4\n")
+    monkeypatch.setattr(
+        hdd, "host_hashes", lambda z, n: {"/usr/local/bin/ohne.sh": "abweichend"}
+    )
+    drift, _, _ = hdd.pruefe(tmp_path)
+    assert drift == ["prod:/usr/local/bin/ohne.sh"]
+
+
+def test_should_not_leak_versions_between_runs(tmp_path, monkeypatch):
+    # VERSIONEN ist Modulzustand. Ohne Ruecksetzung faerbte ein alter Lauf den
+    # naechsten ein — eine Klasse Fehler, die nur bei Mehrfachlaeufen auftritt.
+    pd = _mit_marker(tmp_path, "2026-08-31.1")
+    hdd.VERSIONEN["/usr/local/bin/skript.sh"] = "uralt"
+    monkeypatch.setattr(hdd, "host_hashes", lambda z, n: {})
+    hdd.pruefe(pd)
+    assert hdd.VERSIONEN == {}
