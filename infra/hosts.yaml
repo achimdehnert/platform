@@ -149,17 +149,15 @@ hosts:
 
   gx10:
     hostname: gx10-5dd6                # gemessen 2026-08-31 (hostname), Standort Owner-Buero
-    ip: 192.168.178.41                 # Kabel enP7s7; WLAN wlP9s9 am 2026-08-31 abgeschaltet (nmcli radio wifi -> disabled)
-    ssh: adehnert@192.168.178.41       # uid 1000, Gruppe sudo; publickey-Zugang steht
-    # ssh_via FEHLT ABSICHTLICH: prod erreicht 192.168.178.0/24 heute NICHT (ping 2026-08-31:
-    # 100 % Verlust, Port 22 zu), obwohl der Peer 10.99.0.3 das Netz in AllowedIPs fuehrt.
-    # Erreichbar ist der Knoten derzeit nur ueber die gpu-box (Doppelsprung), und den kann
-    # flottenbild.py nicht (ssh_via ist EIN Hop). Loesung laut KONZ-053 §4: eigener wg0-Peer.
+    ip: 10.99.0.4                      # wg0-Peer seit 2026-08-31 (KONZ-053 §4, Owner-Freigabe)
+    lan_ip: 192.168.178.41             # Kabel enP7s7 im Owner-Buero; WLAN wlP9s9 abgeschaltet
+    ssh: adehnert@10.99.0.4            # uid 1000, Gruppe sudo
+    ssh_via: root@88.198.191.108       # der Knoten haengt an wg0; nur prod ist Peer-Gegenstelle
     provider: owner-hardware           # keine Cloud, kein IaC — laeuft nur, wenn das Geraet an ist
     server_type: gx10                  # ASUS Ascent GX10 (NVIDIA GB10), 121 GB nutzbar (free -g), 20 Kerne, 931 GB NVMe
     arch: aarch64                      # gemessen 2026-08-31 (uname -m). Flotten-Images sind amd64 (_deploy-unified.yml Z.218)
     os: Ubuntu 24.04.4 LTS             # Kernel 6.17.0-1031-nvidia, Treiber 580.173.02 — NVIDIA-Variante, kein WSL2
-    status: geplant                    # Zugang fuer die Flotten-Werkzeuge fehlt noch (s. ssh_via oben)
+    status: aktiv                      # wg0-Zugang steht, Direktanmeldung von prod verifiziert 2026-08-31
     role: >
       IIL-interner Inferenz- und Trainingsknoten (KONZ-platform-053, Owner-Entscheid
       2026-08-29). Ausserhalb des Buergerdaten-Perimeters: keine Sozial-/Buergerdaten
@@ -174,8 +172,7 @@ hosts:
       runner: false
       oeffentlicher_ingress: false
       grund: "KONZ-platform-053 §3/§4/§6 (Owner-Entscheid 2026-08-29): Phase 1 reiner Rechenknoten, ausserhalb des Buergerdaten-Perimeters, kein Tunnel"
-    verified: false                    # explizit unverifiziert — nichts gemessen, siehe KONZ-053 §8
-    verified_bis: 2026-09-30           # Frist der Ausnahme (KONZ-054 E5) — danach messen oder mit Grund verlaengern
+    verified: 2026-08-31               # flottenbild (gemessen), speicher_melder (882 GB frei), Direktanmeldung von prod
 
   staging-dedicated:
     ip: 178.104.184.168
