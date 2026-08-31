@@ -14,6 +14,14 @@
 
 set -uo pipefail
 
+# Versionsmarker, gelesen von tools/host_datei_drift.py (Phase 0.7.1b). Ohne ihn
+# kann der Drift-Melder nur "weicht ab" sagen; mit ihm sagt er, WIE alt die
+# Host-Kopie ist. Anlass: prod-b lief am 2026-08-31 auf dem Stand vom 25.08. und
+# hatte deshalb nie einen config-Snapshot geschrieben — sechs Tage Rueckstand,
+# die aus einem blossen Hash-Unterschied nicht ablesbar waren.
+# Bei JEDER inhaltlichen Aenderung hochzaehlen.
+OFFSITE_SH_VERSION="2026-08-31.1"
+
 ENV_FILE=/etc/offsite-backup.env
 LOG_TAG=offsite-backup
 
