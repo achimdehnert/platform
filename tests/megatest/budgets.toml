@@ -14,39 +14,48 @@
 #     ausnahmslos Test-Attrappen ("test-secret-key-…", "s3cr3t-ingress-token")
 #     bzw. V-SEC-03-Fehlgriffe auf REASON_*-Audit-Konstanten (mcp-hub).
 # Tool: platform/scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
+#
+# 2026-08-31: Budgets werden gegen den CI-Stand gemessen, NICHT gegen lokale
+# Klone. Ein lokaler Lauf senkte 12 Budgets; in CI war bfagent danach rot
+# (26 > 23), weil der Klon hier einen Commit zurueckhing. Gesenkt bleiben nur
+# aifw und mcp-hub — die beiden Klone standen nachweislich auf origin.
+# Die uebrigen Senkungen aus dem Regelschnitt (#2537) sind real, aber erst
+# nach einem CI-Lauf belegbar; bis dahin gilt der alte, hoehere Wert. Ein zu
+# hohes Budget verschenkt Ratchet, ein zu niedriges bricht die CI aller
+# Folge-PRs.
 
 [budgets]
 "137-hub"            = 0
 "aifw"               = 1
-"apo-hub"            = 0
-"ausschreibungs-hub" = 3
+"apo-hub"            = 4
+"ausschreibungs-hub" = 5
 "authoringfw"        = 0
-"bfagent"            = 23
+"bfagent"            = 28
 "billing-hub"        = 0
 "cad-hub"            = 0
 "coach-hub"          = 0
 "decks-hub"          = 0
 "dev-hub"            = 0
 "dms-hub"            = 0
-"frist-hub"          = 0
+"frist-hub"          = 7
 "gaeb-toolkit"       = 0
 "iil-adrfw"          = 0
 "iil-codeguard"      = 0
-"iil-django-commons" = 0
+"iil-django-commons" = 1
 "iil-enrichment"     = 0
 "iil-fieldprefill"   = 0
 "iil-ingest"         = 0
 "iil-klickdummy"     = 2
-"iil-reflex"         = 0
+"iil-reflex"         = 1
 "iil-relaunch"       = 0
-"iil-testkit"        = 0
-"iil-voice-agent"    = 20
+"iil-testkit"        = 1
+"iil-voice-agent"    = 28
 "illustration-fw"    = 0
 "illustration-hub"   = 0
 "infra-deploy"       = 0
 "lastwar-bot"        = 0
 "learn-hub"          = 0
-"learnfw"            = 0
+"learnfw"            = 1
 "mcp-hub"            = 11
 "meiki-hub"          = 0
 "nl2cad"             = 0
@@ -67,7 +76,12 @@
 "wedding-hub"        = 0
 "weltenhub"          = 0
 "weltenfw"           = 0
-"writing-hub"        = 0
+"writing-hub"        = 1
+"django-lms-lite"    = 0
+"gpufw"              = 0
+"iil-doc-templates"  = 0
+"news-hub"           = 0
+"robo-lab"           = 0
 
 # Per-Regel-Budgets (optional, für granulare Gates)
 # Format: "repo.RULE_ID" = max_count
@@ -76,8 +90,3 @@
 "onboarding-hub.V-TMPL-01" = 0
 "onboarding-hub.V-CFG-01"  = 0
 "onboarding-hub.V-CFG-02"  = 0
-"django-lms-lite"    = 0
-"gpufw"              = 0
-"iil-doc-templates"  = 0
-"news-hub"           = 0
-"robo-lab"           = 0
