@@ -3108,3 +3108,27 @@ Preflight in 10 realen Deploys. Owner-Punkte: #2486, #2504, #2507, #2516; Reste 
 Zwei eigene Regressionen (odoo_db via depends_on, Runner stillgelegter Stacks) im selben
 Zug gefangen. Naechste Sitzung: Nachtlaeufe pruefen (E3 rot ohne Issue, config-Tag, Timer).
 
+
+## 2026-08-31 vormittags — Nachtlauf-Verifikation + Befund-Abräumung (Kurzsitzung)
+
+Nachtläufe des KONZ-054-Stapels belegt: E3 wie gefordert **rot ohne Auto-Issue** (backup-meter
+05:08, backup-deckung 05:36), `config`-Tag im Offsite-Backup vorhanden (Snapshot `b659976e`,
+130 Pfade, 02:35), `flottenbild.timer` gelaufen (06:14 UTC), alarmweg-probe rot mit bekanntem
+Grund (`DISCORD_WEBHOOK` leer → #2486/#2516). Handover-Punkt 108 war bereits von der
+Parallel-Session `offsite-meldekette` übernommen (#2529 Diagnose restic-Lock 13d stale +
+Instanzen-Wächter, Fix #2530) — keine Doppelarbeit, nur unabhängige Verifikation.
+
+Eigene Arbeit: Kennzahl `gate-gesamt` 30→31 (#2531, gemergt); coach-hub-Altbefund verzichtet
+(stillgelegt 30.08., coach-hub#67 zu); `reap --alle` über 16 Repos: 0 entfernt (kein Kandidat
+mit gemergtem PR — by design); Cross-Repo-Befunde verankert (#2524, #2516×2), bahn-hub
+origin-tls + 0.7.7-Gate-Rückfälle mit Grund verzichtet; Scope-Checkpoint durabel in
+#2531-Kommentar.
+
+**Befund für Owner (nicht angefasst):** platform-Haupt-Tree trägt einen **gestagten**
+Kommentar-Einzeiler in `.github/workflows/_deploy-unified.yml` (Usage-Hinweis `@v1`→`@v1.1.13`,
+vom 30.08. 14:09, nie committet) und `verarbeitungsstrecke.png` (07:05, Parallel-Session) —
+verwerfen oder committen ist Owner-Call.
+
+Zielzustand (Owner-Freigabe „z1 bis z4 ok go"): **erreicht** — alle 5 Nachtlauf-Checks belegt,
+B1/B11/B12 abgeräumt. SA-4: 0 Anwendungen · SA-M: 1 eigener PR selbst gemergt (#2531, docs-only,
+CI grün).
