@@ -266,3 +266,46 @@ def test_should_not_count_the_drill_as_an_app_in_the_denominator():
     assert "2 von 2" in deckungszeile(
         [_r("a", "ok"), _r("b", "ok"), _r("restore-drill", "ok")]
     )
+
+
+# ── Ein Bericht, ein Nenner (gefunden 2026-08-31) ────────────────────────────
+# Der Lauf vom 2026-08-31 meldete "Geprueft 8 von 9 Soll-Apps" direkt ueber
+# "9 konform". Beide Zahlen stimmten fuer sich, sie zaehlten nur Verschiedenes:
+# die Deckungszeile klammerte den restore-drill aus, die Statuszeile nicht.
+# Geprueft wird deshalb die Invariante, nicht das Beispiel — konform +
+# Verletzungen + deferred muss den Nenner der Deckungszeile ergeben, egal wie
+# die Ergebnisse aussehen.
+def _zahlen(bericht):
+    import re
+
+    deckung = re.search(r"Geprueft (\d+) von (\d+) Soll-Apps", bericht)
+    status = re.search(r"\*\*(\d+) konform · (\d+) Verletzungen · (\d+) deferred\*\*", bericht)
+    assert deckung and status, f"Berichtskopf nicht erkannt:\n{bericht}"
+    return int(deckung.group(2)), tuple(int(status.group(i)) for i in (1, 2, 3))
+
+
+def test_should_count_apps_and_drill_against_the_same_nenner():
+    ergebnisse = [
+        {"app": "risk-hub", "status": "ok", "reasons": []},
+        {"app": "doc-hub", "status": "ok", "reasons": []},
+        {"app": "travel-beat", "status": "deferred", "reasons": ["stillgelegt"]},
+        {"app": "weltenhub", "status": "violation", "reasons": ["zu alt"]},
+        {"app": "restore-drill", "status": "ok", "reasons": []},
+    ]
+    nenner, (konform, verletzt, deferred) = _zahlen(render_report(ergebnisse))
+    assert nenner == 4, "der restore-drill ist keine Soll-App"
+    assert konform + verletzt + deferred == nenner
+
+
+def test_should_report_drill_separately_from_the_app_counts():
+    ergebnisse = [
+        {"app": "risk-hub", "status": "ok", "reasons": []},
+        {"app": "restore-drill", "status": "violation", "reasons": ["kein Protokoll"]},
+    ]
+    bericht = render_report(ergebnisse)
+    nenner, (konform, verletzt, deferred) = _zahlen(bericht)
+    # Eine verletzte Feueruebung darf die App-Bilanz nicht anfassen ...
+    assert (nenner, konform, verletzt, deferred) == (1, 1, 0, 0)
+    # ... aber sie muss im Bericht stehen, sonst ist sie stillschweigend weg.
+    assert "Restore-Feueruebung" in bericht
+    assert "restore-drill" in bericht

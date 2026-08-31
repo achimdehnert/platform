@@ -208,11 +208,30 @@ def render_report(results: list) -> str:
     deferred = [r for r in results if r["status"] == "deferred"]
     violations = [r for r in results if r["status"] == "violation"]
 
+    # Gezaehlt wird ueber denselben Nenner wie in deckungszeile(): die Soll-Apps.
+    # Der restore-drill ist eine eigene Zusicherung, keine App. Stand er in
+    # derselben Summe, widersprachen sich zwei aufeinanderfolgende Zeilen —
+    # "Geprueft 8 von 9 Soll-Apps" ueber "9 konform" (gefunden 2026-08-31).
+    # Zwei Nenner nebeneinander sind schlimmer als eine fehlende Zahl: sie
+    # lassen den Leser raten, welcher der beiden das Soll ist.
+    apps = [r for r in results if r["app"] != "restore-drill"]
+    ok_apps = [r for r in apps if r["status"] == "ok"]
+    def_apps = [r for r in apps if r["status"] == "deferred"]
+    viol_apps = [r for r in apps if r["status"] == "violation"]
+    drill = next((r for r in results if r["app"] == "restore-drill"), None)
+
     lines = ["# backup-meter (ADR-241)", ""]
     lines.append(deckungszeile(results))
     lines.append(
-        f"**{len(ok)} konform · {len(violations)} Verletzungen · {len(deferred)} deferred**"
+        f"**{len(ok_apps)} konform · {len(viol_apps)} Verletzungen · "
+        f"{len(def_apps)} deferred**"
     )
+    if drill is not None:
+        zeichen = {"ok": "✅", "deferred": "⏸", "violation": "❌"}
+        lines.append(
+            f"**Restore-Feueruebung:** {zeichen.get(drill['status'], '?')} "
+            f"{drill['status']} (zaehlt nicht als Soll-App)"
+        )
     if violations:
         lines += ["", "## ❌ Verletzungen", ""]
         for r in violations:
