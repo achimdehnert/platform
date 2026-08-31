@@ -148,12 +148,16 @@ hosts:
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gx10:
-    hostname: TBD                      # bei Inbetriebnahme eintragen (Zugang: wg0-Peer wie gpu-box)
+    hostname: gx10-5dd6                # gemessen 2026-08-31 (hostname), Standort Owner-Buero
+    ip: 10.99.0.4                      # wg0-Peer seit 2026-08-31 (KONZ-053 §4, Owner-Freigabe)
+    lan_ip: 192.168.178.41             # Kabel enP7s7 im Owner-Buero; WLAN wlP9s9 abgeschaltet
+    ssh: adehnert@10.99.0.4            # uid 1000, Gruppe sudo
+    ssh_via: root@88.198.191.108       # der Knoten haengt an wg0; nur prod ist Peer-Gegenstelle
     provider: owner-hardware           # keine Cloud, kein IaC — laeuft nur, wenn das Geraet an ist
-    server_type: gx10                  # ASUS Ascent GX10 (NVIDIA GB10), ~126 GB unified memory
-    arch: aarch64                      # ACHTUNG: Flotten-Images sind amd64 (_deploy-unified.yml Z.218)
-    os: DGX OS (Linux, nativ)          # KEIN WSL2 — anders als gpu-box; die WSL-Fallen entfallen
-    status: geplant                    # ab KW 36/2026, noch nicht in Betrieb
+    server_type: gx10                  # ASUS Ascent GX10 (NVIDIA GB10), 121 GB nutzbar (free -g), 20 Kerne, 931 GB NVMe
+    arch: aarch64                      # gemessen 2026-08-31 (uname -m). Flotten-Images sind amd64 (_deploy-unified.yml Z.218)
+    os: Ubuntu 24.04.4 LTS             # Kernel 6.17.0-1031-nvidia, Treiber 580.173.02 — NVIDIA-Variante, kein WSL2
+    status: aktiv                      # wg0-Zugang steht, Direktanmeldung von prod verifiziert 2026-08-31
     role: >
       IIL-interner Inferenz- und Trainingsknoten (KONZ-platform-053, Owner-Entscheid
       2026-08-29). Ausserhalb des Buergerdaten-Perimeters: keine Sozial-/Buergerdaten
@@ -168,8 +172,7 @@ hosts:
       runner: false
       oeffentlicher_ingress: false
       grund: "KONZ-platform-053 §3/§4/§6 (Owner-Entscheid 2026-08-29): Phase 1 reiner Rechenknoten, ausserhalb des Buergerdaten-Perimeters, kein Tunnel"
-    verified: false                    # explizit unverifiziert — nichts gemessen, siehe KONZ-053 §8
-    verified_bis: 2026-09-30           # Frist der Ausnahme (KONZ-054 E5) — danach messen oder mit Grund verlaengern
+    verified: 2026-08-31               # flottenbild (gemessen), speicher_melder (882 GB frei), Direktanmeldung von prod
 
   staging-dedicated:
     ip: 178.104.184.168

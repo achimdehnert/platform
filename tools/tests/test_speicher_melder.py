@@ -261,3 +261,33 @@ def test_should_exit_3_when_hosts_were_left_out(tmp_path):
         ]
     )
     assert rc == 3
+
+
+def test_should_ssh_ueber_den_hop_wenn_ssh_via_gesetzt_ist():
+    """Knoten hinter wg0 (gpu-box, gx10) sind nur vom Hop aus erreichbar.
+
+    Ohne diesen Weg meldete das Werkzeug fuer sie "kein Host erreichbar" und
+    liess sie still aus der Zeitreihe fallen — gemessen am 2026-08-31.
+    """
+    gesehen: list[list[str]] = []
+
+    def laeufer(cmd):
+        gesehen.append(cmd)
+        return 0, ""
+
+    sm.messe(
+        {"gx10": "adehnert@10.99.0.4"},
+        laeufer,
+        hops={"gx10": "root@88.198.191.108"},
+    )
+    assert gesehen[0][-2] == "root@88.198.191.108"
+    assert gesehen[0][-1].startswith("ssh -o BatchMode=yes")
+    assert "adehnert@10.99.0.4" in gesehen[0][-1]
+
+
+def test_should_ohne_ssh_via_direkt_verbinden():
+    """Gegenprobe: ohne Hop bleibt der Aufruf der alte, einfache."""
+    gesehen: list[list[str]] = []
+    sm.messe({"prod": "root@1.2.3.4"}, lambda cmd: (gesehen.append(cmd), (0, ""))[1])
+    assert gesehen[0][-2] == "root@1.2.3.4"
+    assert not gesehen[0][-1].startswith("ssh ")

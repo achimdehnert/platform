@@ -97,6 +97,24 @@ def lade_hosts(pfad: Path) -> dict[str, str]:
     return raus
 
 
+def lade_hops(pfad: Path) -> dict[str, str]:
+    """Knoten hinter einem Sprung: Name -> `ssh_via` aus `infra/hosts.yaml`.
+
+    Warum das noetig ist: `gpu-box` und `gx10` haengen an wg0 und sind nur von prod
+    aus erreichbar — der Schluessel liegt dort. Ohne den Sprung meldete dieses
+    Werkzeug fuer beide "kein Host erreichbar" und liess sie still aus der
+    Zeitreihe fallen (gemessen 2026-08-31 fuer beide Knoten). `flottenbild.py`
+    kennt `ssh_via` laengst; hier fehlte es.
+    """
+    daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
+    roh = daten.get("hosts", daten) or {}
+    return {
+        name: str(cfg["ssh_via"]).split()[0]
+        for name, cfg in roh.items()
+        if isinstance(cfg, dict) and cfg.get("ssh_via")
+    }
+
+
 def fernbefehl() -> str:
     ausschluss = " ".join(f"-x {t}" for t in DF_AUSSCHLUSS)
     return f"df -B1 --output=target,size,avail {ausschluss} 2>/dev/null | tail -n +2"
@@ -131,19 +149,26 @@ def parse_df(text: str) -> list[dict]:
 
 
 def messe(
-    hosts: dict[str, str], laeufer=None, lokal: set[str] | None = None
+    hosts: dict[str, str],
+    laeufer=None,
+    lokal: set[str] | None = None,
+    hops: dict[str, str] | None = None,
 ) -> dict[str, list[dict] | None]:
     """`lokal` = Hosts, auf denen dieser Prozess selbst laeuft (bash -c statt ssh).
-    Der prod-server-Runner hat keinen ssh-Zugang zu sich selbst."""
+    Der prod-server-Runner hat keinen ssh-Zugang zu sich selbst.
+    `hops` = Knoten hinter einem Sprung (`ssh_via`): das df laeuft dann vom Hop aus."""
     laeufer = laeufer or (lambda cmd: _sh(cmd, SSH_TIMEOUT_S))
     lokal = lokal or set()
+    hops = hops or {}
     raus: dict = {}
     for name, ziel in hosts.items():
-        cmd = (
-            ["bash", "-c", fernbefehl()]
-            if name in lokal
-            else SSH + [ziel, fernbefehl()]
-        )
+        if name in lokal:
+            cmd = ["bash", "-c", fernbefehl()]
+        elif hops.get(name):
+            innen = f'ssh -o BatchMode=yes -o ConnectTimeout=10 {ziel} "{fernbefehl()}"'
+            cmd = SSH + [hops[name], innen]
+        else:
+            cmd = SSH + [ziel, fernbefehl()]
         _, out = laeufer(cmd)
         platten = parse_df(out)
         raus[name] = platten if platten else None
@@ -360,7 +385,7 @@ def main(argv: list[str] | None = None) -> int:
             for h in hosts
         }
     else:
-        messung = messe(hosts, lokal=set(a.lokal or []))
+        messung = messe(hosts, lokal=set(a.lokal or []), hops=lade_hops(a.hosts))
     journal = schreibe_journal(a.journal, lies_journal(a.journal), heute, messung)
     e = bewerte(messung, journal, heute)
     e["ausserhalb"] = ausserhalb
