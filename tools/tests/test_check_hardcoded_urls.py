@@ -380,7 +380,10 @@ def test_should_not_flag_writing_into_the_environment():
 def test_should_still_flag_reading_from_the_environment():
     """Gegenfall: der Lesezugriff bleibt ein Fund — die Ausnahme ist nicht breiter."""
     r = _echte_regel("V-CFG-01")
-    assert chu._check_line(r, 'host = os.environ["POSTGRES_HOST"]', P("settings.py"))
+    # Beispielvariable bewusst NICHT POSTGRES_*: seit platform#2525 hat die
+    # shared-ci-Postgres-Weiche in Settings-Dateien eine benannte Ausnahme, und
+    # der Gegenstand dieses Tests ist Lesen-gegen-Schreiben, nicht POSTGRES.
+    assert chu._check_line(r, 'host = os.environ["REDIS_HOST"]', P("settings.py"))
 
 
 def test_should_still_flag_an_equality_check_on_the_environment():
@@ -414,3 +417,114 @@ def test_should_still_flag_when_the_next_line_only_mentions_the_name():
     zeile = '    override = os.environ.get("SCHEMAS_DIR")'
     folge = "    print(override)"
     assert chu._check_line(r, zeile, P("api.py"), next_line=folge)
+
+
+# ═══ Testkontext: erkennen und herabstufen (platform#2525) ═══════════════════
+# Der Megatest meldete am 2026-08-31 acht vermeidbare Verstoesse ueber sieben
+# Repos. Keiner war ein Defekt: dreimal die CI-Postgres-Weiche, fuenfmal eine
+# erfundene Attrappe in einer Testdatei. Beide Fehlrichtungen sind hier
+# gegengeprueft — die Ausnahme greift, und sie greift nicht breiter.
+
+
+class TestTestkontextErkennung:
+    """`_is_test_file` sah bis 2026-08-31 nur test_* und conftest.py."""
+
+    @pytest.mark.parametrize(
+        "pfad",
+        [
+            "tests/settings.py",
+            "tests/hilfe/faktoren.py",
+            "config/settings/test.py",
+            "config/settings/testing.py",
+            "apps/kern/tests/test_x.py",
+            "conftest.py",
+        ],
+    )
+    def test_should_treat_test_scoped_files_as_test_context(self, pfad):
+        assert chu._is_test_file(P(pfad)) is True
+
+    @pytest.mark.parametrize(
+        "pfad",
+        [
+            "config/settings/production.py",
+            "src/trading_hub/django/settings.py",
+            "apps/store/forms.py",
+            "settings.py",
+            "protest/ansicht.py",  # enthaelt "test", ist aber keines
+            "latest/werte.py",
+        ],
+    )
+    def test_should_not_widen_test_context_to_production_code(self, pfad):
+        assert chu._is_test_file(P(pfad)) is False
+
+
+class TestHerabstufungImTestkontext:
+    """VERMEIDBAR -> INFO, aber nur fuer Regeln, die in Tests bewusst greifen."""
+
+    def test_should_downgrade_a_test_only_rule_inside_tests(self):
+        r = regel(skip_in_tests=False)
+        assert chu._im_testkontext(r, P("tests/test_x.py")).category == "INFO"
+
+    def test_should_keep_full_severity_outside_tests(self):
+        r = regel(skip_in_tests=False)
+        assert chu._im_testkontext(r, P("apps/kern/views.py")).category == "VERMEIDBAR"
+
+    def test_should_not_touch_rules_that_already_skip_tests(self):
+        # Diese Regeln sehen Testdateien ohnehin nie — Herabstufen waere sinnlos
+        # und wuerde die Absicht der Regel verschleiern.
+        r = regel(skip_in_tests=True)
+        assert chu._im_testkontext(r, P("tests/test_x.py")) is r
+
+    def test_should_not_touch_info_rules(self):
+        r = regel(category="INFO", skip_in_tests=False)
+        assert chu._im_testkontext(r, P("tests/test_x.py")) is r
+
+    def test_should_keep_the_finding_visible_not_silent(self):
+        # Der Kern der Entscheidung: herabstufen, NICHT ausblenden. Waeren die
+        # V-SEC-Regeln in Tests stumm, fiele ein echtes Secret dort nie auf.
+        r = regel(skip_in_tests=False)
+        herab = chu._im_testkontext(r, P("tests/test_x.py"))
+        assert herab.rule_id == r.rule_id
+        assert herab.category == "INFO"
+
+
+class TestCiPostgresWeiche:
+    """Das dokumentierte Flottenmuster ist kein Env-Missbrauch."""
+
+    @pytest.mark.parametrize(
+        "zeile",
+        [
+            '_CI_DB = os.environ.get("POSTGRES_HOST")',
+            '"NAME": os.environ.get("POSTGRES_DB", "test_db")',
+            '"HOST": os.environ["POSTGRES_HOST"],',
+            "os.environ['POSTGRES_PASSWORD']",
+        ],
+    )
+    def test_should_accept_shared_ci_postgres_variables(self, zeile):
+        assert chu._CI_POSTGRES_ENV.search(zeile)
+
+    @pytest.mark.parametrize(
+        "zeile",
+        [
+            'os.environ["DJANGO_SECRET_KEY"]',
+            'os.environ.get("POSTGRES_SCHEMA")',  # nicht in der Liste
+            'os.environ["AWS_SECRET_ACCESS_KEY"]',
+            'config("POSTGRES_HOST")',  # decouple, gar kein Treffer
+        ],
+    )
+    def test_should_not_widen_to_other_environment_access(self, zeile):
+        assert not chu._CI_POSTGRES_ENV.search(zeile)
+
+    def test_should_still_flag_ci_variables_outside_settings(self):
+        # Die Ausnahme gilt der Konfigurationsschicht, nicht der Variablen: im
+        # Anwendungscode ist genau dieser Zugriff der gesuchte Fehler.
+        r = _echte_regel("V-CFG-01")
+        assert chu._check_line(
+            r, 'host = os.environ["POSTGRES_HOST"]', P("apps/kern/views.py")
+        )
+
+    def test_should_accept_the_switch_inside_a_settings_module(self):
+        r = _echte_regel("V-CFG-01")
+        assert not chu._check_line(
+            r, 'host = os.environ["POSTGRES_HOST"]', P("config/settings/base.py")
+        )
