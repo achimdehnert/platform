@@ -124,3 +124,66 @@ def test_should_declare_every_discord_user_in_the_repo():
         if "DISCORD_WEBHOOK" in p.read_text() and p.name != "alarmweg-probe.yml"
     }
     assert real <= deklariert
+
+
+# ── Klasse "zurueckgebaut" (platform#2486) ───────────────────────────────────
+# Ein bewusst abgeschalteter Kanal ist keine Luecke. Damit daraus kein bequemer
+# Stummschalter wird, verlangt die Klasse zwei Belege — sonst liesse sich
+# "N von M belegt" durch Umschreiben gruen machen statt durch Arbeit.
+_JETZT = datetime(2026, 8, 31, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _rueckbau(**extra):
+    k = {"art": "mail", "probe": "zurueckgebaut"}
+    k.update(extra)
+    return {"tot": k}
+
+
+def test_should_accept_decommissioned_channel_with_both_proofs():
+    u = ap.beurteile(
+        _rueckbau(zurueckgebaut_am="2026-08-30", ersetzt_durch="Phase 0.7.11"),
+        [],
+        _JETZT,
+    )
+    assert u[0]["vorhanden"] is True
+    assert u[0]["zurueckgebaut"] is True
+
+
+def test_should_reject_decommissioned_channel_without_proof():
+    for unvollstaendig in (
+        {},
+        {"zurueckgebaut_am": "2026-08-30"},
+        {"ersetzt_durch": "Phase 0.7.11"},
+    ):
+        u = ap.beurteile(_rueckbau(**unvollstaendig), [], _JETZT)
+        assert u[0]["vorhanden"] is False, unvollstaendig
+        assert "unbelegt" in u[0]["grund"]
+
+
+def test_should_keep_decommissioned_channels_out_of_the_denominator():
+    kanaele = {
+        "lebt": {"art": "mail", "probe": "keine"},
+        "tot": {
+            "art": "mail",
+            "probe": "zurueckgebaut",
+            "zurueckgebaut_am": "2026-08-30",
+            "ersetzt_durch": "Phase 0.7.11",
+        },
+    }
+    zeile = ap.kurzzeile(ap.beurteile(kanaele, [], _JETZT))
+    assert "1 von 1 Alarmwegen NICHT vorhanden" in zeile
+    assert "1 zurueckgebaut" in zeile
+
+
+def test_should_not_let_decommissioning_turn_a_real_gap_green():
+    # Der Rueckbau darf den Exit-Code nur fuer sich selbst entschaerfen.
+    kanaele = {
+        "echt-kaputt": {"art": "mail", "probe": "keine"},
+        "tot": {
+            "art": "mail",
+            "probe": "zurueckgebaut",
+            "zurueckgebaut_am": "2026-08-30",
+            "ersetzt_durch": "Phase 0.7.11",
+        },
+    }
+    assert ap.exit_code(ap.beurteile(kanaele, [], _JETZT)) != 0

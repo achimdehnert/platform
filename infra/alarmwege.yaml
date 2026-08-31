@@ -58,11 +58,16 @@ kanaele:
     leser: niemand
     genutzt_von:
       - "prod:/opt/scripts/healthcheck.sh"
-    probe: keine
+    probe: zurueckgebaut
+    zurueckgebaut_am: "2026-08-30"
+    ersetzt_durch: "Sitzungsstart-Phasen 0.7.11 erreichbarkeit + 0.7.22 flottenbild"
     max_alter_tage: 10
     stand: >
-      2026-08-30: kein MTA auf prod. 177 Tage 100 % FAIL ins Leere. Steht auf der
-      Rueckbau-Liste von KONZ-054 §12 — abschalten, nicht reparieren.
+      2026-08-30: kein MTA auf prod, 177 Tage 100 % FAIL ins Leere — abschalten,
+      nicht reparieren (KONZ-054 §12). Nachgemessen 2026-08-31: der Cron-Eintrag
+      auf prod ist auskommentiert (`#*/5 * * * * /opt/scripts/healthcheck.sh`),
+      der Rueckbau hat also stattgefunden; nur dieses Register hinkte nach. Was
+      der Kanal melden sollte, messen heute zwei Sitzungsstart-Phasen.
 
   prod-cert-expiry-discord:
     art: discord-webhook
@@ -74,4 +79,12 @@ kanaele:
     max_alter_tage: 10
     stand: >
       2026-08-30: Variable auskommentiert, `curl … || true` verschluckt den Fehler.
-      Ein echter Zertifikats-Ablauf kaeme hier nie an.
+      Ein echter Zertifikats-Ablauf kaeme hier nie an. Nachgemessen 2026-08-31:
+      der Cron LAEUFT weiter (`30 6 * * *`, mit Umgebungsdatei) — anders als der
+      healthcheck-Kanal ist hier nichts zurueckgebaut, es meldet nur nichts. Der
+      Kanal bleibt damit eine echte Luecke und wird NICHT stummgeschaltet.
+      Brisant, weil Phase 0.7.16 am selben Tag drei auffaellige
+      Origin-Zertifikate fand: der einzige automatische Melder dafuer ist tot,
+      die Entdeckung haengt am Sitzungsstart. Offene Entscheidung (Owner):
+      abschalten, weil 0.7.16 den Job tut — oder an `github-issue-owner` haengen,
+      den einzigen belegten Kanal. Ein Rueckbau ohne Ersatz waere hier falsch.
