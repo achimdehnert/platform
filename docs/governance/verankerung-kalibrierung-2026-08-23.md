@@ -377,3 +377,20 @@ Zahl in genau dem Dokument, das vor erfundenen Zahlen warnt.
 1 richtig · 14 Fehlalarme (Praezision 0,067).** Die Abschnitte oben tragen die
 Fehlalarm-**Klassen** bei, nicht die Zahlen. Die Rekonstruktion des tatsaechlichen
 Zaehlerstands haengt an #2469.
+
+---
+
+## Lauf 2026-08-31 (PRs #2531, #2532)
+
+Zwei eigene PR-Texte geprueft: #2531 sauber (2 Segmente, ✅), #2532 eine Meldung:
+
+- **[vertagung] Fehlalarm.** Zitat: „AGENT_HANDOVER.md-Stand bewusst NICHT angefasst:
+  die Parallel-Session `offsite-meldekette` ist aktiv und schreibt den nächsten Stand".
+  Der „vertagte" Stand-Nachzug ist die **Pflichtphase** (session-ende 0b/0c) der zum
+  Meldezeitpunkt nachweislich aktiven Parallel-Session (Lease vom selben Tag), mit
+  strukturellem Netz dahinter (nächtlicher handover-reconcile → Phase 0.7.6;
+  Freshness-Check am selben Tag PASS). Fehlalarm-Klasse: **Delegation an einen
+  laufenden, selbst gate-pflichtigen Prozess** ist keine unverfolgte Zusage.
+
+**Stand damit: 26 geprüfte Texte · 16 Meldungen · 1 richtig · 15 Fehlalarme
+(Präzision 0,063).** Zählweise wie „Maßgeblich"-Absatz oben (main-Linie fortgeschrieben).
