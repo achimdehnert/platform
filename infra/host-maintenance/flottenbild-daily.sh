@@ -64,5 +64,44 @@ und Phase 0.7.17 nur laeuft, wenn jemand eine Sitzung startet (#2529)." \
   fi
 fi
 
+# ── Speicher-Vorlauf, taeglich (platform#2529) ──────────────────────────────
+# Die einzige der fuenf sitzungsabhaengigen Weltzustands-Phasen, bei der ein
+# verpasster Lauf den Schaden ERZEUGT statt ihn nur spaeter zu melden: eine volle
+# Platte stoppt Dienste. Die vier anderen (erreichbarkeit, origin-tls,
+# prod-wirkung, umgebung) melden einen Zustand, der bei der naechsten Sitzung noch
+# da ist — sie bleiben bewusst ohne Zeitplan.
+# Zweiter Grund: speicher_melder.py leitet seine Rate aus einem TAGESJOURNAL ab.
+# Ohne taeglichen Lauf gibt es keine Tagespunkte, und ohne Tagespunkte keine
+# Vorlaufzeit — der Melder haengt nicht nur am Sitzungsstart, er wird durch ihn
+# auch ungenau.
+SPEICHER=$(timeout 180 python3 "$PLATFORM/tools/speicher_melder.py" --kurz 2>&1)
+src=$?
+echo "speicher: rc=$src — $SPEICHER"
+
+if [ "$src" -ne 0 ] && command -v gh >/dev/null 2>&1; then
+  STITEL="[speicher] Taeglicher Lauf meldet knappen Vorlauf"
+  SOFFEN=$(gh issue list --repo achimdehnert/platform --state open \
+             --search "$STITEL in:title" --json number --jq 'length' 2>/dev/null || echo 1)
+  if [ "$SOFFEN" = "0" ]; then
+    gh issue create --repo achimdehnert/platform \
+      --title "$STITEL" \
+      --assignee achimdehnert \
+      --body "Der taegliche Speicher-Lauf auf der Dev-Maschine endete mit rc=$src.
+
+\`\`\`
+$SPEICHER
+\`\`\`
+
+Vollbild: \`python3 platform/tools/speicher_melder.py\`
+
+Dieser Melder laeuft taeglich, weil eine volle Platte nach Kalender passiert und
+nicht nach Arbeitsrhythmus — und weil die Rate aus Tagespunkten stammt, die ohne
+taeglichen Lauf gar nicht entstehen (#2529)." \
+      >/dev/null 2>&1 && echo "speicher: Issue angelegt"
+  else
+    echo "speicher: Befund steht bereits als offenes Issue"
+  fi
+fi
+
 echo "flottenbild-daily: rc=$rc -> $OUT/latest.html"
 exit $rc
