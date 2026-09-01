@@ -708,6 +708,16 @@
       "last_drill_pass": "2026-08-31",
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-31"
+    },
+    {
+      "slug": "blueprint-names-a-target-repo-in-an-instruction",
+      "mode": "gate",
+      "owner": "achim",
+      "module": "tools/blaupause_check.py",
+      "drill": "tools/tests/test_blaupause_check.py",
+      "built": "2026-09-01",
+      "ref": "platform#2560 (KONZ-051 K6, Owner-Entscheid 2026-09-01: Weg (a) Scope eingrenzen)",
+      "note": "K6 verlangte, dass die ux-review-Blaupause keinen Ziel-Repo-Namen in einer Anweisung traegt, war mit dem eigenen grep aber nicht entscheidbar: er zaehlte Changelog, Dogfood-Tests und Realfall-Blockquotes mit (die per Konstruktion nie verschwinden) und fing mit 'meiki' die Org meiki-lra statt eines Repos. Drei Praezisierungen: Scope nur auf Anweisungs-Abschnitte (fail-closed — ein neuer Abschnitt gilt als Anweisung), Namen aus registry/canonical.yaml statt vier handgetippten und nur mit Oberflaechen-Typ (django/fastapi/static; eine Bibliothek ist nie Ziel eines Klick-Laufs), und Pruefung auf Block- statt Zeilenebene — der Beleg steht regelmaessig eine Zeile unter dem Namen, den er belegt. Positivkontrolle beim Bau: der Registry-weite Lauf fand sofort eine Stelle, die der 4-Namen-grep nicht sehen konnte (aifw in Step 1). Der Drill haelt zu jedem gruenen Fall die Gegenprobe daneben, damit die Null nicht aus dem eigenen Filter stammt."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
