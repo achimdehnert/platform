@@ -53,7 +53,9 @@ class TestArtefakte:
         # (Zeitbombe 2026-08-28: HEUTE ist fix, die Datei war ploetzlich "frisch").
         ts = datetime.combine(HEUTE, datetime.min.time()).timestamp()
         os.utime(p, (ts, ts))
-        befund = kc.pruefe_artefakt("Board", p, HEUTE + timedelta(days=9), "make boards")
+        befund = kc.pruefe_artefakt(
+            "Board", p, HEUTE + timedelta(days=9), "make boards"
+        )
         assert not befund.ok
         assert "Tage alt" in befund.ort
         assert befund.hinweis == "make boards"
@@ -62,7 +64,9 @@ class TestArtefakte:
         """Ein Alarm, der Unmoegliches durchwinkt, prueft die falsche Richtung."""
         p = tmp_path / "board.md"
         p.write_text("x", encoding="utf-8")
-        befund = kc.pruefe_artefakt("Board", p, HEUTE - timedelta(days=5), "make boards")
+        befund = kc.pruefe_artefakt(
+            "Board", p, HEUTE - timedelta(days=5), "make boards"
+        )
         assert not befund.ok
         assert "Zukunft" in befund.ort
 
@@ -85,9 +89,7 @@ class TestArtefakte:
 
 class TestDienst:
     def test_should_name_the_url_when_unreachable(self):
-        befund = kc.pruefe_dienst(
-            "Ansicht", "http://127.0.0.1:1/", "egal", "restart"
-        )
+        befund = kc.pruefe_dienst("Ansicht", "http://127.0.0.1:1/", "egal", "restart")
         assert not befund.ok
         assert "http://127.0.0.1:1/" in befund.ort
         assert befund.hinweis == "restart"

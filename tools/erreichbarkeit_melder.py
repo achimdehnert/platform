@@ -152,7 +152,9 @@ def probiere(dienst: dict, oeffner=None) -> str:
 
 def _oeffne(url: str) -> int:
     req = urllib.request.Request(url, method="GET", headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=TIMEOUT_S, context=ssl.create_default_context()) as r:
+    with urllib.request.urlopen(
+        req, timeout=TIMEOUT_S, context=ssl.create_default_context()
+    ) as r:
         return r.status
 
 
@@ -208,15 +210,24 @@ def _kurzzeile(e: dict) -> str:
     if not e["befunde"]:
         return f"{e['geprueft']} Prod-Ziele geprueft, alle antworten ({len(e['geparkt'])} bewusst geparkt)"
     teile = [f"{b['name']} ({b['klasse']})" for b in e["befunde"]]
-    return f"{len(e['befunde'])} von {e['geprueft']} Prod-Zielen antworten nicht — " + ", ".join(teile)
+    return (
+        f"{len(e['befunde'])} von {e['geprueft']} Prod-Zielen antworten nicht — "
+        + ", ".join(teile)
+    )
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--kurz", action="store_true", help="eine Zeile fuer den Session-Start")
+    p.add_argument(
+        "--kurz", action="store_true", help="eine Zeile fuer den Session-Start"
+    )
     p.add_argument("--json", action="store_true", dest="als_json")
-    p.add_argument("--offline", action="store_true", help="ohne Netz, nur Deklarations-Pruefung")
-    p.add_argument("--ports", default=None, help="Pfad zu ports.yaml (Vorgabe: infra/ports.yaml)")
+    p.add_argument(
+        "--offline", action="store_true", help="ohne Netz, nur Deklarations-Pruefung"
+    )
+    p.add_argument(
+        "--ports", default=None, help="Pfad zu ports.yaml (Vorgabe: infra/ports.yaml)"
+    )
     a = p.parse_args()
 
     dienste = lade_dienste(a.ports or _ports_yaml_pfad())
@@ -230,10 +241,16 @@ def main() -> int:
         print(_kurzzeile(ergebnis))
         return 0
 
-    print(f"# Erreichbarkeit der deklarierten Prod-Ziele ({ergebnis['geprueft']} Dienste)\n")
+    print(
+        f"# Erreichbarkeit der deklarierten Prod-Ziele ({ergebnis['geprueft']} Dienste)\n"
+    )
     for titel, schluessel, hinweis in (
         ("🚨 Befunde", "befunde", "antwortet nicht, obwohl als aktiv deklariert"),
-        ("⚠️  Ausnahme ohne Grund", "stumme_ausnahme", "betriebsstatus gesetzt, Begruendung fehlt"),
+        (
+            "⚠️  Ausnahme ohne Grund",
+            "stumme_ausnahme",
+            "betriebsstatus gesetzt, Begruendung fehlt",
+        ),
         ("⏸  Bewusst geparkt", "geparkt", "kein Befund — Grund hinterlegt"),
         ("✅ Antwortet", "ok", ""),
     ):
@@ -242,7 +259,11 @@ def main() -> int:
             continue
         print(f"{titel} ({len(zeilen)}){' — ' + hinweis if hinweis else ''}")
         for z in zeilen:
-            anhang = z.get("warum") or z.get("grund") or KLASSEN.get(z["klasse"], ("", ""))[1]
+            anhang = (
+                z.get("warum")
+                or z.get("grund")
+                or KLASSEN.get(z["klasse"], ("", ""))[1]
+            )
             print(f"  {z['name']:<20} {z['domain']:<34} host={z['host']:<7} {anhang}")
         print()
 

@@ -154,13 +154,27 @@ def pruefe(
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--app", required=True, help="App-Name wie in ports.yaml (z.B. coach-hub)")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--app", required=True, help="App-Name wie in ports.yaml (z.B. coach-hub)"
+    )
     p.add_argument("--environment", default="production", help="staging|production")
-    p.add_argument("--deploy-host", default="", help="Ziel des Deploys: IP, Hostname oder ssh-Alias")
-    p.add_argument("--ports", default="infra/ports.yaml", help="Pfad oder URL zu ports.yaml")
-    p.add_argument("--hosts", default="infra/hosts.yaml", help="Pfad oder URL zu hosts.yaml")
-    p.add_argument("--json", action="store_true", help="Ergebnis maschinenlesbar ausgeben")
+    p.add_argument(
+        "--deploy-host",
+        default="",
+        help="Ziel des Deploys: IP, Hostname oder ssh-Alias",
+    )
+    p.add_argument(
+        "--ports", default="infra/ports.yaml", help="Pfad oder URL zu ports.yaml"
+    )
+    p.add_argument(
+        "--hosts", default="infra/hosts.yaml", help="Pfad oder URL zu hosts.yaml"
+    )
+    p.add_argument(
+        "--json", action="store_true", help="Ergebnis maschinenlesbar ausgeben"
+    )
     a = p.parse_args(argv)
 
     try:
@@ -168,12 +182,20 @@ def main(argv: list[str] | None = None) -> int:
         hosts = _lade(a.hosts)
     except Exception as fehler:  # noqa: BLE001 — jede Ursache blockiert gleich
         text = f"Datenfehler: ports.yaml/hosts.yaml nicht lesbar ({fehler})."
-        print(json.dumps({"code": EXIT_DATENFEHLER, "meldungen": [text]}) if a.json else text)
+        print(
+            json.dumps({"code": EXIT_DATENFEHLER, "meldungen": [text]})
+            if a.json
+            else text
+        )
         return EXIT_DATENFEHLER
 
     code, meldungen = pruefe(a.app, a.environment, a.deploy_host, ports, hosts)
     if a.json:
-        print(json.dumps({"code": code, "app": a.app, "meldungen": meldungen}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"code": code, "app": a.app, "meldungen": meldungen}, ensure_ascii=False
+            )
+        )
     else:
         for zeile in meldungen:
             print(zeile)

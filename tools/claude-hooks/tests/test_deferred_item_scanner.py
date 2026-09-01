@@ -303,14 +303,24 @@ def test_should_offenen_board_befund_ohne_anker_melden(monkeypatch, capsys, tmp_
     rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, BOARD_ECHT))
 
     assert rc == 0
-    assert "deferred-item check" in out.get("hookSpecificOutput", {}).get("additionalContext", "")
+    assert "deferred-item check" in out.get("hookSpecificOutput", {}).get(
+        "additionalContext", ""
+    )
     assert "Board" in out["hookSpecificOutput"]["additionalContext"]
 
 
-def test_should_schweigen_wenn_die_zeile_einen_anker_traegt(monkeypatch, capsys, tmp_path):
+def test_should_schweigen_wenn_die_zeile_einen_anker_traegt(
+    monkeypatch, capsys, tmp_path
+):
     """Gegenprobe: mit Issue-Nummer ist der Befund verankert."""
-    text = BOARD_ECHT.replace("| a-hub | — | 🟢 Befund | fixen (ich) |", "| a-hub | #275 | 🟢 Befund | fixen (ich) |")
-    text = text.replace("| a-hub | — | 🟢 Befund | prüfen (ich) |", "| a-hub | #276 | 🟢 Befund | prüfen (ich) |")
+    text = BOARD_ECHT.replace(
+        "| a-hub | — | 🟢 Befund | fixen (ich) |",
+        "| a-hub | #275 | 🟢 Befund | fixen (ich) |",
+    )
+    text = text.replace(
+        "| a-hub | — | 🟢 Befund | prüfen (ich) |",
+        "| a-hub | #276 | 🟢 Befund | prüfen (ich) |",
+    )
 
     rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, text))
 
@@ -326,16 +336,26 @@ def test_should_schweigen_wenn_die_zeile_einen_anker_traegt(monkeypatch, capsys,
         "| 9 | Konzept-Schritt | a-hub | — | ✅ fehlt nicht mehr | — |",
     ],
 )
-def test_should_bei_gewoehnlichen_boardzeilen_schweigen(monkeypatch, capsys, tmp_path, zeile):
+def test_should_bei_gewoehnlichen_boardzeilen_schweigen(
+    monkeypatch, capsys, tmp_path, zeile
+):
     """Ein Scanner, der bei jedem Statusboard feuert, wird abgeschaltet."""
-    rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, f"### Stand\n\n{zeile}\n"))
+    rc, out = _run(
+        monkeypatch, capsys, _transcript(tmp_path, f"### Stand\n\n{zeile}\n")
+    )
 
     assert rc == 0 and out == {}
 
 
-def test_should_schweigen_wenn_im_selben_turn_ein_issue_entstand(monkeypatch, capsys, tmp_path):
+def test_should_schweigen_wenn_im_selben_turn_ein_issue_entstand(
+    monkeypatch, capsys, tmp_path
+):
     """Der Anker darf auch als Handlung kommen, nicht nur als Text."""
-    pfad = _transcript(tmp_path, BOARD_ECHT, extra_records=[_bash_record("gh issue create -R o/r --title x")])
+    pfad = _transcript(
+        tmp_path,
+        BOARD_ECHT,
+        extra_records=[_bash_record("gh issue create -R o/r --title x")],
+    )
 
     rc, out = _run(monkeypatch, capsys, pfad)
 
@@ -349,4 +369,6 @@ def test_should_auch_die_nummerierte_boardform_sehen(monkeypatch, capsys, tmp_pa
     rc, out = _run(monkeypatch, capsys, _transcript(tmp_path, text))
 
     assert rc == 0
-    assert "deferred-item check" in out.get("hookSpecificOutput", {}).get("additionalContext", "")
+    assert "deferred-item check" in out.get("hookSpecificOutput", {}).get(
+        "additionalContext", ""
+    )

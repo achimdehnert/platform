@@ -49,6 +49,7 @@ def _datei(tmp_path, inhalt):
 
 # ── Der echte Stand ────────────────────────────────────────────────────────
 
+
 def test_should_echte_blaupause_gruen_melden():
     r = _run(ECHTE_DATEI)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -66,6 +67,7 @@ def test_should_echte_blaupause_ueberhaupt_bloecke_pruefen():
 
 
 # ── Gegenprobe: wird er rot, wenn er rot werden muss? ──────────────────────
+
 
 def test_should_nackten_repo_namen_in_anweisung_finden(tmp_path):
     datei = _datei(
@@ -126,13 +128,16 @@ def test_should_beleg_aus_fremdem_listenpunkt_nicht_gelten_lassen(tmp_path):
     )
     r = _run(
         datei,
-        _registry(tmp_path, **{"writing-hub": "django", "ausschreibungs-hub": "django"}),
+        _registry(
+            tmp_path, **{"writing-hub": "django", "ausschreibungs-hub": "django"}
+        ),
     )
     assert r.returncode == 1, r.stdout
     assert "ausschreibungs-hub" in r.stdout
 
 
 # ── Scope: Beleg-Abschnitte bleiben aussen vor ────────────────────────────
+
 
 def test_should_repo_namen_im_changelog_nicht_melden(tmp_path):
     datei = _datei(
@@ -143,7 +148,12 @@ def test_should_repo_namen_im_changelog_nicht_melden(tmp_path):
         - Lauf gegen writing-hub, danach ausschreibungs-hub.
         """,
     )
-    r = _run(datei, _registry(tmp_path, **{"writing-hub": "django", "ausschreibungs-hub": "django"}))
+    r = _run(
+        datei,
+        _registry(
+            tmp_path, **{"writing-hub": "django", "ausschreibungs-hub": "django"}
+        ),
+    )
     assert r.returncode == 0, r.stdout
 
 
@@ -162,6 +172,7 @@ def test_should_neuen_unbekannten_abschnitt_als_anweisung_behandeln(tmp_path):
 
 
 # ── Ziel-Repos vs. Bibliotheken ───────────────────────────────────────────
+
 
 def test_should_bibliothek_in_anweisung_nicht_als_zuschneidung_werten(tmp_path):
     """`aifw` ist nie Ziel eines Klick-Durchlaufs — es zu nennen ist so wenig
@@ -206,6 +217,7 @@ def test_should_teilwort_nicht_als_treffer_werten(tmp_path):
 
 
 # ── Laut scheitern statt still gruen ──────────────────────────────────────
+
 
 def test_should_leere_registry_laut_scheitern(tmp_path):
     datei = _datei(tmp_path, "## Step 1\n\nStarte writing-hub.\n")

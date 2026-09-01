@@ -33,7 +33,9 @@ def _run_script() -> str:
 def _filter_code() -> str:
     m = re.search(r"python3 - <<'PY'\n(.*?)\n\s*PY\n", _run_script(), re.S)
     assert m, "Python-Filter im Workflow nicht gefunden"
-    return "\n".join(z[10:] if z.startswith(" " * 10) else z for z in m.group(1).split("\n"))
+    return "\n".join(
+        z[10:] if z.startswith(" " * 10) else z for z in m.group(1).split("\n")
+    )
 
 
 def _schleifen_kopf() -> str:
@@ -63,8 +65,10 @@ def _filter_lauf(tmp_path: Path, prs: list) -> tuple[str, Path]:
     prs_datei = tmp_path / "prs.json"
     kandidaten = tmp_path / "kandidaten"
     prs_datei.write_text(json.dumps(prs), encoding="utf-8")
-    code = _filter_code().replace("/tmp/prs.json", str(prs_datei)).replace(
-        "/tmp/kandidaten", str(kandidaten)
+    code = (
+        _filter_code()
+        .replace("/tmp/prs.json", str(prs_datei))
+        .replace("/tmp/kandidaten", str(kandidaten))
     )
     p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert p.returncode == 0, p.stderr

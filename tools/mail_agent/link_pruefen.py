@@ -90,7 +90,10 @@ def pruefe(url: str, karte: dict[str, str]) -> tuple[str, str]:
     teile = urlsplit(url)
     basis = karte.get(teile.netloc)
     if basis is None:
-        return "uebersprungen", f"kein Loopback-Dienst fuer '{teile.netloc}' in der Ingress-Liste"
+        return (
+            "uebersprungen",
+            f"kein Loopback-Dienst fuer '{teile.netloc}' in der Ingress-Liste",
+        )
     pfad = teile.path or "/"
     if teile.query:
         pfad += "?" + teile.query
@@ -148,7 +151,9 @@ def urls_aus(text: str) -> list[str]:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("urls", nargs="*", help="zu pruefende Links")
     p.add_argument("--stdin", action="store_true", help="Links aus stdin herauslesen")
     p.add_argument("--datei", type=Path, help="Links aus einer Datei herauslesen")
@@ -172,7 +177,10 @@ def main() -> int:
 
     karte = ingress_karte()
     if not karte:
-        print("FEHLER: keine cloudflared-Ingress-Liste gefunden — Hostnamen sind nicht aufloesbar.", file=sys.stderr)
+        print(
+            "FEHLER: keine cloudflared-Ingress-Liste gefunden — Hostnamen sind nicht aufloesbar.",
+            file=sys.stderr,
+        )
         return 1
 
     schlecht = 0

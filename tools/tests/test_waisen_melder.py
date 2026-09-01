@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from waisen_melder import (  # noqa: E402
     container_namen,
     erklaerte_container,
+    erklaerte_repos,
     prod_compose_dateien,
     urteile,
     zuordnung_aus_ports,
@@ -203,3 +204,67 @@ def test_should_treat_only_non_active_services_as_explained():
     }
 
     assert erklaerte_container(ports) == {"b": "stillgelegt"}
+
+
+# ------------------------------------------------------- Urteil je Hub (K5)
+
+
+def test_should_explain_every_container_of_a_shut_down_hub():
+    # ports.yaml fuehrt pro Hub meist EINEN Dienst. Ohne Urteil je Hub blieben
+    # worker/beat/db/redis eines stillgelegten Hubs als Waisen stehen — genau
+    # der Zustand am 2026-09-01 bei coach-hub, wedding-hub und odoo.
+    deklariert = [
+        ("coach-hub", "prod-b", "docker-compose.prod.yml", "coach_hub_worker"),
+        ("coach-hub", "prod-b", "docker-compose.prod.yml", "coach_hub_beat"),
+    ]
+
+    ergebnis = urteile(
+        deklariert,
+        {"prod-b": set()},
+        erklaert={},
+        erklaerte_hubs={"coach-hub": "stillgelegt"},
+    )
+
+    assert ergebnis["waisen"] == []
+    assert len(ergebnis["entschuldigt"]) == 2
+    assert "stillgelegt" in ergebnis["entschuldigt"][0]["grund"]
+
+
+def test_should_still_report_a_container_of_a_hub_that_should_be_running():
+    # Gegenprobe: die Hub-Erklaerung darf nicht alles zudecken.
+    deklariert = [("mcp-hub", "prod", "docker-compose.llm-mcp.yml", "llm_gateway")]
+
+    ergebnis = urteile(
+        deklariert,
+        {"prod": set()},
+        erklaert={},
+        erklaerte_hubs={"coach-hub": "stillgelegt"},
+    )
+
+    assert [z["container"] for z in ergebnis["waisen"]] == ["llm_gateway"]
+
+
+def test_should_treat_a_hub_as_resting_when_ports_yaml_says_so():
+    ports = {
+        "services": {
+            "apo-hub": {"repo": "achimdehnert/apo-hub", "betriebsstatus": "ruhend"}
+        }
+    }
+
+    assert erklaerte_repos(ports) == {"apo-hub": "ruhend"}
+
+
+def test_should_not_explain_a_hub_that_has_one_active_service():
+    # decks-hub hat zwei Eintraege: einen aktiven und einen blockierten. Solange
+    # irgendein Dienst laufen SOLL, ist der Hub nicht ruhend.
+    ports = {
+        "services": {
+            "decks-hub": {"repo": "achimdehnert/decks-hub", "betriebsstatus": "aktiv"},
+            "praes-iil-ai": {
+                "repo": "achimdehnert/decks-hub",
+                "betriebsstatus": "blockiert",
+            },
+        }
+    }
+
+    assert erklaerte_repos(ports) == {}

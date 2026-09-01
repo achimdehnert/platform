@@ -33,8 +33,16 @@ BEFUND = {
 
 def test_should_include_every_evidence_field_in_prompt():
     block = uf.evidenz_block(BEFUND)
-    for feld in ("klasse", "severity", "station", "symptom", "antwortkoerper",
-                 "gegenprobe", "referenz", "bekannt"):
+    for feld in (
+        "klasse",
+        "severity",
+        "station",
+        "symptom",
+        "antwortkoerper",
+        "gegenprobe",
+        "referenz",
+        "bekannt",
+    ):
         assert f"{feld}:" in block, f"{feld} fehlt im Prompt"
     assert "getippte URL" in block
 
@@ -61,7 +69,9 @@ def _antwort(inhalt: str) -> dict:
 
 
 def test_should_read_valid_verdict():
-    satz = uf.lies_spruch(_antwort('{"spruch": "widerlegt", "begruendung": "Regel 2 greift."}'))
+    satz = uf.lies_spruch(
+        _antwort('{"spruch": "widerlegt", "begruendung": "Regel 2 greift."}')
+    )
     assert satz == {"spruch": "widerlegt", "begruendung": "Regel 2 greift."}
 
 
@@ -73,13 +83,17 @@ def test_should_downgrade_unknown_verdict_to_unklar():
 
 def test_should_cap_overlong_reason():
     lang = "x" * 900
-    satz = uf.lies_spruch(_antwort(json.dumps({"spruch": "bestaetigt", "begruendung": lang})))
+    satz = uf.lies_spruch(
+        _antwort(json.dumps({"spruch": "bestaetigt", "begruendung": lang}))
+    )
     assert len(satz["begruendung"]) == 400
 
 
 def test_should_skip_without_asking_on_real_data_e17(monkeypatch, capsys):
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
-    monkeypatch.setattr(uf, "frage", lambda *a, **k: pytest.fail("E17: nicht fragen bei Echtdaten"))
+    monkeypatch.setattr(
+        uf, "frage", lambda *a, **k: pytest.fail("E17: nicht fragen bei Echtdaten")
+    )
     assert uf.main(["--echtdaten"]) == 0
     satz = json.loads(capsys.readouterr().out)
     assert satz["spruch"] == "uebersprungen"
@@ -88,7 +102,9 @@ def test_should_skip_without_asking_on_real_data_e17(monkeypatch, capsys):
 def test_should_skip_when_no_key_present(monkeypatch, capsys):
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
     monkeypatch.setattr(uf, "schluessel_lesen", lambda: "")
-    monkeypatch.setattr(uf, "frage", lambda *a, **k: pytest.fail("ohne Schluessel nicht fragen"))
+    monkeypatch.setattr(
+        uf, "frage", lambda *a, **k: pytest.fail("ohne Schluessel nicht fragen")
+    )
     assert uf.main([]) == 0
     assert json.loads(capsys.readouterr().out)["spruch"] == "uebersprungen"
 
@@ -97,13 +113,20 @@ def test_should_exit_zero_on_widerlegt_e16(monkeypatch, capsys):
     """E16: der Spruch filtert nicht — er darf nie als Gate wirken."""
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(BEFUND)))
     monkeypatch.setattr(uf, "schluessel_lesen", lambda: "test")
-    monkeypatch.setattr(uf, "frage", lambda *a, **k: _antwort('{"spruch":"widerlegt","begruendung":"Regel 1."}'))
+    monkeypatch.setattr(
+        uf,
+        "frage",
+        lambda *a, **k: _antwort('{"spruch":"widerlegt","begruendung":"Regel 1."}'),
+    )
     assert uf.main([]) == 0
     assert json.loads(capsys.readouterr().out)["spruch"] == "widerlegt"
 
 
-def test_should_report_unreachable_provider_as_unklar_not_bestaetigt(monkeypatch, capsys):
+def test_should_report_unreachable_provider_as_unklar_not_bestaetigt(
+    monkeypatch, capsys
+):
     """Ein Fetch-Fehler ist kein gruener Zustand."""
+
     def kaputt(*a, **k):
         raise OSError("connection reset")
 
@@ -153,7 +176,8 @@ def test_should_send_user_agent_because_cloudflare_blocks_urllib_default():
 def _drei(*sprueche):
     """Erzeugt eine Folge von Anbieter-Antworten fuer aufeinanderfolgende Aufrufe."""
     antworten = iter(
-        _antwort(json.dumps({"spruch": s, "begruendung": f"Regel X ({s})."})) for s in sprueche
+        _antwort(json.dumps({"spruch": s, "begruendung": f"Regel X ({s})."}))
+        for s in sprueche
     )
     return lambda *a, **k: next(antworten)
 
@@ -226,11 +250,13 @@ def test_should_keep_exit_zero_when_majority_is_widerlegt_e16(monkeypatch, capsy
 
 def test_should_survive_one_failing_call_of_three(monkeypatch, capsys):
     """Ein Anbieterfehler in einem von drei Laeufen kippt die Mehrheit nicht."""
-    folge = iter([
-        _antwort('{"spruch":"bestaetigt","begruendung":"Regel 6."}'),
-        OSError("connection reset"),
-        _antwort('{"spruch":"bestaetigt","begruendung":"Regel 6."}'),
-    ])
+    folge = iter(
+        [
+            _antwort('{"spruch":"bestaetigt","begruendung":"Regel 6."}'),
+            OSError("connection reset"),
+            _antwort('{"spruch":"bestaetigt","begruendung":"Regel 6."}'),
+        ]
+    )
 
     def wechselhaft(*a, **k):
         naechste = next(folge)

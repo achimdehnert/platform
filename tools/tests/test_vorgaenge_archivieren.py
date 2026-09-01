@@ -23,7 +23,12 @@ HEUTE = date(2026, 8, 21)
 
 
 def _v(nr=1, bucket="erledigt", **kv):
-    basis = {"nr": nr, "bucket": bucket, "kurz": "irgendwas", "letzte_pruefung": "2026-08-10"}
+    basis = {
+        "nr": nr,
+        "bucket": bucket,
+        "kurz": "irgendwas",
+        "letzte_pruefung": "2026-08-10",
+    }
     basis.update(kv)
     return basis
 
@@ -78,9 +83,13 @@ class TestTeilen:
 
 def test_should_not_lose_anything_in_a_roundtrip(tmp_path):
     """Archivieren heisst verschieben — die Summe bleibt gleich."""
-    ledger = {"vorgaenge": [_v(nr=1, erledigt_am="2026-08-01"), _v(nr=2, bucket="owner")]}
+    ledger = {
+        "vorgaenge": [_v(nr=1, erledigt_am="2026-08-01"), _v(nr=2, bucket="owner")]
+    }
     bleibt, wandert = va.teile(ledger, HEUTE)
     datei = tmp_path / "a.json"
-    datei.write_text(json.dumps({"vorgaenge": wandert}, ensure_ascii=False), encoding="utf-8")
+    datei.write_text(
+        json.dumps({"vorgaenge": wandert}, ensure_ascii=False), encoding="utf-8"
+    )
     zurueck = json.loads(datei.read_text(encoding="utf-8"))["vorgaenge"]
     assert len(bleibt) + len(zurueck) == len(ledger["vorgaenge"])

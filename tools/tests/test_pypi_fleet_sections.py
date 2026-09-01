@@ -86,7 +86,9 @@ def test_should_update_issue_when_existing_body_is_none():
 
 def test_should_preview_update_on_dry_run_when_issue_exists(monkeypatch):
     monkeypatch.setattr(
-        m, "fetch_issue", lambda owner, repo, token, label=m.ISSUE_LABEL: {"number": 968}
+        m,
+        "fetch_issue",
+        lambda owner, repo, token, label=m.ISSUE_LABEL: {"number": 968},
     )
     url = m.upsert_section(
         "achimdehnert", "platform", "tok", "health", "Health", "ok", dry_run=True

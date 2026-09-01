@@ -99,7 +99,9 @@ class TestUrl:
     def test_should_not_read_a_repo_issue_as_a_mail_uid(self):
         """`platform#2176` ist kein Postfach. Reproduziert in der Retro 2026-08-21."""
         assert em.url_aus_text("Siehe platform#2176", "hnu", "https://m.example") == ""
-        assert em.url_aus_text("Bezug: meiki-hub#1460", "hnu", "https://m.example") == ""
+        assert (
+            em.url_aus_text("Bezug: meiki-hub#1460", "hnu", "https://m.example") == ""
+        )
 
     def test_should_link_a_draft_into_the_draft_folder(self):
         url = em.url_aus_text("Entwuerfe #23611 liegt", "hnu", "https://m.example")

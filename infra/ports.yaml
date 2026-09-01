@@ -247,7 +247,7 @@ services:
     container_name: odoo_web
     domain_prod: odoo.iil.pet
     prod_host: odoo            # lief nie auf prod — eigener Host 46.225.127.211 (hosts.yaml `odoo`); bis 2026-08-30 hier falsch deklariert
-    betriebsstatus: stillgelegt
+    betriebsstatus: ruhend
     betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (#160): bis auf weiteres still. pg_dumpall (odoo 84 MB, aifw 9 MB) nach /opt/backups/stilllegung-2026-08-30/ auf dem odoo-Host; odoo_web + odoo_db gestoppt mit restart=no, Filestore-Volume odoo_hub_data bleibt. Monitoring-Stack auf demselben Host laeuft weiter (Prometheus = Flotten-Monitor seit KONZ-054 A2). odoo-hub#22: Auto-Deploy bei Push abgeschaltet. Reste (odoo.iil.pet 520, aifw_service, Repo): platform#2480"
     domain_staging: staging-odoo.iil.pet
     repo: achimdehnert/odoo-hub
@@ -423,6 +423,11 @@ services:
     domain_prod: apo.iil.pet
     note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
     repo: achimdehnert/apo-hub
+    betriebsstatus: ruhend
+    betriebsstatus_grund: >
+      Owner-Urteil 2026-09-01 (#2586 K5): nicht in Betrieb, kann aber
+      jederzeit wieder anlaufen. Kein `stillgelegt` — das waere endgueltig —
+      und kein `blockiert`, denn es haelt nichts auf.
 
   illustration-hub:
     prod: 8096
@@ -622,7 +627,7 @@ services:
       - rtc-chat.iil.pet
       - app-chat.iil.pet
     repo: achimdehnert/chat-hub           # deploy/
-    betriebsstatus: blockiert
+    betriebsstatus: ruhend
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
   robo-twin:
     prod: 8790

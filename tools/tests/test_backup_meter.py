@@ -279,7 +279,9 @@ def _zahlen(bericht):
     import re
 
     deckung = re.search(r"Geprueft (\d+) von (\d+) Soll-Apps", bericht)
-    status = re.search(r"\*\*(\d+) konform · (\d+) Verletzungen · (\d+) deferred\*\*", bericht)
+    status = re.search(
+        r"\*\*(\d+) konform · (\d+) Verletzungen · (\d+) deferred\*\*", bericht
+    )
     assert deckung and status, f"Berichtskopf nicht erkannt:\n{bericht}"
     return int(deckung.group(2)), tuple(int(status.group(i)) for i in (1, 2, 3))
 

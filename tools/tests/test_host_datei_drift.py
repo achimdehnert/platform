@@ -58,7 +58,9 @@ def _platform(tmp_path, inhalt="original\n"):
 def test_should_report_drift_when_host_copy_differs(tmp_path, monkeypatch):
     pd = _platform(tmp_path)
     monkeypatch.setattr(
-        hdd, "host_hashes", lambda ziel, namen: {"/usr/local/bin/skript.sh": "abweichend"}
+        hdd,
+        "host_hashes",
+        lambda ziel, namen: {"/usr/local/bin/skript.sh": "abweichend"},
     )
     drift, unpruefbar, gezaehlt = hdd.pruefe(pd)
     assert drift == ["prod:/usr/local/bin/skript.sh"]
@@ -91,7 +93,9 @@ def _mit_marker(tmp_path, repo_version):
     d = tmp_path / "infra/host-maintenance"
     d.mkdir(parents=True)
     (d / "skript.sh").write_text(f'#!/bin/sh\nOFFSITE_SH_VERSION="{repo_version}"\n')
-    (tmp_path / "infra/hosts.yaml").write_text("hosts:\n  prod:\n    ssh: root@1.2.3.4\n")
+    (tmp_path / "infra/hosts.yaml").write_text(
+        "hosts:\n  prod:\n    ssh: root@1.2.3.4\n"
+    )
     return tmp_path
 
 
@@ -113,7 +117,9 @@ def test_should_stay_plain_when_the_file_carries_no_marker(tmp_path, monkeypatch
     d = tmp_path / "infra/host-maintenance"
     d.mkdir(parents=True)
     (d / "ohne.sh").write_text("#!/bin/sh\necho hi\n")
-    (tmp_path / "infra/hosts.yaml").write_text("hosts:\n  prod:\n    ssh: root@1.2.3.4\n")
+    (tmp_path / "infra/hosts.yaml").write_text(
+        "hosts:\n  prod:\n    ssh: root@1.2.3.4\n"
+    )
     monkeypatch.setattr(
         hdd, "host_hashes", lambda z, n: {"/usr/local/bin/ohne.sh": "abweichend"}
     )

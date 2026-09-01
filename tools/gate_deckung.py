@@ -211,7 +211,6 @@ def liegezeit_zeile(lz: dict, kurz: bool = False) -> str:
     )
 
 
-
 def kandidaten_zeile(registry: dict, offen: list[dict]) -> str:
     """Sagt, ob die offenen Slugs wenigstens als Schranke-Kandidat AKTENKUNDIG sind.
 

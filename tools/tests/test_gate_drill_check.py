@@ -72,8 +72,12 @@ def _reg_mit(tmp_path, gate: dict) -> Path:
 def test_should_fehlenden_gate_header_melden(tmp_path):
     """Ein Modul ohne GATE_HEADER ist der Fall, der bis 2026-08-06 unbemerkt blieb."""
     modul = tmp_path / "ohne_kopf.py"
-    modul.write_text("print('ich bin ein Gate ohne Selbstauskunft')\n", encoding="utf-8")
-    r = _run(_reg_mit(tmp_path, {"slug": "x", "mode": "advisory", "module": str(modul)}))
+    modul.write_text(
+        "print('ich bin ein Gate ohne Selbstauskunft')\n", encoding="utf-8"
+    )
+    r = _run(
+        _reg_mit(tmp_path, {"slug": "x", "mode": "advisory", "module": str(modul)})
+    )
     assert r.returncode == 0
     assert "kein GATE_HEADER im Modul" in r.stdout, r.stdout
 
@@ -83,7 +87,9 @@ def test_should_unvollstaendigen_gate_header_feldweise_melden(tmp_path):
     modul.write_text(
         'GATE_HEADER = {"slug": "x", "mode": "advisory"}\n', encoding="utf-8"
     )
-    r = _run(_reg_mit(tmp_path, {"slug": "x", "mode": "advisory", "module": str(modul)}))
+    r = _run(
+        _reg_mit(tmp_path, {"slug": "x", "mode": "advisory", "module": str(modul)})
+    )
     assert "GATE_HEADER ohne `owner`" in r.stdout, r.stdout
     assert "GATE_HEADER ohne `last_drill_pass`" in r.stdout, r.stdout
 
@@ -97,7 +103,9 @@ def test_should_slug_drift_zwischen_kopf_und_registry_melden(tmp_path):
         encoding="utf-8",
     )
     r = _run(
-        _reg_mit(tmp_path, {"slug": "erwartet", "mode": "advisory", "module": str(modul)})
+        _reg_mit(
+            tmp_path, {"slug": "erwartet", "mode": "advisory", "module": str(modul)}
+        )
     )
     assert "Slug im Kopf != Registry-Slug `erwartet`" in r.stdout, r.stdout
 

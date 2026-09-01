@@ -113,7 +113,9 @@ def container_hier(muster: str) -> list[str]:
     try:
         roh = subprocess.run(
             ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}"],
-            capture_output=True, text=True, timeout=25,
+            capture_output=True,
+            text=True,
+            timeout=25,
         ).stdout
     except Exception:  # noqa: BLE001
         return []
@@ -186,9 +188,19 @@ def main(argv=None) -> int:
         "host_begruendung": warum,
         "repo": a.repo,
         "deklariert": {
-            k: d.get(k) for k in ("prod_host", "domain_prod", "domain_staging", "container_name", "prod", "staging")
+            k: d.get(k)
+            for k in (
+                "prod_host",
+                "domain_prod",
+                "domain_staging",
+                "container_name",
+                "prod",
+                "staging",
+            )
         },
-        "container_hier": container_hier(str(d.get("container_name", a.repo.replace("-", "_")))),
+        "container_hier": container_hier(
+            str(d.get("container_name", a.repo.replace("-", "_")))
+        ),
         "namen": {},
         "nicht_geprueft": [],
     }
@@ -199,7 +211,9 @@ def main(argv=None) -> int:
             continue
         status, titel = wer_antwortet(str(dom))
         befund["namen"][str(dom)] = {
-            "feld": feld, "status": status, "titel": titel,
+            "feld": feld,
+            "status": status,
+            "titel": titel,
             "hinweis": _hinweis(a.repo, d, status, titel),
         }
 
@@ -208,20 +222,28 @@ def main(argv=None) -> int:
         return 0
 
     if a.kurz:
-        n = " · ".join(f"{k}→{v['status']} {v['titel'][:24]}" for k, v in befund["namen"].items())
-        print(f"Host {befund['host']} ({warum}) · {a.repo}: {len(befund['container_hier'])} Container · {n or 'keine Namen deklariert'}")
+        n = " · ".join(
+            f"{k}→{v['status']} {v['titel'][:24]}" for k, v in befund["namen"].items()
+        )
+        print(
+            f"Host {befund['host']} ({warum}) · {a.repo}: {len(befund['container_hier'])} Container · {n or 'keine Namen deklariert'}"
+        )
         return 0
 
     print(f"== Umgebung · {a.repo} ==")
     print(f"  Ich stehe auf : {befund['host']}   ({warum})")
     dh = befund["deklariert"]
-    print(f"  Deklariert    : prod_host={dh.get('prod_host')} port_prod={dh.get('prod')} port_staging={dh.get('staging')}")
+    print(
+        f"  Deklariert    : prod_host={dh.get('prod_host')} port_prod={dh.get('prod')} port_staging={dh.get('staging')}"
+    )
     print("  Container hier:")
     for c in befund["container_hier"] or ["    (keine)"]:
         print(f"    {c}")
     print("  Wer antwortet unter dem Namen:")
     for dom, v in befund["namen"].items():
-        print(f"    {v['feld']:15} {dom:34} {v['status']:>4}  {v['titel']}{v['hinweis']}")
+        print(
+            f"    {v['feld']:15} {dom:34} {v['status']:>4}  {v['titel']}{v['hinweis']}"
+        )
     for z in befund["nicht_geprueft"]:
         print(f"  Nicht geprueft: {z}")
     return 0

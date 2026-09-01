@@ -30,7 +30,9 @@ def _run(*args):
 
 def _spec_datei(tmp_path, screens):
     p = tmp_path / "spec.yaml"
-    p.write_text(yaml.safe_dump({"screens": screens}, allow_unicode=True), encoding="utf-8")
+    p.write_text(
+        yaml.safe_dump({"screens": screens}, allow_unicode=True), encoding="utf-8"
+    )
     return p
 
 
@@ -41,10 +43,30 @@ def _stationen_datei(tmp_path, stationen, name="stationen.json"):
 
 
 SCREENS = [
-    {"id": "start", "title": "Session starten", "flow_anchor": "Phase 1", "routing_mode": "live"},
-    {"id": "entwurf", "title": "Entwurf schreiben", "flow_anchor": "Phase 1", "routing_mode": "live"},
-    {"id": "export", "title": "Export", "flow_anchor": "Phase 2", "routing_mode": "live"},
-    {"id": "skizze", "title": "Nur gezeichnet", "flow_anchor": "Phase 1", "routing_mode": "static"},
+    {
+        "id": "start",
+        "title": "Session starten",
+        "flow_anchor": "Phase 1",
+        "routing_mode": "live",
+    },
+    {
+        "id": "entwurf",
+        "title": "Entwurf schreiben",
+        "flow_anchor": "Phase 1",
+        "routing_mode": "live",
+    },
+    {
+        "id": "export",
+        "title": "Export",
+        "flow_anchor": "Phase 2",
+        "routing_mode": "live",
+    },
+    {
+        "id": "skizze",
+        "title": "Nur gezeichnet",
+        "flow_anchor": "Phase 1",
+        "routing_mode": "static",
+    },
 ]
 
 
@@ -55,7 +77,9 @@ def test_should_find_spec_screen_without_app_path(tmp_path):
     """Der Fall, den K7 verlangt: ein Screen, den der Durchlauf nie erreicht hat."""
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1"
+    )
     assert r.returncode == 1, r.stdout + r.stderr
     assert "weg-fehlt" in r.stdout
     assert "entwurf" in r.stdout
@@ -66,9 +90,14 @@ def test_should_stay_green_when_every_live_screen_was_visited(tmp_path):
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(
         tmp_path,
-        [{"id": "start", "titel": "Session starten"}, {"id": "entwurf", "titel": "Entwurf schreiben"}],
+        [
+            {"id": "start", "titel": "Session starten"},
+            {"id": "entwurf", "titel": "Entwurf schreiben"},
+        ],
     )
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1"
+    )
     assert r.returncode == 0, r.stdout + r.stderr
 
 
@@ -78,9 +107,14 @@ def test_should_not_judge_screens_outside_the_chain(tmp_path):
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(
         tmp_path,
-        [{"id": "start", "titel": "Session starten"}, {"id": "entwurf", "titel": "Entwurf schreiben"}],
+        [
+            {"id": "start", "titel": "Session starten"},
+            {"id": "entwurf", "titel": "Entwurf schreiben"},
+        ],
     )
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1"
+    )
     assert "export" not in r.stdout.split("Ergebnis:")[0].split("nicht beurteilt")[0]
     assert "ausserhalb der Kette" in r.stdout
 
@@ -91,9 +125,20 @@ def test_should_flag_the_same_screen_when_the_chain_does_cover_it(tmp_path):
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(
         tmp_path,
-        [{"id": "start", "titel": "Session starten"}, {"id": "entwurf", "titel": "Entwurf schreiben"}],
+        [
+            {"id": "start", "titel": "Session starten"},
+            {"id": "entwurf", "titel": "Entwurf schreiben"},
+        ],
     )
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1,Phase 2")
+    r = _run(
+        "kd",
+        "--spec",
+        str(spec),
+        "--stationen",
+        str(st),
+        "--kette-deckt",
+        "Phase 1,Phase 2",
+    )
     assert r.returncode == 1
     assert "export" in r.stdout
 
@@ -103,9 +148,14 @@ def test_should_not_demand_a_path_for_static_screens(tmp_path):
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(
         tmp_path,
-        [{"id": "start", "titel": "Session starten"}, {"id": "entwurf", "titel": "Entwurf schreiben"}],
+        [
+            {"id": "start", "titel": "Session starten"},
+            {"id": "entwurf", "titel": "Entwurf schreiben"},
+        ],
     )
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1"
+    )
     assert "kein Live-Weg geschuldet" in r.stdout
 
 
@@ -119,13 +169,23 @@ def test_should_report_visited_station_missing_from_spec(tmp_path):
             {"id": "neu", "titel": "Vom Team nachgebaut"},
         ],
     )
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1"
+    )
     assert "spec-luecke" in r.stdout and "Vom Team nachgebaut" in r.stdout
 
 
 def test_should_match_titles_despite_umlauts_and_dashes(tmp_path):
     spec = _spec_datei(
-        tmp_path, [{"id": "a", "title": "Entwürfe – prüfen", "flow_anchor": "P", "routing_mode": "live"}]
+        tmp_path,
+        [
+            {
+                "id": "a",
+                "title": "Entwürfe – prüfen",
+                "flow_anchor": "P",
+                "routing_mode": "live",
+            }
+        ],
     )
     st = _stationen_datei(tmp_path, [{"titel": "entwuerfe pruefen"}])
     r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "P")
@@ -137,7 +197,9 @@ def test_should_fail_loudly_when_the_filter_judges_nothing(tmp_path):
     einzigen Screen ab, ist das ein Fehler, kein gruenes Ergebnis."""
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 99")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 99"
+    )
     assert r.returncode == 2
     assert "Filter frisst die Spec" in r.stderr
 
@@ -155,14 +217,23 @@ def test_should_fail_loudly_on_spec_without_screens(tmp_path):
 
 def _lauf(tmp_path, texte):
     return _stationen_datei(
-        tmp_path, [{"titel": f"Station {i+1}", "text": t} for i, t in enumerate(texte)], "marker.json"
+        tmp_path,
+        [{"titel": f"Station {i + 1}", "text": t} for i, t in enumerate(texte)],
+        "marker.json",
     )
 
 
 def test_should_find_the_break_where_the_name_disappears(tmp_path):
     """Der Realfall C11: Protagonist heisst im Konzept 'Milo Heller', in der
     erzeugten Gliederung 'Franz' — HTTP-gruen, inhaltlich gerissen."""
-    st = _lauf(tmp_path, ["Konzept fuer Milo Heller", "Gliederung: Milo Heller", "Kapitel 1: Franz geht"])
+    st = _lauf(
+        tmp_path,
+        [
+            "Konzept fuer Milo Heller",
+            "Gliederung: Milo Heller",
+            "Kapitel 1: Franz geht",
+        ],
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Milo Heller")
     assert r.returncode == 1, r.stdout + r.stderr
     assert "marker-riss" in r.stdout and "Station 3" in r.stdout
@@ -170,12 +241,21 @@ def test_should_find_the_break_where_the_name_disappears(tmp_path):
 
 def test_should_stay_green_when_the_name_survives(tmp_path):
     """Gegenprobe: derselbe Lauf, der Name haelt durch."""
-    st = _lauf(tmp_path, ["Konzept fuer Milo Heller", "Gliederung: Milo Heller", "Kapitel 1: Milo Heller geht"])
+    st = _lauf(
+        tmp_path,
+        [
+            "Konzept fuer Milo Heller",
+            "Gliederung: Milo Heller",
+            "Kapitel 1: Milo Heller geht",
+        ],
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Milo Heller")
     assert r.returncode == 0, r.stdout
 
 
-def test_should_declare_the_whole_measurement_invalid_when_control_marker_hits(tmp_path):
+def test_should_declare_the_whole_measurement_invalid_when_control_marker_hits(
+    tmp_path,
+):
     """Der teuerste Fall: schlaegt der Kontrollmarker an, ist die Messung
     ungueltig — nicht nur dieser eine Fund."""
     st = _lauf(tmp_path, [f"Text mit {ug.KONTROLLMARKER}", "zweite Station"])
@@ -221,7 +301,14 @@ def test_should_fail_loudly_without_stations(tmp_path):
 def test_should_read_a_real_klickdummy_spec():
     """Positivkontrolle gegen echte Daten: das Werkzeug muss eine Spec aus dem
     Bestand lesen koennen, nicht nur die Fixtures dieses Tests."""
-    echt = Path.home() / "github" / "writing-hub" / "klickdummy" / "creative-studio" / "spec.yaml"
+    echt = (
+        Path.home()
+        / "github"
+        / "writing-hub"
+        / "klickdummy"
+        / "creative-studio"
+        / "spec.yaml"
+    )
     if not echt.is_file():
         import pytest
 
@@ -240,8 +327,23 @@ def test_should_read_a_real_klickdummy_spec():
 
 
 def test_should_treat_marker_lost_at_the_selection_as_deselected(tmp_path):
-    st = _lauf(tmp_path, ["Ansgar Weidlich in Hohenfelde", "Idee A und Hohenfelde", "nur Ansgar Weidlich"])
-    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde", "--auswahl-bei", "3")
+    st = _lauf(
+        tmp_path,
+        [
+            "Ansgar Weidlich in Hohenfelde",
+            "Idee A und Hohenfelde",
+            "nur Ansgar Weidlich",
+        ],
+    )
+    r = _run(
+        "marker",
+        "--stationen",
+        str(st),
+        "--marker",
+        "Ansgar Weidlich,Hohenfelde",
+        "--auswahl-bei",
+        "3",
+    )
     assert r.returncode == 0, r.stdout + r.stderr
     assert "marker-abgewaehlt" in r.stdout and "Hohenfelde" in r.stdout
     assert "marker-riss" not in r.stdout
@@ -252,9 +354,16 @@ def test_should_still_flag_a_break_after_the_selection(tmp_path):
     erst DANACH weg. Das ist C11 und bleibt ein Fehler."""
     st = _lauf(
         tmp_path,
-        ["Ansgar Weidlich in Hohenfelde", "Idee A und Hohenfelde", "Hohenfelde bleibt", "Franz statt allem"],
+        [
+            "Ansgar Weidlich in Hohenfelde",
+            "Idee A und Hohenfelde",
+            "Hohenfelde bleibt",
+            "Franz statt allem",
+        ],
     )
-    r = _run("marker", "--stationen", str(st), "--marker", "Hohenfelde", "--auswahl-bei", "3")
+    r = _run(
+        "marker", "--stationen", str(st), "--marker", "Hohenfelde", "--auswahl-bei", "3"
+    )
     assert r.returncode == 1, r.stdout + r.stderr
     assert "marker-riss" in r.stdout and "Station 4" in r.stdout
 
@@ -262,8 +371,18 @@ def test_should_still_flag_a_break_after_the_selection(tmp_path):
 def test_should_keep_the_control_marker_absolute_across_the_selection(tmp_path):
     """Der Kontrollmarker kennt keine Auswahl: schlaegt er an, ist die Messung
     ungueltig — auch mit --auswahl-bei."""
-    st = _lauf(tmp_path, ["Ansgar Weidlich", f"mit {ug.KONTROLLMARKER}", "Ansgar Weidlich"])
-    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich", "--auswahl-bei", "2")
+    st = _lauf(
+        tmp_path, ["Ansgar Weidlich", f"mit {ug.KONTROLLMARKER}", "Ansgar Weidlich"]
+    )
+    r = _run(
+        "marker",
+        "--stationen",
+        str(st),
+        "--marker",
+        "Ansgar Weidlich",
+        "--auswahl-bei",
+        "2",
+    )
     assert r.returncode == 2, r.stdout + r.stderr
     assert "wertlos" in r.stderr
 
@@ -271,14 +390,29 @@ def test_should_keep_the_control_marker_absolute_across_the_selection(tmp_path):
 def test_should_behave_as_before_without_the_parameter(tmp_path):
     """Ohne --auswahl-bei bleibt es beim alten Verhalten — der Parameter
     entschaerft nur, wo er gesetzt ist."""
-    st = _lauf(tmp_path, ["Ansgar Weidlich in Hohenfelde", "Idee A und Hohenfelde", "nur Ansgar Weidlich"])
+    st = _lauf(
+        tmp_path,
+        [
+            "Ansgar Weidlich in Hohenfelde",
+            "Idee A und Hohenfelde",
+            "nur Ansgar Weidlich",
+        ],
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Hohenfelde")
     assert r.returncode == 1 and "marker-riss" in r.stdout
 
 
 def test_should_fail_loudly_on_a_selection_station_out_of_range(tmp_path):
     st = _lauf(tmp_path, ["Ansgar Weidlich", "Ansgar Weidlich"])
-    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich", "--auswahl-bei", "9")
+    r = _run(
+        "marker",
+        "--stationen",
+        str(st),
+        "--marker",
+        "Ansgar Weidlich",
+        "--auswahl-bei",
+        "9",
+    )
     assert r.returncode == 2 and "ausserhalb" in r.stderr
 
 
@@ -290,21 +424,45 @@ def test_should_reproduce_the_run_of_2026_09_01(tmp_path):
     st = _stationen_datei(
         tmp_path,
         [
-            {"titel": "Session starten", "text": "Ansgar Weidlich, Deichgraf, kehrt nach Hohenfelde zurueck."},
-            {"titel": "Brainstorming", "text": "Ansgar Weidlich ... Das Dorf Hohenfelde ... fuenf Ideen"},
-            {"titel": "Verfeinern", "text": "Das Fluestern der Watt: Ansgar Weidlich ... Der letzte Deichgraf: Hohenfelde, Ansgar Weidlich"},
-            {"titel": "Projekt angelegt", "text": "Das Fluestern der Watt — Ansgar Weidlich kehrt zurueck."},
+            {
+                "titel": "Session starten",
+                "text": "Ansgar Weidlich, Deichgraf, kehrt nach Hohenfelde zurueck.",
+            },
+            {
+                "titel": "Brainstorming",
+                "text": "Ansgar Weidlich ... Das Dorf Hohenfelde ... fuenf Ideen",
+            },
+            {
+                "titel": "Verfeinern",
+                "text": "Das Fluestern der Watt: Ansgar Weidlich ... Der letzte Deichgraf: Hohenfelde, Ansgar Weidlich",
+            },
+            {
+                "titel": "Projekt angelegt",
+                "text": "Das Fluestern der Watt — Ansgar Weidlich kehrt zurueck.",
+            },
         ],
         "lauf20260901.json",
     )
-    ohne = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde")
+    ohne = _run(
+        "marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde"
+    )
     assert ohne.returncode == 1, "ohne --auswahl-bei muss der Scheinriss auftreten"
     assert "marker-riss" in ohne.stdout
 
-    mit = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde", "--auswahl-bei", "4")
+    mit = _run(
+        "marker",
+        "--stationen",
+        str(st),
+        "--marker",
+        "Ansgar Weidlich,Hohenfelde",
+        "--auswahl-bei",
+        "4",
+    )
     assert mit.returncode == 0, mit.stdout + mit.stderr
     assert "marker-abgewaehlt" in mit.stdout
-    assert "0 Treffer" in mit.stdout, "Kontrollmarker muss weiterhin ausdruecklich mit 0 belegt sein"
+    assert "0 Treffer" in mit.stdout, (
+        "Kontrollmarker muss weiterhin ausdruecklich mit 0 belegt sein"
+    )
 
 
 # ── Spec-Namensvariante (ADR-185) ──────────────────────────────────────────
@@ -341,7 +499,9 @@ def test_should_still_accept_a_file_path(tmp_path):
     """Gegenprobe: der alte Aufruf mit Dateipfad bleibt gueltig."""
     spec = _spec_datei(tmp_path, SCREENS)
     st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
-    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    r = _run(
+        "kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1"
+    )
     assert r.returncode == 1
 
 
@@ -368,7 +528,10 @@ def test_should_reach_every_real_klickdummy_of_writing_hub():
     ohne = [d.name for d in kds if not any((d / n).is_file() for n in ug.SPEC_NAMEN)]
     assert not ohne, f"ohne auffindbare Spec: {ohne}"
     nur_variante = [d.name for d in kds if not (d / "spec.yaml").is_file()]
-    assert nur_variante, "kein Klickdummy nutzt die Variante — dann ist dieser Test blind"
+    assert nur_variante, (
+        "kein Klickdummy nutzt die Variante — dann ist dieser Test blind"
+    )
+
 
 # ── Teilname ist kein Riss ─────────────────────────────────────────────────
 #
@@ -380,7 +543,14 @@ def test_should_reach_every_real_klickdummy_of_writing_hub():
 
 
 def test_should_treat_a_shortened_name_as_intact(tmp_path):
-    st = _lauf(tmp_path, ["Ansgar Weidlich kehrt zurueck", "Ansgar findet Spuren", "Ansgar rettet das Dorf"])
+    st = _lauf(
+        tmp_path,
+        [
+            "Ansgar Weidlich kehrt zurueck",
+            "Ansgar findet Spuren",
+            "Ansgar rettet das Dorf",
+        ],
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "marker-verkuerzt" in r.stdout
@@ -389,7 +559,14 @@ def test_should_treat_a_shortened_name_as_intact(tmp_path):
 
 def test_should_still_flag_c11_where_no_word_survives(tmp_path):
     """Gegenprobe: aus 'Milo Heller' wird 'Franz'. Kein Wort ueberlebt — Riss."""
-    st = _lauf(tmp_path, ["Konzept fuer Milo Heller", "Gliederung: Milo Heller", "Kapitel 1: Franz geht"])
+    st = _lauf(
+        tmp_path,
+        [
+            "Konzept fuer Milo Heller",
+            "Gliederung: Milo Heller",
+            "Kapitel 1: Franz geht",
+        ],
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Milo Heller")
     assert r.returncode == 1, r.stdout + r.stderr
     assert "marker-riss" in r.stdout
@@ -398,7 +575,9 @@ def test_should_still_flag_c11_where_no_word_survives(tmp_path):
 def test_should_flag_a_break_when_only_the_surname_family_changes(tmp_path):
     """Der Nachname allein zaehlt genauso — es geht um ein unterscheidbares
     Wort, nicht um den Vornamen."""
-    st = _lauf(tmp_path, ["Ansgar Weidlich", "Weidlich ermittelt", "Der Kommissar ermittelt"])
+    st = _lauf(
+        tmp_path, ["Ansgar Weidlich", "Weidlich ermittelt", "Der Kommissar ermittelt"]
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich")
     assert r.returncode == 1
     assert "Station 3" in r.stdout
@@ -407,7 +586,9 @@ def test_should_flag_a_break_when_only_the_surname_family_changes(tmp_path):
 def test_should_not_let_short_filler_words_keep_a_marker_alive(tmp_path):
     """'von' und 'der' stehen in jedem Text. Waeren sie zulaessige Teile,
     ueberlebte jeder Marker jede Station — der Check waere wertlos."""
-    st = _lauf(tmp_path, ["Hanna von der Heide kommt", "Sie geht von der Tuer zum Fenster"])
+    st = _lauf(
+        tmp_path, ["Hanna von der Heide kommt", "Sie geht von der Tuer zum Fenster"]
+    )
     r = _run("marker", "--stationen", str(st), "--marker", "Hanna von der Heide")
     assert r.returncode == 1, r.stdout
     assert "marker-riss" in r.stdout
@@ -418,14 +599,28 @@ def test_should_reproduce_the_outline_run_of_2026_09_01(tmp_path):
     st = _stationen_datei(
         tmp_path,
         [
-            {"titel": "Projekt", "text": "Das Fluestern der Watt — Ansgar Weidlich kehrt zurueck."},
-            {"titel": "Kapitel 1", "text": "Ansgar Weidlich kehrt nach drei Jahrzehnten zurueck."},
-            {"titel": "Kapitel 2", "text": "Beim Durchstreifen des Watts entdeckt Ansgar Fussspuren."},
-            {"titel": "Kapitel 6", "text": "Das Dorf dankt Ansgar, und er entscheidet sich."},
+            {
+                "titel": "Projekt",
+                "text": "Das Fluestern der Watt — Ansgar Weidlich kehrt zurueck.",
+            },
+            {
+                "titel": "Kapitel 1",
+                "text": "Ansgar Weidlich kehrt nach drei Jahrzehnten zurueck.",
+            },
+            {
+                "titel": "Kapitel 2",
+                "text": "Beim Durchstreifen des Watts entdeckt Ansgar Fussspuren.",
+            },
+            {
+                "titel": "Kapitel 6",
+                "text": "Das Dorf dankt Ansgar, und er entscheidet sich.",
+            },
         ],
         "outline20260901.json",
     )
     r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "marker-verkuerzt" in r.stdout
-    assert "0 Treffer" in r.stdout, "Kontrollmarker muss ausdruecklich mit 0 belegt sein"
+    assert "0 Treffer" in r.stdout, (
+        "Kontrollmarker muss ausdruecklich mit 0 belegt sein"
+    )

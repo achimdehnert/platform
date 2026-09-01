@@ -37,7 +37,15 @@ def _dienst(name="x-hub", status="aktiv", grund=None):
 
 @pytest.mark.parametrize(
     "code,erwartet",
-    [(200, "erreichbar"), (302, "erreichbar"), (401, "auth"), (403, "auth"), (502, "route-ohne-backend"), (599, "route-ohne-backend"), (199, "unklar")],
+    [
+        (200, "erreichbar"),
+        (302, "erreichbar"),
+        (401, "auth"),
+        (403, "auth"),
+        (502, "route-ohne-backend"),
+        (599, "route-ohne-backend"),
+        (199, "unklar"),
+    ],
 )
 def test_should_klassifizieren_nach_statuscode(code, erwartet):
     assert em.probiere(_dienst(), oeffner=lambda url: code) == erwartet
@@ -139,5 +147,7 @@ def test_should_jede_echte_ausnahme_einen_grund_tragen():
 
 def test_should_nur_erlaubte_betriebsstatus_werte_verwenden():
     dienste = em.lade_dienste(str(WURZEL / "infra" / "ports.yaml"))
-    falsch = [d["name"] for d in dienste if d["betriebsstatus"] not in em.STATUS_ERLAUBT]
+    falsch = [
+        d["name"] for d in dienste if d["betriebsstatus"] not in em.STATUS_ERLAUBT
+    ]
     assert falsch == [], f"unbekannter betriebsstatus: {falsch}"

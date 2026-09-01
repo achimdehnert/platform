@@ -61,10 +61,18 @@ MERKMALE = {
         re.search(r"(^|-)(no|not|without|missing|ohne|never|fehlt)(-|$)", z["slug"])
     ),
     "slug >= 5 Woerter": lambda z: z["slug"].count("-") + 1 >= 5,
-    "slug nennt prod/deploy": lambda z: bool(re.search(r"prod|deploy|host|runner", z["slug"])),
-    "slug nennt gate/check/guard": lambda z: bool(re.search(r"gate|check|guard|drill", z["slug"])),
-    "slug nennt pr/merge/issue": lambda z: bool(re.search(r"\bpr-|-pr\b|merge|issue|commit", z["slug"])),
-    "slug nennt test/nachweis": lambda z: bool(re.search(r"test|proof|nachweis|verify", z["slug"])),
+    "slug nennt prod/deploy": lambda z: bool(
+        re.search(r"prod|deploy|host|runner", z["slug"])
+    ),
+    "slug nennt gate/check/guard": lambda z: bool(
+        re.search(r"gate|check|guard|drill", z["slug"])
+    ),
+    "slug nennt pr/merge/issue": lambda z: bool(
+        re.search(r"\bpr-|-pr\b|merge|issue|commit", z["slug"])
+    ),
+    "slug nennt test/nachweis": lambda z: bool(
+        re.search(r"test|proof|nachweis|verify", z["slug"])
+    ),
     "Erstretro trug >= 8 Befunde": lambda z: z["n_befunde"] >= 8,
     "Erstretro trug < 5 Befunde": lambda z: z["n_befunde"] < 5,
     "beim Erstauftritt gefangen": lambda z: z["gefangen"],
@@ -103,7 +111,9 @@ if not geeignet:
 
 gewaehlt = max(geeignet, key=lambda r: r[3])
 name, n, q, lift, f = gewaehlt
-print(f"\nAuf TRAIN gewaehlt (einmalig, danach TEST): «{name}» — {q:.0%}, Lift {lift:.2f}")
+print(
+    f"\nAuf TRAIN gewaehlt (einmalig, danach TEST): «{name}» — {q:.0%}, Lift {lift:.2f}"
+)
 
 tref = [z for z in test if f(z)]
 n_s, k_s, q_s = quote(tref)

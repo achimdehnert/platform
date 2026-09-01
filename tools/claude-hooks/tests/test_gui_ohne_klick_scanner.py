@@ -31,7 +31,11 @@ def _transkript(tmp_path: Path, *eintraege: dict) -> Path:
 
 def _schreib(pfad: str) -> dict:
     return {
-        "message": {"content": [{"type": "tool_use", "name": "Edit", "input": {"file_path": pfad}}]}
+        "message": {
+            "content": [
+                {"type": "tool_use", "name": "Edit", "input": {"file_path": pfad}}
+            ]
+        }
     }
 
 
@@ -141,7 +145,12 @@ def test_should_stay_silent_when_the_transcript_is_unreadable(tmp_path):
 def test_should_print_the_finding_on_stop(tmp_path, capsys, monkeypatch):
     t = _transkript(tmp_path, _schreib("/repo/templates/worlds/world_detail.html"))
     monkeypatch.setattr(
-        "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"transcript_path": str(t)}))})()
+        "sys.stdin",
+        type(
+            "S",
+            (),
+            {"read": staticmethod(lambda: json.dumps({"transcript_path": str(t)}))},
+        )(),
     )
 
     assert scanner.main() == 0
@@ -152,7 +161,12 @@ def test_should_respect_the_off_switch(tmp_path, capsys, monkeypatch):
     t = _transkript(tmp_path, _schreib("/repo/templates/x.html"))
     monkeypatch.setenv("GUI_KLICK_GATE", "aus")
     monkeypatch.setattr(
-        "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"transcript_path": str(t)}))})()
+        "sys.stdin",
+        type(
+            "S",
+            (),
+            {"read": staticmethod(lambda: json.dumps({"transcript_path": str(t)}))},
+        )(),
     )
 
     assert scanner.main() == 0

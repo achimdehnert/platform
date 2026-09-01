@@ -53,9 +53,7 @@ def test_should_flag_missing_h1_on_first_line():
 
 
 def test_should_flag_multiline_entry_command():
-    broken = VALID.replace(
-        "make setup && make test\n", "make setup\nmake test\n"
-    )
+    broken = VALID.replace("make setup && make test\n", "make setup\nmake test\n")
     problems = check_text(broken)
     assert any("GENAU 1 Zeile" in p for p in problems)
 

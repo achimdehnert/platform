@@ -213,7 +213,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = p.parse_args(argv)
 
-    roh = pathlib.Path(args.datei).read_text("utf-8") if args.datei else sys.stdin.read()
+    roh = (
+        pathlib.Path(args.datei).read_text("utf-8") if args.datei else sys.stdin.read()
+    )
     befund = json.loads(roh)
     pruefe_eingabe(befund)
 
@@ -242,10 +244,17 @@ def main(argv: list[str] | None = None) -> int:
         try:
             antwort = frage(befund, schluessel)
         except (urllib.error.URLError, TimeoutError, OSError) as fehler:
-            einzeln.append({"spruch": "unklar", "begruendung": f"Anbieter nicht erreichbar: {fehler}"})
+            einzeln.append(
+                {
+                    "spruch": "unklar",
+                    "begruendung": f"Anbieter nicht erreichbar: {fehler}",
+                }
+            )
             continue
         except (KeyError, ValueError) as fehler:
-            einzeln.append({"spruch": "unklar", "begruendung": f"Antwort unlesbar: {fehler}"})
+            einzeln.append(
+                {"spruch": "unklar", "begruendung": f"Antwort unlesbar: {fehler}"}
+            )
             continue
         einzeln.append(lies_spruch(antwort))
 

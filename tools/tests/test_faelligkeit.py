@@ -16,7 +16,9 @@ sys.modules["faelligkeit"] = fk
 _spec.loader.exec_module(fk)
 
 
-def _msg(datum: str, ordner: str, von: str = "wer@beispiel.example", strang: str = "s1"):
+def _msg(
+    datum: str, ordner: str, von: str = "wer@beispiel.example", strang: str = "s1"
+):
     return {"datum": datum, "ordner": [ordner], "von": von, "strang": strang}
 
 
