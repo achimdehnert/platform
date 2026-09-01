@@ -201,6 +201,29 @@ hosts:
       runner: false
       oeffentlicher_ingress: false
       grund: "KONZ-platform-053 §3/§4/§6 (Owner-Entscheid 2026-08-29): Phase 1 reiner Rechenknoten, ausserhalb des Buergerdaten-Perimeters, kein Tunnel"
+      # Der Embedder IST die Rolle dieses Knotens, kein fremder Workload. Die
+      # Auflage entstand, als hier noch nichts lief; sie bleibt fuer alles
+      # andere bestehen. Owner-Entscheid 2026-09-01: in Betrieb nehmen, der
+      # Knoten laeuft 7/24 (damit faellt der Verfuegbarkeits-Einwand).
+      # Befristet, damit die Ausnahme nicht zur stillen Dauerregel wird.
+      ausnahmen:
+        embedder:
+          grund: >
+            Inferenzdienst nach ADR-188 (multilingual-e5-large, 1024 Dim.) auf
+            der GB10 — genau die Rolle, fuer die der Knoten angeschafft wurde.
+            Gebunden auf 10.99.0.4:8100, NICHT 0.0.0.0 (am Knoten gegengeprueft:
+            0 Treffer auf 0.0.0.0), damit `oeffentlicher_ingress: false` gilt.
+            Kein Container, kein App-Hub: systemd-Nutzerdienst.
+            Gemessen 2026-09-01 gegen denselben Dienst auf 12 CPU-Kernen:
+            p50 9,0 statt 78,0 ms, 702 statt 5,9 chunks/s bei batch=50 —
+            bei identischem Recall@1 (5/5) und auf vier Nachkommastellen
+            identischen Aehnlichkeitswerten.
+          entschieden: 2026-09-01
+          bis: 2026-12-01
+    betrieb: 7/24                      # Owner-Angabe 2026-09-01 — der Knoten
+                                       # ist KEIN Buerorechner mit Zuruf-Betrieb.
+                                       # Damit faellt der Verfuegbarkeits-Einwand
+                                       # gegen Dienste auf diesem Knoten.
     verified: 2026-08-31               # flottenbild (gemessen), speicher_melder (882 GB frei), Direktanmeldung von prod
 
   staging-dedicated:
