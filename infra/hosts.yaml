@@ -336,9 +336,10 @@ runners:
     verified: 2026-08-28               # Box-Fakten; Runner-Status offen
   netcup-ci:
     host: netcup                       # 152.53.136.219
-    status: geplant                    # Registrierung folgt NACH dem Merge dieses PR —
-                                       # Runbook-Reihenfolge: erst Deklaration, dann Zugang.
-                                       # Am 2026-09-01 war es einmal umgekehrt (platform#2543).
+    status: online                     # 2026-09-01 registriert (id 25), Dienst enabled+active.
+                                       # Reihenfolge eingehalten: Deklaration (platform#2568)
+                                       # vor der Registrierung. Am selben Tag war es einmal
+                                       # umgekehrt und wurde zurueckgebaut (platform#2543).
     labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
     scope: per-repo
     install: /opt/actions-runner-<repo>
@@ -358,12 +359,19 @@ runners:
       Netz, Service-Container mit Netz-Alias und veroeffentlichtem Port, healthy nach
       15 s, erreichbar vom Host UND container-zu-container ueber den Alias;
       Negativkontrolle auf einem freien Port = connection refused.
-      Zwei weitere Huerden, die auf jedem Debian-13-Laeufer stehen: `github-ci` muss
-      `enable-linger` haben (sonst stirbt der Nutzer-Daemon), und
-      `actions/setup-python` findet fuer Debian 13 kein Python — die Version muss im
-      Tool-Cache unter `_work/_tool/Python/<ver>/x64` liegen, mit `x64.complete`.
-    verified: false
-    verified_bis: 2026-10-01           # bis dahin muss ein gruener writing-hub-Lauf belegen
+      Drei Huerden, die auf jedem Debian-13-Laeufer stehen — alle drei am 2026-09-01
+      selbst hineingelaufen:
+      (1) `github-ci` braucht `loginctl enable-linger`, sonst stirbt der Nutzer-Daemon.
+      (2) `actions/setup-python` findet fuer Debian 13 kein Python 3.12 ("was not found
+      for Debian 13") — die Version muss im Tool-Cache unter
+      `_work/_tool/Python/<ver>/x64` liegen, mit Marker `x64.complete`.
+      (3) `runsvc.sh` liest die `.env` des Laeufers NICHT. `DOCKER_HOST` gehoert in ein
+      systemd-Drop-in (`…service.d/rootless.conf`), sonst faellt der Laeufer auf
+      /var/run/docker.sock zurueck und scheitert mit `permission denied`. Geprueft wird
+      das an `/proc/<pid>/environ` des `Runner.Listener`, nicht am Dateiinhalt.
+    verified: 2026-09-01               # writing-hub-Lauf 33485965050 vollstaendig gruen,
+                                       # ALLE selbstgehosteten Jobs auf writing-hub-netcup-ci
+                                       # (je Job am Log-Kopf "Runner name:" nachgesehen)
 
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
