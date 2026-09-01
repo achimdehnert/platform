@@ -369,3 +369,63 @@ def test_should_reach_every_real_klickdummy_of_writing_hub():
     assert not ohne, f"ohne auffindbare Spec: {ohne}"
     nur_variante = [d.name for d in kds if not (d / "spec.yaml").is_file()]
     assert nur_variante, "kein Klickdummy nutzt die Variante — dann ist dieser Test blind"
+
+# ── Teilname ist kein Riss ─────────────────────────────────────────────────
+#
+# Gemessen 2026-09-01 an einer erzeugten Gliederung (writing-hub, 6 Kapitel):
+# Kapitel 1 nennt „Ansgar Weidlich", Kapitel 2-6 nur noch „Ansgar". Die Figur
+# ist dieselbe; wer nur auf den vollen Namen prueft, meldet fuenf Risse, die
+# keine sind. C11 bleibt trotzdem erkennbar: dort wurde aus dem Protagonisten
+# „Franz" — kein Wort des Markers ueberlebt.
+
+
+def test_should_treat_a_shortened_name_as_intact(tmp_path):
+    st = _lauf(tmp_path, ["Ansgar Weidlich kehrt zurueck", "Ansgar findet Spuren", "Ansgar rettet das Dorf"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "marker-verkuerzt" in r.stdout
+    assert "marker-riss" not in r.stdout
+
+
+def test_should_still_flag_c11_where_no_word_survives(tmp_path):
+    """Gegenprobe: aus 'Milo Heller' wird 'Franz'. Kein Wort ueberlebt — Riss."""
+    st = _lauf(tmp_path, ["Konzept fuer Milo Heller", "Gliederung: Milo Heller", "Kapitel 1: Franz geht"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Milo Heller")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "marker-riss" in r.stdout
+
+
+def test_should_flag_a_break_when_only_the_surname_family_changes(tmp_path):
+    """Der Nachname allein zaehlt genauso — es geht um ein unterscheidbares
+    Wort, nicht um den Vornamen."""
+    st = _lauf(tmp_path, ["Ansgar Weidlich", "Weidlich ermittelt", "Der Kommissar ermittelt"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich")
+    assert r.returncode == 1
+    assert "Station 3" in r.stdout
+
+
+def test_should_not_let_short_filler_words_keep_a_marker_alive(tmp_path):
+    """'von' und 'der' stehen in jedem Text. Waeren sie zulaessige Teile,
+    ueberlebte jeder Marker jede Station — der Check waere wertlos."""
+    st = _lauf(tmp_path, ["Hanna von der Heide kommt", "Sie geht von der Tuer zum Fenster"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Hanna von der Heide")
+    assert r.returncode == 1, r.stdout
+    assert "marker-riss" in r.stdout
+
+
+def test_should_reproduce_the_outline_run_of_2026_09_01(tmp_path):
+    """Der Realfall als Fixture: sechs Kapitel, voller Name nur im ersten."""
+    st = _stationen_datei(
+        tmp_path,
+        [
+            {"titel": "Projekt", "text": "Das Fluestern der Watt — Ansgar Weidlich kehrt zurueck."},
+            {"titel": "Kapitel 1", "text": "Ansgar Weidlich kehrt nach drei Jahrzehnten zurueck."},
+            {"titel": "Kapitel 2", "text": "Beim Durchstreifen des Watts entdeckt Ansgar Fussspuren."},
+            {"titel": "Kapitel 6", "text": "Das Dorf dankt Ansgar, und er entscheidet sich."},
+        ],
+        "outline20260901.json",
+    )
+    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "marker-verkuerzt" in r.stdout
+    assert "0 Treffer" in r.stdout, "Kontrollmarker muss ausdruecklich mit 0 belegt sein"
