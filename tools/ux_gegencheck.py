@@ -108,7 +108,34 @@ def normalisieren(text: str) -> str:
 # ── K7: KD-Gegencheck ──────────────────────────────────────────────────────
 
 
+# Der Bestand kennt zwei Namen fuer dieselbe Sache. 13 von 14 Klickdummies in
+# writing-hub heissen `spec.yaml`; `lernmodul-flow` heisst `screens-spec.yaml`,
+# und dieser Name steht in ADR-185 (accepted). Ein angenommener Entscheid wird
+# nicht still umbenannt, damit ein Werkzeug es bequemer hat — das Werkzeug lernt
+# beide Namen. Gemessen 2026-09-01: ein Sweep ueber `spec.yaml` findet 13 von 14.
+SPEC_NAMEN = ("spec.yaml", "screens-spec.yaml")
+
+
+def spec_pfad(ziel: Path) -> Path:
+    """Nimmt eine Datei ODER ein Klickdummy-Verzeichnis und liefert die Spec.
+
+    Ein Verzeichnis anzugeben ist der sichere Weg: wer den Dateinamen tippt,
+    tippt irgendwann den falschen."""
+    if ziel.is_file():
+        return ziel
+    if ziel.is_dir():
+        for name in SPEC_NAMEN:
+            k = ziel / name
+            if k.is_file():
+                return k
+        raise ValueError(
+            f"{ziel}: keine Spec gefunden — gesucht wurde {', '.join(SPEC_NAMEN)}"
+        )
+    raise FileNotFoundError(f"{ziel} existiert nicht")
+
+
 def lade_spec(pfad: Path) -> list[dict]:
+    pfad = spec_pfad(pfad)
     daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
     screens = daten.get("screens")
     if not isinstance(screens, list):
@@ -260,7 +287,9 @@ def main() -> int:
     sub = p.add_subparsers(dest="befehl", required=True)
 
     k = sub.add_parser("kd", help="K7: Klickdummy-Spec gegen besuchte Stationen")
-    k.add_argument("--spec", required=True, help="Pfad zu klickdummy/<name>/spec.yaml")
+    k.add_argument("--spec", required=True,
+                   help="Klickdummy-Verzeichnis ODER Spec-Datei; im Verzeichnis werden "
+                        "spec.yaml und screens-spec.yaml gesucht (ADR-185-Variante)")
     k.add_argument("--stationen", required=True, help="JSON: [{'id':…,'titel':…}, …]")
     k.add_argument("--kette-deckt", default="", help="Kommaliste der flow_anchor, die die Kette abdeckt")
 

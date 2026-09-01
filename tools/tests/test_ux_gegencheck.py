@@ -305,3 +305,67 @@ def test_should_reproduce_the_run_of_2026_09_01(tmp_path):
     assert mit.returncode == 0, mit.stdout + mit.stderr
     assert "marker-abgewaehlt" in mit.stdout
     assert "0 Treffer" in mit.stdout, "Kontrollmarker muss weiterhin ausdruecklich mit 0 belegt sein"
+
+
+# ── Spec-Namensvariante (ADR-185) ──────────────────────────────────────────
+#
+# 13 von 14 Klickdummies in writing-hub heissen ihre Spec `spec.yaml`,
+# `lernmodul-flow` heisst sie `screens-spec.yaml` — und dieser Name steht in
+# ADR-185 (accepted). Umbenennen hiesse, einen angenommenen Entscheid still zu
+# ueberfahren; also lernt das Werkzeug beide Namen.
+
+
+def test_should_accept_a_directory_and_find_spec_yaml(tmp_path):
+    d = tmp_path / "kd"
+    d.mkdir()
+    _spec_datei(d, SCREENS)
+    st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
+    r = _run("kd", "--spec", str(d), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "4 Screens" in r.stdout
+
+
+def test_should_find_the_adr185_name_screens_spec_yaml(tmp_path):
+    d = tmp_path / "lernmodul-flow"
+    d.mkdir()
+    (d / "screens-spec.yaml").write_text(
+        yaml.safe_dump({"screens": SCREENS}, allow_unicode=True), encoding="utf-8"
+    )
+    st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
+    r = _run("kd", "--spec", str(d), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "4 Screens" in r.stdout
+
+
+def test_should_still_accept_a_file_path(tmp_path):
+    """Gegenprobe: der alte Aufruf mit Dateipfad bleibt gueltig."""
+    spec = _spec_datei(tmp_path, SCREENS)
+    st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
+    r = _run("kd", "--spec", str(spec), "--stationen", str(st), "--kette-deckt", "Phase 1")
+    assert r.returncode == 1
+
+
+def test_should_fail_loudly_on_a_directory_without_any_spec(tmp_path):
+    d = tmp_path / "leer"
+    d.mkdir()
+    st = _stationen_datei(tmp_path, [{"id": "start", "titel": "Session starten"}])
+    r = _run("kd", "--spec", str(d), "--stationen", str(st))
+    assert r.returncode == 2
+    assert "keine Spec gefunden" in r.stderr
+
+
+def test_should_reach_every_real_klickdummy_of_writing_hub():
+    """Positivkontrolle gegen den Bestand: ueber das Verzeichnis muss JEDER
+    der 14 Klickdummies erreichbar sein — mit dem Dateinamen `spec.yaml` waeren
+    es 13."""
+    import pytest
+
+    wurzel = Path.home() / "github" / "writing-hub" / "klickdummy"
+    if not wurzel.is_dir():
+        pytest.skip(f"{wurzel} nicht vorhanden — Klon fehlt")
+    kds = sorted(d for d in wurzel.iterdir() if d.is_dir())
+    assert len(kds) >= 14, f"nur {len(kds)} Klickdummies — Testaufbau pruefen"
+    ohne = [d.name for d in kds if not any((d / n).is_file() for n in ug.SPEC_NAMEN)]
+    assert not ohne, f"ohne auffindbare Spec: {ohne}"
+    nur_variante = [d.name for d in kds if not (d / "spec.yaml").is_file()]
+    assert nur_variante, "kein Klickdummy nutzt die Variante — dann ist dieser Test blind"
