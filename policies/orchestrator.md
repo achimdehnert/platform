@@ -37,10 +37,13 @@ else:
 
 ## Where it is NOT loaded
 
-- Sessions started outside of dev-hub/bfagent/mcp-hub workspaces may not have
-  the MCP bound. Check tool list at session start.
+- Kein Verlass auf die Workspace-Herkunft: maßgeblich ist die Tool-Liste bei
+  Session-Start (`mcp__orchestrator__*` vorhanden?), nicht das Repo.
 - Headless/CI runs always have it (that's its main consumer).
-- The `meiki-hub` workspace currently does **not** bind it (as of 2026-05-11).
+- Seit der Aufnahme in die globalen `mcpServers` in `~/.claude/settings.json`
+  ist der Server in **jedem** Workspace gebunden — auch `meiki-hub`
+  (dessen `.mcp.json` bindet nur `atlassian`). Der frühere Eintrag
+  "`meiki-hub` bindet ihn nicht (Stand 2026-05-11)" ist überholt.
 
 ## Syncing files ↔ orchestrator
 
@@ -91,3 +94,7 @@ nach jeder Rotation einmal laufen lassen. Exit 1 = Drift-Alarm.
 - 2026-05-18: Versioning home corrected to `platform/tools/claude-policy/`
   (merged platform#190; supersedes the briefly-recommended `mcp-hub/scripts/`
   which collided with platform#186). Double-vendor reconciliation, dev-hub#51.
+- 2026-09-01: "Where it is NOT loaded" korrigiert — Orchestrator ist über die
+  globalen `mcpServers` in `~/.claude/settings.json` workspace-übergreifend
+  gebunden; in einer meiki-hub-Session sind die `mcp__orchestrator__*`-Tools
+  nachweislich vorhanden.
