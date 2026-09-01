@@ -77,7 +77,7 @@ GATE_HEADER = {
     "last_drill_pass": "2026-08-23",
     "evidence": "tools/tests/test_erreichbarkeit_melder.py",
 }
-from pathlib import Path
+from pathlib import Path  # noqa: E402
 
 # Vokabular kommt aus tools/betriebsstatus.py — drei Kopien einer Liste
 # sind drei Gelegenheiten, dass sie auseinanderlaufen (#2586 K5).
