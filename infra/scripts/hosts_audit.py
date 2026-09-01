@@ -64,8 +64,14 @@ _AUFLAGE_FELDER = {
     "oeffentlicher_ingress",  # bool — darf ein oeffentlicher Tunnel/vhost hierher zeigen?
     "nur_dienste",  # Liste — Whitelist der Dienste (Lane G)
     "grund",  # str — Verweis auf ADR/KONZ/Owner-Entscheid
+    "ausnahmen",  # Mapping dienst -> {grund, entschieden, bis} (s. _check_ausnahmen)
 }
+_AUSNAHME_FELDER = {"grund", "entschieden", "bis"}
 _DATENKLASSEN = {"gov-sozialdaten", "personenbezogen"}
+
+# Gewaehrte Ausnahmen werden IMMER ausgegeben, auch ausserhalb des PR-Modus.
+# Eine Ausnahme, die man nur im Diff sieht, ist eine Ausnahme, die niemand prueft.
+_AUSNAHME_LOG: list[str] = []
 
 
 def load_hosts_yaml(path: Path) -> dict:
@@ -134,6 +140,64 @@ def check_schema(data: dict) -> list[str]:
     return issues
 
 
+def _ausnahme_fuer(auflage: dict, dienst: str) -> dict | None:
+    """Gibt die Ausnahme-Deklaration fuer `dienst` zurueck — oder None.
+
+    Eine Ausnahme ist KEIN Freibrief: sie traegt einen Grund, ein Datum und
+    eine Frist. Laeuft die Frist ab, wird der Verstoss wieder ein Finding
+    (siehe _check_ausnahmen) — eine Ausnahme, die niemand verlaengern muss,
+    ist eine Auflage, die es nicht gibt."""
+    a = (auflage or {}).get("ausnahmen")
+    if not isinstance(a, dict):
+        return None
+    e = a.get(dienst)
+    return e if isinstance(e, dict) else None
+
+
+def _check_ausnahmen(name: str, a: dict) -> list[str]:
+    """Schema und Frist der Auflage-Ausnahmen eines Hosts."""
+    issues: list[str] = []
+    aus = a.get("ausnahmen")
+    if aus is None:
+        return issues
+    if not isinstance(aus, dict):
+        return [f"auflage: host '{name}'.ausnahmen ist kein Mapping dienst -> {{…}}"]
+    for dienst, e in aus.items():
+        if not isinstance(e, dict):
+            issues.append(
+                f"auflage: host '{name}'.ausnahmen['{dienst}'] ist kein Mapping"
+            )
+            continue
+        fehlt = _AUSNAHME_FELDER - set(e)
+        if fehlt:
+            issues.append(
+                f"auflage: ausnahme '{dienst}' auf '{name}' fehlt {sorted(fehlt)} — "
+                f"eine Ausnahme ohne Grund, Datum und Frist ist ein stiller Bypass"
+            )
+        fremd = set(e) - _AUSNAHME_FELDER
+        if fremd:
+            issues.append(
+                f"auflage: ausnahme '{dienst}' auf '{name}' hat unbekannte Felder "
+                f"{sorted(fremd)} — erlaubt: {sorted(_AUSNAHME_FELDER)}"
+            )
+        bis = e.get("bis")
+        if bis is None:
+            continue
+        if isinstance(bis, _dt.datetime):
+            bis = bis.date()
+        if not isinstance(bis, _dt.date):
+            issues.append(
+                f"auflage: ausnahme '{dienst}' auf '{name}'.bis ist kein Datum "
+                f"(YYYY-MM-DD), sondern {bis!r}"
+            )
+        elif bis < _today():
+            issues.append(
+                f"auflage: ausnahme '{dienst}' auf '{name}' ist am {bis} abgelaufen — "
+                f"verlaengern (mit Grund) oder den Dienst umziehen/stoppen"
+            )
+    return issues
+
+
 def _check_auflage_block(name: str, h: dict) -> list[str]:
     """Prueft nur die Form des Auflage-Blocks und das, was aus hosts.yaml allein
     entscheidbar ist. Ob ein WORKLOAD gegen die Auflage verstoesst, entscheidet
@@ -168,6 +232,7 @@ def _check_auflage_block(name: str, h: dict) -> list[str]:
                         f"auflage: host '{name}' verbietet unbekannte Datenklasse '{k}' — "
                         f"Vokabular: {sorted(_DATENKLASSEN)}"
                     )
+    issues += _check_ausnahmen(name, a)
     for feld in ("prod_container", "app_hubs", "runner", "oeffentlicher_ingress"):
         if feld in a and not isinstance(a[feld], bool):
             issues.append(f"auflage: host '{name}'.{feld} muss true/false sein")
@@ -213,6 +278,16 @@ def check_auflage(
             )
             continue
         a = h.get("auflage") or {}
+        # Eine benannte, befristete Ausnahme macht aus dem Verstoss einen Hinweis —
+        # nie ein Schweigen. Ihre Frist prueft _check_ausnahmen; laeuft sie ab,
+        # steht der Verstoss wieder als Finding da (platform#2507, Owner 2026-09-01).
+        ausnahme = _ausnahme_fuer(a, dienst)
+        if ausnahme is not None:
+            _AUSNAHME_LOG.append(
+                f"ausnahme: dienst '{dienst}' darf auf '{ziel}' laufen bis "
+                f"{ausnahme.get('bis', '?')} — {ausnahme.get('grund', 'ohne Grund')}"
+            )
+            continue
         if a.get("prod_container") is False:
             senke.append(
                 f"auflage: dienst '{dienst}' ist auf '{ziel}' deklariert, dort sind "
@@ -434,6 +509,8 @@ def main() -> None:
             print("FEHLER: --check labels braucht --workflows <dir>", file=sys.stderr)
             sys.exit(2)
 
+    for a in _AUSNAHME_LOG:
+        print(f"⚖ {a}")
     for h in hinweise:
         print(f"⚠ deklariert (blockiert, kein Finding im PR-Modus): {h}")
     if issues:

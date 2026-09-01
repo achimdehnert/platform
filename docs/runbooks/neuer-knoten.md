@@ -55,13 +55,28 @@ Pflichtfelder von Anfang an, auch wenn das Gerät noch nicht angeschaltet ist:
       oeffentlicher_ingress: false
       nur_dienste: [risk-hub, frist-hub]         # Whitelist, nur wenn Lane G
       grund: "<KONZ-/ADR-Nummer oder Owner-Entscheid mit Datum>"
+      ausnahmen:                                 # optional, s. u. — nie ohne Frist
+        <dienst>:
+          grund: "<warum dieser Dienst hier trotzdem laufen darf>"
+          entschieden: <YYYY-MM-DD>
+          bis: <YYYY-MM-DD>
     hosts_runners: []
     verified: false
     verified_bis: <heute + 30 Tage>
 ```
 
 Jedes Feld im `auflage:`-Block ist optional; fehlt es, gilt „erlaubt". `grund` ist
-Pflicht, sobald der Block existiert. Das Vokabular für `datenklassen_verboten` ist
+Pflicht, sobald der Block existiert.
+
+**`ausnahmen:` — der einzige Weg, eine Auflage punktuell zu durchbrechen.** Sie
+gilt je Dienst, nie je Knoten, und braucht alle drei Felder: `grund`,
+`entschieden`, `bis`. Fehlt eines, ist das ein Schema-Fehler — eine Ausnahme ohne
+Grund, Datum und Frist ist ein stiller Bypass. Läuft `bis` ab, wird der Verstoß
+**wieder ein Finding**; eine Ausnahme, die niemand verlängern muss, ist eine
+Auflage, die es nicht gibt. Gewährte Ausnahmen gibt der Audit **immer** aus
+(`⚖ ausnahme: …`), auch außerhalb des PR-Modus — was man nur im Diff sieht,
+prüft niemand nach. Erster Anwendungsfall: platform#2507, Owner-Entscheid
+2026-09-01 (`robo-twin`, `mail-links` auf `dev-desktop`). Das Vokabular für `datenklassen_verboten` ist
 fest (`gov-sozialdaten`, `personenbezogen`); ein anderer Wert ist ein Schema-Fehler,
 kein neuer Begriff.
 

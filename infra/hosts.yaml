@@ -126,6 +126,28 @@ hosts:
     auflage:
       prod_container: false
       grund: "ADR-257 Entscheidung 1 + ADR-292 Zielrolle: nur Dev + Desktop-Streaming, KEINE Prod-Container"
+      # Zwei der vier Dienste aus platform#2507 sind KEINE Prod-Workloads, sondern
+      # Owner-eigene Dev-/Hilfsdienste, die zufaellig einen oeffentlichen Namen
+      # tragen. Die Auflage traf sie nur, weil der Check "oeffentlicher Hostname"
+      # mit "Prod-Container" gleichsetzte. Owner-Entscheid 2026-09-01 (#2507).
+      # Befristet, damit die Ausnahme nicht zur stillen Dauerregel wird: laeuft
+      # `bis` ab, ist der Verstoss wieder ein Finding.
+      ausnahmen:
+        robo-twin:
+          grund: >
+            Dev-Dienst des Owners (robo-lab Twin, systemd --user, 127.0.0.1:8790).
+            Kein Prod-Workload, keine Nutzerdaten. Gemessen 2026-09-01: 0 HTTP-Abrufe
+            in 7 Tagen — er belastet den Knoten nicht.
+          entschieden: 2026-09-01
+          bis: 2026-12-01
+        mail-links:
+          grund: >
+            Werkzeug des Owners (Mail-/Lotse-/Todo-Links, fester Port 8787, nur
+            Loopback + cloudflared). Kein Prod-Workload. Gemessen 2026-09-01:
+            106 HTTP-Requests in 7 Tagen, taeglich in Benutzung — Stilllegen waere
+            ein Rueckschritt, Umzug nach prod-b unverhaeltnismaessig.
+          entschieden: 2026-09-01
+          bis: 2026-12-01
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gpu-box:
