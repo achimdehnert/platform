@@ -326,8 +326,8 @@ Wo Spruch und Owner-Label auseinanderfallen, ist genau das der Ertrag des Laufs 
 
 | Klasse | Symptom im Browser | Klassen-Gate (Vorlage) |
 |---|---|---|
-| `nicht-begehbar` | Station nur per getippter URL | Test: jede seitenrendernde Route gegen `{% url %}` aller Templates, Ausnahmen **mit Grund** — `ausschreibungs-hub/tests/test_erreichbarkeit_screens.py` |
-| `stiller-fehler` | Klick „tut nichts", 4xx im Netzwerk | globaler `htmx:responseError`-Handler in `base.html` — `ausschreibungs-hub/templates/base/base.html:101` |
+| `nicht-begehbar` | Station nur per getippter URL | Test: jede seitenrendernde Route gegen `{% url %}` aller Templates, Ausnahmen **mit Grund** — Realfall ausschreibungs-hub 2026-08-25, 14 Routen ohne Weg; dort gebaut als `tests/test_erreichbarkeit_screens.py` |
+| `stiller-fehler` | Klick „tut nichts", 4xx im Netzwerk | globaler `htmx:responseError`-Handler im Basis-Template — Realfall ausschreibungs-hub 2026-08-24, HTMX-4xx unsichtbar; dort gebaut in `templates/base/base.html:101` |
 | `csrf-403` | HTMX-POST → 403, Body nennt CSRF | `hx-headers` mit Token am `body`, nicht je Formular |
 | `markup-leck` | Django-Kommentar/Template-Syntax als sichtbarer Text | Test ueber **alle** Templates auf mehrzeilige `{# #}` |
 | `fallback-als-erfolg` | plausibler Text statt Fehler | Aufrufer wertet das Fehlerfeld der Bibliothek aus; was nicht extrahiert wurde, wird nicht gespeichert |
@@ -470,6 +470,17 @@ ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, is
 (R7), kein Pruefer, und faellt per K9 einzeln raus.
 
 ## Changelog
+
+- 2026-09-01 (K6-Messung, platform#2507-Sitzung): **Zwei Exemplare im Klassen-Katalog waren
+  unmarkierte Repo-Pfade** (`nicht-begehbar`, `stiller-fehler`) — sie standen ohne Realfall-Marker
+  direkt in der Gate-Vorlage und lasen sich wie eine Anweisung, den Test genau dort anzulegen.
+  Beide tragen jetzt Datum und Anlass, wie die uebrigen Zeilen der Tabelle.
+  **K6-Messung danach:** 31 Treffer, 4 ohne zeilenweisen Marker — Z18 (Marker steht eine Zeile
+  hoeher im selben Blockquote), Z44 (`meiki-lra` ist eine **Org**, kein Repo; das Suchmuster
+  faengt sie mit), Z428 (Dogfood-Test, muss das Pilot-Repo nennen), Z475 (Changelog).
+  Keine davon steuert eine Anweisung. **Der Sache nach haelt die Blaupause; der Buchstabe des
+  Kriteriums ist mit diesem grep nicht entscheidbar** — Vorschlag zur Praezisierung liegt beim
+  Owner, K6 bleibt bis dahin `offen`.
 
 - 2026-08-30 (3, E19-Lauf gegen vier Staende — platform#2474, Owner „25 weg 1; 30 go"):
   **K1 steht auf 8/9 und ist damit erfuellt.** ausschreibungs-hub 5 von 6, je am Commit vor
