@@ -229,3 +229,79 @@ def test_should_read_a_real_klickdummy_spec():
     screens = ug.lade_spec(echt)
     assert len(screens) >= 1
     assert all("id" in s and "title" in s for s in screens)
+
+
+# ── Auswahl-Schritt (platform#2571) ────────────────────────────────────────
+#
+# Der Fall aus dem ersten echten Lauf (2026-09-01): der Agent erzeugt fuenf
+# Ideen, der Marker steht nur in einer der nicht gewaehlten — sein Verschwinden
+# ist die Wahl des Nutzers, kein Defekt. Ohne diese Unterscheidung wuerde die
+# Pruefung an JEDEM Fan-out rot und nach dem zweiten Lauf abgeschaltet.
+
+
+def test_should_treat_marker_lost_at_the_selection_as_deselected(tmp_path):
+    st = _lauf(tmp_path, ["Ansgar Weidlich in Hohenfelde", "Idee A und Hohenfelde", "nur Ansgar Weidlich"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde", "--auswahl-bei", "3")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "marker-abgewaehlt" in r.stdout and "Hohenfelde" in r.stdout
+    assert "marker-riss" not in r.stdout
+
+
+def test_should_still_flag_a_break_after_the_selection(tmp_path):
+    """Gegenprobe: derselbe Marker, aber er ueberlebt die Auswahl und faellt
+    erst DANACH weg. Das ist C11 und bleibt ein Fehler."""
+    st = _lauf(
+        tmp_path,
+        ["Ansgar Weidlich in Hohenfelde", "Idee A und Hohenfelde", "Hohenfelde bleibt", "Franz statt allem"],
+    )
+    r = _run("marker", "--stationen", str(st), "--marker", "Hohenfelde", "--auswahl-bei", "3")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "marker-riss" in r.stdout and "Station 4" in r.stdout
+
+
+def test_should_keep_the_control_marker_absolute_across_the_selection(tmp_path):
+    """Der Kontrollmarker kennt keine Auswahl: schlaegt er an, ist die Messung
+    ungueltig — auch mit --auswahl-bei."""
+    st = _lauf(tmp_path, ["Ansgar Weidlich", f"mit {ug.KONTROLLMARKER}", "Ansgar Weidlich"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich", "--auswahl-bei", "2")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "wertlos" in r.stderr
+
+
+def test_should_behave_as_before_without_the_parameter(tmp_path):
+    """Ohne --auswahl-bei bleibt es beim alten Verhalten — der Parameter
+    entschaerft nur, wo er gesetzt ist."""
+    st = _lauf(tmp_path, ["Ansgar Weidlich in Hohenfelde", "Idee A und Hohenfelde", "nur Ansgar Weidlich"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Hohenfelde")
+    assert r.returncode == 1 and "marker-riss" in r.stdout
+
+
+def test_should_fail_loudly_on_a_selection_station_out_of_range(tmp_path):
+    st = _lauf(tmp_path, ["Ansgar Weidlich", "Ansgar Weidlich"])
+    r = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich", "--auswahl-bei", "9")
+    assert r.returncode == 2 and "ausserhalb" in r.stderr
+
+
+def test_should_reproduce_the_run_of_2026_09_01(tmp_path):
+    """Der Realfall als Fixture: writing-hub Ideen-Studio, vier Stationen.
+    `Hohenfelde` stand nur in der zweiten von fuenf erzeugten Ideen, gewaehlt
+    wurde die erste — an Station 4 zeigt die Oberflaeche nur noch die gewaehlte.
+    Ohne --auswahl-bei 4 waere das ein Riss, der keiner ist."""
+    st = _stationen_datei(
+        tmp_path,
+        [
+            {"titel": "Session starten", "text": "Ansgar Weidlich, Deichgraf, kehrt nach Hohenfelde zurueck."},
+            {"titel": "Brainstorming", "text": "Ansgar Weidlich ... Das Dorf Hohenfelde ... fuenf Ideen"},
+            {"titel": "Verfeinern", "text": "Das Fluestern der Watt: Ansgar Weidlich ... Der letzte Deichgraf: Hohenfelde, Ansgar Weidlich"},
+            {"titel": "Projekt angelegt", "text": "Das Fluestern der Watt — Ansgar Weidlich kehrt zurueck."},
+        ],
+        "lauf20260901.json",
+    )
+    ohne = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde")
+    assert ohne.returncode == 1, "ohne --auswahl-bei muss der Scheinriss auftreten"
+    assert "marker-riss" in ohne.stdout
+
+    mit = _run("marker", "--stationen", str(st), "--marker", "Ansgar Weidlich,Hohenfelde", "--auswahl-bei", "4")
+    assert mit.returncode == 0, mit.stdout + mit.stderr
+    assert "marker-abgewaehlt" in mit.stdout
+    assert "0 Treffer" in mit.stdout, "Kontrollmarker muss weiterhin ausdruecklich mit 0 belegt sein"
