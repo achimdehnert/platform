@@ -272,3 +272,60 @@ class TestCli:
         )
         assert ea.main() == 0
         assert not anker.exists()
+
+
+class TestUnaufloesbar:
+    def test_should_record_a_dead_uid_with_date_and_place(self, postfaecher):
+        ergebnisse, _ = _lauf(_ledger(("hnu", "INBOX #999999")), postfaecher)
+        tot = ea.uebernehme_tot(ergebnisse, {}, "2026-09-01")
+        assert tot == {
+            "hnu-inbox-999999": {"seit": "2026-09-01", "vorgang": 1, "eintrag": 1}
+        }
+
+    def test_should_keep_the_first_date_when_seen_again(self, postfaecher):
+        ergebnisse, _ = _lauf(_ledger(("hnu", "INBOX #999999")), postfaecher)
+        alt = {"hnu-inbox-999999": {"seit": "2026-08-01"}}
+        assert (
+            ea.uebernehme_tot(ergebnisse, alt, "2026-09-01")["hnu-inbox-999999"]["seit"]
+            == "2026-08-01"
+        )
+
+    def test_should_drop_a_number_that_came_back(self, postfaecher):
+        ergebnisse, _ = _lauf(_ledger(("hnu", "INBOX #164024")), postfaecher)
+        alt = {"hnu-inbox-164024": {"seit": "2026-08-01"}}
+        assert ea.uebernehme_tot(ergebnisse, alt, "2026-09-01") == {}
+
+    def test_should_count_only_what_is_neither_anchored_nor_judged_as_open(self):
+        funde = ea.referenzen_im_ledger(
+            _ledger(("hnu", "INBOX #1001, #1002 und #1003")), {}
+        )
+        noch = ea.offen(funde, {"hnu-inbox-1001": object()}, {"hnu-inbox-1002": {}})
+        assert list(noch) == ["hnu-inbox-1003"]
+
+
+def test_should_print_only_the_summary_line_with_kurz(
+    tmp_path, monkeypatch, capsys, postfaecher
+):
+    ledger = tmp_path / "l.json"
+    ledger.write_text(
+        json.dumps(_ledger(("hnu", "INBOX #164024 und INBOX #999999"))), "utf-8"
+    )
+    monkeypatch.setattr(ea, "_verbinde", lambda k: postfaecher[k])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "eintrag_anker.py",
+            "--kurz",
+            "--trocken",
+            "--ledger",
+            str(ledger),
+            "--anker",
+            str(tmp_path / "a.json"),
+            "--tot",
+            str(tmp_path / "t.json"),
+        ],
+    )
+    assert ea.main() == 0
+    zeilen = capsys.readouterr().out.strip().splitlines()
+    assert len(zeilen) == 1 and zeilen[0].startswith("2 Referenzen: 1 neu verankert")

@@ -109,7 +109,7 @@ def test_should_report_every_broken_link_by_name(tmp_path, monkeypatch):
 class TestReferenzen:
     """Zwei neue Glieder (#2592): Ordner-Pflicht und Verankerung je Referenz."""
 
-    def _dateien(self, tmp_path, notiz, anker):
+    def _dateien(self, tmp_path, notiz, anker, tot=()):
         ledger = tmp_path / "ledger.json"
         ledger.write_text(
             json.dumps({"vorgaenge": [{"nr": 1, "konto": "hnu", "notiz": notiz}]}),
@@ -118,7 +118,11 @@ class TestReferenzen:
         archiv = tmp_path / "archiv.json"
         anker_datei = tmp_path / "anker.json"
         anker_datei.write_text(json.dumps({k: {} for k in anker}), encoding="utf-8")
-        return ledger, archiv, anker_datei
+        tot_datei = tmp_path / "tot.json"
+        tot_datei.write_text(
+            json.dumps({k: {"seit": "2026-09-01"} for k in tot}), encoding="utf-8"
+        )
+        return ledger, archiv, anker_datei, tot_datei
 
     def test_should_pass_when_every_number_has_folder_and_anchor(self, tmp_path):
         dateien = self._dateien(
@@ -152,4 +156,14 @@ class TestReferenzen:
         _, anker = kc.pruefe_referenzen(*dateien)
         assert not anker.ok
         assert "eintrag_anker.py" in anker.hinweis
-        assert "0 von 1" in anker.ort
+        assert "0 von 1 verankert, 0 unaufloesbar, 1 offen" in anker.ort
+
+    def test_should_hold_for_a_number_judged_unresolvable(self, tmp_path):
+        """81 UIDs waren am 2026-09-01 vor der Verankerung gestorben. Ein Glied,
+        das deshalb fuer immer rot bliebe, wuerde nicht mehr gelesen."""
+        dateien = self._dateien(
+            tmp_path, "2026-09-05: Klimm (INBOX #164024)", [], tot=["hnu-inbox-164024"]
+        )
+        _, anker = kc.pruefe_referenzen(*dateien)
+        assert anker.ok
+        assert "1 unaufloesbar, 0 offen" in anker.ort

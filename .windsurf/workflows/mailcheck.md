@@ -375,6 +375,9 @@ Prüfer überlebt.
       gelaufen — NACH dem Ledger-Update und VOR Schritt 7a (die Ablage entwertet
       UIDs; was dann nicht verankert ist, bleibt fuer immer Text). Die Zeile
       „N Referenzen: X neu verankert, … Y nicht gefunden" im Ergebnis nennen.
+      Nicht Gefundenes wird mit Datum in `~/.claude/mail-eintrag-tot.json`
+      befundet — der Kettencheck meldet nur noch, was weder verankert noch
+      befundet ist.
 - [ ] **Ordner-Pflicht geprueft** (#2592 K3): `python3 tools/mail_agent/referenzen.py
       --pruefe-ordner` — Exit 0. Ein Verstoss wird im selben Lauf im Ledger
       korrigiert (Ordner nachtragen), nicht notiert.
