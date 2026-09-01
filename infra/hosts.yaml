@@ -252,17 +252,31 @@ hosts:
     role: >
       Off-Provider-Backup-Ziel (ADR-289 R1): restic rest-server, append-only. Einziger
       Host ausserhalb der Hetzner-Fehlerdomaene, groesste Platte (1 TB). Firewall liegt
-      im netcup-Panel, nicht am Host. Weitere ADR-289-Rollen (R2 Monitoring, R3 Runner,
-      R4 DR) sind vertagt — siehe auflage.
+      im netcup-Panel, nicht am Host.
+      R3 CI-/Build-Runner AKTIV seit 2026-09-01 (Owner-Beschluss 2026-08-30 „R3 auf
+      netcup aktivieren", Ausfuehrung nach platform#2543) — ausschliesslich ROOTLESS,
+      siehe auflage. R2 Monitoring und R4 DR bleiben vertagt.
     historie:
       - "2026-07-30: Speicherklasse per fio als SSD/NVMe belegt (Panel sagte HDD)"
-      - "2026-08-30: CI-Runner laeuft entgegen R3 mit github-ci in Gruppe docker; personenbezogene Daten ohne AVV (platform#2486); kein restic check, kein Prune, Schluessel ohne Escrow (platform#2504)"
-    hosts_runners: []
+      - "2026-08-30: CI-Runner laeuft entgegen R3 mit github-ci in Gruppe docker (platform#2486 Punkt 1); kein restic check, kein Prune, Schluessel ohne Escrow (platform#2504)"
+      - "2026-09-01: AVV nach Art. 28 DSGVO liegt vor, unterzeichnet 30.07.2026 — der Befund 'AVV fehlt' war falsch; das Dokument war nur nicht abgelegt (platform#2486 Punkt 4)"
+      - "2026-09-01: R3 aktiviert, aber ROOTLESS — github-ci hat einen eigenen Daemon (/run/user/1000/docker.sock) und ist NICHT in der Gruppe docker. Gegenprobe am Host: Zugriff auf /var/run/docker.sock = permission denied"
+    hosts_runners: [netcup-ci]
     auflage:
       datenklassen_verboten: [personenbezogen]
       app_hubs: false
-      runner: false
-      grund: "ADR-289 R1 + §4.6: nur Off-Provider-Backup; R3 Runner vertagt; personenbezogene Daten erst nach AVV (offen, platform#2486)"
+      runner: true                     # seit 2026-09-01, NUR rootless — s. grund
+      grund: >
+        ADR-289 R1 + §4.6 (nur Off-Provider-Backup) mit einer benannten Ausnahme:
+        R3 CI-/Build-Runner ist seit 2026-09-01 erlaubt, ABER ausschliesslich rootless
+        (eigener Nutzer-Daemon, KEINE Mitgliedschaft in der Gruppe `docker`) — sonst
+        waere jeder CI-Job root-aequivalent auf dem Host, der die einzige Kopie
+        ausserhalb der Hetzner-Fehlerdomaene haelt (platform#2486 Punkt 1).
+        `datenklassen_verboten: [personenbezogen]` bleibt bestehen, obwohl der AVV
+        seit 2026-07-30 vorliegt: der Hinderungsgrund ist jetzt nicht mehr der
+        Vertrag, sondern der fehlende Loeschpfad — `restic forget`/Prune laufen
+        nirgends (platform#2504), und ohne Loeschpfad kein Art. 17.
+        Belege: platform#2543, platform#2486.
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -320,6 +334,37 @@ runners:
       "wsl -d Ubuntu -u root -- sleep infinity"). Deploy-Jobs bleiben auf prod-server;
       hier laufen nur `_ci-python`-Block und der writing-hub-Eigenjob `integration-tests`.
     verified: 2026-08-28               # Box-Fakten; Runner-Status offen
+  netcup-ci:
+    host: netcup                       # 152.53.136.219
+    status: geplant                    # Registrierung folgt NACH dem Merge dieses PR —
+                                       # Runbook-Reihenfolge: erst Deklaration, dann Zugang.
+                                       # Am 2026-09-01 war es einmal umgekehrt (platform#2543).
+    labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>
+    service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci.service
+    runner_user: github-ci             # REC-5, nicht root
+    rootless: true                     # ← die Bedingung der Auflage, maschinenlesbar
+    docker_host: unix:///run/user/1000/docker.sock
+    consumers: [writing-hub]
+    note: >
+      Traegt `ci-nonprod`, damit CI nicht an der GPU-Box haengt, die laut
+      Owner-Entscheid 2026-08-31 nur noch auf Zuruf laeuft.
+      ROOTLESS ist keine Empfehlung, sondern die Bedingung: github-ci hat einen
+      eigenen Daemon unter /run/user/1000/docker.sock und ist NICHT in der Gruppe
+      `docker`. Waere er es, haette jeder CI-Job root-aequivalenten Zugriff auf das
+      einzige Off-Provider-Backup (platform#2486 Punkt 1).
+      Am 2026-09-01 gemessen, dass rootless die Actions-`services:` traegt: eigenes
+      Netz, Service-Container mit Netz-Alias und veroeffentlichtem Port, healthy nach
+      15 s, erreichbar vom Host UND container-zu-container ueber den Alias;
+      Negativkontrolle auf einem freien Port = connection refused.
+      Zwei weitere Huerden, die auf jedem Debian-13-Laeufer stehen: `github-ci` muss
+      `enable-linger` haben (sonst stirbt der Nutzer-Daemon), und
+      `actions/setup-python` findet fuer Debian 13 kein Python — die Version muss im
+      Tool-Cache unter `_work/_tool/Python/<ver>/x64` liegen, mit `x64.complete`.
+    verified: false
+    verified_bis: 2026-10-01           # bis dahin muss ein gruener writing-hub-Lauf belegen
+
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
     status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)
