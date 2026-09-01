@@ -52,11 +52,10 @@ SSH = ("ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes")
 COMPOSE_MUSTER = re.compile(r"^docker-compose[^/]*\.ya?ml$")
 NICHT_PROD = ("staging", "dev", "test", "ci", "local", "example")
 
-# betriebsstatus-Werte, bei denen ein fehlender Container ERKLAERT ist.
-# `ruhend` kam am 2026-09-01 dazu (Owner-Urteil zu #2586 K5): apo-hub, chat-hub
-# und odoo-hub laufen nicht, koennen aber jederzeit wieder anlaufen. Das ist
-# weder `stillgelegt` (endgueltig) noch `blockiert` (etwas haelt sie auf).
-ERKLAERT = ("stillgelegt", "blockiert", "geplant", "ruhend")
+# Vokabular kommt aus tools/betriebsstatus.py — dieselbe Quelle wie fuer den
+# Erreichbarkeits- und den TLS-Melder (#2586 K5).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from betriebsstatus import ERKLAERT  # noqa: E402
 
 
 class Unpruefbar(Exception):

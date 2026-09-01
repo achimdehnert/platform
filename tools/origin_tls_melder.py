@@ -96,8 +96,13 @@ GATE_HEADER = {
     "last_drill_pass": "2026-08-24",
     "evidence": "tools/tests/test_origin_tls_melder.py",
 }
+from pathlib import Path
 
-STATUS_ERLAUBT = ("aktiv", "stillgelegt", "blockiert")
+# Vokabular kommt aus tools/betriebsstatus.py — drei Kopien einer Liste
+# sind drei Gelegenheiten, dass sie auseinanderlaufen (#2586 K5).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from betriebsstatus import STATUS_ERLAUBT  # noqa: E402
+
 PROD_HOSTS = ("prod", "prod-b")
 SSH = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes"]
 SSH_TIMEOUT_S = 120
