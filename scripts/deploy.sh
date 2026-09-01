@@ -69,18 +69,78 @@ fi
 # und LÖSCHT sie (Realfall 2026-07-10: weltenhub_db + weltenhub_redis entfernt
 # → Login-Ausfall ~15 min). Alle compose-Aufrufe nutzen ab hier
 # "${COMPOSE_ARGS[@]}" statt -f "$COMPOSE_FILE".
+# --- KETTE-ANFANG (tools/tests/test_deploy_compose_kette.py fuehrt genau
+#     diesen Block aus — eine Kopie im Test wuerde davon wegdriften.)
 COMPOSE_ARGS=(-f "$APP_PATH/$COMPOSE_FILE")
-if [[ -f "$APP_PATH/docker-compose.override.yml" ]]; then
-  COMPOSE_ARGS+=(-f "$APP_PATH/docker-compose.override.yml")
-  # Herkunfts-Warnung: Host-Override ohne CI-Manifest-Eintrag = ältere
-  # shared-ci-Version (synct override noch nicht) ODER undeklarierte
-  # Host-Datei (KONZ-015-Fehlerklasse). Heute: laut warnen + mitfahren
-  # (sonst Rezidiv der Container-Löschung); fail-closed folgt, sobald
-  # shared-ci override_sha fleet-weit ins Manifest schreibt.
-  if [[ "$ENVIRONMENT" == "production" ]] && ! python3 -c "import json,sys; d=json.load(open('$APP_PATH/.deploy-manifest.json')); sys.exit(0 if d.get('override_sha') else 1)" 2>/dev/null; then
-    echo "::warning::docker-compose.override.yml am Host ohne override_sha im CI-Manifest — Herkunft ungesichert (platform#1063). Wird mitdeployt; Enforcement folgt."
-  fi
+
+# platform#2586 K2 — die -f-Kette kommt aus dem MANIFEST, nicht aus einem hart
+# benannten Dateinamen und auch nicht aus einem Glob am Host.
+#
+# Warum nicht ein Glob: dann faehrt jede Datei mit, die irgendwann einmal auf
+# dem Host landete. Am 2026-09-01 lagen in /opt/mcp-hub eine
+# docker-compose.rag.yml, die das Repo nicht mehr kennt, und eine
+# .llm-mcp.yml.bak — beide waeren mitgefahren (KONZ-015-Fehlerklasse).
+#
+# Warum ueberhaupt: bis hierher stand genau EIN zusaetzlicher Name in der Kette
+# (docker-compose.override.yml, platform#1063). Jede andere Overlay-Datei blieb
+# draussen, und `up --remove-orphans` LOESCHT deren Container. Realfall
+# 2026-09-01: mcp_hub_rag wurde 34 Minuten nach seiner Erzeugung entfernt;
+# llm_gateway und mcp_hub_grafana waren aus demselben Grund schon vorher weg.
+#
+# Reihenfolge: Basis-Datei zuerst, Overlays danach — spaetere -f gewinnen. Die
+# Manifest-Reihenfolge ist alphabetisch und taugt dafuer NICHT
+# (docker-compose.llm-mcp.yml sortiert vor docker-compose.prod.yml).
+_MANIFEST_PFAD="$APP_PATH/.deploy-manifest.json"
+_DEKLARIERT=()
+if [[ -f "$_MANIFEST_PFAD" ]]; then
+  mapfile -t _DEKLARIERT < <(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$_MANIFEST_PFAD'))
+except Exception:
+    sys.exit(0)
+for name in sorted(d.get('compose_files') or {}):
+    print(name)
+" 2>/dev/null || true)
 fi
+
+if [[ ${#_DEKLARIERT[@]} -gt 0 ]]; then
+  for _f in "${_DEKLARIERT[@]}"; do
+    [[ "$_f" == "$COMPOSE_FILE" ]] && continue          # Basis steht schon drin
+    if [[ ! -f "$APP_PATH/$_f" ]]; then
+      echo "::error::ADR-021 §2.20: '$_f' steht im CI-Manifest, fehlt aber am Host. Der Sync ist unvollstaendig — Abbruch statt Deploy mit halbem Stack."
+      exit 8
+    fi
+    COMPOSE_ARGS+=(-f "$APP_PATH/$_f")
+  done
+  echo "✅ -f-Kette aus dem Manifest: ${#_DEKLARIERT[@]} deklarierte Datei(en)"
+
+  # Undeklarierte compose-Dateien am Host: melden, aber NICHT mitfahren lassen.
+  # Sie sind der Grund, warum die Kette aus dem Manifest kommt.
+  for _h in "$APP_PATH"/docker-compose*.yml "$APP_PATH"/docker-compose*.yaml; do
+    [[ -f "$_h" ]] || continue
+    _n=$(basename "$_h")
+    [[ "$_n" == "$COMPOSE_FILE" ]] && continue
+    if ! printf '%s\n' "${_DEKLARIERT[@]}" | grep -qxF "$_n"; then
+      echo "::warning::$_n liegt am Host, steht aber in keinem CI-Manifest — faehrt NICHT mit (undeklarierte Host-Datei, KONZ-015)."
+    fi
+  done
+else
+  # Rueckfall fuer Hubs, deren Manifest noch von einer aelteren shared-ci-Version
+  # stammt: das Verhalten von platform#1063, unveraendert.
+  if [[ -f "$APP_PATH/docker-compose.override.yml" ]]; then
+    COMPOSE_ARGS+=(-f "$APP_PATH/docker-compose.override.yml")
+    # Herkunfts-Warnung: Host-Override ohne CI-Manifest-Eintrag = aeltere
+    # shared-ci-Version (synct override noch nicht) ODER undeklarierte
+    # Host-Datei (KONZ-015-Fehlerklasse). Heute: laut warnen + mitfahren
+    # (sonst Rezidiv der Container-Loeschung).
+    if [[ "$ENVIRONMENT" == "production" ]] && ! python3 -c "import json,sys; d=json.load(open('$APP_PATH/.deploy-manifest.json')); sys.exit(0 if d.get('override_sha') else 1)" 2>/dev/null; then
+      echo "::warning::docker-compose.override.yml am Host ohne override_sha im CI-Manifest — Herkunft ungesichert (platform#1063). Wird mitdeployt; Enforcement folgt."
+    fi
+  fi
+  echo "::warning::Kein compose_files im Manifest — aeltere shared-ci-Version. -f-Kette faellt auf platform#1063 zurueck (nur docker-compose.override.yml)."
+fi
+# --- KETTE-ENDE
 
 # ADR-021 §2.19 — pin COMPOSE_PROJECT_NAME explicitly for both environments.
 # Previously only staging was pinned; prod relied on Docker Compose's implicit
@@ -241,6 +301,27 @@ if [[ "$ENVIRONMENT" == "production" && "$_ROLLBACK_MODE" != "1" ]]; then
     # platform#1063 — override-Integrität: sobald das CI-Manifest eine
     # override_sha trägt (neuere shared-ci-Version), gilt für die Override
     # dieselbe fail-closed-Prüfung wie für die Haupt-Datei.
+    # platform#2586 K3 — jede deklarierte Datei wird geprueft, nicht nur die
+    # Basis. Ohne das traegt der Deploy eine Overlay-Datei mit, deren Inhalt
+    # nach dem CI-Sync veraendert wurde.
+    python3 - "$_MANIFEST" "$APP_PATH" <<'PYSHA' || exit 7
+import hashlib, json, pathlib, sys
+
+manifest, app = sys.argv[1], pathlib.Path(sys.argv[2])
+dateien = json.load(open(manifest)).get("compose_files") or {}
+for name, erwartet in sorted(dateien.items()):
+    pfad = app / name
+    if not pfad.exists():
+        print(f"::error::ADR-021 2.17: {name} steht im Manifest, fehlt am Host.")
+        raise SystemExit(1)
+    ist = hashlib.sha256(pfad.read_bytes()).hexdigest()
+    if ist != erwartet:
+        print(f"::error::ADR-021 2.17: sha256 mismatch fuer {name}. "
+              f"expected={erwartet} actual={ist}. Abbruch (fail-closed).")
+        raise SystemExit(1)
+    print(f"OK compose sha256 verified: {name}")
+PYSHA
+
     _EXPECTED_OSHA=$(python3 -c "import json; d=json.load(open('$_MANIFEST')); print(d.get('override_sha',''))" 2>/dev/null || true)
     if [[ -n "$_EXPECTED_OSHA" && -f "$APP_PATH/docker-compose.override.yml" ]]; then
       _ACTUAL_OSHA=$(sha256sum "$APP_PATH/docker-compose.override.yml" | awk '{print $1}')
