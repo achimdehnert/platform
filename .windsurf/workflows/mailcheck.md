@@ -160,13 +160,23 @@ statt einer erfundenen Nummer **Betreff in Anfuehrungszeichen plus Datum** in de
 Satz — daraus baut `tools/mail_agent/eintrag_mails.py` wenigstens die
 Identifikation in der Kopfzeile.
 
-**Referenzen so schreiben, dass sie klickbar werden:** Der Renderer verlinkt eine
-Nachrichten-Nummer nur, wenn der **Ordner danebensteht** (`INBOX #164024`,
-`Ordner 'Gesendete Objekte' (#34349)`). Ohne Ordner loest `/m/<konto>/<uid>`
-ausschliesslich gegen INBOX auf — eine Entwurfs-UID ergaebe dort einen 404,
-darum wird sie nur ausgezeichnet statt verlinkt. `UID 23589` ohne Ordnerangabe
-bleibt also stumm; `Entwuerfe #23589` wird ein Link. GitHub-Referenzen
-(`meiki-lra/meiki-hub#146`, `platform#2183`) verlinken von selbst.
+**Der Pruefer dazu (seit 2026-09-01, #2199/#2592 K3):**
+`python3 tools/mail_agent/referenzen.py --pruefe-ordner` — Exit 1, sobald ein
+Eintrag ab dem Stichtag eine Nummer ohne Ordner nennt; der Kettencheck fuehrt
+denselben Befund taeglich als Glied „Verl.-Ordner". Eine Aufzaehlung hinter EINEM
+Ordner gilt (`INBOX #164084, #164091`, `Entwuerfe #23761 bis #23780`).
+
+**Referenzen werden klickbar, sobald sie VERANKERT sind (seit 2026-09-01, #2563/#2592 K2):**
+Der Renderer verlinkt eine Nachrichten-Nummer nur, wenn `eintrag_anker.py` ihre
+Message-ID hinterlegt hat — dann als `/a/<konto>-<ordner>-<uid>` auf
+`mail.iil.pet`, und dieser Link ueberlebt Ablage, Senden und ersetzte Entwuerfe.
+Eine unverankerte Nummer bleibt Text mit Hinweis. Gemessen am 2026-09-01 waren
+89 von 203 UID-Links tot; die Verankerung gelingt nur, **solange die UID noch
+gilt** — darum laeuft `eintrag_anker.py` am Ende JEDES /mailcheck (Checkliste)
+und taeglich ueber `make boards`. Der Ordner im Text macht die Verankerung
+eindeutig; ohne ihn wird in den Suchordnern gesucht und bei Mehrdeutigkeit
+nichts verankert. GitHub-Referenzen (`meiki-lra/meiki-hub#146`,
+`platform#2183`) verlinken von selbst.
 
 ## Vorgangs-Speicher (Ledger)
 
@@ -361,9 +371,22 @@ Prüfer überlebt.
 - [ ] **Jeder Link in der Antwort durch `link_pruefen.py` gelaufen** (Abschnitt „Links
       erzeugen, nicht tippen") — Exit 0, und die Zahl der geprüften Links im Ergebnis
       genannt. Ein getippter Link ist kein Link, sondern eine Behauptung.
+- [ ] **Referenzen verankert** (#2592 K2): `python3 tools/mail_agent/eintrag_anker.py`
+      gelaufen — NACH dem Ledger-Update und VOR Schritt 7a (die Ablage entwertet
+      UIDs; was dann nicht verankert ist, bleibt fuer immer Text). Die Zeile
+      „N Referenzen: X neu verankert, … Y nicht gefunden" im Ergebnis nennen.
+- [ ] **Ordner-Pflicht geprueft** (#2592 K3): `python3 tools/mail_agent/referenzen.py
+      --pruefe-ordner` — Exit 0. Ein Verstoss wird im selben Lauf im Ledger
+      korrigiert (Ordner nachtragen), nicht notiert.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog
+
+- **2026-09-01 (#2592 K2/K3):** Verlaufs-Links nur noch auf verankerte Nummern
+  (`/a/<schluessel>` ueber Message-ID statt roher UID-Route — 89 von 203 UID-Links
+  waren tot, #2563); `eintrag_anker.py` verankert, `referenzen.py --pruefe-ordner`
+  prueft die Ordner-Pflicht (#2199), Kettencheck fuehrt beide als Glieder;
+  Checkliste um beide Pflicht-Schritte ergaenzt. Reihenfolge: verankern VOR Schritt 7a.
 
 - 2026-08-07: **DB-first (#1820, SA-4):** `suche.py` (Mail-Index, ADR-288 §4.7) ist der
   Primärweg für alles Historische; IMAP/Graph nur noch als deklarierter Live-Fallback für

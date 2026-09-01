@@ -29,7 +29,11 @@ Aufrufe::
     board.py --render | python3 tools/mail_agent/link_pruefen.py --stdin
     python3 tools/mail_agent/link_pruefen.py --datei antwort.md
 
-Exit 0 nur, wenn JEDER Link 200 liefert. Ein Link auf einem Host, der nicht in
+    python3 tools/mail_agent/link_pruefen.py --vorgangsseiten   # alle Mail-Links aller Vorgangsseiten
+
+Exit 0 nur, wenn JEDER Link 200 liefert — UND die Seite etwas zeigt. Ein 200 mit
+leerem Rumpf belegt den Transport, nicht den Inhalt (Nebenbefund platform#2563):
+unter ``LEER_AB`` sichtbaren Zeichen gilt die Antwort als Fehler. Ein Link auf einem Host, der nicht in
 der Ingress-Liste steht, gilt als **ungeprueft** und damit als Fehler — das ist
 der Standard. Der Grund steht in der Entstehungsgeschichte: der Ausgangsfehler
 war ein Link auf `todo.iil.pet`, und ein Pruefer, der unbekannte Hosts
@@ -50,6 +54,14 @@ from urllib.parse import urlsplit
 INGRESS_GLOB = "*.yml"
 INGRESS_DIRS = (Path.home() / ".cloudflared", Path("/etc/cloudflared"))
 TIMEOUT = 25
+
+#: Unter so vielen sichtbaren Zeichen ist eine 200-Antwort eine leere Seite.
+LEER_AB = 40
+#: Hostname der Arbeitsliste — ihre Vorgangsseiten sind die Quelle fuer
+#: ``--vorgangsseiten``; der Loopback-Port kommt aus der Ingress-Liste.
+TODO_HOST = "todo.iil.pet"
+_TAGS = re.compile(r"<(script|style)\b.*?</\1>|<[^>]+>", re.S | re.I)
+_VORGANGSSEITE = re.compile(r"""href=['"](?:https?://[^/'"]+)?(/t/[^'"]+)['"]""")
 
 _MD_LINK = re.compile(r"\]\((https?://[^\s)]+)\)")
 _CODE = re.compile(r"`[^`]*`")
@@ -100,13 +112,61 @@ def pruefe(url: str, karte: dict[str, str]) -> tuple[str, str]:
     try:
         with urllib.request.urlopen(basis + pfad, timeout=TIMEOUT) as antwort:
             code = antwort.status
+            rumpf = _rumpf(antwort)
     except urllib.error.HTTPError as exc:
         code = exc.code
     except OSError as exc:
         return "fehler", f"Dienst auf {basis} nicht erreichbar: {exc}"
-    if code == 200:
-        return "ok", f"{basis}{pfad} → 200"
-    return "fehler", f"{basis}{pfad} → {code}"
+    if code != 200:
+        return "fehler", f"{basis}{pfad} → {code}"
+    if rumpf is not None and sichtbare_zeichen(rumpf) < LEER_AB:
+        return (
+            "fehler",
+            f"{basis}{pfad} → 200, aber leer ({sichtbare_zeichen(rumpf)} Zeichen)",
+        )
+    return "ok", f"{basis}{pfad} → 200"
+
+
+def _rumpf(antwort) -> str | None:
+    """Der Antworttext — None, wenn die Antwort keinen lesbaren Rumpf hat."""
+    lesen = getattr(antwort, "read", None)
+    if lesen is None:
+        return None
+    try:
+        return lesen().decode("utf-8", "replace")
+    except Exception:
+        return None
+
+
+def sichtbare_zeichen(html_text: str) -> int:
+    """Wie viele Zeichen ein Leser auf der Seite sieht — Tags und Leerraum zaehlen nicht."""
+    return len("".join(_TAGS.sub(" ", html_text).split()))
+
+
+def vorgangsseiten_links(
+    karte: dict[str, str], todo_host: str = TODO_HOST
+) -> list[str]:
+    """Alle Links aller Vorgangsseiten der Arbeitsliste — auf Hosts, die die Karte kennt.
+
+    Die Liste (``/``) nennt jede Vorgangsseite (``/t/<key>``); jede davon nennt
+    ihre Mail-Links. GitHub-Links und andere fremde Hosts bleiben draussen: sie
+    sind nicht Gegenstand von platform#2592 K2 und waeren als ``?`` nur Rauschen.
+    """
+    basis = karte.get(todo_host)
+    if basis is None:
+        raise LookupError(f"'{todo_host}' steht nicht in der Ingress-Liste")
+    with urllib.request.urlopen(basis + "/", timeout=TIMEOUT) as antwort:
+        liste = _rumpf(antwort) or ""
+    seiten = sorted(set(_VORGANGSSEITE.findall(liste)))
+    links: list[str] = []
+    for pfad in seiten:
+        with urllib.request.urlopen(basis + pfad, timeout=TIMEOUT) as antwort:
+            seite = _rumpf(antwort) or ""
+        for url in urls_aus(seite):
+            if urlsplit(url).netloc in karte and url not in links:
+                links.append(url)
+    print(f"{len(seiten)} Vorgangsseiten, {len(links)} Links auf bekannten Hosts")
+    return links
 
 
 def urls_aus(text: str) -> list[str]:
@@ -163,6 +223,11 @@ def main() -> int:
         help="Links auf fremden Hosts durchwinken, statt sie als ungeprueft zu werten "
         "(Ausnahme — der Standard ist streng)",
     )
+    p.add_argument(
+        "--vorgangsseiten",
+        action="store_true",
+        help="alle Mail-Links aller Vorgangsseiten der Arbeitsliste pruefen (#2592 K2)",
+    )
     args = p.parse_args()
 
     text = ""
@@ -171,9 +236,6 @@ def main() -> int:
     if args.datei:
         text += args.datei.read_text(encoding="utf-8")
     kandidaten = list(args.urls) + urls_aus(text)
-    if not kandidaten:
-        print("Keine Links gefunden — nichts zu pruefen.", file=sys.stderr)
-        return 0
 
     karte = ingress_karte()
     if not karte:
@@ -182,6 +244,15 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    if args.vorgangsseiten:
+        try:
+            kandidaten += vorgangsseiten_links(karte)
+        except (LookupError, OSError) as fehler:
+            print(f"FEHLER: Vorgangsseiten nicht lesbar: {fehler}", file=sys.stderr)
+            return 1
+    if not kandidaten:
+        print("Keine Links gefunden — nichts zu pruefen.", file=sys.stderr)
+        return 0
 
     schlecht = 0
     for url in kandidaten:
@@ -195,8 +266,8 @@ def main() -> int:
     if schlecht:
         print(
             "Ein toter Link geht NICHT raus. Erzeugen statt tippen: board.py --render\n"
-            "liefert die Vorgangs-Links, der Mail-Link ist /m/<konto>/<ordner-slug>/<uid>\n"
-            "auf mail.iil.pet — der Ordner-Teil ist Pflicht, nicht Zierde.\n"
+            "liefert die Vorgangs-Links; ein Mail-Link ist /a/<schluessel> auf mail.iil.pet\n"
+            "und entsteht durch eintrag_anker.py — nicht durch Abschreiben einer UID.\n"
             "Ein '?'-Link liegt auf einem Host ohne Loopback-Dienst und ist damit"
             " nicht geprueft, nicht in Ordnung — '--nachsichtig' winkt ihn durch.",
             file=sys.stderr,
