@@ -104,3 +104,52 @@ def test_should_report_every_broken_link_by_name(tmp_path, monkeypatch):
     befunde = kc.alle(HEUTE, mit_index=False)
     kaputt = {b.glied for b in befunde if not b.ok}
     assert {"Ledger", "Vorhersage", "Board", "Todo-HTML"} <= kaputt
+
+
+class TestReferenzen:
+    """Zwei neue Glieder (#2592): Ordner-Pflicht und Verankerung je Referenz."""
+
+    def _dateien(self, tmp_path, notiz, anker):
+        ledger = tmp_path / "ledger.json"
+        ledger.write_text(
+            json.dumps({"vorgaenge": [{"nr": 1, "konto": "hnu", "notiz": notiz}]}),
+            encoding="utf-8",
+        )
+        archiv = tmp_path / "archiv.json"
+        anker_datei = tmp_path / "anker.json"
+        anker_datei.write_text(json.dumps({k: {} for k in anker}), encoding="utf-8")
+        return ledger, archiv, anker_datei
+
+    def test_should_pass_when_every_number_has_folder_and_anchor(self, tmp_path):
+        dateien = self._dateien(
+            tmp_path, "2026-09-05: Klimm (INBOX #164024)", ["hnu-inbox-164024"]
+        )
+        befunde = kc.pruefe_referenzen(*dateien)
+        assert [b.ok for b in befunde] == [True, True]
+        assert "1 von 1" in befunde[1].ort
+
+    def test_should_break_the_folder_link_for_a_bare_number_after_the_cutoff(
+        self, tmp_path
+    ):
+        dateien = self._dateien(
+            tmp_path, "2026-09-05: Entwurf UID 23611 liegt", ["hnu-23611"]
+        )
+        ordner, anker = kc.pruefe_referenzen(*dateien)
+        assert not ordner.ok
+        assert "referenzen.py --pruefe-ordner" in ordner.hinweis
+        assert anker.ok
+
+    def test_should_not_blame_an_entry_from_before_the_cutoff(self, tmp_path):
+        dateien = self._dateien(
+            tmp_path, "2026-08-10: Entwurf UID 23611 liegt", ["hnu-23611"]
+        )
+        ordner, _ = kc.pruefe_referenzen(*dateien)
+        assert ordner.ok
+        assert "1 Altbestand" in ordner.ort
+
+    def test_should_break_the_anchor_link_for_an_unanchored_number(self, tmp_path):
+        dateien = self._dateien(tmp_path, "2026-09-05: Klimm (INBOX #164024)", [])
+        _, anker = kc.pruefe_referenzen(*dateien)
+        assert not anker.ok
+        assert "eintrag_anker.py" in anker.hinweis
+        assert "0 von 1" in anker.ort
