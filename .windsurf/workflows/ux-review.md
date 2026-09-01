@@ -26,7 +26,7 @@ trigger: interaktiv
 ## Verwendung
 
 ```
-/ux-review <repo> --kette "<Station 1> > <Station 2> > ... > <Station n>" [--basis <url>] [--vor <sha>] [--no-issues] [--max-klicks <n>]
+/ux-review <repo> --kette "<Station 1> > <Station 2> > ... > <Station n>" [--basis <url>] [--vor <sha>] [--no-issues] [--max-klicks <n>] [-kd <name>] [-marker <name>[,<name>]]
 ```
 
 | Argument | Pflicht | Default | Bedeutung |
@@ -37,6 +37,8 @@ trigger: interaktiv
 | `--vor` | nein | `origin/main` | Commit, gegen den geprueft wird (Positivkontrolle: Stand **vor** einem Fix) |
 | `--no-issues` | nein | aus | nur Bericht auf stdout, keine Issues (Trockenlauf) |
 | `--max-klicks` | nein | `25` | Klicks je Station ohne neue Seite, bevor die Station `blind` wird |
+| `-kd` | nein | aus | Name eines Klickdummys des Zielrepos (`klickdummy/<name>/spec.yaml`). Gleicht dessen Screens gegen die besuchten Stationen ab — Step 5c |
+| `-marker` | nein | aus | Eigennamen, die in Station 1 eingegeben und in jeder Folgestation gesucht werden. Ein Kontrollmarker kommt automatisch dazu — Step 5c |
 
 ## Step 0: Repo-Kontext aus project-facts.md (PFLICHT — kein Hardcoding)
 
@@ -282,6 +284,51 @@ Eingabe-JSON: `klasse`, `severity`, `station`, `symptom`, `antwortkoerper`, `geg
    von elf Datensaetzen bei `temperature: 0` ([#2489](https://github.com/achimdehnert/platform/issues/2489)).
    Drei verschiedene Sprueche ergeben `unklar`, nie den zuerst gezogenen. `--laeufe 1` ist ein
    Testschalter, kein Sparmodus.
+
+## Step 5c: Die zwei Gegenchecks — `-kd` und `-marker` (E10/E11, optional)
+
+Beide beantworten eine Frage, die der Klick-Durchlauf allein **nicht** beantworten
+kann, und beide werden von einem Werkzeug entschieden, nicht im Kopf:
+
+```bash
+python3 <platform>/tools/ux_gegencheck.py kd \
+  --spec <zielrepo>/klickdummy/<name>/spec.yaml \
+  --stationen /tmp/stationen.json \
+  --kette-deckt "Phase 1,Phase 2"
+
+python3 <platform>/tools/ux_gegencheck.py marker \
+  --stationen /tmp/stationen.json --marker "Milo Heller,Ada Brandt"
+```
+
+`/tmp/stationen.json` schreibt der Lauf selbst, in Reihenfolge der Kette:
+`[{"id": "<screen-id falls bekannt>", "titel": "<Stationstitel>", "text": "<sichtbarer Seitentext>"}, …]`
+
+**`-kd` (E10).** Der Klick-Durchlauf sieht nur, was er erreicht hat. Die Spec sagt,
+was erreichbar sein **sollte**. Die Differenz hat zwei Severities: `weg-fehlt`
+(Screen mit `routing_mode: live` nie erreicht) ist ein **fehler**, `spec-luecke`
+(Station ohne Screen) eine **optimierung** — der Klickdummy hinkt der App
+hinterher, nicht umgekehrt (R5).
+
+`--kette-deckt` ist Pflicht, sobald die Spec mehrere Flows traegt: ohne sie meldet
+das Werkzeug jeden Screen einer **anderen** Kette als `weg-fehlt`. Deckt die
+Angabe keinen einzigen Screen ab, bricht es mit Exit 2 ab — eine Null, die aus dem
+eigenen Filter stammt, ist kein Ergebnis.
+
+**`-marker` (E11).** Geprueft wird Durchgaengigkeit, nicht Textqualitaet: ein
+Eigenname aus Station 1 muss in jeder Folgestation wieder auftauchen. Realfall C11
+— der Protagonist hiess im Konzept „Milo Heller", in der erzeugten Gliederung
+„Franz"; HTTP-gruen, inhaltlich gerissen.
+
+Marker sind **plausible Eigennamen im Genre**, kein `ZZZ-TEST` (R6) — ein Name, den
+der Autor nie schreiben wuerde, verzerrt die Erzeugung und misst dann sich selbst.
+
+**Der Kontrollmarker ist die eigentliche Pruefung.** Das Werkzeug sucht zusaetzlich
+einen Namen, der nirgends vorkommen darf. Findet es ihn, ist **die ganze Messung
+ungueltig** (Exit 2) — nicht nur dieser eine Fund. Ohne ihn waere ein Suchlauf, der
+nie etwas findet, von einem Suchlauf, der nichts zu finden hat, nicht zu
+unterscheiden.
+
+Beide Befundklassen gehen als normale Issues durch Step 5b und Step 6.
 
 ## Step 6: Issue je Befund im Zielrepo (E3)
 
