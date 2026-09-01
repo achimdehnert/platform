@@ -125,7 +125,7 @@ def test_should_beleg_aus_fremdem_listenpunkt_nicht_gelten_lassen(tmp_path):
         """,
     )
     r = _run(
-        tmp_path / "skill.md",
+        datei,
         _registry(tmp_path, **{"writing-hub": "django", "ausschreibungs-hub": "django"}),
     )
     assert r.returncode == 1, r.stdout
