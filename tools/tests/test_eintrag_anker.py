@@ -152,7 +152,10 @@ class TestVerankern:
         assert e.zustand == ea.NICHT_GEFUNDEN
 
     def test_should_refuse_to_guess_between_two_folders(self, postfaecher):
-        postfaecher["hnu"].postfach["Entw&APw-rfe"]["164024"] = ("<x@hnu.de>", "Doppelt")
+        postfaecher["hnu"].postfach["Entw&APw-rfe"]["164024"] = (
+            "<x@hnu.de>",
+            "Doppelt",
+        )
         (e,), anker = _lauf(_ledger(("hnu", "siehe UID 164024")), postfaecher)
         assert e.zustand == ea.MEHRDEUTIG
         assert "2 Ordnern" in e.hinweis
@@ -217,7 +220,9 @@ class TestCli:
         self, tmp_path, capsys, monkeypatch
     ):
         ledger = tmp_path / "l.json"
-        ledger.write_text(json.dumps(_ledger(("hnu", "INBOX #1001 und UID 2002"))), "utf-8")
+        ledger.write_text(
+            json.dumps(_ledger(("hnu", "INBOX #1001 und UID 2002"))), "utf-8"
+        )
         anker = tmp_path / "a.json"
         anker.write_text(
             json.dumps(

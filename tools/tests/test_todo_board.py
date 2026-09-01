@@ -965,7 +965,9 @@ class TestVerlaufVerweise:
         self, tmp_path, monkeypatch
     ):
         datei = tmp_path / "anker.json"
-        datei.write_text('{"hnu-inbox-1001": {"item": "hnu-inbox-1001"}}', encoding="utf-8")
+        datei.write_text(
+            '{"hnu-inbox-1001": {"item": "hnu-inbox-1001"}}', encoding="utf-8"
+        )
         monkeypatch.setattr(tb, "ANKER_DATEI", datei)
         html = tb.verweise("INBOX #1001 kam", "hnu", "https://mail.example")
         assert "https://mail.example/a/hnu-inbox-1001" in html
