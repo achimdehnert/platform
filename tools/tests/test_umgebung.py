@@ -65,7 +65,15 @@ def test_should_accept_a_declared_title_marker():
     """`weltenhub` liegt unter `weltenforger.com`. Ohne Alias waere das ein
     Fehlalarm — und ein Werkzeug, das falsch anschlaegt, wird ignoriert."""
     assert _marker("weltenhub", {"titel_marker": "weltenforger"}) == ["weltenforger"]
-    assert _hinweis("weltenhub", {"titel_marker": "weltenforger"}, "200", "Weltenforger — Welten") == ""
+    assert (
+        _hinweis(
+            "weltenhub",
+            {"titel_marker": "weltenforger"},
+            "200",
+            "Weltenforger — Welten",
+        )
+        == ""
+    )
 
 
 def test_should_fall_back_to_the_repo_name_without_a_marker():
@@ -80,7 +88,9 @@ def test_should_name_the_host_when_the_ip_matches(monkeypatch):
     import umgebung
 
     monkeypatch.setattr(umgebung, "eigene_ip", lambda: "88.99.38.75")
-    name, warum = wo_bin_ich({"hosts": {"staging": {"ip": "88.99.38.75"}, "prod": {"ip": "1.2.3.4"}}})
+    name, warum = wo_bin_ich(
+        {"hosts": {"staging": {"ip": "88.99.38.75"}, "prod": {"ip": "1.2.3.4"}}}
+    )
     assert name == "staging"
     assert "88.99.38.75" in warum
 

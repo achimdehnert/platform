@@ -154,7 +154,10 @@ def _eingebetteter_name(part: Message) -> str:
     """
     inner = part.get_payload(0) if part.is_multipart() else None
     betreff = decode_hdr(inner.get("Subject")) if inner is not None else ""
-    stamm = re.sub(r"[^\w\s.-]", "", betreff).strip()[:60].strip() or "eingebettete-nachricht"
+    stamm = (
+        re.sub(r"[^\w\s.-]", "", betreff).strip()[:60].strip()
+        or "eingebettete-nachricht"
+    )
     return re.sub(r"\s+", "-", stamm) + ".eml"
 
 
@@ -173,7 +176,9 @@ def attachment_names(msg: Message) -> list[str]:
     return namen + [_eingebetteter_name(p) for p in _rfc822_teile(msg)]
 
 
-def eingebettete_nachrichten(msg: Message, max_chars: int = 4000) -> list[tuple[dict[str, str], str]]:
+def eingebettete_nachrichten(
+    msg: Message, max_chars: int = 4000
+) -> list[tuple[dict[str, str], str]]:
     """Kopfzeilen und Text jeder eingebetteten `message/rfc822`-Nachricht.
 
     Damit eine Weiterleitung im `--fetch` nicht als dreizeiliger Begleittext
@@ -266,7 +271,11 @@ def ordner_imap(name: str) -> str:
         if not puffer:
             return
         roh = "".join(puffer).encode("utf-16-be")
-        aus.append("&" + base64.b64encode(roh).decode("ascii").rstrip("=").replace("/", ",") + "-")
+        aus.append(
+            "&"
+            + base64.b64encode(roh).decode("ascii").rstrip("=").replace("/", ",")
+            + "-"
+        )
         puffer.clear()
 
     for z in name:

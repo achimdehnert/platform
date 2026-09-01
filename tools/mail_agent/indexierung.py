@@ -125,7 +125,10 @@ def ist_ausgeschlossen(
         return "keine Mail (Kalender/Kontakte/Aufgaben) — ueber IMAP nicht abrufbar"
     if any(_REDAKTIONELL.match(s) for s in segmente):
         return "redaktionell/werblich — bewusst nicht indexiert"
-    if any(_WERBUNG.match(s) for s in segmente) and (konto or "").lower() not in WERBUNG_IM_UMFANG:
+    if (
+        any(_WERBUNG.match(s) for s in segmente)
+        and (konto or "").lower() not in WERBUNG_IM_UMFANG
+    ):
         return "werblich — nur fuer Konten im Digest-Umfang indexiert"
 
     if m := _JAHRESARCHIV.match(ordner):

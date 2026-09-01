@@ -226,7 +226,8 @@ class TestErledigt:
     def test_should_render_a_recently_closed_item_in_its_own_section(self, pfade):
         heute = "2026-08-18"
         ausgabe = board.render(
-            _ledger(_v(nr=3, bucket="erledigt", erledigt_am=heute, kurz="Fertig")), heute
+            _ledger(_v(nr=3, bucket="erledigt", erledigt_am=heute, kurz="Fertig")),
+            heute,
         )
         assert "✅ Erledigt" in ausgabe
         assert "Fertig" in ausgabe

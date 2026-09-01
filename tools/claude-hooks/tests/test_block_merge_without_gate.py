@@ -188,5 +188,8 @@ def test_should_not_check_a_pr_that_is_not_named(gh_attrappe, tmp_path):
     ziel = tmp_path / "probe"
     ziel.mkdir()
     assert not _laeuft(
-        f"cd {ziel} && bash publish-package.sh {ziel}", "gruen", gh_attrappe, pr_checks="null"
+        f"cd {ziel} && bash publish-package.sh {ziel}",
+        "gruen",
+        gh_attrappe,
+        pr_checks="null",
     )

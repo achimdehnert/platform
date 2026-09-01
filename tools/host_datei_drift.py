@@ -118,14 +118,16 @@ def host_hashes(ssh_ziel: str, namen: list[str]) -> dict[str, str] | None:
     # md5 UND Versionsmarker in einem Durchgang: der Hash sagt "weicht ab", der
     # Marker sagt "wie weit". Dateien ohne Marker liefern einfach keine VER-Zeile.
     befehl = (
-        f"for p in {muster}; do [ -f \"$p\" ] || continue; md5sum \"$p\"; "
-        f"v=$(grep -m1 -oE '^[A-Z_]+_VERSION=\"[^\"]*\"' \"$p\" 2>/dev/null); "
-        f"[ -n \"$v\" ] && echo \"VER $p $v\"; done 2>/dev/null"
+        f'for p in {muster}; do [ -f "$p" ] || continue; md5sum "$p"; '
+        f'v=$(grep -m1 -oE \'^[A-Z_]+_VERSION="[^"]*"\' "$p" 2>/dev/null); '
+        f'[ -n "$v" ] && echo "VER $p $v"; done 2>/dev/null'
     )
     try:
         aus = subprocess.run(
             [*SSH, ssh_ziel, befehl],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except (subprocess.TimeoutExpired, OSError):
         return None

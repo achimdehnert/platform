@@ -265,10 +265,18 @@ def check_auflage(
         # Nur `stillgelegt` ist raus. `blockiert` heisst "laeuft, wartet auf Entscheidung" —
         # genau der Fall, den dieser Check sichtbar halten muss (Lauf-2-Kritik 2026-08-30:
         # der Check war gruen auf den vier dev-desktop-Diensten, fuer die er gebaut wurde).
+        #
+        # `ruhend` (seit #2586 K5) laeuft gerade nicht, kann aber jederzeit wieder
+        # anlaufen — und verletzt die Auflage in dem Moment. Darum wie `blockiert`:
+        # als Hinweis sichtbar halten, nicht schweigen und nicht hart melden.
         status = str(cfg.get("betriebsstatus", "aktiv")).lower()
         if status == "stillgelegt":
             continue
-        senke = hinweise if (hinweise is not None and status == "blockiert") else issues
+        senke = (
+            hinweise
+            if (hinweise is not None and status in ("blockiert", "ruhend"))
+            else issues
+        )
         ziel = str(cfg.get("prod_host", "prod"))
         h = hosts.get(ziel)
         if not isinstance(h, dict):

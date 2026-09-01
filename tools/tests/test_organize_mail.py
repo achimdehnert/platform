@@ -297,7 +297,10 @@ class _FakeUidImapMitOrdnern(_FakeUidImap):
     """
 
     def list(self):
-        return "OK", [b'(\\HasNoChildren) "/" "INBOX"', b'(\\HasNoChildren) "/" "Archiv/2026"']
+        return "OK", [
+            b'(\\HasNoChildren) "/" "INBOX"',
+            b'(\\HasNoChildren) "/" "Archiv/2026"',
+        ]
 
 
 def test_should_name_a_missing_uid_instead_of_reporting_nothing_to_do(capsys):
@@ -350,7 +353,9 @@ def test_should_read_capabilities_after_login_not_from_the_banner():
 
 def test_should_use_uid_move_when_the_server_reveals_it_only_after_login():
     """Der eigentliche Regress: Banner ohne MOVE, Sitzung mit MOVE."""
-    imap = _FakeCapImap(banner=("IMAP4REV1", "IDLE"), nach_auth="IMAP4rev1 MOVE UIDPLUS")
+    imap = _FakeCapImap(
+        banner=("IMAP4REV1", "IDLE"), nach_auth="IMAP4rev1 MOVE UIDPLUS"
+    )
     om._move(imap, "INBOX", "Archiv/2026", [b"1"])
     assert "MOVE" in imap.aufrufe
     assert "COPY" not in imap.aufrufe

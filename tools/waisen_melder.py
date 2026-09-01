@@ -52,8 +52,10 @@ SSH = ("ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes")
 COMPOSE_MUSTER = re.compile(r"^docker-compose[^/]*\.ya?ml$")
 NICHT_PROD = ("staging", "dev", "test", "ci", "local", "example")
 
-# betriebsstatus-Werte, bei denen ein fehlender Container ERKLAERT ist.
-ERKLAERT = ("stillgelegt", "blockiert", "geplant")
+# Vokabular kommt aus tools/betriebsstatus.py — dieselbe Quelle wie fuer den
+# Erreichbarkeits- und den TLS-Melder (#2586 K5).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from betriebsstatus import ERKLAERT  # noqa: E402
 
 
 class Unpruefbar(Exception):
@@ -130,10 +132,43 @@ def erklaerte_container(ports_yaml: dict) -> dict[str, str]:
     return erklaert
 
 
+def erklaerte_repos(ports_yaml: dict) -> dict[str, str]:
+    """Repo -> Grundwort. Das Urteil faellt je HUB, nicht je Container.
+
+    `ports.yaml` fuehrt pro Hub in aller Regel EINEN Dienst — den Web-Container.
+    Ein stillgelegter Hub hat aber vier bis sechs Container, und die tauchten
+    darum weiter als Waisen auf, obwohl das Urteil laengst in der SoT stand:
+    am 2026-09-01 waren coach-hub, wedding-hub und odoo bereits `stillgelegt`,
+    ihre worker/beat/db/redis wurden trotzdem gemeldet.
+
+    Bei mehreren Eintraegen desselben Repos gewinnt `aktiv`: wenn irgendein
+    Dienst des Hubs laufen soll, ist der Hub nicht ruhend.
+    """
+    dienste = ports_yaml.get("services", ports_yaml)
+    je_repo: dict[str, set[str]] = {}
+    for eintrag in dienste.values():
+        eintrag = eintrag or {}
+        repo = eintrag.get("repo")
+        if not repo:
+            continue
+        status = eintrag.get("betriebsstatus", "aktiv")
+        je_repo.setdefault(str(repo).split("/")[-1], set()).add(status)
+
+    erklaert: dict[str, str] = {}
+    for repo, stati in je_repo.items():
+        if "aktiv" in stati:
+            continue
+        nicht_aktiv = [s for s in sorted(stati) if s in ERKLAERT]
+        if nicht_aktiv:
+            erklaert[repo] = nicht_aktiv[0]
+    return erklaert
+
+
 def urteile(
     deklariert: list[tuple[str, str, str, str]],
     laufend: dict[str, set[str]],
     erklaert: dict[str, str],
+    erklaerte_hubs: dict[str, str] | None = None,
 ) -> dict[str, list]:
     """Reine Funktion: aus Bestand + Laufzustand die drei Toepfe bilden.
 
@@ -155,6 +190,10 @@ def urteile(
             laeuft.append(zeile)
         elif container in erklaert:
             entschuldigt.append(dict(zeile, grund=erklaert[container]))
+        elif (erklaerte_hubs or {}).get(repo):
+            entschuldigt.append(
+                dict(zeile, grund=f"{erklaerte_hubs[repo]} (ganzer Hub)")
+            )
         else:
             waisen.append(zeile)
     return {"waisen": waisen, "laeuft": laeuft, "entschuldigt": entschuldigt}
@@ -267,7 +306,7 @@ def main() -> int:
         except (Unpruefbar, subprocess.TimeoutExpired) as e:
             unpruefbar.append(str(e))
 
-    ergebnis = urteile(deklariert, laufend, erklaert)
+    ergebnis = urteile(deklariert, laufend, erklaert, erklaerte_repos(ports))
     waisen, laeuft, entschuldigt = (
         ergebnis["waisen"],
         ergebnis["laeuft"],

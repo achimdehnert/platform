@@ -1031,7 +1031,9 @@ def test_should_search_by_uid_not_by_sequence():
 # vollstaendig; der Teil mit dem Inhalt fehlte, weil er keinen Dateinamen hat.
 
 
-def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"):
+def _weiterleitung(
+    begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"
+):
     """Begleittext + eingebettete Nachricht ohne Dateinamen + Inline-Bild."""
     innen = EmailMessage()
     innen["From"] = "absender@extern.example"
@@ -1044,8 +1046,12 @@ def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentli
     aussen["From"] = "absender@extern.example"
     aussen["Subject"] = "AW: Sachstand"
     aussen.set_content(begleittext)
-    aussen.add_attachment(b"\x89PNG", maintype="image", subtype="png", filename="image004.png")
-    aussen.attach(_als_rfc822_teil(innen))  # add_attachment hat bereits multipart/mixed erzeugt
+    aussen.add_attachment(
+        b"\x89PNG", maintype="image", subtype="png", filename="image004.png"
+    )
+    aussen.attach(
+        _als_rfc822_teil(innen)
+    )  # add_attachment hat bereits multipart/mixed erzeugt
     return aussen
 
 

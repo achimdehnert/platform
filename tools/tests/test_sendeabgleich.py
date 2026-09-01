@@ -50,13 +50,17 @@ class TestWartetAufVersand:
         assert sa.wartet_auf_versand(_vorgang(bucket="warten")) is False
 
     def test_should_ignore_vorgang_without_send_wording(self):
-        v = _vorgang(kurz="Rechnung buchen", next_trigger="im sevdesk buchen", zustand="offen")
+        v = _vorgang(
+            kurz="Rechnung buchen", next_trigger="im sevdesk buchen", zustand="offen"
+        )
         assert sa.wartet_auf_versand(v) is False
 
 
 class TestZuordnung:
     def test_should_match_on_subject_token(self):
-        assert sa.passt_zusammen(_vorgang(), _mail("AW: Container-Service NIS2 Einstufung"))
+        assert sa.passt_zusammen(
+            _vorgang(), _mail("AW: Container-Service NIS2 Einstufung")
+        )
 
     def test_should_match_on_recipient_domain(self):
         mail = _mail("Unterlagen", empfaenger="s.muster@beispiel-recycling.example")
@@ -71,7 +75,9 @@ class TestZuordnung:
         assert not sa.passt_zusammen(v, _mail("AW: irgendwas, GmbH"))
 
     def test_should_ignore_mail_sent_before_last_check(self):
-        assert not sa.nach_letzter_pruefung(_vorgang(), _mail("NIS2", datum="2026-08-18"))
+        assert not sa.nach_letzter_pruefung(
+            _vorgang(), _mail("NIS2", datum="2026-08-18")
+        )
 
 
 class TestVorschlaege:
@@ -128,6 +134,8 @@ def test_should_survive_ledger_roundtrip(tmp_path):
     v = _vorgang(gegenueber="Größe & Söhne (Testdaten)")
     sa.uebernehmen(v, _mail("AW: Angebot für Söhne"), "2026-08-20")
     ziel = tmp_path / "l.json"
-    ziel.write_text(json.dumps({"vorgaenge": [v]}, ensure_ascii=False, indent=2), encoding="utf-8")
+    ziel.write_text(
+        json.dumps({"vorgaenge": [v]}, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     zurueck = json.loads(ziel.read_text(encoding="utf-8"))
     assert zurueck["vorgaenge"][0]["gegenueber"] == "Größe & Söhne (Testdaten)"

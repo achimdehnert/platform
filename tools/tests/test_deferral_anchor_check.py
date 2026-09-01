@@ -315,7 +315,9 @@ def test_should_read_added_docstring_lines_from_a_diff():
     from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
 
     prosa = prosa_aus_diff(DIFF_NEUE_DATEI)
-    assert "bleibt vorerst eigenstaendig" in prosa, "Der Docstring wurde nicht aus dem Diff gelesen"
+    assert "bleibt vorerst eigenstaendig" in prosa, (
+        "Der Docstring wurde nicht aus dem Diff gelesen"
+    )
     assert finde_ankerlose_stellen(prosa), "Die Vertagung im Code bleibt unbemerkt"
 
 
@@ -357,5 +359,7 @@ def test_should_ignore_removed_lines_and_foreign_file_types():
     )
     assert "bleibt vorerst" not in prosa_aus_diff(geloescht)
 
-    fremd = "--- /dev/null\n+++ b/notizen.rst\n@@ -0,0 +1 @@\n+.. bleibt vorerst offen\n"
+    fremd = (
+        "--- /dev/null\n+++ b/notizen.rst\n@@ -0,0 +1 @@\n+.. bleibt vorerst offen\n"
+    )
     assert prosa_aus_diff(fremd) == ""

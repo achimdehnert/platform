@@ -60,7 +60,9 @@ def test_should_pass_when_service_is_active_and_target_is_declared_host():
 
 
 def test_should_block_when_service_is_decommissioned():
-    code, meldungen = pruefe("stillgelegt-hub", "production", "88.198.191.108", PORTS, HOSTS)
+    code, meldungen = pruefe(
+        "stillgelegt-hub", "production", "88.198.191.108", PORTS, HOSTS
+    )
     assert code == EXIT_VERSTOSS
     assert "stillgelegt" in meldungen[0]
     assert "Owner-Entscheid" in meldungen[0]
@@ -89,20 +91,26 @@ def test_should_pass_when_target_is_written_as_ssh_alias():
 
 
 def test_should_report_scope_gap_when_service_is_not_declared():
-    code, meldungen = pruefe("unbekannt-hub", "production", "88.198.191.108", PORTS, HOSTS)
+    code, meldungen = pruefe(
+        "unbekannt-hub", "production", "88.198.191.108", PORTS, HOSTS
+    )
     assert code == EXIT_SCOPE
     assert code != EXIT_OK
     assert "Scope-Luecke" in meldungen[0]
 
 
 def test_should_report_scope_gap_when_declared_node_is_unknown():
-    code, meldungen = pruefe("geisterknoten-hub", "production", "88.198.191.108", PORTS, HOSTS)
+    code, meldungen = pruefe(
+        "geisterknoten-hub", "production", "88.198.191.108", PORTS, HOSTS
+    )
     assert code == EXIT_SCOPE
     assert "gibtsnicht" in meldungen[0]
 
 
 def test_should_report_scope_gap_when_node_has_no_address_at_all():
-    code, meldungen = pruefe("knoten-ohne-adresse-hub", "production", "88.198.191.108", PORTS, HOSTS)
+    code, meldungen = pruefe(
+        "knoten-ohne-adresse-hub", "production", "88.198.191.108", PORTS, HOSTS
+    )
     assert code == EXIT_SCOPE
     assert "gx10" in meldungen[0]
 
@@ -136,17 +144,25 @@ def test_should_block_the_real_coach_hub_case_from_the_repos_own_declaration():
     wurzel = Path(__file__).resolve().parents[2]
     code = main(
         [
-            "--app", "coach-hub",
-            "--environment", "production",
-            "--deploy-host", "88.198.191.108",
-            "--ports", str(wurzel / "infra" / "ports.yaml"),
-            "--hosts", str(wurzel / "infra" / "hosts.yaml"),
+            "--app",
+            "coach-hub",
+            "--environment",
+            "production",
+            "--deploy-host",
+            "88.198.191.108",
+            "--ports",
+            str(wurzel / "infra" / "ports.yaml"),
+            "--hosts",
+            str(wurzel / "infra" / "hosts.yaml"),
         ]
     )
     assert code == EXIT_VERSTOSS
 
 
-@pytest.mark.parametrize("app,ziel,erwartet", [("aktiv-hub", "88.198.191.108", EXIT_OK), ("wander-hub", "89.167.43.30", EXIT_OK)])
+@pytest.mark.parametrize(
+    "app,ziel,erwartet",
+    [("aktiv-hub", "88.198.191.108", EXIT_OK), ("wander-hub", "89.167.43.30", EXIT_OK)],
+)
 def test_should_not_block_correctly_routed_deploys(app, ziel, erwartet):
     code, _ = pruefe(app, "production", ziel, PORTS, HOSTS)
     assert code == erwartet

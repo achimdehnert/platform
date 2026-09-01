@@ -51,9 +51,7 @@ def test_should_block_cut_on_a_secret_file_without_kv_structure(tmp_path):
 
 def test_should_block_the_glob_loop_over_the_secrets_dir():
     """Der Incident vom 2026-07-10: Loop-Variablen sind nicht verifizierbar."""
-    assert (
-        _entscheidung('for f in ~/.secrets/*; do cut -d= -f1 "$f"; done') == "deny"
-    )
+    assert _entscheidung('for f in ~/.secrets/*; do cut -d= -f1 "$f"; done') == "deny"
 
 
 def test_should_not_fire_on_an_unrelated_command():

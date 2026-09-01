@@ -59,7 +59,9 @@ def konto_aufloesen(client, nummer: str) -> dict | None:
     r.raise_for_status()
     treffer = [o for o in r.json()["objects"] if str(o.get("number")) == str(nummer)]
     if len(treffer) != 1:
-        print(f"⚠ Konto {nummer}: {len(treffer)} AccountDatev-Treffer — Feld bleibt leer.")
+        print(
+            f"⚠ Konto {nummer}: {len(treffer)} AccountDatev-Treffer — Feld bleibt leer."
+        )
         return None
     return {"id": treffer[0]["id"], "objectName": "AccountDatev"}
 
@@ -97,7 +99,9 @@ def anlegen(args) -> int:
     client = _client()
     vorhanden = duplikat(client, args.beschreibung)
     if vorhanden:
-        print(f"DUPLIKAT: description '{args.beschreibung}' existiert als Beleg {vorhanden} — nichts angelegt.")
+        print(
+            f"DUPLIKAT: description '{args.beschreibung}' existiert als Beleg {vorhanden} — nichts angelegt."
+        )
         return 0
 
     pdf = Path(args.pdf)
@@ -124,8 +128,11 @@ def anlegen(args) -> int:
         # den offiziellen Kurs zum Stichtag setzen — kein Kurs-Raten. Alternativ
         # propertyExchangeRate (NICHT propExchangeRate — der 500-Fehler des Probelaufs
         # 2026-08-07 kam vom falschen Feldnamen). Deadline gewinnt laut Spec.
-        **({"voucher[propertyForeignCurrencyDeadline]": _dd_mm_yyyy(args.datum)}
-           if args.waehrung != "EUR" and not args.kurs else {}),
+        **(
+            {"voucher[propertyForeignCurrencyDeadline]": _dd_mm_yyyy(args.datum)}
+            if args.waehrung != "EUR" and not args.kurs
+            else {}
+        ),
         **({"voucher[propertyExchangeRate]": args.kurs} if args.kurs else {}),
         "voucher[taxRule][id]": args.taxrule,
         "voucher[taxRule][objectName]": "TaxRule",
@@ -167,12 +174,34 @@ def main() -> int:
     p.add_argument("--lieferant", required=True)
     p.add_argument("--datum", required=True, help="YYYY-MM-DD (Rechnungsdatum)")
     p.add_argument("--brutto", required=True)
-    p.add_argument("--steuer", required=True, help="enthaltene USt in EUR (0.00 bei Reverse Charge)")
-    p.add_argument("--beschreibung", required=True, help="Rechnungsnummer/eindeutige Kennung (Dedup-Schlüssel)")
-    p.add_argument("--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC")
-    p.add_argument("--konto", default="", help="Kontonummer NUR wenn Owner-zugeordnet; sonst leer lassen")
-    p.add_argument("--waehrung", default="EUR", help="Rechnungswährung, z.B. USD (Beträge dann in dieser Währung)")
-    p.add_argument("--kurs", default="", help="optional: fester Kurs (propertyExchangeRate); ohne Angabe setzt sevdesk den Stichtagskurs selbst")
+    p.add_argument(
+        "--steuer",
+        required=True,
+        help="enthaltene USt in EUR (0.00 bei Reverse Charge)",
+    )
+    p.add_argument(
+        "--beschreibung",
+        required=True,
+        help="Rechnungsnummer/eindeutige Kennung (Dedup-Schlüssel)",
+    )
+    p.add_argument(
+        "--taxrule", default="9", help="9 DE-Vorsteuer · 12 Drittland RC · 14 EU RC"
+    )
+    p.add_argument(
+        "--konto",
+        default="",
+        help="Kontonummer NUR wenn Owner-zugeordnet; sonst leer lassen",
+    )
+    p.add_argument(
+        "--waehrung",
+        default="EUR",
+        help="Rechnungswährung, z.B. USD (Beträge dann in dieser Währung)",
+    )
+    p.add_argument(
+        "--kurs",
+        default="",
+        help="optional: fester Kurs (propertyExchangeRate); ohne Angabe setzt sevdesk den Stichtagskurs selbst",
+    )
     return anlegen(p.parse_args())
 
 

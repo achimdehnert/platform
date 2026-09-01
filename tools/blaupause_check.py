@@ -159,7 +159,9 @@ def main() -> int:
 
     befunde, geprueft = pruefe(datei, namen)
     print(f"Blaupausen-Check: {datei.name}")
-    print(f"  Ziel-Repos aus Registry: {len(namen)} (Heimat '{args.heimat}' ausgenommen)")
+    print(
+        f"  Ziel-Repos aus Registry: {len(namen)} (Heimat '{args.heimat}' ausgenommen)"
+    )
     print(f"  gepruefte Anweisungs-Bloecke: {geprueft}")
 
     if not befunde:

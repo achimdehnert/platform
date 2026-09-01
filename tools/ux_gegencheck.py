@@ -98,7 +98,9 @@ def varianten(text: str) -> set[str]:
     t = (text or "").lower()
     ausgeschrieben = _grundform(t.translate(_UMLAUTE))
     ohne_diakritika = _grundform(
-        "".join(c for c in unicodedata.normalize("NFKD", t) if not unicodedata.combining(c))
+        "".join(
+            c for c in unicodedata.normalize("NFKD", t) if not unicodedata.combining(c)
+        )
     )
     return {v for v in (ausgeschrieben, ohne_diakritika) if v}
 
@@ -168,17 +170,27 @@ def kd_gegencheck(
 
         if kette_deckt and sc.get("flow_anchor") not in kette_deckt:
             nicht_beurteilt.append(
-                {"id": sid, "titel": titel, "grund": f"flow_anchor {sc.get('flow_anchor')!r} ausserhalb der Kette"}
+                {
+                    "id": sid,
+                    "titel": titel,
+                    "grund": f"flow_anchor {sc.get('flow_anchor')!r} ausserhalb der Kette",
+                }
             )
             continue
         if sc.get("routing_mode") != "live":
             nicht_beurteilt.append(
-                {"id": sid, "titel": titel, "grund": f"routing_mode {sc.get('routing_mode')!r}, kein Live-Weg geschuldet"}
+                {
+                    "id": sid,
+                    "titel": titel,
+                    "grund": f"routing_mode {sc.get('routing_mode')!r}, kein Live-Weg geschuldet",
+                }
             )
             continue
         if sid in besucht_ids or (varianten(titel) & besucht_titel):
             continue
-        weg_fehlt.append({"klasse": "weg-fehlt", "schwere": "fehler", "id": sid, "titel": titel})
+        weg_fehlt.append(
+            {"klasse": "weg-fehlt", "schwere": "fehler", "id": sid, "titel": titel}
+        )
 
     for st in stationen:
         if st.get("id") in spec_ids:
@@ -186,7 +198,12 @@ def kd_gegencheck(
         if varianten(st.get("titel", "")) & spec_titel:
             continue
         spec_luecke.append(
-            {"klasse": "spec-luecke", "schwere": "optimierung", "id": st.get("id"), "titel": st.get("titel")}
+            {
+                "klasse": "spec-luecke",
+                "schwere": "optimierung",
+                "id": st.get("id"),
+                "titel": st.get("titel"),
+            }
         )
 
     return {
@@ -285,7 +302,12 @@ def marker_check(
                 )
                 continue
             risse.append(
-                {"klasse": "marker-riss", "schwere": "fehler", "marker": m, "station": s.get("titel")}
+                {
+                    "klasse": "marker-riss",
+                    "schwere": "fehler",
+                    "marker": m,
+                    "station": s.get("titel"),
+                }
             )
             break
 
@@ -314,21 +336,42 @@ def _lade_json(pfad: str) -> list[dict]:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = p.add_subparsers(dest="befehl", required=True)
 
     k = sub.add_parser("kd", help="K7: Klickdummy-Spec gegen besuchte Stationen")
-    k.add_argument("--spec", required=True,
-                   help="Klickdummy-Verzeichnis ODER Spec-Datei; im Verzeichnis werden "
-                        "spec.yaml und screens-spec.yaml gesucht (ADR-185-Variante)")
+    k.add_argument(
+        "--spec",
+        required=True,
+        help="Klickdummy-Verzeichnis ODER Spec-Datei; im Verzeichnis werden "
+        "spec.yaml und screens-spec.yaml gesucht (ADR-185-Variante)",
+    )
     k.add_argument("--stationen", required=True, help="JSON: [{'id':…,'titel':…}, …]")
-    k.add_argument("--kette-deckt", default="", help="Kommaliste der flow_anchor, die die Kette abdeckt")
+    k.add_argument(
+        "--kette-deckt",
+        default="",
+        help="Kommaliste der flow_anchor, die die Kette abdeckt",
+    )
 
-    m = sub.add_parser("marker", help="K8: Durchgaengigkeit der Marker + Kontrollmarker")
-    m.add_argument("--stationen", required=True, help="JSON: [{'titel':…,'text':…}, …] in Laufreihenfolge")
-    m.add_argument("--marker", required=True, help="Kommaliste der Eigennamen aus Station 1")
-    m.add_argument("--auswahl-bei", type=int, default=None,
-                   help="1-basierte Station, an der aus mehreren Alternativen eine gewaehlt wird")
+    m = sub.add_parser(
+        "marker", help="K8: Durchgaengigkeit der Marker + Kontrollmarker"
+    )
+    m.add_argument(
+        "--stationen",
+        required=True,
+        help="JSON: [{'titel':…,'text':…}, …] in Laufreihenfolge",
+    )
+    m.add_argument(
+        "--marker", required=True, help="Kommaliste der Eigennamen aus Station 1"
+    )
+    m.add_argument(
+        "--auswahl-bei",
+        type=int,
+        default=None,
+        help="1-basierte Station, an der aus mehreren Alternativen eine gewaehlt wird",
+    )
 
     a = p.parse_args()
 
@@ -336,8 +379,10 @@ def main() -> int:
         if a.befehl == "kd":
             deckt = [x.strip() for x in a.kette_deckt.split(",") if x.strip()] or None
             e = kd_gegencheck(lade_spec(Path(a.spec)), _lade_json(a.stationen), deckt)
-            print(f"KD-Gegencheck: {e['screens_gesamt']} Screens, {e['beurteilt']} beurteilt, "
-                  f"{e['stationen_besucht']} Stationen besucht")
+            print(
+                f"KD-Gegencheck: {e['screens_gesamt']} Screens, {e['beurteilt']} beurteilt, "
+                f"{e['stationen_besucht']} Stationen besucht"
+            )
             for b in e["weg_fehlt"]:
                 print(f"  ❌ weg-fehlt (fehler)      {b['id']}: {b['titel']}")
             for b in e["spec_luecke"]:
@@ -345,31 +390,47 @@ def main() -> int:
             for b in e["nicht_beurteilt"]:
                 print(f"  · nicht beurteilt          {b['id']}: {b['grund']}")
             if e["beurteilt"] == 0:
-                print("\nFEHLER: kein einziger Screen wurde beurteilt — der Filter frisst die Spec.", file=sys.stderr)
+                print(
+                    "\nFEHLER: kein einziger Screen wurde beurteilt — der Filter frisst die Spec.",
+                    file=sys.stderr,
+                )
                 return 2
-            print(f"\nErgebnis: {len(e['weg_fehlt'])} weg-fehlt, {len(e['spec_luecke'])} spec-luecke")
+            print(
+                f"\nErgebnis: {len(e['weg_fehlt'])} weg-fehlt, {len(e['spec_luecke'])} spec-luecke"
+            )
             return 1 if e["weg_fehlt"] else 0
 
         e = marker_check(
-        _lade_json(a.stationen),
-        [x.strip() for x in a.marker.split(",") if x.strip()],
-        a.auswahl_bei,
-    )
+            _lade_json(a.stationen),
+            [x.strip() for x in a.marker.split(",") if x.strip()],
+            a.auswahl_bei,
+        )
         print(f"Marker-Durchgaengigkeit ueber {e['stationen']} Stationen")
         for mk, verlauf in e["verlauf"].items():
             print(f"  {mk}: {''.join('x' if v else '.' for v in verlauf)}")
         if not e["messung_gueltig"]:
-            print(f"\nFEHLER: der Kontrollmarker {e['kontrollmarker']!r} wurde gefunden — "
-                  f"in {len(e['kontroll_treffer'])} Station(en). Der Suchlauf misst nicht, was er zu "
-                  f"messen vorgibt; die Ergebnisse der anderen Marker sind damit wertlos.", file=sys.stderr)
+            print(
+                f"\nFEHLER: der Kontrollmarker {e['kontrollmarker']!r} wurde gefunden — "
+                f"in {len(e['kontroll_treffer'])} Station(en). Der Suchlauf misst nicht, was er zu "
+                f"messen vorgibt; die Ergebnisse der anderen Marker sind damit wertlos.",
+                file=sys.stderr,
+            )
             return 2
-        print(f"  Kontrollmarker {e['kontrollmarker']!r}: 0 Treffer ✅ (die Messung ist gueltig)")
+        print(
+            f"  Kontrollmarker {e['kontrollmarker']!r}: 0 Treffer ✅ (die Messung ist gueltig)"
+        )
         for v in e["verkuerzt"]:
-            print(f"  · marker-verkuerzt (hinweis)   {v['marker']} nur noch in Teilen: {v['station']}")
+            print(
+                f"  · marker-verkuerzt (hinweis)   {v['marker']} nur noch in Teilen: {v['station']}"
+            )
         for a_ in e["abgewaehlt"]:
-            print(f"  · marker-abgewaehlt (hinweis)  {a_['marker']} faellt an der Auswahl weg: {a_['station']}")
+            print(
+                f"  · marker-abgewaehlt (hinweis)  {a_['marker']} faellt an der Auswahl weg: {a_['station']}"
+            )
         for r in e["risse"]:
-            print(f"  ❌ {r['klasse']} (fehler)  {r['marker']} reisst bei: {r['station']}")
+            print(
+                f"  ❌ {r['klasse']} (fehler)  {r['marker']} reisst bei: {r['station']}"
+            )
         print(f"\nErgebnis: {len(e['risse'])} Riss(e)")
         return 1 if e["risse"] else 0
 

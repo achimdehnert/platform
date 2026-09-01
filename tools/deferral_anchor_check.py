@@ -222,7 +222,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"FEHLER: {exc}", file=sys.stderr)
             return 2
         funde += [
-            (nr, f"[Code] {zeile}") for nr, zeile in finde_ankerlose_stellen(prosa, args.fenster)
+            (nr, f"[Code] {zeile}")
+            for nr, zeile in finde_ankerlose_stellen(prosa, args.fenster)
         ]
     if not funde:
         print(

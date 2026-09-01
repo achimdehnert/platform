@@ -180,7 +180,10 @@ def test_should_exit_nonzero_for_unknown_host_by_default(monkeypatch, karte):
 
 def test_should_exit_zero_for_unknown_host_when_nachsichtig(monkeypatch, karte):
     """Gegenprobe: die Ausnahme muss weiterhin erreichbar sein."""
-    assert _lauf(monkeypatch, ["--nachsichtig", "https://erfunden.test/x"], karte, None) == 0
+    assert (
+        _lauf(monkeypatch, ["--nachsichtig", "https://erfunden.test/x"], karte, None)
+        == 0
+    )
 
 
 def test_should_exit_zero_when_every_link_answers_200(monkeypatch, karte):

@@ -325,9 +325,8 @@ def kurzzeile(urteile: list[dict]) -> str:
         return f"blind: {len(blind)} von {n} Kanaelen nicht pruefbar — keine Entwarnung{anhang}"
     if not fehlt:
         return f"{n} von {n} Alarmwegen belegt{anhang}"
-    return (
-        f"{len(fehlt)} von {n} Alarmwegen NICHT vorhanden{anhang} — "
-        + "; ".join(f"{u['kanal']} ({u['grund']})" for u in fehlt)
+    return f"{len(fehlt)} von {n} Alarmwegen NICHT vorhanden{anhang} — " + "; ".join(
+        f"{u['kanal']} ({u['grund']})" for u in fehlt
     )
 
 

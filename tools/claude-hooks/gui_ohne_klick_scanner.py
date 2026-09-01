@@ -151,7 +151,11 @@ def main() -> int:
     kurz = sorted({p.split("/")[-1] for p in gui})[:4]
     grund = ", ".join(kurz) + (" …" if len(set(gui)) > 4 else "")
     gate_hits.notiere(
-        GATE_HEADER["slug"], grund, turn=grund, session=event.get("session_id", ""), modus="advisory"
+        GATE_HEADER["slug"],
+        grund,
+        turn=grund,
+        session=event.get("session_id", ""),
+        modus="advisory",
     )
     print(
         "🖱️  gui-geaendert-ohne-klick: In dieser Sitzung wurden GUI-Dateien geschrieben "

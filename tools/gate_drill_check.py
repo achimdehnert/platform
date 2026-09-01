@@ -56,7 +56,9 @@ def pruefe_header(gate: dict) -> list[str]:
         return [f"Modul nicht lesbar: {exc}"]
 
     if "GATE_HEADER" not in text:
-        return ["kein GATE_HEADER im Modul (D8 verlangt ihn dort, nicht nur in der Registry)"]
+        return [
+            "kein GATE_HEADER im Modul (D8 verlangt ihn dort, nicht nur in der Registry)"
+        ]
 
     befunde = []
     for feld in ("slug", "mode", "owner", "last_drill_pass"):
@@ -105,7 +107,9 @@ def pruefe_fremd(gate: dict) -> list[str]:
     """
     befunde = []
     if not (gate.get("ref") or "").strip():
-        befunde.append("fremd verankert ohne `ref` — kein Beleg, dass das Gate existiert")
+        befunde.append(
+            "fremd verankert ohne `ref` — kein Beleg, dass das Gate existiert"
+        )
     if not (gate.get("drill") or "").strip():
         befunde.append("fremd verankert ohne `drill` — der Pfad im Ziel-Repo fehlt")
     return befunde

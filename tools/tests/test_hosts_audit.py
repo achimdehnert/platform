@@ -350,7 +350,13 @@ def test_should_flag_service_on_locked_host_without_exception():
 def test_should_accept_service_with_valid_exception(monkeypatch):
     monkeypatch.setattr(ha, "_today", lambda: dt.date(2026, 9, 1))
     data = _ausnahme_hosts(
-        {"dienst-a": {"grund": "Dev-Werkzeug", "entschieden": "2026-09-01", "bis": dt.date(2026, 12, 1)}}
+        {
+            "dienst-a": {
+                "grund": "Dev-Werkzeug",
+                "entschieden": "2026-09-01",
+                "bis": dt.date(2026, 12, 1),
+            }
+        }
     )
     assert not _auflage_findings(data, _ausnahme_ports())
 
@@ -360,7 +366,13 @@ def test_should_log_granted_exception_visibly(monkeypatch):
     auch ausserhalb des PR-Modus."""
     monkeypatch.setattr(ha, "_today", lambda: dt.date(2026, 9, 1))
     data = _ausnahme_hosts(
-        {"dienst-a": {"grund": "Dev-Werkzeug", "entschieden": "2026-09-01", "bis": dt.date(2026, 12, 1)}}
+        {
+            "dienst-a": {
+                "grund": "Dev-Werkzeug",
+                "entschieden": "2026-09-01",
+                "bis": dt.date(2026, 12, 1),
+            }
+        }
     )
     _auflage_findings(data, _ausnahme_ports())
     assert any("dienst-a" in z and "Dev-Werkzeug" in z for z in ha._AUSNAHME_LOG)
@@ -369,7 +381,13 @@ def test_should_log_granted_exception_visibly(monkeypatch):
 def test_should_flag_expired_exception():
     """Der teuerste Fall: die Frist ist durch, der Dienst laeuft weiter."""
     data = _ausnahme_hosts(
-        {"dienst-a": {"grund": "Dev-Werkzeug", "entschieden": "2026-01-01", "bis": dt.date(2026, 1, 31)}}
+        {
+            "dienst-a": {
+                "grund": "Dev-Werkzeug",
+                "entschieden": "2026-01-01",
+                "bis": dt.date(2026, 1, 31),
+            }
+        }
     )
     treffer = [i for i in ha.check_schema(data) if "dienst-a" in i]
     assert treffer and "abgelaufen" in treffer[0]
@@ -407,7 +425,13 @@ def test_should_not_let_exception_cover_a_different_service(monkeypatch):
     fuer den Knoten."""
     monkeypatch.setattr(ha, "_today", lambda: dt.date(2026, 9, 1))
     data = _ausnahme_hosts(
-        {"dienst-a": {"grund": "g", "entschieden": "2026-09-01", "bis": dt.date(2026, 12, 1)}}
+        {
+            "dienst-a": {
+                "grund": "g",
+                "entschieden": "2026-09-01",
+                "bis": dt.date(2026, 12, 1),
+            }
+        }
     )
     treffer = _auflage_findings(data, _ausnahme_ports("dienst-b"))
     assert treffer and "dienst-b" in treffer[0]
