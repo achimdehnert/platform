@@ -635,6 +635,24 @@ services:
     repo: achimdehnert/robo-lab
     betriebsstatus: blockiert
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  embedder:
+    prod: 8100
+    staging: 8100
+    dev: 8100
+    prod_host: gx10
+    container_name: null            # nativer Nutzer-Dienst, kein Container
+    domain_prod: null               # NUR wg0 — 10.99.0.4:8100, kein Tunnel
+    domain_staging: null
+    repo: achimdehnert/platform     # spikes/embedder-service
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Embedder nach ADR-188 (multilingual-e5-large, 1024 Dimensionen), seit
+      2026-09-01 als systemd-Nutzerdienst auf der GX10, auf der GB10-GPU
+      (cuda:0). Gebunden auf 10.99.0.4:8100 — NICHT 0.0.0.0; gegengeprueft
+      am Knoten. Erreichbar nur ueber wg0, damit `oeffentlicher_ingress:
+      false` gilt. Verbraucher heute: keiner — `rag_mcp` (mcp-hub) laeuft
+      selbst noch nirgends (platform#2548).
+
   mail-links:
     prod: 8787
     staging: 8787
