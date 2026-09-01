@@ -161,8 +161,36 @@ def _command_core(line: str) -> str:
     return " ".join(core)
 
 
+# Marker, an denen eine VERWEIGERTE Ausfuehrung im Tool-Ergebnis erkennbar ist.
+# Ein Befehl, den der Assistent versucht hat und der ihm verwehrt wurde, ist nicht
+# "ungetestet" — er ist unausfuehrbar. Ein Waechter, dem man nicht folgen KANN,
+# wird gelernt zu ignorieren; deshalb deckt eine belegte Ablehnung den Kern ab.
+# Anlass: Sitzung 2026-09-01 (meiki-hub 33616e), Retro-Befund #8 — der Melder
+# feuerte dreimal auf denselben Befehl, dessen Ausfuehrung der Permission-
+# Classifier gesperrt hatte.
+ABLEHNUNG_MARKER = (
+    "Permission for this action was denied",
+    "Blocked by classifier",
+    '"permissionDecision":"deny"',
+    "permissionDecision': 'deny'",
+)
+
+
+def _ist_ablehnung(inhalt) -> bool:
+    """True, wenn ein tool_result-Inhalt eine verweigerte Ausfuehrung beschreibt."""
+    if isinstance(inhalt, str):
+        text = inhalt
+    elif isinstance(inhalt, list):
+        text = " ".join(
+            b.get("text", "") for b in inhalt if isinstance(b, dict)
+        )
+    else:
+        return False
+    return any(m in text for m in ABLEHNUNG_MARKER)
+
+
 def _last_turn(transcript_path: str):
-    """(assistant_text, bash_commands) seit der letzten echten User-Nachricht."""
+    """(assistant_text, bash_commands, abgelehnte_kerne) seit der letzten echten User-Nachricht."""
     try:
         lines = (
             Path(transcript_path)
@@ -189,10 +217,29 @@ def _last_turn(transcript_path: str):
     turn.reverse()
 
     assistant_text, bash_commands = [], []
+    versuche = {}          # tool_use_id -> Befehl (auch wenn er scheiterte)
+    abgelehnte_kerne = set()
     for rec in turn:
-        if rec.get("type") != "assistant":
-            continue
+        typ = rec.get("type")
         content = (rec.get("message") or {}).get("content")
+
+        if typ == "user":
+            # Tool-Ergebnisse liegen in den user-Records. Bis 2026-09-01 wurden
+            # sie hier verworfen — der Waechter sah den Versuch, nie seinen Ausgang.
+            if isinstance(content, list):
+                for block in content:
+                    if not isinstance(block, dict) or block.get("type") != "tool_result":
+                        continue
+                    befehl = versuche.get(block.get("tool_use_id"))
+                    if befehl and _ist_ablehnung(block.get("content")):
+                        for zeile in befehl.splitlines():
+                            kern = _command_core(zeile)
+                            if kern:
+                                abgelehnte_kerne.add(kern)
+            continue
+
+        if typ != "assistant":
+            continue
         if isinstance(content, str):
             assistant_text.append(content)
             continue
@@ -207,15 +254,29 @@ def _last_turn(transcript_path: str):
                 cmd = (block.get("input") or {}).get("command", "")
                 if isinstance(cmd, str):
                     bash_commands.append(cmd)
-    return "\n".join(assistant_text), bash_commands
+                    versuche[block.get("id")] = cmd
+    return "\n".join(assistant_text), bash_commands, abgelehnte_kerne
 
 
-def find_untested(assistant_text: str, bash_commands: list[str]):
-    """(ungetestet, mit_platzhalter) — je eine Liste von Befehlszeilen."""
+def find_untested(
+    assistant_text: str,
+    bash_commands: list[str],
+    abgelehnte_kerne: set[str] | None = None,
+):
+    """(ungetestet, mit_platzhalter) — je eine Liste von Befehlszeilen.
+
+    `abgelehnte_kerne` deckt Befehle ab, deren Ausfuehrung im selben Turn
+    versucht und VERWEIGERT wurde. Der Abgleich laeuft ueber `_command_core`,
+    also ueber die ersten zwei Token: `docker exec` deckt jedes `docker exec`,
+    aber KEIN `ssh host 'docker exec …'` — dort ist der Kern `ssh host`. Diese
+    Grenze ist gewollt eng; sie hat am 2026-09-01 einen echten Quoting-Fehler
+    gefangen, den ein breiterer Abgleich durchgelassen haette.
+    """
     ran = "\n".join(bash_commands)
     ran_cores = {
         _command_core(line) for cmd in bash_commands for line in cmd.splitlines()
     }
+    ran_cores |= (abgelehnte_kerne or set())
     ran_cores.discard("")
 
     untested, placeholders = [], []
@@ -298,8 +359,10 @@ def main() -> int:
     if not transcript_path:
         return 0
 
-    assistant_text, bash_commands = _last_turn(transcript_path)
-    untested, placeholders = find_untested(assistant_text, bash_commands)
+    assistant_text, bash_commands, abgelehnte_kerne = _last_turn(transcript_path)
+    untested, placeholders = find_untested(
+        assistant_text, bash_commands, abgelehnte_kerne
+    )
 
     # Entprellung (2026-07-31). `_last_turn` endet bei der letzten ECHTEN
     # Nutzernachricht — Hintergrund-Benachrichtigungen und Hook-Injektionen
