@@ -37,7 +37,7 @@ trigger: interaktiv
 | `--vor` | nein | `origin/main` | Commit, gegen den geprueft wird (Positivkontrolle: Stand **vor** einem Fix) |
 | `--no-issues` | nein | aus | nur Bericht auf stdout, keine Issues (Trockenlauf) |
 | `--max-klicks` | nein | `25` | Klicks je Station ohne neue Seite, bevor die Station `blind` wird |
-| `-kd` | nein | aus | Name eines Klickdummys des Zielrepos (`klickdummy/<name>/spec.yaml`). Gleicht dessen Screens gegen die besuchten Stationen ab — Step 5c |
+| `-kd` | nein | aus | Name eines Klickdummys des Zielrepos. Das **Verzeichnis** angeben, nicht die Datei: der Bestand kennt zwei Namen (`spec.yaml` und `screens-spec.yaml`, letzterer per ADR-185). Gleicht dessen Screens gegen die besuchten Stationen ab — Step 5c |
 | `-marker` | nein | aus | Eigennamen, die in Station 1 eingegeben und in jeder Folgestation gesucht werden. Ein Kontrollmarker kommt automatisch dazu — Step 5c |
 | `--auswahl-bei` | nein | aus | Erste Station, die nur noch die gewaehlte von mehreren Alternativen zeigt. Ohne sie meldet `-marker` an jedem Fan-out einen Scheinriss — Step 5c |
 
@@ -293,7 +293,7 @@ kann, und beide werden von einem Werkzeug entschieden, nicht im Kopf:
 
 ```bash
 python3 <platform>/tools/ux_gegencheck.py kd \
-  --spec <zielrepo>/klickdummy/<name>/spec.yaml \
+  --spec <zielrepo>/klickdummy/<name>/ \
   --stationen /tmp/stationen.json \
   --kette-deckt "Phase 1,Phase 2"
 
