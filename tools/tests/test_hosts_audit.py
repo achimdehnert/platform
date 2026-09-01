@@ -219,19 +219,46 @@ def test_should_keep_blockiert_services_as_findings_without_pr_mode():
 
 
 def test_should_pass_schema_and_auflage_on_real_repo_files():
+    """Invariante statt Schnappschuss: JEDER Dienst auf einem gesperrten Knoten
+    ist entweder Finding oder traegt eine gueltige, protokollierte Ausnahme.
+    Lautlos durchfallen darf keiner.
+
+    Vorher zaehlte dieser Test die vier dev-desktop-Verstoesse aus #2507 als
+    feste Menge. Am 2026-09-01 wurden zwei davon zu benannten Ausnahmen — und
+    der Test fiel um, obwohl die Regel eingehalten war. Dieselbe Lehre wie bei
+    `test_should_keep_gx10_measured_or_under_a_deadline_in_real_repo_file`."""
     data = yaml.safe_load((WURZEL / "infra" / "hosts.yaml").read_text())
     ports = yaml.safe_load((WURZEL / "infra" / "ports.yaml").read_text())
     assert ha.check_schema(data) == []
-    # Seit 2026-08-30 (164/Lauf-2-Kritik) sind vier dev-desktop-Dienste als `blockiert`
-    # deklariert und verstossen gegen auflage.prod_container=false — der Check MUSS das
-    # zeigen, bis platform#2507 entschieden ist. Jeder andere Befund waere neu.
-    befunde = ha.check_auflage(data, ports)
-    erwartet = {"praes-iil-ai", "chat-hub", "robo-twin", "mail-links"}
-    assert {b.split("'")[1] for b in befunde} == erwartet, befunde
-    # PR-Modus: dieselben vier sind Hinweis, kein PR in platform ist dadurch rot.
+
+    gesperrt = {
+        name
+        for name, h in data["hosts"].items()
+        if (h.get("auflage") or {}).get("prod_container") is False
+    }
+    betroffen = {
+        dienst
+        for dienst, cfg in ports["services"].items()
+        if isinstance(cfg, dict)
+        and str(cfg.get("betriebsstatus", "aktiv")).lower() != "stillgelegt"
+        and str(cfg.get("prod_host", "prod")) in gesperrt
+    }
+    assert betroffen, "kein Dienst auf einem gesperrten Knoten — Testaufbau kaputt"
+
+    ha._AUSNAHME_LOG.clear()
+    befunde = {b.split("'")[1] for b in ha.check_auflage(data, ports)}
+    entschuldigt = {a.split("'")[1] for a in ha._AUSNAHME_LOG}
+
+    assert befunde | entschuldigt == betroffen, (
+        f"lautlos durchgefallen: {betroffen - befunde - entschuldigt}"
+    )
+    assert not (befunde & entschuldigt), "Dienst gleichzeitig Finding und Ausnahme"
+
+    # PR-Modus: was `blockiert` ist, wird Hinweis — kein fremder PR wird dadurch rot.
+    ha._AUSNAHME_LOG.clear()
     hinweise: list[str] = []
     assert ha.check_auflage(data, ports, hinweise) == []
-    assert {h.split("'")[1] for h in hinweise} == erwartet
+    assert {h.split("'")[1] for h in hinweise} == befunde
 
 
 def test_should_keep_gx10_measured_or_under_a_deadline_in_real_repo_file():
@@ -279,3 +306,115 @@ def test_should_flag_blocked_service_on_host_that_forbids_prod_containers():
     )
     ports = _ports(foo={"prod_host": "dev", "betriebsstatus": "blockiert"})
     assert any("foo" in i for i in ha.check_auflage(data, ports))
+
+
+# ── Auflage-Ausnahmen (platform#2507, Owner-Entscheid 2026-09-01) ────────────
+#
+# Die Ausnahme ist die gefaehrlichste Erweiterung dieses Werkzeugs: sie macht
+# aus einem Finding ein Schweigen. Deshalb steht zu jedem gruenen Fall hier die
+# Gegenprobe — und der teuerste Fall ist die abgelaufene Frist. Eine Ausnahme,
+# die niemand verlaengern muss, ist eine Auflage, die es nicht gibt.
+
+
+def _ausnahme_hosts(ausnahmen=None):
+    auflage = {"prod_container": False, "grund": "ADR-257"}
+    if ausnahmen is not None:
+        auflage["ausnahmen"] = ausnahmen
+    return _hosts(
+        knoten={
+            "ip": "2.2.2.2",
+            "ssh": "root@2.2.2.2",
+            "arch": "amd64",
+            "hosts_runners": [],
+            "verified": "2026-08-30",
+            "auflage": auflage,
+        }
+    )
+
+
+def _ausnahme_ports(dienst="dienst-a"):
+    return {"services": {dienst: {"prod_host": "knoten"}}}
+
+
+def _auflage_findings(data, ports):
+    ha._AUSNAHME_LOG.clear()
+    return ha.check_auflage(data, ports)
+
+
+def test_should_flag_service_on_locked_host_without_exception():
+    """Positivkontrolle: ohne Ausnahme ist der Verstoss ein Finding."""
+    treffer = _auflage_findings(_ausnahme_hosts(), _ausnahme_ports())
+    assert treffer and "Prod-Container untersagt" in treffer[0]
+
+
+def test_should_accept_service_with_valid_exception(monkeypatch):
+    monkeypatch.setattr(ha, "_today", lambda: dt.date(2026, 9, 1))
+    data = _ausnahme_hosts(
+        {"dienst-a": {"grund": "Dev-Werkzeug", "entschieden": "2026-09-01", "bis": dt.date(2026, 12, 1)}}
+    )
+    assert not _auflage_findings(data, _ausnahme_ports())
+
+
+def test_should_log_granted_exception_visibly(monkeypatch):
+    """Eine Ausnahme darf nie ein Schweigen sein — sie wird immer ausgegeben,
+    auch ausserhalb des PR-Modus."""
+    monkeypatch.setattr(ha, "_today", lambda: dt.date(2026, 9, 1))
+    data = _ausnahme_hosts(
+        {"dienst-a": {"grund": "Dev-Werkzeug", "entschieden": "2026-09-01", "bis": dt.date(2026, 12, 1)}}
+    )
+    _auflage_findings(data, _ausnahme_ports())
+    assert any("dienst-a" in z and "Dev-Werkzeug" in z for z in ha._AUSNAHME_LOG)
+
+
+def test_should_flag_expired_exception():
+    """Der teuerste Fall: die Frist ist durch, der Dienst laeuft weiter."""
+    data = _ausnahme_hosts(
+        {"dienst-a": {"grund": "Dev-Werkzeug", "entschieden": "2026-01-01", "bis": dt.date(2026, 1, 31)}}
+    )
+    treffer = [i for i in ha.check_schema(data) if "dienst-a" in i]
+    assert treffer and "abgelaufen" in treffer[0]
+
+
+def test_should_flag_exception_without_grund_datum_frist():
+    data = _ausnahme_hosts({"dienst-a": {"grund": "nur ein Grund"}})
+    treffer = [i for i in ha.check_schema(data) if "dienst-a" in i]
+    assert treffer and "stiller Bypass" in treffer[0]
+
+
+def test_should_flag_exception_with_unknown_field():
+    data = _ausnahme_hosts(
+        {
+            "dienst-a": {
+                "grund": "g",
+                "entschieden": "2026-09-01",
+                "bis": dt.date(2026, 12, 1),
+                "dauerhaft": True,
+            }
+        }
+    )
+    assert any("unbekannte Felder" in i for i in ha.check_schema(data))
+
+
+def test_should_flag_exception_with_non_date_deadline():
+    data = _ausnahme_hosts(
+        {"dienst-a": {"grund": "g", "entschieden": "2026-09-01", "bis": "irgendwann"}}
+    )
+    assert any("kein Datum" in i for i in ha.check_schema(data))
+
+
+def test_should_not_let_exception_cover_a_different_service(monkeypatch):
+    """Gegenprobe zur Reichweite: die Ausnahme gilt fuer EINEN Dienst, nicht
+    fuer den Knoten."""
+    monkeypatch.setattr(ha, "_today", lambda: dt.date(2026, 9, 1))
+    data = _ausnahme_hosts(
+        {"dienst-a": {"grund": "g", "entschieden": "2026-09-01", "bis": dt.date(2026, 12, 1)}}
+    )
+    treffer = _auflage_findings(data, _ausnahme_ports("dienst-b"))
+    assert treffer and "dienst-b" in treffer[0]
+
+
+def test_should_keep_echte_hosts_yaml_ausnahmen_schema_konform():
+    """Der echte Stand: die beiden Ausnahmen aus #2507 sind schema-konform und
+    nicht abgelaufen."""
+    data = yaml.safe_load((WURZEL / "infra" / "hosts.yaml").read_text(encoding="utf-8"))
+    assert not [i for i in ha.check_schema(data) if "ausnahme" in i]
