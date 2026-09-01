@@ -25,6 +25,13 @@ Was das Werkzeug bewusst NICHT tut:
   als Text, nicht als Link. Der Wert dieses Werkzeugs liegt darin, dass es
   LAEUFT, bevor die Ablage die Nummer entwertet — darum steht es in der
   Abschluss-Checkliste von /mailcheck und im taeglichen Kettencheck.
+  Was nicht mehr auffindbar war, wird mit Datum in `TOT_DATEI` festgehalten:
+  ein befundeter Zustand, kein offener Posten. Der Kettencheck zaehlt als
+  OFFEN nur, was weder verankert noch als unaufloesbar befundet ist — sonst
+  bliebe sein Glied wegen 81 Altlasten (Stand 2026-09-01) fuer immer rot, und
+  ein Melder, der immer rot ist, wird nicht mehr gelesen. Jeder Lauf versucht
+  die unaufloesbaren trotzdem erneut; kehrt eine Mail zurueck, verschwindet
+  sie aus der Liste.
 * **Ins Postfach schreiben.** `select(readonly=True)` und `BODY.PEEK`, wie
   `anker.py`.
 
@@ -45,6 +52,7 @@ import imaplib
 import json
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -85,6 +93,9 @@ IMAP_KONTEN: dict[str, tuple[str, ...]] = {
     "default": ("default",),
     "iil": ("hnu", "default"),
 }
+
+#: Referenzen, deren UID vor der Verankerung gestorben ist — Schluessel → Befund.
+TOT_DATEI = Path.home() / ".claude" / "mail-eintrag-tot.json"
 
 NEU = "neu"
 VORHANDEN = "vorhanden"
@@ -133,6 +144,37 @@ def unverankert(funde: dict[str, Fund], anker: dict[str, Anker]) -> dict[str, Fu
         for key, fund in funde.items()
         if not any(k in anker for k in schluessel_kandidaten(fund.konto, fund.ref))
     }
+
+
+def offen(
+    funde: dict[str, Fund], anker: dict[str, Anker], tot: dict[str, dict]
+) -> dict[str, Fund]:
+    """Unverankert UND nicht als unaufloesbar befundet — das, was ein Lauf noch aendern kann."""
+    return {k: f for k, f in unverankert(funde, anker).items() if k not in tot}
+
+
+def lade_tot(pfad: Path = TOT_DATEI) -> dict[str, dict]:
+    try:
+        daten = json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return daten if isinstance(daten, dict) else {}
+
+
+def uebernehme_tot(
+    ergebnisse: list[Ergebnis], tot: dict[str, dict], heute: str
+) -> dict[str, dict]:
+    """Nicht-gefundene eintragen, wiedergefundene austragen — Rueckgabe ist der neue Stand."""
+    neu = dict(tot)
+    for e in ergebnisse:
+        key = e.fund.schluessel
+        if e.zustand == NICHT_GEFUNDEN:
+            neu.setdefault(
+                key, {"seit": heute, "vorgang": e.fund.nr, "eintrag": e.fund.eintrag}
+            )
+        elif e.zustand in (NEU, VORHANDEN):
+            neu.pop(key, None)
+    return neu
 
 
 class Postfach:
@@ -325,6 +367,7 @@ def main() -> int:
     ap.add_argument("--ledger", default=str(LEDGER))
     ap.add_argument("--verlauf-archiv", default=str(VERLAUF_ARCHIV))
     ap.add_argument("--anker", default=str(ANKER_DATEI))
+    ap.add_argument("--tot", default=str(TOT_DATEI))
     ap.add_argument(
         "--trocken",
         action="store_true",
@@ -336,6 +379,12 @@ def main() -> int:
         help="ohne Postfach: wie viele Referenzen sind (un)verankert",
     )
     ap.add_argument("--json", action="store_true")
+    ap.add_argument(
+        "--kurz",
+        action="store_true",
+        help="nur die Summenzeile (fuer make boards — statt `| head -1`, das den "
+        "Schreiber mit BrokenPipe abbricht)",
+    )
     args = ap.parse_args()
 
     ledger = _lade_json(Path(args.ledger))
@@ -343,9 +392,14 @@ def main() -> int:
     anker = lade(Path(args.anker))
     funde = referenzen_im_ledger(ledger, archiv)
 
+    tot = lade_tot(Path(args.tot))
     if args.nur_zaehlen:
-        offen = unverankert(funde, anker)
-        print(f"{len(funde)} Referenzen, {len(offen)} ohne Anker")
+        ohne = unverankert(funde, anker)
+        noch = offen(funde, anker, tot)
+        print(
+            f"{len(funde)} Referenzen, {len(ohne)} ohne Anker, davon "
+            f"{len(ohne) - len(noch)} unaufloesbar befundet, {len(noch)} offen"
+        )
         return 0
 
     ergebnisse = verankere_alle(funde, anker)
@@ -366,6 +420,8 @@ def main() -> int:
                 indent=2,
             )
         )
+    elif args.kurz:
+        print(bericht(ergebnisse).splitlines()[0])
     else:
         print(bericht(ergebnisse))
     if not args.trocken:
@@ -373,6 +429,12 @@ def main() -> int:
         if n:
             speichere(anker, Path(args.anker))
             print(f"Geschrieben: {n} neue Anker → {Path(args.anker).name}")
+        neu_tot = uebernehme_tot(ergebnisse, tot, date.today().isoformat())
+        if neu_tot != tot:
+            Path(args.tot).write_text(
+                json.dumps(neu_tot, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            print(f"Unaufloesbar befundet: {len(neu_tot)} → {Path(args.tot).name}")
     return 0
 
 

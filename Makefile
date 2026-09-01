@@ -35,7 +35,7 @@ kette: ## Mail-/Todo-Kette pruefen (Postfach -> Ledger -> Vorhersage -> Board ->
 
 boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	@python3 tools/mail_agent/board.py --pruefe
-	@python3 tools/mail_agent/eintrag_anker.py | head -1 || echo "  (Verankerung uebersprungen — Postfach nicht erreichbar)"
+	@python3 tools/mail_agent/eintrag_anker.py --kurz || echo "  (Verankerung uebersprungen — Postfach nicht erreichbar)"
 	@python3 tools/mail_agent/faelligkeit.py --schreibe >/dev/null || echo "  (Faelligkeit uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md

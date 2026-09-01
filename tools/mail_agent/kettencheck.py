@@ -196,23 +196,36 @@ def _json(pfad: Path) -> dict:
 
 
 def pruefe_referenzen(
-    ledger: Path = LEDGER, archiv: Path = VERLAUF_ARCHIV, anker: Path = ANKER
+    ledger: Path = LEDGER,
+    archiv: Path = VERLAUF_ARCHIV,
+    anker: Path = ANKER,
+    tot: Path | None = None,
 ) -> list[Befund]:
     """Zwei Glieder zwischen Ledger und Ansicht (platform#2592 K2/K3).
 
     * **Verlaufs-Ordner:** jede Mail-Nummer ab dem Stichtag nennt ihren Ordner
       (die PFLICHT-Regel aus mailcheck.md hatte bis #2199 keinen Pruefer).
     * **Verlaufs-Anker:** jede Nummer ist an ihre Message-ID gebunden — sonst
-      ist sie auf der Vorgangsseite Text statt Link, und die Zahl sagt, wie
-      viele Klicks fehlen.
+      ist sie auf der Vorgangsseite Text statt Link. Gebrochen ist das Glied
+      nur fuer OFFENE Nummern: weder verankert noch als unaufloesbar befundet
+      (UID vor der Verankerung gestorben, `eintrag_anker.TOT_DATEI`). Die
+      Unaufloesbaren stehen als Zahl im Ort, damit sie nicht verschwinden.
     """
-    from eintrag_anker import referenzen_im_ledger, unverankert  # noqa: PLC0415
+    from eintrag_anker import (  # noqa: PLC0415
+        lade_tot,
+        offen,
+        referenzen_im_ledger,
+        unverankert,
+    )
     from referenzen import STICHTAG, pruefe_ordner  # noqa: PLC0415
 
     daten, gekappt = _json(ledger), _json(archiv)
     ab, davor = pruefe_ordner(daten, gekappt, STICHTAG)
     funde = referenzen_im_ledger(daten, gekappt)
-    offen = unverankert(funde, {k: True for k in _json(anker)})
+    anker_keys = {k: True for k in _json(anker)}
+    tot_keys = lade_tot(tot) if tot is not None else lade_tot()
+    ohne = unverankert(funde, anker_keys)
+    noch = offen(funde, anker_keys, tot_keys)
     return [
         Befund(
             "Verl.-Ordner",
@@ -222,8 +235,9 @@ def pruefe_referenzen(
         ),
         Befund(
             "Verl.-Anker",
-            not offen,
-            f"{len(funde) - len(offen)} von {len(funde)} Referenzen verankert",
+            not noch,
+            f"{len(funde) - len(ohne)} von {len(funde)} verankert, "
+            f"{len(ohne) - len(noch)} unaufloesbar, {len(noch)} offen",
             "python3 tools/mail_agent/eintrag_anker.py",
         ),
     ]
