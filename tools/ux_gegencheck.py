@@ -39,11 +39,25 @@ wird nicht beurteilt statt falsch beurteilt.
 Prueft die inhaltliche Durchgaengigkeit (E11): ein Eigenname aus Station 1 muss
 in jeder Folgestation wieder auftauchen.
 
-  marker-riss      (fehler)   Marker in Station 1 vorhanden, spaeter weg.
-  kontrollmarker   (Abbruch)  Der Kontrollmarker MUSS ueberall 0 ergeben. Tut
-                              er es nicht, misst der Suchlauf nicht das, was er
-                              zu messen vorgibt — dann ist das Ergebnis der
-                              anderen Marker wertlos, nicht nur dieser Fund.
+  marker-riss        (fehler)  Marker vorhanden, danach weg — der Realfall C11.
+  marker-nie-gesetzt (fehler)  Marker fehlt schon in Station 1: nie eingegeben
+                               oder nicht gespeichert. Andere Ursache, anderer Name.
+  marker-abgewaehlt  (hinweis) Marker faellt AN einem Auswahl-Schritt weg — kein
+                               Befund, s. `--auswahl-bei`.
+  kontrollmarker     (Abbruch) Der Kontrollmarker MUSS ueberall 0 ergeben. Tut
+                               er es nicht, misst der Suchlauf nicht das, was er
+                               zu messen vorgibt — dann ist das Ergebnis der
+                               anderen Marker wertlos, nicht nur dieser Fund.
+
+**`--auswahl-bei <n>` (platform#2571).** Erzeugt eine Station mehrere Alternativen
+und waehlt der Nutzer eine davon, verschwinden die Marker der nicht gewaehlten
+voellig zu Recht. Gemessen am 2026-09-01 im ersten echten Lauf: der Agent erzeugte
+fuenf Ideen, der Marker `Hohenfelde` stand nur in der zweiten, gewaehlt wurde die
+erste — ohne diesen Parameter waere das ein `marker-riss` gewesen, der keiner ist.
+
+An Station n verengt sich die Marker-Menge **einmal**: was dort fehlt, gilt als
+abgewaehlt. Was dort noch da ist und danach verschwindet, bleibt ein Riss — genau
+C11 passiert **nach** der Auswahl. Der Kontrollmarker bleibt unberuehrt.
 
 Ohne den Kontrollmarker waere ein Suchlauf, der **nie** etwas findet, von einem
 Suchlauf, der **nichts zu finden hat**, nicht zu unterscheiden.
@@ -157,10 +171,19 @@ def kd_gegencheck(
 # ── K8: Marker-Durchgaengigkeit ────────────────────────────────────────────
 
 
-def marker_check(stationen: list[dict], marker: list[str]) -> dict:
-    """stationen: [{'titel': …, 'text': …}, …] in Reihenfolge des Durchlaufs."""
+def marker_check(
+    stationen: list[dict], marker: list[str], auswahl_bei: int | None = None
+) -> dict:
+    """stationen: [{'titel': …, 'text': …}, …] in Reihenfolge des Durchlaufs.
+
+    auswahl_bei: 1-basierte Nummer der Station, an der aus mehreren Alternativen
+    eine gewaehlt wird. Dort verengt sich die Marker-Menge einmal."""
     if not stationen:
         raise ValueError("keine Stationen — ohne Text kann nichts gesucht werden")
+    if auswahl_bei is not None and not 1 <= auswahl_bei <= len(stationen):
+        raise ValueError(
+            f"--auswahl-bei {auswahl_bei} liegt ausserhalb der {len(stationen)} Stationen"
+        )
 
     def enthalten(text: str, m: str) -> bool:
         tv = varianten(text)
@@ -172,7 +195,7 @@ def marker_check(stationen: list[dict], marker: list[str]) -> dict:
         if enthalten(s.get("text", ""), KONTROLLMARKER)
     ]
 
-    risse, verlauf = [], {}
+    risse, abgewaehlt, verlauf = [], [], {}
     for m in marker:
         gefunden = [enthalten(s.get("text", ""), m) for s in stationen]
         verlauf[m] = gefunden
@@ -187,7 +210,22 @@ def marker_check(stationen: list[dict], marker: list[str]) -> dict:
                 }
             )
             continue
-        for s, ok in zip(stationen[1:], gefunden[1:]):
+
+        # Faellt der Marker AN der Auswahl weg, ist das die Wahl des Nutzers,
+        # kein Defekt der Kette. Danach wird er nicht mehr geschuldet.
+        if auswahl_bei is not None and not gefunden[auswahl_bei - 1]:
+            abgewaehlt.append(
+                {
+                    "klasse": "marker-abgewaehlt",
+                    "schwere": "hinweis",
+                    "marker": m,
+                    "station": stationen[auswahl_bei - 1].get("titel"),
+                }
+            )
+            continue
+
+        ab = auswahl_bei if auswahl_bei is not None else 1
+        for s, ok in zip(stationen[ab:], gefunden[ab:]):
             if not ok:
                 risse.append(
                     {"klasse": "marker-riss", "schwere": "fehler", "marker": m, "station": s.get("titel")}
@@ -199,6 +237,8 @@ def marker_check(stationen: list[dict], marker: list[str]) -> dict:
         "marker": marker,
         "verlauf": verlauf,
         "risse": risse,
+        "abgewaehlt": abgewaehlt,
+        "auswahl_bei": auswahl_bei,
         "kontrollmarker": KONTROLLMARKER,
         "kontroll_treffer": kontroll_treffer,
         "messung_gueltig": not kontroll_treffer,
@@ -227,6 +267,8 @@ def main() -> int:
     m = sub.add_parser("marker", help="K8: Durchgaengigkeit der Marker + Kontrollmarker")
     m.add_argument("--stationen", required=True, help="JSON: [{'titel':…,'text':…}, …] in Laufreihenfolge")
     m.add_argument("--marker", required=True, help="Kommaliste der Eigennamen aus Station 1")
+    m.add_argument("--auswahl-bei", type=int, default=None,
+                   help="1-basierte Station, an der aus mehreren Alternativen eine gewaehlt wird")
 
     a = p.parse_args()
 
@@ -248,7 +290,11 @@ def main() -> int:
             print(f"\nErgebnis: {len(e['weg_fehlt'])} weg-fehlt, {len(e['spec_luecke'])} spec-luecke")
             return 1 if e["weg_fehlt"] else 0
 
-        e = marker_check(_lade_json(a.stationen), [x.strip() for x in a.marker.split(",") if x.strip()])
+        e = marker_check(
+        _lade_json(a.stationen),
+        [x.strip() for x in a.marker.split(",") if x.strip()],
+        a.auswahl_bei,
+    )
         print(f"Marker-Durchgaengigkeit ueber {e['stationen']} Stationen")
         for mk, verlauf in e["verlauf"].items():
             print(f"  {mk}: {''.join('x' if v else '.' for v in verlauf)}")
@@ -258,6 +304,8 @@ def main() -> int:
                   f"messen vorgibt; die Ergebnisse der anderen Marker sind damit wertlos.", file=sys.stderr)
             return 2
         print(f"  Kontrollmarker {e['kontrollmarker']!r}: 0 Treffer ✅ (die Messung ist gueltig)")
+        for a_ in e["abgewaehlt"]:
+            print(f"  · marker-abgewaehlt (hinweis)  {a_['marker']} faellt an der Auswahl weg: {a_['station']}")
         for r in e["risse"]:
             print(f"  ❌ {r['klasse']} (fehler)  {r['marker']} reisst bei: {r['station']}")
         print(f"\nErgebnis: {len(e['risse'])} Riss(e)")

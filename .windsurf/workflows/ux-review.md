@@ -39,6 +39,7 @@ trigger: interaktiv
 | `--max-klicks` | nein | `25` | Klicks je Station ohne neue Seite, bevor die Station `blind` wird |
 | `-kd` | nein | aus | Name eines Klickdummys des Zielrepos (`klickdummy/<name>/spec.yaml`). Gleicht dessen Screens gegen die besuchten Stationen ab — Step 5c |
 | `-marker` | nein | aus | Eigennamen, die in Station 1 eingegeben und in jeder Folgestation gesucht werden. Ein Kontrollmarker kommt automatisch dazu — Step 5c |
+| `--auswahl-bei` | nein | aus | Erste Station, die nur noch die gewaehlte von mehreren Alternativen zeigt. Ohne sie meldet `-marker` an jedem Fan-out einen Scheinriss — Step 5c |
 
 ## Step 0: Repo-Kontext aus project-facts.md (PFLICHT — kein Hardcoding)
 
@@ -297,7 +298,8 @@ python3 <platform>/tools/ux_gegencheck.py kd \
   --kette-deckt "Phase 1,Phase 2"
 
 python3 <platform>/tools/ux_gegencheck.py marker \
-  --stationen /tmp/stationen.json --marker "Milo Heller,Ada Brandt"
+  --stationen /tmp/stationen.json --marker "Milo Heller,Ada Brandt" \
+  --auswahl-bei 4          # nur wo die Kette einen Auswahl-Schritt hat
 ```
 
 `/tmp/stationen.json` schreibt der Lauf selbst, in Reihenfolge der Kette:
@@ -321,6 +323,18 @@ Eigenname aus Station 1 muss in jeder Folgestation wieder auftauchen. Realfall C
 
 Marker sind **plausible Eigennamen im Genre**, kein `ZZZ-TEST` (R6) — ein Name, den
 der Autor nie schreiben wuerde, verzerrt die Erzeugung und misst dann sich selbst.
+
+**`--auswahl-bei <n>` gehoert an jede Kette mit einem Fan-out.** Erzeugt eine
+Station mehrere Alternativen und waehlt der Nutzer eine davon, verschwinden die
+Marker der nicht gewaehlten voellig zu Recht. `n` ist die erste Station, die nur
+noch die gewaehlte Alternative zeigt. Was dort fehlt, ist `marker-abgewaehlt`
+(Hinweis, kein Befund); was dort noch da ist und **danach** verschwindet, bleibt
+ein `marker-riss` — genau C11 passiert nach der Auswahl.
+
+Ohne diesen Parameter meldet die Pruefung an jedem Fan-out einen Riss, der keiner
+ist. Gemessen am 2026-09-01 im ersten echten Lauf: fuenf erzeugte Ideen, der
+Marker stand nur in der nicht gewaehlten zweiten. Eine Pruefung, die dort immer
+rot wird, wird abgeschaltet statt befolgt.
 
 **Der Kontrollmarker ist die eigentliche Pruefung.** Das Werkzeug sucht zusaetzlich
 einen Namen, der nirgends vorkommen darf. Findet es ihn, ist **die ganze Messung
