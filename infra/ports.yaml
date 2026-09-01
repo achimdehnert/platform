@@ -651,8 +651,8 @@ services:
       (cuda:0). Gebunden auf 10.99.0.4:8100 — NICHT 0.0.0.0; gegengeprueft
       am Knoten. Erreichbar nur ueber wg0, damit `oeffentlicher_ingress:
       false` gilt. Von der ganzen Flotte ist nur prod im wg0 — gemessen,
-      nicht angenommen. Verbraucher: `rag-mcp` (siehe unten), gebaut und
-      geprueft, wartet auf den Merge von mcp-hub#238.
+      nicht angenommen. Verbraucher: `rag-mcp` auf prod (siehe unten), seit
+      2026-09-01 im Betrieb; dessen /healthz/ prueft diesen Dienst mit.
 
   rag-mcp:
     prod: 8200
@@ -663,20 +663,15 @@ services:
     domain_prod: null               # nur 127.0.0.1:8200, kein Tunnel
     domain_staging: null
     repo: achimdehnert/mcp-hub      # rag_mcp/
-    # `geplant` waere hier falsch: das Vokabular des Erreichbarkeits-Melders
-    # kennt nur aktiv/stillgelegt/blockiert (STATUS_ERLAUBT). Ein Wert
-    # ausserhalb davon landet dort als stumme Ausnahme — heute unsichtbar, weil
-    # der Dienst ohne Domain ohnehin nicht geprueft wird, aber eine Falle fuer
-    # den Tag, an dem er eine bekommt.
-    betriebsstatus: blockiert
+    betriebsstatus: aktiv
     betriebsstatus_grund: >
-      RAG-API nach ADR-171 (Chunking, Embedding, hybride Suche). Der Dienst
-      existierte bis heute nur als Code — 0 von 158 laufenden Containern ueber
-      sechs Hosts. Bau- und Deploy-Weg, Schema-Quelle und Client-Stapelung
-      liegen in mcp-hub#238; der Merge dorthin IST der Prod-Schritt und liegt
-      beim Owner. Danach hier auf `aktiv` setzen.
-      Der Embedder (oben) laeuft auf der GX10 und ist nur ueber wg0 erreichbar
-      — dieser Dienst kann deshalb heute auf keinem anderen Knoten laufen.
+      RAG-API nach ADR-171 (Chunking, Embedding, hybride Suche), seit
+      2026-09-01 auf prod (mcp-hub#238). Nur 127.0.0.1:8200, kein Tunnel — am
+      Knoten gegengeprueft: 0 Listener ausserhalb Loopback. /healthz/ prueft
+      Datenbank UND Embedder; der Container-Healthcheck bewusst nur /livez/,
+      sonst wuerde ein GX10-Ausfall den gesunden Container neu starten.
+      Der Embedder (oben) ist nur ueber wg0 erreichbar, und im wg0 ist von der
+      Flotte nur prod — dieser Dienst kann auf keinem anderen Knoten laufen.
 
   mail-links:
     prod: 8787
