@@ -254,15 +254,63 @@ def scan_repo_api(repo: str, token: str) -> dict | None:
     return None
 
 
+class PypistatsRateLimited(Exception):
+    """pypistats.org antwortet HTTP 429 — Wert fehlt, weil WIR gedrosselt sind,
+    nicht weil das Paket keine Downloads hat (#2591 K1: 20/23 still verloren)."""
+
+
 def pypistats_recent(dist: str, timeout: int = 10) -> dict:
-    """Downloads letzte 30 Tage (Totes-Paket-Signal, 3c). Fail-soft: {}."""
+    """Downloads letzte 30 Tage (Totes-Paket-Signal, 3c). Fail-soft: {} bei
+    Netz-/Parse-Fehlern; HTTP 429 wird als PypistatsRateLimited sichtbar."""
     url = f"https://pypistats.org/api/packages/{dist.lower()}/recent"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
             data = json.load(resp)
         return {"downloads_30d": data.get("data", {}).get("last_month")}
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            raise PypistatsRateLimited(dist) from exc
+        return {}
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return {}
+
+
+def downloads_or_carryover(
+    dist: str, prior_pypi: dict, prior_generated_at: str | None, rate_limited: list[str]
+) -> dict:
+    """Downloads holen; bei 429 den Vorwert aus dem letzten Inventar übernehmen und
+    mit `downloads_30d_stale_from` (generated_at des Laufs, der ihn wirklich holte)
+    kennzeichnen. Ohne Vorwert bleibt das Feld weg. So bleibt der Regen bei
+    Drosselung deterministisch und M5 (earlywarn) behält seine Datengrundlage —
+    ehrlich markiert statt still."""
+    try:
+        return pypistats_recent(dist)
+    except PypistatsRateLimited:
+        rate_limited.append(dist)
+        if prior_pypi.get("downloads_30d") is None:
+            return {}
+        return {
+            "downloads_30d": prior_pypi["downloads_30d"],
+            "downloads_30d_stale_from": prior_pypi.get("downloads_30d_stale_from")
+            or prior_generated_at,
+        }
+
+
+def prior_inventory(fleet_file: Path) -> tuple[str | None, dict[str, dict]]:
+    """(generated_at, `pypi`-Block je Repo) aus dem letzten geschriebenen Inventar —
+    Carry-over-Quelle bei Drosselung. Fehlt/kaputt: (None, {})."""
+    if not fleet_file.exists():
+        return None, {}
+    try:
+        doc = yaml.safe_load(fleet_file.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None, {}
+    blocks = {
+        repo: (pkg.get("pypi") or {})
+        for repo, pkg in (doc.get("packages") or {}).items()
+        if isinstance(pkg, dict)
+    }
+    return (doc.get("_meta") or {}).get("generated_at"), blocks
 
 
 def pypi_live(dist: str, timeout: int = 10) -> dict:
@@ -429,6 +477,10 @@ def main() -> int:
 
     reg = registry_packages()
     strategies = registry_strategies()
+    prior_generated_at, prior_pypi = (
+        prior_inventory(FLEET_FILE) if args.downloads else (None, {})
+    )
+    rate_limited: list[str] = []
 
     # 1) Fleet-Scan: alle Repos mit Publish-Bezug (platform selbst separat in (2),
     #    platform-pinned = Worktree-Kopie, skip). --remote (CI): Kandidaten =
@@ -500,7 +552,12 @@ def main() -> int:
         if dist and not args.offline:
             pkg["pypi"] = pypi_live(dist)
             if args.downloads:
-                pkg["pypi"] = {**pkg.get("pypi", {}), **pypistats_recent(dist)}
+                pkg["pypi"] = {
+                    **pkg.get("pypi", {}),
+                    **downloads_or_carryover(
+                        dist, prior_pypi.get(repo, {}), prior_generated_at, rate_limited
+                    ),
+                }
         pkg["findings"] = build_findings(pkg)
         packages[repo] = pkg
 
@@ -552,6 +609,14 @@ def main() -> int:
         "dead_platform_publish_workflows": dead_platform_workflows,
         "platform_packages_without_publisher": platform_orphan_packages,
     }
+
+    if rate_limited:
+        # Sichtbar auf stdout: der Wochen-Report (tee fleet-findings.txt) soll die
+        # Drosselung zeigen, statt dass downloads_30d lautlos fehlt.
+        print(
+            f"pypistats: {len(rate_limited)}/{len(packages)} Pakete HTTP 429 (rate-limited) — "
+            "downloads_30d aus Vorlauf übernommen (downloads_30d_stale_from) oder fehlt"
+        )
 
     if args.check:
         for name, pkg in packages.items():
