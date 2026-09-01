@@ -44,6 +44,10 @@ in jeder Folgestation wieder auftauchen.
                                oder nicht gespeichert. Andere Ursache, anderer Name.
   marker-abgewaehlt  (hinweis) Marker faellt AN einem Auswahl-Schritt weg — kein
                                Befund, s. `--auswahl-bei`.
+  marker-verkuerzt   (hinweis) Der volle Marker fehlt, ein unterscheidbares Wort
+                               daraus steht noch da. Prosa fuehrt eine Figur mit
+                               vollem Namen ein und nennt sie danach beim
+                               Vornamen — die Identitaet haelt.
   kontrollmarker     (Abbruch) Der Kontrollmarker MUSS ueberall 0 ergeben. Tut
                                er es nicht, misst der Suchlauf nicht das, was er
                                zu messen vorgibt — dann ist das Ergebnis der
@@ -216,13 +220,28 @@ def marker_check(
         tv = varianten(text)
         return any(any(mv in t for t in tv) for mv in varianten(m))
 
+    def teilweise(text: str, m: str) -> bool:
+        """Traegt der Text noch ein unterscheidbares Wort des Markers?
+
+        Prosa fuehrt eine Figur mit vollem Namen ein und nennt sie danach beim
+        Vornamen. Gemessen 2026-09-01 an einer erzeugten Gliederung: Kapitel 1
+        'Ansgar Weidlich', Kapitel 2-6 nur 'Ansgar' — die Identitaet haelt, der
+        volle Name nicht. Wer nur auf den vollen Namen prueft, meldet dort fuenf
+        Risse, die keine sind.
+
+        Kurze Woerter (<= 3 Zeichen) zaehlen nicht mit: 'von', 'der', 'zu'
+        stehen in jedem Text und wuerden jeden Marker am Leben halten."""
+        tv = varianten(text)
+        worte = {w for v in varianten(m) for w in v.split() if len(w) > 3}
+        return any(any(w in t for t in tv) for w in worte)
+
     kontroll_treffer = [
         {"station": s.get("titel"), "marker": KONTROLLMARKER}
         for s in stationen
         if enthalten(s.get("text", ""), KONTROLLMARKER)
     ]
 
-    risse, abgewaehlt, verlauf = [], [], {}
+    risse, abgewaehlt, verkuerzt, verlauf = [], [], [], {}
     for m in marker:
         gefunden = [enthalten(s.get("text", ""), m) for s in stationen]
         verlauf[m] = gefunden
@@ -253,11 +272,22 @@ def marker_check(
 
         ab = auswahl_bei if auswahl_bei is not None else 1
         for s, ok in zip(stationen[ab:], gefunden[ab:]):
-            if not ok:
-                risse.append(
-                    {"klasse": "marker-riss", "schwere": "fehler", "marker": m, "station": s.get("titel")}
+            if ok:
+                continue
+            if teilweise(s.get("text", ""), m):
+                verkuerzt.append(
+                    {
+                        "klasse": "marker-verkuerzt",
+                        "schwere": "hinweis",
+                        "marker": m,
+                        "station": s.get("titel"),
+                    }
                 )
-                break
+                continue
+            risse.append(
+                {"klasse": "marker-riss", "schwere": "fehler", "marker": m, "station": s.get("titel")}
+            )
+            break
 
     return {
         "stationen": len(stationen),
@@ -265,6 +295,7 @@ def marker_check(
         "verlauf": verlauf,
         "risse": risse,
         "abgewaehlt": abgewaehlt,
+        "verkuerzt": verkuerzt,
         "auswahl_bei": auswahl_bei,
         "kontrollmarker": KONTROLLMARKER,
         "kontroll_treffer": kontroll_treffer,
@@ -333,6 +364,8 @@ def main() -> int:
                   f"messen vorgibt; die Ergebnisse der anderen Marker sind damit wertlos.", file=sys.stderr)
             return 2
         print(f"  Kontrollmarker {e['kontrollmarker']!r}: 0 Treffer ✅ (die Messung ist gueltig)")
+        for v in e["verkuerzt"]:
+            print(f"  · marker-verkuerzt (hinweis)   {v['marker']} nur noch in Teilen: {v['station']}")
         for a_ in e["abgewaehlt"]:
             print(f"  · marker-abgewaehlt (hinweis)  {a_['marker']} faellt an der Auswahl weg: {a_['station']}")
         for r in e["risse"]:
