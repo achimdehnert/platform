@@ -45,7 +45,8 @@ def test_should_erst_seed_still_anlegen(tmp_path):
 def test_should_wechsel_melden_und_state_nachziehen(tmp_path):
     r, state = _run(tmp_path, "claude-fable-5", seed="claude-opus-5")
     assert r.returncode == 0
-    assert "MODELLWECHSEL erkannt: claude-opus-5 → claude-fable-5" in r.stdout
+    assert "MODELLWECHSEL erkannt (MAJOR): claude-opus-5 → claude-fable-5" in r.stdout
+    assert "Re-Qualifikation" in r.stdout
     assert "Smoke-Kalibrierung" in r.stdout
     assert state.read_text(encoding="utf-8") == "claude-fable-5"
 
@@ -60,3 +61,41 @@ def test_should_ohne_settings_fail_open(tmp_path):
     r, _ = _run(tmp_path, None)
     assert r.returncode == 0
     assert r.stdout.strip() == ""
+
+
+def test_should_hauptversion_als_major_einstufen_und_loggen(tmp_path):
+    r, state = _run(tmp_path, "claude-fable-6", seed="claude-fable-5-1[1m]")
+    assert "MODELLWECHSEL erkannt (MAJOR)" in r.stdout
+    log = (
+        (state.parent / "model-changes.log")
+        .read_text(encoding="utf-8")
+        .strip()
+        .split("\t")
+    )
+    assert log[1:] == ["claude-fable-5-1[1m]", "claude-fable-6", "MAJOR"]
+
+
+def test_should_punkt_release_als_minor_einstufen(tmp_path):
+    r, state = _run(tmp_path, "claude-fable-5-1", seed="claude-fable-5")
+    assert "MODELLWECHSEL erkannt (MINOR)" in r.stdout
+    assert "Vollmachten bleiben active" in r.stdout
+    assert "MAJOR" not in r.stdout
+    assert (
+        (state.parent / "model-changes.log")
+        .read_text(encoding="utf-8")
+        .rstrip()
+        .endswith("MINOR")
+    )
+
+
+def test_should_suffix_wechsel_still_aber_geloggt(tmp_path):
+    r, state = _run(tmp_path, "claude-fable-5-1[1m]", seed="claude-fable-5-1")
+    assert r.returncode == 0
+    assert r.stdout.strip() == ""
+    assert state.read_text(encoding="utf-8") == "claude-fable-5-1[1m]"
+    assert (
+        (state.parent / "model-changes.log")
+        .read_text(encoding="utf-8")
+        .rstrip()
+        .endswith("SUFFIX")
+    )

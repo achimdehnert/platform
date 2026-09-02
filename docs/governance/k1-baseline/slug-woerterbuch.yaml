@@ -39,7 +39,12 @@ frozen_at: "2026-08-02"
 #   nachher (repariert):          16 / 13 / 3, Summen-Rate 1.600
 # n = 20 unveraendert, Fenster unveraendert — die Differenz ist reine Messfehler-
 # Korrektur, keine Verschiebung des Ziels. sha fcdb0489… -> 5cf0109d….
-tool_sha256: 5cf0109d6b4001181b9c28265f884fa36dfe187c514109d27a0e712bc38b94ee
+# Neuberechnung 2026-09-02 (Instrumentenwechsel, Wachstums-Sensor --nominierung,
+# KONZ-025 Art. 2.1): over_ask/over_act/over_*_klassen/repo_scope werden jetzt
+# geparst, neuer Berichtsblock. Das Zaehlwerk (recurring_findings) blieb
+# unangetastet — Baseline-Lauf mit der neuen Version erneut n=20, 16/13/3,
+# Summen-Rate 1.600 (reproduziert, nicht umdeklariert). sha 5cf0109d… -> d4fea9c6….
+tool_sha256: d4fea9c635936c65ec383062b09cc194b44060f84077d4501ab2283b137c86a6
 
 top3:
   - canonical: claim-before-cheapest-check
