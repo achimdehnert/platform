@@ -50,7 +50,7 @@ jobs:
       # der unerklaerlich liegenblieb.
       - name: "Repo auschecken"
         if: steps.token.outputs.scharf == 'ja'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: "Kandidaten pruefen und approven"
         if: steps.token.outputs.scharf == 'ja'
