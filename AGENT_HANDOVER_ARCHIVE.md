@@ -2164,3 +2164,31 @@ auseinanderlaufen. Diese Liste hält nur, was über einen Session-Stand hinaus o
 **CC-Skill-Dist** (platform): Drift-Score live prüfen — `python3 tools/cc-skill-dist/doctor.py` (Zahl driftet mit jedem neuen/geänderten Skill, hier nicht einfrieren)
 
 ---
+
+---
+
+<!-- aus AGENT_HANDOVER.md ausgelagert 2026-09-02 (Byte-Deckel, #2670) -->
+
+## ⚡ Stand (2026-09-02 mittags — Lotsen-Wachstum: Regelkreis gebaut, Retro fand zwei Loecher darin, beide geschlossen)
+
+**Zeitanker:** HEAD `d381e63a` · `rev-list --count` 3920 · geschrieben 2026-09-02
+
+**Zielzustand ([#2618](https://github.com/achimdehnert/platform/issues/2618), Owner-Go „8 go" auf den vorgelegten Zielzustand, danach „5 6 7 go", „11 go 12 merge", „24 go 25 go", „27 go"): drei der vier Kriterien erreicht, das vierte verschoben mit Tracking.** (1) Sensor nominiert aus Retro-Evidenz — `retro_kpis.py --nominierung`, Klasse ≥2 ⇒ NOMINIERT, `over_act` derselben Klasse sperrt: **erreicht**, laeuft ueber 110 Retros. (2) Befoerderungen einzeln im Registry-Format vorlegen: **erreicht** (Verfahren steht, noch kein Anlass). (3) Modellwechsel loest Re-Qualifikation je Vollmacht aus statt Total-Reset: **Regel ratifiziert (Runbook §3a), Traegerfeld `assessed_with` in der Registry fehlt** — verschoben, getrackt in #2618. (4) Rueckbau bleibt symmetrisch (Art. 8.2): **erreicht**, unveraendert.
+
+**Gemergt (vier PRs):** [#2617](https://github.com/achimdehnert/platform/pull/2617) Sensor `--nominierung` + Einstufung MAJOR/MINOR/SUFFIX + Runbook §0/§3a + Detektor-Log · [#2653](https://github.com/achimdehnert/platform/pull/2653) Retro-Report c36878 · [#2659](https://github.com/achimdehnert/platform/pull/2659) `docs/governance/` und die Charta review-pflichtig · [#2661](https://github.com/achimdehnert/platform/pull/2661) Datums-Snapshot als eigene Einstufungs-Dimension. Geschlossen: [#2654](https://github.com/achimdehnert/platform/issues/2654), [#2655](https://github.com/achimdehnert/platform/issues/2655).
+
+**Die Retro fand zwei echte Loecher im gerade Gebauten — beide geschlossen.** (a) `docs/governance/` fiel durch CODEOWNERS **und** `sa_m.governance_pfade`; das `main`-Ruleset traegt `required_approving_review_count: 0`, ohne CODEOWNERS-Treffer verlangt GitHub gar kein Approval. Ein PR mit nur dem Runbook waere ungeprueft gemergt — dort steht §3a ueber die Vollmachten. #2617 bekam sein Review nur, weil zufaellig eine `.windsurf/`-Datei mitgebuendelt war: **der Bundling-Verstoss machte ihn sicherer als die Regel es getan haette.** (b) `fam_major()` schnitt nach der ersten Ziffernfolge ab, `haiku-4-5-<datum>` → `haiku-4-9-<datum>` galt als MINOR — Vollmachten waeren aktiv geblieben. Beide Fixes mit Rot-Beweis gegen die alte Fassung, Gegenproben unveraendert, Live-Kopien verteilt (Doctor Drift 0).
+
+**Erster echter Beweislauf des Modellwechsel-Detektors:** `~/.claude/hooks/state/model-changes.log` traegt seit `2026-09-02T08:48:20Z` seine erste Zeile (`claude-fable-5-1[1m] → opus = MAJOR`). Das Gate hatte seit dem Bau am 2026-08-02 nie gefeuert. **Einschraenkung:** `gate_wirkung.py` fuehrt es weiterhin als `unerprobt`, weil es Retro-Slugs zaehlt, keine Log-Zeilen — realer Beleg und Werkzeugsicht gehen auseinander.
+
+**Eigene Fehler, im Lauf gefangen:** (1) „13/13 gruen" statt 14 Checks — der Stop-Hook blockte und erzwang den Beleglauf (**Gate hat gefangen**). (2) Dem Owner die Chronologie des Review-Bots falsch berichtet; die Run-Historie zeigt Dispatches vor **und** nach dem Merge — dieselbe Klasse, diesmal ohne Zahl-Marker, deshalb ungefangen. (3) Im Retro-Report `claim-before-cheapest-check` als „wirksam" etikettiert, waehrend der reproduzierte Lauf RUECKFAELLIG zeigt — vom Meta-Reviewer gefunden, §5a ersetzt. (4) Erster Branch-Versuch per `git switch -c` im geteilten Haupt-Tree, vom Guard geblockt.
+
+**Rueckfaelliges Gate behandelt (Phase 0f):** `claim-before-cheapest-check` steht bei 69 vor / 3 nach dem Bau, der dritte Rueckfall stammt aus dieser Sitzung. Gewaehlte Antwort **ausweiten** (umbauen scheidet aus — der Hook feuert am richtigen Punkt; herabstufen scheidet aus — er hat im selben Lauf gefangen), Umsetzung getrackt in [#2666](https://github.com/achimdehnert/platform/issues/2666). Die drei uebrigen rueckfaelligen Gates stammen aus fremden Sitzungen und bleiben bewusst unberuehrt.
+
+**SA-4: 1 Anwendung (Zielzustand #2618 vorab vorgelegt und angenommen) · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Prod-Schritt: keiner. Live-Eingriff: zweimal `cc-skill-dist --allow-live` nach Owner-Go, beide mit Backup, Doctor Drift 0 / Dangling 0.
+
+**Autonomie-Kalibrierung:** `over_ask` 0 · `over_act` 0, beide Klassenlisten leer. Erste Retro mit den neuen Feldern `over_ask_klassen`/`over_act_klassen` — der Sensor bekommt aus dieser Sitzung kein Futter, und das ist ein ehrliches Ergebnis, kein Versaeumnis.
+
+**Offen (Owner):** [#2662](https://github.com/achimdehnert/platform/issues/2662) hartcodierter DB-Fallback mit Zugangsdaten im Quelltext, auf `main` rot, nur lokal sichtbar · [#2664](https://github.com/achimdehnert/platform/issues/2664) Kurzname gegen volle Modell-ID gilt als MAJOR und wuerde alle Vollmachten suspendieren (Design-Entscheidung, kein Mapping) · [#2666](https://github.com/achimdehnert/platform/issues/2666) Gate-Ausweitung · [#2618](https://github.com/achimdehnert/platform/issues/2618) Registry-Feld `assessed_with` und Rubber-Stamp-Messfeld.
+
+**Fremd, liegen gelassen:** Commits in iil-pet-portal, illustration-hub, meiki-hub, writing-hub aus parallelen Sitzungen — nicht angefasst.
