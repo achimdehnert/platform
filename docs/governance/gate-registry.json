@@ -503,8 +503,8 @@
       "built": "2026-08-16",
       "ref": "platform#2014 (Retro 9d861a Befund #1)",
       "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits.",
-      "revised": "2026-08-23",
-      "revision_note": "AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht).",
+      "revised": "2026-09-01",
+      "revision_note": "AUSWEITUNG 2 (platform#2576, Retro meiki-hub 33616e Befund #8): Eine im selben Turn belegte Ablehnung der Ausfuehrung (Permission-Classifier, Hook-Deny) deckt den Befehlskern jetzt ab. Der Melder feuerte dreimal auf einen Befehl, den auszufuehren dem Agenten verwehrt war — ein Waechter, dem man nicht folgen KANN, wird gelernt zu ignorieren. Bewusst eng: nur Ablehnungen (nicht jeder Fehlschlag), Abgleich ueber die ersten zwei Token (docker exec deckt kein ssh host 'docker exec'). Vorherige Fassung: AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht).",
       "faengt": [
         {
           "fall": "uebergebener Befehl mit `!`-Praefix (Claude-Code-Uebergabekonvention)",
