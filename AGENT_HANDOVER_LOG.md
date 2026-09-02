@@ -3204,3 +3204,20 @@ Freigabe-Kommentar vom Classifier blockiert (korrekt). Owner-Entscheide der Sitz
 23 A · 34/35 go · 38-41 go · 40 widerrufen · Antwortformat-Korrektur (Herleitung in
 Owner-Sprache). Fremde dirty Repos (dev-hub, mcp-hub, news-hub, risk-hub, meiki-hub,
 gpufw, testkit) nicht angefasst.
+
+## 2026-09-02 abends — #2690 Session-Skills modellfest: sechs Kriterien, elf PRs, Diät 130 → 66,6 KB
+
+Owner „29 go", „50 go 51 go 52 T4", „53 go", „60 go 59 61 merged", „62 64 65 approved, 68 go, 69 go".
+Vier Wellen parallel (K2 Modellwechsel-Phase, K1 Drill-Werkzeug, K3 Melder-Register, K4
+Verankerungs-Gate), dann Policy-Vorschlag (#2696), Ende-Runner (#2708) und die Diät in drei
+PRs (#2713/#2715/#2717). Kernbefunde: der Modellwechsel-Detektor loggte nur den Settings-Alias,
+ein Vergleich „bewertet ↔ läuft" war nie möglich (#2693 liest jetzt das Transkript, Rücksprung =
+MINOR). 26 von 39 Meldern des Sitzungsstarts haben keinen benannten Leser (#2699). 31 von 31
+Gates hatten Drill und Messpunkt, keines eine Positivkontrolle (#2701, Blockierpfad per
+Wegwerf-PR #2709 in CI rot belegt, Backfill #2703). Kaltstart-Drill 9 Läufe vorher/nachher:
+Pflicht-Auslassungen 1/9 → 1/9 (Instrument-Effekte, #2719), erstes identisches Laufpaar
+(retro). Der Ende-Runner brauchte für den Template-Drift-Check 411 s; ein Deckel bei 180 s
+hätte die Phase dauerhaft stumm geschaltet. Merges: 4 autonom nach Mandat, 7 Governance-Pfade
+durch den Owner; der Permission-Classifier blockierte einen Merge, der Weg blieb der Owner.
+Nebenbefunde: memory-link-guard schreibt Änderungen paralleler Sitzungen dem eigenen Zug zu
+(#2689, zweimal), Smoke-Test druckt die DB-URL mit Passwort in die Assertion (#2688).
