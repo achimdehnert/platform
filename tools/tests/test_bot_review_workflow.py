@@ -12,6 +12,7 @@ und die echte Schleifen-Zeile ueber die Datei, die er schreibt.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -45,13 +46,17 @@ def _schleifen_kopf() -> str:
     raise AssertionError("while-read-Schleife im Workflow nicht gefunden")
 
 
-def _pr(nummer: int) -> dict:
+BOT_LOGIN = "IIL-Lotse"
+
+
+def _pr(nummer: int, reviews: list | None = None) -> dict:
     return {
         "number": nummer,
         "isDraft": False,
         "author": {"login": "achimdehnert"},
         "mergeStateStatus": "BLOCKED",
         "reviewDecision": "",
+        "reviews": reviews or [],
         "files": [{"path": "registry/canonical.yaml"}],
         "statusCheckRollup": [
             {"name": "ci", "status": "COMPLETED", "conclusion": "SUCCESS"}
@@ -70,7 +75,10 @@ def _filter_lauf(tmp_path: Path, prs: list) -> tuple[str, Path]:
         .replace("/tmp/prs.json", str(prs_datei))
         .replace("/tmp/kandidaten", str(kandidaten))
     )
-    p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    umgebung = {**os.environ, "BOT_LOGIN": BOT_LOGIN}
+    p = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=umgebung
+    )
     assert p.returncode == 0, p.stderr
     return p.stdout, kandidaten
 
@@ -112,3 +120,32 @@ def test_should_still_skip_a_tabu_path_with_a_reason(tmp_path):
     stdout, kandidaten = _filter_lauf(tmp_path, [pr])
     assert "Tabu-Pfad" in stdout
     assert kandidaten.read_text() == ""
+
+
+# --- Wiederholungs-Sperre (platform#2660) ------------------------------------
+# Der 20-Minuten-Cron approvte denselben Stand endlos nach, weil `reviewDecision`
+# leer bleibt, solange ein menschliches Code-Owner-Review aussteht: #2482 sammelte
+# 70 Bot-Approvals, #2478 69. Massgeblich ist die EIGENE Review-Liste.
+
+
+def test_should_not_approve_a_pr_it_already_approved(tmp_path):
+    pr = _pr(2482, reviews=[{"author": {"login": BOT_LOGIN}, "state": "APPROVED"}])
+    stdout, kandidaten = _filter_lauf(tmp_path, [pr])
+    assert f"bereits von {BOT_LOGIN} approved" in stdout
+    assert kandidaten.read_text() == ""
+
+
+def test_should_still_approve_when_only_someone_else_approved(tmp_path):
+    """Gegenprobe: ein fremdes Approve darf den Bot nicht aussperren — sonst
+    wuerde die Sperre still alles blockieren statt nur die Wiederholung."""
+    pr = _pr(2483, reviews=[{"author": {"login": "wirdigital"}, "state": "APPROVED"}])
+    stdout, kandidaten = _filter_lauf(tmp_path, [pr])
+    assert "bereits von" not in stdout
+    assert kandidaten.read_text().strip() == "2483"
+
+
+def test_should_ignore_its_own_non_approving_review(tmp_path):
+    """Ein eigener Kommentar-Review ist keine Freigabe."""
+    pr = _pr(2484, reviews=[{"author": {"login": BOT_LOGIN}, "state": "COMMENTED"}])
+    _, kandidaten = _filter_lauf(tmp_path, [pr])
+    assert kandidaten.read_text().strip() == "2484"
