@@ -1,8 +1,11 @@
 """Tests für tools/modellwechsel_check.py (K2, platform#2690).
 
-Maßstab: "bewertet mit" (assessed_with in den Policy-Kopfzeilen) ↔
-"läuft mit" (neu-Feld der letzten model-changes.log-Zeile) — NICHT
-Vorgänger ↔ Nachfolger. Der Klassifizierer selbst ist eine Portierung aus
+Maßstab: "bewertet mit" (assessed_with in den Policy-Kopfzeilen) ↔ "läuft
+mit" (das AKTUELL laufende Modell) — NICHT Vorgänger ↔ Nachfolger.
+model-changes.log trägt nur den settings-Alias (z.B. "fable"), NICHT die
+Gewichtsmatrix — deshalb hat das Transkript (letzte assistant-Zeile mit
+message.model) Vorrang vor der Alias-Tabelle (Befund #2693-Review). Der
+Klassifizierer selbst ist eine Portierung aus
 tools/claude-hooks/model_change_detector.sh; test_should_match_detector_...
 belegt das gegen das Original (subprocess, kein Reimplementieren des Tests).
 """
@@ -38,10 +41,16 @@ def _write_log(log_path: Path, utc: str, alt: str, neu: str, klasse: str) -> Non
         fh.write(f"{utc}\t{alt}\t{neu}\t{klasse}\n")
 
 
-def _run_cli(tmp_path: Path, *extra_args: str) -> subprocess.CompletedProcess:
+def _run_cli(
+    tmp_path: Path, *extra_args: str, transcript_dir: Path | None = None
+) -> subprocess.CompletedProcess:
     log = tmp_path / "state" / "model-changes.log"
     handled = tmp_path / "state" / "model-rebaseline-handled.tsv"
     policies = tmp_path / "policies"
+    # Hermetisch: ohne expliziten Override zeigt --transkript-dir auf einen NICHT
+    # existierenden Ordner, damit kein echtes Session-Transkript des laufenden
+    # Prozesses in den Test einsickert (find_latest_transcript_model gibt dann None).
+    td = transcript_dir if transcript_dir is not None else tmp_path / "no-transcripts"
     return subprocess.run(
         [
             sys.executable,
@@ -52,12 +61,23 @@ def _run_cli(tmp_path: Path, *extra_args: str) -> subprocess.CompletedProcess:
             str(handled),
             "--policies-dir",
             str(policies),
+            "--transkript-dir",
+            str(td),
             *extra_args,
         ],
         capture_output=True,
         text=True,
         timeout=30,
     )
+
+
+def _write_transcript(transcript_dir: Path, model: str, filename: str = "session.jsonl") -> None:
+    transcript_dir.mkdir(parents=True, exist_ok=True)
+    lines = [
+        json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
+        json.dumps({"type": "assistant", "message": {"role": "assistant", "model": model}}),
+    ]
+    (transcript_dir / filename).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 # ── (a) MAJOR ggü. assessed_with → fällig + suspendiert ─────────────────────
@@ -148,6 +168,77 @@ def test_should_report_no_event_when_log_empty(tmp_path):
     r = _run_cli(tmp_path, "--kurz")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "kein Ereignis" in r.stdout
+
+
+# ── Laufendes Modell: Transkript > Alias-Tabelle > unbekannt (Review #2693) ──
+
+
+def test_should_prefer_transcript_model_over_log_alias(tmp_path):
+    """model-changes.log traegt nur den Alias ("fable") — das Transkript hat
+
+    Vorrang und liefert die vollstaendige Modell-ID; Quelle steht im Bericht.
+    """
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "opus", "fable", "MAJOR")
+    _write_transcript(transcripts, "claude-fable-5-1")
+
+    r = _run_cli(tmp_path, "--kurz", transcript_dir=transcripts)
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "quelle=transkript" in r.stdout
+    assert "läuft=claude-fable-5-1" in r.stdout
+    assert "MINOR" in r.stdout  # fable-5 -> fable-5-1: nur Punkt-Release
+
+
+def test_should_fall_back_to_alias_table_when_no_transcript_available(tmp_path):
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "opus", "fable", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")  # kein transcript_dir-Override -> leerer Ordner
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "quelle=alias-tabelle" in r.stdout
+    assert "läuft=claude-fable-5-1" in r.stdout
+    assert "Tabelle altert" in r.stdout
+    assert "MINOR" in r.stdout
+
+
+def test_should_stay_major_for_unknown_alias(tmp_path):
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "fable", "mystery-model", "MAJOR")
+
+    r = _run_cli(tmp_path, "--kurz")
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "quelle=alias-unbekannt" in r.stdout
+    assert "läuft=mystery-model" in r.stdout
+    assert "MAJOR" in r.stdout
+    assert "suspendiert" in r.stdout
+
+
+def test_should_prefer_explicit_laufend_argument_over_everything(tmp_path):
+    log = tmp_path / "state" / "model-changes.log"
+    policies = tmp_path / "policies"
+    transcripts = tmp_path / "transcripts"
+    _write_policy(policies, "adr-threshold.md", "claude-fable-5")
+    _write_log(log, "2026-09-02T08:00:00Z", "opus", "fable", "MAJOR")
+    _write_transcript(transcripts, "claude-opus-5")
+
+    r = _run_cli(
+        tmp_path, "--kurz", "--laufend", "claude-fable-5-1", transcript_dir=transcripts
+    )
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "quelle=argument" in r.stdout
+    assert "läuft=claude-fable-5-1" in r.stdout
+    assert "MINOR" in r.stdout
 
 
 # ── (e) Klassifizierer-Vergleich mit dem Detektor auf den §0-Beispielen ─────
