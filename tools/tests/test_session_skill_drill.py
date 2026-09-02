@@ -307,6 +307,36 @@ def test_should_exit_1_on_status_deviation_between_protocols(skill_datei, tmp_pa
     assert rc == 1
 
 
+def test_should_report_no_deviation_when_same_class_different_wording(skill_datei, tmp_path):
+    """Realfall retro 1<->2: beide Laeufe 'bewusst uebersprungen', nur anderer
+    Grundtext -> keine Abweichung, da die Statusklasse verglichen wird, nicht
+    der Wortlaut der Begruendung."""
+    sp = drill.parse_skill(skill_datei, skill="fixture")
+    zeilen_a = [(e.id, "bewusst übersprungen: erster Lauf mit dieser Begruendung", "ok") for e in sp.einheiten()]
+    zeilen_b = [(e.id, "bewusst übersprungen: zweiter Lauf, andere Formulierung", "ok") for e in sp.einheiten()]
+    a = tmp_path / "a.md"
+    b = tmp_path / "b.md"
+    _schreibe_protokoll(a, zeilen_a)
+    _schreibe_protokoll(b, zeilen_b)
+    rc = drill.main(["--vergleich", str(a), str(b)])
+    assert rc == 0
+
+
+def test_should_report_deviation_when_erfuellt_vs_uebersprungen(skill_datei, tmp_path):
+    sp = drill.parse_skill(skill_datei, skill="fixture")
+    zeilen_a = [(e.id, "erfüllt", "ok") for e in sp.einheiten()]
+    zeilen_b = [
+        (e.id, "bewusst übersprungen: diesmal aus Zeitgruenden ausgelassen", "n/a")
+        for e in sp.einheiten()
+    ]
+    a = tmp_path / "a.md"
+    b = tmp_path / "b.md"
+    _schreibe_protokoll(a, zeilen_a)
+    _schreibe_protokoll(b, zeilen_b)
+    rc = drill.main(["--vergleich", str(a), str(b)])
+    assert rc == 1
+
+
 # --- CLI: --kurz ------------------------------------------------------
 
 

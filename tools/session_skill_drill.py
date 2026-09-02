@@ -453,6 +453,15 @@ def cmd_protokoll(args, parser) -> int:
 
 
 def cmd_vergleich(args) -> int:
+    """Vergleicht zwei Drill-Protokolle auf Reproduzierbarkeit.
+
+    Verglichen wird die **Statusklasse** (``erfuellt``/``bewusst_uebersprungen``/
+    ``still`` — via ``classify_status``), NICHT der Wortlaut der Begruendung.
+    Zwei Laeufe, die dieselbe Einheit beide als "bewusst uebersprungen" fuehren,
+    aber mit unterschiedlichem Grundtext, gelten als reproduzierbar gleich —
+    der Grundtext wird nur bei einer echten Abweichung (unterschiedliche
+    Klasse, oder eine Seite fehlt) zur Information mit ausgegeben.
+    """
     pfad_a, pfad_b = args.vergleich
     a = parse_protokoll(Path(pfad_a))
     b = parse_protokoll(Path(pfad_b))
@@ -465,10 +474,18 @@ def cmd_vergleich(args) -> int:
             abweichungen.append({"id": uid, "grund": "nur in B", "a": None, "b": rb["status"]})
         elif rb is None:
             abweichungen.append({"id": uid, "grund": "nur in A", "a": ra["status"], "b": None})
-        elif ra["status"].strip() != rb["status"].strip():
-            abweichungen.append(
-                {"id": uid, "grund": "status weicht ab", "a": ra["status"], "b": rb["status"]}
-            )
+        else:
+            klasse_a = classify_status(ra["status"])
+            klasse_b = classify_status(rb["status"])
+            if klasse_a != klasse_b:
+                abweichungen.append(
+                    {
+                        "id": uid,
+                        "grund": f"statusklasse weicht ab ({klasse_a} vs. {klasse_b})",
+                        "a": ra["status"],
+                        "b": rb["status"],
+                    }
+                )
     if args.json:
         print(json.dumps({"abweichungen": abweichungen}, ensure_ascii=False, indent=2))
     else:
