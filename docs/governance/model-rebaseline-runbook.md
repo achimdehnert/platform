@@ -14,8 +14,20 @@ keine Spur, ob ein Wechsel je gemeldet wurde (Befund 2026-09-02: `claude-fable-5
 | Klasse | Definition | Beispiel | Pflicht |
 |---|---|---|---|
 | **MAJOR** | Modellfamilie ODER Hauptversion wechselt | `opus-5` → `fable-5` · `fable-5-1` → `fable-6` | §1 + §2 + §3 + **§3a** (Vollmachten) |
-| **MINOR** | gleiche Familie und Hauptversion, Punkt-Release | `fable-5` → `fable-5-1` | §1 Smoke; Vollmachten bleiben `active`; `assessed_with` im nächsten Ritual nachziehen |
+| **MAJOR** | **Datums-Snapshot wechselt**, auch bei gleicher Versionsnummer | `haiku-4-5-20251001` → `haiku-4-5-20260315` | dieselbe wie oben |
+| **MINOR** | gleiche Familie, Hauptversion **und** Snapshot; nur Punkt-Release | `fable-5` → `fable-5-1` | §1 Smoke; Vollmachten bleiben `active`; `assessed_with` im nächsten Ritual nachziehen |
 | **SUFFIX** | nur Variante/Kontextfenster (`[1m]`) | `fable-5-1` → `fable-5-1[1m]` | nichts — Log-Zeile, kein Ereignis |
+| — | Form nicht parsbar (Provider-Präfix, Tippfehler) | `us.anthropic.claude-fable-5-1` | **MAJOR**, fail-loud |
+
+**Warum das Datum eine eigene Zeile bekommt (Nachtrag 2026-09-02, [#2655](https://github.com/achimdehnert/platform/issues/2655)).**
+Die erste Fassung dieser Tabelle kannte nur Familie und Hauptversion, und der Detektor
+schnitt seine Modell-ID nach der ersten Ziffernfolge ab. Damit ergaben
+`claude-haiku-4-5-20251001` und `claude-haiku-4-9-20260315` beide `haiku-4` und wurden als
+MINOR eingestuft — Vollmachten wären aktiv geblieben, obwohl zwei Snapshots zwei
+verschiedene Gewichtsmatrizen sind (Charta Art. 2.5: *„Vertrauen ist nicht übertragbar
+zwischen Gewichtsmatrizen"*). Bitter daran: der Fehler traf nur **bekannte** Formen. Ein
+Provider-Präfix oder ein Tippfehler fiel korrekt auf MAJOR zurück, weil sein Match leer
+blieb — die Absicherung schützte vor dem Unbekannten und versagte beim Erwarteten.
 
 Das ist die operative Auslegung von Charta Art. 2.5 („Major-Wechsel ⇒ Reset der betroffenen
 Klassen"): *Major* ist dort undefiniert; ohne diese Tabelle wäre jedes Punkt-Release ein
