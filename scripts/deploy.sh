@@ -271,8 +271,7 @@ fi
 # Signatur eines transienten Ausfalls, und dagegen ist Wiederholen die richtige
 # und einzige Antwort. Der Geltungsbereich endet hier: ein fehlgeschlagener
 # `migrate` und ein Manifest-Bruch sind deterministisch und wiederholen sich
-# deshalb nicht — ein zweiter Versuch verdeckt dort nur die Ursache. Das ist
-# eine dauerhafte Grenze, keine offene Restarbeit.
+# deshalb nicht — ein zweiter Versuch verdeckt dort nur die Ursache.
 : "${DEPLOY_REGISTRY_RETRIES:=4}"   # Gesamtversuche, nicht Nachversuche
 : "${DEPLOY_REGISTRY_BACKOFF:=5}"   # Sekunden, verdoppelt sich je Versuch
 _mit_wiederholung() {
