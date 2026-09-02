@@ -237,6 +237,82 @@ def test_should_pr_referenz_nicht_mehr_als_anker_gelten_lassen():
     assert dac.finde_ankerlose_stellen(text), "PR-Link darf keinen Fund abraeumen"
 
 
+# --- blocking: der Traeger, nicht das Werkzeug (E4, platform#2606) -----------
+#
+# Der Modus dieses Gates lebt im Workflow, nicht in diesem Modul: `--block` gab
+# den Exit-Code schon immer zurueck, der Job hat ihn bis zum 2026-09-02 nur
+# verworfen. Ein Test gegen das Modul haette die Scharfschaltung also NICHT
+# geprueft — "gebaut != feuert". Deshalb wird hier der echte `run`-Block aus
+# .github/workflows/aufschub-anker-gate.yml ausgefuehrt (Muster von
+# test_bot_review_workflow.py) und sein Exit-Code gemessen.
+
+WURZEL = pathlib.Path(__file__).resolve().parents[2]
+WF = WURZEL / ".github" / "workflows" / "aufschub-anker-gate.yml"
+
+
+def _check_skript(tmp_path: pathlib.Path) -> str:
+    """Der `run`-Block des Check-Schritts, lauffaehig gemacht.
+
+    Zwei Ersetzungen, beide bewusst: `python` gibt es auf dieser Maschine nicht
+    (nur `python3`; in CI legt setup-python es an), und die festen /tmp-Pfade
+    wuerden zwischen parallelen Laeufen kollidieren.
+    """
+    import yaml
+
+    doc = yaml.safe_load(WF.read_text(encoding="utf-8"))
+    for step in doc["jobs"]["aufschub-anker"]["steps"]:
+        if (step.get("name") or "").startswith("Aufschub-Anker-Check"):
+            skript = step["run"]
+            break
+    else:  # pragma: no cover — nur bei umbenanntem Schritt
+        raise AssertionError("Check-Schritt im Workflow nicht gefunden")
+    return skript.replace("python ", f"{sys.executable} ").replace(
+        "/tmp/", f"{tmp_path}/"
+    )
+
+
+def _fahre_check(tmp_path: pathlib.Path, pr_text: str):
+    import subprocess
+
+    (tmp_path / "pr_body.txt").write_text(pr_text, encoding="utf-8")
+    (tmp_path / "pr.diff").write_text("", encoding="utf-8")
+    ausgaben = tmp_path / "gh_output"
+    ausgaben.write_text("", encoding="utf-8")
+    lauf = subprocess.run(
+        ["bash", "-c", _check_skript(tmp_path)],
+        cwd=str(WURZEL),
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GITHUB_OUTPUT": str(ausgaben),
+            "HOME": str(tmp_path),
+        },
+    )
+    return lauf, ausgaben.read_text(encoding="utf-8")
+
+
+def test_should_den_job_rot_machen_wenn_ein_aufschub_ohne_anker_dasteht(tmp_path):
+    lauf, ausgabe = _fahre_check(
+        tmp_path, "## Bewusst nicht in diesem PR\n\n- Der Rest folgt separat.\n"
+    )
+    assert lauf.returncode == 1, (
+        "blocking heisst: der Schritt faellt aus. Gruen mit Kommentar war der "
+        f"advisory-Zustand.\nSTDOUT: {lauf.stdout}\nSTDERR: {lauf.stderr}"
+    )
+    assert "hat_befund=true" in ausgabe
+    assert "::error::" in lauf.stdout
+
+
+def test_should_gruen_bleiben_ohne_befund(tmp_path):
+    """Gegenprobe — ohne sie belegt der Test oben nur, dass irgendetwas rot wird."""
+    lauf, ausgabe = _fahre_check(
+        tmp_path, "Dieser PR setzt die Registry-Pflege vollstaendig um.\n"
+    )
+    assert lauf.returncode == 0, f"{lauf.stdout}\n{lauf.stderr}"
+    assert "hat_befund=false" in ausgabe
+
+
 def test_should_die_grenze_der_naehe_festhalten():
     """**Bekannte Grenze, absichtlich als Test festgehalten.**
 
