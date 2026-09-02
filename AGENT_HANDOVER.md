@@ -35,7 +35,25 @@ unterblieb — Realfall 2026-07-15, drei konkurrierende Handover-PRs nebeneinand
 (`session-retro-2026-07-15-platform-c494a2`). Übernommen aus dem Fremdsystem SB-Neu, wo
 derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 
-## ⚡ Aktueller Stand (2026-08-31 abends — GX10 in Betrieb genommen, KONZ-005 Dokumentenworkflow, zwei stille Melder-Luecken geschlossen)
+## ⚡ Aktueller Stand (2026-09-02 frueh — Auftrag #2592 /mailcheck + todo.iil.pet abgeschlossen, alle fuenf Kriterien belegt)
+
+**Zeitanker:** HEAD `e8e17c97` · `rev-list --count` 3870 · geschrieben 2026-09-02
+
+**Zielzustand ([#2592](https://github.com/achimdehnert/platform/issues/2592), Owner-Go „go" auf den `/prompt --auftrag`-Entwurf, dann „fang mit K2 und K3 an" / „weiter mit K4 und K5" / „weiter mit K1"): erreicht, alle fuenf Kriterien einzeln geprueft, Issue geschlossen.** K2 tote Mail-Links **89/203 → 0/121** gegen die laufenden Dienste (`link_pruefen.py --vorgangsseiten`) · K3 Ordner-Pruefer `referenzen.py --pruefe-ordner` + Kettencheck-Glied, Stichtag = Pruefer-Datum (Bestand 23 → 14 → 0) · K4 Frist-Pflicht: `board.py --pruefe` meldet offene Vorgaenge ohne ISO-Frist und ohne `frist_grund`, Schreibweg `board.py --frist`, 21 offene Vorgaenge nachgetragen · K5 IIL-Vorgaenge bekommen ihren Kurzlink automatisch (`--heile-links`, Betreff-Suche im 90-Tage-Fenster), **48 von 54** Vorgangsseiten fuehren in eine Mail, Stichprobe 5/5 im echten Browser (Tab-Titel = Mail-Betreff) · K1 `make boards-check` byteidentisch (22.513 B / 30.436 B).
+
+**Gemergt (vier PRs, alle nach gruenem CI + Bot-Approve):** [#2598](https://github.com/achimdehnert/platform/pull/2598) Verlaufs-Links ueber Message-ID (`referenzen.py`, `eintrag_anker.py`, `graph_anker.py`, Renderer nur auf Verankertes, Graph-Selbstheilung ueber internetMessageId) · [#2599](https://github.com/achimdehnert/platform/pull/2599) unaufloesbare Referenzen als Zustand (`mail-eintrag-tot.json`), Glied nur fuer Offenes · [#2601](https://github.com/achimdehnert/platform/pull/2601) Frist-Pflicht + IIL-Kurzlinks · [#2605](https://github.com/achimdehnert/platform/pull/2605) `--stichtag` + `make boards-check`. Geschlossen: #2563, #2199, #1864, #1869, #2592. Nachlauf getrackt: [#2597](https://github.com/achimdehnert/platform/issues/2597) (leerer Mail-Koerper → Hinweis „Inhalt im Anhang").
+
+**Eigene Fehler, gefangen und korrigiert:** (1) Messskript verglich `"OK"` statt `"ok"` — 203/203 „tot", erst die Hinweistexte zeigten 89. (2) `graph_anker.hole("")` traf die Listen-Route (200) — 13 Vorgaenge als „gueltig" gemeldet, ohne je gesucht zu haben; Guard + Test. (3) „aeltester Betreff-Treffer" ohne Fenster landete bei 2022 („Datenschutzvorfall") — 90 Tage vor `angelegt`. (4) Kettencheck-Glied „Verl.-Anker" waere wegen 81 Altlasten fuer immer rot gewesen → Zustand statt offener Posten. (5) Der Push-Gate-Hook blockiert den GANZEN Bash-Befehl vorab — format/commit/Kommentar davor liefen nie (Memory `feedback_push_hook_blocks_whole_bash_command`).
+
+**Lokale Zustandsdateien (nie Repo):** `~/.claude/mail-anker.json` 43 → 120 Anker (77 je Referenz), `mail-links.json` 42 → 48 (7 Vorgaenge neu, 146 entfernt: Mail weg), `mail-eintrag-tot.json` 81 befundet, Ledger: 21 Vorgaenge `frist`/`frist_grund` (Grund-Texte mechanisch je Bucket, Owner kann korrigieren). Sicherungen der Vorzustaende: `~/.claude/backups/2026-09-01-mailcheck-k2-k5/`. Dienste `todo-board`/`mail-links` laufen auf main, `cc-skill-dist` Drift 0.
+
+**SA-4: 4 Anwendungen (#2598, #2599, #2601, #2605 — je Kriterium im PR benannt) · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.** Prod-Schritt: keiner (User-Services auf dem Dev-Knoten, Neustart nach jedem Merge).
+
+**Offen (Owner):** die 20 mechanisch gesetzten `frist_grund`-Texte sichten (`todo.iil.pet`, Spalte Frist) · [#2597](https://github.com/achimdehnert/platform/issues/2597) priorisieren · Vorgang 152 (PyPI-Org, Frist 2026-09-08) unveraendert.
+
+**Fremd, liegen gelassen:** dirty Arbeitsbaeume in dev-hub, mcp-hub, news-hub, risk-hub, testkit, meiki-hub, gpufw — nicht aus dieser Sitzung, nicht angefasst.
+
+## ⚡ Vorheriger Stand (2026-08-31 abends — GX10 in Betrieb genommen, KONZ-005 Dokumentenworkflow, zwei stille Melder-Luecken geschlossen)
 
 **Zeitanker:** HEAD `3f19fced` · `rev-list --count` 3831 · geschrieben 2026-08-31
 
@@ -54,24 +72,6 @@ derselbe Anker eine Sechs-Commit-Drift in einer Sekunde sichtbar machte.
 **Offen (Owner):** [#2543](https://github.com/achimdehnert/platform/issues/2543) Runner-Server — **die `ci-gpu`-Jobs brauchen gar keine GPU** (kein `cuda`/`torch`/`nvidia` in den writing-hub-Workflows, Gegenprobe an robo-lab positiv), ein kleiner amd64-Server genuegt; Kosten warten auf ein Wort · [#2507](https://github.com/achimdehnert/platform/issues/2507) haelt die vier `dev-desktop`-Auflagen-Findings, an denen der **Infra-Hosts-Audit auf `main` rot steht** (vorbestehend, gegen unveraendertes `main` gegengeprueft) · [robo-lab#58](https://github.com/achimdehnert/robo-lab/issues/58) K4: Vergleichslauf 4090 ↔ GX10 mit gleichen Parametern · [#2544](https://github.com/achimdehnert/platform/issues/2544) vLLM — die eigentliche Frage (Mehrbenutzer-Durchsatz) ist offen, beide gemessenen Motoren sind Einzelstrom-Motoren.
 
 **Offen (naechste Sitzung, ich):** lokaler `platform`-Checkout haengt **30 Commits zurueck** und laesst sich nicht ziehen — `.github/workflows/_deploy-unified.yml` liegt seit Sessionbeginn **fremd staged** im Index (nicht von dieser Sitzung; bewusst liegen gelassen). Erst klaeren, wem die Aenderung gehoert, dann `git pull`.
-
-## ⚡ Vorheriger Stand (2026-08-30 abends — Infra-Sitzung: Healthcheck → KONZ-054 in fünf gemergten Stufen, vier Stilllegungen, Rückbau R1/S1/R2a, Preflight in 10 Deploys)
-
-**Zeitanker:** HEAD `0ac61021` · `rev-list --count` 3801 · geschrieben 2026-08-30
-
-**Zielzustand ([#2483](https://github.com/achimdehnert/platform/issues/2483), Owner-Go „36 go"):** **teilweise erreicht, ehrlich je Kriterium.** K1 erreicht (`tools/flottenbild.py` misst 7 von 8 Knoten, gx10 geplant; Nenner hosts.yaml; täglicher Timer 06:10 UTC + Phase 0.7.22). K2 gebaut: Klasse a per Deploy-Preflight in **10 realen Deploys** entschieden (dms, cad, trading, pptx, decks, dev-hub, learn, tax, …), f per `hosts_audit --check auflage`, b/c/d/e über Flottenbild + Melder — Positivkontrollen nur für a und f, Rest offen. K3 **nicht erreicht**: Historie beginnt heute (Prometheus scrapt prod/prod-b/odoo seit 10:45 UTC, Flottenbild-JSON 30 Tage); Schwellen in `rules/flotte.yml` aus Lauf 1 hergeleitet, keine Vorhersage belegt. K4 gebaut (`entscheiden_bis`, Beleg-Felder, `--bericht --json`, Alarmweg-Register 1/4 belegt) — Präzision nicht bewertbar (< 3 Urteile je Phase). K5 Runbook + Felder stehen, GX10-Aufnahme KW 37. **Kill-Gate 2026-10-15** in [KONZ-054 §13](docs/konzepte/KONZ-platform-054-systembild-und-vorbeugende-wartung.md).
-
-**Was heute passiert ist (alle Belege in Issues):** 13-Agenten-Lauf über 7 Knoten (164 Befunde, 19 kritisch) → Konzept KONZ-054 (T3, drei adversariale Rollen, alle korrigierend) → E1 #2488, E2 #2495, E3 #2498, E4 #2500, E5 #2493 gemergt · Stilllegungen coach-hub, wedding-hub, travel-beat, Odoo ([#2480](https://github.com/achimdehnert/platform/issues/2480)) · Sicherheitsbefunde [#2486](https://github.com/achimdehnert/platform/issues/2486) (netcup-Runner heute deregistriert, `github-ci` ohne docker) · Wiederanlauf: Swap prod 8 GB, Tag `config` im Offsite-Backup mit Drill (#2503, #2505), Prometheus = Flotten-Monitor (odoo-hub#22–#25), Reste [#2504](https://github.com/achimdehnert/platform/issues/2504) · Rückbau R1 [#2506](https://github.com/achimdehnert/platform/issues/2506), S1 #2508, R2a (23 vhosts, /etc/hosts, Health-Liste) · dev-desktop-Workloads deklariert `blockiert` [#2507](https://github.com/achimdehnert/platform/issues/2507) · Lauf 2 (30 behoben / 102 offen / 29 neu / 11 verschlechtert) [#2516](https://github.com/achimdehnert/platform/issues/2516) mit Fixes #2515 · shared-ci v1.1.13/v1.1.14 (Preflight in beiden Deploy-Reusables), Bump-Welle 9 Repos.
-
-**Eigene Fehler, gefangen:** `compose up -d grafana` holte `odoo_db` über `depends_on` zurück (→ `--no-deps`); Runner-Dienste stillgelegter Stacks liefen weiter; drei Melder waren „gebaut, aber nicht kippend" (Phase 0.7.22 PASS bei 4 unhealthy, Auflage-Check übersprang `blockiert`, Canary 24×/Tag rot ohne Leser) — alle drei in #2515. Ein Halt bei travel-beat war ein Fehlalarm meinerseits (2.166 Requests = Scanner, 0 Logins).
-
-**SA-4: 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-5/SA-M: 20+ eigene PRs selbst gemergt** (platform 2481, 2487, 2488, 2493, 2495, 2498, 2500, 2503, 2505, 2508, 2509, 2510, 2511, 2514, 2515; odoo-hub 22–25; shared-ci 64/65; Bump-PRs dms/cad/trading/pptx/decks/dev-hub/illustration/learn/mcp?/tax/ausschreibungs) — alle nach grünem CI, Bot-Approval oder Owner-Go.
-
-**Lesefläche:** generiertes Flottenbild (Artefakt, privat) · `~/.claude/flottenbild/latest.html` täglich · Rohdaten beider Läufe unter `~/.claude/flottenbild/lauf-2026-08-30/` (maschinenlokal, enthält IPs — nicht ins öffentliche Repo).
-
-**Offen (Owner):** #2486 (Discord-Secret, ollama-Bind, SSH-Passwort prod-b, AVV netcup, Backup-Reihenfolge) · #2504 (Escrow, ufw 9100/9338, Alertmanager, IaC-Pfade) · #2507 (4 dev-desktop-Dienste umziehen/stoppen) · #2516 (mcp-hub#237 Review, weltenhub/billing-hub/risk-hub/bahn-hub-Bump je Wort, research-hub archiviert-aber-aktiv, `wsl --update`) · S2: risk-hub auf staging-dedicated (Stand 04-16) stoppen oder Preprod-Pfad bauen.
-
-**Offen (nächste Sitzung, ich):** 108 — Nachtläufe prüfen: backup-meter 05:00 / backup-deckung 05:30 müssen **rot ohne Issue** ausgehen (E3), `grep config /var/log/offsite-backup.log` nach 02:35, `flottenbild.timer` 06:10, `alarmweg-probe` Montag · Welle 3 Rest (137-hub `@v1`, writing-hub) · Regel für `/session-ende`: Infra-Befunde verankern statt themenfremd verzichten (heute 11:47 durch Parallelsitzung geschehen) · Katalog Lauf 1 mit vollen Rohdaten neu bauen.
 
 ## Nächste Schritte (kompakt)
 
