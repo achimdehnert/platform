@@ -220,3 +220,39 @@ jobs:
           echo "Kein geänderter Pfad trifft on.push.paths dieses Workflows."
           echo "Der Check meldet grün, hat den Code aber NICHT geprüft —"
           echo "genau dafür ist das Zwilling-Muster da (#1414)."
+
+  # Eigener JOB, nicht ein Step im Job oben — mit Absicht (platform#2690 K4).
+  # Ein Step hier drin hätte den Check `tools-tests` rot gefärbt, und der steht
+  # im Ruleset. Damit wäre die Frage „advisory oder required?" durch die
+  # Verdrahtung vorentschieden gewesen statt vom Owner am Ruleset. Als eigener
+  # Job meldet er einen eigenen Check-Namen: heute nicht required, also advisory;
+  # scharf wird er durch einen Ruleset-Eintrag, nicht durch einen Datei-Edit.
+  #
+  # KEIN `paths`-Filter (den gibt es auf Job-Ebene ohnehin nicht) und keine
+  # Relevanz-Weiche: `--neu` vergleicht die Registry gegen die Basis und meldet
+  # bei unveränderter Datei „kein neuer oder geaenderter Gate-Eintrag" (Exit 0).
+  # Der Filter steckt im Werkzeug, nicht in einer zweiten Pfadliste, die mit
+  # `on.push.paths` driften könnte.
+  gate-verankerung:
+    name: Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # `git show <basis>:<pfad>` braucht die Historie
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Exit 1 = Befund (ein neu verankertes Gate ohne Drill/Positivkontrolle/
+      # Messpunkt), Exit 2 = Werkzeugfehler (Basis nicht lesbar). Beides macht
+      # den Check rot: ein Melder, der beim eigenen Ausfall grün meldet, ist
+      # schlimmer als keiner (`fetch-failure-is-not-a-green-state`).
+      - name: Neue Gate-Einträge auf Drill, Positivkontrolle, Messpunkt prüfen
+        run: |
+          set -euo pipefail
+          git fetch -q origin "${{ github.base_ref }}"
+          python3 tools/gate_verankerung_check.py \
+            --neu --basis "origin/${{ github.base_ref }}"
