@@ -13,7 +13,6 @@ und die echte Schleifen-Zeile ueber die Datei, die er schreibt.
 
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
