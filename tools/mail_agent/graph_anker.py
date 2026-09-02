@@ -60,7 +60,14 @@ def _http_standard(method: str, url: str, **kw):
 
 
 def hole(tok: str, graph_id: str, http=None) -> tuple[int, dict]:
-    """(Status, Nachricht) — die Nachricht nur mit den Ankerfeldern."""
+    """(Status, Nachricht) — die Nachricht nur mit den Ankerfeldern.
+
+    Ohne Graph-id gibt es nichts zu holen: `/me/messages/` mit leerer id ist die
+    LISTEN-Route und antwortet 200 — am 2026-09-02 meldete die Registrierung
+    deshalb 13 Vorgaenge als „gueltig", ohne je gesucht zu haben.
+    """
+    if not graph_id:
+        return 404, {}
     http = http or _http_standard
     r = http(
         "GET",
@@ -94,8 +101,17 @@ def normalisiere(betreff: str) -> str:
     return " ".join(_PRAEFIX.sub("", betreff or "").lower().split())
 
 
-def finde_per_betreff(tok: str, betreff: str, http=None) -> list[dict]:
-    """Alle Nachrichten, deren Betreff den Vorgangs-Betreff enthaelt — aelteste zuerst."""
+def finde_per_betreff(
+    tok: str, betreff: str, http=None, nicht_vor: str = ""
+) -> list[dict]:
+    """Alle Nachrichten, deren Betreff den Vorgangs-Betreff enthaelt — aelteste zuerst.
+
+    `nicht_vor` (ISO-Datum) schneidet Altes ab. Ohne das Fenster landete die
+    Suche zu „Datenschutzvorfall" bei einer Mail von 2022 und die zu „Unser
+    heutiges Telefonat" im Maerz — beides aeltere Straenge mit demselben Betreff
+    (gemessen 2026-09-02). Der Anker eines Vorgangs liegt nahe an seinem
+    Anlegedatum, nicht Jahre davor.
+    """
     http = http or _http_standard
     suche = quote(f'"subject:{betreff}"', safe="")
     r = http(
@@ -109,13 +125,20 @@ def finde_per_betreff(tok: str, betreff: str, http=None) -> list[dict]:
     passend = [
         m
         for m in r.json().get("value", [])
-        if ziel and ziel in normalisiere(m.get("subject"))
+        if ziel
+        and ziel in normalisiere(m.get("subject"))
+        and (not nicht_vor or (m.get("receivedDateTime") or "")[:10] >= nicht_vor)
     ]
     return sorted(passend, key=lambda m: m.get("receivedDateTime") or "")
 
 
 def heile_eintrag(
-    kurz: str, eintrag: dict, tok: str, betreffe: list[str] | None = None, http=None
+    kurz: str,
+    eintrag: dict,
+    tok: str,
+    betreffe: list[str] | None = None,
+    http=None,
+    nicht_vor: str = "",
 ) -> Befund:
     """Einen Registry-Eintrag pruefen und — wo moeglich — an Ort und Stelle nachziehen."""
     status, nachricht = hole(tok, eintrag.get("graph_id", ""), http)
@@ -141,7 +164,7 @@ def heile_eintrag(
         return Befund(kurz, TOT, "keine internetMessageId und kein Betreff zum Suchen")
     treffer: list[dict] = []
     for betreff in betreffe:
-        treffer = finde_per_betreff(tok, betreff, http)
+        treffer = finde_per_betreff(tok, betreff, http, nicht_vor)
         if treffer:
             break
     if not treffer:
@@ -162,13 +185,69 @@ def heile_eintrag(
 
 
 def heile(
-    registry: dict[str, dict], betreffe: dict[str, list[str]], tok: str, http=None
+    registry: dict[str, dict],
+    betreffe: dict[str, list[str]],
+    tok: str,
+    http=None,
+    fenster: dict[str, str] | None = None,
 ) -> list[Befund]:
-    """Alle Eintraege; `betreffe` ist Kurz-ID → Betreff-Kandidaten (aus dem Ledger)."""
+    """Alle Eintraege; `betreffe` ist Kurz-ID → Betreff-Kandidaten, `fenster` Kurz-ID → nicht_vor."""
+    fenster = fenster or {}
     return [
-        heile_eintrag(kurz, eintrag, tok, betreffe.get(kurz, []), http)
+        heile_eintrag(
+            kurz, eintrag, tok, betreffe.get(kurz, []), http, fenster.get(kurz, "")
+        )
         for kurz, eintrag in sorted(registry.items())
     ]
+
+
+#: Wie weit vor dem Anlegedatum eines Vorgangs seine erste Mail liegen darf.
+FENSTER_TAGE = 90
+
+
+def fenster_aus_ledger(ledger: dict, tage: int = FENSTER_TAGE) -> dict[str, str]:
+    """Kurz-ID → fruehestes Datum, ab dem eine Mail zum Vorgang gehoeren kann."""
+    from datetime import date, timedelta  # noqa: PLC0415
+
+    ergebnis: dict[str, str] = {}
+    for v in ledger.get("vorgaenge", []):
+        if v.get("nr") is None:
+            continue
+        try:
+            angelegt = date.fromisoformat(str(v.get("angelegt") or ""))
+        except ValueError:
+            continue
+        ergebnis[str(v["nr"])] = (angelegt - timedelta(days=tage)).isoformat()
+    return ergebnis
+
+
+def verankere_vorgaenge(
+    ledger: dict, registry: dict[str, dict], tok: str, http=None
+) -> list[Befund]:
+    """Jeden IIL-Vorgang ohne Kurzlink ueber seine Betreffs registrieren (#2592 K5).
+
+    HNU/AD-Vorgaenge laufen ueber `anker.py` (IMAP); hier geht es nur um Graph.
+    Gefunden wird die AELTESTE passende Mail im Fenster ab `angelegt` — der Anfang
+    des Strangs, wie `/a/<nr>` ihn meint. Ohne Treffer bleibt der Vorgang ohne
+    Link und die Seite sagt „keine Mail verknuepft" — ehrlicher als ein Knopf
+    auf die falsche Mail.
+    """
+    betreffe = betreffe_aus_ledger(ledger)
+    fenster = fenster_aus_ledger(ledger)
+    befunde: list[Befund] = []
+    for v in ledger.get("vorgaenge", []):
+        nr = v.get("nr")
+        if v.get("konto") != "iil" or nr is None or str(nr) in registry:
+            continue
+        kurz = str(nr)
+        eintrag: dict = {"graph_id": "", "notiz": str(v.get("kurz") or "")[:60]}
+        b = heile_eintrag(
+            kurz, eintrag, tok, betreffe.get(kurz, []), http, fenster.get(kurz, "")
+        )
+        if b.zustand == NEU_GESUCHT:
+            registry[kurz] = eintrag
+        befunde.append(b)
+    return befunde
 
 
 #: Betreff in einfachen oder typografischen Anfuehrungszeichen — die Form, die

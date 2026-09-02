@@ -58,6 +58,13 @@ class TestHole:
         status, daten = ga.hole("tok", "ALT-ID", http)
         assert (status, daten["internetMessageId"]) == (200, "<abc@iil.gmbh>")
 
+    def test_should_not_hit_the_list_route_for_an_empty_id(self):
+        """Ein leerer Pfad ist die Listen-Route und antwortet 200 — das darf nie
+        als 'die Nachricht gilt noch' gelesen werden."""
+        http = _http({"/me/messages?": _Resp(200, {"value": [NACHRICHT]})})
+        assert ga.hole("tok", "", http) == (404, {})
+        assert http.aufrufe == []
+
     def test_should_return_404_with_empty_data_when_the_id_died(self):
         assert ga.hole("tok", "ALT-ID", _http({})) == (404, {})
 
@@ -223,3 +230,82 @@ class TestBetreffeAusLedger:
         )
         assert b.zustand == ga.NEU_GESUCHT
         assert eintrag["graph_id"] == "NEU-ID"
+
+
+class TestFenster:
+    def test_should_drop_matches_older_than_the_window(self):
+        alt = {**NACHRICHT, "id": "ALT", "receivedDateTime": "2022-10-04T00:00:00Z"}
+        http = _http({"$search": _Resp(200, {"value": [alt, NACHRICHT]})})
+        treffer = ga.finde_per_betreff(
+            "tok", "Termin morgen?", http, nicht_vor="2026-06-01"
+        )
+        assert [m["id"] for m in treffer] == ["NEU-ID"]
+
+    def test_should_derive_the_window_from_the_creation_date(self):
+        ledger = {
+            "vorgaenge": [
+                {"nr": 155, "angelegt": "2026-08-26"},
+                {"nr": 9, "angelegt": "x"},
+            ]
+        }
+        assert ga.fenster_aus_ledger(ledger) == {"155": "2026-05-28"}
+
+
+class TestVerankereVorgaenge:
+    LEDGER = {
+        "vorgaenge": [
+            {
+                "nr": 168,
+                "konto": "iil",
+                "kurz": "Walker C1",
+                "angelegt": "2026-08-28",
+                "thread_key": "Walker C1 — Anfrage UBTECH",
+            },
+            {
+                "nr": 173,
+                "konto": "iil",
+                "kurz": "Entwuerfe",
+                "angelegt": "2026-08-31",
+                "thread_key": "IIL-Entwuerfe unversendet",
+            },
+            {
+                "nr": 113,
+                "konto": "hnu",
+                "kurz": "HNU",
+                "angelegt": "2026-08-01",
+                "thread_key": "x",
+            },
+            {
+                "nr": 107,
+                "konto": "iil",
+                "kurz": "schon da",
+                "angelegt": "2026-08-01",
+                "thread_key": "y",
+            },
+        ]
+    }
+
+    def test_should_register_the_oldest_matching_mail_for_an_iil_case(self):
+        def http(method, url, **_kw):
+            klar = unquote(url)
+            if "$search" in klar and "Walker C1" in klar:
+                return _Resp(
+                    200,
+                    {"value": [{**NACHRICHT, "subject": "Walker C1 — Anfrage UBTECH"}]},
+                )
+            if "$search" in klar:
+                return _Resp(200, {"value": []})
+            return _Resp(404, {"error": {"code": "ErrorItemNotFound"}})
+
+        registry = {"107": {"graph_id": "X"}}
+        befunde = ga.verankere_vorgaenge(self.LEDGER, registry, "tok", http)
+        assert {b.kurz: b.zustand for b in befunde} == {
+            "168": ga.NEU_GESUCHT,
+            "173": ga.TOT,
+        }
+        assert registry["168"] == {
+            "graph_id": "NEU-ID",
+            "notiz": "Walker C1",
+            "internet_message_id": "<abc@iil.gmbh>",
+        }
+        assert "113" not in registry, "HNU laeuft ueber anker.py, nicht ueber Graph"

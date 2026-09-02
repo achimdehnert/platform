@@ -993,3 +993,23 @@ class TestVerlaufVerweise:
         html = tb.verweise("Anhang Bericht_2026-08-20.docx dabei", "hnu")
         assert "class='datei'" in html
         assert "<a" not in html
+
+
+class TestFristGrund:
+    """Keine Frist ist eine Aussage, wenn ihr Grund dabeisteht (#2592 K4)."""
+
+    def test_should_show_the_reason_in_the_list_row(self):
+        v = vorgang(frist=None, frist_grund="Owner-Aufgabe ohne Termin")
+        html_out = tb.zeile(v, STICHTAG)
+        assert ">keine<" in html_out
+        assert "Owner-Aufgabe ohne Termin" in html_out
+
+    def test_should_show_the_reason_on_the_detail_page(self):
+        v = vorgang(frist=None, frist_grund="Warten auf Gegenseite")
+        html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+        assert "<th>Frist</th><td>keine — Warten auf Gegenseite</td>" in html_out
+
+    def test_should_keep_the_dash_without_a_reason(self):
+        assert "<th>Frist</th><td>—</td>" in tb.detail(
+            vorgang(frist=None), mail_basis="https://mail.example", basis=""
+        )

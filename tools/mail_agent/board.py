@@ -405,7 +405,66 @@ def pruefe(ledger: dict) -> list[str]:
         if not aktionen_fuer(vorgang):
             befunde.append(f"#{vorgang.get('nr', '?')}: keine naheliegende Aktion")
 
+    befunde.extend(pruefe_fristen(posten))
     return befunde
+
+
+def pruefe_fristen(posten: list[dict]) -> list[str]:
+    """Jeder offene Vorgang traegt eine Frist — oder sagt, warum nicht (#2592 K4).
+
+    Gemessen 2026-09-02: 38 von 54 Vorgaengen ohne Frist, davon 22 offen. Eine
+    leere Frist sagt nicht, ob keine existiert oder ob niemand nachgesehen hat;
+    genau in dieser Luecke schliefen AV-Pruefung, Angebotsfrist und die
+    DSGVO-Monatsfrist. Darum: ISO-Datum ODER `frist: null` mit `frist_grund`.
+    Setzen: `board.py --frist <nr> --datum <YYYY-MM-DD|keine> --grund '…'`.
+    """
+    befunde: list[str] = []
+    for vorgang in posten:
+        if vorgang.get("bucket") == "erledigt":
+            continue
+        nr, kurz = vorgang.get("nr", "?"), vorgang.get("kurz")
+        frist = vorgang.get("frist")
+        if frist:
+            try:
+                date.fromisoformat(str(frist))
+            except ValueError:
+                befunde.append(
+                    f"#{nr} '{kurz}': frist={frist!r} ist kein ISO-Datum "
+                    "(board.py --frist)"
+                )
+            continue
+        if not str(vorgang.get("frist_grund") or "").strip():
+            befunde.append(
+                f"#{nr} '{kurz}': keine Frist und kein frist_grund — "
+                "board.py --frist <nr> --datum <YYYY-MM-DD|keine> --grund '…'"
+            )
+    return befunde
+
+
+def setze_frist(ledger: dict, nr: int, datum: str, grund: str) -> dict:
+    """Frist eines Vorgangs setzen. `datum` ist ISO oder 'keine' (dann ist `grund` Pflicht)."""
+    for vorgang in vorgaenge_von(ledger):
+        if vorgang.get("nr") != nr:
+            continue
+        if datum == "keine":
+            if not grund.strip():
+                raise SystemExit("FEHLER: --datum keine braucht --grund.")
+            vorgang["frist"] = None
+            vorgang["frist_grund"] = grund.strip()
+        else:
+            try:
+                date.fromisoformat(datum)
+            except ValueError:
+                raise SystemExit(
+                    f"FEHLER: --datum {datum!r} ist kein ISO-Datum."
+                ) from None
+            vorgang["frist"] = datum
+            if grund.strip():
+                vorgang["frist_grund"] = grund.strip()
+            else:
+                vorgang.pop("frist_grund", None)
+        return vorgang
+    raise SystemExit(f"FEHLER: Vorgang #{nr} gibt es nicht.")
 
 
 def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
@@ -539,6 +598,15 @@ def main(argv: list[str] | None = None) -> int:
         "--aktionen", nargs="?", const="", metavar="TYP", help="Aktionskatalog zeigen"
     )
     parser.add_argument("--ledger", metavar="DATEI", help="anderer Ledger-Pfad")
+    parser.add_argument(
+        "--frist", type=int, metavar="NR", help="Frist eines Vorgangs setzen (#2592 K4)"
+    )
+    parser.add_argument(
+        "--datum", metavar="YYYY-MM-DD|keine", help="zu --frist: das Datum oder 'keine'"
+    )
+    parser.add_argument(
+        "--grund", default="", metavar="TEXT", help="zu --frist: warum keine / Kontext"
+    )
     args = parser.parse_args(argv)
 
     if args.aktionen is not None:
@@ -547,6 +615,23 @@ def main(argv: list[str] | None = None) -> int:
 
     ledger_pfad = Path(args.ledger) if args.ledger else LEDGER
     ledger = lade(ledger_pfad, {"vorgaenge": []})
+
+    if args.frist is not None:
+        if not args.datum:
+            parser.error("--frist braucht --datum <YYYY-MM-DD|keine>")
+        vorgang = setze_frist(ledger, args.frist, args.datum, args.grund)
+        ledger_pfad.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            f"#{args.frist} '{vorgang.get('kurz')}': frist={vorgang.get('frist')!r}"
+            + (
+                f", grund='{vorgang['frist_grund']}'"
+                if vorgang.get("frist_grund")
+                else ""
+            )
+        )
+        return 0
 
     if args.vergib_nummern:
         ledger, neu = vergib_nummern(ledger)

@@ -347,6 +347,11 @@ def zeile(
                     else "kein datierter Versand"
                 )
             )
+    # Keine Frist ist eine Aussage, wenn ihr Grund dabeisteht (#2592 K4): „keine —
+    # Owner-Aufgabe ohne Termin" liest sich anders als ein leerer Strich.
+    if tage is None and not frist and v.get("frist_grund"):
+        text = "keine"
+        frist = str(v["frist_grund"])
     schluessel = v.get("thread_key", "")
     beschriftung = html.escape(schluessel or "—")
     # Ohne thread_key gibt es kein Ziel — dann bleibt es Text statt totem Link.
@@ -1106,12 +1111,20 @@ def detail(
     # Erwartung statt leerer Frist: bei einem wartenden Vorgang ohne Frist ist
     # „bis wann ist das normal" die Frage, die man an die Seite hat.
     erwartung = _erwartung(v.get("nr"))
-    if not v.get("frist") and erwartung.get("spaetestens"):
-        wort = "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
-        zeilen = zeilen.replace(
-            "<th>Frist</th><td>—</td>",
-            f"<th>Frist</th><td>{wort} {html.escape(erwartung['spaetestens'])}</td>",
-        )
+    if not v.get("frist"):
+        teile = []
+        if v.get("frist_grund"):
+            teile.append(f"keine — {v['frist_grund']}")
+        if erwartung.get("spaetestens"):
+            wort = (
+                "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
+            )
+            teile.append(f"{wort} {erwartung['spaetestens']}")
+        if teile:
+            zeilen = zeilen.replace(
+                "<th>Frist</th><td>—</td>",
+                f"<th>Frist</th><td>{html.escape(' · '.join(teile))}</td>",
+            )
     zweite = _reihe(DETAIL_FELDER_ZWEITE_REIHE)
     schritte = naechste_schritte(v, mail_basis, basis, anker)
     nr = v.get("nr")

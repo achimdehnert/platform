@@ -193,7 +193,19 @@ Punkte du verfolgst. Zwei Ebenen:
 - **Einfache Punkte (Antwort geschickt / erledigt) → lokales Ledger** `~/.claude/mail-vorgaenge.json`
   (nur lokal, **nie** Repo/Memory — enthält Adressen/Betreffs, Charta 2). Je Eintrag:
   `{konto, thread_key, gegenueber, typ, zustand, next_trigger, angelegt, letzte_pruefung,
-  nr, bucket, mail_ref, erledigt_am}`.
+  nr, bucket, frist, frist_grund, mail_ref, erledigt_am}`.
+  **`frist` ist Pflicht bei jedem offenen Vorgang (#2592 K4, seit 2026-09-02):** ein
+  ISO-Datum, oder `null` **mit** `frist_grund` (warum es keinen Termin gibt — „Warten auf
+  Gegenseite, kein vereinbarter Termin", „Owner-Aufgabe ohne Termin"). Setzen nie von
+  Hand im JSON, sondern `python3 tools/mail_agent/board.py --frist <nr> --datum
+  <YYYY-MM-DD|keine> --grund '…'`; `board.py --pruefe` meldet jeden offenen Vorgang ohne
+  beides, der Kettencheck fuehrt das als Glied „Invarianten". Die Liste sortiert nach
+  Frist, Ueberfaelliges steht rot oben; ohne Frist tritt bei `warten` die Erwartung aus
+  `faelligkeit.py` an ihre Stelle, sonst der Grund.
+  **IIL-Vorgaenge bekommen ihren Kurzlink automatisch (#2592 K5):**
+  `python3 tools/mail_agent/mail_link_server.py --heile-links` registriert jeden
+  IIL-Vorgang ohne Eintrag ueber seine Betreffs (thread_key + zitierte Betreffs, Fenster
+  90 Tage vor `angelegt`) und zieht tote Graph-ids nach.
   **`mail_ref` (optional, platform#1869):** der Pfad, unter dem der Mail-Renderer die
   zugehörige Mail ausliefert — Regelfall `/a/<nr>`, weil der Anker die Mail auch nach einem
   Ordnerwechsel über die Message-ID wiederfindet. Anlegen in zwei Schritten:
@@ -356,8 +368,9 @@ Prüfer überlebt.
 - [ ] Beide Seiten geprüft (Eingang UND Gesendetes) — Korrelation nach Gesprächspartner
 - [ ] Ledger aktualisiert (geschlossene Punkte raus, neue Zustände drin)
 - [ ] Deckungsblock im Board — auch wenn das Board leer ist
-- [ ] **Anker-Stand ausgewiesen** (#1864): `python3 tools/mail_agent/board.py --pruefe`
-      laufen lassen und die Zahl der unverankerten Vorgänge **im Ergebnis nennen** —
+- [ ] **Anker-Stand und Fristen ausgewiesen** (#1864, #2592 K4): `python3 tools/mail_agent/board.py --pruefe`
+      laufen lassen — Exit 0; jeder offene Vorgang hat Frist oder `frist_grund` — und die
+      Zahl der unverankerten Vorgänge **im Ergebnis nennen** —
       auch und gerade dann, wenn sie unverändert ist. Ohne diese Zeile bleibt die
       Lücke unsichtbar, sobald das Board „gut aussieht": ein Posten ohne Anker trägt
       keinen Link in seine Mail und meldet das nirgends von selbst.
@@ -371,6 +384,11 @@ Prüfer überlebt.
 - [ ] **Jeder Link in der Antwort durch `link_pruefen.py` gelaufen** (Abschnitt „Links
       erzeugen, nicht tippen") — Exit 0, und die Zahl der geprüften Links im Ergebnis
       genannt. Ein getippter Link ist kein Link, sondern eine Behauptung.
+- [ ] **IIL-Kurzlinks vollstaendig** (#2592 K5): `python3 tools/mail_agent/mail_link_server.py
+      --heile-links` gelaufen; jeder Vorgang, der als `tot` bleibt, wird im Ergebnis mit
+      Grund genannt (kein Treffer = kein Mailbezug oder Mail weg) — ehrlich ohne Link
+      statt Knopf auf die falsche Mail. Stand beim Einbau (2026-09-02): 48 von 54
+      Vorgangsseiten fuehren in eine Mail.
 - [ ] **Referenzen verankert** (#2592 K2): `python3 tools/mail_agent/eintrag_anker.py`
       gelaufen — NACH dem Ledger-Update und VOR Schritt 7a (die Ablage entwertet
       UIDs; was dann nicht verankert ist, bleibt fuer immer Text). Die Zeile

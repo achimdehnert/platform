@@ -309,3 +309,77 @@ def test_should_render_stand_before_zug():
     assert max(stellen[b] for b in board.STAND_BUCKETS) < min(
         stellen[b] for b in board.ZUG_BUCKETS
     )
+
+
+class TestFristPflicht:
+    """Jeder offene Vorgang traegt eine Frist oder sagt, warum nicht (#2592 K4)."""
+
+    def test_should_flag_an_open_item_without_deadline_and_reason(self, pfade):
+        befunde = board.pruefe(_ledger(_v(nr=1, bucket="warten"), naechste=2))
+        assert any("keine Frist und kein frist_grund" in b for b in befunde)
+
+    def test_should_accept_an_iso_deadline(self, pfade):
+        befunde = board.pruefe(
+            _ledger(_v(nr=1, bucket="warten", frist="2026-09-30"), naechste=2)
+        )
+        assert not any("Frist" in b for b in befunde)
+
+    def test_should_accept_null_with_a_reason(self, pfade):
+        v = _v(nr=1, bucket="warten", frist=None, frist_grund="kein Termin vereinbart")
+        assert not any("Frist" in b for b in board.pruefe(_ledger(v, naechste=2)))
+
+    def test_should_flag_an_unreadable_deadline(self, pfade):
+        befunde = board.pruefe(
+            _ledger(_v(nr=1, bucket="owner", frist="28.08."), naechste=2)
+        )
+        assert any("kein ISO-Datum" in b for b in befunde)
+
+    def test_should_not_demand_a_deadline_for_finished_items(self, pfade):
+        v = _v(nr=1, bucket="erledigt", erledigt_am="2026-08-30")
+        assert not any("Frist" in b for b in board.pruefe(_ledger(v, naechste=2)))
+
+    def test_should_set_a_deadline_through_the_cli(self, pfade, tmp_path, capsys):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(_ledger(_v(nr=7, bucket="owner"), naechste=8)), "utf-8"
+        )
+        assert (
+            board.main(
+                ["--ledger", str(ledger), "--frist", "7", "--datum", "2026-09-30"]
+            )
+            == 0
+        )
+        assert json.loads(ledger.read_text())["vorgaenge"][0]["frist"] == "2026-09-30"
+        assert "#7" in capsys.readouterr().out
+
+    def test_should_record_reason_when_there_is_no_deadline(self, pfade, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(_ledger(_v(nr=7, bucket="owner"), naechste=8)), "utf-8"
+        )
+        board.main(
+            [
+                "--ledger",
+                str(ledger),
+                "--frist",
+                "7",
+                "--datum",
+                "keine",
+                "--grund",
+                "Owner-Aufgabe ohne Termin",
+            ]
+        )
+        v = json.loads(ledger.read_text())["vorgaenge"][0]
+        assert (v["frist"], v["frist_grund"]) == (None, "Owner-Aufgabe ohne Termin")
+
+    def test_should_refuse_none_without_a_reason(self, pfade):
+        with pytest.raises(SystemExit, match="braucht --grund"):
+            board.setze_frist(_ledger(_v(nr=7)), 7, "keine", "")
+
+    def test_should_refuse_a_non_iso_date(self, pfade):
+        with pytest.raises(SystemExit, match="kein ISO-Datum"):
+            board.setze_frist(_ledger(_v(nr=7)), 7, "28.08.2026", "")
+
+    def test_should_refuse_an_unknown_number(self, pfade):
+        with pytest.raises(SystemExit, match="gibt es nicht"):
+            board.setze_frist(_ledger(_v(nr=7)), 8, "2026-09-30", "")

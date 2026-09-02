@@ -934,11 +934,26 @@ def cmd_heile_links(args: argparse.Namespace) -> int:
         ledger = json.loads(Path(args.ledger).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         ledger = {}
-    befunde = graph_anker.heile(registry, graph_anker.betreffe_aus_ledger(ledger), tok)
+    befunde = graph_anker.heile(
+        registry,
+        graph_anker.betreffe_aus_ledger(ledger),
+        tok,
+        fenster=graph_anker.fenster_aus_ledger(ledger),
+    )
     print(graph_anker.bericht(befunde))
+    neu = graph_anker.verankere_vorgaenge(ledger, registry, tok)
+    if neu:
+        print("Vorgaenge ohne Kurzlink:")
+        print(graph_anker.bericht(neu))
     if not args.trocken:
         speichere_registry(registry)
-    tot = [b for b in befunde if b.zustand in (graph_anker.TOT, graph_anker.UNPRUEFBAR)]
+    # Exit 1 nur fuer Board-Nummern: die Alt-Kurz-IDs (az1, sb7 …) haengen an
+    # keinem Vorgang und haetten den Aufrufer fuer immer rot gestellt.
+    tot = [
+        b
+        for b in befunde + neu
+        if b.zustand in (graph_anker.TOT, graph_anker.UNPRUEFBAR) and b.kurz.isdigit()
+    ]
     return 1 if tot else 0
 
 

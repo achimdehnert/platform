@@ -243,6 +243,19 @@ def pruefe_referenzen(
     ]
 
 
+def pruefe_invarianten(ledger: Path = LEDGER) -> Befund:
+    """Die Ledger-Invarianten aus `board.py --pruefe` als Glied — u.a. die Frist-Pflicht (#2592 K4)."""
+    from board import pruefe  # noqa: PLC0415
+
+    befunde = pruefe(_json(ledger))
+    return Befund(
+        "Invarianten",
+        not befunde,
+        f"{len(befunde)} Befund(e)" if befunde else "Nummern, Anker, Fristen ok",
+        "python3 tools/mail_agent/board.py --pruefe",
+    )
+
+
 def pruefe_timer(einheit: str = "sendeabgleich.timer") -> Befund:
     try:
         roh = subprocess.run(
@@ -274,6 +287,7 @@ def alle(heute: date, mit_index: bool = True) -> list[Befund]:
         # wird beim Definieren ausgewertet und laesst sich im Test nicht ersetzen —
         # der erste Anlauf meldete deshalb zwei kaputte Glieder als heil.
         pruefe_ledger(heute, LEDGER),
+        pruefe_invarianten(LEDGER),
         *pruefe_referenzen(LEDGER, VERLAUF_ARCHIV, ANKER),
         pruefe_vorhersage(heute, FAELLIGKEIT),
         pruefe_artefakt("Board", ACTION_BOARD, heute, "make boards"),
