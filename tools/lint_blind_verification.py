@@ -3,6 +3,13 @@
 
 Beide Fehler haben dieselbe Gestalt: `<befehl> | grep -q <muster>`.
 
+GATE_HEADER (KONZ-038 D8):
+  "slug": "verification-proves-absence-not-success"
+  "mode": "advisory"
+  "owner": "achim"
+  "last_drill_pass": "2026-09-02"
+  "evidence": "tools/tests/test_lint_blind_verification.py"
+
 1. Als PRUEFUNG belegt das nur die An-/Abwesenheit eines Musters im AUSGABETEXT,
    nicht den Erfolg des Befehls. Ein vollstaendig gescheiterter Befehl, dessen
    Fehlermeldung das Muster nicht enthaelt, gilt als gruen.
