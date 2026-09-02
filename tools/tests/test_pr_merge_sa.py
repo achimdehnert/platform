@@ -35,6 +35,8 @@ REGELN = {
         "policies/",
         "registry/",
         "packages/",
+        "docs/governance/",
+        "docs/konzepte/KONZ-platform-025-lotsen-charta.md",
         "CODEOWNERS",
         "tools/pr_merge_sa.py",
     ],
@@ -136,6 +138,41 @@ def test_should_reject_governance_path_without_approval():
 
 def test_should_accept_governance_path_with_approval():
     u = classify(_facts(files=["policies/beispiel.md"], mandat="M2"), REGELN)
+    assert u.erlaubt is True
+
+
+# --- docs/governance/ + Charta (Retro c36878 Befund 1, Issue #2654) ---------
+# Vor dem Fix waren beide Pfade in KEINER Liste: ein PR mit nur einer dieser
+# Dateien lief als CLEAN durch, obwohl dort die Vollmachten des Agenten geregelt
+# werden. Die drei Tests unten waren vor dem Fix rot.
+
+
+def test_should_reject_docs_governance_without_approval():
+    u = classify(_facts(files=["docs/governance/model-rebaseline-runbook.md"]), REGELN)
+    assert u.erlaubt is False
+    assert "Governance-Pfad" in u.grund
+
+
+def test_should_reject_lotsen_charta_without_approval():
+    u = classify(
+        _facts(files=["docs/konzepte/KONZ-platform-025-lotsen-charta.md"]), REGELN
+    )
+    assert u.erlaubt is False
+    assert "Governance-Pfad" in u.grund
+
+
+def test_should_still_accept_plain_retro_report():
+    """Gegenprobe: docs/retros/ bleibt bewusst ungeschuetzt — ein Retro-Bericht
+    bringt keinen Machtzuwachs, ein Review dort waere reine Reibung."""
+    u = classify(
+        _facts(files=["docs/retros/session-retro-2026-09-02-platform-x.md"]), REGELN
+    )
+    assert u.erlaubt is True
+
+
+def test_should_still_accept_ordinary_konzept():
+    """Gegenprobe: nur die Charta-DATEI ist geschuetzt, nicht docs/konzepte/."""
+    u = classify(_facts(files=["docs/konzepte/KONZ-platform-038-irgendwas.md"]), REGELN)
     assert u.erlaubt is True
 
 

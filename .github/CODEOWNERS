@@ -35,6 +35,19 @@
 #
 # Zwei Korrekturen, beide aus einer Retrospektive desselben Tages:
 #
+# 0. `docs/governance/` FEHLTE (2026-09-02, Retro c36878 Befund 1, Issue #2654).
+#    Derselbe Fehlertyp wie Punkt 1 unten, eine Ebene tiefer: `/governance/` (Wurzel)
+#    war geschuetzt, `docs/governance/` nicht — dort liegen das Modellwechsel-Runbook
+#    (§3a regelt die Vollmachten nach einem Modellwechsel), die Gate-Registry und der
+#    Sunset-Ledger. Ein PR mit nur einer dieser Dateien war CLEAN und mergte ohne
+#    jedes menschliche Auge, weil das main-Ruleset required_approving_review_count: 0
+#    mit require_code_owner_review: true traegt: ohne CODEOWNERS-Treffer verlangt
+#    GitHub gar kein Approval. Aufgefallen an PR #2617, der sein Review nur bekam,
+#    weil zufaellig eine /.windsurf/-Datei mitgebuendelt war.
+#    Mitgeprueft und bewusst NICHT geschuetzt: docs/retros/ (112 Berichte, kein
+#    Machtzuwachs — Schutz waere reine Reibung) und docs/konzepte/ als Verzeichnis
+#    (46 Arbeitsdokumente); dort ist nur die Charta-Datei selbst aufgenommen.
+#
 # 1. `/governance/` FEHLTE. KONZ-032 B1-1 listet es ausdruecklich; beim Uebertrag
 #    von Plan zu Umsetzung ging es still verloren — nicht bewusst ausgeschlossen,
 #    in keiner Commit-Message erwaehnt. Darunter liegt
@@ -83,6 +96,7 @@
 /docs/adr/    @achimdehnert @wirdigital
 /policies/    @achimdehnert @wirdigital
 /governance/  @achimdehnert @wirdigital @iil-lotse
+/docs/governance/ @achimdehnert @wirdigital @iil-lotse
 /deployment/  @achimdehnert @wirdigital @iil-lotse
 /infra/       @achimdehnert @wirdigital @iil-lotse
 /scripts/     @achimdehnert @wirdigital @iil-lotse
@@ -97,3 +111,8 @@
 # Ohne diese Zeile koennte er es selbst aendern und den Merge selbst fahren
 # (/tools/ ist sonst bewusst ungeschuetzt, s.o.).
 /tools/pr_merge_sa.py  @achimdehnert @wirdigital
+
+# Die Charta selbst. Sie steht in docs/konzepte/ zwischen 46 gewoehnlichen
+# Konzepten, die bewusst ungeschuetzt bleiben — geschuetzt wird die eine Datei,
+# die die Vollmachten des Agenten definiert, nicht das Verzeichnis.
+/docs/konzepte/KONZ-platform-025-lotsen-charta.md @achimdehnert @wirdigital @iil-lotse
