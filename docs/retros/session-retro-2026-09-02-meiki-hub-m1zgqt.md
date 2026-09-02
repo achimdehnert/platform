@@ -166,17 +166,17 @@ Keiner. Die Befunde sind Werkzeug- und Ablauf-Fragen, keine Architektur-Entschei
 
 ## 7. Massnahmen
 
-| # | Item | Repo | PR/Issue/ADR | Status | Next Step |
-|---|---|---|---|---|---|
-| 1 | Startseite fuer kd/meiki-hub | iil-pet-portal | (folgt) | 🔵 ready | Muster portal#33 anwenden — ich |
-| 2 | Acht tote Knoepfe beleben | meiki-hub | (folgt) | 🔵 ready | JS der Einzel-KDs nachziehen — ich |
-| 3 | Portal-Zahl frist-hub | frist-hub | #129 | 🟢 offen | kd-tree.json bereinigen — ich |
-| 4 | Uebersichtsseite 64→68 | meiki-hub | (folgt) | 🔵 ready | Module ohne Pack mitzaehlen — ich |
-| 5 | Handbuch-Knopf | meiki-hub | (folgt) | 🔵 ready | Pfad korrigieren — ich |
-| 6 | Gate-Regex FB/Ortsnamen | meiki-hub | (folgt) | 🔵 ready | org_woerter erweitern — ich |
-| 7 | Stale-Clone-Gate ausweiten | platform | (folgt) | 🟢 offen | revised + Positivkontrolle — du |
-| 8 | Post-Publish-Pruefung | iil-pet-portal | (folgt) | 🟢 offen | Erreichbarkeit + Beschriftung — du |
-| 9 | Tastaturbedienung | meiki-hub | (folgt) | 🟢 offen | keydown-Handler + axe-Lauf — du |
+Alle neun haben ein Artefakt — Auslassung ohne Anker gilt als nicht existent.
+
+1. ✅ Startseite je Repo, generiert statt handgepflegt — https://github.com/iilgmbh/iil-pet-portal/pull/46
+2. ✅ Acht tote Knoepfe belebt, Logik als `modules/<id>/screens.js` — https://github.com/meiki-lra/meiki-hub/pull/209
+3. ✅ Stehengebliebene Baumdatei entfernt — https://github.com/meiki-lra/frist-hub/pull/130
+4. ✅ Uebersichtsseite zaehlt Themen ohne Pack mit — https://github.com/meiki-lra/meiki-hub/pull/209
+5. ✅ Handbuch-Pfad an neun Stellen korrigiert — https://github.com/meiki-lra/meiki-hub/pull/209
+6. 🟢 Fachbereichs-Ebene fehlt im Manifest, 61 Stellen — https://github.com/meiki-lra/meiki-hub/issues/208
+7. 🟢 Stale-Clone-Gate ausweiten, kein zweites Gate — https://github.com/achimdehnert/platform/issues/2732
+8. 🟢 Pruefung der Darstellung nach dem Deploy — https://github.com/iilgmbh/iil-pet-portal/issues/47
+9. 🟢 Tastaturbedienung, 33 Elemente ohne Handler — https://github.com/meiki-lra/meiki-hub/issues/210
 
 ## 8. Nicht verifiziert (Restluecken)
 
