@@ -83,6 +83,7 @@ hosts:
       - "2026-08-04: Long-Tail-Welle — apo, pptx, weltenhub, wedding, coach, research, cad, trading, dms liegen hier (platform#1752/#1753)"
       - "2026-08-06: illustration-hub wieder zurueck nach prod (nur dort wg0 zur GPU); Reste hier: gestoppte Container, Volume, vhost, Tunnel-Route (R2b, Wartungsfenster)"
       - "2026-08-30: coach-hub und wedding-hub stillgelegt (platform#2480); SSH-Passwort-Login und fehlendes fail2ban gemeldet (platform#2486)"
+      - "2026-09-02: PasswordAuthentication no + KbdInteractiveAuthentication no in /etc/ssh/sshd_config.d/10-hardening.conf (Owner-Freigabe, platform#2486 Punkt 3). Messung davor: 59.256 Fehlversuche/7d, 0 erfolgreiche Passwort-Anmeldungen, 0 von 33 Konten mit Passwort-Hash. Gegenprobe danach: Schluessel-Anmeldung ok, reine Passwort-Anmeldung Permission denied (publickey). fail2ban bleibt inaktiv — bewusst, siehe Issue"
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
     auflage:
       datenklassen_verboten: [gov-sozialdaten]
@@ -169,11 +170,23 @@ hosts:
       -d Ubuntu -u root). Kein Prod-Deploy — siehe auflage.
     historie:
       - "2026-08-30: ollama 0.0.0.0:11434 ohne Anmeldung von jedem wg0-Peer erreichbar (platform#2486); WSL meldet 738 GB frei, real 94 GB auf C:"
+      - "2026-09-02: Befund praezisiert — die offene Instanz ist der WINDOWS-Dienst ollama.exe (0.0.0.0 + [::]), die WSL-Instanz bindet 127.0.0.1. Das Heim-LAN erreicht sie NICHT: die Firewall-Regeln aus ADR-296 begrenzen 11434 auf 10.99.0.0/24 und 10.8.0.0/24 (gemessen vom gx10 im selben Subnetz: 11434 und 22 beide zu, Positivkontrolle inklusive). Effektive Reichweite = die beiden VPN-Netze"
+      - "2026-09-02: authentifizierte Gegenstelle gpu.iil.pet auf prod (Owner-Entscheid '24 go'): eigener Tunnel cloudflared-gpu.service, Ursprung 10.99.0.2:11434 ueber wg0, davor Cloudflare Access mit Owner-Richtlinie. Unangemeldet 302 (3 Proben mit laufendem Tunnel). Restrisiko benannt: VPN-Peers erreichen ollama weiterhin ohne Anmeldung"
     hosts_runners: [gpu-box]
     auflage:
       prod_container: false
       oeffentlicher_ingress: false
       grund: "hosts.yaml-Rolle: kein Prod-Deploy; Zugang nur ueber wg0 (KONZ-053 §4)"
+      ausnahmen:
+        gpu-ollama:
+          grund: >
+            gpu.iil.pet veroeffentlicht ollama (11434) hinter Cloudflare Access.
+            Der Tunnel laeuft auf prod, nicht auf der Box; die Box selbst bekommt
+            keinen offenen Port dazu. Owner-Entscheid 2026-09-02 zu platform#2486
+            Punkt 2: Fernzugriff ist gewollt, die Anmeldung sitzt am Rand.
+            Wer Access besteht, kann alles, was das Modell kann.
+          entschieden: 2026-09-02
+          bis: 2026-12-02
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   gx10:

@@ -144,6 +144,23 @@ infra:
     server: prod
     note: "LLM Gateway — internal only"
 
+  gpu-ollama:
+    port: 11434
+    server: prod                     # der TUNNEL laeuft auf prod; der DIENST auf der GPU-Box
+    prod_host: gpu-box               # Ursprung 10.99.0.2:11434 ueber wg0
+    domain_prod: gpu.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: >
+      Die GPU-Box laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (Wake-on-LAN,
+      hosts.yaml `betrieb: auf_zuruf`). Der Name antwortet deshalb nur, wenn das Geraet
+      an ist — ein 502 ist dann kein Ausfall. Der Erreichbarkeits-Melder wuerde ihn
+      sonst in jeder Sitzung als tot melden.
+    note: >
+      ollama der GPU-Box hinter Cloudflare Access (Owner-Richtlinie), eigener Tunnel
+      `cloudflared-gpu.service` auf prod, angelegt 2026-09-02 zu platform#2486 Punkt 2.
+      Unangemeldet 302, Ursprung ueber wg0. Wer Access besteht, kann alles, was das
+      Modell kann — ollama kennt keine Nutzer, Access IST die Tuer.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # App-Hub Ports — sortiert nach Port
 #
