@@ -444,3 +444,77 @@ def test_should_treat_an_explicit_zero_minimum_the_same_way(tmp_path):
     }
     datei = _hits(tmp_path / "hits.jsonl", [])
     assert gw.kalibrier_stand(gate, "2026-08-26", datei)["zustand"] == "unbestimmt"
+
+
+# --- Zweite Quelle: Befund-Tabelle (2026-09-02, platform#2374 Ziel A) -------------
+
+
+def _retro_mit_tabelle(
+    verzeichnis: Path, datum: str, kuerzel: str, fm_slugs: list[str], zeilen: str
+) -> None:
+    kopf = (
+        "| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |\n"
+        "|---|---|---|---|---|---|---|\n"
+    )
+    (verzeichnis / f"session-retro-{datum}-platform-{kuerzel}.md").write_text(
+        f"---\nretro_schema: 1\ndate: {datum}\nrecurring_findings: [{', '.join(fm_slugs)}]\n"
+        f"---\n\n## 2. Befund-Tabelle\n\n{kopf}{zeilen}",
+        encoding="utf-8",
+    )
+
+
+def test_should_count_a_table_row_the_frontmatter_forgot(tmp_path):
+    """Realfall fdd368: SURVIVES-Zeile in der Tabelle, Frontmatter ohne den Slug."""
+    _retro(tmp_path, "2026-07-01", "alt", ["schludrige-behauptung"])
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"t{i}",
+            ["anderes-thema"],
+            "| 1 | x | k | hoch | SURVIVES (kommandobelegt) | b \\| c | `schludrige-behauptung` |\n",
+        )
+    urteile = _urteile(
+        tmp_path,
+        [{"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}],
+    )
+    assert urteile["schludrige-behauptung"]["nachher"] == 3
+    assert urteile["schludrige-behauptung"]["nur_tabelle"] == 3
+    assert urteile["schludrige-behauptung"]["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_not_count_refuted_rows_or_rows_marked_gates_caught(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"t{i}",
+            [],
+            "| 1 | x | k | hoch | **REFUTED** | b | `schludrige-behauptung` |\n"
+            "| 2 | y (gates_caught) | k | hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+        )
+    urteile = _urteile(
+        tmp_path,
+        [{"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}],
+    )
+    assert urteile["schludrige-behauptung"]["nachher"] == 0
+    assert urteile["schludrige-behauptung"]["nur_tabelle"] == 0
+
+
+def test_should_let_an_uncaught_table_row_override_frontmatter_gates_caught(tmp_path):
+    """Realfall cc4e11: Frontmatter sagt gefangen, die Tabelle traegt ungefangene Zeilen."""
+    for i, tag in enumerate(["10", "11"]):
+        (tmp_path / f"session-retro-2026-07-{tag}-platform-c{i}.md").write_text(
+            f"---\nretro_schema: 1\ndate: 2026-07-{tag}\n"
+            "recurring_findings: [schludrige-behauptung]\ngates_caught: [schludrige-behauptung]\n---\n\n"
+            "| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |\n"
+            "|---|---|---|---|---|---|---|\n"
+            "| 1 | nicht gefangen | k | hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+            encoding="utf-8",
+        )
+    urteile = _urteile(
+        tmp_path,
+        [{"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}],
+    )
+    assert urteile["schludrige-behauptung"]["nachher"] == 2
+    assert urteile["schludrige-behauptung"]["gefangen"] == 0
