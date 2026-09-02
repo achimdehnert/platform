@@ -58,10 +58,16 @@ Alles hier ist PFLICHT/STOP — der Weg darf variieren, diese Punkte nicht.
 - **G1** Vor dem ersten Klick aufrufen, nicht danach (Owner-Weisung 2026-08-26).
 - **G2** Owner/Repo, Org, Typ, Dev-Port, HTMX aus `.windsurf/rules/project-facts.md` des Zielrepos —
   kein Hardcoding, Org nie raten; Issues landen in **dieser** Org.
-- **G3** Testkonto nur als Zeiger (`~/.secrets/<repo>-testuser`), Wert nie auf stdout; fehlt es → Station 0
-  `blind: kein Testkonto`, kein Raten. Wegwerf-Passwort nur im eigenen, mit dem Stack sterbenden Stack.
-- **G4** Eigener Worktree, nie der Haupt-Tree; eigener Stack oder Staging; nie eine geteilte `.env` aendern
-  (eigene `.env.ux-review`, gitignored). Fremder Server auf dem Standard-Port = STOP (fremde Instanz).
+- **G3** Anmeldung auf einem von drei Wegen, in dieser Reihenfolge — Wert nie auf stdout/im Bericht:
+  (1) Zeiger `~/.secrets/<repo>-testuser`; (2) dokumentierter passwortloser Anmeldeweg des Repos
+  (`make login`, Token-/Einmal-Link — der Zeiger ist das Kommando); (3) fehlen beide **und** der Stack ist
+  der eigene: `createsuperuser` mit Wegwerf-Passwort, das mit dem Stack stirbt — nie in einem geteilten.
+  Erst wenn keiner der drei Wege geht → Station 0 `blind: kein Testkonto`, kein Raten.
+- **G4** Eigener Worktree, nie der Haupt-Tree; eigener Stack, Staging oder der eigene Dev-Stack des Zielrepos
+  (dann steht das so im Bericht); nie eine geteilte `.env` aendern (eigene `.env.ux-review`, gitignored).
+  Lauscht etwas auf dem Dev-Port, **erst zuordnen**: `docker ps --format '{{.Names}} {{.Ports}}'` bzw.
+  `ss -tlnp` — gehoert Container-/Prozessname zum Zielrepo, ist er eine zulaessige Basis; gehoert er
+  **nicht** dazu = STOP (man misst sonst eine fremde Instanz).
 - **G5** Basis-URL nie eine Cloudflare-Access-Domain; `*.localhost` loest auf `::1` auf → `127.0.0.1`.
 - **G6** Synthetische Daten (Prefix `uxr-<datum>`); Screenshot mit Mandanten-/Personendaten = Abbruch (R4,
   platform ist oeffentlich). Mindestens ein Objekt **mit Bestand**; Datenlage je Station im Bericht —
@@ -74,7 +80,8 @@ Alles hier ist PFLICHT/STOP — der Weg darf variieren, diese Punkte nicht.
 **Messen**
 - **G9** Gemeldeter Befund: **Browser vor Code** — erst `browser_navigate` + Konsole + Netzwerk auf der
   gemeldeten Seite, dann Quelltext; am gemeldeten Objekt messen, nie an einem frisch angelegten.
-- **G10** Klick-only ab der Startseite; einzige erlaubte URL ist die Basis-URL. Getippte URL = Befund
+- **G10** Klick-only ab der Startseite; erlaubte URLs sind nur die Basis-URL und der Anmeldeweg aus G3
+  (ein Einmal-Login-Link zaehlt nicht als getippte URL). Jede andere getippte URL = Befund
   `nicht-begehbar`, sofort notiert, nie verschwiegen (K4); der Lauf geht damit weiter.
 - **G11** Drei Zustaende; `blind` ist nie gruen, zaehlt getrennt. Nach `--max-seiten` ist Unbesuchtes
   `blind: Seitenbudget`, nie `ok`; unerreichte Route = `nicht-begehbar`, nicht „nicht besucht".
@@ -160,7 +167,8 @@ kurzlebige Diagnose-Session nach G8.
 
 1. `bash <platform>/tools/repo-session.sh start <pfad-zum-zielrepo> --task ux-review-<slug>`; bei
    `--vor <sha>` dort `git checkout <sha>`.
-2. `ss -tlnp | grep -E ':(8000|<dev-port>)\b'` — Treffer = G4-STOP.
+2. `ss -tlnp | grep -E ':(8000|<dev-port>)\b'`; bei Treffer `docker ps --format '{{.Names}} {{.Ports}}'` —
+   Name gehoert zum Zielrepo → Basis (im Bericht als „eigener Dev-Stack"), sonst G4-STOP.
 3. Seed/Doctor: `grep -n 'seed\|doctor\|setup_' Makefile` bzw. `manage.py help | grep -i seed`; danach
    Cache leeren (aifw: Redis, TTL 600 s).
 4. Synthetische Objekte `uxr-<datum>`, eines davon mit Bestand (G6).
@@ -229,8 +237,10 @@ python3 <platform>/tools/ux_falsifikator.py --datei /tmp/befund.json [--echtdate
 #  "laeufe": 3, "einig": true, "sprueche": [...]}
 ```
 
-Eingabe: `klasse`, `severity`, `station`, `symptom`, `antwortkoerper`, `gegenprobe`, `referenz`,
-`bekannt`. Schluessel-Zeiger `~/.secrets/groq_api_key`. Regeln G19–G21.
+Eingabe-Typen: `klasse`, `severity` (`fehler|optimierung`), `station`, `symptom`, `antwortkoerper`,
+`gegenprobe`, `referenz` — alle String; **`bekannt` ist Boolean** (`true|false`, nie `"nein"`: ein
+String ist truthy, das Werkzeug castet still und Regel 4 wertet einen echten Befund als `widerlegt`
+ab — Dogfood 2026-09-02, platform#2616). Schluessel-Zeiger `~/.secrets/groq_api_key`. Regeln G19–G21.
 
 ### Step 5c — Gegenchecks `-kd` / `-marker` (optional)
 
@@ -356,8 +366,8 @@ Zaehler: behoben <f> · offen <o> · hypothese <h> · Prod-Merge wartet <p>
 - ☐ A5 je Befund ein Issue mit allen Pflichtfeldern, Bekanntes markiert (G22, G24)
 - ☐ A6 Sammel-Issue nach Output-Format, Falsifikator neben Rohzahl, `Nicht verifiziert` (G23)
 - ☐ A7 ohne `--nur-melden`: Fix-PR je `fehler` mit Ursache/Gate-Test/Nachlauf; Rohbericht byte-gleich (G25–G28)
-- ☐ G1 vor dem ersten Klick aufgerufen · G2 project-facts gelesen · G3 Testkonto nur Zeiger
-- ☐ G4 eigener Worktree/Stack/.env, Port frei · G5 keine Access-Domain, `127.0.0.1`
+- ☐ G1 vor dem ersten Klick aufgerufen · G2 project-facts gelesen · G3 Anmeldeweg (1/2/3) benannt, Wert nie im Bericht
+- ☐ G4 eigener Worktree/.env, Dev-Port dem Zielrepo zugeordnet · G5 keine Access-Domain, `127.0.0.1`
 - ☐ G6 synthetische Daten, eines mit Bestand, Datenlage je Station · G7 Seed/Doctor + Cache
 - ☐ G8 kein Schreib auf Zielsystem ohne Freigabe · G9 Browser vor Code am gemeldeten Objekt
 - ☐ G13 jede Absenz mit Gegenprobe, Zahl zuerst · G16 Ausgaben gegen Quelle, keine `tail`-Filter
@@ -388,6 +398,10 @@ Zaehler: behoben <f> · offen <o> · hypothese <h> · Prod-Merge wartet <p>
 
 ## Changelog
 
+- 2026-09-02 (4, Revision nach Dogfood v2 an platform#2616): **G4** STOP nur bei fremdem Container/Prozess
+  auf dem Dev-Port (Zuordnung per `docker ps`-Name), eigener Dev-Stack zulaessig; **G3** drei Anmeldewege
+  (Zeiger, passwortloser Repo-Weg wie `make login`, `createsuperuser` nur im eigenen Stack) — `blind` erst
+  danach; **G10** nimmt den Anmeldeweg aus K4 aus; Step 5b nennt die Eingabe-Typen (`bekannt` Boolean).
 - 2026-09-02 (3): **v2 zielorientiert, platform#2606 Stufe 3** — Ziel, Akzeptanzkriterien A1–A7, Harte
   Gates G1–G31, Referenzpfad (nicht bindend), Abschluss-Checkliste je A/G; alle bisherigen PFLICHT/nie-Gates
   abgebildet (Zuordnung im PR); Dogfood-Tests als Tabelle, Changelog verdichtet (Volltext: git-Historie).
