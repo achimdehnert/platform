@@ -224,3 +224,162 @@ def test_should_treat_real_expected_apps_entry_as_multipart():
     assert tags == {"risk_hub_db", "volumes"}
     volumes = next(c for c in eintrag["checks"] if c["tag"] == "volumes")
     assert any("minio" in p for p in volumes["paths_contain"])
+
+
+# ── KONZ-054 E3: der Nenner ist Teil der Meldung, deferred ist kein Gruen ─────
+
+
+def _r(app, status):
+    return {"app": app, "status": status, "reasons": ["x"] if status != "ok" else []}
+
+
+def test_should_exit_3_when_nothing_violated_but_not_everything_measured():
+    from backup_meter import exit_code
+
+    assert exit_code([_r("a", "ok"), _r("b", "deferred")]) == 3
+
+
+def test_should_exit_1_when_violations_outrank_scope_gap():
+    from backup_meter import exit_code
+
+    assert exit_code([_r("a", "violation"), _r("b", "deferred")]) == 1
+
+
+def test_should_exit_0_only_when_everything_is_measured_and_ok():
+    from backup_meter import exit_code
+
+    assert exit_code([_r("a", "ok"), _r("b", "ok")]) == 0
+
+
+def test_should_put_the_denominator_in_the_first_report_line():
+    from backup_meter import deckungszeile, render_report
+
+    results = [_r("a", "ok")] + [_r(f"d{i}", "deferred") for i in range(8)]
+    zeile = deckungszeile(results)
+    assert "1 von 9" in zeile and "Scope-Luecke" in zeile
+    assert render_report(results).splitlines()[2] == zeile
+
+
+def test_should_not_count_the_drill_as_an_app_in_the_denominator():
+    from backup_meter import deckungszeile
+
+    assert "2 von 2" in deckungszeile(
+        [_r("a", "ok"), _r("b", "ok"), _r("restore-drill", "ok")]
+    )
+
+
+# ── Ein Bericht, ein Nenner (gefunden 2026-08-31) ────────────────────────────
+# Der Lauf vom 2026-08-31 meldete "Geprueft 8 von 9 Soll-Apps" direkt ueber
+# "9 konform". Beide Zahlen stimmten fuer sich, sie zaehlten nur Verschiedenes:
+# die Deckungszeile klammerte den restore-drill aus, die Statuszeile nicht.
+# Geprueft wird deshalb die Invariante, nicht das Beispiel — konform +
+# Verletzungen + deferred muss den Nenner der Deckungszeile ergeben, egal wie
+# die Ergebnisse aussehen.
+def _zahlen(bericht):
+    import re
+
+    deckung = re.search(r"Geprueft (\d+) von (\d+) Soll-Apps", bericht)
+    status = re.search(
+        r"\*\*(\d+) konform · (\d+) Verletzungen · (\d+) deferred\*\*", bericht
+    )
+    assert deckung and status, f"Berichtskopf nicht erkannt:\n{bericht}"
+    return int(deckung.group(2)), tuple(int(status.group(i)) for i in (1, 2, 3))
+
+
+def test_should_count_apps_and_drill_against_the_same_nenner():
+    ergebnisse = [
+        {"app": "risk-hub", "status": "ok", "reasons": []},
+        {"app": "doc-hub", "status": "ok", "reasons": []},
+        {"app": "travel-beat", "status": "deferred", "reasons": ["stillgelegt"]},
+        {"app": "weltenhub", "status": "violation", "reasons": ["zu alt"]},
+        {"app": "restore-drill", "status": "ok", "reasons": []},
+    ]
+    nenner, (konform, verletzt, deferred) = _zahlen(render_report(ergebnisse))
+    assert nenner == 4, "der restore-drill ist keine Soll-App"
+    assert konform + verletzt + deferred == nenner
+
+
+def test_should_report_drill_separately_from_the_app_counts():
+    ergebnisse = [
+        {"app": "risk-hub", "status": "ok", "reasons": []},
+        {"app": "restore-drill", "status": "violation", "reasons": ["kein Protokoll"]},
+    ]
+    bericht = render_report(ergebnisse)
+    nenner, (konform, verletzt, deferred) = _zahlen(bericht)
+    # Eine verletzte Feueruebung darf die App-Bilanz nicht anfassen ...
+    assert (nenner, konform, verletzt, deferred) == (1, 1, 0, 0)
+    # ... aber sie muss im Bericht stehen, sonst ist sie stillschweigend weg.
+    assert "Restore-Feueruebung" in bericht
+    assert "restore-drill" in bericht
+
+
+# --- Feuerübung je pflichtiger App (platform#2682) -------------------------------
+#
+# Vorher zaehlte der Meter das juengste Protokoll im Ordner, unabhaengig von der
+# App. ADR-241 §5 verlangt die Übung woertlich fuer risk-hub — ein frisches
+# Fremd-Protokoll durfte dessen Uhr nie halten.
+
+
+def test_should_ignore_a_fresh_protocol_of_another_app(tmp_path):
+    """Der Realfall: config-prod frisch, risk-hub fehlt — das ist KEIN gruener Stand."""
+    (tmp_path / "2026-08-30-config-prod.md").write_text("fremde Uebung")
+    result = evaluate_drill(tmp_path, NOW, enforce=True)
+    assert result["status"] == "violation"
+    assert "risk-hub" in result["reasons"][0]
+
+
+def test_should_name_foreign_protocols_instead_of_claiming_an_empty_folder(tmp_path):
+    """Ein Grund, der 'kein Protokoll' sagt, waere falsch — dort liegt Arbeit."""
+    (tmp_path / "2026-08-30-config-prod.md").write_text("fremde Uebung")
+    (tmp_path / "2026-08-31-doc-hub.md").write_text("noch eine fremde")
+    grund = evaluate_drill(tmp_path, NOW, enforce=True)["reasons"][0]
+    assert "2 Protokoll(e) anderer Apps" in grund
+
+
+def test_should_pass_when_the_obligated_app_has_a_fresh_protocol(tmp_path):
+    (tmp_path / "2026-08-30-config-prod.md").write_text("fremde Uebung")
+    (tmp_path / "2026-06-20-risk-hub.md").write_text("eigene Uebung")
+    assert evaluate_drill(tmp_path, NOW, enforce=True)["status"] == "ok"
+
+
+def test_should_not_let_a_fresh_foreign_protocol_hide_a_stale_own_one(tmp_path):
+    """Kern des Befunds: die fremde Frische darf die eigene Alterung nicht decken."""
+    import os
+
+    veraltet = tmp_path / "2026-01-01-risk-hub.md"
+    veraltet.write_text("uralt")
+    frueher = NOW.timestamp() - 200 * 86400
+    os.utime(veraltet, (frueher, frueher))
+    (tmp_path / "2026-08-30-config-prod.md").write_text("frisch, aber fremd")
+    assert evaluate_drill(tmp_path, NOW, enforce=True)["status"] == "violation"
+
+
+def test_should_accept_an_overridden_obligated_app(tmp_path):
+    """Weitet ADR-241 die Pflicht aus, genuegt der Schalter — kein Code-Eingriff."""
+    (tmp_path / "2026-06-20-doc-hub.md").write_text("Uebung")
+    result = evaluate_drill(tmp_path, NOW, enforce=True, drill_app="doc-hub")
+    assert result["status"] == "ok"
+
+
+def test_should_use_the_name_date_not_the_file_time(tmp_path):
+    """Der eigentliche Defekt: ein Checkout macht jedes Protokoll frisch.
+
+    git speichert keine Aenderungszeiten. In CI trug deshalb auch ein Protokoll von
+    2024 die Zeit des Auscheckens — die 100-Tage-Frist konnte dort nie greifen.
+    Hier steht der Name auf alt und die Dateizeit auf jetzt; das Urteil muss dem
+    Namen folgen.
+    """
+    import os
+
+    p = tmp_path / "2026-01-01-risk-hub.md"
+    p.write_text("alt laut Name, frisch laut Dateizeit")
+    os.utime(p, (NOW.timestamp(), NOW.timestamp()))
+    assert evaluate_drill(tmp_path, NOW, enforce=True)["status"] == "violation"
+
+
+def test_should_not_claim_freshness_for_a_protocol_without_a_date(tmp_path):
+    """Ohne Datum im Namen ist die Frische nicht belegbar — und das gehoert gesagt."""
+    (tmp_path / "risk-hub.md").write_text("kein Datum im Namen")
+    result = evaluate_drill(tmp_path, NOW, enforce=True)
+    assert result["status"] == "violation"
+    assert "ohne Datum im Namen" in result["reasons"][0]

@@ -10,6 +10,13 @@ Dieser Dienst macht denselben Zustand dauerhaft sichtbar.
     todo_board.py build            → schreibt ~/.claude/boards/todo.html
     todo_board.py serve            → 127.0.0.1:8789, baut bei jedem Abruf neu
 
+Einstiegskommando fuer den ganzen Stand (platform#2592 K1): `make boards` baut
+Action-Board (board.py --render) und diese Seite aus demselben Ledger; `make
+boards-check` baut beide zweimal mit festem `--stichtag` und vergleicht byteweise
+— die Ausgabe haengt nur vom Ledger, den Ankerdateien und dem Stichtag ab, nie
+von Uhrzeit, Laufreihenfolge oder Zufall. Gemessen 2026-09-02: zwei Laeufe
+hintereinander identisch, 0 Zeilen Unterschied.
+
 Bewusst getrennt von `mail_agent/mail_link_server.py`: der rendert Mail-Koerper live
 aus dem Postfach und darf darum nie oeffentlich stehen. Dieser Dienst kennt nur das
 Ledger, spricht kein IMAP und hat genau eine Seite — das ist die Angriffsflaeche, die
@@ -31,12 +38,23 @@ import json
 import os
 import re
 import sys
-import unicodedata
 from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote, unquote
+
+# Die Lesart von Mail-Referenzen ist mit dem Mail-Dienst geteilt (platform#2592):
+# was hier als Nummer erkannt wird, muss `eintrag_anker.py` unter demselben
+# Schluessel verankern koennen. Das Modul ist reine Text-Analyse — kein IMAP.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mail_agent"))
+from referenzen import (  # noqa: E402
+    REF_GITHUB as _REF_GITHUB,
+    REF_NUMMER as _REF_NUMMER,
+    Referenz,
+    ordner_daneben,
+    schluessel_kandidaten,
+)
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 #: Vorgaenge, die `vorgaenge_archivieren.py` aus dem Ledger genommen hat. Sie
@@ -291,7 +309,16 @@ def entwurf_link(v: dict, mail_basis: str = MAIL_BASIS) -> str:
     # das dort nicht mehr liegt — und ein toter Link ist schlechter als keiner.
     if _ENTWURF_ERLEDIGT.search(juengster):
         return ""
-    return f"{mail_basis.rstrip('/')}/m/{konto}/entwuerfe/{treffer.group('uid')}"
+    uid = treffer.group("uid")
+    # Verankert gewinnt: `/a/<schluessel>` ueberlebt das Ersetzen des Entwurfs.
+    # Ein frischer, noch unverankerter Entwurf bekommt den direkten Ordner-Link —
+    # er gilt, bis `eintrag_anker.py` gelaufen ist (Abschluss von /mailcheck).
+    ref = Referenz(uid=uid, ordner="Entwuerfe", start=0, end=0)
+    verankert = _schluessel(ANKER_DATEI)
+    for kandidat in schluessel_kandidaten(konto, ref):
+        if kandidat in verankert:
+            return f"{mail_basis.rstrip('/')}/a/{quote(kandidat, safe='')}"
+    return f"{mail_basis.rstrip('/')}/m/{konto}/entwuerfe/{uid}"
 
 
 def zeile(
@@ -327,6 +354,11 @@ def zeile(
                     else "kein datierter Versand"
                 )
             )
+    # Keine Frist ist eine Aussage, wenn ihr Grund dabeisteht (#2592 K4): „keine —
+    # Owner-Aufgabe ohne Termin" liest sich anders als ein leerer Strich.
+    if tage is None and not frist and v.get("frist_grund"):
+        text = "keine"
+        frist = str(v["frist_grund"])
     schluessel = v.get("thread_key", "")
     beschriftung = html.escape(schluessel or "—")
     # Ohne thread_key gibt es kein Ziel — dann bleibt es Text statt totem Link.
@@ -481,6 +513,7 @@ letter-spacing:.05em;font-weight:600;color:var(--stumm);margin-right:.4rem}
 a.ref{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie);
 font-variant-numeric:tabular-nums}
 a.ref:hover{border-bottom-color:currentColor}
+.ref.ohne-anker{border-bottom:1px dotted var(--linie);cursor:help;opacity:.85}
 .datei{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
 background:var(--bg);border:1px solid var(--linie);border-radius:4px;padding:0 .25rem}
 """
@@ -730,9 +763,49 @@ _EINTRAG_KOPF = re.compile(
     r":\s*"
 )
 
-#: Satzgrenze. Der Lookbehind auf zwei Ziffern schuetzt deutsche Datumsformen
-#: ("20.08. Klimm" bleibt EIN Satz); gesplittet wird nur vor einem Grossbuchstaben.
-_SATZGRENZE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÄÖÜ„\"'/])")
+#: Satzgrenze. Gesplittet wird nur vor einem Grossbuchstaben — und NICHT, wenn
+#: dem Punkt eine Ziffer vorausgeht. Das schuetzt deutsche Datums- und
+#: Ordinalformen: "20.08. Klimm" und "1. Januar" bleiben EIN Satz.
+#:
+#: Bis 2026-08-21 behauptete der Kommentar an dieser Stelle genau diesen Schutz,
+#: waehrend die Regex ihn nicht enthielt — sie hatte nur den Lookbehind auf den
+#: Punkt selbst. "Termin am 20.08. Klimm bestaetigt." zerfiel dadurch in zwei
+#: Saetze. Der Kommentar ueberlebte eine Vereinfachung des Musters und las sich
+#: danach wie ein Beleg. Die zweite Lookbehind-Gruppe unten ist der Schutz, der
+#: bis dahin nur behauptet war.
+#:
+#: Die Sperre greift NUR an den beiden deutschen Formen, nicht an "jeder Ziffer
+#: vor dem Punkt". Die erste Fassung dieses Fixes tat genau das — und verschluckte
+#: damit echte Satzgrenzen nach Uhrzeiten ("… 16:41. Klimm meldet …"), weil auch
+#: dort eine Ziffer vor dem Punkt steht. Gemessen am realen Bestand fiel dadurch
+#: der Sachstand ganzer Eintraege in die Deckungs-Bahn. Zwei enge Lookbehinds
+#: statt eines breiten:
+#:   (?<!\d\.\d\d[.])   — Datum "20.08."  (Uhrzeit "16:41." hat dort ':')
+#:   (?!\s+<Monat>)      — Ordinal "1. Januar"
+#:
+#: Die zweite Bedingung haengt am MONATSNAMEN, nicht an "Ziffer vor dem Punkt".
+#: Auch das war eine Zwischenfassung dieses Fixes, und auch sie fiel am realen
+#: Bestand: " 2." blockierte die echte Satzgrenze vor einem "OFFEN: …", dessen
+#: Vorsatz auf "Anlage 2." endete — der offene Punkt verschwand aus seiner Bahn.
+#: Ein Ordinal ist ohne den Monat dahinter nicht von einem Satzende nach einer
+#: Zahl zu unterscheiden; also wird nur der Fall gesperrt, der eindeutig ist.
+_MONATE = (
+    "Januar|Februar|M(?:ä|ae)rz|April|Mai|Juni|Juli|August|"
+    "September|Oktober|November|Dezember"
+)
+#: Die dritte Bedingung ist eine AUSNAHME von der ersten, kein weiterer Filter.
+#: Ein deutsches Datum kann einen Satz auch BEENDEN ("Ruecksendefrist 28.08.
+#: OFFEN: …"), und von "20.08. Klimm bestaetigt." ist das regelbasiert nicht zu
+#: unterscheiden — ausser am Folgewort. Steht dort ein durchgaengig grosses Wort,
+#: ist es ein Marker, der nur am Satzanfang vorkommt (OFFEN, FRIST, HAUPTBEFUND).
+#: Ohne diese Ausnahme verschwand genau ein realer offener Punkt aus seiner Bahn
+#: — gemessen, nicht vermutet: 302 Eintraege, 1 Verlust.
+_SATZGRENZE = re.compile(
+    r"(?<=[.!?])"
+    r"(?:(?<!\d\.\d\d[.])|(?=\s+[A-ZÄÖÜ]{4,}\b))"
+    r"(?!\s+(?:" + _MONATE + r")\b)"
+    r"\s+(?=[A-ZÄÖÜ„\"'/])"
+)
 
 #: Ein Satz ist Erhebungsprotokoll, wenn er sich selbst so ausweist. Absichtlich
 #: an den Werkzeug-Vokabeln festgemacht, nicht an "klingt technisch".
@@ -744,6 +817,13 @@ _DECKUNG_WORTE = ("nachgezogen", "restfenster", "db bis", "kein neuer eingang")
 #: und "Weiterhin offen ist …" sind dieselbe Ansage wie "Offen bleibt …", und der
 #: reine Wortanfangs-Vergleich hat sie auf der Seite von Vorgang 142 uebersehen.
 #: `\b` hinter "offen" haelt "offenbar" und "offensichtlich" heraus.
+#: Verneinungen am Satzanfang. "Nichts zu tun." enthaelt den Action-Marker
+#: "zu tun" und meint das Gegenteil — ohne diese Sperre wurde der Satz als
+#: offener Punkt hervorgehoben. Bewusst nur der Satzanfang: eine Verneinung
+#: mitten im Satz ("Der Termin steht, nichts weiter offen") laesst sich nicht
+#: mehr regelbasiert zuordnen, und Raten ist hier schlimmer als Nicht-Trennen.
+_KEINE_ACTION = re.compile(r"^(?:nichts|kein|keine|keinerlei|nicht)\b", re.I)
+
 _ACTION_MUSTER = re.compile(
     r"^(?:\w+[\s,]+){0,2}(?:offen\b|zu tun\b|to-?do\b|n(?:ae|ä)chste[rn]? schritt|owner:)",
     re.I,
@@ -758,38 +838,6 @@ _ANALYSE_WORTE = (
     "schluss:",
 )
 
-#: Ordnernamen, die der Mail-Dienst als Slug kennt. Bewusst eine geschlossene
-#: Liste echter Ordner — Prosa-Woerter wie "Papierkorb" oder "Entwurfsordner"
-#: stehen NICHT drin: der HNU-Papierkorb heisst `Gelöschte Objekte`, ein Link auf
-#: `/m/hnu/papierkorb/<uid>` waere ein 404 mit Selbstbewusstsein.
-_ORDNER = (
-    "INBOX",
-    "Entwürfe",
-    "Entwuerfe",
-    "Gesendete Objekte",
-    "Gesendete Elemente",
-    "Gelöschte Objekte",
-    "Geloeschte Objekte",
-    "Gelöschte Elemente",
-    "Geloeschte Elemente",
-    "Junk-E-Mail",
-    "Posteingang",
-)
-_ORDNER_RE = re.compile("|".join(re.escape(o) for o in _ORDNER))
-
-#: Was zwischen Ordnername und Nummer stehen darf, ohne den Bezug zu loesen.
-#: `&#x27;` ist das escapte Apostroph — der Text ist hier schon HTML-escaped.
-_NUR_TRENNER = re.compile(r"(?:\s|[('\"’„]|&#x27;|&quot;|UID)*")
-#: Jede Nummer, die als Nachrichten-Referenz auftritt — mit oder ohne Ordner.
-_REF_NUMMER = re.compile(r"(?:\bUID\s+|#)(?P<uid>\d{3,7})\b")
-#: GitHub-Referenzen im Verlauf: `meiki-lra/meiki-hub#146` oder `platform#2183`.
-#: Muessen VOR den Mail-Nummern greifen — sonst haelt die Nummernregel `#146`
-#: fuer eine Mail-UID und zeichnet einen PR als "nicht aufloesbar" aus. Genau das
-#: tat die erste Fassung; aufgefallen ist es erst beim Nachsehen, was `#146`
-#: eigentlich ist.
-_REF_GITHUB = re.compile(
-    r"\b(?:(?P<owner>[A-Za-z][\w.-]*)/)?(?P<repo>[a-z][\w.-]*(?:-hub|-beat|-lab|platform|[\w.-]*))#(?P<nr>\d{1,6})\b"
-)
 #: Ohne Owner ist die Heimat dieser Repos die Standard-Org.
 _GITHUB_STANDARD_OWNER = "achimdehnert"
 
@@ -800,91 +848,68 @@ _DATEI = re.compile(
 )
 
 
-def _slug(text: str) -> str:
-    """Ordnername → URL-Segment, gleichlautend zu `mail_view.slugify`.
-
-    Muss zeichengleich sein, sonst zeigt der Link auf einen Ordner, den der
-    Mail-Dienst nicht kennt. Umlaute ZUERST, sonst frisst NFKD sie ersatzlos.
-    """
-    for umlaut, ersatz in (
-        ("ä", "ae"),
-        ("ö", "oe"),
-        ("ü", "ue"),
-        ("ß", "ss"),
-        ("Ä", "Ae"),
-        ("Ö", "Oe"),
-        ("Ü", "Ue"),
-    ):
-        text = text.replace(umlaut, ersatz)
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
-    return re.sub(r"[^A-Za-z0-9]+", "-", text).strip("-").lower()[:40].rstrip("-")
-
-
-def verweise(text: str, konto: str, mail_basis: str = MAIL_BASIS) -> str:
+def verweise(
+    text: str,
+    konto: str,
+    mail_basis: str = MAIL_BASIS,
+    anker: frozenset[str] | None = None,
+) -> str:
     """Erkannte Referenzen verlinken. `text` ist bereits HTML-escaped.
 
-    Verlinkt wird nur, wenn der Zielordner FESTSTEHT. Ohne Ordnersegment loest
-    `/m/<konto>/<uid>` ausschliesslich gegen INBOX auf (mail_link_server `_mail`)
-    — eine Entwurfs- oder Gesendet-UID ergaebe dort einen 404. Ein toter Link ist
-    schlechter als gar keiner: er sieht aus wie ein Beleg und ist keiner. Nicht
-    aufloesbare Nummern werden darum nur ausgezeichnet, nicht verlinkt.
+    Verlinkt wird nur, was VERANKERT ist — also eine Nummer, fuer die
+    `eintrag_anker.py` die Message-ID hinterlegt hat. Der Link geht dann auf
+    `/a/<schluessel>`, und der Mail-Dienst loest ueber die Message-ID auf: er
+    ueberlebt Ablage, Senden und ersetzte Entwuerfe.
 
-    Ohne `konto` wird gar nichts verlinkt — `/m/<uid>` ginge dann auf das
-    Default-Konto des Dienstes und damit in eine fremde Mailbox.
+    Bis 2026-09-01 zeigte der Link auf `/m/<konto>/<ordner>/<uid>` — die rohe
+    IMAP-UID. Gemessen an diesem Tag waren 89 von 203 solcher Links tot
+    (platform#2563), weil eine UID nur in ihrem Ordner gilt. Ein toter Link ist
+    schlechter als gar keiner: er sieht aus wie ein Beleg und ist keiner. Nicht
+    verankerte Nummern werden darum nur ausgezeichnet, nicht verlinkt — und der
+    Titel sagt, welches Werkzeug das aendert.
+
+    Ohne `konto` wird gar nichts verlinkt — der Schluessel traegt das Konto, und
+    ohne Konto gibt es keinen.
     """
     if not konto:
         return text
     basis = mail_basis.rstrip("/")
+    verankert = _schluessel(ANKER_DATEI) if anker is None else anker
 
-    def nachbar(start: int) -> str | None:
-        """Der Ordnername unmittelbar vor der Nummer — oder None.
-
-        Zwischen Ordnername und Nummer duerfen nur Anfuehrungszeichen, Klammern,
-        Leerraum und das Wort UID stehen. Alles andere heisst: der Ordner gehoert
-        zu einem anderen Satzteil. Genau daran scheiterte die erste Fassung — sie
-        nahm den naechstbesten Ordnernamen im Umkreis und verlinkte eine
-        Gesendet-UID nach INBOX.
-        """
-        fenster = text[max(0, start - 40) : start]
-        letzter = None
-        for treffer in _ORDNER_RE.finditer(fenster):
-            letzter = treffer
-        if letzter is None:
-            return None
-        zwischen = fenster[letzter.end() :]
-        return letzter.group(0) if _NUR_TRENNER.fullmatch(zwischen) else None
-
-    def nummer(m: re.Match) -> str:
+    def nummer(m: re.Match, segment: str) -> str:
         roh = m.group(0)
-        ordner = nachbar(m.start())
-        if ordner:
-            # Ordner steht daneben: die vollqualifizierte Route ist eindeutig und
-            # erspart dem Dienst die Suche.
-            ziel = f"{basis}/m/{konto}/{_slug(ordner)}/{m.group('uid')}"
-            hinweis = ""
-        else:
-            # Ohne Ordner traegt der Dienst die Aufloesung
-            # (mail_link_server._ordner_ohne_angabe): er durchsucht seine
-            # Suchordner und fragt zurueck, wenn die Nummer mehrdeutig ist.
-            # Bis 2026-08-21 blieben solche Nummern stummer Text — mit der
-            # Folge, dass die Prosa daneben erklaeren musste, was ein Klick
-            # zeigt. Die Verlinkung ist damit nicht nur Bequemlichkeit: sie ist
-            # die Voraussetzung dafuer, den Text kuerzen zu duerfen.
-            ziel = f"{basis}/m/{konto}/{m.group('uid')}"
-            hinweis = " title='Ordner wird beim Oeffnen gesucht'"
+        ref = Referenz(
+            uid=m.group("uid"),
+            ordner=ordner_daneben(segment, m.start()),
+            start=m.start(),
+            end=m.end(),
+        )
+        for kandidat in schluessel_kandidaten(konto, ref):
+            if kandidat in verankert:
+                ziel = f"{basis}/a/{quote(kandidat, safe='')}"
+                return (
+                    f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'"
+                    f" title='Mail oeffnen (ueber Message-ID verankert)'>{roh}</a>"
+                )
         return (
-            f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'"
-            f"{hinweis}>{roh}</a>"
+            "<span class='ref ohne-anker' title='nicht verankert — "
+            "eintrag_anker.py verankert die Nummer, solange sie im Postfach "
+            f"noch gilt'>{roh}</span>"
         )
 
     def schrittweise(roh: str, muster: re.Pattern, ersatz) -> str:
+        # Die Ersetzung bekommt das SEGMENT, in dem sie arbeitet: die Ordnersuche
+        # rechnet mit Positionen, und die gelten nur innerhalb des Segments —
+        # nicht im Gesamttext, in dem vorher schon Links eingesetzt wurden.
         teile = re.split(r"(<a class='ref'.*?</a>)", roh)
         return "".join(
-            t if t.startswith("<a class='ref'") else muster.sub(ersatz, t)
+            t
+            if t.startswith("<a class='ref'")
+            else muster.sub(lambda m, seg=t: ersatz(m, seg), t)
             for t in teile
         )
 
-    def github(m: re.Match) -> str:
+    def github(m: re.Match, _segment: str) -> str:
         owner = m.group("owner") or _GITHUB_STANDARD_OWNER
         ziel = f"https://github.com/{owner}/{m.group('repo')}/issues/{m.group('nr')}"
         return f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'>{m.group(0)}</a>"
@@ -892,7 +917,7 @@ def verweise(text: str, konto: str, mail_basis: str = MAIL_BASIS) -> str:
     text = schrittweise(text, _REF_GITHUB, github)
     text = schrittweise(text, _REF_NUMMER, nummer)
     return schrittweise(
-        text, _DATEI, lambda m: f"<span class='datei'>{m.group(0)}</span>"
+        text, _DATEI, lambda m, _seg: f"<span class='datei'>{m.group(0)}</span>"
     )
 
 
@@ -917,13 +942,20 @@ def zerlege_eintrag(roh: str) -> dict:
         klein = satz.lower()
         if any(w in klein for w in _DECKUNG_WORTE):
             deckung.append(satz)
-        elif _ACTION_MUSTER.match(satz):
+        elif _ACTION_MUSTER.match(satz) and not _KEINE_ACTION.match(satz):
             action.append(satz)
         elif klein.startswith(_ANALYSE_WORTE):
             analyse.append(satz)
         else:
             inhalt.append(satz)
     return {
+        # Die Zerlegung selbst wird mitgegeben, nicht nur ihr Ergebnis. Grund:
+        # ein Test, der nur `inhalt` prueft, kann einen Zerlegungsfehler NICHT
+        # sehen — die Bahn fuegt ihre Saetze mit " ".join() wieder zusammen, und
+        # zwei falsch getrennte Fragmente ergeben denselben String wie ein
+        # ungetrennter Satz. Genau daran war die Zusicherung "ein Datum trennt
+        # keinen Satz" vakuos: der Test bestand, waehrend die Regex falsch lag.
+        "saetze": saetze,
         "datum": marken.get("datum") or "",
         "zeit": marken.get("zeit") or "",
         "ereignis": marken.get("ereignis") or "",
@@ -942,6 +974,7 @@ def verlauf(
     neueste_zuerst: bool = True,
     nr=None,
     links: dict | None = None,
+    anker: frozenset[str] | None = None,
 ) -> str:
     """Der Verlauf als Karten — Beiwerk eingeklappt.
 
@@ -953,6 +986,8 @@ def verlauf(
     karten: list[str] = []
     stille: list = []
     links = links if links is not None else _eintrag_links(nr)
+    # Einmal je Seite gelesen, nicht je Referenz — der Verlauf nennt Dutzende.
+    anker = _schluessel(ANKER_DATEI) if anker is None else anker
     for eintrag in eintraege:
         # Nummer und Text kommen als Paar herein: gezaehlt wird vom AELTESTEN Ende,
         # damit `#132-4` derselbe Eintrag bleibt, wenn oben zehn neue dazukommen.
@@ -968,7 +1003,7 @@ def verlauf(
             marke = f"<span class='bahn-marke'>{label}</span>" if label else ""
             return (
                 f"<p class='{klasse}'>{marke}"
-                f"{verweise(html.escape(wert), konto, mail_basis)}</p>"
+                f"{verweise(html.escape(wert), konto, mail_basis, anker)}</p>"
             )
 
         marken = []
@@ -1002,7 +1037,7 @@ def verlauf(
         if t["deckung"]:
             marken.append(
                 "<details class='deckung'><summary>Deckung</summary>"
-                f"<p>{verweise(html.escape(t['deckung']), konto, mail_basis)}</p></details>"
+                f"<p>{verweise(html.escape(t['deckung']), konto, mail_basis, anker)}</p></details>"
             )
         kopfzeile = (
             f"<header class='eintrag-kopf'>{''.join(marken)}</header>" if marken else ""
@@ -1083,12 +1118,20 @@ def detail(
     # Erwartung statt leerer Frist: bei einem wartenden Vorgang ohne Frist ist
     # „bis wann ist das normal" die Frage, die man an die Seite hat.
     erwartung = _erwartung(v.get("nr"))
-    if not v.get("frist") and erwartung.get("spaetestens"):
-        wort = "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
-        zeilen = zeilen.replace(
-            "<th>Frist</th><td>—</td>",
-            f"<th>Frist</th><td>{wort} {html.escape(erwartung['spaetestens'])}</td>",
-        )
+    if not v.get("frist"):
+        teile = []
+        if v.get("frist_grund"):
+            teile.append(f"keine — {v['frist_grund']}")
+        if erwartung.get("spaetestens"):
+            wort = (
+                "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
+            )
+            teile.append(f"{wort} {erwartung['spaetestens']}")
+        if teile:
+            zeilen = zeilen.replace(
+                "<th>Frist</th><td>—</td>",
+                f"<th>Frist</th><td>{html.escape(' · '.join(teile))}</td>",
+            )
     zweite = _reihe(DETAIL_FELDER_ZWEITE_REIHE)
     schritte = naechste_schritte(v, mail_basis, basis, anker)
     nr = v.get("nr")
@@ -1284,7 +1327,11 @@ def cmd_build(args: argparse.Namespace) -> None:
     # Die gebaute Datei wird als Datei geoeffnet — relative Links zeigten dann ins
     # Dateisystem. Darum absolute Loopback-Adresse, nie file:// (Owner-Entscheid).
     ziel.write_text(
-        baue(lade(LEDGER), heute(), basis=f"http://127.0.0.1:{args.basis_port}"),
+        baue(
+            lade(LEDGER),
+            date.fromisoformat(args.stichtag) if args.stichtag else heute(),
+            basis=f"http://127.0.0.1:{args.basis_port}",
+        ),
         encoding="utf-8",
     )
     print(f"OK: {ziel}")
@@ -1313,6 +1360,11 @@ def main() -> None:
     b = sub.add_parser("build", help="HTML-Datei schreiben")
     b.add_argument("--ausgabe", default=str(AUSGABE))
     b.add_argument("--basis-port", type=int, default=PORT, dest="basis_port")
+    b.add_argument(
+        "--stichtag",
+        metavar="YYYY-MM-DD",
+        help="Bezugsdatum statt heute — macht den Bau tagesunabhaengig reproduzierbar (#2592 K1)",
+    )
     b.set_defaults(fn=cmd_build)
     s = sub.add_parser("serve", help="lokal ausliefern, bei jedem Abruf frisch gebaut")
     s.add_argument("--port", type=int, default=PORT)

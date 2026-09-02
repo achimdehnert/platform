@@ -89,6 +89,26 @@ if [ -n "$QUELL" ]; then
   RUNNER_ALLOW_RUNASROOT=1 ./config.sh remove --token '$ALT_TOKEN' || true
   echo 'Alter Runner abgemeldet.'
   "
+
+  # Deploy-Manifest auf dem Quell-Host beiseitelegen (platform#2148).
+  #
+  # Der Zettel bleibt sonst liegen und behauptet ein Deployment, das es nicht
+  # mehr gibt: nach dem trading-hub-Umzug meldete `deploy_wirkung.py` einen
+  # DOPPELLAUF gegen ein 254-Byte-Manifest vom Vortag, hinter dem null Container
+  # standen. Genau die Meldung, die man am wenigsten abstumpfen lassen darf.
+  #
+  # Umbenannt statt geloescht: der letzte Stand des alten Hosts bleibt lesbar
+  # (er beantwortet spaeter „was lief hier zuletzt?"), aber der Glob des Melders
+  # trifft ihn nicht mehr.
+  ssh -o ConnectTimeout=10 -o BatchMode=yes "$QUELL" "
+  M=/opt/$REPO/.deploy-manifest.json
+  if [ -f \"\$M\" ]; then
+    mv \"\$M\" \"\$M.abgeloest-$(date +%Y%m%d)\"
+    echo 'Manifest auf dem Quell-Host abgeloest -- kein falscher DOPPELLAUF mehr.'
+  else
+    echo 'Kein Manifest auf dem Quell-Host -- nichts abzuloesen.'
+  fi
+  "
 fi
 
 echo "== Stand danach =="

@@ -239,3 +239,249 @@ def test_should_report_ok_only_with_an_existing_journal(journal: Path, capsys) -
     bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(journal)])
     aus = capsys.readouterr().out
     assert "RESULT: OK" in aus and "UNGEPRUEFT" not in aus
+
+
+# ── Wiedervorlage (platform#2215) ───────────────────────────────────────────
+#
+# Der Anlass ist gemessen, nicht ausgedacht: der Deploy-Befund zu coach-hub war
+# seit dem 2026-08-20 in coach-hub#67 verankert und erschien trotzdem in 22
+# aufeinanderfolgenden Laeufen wortgleich. `--verankert` hing eine URL an und
+# aenderte nichts an der Lautstaerke.
+
+ZEILE = "0.7 deploy-scan\tWARN\tcoach-hub\tfailure: coach-hub"
+
+
+def _n_laeufe(pfad: Path, n: int, zeile: str = ZEILE) -> list[str]:
+    for _ in range(n - 1):
+        _lauf([zeile], pfad)
+    meldungen, _ = _lauf([zeile], pfad)
+    return meldungen
+
+
+def test_should_report_old_finding_loudly_while_nobody_decided(journal: Path) -> None:
+    meldungen = _n_laeufe(journal, 4)
+    assert any("⏳ ALTBEFUND" in m for m in meldungen)
+
+
+def test_should_silence_anchored_finding_until_the_deadline(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    assert (
+        bj.main(
+            [
+                "--verankert",
+                "0.7 deploy-scan::coach-hub",
+                "https://x/67",
+                "--datei",
+                str(journal),
+            ]
+        )
+        == 0
+    )
+    meldungen = _n_laeufe(journal, 1)
+    assert not any("⏳ ALTBEFUND" in m for m in meldungen)
+    assert any("ruhen bis zur Wiedervorlage" in m for m in meldungen)
+
+
+def test_should_never_let_a_resting_finding_vanish_without_trace(journal: Path) -> None:
+    """Schweigen darf nicht von Vergessen ununterscheidbar sein."""
+    _n_laeufe(journal, 4)
+    bj.main(
+        [
+            "--verankert",
+            "0.7 deploy-scan::coach-hub",
+            "https://x/67",
+            "--datei",
+            str(journal),
+        ]
+    )
+    meldungen = _n_laeufe(journal, 1)
+    assert len([m for m in meldungen if "⏸" in m]) == 1
+    assert "--bericht" in "".join(meldungen)
+
+
+def test_should_wake_the_finding_when_the_deadline_passed(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    bj.main(
+        [
+            "--verankert",
+            "0.7 deploy-scan::coach-hub",
+            "https://x/67",
+            "--frist",
+            "0",
+            "--datei",
+            str(journal),
+        ]
+    )
+    daten = json.loads(journal.read_text(encoding="utf-8"))
+    daten["befunde"]["0.7 deploy-scan::coach-hub"]["wiedervorlage"] = "2020-01-01"
+    journal.write_text(json.dumps(daten), encoding="utf-8")
+    meldungen = _n_laeufe(journal, 1)
+    assert any("⏰ WIEDERVORLAGE" in m for m in meldungen)
+    assert any("2020-01-01 abgelaufen" in m for m in meldungen)
+
+
+def test_should_wake_the_finding_when_the_symptom_changed(journal: Path) -> None:
+    """Eine Parkerlaubnis gilt dem Befund, der beim Parken vorlag — keinem anderen."""
+    _n_laeufe(journal, 4)
+    bj.main(
+        [
+            "--verankert",
+            "0.7 deploy-scan::coach-hub",
+            "https://x/67",
+            "--datei",
+            str(journal),
+        ]
+    )
+    ruhig = _n_laeufe(journal, 1)
+    assert not any("⏳ ALTBEFUND" in m for m in ruhig)
+
+    anders = "0.7 deploy-scan\tWARN\tcoach-hub\tfailure: coach-hub UND apo-hub"
+    meldungen = _n_laeufe(journal, 1, zeile=anders)
+    assert any("⏳ ALTBEFUND" in m for m in meldungen)
+
+
+def test_should_apply_the_longer_deadline_to_a_deliberate_waiver(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    bj.main(
+        [
+            "--verzichtet",
+            "0.7 deploy-scan::coach-hub",
+            "Repo wird stillgelegt",
+            "--datei",
+            str(journal),
+        ]
+    )
+    e = json.loads(journal.read_text(encoding="utf-8"))["befunde"][
+        "0.7 deploy-scan::coach-hub"
+    ]
+    assert e["wiedervorlage"] == bj._frist(bj.FRIST_VERZICHT_TAGE)
+    assert bj.ruhezustand(e, bj._heute()) == "ruht"
+
+
+def test_should_treat_a_finding_without_deadline_as_loud(journal: Path) -> None:
+    """Kein gesetzter Zustand ist kein Ruhe-Zustand — die Vorgabe muss laut sein."""
+    assert bj.ruhezustand({"letzte_note": "x"}, "2026-08-23") == "laut"
+
+
+def test_should_show_the_deadline_in_the_full_report(journal: Path) -> None:
+    _n_laeufe(journal, 4)
+    bj.main(
+        [
+            "--verankert",
+            "0.7 deploy-scan::coach-hub",
+            "https://x/67",
+            "--datei",
+            str(journal),
+        ]
+    )
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert "ruht bis" in text
+    assert "https://x/67" in text
+
+
+# ── KONZ-054 E2: Infra-Befunde im Gate, Entscheidungsfrist, Belege, JSON ─────
+
+
+def test_should_flag_infra_finding_even_in_own_repo(journal: Path) -> None:
+    """Der Anlass: 7 von 17 offenen Befunden waren platform-eigene Infra-Befunde
+    und fielen durch die Eigen-Repo-Ausnahme."""
+    _lauf(["0.7.18 speicher\tWARN\tplatform\tprod Swap 99,8 %"], journal)
+    offen = bj._cross_repo_offen(bj.lade(journal), "platform")
+    assert [fid for fid, _ in offen] == ["0.7.18 speicher::platform"]
+
+
+def test_should_still_exempt_local_conditions_in_own_repo(journal: Path) -> None:
+    _lauf(["0.4 repo-sync\tWARN\tplatform\tGUARD(dirty)"], journal)
+    assert bj._cross_repo_offen(bj.lade(journal), "platform") == []
+
+
+def test_should_give_every_new_finding_a_decision_deadline(journal: Path) -> None:
+    _, daten = _lauf([ZEILE], journal)
+    e = next(iter(daten["befunde"].values()))
+    assert e["entscheiden_bis"] > e["erstmals"]
+
+
+def test_should_not_silence_a_new_finding_because_of_its_deadline(
+    journal: Path,
+) -> None:
+    """entscheiden_bis ist KEINE Ruhefrist — sonst waere jeder neue Befund stumm."""
+    _, daten = _lauf([ZEILE], journal)
+    e = next(iter(daten["befunde"].values()))
+    assert bj.ruhezustand(e, bj._heute()) == "laut"
+
+
+def test_should_mark_finding_overdue_after_the_deadline_without_decision(
+    journal: Path,
+) -> None:
+    _, daten = _lauf([ZEILE], journal)
+    fid, e = next(iter(daten["befunde"].items()))
+    assert not bj.ueberfaellig(e, e["entscheiden_bis"])
+    assert bj.ueberfaellig(e, "2099-01-01")
+    e["artefakt"] = "https://example/issue/1"
+    assert not bj.ueberfaellig(e, "2099-01-01")
+
+
+def test_should_backfill_deadline_for_legacy_entries_on_next_run(journal: Path) -> None:
+    _, daten = _lauf([ZEILE], journal)
+    e = next(iter(daten["befunde"].values()))
+    del e["entscheiden_bis"]
+    bj.sichere(daten, journal)
+    _, daten = _lauf([ZEILE], journal)
+    assert next(iter(daten["befunde"].values())).get("entscheiden_bis")
+
+
+def test_should_store_evidence_columns_from_the_runner(journal: Path) -> None:
+    zeile = "0.7.18 speicher\tWARN\tplatform\tSwap voll\t\tprod\tfree -m\t4087/4095 MB\tfree -m auf prod-b -> 0/0"
+    _, daten = _lauf([zeile], journal)
+    e = daten["befunde"]["0.7.18 speicher::platform"]
+    assert e["knoten"] == "prod"
+    assert e["kommando"] == "free -m"
+    assert e["ausgabe"] == "4087/4095 MB"
+    assert e["positivkontrolle"].startswith("free -m auf prod-b")
+
+
+def test_should_attach_evidence_later_via_cli(journal: Path, capsys) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    rc = bj.main(
+        [
+            "--beleg",
+            fid,
+            "--knoten",
+            "prod",
+            "--kommando",
+            "df -h /",
+            "--datei",
+            str(journal),
+        ]
+    )
+    assert rc == 0
+    e = bj.lade(journal)["befunde"][fid]
+    assert (e["knoten"], e["kommando"]) == ("prod", "df -h /")
+
+
+def test_should_refuse_beleg_without_any_field(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    fid = next(iter(bj.lade(journal)["befunde"]))
+    assert bj.main(["--beleg", fid, "--datei", str(journal)]) == 2
+
+
+def test_should_emit_complete_json_for_a_reading_surface(journal: Path, capsys) -> None:
+    _lauf(["0.7.18 speicher\tWARN\tplatform\tSwap voll\t\tprod\tfree -m"], journal)
+    assert (
+        bj.main(["--bericht", "--json", "--repo", "platform", "--datei", str(journal)])
+        == 0
+    )
+    saetze = json.loads(capsys.readouterr().out)
+    assert len(saetze) == 1
+    s = saetze[0]
+    assert s["infra"] is True and s["im_gate"] is True and s["ueberfaellig"] is False
+    assert s["kommando"] == "free -m" and s["knoten"] == "prod"
+    assert set(bj.BELEG_FELDER) <= set(s)
+
+
+def test_should_show_missing_evidence_in_the_text_report(journal: Path) -> None:
+    _lauf([ZEILE], journal)
+    text = bj.bericht(bj.lade(journal), "platform")
+    assert "ohne Beleg" in text
+    assert "entscheiden bis" in text

@@ -14,6 +14,14 @@
 
 set -uo pipefail
 
+# Versionsmarker, gelesen von tools/host_datei_drift.py (Phase 0.7.1b). Ohne ihn
+# kann der Drift-Melder nur "weicht ab" sagen; mit ihm sagt er, WIE alt die
+# Host-Kopie ist. Anlass: prod-b lief am 2026-08-31 auf dem Stand vom 25.08. und
+# hatte deshalb nie einen config-Snapshot geschrieben — sechs Tage Rueckstand,
+# die aus einem blossen Hash-Unterschied nicht ablesbar waren.
+# Bei JEDER inhaltlichen Aenderung hochzaehlen.
+OFFSITE_SH_VERSION="2026-08-31.1"
+
 ENV_FILE=/etc/offsite-backup.env
 LOG_TAG=offsite-backup
 
@@ -94,17 +102,60 @@ fi
 # niemandem auf. Ein Rueckgang ist ab jetzt ein roter Lauf; ein Zuwachs (neuer
 # Hub) laeuft still durch. Faellt eine Instanz absichtlich weg, wird der Stand
 # einmal quittiert: Datei loeschen, der naechste Lauf schreibt sie neu.
-ZAEHLER_DATEI=/var/lib/offsite-backup/pg-instanzen.zahl
-mkdir -p "$(dirname "$ZAEHLER_DATEI")" 2>/dev/null || true
-vorher=$(cat "$ZAEHLER_DATEI" 2>/dev/null || echo 0)
-if [[ "$vorher" =~ ^[0-9]+$ ]] && (( ${#PGC[@]} < vorher )); then
-  log "  FEHLER: nur ${#PGC[@]} Postgres-Instanz(en) gefunden, letzter Lauf hatte $vorher."
+# Bis 2026-08-31 stand hier eine blosse ZAHL. Das reichte, um "etwas ist weg" zu
+# sehen, aber nicht, um "was" zu sagen — und damit nicht, um einen gewollten
+# Abgang von einem Ausfall zu trennen. Am 2026-08-31 meldete der Waechter
+# "nur 13 statt 15" nach den Stilllegungen vom Vortag (#2480): sachlich richtig,
+# praktisch ein Fehlalarm. Schlimmer ist die Kehrseite: im Fenster nach einer
+# Stilllegung sieht ein ECHTER Ausfall genauso aus und wird als bekannt abgetan.
+# Seitdem wird die Namensliste gefuehrt und die Differenz benannt.
+LISTE_DATEI=/var/lib/offsite-backup/pg-instanzen.liste
+ERWARTET_WEG=/var/lib/offsite-backup/pg-instanzen.erwartet-weg
+mkdir -p /var/lib/offsite-backup 2>/dev/null || true
+
+# Migration vom Zahl- auf das Listenformat: beim ersten Lauf danach gibt es noch
+# keine Liste. Dann schweigt der Vergleich fuer genau diesen einen Lauf, statt
+# einen Rueckgang zu behaupten, den niemand nachpruefen kann.
+VORHER=()
+[[ -r "$LISTE_DATEI" ]] && mapfile -t VORHER < "$LISTE_DATEI"
+
+FEHLEND=()
+for v in ${VORHER[@]+"${VORHER[@]}"}; do
+  [[ -n "$v" ]] || continue
+  drin=0
+  for c in ${PGC[@]+"${PGC[@]}"}; do [[ "$c" == "$v" ]] && { drin=1; break; }; done
+  (( drin )) || FEHLEND+=("$v")
+done
+
+# Quittierte Abgaenge: eine Zeile je Container-Name, '#' leitet einen Kommentar
+# ein. Ein Eintrag hier heisst "weg und gewollt" — er unterdrueckt genau diesen
+# einen Namen und keinen zweiten.
+UNERWARTET=()
+for f in ${FEHLEND[@]+"${FEHLEND[@]}"}; do
+  if [[ -r "$ERWARTET_WEG" ]] \
+     && grep -vE '^[[:space:]]*(#|$)' "$ERWARTET_WEG" | grep -qxF "$f"; then
+    log "  · $f fehlt — als bewusster Abgang quittiert ($ERWARTET_WEG)"
+  else
+    UNERWARTET+=("$f")
+  fi
+done
+
+if (( ${#UNERWARTET[@]} )); then
+  log "  FEHLER: ${#UNERWARTET[@]} Instanz(en) aus dem letzten Lauf fehlen: ${UNERWARTET[*]}"
   log "          Gesichert wird trotzdem, was da ist — aber hier fehlt etwas."
-  log "          Gefunden: ${PGC[*]}"
+  log "          War der Abgang gewollt? Dann den Namen in $ERWARTET_WEG eintragen."
   rc_total=1
 fi
-printf '%s' "${#PGC[@]}" > "$ZAEHLER_DATEI" 2>/dev/null || true
-log "  ${#PGC[@]} Postgres-Instanz(en) erkannt (Vorlauf: $vorher)"
+
+# Nur fortschreiben, wenn wirklich etwas gefunden wurde. Sonst wuerde ein Lauf,
+# bei dem der Docker-Daemon klemmt, die leere Menge zum neuen Vorlauf machen und
+# den Waechter fuer alle folgenden Laeufe entwaffnen.
+if (( ${#PGC[@]} )); then
+  printf '%s\n' "${PGC[@]}" > "$LISTE_DATEI" 2>/dev/null || true
+else
+  log "  (Vorlauf-Liste NICHT ueberschrieben — 0 Instanzen waeren sonst das neue Soll)"
+fi
+log "  ${#PGC[@]} Postgres-Instanz(en) erkannt (Vorlauf: ${#VORHER[@]})"
 
 for c in "${PGC[@]}"; do
   # Dump-Rolle bestimmen. Frueher wurde blind POSTGRES_USER genommen — in fast
@@ -157,15 +208,64 @@ for c in "${PGC[@]}"; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
-log "Datei-Volumes mit Nutzdaten sichern"
+log "Datei-Volumes sichern — Standard: ALLES Benannte, Verzicht explizit (platform#2284, 2026-08-25)"
+# Bis 2026-08-25 sicherte dieser Block nur Volumes, deren Name auf
+# minio|media|upload|documents passte. Alles andere war unsichtbar — 46 Volumes
+# mit 7,2 GB, darunter drei doc-hub-Volumes in Nutzung (platform#2284 K1).
+# Jetzt ist das Vorzeichen gedreht: gesichert wird jedes benannte Volume, AUSSER
+#   (a) pgdata der oben gedumpten Postgres-Container (konsistent per pg_dumpall),
+#   (b) was governance/backup/volume-verzicht.yaml MIT Grund verzichtet
+#       (Regeln = Klassen ohne Nutzdatenanspruch, exakt = Einzelfaelle).
+# Fehlt die Verzichtsliste, wird ALLES Benannte gesichert und das laut gesagt —
+# die Fehlerrichtung ist "zu viel Backup", nie "zu wenig".
 VOLROOT="$(docker info --format '{{.DockerRootDir}}')/volumes"
-TARGETS=()
-# Nur Volumes mit echtem Nutzdaten-Charakter. Bewusst KEINE pgdata-Volumes —
-# die kommen oben konsistent per pg_dumpall.
-while read -r v; do
+VERZICHT_YAML="${VERZICHT_YAML:-/opt/platform/governance/backup/volume-verzicht.yaml}"
+TARGETS=(); N_VERZICHT=0; N_PGDATA=0
+# pgdata-Volumes der gedumpten Container
+PG_VOLS=""
+for c in "${PGC[@]}"; do
+  PG_VOLS+="$(docker inspect "$c" --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' 2>/dev/null)"$'\n'
+done
+# Volume-Liste in eine Datei — NICHT in eine Pipe: `python3 -` liest das
+# Programm von stdin, und ein Heredoc dort verdraengt die Pipe. Der Erstlauf
+# nach platform#2306 entschied so "0 sichern · 0 verzichtet" auf beiden Hosts
+# (2026-08-25 15:00) — die Liste war weg, bevor Python sie sah.
+VOL_LISTE=$(mktemp)
+docker volume ls --format '{{.Name}}\t{{.Labels}}' > "$VOL_LISTE"
+if [[ -f "$VERZICHT_YAML" ]]; then
+  # Entscheidung je Volume in Python (Regex + YAML), eine Zeile "NAME<TAB>sichern|verzicht"
+  ENTSCHEID=$(python3 - "$VERZICHT_YAML" "$RESTIC_HOST" "$VOL_LISTE" <<'PY'
+import re, sys, yaml
+pfad, host, liste = sys.argv[1], sys.argv[2], sys.argv[3]
+d = yaml.safe_load(open(pfad, encoding="utf-8")) or {}
+exakt = {(str(e.get("host")), str(e.get("volume"))) for e in d.get("verzicht") or [] if isinstance(e, dict) and e.get("grund")}
+regeln = [re.compile(str(r["muster"]), re.I) for r in d.get("regeln") or [] if isinstance(r, dict) and r.get("muster") and r.get("grund")]
+for zeile in open(liste, encoding="utf-8"):
+    name, _, labels = zeile.rstrip("\n").partition("\t")
+    if not name or "com.docker.volume.anonymous" in labels:
+        continue
+    if (host, name) in exakt or any(r.search(name) for r in regeln):
+        print(f"{name}\tverzicht")
+    else:
+        print(f"{name}\tsichern")
+PY
+)
+else
+  log "  WARNUNG: Verzichtsliste $VERZICHT_YAML fehlt — sichere ALLES Benannte (Fehlerrichtung: zu viel, nie zu wenig)"
+  ENTSCHEID=$(awk -F'\t' '$2 !~ /com.docker.volume.anonymous/ {print $1"\tsichern"}' "$VOL_LISTE")
+fi
+rm -f "$VOL_LISTE"
+# Ein leerer Entscheid ist ein Werkzeugfehler, keine Lage: 175 Volumes auf prod
+# verschwinden nicht ueber Nacht. Laut sagen, nicht still "0 sichern".
+[[ -n "$ENTSCHEID" ]] || { log "  FEHLER: Volume-Entscheidung leer — Volume-Sicherung NICHT gelaufen (Werkzeugfehler)"; rc_total=1; }
+while IFS=$'\t' read -r v was; do
+  [[ -n "$v" ]] || continue
+  if grep -qxF "$v" <<<"$PG_VOLS"; then N_PGDATA=$((N_PGDATA+1)); continue; fi
+  if [[ "$was" == "verzicht" ]]; then N_VERZICHT=$((N_VERZICHT+1)); continue; fi
   d="$VOLROOT/$v/_data"
   [[ -d "$d" ]] && TARGETS+=("$d")
-done < <(docker volume ls --format '{{.Name}}' | grep -iE 'minio|media|upload|documents' | sort)
+done <<<"$ENTSCHEID"
+log "  Entscheidung: ${#TARGETS[@]} sichern · $N_VERZICHT verzichtet (Regel/Liste) · $N_PGDATA pgdata (per Dump gedeckt)"
 
 if [[ ${#TARGETS[@]} -gt 0 ]]; then
   if restic backup --tag volumes --host "$RESTIC_HOST" "${TARGETS[@]}" 2>&1 | redact; then
@@ -175,6 +275,34 @@ if [[ ${#TARGETS[@]} -gt 0 ]]; then
   fi
 else
   log "  (keine passenden Volumes)"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+log "Konfiguration sichern — was ein Host von Null braucht (KONZ-054 §12, 2026-08-30)"
+# Gemessen 2026-08-30: 689 Snapshots im Repo, 0 Pfade unter /etc, 0 unter /opt.
+# Datenbanken und Volumes waren gesichert — nginx-vhosts, Tunnel-Credential,
+# Compose-Dateien und .env je App nicht. Ein Wiederanlauf haette an der ersten
+# Datei gescheitert, die kein Backup kannte. Das Repo ist verschluesselt; die
+# .env-Dateien gehoeren deshalb hinein, nicht heraus — ohne sie startet kein Stack.
+CONF=()
+for p in /etc/nginx /etc/cloudflared /root/.cloudflared /etc/cron.d /etc/systemd/system \
+         /etc/fstab /etc/offsite-backup.env /usr/local/bin /etc/ufw/user.rules; do
+  [[ -e "$p" ]] && CONF+=("$p")
+done
+for d in /opt/*/; do
+  for f in docker-compose.yml docker-compose.prod.yml docker-compose.override.yml \
+           .env .env.prod .env.production secrets.enc.env Caddyfile; do
+    [[ -f "$d$f" ]] && CONF+=("$d$f")
+  done
+done
+if [[ ${#CONF[@]} -gt 0 ]]; then
+  if restic backup --tag config --host "$RESTIC_HOST" "${CONF[@]}" 2>&1 | redact; then
+    log "  ✓ ${#CONF[@]} Konfigurationspfade (Tag config)"
+  else
+    log "  ✗ Konfigurations-Sicherung fehlgeschlagen"; rc_total=1
+  fi
+else
+  log "  ✗ keine Konfigurationspfade gefunden — das ist ein Befund, kein Leerlauf"; rc_total=1
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

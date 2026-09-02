@@ -60,7 +60,16 @@ from collections import Counter, defaultdict
 # Edits an historischen Reports (Trockenlauf 2026-08-08, drei Reports). Ein Prüfer, der
 # Arbeit auslöst ohne zu messen, wird zurückgebaut, nicht kalibriert. Das Feld bleibt
 # als menschenlesbare Doku im Frontmatter — es hat nur keinen Wächter mehr.
-LIST_KEYS = {"recurring_findings", "gate_candidates"}
+# over_*_klassen + repo_scope: Wachstums-Sensor (--nominierung, KONZ-025 Art. 2.1).
+# Bis 2026-09-02 schrieben 35 Retros over_ask/over_act ins Frontmatter, der Parser
+# warf beide weg (Melder ohne Leser) — deshalb stehen sie jetzt hier explizit.
+LIST_KEYS = {
+    "recurring_findings",
+    "gate_candidates",
+    "over_ask_klassen",
+    "over_act_klassen",
+    "repo_scope",
+}
 # D6-Härtung (KONZ-038, EXT2-AD-2/M-1): Listeneinträge müssen slug-förmig sein.
 # Realfall a50bc6: ein Inline-Kommentar HINTER der Liste wurde mitgesplittet und
 # erzeugte 3 Phantom-Slugs im Zähler — strip("[]") erwischt nur String-Enden.
@@ -75,6 +84,8 @@ SCALAR_KEYS = {
     "findings_survived",
     "phase3_refuted",
     "pre_refuted",
+    "over_ask",
+    "over_act",
 }
 SCORE_KEYS = [
     "zielerreichung",
@@ -187,6 +198,7 @@ def load_reports(directories) -> list[dict]:
             if fm is None:
                 continue
             fm["_path"] = base
+            fm["_fullpath"] = path
             seen.add(base)
             reports.append(fm)
     return reports
@@ -524,6 +536,143 @@ def k1_auswertung(reports: list[dict], wb: dict, ist_sha: str) -> list[str]:
     return lines
 
 
+def report_date(r: dict) -> str:
+    """Datum eines Reports: Dateinamens-Datum, Fallback Frontmatter-date (ISO-String)."""
+    m = re.search(r"session-retro-(\d{4}-\d{2}-\d{2})", r.get("_path", ""))
+    return m.group(1) if m else str(r.get("date", ""))
+
+
+def _als_int(v) -> int | None:
+    try:
+        return int(str(v).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def kalibrierungs_zeile(path: str | None, key: str) -> str | None:
+    """Erste Body-Zeile (nach dem Frontmatter), die `key` in Backticks nennt —
+    der Beleg aus Retro-§5b. Fail-open: None, wenn Datei/Zeile fehlt."""
+    if not path:
+        return None
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return None
+    m = re.match(r"^---\n.*?\n---\n?(.*)$", text, re.DOTALL)
+    body = m.group(1) if m else text
+    for line in body.splitlines():
+        if f"`{key}`" in line:
+            s = line.strip().lstrip("-* ").strip()
+            return s[:117] + "…" if len(s) > 120 else s
+    return None
+
+
+def nominierung_auswertung(reports: list[dict]) -> list[str]:
+    """Wachstums-Sensor (KONZ-025 Art. 2.1 / 8.1c): over_ask/over_act ueber Retros
+    aggregieren, Klassen-Slugs zaehlen — >=2 Retros mit derselben over_ask-Klasse
+    ⇒ NOMINIERT (Befoerderungsvorschlag, Ratifikation bleibt Kapitaens-Zug);
+    over_act derselben Klasse im Fenster sperrt sie (Art. 2.2). Die
+    Rubber-Stamp-Quote (8.1d) hat kein Retro-Feld und wird ehrlich als nicht
+    messbar ausgewiesen — nie als 0 gewertet."""
+    out = ["## Nominierung — Wachstums-Sensor (KONZ-025 Art. 2.1 / 8.1c)"]
+    mit_feld = [
+        r
+        for r in reports
+        if _als_int(r.get("over_ask")) is not None
+        or _als_int(r.get("over_act")) is not None
+    ]
+    if not mit_feld:
+        out.append(
+            "  (kein Retro mit over_ask/over_act im Frontmatter — nicht bewertbar, "
+            "nie als 0 werten)"
+        )
+        return out
+    mit_feld.sort(key=report_date)
+    ask = [(r, _als_int(r.get("over_ask")) or 0) for r in mit_feld]
+    act = [(r, _als_int(r.get("over_act")) or 0) for r in mit_feld]
+    ask_sum, act_sum = sum(v for _, v in ask), sum(v for _, v in act)
+    ask_n, act_n = sum(1 for _, v in ask if v), sum(1 for _, v in act if v)
+    out.append(
+        f"  Kalibrierungsfelder in {len(mit_feld)}/{len(reports)} Retros · "
+        f"over_ask Σ={ask_sum} ({ask_n} Retros) · over_act Σ={act_sum} ({act_n} Retros)"
+    )
+    out.append(
+        f"  Rueckfragequote (8.1c): {ask_sum / len(mit_feld):.2f} over_ask je Retro "
+        f"· Uebergriffsquote: {act_sum / len(mit_feld):.2f} over_act je Retro"
+    )
+
+    def _sid(r: dict) -> str:
+        return str(r.get("session_id", r.get("_path", "?")))
+
+    def _repo(r: dict) -> str:
+        scope = r.get("repo_scope")
+        return ",".join(scope) if isinstance(scope, list) and scope else "?"
+
+    for key, rows, pfeil, titel in (
+        (
+            "over_ask",
+            ask,
+            "↑",
+            "Belege over_ask ≥1 (Kandidaten — Klasse nach Art. 2.1a benennen)",
+        ),
+        (
+            "over_act",
+            act,
+            "↓",
+            "Belege over_act ≥1 (Grad-2-Signal, Art. 2.2 — Zaehler halbiert)",
+        ),
+    ):
+        treffer = [(r, v) for r, v in rows if v]
+        if not treffer:
+            continue
+        out.append(f"  {titel}:")
+        for r, v in treffer:
+            zeile = (
+                kalibrierungs_zeile(r.get("_fullpath"), key)
+                or "(kein §5b-Beleg im Body)"
+            )
+            out.append(
+                f"    {pfeil} {report_date(r)} {_repo(r)} {_sid(r)}  {key}={v}  {zeile}"
+            )
+
+    ask_klassen: dict[str, list[str]] = defaultdict(list)
+    act_klassen: dict[str, list[str]] = defaultdict(list)
+    for r in mit_feld:
+        for slug in r.get("over_ask_klassen", []):
+            ask_klassen[slug].append(_sid(r))
+        for slug in r.get("over_act_klassen", []):
+            act_klassen[slug].append(_sid(r))
+    out.append("  Klassen (over_ask_klassen ueber Retros):")
+    if not ask_klassen:
+        out.append(
+            "    (keine over_ask_klassen deklariert — Belege oben von Hand einer Klasse "
+            "zuordnen; Frontmatter-Feld seit 2026-09-02)"
+        )
+    nominiert: list[str] = []
+    for slug, where in sorted(ask_klassen.items(), key=lambda kv: -len(kv[1])):
+        if slug in act_klassen:
+            mark = "⛔ blockiert (over_act im Fenster)"
+        elif len(where) >= 2:
+            mark = "🚨 NOMINIERT"
+            nominiert.append(slug)
+        else:
+            mark = "·"
+        out.append(f"    {mark}  {slug}  ×{len(where)}  [{', '.join(where)}]")
+    for slug, where in sorted(act_klassen.items(), key=lambda kv: -len(kv[1])):
+        if slug not in ask_klassen:
+            out.append(f"    ↓ over_act  {slug}  ×{len(where)}  [{', '.join(where)}]")
+    if nominiert:
+        out.append(
+            f"  → {len(nominiert)} Klasse(n) ≥2 ⇒ Befoerderungsvorschlag im Registry-Format "
+            f"(Art. 2.6), genau eine Stufe (Art. 2.7), gekennzeichnet 'erweitert meine "
+            f"Macht', ungebuendelt — Ratifikation bleibt Kapitaens-Zug: {', '.join(nominiert)}"
+        )
+    out.append(
+        "  ⚠ Rubber-Stamp-Quote (8.1d) nicht messbar: kein Retro-Feld — nie als 0 werten."
+    )
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Längsschnitt-KPIs über session-retro-Reports"
@@ -572,6 +721,12 @@ def main() -> int:
         help=f"Pfad zum Slug-Wörterbuch (default: {K1_WOERTERBUCH})",
     )
     ap.add_argument(
+        "--nominierung",
+        action="store_true",
+        help="Wachstums-Sensor (KONZ-025 Art. 2.1/8.1c): over_ask/over_act und "
+        "over_ask_klassen ueber Retros aggregieren; Klasse >=2 ⇒ NOMINIERT.",
+    )
+    ap.add_argument(
         "--file-issues",
         action="store_true",
         help="GATE-PFLICHT-Slugs (Zaehler >=2) als 'Gate: <slug>'-Issue in "
@@ -589,9 +744,7 @@ def main() -> int:
     reports = load_reports(dirs)
 
     # D6: Fenster-Filter (Dateinamens-Datum, Fallback Frontmatter-date; ISO-Stringvergleich)
-    def _rdate(r: dict) -> str:
-        m = re.search(r"session-retro-(\d{4}-\d{2}-\d{2})", r["_path"])
-        return m.group(1) if m else str(r.get("date", ""))
+    _rdate = report_date
 
     if args.since:
         reports = [r for r in reports if _rdate(r) >= args.since]
@@ -736,6 +889,9 @@ def main() -> int:
             )
         else:
             print("\n".join(k1_auswertung(reports, wb, tool_sha256())))
+
+    if args.nominierung:
+        print("\n" + "\n".join(nominierung_auswertung(reports)))
 
     if args.file_issues:
         file_gate_issues(gated, reports, args.issues_repo)

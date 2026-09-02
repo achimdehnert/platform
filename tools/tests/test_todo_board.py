@@ -755,9 +755,73 @@ class TestVerlaufZerlegung:
         assert "abgeschlossen" in t["inhalt"]
 
     def test_should_keep_a_date_from_splitting_the_sentence(self):
-        """ "20.08. Klimm" darf keine Satzgrenze sein — sonst zerfaellt jeder Eintrag."""
+        """ "20.08. Klimm" darf keine Satzgrenze sein — geprueft an der ZERLEGUNG.
+
+        Die fruehere Fassung assertierte auf `t["inhalt"]` und war damit vakuos:
+        die Bahn fuegt ihre Saetze mit `" ".join()` wieder zusammen, und zwei
+        falsch getrennte Fragmente ergeben exakt denselben String wie ein
+        ungetrennter Satz. Der Test bestand, waehrend die Regex den Satz zerriss
+        (Retro 2026-08-21, Befund #2). Assertiert wird deshalb auf `saetze`.
+        """
         t = tb.zerlege_eintrag("2026-08-21: Eingang 20.08. Klimm meldet sich.")
-        assert t["inhalt"] == "Eingang 20.08. Klimm meldet sich."
+        assert t["saetze"] == ["Eingang 20.08. Klimm meldet sich."]
+
+    def test_should_keep_an_ordinal_before_a_month_from_splitting(self):
+        """ "1. Januar" — dieselbe Klasse, andere Form."""
+        t = tb.zerlege_eintrag(
+            "2026-08-21: Die Frist laeuft am 1. Januar ab. Bitte pruefen."
+        )
+        assert t["saetze"] == ["Die Frist laeuft am 1. Januar ab.", "Bitte pruefen."]
+
+    def test_should_split_after_a_time_of_day(self):
+        """Gegenprobe 1: "16:41." endet auf eine Ziffer und ist trotzdem ein Satzende.
+
+        Die erste Fassung dieses Fixes sperrte auf "jede Ziffer vor dem Punkt"
+        und verschluckte damit genau diese Grenze — der Sachstand ganzer
+        Eintraege fiel dadurch in die Deckungs-Bahn.
+        """
+        t = tb.zerlege_eintrag("2026-08-21: Stand 16:41. Klimm meldet sich.")
+        assert t["saetze"] == ["Stand 16:41.", "Klimm meldet sich."]
+
+    def test_should_split_when_a_date_ends_the_sentence_before_a_marker(self):
+        """Gegenprobe 2: ein Datum kann einen Satz auch BEENDEN.
+
+        "Ruecksendefrist 28.08. OFFEN: …" ist von "20.08. Klimm bestaetigt."
+        nur am Folgewort zu unterscheiden. Ohne die Marker-Ausnahme verschwand
+        genau ein realer offener Punkt aus seiner Bahn (302 Eintraege, 1 Verlust).
+        """
+        t = tb.zerlege_eintrag(
+            "2026-08-20: Ruecksendefrist 28.08. OFFEN: Adresse fehlt."
+        )
+        assert t["saetze"] == ["Ruecksendefrist 28.08.", "OFFEN: Adresse fehlt."]
+        assert t["action"].startswith("OFFEN:")
+
+    def test_should_still_split_a_plain_sentence_boundary(self):
+        """Gegenprobe 3: die schaerfste Sperre waere eine, die nie trennt.
+
+        Ohne diese Zeile bestuenden alle Tests darueber auch dann, wenn die
+        Regex ueberhaupt keine Satzgrenze mehr faende.
+        """
+        t = tb.zerlege_eintrag(
+            "2026-08-21: Der Bericht ist raus. Klimm hat bestaetigt."
+        )
+        assert t["saetze"] == ["Der Bericht ist raus.", "Klimm hat bestaetigt."]
+
+    def test_should_not_read_a_negation_as_an_open_item(self):
+        """ "Nichts zu tun." traegt den Action-Marker und meint das Gegenteil.
+
+        Ohne die Verneinungs-Sperre hob die Seite den Satz als offenen Punkt
+        hervor — eine Bedeutungsumkehr, die schlimmer ist als gar keine Bahn
+        (Retro 2026-08-21, Befund #3).
+        """
+        t = tb.zerlege_eintrag("2026-08-20: Nichts zu tun.")
+        assert t["action"] == ""
+        assert t["inhalt"] == "Nichts zu tun."
+
+    def test_should_still_recognise_a_real_open_item(self):
+        """Gegenprobe zur Verneinungs-Sperre: echte offene Punkte bleiben."""
+        t = tb.zerlege_eintrag("2026-08-20: Offen bleibt der Termin.")
+        assert t["action"] == "Offen bleibt der Termin."
 
     def test_should_read_the_head_behind_a_leading_marker(self):
         """Reale Form aus dem Ledger: "NEU 2026-08-20 (/mailcheck): …".
@@ -814,6 +878,21 @@ class TestEntwurfLink:
         )
         assert tb.entwurf_link(v).endswith("/m/hnu/entwuerfe/23611")
 
+    def test_should_prefer_the_anchor_once_the_draft_is_anchored(
+        self, tmp_path, monkeypatch
+    ):
+        """Ein ersetzter Entwurf bekommt eine neue UID; der Anker ueberlebt das."""
+        datei = tmp_path / "anker.json"
+        datei.write_text('{"hnu-entwuerfe-23611": {}}', encoding="utf-8")
+        monkeypatch.setattr(tb, "ANKER_DATEI", datei)
+        v = vorgang(
+            konto="hnu", notiz="2026-08-21 ENTWURF (Entwuerfe #23611) liegt bereit"
+        )
+        assert (
+            tb.entwurf_link(v, "https://m.example")
+            == "https://m.example/a/hnu-entwuerfe-23611"
+        )
+
     def test_should_stay_silent_when_the_same_entry_says_it_was_sent(self):
         v = vorgang(
             konto="hnu",
@@ -835,46 +914,63 @@ class TestArchivLeser:
 
 
 class TestVerlaufVerweise:
-    """Verlinkt wird nur, wo der Zielordner feststeht — sonst nur ausgezeichnet."""
+    """Verlinkt wird nur, was verankert ist — sonst nur ausgezeichnet (#2592 K2)."""
 
-    def test_should_link_a_uid_whose_folder_stands_next_to_it(self):
+    ANKER = frozenset({"hnu-inbox-164024", "hnu-gesendete-objekte-34349", "hnu-23589"})
+
+    def test_should_link_an_anchored_uid_over_the_message_id_route(self):
         html = tb.verweise(
-            "Klimm (INBOX #164024) meldet", "hnu", "https://mail.example"
+            "Klimm (INBOX #164024) meldet", "hnu", "https://mail.example", self.ANKER
         )
-        assert "https://mail.example/m/hnu/inbox/164024" in html
+        assert "href='https://mail.example/a/hnu-inbox-164024'" in html
+        assert "/m/hnu/" not in html
 
     def test_should_reach_the_folder_through_quotes_and_a_bracket(self):
         """Reale Form: "Beleg im Ordner 'Gesendete Objekte' (#34349)"."""
         roh = "Beleg im Ordner &#x27;Gesendete Objekte&#x27; (#34349)."
-        html = tb.verweise(roh, "hnu", "https://mail.example")
-        assert "https://mail.example/m/hnu/gesendete-objekte/34349" in html
+        html = tb.verweise(roh, "hnu", "https://mail.example", self.ANKER)
+        assert "https://mail.example/a/hnu-gesendete-objekte-34349" in html
 
-    def test_should_not_claim_a_folder_it_did_not_verify(self):
-        """Ein Satz nennt zwei Entwuerfe und EINEN Ordner — die zweite Nummer
-        liegt dort gerade nicht.
-
-        Bis 2026-08-21 blieben beide Nummern unverlinkt, weil `/m/<konto>/<uid>`
-        nur gegen INBOX aufloeste und ein Link ins Leere gezeigt haette. Seit
-        der Dienst eine UID ohne Ordnerangabe selbst sucht
-        (`mail_link_server._ordner_ohne_angabe`), sind sie klickbar — aber
-        ueber die **unqualifizierte** Route. Die Zusicherung ist damit nicht
-        mehr "kein Link", sondern die schaerfere: kein Link behauptet einen
-        Ordner, der nicht danebensteht.
-        """
-        roh = "Vorfassung UID 23588 in Geloeschte Objekte verschoben, gueltig ist UID 23589."
-        html = tb.verweise(roh, "hnu", "https://mail.example")
-        assert "https://mail.example/m/hnu/23589" in html
-        assert "geloeschte-objekte/23589" not in html
-
-    def test_should_link_a_bare_number_over_the_unqualified_route(self):
-        """Der Grund fuer die ganze Umstellung: eine Nummer, die niemand
-        verlinken konnte, zwang die Prosa daneben dazu, ihren Inhalt zu
-        erklaeren. Klickbarkeit ist hier die Voraussetzung fuers Kuerzen."""
+    def test_should_not_link_an_unanchored_number(self):
+        """Gemessen 2026-09-01: 89 von 203 UID-Links tot (platform#2563). Eine
+        Nummer ohne Anker ist Text mit Hinweis — kein Link, der wie ein Beleg
+        aussieht und keiner ist."""
         html = tb.verweise(
-            "Der Entwurf (UID 23597) liegt im Papierkorb.", "hnu", "https://m.x"
+            "Der Entwurf (UID 23597) liegt im Papierkorb.",
+            "hnu",
+            "https://m.x",
+            self.ANKER,
         )
-        assert "https://m.x/m/hnu/23597" in html
-        assert "Ordner wird beim Oeffnen gesucht" in html
+        assert "<a" not in html
+        assert "class='ref ohne-anker'" in html
+        assert "eintrag_anker.py" in html
+
+    def test_should_accept_a_bare_key_for_a_number_named_with_its_folder(self):
+        """Wurde die Mail frueher ohne Ordner verankert, gilt der Anker auch
+        fuer die spaetere Nennung MIT Ordner — dieselbe Mail."""
+        html = tb.verweise(
+            "gueltig ist Entwuerfe #23589.", "hnu", "https://mail.example", self.ANKER
+        )
+        assert "https://mail.example/a/hnu-23589" in html
+
+    def test_should_not_borrow_a_folder_from_another_sentence_part(self):
+        """Ein Satz nennt zwei Entwuerfe und EINEN Ordner — die zweite Nummer
+        liegt dort gerade nicht; der Schluessel darf den Ordner nicht tragen."""
+        roh = "Vorfassung UID 23588 in Geloeschte Objekte verschoben, gueltig ist UID 23589."
+        html = tb.verweise(roh, "hnu", "https://mail.example", self.ANKER)
+        assert "https://mail.example/a/hnu-23589" in html
+        assert "geloeschte-objekte" not in html
+
+    def test_should_read_the_anchor_file_when_no_set_is_given(
+        self, tmp_path, monkeypatch
+    ):
+        datei = tmp_path / "anker.json"
+        datei.write_text(
+            '{"hnu-inbox-1001": {"item": "hnu-inbox-1001"}}', encoding="utf-8"
+        )
+        monkeypatch.setattr(tb, "ANKER_DATEI", datei)
+        html = tb.verweise("INBOX #1001 kam", "hnu", "https://mail.example")
+        assert "https://mail.example/a/hnu-inbox-1001" in html
 
     def test_should_link_a_github_reference_instead_of_calling_it_unresolvable(self):
         html = tb.verweise(
@@ -897,3 +993,61 @@ class TestVerlaufVerweise:
         html = tb.verweise("Anhang Bericht_2026-08-20.docx dabei", "hnu")
         assert "class='datei'" in html
         assert "<a" not in html
+
+
+class TestFristGrund:
+    """Keine Frist ist eine Aussage, wenn ihr Grund dabeisteht (#2592 K4)."""
+
+    def test_should_show_the_reason_in_the_list_row(self):
+        v = vorgang(frist=None, frist_grund="Owner-Aufgabe ohne Termin")
+        html_out = tb.zeile(v, STICHTAG)
+        assert ">keine<" in html_out
+        assert "Owner-Aufgabe ohne Termin" in html_out
+
+    def test_should_show_the_reason_on_the_detail_page(self):
+        v = vorgang(frist=None, frist_grund="Warten auf Gegenseite")
+        html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+        assert "<th>Frist</th><td>keine — Warten auf Gegenseite</td>" in html_out
+
+    def test_should_keep_the_dash_without_a_reason(self):
+        assert "<th>Frist</th><td>—</td>" in tb.detail(
+            vorgang(frist=None), mail_basis="https://mail.example", basis=""
+        )
+
+
+class TestReproduzierbar:
+    """Zwei Bauten ueber denselben Ledger sind byteidentisch (#2592 K1)."""
+
+    def test_should_build_identically_twice(self):
+        ledger = {
+            "letzte_pruefung": "2026-09-01",
+            "vorgaenge": [
+                vorgang(
+                    nr=1,
+                    thread_key="A",
+                    frist="2026-09-30",
+                    notiz="2026-09-01: INBOX #1001 kam",
+                ),
+                vorgang(
+                    nr=2,
+                    thread_key="B",
+                    bucket="warten",
+                    frist=None,
+                    frist_grund="kein Termin",
+                ),
+                vorgang(
+                    nr=3, thread_key="C", bucket="erledigt", erledigt_am="2026-08-30"
+                ),
+            ],
+        }
+        assert tb.baue(ledger, STICHTAG) == tb.baue(ledger, STICHTAG)
+
+    def test_should_build_the_detail_page_identically_twice(self):
+        v = vorgang(
+            nr=1,
+            thread_key="A",
+            notiz="2026-09-01: INBOX #1001 kam | 2026-09-02: UID 2002",
+        )
+        assert tb.detail(v, mail_basis="https://mail.example", basis="") == tb.detail(
+            v, mail_basis="https://mail.example", basis=""
+        )

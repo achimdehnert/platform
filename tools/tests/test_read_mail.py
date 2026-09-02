@@ -195,8 +195,8 @@ def test_should_save_attachments_and_strip_path_traversal(tmp_path):
 
 
 def test_should_match_from_substring_case_insensitive():
-    m = _msg(frm="Ilja Lerch <Ilja.Lerch@example.com>")
-    assert rm.matches_from(m, "ilja")
+    m = _msg(frm="Ines Absender <ines.absender@example.invalid>")
+    assert rm.matches_from(m, "ines")
     assert not rm.matches_from(m, "achim")
     assert rm.matches_from(m, None)
 
@@ -207,11 +207,11 @@ def test_should_match_from_substring_case_insensitive():
 def test_should_match_to_and_cc_substring_case_insensitive():
     m = EmailMessage()
     m["From"] = "achim@iil.gmbh"  # Gesendete: Absender ist man selbst
-    m["To"] = "Anna Martinkat <A.Martinkat@landkreis-guenzburg.de>"
-    m["Cc"] = "Wibke Michalk <wibke.michalk@th-rosenheim.de>"
+    m["To"] = "Amelie Amtsperson <a.amtsperson@amt.example.invalid>"
+    m["Cc"] = "Hanna Hochschule <h.hochschule@hs.example.invalid>"
     m.set_content("x")
-    assert rm.matches_to(m, "martinkat")  # Treffer im To-Header
-    assert rm.matches_to(m, "michalk")  # Treffer im Cc-Header
+    assert rm.matches_to(m, "amtsperson")  # Treffer im To-Header
+    assert rm.matches_to(m, "hochschule")  # Treffer im Cc-Header
     assert not rm.matches_to(m, "mustermann")
     assert rm.matches_to(m, None)  # kein Filter -> True
 
@@ -1031,7 +1031,9 @@ def test_should_search_by_uid_not_by_sequence():
 # vollstaendig; der Teil mit dem Inhalt fehlte, weil er keinen Dateinamen hat.
 
 
-def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"):
+def _weiterleitung(
+    begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"
+):
     """Begleittext + eingebettete Nachricht ohne Dateinamen + Inline-Bild."""
     innen = EmailMessage()
     innen["From"] = "absender@extern.example"
@@ -1044,8 +1046,12 @@ def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentli
     aussen["From"] = "absender@extern.example"
     aussen["Subject"] = "AW: Sachstand"
     aussen.set_content(begleittext)
-    aussen.add_attachment(b"\x89PNG", maintype="image", subtype="png", filename="image004.png")
-    aussen.attach(_als_rfc822_teil(innen))  # add_attachment hat bereits multipart/mixed erzeugt
+    aussen.add_attachment(
+        b"\x89PNG", maintype="image", subtype="png", filename="image004.png"
+    )
+    aussen.attach(
+        _als_rfc822_teil(innen)
+    )  # add_attachment hat bereits multipart/mixed erzeugt
     return aussen
 
 

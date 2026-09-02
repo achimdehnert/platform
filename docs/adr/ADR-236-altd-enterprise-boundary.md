@@ -6,6 +6,7 @@ implementation_evidence:
   - "Amendment 2026-06-03: GOV-Orgs ttz-lif/meiki-lra BEWUSST in die Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft, owner-attestiert) → exit_class central-gov (governance/exit-classes.yaml)."
   - "S2 KOMPLETT 2026-06-03: slim-prevention (251767) apply-to-all enforced; Config 17 = default-for-new. S2.3-Auswertung: Committer 2/2 (kostenneutral), Coverage 9/9 (100%), 0 Secret-Scanning-Alerts (GOV inkl.). S2.4 enforced (verifiziert). Reversibel. Runbook: docs/runbooks/KONZ-002-s2-config-rollout.md."
   - "Review-Korrektur 2026-06-04 (Kosten): Kostenneutralität auf BEIDEN GHAS-SKUs nachgemessen — secret_protection=2 UND code_security=2 (letzterer relevant durch CodeQL auf S3-migrierten Code-Repos, vorher nicht gemessen)."
+  - "Sitz-Amendment 2026-08-24: §4 attestierte Kostenneutralität unter der Bedingung 'keine 3. Person'. Gemessen via consumed-licenses: 3 verbraucht bei 2 gekauft — dritte Person war der Entwicklungspartner `wirdigital` (Org-Owner iilgmbh seit 2026-07-05), nicht der Kunde. Aufgelöst am selben Tag: `iljalerch` (DB-Kunde, seit Log-Beginn 2026-06-03 ohne einen Audit-Eintrag inkl. git-Events, vom Owner informiert und einverstanden) aus `bahn-sqf` entfernt → 2/2. Folge: `bahn-sqf` hat seither EINEN Owner (exit-likely + self-owner = Single Point)."
   - "Owner-Datenprämisse 2026-06-04 — RAHMENKORREKTUR: ttz-lif/meiki-lra (Landratsämter Traunstein/Günzburg) sind Kundenprojekte mit nur Code+Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität entstehen erst post-Übergabe im Kunden-RZ (außerhalb GitHub), Übergabe = Code-Portierung (kein Org-Transfer). Damit: KEIN AVV/keine Souveränitäts-Gating auf GitHub-Ebene nötig; das frühere central-gov/Sign-off-Konstrukt (§2.3/§3/§6) ist GEGENSTANDSLOS. Reklassifiziert: ttz-lif/meiki-lra/bahn-sqf = exit-likely, teardown_authority self-owner (governance/exit-classes.yaml; central-gov retired). Leitplanke: nur Demo-Daten halten."
 decision_date: 2026-06-03
 deciders: Achim Dehnert
@@ -30,6 +31,10 @@ Die GitHub-Topologie des IIL-Ökosystems ist zersplittert:
 - Der User-Account **`achimdehnert`** hält 54 Repos und kann **keiner** Enterprise beitreten (User ≠ Org).
 - Die Enterprise hat bereits die **richtige Security-Config** (ID 17 „GitHub recommended", volle Suite enabled) — aber angewandt auf **nur 3 `bahn-sqf`-Repos** und **nicht** als Default für neue Repos.
 - **Abrechnung pro Person** (2 Seats: `achimdehnert` + `iljalerch`; 2 GHAS-Committer), **nicht** pro Org/Repo.
+  > **SITZ-AMENDMENT 2026-08-24 — überschreibt die Namen, nicht die Mechanik:** Die Seats sind
+  > heute `achimdehnert` + `wirdigital` (Entwicklungspartner, Org-Owner `iilgmbh` seit
+  > 2026-07-05). `iljalerch` wurde am 2026-08-24 aus `bahn-sqf` entfernt und ist damit nicht mehr
+  > in der Enterprise. Die **Mechanik** (pro Person, nicht pro Org/Repo) gilt unverändert; siehe §4.
 
 > *Mengen sind Momentaufnahme (2026-06-03), nicht eingefroren gemeint — billigster Re-Check: `gh api enterprises/iilgmbh/consumed-licenses`, `gh api orgs/<org>/members?role=admin`. Owner-/Seat-Listen im Fließtext entsprechend als Stand lesen.*
 
@@ -73,7 +78,29 @@ Wir adoptieren **ALT-D** als Org-Topologie-Boundary:
 
 ## 4. Begründung im Detail
 
-- **Kostenneutralität — Mengen verifiziert, Preismodell nicht.** API-verifiziert sind nur **Mengen** (2 Seats, 2 GHAS-Committer), **nicht** das GHEC-Preismodell (€-Sätze, Mindestabnahmen — extern offen, §6/§8a). Belastbar ist die **Mechanik:** Kostentreiber sind *distinct active committers* (nicht Repo-Zahl) — mehr Repos erhöhen die Kosten nachweisbar nicht, solange dieselben 2 Personen pushen. Kostenneutralität gilt also *unter der Bedingung* keine 3. Person + keine Vertrags-Floor. Gate (a) ist deshalb real erst **zum S1-Kündigungszeitpunkt** geschlossen (Account-Team-Mail davor), nicht jetzt.
+- **Kostenneutralität — Mengen verifiziert, Preismodell nicht.** API-verifiziert sind nur **Mengen** (2 Seats, 2 GHAS-Committer), **nicht** das GHEC-Preismodell (€-Sätze, Mindestabnahmen — extern offen, §6/§8a). Belastbar ist die **Mechanik:** Kostentreiber sind *distinct active committers* (nicht Repo-Zahl) — mehr Repos erhöhen die Kosten nachweisbar nicht, solange dieselben 2 Personen pushen. Kostenneutralität gilt also *unter der Bedingung* keine 3. Person + keine Vertrags-Floor.
+
+> **Diese Bedingung war verletzt — gemessen 2026-08-24.**
+> `gh api enterprises/iilgmbh/consumed-licenses` meldete **3 verbraucht bei 2 gekauft**
+> (`achimdehnert`, `iljalerch`, `wirdigital`). Die dritte Person war nicht der Kunde, sondern der
+> **Entwicklungspartner `wirdigital`** — dasselbe Konto, das als zweiter Org-Owner die
+> Eigentümer-Kontinuität von `iilgmbh` trägt (ADR-297 V1). Der Zielkonflikt ist strukturell:
+> **Redundanz kostet einen Sitz.**
+>
+> Aufgelöst am selben Tag durch Entfernen von `iljalerch` aus `bahn-sqf` — seiner einzigen Org.
+> Belegt **vor** dem Entzug: kein einziger Audit-Eintrag seit Log-Beginn 2026-06-03, inklusive
+> git-Events und mit Positivkontrolle (`phrase=action:git` liefert Einträge, u. a. für
+> `bahn-sqf`); alle drei `bahn-sqf`-Repos zuletzt von `achimdehnert` beschrieben (2026-07-04 /
+> 07-10). Der Kunde war vom Owner informiert und einverstanden. Nachher: **2/2**.
+>
+> **Was das kostet, nicht nur spart:** `bahn-sqf` hat seither **einen** Owner. Für eine Org der
+> Klasse `exit-likely` mit `teardown_authority: self-owner` ist das genau der Single Point, gegen
+> den ADR-297 argumentiert. `wirdigital` ist dort bereits Mitglied; eine Beförderung zum Owner
+> stellte die Redundanz ohne zusätzlichen Sitz wieder her — **offene Owner-Entscheidung**, weil
+> sie einem Entwicklungspartner Owner-Rechte auf einer **Kunden**-Org gäbe.
+>
+> **Die Bedingung bleibt scharf:** bei der nächsten dritten Person tritt derselbe Fall erneut ein,
+> dann ohne ein ruhendes Konto, das man entfernen kann. Gate (a) ist deshalb real erst **zum S1-Kündigungszeitpunkt** geschlossen (Account-Team-Mail davor), nicht jetzt.
 - **Prävention schlägt Detektion:** native Push-Protection blockt Secrets **vor** der History; CI-gitleaks findet sie danach. Eine Enterprise-Config liefert native Prävention auch auf **privaten** org-eigenen Repos — das ist der eigentliche Hebel.
 - **Souveränität braucht Trennung, nicht Zentralisierung:** für Behörden zählt *wer verwalten/auditieren darf*. ALT-D hält GOV-Orgs standalone und spiegelt nur die Posture (Verbesserung ohne Ownership-Wechsel).
 - **Portabilität bewiesen, nicht behauptet** (KONZ-002 §15, Feuerübung Runde 1): exit-plan-Runbook + Exit-Feuerübung falsifizierten 2 Annahmen (Variable überlebt Transfer/Secret nicht; Push-Protection nach Transfer in Nicht-Enterprise-Org verloren & nicht reaktivierbar) und deckten den **Teardown-Authority-Befund** auf → REC-8/`teardown_authority`. (Reifegrad ehrlich: bewiesen ist **Inventar+Detektion**, *nicht* erfolgreiche Reversibilität — siehe §8c.)
@@ -158,6 +185,7 @@ Fehlt eine Bedingung → keine Org-Aufnahme; Sunset auf ALT-A. **Nach Fristablau
 - Portabilitätsnachweis: PR #429 (KONZ-002 §15 Feuerübung Runde 1).
 
 ## 11. Changelog
+- 2026-08-24: **Sitz-Amendment.** Die §4-Bedingung „keine 3. Person" war verletzt (3 verbraucht / 2 gekauft). Details und Auflösung in §1.1 und §4; ausgelöst durch die Messung in ADR-297 (platform#2262).
 - 2026-06-04: **Rahmenkorrektur (Owner-Datenprämisse).** GOV-Repos (ttz-lif/meiki-lra) + bahn-sqf sind Kundenprojekte mit nur Code+Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität post-Übergabe im Kunden-RZ (außerhalb GitHub). ⟹ kein AVV/keine Souveränitäts-Gating auf GitHub-Ebene; `central-gov`/Sign-off-Single-Point gegenstandslos. Reklassifiziert exit-likely/self-owner; central-gov retired (exit-classes.yaml). §2.3/§6 mit Rahmenkorrektur versehen. (Hebt die schwersten Punkte des 4-Linsen-Reviews vom 2026-06-04 auf, die auf der falschen 'reale-Bürgerdaten-in-GitHub'-Prämisse beruhten.)
 - 2026-06-03: Initial (Proposed) — ALT-D Boundary aus KONZ-002; Umsetzung gegated (Kill-Gate a/b/c). Amends ADR-235 (Reversal für org/enterprise-Repos).
 - 2026-06-03: **Amendment nach adversarialem 3-Linsen-Review** (Steelman/Diabolus/Maintainer-2028): §8c Gate (c) ehrlich gemacht (Reversibilität *falsifiziert*, nicht „bewiesen"); §2.5 `exit_class`-SSoT als nicht-existente Vorbedingung mit Pfad/Schema + `bahn-sqf`=exit-likely; §2.2 schlanke PP+Scan-Config für apply-to-all (Config 17 nur Default-for-new, KONZ REC-2); §2.3 ALT-D-Mechanik-Drift offengelegt (Config-Spiegel statt Lizenzkauf) + REC-9-Grenze; §4 Kosten „Mengen verifiziert, Preismodell offen" + Committer-Mechanik + Asymmetrie-Pull-Argument; §6 KONZ-D2 „Mirror ≠ Compliance" + GOV-Gate verschärft; §7.2 REC-9-Lock-in-Trade-off; §5 „admin"=Org-Rolle (REC-8) + S1-setzt-ADR-accepted-voraus; Mengen/Owner durch Live-Check-Befehle entschärft.

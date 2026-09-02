@@ -45,6 +45,9 @@ from anker import (  # noqa: E402
     pruefe_anker,
 )
 from anker import lade as anker_lade  # noqa: E402
+from referenzen import SUCHORDNER  # noqa: E402
+import graph_anker  # noqa: E402
+import graph_mail  # noqa: E402
 from anker import speichere as anker_speichere  # noqa: E402
 from anker import uebernehme as anker_uebernehme  # noqa: E402
 from read_mail import (  # noqa: E402
@@ -453,8 +456,6 @@ verfügbar: {html.escape(konten)}.</p>
                 HTTPStatus.NOT_FOUND, f"Kurz-ID '{kurz}' ist nicht registriert."
             )
         try:
-            import graph_mail  # noqa: PLC0415
-
             cfg = graph_mail.load_cfg()
             tok = graph_mail.token(cfg, self.graph_konto)
         except SystemExit as e:
@@ -464,15 +465,22 @@ verfügbar: {html.escape(konten)}.</p>
                 HTTPStatus.SERVICE_UNAVAILABLE,
                 f"{self.graph_konto} nicht angemeldet — graph_mail.py --login nötig.",
             )
-        r = graph_mail._http(
-            "GET",
-            f"{graph_mail.GRAPH}/me/messages/{quote(ziel['graph_id'], safe='')}"
-            "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
-            headers=graph_mail._auth(tok),
-        )
+        r = self._graph_holen(tok, ziel["graph_id"])
+        if r.status_code == 404 and ziel.get("internet_message_id"):
+            # Die Graph-id stirbt beim Verschieben; die internetMessageId nicht.
+            # Nachziehen und die Registry gleich mitschreiben — wie `_anker()`
+            # es fuer IMAP tut (platform#2563: 5 von 12 /r/-Links waren so tot).
+            neu = graph_anker.finde_per_internet_id(tok, ziel["internet_message_id"])
+            if neu:
+                registry = lade_registry(self.registry_pfad)
+                registry[kurz]["graph_id"] = ziel["graph_id"] = neu["id"]
+                speichere_registry(registry, self.registry_pfad)
+                r = self._graph_holen(tok, ziel["graph_id"])
         if r.status_code != 200:
             return self._fehler(
-                HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}."
+                HTTPStatus.BAD_GATEWAY,
+                f"Graph antwortet {r.status_code}. "
+                "Nachziehen: mail_link_server.py --heile-links",
             )
         m = r.json()
         von = (m.get("from") or {}).get("emailAddress", {})
@@ -499,6 +507,15 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
 {anhang}<hr>
 <div style="white-space:pre-wrap">{html.escape(text)}</div>"""
         self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
+    @staticmethod
+    def _graph_holen(tok: str, graph_id: str):
+        return graph_mail._http(
+            "GET",
+            f"{graph_mail.GRAPH}/me/messages/{quote(graph_id, safe='')}"
+            "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+            headers=graph_mail._auth(tok),
+        )
 
     def _graph_anhang_liste(self, kurz: str, graph_id: str, tok: str) -> str:
         """Anhänge einer Graph-Nachricht als klickbare Liste.
@@ -564,8 +581,6 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
         if not ziel:
             return self._fehler(HTTPStatus.NOT_FOUND, f"Kurz-ID '{kurz}' unbekannt.")
         try:
-            import graph_mail  # noqa: PLC0415
-
             cfg = graph_mail.load_cfg()
             tok = graph_mail.token(cfg, self.graph_konto)
         except SystemExit as e:
@@ -758,26 +773,10 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Unterpfad.")
 
-    #: Wo eine UID gesucht wird, wenn der Aufruf keinen Ordner nennt. Bewusst
-    #: eine kurze, geordnete Liste statt aller ~120 Ordner: jeder Kandidat kostet
-    #: ein SELECT, und die Jahresarchive enthalten keine Nachricht, auf die ein
-    #: laufender Vorgang verweist. INBOX zuerst, weil dort der Regelfall liegt.
-    UID_SUCHORDNER = (
-        "inbox",
-        "posteingang",
-        "entwuerfe",
-        "drafts",
-        "gesendete-objekte",
-        "gesendete-elemente",
-        "sent",
-        "sent-items",
-        "geloeschte-objekte",
-        "geloeschte-elemente",
-        "papierkorb",
-        "trash",
-        "junk-e-mail",
-        "junk",
-    )
+    #: Wo eine UID gesucht wird, wenn der Aufruf keinen Ordner nennt — die
+    #: Liste lebt in `referenzen.SUCHORDNER`, weil die Verankerung dieselbe
+    #: Reihenfolge braucht (platform#2592 K2).
+    UID_SUCHORDNER = SUCHORDNER
 
     def _ordner_mit_uid(self, imap, uid: str) -> list[str]:
         """Alle Suchordner, die diese UID fuehren — in der Reihenfolge oben.
@@ -901,12 +900,61 @@ def cmd_register(args: argparse.Namespace) -> None:
             "FEHLER: Kurz-ID darf nur A-Z a-z 0-9 _ - enthalten (max. 24 Zeichen)."
         )
     registry = lade_registry()
-    registry[args.register] = {
-        "graph_id": args.graph_id,
-        "notiz": args.notiz or "",
-    }
+    eintrag = {"graph_id": args.graph_id, "notiz": args.notiz or ""}
+    # Die internetMessageId gleich mitnehmen, solange die Graph-id noch gilt —
+    # sonst ist der Link nach der ersten Ablage tot (platform#2563).
+    tok = _graph_token(args.graph_account)
+    if tok:
+        status, nachricht = graph_anker.hole(tok, args.graph_id)
+        if status == 200 and nachricht.get("internetMessageId"):
+            eintrag["internet_message_id"] = nachricht["internetMessageId"]
+        else:
+            print(f"WARNUNG: internetMessageId nicht lesbar (Graph {status}).")
+    registry[args.register] = eintrag
     speichere_registry(registry)
     print(f"/i/{args.register} → {owa_link(args.graph_id)[:60]}…")
+
+
+def _graph_token(konto: str) -> str | None:
+    try:
+        return graph_mail.token(graph_mail.load_cfg(), konto)
+    except SystemExit:
+        return None
+
+
+def cmd_heile_links(args: argparse.Namespace) -> int:
+    """Jeden Kurzlink pruefen, tote ueber internetMessageId oder Betreff nachziehen."""
+    tok = _graph_token(args.graph_account)
+    if not tok:
+        sys.exit(
+            f"FEHLER: {args.graph_account} nicht angemeldet — graph_mail.py --login."
+        )
+    registry = lade_registry()
+    try:
+        ledger = json.loads(Path(args.ledger).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        ledger = {}
+    befunde = graph_anker.heile(
+        registry,
+        graph_anker.betreffe_aus_ledger(ledger),
+        tok,
+        fenster=graph_anker.fenster_aus_ledger(ledger),
+    )
+    print(graph_anker.bericht(befunde))
+    neu = graph_anker.verankere_vorgaenge(ledger, registry, tok)
+    if neu:
+        print("Vorgaenge ohne Kurzlink:")
+        print(graph_anker.bericht(neu))
+    if not args.trocken:
+        speichere_registry(registry)
+    # Exit 1 nur fuer Board-Nummern: die Alt-Kurz-IDs (az1, sb7 …) haengen an
+    # keinem Vorgang und haetten den Aufrufer fuer immer rot gestellt.
+    tot = [
+        b
+        for b in befunde + neu
+        if b.zustand in (graph_anker.TOT, graph_anker.UNPRUEFBAR) and b.kurz.isdigit()
+    ]
+    return 1 if tot else 0
 
 
 def konten_aufloesen(angaben: list[str]) -> dict[str, str | None]:
@@ -975,7 +1023,24 @@ def main() -> None:
     ap.add_argument(
         "--list-links", action="store_true", help="registrierte Kurz-Links zeigen"
     )
+    ap.add_argument(
+        "--heile-links",
+        action="store_true",
+        help="Kurz-Links gegen Graph pruefen und tote ueber internetMessageId/Betreff "
+        "nachziehen (platform#2563); Exit 1, wenn einer tot bleibt",
+    )
+    ap.add_argument(
+        "--trocken", action="store_true", help="zu --heile-links: nicht schreiben"
+    )
+    ap.add_argument(
+        "--ledger",
+        default=str(Path.home() / ".claude" / "mail-vorgaenge.json"),
+        help="zu --heile-links: Betreffs (thread_key) je Board-Nummer",
+    )
     args = ap.parse_args()
+
+    if args.heile_links:
+        return sys.exit(cmd_heile_links(args))
 
     if args.list_links:
         for kurz, ziel in sorted(lade_registry().items()):

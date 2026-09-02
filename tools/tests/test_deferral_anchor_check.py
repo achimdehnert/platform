@@ -195,3 +195,247 @@ def test_should_anker_hinter_naechster_ueberschrift_nicht_einsammeln():
         ]
     )
     assert [z for z, _ in stellen(text)] == [1]
+
+
+# ── Fehlermodus „Auszeichnung" (2026-08-23, platform#2211) ───────────────────
+
+
+def test_should_aufschub_trotz_fettschrift_im_wortlaut_finden():
+    """Der reale Rueckfall aus PR #2007 — vorher unsichtbar.
+
+    `bewusst **nicht** mitgemacht`: die vier Sternchen stehen zwischen den
+    beiden Woertern, auf die `AUFSCHUB` wartet. Vor der Normalisierung meldete
+    das Gate auf dem echten PR-Text `✅ jede angekuendigte Auslassung hat eine
+    Issue-Referenz` — auf genau dem Text, den Retro 9d861a als Befund #3 fuehrt.
+    """
+    text = (
+        "## Bewusste Restueberschneidung\n\n"
+        "Eine Zusammenlegung waere ein eigener Umbau und ist hier bewusst "
+        "**nicht** mitgemacht.\n"
+    )
+    funde = dac.finde_ankerlose_stellen(text)
+    assert funde, "Aufschub mit Fettschrift wurde nicht gefunden"
+
+
+def test_should_ohne_normalisierung_blind_gewesen_sein():
+    """Gegenprobe: derselbe Satz, roh gematcht, trifft nicht.
+
+    Ohne diesen Test waere „die Fettschrift war die Ursache" eine Behauptung
+    ueber den eigenen Fix statt eine Messung.
+    """
+    roh = "ist hier bewusst **nicht** mitgemacht"
+    assert dac.AUFSCHUB.search(roh) is None
+    assert dac.AUFSCHUB.search(roh.replace("**", "")) is not None
+
+
+def test_should_pr_referenz_nicht_mehr_als_anker_gelten_lassen():
+    """`#2005` als /pull/-Link belegt Herkunft, nicht Zustaendigkeit."""
+    text = (
+        "Zwei Gedaechtnisse, aus [#2005](https://github.com/a/b/pull/2005) — "
+        "eine Zusammenlegung ist hier bewusst **nicht** mitgemacht.\n"
+    )
+    assert dac.finde_ankerlose_stellen(text), "PR-Link darf keinen Fund abraeumen"
+
+
+# --- blocking: der Traeger, nicht das Werkzeug (E4, platform#2606) -----------
+#
+# Der Modus dieses Gates lebt im Workflow, nicht in diesem Modul: `--block` gab
+# den Exit-Code schon immer zurueck, der Job hat ihn bis zum 2026-09-02 nur
+# verworfen. Ein Test gegen das Modul haette die Scharfschaltung also NICHT
+# geprueft — "gebaut != feuert". Deshalb wird hier der echte `run`-Block aus
+# .github/workflows/aufschub-anker-gate.yml ausgefuehrt (Muster von
+# test_bot_review_workflow.py) und sein Exit-Code gemessen.
+
+WURZEL = pathlib.Path(__file__).resolve().parents[2]
+WF = WURZEL / ".github" / "workflows" / "aufschub-anker-gate.yml"
+
+
+def _check_skript(tmp_path: pathlib.Path) -> str:
+    """Der `run`-Block des Check-Schritts, lauffaehig gemacht.
+
+    Zwei Ersetzungen, beide bewusst: `python` gibt es auf dieser Maschine nicht
+    (nur `python3`; in CI legt setup-python es an), und die festen /tmp-Pfade
+    wuerden zwischen parallelen Laeufen kollidieren.
+    """
+    import yaml
+
+    doc = yaml.safe_load(WF.read_text(encoding="utf-8"))
+    for step in doc["jobs"]["aufschub-anker"]["steps"]:
+        if (step.get("name") or "").startswith("Aufschub-Anker-Check"):
+            skript = step["run"]
+            break
+    else:  # pragma: no cover — nur bei umbenanntem Schritt
+        raise AssertionError("Check-Schritt im Workflow nicht gefunden")
+    return skript.replace("python ", f"{sys.executable} ").replace(
+        "/tmp/", f"{tmp_path}/"
+    )
+
+
+def _fahre_check(tmp_path: pathlib.Path, pr_text: str):
+    import subprocess
+
+    (tmp_path / "pr_body.txt").write_text(pr_text, encoding="utf-8")
+    (tmp_path / "pr.diff").write_text("", encoding="utf-8")
+    ausgaben = tmp_path / "gh_output"
+    ausgaben.write_text("", encoding="utf-8")
+    lauf = subprocess.run(
+        ["bash", "-c", _check_skript(tmp_path)],
+        cwd=str(WURZEL),
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GITHUB_OUTPUT": str(ausgaben),
+            "HOME": str(tmp_path),
+        },
+    )
+    return lauf, ausgaben.read_text(encoding="utf-8")
+
+
+def test_should_den_job_rot_machen_wenn_ein_aufschub_ohne_anker_dasteht(tmp_path):
+    lauf, ausgabe = _fahre_check(
+        tmp_path, "## Bewusst nicht in diesem PR\n\n- Der Rest folgt separat.\n"
+    )
+    assert lauf.returncode == 1, (
+        "blocking heisst: der Schritt faellt aus. Gruen mit Kommentar war der "
+        f"advisory-Zustand.\nSTDOUT: {lauf.stdout}\nSTDERR: {lauf.stderr}"
+    )
+    assert "hat_befund=true" in ausgabe
+    assert "::error::" in lauf.stdout
+
+
+def test_should_gruen_bleiben_ohne_befund(tmp_path):
+    """Gegenprobe — ohne sie belegt der Test oben nur, dass irgendetwas rot wird."""
+    lauf, ausgabe = _fahre_check(
+        tmp_path, "Dieser PR setzt die Registry-Pflege vollstaendig um.\n"
+    )
+    assert lauf.returncode == 0, f"{lauf.stdout}\n{lauf.stderr}"
+    assert "hat_befund=false" in ausgabe
+
+
+def test_should_die_grenze_der_naehe_festhalten():
+    """**Bekannte Grenze, absichtlich als Test festgehalten.**
+
+    Eine fremde Issue-Nummer im Naehe-Fenster raeumt den Fund ab, auch wenn sie
+    mit der aufgeschobenen Arbeit nichts zu tun hat. Am Realfall gemessen: im
+    PR-Text von #2007 ist es `#1953` aus einer Beleg-Aufzaehlung vier Zeilen
+    darueber — die Stelle bleibt fuer dieses Gate unsichtbar, auch nach
+    Normalisierung und PR-Ausschluss.
+
+    Genau deshalb prueft `tools/verankerung_pruefer.py` den Anker **im Segment**
+    statt in einem Zeilenfenster. Dieser Test faellt, sobald jemand die Naehe
+    doch enger zieht — dann gehoert die Grenze neu bewertet, nicht der Test
+    stillschweigend angepasst.
+    """
+    text = (
+        "- Die 8 Befunde decken sich mit Phase 0.7.4 (u.a. #1953).\n"
+        "\n"
+        "## Bewusste Restueberschneidung\n"
+        "\n"
+        "Eine Zusammenlegung ist hier bewusst **nicht** mitgemacht.\n"
+    )
+    assert dac.finde_ankerlose_stellen(text) == []
+
+
+# ── Ausweitung 2026-08-29: Vertagung im Code, und der fehlende Wortschatz ──
+#
+# Anlass ist ein gemessener Rueckfall, kein Gedankenspiel. `gate_wirkung.py`
+# fuehrte `deferred-item-no-tracking-issue` als RUECKFAELLIG (24 Vorkommen vor
+# dem Gate-Bau, 6 danach). Der konkrete Fall: writing-hub#851, Datei
+# `apps/core/langlauf.py`. Die Vertagung stand woertlich als
+#
+#     »`FigurenVertiefenLauf` bleibt vorerst eigenstaendig — Owner-Konvention
+#      2026-08-28: nachziehen nur, wenn wir es ohnehin anfassen.«
+#
+# Zwei Dinge waren daran neu, und die Reihenfolge der Erkenntnis zaehlt:
+#
+# 1. Der Satz stand in einem **Docstring im Code**, nicht im PR-Text. Ein
+#    PR-Text-Scanner kann ihn per Konstruktion nicht sehen.
+# 2. Wichtiger: er haette auch dann NICHT gefeuert, wenn man ihn dem Gate
+#    direkt eingespeist haette — **kein einziges** Wort der Positivliste kam
+#    darin vor. Das wurde vor dem Bau gemessen; die naheliegende Fix-Idee
+#    (»das Gate muss auch Docstrings lesen«) waere allein wirkungslos geblieben.
+
+DER_REALE_SATZ = (
+    "Gemeinsame Basis fuer lange Laeufe.\n"
+    "\n"
+    "`FigurenVertiefenLauf` bleibt vorerst eigenstaendig — Owner-Konvention\n"
+    "2026-08-28: »nachziehen nur, wenn wir es ohnehin anfassen«.\n"
+)
+
+DIFF_NEUE_DATEI = """diff --git a/apps/core/langlauf.py b/apps/core/langlauf.py
+new file mode 100644
+--- /dev/null
++++ b/apps/core/langlauf.py
+@@ -0,0 +1,7 @@
++\"\"\"Gemeinsame Basis fuer lange Laeufe mit Fortschritt und Teilergebnis.
++
++`FigurenVertiefenLauf` bleibt vorerst eigenstaendig — Owner-Konvention
++2026-08-28: »nachziehen nur, wenn wir es ohnehin anfassen«.
++\"\"\"
++
++from django.db import models
+"""
+
+
+def test_should_catch_the_wording_that_slipped_through():
+    """Positivkontrolle am echten Rueckfall — vorher lieferte dieser Satz null Funde."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen
+
+    funde = finde_ankerlose_stellen(DER_REALE_SATZ)
+    assert funde, "Der Satz, der das Gate ueberlistet hat, faellt immer noch durch"
+
+
+def test_should_read_added_docstring_lines_from_a_diff():
+    """Eine Vertagung im Code zaehlt so wenig als Tracking wie eine im PR-Text."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
+
+    prosa = prosa_aus_diff(DIFF_NEUE_DATEI)
+    assert "bleibt vorerst eigenstaendig" in prosa, (
+        "Der Docstring wurde nicht aus dem Diff gelesen"
+    )
+    assert finde_ankerlose_stellen(prosa), "Die Vertagung im Code bleibt unbemerkt"
+
+
+def test_should_accept_an_anchor_inside_the_code_comment():
+    """Wer das Issue im Docstring nennt, hat getrackt — das Gate muss schweigen."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
+
+    mit_anker = DIFF_NEUE_DATEI.replace("anfassen«.", "anfassen«. Refs #851")
+    assert not finde_ankerlose_stellen(prosa_aus_diff(mit_anker))
+
+
+def test_should_not_fire_on_ordinary_code():
+    """Negativkontrolle: ohne Vertagung kein Fund — sonst wird das Gate umgangen."""
+    from tools.deferral_anchor_check import finde_ankerlose_stellen, prosa_aus_diff
+
+    harmlos = (
+        "--- /dev/null\n"
+        "+++ b/apps/core/klein.py\n"
+        "@@ -0,0 +1,3 @@\n"
+        '+"""Eine ganz normale Hilfsfunktion ohne jede Vertagung."""\n'
+        "+# Das hier rechnet nur.\n"
+        "+def f(): return 1\n"
+    )
+    assert not finde_ankerlose_stellen(prosa_aus_diff(harmlos))
+
+
+def test_should_ignore_removed_lines_and_foreign_file_types():
+    """Nur HINZUGEFUEGTE Zeilen aus Quelldateien zaehlen.
+
+    Eine geloeschte Vertagung ist erledigt, keine offene; und eine Textdatei
+    ohne Code-Endung ist der PR-Text-Pfad, nicht dieser.
+    """
+    from tools.deferral_anchor_check import prosa_aus_diff
+
+    geloescht = (
+        "--- a/x.py\n+++ b/x.py\n@@ -1,2 +1,1 @@\n"
+        "-# bleibt vorerst so\n"
+        "+# jetzt erledigt\n"
+    )
+    assert "bleibt vorerst" not in prosa_aus_diff(geloescht)
+
+    fremd = (
+        "--- /dev/null\n+++ b/notizen.rst\n@@ -0,0 +1 @@\n+.. bleibt vorerst offen\n"
+    )
+    assert prosa_aus_diff(fremd) == ""

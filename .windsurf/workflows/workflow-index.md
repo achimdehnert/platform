@@ -134,6 +134,7 @@ mode: read-only
 | Codebase → KD-Kandidaten + brownfield/greenfield-Entscheidung (read-only) | `/kd-scout` |
 | Neuen Klickdummy anlegen (ADR-211 Cookbook) | `/klickdummy` |
 | Gebauten KD verifizieren + UX-Kritik (Playwright + Subagent, ADR-251) | `/kd-review` |
+| Laufende App: Kette oder kompletten Pfad klick-only pruefen, Inhalt je Station lesen, je Befund Issue + Klassen-Gate, danach Fix-PR mit Gate-Test (KONZ-051 Stufe 1/1c; `--nur-melden` = nur Bericht) | `/ux-review` |
 | KD-Sitemap generieren/aktualisieren + iil.pet/kd/-Link (ADR-246) | `/kd-sitemap` |
 | Cross-Repo-Klickdummy-Suche (pgvector) | `/klickdummy-search` |
 | KD-Specs → pgvector upserten (Schreib-Konsument, KONZ-risk-hub-008) | `/klickdummy-pgvector-sync` |

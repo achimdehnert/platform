@@ -183,7 +183,9 @@ def _imap_gesendet(konto: str, tage: int, limit: int) -> list[Gesendet]:
     return out
 
 
-_GRAPH_ZEILE = re.compile(r"·\s+(?P<datum>\d{4}-\d{2}-\d{2}T\d{2}:\d{2})\s+(?P<rest>.+)")
+_GRAPH_ZEILE = re.compile(
+    r"·\s+(?P<datum>\d{4}-\d{2}-\d{2}T\d{2}:\d{2})\s+(?P<rest>.+)"
+)
 
 
 def _graph_gesendet(tage: int) -> list[Gesendet]:
@@ -228,7 +230,9 @@ def _datum_iso(rfc: str) -> str:
 def sammle(konten: set[str], tage: int, limit: int) -> dict[str, list[Gesendet]]:
     mails: dict[str, list[Gesendet]] = {}
     for k in sorted(konten):
-        mails[k] = _graph_gesendet(tage) if k == "iil" else _imap_gesendet(k, tage, limit)
+        mails[k] = (
+            _graph_gesendet(tage) if k == "iil" else _imap_gesendet(k, tage, limit)
+        )
     return mails
 
 
@@ -249,13 +253,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="Vorgänge im Bucket 'owner' gegen den Sendeordner abgleichen."
     )
-    ap.add_argument("--tage", type=int, default=3, help="Rückblick in Tagen (Default 3)")
+    ap.add_argument(
+        "--tage", type=int, default=3, help="Rückblick in Tagen (Default 3)"
+    )
     ap.add_argument(
         "--limit", type=int, default=40, help="Mails je IMAP-Konto (Default 40)"
     )
     ap.add_argument("--ledger", default=str(LEDGER))
     ap.add_argument(
-        "--apply", action="store_true", help="Treffer ins Ledger schreiben (sonst nur Anzeige)"
+        "--apply",
+        action="store_true",
+        help="Treffer ins Ledger schreiben (sonst nur Anzeige)",
     )
     args = ap.parse_args()
 
@@ -285,7 +293,9 @@ def main() -> int:
                 uebernehmen(v, m, heute)
                 geschrieben += 1
         elif lage == "mehrdeutig":
-            print(f"{kopf} MEHRDEUTIG {len(b['mails'])} passende Mails — bitte selbst zuordnen")
+            print(
+                f"{kopf} MEHRDEUTIG {len(b['mails'])} passende Mails — bitte selbst zuordnen"
+            )
         else:
             print(f"{kopf} offen      keine passende Mail im Sendeordner")
 

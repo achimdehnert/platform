@@ -6,12 +6,34 @@
      {"tag": "volumes", "label": "Medien + MinIO",
       "paths_contain": ["risk-hub_risk_hub_media/_data", "risk-hub_risk_hub_minio_data/_data"]}
    ]},
-  {"app": "dev-hub", "tag": "dev-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "mcp-hub", "tag": "mcp-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "note": "pgvector Shared-Memory", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "authentik", "tag": "authentik", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "outline", "tag": "outline", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "doc-hub", "tag": "doc-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "travel-beat", "tag": "travel-beat", "max_age_hours": 26, "class": "Prod-Hub (best effort)", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "weltenhub", "tag": "weltenhub", "max_age_hours": 26, "class": "Prod-Hub (best effort)", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
-  {"app": "pptx-hub", "tag": "pptx-hub", "max_age_hours": 26, "class": "Prod-Hub (best effort)", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"}
+
+  {"app": "dev-hub", "tag": "devhub_db", "max_age_hours": 26, "class": "Plattform-kritisch",
+   "note": "Nur die Datenbank ist nachgewiesen. dev-hub hat im Sammel-Snapshot 'volumes' keinen eigenen Pfad — falls dort perspektivisch Medien liegen, gehoert ein zweiter Check mit paths_contain dazu (Muster: risk-hub)."},
+
+  {"app": "mcp-hub", "tag": "mcp_hub_db", "max_age_hours": 26, "class": "Plattform-kritisch",
+   "note": "pgvector Shared-Memory. Nur die Datenbank ist nachgewiesen — kein eigener Volume-Pfad im Sammel-Snapshot."},
+
+  {"app": "authentik", "tag": "iil_authentik_db", "max_age_hours": 26, "class": "Plattform-kritisch",
+   "note": "Nur die Datenbank ist nachgewiesen — kein eigener Volume-Pfad im Sammel-Snapshot."},
+
+  {"app": "outline", "tag": "iil_knowledge_outline_db", "max_age_hours": 26, "class": "Plattform-kritisch",
+   "note": "Nur die Datenbank ist nachgewiesen. Das Volume 'outline-stack_outline_data' existiert auf prod, steht aber NICHT im Sammel-Snapshot (Deckungsluecke, #2300)."},
+
+  {"app": "doc-hub", "tag": "iil_dochub_db", "max_age_hours": 26, "class": "Plattform-kritisch",
+   "note": "Nur die Datenbank ist nachgewiesen. Die Paperless-Dokumente liegen in Volumes, die der Sammel-Snapshot NICHT erfasst — die eigentliche Nutzlast dieses Dienstes ist damit offsite ungedeckt (#2086/#2300). Diese Zeile darf nicht als 'doc-hub ist gesichert' gelesen werden."},
+
+  {"app": "weltenhub", "max_age_hours": 26, "class": "Prod-Hub (best effort)",
+   "checks": [
+     {"tag": "weltenhub_db", "label": "Datenbank"},
+     {"tag": "volumes", "label": "Medien", "paths_contain": ["weltenhub_media_prod/_data"]}
+   ]},
+
+  {"app": "pptx-hub", "max_age_hours": 26, "class": "Prod-Hub (best effort)",
+   "checks": [
+     {"tag": "pptx_hub_db", "label": "Datenbank"},
+     {"tag": "volumes", "label": "Medien", "paths_contain": ["pptx-hub_media_data/_data"]}
+   ]},
+
+  {"app": "travel-beat", "tag": "travel_beat_db", "max_age_hours": 26, "class": "Prod-Hub (best effort)",
+   "deferred": true, "reason": "Stillgelegt am 2026-08-30 (#2480). Der letzte pgdump ist vom 2026-08-30 02:34 und altert planmaessig aus dem 26-h-Fenster heraus. Beim endgueltigen Rueckbau ersatzlos streichen; bei Wiederinbetriebnahme deferred entfernen."}
 ]

@@ -175,9 +175,14 @@ def test_should_prefer_explicit_env_var_over_dev_fallback(monkeypatch):
 
 
 def test_should_skip_insert_gracefully_when_db_url_is_none(monkeypatch):
-    """Hook-Contract (exit 0 immer): fehlendes DB_URL darf nicht crashen."""
+    """Hook-Contract (exit 0 immer): fehlendes DB_URL darf nicht crashen.
+
+    Seit platform#2606 ist der Rueckgabewert `None` statt `0`: „nicht
+    geschrieben" muss von „geschrieben, aber alles war schon da" unterscheidbar
+    sein, sonst schreibt `main()` den Zustand fort, obwohl die Zeilen fehlen.
+    """
     monkeypatch.setattr(hook, "DB_URL", None)
-    assert hook._insert_rows([{"request_id": "r1"}]) == 0
+    assert hook._insert_rows([{"request_id": "r1"}]) is None
 
 
 def test_should_return_none_from_stats_queries_when_db_url_is_none(monkeypatch):

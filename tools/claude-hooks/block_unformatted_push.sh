@@ -6,7 +6,7 @@
 #   "slug": "lint-failure-no-local-gate"
 #   "mode": "blocking"
 #   "owner": "achim"
-#   "last_drill_pass": "2026-08-12"
+#   "last_drill_pass": "2026-08-28"
 #   "evidence": "tools/claude-hooks/tests/test_block_unformatted_push_suite.py"
 # Bestand seit ff2981b0, registriert erst 2026-08-12 (platform#1650 Nachmessung).
 #
@@ -42,6 +42,38 @@ dir="${dir%\"}"; dir="${dir#\"}"
 dir="${dir/#\~/$HOME}"
 
 root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
+
+# ── Pfadgetriggerte Zusatzpruefungen (Retro 62f875 §5a, Gate rueckfaellig → ausweiten) ──
+# platform#2397 ging mit zwei Fehlern in CI, die dieses Gate nicht sah: `infra/hosts.yaml`
+# ohne Host-Block (hosts_audit) und ein Zeitbomben-Test unter tools/tests. Beides laeuft
+# lokal in Sekunden. Regel: was im Diff liegt, entscheidet, was vor dem Push laeuft.
+# FAIL-OPEN bei Werkzeugfehler (rc>1), DENY nur bei echtem Befund (rc==1).
+pf_default="$(git -C "$root" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|origin/||')"
+[ -z "$pf_default" ] && pf_default="main"
+if git -C "$root" rev-parse --verify --quiet "origin/${pf_default}" >/dev/null 2>&1; then
+  pf_files="$(git -C "$root" diff --name-only "origin/${pf_default}...HEAD" 2>/dev/null)"
+else
+  pf_files="$(git -C "$root" diff --name-only HEAD~1 2>/dev/null)"
+fi
+if printf '%s\n' "$pf_files" | grep -qx 'infra/hosts.yaml' && [ -f "$root/infra/scripts/hosts_audit.py" ]; then
+  pf_out="$(cd "$root" && timeout 60 python3 infra/scripts/hosts_audit.py 2>&1)"; pf_rc=$?
+  if [ "$pf_rc" = "1" ]; then
+    pf_line="$(printf '%s' "$pf_out" | grep -m1 -E 'schema|Finding|frisch|stale|Label' | cut -c1-160)"
+    reason="⛔ git push geblockt: infra/hosts.yaml im Diff und hosts_audit.py meldet Findings (Gate lint-failure-no-local-gate, Ausweitung Retro 62f875): ${pf_line}. Fix: python3 infra/scripts/hosts_audit.py lokal gruen ziehen, dann erneut pushen."
+    reason="${reason//\"/\\\"}"
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
+    exit 0
+  fi
+fi
+if printf '%s\n' "$pf_files" | grep -qE '^tools/.*\.py$' && [ -d "$root/tools/tests" ] && python3 -c 'import pytest' >/dev/null 2>&1; then
+  (cd "$root" && timeout 180 python3 -m pytest tools/tests -q -x -p no:cacheprovider >/dev/null 2>&1); pf_rc=$?
+  if [ "$pf_rc" = "1" ]; then
+    reason="⛔ git push geblockt: tools/*.py im Diff und pytest tools/tests ist rot (Gate lint-failure-no-local-gate, Ausweitung Retro 62f875 — Realfall platform#2397 Zeitbomben-Test). Fix: cd ${root} && python3 -m pytest tools/tests -q -x, dann erneut pushen."
+    reason="${reason//\"/\\\"}"
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
+    exit 0
+  fi
+fi
 
 # Nur Python-Repos mit ruff-Config gaten
 has_ruff_cfg=""
@@ -82,10 +114,44 @@ while IFS= read -r f; do
 done <<< "$files"
 [ -z "${existing// /}" ] && exit 0
 
+# ZWEI Pruefungen, nicht eine — der Slug heisst "lint", und bis zum 2026-08-23 lief
+# hier ausschliesslich `ruff format`. Das ist Layout (Zeilenumbrueche, Quotes), NICHT
+# Lint: ein Import nach einer Zuweisung auf Modulebene (E402) ist fuer `ruff format`
+# unsichtbar. Gemessen am 2026-08-23 (Skeptiker-Experiment, Retro a84f71 Befund 5):
+# dieselbe Datei -> `ruff format --check` "already formatted", exit 0 · `ruff check`
+# meldet 2x E402. Das Gate war verdrahtet, aktiv, gedrillt — und konnte die Sache,
+# die sein Name verspricht, seit dem Bau am 2026-08-04 nicht sehen. Realfall: PR
+# #2236, CI zweimal rot, obwohl der PreToolUse-Hook lief.
+#
+# `ruff check` laeuft OHNE --select: massgeblich ist die Repo-Config, damit der Hook
+# genau das prueft, woran die CI scheitert — nicht eine eigene, engere Regelmenge.
 # shellcheck disable=SC2086
 bad="$(cd "$root" && $RUFF format --check --force-exclude $existing 2>/dev/null | grep -c 'Would reformat' || true)"
+# Geurteilt wird am EXIT-CODE, nicht an einem geratenen Ausgabemuster: `ruff check`
+# gibt 0 = sauber, 1 = Verstoesse, >1 = Werkzeugfehler. Das erste Muster hier zaehlte
+# Zeilen der Form `datei:zeile:spalte` — ruff 0.15 rueckt die Fundstelle aber als
+# ` --> datei:zeile:spalte` ein, und der Zaehler blieb bei 0. Die eigene Positiv-
+# kontrolle hat das gefangen; ohne sie waere der Fix fuer Befund 5 wirkungslos
+# gewesen und haette trotzdem "gebaut" ausgesehen.
+# Werkzeugfehler (rc>1) ist FAIL-OPEN — ein Hook, der bei kaputter Config jeden
+# Push blockt, wird abgeschaltet und meldet danach gar nichts mehr.
+lint_rc=0
+# shellcheck disable=SC2086
+(cd "$root" && $RUFF check --force-exclude --quiet $existing >/dev/null 2>&1) || lint_rc=$?
+lint=0
+if [ "$lint_rc" = "1" ]; then
+  # shellcheck disable=SC2086
+  lint="$(cd "$root" && $RUFF check --force-exclude --quiet --output-format=concise $existing 2>/dev/null | grep -c ':' || true)"
+  [ "${lint:-0}" -eq 0 ] && lint=1
+fi
+if [ "${lint:-0}" -gt 0 ] && [ "${bad:-0}" -eq 0 ]; then
+  reason="⛔ git push geblockt: ${lint} ruff-check-Verstoss/Verstoesse in geänderten .py-Dateien (Gate lint-failure-no-local-gate). Fix: cd ${root} && ${RUFF} check --fix . , Rest von Hand, dann erneut pushen."
+  reason="${reason//\"/\\\"}"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
+  exit 0
+fi
 if [ "${bad:-0}" -gt 0 ]; then
-  reason="⛔ git push geblockt: ${bad} geänderte .py-Datei(en) sind nicht ruff-formatiert (Gate lint-failure-no-local-gate, retro d2522c #9). Fix: cd ${root} && ${RUFF} format . (bzw. make fmt), dann erneut pushen."
+  reason="⛔ git push geblockt: ${bad} geänderte .py-Datei(en) sind nicht ruff-formatiert (Gate lint-failure-no-local-gate, retro d2522c #9)${lint:+ · zusaetzlich ${lint} ruff-check-Verstoss/Verstoesse}. Fix: cd ${root} && ${RUFF} format . (bzw. make fmt), dann erneut pushen."
   reason="${reason//\"/\\\"}"
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
 fi

@@ -77,12 +77,24 @@ LINK_BASIS = "https://mail.iil.pet"
 #: Vorgangsansicht (Verlauf, Stand, Fristen, naheliegende Aktionen).
 TODO_BASIS = "https://todo.iil.pet"
 
+#: Welche Buckets den Stand beschreiben und welche einen Zug verlangen.
+#:
+#: Das ist der Anker, nicht die Liste darunter: Wer einen fuenften Bucket
+#: ergaenzt, muss ihn hier einsortieren, sonst schlaegt der Test fehl. Die
+#: Anzeige-Reihenfolge "erst Stand, dann Zug" folgt daraus und wird nicht
+#: getrennt behauptet.
+#:
+#: Die Regel selbst steht genau einmal, im Antwortformat des Kapitaens-Kanals
+#: (~/.claude/CLAUDE.md, Regel 1). Hier steht nur ihre Umsetzung.
+STAND_BUCKETS = ("erledigt", "warten")
+ZUG_BUCKETS = ("agent", "owner")
+
 #: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
 BUCKETS: list[tuple[str, str]] = [
-    ("owner", "🟢 Offen — dein Zug"),
-    ("agent", "🔵 Offen — ich kann sofort"),
-    ("warten", "🟡 Wartend — Ball liegt aussen"),
     ("erledigt", "✅ Erledigt"),
+    ("warten", "🟡 Wartend — Ball liegt aussen"),
+    ("agent", "🔵 Offen — ich kann sofort"),
+    ("owner", "🟢 Offen — dein Zug"),
 ]
 
 #: Wie lange ein geschlossener Vorgang im Board sichtbar bleibt.
@@ -393,7 +405,66 @@ def pruefe(ledger: dict) -> list[str]:
         if not aktionen_fuer(vorgang):
             befunde.append(f"#{vorgang.get('nr', '?')}: keine naheliegende Aktion")
 
+    befunde.extend(pruefe_fristen(posten))
     return befunde
+
+
+def pruefe_fristen(posten: list[dict]) -> list[str]:
+    """Jeder offene Vorgang traegt eine Frist — oder sagt, warum nicht (#2592 K4).
+
+    Gemessen 2026-09-02: 38 von 54 Vorgaengen ohne Frist, davon 22 offen. Eine
+    leere Frist sagt nicht, ob keine existiert oder ob niemand nachgesehen hat;
+    genau in dieser Luecke schliefen AV-Pruefung, Angebotsfrist und die
+    DSGVO-Monatsfrist. Darum: ISO-Datum ODER `frist: null` mit `frist_grund`.
+    Setzen: `board.py --frist <nr> --datum <YYYY-MM-DD|keine> --grund '…'`.
+    """
+    befunde: list[str] = []
+    for vorgang in posten:
+        if vorgang.get("bucket") == "erledigt":
+            continue
+        nr, kurz = vorgang.get("nr", "?"), vorgang.get("kurz")
+        frist = vorgang.get("frist")
+        if frist:
+            try:
+                date.fromisoformat(str(frist))
+            except ValueError:
+                befunde.append(
+                    f"#{nr} '{kurz}': frist={frist!r} ist kein ISO-Datum "
+                    "(board.py --frist)"
+                )
+            continue
+        if not str(vorgang.get("frist_grund") or "").strip():
+            befunde.append(
+                f"#{nr} '{kurz}': keine Frist und kein frist_grund — "
+                "board.py --frist <nr> --datum <YYYY-MM-DD|keine> --grund '…'"
+            )
+    return befunde
+
+
+def setze_frist(ledger: dict, nr: int, datum: str, grund: str) -> dict:
+    """Frist eines Vorgangs setzen. `datum` ist ISO oder 'keine' (dann ist `grund` Pflicht)."""
+    for vorgang in vorgaenge_von(ledger):
+        if vorgang.get("nr") != nr:
+            continue
+        if datum == "keine":
+            if not grund.strip():
+                raise SystemExit("FEHLER: --datum keine braucht --grund.")
+            vorgang["frist"] = None
+            vorgang["frist_grund"] = grund.strip()
+        else:
+            try:
+                date.fromisoformat(datum)
+            except ValueError:
+                raise SystemExit(
+                    f"FEHLER: --datum {datum!r} ist kein ISO-Datum."
+                ) from None
+            vorgang["frist"] = datum
+            if grund.strip():
+                vorgang["frist_grund"] = grund.strip()
+            else:
+                vorgang.pop("frist_grund", None)
+        return vorgang
+    raise SystemExit(f"FEHLER: Vorgang #{nr} gibt es nicht.")
 
 
 def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
@@ -527,6 +598,20 @@ def main(argv: list[str] | None = None) -> int:
         "--aktionen", nargs="?", const="", metavar="TYP", help="Aktionskatalog zeigen"
     )
     parser.add_argument("--ledger", metavar="DATEI", help="anderer Ledger-Pfad")
+    parser.add_argument(
+        "--stichtag",
+        metavar="YYYY-MM-DD",
+        help="zu --render: Bezugsdatum statt heute (reproduzierbar, #2592 K1)",
+    )
+    parser.add_argument(
+        "--frist", type=int, metavar="NR", help="Frist eines Vorgangs setzen (#2592 K4)"
+    )
+    parser.add_argument(
+        "--datum", metavar="YYYY-MM-DD|keine", help="zu --frist: das Datum oder 'keine'"
+    )
+    parser.add_argument(
+        "--grund", default="", metavar="TEXT", help="zu --frist: warum keine / Kontext"
+    )
     args = parser.parse_args(argv)
 
     if args.aktionen is not None:
@@ -535,6 +620,23 @@ def main(argv: list[str] | None = None) -> int:
 
     ledger_pfad = Path(args.ledger) if args.ledger else LEDGER
     ledger = lade(ledger_pfad, {"vorgaenge": []})
+
+    if args.frist is not None:
+        if not args.datum:
+            parser.error("--frist braucht --datum <YYYY-MM-DD|keine>")
+        vorgang = setze_frist(ledger, args.frist, args.datum, args.grund)
+        ledger_pfad.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            f"#{args.frist} '{vorgang.get('kurz')}': frist={vorgang.get('frist')!r}"
+            + (
+                f", grund='{vorgang['frist_grund']}'"
+                if vorgang.get("frist_grund")
+                else ""
+            )
+        )
+        return 0
 
     if args.vergib_nummern:
         ledger, neu = vergib_nummern(ledger)
@@ -550,7 +652,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.render:
-        text = render(ledger, date.today().isoformat())
+        stichtag = args.stichtag or date.today().isoformat()
+        date.fromisoformat(stichtag)  # frueh scheitern statt halb rendern
+        text = render(ledger, stichtag)
         ziel = Path(args.nach) if args.nach else None
         if ziel:
             ziel.write_text(text, encoding="utf-8")

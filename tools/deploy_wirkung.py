@@ -129,15 +129,93 @@ def manifeste(ssh_ziel: str) -> dict[str, dict]:
     return ergebnis
 
 
+def laufende_container(ssh_ziel: str) -> set[str] | None:
+    """Namen der laufenden Container eines Hosts — ``None`` heisst NICHT LEER.
+
+    Die Unterscheidung ist der ganze Punkt: ein Host ohne Container und ein Host,
+    den wir nicht fragen konnten, duerfen nicht dieselbe Antwort ergeben. Sonst
+    wird aus einem Zugangsfehler stillschweigend ein „laeuft nicht" — und der
+    Melder verschweigt genau den Doppellauf, gegen den er gebaut ist.
+    """
+    code, out = sh(SSH + [ssh_ziel, "docker ps --format '{{.Names}}'"], timeout=60)
+    if code != 0:
+        return None
+    return {z.strip() for z in out.splitlines() if z.strip()}
+
+
+def _vergleichsform(name: str) -> str:
+    """Bindestrich und Unterstrich sind dieselbe Grenze: ``trading-hub`` == ``trading_hub``."""
+    return name.replace("_", "-").lower()
+
+
+def laeuft(repo: str, container: set[str] | None) -> bool | None:
+    """Laeuft ``repo`` auf diesem Host? ``None`` = nicht feststellbar.
+
+    Compose haengt Dienst und Nummer an (``trading-hub-web-1``), manche Projekte
+    kuerzen. Deshalb Praefix-Vergleich auf der Vergleichsform, nicht Gleichheit.
+    """
+    if container is None:
+        return None
+    marke = _vergleichsform(repo)
+    return any(_vergleichsform(c).startswith(marke) for c in container)
+
+
+def beurteile_hosts(
+    hosts_mit_manifest: list[str], laeuft_je_host: dict[str, bool | None]
+) -> tuple[list[str], list[str], bool]:
+    """(laufende Hosts, verwaiste Manifeste, Container-Lage unklar).
+
+    Ein Manifest ist ein **Zettel**, kein Betrieb. Am 2026-08-20 stand auf prod-a
+    ein 254-Byte-Manifest von trading-hub vom 18.08. und **kein** Container —
+    der Melder meldete trotzdem `DOPPELLAUF`, die Meldung, die man am wenigsten
+    abstumpfen lassen darf (#2148).
+
+    Verwaist heisst: Manifest ja, Container nein — und mindestens ein anderer
+    Host bedient das Repo wirklich. Ohne diesen Zusatz waere ein komplett
+    gestopptes Repo (ueberall aus) faelschlich „verwaist".
+    """
+    laufend = [h for h in hosts_mit_manifest if laeuft_je_host.get(h) is True]
+    unklar = any(laeuft_je_host.get(h) is None for h in hosts_mit_manifest)
+    verwaist = (
+        [h for h in hosts_mit_manifest if laeuft_je_host.get(h) is False]
+        if laufend
+        else []
+    )
+    return laufend, verwaist, unklar
+
+
 def tunnel_namen(ssh_ziel: str) -> set[str]:
     """Hostnamen, die dieser Host per cloudflared bedient."""
     code, out = sh(
-        SSH + [ssh_ziel, "grep -oE '^ *- *hostname: *[^ ]+' /etc/cloudflared/config.yml 2>/dev/null"],
+        SSH
+        + [
+            ssh_ziel,
+            "grep -oE '^ *- *hostname: *[^ ]+' /etc/cloudflared/config.yml 2>/dev/null",
+        ],
         timeout=30,
     )
     if code != 0:
         return set()
     return {m.group(1) for m in re.finditer(r"hostname:\s*(\S+)", out)}
+
+
+def repo_owner() -> dict[str, str]:
+    """{repo: owner} aus dem `github:`-Feld der Registry.
+
+    NICHT hardcoden: 16 Repos liegen inzwischen in der Org `iilgmbh` (Stand
+    2026-08-20), darunter Prod-Systeme wie risk-hub, ausschreibungs-hub und
+    tax-hub. Ein fest verdrahtetes `achimdehnert` funktioniert dort nur, weil
+    GitHub still weiterleitet — und ein Redirect ist keine Zusage, sondern eine
+    Uebergangsfrist. Gemessen: die Registry fuehrt den Owner korrekt (0 falsche
+    Eintraege), sie wurde bloss nicht gelesen.
+    """
+    data = load_yaml(CANON_YAML)
+    out = {}
+    for name, eintrag in (data.get("repos") or {}).items():
+        gh = (eintrag.get("rich") or {}).get("github")
+        if gh and "/" in str(gh):
+            out[name] = str(gh).split("/")[0]
+    return out
 
 
 def repo_lifecycle() -> dict[str, str]:
@@ -161,13 +239,18 @@ def repo_urls() -> dict[str, list[str]]:
             for feld in ("prod_url", "url"):
                 wert = teil.get(feld)
                 if wert:
-                    namen.append(str(wert).replace("https://", "").replace("http://", "").rstrip("/"))
+                    namen.append(
+                        str(wert)
+                        .replace("https://", "")
+                        .replace("http://", "")
+                        .rstrip("/")
+                    )
         if namen:
             out[name] = sorted(set(namen))
     return out
 
 
-def hat_prod_gate(repo: str, owner: str = "achimdehnert") -> bool:
+def hat_prod_gate(repo: str, owner: str) -> bool:
     """True, wenn der Deploy bei push bewusst nur nach staging geht.
 
     Realfall risk-hub (2026-08-20): `target_environment: ${{ inputs.target_environment
@@ -182,8 +265,13 @@ def hat_prod_gate(repo: str, owner: str = "achimdehnert") -> bool:
     haelt die Zahl der API-Aufrufe klein.
     """
     code, out = sh(
-        ["gh", "api", f"repos/{owner}/{repo}/contents/.github/workflows/deploy.yml",
-         "--jq", ".content"],
+        [
+            "gh",
+            "api",
+            f"repos/{owner}/{repo}/contents/.github/workflows/deploy.yml",
+            "--jq",
+            ".content",
+        ],
         timeout=30,
     )
     if code != 0 or not out:
@@ -197,37 +285,59 @@ def hat_prod_gate(repo: str, owner: str = "achimdehnert") -> bool:
     return bool(re.search(r"target_environment:.*\|\|\s*'staging'", text))
 
 
-def main_sha(repo: str, owner: str = "achimdehnert") -> str | None:
-    code, out = sh(["gh", "api", f"repos/{owner}/{repo}/commits/main", "--jq", ".sha"], timeout=30)
-    return out.strip() if code == 0 and out.strip() else None
+def main_sha(repo: str, owner: str) -> tuple[str | None, str | None]:
+    """(sha, tatsaechlicher_owner) — deckt Org-Umzuege per Redirect auf."""
+    code, out = sh(
+        ["gh", "api", f"repos/{owner}/{repo}", "--jq", ".full_name"], timeout=30
+    )
+    echt = out.strip().split("/")[0] if code == 0 and "/" in out else None
+    code2, sha = sh(
+        ["gh", "api", f"repos/{owner}/{repo}/commits/main", "--jq", ".sha"], timeout=30
+    )
+    return (sha.strip() if code2 == 0 and sha.strip() else None), echt
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--json", action="store_true", help="maschinenlesbar")
     ap.add_argument("--repo", help="nur dieses Repo pruefen")
     args = ap.parse_args()
 
     hosts = hosts_aus_registry()
     if not hosts:
-        print("FEHLER: keine Prod-Hosts mit ssh-Zugang in infra/hosts.yaml", file=sys.stderr)
+        print(
+            "FEHLER: keine Prod-Hosts mit ssh-Zugang in infra/hosts.yaml",
+            file=sys.stderr,
+        )
         return 2
 
     je_host: dict[str, dict[str, dict]] = {}
     je_host_namen: dict[str, set[str]] = {}
+    # None = nicht feststellbar (kein ssh/kein docker), nicht "leer" — s. laufende_container.
+    je_host_container: dict[str, set[str] | None] = {}
     for name, ziel in hosts.items():
         je_host[name] = manifeste(ziel)
         je_host_namen[name] = tunnel_namen(ziel)
+        je_host_container[name] = laufende_container(ziel)
 
     # Positivkontrolle: findet das Werkzeug ueberhaupt etwas? Sonst ist die Null
     # das Messgeraet und nicht die Welt.
     gesamt = sum(len(m) for m in je_host.values())
     if gesamt == 0:
-        print("FEHLER: auf KEINEM Host ein Manifest gefunden — das ist ein Tool-/Zugangsfehler,", file=sys.stderr)
-        print("        kein Befund. Pruefen: ssh-Zugang, /opt/*/.deploy-manifest.json", file=sys.stderr)
+        print(
+            "FEHLER: auf KEINEM Host ein Manifest gefunden — das ist ein Tool-/Zugangsfehler,",
+            file=sys.stderr,
+        )
+        print(
+            "        kein Befund. Pruefen: ssh-Zugang, /opt/*/.deploy-manifest.json",
+            file=sys.stderr,
+        )
         return 2
 
     urls = repo_urls()
+    owners = repo_owner()
     lifecycles = repo_lifecycle()
     RUHEND = {"archived", "frozen"}
     alle_repos = sorted({r for m in je_host.values() for r in m})
@@ -252,22 +362,50 @@ def main() -> int:
         if len(vorhanden) == 1:
             ziel_host = next(iter(vorhanden))
         else:
-            bedient = [h for h, namen in je_host_namen.items() if any(u in namen for u in urls.get(repo, []))]
+            bedient = [
+                h
+                for h, namen in je_host_namen.items()
+                if any(u in namen for u in urls.get(repo, []))
+            ]
             ziel_host = bedient[0] if len(bedient) == 1 else None
 
-        sha = main_sha(repo)
+        laeuft_je_host = {h: laeuft(repo, je_host_container.get(h)) for h in vorhanden}
+        laufend_hosts, verwaist_hosts, container_unklar = beurteile_hosts(
+            sorted(vorhanden), laeuft_je_host
+        )
+        # Genau ein Host mit Betrieb beantwortet die Zuordnungsfrage besser als
+        # jede Tunnel-Heuristik: dort laeuft es, also kommt der Stand von dort.
+        if len(laufend_hosts) == 1:
+            ziel_host = laufend_hosts[0]
+
+        owner = owners.get(repo, "achimdehnert")
+        sha, echter_owner = main_sha(repo, owner)
+        # Redirect = die Registry beschreibt einen Umzug, der schon stattgefunden hat.
+        if echter_owner and echter_owner != owner:
+            eintrag_owner_drift = echter_owner
+        else:
+            eintrag_owner_drift = None
         eintrag = {
             "repo": repo,
             "hosts_mit_manifest": sorted(vorhanden),
             "bedient_von": ziel_host,
             "main": (sha or "")[:8] or None,
-            "doppellauf": len(vorhanden) > 1,
+            "doppellauf": len(laufend_hosts) > 1
+            if not container_unklar
+            else len(vorhanden) > 1,
+            "hosts_mit_container": laufend_hosts,
+            "verwaiste_manifeste": verwaist_hosts,
+            "container_unklar": container_unklar,
+            "owner": owner,
+            "owner_drift": eintrag_owner_drift,
         }
 
         if ziel_host and ziel_host in vorhanden:
             mf = vorhanden[ziel_host]
             eintrag["deployed"] = mf["commit"][:8]
-            eintrag["alter_tage"] = (jetzt - mf["mtime"]) // 86400 if mf["mtime"] else None
+            eintrag["alter_tage"] = (
+                (jetzt - mf["mtime"]) // 86400 if mf["mtime"] else None
+            )
             eintrag["rueckstand"] = bool(sha and mf["commit"] and mf["commit"] != sha)
         else:
             eintrag["deployed"] = None
@@ -281,7 +419,7 @@ def main() -> int:
         # versteckt echte Fehlschlaege hinter einer plausiblen Ausrede. Der Hinweis
         # kostet eine Zeile Lesen, das Verstecken kostet Tage.
         # Nur pruefen, wenn ein Rueckstand feststeht — spart API-Aufrufe.
-        if eintrag.get("rueckstand") and hat_prod_gate(repo):
+        if eintrag.get("rueckstand") and hat_prod_gate(repo, owner):
             eintrag["prod_gate"] = True
 
         eintrag["lifecycle"] = lifecycles.get(repo)
@@ -290,16 +428,31 @@ def main() -> int:
         if eintrag["lifecycle"] in RUHEND and eintrag.get("rueckstand"):
             eintrag["rueckstand"] = False
             eintrag["ruhend"] = True
-        if eintrag.get("rueckstand") or eintrag["doppellauf"] or eintrag.get("zuordnung_unklar"):
+        if (
+            eintrag.get("rueckstand")
+            or eintrag["doppellauf"]
+            or eintrag.get("zuordnung_unklar")
+            or eintrag.get("owner_drift")
+            or eintrag.get("verwaiste_manifeste")
+            or eintrag.get("container_unklar")
+        ):
             befunde.append(eintrag)
         zeilen.append(eintrag)
 
     if args.json:
-        print(json.dumps({"geprueft": len(zeilen), "befunde": befunde, "alle": zeilen}, indent=2))
+        print(
+            json.dumps(
+                {"geprueft": len(zeilen), "befunde": befunde, "alle": zeilen}, indent=2
+            )
+        )
         return 1 if befunde else 0
 
-    print(f"deploy_wirkung — {len(zeilen)} Repo(s) mit Manifest auf {len(hosts)} Prod-Host(s)\n")
-    kopf = f"{'Repo':<20} {'bedient':<8} {'deployed':<10} {'main':<10} {'Alter':<7} Befund"
+    print(
+        f"deploy_wirkung — {len(zeilen)} Repo(s) mit Manifest auf {len(hosts)} Prod-Host(s)\n"
+    )
+    kopf = (
+        f"{'Repo':<20} {'bedient':<8} {'deployed':<10} {'main':<10} {'Alter':<7} Befund"
+    )
     print(kopf)
     print("-" * len(kopf))
     for e in zeilen:
@@ -307,9 +460,18 @@ def main() -> int:
         if e.get("rueckstand"):
             marker.append("RUECKSTAND")
         if e["doppellauf"]:
-            marker.append("DOPPELLAUF:" + ",".join(e["hosts_mit_manifest"]))
+            wo = e.get("hosts_mit_container") or e["hosts_mit_manifest"]
+            marker.append("DOPPELLAUF:" + ",".join(wo))
+        if e.get("verwaiste_manifeste"):
+            marker.append("MANIFEST-VERWAIST:" + ",".join(e["verwaiste_manifeste"]))
+        if e.get("container_unklar"):
+            marker.append("CONTAINER UNKLAR — docker ps nicht auswertbar")
         if e.get("zuordnung_unklar"):
             marker.append("ZUORDNUNG UNKLAR")
+        if e.get("owner_drift"):
+            marker.append(
+                f"OWNER-DRIFT: Registry sagt {e['owner']}, GitHub {e['owner_drift']}"
+            )
         if e.get("prod_gate"):
             marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
         if e.get("ruhend"):
@@ -322,10 +484,14 @@ def main() -> int:
 
     ohne = sorted(set(urls) - set(alle_repos)) if not args.repo else []
     if ohne:
-        print(f"\nOHNE MANIFEST ({len(ohne)}) — fuer dieses Werkzeug unsichtbar, nicht ueberspringen:")
+        print(
+            f"\nOHNE MANIFEST ({len(ohne)}) — fuer dieses Werkzeug unsichtbar, nicht ueberspringen:"
+        )
         print("  " + ", ".join(ohne))
 
-    print(f"\nZusammenfassung: {len(befunde)} Befund(e) von {len(zeilen)} geprueften Repos.")
+    print(
+        f"\nZusammenfassung: {len(befunde)} Befund(e) von {len(zeilen)} geprueften Repos."
+    )
     return 1 if befunde else 0
 
 

@@ -198,6 +198,59 @@ def pr_state(branch: str, repo: str | None) -> str:
     return "none"
 
 
+def fremde_aktivitaet(path: str) -> str:
+    """Anzeichen, dass in diesem Baum noch jemand arbeitet — "" = keins.
+
+    Der `--sitzungsende`-Bypass verzichtet auf die Karenz, weil die besitzende
+    Sitzung selbst sagt, dass sie fertig ist. Ein Baum kann aber GETEILT sein
+    (feedback_shared_worktree_multisession_git_collision): dann endet Sitzung A,
+    waehrend Sitzung B im selben Verzeichnis weiterarbeitet. Der Dirty-Guard
+    faengt das nur, solange B uncommitted Aenderungen hat.
+
+    Zwei billige Indikatoren, beide ohne Netz und ohne Raten:
+      - `.git/index.lock` — eine git-Operation laeuft in genau diesem Moment.
+      - mehr als ein OFFENES Lease auf denselben Pfad — zwei Sitzungen haben
+        sich denselben Baum genommen.
+    """
+    # NICHT `<path>/.git/index.lock`: in einem Linked-Worktree ist `.git` eine
+    # DATEI (`gitdir: …`), und genau Linked-Worktrees sind hier der Normalfall.
+    # Der Lock liegt im echten gitdir, das git selbst nennt. Der erste Versuch
+    # dieser Funktion griff auf den Verzeichnispfad — der eigene Drill hat es
+    # gefangen, bevor der Guard wirkungslos in Betrieb ging.
+    rc, gitdir = _run(["git", "-C", path, "rev-parse", "--absolute-git-dir"])
+    if rc == 0 and gitdir and (Path(gitdir) / "index.lock").exists():
+        return "git-Operation laeuft (index.lock)"
+    if LEASE_DIR.is_dir():
+        treffer = 0
+        for f in LEASE_DIR.glob("*.json"):
+            try:
+                d = json.loads(f.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            if d.get("worktree") == path:
+                treffer += 1
+        if treffer > 1:
+            return f"{treffer} offene Leases auf denselben Baum"
+    return ""
+
+
+def _gleicher_pfad(pfad: str, kandidaten: tuple[str, ...]) -> bool:
+    """Kanonischer Vergleich — ein Lease-/Hook-Pfad kann `/./` oder Symlinks tragen."""
+    if not kandidaten:
+        return False
+    try:
+        ziel = Path(pfad).resolve()
+    except OSError:
+        return False
+    for k in kandidaten:
+        try:
+            if Path(k).resolve() == ziel:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def classify(
     wt: dict,
     primary: str,
@@ -205,6 +258,7 @@ def classify(
     repo: str | None,
     stale_days: int,
     karenz_stunden: float = 12.0,
+    sitzungsende: tuple[str, ...] = (),
 ) -> tuple[str, str]:
     """→ (verdict, reason). verdict ∈ {KEEP, REAP_MERGED, REAP_STALE, SKIP}."""
     path, branch = wt["path"], wt["branch"]
@@ -239,7 +293,31 @@ def classify(
         # seit `karenz_stunden` kein Commit mehr gefallen, ist die Sitzung erkennbar
         # vorbei — dann greift der Reaper trotz aktivem Lease. Eine lebende Sitzung
         # committet innerhalb dieser Frist und bleibt damit unangetastet.
+        # Die Sitzung, die diesen Baum besitzt, sagt selbst, dass sie fertig ist:
+        # dann ist die Karenz gegenstandslos. Sie schuetzt die Weiterarbeit einer
+        # LEBENDEN Sitzung — und genau die gibt es hier nicht mehr.
+        #
+        # Ohne diese Ausnahme konnte die Karenz den Fall, fuer den sie gebaut wurde,
+        # strukturell nie erreichen: der SessionEnd-Hook `reap_worktrees.sh` laeuft
+        # bei JEDEM Sitzungsende, aber 12 Stunden sind laenger als jede Sitzung —
+        # der eigene, frisch gemergte Baum war beim Aufraeumen immer zu jung.
+        # Gemessen als zwei Rueckfaelle des Gates `worktree-midsession-accumulation`
+        # NACH dem Karenz-Umbau vom 2026-08-20 (chat-hub 2026-08-21: sechs Baeume;
+        # ausschreibungs-hub 2026-08-23: drei Baeume nach drei Merges).
+        eigener = _gleicher_pfad(path, sitzungsende)
         alter = commit_age_days(path)
+        if eigener and pr_state(branch, repo) == "merged":
+            # Der Verzicht auf die Karenz gilt nur, wenn nichts auf eine zweite,
+            # lebende Sitzung im selben Baum hindeutet (Retro a84f71 Befund 2).
+            # Findet sich ein Anzeichen, faellt der Fall auf die normale Karenz
+            # zurueck — nicht auf "trotzdem entfernen".
+            fremd = fremde_aktivitaet(path)
+            if fremd:
+                return "KEEP", f"Baum der endenden Sitzung, aber {fremd} — Karenz gilt"
+            return (
+                "REAP_MERGED",
+                "PR gemergt, Baum der endenden Sitzung (Karenz entfaellt)",
+            )
         if (
             alter is not None
             and alter * 24 >= karenz_stunden
@@ -305,6 +383,15 @@ def main() -> int:
         help="Stunden ohne Commit, nach denen ein gemergter Baum trotz aktivem "
         "Lease abgeraeumt wird (Default 12).",
     )
+    ap.add_argument(
+        "--sitzungsende",
+        action="append",
+        default=[],
+        metavar="PFAD",
+        help="Worktree(s) der gerade endenden Sitzung: fuer sie entfaellt die Karenz, "
+        "alle anderen Regeln (clean, PR gemergt, nicht primaer) gelten unveraendert. "
+        "Mehrfach angebbar.",
+    )
     ap.add_argument("--manifest", default=None, help="Restore-Manifest-Pfad (JSONL).")
     args = ap.parse_args()
 
@@ -315,7 +402,13 @@ def main() -> int:
     plan, reap = [], []
     for wt in trees:
         verdict, reason = classify(
-            wt, primary, current, args.repo, args.stale_days, args.karenz_stunden
+            wt,
+            primary,
+            current,
+            args.repo,
+            args.stale_days,
+            args.karenz_stunden,
+            tuple(args.sitzungsende),
         )
         plan.append((verdict, wt, reason))
         if verdict == "REAP_MERGED" or (verdict == "REAP_STALE" and args.include_stale):

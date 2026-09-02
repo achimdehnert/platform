@@ -247,6 +247,29 @@ Geprüft durch: ____________________ am: __________
   nur außerhalb von Tabellen die Breite.
 - **Feldnamen** werden fortlaufend vergeben (`f1`, `f2`, …) und sind bei
   gleichem Markdown stabil.
+- **Breite Erfassungstabellen brauchen Querformat.** Eine Zeile aus Maßnahme,
+  drei Kreuzen, Datum und Begründung passt im Hochformat nicht nebeneinander —
+  die Kästchen stapeln sich dann untereinander und man kreuzt daneben. Dafür
+  gibt es `querformat: true` als zweite Kopfzeile.
+- **Eine Spalte je Kreuz** schlägt drei Kreuze in einer Zelle: mit den Spalten
+  `umgesetzt | offen | entfällt` ist die Spaltenüberschrift die Beschriftung,
+  und das Kästchen steht darunter (allein in seiner Zelle wird es zentriert).
+
+```markdown
+forms: true
+querformat: true
+
+| Nr. | Maßnahme | umgesetzt | offen | entfällt | seit | Beleg |
+|---|---|---|---|---|---|---|
+| 309 | Feuerlöscher im Serverraum | ☐ | ☐ | ☐ | ________ | ______________ |
+```
+
+> **Anklickbar ist nicht dasselbe wie vorhanden.** WeasyPrint (gemessen an 68.1)
+> schreibt die Feld-Rechtecke mit vertauschter y-Achse und nimmt die Content-Box:
+> ein Kästchen bekommt ~3,6 pt Trefferfläche, während der gezeichnete Kasten
+> 10 pt groß ist. In gängigen Viewern sind solche Felder tot, obwohl ein
+> PDF-Parser sie findet. Der Print-Agent bessert das nach dem Schreiben nach —
+> wer die PDFs auf anderem Weg erzeugt, muss es selbst tun.
 
 > **Beim Prüfen aufpassen:** WeasyPrint komprimiert die PDF-Objekte. Ein
 > `grep "/AcroForm"` auf der Datei findet deshalb **nichts**, auch wenn die

@@ -41,9 +41,10 @@ source ~/.bashrc
 - Claude-Code-Skills (Symlinks/generierte Kopien) in `~/.claude/commands/` — siehe CC-first unten
 - `project-facts.md` für alle Repos
 
-**Tests lokal:**
+**Tests lokal** (= CI-SSoT, `tools-tests.yml` ruft genau dieses Target):
 ```bash
-python3 -m pytest tools/tests/ -q
+make setup   # einmalig
+make test
 ```
 
 ## Coding-Interface: Claude Code (CC-first, ADR-230)

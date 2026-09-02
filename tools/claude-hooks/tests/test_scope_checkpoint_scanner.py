@@ -232,3 +232,165 @@ def test_should_not_accept_durable_artifact_written_before_the_checkpoint(
     ]
     _, antwort = _run(monkeypatch, capsys, _transcript(tmp_path, zeilen))
     assert "Fehlerform B" in _kontext(antwort)
+
+
+# ── Rev 3: Reichweite steht in der Wirkung, nicht in den Argumenten ──────────
+
+
+def _zeile_bash_id(cmd: str, tid: str, cwd: str = "") -> dict:
+    return {
+        "type": "assistant",
+        "cwd": cwd,
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "name": "Bash",
+                    "id": tid,
+                    "input": {"command": cmd},
+                }
+            ]
+        },
+    }
+
+
+def _zeile_ergebnis(tid: str, text: str) -> dict:
+    return {
+        "type": "user",
+        "message": {
+            "content": [{"type": "tool_result", "tool_use_id": tid, "content": text}]
+        },
+    }
+
+
+#: So sieht die Ausgabe des Arbeitsbaum-Reapers aus — ein Aufruf, viele Repos.
+REAPER_AUSGABE = (
+    "entfernt: /home/devuser/.repo-session/worktrees/platform/2026-08-20-a-b + Lease geschlossen\n"
+    "entfernt: /home/devuser/.repo-session/worktrees/risk-hub/2026-08-19-c-d + Lease geschlossen\n"
+    "entfernt: /home/devuser/.repo-session/worktrees/dev-hub/2026-08-18-e-f + Lease geschlossen\n"
+)
+
+
+def test_should_flottenlauf_ueber_die_ausgabe_zaehlen(tmp_path, monkeypatch, capsys):
+    """Der Rueckfall aus Retro 8d6869-incr #8, nachgestellt.
+
+    Ein Kommando, ein Pfad im Aufruf — und 69 entfernte Arbeitskopien ueber die
+    ganze Flotte. Rev 2 sah ein Repo und schwieg.
+    """
+    zeilen = [
+        _zeile_bash_id(
+            "python3 ~/github/platform/tools/worktree-reaper.py --apply --karenz-stunden 0",
+            "reap1",
+        ),
+        _zeile_ergebnis("reap1", REAPER_AUSGABE),
+    ]
+    rc, antwort = _run(monkeypatch, capsys, _transcript(tmp_path, zeilen))
+    assert rc == 0
+    assert _kontext(antwort), "Flottenlauf blieb unter der Schwelle"
+
+
+def test_should_lesendes_kommando_nicht_zaehlen(tmp_path, monkeypatch, capsys):
+    """Gegenprobe: dieselbe Ausgabe, nur gelesen.
+
+    Ein `grep -rn ~/github/` nennt dieselben Pfade und fasst nichts an. Ohne
+    diese Trennung wuerde jede Suche ueber die Flotte einen Checkpoint fordern —
+    und das Gate waere binnen einer Sitzung Rauschen.
+    """
+    zeilen = [
+        _zeile_bash_id("grep -rn 'worktrees' /home/devuser/.repo-session/", "les1"),
+        _zeile_ergebnis("les1", REAPER_AUSGABE),
+    ]
+    rc, antwort = _run(monkeypatch, capsys, _transcript(tmp_path, zeilen))
+    assert rc == 0
+    assert not _kontext(antwort)
+
+
+def test_should_fremdes_ergebnis_nicht_zuordnen(tmp_path, monkeypatch, capsys):
+    """Ein Ergebnis ohne passendes schreibendes Kommando zaehlt nicht.
+
+    Die Zuordnung laeuft ueber `tool_use_id`. Faellt sie weg, zaehlt jede
+    Ausgabe irgendeines Tools — dann misst das Gate wieder Erwaehnungen.
+    """
+    zeilen = [_zeile_ergebnis("gibt-es-nicht", REAPER_AUSGABE)]
+    rc, antwort = _run(monkeypatch, capsys, _transcript(tmp_path, zeilen))
+    assert rc == 0
+    assert not _kontext(antwort)
+
+
+def test_should_ergebnis_als_bloecke_lesen(tmp_path, monkeypatch, capsys):
+    """`content` kommt je nach Client als String ODER als Block-Liste."""
+    zeilen = [
+        _zeile_bash_id(
+            "bash ~/github/platform/tools/repo-session.sh reap --alle", "r2"
+        ),
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "r2",
+                        "content": [{"type": "text", "text": REAPER_AUSGABE}],
+                    }
+                ]
+            },
+        },
+    ]
+    rc, antwort = _run(monkeypatch, capsys, _transcript(tmp_path, zeilen))
+    assert rc == 0
+    assert _kontext(antwort)
+
+
+def test_should_lange_ausgabe_beschneiden():
+    """Kostenbremse: nur der Anfang der Ausgabe wird abgesucht."""
+    text = "x" * (scanner._AUSGABE_MAX + 500) + "/home/devuser/github/spaet-hub/x"
+    assert "spaet-hub" not in scanner._repos_aus_ausgabe(text)
+
+
+# --- Rev 4 (2026-08-25): fremde laufende Ressource beendet ------------------------
+# Anlass: Retro fdd368 §5a. Ein seit dem Vortag laufender Dev-Server wurde per
+# `kill <pid>` beendet, waehrend zwoelf Sitzungen parallel liefen; die Zugehoerigkeit
+# wurde erst danach ueber /proc/<pid>/cwd geprueft. Weder drittes Repo noch Prod —
+# beide bestehenden Ausloeser griffen nicht.
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Der Realfall, woertlich.
+        "kill 2333741",
+        "kill -9 2333741",
+        "pkill -f runserver",
+        "killall python3",
+        "sudo systemctl stop ssh-tunnel-postgres",
+        "systemctl restart nginx",
+        "docker kill writing_hub_web_dev",
+        "docker stop weltenhub_local_db",
+    ],
+)
+def test_should_fremde_ressource_als_ausloeser_erkennen(cmd: str) -> None:
+    from scope_checkpoint_scanner import _FREMDE_RESSOURCE
+
+    assert _FREMDE_RESSOURCE.search(cmd), f"{cmd!r} loest den Checkpoint nicht aus"
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Der eigene Stack hoch- und runterfahren ist Alltag, kein Scope-Wachstum.
+        "docker compose up -d web worker",
+        "docker compose down",
+        "docker compose restart web",
+        # Lesende Prozess-Sicht ist ausdruecklich erlaubt — sie ist sogar das,
+        # was VOR einem kill passieren soll.
+        "ps -o lstart= -p 2333741",
+        "ss -tlnp | grep :8082",
+        "docker ps --format '{{.Names}}'",
+        # Wortbestandteile duerfen nicht treffen.
+        "git log --oneline | grep killer-feature",
+    ],
+)
+def test_should_alltagskommandos_nicht_als_ausloeser_werten(cmd: str) -> None:
+    from scope_checkpoint_scanner import _FREMDE_RESSOURCE
+
+    assert not _FREMDE_RESSOURCE.search(cmd), f"{cmd!r} ist ein Fehlalarm"

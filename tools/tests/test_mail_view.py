@@ -115,7 +115,9 @@ class TestRender:
         assert "--flaeche:" not in dunkel, "Dark-Mode darf die Flaeche nicht umfaerben"
         assert "--flaeche-text:" not in dunkel
 
-    def test_should_neutralize_light_text_when_mail_lost_its_own_surface(self, tmp_path):
+    def test_should_neutralize_light_text_when_mail_lost_its_own_surface(
+        self, tmp_path
+    ):
         """Die dunkle Flaeche kommt als <style> (wird gestrippt), die Schrift inline hell —
         ohne Entschaerfung stuende sie weiss auf der hellen Flaeche der Ansicht."""
         msg = _nachricht(

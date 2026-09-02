@@ -56,7 +56,9 @@ def pruefe_header(gate: dict) -> list[str]:
         return [f"Modul nicht lesbar: {exc}"]
 
     if "GATE_HEADER" not in text:
-        return ["kein GATE_HEADER im Modul (D8 verlangt ihn dort, nicht nur in der Registry)"]
+        return [
+            "kein GATE_HEADER im Modul (D8 verlangt ihn dort, nicht nur in der Registry)"
+        ]
 
     befunde = []
     for feld in ("slug", "mode", "owner", "last_drill_pass"):
@@ -66,6 +68,50 @@ def pruefe_header(gate: dict) -> list[str]:
     # auseinander, zeigt der Report auf ein anderes Gate als der Drill prueft.
     if gate.get("slug") and f'"{gate["slug"]}"' not in text:
         befunde.append(f"Slug im Kopf != Registry-Slug `{gate['slug']}`")
+    return befunde
+
+
+#: Das Repo, dessen Pfade dieser Pruefer wirklich ausfuehren kann.
+EIGENES_REPO = "platform"
+
+
+def ist_fremd(gate: dict) -> bool:
+    """Lebt das Gate in einem anderen Repo als platform?
+
+    **Warum es diesen Fall gibt** (platform#2429): Die Klassen dieser Flotte
+    entstehen in den Hub-Repos, und ihr natuerliches Gate ist ein Test in
+    ebendiesem Repo -- er laeuft dort in der CI und blockt dort den Merge. Bis
+    hierhin konnte die Registry das nicht abbilden: `module`/`drill` sind
+    platform-relative Pfade, die dieser Pruefer selbst ausfuehrt. Ein Eintrag
+    mit fremdem Pfad wurde folgerichtig als "NICHT GEBAUT" zurueckgestuft --
+    eine Aussage ueber die *Ausfuehrbarkeit hier*, die als Aussage ueber die
+    *Wirksamkeit dort* gelesen wurde.
+
+    Realfall: `built-but-never-called` bekam am 2026-08-29 ein Gate in
+    `iilgmbh/ausschreibungs-hub` (tests/test_adapterfelder_werden_gelesen.py,
+    blocking in dessen CI). Der Registry-Eintrag wurde wieder zurueckgenommen,
+    weil er den Pruefer zum Luegen gebracht haette -- und damit fuehrte
+    `retro_kpis.py` den Slug weiter unter "ohne registriertes Gate", obwohl
+    eines existiert und greift.
+    """
+    repo = (gate.get("repo") or EIGENES_REPO).strip()
+    return repo != EIGENES_REPO
+
+
+def pruefe_fremd(gate: dict) -> list[str]:
+    """Was ein fremd verankertes Gate stattdessen belegen muss.
+
+    Der Pruefer kann den Drill nicht fahren -- also muss der Eintrag sagen, wo
+    er faehrt und woran man das nachliest. Ohne diese beiden Angaben waere
+    `repo` bloss ein Weg, sich der Pruefung zu entziehen.
+    """
+    befunde = []
+    if not (gate.get("ref") or "").strip():
+        befunde.append(
+            "fremd verankert ohne `ref` — kein Beleg, dass das Gate existiert"
+        )
+    if not (gate.get("drill") or "").strip():
+        befunde.append("fremd verankert ohne `drill` — der Pfad im Ziel-Repo fehlt")
     return befunde
 
 
@@ -103,7 +149,22 @@ def main() -> int:
     print(f"## Gate-Drill-Prüflauf ({len(gates)} registrierte Gates)")
     dead = 0
     kopf_befunde: list[str] = []
+    fremd = 0
     for g in gates:
+        if ist_fremd(g):
+            maengel = pruefe_fremd(g)
+            if maengel:
+                dead += 1
+                print(f"  ✗ {g['slug']} ({g.get('mode', '?')}) — {'; '.join(maengel)}")
+            else:
+                fremd += 1
+                print(
+                    f"  ⌁ {g['slug']} ({g.get('mode', '?')}) — fremd verankert in "
+                    f"{g['repo']}: {g['drill']} (Beleg: {g['ref']})"
+                )
+            # Kein Kopf-Check: das Modul liegt nicht in diesem Arbeitsbaum.
+            continue
+
         ok, detail = run_drill(g.get("drill", ""))
         if ok:
             print(f"  ✓ {g['slug']} ({g.get('mode', '?')}) — {detail}")
@@ -134,6 +195,12 @@ def main() -> int:
         )
     else:
         print("\n→ alle registrierten Gates Drill-frisch.")
+
+    if fremd:
+        print(
+            f"  ⌁ davon {fremd} fremd verankert (Drill laeuft in der CI des Ziel-Repos, "
+            "nicht hier) — der Beleg ist die genannte `ref`, nicht ein Lauf dieses Pruefers."
+        )
     return 0
 
 

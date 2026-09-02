@@ -7,23 +7,24 @@ Queue-Prozessor (/process-agent-queue) abarbeitet — Body im Queue-Format
 (Betroffene Komponenten + Akzeptanzkriterien, ADR-081 Scope-Lock).
 
 Sicherheits-Kontrakt (Gate autonomous-no-human-review):
-  - ALLOWLIST je Metrik-Klasse — default NUR `canary`; echte Klassen (M2/M4)
-    erst nach Owner-Entscheid zuschalten (#2084 / Baseline-Regel).
+  - ALLOWLIST je Metrik-Klasse — default LEER: keine Klasse ist scharf, bis
+    der Owner echte Klassen (M2/M4) bewusst zuschaltet (#2084 / Baseline-Regel).
+    Der Lauf ohne Allowlist-Klasse ist ein stiller No-Op (bestehendes
+    Verhalten) — kein Fehler, kein Issue.
   - Idempotent: existiert ein offenes Issue mit identischem Titel im Ziel-Repo,
     wird NICHT erneut erstellt.
   - Cap: --max-issues (default 3) je Lauf.
   - --dry-run druckt, schreibt nichts. Der PR-Trigger des Health-Workflows
     erzwingt den Dry-Run in CI (Wiring-Beweis by-construction).
   - GITHUB_TOKEN ist repo-gebunden: Cross-Repo-Emission braucht PAT
-    (Owner-Gate, s. #2089) — die Canary zielt bewusst auf platform selbst.
+    (Owner-Gate, s. #2089).
 
-Canary (#2075 K4, Seeded-Bug): --seed-canary erzeugt einen synthetischen
-Befund „Canary-Datei nachziehen" (registry/pypi-loop-canary.txt). Der Loop
-gilt als lebendig, wenn die Datei per gemergtem PR das Lauf-Datum trägt —
-periodische Selbstprüfung der Maschinerie, nicht der Pakete.
+Die Loop-Canary (`registry/pypi-loop-canary.txt`, #2075 K4) hat den vollen
+Zyklus einmal real bewiesen (2026-08-19, PR #2096) und ist mit KONZ-052 V5
+entfernt — Melder-Flaeche verkleinern statt einen dauerhaft leerlaufenden
+Selbsttest zu pflegen (KONZ-018 §5.4: kein neuer Meter, kein neues Rolling-Issue).
 
     GH_TOKEN=... python3 tools/pypi_fleet_issue_emitter.py --findings f.json
-    GH_TOKEN=... python3 tools/pypi_fleet_issue_emitter.py --seed-canary --today 2026-08-19
 """
 
 from __future__ import annotations
@@ -37,8 +38,7 @@ from pathlib import Path
 
 PLATFORM_DIR = Path(__file__).resolve().parent.parent
 PLATFORM_REPO = "achimdehnert/platform"
-CANARY_FILE = "registry/pypi-loop-canary.txt"
-DEFAULT_ALLOWLIST = ("canary",)
+DEFAULT_ALLOWLIST: tuple[str, ...] = ()
 LABELS = ("auto", "pypi-fleet")
 
 
@@ -47,34 +47,17 @@ LABELS = ("auto", "pypi-fleet")
 # --------------------------------------------------------------------------
 
 
-def canary_finding(today: dt.date) -> dict:
-    return {
-        "repo": "platform",
-        "org": "achimdehnert",
-        "metric": "canary",
-        "text": f"Loop-Canary: {CANARY_FILE} auf {today.isoformat()} nachziehen",
-    }
-
-
 def issue_title(finding: dict) -> str:
     """Deterministischer Titel = Dedup-Schlüssel (idempotenter Emitter)."""
     return f"[pypi-fleet:{finding['metric']}] {finding['text']}"
 
 
 def issue_body(finding: dict, today: dt.date) -> str:
-    if finding["metric"] == "canary":
-        komponenten = f"`{CANARY_FILE}`"
-        kriterien = (
-            f"- [ ] `{CANARY_FILE}` enthält die Zeile `last_cycle: {today.isoformat()}`\n"
-            f"- [ ] Änderung kommt per PR mit grünem CI, PR-Text enthält `Closes #<dieses Issue>`\n"
-            f"- [ ] Kein anderer Dateiinhalt verändert"
-        )
-    else:
-        komponenten = f"Paket-Repo `{finding['org']}/{finding['repo']}`"
-        kriterien = (
-            "- [ ] Befund behoben (siehe Titel) und per Frühwarn-Lauf nicht mehr gemeldet\n"
-            "- [ ] PR mit grünem CI"
-        )
+    komponenten = f"Paket-Repo `{finding['org']}/{finding['repo']}`"
+    kriterien = (
+        "- [ ] Befund behoben (siehe Titel) und per Frühwarn-Lauf nicht mehr gemeldet\n"
+        "- [ ] PR mit grünem CI"
+    )
     return (
         f"Automatisch erzeugt vom PyPI-Fleet-Loop (#2075 K4, ADR-266) am {today.isoformat()}.\n\n"
         f"**Befund:** {finding['text']}\n\n"
@@ -153,12 +136,11 @@ def create_issue(repo_slug: str, title: str, body: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--findings", type=Path, help="JSON aus earlywarn --json")
-    ap.add_argument("--seed-canary", action="store_true")
     ap.add_argument("--today", type=dt.date.fromisoformat, default=None)
     ap.add_argument(
         "--allow",
         default=",".join(DEFAULT_ALLOWLIST),
-        help="Komma-Liste erlaubter Metrik-Klassen (default: canary)",
+        help="Komma-Liste erlaubter Metrik-Klassen (default: leer — kein Auto-Issue)",
     )
     ap.add_argument("--max-issues", type=int, default=3)
     ap.add_argument("--dry-run", action="store_true")
@@ -168,10 +150,9 @@ def main() -> int:
     findings: list[dict] = []
     if args.findings:
         findings.extend(json.loads(args.findings.read_text()))
-    if args.seed_canary:
-        findings.append(canary_finding(today))
 
-    picked = select_findings(findings, tuple(args.allow.split(",")), args.max_issues)
+    allowlist = tuple(c for c in args.allow.split(",") if c)
+    picked = select_findings(findings, allowlist, args.max_issues)
     print(
         f"== Emitter: {len(findings)} Befunde, {len(picked)} nach Allowlist "
         f"({args.allow}) + Cap ({args.max_issues}) =="

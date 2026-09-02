@@ -294,6 +294,26 @@ andere Frage —, sondern **„was verschwindet, wenn dieses Fenster zugeht?"**
 > alle über andere Repos, **keins bearbeitet**. Der Melder war zuverlässig; ein Leser
 > fehlte. Dieselbe Klasse wie 🌀 `melder-ohne-leser`.
 
+**Und drittens: jeder behandelte Melder-Befund bekommt ein Urteil (NEU 2026-08-20).**
+War der Befund berechtigt oder ein Fehlalarm? Ohne diese Einstufung ist die Präzision
+eines Melders unbekannt — und ein Melder mit vielen Fehlalarmen sieht aus wie einer,
+der viel findet.
+
+```bash
+python3 platform/tools/befund_journal.py --echt   '<ID>' '<kurze Notiz>'
+python3 platform/tools/befund_journal.py --falsch '<ID>' '<warum Fehlalarm>'
+```
+
+**Warum das zählt:** Am 2026-08-20 waren in einer einzigen Sitzung vier Melder-Befunde
+falsch — ein `DOPPELLAUF` ohne laufende Container, drei `required-file`-Errors für
+Dateien, die existieren (nur an anderer Stelle), ein Footer-Hash, der jede korrekte
+Kopie als Drift meldet, und zwei Melder, die gemergte PRs als offene Referenz lesen.
+Vier Melder, vier Fehlalarme, null Messung. Ein Melder, der öfter irrt als trifft,
+erzieht zum Wegsehen — und das trifft dann auch seine **richtigen** Befunde.
+
+Die Quote erscheint im Session-Start als Phase `0.7.19`, aber erst ab drei Urteilen
+je Melder: darunter ist jede Quote Zufall.
+
 **Ebenfalls hier abzufragen: rückfällige Gates aus Phase 0.7.7 (NEU 2026-08-20).**
 Meldet der Session-Start ein Gate als `RUECKFAELLIG`, dann hat eine Regel versagt, auf
 die sich der Loop verlässt — der Befund gehört ins selbe Netz wie ein Fremd-Repo-Befund
@@ -338,6 +358,45 @@ Schreibzugriff nach außen; bei mehr als zwei betroffenen Repos oder bei einer f
 risk-hub:GUARD(dirty)` eingefordert — ein **lokaler** Zustand des Arbeitsbaums, für den
 ein Issue in `risk-hub` Unsinn wäre. Die Liste wächst durch Belege: eine Phase kommt dazu,
 wenn ein konkreter Befund von ihr in einem fremden Repo repariert werden musste.
+
+---
+
+### 0g: Zusagen dieser Sitzung gegen Tracking-Artefakte prüfen (PFLICHT — NEU 2026-08-23, platform#2211)
+
+> **Der Slug `deferred-item-no-tracking-issue` steht bei 23 Vorkommen und hat seit dem
+> 2026-08-02 ein Gate — mit 9 Rückfällen danach.** Der Grund ist gemessen, nicht vermutet
+> (`docs/governance/verankerung-kalibrierung-2026-08-23.md`): die bestehenden Gates sind
+> Wortlisten, und der reale Rückfall stand als `bewusst **nicht** mitgemacht` da — mit
+> Markdown-Fettschrift zwischen den Wörtern, die jedes Muster zerreißt, und einer
+> PR-Referenz im selben Satz, die jeden Anker-Test besteht, ohne irgendetwas zu verfolgen.
+
+Dieser Schritt prüft nicht den Wortlaut, sondern den **Typ** der Zusage — über die
+PR-Texte, die diese Sitzung erzeugt hat:
+
+```bash
+for nr in $(gh pr list --author @me --state all --search "created:>=$(date -I)" --json number --jq '.[].number'); do
+  python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/verankerung_pruefer.py"     --pr "$nr" --repo "<owner>/$TARGET_REPO"
+done
+```
+
+- **`✅`** — jede erkannte Zusage trägt ein Tracking-Issue. Weiter.
+- **`⚠️`** — je gemeldeter Stelle **eine** von zwei Antworten, nie keine: Issue anlegen und
+  die Nummer **im selben Abschnitt** des PR-Textes nennen, **oder** die Meldung als
+  Fehlalarm in der Kalibrier-Datei notieren (mit Zitat — das Fenster lebt von diesen Zeilen).
+- **`◌ NICHT PRUEFBAR`** — kein Modell erreichbar (`ollama` aus). Das ist **kein** grünes
+  Ergebnis und wird als Lücke benannt, nicht stillschweigend übergangen.
+- **`◌ … Segment(e) UNGEPRUEFT — Zeitbudget erschoepft`** — der Lauf lief, wurde aber nicht
+  fertig. Die dritte Klasse, ergänzt am 2026-08-30 ([#2469](https://github.com/achimdehnert/platform/issues/2469)):
+  gemessen rund **80 s je Segment** (`qwen2.5:7b`, echter PR-Text), bei elf Segmenten also
+  rund eine Viertelstunde — die Sitzung davor brach beide Läufe nach 240 s ab und hatte
+  **gar kein** Ergebnis. Auch das ist keine Entwarnung: der ungeprüfte Rest steht in der
+  Ausgabe, und die dort genannten Segmente sind schlicht nicht angesehen worden.
+  `--budget-sekunden` (Default 300, `0` = unbegrenzt) steuert das.
+
+**Modus `advisory`, bewusst.** Die gemessene Präzision liegt bei 0,50 auf vier echten
+PR-Texten (1 Treffer, 1 Fehlalarm, 2 saubere Texte); ein blockierendes Gate mit dieser
+Quote wird umgangen statt befolgt. Scharfschaltung erst nach Auswertung des
+Kalibrierfensters — als eigene Entscheidung, nicht als Nebeneffekt eines Edits.
 
 ---
 
@@ -739,6 +798,26 @@ mcp__github__push_files(owner: <OWNER>, repo: "<repo>", branch: "main",
 → Funktioniert nur für **public Repos** oder Repos mit Write-Token.
 → Für private Repos: User muss manuell pushen.
 
+### 3.5: Clear-Freigabe — expliziter letzter Satz, keine Nachfrage nötig (PFLICHT — NEU 2026-08-30, Owner-Rückmeldung)
+
+> Phase 0e stellt die Frage „was überlebt den Kontext-Verlust?", aber die Antwort blieb
+> bisher ein internes Häkchen (Checkliste-Zeile „Clear-Härte") — sichtbar nur, wer die
+> Checkliste selbst aufklappt. Owner wörtlich (2026-08-30): „session-ende liefert häufig
+> keinen sauberen Zustand für clear, ich muss immer nachfragen." Der Fix ist kein
+> automatisches `/clear` (Phase 0e begründet das explizit ab) — sondern die Antwort auf die
+> Frage laut und zuletzt auszusprechen, statt sie in einer Checkliste verschwinden zu lassen.
+
+Letzter Output der Sitzung, nach der Abschluss-Checkliste, **genau eine** der beiden Zeilen:
+
+- **🟢 CLEAR-FREIGABE: JA** — Checkliste vollständig grün UND alle drei Phase-0e-Fragen mit
+  „nein" beantwortet oder ihr Fix bereits verankert (Issue/Handover/Memory, nicht nur Chat).
+  `/clear` kann ohne Rückfrage laufen.
+- **🔴 CLEAR-FREIGABE: NEIN — <konkreter Grund>** — mindestens ein Punkt offen (dirty Repo,
+  offene Checkliste-Zeile, unbeantwortete oder ungefixte Phase-0e-Frage). Der Grund benennt
+  das fehlende Ding, nicht nur „nicht grün".
+
+Keine dritte Formulierung, kein Weglassen dieser Zeile — sonst wird wieder nachgefragt.
+
 ---
 
 
@@ -785,8 +864,10 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 15 | SA-4-Zähler-Zeile geschrieben, Fehlanwendung ggf. als Befund gemeldet (Phase 0d) | ☐ |
 | 16 | Handover-PR gemergt — oder eine der vier Grenzen aus Phase 0a-merge benannt | ☐ |
 | 17 | Rückfälliges Gate aus Session-Start 0.7.7: in dieser Sitzung behandelt ODER Verzicht mit Grund abgelegt (Phase 0f) | ☐ |
-| 17 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
-| 18 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
+| 18 | Clear-Härte: nichts Dauerhaftes lebt nur im Gesprächsverlauf oder im Scratchpad, kein dauerhaftes Dokument verweist auf Flüchtiges (Phase 0e) | ☐ |
+| 19 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
+| 20 | `verankerung_pruefer.py` über die eigenen PR-Texte gelaufen: `✅`, oder je Meldung Issue bzw. dokumentierter Fehlalarm (Phase 0g) | ☐ |
+| 21 | Clear-Freigabe-Zeile ausgegeben — 🟢 JA mit Beleg oder 🔴 NEIN mit konkretem Grund, als letzter Satz der Sitzung (Phase 3.5) | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
@@ -826,6 +907,15 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 ## Changelog
 
 
+- 2026-08-30: **Phase 3.5 Clear-Freigabe (PFLICHT) + Checklisten-Zeile 21** — Owner-
+  Rückmeldung wörtlich: „session-ende liefert häufig keinen sauberen Zustand für clear,
+  ich muss immer nachfragen." Ursache: Phase 0e (2026-08-12) beantwortet die Clear-Frage
+  bereits, aber nur als internes Checkliste-Häkchen — sichtbar für niemanden außer dem, der
+  die Checkliste selbst aufklappt. Fix ist kein automatisches `/clear` (dagegen spricht
+  weiterhin: CLI-Builtin, kein Skill-Schritt, Automatisierung würde Verlust beschleunigen
+  statt verhindern) — sondern die Antwort als letzten sichtbaren Satz der Sitzung
+  auszusprechen: 🟢 CLEAR-FREIGABE: JA / 🔴 NEIN mit Grund. Kein neuer Prüfschritt, nur eine
+  Ausgabepflicht für ein Ergebnis, das der Skill an dieser Stelle schon kennt.
 - 2026-08-20: **Phase 0f um rückfällige Gates erweitert** + Checklisten-Zeile 17. Ein vom
   Session-Start gemeldetes rückfälliges Gate braucht denselben Abschluss wie ein
   Fremd-Repo-Befund: behandelt (Registry im selben PR nachgezogen) oder Verzicht mit Grund.

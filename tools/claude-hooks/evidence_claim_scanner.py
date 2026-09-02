@@ -41,7 +41,7 @@ GATE_HEADER = {
     "slug": "claim-before-cheapest-check",
     "mode": "blocking",  # Laufzeit-Opt-out: state-Datei, s. _mode()
     "owner": "achim",
-    "last_drill_pass": "2026-08-02",  # Drill = test_should_block_* in tests/
+    "last_drill_pass": "2026-08-28",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py
     "evidence": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
 }
 
@@ -124,6 +124,23 @@ CLAIM_PATTERNS = [
             re.I,
         ),
         "deploy/publish",
+    ),
+    # CI-/Hintergrund-Status (Retro aa58f9, 2026-08-25 — Gate rueckfaellig, Antwort:
+    # AUSWEITEN). Zwei Rueckfaelle in einer Sitzung hatten dieselbe Form: "CI gruen"
+    # nach einem Push, der die CI rot machte, und "laeuft im Hintergrund" nach
+    # einem Dispatch, der 404 lieferte. Beide Male hatte der Turn frueher ein
+    # `gh pr checks` — die generische Korroboration war deshalb erfuellt, obwohl
+    # sie den Stand VOR dem Push belegte. Deshalb hier ordnungsgebundene
+    # Korroboration (_check_nach_push) statt der generischen.
+    (
+        re.compile(
+            r"\b(?:CI|Checks?|Pipeline|Workflow)\s+(?:ist\s+|sind\s+|bleibt\s+)?"
+            r"(?:grün|gruen|green|rot|red|bestanden|passed|durch|sauber)\b"
+            r"|\bl(?:ä|ae)uft\s+im\s+Hintergrund\b"
+            r"|\b(?:dispatcht|dispatched|angesto(?:ß|ss)en)\b",
+            re.I,
+        ),
+        "ci-status",
     ),
     (re.compile(r"\b\d+/\d+\s*(?:grün|gruen|green|passed|ok)\b", re.I), "ratio-claim"),
     # PR/Issue-Claim (Lehre 2026-06-25, claim-before-cheapest-check gate-pflicht):
@@ -290,12 +307,24 @@ CLAIM_PATTERNS = [
     # Der absence-claim-Block oben verlangt ein Objekt aus fester Liste (Referenz/
     # Verweis/Doku/Treffer) oder die Wortfolge „hat kein" — ein blosser Allquantor
     # ueber ein beliebiges Objekt faellt durch.
+    #
+    # Ausweitung 2026-08-25 (Retro fdd368 §5a, Owner-Entscheid „ausweiten"): das
+    # Muster verlangte eine ZIFFER. Gemessen am Realfall:
+    #   „alle sieben Checks grün" -> VERFEHLT · „alle 7 Checks grün" -> TRIFFT
+    # Genau der erste Satz stand am 2026-08-25 in einer Antwort, während zwei
+    # Checks rot waren; der Owner sah es, das Gate nicht. Dieselbe Aussage,
+    # dieselbe Unwahrheit, zwei Schreibweisen — der Slug dafür heisst
+    # `gate-matches-spelling-not-substance` und stand mit ×5 ohne Gate da.
+    # Zahlwoerter bis zwoelf decken den realen Sprachgebrauch ab; darueber
+    # schreibt niemand mehr aus. „beide" ist derselbe Fall mit n=2.
     (
         re.compile(
             r"\bkein(?:e|en)?\s+einzig(?:er|e|es|en)\b"
             r"|\b(?:keine[rs]?|in\s+keine[rm])\s+(?:der|dieser|von\s+den)\b"
             r"|\b(?:ausnahmslos|durchweg|s(?:ä|ae)mtliche[nrs]?)\b"
-            r"|\balle[nrs]?\s+\d+\s+[A-Za-zÄÖÜäöüß-]{3,}\b"
+            r"|\balle[nrs]?\s+(?:\d+|zwei|drei|vier|f(?:ü|ue)nf|sechs|sieben|acht|"
+            r"neun|zehn|elf|zw(?:ö|oe)lf)\s+[A-Za-zÄÖÜäöüß-]{3,}\b"
+            r"|\bbeide[nrs]?\s+[A-Za-zÄÖÜäöüß-]{3,}\s+(?:sind|waren|liefen|stehen)\b"
             r"|\bnot\s+(?:a\s+)?single\b|\bnone\s+of\s+(?:the|these)\b|\bevery\s+single\b",
             re.I,
         ),
@@ -489,6 +518,44 @@ def _published_bodies(tool_inputs: list) -> list:
 #: Backtick-Bezeichner. Bewusst eng — ein nicht erkanntes Subjekt fuehrt zum
 #: bisherigen Verhalten zurueck (generische Korroboration), nie zu einem Block
 #: aus dem Nichts.
+# Rev 4 (Retro 62f875 §5a, Gate rueckfaellig → ausweiten): platform#2397, 06:56:41Z —
+# `gh pr comment … "Admin-Merge (Ruleset-Bypass …)" && gh pr merge --admin` in EINER Kette.
+# Der Merge lief ins Leere ("already merged", wirdigital hatte regulaer gemergt), der
+# Kommentar stand trotzdem. Zwei Luecken: (1) eine BYPASS-Behauptung ist ein eigener
+# Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den
+# Merge-WEG; (2) ein Status-Kommentar, der in derselben Befehlskette VOR dem Merge
+# abgesetzt wird, kann das Ergebnis per Konstruktion nicht kennen.
+BYPASS_CLAIM_RE = re.compile(
+    r"admin-merge|admin merge|--admin\b|ruleset-bypass|\bbypass\b", re.I
+)
+MERGEDBY_EVIDENCE_RE = re.compile(
+    r"mergedBy|merged_by|Merged pull request|✓ Merged|merge_commit", re.I
+)
+_GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
+_GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
+_STATUS_IN_COMMENT_RE = re.compile(
+    r"gemergt|merged\b|admin-merge|bypass|deployed|gr(?:ü|ue)n\b", re.I
+)
+
+
+def _kommentar_vor_merge(tool_inputs: list) -> bool:
+    """True, wenn EIN Bash-Kommando einen gh-Kommentar mit Status-/Bypass-Wortlaut
+    absetzt und DANACH in derselben Kette `gh pr merge` folgt — der Kommentar behauptet
+    dann ein Ergebnis, das erst der spaetere Befehl erzeugt (oder verweigert)."""
+    for name, inp in tool_inputs:
+        if name != "Bash" or not isinstance(inp, dict):
+            continue
+        cmd = str(inp.get("command", ""))
+        mc = _GH_COMMENT_RE.search(cmd)
+        mm = _GH_MERGE_RE.search(cmd)
+        if not (mc and mm) or mc.start() > mm.start():
+            continue
+        zwischen = cmd[mc.start() : mm.start()]
+        if _STATUS_IN_COMMENT_RE.search(zwischen):
+            return True
+    return False
+
+
 _SUBJEKT_MUSTER = (
     re.compile(r"\b[\w./-]+\.(?:py|md|ya?ml|json|sh|toml|ts|tsx|js|sql)\b"),
     re.compile(r"#\d{2,6}\b"),
@@ -591,6 +658,87 @@ def _last_turn_blocks(transcript_path: str):
     return "\n".join(assistant_text), "\n".join(evidence_text), tool_inputs
 
 
+_PUSH_RE = re.compile(r"\bgit\s+push\b|\bgh\s+workflow\s+run\b|\bgh\s+pr\s+merge\b")
+_CHECK_RE = re.compile(
+    r"\bgh\s+pr\s+checks\b|\bgh\s+run\s+(?:view|list|watch)\b|\bgh\s+pr\s+view\b"
+)
+
+
+def _check_nach_push(tool_inputs: list):
+    """Lief NACH dem letzten push/dispatch/merge dieses Turns noch ein gh-Check?
+
+    None = kein push/dispatch im Turn (die Aussage ist nicht ordnungsgebunden,
+    die generische Korroboration entscheidet). True = ja. False = nein — dann
+    belegt ein frueheres `gh pr checks` nur den Stand VOR dem Push (aa58f9 #2).
+    Ein Check im SELBEN Kommando zaehlt, wenn er im Text hinter dem Push steht
+    (`git push && gh pr checks`).
+    """
+    letzter = None
+    for i, (name, inp) in enumerate(tool_inputs):
+        if name != "Bash" or not isinstance(inp, dict):
+            continue
+        cmd = str(inp.get("command", ""))
+        treffer = list(_PUSH_RE.finditer(cmd))
+        if treffer:
+            letzter = (i, cmd[treffer[-1].end() :])
+    if letzter is None:
+        return None
+    idx, rest = letzter
+    if _CHECK_RE.search(rest):
+        return True
+    for name, inp in tool_inputs[idx + 1 :]:
+        if name == "Bash" and isinstance(inp, dict):
+            if _CHECK_RE.search(str(inp.get("command", ""))):
+                return True
+    return False
+
+
+# Ausweitung 2026-08-25 (Retro fdd368 §5a): ein Beleg, der durch `head`/`tail`
+# abgeschnitten wurde, traegt keine Aussage ueber ALLE Elemente einer Liste.
+#
+# Realfall: `gh pr checks 761 | tail -12` zeigte zwoelf gruene Zeilen, die zwei
+# roten standen weiter oben. Der billigste Check LIEF — deshalb griff die
+# bestehende Korroboration und winkte „alle Checks gruen" durch. Das Gate fragt
+# bisher „gab es ein Belegkommando?", nicht „konnte dessen Ausgabe die Aussage
+# ueberhaupt tragen?".
+#
+# Bewusst eng: nur LISTEN-Kommandos, deren Zeilenfolge nichts garantiert. Ein
+# `make test | tail -3` bleibt gueltig, weil pytest seine Summenzeile ans Ende
+# schreibt — dort ist der Anschnitt die richtige Stelle, nicht ein Verlust.
+_ABSCHNITT_RE = re.compile(r"\|\s*(?:head|tail)\b", re.I)
+_LISTEN_KOMMANDO_RE = re.compile(
+    r"gh\s+pr\s+checks\b|gh\s+run\s+list\b|gh\s+(?:pr|issue)\s+list\b|"
+    r"gh\s+api\b|git\s+status\b|git\s+branch\b|docker\s+ps\b|\bls\s+-",
+    re.I,
+)
+#: Gegenprobe im selben Zug: wer nach dem GEGENTEIL filtert, hat die Liste
+#: vollstaendig befragt — `awk '$2!="pass"'`, `grep -v`, `grep -c`. Eine leere
+#: Ausgabe ist dann der Beleg, kein Ausschnitt.
+_GEGENPROBE_RE = re.compile(
+    r"grep\s+-[a-zA-Z]*[vc]|awk\s+[^\n]*!=|\|\s*wc\s+-l|--jq\b|-q\s+['\"][^\n]*select",
+    re.I,
+)
+
+
+def _beleg_abgeschnitten(tool_inputs: list) -> bool:
+    """Lief ein Listen-Kommando dieses Zuges durch `head`/`tail` — ohne Gegenprobe?
+
+    True = ja, die Ausgabe kann eine Allaussage nicht tragen. False = kein
+    solcher Fall ODER im selben Zug wurde zusaetzlich nach dem Gegenteil
+    gefiltert (dann ist die Liste vollstaendig befragt worden).
+    """
+    abgeschnitten = False
+    for name, inp in tool_inputs:
+        if name != "Bash" or not isinstance(inp, dict):
+            continue
+        cmd = str(inp.get("command", ""))
+        if _GEGENPROBE_RE.search(cmd) and _LISTEN_KOMMANDO_RE.search(cmd):
+            return False
+        if _LISTEN_KOMMANDO_RE.search(cmd) and _ABSCHNITT_RE.search(cmd):
+            abgeschnitten = True
+    return abgeschnitten
+
+
 def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
@@ -609,6 +757,11 @@ def main() -> int:
     assistant_text, evidence_text, tool_inputs = _last_turn_blocks(transcript_path)
 
     fired = []
+    #: Erstes woertliches Treffer-Zitat — der Beleg, an dem die Kalibrierung
+    #: spaeter FEHLALARM oder ECHT entscheidet. Ohne ihn stehen im Protokoll nur
+    #: Zeitstempel und Label, und die Fehlalarm-Quote ist nicht ableitbar
+    #: (gemessen 2026-08-23: 59 von 59 Zeilen dieses Gates ohne Ausschnitt).
+    erster_beleg = ""
     if assistant_text:
         for pat, label in CLAIM_PATTERNS:
             if label == "affirmative-cause":
@@ -617,8 +770,17 @@ def main() -> int:
                 if _affirmative_cause_fires(assistant_text):
                     fired.append(label)
                 continue
-            if pat.search(assistant_text):
+            if m := pat.search(assistant_text):
                 fired.append(label)
+                if not erster_beleg:
+                    erster_beleg = m.group(0)
+
+    # CI-/Hintergrund-Status: ordnungsgebunden. Ein Check, der VOR dem letzten
+    # push/dispatch lief, belegt nichts ueber den Stand danach.
+    ci_fired = [label for label in fired if label == "ci-status"]
+    fired = [label for label in fired if label != "ci-status"]
+    if ci_fired and _check_nach_push(tool_inputs) is False:
+        fired.extend(ci_fired)
 
     # Absence-Claims separat behandeln, BEVOR die generische Korroboration greift:
     # ein `gh pr list --search` (in EVIDENCE_TOKENS als "gh pr list" enthalten) darf
@@ -651,7 +813,12 @@ def main() -> int:
         for label in fired
         if label not in ("universal-claim", "soft-quantifier-claim")
     ]
-    if universal_fired and not ABSENCE_EVIDENCE_TOKENS.search(evidence_text):
+    # Zweite Bedingung seit 2026-08-25: selbst eine Breitsuche belegt nichts ueber
+    # ALLE Elemente, wenn ihre Ausgabe durch head/tail abgeschnitten wurde.
+    if universal_fired and (
+        not ABSENCE_EVIDENCE_TOKENS.search(evidence_text)
+        or _beleg_abgeschnitten(tool_inputs)
+    ):
         fired.extend(universal_fired)
 
     # Funktions-Negation und Zeit-Claim brauchen den Lauf, nicht den Code.
@@ -693,8 +860,10 @@ def main() -> int:
     kalibrier_fall = bool(
         fired and subjekt_unbelegt and EVIDENCE_TOKENS.search(evidence_text)
     )
-    if fired and EVIDENCE_TOKENS.search(evidence_text) and not (
-        subjekt_unbelegt and subjekt_scharf
+    if (
+        fired
+        and EVIDENCE_TOKENS.search(evidence_text)
+        and not (subjekt_unbelegt and subjekt_scharf)
     ):
         fired = [
             label
@@ -711,6 +880,9 @@ def main() -> int:
                 # von Code oder einen gruenen Test — die generische Korroboration
                 # darf sie deshalb nicht entwaffnen (s. lauf_fired oben).
                 "affirmative-cause",
+                # Ordnungsgebunden entschieden (s. ci_fired oben) — ein frueherer
+                # Check im Turn darf den Stand nach dem Push nicht belegen.
+                "ci-status",
             )
         ]
 
@@ -737,6 +909,21 @@ def main() -> int:
                     "published-body (PR/Issue-Body-Claim ohne Read-Beleg im Turn)"
                 )
 
+    # Rev 4: Bypass-Behauptung in publizierten Bodies + Kommentar-vor-Merge
+    if (
+        bodies
+        and BYPASS_CLAIM_RE.search("\n".join(bodies))
+        and not MERGEDBY_EVIDENCE_RE.search(evidence_text)
+    ):
+        fired.append(
+            "bypass-claim (Admin-/Ruleset-Bypass im PR-/Issue-Kommentar behauptet, "
+            "aber kein mergedBy-Beleg im Turn — `state: MERGED` belegt den Merge-WEG nicht)"
+        )
+    if _kommentar_vor_merge(tool_inputs):
+        fired.append(
+            "comment-before-merge (Status-/Bypass-Kommentar in derselben Befehlskette VOR "
+            "`gh pr merge` — das Ergebnis kann der Kommentar noch nicht kennen)"
+        )
     if kalibrier_fall and not subjekt_scharf:
         # Im Kalibrierfenster wird der Fall PROTOKOLLIERT, nicht gemeldet: so
         # entstehen Messdaten, ohne die Sitzung mit Hinweisen zu fluten. Scharf
@@ -746,6 +933,8 @@ def main() -> int:
             gate_hits.notiere(
                 GATE_HEADER["slug"],
                 "kinds=subjekt-unbelegt-kalibrierung",
+                turn=assistant_text,
+                beleg=erster_beleg,
                 session=str(event.get("session_id", "")),
                 modus="advisory",
             )
@@ -767,6 +956,8 @@ def main() -> int:
     gate_hits.notiere(
         GATE_HEADER["slug"],
         f"kinds={kinds}",
+        turn=assistant_text,
+        beleg=erster_beleg,
         session=str(event.get("session_id", "")),
         modus=_mode(),
     )
@@ -809,5 +1000,28 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Bis 2026-09-02 lag um `main()` keines der sieben Stop-Hook-Module einen
+    Auffangbogen; eine unerwartete Ausnahme waere als Traceback mit Exit 1 aus
+    dem Vertrag gefallen. Bewusst kein geteiltes Hilfsmodul — ein Import waere
+    ein neuer Grund zu scheitern genau an der Stelle, die das Scheitern abfangen
+    soll (Verteil-Drift, `tools/hook-dist-drift.sh`).
+
+    Das bewusste Blocken bleibt unberuehrt: es steht als `{"decision": "block"}`
+    bereits auf stdout, bevor hier etwas gefangen werden koennte, und ein
+    `sys.exit(2)` traegt `SystemExit` — keine `Exception`.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(
+            f"evidence_claim_scanner: {type(exc).__name__}: {exc}"[:400],
+            file=sys.stderr,
+        )
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())

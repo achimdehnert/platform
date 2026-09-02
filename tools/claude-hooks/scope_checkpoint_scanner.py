@@ -29,6 +29,12 @@ B ``nicht-festgehalten`` Checkpoint ausgesprochen, aber kein durables
 
 MESSGROESSE FUER "DRITTES REPO"
 -------------------------------
+Rev 3 (2026-08-23) zaehlt zusaetzlich die Repos, die ein schreibendes Kommando
+laut seiner eigenen AUSGABE angefasst hat. Anlass ist der Rueckfall aus Retro
+``8d6869-incr`` #8: ein Flottenlauf entfernte 69 Arbeitskopien und blieb unter
+der Schwelle, weil im Aufruf ein einziger Pfad stand. Reichweite ist eine
+Eigenschaft der Wirkung, nicht der Argumente.
+
 NICHT die Zahl der genannten Repos: ``artefakt_budget`` hat am 2026-08-17
 gemessen, dass die in echten Sitzungen 50 bzw. 26 ergibt, weil sie jede
 Erwaehnung mitzaehlt. Gezaehlt werden Repos mit einem SCHREIBZUGRIFF —
@@ -95,6 +101,41 @@ CHECKPOINT_PATTERNS = re.compile(
 _SCHREIBEND = re.compile(
     r"\bgit\s+(?:commit|push|merge|cherry-pick|revert)\b"
     r"|\bgh\s+(?:pr|issue)\s+(?:create|edit|merge|close|comment)\b"
+)
+
+#: Die HAUSEIGENE Wirkungs-Konvention, nicht eine Verb-Liste aus dem Sprachgebrauch.
+#: Werkzeuge dieses Repos laufen per Vorgabe trocken und brauchen fuer die Wirkung
+#: ein ausdrueckliches Flag (`--apply`, `--allow-live`, `--sync`, `reap`). Genau
+#: diese Kommandos fehlten in `_SCHREIBEND` — der Arbeitsbaum-Reaper entfernte 69
+#: Arbeitskopien und galt fuer das Gate als lesend (Retro 8d6869-incr #8).
+#:
+#: Der Unterschied zu einer Muster-Aufzaehlung: das hier ist eine **Konvention des
+#: eigenen Repos**, abzaehlbar und dokumentiert — kein Versuch, natuerliche Sprache
+#: zu erraten. Sie zaehlt ausserdem nur zusammen mit dem zweiten Signal: die
+#: Ausgabe muss von sich aus mehrere Repos nennen.
+_WIRKUNGS_FLAGGE = re.compile(
+    r"--apply\b|--allow-live\b|--sync\b|\breap\b|\bworktree\s+remove\b", re.I
+)
+
+#: Rev 4, Ausweitung 2026-08-25 (Retro fdd368 §5a, Owner-Entscheid „ausweiten"):
+#: dritter Ausloeser — eine LAUFENDE Ressource beendet, die diese Sitzung nicht
+#: gestartet hat.
+#:
+#: Anlass: am 2026-08-25 wurde ein seit dem Vortag laufender Entwicklungsserver
+#: per `kill <pid>` beendet, waehrend zwoelf Sitzungen parallel liefen. Die
+#: Zugehoerigkeit wurde erst DANACH ueber `/proc/<pid>/cwd` plausibilisiert. Beide
+#: bestehenden Ausloeser griffen nicht: es war kein drittes beschriebenes Repo und
+#: kein Prod-Schritt. Der Ausgang war harmlos — aber der Checkpoint fragt nach dem
+#: gewachsenen SCOPE, nicht nach dem entstandenen Schaden. Genau diese
+#: Harmlosigkeits-Ausnahme hoehlt ihn aus, und genau so kam der Slug wieder.
+#:
+#: Bewusst eng: nur das Beenden fremder Prozesse und Dienste. `docker compose
+#: up/down` auf den eigenen Stack ist Alltag und faellt absichtlich nicht darunter.
+_FREMDE_RESSOURCE = re.compile(
+    r"\bkill\s+(?:-\w+\s+)?\d{2,}\b|\bpkill\b|\bkillall\b"
+    r"|\bsystemctl\s+(?:stop|restart|disable|mask)\b"
+    r"|\bdocker\s+(?:kill|stop)\s+\S",
+    re.I,
 )
 
 # Durables Artefakt (unveraendert aus Rev 1, nur sitzungsweit ausgewertet).
@@ -165,6 +206,42 @@ def _repos_aus_kommando(cmd: str) -> set[str]:
     return gefunden
 
 
+#: Obergrenze fuer die Ausgabe, die auf Repo-Namen abgesucht wird. Ein Lauf ueber
+#: die ganze Flotte nennt seine Repos in den ersten Zeilen; alles darueber ist
+#: Kosten ohne Erkenntnis.
+_AUSGABE_MAX = 20000
+
+
+def _repos_aus_ausgabe(text: str) -> set[str]:
+    """Repos, die ein Kommando laut seiner eigenen AUSGABE angefasst hat.
+
+    Rev 3, und der Grund dafuer steht in Retro `8d6869-incr` Befund #8: der
+    Arbeitsbaum-Reaper lief mit `--karenz-stunden 0` und entfernte **69** Baeume
+    ueber die ganze Flotte statt der zwei besprochenen. Der Scope wuchs also um
+    ein Vielfaches — und erreichte die Drei-Repo-Schwelle nie, weil im Kommando
+    genau **ein** Pfad stand. Wer nur die Argumente liest, sieht ein Repo.
+
+    Die Reichweite steht nicht im Aufruf, sie steht im Ergebnis: der Reaper
+    schreibt jede entfernte Arbeitskopie mit ihrem Pfad. Deshalb misst Rev 3 an
+    der Wirkung statt an der Deklaration — dieselbe Wendung wie bei
+    `deploy_wirkung` (platform#2148).
+
+    Nur fuer Ergebnisse SCHREIBENDER Kommandos aufrufen: ein `grep -rn ~/github/`
+    nennt dieselben Pfade, ohne irgendetwas anzufassen.
+    """
+    return _repos_aus_kommando(text[:_AUSGABE_MAX])
+
+
+def _text_aus_ergebnis(block: dict) -> str:
+    """Ergebnistext eines ``tool_result``-Blocks — Liste oder String."""
+    inhalt = block.get("content")
+    if isinstance(inhalt, str):
+        return inhalt
+    if isinstance(inhalt, list):
+        return " ".join(str(t.get("text") or "") for t in inhalt if isinstance(t, dict))
+    return ""
+
+
 def sammle_evidenz(transcript_path: Path) -> dict:
     """Sitzungsweite Tool-Evidenz. Reiner Lesevorgang, keine Seiteneffekte."""
     ergebnis = {
@@ -172,12 +249,15 @@ def sammle_evidenz(transcript_path: Path) -> dict:
         "prod": False,
         "checkpoint_text": "",
         "durables_artefakt": False,
+        "fremde_ressource": "",
     }
     # Reihenfolge zaehlt: ein durables Artefakt BELEGT den Checkpoint nur,
     # wenn es nach ihm entstand. Ohne diese Kopplung genuegte irgendein
     # frueherer `docs/`-Edit derselben Sitzung — Fehlerform B waere dann
     # praktisch nie ausloesbar (gefunden vom eigenen Drill, 2026-08-19).
     schritt = 0
+    #: ``tool_use_id`` der schreibenden Kommandos — nur deren Ausgabe zaehlt.
+    schreib_ids: set[str] = set()
     checkpoint_bei = None
     durable_bei: list[int] = []
     try:
@@ -211,6 +291,13 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                             checkpoint_bei = schritt
                     continue
 
+                if typ == "tool_result":
+                    if str(c.get("tool_use_id") or "") in schreib_ids:
+                        ergebnis["repos_beschrieben"].update(
+                            _repos_aus_ausgabe(_text_aus_ergebnis(c))
+                        )
+                    continue
+
                 if typ != "tool_use":
                     continue
                 name = str(c.get("name") or "")
@@ -235,13 +322,29 @@ def sammle_evidenz(transcript_path: Path) -> dict:
                     continue
                 if _PROD.search(cmd):
                     ergebnis["prod"] = True
+                # Rev 4: fremde laufende Ressource beendet — eigener Ausloeser,
+                # unabhaengig von Repo-Zahl und Prod. Der erste Treffer traegt
+                # den Beleg; spaetere ueberschreiben ihn nicht.
+                if not ergebnis["fremde_ressource"] and (
+                    m := _FREMDE_RESSOURCE.search(cmd)
+                ):
+                    ergebnis["fremde_ressource"] = m.group(0).strip()
                 if _DURABLE_CMD.search(cmd):
                     durable_bei.append(schritt)
+                # Die Ausgabe eines wirkenden Kommandos traegt seine Reichweite.
+                # Getrennt vom `_SCHREIBEND`-Zweig, weil ein Flottenlauf KEIN
+                # git/gh-Kommando ist und sonst nie hierher kaeme.
+                if _WIRKUNGS_FLAGGE.search(cmd) and (tid := str(c.get("id") or "")):
+                    schreib_ids.add(tid)
                 if _SCHREIBEND.search(cmd):
                     repos = _repos_aus_kommando(cmd)
                     if not repos and (aus_cwd := _repo_aus_pfad(cwd)):
                         repos = {aus_cwd}
                     ergebnis["repos_beschrieben"].update(repos)
+                    # Die Ausgabe dieses Kommandos darf gleich mitzaehlen — sie
+                    # traegt die tatsaechliche Reichweite (s. _repos_aus_ausgabe).
+                    if tid := str(c.get("id") or ""):
+                        schreib_ids.add(tid)
 
     if checkpoint_bei is not None:
         ergebnis["durables_artefakt"] = any(i >= checkpoint_bei for i in durable_bei)
@@ -295,6 +398,8 @@ def main() -> int:
         ausloeser.append(f"{len(repos)} beschriebene Repos ({', '.join(repos)})")
     if ev["prod"]:
         ausloeser.append("Prod-/Publish-Schritt")
+    if ev["fremde_ressource"]:
+        ausloeser.append(f"fremde Ressource beendet ({ev['fremde_ressource']})")
     if not ausloeser:
         return 0  # keine Pflicht entstanden
 
@@ -343,5 +448,21 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Siehe `evidence_claim_scanner.main_sicher` fuer die Begruendung; bewusst
+    dupliziert statt geteilt, damit der Auffangbogen keinen Import braucht.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(
+            f"scope_checkpoint_scanner: {type(exc).__name__}: {exc}"[:400],
+            file=sys.stderr,
+        )
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())
