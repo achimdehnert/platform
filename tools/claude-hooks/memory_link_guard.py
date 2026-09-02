@@ -172,9 +172,9 @@ def main() -> int:
     # offen war — auch in Zuegen, die dort nichts geschrieben haben. Am realen
     # Bestand gemessen: 698 ms je Stop, davon ~685 ms Pruefer.
     #
-    # Bewusst NICHT ueber Werkzeug-Evidenz des Turns gefiltert: eine Memory-Datei
-    # kann auch aus einer Bash-Zeile oder einem Unteragenten entstehen, und ein
-    # solcher Filter haette genau diese Faelle blind gemacht. Der Inhalts-Hash
+    # Die Vorbedingung ist der Inhalts-Abdruck, nicht die Werkzeug-Evidenz des
+    # Turns: eine Memory-Datei entsteht auch aus einer Bash-Zeile oder einem
+    # Unteragenten, wofuer Werkzeug-Evidenz blind waere. Der Inhalts-Hash
     # verliert dagegen keinen einzigen Fund: aendert sich eine offene Datei,
     # aendert sich der Abdruck und der Pruefer laeuft. Bleibt alles gleich, ist
     # auch der Befund derselbe — und wurde beim ersten Mal schon gemeldet.
