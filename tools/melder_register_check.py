@@ -29,8 +29,9 @@ Herabstufung um:
                         weder verankert noch verzichtet sind und aelter als
                         `--tage` (Default 14) Tage, als eigener Block.
 
-Bewusst NICHT hier drin: kein Anlegen von Issues, kein Netzzugriff. Wie
-`befund_journal.py` ist dies ein Gedaechtnis- und Registry-Pruefer, kein Handelnder.
+Außerhalb des Zwecks dieses Werkzeugs: es legt keine Issues an und macht keinen
+Netzzugriff — es liest und meldet nur. Wie `befund_journal.py` ist dies ein
+Gedaechtnis- und Registry-Pruefer, kein Handelnder.
 """
 
 from __future__ import annotations
