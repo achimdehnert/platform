@@ -244,13 +244,29 @@ hosts:
             description="NVIDIA GB10" total=121.6 GiB). Nur synthetische/oeffentliche
             Korpora (Guenzburg-Fachseiten), keine Buergerdaten. Gemessen 2026-09-02
             warm: 47,8 tok/s (qwen2.5:7b), 47,1 tok/s (llama3.1:8b).
-            Offene Haertung: Abschottung ruht allein auf der Bind-Adresse; ein
-            Paketfilter analog ADR-296 (11434 nur aus 10.99.0.0/24) braucht Root
-            (sudo verlangt Passwort) — Owner-Sitzung.
+            Paketfilter seit 2026-09-02 (Owner, interaktiv): ufw aktiv, 11434/tcp
+            nur aus 10.99.0.0/24 (ADR-296-Muster); vom prod-Hop gegengeprueft 200.
+          entschieden: 2026-09-02
+          bis: 2026-12-01
+        whisper:
+          grund: >
+            STT-Inferenz fuer den Voice-Agent (iil-voice-agent#101): whisper.cpp
+            large-v3-turbo auf der GB10, gebunden auf 10.99.0.4:8178, NICHT 0.0.0.0
+            (am Knoten gegengeprueft: 0 Treffer auf 0.0.0.0; 127.0.0.1 refused, vom
+            prod-Hop erreichbar). Kein Container, kein App-Hub: systemd-Nutzerdienst
+            wie Embedder und ollama (whisper.cpp eacbd82, CUDA 13, sm_121, GPU belegt:
+            "found 1 CUDA devices / Device 0: NVIDIA GB10", 1953 MiB). Nur synthetisches
+            Probe-Audio, keine Buergerdaten. Gemessen 2026-09-02 warm: 134 ms fuer 3,04 s
+            Audio (CPU-Baseline p50 690-734 ms); medium war langsamer (158 ms) UND
+            schlechter (Eigenname zerlegt). Paketfilter seit 2026-09-02 (Owner,
+            interaktiv): ufw aktiv, 8178/tcp nur aus 10.99.0.0/24 (ADR-296-Muster);
+            vom prod-Hop gegengeprueft 200.
           entschieden: 2026-09-02
           bis: 2026-12-01
     historie:
-      - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall-Stand nicht verifizierbar (kein Root)"
+      - "2026-09-02: ufw aktiviert (Owner, interaktiv): OpenSSH beliebig; 11434/8100/8178 tcp nur aus 10.99.0.0/24 (ADR-296-Muster). Positivkontrolle vom prod-Hop: ollama 200, whisper 200, embedder antwortet (404 auf /), ssh ok; ollama/whisper/embedder-Units active"
+      - "2026-09-02: whisper.cpp (CUDA, sm_121) als systemd-Nutzerdienst eingerichtet (~/.config/systemd/user/whisper.service, --host 10.99.0.4 --port 8178, large-v3-turbo); Modelle turbo+medium gezogen (+3,2 GB); iil-voice-agent#101 K1 erfuellt. Firewall: siehe ufw-Eintrag"
+      - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall: siehe ufw-Eintrag"
     betrieb: 7/24                      # Owner-Angabe 2026-09-01 — der Knoten
                                        # ist KEIN Buerorechner mit Zuruf-Betrieb.
                                        # Damit faellt der Verfuegbarkeits-Einwand
