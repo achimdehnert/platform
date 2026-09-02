@@ -744,13 +744,6 @@
       "reason": "Seltener, manueller Vorgang (CI-Umbau, wenige Male/Jahr). Eine Automatik muesste 'ersetzt statt ergaenzt' semantisch erkennen — unscharf. Die Review-Pflicht auf .github/** (CODEOWNERS-Perimeter, vom Ruleset-Waechter bewacht) deckt den Vorgang ab."
     },
     {
-      "slug": "issue-not-reconciled-after-cross-repo-fix",
-      "decided": "2026-08-12",
-      "owner": "achim",
-      "ref": "platform#1650 Owner-Entscheid 2026-08-12",
-      "reason": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste."
-    },
-    {
       "slug": "kennzahl-ohne-verfallsdatum",
       "mode": "advisory",
       "owner": "achim",
@@ -808,6 +801,15 @@
       "ref": "Owner-Entscheid 2026-08-23 · Retro a84f71 Befund 1 · platform#2234",
       "damalige_begruendung": "Meta-Muster wie oben: 'haettest du auch das Geschwister angefasst' ist erst im Rueckblick entscheidbar. Bemerkenswert dabei: der Slug hat sich am 2026-08-23 zweimal selbst bestaetigt (0.7.5 deckte die Hook-Lane, nicht die Skill-Lane; 0.7.13 deckte skills+commands, nicht `hooks`) — beide Male fiel es beim BAUEN auf, nicht durch einen Melder. Die wirksame Gegenmassnahme ist die Lane-Liste in 0.7.13, nicht ein Textscanner.",
       "widerlegung": "Am selben Tag dreimal aufgetreten, jedes Mal mechanisch sichtbar: 0.7.5 deckte die Hook-Lane und nicht die Skill-Lane; 0.7.13 deckte `skills`+`commands` und nicht `hooks`; und der Default-Flip in `record()` wurde nur an den WARN-Zweigen nachgezogen, wodurch zwei PASS-Zweige fremde Repos als `platform` etikettierten (Retro a84f71 Befund 1, belegt an Zeile 152 und 391). Die Verzichts-Begruendung ('erst im Rueckblick entscheidbar') traegt damit nicht: in allen drei Faellen war die Geschwister-Stelle im selben Diff bzw. in derselben Aufzaehlung sichtbar. Ein Ansatz mit Messpunkt: beim Aendern eines Defaults oder beim Aufnehmen einer Lane pruefen, ob ALLE Aufrufstellen bzw. Lanes derselben Familie mitgezogen wurden."
+    },
+    {
+      "slug": "issue-not-reconciled-after-cross-repo-fix",
+      "declined_am": "2026-08-12",
+      "widerrufen_am": "2026-09-02",
+      "owner": "achim",
+      "ref": "Owner-Entscheid 2026-09-02 ('40 widerrufen') · platform#2234 Kommentar 2026-09-02 · platform#2374 Ziel A Pruefdatensatz",
+      "damalige_begruendung": "Cross-Repo-Zustand, den kein lokaler Hook sieht; Automatisierung waere ein permanenter Repo-Crawler — Aufwand deutlich groesser als der Schaden (2 Vorkommen). Abgedeckt durch die Issue-Reconcile-Phase der /session-ende-Checkliste.",
+      "widerlegung": "Seit dem Verzicht dreimal als SURVIVES-Befund wiedergekehrt (chat-hub b62038 2026-08-21: #27 blieb OPEN trotz Kommentar 'alle fuenf Punkte erledigt'; ausschreibungs-hub b82988 2026-08-23: #184 durch #195 erfuellt, offen; writing-hub 3106ae 2026-08-25: fuenf geloeste Issues OPEN, 9 von 10 PR-Texten 'Refs #N' statt 'Closes'). Beide Praemissen tragen nicht: (1) alle drei Faelle sind SAME-REPO — die erledigende PR lag im Repo des Issues; ein lokaler Check am Sitzungsende (je gemergter Session-PR die referenzierten Issues abfragen, offene melden) reicht, kein Crawler. (2) Die genannte 'Issue-Reconcile-Phase der /session-ende-Checkliste' existiert nicht: die Ueberschriften von session-ende.md kennen 0a-freshness, 0f Cross-Repo-Befunde und 'Schritt 3: Issues erstellen'; das Wort 'Reconcile' steht genau einmal, in einem Beleg-Text (Z. 945). Die Deckung war eine Annahme. Ansatz mit Messpunkt: Anzahl offener Issues, deren erledigende PR gemergt ist, am Sitzungsende = 0; zweiter Messpunkt: 'Refs #N' in einer PR, die das Issue erledigt, ist selbst der Befund."
     }
   ],
   "_faengt_doc": "Je Gate die Faelle, gegen die es schuetzt, mit einer `probe` — einem Textfragment, das im Drill vorkommen muss. Ausgewertet von tools/gate_namensdeckung.py. Ein Gate ohne dieses Feld gilt als `ungeprueft`, nicht als gedeckt. `drill_extra` nennt weitere Dateien, in denen die Faelle liegen duerfen (z.B. eine Bash-Suite, die der Python-Drill nur aufruft). ZWEITE GRENZE, gemessen beim Bestandslauf 2026-08-23: die `probe` muss aus dem VOKABULAR des Drills stammen, nicht aus der Beschreibung des Falls. Beim Nachtragen der 20 Bestands-Gates meldete der Pruefer vier Luecken — alle vier waren Wortlaut-Fragen (`drittes` vs. `third_repo`, `hinter` vs. `stalen_klon`, `aelter` vs. `stale_vs_last_commit`, `ohne test` vs. `flag_new`), keine echte fehlte. Daraus folgt die Grenze: wer die probe setzt, kann sie so waehlen, dass sie trifft. Das Gate schuetzt gegen VERGESSEN, nicht gegen Absicht — und der Unterschied liegt im Zeitpunkt: erst pruefen, OB der Fall gedrillt ist, dann die Bezeichnung anpassen. Ist er es nicht (Realfall E402), wird der DRILL ergaenzt, nicht die probe.",
@@ -884,6 +886,15 @@
       "letztes_vorkommen": "2026-08-28",
       "erhoben": "2026-08-31",
       "quelle": "tools/gate_deckung.py"
+    },
+    {
+      "slug": "issue-not-reconciled-after-cross-repo-fix",
+      "zustand": "schranke-kandidat",
+      "vorkommen": 7,
+      "letztes_vorkommen": "2026-08-25",
+      "erhoben": "2026-09-02",
+      "quelle": "tools/messungen/gate_bilanz_2374.py (SURVIVES-Zeilen der Befund-Tabellen: 4 vor, 3 nach dem Verzicht)",
+      "messpunkt": "session-ende: je gemergter Session-PR die referenzierten Issues (Refs|Closes|Fixes #N) abfragen; offene Issues mit gemergter erledigender PR = Befund (Ziel 0)"
     }
   ]
 }
