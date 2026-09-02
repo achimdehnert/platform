@@ -446,10 +446,17 @@
         {
           "fall": "Kalibrierfenster ohne beurteilbare Zeilen",
           "probe": "kalibrier"
+        },
+        {
+          "fall": "Rueckfall steht nur in der Befund-Tabelle, nicht in der Frontmatter",
+          "probe": "forgot"
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-20"
+      "erzwungen_seit": "2026-08-20",
+      "revised": "2026-09-02",
+      "revision_note": "Rev 2 (platform#2374 Ziel A, PR #2615 + Folge-PR): zweite Quelle Befund-Tabelle. Die Frontmatter-Liste ist selbst-etikettiert; ueber 109 Retros wich sie bei 12 von 33 Gates von der Tabelle ab, 14 Gates waren rueckfaellig statt 2 (Realfall fdd368 Z. 63 worktree-midsession-accumulation, Urteil war 'wirksam'). Ein Vorkommen zaehlt jetzt aus Frontmatter ODER SURVIVES-Zeile; 'gefangen' entlastet nur noch ohne ungefangene Tabellenzeile (cc4e11 verschluckte zwei belegte Rueckfaelle). Ergebnis am Umbautag: 5 Gates RUECKFAELLIG statt 2. Mitgemessen, aber bewusst NICHT eingebaut: covers-Aliase (rueckwirkend, 3 Gates nur darueber rueckfaellig) und die Zerfallsrangliste (verworfen, Spearman -0,004). Der revised-Reset gilt nur diesem Gate, nicht den gemessenen.",
+      "last_drill_pass": "2026-09-02"
     },
     {
       "slug": "gate-pflicht-nie-eingeloest",
