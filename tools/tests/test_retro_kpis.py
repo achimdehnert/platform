@@ -9,6 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from retro_kpis import (  # noqa: E402
+    GATE_REGISTRY,
     _create_gate_issue,
     _existing_gate_issue,
     _gate_issue_title,
@@ -615,13 +616,22 @@ class TestRegistryDeclined:
     def test_should_return_none_on_unreadable_registry(self, tmp_path):
         assert registry_declined(str(tmp_path / "fehlt.json")) is None
 
-    def test_should_real_registry_hold_the_three_owner_decisions(self):
-        """Owner-Entscheid 2026-08-12: drei Slugs bewusst ohne Gate."""
+    def test_should_real_registry_hold_the_remaining_owner_decisions(self):
+        """Owner-Entscheid 2026-08-12: drei Slugs bewusst ohne Gate; einer davon
+        am 2026-09-02 widerrufen (ceea4a31) — er darf nicht mehr als declined
+        zaehlen, sonst wuerde ein zurueckgenommener Verzicht weiter Deckung
+        vortaeuschen."""
         declined = registry_declined()
         assert declined is not None
         assert "always-instruction-without-enforcement" in declined
         assert "ci-replace-requires-job-catalog-diff" in declined
-        assert "issue-not-reconciled-after-cross-repo-fix" in declined
+        assert "issue-not-reconciled-after-cross-repo-fix" not in declined
+
+    def test_should_list_revoked_decision_under_widerrufen(self):
+        with open(GATE_REGISTRY, encoding="utf-8") as fh:
+            reg = json.load(fh)
+        revoked = {d["slug"] for d in reg.get("widerrufen", [])}
+        assert "issue-not-reconciled-after-cross-repo-fix" in revoked
 
 
 # --- Block-Form-Regression (platform#2163, gefunden 2026-08-20) ---------------
