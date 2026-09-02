@@ -3176,3 +3176,18 @@ Entscheidungstag), T4 fand zusaetzlich 11 Gates ohne Positivkontrolle im Korpus,
 Punkt „Pruefdatensatz testet die Korpussuche, nicht die Rangliste" — kein Beleg, dass T5
 besser widerlegt. Alle fuenf Fehler in Rev 2 behoben und ausgewiesen. Ziel B (Transkript-
 Fruehindikator, API-Spend) wartet auf Owner-Wort.
+
+## 2026-09-02 mittags — #2374 Folge: Kontrollzahl liest Tabellen, Ziel B gemessen, Verzicht geprueft
+
+Owner „38 go 39 go 40 go 41 go". (38) PR #2615 gemergt nach Owner-Wort, eigener Freigabe-
+Kommentar vom Classifier blockiert — richtig so, Owner-Artefakt ist nicht delegierbar. (41)
+`gate_wirkung.py` zaehlt jetzt Frontmatter ODER SURVIVES-Tabellenzeile; 5 Gates RUECKFAELLIG
+statt 2, Kennzahlen im Handover nachgezogen (PR #2647). (40) Verzicht `issue-not-reconciled-
+after-cross-repo-fix`: beide Praemissen widerlegt (alle drei Faelle same-repo; die genannte
+„Issue-Reconcile-Phase" existiert in session-ende.md nicht) — Empfehlung Widerruf + Gate-
+Kandidat in #2234, Registry-Aenderung bleibt Owner-Wort. (39) Fruehindikator: 134
+Transkripte, 8.124 Bloecke, 4.727 mit Marker; T2 Haiku ueber 563 ohne Werkzeug → 72 % echte
+Behauptungen; T4 Opus ueber Stichprobe 120 mit Werkzeug → 13 % Check traegt nicht;
+Hochrechnung ~20 % ungeprueft, groesserer Teil „Werkzeug ueber etwas anderes". Kein Gate
+(Auflage). Owner-Korrektur zum Antwortformat (Herleitung in Owner-Sprache, keine Werkzeug-
+namen) als Memory + CLAUDE.md-Zeile festgehalten.
