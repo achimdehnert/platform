@@ -751,7 +751,7 @@
       "built": "2026-09-02",
       "ref": "platform#2690 K4 (Owner-Auftrag 2026-09-02: geschlossener Verbesserungskreis)",
       "positivkontrolle": {
-        "ref": "tools/tests/test_gate_verankerung_check.py::test_should_positivkontrolle_realfall_altgate_rot_melden — ein Eintrag im Zuschnitt der 31 Bestands-Gates (Drill + Messpunkt vorhanden, Beleg nur als `note`-Prosa) MUSS Exit 1 ergeben; faellt der Test auf gruen, hat der Pruefer aufgehoert zu finden",
+        "ref": "CI-Beleg (nicht nur Unit-Test): Wegwerf-PR platform#2709 mit Eintrag `ci-beweis-wegwerf-2026-09-02` (Drill + Messpunkt vorhanden, ohne `positivkontrolle`) machte den Job \"Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)\" in CI ROT — https://github.com/achimdehnert/platform/actions/runs/33644541094/job/100295773112 (Exit 1). Ergaenzt (nicht ersetzt) den Drill-Beleg tools/tests/test_gate_verankerung_check.py::test_should_positivkontrolle_realfall_altgate_rot_melden, der denselben Fall lokal simuliert.",
         "datum": "2026-09-02"
       },
       "faengt": [
@@ -775,7 +775,9 @@
       "zustand": "schranke",
       "expires": "2026-10-02",
       "expires_note": "30 Tage — derselbe Stichtag, an dem platform#2690 K4 die Rueckfallquote gegen die 14/33 vom 2026-09-02 misst. Bis dahin ist zu entscheiden: Check-Name `Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)` ins Ruleset (blocking) ODER Gate streichen. Advisory ist hier bewusst der Zwischenschritt und kein Endzustand — die Required-Frage gehoert an das Ruleset des Owners, nicht in einen Datei-Edit (deshalb eigener Job statt Step im Check `tools-tests`).",
-      "note": "Bilanz beim Bau (2026-09-02, `--alle`): 31 Gates, 0 vollstaendig verankert — 0 ohne Drill, 0 ohne Messpunkt, 31 ohne Positivkontrolle. Das Feld `positivkontrolle` ist mit diesem Eintrag neu; die Null misst also die Luecke, die es oeffnet, nicht einen Zerfall. Bestandsschutz ist Absicht (Nachziehen der Bestands-Gates getrackt in platform#2703): `--neu` fordert die drei Nachweise nur fuer Eintraege, die gegenueber origin/main neu oder in einem NICHT-Prosa-Feld geaendert sind (`built`, `revised`, `drill`, `module`, `mode`, `repo`). Ein Tippfehler-Fix im `note` faerbt keinen PR. Verdrahtet als eigener Job in .github/workflows/tools-tests.yml (eigener Check-Name, damit die Required-Frage beim Ruleset des Owners bleibt und nicht per Step-Exit vorentschieden wird)."
+      "revised": "2026-09-02",
+      "revision_note": "K4-Beleg nachgetragen: Blockierpfad in CI belegt: Wegwerf-PR platform#2709, Job \"Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)\" rot (https://github.com/achimdehnert/platform/actions/runs/33644541094/job/100295773112). `positivkontrolle.ref` zeigt jetzt auf den echten CI-Lauf statt nur auf den Unit-Test.",
+      "note": "Bilanz beim Bau (2026-09-02, `--alle`): 31 Gates, 0 vollstaendig verankert — 0 ohne Drill, 0 ohne Messpunkt, 31 ohne Positivkontrolle. Das Feld `positivkontrolle` ist mit diesem Eintrag neu; die Null misst also die Luecke, die es oeffnet, nicht einen Zerfall. Bestandsschutz ist Absicht (Nachziehen der Bestands-Gates getrackt in platform#2703): `--neu` fordert die drei Nachweise nur fuer Eintraege, die gegenueber origin/main neu oder in einem NICHT-Prosa-Feld geaendert sind (`built`, `revised`, `drill`, `module`, `mode`, `repo`). Ein Tippfehler-Fix im `note` faerbt keinen PR. Verdrahtet als eigener Job in .github/workflows/tools-tests.yml (eigener Check-Name, damit die Required-Frage beim Ruleset des Owners bleibt und nicht per Step-Exit vorentschieden wird). Blockierpfad in CI belegt: Wegwerf-PR platform#2709, Job rot."
     },
     {
       "slug": "verification-proves-absence-not-success",
