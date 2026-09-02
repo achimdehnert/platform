@@ -3146,3 +3146,15 @@ gemessen: gate_deckung 13→9; Hooks verteilt, Live-Probe deny. Geschwister-Swee
 ruht bis 14.09. Zielzustand (Owner "go 10"): erreicht — 13/13 Entscheidungen, dokumentiert.
 SA-4: 0 · SA-M: 0 autonome Merges (#2549 nach Owner-Wort; pr_merge_sa hatte M0 korrekt
 verweigert, bot-review approved nur review-blockierte PRs — Memory ergänzt).
+
+## 2026-09-02 frueh — Auftrag #2592 abgeschlossen (HEAD `e8e17c97`, count 3870)
+
+/prompt --auftrag „optimiere mailcheck und todo liste" → Zielzustand-Issue #2592 (Owner „go"),
+dann K2/K3 (#2598, #2599), K4/K5 (#2601), K1 (#2605) — alle vier selbst gemergt nach CI +
+Bot-Approve. Gemessen: tote Mail-Links 89/203 → 0/121 live; 48/54 Vorgangsseiten mit Sprung
+in die Mail, Stichprobe 5/5 im Browser; offene Vorgaenge ohne Frist/Grund 21 → 0; Kettencheck
+11 Glieder OK; make boards-check byteidentisch. Geschlossen #2563 #2199 #1864 #1869 #2592,
+Nachlauf #2597. Fuenf eigene Fehler gefangen (Messvergleich, Listen-Route-200, Betreff-Fenster,
+Dauer-rot-Glied, Push-Hook blockiert ganzen Befehl → Memory). Zielzustand: erreicht.
+SA-4: 4 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
+
