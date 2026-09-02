@@ -5,56 +5,26 @@ mode: write
 
 # /session-start
 
-> Gegenstück: `/session-ende`
-> **Neuer Computer?** Einmalig Bootstrap ausführen — danach funktioniert alles automatisch:
-> ```bash
-> git clone https://github.com/achimdehnert/platform
-> bash platform/bootstrap.sh
-> source ~/.bashrc
-> ```
-> `bootstrap.sh` setzt `GITHUB_DIR`, deployt Workflows + Rules, generiert project-facts.
-> Ohne `$GITHUB_DIR` gilt Fallback: `$HOME/github`
+> Gegenstück `/session-ende` · `LEHREN` = `docs/governance/session-skills-lehren/start.md`.
+> **Neuer Computer?** `git clone https://github.com/achimdehnert/platform` →
+> `bash platform/bootstrap.sh` → `source ~/.bashrc`; ohne `$GITHUB_DIR` gilt `$HOME/github`.
 
 ## Verwendung
 
-```
-/session-start [REPO]
-```
+`/session-start [REPO]` — `REPO` = Repo-Slug (z.B. `risk-hub`), Default Auto-Detect via
+Git-Root; bei **mehreren offenen Repos** explizit angeben. Der Agent setzt `TARGET_REPO`
+für alle folgenden Phasen.
 
-| Argument | Beschreibung | Default |
-|----------|-------------|---------|
-| `REPO` | Repo-Slug (z.B. `risk-hub`, `mcp-hub`, `trading-hub`) | Auto-Detect via Git-Root |
-
-**Beispiele:**
-- `/session-start risk-hub` — Session explizit für risk-hub starten
-- `/session-start` — erkennt Repo aus aktiver Datei im IDE
-
-> Bei **mehreren offenen Repos im Workspace**: immer explizit angeben!
-> Der Agent setzt `TARGET_REPO` und nutzt es in allen folgenden Phasen.
-
----
-
-## Platform Sync Loop (Prinzip)
-
-```
-Session Start:  GitHub ──pull──▶ platform ──sync──▶ alle Repos  (aktuell starten)
-Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sync──▶ alle Repos  (sofort deployen)
-```
-
-> **GitHub ist die einzige Source of Truth.**
-> Der Sync-Loop (Runner-Phase 0.2) ist kein Optional — er ist das Herzstück des Loops.
-> Nur so profitieren ALLE Repos von Verbesserungen der letzten Session.
+**Platform Sync Loop:** Start = GitHub → platform → alle Repos; Ende = commit → push →
+GitHub → alle Repos. **GitHub ist die einzige Source of Truth**, der Sync (0.2) kein Optional.
 
 ---
 
 ## Phase 0: Tool-Health + Umgebung synchronisieren (IMMER zuerst)
 
-> **Deterministischer Runner (NEU 2026-07-18 — Ausführungstreue-Programm, platform#1167):**
-> Die mechanischen Unterphasen 0.0–0.9 (außer 0.4.3 Worktree-Modus + 0.8 Modell-Tier,
-> beides Judgment) laufen in **einem** Skript-Aufruf. Einzelne Phasen sind damit
-> strukturell nicht mehr überspringbar — das Skript läuft immer bis zur Summary durch.
-> Die Einzel-Befehle leben in `platform/tools/session_start_checks.sh` (dort gepflegt,
-> hier NICHT duplizieren — Retro c494a2: lange Phasenlisten werden überflogen).
+Die mechanischen Unterphasen laufen in **einem** Skript-Aufruf und sind damit strukturell
+nicht überspringbar; die Einzel-Befehle leben in `platform/tools/session_start_checks.sh`
+(dort gepflegt, hier NICHT duplizieren). → `LEHREN#runner-motiv`
 
 ### 0.R Runner ausführen (PFLICHT — ersetzt 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9)
 
@@ -64,447 +34,196 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   "${TARGET_REPO:-$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null || echo platform)}"
 ```
 
-→ Ende = Summary-Tabelle `| Phase | Status | Repo | Note |` + Befund-Journal + `RESULT: OK|FAIL`.
-→ **Die Spalte `Repo` nennt das Repo, um das es GEHT** — nicht das, in dem die Sitzung
-  läuft (NEU 2026-08-16, [#2004](https://github.com/achimdehnert/platform/issues/2004)).
-  Ein roter Deploy in `cad-hub` ist ein Befund über `cad-hub`, auch wenn er in einer
-  platform-Sitzung auftaucht. Diese Unterscheidung fehlte, und der Befund blieb liegen:
-  fünf offene `[deploy-health]`-Issues, bis zu 10 Tage alt, **alle in `platform`**,
-  alle über andere Repos, keins bearbeitet.
-→ **Der Befund-Journal-Block darunter zeigt das Alter** (`⏳ ALTBEFUND … N Laeufe,
-  erstmals …`) — eine WARN-Zeile am zehnten Tag klang bis dahin wie eine am ersten.
-  Ein Altbefund gehört mit seinem Alter ins Board, nicht als Neuigkeit. Vollbild:
-  `python3 platform/tools/befund_journal.py --bericht`.
-→ **Drei Lautstärken seit 2026-08-23** ([#2215](https://github.com/achimdehnert/platform/issues/2215)):
-  `⏳ ALTBEFUND` = niemand hat je entschieden · `⏸ … ruhen bis zur Wiedervorlage` = verankert
-  oder mit Verzicht abgelegt, kommt zur Frist von selbst zurück · `⏰ WIEDERVORLAGE` = die
-  Frist ist abgelaufen, der Stand gehört geprüft. Verankern setzt die Frist automatisch
-  (14 Tage, Verzicht 30, `--frist N` überschreibt). Ändert sich der Symptomtext, wird der
-  Befund sofort wieder laut — eine Parkerlaubnis gilt dem Befund, der beim Parken vorlag.
-→ Nennt der Block **Fremd-Repo-Befunde ohne Artefakt**, ist das kein Sofort-Auftrag:
-  `/session-ende` Phase 0f fragt sie ab und verlangt je Befund entweder ein Issue im
-  **Zielrepo** oder einen abgelegten Verzicht mit Grund.
-→ **RESULT: FAIL** (einziger Hard-FAIL: pgvector-Tunnel, Phase 0.5) → Session NICHT
-  fortsetzen, bis behoben — **kein** Fallback auf lokales Memory (ADR-154).
-→ **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
-  - `0.3 modellwechsel` (NEU 2026-09-02, K2 [#2690](https://github.com/achimdehnert/platform/issues/2690)):
-    Maßstab ist **„bewertet mit" (assessed_with in den Policy-Kopfzeilen) ↔ „läuft mit"**
-    — **nicht** Vorgänger ↔ Nachfolger. `model-changes.log` trägt nur den settings-Alias
-    (z.B. `fable`, `opus`), **nicht** die Gewichtsmatrix; „läuft mit" kommt deshalb primär
-    aus dem neuesten Session-Transkript (letzte assistant-Zeile mit `message.model`), die
-    Alias-Tabelle ist nur der letzte Fallback und markiert sich im Bericht als Warnung.
-    Zwei Befundklassen: **MAJOR** ggü. bewertet = Vollmachten suspendiert (Runbook §3a) bis
-    Kapitäns-Wort, den §2-Köder in dieser Sitzung fahren, Kommentar auf
-    [#1640](https://github.com/achimdehnert/platform/issues/1640) · **MINOR** = nur
-    Smoke (§1) fällig, `assessed_with` im nächsten Ritual nachziehen. Ein Rücksprung
-    **auf** das bewertete Modell ist **KEIN** Ereignis. Der Runner fährt Smoke (§1)
-    bei Fälligkeit selbst und markiert nur bei grünem Smoke als behandelt — rot bleibt
-    fällig, statt sich selbst gesundzuschreiben. Werkzeug: `tools/modellwechsel_check.py`,
-    Klassifizierer ist eine Portierung aus `model_change_detector.sh`
-    ([#2655](https://github.com/achimdehnert/platform/issues/2655)/[#2664](https://github.com/achimdehnert/platform/issues/2664)),
-    nicht neu erfunden.
-  - `0.4 … GUARD(dirty/branch=…)`: fremde Session möglich — Repo NICHT stashen/switchen
-    (ADR-233 + 🌀 Shared-Worktree-Kollision), read-only weiterarbeiten.
-  - `0.7.6 leseflaeche`: Befunde des **nächtlichen** `handover-reconcile` — meist
-    Prio-Zeilen, die auf Geschlossenes zeigen. Sie sind **vor** dem Arbeitsbeginn
-    nachzuziehen, nicht danach (dieselbe Klasse wie 0.7.4). Erledigt oder bewusst
-    ignoriert? → `python3 platform/tools/hooks/befund_leseflaeche.py --alle-gesehen`,
-    sonst erscheinen sie jede Sitzung erneut. Die Zeile `◌ … NICHT pruefbar` ist
-    **kein** Befund, sondern die Abdeckungslücke: der Workflow-Token sieht die
-    privaten Repos nicht (NEU 2026-08-16,
-    [#2006](https://github.com/achimdehnert/platform/issues/2006)).
-  - `0.7 failure:<repos>`: je Repo Deploy-Log lesen + User informieren —
-    🌀 `feedback_deploy_green_not_change_live`: run-conclusion allein belegt nicht,
-    dass die Änderung live ist. Optional als error_pattern sichern (/session-ende Phase 2).
-  - `0.7 waiting>24h:<repos>`: **stiller Prod-Blocker** — ein Run haengt an einem
-    Environment-Approval-Gate und belegt die Concurrency-Group weiter; jeder spaetere
-    Deploy steht als `pending` mit 0 Jobs und erreicht Prod nie, ohne dass ein Check
-    rot wird. `gh run cancel` wirkt dort NICHT. Aufloesen ueber das Gate des ALTEN Runs:
-    `gh api repos/<o>/<r>/actions/runs/<id>/pending_deployments -X POST -F 'environment_ids[]=<envid>' -f state=rejected`
-    (Realfall 2026-07-21 ausschreibungs-hub: Merge #159 war 9 Tage nicht live).
-    **`state` erst nach einem Blick auf den Commit waehlen, nicht reflexhaft `rejected`:**
-    ist der wartende Run *ueberholt* (sein Stand steckt laengst in HEAD), gehoert er
-    abgelehnt — ein Approve wuerde einen alten Stand nach Prod schieben. Ist er dagegen
-    der **neueste** Run, ist `approved` die richtige Antwort; `rejected` wirft dort genau
-    den Deploy weg, den man haben wollte. Billigster Check:
-    `gh run view <id> --json headSha,displayTitle` gegen `git log origin/main -1`.
-  - `0.7 … bewusst abgelehnte Freigabe (kein Befund):<repos>`: **kein Handlungsbedarf.**
-    Eine mit `rejected` geschlossene Environment-Freigabe zaehlt GitHub als `failure`;
-    bei docs-only-Merges ist genau das der gewollte Weg (Gate zu, Concurrency-Group
-    frei). Der Scan trennt das ueber den Approval-Eintrag des Runs — echte Fehlschlaege
-    haben keinen. Nur wenn eine Ablehnung *nicht* beabsichtigt war, ist sie ein Befund.
-  - `0.7.7 gate-wirkung`: **ein gebautes Gate hat versagt** — der Befund kam nach dem
-    Bau des Gates mindestens 2× wieder. Das ist **kein** Punkt für „später mal": es heißt,
-    dass eine Regel, auf die sich der Loop verlässt, nachweislich nicht trägt. Vollbild:
-    `python3 platform/tools/gate_wirkung.py`. Behandlung gehört in die Retro (Phase 4,
-    Punkt 5a) — hier zählt nur, dass es **gesehen** und im Board benannt wird. Zeilen mit
-    `zu-frueh`/`unerprobt` sind ausdrücklich **kein** Wirksamkeits-Beleg, sondern
-    „hatte noch keine Gelegenheit".
-  - `0.7.11 erreichbarkeit`: **die einzige Phase, die ein Ziel anfragt statt Zusagen zu
-    vergleichen.** Jedes aktive `domain_prod` aus `infra/ports.yaml` bekommt einen HTTPS-GET.
-    Zwei Befundklassen, die auseinandergehalten gehören: **5xx** = Route steht, Dienst tot
-    (Reparatur im Ziel-Repo) · **NXDOMAIN** = die *Deklaration* ist falsch, der Dienst
-    vielleicht gesund (Korrektur in `ports.yaml`). 401/403 sind **kein** Befund — hinter
-    Cloudflare Access antwortet der Perimeter, und dass jemand antwortet, ist der Beleg.
-    Ein bewusst abgeschalteter Dienst bekommt `betriebsstatus:` + `betriebsstatus_grund:`
-    in `ports.yaml`; **ohne Grund ist die Ausnahme selbst der Befund**. Anlass: wedding-hub
-    war 6–7 Tage tot, während Registry und Tunnel-Route übereinstimmten.
-  - `0.7.16 origin-tls`: **0.7.11 fragt am Edge, diese Phase misst am Origin.** Eine 200
-    vom Edge ist kein TLS-Beleg — Cloudflare steht auf `full`, nicht `full (strict)`, und
-    liefert vor einem abgelaufenen Origin-Zertifikat eine tadellose 200 aus. Drei Klassen
-    auseinanderhalten: **`abgelaufen`/`laeuft-ab`** = das Renewal ist kaputt (Reparatur auf
-    dem Host, `certbot`-Token prüfen) · **`fallback-zertifikat`** = nginx antwortet mit
-    seinem Platzhalter, für diesen Namen existiert am Origin **gar kein** Zertifikat
-    (fehlender vhost/cert — die Domain lebt nur von Cloudflares `full`-Modus) ·
-    **`nicht-messbar`** = ssh/Handshake gescheitert, ausdrücklich **kein** Grün.
-    `cloudflare-origin-ca` (Laufzeit bis 2041) und `kein-tls-am-origin` (Tunnel-Host ohne
-    TLS-Terminierung, z.B. `prod-b`) sind **kein** Befund. Anlass: ausschreibungs-hub
-    2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
-    abgelaufen, zwei Wochen lang kein einziger roter Melder.
-  - `0.7.17 backup-deckung`: **geht vom Host aus, nicht von einer Liste.** `backup-meter`
-    prüft die Apps aus `expected-apps.json`; was dort nicht steht, ist für ihn unsichtbar —
-    so lagen acht Volumes ohne Snapshot da ([#2086](https://github.com/achimdehnert/platform/issues/2086)),
-    während der Meter grün war. Jedes Volume aus `docker volume ls` braucht eine von vier
-    Antworten: `pgdump` (Container-Dump < 26 h) · `volumes` (Sammel-Snapshot < 26 h) ·
-    `verzicht` (`governance/backup/volume-verzicht.yaml`, **mit** Grund) · `anonym`
-    (Docker-Scratch, gezählt, nicht bewertet). Alles andere ist **UNGEDECKT** und der
-    Befund. Drei Lagen je rotem Volume: *in Nutzung* (läuft, wird nicht gesichert —
-    ins Backup-Skript), *Container steht* (`Links` zählt gestoppte mit — Dienst prüfen),
-    *verwaist* (löschen oder verzichten, Owner). `NICHT messbar` = ssh/restic gescheitert,
-    **kein** Grün. Erstlauf 2026-08-25: 46 Volumes, 7,2 GB, darunter drei doc-hub-Volumes
-    in Nutzung ([#2284](https://github.com/achimdehnert/platform/issues/2284)).
-  - `0.7.18 speicher`: **Vorlaufzeit statt Schwelle.** Je (Host, Mount) ein Tagespunkt
-    im Journal, Rate = Median der Tagesdifferenzen, WARN unter **7 Tagen bis voll** oder
-    unter 10 % frei. `SAMMELPHASE n/2` heißt „noch keine Rate", nicht „alles gut" — die
-    10-%-Untergrenze gilt trotzdem; `vorläufig` = Rate aus einem einzigen Tagespaar.
-    Alle Hosts mit ssh, auch der Offsite-Host: eine volle Offsite-Platte beendet das
-    Backup lautlos. Anlass: das reparierte dev-hub-Backup schrieb ab 2026-08-24 rund
-    6,3 GB/Tag auf die Root-Platte von prod — sieben Tage bis voll, kein Melder
-    ([infra-deploy#5](https://github.com/achimdehnert/infra-deploy/pull/5)).
-  - `0.7.12 prod-wirkung`: **zwei Zustände, die gleich aussehen und es nicht sind.**
-    `RUECKSTAND:` heißt, dass hinter dem öffentlichen Namen ein anderer Stand läuft als
-    in `main` — das ist der Befund. `wartet auf Prod-Freigabe (kein Befund):repo(Nd)`
-    dagegen ist der **Normalfall** eines Repos mit Prod-Gate: sein Deploy geht bei push
-    nur nach staging, Prod verlangt eine bewusste Freigabe, und bis zur Frist von
-    **14 Tagen** ist ein Rückstand dort gewollt. Danach kippt dieselbe Zeile nach
-    `RUECKSTAND:` — denn ab da ist „wartet auf Freigabe" nicht mehr von „vergessen" zu
-    unterscheiden. Unterdrückt wird nichts: ein Prod-Gate schließt einen echten Fehler
-    nicht aus (`hat_prod_gate` begründet das am tax-hub-Fall — Gate **und** roter Build).
-    Anlass: risk-hub stand 23 Läufe lang als WARN, worin ein echter Fund untergegangen
-    wäre.
-  - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
-  - `0.7.23 melder-register` (NEU 2026-09-02, [#2690](https://github.com/achimdehnert/platform/issues/2690)
-    K3): fehlt einer Runner-Phase der Eintrag in `governance/melder-register.yaml`
-    oder trägt sie dort `leser: UNBENANNT`, ist das ein Melder, der niemanden
-    erreicht — genau die Zahl "Melder ohne Leser" aus Audit #2606. Ein
-    Register-Eintrag ohne passende Runner-Phase (Karteileiche) gehört entfernt.
-    Vollbild/Reparatur: `python3 platform/tools/melder_register_check.py --kurz`.
-  - **Vierte Lautstärke `ℹ️ HINWEIS` (NEU 2026-09-02, #2690 K3):** eine Phase, deren
-    Trefferquote laut `tools/befund_journal.py --praezision` über mindestens
-    `mindest_laeufe` (Register-Default 5) beurteilte Läufe unter `praezision_min`
-    (Default 60 %) liegt, stuft sich selbst herab — `record()` wandelt ihre
-    nächste `WARN`-Zeile in `HINWEIS` um (Note-Präfix `(herabgestuft: Trefferquote
-    X % über N Läufe)`). **Lesen, aber nicht als Befund ins Board zwingen:**
-    solange die Trefferquote unter der Schwelle liegt, ist der Melder selbst der
-    Befund (behandeln in `/session-ende`/`/session-retro`, nicht jede einzelne
-    Zeile). `ℹ️ HINWEIS` zählt in der Summary-Tabelle **nicht** als `⚠️ WARN`. Die
-    Herabstufungsdatei (`~/.claude/hooks/state/melder-herabgestuft.tsv`, von
-    `--herabstufung` nach Phase 0.7.19 geschrieben) wirkt erst im **nächsten**
-    Lauf — 0.7.19 misst spät im Lauf, `record()` liest sie ganz am Anfang.
-  - **Block „⏳ ohne Entscheidung > 14 d" (NEU 2026-09-02, #2690 K3):** eigener
-    Abschnitt nach dem Befund-Journal-Block, aus `tools/melder_register_check.py
-    --ohne-entscheidung`. Ein Befund ohne Artefakt und ohne Verzicht, dessen
-    `erstmals` länger als 14 Tage zurückliegt, steht hier — der Unterschied zu
-    einem frischen `⏳ ALTBEFUND` ist die Frist, nicht nur das Alter: der Melder
-    hat funktioniert, es fehlt an einer Entscheidung.
+→ Ende = Summary `| Phase | Status | Repo | Note |` + Befund-Journal + `RESULT: OK|FAIL`.
+→ **`RESULT: FAIL`** (einziger Hard-FAIL: pgvector-Tunnel 0.5) → Session NICHT fortsetzen,
+  **kein** Fallback auf lokales Memory (ADR-154).
+→ **Spalte `Repo` nennt das Repo, um das es GEHT**, nicht das der Sitzung. Journal mit
+  **Alter** spiegeln: `⏳ ALTBEFUND` = nie entschieden · `⏸` = verankert/Verzicht, kommt zur
+  Frist zurück · `⏰ WIEDERVORLAGE` = Frist abgelaufen (`befund_journal.py --bericht`).
+→ Fremd-Repo-Befunde ohne Artefakt = **kein** Sofort-Auftrag; `/session-ende` 0f verlangt je
+  Befund ein Issue im **Zielrepo** oder einen Verzicht mit Grund. → `LEHREN#journal-und-repo-spalte`
 
-**Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
+**Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
 
-- **Runner hängt >5s vor der ersten Ausgabe-Zeile:** Shell blockiert! In CC: Session neu
-  starten; in Windsurf: `/windsurf-clean`. Bis dahin NUR `Read`/`Write`/`Edit` + stabile
-  MCP-Tools (`mcp__github__*`, `mcp__outline-knowledge__*`) nutzen;
-  `mcp__github__get_file_contents` + `mcp__github__push_files` als Git-Workaround
-  (Lesson 2026-04-05: Shell-Hang kann ganze Sessions blockieren, Edit-Tools zeigen
-  dann ggf. "empty file").
-- **NIEMALS `ping`** für Server-Checks — Hetzner blockt ICMP (100% packet loss ist
-  NORMAL); der Runner nutzt `server_probe.py` (TCP 22/80/443). Server trotzdem nicht
-  erreichbar → `ssh -o ConnectTimeout=10 -o BatchMode=yes root@88.198.191.108 "uptime"`;
-  scheitert auch das: Hetzner Cloud Console → Server-Status (Lesson 2026-04-03:
-  Ping-Diagnose führte zu Fehldiagnose "Server down").
-- **pgvector-Tunnel:** devuser hat KEIN sudo-Passwort (AGENT_HANDOVER §2) — der Runner
-  versucht erst `sudo -n systemctl start ssh-tunnel-postgres`, dann den direkten
-  ssh-Tunnel (Ziel-Port aus AGENT_HANDOVER §7). Beides scheitert → mit sudo-Rechten:
-  `sudo systemctl start ssh-tunnel-postgres`.
-- **Stash-Semantik (0.4):** Der Runner stasht grundsätzlich NICHT (Guard statt Stash) —
-  die alte Auto-Stash-Logik poppte 2× fremde Stash-Einträge (Drift 2026-06-10 +
-  2026-06-22, untracked-only-Falle). Dirty Target-Repo = bewusste Handentscheidung.
-- **ADR-156 rot (0.6):** MCP-Server neustarten, dann `verify-adr156.sh` erneut prüfen.
-- **Neues Repo erkannt** → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
+| Phase | Bedeutung | kein Befund | Zug |
+|---|---|---|---|
+| `0.3 modellwechsel` | Modell ≠ `assessed_with` („bewertet ↔ läuft") | Rücksprung **auf** das bewertete Modell | MAJOR: Vollmachten weg (Runbook §3a), §2-Köder, #1640 · MINOR: Smoke §1 |
+| `0.4 GUARD(dirty/branch)` | fremde Session im Haupt-Tree möglich | — | nicht stashen/switchen (ADR-233), read-only weiter |
+| `0.4.1 BLOCK-Findings` | harte Repo-Health-Verstöße | — | zuerst fixen |
+| `0.4.4 basis-abstand` | Worktree weit hinter `main` | keine Lease über der Schwelle | **vor** dem ersten Edit `git merge origin/main` |
+| `0.7 failure:<repos>` | Deploy im Repo rot | `bewusst abgelehnte Freigabe` (docs-only) | Deploy-Log lesen, User informieren; grün ≠ live |
+| `0.7 waiting>24h` | Run hängt am Environment-Gate, belegt die Concurrency-Group | — | Gate des ALTEN Runs via `pending_deployments` schließen, Zustand nach Commit-Blick |
+| `0.7.6 leseflaeche` | Prio-Zeilen zeigen auf Geschlossenes | `◌ NICHT pruefbar` = Abdeckungslücke | **vor** Arbeitsbeginn nachziehen, `befund_leseflaeche.py --alle-gesehen` |
+| `0.7.7 gate-wirkung` | gebautes Gate versagt, Befund 2×+ zurück | `zu-frueh`/`unerprobt` | im Board benennen, Behandlung in Retro 4/5a |
+| `0.7.11 erreichbarkeit` | **5xx** = Dienst tot · **NXDOMAIN** = Deklaration falsch | 401/403 (Cloudflare Access) | 5xx im Ziel-Repo, NXDOMAIN in `ports.yaml`; Ausnahme braucht `betriebsstatus_grund:` |
+| `0.7.12 prod-wirkung` | `RUECKSTAND:` = live ≠ `main` | `wartet auf Prod-Freigabe` bis 14 Tage | ins Board; nach 14 Tagen kippt die Zeile |
+| `0.7.16 origin-tls` | `abgelaufen`/`laeuft-ab` = Renewal kaputt · `fallback-zertifikat` = **kein** Cert | `cloudflare-origin-ca`, `kein-tls-am-origin` | Renewal bzw. vhost/cert am Host reparieren |
+| `0.7.17 backup-deckung` | Volume ohne `pgdump`/`volumes`/`verzicht`/`anonym` = **UNGEDECKT** | `verzicht` **mit** Grund | nach Lage trennen: in Nutzung / Container steht / verwaist |
+| `0.7.18 speicher` | < 7 Tage bis voll oder < 10 % frei | — | Platte ins Board, Wachstum abstellen; Offsite zählt mit |
+| `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
+
+**Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**
+
+- **`ℹ️ HINWEIS`** = Melder unter der Trefferquote, selbst herabgestuft: lesen, nicht als
+  Befund erzwingen — der **Melder** ist dann der Befund.
+- **Block „⏳ ohne Entscheidung > 14 d"** = der Melder hat funktioniert, es fehlt die
+  Entscheidung (anders als ein frischer `⏳ ALTBEFUND`).
+- Herleitungen, Realfälle, Zahlen je Klasse: → `LEHREN#warn-klassenkunde`
+
+**Troubleshooting:** Runner hängt >5 s vor der ersten Ausgabe → Shell blockiert, Session neu
+starten, bis dahin nur `Read`/`Write`/`Edit` + `mcp__github__*`. **NIEMALS `ping`** (Hetzner
+blockt ICMP) — der Runner nutzt `server_probe.py` (TCP 22/80/443). pgvector-Tunnel scheitert
+trotz `sudo -n` → mit sudo-Rechten `sudo systemctl start ssh-tunnel-postgres`. Der Runner
+**stasht nicht** (Guard statt Stash); dirty Target-Repo = Handentscheidung. ADR-156 rot →
+MCP-Server neustarten, `verify-adr156.sh` erneut. Neues Repo → in
+`platform/scripts/repo-registry.yaml` eintragen. → `LEHREN#troubleshooting`
 
 ### Architecture Context laden (ex-0.4.2, environment-abhängig)
 
-Der Schema-Validate-Teil läuft im Runner (Phase 0.4.2); das Kontext-Laden bleibt
-Modell-Arbeit (Signaturen VOR Nutzung via `ToolSearch` verifizieren, Policy
-claude-skills §MCP-Signaturen):
+Schema-Validate läuft im Runner; Kontext-Laden bleibt Modell-Arbeit (Signaturen VOR Nutzung
+via `ToolSearch` prüfen, Policy claude-skills §MCP-Signaturen):
 
-- **Wenn adrfw-MCP-Tools gebunden sind** (`adr_staleness`/`adr_audit`/`adr_query`/
-  `adr_freshness` — Prefix aus `project-facts.md`): Staleness (6 Monate), Health-Score
-  (warnen bei < 0.95) und Repo-Constraints laden; Ergebnis in 1 Satz zusammenfassen.
-- **CC-Standard-Fallback (keine adrfw-MCP-Tools gebunden):** CLI + Skills nutzen —
-  `iil-adrfw validate docs/adr/` läuft bereits im Runner; für tiefe Audits `/adr-health`
-  aufrufen; Repo-Constraints aus `docs/adr/index.json` (maschinenlesbar) + CORE_CONTEXT.
-- **Weekly-Diff** (1×/Woche): `git -C "$PLATFORM_DIR" log --since="7 days ago" --oneline -- docs/adr/ | head`
-  genügt als billigster Check; bei vielen Änderungen `/adr-health` empfehlen.
+- **adrfw-MCP gebunden** (`adr_staleness`/`adr_audit`/`adr_query`/`adr_freshness`): Staleness
+  (6 Monate), Health-Score (warnen < 0.95), Repo-Constraints laden; Ergebnis in 1 Satz.
+- **CC-Fallback:** `iil-adrfw validate docs/adr/` läuft im Runner; tiefe Audits `/adr-health`;
+  Constraints aus `docs/adr/index.json` + CORE_CONTEXT.
+- **Weekly-Diff:** `git -C "$PLATFORM_DIR" log --since="7 days ago" --oneline -- docs/adr/ | head`
 
 ### 0.4.3 Editier-Modus: Worktree statt Haupt-Tree (ADR-233)
 
-**Haupt-Tree heilig.** Der geteilte Checkout `~/github/<repo>` bleibt auf `main` — **kein**
-`git switch`/`checkout -b` im Haupt-Tree (parallele Sessions kollidieren sonst über den HEAD).
+**Haupt-Tree heilig.** `~/github/<repo>` bleibt auf `main` — **kein** `git switch`/`checkout -b`
+dort (parallele Sessions kollidieren über den HEAD). Read-only-Analyse dort erlaubt.
 
-- **Read-only-Analyse:** im Haupt-Tree erlaubt.
-- **Editierende Arbeit:** über den verbindlichen Entry Point starten —
-  ```bash
-  wt=$(bash "${GITHUB_DIR:-$HOME/github}/platform/tools/repo-session.sh" \
-        start "${GITHUB_DIR:-$HOME/github}/$TARGET_REPO" --task "<slug>" --ziel "<das Sitzungsziel>")
-  cd "$wt"   # eigener Branch session/<date>/<owner>/<slug> von origin/main + Lease
-  ```
-- **`--ziel` ist optional, aber die Antwort auf zwei Fragen, die sonst geraten werden:**
-  „warum existiert dieser Branch?" (Wildwuchs) und „welche PRs gehören zu dieser Sitzung?"
-  (Retro-Grenze). **Kein Zwang** — ein Pflichtfeld wäre eine Hürde vor jeder Kleinigkeit, und
-  eine erzwungene Ein-Thema-Regel hätte am 2026-08-04 eine zusammenhängende Kette
-  (Messung → Konzept → Code → Retro) in vier Sitzungen zerschnitten, deren Wert gerade in den
-  Übergängen lag. Das Ziel bleibt über alle Aufgaben derselben Sitzung gleich; wechselt es
-  wirklich, ist ein neues Ziel die ehrlichere Antwort als ein gedehntes.
-- **Aufräumen (gemergte/stale Worktrees):** `python3 platform/tools/worktree-reaper.py` (dry-run; `--apply` bewusst).
-- **Verstoß-Messung:** `bash platform/tools/main-tree-guard.sh report` → `unauthorized_head_flips/30d` (Kill-Gate ADR-233 §8).
+```bash
+wt=$(bash "${GITHUB_DIR:-$HOME/github}/platform/tools/repo-session.sh" \
+      start "${GITHUB_DIR:-$HOME/github}/$TARGET_REPO" --task "<slug>" --ziel "<Sitzungsziel>")
+cd "$wt"   # Branch session/<date>/<owner>/<slug> von origin/main + Lease
+```
 
-> **Rollout:** Der harte Snap-back-Guard (`main-tree-guard.sh install`) wird **erst** scharf geschaltet,
-> wenn die branch-switchenden Skills (`hotfix`, `issues-abarbeiten`, `ship`) + lebende Sessions migriert
-> sind — sonst bricht er laufende Abläufe. Bis dahin: Konvention + `repo-session` als Einstieg.
+- **`--ziel`** ist optional, beantwortet aber „warum dieser Branch?" und „welche PRs gehören
+  zur Sitzung?"; es bleibt über alle Aufgaben derselben Sitzung gleich.
+- **Aufräumen:** `python3 platform/tools/worktree-reaper.py` (dry-run; `--apply` bewusst).
+- **Verstoß-Messung:** `bash platform/tools/main-tree-guard.sh report` →
+  `unauthorized_head_flips/30d` (Kill-Gate ADR-233 §8); harter Guard noch nicht scharf.
+  → `LEHREN#worktree-ziel`
 
 ### 0.8 Modell-Tier für die Session wählen (policies/session-routing.md)
 
-**Vor dem ersten Arbeits-Schritt einmal bewusst routen** — nicht per Default auf dem
-teuersten Modell bleiben (Policy-Realfall: $1577 in 48h für Tier-3-Arbeit auf Tier-4-Modell):
+**Vor dem ersten Arbeits-Schritt bewusst routen** — nicht per Default auf dem teuersten
+Modell bleiben:
 
-| Geplante Session-Arbeit | Modell | Warum |
-|---|---|---|
-| Lange autonome Multi-Repo-Stränge, adversariale Orchestrierung (/repo-optimize, /platform-audit), schwierigste Architektur-Synthese | **Fable 5** | Long-Horizon + Sub-Agent-Delegation; orchestriert, Sonnet-Finder arbeiten |
-| ADR-Drafting, komplexe Einzel-PRs, tiefes Review, Konzepte | **Opus** | Tier-4-Reasoning zum halben Fable-Preis |
-| Issue-Abarbeitung, Bugfix-PRs, Sweeps, Lint, mechanische Edits | **Sonnet** | Tier 3 — Ergebnis ununterscheidbar, ~5× günstiger |
-| Status-Checks, Log-Lesen, triviale Fragen | **Haiku / /fast** | Tier 2 |
+| Session-Arbeit | Modell |
+|---|---|
+| Lange autonome Multi-Repo-Stränge, adversariale Orchestrierung, schwerste Architektur-Synthese | **Fable 5** |
+| ADR-Drafting, komplexe Einzel-PRs, tiefes Review, Konzepte | **Opus** (Tier 4, halber Preis) |
+| Issue-Abarbeitung, Bugfix-PRs, Sweeps, Lint, mechanische Edits | **Sonnet** (Tier 3, ~5× günstiger) |
+| Status-Checks, Log-Lesen, triviale Fragen | **Haiku / /fast** (Tier 2) |
 
-→ Mid-Session runterschalten, wenn der anspruchsvolle Teil erledigt ist (`/model`).
-→ Faustregel: **Fable orchestriert, delegiert Mechanik als Sonnet-Subagents/-Issues** —
-  nicht Fable die Mechanik selbst tippen lassen.
+→ Mid-Session runterschalten (`/model`), wenn der anspruchsvolle Teil erledigt ist.
+→ **Fable orchestriert, delegiert Mechanik als Sonnet-Subagents/-Issues.** → `LEHREN#modell-routing`
 
 ---
 
 ## Phase 1: Kontext laden
 
-1. **Repo-Kontext laden** — AGENT_HANDOVER.md (Prio-Tabelle + Stand) **und die letzten
-   Einträge aus `AGENT_HANDOVER_LOG.md`** (append-only Session-Log, neueste stehen
-   **unten** — `tail -60` genügt; seit KONZ-027 Arm A schreiben Sessions ihren Stand
-   dorthin), CORE_CONTEXT.md, ADR-Index; falls
-   platform-context-MCP gebunden: `mcp__platform-context__get_context_for_task()`
-2. **Health Dashboard** (bei Infra/Deploy-Sessions) — falls deployment-MCP gebunden:
+1. **Repo-Kontext** — `AGENT_HANDOVER.md` (Prio-Tabelle + Stand) **und die letzten Einträge
+   aus `AGENT_HANDOVER_LOG.md`** (append-only, neueste **unten**, `tail -60`),
+   `CORE_CONTEXT.md`, ADR-Index; falls gebunden `mcp__platform-context__get_context_for_task()`
+2. **Health Dashboard** (Infra/Deploy, falls gebunden):
    `mcp__deployment-mcp__system_manage(action: health_dashboard)`
 3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
-4. **Branch-Status prüfen** — `git status && git log --oneline -5`
-5. **Tests baseline** — `make test` (CI-relevant) bzw. `pytest tools/tests/ -q` (falls vorhanden)
-6. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
-7. **ADR-Inputs prüfen** — Neue Input-Dokumente aus Outline abholen (falls Outline-MCP gebunden):
-```
-mcp__outline-knowledge__search_knowledge(query: "Input ADR", collection: null, limit: 10)
-```
-→ Sucht nach Dokumenten mit Titel "Input ADR-XXX: ..." in allen Collections.
-→ Unbearbeitete Inputs (ohne ✅ im Titel) dem User melden.
-→ Nach Verarbeitung: Titel auf `✅ Input ADR-156: ...` setzen via `mcp__outline-knowledge__update_document()`.
-
----
+4. **Branch-Status** — `git status && git log --oneline -5`
+5. **Tests baseline** — `make test` bzw. `pytest tools/tests/ -q`
+6. **Knowledge-Lookup** — Outline (Repo-Steckbrief, Task-Wissen, Lessons)
+7. **ADR-Inputs** — `mcp__outline-knowledge__search_knowledge(query: "Input ADR", limit: 10)`;
+   unbearbeitete (ohne ✅ im Titel) melden, nach Verarbeitung Titel auf `✅ Input ADR-…` setzen.
 
 ## Phase 2: pgvector Warm-Start (ADR-154)
 
-> **Stabile CC-Namen** — `mcp__orchestrator__*` (nicht `mcpN_`, die sind Windsurf-Ära
-> und environment-volatil). Signatur vor Nutzung via `ToolSearch select:<name>` prüfen.
-
-8. **Memory Warm-Start / Bekannte Fehler / Recurring Errors** — über `mcp__orchestrator__agent_memory_search`:
-```
-mcp__orchestrator__agent_memory_search(
-  filter_type: "solved_problem",   // oder "error_pattern" für Bug-Fix-Sessions
-  filter_tag: "<repo>"             // optional
-)
-```
-→ Liefert relevante Session-Summaries, Error-Patterns und Lessons aus pgvector.
-→ Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
-
-> ℹ️ Ergänzend: `mcp__orchestrator__find_similar_errors` + `mcp__orchestrator__check_recurring_errors`
-> (siehe Phase 2.5). Bei orchestrator-404 (SSE-Session-Stickiness): 🌀
-> `feedback_orchestrator_sse_session_stickiness_404` — nicht per Reconnect heilbar.
-
----
+8. **Memory Warm-Start / bekannte Fehler** — `mcp__orchestrator__agent_memory_search(
+   filter_type: "solved_problem" | "error_pattern", filter_tag: "<repo>")`. Liefert
+   Session-Summaries, Error-Patterns, Lessons; leer → normal weiter (füllt sich über
+   `/session-ende`). Stabile CC-Namen `mcp__orchestrator__*`, Signatur via
+   `ToolSearch select:<name>` prüfen. Bei orchestrator-404 (SSE-Session-Stickiness):
+   🌀 `feedback_orchestrator_sse_session_stickiness_404` — nicht per Reconnect heilbar.
 
 ## Phase 2.5: Error-Learning (Recurring Errors → ADR-Kandidaten)
 
-**Proaktives Root-Cause-Scanning** — Fehler die sich 3×+ wiederholen sind strukturell, nicht zufällig.
-
-```
-mcp__orchestrator__check_recurring_errors(threshold=3)
-→ liefert: Liste mit {symptom, root_cause, fix, occurrence_count, last_occurred_at, action}
-```
-
-**Auswertungs-Regeln:**
+`mcp__orchestrator__check_recurring_errors(threshold=3)` → `{symptom, root_cause, fix,
+occurrence_count, last_occurred_at, action}`. 3×+ wiederholte Fehler sind strukturell, nicht
+zufällig; Tags mit `resolved` herausfiltern.
 
 | Occurrences | Action | Automatik |
-|------------|--------|-----------|
-| 3-4× | 🟡 ESCALATED | User am Session-Start informieren, Fix-Hypothese vorschlagen |
-| 5-9× | 🔴 CRITICAL | **Auto-Issue** mit Label `adr-candidate` erstellen (wenn noch nicht offen) |
-| 10×+ | 🚨 BLOCKER | Session stoppen, User-Approval holen bevor weitergemacht wird |
+|---|---|---|
+| 3-4× | 🟡 ESCALATED | User informieren, Fix-Hypothese vorschlagen |
+| 5-9× | 🔴 CRITICAL | Issue mit Label `adr-candidate` anlegen (wenn nicht offen) |
+| 10×+ | 🚨 BLOCKER | Session stoppen, User-Approval holen |
 
-**Auto-Issue-Template** (für 5×+ Occurrences):
-
-```
-# Owner aus dem git-Remote ableiten, nicht hardcoden:
-#   OWNER=$(git remote get-url origin | sed -E 's#.*[:/]([^/]+)/[^/]+(\.git)?$#\1#')
-mcp__github__list_issues(labels=["adr-candidate", "auto-detected"], state="open")
-# Nur erstellen wenn gleiche entry_key nicht schon offen
-
-mcp__github__create_issue(
-    owner="<OWNER>", repo="platform",
-    title=f"[adr-candidate] Recurring: {symptom[:60]}",
-    body=f"**Occurrences:** {count}× (seit {first_seen})\n"
-         f"**Last:** {last_occurred_at}\n\n"
-         f"**Symptom:** {symptom}\n"
-         f"**Root Cause:** {root_cause}\n"
-         f"**Bisheriger Fix:** {fix}\n\n"
-         f"→ Fix löst Symptom, nicht Root Cause. ADR für strukturelle Lösung nötig.",
-    labels=["adr-candidate", "auto-detected", "agent-learning"]
-)
-```
-
-**Status-RESOLVED Filter:** Tags mit `resolved` aus Output filtern (bereits behobene Patterns).
-
----
+→ **Recurring Errors ≥ 5× → Issue mit Label `adr-candidate` anlegen** (Owner aus dem
+git-Remote ableiten, nicht hardcoden; vorher auf offene Dublette prüfen).
+→ Gestrichenes Template + Beleg: `LEHREN#error-learning-template`
 
 ## Phase 2.6: Handover ↔ Memory Reconciliation (Drift-Guard — NEU 2026-06-24)
 
-> **Lesson 2026-06-24 (iil-klickdummy):** Arbeit auf einem anderen Gerät
-> (iPad/claude.ai) aktualisierte das **geteilte pgvector-Memory**, aber **nicht**
-> das git-getrackte `AGENT_HANDOVER.md`. Die nächste Session auf dem Dev-Host sah
-> eine als „offen" gelistete Prio, die laut Memory längst **erledigt** war — und
-> hätte sie fast erneut bearbeitet (~35 KDs Doppelarbeit). Die *verursachende*
-> Session läuft nicht durch *unser* `/session-ende` → ein Guard greift nur **hier
-> am Start**, nicht am Ende.
+Für **jede** offene Prio aus `AGENT_HANDOVER.md` (Phase 1.1) gegen das Warm-Start-Memory
+(Phase 2) abgleichen: Gibt es einen Memory-Eintrag, der dieselbe Aufgabe als **erledigt**
+markiert **und neuer** ist als der Handover-Stand (Datum in `## ⚡ Aktueller Stand`)?
 
-Für **jede** offene Prio aus der `AGENT_HANDOVER.md`-Tabelle (Phase 1, Schritt 1)
-gegen das Warm-Start-Memory (Phase 2) abgleichen:
-
-- Memory-Eintrag, der dieselbe Aufgabe als **erledigt/komplett/abgeschlossen**
-  markiert **und neuer** ist als der Handover-Stand (Datum in der
-  `## ⚡ Aktueller Stand`-Überschrift)?
-- **Treffer → NICHT blind starten.** Diskrepanz dem User spiegeln, evidenz-diszipliniert:
-  „verifiziert: Memory `<key>` sagt erledigt am `<Datum>`; Handover sagt offen" →
-  vorschlagen, den Handover sauberzuziehen, **bevor** Arbeit beginnt.
-- Kein Treffer → normal weiter zu Phase 3.
-
-→ Billigster Check zuerst (Evidenz-Disziplin): **die Diskrepanz IST der Fund** —
-  nicht die erneute Ausführung der Aufgabe.
-
----
+- **Treffer → NICHT blind starten.** Diskrepanz evidenz-diszipliniert spiegeln („verifiziert:
+  Memory `<key>` sagt erledigt am `<Datum>`; Handover sagt offen") und den Handover
+  sauberziehen, **bevor** Arbeit beginnt. Kein Treffer → normal weiter.
+- **Die Diskrepanz IST der Fund**, nicht die erneute Ausführung.
+  → `LEHREN#handover-memory-reconciliation`
 
 ## Phase 2.7: Session-Zielzustand klären (Zielzustand-Loop — NEU 2026-08-07, PFLICHT für Arbeits-Sessions)
 
-Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
-(`policies/zielzustand.md` + SA-4 aus `policies/autonomy-gates.md`):
+Vor dem Arbeitsplan den **Zielzustand der Session** festmachen (`policies/zielzustand.md` +
+SA-4 aus `policies/autonomy-gates.md`):
 
-1. **Quelle bestimmen:** Kommt die Session mit einem User-Auftrag → der ist die Quelle.
-   Ohne Auftrag → die Handover-Prio (Punkt 1) ist die Quelle.
-2. **Existiert schon ein akzeptiertes Artefakt** (Issue/ADR/KONZ mit
-   Akzeptanzkriterien)? → referenzieren, NICHT neu formulieren. Es ist zugleich
-   der **SA-4-Anker**: Umbauten, die nachweisbar auf seine Kriterien einzahlen,
-   laufen autonom durch (Bedingungen der Klasse beachten).
-3. **Existiert keins** und die Arbeit ist substanziell → Zielzustands-Vorschlag
-   (3–7 Zeilen: 1 Satz Endzustand + 2–5 prüfbare Kriterien + Out-of-Scope) und
-   **Akzeptanz einholen, bevor substanzielle Arbeit beginnt**. Schweigen ≠ Zustimmung.
-   Bei Akzeptanz und PR-überlebender Arbeit: als Issue im Ziel-Repo materialisieren
-   (`/prompt --auftrag` macht genau das).
-4. **Right-Sizing:** Reine Frage-/Triage-Sessions und triviale mechanische Fixes
-   überspringen diese Phase (die Anweisung ist der Zielzustand) — das Überspringen
-   ist eine bewusste Entscheidung, keine Auslassung.
+1. **Quelle:** User-Auftrag → der ist die Quelle; ohne Auftrag → die Handover-Prio.
+2. **Akzeptiertes Artefakt** (Issue/ADR/KONZ mit Akzeptanzkriterien) vorhanden? →
+   referenzieren, NICHT neu formulieren. Es ist zugleich der **SA-4-Anker**: Umbauten, die
+   nachweisbar auf seine Kriterien einzahlen, laufen autonom durch.
+3. **Keins vorhanden** und Arbeit substanziell → Zielzustands-Vorschlag (3–7 Zeilen: 1 Satz
+   Endzustand + 2–5 prüfbare Kriterien + Out-of-Scope) und **Akzeptanz einholen, bevor
+   substanzielle Arbeit beginnt**. Schweigen ≠ Zustimmung. Bei Akzeptanz und PR-überlebender
+   Arbeit als Issue im Ziel-Repo materialisieren (`/prompt --auftrag`).
+4. **Right-Sizing:** reine Frage-/Triage-Sessions und triviale Fixes überspringen diese Phase
+   (die Anweisung ist der Zielzustand) — bewusste Entscheidung, keine Auslassung.
 
 ## Phase 3: Arbeitsplan
 
-12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen), **gegen den Zielzustand aus 2.7**
+12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (mit Warm-Start-
+    Ergebnissen + Eskalationen), **gegen den Zielzustand aus 2.7**
 
 ---
 
 ## Startklar-Checkliste (PFLICHT — NEU 2026-07-15, Ausführungstreue-Gate)
 
-> **Lesson 2026-07-15 (Retro c494a2):** `session-ende.md` bekam 2026-07-14 eine neue
-> Pflicht-Phase (0a-handover-pr), die in derselben Session, die sie brauchte, trotz
-> vorliegender Skill-Kopie NICHT ausgeführt wurde — ein langes Multi-Phasen-Dokument
-> wird überflogen statt Phase für Phase abgehakt. `session-start.md` hatte bis hierhin
-> **gar keine** Abschluss-Checkliste trotz 14 Unterphasen (0.0–0.9) + 3 weiteren Phasen —
-> das größte Ausführungstreue-Risiko dieses Skills, weil es JEDE Session zuerst durchläuft.
-
 | # | Check | Status |
 |---|-------|--------|
-| 1 | Runner `tools/session_start_checks.sh` gelaufen, Summary-Tabelle gezeigt (0.R) | ☐ |
-| 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt (0.R) | ☐ |
-| 2a | Befund-Journal gelesen: Altbefunde mit ihrem **Alter** gespiegelt, Fremd-Repo-Befunde benannt (0.R) | ☐ |
-| 2b | Rückfällige Gates aus 0.7.7 im Board benannt — ein versagendes Gate ist ein Befund über den Loop selbst | ☐ |
-| 2c | `0.7.11 erreichbarkeit`: 5xx von NXDOMAIN getrennt; jede Ausnahme in `ports.yaml` trägt einen Grund | ☐ |
-| 2d | `0.7.16 origin-tls`: `abgelaufen`/`laeuft-ab` (kaputtes Renewal) von `fallback-zertifikat` (kein Zertifikat für diesen Namen) getrennt; `nicht-messbar` nicht als grün gelesen | ☐ |
-| 2e | `0.7.17 backup-deckung`: rote Volumes nach Lage getrennt (*in Nutzung* / *Container steht* / *verwaist*); `NICHT messbar` nicht als grün gelesen; jeder Verzicht trägt einen Grund | ☐ |
-| 2f | `0.7.18 speicher`: Platten unter 7 Tagen Vorlauf im Board benannt; `SAMMELPHASE` als „keine Rate" gelesen, nicht als Entwarnung | ☐ |
-| 2g | `0.3 modellwechsel`: MAJOR ggü. bewertet gespiegelt (Vollmachten suspendiert, §2-Köder + #1640 fällig) — nicht mit Vorgänger↔Nachfolger verwechselt | ☐ |
-| 2h | `0.7.23 melder-register`: kein Melder ohne Leser (`UNBENANNT`) oder Karteileiche offen liegen lassen; Block „⏳ ohne Entscheidung > 14 d" gegengeprüft | ☐ |
+| 1 | Runner `session_start_checks.sh` gelaufen, Summary gezeigt (0.R) | ☐ |
+| 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt | ☐ |
+| 2a | Journal gelesen: Altbefunde mit **Alter**, Fremd-Repo-Befunde benannt | ☐ |
+| 2b | Rückfällige Gates aus 0.7.7 im Board benannt | ☐ |
+| 2c | `0.7.11`: 5xx von NXDOMAIN getrennt; jede `ports.yaml`-Ausnahme mit Grund | ☐ |
+| 2d | `0.7.16`: `abgelaufen`/`laeuft-ab` von `fallback-zertifikat` getrennt | ☐ |
+| 2e | `0.7.17`: rote Volumes nach Lage getrennt; jeder Verzicht mit Grund | ☐ |
+| 2f | `0.7.18`: Platten unter 7 Tagen Vorlauf benannt; `SAMMELPHASE` ≠ Entwarnung | ☐ |
+| 2g | `0.3`: MAJOR ggü. bewertet gespiegelt (Vollmachten suspendiert, §2-Köder, #1640) | ☐ |
+| 2h | `0.7.23`: kein Melder ohne Leser, keine Karteileiche; Block „⏳ > 14 d" geprüft | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
-| 6 | Recurring-Errors geprüft, Handover↔Memory-Reconciliation gemacht (2.5/2.6) | ☐ |
-| 7 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3, ADR-233-Kill-Gate) | ☐ |
-| 7a | Basis-Abstand aus 0.4.4 gelesen — betrifft eine WARN-Zeile den eigenen Worktree, **vor** dem ersten Edit `git merge origin/main` | ☐ |
-| 7b | Session-Zielzustand geklärt: Artefakt referenziert ODER Vorschlag akzeptiert ODER Überspringen begründet (2.7) | ☐ |
+| 6 | Recurring-Errors geprüft, Handover↔Memory abgeglichen (2.5/2.6) | ☐ |
+| 7 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3) | ☐ |
+| 7a | Basis-Abstand aus 0.4.4 gelesen, betroffener Worktree **vor** dem Edit gemergt | ☐ |
+| 7b | Zielzustand geklärt: referenziert ODER akzeptiert ODER Überspringen begründet | ☐ |
 | 8 | Arbeitsplan aufgestellt (Phase 3, gegen den Zielzustand) | ☐ |
 
-**Pflicht-Selbstcheck (2-Schritt, NEU 2026-07-15 — Retro c494a2-incr Befund #3):** Diese
-Checkliste selbst ließ bei ihrer Erstellung 0.4.3 und Phase 3 aus, weil beide keine
-wörtliche "PFLICHT"/"NEU"-Markierung im Titel tragen, obwohl beide faktisch mandatorisch
-sind (0.4.3 = ADR-233-Kill-Gate, Phase 3 = das eigentliche Ergebnis des Skills). Reines
-Filtern nach dem Stichwort "PFLICHT" übersieht genau solche Phasen. Richtiger Ablauf:
-(1) ALLE `##`/`###`-Überschriften oben mechanisch auflisten (`grep -n "^## \|^### "`),
-(2) DANN jede einzeln beurteilen, ob sie faktisch mandatorisch ist — nicht nur nach dem
-Wort im Titel filtern. Bei einer neuen Pflicht-Phase diese Tabelle im selben PR erweitern,
-nicht in einem Folge-Commit "irgendwann".
-
----
-
-## MCP-Server Quick-Reference
-
-> ⚠️ **Prefix ist environment-spezifisch** — immer `project-facts.md` als Quelle nehmen!
-
-### Dev Desktop (adehnert@dev-desktop)
-
-| Prefix | Server | Zweck |
-|--------|--------|-------|
-| `mcp0_` | github | Issues, PRs, Repos, Files, Reviews |
-| `mcp1_` | orchestrator | Memory, Task-Analyse, Plans, Evaluate, Verify |
-
-### WSL / Prod-Server (Standard-Konfiguration)
-
-| Prefix | Server | Zweck |
-|--------|--------|-------|
-| `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, System |
-| `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
-| `mcp2_` | orchestrator | Memory, Task-Analyse, Agent-Team |
-| `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
-| `mcp4_` | paperless-docs | Dokumente, Rechnungen |
-| `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
-
-> **Claude Code:** stabile Namen `mcp__github__*` / `mcp__orchestrator__*` /
-> `mcp__outline-knowledge__*` verwenden — die `mcpN_`-Nummern sind Windsurf-Ära und
-> environment-volatil. Signaturen vor Nutzung via `ToolSearch select:<name>` prüfen.
+**Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
+`grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
+→ `LEHREN#startklar-selbstcheck`
 
 ---
 
@@ -512,110 +231,26 @@ nicht in einem Folge-Commit "irgendwann".
 
 - ❌ `ping` für Server-Checks (Hetzner blockt ICMP — TCP-Probe nutzen, 0.1).
 - ❌ Im geteilten Haupt-Tree branchen/stashen, wenn eine fremde Session aktiv ist
-  (0.4-Guard beachten; editieren nur via `repo-session.sh`-Worktree, ADR-233).
+  (0.4-Guard; editieren nur via `repo-session.sh`-Worktree, ADR-233).
 - ❌ Bei pgvector-Ausfall still auf lokales Memory ausweichen (0.5 ist hart).
-- ❌ MCP-Tools mit `mcpN_`-Prefix hardcoden oder ungeprüfte Signaturen aus dem
-  Skill-Text übernehmen — `project-facts.md` + `ToolSearch` sind die Quelle.
-- ❌ Handover-Prio blind starten, ohne Phase 2.6 (Memory-Reconciliation) —
-  Cross-Host-Sessions hinterlassen erledigte Prios als „offen".
-- ❌ Session auf dem teuersten Modell beginnen, ohne 0.8 (Modell-Routing) bewusst
-  entschieden zu haben.
+- ❌ MCP-Tools mit `mcpN_`-Prefix hardcoden oder ungeprüfte Signaturen aus dem Skill-Text
+  übernehmen — `.windsurf/rules/project-facts.md` + `ToolSearch` sind die Quelle.
+- ❌ Handover-Prio blind starten, ohne Phase 2.6 — Cross-Host-Sessions hinterlassen
+  erledigte Prios als „offen".
+- ❌ Session auf dem teuersten Modell beginnen, ohne 0.8 bewusst entschieden zu haben.
 - ❌ **In einem Worktree weiterarbeiten, den 0.4.4 als weit hinter `main` meldet**, ohne ihn
-  vorher nachzuziehen. Der Konflikt entsteht dann beim Merge — also dort, wo er am teuersten
-  ist, weil die Arbeit schon fertig ist. Der Abstand ist die einzige Kollisionswarnung, die
-  auch bei **selbst**verschuldeter Drift greift; die Parallel-Session-Sicht (0.4) tut das nicht.
+  vorher nachzuziehen — der Konflikt entsteht sonst beim Merge, wo er am teuersten ist.
 
 ## Changelog
 
-- 2026-09-02: **Phase 0.7.23 `melder-register`** ergänzt
-  ([#2690](https://github.com/achimdehnert/platform/issues/2690) K3 „Vorausschauende
-  Wartung"). `governance/melder-register.yaml` trägt je Runner-Phase einen Leser, eine
-  Wiedervorlage-Frist (Default 14 Tage) und eine Herabstufungsschwelle (60 % Trefferquote
-  über mindestens 5 beurteilte Läufe) — `tools/melder_register_check.py` prüft die
-  Registry gegen den Runner (`--kurz`), schreibt Selbst-Herabstufungen (`--herabstufung`)
-  und meldet Befunde ohne Entscheidung älter als 14 Tage als eigenen Block
-  (`--ohne-entscheidung`). Erstlauf 2026-09-02: 26 von 39 Phasen ohne Leser, ehrlich als
-  `UNBENANNT` geführt statt erfunden (Audit #2606-Muster). Vierte Lautstärke `ℹ️ HINWEIS`
-  eingeführt — ein herabgestufter Melder bleibt lesbar, zwingt aber keine Board-Zeile mehr.
-  Startklar-Checkliste um Zeile 2h ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile
-  wäre still überspringbar — Lehre c494a2).
+> Nur die letzten drei Einträge (Policy seit #2696). Volle Historie: `LEHREN#changelog-historie`.
 
-- 2026-09-02: **Phase 0.3 `modellwechsel`** ergänzt (K2,
-  [#2690](https://github.com/achimdehnert/platform/issues/2690)). Der Runner vergleicht
-  jetzt `assessed_with` aus den Policy-Kopfzeilen gegen das AKTUELL laufende Modell —
-  Maßstab „bewertet mit ↔ läuft mit", nicht Vorgänger↔Nachfolger (der Ist-Stand vorher:
-  0 Treffer zu Modellwechsel/Rebaseline in allen drei Session-Skills, Runbook hatte 8).
-  Bei Fälligkeit fährt der Runner Smoke §1 selbst und markiert nur bei grünem Smoke als
-  behandelt; die Klasse (MAJOR/MINOR) folgt der Runbook-§0-Tabelle über den bereits
-  bestehenden Klassifizierer aus `model_change_detector.sh` — nicht neu erfunden.
-  **Nachtrag selbiger Tag (Review-Befund):** `model-changes.log` trägt nur den
-  settings-Alias (`fable`/`opus`), nicht die Gewichtsmatrix — ein reiner Log-Vergleich
-  hätte jeden Rücksprung fälschlich als MAJOR gemeldet. Laufendes Modell wird jetzt
-  vorrangig aus dem neuesten Session-Transkript gelesen (`--laufend` > Transkript >
-  Alias-Tabelle als letzter, gewarnter Fallback). Werkzeug: `tools/modellwechsel_check.py`.
-  Startklar-Checkliste um 2g ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile wäre
-  still überspringbar — Lehre c494a2).
-
-- 2026-08-25: **Phasen 0.7.17 `backup-deckung` und 0.7.18 `speicher`** ergänzt
-  ([#2284](https://github.com/achimdehnert/platform/issues/2284)). Beide drehen die
-  Messrichtung um: nicht „stimmt die Liste mit sich selbst überein?", sondern „was sagt
-  der Host?". 0.7.17 verlangt für jedes `docker volume` eine von vier Antworten und fand
-  im Erstlauf 46 ungedeckte Volumes (7,2 GB), wo `backup-meter` täglich grün war. 0.7.18
-  rechnet aus einem Tagesjournal die Tage bis voll und warnt sieben Tage vorher — Anlass
-  war ein repariertes Backup, das die Root-Platte in sieben Tagen gefüllt hätte, ohne dass
-  irgendein Melder Platten misst. Startklar-Checkliste um 2e/2f ergänzt (eine neue
-  WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
-
-- 2026-08-24: **Phase 0.7.16 `origin-tls`** ergänzt — misst auf dem Host, welches
-  Zertifikat nginx je Domain wirklich ausliefert (TLS-Handshake gegen `127.0.0.1:443`
-  mit der Domain als SNI). 0.7.11 fragt am Edge, und dort ist eine 200 kein TLS-Beleg:
-  Cloudflare steht auf `full`, nicht `full (strict)`. Anlass: ausschreibungs-hub
-  2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
-  abgelaufen, zwei Wochen lang kein roter Melder, gefunden beiher. Der **Aussteller**
-  wird mitgemessen, weil der Erstlauf drei Betriebsarten hinter derselben grünen 200
-  zeigte: Let's Encrypt (kurzlebig, Renewal-Gesundheit), Cloudflare Origin CA (bis 2041,
-  kein Befund) und `CN=invalid.localhost` (nginx-Platzhalter = **gar kein** Zertifikat
-  für diesen Namen, Laufzeit bis 2036 — eine reine Datums-Prüfung meldet das grün).
-  Erstlauf fand zwei Fälle der dritten Klasse. Startklar-Checkliste um Zeile 2d ergänzt
-  (eine neue WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
-- 2026-08-20: **Phase 0.7.7 `gate-wirkung`** ergänzt — meldet Gates, deren Befund nach dem
-  Bau mindestens 2x wiederkam. Gemessen über 82 Retros: 8 von 20 Gates rückfällig,
-  `claim-before-cheapest-check` 16x seit dem 2026-08-02 trotz verdrahtetem Stop-Hook und
-  grünem Drill. Der Sitzungsstart ist der einzige Ort, den jede Sitzung durchläuft — die
-  Retro läuft seltener als der Rückfall passiert. Startklar-Checkliste um Zeile 2b ergänzt
-  (eine neue WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
-- 2026-07-18: v3 — Deterministischer Runner `tools/session_start_checks.sh` ersetzt die
-  mechanischen Einzel-Blöcke 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9
-  (Ausführungstreue-Programm #1167, Retro c494a2: lange Phasenlisten werden beim
-  Ausführen überflogen — ein Skript-Lauf ist nicht überspringbar und endet mit
-  maschinenlesbarer Summary + RESULT). Judgment-Phasen (0.4.3 Worktree, 0.8 Modell-Tier,
-  Architecture Context, Phasen 1–3) bleiben im Skill. Troubleshooting-Lessons der
-  Alt-Phasen in 0.R konsolidiert, kein Inhalt ersatzlos gelöscht (Lehre #1122/#1165).
-  Startklar-Checkliste 12→8 Rows (alte Rows 1–7 = jetzt Runner-Summary). Runner real
-  verifiziert (Lauf 2026-07-18: reproduzierte die Live-Befunde der manuellen Session).
-- 2026-07-15 (Nachtrag, Retro c494a2-incr): die frisch angelegte Startklar-Checkliste ließ
-  selbst 2 faktisch mandatorische Phasen aus (0.4.3 Worktree-Gate, Phase 3 Arbeitsplan) —
-  beide ohne wörtliche "PFLICHT"-Markierung im Titel, weshalb der reine Stichwort-Filter
-  sie überging. Rows 11+12 ergänzt, Pflicht-Selbstcheck auf 2-Schritt-Verfahren (erst alle
-  Überschriften auflisten, dann einzeln beurteilen) umgestellt.
-- 2026-07-15: Neue "Startklar-Checkliste" ergänzt — der Skill hatte trotz 14 Unterphasen
-  (0.0–0.9) + 3 weiteren Phasen bisher KEINE Abschluss-Checkliste (anders als
-  session-ende.md). Aus Retro `session-retro-2026-07-15-platform-c494a2`: eine lange,
-  rein prosaische Phasenliste wird beim Ausführen überflogen statt Zeile für Zeile
-  abgehakt, besonders am Session-Anfang unter Zeitdruck. Höchster Hebel aller drei
-  session-xxx-Skills, weil er jede Session zuerst durchläuft.
-- 2026-07-02: v2.1 — CC-first-Call-Sites vollendet: Phase 1/2/2.5 riefen noch
-  Windsurf-Prefix-Tools (`mcp__platform-context__get_context_for_task`, `mcp__deployment-mcp__system_manage`,
-  `mcp__outline-knowledge__search_knowledge`, `mcp__orchestrator__agent_memory`, `<orc>_`/`<gh>_`-Platzhalter) — auf
-  stabile `mcp__…`-Namen umgestellt (v2 hatte nur die Warnung ergänzt, nicht die
-  Aufrufe); Shell-Hang-Fallback (Z.80) + Auto-Issue-Owner (git-Remote statt
-  hardcoded) mitgezogen; TODO(mcp-migration)-Marker geschlossen; orchestrator-404-
-  Drift-Verweis ergänzt; Testbefehl auf `make test`.
-- 2026-07-02: v2 — `mode: write` nachgetragen; Parallel-Session-Guard in 0.4
-  (ADR-233 + Shared-Worktree-Drift); 0.5 sudo-freier Tunnel-Fallback (devuser ohne
-  sudo); adrfw-MCP-Block environment-aware mit CC-CLI-Fallback (Signaturen-Policy);
-  0.7 mit gh-Fallback (deployment-MCP optional); NEU 0.8 Modell-Tier-Routing
-  (policies/session-routing.md, Fable/Opus/Sonnet-Split); Anti-Patterns + Changelog
-  ergänzt (claude-skills-Policy-Pflichtsektionen).
-- ≤2026-06-24: Windsurf-Ära-Stände (Phase 2.6 Reconciliation, Stash-Guards 0.4,
-  Drift-Lessons) — Historie siehe git log.
+- 2026-09-02: **Kontext-Diät** (#2690 K5) — 41 137 → ~15 200 B; WARN-Deutung als Tabelle,
+  Lehren/Historie nach `docs/governance/session-skills-lehren/start.md`; gestrichen:
+  Auto-Issue-Template (S1), `mcpN_`-Quick-Reference (S5), Windsurf-Fallback.
+- 2026-09-02: **Phase 0.7.23 `melder-register`** ergänzt (#2690 K3) — je Runner-Phase Leser,
+  Frist, Herabstufungsschwelle in `governance/melder-register.yaml`, geprüft über
+  `tools/melder_register_check.py`; vierte Lautstärke `ℹ️ HINWEIS`, Checkliste 2h.
+- 2026-09-02: **Phase 0.3 `modellwechsel`** ergänzt (#2690 K2) — Maßstab „bewertet mit ↔
+  läuft mit"; laufendes Modell primär aus dem Session-Transkript, Alias-Tabelle nur als
+  gewarnter Fallback (`tools/modellwechsel_check.py`), Checkliste 2g.
