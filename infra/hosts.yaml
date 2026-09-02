@@ -284,7 +284,7 @@ hosts:
       - "2026-08-30: CI-Runner laeuft entgegen R3 mit github-ci in Gruppe docker (platform#2486 Punkt 1); kein restic check, kein Prune, Schluessel ohne Escrow (platform#2504)"
       - "2026-09-01: AVV nach Art. 28 DSGVO liegt vor, unterzeichnet 30.07.2026 — der Befund 'AVV fehlt' war falsch; das Dokument war nur nicht abgelegt (platform#2486 Punkt 4)"
       - "2026-09-01: R3 aktiviert, aber ROOTLESS — github-ci hat einen eigenen Daemon (/run/user/1000/docker.sock) und ist NICHT in der Gruppe docker. Gegenprobe am Host: Zugriff auf /var/run/docker.sock = permission denied"
-    hosts_runners: [netcup-ci]
+    hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]
     auflage:
       datenklassen_verboten: [personenbezogen]
       app_hubs: false
@@ -367,6 +367,7 @@ runners:
     scope: per-repo
     install: /opt/actions-runner-<repo>
     service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci.service
+    toolcache: /opt/hostedtoolcache    # GETEILT mit -ci-2 und -ci-3
     runner_user: github-ci             # REC-5, nicht root
     rootless: true                     # ← die Bedingung der Auflage, maschinenlesbar
     docker_host: unix:///run/user/1000/docker.sock
@@ -392,9 +393,67 @@ runners:
       systemd-Drop-in (`…service.d/rootless.conf`), sonst faellt der Laeufer auf
       /var/run/docker.sock zurueck und scheitert mit `permission denied`. Geprueft wird
       das an `/proc/<pid>/environ` des `Runner.Listener`, nicht am Dateiinhalt.
+    skalierung: >
+      Drei Instanzen seit 2026-09-01. Gemessen am Basislauf 33485965050:
+      Wanduhr 866 s bei 842 s Jobzeit — also praktisch sequenziell, weil
+      `ci-nonprod` auf genau einen Laeufer zeigte. Der laengste EINZELNE Job
+      (`Integration Tests`, 399 s) ist unteilbar; der Boden liegt damit bei
+      rund 410 s und wird bei DREI Instanzen erreicht. Ein vierter kauft
+      nichts mehr — dort kippt es.
+      DREI Fallen beim Aufsetzen, alle selbst hineingelaufen:
+      (1) `tar --exclude='.runner'` greift bei `-C quelle .` NICHT, weil der
+      Name im Archiv `./.runner` lautet.
+      (2) `bin` und `externals` sind ABSOLUTE Symlinks auf das
+      Quellverzeichnis. Die Kopie liest damit die Konfiguration der ersten
+      Instanz und meldet „already configured", obwohl ihr eigenes `.runner`
+      geloescht ist — die Symlinks muessen nach innen zeigen.
+      (3) Jede Instanz haelt ihren EIGENEN `_work/_tool`. Ohne geteilten
+      Cache scheitert `actions/setup-python` auf den neuen Instanzen mit
+      „The version '3.12' … was not found for Debian 13". Deshalb
+      `AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache` im systemd-Drop-in aller
+      Instanzen.
+      Und: Laeufer NICHT neu starten, waehrend Jobs laufen — am 2026-09-01
+      kostete das sieben Jobs eines Messlaufs.
     verified: 2026-09-01               # writing-hub-Lauf 33485965050 vollstaendig gruen,
                                        # ALLE selbstgehosteten Jobs auf writing-hub-netcup-ci
                                        # (je Job am Log-Kopf "Runner name:" nachgesehen)
+
+  netcup-ci-2:
+    host: netcup
+    status: online                     # 2026-09-01 registriert (id 26)
+    labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>-2
+    service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci-2.service
+    runner_user: github-ci
+    rootless: true
+    docker_host: unix:///run/user/1000/docker.sock
+    toolcache: /opt/hostedtoolcache
+    consumers: [writing-hub]
+    note: >
+      Zweite Instanz derselben Maschine. Alles Inhaltliche steht bei
+      `netcup-ci` — hier bewusst nur das, was sich je Instanz unterscheidet.
+      Ein eigener Eintrag, weil `hosts_runners` nur Namen tragen darf, die es
+      im `runners:`-Block gibt (hosts_audit --check schema).
+    verified: 2026-09-01
+
+  netcup-ci-3:
+    host: netcup
+    status: online                     # 2026-09-01 registriert (id 27)
+    labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>-3
+    service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci-3.service
+    runner_user: github-ci
+    rootless: true
+    docker_host: unix:///run/user/1000/docker.sock
+    toolcache: /opt/hostedtoolcache
+    consumers: [writing-hub]
+    note: >
+      Dritte Instanz. Siehe `netcup-ci` und `netcup-ci-2`. Mit dieser ist der
+      Boden erreicht: der laengste einzelne Job dauert 399 s und ist
+      unteilbar — eine vierte Instanz kauft nichts mehr.
+    verified: 2026-09-01
 
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
