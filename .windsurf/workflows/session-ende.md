@@ -206,6 +206,30 @@ erzwungen. → `LEHREN#0g`
 
 ---
 
+### 0h: Fremder Blick auf 0d und 0e (PFLICHT ab `full` — NEU 2026-08-17, Owner-Freigabe)
+
+0d und 0e sind **Selbstbeurteilung** — die Restmenge setze ich selbst, und was nur im
+Gesprächsverlauf lebt, fühlt sich für mich vorhanden an. Für genau das führt
+`/session-retro` seit jeher „Richter ≠ Angeklagter".
+
+| Footprint | Regel |
+|---|---|
+| **lean** (1 Repo, ≤2 PRs, kein Prod/Migration/Publish) | **überspringen** |
+| **full / deep** (≥3 Repos ODER Prod/Publish ODER Migration) | **zwei Subagenten**, eng geführt |
+
+- **Agent 1 (zu 0d)** bekommt nur Zielzustand und Artefakte, **nicht** meine Erzählung:
+  je Kriterium ERFÜLLT / NICHT ERFÜLLT / NICHT PRÜFBAR **mit Beleg**. Weicht sein Urteil
+  ab, gewinnt **seins** im Stand-Block.
+- **Agent 2 (zu 0e)** bekommt **ausschließlich die durablen Artefakte** und die drei
+  0e-Fragen. Er darf den Gesprächsverlauf **nicht** sehen — das ist der Punkt.
+- Beide Ergebnisse in den Stand-Block, auch wenn sie unbequem sind.
+- **Subagenten untersagt?** 0d/0e inline, aber den Bruch **im Stand-Block benennen**.
+
+**Kosten, damit die Entscheidung bewusst fällt:** ~55k Token je Agent ⇒ **~110k je
+Sitzungsende** dieser Klasse. Deshalb der Footprint-Schalter statt „immer". → `LEHREN#0h`
+
+---
+
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren (PFLICHT)
 
 Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation, Cross-Repo-Tagging und
@@ -359,6 +383,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 20 | Zusagen-Prüfer: `✅`, oder je Meldung Issue bzw. dokumentierter Fehlalarm (E.5 / 0g) | ☐ |
 | 21 | Clear-Freigabe-Zeile als letzter Satz — 🟢 JA oder 🔴 NEIN + Grund (3.5) | ☐ |
 | 22 | Gate verankert? `gate_verankerung_check.py --neu` grün, sonst Kandidat (0f-verankerung) | ☐ |
+| 23 | Ab `full`: 0d und 0e von je einem fremden Agenten gegengelesen (0h) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
@@ -367,6 +392,14 @@ Memory-Upserts deduplizieren per `content_hash`.
 ---
 
 ## Changelog
+
+- 2026-09-02: **Phase 0h Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 23** (#2036) —
+  Owner-Freigabe für Subagenten in den Session-Skills, ausdrücklich **selbstbetreffend**.
+  Nur 0d und 0e bekommen fremden Kontext; der mechanische Rest bleibt Skript. Der Zweig
+  stammt vom 2026-08-17 und hieß dort `0g`; `main` vergab denselben Buchstaben inzwischen
+  an #2211, deshalb `0h` und Zeile 23. Beim Nachziehen **neu geschrieben** statt gemergt:
+  `main` hatte die Datei zwischenzeitlich von 55 auf 20 kB gekürzt, ein Merge hätte das
+  zurückgedreht. Herleitung in `LEHREN#0h`.
 
 > Nur die letzten drei Einträge (Policy seit platform#2696). Volle Historie:
 > `LEHREN#changelog-historie`.

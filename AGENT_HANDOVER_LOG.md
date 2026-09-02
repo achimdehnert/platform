@@ -3275,3 +3275,44 @@ Scope-Checkpoint nachgeholt nach Hook-Aufforderung
 ([#2486](https://github.com/achimdehnert/platform/issues/2486)). Zielzustand: erreicht.
 SA-4: 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 0 autonome Merges — #2684
 nach Owner-Wort, alles Weitere vom Owner selbst gemergt.
+## 2026-09-02 nachmittags — Owner-Punkte #2486/#2504 vollzogen, risk-hub nach Prod, Retro deep (a6368d)
+
+Zehn Owner-Freigaben, alle ausgefuehrt und belegt. Deploy-Skript auf prod nachgezogen (die
+Host-Kopie war byte-gleich mit einem alten git-Stand, es fehlte genau ein Commit). #2486
+Punkt 1 und 4 waren am Vortag bereits umgesetzt und wurden nur noch live gegengeprueft;
+Punkt 2 ist als `gpu.iil.pet` gebaut — eigener Tunnel auf prod, Ursprung ueber wg0, davor
+Cloudflare Access, unangemeldet 302 vor dem Tunnelstart und dreimal danach (#2665). Punkt 3
+ist prod-b auf Schluessel-only, beidseitig geprueft; die Messung davor zeigte 59.256
+Fehlversuche in sieben Tagen bei 0 erfolgreichen Passwort-Anmeldungen und 0 von 33 Konten
+mit Passwort-Hash. risk-hub steht nach 6 Tagen Gate-Stau wieder auf dem Stand von `main`
+(Lauf 33620470085, Container auf `main-800b4e4`, schutztat.de 200) — der Vollzug ist in
+#2148 nachgetragen, weil er dort zuvor als offen stand.
+
+Escrow (#2504) abgeschlossen und erstmals belegt: vier Dateien ausgelagert, Zweitkopie im
+Passwortspeicher, Wiederanlaufprobe bestanden (126 Snapshots gelistet, eine Datei
+zurueckgeholt, sha256 gleich der Quelle). **Der erste Anlauf war falsch** — gesichert war
+`offsite-backup.env`, die den Schluessel gar nicht enthaelt, sondern per
+`RESTIC_PASSWORD_FILE` auf ihn zeigt. Aufgefallen an der Owner-Frage „wo sind die Werte?",
+nicht an einer Pruefung (#2675).
+
+Drei Werkzeug-Fixes aus der Arbeit heraus: Review-Bot bewertet nur den juengsten Lauf je
+Check-Namen (#2679, Auswahl aus dem Workflow-Heredoc in ein testbares Modul ausgelagert, an
+#2683 live bestaetigt); Feuerübungs-Frist misst die pflichtige App und das Datum im
+Dateinamen statt der mtime — die entsteht beim Auschecken, weshalb die 100-Tage-Frist in CI
+nie greifen konnte (#2686); Tunnel-Ursprung wird vor dem Schreiben geprueft und die
+Gegenprobe trennt Access-Abweisung von stummem Ursprung (#2702, #2707).
+
+Retro deep (`docs/retros/session-retro-2026-09-02-platform-a6368d.md`, #2695): 17 Befunde,
+12 ueberlebt. Teuerster Fund ist eine Klasse, kein Einzelfall — geprueft wurde der
+Transport (Pruefsumme gleich, Endpunkt antwortet), nie der Inhalt. Zwei Anschuldigungen
+gegen die Sitzung wurden widerlegt, drei Milde-Urteile der Finder kassiert. **Die eigene
+Diagnose im Gate-Abschnitt war falsch** und ist als Korrektur angehaengt (#2710): der
+Claim-Scanner liest PR-Texte laengst.
+
+**Offen und Owner-Zug:** Die Subjektbindung des Claim-Gates wurde von einer Parallel-Sitzung
+scharf geschaltet (#2697); die daraufhin angeordnete Messung an 13 Transkripten ergibt
+3 echte Treffer gegen 10 grundlose Blockaden (23 %) und empfiehlt Herabstufen. Wichtiger als
+die Quote ist die Ursache: 4 der 10 Fehlalarme entstehen, weil Ergebnisse von Subagenten und
+Hintergrundlaeufen als user-String oder attachment-Record ankommen und nie in den Belegtext
+fliessen — je mehr eine Sitzung delegiert, desto blinder wird das Gate (vermerkt an #2234
+und #2697). Ausserdem offen: vier Owner-Schritte in #2504.

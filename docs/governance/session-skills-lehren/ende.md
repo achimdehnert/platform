@@ -276,6 +276,37 @@ Quote wird umgangen statt befolgt. Scharfschaltung erst nach Auswertung des
 Kalibrierfensters — als eigene Entscheidung, nicht als Nebeneffekt eines Edits.
 
 
+## 0h
+
+Owner-Freigabe 2026-08-17 (#2036), portiert auf die gekürzte Skill-Fassung am 2026-09-02.
+
+> **Zwei Phasen dieses Skills sind Selbstbeurteilung, und genau dafür hat `/session-retro`
+> die Regel „Richter ≠ Angeklagter".** In 0d beurteile ich, ob ich mein eigenes Ziel
+> erreicht habe; in 0e, was von meinem eigenen Kontext verschwindet. Beides ist strukturell
+> voreingenommen: die Restmenge definiere ich selbst, und was nur im Gesprächsverlauf lebt,
+> **fühlt sich für mich vorhanden an**.
+
+Realfall im Anlass-Retro `session-retro-2026-08-17-platform-37e8e0.md`: „Zielzustand
+erreicht, mit benannter Restmenge" — Restmenge von mir gesetzt, niemand gegengelesen, und
+derselbe Retro musste `refuted_rate 0.00` ausweisen, weil Falsifikation nicht lief.
+
+**Warum nur zwei Phasen.** Der Rest des Skills ist mechanisch — Deploy-Status, Freshness,
+Docu-/Template-Drift, Worktree-Reaper, Git-Sync. Dort ist ein Skript reproduzierbar,
+protokollierbar und kostenlos; ein Agent wäre teurer und unzuverlässiger.
+
+**Warum `/session-start` keine Subagenten bekommt.** Am Sitzungsanfang **ist** der Agent
+der frische Kontext — das Problem, das Subagenten lösen, existiert dort nicht. Ein Agent,
+der den Handover liest und zusammenfasst, schöbe eine Verdichtungsschicht zwischen Agent
+und Stand, den er im Original braucht. Der Engpass dort ist Ausführungstreue, und die löst
+eine Checkliste.
+
+**Selbstbetreffend.** Diese Änderung erweitert den eigenen Handlungsspielraum (mehr Agenten
+pro Sitzung). Sie stand deshalb allein in ihrem PR, ungebündelt, und geht auf eine wörtliche
+Owner-Freigabe zurück.
+
+**Kosten.** ~55k Token je eng geführtem Agenten (gemessen, `/session-retro` Phase 0) ⇒ rund
+110k je Sitzungsende ab `full`. Kein Rundungsfehler — daher der Footprint-Schalter.
+
 ## 1b
 
 Docu-Drift-Check, 2026-04-23 · gestrichen 2026-09-02 (Streichkandidat S2 des Streichplans: der Verarbeiter läuft als CI `docu-update-agent.yml`, 6 von 10 `docu-update`-Issues offen, älteste 31 Tage — Median-Liegezeit rund 28 Tage gegen die K3-Schwelle von 14). Der Erzeuger-Text im Wortlaut:
