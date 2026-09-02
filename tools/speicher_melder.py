@@ -78,7 +78,29 @@ JOURNAL_STANDARD = (
     Path(os.environ.get("HOME", "/tmp")) / ".claude" / "speicher-journal.jsonl"
 )
 # Pseudo-Dateisysteme, die df sonst als „Platte" fuehrt.
-DF_AUSSCHLUSS = ("tmpfs", "devtmpfs", "overlay", "squashfs", "efivarfs", "fuse.lxcfs")
+# `fuse.snapfuse` und `rootfs` kamen 2026-09-02 dazu: unter WSL bindet snapd seine
+# Images NICHT als `squashfs` ein, sondern ueber snapfuse — acht davon standen auf
+# der gpu-box als „0 GB frei (0 %)" im Bericht, obwohl ein nur lesbares Image nie
+# volllaufen kann. `rootfs` ist das WSL-Init (`/init`), ebenfalls keine Platte.
+DF_AUSSCHLUSS = (
+    "tmpfs",
+    "devtmpfs",
+    "overlay",
+    "squashfs",
+    "fuse.snapfuse",
+    "rootfs",
+    "efivarfs",
+    "fuse.lxcfs",
+)
+
+# Mount-Praefixe, die keine eigene Platte sind, obwohl ihr Dateisystem echt ist.
+# `/boot*`: 1 GB, aendert sich nur beim Kernel-Update — „0 GB frei (100 %)" liest
+# sich wie ein Befund, ist aber keiner (Erstlauf 2026-08-25).
+# `/usr/lib/wsl/`: WSL-Innenleben. `/usr/lib/wsl/drivers` ist ein zweiter Blick auf
+# dieselbe Windows-Platte, die unter `/mnt/c` schon steht — byte-gleich in Groesse
+# und frei (gemessen gpu-box 2026-09-02). Zweimal dieselbe Platte sind zwei Zeilen
+# im Bericht und ein doppelt gezaehlter Befund; `/mnt/c` ist die ehrliche davon.
+MOUNT_AUSSCHLUSS = ("/boot", "/usr/lib/wsl/")
 
 
 # --- Eingaben -----------------------------------------------------------------
@@ -150,13 +172,16 @@ def _sh(cmd: list[str], timeout: int, stdin: str | None = None) -> tuple[int, st
 
 
 def parse_df(text: str) -> list[dict]:
-    """df-Zeilen → Platten. `/boot*` faellt heraus: 1 GB gross, aendert sich nur
-    beim Kernel-Update, und „/boot/efi 0 GB frei (100 %)" liest sich wie ein
-    Befund, ist aber keiner (Erstlauf 2026-08-25 zeigte genau das)."""
+    """df-Zeilen → Platten; Mounts unter `MOUNT_AUSSCHLUSS` fallen heraus.
+
+    Der Dateisystem-Filter sitzt im Fernbefehl (`df -x`), dieser hier im Ergebnis:
+    manche Mounts tragen ein echtes Dateisystem und sind trotzdem keine eigene
+    Platte (Kernel-Boot-Partition, zweiter Blick auf eine schon gezaehlte Platte).
+    """
     raus = []
     for zeile in text.splitlines():
         teile = zeile.split()
-        if len(teile) != 3 or teile[0].startswith("/boot"):
+        if len(teile) != 3 or teile[0].startswith(MOUNT_AUSSCHLUSS):
             continue
         try:
             raus.append(

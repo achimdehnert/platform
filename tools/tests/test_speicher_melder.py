@@ -198,6 +198,28 @@ def test_should_drop_boot_partitions_and_keep_data_disks():
     assert [p["mount"] for p in sm.parse_df(text)] == ["/", "/mnt/data"]
 
 
+def test_should_drop_the_second_view_of_a_windows_drive():
+    """gpu-box 2026-09-02: `/usr/lib/wsl/drivers` und `/mnt/c` sind dieselbe
+    Windows-Platte, byte-gleich in Groesse und frei. Beide zu melden macht aus
+    einem Befund zwei; `/mnt/c` ist der ehrliche Blick darauf."""
+    text = (
+        "/ 1081101176832 802632937472\n"
+        "/usr/lib/wsl/drivers 1999340818432 109956247552\n"
+        "/mnt/c 1999340818432 109956247552\n"
+        "/mnt/d 1000201220096 811273994240\n"
+    )
+    assert [p["mount"] for p in sm.parse_df(text)] == ["/", "/mnt/c", "/mnt/d"]
+
+
+def test_should_exclude_snapfuse_images_that_can_never_fill_up():
+    """Unter WSL bindet snapd seine Images als `fuse.snapfuse` ein, nicht als
+    `squashfs`. Acht davon standen auf der gpu-box als „0 GB frei (0 %)" im
+    Bericht — nur lesbare Images, die per Bauart randvoll sind."""
+    befehl = sm.fernbefehl()
+    assert "-x fuse.snapfuse" in befehl
+    assert "-x rootfs" in befehl
+
+
 def test_should_read_ssh_targets_with_trailing_comments(tmp_path):
     """hosts.yaml traegt hinter `ssh:` Kommentare — der Wert endet am Leerzeichen."""
     p = tmp_path / "hosts.yaml"
