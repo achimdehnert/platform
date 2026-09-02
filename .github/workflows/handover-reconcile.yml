@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # ── Flotten-Sicht via GitHub App (platform#2006, Owner-Freigabe 2026-08-16) ──
       # Warum ueberhaupt: derselbe Handover ergab mit dem Repo-Token
@@ -65,7 +65,7 @@ jobs:
         # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
         # abgeschaltet und meldet danach gar nichts mehr (#1508).
         continue-on-error: true
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ vars.RECONCILE_APP_ID }}
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
@@ -80,7 +80,7 @@ jobs:
         # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
         # abgeschaltet und meldet danach gar nichts mehr (#1508).
         continue-on-error: true
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ vars.RECONCILE_APP_ID }}
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
@@ -95,7 +95,7 @@ jobs:
         # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
         # abgeschaltet und meldet danach gar nichts mehr (#1508).
         continue-on-error: true
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ vars.RECONCILE_APP_ID }}
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
@@ -110,7 +110,7 @@ jobs:
         # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
         # abgeschaltet und meldet danach gar nichts mehr (#1508).
         continue-on-error: true
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ vars.RECONCILE_APP_ID }}
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
@@ -125,7 +125,7 @@ jobs:
         # stehen unter „nicht pruefbar“. Ein dauerrot laufender Nightly wird
         # abgeschaltet und meldet danach gar nichts mehr (#1508).
         continue-on-error: true
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ vars.RECONCILE_APP_ID }}
           private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
@@ -158,7 +158,7 @@ jobs:
       # Leseflaeche ihn beim Sitzungsstart abholen.
       - name: Report als Artefakt (Leseflaeche holt ihn ab)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: handover-reconcile-report
           path: reconcile-report.json
