@@ -51,6 +51,12 @@ from pathlib import Path
 DEFAULT_MAX_AGE_HOURS = 26
 DRILL_MAX_AGE_DAYS = 100
 
+#: App, fuer die ADR-241 §5 die quartalsweise Feuerübung verlangt — woertlich
+#: "juengstes **risk-hub**-Backup in Wegwerf-Postgres restoren". Es ist genau EINE;
+#: die uebrigen Klassen der RPO/RTO-Tabelle tragen keine Uebungspflicht.
+#: Ueber `--drill-app` ueberschreibbar, falls das ADR die Pflicht spaeter ausweitet.
+DRILL_APP = "risk-hub"
+
 
 def _parse_restic_time(value: str) -> datetime:
     """restic-Zeitstempel (ISO 8601, ggf. mit Nanosekunden/Offset) → aware UTC."""
@@ -170,33 +176,93 @@ def evaluate_app(entry: dict, snapshots, now: datetime) -> dict:
     return {"app": app, "status": "ok", "reasons": []}
 
 
-def evaluate_drill(drills_dir: Path, now: datetime, enforce: bool) -> dict:
-    """Restore-Feuerübungs-Protokoll < DRILL_MAX_AGE_DAYS Tage alt?
+def _protokoll_datum(pfad: Path) -> datetime | None:
+    """Datum aus dem Dateinamen `YYYY-MM-DD-<app>.md`, sonst None.
+
+    **Nicht die mtime** (bis 2026-09-02, platform#2682): git speichert keine
+    Aenderungszeiten, ein `actions/checkout` schreibt jede Datei frisch. In CI war
+    damit JEDES Protokoll null Tage alt — die 100-Tage-Frist konnte dort nie
+    greifen, auch nicht bei einem Protokoll von 2024. Lokal gemessen am
+    2026-09-02: beide Protokolle trugen die Zeit des Auscheckens, ihre Namen
+    dagegen den 25. und den 30. August.
+
+    Die Benennung ist keine Kosmetik, sondern der einzige Traeger des Datums, der
+    einen Checkout ueberlebt — das README verlangt sie ohnehin.
+    """
+    teile = pfad.stem.split("-")
+    if len(teile) < 3:
+        return None
+    try:
+        return datetime(
+            int(teile[0]), int(teile[1]), int(teile[2]), tzinfo=timezone.utc
+        )
+    except ValueError:
+        return None
+
+
+def evaluate_drill(
+    drills_dir: Path, now: datetime, enforce: bool, drill_app: str = DRILL_APP
+) -> dict:
+    """Feuerübungs-Protokoll DER PFLICHTIGEN APP < DRILL_MAX_AGE_DAYS Tage alt?
 
     `enforce=False` (Default, bis G3 erstmals durchgeführt ist): fehlendes/
     veraltetes Protokoll ist nur `deferred` — der Meter spammt nicht, bevor es
     überhaupt eine Feuerübungs-Kadenz gibt. Erst wenn der Workflow `--enforce-
     drill` setzt (nach G3), wird Staleness zur Verletzung. Ein frisches Protokoll
     ist immer `ok`.
+
+    **Nur Protokolle der pflichtigen App zaehlen (seit 2026-09-02, platform#2682).**
+    Vorher bewertete der Meter das juengste Protokoll im Ordner, egal zu welcher
+    App — ein frisches Fremd-Protokoll setzte die 100-Tage-Uhr zurueck und konnte
+    eine ausgefallene risk-hub-Übung bis zu 100 Tage verdecken. Der Fall war nicht
+    theoretisch: am 2026-09-02 hielt `2026-08-30-config-prod.md` (Host-Konfiguration,
+    nicht risk-hub) die Uhr.
+
+    Fremd-Protokolle werden **nicht verworfen**, sondern im Grund benannt — sonst
+    sieht die Meldung aus, als sei der Ordner leer, obwohl Arbeit darin liegt.
+    Zuordnung ueber die Dateibenennung `YYYY-MM-DD-<app>.md` aus dem README.
     """
-    protocols = sorted(drills_dir.glob("*.md")) if drills_dir.is_dir() else []
-    protocols = [p for p in protocols if p.name.lower() != "readme.md"]
+    alle = sorted(drills_dir.glob("*.md")) if drills_dir.is_dir() else []
+    alle = [p for p in alle if p.name.lower() != "readme.md"]
+    # `stem == app` faengt die fehlbenannte Datei `risk-hub.md` mit ein: sie
+    # gehoert zur pflichtigen App und soll den klaren Grund "ohne Datum im Namen"
+    # ausloesen statt still als fremdes Protokoll zu verschwinden.
+    protocols = [
+        p for p in alle if p.stem == drill_app or p.stem.endswith(f"-{drill_app}")
+    ]
     if not protocols:
+        status = "violation" if enforce else "deferred"
+        fremd = f"; {len(alle)} Protokoll(e) anderer Apps liegen dort" if alle else ""
+        return {
+            "app": "restore-drill",
+            "status": status,
+            "reasons": [
+                f"kein Feuerübungs-Protokoll fuer {drill_app} in "
+                f"docs/runbooks/restore-drills/{fremd}"
+            ],
+        }
+    datiert = [(_protokoll_datum(p), p) for p in protocols]
+    datiert = [(d, p) for d, p in datiert if d is not None]
+    if not datiert:
         status = "violation" if enforce else "deferred"
         return {
             "app": "restore-drill",
             "status": status,
-            "reasons": ["kein Feuerübungs-Protokoll in docs/runbooks/restore-drills/"],
+            "reasons": [
+                f"{len(protocols)} {drill_app}-Protokoll(e) ohne Datum im Namen — "
+                "Frische nicht belegbar (Benennung YYYY-MM-DD-<app>.md, s. README)"
+            ],
         }
-    newest = max(p.stat().st_mtime for p in protocols)
-    age_days = (now.timestamp() - newest) / 86400.0
+    juengstes = max(d for d, _ in datiert)
+    age_days = (now - juengstes).total_seconds() / 86400.0
     if age_days > DRILL_MAX_AGE_DAYS:
         status = "violation" if enforce else "deferred"
         return {
             "app": "restore-drill",
             "status": status,
             "reasons": [
-                f"jüngstes Protokoll {age_days:.0f} Tage alt (> {DRILL_MAX_AGE_DAYS})"
+                f"jüngstes {drill_app}-Protokoll {age_days:.0f} Tage alt "
+                f"(> {DRILL_MAX_AGE_DAYS})"
             ],
         }
     return {"app": "restore-drill", "status": "ok", "reasons": []}
@@ -291,6 +357,11 @@ def main() -> int:
         "--snapshots", help="restic-snapshots-JSON; fehlt → Scaffold (alles deferred)"
     )
     parser.add_argument(
+        "--drill-app",
+        default=DRILL_APP,
+        help=f"App mit Uebungspflicht nach ADR-241 §5 (Default: {DRILL_APP})",
+    )
+    parser.add_argument(
         "--drills-dir",
         default="docs/runbooks/restore-drills",
         help="Verzeichnis der Feuerübungs-Protokolle",
@@ -322,7 +393,12 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     results = [evaluate_app(entry, snapshots, now) for entry in expected]
     results.append(
-        evaluate_drill(Path(args.drills_dir), now, enforce=args.enforce_drill)
+        evaluate_drill(
+            Path(args.drills_dir),
+            now,
+            enforce=args.enforce_drill,
+            drill_app=args.drill_app,
+        )
     )
 
     report = render_report(results)
