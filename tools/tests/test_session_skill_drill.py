@@ -19,7 +19,9 @@ import pytest
 _SRC = pathlib.Path(__file__).resolve().parents[1] / "session_skill_drill.py"
 _spec = importlib.util.spec_from_file_location("session_skill_drill", _SRC)
 drill = importlib.util.module_from_spec(_spec)
-sys.modules["session_skill_drill"] = drill  # dataclass-Typaufloesung braucht sys.modules-Eintrag
+sys.modules["session_skill_drill"] = (
+    drill  # dataclass-Typaufloesung braucht sys.modules-Eintrag
+)
 _spec.loader.exec_module(drill)
 
 REPO_ROOT = _SRC.parents[1]
@@ -157,7 +159,9 @@ def test_should_flag_missing_checklist(skill_ohne_checkliste_datei):
 # --- CLI: --erwartung -----------------------------------------------------
 
 
-def test_should_exit_2_without_traceback_when_checklist_missing(skill_ohne_checkliste_datei, capsys):
+def test_should_exit_2_without_traceback_when_checklist_missing(
+    skill_ohne_checkliste_datei, capsys
+):
     rc = drill.main(["--erwartung", "--datei", str(skill_ohne_checkliste_datei)])
     out = capsys.readouterr().out
     assert rc == 2
@@ -212,7 +216,9 @@ def test_should_classify_erfuellt():
 
 def test_should_classify_bewusst_uebersprungen_with_enough_reason():
     assert (
-        drill.classify_status("bewusst übersprungen: kein Zugriff auf Prod moeglich hier")
+        drill.classify_status(
+            "bewusst übersprungen: kein Zugriff auf Prod moeglich hier"
+        )
         == "bewusst_uebersprungen"
     )
 
@@ -223,7 +229,10 @@ def test_should_classify_bewusst_uebersprungen_with_short_reason_as_still():
 
 def test_should_classify_empty_or_placeholder_as_still():
     assert drill.classify_status("") == "still"
-    assert drill.classify_status("<erfüllt|bewusst übersprungen: <grund>|fehlt>") == "still"
+    assert (
+        drill.classify_status("<erfüllt|bewusst übersprungen: <grund>|fehlt>")
+        == "still"
+    )
 
 
 def test_should_classify_fehlt_as_still():
@@ -250,13 +259,21 @@ def test_should_exit_1_when_pflicht_unit_silently_skipped(skill_datei, tmp_path)
     assert rc == 1
 
 
-def test_should_exit_0_when_pflicht_unit_consciously_skipped_with_reason(skill_datei, tmp_path):
+def test_should_exit_0_when_pflicht_unit_consciously_skipped_with_reason(
+    skill_datei, tmp_path
+):
     proto = tmp_path / "proto.md"
     sp = drill.parse_skill(skill_datei, skill="fixture")
     zeilen = []
     for e in sp.einheiten():
         if e.id == "2.7":
-            zeilen.append((e.id, "bewusst übersprungen: Arbeits-Session nicht zutreffend hier", "Begruendung im Text"))
+            zeilen.append(
+                (
+                    e.id,
+                    "bewusst übersprungen: Arbeits-Session nicht zutreffend hier",
+                    "Begruendung im Text",
+                )
+            )
         else:
             zeilen.append((e.id, "erfüllt", "ok"))
     _schreibe_protokoll(proto, zeilen)
@@ -277,7 +294,9 @@ def test_should_count_still_uebersprungen_in_json(skill_datei, tmp_path):
         drill.main(["--protokoll", str(proto), "--datei", str(skill_datei), "--json"])
     data = json.loads(buf.getvalue())
     assert data["still_uebersprungen"] == len(sp.einheiten())
-    assert data["still_uebersprungen_pflicht"] == sum(1 for e in sp.einheiten() if e.pflicht)
+    assert data["still_uebersprungen_pflicht"] == sum(
+        1 for e in sp.einheiten() if e.pflicht
+    )
 
 
 # --- CLI: --vergleich -----------------------------------------------------
@@ -307,13 +326,21 @@ def test_should_exit_1_on_status_deviation_between_protocols(skill_datei, tmp_pa
     assert rc == 1
 
 
-def test_should_report_no_deviation_when_same_class_different_wording(skill_datei, tmp_path):
+def test_should_report_no_deviation_when_same_class_different_wording(
+    skill_datei, tmp_path
+):
     """Realfall retro 1<->2: beide Laeufe 'bewusst uebersprungen', nur anderer
     Grundtext -> keine Abweichung, da die Statusklasse verglichen wird, nicht
     der Wortlaut der Begruendung."""
     sp = drill.parse_skill(skill_datei, skill="fixture")
-    zeilen_a = [(e.id, "bewusst übersprungen: erster Lauf mit dieser Begruendung", "ok") for e in sp.einheiten()]
-    zeilen_b = [(e.id, "bewusst übersprungen: zweiter Lauf, andere Formulierung", "ok") for e in sp.einheiten()]
+    zeilen_a = [
+        (e.id, "bewusst übersprungen: erster Lauf mit dieser Begruendung", "ok")
+        for e in sp.einheiten()
+    ]
+    zeilen_b = [
+        (e.id, "bewusst übersprungen: zweiter Lauf, andere Formulierung", "ok")
+        for e in sp.einheiten()
+    ]
     a = tmp_path / "a.md"
     b = tmp_path / "b.md"
     _schreibe_protokoll(a, zeilen_a)
@@ -360,13 +387,14 @@ def test_should_parse_real_skill_with_more_than_zero_headings(name):
     assert len(sp.headings) > 0
 
 
-def test_should_flag_checklist_missing_for_real_session_retro():
-    sp = drill.parse_skill(drill.SKILL_FILES["retro"], skill="retro")
-    assert sp.checklist_present is False
-
-
-@pytest.mark.parametrize("name", ["start", "ende"])
-def test_should_find_checklist_for_real_session_start_and_ende(name):
+# `retro` stand hier bis 2026-09-02 als Gegenbeispiel: die Skill hatte als
+# einzige der drei keine Abschluss-Checkliste, und ein eigener Test hielt den
+# Befund fest (`checklist_present is False`). platform#2701 (#2690 K4) hat sie
+# angelegt — 14 Zeilen ueber die Phasen 0-6 —, damit ist der Befund erledigt
+# und die Erwartung dreht sich um. Der Parser bleibt unveraendert; geprueft
+# wird jetzt fuer alle drei Skills dasselbe.
+@pytest.mark.parametrize("name", ["start", "ende", "retro"])
+def test_should_find_checklist_for_all_three_real_session_skills(name):
     sp = drill.parse_skill(drill.SKILL_FILES[name], skill=name)
     assert sp.checklist_present is True
     assert len(sp.checklist) > 0

@@ -68,3 +68,53 @@ class TestTokenDatei:
         monkeypatch.setattr(cf, "TOKEN_DATEI", leer)
         with pytest.raises(SystemExit):
             cf.token()
+
+
+class TestUrsprungPruefung:
+    """Retro-Befund 2026-09-02: ein gesetzter ORIGIN wanderte ungeprueft in die
+    Tunnel-Config, und die Kette dahinter kann den Fehler nicht sehen —
+    `veroeffentlichen.sh` wertet jedes `nicht 200` als Erfolg und haelt ein 502
+    durch einen kaputten Ursprung fuer die erwartete Access-Abweisung.
+    """
+
+    def test_should_accept_host_and_port(self):
+        assert cf.pruefe_origin("10.99.0.2:11434") == "10.99.0.2:11434"
+
+    def test_should_accept_a_hostname(self):
+        assert cf.pruefe_origin("gpu-box.intern:8080") == "gpu-box.intern:8080"
+
+    def test_should_accept_bracketed_ipv6(self):
+        assert cf.pruefe_origin("[fd00::1]:8080") == "[fd00::1]:8080"
+
+    def test_should_strip_surrounding_whitespace(self):
+        assert cf.pruefe_origin("  127.0.0.1:8787  ") == "127.0.0.1:8787"
+
+    def test_should_reject_a_scheme_prefix(self):
+        """Der reale Fehlgriff: das Werkzeug setzt `http://` selbst davor."""
+        with pytest.raises(SystemExit) as fehler:
+            cf.pruefe_origin("http://10.99.0.2:11434")
+        assert "Schema" in str(fehler.value)
+
+    def test_should_reject_a_path(self):
+        with pytest.raises(SystemExit) as fehler:
+            cf.pruefe_origin("10.99.0.2:11434/api")
+        assert "Pfad" in str(fehler.value)
+
+    def test_should_reject_a_missing_port(self):
+        with pytest.raises(SystemExit):
+            cf.pruefe_origin("10.99.0.2")
+
+    def test_should_reject_an_empty_value(self):
+        with pytest.raises(SystemExit) as fehler:
+            cf.pruefe_origin("   ")
+        assert "leer" in str(fehler.value)
+
+    def test_should_reject_a_port_above_the_range(self):
+        with pytest.raises(SystemExit) as fehler:
+            cf.pruefe_origin("10.99.0.2:99999")
+        assert "65535" in str(fehler.value)
+
+    def test_should_reject_a_non_numeric_port(self):
+        """Faengt nebenbei ein kaputtes PORT im Default `127.0.0.1:{port}` ab."""
+        with pytest.raises(SystemExit):
+            cf.pruefe_origin("127.0.0.1:abc")
