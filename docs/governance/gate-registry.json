@@ -740,7 +740,9 @@
       "drill": "tools/tests/test_lint_blind_verification.py",
       "built": "2026-08-21",
       "ref": "platform#2203",
-      "revision_note": "Findet `<befehl> | grep -q <muster>`. Zwei Fehler in einer Gestalt: als PRUEFUNG belegt das nur ein Muster im Ausgabetext, nicht den Erfolg (ein gescheiterter Befehl ohne das Muster gilt als gruen); unter `set -o pipefail` erzeugt es zusaetzlich SIGPIPE und laesst die Pipeline zufaellig scheitern. Anlass 2026-08-21 chat-hub: `git fetch --dry-run | grep -qi 'moved|redirect'` stellte die Remotes auf ein nicht existierendes Repo und meldete Erfolg; dieselbe Falle steckte am selben Tag in 4 weiteren Pipelines. Erster Lauf gegen platform/tools: 9 Funde, darunter session_start_checks.sh."
+      "revision_note": "Findet `<befehl> | grep -q <muster>`. Zwei Fehler in einer Gestalt: als PRUEFUNG belegt das nur ein Muster im Ausgabetext, nicht den Erfolg (ein gescheiterter Befehl ohne das Muster gilt als gruen); unter `set -o pipefail` erzeugt es zusaetzlich SIGPIPE und laesst die Pipeline zufaellig scheitern. Anlass 2026-08-21 chat-hub: `git fetch --dry-run | grep -qi 'moved|redirect'` stellte die Remotes auf ein nicht existierendes Repo und meldete Erfolg; dieselbe Falle steckte am selben Tag in 4 weiteren Pipelines. Erster Lauf gegen platform/tools: 9 Funde, darunter session_start_checks.sh.",
+      "expires": "2026-10-31",
+      "note": "Verfallsfrist beim Nachziehen auf main ergaenzt (2026-09-02): der Zweig ist vom 2026-08-21 und aelter als die Regel, dass jedes advisory-Gate eine Frist traegt. 2026-10-31 ist die Frist, die alle uebrigen advisory-Gates der Registry tragen — kein Sonderweg fuer dieses."
     }
   ],
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
