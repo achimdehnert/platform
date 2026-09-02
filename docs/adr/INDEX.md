@@ -265,4 +265,4 @@
 | 297 | In welche GitHub-Organisation gehört ein Repo? | Accepted | 🔶 | [ADR-297](ADR-297-org-zuordnung-der-repos.md) |
 | 298 | Teststrategie der Flotte — eine Regel, drei Gates, ein Meter | Proposed | 🔶 | [ADR-298](ADR-298-teststrategie-eine-regel-drei-gates-ein-meter.md) |
 | 299 | Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang | Accepted | ⬜ | [ADR-299](ADR-299-hot-topics-digest-auf-bestehendem-mailbestand.md) |
-| 300 | Orchestrator = Gedächtnis + Gate, Harness = Ausführung | Proposed | ⬜ | [ADR-300](ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md) |
+| 300 | Orchestrator = Gedächtnis + Audit, Harness = Ausführung | Proposed | ⬜ | [ADR-300](ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md) |

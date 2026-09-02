@@ -1250,9 +1250,7 @@
       "amends": [
         "ADR-066-ai-engineering-team.md"
       ],
-      "amended_by": [
-        "ADR-300"
-      ],
+      "amended_by": [],
       "related": [
         "ADR-066, ADR-068, ADR-070, ADR-075"
       ],
@@ -1378,9 +1376,7 @@
       "amends": [
         "–"
       ],
-      "amended_by": [
-        "ADR-300"
-      ],
+      "amended_by": [],
       "related": [
         "ADR-014, ADR-066, ADR-080, ADR-081, ADR-085"
       ],
@@ -5667,15 +5663,13 @@
       "number": 300,
       "id": "ADR-300",
       "file": "ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md",
-      "title": "Orchestrator = Gedächtnis + Gate, Harness = Ausführung",
+      "title": "Orchestrator = Gedächtnis + Audit, Harness = Ausführung",
       "status": "proposed",
       "date": "2026-09-02",
       "domains": [],
       "supersedes": [],
       "superseded_by": [],
       "amends": [
-        "ADR-080",
-        "ADR-086",
         "ADR-101",
         "ADR-112",
         "ADR-186"
@@ -5683,13 +5677,15 @@
       "amended_by": [],
       "related": [
         "ADR-010",
+        "ADR-075",
+        "ADR-080",
+        "ADR-086",
         "ADR-176",
         "ADR-197",
         "ADR-224",
         "ADR-238",
         "ADR-256",
         "ADR-280",
-        "ADR-282",
         "ADR-285"
       ],
       "implementation_status": "not_started"
