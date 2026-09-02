@@ -21,9 +21,19 @@ Zwei Fundklassen, absichtlich eng gehalten:
 * **Platzhalter** — ``<…>``/``DEIN_…`` im Befehl; der ist per Konstruktion nicht
   ausführbar und war Fehlschlag 1 und 2.
 
-Vertrag: Stop-Event-JSON auf stdin lesen, IMMER Exit 0 (ein Scanner darf Claude
-nie blockieren). Bei einem Fund JSON auf stdout mit ``hookSpecificOutput.
-additionalContext`` — der dokumentierte Hinweiskanal für Exit-0-Stop-Hooks.
+Vertrag: Stop-Event-JSON auf stdin lesen, IMMER Exit 0 (auch blockierend wird
+nie über den Exit-Code entschieden, s. u.). Bei einem Fund JSON auf stdout —
+``{"decision": "block", "reason": …}`` im blocking-Modus, sonst
+``hookSpecificOutput.additionalContext``, der dokumentierte Hinweiskanal für
+Exit-0-Stop-Hooks.
+
+**blocking seit 2026-09-02** (Owner-Entscheid E4, platform#2606). Die Messung der
+Advisory-Gates fand 23 protokollierte Treffer dieses Slugs, und als einziger der
+vier Stop-Hook-Melder ließen sich seine Treffer auf konkrete Folge-Issues
+zurückführen (#2577, #2576); zugleich weist ``gate_wirkung.py`` ihn als 4×
+rückfällig seit dem Bau aus. Ein Melder, dessen Befund belegbar echt ist und
+trotzdem viermal wiederkehrt, ist genau der Fall, für den die Registry
+``advisory → blocking`` als Antwort vorsieht — nicht das N+1-te Memo.
 """
 
 from __future__ import annotations
@@ -45,9 +55,9 @@ import gate_hits  # noqa: E402  (haengt am sys.path oben)
 # sondern ein blinder Fleck in genau der Uebersicht, die Gates zaehlen soll.
 GATE_HEADER = {
     "slug": "untested-command-handed-to-user",
-    "mode": "advisory",
+    "mode": "blocking",  # Laufzeit-Opt-out: State-Datei, s. _mode()
     "owner": "achim",
-    "last_drill_pass": "2026-08-16",
+    "last_drill_pass": "2026-09-02",
     "evidence": "tools/claude-hooks/tests/test_untested_command_scanner.py",
 }
 
@@ -181,9 +191,7 @@ def _ist_ablehnung(inhalt) -> bool:
     if isinstance(inhalt, str):
         text = inhalt
     elif isinstance(inhalt, list):
-        text = " ".join(
-            b.get("text", "") for b in inhalt if isinstance(b, dict)
-        )
+        text = " ".join(b.get("text", "") for b in inhalt if isinstance(b, dict))
     else:
         return False
     return any(m in text for m in ABLEHNUNG_MARKER)
@@ -217,7 +225,7 @@ def _last_turn(transcript_path: str):
     turn.reverse()
 
     assistant_text, bash_commands = [], []
-    versuche = {}          # tool_use_id -> Befehl (auch wenn er scheiterte)
+    versuche = {}  # tool_use_id -> Befehl (auch wenn er scheiterte)
     abgelehnte_kerne = set()
     for rec in turn:
         typ = rec.get("type")
@@ -228,7 +236,10 @@ def _last_turn(transcript_path: str):
             # sie hier verworfen — der Waechter sah den Versuch, nie seinen Ausgang.
             if isinstance(content, list):
                 for block in content:
-                    if not isinstance(block, dict) or block.get("type") != "tool_result":
+                    if (
+                        not isinstance(block, dict)
+                        or block.get("type") != "tool_result"
+                    ):
                         continue
                     befehl = versuche.get(block.get("tool_use_id"))
                     if befehl and _ist_ablehnung(block.get("content")):
@@ -276,7 +287,7 @@ def find_untested(
     ran_cores = {
         _command_core(line) for cmd in bash_commands for line in cmd.splitlines()
     }
-    ran_cores |= (abgelehnte_kerne or set())
+    ran_cores |= abgelehnte_kerne or set()
     ran_cores.discard("")
 
     untested, placeholders = [], []
@@ -322,6 +333,29 @@ def build_reminder(untested: list[str], placeholders: list[str]) -> str:
 
 STATE_DIR = Path.home() / ".claude" / "hooks" / "state"
 
+#: Name der Opt-out-Datei im STATE_DIR. Steht dort das Wort `advisory`, meldet der
+#: Scanner nur noch. Sonst blockiert er.
+MODUS_DATEI = "untested_scanner_mode"
+
+
+def _mode() -> str:
+    """blocking (Default) | advisory — Opt-out ueber eine State-Datei.
+
+    Bewusst KEIN stiller Advisory-Default bei fehlender Datei: sonst faellt das
+    Gate auf einer frischen Maschine lautlos in genau den Zustand zurueck, dessen
+    Wirkungslosigkeit hier gemessen wurde (4 Rueckfaelle seit Bau, 23 Treffer ohne
+    Verhaltensaenderung). Uebernommen von evidence_claim_scanner._mode(), damit es
+    nur EINEN Weg gibt, einen Stop-Hook scharf oder stumpf zu schalten.
+    """
+    try:
+        if (STATE_DIR / MODUS_DATEI).read_text(
+            encoding="utf-8"
+        ).strip().lower() == "advisory":
+            return "advisory"
+    except OSError:
+        pass
+    return "blocking"
+
 
 def _state_path(session_id: str) -> Path:
     safe = "".join(c for c in session_id if c.isalnum() or c in "-_") or "unknown"
@@ -353,6 +387,14 @@ def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
     except (json.JSONDecodeError, ValueError):
+        return 0
+
+    # Ein erzwungener Korrektur-Zug pro Turn (Registry `_wording_convention`,
+    # EXT2-M28-5). Ohne diesen Guard feuert der Scanner in der vom Block
+    # ausgeloesten Fortsetzung erneut — das Analysefenster reicht bis zur letzten
+    # ECHTEN Nutzernachricht und enthaelt den Befehl weiterhin. Realfall am
+    # Claim-Gate: 9 Blocks hintereinander, bis die Block-Sperre den Turn beendete.
+    if event.get("stop_hook_active"):
         return 0
 
     transcript_path = event.get("transcript_path") or ""
@@ -417,21 +459,48 @@ def main() -> int:
             GATE_HEADER["slug"],
             f"untested={len(untested)} placeholders={len(placeholders)}",
             session=session_id,
-            modus=GATE_HEADER["mode"],
+            modus=_mode(),
         )
 
     reminder = build_reminder(untested, placeholders)
-    if reminder:
+    if not reminder:
+        return 0
+
+    if _mode() == "blocking":
+        # `decision: block` statt Exit 2 — bewusst: Exit 2 wird teils als
+        # Nutzer-Ablehnung gelesen und wuerde den Turn stallen statt ihn zu
+        # korrigieren (Registry `_wording_convention`, EXT2-M28-5). Der
+        # stop_hook_active-Guard oben begrenzt auf EINEN erzwungenen Zug.
         print(
             json.dumps(
                 {
-                    "hookSpecificOutput": {
-                        "hookEventName": "Stop",
-                        "additionalContext": reminder,
-                    }
+                    "decision": "block",
+                    "reason": (
+                        "Automatischer Uebergabe-Check (Gate "
+                        "untested-command-handed-to-user — dies ist KEINE "
+                        "Nutzer-Ablehnung, sondern Maschinen-Feedback): "
+                        + reminder
+                        + " Lass den Befehl JETZT selbst laufen (bei "
+                        "Handover-Skripten mit `< /dev/null`) oder nimm ihn aus "
+                        "der Antwort, dann den Turn normal beenden; dieser Check "
+                        "feuert pro Turn nur einmal."
+                    ),
                 }
             )
         )
+        return 0
+
+    # advisory (Opt-out): dokumentierte additionalContext-Form fuer Exit-0-Stop-Hooks.
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "Stop",
+                    "additionalContext": reminder,
+                }
+            }
+        )
+    )
     return 0
 
 

@@ -506,15 +506,15 @@
     },
     {
       "slug": "untested-command-handed-to-user",
-      "mode": "advisory",
+      "mode": "blocking",
       "owner": "achim",
       "module": "tools/claude-hooks/untested_command_scanner.py",
       "drill": "tools/claude-hooks/tests/test_untested_command_scanner.py",
       "built": "2026-08-16",
       "ref": "platform#2014 (Retro 9d861a Befund #1)",
       "note": "Lief seit Wochen aktiv, war aber NICHT registriert — damit unsichtbar fuer gate_drill_check.py und die Gate-Buchhaltung. Nachtraeglich eingetragen; Drill existierte bereits.",
-      "revised": "2026-09-01",
-      "revision_note": "AUSWEITUNG 2 (platform#2576, Retro meiki-hub 33616e Befund #8): Eine im selben Turn belegte Ablehnung der Ausfuehrung (Permission-Classifier, Hook-Deny) deckt den Befehlskern jetzt ab. Der Melder feuerte dreimal auf einen Befehl, den auszufuehren dem Agenten verwehrt war — ein Waechter, dem man nicht folgen KANN, wird gelernt zu ignorieren. Bewusst eng: nur Ablehnungen (nicht jeder Fehlschlag), Abgleich ueber die ersten zwei Token (docker exec deckt kein ssh host 'docker exec'). Vorherige Fassung: AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht).",
+      "revised": "2026-09-02",
+      "revision_note": "AUSWEITUNG 2 (platform#2576, Retro meiki-hub 33616e Befund #8): Eine im selben Turn belegte Ablehnung der Ausfuehrung (Permission-Classifier, Hook-Deny) deckt den Befehlskern jetzt ab. Der Melder feuerte dreimal auf einen Befehl, den auszufuehren dem Agenten verwehrt war — ein Waechter, dem man nicht folgen KANN, wird gelernt zu ignorieren. Bewusst eng: nur Ablehnungen (nicht jeder Fehlschlag), Abgleich ueber die ersten zwei Token (docker exec deckt kein ssh host 'docker exec'). Vorherige Fassung: AUSWEITUNG (platform#2230, Antwort aus der Retro ausschreibungs-hub 2026-08-23). In Claude Code bedeutet `! <befehl>`, dass der OWNER ihn ausfuehrt — die Uebergabe-Konvention und damit genau das, wonach dieser Scanner sucht. Das Zeichen machte ihn blind: `bash x.sh` feuerte, `! bash x.sh` nicht. Vor dem Fix am Realfall falsifiziert (beide Varianten durch den echten Scanner gelassen), nicht aus dem Retro-Text uebernommen. `!` steht jetzt in PROMPT_PREFIX_RE; 5 neue Drills, davon zwei Gegenrichtung (Prosa mit `!` feuert nicht, selbst ausgefuehrter Befehl feuert nicht). · SCHARFSCHALTUNG advisory -> blocking am 2026-09-02 (Owner-Entscheid E4, platform#2606, eigener PR gemaess frozen_note). Datenbasis der Messung: 23 protokollierte Treffer dieses Slugs, und als EINZIGER der vier Stop-Hook-Melder liessen sich seine Treffer auf konkrete Folge-Issues zurueckfuehren (#2577, #2576) — die anderen drei zeigten Issue-Erwaehnungen, die ebenso gut Registry- oder Retro-Edits sein konnten. Zugleich weist gate_wirkung.py den Slug als rueckfaellig seit Bau aus (4x zum Zeitpunkt der E4-Messung, 5x nach dem Zaehler-Umbau aus #2374 auf main gemessen): der Befund ist belegbar echt UND die blosse Meldung hat ihn nicht verhindert. Umsetzung wie beim Claim-Gate: `decision: block` mit Maschinen-Feedback-Wortlaut (kein Exit 2), stop_hook_active-Guard fuer genau EINEN erzwungenen Korrektur-Zug, Laufzeit-Opt-out ueber die State-Datei `untested_scanner_mode` (fehlende Datei = blocking). Drills fuer beide Modi und fuer den Guard: tests/test_untested_command_scanner.py.",
       "faengt": [
         {
           "fall": "uebergebener Befehl mit `!`-Praefix (Claude-Code-Uebergabekonvention)",
@@ -523,10 +523,14 @@
         {
           "fall": "Befehl ohne Praefix, nie ausgefuehrt",
           "probe": "never_run"
+        },
+        {
+          "fall": "blocking: Fund erzwingt einen Korrektur-Zug statt eines Hinweises",
+          "probe": "decision"
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-16"
+      "erzwungen_seit": "2026-09-02"
     },
     {
       "slug": "zusage-ohne-verankerung",
