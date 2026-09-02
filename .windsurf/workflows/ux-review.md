@@ -304,6 +304,8 @@ Merge (G29). `optimierung` nur bei benannter Referenz und kleinem Diff (ein Temp
 | `sackgasse` | kein Klick zum naechsten Schritt | Vorgaengerstation traegt `{% url %}`/`hx-get` auf jede Folgestation · ohne Realfall (2026-09-01, I2) |
 | `leerzustand-ohne-handlung` | leere Liste ohne Handlungs-Link | jede Listen-View mit leerem Queryset rendern · ohne Realfall (2026-09-01, I3) |
 | `fehler-unverstaendlich` | Fehler ohne Ursache/Handlung | Test ueber alle `messages.error(`/`add_error(`: Verb oder Ursache, generische Saetze als Negativmuster · ohne Realfall (2026-09-01, I4) |
+| `daten-ohne-bedienweg` | Schema-Feld wird gespeichert und wirkt (Export/Projektion), hat aber kein Formularfeld und keine Route — aenderbar nur per Management-Command | Test ueber jedes Feld des Schemas: entweder Bedienweg (Formularfeld ODER Route) nachweisen oder begruendete Ausnahme fuehren · writing-hub#956 (2026-09-02: `media` 0 Treffer in Templates bei 10 fuer `bullets`; `uebungen` 0 Routen bei 6 fuer `section`) |
+| `markup-leck` (Praezisierung) | mehrzeiliger `{# … #}` — je nach Inhalt **sichtbarer Text** ODER HTTP 500 | Django lext die Kurzform ohne `DOTALL`: mehrzeilig ist **kein** Syntaxfehler, sondern Text; ein Uebersetzungs-Test faengt nur den Fall, in dem zufaellig ein echtes Tag darin steht. Gate deshalb **lexikalisch**: kein `{#` ohne `#}` in derselben Zeile · writing-hub#972 + Deck-Template (2026-09-02, zweimal an einem Tag) |
 
 Klassen ohne Realfall-Marker tragen ihr Aufnahmedatum; Marker folgt mit dem ersten belegten Fall (K6, 2026-09-01).
 
