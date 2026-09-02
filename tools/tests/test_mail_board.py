@@ -383,3 +383,41 @@ class TestFristPflicht:
     def test_should_refuse_an_unknown_number(self, pfade):
         with pytest.raises(SystemExit, match="gibt es nicht"):
             board.setze_frist(_ledger(_v(nr=7)), 8, "2026-09-30", "")
+
+
+class TestReproduzierbar:
+    """Zwei Laeufe ueber denselben Ledger liefern dasselbe Board (#2592 K1)."""
+
+    def test_should_render_identically_twice(self, pfade):
+        ledger = _ledger(
+            _v(nr=3, kurz="A", bucket="owner", frist="2026-09-30"),
+            _v(nr=4, kurz="B", bucket="warten", frist=None, frist_grund="kein Termin"),
+            _v(nr=5, kurz="C", bucket="erledigt", erledigt_am="2026-08-30"),
+            naechste=6,
+        )
+        assert board.render(ledger, "2026-09-02") == board.render(ledger, "2026-09-02")
+
+    def test_should_render_with_an_explicit_cutoff_from_the_cli(
+        self, pfade, tmp_path, capsys
+    ):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(_ledger(_v(nr=3, frist="2026-09-30"), naechste=4)), "utf-8"
+        )
+        assert (
+            board.main(
+                ["--ledger", str(ledger), "--render", "--stichtag", "2026-09-02"]
+            )
+            == 0
+        )
+        erster = capsys.readouterr().out
+        board.main(["--ledger", str(ledger), "--render", "--stichtag", "2026-09-02"])
+        assert capsys.readouterr().out == erster
+
+    def test_should_reject_an_unreadable_cutoff(self, pfade, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(json.dumps(_ledger(_v(nr=3), naechste=4)), "utf-8")
+        with pytest.raises(ValueError):
+            board.main(
+                ["--ledger", str(ledger), "--render", "--stichtag", "02.09.2026"]
+            )

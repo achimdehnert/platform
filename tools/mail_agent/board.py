@@ -599,6 +599,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--ledger", metavar="DATEI", help="anderer Ledger-Pfad")
     parser.add_argument(
+        "--stichtag",
+        metavar="YYYY-MM-DD",
+        help="zu --render: Bezugsdatum statt heute (reproduzierbar, #2592 K1)",
+    )
+    parser.add_argument(
         "--frist", type=int, metavar="NR", help="Frist eines Vorgangs setzen (#2592 K4)"
     )
     parser.add_argument(
@@ -647,7 +652,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.render:
-        text = render(ledger, date.today().isoformat())
+        stichtag = args.stichtag or date.today().isoformat()
+        date.fromisoformat(stichtag)  # frueh scheitern statt halb rendern
+        text = render(ledger, stichtag)
         ziel = Path(args.nach) if args.nach else None
         if ziel:
             ziel.write_text(text, encoding="utf-8")

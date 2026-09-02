@@ -1013,3 +1013,41 @@ class TestFristGrund:
         assert "<th>Frist</th><td>—</td>" in tb.detail(
             vorgang(frist=None), mail_basis="https://mail.example", basis=""
         )
+
+
+class TestReproduzierbar:
+    """Zwei Bauten ueber denselben Ledger sind byteidentisch (#2592 K1)."""
+
+    def test_should_build_identically_twice(self):
+        ledger = {
+            "letzte_pruefung": "2026-09-01",
+            "vorgaenge": [
+                vorgang(
+                    nr=1,
+                    thread_key="A",
+                    frist="2026-09-30",
+                    notiz="2026-09-01: INBOX #1001 kam",
+                ),
+                vorgang(
+                    nr=2,
+                    thread_key="B",
+                    bucket="warten",
+                    frist=None,
+                    frist_grund="kein Termin",
+                ),
+                vorgang(
+                    nr=3, thread_key="C", bucket="erledigt", erledigt_am="2026-08-30"
+                ),
+            ],
+        }
+        assert tb.baue(ledger, STICHTAG) == tb.baue(ledger, STICHTAG)
+
+    def test_should_build_the_detail_page_identically_twice(self):
+        v = vorgang(
+            nr=1,
+            thread_key="A",
+            notiz="2026-09-01: INBOX #1001 kam | 2026-09-02: UID 2002",
+        )
+        assert tb.detail(v, mail_basis="https://mail.example", basis="") == tb.detail(
+            v, mail_basis="https://mail.example", basis=""
+        )

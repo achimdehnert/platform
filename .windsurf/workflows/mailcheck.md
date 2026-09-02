@@ -368,6 +368,9 @@ Prüfer überlebt.
 - [ ] Beide Seiten geprüft (Eingang UND Gesendetes) — Korrelation nach Gesprächspartner
 - [ ] Ledger aktualisiert (geschlossene Punkte raus, neue Zustände drin)
 - [ ] Deckungsblock im Board — auch wenn das Board leer ist
+- [ ] **Boards gebaut** (#2592 K1): `make boards` ist das eine Einstiegskommando fuer
+      Action-Board und todo.html; beide Renderer sind tagesunabhaengig reproduzierbar
+      (`--stichtag`), `make boards-check` belegt es byteweise.
 - [ ] **Anker-Stand und Fristen ausgewiesen** (#1864, #2592 K4): `python3 tools/mail_agent/board.py --pruefe`
       laufen lassen — Exit 0; jeder offene Vorgang hat Frist oder `frist_grund` — und die
       Zahl der unverankerten Vorgänge **im Ergebnis nennen** —

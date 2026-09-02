@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu boards kette aufraeumen test lint setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards boards-check kette aufraeumen test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -40,6 +40,16 @@ boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
 	@python3 tools/todo_board/todo_board.py build
+
+boards-check: ## K1-Beleg (#2592): beide Renderer zweimal mit festem Stichtag bauen, byteweise vergleichen
+	@T=$$(mktemp -d) && D=$$(date +%F) && \
+	python3 tools/mail_agent/board.py --render --stichtag $$D --nach $$T/b1.md >/dev/null && \
+	python3 tools/mail_agent/board.py --render --stichtag $$D --nach $$T/b2.md >/dev/null && \
+	python3 tools/todo_board/todo_board.py build --stichtag $$D --ausgabe $$T/t1.html >/dev/null && \
+	python3 tools/todo_board/todo_board.py build --stichtag $$D --ausgabe $$T/t2.html >/dev/null && \
+	cmp -s $$T/b1.md $$T/b2.md && cmp -s $$T/t1.html $$T/t2.html && \
+	echo "reproduzierbar: board.md $$(wc -c <$$T/b1.md) B, todo.html $$(wc -c <$$T/t1.html) B — zwei Laeufe identisch" || { echo "NICHT reproduzierbar — diff:"; diff $$T/b1.md $$T/b2.md | head; diff $$T/t1.html $$T/t2.html | head; rm -rf $$T; exit 1; }; \
+	rm -rf $$T
 
 help: ## Diese Hilfe anzeigen
 	@echo ""
