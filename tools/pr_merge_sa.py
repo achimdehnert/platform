@@ -78,7 +78,11 @@ PROD_MARKER = re.compile(
     r"\b(prod|production|publish|pypi|ghcr\.io|docker\s+push|migrate)\b", re.IGNORECASE
 )
 DEPLOY_MARKER = re.compile(r"\b(deploy|ship|release|ssh)\b", re.IGNORECASE)
-FREIGABE_VERMERK = re.compile(r"Freigabe:\s*akzeptiert durch Owner", re.IGNORECASE)
+# Markdown-tolerant: `Freigabe:`, `**Freigabe:**`, `**Freigabe**:` — der Vermerk aus
+# /prompt (Auftrag-Modus) kam fett, der Regex las nur plain (#2603, Realfall #2602).
+FREIGABE_VERMERK = re.compile(
+    r"\**Freigabe\**:\**\s*akzeptiert durch Owner", re.IGNORECASE
+)
 PROD_IM_APPROVAL = re.compile(
     r"\b(deploy|prod|production|publish|release)\b", re.IGNORECASE
 )
