@@ -128,6 +128,7 @@
       "mode": "process",
       "owner": "achim",
       "module": "scripts/checks/agent_handover_freshness_check.py",
+      "note": "Seit 2026-09-02 (platform#2690 K5) gemessen in tools/session_ende_checks.sh Phase E.3, gedeutet in .windsurf/workflows/session-ende.md Phase 0a-freshness. Der Skill ruft den Pruefer nicht mehr selbst auf: der Aufruf steht im Runner, die Exit-0/Exit-1-Deutung im Skill. Der Traeger .github/workflows/handover-freshness-advisory.yml aus der Revision 2026-08-20 bleibt davon unberuehrt.",
       "drill": "tools/tests/test_agent_handover_freshness_check.py",
       "built": "2026-08-02",
       "ref": "platform#1648",
@@ -550,7 +551,7 @@
         "accepted-plan-item-silently-dropped",
         "deferred-item-no-tracking-issue"
       ],
-      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214.",
+      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214. · 2026-09-02 (platform#2690 K5): gemessen in tools/session_ende_checks.sh Phase E.5, gedeutet in .windsurf/workflows/session-ende.md Phase 0g. Der Skill-Text enthaelt die Schleife ueber die eigenen PRs nicht mehr selbst.",
       "faengt": [
         {
           "fall": "Zusage vom Typ Vertagung ohne Anker im selben Segment",
@@ -558,7 +559,7 @@
         }
       ],
       "zustand": "ohne-traeger",
-      "zustand_note": "Nur Handaufruf: verdrahtet ist es allein als Punkt der /session-ende-Checkliste (Phase 0g) — also als Disziplin, nicht als Mechanik (gegengeprueft 2026-09-02, platform#2606 E4). Dazu die gemessene Praezision 0,50 auf vier PR-Texten. Abgang: automatischer Traeger ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-23, die es mangels Traeger nie gab (Deklaration != Realitaet).",
+      "zustand_note": "Nur Handaufruf: der Aufruf steht seit 2026-09-02 in tools/session_ende_checks.sh E.5 statt im Skill-Fliesstext, aber der Runner startet weiterhin nur, wenn jemand /session-ende faehrt — kein CI-Trigger, also weiter `ohne-traeger` (gegengeprueft 2026-09-02, platform#2606 E4). Dazu die gemessene Praezision 0,50 auf vier PR-Texten. Abgang: automatischer Traeger ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-23, die es mangels Traeger nie gab (Deklaration != Realitaet).",
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
