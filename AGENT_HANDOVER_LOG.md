@@ -3191,3 +3191,16 @@ Behauptungen; T4 Opus ueber Stichprobe 120 mit Werkzeug → 13 % Check traegt ni
 Hochrechnung ~20 % ungeprueft, groesserer Teil „Werkzeug ueber etwas anderes". Kein Gate
 (Auflage). Owner-Korrektur zum Antwortformat (Herleitung in Owner-Sprache, keine Werkzeug-
 namen) als Memory + CLAUDE.md-Zeile festgehalten.
+
+## 2026-09-02 Abnahme — Zielzustand #2374 (A+B): erreicht
+
+Ziel A: Rueckwaerts-Bilanz, Zerfallsrangliste gegen vorregistriertes Kill-Gate (verworfen),
+Pruefdatensatz, Diabolus T4+T5 — jedes Kriterium einzeln im Issue-Kommentar belegt.
+Ziel B: Messung ohne Gate, Tier-Zuschnitt wie entschieden, Prompts dauerhaft unter
+docs/messungen/2374-fruehindikator-prompts.md, Verdikte lokal archiviert (Transkript-
+Auszuege, nicht ins oeffentliche Repo). SA-4: 0 Anwendungen · 0 Einzel-OK · 0 Fehl-
+anwendungen. SA-M: 0 autonome Merges — #2615 und #2647 nach Owner-Wort, eigener
+Freigabe-Kommentar vom Classifier blockiert (korrekt). Owner-Entscheide der Sitzung:
+23 A · 34/35 go · 38-41 go · 40 widerrufen · Antwortformat-Korrektur (Herleitung in
+Owner-Sprache). Fremde dirty Repos (dev-hub, mcp-hub, news-hub, risk-hub, meiki-hub,
+gpufw, testkit) nicht angefasst.
