@@ -65,6 +65,17 @@ on:
       - "infra/**"               # test_check_registry_view_readers
       - "registry/**"            # test_check_registry_view_readers
       - "governance/**"          # test_backup_meter (Soll-Liste expected-apps.json)
+      # 2026-08-17: test_shared_ci_tag_drift haelt die Guard-Zuordnung im
+      # Drift-Check gegen `.github/actions/workflow-guards/action.yml`. Benennt
+      # dort jemand ein Skript um, laeuft die Wache ohne diesen Pfad NICHT —
+      # und der Vergleich normalisierte still am falschen Ort (#2049).
+      - ".github/actions/**"     # test_shared_ci_tag_drift
+      # 2026-09-02 (#2654): test_pr_merge_sa.py belegt, dass docs/governance/ und
+      # die Charta-Datei review-pflichtig sind. Ohne diese Pfade liefe der Gate
+      # bei einer Aenderung genau dort NICHT — also an den Dateien, deren Schutz
+      # er prueft. Gemessen von test_ci_trigger_covers_test_inputs.py.
+      - "docs/governance/**"     # test_pr_merge_sa
+      - "docs/konzepte/KONZ-platform-025-lotsen-charta.md"  # test_pr_merge_sa
   # #1414: KEIN `paths`-Filter auf pull_request — bewusst.
   #
   # Ein *required* Check mit paths-Filter läuft auf PRs, die keinen der Pfade

@@ -13,16 +13,28 @@
 #   Hosts prüfen:   python infra/scripts/server_probe.py --host <ip>
 #   Runner prüfen:  gh api repos/<owner>/<repo>/actions/runners
 #   Ports:          siehe infra/ports.yaml (eigene SoT)
+#   Auflagen:       je Host als Block `auflage:` (maschinenlesbar, KONZ-054 E5) —
+#                   Felder: datenklassen_verboten, prod_container, app_hubs, runner,
+#                   oeffentlicher_ingress, nur_dienste, grund (Pflicht). Fehlt ein Feld,
+#                   gilt "erlaubt". Prueft: infra/scripts/hosts_audit.py --check auflage
+#   betrieb:        erwartet_an (Vorgabe, weglassen) | auf_zuruf — ein Knoten, der
+#                   planmaessig nur auf Zuruf laeuft. flottenbild.py meldet ihn dann
+#                   als 'schlaeft' statt 'unerreichbar'; ein erwartet_an-Knoten, der
+#                   nicht antwortet, bleibt ein Befund (platform#2545).
+#   Neuer Knoten:   docs/runbooks/neuer-knoten.md — Reihenfolge ist Absicht.
+#   verified: false ist nur mit `verified_bis: <Datum>` gueltig (sonst Dauerausnahme).
 #
-# Ground-Truth-Stand: 2026-07-30 (verifiziert per SSH-Probe; siehe `verified` je Host).
-#   Neu 2026-07-30: `netcup` (152.53.136.219) — erster Nicht-Hetzner-Host, noch ohne Rolle.
-#   Korrigiert 2026-07-30: die Speicherlage hat den Host GEWECHSELT — `prod` ist entspannt,
-#   `staging` (88.99.38.75) sitzt jetzt im Swap-Anschlag. Details in beiden Einträgen.
+# Ground-Truth-Stand: 2026-08-30 (Vollmessung KONZ-054, `verified` je Host).
+#   MESSZAHLEN STEHEN HIER NICHT MEHR. Sie alterten schneller als jemand sie pflegte
+#   (Swap prod stand vier Wochen lang mit 44 % hier, real 99 %). Live: Prometheus auf
+#   dem odoo-Host (fleet-node/fleet-cadvisor), speicher_melder.py, server_probe.py.
+#   Hier bleiben: Rolle, Auflage, Zugang, Historie (datierte Fakten, keine Werte).
 # ═══════════════════════════════════════════════════════════════════════════════
 
 hosts:
   prod:
     ip: 88.198.191.108
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@88.198.191.108
     ssh_alias: hetzner-prod            # ~/.ssh/config
     hostname: ubuntu-8gb-nbg1-1        # ⚠ LEGACY-NAME, LÜGT: die Box wurde vergrößert.
@@ -34,28 +46,27 @@ hosts:
     datacenter: nbg1-dc3
     os: Ubuntu 24.04.3 LTS
     provider: Hetzner (nbg1)
+    # Swap 2026-08-30: /swapfile2 (4 GB, prio -3) ergaenzt, gesamt 8 GB — /swapfile war
+    # seit 2026-08-24 taeglich 88-100 % voll (sar). Eingetragen in /etc/fstab.
+    # Rueckweg: swapoff /swapfile2 && rm /swapfile2 && fstab-Zeile entfernen.
     role: >
-      Produktions-Multi-Hub-Host. Trägt ALLE Prod-Container aller Hubs
-      (risk-hub→schutztat.de, billing-hub, trading-hub, …) als getrennte
-      docker-compose-Projekte auf EINER Engine. Multi-Hub-Host → COMPOSE_PROJECT_NAME
-      pro Hub pinnen (ADR-248), sonst Cross-Projekt-Orphan-Removal.
-      ✅ SPEICHERNOTLAGE ENTSPANNT (gemessen 2026-07-30): 46 laufende Container (von 48),
-      RAM 10,7 von 23,5 GB (46 %), Swap 1,8 von 4,0 GB (44 %), Load 1,7 bei 12 Kernen,
-      Uptime 24 Tage. Der Vorstand dieses Eintrags (2026-07-22) lautete "113 Container,
-      Swap dauerhaft 100 %, 9 OOM-Kills" — Freeze #1314 + Auslagerung nach `prod-b`
-      haben gewirkt. #1303 bleibt für die Leak-Analyse relevant, ist aber kein
-      akuter Kapazitäts-Notstand mehr.
-      Disk: `/` 93 von 150 GB (65 %), Docker liegt korrekt auf dem 350-GB-Volume
-      (`findmnt`: /dev/sdb → /mnt/HC_Volume_105908261, ext4) mit 105 von 344 GB (32 %).
-      `/opt/paperless-consume` ist nur ein Bind in ein Docker-Volume darauf, kein
-      eigenes Gerät. NICHT VERIFIZIERT: was die 93 GB auf `/` belegt (Docker ist es
-      nicht; `du` lief 2x in den Timeout) — 51 GB frei, kein Notstand.
-      ⚠ Toter NFS-Mount: `/mnt/fritz-nas-scans` → "Host is down" (df/ls scheitern).
+      Produktions-Multi-Hub-Host: ALLE Prod-Container der Hubs mit prod_host=prod als
+      getrennte Compose-Projekte auf EINER Engine (COMPOSE_PROJECT_NAME pro Hub pinnen,
+      ADR-248). Docker-Daten auf dem 350-GB-Volume (/mnt/HC_Volume_105908261),
+      Root-Platte traegt CI-Runner und Backups. Offsite-Backup laeuft von hier (02:30,
+      Tags pgdump/volumes/config). Traegt wg0 zur GPU-Box (10.99.0.2) — deshalb kann
+      illustration-hub nicht wandern.
+    historie:
+      - "2026-07-20: OOM-Ausfall 16 h unbemerkt — kein Monitoring; seit 2026-08-30 scrapt der odoo-Prometheus diesen Host (cadvisor 9338; node_exporter 9100 wartet auf ufw-Regel, platform#2504)"
+      - "2026-07-22: Freeze #1314 + Long-Tail-Umzug nach prod-b haben die Speichernotlage entspannt"
+      - "2026-08-30: Swap von 4 auf 8 GB (/swapfile2); Tag `config` im Offsite-Backup (nginx, cloudflared, Compose, .env je App), Drill in docs/runbooks/restore-drills/; R1/R2a: 4 Melder ohne Gegenstand aus, 23 tote vhosts beiseite, /etc/hosts-Eigenumleitungen entfernt"
+      - "Bekannt: toter NFS-Mount /mnt/fritz-nas-scans; 8 verwaiste Runner-Verzeichnisse (R3)"
     hosts_runners: [prod-server]
-    verified: 2026-07-30               # SSH-Probe on-host (RAM/Disk/Container/Mounts)
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   prod-b:
     ip: 89.167.43.30
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@89.167.43.30
     cloud_name: iilgmbh-prod-b         # id 123575372, vormals `lastwar-bot`
     server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
@@ -64,57 +75,31 @@ hosts:
     provider: Hetzner (hel1)
     firewall: prod-b-web               # id 11351382 — nur 22/80/443 + ICMP
     role: >
-      Zweiter Prod-Host, angelegt 2026-07-22 durch Rebuild der zuvor ungenutzten
-      Maschine `lastwar-bot` (89 Tage Uptime, Load 0,00, 0,3 GB Traffic) — daher
-      0 EUR Mehrkosten (grandfathered cpx42) statt Neukauf. Trägt den Long Tail der
-      Hubs, die von `prod` wegwandern. Docker 29.6.2 + Compose v5.3.1.
-      STANDORT-AUFLAGE: Hetzner-Standort ist Helsinki. Der Owner hat hel1 für alles
-      AUSSER Gov-Workloads freigegeben (2026-07-22). Einziger echter Gov-/Sozialdaten-
-      Workload ist meiki-lra/frist-hub — der gehört NICHT hierher. `ttz` und
-      `writing-hub` sind ausdrücklich unkritisch (keine Personendaten, kein Public
-      Sector) und dürfen hier laufen.
-      Archiv des Vorzustands: Snapshot `lastwar-bot-archive-20260722` (id 411324113,
-      7,8 GB) — Android-SDK/Emulator-Projekt, auf einen Server mit >=301 GB Disk
-      wiederherstellbar.
-      STAND 2026-08-02 (ADR-292): illustration-hub-Umzug vollzogen — Traffic-Route
-      per Marker-Request verifiziert (dieser Host bedient illustration.iil.pet;
-      ports.yaml führt illustration-hub mit prod_host: prod-b).
-      ⚠ KORREKTUR 2026-08-04: Der Satz "die prod-Kopie wurde gestoppt (Doppellauf
-      22.07.–02.08. beendet)" stand hier zu Unrecht. `docker stats` auf beiden
-      Hosts zeigt illustration_web/_worker/_db/_redis WEITERHIN auf prod UND auf
-      prod-b (268 bzw. 305 MiB). Der Doppellauf besteht fort — mit dem Risiko
-      divergierender Datenbanken, das ADR-292 selbst benennt. Bewusst vertagt bis
-      nach der laufenden Illustrations-Session (Owner-Entscheidung 2026-08-04);
-      Tracking und Verfahren in platform#1738. Vor dem Stopp gehoert ein
-      Datenvergleich BEIDER Instanzen: der neuere Stand koennte in der Kopie
-      stecken, die nicht per DNS bedient wird.
-      ⚠ AUFLOESUNG 2026-08-06: Der Datenvergleich fiel eindeutig aus — und gegen
-      diesen Host. prod-b bediente illustration.iil.pet mit einem Stand vom
-      22.07. (Image main-f2a4345, PostgreSQL 15, 28 Migrationen, letzte vom
-      05.03., comics-Migrationen unapplied) und hatte in zwei Wochen Traffic
-      KEINE Zeile erzeugt: alle 6 Jobs tragen das Datum 05.03. Auf prod stand
-      derweil das aktuelle Image, PostgreSQL 16 mit 42 Migrationen und Jobs bis
-      zum 24.07. Alle Deploys landeten dort — zwei Wochen lang ging damit kein
-      Deploy live, ohne dass ein Check rot wurde (der Health-Check des Deploys
-      zeigt auf den oeffentlichen Namen, also auf die jeweils ANDERE Instanz).
-      Ausschlaggebend fuer die Richtung: wg0 zur GPU-Box 10.99.0.2 liegt NUR auf
-      prod (/system_stats -> 200; von hier nicht erreichbar). Ohne GPU laeuft
-      kein Render — dieser Dienst kann die ADR-292-Wanderung als einziger nicht
-      mitmachen. illustration.iil.pet haengt seit dem 06.08. am Tunnel von prod
-      (CNAME f758021c-… statt a2ddc304-…); ports.yaml fuehrt prod_host: prod.
-      Hier verbleiben: eine tote Ingress-Route (Entfernen braucht cloudflared-
-      Restart = alle Routen dieses Hosts, Wartungsfenster #1738) sowie die
-      gestoppten Container und ihre Volumes als Rueckweg.
-      Belege: illustration-hub#147 (Messung) und #152 (Umsetzung).
-      STAND 2026-08-04: Long-Tail-Umzugswelle ausgefuehrt — apo, pptx, weltenhub,
-      wedding, coach, research, cad, trading und dms liegen jetzt hier
-      (Register-Eintraege in platform#1752/#1753). Wandernde Hubs gehoeren
-      hierher, nicht auf den `netcup`-Host (dort nur Backup, ADR-289 R1).
+      Zweiter Prod-Host fuer den Long Tail der Hubs (prod_host=prod-b, ADR-292).
+      Entstanden 2026-07-22 durch Rebuild der ungenutzten Maschine lastwar-bot (Snapshot
+      lastwar-bot-archive-20260722, id 411324113). Standort Helsinki — siehe auflage.
+      Ingress ueber eigenen cloudflared-Tunnel; nginx terminiert hier KEIN TLS.
+    historie:
+      - "2026-08-04: Long-Tail-Welle — apo, pptx, weltenhub, wedding, coach, research, cad, trading, dms liegen hier (platform#1752/#1753)"
+      - "2026-08-06: illustration-hub wieder zurueck nach prod (nur dort wg0 zur GPU); Reste hier: gestoppte Container, Volume, vhost, Tunnel-Route (R2b, Wartungsfenster)"
+      - "2026-08-30: coach-hub und wedding-hub stillgelegt (platform#2480); SSH-Passwort-Login und fehlendes fail2ban gemeldet (platform#2486)"
+      - "2026-09-02: PasswordAuthentication no + KbdInteractiveAuthentication no in /etc/ssh/sshd_config.d/10-hardening.conf (Owner-Freigabe, platform#2486 Punkt 3). Messung davor: 59.256 Fehlversuche/7d, 0 erfolgreiche Passwort-Anmeldungen, 0 von 33 Konten mit Passwort-Hash. Gegenprobe danach: Schluessel-Anmeldung ok, reine Passwort-Anmeldung Permission denied (publickey). fail2ban bleibt inaktiv — bewusst, siehe Issue"
     hosts_runners: []                  # TODO: Runner je umgezogenem Repo registrieren
-    verified: 2026-08-04               # docker stats beide Hosts + Marker je App
+    auflage:
+      datenklassen_verboten: [gov-sozialdaten]
+      grund: "Standort Helsinki — Owner-Freigabe 2026-07-22 fuer alles AUSSER Gov-Workloads (meiki-lra/frist-hub)"
+      # BELEGT 2026-08-18, was dieses TODO kostet: pptx-hub. Der Runner blieb
+      # auf prod-a, `_deploy-unified.yml` deployt auf einem self-hosted Runner
+      # DIREKT auf dessen Host -- also lieferte jeder Merge nach prod-a, waehrend
+      # prezimo.de auf prod-b weiterlief. Stand prod-a 7ed1566 (17.08.),
+      # Stand prod-b 0c49ae4 (03.08.): SECHS Commits Rueckstand auf der
+      # Live-Seite, ohne eine einzige rote Zeile. Werkzeug dagegen:
+      # infra/host-maintenance/runner-umziehen.sh
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
-  staging:
+  dev-desktop:                         # bis 2026-08-30 `staging` — der Name meinte in ports.yaml eine ANDERE Maschine (S1)
     ip: 88.99.38.75
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@88.99.38.75              # Admin/Deploy-Zugang
     ssh_interactive: devuser@88.99.38.75  # interaktiver Dev-Account — Default für Dev-Arbeit auf diesem Host
     hostname: dev-desktop              # Label in infra-Skripten; OS-Hostname real: ubuntu-32gb-fsn1-1
@@ -130,117 +115,223 @@ hosts:
     #   (Klickdummy-Bewertung, ~/kd-serve/, Tunnel: LocalForward 8130)
     provider: Hetzner
     role: >
-      ZIELROLLE per ADR-292 (2026-08-02): NUR Dev + Desktop-Streaming. Die hiesigen
-      Staging-Container (risk_hub_staging_*, tax_hub_staging_*, …) entfallen —
-      Preprod lebt ausschließlich auf `staging-dedicated` (Lane G); Abbau offen.
-      IST noch: Staging-Container + diverse *_local_*-Dev-Stacks + ib_gateway.
-      Staging-Ingress via eigenem cloudflared (staging-riskhub.iil.pet).
-      Trägt seit 2026-06-28 den Non-Prod-CI-Runner (ADR-257, Pilot travel-beat) —
-      KEINE Prod-Container auf dieser Engine (Bedingung ADR-257 Entscheidung 1).
-      ⚠ NEUER ENGPASS DES BESTANDS (gemessen 2026-07-30): RAM 17 von 30 GB, davon nur
-      2,3 GB frei — und **Swap 8,0 von 8,0 GB = 100 % belegt**. Load 3,6, Uptime 84 Tage,
-      43 laufende Container (von 58), 30 angemeldete Benutzer.
-      Die Container sind NICHT die Ursache: der größte belegt 292 MiB
-      (`writing_hub_web_dev`), die übrigen liegen im zweistelligen MiB-Bereich. Die Last
-      kommt von den Nicht-Container-Diensten dieses Hosts — Sitzungen, Windsurf-Remote-
-      Server, Sunshine/Moonlight-Desktop-Streaming. Genau dieser Host trägt zusätzlich
-      den ci-nonprod-Runner. Entlastungs-Kandidat: Runner nach `netcup` verlagern
-      (12 freie Kerne, 31 GB frei; I/O-Eignung gemessen — siehe netcup-Eintrag).
+      Dev-Maschine und Desktop-Streaming (Sunshine/Moonlight) des Owners; bis 2026-08-30
+      hiess dieser Eintrag `staging`. Zielrolle per ADR-292: NUR Dev + Desktop —
+      Staging-Container gehoeren nach staging-dedicated, Abbau offen. Traegt den
+      Non-Prod-CI-Runner (ADR-257). ollama laeuft hier mit systemd-Drop-in (6 Kerne, 10
+      GB, ein Modell) seit 2026-08-30.
+    historie:
+      - "2026-07-30: Swap-Anschlag — Ursache sind Nicht-Container-Dienste (ollama, robo-lab-Sims), NICHT Windsurf (Korrektur 2026-08-30)"
+      - "2026-08-30: 10 undeklarierte Container / 4 oeffentliche Hostnamen gegen auflage.prod_container (platform#2507); dev-hub laeuft hier als veraltete Kopie neben prod (S2)"
     hosts_runners: [staging-ci]
-    verified: 2026-07-30               # SSH-Probe on-host (RAM/Swap/Disk/Container/docker stats)
+    auflage:
+      prod_container: false
+      grund: "ADR-257 Entscheidung 1 + ADR-292 Zielrolle: nur Dev + Desktop-Streaming, KEINE Prod-Container"
+      # Zwei der vier Dienste aus platform#2507 sind KEINE Prod-Workloads, sondern
+      # Owner-eigene Dev-/Hilfsdienste, die zufaellig einen oeffentlichen Namen
+      # tragen. Die Auflage traf sie nur, weil der Check "oeffentlicher Hostname"
+      # mit "Prod-Container" gleichsetzte. Owner-Entscheid 2026-09-01 (#2507).
+      # Befristet, damit die Ausnahme nicht zur stillen Dauerregel wird: laeuft
+      # `bis` ab, ist der Verstoss wieder ein Finding.
+      ausnahmen:
+        robo-twin:
+          grund: >
+            Dev-Dienst des Owners (robo-lab Twin, systemd --user, 127.0.0.1:8790).
+            Kein Prod-Workload, keine Nutzerdaten. Gemessen 2026-09-01: 0 HTTP-Abrufe
+            in 7 Tagen — er belastet den Knoten nicht.
+          entschieden: 2026-09-01
+          bis: 2026-12-01
+        mail-links:
+          grund: >
+            Werkzeug des Owners (Mail-/Lotse-/Todo-Links, fester Port 8787, nur
+            Loopback + cloudflared). Kein Prod-Workload. Gemessen 2026-09-01:
+            106 HTTP-Requests in 7 Tagen, taeglich in Benutzung — Stilllegen waere
+            ein Rueckschritt, Umzug nach prod-b unverhaeltnismaessig.
+          entschieden: 2026-09-01
+          bis: 2026-12-01
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
+
+  gpu-box:
+    ip: 10.99.0.2                      # wg0-Peer von prod (10.99.0.1); von aussen nicht erreichbar
+    arch: amd64                        # uname -m 2026-08-30: x86_64
+    ssh: achim@10.99.0.2
+    ssh_via: root@88.198.191.108        # Schluessel fuer achim@10.99.0.2 liegt nur auf prod — ssh laeuft von dort (flottenbild.py)
+    ssh_shell: "wsl -d Ubuntu -u root -e bash -s"   # Windows-OpenSSH landet in cmd; die Probe gehoert in die WSL
+    hostname: DESKTOP-G1MN89S          # Owner-Desktop, Windows 11 (26200) + WSL2 Ubuntu 22.04
+    betrieb: auf_zuruf                 # Owner-Entscheid 2026-08-31: Box laeuft nur bei Bedarf
+                                       # (Wake-on-LAN). Ein schlafender Knoten ist KEIN Ausfall —
+                                       # flottenbild.py zeigt ihn als 'schlaeft' (platform#2545).
+    provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
+    server_type: rtx4090               # RTX 4090 24 GB; WSL2: 8 vCPU / 12 GB / 4 GB Swap (.wslconfig)
+    role: >
+      GPU-Box des Owners (RTX 4090, Windows 11 + WSL2) fuer lokale LLM-Inferenz
+      (illustration-hub-Render ueber wg0) und CI-Runner ci-gpu fuer writing-hub
+      (KONZ-021, platform#2392). Zugang nur ueber den prod-Hop (ssh achim@10.99.0.2, wsl
+      -d Ubuntu -u root). Kein Prod-Deploy — siehe auflage.
+    historie:
+      - "2026-08-30: ollama 0.0.0.0:11434 ohne Anmeldung von jedem wg0-Peer erreichbar (platform#2486); WSL meldet 738 GB frei, real 94 GB auf C:"
+      - "2026-09-02: Befund praezisiert — die offene Instanz ist der WINDOWS-Dienst ollama.exe (0.0.0.0 + [::]), die WSL-Instanz bindet 127.0.0.1. Das Heim-LAN erreicht sie NICHT: die Firewall-Regeln aus ADR-296 begrenzen 11434 auf 10.99.0.0/24 und 10.8.0.0/24 (gemessen vom gx10 im selben Subnetz: 11434 und 22 beide zu, Positivkontrolle inklusive). Effektive Reichweite = die beiden VPN-Netze"
+      - "2026-09-02: authentifizierte Gegenstelle gpu.iil.pet auf prod (Owner-Entscheid '24 go'): eigener Tunnel cloudflared-gpu.service, Ursprung 10.99.0.2:11434 ueber wg0, davor Cloudflare Access mit Owner-Richtlinie. Unangemeldet 302 (3 Proben mit laufendem Tunnel). Restrisiko benannt: VPN-Peers erreichen ollama weiterhin ohne Anmeldung"
+    hosts_runners: [gpu-box]
+    auflage:
+      prod_container: false
+      oeffentlicher_ingress: false
+      grund: "hosts.yaml-Rolle: kein Prod-Deploy; Zugang nur ueber wg0 (KONZ-053 §4)"
+      ausnahmen:
+        gpu-ollama:
+          grund: >
+            gpu.iil.pet veroeffentlicht ollama (11434) hinter Cloudflare Access.
+            Der Tunnel laeuft auf prod, nicht auf der Box; die Box selbst bekommt
+            keinen offenen Port dazu. Owner-Entscheid 2026-09-02 zu platform#2486
+            Punkt 2: Fernzugriff ist gewollt, die Anmeldung sitzt am Rand.
+            Wer Access besteht, kann alles, was das Modell kann.
+          entschieden: 2026-09-02
+          bis: 2026-12-02
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
+
+  gx10:
+    hostname: gx10-5dd6                # gemessen 2026-08-31 (hostname), Standort Owner-Buero
+    ip: 10.99.0.4                      # wg0-Peer seit 2026-08-31 (KONZ-053 §4, Owner-Freigabe)
+    lan_ip: 192.168.178.41             # Kabel enP7s7 im Owner-Buero; WLAN wlP9s9 abgeschaltet
+    ssh: adehnert@10.99.0.4            # uid 1000, Gruppe sudo
+    ssh_via: root@88.198.191.108       # der Knoten haengt an wg0; nur prod ist Peer-Gegenstelle
+    provider: owner-hardware           # keine Cloud, kein IaC — laeuft nur, wenn das Geraet an ist
+    server_type: gx10                  # ASUS Ascent GX10 (NVIDIA GB10), 121 GB nutzbar (free -g), 20 Kerne, 931 GB NVMe
+    arch: aarch64                      # gemessen 2026-08-31 (uname -m). Flotten-Images sind amd64 (_deploy-unified.yml Z.218)
+    os: Ubuntu 24.04.4 LTS             # Kernel 6.17.0-1031-nvidia, Treiber 580.173.02 — NVIDIA-Variante, kein WSL2
+    status: aktiv                      # wg0-Zugang steht, Direktanmeldung von prod verifiziert 2026-08-31
+    role: >
+      IIL-interner Inferenz- und Trainingsknoten (KONZ-platform-053, Owner-Entscheid
+      2026-08-29). Ausserhalb des Buergerdaten-Perimeters: keine Sozial-/Buergerdaten
+      aus der MEiKI-Kette, gleich in welcher Form. Zugang ueber wg0, KEIN oeffentlicher
+      Tunnel (das war der Fehler bei ollama.iil.pet). Phase 1 ohne GitHub-Runner,
+      kein Prod-Deploy, kein Build-Ziel fuer Flotten-Images.
+    hosts_runners: []                  # Phase 1 bewusst leer — KONZ-053 §6
+    auflage:
+      datenklassen_verboten: [gov-sozialdaten]
+      prod_container: false
+      app_hubs: false
+      runner: false
+      oeffentlicher_ingress: false
+      grund: "KONZ-platform-053 §3/§4/§6 (Owner-Entscheid 2026-08-29): Phase 1 reiner Rechenknoten, ausserhalb des Buergerdaten-Perimeters, kein Tunnel"
+      # Der Embedder IST die Rolle dieses Knotens, kein fremder Workload. Die
+      # Auflage entstand, als hier noch nichts lief; sie bleibt fuer alles
+      # andere bestehen. Owner-Entscheid 2026-09-01: in Betrieb nehmen, der
+      # Knoten laeuft 7/24 (damit faellt der Verfuegbarkeits-Einwand).
+      # Befristet, damit die Ausnahme nicht zur stillen Dauerregel wird.
+      ausnahmen:
+        embedder:
+          grund: >
+            Inferenzdienst nach ADR-188 (multilingual-e5-large, 1024 Dim.) auf
+            der GB10 — genau die Rolle, fuer die der Knoten angeschafft wurde.
+            Gebunden auf 10.99.0.4:8100, NICHT 0.0.0.0 (am Knoten gegengeprueft:
+            0 Treffer auf 0.0.0.0), damit `oeffentlicher_ingress: false` gilt.
+            Kein Container, kein App-Hub: systemd-Nutzerdienst.
+            Gemessen 2026-09-01 gegen denselben Dienst auf 12 CPU-Kernen:
+            p50 9,0 statt 78,0 ms, 702 statt 5,9 chunks/s bei batch=50 —
+            bei identischem Recall@1 (5/5) und auf vier Nachkommastellen
+            identischen Aehnlichkeitswerten.
+          entschieden: 2026-09-01
+          bis: 2026-12-01
+        ollama:
+          grund: >
+            LLM-Inferenz fuer den strict-Pfad des Voice-Agents (iil-voice-agent#90):
+            qwen2.5:7b + llama3.1:8b, gebunden auf 10.99.0.4:11434, NICHT 0.0.0.0
+            (am Knoten gegengeprueft: 0 Treffer auf 0.0.0.0; 127.0.0.1 antwortet
+            nicht, LAN-Adresse vom prod-Hop nicht erreichbar). Kein Container,
+            kein App-Hub: systemd-Nutzerdienst wie der Embedder (ollama 0.33.2,
+            user-lokal unter ~/ollama/bin, GPU erkannt: library=CUDA name=CUDA0
+            description="NVIDIA GB10" total=121.6 GiB). Nur synthetische/oeffentliche
+            Korpora (Guenzburg-Fachseiten), keine Buergerdaten. Gemessen 2026-09-02
+            warm: 47,8 tok/s (qwen2.5:7b), 47,1 tok/s (llama3.1:8b).
+            Offene Haertung: Abschottung ruht allein auf der Bind-Adresse; ein
+            Paketfilter analog ADR-296 (11434 nur aus 10.99.0.0/24) braucht Root
+            (sudo verlangt Passwort) — Owner-Sitzung.
+          entschieden: 2026-09-02
+          bis: 2026-12-01
+    historie:
+      - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall-Stand nicht verifizierbar (kein Root)"
+    betrieb: 7/24                      # Owner-Angabe 2026-09-01 — der Knoten
+                                       # ist KEIN Buerorechner mit Zuruf-Betrieb.
+                                       # Damit faellt der Verfuegbarkeits-Einwand
+                                       # gegen Dienste auf diesem Knoten.
+    verified: 2026-08-31               # flottenbild (gemessen), speicher_melder (882 GB frei), Direktanmeldung von prod
 
   staging-dedicated:
     ip: 178.104.184.168
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@178.104.184.168
     cloud_name: staging-platform       # id 127038422
     server_type: cpx42                 # 8 vCPU / 16 GB / 301 GB
     datacenter: fsn1-dc8
     role: >
-      ZIELROLLE per ADR-292 (2026-08-02): PREPROD ausschließlich für Lane G —
-      risk-hub und meiki/frist (Smoke-Check + Owner-Freigabe vor Prod, No-Auto-Prod).
-      dev-hub-Staging und alles Weitere entfällt hier; Abbau offen.
-      IST (verifiziert 2026-07-22/30): 12 Container — risk-hub-Staging (risk_hub_web/
-      db/redis/minio/celery/worker/celery_beat), dev-hub-Staging (dev_hub_staging_*)
-      und klickdummy; /opt hält dev-hub-staging, klickdummy, risk-hub, scripts,
-      shared-secrets. Deutlich unterausgelastet: 3,6 von 16 GB belegt.
-      ⚠ Doppelung mit `staging` (88.99.38.75): risk-hub-Staging existiert auf BEIDEN
-      Hosts — Konsolidierung hierher ist Teil des ADR-292-Abbaus.
-      Nachgemessen 2026-07-30, Stand bestätigt: 3,7 von 15,6 GB RAM (23 %), 7,7 von
-      301 GB Disk (3 %), 12 Container, Uptime 106 Tage. Diente als NVMe-Referenz für
-      die I/O-Messung des netcup-Hosts (siehe dessen Eintrag).
+      Preprod-Knoten fuer Lane G (ADR-292): risk-hub und meiki/frist mit Smoke-Check +
+      Owner-Freigabe vor Prod. Traegt heute risk-hub (aus docker-compose.prod.yml, Stand
+      2026-04-16 — vier Monate hinter prod, S2), dev-hub-Staging und klickdummy.
+    historie:
+      - "2026-07-30: diente als NVMe-Referenz fuer die I/O-Messung von netcup"
+      - "2026-08-30: zwei Healthchecks kaputt (risk_hub_web ALLOWED_HOSTS, dev_hub_staging_worker erbt Web-Check); nginx ohne default_server auf 443"
     hosts_runners: []
-    verified: 2026-07-30               # SSH-Probe on-host + dd-I/O-Referenzmessung
+    auflage:
+      nur_dienste: [risk-hub, frist-hub, dev-hub]
+      grund: "ADR-292 Lane G: Preprod nur risk-hub und meiki/frist; dev-hub-Staging steht dort noch (Abbau offen) und ist deshalb bis zum Abbau gelistet"
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   odoo:
     ip: 46.225.127.211
+    ssh: root@46.225.127.211           # wie ssh_alias hetzner-odoo (~/.ssh/config); gemessen 2026-08-30
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh_alias: hetzner-odoo            # ~/.ssh/config
     os: Ubuntu (4 vCPU / 8 GB / 150 GB)
     role: >
-      Odoo-Host, NICHT im selben Hetzner-Cloud-Projekt wie die vier Hosts oben
-      (taucht unter dem Projekt-Token nicht auf) — eigenes Konto/Projekt.
-      Trägt odoo_web/odoo_db plus einen vollständigen Monitoring-Stack
-      (traefik, prometheus, grafana, loki, promtail, node_exporter,
-      postgres_exporter). Uptime 159 Tage, 1,5 von 7,7 GB belegt.
-      💡 Dieser Stack ist der einzige im Bestand — `prod` hat KEIN Monitoring, was
-      der Grund war, dass der OOM-Ausfall am 2026-07-20 16 h unbemerkt blieb.
-      Naheliegend: prod per node_exporter/cadvisor hier anmelden (0 EUR).
-      Bekannter Defekt: `aifw_service` in Restart-Schleife.
+      Eigener Host ausserhalb des Hetzner-Projekts. Seit 2026-08-30 vor allem
+      FLOTTEN-MONITOR: Prometheus scrapt prod + prod-b (fleet-node, fleet-cadvisor, 6
+      Alert-Regeln, odoo-hub#22), Grafana, Loki. Odoo selbst ist seit 2026-08-30 bis auf
+      weiteres stillgelegt (odoo_web/odoo_db gestoppt, Dump unter
+      /opt/backups/stilllegung-2026-08-30/). /opt/odoo-hub ist KEIN Git-Klon, Deploy nur
+      noch per workflow_dispatch.
+    historie:
+      - "Bekannt: aifw_service in Restart-Schleife (fehlender Schluessel) — stoppen oder reparieren (platform#2480); Grafana braucht GRAFANA_DOMAIN in der Env (182)"
     hosts_runners: []
-    verified: 2026-07-22               # SSH-Probe on-host
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
   netcup:
     ip: 152.53.136.219
+    arch: amd64                        # uname -m 2026-08-30: x86_64
     ssh: root@152.53.136.219
     hostname: v2202604344838448611     # DNS: v2202604344838448611.goodsrv.de
     provider: netcup (Nürnberg, DE)    # ERSTER Nicht-Hetzner-Host im Bestand
     os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
     server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
     role: >
-      ROLLE per ADR-292 (2026-08-02) right-sized: NUR R1 Off-Provider-Backup/DR-Ziel
-      (rest-server läuft, append-only). Die weiteren ADR-289-Rollen R2 Monitoring,
-      R3 CI-/Build-Runner, R4 DR-Standby sind VERTAGT — je neuer Owner-Beschluss.
-      Ausdrücklich KEINE App-Hubs.
-      ⛔ NEGATIV-REGEL (ADR-289 §4.6): hier läuft KEIN App-Hub-Stack. Wandernde Hubs
-      gehen nach `prod-b` oder `staging-dedicated` (7 % bzw. 23 % RAM-Belegung) —
-      der Bestand hat ein Verteilungs-, kein Kapazitätsproblem. Prüfbar per
-      `docker ps` gegen ports.yaml über COMPOSE_PROJECT_NAME (ADR-248).
-      Zustand nach Grundinstallation (2026-07-30, `netcup-bootstrap.sh`, ADR-289
-      Phase 1): Swap 8 GB aktiv (vorher KEINER), Docker 29.6.2 + Compose 5.3.1
-      (vorher nicht installiert), fio 3.39, sysctl nach ADR-098 §2
-      (overcommit_memory=1, somaxconn=65535, swappiness=10). Noch 0 Container.
-      Vor dem Eingriff: 113 Tage Uptime bei Load 0,00 und 1 GiB Monatstraffic —
-      dasselbe Muster wie `lastwar-bot` vor dem prod-b-Rebuild: bezahlt, ungenutzt.
-      ⚠ FIREWALL — zwei Ebenen, die wirksame liegt im Panel: netcup-Panel zeigt
-      "Aktiv (0)" (eingeschaltet, aber KEINE Regel) und ist nur dort pflegbar, nicht
-      per SSH. Eine Host-Firewall (ufw/nftables) wurde bewusst NICHT aktiviert —
-      aus einer SSH-Sitzung heraus riskiert das die Selbst-Aussperrung, heilbar nur
-      über die netcup-Konsole. Derzeit lauscht ausschließlich SSH auf 22 (80/443 zu),
-      die Angriffsfläche ist minimal; Regeln werden mit Rolle R2 nötig.
-      💡 WERT FÜR DIE PLATTFORM: einziger Host außerhalb der Hetzner-Fehlerdomäne
-      und größte Disk im Bestand (1 TB = dreifach jeder andere). Damit der einzige
-      sinnvolle Ort für (a) Off-Provider-Backup nach ADR-241 — dessen beschlossenes
-      Ziel "Hetzner Storage Box BX11" liegt beim SELBEN Anbieter — und (b) einen
-      Monitoring-Host außerhalb der überwachten Domäne (`prod` hat keines; siehe
-      odoo-Eintrag oben). Standort Nürnberg/DE, anders als prod-b (Helsinki).
-      ⚠ AVV MIT NETCUP FEHLT — Voraussetzung, bevor Backups mit Personenbezug
-      (risk-hub MinIO = Kundendokumente) hier landen.
-      ❗ KORREKTUR ZUR PANEL-ANGABE "Startlaufwerk HDD": widerlegt durch Messung
-      2026-07-30. dd ergab 633 MB/s sequenziell schreibend (oflag=direct),
-      653 MB/s lesend, fsync-Latenz 1,44 ms (1000x4k oflag=dsync). Eine
-      7200-RPM-Platte schafft 150-200 MB/s. Referenz staging-dedicated (NVMe)
-      im selben Test: 879 MB/s / 1,7 GB/s / 1,24 ms — netcup liegt bei 72 %
-      schreibend, 88 % fsync, 38 % lesend. `lsblk ROTA=1` ist virtio-Default und
-      trägt keine Aussage.
-      ✅ NACHGEMESSEN 2026-07-30 (fio 3.39, direct=1 bs=4k iodepth=32, ADR-289 §4.1.1):
-      randwrite 43,3k IOPS / 169 MiB/s, Latenz Ø 730 us, p99 5,5 ms; randread
-      94,0k IOPS. Eine rotierende Platte macht 100-200 IOPS — Abstand Faktor 200-400.
-      Speicherklasse damit endgültig geklärt: SSD/NVMe-gestützt. Die p99-Streuung
-      (5,5 ms gegen Ø 730 us) ist die erwartete Varianz geteilten Speichers.
-      NICHT belegt: Build-Wall-Clock. Die IOPS deckt die Speicher-Vorbedingung, nicht
-      die Build-Eignung — dafür laeuft ADR-289 Phase 5b (gleicher Docker-Build auf
-      netcup vs. staging). Ebenfalls offen: Verhalten über Wochen (noisy neighbour).
-    hosts_runners: []
-    verified: 2026-07-30               # SSH-Probe + dd + fio; Grundinstallation gelaufen
+      Off-Provider-Backup-Ziel (ADR-289 R1): restic rest-server, append-only. Einziger
+      Host ausserhalb der Hetzner-Fehlerdomaene, groesste Platte (1 TB). Firewall liegt
+      im netcup-Panel, nicht am Host.
+      R3 CI-/Build-Runner AKTIV seit 2026-09-01 (Owner-Beschluss 2026-08-30 „R3 auf
+      netcup aktivieren", Ausfuehrung nach platform#2543) — ausschliesslich ROOTLESS,
+      siehe auflage. R2 Monitoring und R4 DR bleiben vertagt.
+    historie:
+      - "2026-07-30: Speicherklasse per fio als SSD/NVMe belegt (Panel sagte HDD)"
+      - "2026-08-30: CI-Runner laeuft entgegen R3 mit github-ci in Gruppe docker (platform#2486 Punkt 1); kein restic check, kein Prune, Schluessel ohne Escrow (platform#2504)"
+      - "2026-09-01: AVV nach Art. 28 DSGVO liegt vor, unterzeichnet 30.07.2026 — der Befund 'AVV fehlt' war falsch; das Dokument war nur nicht abgelegt (platform#2486 Punkt 4)"
+      - "2026-09-01: R3 aktiviert, aber ROOTLESS — github-ci hat einen eigenen Daemon (/run/user/1000/docker.sock) und ist NICHT in der Gruppe docker. Gegenprobe am Host: Zugriff auf /var/run/docker.sock = permission denied"
+    hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]
+    auflage:
+      datenklassen_verboten: [personenbezogen]
+      app_hubs: false
+      runner: true                     # seit 2026-09-01, NUR rootless — s. grund
+      grund: >
+        ADR-289 R1 + §4.6 (nur Off-Provider-Backup) mit einer benannten Ausnahme:
+        R3 CI-/Build-Runner ist seit 2026-09-01 erlaubt, ABER ausschliesslich rootless
+        (eigener Nutzer-Daemon, KEINE Mitgliedschaft in der Gruppe `docker`) — sonst
+        waere jeder CI-Job root-aequivalent auf dem Host, der die einzige Kopie
+        ausserhalb der Hetzner-Fehlerdomaene haelt (platform#2486 Punkt 1).
+        `datenklassen_verboten: [personenbezogen]` bleibt bestehen, obwohl der AVV
+        seit 2026-07-30 vorliegt: der Hinderungsgrund ist jetzt nicht mehr der
+        Vertrag, sondern der fehlende Loeschpfad — `restic forget`/Prune laufen
+        nirgends (platform#2504), und ohne Loeschpfad kein Art. 17.
+        Belege: platform#2543, platform#2486.
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
@@ -265,7 +356,7 @@ runners:
     verified: 2026-06-17
 
   staging-ci:
-    host: staging                      # 88.99.38.75
+    host: dev-desktop                  # 88.99.38.75 (Key bis 2026-08-30: staging)
     status: online                     # 2026-06-28 registriert + verifiziert (gh api)
     labels: [self-hosted, Linux, X64, ci-nonprod]
     scope: per-repo
@@ -278,6 +369,122 @@ runners:
       via `deploy_runs_on: prod-server` auf dem Prod-Host. Pilot-Repo: travel-beat
       (`travel-beat-staging-ci`). Weitere Hubs gestaffelt via ADR-222-Familie.
     verified: 2026-06-28
+
+  gpu-box:
+    host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
+    status: online                     # 2026-08-28 09:00 CEST registriert + online (gh api runners);
+                                       # RTX 4090 24 GB, 8 vCPU/12 GB fuer WSL, api.github.com 200),
+                                       # Bootstrap lief als root via `wsl -u root` ueber den prod-Hop
+    labels: [self-hosted, Linux, X64, ci-gpu]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>   # innerhalb der WSL2-Distro
+    service: actions.runner.achimdehnert-<repo>.DESKTOP-G1MN89S.service   # Runner-Name = Hostname
+    runner_user: github-ci             # REC-5, in docker-Gruppe (Postgres-Service-Container)
+    bootstrap: infra/scripts/bootstrap_ci_runner_wsl.sh
+    consumers: [writing-hub]           # KONZ-021-Opt-out, Grund: 70 % der hosted Minuten (platform#2392)
+    note: >
+      Owner-Desktop, nicht Teil der Hetzner-Flotte: laeuft nur, wenn die Box an ist.
+      Windows-Seite muss die WSL offen halten (.wslconfig vmIdleTimeout=-1 + Aufgabenplanung
+      "wsl -d Ubuntu -u root -- sleep infinity"). Deploy-Jobs bleiben auf prod-server;
+      hier laufen nur `_ci-python`-Block und der writing-hub-Eigenjob `integration-tests`.
+    verified: 2026-08-28               # Box-Fakten; Runner-Status offen
+  netcup-ci:
+    host: netcup                       # 152.53.136.219
+    status: online                     # 2026-09-01 registriert (id 25), Dienst enabled+active.
+                                       # Reihenfolge eingehalten: Deklaration (platform#2568)
+                                       # vor der Registrierung. Am selben Tag war es einmal
+                                       # umgekehrt und wurde zurueckgebaut (platform#2543).
+    labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>
+    service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci.service
+    toolcache: /opt/hostedtoolcache    # GETEILT mit -ci-2 und -ci-3
+    runner_user: github-ci             # REC-5, nicht root
+    rootless: true                     # ← die Bedingung der Auflage, maschinenlesbar
+    docker_host: unix:///run/user/1000/docker.sock
+    consumers: [writing-hub]
+    note: >
+      Traegt `ci-nonprod`, damit CI nicht an der GPU-Box haengt, die laut
+      Owner-Entscheid 2026-08-31 nur noch auf Zuruf laeuft.
+      ROOTLESS ist keine Empfehlung, sondern die Bedingung: github-ci hat einen
+      eigenen Daemon unter /run/user/1000/docker.sock und ist NICHT in der Gruppe
+      `docker`. Waere er es, haette jeder CI-Job root-aequivalenten Zugriff auf das
+      einzige Off-Provider-Backup (platform#2486 Punkt 1).
+      Am 2026-09-01 gemessen, dass rootless die Actions-`services:` traegt: eigenes
+      Netz, Service-Container mit Netz-Alias und veroeffentlichtem Port, healthy nach
+      15 s, erreichbar vom Host UND container-zu-container ueber den Alias;
+      Negativkontrolle auf einem freien Port = connection refused.
+      Drei Huerden, die auf jedem Debian-13-Laeufer stehen — alle drei am 2026-09-01
+      selbst hineingelaufen:
+      (1) `github-ci` braucht `loginctl enable-linger`, sonst stirbt der Nutzer-Daemon.
+      (2) `actions/setup-python` findet fuer Debian 13 kein Python 3.12 ("was not found
+      for Debian 13") — die Version muss im Tool-Cache unter
+      `_work/_tool/Python/<ver>/x64` liegen, mit Marker `x64.complete`.
+      (3) `runsvc.sh` liest die `.env` des Laeufers NICHT. `DOCKER_HOST` gehoert in ein
+      systemd-Drop-in (`…service.d/rootless.conf`), sonst faellt der Laeufer auf
+      /var/run/docker.sock zurueck und scheitert mit `permission denied`. Geprueft wird
+      das an `/proc/<pid>/environ` des `Runner.Listener`, nicht am Dateiinhalt.
+    skalierung: >
+      Drei Instanzen seit 2026-09-01. Gemessen am Basislauf 33485965050:
+      Wanduhr 866 s bei 842 s Jobzeit — also praktisch sequenziell, weil
+      `ci-nonprod` auf genau einen Laeufer zeigte. Der laengste EINZELNE Job
+      (`Integration Tests`, 399 s) ist unteilbar; der Boden liegt damit bei
+      rund 410 s und wird bei DREI Instanzen erreicht. Ein vierter kauft
+      nichts mehr — dort kippt es.
+      DREI Fallen beim Aufsetzen, alle selbst hineingelaufen:
+      (1) `tar --exclude='.runner'` greift bei `-C quelle .` NICHT, weil der
+      Name im Archiv `./.runner` lautet.
+      (2) `bin` und `externals` sind ABSOLUTE Symlinks auf das
+      Quellverzeichnis. Die Kopie liest damit die Konfiguration der ersten
+      Instanz und meldet „already configured", obwohl ihr eigenes `.runner`
+      geloescht ist — die Symlinks muessen nach innen zeigen.
+      (3) Jede Instanz haelt ihren EIGENEN `_work/_tool`. Ohne geteilten
+      Cache scheitert `actions/setup-python` auf den neuen Instanzen mit
+      „The version '3.12' … was not found for Debian 13". Deshalb
+      `AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache` im systemd-Drop-in aller
+      Instanzen.
+      Und: Laeufer NICHT neu starten, waehrend Jobs laufen — am 2026-09-01
+      kostete das sieben Jobs eines Messlaufs.
+    verified: 2026-09-01               # writing-hub-Lauf 33485965050 vollstaendig gruen,
+                                       # ALLE selbstgehosteten Jobs auf writing-hub-netcup-ci
+                                       # (je Job am Log-Kopf "Runner name:" nachgesehen)
+
+  netcup-ci-2:
+    host: netcup
+    status: online                     # 2026-09-01 registriert (id 26)
+    labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>-2
+    service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci-2.service
+    runner_user: github-ci
+    rootless: true
+    docker_host: unix:///run/user/1000/docker.sock
+    toolcache: /opt/hostedtoolcache
+    consumers: [writing-hub]
+    note: >
+      Zweite Instanz derselben Maschine. Alles Inhaltliche steht bei
+      `netcup-ci` — hier bewusst nur das, was sich je Instanz unterscheidet.
+      Ein eigener Eintrag, weil `hosts_runners` nur Namen tragen darf, die es
+      im `runners:`-Block gibt (hosts_audit --check schema).
+    verified: 2026-09-01
+
+  netcup-ci-3:
+    host: netcup
+    status: online                     # 2026-09-01 registriert (id 27)
+    labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>-3
+    service: actions.runner.achimdehnert-<repo>.<repo>-netcup-ci-3.service
+    runner_user: github-ci
+    rootless: true
+    docker_host: unix:///run/user/1000/docker.sock
+    toolcache: /opt/hostedtoolcache
+    consumers: [writing-hub]
+    note: >
+      Dritte Instanz. Siehe `netcup-ci` und `netcup-ci-2`. Mit dieser ist der
+      Boden erreicht: der laengste einzelne Job dauert 399 s und ist
+      unteilbar — eine vierte Instanz kauft nichts mehr.
+    verified: 2026-09-01
 
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert

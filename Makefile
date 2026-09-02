@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu test lint setup windsurf-clean windsurf-status windsurf-force
+.PHONY: help menu boards boards-check kette aufraeumen test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -26,6 +26,30 @@ PROD_SERVER := hetzner-prod
 # =============================================================================
 # HELP & MENU
 # =============================================================================
+
+aufraeumen: ## Erledigte Vorgaenge archivieren und Titellose melden (Anzeige)
+	@python3 tools/mail_agent/vorgaenge_archivieren.py
+
+kette: ## Mail-/Todo-Kette pruefen (Postfach -> Ledger -> Vorhersage -> Board -> Ansicht)
+	@python3 tools/mail_agent/kettencheck.py
+
+boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
+	@python3 tools/mail_agent/board.py --pruefe
+	@python3 tools/mail_agent/eintrag_anker.py --kurz || echo "  (Verankerung uebersprungen — Postfach nicht erreichbar)"
+	@python3 tools/mail_agent/faelligkeit.py --schreibe >/dev/null || echo "  (Faelligkeit uebersprungen — Mail-Index nicht erreichbar)"
+	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
+	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
+	@python3 tools/todo_board/todo_board.py build
+
+boards-check: ## K1-Beleg (#2592): beide Renderer zweimal mit festem Stichtag bauen, byteweise vergleichen
+	@T=$$(mktemp -d) && D=$$(date +%F) && \
+	python3 tools/mail_agent/board.py --render --stichtag $$D --nach $$T/b1.md >/dev/null && \
+	python3 tools/mail_agent/board.py --render --stichtag $$D --nach $$T/b2.md >/dev/null && \
+	python3 tools/todo_board/todo_board.py build --stichtag $$D --ausgabe $$T/t1.html >/dev/null && \
+	python3 tools/todo_board/todo_board.py build --stichtag $$D --ausgabe $$T/t2.html >/dev/null && \
+	cmp -s $$T/b1.md $$T/b2.md && cmp -s $$T/t1.html $$T/t2.html && \
+	echo "reproduzierbar: board.md $$(wc -c <$$T/b1.md) B, todo.html $$(wc -c <$$T/t1.html) B — zwei Laeufe identisch" || { echo "NICHT reproduzierbar — diff:"; diff $$T/b1.md $$T/b2.md | head; diff $$T/t1.html $$T/t2.html | head; rm -rf $$T; exit 1; }; \
+	rm -rf $$T
 
 help: ## Diese Hilfe anzeigen
 	@echo ""
@@ -157,6 +181,24 @@ logs-dev: ## Letzte Logs vom Dev-Server
 backup-db: ## Datenbank-Backup erstellen
 	@echo "$(BOLD)Datenbank-Backup:$(RESET)"
 	@echo "  (noch nicht implementiert - siehe /backup Workflow)"
+
+backup-audit: ## Beweislauf #2284: Deckung vom Host aus + Speicher-Vorlauf (read-only, ssh)
+	@echo "$(BOLD)Backup-Deckung (tools/backup_deckung.py):$(RESET)"
+	@python3 tools/backup_deckung.py; rc=$$?; echo "exit=$$rc"; \
+	 echo; echo "$(BOLD)Speicher-Vorlauf (tools/speicher_melder.py):$(RESET)"; \
+	 python3 tools/speicher_melder.py; rc2=$$?; echo "exit=$$rc2"; \
+	 [ $$rc -lt 2 ] && [ $$rc2 -lt 2 ]
+
+PROD_SSH ?= $(shell python3 -c "import yaml;print(yaml.safe_load(open('infra/hosts.yaml'))['hosts']['prod']['ssh'].split()[0])")
+APP ?= risk_hub_db
+DB ?= risk_hub
+TABLE ?= dsb_technical_measure
+restore-drill: ## Restore-Feuerübung ADR-241 §5 (#2284 K4): Snapshot → Wegwerf-Postgres → Zählprobe → Protokoll ins Repo
+	@out="docs/runbooks/restore-drills/$$(date -u +%Y-%m-%d)-$$(echo $(APP) | sed 's/_db$$//; s/_/-/g').md"; \
+	 echo "$(BOLD)Restore-Feuerübung $(APP) auf $(PROD_SSH) → $$out$(RESET)"; \
+	 ssh -o ConnectTimeout=10 -o BatchMode=yes $(PROD_SSH) bash -s -- $(APP) $(DB) $(TABLE) \
+	   < infra/host-maintenance/restore-drill.sh > "$$out.tmp" && [ -s "$$out.tmp" ] && mv "$$out.tmp" "$$out" && sed -n '1,20p' "$$out" \
+	   || { rm -f "$$out.tmp"; echo "FEHLER: kein Protokoll erzeugt (exit 0 + leere Ausgabe = Kind hat stdin gefressen?)"; exit 2; }
 
 # =============================================================================
 # REGISTRY LINTING (ADR-212 Issue #247)

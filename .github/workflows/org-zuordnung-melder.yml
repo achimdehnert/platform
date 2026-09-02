@@ -1,0 +1,46 @@
+# ADR-297 Org-Zuordnung: Deklaration gegen Realitaet (platform#2264).
+#
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# dieser Workflow ist absichtlich rot, wenn er etwas gefunden hat, und wird
+# deshalb NICHT als blinder Melder gezaehlt.
+#
+# ⚠️ run-conclusion ≠ Tool-Health: ein ROTER Lauf ist ein FUND (die Registry
+# behauptet einen Owner, den GitHub nicht bestaetigt — oder ein neues produktives
+# Repo liegt auf einem persoenlichen Konto), KEIN Workflow-Defekt.
+#
+# Warum es diesen Melder gibt: ADR-297 entstand, weil ein Fakt in ADR-236 seit dem
+# 2026-06-03 richtig dokumentiert war und trotzdem nicht wirkte. Eine Regel ohne
+# Melder waere derselbe Fehler eine Ebene hoeher.
+name: ADR-297 Org-Zuordnungs-Melder
+
+on:
+  schedule:
+    - cron: '23 5 * * *'        # taeglich 05:23 UTC, nach dem Registry-Live-Reconcile
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'tools/org_zuordnung_melder.py'
+      - 'registry/canonical.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  melden:
+    name: "Org-Zuordnung pruefen (rot = Fund, nicht Fehler)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --quiet pyyaml
+      - name: Abgleich Registry ↔ GitHub
+        env:
+          # Der Workflow-Token sieht die privaten Repos fremder Orgs NICHT. Der
+          # Melder zaehlt sie als "nicht pruefbar" und sagt das ausdruecklich —
+          # eine Abdeckungsluecke ist keine Entwarnung.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/org_zuordnung_melder.py --stichtag 2026-08-24

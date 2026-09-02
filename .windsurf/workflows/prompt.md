@@ -45,8 +45,10 @@ Test, Deploy) → weiter mit Schritt 1 wie bisher.
    (Ausgabe: der Prompt selbst, als Entwurf markiert). Änderungswünsche einarbeiten
    und erneut vorlegen.
 3. **Bei Go: Artefakt materialisieren.** Issue im Ziel-Repo anlegen (Titel =
-   Zielzustand-Kurzform, Body = der freigegebene Prompt + Freigabe-Vermerk
-   „akzeptiert durch Owner <Datum>, Kapitäns-Kanal"). Link-Basis vorher gegen
+   Zielzustand-Kurzform, Body = der freigegebene Prompt + Freigabe-Vermerk als
+   **eigene Zeile, plain, exakt so:** `Freigabe: akzeptiert durch Owner <Datum>,
+   Kapitäns-Kanal` — nicht fett, nicht in Klammern: `tools/pr_merge_sa.py` liest
+   diese Zeile als M1-Mandat (#2603)). Link-Basis vorher gegen
    `git remote get-url origin` verifizieren (Org-Falle). Ausgabe: Issue-Link +
    ein Satz: „Ab jetzt SA-4-fähig — jeder PR verlinkt dieses Issue und das
    Kriterium, auf das er einzahlt."

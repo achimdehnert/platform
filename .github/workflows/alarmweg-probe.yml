@@ -1,0 +1,58 @@
+# alarmweg-probe.yml — KONZ-platform-054 E4: ein Kanal gilt erst, wenn er
+# nachweislich einen Menschen erreicht hat.
+#
+# Woechentlich ein Probealarm je Kanal aus infra/alarmwege.yaml, EIN JOB JE KANAL —
+# der Job-Name ist die Kanal-ID, weil tools/alarmweg_probe.py --pruefen genau diese
+# Jobs liest. Ein Job scheitert HART, wenn das Secret fehlt oder der Empfaenger
+# nicht 2xx antwortet. Kein `|| true`, kein "uebersprungen": das war der Fehler,
+# der drei Workflows dieses Repos seit Monaten an ein nicht existierendes Secret
+# schreiben liess, ohne dass ein Lauf rot wurde.
+#
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# ein roter Lauf heisst "Alarmweg fehlt", nicht "Workflow kaputt".
+#
+# Aussenwirkung, bewusst: einmal pro Woche eine Discord-Nachricht und ein
+# sofort geschlossenes Issue an den Owner. Das IST der Zweck — ein Kanal, der
+# nie benutzt wird, ist von einem kaputten nicht zu unterscheiden.
+name: alarmweg-probe
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # montags 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  discord-owner:
+    name: discord-owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Probealarm Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python3 tools/alarmweg_probe.py --senden --kanal discord-owner
+
+  github-issue-owner:
+    name: github-issue-owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Probealarm Issue (anlegen + schliessen)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALARMWEG_ASSIGNEE: achimdehnert
+        run: python3 tools/alarmweg_probe.py --senden --kanal github-issue-owner

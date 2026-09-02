@@ -31,9 +31,12 @@ from weasyprint import HTML, CSS
 
 from pdf_forms import (
     FORMULAR_CSS,
+    QUERFORMAT_CSS,
     formulare_gewuenscht,
+    formularfelder_nachbessern,
     html_mit_formularfeldern,
     markdown_mit_platzhaltern,
+    querformat_gewuenscht,
 )
 
 import llm_gate  # Datenschutz-Gate (#1297) — bewusst importfrei, siehe Modul-Docstring
@@ -1012,7 +1015,11 @@ _INLINE_PATTERNS = {
     "angebot_nr": r"\*\*Angebot Nr\.:\*\*\s*([^\n]+)",
     "datum": r"\*\*Datum:\*\*\s*([^\n]+)",
     "gueltig_bis": r"\*\*Gültig bis:\*\*\s*([^\n]+)",
-    "auftraggeber": r"\*\*Auftraggeber\*\*\s*\n+(.+)",
+    # Beide Schreibweisen: "**Auftraggeber:** Firma" und "**Auftraggeber**\n Firma".
+    # Nur die zweite war abgedeckt — die erste wurde vom Deckblatt-Filter aus dem
+    # Fliesstext entfernt UND nicht aufs Deckblatt uebernommen, der Mandantenname
+    # verschwand also ganz (gefunden 2026-08-26 an einer Reihe Erfassungsboegen).
+    "auftraggeber": r"\*\*Auftraggeber:?\*\*:?\s*\n*[ \t]*(.+)",
     # Generic document fields (used by konzept/briefing templates)
     "doc_type": r"\*\*(?:Typ|Doc[- ]?Type|Dokumenttyp):\*\*\s*([^\n]+)",
     "status": r"\*\*Status:\*\*\s*([^\n]+)",
@@ -1244,12 +1251,21 @@ def convert(
     css = build_css(design, extra_css=extra_css)
     if als_formular:
         css += FORMULAR_CSS
+    if querformat_gewuenscht(meta):
+        css += QUERFORMAT_CSS
+        print("↔️  Querformat (Frontmatter `querformat: true`)")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{input_path.stem}.pdf"
     HTML(string=html, base_url="/").write_pdf(
         str(out_path), stylesheets=[CSS(string=css)], pdf_forms=als_formular
     )
+    if als_formular:
+        # WeasyPrint schreibt die Widget-Rechtecke verdreht und zu klein —
+        # ohne diesen Schritt sind die Felder in gaengigen Viewern nicht
+        # anklickbar (siehe pdf_forms-Docstring, dritter Schritt).
+        nachgebessert = formularfelder_nachbessern(out_path)
+        print(f"🖱️  Formularfelder anklickbar gemacht: {nachgebessert}")
     return out_path
 
 

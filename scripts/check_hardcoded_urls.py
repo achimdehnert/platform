@@ -43,7 +43,7 @@ import argparse
 import os
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 # ── Konfiguration ─────────────────────────────────────────────────────────────
@@ -376,8 +376,50 @@ def _is_parked_path(path: Path) -> bool:
     return any(part in _PARKED_DIRS for part in path.parts)
 
 
+# Django-Settings-Module, die nur unter Test/CI geladen werden. Sie heissen
+# nicht test_*, sind aber Testkontext: config/settings/testing.py, .../test.py.
+_TEST_SETTINGS_STEMS = frozenset({"test", "testing", "test_settings", "ci"})
+
+
 def _is_test_file(path: Path) -> bool:
-    return path.name.startswith("test_") or path.name == "conftest.py"
+    """Liegt die Datei im Testkontext?
+
+    Bis 2026-08-31 zaehlte nur `test_*` und `conftest.py`. Damit fielen
+    `tests/settings.py` und `config/settings/testing.py` durchs Raster — Dateien,
+    die ausschliesslich unter Test/CI geladen werden. Der Megatest meldete dort
+    vermeidbare Verstoesse in vier Repos, obwohl der Code korrekt war
+    (platform#2525).
+    """
+    if path.name.startswith("test_") or path.name == "conftest.py":
+        return True
+    # Alles unterhalb eines tests/-Verzeichnisses.
+    if "tests" in path.parts:
+        return True
+    # settings/test.py, settings/testing.py — aber NICHT die normale settings.py
+    # daneben: die kann eine CI-Weiche enthalten und bleibt voll geprueft.
+    return path.stem in _TEST_SETTINGS_STEMS and "settings" in (
+        *path.parts[:-1],
+        path.stem,
+    )
+
+
+# Von shared-ci gesetzte Postgres-Variablen (_ci-python.yml). Absichtlich eine
+# geschlossene Liste und kein POSTGRES_.*: ein Tippfehler soll auffallen.
+_CI_POSTGRES_ENV = re.compile(
+    r"""os\.environ(?:\.get)?\[?\(?\s*["']"""
+    r"""POSTGRES_(?:HOST|PORT|DB|USER|PASSWORD)["']"""
+)
+
+
+def _ist_settings_datei(path: Path) -> bool:
+    """Django-Settings-Modul — der einzige Ort, an dem die CI-Weiche hingehoert.
+
+    Ohne diese Begrenzung waere die POSTGRES_-Ausnahme viel zu breit: ein
+    `os.environ["POSTGRES_HOST"]` mitten im Anwendungscode ist genau der Fehler,
+    den V-CFG-01 finden soll. Die Ausnahme gilt der Konfigurationsschicht, nicht
+    der Variablen.
+    """
+    return path.stem == "settings" or "settings" in path.parts[:-1]
 
 
 def _is_migration(path: Path) -> bool:
@@ -458,6 +500,20 @@ def _check_line(
     # Die Alternative "decouple.config('KEY')" ergibt dort keinen Satz.
     if rule.rule_id == "V-CFG-01" and _ENVIRON_WRITE.search(line):
         return False
+    # Die CI-Postgres-Weiche ist kein Env-Missbrauch, sondern das dokumentierte
+    # Flottenmuster: shared-ci (_ci-python.yml) stellt Postgres als Service und
+    # exportiert POSTGRES_*; ist POSTGRES_HOST gesetzt, gilt genau diese Quelle.
+    # `decouple.config()` ergaebe dort keinen Satz — es sucht eine .env-Datei,
+    # die in CI nicht existiert. Der Zugriff steht bewusst auch in einer
+    # normalen settings.py (Realfall trading-hub, identisch in billing-hub,
+    # meiki-lra, frist-hub). Bewusst eng auf die POSTGRES_-Familie begrenzt:
+    # jeder andere os.environ-Zugriff bleibt voll geprueft.
+    if (
+        rule.rule_id in ("V-CFG-01", "V-CFG-02")
+        and _ist_settings_datei(path)
+        and _CI_POSTGRES_ENV.search(line)
+    ):
+        return False
     # V-CFG-02 mit Fallback in der FOLGEZEILE (platform#1682): der Lookahead in
     # der Regex sieht nur dieselbe Zeile. `name = os.environ.get("X")` gefolgt
     # von einer Zeile, die genau dieses `name` mit if/or/else absichert, IST
@@ -478,6 +534,26 @@ def _check_line(
     if "# noqa" in line or "# nosec" in line or "hardcoded-ok" in line:
         return False
     return bool(rule.pattern.search(line))
+
+
+def _im_testkontext(rule: Rule, path: Path) -> Rule:
+    """Stuft eine VERMEIDBAR-Regel im Testkontext auf INFO herab.
+
+    Betrifft nur Regeln mit `skip_in_tests=False` — die vier, die in Tests
+    bewusst weiter greifen (V-CFG-01, V-SEC-01/02/03). Sie sollen dort sichtbar
+    bleiben, aber kein Gate brechen: ein erfundener Wert in einer Testdatei ist
+    kein Leck, und `test_clean_repos_stay_clean` liess bisher nur den Weg
+    "sofort fixen" offen — der zu schlechterem Code fuehrt.
+
+    Bewusst herabstufen statt ausblenden: waeren diese Regeln in Tests stumm,
+    fiele ein ECHTES Secret in einer Testdatei nie wieder auf. INFO heisst
+    gesehen, gezaehlt, aber nicht gate-brechend (platform#2525).
+    """
+    if rule.skip_in_tests or rule.category != "VERMEIDBAR":
+        return rule
+    if not _is_test_file(path):
+        return rule
+    return replace(rule, category="INFO")
 
 
 def scan_repo(repo_path: Path) -> RepoResult:
@@ -510,7 +586,7 @@ def scan_repo(repo_path: Path) -> RepoResult:
                 if _check_line(rule, line, fpath, next_line=folgezeile):
                     result.violations.append(
                         Violation(
-                            rule=rule,
+                            rule=_im_testkontext(rule, fpath),
                             file_path=fpath,
                             lineno=lineno,
                             line=line.strip(),

@@ -14,6 +14,15 @@ name: "ADR-241: Backup Meter"
 on:
   schedule:
     - cron: "0 5 * * *" # täglich 05:00 UTC (nach den nächtlichen Offsite-Pushes)
+
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# ein roter Lauf ist hier ein Fund (Verletzung ODER Scope-Luecke), kein Defekt.
+#
+# Seit 2026-08-30 (KONZ-054 E3): `deferred` ist kein Gruen mehr. Der Meter stand
+# 12 Tage auf gruen mit EINER gemessenen von zehn Soll-Apps. Exit 3 (Scope-Luecke)
+# faerbt den Lauf rot, erzeugt aber KEIN Issue — das gibt es nur fuer Verletzungen.
+# Der Leser des roten Laufs ist cron_melder_check (0.7.2), dessen Befund seit E2
+# mit Entscheidungsfrist im Journal steht: einmal entscheiden, dann Ruhe.
   workflow_dispatch:
 
 # Workflow-level default (least privilege, #818 permissions sweep); the
@@ -86,6 +95,7 @@ jobs:
           python3 tools/backup_meter.py \
             --expected governance/backup/expected-apps.json \
             --drills-dir docs/runbooks/restore-drills \
+            --enforce-drill \
             ${{ steps.snap.outputs.args }} \
             --report /tmp/backup-meter-report.md
 
@@ -134,5 +144,13 @@ jobs:
       - name: "Gate: Meter-Ergebnis durchreichen"
         if: steps.meter.outcome == 'failure'
         run: |
-          echo "❌ backup-meter meldet Verletzungen (Report siehe Step 'Meter ausführen')"
+          V="${{ steps.meter.outputs.violations }}"; D="${{ steps.meter.outputs.deferred }}"
+          if [ "${V:-0}" != "0" ]; then
+            echo "❌ backup-meter meldet ${V} Verletzung(en) (Report siehe Step 'Meter ausführen')"
+            exit 1
+          fi
+          # Exit 3: nichts verletzt, aber ${D} Soll-Apps nicht gemessen. Kein Issue —
+          # aber auch kein Gruen ueber ungemessenem Gebiet (KONZ-054 E3).
+          echo "::warning title=Scope-Luecke::${D} Soll-App(s) deferred — der Meter sieht nicht alles. Rot ist Befund, nicht Defekt."
+          { echo "### Scope-Luecke: ${D} Soll-App(s) nicht gemessen"; echo; head -3 /tmp/backup-meter-report.md 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
           exit 1

@@ -27,6 +27,19 @@ import re
 import subprocess
 import sys
 
+# Maschinenlesbarer Kopf (KONZ-038 D8) — steht im Modul, nicht nur in der Registry,
+# damit `gate_drill_check.py` ihn gegen die Registry pruefen kann. Dieses Werkzeug
+# war lange gebaut und gedrillt, aber ohne Leser im Sitzungs-Loop; seit dem
+# 2026-08-23 ruft es Runner-Phase 0.7.13.
+GATE_HEADER = {
+    "slug": "skill-copy-not-redistributed",
+    "mode": "advisory",
+    "owner": "achim",
+    "last_drill_pass": "2026-08-23",
+    "evidence": "tools/tests/test_doctor.py",
+}
+
+
 # Relativlink-Guard (nur Lane `commands`): das flache Ziel ~/.claude/commands kann keine
 # Pfad-Slash-Links auflösen → dangling. http(s)/Anker/mailto sind ok. Verlangt Pfad-Slash
 # UND echte Datei-Endung, damit Regex/sed-Snippets in Code-Blöcken nicht fehl-matchen.

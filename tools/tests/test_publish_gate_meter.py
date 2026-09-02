@@ -126,25 +126,15 @@ def test_should_return_empty_for_repo_without_workflows(tmp_path):
     assert m.fetch_repo_workflows_local(tmp_path, "norepo") == {}
 
 
-def test_should_not_update_issue_when_title_and_body_unchanged():
-    existing = {"title": "T", "body": "B"}
-    assert m.issue_needs_update(existing, "T", "B") is False
-
-
-def test_should_update_issue_when_body_changed():
-    existing = {"title": "T", "body": "alt"}
-    assert m.issue_needs_update(existing, "T", "neu") is True
-
-
-def test_should_update_issue_when_title_changed():
-    existing = {"title": "alt", "body": "B"}
-    assert m.issue_needs_update(existing, "neu", "B") is True
-
-
-def test_should_update_issue_when_existing_body_is_none():
-    # GitHub liefert body=None für leere Issues → muss als Änderung gelten, wenn neuer Body da ist.
-    assert m.issue_needs_update({"title": "T", "body": None}, "T", "B") is True
-    assert m.issue_needs_update({"title": "T", "body": None}, "T", "") is False
+def test_should_expose_shared_section_upsert_not_own_copy():
+    # KONZ-052 V5: der Meter schreibt seine eigene Sektion im EINEN
+    # Flotten-Issue über tools/pypi_fleet_sections.py — keine eigene
+    # upsert_issue()/issue_needs_update()-Kopie mehr (siehe
+    # test_pypi_fleet_sections.py für die Merge-Logik selbst).
+    assert not hasattr(m, "upsert_issue")
+    assert not hasattr(m, "issue_needs_update")
+    assert m.pfs.__name__ == "pypi_fleet_sections"
+    assert m.SECTION_NAME == "gate-meter"
 
 
 def test_should_return_2_when_local_upsert_without_token(tmp_path, monkeypatch):

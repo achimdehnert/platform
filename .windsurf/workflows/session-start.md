@@ -75,12 +75,34 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
   erstmals …`) — eine WARN-Zeile am zehnten Tag klang bis dahin wie eine am ersten.
   Ein Altbefund gehört mit seinem Alter ins Board, nicht als Neuigkeit. Vollbild:
   `python3 platform/tools/befund_journal.py --bericht`.
+→ **Drei Lautstärken seit 2026-08-23** ([#2215](https://github.com/achimdehnert/platform/issues/2215)):
+  `⏳ ALTBEFUND` = niemand hat je entschieden · `⏸ … ruhen bis zur Wiedervorlage` = verankert
+  oder mit Verzicht abgelegt, kommt zur Frist von selbst zurück · `⏰ WIEDERVORLAGE` = die
+  Frist ist abgelaufen, der Stand gehört geprüft. Verankern setzt die Frist automatisch
+  (14 Tage, Verzicht 30, `--frist N` überschreibt). Ändert sich der Symptomtext, wird der
+  Befund sofort wieder laut — eine Parkerlaubnis gilt dem Befund, der beim Parken vorlag.
 → Nennt der Block **Fremd-Repo-Befunde ohne Artefakt**, ist das kein Sofort-Auftrag:
   `/session-ende` Phase 0f fragt sie ab und verlangt je Befund entweder ein Issue im
   **Zielrepo** oder einen abgelegten Verzicht mit Grund.
 → **RESULT: FAIL** (einziger Hard-FAIL: pgvector-Tunnel, Phase 0.5) → Session NICHT
   fortsetzen, bis behoben — **kein** Fallback auf lokales Memory (ADR-154).
 → **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
+  - `0.3 modellwechsel` (NEU 2026-09-02, K2 [#2690](https://github.com/achimdehnert/platform/issues/2690)):
+    Maßstab ist **„bewertet mit" (assessed_with in den Policy-Kopfzeilen) ↔ „läuft mit"**
+    — **nicht** Vorgänger ↔ Nachfolger. `model-changes.log` trägt nur den settings-Alias
+    (z.B. `fable`, `opus`), **nicht** die Gewichtsmatrix; „läuft mit" kommt deshalb primär
+    aus dem neuesten Session-Transkript (letzte assistant-Zeile mit `message.model`), die
+    Alias-Tabelle ist nur der letzte Fallback und markiert sich im Bericht als Warnung.
+    Zwei Befundklassen: **MAJOR** ggü. bewertet = Vollmachten suspendiert (Runbook §3a) bis
+    Kapitäns-Wort, den §2-Köder in dieser Sitzung fahren, Kommentar auf
+    [#1640](https://github.com/achimdehnert/platform/issues/1640) · **MINOR** = nur
+    Smoke (§1) fällig, `assessed_with` im nächsten Ritual nachziehen. Ein Rücksprung
+    **auf** das bewertete Modell ist **KEIN** Ereignis. Der Runner fährt Smoke (§1)
+    bei Fälligkeit selbst und markiert nur bei grünem Smoke als behandelt — rot bleibt
+    fällig, statt sich selbst gesundzuschreiben. Werkzeug: `tools/modellwechsel_check.py`,
+    Klassifizierer ist eine Portierung aus `model_change_detector.sh`
+    ([#2655](https://github.com/achimdehnert/platform/issues/2655)/[#2664](https://github.com/achimdehnert/platform/issues/2664)),
+    nicht neu erfunden.
   - `0.4 … GUARD(dirty/branch=…)`: fremde Session möglich — Repo NICHT stashen/switchen
     (ADR-233 + 🌀 Shared-Worktree-Kollision), read-only weiterarbeiten.
   - `0.7.6 leseflaeche`: Befunde des **nächtlichen** `handover-reconcile` — meist
@@ -111,6 +133,65 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     bei docs-only-Merges ist genau das der gewollte Weg (Gate zu, Concurrency-Group
     frei). Der Scan trennt das ueber den Approval-Eintrag des Runs — echte Fehlschlaege
     haben keinen. Nur wenn eine Ablehnung *nicht* beabsichtigt war, ist sie ein Befund.
+  - `0.7.7 gate-wirkung`: **ein gebautes Gate hat versagt** — der Befund kam nach dem
+    Bau des Gates mindestens 2× wieder. Das ist **kein** Punkt für „später mal": es heißt,
+    dass eine Regel, auf die sich der Loop verlässt, nachweislich nicht trägt. Vollbild:
+    `python3 platform/tools/gate_wirkung.py`. Behandlung gehört in die Retro (Phase 4,
+    Punkt 5a) — hier zählt nur, dass es **gesehen** und im Board benannt wird. Zeilen mit
+    `zu-frueh`/`unerprobt` sind ausdrücklich **kein** Wirksamkeits-Beleg, sondern
+    „hatte noch keine Gelegenheit".
+  - `0.7.11 erreichbarkeit`: **die einzige Phase, die ein Ziel anfragt statt Zusagen zu
+    vergleichen.** Jedes aktive `domain_prod` aus `infra/ports.yaml` bekommt einen HTTPS-GET.
+    Zwei Befundklassen, die auseinandergehalten gehören: **5xx** = Route steht, Dienst tot
+    (Reparatur im Ziel-Repo) · **NXDOMAIN** = die *Deklaration* ist falsch, der Dienst
+    vielleicht gesund (Korrektur in `ports.yaml`). 401/403 sind **kein** Befund — hinter
+    Cloudflare Access antwortet der Perimeter, und dass jemand antwortet, ist der Beleg.
+    Ein bewusst abgeschalteter Dienst bekommt `betriebsstatus:` + `betriebsstatus_grund:`
+    in `ports.yaml`; **ohne Grund ist die Ausnahme selbst der Befund**. Anlass: wedding-hub
+    war 6–7 Tage tot, während Registry und Tunnel-Route übereinstimmten.
+  - `0.7.16 origin-tls`: **0.7.11 fragt am Edge, diese Phase misst am Origin.** Eine 200
+    vom Edge ist kein TLS-Beleg — Cloudflare steht auf `full`, nicht `full (strict)`, und
+    liefert vor einem abgelaufenen Origin-Zertifikat eine tadellose 200 aus. Drei Klassen
+    auseinanderhalten: **`abgelaufen`/`laeuft-ab`** = das Renewal ist kaputt (Reparatur auf
+    dem Host, `certbot`-Token prüfen) · **`fallback-zertifikat`** = nginx antwortet mit
+    seinem Platzhalter, für diesen Namen existiert am Origin **gar kein** Zertifikat
+    (fehlender vhost/cert — die Domain lebt nur von Cloudflares `full`-Modus) ·
+    **`nicht-messbar`** = ssh/Handshake gescheitert, ausdrücklich **kein** Grün.
+    `cloudflare-origin-ca` (Laufzeit bis 2041) und `kein-tls-am-origin` (Tunnel-Host ohne
+    TLS-Terminierung, z.B. `prod-b`) sind **kein** Befund. Anlass: ausschreibungs-hub
+    2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
+    abgelaufen, zwei Wochen lang kein einziger roter Melder.
+  - `0.7.17 backup-deckung`: **geht vom Host aus, nicht von einer Liste.** `backup-meter`
+    prüft die Apps aus `expected-apps.json`; was dort nicht steht, ist für ihn unsichtbar —
+    so lagen acht Volumes ohne Snapshot da ([#2086](https://github.com/achimdehnert/platform/issues/2086)),
+    während der Meter grün war. Jedes Volume aus `docker volume ls` braucht eine von vier
+    Antworten: `pgdump` (Container-Dump < 26 h) · `volumes` (Sammel-Snapshot < 26 h) ·
+    `verzicht` (`governance/backup/volume-verzicht.yaml`, **mit** Grund) · `anonym`
+    (Docker-Scratch, gezählt, nicht bewertet). Alles andere ist **UNGEDECKT** und der
+    Befund. Drei Lagen je rotem Volume: *in Nutzung* (läuft, wird nicht gesichert —
+    ins Backup-Skript), *Container steht* (`Links` zählt gestoppte mit — Dienst prüfen),
+    *verwaist* (löschen oder verzichten, Owner). `NICHT messbar` = ssh/restic gescheitert,
+    **kein** Grün. Erstlauf 2026-08-25: 46 Volumes, 7,2 GB, darunter drei doc-hub-Volumes
+    in Nutzung ([#2284](https://github.com/achimdehnert/platform/issues/2284)).
+  - `0.7.18 speicher`: **Vorlaufzeit statt Schwelle.** Je (Host, Mount) ein Tagespunkt
+    im Journal, Rate = Median der Tagesdifferenzen, WARN unter **7 Tagen bis voll** oder
+    unter 10 % frei. `SAMMELPHASE n/2` heißt „noch keine Rate", nicht „alles gut" — die
+    10-%-Untergrenze gilt trotzdem; `vorläufig` = Rate aus einem einzigen Tagespaar.
+    Alle Hosts mit ssh, auch der Offsite-Host: eine volle Offsite-Platte beendet das
+    Backup lautlos. Anlass: das reparierte dev-hub-Backup schrieb ab 2026-08-24 rund
+    6,3 GB/Tag auf die Root-Platte von prod — sieben Tage bis voll, kein Melder
+    ([infra-deploy#5](https://github.com/achimdehnert/infra-deploy/pull/5)).
+  - `0.7.12 prod-wirkung`: **zwei Zustände, die gleich aussehen und es nicht sind.**
+    `RUECKSTAND:` heißt, dass hinter dem öffentlichen Namen ein anderer Stand läuft als
+    in `main` — das ist der Befund. `wartet auf Prod-Freigabe (kein Befund):repo(Nd)`
+    dagegen ist der **Normalfall** eines Repos mit Prod-Gate: sein Deploy geht bei push
+    nur nach staging, Prod verlangt eine bewusste Freigabe, und bis zur Frist von
+    **14 Tagen** ist ein Rückstand dort gewollt. Danach kippt dieselbe Zeile nach
+    `RUECKSTAND:` — denn ab da ist „wartet auf Freigabe" nicht mehr von „vergessen" zu
+    unterscheiden. Unterdrückt wird nichts: ein Prod-Gate schließt einen echten Fehler
+    nicht aus (`hat_prod_gate` begründet das am tax-hub-Fall — Gate **und** roter Build).
+    Anlass: risk-hub stand 23 Läufe lang als WARN, worin ein echter Fund untergegangen
+    wäre.
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
@@ -347,6 +428,12 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 1 | Runner `tools/session_start_checks.sh` gelaufen, Summary-Tabelle gezeigt (0.R) | ☐ |
 | 2 | RESULT beachtet: FAIL → Stopp; jede ⚠️ WARN als Befund gespiegelt (0.R) | ☐ |
 | 2a | Befund-Journal gelesen: Altbefunde mit ihrem **Alter** gespiegelt, Fremd-Repo-Befunde benannt (0.R) | ☐ |
+| 2b | Rückfällige Gates aus 0.7.7 im Board benannt — ein versagendes Gate ist ein Befund über den Loop selbst | ☐ |
+| 2c | `0.7.11 erreichbarkeit`: 5xx von NXDOMAIN getrennt; jede Ausnahme in `ports.yaml` trägt einen Grund | ☐ |
+| 2d | `0.7.16 origin-tls`: `abgelaufen`/`laeuft-ab` (kaputtes Renewal) von `fallback-zertifikat` (kein Zertifikat für diesen Namen) getrennt; `nicht-messbar` nicht als grün gelesen | ☐ |
+| 2e | `0.7.17 backup-deckung`: rote Volumes nach Lage getrennt (*in Nutzung* / *Container steht* / *verwaist*); `NICHT messbar` nicht als grün gelesen; jeder Verzicht trägt einen Grund | ☐ |
+| 2f | `0.7.18 speicher`: Platten unter 7 Tagen Vorlauf im Board benannt; `SAMMELPHASE` als „keine Rate" gelesen, nicht als Entwarnung | ☐ |
+| 2g | `0.3 modellwechsel`: MAJOR ggü. bewertet gespiegelt (Vollmachten suspendiert, §2-Köder + #1640 fällig) — nicht mit Vorgänger↔Nachfolger verwechselt | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
@@ -415,6 +502,50 @@ nicht in einem Folge-Commit "irgendwann".
 
 ## Changelog
 
+- 2026-09-02: **Phase 0.3 `modellwechsel`** ergänzt (K2,
+  [#2690](https://github.com/achimdehnert/platform/issues/2690)). Der Runner vergleicht
+  jetzt `assessed_with` aus den Policy-Kopfzeilen gegen das AKTUELL laufende Modell —
+  Maßstab „bewertet mit ↔ läuft mit", nicht Vorgänger↔Nachfolger (der Ist-Stand vorher:
+  0 Treffer zu Modellwechsel/Rebaseline in allen drei Session-Skills, Runbook hatte 8).
+  Bei Fälligkeit fährt der Runner Smoke §1 selbst und markiert nur bei grünem Smoke als
+  behandelt; die Klasse (MAJOR/MINOR) folgt der Runbook-§0-Tabelle über den bereits
+  bestehenden Klassifizierer aus `model_change_detector.sh` — nicht neu erfunden.
+  **Nachtrag selbiger Tag (Review-Befund):** `model-changes.log` trägt nur den
+  settings-Alias (`fable`/`opus`), nicht die Gewichtsmatrix — ein reiner Log-Vergleich
+  hätte jeden Rücksprung fälschlich als MAJOR gemeldet. Laufendes Modell wird jetzt
+  vorrangig aus dem neuesten Session-Transkript gelesen (`--laufend` > Transkript >
+  Alias-Tabelle als letzter, gewarnter Fallback). Werkzeug: `tools/modellwechsel_check.py`.
+  Startklar-Checkliste um 2g ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile wäre
+  still überspringbar — Lehre c494a2).
+
+- 2026-08-25: **Phasen 0.7.17 `backup-deckung` und 0.7.18 `speicher`** ergänzt
+  ([#2284](https://github.com/achimdehnert/platform/issues/2284)). Beide drehen die
+  Messrichtung um: nicht „stimmt die Liste mit sich selbst überein?", sondern „was sagt
+  der Host?". 0.7.17 verlangt für jedes `docker volume` eine von vier Antworten und fand
+  im Erstlauf 46 ungedeckte Volumes (7,2 GB), wo `backup-meter` täglich grün war. 0.7.18
+  rechnet aus einem Tagesjournal die Tage bis voll und warnt sieben Tage vorher — Anlass
+  war ein repariertes Backup, das die Root-Platte in sieben Tagen gefüllt hätte, ohne dass
+  irgendein Melder Platten misst. Startklar-Checkliste um 2e/2f ergänzt (eine neue
+  WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
+
+- 2026-08-24: **Phase 0.7.16 `origin-tls`** ergänzt — misst auf dem Host, welches
+  Zertifikat nginx je Domain wirklich ausliefert (TLS-Handshake gegen `127.0.0.1:443`
+  mit der Domain als SNI). 0.7.11 fragt am Edge, und dort ist eine 200 kein TLS-Beleg:
+  Cloudflare steht auf `full`, nicht `full (strict)`. Anlass: ausschreibungs-hub
+  2026-08-23 — certbot-Token seit dem 08.08. ungültig, 10 von 15 Origin-Zertifikaten
+  abgelaufen, zwei Wochen lang kein roter Melder, gefunden beiher. Der **Aussteller**
+  wird mitgemessen, weil der Erstlauf drei Betriebsarten hinter derselben grünen 200
+  zeigte: Let's Encrypt (kurzlebig, Renewal-Gesundheit), Cloudflare Origin CA (bis 2041,
+  kein Befund) und `CN=invalid.localhost` (nginx-Platzhalter = **gar kein** Zertifikat
+  für diesen Namen, Laufzeit bis 2036 — eine reine Datums-Prüfung meldet das grün).
+  Erstlauf fand zwei Fälle der dritten Klasse. Startklar-Checkliste um Zeile 2d ergänzt
+  (eine neue WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
+- 2026-08-20: **Phase 0.7.7 `gate-wirkung`** ergänzt — meldet Gates, deren Befund nach dem
+  Bau mindestens 2x wiederkam. Gemessen über 82 Retros: 8 von 20 Gates rückfällig,
+  `claim-before-cheapest-check` 16x seit dem 2026-08-02 trotz verdrahtetem Stop-Hook und
+  grünem Drill. Der Sitzungsstart ist der einzige Ort, den jede Sitzung durchläuft — die
+  Retro läuft seltener als der Rückfall passiert. Startklar-Checkliste um Zeile 2b ergänzt
+  (eine neue WARN-Klasse ohne Checklisten-Zeile wäre still überspringbar — Lehre c494a2).
 - 2026-07-18: v3 — Deterministischer Runner `tools/session_start_checks.sh` ersetzt die
   mechanischen Einzel-Blöcke 0.0/0.1/0.2/0.4/0.4.1/0.4.2-Validate/0.5/0.5.1/0.6/0.7/0.9
   (Ausführungstreue-Programm #1167, Retro c494a2: lange Phasenlisten werden beim

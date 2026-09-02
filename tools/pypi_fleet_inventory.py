@@ -161,6 +161,17 @@ def registry_packages() -> dict[str, str]:
     return out
 
 
+def registry_strategies() -> dict[str, str]:
+    """repo -> pypi_strategy (aktiv|einfrieren|archivieren-kandidat, ADR-266
+    Amendment 2026-08-19). Fehlt das Feld, ist das ein Finding (s. Aufrufer)."""
+    out = {}
+    for name, entry in registry_api.flat().get("repos", {}).items():
+        strat = (entry or {}).get("pypi_strategy")
+        if strat:
+            out[name] = strat
+    return out
+
+
 def scan_repo(repo_dir: Path, fetch: bool = True) -> dict | None:
     """Publish-Fakten eines Repos auf origin/main (None, wenn kein Publish-Bezug)."""
     if fetch:
@@ -243,19 +254,67 @@ def scan_repo_api(repo: str, token: str) -> dict | None:
     return None
 
 
+class PypistatsRateLimited(Exception):
+    """pypistats.org antwortet HTTP 429 — Wert fehlt, weil WIR gedrosselt sind,
+    nicht weil das Paket keine Downloads hat (#2591 K1: 20/23 still verloren)."""
+
+
 def pypistats_recent(dist: str, timeout: int = 10) -> dict:
-    """Downloads letzte 30 Tage (Totes-Paket-Signal, 3c). Fail-soft: {}."""
+    """Downloads letzte 30 Tage (Totes-Paket-Signal, 3c). Fail-soft: {} bei
+    Netz-/Parse-Fehlern; HTTP 429 wird als PypistatsRateLimited sichtbar."""
     url = f"https://pypistats.org/api/packages/{dist.lower()}/recent"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
             data = json.load(resp)
         return {"downloads_30d": data.get("data", {}).get("last_month")}
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            raise PypistatsRateLimited(dist) from exc
+        return {}
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return {}
 
 
+def downloads_or_carryover(
+    dist: str, prior_pypi: dict, prior_generated_at: str | None, rate_limited: list[str]
+) -> dict:
+    """Downloads holen; bei 429 den Vorwert aus dem letzten Inventar übernehmen und
+    mit `downloads_30d_stale_from` (generated_at des Laufs, der ihn wirklich holte)
+    kennzeichnen. Ohne Vorwert bleibt das Feld weg. So bleibt der Regen bei
+    Drosselung deterministisch und M5 (earlywarn) behält seine Datengrundlage —
+    ehrlich markiert statt still."""
+    try:
+        return pypistats_recent(dist)
+    except PypistatsRateLimited:
+        rate_limited.append(dist)
+        if prior_pypi.get("downloads_30d") is None:
+            return {}
+        return {
+            "downloads_30d": prior_pypi["downloads_30d"],
+            "downloads_30d_stale_from": prior_pypi.get("downloads_30d_stale_from")
+            or prior_generated_at,
+        }
+
+
+def prior_inventory(fleet_file: Path) -> tuple[str | None, dict[str, dict]]:
+    """(generated_at, `pypi`-Block je Repo) aus dem letzten geschriebenen Inventar —
+    Carry-over-Quelle bei Drosselung. Fehlt/kaputt: (None, {})."""
+    if not fleet_file.exists():
+        return None, {}
+    try:
+        doc = yaml.safe_load(fleet_file.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None, {}
+    blocks = {
+        repo: (pkg.get("pypi") or {})
+        for repo, pkg in (doc.get("packages") or {}).items()
+        if isinstance(pkg, dict)
+    }
+    return (doc.get("_meta") or {}).get("generated_at"), blocks
+
+
 def pypi_live(dist: str, timeout: int = 10) -> dict:
-    """Live-Stand von PyPI (Version, letzter Upload). Fail-soft: {} bei Fehlern."""
+    """Live-Stand von PyPI (Version, letzter Upload, Provenance). Fail-soft: {} bei Fehlern."""
     url = f"https://pypi.org/pypi/{dist}/json"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
@@ -268,10 +327,96 @@ def pypi_live(dist: str, timeout: int = 10) -> dict:
         for files in data.get("releases", {}).values()
         for f in files
     ]
-    return {
-        "version": info.get("version"),
+    version = info.get("version")
+    result = {
+        "version": version,
         "last_upload": max(uploads) if uploads else None,
     }
+    if version:
+        result["provenance"] = provenance_for(dist, version, data.get("urls", []))
+    return result
+
+
+# --------------------------------------------------------------------------
+# K4 am Artefakt (KONZ-platform-052 V10, ADR-278): Provenance der neuesten
+# Version über die PyPI-Integrity-API messen statt den Workflow-Text zu lesen
+# (der Guard prüft Schreibweise, nicht Wirkung — Befund F1/F2 des Konzepts).
+# 🌀 Null aus dem eigenen Fehlerfall ist keine Abwesenheit: Netzfehler/Timeout/
+# kaputtes JSON/kein Release-File → status "unbekannt", NIE bundles=0.
+# --------------------------------------------------------------------------
+
+
+def select_release_file(urls: list[dict]) -> dict | None:
+    """Wheel bevorzugt, sonst sdist, sonst die erste Datei — None ohne Dateien."""
+    wheels = [f for f in urls if f.get("filename", "").endswith(".whl")]
+    if wheels:
+        return wheels[0]
+    sdists = [f for f in urls if f.get("filename", "").endswith(".tar.gz")]
+    if sdists:
+        return sdists[0]
+    return urls[0] if urls else None
+
+
+def fetch_provenance(
+    dist: str, version: str, filename: str, timeout: int = 10
+) -> tuple[int | None, bytes]:
+    """PyPI Integrity API — reines Netz-I/O. status None = Timeout/Netzfehler."""
+    url = f"https://pypi.org/integrity/{dist}/{version}/{filename}/provenance"
+    req = urllib.request.Request(
+        url, headers={"Accept": "application/vnd.pypi.integrity.v1+json"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None, b""
+
+
+def provenance_for(
+    dist: str, version: str, urls: list[dict], fetch=fetch_provenance
+) -> dict:
+    """Provenance-Status der übergebenen Version (K4, ADR-278/KONZ-052 V10).
+
+    status: attested (>=1 Bundle) | unattested (0 Bundles, 200 oder 404) |
+    unbekannt (kein Wheel/sdist, Netzfehler, Timeout, kaputtes JSON-Body).
+    `fetch` ist injizierbar (Tests: Fixtures statt echtem Netz).
+    """
+    checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    base = {"version": version, "checked_at": checked_at}
+    file = select_release_file(urls)
+    if file is None:
+        return {**base, "wheel": None, "bundles": None, "status": "unbekannt"}
+    filename = file.get("filename", "")
+    status_code, body = fetch(dist, version, filename)
+    if status_code == 404:
+        return {**base, "wheel": filename, "bundles": 0, "status": "unattested"}
+    if status_code == 200 and body:
+        try:
+            bundles = len(json.loads(body).get("attestation_bundles", []))
+        except json.JSONDecodeError:
+            return {**base, "wheel": filename, "bundles": None, "status": "unbekannt"}
+        return {
+            **base,
+            "wheel": filename,
+            "bundles": bundles,
+            "status": "attested" if bundles > 0 else "unattested",
+        }
+    return {**base, "wheel": filename, "bundles": None, "status": "unbekannt"}
+
+
+def provenance_counts(packages: dict) -> dict[str, int]:
+    """K4 am Artefakt: attested/unattested/unbekannt über die ganze Flotte.
+
+    Pakete ohne `provenance`-Feld (offline, nicht auf PyPI) zählen nicht mit.
+    """
+    counts = {"attested": 0, "unattested": 0, "unbekannt": 0}
+    for pkg in packages.values():
+        status = ((pkg.get("pypi") or {}).get("provenance") or {}).get("status")
+        if status in counts:
+            counts[status] += 1
+    return counts
 
 
 # --------------------------------------------------------------------------
@@ -331,6 +476,11 @@ def main() -> int:
     args = ap.parse_args()
 
     reg = registry_packages()
+    strategies = registry_strategies()
+    prior_generated_at, prior_pypi = (
+        prior_inventory(FLEET_FILE) if args.downloads else (None, {})
+    )
+    rate_limited: list[str] = []
 
     # 1) Fleet-Scan: alle Repos mit Publish-Bezug (platform selbst separat in (2),
     #    platform-pinned = Worktree-Kopie, skip). --remote (CI): Kandidaten =
@@ -396,12 +546,18 @@ def main() -> int:
             "pyproject_version": facts["pyproject"].get("version"),
             "in_registry": repo in reg,
             "registry_pypi_name": reg.get(repo),
+            "strategy": strategies.get(repo),
             "publishers": publishers,
         }
         if dist and not args.offline:
             pkg["pypi"] = pypi_live(dist)
             if args.downloads:
-                pkg["pypi"] = {**pkg.get("pypi", {}), **pypistats_recent(dist)}
+                pkg["pypi"] = {
+                    **pkg.get("pypi", {}),
+                    **downloads_or_carryover(
+                        dist, prior_pypi.get(repo, {}), prior_generated_at, rate_limited
+                    ),
+                }
         pkg["findings"] = build_findings(pkg)
         packages[repo] = pkg
 
@@ -418,6 +574,7 @@ def main() -> int:
             "pyproject_version": None,
             "in_registry": target in reg,
             "registry_pypi_name": reg.get(target),
+            "strategy": strategies.get(target),
             "publishers": [{"kind": "platform-remote", "workflows": wfs}],
         }
         if pkg["dist_name"] and not args.offline:
@@ -453,6 +610,14 @@ def main() -> int:
         "platform_packages_without_publisher": platform_orphan_packages,
     }
 
+    if rate_limited:
+        # Sichtbar auf stdout: der Wochen-Report (tee fleet-findings.txt) soll die
+        # Drosselung zeigen, statt dass downloads_30d lautlos fehlt.
+        print(
+            f"pypistats: {len(rate_limited)}/{len(packages)} Pakete HTTP 429 (rate-limited) — "
+            "downloads_30d aus Vorlauf übernommen (downloads_30d_stale_from) oder fehlt"
+        )
+
     if args.check:
         for name, pkg in packages.items():
             if pkg["findings"]:
@@ -461,6 +626,11 @@ def main() -> int:
             print(f"{o}: registry_orphan_without_publisher")
         for d in dead_platform_workflows:
             print(f"platform/{d['file']}: dead_path {d['missing_path']}")
+        counts = provenance_counts(packages)
+        print(
+            f"K4 am Artefakt: {counts['attested']} attested / "
+            f"{counts['unattested']} unattested / {counts['unbekannt']} nicht messbar"
+        )
         return 0
 
     FLEET_FILE.write_text(

@@ -1,7 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: Hetzner VM Deployment (v2)                             ║
 # ║  Uses deploy-remote.sh on VM — migration gate, healthcheck, auto-rollback ║
-# ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+# ║  Usage: uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@main
 # ║                                                                              ║
 # ║  Caller needs `permissions: { contents: read, packages: read }` — the      ║
 # ║  `deploy` job forwards `github.token` to the remote host as GHCR_TOKEN for ║
@@ -102,6 +102,16 @@ on:
       SOPS_AGE_KEY:
         required: false
       PROJECT_PAT:
+        required: false
+      # Cloudflare-Access-Service-Token für den externen Healthcheck. Liegt die
+      # health_url hinter Access, antwortet sie unangemeldet mit 302 und der
+      # Probe ist strukturell blind (apo-hub#57). Mit diesen beiden Kopfzeilen
+      # sieht er die App. Optional: nicht gesetzt = Probe läuft unverändert
+      # unauthentifiziert, kein Verhaltensunterschied für bestehende Consumer.
+      # Beide oder keins — ein halbes Paar wird ignoriert (s. verify-Job).
+      CF_ACCESS_CLIENT_ID:
+        required: false
+      CF_ACCESS_CLIENT_SECRET:
         required: false
 
 jobs:
@@ -209,6 +219,40 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # ── Deploy-Preflight (platform KONZ-054 E1, Owner-Go 2026-08-30 "77") ──────
+      # Liest infra/ports.yaml + infra/hosts.yaml aus platform (oeffentlich) und
+      # prueft VOR dem Deploy: ist der Dienst `aktiv`, und ist DIESER Runner-Host
+      # der deklarierte prod_host? Hier laeuft der Job auf
+      # ubuntu-latest, Ziel ist secrets.HETZNER_HOST (nicht der Runner). Anlass: coach-hub war stillgelegt deklariert und
+      # wurde trotzdem auf prod deployt, wo es 25 h in einer Fehlerschleife lief.
+      # Exit 1 (Verstoss) / 2 (Datenfehler) = kein Deploy. Exit 3 (Dienst nicht in
+      # ports.yaml) = Warnung, kein Block: eine Scope-Luecke darf nicht 23 Repos
+      # anhalten, sie muss aber sichtbar sein — sie steht in der Job-Summary.
+      - name: "Deploy-Preflight (platform ports.yaml/hosts.yaml)"
+        env:
+          APP: ${{ inputs.app_name }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -u
+          B=https://raw.githubusercontent.com/achimdehnert/platform/main
+          D=$(mktemp -d)
+          for f in tools/deploy_preflight.py infra/ports.yaml infra/hosts.yaml; do
+            curl -fsSL --retry 3 "$B/$f" -o "$D/$(basename "$f")" || { echo "::error::Preflight: $f aus platform nicht ladbar — kein Deploy ohne Deklaration"; exit 2; }
+          done
+          python3 -c "import yaml" 2>/dev/null || pip install -q pyyaml
+          HOST="${{ secrets.HETZNER_HOST }}"
+          set +e
+          OUT=$(python3 "$D/deploy_preflight.py" --app "$APP" --environment "$ENVIRONMENT" --deploy-host "$HOST" --ports "$D/ports.yaml" --hosts "$D/hosts.yaml" 2>&1); rc=$?
+          set -e
+          echo "$OUT"
+          { echo "### Deploy-Preflight (${APP}, ${ENVIRONMENT}, Ziel ${HOST}) — Exit ${rc}"; echo; echo '```'; echo "$OUT"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          case "$rc" in
+            0) ;;
+            3) echo "::warning title=Preflight Scope-Luecke::${OUT}" ;;
+            *) echo "::error title=Preflight blockt Deploy::${OUT}"; exit "$rc" ;;
+          esac
+
+
       - name: Pre-flight lint (ADR-054 M1)
         run: |
           set -euo pipefail
@@ -300,7 +344,24 @@ jobs:
             # GHCR_TOKEN ist via envs: in dieser SSH-Session; die deploy-remote.sh-
             # Kopien machen selbst keinen Login → ohne dies trifft der pull einen
             # unauthentifizierten Daemon → "denied" (Fleet-Bug, 11 vendored Kopien).
+            #
+            # Der Login läuft in einem LAUF-EIGENEN DOCKER_CONFIG, nicht in
+            # ~/.docker/config.json des SSH-Benutzers. Ohne diese Umleitung
+            # hinterlässt jeder Deploy den kurzlebigen Workflow-Token dauerhaft
+            # in der Anmeldung, aus der der Host auch von Hand zieht — nach dem
+            # Lauf ist der Token tot, die Datei sieht aber gültig aus. Ein
+            # späterer `docker pull` scheitert dann mit `unauthorized`, und das
+            # sieht aus wie ein fehlender Tag. Genau diese Fehldiagnose hielt
+            # einen Prod-Deploy über 98 Commits blockiert (iilgmbh/risk-hub#576).
+            #
+            # DOCKER_CONFIG wird exportiert, bevor deploy-remote.sh startet —
+            # das Skript läuft in derselben Shell und erbt die Variable, sein
+            # `compose pull` benutzt also dieselbe Anmeldung. Das trap räumt das
+            # Verzeichnis auch dann ab, wenn der Deploy mit Fehler endet.
             if [ -n "${GHCR_TOKEN:-}" ]; then
+              DOCKER_CONFIG="$(mktemp -d)"
+              export DOCKER_CONFIG
+              trap 'rm -rf "$DOCKER_CONFIG"' EXIT
               echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             fi
 
@@ -338,10 +399,49 @@ jobs:
     steps:
       - name: External health check
         id: health
+        env:
+          HEALTH_URL: ${{ inputs.health_url }}
+          CF_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
+          # Liegt health_url hinter Cloudflare Access, antwortet sie einem
+          # unangemeldeten Aufruf immer mit 302 — der Probe misst dann die
+          # Anmeldeseite, nicht die App (apo-hub#57). Mit Service-Token sieht er
+          # die App: gemessen 2026-08-06 gegen apo.iil.pet/livez/ → ohne Token
+          # 302, mit Token 200. Erst dieser Unterschied ist der Beleg; ein 200
+          # allein hiesse auch, dass gar keine Wand davorsteht.
+          #
+          # Die Kopfzeilen gehen über eine curl-Konfigurationsdatei mit 0600
+          # statt über die Kommandozeile — Argumente wären auf dem Runner in der
+          # Prozessliste sichtbar. GitHub maskiert Secrets nur in LOGS, nicht in
+          # `ps`. Die Datei liegt in $RUNNER_TEMP (ephemer) und wird am Ende
+          # gelöscht.
+          CURL_CFG=""
+          if [ -n "${CF_ID:-}" ] && [ -n "${CF_SECRET:-}" ]; then
+            CURL_CFG="${RUNNER_TEMP}/cf-access.curl"
+            umask 077
+            {
+              printf 'header = "CF-Access-Client-Id: %s"\n' "$CF_ID"
+              printf 'header = "CF-Access-Client-Secret: %s"\n' "$CF_SECRET"
+            } > "$CURL_CFG"
+            echo "ℹ️ Cloudflare-Access-Service-Token vorhanden — Probe läuft authentifiziert."
+          elif [ -n "${CF_ID:-}" ] || [ -n "${CF_SECRET:-}" ]; then
+            # Halbes Paar: schweigend unauthentifiziert weiterlaufen wäre die
+            # gefährlichere Variante — der Lauf sähe aus wie eine Access-Wand.
+            echo "::warning::Nur eine Hälfte des CF-Access-Service-Tokens gesetzt (CF_ACCESS_CLIENT_ID/-SECRET) — Probe läuft unauthentifiziert."
+          fi
+          # `|| true`: der Step läuft unter `bash -e`; ein leeres CURL_CFG liesse
+          # den Trap sonst mit Status 1 enden.
+          trap '[ -n "$CURL_CFG" ] && rm -f "$CURL_CFG" || true' EXIT
+
           for i in $(seq 1 5); do
-            HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' \
-              "${{ inputs.health_url }}" 2>/dev/null || echo "000")
+            if [ -n "$CURL_CFG" ]; then
+              HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' \
+                -K "$CURL_CFG" "$HEALTH_URL" 2>/dev/null || echo "000")
+            else
+              HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' \
+                "$HEALTH_URL" 2>/dev/null || echo "000")
+            fi
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ External health check passed"
               echo "healthy=true" >> "$GITHUB_OUTPUT"
@@ -351,7 +451,11 @@ jobs:
             sleep 10
           done
           echo "healthy=false" >> "$GITHUB_OUTPUT"
-          echo "::warning::External health check failed"
+          if [ -n "$CURL_CFG" ]; then
+            echo "::warning::External health check failed (mit Access-Token — das ist ein echter Befund, keine Access-Wand)"
+          else
+            echo "::warning::External health check failed"
+          fi
 
   # ─────────────────────────────────────────────────────────────────────────
   # NOTIFY + SUMMARY

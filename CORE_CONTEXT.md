@@ -1,7 +1,6 @@
 # CORE_CONTEXT — platform
 
 > Pflicht-Lektüre für jeden Coding-Agent vor dem ersten Keystroke.
-> Aktualisiert: 2026-07-08
 
 ## Was ist platform?
 
@@ -64,15 +63,15 @@ Views→canonical und würde canonical-Edits überschreiben — nicht benutzen.)
 
 ```bash
 make setup   # requirements-dev.txt + pre-commit install + install-push-hook (einmalig)
-make test    # = pytest tools/tests/ (ruff läuft separat über `make lint`)
+make test    # = CI-Testfläche (ruff läuft separat über `make lint`)
 ```
 
-`make test` deckt **nicht** die volle CI-Testfläche ab: `.github/workflows/tools-tests.yml`
-ist die SSoT für den CI-relevanten Gate-Umfang (aktuell zusätzlich `tests/test_render_staging.py`,
-`tests/doc_profile_check/`, `tools/claude-hooks/tests/` — Datei live prüfen statt diese Liste
-zu vertrauen, sie ändert sich unabhängig von hier). `ruff` ist **kein** CI-Gate, nur lokales
-`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (nur noch `megatest`, kein
-Altbestand mehr — self-hosted-Runner-gebunden, teils rot; Triage-Historie: Issue #819).
+`make test` **ist** die CI-SSoT: `.github/workflows/tools-tests.yml` ruft exakt dieses Target
+(seit #1058, 2026-07-10). Es umfasst `tools/tests/`, `tests/test_render_staging.py`,
+`tests/doc_profile_check/`, `tools/claude-hooks/tests/`, `agents/tests/` — die Liste steht nur
+im `Makefile`, hier nicht duplizieren. Rohes `pytest tools/tests/` testet ~12 % weniger.
+`ruff` ist **kein** CI-Gate, nur lokales `make lint` (und der Push-Hook). `tests/megatest/`
+läuft separat auf dem self-hosted Runner (`megatest.yml`).
 
 ## Tech Stack
 
@@ -155,12 +154,14 @@ Altbestand mehr — self-hosted-Runner-gebunden, teils rot; Triage-Historie: Iss
 |---|---|
 | `tools/repo-session.sh` | verbindlicher Entry Point: `start`/`list`/`end` — Worktree von `origin/main`, Branch-Schema, Lease |
 | `tools/worktree-reaper.py` | GC gemergter/stale Worktrees (dry-run default; `--apply`; entfernt nie einen Branch) |
-| `tools/main-tree-guard.sh` | `install` = Snap-back-Hook (aktiv erst nach Skill-Migration); `report` = `unauthorized_head_flips/30d` (Kill-Gate-Metrik) |
+| `tools/main-tree-guard.sh` | `install` = Snap-back-Hook (**aktiv seit 2026-06-20**); `report` = `unauthorized_head_flips/30d` (Kill-Gate-Metrik) |
 
-> **Rollout-Hinweis:** Der harte `main-tree-guard` (Snap-back) wird **erst aktiviert**, wenn die
-> Session-Skills den geteilten Tree nicht mehr per `git switch` umschalten — sonst bricht er
-> bestehende Abläufe. Bis dahin: Konvention als Lesestoff + `repo-session` als empfohlener Einstieg;
-> `main-tree-guard.sh report` misst Verstöße. Kill-Gate-Termin: 2026-09-01.
+> **Stand 2026-09-02:** Der Snap-back-Guard **ist aktiv**: `git switch` im Haupt-Tree legt den
+> Branch an, setzt HEAD aber sofort auf `main` zurück und protokolliert nach
+> `.git/iil-guard-events.log` (Meldung „Working-Tree-Dateien unverändert; Event protokolliert").
+> Für editierende Arbeit ausschließlich `tools/repo-session.sh start`. `main-tree-guard.sh report`
+> zählte am 2026-09-02 noch 45 Flips/30d — die Zahl sinkt erst, wenn kein Skill mehr `git switch`
+> im Haupt-Tree ruft (Kill-Gate-Termin 2026-09-01 ist verstrichen, Metrik läuft weiter).
 
 ## Verwandte Skills
 

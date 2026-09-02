@@ -1,5 +1,10 @@
 # platform - Code Owners
 #
+# Bot-Reviewer `@iil-lotse` (Owner-Go 2026-08-25, "6 bot reviewer"; Workflow
+# .github/workflows/bot-review.yml): traegt Code-Owner-Recht auf allen Pfaden
+# AUSSER /policies/ und /docs/adr/ — dort bleibt der Mensch. Wirksam erst, wenn
+# das Konto existiert und Collaborator (write) ist.
+#
 # Bus-Faktor-Redundanz (KONZ-012 Phase A R-0): zweiter Reviewer wirdigital,
 # als Collaborator (write) verifiziert 2026-07-05 (gh collaborators → 204).
 #
@@ -29,6 +34,19 @@
 # ── Nachtrag 2026-08-10, zweiter Schritt (B1-2) ────────────────────────────
 #
 # Zwei Korrekturen, beide aus einer Retrospektive desselben Tages:
+#
+# 0. `docs/governance/` FEHLTE (2026-09-02, Retro c36878 Befund 1, Issue #2654).
+#    Derselbe Fehlertyp wie Punkt 1 unten, eine Ebene tiefer: `/governance/` (Wurzel)
+#    war geschuetzt, `docs/governance/` nicht — dort liegen das Modellwechsel-Runbook
+#    (§3a regelt die Vollmachten nach einem Modellwechsel), die Gate-Registry und der
+#    Sunset-Ledger. Ein PR mit nur einer dieser Dateien war CLEAN und mergte ohne
+#    jedes menschliche Auge, weil das main-Ruleset required_approving_review_count: 0
+#    mit require_code_owner_review: true traegt: ohne CODEOWNERS-Treffer verlangt
+#    GitHub gar kein Approval. Aufgefallen an PR #2617, der sein Review nur bekam,
+#    weil zufaellig eine /.windsurf/-Datei mitgebuendelt war.
+#    Mitgeprueft und bewusst NICHT geschuetzt: docs/retros/ (112 Berichte, kein
+#    Machtzuwachs — Schutz waere reine Reibung) und docs/konzepte/ als Verzeichnis
+#    (46 Arbeitsdokumente); dort ist nur die Charta-Datei selbst aufgenommen.
 #
 # 1. `/governance/` FEHLTE. KONZ-032 B1-1 listet es ausdruecklich; beim Uebertrag
 #    von Plan zu Umsetzung ging es still verloren — nicht bewusst ausgeschlossen,
@@ -72,18 +90,29 @@
 # main-required-checks-platform.json). Beides zusammen, sonst haengt die
 # Kontrolle in der Luft (KONZ-032 kill_criteria (a)).
 
-/.github/     @achimdehnert @wirdigital
-/registry/    @achimdehnert @wirdigital
-/packages/    @achimdehnert @wirdigital
+/.github/     @achimdehnert @wirdigital @iil-lotse
+/registry/    @achimdehnert @wirdigital @iil-lotse
+/packages/    @achimdehnert @wirdigital @iil-lotse
 /docs/adr/    @achimdehnert @wirdigital
 /policies/    @achimdehnert @wirdigital
-/governance/  @achimdehnert @wirdigital
-/deployment/  @achimdehnert @wirdigital
-/infra/       @achimdehnert @wirdigital
-/scripts/     @achimdehnert @wirdigital
-/.windsurf/   @achimdehnert @wirdigital
+/governance/  @achimdehnert @wirdigital @iil-lotse
+/docs/governance/ @achimdehnert @wirdigital @iil-lotse
+/deployment/  @achimdehnert @wirdigital @iil-lotse
+/infra/       @achimdehnert @wirdigital @iil-lotse
+/scripts/     @achimdehnert @wirdigital @iil-lotse
+/.windsurf/   @achimdehnert @wirdigital @iil-lotse
 
-/.sops.yaml            @achimdehnert @wirdigital
-/.gitleaks.toml        @achimdehnert @wirdigital
-/.pre-commit-config.yaml @achimdehnert @wirdigital
-/bootstrap.sh          @achimdehnert @wirdigital
+/.sops.yaml            @achimdehnert @wirdigital @iil-lotse
+/.gitleaks.toml        @achimdehnert @wirdigital @iil-lotse
+/.pre-commit-config.yaml @achimdehnert @wirdigital @iil-lotse
+/bootstrap.sh          @achimdehnert @wirdigital @iil-lotse
+
+# Das Merge-Werkzeug des Agenten: es entscheidet, was er ohne Klick mergen darf.
+# Ohne diese Zeile koennte er es selbst aendern und den Merge selbst fahren
+# (/tools/ ist sonst bewusst ungeschuetzt, s.o.).
+/tools/pr_merge_sa.py  @achimdehnert @wirdigital
+
+# Die Charta selbst. Sie steht in docs/konzepte/ zwischen 46 gewoehnlichen
+# Konzepten, die bewusst ungeschuetzt bleiben — geschuetzt wird die eine Datei,
+# die die Vollmachten des Agenten definiert, nicht das Verzeichnis.
+/docs/konzepte/KONZ-platform-025-lotsen-charta.md @achimdehnert @wirdigital @iil-lotse

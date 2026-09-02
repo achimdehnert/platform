@@ -1,0 +1,88 @@
+[
+ {
+  "Name": "risk-hub_risk_hub_pgdata",
+  "Links": "1",
+  "Size": "86.48MB",
+  "Labels": ""
+ },
+ {
+  "Name": "doc-hub-stack_dochub_export",
+  "Links": "1",
+  "Size": "2.464GB",
+  "Labels": ""
+ },
+ {
+  "Name": "ib-gateway_ib_gateway_data",
+  "Links": "0",
+  "Size": "251.9MB",
+  "Labels": ""
+ },
+ {
+  "Name": "doc-hub-stack_dochub_data",
+  "Links": "1",
+  "Size": "291.1MB",
+  "Labels": ""
+ },
+ {
+  "Name": "lora_media",
+  "Links": "0",
+  "Size": "1.287GB",
+  "Labels": ""
+ },
+ {
+  "Name": "ttz_hub_pgdata",
+  "Links": "0",
+  "Size": "150.5MB",
+  "Labels": ""
+ },
+ {
+  "Name": "travel-beat_travelbeat_redis",
+  "Links": "1",
+  "Size": "63.63MB",
+  "Labels": ""
+ },
+ {
+  "Name": "devhub_pgdata_prod",
+  "Links": "1",
+  "Size": "8.137GB",
+  "Labels": ""
+ },
+ {
+  "Name": "deployment_postgres_data",
+  "Links": "0",
+  "Size": "69.86MB",
+  "Labels": ""
+ },
+ {
+  "Name": "risk-hub_risk_hub_media",
+  "Links": "3",
+  "Size": "0B",
+  "Labels": ""
+ },
+ {
+  "Name": "doc-hub-stack_dochub_consume",
+  "Links": "1",
+  "Size": "1.721GB",
+  "Labels": ""
+ },
+ {
+  "Name": "53d2473c60a02d96ce4bef908bbe7648eb8813467a2fde094374b42eb73f4985",
+  "Links": "0",
+  "Size": "50.56MB",
+  "Labels": "com.docker.volume.anonymous="
+ },
+ {
+  "Name": "f846c2e6a71e9042b7cc59f5add8146d839811f1c2580cb7dbaeb929e3312b6b",
+  "Links": "0",
+  "Size": "49.42MB",
+  "Labels": "com.docker.volume.anonymous="
+ }
+]
+### CONTAINERS
+/devhub_db|postgres:16-alpine|dev-hub|devhub_pgdata_prod,
+/travel_beat_redis|redis:7-alpine|travel-beat|travel-beat_travelbeat_redis,
+/iil_dochub_web|ghcr.io/org/app:3.0.4|doc-hub-stack|doc-hub-stack_dochub_export,doc-hub-stack_dochub_media,doc-hub-stack_dochub_consume,doc-hub-stack_dochub_data,
+/risk_hub_celery|ghcr.io/org/app:main-6762ec8|risk-hub|risk-hub_risk_hub_media,
+/risk_hub_web|ghcr.io/org/app:main-6762ec8|risk-hub|risk-hub_risk_hub_media,
+/risk_hub_worker|ghcr.io/org/app:main-6762ec8|risk-hub|risk-hub_risk_hub_media,
+/risk_hub_db|postgres:16-alpine|risk-hub|risk-hub_risk_hub_pgdata,

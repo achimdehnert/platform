@@ -26,6 +26,18 @@
 #     8110-8199   App-Hubs Block B (Erweiterung)
 #     9000-9099   Auth + Object Storage (Authentik 9000, MinIO 9001/9010)
 #
+#
+#   LEBENSZYKLUS (betriebsstatus, seit 2026-08-23 — platform#2215)
+#
+#     betriebsstatus: aktiv         Vorgabe, muss nicht geschrieben werden
+#     betriebsstatus: stillgelegt   absichtlich aus
+#     betriebsstatus: blockiert     soll laufen, wartet auf eine Entscheidung
+#
+#   Alles ausser `aktiv` verlangt ein `betriebsstatus_grund`. `tools/erreichbarkeit_melder.py`
+#   fragt die `domain_prod` jedes AKTIVEN Dienstes einmal an; ein nicht-aktiver Dienst
+#   erzeugt keinen Befund, ein nicht-aktiver OHNE Grund dagegen schon — eine stumme
+#   Ausnahme ist so wenig wert wie gar keine Pruefung.
+#
 #   Regeln:
 #     1. Jeder Hub hat genau EINEN Web-Port pro Umgebung (kein Bereich!)
 #     2. Staging-Port = Prod-Port (immer, ADR-157 §4)
@@ -67,16 +79,25 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # --- Server-Definitionen (ADR-157 §4.2) ---
+# servers: ist eine PROJEKTION von infra/hosts.yaml, keine zweite Wahrheit.
+# Jede Umgebung zeigt per `host:` auf einen Knoten dort; ip/ssh muessen mit dem
+# Knoten uebereinstimmen — tools/tests/test_ports_servers_projection.py bricht,
+# wenn sie auseinanderlaufen (KONZ-054 §12 S1, 2026-08-30). Vorher deckte dieser
+# Block 3 von 8 Knoten, und `staging` meinte hier eine ANDERE Maschine als in
+# hosts.yaml (dort hiess der Dev-Desktop `staging`) — jetzt heisst er dev-desktop.
 servers:
   prod:
+    host: prod                         # -> hosts.yaml
     ip: 88.198.191.108
     name: Hetzner Dedicated (Production)
     ssh: root@88.198.191.108
   dev:
+    host: dev-desktop                  # -> hosts.yaml (frueher dort `staging`)
     ip: 88.99.38.75
     name: Dev Desktop (Development)
     ssh: root@88.99.38.75
   staging:
+    host: staging-dedicated            # -> hosts.yaml (Lane G, ADR-292)
     ip: 178.104.184.168
     name: Hetzner Staging (Dedicated)
     ssh: root@178.104.184.168
@@ -85,15 +106,15 @@ servers:
 infra:
 
   kd-static:
-    port: null                       # rein statisch (Nginx root /var/www/kd)
+    port: null                       # seit 2026-09-02 NUR Umleitung (301) auf iil.pet/kd/ — kein Inhalt mehr
     server: prod
     domain_prod: kd.iil.pet
-    note: "Klickdummy-Host (NUR Mock-Daten-KDs!) — CF-Tunnel-DNS + Nginx-vhost kd.iil.pet.conf, eingerichtet 2026-07-02; Publish: dev-desktop ~/kd-serve/kd-publish.sh"
+    note: "Klickdummy-Altname. Bis 2026-09-02 statischer Host (/var/www/kd, handgepflegt, Juli-Stand); seitdem leitet kd.iil.pet.conf jede URL auf das Portal iil.pet/kd/<repo>/<kd_path>/ um (KONZ-platform-056 L5, meiki-hub#199 Phase 3; ersetzt iil-pet-portal#39 'spiegeln'). Backup der Alt-Konfiguration: /root/kd.iil.pet.conf.bak-2026-09-02. Rueckbau /var/www/kd + ~/kd-serve/kd-publish.sh: iil-pet-portal#38, fruehestens 30 Tage nach Umleitung."
 
   authentik:
     port: 9000
     server: prod
-    domain_prod: auth.iil.pet
+    domain_prod: id.iil.pet
     note: "SSO/Identity Provider — 9443 for HTTPS"
 
   outline:
@@ -103,6 +124,7 @@ infra:
     note: "Wiki/Knowledge Base — maps 3100→3000 internal"
 
   grafana:
+    prod_host: odoo            # Monitoring-Stack liegt auf dem odoo-Host, nicht auf prod (bis 2026-08-30 hier falsch deklariert)
     port: 3000
     server: prod
     domain_prod: grafana.iil.pet
@@ -121,6 +143,23 @@ infra:
     port: 8001
     server: prod
     note: "LLM Gateway — internal only"
+
+  gpu-ollama:
+    port: 11434
+    server: prod                     # der TUNNEL laeuft auf prod; der DIENST auf der GPU-Box
+    prod_host: gpu-box               # Ursprung 10.99.0.2:11434 ueber wg0
+    domain_prod: gpu.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: >
+      Die GPU-Box laeuft nach Owner-Entscheid 2026-08-31 nur auf Zuruf (Wake-on-LAN,
+      hosts.yaml `betrieb: auf_zuruf`). Der Name antwortet deshalb nur, wenn das Geraet
+      an ist — ein 502 ist dann kein Ausfall. Der Erreichbarkeits-Melder wuerde ihn
+      sonst in jeder Sitzung als tot melden.
+    note: >
+      ollama der GPU-Box hinter Cloudflare Access (Owner-Richtlinie), eigener Tunnel
+      `cloudflared-gpu.service` auf prod, angelegt 2026-09-02 zu platform#2486 Punkt 2.
+      Unangemeldet 302, Ursprung ueber wg0. Wer Access besteht, kann alles, was das
+      Modell kann — ollama kennt keine Nutzer, Access IST die Tuer.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # App-Hub Ports — sortiert nach Port
@@ -151,7 +190,19 @@ services:
     dev: 8111
     container_name: frist_hub_web
     domain_prod: frist-hub.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "prod blockiert auf Hosting-ADR (meiki-lra Sozialdaten-Pilot) — nur Konzept-Staging; frist-hub.iil.pet hat bewusst keinen DNS-Eintrag"
     note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
+
+  news-hub:
+    prod: 8113
+    staging: 8113
+    dev: 8113
+    container_name: news_hub_web
+    domain_prod: news.iil.pet
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "noch nicht deployt — Artefakte stehen (news-hub#18), der Deploy haengt bewusst an workflow_dispatch, weil es noch keinen Bestand gibt; DNS/SSL/Deploy-Secrets sind Owner-Schritte. news.iil.pet hat bewusst keinen DNS-Eintrag"
+    note: "ADR-299 · Digest liest den Mail-Agent-Bestand ueber die Lesenaht (dev-hub#307)"
 
   coach-hub:
     prod: 8007
@@ -171,6 +222,8 @@ services:
                                # wie auf prod. Alle 3 Namen per Marker nachgewiesen.
     container_name: coach_hub_web
     domain_prod: coach-hub.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-23 (platform#2215), bestaetigt 2026-08-30. Auf prod-b seit ~2026-08-20 alle 5 Container Exited(0). Auf prod lief bis 2026-08-30 ein zweiter Stack weiter (25 h, coach_hub_web in Dauerschleife DB not ready; Ursache im DB-Log: role coach_hub_app existiert dort nicht) — gestoppt mit restart=no, Volumes bleiben. Die vier vhosts coach-hub.iil.pet, kiohnerisiko.de, staging-coaching.iil.pet, staging.kiohnerisiko.de auf prod deaktiviert (/root/stillgelegt-vhosts-2026-08-30/), der prod-b-vhost war bereits weg. 14 Tage nginx: coach-hub.iil.pet 5, kiohnerisiko.de 681 Requests — alle Status 444, kein Nutzerverkehr. Reste (DNS, Runner, Volumes, Repo): platform#2480"
     domain_staging: staging-coaching.iil.pet
     domain_aliases:
       - kiohnerisiko.de
@@ -210,13 +263,17 @@ services:
     dev: 8069
     container_name: odoo_web
     domain_prod: odoo.iil.pet
+    prod_host: odoo            # lief nie auf prod — eigener Host 46.225.127.211 (hosts.yaml `odoo`); bis 2026-08-30 hier falsch deklariert
+    betriebsstatus: ruhend
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (#160): bis auf weiteres still. pg_dumpall (odoo 84 MB, aifw 9 MB) nach /opt/backups/stilllegung-2026-08-30/ auf dem odoo-Host; odoo_web + odoo_db gestoppt mit restart=no, Filestore-Volume odoo_hub_data bleibt. Monitoring-Stack auf demselben Host laeuft weiter (Prometheus = Flotten-Monitor seit KONZ-054 A2). odoo-hub#22: Auto-Deploy bei Push abgeschaltet. Reste (odoo.iil.pet 520, aifw_service, Repo): platform#2480"
     domain_staging: staging-odoo.iil.pet
     repo: achimdehnert/odoo-hub
 
   weltenhub:
     prod: 8081
-    staging: 8081
-    dev: 8081
+    staging: 8082               # Ground Truth compose.staging: 127.0.0.1:8082:8000
+    dev: 8082                   # lokale Konvention (docker-compose.local.yml, writing-hub
+                                # sucht weltenhub lokal auf 8082) — Registry stand auf 8081
     prod_host: prod-b          # ADR-292 Long-Tail-Umzug 2026-08-04, erste App mit
                                # aktivem Beat. Verfahren: Beat+Celery auf der Quelle
                                # ZUERST gestoppt, auf dem Ziel zuletzt gestartet —
@@ -232,6 +289,9 @@ services:
                                # Alle 3 Volumes auf prod erhalten (Rueckweg).
     container_name: weltenhub_web
     domain_prod: weltenforger.com
+    titel_marker: weltenforger   # das Produkt heisst anders als das Repo —
+                                 # ohne diese Zeile schlaegt tools/umgebung.py
+                                 # zu Recht an, weil der Titel 'weltenhub' nicht nennt
     domain_staging: staging.weltenforger.com
     repo: achimdehnert/weltenhub
 
@@ -275,6 +335,8 @@ services:
     dev: 8089
     container_name: travel_beat_web
     domain_prod: drifttales.com
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (#120), Reste platform#2480. Ausgefuehrt: 6 Container auf prod gestoppt mit restart=no, Dump /opt/backups/stilllegung-2026-08-30/travel_beat_db.sql.gz (Kontrollprobe Tabellen Dump = DB), 6 vhosts (drifttales.*, travel-beat.iil.pet, travel.schutztat.de) nach /root/stillgelegt-vhosts-2026-08-30/, Backup-Cron auskommentiert. Gemessen 14 Tage nginx: 3878 Zeilen, 0 Login-Erfolge, alle POSTs WordPress-Sonden, 396 Ein-Treffer-IPs ohne Referrer — Scanner, keine Nutzer. DNS/Cloudflare, Runner, Volumes stehen noch."
     domain_staging: staging.drifttales.com
     domain_aliases:
       - drifttales.de
@@ -322,6 +384,8 @@ services:
                                # (prod 0 bei 17249 Logzeilen, prod-b 2).
     container_name: wedding_hub_web
     domain_prod: wedding-hub.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-08-30 (nicht mehr aktiv), Reste platform#2480. Ausgefuehrt: 5 Container auf prod-b gestoppt mit restart=no, Volumes bleiben; DB-Dump /opt/backups/stilllegung-2026-08-30/wedding_hub_db.sql.gz (42 Tabellen, Kontrollprobe 42/42); vhost auf prod-b und die beiden Rest-vhosts auf prod nach /root/stillgelegt-vhosts-2026-08-30/. Gemessen 14 Tage nginx: 62 Requests, davon 25x 200 ausschliesslich auf /accounts/login/, keine Anmeldung, UA u.a. CMS-Checker. Cloudflare-Route/DNS steht noch (heute 502), Runner und Volumes ebenfalls."
     domain_staging: staging-wedding.iil.pet
     domain_aliases:
       - wedding.iil.pet          # ergaenzt 2026-08-04: stand nur im vhost
@@ -376,6 +440,11 @@ services:
     domain_prod: apo.iil.pet
     note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
     repo: achimdehnert/apo-hub
+    betriebsstatus: ruhend
+    betriebsstatus_grund: >
+      Owner-Urteil 2026-09-01 (#2586 K5): nicht in Betrieb, kann aber
+      jederzeit wieder anlaufen. Kein `stillgelegt` — das waere endgueltig —
+      und kein `blockiert`, denn es haelt nichts auf.
 
   illustration-hub:
     prod: 8096
@@ -497,6 +566,8 @@ services:
     dev: 8103
     container_name: recruiting_hub_web
     domain_prod: hr.iil.pet
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "GitHub-Repo archiviert (gh api repos/achimdehnert/recruiting-hub .archived = true, seit ~2026-08-20); hr.iil.pet antwortet 502, das ist gewollt"
     domain_staging: staging-hr.iil.pet
     repo: achimdehnert/recruiting-hub
 
@@ -544,3 +615,98 @@ services:
     domain_prod: decks-hub.iil.pet
     repo: achimdehnert/decks-hub
     note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true."
+  # ── dev-desktop-Workloads (164, 2026-08-30) ────────────────────────────────
+  # Vier Dienste mit oeffentlichen Namen liefen auf dem Dev-Desktop, ohne dass eine
+  # SoT sie kannte. Sie stehen hier als `blockiert`: der Auflage-Check (hosts_audit)
+  # und die Erreichbarkeits-Pruefung ueberspringen sie, der Deploy-Preflight blockt
+  # sie — und jeder Leser sieht, dass es sie gibt. Ports = Host-/Loopback-Port am
+  # dev-desktop; Ingress laeuft ueber eigene cloudflared-Tunnel, nicht ueber nginx.
+  praes-iil-ai:
+    prod: 8120
+    staging: 8120
+    dev: 8120
+    prod_host: dev-desktop
+    container_name: praes-iil-ai-web-1
+    domain_prod: praes.iil.ai
+    domain_staging: null
+    repo: achimdehnert/decks-hub          # deploy/praes
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  chat-hub:
+    prod: 8008
+    staging: 8008
+    dev: 8008
+    prod_host: dev-desktop
+    container_name: chathub_chat_synapse  # 7 Container: synapse, db, element, rtc_{jwt,proxy,livekit}, tunnel
+    domain_prod: chat.iil.pet
+    domain_staging: null
+    domain_aliases:
+      - rtc-chat.iil.pet
+      - app-chat.iil.pet
+    repo: achimdehnert/chat-hub           # deploy/
+    betriebsstatus: ruhend
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  robo-twin:
+    prod: 8790
+    staging: 8790
+    dev: 8790
+    prod_host: dev-desktop
+    container_name: null                  # systemd --user robo-twin.service, kein Container
+    domain_prod: robot.iil.pet
+    domain_staging: null
+    repo: achimdehnert/robo-lab
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+  embedder:
+    prod: 8100
+    staging: 8100
+    dev: 8100
+    prod_host: gx10
+    container_name: null            # nativer Nutzer-Dienst, kein Container
+    domain_prod: null               # NUR wg0 — 10.99.0.4:8100, kein Tunnel
+    domain_staging: null
+    repo: achimdehnert/platform     # spikes/embedder-service
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Embedder nach ADR-188 (multilingual-e5-large, 1024 Dimensionen), seit
+      2026-09-01 als systemd-Nutzerdienst auf der GX10, auf der GB10-GPU
+      (cuda:0). Gebunden auf 10.99.0.4:8100 — NICHT 0.0.0.0; gegengeprueft
+      am Knoten. Erreichbar nur ueber wg0, damit `oeffentlicher_ingress:
+      false` gilt. Von der ganzen Flotte ist nur prod im wg0 — gemessen,
+      nicht angenommen. Verbraucher: `rag-mcp` auf prod (siehe unten), seit
+      2026-09-01 im Betrieb; dessen /healthz/ prueft diesen Dienst mit.
+
+  rag-mcp:
+    prod: 8200
+    staging: 8200
+    dev: 8200
+    prod_host: prod
+    container_name: mcp_hub_rag
+    domain_prod: null               # nur 127.0.0.1:8200, kein Tunnel
+    domain_staging: null
+    repo: achimdehnert/mcp-hub      # rag_mcp/
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      RAG-API nach ADR-171 (Chunking, Embedding, hybride Suche), seit
+      2026-09-01 auf prod (mcp-hub#238). Nur 127.0.0.1:8200, kein Tunnel — am
+      Knoten gegengeprueft: 0 Listener ausserhalb Loopback. /healthz/ prueft
+      Datenbank UND Embedder; der Container-Healthcheck bewusst nur /livez/,
+      sonst wuerde ein GX10-Ausfall den gesunden Container neu starten.
+      Der Embedder (oben) ist nur ueber wg0 erreichbar, und im wg0 ist von der
+      Flotte nur prod — dieser Dienst kann auf keinem anderen Knoten laufen.
+
+  mail-links:
+    prod: 8787
+    staging: 8787
+    dev: 8787
+    prod_host: dev-desktop
+    container_name: null                  # systemd --user mail-links.service (Loopback), cloudflared-mail-links
+    domain_prod: mail.iil.pet
+    domain_staging: null
+    domain_aliases:
+      - lotse.iil.pet
+      - todo.iil.pet
+    repo: owner-home                      # kein Repo bekannt — Owner
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+

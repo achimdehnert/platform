@@ -35,6 +35,18 @@ def stdin_leer(monkeypatch):
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
 
 
+@pytest.fixture(autouse=True)
+def _merker_isolieren(tmp_path, monkeypatch):
+    """Die Entprellungs-Datei je Test eigen — sonst faerbt ein Lauf den naechsten.
+
+    Ohne diese Naht schriebe jeder Drill in den echten Temp-Ordner des
+    Entwicklers und der zweite Testlauf saehe den Abdruck des ersten.
+    """
+    monkeypatch.setattr(
+        guard, "_abdruck_datei", lambda sid: tmp_path / f"merker_{sid or 'na'}.txt"
+    )
+
+
 # --- Vorbedingung ------------------------------------------------------------
 
 
@@ -341,6 +353,79 @@ def test_should_collect_changed_filenames_next_to_dirs(monkeypatch, tmp_path):
 
     assert dirs == [mem]
     assert dateien == {"a.md", "b.md"}
+
+
+# --- Entprellung gegen den Inhalt -------------------------------------------
+#
+# Gemessen 2026-09-02 (platform#2606): `git status` kostet 13 ms, der Pruefer
+# dahinter ~685 ms — und er lief bei JEDEM Stop, solange unter memory/ ueberhaupt
+# etwas offen war, auch in Zuegen ohne Schreibvorgang. Der zweite Gurt ist der
+# Inhalts-Abdruck. Beide Richtungen sind gleich wichtig: er darf nicht doppelt
+# laufen, aber er MUSS laufen, sobald sich ein Byte aendert.
+
+
+def _fenster(monkeypatch, tmp_path, laeufe):
+    monkeypatch.setattr(guard, "geaenderte_memory_dirs", lambda: ([tmp_path], {"a.md"}))
+    monkeypatch.setattr(guard, "pruefe", lambda d, g: (laeufe.append(d), ([], 0))[1])
+
+
+def test_should_skip_the_checker_when_nothing_changed_since_the_last_run(
+    monkeypatch, tmp_path
+):
+    (tmp_path / "a.md").write_text("gleich", encoding="utf-8")
+    laeufe: list = []
+    _fenster(monkeypatch, tmp_path, laeufe)
+
+    for _ in range(3):
+        monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
+        assert guard.main() == 0
+
+    assert len(laeufe) == 1, "der Pruefer lief trotz unveraenderter Dateien erneut"
+
+
+def test_should_run_the_checker_again_after_the_content_changed(monkeypatch, tmp_path):
+    """Gegenprobe: die Entprellung darf keinen einzigen Fund verlieren."""
+    ziel = tmp_path / "a.md"
+    ziel.write_text("erst", encoding="utf-8")
+    laeufe: list = []
+    _fenster(monkeypatch, tmp_path, laeufe)
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
+    guard.main()
+    ziel.write_text("dann", encoding="utf-8")
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
+    guard.main()
+
+    assert len(laeufe) == 2
+
+
+def test_should_not_let_a_touch_without_change_trigger_a_run(monkeypatch, tmp_path):
+    """Gehasht wird der Inhalt, nicht die mtime (Memory `mtime_not_dirty`)."""
+    ziel = tmp_path / "a.md"
+    ziel.write_text("gleich", encoding="utf-8")
+    laeufe: list = []
+    _fenster(monkeypatch, tmp_path, laeufe)
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
+    guard.main()
+    ziel.touch()
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
+    guard.main()
+
+    assert len(laeufe) == 1
+
+
+def test_should_keep_the_fingerprint_per_session(monkeypatch, tmp_path):
+    """Eine andere Sitzung darf nicht vom Merker der ersten stumm geschaltet werden."""
+    (tmp_path / "a.md").write_text("gleich", encoding="utf-8")
+    laeufe: list = []
+    _fenster(monkeypatch, tmp_path, laeufe)
+
+    for sid in ("s1", "s2"):
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"session_id": sid})))
+        guard.main()
+
+    assert len(laeufe) == 2
 
 
 # --- Ausgabe-Vertrag --------------------------------------------------------

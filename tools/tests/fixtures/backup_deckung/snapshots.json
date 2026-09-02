@@ -1,0 +1,281 @@
+[
+ {
+  "time": "2026-08-25T03:30:17.865948848Z",
+  "hostname": "prod-b",
+  "tags": [
+   "volumes"
+  ],
+  "paths": [
+   "/var/lib/docker/volumes/dms-hub_dms_hub_media/_data",
+   "/var/lib/docker/volumes/pptx-hub_media_data/_data",
+   "/var/lib/docker/volumes/research-hub_research_hub_media/_data",
+   "/var/lib/docker/volumes/weltenhub_media_prod/_data"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:16.434867132Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "weltenhub_db"
+  ],
+  "paths": [
+   "/weltenhub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:14.840826175Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "wedding_hub_db"
+  ],
+  "paths": [
+   "/wedding_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:12.731023326Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "trading_hub_db"
+  ],
+  "paths": [
+   "/trading_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:10.977462189Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "research_hub_db"
+  ],
+  "paths": [
+   "/research_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:09.340505819Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "pptx_hub_db"
+  ],
+  "paths": [
+   "/pptx_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:07.492516814Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "dms_hub_db"
+  ],
+  "paths": [
+   "/dms_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:05.873219671Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "cad_hub_db"
+  ],
+  "paths": [
+   "/cad_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T03:30:04.076228241Z",
+  "hostname": "prod-b",
+  "tags": [
+   "pgdump",
+   "apo_hub_db"
+  ],
+  "paths": [
+   "/apo_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:34:36.680496299Z",
+  "hostname": "prod",
+  "tags": [
+   "volumes"
+  ],
+  "paths": [
+   "/mnt/HC_Volume_105908261/docker/volumes/archiv_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/authentik-stack_authentik_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/bfagent_media_prod/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/dms-hub_dms_hub_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/doc-hub-stack_dochub_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/lora_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/music_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/risk-hub-staging_risk_hub_staging_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/risk-hub_risk_hub_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/risk-hub_risk_hub_minio_data/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/risk-hub_risk_hub_staging_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/risk-hub_risk_hub_staging_minio_data/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/travel-beat_travelbeat_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/writing-hub-staging_writing_hub_staging_media/_data",
+   "/mnt/HC_Volume_105908261/docker/volumes/writing-hub_writing_hub_media/_data"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:34:34.340389809Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "writing_hub_db"
+  ],
+  "paths": [
+   "/writing_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:34:32.643156568Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "travel_beat_db"
+  ],
+  "paths": [
+   "/travel_beat_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:52.362382886Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "tax_hub_db"
+  ],
+  "paths": [
+   "/tax_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:50.688860816Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "risk_hub_db"
+  ],
+  "paths": [
+   "/risk_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:48.862432987Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "mcp_hub_db"
+  ],
+  "paths": [
+   "/mcp_hub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:47.542510702Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "learn-hub-db-1"
+  ],
+  "paths": [
+   "/learn-hub-db-1.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:36.56855218Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "illustration_db"
+  ],
+  "paths": [
+   "/illustration_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:14.607787109Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "iil_knowledge_outline_db"
+  ],
+  "paths": [
+   "/iil_knowledge_outline_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:12.849473742Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "iil_dochub_db"
+  ],
+  "paths": [
+   "/iil_dochub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:10.836895661Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "iil_authentik_db"
+  ],
+  "paths": [
+   "/iil_authentik_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:33:09.53249434Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "hub137_db"
+  ],
+  "paths": [
+   "/hub137_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:30:11.705118443Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "devhub_db"
+  ],
+  "paths": [
+   "/devhub_db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:30:10.462792057Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "billing-hub-db"
+  ],
+  "paths": [
+   "/billing-hub-db.sql"
+  ]
+ },
+ {
+  "time": "2026-08-25T02:30:08.658886988Z",
+  "hostname": "prod",
+  "tags": [
+   "pgdump",
+   "ausschreibungs_hub_db"
+  ],
+  "paths": [
+   "/ausschreibungs_hub_db.sql"
+  ]
+ }
+]

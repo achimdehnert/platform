@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-16",
-  "total": 242,
-  "next_free": 297,
+  "generated": "2026-09-02",
+  "total": 246,
+  "next_free": 301,
   "adrs": [
     {
       "number": 7,
@@ -836,7 +836,9 @@
       "date": "2026-02-20",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-298"
+      ],
       "amends": [],
       "amended_by": [
         "ADR-100"
@@ -853,7 +855,9 @@
       "date": "2026-02-20",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-298"
+      ],
       "amends": [],
       "amended_by": [],
       "related": [
@@ -1662,7 +1666,9 @@
       "amends": [
         "ADR-057"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-298"
+      ],
       "related": [
         "ADR-057",
         "ADR-084",
@@ -1681,7 +1687,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-300"
+      ],
       "related": [],
       "implementation_status": ""
     },
@@ -1853,7 +1861,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-300"
+      ],
       "related": [],
       "implementation_status": "implemented"
     },
@@ -2469,7 +2479,9 @@
       "date": "2026-04-02",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-298"
+      ],
       "amends": [],
       "amended_by": [],
       "related": [],
@@ -2718,7 +2730,7 @@
       "id": "ADR-168",
       "file": "ADR-168-onboarding-platform-architecture.md",
       "title": "Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern",
-      "status": "proposed",
+      "status": "void",
       "date": "2026-04-21",
       "domains": [
         "schulungspass.de",
@@ -2911,7 +2923,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-298"
+      ],
       "related": [],
       "implementation_status": ""
     },
@@ -3004,7 +3018,9 @@
       "date": "2026-04-02",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-298"
+      ],
       "amends": [],
       "amended_by": [],
       "related": [
@@ -3055,7 +3071,9 @@
       "amends": [
         "ADR-141"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-300"
+      ],
       "related": [
         "ADR-045",
         "ADR-059",
@@ -5573,6 +5591,104 @@
         "ADR-292"
       ],
       "implementation_status": "partial"
+    },
+    {
+      "number": 297,
+      "id": "ADR-297",
+      "file": "ADR-297-org-zuordnung-der-repos.md",
+      "title": "In welche GitHub-Organisation gehört ein Repo?",
+      "status": "accepted",
+      "date": "2026-08-24",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-236",
+        "ADR-255",
+        "ADR-268"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 298,
+      "id": "ADR-298",
+      "file": "ADR-298-teststrategie-eine-regel-drei-gates-ein-meter.md",
+      "title": "Teststrategie der Flotte — eine Regel, drei Gates, ein Meter",
+      "status": "proposed",
+      "date": "2026-08-29",
+      "domains": [],
+      "supersedes": [
+        "ADR-057",
+        "ADR-058",
+        "ADR-155",
+        "ADR-184"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-100",
+        "ADR-179"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-074",
+        "ADR-108",
+        "ADR-174",
+        "ADR-233"
+      ],
+      "implementation_status": "in_progress"
+    },
+    {
+      "number": 299,
+      "id": "ADR-299",
+      "file": "ADR-299-hot-topics-digest-auf-bestehendem-mailbestand.md",
+      "title": "Den Hot-Topics-Digest auf den bestehenden Mailbestand setzen statt auf einen vierten Postfach-Zugang",
+      "status": "accepted",
+      "date": "2026-08-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-286",
+        "ADR-293",
+        "ADR-294",
+        "ADR-295"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 300,
+      "id": "ADR-300",
+      "file": "ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md",
+      "title": "Orchestrator = Gedächtnis + Audit, Harness = Ausführung",
+      "status": "accepted",
+      "date": "2026-09-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-101",
+        "ADR-112",
+        "ADR-186"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-010",
+        "ADR-075",
+        "ADR-080",
+        "ADR-086",
+        "ADR-176",
+        "ADR-197",
+        "ADR-224",
+        "ADR-238",
+        "ADR-256",
+        "ADR-280",
+        "ADR-285"
+      ],
+      "implementation_status": "not_started"
     },
     {
       "number": 400,

@@ -34,11 +34,40 @@ INFRA_PORTS = {
     443: "HTTPS",
 }
 
-# Bekannte Server
-SERVERS = {
-    "prod": "88.198.191.108",
-    "staging": "88.99.38.75",
-}
+# Bekannte Server — aus infra/hosts.yaml ueber die Projektion infra/ports.yaml
+# `servers:` (env -> host). Bis 2026-08-30 standen hier zwei IPs hart im Code,
+# und hosts.yaml nannte genau dieses Werkzeug als sein Verifikationsmittel:
+# ein Pruefer, der die Wahrheit nicht liest, die er pruefen soll (KONZ-054 S1).
+_INFRA = Path(__file__).resolve().parents[1]
+
+
+def _lade_servers() -> tuple[dict[str, str], dict[str, str]]:
+    """(env -> ip, hostname -> ip). Ohne PyYAML oder Dateien: leer, laut."""
+    try:
+        import yaml  # noqa: PLC0415
+
+        hosts = (yaml.safe_load((_INFRA / "hosts.yaml").read_text()) or {}).get(
+            "hosts", {}
+        ) or {}
+        ports = yaml.safe_load((_INFRA / "ports.yaml").read_text()) or {}
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"WARN: hosts.yaml/ports.yaml nicht lesbar ({exc}) — keine bekannten Server",
+            file=sys.stderr,
+        )
+        return {}, {}
+    alle = {
+        n: str(h["ip"]) for n, h in hosts.items() if isinstance(h, dict) and h.get("ip")
+    }
+    envs = {}
+    for env, s in (ports.get("servers", {}) or {}).items():
+        ip = alle.get(str(s.get("host", ""))) if isinstance(s, dict) else None
+        if ip:
+            envs[env] = ip
+    return envs, alle
+
+
+SERVERS, ALLE_HOSTS = _lade_servers()
 
 # Bekannte ICMP-Blocking-Server (NICHT ping verwenden)
 ICMP_BLOCKED = {"88.198.191.108"}
@@ -152,7 +181,9 @@ def load_app_ports(host: str) -> dict[int, str]:
 
     ports: dict[int, str] = {}
     is_prod = host == SERVERS.get("prod")
-    is_staging = host == SERVERS.get("staging")
+    # Die ports.yaml-Spalte `staging` lebt heute auf ZWEI Knoten (dev-desktop traegt
+    # *_staging_*-Container, staging-dedicated die Lane G) — beide bekommen sie.
+    is_staging = host in (SERVERS.get("staging"), SERVERS.get("dev"))
 
     for name, cfg in data.get("services", {}).items():
         if not cfg:
@@ -258,8 +289,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--host",
-        default=SERVERS["prod"],
-        help=f"Server-IP (default: {SERVERS['prod']})",
+        default=SERVERS.get("prod", "88.198.191.108"),
+        help=f"Server-IP, Umgebungsname (prod/dev/staging) oder Knotenname aus hosts.yaml (default: {SERVERS.get('prod', '?')})",
     )
     parser.add_argument(
         "--user",
@@ -290,7 +321,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    hosts = list(SERVERS.values()) if args.all else [SERVERS.get(args.host, args.host)]
+    # --all = jeder Knoten mit IP in hosts.yaml (8 statt 2), nicht nur die drei Umgebungen.
+    hosts = (
+        list(dict.fromkeys(ALLE_HOSTS.values()))
+        if args.all
+        else [SERVERS.get(args.host, ALLE_HOSTS.get(args.host, args.host))]
+    )
 
     reports = []
     for host in hosts:

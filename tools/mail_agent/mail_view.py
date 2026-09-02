@@ -79,6 +79,24 @@ _REMOTE_ATTR = re.compile(
 _EVENT_ATTR = re.compile(r"""\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.I)
 _CSS_URL = re.compile(r"""url\(\s*['"]?(?!cid:|data:)[^)]*\)""", re.I)
 
+#: Inline-``style``-Attribute — Ansatzpunkt fuer die Hellschrift-Entschaerfung.
+_STYLE_ATTR = re.compile(r"""style\s*=\s*(?P<q>["'])(?P<val>[^"']*)(?P=q)""", re.I)
+_COLOR_DECL = re.compile(r"(^|;)(\s*color\s*:\s*)([^;]+)", re.I)
+_RGB_WERTE = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", re.I)
+
+
+def _ist_helle_schrift(wert: str) -> bool:
+    """Naeherungsweise: liegt die Farbe so nah an Weiss, dass sie auf hellem Grund verschwindet?"""
+    w = wert.strip().lower()
+    if w in ("white", "#fff", "#ffffff", "#fffffe"):
+        return True
+    m = _RGB_WERTE.search(w)
+    if m:
+        return all(int(k) >= 230 for k in m.groups())
+    if re.fullmatch(r"#[0-9a-f]{6}", w):
+        return all(int(w[i : i + 2], 16) >= 230 for i in (1, 3, 5))
+    return False
+
 
 def slugify(text: str, max_len: int = 40) -> str:
     """Betreff → dateisystemtauglicher Slug (ASCII, keine Pfadanteile)."""
@@ -125,7 +143,39 @@ def sanitize_html(raw: str) -> tuple[str, int]:
 
     raw = _REMOTE_ATTR.sub(_neutralize, raw)
     raw, css_hits = _CSS_URL.subn("none", raw)
+    raw = _entschaerfe_helle_schrift(raw)
     return raw, blocked + css_hits
+
+
+def _entschaerfe_helle_schrift(raw: str) -> str:
+    """Fast weisse Inline-Schriftfarbe auf ``inherit`` zuruecksetzen — aber nur,
+    wenn dasselbe ``style``-Attribut keine eigene Flaeche mitbringt.
+
+    Grund: ``<style>``-Bloecke fliegen oben raus (``_TAG_BLACKLIST``). Eine Mail,
+    die ihre dunkle Flaeche dort definiert und ihren Text inline hell faerbt,
+    behaelt danach die helle Schrift und verliert den Grund — auf der hellen
+    Flaeche der Ansicht steht sie dann weiss auf weiss. Traegt das Element seine
+    Flaeche selbst (``background`` im selben Attribut), bleibt alles unangetastet:
+    dort ist die helle Schrift gewollt und funktioniert weiter.
+    """
+
+    def _pro_attribut(m: re.Match[str]) -> str:
+        val = m.group("val")
+        if re.search(r"background", val, re.I):
+            return m.group(0)
+
+        def _pro_farbe(c: re.Match[str]) -> str:
+            if not _ist_helle_schrift(c.group(3)):
+                return c.group(0)
+            return f"{c.group(1)}{c.group(2)}inherit"
+
+        neu_val = _COLOR_DECL.sub(_pro_farbe, val)
+        if neu_val == val:
+            return m.group(0)
+        q = m.group("q")
+        return f"style={q}{neu_val}{q}"
+
+    return _STYLE_ATTR.sub(_pro_attribut, raw)
 
 
 def _body_parts(msg: Message) -> tuple[str, str]:
@@ -167,26 +217,55 @@ _PAGE = """<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <title>{titel}</title>
 <style>
- body {{ font: 15px/1.55 -apple-system, Segoe UI, Roboto, sans-serif;
-         max-width: 46rem; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }}
- header {{ border-left: 3px solid #888; padding-left: .9rem; margin-bottom: 1.6rem; }}
- header dl {{ display: grid; grid-template-columns: max-content 1fr; gap: .15rem .8rem; margin: 0; }}
- header dt {{ color: #666; }} header dd {{ margin: 0; }}
- h1 {{ font-size: 1.15rem; margin: 0 0 .7rem; }}
- .hinweis {{ background: #fff6e0; border: 1px solid #e8cf95; padding: .5rem .8rem;
-             border-radius: 4px; font-size: .85rem; margin-bottom: 1.4rem; }}
- .inhalt {{ overflow-x: auto; }}
- .inhalt img {{ max-width: 100%; }}
- pre {{ white-space: pre-wrap; word-wrap: break-word; font: 14px/1.5 ui-monospace, monospace; }}
- footer {{ margin-top: 2.5rem; border-top: 1px solid #ddd; padding-top: .7rem;
-           color: #777; font-size: .8rem; }}
- @media (prefers-color-scheme: dark) {{
-   body {{ background: #16181a; color: #e6e6e6; }}
-   header {{ border-color: #555; }} header dt {{ color: #9aa0a6; }}
-   .hinweis {{ background: #2c2718; border-color: #5c5230; }}
-   footer {{ border-color: #333; color: #888; }}
-   a {{ color: #7fb2f0; }}
+ :root {{
+   --grund: #ffffff;          /* Seitengrund */
+   --text: #1a1a1a;
+   --gedaempft: #666666;      /* Kopfzeilen-Etiketten */
+   --linie: #888888;
+   --hinweis: #fff6e0;
+   --hinweis-linie: #e8cf95;
+   --fuss: #777777;
+   --fuss-linie: #dddddd;
+   --link: #0b57d0;
+   /* Der Mailrumpf bleibt in beiden Schemata ein helles Blatt: Mail-HTML
+      bringt eigene Inline-Farben mit (Outlook setzt color:black), die auf
+      dunklem Grund unlesbar waeren. Darum kein Dark-Wert fuer diese drei. */
+   --flaeche: #ffffff;
+   --flaeche-text: #1a1a1a;
+   --flaeche-rahmen: transparent;
  }}
+ @media (prefers-color-scheme: dark) {{
+   :root {{
+     --grund: #16181a;
+     --text: #e6e6e6;
+     --gedaempft: #9aa0a6;
+     --linie: #555555;
+     --hinweis: #2c2718;
+     --hinweis-linie: #5c5230;
+     --fuss: #888888;
+     --fuss-linie: #333333;
+     --link: #7fb2f0;
+     --flaeche-rahmen: #333333;   /* Abgrenzung des hellen Blatts */
+   }}
+ }}
+ body {{ font: 15px/1.55 -apple-system, Segoe UI, Roboto, sans-serif;
+         max-width: 46rem; margin: 2rem auto; padding: 0 1rem;
+         background: var(--grund); color: var(--text); }}
+ a {{ color: var(--link); }}
+ header {{ border-left: 3px solid var(--linie); padding-left: .9rem; margin-bottom: 1.6rem; }}
+ header dl {{ display: grid; grid-template-columns: max-content 1fr; gap: .15rem .8rem; margin: 0; }}
+ header dt {{ color: var(--gedaempft); }} header dd {{ margin: 0; }}
+ h1 {{ font-size: 1.15rem; margin: 0 0 .7rem; }}
+ .hinweis {{ background: var(--hinweis); border: 1px solid var(--hinweis-linie); padding: .5rem .8rem;
+             border-radius: 4px; font-size: .85rem; margin-bottom: 1.4rem; }}
+ .inhalt {{ overflow-x: auto; background: var(--flaeche); color: var(--flaeche-text);
+            box-shadow: 0 0 0 1px var(--flaeche-rahmen);
+            padding: .9rem 1rem; border-radius: 6px; }}
+ .inhalt img {{ max-width: 100%; }}
+ .inhalt a {{ color: #0b57d0; }}   /* immer heller Grund, darum schemaunabhaengig */
+ pre {{ white-space: pre-wrap; word-wrap: break-word; font: 14px/1.5 ui-monospace, monospace; }}
+ footer {{ margin-top: 2.5rem; border-top: 1px solid var(--fuss-linie); padding-top: .7rem;
+           color: var(--fuss); font-size: .8rem; }}
 </style></head><body>
 <header>
  <h1>{betreff}</h1>

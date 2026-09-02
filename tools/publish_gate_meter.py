@@ -4,8 +4,9 @@
 Phase 2a des Recurrence-Guards (ADR-226). Spiegelt das Muster des
 ADR-226-Adoption-Gate: zählt die Registry-Repos auf, prüft per GitHub-API ihre
 Default-Branch-Workflows mit `tools/check_publish_gate.py` (Invariante (c):
-Test- ODER Secret-Scan-Gate vor dem Upload) und pflegt EIN Tracking-Issue,
-dessen Body der schrumpfende Backlog ist.
+Test- ODER Secret-Scan-Gate vor dem Upload) und pflegt seine eigene Sektion
+(`gate-meter`) im EINEN PyPI-Fleet-Issue (KONZ-052 V5, vormals eigenes
+Rolling-Issue #752 — konsolidiert, weil 0 Kommentare seit 30.06.).
 
 BEWUSST informativ — bricht NIE eine CI (sonst wird der Meter selbst zum Rauschen,
 das man abschaltet). Per-Repo-Blocking ist eine spätere Phase (2b), erst nachdem
@@ -52,9 +53,12 @@ cpg = _load("check_publish_gate")
 # Registry NUR über den sanktionierten Accessor lesen (ADR-234 §11.1 REC-4 —
 # die View-Dateien sind generiert; Direkt-Lesen ist ein hartes Gate).
 registry_api = _load("registry_api")
+# Sektions-Upsert im EINEN Flotten-Issue (KONZ-052 V5) — dieselbe Funktion
+# wie pypi-ci-adoption-gate.yml und pypi-fleet-health.yml, nicht neu gebaut.
+pfs = _load("pypi_fleet_sections")
 
-MARKER_LABEL = "publish-gate-backlog"
-ISSUE_TITLE = "Publish-Gate-Backlog: ungegatete PyPI-Uploads"
+SECTION_NAME = "gate-meter"
+SECTION_HEADING = "Publish-Gate-Backlog: ungegatete PyPI-Uploads"
 
 
 # ---------------------------------------------------------------- pure logic --
@@ -165,35 +169,6 @@ def fetch_repo_workflows_local(root: pathlib.Path, repo: str) -> dict:
     }
 
 
-def issue_needs_update(existing: dict, title: str, body: str) -> bool:
-    """True, wenn Titel/Body abweichen — sonst kein PATCH (vermeidet tägliches No-Op-Rauschen)."""
-    return existing.get("title") != title or (existing.get("body") or "") != body
-
-
-def upsert_issue(owner: str, repo: str, token: str, title: str, body: str) -> str:
-    """Findet offenes Issue mit MARKER_LABEL, PATCHt es NUR bei Änderung, sonst neu. Returns URL."""
-    issues = _api(
-        f"/repos/{owner}/{repo}/issues?state=open&labels={MARKER_LABEL}", token
-    )
-    if issues:
-        existing = issues[0]
-        if issue_needs_update(existing, title, body):
-            _api(
-                f"/repos/{owner}/{repo}/issues/{existing['number']}",
-                token,
-                method="PATCH",
-                data={"title": title, "body": body},
-            )
-        return existing["html_url"]
-    created = _api(
-        f"/repos/{owner}/{repo}/issues",
-        token,
-        method="POST",
-        data={"title": title, "body": body, "labels": [MARKER_LABEL]},
-    )
-    return created["html_url"]
-
-
 # --------------------------------------------------------------------- main ---
 def main(argv: list) -> int:
     ap = argparse.ArgumentParser(description="Publish-Gate-Meter")
@@ -250,10 +225,18 @@ def main(argv: list) -> int:
                 file=sys.stderr,
             )
             return 2
-        # Tracking-Issue lebt IMMER in achimdehnert/platform (SSoT-Repo für den
-        # Meter selbst), unabhängig vom Owner der gescannten Repos.
-        url = upsert_issue(default_owner, "platform", token, ISSUE_TITLE, body)
-        print(f"\nTracking-Issue: {url}", file=sys.stderr)
+        # Sektion lebt IMMER im EINEN Flotten-Issue in achimdehnert/platform
+        # (SSoT-Repo für den Meter selbst), unabhängig vom Owner der
+        # gescannten Repos. Andere Sektionen (health, adoption) bleiben unberührt.
+        url = pfs.upsert_section(
+            default_owner,
+            "platform",
+            token,
+            section_name=SECTION_NAME,
+            heading=SECTION_HEADING,
+            body=body,
+        )
+        print(f"\nFleet-Issue (Sektion {SECTION_NAME}): {url}", file=sys.stderr)
 
     if args.fail_on_backlog and total:
         return 1

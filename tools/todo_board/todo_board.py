@@ -10,6 +10,13 @@ Dieser Dienst macht denselben Zustand dauerhaft sichtbar.
     todo_board.py build            → schreibt ~/.claude/boards/todo.html
     todo_board.py serve            → 127.0.0.1:8789, baut bei jedem Abruf neu
 
+Einstiegskommando fuer den ganzen Stand (platform#2592 K1): `make boards` baut
+Action-Board (board.py --render) und diese Seite aus demselben Ledger; `make
+boards-check` baut beide zweimal mit festem `--stichtag` und vergleicht byteweise
+— die Ausgabe haengt nur vom Ledger, den Ankerdateien und dem Stichtag ab, nie
+von Uhrzeit, Laufreihenfolge oder Zufall. Gemessen 2026-09-02: zwei Laeufe
+hintereinander identisch, 0 Zeilen Unterschied.
+
 Bewusst getrennt von `mail_agent/mail_link_server.py`: der rendert Mail-Koerper live
 aus dem Postfach und darf darum nie oeffentlich stehen. Dieser Dienst kennt nur das
 Ledger, spricht kein IMAP und hat genau eine Seite — das ist die Angriffsflaeche, die
@@ -29,6 +36,7 @@ import argparse
 import html
 import json
 import os
+import re
 import sys
 from datetime import date, datetime
 from http import HTTPStatus
@@ -36,7 +44,33 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote, unquote
 
+# Die Lesart von Mail-Referenzen ist mit dem Mail-Dienst geteilt (platform#2592):
+# was hier als Nummer erkannt wird, muss `eintrag_anker.py` unter demselben
+# Schluessel verankern koennen. Das Modul ist reine Text-Analyse — kein IMAP.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mail_agent"))
+from referenzen import (  # noqa: E402
+    REF_GITHUB as _REF_GITHUB,
+    REF_NUMMER as _REF_NUMMER,
+    Referenz,
+    ordner_daneben,
+    schluessel_kandidaten,
+)
+
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
+#: Vorgaenge, die `vorgaenge_archivieren.py` aus dem Ledger genommen hat. Sie
+#: verschwinden aus der LISTE, aber nicht aus dem Netz: ein Link, der gestern
+#: funktionierte, zeigt auch morgen die Akte. Ohne diesen Leser waere das
+#: Archivieren ein stilles Loeschen aus Sicht jedes Lesezeichens.
+ERLEDIGT_ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-erledigt.json"
+#: Der gekappte Teil des Verlaufs (tools/mail_agent/ledger_kappen.py). Die
+#: Vorgangsansicht setzt beides zusammen — gekappt heisst verschoben, nicht weg.
+ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-archiv.json"
+#: Erwartete Antwortdaten aus echten Mailzeiten (tools/mail_agent/faelligkeit.py).
+#: Die Datei ist optional — fehlt sie, sieht die Liste aus wie vorher.
+FAELLIGKEIT = Path.home() / ".claude" / "mail-faelligkeit.json"
+#: Zuordnung Verlaufseintrag → Mail (tools/mail_agent/eintrag_mails.py). Optional:
+#: fehlt die Datei, bleiben die Eintraege nummeriert, aber ohne Mail-Bezug.
+EINTRAG_LINKS = Path.home() / ".claude" / "mail-eintrag-links.json"
 AUSGABE = Path.home() / ".claude" / "boards" / "todo.html"
 PORT = 8789
 # Ab wie vielen Tagen ohne Erhebung die Seite ihren eigenen Stand in Frage stellt.
@@ -47,7 +81,15 @@ BUCKETS = (
     ("owner", "Dein Zug", "Entscheidung, Berechtigung oder Inhalt, den nur du hast"),
     ("agent", "Ich kann sofort", "Braucht kein Gate — sag zu, dann laeuft es"),
     ("warten", "Wartet auf andere", "Der naechste Zug kommt von aussen"),
+    (
+        "erledigt",
+        "Zuletzt erledigt",
+        "Geschlossen — steht hier, bis das Fenster ablaeuft",
+    ),
 )
+
+#: Deckungsgleich mit `board.py`: geschlossene Vorgaenge bleiben so lange sichtbar.
+ERLEDIGT_FENSTER_TAGE = 14
 KONTO_LABEL = {"iil": "IIL", "hnu": "HNU", "ad": "Mittwald", "": "—"}
 
 #: Basis fuer Mail-Links. Der Board-Dienst haengt an todo.iil.pet (Port 8789), der
@@ -149,6 +191,34 @@ def lade(pfad: Path) -> dict:
         return json.load(fh)
 
 
+def archivierte_vorgaenge(pfad: Path | None = None) -> list[dict]:
+    """Die ausgelagerten Vorgaenge — leere Liste, wenn es noch kein Archiv gibt."""
+    try:
+        roh = (pfad or ERLEDIGT_ARCHIV).read_text(encoding="utf-8")
+    except OSError:
+        return []
+    try:
+        return json.loads(roh).get("vorgaenge", [])
+    except json.JSONDecodeError:
+        return []
+
+
+def frisch_erledigt(vorgang: dict, stichtag) -> bool:
+    """Liegt der Abschluss innerhalb des Anzeigefensters?
+
+    Ohne lesbares `erledigt_am` wird der Posten gezeigt statt versteckt — ein
+    fehlendes Datum ist ein Pflegefehler, den man sehen soll.
+    """
+    roh = vorgang.get("erledigt_am")
+    if not roh:
+        return True
+    try:
+        geschlossen = date.fromisoformat(str(roh)[:10])
+    except ValueError:
+        return True
+    return (stichtag - geschlossen).days <= ERLEDIGT_FENSTER_TAGE
+
+
 def frist_tage(v: dict, stichtag: date) -> int | None:
     """Resttage bis zur Frist; None, wenn der Vorgang keine traegt."""
     roh = v.get("frist")
@@ -177,10 +247,78 @@ def ampel(tage: int | None) -> tuple[str, str]:
     return "gruen", f"in {tage} Tagen"
 
 
+def zustand(v: dict, stichtag: date) -> tuple[str, str]:
+    """→ (Klasse, Text) für den Zustand eines wartenden Vorgangs.
+
+    Drei Zustaende, weil "wartet" allein die Frage nicht beantwortet, die man an
+    die Liste hat (#2176 Kriterium 4):
+
+    * **wartet**  — die Antwort ist noch im normalen Rahmen (bis zum 90-%-Quantil).
+    * **still**   — der Rahmen ist ueberschritten; hier passiert nichts mehr von
+      selbst. Das ist der Zustand, der bisher unsichtbar war.
+    * **kein Signal** — es gibt keinen datierten Versand, also auch keine
+      Erwartung. Ehrlicher als eine erfundene Frist.
+    """
+    if v.get("bucket") != "warten":
+        return "", ""
+    erwartung = _erwartung(v.get("nr"))
+    if not erwartung.get("spaetestens"):
+        return "kein-signal", "kein Signal"
+    if erwartung.get("ueberfaellig"):
+        try:
+            tage = (stichtag - date.fromisoformat(erwartung["spaetestens"])).days
+        except ValueError:
+            tage = 0
+        return "still", f"still seit {tage} Tagen" if tage > 0 else "still"
+    return "wartet", f"bis {erwartung['spaetestens']}"
+
+
 def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
     """Fristen zuerst, aufsteigend; Fristlose danach, alphabetisch."""
     tage = frist_tage(v, stichtag)
     return (1, 0, v.get("thread_key", "")) if tage is None else (0, tage, "")
+
+
+#: Ein wartender Entwurf im juengsten Verlaufseintrag. Er ist der haeufigste Grund,
+#: warum ein Posten „dein Zug" ist — und stand bisher nur im Verlauf, also einen
+#: Klick entfernt (Owner-Befund 2026-08-21: „MUSS bekannt sein").
+_ENTWURF_REF = re.compile(r"Entw(?:ue|ü)rfe\s*#(?P<uid>\d{3,7})", re.I)
+#: Woerter, mit denen derselbe Eintrag sagt, dass es den Entwurf nicht mehr gibt.
+_ENTWURF_ERLEDIGT = re.compile(
+    r"gesendet|versendet|verschickt|abgeschickt|verworfen|nicht mehr", re.I
+)
+
+
+def entwurf_link(v: dict, mail_basis: str = MAIL_BASIS) -> str:
+    """URL des wartenden Entwurfs — leer, wenn der juengste Eintrag keinen nennt.
+
+    Bewusst nur der JUENGSTE Eintrag: ein Entwurf von vorletzter Woche ist
+    entweder gesendet oder verworfen, und ein Link darauf verspricht einen
+    Zustand, den es nicht mehr gibt.
+    """
+    eintraege = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
+    konto = str(v.get("konto") or "")
+    if not eintraege or not konto:
+        return ""
+    juengster = eintraege[-1]
+    treffer = _ENTWURF_REF.search(juengster)
+    if not treffer:
+        return ""
+    # Die Nummer allein sagt nur, dass ein Entwurf ERWAEHNT wird. Steht im selben
+    # Eintrag, dass er gesendet oder verworfen wurde, zeigt der Link auf etwas,
+    # das dort nicht mehr liegt — und ein toter Link ist schlechter als keiner.
+    if _ENTWURF_ERLEDIGT.search(juengster):
+        return ""
+    uid = treffer.group("uid")
+    # Verankert gewinnt: `/a/<schluessel>` ueberlebt das Ersetzen des Entwurfs.
+    # Ein frischer, noch unverankerter Entwurf bekommt den direkten Ordner-Link —
+    # er gilt, bis `eintrag_anker.py` gelaufen ist (Abschluss von /mailcheck).
+    ref = Referenz(uid=uid, ordner="Entwuerfe", start=0, end=0)
+    verankert = _schluessel(ANKER_DATEI)
+    for kandidat in schluessel_kandidaten(konto, ref):
+        if kandidat in verankert:
+            return f"{mail_basis.rstrip('/')}/a/{quote(kandidat, safe='')}"
+    return f"{mail_basis.rstrip('/')}/m/{konto}/entwuerfe/{uid}"
 
 
 def zeile(
@@ -194,6 +332,33 @@ def zeile(
     klasse, text = ampel(tage)
     konto = KONTO_LABEL.get(v.get("konto", ""), v.get("konto", "—"))
     frist = v.get("frist") or ""
+    # Ohne gesetzte Frist tritt die Erwartung an ihre Stelle: „wartet" allein sagt
+    # nicht, ob das normal ist oder ob seit zwei Wochen niemand antwortet.
+    if tage is None and v.get("bucket") == "warten":
+        zust_klasse, zust_text = zustand(v, stichtag)
+        if zust_text:
+            # "still" ist der Befund, nicht die Erwartung — deshalb rot und im
+            # selben Feld, in dem sonst die Frist steht. Die Erwartung wandert in
+            # die kleine Zeile darunter, wo sie erklaert statt zu behaupten.
+            klasse = {"still": "rot", "wartet": "gruen", "kein-signal": "keine"}[
+                zust_klasse
+            ]
+            text = zust_text
+            erwartung = _erwartung(v.get("nr"))
+            frist = (
+                f"erwartet war {erwartung.get('erwartet', '')}"
+                if zust_klasse == "still"
+                else (
+                    f"erwartet {erwartung.get('erwartet', '')}"
+                    if zust_klasse == "wartet"
+                    else "kein datierter Versand"
+                )
+            )
+    # Keine Frist ist eine Aussage, wenn ihr Grund dabeisteht (#2592 K4): „keine —
+    # Owner-Aufgabe ohne Termin" liest sich anders als ein leerer Strich.
+    if tage is None and not frist and v.get("frist_grund"):
+        text = "keine"
+        frist = str(v["frist_grund"])
     schluessel = v.get("thread_key", "")
     beschriftung = html.escape(schluessel or "—")
     # Ohne thread_key gibt es kein Ziel — dann bleibt es Text statt totem Link.
@@ -207,9 +372,22 @@ def zeile(
     # unter der die Mail als `/a/<nr>` erreichbar ist. Ein Laufindex wuerde springen.
     nr = v.get("nr")
     nr_text = html.escape(str(nr)) if nr not in (None, "") else "—"
-    # Der Mail-Link steht schon in der Uebersicht, nicht erst auf der Vorgangsseite:
-    # der Weg zur Mail soll keinen Zwischenklick kosten (#1869).
-    ziel = mail_ziel(v, mail_basis, anker)
+    # Das Briefsymbol steht nur noch da, wo es KEINE Vorgangsansicht gibt.
+    # Grund (Owner-Befund 2026-08-20): `/a/<nr>` loest ueber die verankerte
+    # Message-ID auf, und verankert ist der ANFANG des Strangs. Der Klick landete
+    # also verlaesslich auf der aeltesten Mail, waehrend die Frage „was ist der
+    # Stand?" lautet. Solange der Dienst keine „letzte Mail des Vorgangs" kennt
+    # (platform#2160), ist der Weg ueber den Verlauf der richtige — und der haengt
+    # am Sache-Link daneben. Ohne thread_key bleibt das Briefsymbol die einzige
+    # Spur zur Mail und darum erhalten.
+    ziel = None if schluessel else mail_ziel(v, mail_basis, anker)
+    entwurf = entwurf_link(v, mail_basis)
+    entwurf_marke = (
+        f" <a class='entwurf-marke' href='{html.escape(entwurf)}' target='_blank'"
+        f" rel='noreferrer' title='Entwurf oeffnen'>Entwurf</a>"
+        if entwurf
+        else ""
+    )
     mail = (
         f" <a class='maillink' href='{html.escape(ziel)}' target='_blank' "
         f"rel='noreferrer' aria-label='Mail zu #{nr_text} oeffnen' "
@@ -220,7 +398,7 @@ def zeile(
     return (
         "<tr>"
         f"<td class='nr'>{nr_text}</td>"
-        f"<td class='sache'>{sache}{mail}"
+        f"<td class='sache'>{sache}{mail}{entwurf_marke}"
         f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
         f"<td class='konto'>{html.escape(konto)}</td>"
         f"<td class='frist {klasse}'>{html.escape(text)}"
@@ -308,8 +486,36 @@ a.aktion:hover{border-color:var(--stumm)}
 .kein-ziel{color:var(--stumm);font-size:.84rem;font-style:italic;margin:.2rem 0 0}
 .sache a{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie)}
 .sache a:hover{border-bottom-color:currentColor}
-pre.notiz{white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.5;
-background:var(--karte);border:1px solid var(--linie);border-radius:6px;padding:.8rem}
+.kopf-rot{color:var(--rot,#b3261e)}
+h2.verlauf-kopf{display:block;margin:1.75rem 0 .6rem}
+h2.verlauf-kopf .zusatz{display:block;font-size:.76rem;font-weight:400;color:var(--stumm);
+margin-top:.15rem}
+.eintrag{background:var(--karte);border:1px solid var(--linie);border-radius:8px;
+padding:.75rem .9rem;margin:0 0 .6rem;font-size:.88rem;line-height:1.55}
+.eintrag-kopf{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;
+margin:0 0 .45rem;font-size:.74rem;color:var(--stumm)}
+.eintrag-datum{font-variant-numeric:tabular-nums;font-weight:600}
+.ereignis{text-transform:uppercase;letter-spacing:.05em;font-weight:600;
+border:1px solid var(--linie);border-radius:999px;padding:.02rem .45rem}
+.quelle{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.deckung{margin-left:auto}
+.deckung summary{cursor:pointer;color:var(--stumm);list-style:none;
+border-bottom:1px dotted var(--linie)}
+.deckung summary::-webkit-details-marker{display:none}
+.deckung p{margin:.4rem 0 0;max-width:42rem;font-size:.74rem;word-break:break-word}
+.eintrag p{margin:0 0 .35rem;word-break:break-word}
+.eintrag p:last-child{margin-bottom:0}
+.bahn-marke{display:inline-block;font-size:.68rem;text-transform:uppercase;
+letter-spacing:.05em;font-weight:600;color:var(--stumm);margin-right:.4rem}
+.bahn-analyse{border-left:2px solid var(--linie);padding-left:.6rem}
+.bahn-action{border-left:2px solid var(--gelb);padding-left:.6rem;font-weight:500}
+.bahn-action .bahn-marke{color:var(--gelb)}
+a.ref{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie);
+font-variant-numeric:tabular-nums}
+a.ref:hover{border-bottom-color:currentColor}
+.ref.ohne-anker{border-bottom:1px dotted var(--linie);cursor:help;opacity:.85}
+.datei{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
+background:var(--bg);border:1px solid var(--linie);border-radius:4px;padding:0 .25rem}
 """
 
 
@@ -402,7 +608,11 @@ def aktionen(
     ziele: list[tuple] = []
     ziel = mail_ziel(v, mail_basis, anker)
     if ziel:
-        ziele.append(("Mail oeffnen", ziel))
+        # Beschriftung sagt, was der Link WIRKLICH oeffnet: `/a/<nr>` loest ueber
+        # die verankerte Message-ID auf, und verankert ist der Anfang des Strangs.
+        # "Mail oeffnen" las sich wie "die aktuelle" (Owner-Befund 2026-08-20);
+        # die juengste Mail kann der Dienst noch nicht (platform#2160).
+        ziele.append(("Erste Mail des Strangs", ziel))
     # Bewusst KEIN Selbstlink auf `/t/<thread_key>`: die Vorgangsseite ist genau das
     # Ziel, auf dem dieser Abschnitt steht. Er waere ausserdem der einzige Grund,
     # warum Bestandsvorgaenge ohne `mail_ref` ploetzlich einen Knopf trugen.
@@ -444,17 +654,448 @@ def naechste_schritte(
 
 
 # Reihenfolge der Detailfelder: erst wer und was, dann Zustand, zuletzt der Verlauf.
+#: Was beim Aufschlagen zaehlt. Alles andere steht unter „Details" —
+#: Beifang-Felder oben kosten 350 Pixel, bevor die erste Information kommt
+#: (gemessen an der Seite von Vorgang 142, Owner-Befund 2026-08-21).
 DETAIL_FELDER = (
     ("gegenueber", "Gegenueber"),
+    ("frist", "Frist"),
+    # `next_trigger` steht bewusst NICHT hier: der Abschnitt "Naechste Schritte"
+    # zeigt denselben Satz zwei Zeilen tiefer, und eine Seite, die dieselbe
+    # Aussage zweimal macht, kostet Lesezeit ohne etwas hinzuzufuegen.
+)
+
+#: Zweite Reihe: richtig, aber selten gebraucht. Der Zustands-Slug etwa ist eine
+#: Maschinenmarke ("klimm-hat-statusbericht-bestaetigt-2026-08-20-1448") — er
+#: gehoert in die Akte, nicht in den ersten Blick.
+DETAIL_FELDER_ZWEITE_REIHE = (
     ("konto", "Konto"),
+    ("bucket", "Bucket"),
     ("typ", "Typ"),
     ("zustand", "Zustand"),
-    ("frist", "Frist"),
-    ("bucket", "Bucket"),
     ("angelegt", "Angelegt"),
     ("letzte_pruefung", "Zuletzt geprueft"),
-    ("next_trigger", "Naechster Schritt"),
 )
+
+
+def _erwartung(nr, pfad: Path | None = None) -> dict:
+    """Erwartetes Antwortdatum eines Vorgangs — leer, wenn keine Vorhersage vorliegt.
+
+    Bewusst eine Datei statt eines Aufrufs: die Vorhersage braucht den Mail-Index
+    (SSH, Sekunden). Ein Seitenaufruf, der darauf wartet, ist eine Ansicht, die
+    man nicht mehr aufmacht.
+    """
+    try:
+        daten = json.loads((pfad or FAELLIGKEIT).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    eintrag = daten.get(str(nr)) if isinstance(daten, dict) else None
+    return eintrag if isinstance(eintrag, dict) else {}
+
+
+def _eintrag_links(nr, pfad: Path | None = None) -> dict:
+    """Mail-Bezuege der Verlaufseintraege eines Vorgangs — leer, wenn keine da sind."""
+    try:
+        daten = json.loads((pfad or EINTRAG_LINKS).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    eintrag = daten.get(str(nr)) if isinstance(daten, dict) else None
+    return eintrag if isinstance(eintrag, dict) else {}
+
+
+def _archiv_eintraege(nr, pfad: Path | None = None) -> list[str]:
+    """Der ausgelagerte Teil des Verlaufs — leer, wenn es kein Archiv gibt.
+
+    Faellt die Datei aus oder ist sie kaputt, zeigt die Seite den gekappten
+    Verlauf statt gar keinen: eine unvollstaendige Ansicht ist besser als eine
+    Fehlerseite, und der Stand steht ohnehin im aktiven Teil.
+    """
+    ziel = pfad or ARCHIV
+    try:
+        daten = json.loads(ziel.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    eintraege = daten.get(str(nr), []) if isinstance(daten, dict) else []
+    return [str(e).strip() for e in eintraege if str(e).strip()]
+
+
+# --- Verlauf: aus einem Prosa-Block wird Struktur ---------------------------
+#
+# Der Verlauf war bis 2026-08-21 ein einziges <pre>: alle Eintraege als
+# Fliesstext, durch Leerzeilen getrennt. Bei einem Vorgang mit drei Eintraegen
+# geht das noch; das eigentliche Problem ist nicht die Laenge, sondern das
+# Mischungsverhaeltnis. In einem typischen /mailcheck-Eintrag sind rund 45 % der
+# Zeichen Erhebungsprotokoll ("DB bis …, Restfenster live nachgezogen … — leer"),
+# das in JEDEM Eintrag JEDES Vorgangs wortgleich wiederkehrt. Es ist der Beleg
+# dafuer, dass sauber gemessen wurde, und es gehoert deshalb auf die Seite —
+# aber nicht in die Leselinie.
+#
+# Drei Eingriffe, alle regelbasiert:
+#
+# 1. **Kopf abtrennen.** Datum, Uhrzeit, Ereignis und Quelle stehen am Anfang
+#    jedes Eintrags in fester Form. Sie werden zur Kopfzeile der Karte, nicht
+#    zum ersten Drittel des ersten Satzes.
+# 2. **Deckung einklappen.** Saetze, die sich selbst als Erhebungsprotokoll zu
+#    erkennen geben, wandern hinter ein <details>. Sichtbar bleibt, DASS gemessen
+#    wurde; der Messwert ist einen Klick entfernt.
+# 3. **Markierte Saetze in eigene Bahnen.** NUR Saetze, die ihre Funktion selbst
+#    benennen ("Offen bleibt …", "HAUPTBEFUND: …", "Fazit: …"), werden
+#    herausgezogen. Alles andere bleibt Inhalt.
+#
+# Punkt 3 ist bewusst eng. Die Versuchung ist gross, aus "… damit abgeschlossen"
+# eine Analyse-Bahn zu erraten — dieselbe Versuchung, der `ablage_erledigt.py`
+# ausdruecklich widersteht ("Nichts wird geraten"). Ein falsch einsortierter Satz
+# ist schlimmer als ein nicht einsortierter: er behauptet eine Gliederung, die der
+# Autor nie gemeint hat. Wer die Bahnen will, schreibt sie hin — der Renderer
+# belohnt es, er erfindet es nicht.
+
+#: Kopf eines Eintrags. Beide real vorkommenden Formen: "2026-08-21 (/mailcheck):"
+#: und "2026-08-20 13:41 GESENDET (Owner):".
+_EINTRAG_KOPF = re.compile(
+    # Manche Eintraege stellen eine Marke VOR das Datum ("NEU 2026-08-20 (…)").
+    # Ohne diesen Zweig faellt der ganze Kopf durch und das Datum steht mitten im
+    # Fliesstext — auf der Seite von Vorgang 142 traf das den aeltesten Eintrag.
+    r"^(?P<marke>[A-ZÄÖÜ]{2,10}\s+)?"
+    r"(?P<datum>\d{4}-\d{2}-\d{2})"
+    r"(?:\s+(?P<zeit>\d{1,2}:\d{2}))?"
+    r"\s*(?:(?P<ereignis>[A-ZÄÖÜ]{4,14})\s*)?"
+    r"(?:\((?P<quelle>[^)]{1,40})\)\s*)?"
+    r":\s*"
+)
+
+#: Satzgrenze. Gesplittet wird nur vor einem Grossbuchstaben — und NICHT, wenn
+#: dem Punkt eine Ziffer vorausgeht. Das schuetzt deutsche Datums- und
+#: Ordinalformen: "20.08. Klimm" und "1. Januar" bleiben EIN Satz.
+#:
+#: Bis 2026-08-21 behauptete der Kommentar an dieser Stelle genau diesen Schutz,
+#: waehrend die Regex ihn nicht enthielt — sie hatte nur den Lookbehind auf den
+#: Punkt selbst. "Termin am 20.08. Klimm bestaetigt." zerfiel dadurch in zwei
+#: Saetze. Der Kommentar ueberlebte eine Vereinfachung des Musters und las sich
+#: danach wie ein Beleg. Die zweite Lookbehind-Gruppe unten ist der Schutz, der
+#: bis dahin nur behauptet war.
+#:
+#: Die Sperre greift NUR an den beiden deutschen Formen, nicht an "jeder Ziffer
+#: vor dem Punkt". Die erste Fassung dieses Fixes tat genau das — und verschluckte
+#: damit echte Satzgrenzen nach Uhrzeiten ("… 16:41. Klimm meldet …"), weil auch
+#: dort eine Ziffer vor dem Punkt steht. Gemessen am realen Bestand fiel dadurch
+#: der Sachstand ganzer Eintraege in die Deckungs-Bahn. Zwei enge Lookbehinds
+#: statt eines breiten:
+#:   (?<!\d\.\d\d[.])   — Datum "20.08."  (Uhrzeit "16:41." hat dort ':')
+#:   (?!\s+<Monat>)      — Ordinal "1. Januar"
+#:
+#: Die zweite Bedingung haengt am MONATSNAMEN, nicht an "Ziffer vor dem Punkt".
+#: Auch das war eine Zwischenfassung dieses Fixes, und auch sie fiel am realen
+#: Bestand: " 2." blockierte die echte Satzgrenze vor einem "OFFEN: …", dessen
+#: Vorsatz auf "Anlage 2." endete — der offene Punkt verschwand aus seiner Bahn.
+#: Ein Ordinal ist ohne den Monat dahinter nicht von einem Satzende nach einer
+#: Zahl zu unterscheiden; also wird nur der Fall gesperrt, der eindeutig ist.
+_MONATE = (
+    "Januar|Februar|M(?:ä|ae)rz|April|Mai|Juni|Juli|August|"
+    "September|Oktober|November|Dezember"
+)
+#: Die dritte Bedingung ist eine AUSNAHME von der ersten, kein weiterer Filter.
+#: Ein deutsches Datum kann einen Satz auch BEENDEN ("Ruecksendefrist 28.08.
+#: OFFEN: …"), und von "20.08. Klimm bestaetigt." ist das regelbasiert nicht zu
+#: unterscheiden — ausser am Folgewort. Steht dort ein durchgaengig grosses Wort,
+#: ist es ein Marker, der nur am Satzanfang vorkommt (OFFEN, FRIST, HAUPTBEFUND).
+#: Ohne diese Ausnahme verschwand genau ein realer offener Punkt aus seiner Bahn
+#: — gemessen, nicht vermutet: 302 Eintraege, 1 Verlust.
+_SATZGRENZE = re.compile(
+    r"(?<=[.!?])"
+    r"(?:(?<!\d\.\d\d[.])|(?=\s+[A-ZÄÖÜ]{4,}\b))"
+    r"(?!\s+(?:" + _MONATE + r")\b)"
+    r"\s+(?=[A-ZÄÖÜ„\"'/])"
+)
+
+#: Ein Satz ist Erhebungsprotokoll, wenn er sich selbst so ausweist. Absichtlich
+#: an den Werkzeug-Vokabeln festgemacht, nicht an "klingt technisch".
+_DECKUNG_WORTE = ("nachgezogen", "restfenster", "db bis", "kein neuer eingang")
+
+#: Saetze, die ihre Funktion im ersten Wort nennen. Nur diese werden umgehaengt.
+#: Ein Satz meldet einen offenen Punkt, wenn er das in den ersten Worten sagt.
+#: Bis zu zwei qualifizierende Woerter davor sind erlaubt — "Unveraendert offen:"
+#: und "Weiterhin offen ist …" sind dieselbe Ansage wie "Offen bleibt …", und der
+#: reine Wortanfangs-Vergleich hat sie auf der Seite von Vorgang 142 uebersehen.
+#: `\b` hinter "offen" haelt "offenbar" und "offensichtlich" heraus.
+#: Verneinungen am Satzanfang. "Nichts zu tun." enthaelt den Action-Marker
+#: "zu tun" und meint das Gegenteil — ohne diese Sperre wurde der Satz als
+#: offener Punkt hervorgehoben. Bewusst nur der Satzanfang: eine Verneinung
+#: mitten im Satz ("Der Termin steht, nichts weiter offen") laesst sich nicht
+#: mehr regelbasiert zuordnen, und Raten ist hier schlimmer als Nicht-Trennen.
+_KEINE_ACTION = re.compile(r"^(?:nichts|kein|keine|keinerlei|nicht)\b", re.I)
+
+_ACTION_MUSTER = re.compile(
+    r"^(?:\w+[\s,]+){0,2}(?:offen\b|zu tun\b|to-?do\b|n(?:ae|ä)chste[rn]? schritt|owner:)",
+    re.I,
+)
+_ANALYSE_WORTE = (
+    "hauptbefund",
+    "befund:",
+    "ergebnis:",
+    "fazit:",
+    "analyse:",
+    "bedeutung:",
+    "schluss:",
+)
+
+#: Ohne Owner ist die Heimat dieser Repos die Standard-Org.
+_GITHUB_STANDARD_OWNER = "achimdehnert"
+
+#: Anhaenge bekommen KEINEN Link: der Dienst liefert sie nur unter `<uid>/anhaenge/<name>`
+#: aus, und die UID steht im Text nicht verlaesslich daneben.
+_DATEI = re.compile(
+    r"\b[\w.\-]{3,60}\.(?:pdf|docx?|xlsx?|pptx?|csv|zip|txt|md)\b", re.I
+)
+
+
+def verweise(
+    text: str,
+    konto: str,
+    mail_basis: str = MAIL_BASIS,
+    anker: frozenset[str] | None = None,
+) -> str:
+    """Erkannte Referenzen verlinken. `text` ist bereits HTML-escaped.
+
+    Verlinkt wird nur, was VERANKERT ist — also eine Nummer, fuer die
+    `eintrag_anker.py` die Message-ID hinterlegt hat. Der Link geht dann auf
+    `/a/<schluessel>`, und der Mail-Dienst loest ueber die Message-ID auf: er
+    ueberlebt Ablage, Senden und ersetzte Entwuerfe.
+
+    Bis 2026-09-01 zeigte der Link auf `/m/<konto>/<ordner>/<uid>` — die rohe
+    IMAP-UID. Gemessen an diesem Tag waren 89 von 203 solcher Links tot
+    (platform#2563), weil eine UID nur in ihrem Ordner gilt. Ein toter Link ist
+    schlechter als gar keiner: er sieht aus wie ein Beleg und ist keiner. Nicht
+    verankerte Nummern werden darum nur ausgezeichnet, nicht verlinkt — und der
+    Titel sagt, welches Werkzeug das aendert.
+
+    Ohne `konto` wird gar nichts verlinkt — der Schluessel traegt das Konto, und
+    ohne Konto gibt es keinen.
+    """
+    if not konto:
+        return text
+    basis = mail_basis.rstrip("/")
+    verankert = _schluessel(ANKER_DATEI) if anker is None else anker
+
+    def nummer(m: re.Match, segment: str) -> str:
+        roh = m.group(0)
+        ref = Referenz(
+            uid=m.group("uid"),
+            ordner=ordner_daneben(segment, m.start()),
+            start=m.start(),
+            end=m.end(),
+        )
+        for kandidat in schluessel_kandidaten(konto, ref):
+            if kandidat in verankert:
+                ziel = f"{basis}/a/{quote(kandidat, safe='')}"
+                return (
+                    f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'"
+                    f" title='Mail oeffnen (ueber Message-ID verankert)'>{roh}</a>"
+                )
+        return (
+            "<span class='ref ohne-anker' title='nicht verankert — "
+            "eintrag_anker.py verankert die Nummer, solange sie im Postfach "
+            f"noch gilt'>{roh}</span>"
+        )
+
+    def schrittweise(roh: str, muster: re.Pattern, ersatz) -> str:
+        # Die Ersetzung bekommt das SEGMENT, in dem sie arbeitet: die Ordnersuche
+        # rechnet mit Positionen, und die gelten nur innerhalb des Segments —
+        # nicht im Gesamttext, in dem vorher schon Links eingesetzt wurden.
+        teile = re.split(r"(<a class='ref'.*?</a>)", roh)
+        return "".join(
+            t
+            if t.startswith("<a class='ref'")
+            else muster.sub(lambda m, seg=t: ersatz(m, seg), t)
+            for t in teile
+        )
+
+    def github(m: re.Match, _segment: str) -> str:
+        owner = m.group("owner") or _GITHUB_STANDARD_OWNER
+        ziel = f"https://github.com/{owner}/{m.group('repo')}/issues/{m.group('nr')}"
+        return f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'>{m.group(0)}</a>"
+
+    text = schrittweise(text, _REF_GITHUB, github)
+    text = schrittweise(text, _REF_NUMMER, nummer)
+    return schrittweise(
+        text, _DATEI, lambda m, _seg: f"<span class='datei'>{m.group(0)}</span>"
+    )
+
+
+def zerlege_eintrag(roh: str) -> dict:
+    """Einen Verlaufseintrag in Kopf, Deckung, Inhalt, Analyse und Action zerlegen.
+
+    Rueckgabe immer vollstaendig besetzt (leere Strings statt fehlender Schluessel),
+    damit der Aufrufer nicht jedes Feld einzeln absichern muss.
+    """
+    kopf = _EINTRAG_KOPF.match(roh)
+    if kopf:
+        rest = roh[kopf.end() :].strip()
+        marken = kopf.groupdict()
+    else:
+        rest, marken = roh.strip(), {}
+    saetze = [s.strip() for s in _SATZGRENZE.split(rest) if s.strip()]
+    deckung: list[str] = []
+    analyse: list[str] = []
+    action: list[str] = []
+    inhalt: list[str] = []
+    for satz in saetze:
+        klein = satz.lower()
+        if any(w in klein for w in _DECKUNG_WORTE):
+            deckung.append(satz)
+        elif _ACTION_MUSTER.match(satz) and not _KEINE_ACTION.match(satz):
+            action.append(satz)
+        elif klein.startswith(_ANALYSE_WORTE):
+            analyse.append(satz)
+        else:
+            inhalt.append(satz)
+    return {
+        # Die Zerlegung selbst wird mitgegeben, nicht nur ihr Ergebnis. Grund:
+        # ein Test, der nur `inhalt` prueft, kann einen Zerlegungsfehler NICHT
+        # sehen — die Bahn fuegt ihre Saetze mit " ".join() wieder zusammen, und
+        # zwei falsch getrennte Fragmente ergeben denselben String wie ein
+        # ungetrennter Satz. Genau daran war die Zusicherung "ein Datum trennt
+        # keinen Satz" vakuos: der Test bestand, waehrend die Regex falsch lag.
+        "saetze": saetze,
+        "datum": marken.get("datum") or "",
+        "zeit": marken.get("zeit") or "",
+        "ereignis": marken.get("ereignis") or "",
+        "quelle": marken.get("quelle") or "",
+        "deckung": " ".join(deckung),
+        "inhalt": " ".join(inhalt),
+        "analyse": " ".join(analyse),
+        "action": " ".join(action),
+    }
+
+
+def verlauf(
+    eintraege: list,
+    konto: str = "",
+    mail_basis: str = MAIL_BASIS,
+    neueste_zuerst: bool = True,
+    nr=None,
+    links: dict | None = None,
+    anker: frozenset[str] | None = None,
+) -> str:
+    """Der Verlauf als Karten — Beiwerk eingeklappt.
+
+    Die Reihenfolge entscheidet der Aufrufer: der Stand steht oben (Default), die
+    Entstehung liest sich von unten (`?alt=1`).
+    """
+    if not eintraege:
+        return "<p class='kein-ziel'>Kein Verlauf.</p>"
+    karten: list[str] = []
+    stille: list = []
+    links = links if links is not None else _eintrag_links(nr)
+    # Einmal je Seite gelesen, nicht je Referenz — der Verlauf nennt Dutzende.
+    anker = _schluessel(ANKER_DATEI) if anker is None else anker
+    for eintrag in eintraege:
+        # Nummer und Text kommen als Paar herein: gezaehlt wird vom AELTESTEN Ende,
+        # damit `#132-4` derselbe Eintrag bleibt, wenn oben zehn neue dazukommen.
+        # Eine Nummer, die sich mit der Anzeige verschiebt, taugt nicht zum Zeigen.
+        nummer, roh = eintrag if isinstance(eintrag, tuple) else (None, eintrag)
+        t = zerlege_eintrag(roh)
+        bezug = links.get(str(nummer), {}) if nummer is not None else {}
+
+        def bahn(schluessel: str, klasse: str, label: str = "") -> str:
+            wert = t[schluessel]
+            if not wert:
+                return ""
+            marke = f"<span class='bahn-marke'>{label}</span>" if label else ""
+            return (
+                f"<p class='{klasse}'>{marke}"
+                f"{verweise(html.escape(wert), konto, mail_basis, anker)}</p>"
+            )
+
+        marken = []
+        if nummer is not None:
+            marke_nr = f"#{html.escape(str(nr))}-{nummer}" if nr else f"#{nummer}"
+            marken.append(
+                f"<a class='eintrag-nr' id='e{nummer}' href='#e{nummer}'>{marke_nr}</a>"
+            )
+        if t["datum"]:
+            zeit = f" {t['zeit']}" if t["zeit"] else ""
+            marken.append(
+                f"<time class='eintrag-datum'>{html.escape(t['datum'] + zeit)}</time>"
+            )
+        if t["ereignis"]:
+            marken.append(f"<span class='ereignis'>{html.escape(t['ereignis'])}</span>")
+        if t["quelle"]:
+            marken.append(f"<span class='quelle'>{html.escape(t['quelle'])}</span>")
+        # Der Mail-Bezug steht im Kopf, nicht im Text: er sagt, WELCHE Mail dieser
+        # Eintrag meint. Ohne adressierbare Nummer bleibt es bei Betreff und Datum
+        # — identifizierend, aber ohne Klick, der ins Leere fuehrt.
+        if bezug.get("betreff"):
+            titel = html.escape(f"{bezug.get('datum', '')} {bezug['betreff']}"[:110])
+            marken.append(
+                f"<a class='mail-bezug' href='{html.escape(bezug['url'])}'"
+                f" target='_blank' rel='noreferrer'>✉ {titel}</a>"
+                if bezug.get("url")
+                else f"<span class='mail-bezug ohne-link'>✉ {titel}</span>"
+            )
+        # Die Deckung sitzt IM Kopf, nicht im Text: sie ist eine Eigenschaft der
+        # Erhebung, keine Aussage ueber den Vorgang.
+        if t["deckung"]:
+            marken.append(
+                "<details class='deckung'><summary>Deckung</summary>"
+                f"<p>{verweise(html.escape(t['deckung']), konto, mail_basis, anker)}</p></details>"
+            )
+        kopfzeile = (
+            f"<header class='eintrag-kopf'>{''.join(marken)}</header>" if marken else ""
+        )
+        rumpf = (
+            bahn("inhalt", "bahn-inhalt")
+            + bahn("analyse", "bahn-analyse", "Analyse")
+            + bahn("action", "bahn-action", "Offen")
+        )
+        if not rumpf:
+            # Ein Eintrag, der nur aus Deckung besteht, ist trotzdem ein Eintrag —
+            # er belegt, dass an dem Tag geprueft und nichts gefunden wurde. Aber
+            # vier solche Karten hintereinander sind vier Karten, die dasselbe
+            # sagen: die Erhebung lief, der Vorgang stand still. Sie werden zu
+            # EINER Zeile zusammengefasst (Owner-Befund 2026-08-21, „keine
+            # wiederkehrenden Redundanzen"); die Nummern bleiben nennbar, damit
+            # ein einzelner Tag weiter adressierbar ist.
+            stille.append((nummer, t["datum"]))
+            continue
+        karten.extend(_stille_karte(stille))
+        stille.clear()
+        karten.append(f"<article class='eintrag'>{kopfzeile}{rumpf}</article>")
+    karten.extend(_stille_karte(stille))
+    # Gebaut wird IMMER chronologisch, gedreht wird erst am Schluss. Vorher
+    # drehte der Aufrufer die Liste und diese Funktion drehte das Ergebnis noch
+    # einmal — die Karten standen dadurch richtig, die Datumsspanne der
+    # zusammengefassten Erhebungen aber rueckwaerts ("12. bis 10.").
+    return "".join(reversed(karten) if neueste_zuerst else karten)
+
+
+def _stille_karte(stille: list) -> list[str]:
+    """Aus einer Folge ereignisloser Erhebungen wird eine Zeile."""
+    if not stille:
+        return []
+    if len(stille) == 1:
+        nummer, datum = stille[0]
+        marke = f"<span class='eintrag-nr'>#{nummer}</span> " if nummer else ""
+        return [
+            f"<article class='eintrag still'>{marke}"
+            f"<time class='eintrag-datum'>{html.escape(datum or '')}</time>"
+            " <span class='kein-ziel'>Nur Erhebung, kein neuer Sachstand.</span>"
+            "</article>"
+        ]
+    # Chronologisch, nicht in Eingabereihenfolge: die Spanne beschreibt einen
+    # Zeitraum, und "12. bis 10." ist keiner.
+    datteln = sorted(d for _, d in stille if d)
+    spanne = (
+        f"{datteln[0]} bis {datteln[-1]}"
+        if len(datteln) > 1
+        else (datteln[0] if datteln else "")
+    )
+    nummern = ", ".join(f"#{n}" for n, _ in stille if n)
+    return [
+        "<article class='eintrag still'>"
+        f"<time class='eintrag-datum'>{html.escape(spanne)}</time> "
+        f"<span class='kein-ziel'>{len(stille)} Erhebungen ohne neuen Sachstand</span>"
+        f"<span class='eintrag-nr'> {html.escape(nummern)}</span></article>"
+    ]
 
 
 def detail(
@@ -462,12 +1103,36 @@ def detail(
     mail_basis: str = MAIL_BASIS,
     basis: str = "",
     anker: dict[str, str] | None = None,
+    alt_zuerst: bool = False,
 ) -> str:
     """Ein einzelner Vorgang als eigenstaendige Seite — auch ohne Overlay lesbar."""
-    zeilen = "".join(
-        f"<tr><th>{html.escape(label)}</th><td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
-        for feld, label in DETAIL_FELDER
-    )
+
+    def _reihe(felder) -> str:
+        return "".join(
+            f"<tr><th>{html.escape(label)}</th>"
+            f"<td>{html.escape(str(v.get(feld) or '—'))}</td></tr>"
+            for feld, label in felder
+        )
+
+    zeilen = _reihe(DETAIL_FELDER)
+    # Erwartung statt leerer Frist: bei einem wartenden Vorgang ohne Frist ist
+    # „bis wann ist das normal" die Frage, die man an die Seite hat.
+    erwartung = _erwartung(v.get("nr"))
+    if not v.get("frist"):
+        teile = []
+        if v.get("frist_grund"):
+            teile.append(f"keine — {v['frist_grund']}")
+        if erwartung.get("spaetestens"):
+            wort = (
+                "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
+            )
+            teile.append(f"{wort} {erwartung['spaetestens']}")
+        if teile:
+            zeilen = zeilen.replace(
+                "<th>Frist</th><td>—</td>",
+                f"<th>Frist</th><td>{html.escape(' · '.join(teile))}</td>",
+            )
+    zweite = _reihe(DETAIL_FELDER_ZWEITE_REIHE)
     schritte = naechste_schritte(v, mail_basis, basis, anker)
     nr = v.get("nr")
     # Dieselbe Nummer wie in der Uebersicht — sie ist der Wiedererkennungsanker
@@ -477,7 +1142,29 @@ def detail(
         if nr not in (None, "")
         else ""
     )
-    notiz = html.escape(str(v.get("notiz") or "")).replace(" | ", "\n\n")
+    # Neuester Eintrag zuerst. Die Notiz waechst durch Anhaengen, chronologisch
+    # gelesen steht der aktuelle Stand also ganz unten — bei Vorgaengen mit
+    # 15.000 Zeichen Verlauf muss man dafuer erst ans Ende scrollen. Umgedreht
+    # steht der Stand da, wo man hinsieht (Owner-Weisung 2026-08-20).
+    eintraege = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
+    # Archivierte Eintraege davorsetzen: sie sind aelter, und die Anzeige dreht
+    # gleich um. So bleibt der Verlauf vollstaendig, obwohl der Ledger gekappt ist.
+    eintraege = _archiv_eintraege(v.get("nr")) + eintraege
+    # Erst nummerieren, dann drehen: die Nummer gehoert zum Eintrag, nicht zur
+    # Anzeige. Sonst waere `#132-1` je nach Sortierung ein anderer Eintrag.
+    nummeriert = list(enumerate(eintraege, start=1))
+    verlaufskarten = verlauf(
+        nummeriert,
+        str(v.get("konto") or ""),
+        mail_basis,
+        neueste_zuerst=not alt_zuerst,
+        nr=v.get("nr"),
+    )
+    schalter = (
+        "<a class='reihenfolge' href='?'>neueste zuerst</a>"
+        if alt_zuerst
+        else "<a class='reihenfolge' href='?alt=1'>aelteste zuerst</a>"
+    )
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -487,9 +1174,12 @@ def detail(
 <h1>{nr_marke}{html.escape(v.get("thread_key", "Vorgang"))}</h1>
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 <table><tbody>{zeilen}</tbody></table>
+<details class="stammdaten"><summary>Stammdaten</summary>
+<table><tbody>{zweite}</tbody></table></details>
 {schritte}
-<h2>Verlauf</h2>
-<pre class="notiz">{notiz or "—"}</pre>
+<h2 class="verlauf-kopf">Verlauf
+<span class='zusatz'>{schalter} · Erhebungsdetails unter „Deckung"</span></h2>
+{verlaufskarten}
 <footer>Quelle: mail-vorgaenge.json</footer>
 </main></body></html>"""
 
@@ -512,20 +1202,28 @@ def baue(
     # bei "Dein Zug", damit eine fehlende Klassifikation auffaellt statt zu schweigen.
     for v in posten:
         schluessel = v.get("bucket")
+        if schluessel == "erledigt" and not frisch_erledigt(v, stichtag):
+            continue  # laengst geschlossen — bleibt im Ledger, nicht auf der Seite
         nach_bucket[schluessel if schluessel in nach_bucket else "owner"].append(v)
     abschnitte = "".join(
         abschnitt(t, u, nach_bucket.get(k, []), stichtag, basis, mail_basis, anker)
         for k, t, u in BUCKETS
     )
     geprueft = html.escape(str(daten.get("letzte_pruefung", "unbekannt")))
+    offen = sum(1 for v in posten if v.get("bucket") != "erledigt")
     faellig = sum(
         1 for v in posten if (d := frist_tage(v, stichtag)) is not None and d <= 3
     )
-    warnung = (
-        f" · <strong>{faellig} in den naechsten 3 Tagen faellig</strong>"
-        if faellig
-        else ""
-    )
+    # Der Drei-Sekunden-Blick (#2176 Kriterium 4): die Seite beantwortet die drei
+    # Fragen schon in der Kopfzeile, bevor jemand eine Tabelle liest.
+    still = sum(1 for v in posten if zustand(v, stichtag)[0] == "still")
+    dein_zug = sum(1 for v in posten if v.get("bucket") == "owner")
+    teile = [f"<strong>{dein_zug} dein Zug</strong>"]
+    if faellig:
+        teile.append(f"<strong class='kopf-rot'>{faellig} faellig in 3 Tagen</strong>")
+    if still:
+        teile.append(f"<strong class='kopf-rot'>{still} still</strong>")
+    warnung = " · " + " · ".join(teile)
     return f"""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -533,7 +1231,7 @@ def baue(
 <title>Arbeitsliste</title><style>{CSS}</style></head>
 <body><main>
 <h1>Arbeitsliste</h1>
-<p class="stand">{len(posten)} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
+<p class="stand">{offen} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
 {frische_banner(daten, stichtag)}
 {abschnitte}
 <footer>Quelle: mail-vorgaenge.json · gebaut {html.escape(stichtag.isoformat())} ·
@@ -564,7 +1262,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_HEAD(self) -> None:  # noqa: N802
         self.do_GET()
 
-    def _vorgang(self, schluessel: str) -> None:
+    def _vorgang(self, schluessel: str, alt_zuerst: bool = False) -> None:
         """Einen Vorgang ausliefern. Der Schluessel wird gegen das Ledger geprueft,
         nicht gegen das Dateisystem — es gibt hier keinen Pfad, der entgleiten kann."""
         try:
@@ -577,10 +1275,12 @@ class Handler(BaseHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR, body, "text/html; charset=utf-8"
             )
             return
-        for v in daten.get("vorgaenge", []):
+        for v in list(daten.get("vorgaenge", [])) + archivierte_vorgaenge():
             if v.get("thread_key") == schluessel and schluessel:
                 self._sende(
-                    HTTPStatus.OK, detail(v).encode("utf-8"), "text/html; charset=utf-8"
+                    HTTPStatus.OK,
+                    detail(v, alt_zuerst=alt_zuerst).encode("utf-8"),
+                    "text/html; charset=utf-8",
                 )
                 return
         self._sende(
@@ -595,7 +1295,12 @@ class Handler(BaseHTTPRequestHandler):
             self._sende(HTTPStatus.OK, b"ok\n", "text/plain; charset=utf-8")
             return
         if pfad.startswith("/t/"):
-            self._vorgang(unquote(pfad[3:]))
+            # `?alt=1` dreht den Verlauf auf aelteste-zuerst. Beide Richtungen haben
+            # ihren Fall: der Stand steht oben (Default), die Entstehung liest sich
+            # von unten. Ein Schalter kostet weniger als eine Entscheidung, die fuer
+            # jeden Vorgang falsch waere.
+            alt_zuerst = "alt=1" in (self.path.split("?", 1)[1:] or [""])[0]
+            self._vorgang(unquote(pfad[3:]), alt_zuerst)
             return
         if pfad != "/":
             self._sende(
@@ -622,7 +1327,11 @@ def cmd_build(args: argparse.Namespace) -> None:
     # Die gebaute Datei wird als Datei geoeffnet — relative Links zeigten dann ins
     # Dateisystem. Darum absolute Loopback-Adresse, nie file:// (Owner-Entscheid).
     ziel.write_text(
-        baue(lade(LEDGER), heute(), basis=f"http://127.0.0.1:{args.basis_port}"),
+        baue(
+            lade(LEDGER),
+            date.fromisoformat(args.stichtag) if args.stichtag else heute(),
+            basis=f"http://127.0.0.1:{args.basis_port}",
+        ),
         encoding="utf-8",
     )
     print(f"OK: {ziel}")
@@ -651,6 +1360,11 @@ def main() -> None:
     b = sub.add_parser("build", help="HTML-Datei schreiben")
     b.add_argument("--ausgabe", default=str(AUSGABE))
     b.add_argument("--basis-port", type=int, default=PORT, dest="basis_port")
+    b.add_argument(
+        "--stichtag",
+        metavar="YYYY-MM-DD",
+        help="Bezugsdatum statt heute — macht den Bau tagesunabhaengig reproduzierbar (#2592 K1)",
+    )
     b.set_defaults(fn=cmd_build)
     s = sub.add_parser("serve", help="lokal ausliefern, bei jedem Abruf frisch gebaut")
     s.add_argument("--port", type=int, default=PORT)

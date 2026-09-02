@@ -294,3 +294,31 @@ Compliance is verified by construction and continuously, not by review alone:
   niemals in Code oder Artefakt gelangen darf.
 * **wheel** — das vorgebaute Installationspaket (`.whl`); kann andere Dateien
   enthalten als das *sdist*, daher werden beide gescannt.
+
+## Amendment 2026-08-19 — Kanon-Umzug nach iilgmbh/shared-ci ([#2084](https://github.com/achimdehnert/platform/issues/2084))
+
+**Entscheid (Owner, Kapitäns-Kanal 2026-08-19):** Kanonische Heimat von
+`_ci-pypi.yml` (samt der von ihm genutzten Composite-Actions `gitleaks-scan`
+und `resolve-install-extra`) ist ab sofort **`iilgmbh/shared-ci`** — nicht
+mehr dieses Repo.
+
+**Gemessene Basis (K3-Frühwarn-Scan + Code-Search, 2026-08-19):**
+- 14 der 19 aktiv-Pakete pinnen bereits `iilgmbh/shared-ci/_ci-pypi.yml`
+  (Tags v1.1.0–v1.1.10); **0 reale `uses:` auf die platform-Variante** —
+  platform-Referenzen in Paket-`ci.yml`s sind nur Kommentar-Header.
+- Inhaltlich sind platform-Kopie und shared-ci@main identisch bis auf die
+  Action-Pfade (Diff 6×2 Zeilen, reine Pfad-Rewrites) — kein Feature-Verlust.
+
+**Konsequenzen:**
+1. Die platform-Kopie `.github/workflows/_ci-pypi.yml` trägt einen
+   Deprecation-Header und wird nicht mehr weiterentwickelt; Verbesserungen
+   gehen nach `iilgmbh/shared-ci` (Tag-Release-Prozess dort).
+2. Rückbau der platform-Kopie inkl. Umzug der davon abhängigen
+   platform-Gates (`publish_gate_invariant.sh`, `check_publish_gate.py`
+   prüfen die lokale Datei) ist eigener Folge-Schritt — bis dahin bleibt die
+   Datei als eingefrorener Verweis liegen.
+3. Der K3-Frühwarn-Scan misst Reusable-Lag gegen die shared-ci-Tags
+   (bereits so gebaut); Pins auf die platform-Variante gelten als Legacy-Fund.
+4. Offen aus #2084 (Owner-Aktion): das Überbleibsel-Repo
+   `achimdehnert/shared-ci` (nur Tag `v1`) archivieren/umbenennen —
+   Identitäts-Kollisionsklasse, hat bereits ein fehlplatziertes Issue erzeugt.

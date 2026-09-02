@@ -73,18 +73,29 @@ jobs:
           #
           # Stillgelegt am 2026-07-21 (Owner-Weisung, Freeze-Register #1314) —
           # die Domains antworten bewusst nicht mehr, ein Alarm wäre keiner:
-          #   kiohnerisiko.de   nginx-vhost deaktiviert, Entwicklung ruht. Die
-          #                     Anwendung (coach-hub) läuft weiter und bleibt
-          #                     über coach-hub.iil.pet erreichbar.
+          #   kiohnerisiko.de   nginx-vhost deaktiviert, Entwicklung ruht.
+          #                     NACHTRAG 2026-08-20 (Owner-Weisung): jetzt ist auch
+          #                     die ANWENDUNG abgeschaltet — alle fuenf Container auf
+          #                     prod-b gestoppt, um Ressourcen freizugeben (gemessen:
+          #                     +362 MB RAM). Damit faellt der Satz "coach-hub laeuft
+          #                     weiter" weg, der hier seit 07-21 stand.
+          #                     kiohnerisiko.de und coach-hub.iil.pet liefern seither
+          #                     502 (nicht 000): die Tunnel-Route auf prod-b besteht
+          #                     fort und zeigt ins Leere. Sie zu entfernen braucht
+          #                     einen cloudflared-Restart = alle Routen des Hosts,
+          #                     also das Wartungsfenster aus #1738.
+          #                     Beide coach-hub-Sonden sind deshalb unten ENTFERNT
+          #                     (nicht auskommentiert, s. Fake-Ziel-Falle oben).
+          #                     Daten gesichert vor dem Stopp: pgdump mit 83 Tabellen
+          #                     und 17 auth_user-Zeilen, gegengezaehlt.
           # Wiederaufnahme: die URL unten wieder eintragen.
           #
-          # learn.iil.pet und wedding-hub.iil.pet standen hier ebenfalls als
-          # "stillgelegt, siehe #1314" — das war FALSCH und ist am 2026-07-22
-          # zurueckgenommen: #1314 nennt beide nicht (sein Umfang ist
-          # onboarding-hub, kiohnerisiko.de nur-Domain, odoo.iil.pet), ein
-          # zweites Freeze-Artefakt existiert nicht, und beide /livez/
-          # antworteten bei der Pruefung mit 200. Wer sie kuenftig streichen
-          # will: zuerst Eintrag in #1314, dann hier.
+          # wedding-hub.iil.pet ist seit 2026-08-30 stillgelegt (Owner-Entscheid,
+          # platform#2480) und hier gestrichen — der Canary lief 24x/Tag rot und
+          # kommentierte platform#2479, ohne dass jemand es las. learn.iil.pet bleibt
+          # (2026-07-22: laeuft, #1314 nennt es nicht). Wer weitere Ziele streicht:
+          # zuerst betriebsstatus in infra/ports.yaml, dann hier — Ziel ist, diese
+          # Liste aus ports.yaml (betriebsstatus == aktiv) zu erzeugen.
           #
           # Stillgelegt am 2026-08-07 (Umsetzung des #1303-Vorschlags, Owner-Go;
           # Register-Eintrag in #1314 vom selben Tag — die geforderte Reihenfolge
@@ -121,11 +132,14 @@ jobs:
           # uebrigen aus #1468 liefern 302/404 und braeuchten erst einen Endpoint.
           # Je Host GEMESSEN, nicht angenommen:
           #   coach-hub.iil.pet     /livez/ 200  Asset 200  / 200
+          #                         ^ galt bis 2026-08-20; Anwendung seither
+          #                           abgeschaltet, beide Sonden entfernt.
           #   hr.iil.pet            /livez/ 200  Asset 404  / 200
           #   illustration.iil.pet  /livez/ 200  Asset 200  / 404
           #   bahn.iil.pet          /livez/ 200  Asset 404  / 404
           # Asset-Sonde deshalb NUR fuer coach-hub und illustration — bei den anderen
-          # beiden waere sie ein Dauer-Fehlalarm.
+          # beiden waere sie ein Dauer-Fehlalarm. (Seit 2026-08-20 bleibt davon nur
+          # illustration; coach-hub ist abgeschaltet.)
           # Offen (in #1468 festgehalten, hier bewusst nicht geloest): illustration und
           # bahn liefern auf / einen 404. /livez/ zu ueberwachen faengt einen Prozess-Tod,
           # sagt aber nichts darueber, ob die Anwendung erreichbar ist — dieselbe Luecke
@@ -138,14 +152,12 @@ jobs:
           https://nl2cad.de/livez/
           https://prezimo.com/livez/
           https://trading-hub.iil.pet/livez/
-          https://wedding-hub.iil.pet/livez/
           https://weltenforger.com/livez/
           https://writing-hub.iil.pet/livez/
           https://writing-hub.iil.pet/readyz/
           https://writing.iil.pet/livez/
           https://writing.iil.pet/readyz/
           https://research.iil.pet/healthz/
-          https://coach-hub.iil.pet/livez/
           https://illustration.iil.pet/livez/
           "
           down=""
@@ -194,12 +206,10 @@ jobs:
           https://dev-hub.iil.pet/static/admin/css/base.css
           https://dms.iil.pet/static/admin/css/base.css
           https://trading-hub.iil.pet/static/admin/css/base.css
-          https://wedding-hub.iil.pet/static/admin/css/base.css
           https://weltenforger.com/static/admin/css/base.css
           https://writing-hub.iil.pet/static/admin/css/base.css
           https://writing.iil.pet/static/admin/css/base.css
           https://research.iil.pet/static/admin/css/base.css
-          https://coach-hub.iil.pet/static/admin/css/base.css
           https://illustration.iil.pet/static/admin/css/base.css
           "
           # Selbsttest: beweist, dass dieser Check ueberhaupt rot werden KANN. Ohne so
