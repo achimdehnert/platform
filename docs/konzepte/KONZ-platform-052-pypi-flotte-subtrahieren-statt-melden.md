@@ -148,9 +148,21 @@ Findet: ein Provenance-Feld je Release (V10), eine Kohorten-Datei mit Datum (V11
 
 Siehe Frontmatter `kill_criteria`. Messpunkte: PyPI-Integrity-API (V10, Skript im Anhang anhaenge/KONZ-platform-052-befunde.md), `pipeline_status` von KONZ-018, `gh issue list --label pypi-fleet`. Termin: 2026-10-19 (mit ADR-278 zusammengelegt, ein Review statt zwei).
 
+## Stand 2026-09-02 — Fortfuehrung ueber #2591
+
+Linse 1 in Aktion: **24 M4-Findings subtrahiert**, nicht gemeldet — `reusable_lag` feuert seit
+[#2607](https://github.com/achimdehnert/platform/pull/2607) nur bei realer Datei-Differenz zwischen
+Ref und neuestem shared-ci-Tag (identisch = `lag_nominal`, Info ohne Finding). Lokal 43 → 19.
+Neuer Melder-ohne-Leser-Befund: der Wochenlauf sieht mit `GITHUB_TOKEN` 6 von 20 aktiv-Paketen
+nicht und zaehlt sie als `unresolved` ([#2610](https://github.com/achimdehnert/platform/issues/2610),
+Owner: Lese-Token). Cold-Start-Klasse „`make test` ignoriert `.venv`" in 9 Repos behoben, 9/9 gruen
+(`docs/verifications/2026-09-02-adr266-k3-venv-first-und-m4-nominal.md`). Befund je Paket mit
+Beleg: `tools/pypi_fleet_report.py` (K2). Kill-Kriterium (a) bleibt offen: gpufw 0.1.1 und
+iil-reflex 0.6.1 sind Releases nach ADR-278 ohne Attestation.
+
 ## Bezug
 
-- Auftrag/Scope: [#2361](https://github.com/achimdehnert/platform/issues/2361)
+- Auftrag/Scope: [#2361](https://github.com/achimdehnert/platform/issues/2361) · Fortfuehrung: [#2591](https://github.com/achimdehnert/platform/issues/2591)
 - Ausfall-Serie: [#1904](https://github.com/achimdehnert/platform/issues/1904) · Melder: [#968](https://github.com/achimdehnert/platform/issues/968), [#373](https://github.com/achimdehnert/platform/issues/373), [#752](https://github.com/achimdehnert/platform/issues/752), [#2075](https://github.com/achimdehnert/platform/issues/2075) · Familie: [#2076](https://github.com/achimdehnert/platform/issues/2076) · PyPI-Org: [#2291](https://github.com/achimdehnert/platform/issues/2291) · mcp-SDK: [mcp-hub#218](https://github.com/achimdehnert/mcp-hub/pull/218)
 - ADR-266, ADR-226, ADR-278, ADR-234 (P0.5a), ADR-180 (Rueckfaltungs-Lehre), ADR-071 §4B (Conventional Commits verworfen), KONZ-platform-018
 - Werkzeuge: `tools/pypi_fleet_inventory.py`, `tools/check_publish_oidc_auth.py`, `tools/pypi_fleet_issue_emitter.py`, `registry/pypi-fleet.yaml`
