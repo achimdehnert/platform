@@ -20,19 +20,19 @@ lint = importlib.util.module_from_spec(_spec)
 sys.modules["lint_blind_verification"] = lint
 _spec.loader.exec_module(lint)
 
-FALLE = '''#!/usr/bin/env bash
+FALLE = """#!/usr/bin/env bash
 set -euo pipefail
 git fetch --dry-run 2>&1 | grep -qi 'moved\\|redirect' && warnen
 tar -tzf "$RAW" | grep -qx "$muss" || abbruch
-'''
+"""
 
-SICHER = '''#!/usr/bin/env bash
+SICHER = """#!/usr/bin/env bash
 set -euo pipefail
 LISTE="$(tar -tzf "$RAW")"
 grep -qxF "$muss" <<<"$LISTE" || abbruch
 git fetch --dry-run >/dev/null 2>&1 || abbruch
 # git fetch | grep -q moved   <- nur ein Kommentar, kein Fund
-'''
+"""
 
 
 @pytest.mark.f1
@@ -58,12 +58,15 @@ def test_should_exit_nonzero_only_in_strict_mode(tmp_path, capsys):
 
 
 @pytest.mark.f2
-@pytest.mark.parametrize("zeile, erwartet", [
-    ("cmd | grep -q x", 1),
-    ("cmd | grep -qi x", 1),
-    ("cmd | grep -c x", 0),
-    ("grep -q x datei", 0),
-])
+@pytest.mark.parametrize(
+    "zeile, erwartet",
+    [
+        ("cmd | grep -q x", 1),
+        ("cmd | grep -qi x", 1),
+        ("cmd | grep -c x", 0),
+        ("grep -q x datei", 0),
+    ],
+)
 def test_should_match_only_piped_quiet_greps(tmp_path, zeile, erwartet):
     f = tmp_path / "p.sh"
     f.write_text("#!/bin/bash\n" + zeile + "\n", encoding="utf-8")

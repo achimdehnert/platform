@@ -51,7 +51,9 @@ def ist_shell(p: Path) -> bool:
 
 def pruefe(p: Path) -> list[tuple[int, str]]:
     treffer = []
-    for nr, zeile in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+    for nr, zeile in enumerate(
+        p.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+    ):
         nackt = zeile.split("#", 1)[0]
         if MUSTER.search(nackt):
             treffer.append((nr, zeile.strip()))
@@ -65,7 +67,8 @@ def main(argv: list[str]) -> int:
     for z in ziele:
         p = Path(z)
         dateien.extend(
-            q for q in (p.rglob("*") if p.is_dir() else [p])
+            q
+            for q in (p.rglob("*") if p.is_dir() else [p])
             if q.is_file() and ".git/" not in str(q) and ist_shell(q)
         )
 
@@ -78,7 +81,9 @@ def main(argv: list[str]) -> int:
     if gesamt:
         print(f"\n{gesamt} Fund(e). Ausgabe in eine Variable ziehen und dort greppen:")
         print('  LISTE="$(<befehl>)" ; grep -qxF "<muster>" <<<"$LISTE"')
-        print("Als Pruefung stattdessen den Exit-Code messen: `<befehl> >/dev/null 2>&1 || abbruch`")
+        print(
+            "Als Pruefung stattdessen den Exit-Code messen: `<befehl> >/dev/null 2>&1 || abbruch`"
+        )
     else:
         print(f"keine Funde in {len(set(dateien))} Shell-Datei(en).")
     return 1 if (gesamt and strict) else 0
