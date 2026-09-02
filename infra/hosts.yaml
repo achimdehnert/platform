@@ -233,6 +233,24 @@ hosts:
             identischen Aehnlichkeitswerten.
           entschieden: 2026-09-01
           bis: 2026-12-01
+        ollama:
+          grund: >
+            LLM-Inferenz fuer den strict-Pfad des Voice-Agents (iil-voice-agent#90):
+            qwen2.5:7b + llama3.1:8b, gebunden auf 10.99.0.4:11434, NICHT 0.0.0.0
+            (am Knoten gegengeprueft: 0 Treffer auf 0.0.0.0; 127.0.0.1 antwortet
+            nicht, LAN-Adresse vom prod-Hop nicht erreichbar). Kein Container,
+            kein App-Hub: systemd-Nutzerdienst wie der Embedder (ollama 0.33.2,
+            user-lokal unter ~/ollama/bin, GPU erkannt: library=CUDA name=CUDA0
+            description="NVIDIA GB10" total=121.6 GiB). Nur synthetische/oeffentliche
+            Korpora (Guenzburg-Fachseiten), keine Buergerdaten. Gemessen 2026-09-02
+            warm: 47,8 tok/s (qwen2.5:7b), 47,1 tok/s (llama3.1:8b).
+            Offene Haertung: Abschottung ruht allein auf der Bind-Adresse; ein
+            Paketfilter analog ADR-296 (11434 nur aus 10.99.0.0/24) braucht Root
+            (sudo verlangt Passwort) — Owner-Sitzung.
+          entschieden: 2026-09-02
+          bis: 2026-12-01
+    historie:
+      - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall-Stand nicht verifizierbar (kein Root)"
     betrieb: 7/24                      # Owner-Angabe 2026-09-01 — der Knoten
                                        # ist KEIN Buerorechner mit Zuruf-Betrieb.
                                        # Damit faellt der Verfuegbarkeits-Einwand
