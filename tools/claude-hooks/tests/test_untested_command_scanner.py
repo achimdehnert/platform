@@ -228,3 +228,44 @@ def test_should_not_treat_prose_starting_with_bang_as_a_command():
     """`!` allein macht keine Zeile zum Befehl — der Starter muss folgen."""
     untested, _ = find_untested("```\n! das ist Prosa, kein Befehl\n```\n", [])
     assert untested == []
+
+
+# --- Verweigerte Ausfuehrung (2026-09-01) ------------------------------------
+#
+# Ein Befehl, dessen Ausfuehrung der Permission-Classifier sperrt, ist nicht
+# ungetestet, sondern unausfuehrbar. Der Melder feuerte am 2026-09-01 dreimal
+# auf denselben gesperrten Befehl (Retro meiki-hub 33616e, Befund #8).
+
+
+def test_should_stay_silent_when_execution_was_denied():
+    text = "Fuehr du das aus:\n\n```\ndocker exec risk_hub_web python manage.py onboard_tenant --slug x\n```"
+    untested, _ = find_untested(
+        text,
+        bash_commands=["docker exec risk_hub_staging_web python manage.py onboard_tenant --dry-run"],
+        abgelehnte_kerne={"docker exec"},
+    )
+    assert untested == []
+
+
+def test_should_still_flag_when_a_different_command_was_denied():
+    """Die Abdeckung gilt nur fuer den gesperrten Kern, nicht pauschal.
+
+    Realfall: `docker exec` war gesperrt, weitergegeben wurde spaeter
+    `ssh hetzner-prod 'docker exec …'` — anderer Kern, anderes Risiko. Genau
+    dieser Lauf fand ein kaputtes Quoting, das sonst beim User gelandet waere.
+    """
+    text = "```\nssh hetzner-prod 'docker exec risk_hub_web python manage.py onboard_tenant'\n```"
+    untested, _ = find_untested(
+        text, bash_commands=["git status"], abgelehnte_kerne={"docker exec"}
+    )
+    assert untested and untested[0].startswith("ssh hetzner-prod")
+
+
+def test_should_detect_denial_marker_in_tool_result():
+    from untested_command_scanner import _ist_ablehnung
+
+    assert _ist_ablehnung(
+        "Permission for this action was denied by the Claude Code auto mode classifier."
+    )
+    assert _ist_ablehnung([{"type": "text", "text": "Reason: Blocked by classifier."}])
+    assert not _ist_ablehnung("bash: docker: command not found")
