@@ -142,3 +142,33 @@ Dry-run first to inspect the plan without removing anything:
   `worktree-reaper.{service,timer}`, systemd --user) — closes the missing
   scheduled `--apply` invocation behind ADR-233's reaper (gate for
   `worktree-orphan-accumulation`).
+
+## registry-probe — Erreichbarkeit der Container-Registry (platform#2685)
+
+Misst alle fünf Minuten, ob der Host `ghcr.io` erreicht, immer zusammen mit einem
+Kontrollarm (`github.com`, dieselbe Anbieterkette, benachbarte Adresse im selben /24).
+Ohne den Kontrollarm ist „Registry schlecht erreichbar" nicht von „Leitung dieses Hosts
+schlecht" zu unterscheiden — und genau diese Unterscheidung war am 2026-09-02 der
+tragende Befund.
+
+Bricht die Registry-Quote ein, **während** der Kontrollarm sauber ist, schneidet das
+Skript 30 Sekunden lang die Paket-Header dieser einen Verbindung mit. Das ist der
+Zustand, den hinterher niemand nachstellen kann: an ihm entscheidet sich, ob auf das
+ClientHello gar keine Antwort kommt, ein RST oder eine verspätete.
+
+Installation (prod, prod-b — dort läuft der Deploy):
+
+```
+scp infra/host-maintenance/registry-probe.sh      root@<host>:/opt/scripts/
+scp infra/host-maintenance/registry-probe.service root@<host>:/etc/systemd/system/
+scp infra/host-maintenance/registry-probe.timer   root@<host>:/etc/systemd/system/
+ssh root@<host> 'chmod 755 /opt/scripts/registry-probe.sh && systemctl daemon-reload && systemctl enable --now registry-probe.timer'
+```
+
+Gelesen wird nicht der Dienststatus, sondern das Protokoll —
+`tools/registry_erreichbarkeit_melder.py`, verdrahtet als Sitzungsstart-Phase 0.7.24.
+Ein **stummer** Rekorder ist dort selbst ein Befund: er meldet sonst nie ein Fenster.
+
+Aufräumen ist eingebaut: Mitschnitte älter als 14 Tage werden gelöscht, das Protokoll
+bei 20.000 Zeilen auf 10.000 gekürzt. Ein Melder, der die Platte füllt, erzeugt den
+nächsten Befund (Phase 0.7.18 misst die Vorlaufzeit).
