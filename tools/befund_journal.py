@@ -48,6 +48,8 @@ Kommandos:
   --beleg ID ...           Kommando, Ausgabe, Knoten, Positivkontrolle an einen Befund haengen.
   --bericht --json         Dieselben Daten maschinenlesbar — fuer eine Leseflaeche
                            ausserhalb dieser Maschine (KONZ-054 E2).
+  --praezision --json      Trefferquote je Melder maschinenlesbar (#2690 K3) —
+                           Basis fuer tools/melder_register_check.py --herabstufung.
 
 Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messung:
     17 Befunde offen, 0 verankert, 12 ohne Frist — und 7 davon waren platform-eigene
@@ -661,6 +663,10 @@ def main(argv: list[str] | None = None) -> int:
         urteile_dazu(daten, fid, urteil, text)
         sichere(daten, pfad)
         print(f"{urteil}: {fid} — {text}")
+        return 0
+
+    if a.praezision and a.json:
+        print(json.dumps(praezision(daten), ensure_ascii=False, indent=1))
         return 0
 
     if a.praezision:

@@ -1,0 +1,299 @@
+# governance/melder-register.yaml — #2690 K3 ("Vorausschauende Wartung")
+#
+# Ein Eintrag je Runner-Phasen-ID aus tools/session_start_checks.sh
+# (`grep -oE 'record "[0-9][^"]*"' tools/session_start_checks.sh | sort -u`).
+# Jeder Eintrag traegt vier Dinge:
+#   leser              wer den Befund liest und entscheidet. Abgeleitet aus den
+#                       WARN-Erklaerungen in .windsurf/workflows/session-start.md
+#                       (Abschnitt "0.R Runner ausfuehren", Zeilen 89-179) sowie
+#                       Querverweisen in session-ende.md. Steht dort nichts,
+#                       bleibt es ehrlich "UNBENANNT" statt erfunden — genau
+#                       diese Zahl ist die Ist-Messung "Melder ohne Leser"
+#                       (Audit #2606-Muster).
+#   wiedervorlage_tage  Default 14 (siehe FRIST_VERANKERT_TAGE in befund_journal.py).
+#   praezision_min      Default 0.6 (PRAEZISION_SCHWELLE in befund_journal.py) —
+#                       unter dieser Trefferquote ueber >= mindest_laeufe
+#                       beurteilte Laeufe stuft sich der Melder selbst auf
+#                       HINWEIS herab (tools/melder_register_check.py --herabstufung).
+#   mindest_laeufe      Default 5 — bewusst ueber MIN_URTEILE=3 in befund_journal.py
+#                       (dort gilt ein Melder schon ab 3 Urteilen als bewertbar;
+#                       die Selbst-Herabstufung verlangt mehr Evidenz, bevor sie
+#                       eine Phase leiser macht).
+#   runbook             Anker im Runner-Dokument, Form "0.R#<phase-id>".
+#
+# Karteileichen (Eintrag ohne passende Runner-Phase) und fehlende Eintraege
+# (Runner-Phase ohne Register-Zeile) meldet tools/melder_register_check.py --kurz.
+
+melder:
+  - phase: "0.0 env+banner"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.0"
+
+  - phase: "0.1 server-probe"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.1"
+
+  - phase: "0.2 platform-sync"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.2"
+
+  - phase: "0.4.1 reflex"
+    leser: "Agent selbst, sofort — BLOCK-Findings vor Weiterarbeit fixen (session-start.md 0.4.1 BLOCK-Findings)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.4.1"
+
+  - phase: "0.4.2 adr-schema"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.4.2"
+
+  - phase: "0.4.4 basis-abstand"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.4.4"
+
+  - phase: "0.4.5 auto-reap"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.4.5"
+
+  - phase: "0.4 parallel-sessions"
+    leser: "Agent selbst — read-only weiterarbeiten, NICHT stashen/switchen (GUARD, ADR-233)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.4"
+
+  - phase: "0.4 repo-sync"
+    leser: "Agent selbst — read-only weiterarbeiten, NICHT stashen/switchen (GUARD, ADR-233)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.4"
+
+  - phase: "0.5.1 secret-zone"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.5.1"
+
+  - phase: "0.5.2 schleuse"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.5.2"
+
+  - phase: "0.5 pgvector-tunnel"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.5"
+
+  - phase: "0.6 adr156"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.6"
+
+  - phase: "0.7.10 kennzahl-verfall"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.10"
+
+  - phase: "0.7.11 erreichbarkeit"
+    leser: "Zielrepo (5xx: Dienst reparieren) bzw. platform/infra/ports.yaml (NXDOMAIN: Deklaration korrigieren) — Owner"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.11"
+
+  - phase: "0.7.12 prod-wirkung"
+    leser: "Zielrepo — Owner (Deploy/Freigabe nachziehen, RUECKSTAND ist der Befund)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.12"
+
+  - phase: "0.7.13 skill-dist"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.13"
+
+  - phase: "0.7.14 policy-frische"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.14"
+
+  - phase: "0.7.15 namensdeckung"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.15"
+
+  - phase: "0.7.16 origin-tls"
+    leser: "Host im Zielrepo/Infra — Owner (certbot-Renewal reparieren, fehlenden vhost/cert anlegen)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.16"
+
+  - phase: "0.7.17 backup-deckung"
+    leser: "Owner — je Lage: ins Backup-Skript aufnehmen (in Nutzung) / Dienst pruefen (Container steht) / loeschen oder verzichten (verwaist)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.17"
+
+  - phase: "0.7.18 speicher"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.18"
+
+  - phase: "0.7.19 melder-praezision"
+    leser: "/session-ende — Urteile via --echt/--falsch (session-ende.md Zeile ~314)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.19"
+
+  - phase: "0.7.1b host-kopien"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.1b"
+
+  - phase: "0.7.1 deploy-script"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.1"
+
+  - phase: "0.7.20 umgebung"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.20"
+
+  - phase: "0.7.21 alarmweg"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.21"
+
+  - phase: "0.7.22 flottenbild"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.22"
+
+  - phase: "0.7.2 cron-melder"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.2"
+
+  - phase: "0.7.3 opt-platform"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.3"
+
+  - phase: "0.7.4 prio-referenzen"
+    leser: "Agent selbst, vor Arbeitsbeginn — dieselbe Klasse wie 0.7.6 (session-start.md Zeile 94)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.4"
+
+  - phase: "0.7.5 hook-dist"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.5"
+
+  - phase: "0.7.6 leseflaeche"
+    leser: "Agent selbst, vor Arbeitsbeginn — python3 platform/tools/hooks/befund_leseflaeche.py --alle-gesehen"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.6"
+
+  - phase: "0.7.7 gate-wirkung"
+    leser: "/session-ende Phase 0f (Checkliste 17) → /session-retro Phase 4 Punkt 5a"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.7"
+
+  - phase: "0.7.8 zeitplan-wache"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.8"
+
+  - phase: "0.7.9 gate-deckung"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.9"
+
+  - phase: "0.7 deploy-scan"
+    leser: "Agent selbst → User informieren (Deploy-Log im Zielrepo lesen); Gate: /session-ende Phase 0f"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7"
+
+  - phase: "0.9 staging"
+    leser: "UNBENANNT"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.9"
+
+  - phase: "0.7.23 melder-register"
+    leser: "Session-Start-Board → Agent selbst (Melder-Register-Pflege: neue Phasen ergaenzen, Karteileichen entfernen)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.23"
