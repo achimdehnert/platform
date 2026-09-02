@@ -51,12 +51,18 @@ jobs:
           OWNER_LOGIN: achimdehnert
         run: |
           set -euo pipefail
+          # Eigener Login des Bot-Kontos — Grundlage der Wiederholungs-Sperre unten.
+          # Nicht hartkodiert: das Konto haengt am Secret, nicht am Dateitext.
+          BOT_LOGIN="$(gh api user --jq .login)"
+          export BOT_LOGIN
+          echo "Bot-Konto: $BOT_LOGIN"
           gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
-            --json number,isDraft,author,mergeStateStatus,reviewDecision,files,statusCheckRollup,url \
+            --json number,isDraft,author,mergeStateStatus,reviewDecision,reviews,files,statusCheckRollup,url \
             > /tmp/prs.json
           python3 - <<'PY'
-          import json
+          import json, os
           TABU = ("policies/", "docs/adr/", ".github/CODEOWNERS", ".github/workflows/bot-review.yml")
+          BOT_LOGIN = os.environ["BOT_LOGIN"]
           prs = json.load(open("/tmp/prs.json"))
           print(f"{len(prs)} offene PRs: {[p['number'] for p in prs]}")
           out = []
@@ -70,6 +76,20 @@ jobs:
                   print(f"#{p['number']}: Autor {p['author']['login']} — nur Owner-PRs"); continue
               if p.get("reviewDecision") == "APPROVED":
                   print(f"#{p['number']}: bereits approved"); continue
+              # Wiederholungs-Sperre (#2612 bekam am 2026-09-02 eilf Approves, #2616
+              # drei — 12 von 20 Freigaben des Tages waren Wiederholungen). Grund:
+              # `reviewDecision` bleibt fuer das Bot-Token leer, solange ein
+              # CODEOWNERS-Review aussteht, das der Bot nicht geben darf (Tabu-Pfad
+              # oder zweiter Owner). Die Bedingung oben feuert dann nie, und der
+              # 20-Minuten-Cron approvt denselben Stand endlos nach. Massgeblich ist
+              # die eigene Review-Liste, nicht das aggregierte Urteil.
+              # Sicher, weil `dismiss_stale_reviews_on_push: false` gilt: ein einmal
+              # gegebenes Approve ueberlebt neue Commits — ein zweites aendert nichts.
+              eigene = [r for r in (p.get("reviews") or [])
+                        if (r.get("author") or {}).get("login") == BOT_LOGIN
+                        and r.get("state") == "APPROVED"]
+              if eigene:
+                  print(f"#{p['number']}: bereits von {BOT_LOGIN} approved ({len(eigene)}x) — kein weiteres"); continue
               # UNKNOWN ist kein Zustand, sondern "noch nicht berechnet": GitHub liefert
               # ihn dem Bot-Token beim ersten Aufruf fuer JEDEN PR (Lauf 32871455115:
               # acht PRs, alle UNKNOWN, waehrend der Owner-Token BLOCKED sah). Ein
