@@ -65,12 +65,40 @@ FAILED=0
 #   fuer 0.7 regelmaessig nicht abfragbar — der Befund waere jedes Mal still
 #   verschwunden und beim naechsten erfolgreichen Scan als neu wieder aufgetaucht,
 #   ewig jung. Der teuerste Fehler, den ein Melder-Gedaechtnis machen kann.
+# ── Melder-Register: Herabstufungsdatei aus dem VORIGEN Lauf lesen (#2690 K3) ──
+# Phase 0.7.19 misst die Trefferquote SPAET im Lauf und Phase 0.7.23 (weiter
+# unten) schreibt `melder-herabgestuft.tsv` erst danach — die Datei, die HIER
+# gelesen wird, ist also immer der Stand des VORIGEN Laufs, nie des laufenden.
+# Das ist gewollt: ein Melder, der GERADE jetzt unter die Schwelle faellt, bleibt
+# fuer genau einen Lauf noch WARN-laut; erst ab dem naechsten Lauf wird er leiser
+# (HINWEIS). Alles andere waere ein Melder, der sich selbst herabstuft, bevor die
+# Herabstufung ueberhaupt geschrieben ist — ein zirkulaerer Lauf in einer Zeile.
+declare -A MELDER_HERABGESTUFT
+HERABSTUFUNG_DATEI="${MELDER_HERABSTUFUNG_DATEI:-$HOME/.claude/hooks/state/melder-herabgestuft.tsv}"
+if [ -f "$HERABSTUFUNG_DATEI" ]; then
+  while IFS=$'\t' read -r hphase hquote hlaeufe _hdatum; do
+    [ -z "$hphase" ] && continue
+    MELDER_HERABGESTUFT["$hphase"]="${hquote}|${hlaeufe}"
+  done < "$HERABSTUFUNG_DATEI"
+fi
+
 record() {
-  P_NAME+=("$1"); P_STATUS+=("$2"); P_NOTE+=("$(echo "$3" | tr '|' '/')")
+  local phase="$1" status="$2" note="$3"
+  # Ein herabgestufter Melder (governance/melder-register.yaml, Trefferquote
+  # < praezision_min über >= mindest_laeufe Läufe) wird gelesen, aber nicht als
+  # WARN ins Board gezwungen — solange die Trefferquote unter der Schwelle
+  # liegt, ist der Melder selbst der Befund, nicht jede einzelne seiner Zeilen.
+  if [ "$status" = "WARN" ] && [ -n "${MELDER_HERABGESTUFT[$phase]:-}" ]; then
+    local hq="${MELDER_HERABGESTUFT[$phase]%%|*}" hl="${MELDER_HERABGESTUFT[$phase]##*|}"
+    local hq_pct; hq_pct=$(awk -v q="$hq" 'BEGIN{printf "%.0f", q*100}' 2>/dev/null || echo "?")
+    status="HINWEIS"
+    note="(herabgestuft: Trefferquote ${hq_pct} % über ${hl} Läufe) ${note}"
+  fi
+  P_NAME+=("$phase"); P_STATUS+=("$status"); P_NOTE+=("$(echo "$note" | tr '|' '/')")
   P_REPO+=("${4:-$PLATTFORM_REPO}")
   P_UNGEPRUEFT+=("${5:-}")
-  [ "$2" = "FAIL" ] && FAILED=1
-  printf '  [%s] %s — %s\n' "$2" "$1" "$3"
+  [ "$status" = "FAIL" ] && FAILED=1
+  printf '  [%s] %s — %s\n' "$status" "$phase" "$note"
 }
 
 echo "┌─ session-start Runner · $(date '+%Y-%m-%d %H:%M') · target=$TARGET_REPO ─┐"
@@ -914,6 +942,25 @@ if [ -n "$PRAEZ_OUT" ]; then
 else
   record "0.7.19 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
 fi
+# Schreibt/leert governance-gestuetzt ~/.claude/hooks/state/melder-herabgestuft.tsv
+# (mindest_laeufe/praezision_min je Phase aus governance/melder-register.yaml) —
+# gelesen wird die Datei oben in record(), also erst im NAECHSTEN Lauf wirksam.
+python3 "$PLATFORM_DIR/tools/melder_register_check.py" --herabstufung >/dev/null 2>&1 || true
+
+# ── 0.7.23 Melder-Register: hat jeder Melder einen Leser, eine Frist? (#2690 K3) ──
+# Ergaenzt 0.7.19 (Trefferquote) um die anderen beiden K3-Dinge: benannter Leser
+# und Wiedervorlage-Frist. `governance/melder-register.yaml` traegt einen Eintrag
+# je Runner-Phase; ohne Eintrag oder mit `leser: UNBENANNT` ist die Phase ein
+# Melder, der niemanden erreicht — dieselbe Klasse wie ein Melder mit schlechter
+# Trefferquote, nur auf der Zustell- statt der Erkennungsseite. Erstlauf
+# 2026-09-02 (#2690): 26 von 39 Phasen ohne Leser, ehrlich als UNBENANNT geführt.
+REGISTER_OUT=$(python3 "$PLATFORM_DIR/tools/melder_register_check.py" --kurz 2>/dev/null || true)
+if [ -n "$REGISTER_OUT" ]; then
+  record "0.7.23 melder-register" "WARN" "$(echo "$REGISTER_OUT" | head -1 | tr '|' '/')"
+  echo "$REGISTER_OUT" | tail -n +2
+else
+  record "0.7.23 melder-register" "PASS" "kein Melder ohne Leser, keine Karteileiche"
+fi
 
 # ── 0.7.21 Alarmweg: erreicht ein Alarm ueberhaupt einen Menschen? ─────────
 # KONZ-054 E4. Ein Kanal gilt erst, wenn er in den letzten Tagen einmal
@@ -1007,6 +1054,11 @@ for i in "${!P_NAME[@]}"; do
     PASS) ICON="✅" ;;
     WARN) ICON="⚠️" ;;
     FAIL) ICON="❌" ;;
+    # HINWEIS = ein herabgestufter Melder (#2690 K3): lesen, aber keine WARN-
+    # Lautstaerke — solange die Trefferquote unter der Schwelle liegt, ist der
+    # Melder selbst der Befund, nicht jede einzelne seiner Zeilen. Zaehlt NICHT
+    # als WARN in dieser Tabelle.
+    HINWEIS) ICON="ℹ️" ;;
     # SKIP ist KEIN Gruen. Die Phase konnte nicht pruefen — das ist weder ein
     # Befund noch eine Entwarnung, und genau diese dritte Moeglichkeit fehlte:
     # ein SKIP wurde als PASS verbucht und war in der Tabelle von einer echten
@@ -1037,6 +1089,20 @@ if [ -f "$PLATFORM_DIR/tools/befund_journal.py" ]; then
   if [ -n "$JOURNAL_OUT" ]; then
     echo "Befund-Journal (Alter je Befund · tools/befund_journal.py --bericht):"
     echo "$JOURNAL_OUT"
+    echo ""
+  fi
+fi
+
+# ── Ohne Entscheidung > 14 d: eigener Block (#2690 K3) ───────────────────────
+# Ein Befund ohne Artefakt/Verzicht altert im Journal oben leise mit — hier
+# steht er noch einmal separat, weil eine Liegezeit über der Frist ein anderer
+# Befund ist als ein frischer: der Melder hat funktioniert, es fehlt an einer
+# Entscheidung, nicht an einer Erkennung.
+if [ -f "$PLATFORM_DIR/tools/melder_register_check.py" ]; then
+  OHNE_ENTSCHEIDUNG_OUT=$(python3 "$PLATFORM_DIR/tools/melder_register_check.py" \
+    --ohne-entscheidung --tage 14 --repo "$TARGET_REPO" 2>/dev/null || true)
+  if [ -n "$OHNE_ENTSCHEIDUNG_OUT" ]; then
+    echo "$OHNE_ENTSCHEIDUNG_OUT"
     echo ""
   fi
 fi
