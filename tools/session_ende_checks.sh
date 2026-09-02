@@ -299,6 +299,8 @@ else
     1) DC_ZEILE=$(printf '%s' "$DC_OUT" | grep -m1 -E '^Exit 1:' \
                   || printf '%s' "$DC_OUT" | grep -iE 'error|drift' | tail -1)
        record "E.6 template-drift" "WARN" "$(printf '%s' "$DC_ZEILE" | cut -c1-140)" ;;
+    2) record "E.6 template-drift" "SKIP" \
+         "kein Repo erreichbar — Werkzeugfehler, KEIN drift-freier Stand (meist GitHub-Drosselung; echte Probe: gh api repos/<owner>/<einRepo>)" ;;
     124) record "E.6 template-drift" "SKIP" \
            "drift_check.py in ${SESSION_ENDE_DRIFT_TIMEOUT:-480}s nicht fertig (SESSION_ENDE_DRIFT_TIMEOUT erhoehen)" ;;
     *) record "E.6 template-drift" "SKIP" "drift_check.py brach ab (rc=$DC_RC)" ;;

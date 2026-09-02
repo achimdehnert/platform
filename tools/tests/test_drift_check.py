@@ -191,3 +191,52 @@ def test_should_name_the_alternative_in_the_fix_hint(monkeypatch):
     drifts = _required_files_with({}, monkeypatch)
     found = _findings_for(drifts, "Dockerfile")
     assert "docker/app/Dockerfile" in found[0].fix_hint
+
+
+# --- Blind ist nicht gruen: unerreichbare Repos ------------------------------
+#
+# Realfall 2026-09-02: derselbe Stand ergab in Minuten 19, dann 10, dann 0 Errors.
+# Der Null-Lauf sah am besten aus und war der wertloseste — hinter jedem der 26
+# Repos stand „Repo nicht gefunden oder privat" (sekundaeres GitHub-Ratenlimit,
+# sechs Sitzungen an einem Token). Ein unerreichbares Repo liefert 0 Befunde;
+# sind ALLE unerreichbar, faellt die Bilanz auf null.
+
+
+def _lauf(monkeypatch, capsys, repos, fehler_bei):
+    """Laesst `main()` ueber `repos` laufen; `fehler_bei` = Repos ohne Zugriff."""
+
+    def fake_check(repo, repo_type, token, iil_latest):
+        d = dc.RepoDrift(repo=repo, repo_type=repo_type)
+        if repo in fehler_bei:
+            d.error = "Repo nicht gefunden oder privat"
+        return d
+
+    monkeypatch.setattr(dc, "check_repo", fake_check)
+    monkeypatch.setattr(dc, "_github_token", lambda *a, **k: "t")
+    monkeypatch.setattr(dc, "_load_iil_latest", lambda *a, **k: {})
+    # Positionsargumente umgehen die Registry-Auswahl: Namen direkt aus dem Test.
+    monkeypatch.setattr(sys, "argv", ["drift_check.py", *repos])
+    code = dc.main()
+    return code, capsys.readouterr()
+
+
+def test_should_exit_2_when_not_a_single_repo_was_reachable(monkeypatch, capsys):
+    code, aus = _lauf(monkeypatch, capsys, ["a-hub", "b-hub"], {"a-hub", "b-hub"})
+    assert code == 2, (
+        "alle Repos unerreichbar muss ein Werkzeugfehler sein, kein 0-Befund"
+    )
+    assert "Werkzeugfehler" in aus.err
+
+
+def test_should_name_unreachable_repos_as_unmeasured_not_clean(monkeypatch, capsys):
+    """Gegenprobe: bei TEILWEISER Erreichbarkeit kein Exit 2 — aber ein Hinweis."""
+    code, aus = _lauf(monkeypatch, capsys, ["a-hub", "b-hub"], {"b-hub"})
+    assert code == 0
+    assert "UNGEMESSEN" in aus.err and "b-hub" in aus.err
+
+
+def test_should_stay_green_when_every_repo_was_reachable(monkeypatch, capsys):
+    """Positivkontrolle: ohne Fehler kein Exit 2 und kein Hinweis."""
+    code, aus = _lauf(monkeypatch, capsys, ["a-hub", "b-hub"], set())
+    assert code == 0
+    assert "Werkzeugfehler" not in aus.err and "UNGEMESSEN" not in aus.err

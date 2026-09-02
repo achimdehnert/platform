@@ -1073,6 +1073,31 @@ def main() -> int:
 
     print_github_summary(results)
 
+    # Blind ist nicht gruen. Ein unerreichbares Repo liefert 0 Befunde -- sind ALLE
+    # unerreichbar, faellt die Bilanz auf null und der Lauf sieht aus wie der beste,
+    # obwohl gar nichts gemessen wurde. Realfall 2026-09-02: derselbe Stand ergab in
+    # Minuten 19, dann 10, dann 0 Errors; Ursache war das sekundaere GitHub-Ratenlimit
+    # (sechs Sitzungen an einem Token). Tueckisch dabei: `gh api rate_limit` meldete im
+    # selben Moment 5000 freie Aufrufe -- das PRIMAERlimit war unberuehrt.
+    unerreichbar = [r.repo for r in results if r.error]
+    if results and len(unerreichbar) == len(results):
+        print(
+            f"\nExit 2: kein einziges der {len(results)} Repos war erreichbar — "
+            "das ist ein Werkzeugfehler, KEIN drift-freier Stand. Haeufigste Ursache: "
+            "GitHub-Drosselung. Echte Probe statt `rate_limit`: "
+            "`gh api repos/<owner>/<einRepo>`.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if unerreichbar:
+        print(
+            f"\nHinweis: {len(unerreichbar)} von {len(results)} Repo(s) waren nicht "
+            f"erreichbar und sind damit UNGEMESSEN, nicht sauber: "
+            f"{', '.join(unerreichbar)}",
+            file=sys.stderr,
+        )
+
     if args.fail_on_error:
         total_errors = sum(len(r.errors) for r in results)
         if total_errors:
