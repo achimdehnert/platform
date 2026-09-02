@@ -49,7 +49,7 @@ def test_should_allow_completeness_claim_when_every_condition_holds():
 
 
 def test_should_block_completeness_claim_when_folders_were_skipped():
-    """Der Zeiner-Fall: 3 von 11 Nachrichten, weil nur der Posteingang gelesen wurde."""
+    """Der Vertragspartner-D-Fall: 3 von 11 Nachrichten, weil nur der Posteingang gelesen wurde."""
     a = _vollstaendig(ordner_durchsucht=1)
     zulaessig, gruende = da.vollstaendigkeitsaussage_zulaessig(a)
     assert not zulaessig
