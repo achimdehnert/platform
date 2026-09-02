@@ -87,6 +87,22 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 → **RESULT: FAIL** (einziger Hard-FAIL: pgvector-Tunnel, Phase 0.5) → Session NICHT
   fortsetzen, bis behoben — **kein** Fallback auf lokales Memory (ADR-154).
 → **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
+  - `0.3 modellwechsel` (NEU 2026-09-02, K2 [#2690](https://github.com/achimdehnert/platform/issues/2690)):
+    Maßstab ist **„bewertet mit" (assessed_with in den Policy-Kopfzeilen) ↔ „läuft mit"**
+    — **nicht** Vorgänger ↔ Nachfolger. `model-changes.log` trägt nur den settings-Alias
+    (z.B. `fable`, `opus`), **nicht** die Gewichtsmatrix; „läuft mit" kommt deshalb primär
+    aus dem neuesten Session-Transkript (letzte assistant-Zeile mit `message.model`), die
+    Alias-Tabelle ist nur der letzte Fallback und markiert sich im Bericht als Warnung.
+    Zwei Befundklassen: **MAJOR** ggü. bewertet = Vollmachten suspendiert (Runbook §3a) bis
+    Kapitäns-Wort, den §2-Köder in dieser Sitzung fahren, Kommentar auf
+    [#1640](https://github.com/achimdehnert/platform/issues/1640) · **MINOR** = nur
+    Smoke (§1) fällig, `assessed_with` im nächsten Ritual nachziehen. Ein Rücksprung
+    **auf** das bewertete Modell ist **KEIN** Ereignis. Der Runner fährt Smoke (§1)
+    bei Fälligkeit selbst und markiert nur bei grünem Smoke als behandelt — rot bleibt
+    fällig, statt sich selbst gesundzuschreiben. Werkzeug: `tools/modellwechsel_check.py`,
+    Klassifizierer ist eine Portierung aus `model_change_detector.sh`
+    ([#2655](https://github.com/achimdehnert/platform/issues/2655)/[#2664](https://github.com/achimdehnert/platform/issues/2664)),
+    nicht neu erfunden.
   - `0.4 … GUARD(dirty/branch=…)`: fremde Session möglich — Repo NICHT stashen/switchen
     (ADR-233 + 🌀 Shared-Worktree-Kollision), read-only weiterarbeiten.
   - `0.7.6 leseflaeche`: Befunde des **nächtlichen** `handover-reconcile` — meist
@@ -177,6 +193,30 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
     Anlass: risk-hub stand 23 Läufe lang als WARN, worin ein echter Fund untergegangen
     wäre.
   - `0.4.1 BLOCK-Findings`: zuerst fixen, bevor weitergearbeitet wird.
+  - `0.7.23 melder-register` (NEU 2026-09-02, [#2690](https://github.com/achimdehnert/platform/issues/2690)
+    K3): fehlt einer Runner-Phase der Eintrag in `governance/melder-register.yaml`
+    oder trägt sie dort `leser: UNBENANNT`, ist das ein Melder, der niemanden
+    erreicht — genau die Zahl "Melder ohne Leser" aus Audit #2606. Ein
+    Register-Eintrag ohne passende Runner-Phase (Karteileiche) gehört entfernt.
+    Vollbild/Reparatur: `python3 platform/tools/melder_register_check.py --kurz`.
+  - **Vierte Lautstärke `ℹ️ HINWEIS` (NEU 2026-09-02, #2690 K3):** eine Phase, deren
+    Trefferquote laut `tools/befund_journal.py --praezision` über mindestens
+    `mindest_laeufe` (Register-Default 5) beurteilte Läufe unter `praezision_min`
+    (Default 60 %) liegt, stuft sich selbst herab — `record()` wandelt ihre
+    nächste `WARN`-Zeile in `HINWEIS` um (Note-Präfix `(herabgestuft: Trefferquote
+    X % über N Läufe)`). **Lesen, aber nicht als Befund ins Board zwingen:**
+    solange die Trefferquote unter der Schwelle liegt, ist der Melder selbst der
+    Befund (behandeln in `/session-ende`/`/session-retro`, nicht jede einzelne
+    Zeile). `ℹ️ HINWEIS` zählt in der Summary-Tabelle **nicht** als `⚠️ WARN`. Die
+    Herabstufungsdatei (`~/.claude/hooks/state/melder-herabgestuft.tsv`, von
+    `--herabstufung` nach Phase 0.7.19 geschrieben) wirkt erst im **nächsten**
+    Lauf — 0.7.19 misst spät im Lauf, `record()` liest sie ganz am Anfang.
+  - **Block „⏳ ohne Entscheidung > 14 d" (NEU 2026-09-02, #2690 K3):** eigener
+    Abschnitt nach dem Befund-Journal-Block, aus `tools/melder_register_check.py
+    --ohne-entscheidung`. Ein Befund ohne Artefakt und ohne Verzicht, dessen
+    `erstmals` länger als 14 Tage zurückliegt, steht hier — der Unterschied zu
+    einem frischen `⏳ ALTBEFUND` ist die Frist, nicht nur das Alter: der Melder
+    hat funktioniert, es fehlt an einer Entscheidung.
 
 **Troubleshooting (Lessons aus den Alt-Phasen — gelten unverändert):**
 
@@ -417,6 +457,8 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 2d | `0.7.16 origin-tls`: `abgelaufen`/`laeuft-ab` (kaputtes Renewal) von `fallback-zertifikat` (kein Zertifikat für diesen Namen) getrennt; `nicht-messbar` nicht als grün gelesen | ☐ |
 | 2e | `0.7.17 backup-deckung`: rote Volumes nach Lage getrennt (*in Nutzung* / *Container steht* / *verwaist*); `NICHT messbar` nicht als grün gelesen; jeder Verzicht trägt einen Grund | ☐ |
 | 2f | `0.7.18 speicher`: Platten unter 7 Tagen Vorlauf im Board benannt; `SAMMELPHASE` als „keine Rate" gelesen, nicht als Entwarnung | ☐ |
+| 2g | `0.3 modellwechsel`: MAJOR ggü. bewertet gespiegelt (Vollmachten suspendiert, §2-Köder + #1640 fällig) — nicht mit Vorgänger↔Nachfolger verwechselt | ☐ |
+| 2h | `0.7.23 melder-register`: kein Melder ohne Leser (`UNBENANNT`) oder Karteileiche offen liegen lassen; Block „⏳ ohne Entscheidung > 14 d" gegengeprüft | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 5 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
@@ -484,6 +526,35 @@ nicht in einem Folge-Commit "irgendwann".
   auch bei **selbst**verschuldeter Drift greift; die Parallel-Session-Sicht (0.4) tut das nicht.
 
 ## Changelog
+
+- 2026-09-02: **Phase 0.7.23 `melder-register`** ergänzt
+  ([#2690](https://github.com/achimdehnert/platform/issues/2690) K3 „Vorausschauende
+  Wartung"). `governance/melder-register.yaml` trägt je Runner-Phase einen Leser, eine
+  Wiedervorlage-Frist (Default 14 Tage) und eine Herabstufungsschwelle (60 % Trefferquote
+  über mindestens 5 beurteilte Läufe) — `tools/melder_register_check.py` prüft die
+  Registry gegen den Runner (`--kurz`), schreibt Selbst-Herabstufungen (`--herabstufung`)
+  und meldet Befunde ohne Entscheidung älter als 14 Tage als eigenen Block
+  (`--ohne-entscheidung`). Erstlauf 2026-09-02: 26 von 39 Phasen ohne Leser, ehrlich als
+  `UNBENANNT` geführt statt erfunden (Audit #2606-Muster). Vierte Lautstärke `ℹ️ HINWEIS`
+  eingeführt — ein herabgestufter Melder bleibt lesbar, zwingt aber keine Board-Zeile mehr.
+  Startklar-Checkliste um Zeile 2h ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile
+  wäre still überspringbar — Lehre c494a2).
+
+- 2026-09-02: **Phase 0.3 `modellwechsel`** ergänzt (K2,
+  [#2690](https://github.com/achimdehnert/platform/issues/2690)). Der Runner vergleicht
+  jetzt `assessed_with` aus den Policy-Kopfzeilen gegen das AKTUELL laufende Modell —
+  Maßstab „bewertet mit ↔ läuft mit", nicht Vorgänger↔Nachfolger (der Ist-Stand vorher:
+  0 Treffer zu Modellwechsel/Rebaseline in allen drei Session-Skills, Runbook hatte 8).
+  Bei Fälligkeit fährt der Runner Smoke §1 selbst und markiert nur bei grünem Smoke als
+  behandelt; die Klasse (MAJOR/MINOR) folgt der Runbook-§0-Tabelle über den bereits
+  bestehenden Klassifizierer aus `model_change_detector.sh` — nicht neu erfunden.
+  **Nachtrag selbiger Tag (Review-Befund):** `model-changes.log` trägt nur den
+  settings-Alias (`fable`/`opus`), nicht die Gewichtsmatrix — ein reiner Log-Vergleich
+  hätte jeden Rücksprung fälschlich als MAJOR gemeldet. Laufendes Modell wird jetzt
+  vorrangig aus dem neuesten Session-Transkript gelesen (`--laufend` > Transkript >
+  Alias-Tabelle als letzter, gewarnter Fallback). Werkzeug: `tools/modellwechsel_check.py`.
+  Startklar-Checkliste um 2g ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile wäre
+  still überspringbar — Lehre c494a2).
 
 - 2026-08-25: **Phasen 0.7.17 `backup-deckung` und 0.7.18 `speicher`** ergänzt
   ([#2284](https://github.com/achimdehnert/platform/issues/2284)). Beide drehen die
