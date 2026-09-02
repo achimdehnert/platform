@@ -504,5 +504,23 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Siehe `evidence_claim_scanner.main_sicher` fuer die Begruendung; bewusst
+    dupliziert statt geteilt, damit der Auffangbogen keinen Import braucht.
+    Der blocking-Modus dieses Scanners druckt `{"decision": "block"}` vor jedem
+    moeglichen Wurf und bleibt damit erhalten.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(
+            f"untested_command_scanner: {type(exc).__name__}: {exc}"[:400],
+            file=sys.stderr,
+        )
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())

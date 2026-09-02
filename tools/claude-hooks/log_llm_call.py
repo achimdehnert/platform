@@ -272,8 +272,20 @@ _INSERT_SQL = """
 """
 
 
-def _insert_rows(rows: list[dict]) -> int:
-    """INSERT rows into llm_calls. Returns number of rows actually inserted.
+def _insert_rows(rows: list[dict]) -> int | None:
+    """INSERT rows into llm_calls.
+
+    Returns the number of rows the transaction actually wrote — or ``None``,
+    wenn der Schreibweg gar nicht gelaufen ist (keine DB-URL, kein psycopg,
+    Verbindungs- oder SQL-Fehler).
+
+    **Warum die Unterscheidung ``0`` vs. ``None`` traegt:** ``0`` heisst
+    „committet, aber alles lief in ``ON CONFLICT DO NOTHING``" — die Zeilen
+    liegen also bereits in der DB und sind fertig protokolliert. ``None`` heisst
+    „nichts geschrieben, Ausgang unbekannt". Nur im zweiten Fall darf der
+    Zustand nicht fortschreiben, sonst gingen Zeilen verloren. Bis 2026-09-02
+    lieferten beide Faelle ``0``, und ``main`` behandelte sie gleich — mit der
+    dort beschriebenen Dauerschleife als Folge.
 
     Direct psycopg connection (no subprocess fork — saves ~150ms/turn).
     Requires the venv-python shebang above to provide psycopg in sys.path.
@@ -284,12 +296,12 @@ def _insert_rows(rows: list[dict]) -> int:
         _log(
             "ORCHESTRATOR_DB_URL fehlt (und ALLOW_DEV_DB_FALLBACK != 1) — DB-Write übersprungen."
         )
-        return 0
+        return None
     try:
         import psycopg  # noqa: PLC0415
     except ImportError:
         _log("psycopg unavailable — hook requires venv-python shebang")
-        return 0
+        return None
     try:
         with psycopg.connect(DB_URL, connect_timeout=5) as conn, conn.cursor() as cur:
             inserted = 0
@@ -300,7 +312,7 @@ def _insert_rows(rows: list[dict]) -> int:
             return inserted
     except Exception as exc:
         _log(f"insert failed: {type(exc).__name__}: {exc!s:.200}")
-        return 0
+        return None
 
 
 def _query_session_total(session_id: str) -> float | None:
@@ -435,13 +447,30 @@ def main() -> int:
             }
         )
 
+    # Zustand fortschreiben, sobald die Transaktion COMMITTET hat — auch bei
+    # `inserted == 0`.
+    #
+    # Gemessen am 2026-09-02 im eigenen Protokoll (`log_llm_call.log`, 47.056
+    # Zeilen): 12.574 Ereignisse „insert returned 0 for N candidate rows", in
+    # Summe 2.686.409 vergebliche INSERT-Roundtrips, Median N=166, Maximum
+    # N=1246; allein in den letzten sieben Tagen 3.397 Ereignisse mit 827.303
+    # Roundtrips. Ursache war diese Bedingung: liefen alle Kandidaten in
+    # `ON CONFLICT DO NOTHING` (Zustandsdatei verloren, Sitzung fortgesetzt,
+    # zweiter Hook-Lauf im Rennen), blieb `inserted` 0, der Zustand wurde NIE
+    # gespeichert — und derselbe Stapel ging bei JEDEM weiteren Stop erneut
+    # ueber die Leitung. Am 14,4-MB-Transkript gemessen: 4.902 ms je Stop
+    # gegenueber 190 ms mit vollstaendigem Zustand (Faktor 26).
+    #
+    # `None` bleibt der Fall, in dem NICHT fortgeschrieben werden darf: dann ist
+    # der Schreibweg gar nicht gelaufen (keine DB-URL, kein psycopg, Fehler) und
+    # die Zeilen fehlen wirklich noch.
     inserted = _insert_rows(rows)
-    if inserted > 0:
+    if inserted is not None:
         state["logged_request_ids"].update(t["request_id"] for t in new)
         _save_state(session_id, state)
         _log(f"inserted {inserted}/{len(new)} rows for session {session_id[:8]}")
     else:
-        _log(f"insert returned 0 for {len(new)} candidate rows")
+        _log(f"insert did not run for {len(new)} candidate rows — state unchanged")
 
     # ADR-201 Phase 1 — Stop-hook session summary to stderr
     # Claude Code surfaces hook stderr to the user.
@@ -485,5 +514,31 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Ein Melder darf einen Turn nie kippen. Bis 2026-09-02 lag um `main()`
+    KEINES der sieben Stop-Hook-Module einen Auffangbogen — jede unerwartete
+    Ausnahme (kaputte Zustandsdatei, unerwartete Transkript-Form, `psycopg`
+    halb installiert) haette als Traceback mit Exit 1 den Hook-Vertrag
+    verlassen.
+
+    Bewusst KEIN geteiltes Hilfsmodul: der Auffangbogen ist genau der Pfad, der
+    auch dann noch tragen muss, wenn die Verteilung der Hook-Kopien unvollstaendig
+    ist (`tools/hook-dist-drift.sh`). Ein Import waere ein neuer Grund zu
+    scheitern an der Stelle, die das Scheitern abfangen soll.
+
+    Bewusstes Blocken bleibt unberuehrt: es laeuft ueber `{"decision": "block"}`
+    auf stdout (bereits gedruckt, bevor irgendetwas werfen koennte) bzw. ueber
+    `sys.exit(2)` — `SystemExit` ist keine `Exception` und wird hier nicht
+    gefangen.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(f"log_llm_call: {type(exc).__name__}: {exc}"[:400], file=sys.stderr)
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())

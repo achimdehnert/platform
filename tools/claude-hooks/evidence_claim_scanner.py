@@ -1000,5 +1000,28 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Bis 2026-09-02 lag um `main()` keines der sieben Stop-Hook-Module einen
+    Auffangbogen; eine unerwartete Ausnahme waere als Traceback mit Exit 1 aus
+    dem Vertrag gefallen. Bewusst kein geteiltes Hilfsmodul — ein Import waere
+    ein neuer Grund zu scheitern genau an der Stelle, die das Scheitern abfangen
+    soll (Verteil-Drift, `tools/hook-dist-drift.sh`).
+
+    Das bewusste Blocken bleibt unberuehrt: es steht als `{"decision": "block"}`
+    bereits auf stdout, bevor hier etwas gefangen werden koennte, und ein
+    `sys.exit(2)` traegt `SystemExit` — keine `Exception`.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(
+            f"evidence_claim_scanner: {type(exc).__name__}: {exc}"[:400],
+            file=sys.stderr,
+        )
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())
