@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -83,3 +84,51 @@ def zone_und_konto(host: str) -> tuple[str, str]:
         sys.exit(f"FEHLER: Zone '{name}' nicht gefunden (Token-Reichweite?).")
     zone = treffer[0]
     return zone["id"], zone["account"]["id"]
+
+
+#: Erlaubte Form eines Tunnel-Ursprungs: `host:port`, Port 1–65535.
+#: Host ist ein Name oder eine IPv4; IPv6 gehoert in eckige Klammern.
+_ORIGIN = re.compile(
+    r"^(?:\[[0-9A-Fa-f:]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?):(\d{1,5})$"
+)
+
+
+def pruefe_origin(origin: str) -> str:
+    """Ursprung eines Tunnels validieren — oder laut abbrechen.
+
+    **Warum das laut sein muss (Retro-Befund 2026-09-02):** `tunnel_anlegen.py`
+    schrieb einen gesetzten `ORIGIN` ungeprueft als `service: http://{origin}` in
+    die Config und meldete danach bedingungslos Erfolg. Ein Wert mit Schema
+    (`http://10.99.0.2:11434`) erzeugt `http://http://…` — eine Config, die
+    `cloudflared` annimmt und die still nichts ausliefert.
+
+    Der nachgelagerte Schritt faengt das **nicht**: `veroeffentlichen.sh` wertet
+    jedes `nicht 200` als Erfolg, weil es die Access-Abweisung (302) sucht. Ein
+    502 durch einen kaputten Ursprung ist davon nicht zu unterscheiden. Deshalb
+    ist diese Pruefung die einzige Stelle in der Kette, an der der Fehler
+    ueberhaupt auffallen kann.
+
+    Geprueft wird die **Form**, nicht die Erreichbarkeit — letztere gehoert auf
+    das Gateway, auf dem der Tunnel laeuft (siehe Runbook, Abschnitt
+    Gegenstellen-Variante).
+    """
+    wert = (origin or "").strip()
+    if not wert:
+        sys.exit("FEHLER: ORIGIN ist leer — erwartet wird `host:port`.")
+    if "://" in wert:
+        sys.exit(
+            f"FEHLER: ORIGIN '{wert}' enthaelt ein Schema. Erwartet wird nur "
+            "`host:port` — das `http://` setzt das Werkzeug selbst."
+        )
+    if "/" in wert:
+        sys.exit(f"FEHLER: ORIGIN '{wert}' enthaelt einen Pfad. Erwartet: `host:port`.")
+    treffer = _ORIGIN.match(wert)
+    if not treffer:
+        sys.exit(
+            f"FEHLER: ORIGIN '{wert}' ist keine gueltige `host:port`-Angabe "
+            "(IPv6 gehoert in eckige Klammern)."
+        )
+    port = int(treffer.group(1))
+    if not 1 <= port <= 65535:
+        sys.exit(f"FEHLER: ORIGIN '{wert}' hat den Port {port} — erlaubt ist 1–65535.")
+    return wert
