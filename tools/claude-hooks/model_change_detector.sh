@@ -41,11 +41,40 @@ if [ -z "$previous" ]; then
   exit 0
 fi
 
+# Einstufung (Runbook §0): [1m]-Suffix ist Kontextfenster, keine Gewichtsmatrix;
+# gleiche Familie+Hauptversion = MINOR; alles andere (auch Unparsbares) = MAJOR (fail-loud).
+norm_id() { printf '%s' "$1" | sed -E 's/\[[^]]*\]$//'; }
+fam_major() { printf '%s' "$1" | sed -nE 's/^claude-([a-z]+)-([0-9]+).*$/\1-\2/p'; }
+LOG="$STATE_DIR/model-changes.log"
+
 if [ "$current" != "$previous" ]; then
   printf '%s' "$current" > "$STATE" 2>/dev/null
-  echo "🔁 MODELLWECHSEL erkannt: ${previous} → ${current}"
-  echo "   Pflicht (KONZ-038 §5.6): Smoke-Kalibrierung fahren + Typ-A-Labels mit"
-  echo "   Exposure im letzten Fenster re-assessen (assessed_with veraltet)."
-  echo "   Runbook: platform docs/governance/model-rebaseline-runbook.md"
+  p="$(norm_id "$previous")"; c="$(norm_id "$current")"
+  if [ "$p" = "$c" ]; then
+    klasse="SUFFIX"
+  elif [ -n "$(fam_major "$p")" ] && [ "$(fam_major "$p")" = "$(fam_major "$c")" ]; then
+    klasse="MINOR"
+  else
+    klasse="MAJOR"
+  fi
+  # Durable Spur (vorher: nur eine Session-Start-Zeile, die niemand nachlesen konnte).
+  printf '%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$previous" "$current" "$klasse" >> "$LOG" 2>/dev/null
+  case "$klasse" in
+    SUFFIX) ;;
+    MINOR)
+      echo "🔁 MODELLWECHSEL erkannt (MINOR): ${previous} → ${current}"
+      echo "   Pflicht (KONZ-038 §5.6 Minor): Smoke-Kalibrierung (Runbook §1);"
+      echo "   Vollmachten bleiben active, assessed_with im naechsten Ritual nachziehen."
+      echo "   Runbook: platform docs/governance/model-rebaseline-runbook.md"
+      ;;
+    MAJOR)
+      echo "🔁 MODELLWECHSEL erkannt (MAJOR): ${previous} → ${current}"
+      echo "   Pflicht (KONZ-038 §5.6): Smoke-Kalibrierung fahren + Typ-A-Labels mit"
+      echo "   Exposure im letzten Fenster re-assessen (assessed_with veraltet)."
+      echo "   Vollmachten (registry/lotse-authorizations.yaml, Art. 2.5): Re-Qualifikation"
+      echo "   nach Runbook §3a — bis dahin gelten sie als suspendiert."
+      echo "   Runbook: platform docs/governance/model-rebaseline-runbook.md"
+      ;;
+  esac
 fi
 exit 0
