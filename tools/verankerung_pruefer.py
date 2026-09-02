@@ -249,6 +249,26 @@ Abschnitt:
 ---"""
 
 
+def _nicht_pruefbar(
+    exc: BaseException, *, was: str, host: str, timeout: int, zeichen: int
+) -> "NichtPruefbar":
+    """Trennt Zeitueberschreitung von Nichterreichbarkeit.
+
+    Beides lief bisher in dieselbe Meldung »nicht erreichbar« — und die hat die
+    Diagnose zweimal in die falsche Richtung gefuehrt (#2456, #2436): der Host
+    antwortete, das Modell rechnete nur laenger als der Timeout. Wer »nicht
+    erreichbar« liest, sucht bei ollama; wer die Zeit liest, sucht beim Budget.
+    """
+    reason = getattr(exc, "reason", None)
+    if isinstance(exc, TimeoutError) or isinstance(reason, TimeoutError):
+        return NichtPruefbar(
+            f"{was} auf {host}: Zeitueberschreitung nach {timeout} s bei "
+            f"{zeichen} Zeichen Prompt — der Host antwortet, das Modell rechnet "
+            f"laenger als der Timeout (NICHT »ollama aus«)."
+        )
+    return NichtPruefbar(f"{was} auf {host} nicht erreichbar: {exc}")
+
+
 def ollama_klassifikator(
     modell: str = DEFAULT_MODELL,
     host: str = DEFAULT_HOST,
@@ -282,7 +302,13 @@ def ollama_klassifikator(
             with urllib.request.urlopen(req, timeout=timeout) as antwort:
                 roh = json.load(antwort).get("response", "")
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            raise NichtPruefbar(f"{modell} auf {host} nicht erreichbar: {exc}") from exc
+            raise _nicht_pruefbar(
+                exc,
+                was=modell,
+                host=host,
+                timeout=timeout,
+                zeichen=len(PROMPT % text),
+            ) from exc
         except (json.JSONDecodeError, ValueError) as exc:
             raise NichtPruefbar(f"{modell} lieferte kein JSON: {exc}") from exc
         try:
@@ -374,7 +400,13 @@ def ollama_bestaetiger(
             with urllib.request.urlopen(req, timeout=timeout) as antwort:
                 d = json.loads(json.load(antwort).get("response", "{}"))
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            raise NichtPruefbar(f"Gegenprobe nicht erreichbar: {exc}") from exc
+            raise _nicht_pruefbar(
+                exc,
+                was=f"Gegenprobe ({modell})",
+                host=host,
+                timeout=timeout,
+                zeichen=len(GEGENPROBE % (klasse, zitat or "—", text)),
+            ) from exc
         except (json.JSONDecodeError, ValueError):
             # Unlesbare Gegenprobe darf einen Fund nicht still schlucken.
             return True
