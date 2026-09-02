@@ -23,6 +23,9 @@ def test_should_return_na_when_version_or_tag_missing():
 
 def test_should_classify_shared_ci_pin_states():
     assert rep.pin_state("v1.1.11", "v1.1.14") == "lag"
+    assert rep.pin_state("v1.1.11", "v1.1.14", nominal=True) == "lag nominal"
+    assert rep.pin_state("v1.1.11", "v1.1.14", nominal=False) == "lag"
+    assert rep.pin_state("v1.1.11", "v1.1.14", nominal=None) == "lag"
     assert rep.pin_state("v1.1.14", "v1.1.14") == "aktuell"
     assert rep.pin_state("main", "v1.1.14") == "main"
     assert rep.pin_state("v1.1.14", None) == "n/a"
