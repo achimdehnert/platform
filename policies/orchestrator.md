@@ -6,16 +6,36 @@
 ## What it is
 
 The orchestrator is an MCP server at `https://orchestrator.iil.pet/sse`
-hosted by `~/github/mcp-hub/orchestrator_mcp/`. It provides:
+hosted by `~/github/mcp-hub/orchestrator_mcp/`.
 
-- **Routing**: which LLM/model for a given action_code (DB-driven, via `aifw`)
-- **Memory**: cross-session shared state — current API is
+**Rolle seit ADR-300 (accepted 2026-09-02): Gedächtnis + Audit — nicht Ausführung.**
+
+- **Memory** (authoritative): cross-session shared state — current API is
   `agent_memory_search/upsert/context` (pgvector + temporal decay, ADR-113).
   The legacy `memory_get/set/list` key-value tools no longer exist.
-- **LLM-Calls**: dispatch via aifw with usage tracking
-- **Headless runs**: long-running Claude Code agents in containers
+- **Audit/Kosten** (authoritative): `session_stats`, `record_job_measurement`,
+  `estimate_job`, `get_cost_estimate`, `check_recurring_errors`,
+  `find_similar_errors`, `log_error_pattern`, `log_action`, `get_audit_log`,
+  `discord_notify`. Routing-Wissen (welches Modell für welchen action_code)
+  bleibt DB-getrieben via `aifw`.
+- **Gate** (`check_gate`, `request_approval`): erst Autorität, wenn die Naht
+  gebaut ist — blockierender `check_gate`-Hook in ≥ 2 Repos plus ein
+  `log_action`-Konsument (ADR-300 D1, Kill-Gate-Bedingung). Bis dahin wirken
+  Gates lokal über Claude-Code-Hooks.
+- **Ausführung/Planung — deprecated (ADR-300 D2):** `plan_and_execute`,
+  `delegate_subtask`, `agent_plan_task`, `agent_team_status`, `headless_run`,
+  `workflow_*`, `run_*`, `deploy_check`, `review_adr`, `analyze_task`,
+  `get_full_context`, `list_job_types`, `cascade_log_response`. Ersatz sind die
+  Harness-Primitiven: Subagenten (Agent/Fork/Worktree), Workflows (Opt-in),
+  `/loop`, Plan-Modus; unbeaufsichtigte Nachtläufe auf eigener Infrastruktur
+  laufen als Actions-Cron auf self-hosted Runner mit `orchestrator_mcp.headless`
+  als Bibliothek (ADR-186 OQ4). Ein deprecated Tool ohne benannten Konsumenten
+  in `platform/skills/` oder `.windsurf/workflows/` wird zum Kill-Gate
+  **2026-11-01** aus der Registrierung entfernt — Umsetzung mcp-hub#244.
+  **Neue Skills dürfen diese Tools nicht mehr aufrufen.**
 
-Tool-prefix when loaded: `orchestrator__*`.
+Tool-prefix when loaded: `mcp__orchestrator__*` (in der Tool-Liste der Session;
+der frühere Eintrag `orchestrator__*` war der Windsurf-Ära-Prefix).
 
 ## When to query it
 
@@ -98,3 +118,8 @@ nach jeder Rotation einmal laufen lassen. Exit 1 = Drift-Alarm.
   globalen `mcpServers` in `~/.claude/settings.json` workspace-übergreifend
   gebunden; in einer meiki-hub-Session sind die `mcp__orchestrator__*`-Tools
   nachweislich vorhanden.
+- 2026-09-02: **Rolle nach ADR-300 (accepted) neu geschnitten** — Gedächtnis +
+  Audit authoritative, Gate an die gebaute Naht gebunden, Ausführungs-/Planungs-
+  Familie (19 Tools) deprecated mit Kill-Gate 2026-11-01 (mcp-hub#244); neue
+  Skills rufen sie nicht mehr auf. Tool-Prefix auf `mcp__orchestrator__*`
+  korrigiert (Audit 2026-09-02, platform#2606 E2).
