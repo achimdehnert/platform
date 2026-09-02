@@ -158,6 +158,19 @@ Ohne `--kette` gibt es keine Liste, die man abhaken koennte — der Pfad **ist**
 5. **Abdeckung** = besuchte Stationen gegen die seitenrendernden Routen aus Step 3b. Jede
    Route, die kein Klick erreicht hat, ist `nicht-begehbar` — **nicht** „nicht besucht".
    Die Zeile `Abdeckung: besucht n / Routen m` steht im Bericht (Step 7).
+   **Der Nenner `m` zaehlt nur Seiten:** GET-Routen, die ein Template rendern. Routen, die
+   nur per POST/JSON antworten (`require_POST`, `http_method_names`, `JsonResponse`), sind
+   keine Stationen — sie gehoeren in Zaehlung (b) aus Step 3b, nicht in `m`. Gemessen
+   writing-hub 2026-09-02: 204 URL-Namen, davon 48 per Klick erreicht; die sieben Routen
+   ohne Template-Verlinkung waren alle JSON-/POST-Endpunkte — mit ihnen im Nenner liest
+   sich `48 / 204` wie eine Luecke, die keine ist.
+6. **Werkzeug:** `python3 <platform>/tools/ux_pfad.py --basis <url> --login <pfad>
+   --max-seiten <n> --out /tmp/pfad.json` — Breitensuche ueber interne Anker, je Station
+   Konsole, 4xx/5xx, JSON-Bloecke, HTMX-Triade, Leerzustand-Hinweis. Formular-Submits
+   und `hx-post`-Knoepfe **notiert es, klickt sie nicht** — der Bericht sagt das unter
+   „Nicht verifiziert", bis Step 2a.1 dafuer ein Verfahren hat. Anker nur **sichtbar**
+   klicken (`:visible`): am 2026-09-02 traf `.first` einen unsichtbaren Anker und meldete
+   die Outline-Detailseite `blind`, die per Klick auf das sichtbare Icon sofort stand.
 
 Die Kettenform bleibt fuer Positivkontrollen (K1, `--vor`) das Mittel der Wahl: sie hat
 ein benanntes Ziel und damit ein messbares „erreicht". Der Pfad-Modus hat statt dessen die
@@ -504,6 +517,7 @@ Befund-Issue bleibt offen, mit Kommentar warum) — „steht im PR-Text" zaehlt 
 | `gemockt-und-deshalb-blind` | Alle Tests gruen, erster echter Klick bricht | Test, der die gemockte Schicht **echt** ausfuehrt (Vorlagen rendern, Router aufrufen) — writing-hub #774: drei Prompt-Vorlagen brachen, weil jeder Test den Renderer ersetzt hatte |
 | `daten-invariante` | Anzeige widerspricht der Sache (abgelaufene Frist bei laufender Ausschreibung) | Invarianten-Melder ueber den Datenbestand, **SKIP ist kein PASS** |
 | `nur-mit-daten-sichtbar` | Seite ist auf einem frischen Objekt tadellos und auf einem benutzten tot; Tests und Probelauf sind gruen, echte Nutzer stehen an | Test, der die Seite **mit Bestand** rendert und pruefte, was der Browser wirklich bekommt — im Realfall: jeden ausgelieferten `application/json`-Block parsen. Ausnahmen mit Grund — writing-hub#820: ein handgebauter JSON-Block trug ein nachgestelltes Komma, aber nur wenn Belege vorlagen; 3 Prod-Projekte tot, 22 UX-Tests gruen, 24 Tage kein Melder |
+| `link-auf-none` | Ein Link im Template traegt `href="None"` und fuehrt auf 404 — die Variable war leer, das Template hat nicht gefragt | Rendering-Test der Seite in **jeder** Werkart/Konfiguration, die eine Phase auslaesst (Sachbuch, Bilddienst aus) + Gate ueber alle Templates: `href="{{ … }}"` aus einer Variablen nur innerhalb `{% if <variable> %}` — Realfall writing-hub 2026-09-02, Pfad-Modus Station 36: „Welt & Figuren" und „Illustration" auf der Workflow-Seite, auf `main` bestaetigt (writing-hub#949) |
 | `sackgasse` | Station erreicht, aber kein Klick fuehrt zum naechsten Schritt der Kette — der Nutzer muss eine URL wissen | Test: fuer jede Station der Kette existiert im gerenderten Template der Vorgaengerstation ein `{% url %}`/`hx-get` auf ihre Route; Ausnahmen mit Grund — Klasse ohne Realfall-Marker (aufgenommen 2026-09-01, Step 3.5 I2), Marker folgt mit dem ersten belegten Fall |
 | `leerzustand-ohne-handlung` | Leere Liste/Tabelle ohne Satz, was der Nutzer als naechstes tut | UX-Test rendert jede Listen-View mit leerem Queryset und prueft auf einen Handlungs-Link — ohne Realfall-Marker (2026-09-01, I3) |
 | `fehler-unverstaendlich` | Fehler ist sichtbar, nennt aber weder Ursache noch Handlung („Ein Fehler ist aufgetreten") | Test ueber alle `messages.error(`/`form.add_error(`-Aufrufe: Text enthaelt ein Verb oder eine Ursache aus dem Audit-Trail; Liste generischer Saetze als Negativmuster — ohne Realfall-Marker (2026-09-01, I4) |
@@ -667,10 +681,21 @@ ist der wichtigere** — ein Gegenpart, der auch den echten Defekt widerlegt, is
 ```
 /ux-review writing-hub --alle --vor <sha vor der Verlinkung der fuenf Bausteine aus Step 3b> --no-issues --nur-melden
 ```
-**Erwartung:** Bericht traegt `Abdeckung: besucht n / Routen m` mit `n < m`; jede der Routen
-ohne Klickweg (Step 3b, writing-hub 2026-08-26: fuenf Faelle) erscheint als `nicht-begehbar`,
-keine als „nicht besucht"; nach `--max-seiten 5` sind alle uebrigen Seiten `blind: Seitenbudget`
-und der Zaehler `ok` ist kleiner als bei `--max-seiten 60`.
+**Erwartung:** Bericht traegt `Abdeckung: besucht n / Routen m` mit `n < m`; jede Route aus
+Zaehlung (b) in Step 3b (ohne Template-Verlinkung) erscheint als `nicht-begehbar`, keine als
+„nicht besucht"; nach `--max-seiten 5` sind alle uebrigen Seiten `blind: Seitenbudget` und
+der Zaehler `ok` ist kleiner als bei `--max-seiten 60`. **Und:** der Lauf findet mindestens
+eine Station, fuer die keine Kette geschrieben ist — sonst rechtfertigt der Modus seinen
+Preis nicht.
+
+**Gelaufen 2026-09-02 gegen 080a298 (bestanden, mit zwei Korrekturen am Test selbst):**
+51 Stationen bei `--max-seiten 60` (Warteschlange leer), `48 / 204`; die sieben Routen aus
+Zaehlung (b) alle unbesucht; bei `--max-seiten 5`: 5 besucht, 14 `blind: Seitenbudget`,
+`ok 4` statt `ok 49`. **Gefunden, wofuer niemand eine Kette schrieb:** Station 36 Workflow,
+zwei Phasen als `href="None"` → 404, auf `main` bestaetigt (writing-hub#949, Klasse
+`link-auf-none`). Korrekturen: die urspruengliche Erwartung nannte „fuenf Bausteine aus
+Step 3b" — das sind Dienstfunktionen ohne Route (#781), keine Routen; und der Nenner
+enthielt POST-/JSON-Routen (Step 2a.5 praezisiert).
 
 ### Test 7 — Beheben schliesst den Kreis: Issue → PR → Gate-Test → Nachlauf (E24, K3)
 
@@ -696,6 +721,15 @@ diff <(sed -n '/^Stationen/,/^Nicht verifiziert/p' /tmp/a.txt) <(sed -n '/^Stati
 `Behoben`. Weicht die Stationen-Tabelle ab, hat Step 8 in den Bericht zurueckgewirkt — dann
 ist das Kill-Gate ab diesem Lauf nicht mehr mit dem Stand vom 25.08. vergleichbar.
 
+**Gelaufen 2026-09-02 gegen db648374 (bestanden):** zwei Laeufe, Bestand 6 Kapitel/3 Belege;
+Diff des Blocks `Stationen`…`Nicht verifiziert` = 0 Zeilen, Positivkontrolle (Kopfzeile
+weicht ab) gehalten. Lauf b fuehrte Step 8 einmal real aus: `htmx-triade-fehlt` an Station 1
+→ writing-hub#948 (Fix + Gate `tests/test_htmx_triade.py`, ohne Fix 2 failed, mit Fix
+7 passed, Nachlauf `ok`), per SA-5 gemergt; Bestand derselben Klasse getrackt (#947).
+**Luecke im Skill, dabei gemessen:** mit `--no-issues` gibt es kein Befund-Issue, das der
+Fix-PR schliessen koennte — Step 8.6 `Closes #<n>` laeuft dann leer. Regel bis zur
+Praezisierung: der PR verlinkt den Bericht und das Tracking-Issue des Bestands.
+
 ## Abschluss-Checkliste (vor „fertig" einmal durchzaehlen — Ausfuehrungstreue)
 
 Bis 2026-09-01 hatte dieser Skill keine; ein Skill mit zehn Steps ohne Abschluss-Checkliste
@@ -717,6 +751,13 @@ ist strukturell ueberspringbar (Realfall `session-ende.md`, platform#1164).
 - [ ] Nicht verifiziert: benannt, mit billigstem Check
 
 ## Changelog
+
+- 2026-09-02 (Dogfood 6 + 8 gegen writing-hub, Owner „go"): **Test 8 bestanden** (Diff 0,
+  Step 8 einmal real: writing-hub#948 gemergt, #947 Bestand), **Test 6 bestanden mit zwei
+  Korrekturen am Test** (Bausteine ≠ Routen; Nenner nur Seiten — Step 2a.5). Werkzeug
+  `tools/ux_pfad.py` fuer Step 2a, Klasse `link-auf-none` mit Realfall (writing-hub#949,
+  auf `main` live). Test 7 steht aus — braucht einen offenen `fehler`; #949 ist einer.
+  Werkzeug-Lehre: unsichtbare Anker nie klicken (`:visible`), sonst `blind` ohne Grund.
 
 - 2026-09-01 (Stufe 1c, Owner-Auftrag „kompletten Pfad, Inhalte lesen, Fehler analysieren und
   beseitigen"): **Step 2a** Pfad-Modus `--alle` mit Abdeckungszeile (E22), **Step 3.5** Inhalt
