@@ -121,7 +121,7 @@ bleiben unverändert.
   Für andere Registries braucht es entweder containerd-Konfiguration unterhalb von
   Docker oder einen Proxy, der TLS aufbricht und dem eine eigene CA vertraut werden
   muss. **Ob das auf unserem Stand (Docker 29, containerd-Abbildspeicher) ohne
-  Klimmzüge geht, ist ungeprüft** — das ist die offene technische Frage dieses ADR.
+  Klimmzüge geht, ist ungeprüft** — das ist die offene technische Frage dieses ADR (Refs platform#2706).
 
 ### Option B — Eigene Registry als Abruf-Ziel, Referenz umschreiben *(gewählt)*
 
@@ -162,7 +162,7 @@ A wäre der schönere Weg — keine Referenz ändert sich. Aber A steht und fäl
 Frage, die wir noch nicht beantwortet haben, und ein ADR, dessen Umsetzbarkeit ungeprüft
 ist, ist eine Absichtserklärung, keine Entscheidung. **Vorbehalt:** ergibt der Spike in
 §5 (G1), dass die transparente Umleitung auf unserem Stand sauber funktioniert, ist A
-der bessere Weg und dieser ADR wird vor der Umsetzung entsprechend geändert.
+der bessere Weg und dieser ADR wird vor der Umsetzung entsprechend geändert (Refs platform#2706).
 
 ### 3.2 Der Ausweichpfad ist Teil der Entscheidung
 
@@ -204,7 +204,7 @@ Spiegel ↔ ghcr.io. Ein Spiegel ohne Melder ist ein Rückschritt, kein Fortschr
 
 | # | Gate | Warum es zuerst geklärt gehört |
 |---|---|---|
-| G1 | **Spike:** funktioniert die transparente Umleitung (Option A) auf Docker 29 mit containerd-Abbildspeicher? | Fällt er positiv aus, ist A besser als B und dieser ADR wird geändert. Kosten: ein halber Tag auf staging, kein Prod-Eingriff. |
+| G1 | **Spike** (platform#2706): funktioniert die transparente Umleitung (Option A) auf Docker 29 mit containerd-Abbildspeicher? | Fällt er positiv aus, ist A besser als B und dieser ADR wird geändert. Kosten: ein halber Tag auf staging, kein Prod-Eingriff. |
 | G2 | Registry-Software wählen (schlanke Registry vs. Harbor vs. Zot) | Bestimmt Betriebsaufwand und ob Authentifizierung/Aufräumen mitkommen. |
 | G3 | Grundinstallation auf netcup freigeben | Neuer öffentlich erreichbarer Dienst; Zugangsschutz ist zu entscheiden, bevor er steht. |
 | G4 | ADR-301 annehmen | Erst danach werden Compose-Dateien angefasst. |
