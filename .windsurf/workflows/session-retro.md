@@ -10,8 +10,8 @@ mode: write
 > Lessons-Loop, Falsifikation der eigenen Befunde.
 > **Wann:** nach größeren Umbau-/Architektur-Sessions; am Sitzungsende.
 > **Wann NICHT:** Trivial-Edits → höchstens `lean`.
-> **Das *Warum* jeder Regel** (Realfälle, Messungen, Changelog-Historie):
-> [Lehren-Doku](../../docs/governance/session-skills-lehren/retro.md). Hier steht nur die Anweisung.
+> **Das *Warum* jeder Regel** (Realfälle, Messungen, Changelog-Historie): `LEHREN` =
+> `docs/governance/session-skills-lehren/retro.md`. Hier steht nur die Anweisung.
 
 ## Eiserne Regeln — die 5 Fixes (nicht verhandelbar)
 
@@ -419,7 +419,7 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 
 ## Changelog
 
-Vollständige Historie: [Lehren-Doku](../../docs/governance/session-skills-lehren/retro.md) § Changelog-Historie.
+Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
 
 - 2026-09-02: **Kontext-Diät + zwei neue Bahnen** (platform#2690 K5). Lehren, Realfälle und
   Changelog-Historie wörtlich in die Begleitdoku, je ein Verweis im Skill. **Neu:** Phase 3b
