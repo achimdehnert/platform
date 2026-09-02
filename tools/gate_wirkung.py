@@ -57,7 +57,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # Maschinenlesbarer Kopf (KONZ-038 D8) — steht im Modul, nicht nur in der Registry,
 # damit `gate_drill_check.py` ihn gegen die Registry pruefen kann.
@@ -442,6 +442,77 @@ def kalibrier_zeile(stand: dict) -> str:
     )
 
 
+# Vorlauf, ab dem eine Verfallsfrist im Runner laut wird. 14 Tage, weil die
+# Entscheidung "scharf schalten oder streichen" einen PR braucht, nicht eine
+# Minute — und weil ein Melder, der zwei Monate lang jeden Start anschlaegt,
+# gelesen wird wie einer, der nie anschlaegt (dieselbe Regel wie oben bei den
+# Kalibrierfenstern).
+VERFALL_VORLAUF_TAGE = 14
+
+
+def verfall_stand(gate: dict, heute: str) -> dict | None:
+    """Stand der `expires`-Frist eines Gates — None, wenn keine gesetzt ist.
+
+    **Warum es das gibt** (Owner-Entscheid E4, platform#2606): 19 der 33
+    registrierten Gates standen auf `advisory`, vier Stop-Hook-Melder erzeugten
+    allein 159 von 167 protokollierten Treffern, und nur bei einem liessen sich
+    Treffer auf eine Folge zurueckfuehren. Advisory ohne Frist ist kein Zwischen-
+    schritt, sondern ein Endzustand: das Gate meldet, niemand handelt, und die
+    Registry verbucht es weiter als gebaut. `expires` setzt die Frist, bis zu der
+    ein Gate blocking ODER gestrichen ist.
+
+    Der Fristwert allein waere wieder nur Prosa — genau die Fehlform, an der die
+    erste Kalibrierfrist des Claim-Gates scheiterte ("ein Datum, das niemand liest
+    und nichts prueft"). Deshalb liest diese Funktion sie, und `main()` macht sie
+    im Runner laut.
+    """
+    frist = (gate.get("expires") or "").strip()
+    if not frist:
+        return None
+    stand = {
+        "slug": gate.get("slug", "?"),
+        "modus": gate.get("mode", "?"),
+        "expires": frist,
+        "note": (gate.get("expires_note") or "").strip(),
+    }
+    try:
+        faellig_ab = (
+            datetime.strptime(frist, "%Y-%m-%d").date()
+            - timedelta(days=VERFALL_VORLAUF_TAGE)
+        ).isoformat()
+    except ValueError:
+        # Ein unlesbares Datum ist ein Konfigurationsfehler und gehoert gesagt,
+        # nicht ausgesessen: sonst laeuft die Frist stillschweigend nie ab.
+        stand["zustand"] = "unlesbar"
+        return stand
+    if heute > frist:
+        stand["zustand"] = "ueberfaellig"
+    elif heute >= faellig_ab:
+        stand["zustand"] = "faellig"
+    else:
+        stand["zustand"] = "laeuft"
+    return stand
+
+
+def verfall_zeile(stand: dict) -> str:
+    if stand["zustand"] == "unlesbar":
+        return (
+            f"Verfallsfrist {stand['slug']}: `expires` ist kein Datum "
+            f"({stand['expires']!r}) — die Frist kann nie ablaufen"
+        )
+    if stand["zustand"] == "ueberfaellig":
+        return (
+            f"Verfallsfrist {stand['slug']}: {stand['expires']} ABGELAUFEN, Modus "
+            f"immer noch `{stand['modus']}` — blocking schalten oder streichen"
+        )
+    if stand["zustand"] == "faellig":
+        return (
+            f"Verfallsfrist {stand['slug']}: {stand['expires']} in weniger als "
+            f"{VERFALL_VORLAUF_TAGE} Tagen — blocking schalten oder streichen"
+        )
+    return f"Verfallsfrist {stand['slug']}: {stand['expires']} — laeuft noch"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--registry", default=DEFAULT_REGISTRY)
@@ -485,11 +556,20 @@ def main() -> int:
         for k in staende
         if k["zustand"] in ("entscheidungsreif", "abgelaufen", "unbestimmt")
     ]
+    verfaelle = [v for v in (verfall_stand(g, heute) for g in gates) if v]
+    # Dieselbe Zurueckhaltung wie bei den Kalibrierfenstern: eine noch laufende
+    # Frist ist keine Nachricht. Laut wird sie erst im Vorlauf und nach Ablauf.
+    laute_verfaelle = [v for v in verfaelle if v["zustand"] != "laeuft"]
 
     if args.als_json:
         print(
             json.dumps(
-                {"retros": len(retros), "gates": bewertet, "kalibrierfenster": staende},
+                {
+                    "retros": len(retros),
+                    "gates": bewertet,
+                    "kalibrierfenster": staende,
+                    "verfallsfristen": verfaelle,
+                },
                 ensure_ascii=False,
                 indent=2,
             )
@@ -497,10 +577,13 @@ def main() -> int:
         return 0
 
     if args.kurz:
-        if not rueckfaellig and laut:
-            print(kalibrier_zeile(laut[0]))
-            for stand in laut[1:]:
-                print(f"  · {kalibrier_zeile(stand)}")
+        if not rueckfaellig and (laut or laute_verfaelle):
+            zeilen = [kalibrier_zeile(k) for k in laut] + [
+                verfall_zeile(v) for v in laute_verfaelle
+            ]
+            print(zeilen[0])
+            for zeile in zeilen[1:]:
+                print(f"  · {zeile}")
             return 0
         if rueckfaellig:
             spitze = rueckfaellig[0]
@@ -519,6 +602,8 @@ def main() -> int:
                 )
             for stand in laut:
                 print(f"  · {kalibrier_zeile(stand)}")
+            for stand in laute_verfaelle:
+                print(f"  · {verfall_zeile(stand)}")
         return 0
 
     daten = [_zerlege(r)[0] for r in retros]
@@ -598,6 +683,20 @@ def main() -> int:
         print(
             "  Gezaehlt werden BEURTEILBARE Zeilen (mit Ausschnitt), nicht Treffer: "
             "ein Fenster, das nichts beurteilen kann, kann auch nichts scharfschalten."
+        )
+
+    if verfaelle:
+        print()
+        print("Verfallsfristen (advisory bis dahin, danach blocking oder gestrichen):")
+        for stand in verfaelle:
+            zeichen = {"ueberfaellig": "🚨", "unlesbar": "🚨", "faellig": "⏰"}.get(
+                stand["zustand"], "  "
+            )
+            print(f"  {zeichen} {verfall_zeile(stand)}")
+        print(
+            "  Zulaessige Abgaenge: `mode: blocking` (eigener PR, frozen_note) ODER "
+            "Eintrag streichen und in `declined` begruenden. Frist verlaengern ist "
+            "der dritte Weg und der einzige, der nichts entscheidet."
         )
     return 0
 

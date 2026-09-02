@@ -2,6 +2,8 @@
   "_doc": "Gate-Registry (KONZ-038 D8). SSoT fuer gebaute Gates: Slug, Modus, Modul, Drill. Der Fenster-Prueflauf (tools/gate_drill_check.py, verdrahtet im regel-ritual-Workflow) fuehrt jeden Drill ECHT aus — ein Gate mit rotem Drill gilt K4-konform als NICHT gebaut, egal was hier steht. Bewusst JSON statt YAML: stdlib-parsebar ohne Mini-Parser (die a50bc6-Lehre). Neue Gates werden hier registriert, sonst drillt sie niemand.",
   "_wording_convention": "Blocking-Gates formulieren stderr/reason als MASCHINEN-Feedback, nie als Ablehnung ('dies ist KEINE Nutzer-Ablehnung ...') und begrenzen auf 1 erzwungenen Korrektur-Zug pro Turn (stop_hook_active-Guard) — EXT2-M28-5.",
   "frozen_note": "mode-Aenderungen (advisory→blocking) nur per eigenem PR nach 0-FP-Kalibrierfenster.",
+  "_expires_doc": "`expires` + `expires_note` an einem advisory-Gate: die Frist, bis zu der es entweder scharf geschaltet (blocking) oder gestrichen ist. Gesetzt am 2026-09-02 aus Owner-Entscheid E4 (platform#2606), nachdem die Messung 167 Advisory-Treffer ohne nachweisbare Reaktion zeigte. GELESEN von tools/gate_wirkung.py (Verfall-Zeile, laut ab 14 Tagen vor der Frist und nach Fristablauf) — ein Datum, das niemand liest, ist genau die Fehlform, die dieses Feld beheben soll.",
+  "_zustand_doc": "`zustand` je Gate: `schranke` = gebaut, verdrahtet, wirkt. `streichen-kandidat` = feuert, aber ohne nachweisbare Reaktion — Abgang ist Streichen ODER neue Schwelle, nicht Liegenlassen (Vorbild: `schranke-kandidat` in `kandidaten`). `ohne-traeger` = das Modul existiert samt Drill, aber kein Hook, Workflow oder Runner ruft es automatisch auf; ein Handaufruf zaehlt nicht als Traeger (built-but-never-called). Beide Zustaende sind Befunde, keine Zustandsbeschreibung zum Aussitzen.",
   "gates": [
     {
       "slug": "claim-before-cheapest-check",
@@ -67,7 +69,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-02"
+      "erzwungen_seit": "2026-08-02",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "scope-checkpoint-not-durably-recorded",
@@ -90,7 +94,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-02"
+      "erzwungen_seit": "2026-08-02",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "stale-local-clone-as-ground-truth",
@@ -107,7 +113,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-02"
+      "erzwungen_seit": "2026-08-02",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "handover-stale-vor-merge",
@@ -147,7 +155,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-02"
+      "erzwungen_seit": "2026-08-02",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "drill-path-not-invocation-path",
@@ -211,7 +221,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-11"
+      "erzwungen_seit": "2026-08-11",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "parallel-session-pr-collision",
@@ -353,7 +365,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-12"
+      "erzwungen_seit": "2026-08-12",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "handover-prio-zeigt-auf-erledigtes",
@@ -373,25 +387,6 @@
       "erzwungen_seit": "2026-08-13"
     },
     {
-      "slug": "hand-distributed-copy-not-redistributed",
-      "mode": "advisory",
-      "owner": "achim",
-      "module": "tools/hook-dist-drift.sh",
-      "drill": "tools/tests/test_hook_dist_drift.py",
-      "built": "2026-08-15",
-      "ref": "platform#1991",
-      "revised": "2026-08-23",
-      "revision_note": "Ausweitung am AUSLOESEZEITPUNKT (platform#2143), nicht am Muster. Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte trotzdem 2x. Die Diagnose stand schon in Retro 9d861a: die Luecke ist der Zeitpunkt, nicht der Melder. Zwischen Merge und naechstem Sitzungsstart ist die aktive Kopie alt, und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin. Runner-Phase 0.7.5 heilt jetzt selbst (cc-skill-dist Lane `claude-hooks`, merge-Modus mit Backup, Quelle origin/main statt Arbeitsbaum) und meldet nur noch, wenn die Heilung NICHT gelingt. Positivkontrolle im HOME-Sandkasten gefahren: kuenstliche Drift -> DRIFT -> Heilung -> OK, 13 Dateien.",
-      "faengt": [
-        {
-          "fall": "aktive Hook-Kopie weicht von der Quelle ab",
-          "probe": "drift"
-        }
-      ],
-      "zustand": "schranke",
-      "erzwungen_seit": "2026-08-15"
-    },
-    {
       "slug": "artefakt-budget-schwelle-erreicht",
       "mode": "advisory",
       "owner": "achim",
@@ -405,8 +400,11 @@
           "probe": "schwelle"
         }
       ],
-      "zustand": "schranke",
-      "erzwungen_seit": "2026-08-16"
+      "zustand": "streichen-kandidat",
+      "erzwungen_seit": "2026-08-16",
+      "zustand_note": "Messung 2026-09-02 (platform#2606, E4): 54 Treffer zwischen dem 2026-08-16 und dem 2026-09-02 — der lauteste der vier Stop-Hook-Melder — ohne dass sich ein Treffer auf eine Reaktion zurueckfuehren liess. Ein Dauer-Alarm wird ueberlesen. Zulaessiger Abgang bis zur Frist: streichen ODER Schwelle neu setzen und die neue Schwelle messen; Liegenlassen ist der dritte Weg und der einzige, der nicht zaehlt.",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "cross-repo-befund-ohne-artefakt-im-zielrepo",
@@ -456,7 +454,9 @@
       "erzwungen_seit": "2026-08-20",
       "revised": "2026-09-02",
       "revision_note": "Rev 2 (platform#2374 Ziel A, PR #2615 + Folge-PR): zweite Quelle Befund-Tabelle. Die Frontmatter-Liste ist selbst-etikettiert; ueber 109 Retros wich sie bei 12 von 33 Gates von der Tabelle ab, 14 Gates waren rueckfaellig statt 2 (Realfall fdd368 Z. 63 worktree-midsession-accumulation, Urteil war 'wirksam'). Ein Vorkommen zaehlt jetzt aus Frontmatter ODER SURVIVES-Zeile; 'gefangen' entlastet nur noch ohne ungefangene Tabellenzeile (cc4e11 verschluckte zwei belegte Rueckfaelle). Ergebnis am Umbautag: 5 Gates RUECKFAELLIG statt 2. Mitgemessen, aber bewusst NICHT eingebaut: covers-Aliase (rueckwirkend, 3 Gates nur darueber rueckfaellig) und die Zerfallsrangliste (verworfen, Spearman -0,004). Der revised-Reset gilt nur diesem Gate, nicht den gemessenen.",
-      "last_drill_pass": "2026-09-02"
+      "last_drill_pass": "2026-09-02",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "gate-pflicht-nie-eingeloest",
@@ -474,7 +474,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-20"
+      "erzwungen_seit": "2026-08-20",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "zeitplan-still-abgeschaltet",
@@ -492,7 +494,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-20"
+      "erzwungen_seit": "2026-08-20",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "untested-command-handed-to-user",
@@ -537,26 +541,10 @@
           "probe": "vertagung"
         }
       ],
-      "zustand": "schranke",
-      "erzwungen_seit": "2026-08-23"
-    },
-    {
-      "slug": "skill-copy-not-redistributed",
-      "mode": "advisory",
-      "owner": "achim",
-      "module": "tools/cc-skill-dist/doctor.py",
-      "drill": "tools/tests/test_doctor.py",
-      "built": "2026-08-23",
-      "ref": "platform#2143 (gate_deckung.py: 3x aufgetreten, nie gegated)",
-      "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt: platform#2235).",
-      "faengt": [
-        {
-          "fall": "aktive Skill-Kopie weicht von der Quelle ab (Drift-Score > 0)",
-          "probe": "drift"
-        }
-      ],
-      "zustand": "schranke",
-      "erzwungen_seit": "2026-08-23"
+      "zustand": "ohne-traeger",
+      "zustand_note": "Nur Handaufruf: verdrahtet ist es allein als Punkt der /session-ende-Checkliste (Phase 0g) — also als Disziplin, nicht als Mechanik (gegengeprueft 2026-09-02, platform#2606 E4). Dazu die gemessene Praezision 0,50 auf vier PR-Texten. Abgang: automatischer Traeger ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-23, die es mangels Traeger nie gab (Deklaration != Realitaet).",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "platform-pinned-perma-dirty-loop",
@@ -578,7 +566,9 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-23"
+      "erzwungen_seit": "2026-08-23",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "gate-modul-prueft-weniger-als-sein-name",
@@ -605,7 +595,9 @@
         "gate-matches-spelling-not-substance"
       ],
       "revised": "2026-08-31",
-      "revision_note": "covers-Eintrag 2026-08-31 (Gate-Deckungs-Triage, platform#2234): dieses Gate IST der Nachfolge-Vorschlag zum widerrufenen Verzicht auf gate-matches-spelling-not-substance (Owner-Kommentar #2234 vom 2026-08-23) und war seit dem Bau nie als Deckung registriert — der Slug lief deshalb 11 Laeufe lang als ungedeckt mit. Zusatzdeckung: evidence_claim_scanner Rev 3 (Zahlwoerter). BEKANNTE REICHWEITEN-GRENZE (Retro fdd368 2026-08-26, 'ausweiten'): geprueft werden Registry-Drills in platform, nicht Test-Gates in Produkt-Repos — die Ausweitung ist Programm-Punkt in #2234."
+      "revision_note": "covers-Eintrag 2026-08-31 (Gate-Deckungs-Triage, platform#2234): dieses Gate IST der Nachfolge-Vorschlag zum widerrufenen Verzicht auf gate-matches-spelling-not-substance (Owner-Kommentar #2234 vom 2026-08-23) und war seit dem Bau nie als Deckung registriert — der Slug lief deshalb 11 Laeufe lang als ungedeckt mit. Zusatzdeckung: evidence_claim_scanner Rev 3 (Zahlwoerter). BEKANNTE REICHWEITEN-GRENZE (Retro fdd368 2026-08-26, 'ausweiten'): geprueft werden Registry-Drills in platform, nicht Test-Gates in Produkt-Repos — die Ausweitung ist Programm-Punkt in #2234.",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "no-checks-reported-read-as-green",
@@ -653,8 +645,10 @@
       "built": "2026-08-26",
       "ref": "platform#2343",
       "revision_note": "Owner-Weisung 2026-08-26: geht es um GUI oder Templates, wird /ux-review verwendet. Ein Memory reicht dafuer nicht — es wird gelesen, wenn jemand sucht, und der Fehler passiert gerade dann, wenn niemand sucht. Anlass: ein kompletter GUI-Durchlauf durch writing-hub am 2026-08-25/26 ohne einen einzigen /ux-review-Aufruf, obwohl der Skill die Kette abdeckt UND die Fehler der Vorsitzung bereits als Realfaelle nennt; drei davon passierten erneut. Bedingung aus Tool-Evidenz (GUI-Datei geschrieben) statt aus dem Antworttext — gegen Nicht-Gesagtes ist ein Wortlaut-Scanner blind, dieselbe Lehre wie scope_checkpoint_scanner Rev 2. Erfuellung ist bewusst niedrig: EIN Browser-Aufruf genuegt, der Scanner verlangt nicht den ganzen Skill.",
-      "zustand": "schranke",
-      "erzwungen_seit": "2026-08-26"
+      "zustand": "ohne-traeger",
+      "zustand_note": "Kein automatischer Aufrufer: das Modul steht in keiner Hook-Verdrahtung (~/.claude/settings.json) und in keinem Workflow (gegengeprueft 2026-09-02, platform#2606 E4). Ein registriertes Gate ohne Traeger ist Dekoration — genau die Klasse built-but-never-called. Abgang: verdrahten ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-26, die es mangels Traeger nie gab (Deklaration != Realitaet).",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "built-but-never-called",
@@ -683,7 +677,9 @@
       "drill": "tools/tests/test_befund_praezision.py",
       "built": "2026-08-20",
       "ref": "platform#2170",
-      "note": "Misst je Melder, wie oft seine Befunde echt waren. Vier Fehlalarme in einer Sitzung, null Messung — ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen."
+      "note": "Misst je Melder, wie oft seine Befunde echt waren. Vier Fehlalarme in einer Sitzung, null Messung — ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen.",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
       "slug": "secret-leak-via-safe-pattern",
@@ -780,6 +776,43 @@
       "owner": "achim",
       "ref": "platform#2253",
       "reason": "Endverdikt der Wiedervorlage 2026-08-28: Rueckfall ist aus den vorhandenen Retro-Daten NICHT vorhersagbar. Das pre-registrierte Verfahren lief diesmal vollstaendig durch — die Mindestgroesse ist erfuellt (Test-Split 13 Klassen >= 10), das Kill-Gate feuerte an der MARGE. Gemessen an 100 Retros, 111 Klassen, davon 71 mit vollem 30-Tage-Fenster: Basisrate 28/71 = 39 % (Train 25/58 = 43 %, Test 3/13 = 23 %). Auf TRAIN entwickelt und dort vollstaendig ausgewiesen wurden zehn Merkmale aus dem Erstauftritts-Text; bestes war 'Erstretro trug < 5 Befunde' mit 11/15 = 73 %, Lift 1,70. Genau diese eine Regel wurde einmalig auf TEST angewandt: sie waehlt dort 3 Klassen aus, keine davon faellt zurueck — 0/3 = 0 %, Lift 0,00 gegen die Marge 1,50. Zusatzbeobachtung, nicht Teil des Verdikts: die Basisrate selbst wandert (43 % Train vs. 23 % Test), was jede auf Train geeichte Schwelle zusaetzlich entwertet. Ergebnis ist ein sauberes Negativergebnis, kein Abbruch: die Frage ist beantwortet, die Antwort lautet nein. Keine Wiedervorlage mehr — eine dritte Runde wuerde denselben Test-Split mehrfach verbrauchen."
+    },
+    {
+      "slug": "hand-distributed-copy-not-redistributed",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/hook-dist-drift.sh",
+      "drill": "tools/tests/test_hook_dist_drift.py",
+      "built": "2026-08-15",
+      "ref": "platform#1991 · gestrichen per Owner-Entscheid E4 (platform#2606)",
+      "revised": "2026-08-23",
+      "revision_note": "Ausweitung am AUSLOESEZEITPUNKT (platform#2143), nicht am Muster. Das Gate war nie stumm — es meldete korrekt, und der Rueckfall passierte trotzdem 2x. Die Diagnose stand schon in Retro 9d861a: die Luecke ist der Zeitpunkt, nicht der Melder. Zwischen Merge und naechstem Sitzungsstart ist die aktive Kopie alt, und eine Meldung, auf deren Befolgung man sich verlaesst, ist wieder Disziplin. Runner-Phase 0.7.5 heilt jetzt selbst (cc-skill-dist Lane `claude-hooks`, merge-Modus mit Backup, Quelle origin/main statt Arbeitsbaum) und meldet nur noch, wenn die Heilung NICHT gelingt. Positivkontrolle im HOME-Sandkasten gefahren: kuenstliche Drift -> DRIFT -> Heilung -> OK, 13 Dateien.",
+      "faengt": [
+        {
+          "fall": "aktive Hook-Kopie weicht von der Quelle ab",
+          "probe": "drift"
+        }
+      ],
+      "decided": "2026-09-02",
+      "reason": "Selbstheilend seit der Ausweitung am 2026-08-23: Runner-Phase 0.7.5 verteilt die aktive Hook-Kopie aus origin/main neu und meldet nur noch, wenn die HEILUNG misslingt. Damit ist der Melder wertvoll, das Gate aber gegenstandslos — es gatete einen Zustand, den derselbe Lauf eine Zeile spaeter behebt. Melder bleibt (module/drill unveraendert, Phase 0.7.5); als Schranke gestrichen."
+    },
+    {
+      "slug": "skill-copy-not-redistributed",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/cc-skill-dist/doctor.py",
+      "drill": "tools/tests/test_doctor.py",
+      "built": "2026-08-23",
+      "ref": "platform#2143 (gate_deckung.py: 3x aufgetreten, nie gegated) · gestrichen per Owner-Entscheid E4 (platform#2606)",
+      "note": "Kein Neubau, sondern ein fehlender LESER: `doctor.py` prueft die Lanes `skills` und `commands` seit Monaten read-only, mit Drill und Exit-Code-Vertrag — im Sitzungs-Loop rief es niemand. Verdrahtet als Runner-Phase 0.7.13. 0.7.5 deckt ausdruecklich NUR die Lane `claude-hooks`; die Schwester-Lane war die Luecke (selbst ein Fall von `partial-fix-not-generalized-to-sibling-artifacts`). Geurteilt wird am DRIFT-SCORE, nicht am Exit-Code. Positivkontrolle 2026-08-23: Drift im Koerper einer Skill-Kopie -> Score 1, unveraenderte Kopie -> Score 0. Bekannte Grenze: `strip_managed_footer()` schneidet ab dem MANAGED-BY-Marker bis Dateiende, angehaengter Text HINTER dem Footer bleibt unsichtbar (getrackt: platform#2235).",
+      "faengt": [
+        {
+          "fall": "aktive Skill-Kopie weicht von der Quelle ab (Drift-Score > 0)",
+          "probe": "drift"
+        }
+      ],
+      "decided": "2026-09-02",
+      "reason": "Selbstheilend wie die Schwester-Lane: Runner-Phase 0.7.13 ruft doctor.py und verteilt neu. Melder bleibt (module/drill unveraendert); als Schranke gestrichen. Die bekannte Grenze aus dem Eintrag (Text hinter dem MANAGED-BY-Footer) bleibt getrackt in platform#2235 — sie ist ein Melder-, kein Gate-Befund."
     }
   ],
   "_widerrufen_doc": "Verzichte, die zurueckgenommen wurden. Sie stehen NICHT mehr in `declined` — sonst zaehlten `gate_deckung.py` und `retro_kpis.py` sie weiter als getroffene Entscheidung, und der Widerruf waere deklariert statt wirksam. Die Slugs sind damit wieder offen und erscheinen in der GATE-PFLICHT-Liste. Diese Sektion bewahrt, warum der Verzicht einmal galt und woran er gescheitert ist — die Widerlegung ist der wertvollere Teil.",
