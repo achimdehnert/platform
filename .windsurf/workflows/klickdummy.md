@@ -1,338 +1,119 @@
 ---
-description: Lege einen neuen Klickdummy im aktuellen Repo nach platform:ADR-211 Rev 13 Cookbook an (Spec + Schema + Shell + ADR + Makefile-Erweiterung)
+description: Neuen Klickdummy im Repo anlegen (Spec, Schema, Shell, ADR, Makefile) nach platform:ADR-211 Rev 13 — I1–I4 grün
 mode: write
 ---
 
-# /klickdummy — Neuen Klickdummy nach platform:ADR-211 Rev 13 anlegen
+# /klickdummy — Klickdummy anlegen, bis I1–I4 grün sind
 
-> **Wann:** Workshop / frühe UX-Validierung; Repo hat `iil-klickdummy` schon installiert (oder kann via Step 0.6 installieren).
-> **Wann NICHT:** Nur einmaliges Workshop-Bild gezeigt + weggeworfen → §Wann-NICHT-Klausel `platform:ADR-211` Rev 13. Echte App-UI ohne `?demo=`-Sonderzustand → normaler Code.
+> **Wann:** Workshop / frühe UX-Validierung braucht einen klickbaren Stand; das Repo hat
+> `iil-klickdummy` bereits adoptiert (Makefile-Target `klickdummy-install` existiert).
+> **Wann NICHT:** Einmaliges Workshop-Bild, das danach weggeworfen wird (§Wann-NICHT in
+> `platform:ADR-211`) · echte App-UI ohne `?demo=`-Sonderzustand → normaler Code · Erst-Adoption
+> von `iil-klickdummy` (Repo-Infrastruktur, eigener PR) · **Kandidaten erst finden** → `/kd-scout`
+> (read-only) · **gebauten Klickdummy prüfen** → `/kd-review` (Render, I1-Coverage, UX-Kritik) ·
+> **Sitemap/Portal-Wiring** → `/kd-sitemap`.
 
-## Verwendung — zwei Modi
+**Aufruf:** `/klickdummy <name> [klasse=mock] [persona=<rolle>] [fachliche_grundlage=<pfad>]`
+(Modus A) oder `/klickdummy` ohne Argumente (Modus B, Interview in 5 Phasen, s. Referenzpfad).
+Optional als Folge-Prompts: `screens=[…]` · `extension_review_required=true|false` ·
+`sister_of=[repo:ADR-NNN,…]`.
 
-### Modus A: Direkt-Argumente
+## Ziel
 
-```
-/klickdummy <name> [klasse=mock] [persona=<rolle>] [fachliche_grundlage=<pfad/doc.md>]
-```
+Im aktuellen Repo existiert unter `<KLICKDUMMY_PATH>/<name>/` ein Klickdummy mit Spec, Schema
+und `shell.html`, dazu ein lokales Klickdummy-ADR und ein `KLICKDUMMIES`-Eintrag im Makefile —
+`make klickdummy` meldet I1–I4 PASS und die Shell lädt lokal.
 
-| Variable | Pflicht | Beispiel | Bedeutung |
-|---|---|---|---|
-| `<name>` | **ja** | `schichtleitung-cockpit` | kebab-case, wird Pfad-Name + Spec-ID-Suffix |
-| `klasse` | nein (default `mock`) | `mock` \| `stub-demo` \| `story` \| `spec-demo` | I2-Pattern; bei nicht-`mock` zusätzliche Prod-Guard-Pflicht |
-| `persona` | nein | `schichtleitung` | Default-Persona für Screens |
-| `fachliche_grundlage` | nein | `docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md` | Konzept-Doc, aus dem Screens abgeleitet werden |
+## Akzeptanzkriterien
 
-Optional als Folge-Prompts: `screens=[a,b,c]` · `extension_review_required=true|false` · `sister_of=[repo:ADR-NNN,...]`.
+Alle Pfade relativ zum Repo; `<KLICKDUMMY_PATH>`/`<ADR_PATH>` aus `project-facts.md` (Gate G1).
 
-### Modus B: Geführter Dialog (Interview-Modus)
-
-```
-/klickdummy
-```
-
-(Ohne Argumente.) Skill startet einen strukturierten Interview-Loop in 5 Phasen
-(siehe **Step 0.7 Interview-Modus** unten), sammelt alle Pflicht-Variablen
-und ggf. Screen-Definitionen, zeigt eine YAML-Vorschau zur Konfirmation —
-dann erst beginnen Bau-Steps 1-11. Empfohlen für **Workshop-Vorbereitung**
-ohne fertige Spec-Vorstellung.
-
-## Step 0: Repo-Kontext (PFLICHT — kein Hardcoding)
-
-Aus `.windsurf/rules/project-facts.md` (always_on) im aktuellen Repo lesen:
-
-```
-- REPO_OWNER     (z.B. "ttz-lif", "achimdehnert", "meiki-lra")
-- REPO_NAME      (z.B. "ttz-hub", "writing-hub", "meiki-hub")
-- REPO_SHORT     (kanonisches Cross-Repo-Prefix für `repo:ADR-NNN`, z.B. "ttz-hub")
-- ADR_PATH       (z.B. "docs/adr")
-- KLICKDUMMY_PATH (z.B. "klickdummy")  # Default
-```
-
-Fehlt project-facts.md ⇒ STOP, User auf `session-start.md`-Workflow verweisen.
-
-## Step 0.5: Klasse validieren (I2 4-Pattern, Rev 11/13)
-
-Klasse muss in `{mock, stub-demo, story, spec-demo}` sein.
-
-- **`mock`** (Default) — separater Wegwerf-Code-Pfad, keine echte Persistenz. **I2-Externprobe N/A.** Reicht für Workshop-Klickdummies.
-- **`stub-demo`** — realer Code-Pfad, synth. Daten an dedizierter Demo-Route. **Pflicht:** Demo-Route muss in Prod 404 antworten.
-- **`story`** — Component-Catalog (Storybook o.ä.). **Pflicht:** Catalog-Route in Prod 404.
-- **`spec-demo`** — env-gegateter Zustand via `?demo=<state>`. **Pflicht:** `?demo=` in Prod 404/disabled.
-
-Bei nicht-`mock`-Klasse: **frage nach Prod-Guard-Mechanik** (welcher ENV-Flag, welche Route), bevor Spec geschrieben wird. „Pattern deklariert ohne Guard" wäre Vacuous-Pass.
-
-## Step 0.6: iil-klickdummy-Installation prüfen
-
-```bash
-ls .venv-klickdummy/bin/klickdummy-i1 2>/dev/null && echo "✓ installed" || echo "✗ run: make klickdummy-install"
-```
-
-Wenn fehlt: `make klickdummy-install` ausführen, falls Makefile-Target existiert. Sonst zuerst `iil-klickdummy` adoptieren (siehe §Migrations-Cookbook in `platform:ADR-211` Rev 13). Bei Erst-Adoption: `/klickdummy` selbst nicht der richtige Workflow — Erst-Adoption ist Eingriff in Repo-Infrastruktur.
-
-## Step 0.7: Interview-Modus (nur wenn Modus B: keine Argumente)
-
-**Auslöser:** `/klickdummy` ohne Argumente. Wenn Modus A (mit `<name>` etc.) verwendet wird, wird **Step 0.7 übersprungen** und es geht direkt zu Step 1.
-
-**Mechanik:** Coding-Agent (CC / Windsurf) führt den Dialog mit dem User. **Eine Frage pro Turn**, mit Smart-Default-Vorschlag und Erklärung. User antwortet → nächste Frage. Antworten werden in einer lokalen `<spec_draft>`-Struktur gesammelt. Phase 5 ist Konfirmations-Stop bevor Bau-Steps anfangen.
-
-### Phase 1 — Pflicht-Variablen (4 Fragen, sequenziell)
-
-**Frage 1.1 — Name:**
-
-> „Wie soll der Klickdummy heißen? Kebab-case, wird Pfad-Name + Spec-ID-Suffix.
-> Beispiel: `schichtleitung-cockpit`, `werkleiter-tag-uebersicht`."
-
-Validierung: regex `^[a-z][a-z0-9-]*$`. Bei Drift: re-prompt mit Hinweis.
-
-**Frage 1.2 — Klasse (I2-Pattern):**
-
-> „Welches Pattern (platform:ADR-211 Rev 11 §I2)?
->
-> 1. `mock` (Default) — Wegwerf-Pfad, keine echte Persistenz, keine Prod-Deploy-Pflicht. Für Workshop / frühe Validierung.
-> 2. `stub-demo` — realer Code-Pfad mit synth. Daten an dedizierter Demo-Route (Route muss in Prod 404 antworten).
-> 3. `story` — Component-Catalog (Storybook etc.); Catalog-Route in Prod 404.
-> 4. `spec-demo` — env-gegated via `?demo=<state>`; `?demo=` in Prod 404/disabled.
->
-> Welches Pattern? [Default: mock]"
-
-Bei `stub-demo`/`story`/`spec-demo`: **adaptive Folgefragen** (siehe Phase 2).
-
-**Frage 1.3 — Personas:**
-
-> „Welche Personas / Rollen sehen den Klickdummy? Komma-Liste.
-> [Smart-Default aus `project-facts.md` Repo-Kontext, falls Personas-Hinweise]"
-
-Beispiele je Repo-Typ:
-- ttz-hub (Werkstatt): `werkleitung, schichtleitung`
-- meiki-hub (LRA): `sachbearbeiter, teamleitung`
-- writing-hub (Lecture): `autor`
-
-**Frage 1.4 — Fachliche Grundlage:**
-
-> „Aus welchem Dokument kommen die Screens? Drei Optionen:
->
-> A. **Pfad zu Konzept-Doc** (z. B. `docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md`) — Agent liest + leitet ab
-> B. **Freie Beschreibung** in einem nachfolgenden Prompt
-> C. **Stub** — nur 1 Skelett-Screen mit „Inhalte folgen aus Workshop"-Hinweis
->
-> Welche Option (A/B/C)?"
-
-Bei A: Datei lesen, in Phase 3 verarbeiten.
-Bei B: Free-Text-Eingabe abwarten.
-Bei C: Phase 3 wird sehr kurz (1 Screen).
-
-### Phase 2 — Adaptive Folgefragen (nur bei nicht-`mock`-Klasse)
-
-**Bei `stub-demo`:**
-> „Demo-Route-Pfad? (z. B. `/demo/<klickdummy-name>/`). Wird in `class_evidence.demo_route` festgehalten. **Pflicht:** Diese Route MUSS in Prod 404 antworten (I2-Externprobe)."
-
-**Bei `story`:**
-> „Catalog-Route? (z. B. `/storybook/`, `/styleguide/`). Wird in `class_evidence.catalog_route` festgehalten. **Pflicht:** Route in Prod 404."
-
-**Bei `spec-demo`:**
-> „Welcher Query-Parameter aktiviert den Demo-Render? Default: `?demo=on`. Welcher ENV-Flag schaltet das auf Server-Seite ab? (z. B. `KLICKDUMMY_TOUR_ENABLED + DEBUG + TESTING`). Wird in `class_evidence.prod_guard` festgehalten."
-
-### Phase 3 — Screens definieren (Loop)
-
-**Frage 3.0 — Anzahl:**
-
-> „Wie viele Screens? (2-5 typisch; mehr nur wenn Workshop-Plan es vorgibt.)"
-
-**Wenn fachliche_grundlage=A:** Agent **liest die Datei**, schlägt 2-5 Screens mit Vorschlag-Titel + Zweck vor. User bestätigt oder ändert pro Screen.
-
-**Wenn fachliche_grundlage=B/C:** Agent fragt **pro Screen** sequenziell:
-
-Für Screen #N:
-
-> „**Screen #N — id** (kebab-case)? Beispiel: `frist-uebersicht`."
-> „**title** (Klartext)? Beispiel: `Fristen-Übersicht`."
-> „**purpose** (1 Satz, was zeigt der Screen)?"
-> „**personas** für diesen Screen? [Default: alle aus Phase 1.3]"
-> „**datafields** (Komma-Liste oder leer)? Format: `name (typ, quelle)`. Beispiel: `fall_id (string, FV-Adapter), frist (date, BRMS)`."
-> „**target_mocks** (welche Systemgrenzen werden angeklickt aber nicht aufgelöst)? Komma-Liste generischer Adapter-Familien. Beispiel: `DMS-Adapter, BRMS Frist-Engine`. **Keine Vendor-Namen** (Anti-Pattern)."
-> „**parity_acceptance** — mindestens 1 prüfbare Behauptung pro Screen. Format: `id: kurzbezeichnung | check: konkrete Aussage`. Beispiel: `id: frist-uebersicht.ampel-vollstaendig | check: Ampel-Zähler summieren zu count(alle_fristen)`."
-
-Loop bis Anzahl erreicht.
-
-### Phase 4 — Optionale Felder (Smart-Defaults, 1-2 Fragen)
-
-**Frage 4.1 — Schwester-Implementierungen (Cross-Repo):**
-
-> „Gibt es Klickdummies in anderen Repos, mit denen dieser eine **Schwester-Beziehung** hat? Format: `repo:ADR-NNN`, Komma-Liste. [Default: leer]
->
-> Bekannte Klickdummy-ADRs (zur Inspiration):
-> - meiki-hub:ADR-021 (Fristenmanagement, mock)
-> - writing-hub:ADR-180 (Lecture-Outline-Wizard, spec-demo)
-> - risk-hub:ADR-046 (Spec-Driven UI, mock)
-> - ttz-hub:ADR-100 (Werkleiter-Skizze-Stub, mock)"
-
-**Frage 4.2 — Co-Creation-Loop?**
-
-> „Soll der Klickdummy von Anfang an mit Feedback-Widget (Pfad A-User-Direct, platform:ADR-211 Rev 13 §Co-Creation) ausgeliefert werden? [Default: nein, kann jederzeit nachgerüstet werden]"
-
-Falls **ja**: Spec bekommt `feedback_loop.path: A-User-Direct` und `shell.html` enthält den Bootstrap-Block mit `KLICKDUMMY_FEEDBACK_REPO=<REPO_OWNER>/<REPO_NAME>`.
-
-**Smart-Defaults (NICHT gefragt, automatisch gesetzt):**
-
-| Feld | Default-Wert | Quelle |
+| # | Kriterium (aus `platform:ADR-211`) | Prüfbefehl |
 |---|---|---|
-| `sunset_after` | heute + 12 Monate | Rev-11-Default |
-| `extension_review_required` | `true` für `mock`, `false` sonst | Rev-11-Default |
-| `adr.conforms_to` | `platform:ADR-211` | Konstante |
-| `off_ramp.policy` | `platform:ADR-211 Static→Echt-Migrationspfad` | Konstante |
-| `off_ramp.doppelquell_grenze` | `prod-release` | Konstante |
-| `off_ramp_status` (je Screen) | `static` (bei Klasse `mock`) | Phase-A-Default |
-| ADR-Nummer | `letzte+1` aus `ls <ADR_PATH>/ADR-*.md` | auto-detect |
-| `KLICKDUMMY_FEEDBACK_REPO` | `<REPO_OWNER>/<REPO_NAME>` aus project-facts | Gov-Datenschutz-konform |
+| AK1 | **I1 Spec-first:** `screens-spec.yaml` + `screens-spec.schema.json` + `shell.html` liegen im KD-Pfad; jede Spec-`screens[].id` hat eine `<section data-screen="<id>">` in der Shell und umgekehrt | `make klickdummy-i1` → PASS; Gegenprobe: `grep -o 'data-screen="[^"]*"' <KLICKDUMMY_PATH>/<name>/shell.html` vs. `grep -E '^\s+- id:' …/screens-spec.yaml` |
+| AK2 | **I2 4-Pattern:** `class:` ∈ `{mock, stub-demo, story, spec-demo}` explizit in Spec und ADR; bei Nicht-`mock` steht die Prod-Guard-Mechanik in `class_evidence` (`demo_route` / `catalog_route` / `prod_guard`) | `make klickdummy-i2` → PASS; `grep -E '^class: (mock\|stub-demo\|story\|spec-demo)$' …/screens-spec.yaml` |
+| AK3 | **I3 Off-Ramp:** jeder Screen trägt `off_ramp_status` (bei `mock`: `static`) und ≥1 `parity_acceptance`-Eintrag mit prüfbarem `check` | `make klickdummy-i3` → PASS; `grep -c 'parity_acceptance' …/screens-spec.yaml` ≥ Anzahl Screens |
+| AK4 | **I4 Namensraum:** alle Cross-Repo-Refs als `repo:ADR-NNN`; Spec `adr.local: <REPO_SHORT>:ADR-<NNN>`, `adr.conforms_to: platform:ADR-211` | `make klickdummy-i4` → PASS |
+| AK5 | **ADR-Frontmatter (Rev 11):** `<ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md` mit `tags: [klickdummy]`, `class`, `sunset_after` (ISO, Default heute + 12 Monate), `conforms_to: platform:ADR-211`, `extension_review_required`; `<NNN>` = höchste vorhandene + 1 | `grep -E '^(tags|class|sunset_after|conforms_to|extension_review_required):' <ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md` → 5 Treffer |
+| AK6 | **Makefile + CI:** `KLICKDUMMIES` enthält `<pfad>/screens-spec.yaml:<pfad>/screens-spec.schema.json`; ein CI-Job führt `make klickdummy` aus | `grep -n '<name>/screens-spec.yaml' Makefile`; `grep -rn 'make klickdummy' .github/workflows/` → ≥1 Treffer |
+| AK7 | **Shell lädt lokal** mit sichtbarem Inhalt; Feedback-Widget nur per `?feedback=on` aktiv | `python3 -m http.server 8765 -d <KLICKDUMMY_PATH>/<name>` → `curl -s localhost:8765/shell.html \| grep -c data-screen` ≥1; Render-/UX-Prüfung → `/kd-review` |
 
-### Phase 5 — YAML-Vorschau + Konfirmation
+`make klickdummy` (Sammel-Target) muss alle vier Invarianten PASS melden. Rot bei I4 durch
+**vorbestehende** Drift ⇒ separater Fix-PR, nicht Teil dieses Laufs.
 
-Agent zeigt **gesamte gesammelte Spec als YAML-Block**:
+## Harte Gates
 
-```yaml
-# Vorschau — schreibe ich gleich nach <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
-spec_id: <REPO_SHORT>:klickdummy-spec-<name>
-spec_version: "0.1"
-spec_date: "<heute>"
-title: <Klartext>
-adr:
-  local: <REPO_SHORT>:ADR-<NNN>
-  conforms_to: platform:ADR-211
-  sister_of: [...]
-class: <klasse>
-class_evidence: { ... }
-off_ramp: { ... }
-screens:
-  - id: <id>
-    title: <title>
-    ...
+| # | Gate | Verhalten |
+|---|---|---|
+| G1 | **Repo-Kontext nur aus `.windsurf/rules/project-facts.md`** (`REPO_OWNER`, `REPO_NAME`, `REPO_SHORT`, `ADR_PATH`, `KLICKDUMMY_PATH`) — kein Hardcoding von Pfaden/Orgs | Datei fehlt ⇒ **STOP**, auf `/session-start` verweisen |
+| G2 | **Nie überschreiben:** `<KLICKDUMMY_PATH>/<name>/` existiert bereits | **STOP**, User fragen: Update oder neuer Name. Skill ist **non-idempotent** — Re-Run nur nach Bestätigung |
+| G3 | **Interview-Modus schreibt nichts vor der Konfirmation:** Phase 5 zeigt die YAML-Vorschau; Dateien entstehen erst nach explizitem „Ja, los" | Ohne „Ja, los" ⇒ keine Datei, kein `mkdir` |
+| G4 | **Klasse explizit und guard-belegt:** `class` ∈ 4-Pattern (`mock-prototyp`/`demo-render` sind seit Strict-Mode abgelehnt); bei `stub-demo`/`story`/`spec-demo` **muss** vor dem Spec-Schreiben die Prod-Guard-Mechanik erfragt sein (welche Route/welcher ENV-Flag, Prod ⇒ 404/disabled) | „Pattern deklariert ohne Guard" = Vacuous-Pass ⇒ nicht schreiben, nachfragen |
+| G5 | **ADR-Pflicht-Frontmatter** (AK5) — ohne `sunset_after` bricht die Auto-Deprecate-Mechanik (`adr_sunset.sh`, S7) | Fehlendes Feld ⇒ ADR gilt als nicht angelegt |
+| G6 | **Erst-Adoption ist nicht dieser Skill:** fehlt `iil-klickdummy` (kein `klickdummy-install`-Target), ist das ein Infrastruktur-Eingriff | ⇒ **STOP**, auf §Migrations-Cookbook in `platform:ADR-211` verweisen |
+| G7 | **Datenschutz Gov-Repos:** `KLICKDUMMY_FEEDBACK_REPO` = `<REPO_OWNER>/<REPO_NAME>` aus project-facts — nie eine fremde Org; keine Vendor-Namen in `systemgrenzen`/`target_mocks` (generische Adapter-Familien) | Verstoß ⇒ Spec/Shell nicht committen |
+| G8 | **KD-Referenz nie raten:** `GitHub`-Feld erst nach Commit auf `origin/main`, `iil.pet` erst nach separatem Portal-Regen — bis dahin `—` mit Grund | Erwartetes Verhalten direkt nach dem Bau, kein Fehler |
+| G9 | **Widget opt-in:** `?feedback=on` bleibt opt-in (Class-Erhalt bei `mock`) | Default-aktiv ⇒ I2-Verstoß |
+| G10 | **Dogfood = Pflicht-Review-Gate** für Änderungen an diesem Skill (`claude-skills.md`) | Skill-PR ohne echten Lauf ⇒ nicht mergen |
+
+## Referenzpfad (nicht bindend)
+
+Ein fähigeres Modell darf einen anderen Weg nehmen, solange Akzeptanzkriterien und Harte
+Gates erfüllt sind. Vorlagen liegen im installierten Paket (`.venv-klickdummy/lib/python3.*/
+site-packages/iil_klickdummy/snippets/`).
+
+**0 Kontext + Vorbedingungen** — `project-facts.md` lesen (G1); Klasse validieren (G4);
+`ls .venv-klickdummy/bin/klickdummy-i1` (fehlt ⇒ `make klickdummy-install`, Target fehlt ⇒ G6).
+
+**0.7 Interview-Modus (nur Modus B)** — eine Frage pro Turn, Smart-Default vorschlagen:
+
+| Phase | Inhalt | Validierung / Default |
+|---|---|---|
+| 1 | `name` · `klasse` · `personas` · `fachliche_grundlage` (A Konzept-Doc-Pfad / B Freitext / C Stub) | `^[a-z][a-z0-9-]*$`; Klasse Default `mock` |
+| 2 | nur Nicht-`mock`: `demo_route` / `catalog_route` / `prod_guard` (ENV-Flag + Query-Param) | Pflicht vor Phase 3 (G4) |
+| 3 | Screens (2–5): je `id`, `title`, `purpose`, `personas`, `datafields`, `target_mocks`, `parity_acceptance` | Bei A: Datei lesen, Screens vorschlagen; ≥1 `parity_acceptance` je Screen |
+| 4 | `sister_of` (repo:ADR-NNN) · Co-Creation-Loop (Pfad A-User-Direct) | Defaults: leer / nein |
+| 5 | YAML-Vorschau der gesamten Spec → „Ja, los" / „Ändere X" / „Abbrechen" | G3 |
+
+Smart-Defaults ohne Rückfrage: `sunset_after` = heute + 12 Monate · `extension_review_required`
+= `true` bei `mock`, sonst `false` · `adr.conforms_to: platform:ADR-211` · `off_ramp.policy:
+platform:ADR-211 Static→Echt-Migrationspfad` · `off_ramp.doppelquell_grenze: prod-release` ·
+`off_ramp_status: static` je Screen bei `mock`.
+
+**1 Pfad** — `mkdir -p <KLICKDUMMY_PATH>/<name>/` (existiert ⇒ G2).
+
+**2 ADR-Nummer** — `ls <ADR_PATH>/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -u | tail -1` ⇒
+höchste + 1; Lücken nicht füllen. Führt das Repo `scripts/adr_next_number.py`, dessen Ausgabe
+nehmen.
+
+**3 Spec** — `snippets/spec-templates/screens-spec-template.yaml` nach
+`<KLICKDUMMY_PATH>/<name>/screens-spec.yaml` kopieren; setzen: `spec_id:
+<REPO_SHORT>:klickdummy-spec-<name>`, `spec_date`, `title`, `adr.local`, `adr.sister_of`, `class`,
+`class_evidence` (für `mock`: `no_backend: true`, `no_demo_param: true`, `target_mocks_visible:
+true`; `systemgrenzen` generisch), `off_ramp`, `screens`.
+
+**4 Screens** — aus `fachliche_grundlage` 2–5 User-Journeys ableiten; je Screen `id`, `title`,
+`personas`, `purpose`, `datafields`, `target_mocks`, `parity_acceptance` (2–5 Checks),
+`off_ramp_status`. Ohne Grundlage: **ein** Stub-Screen mit Hinweis „Inhalte folgen aus Workshop".
+
+**5 Schema** — `screens-spec.schema.json`: bestehenden Klickdummy als Vorbild oder Minimalschema
+(draft-07; `required: [spec_id, spec_version, class, screens]`; `class` als `enum` der 4 Pattern;
+`screens` `minItems: 1`).
+
+**6 Shell** — `snippets/shell-bootstrap/inject-widget.html` als `widget-include.html` kopieren;
+`shell.html` mit einer `<section data-screen="<id>">` je Spec-Screen und vor `</body>`:
+
+```html
+<script>
+  window.KLICKDUMMY_SPEC = { id: "<REPO_SHORT>:klickdummy-spec-<name>", version: "0.1", klickdummy_class: "<klasse>" };
+  window.KLICKDUMMY_FEEDBACK_REPO = "<REPO_OWNER>/<REPO_NAME>";
+</script>
+<script src="../../platform-snippets/klickdummy/feedback-widget/widget.js" defer></script>
 ```
 
-Dann Frage:
+Gov-Repos optional: eigene `KLICKDUMMY_CATEGORIES` / `KLICKDUMMY_PERSONA_HOOK`.
 
-> „Sieht das richtig aus?
->
-> - **Ja, los** → starte Bau-Steps 1-11
-> - **Ändere X** → nimm Änderung am YAML auf, zeige neue Vorschau
-> - **Abbrechen** → schreibe nichts, beende Skill"
-
-**Erst nach `Ja, los` werden Files angelegt.** Bis dahin ist die Spec nur in der Konversation.
-
-### Phase-5-Output-Beispiel (Dogfood, ttz-hub Werkleiter-Skizze)
-
-Nachträglich rekonstruiert, was der Interview-Modus bei ttz-hub:ADR-100 erzeugt hätte (vor PR #5):
-
-```
-P1.1 name?                    → werkleiter-skizze
-P1.2 klasse?                  → mock
-P1.3 personas?                → werkleitung, schichtleitung
-P1.4 fachliche grundlage?     → A · docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md
-P2   (mock — übersprungen)
-P3.0 anzahl screens?          → 1 (Stub)
-P3.1 screen #1 id?            → werkleiter-uebersicht-stub
-     title?                   → Werkleiter-Übersicht (Stub)
-     purpose?                 → Skelett — fachliche Inhalte folgen aus Workshop Iter. 1
-     target_mocks?            → LLM-Gateway
-     parity_acceptance?       → id: werkleiter-uebersicht-stub.exists | check: rendert + zeigt Stub-Hinweis
-P4.1 sister_of?               → meiki-hub:ADR-021, writing-hub:ADR-180, risk-hub:ADR-046
-P4.2 co-creation?             → nein (Stub-Phase)
-P5   Vorschau + bestätigt     → Bau-Steps 1-11
-```
-
-Empirie: dieselbe Spec entstand am 2026-05-20 durch manuelle Eingabe (PR #5).
-
-```bash
-mkdir -p <KLICKDUMMY_PATH>/<name>/
-```
-
-Wenn `<KLICKDUMMY_PATH>/<name>/` schon existiert ⇒ STOP, User fragen ob Update oder neuer Name.
-
-## Step 2: ADR-Nummer ermitteln
-
-```bash
-ls <ADR_PATH>/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -u | tail -1
-# z.B. ADR-100 → nächste freie Nummer = ADR-101
-```
-
-ADR-Nummer ist `letzte+1`. Bei Lücken (ADR-001..ADR-100 ohne ADR-050) trotzdem `letzte+1` nehmen, keine Lücken füllen.
-
-## Step 3: Spec aus Template
-
-```bash
-cp .venv-klickdummy/lib/python3.12/site-packages/iil_klickdummy/snippets/spec-templates/screens-spec-template.yaml \
-   <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
-```
-
-**Anpassungen** (in der Spec):
-
-- `spec_id: <REPO_SHORT>:klickdummy-spec-<name>`
-- `spec_date: <heute, ISO>`
-- `title: <Name in Klartext>`
-- `adr.local: <REPO_SHORT>:ADR-<NNN>`  (Nummer aus Step 2)
-- `adr.sister_of: [...]`  (falls Schwester-Klickdummies in anderen Repos existieren)
-- `class: <klasse>`
-- `class_evidence:` je Klasse anpassen (für `mock`: `no_backend: true`, `no_demo_param: true`, `target_mocks_visible: true`)
-- `class_evidence.systemgrenzen: [...]`  (generische Adapter-Familien, NICHT Vendor-Namen)
-- `off_ramp.policy: platform:ADR-211 Static→Echt-Migrationspfad`
-- `screens:` mit fachlich abgeleiteten Screens (siehe Step 4)
-
-## Step 4: Screens ableiten aus fachlicher Grundlage
-
-Wenn `<fachliche_grundlage>` gegeben:
-
-1. Datei lesen
-2. **Hauptabläufe / User-Journeys identifizieren** (2-5, mehr nur in Ausnahmefällen)
-3. Pro Screen: `id` (kebab-case), `title`, `personas` (mind. `<persona>`), `purpose` (1 Satz), `datafields` (welche Felder zeigt der Screen), `target_mocks` (welche Systemgrenzen werden angeklickt aber nicht aufgelöst), `parity_acceptance` (2-5 prüfbare Checks)
-4. Bei `mock`-Klasse: alle `off_ramp_status: static`
-
-Wenn `<fachliche_grundlage>` fehlt: einen **Stub-Screen** mit Warnung anlegen (siehe ttz-hub:ADR-100 als Vorbild) — Inhalte folgen aus Workshop.
-
-## Step 5: Schema-Datei
-
-```bash
-# generisches Schema kopieren (bestehender Klickdummy als Vorbild) ODER
-# minimales Schema:
-```
-
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "required": ["spec_id", "spec_version", "class", "screens"],
-  "additionalProperties": true,
-  "properties": {
-    "spec_id":      { "type": "string" },
-    "spec_version": { "type": "string" },
-    "class":        { "type": "string", "enum": ["mock", "stub-demo", "story", "spec-demo"] },
-    "screens":      { "type": "array", "minItems": 1 }
-  }
-}
-```
-
-## Step 6: shell.html mit Widget-Bootstrap
-
-```bash
-cp .venv-klickdummy/lib/python3.12/site-packages/iil_klickdummy/snippets/shell-bootstrap/inject-widget.html \
-   <KLICKDUMMY_PATH>/<name>/widget-include.html
-```
-
-**shell.html** anlegen mit:
-
-- mind. 1 `<section data-screen="<id>">` pro Spec-Screen
-- am Ende vor `</body>`:
-  ```html
-  <script>
-    window.KLICKDUMMY_SPEC = { id: "<REPO_SHORT>:klickdummy-spec-<name>", version: "0.1", klickdummy_class: "<klasse>" };
-    window.KLICKDUMMY_FEEDBACK_REPO = "<REPO_OWNER>/<REPO_NAME>";
-  </script>
-  <script src="../../platform-snippets/klickdummy/feedback-widget/widget.js" defer></script>
-  ```
-- Wegen Plugin-Hooks (Gov-Repos): optional eigene `KLICKDUMMY_CATEGORIES` / `KLICKDUMMY_PERSONA_HOOK`
-
-## Step 7: Lokales Klickdummy-ADR anlegen
-
-`<ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md` mit **Pflicht-Frontmatter** (Rev 11):
+**7 ADR** — `<ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md`, Frontmatter:
 
 ```yaml
 ---
@@ -344,179 +125,98 @@ scope: <REPO_NAME>
 conforms_to: platform:ADR-211
 tags: [klickdummy]
 class: <klasse>
-sunset_after: <heute + 12 Monate>      # ISO; Auto-deprecate ohne Extension
-extension_review_required: true        # bei mock; false sonst
+sunset_after: <heute + 12 Monate>
+extension_review_required: true   # bei mock; false sonst
 related: []
 ---
 ```
 
-Body: Kontext, Entscheidung (welche Klasse + warum), Konsequenzen, Bezug. Vorlage: `meiki-hub:ADR-021` (für Deep-Dive) oder `ttz-hub:ADR-100` (für Stub).
+Body: Kontext · Entscheidung (Klasse + warum) · Konsequenzen · Bezug.
 
-## Step 8: Makefile-Variable erweitern
+**8 Makefile + CI** — `KLICKDUMMIES` um `<pfad>/screens-spec.yaml:<pfad>/screens-spec.schema.json`
+ergänzen. Beim **ersten** Eintrag im Repo: `grep -rn "make klickdummy" .github/workflows/`; fehlt
+der Job, im selben PR anlegen (Checkout → Python 3.12 → `make klickdummy-install` →
+`make klickdummy`). Ohne CI-Gate bleibt Spec-Drift bis zum nächsten manuellen Lauf unentdeckt.
 
-In `Makefile` die `KLICKDUMMIES`-Liste um den neuen Eintrag ergänzen:
+**9 Prüfen** — `make klickdummy` ⇒ I1–I4 PASS (AK1–AK4); Frontmatter-Grep (AK5); Makefile/CI-Grep (AK6).
 
-```makefile
-KLICKDUMMIES := \
-  <existierende> \
-  <KLICKDUMMY_PATH>/<name>/screens-spec.yaml:<KLICKDUMMY_PATH>/<name>/screens-spec.schema.json
-```
+**10 Lokal laden** — `python3 -m http.server 8765 -d <KLICKDUMMY_PATH>/<name>` →
+`http://localhost:8765/shell.html?feedback=on` (AK7). Widget-Token nur lokal in DevTools
+(`localStorage.setItem('klickdummy_github_token', …)`), nie in Dateien.
 
-**Bei Erstadoption (erster `KLICKDUMMIES`-Eintrag im Repo):** prüfen ob
-bereits ein CI-Job existiert, der `make klickdummy` bei jedem PR ausführt
-(`grep -rn "make klickdummy" .github/workflows/`). Falls nicht, im selben
-PR ergänzen — analog `frist-hub/.github/workflows/ci.yml:56-68`:
+**11 Commit + PR** — Branch `feat/klickdummy-<name>`; Message
+`feat(klickdummy): <Name> (platform:ADR-211 Rev 13)` mit Klasse, Screen-Anzahl, ADR-Nummer +
+`sunset_after`, „I1–I4 grün". PR-Body: Screen-Liste, Klassen-Begründung, bei Gov-Repos
+Datenschutz-Hinweis (G7).
 
-```yaml
-klickdummy:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-    - run: make klickdummy-install
-    - run: make klickdummy
-```
-
-Ohne diesen Gate bleibt Klickdummy-Drift (Namespace-Kollisionen, kaputte
-Specs) bei jeder späteren PR unentdeckt — genau der Regressionstyp, den
-`frist-hub` bereits einmal real erlebt hatte (Session-Retro 2026-07-13,
-`04b5ac`), bevor der Gate dort eingeführt wurde.
-
-## Step 9: I1-I4 grün stellen
-
-```bash
-make klickdummy
-```
-
-**Erwartung:**
-- I1 PASS (schema-konform)
-- I2 PASS (class deklariert)
-- I3 PASS (off_ramp_status je Screen)
-- I4 PASS (Cross-Repo-Refs als `repo:ADR-NNN`)
-
-Wenn I4 wegen pre-existing Drift rot ist: separater Fix-PR, nicht Teil dieser Skill.
-
-## Step 10: Live-Test (optional)
-
-```bash
-cd <KLICKDUMMY_PATH>/<name>
-python3 -m http.server 8765
-# Browser: http://localhost:8765/shell.html?feedback=on
-```
-
-Widget-Token einmalig setzen (DevTools-Console):
-
-```js
-localStorage.setItem('klickdummy_github_token', '<dein-PAT>');
-```
-
-## Step 11: Commit + PR
-
-Branch: `feat/klickdummy-<name>` von `main`.
-
-Commit-Message:
-
-```
-feat(klickdummy): <Name> (platform:ADR-211 Rev 13)
-
-- <Klasse>-Pattern, <N> Screens
-- ADR-<NNN> mit sunset_after <Datum>
-- Spec + Schema + shell.html + Widget v0.5
-- I1-I4 grün
-
-Bezug: platform:ADR-211 Rev 13
-```
-
-PR-Body sollte enthalten: Screen-Liste, Klassen-Begründung, Datenschutz-Hinweis bei Gov-Repos (KLICKDUMMY_FEEDBACK_REPO setzt eigene Org).
+**Bezug:** `platform:ADR-211` (Rev 13, accepted) · `platform:ADR-213` (Ref-Format `repo:ADR-NNN`)
+· `iil-klickdummy` ≥ v1.0.0 · Drift-Memories `klickdummy-adr180-collision`,
+`klickdummy-rev12-pivot-adr214-rejected`.
 
 ## Output-Format
 
 ```
 == /klickdummy <name> ==
-  REPO_SHORT: <wert>
-  KLICKDUMMY_PATH: <wert>
-  ADR_NUMBER: ADR-<NNN>
-  CLASS: <wert>
+  REPO_SHORT: <wert>   KLICKDUMMY_PATH: <wert>   ADR: ADR-<NNN>   CLASS: <wert>
   SCREENS: <liste>
 
-[1] Pfad angelegt:        <KLICKDUMMY_PATH>/<name>/
-[2] Spec geschrieben:     <pfad>
-[3] Schema geschrieben:   <pfad>
-[4] shell.html:           <pfad>
-[5] ADR:                  <ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md
-[6] Makefile erweitert:   KLICKDUMMIES += <eintrag>
-[6b] CI-Job (bei Erstadoption): <wired|already present>
+[1] Pfad:      <KLICKDUMMY_PATH>/<name>/
+[2] Spec:      …/screens-spec.yaml
+[3] Schema:    …/screens-spec.schema.json
+[4] Shell:     …/shell.html
+[5] ADR:       <ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md
+[6] Makefile:  KLICKDUMMIES += <eintrag>   CI-Job: <wired|already present>
 
-== Tests ==
-  I1 → <PASS|FAIL>
-  I2 → <PASS|FAIL>
-  I3 → <PASS|FAIL>
-  I4 → <PASS|FAIL>
+== Akzeptanzkriterien ==
+  AK1 I1 → <PASS|FAIL>   AK2 I2 → <PASS|FAIL>   AK3 I3 → <PASS|FAIL>   AK4 I4 → <PASS|FAIL>
+  AK5 ADR-Frontmatter → <5/5>   AK6 Makefile+CI → <ok>   AK7 Shell lädt → <ok>
 
-== KD-Referenz ==
-  Name:    <name>
-  Spec:    <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
-  Lokal:   <KLICKDUMMY_PATH>/<name>/shell.html?feedback=on
-  GitHub:  — (noch kein Commit auf main — s. Nächste Schritte)
-  iil.pet: — (noch nicht deployed — separater iil-pet-portal-Regen-Schritt nach Merge)
+== KD-Referenz ==   (gleiches Schema wie /kd-scout und /kd-review)
+  Name: <name>   Spec: <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
+  Lokal: …/shell.html?feedback=on   GitHub: — (kein Commit auf main)   iil.pet: — (kein Portal-Regen)
 
 == Nächste Schritte ==
-  - Live-Test: python3 -m http.server 8765 → ?feedback=on
-  - Commit + PR: feat/klickdummy-<name>
+  - Commit + PR: feat/klickdummy-<name>   - Verifikation: /kd-review <name>
 ```
-
-**KD-Referenz-Feldkonvention** (gleiches Schema wie `/kd-scout` Step 3.5 und `/kd-review`, damit die
-Pipeline durchgängig dieselben vier Felder trägt): `Spec`/`Lokal` sind direkt nach Step 3/6 bekannt.
-`GitHub` wird erst mit einem Commit auf `origin/main` auflösbar — bis Step 11 (PR) daher immer `—`
-mit Grund, nie geraten. `iil.pet` erst nach einem separaten `iil-pet-portal`-Regen-Lauf (Memory
-`genesor-deploy-simple`) — an dieser Stelle im Skill praktisch immer `—`, das ist **erwartetes**
-Verhalten direkt nach dem Bau, kein Fehler.
 
 ## Anti-Patterns
 
-- ❌ **Hardcoded Pfad** (`~/github/ttz-hub/...`) statt `project-facts.md` lesen
-- ❌ **Hardcoded Owner/Org** statt `REPO_OWNER` / `REPO_NAME` Variablen
-- ❌ **Klasse `mock-prototyp` oder `demo-render`** (Rev-≤10) — Strict-Mode aktiv seit 2026-05-20, `iil-klickdummy` v1.0.0 lehnt diese ab
-- ❌ **`sunset_after` fehlt** im ADR-Frontmatter — Auto-deprecate-Mechanik bricht
-- ❌ **Cross-Repo-Refs ohne `repo:`-Prefix** — verstößt gegen I4, vgl. Drift-Memory `klickdummy-adr180-collision`
-- ❌ **Vendor-Namen in `systemgrenzen`** (z.B. `enaio`, `d.velop`) statt generischer Adapter-Familien (`DMS-Adapter`)
-- ❌ **`KLICKDUMMY_FEEDBACK_REPO` auf fremde Org** (Gov-Workloads müssen eigene Org behalten — Datenschutz)
-- ❌ **`?feedback=on` als Default-aktiv** — muss opt-in bleiben (class-Erhalt bei `mock`)
-- ❌ **`screens: []`** — keine leere Spec; Stub-Screen muss vorhanden sein, mindestens
-- ❌ **CI ohne Klickdummy-Targets** — `make klickdummy` muss laufen, sonst `klickdummy_registry.sh` rot
-- ❌ **Interview-Modus überspringt Phase 5 (Konfirmation)** — schreibt nie ohne explizites „Ja, los". Sonst entstehen unintentionierte Klickdummies bei Interview-Tippfehlern.
-- ❌ **Phase-3-Screens ohne `parity_acceptance`** — leerer Screen ist I1-Verstoß bei späterem Drift-Check; mindestens 1 prüfbare Behauptung pro Screen erzwingen.
+- ❌ Pfade/Orgs hart kodiert statt aus `project-facts.md` (`REPO_OWNER`/`REPO_NAME`/`KLICKDUMMY_PATH`)
+- ❌ Klasse `mock-prototyp` / `demo-render` (Rev ≤10) — Strict-Mode lehnt ab
+- ❌ `sunset_after` fehlt im ADR-Frontmatter — Auto-Deprecate bricht
+- ❌ Cross-Repo-Refs ohne `repo:`-Prefix — I4-Verstoß (Drift-Memory `klickdummy-adr180-collision`)
+- ❌ Vendor-Namen in `systemgrenzen` statt generischer Adapter-Familien (`DMS-Adapter`)
+- ❌ `KLICKDUMMY_FEEDBACK_REPO` auf fremde Org — Gov-Datenschutz
+- ❌ `?feedback=on` default-aktiv — muss opt-in bleiben
+- ❌ `screens: []` — mindestens ein Stub-Screen
+- ❌ Screen ohne `parity_acceptance` — späterer I1-Drift-Check rot
+- ❌ Interview-Modus überspringt Phase 5 — schreibt nie ohne „Ja, los"
+- ❌ CI ohne `make klickdummy` — Drift bleibt unentdeckt
+- ❌ Nicht-`mock`-Klasse ohne benannte Prod-Guard-Route — Vacuous-Pass
+- ❌ Zahlen/Aggregate als Literal statt aus den KD-Daten berechnet (Rev 17 Daten-Treue)
 
-## Idempotenz-Note
+## Abschluss-Checkliste
 
-**Non-idempotent — confirm before re-run.** Skill legt Files an. Bei Re-Run mit gleichem `<name>`:
-- Existierende Spec wird NICHT überschrieben (STOP in Step 1)
-- ADR-Nummer wird neu vergeben (Step 2) — kann zu Lücken führen, wenn vorheriger Run abgebrochen
-- Makefile-Eintrag muss manuell deduppliziert werden
-
-Bei Re-Run anderen `<name>` wählen oder vorherigen Klickdummy entsorgen.
-
-## Bezug
-
-- `platform:ADR-211` (Rev 13, accepted) — Klickdummy-Cross-Repo-Rahmen
-- `platform:ADR-213` — Cross-Repo-Ref-Format `repo:ADR-NNN`
-- `iil-klickdummy` v1.0.0 — pip-Paket via Git-URL
-- Drift-Memory `klickdummy-adr180-collision` (meiki-hub-lokal) — ADR-Namensraum-Kollision
-- Drift-Memory `klickdummy-rev12-pivot-adr214-rejected` (meiki-hub-lokal) — warum kein zentraler Service
-
-## Dogfood-Test (Pflicht-Review-Gate per `claude-skills.md`)
-
-Bewährt in:
-
-- **ttz-hub PR #5** (2026-05-20) — Erst-Adoption + Stub-Screen `werkleiter-skizze`. ADR-100, Class `mock`, sunset 2027-05-20. I1/I2/I3 PASS, I4 PASS nach 2 ADR-189-Qualifizierungen. **~10 Min Adoption-Zeit** — entspricht Cookbook-Erwartung.
-- **meiki-hub PR #23** (2026-05-20) — Re-Adoption mit Plattform-Heimat (Pilot). ADR-021/026, Class `mock`. Console-Scripts statt lokaler Kopien.
+- ☐ G1: Kontext aus `project-facts.md`, keine hart kodierten Pfade/Orgs im Ergebnis
+- ☐ G2/G3: nichts überschrieben; bei Modus B erst nach „Ja, los" geschrieben
+- ☐ AK1–AK4: `make klickdummy` ⇒ I1–I4 PASS (Output im Bericht, nicht behauptet)
+- ☐ AK5: ADR-Frontmatter 5/5 Pflichtfelder, `<NNN>` = höchste + 1
+- ☐ AK6: `KLICKDUMMIES`-Eintrag + CI-Job (`grep -rn "make klickdummy" .github/workflows/`)
+- ☐ AK7: Shell lokal geladen, `data-screen` ≥1; `/kd-review` als nächster Schritt genannt
+- ☐ G7: Gov-Repo ⇒ Feedback-Repo = eigene Org, keine Vendor-Namen
+- ☐ G8: KD-Referenz mit `—` + Grund für GitHub/iil.pet
+- ☐ Output-Format vollständig; bei vorbestehender I4-Drift separater Fix-PR benannt
+- ☐ Optional: `/kd-sitemap`, wenn das Repo `klickdummy/sitemap/` führt (S14)
 
 ## Changelog
 
-- 2026-05-21: Initial. Aus `platform:ADR-211` Rev 13 §Migrations-Cookbook + ttz-hub-Erst-Adoption-Empirie abgeleitet. 11 Steps + 9 Anti-Patterns + 2 Dogfood-Empirie-Punkte.
-- 2026-05-21: Rev 2 — Interview-Modus (Step 0.7) ergänzt. Bei `/klickdummy` ohne Args läuft strukturierter 5-Phasen-Dialog (Pflicht-Variablen / adaptive Klassen-Folgen / Screens-Loop / Optionals mit Smart-Defaults / YAML-Konfirmation), bevor Bau-Steps 1-11 starten. 2 neue Anti-Patterns (Phase-5-Bypass, leere parity_acceptance). Cross-Tool kompatibel (CC + Windsurf), kein separater Sub-Agent nötig.
-- 2026-07-06: **KD-Referenz** im Output-Format ergänzt (Spec/Lokal/GitHub/iil.pet, gleiches Schema
-  wie `/kd-scout`/`/kd-review`) — konsistente Pipeline-Darstellung, Lücken (GitHub/iil.pet direkt
-  nach Bau immer `—`) explizit mit Grund statt stillschweigend.
+- 2026-09-02: **v2 zielorientiert, platform#2606 Stufe 3** — Ziel, Akzeptanzkriterien (AK1–AK7
+  aus ADR-211 I1–I4 + Frontmatter-Konvention), Harte Gates (G1–G10, alle bisherigen
+  PFLICHT/STOP/nie-Marker zugeordnet), Referenzpfad nicht bindend, Abschluss-Checkliste;
+  hart kodierte Beispiel-Pfade/Orgs entfernt.
+- 2026-07-06: KD-Referenz im Output-Format (Spec/Lokal/GitHub/iil.pet, gleiches Schema wie
+  `/kd-scout`/`/kd-review`).
+- 2026-05-21: Rev 2 — Interview-Modus (5 Phasen) ergänzt; 2 Anti-Patterns (Phase-5-Bypass,
+  leere `parity_acceptance`).
+- 2026-05-21: Initial aus `platform:ADR-211` Rev 13 §Migrations-Cookbook; Dogfood: zwei
+  Erst-/Re-Adoptionen (Stub-Screen bzw. Plattform-Heimat, je ~10 Min, I1–I4 PASS).
