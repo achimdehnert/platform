@@ -128,6 +128,7 @@
       "mode": "process",
       "owner": "achim",
       "module": "scripts/checks/agent_handover_freshness_check.py",
+      "note": "Seit 2026-09-02 (platform#2690 K5) gemessen in tools/session_ende_checks.sh Phase E.3, gedeutet in .windsurf/workflows/session-ende.md Phase 0a-freshness. Der Skill ruft den Pruefer nicht mehr selbst auf: der Aufruf steht im Runner, die Exit-0/Exit-1-Deutung im Skill. Der Traeger .github/workflows/handover-freshness-advisory.yml aus der Revision 2026-08-20 bleibt davon unberuehrt.",
       "drill": "tools/tests/test_agent_handover_freshness_check.py",
       "built": "2026-08-02",
       "ref": "platform#1648",
@@ -550,7 +551,7 @@
         "accepted-plan-item-silently-dropped",
         "deferred-item-no-tracking-issue"
       ],
-      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214.",
+      "note": "Prueft den ZUSAGE-TYP im Artefakt-Text, nicht den Wortlaut im Turn. Gebaut, weil beide Muster-Scanner am realen Rueckfall (PR #2007, Retro 9d861a #3) gemessen vorbeisehen: Markdown-Fettschrift zerreisst den Wortlaut, und eine PR-Referenz im selben Satz besteht jeden Anker-Naehe-Test. Klassifikation ueber loopback-lokales Ollama (kein Egress). Gemessene Praezision 0,50 auf vier echten PR-Texten (docs/governance/verankerung-kalibrierung-2026-08-23.md) — deshalb advisory. Verdrahtet in session-ende Phase 0g; `built` ist das Verdrahtungs-, nicht das Schreibdatum (dieselbe Regel wie bei aufschub-anker). · 2026-08-23 (platform#2234): `accepted-plan-item-silently-dropped` ist die Klasse `restarbeit` dieses Pruefers. Sie laeuft in Welle 1 noch nicht mit (nur `vertagung`) und wartet auf eigene Zahlen — #2214. · 2026-09-02 (platform#2690 K5): gemessen in tools/session_ende_checks.sh Phase E.5, gedeutet in .windsurf/workflows/session-ende.md Phase 0g. Der Skill-Text enthaelt die Schleife ueber die eigenen PRs nicht mehr selbst.",
       "faengt": [
         {
           "fall": "Zusage vom Typ Vertagung ohne Anker im selben Segment",
@@ -558,7 +559,7 @@
         }
       ],
       "zustand": "ohne-traeger",
-      "zustand_note": "Nur Handaufruf: verdrahtet ist es allein als Punkt der /session-ende-Checkliste (Phase 0g) — also als Disziplin, nicht als Mechanik (gegengeprueft 2026-09-02, platform#2606 E4). Dazu die gemessene Praezision 0,50 auf vier PR-Texten. Abgang: automatischer Traeger ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-23, die es mangels Traeger nie gab (Deklaration != Realitaet).",
+      "zustand_note": "Nur Handaufruf: der Aufruf steht seit 2026-09-02 in tools/session_ende_checks.sh E.5 statt im Skill-Fliesstext, aber der Runner startet weiterhin nur, wenn jemand /session-ende faehrt — kein CI-Trigger, also weiter `ohne-traeger` (gegengeprueft 2026-09-02, platform#2606 E4). Dazu die gemessene Praezision 0,50 auf vier PR-Texten. Abgang: automatischer Traeger ODER streichen. `erzwungen_seit` ist hier entfernt: es behauptete eine Erzwingung seit 2026-08-23, die es mangels Traeger nie gab (Deklaration != Realitaet).",
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
@@ -751,7 +752,7 @@
       "built": "2026-09-02",
       "ref": "platform#2690 K4 (Owner-Auftrag 2026-09-02: geschlossener Verbesserungskreis)",
       "positivkontrolle": {
-        "ref": "tools/tests/test_gate_verankerung_check.py::test_should_positivkontrolle_realfall_altgate_rot_melden — ein Eintrag im Zuschnitt der 31 Bestands-Gates (Drill + Messpunkt vorhanden, Beleg nur als `note`-Prosa) MUSS Exit 1 ergeben; faellt der Test auf gruen, hat der Pruefer aufgehoert zu finden",
+        "ref": "CI-Beleg (nicht nur Unit-Test): Wegwerf-PR platform#2709 mit Eintrag `ci-beweis-wegwerf-2026-09-02` (Drill + Messpunkt vorhanden, ohne `positivkontrolle`) machte den Job \"Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)\" in CI ROT — https://github.com/achimdehnert/platform/actions/runs/33644541094/job/100295773112 (Exit 1). Ergaenzt (nicht ersetzt) den Drill-Beleg tools/tests/test_gate_verankerung_check.py::test_should_positivkontrolle_realfall_altgate_rot_melden, der denselben Fall lokal simuliert.",
         "datum": "2026-09-02"
       },
       "faengt": [
@@ -775,7 +776,25 @@
       "zustand": "schranke",
       "expires": "2026-10-02",
       "expires_note": "30 Tage — derselbe Stichtag, an dem platform#2690 K4 die Rueckfallquote gegen die 14/33 vom 2026-09-02 misst. Bis dahin ist zu entscheiden: Check-Name `Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)` ins Ruleset (blocking) ODER Gate streichen. Advisory ist hier bewusst der Zwischenschritt und kein Endzustand — die Required-Frage gehoert an das Ruleset des Owners, nicht in einen Datei-Edit (deshalb eigener Job statt Step im Check `tools-tests`).",
-      "note": "Bilanz beim Bau (2026-09-02, `--alle`): 31 Gates, 0 vollstaendig verankert — 0 ohne Drill, 0 ohne Messpunkt, 31 ohne Positivkontrolle. Das Feld `positivkontrolle` ist mit diesem Eintrag neu; die Null misst also die Luecke, die es oeffnet, nicht einen Zerfall. Bestandsschutz ist Absicht (Nachziehen der Bestands-Gates getrackt in platform#2703): `--neu` fordert die drei Nachweise nur fuer Eintraege, die gegenueber origin/main neu oder in einem NICHT-Prosa-Feld geaendert sind (`built`, `revised`, `drill`, `module`, `mode`, `repo`). Ein Tippfehler-Fix im `note` faerbt keinen PR. Verdrahtet als eigener Job in .github/workflows/tools-tests.yml (eigener Check-Name, damit die Required-Frage beim Ruleset des Owners bleibt und nicht per Step-Exit vorentschieden wird)."
+      "revised": "2026-09-02",
+      "revision_note": "K4-Beleg nachgetragen: Blockierpfad in CI belegt: Wegwerf-PR platform#2709, Job \"Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)\" rot (https://github.com/achimdehnert/platform/actions/runs/33644541094/job/100295773112). `positivkontrolle.ref` zeigt jetzt auf den echten CI-Lauf statt nur auf den Unit-Test.",
+      "note": "Bilanz beim Bau (2026-09-02, `--alle`): 31 Gates, 0 vollstaendig verankert — 0 ohne Drill, 0 ohne Messpunkt, 31 ohne Positivkontrolle. Das Feld `positivkontrolle` ist mit diesem Eintrag neu; die Null misst also die Luecke, die es oeffnet, nicht einen Zerfall. Bestandsschutz ist Absicht (Nachziehen der Bestands-Gates getrackt in platform#2703): `--neu` fordert die drei Nachweise nur fuer Eintraege, die gegenueber origin/main neu oder in einem NICHT-Prosa-Feld geaendert sind (`built`, `revised`, `drill`, `module`, `mode`, `repo`). Ein Tippfehler-Fix im `note` faerbt keinen PR. Verdrahtet als eigener Job in .github/workflows/tools-tests.yml (eigener Check-Name, damit die Required-Frage beim Ruleset des Owners bleibt und nicht per Step-Exit vorentschieden wird). Blockierpfad in CI belegt: Wegwerf-PR platform#2709, Job rot."
+    },
+    {
+      "slug": "verification-proves-absence-not-success",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/lint_blind_verification.py",
+      "drill": "tools/tests/test_lint_blind_verification.py",
+      "built": "2026-08-21",
+      "ref": "platform#2203",
+      "revision_note": "Findet `<befehl> | grep -q <muster>`. Zwei Fehler in einer Gestalt: als PRUEFUNG belegt das nur ein Muster im Ausgabetext, nicht den Erfolg (ein gescheiterter Befehl ohne das Muster gilt als gruen); unter `set -o pipefail` erzeugt es zusaetzlich SIGPIPE und laesst die Pipeline zufaellig scheitern. Anlass 2026-08-21 chat-hub: `git fetch --dry-run | grep -qi 'moved|redirect'` stellte die Remotes auf ein nicht existierendes Repo und meldete Erfolg; dieselbe Falle steckte am selben Tag in 4 weiteren Pipelines. Erster Lauf gegen platform/tools: 9 Funde, darunter session_start_checks.sh.",
+      "expires": "2026-10-31",
+      "note": "Verfallsfrist beim Nachziehen auf main ergaenzt (2026-09-02): der Zweig ist vom 2026-08-21 und aelter als die Regel, dass jedes advisory-Gate eine Frist traegt. 2026-10-31 ist die Frist, die alle uebrigen advisory-Gates der Registry tragen — kein Sonderweg fuer dieses.",
+      "positivkontrolle": {
+        "ref": "platform#2207 — Lauf ueber tools/ und scripts/ am 2026-09-02 fand 39 Stellen, darunter session_start_checks.sh:294/301 (`ss -tlnp | grep -q 15435` als Pruefung des pgvector-Tunnels: der Befehl kann scheitern und die Zeile trotzdem gruen melden). Gegenprobe im Drill: Here-String-Form und Exit-Code-Form werden NICHT gemeldet (test_should_ignore_herestring_and_exit_code_form)",
+        "datum": "2026-09-02"
+      }
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
