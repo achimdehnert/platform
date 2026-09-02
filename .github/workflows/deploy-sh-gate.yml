@@ -17,6 +17,7 @@ on:
       - "tools/deploy-script-drift.sh"
       - "tests/test_deploy_migrate_gate.sh"
       - "tests/test_deploy_ghcr_isolation.sh"
+      - "tests/test_deploy_rollback_ziel.sh"
       - ".github/workflows/deploy-sh-gate.yml"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - "tools/deploy-script-drift.sh"
       - "tests/test_deploy_migrate_gate.sh"
       - "tests/test_deploy_ghcr_isolation.sh"
+      - "tests/test_deploy_rollback_ziel.sh"
       - ".github/workflows/deploy-sh-gate.yml"
 
 permissions:
@@ -42,6 +44,7 @@ jobs:
           bash -n tools/deploy-script-drift.sh
           bash -n tests/test_deploy_migrate_gate.sh
           bash -n tests/test_deploy_ghcr_isolation.sh
+          bash -n tests/test_deploy_rollback_ziel.sh
 
       - name: ShellCheck
         run: |
@@ -79,3 +82,10 @@ jobs:
       # ~/.docker/config.json schreibt, sieht im Log identisch aus.
       - name: Vertragstest GHCR-Credential-Isolation
         run: bash tests/test_deploy_ghcr_isolation.sh
+
+      # writing-hub#982 / platform#2685: das Rollback hing an einer Zusage
+      # (.env) statt an der Wirklichkeit (laufender Container) und scheiterte
+      # deshalb an derselben Registry wie der Deploy davor. Auch das ist am
+      # Deploy-Log nicht zu sehen — der Deploy war rot, kaputt war der Notausgang.
+      - name: Vertragstest Rollback-Ziel + Registry-Wiederholung
+        run: bash tests/test_deploy_rollback_ziel.sh

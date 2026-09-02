@@ -11,7 +11,7 @@ set -euo pipefail
 # tools/deploy-script-drift.sh gegen die Host-Kopien geprüft — die Host-Kopie
 # wird von Hand verteilt und lief messbar auseinander (Prod hing am 2026-07-25
 # eine Revision hinter Git+Staging, u.a. ohne den override-Fix aus platform#1075).
-DEPLOY_SH_VERSION="2026-09-01.1"
+DEPLOY_SH_VERSION="2026-09-02.1"
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
 APP_PATH="${2:?'APP_PATH fehlt'}"
@@ -47,10 +47,38 @@ fi
   echo "FEHLER: Kein Compose-File in $APP_PATH" >&2; exit 3;
 }
 
-# Vorherigen Tag für Rollback speichern
+# Vorherigen Tag für Rollback speichern.
+#
+# Quelle ist der LAUFENDE Container, nicht die `.env` (writing-hub#982,
+# platform#2685). Die `.env` ist eine Zusage, die falsch sein kann, und sie ist
+# genau dann falsch, wenn das Rollback gebraucht wird: sie wird VOR dem Pull auf
+# den neuen Tag gesetzt (s.u.), also trägt sie nach einem gescheiterten Deploy
+# einen Stand, der nie lief. Realfall 2026-09-02 auf prod — zwei Deploys
+# scheiterten nacheinander am Registry-Abruf, der zweite meldete
+# `Prev: main-3abbb31`, während in Wahrheit `main-0ef9843` lief. Das Rollback
+# zog daraufhin ein Abbild, das der Host gar nicht hatte, und scheiterte an
+# derselben Registry wie der Deploy davor ("KRITISCH: Rollback fehlgeschlagen").
+#
+# Der laufende Container trägt sein Abbild per Definition lokal — ein daraus
+# abgeleitetes Rollback braucht das Netz nie. `.env` bleibt Rückfallebene für
+# den Fall, dass nichts läuft (Erstinstallation, Stack gestoppt).
 PREVIOUS_TAG=""
-if [[ -f "$APP_PATH/.env" ]]; then
-  PREVIOUS_TAG=$(grep "^IMAGE_TAG=" "$APP_PATH/.env" | cut -d= -f2 || true)
+_running_image_tag() {
+  local app_image
+  app_image=$(docker ps --format '{{.Image}}' 2>/dev/null \
+    | grep -E "^ghcr\.io/[^/]+/${APP_NAME}:" | sort -u | head -1)
+  [[ -n "$app_image" ]] || return 1
+  printf '%s' "${app_image##*:}"
+}
+if PREVIOUS_TAG=$(_running_image_tag); then
+  echo "Rollback-Ziel aus dem laufenden Container: $PREVIOUS_TAG"
+else
+  PREVIOUS_TAG=""
+  if [[ -f "$APP_PATH/.env" ]]; then
+    PREVIOUS_TAG=$(grep "^IMAGE_TAG=" "$APP_PATH/.env" | cut -d= -f2 || true)
+    [[ -n "$PREVIOUS_TAG" ]] && \
+      echo "⚠️  Kein laufender App-Container — Rollback-Ziel aus .env: $PREVIOUS_TAG (ungeprüft lokal vorhanden)"
+  fi
 fi
 
 # Compose-File nach Umgebung wählen (ADR-022)
@@ -202,6 +230,12 @@ rollback() {
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
     export _ROLLBACK_MODE=1  # bypass manifest/sha check during rollback
+    # `.env` VOR dem Hochfahren zurücksetzen, nicht danach: bricht das `up -d`
+    # ab, bliebe sonst der nie gelaufene Tag stehen und der nächste Deploy läse
+    # ihn als "vorherigen Stand" ein (die Kette, die den Realfall 2026-09-02
+    # erzeugt hat). Ein späterer Hand-`docker compose up -d` startete damit eine
+    # Version, die niemand ausgeliefert hat.
+    _restore_image_tag
     docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
       echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose ${COMPOSE_ARGS[*]} up -d" >&2
       exit 10
@@ -226,6 +260,37 @@ if [[ -f "$APP_PATH/.env" ]] && grep -q "^IMAGE_TAG=" "$APP_PATH/.env"; then
 else
   echo "IMAGE_TAG=${IMAGE_TAG}" >> "$APP_PATH/.env"
 fi
+
+# ── Wiederholung an den Registry-Schritten ───────────────────────────────────
+# Die zwei Aufrufe, die dieses Skript gegen ghcr.io macht (Anmeldung und Abruf),
+# sind die einzigen, die von einem fremden Dienst abhängen. Ein Aussetzer dort
+# hat bis 2026-09-02 den gesamten Deploy gekostet: gemessen auf prod erreichten
+# nur 4 von 10 Verbindungen ghcr.io, während github.com 10 von 10 schaffte und
+# ICMP zum selben Rechner verlustfrei lief (writing-hub#982, platform#2685).
+# Vier Läufe scheiterten, der fünfte ging unverändert durch — das ist die
+# Signatur eines transienten Ausfalls, und dagegen ist Wiederholen die richtige
+# und einzige Antwort. Der Geltungsbereich endet hier: ein fehlgeschlagener
+# `migrate` und ein Manifest-Bruch sind deterministisch und wiederholen sich
+# deshalb nicht — ein zweiter Versuch verdeckt dort nur die Ursache.
+: "${DEPLOY_REGISTRY_RETRIES:=4}"   # Gesamtversuche, nicht Nachversuche
+: "${DEPLOY_REGISTRY_BACKOFF:=5}"   # Sekunden, verdoppelt sich je Versuch
+_mit_wiederholung() {
+  local was="$1"; shift
+  local versuch=1 warte="$DEPLOY_REGISTRY_BACKOFF"
+  while :; do
+    if "$@"; then
+      [[ $versuch -gt 1 ]] && echo "✅ $was im Versuch $versuch/$DEPLOY_REGISTRY_RETRIES"
+      return 0
+    fi
+    if [[ $versuch -ge $DEPLOY_REGISTRY_RETRIES ]]; then
+      echo "❌ $was nach $DEPLOY_REGISTRY_RETRIES Versuchen aufgegeben" >&2
+      return 1
+    fi
+    echo "⏳ $was fehlgeschlagen (Versuch $versuch/$DEPLOY_REGISTRY_RETRIES) — neuer Versuch in ${warte}s" >&2
+    sleep "$warte"
+    warte=$(( warte * 2 )); versuch=$(( versuch + 1 ))
+  done
+}
 
 # GHCR Login — bevorzugt kurzlebigen Workflow-Token (GHCR_TOKEN env), sonst Host-Datei.
 # shared-ci _deploy-unified.yml reicht GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }} + GHCR_USER durch
@@ -255,14 +320,16 @@ _ghcr_config_cleanup() {
 }
 trap _ghcr_config_cleanup EXIT
 
+_ghcr_login_env() { echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin; }
+_ghcr_login_datei() { docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token; }
 if [[ -n "${GHCR_TOKEN:-}" ]]; then
   _GHCR_CONFIG_DIR="$(mktemp -d)"
   export DOCKER_CONFIG="$_GHCR_CONFIG_DIR"
-  echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin
+  _mit_wiederholung "GHCR-Anmeldung" _ghcr_login_env
 elif [[ -f "/opt/scripts/.ghcr_token" ]]; then
   _GHCR_CONFIG_DIR="$(mktemp -d)"
   export DOCKER_CONFIG="$_GHCR_CONFIG_DIR"
-  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
+  _mit_wiederholung "GHCR-Anmeldung" _ghcr_login_datei
 fi
 
 # Deploy
@@ -346,7 +413,8 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
   docker compose "${COMPOSE_ARGS[@]}" down --remove-orphans 2>&1 || true
 fi
 
-docker compose "${COMPOSE_ARGS[@]}" pull
+_compose_pull() { docker compose "${COMPOSE_ARGS[@]}" pull; }
+_mit_wiederholung "Abbild-Abruf" _compose_pull
 
 # ── Schema-Migrationen — VOR dem Traffic-Switch, fail-closed ──────────────────
 # Root-Cause illustration-hub#66: dieses Skript lief ohne migrate-Schritt →

@@ -51,14 +51,30 @@ echo "── 4/4 Tunnel starten und gegenprüfen ──────────�
 systemctl --user enable --now "$UNIT"
 sleep 8
 systemctl --user is-active "$UNIT"
+# Die Beurteilung der Antwort liegt in gegenprobe.sh — dort ist sie ohne
+# Cloudflare-Konto und ohne systemd testbar (platform#2700).
+# shellcheck source=tools/cf_access/gegenprobe.sh
+. "$HIER/gegenprobe.sh"
+
 for i in 1 2 3; do
   sleep 3
   code="$(status)"
   echo "  Gegenprobe $i: HTTP $code"
-  if [ "$code" = "200" ]; then
-    echo "  ⛔ 200 mit laufendem Tunnel — Access greift NICHT. Tunnel wird gestoppt."
-    systemctl --user stop "$UNIT"
-    exit 1
-  fi
+  beurteile_gegenprobe "$code"; urteil=$?
+  case "$urteil" in
+    0) : ;;  # erwartet: Access weist ab (oder schlafender Ursprung, bewusst erlaubt)
+    1)
+      echo "  ⛔ 200 mit laufendem Tunnel — Access greift NICHT. Tunnel wird gestoppt."
+      systemctl --user stop "$UNIT"; exit 1 ;;
+    2)
+      echo "  ⛔ HTTP $code — Access greift, aber der URSPRUNG antwortet nicht."
+      echo "     Haeufigste Ursache: ORIGIN falsch (Schema/Port) oder Dienst am Ziel aus."
+      echo "     Vom Gateway aus pruefen: curl -sS -o /dev/null -w '%{http_code}' http://<origin>/"
+      echo "     Laeuft das Geraet nur auf Zuruf: URSPRUNG_DARF_SCHLAFEN=1 setzen."
+      systemctl --user stop "$UNIT"; exit 1 ;;
+    *)
+      echo "  ⛔ unerwartete Antwort HTTP $code — weder Access-Abweisung noch bekannter Fehler."
+      systemctl --user stop "$UNIT"; exit 1 ;;
+  esac
 done
 echo "Fertig: https://$HOST/ — Anmeldung über den Zero-Trust-Anbieter, Sitzung 24 h."

@@ -38,6 +38,41 @@ mode: write
    **getan · angenommen · nicht verifizierbar · offen geblieben**.
 
 ## Phase 0 — Right-Sizing (Footprint **und** erwartete Befund-Dichte)
+
+### 0.0 Wirkungsbilanz lesen — ERSTER Schritt, vor allem anderen (PFLICHT — NEU 2026-09-02, platform#2690 K4)
+
+```bash
+python3 tools/gate_wirkung.py
+```
+
+> **Die Retro hat eine eigene Wirkungsbilanz, und sie war bisher der letzte Schritt.**
+> `gate_wirkung.py` lief in Phase 4 (Punkt 5a) — also erst, nachdem die Befunde dieser
+> Sitzung schon standen. Gemessen am 2026-09-02: **14 von 33 Gates rückfällig** (#2374,
+> #2678). Diese 14 sind keine Nebeninformation für den Schluss, sondern die stärkste
+> vorliegende Aussage darüber, welche Regel als nächste bricht — sie gehören an den Anfang.
+
+**Jedes `RUECKFAELLIG`-Gate wird im Report behandelt, BEVOR ein neuer Befund aufgemacht
+wird.** Eigene Zeile je Gate, vier Spalten:
+
+| Gate | Rückfälle seit Bau | Ursache: am Ausgang oder an der Quelle? | Konsequenz |
+|---|---|---|---|
+
+- **Ursache am Ausgang** — das Gate feuert, aber niemand handelt danach (Melder ohne Leser,
+  Advisory ohne Frist) ⇒ Konsequenz: **Modus herabstufen** oder **Sunset** (`declined` mit
+  Grund). Ein Melder, der nichts auslöst, wird nicht lauter gemacht.
+- **Ursache an der Quelle** — das Gate sieht den Fall nicht (falsches Muster, falscher Pfad,
+  zu spät) ⇒ Konsequenz: **nachschärfen** (Muster ausweiten, Pfad korrigieren) oder
+  **Drill ergänzen**, wenn der namensgebende Fall ungedrillt ist (`gate_namensdeckung.py`).
+
+Zulässige Konsequenzen sind genau diese vier: **nachschärfen · Drill ergänzen · Modus
+herabstufen · Sunset**. „Im Report erwähnt" ist keine. Die Umsetzung selbst gehört nach
+Phase 4 (Punkt 5a) — hier wird sie **entschieden**, damit die Befund-Suche weiß, was schon
+als Rückfall verbucht ist und nicht ein zweites Mal als neuer Befund aufgemacht wird.
+
+**Ehrlichkeits-Sperre gilt auch hier:** ein Gate mit `zu-frueh` oder `unerprobt` ist nicht
+wirksam, sondern ungeprüft — diese Zeilen sind kein Erfolg, den man berichten darf.
+
+### 0.1 Footprint + Befund-Dichte
 Footprint messen (PRs / Repos / Prod-Schritte / Migrationen / ADRs) **und** Befund-Dichte
 schätzen: war die Session **reversibel + transparent + vom-Menschen-freigegeben**, sind harte
 Survivors strukturell selten → kleiner skalieren (sonst verbrennt die Falsifikation Agenten für
@@ -322,6 +357,16 @@ Danach in fester Reihenfolge:
   nicht die Wirkung. `retro_kpis.py` konnte das nicht zeigen: es zählt Slugs, nicht Rückfälle.
   **Ehrlichkeits-Sperre beachten:** ein Gate mit `zu-frueh` oder `unerprobt` ist **nicht**
   wirksam, sondern ungeprüft — diese Zeilen sind kein Erfolg, den man berichten darf.
+  **Bei einem Rückfall wird das BESTEHENDE Gate geändert, nie ein zweites unter neuem Namen
+  gebaut (PFLICHT — NEU 2026-09-02, platform#2690 K4):** derselbe Registry-Eintrag bekommt
+  `revised` + `revision_note` (und, wenn er ausgeweitet wurde, eine neue
+  `positivkontrolle`, weil das Datum die Rückfall-Messung auf null setzt —
+  `gate_wirkung.py` liest `revised or built`). Ein neuer Slug für dieselbe Sache spaltet
+  den Längsschnitt: das alte Gate steht ab da für immer auf `RUECKFAELLIG`, das neue auf
+  `zu-frueh`, und keine der beiden Zeilen sagt noch, ob die Sache besser geworden ist.
+  Was in Phase 0.0 als Konsequenz entschieden wurde, wird hier eingetragen — der
+  Registry-Edit läuft durch `tools/gate_verankerung_check.py --neu` (session-ende
+  Phase 0f-verankerung), sonst ist er kein Eintrag, sondern ein Kandidat (#2234).
 - **5b. Autonomie-Kalibrierung (integriert, gegen statische Charter):** zusätzlich zwei KPIs gegen die
   Artefakte messen und im Frontmatter führen — `over_ask` (etwas dem Menschen als „dein Zug" vorgelegt,
   das nachweislich **deterministisch/reversibel** war → hätte autonom laufen sollen) und `over_act`
@@ -432,8 +477,52 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — trivial-falsche Finder-Behauptungen (vom Haupt-Kontext vor-widerlegt) blähen die Quote und verfälschen das Skill-KPI.
 - ❌ **Phase-1-Collect liest lokalen `git log` ohne vorheriges `git fetch`** — die Frisch-Checkout-Pflicht gilt nicht nur für Phase-3-Skeptiker, sondern für JEDEN Collect-Schritt, auch inline bei `lean`.
 
+## Abschluss-Checkliste (muss alles grün oder begründet n/a sein)
+
+> **Warum diese Tabelle 2026-09-02 überhaupt entstand:** diese Skill hatte als einzige der
+> drei Session-Skills **keine** — 6 Phasen mit PFLICHT-Markern, aber kein Ort, an dem eine
+> übersprungene Phase auffällt. Genau die Lücke, die der Realfall
+> `session-retro-2026-07-15-platform-c494a2` (Befund #8) für `session-ende.md` belegt hat:
+> eine neue Pflicht-Phase lag vor, wurde aber nicht ausgeführt, weil die Abschluss-Checkliste
+> sie nicht abfragte. „Bewusst übersprungen, weil X" zählt als erfüllt — stillschweigend
+> ausgelassen nicht.
+
+| # | Check | Status |
+|---|-------|--------|
+| 1 | **Wirkungsbilanz gelesen, Rückfälle behandelt** — `gate_wirkung.py` als ERSTER Schritt gelaufen, jedes `RUECKFAELLIG`-Gate mit Ursache (Ausgang/Quelle) + Konsequenz (nachschärfen · Drill ergänzen · herabstufen · Sunset) im Report, **vor** den neuen Befunden (Phase 0.0) | ☐ |
+| 2 | Footprint + Befund-Dichte bestimmt, Stufe (lean/full/deep) und Agenten-Budget genannt; Reduktion ggf. mit den drei Begründungen im Frontmatter (Phase 0.1) | ☐ |
+| 3 | Collect mit `git fetch` **und** Lesen aus dem Ref (`git show origin/<branch>:<pfad>`), nicht aus dem lokalen Tree (Phase 1) | ☐ |
+| 4 | Find je Dimension in frischem Kontext gelaufen — nicht durch die Haupt-Session (Phase 2) | ☐ |
+| 5 | Finder-Widersprüche erkannt und als Skeptiker-Task aufgelöst, nicht inline per neuem `git`/`gh` (Phase 2.5) | ☐ |
+| 6 | Verify: Skeptiker **nur** auf Bewertungsbefunde, kommandobelegte ungeprüft gelassen; `refuted_rate` mit `pre_refuted` getrennt (Phase 3) | ☐ |
+| 7 | Soll-Ablauf an die Überlebenden gekoppelt (Ist→Soll→eliminiert-#) (Phase 3.5) | ☐ |
+| 8 | Report vollständig: Frontmatter + §1–§8 in fester Reihenfolge, Befund-Tabelle mit eingefrorenen Spalten, §8 „Nicht verifiziert" gefüllt (Phase 4) | ☐ |
+| 9 | Längsschnitt: `retro_kpis.py` gelaufen, jeder Slug ≥2 als GATE-PFLICHT geführt (Phase 4, Punkt 5) | ☐ |
+| 10 | Rückfall-Konsequenz aus Zeile 1 **eingetragen**: bestehender Registry-Eintrag mit `revised` + `revision_note` geändert, **kein** zweites Gate unter neuem Namen; `gate_verankerung_check.py --neu` grün (Phase 4, Punkt 5a) | ☐ |
+| 11 | `over_ask`/`over_act` inkl. Klassen-Slugs im Frontmatter geführt (Phase 4, Punkt 5b) | ☐ |
+| 12 | Report unter `platform/docs/retros/session-retro-<datum>-<repo>-<id>.md` geschrieben und committet; bestehender Pfad **nicht** überschrieben (Phase 4) | ☐ |
+| 13 | Self-Review durch separaten Meta-Agenten auf den **Report**, nie auf die Session-Erzählung — bei `lean` begründet n/a (Phase 5) | ☐ |
+| 14 | Extern-Handoff geschrieben oder begründet n/a; extern beurteilt Methode, nicht Evidenz (Phase 6) | ☐ |
+
+> **Pflicht-Selbstcheck (nicht überspringen):** zähle die `##`/`###`-Phasen-Überschriften
+> oben, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue Pflicht-Phase
+> braucht hier eine Zeile, sonst ist sie strukturell überspringbar.
+
 ## Changelog
 
+- 2026-09-02: **Phase 0.0 Wirkungsbilanz zuerst + `revised`-Regel in Phase 4 + erste
+  Abschluss-Checkliste** (platform#2690 K4). Drei zusammengehörige Änderungen:
+  (1) `gate_wirkung.py` läuft als **erster** Schritt der Retro statt als vorletzter — bei
+  14 von 33 rückfälligen Gates (#2374, #2678) ist die eigene Wirkungsbilanz die stärkste
+  Aussage darüber, welche Regel als nächste bricht, und sie stand bisher hinter der
+  Befund-Suche; jedes `RUECKFAELLIG`-Gate wird jetzt mit Ursache (am Ausgang oder an der
+  Quelle) und einer von vier Konsequenzen behandelt, **bevor** ein neuer Befund aufgemacht
+  wird. (2) Bei einem Rückfall wird der **bestehende** Registry-Eintrag geändert (`revised`),
+  nie ein zweites Gate unter neuem Namen gebaut — ein neuer Slug spaltet den Längsschnitt
+  in ein für immer rückfälliges und ein für immer unerprobtes Gate. (3) Diese Skill hatte
+  als einzige der drei Session-Skills keine Abschluss-Checkliste; 6 Phasen mit
+  PFLICHT-Markern ohne Abschluss-Abfrage sind genau die Ausführungstreue-Lücke aus Retro
+  `c494a2` §8.
 - 2026-08-20: **Phase 4 Punkt 5a — Rückfall-Prüfung** (`tools/gate_wirkung.py`) als PFLICHT
   ergänzt, plus Abfrage in der Meta-Agent-Checkliste (Phase 5). Kehrt ein Slug wieder, für den
   bereits ein Gate registriert ist, lautet der Befund **Gate rückfällig** — mit drei zulässigen
