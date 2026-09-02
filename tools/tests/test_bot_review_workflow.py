@@ -31,12 +31,20 @@ def _run_script() -> str:
     raise AssertionError("Schritt 'Kandidaten pruefen und approven' nicht gefunden")
 
 
-def _filter_code() -> str:
-    m = re.search(r"python3 - <<'PY'\n(.*?)\n\s*PY\n", _run_script(), re.S)
-    assert m, "Python-Filter im Workflow nicht gefunden"
-    return "\n".join(
-        z[10:] if z.startswith(" " * 10) else z for z in m.group(1).split("\n")
-    )
+def _filter_kommando() -> list[str]:
+    """Der Aufruf der Auswahl, wie er WIRKLICH im Workflow steht.
+
+    Bis 2026-09-02 stand die Auswahl als Heredoc im Schritt und wurde hier
+    herausgeschnitten. Seit #2676 liegt sie in `tools/bot_review_kandidaten.py`
+    (testbar, siehe test_bot_review_kandidaten.py). Dieser Test bleibt, weil er
+    etwas anderes prueft: dass der Workflow das Modul auch aufruft und die
+    Shell-Schleife dahinter mit dessen Ausgabe umgehen kann.
+    """
+    for zeile in _run_script().split("\n"):
+        s = zeile.strip()
+        if s.startswith("python3 ") and "bot_review_kandidaten.py" in s:
+            return s.split()
+    raise AssertionError("Aufruf von bot_review_kandidaten.py im Workflow nicht gefunden")
 
 
 def _schleifen_kopf() -> str:
@@ -70,14 +78,18 @@ def _filter_lauf(tmp_path: Path, prs: list) -> tuple[str, Path]:
     prs_datei = tmp_path / "prs.json"
     kandidaten = tmp_path / "kandidaten"
     prs_datei.write_text(json.dumps(prs), encoding="utf-8")
-    code = (
-        _filter_code()
-        .replace("/tmp/prs.json", str(prs_datei))
-        .replace("/tmp/kandidaten", str(kandidaten))
-    )
+    argv = [
+        str(prs_datei)
+        if teil == "/tmp/prs.json"
+        else str(kandidaten)
+        if teil == "/tmp/kandidaten"
+        else teil
+        for teil in _filter_kommando()[1:]  # ohne das fuehrende "python3"
+    ]
+    argv[0] = str(WF.parents[2] / argv[0])  # Skriptpfad relativ zur Repo-Wurzel
     umgebung = {**os.environ, "BOT_LOGIN": BOT_LOGIN}
     p = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, env=umgebung
+        [sys.executable, *argv], capture_output=True, text=True, env=umgebung
     )
     assert p.returncode == 0, p.stderr
     return p.stdout, kandidaten
