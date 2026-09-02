@@ -87,6 +87,22 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 → **RESULT: FAIL** (einziger Hard-FAIL: pgvector-Tunnel, Phase 0.5) → Session NICHT
   fortsetzen, bis behoben — **kein** Fallback auf lokales Memory (ADR-154).
 → **Jede ⚠️ WARN-Zeile ist ein Befund** und gehört ins Session-Start-Board:
+  - `0.3 modellwechsel` (NEU 2026-09-02, K2 [#2690](https://github.com/achimdehnert/platform/issues/2690)):
+    Maßstab ist **„bewertet mit" (assessed_with in den Policy-Kopfzeilen) ↔ „läuft mit"**
+    — **nicht** Vorgänger ↔ Nachfolger. `model-changes.log` trägt nur den settings-Alias
+    (z.B. `fable`, `opus`), **nicht** die Gewichtsmatrix; „läuft mit" kommt deshalb primär
+    aus dem neuesten Session-Transkript (letzte assistant-Zeile mit `message.model`), die
+    Alias-Tabelle ist nur der letzte Fallback und markiert sich im Bericht als Warnung.
+    Zwei Befundklassen: **MAJOR** ggü. bewertet = Vollmachten suspendiert (Runbook §3a) bis
+    Kapitäns-Wort, den §2-Köder in dieser Sitzung fahren, Kommentar auf
+    [#1640](https://github.com/achimdehnert/platform/issues/1640) · **MINOR** = nur
+    Smoke (§1) fällig, `assessed_with` im nächsten Ritual nachziehen. Ein Rücksprung
+    **auf** das bewertete Modell ist **KEIN** Ereignis. Der Runner fährt Smoke (§1)
+    bei Fälligkeit selbst und markiert nur bei grünem Smoke als behandelt — rot bleibt
+    fällig, statt sich selbst gesundzuschreiben. Werkzeug: `tools/modellwechsel_check.py`,
+    Klassifizierer ist eine Portierung aus `model_change_detector.sh`
+    ([#2655](https://github.com/achimdehnert/platform/issues/2655)/[#2664](https://github.com/achimdehnert/platform/issues/2664)),
+    nicht neu erfunden.
   - `0.4 … GUARD(dirty/branch=…)`: fremde Session möglich — Repo NICHT stashen/switchen
     (ADR-233 + 🌀 Shared-Worktree-Kollision), read-only weiterarbeiten.
   - `0.7.6 leseflaeche`: Befunde des **nächtlichen** `handover-reconcile` — meist
@@ -441,6 +457,7 @@ Bevor der Arbeitsplan entsteht, den **Zielzustand der Session** festmachen
 | 2d | `0.7.16 origin-tls`: `abgelaufen`/`laeuft-ab` (kaputtes Renewal) von `fallback-zertifikat` (kein Zertifikat für diesen Namen) getrennt; `nicht-messbar` nicht als grün gelesen | ☐ |
 | 2e | `0.7.17 backup-deckung`: rote Volumes nach Lage getrennt (*in Nutzung* / *Container steht* / *verwaist*); `NICHT messbar` nicht als grün gelesen; jeder Verzicht trägt einen Grund | ☐ |
 | 2f | `0.7.18 speicher`: Platten unter 7 Tagen Vorlauf im Board benannt; `SAMMELPHASE` als „keine Rate" gelesen, nicht als Entwarnung | ☐ |
+| 2g | `0.3 modellwechsel`: MAJOR ggü. bewertet gespiegelt (Vollmachten suspendiert, §2-Köder + #1640 fällig) — nicht mit Vorgänger↔Nachfolger verwechselt | ☐ |
 | 2h | `0.7.23 melder-register`: kein Melder ohne Leser (`UNBENANNT`) oder Karteileiche offen liegen lassen; Block „⏳ ohne Entscheidung > 14 d" gegengeprüft | ☐ |
 | 3 | Architecture Context geladen (ex-0.4.2) | ☐ |
 | 4 | Modell-Tier bewusst gewählt (0.8) | ☐ |
@@ -522,6 +539,22 @@ nicht in einem Folge-Commit "irgendwann".
   eingeführt — ein herabgestufter Melder bleibt lesbar, zwingt aber keine Board-Zeile mehr.
   Startklar-Checkliste um Zeile 2h ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile
   wäre still überspringbar — Lehre c494a2).
+
+- 2026-09-02: **Phase 0.3 `modellwechsel`** ergänzt (K2,
+  [#2690](https://github.com/achimdehnert/platform/issues/2690)). Der Runner vergleicht
+  jetzt `assessed_with` aus den Policy-Kopfzeilen gegen das AKTUELL laufende Modell —
+  Maßstab „bewertet mit ↔ läuft mit", nicht Vorgänger↔Nachfolger (der Ist-Stand vorher:
+  0 Treffer zu Modellwechsel/Rebaseline in allen drei Session-Skills, Runbook hatte 8).
+  Bei Fälligkeit fährt der Runner Smoke §1 selbst und markiert nur bei grünem Smoke als
+  behandelt; die Klasse (MAJOR/MINOR) folgt der Runbook-§0-Tabelle über den bereits
+  bestehenden Klassifizierer aus `model_change_detector.sh` — nicht neu erfunden.
+  **Nachtrag selbiger Tag (Review-Befund):** `model-changes.log` trägt nur den
+  settings-Alias (`fable`/`opus`), nicht die Gewichtsmatrix — ein reiner Log-Vergleich
+  hätte jeden Rücksprung fälschlich als MAJOR gemeldet. Laufendes Modell wird jetzt
+  vorrangig aus dem neuesten Session-Transkript gelesen (`--laufend` > Transkript >
+  Alias-Tabelle als letzter, gewarnter Fallback). Werkzeug: `tools/modellwechsel_check.py`.
+  Startklar-Checkliste um 2g ergänzt (eine neue WARN-Klasse ohne Checklisten-Zeile wäre
+  still überspringbar — Lehre c494a2).
 
 - 2026-08-25: **Phasen 0.7.17 `backup-deckung` und 0.7.18 `speicher`** ergänzt
   ([#2284](https://github.com/achimdehnert/platform/issues/2284)). Beide drehen die

@@ -106,10 +106,10 @@ servers:
 infra:
 
   kd-static:
-    port: null                       # rein statisch (Nginx root /var/www/kd)
+    port: null                       # seit 2026-09-02 NUR Umleitung (301) auf iil.pet/kd/ — kein Inhalt mehr
     server: prod
     domain_prod: kd.iil.pet
-    note: "Klickdummy-Host (NUR Mock-Daten-KDs!) — CF-Tunnel-DNS + Nginx-vhost kd.iil.pet.conf, eingerichtet 2026-07-02; Publish: dev-desktop ~/kd-serve/kd-publish.sh"
+    note: "Klickdummy-Altname. Bis 2026-09-02 statischer Host (/var/www/kd, handgepflegt, Juli-Stand); seitdem leitet kd.iil.pet.conf jede URL auf das Portal iil.pet/kd/<repo>/<kd_path>/ um (KONZ-platform-056 L5, meiki-hub#199 Phase 3; ersetzt iil-pet-portal#39 'spiegeln'). Backup der Alt-Konfiguration: /root/kd.iil.pet.conf.bak-2026-09-02. Rueckbau /var/www/kd + ~/kd-serve/kd-publish.sh: iil-pet-portal#38, fruehestens 30 Tage nach Umleitung."
 
   authentik:
     port: 9000

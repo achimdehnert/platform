@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # session_start_checks.sh — deterministischer Runner für die mechanischen
-# /session-start-Phasen (0.0–0.9 ohne 0.3*/0.4.3/0.8 — *0.3 existiert nicht,
-# 0.4.3/0.8 sind Judgment-Phasen und bleiben im Skill-Text).
+# /session-start-Phasen (0.0–0.9 ohne 0.4.3/0.8 — die sind Judgment-Phasen und
+# bleiben im Skill-Text).
 #
 # Motiv (Ausführungstreue-Programm, platform#1167 + Retro c494a2): ein langes
 # Multi-Phasen-Dokument wird beim Ausführen überflogen — einzelne Phasen sind
@@ -136,6 +136,27 @@ if git -C "$PLATFORM_DIR" pull --rebase --quiet 2>/dev/null; then
   fi
 else
   record "0.2 platform-sync" "WARN" "platform-Pull fehlgeschlagen (dirty/Netz?) — Sync Loop unvollständig"
+fi
+
+# ── 0.3 Modellwechsel: bewertet ↔ läuft (K2 platform#2690) ──────────────────
+# Maßstab ist "assessed_with (Policies) ↔ neu (model-changes.log)", nicht
+# Vorgänger↔Nachfolger — siehe tools/modellwechsel_check.py Kopf-Docstring.
+MW_KURZ="$(python3 "$PLATFORM_DIR/tools/modellwechsel_check.py" --kurz 2>&1)"
+MW_RC=$?
+if [ "$MW_RC" -eq 0 ]; then
+  record "0.3 modellwechsel" "PASS" "$MW_KURZ"
+else
+  SMOKE_OUT="$(cd "$PLATFORM_DIR" && python3 -m pytest tools/tests/test_retro_kpis.py tools/claude-hooks/tests/ -q 2>&1)"
+  SMOKE_RC=$?
+  SMOKE_SUMMARY="$(echo "$SMOKE_OUT" | tail -1)"
+  DRILL_OUT="$(cd "$PLATFORM_DIR" && python3 tools/gate_drill_check.py 2>&1)"
+  DRILL_RC=$?
+  if [ "$SMOKE_RC" -eq 0 ] && [ "$DRILL_RC" -eq 0 ]; then
+    python3 "$PLATFORM_DIR/tools/modellwechsel_check.py" --behandelt >/dev/null 2>&1
+    record "0.3 modellwechsel" "WARN" "${MW_KURZ} — Smoke: ${SMOKE_SUMMARY} — Drill grün — behandelt markiert"
+  else
+    record "0.3 modellwechsel" "WARN" "${MW_KURZ} — Smoke: ${SMOKE_SUMMARY} (rc=${SMOKE_RC}) — Drill rc=${DRILL_RC} — NICHT behandelt markiert, bleibt fällig"
+  fi
 fi
 
 # ── 0.4 Parallel-Session-Guard + Target/Kern-Repos syncen ───────────────────
