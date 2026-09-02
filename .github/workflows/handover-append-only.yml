@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Drei-Punkt-Diff braucht die Merge-Base — flacher Checkout hat sie nicht,
           # der Check wuerde dann mit Exit 2 abbrechen statt falsch-gruen zu melden.
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Der Deckel selbst steht als Konstante DEFAULT_LIMIT im Skript, nicht hier —
       # damit lokaler Aufruf und CI dieselbe Zahl messen und niemand sie im Workflow

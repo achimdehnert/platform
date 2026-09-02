@@ -58,7 +58,7 @@ jobs:
     runs-on: [self-hosted, prod]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: pyyaml bereitstellen (R4/R7)
         run: python3 -m pip install --quiet --user pyyaml 2>/dev/null || true

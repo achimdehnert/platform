@@ -26,13 +26,13 @@ jobs:
 
     steps:
       - name: Checkout platform
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
           token: ${{ secrets.PROJECT_PAT }}
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
 
@@ -103,7 +103,7 @@ jobs:
 
       - name: PR für jeden Repo ohne conftest.py erstellen
         if: steps.find_repos.outputs.count != '0'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |

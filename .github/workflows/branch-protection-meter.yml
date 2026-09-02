@@ -25,7 +25,7 @@ jobs:
       issues: write
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Weichgestellt, damit ein Meter-Absturz den Zeitplan-Job nicht rot faerbt;
       # der Absturz wird weiter unten ueber steps.meter.outcome gemeldet.

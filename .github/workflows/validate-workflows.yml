@@ -49,7 +49,7 @@ jobs:
     name: "Keine Docker-Actions in Deploy-Reusables"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Actions aufloesen und auf runs.using pruefen (platform#1845)
         run: bash scripts/checks/no_docker_actions_in_deploy.sh
 
@@ -57,7 +57,7 @@ jobs:
     name: "Validate Syntax"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install validation tools
         run: |
