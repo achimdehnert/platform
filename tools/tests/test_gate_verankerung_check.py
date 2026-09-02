@@ -19,9 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import gate_verankerung_check as gvc  # noqa: E402
 
-REGISTRY_REAL = os.path.join(
-    gvc.REPO_ROOT, "docs", "governance", "gate-registry.json"
-)
+REGISTRY_REAL = os.path.join(gvc.REPO_ROOT, "docs", "governance", "gate-registry.json")
 
 
 def _gate(**over) -> dict:
@@ -65,7 +63,17 @@ def _lauf(argv: list[str]) -> int:
 
 def test_should_vollstaendigen_eintrag_ohne_mangel_melden(repo, tmp_path):
     reg = _schreibe(tmp_path / "r.json", [_gate()])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     # Gegenprobe zum gruenen Lauf: derselbe Eintrag ohne Positivkontrolle unten.
     assert rc == 0
 
@@ -73,14 +81,34 @@ def test_should_vollstaendigen_eintrag_ohne_mangel_melden(repo, tmp_path):
 def test_should_fehlenden_drill_pfad_rot_melden(repo, tmp_path, capsys):
     gate = _gate(drill="tools/tests/test_gibt_es_nicht.py")
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "Drill-Datei fehlt" in capsys.readouterr().out
 
 
 def test_should_leeres_drill_feld_rot_melden(repo, tmp_path, capsys):
     reg = _schreibe(tmp_path / "r.json", [_gate(drill="")])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "kein `drill`" in capsys.readouterr().out
 
@@ -89,7 +117,17 @@ def test_should_fehlende_positivkontrolle_rot_melden(repo, tmp_path, capsys):
     gate = _gate()
     del gate["positivkontrolle"]
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "keine `positivkontrolle`" in capsys.readouterr().out
 
@@ -97,15 +135,37 @@ def test_should_fehlende_positivkontrolle_rot_melden(repo, tmp_path, capsys):
 def test_should_positivkontrolle_ohne_ref_rot_melden(repo, tmp_path, capsys):
     gate = _gate(positivkontrolle={"datum": "2026-09-02"})
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "ohne `ref`" in capsys.readouterr().out
 
 
-def test_should_positivkontrolle_mit_unformigem_datum_rot_melden(repo, tmp_path, capsys):
+def test_should_positivkontrolle_mit_unformigem_datum_rot_melden(
+    repo, tmp_path, capsys
+):
     gate = _gate(positivkontrolle={"ref": "platform#1", "datum": "09/2026"})
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "kein ISO-Datum" in capsys.readouterr().out
 
@@ -114,15 +174,37 @@ def test_should_fehlenden_messpunkt_ohne_bau_datum_rot_melden(repo, tmp_path, ca
     gate = _gate()
     del gate["built"]
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "kein Nullpunkt" in capsys.readouterr().out
 
 
-def test_should_slug_ausserhalb_der_wirkungs_slugform_rot_melden(repo, tmp_path, capsys):
+def test_should_slug_ausserhalb_der_wirkungs_slugform_rot_melden(
+    repo, tmp_path, capsys
+):
     """`gate_wirkung._SLUG_TOKEN` findet `ProbeGate` in keiner Retro-Tabelle wieder."""
     reg = _schreibe(tmp_path / "r.json", [_gate(slug="ProbeGate")])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "ausserhalb der Slug-Form" in capsys.readouterr().out
 
@@ -132,22 +214,56 @@ def test_should_revised_als_nullpunkt_akzeptieren(repo, tmp_path):
     gate = _gate(revised="2026-09-02")
     del gate["built"]
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 0
 
 
-def test_should_fremd_verankertes_gate_ohne_lokale_drill_datei_durchlassen(repo, tmp_path):
+def test_should_fremd_verankertes_gate_ohne_lokale_drill_datei_durchlassen(
+    repo, tmp_path
+):
     """Der Drill laeuft in der CI des Ziel-Repos — der Beleg ist die `ref`."""
-    gate = _gate(repo="ausschreibungs-hub", drill="tests/test_dort.py", ref="iilgmbh/x#7")
+    gate = _gate(
+        repo="ausschreibungs-hub", drill="tests/test_dort.py", ref="iilgmbh/x#7"
+    )
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 0
 
 
 def test_should_fremd_verankertes_gate_ohne_ref_rot_melden(repo, tmp_path, capsys):
     gate = _gate(repo="ausschreibungs-hub", drill="tests/test_dort.py", ref="")
     reg = _schreibe(tmp_path / "r.json", [gate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1
     assert "ohne `ref`" in capsys.readouterr().out
 
@@ -178,7 +294,9 @@ def test_should_prosa_aenderung_nicht_als_neuverankerung_werten(repo, tmp_path):
     assert rc == 0
 
 
-def test_should_geaendertes_bau_datum_als_neuverankerung_pruefen(repo, tmp_path, capsys):
+def test_should_geaendertes_bau_datum_als_neuverankerung_pruefen(
+    repo, tmp_path, capsys
+):
     """`revised` setzt die Rueckfall-Messung zurueck — dafuer gilt die volle Pflicht."""
     alt = _gate(slug="alt-gate-ohne-kontrolle")
     del alt["positivkontrolle"]
@@ -197,13 +315,25 @@ def test_should_neues_gate_neben_rotem_altbestand_gruen_melden(repo, tmp_path):
     del alt["positivkontrolle"]
     basis = _schreibe(tmp_path / "b.json", [alt])
     reg = _schreibe(tmp_path / "r.json", [alt, _gate(slug="neu-gate-vollstaendig")])
-    assert _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", basis]) == 0
+    assert (
+        _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", basis]) == 0
+    )
 
 
 def test_should_bei_unlesbarer_basis_exit_2_melden(repo, tmp_path, capsys):
     """Kein Verdikt ohne Vergleichsbasis — Werkzeugfehler ist nicht gruen."""
     reg = _schreibe(tmp_path / "r.json", [_gate()])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", "refs/gibt-es-nicht"])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            "refs/gibt-es-nicht",
+        ]
+    )
     assert rc == 2
     assert "Basis nicht lesbar" in capsys.readouterr().out
 
@@ -254,7 +384,17 @@ def test_should_positivkontrolle_realfall_altgate_rot_melden(repo, tmp_path, cap
         "note": "Positivkontrolle beim Bau: der Registry-weite Lauf fand sofort eine Stelle.",
     }
     reg = _schreibe(tmp_path / "r.json", [altgate])
-    rc = _lauf(["--registry", reg, "--repo", str(repo), "--neu", "--basis", _schreibe(tmp_path / "b.json", [])])
+    rc = _lauf(
+        [
+            "--registry",
+            reg,
+            "--repo",
+            str(repo),
+            "--neu",
+            "--basis",
+            _schreibe(tmp_path / "b.json", []),
+        ]
+    )
     assert rc == 1, "Prosa im `note` darf nicht als Positivkontrolle durchgehen"
     assert "keine `positivkontrolle`" in capsys.readouterr().out
 

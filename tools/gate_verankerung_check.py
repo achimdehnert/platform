@@ -169,7 +169,9 @@ def pruefe_messpunkt(gate: dict, repo: str = REPO_ROOT) -> str | None:
         )
     gebaut = (gate.get("revised") or gate.get("built") or "").strip()
     if not gebaut:
-        return "weder `built` noch `revised` — kein Nullpunkt fuer die Rueckfall-Messung"
+        return (
+            "weder `built` noch `revised` — kein Nullpunkt fuer die Rueckfall-Messung"
+        )
     if not ISO_DATUM.fullmatch(gebaut):
         return f"Bau-Datum ist kein ISO-Datum: {gebaut}"
     return None
@@ -233,7 +235,9 @@ def lade_basis(basis: str, registry_pfad: str, repo: str = REPO_ROOT) -> list[di
         raise RuntimeError(f"Basis-Registry nicht parsebar: {exc}") from exc
 
 
-def neue_oder_geaenderte(jetzt: list[dict], basis: list[dict]) -> list[tuple[str, dict]]:
+def neue_oder_geaenderte(
+    jetzt: list[dict], basis: list[dict]
+) -> list[tuple[str, dict]]:
     """→ [(grund, gate), …] mit grund ∈ {neu, geaendert}, Reihenfolge wie in der Registry."""
     vorher = {g.get("slug"): _kern(g) for g in basis}
     treffer = []
@@ -254,7 +258,9 @@ def _melde(ergebnis: dict, grund: str = "", knapp: bool = False) -> None:
     if knapp:
         # Bilanz-Modus: die Begruendung ist ueber 31 Zeilen identisch und
         # verdeckt dann die Kriterien-Spalte, um die es geht.
-        print(f"  ✗ {ergebnis['slug']}{marke} — ohne {', '.join(n for n, _ in ergebnis['maengel'])}")
+        print(
+            f"  ✗ {ergebnis['slug']}{marke} — ohne {', '.join(n for n, _ in ergebnis['maengel'])}"
+        )
         return
     print(f"  ✗ {ergebnis['slug']}{marke}")
     for name, text in ergebnis["maengel"]:
@@ -314,7 +320,9 @@ def lauf_neu(gates: list[dict], basis: list[dict], repo: str) -> int:
             "als Kandidat in platform#2234 vermerkt (`kandidaten`-Liste der Registry)."
         )
         return 1
-    print("\n→ alle neuen/geaenderten Eintraege tragen Drill, Positivkontrolle, Messpunkt.")
+    print(
+        "\n→ alle neuen/geaenderten Eintraege tragen Drill, Positivkontrolle, Messpunkt."
+    )
     return 0
 
 
@@ -323,11 +331,15 @@ def main(argv: list[str] | None = None) -> int:
         description="Gate-Verankerung pruefen: Drill, Positivkontrolle, Messpunkt (platform#2690 K4)"
     )
     ap.add_argument("--registry", default=DEFAULT_REGISTRY)
-    ap.add_argument("--repo", default=REPO_ROOT, help="Wurzel fuer relative Drill-Pfade")
+    ap.add_argument(
+        "--repo", default=REPO_ROOT, help="Wurzel fuer relative Drill-Pfade"
+    )
     modus = ap.add_mutually_exclusive_group(required=True)
     modus.add_argument("--alle", action="store_true", help="Bilanz ueber alle Gates")
     modus.add_argument(
-        "--neu", action="store_true", help="nur neue/geaenderte Eintraege (Exit 1 bei Mangel)"
+        "--neu",
+        action="store_true",
+        help="nur neue/geaenderte Eintraege (Exit 1 bei Mangel)",
     )
     ap.add_argument(
         "--basis",
