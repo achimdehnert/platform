@@ -36,11 +36,27 @@ _DEV_FALLBACK_DB_URL = (
     "postgresql://orchestrator:change-me-in-production@127.0.0.1:15435/orchestrator_mcp"
 )
 
+# Host/Port/User/DB entsprechen mcp-hub/docker-compose.yml (Service `db`);
+# nur das Passwort ist geheim und liegt als Datei unter ~/.secrets/ — nie im
+# env-Block von settings.json, damit die URL nirgends im Klartext steht.
+# Reihenfolge: Env > Passwort-Datei > Dev-Opt-in.
+_DB_PASSWORD_FILE = Path.home() / ".secrets" / "orchestrator_mcp_db_password"
+_DB_HOST_PORT_DB = "127.0.0.1:15435/orchestrator_mcp"
+_DB_USER = "orchestrator"
+
 
 def _resolve_db_url() -> str | None:
     url = os.environ.get("ORCHESTRATOR_DB_URL")
     if url:
         return url
+    try:
+        password = _DB_PASSWORD_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        password = ""
+    if password:
+        from urllib.parse import quote
+
+        return f"postgresql://{_DB_USER}:{quote(password, safe='')}@{_DB_HOST_PORT_DB}"
     if os.environ.get("ALLOW_DEV_DB_FALLBACK") == "1":
         return _DEV_FALLBACK_DB_URL
     return None
@@ -50,23 +66,38 @@ DB_URL = _resolve_db_url()
 STATE_DIR = Path.home() / ".claude" / "hooks" / "state"
 LOG_FILE = Path.home() / ".claude" / "hooks" / "log_llm_call.log"
 
-# Anthropic pricing per 1M tokens (USD). Source: anthropic.com/pricing 2026-05.
+# Anthropic pricing per 1M tokens (USD). Source: Claude-API-Referenz (Skill
+# `claude-api`, Modelltabelle Stand 2026-06-24) — Opus 4.6/4.7/4.8 kosten seit
+# Opus 4.5 $5/$25, nicht mehr $15/$75 wie Opus 4/4.1.
 # Cache pricing relative to input: write_5m=1.25x, write_1h=2x, read=0.1x.
 PRICING_USD_PER_MTOK: dict[str, dict[str, float]] = {
+    "claude-fable-5-1": {"input": 10.0, "output": 50.0},
+    "claude-fable-5": {"input": 10.0, "output": 50.0},
+    "claude-mythos-5-1": {"input": 10.0, "output": 50.0},
+    "claude-opus-5": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-8": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-7": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-6": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
+    "claude-opus-4": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-5": {"input": 2.0, "output": 10.0},
+    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4-5": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4-5-20251022": {"input": 3.0, "output": 15.0},
-    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4": {"input": 3.0, "output": 15.0},
     "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
     "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
-    "claude-opus-4": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-6": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-7": {"input": 15.0, "output": 75.0},
     "gpt-4o": {"input": 2.5, "output": 10.0},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
 }
 DEFAULT_PRICING = {"input": 3.0, "output": 15.0}
+
+
+def _normalize_model(model: str) -> str:
+    # Claude Code hängt die Kontextvariante als Suffix an ("claude-fable-5[1m]");
+    # die Preistabelle kennt nur den nackten Modellnamen.
+    return model.split("[", 1)[0].strip()
+
 
 # Once-per-session Tier-3 nudge thresholds (issue #305).
 TIER3_MIN_TURNS = 8  # need enough signal before suggesting a switch
@@ -83,7 +114,7 @@ def _log(msg: str) -> None:
 
 
 def _compute_cost(model: str, usage: dict) -> float:
-    p = PRICING_USD_PER_MTOK.get(model, DEFAULT_PRICING)
+    p = PRICING_USD_PER_MTOK.get(_normalize_model(model), DEFAULT_PRICING)
     in_full = usage.get("input_tokens") or 0
     cache_read = usage.get("cache_read_input_tokens") or 0
     cache_create = usage.get("cache_creation") or {}
