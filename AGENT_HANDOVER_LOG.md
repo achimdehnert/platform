@@ -3222,6 +3222,59 @@ durch den Owner; der Permission-Classifier blockierte einen Merge, der Weg blieb
 Nebenbefunde: memory-link-guard schreibt Änderungen paralleler Sitzungen dem eigenen Zug zu
 (#2689, zweimal), Smoke-Test druckt die DB-URL mit Passwort in die Assertion (#2688).
 
+## 2026-09-02 nachmittags — Melder-Praezision, Claim-Gate scharf, Antrags-Aufraeumung
+
+Ohne Auftrag gestartet; Ziel aus dem Sitzungsstart abgeleitet (KONZ-054, vorbeugende
+Wartung), vom Owner mit „7 go" bestaetigt.
+
+**Melder.** Der Sitzungsstart meldete zehn volle Platten auf der gpu-box — keine war eine.
+Gemessen statt vermutet: unter WSL bindet snapd als `fuse.snapfuse` ein (der Ausschluss
+kannte nur `squashfs`), und `/usr/lib/wsl/drivers` ist derselbe Datentraeger wie `/mnt/c`.
+[#2684](https://github.com/achimdehnert/platform/pull/2684) gemergt; 13 Zeilen → 3, die
+einzige verbleibende Warnung (`/mnt/c`, 110 GB frei) ist echt. Die Gegenrichtung ist
+bewusst offen und getrackt: `/` meldet dort 803 GB frei und schweigt, obwohl es eine
+duenn belegte Datei auf genau jener C:-Platte ist —
+[#2681](https://github.com/achimdehnert/platform/issues/2681).
+
+**Gate.** Kalibrierfenster von `claim-before-cheapest-check` bei 13 beurteilbaren Zeilen
+(Mindestzahl 10) → Owner-Entscheid „scharf". Wirksam ueber
+`EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf` in `~/.claude/settings.json`; Registry-Fenster
+geschlossen mit Wiedervorlage 2026-09-30
+([#2697](https://github.com/achimdehnert/platform/pull/2697), gemergt). Der Gate feuerte
+in derselben Sitzung zweimal gegen mich — einmal zu Recht (Absenz-Behauptung ohne
+repo-weiten Check), einmal auf eine Zahl, deren Beleg eine Minute alt war.
+
+**Antraege.** Von 8 offenen PRs sind 4 erledigt:
+[#2388](https://github.com/achimdehnert/platform/pull/2388) und
+[#2207](https://github.com/achimdehnert/platform/pull/2207) nachgezogen und gemergt,
+[#2482](https://github.com/achimdehnert/platform/pull/2482) geschlossen (ueberholt — main
+hatte R3 auf netcup laengst aktiviert, und zwar rootless; ein Merge haette die
+Sicherheitskorrektur zurueckgedreht),
+[#2036](https://github.com/achimdehnert/platform/pull/2036) gruen und mergereif.
+[#2036](https://github.com/achimdehnert/platform/pull/2036) wurde **portiert statt
+gemergt**: main hatte `session-ende.md` zwischenzeitlich von 55 auf 20 kB gekuerzt, ein
+Merge haette das rueckgaengig gemacht. Zwei Namenskollisionen nach der Regel „die
+gemergte, referenzierte Identitaet behaelt ihren Namen" aufgeloest (Phase `0g` → `0h`,
+Checklisten-Zeile 19 → 23).
+
+**Was dabei ueber das Repo sichtbar wurde.** Ein zwei Wochen alter Zweig faellt nicht
+durch seinen Inhalt, sondern durch **neue** Regeln — `expires`, `GATE_HEADER`,
+Ausfuehrbit, `positivkontrolle`, ADR-058-Marker. Und `main` wuchs waehrend der
+Aufraeumung um 17 Staende in 40 Minuten (6 Parallelsitzungen); `gate-registry.json` und
+`session-ende.md` tragen fast alle Konflikte — der ungegatete Slug `same-file-serial-prs`
+(7x) mit Zahlen belegt.
+
+**Nebenbei.** `fstrim` auf der gpu-box brachte 232 MB — die WSL-Platte ist nicht der
+Platzfresser (236 von 1.889 belegten GB). platform-pinned bereinigt und 28 Staende
+nachgezogen. 39 blinde Pruefungen in tools/ und scripts/ getrackt
+([#2714](https://github.com/achimdehnert/platform/issues/2714)), vier davon im
+Startskript selbst. Fehlalarm des Aufschub-Anker-Gates als Datenpunkt in
+[#2234](https://github.com/achimdehnert/platform/issues/2234).
+
+Scope-Checkpoint nachgeholt nach Hook-Aufforderung
+([#2486](https://github.com/achimdehnert/platform/issues/2486)). Zielzustand: erreicht.
+SA-4: 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 0 autonome Merges — #2684
+nach Owner-Wort, alles Weitere vom Owner selbst gemergt.
 ## 2026-09-02 nachmittags — Owner-Punkte #2486/#2504 vollzogen, risk-hub nach Prod, Retro deep (a6368d)
 
 Zehn Owner-Freigaben, alle ausgefuehrt und belegt. Deploy-Skript auf prod nachgezogen (die
