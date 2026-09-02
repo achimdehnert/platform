@@ -517,7 +517,7 @@ Befund-Issue bleibt offen, mit Kommentar warum) — „steht im PR-Text" zaehlt 
 | `gemockt-und-deshalb-blind` | Alle Tests gruen, erster echter Klick bricht | Test, der die gemockte Schicht **echt** ausfuehrt (Vorlagen rendern, Router aufrufen) — writing-hub #774: drei Prompt-Vorlagen brachen, weil jeder Test den Renderer ersetzt hatte |
 | `daten-invariante` | Anzeige widerspricht der Sache (abgelaufene Frist bei laufender Ausschreibung) | Invarianten-Melder ueber den Datenbestand, **SKIP ist kein PASS** |
 | `nur-mit-daten-sichtbar` | Seite ist auf einem frischen Objekt tadellos und auf einem benutzten tot; Tests und Probelauf sind gruen, echte Nutzer stehen an | Test, der die Seite **mit Bestand** rendert und pruefte, was der Browser wirklich bekommt — im Realfall: jeden ausgelieferten `application/json`-Block parsen. Ausnahmen mit Grund — writing-hub#820: ein handgebauter JSON-Block trug ein nachgestelltes Komma, aber nur wenn Belege vorlagen; 3 Prod-Projekte tot, 22 UX-Tests gruen, 24 Tage kein Melder |
-| `link-auf-none` | Ein Link im Template traegt `href="None"` und fuehrt auf 404 — die Variable war leer, das Template hat nicht gefragt | Rendering-Test der Seite in **jeder** Werkart/Konfiguration, die eine Phase auslaesst (Sachbuch, Bilddienst aus) + Gate ueber alle Templates: `href="{{ … }}"` aus einer Variablen nur innerhalb `{% if <variable> %}` — Realfall writing-hub 2026-09-02, Pfad-Modus Station 36: „Welt & Figuren" und „Illustration" auf der Workflow-Seite, auf `main` bestaetigt (writing-hub#949) |
+| `link-auf-none` | Ein Link im Template traegt `href="None"` und fuehrt auf 404 — die Variable war leer, das Template hat nicht gefragt | Rendering-Test der Seite in **jeder** Werkart/Konfiguration, die eine Phase auslaesst (Sachbuch, Bilddienst aus) + Gate ueber alle Templates: `href="{{ … }}"` aus einer Variablen nur innerhalb `{% if <variable> %}` — Realfall writing-hub 2026-09-02, Pfad-Modus Station 36: „Welt & Figuren" und „Illustration" auf der Workflow-Seite, auf `main` bestaetigt (writing-hub#949), behoben in writing-hub#950 mit Gate `tests/test_workflow_phasen_eine_menge.py` |
 | `sackgasse` | Station erreicht, aber kein Klick fuehrt zum naechsten Schritt der Kette — der Nutzer muss eine URL wissen | Test: fuer jede Station der Kette existiert im gerenderten Template der Vorgaengerstation ein `{% url %}`/`hx-get` auf ihre Route; Ausnahmen mit Grund — Klasse ohne Realfall-Marker (aufgenommen 2026-09-01, Step 3.5 I2), Marker folgt mit dem ersten belegten Fall |
 | `leerzustand-ohne-handlung` | Leere Liste/Tabelle ohne Satz, was der Nutzer als naechstes tut | UX-Test rendert jede Listen-View mit leerem Queryset und prueft auf einen Handlungs-Link — ohne Realfall-Marker (2026-09-01, I3) |
 | `fehler-unverstaendlich` | Fehler ist sichtbar, nennt aber weder Ursache noch Handlung („Ein Fehler ist aufgetreten") | Test ueber alle `messages.error(`/`form.add_error(`-Aufrufe: Text enthaelt ein Verb oder eine Ursache aus dem Audit-Trail; Liste generischer Saetze als Negativmuster — ohne Realfall-Marker (2026-09-01, I4) |
@@ -700,15 +700,27 @@ enthielt POST-/JSON-Routen (Step 2a.5 praezisiert).
 ### Test 7 — Beheben schliesst den Kreis: Issue → PR → Gate-Test → Nachlauf (E24, K3)
 
 ```
-/ux-review writing-hub --kette "Login > Projekt > Schreiben" --vor <sha vor #820>
+/ux-review <repo> --kette "<Kette bis zu einem OFFENEN fehler>"     # z. B. writing-hub "Login > Projekt > Workflow" an #949
 ```
+Der Test braucht einen **offenen** `fehler` auf `main` — ein bereits behobener (wie #820)
+taugt nur als Positivkontrolle des Melders, ein Fix-PR gegen den alten Stand kollidiert mit
+`main`. Kandidaten liefert der Pfad-Modus (Test 6) oder ein offenes `ux-review`-Issue.
+
 **Erwartung, alle vier — der Test ist erst bestanden, wenn keiner fehlt:**
-- Bericht (Step 7) zeigt Station „Schreiben" als `befund`, Klasse `nur-mit-daten-sichtbar`,
-  **bevor** irgendein Branch existiert (Reihenfolge im Transkript pruefbar).
-- PR im Zielrepo mit Ursache `Datei:Zeile` (das nachgestellte Komma im JSON-Block), Gate-Test,
-  der **jeden** ausgelieferten `application/json`-Block parst, und `Closes #<n>`.
-- Nachlauf der Station mit Bestand (Kapitel + Belege) = `ok`; `--vor` zeigt den Befund weiter.
+- Bericht (Step 7) zeigt die Station als `befund` mit Klasse, **bevor** irgendein Branch
+  existiert (Reihenfolge im Transkript pruefbar).
+- PR im Zielrepo mit Ursache `Datei:Zeile`, Gate-Test (ohne Fix rot, mit Fix gruen — beides
+  gemessen) und `Closes #<n>`.
+- Nachlauf der Station klick-only mit derselben Datenlage = `ok`; der Bericht vor dem Fix
+  zeigt den Befund weiter.
 - Block `Behoben` im Bericht mit `behoben 1 · offen 0 · hypothese 0`.
+
+**Gelaufen 2026-09-02 an writing-hub#949 (bestanden):** Kette Login > Projekt > Workflow,
+Sachbuch-Projekt mit Bestand. Bericht: 8 Phasen, 2× `href="None"`, 404 nach Klick (Klassen
+`link-auf-none` + `daten-invariante`, Projektseite zeigte 6). Ursache
+`views_workflow.py:190-198` (Schleife ueber `PHASE_DEFINITIONS` statt `kettenstand()`), Fix auf
+Ursachen-Ebene, Gate `tests/test_workflow_phasen_eine_menge.py` (ohne Fix 5 failed, mit Fix
+23 passed), Nachlauf 6 Phasen / 0 None / Konsole 0 — writing-hub#950, per SA-5 gemergt.
 
 ### Test 8 — `--nur-melden` und Default liefern denselben Rohbericht (E16)
 
@@ -751,6 +763,11 @@ ist strukturell ueberspringbar (Realfall `session-ende.md`, platform#1164).
 - [ ] Nicht verifiziert: benannt, mit billigstem Check
 
 ## Changelog
+
+- 2026-09-02 (2, Dogfood 7 an writing-hub#949, Owner „go"): **Test 7 bestanden** — Bericht vor
+  Branch, Ursache Datei:Zeile, Gate rot/gruen gemessen, Nachlauf `ok`, writing-hub#950 gemergt.
+  Test-7-Text auf „offener fehler" umgestellt (ein behobener Defekt kann keinen Fix-PR tragen).
+  Damit sind Tests 6–8 gelaufen; platform#2596 geschlossen.
 
 - 2026-09-02 (Dogfood 6 + 8 gegen writing-hub, Owner „go"): **Test 8 bestanden** (Diff 0,
   Step 8 einmal real: writing-hub#948 gemergt, #947 Bestand), **Test 6 bestanden mit zwei
