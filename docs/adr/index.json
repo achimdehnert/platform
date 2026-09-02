@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-31",
-  "total": 245,
-  "next_free": 300,
+  "generated": "2026-09-02",
+  "total": 246,
+  "next_free": 301,
   "adrs": [
     {
       "number": 7,
@@ -1687,7 +1687,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-300"
+      ],
       "related": [],
       "implementation_status": ""
     },
@@ -1859,7 +1861,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-300"
+      ],
       "related": [],
       "implementation_status": "implemented"
     },
@@ -3067,7 +3071,9 @@
       "amends": [
         "ADR-141"
       ],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-300"
+      ],
       "related": [
         "ADR-045",
         "ADR-059",
@@ -5650,6 +5656,37 @@
         "ADR-293",
         "ADR-294",
         "ADR-295"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 300,
+      "id": "ADR-300",
+      "file": "ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md",
+      "title": "Orchestrator = Gedächtnis + Audit, Harness = Ausführung",
+      "status": "proposed",
+      "date": "2026-09-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-101",
+        "ADR-112",
+        "ADR-186"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-010",
+        "ADR-075",
+        "ADR-080",
+        "ADR-086",
+        "ADR-176",
+        "ADR-197",
+        "ADR-224",
+        "ADR-238",
+        "ADR-256",
+        "ADR-280",
+        "ADR-285"
       ],
       "implementation_status": "not_started"
     },
