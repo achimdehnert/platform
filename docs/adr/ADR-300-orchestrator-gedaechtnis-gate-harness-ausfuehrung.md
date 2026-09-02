@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 decision_date: 2026-09-02
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -211,3 +211,4 @@ cross-cutting, Perimeter → ADR-pflichtig) · Agent-Memory-Store (`orchestrator
 |---|---|---|
 | 2026-09-02 | 0.1 | Entwurf (proposed), vorgeschlagen von Claude Code; Anker platform#2606 E2 |
 | 2026-09-02 | 0.2 | Nach /adr-challenger: D1 = Gedächtnis + Audit (Gate an Naht gebunden), Nacht-Pfad = Actions-Cron + Bibliothek, ADR-101-Budget 3→35 als Befund, ADR-080/086 → related, R3 nach ADR-238 umgekehrt, D3 → Enforcement-Absatz, 412 → ≤220 Zeilen |
+| 2026-09-02 | 1.0 | **accepted** — Freigabe durch Owner im Kapitäns-Kanal („ADR-300 accept"). Umsetzung D2/Enforcement/Modell-IDs: mcp-hub#244 (Kill-Gate 2026-11-01); Policy `policies/orchestrator.md` im Folge-PR nachgezogen |

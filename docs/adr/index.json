@@ -5664,7 +5664,7 @@
       "id": "ADR-300",
       "file": "ADR-300-orchestrator-gedaechtnis-gate-harness-ausfuehrung.md",
       "title": "Orchestrator = Gedächtnis + Audit, Harness = Ausführung",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-09-02",
       "domains": [],
       "supersedes": [],
