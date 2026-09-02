@@ -93,8 +93,9 @@ ISO_DATUM = re.compile(r"\d{4}-\d{2}-\d{2}")
 #: Felder, deren Aenderung KEINE Neu-Verankerung ist: Prosa, Protokoll,
 #: Kalibrier-Notizen. Ohne diese Abgrenzung wuerde eine Tippfehler-Korrektur im
 #: `note` eines Alt-Gates den PR blockieren — das Gate soll die Verankerung
-#: pruefen, nicht das Redigieren bestrafen. `built`, `revised`, `drill`, `module`,
-#: `mode` und `repo` sind bewusst NICHT dabei: wer die anfasst, verankert neu.
+#: pruefen, nicht das Redigieren bestrafen. Ausserhalb dieser Liste stehen
+#: `built`, `revised`, `drill`, `module`, `mode` und `repo` — wer eines davon
+#: anfasst, verankert neu und schuldet die drei Nachweise erneut.
 PROSA_FELDER = frozenset(
     {
         "note",

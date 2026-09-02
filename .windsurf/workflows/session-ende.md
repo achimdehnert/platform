@@ -396,9 +396,10 @@ Die drei Nachweise, und warum jeder einzelne fehlen kann, ohne dass es auffällt
 NICHT, ob der Test den Fall wirklich abfängt." Die Positivkontrolle belegt, dass das Gate
 bei diesem Fall **rot wurde**.
 
-**Bestandsschutz ist Absicht:** die 31 Alt-Einträge werden nicht rückwirkend eingefordert.
+**Bestandsschutz ist Absicht:** die Alt-Einträge werden nicht rückwirkend eingefordert.
 `--neu` greift nur, was gegenüber `origin/main` neu oder in einem Nicht-Prosa-Feld geändert
-ist; ein Tippfehler-Fix im `note` färbt keinen PR. Die Ist-Zahl steht in `--alle`.
+ist; ein Tippfehler-Fix im `note` färbt keinen PR. Die Ist-Zahl steht in `--alle`; das
+Nachziehen der Bestands-Gates ist getrackt in platform#2703.
 
 ---
 

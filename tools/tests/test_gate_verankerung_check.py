@@ -402,9 +402,10 @@ def test_should_positivkontrolle_realfall_altgate_rot_melden(repo, tmp_path, cap
 def test_should_echte_registry_ohne_drill_und_messpunkt_maengel_halten():
     """Erhaltung: jedes registrierte Gate bleibt drill- und messbar.
 
-    Bewusst NICHT die Positivkontrolle mitgepruef — die ist Bestandsschutz
-    (0/31 am 2026-09-02) und wird ueber `--neu` beim naechsten Anfassen
-    eingefordert, nicht per Sammel-Rot.
+    Die Positivkontrolle bleibt hier ausgeklammert — sie steht am 2026-09-02
+    bei 2 von 32 und wird ueber `--neu` beim naechsten Anfassen eingefordert
+    statt per Sammel-Rot. Das Nachziehen der 30 Bestands-Gates ist getrackt:
+    Refs #2703 (Bestandsschutz aus #2690 K4).
     """
     gates = gvc.lade_registry(REGISTRY_REAL)
     assert gates, "Registry ohne Gates — der Test misst sonst nichts"
