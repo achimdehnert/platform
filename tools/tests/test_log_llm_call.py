@@ -127,3 +127,94 @@ def test_should_fall_back_to_default_pricing_for_unknown_model():
     usage = {"input_tokens": 1_000_000, "output_tokens": 1_000_000}
     assert mod._compute_cost("some-unknown-model", usage) == 18.0
     assert mod.DEFAULT_PRICING == {"input": 3.0, "output": 15.0}
+
+
+# ---------------------------------------------------------------------------
+# Zustandsfortschritt (platform#2606 Stufe 1)
+#
+# Gemessen 2026-09-02 im eigenen Protokoll: 12.574 Ereignisse „insert returned 0
+# for N candidate rows", zusammen 2.686.409 vergebliche INSERT-Roundtrips
+# (Median N=166, Maximum 1246). Ursache: der Zustand wurde nur bei
+# `inserted > 0` fortgeschrieben. Liefen alle Kandidaten in
+# `ON CONFLICT DO NOTHING`, blieb er stehen und derselbe Stapel ging bei JEDEM
+# weiteren Stop erneut ueber die Leitung — 4.902 ms statt 190 ms je Stop.
+#
+# Die Gegenprobe ist genauso wichtig: bei einem echten Schreibfehler darf der
+# Zustand NICHT fortschreiben, sonst gingen Zeilen still verloren.
+# ---------------------------------------------------------------------------
+
+
+def _fahre_main(monkeypatch, tmp_path, insert_ergebnis, *, model="claude-sonnet-4-5"):
+    """Faehrt `main()` mit einem einzigen neuen Turn und gestubbtem Schreibweg."""
+    import io
+    import json as _json
+
+    turn = {
+        "request_id": "req_TEST_1",
+        "model": model,
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+        "timestamp": "2026-09-02T10:00:00.000Z",
+        "duration_ms": 1200,
+        "cwd": "/home/x/github/platform",
+        "git_branch": "main",
+        "session_id": "sid",
+    }
+    gespeichert: list[dict] = []
+    monkeypatch.setattr(mod, "_collect_turns", lambda _p: [turn])
+    monkeypatch.setattr(mod, "_load_state", lambda _s: {"logged_request_ids": set()})
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _s, state: gespeichert.append(dict(state))
+    )
+    monkeypatch.setattr(mod, "_insert_rows", lambda _rows: insert_ergebnis)
+    monkeypatch.setattr(mod, "_query_session_total", lambda _s: None)
+    monkeypatch.setattr(mod, "_log", lambda _m: None)
+    transkript = tmp_path / "t.jsonl"
+    transkript.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            _json.dumps({"transcript_path": str(transkript), "session_id": "sid"})
+        ),
+    )
+    rc = mod.main()
+    return rc, gespeichert
+
+
+def test_should_advance_state_when_all_rows_hit_on_conflict(monkeypatch, tmp_path):
+    """`0` heisst committet: die Zeilen liegen in der DB und sind fertig."""
+    rc, gespeichert = _fahre_main(monkeypatch, tmp_path, 0)
+
+    assert rc == 0
+    assert gespeichert, "Zustand nicht gespeichert — derselbe Stapel liefe ewig erneut"
+    assert "req_TEST_1" in gespeichert[0]["logged_request_ids"]
+
+
+def test_should_advance_state_on_a_normal_insert(monkeypatch, tmp_path):
+    rc, gespeichert = _fahre_main(monkeypatch, tmp_path, 1)
+
+    assert rc == 0
+    assert "req_TEST_1" in gespeichert[0]["logged_request_ids"]
+
+
+def test_should_not_advance_state_when_the_write_path_did_not_run(
+    monkeypatch, tmp_path
+):
+    """Gegenprobe: `None` heisst „nicht geschrieben" — sonst faellt eine Zeile aus."""
+    rc, gespeichert = _fahre_main(monkeypatch, tmp_path, None)
+
+    assert rc == 0
+    assert gespeichert == []
+
+
+def test_should_report_none_when_there_is_no_db_url(monkeypatch):
+    """Ohne DB-URL ist der Schreibweg nicht gelaufen — nicht „0 geschrieben"."""
+    monkeypatch.setattr(mod, "DB_URL", None)
+    monkeypatch.setattr(mod, "_log", lambda _m: None)
+
+    assert mod._insert_rows([{"request_id": "x"}]) is None
+
+
+def test_should_report_zero_for_an_empty_row_list(monkeypatch):
+    """Nichts zu schreiben ist kein Fehlschlag — sonst blockiert der Zustand grundlos."""
+    assert mod._insert_rows([]) == 0
