@@ -8,6 +8,7 @@ der Hook nicht bei jedem Code-Beispiel anschlägt.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -241,7 +242,9 @@ def test_should_stay_silent_when_execution_was_denied():
     text = "Fuehr du das aus:\n\n```\ndocker exec risk_hub_web python manage.py onboard_tenant --slug x\n```"
     untested, _ = find_untested(
         text,
-        bash_commands=["docker exec risk_hub_staging_web python manage.py onboard_tenant --dry-run"],
+        bash_commands=[
+            "docker exec risk_hub_staging_web python manage.py onboard_tenant --dry-run"
+        ],
         abgelehnte_kerne={"docker exec"},
     )
     assert untested == []
@@ -269,3 +272,87 @@ def test_should_detect_denial_marker_in_tool_result():
     )
     assert _ist_ablehnung([{"type": "text", "text": "Reason: Blocked by classifier."}])
     assert not _ist_ablehnung("bash: docker: command not found")
+
+
+# --- blocking-Modus (Owner-Entscheid E4, platform#2606) ----------------------
+#
+# Scharfgeschaltet am 2026-09-02: 23 protokollierte Treffer, als einziger der
+# vier Stop-Hook-Melder auf konkrete Folge-Issues zurueckfuehrbar (#2577/#2576),
+# gleichzeitig 4x rueckfaellig seit Bau (gate_wirkung.py). Diese Drills pruefen
+# die drei Eigenschaften, an denen ein blockierender Stop-Hook haengt: er
+# blockiert, er blockiert HOECHSTENS EINMAL pro Turn, und er laesst sich zur
+# Laufzeit herunterstufen, ohne dass ein fehlender Zustand ihn stumpf macht.
+
+
+def test_should_block_the_turn_when_a_command_was_never_run(tmp_path, monkeypatch):
+    aus = json.loads(_lauf(tmp_path, monkeypatch, "b1", TEXT))
+    assert aus["decision"] == "block"
+    assert "systemctl" in aus["reason"]
+    assert "KEINE Nutzer-Ablehnung" in aus["reason"], (
+        "Blocking-Gates formulieren Maschinen-Feedback, nie eine Ablehnung "
+        "(Registry `_wording_convention`, EXT2-M28-5)"
+    )
+
+
+def test_should_default_to_blocking_without_a_mode_file(tmp_path, monkeypatch):
+    """Fehlender Zustand darf NICHT advisory bedeuten — sonst faellt das Gate auf
+    einer frischen Maschine lautlos in den gemessen wirkungslosen Modus zurueck."""
+    import untested_command_scanner as ucs
+
+    monkeypatch.setattr(ucs, "STATE_DIR", tmp_path / "leer")
+    assert ucs._mode() == "blocking"
+
+
+def test_should_step_down_to_advisory_via_the_state_file(tmp_path, monkeypatch):
+    import untested_command_scanner as ucs
+
+    zustand = tmp_path / "state"
+    zustand.mkdir()
+    (zustand / ucs.MODUS_DATEI).write_text("advisory\n", encoding="utf-8")
+    monkeypatch.setattr(ucs, "STATE_DIR", zustand)
+    assert ucs._mode() == "advisory"
+
+    aus = json.loads(_lauf(tmp_path, monkeypatch, "b2", TEXT))
+    assert "decision" not in aus
+    assert aus["hookSpecificOutput"]["hookEventName"] == "Stop"
+    assert "systemctl" in aus["hookSpecificOutput"]["additionalContext"]
+
+
+def test_should_not_block_again_inside_the_forced_continuation(tmp_path, monkeypatch):
+    """Ein erzwungener Korrektur-Zug pro Turn. Ohne diesen Guard sieht der Scanner
+    in der vom Block ausgeloesten Fortsetzung denselben Befehl erneut — am
+    Claim-Gate real 9 Blocks hintereinander (2026-07-03)."""
+    import io
+
+    import untested_command_scanner as ucs
+
+    monkeypatch.setattr(ucs, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(json.dumps({"stop_hook_active": True, "transcript_path": "egal"})),
+    )
+    aus = io.StringIO()
+    monkeypatch.setattr("sys.stdout", aus)
+    assert ucs.main() == 0
+    assert aus.getvalue() == ""
+
+
+def test_should_record_the_hit_with_the_mode_it_actually_ran_in(tmp_path, monkeypatch):
+    """Das Protokoll ist die Datenbasis der naechsten Modus-Entscheidung. Bis hier
+    schrieb es `GATE_HEADER["mode"]` — nach einem Laufzeit-Opt-out haette es
+    `blocking` behauptet, waehrend der Hook meldete."""
+    import untested_command_scanner as ucs
+
+    zustand = tmp_path / "state"
+    zustand.mkdir()
+    (zustand / ucs.MODUS_DATEI).write_text("advisory\n", encoding="utf-8")
+    monkeypatch.setattr(ucs, "STATE_DIR", zustand)
+
+    notiert = {}
+    monkeypatch.setattr(
+        ucs.gate_hits,
+        "notiere",
+        lambda slug, marker, **kw: notiert.update({"slug": slug, **kw}),
+    )
+    _lauf(tmp_path, monkeypatch, "b3", TEXT)
+    assert notiert["modus"] == "advisory"
