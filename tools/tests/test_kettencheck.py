@@ -167,3 +167,53 @@ class TestReferenzen:
         _, anker = kc.pruefe_referenzen(*dateien)
         assert anker.ok
         assert "1 unaufloesbar, 0 offen" in anker.ort
+
+
+class TestInvarianten:
+    def test_should_break_when_an_open_item_lacks_deadline_and_reason(self, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(
+                {
+                    "vorgaenge": [
+                        {
+                            "nr": 1,
+                            "konto": "hnu",
+                            "bucket": "warten",
+                            "kurz": "K",
+                            "typ": "vorgang",
+                            "thread_key": "t",
+                        }
+                    ],
+                    "naechste_nr": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
+        b = kc.pruefe_invarianten(ledger)
+        assert not b.ok
+        assert "board.py --pruefe" in b.hinweis
+
+    def test_should_hold_for_a_consistent_ledger(self, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(
+                {
+                    "vorgaenge": [
+                        {
+                            "nr": 1,
+                            "konto": "hnu",
+                            "bucket": "warten",
+                            "kurz": "K",
+                            "typ": "vorgang",
+                            "thread_key": "t",
+                            "frist": None,
+                            "frist_grund": "kein Termin",
+                        }
+                    ],
+                    "naechste_nr": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert kc.pruefe_invarianten(ledger).ok
