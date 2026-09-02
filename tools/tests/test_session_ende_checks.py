@@ -103,7 +103,9 @@ def umgebung(tmp_path: pathlib.Path) -> dict:
     return {"github": github, "platform": platform, "leases": leases, "bin": bin_dir}
 
 
-def _lauf(umgebung: dict, ziel: str = "alpha") -> subprocess.CompletedProcess:
+def _lauf(
+    umgebung: dict, ziel: str = "alpha", *, extra: dict | None = None, argv=()
+) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env.update(
         {
@@ -114,10 +116,19 @@ def _lauf(umgebung: dict, ziel: str = "alpha") -> subprocess.CompletedProcess:
             # Kein Netz, kein Modell: E.5 darf nicht in einen echten
             # Ollama-Aufruf laufen.
             "OLLAMA_HOST": "http://127.0.0.1:1",
+            # Der git-User entscheidet ueber den Fallback „Repos mit Commits von
+            # heute" — und damit ueber die Eigen/Fremd-Trennung in E.7. Er wird
+            # hier ausdruecklich gesetzt, statt aus der Umgebung zu kommen: in
+            # CI ist `git config user.name` leer, lokal traegt er den Namen des
+            # Entwicklers, und dieser Unterschied liess denselben Test lokal
+            # gruen und in CI rot werden (Lauf 33644319863).
+            "SESSION_ENDE_GIT_USER": "niemand-in-diesem-fixture",
         }
     )
+    if extra:
+        env.update(extra)
     return subprocess.run(
-        ["bash", str(_SKRIPT), ziel],
+        ["bash", str(_SKRIPT), ziel, *argv],
         env=env,
         capture_output=True,
         text=True,
@@ -169,7 +180,7 @@ def test_should_warn_about_a_dirty_repo_of_this_session(umgebung):
     assert "eigene dirty: beta" in ergebnis.stdout
 
 
-def test_should_not_warn_when_no_own_repo_is_dirty(tmp_path, umgebung):
+def test_should_not_warn_when_no_own_repo_is_dirty(umgebung):
     """Gegenprobe: ohne Lease auf `beta` ist dasselbe dirty Repo nur ein Hinweis."""
     for lease in umgebung["leases"].glob("*.json"):
         lease.unlink()
@@ -177,6 +188,34 @@ def test_should_not_warn_when_no_own_repo_is_dirty(tmp_path, umgebung):
     phasen = _summary_zeilen(ergebnis.stdout)
     assert phasen["E.7"] == "PASS", ergebnis.stdout
     assert "fremd (nur Hinweis): beta" in ergebnis.stdout
+
+
+def test_should_claim_a_repo_via_the_commit_fallback(umgebung):
+    """Positivkontrolle fuer den Fallback: der Autor der Fixture-Commits heisst `test`.
+
+    Ohne diese Zeile wuerde der Gegenproben-Test oben auch bestehen, wenn der
+    Fallback gar nichts mehr faende.
+    """
+    for lease in umgebung["leases"].glob("*.json"):
+        lease.unlink()
+    ergebnis = _lauf(umgebung, extra={"SESSION_ENDE_GIT_USER": "test"})
+    assert "quelle=commits-heute" in ergebnis.stdout
+    assert _summary_zeilen(ergebnis.stdout)["E.7"] == "WARN", ergebnis.stdout
+    assert "eigene dirty: beta" in ergebnis.stdout
+
+
+def test_should_drop_the_fallback_without_an_author_filter(umgebung):
+    """Ohne git-User kein Fallback — sonst wird fremde Arbeit zur eigenen.
+
+    Genau daran scheiterte CI-Lauf 33644319863: dort ist `git config user.name`
+    leer, `--author` fiel ersatzlos weg, und jedes heute angelegte Fixture-Repo
+    galt als von dieser Sitzung beruehrt.
+    """
+    for lease in umgebung["leases"].glob("*.json"):
+        lease.unlink()
+    ergebnis = _lauf(umgebung, extra={"SESSION_ENDE_GIT_USER": ""})
+    assert "quelle=unbestimmt(kein git user.name)" in ergebnis.stdout
+    assert _summary_zeilen(ergebnis.stdout)["E.7"] == "PASS", ergebnis.stdout
 
 
 def test_should_skip_not_pass_when_a_tool_is_missing(umgebung):
@@ -263,22 +302,6 @@ def test_should_accept_a_single_open_handover_pr(umgebung):
 
 
 def test_should_accept_a_session_id_argument(umgebung):
-    env = os.environ.copy()
-    env.update(
-        {
-            "GITHUB_DIR": str(umgebung["github"]),
-            "PLATFORM_DIR": str(umgebung["platform"]),
-            "LEASE_DIR": str(umgebung["leases"]),
-            "PATH": f"{umgebung['bin']}{os.pathsep}{env['PATH']}",
-            "OLLAMA_HOST": "http://127.0.0.1:1",
-        }
-    )
-    ergebnis = subprocess.run(
-        ["bash", str(_SKRIPT), "alpha", "--session-id", "sitzung-42"],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    ergebnis = _lauf(umgebung, argv=("--session-id", "sitzung-42"))
     assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
     assert "session=sitzung-42" in ergebnis.stdout

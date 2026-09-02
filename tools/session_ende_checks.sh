@@ -95,14 +95,27 @@ if [ -d "$LEASE_DIR" ]; then
   done
 fi
 if [ -z "$TOUCHED" ]; then
-  TOUCHED_QUELLE="commits-heute"
-  GIT_USER=$(git -C "$PLATFORM_DIR" config user.name 2>/dev/null || echo "")
-  for d in "$GITHUB_DIR"/*/; do
-    [ -e "${d}.git" ] || continue
-    n=$(git -C "$d" log --since="$HEUTE 00:00" ${GIT_USER:+--author="$GIT_USER"} \
-        --oneline 2>/dev/null | wc -l)
-    [ "${n:-0}" -gt 0 ] && _add_touched "$(basename "$d")"
-  done
+  # Der Fallback steht und faellt mit dem Autorenfilter. Ohne ihn heisst
+  # `--since=heute` nur „irgendwer hat heute committet" — dann erklaert der
+  # Runner fremde Arbeit zur eigenen, und E.7 meldet eine fremde Baustelle als
+  # Befund dieser Sitzung. Gemessen in CI (Lauf 33644319863): dort ist
+  # `git config user.name` leer, der Filter fiel ersatzlos weg, und ein
+  # Fixture-Repo ohne Lease stand als „eigen dirty" in der Tabelle.
+  # Kein Name ermittelbar ⇒ kein Fallback, und die Note sagt das auch.
+  # `-` statt `:-`: ein ausdruecklich LEER gesetztes SESSION_ENDE_GIT_USER soll
+  # den Fallback abschalten, nicht in die git-config zurueckfallen.
+  GIT_USER="${SESSION_ENDE_GIT_USER-$(git -C "$PLATFORM_DIR" config user.name 2>/dev/null || echo "")}"
+  if [ -z "$GIT_USER" ]; then
+    TOUCHED_QUELLE="unbestimmt(kein git user.name)"
+  else
+    TOUCHED_QUELLE="commits-heute"
+    for d in "$GITHUB_DIR"/*/; do
+      [ -e "${d}.git" ] || continue
+      n=$(git -C "$d" log --since="$HEUTE 00:00" --author="$GIT_USER" \
+          --oneline 2>/dev/null | wc -l)
+      [ "${n:-0}" -gt 0 ] && _add_touched "$(basename "$d")"
+    done
+  fi
 fi
 _add_touched "$TARGET_REPO"
 TOUCHED="${TOUCHED# }"
@@ -314,13 +327,13 @@ else
   record "E.7 dirty-repos" "PASS" "keine eigenen dirty Repos; fremd (nur Hinweis):${DIRTY_FREMD:- -}"
 fi
 
-# ── E.8 Worktree-Reaper (Skill-Phase 3.1c) — bewusst NICHT ausgeführt ───────
+# ── E.8 Worktree-Reaper (Skill-Phase 3.1c) — läuft im nächsten Sitzungsstart ─
 # Das Gate `worktree-midsession-accumulation` wurde am 2026-08-20 umgebaut:
 # `repo-session.sh reap --alle` läuft seither in `session_start_checks.sh`
-# Phase 0.4.5 über ALLE Repos mit Lease. Ein zweiter Lauf am Sitzungsende ist
-# dieselbe Mechanik ein zweites Mal — der nächste Start räumt ohnehin.
+# Phase 0.4.5 über ALLE Repos mit Lease. Das Aufräumen ist damit vergeben, nicht
+# offen — hier steht nur der Hinweis, damit die Zeile in der Tabelle nicht fehlt.
 record "E.8 worktree-reap" "SKIP" \
-  "bewusst nicht ausgeführt — Phase 0.4.5 des nächsten session-start räumt über alle Leases (Gate worktree-midsession-accumulation, Revision 2026-08-20)"
+  "läuft im nächsten Sitzungsstart, Phase 0.4.5 über alle Leases (Gate worktree-midsession-accumulation, Revision 2026-08-20) — hier nur der Hinweis"
 
 # ── E.9 Skill-Verteilungs-Drift (dist-drift) ────────────────────────────────
 # Gleicher Aufruf wie Start-Phase 0.7.13, aber OHNE Selbstheilung: am
