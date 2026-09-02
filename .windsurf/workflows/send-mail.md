@@ -160,7 +160,7 @@ Fehler → Skript-Ausgabe zitieren, **nicht** blind erneut senden (siehe Nicht-I
 ## Output-Format
 
 ```
-OK: Mail an Ilja.Lerch@deutschebahn.com via mail.example.org (SSL:465), Anhänge: create-pdf.md
+OK: Mail an empfaenger@example.invalid via mail.example.org (SSL:465), Anhänge: create-pdf.md
 ```
 
 ## Anti-Patterns

@@ -463,7 +463,7 @@ Anmeldename von Absenderadresse, review required.
 **Drei eigene Fehler, benannt statt versteckt:**
 
 - **Das Board führte zwei Studierende als erledigt, weil eine Antwort raus war.** Abel hatte
-  seine Thesis-Arbeitsversion angehängt, Schönherr die Abgabeversion seines Study Papers —
+  seine Thesis-Arbeitsversion angehängt, Studierender-B die Abgabeversion seines Study Papers —
   die eigentliche Leistung (Feedback, Bewertung) war unberührt. „Antwort gesendet" ist nicht
   „erledigt"; der Status hing am Sent-Eintrag statt an der Sache.
 - **Die selbst eingebaute systemd-Härtung brach den eigenen Port-Vorabcheck.** `PrivateTmp`,
@@ -482,9 +482,9 @@ keine Spur hinterlässt (Telefonate, mündliche Zusagen). Gelöschte Anker werde
 stillschweigend entfernt — die Pflege-Regel „Item verschwindet erst bei Beleg" gilt auch für
 Maschinenbefunde.
 
-**Mail-Ergebnis:** Gesendet an Michalk (Hosting-Aufteilung LRA Traunstein), Ullah
+**Mail-Ergebnis:** Gesendet an HS-Kontakt (Hosting-Aufteilung LRA Traunstein), Kontakt-J
 (Proposal-Feedback nach 17 Tagen Verzug), Abel (Thesis-Rückmeldung), Lluca (Interview-Design),
-dazu Leistungsbezüge-Antrag und MeikI-Terminzusage. **Ein Entwurf offen:** Schönherr —
+dazu Leistungsbezüge-Antrag und MeikI-Terminzusage. **Ein Entwurf offen:** Studierender-B —
 Kurzfassung auf Owner-Wunsch, das ausführliche Feedback kommt nach seiner Präsentation und
 liegt vollständig unter `~/.claude/feedback-schoenherr-studypaper.md`.
 
@@ -875,7 +875,7 @@ django-lms-lite/iil-doc-templates · dev-hub-Deploy `04a9d5e` lief noch (~09:56)
 Aufgabe war nicht Stichwortsuche, sondern die *ganze Kette* zu einem Thema — ausgehend von
 einer beliebigen passenden Mail, über Ordner- und Kontengrenzen hinweg, schnell genug, um
 den Sinn daran zu bearbeiten. Beide vom Owner gesetzten Abnahmefälle bestanden: Offner
-3 Nachrichten über zwei Konten in 51 ms (IMAP), Schmalberger 11 Nachrichten, 3 Beteiligte,
+3 Nachrichten über zwei Konten in 51 ms (IMAP), Kontakt-A 11 Nachrichten, 3 Beteiligte,
 4 Ordner in 119 ms (Graph). Keine einzige Kante kam über den Betreff; alle sind über
 References bzw. Graph-conversationId belegt. Bestand 11.573 Nachrichten aus drei Postfächern.
 
@@ -1558,7 +1558,7 @@ Und dreimal eine Null gemeldet, ohne vorher zu prüfen, ob die Suche überhaupt 
 kann — dreimal hat der Gate es abgefangen.
 
 **Gesendet hat der Owner selbst:** die Rückmeldung an Frost (13:24) und die Rückfrage an
-Zeiner (12:49), beide mit den korrigierten Inhalten (verifiziert am gesendeten Text). Die
+Vertragspartner-D (12:49), beide mit den korrigierten Inhalten (verifiziert am gesendeten Text). Die
 MEiKI-Anzeige liegt als Entwurf und bleibt es, solange der AV LRA–OCOS unbelegt ist.
 
 ## 2026-08-05 (Nachtrag) — zwei eigene Auswertungen widerlegt, bevor sie jemand geglaubt hat
@@ -2633,7 +2633,7 @@ Fehlschläge, unbemerkt.
 ### Mailvorgänge (lokales Ledger, 24 Vorgänge, 0 ohne Anker)
 
 Acht Entwürfe vom Owner gesendet: Scherer (LSBAU), Herrmann (Gröger NIS2), Gessler
-(Marold), Schröder (HNU), Gerstlauer (HNU, zweimal), Zeiner (Ocos).
+(Kontakt-H), Schröder (HNU), HNU-Kontakt-I (HNU, zweimal), Vertragspartner-D (Ocos).
 
 Fachliche Ergebnisse, die nicht im Code stehen:
 
@@ -2649,7 +2649,7 @@ Fachliche Ergebnisse, die nicht im Code stehen:
   Übermittlungsgrundlage; Render und Google Cloud gelistet aber „nicht im Einsatz";
   Klausel 7.5 verlangt für die genannten sensiblen Daten Garantien, Anhang III nennt
   keine; Verfügbarkeitsmaßnahme ist „automatische Skalierung".
-- **Marold/DeutschlandGPT**: Trainings-Beanstandung **zurückgenommen** (AV Ziff. 1.7 in
+- **Kontakt-H/DeutschlandGPT**: Trainings-Beanstandung **zurückgenommen** (AV Ziff. 1.7 in
   Anhang III, gilt für alle; Ziff. 4.1 Vorrang; NB 11.5 in Teil A). Neuer, härterer
   Befund vom Owner: Ziff. 7.7 a) erlaubt Änderung der Unterauftragnehmerliste mit **14
   Tagen** Frist, während die unveränderten Klauseln **30** nennen (belegt am Ocos-AVV) —
@@ -2671,7 +2671,7 @@ verworfen. Anfrage läuft, ob der Mac Studio über die Rahmenvereinbarung abrufb
 2. **#2083** — meinen doc-hub-Eingriff beim versionierten Rollout mitnehmen, sonst kommen
    die 655 Fehler zurück.
 3. **#622** — Entscheidung über feste Fremdschlüssel steht; danach Schritte 1, 2, 5.
-4. **Vorgang 141** — eBANF absenden oder Mac Studio, je nach Gerstlauers Antwort.
+4. **Vorgang 141** — eBANF absenden oder Mac Studio, je nach HNU-Kontakt-I Antwort.
 5. **LSBAU** — Vorlage der Mitarbeitenden-Datenschutzerklärung liegt in
    `~/shared/2026-08-19-dsb/`; in der gesendeten Mail steht die Zusage, sie zu liefern.
 
@@ -2687,7 +2687,7 @@ Verdrahtung in `/mailcheck` hängt an #2073.
 Nachprüfung — drei davon, weil ein Filter die Null erzeugte (`head -12` schnitt `schleuse`
 ab, Statusabfrage suchte `FAILURE` statt `failure`, Firmennamen-Suche fand keine
 Systemanbieter), eine, weil eine verkürzte Seitenwiedergabe für den Volltext gehalten
-wurde (DeutschlandGPT 11.5). Beim Marold-Vorgang lag ich dreimal daneben; alle Korrekturen
+wurde (DeutschlandGPT 11.5). Beim Kontakt-H-Vorgang lag ich dreimal daneben; alle Korrekturen
 kamen vom Owner oder von der Gegenseite. **Und: kein Scope-Checkpoint ausgesprochen**,
 obwohl die Sitzung zwei Repos, zwei Produktivsysteme und einen Prod-Deploy berührte — der
 Stop-Hook musste ihn einfordern.

@@ -153,7 +153,7 @@ teilweise — Erweiterung um gh-Publish-Aufrufe ist Gate-Kandidat.
 
 ## 8. Nicht verifiziert (Restlücken)
 
-- **E-Mail-Versand an Ilja.Lerch@deutschebahn.com:** kein git/gh-Artefakt möglich; SMTP-Erfolgsmeldung + IMAP-gelesene Antwort („ok", 10:08Z) liegen nur im Session-Transkript — Hypothese-Status für Dritte; billigster Check: IMAP-Postfach `Sent`/Antwort-Thread.
+- **E-Mail-Versand an empfaenger@example.invalid:** kein git/gh-Artefakt möglich; SMTP-Erfolgsmeldung + IMAP-gelesene Antwort („ok", 10:08Z) liegen nur im Session-Transkript — Hypothese-Status für Dritte; billigster Check: IMAP-Postfach `Sent`/Antwort-Thread.
 - **Wer klickte den #168-Merge** (Mensch im Browser vs. CLI): Artefakte können es nicht unterscheiden (gleicher Account); M1 macht die Frage künftig gegenstandslos.
 - **`tenancy_mode`-blockierte PRs #963/#1053** (Collector-Red-Flag): NICHT aus dieser Session, nicht untersucht — billigster Check: `gh pr checks 1053` + Gate-Log lesen.
 - **Ob der 14:24:27Z-Symlink-Rewrite exakt von einem `/session-start` kam:** Code+Timing+Dateiliste passen 1:1, ein Log des konkreten Laufs wurde nicht gesichert (Hypothese mit starker Indizienlage).
