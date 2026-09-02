@@ -10,6 +10,13 @@ Dieser Dienst macht denselben Zustand dauerhaft sichtbar.
     todo_board.py build            → schreibt ~/.claude/boards/todo.html
     todo_board.py serve            → 127.0.0.1:8789, baut bei jedem Abruf neu
 
+Einstiegskommando fuer den ganzen Stand (platform#2592 K1): `make boards` baut
+Action-Board (board.py --render) und diese Seite aus demselben Ledger; `make
+boards-check` baut beide zweimal mit festem `--stichtag` und vergleicht byteweise
+— die Ausgabe haengt nur vom Ledger, den Ankerdateien und dem Stichtag ab, nie
+von Uhrzeit, Laufreihenfolge oder Zufall. Gemessen 2026-09-02: zwei Laeufe
+hintereinander identisch, 0 Zeilen Unterschied.
+
 Bewusst getrennt von `mail_agent/mail_link_server.py`: der rendert Mail-Koerper live
 aus dem Postfach und darf darum nie oeffentlich stehen. Dieser Dienst kennt nur das
 Ledger, spricht kein IMAP und hat genau eine Seite — das ist die Angriffsflaeche, die
@@ -1320,7 +1327,11 @@ def cmd_build(args: argparse.Namespace) -> None:
     # Die gebaute Datei wird als Datei geoeffnet — relative Links zeigten dann ins
     # Dateisystem. Darum absolute Loopback-Adresse, nie file:// (Owner-Entscheid).
     ziel.write_text(
-        baue(lade(LEDGER), heute(), basis=f"http://127.0.0.1:{args.basis_port}"),
+        baue(
+            lade(LEDGER),
+            date.fromisoformat(args.stichtag) if args.stichtag else heute(),
+            basis=f"http://127.0.0.1:{args.basis_port}",
+        ),
         encoding="utf-8",
     )
     print(f"OK: {ziel}")
@@ -1349,6 +1360,11 @@ def main() -> None:
     b = sub.add_parser("build", help="HTML-Datei schreiben")
     b.add_argument("--ausgabe", default=str(AUSGABE))
     b.add_argument("--basis-port", type=int, default=PORT, dest="basis_port")
+    b.add_argument(
+        "--stichtag",
+        metavar="YYYY-MM-DD",
+        help="Bezugsdatum statt heute — macht den Bau tagesunabhaengig reproduzierbar (#2592 K1)",
+    )
     b.set_defaults(fn=cmd_build)
     s = sub.add_parser("serve", help="lokal ausliefern, bei jedem Abruf frisch gebaut")
     s.add_argument("--port", type=int, default=PORT)
