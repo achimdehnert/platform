@@ -730,9 +730,49 @@
       "drill": "tools/tests/test_blaupause_check.py",
       "built": "2026-09-01",
       "ref": "platform#2560 (KONZ-051 K6, Owner-Entscheid 2026-09-01: Weg (a) Scope eingrenzen)",
+      "positivkontrolle": {
+        "ref": "platform#2560 — Registry-weiter Lauf beim Bau fand `aifw` in Step 1, eine Stelle, die der vorherige 4-Namen-grep nicht sehen konnte",
+        "datum": "2026-09-01"
+      },
       "note": "K6 verlangte, dass die ux-review-Blaupause keinen Ziel-Repo-Namen in einer Anweisung traegt, war mit dem eigenen grep aber nicht entscheidbar: er zaehlte Changelog, Dogfood-Tests und Realfall-Blockquotes mit (die per Konstruktion nie verschwinden) und fing mit 'meiki' die Org meiki-lra statt eines Repos. Drei Praezisierungen: Scope nur auf Anweisungs-Abschnitte (fail-closed — ein neuer Abschnitt gilt als Anweisung), Namen aus registry/canonical.yaml statt vier handgetippten und nur mit Oberflaechen-Typ (django/fastapi/static; eine Bibliothek ist nie Ziel eines Klick-Laufs), und Pruefung auf Block- statt Zeilenebene — der Beleg steht regelmaessig eine Zeile unter dem Namen, den er belegt. Positivkontrolle beim Bau: der Registry-weite Lauf fand sofort eine Stelle, die der 4-Namen-grep nicht sehen konnte (aifw in Step 1). Der Drill haelt zu jedem gruenen Fall die Gegenprobe daneben, damit die Null nicht aus dem eigenen Filter stammt."
+    },
+    {
+      "slug": "gate-anchored-without-drill-or-control",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/gate_verankerung_check.py",
+      "drill": "tools/tests/test_gate_verankerung_check.py",
+      "built": "2026-09-02",
+      "ref": "platform#2690 K4 (Owner-Auftrag 2026-09-02: geschlossener Verbesserungskreis)",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_gate_verankerung_check.py::test_should_positivkontrolle_realfall_altgate_rot_melden — ein Eintrag im Zuschnitt der 31 Bestands-Gates (Drill + Messpunkt vorhanden, Beleg nur als `note`-Prosa) MUSS Exit 1 ergeben; faellt der Test auf gruen, hat der Pruefer aufgehoert zu finden",
+        "datum": "2026-09-02"
+      },
+      "faengt": [
+        {
+          "fall": "neuer Registry-Eintrag ohne existierende Drill-Datei",
+          "probe": "drill-datei fehlt"
+        },
+        {
+          "fall": "neuer Registry-Eintrag ohne Beleg, dass das Gate den eigenen Fall trifft",
+          "probe": "keine `positivkontrolle`"
+        },
+        {
+          "fall": "Slug ausserhalb der Form, die gate_wirkung.py in Retro-Tabellen wiederfindet",
+          "probe": "ausserhalb der slug-form"
+        },
+        {
+          "fall": "Neu-Verankerung per `revised` ohne neue Positivkontrolle",
+          "probe": "revised"
+        }
+      ],
+      "zustand": "schranke",
+      "expires": "2026-10-02",
+      "expires_note": "30 Tage — derselbe Stichtag, an dem platform#2690 K4 die Rueckfallquote gegen die 14/33 vom 2026-09-02 misst. Bis dahin ist zu entscheiden: Check-Name `Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)` ins Ruleset (blocking) ODER Gate streichen. Advisory ist hier bewusst der Zwischenschritt und kein Endzustand — die Required-Frage gehoert an das Ruleset des Owners, nicht in einen Datei-Edit (deshalb eigener Job statt Step im Check `tools-tests`).",
+      "note": "Bilanz beim Bau (2026-09-02, `--alle`): 31 Gates, 0 vollstaendig verankert — 0 ohne Drill, 0 ohne Messpunkt, 31 ohne Positivkontrolle. Das Feld `positivkontrolle` ist mit diesem Eintrag neu; die Null misst also die Luecke, die es oeffnet, nicht einen Zerfall. Bestandsschutz ist Absicht: `--neu` fordert die drei Nachweise nur fuer Eintraege, die gegenueber origin/main neu oder in einem NICHT-Prosa-Feld geaendert sind (`built`, `revised`, `drill`, `module`, `mode`, `repo`). Ein Tippfehler-Fix im `note` faerbt keinen PR. Verdrahtet als eigener Job in .github/workflows/tools-tests.yml (eigener Check-Name, damit die Required-Frage beim Ruleset des Owners bleibt und nicht per Step-Exit vorentschieden wird)."
     }
   ],
+  "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 31 am 2026-09-02 registrierten Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot.",
   "_declined_doc": "Bewusste Nicht-Gate-Entscheidungen (platform#1650 Kriterium 1): dokumentiertes, getragenes Restrisiko statt vergessener Luecke. tools/retro_kpis.py wertet diese Slugs als 'bewusst ohne Gate' statt sie als Luecke zu melden; tools/gate_drill_check.py drillt nur `gates` und laesst diese Liste unberuehrt. Neue Vorkommen eines declined-Slugs im Retro-Laengsschnitt sind Anlass, die Entscheidung zu ueberpruefen — nicht sie stillschweigend zu ignorieren.",
   "declined": [
     {
