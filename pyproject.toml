@@ -10,6 +10,19 @@ addopts = [
 ]
 markers = [
     "megatest: Platform-weiter Hardcoding-Megatest",
+    # ADR-058-Taxonomie. `--strict-markers` steht oben in addopts, also ist ein
+    # angewandter, hier nicht deklarierter Marker ein Collection-FEHLER, kein
+    # Hinweis. Lokal fiel das nicht auf: das Plugin `iil-testkit` kennt die
+    # Taxonomie und registriert sie mit; die CI installiert nur
+    # `pytest pyyaml pydantic` und kennt sie nicht (tools-tests.yml). Genau diese
+    # Luecke liess einen Test, den das Plugin selbst ANMAHNT, lokal gruen und in
+    # der CI rot durchfallen (2026-09-02, platform#2207).
+    # Bewusst nur die drei angewandten Marker — die Taxonomie kennt mehr
+    # (F4/F5/M/S/T); jeder weitere wird hier deklariert, wenn er zum ersten Mal
+    # wirklich benutzt wird, statt eine Liste auf Vorrat zu pflegen.
+    "f1: ADR-058 F1 — Unit Test: eine Funktion, ein Ergebnis",
+    "f2: ADR-058 F2 — Parametrized Test: gleiche Funktion, viele Eingaben",
+    "f3: ADR-058 F3 — Exception Test: Fehlertyp und Meldung",
 ]
 # tools/tests/ ist die CI-Suite (tools-tests.yml); tests/ enthält megatest + Altbestand.
 # Ohne beide Pfade sähe nacktes `pytest` nur 5 von 40 Testdateien (Blindfleck, repo-optimize L-4).
