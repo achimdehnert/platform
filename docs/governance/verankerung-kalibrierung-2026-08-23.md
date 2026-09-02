@@ -261,3 +261,136 @@ keine Bedingung** — weder „spaeter", „sobald", „nach", noch ein Datum.
 
 **Stand des Fensters:** 24 gepruefte Texte · 15 Meldungen · 1 richtig · 14 Fehlalarme.
 Praezision 0,067 (vorher 0,071).
+
+### 2026-08-23 abends, Phase 0g auf den vier Gate-PRs (#2236–#2239)
+
+| Text | Meldung | Urteil |
+|---|---|---|
+| PR #2236 (22 Segmente) | `✅` keine Meldung | richtig — jede Zusage traegt #2234/#2235 |
+| PR #2237 (11 Segmente) | `✅` keine Meldung | richtig |
+| PR #2238 (12 Segmente) | `✅` keine Meldung | richtig — die neun offenen Slugs nennen #2234 im selben Abschnitt |
+| PR #2239 | `[vertagung]` „haette still bis zum Fristablauf gesammelt" | **Fehlalarm** — Konjunktiv II ueber den BEHOBENEN Zustand |
+
+Der Satz im Volltext lautet: *„… konnte nie entscheidungsreif werden und haette
+still bis zum Fristablauf gesammelt; das ist jetzt ein eigener, lauter Zustand
+`unbestimmt`."* Der Nebensatz nach dem Semikolon sagt, dass es behoben ist — der
+Klassifikator sieht den Konjunktiv davor und liest eine Vertagung.
+
+**Neue Fehlalarm-Klasse, verwandt mit den Meta-Texten aus §6, aber nicht dieselbe:**
+bisher waren es *Berichte ueber* Vertagungen (Trockenlauf-Listen, Meta-PRs). Hier ist
+es die **Beschreibung des alten Verhaltens im Konjunktiv**, unmittelbar gefolgt von
+der Behebung. Ein PR-Text, der erklaert, was ohne den Fix passiert waere, klingt
+zwangslaeufig nach einer offenen Zusage. Das ist kein Randfall: so ist fast jede
+gute Fehlerbeschreibung gebaut.
+
+Praezision faellt damit von 0,14 auf 0,125. Der Vorschlag aus
+[#2214](https://github.com/achimdehnert/platform/issues/2214) traegt weiter, muss
+aber um diese zweite Klasse ergaenzt werden: **Tempus/Modus des Segments** ist ein
+Signal, das der Klassifikator bisher nicht auswertet — „haette gesammelt" ist keine
+Zusage, „sammelt weiter" waere eine.
+
+---
+
+## Lauf 2026-08-24 — vier PR-Texte (ADR-297-Strang)
+
+| PR | Meldung | Verdikt |
+|---|---|---|
+| #2247 | `[vertagung]` „gehoeren gemeinsam verschoben" | **Fehlalarm** — Kopplungs-Bedingung, keine Zusage |
+| #2252 | — | sauber |
+| #2255 | — | sauber |
+| #2257 | — | sauber |
+
+Der Satz im Volltext lautet: *„`writing-hub` und `weltenhub` sind über `iil-weltenfw`
+und eine laufende API verbunden. Sie gehören **zusammen** verschoben oder gar nicht —
+eine Aufteilung auf zwei Orgs wäre schlechter als der Ist-Zustand."*
+
+**Warum kein Tracking fehlt:** Das ist keine aufgeschobene Arbeit, sondern eine
+**Bedingung für den Fall, dass** etwas getan wird — ein Konditional ohne Zusage. Der
+Text sagt nicht „wir verschieben sie später", sondern „falls verschoben wird, dann
+gemeinsam". Das Tracking-Artefakt für den Transfer selbst ist das ADR, in dem der
+Satz steht: `status: proposed`, mit vier offenen Punkten und einem Kill-Gate zum
+2026-11-24.
+
+**Dritte Fehlalarm-Klasse, und die schwerste bisher:** nicht Meta-Text (§6), nicht
+Konjunktiv über Behobenes (#2239), sondern eine **Bedingung im Entscheidungstext
+selbst**. Ein ADR besteht wesentlich aus solchen Sätzen — „wenn X, dann gemeinsam mit
+Y", „nur nach Z", „erst wenn". Ein Klassifikator, der jede Konditionalstruktur als
+Vertagung liest, meldet auf ADRs strukturell falsch, und ADRs sind genau die Texte,
+in denen Vertagungen am teuersten wären. Das Signal aus #2239 (Tempus/Modus) reicht
+hier nicht — „gehören verschoben" steht im Indikativ Präsens. Nötig wäre die Frage,
+ob das Segment ein **Subjekt mit Handlungsabsicht** hat („wir machen später") oder
+eine **Eigenschaft** beschreibt („sie gehören zusammen").
+
+gut geschriebene Texte — das ist der eigentliche Befund: der Klassifikator bestraft
+Texte, die ihre Bedingungen ausformulieren.
+
+---
+
+## Nachtrag 2026-08-24 — PR #2265, vierte Fehlalarm-Klasse: der Verweis steht im Dokument, nicht im Segment
+
+Gemeldet wurde in [#2265](https://github.com/achimdehnert/platform/pull/2265):
+
+> Zitat: „blockiert sie ausdruecklich"
+> Anker: keine Issue-Referenz im Segment
+
+Der Satz lautet vollständig: *„Offener Punkt 5 (Gegenzeichnung des zweiten Owners)
+blockiert sie ausdrücklich."* Er beschreibt keine Vertagung, sondern **verweist auf einen
+Punkt, der im selben PR eine eigene Zeile in der Offene-Punkte-Tabelle des ADR hat** —
+mitsamt Tracking-Spalte. Der Klassifikator liest das Segment, das Tracking steht eine
+Tabelle weiter oben im selben Diff.
+
+**Fehlalarm.** Nachweis, dass der Punkt getrackt war und nicht versandete: OP-5 ist am
+selben Tag entschieden worden, dokumentiert im Abschnitt „Annahme" von ADR-297, mit
+Verweis auf [#2263](https://github.com/achimdehnert/platform/issues/2263), wohin die
+Substanz (getesteter Vertretungsweg) verschoben wurde.
+
+**Die Klasse:** Bisher waren die Fehlalarme Meta-Text (§6), Konjunktiv über Behobenes
+(#2239) und Bedingungen im Entscheidungstext (#2259). Diese vierte ist strukturell anders:
+das Segment ist **korrekt als Verweis erkannt**, nur ist der Anker nicht im Segment,
+sondern im Dokument. Ein Text, der seine offenen Punkte sauber in einer Tabelle führt und
+im Fließtext darauf verweist, wird dafür bestraft — dieselbe Perversion wie bei #2259,
+nur eine Ebene höher: dort traf es ausformulierte Bedingungen, hier trifft es
+**Querverweise auf die eigene Struktur**.
+
+Nötig wäre, den Anker-Test nicht auf das Segment, sondern auf das **Dokument** zu
+erweitern: nennt der Text an anderer Stelle eine Tabellenzeile oder Überschrift, die
+denselben Punkt trägt, ist er verankert.
+
+Präzision 0,100 (vorher 0,111).
+
+---
+
+## Zusammenfuehrung 2026-08-30 (Konfliktaufloesung PR #2276)
+
+Die drei Abschnitte oben lagen seit dem 2026-08-24 auf einem Branch, waehrend `main`
+dieselbe Datei in einer zweiten Linie weiterschrieb (19 → 21 → 24 gepruefte Texte).
+Inhaltlich ueberschneiden sie sich nicht: `main` kennt weder #2236, ADR-297, #2259
+noch #2265.
+
+**Die Zaehlerstaende sind bewusst NICHT addiert.** Der Branch zaehlte 5 → 9 → 13 → 14,
+`main` unabhaengig davon bis 24 — beide zaehlen dasselbe Kalibrierfenster ab demselben
+Start. Ob die hier dokumentierten Laeufe in den 24 von `main` schon enthalten sind,
+laesst sich aus den Dokumenten **nicht** entscheiden; eine Summe waere eine erfundene
+Zahl in genau dem Dokument, das vor erfundenen Zahlen warnt.
+
+**Massgeblich bleibt daher der Stand aus `main`: 24 gepruefte Texte · 15 Meldungen ·
+1 richtig · 14 Fehlalarme (Praezision 0,067).** Die Abschnitte oben tragen die
+Fehlalarm-**Klassen** bei, nicht die Zahlen. Die Rekonstruktion des tatsaechlichen
+Zaehlerstands haengt an #2469.
+
+---
+
+## Lauf 2026-08-31 (PRs #2531, #2532)
+
+Zwei eigene PR-Texte geprueft: #2531 sauber (2 Segmente, ✅), #2532 eine Meldung:
+
+- **[vertagung] Fehlalarm.** Zitat: „AGENT_HANDOVER.md-Stand bewusst NICHT angefasst:
+  die Parallel-Session `offsite-meldekette` ist aktiv und schreibt den nächsten Stand".
+  Der „vertagte" Stand-Nachzug ist die **Pflichtphase** (session-ende 0b/0c) der zum
+  Meldezeitpunkt nachweislich aktiven Parallel-Session (Lease vom selben Tag), mit
+  strukturellem Netz dahinter (nächtlicher handover-reconcile → Phase 0.7.6;
+  Freshness-Check am selben Tag PASS). Fehlalarm-Klasse: **Delegation an einen
+  laufenden, selbst gate-pflichtigen Prozess** ist keine unverfolgte Zusage.
+
+**Stand damit: 26 geprüfte Texte · 16 Meldungen · 1 richtig · 15 Fehlalarme
+(Präzision 0,063).** Zählweise wie „Maßgeblich"-Absatz oben (main-Linie fortgeschrieben).

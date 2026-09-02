@@ -160,13 +160,23 @@ statt einer erfundenen Nummer **Betreff in Anfuehrungszeichen plus Datum** in de
 Satz — daraus baut `tools/mail_agent/eintrag_mails.py` wenigstens die
 Identifikation in der Kopfzeile.
 
-**Referenzen so schreiben, dass sie klickbar werden:** Der Renderer verlinkt eine
-Nachrichten-Nummer nur, wenn der **Ordner danebensteht** (`INBOX #164024`,
-`Ordner 'Gesendete Objekte' (#34349)`). Ohne Ordner loest `/m/<konto>/<uid>`
-ausschliesslich gegen INBOX auf — eine Entwurfs-UID ergaebe dort einen 404,
-darum wird sie nur ausgezeichnet statt verlinkt. `UID 23589` ohne Ordnerangabe
-bleibt also stumm; `Entwuerfe #23589` wird ein Link. GitHub-Referenzen
-(`meiki-lra/meiki-hub#146`, `platform#2183`) verlinken von selbst.
+**Der Pruefer dazu (seit 2026-09-01, #2199/#2592 K3):**
+`python3 tools/mail_agent/referenzen.py --pruefe-ordner` — Exit 1, sobald ein
+Eintrag ab dem Stichtag eine Nummer ohne Ordner nennt; der Kettencheck fuehrt
+denselben Befund taeglich als Glied „Verl.-Ordner". Eine Aufzaehlung hinter EINEM
+Ordner gilt (`INBOX #164084, #164091`, `Entwuerfe #23761 bis #23780`).
+
+**Referenzen werden klickbar, sobald sie VERANKERT sind (seit 2026-09-01, #2563/#2592 K2):**
+Der Renderer verlinkt eine Nachrichten-Nummer nur, wenn `eintrag_anker.py` ihre
+Message-ID hinterlegt hat — dann als `/a/<konto>-<ordner>-<uid>` auf
+`mail.iil.pet`, und dieser Link ueberlebt Ablage, Senden und ersetzte Entwuerfe.
+Eine unverankerte Nummer bleibt Text mit Hinweis. Gemessen am 2026-09-01 waren
+89 von 203 UID-Links tot; die Verankerung gelingt nur, **solange die UID noch
+gilt** — darum laeuft `eintrag_anker.py` am Ende JEDES /mailcheck (Checkliste)
+und taeglich ueber `make boards`. Der Ordner im Text macht die Verankerung
+eindeutig; ohne ihn wird in den Suchordnern gesucht und bei Mehrdeutigkeit
+nichts verankert. GitHub-Referenzen (`meiki-lra/meiki-hub#146`,
+`platform#2183`) verlinken von selbst.
 
 ## Vorgangs-Speicher (Ledger)
 
@@ -183,7 +193,19 @@ Punkte du verfolgst. Zwei Ebenen:
 - **Einfache Punkte (Antwort geschickt / erledigt) → lokales Ledger** `~/.claude/mail-vorgaenge.json`
   (nur lokal, **nie** Repo/Memory — enthält Adressen/Betreffs, Charta 2). Je Eintrag:
   `{konto, thread_key, gegenueber, typ, zustand, next_trigger, angelegt, letzte_pruefung,
-  nr, bucket, mail_ref, erledigt_am}`.
+  nr, bucket, frist, frist_grund, mail_ref, erledigt_am}`.
+  **`frist` ist Pflicht bei jedem offenen Vorgang (#2592 K4, seit 2026-09-02):** ein
+  ISO-Datum, oder `null` **mit** `frist_grund` (warum es keinen Termin gibt — „Warten auf
+  Gegenseite, kein vereinbarter Termin", „Owner-Aufgabe ohne Termin"). Setzen nie von
+  Hand im JSON, sondern `python3 tools/mail_agent/board.py --frist <nr> --datum
+  <YYYY-MM-DD|keine> --grund '…'`; `board.py --pruefe` meldet jeden offenen Vorgang ohne
+  beides, der Kettencheck fuehrt das als Glied „Invarianten". Die Liste sortiert nach
+  Frist, Ueberfaelliges steht rot oben; ohne Frist tritt bei `warten` die Erwartung aus
+  `faelligkeit.py` an ihre Stelle, sonst der Grund.
+  **IIL-Vorgaenge bekommen ihren Kurzlink automatisch (#2592 K5):**
+  `python3 tools/mail_agent/mail_link_server.py --heile-links` registriert jeden
+  IIL-Vorgang ohne Eintrag ueber seine Betreffs (thread_key + zitierte Betreffs, Fenster
+  90 Tage vor `angelegt`) und zieht tote Graph-ids nach.
   **`mail_ref` (optional, platform#1869):** der Pfad, unter dem der Mail-Renderer die
   zugehörige Mail ausliefert — Regelfall `/a/<nr>`, weil der Anker die Mail auch nach einem
   Ordnerwechsel über die Message-ID wiederfindet. Anlegen in zwei Schritten:
@@ -346,8 +368,12 @@ Prüfer überlebt.
 - [ ] Beide Seiten geprüft (Eingang UND Gesendetes) — Korrelation nach Gesprächspartner
 - [ ] Ledger aktualisiert (geschlossene Punkte raus, neue Zustände drin)
 - [ ] Deckungsblock im Board — auch wenn das Board leer ist
-- [ ] **Anker-Stand ausgewiesen** (#1864): `python3 tools/mail_agent/board.py --pruefe`
-      laufen lassen und die Zahl der unverankerten Vorgänge **im Ergebnis nennen** —
+- [ ] **Boards gebaut** (#2592 K1): `make boards` ist das eine Einstiegskommando fuer
+      Action-Board und todo.html; beide Renderer sind tagesunabhaengig reproduzierbar
+      (`--stichtag`), `make boards-check` belegt es byteweise.
+- [ ] **Anker-Stand und Fristen ausgewiesen** (#1864, #2592 K4): `python3 tools/mail_agent/board.py --pruefe`
+      laufen lassen — Exit 0; jeder offene Vorgang hat Frist oder `frist_grund` — und die
+      Zahl der unverankerten Vorgänge **im Ergebnis nennen** —
       auch und gerade dann, wenn sie unverändert ist. Ohne diese Zeile bleibt die
       Lücke unsichtbar, sobald das Board „gut aussieht": ein Posten ohne Anker trägt
       keinen Link in seine Mail und meldet das nirgends von selbst.
@@ -361,9 +387,30 @@ Prüfer überlebt.
 - [ ] **Jeder Link in der Antwort durch `link_pruefen.py` gelaufen** (Abschnitt „Links
       erzeugen, nicht tippen") — Exit 0, und die Zahl der geprüften Links im Ergebnis
       genannt. Ein getippter Link ist kein Link, sondern eine Behauptung.
+- [ ] **IIL-Kurzlinks vollstaendig** (#2592 K5): `python3 tools/mail_agent/mail_link_server.py
+      --heile-links` gelaufen; jeder Vorgang, der als `tot` bleibt, wird im Ergebnis mit
+      Grund genannt (kein Treffer = kein Mailbezug oder Mail weg) — ehrlich ohne Link
+      statt Knopf auf die falsche Mail. Stand beim Einbau (2026-09-02): 48 von 54
+      Vorgangsseiten fuehren in eine Mail.
+- [ ] **Referenzen verankert** (#2592 K2): `python3 tools/mail_agent/eintrag_anker.py`
+      gelaufen — NACH dem Ledger-Update und VOR Schritt 7a (die Ablage entwertet
+      UIDs; was dann nicht verankert ist, bleibt fuer immer Text). Die Zeile
+      „N Referenzen: X neu verankert, … Y nicht gefunden" im Ergebnis nennen.
+      Nicht Gefundenes wird mit Datum in `~/.claude/mail-eintrag-tot.json`
+      befundet — der Kettencheck meldet nur noch, was weder verankert noch
+      befundet ist.
+- [ ] **Ordner-Pflicht geprueft** (#2592 K3): `python3 tools/mail_agent/referenzen.py
+      --pruefe-ordner` — Exit 0. Ein Verstoss wird im selben Lauf im Ledger
+      korrigiert (Ordner nachtragen), nicht notiert.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog
+
+- **2026-09-01 (#2592 K2/K3):** Verlaufs-Links nur noch auf verankerte Nummern
+  (`/a/<schluessel>` ueber Message-ID statt roher UID-Route — 89 von 203 UID-Links
+  waren tot, #2563); `eintrag_anker.py` verankert, `referenzen.py --pruefe-ordner`
+  prueft die Ordner-Pflicht (#2199), Kettencheck fuehrt beide als Glieder;
+  Checkliste um beide Pflicht-Schritte ergaenzt. Reihenfolge: verankern VOR Schritt 7a.
 
 - 2026-08-07: **DB-first (#1820, SA-4):** `suche.py` (Mail-Index, ADR-288 §4.7) ist der
   Primärweg für alles Historische; IMAP/Graph nur noch als deklarierter Live-Fallback für

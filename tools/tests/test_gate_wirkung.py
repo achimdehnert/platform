@@ -444,3 +444,182 @@ def test_should_treat_an_explicit_zero_minimum_the_same_way(tmp_path):
     }
     datei = _hits(tmp_path / "hits.jsonl", [])
     assert gw.kalibrier_stand(gate, "2026-08-26", datei)["zustand"] == "unbestimmt"
+
+
+# --- Zweite Quelle: Befund-Tabelle (2026-09-02, platform#2374 Ziel A) -------------
+
+
+def _retro_mit_tabelle(
+    verzeichnis: Path, datum: str, kuerzel: str, fm_slugs: list[str], zeilen: str
+) -> None:
+    kopf = (
+        "| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |\n"
+        "|---|---|---|---|---|---|---|\n"
+    )
+    (verzeichnis / f"session-retro-{datum}-platform-{kuerzel}.md").write_text(
+        f"---\nretro_schema: 1\ndate: {datum}\nrecurring_findings: [{', '.join(fm_slugs)}]\n"
+        f"---\n\n## 2. Befund-Tabelle\n\n{kopf}{zeilen}",
+        encoding="utf-8",
+    )
+
+
+def test_should_count_a_table_row_the_frontmatter_forgot(tmp_path):
+    """Realfall fdd368: SURVIVES-Zeile in der Tabelle, Frontmatter ohne den Slug."""
+    _retro(tmp_path, "2026-07-01", "alt", ["schludrige-behauptung"])
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"t{i}",
+            ["anderes-thema"],
+            "| 1 | x | k | hoch | SURVIVES (kommandobelegt) | b \\| c | `schludrige-behauptung` |\n",
+        )
+    urteile = _urteile(
+        tmp_path,
+        [{"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}],
+    )
+    assert urteile["schludrige-behauptung"]["nachher"] == 3
+    assert urteile["schludrige-behauptung"]["nur_tabelle"] == 3
+    assert urteile["schludrige-behauptung"]["urteil"] == "RUECKFAELLIG"
+
+
+def test_should_not_count_refuted_rows_or_rows_marked_gates_caught(tmp_path):
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro_mit_tabelle(
+            tmp_path,
+            f"2026-07-{tag}",
+            f"t{i}",
+            [],
+            "| 1 | x | k | hoch | **REFUTED** | b | `schludrige-behauptung` |\n"
+            "| 2 | y (gates_caught) | k | hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+        )
+    urteile = _urteile(
+        tmp_path,
+        [{"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}],
+    )
+    assert urteile["schludrige-behauptung"]["nachher"] == 0
+    assert urteile["schludrige-behauptung"]["nur_tabelle"] == 0
+
+
+def test_should_let_an_uncaught_table_row_override_frontmatter_gates_caught(tmp_path):
+    """Realfall cc4e11: Frontmatter sagt gefangen, die Tabelle traegt ungefangene Zeilen."""
+    for i, tag in enumerate(["10", "11"]):
+        (tmp_path / f"session-retro-2026-07-{tag}-platform-c{i}.md").write_text(
+            f"---\nretro_schema: 1\ndate: 2026-07-{tag}\n"
+            "recurring_findings: [schludrige-behauptung]\ngates_caught: [schludrige-behauptung]\n---\n\n"
+            "| # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |\n"
+            "|---|---|---|---|---|---|---|\n"
+            "| 1 | nicht gefangen | k | hoch | SURVIVES | b | `schludrige-behauptung` |\n",
+            encoding="utf-8",
+        )
+    urteile = _urteile(
+        tmp_path,
+        [{"slug": "schludrige-behauptung", "mode": "advisory", "built": "2026-07-05"}],
+    )
+    assert urteile["schludrige-behauptung"]["nachher"] == 2
+    assert urteile["schludrige-behauptung"]["gefangen"] == 0
+
+
+# --- Verfallsfristen (`expires`, Owner-Entscheid E4 / platform#2606) ---------
+# Ein Datum in der Registry, das kein Werkzeug liest, ist Prosa — genau die
+# Fehlform, an der die erste Kalibrierfrist des Claim-Gates scheiterte. Diese
+# Tests halten fest, dass die Frist gelesen wird UND dass sie vor dem Vorlauf
+# still bleibt: ein Melder, der zwei Monate durchgehend feuert, wird ueberlesen.
+
+
+def test_should_return_none_for_a_gate_without_an_expiry():
+    assert gw.verfall_stand({"slug": "g", "mode": "advisory"}, "2026-09-02") is None
+
+
+def test_should_stay_quiet_while_the_expiry_is_far_away():
+    gate = {"slug": "g", "mode": "advisory", "expires": "2026-10-31"}
+    assert gw.verfall_stand(gate, "2026-09-02")["zustand"] == "laeuft"
+
+
+def test_should_warn_inside_the_lead_time_before_the_expiry():
+    gate = {"slug": "g", "mode": "advisory", "expires": "2026-10-31"}
+    stand = gw.verfall_stand(gate, "2026-10-17")
+    assert stand["zustand"] == "faellig"
+    assert "blocking schalten oder streichen" in gw.verfall_zeile(stand)
+
+
+def test_should_report_an_expiry_that_has_passed():
+    gate = {"slug": "g", "mode": "advisory", "expires": "2026-10-31"}
+    stand = gw.verfall_stand(gate, "2026-11-01")
+    assert stand["zustand"] == "ueberfaellig"
+    assert "ABGELAUFEN" in gw.verfall_zeile(stand)
+
+
+def test_should_call_an_unparsable_expiry_a_configuration_error():
+    """Sonst laeuft die Frist stillschweigend nie ab — dieselbe Klasse wie ein
+    Kalibrierfenster ohne Mindestzahl (Retro a84f71 Befund 4)."""
+    gate = {"slug": "g", "mode": "advisory", "expires": "Oktober"}
+    stand = gw.verfall_stand(gate, "2026-11-01")
+    assert stand["zustand"] == "unlesbar"
+    assert "kein Datum" in gw.verfall_zeile(stand)
+
+
+def test_should_surface_a_due_expiry_in_kurz_mode(tmp_path):
+    """Gegenprobe zu `..._print_nothing_in_kurz_mode_without_rueckfall`: dieselbe
+    Lage, nur mit abgelaufener Frist — der Runner MUSS eine Zeile bekommen."""
+    for i, tag in enumerate(["10", "11", "12"]):
+        _retro(tmp_path, f"2026-07-{tag}", f"b{i}", ["anderes"])
+    registry = tmp_path / "reg.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "gates": [
+                    {
+                        "slug": "ruhig",
+                        "mode": "advisory",
+                        "built": "2026-07-01",
+                        "expires": "1999-01-01",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    lauf = subprocess.run(
+        [
+            sys.executable,
+            str(_QUELLE),
+            "--kurz",
+            "--registry",
+            str(registry),
+            "--dir",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert lauf.returncode == 0
+    assert "Verfallsfrist ruhig" in lauf.stdout
+    assert "ABGELAUFEN" in lauf.stdout
+
+
+#: Advisory-Gates, die BEWUSST ohne Frist stehen, weil Owner-Entscheid E4
+#: (platform#2606) fuer sie die Scharfschaltung beschlossen hat — und die laut
+#: `frozen_note` nur in einem EIGENEN PR je Gate erfolgen darf. Eine Frist
+#: "blocking oder gestrichen" waere dort schon beantwortet. Diese Liste ist mit
+#: dem Merge der beiden Blocking-PRs ersatzlos zu streichen (Tracking: #2606).
+E4_SCHARF_IN_EIGENEM_PR = {"untested-command-handed-to-user", "aufschub-anker"}
+
+
+def test_should_give_every_advisory_gate_in_the_real_registry_an_expiry():
+    """Die eigentliche Zusage aus E4 — gemessen an der ECHTEN Registry, nicht an
+    einer Attrappe: kein advisory-Gate ohne Frist, sonst ist `advisory` wieder
+    ein Endzustand statt eines Zwischenschritts."""
+    registry = json.loads(
+        (_QUELLE.parents[1] / "docs" / "governance" / "gate-registry.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    ohne = [
+        g["slug"]
+        for g in registry["gates"]
+        if g.get("mode") == "advisory"
+        and not g.get("expires")
+        and g["slug"] not in E4_SCHARF_IN_EIGENEM_PR
+    ]
+    assert ohne == [], f"advisory-Gate(s) ohne Verfallsfrist: {ohne}"

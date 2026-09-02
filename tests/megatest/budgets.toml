@@ -14,10 +14,19 @@
 #     ausnahmslos Test-Attrappen ("test-secret-key-…", "s3cr3t-ingress-token")
 #     bzw. V-SEC-03-Fehlgriffe auf REASON_*-Audit-Konstanten (mcp-hub).
 # Tool: platform/scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
+#
+# 2026-08-31: Budgets werden gegen den CI-Stand gemessen, NICHT gegen lokale
+# Klone. Ein lokaler Lauf senkte 12 Budgets; in CI war bfagent danach rot
+# (26 > 23), weil der Klon hier einen Commit zurueckhing. Gesenkt bleiben nur
+# aifw und mcp-hub — die beiden Klone standen nachweislich auf origin.
+# Die uebrigen Senkungen aus dem Regelschnitt (#2537) sind real, aber erst
+# nach einem CI-Lauf belegbar; bis dahin gilt der alte, hoehere Wert. Ein zu
+# hohes Budget verschenkt Ratchet, ein zu niedriges bricht die CI aller
+# Folge-PRs.
 
 [budgets]
 "137-hub"            = 0
-"aifw"               = 2
+"aifw"               = 1
 "apo-hub"            = 4
 "ausschreibungs-hub" = 5
 "authoringfw"        = 0
@@ -47,7 +56,7 @@
 "lastwar-bot"        = 0
 "learn-hub"          = 0
 "learnfw"            = 1
-"mcp-hub"            = 13
+"mcp-hub"            = 11
 "meiki-hub"          = 0
 "nl2cad"             = 0
 "odoo-hub"           = 5
@@ -68,6 +77,11 @@
 "weltenhub"          = 0
 "weltenfw"           = 0
 "writing-hub"        = 1
+"django-lms-lite"    = 0
+"gpufw"              = 0
+"iil-doc-templates"  = 0
+"news-hub"           = 0
+"robo-lab"           = 0
 
 # Per-Regel-Budgets (optional, für granulare Gates)
 # Format: "repo.RULE_ID" = max_count

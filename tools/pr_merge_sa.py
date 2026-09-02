@@ -78,7 +78,11 @@ PROD_MARKER = re.compile(
     r"\b(prod|production|publish|pypi|ghcr\.io|docker\s+push|migrate)\b", re.IGNORECASE
 )
 DEPLOY_MARKER = re.compile(r"\b(deploy|ship|release|ssh)\b", re.IGNORECASE)
-FREIGABE_VERMERK = re.compile(r"Freigabe:\s*akzeptiert durch Owner", re.IGNORECASE)
+# Markdown-tolerant: `Freigabe:`, `**Freigabe:**`, `**Freigabe**:` — der Vermerk aus
+# /prompt (Auftrag-Modus) kam fett, der Regex las nur plain (#2603, Realfall #2602).
+FREIGABE_VERMERK = re.compile(
+    r"\**Freigabe\**:\**\s*akzeptiert durch Owner", re.IGNORECASE
+)
 PROD_IM_APPROVAL = re.compile(
     r"\b(deploy|prod|production|publish|release)\b", re.IGNORECASE
 )
@@ -288,7 +292,13 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
     return "M0"
 
 
-def review_ist_pflicht(repo: str, branch: str) -> bool:
+def pull_request_regel(repo: str, branch: str) -> bool:
+    """Liegt auf dem Zielbranch ueberhaupt eine `pull_request`-Regel?
+
+    Nur der Plausibilitaetsanker: keine Regel -> nie Review-Pflicht. Ob die
+    Regel fuer EINEN konkreten PR ein Approval verlangt, sagt sie nicht —
+    dafuer siehe review_ist_pflicht().
+    """
     try:
         rules = _gh(["api", f"repos/{repo}/rules/branches/{branch}"])
     except Unklar as exc:
@@ -298,6 +308,36 @@ def review_ist_pflicht(repo: str, branch: str) -> bool:
     if not isinstance(rules, list):
         raise Unklar("Ruleset-Antwort nicht als Liste erhalten")
     return any(x.get("type") == "pull_request" for x in rules)
+
+
+def review_ist_pflicht(
+    pr: dict, hat_regel: bool, checks_failing: int = 0, checks_pending: int = 0
+) -> bool:
+    """Verlangt GitHub fuer DIESEN PR ein Approval?
+
+    Die blosse Existenz einer `pull_request`-Regel beantwortet das nicht: auf
+    `platform/main` steht sie mit `required_approving_review_count=0` und
+    `require_code_owner_review=true` — fuer Dateien ohne CODEOWNERS-Treffer
+    verlangt GitHub dann kein Review, und `reviewDecision` bleibt leer bei
+    `mergeStateStatus=CLEAN` (#2440, gemessen an #2438). Wer nur die Regel
+    liest, haelt jeden solchen PR faelschlich fuer review-blockiert und
+    macht ihn ueber SA-M unmergebar.
+
+    Massgeblich ist deshalb die Aussage von GitHub ueber den PR selbst:
+    - `reviewDecision` gesetzt (REVIEW_REQUIRED / CHANGES_REQUESTED /
+      APPROVED) -> Review zaehlt fuer diesen PR;
+    - leer und `CLEAN` -> GitHub verlangt keins;
+    - leer und `BLOCKED`, ohne roten oder laufenden Check -> es blockt etwas
+      anderes als das CI; das konservativ als Review-Pflicht lesen (der Fehler
+      geht dann in Richtung Ablehnung, nie in Richtung Merge).
+    """
+    if not hat_regel:
+        return False
+    if (pr.get("reviewDecision") or "").strip():
+        return True
+    if (pr.get("mergeStateStatus") or "").upper() == "BLOCKED":
+        return checks_failing == 0 and checks_pending == 0
+    return False
 
 
 def gather(repo: str, nummer: int, r: dict) -> Facts:
@@ -326,7 +366,12 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
         is_draft=bool(pr.get("isDraft")),
         mergeable=pr.get("mergeable", "UNKNOWN"),
         merge_state=pr.get("mergeStateStatus", ""),
-        review_required=review_ist_pflicht(repo, pr.get("baseRefName", "main")),
+        review_required=review_ist_pflicht(
+            pr,
+            pull_request_regel(repo, pr.get("baseRefName", "main")),
+            failing,
+            pending,
+        ),
         wirkung=wirkung_des_merges(repo, dateien, r),
         mandat=mandat_des_prs(repo, nummer, pr),
         files=dateien,

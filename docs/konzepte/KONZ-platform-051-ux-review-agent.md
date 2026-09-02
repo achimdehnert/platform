@@ -32,8 +32,11 @@ evidence_manifest:
   - {claim_id: C10, source_path: "writing-hub/klickdummy/roman-autoren-spine/spec.yaml", commit_or_pr: "main 2026-08-26", opened_in_session: true}
   - {claim_id: C11, source_path: "writing-hub AGENT_HANDOVER.md — Stand 2026-08-26", commit_or_pr: "#778", opened_in_session: true}
   - {claim_id: C12, source_path: docs/adr/ADR-211-spec-zentrierte-klickdummies.md, commit_or_pr: "accepted", opened_in_session: true}
+  - {claim_id: C13, source_path: docs/konzepte/KONZ-platform-007-adr-handoff-extern-automation.md, commit_or_pr: "pipeline_status sunset 2026-07-24 — review_by verstrichen, 0 --auto-Laeufe", opened_in_session: true}
+  - {claim_id: C14, source_path: "~/.claude/policies/llm-routing.md", commit_or_pr: "Tierliste, Anbieter-Messung 2026-08-25", opened_in_session: true}
+  - {claim_id: C15, source_path: "~/github/chat-hub/README.md", commit_or_pr: "main ad0bf1b", opened_in_session: true}
 created: 2026-08-25
-updated: 2026-08-26
+updated: 2026-08-30
 ---
 
 # KONZ-platform-051: ux-review-agent
@@ -104,6 +107,22 @@ Mensch.
 | R5 | **KD veraltet → Fehlalarm.** Ein KD, der einer gewachsenen App hinterherhinkt, erzeugt bei jedem Lauf dieselben Dissense | Risiko | Gegenmittel: Dissens hat zwei Severities — `spec-luecke` (KD kennt die Station nicht) ist `optimierung`, `weg-fehlt` (KD-Screen ohne App-Weg) ist `fehler`. Zählt K2 mit; > 30 % `spec-luecke` über drei Läufe = der KD gehört gepflegt, nicht der Agent geschärft | offen, Pilot |
 | R6 | **Marker verfälscht das Ergebnis.** Ein Eigenname, den der Autor nie schreiben würde, verzerrt die Erzeugung | Risiko | Gegenmittel: Marker sind plausible Eigennamen im Genre, kein `ZZZ-TEST`. Der Kontrollmarker (der 0 ergeben muss) ist die Gegenprobe gegen einen Filter, der nie etwas findet | offen, Pilot |
 | R4 | Testdaten aus Prod im Screenshot (Personendaten, platform ist public) | Risiko | Screenshots nur ins Zielrepo-Issue (privat), nie nach platform; Pilot mit synthetischen Mandanten | offen |
+| E13 | **Der Gegenpart falsifiziert, er produziert nicht.** Eingabe ist ein fertiger Befund des Laufs, Ausgabe ein Spruch `bestaetigt` / `widerlegt` / `unklar` mit Begruendung. Er darf keinen eigenen Befund eroeffnen | Entscheidung | Die belegte Schwaeche ist der Fehlbefund (C2 #760), nicht Befundmangel — 12 echte Befunde in drei Repo-Tagen. Alternative: zweiter Produzent (= A3-Quote steigt, K2 kippt) | gesetzt |
+| E14 | **Modell: andere Familie, Rung T1a** (`groq/openai/gpt-oss-120b`). Der Ertrag ist die andere Trainingsfamilie, nicht die Rung; T4/T5 erst, wenn T1a an Instruktionstreue scheitert | Entscheidung | C14: Frontier-Rung braucht einen benannten Grund, „anderer Anbieter" allein ist keiner **Gemessen 2026-08-30 (A/B, Owner-Freigabe):** derselbe 11er-Korpus gegen `gpt-5.6-terra` und `gpt-5.5`, je drei Laeufe. Das **neueste** Modell faellt durch K9 — `gpt-5.6-terra` gab dem belegten Produktdefekt W3 (writing-hub#762) mehrheitlich `widerlegt`, also R7. `gpt-5.5` war als einziges vollstaendig einig (11/11), bestand K9, ist aber **dieselbe Trainingsfamilie** wie `gpt-oss-120b` — kein Unabhaengigkeits-Gewinn. Dazu: die Pro-Stufe laeuft nicht auf `v1/chat/completions`, und Frontier laesst `temperature: 0` nicht zu. Beleg: [#2489](https://github.com/achimdehnert/platform/issues/2489#issuecomment-5467876788) | gesetzt, 2026-08-30 gegen Frontier gemessen |
+| E15 | **Ausgabe auf die Leseflaeche, nicht in einen Raum:** Kommentar am bestehenden Befund-Issue im Zielrepo, plus Feld `falsifikator:` im Sammel-Issue. Kein eigenes Issue, kein PR, kein Chat | Entscheidung | Tracking-Artefakt-Regel; C13: der externe Kanal war gebaut und blieb ungenutzt | gesetzt |
+| E16 | **Rohzahl bleibt massgeblich:** K1 und K2 zaehlen den ungefilterten Lauf; der Spruch ist eine zweite Spalte, nie eine Subtraktion | Entscheidung | Der Start am 01.09. liegt **im** laufenden Kill-Gate (Frist 30.09.). Ohne diese Regel misst das Gate ab dem 01.09. ein anderes Werkzeug als am 25.08. | gesetzt |
+| E17 | **Kein Bild, keine Echtdaten an den Gegenpart:** uebergeben werden Befundtext und Evidenz-Auszuege aus Laeufen mit synthetischen Mandanten; Repos mit echten Daten sind ausgeschlossen | Entscheidung | R4; T1a laeuft bei einem US-Anbieter (C14) — der Souveraenitaets-Schnitt liegt an der Eingabe, nicht an einer Zusicherung | gesetzt |
+| R7 | **Der Gegenpart wird zum Filter** und drueckt echte Befunde weg | Risiko | Gegenmittel: K9 (Gegenprobe an den 9 bekannten Defekten) und E16. Ein `widerlegt` auf einen bekannten echten Defekt ist ein Fehler des Gegenparts, kein Fehler des Laufs. **Eingetreten 2026-08-30, Lauf 2:** F3 (`submission_workflow` unbegehbar, im Browser mit getippter URL belegt) kam als `widerlegt` zurueck — die Gegenprobe war als Satz formuliert („nur `tests/test_route_coverage.py`"), und der Gegenpart las das als Treffer. Der Befund stand trotzdem (E16). **Nachtrag 2026-08-30 (K9-Gegenprobe):** derselbe Datensatz liefert dieses `widerlegt` nur in **einem von drei** Laeufen — E18 beseitigt nicht einen sicheren Fehler, sondern die Mehrdeutigkeit, die ihn moeglich macht (R9) | belegt, Gegenmittel E18 |
+| E18 | **Das Feld `gegenprobe` traegt eine Zahl, keinen Bericht.** Erst der Zaehler (`0 Treffer`), dann optional der Satz dahinter | Entscheidung | R7-Realfall oben: dieselbe Tatsache als Satz fuehrte zum falschen Spruch, als Zahl nicht. Alternative: Prompt haerten (= dieselbe Mehrdeutigkeit, nur eine Ebene tiefer) | gesetzt 2026-08-30 |
+| E25 | **Der Nenner bleibt 9** (vormals als zweites `E20` gefuehrt; umnummeriert 2026-09-02, #2594 — die referenzierte Identitaet `E20` = Mehrheits-Spruch bleibt) — korrigiert wird die Messung, nicht das Kriterium (Owner 2026-08-30, Weg A) | Entscheidung | Die Alternative waere gewesen, den Nenner auf die tatsaechlich reproduzierbaren Defekte zu senken. Das haette die Latte **nach dem Wurf** verschoben, und zwar zugunsten des Werkzeugs, ueber dessen Weiterbau das Gate entscheidet. Wer sein eigenes Kriterium nachtraeglich senkt, misst nichts mehr. Belegt in [#2474](https://github.com/achimdehnert/platform/issues/2474) | gesetzt 2026-08-30 |
+| E19 | **Ein Stichtag ist kein Stand.** Die Positivkontrolle laeuft je Defekt gegen den Commit **vor seinem eigenen Fix**, nicht gegen einen Tagesstand | Entscheidung | Realfall 2026-08-30: `8c8090e` wurde als „vor den Fixes vom 25.08." gewaehlt, enthielt aber zwei davon bereits (`docx`-Extraktor registriert, `docx`-Extra in `pyproject.toml`). Zwei Defekte konnten dort nicht auftreten und wurden als „nicht gefunden" gezaehlt — der Nenner war falsch, nicht der Agent. Alternative: pro Repo ein Tagesstand (= genau dieser Fehler) | gesetzt 2026-08-30 |
+| R8 | **Eine Station, die sich nur aus einer externen Quelle fuellt, ist klick-only nicht begehbar** — und die Defekte dahinter sind fuer den Lauf unsichtbar | Risiko | Gemessen ausschreibungs-hub 2026-08-30: drei der sechs bekannten Defekte (CSRF an „Analyse starten", `.docx` als ZIP-Rohbytes, eine Meldung fuer drei Ursachen) liegen hinter dem Portal-Abruf der Vergabeunterlagen; die Upload-Tuer daneben weist `.docx` serverseitig ab (`ALLOWED_MIME_TYPES`, `apps/submission_workflow/views.py:110`). Gegenmittel **gebaut 2026-08-30** ([ausschreibungs-hub#285](https://github.com/iilgmbh/ausschreibungs-hub/pull/285)): `PortalAusAufzeichnung` traegt dieselbe Schnittstelle wie der echte Adapter und liest das Archiv von der Platte, `fetch_vergabeunterlagen --aufzeichnung`. Ersetzt wird nur der erste Schritt; Entpacken, Ingest und Extraktion sind derselbe Code. Ob die zwei Defekte hinter der Tuer damit wieder auftreten, ist **noch nicht gemessen** — das entscheidet der naechste Lauf gegen die Staende aus E19 **Nachweis erbracht 2026-08-30:** mit aufgesetzter Aufzeichnung traten **beide** Defekte hinter der Tuer wieder auf (`.docx` als ZIP-Rohbytes an `2259b8e`, Sammelmeldung an `dbf86ce`). Ohne sie waeren sie unerreichbar geblieben — R8 ist damit belegt **und** entschaerft | belegt, Gegenmittel wirksam |
+| E21 | **Die Aufzeichnung wird auf den Stand aufgesetzt, nicht der Stand auf die Aufzeichnung gehoben.** Ersetzt werden nur die beiden Netz-Methoden des Adapters (`_sitzung_und_zip_link`, `_archiv_holen`); Entpacken, Ingest und Extraktion bleiben der Code des Standes | Entscheidung | Gemessen 2026-08-30: ein Cherry-pick von [ausschreibungs-hub#285](https://github.com/iilgmbh/ausschreibungs-hub/pull/285) ist an den E19-Staenden **nicht** moeglich — der dortige Adapter importiert `archiv_entpacken`, eine Funktion, die am 25.08. noch eine Methode (`_entpacken`) war. Der Cherry-pick haette genau den Code getauscht, den die Messung prueft | gesetzt 2026-08-30 |
+| R9 | **Der Spruch ist nicht reproduzierbar** — derselbe Befund kann in zwei Laeufen zwei Sprueche bekommen | Risiko | Gemessen 2026-08-30 bei der K9-Gegenprobe: 11 Datensaetze x 3 Laeufe bei `temperature: 0`, **zwei kippten** (W2 zwischen `bestaetigt` und `unklar`, die E18-Kontrolle zwischen `widerlegt` und `bestaetigt`). Solange E16 gilt, trifft das keine Gate-Zahl — eine spaetere Verdrahtung als Gate stuende auf einem Wurf. Optionen A/B/C in [#2489](https://github.com/achimdehnert/platform/issues/2489) | Gegenmittel E20 gebaut 2026-08-30 |
+| E22 | **Pfad-Modus `--alle`** (Step 2a): ohne `--kette` erlaeuft der Skill die Stationen per Breitensuche ab dem Einstieg und meldet `Abdeckung: besucht n / Routen m`; unbesuchte Routen sind `nicht-begehbar`, Seiten hinter `--max-seiten` sind `blind` | Entscheidung | Owner-Auftrag 2026-09-01 („kompletten Pfad durchlaufen"). Die Kettenform bleibt fuer K1/`--vor` (benanntes Ziel = messbares „erreicht"); der Pfad-Modus findet, wofuer niemand eine Kette schrieb (Step 3b, fuenf Faelle an einem Tag). Falsifikation: Test 6 findet die fuenf Bausteine nicht als `nicht-begehbar` | gesetzt; **Test 6 gelaufen 2026-09-02** (51 Stationen, 48/204, ein neuer `fehler` auf `main`: writing-hub#949) — Nenner auf Seiten praezisiert |
+| E23 | **Inhalt lesen** (Step 3.5): je Station sieben Kriterien I1–I7 mit Referenz (ADR-251/049/048/040, Klasse `daten-invariante`) und Urteil `ok/befund/n/a`; drei neue Klassen ohne Realfall-Marker (`sackgasse`, `leerzustand-ohne-handlung`, `fehler-unverstaendlich`) | Entscheidung | Owner-Auftrag 2026-09-01 („Inhalte lesen, UX/Ablauf/Logik verbessern"). Grenze zu §„Durchgaengigkeit, nicht Qualitaet": Step 3.5 prueft nur den gerenderten Text erreichter Stationen gegen **referenzierte** Kriterien — R3 (Geschmack ist kein Befund) bleibt, `/repo-ux-opt` bleibt der Code-Audit. Falsifikation: > 30 % `optimierung`-Issues aus I1–I7 mit Owner-Label `fehlbefund` ueber drei Laeufe = Kriterienliste zu weich, zurueck auf I2/I4/I6/I7 | gesetzt |
+| E24 | **Stufe 1c Beheben** (Step 8): nach Bericht und Issues je `fehler` Ursache nach `error-handling.md` (belegt oder als Hypothese markiert), Fix-PR mit Gate-Test im Zielrepo, Nachlauf mit Bestand, Merge nach SA-5; `--nur-melden` = Stand vor 2026-09-01. **Rohbericht bleibt byte-gleich** (Test 8) — E16 gilt unveraendert | Entscheidung | Owner-Auftrag 2026-09-01 („Fehler werden analysiert und beseitigt"). **ADR-Schwelle geprueft** (`policies/adr-threshold.md`): keine neue Dienstgrenze, kein neuer Automatismus (interaktive Session, Owner-Token), reversibel per `--nur-melden`; das Merge-Recht in fremde Repos ist durch SA-5 gedeckt, nicht neu — **kein ADR**, Ledger-Zeile genuegt. E3 wird ergaenzt, nicht ersetzt: das Issue bleibt Pflicht, der PR kommt dazu. Falsifikation: Test 8 zeigt einen Diff in der Stationen-Tabelle → Step 8 wirkt in den Melder zurueck, Kill-Gate ab dann nicht mehr vergleichbar | gesetzt; **Test 8 bestanden 2026-09-02** (Diff 0, Step 8 real: writing-hub#948 gemergt); **Test 7 bestanden 2026-09-02** an writing-hub#949 → #950 (Fix auf Ursachen-Ebene, Gate rot/gruen gemessen, Nachlauf ok) |
+| E20 | **Der Spruch ist eine Mehrheit aus drei Laeufen, kein Wurf.** Das Werkzeug fragt dreimal und gibt `laeufe`, `einig` und die Einzelsprueche aus; drei verschiedene Sprueche ergeben `unklar` | Entscheidung | Option B aus [#2489](https://github.com/achimdehnert/platform/issues/2489) (Owner 2026-08-30). Alternative A (nur Mehrheit) haette dieselben Kosten und verschwiege, dass der Gegenpart schwankt — genau die Information, die man vor einer Gate-Verdrahtung braucht. Alternative C (nichts tun) laesst einen Wurf wie ein Urteil aussehen | gesetzt 2026-08-30 |
 
 ## MVC (Stufe 1)
 
@@ -207,6 +226,121 @@ sobald der erste Sonderfall hineingeschrieben wird.
 *Antwort:* E12 ist als Invariante formuliert und im Kill-Gate messbar (K5): der
 Skill darf keinen Repo-Namen tragen. Das ist per `grep` prüfbar, nicht per Meinung.
 
+## Erweiterung 2026-08-30 — Falsifikator-Gegenpart (Stufe 1b)
+
+**Owner-Entscheidung 2026-08-30: Start 2026-09-01**, also im laufenden Kill-Gate.
+Anlass war die Frage, ob ein zweites System — Vorbild SB-Neu (Ilja Lerch), eigenes
+Modell bei einem anderen Anbieter — als Gegenpart taugt und ueber Element-X
+angebunden werden sollte. Uebernommen wird davon die **Unabhaengigkeit des
+Urteils**; nicht uebernommen wird der **eigene Kanal**.
+
+Die Richtung folgt aus der Befundlage, nicht aus der Idee: in drei Repo-Tagen
+standen 12 echte Befunde **einem** Fehlbefund gegenueber (#760, „Feld fehlt" aus
+leerem DOM, C2). Ein zweiter Produzent verbessert eine Zahl, die nicht das
+Problem ist, und verschlechtert die, die es ist — K2 liegt bei 30 %. Der
+Gegenpart wird deshalb Pruefer, nicht Autor (E13).
+
+| Was | Wo | Inhalt |
+|---|---|---|
+| Step 5b Falsifikation | Skill `.windsurf/workflows/ux-review.md` | je Befund ein Call: Eingabe = Befundtext + mitgelieferte Evidenz (Antwortkoerper-Auszug, Gegenprobe aus E2, Severity-Referenz); Ausgabe = Spruch + Begruendung |
+| Feld `falsifikator:` | Sammel-Issue (Step 6) | zweite Spalte neben dem Rohbefund; K1/K2 zaehlen die Rohspalte (E16) |
+| Umsetzung | [#2466](https://github.com/achimdehnert/platform/issues/2466) — gebaut 2026-08-30 | `tools/ux_falsifikator.py`, 15 Tests, Dogfood-Test 5 im Skill |
+
+*Abweichung beim Bau 2026-08-30* (wie schon 2026-08-25 hier nachgetragen): E15 sagt
+„Kommentar am Befund-Issue"; gebaut wurde der Spruch als **Feld im Issue-Rumpf** (Step 6).
+Dieselbe Leseflaeche, ein Artefakt statt zwei — und der Spruch steht dort, wo der Owner das
+Label `fehlbefund` setzt. Der zweite Teil von E15 (Spalte und Zaehler im Sammel-Issue)
+bleibt unveraendert.
+
+*Beim Bau gemessen, nicht vermutet (E14):* der erste echte Lauf gegen Groq lieferte
+`HTTP 403 error code: 1010`. Das ist Cloudflare vor dem Anbieter, das die urllib-Vorgabe als
+Bot abweist — **kein** ungueltiger Schluessel. Derselbe Schluessel mit gesetzter
+`User-Agent`-Kennung liefert 200. Im Werkzeug und in einem Test festgehalten, weil die
+Meldung wie ein Berechtigungsproblem aussieht und genau dorthin fehlleitet.
+
+### Warum nicht Element-X
+
+| # | Grund | Beleg |
+|---|---|---|
+| 1 | Ein Raumverlauf ist keine Leseflaeche — der Befund muss dort stehen, wo ohnehin gelesen wird | Tracking-Artefakt-Regel; E15 |
+| 2 | Ein Bot im E2EE-Raum braucht eigene Device-Verifikation und Key-Pflege; E2EE lebt im Client | C15 |
+| 3 | Zwei redende Agenten bilden strukturell einen zweiten Kommandokanal | Lotsen-Charta Art. 1 |
+| 4 | chat-hub ist ein Produkt fuer Menschen (Wire/Threema-Analogon), keine Agenten-Infrastruktur | C15 |
+
+Element-X als **Push an den Owner** (Freigabe vom Telefon) ist davon unberuehrt und
+bleibt offen. Es aendert Charta-Artikel 1 und ist damit selbstbetreffend — es
+gehoert in ein eigenes Konzept mit Vorlage an den Owner, nicht hierher.
+
+### Warum das nicht endet wie KONZ-007
+
+KONZ-007 hat denselben Gedanken schon einmal gebaut: Briefing, Souveraenitaets-Gate,
+**ein** externer Call, Antwort als `.md`. Nach vier Wochen null Aufrufe, Kill-Gate
+gezogen, `sunset` (C13). Der Unterschied ist nicht der Anbieter und nicht der
+Transport, sondern die Stelle: dort war der Call ein **eigener Pfad, den jemand
+aufrufen musste**, hier ist er **Schritt 5b eines Laufs, den man ohnehin startet**.
+Wer `/ux-review` aufruft, ruft ihn mit. Faellt die Nutzung trotzdem auf null,
+faellt K9 — und mit ihm der Gegenpart, einzeln.
+
+### Advocatus Diabolus — Erweiterung 2026-08-30
+
+**Ein T1a-Modell ist schwaecher als der Produzent; ein schwaecherer Pruefer
+widerlegt das Falsche.** *Antwort:* er prueft nicht die Sachfrage, sondern
+mechanische Eigenschaften des Befunds — liegt zu einer Absenz-Behauptung die
+Gegenprobe aus E2 vor, deckt der zitierte Antwortkoerper die Aussage, traegt eine
+`optimierung` ihre Referenz (R3). Das sind Pruefungen gegen **mitgelieferte**
+Evidenz, nicht gegen Weltwissen. Genau daran misst K9.
+
+**Der Start im laufenden Gate verfaelscht die Messung.** *Antwort:* ja — deshalb
+E16. Gemessen wird der ungefilterte Lauf; der Spruch laeuft als zweite Spalte mit.
+Damit liegen am 30.09. beide Zahlen vor, die rohe und die gefilterte, und K1/K2
+bleiben mit dem Stand vom 25.08. vergleichbar.
+
+## Erweiterung 2026-09-01 — Stufe 1c: kompletter Pfad, Inhalt, Beheben
+
+**Owner-Auftrag 2026-09-01 (Kapitaens-Kanal, Go im selben Zug):** der Skill soll den
+kompletten Pfad durchlaufen, Inhalte lesen und darauf UX, Ablauf und Logik verbessern;
+Fehler werden analysiert und beseitigt. Umsetzung additiv (E22–E24), Steps 2–7 und der
+Output-Block bis `Nicht verifiziert` unveraendert.
+
+| Baustein | Was neu ist | Was gleich bleibt |
+|---|---|---|
+| Step 2a Pfad-Modus | `--alle`, Breitensuche, Abdeckungszeile, `--max-seiten` | Kettenform fuer K1/`--vor` |
+| Step 3.5 Inhalt | I1–I7 mit Referenz, drei neue Klassen | R3, Falsifikator je Befund, Issue je Befund |
+| Step 8 Beheben | Ursache → Fix-PR + Gate-Test → Nachlauf → SA-5-Merge; `--nur-melden` | Bericht zuerst, E16, K1/K2 auf der Rohzahl |
+| Abschluss-Checkliste | neu — der Skill hatte keine | — |
+
+### Advocatus Diabolus — Erweiterung 2026-09-01
+
+**Der Fixer verdeckt den Melder.** Wer im selben Lauf behebt, hat einen Anreiz, den
+Befund kleiner zu schreiben, damit der Fix passt — und K1 zaehlt am 30.09. einen
+geglaetteten Bericht. *Antwort:* Reihenfolge und Messung. Der Bericht entsteht vor dem
+ersten Branch (Test 7 prueft das im Transkript), `--nur-melden` und Default muessen
+byte-gleich berichten (Test 8, Diff = 0), und das Kill-Gate liest nur den Block oberhalb
+von `Behoben`. Weicht Test 8 ab, ist E24 falsifiziert und Step 8 wird abgeschaltet, nicht
+der Bericht angepasst.
+
+**Inhaltskriterien sind der Weg zurueck zum Geschmacksurteil, das §„Durchgaengigkeit, nicht
+Qualitaet" ausschloss.** *Antwort:* I1–I7 sind sieben Zeilen mit je einer Referenz, keine
+offene Liste; Zeile ohne Referenz gibt es nicht, und E23 traegt eine Falsifikation ueber
+die Fehlbefund-Quote der `optimierung`-Issues. Faellt sie, schrumpft die Liste auf die vier
+`fehler`-Kriterien.
+
+**Ein Skill, der PRs in fremde Repos mergt, ist Stufe 2 durch die Hintertuer (D4).**
+*Antwort:* nein — Stufe 2 ist ein *Dienst* mit eigenem Token und Zeitplan. Step 8 laeuft
+in der interaktiven Session unter dem Owner-Token und unter SA-5, das der Owner fuer
+genau diesen Fall ratifiziert hat (PRs zu gestarteten Issues). Prod-Merge-Repos ohne
+Environment-Schutz bleiben Wort-pflichtig; der Skill nennt sie namentlich.
+
+**Dogfood-Tests 6–8 standen beim Merge noch aus.** Das ist ein bewusst offener Rest,
+nicht ein uebersehener: der Umbau ist ein Dokument, die Tests brauchen einen Lauf gegen
+writing-hub mit Stack und Browser. Tracking: platform-Issue im PR verlinkt; bis dahin gilt
+Stufe 1c als **gebaut, nicht belegt** (Gate `claim-before-cheapest-check`).
+**Nachtrag 2026-09-02:** Tests 6 und 8 gelaufen (Skill-Changelog). Belegt: Rohbericht in
+beiden Modi gleich, Step 8 schliesst den Kreis Issue-los (Fix + Gate + Nachlauf + SA-5-Merge),
+der Pfad-Modus fand einen auf `main` lebenden Defekt ohne Kette — und Test 7 hat ihn am
+selben Tag geschlossen (writing-hub#950): Bericht → Ursache → Fix → Gate → Nachlauf → Merge,
+ohne Owner-Hand dazwischen. Offen: die Formular-Submits in Step 2a (der Crawler notiert sie nur).
+
 ## Steelman
 
 Zwoelf Befunde in drei Repo-Tagen, keiner durch 329 + n gruene Tests sichtbar —
@@ -245,6 +379,7 @@ Screenshots mit Kundendaten in einem oeffentlichen Repo (R4).
 |---|---|---|
 | ALT-1 | **Nur die Klassen-Tests flottenweit ausrollen** (`test_erreichbarkeit_screens.py`, Kommentar-Test, `htmx:responseError`) ohne Agenten | Richtig und unabhaengig davon zu tun (eigenes Issue). Deckt aber nur die **bekannten** Klassen; die naechste unbekannte findet wieder nur ein Tresen-Gang. Kein Ersatz, sondern Voraussetzung: der Agent darf Bekanntes nicht neu melden. |
 | ALT-2 | **Stagehand/BrowserUse als freier Explorer** statt kettengebundenem Skill | LLM-natives `page.act` erkundet breiter, aber ohne Kette gibt es kein „Station erreicht" und damit kein messbares Abbruchkriterium (Step 2a Frage 6). Fuer Stufe 2 als Erweiterung denkbar, wenn Stufe 1 die Kettenform belegt hat. |
+| ALT-3 | **Gegenpart ueber Element-X / chat-hub als Agent-zu-Agent-Bus** | Loest den Transport; der Engpass war nie der Transport (C13: Kanal gebaut, 0 Laeufe). Dazu die vier Gruende in der Erweiterung 2026-08-30. Als Push-Kanal an den **Menschen** separat denkbar — dann eigenes Konzept mit Charta-Vorlage, weil Artikel 1 beruehrt wird. |
 
 ## Top-3-Risiken
 
@@ -259,23 +394,24 @@ Pilot an R2 (Login) haengt und das dokumentiert ist.
 
 | Kriterium | Status | Beleg |
 |---|---|---|
-| K1 Positivkontrolle: >= 7 der 9 bekannten Defekte (writing-hub 3, ausschreibungs-hub 6) wiedergefunden am Stand vor den Fixes | teilweise (3/9) | writing-hub 3/3 am 2026-08-25, Stand 493dc19 — writing-hub#767; ausschreibungs-hub offen |
-| K2 Fehlbefund-Quote <= 30 % ueber alle Pilot-Issues (Owner-Urteil je Issue) | offen | 1 neues Issue (writing-hub#766), Owner-Urteil steht aus |
-| K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | offen | Vorschlag liegt in writing-hub#766 (Meldung liest dieselbe Quelle wie der Aufruf; Reseed invalidiert Cache) |
+| K1 Positivkontrolle: >= 7 der 9 bekannten Defekte (writing-hub 3, ausschreibungs-hub 6) wiedergefunden **je am Commit vor dem eigenen Fix** (E19) | **erfuellt 2026-08-30 (8/9)** | writing-hub 3/3 am 2026-08-25, Stand 493dc19 — writing-hub#767. ausschreibungs-hub **5 von 6** am 2026-08-30 gegen die E19-Staende, mit aufgesetzter Portal-Aufzeichnung (Weg 1, Owner): `f1f600c` mehrzeiliger `{# #}` auf zwei Seiten **und** CSRF-403 an „Analyse starten" (Antwortkoerper: `CSRF token missing`); `dbf86ce` 18 Routen ohne Template-Verlinkung (darunter `angebote:review` und `document_intelligence:vergabe-analyse`, beide Kontrollen halten) **und** die Sammelmeldung „Alle Extraktions-Calls sind gescheitert." im Browser, waehrend die Ursache nur im Audit-Trail steht; `2259b8e` `.docx` als ZIP-Rohbytes (`text` beginnt mit `PK\x03\x04`, 973 Zeichen). **Nicht reproduzierbar: das fehlende `docx`-Extra** (`e6ee77c`) — ein Deklarationsdefekt in `pyproject.toml`, den eine Laufzeitumgebung mit installierter Abhaengigkeit per Konstruktion nicht zeigt; das fand CI, und kein Browser-Lauf kann es. Beleg: [#2474](https://github.com/achimdehnert/platform/issues/2474) |
+| K2 Fehlbefund-Quote <= 30 % ueber alle Pilot-Issues (Owner-Urteil je Issue) | **erfuellt 2026-08-30 (0 von 1)**, Basis duenn | Genau **ein** neu angelegtes Pilot-Issue: [writing-hub#766](https://github.com/achimdehnert/writing-hub/issues/766). Urteil vom Owner in der Sitzung delegiert und deshalb **nachgeprueft statt uebernommen**: der Anhang `verdrahtet:` liest frisch aus der DB (`llm_router.py:143-147`), aifw haelt die Konfiguration bis 600 s im geteilten Cache (`aifw/service.py:83-85`) — die Meldung liest nachweislich eine andere Quelle als der Aufruf. **Kein** `fehlbefund`-Label. Vorbehalt: eine Quote ueber einen einzigen Nenner ist erfuellt, aber nicht belastbar — die uebrigen Laeufe waren Trockenlaeufe oder meldeten Bekanntes nicht neu | 
+| K3 Mindestens ein Klassen-Gate-Vorschlag aus dem Pilot als Test gebaut, der einen **zweiten** Fall faengt | **erfuellt 2026-08-30** | [writing-hub#903](https://github.com/achimdehnert/writing-hub/pull/903) gemergt: das Gate haelt die Regel „wer eine Verdrahtung meldet, sagt woher sie stammt" und sammelt die Meldestellen per AST. **Es fand beim ersten Lauf drei weitere Stellen** (`check_llm_wiring`, `doctor`, `check_writing_hub_aifw`) — der geforderte zweite Fall, gemessen statt behauptet, alle drei im selben PR behoben. Dazu Positivkontrolle (findet der Sammler die bekannten Stellen ueberhaupt?) und eine Attrappe fuer eine **neue** Meldestelle. Der Textscan-Vorlaeufer meldete zwei Module falsch, weil er Docstrings mitzaehlte — ein Gate, das so rot wird, wird abgeschaltet statt befolgt. **Die Wurzel lag tiefer:** aifws Invalidierungs-Signale waren tote Weakrefs (4 Eintraege, 0 lebend), behoben in aifw#56 und als `iil-aifw` 0.13.1 veroeffentlicht |
 | K4 Jede getippte URL im Pilot erscheint als Befund im Bericht (D3-Probe) | erfuellt (Lauf 1) | 0 getippte URLs, Kette komplett per Klick — writing-hub#767 |
 | K5 Kein Screenshot mit Personendaten ausserhalb des Zielrepos (R4-Probe: grep der PR-Diffs in platform) | erfuellt (Lauf 1) | keine Screenshots erzeugt; synthetischer Nutzer, Stack mit Volumes geloescht |
-| **K6** (Erweiterung 26.08.) Blaupause haelt: `grep -icE 'writing-hub\|ausschreibungs-hub\|meiki\|risk-hub' .windsurf/workflows/ux-review.md` findet **nur** Zeilen, die als Realfall-Beleg gekennzeichnet sind — kein Repo-Name in einer Anweisung | offen | per `grep` pruefbar, nicht per Meinung (E12) |
+| **K6** (Erweiterung 26.08., **praezisiert 2026-09-01** — Owner-Entscheid Weg (a), [#2560](https://github.com/achimdehnert/platform/issues/2560)) Blaupause haelt: `python3 tools/blaupause_check.py` meldet **0 Befunde** — kein Name eines Ziel-Repos steht in einer **Anweisung** ohne Beleg-Marker | **erfuellt 2026-09-01** | Der urspruengliche `grep -icE 'writing-hub\|ausschreibungs-hub\|meiki\|risk-hub'` war **nicht entscheidbar**: er zaehlte Changelog, Dogfood-Tests und Realfall-Blockquotes mit, die per Konstruktion nie verschwinden, und fing mit `meiki` die **Org** `meiki-lra` statt eines Repos. Erste Messung 2026-09-01: 31 Treffer, zwei davon ein echter Defekt (unmarkierte Repo-Pfade als Gate-Vorlage im Klassen-Katalog, behoben in [#2559](https://github.com/achimdehnert/platform/pull/2559)). Weg (a) grenzt den Scope auf die Anweisungs-Abschnitte ein — **fail-closed**, ein neuer `##`-Abschnitt gilt als Anweisung, bis er ausdruecklich ausgenommen wird. Dazu zwei Praezisierungen, die beim Bau noetig wurden: die Namen kommen aus `registry/canonical.yaml` (nur Oberflaechen-Typen — eine Bibliothek ist nie Ziel eines Klick-Laufs) statt aus vier handgetippten, und geprueft wird der **Block**, nicht die Zeile, weil der Beleg regelmaessig eine Zeile unter dem Namen steht, den er belegt. **Positivkontrolle beim Bau:** der Registry-weite Lauf fand sofort eine Stelle, die der 4-Namen-grep nicht sehen konnte (`aifw` in Step 1). Gate `blueprint-names-a-target-repo-in-an-instruction`, Drill `tools/tests/test_blaupause_check.py` (13 Faelle, zu jedem gruenen die Gegenprobe) |
 | **K7** (Erweiterung 26.08.) KD-Gegencheck traegt: in mindestens einem Pilot-Lauf mit `-kd` entsteht ein `weg-fehlt`-Befund, den der Klick-Durchlauf allein **nicht** gefunden hat | offen | Gegenprobe zur Frage, ob die dritte Blickrichtung eigenen Ertrag hat (OOTB-Prinzip: findet sie nichts, wird sie gestrichen) |
 | **K8** (Erweiterung 26.08.) Marker-Durchgaengigkeit traegt: der Kontrollmarker ergibt in **jedem** Lauf 0, und mindestens ein echter Marker-Riss wird gefunden | offen | ohne den ersten Teil ist der Suchlauf womoeglich der Filter; ohne den zweiten hat E11 keinen belegten Ertrag (C11 ist der bekannte Fall) |
+| **K9** (Erweiterung 30.08.) Gegenpart traegt: er markiert mindestens einen Fehlbefund der #760-Klasse `widerlegt` und **keinen** der 9 bekannten echten Defekte | **erfuellt 2026-08-30** | Gegenprobe an 11 Datensaetzen (9 echte Defekte + 1 Fehlbefund der #760-Klasse + 1 E18-Kontrolle), je **drei** Laeufe gegen `openai/gpt-oss-120b`: Fehlbefund **3/3 `widerlegt`**, ueber 27 Sprueche zu den echten Defekten **kein einziges `widerlegt`** (W2 zweimal `bestaetigt`, einmal `unklar`). Grenze der Messung: die Befund-Datensaetze sind aus den Issue-Texten und #2470 **rekonstruiert**, nicht aus einem frischen Browser-Lauf. Belege: [#2466](https://github.com/achimdehnert/platform/issues/2466#issuecomment-5467768881) — neu offen daraus: R9 |
 
-Alle acht erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
+Alle neun erfuellt -> Stufe 2 als ADR (Dienst in dev-hub/apps, Zeitplan, eigener
 Bot-Token, Dry-Run in CI). Eines verfehlt -> Stufe 1 bleibt manuell aufrufbar,
 Stufe 2 wird nicht gebaut; zwei verfehlt -> `sunset`.
 
-**K6-K8 fallen einzeln, nicht als Block.** Verfehlt nur K7, wird der
+**K6-K9 fallen einzeln, nicht als Block.** Verfehlt nur K7, wird der
 KD-Gegencheck gestrichen und der Rest laeuft weiter — eine Blickrichtung ohne
 Ertrag ist Ballast, kein Grund, das Werkzeug aufzugeben. Dasselbe fuer K8 und
-die Marker-Pruefung. Das ist der Unterschied zwischen einer Erweiterung und
+die Marker-Pruefung, und dasselbe fuer K9 und den Gegenpart. Das ist der Unterschied zwischen einer Erweiterung und
 einer Neukonzeption: sie darf scheitern, ohne das Bestehende mitzureissen.
 
 ## Bezug
@@ -286,4 +422,6 @@ einer Neukonzeption: sie darf scheitern, ohne das Bestehende mitzureissen.
 - `/kd-review` (C6), ADR-251 (C7) — das Gate davor
 - `policies/platform-agents.md` — Ort fuer Stufe 2
 - #2253 — Kill-Gate vor der ersten Zahl pre-registrieren
+- [KONZ-platform-007](KONZ-platform-007-adr-handoff-extern-automation.md) (C13) — derselbe Gedanke 2026-07, `sunset` bei 0 Laeufen
+- Step 5b als Umsetzungs-Issue: [#2466](https://github.com/achimdehnert/platform/issues/2466)
 - ALT-1 als eigenes Issue: [#2326](https://github.com/achimdehnert/platform/issues/2326) — Klassen-Tests flottenweit (risk-hub, billing-hub, weltenhub, bfagent)

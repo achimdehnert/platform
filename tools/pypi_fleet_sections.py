@@ -89,7 +89,9 @@ def _api(path: str, token: str, raw: bool = False, method: str = "GET", data=Non
     return body if raw else json.loads(body)
 
 
-def fetch_issue(owner: str, repo: str, token: str, label: str = ISSUE_LABEL) -> dict | None:
+def fetch_issue(
+    owner: str, repo: str, token: str, label: str = ISSUE_LABEL
+) -> dict | None:
     issues = _api(f"/repos/{owner}/{repo}/issues?state=open&labels={label}", token)
     return issues[0] if issues else None
 

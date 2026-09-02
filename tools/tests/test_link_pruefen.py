@@ -180,7 +180,10 @@ def test_should_exit_nonzero_for_unknown_host_by_default(monkeypatch, karte):
 
 def test_should_exit_zero_for_unknown_host_when_nachsichtig(monkeypatch, karte):
     """Gegenprobe: die Ausnahme muss weiterhin erreichbar sein."""
-    assert _lauf(monkeypatch, ["--nachsichtig", "https://erfunden.test/x"], karte, None) == 0
+    assert (
+        _lauf(monkeypatch, ["--nachsichtig", "https://erfunden.test/x"], karte, None)
+        == 0
+    )
 
 
 def test_should_exit_zero_when_every_link_answers_200(monkeypatch, karte):
@@ -198,3 +201,76 @@ def test_should_exit_zero_when_every_link_answers_200(monkeypatch, karte):
 def test_should_exit_nonzero_when_ingress_list_is_missing(monkeypatch):
     """Ohne Ingress-Liste ist kein Hostname aufloesbar — fail-closed."""
     assert _lauf(monkeypatch, ["https://mail.example.test/x"], {}, None) == 1
+
+
+# --------------------------------------------------------------------------
+# 200 ist nicht genug: die Seite muss etwas zeigen (#2563 Nebenbefund)
+# --------------------------------------------------------------------------
+
+
+class _AntwortMitRumpf(_Antwort):
+    def __init__(self, status, rumpf: str):
+        super().__init__(status)
+        self._rumpf = rumpf.encode("utf-8")
+
+    def read(self):
+        return self._rumpf
+
+
+def test_should_report_an_empty_page_as_error_despite_200(monkeypatch, karte):
+    leer = "<html><head><style>body{}</style></head><body>   </body></html>"
+    monkeypatch.setattr(
+        lp.urllib.request, "urlopen", lambda *a, **k: _AntwortMitRumpf(200, leer)
+    )
+    status, hinweis = lp.pruefe("https://mail.example.test/m/hnu/1", karte)
+    assert status == "fehler"
+    assert "leer" in hinweis
+
+
+def test_should_accept_a_page_with_visible_text(monkeypatch, karte):
+    voll = "<html><body><h2>Betreff</h2><p>" + "x" * 60 + "</p></body></html>"
+    monkeypatch.setattr(
+        lp.urllib.request, "urlopen", lambda *a, **k: _AntwortMitRumpf(200, voll)
+    )
+    assert lp.pruefe("https://mail.example.test/m/hnu/1", karte)[0] == "ok"
+
+
+def test_should_count_visible_characters_without_tags_and_scripts():
+    html = "<script>var a = 'lang';</script><p>ab  c</p>"
+    assert lp.sichtbare_zeichen(html) == 3
+
+
+# --------------------------------------------------------------------------
+# --vorgangsseiten: alle Mail-Links aller Vorgangsseiten (#2592 K2)
+# --------------------------------------------------------------------------
+
+
+def test_should_collect_mail_links_from_every_case_page(monkeypatch):
+    karte = {
+        "todo.example.test": "http://127.0.0.1:8789",
+        "mail.example.test": "http://127.0.0.1:8787",
+    }
+    seiten = {
+        "http://127.0.0.1:8789/": "<a href='/t/Eins'>Eins</a> <a href=\"https://todo.example.test/t/Zwei\">Zwei</a>",
+        "http://127.0.0.1:8789/t/Eins": "<a href='https://mail.example.test/a/hnu-inbox-1'>#1</a>"
+        " <a href='https://github.com/x/y/issues/1'>gh</a>",
+        "http://127.0.0.1:8789/t/Zwei": "<a href='https://mail.example.test/a/hnu-inbox-1'>#1</a>"
+        " <a href='https://mail.example.test/a/2'>Erste Mail</a>",
+    }
+    monkeypatch.setattr(
+        lp.urllib.request,
+        "urlopen",
+        lambda url, timeout=0: _AntwortMitRumpf(200, seiten[url]),
+    )
+    links = lp.vorgangsseiten_links(karte, todo_host="todo.example.test")
+    assert links == [
+        "https://mail.example.test/a/hnu-inbox-1",
+        "https://mail.example.test/a/2",
+    ]
+
+
+def test_should_fail_loudly_when_the_todo_host_is_unknown():
+    with pytest.raises(LookupError):
+        lp.vorgangsseiten_links(
+            {"mail.example.test": "http://127.0.0.1:8787"}, "todo.x"
+        )

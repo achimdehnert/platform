@@ -77,46 +77,69 @@ class TestTreffer:
 
 
 class TestUrl:
-    def test_should_link_an_inbox_uid_from_the_text(self):
-        url = em.url_aus_text(
-            "Klimm 20.08. (INBOX #164024)", "hnu", "https://m.example"
-        )
-        assert url == "https://m.example/m/hnu/164024"
+    """Der Kopfzeilen-Link zeigt nur auf Verankertes (#2592 K2)."""
 
-    def test_should_link_a_sent_number_into_the_sent_folder(self):
+    ANKER = frozenset({"hnu-inbox-164024", "hnu-gesendete-objekte-34349"})
+
+    def test_should_link_an_anchored_inbox_uid_over_the_message_id_route(self):
         url = em.url_aus_text(
-            "Beleg im Ordner 'Gesendete Objekte' (#34349)", "hnu", "https://m.example"
+            "Klimm 20.08. (INBOX #164024)", "hnu", "https://m.example", self.ANKER
         )
-        assert url == "https://m.example/m/hnu/gesendete/34349"
+        assert url == "https://m.example/a/hnu-inbox-164024"
+
+    def test_should_link_a_sent_number_through_its_anchor(self):
+        url = em.url_aus_text(
+            "Beleg im Ordner 'Gesendete Objekte' (#34349)",
+            "hnu",
+            "https://m.example",
+            self.ANKER,
+        )
+        assert url == "https://m.example/a/hnu-gesendete-objekte-34349"
+
+    def test_should_stay_silent_for_an_unanchored_number(self):
+        """Bis 2026-09-01 entstand hier `/m/hnu/entwuerfe/23611` — tot nach dem
+        naechsten Ersetzen des Entwurfs. Ohne Anker kein Link."""
+        assert (
+            em.url_aus_text(
+                "Entwuerfe #23611 liegt", "hnu", "https://m.example", self.ANKER
+            )
+            == ""
+        )
 
     def test_should_stay_silent_without_an_addressable_number(self):
         """Der Index liefert nur eine Datenbank-Id — daraus gebaute Links waren 404."""
         assert (
-            em.url_aus_text("Eigene Antwort 14.08. 05:23", "hnu", "https://m.example")
+            em.url_aus_text(
+                "Eigene Antwort 14.08. 05:23", "hnu", "https://m.example", self.ANKER
+            )
             == ""
         )
 
     def test_should_not_read_a_repo_issue_as_a_mail_uid(self):
         """`platform#2176` ist kein Postfach. Reproduziert in der Retro 2026-08-21."""
-        assert em.url_aus_text("Siehe platform#2176", "hnu", "https://m.example") == ""
-        assert em.url_aus_text("Bezug: meiki-hub#1460", "hnu", "https://m.example") == ""
-
-    def test_should_link_a_draft_into_the_draft_folder(self):
-        url = em.url_aus_text("Entwuerfe #23611 liegt", "hnu", "https://m.example")
-        assert url == "https://m.example/m/hnu/entwuerfe/23611"
+        anker = frozenset({"hnu-2176", "hnu-1460"})
+        assert (
+            em.url_aus_text("Siehe platform#2176", "hnu", "https://m.example", anker)
+            == ""
+        )
+        assert (
+            em.url_aus_text("Bezug: meiki-hub#1460", "hnu", "https://m.example", anker)
+            == ""
+        )
 
     def test_should_stay_silent_without_an_account(self):
-        assert em.url_aus_text("UID 12345", "", "https://m.example") == ""
+        assert (
+            em.url_aus_text("UID 12345", "", "https://m.example", frozenset({"-12345"}))
+            == ""
+        )
 
-
-def test_should_number_entries_from_the_oldest_end():
-    # Betreff mit mindestens sechs Zeichen: kuerzere Zitate sind zu oft Rauschen
-    # ('AW:', 'ok'), und ein Fehltreffer waere schlimmer als eine Luecke.
-    ledger = {
-        "vorgaenge": [
-            {"nr": 9, "konto": "hnu", "notiz": "alt | neu 'Themenblock' 14.08."}
-        ]
-    }
-    nachrichten = [_msg("2026-08-14", "Themenblock")]
-    zuordnung = em.zuordnen(ledger, {}, nachrichten, "https://m.example")
-    assert list(zuordnung["9"].keys()) == ["2"], "der zweite Eintrag ist gemeint"
+    def test_should_read_the_anchor_file_when_no_set_is_given(
+        self, tmp_path, monkeypatch
+    ):
+        datei = tmp_path / "anker.json"
+        datei.write_text('{"hnu-inbox-7007": {}}', encoding="utf-8")
+        monkeypatch.setattr(em, "ANKER_DATEI", datei)
+        assert (
+            em.url_aus_text("INBOX #7007", "hnu", "https://m.example")
+            == "https://m.example/a/hnu-inbox-7007"
+        )

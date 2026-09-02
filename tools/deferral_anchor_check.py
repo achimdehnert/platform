@@ -40,9 +40,13 @@ from markdown_klartext import normalisiere_zeilen  # noqa: E402
 # Gate (deferred_item_scanner.py, Session-Kontext) — dieses hier greift im PR-Text.
 GATE_HEADER = {
     "slug": "aufschub-anker",
-    "mode": "advisory",  # blocking erst nach 0-FP-Kalibrierfenster, s. Registry-frozen_note
+    # blocking seit 2026-09-02 (E4, platform#2606): Fenster 2026-08-10..09-02 mit
+    # 1 echtem Treffer und 0 Fehlalarmen. Der Modus wirkt im WORKFLOW
+    # (.github/workflows/aufschub-anker-gate.yml), nicht in diesem Modul: hier
+    # entscheidet weiterhin `--block` ueber den Exit-Code.
+    "mode": "blocking",
     "owner": "achim",
-    "last_drill_pass": "2026-08-10",
+    "last_drill_pass": "2026-09-02",  # Drill am realen Rueckfall writing-hub#851 (s. Tests)
     "evidence": "tools/tests/test_deferral_anchor_check.py",
     "covers": [
         "workaround-without-tracking-anchor",
@@ -58,7 +62,19 @@ AUFSCHUB = re.compile(
     r"(nicht enthalten|nicht Teil dieses PR|nicht in diesem PR|bewusst ausgelassen"
     r"|bewusst nicht|folgt separat|kommt separat|in einem Folge-PR|Folgearbeit"
     r"|spaeter nachziehen|später nachziehen|bleibt offen|noch offen"
-    r"|entscheidet der Owner separat|vertagt|Restschuld|Restarbeit)",
+    r"|entscheidet der Owner separat|vertagt|Restschuld|Restarbeit"
+    # Ergaenzt 2026-08-29 aus einem gemessenen Rueckfall (writing-hub#851,
+    # `apps/core/langlauf.py`). Die Vertagung stand woertlich als
+    # »bleibt vorerst eigenstaendig — Owner-Konvention: nachziehen nur, wenn wir
+    # es ohnehin anfassen«. KEIN Wort der bisherigen Liste kam darin vor: das
+    # Gate liess den Satz durch, auch als er ihm direkt eingespeist wurde.
+    # Vorher gemessen, dann ergaenzt — die urspruengliche Fix-Idee (nur die
+    # Quelle erweitern) haette den Ausloeser weiterhin verfehlt.
+    r"|bleibt (vorerst|zunaechst|zunächst|einstweilen|erstmal|fuers erste|fürs erste)"
+    r"|(nachziehen|angleichen|migrieren|umstellen) nur,? wenn"
+    r"|wenn wir (es|ihn|sie|das) (ohnehin|sowieso|eh) anfass"
+    r"|vorerst (nicht|unveraendert|unverändert|so belassen)"
+    r"|noch nicht (umgesetzt|migriert|angeglichen|nachgezogen))",
     re.IGNORECASE,
 )
 
@@ -122,11 +138,68 @@ def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int
     return funde
 
 
+#: Zeilenanfaenge, die eine hinzugefuegte Zeile als Prosa-im-Code ausweisen.
+KOMMENTAR = re.compile(r"^\s*(#|//|\*|<!--)")
+
+#: Dreifach-Anfuehrungszeichen — Beginn oder Ende eines Docstrings.
+DREIFACH = re.compile(r"(\"\"\"|''')")
+
+#: Dateien, deren hinzugefuegte Kommentarzeilen mitgelesen werden.
+QUELLDATEIEN = (".py", ".js", ".ts", ".html", ".jinja2", ".yml", ".yaml", ".sh")
+
+
+def prosa_aus_diff(diff: str) -> str:
+    """Die hinzugefuegten Kommentar- und Docstring-Zeilen eines Unified Diff.
+
+    **Warum das Gate hier ueberhaupt hinsehen muss.** Es las bisher nur den
+    PR-Text. Der reale Rueckfall vom 2026-08-29 (writing-hub#851) stand aber in
+    einem **Docstring im Code** — dort kann ein PR-Text-Scanner ihn per
+    Konstruktion nicht finden. Eine Vertagung im Code zaehlt so wenig als
+    Tracking wie eine im PR-Text; also gehoert sie in denselben Blick.
+
+    **Grenze, ausdruecklich benannt:** der Docstring-Zustand wird nur INNERHALB
+    der hinzugefuegten Zeilen einer Datei verfolgt. Beginnt ein Hunk mitten in
+    einem Docstring, erkennt diese Funktion ihn nicht als solchen. Fuer den Fall,
+    der sie ausgeloest hat — eine **neue** Datei, deren Docstring vollstaendig im
+    Diff steht — traegt das; fuer eine Aenderung tief in einem bestehenden
+    Docstring nicht. Das ist eine bekannte Luecke, keine stille.
+    """
+    zeilen: list[str] = []
+    interessant = False
+    im_docstring = False
+    for roh in diff.splitlines():
+        if roh.startswith("+++ "):
+            pfad = roh[4:].strip()
+            interessant = pfad.endswith(QUELLDATEIEN)
+            im_docstring = False
+            continue
+        if roh.startswith(("--- ", "diff ", "index ", "@@")):
+            if roh.startswith("@@"):
+                # Neuer Hunk: der Docstring-Zustand des vorigen gilt nicht weiter.
+                im_docstring = False
+            continue
+        if not interessant or not roh.startswith("+"):
+            continue
+        inhalt = roh[1:]
+        treffer = len(DREIFACH.findall(inhalt))
+        if im_docstring or KOMMENTAR.match(inhalt) or treffer:
+            zeilen.append(inhalt)
+        if treffer % 2 == 1:
+            im_docstring = not im_docstring
+    return "\n".join(zeilen)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--block", action="store_true", help="Exit 1 bei Fund")
     ap.add_argument("--fenster", type=int, default=FENSTER)
     ap.add_argument("datei", nargs="?", help="PR-Text; ohne Angabe von stdin")
+    ap.add_argument(
+        "--diff",
+        metavar="DATEI",
+        help="Zusaetzlich die hinzugefuegten Kommentar-/Docstring-Zeilen eines "
+        "Unified Diff pruefen (Vertagung im Code zaehlt wie eine im PR-Text)",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -140,6 +213,22 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     funde = finde_ankerlose_stellen(text, args.fenster)
+
+    # Der Diff wird als EIGENER Text geprueft, nicht an den PR-Text gehaengt: ein
+    # Anker im PR-Text soll eine Vertagung im Code nicht abdecken. Die beiden
+    # stehen an verschiedenen Orten, und der Leser des einen sieht den anderen
+    # nicht.
+    if args.diff:
+        try:
+            with open(args.diff, encoding="utf-8") as f:
+                prosa = prosa_aus_diff(f.read())
+        except OSError as exc:
+            print(f"FEHLER: {exc}", file=sys.stderr)
+            return 2
+        funde += [
+            (nr, f"[Code] {zeile}")
+            for nr, zeile in finde_ankerlose_stellen(prosa, args.fenster)
+        ]
     if not funde:
         print(
             "✅ Aufschub-Anker: jede angekuendigte Auslassung hat eine Issue-Referenz."

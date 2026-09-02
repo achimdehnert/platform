@@ -211,6 +211,35 @@ def liegezeit_zeile(lz: dict, kurz: bool = False) -> str:
     )
 
 
+def kandidaten_zeile(registry: dict, offen: list[dict]) -> str:
+    """Sagt, ob die offenen Slugs wenigstens als Schranke-Kandidat AKTENKUNDIG sind.
+
+    Der Unterschied ist nicht kosmetisch: ein ungedeckter Slug, der nur in dieser
+    Ausgabe steht, existiert zwischen zwei Werkzeuglaeufen nicht. Steht er in der
+    Registry, hat er ein Alter, einen Zaehler und eine Stelle, an der sein Abgang
+    (Gate oder Verzicht) sichtbar wird. Vorbild: der Drift-Index aus SB-Neu, in dem
+    `Schranke-Kandidat` ein eigener Zustand ist und nicht die Ausgabe eines Laufs.
+    """
+    kandidaten = {k["slug"]: k for k in registry.get("kandidaten", [])}
+    if not kandidaten:
+        return (
+            "\n  ⚠️  Keiner dieser Slugs ist in der Registry aktenkundig — die Liste\n"
+            "      existiert nur in dieser Ausgabe (Sektion `kandidaten` fehlt)."
+        )
+    fehlend = [e["slug"] for e in offen if e["slug"] not in kandidaten]
+    if fehlend:
+        return (
+            f"\n  ⚠️  {len(fehlend)} von {len(offen)} nicht als `schranke-kandidat` in der\n"
+            f"      Registry: {', '.join(fehlend[:3])}"
+            + (" …" if len(fehlend) > 3 else "")
+        )
+    stand = sorted({k.get("erhoben", "?") for k in kandidaten.values()})
+    return (
+        f"\n  ✓ Alle {len(offen)} sind als `schranke-kandidat` aktenkundig "
+        f"(erhoben {', '.join(stand)})."
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--registry", default=DEFAULT_REGISTRY)
@@ -300,11 +329,11 @@ def main() -> int:
             print(f"{e['slug']:<48}{e['vorkommen']:>4}  {e['letztes']}")
         print(
             "\n→ Jeder dieser Slugs wurde von `retro_kpis.py` als GATE-PFLICHT gemeldet.\n"
-            "  Die Pflicht wird dort gezaehlt, ihre Einloesung nirgends — das ist diese Liste.\n"
             "  Zulaessige Abschluesse je Zeile: Gate bauen, ODER in die `declined`-Liste der\n"
             "  Registry eintragen (mit Grund). Liegenlassen ist der dritte Weg und der\n"
             "  einzige, der nicht zaehlt."
         )
+        print(kandidaten_zeile(registry, offen))
     else:
         print("→ Kein mehrfacher Befund ohne Entscheidung.")
 

@@ -85,6 +85,27 @@ git -C "$D" add -A
 git -C "$D" -c user.email=t@t -c user.name=t commit -qm "merge mit unformatierter py"
 git -C "$D" push -q origin main 2>/dev/null
 git -C "$D" checkout -q -b feature                # frisch abgezweigt, kein eigener Commit
+# T12–T14 (Retro 62f875, Ausweitung): pfadgetriggerte Zusatzpruefungen.
+# Fixture-Repos tragen eine STUB-hosts_audit.py (exit 1 bzw. 0) — der Hook fuehrt das
+# Skript des jeweiligen Repos aus, also ist der Drill hermetisch.
+H1="$FIX/h1"; mkdir -p "$H1/infra/scripts"; git -C "$H1" init -q
+git -C "$H1" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+printf 'hosts: {}\n' > "$H1/infra/hosts.yaml"; printf 'import sys\nprint("schema: runner x.host referenziert keinen Host")\nsys.exit(1)\n' > "$H1/infra/scripts/hosts_audit.py"
+git -C "$H1" add -A && git -C "$H1" -c user.email=t@t -c user.name=t commit -qm hosts
+check "T12 hosts.yaml im Diff + hosts_audit rot -> deny" deny "$(run_hook "cd $H1 && git push")"
+H2="$FIX/h2"; mkdir -p "$H2/infra/scripts"; git -C "$H2" init -q
+git -C "$H2" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+printf 'hosts: {}\n' > "$H2/infra/hosts.yaml"; printf 'import sys\nprint("keine Findings")\nsys.exit(0)\n' > "$H2/infra/scripts/hosts_audit.py"
+git -C "$H2" add -A && git -C "$H2" -c user.email=t@t -c user.name=t commit -qm hosts
+check "T13 hosts.yaml im Diff + hosts_audit gruen -> silent" silent "$(run_hook "cd $H2 && git push")"
+if python3 -c 'import pytest' >/dev/null 2>&1; then
+  P1="$FIX/p1"; mkdir -p "$P1/tools/tests"; git -C "$P1" init -q
+  git -C "$P1" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  printf 'X = 1\n' > "$P1/tools/mod.py"; printf 'def test_should_fail():\n    assert False\n' > "$P1/tools/tests/test_mod.py"
+  git -C "$P1" add -A && git -C "$P1" -c user.email=t@t -c user.name=t commit -qm tools
+  check "T14 tools/*.py im Diff + pytest tools/tests rot -> deny" deny "$(run_hook "cd $P1 && git push")"
+fi
+
 check "T10 origin aufloesbar + 0 .py -> silent (#1754)" silent "$(run_hook "cd $D && git push origin feature")"
 
 rm -rf "$FIX" "$FOREIGN"

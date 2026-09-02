@@ -44,6 +44,14 @@ jobs:
             echo "scharf=ja" >> "$GITHUB_OUTPUT"
           fi
 
+      # Seit 2026-09-02 liegt die Auswahl in tools/bot_review_kandidaten.py — dafuer
+      # braucht der Job den Baum. Vorher stand sie als Heredoc hier und war nicht
+      # testbar; der Zwillings-Fehler aus #2676 fiel deshalb erst an einem PR auf,
+      # der unerklaerlich liegenblieb.
+      - name: "Repo auschecken"
+        if: steps.token.outputs.scharf == 'ja'
+        uses: actions/checkout@v7
+
       - name: "Kandidaten pruefen und approven"
         if: steps.token.outputs.scharf == 'ja'
         env:
@@ -51,42 +59,16 @@ jobs:
           OWNER_LOGIN: achimdehnert
         run: |
           set -euo pipefail
+          # Eigener Login des Bot-Kontos — Grundlage der Wiederholungs-Sperre unten.
+          # Nicht hartkodiert: das Konto haengt am Secret, nicht am Dateitext.
+          BOT_LOGIN="$(gh api user --jq .login)"
+          export BOT_LOGIN
+          echo "Bot-Konto: $BOT_LOGIN"
           gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
-            --json number,isDraft,author,mergeStateStatus,reviewDecision,files,statusCheckRollup,url \
+            --json number,isDraft,author,mergeStateStatus,reviewDecision,reviews,files,statusCheckRollup,url \
             > /tmp/prs.json
-          python3 - <<'PY'
-          import json
-          TABU = ("policies/", "docs/adr/", ".github/CODEOWNERS", ".github/workflows/bot-review.yml")
-          prs = json.load(open("/tmp/prs.json"))
-          out = []
-          for p in prs:
-              # Jeder Skip nennt seinen Grund. Beim Erstlauf (32869088343) fehlte #2316
-              # im Log voellig — still uebersprungen, weil sein Branch BEHIND war.
-              # Ein stummer Skip ist dieselbe Klasse wie ein stummer Melder.
-              if p["isDraft"]:
-                  print(f"#{p['number']}: Draft — kein Approve"); continue
-              if p["author"]["login"] != "achimdehnert":
-                  print(f"#{p['number']}: Autor {p['author']['login']} — nur Owner-PRs"); continue
-              if p.get("reviewDecision") == "APPROVED":
-                  print(f"#{p['number']}: bereits approved"); continue
-              # UNKNOWN ist kein Zustand, sondern "noch nicht berechnet": GitHub liefert
-              # ihn dem Bot-Token beim ersten Aufruf fuer JEDEN PR (Lauf 32871455115:
-              # acht PRs, alle UNKNOWN, waehrend der Owner-Token BLOCKED sah). Ein
-              # Approve auf einen nicht-blockierten PR schadet nicht — die Entscheidung
-              # traegt reviewDecision + Checks + Tabu, nicht der Merge-Zustand.
-              if p["mergeStateStatus"] not in ("BLOCKED", "BEHIND", "UNKNOWN"):
-                  print(f"#{p['number']}: mergeState {p['mergeStateStatus']} — nicht review-blockiert"); continue
-              pfade = [f["path"] for f in p.get("files", [])]
-              if any(pf.startswith(t) or pf == t for pf in pfade for t in TABU):
-                  print(f"#{p['number']}: Tabu-Pfad — bleibt Mensch"); continue
-              checks = p.get("statusCheckRollup") or []
-              if not checks or any(c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL") for c in checks if c.get("status") != "COMPLETED" or True):
-                  offen = [c.get("name") or c.get("context") for c in checks if c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL")]
-                  print(f"#{p['number']}: Checks nicht komplett gruen ({offen[:3]}) — kein Approve"); continue
-              out.append(p["number"])
-          open("/tmp/kandidaten", "w").write("\n".join(str(n) for n in out))
-          PY
-          while read -r n; do
+          python3 tools/bot_review_kandidaten.py /tmp/prs.json /tmp/kandidaten
+          while read -r n || [ -n "$n" ]; do   # Guard gegen fehlendes Zeilenende (#2442)
             [ -n "$n" ] || continue
             if ! gh pr view "$n" --repo "$GITHUB_REPOSITORY" --comments --json comments --jq '.comments[].author.login' | grep -q "github-actions"; then
               echo "#$n: kein Context-Reviewer-Kommentar — kein Approve"; continue

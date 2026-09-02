@@ -37,14 +37,18 @@ GATE_HEADER = {
 
 STANDARD_POLICIES = Path.home() / ".claude" / "policies"
 STANDARD_REPO = Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / "platform"
-PIN_WORKTREE = Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / "platform-pinned"
+PIN_WORKTREE = (
+    Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / "platform-pinned"
+)
 
 
 def _git(repo: Path, *args: str) -> tuple[int, str]:
     try:
         p = subprocess.run(
             ["git", "-C", str(repo), *args],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except (OSError, subprocess.SubprocessError):
         return 1, ""
@@ -90,7 +94,12 @@ def vergleiche(policies: Path, repo: Path, ref: str = "origin/main") -> dict:
     unbekannt: list[str] = []
     geprueft = 0
     if not policies.is_dir():
-        return {"geprueft": 0, "abweichend": [], "unbekannt": [], "kein_verzeichnis": True}
+        return {
+            "geprueft": 0,
+            "abweichend": [],
+            "unbekannt": [],
+            "kein_verzeichnis": True,
+        }
     for datei in sorted(policies.glob("*.md")):
         quelle = kanonisch(repo, datei.name, ref)
         if quelle is None:
@@ -117,8 +126,12 @@ def bericht(stand: dict, dirty: bool | None, kurz: bool, alter: str = "") -> str
             f"{stand['geprueft']} Policy-Datei(en) inhaltsgleich mit origin/main"
             + (f" (Ref-Stand: {alter})" if alter else "")
             + "."
-            + (f" ({len(stand['unbekannt'])} nicht in main: "
-               f"{', '.join(stand['unbekannt'])})" if stand["unbekannt"] else "")
+            + (
+                f" ({len(stand['unbekannt'])} nicht in main: "
+                f"{', '.join(stand['unbekannt'])})"
+                if stand["unbekannt"]
+                else ""
+            )
         )
     ursache = ""
     if dirty is True:
@@ -147,7 +160,10 @@ def main(argv: list[str] | None = None) -> int:
 
     stand = vergleiche(Path(args.policies), Path(args.repo), args.ref)
     text = bericht(
-        stand, pin_dirty(Path(args.pin)), args.kurz, ref_alter(Path(args.repo), args.ref)
+        stand,
+        pin_dirty(Path(args.pin)),
+        args.kurz,
+        ref_alter(Path(args.repo), args.ref),
     )
     if text:
         print(text)

@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pypi_fleet_earlywarn import (  # noqa: E402
     ADR278_DATE,
     eol_status,
+    lag_is_nominal,
+    local_workflow_refs,
     parse_requires_python,
     parse_reusable_refs,
     unattested_release_finding,
@@ -118,3 +120,73 @@ def test_should_not_flag_unbekannt_status_as_finding():
 def test_should_not_flag_without_provenance_data():
     assert unattested_release_finding({"pypi": {}}) is None
     assert unattested_release_finding({}) is None
+
+
+# --- M4 lag_nominal (#2591 K3, Owner-Wort 2026-09-02) ---------------------------
+
+
+def _fetcher(files: dict[tuple[str, str], str | None]):
+    return lambda owner_repo, wf, ref: files.get((wf, ref))
+
+
+def test_should_parse_local_reusable_refs_only():
+    text = (
+        "    uses: ./.github/workflows/_ci-python.yml\n"
+        "    uses: iilgmbh/shared-ci/.github/workflows/_ci-pypi.yml@v1.1.11\n"
+        "    uses: ./.github/workflows/_ci-python.yml\n"
+    )
+    assert local_workflow_refs(text) == ["_ci-python.yml"]
+
+
+def test_should_call_lag_nominal_when_pinned_file_identical():
+    fetch = _fetcher(
+        {("_ci-pypi.yml", "v1.1.11"): "a", ("_ci-pypi.yml", "v1.1.14"): "a"}
+    )
+    assert (
+        lag_is_nominal("iilgmbh/shared-ci", "_ci-pypi.yml", "v1.1.11", "v1.1.14", fetch)
+        is True
+    )
+
+
+def test_should_call_lag_real_when_pinned_file_differs():
+    fetch = _fetcher(
+        {("_ci-pypi.yml", "v1.1.11"): "a", ("_ci-pypi.yml", "v1.1.14"): "b"}
+    )
+    assert (
+        lag_is_nominal("iilgmbh/shared-ci", "_ci-pypi.yml", "v1.1.11", "v1.1.14", fetch)
+        is False
+    )
+
+
+def test_should_follow_local_reusable_calls_when_comparing():
+    wrapper = "uses: ./.github/workflows/_ci-python.yml\n"
+    fetch = _fetcher(
+        {
+            ("_ci-pypi.yml", "v1.1.11"): wrapper,
+            ("_ci-pypi.yml", "v1.1.14"): wrapper,
+            ("_ci-python.yml", "v1.1.11"): "x",
+            ("_ci-python.yml", "v1.1.14"): "y",
+        }
+    )
+    assert (
+        lag_is_nominal("iilgmbh/shared-ci", "_ci-pypi.yml", "v1.1.11", "v1.1.14", fetch)
+        is False
+    )
+
+
+def test_should_return_none_when_any_file_unreadable():
+    fetch = _fetcher({("_ci-pypi.yml", "v1.1.11"): "a"})
+    assert (
+        lag_is_nominal("iilgmbh/shared-ci", "_ci-pypi.yml", "v1.1.11", "v1.1.14", fetch)
+        is None
+    )
+    wrapper = "uses: ./.github/workflows/_ci-python.yml\n"
+    fetch2 = _fetcher(
+        {("_ci-pypi.yml", "v1.1.11"): wrapper, ("_ci-pypi.yml", "v1.1.14"): wrapper}
+    )
+    assert (
+        lag_is_nominal(
+            "iilgmbh/shared-ci", "_ci-pypi.yml", "v1.1.11", "v1.1.14", fetch2
+        )
+        is None
+    )

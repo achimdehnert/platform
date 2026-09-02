@@ -463,7 +463,7 @@ Anmeldename von Absenderadresse, review required.
 **Drei eigene Fehler, benannt statt versteckt:**
 
 - **Das Board führte zwei Studierende als erledigt, weil eine Antwort raus war.** Abel hatte
-  seine Thesis-Arbeitsversion angehängt, Schönherr die Abgabeversion seines Study Papers —
+  seine Thesis-Arbeitsversion angehängt, Studierender-B die Abgabeversion seines Study Papers —
   die eigentliche Leistung (Feedback, Bewertung) war unberührt. „Antwort gesendet" ist nicht
   „erledigt"; der Status hing am Sent-Eintrag statt an der Sache.
 - **Die selbst eingebaute systemd-Härtung brach den eigenen Port-Vorabcheck.** `PrivateTmp`,
@@ -482,9 +482,9 @@ keine Spur hinterlässt (Telefonate, mündliche Zusagen). Gelöschte Anker werde
 stillschweigend entfernt — die Pflege-Regel „Item verschwindet erst bei Beleg" gilt auch für
 Maschinenbefunde.
 
-**Mail-Ergebnis:** Gesendet an Michalk (Hosting-Aufteilung LRA Traunstein), Ullah
+**Mail-Ergebnis:** Gesendet an HS-Kontakt (Hosting-Aufteilung LRA Traunstein), Kontakt-J
 (Proposal-Feedback nach 17 Tagen Verzug), Abel (Thesis-Rückmeldung), Lluca (Interview-Design),
-dazu Leistungsbezüge-Antrag und MeikI-Terminzusage. **Ein Entwurf offen:** Schönherr —
+dazu Leistungsbezüge-Antrag und MeikI-Terminzusage. **Ein Entwurf offen:** Studierender-B —
 Kurzfassung auf Owner-Wunsch, das ausführliche Feedback kommt nach seiner Präsentation und
 liegt vollständig unter `~/.claude/feedback-schoenherr-studypaper.md`.
 
@@ -875,7 +875,7 @@ django-lms-lite/iil-doc-templates · dev-hub-Deploy `04a9d5e` lief noch (~09:56)
 Aufgabe war nicht Stichwortsuche, sondern die *ganze Kette* zu einem Thema — ausgehend von
 einer beliebigen passenden Mail, über Ordner- und Kontengrenzen hinweg, schnell genug, um
 den Sinn daran zu bearbeiten. Beide vom Owner gesetzten Abnahmefälle bestanden: Offner
-3 Nachrichten über zwei Konten in 51 ms (IMAP), Schmalberger 11 Nachrichten, 3 Beteiligte,
+3 Nachrichten über zwei Konten in 51 ms (IMAP), Kontakt-A 11 Nachrichten, 3 Beteiligte,
 4 Ordner in 119 ms (Graph). Keine einzige Kante kam über den Betreff; alle sind über
 References bzw. Graph-conversationId belegt. Bestand 11.573 Nachrichten aus drei Postfächern.
 
@@ -1558,7 +1558,7 @@ Und dreimal eine Null gemeldet, ohne vorher zu prüfen, ob die Suche überhaupt 
 kann — dreimal hat der Gate es abgefangen.
 
 **Gesendet hat der Owner selbst:** die Rückmeldung an Frost (13:24) und die Rückfrage an
-Zeiner (12:49), beide mit den korrigierten Inhalten (verifiziert am gesendeten Text). Die
+Vertragspartner-D (12:49), beide mit den korrigierten Inhalten (verifiziert am gesendeten Text). Die
 MEiKI-Anzeige liegt als Entwurf und bleibt es, solange der AV LRA–OCOS unbelegt ist.
 
 ## 2026-08-05 (Nachtrag) — zwei eigene Auswertungen widerlegt, bevor sie jemand geglaubt hat
@@ -2633,7 +2633,7 @@ Fehlschläge, unbemerkt.
 ### Mailvorgänge (lokales Ledger, 24 Vorgänge, 0 ohne Anker)
 
 Acht Entwürfe vom Owner gesendet: Scherer (LSBAU), Herrmann (Gröger NIS2), Gessler
-(Marold), Schröder (HNU), Gerstlauer (HNU, zweimal), Zeiner (Ocos).
+(Kontakt-H), Schröder (HNU), HNU-Kontakt-I (HNU, zweimal), Vertragspartner-D (Ocos).
 
 Fachliche Ergebnisse, die nicht im Code stehen:
 
@@ -2649,7 +2649,7 @@ Fachliche Ergebnisse, die nicht im Code stehen:
   Übermittlungsgrundlage; Render und Google Cloud gelistet aber „nicht im Einsatz";
   Klausel 7.5 verlangt für die genannten sensiblen Daten Garantien, Anhang III nennt
   keine; Verfügbarkeitsmaßnahme ist „automatische Skalierung".
-- **Marold/DeutschlandGPT**: Trainings-Beanstandung **zurückgenommen** (AV Ziff. 1.7 in
+- **Kontakt-H/DeutschlandGPT**: Trainings-Beanstandung **zurückgenommen** (AV Ziff. 1.7 in
   Anhang III, gilt für alle; Ziff. 4.1 Vorrang; NB 11.5 in Teil A). Neuer, härterer
   Befund vom Owner: Ziff. 7.7 a) erlaubt Änderung der Unterauftragnehmerliste mit **14
   Tagen** Frist, während die unveränderten Klauseln **30** nennen (belegt am Ocos-AVV) —
@@ -2671,7 +2671,7 @@ verworfen. Anfrage läuft, ob der Mac Studio über die Rahmenvereinbarung abrufb
 2. **#2083** — meinen doc-hub-Eingriff beim versionierten Rollout mitnehmen, sonst kommen
    die 655 Fehler zurück.
 3. **#622** — Entscheidung über feste Fremdschlüssel steht; danach Schritte 1, 2, 5.
-4. **Vorgang 141** — eBANF absenden oder Mac Studio, je nach Gerstlauers Antwort.
+4. **Vorgang 141** — eBANF absenden oder Mac Studio, je nach HNU-Kontakt-I Antwort.
 5. **LSBAU** — Vorlage der Mitarbeitenden-Datenschutzerklärung liegt in
    `~/shared/2026-08-19-dsb/`; in der gesendeten Mail steht die Zusage, sie zu liefern.
 
@@ -2687,7 +2687,7 @@ Verdrahtung in `/mailcheck` hängt an #2073.
 Nachprüfung — drei davon, weil ein Filter die Null erzeugte (`head -12` schnitt `schleuse`
 ab, Statusabfrage suchte `FAILURE` statt `failure`, Firmennamen-Suche fand keine
 Systemanbieter), eine, weil eine verkürzte Seitenwiedergabe für den Volltext gehalten
-wurde (DeutschlandGPT 11.5). Beim Marold-Vorgang lag ich dreimal daneben; alle Korrekturen
+wurde (DeutschlandGPT 11.5). Beim Kontakt-H-Vorgang lag ich dreimal daneben; alle Korrekturen
 kamen vom Owner oder von der Gegenseite. **Und: kein Scope-Checkpoint ausgesprochen**,
 obwohl die Sitzung zwei Repos, zwei Produktivsysteme und einen Prod-Deploy berührte — der
 Stop-Hook musste ihn einfordern.
@@ -3022,3 +3022,185 @@ Eigene Fehler: Trusted-Publisher-Repo nicht vorab benannt (Owner band das archiv
 testkit), Poll auf reviewDecision, KONZ-Anhang im Nummern-Guard, zwei Werkzeug-Luecken
 in pr_merge_sa (#2359, #2385) jeweils per Kommentar + Ruleset-Merge ueberbrueckt.
 
+
+## 2026-08-28 vormittag — Actions-Minuten-Programm (62f875)
+
+Alarm 90 % → Ursache gemessen (writing-hub 77 % der bezahlten Minuten, Rundung je Job,
+kein concurrency, Dreifach-Test). shared-ci v1.1.12 in 23 Konsumenten; writing-hub auf
+GPU-Box-Runner ci-gpu (WSL2, Bootstrap als root ueber prod/wg0-Hop); 14 Repos von
+Absolut-Symlinks befreit. Retro #2408: Required-Check-Reduktion hatte den Sibling-Job
+Integration Tests verloren (repariert); zwei Gates rueckfaellig → #2411, Kopien gesynct.
+Eigene Fehler: Bypass-Kommentar vor dem Merge-Ergebnis (#2397), --admin auf generische
+Formel (mcp-hub#234), Fast-Forward ohne fetch ("synchron" bei fehlendem Merge).
+Deploy-Sonde: coach-hub (seit 20.8.) und bahn-hub (seit 23.8.) rot, vorbestehend, getrackt.
+
+## 2026-08-29 vormittag — Teststrategie-Auftrag #2428 (Session 6399d6fd)
+Zielzustand erreicht (5/5 Kriterien, Abschluss-Kommentar in #2428). Coverage-Gate konnte
+nie rot werden (combine auf XML) — behoben shared-ci#61, Pilot writing-hub kalibriert
+(rot@99, gruen@87, Ist 87,54 %). ADR-298 proposed (#2432, ersetzt 057/058/155/184 bei
+Accept). Fleet-Test-Meter #2431 (74 Repos, B1=0, Pins 14/16). 12 testkit-Bumps + 5
+CI-Leser-Jobs gemergt; Ausnahmen mit Issue. Beifang shared-ci#63 runs_on_light.
+Deploy-Sonde: coach-hub weiter rot (#70, 4. Mal), writing-hub-Deploy pending (Queue).
+Eigene Fehler: 2x Heredoc-Edit-Leerlauf mit irrefuehrender Commit-Message (korrigiert,
+Memory angelegt); coach-hub#72 Duplikat von #70 (geschlossen).
+
+## 2026-08-29 mittag — Sitzung 0d2dc6e8: Robot-Ergebnisse nach robo-lab, KONZ-003, M1 Iteration 2
+
+Auftrag: alle Robot-/Twin-Ergebnisse nach robo-lab migrieren (robo-lab#28, erreicht K1–K6),
+dann Aufgabenkatalog Haushalts-/Montage-Helfer (KONZ-robo-lab-003, T2, #30), Erreichbarkeit
+gemessen (#5 K1–K4/K6, #31), M1-MVC (#32) und Iteration 2 (#33) — Griff schliesst, traegt nicht.
+platform: #2438 Handover-Nachzug, #2441 Registry (Klasse 5), Issues #2440/#2442/#2454.
+Session-Start: 17 WARN, 0 FAIL; Verzicht fuer 0.7.7 abgelegt (Gates hier nicht ausgeloest).
+Eigene Fehler: Merge bei leerem Rollup, Closes-Schluesselwort verneint, Konflikt-PR als
+Actions-Ausfall gelesen, Inline-Python an Anfuehrungszeichen (2x). Zwei Subagenten (Opus),
+einer 2 h statt 60 min. Phase 0g: Verankerungs-Pruefer im Hintergrund gestartet (Ergebnis
+im Abschlussbericht der Sitzung, nicht hier — bei Timeout: NICHT PRUEFBAR, von Hand gegengelesen:
+jede Vertagung traegt ein Issue: #2440, #2442, #2454, robo-lab#5/#33).
+
+## 2026-08-30 nachts — zwei Werkzeugdefekte am Merge-Pfad, beide PRs an @wirdigital haengend
+
+Fortsetzung der Offen-Liste vom 2026-08-29 mittag. #2440 (`pr_merge_sa` las Regel-Existenz
+statt Regel-Inhalt) und #2442 (bot-review verlor Kandidaten ohne Zeilenende) behoben,
+je mit Falsifikation gegen den Vor-Fix-Stand: #2440 fuenf neue Tests inkl. Urteils-Wirkung,
+#2442 vier von fuenf Tests rot vor dem Fix. Volle Suite 2867 passed / 3 skipped.
+PRs #2460 und #2461, alle Checks SUCCESS.
+
+Merge nicht moeglich: Ruleset `main-required-checks` (17621471) hat `bypass_actors: []`,
+`--admin` wirkt fuer niemanden; `/tools/pr_merge_sa.py` und `/.github/` sind in CODEOWNERS
+bewusst ohne den Bot gefuehrt. Owner-Freigabe zum Merge lag vor und konnte mechanisch
+nichts bewirken — der Fehler war meiner: `--admin` angeboten, ohne die Bypass-Actors
+vorher zu lesen.
+
+Ursachenkorrektur zu #2442: die Issue-Hypothese (schedule sieht andere PRs als dispatch)
+ist widerlegt. `"\n".join(...)` schrieb die letzte Zeile ohne Trenner; `while read` gibt
+dann 1 zurueck und der Rumpf laeuft nicht. Bei einem Kandidaten faellt er ganz aus.
+Live bestaetigt im Lauf 33279534904, der #2460 als einzigen Kandidaten stumm verlor.
+
+Phase 0g: `verankerung_pruefer.py` beide Male in 240 s Timeout gelaufen (ollama erreichbar)
+— NICHT PRUEFBAR, keine gruene Aussage. Von Hand gegengelesen: die einzige Vertagung
+(Gegenprobe am lebenden Werkzeug) traegt jetzt ein eigenes Issue, #2464, im PR verlinkt.
+
+## 2026-08-30 frueh — Nachtrag zu #2428 (Owner-Gos 21/27/28, Session 6399d6fd)
+Go 27: risk-hub#716 angelegt + Journal verankert. Go 28: staged shared-ci-Patch als
+redundant zu v1.1.12 bewiesen (12/12 Gruppen upstream) und verworfen, Klon clean.
+Go 21 NICHT vollzogen: Tag-Push classifier-geblockt, API-Weg vom Owner abgelehnt --
+v1.1.13 existiert nirgends; Ein-Zeiler + Rollout im #2428-Kommentar. writing-hub-Deploy
+success (4ea6efb); coach-hub nach #70 konsolidiert (#72 Duplikat, zu).
+
+## 2026-08-30 nachmittags — KONZ-051 Kill-Gate + aifw-Wurzel
+
+Aus „Stand second-brain partner" wurde: K1 8/9 (#2497), K2 0/1 (#2499), K3 (#2512),
+K9 (#2490) — K7/K8 bleiben offen, Frist 30.09. Der Falsifikator fragt jetzt dreimal
+und legt die Streuung offen (#2492). A/B gegen OpenAI-Frontier gefahren: das neueste
+Modell (gpt-5.6-terra) faellt durch K9, T1a bleibt. Klassen-Gate in writing-hub#903
+fand drei weitere Meldestellen. Dahinter der eigentliche Fund: aifws
+Cache-Invalidierung feuerte nie (4 Eintraege, 0 lebende Empfaenger, weak=True) —
+aifw#56, veroeffentlicht als iil-aifw 0.13.1. Flotten-Bump 1 von 12 (writing-hub#906),
+Rest wegen Host-Last 11-20 bewusst gestoppt; Deploy-Plan in #2502.
+
+## 2026-08-30 abends — Infra-Sitzung: KONZ-054, Stilllegungen, Rueckbau, Preflight-Welle
+
+Zeitanker HEAD `0ac61021` · count 3801. Beginn war „Healthstatus des Hetzner-Systems"; Ende sind
+fuenf gemergte Konzeptstufen (E1–E5), vier Stilllegungen (coach, wedding, travel-beat, Odoo),
+Rueckbau R1/S1/R2a, Wiederanlauf (Swap, Tag `config`, Drill, Prometheus-Flotte), zwei
+Systembild-Laeufe (164 → 30 behoben/102 offen/29 neu/11 verschlechtert) und der Deploy-
+Preflight in 10 realen Deploys. Owner-Punkte: #2486, #2504, #2507, #2516; Reste #2480.
+Zwei eigene Regressionen (odoo_db via depends_on, Runner stillgelegter Stacks) im selben
+Zug gefangen. Naechste Sitzung: Nachtlaeufe pruefen (E3 rot ohne Issue, config-Tag, Timer).
+
+
+## 2026-08-31 vormittags — Nachtlauf-Verifikation + Befund-Abräumung (Kurzsitzung)
+
+Nachtläufe des KONZ-054-Stapels belegt: E3 wie gefordert **rot ohne Auto-Issue** (backup-meter
+05:08, backup-deckung 05:36), `config`-Tag im Offsite-Backup vorhanden (Snapshot `b659976e`,
+130 Pfade, 02:35), `flottenbild.timer` gelaufen (06:14 UTC), alarmweg-probe rot mit bekanntem
+Grund (`DISCORD_WEBHOOK` leer → #2486/#2516). Handover-Punkt 108 war bereits von der
+Parallel-Session `offsite-meldekette` übernommen (#2529 Diagnose restic-Lock 13d stale +
+Instanzen-Wächter, Fix #2530) — keine Doppelarbeit, nur unabhängige Verifikation.
+
+Eigene Arbeit: Kennzahl `gate-gesamt` 30→31 (#2531, gemergt); coach-hub-Altbefund verzichtet
+(stillgelegt 30.08., coach-hub#67 zu); `reap --alle` über 16 Repos: 0 entfernt (kein Kandidat
+mit gemergtem PR — by design); Cross-Repo-Befunde verankert (#2524, #2516×2), bahn-hub
+origin-tls + 0.7.7-Gate-Rückfälle mit Grund verzichtet; Scope-Checkpoint durabel in
+#2531-Kommentar.
+
+**Befund für Owner (nicht angefasst):** platform-Haupt-Tree trägt einen **gestagten**
+Kommentar-Einzeiler in `.github/workflows/_deploy-unified.yml` (Usage-Hinweis `@v1`→`@v1.1.13`,
+vom 30.08. 14:09, nie committet) und `verarbeitungsstrecke.png` (07:05, Parallel-Session) —
+verwerfen oder committen ist Owner-Call.
+
+Zielzustand (Owner-Freigabe „z1 bis z4 ok go"): **erreicht** — alle 5 Nachtlauf-Checks belegt,
+B1/B11/B12 abgeräumt. SA-4: 0 Anwendungen · SA-M: 1 eigener PR selbst gemergt (#2531, docs-only,
+CI grün).
+
+## 2026-08-31 nachmittags — Gate-Deckungs-Triage: die 0.7.9-Altlast ist entschieden
+
+Alle 13 ungedeckten Mehrfach-Slugs (34 Läufe alt) haben eine Entscheidung: 4 gedeckt
+(#2549, gemergt nach Owner-Wort "1 go 2 go" mit Freigabe-Kommentar am PR), 9 als
+Bau-Programm mit Messpunkt je Zeile in #2234. Gebaut: secret-leak-via-safe-pattern
+(block_env_cat.sh erstmals versioniert — lief 8 Wochen als 0.7.5-blinde ~/.claude-Kopie —
+plus bash-x-Vektor); ausgeweitet: --admin am Merge-Gate verlangt jetzt Freigabe-Kommentar
+(deckt merge-bypass + gate-approval); covers: Namensdeckung → spelling-Slug. Wirkung
+gemessen: gate_deckung 13→9; Hooks verteilt, Live-Probe deny. Geschwister-Sweep fand
+6 weitere unversionierte Hooks (u.a. inject_policies.py) → #2554. Befund 0.7.9 verankert,
+ruht bis 14.09. Zielzustand (Owner "go 10"): erreicht — 13/13 Entscheidungen, dokumentiert.
+SA-4: 0 · SA-M: 0 autonome Merges (#2549 nach Owner-Wort; pr_merge_sa hatte M0 korrekt
+verweigert, bot-review approved nur review-blockierte PRs — Memory ergänzt).
+
+## 2026-09-02 frueh — Auftrag #2592 abgeschlossen (HEAD `e8e17c97`, count 3870)
+
+/prompt --auftrag „optimiere mailcheck und todo liste" → Zielzustand-Issue #2592 (Owner „go"),
+dann K2/K3 (#2598, #2599), K4/K5 (#2601), K1 (#2605) — alle vier selbst gemergt nach CI +
+Bot-Approve. Gemessen: tote Mail-Links 89/203 → 0/121 live; 48/54 Vorgangsseiten mit Sprung
+in die Mail, Stichprobe 5/5 im Browser; offene Vorgaenge ohne Frist/Grund 21 → 0; Kettencheck
+11 Glieder OK; make boards-check byteidentisch. Geschlossen #2563 #2199 #1864 #1869 #2592,
+Nachlauf #2597. Fuenf eigene Fehler gefangen (Messvergleich, Listen-Route-200, Betreff-Fenster,
+Dauer-rot-Glied, Push-Hook blockiert ganzen Befehl → Memory). Zielzustand: erreicht.
+SA-4: 4 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
+
+
+## 2026-09-02 vormittags — #2374 Ziel A: Gate-Bilanz gemessen, Instrument verworfen, Diabolus T4 = T5
+
+Owner „23 A" → Zielzustand = #2374 (Akzeptanzkriterien im Issue, G3 seit 27.08. entschieden —
+die Handover-Zeile „blockierend" war veraltet, korrigiert). Messung `tools/messungen/
+gate_bilanz_2374.py` liest die Befund-Tabellen der 109 Retros (1056 Zeilen mit Verdikt),
+nicht die Frontmatter: **14 von 33 Gates mit Rueckfall auf den eigenen Slug nach `built`**
+(17 inkl. covers), nicht 2. `gate_wirkung.py` fuehrt `worktree-midsession-accumulation`
+und `claim-before-cheapest-check` als „wirksam", beide haben Tabellen-Rueckfaelle nach
+`revised` (fdd368 26.08.; cc4e11 01.09.). Zerfallsrangliste aus Registry-Merkmalen:
+Kill-Gate 3 vs. 5 gegen Alter → **verworfen**; tragend ist Spearman −0,004 vs. 0,557
+und die 624er-Gittersuche des T4-Diabolus (nur „Alter allein" erreicht 5/5). Zwei
+Advocatus-Diabolus-Laeufe mit identischem Auftrag (T4 Opus, T5 Fable): fuenf gemeinsame
+Widerlegungen (Zaehleinheit, gates_caught-Abzug, covers rueckwirkend, Tie-Break,
+Entscheidungstag), T4 fand zusaetzlich 11 Gates ohne Positivkontrolle im Korpus, T5 den
+Punkt „Pruefdatensatz testet die Korpussuche, nicht die Rangliste" — kein Beleg, dass T5
+besser widerlegt. Alle fuenf Fehler in Rev 2 behoben und ausgewiesen. Ziel B (Transkript-
+Fruehindikator, API-Spend) wartet auf Owner-Wort.
+
+## 2026-09-02 mittags — #2374 Folge: Kontrollzahl liest Tabellen, Ziel B gemessen, Verzicht geprueft
+
+Owner „38 go 39 go 40 go 41 go". (38) PR #2615 gemergt nach Owner-Wort, eigener Freigabe-
+Kommentar vom Classifier blockiert — richtig so, Owner-Artefakt ist nicht delegierbar. (41)
+`gate_wirkung.py` zaehlt jetzt Frontmatter ODER SURVIVES-Tabellenzeile; 5 Gates RUECKFAELLIG
+statt 2, Kennzahlen im Handover nachgezogen (PR #2647). (40) Verzicht `issue-not-reconciled-
+after-cross-repo-fix`: beide Praemissen widerlegt (alle drei Faelle same-repo; die genannte
+„Issue-Reconcile-Phase" existiert in session-ende.md nicht) — Empfehlung Widerruf + Gate-
+Kandidat in #2234, Registry-Aenderung bleibt Owner-Wort. (39) Fruehindikator: 134
+Transkripte, 8.124 Bloecke, 4.727 mit Marker; T2 Haiku ueber 563 ohne Werkzeug → 72 % echte
+Behauptungen; T4 Opus ueber Stichprobe 120 mit Werkzeug → 13 % Check traegt nicht;
+Hochrechnung ~20 % ungeprueft, groesserer Teil „Werkzeug ueber etwas anderes". Kein Gate
+(Auflage). Owner-Korrektur zum Antwortformat (Herleitung in Owner-Sprache, keine Werkzeug-
+namen) als Memory + CLAUDE.md-Zeile festgehalten.
+
+## 2026-09-02 Abnahme — Zielzustand #2374 (A+B): erreicht
+
+Ziel A: Rueckwaerts-Bilanz, Zerfallsrangliste gegen vorregistriertes Kill-Gate (verworfen),
+Pruefdatensatz, Diabolus T4+T5 — jedes Kriterium einzeln im Issue-Kommentar belegt.
+Ziel B: Messung ohne Gate, Tier-Zuschnitt wie entschieden, Prompts dauerhaft unter
+docs/messungen/2374-fruehindikator-prompts.md, Verdikte lokal archiviert (Transkript-
+Auszuege, nicht ins oeffentliche Repo). SA-4: 0 Anwendungen · 0 Einzel-OK · 0 Fehl-
+anwendungen. SA-M: 0 autonome Merges — #2615 und #2647 nach Owner-Wort, eigener
+Freigabe-Kommentar vom Classifier blockiert (korrekt). Owner-Entscheide der Sitzung:
+23 A · 34/35 go · 38-41 go · 40 widerrufen · Antwortformat-Korrektur (Herleitung in
+Owner-Sprache). Fremde dirty Repos (dev-hub, mcp-hub, news-hub, risk-hub, meiki-hub,
+gpufw, testkit) nicht angefasst.

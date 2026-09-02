@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pr_merge_sa import (  # noqa: E402
+    FREIGABE_VERMERK,
     Facts,
     Unklar,
     _paths_ignore_deckt_alles,
@@ -23,6 +24,7 @@ from pr_merge_sa import (  # noqa: E402
     ist_doku,
     ist_governance,
     regeln,
+    review_ist_pflicht,
 )
 
 REGELN = {
@@ -34,6 +36,8 @@ REGELN = {
         "policies/",
         "registry/",
         "packages/",
+        "docs/governance/",
+        "docs/konzepte/KONZ-platform-025-lotsen-charta.md",
         "CODEOWNERS",
         "tools/pr_merge_sa.py",
     ],
@@ -135,6 +139,41 @@ def test_should_reject_governance_path_without_approval():
 
 def test_should_accept_governance_path_with_approval():
     u = classify(_facts(files=["policies/beispiel.md"], mandat="M2"), REGELN)
+    assert u.erlaubt is True
+
+
+# --- docs/governance/ + Charta (Retro c36878 Befund 1, Issue #2654) ---------
+# Vor dem Fix waren beide Pfade in KEINER Liste: ein PR mit nur einer dieser
+# Dateien lief als CLEAN durch, obwohl dort die Vollmachten des Agenten geregelt
+# werden. Die drei Tests unten waren vor dem Fix rot.
+
+
+def test_should_reject_docs_governance_without_approval():
+    u = classify(_facts(files=["docs/governance/model-rebaseline-runbook.md"]), REGELN)
+    assert u.erlaubt is False
+    assert "Governance-Pfad" in u.grund
+
+
+def test_should_reject_lotsen_charta_without_approval():
+    u = classify(
+        _facts(files=["docs/konzepte/KONZ-platform-025-lotsen-charta.md"]), REGELN
+    )
+    assert u.erlaubt is False
+    assert "Governance-Pfad" in u.grund
+
+
+def test_should_still_accept_plain_retro_report():
+    """Gegenprobe: docs/retros/ bleibt bewusst ungeschuetzt — ein Retro-Bericht
+    bringt keinen Machtzuwachs, ein Review dort waere reine Reibung."""
+    u = classify(
+        _facts(files=["docs/retros/session-retro-2026-09-02-platform-x.md"]), REGELN
+    )
+    assert u.erlaubt is True
+
+
+def test_should_still_accept_ordinary_konzept():
+    """Gegenprobe: nur die Charta-DATEI ist geschuetzt, nicht docs/konzepte/."""
+    u = classify(_facts(files=["docs/konzepte/KONZ-platform-038-irgendwas.md"]), REGELN)
     assert u.erlaubt is True
 
 
@@ -326,3 +365,82 @@ def test_should_not_read_mandat_from_a_changes_requested_review(monkeypatch):
         "body": "",
     }
     assert pr_merge_sa.mandat_des_prs("owner/repo", 1, pr) == "M0"
+
+
+# --- #2440: Regel-Existenz ist nicht Review-Pflicht ---------------------------
+
+
+def test_should_not_require_review_when_github_leaves_decision_empty():
+    """Der Fall #2438: Regel liegt, aber GitHub verlangt fuer diese Dateien
+    kein Approval — reviewDecision leer bei CLEAN. Wer nur die Regel liest,
+    macht jeden solchen PR unmergebar."""
+    pr = {"reviewDecision": "", "mergeStateStatus": "CLEAN"}
+    assert review_ist_pflicht(pr, hat_regel=True) is False
+
+
+def test_should_require_review_when_github_says_review_required():
+    pr = {"reviewDecision": "REVIEW_REQUIRED", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=True) is True
+
+
+def test_should_require_review_when_blocked_without_red_or_pending_checks():
+    """Leerer reviewDecision + BLOCKED + alles gruen: es blockt etwas anderes
+    als das CI — konservativ als Review-Pflicht lesen."""
+    pr = {"reviewDecision": "", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=True, checks_failing=0) is True
+
+
+def test_should_not_call_pending_checks_a_missing_review():
+    """BLOCKED, weil Checks noch laufen — das ist kein fehlendes Approval."""
+    pr = {"reviewDecision": "", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=True, checks_pending=2) is False
+
+
+def test_should_never_require_review_without_a_rule():
+    pr = {"reviewDecision": "REVIEW_REQUIRED", "mergeStateStatus": "BLOCKED"}
+    assert review_ist_pflicht(pr, hat_regel=False) is False
+
+
+def test_should_merge_clean_doc_pr_that_github_does_not_block():
+    """Die Wirkung des Fixes am Urteil, nicht nur an der Hilfsfunktion:
+    #2438-Form (nur AGENT_HANDOVER.md, CLEAN, kein Approval) ist erlaubt."""
+    u = classify(
+        _facts(
+            repo="achimdehnert/platform",
+            mandat="M0",
+            wirkung="W0",
+            files=["AGENT_HANDOVER.md"],
+            review_required=False,
+            checks_total=9,
+        ),
+        REGELN,
+    )
+    assert u.erlaubt is True
+
+
+# --- M1-Vermerk: Schreibweise darf die Sache nicht verdecken (#2603) ---------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Freigabe: akzeptiert durch Owner 2026-09-01, Kapitäns-Kanal",
+        "**Freigabe:** akzeptiert durch Owner 2026-09-01, Kapitäns-Kanal",
+        "**Freigabe**: akzeptiert durch Owner 2026-09-01",
+        "freigabe:   Akzeptiert Durch Owner heute",
+    ],
+)
+def test_should_read_freigabe_vermerk_in_plain_and_bold(body):
+    assert FREIGABE_VERMERK.search(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Freigabe: noch offen — akzeptiert durch Owner steht aus",
+        "akzeptiert durch Owner",
+        "Freigabe angefragt",
+    ],
+)
+def test_should_not_read_freigabe_vermerk_from_lookalikes(body):
+    assert not FREIGABE_VERMERK.search(body)

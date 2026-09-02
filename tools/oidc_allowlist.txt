@@ -5,7 +5,6 @@
 #
 # Format je Zeile: <workflow-pfad relativ zum Repo-Root> | <ablauf YYYY-MM-DD> | <referenz>
 #
-# .github/workflows/publish-iil-testkit.yml | 2026-10-19 | KONZ-052 V1
 #   Ist-Beleg 2026-08-27 (KONZ-052 V4): twine upload + TWINE_USERNAME/
 #   TWINE_PASSWORD in einem run:-Block, kein pypa/gh-action-pypi-publish.
 #   Grund fuer die Frist statt sofortigem Fix: Umstellung auf OIDC braucht eine
@@ -13,4 +12,3 @@
 #   analog zum bereits erledigten Umbau von publish-iil-codeguard.yml/
 #   publish-iil-ingest.yml. Ablauf faellt mit dem ADR-278 Kill-Gate-Termin
 #   (2026-10-19) zusammen.
-.github/workflows/publish-iil-testkit.yml | 2026-10-19 | KONZ-052 V1

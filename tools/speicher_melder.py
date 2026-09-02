@@ -78,7 +78,29 @@ JOURNAL_STANDARD = (
     Path(os.environ.get("HOME", "/tmp")) / ".claude" / "speicher-journal.jsonl"
 )
 # Pseudo-Dateisysteme, die df sonst als „Platte" fuehrt.
-DF_AUSSCHLUSS = ("tmpfs", "devtmpfs", "overlay", "squashfs", "efivarfs", "fuse.lxcfs")
+# `fuse.snapfuse` und `rootfs` kamen 2026-09-02 dazu: unter WSL bindet snapd seine
+# Images NICHT als `squashfs` ein, sondern ueber snapfuse — acht davon standen auf
+# der gpu-box als „0 GB frei (0 %)" im Bericht, obwohl ein nur lesbares Image nie
+# volllaufen kann. `rootfs` ist das WSL-Init (`/init`), ebenfalls keine Platte.
+DF_AUSSCHLUSS = (
+    "tmpfs",
+    "devtmpfs",
+    "overlay",
+    "squashfs",
+    "fuse.snapfuse",
+    "rootfs",
+    "efivarfs",
+    "fuse.lxcfs",
+)
+
+# Mount-Praefixe, die keine eigene Platte sind, obwohl ihr Dateisystem echt ist.
+# `/boot*`: 1 GB, aendert sich nur beim Kernel-Update — „0 GB frei (100 %)" liest
+# sich wie ein Befund, ist aber keiner (Erstlauf 2026-08-25).
+# `/usr/lib/wsl/`: WSL-Innenleben. `/usr/lib/wsl/drivers` ist ein zweiter Blick auf
+# dieselbe Windows-Platte, die unter `/mnt/c` schon steht — byte-gleich in Groesse
+# und frei (gemessen gpu-box 2026-09-02). Zweimal dieselbe Platte sind zwei Zeilen
+# im Bericht und ein doppelt gezaehlter Befund; `/mnt/c` ist die ehrliche davon.
+MOUNT_AUSSCHLUSS = ("/boot", "/usr/lib/wsl/")
 
 
 # --- Eingaben -----------------------------------------------------------------
@@ -97,14 +119,51 @@ def lade_hosts(pfad: Path) -> dict[str, str]:
     return raus
 
 
+def lade_shells(pfad: Path) -> dict[str, str]:
+    """Knoten mit eigener Fern-Shell: Name -> `ssh_shell` aus `infra/hosts.yaml`.
+
+    Windows-Knoten (gpu-box) landen ueber OpenSSH in `cmd`. Der Fernbefehl enthaelt
+    eine Pipe — die fuehrt `cmd` selbst aus, statt sie an die Ziel-Shell
+    durchzureichen. `flottenbild.py` loest das laengst ueber stdin an `bash -s`;
+    hier fehlte es, und die gpu-box fiel still aus der Zeitreihe (platform#2541).
+    """
+    daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
+    roh = daten.get("hosts", daten) or {}
+    return {
+        name: str(cfg["ssh_shell"])
+        for name, cfg in roh.items()
+        if isinstance(cfg, dict) and cfg.get("ssh_shell")
+    }
+
+
+def lade_hops(pfad: Path) -> dict[str, str]:
+    """Knoten hinter einem Sprung: Name -> `ssh_via` aus `infra/hosts.yaml`.
+
+    Warum das noetig ist: `gpu-box` und `gx10` haengen an wg0 und sind nur von prod
+    aus erreichbar — der Schluessel liegt dort. Ohne den Sprung meldete dieses
+    Werkzeug fuer beide "kein Host erreichbar" und liess sie still aus der
+    Zeitreihe fallen (gemessen 2026-08-31 fuer beide Knoten). `flottenbild.py`
+    kennt `ssh_via` laengst; hier fehlte es.
+    """
+    daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
+    roh = daten.get("hosts", daten) or {}
+    return {
+        name: str(cfg["ssh_via"]).split()[0]
+        for name, cfg in roh.items()
+        if isinstance(cfg, dict) and cfg.get("ssh_via")
+    }
+
+
 def fernbefehl() -> str:
     ausschluss = " ".join(f"-x {t}" for t in DF_AUSSCHLUSS)
     return f"df -B1 --output=target,size,avail {ausschluss} 2>/dev/null | tail -n +2"
 
 
-def _sh(cmd: list[str], timeout: int) -> tuple[int, str]:
+def _sh(cmd: list[str], timeout: int, stdin: str | None = None) -> tuple[int, str]:
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout, input=stdin
+        )
         return p.returncode, p.stdout
     except subprocess.TimeoutExpired:
         return 124, ""
@@ -113,13 +172,16 @@ def _sh(cmd: list[str], timeout: int) -> tuple[int, str]:
 
 
 def parse_df(text: str) -> list[dict]:
-    """df-Zeilen → Platten. `/boot*` faellt heraus: 1 GB gross, aendert sich nur
-    beim Kernel-Update, und „/boot/efi 0 GB frei (100 %)" liest sich wie ein
-    Befund, ist aber keiner (Erstlauf 2026-08-25 zeigte genau das)."""
+    """df-Zeilen → Platten; Mounts unter `MOUNT_AUSSCHLUSS` fallen heraus.
+
+    Der Dateisystem-Filter sitzt im Fernbefehl (`df -x`), dieser hier im Ergebnis:
+    manche Mounts tragen ein echtes Dateisystem und sind trotzdem keine eigene
+    Platte (Kernel-Boot-Partition, zweiter Blick auf eine schon gezaehlte Platte).
+    """
     raus = []
     for zeile in text.splitlines():
         teile = zeile.split()
-        if len(teile) != 3 or teile[0].startswith("/boot"):
+        if len(teile) != 3 or teile[0].startswith(MOUNT_AUSSCHLUSS):
             continue
         try:
             raus.append(
@@ -131,20 +193,43 @@ def parse_df(text: str) -> list[dict]:
 
 
 def messe(
-    hosts: dict[str, str], laeufer=None, lokal: set[str] | None = None
+    hosts: dict[str, str],
+    laeufer=None,
+    lokal: set[str] | None = None,
+    hops: dict[str, str] | None = None,
+    shells: dict[str, str] | None = None,
 ) -> dict[str, list[dict] | None]:
     """`lokal` = Hosts, auf denen dieser Prozess selbst laeuft (bash -c statt ssh).
-    Der prod-server-Runner hat keinen ssh-Zugang zu sich selbst."""
-    laeufer = laeufer or (lambda cmd: _sh(cmd, SSH_TIMEOUT_S))
+    Der prod-server-Runner hat keinen ssh-Zugang zu sich selbst.
+    `hops` = Knoten hinter einem Sprung (`ssh_via`): das df laeuft dann vom Hop aus.
+    `shells` = Knoten mit eigener Fern-Shell (`ssh_shell`, Windows/WSL): der Befehl
+    geht dann ueber **stdin**, weil die Zwischenstation `cmd` sonst die Pipe im df
+    selbst ausfuehrt."""
+    laeufer = laeufer or (lambda cmd, stdin=None: _sh(cmd, SSH_TIMEOUT_S, stdin))
     lokal = lokal or set()
+    hops = hops or {}
+    shells = shells or {}
     raus: dict = {}
     for name, ziel in hosts.items():
-        cmd = (
-            ["bash", "-c", fernbefehl()]
-            if name in lokal
-            else SSH + [ziel, fernbefehl()]
-        )
-        _, out = laeufer(cmd)
+        shell, stdin = shells.get(name), None
+        if name in lokal:
+            cmd = ["bash", "-c", fernbefehl()]
+        elif shell:
+            stdin = fernbefehl()
+            if hops.get(name):
+                innen = f'ssh -o BatchMode=yes -o ConnectTimeout=10 {ziel} "{shell}"'
+                cmd = SSH + [hops[name], innen]
+            else:
+                cmd = SSH + [ziel, shell]
+        elif hops.get(name):
+            innen = f'ssh -o BatchMode=yes -o ConnectTimeout=10 {ziel} "{fernbefehl()}"'
+            cmd = SSH + [hops[name], innen]
+        else:
+            cmd = SSH + [ziel, fernbefehl()]
+        # Ein-Argument-Aufruf bleibt der Normalfall: die vorhandenen Test-Doubles
+        # (und jeder andere Aufrufer) nehmen nur `cmd`. Nur der Windows-Weg braucht
+        # das zweite Argument.
+        _, out = laeufer(cmd) if stdin is None else laeufer(cmd, stdin)
         platten = parse_df(out)
         raus[name] = platten if platten else None
     return raus
@@ -360,7 +445,12 @@ def main(argv: list[str] | None = None) -> int:
             for h in hosts
         }
     else:
-        messung = messe(hosts, lokal=set(a.lokal or []))
+        messung = messe(
+            hosts,
+            lokal=set(a.lokal or []),
+            hops=lade_hops(a.hosts),
+            shells=lade_shells(a.hosts),
+        )
     journal = schreibe_journal(a.journal, lies_journal(a.journal), heute, messung)
     e = bewerte(messung, journal, heute)
     e["ausserhalb"] = ausserhalb

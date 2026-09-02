@@ -9,6 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from retro_kpis import (  # noqa: E402
+    GATE_REGISTRY,
     _create_gate_issue,
     _existing_gate_issue,
     _gate_issue_title,
@@ -16,6 +17,7 @@ from retro_kpis import (  # noqa: E402
     k1_auswertung,
     load_reports,
     load_woerterbuch,
+    nominierung_auswertung,
     parse_frontmatter,
     registry_coverage,
     registry_declined,
@@ -614,13 +616,22 @@ class TestRegistryDeclined:
     def test_should_return_none_on_unreadable_registry(self, tmp_path):
         assert registry_declined(str(tmp_path / "fehlt.json")) is None
 
-    def test_should_real_registry_hold_the_three_owner_decisions(self):
-        """Owner-Entscheid 2026-08-12: drei Slugs bewusst ohne Gate."""
+    def test_should_real_registry_hold_the_remaining_owner_decisions(self):
+        """Owner-Entscheid 2026-08-12: drei Slugs bewusst ohne Gate; einer davon
+        am 2026-09-02 widerrufen (ceea4a31) — er darf nicht mehr als declined
+        zaehlen, sonst wuerde ein zurueckgenommener Verzicht weiter Deckung
+        vortaeuschen."""
         declined = registry_declined()
         assert declined is not None
         assert "always-instruction-without-enforcement" in declined
         assert "ci-replace-requires-job-catalog-diff" in declined
-        assert "issue-not-reconciled-after-cross-repo-fix" in declined
+        assert "issue-not-reconciled-after-cross-repo-fix" not in declined
+
+    def test_should_list_revoked_decision_under_widerrufen(self):
+        with open(GATE_REGISTRY, encoding="utf-8") as fh:
+            reg = json.load(fh)
+        revoked = {d["slug"] for d in reg.get("widerrufen", [])}
+        assert "issue-not-reconciled-after-cross-repo-fix" in revoked
 
 
 # --- Block-Form-Regression (platform#2163, gefunden 2026-08-20) ---------------
@@ -683,3 +694,98 @@ def test_should_warn_about_non_slug_entries_in_block_form():
 
     assert fm["recurring_findings"] == ["guter-slug"]
     assert any("nicht slug-förmig" in w for w in fm.get("_parse_warnings", []))
+
+
+# ---------------------------------------------------------------------------
+# --nominierung: Wachstums-Sensor (KONZ-025 Art. 2.1 / 8.1c)
+# ---------------------------------------------------------------------------
+
+
+def _retro(tmp_path, name, fm_extra, body=""):
+    (tmp_path / name).write_text(
+        "---\nretro_schema: 1\ndate: 2026-09-01\nrepo_scope: [platform]\n"
+        f"session_id: {name[-9:-3]}\nrefuted_rate: 0.3\n{fm_extra}\n---\n\n{body}\n",
+        encoding="utf-8",
+    )
+
+
+class TestNominierung:
+    def test_should_list_over_ask_beleg_with_5b_line(self, tmp_path):
+        _retro(
+            tmp_path,
+            "session-retro-2026-09-01-platform-aaaaa1.md",
+            "over_ask: 1\nover_act: 0",
+            "## 5b\n- `over_ask`: **1** belegt. Gruener Doku-PR vorgelegt statt gemergt.\n",
+        )
+        _retro(
+            tmp_path,
+            "session-retro-2026-09-02-platform-aaaaa2.md",
+            "over_ask: 0\nover_act: 0",
+        )
+        out = "\n".join(nominierung_auswertung(load_reports(str(tmp_path))))
+        assert "Kalibrierungsfelder in 2/2 Retros" in out
+        assert "over_ask=1  " in out and "Gruener Doku-PR vorgelegt" in out
+        assert "keine over_ask_klassen deklariert" in out
+        assert "Rubber-Stamp-Quote (8.1d) nicht messbar" in out
+
+    def test_should_nominate_klasse_at_two_retros(self, tmp_path):
+        for i in (1, 2):
+            _retro(
+                tmp_path,
+                f"session-retro-2026-09-0{i}-platform-bbbbb{i}.md",
+                "over_ask: 1\nover_ask_klassen: [pr-merge-nicht-deploy-repo]",
+            )
+        _retro(
+            tmp_path,
+            "session-retro-2026-09-03-platform-bbbbb3.md",
+            "over_ask: 1\nover_ask_klassen: [issue-anlegen]",
+        )
+        out = "\n".join(nominierung_auswertung(load_reports(str(tmp_path))))
+        assert "🚨 NOMINIERT  pr-merge-nicht-deploy-repo  ×2" in out
+        assert "·  issue-anlegen  ×1" in out
+        assert "erweitert meine" in out and "Kapitaens-Zug" in out
+
+    def test_should_block_klasse_with_over_act_in_window(self, tmp_path):
+        for i in (1, 2):
+            _retro(
+                tmp_path,
+                f"session-retro-2026-09-0{i}-platform-ccccc{i}.md",
+                "over_ask: 1\nover_ask_klassen: [pr-merge-nicht-deploy-repo]",
+            )
+        _retro(
+            tmp_path,
+            "session-retro-2026-09-03-platform-ccccc3.md",
+            "over_act: 1\nover_act_klassen: [pr-merge-nicht-deploy-repo]",
+        )
+        out = "\n".join(nominierung_auswertung(load_reports(str(tmp_path))))
+        assert "⛔ blockiert (over_act im Fenster)  pr-merge-nicht-deploy-repo" in out
+        assert "NOMINIERT" not in out
+
+    def test_should_be_honest_without_kalibrierungsfelder(self, tmp_path):
+        _retro(
+            tmp_path, "session-retro-2026-09-01-platform-ddddd1.md", "findings_total: 1"
+        )
+        out = "\n".join(nominierung_auswertung(load_reports(str(tmp_path))))
+        assert "nicht bewertbar, nie als 0 werten" in out
+        assert "NOMINIERT" not in out
+
+    def test_should_expose_flag_on_cli(self, tmp_path):
+        _retro(
+            tmp_path,
+            "session-retro-2026-09-01-platform-eeeee1.md",
+            "over_ask: 0\nover_act: 2",
+        )
+        r = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve().parents[1] / "retro_kpis.py"),
+                "--dir",
+                str(tmp_path),
+                "--nominierung",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert r.returncode == 0, r.stderr
+        assert "## Nominierung" in r.stdout and "over_act Σ=2 (1 Retros)" in r.stdout

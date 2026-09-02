@@ -29,6 +29,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 HIER = Path(__file__).resolve().parent
+sys.path.insert(0, str(HIER))
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 FAELLIGKEIT = Path.home() / ".claude" / "mail-faelligkeit.json"
 ACTION_BOARD = Path.home() / ".claude" / "mail-action-board.md"
@@ -37,6 +38,9 @@ TODO_HTML = Path.home() / ".claude" / "boards" / "todo.html"
 #: Ab wann ein Artefakt als abgestanden gilt. Zwei Tage lassen ein Wochenende
 #: durch, ohne dass ein vergessener Lauf eine Woche unbemerkt bleibt.
 MAX_ALTER_TAGE = 2
+#: Gekappter Verlauf und Ankerdatei — beide gehoeren zur Kette (platform#2592).
+VERLAUF_ARCHIV = Path.home() / ".claude" / "mail-vorgaenge-archiv.json"
+ANKER = Path.home() / ".claude" / "mail-anker.json"
 
 
 @dataclass
@@ -183,6 +187,75 @@ def pruefe_index(seit: str) -> Befund:
     return Befund("Mail-Index", True, f"{len(treffer)} Nachricht(en) seit {seit}")
 
 
+def _json(pfad: Path) -> dict:
+    try:
+        daten = json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return daten if isinstance(daten, dict) else {}
+
+
+def pruefe_referenzen(
+    ledger: Path = LEDGER,
+    archiv: Path = VERLAUF_ARCHIV,
+    anker: Path = ANKER,
+    tot: Path | None = None,
+) -> list[Befund]:
+    """Zwei Glieder zwischen Ledger und Ansicht (platform#2592 K2/K3).
+
+    * **Verlaufs-Ordner:** jede Mail-Nummer ab dem Stichtag nennt ihren Ordner
+      (die PFLICHT-Regel aus mailcheck.md hatte bis #2199 keinen Pruefer).
+    * **Verlaufs-Anker:** jede Nummer ist an ihre Message-ID gebunden — sonst
+      ist sie auf der Vorgangsseite Text statt Link. Gebrochen ist das Glied
+      nur fuer OFFENE Nummern: weder verankert noch als unaufloesbar befundet
+      (UID vor der Verankerung gestorben, `eintrag_anker.TOT_DATEI`). Die
+      Unaufloesbaren stehen als Zahl im Ort, damit sie nicht verschwinden.
+    """
+    from eintrag_anker import (  # noqa: PLC0415
+        lade_tot,
+        offen,
+        referenzen_im_ledger,
+        unverankert,
+    )
+    from referenzen import STICHTAG, pruefe_ordner  # noqa: PLC0415
+
+    daten, gekappt = _json(ledger), _json(archiv)
+    ab, davor = pruefe_ordner(daten, gekappt, STICHTAG)
+    funde = referenzen_im_ledger(daten, gekappt)
+    anker_keys = {k: True for k in _json(anker)}
+    tot_keys = lade_tot(tot) if tot is not None else lade_tot()
+    ohne = unverankert(funde, anker_keys)
+    noch = offen(funde, anker_keys, tot_keys)
+    return [
+        Befund(
+            "Verl.-Ordner",
+            not ab,
+            f"{len(ab)} ohne Ordner seit {STICHTAG} ({len(davor)} Altbestand)",
+            "python3 tools/mail_agent/referenzen.py --pruefe-ordner",
+        ),
+        Befund(
+            "Verl.-Anker",
+            not noch,
+            f"{len(funde) - len(ohne)} von {len(funde)} verankert, "
+            f"{len(ohne) - len(noch)} unaufloesbar, {len(noch)} offen",
+            "python3 tools/mail_agent/eintrag_anker.py",
+        ),
+    ]
+
+
+def pruefe_invarianten(ledger: Path = LEDGER) -> Befund:
+    """Die Ledger-Invarianten aus `board.py --pruefe` als Glied — u.a. die Frist-Pflicht (#2592 K4)."""
+    from board import pruefe  # noqa: PLC0415
+
+    befunde = pruefe(_json(ledger))
+    return Befund(
+        "Invarianten",
+        not befunde,
+        f"{len(befunde)} Befund(e)" if befunde else "Nummern, Anker, Fristen ok",
+        "python3 tools/mail_agent/board.py --pruefe",
+    )
+
+
 def pruefe_timer(einheit: str = "sendeabgleich.timer") -> Befund:
     try:
         roh = subprocess.run(
@@ -214,6 +287,8 @@ def alle(heute: date, mit_index: bool = True) -> list[Befund]:
         # wird beim Definieren ausgewertet und laesst sich im Test nicht ersetzen —
         # der erste Anlauf meldete deshalb zwei kaputte Glieder als heil.
         pruefe_ledger(heute, LEDGER),
+        pruefe_invarianten(LEDGER),
+        *pruefe_referenzen(LEDGER, VERLAUF_ARCHIV, ANKER),
         pruefe_vorhersage(heute, FAELLIGKEIT),
         pruefe_artefakt("Board", ACTION_BOARD, heute, "make boards"),
         pruefe_artefakt("Todo-HTML", TODO_HTML, heute, "make boards"),

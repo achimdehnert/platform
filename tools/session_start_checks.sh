@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # session_start_checks.sh — deterministischer Runner für die mechanischen
-# /session-start-Phasen (0.0–0.9 ohne 0.3*/0.4.3/0.8 — *0.3 existiert nicht,
-# 0.4.3/0.8 sind Judgment-Phasen und bleiben im Skill-Text).
+# /session-start-Phasen (0.0–0.9 ohne 0.4.3/0.8 — die sind Judgment-Phasen und
+# bleiben im Skill-Text).
 #
 # Motiv (Ausführungstreue-Programm, platform#1167 + Retro c494a2): ein langes
 # Multi-Phasen-Dokument wird beim Ausführen überflogen — einzelne Phasen sind
@@ -108,6 +108,27 @@ if git -C "$PLATFORM_DIR" pull --rebase --quiet 2>/dev/null; then
   fi
 else
   record "0.2 platform-sync" "WARN" "platform-Pull fehlgeschlagen (dirty/Netz?) — Sync Loop unvollständig"
+fi
+
+# ── 0.3 Modellwechsel: bewertet ↔ läuft (K2 platform#2690) ──────────────────
+# Maßstab ist "assessed_with (Policies) ↔ neu (model-changes.log)", nicht
+# Vorgänger↔Nachfolger — siehe tools/modellwechsel_check.py Kopf-Docstring.
+MW_KURZ="$(python3 "$PLATFORM_DIR/tools/modellwechsel_check.py" --kurz 2>&1)"
+MW_RC=$?
+if [ "$MW_RC" -eq 0 ]; then
+  record "0.3 modellwechsel" "PASS" "$MW_KURZ"
+else
+  SMOKE_OUT="$(cd "$PLATFORM_DIR" && python3 -m pytest tools/tests/test_retro_kpis.py tools/claude-hooks/tests/ -q 2>&1)"
+  SMOKE_RC=$?
+  SMOKE_SUMMARY="$(echo "$SMOKE_OUT" | tail -1)"
+  DRILL_OUT="$(cd "$PLATFORM_DIR" && python3 tools/gate_drill_check.py 2>&1)"
+  DRILL_RC=$?
+  if [ "$SMOKE_RC" -eq 0 ] && [ "$DRILL_RC" -eq 0 ]; then
+    python3 "$PLATFORM_DIR/tools/modellwechsel_check.py" --behandelt >/dev/null 2>&1
+    record "0.3 modellwechsel" "WARN" "${MW_KURZ} — Smoke: ${SMOKE_SUMMARY} — Drill grün — behandelt markiert"
+  else
+    record "0.3 modellwechsel" "WARN" "${MW_KURZ} — Smoke: ${SMOKE_SUMMARY} (rc=${SMOKE_RC}) — Drill rc=${DRILL_RC} — NICHT behandelt markiert, bleibt fällig"
+  fi
 fi
 
 # ── 0.4 Parallel-Session-Guard + Target/Kern-Repos syncen ───────────────────
@@ -410,6 +431,23 @@ case "$DRIFT_OUT" in
   "RESULT: DRIFT"*)      record "0.7.1 deploy-script" "WARN" "${DRIFT_OUT#RESULT: DRIFT — }" ;;
   "RESULT: UNGEPRUEFT"*) record "0.7.1 deploy-script" "WARN" "${DRIFT_OUT#RESULT: UNGEPRUEFT — }" ;;
   *)                     record "0.7.1 deploy-script" "WARN" "Drift-Check nicht auswertbar — manuell: platform/tools/deploy-script-drift.sh" ;;
+esac
+
+# ── 0.7.1b Verteilte Host-Kopien aus infra/host-maintenance/ (platform#2529) ──
+# 0.7.1 deckt genau EINE Datei ab: scripts/deploy.sh. Die uebrigen verteilten
+# Dateien — das Offsite-Skript, die systemd-Units der Timer — hatten keinen
+# Melder. Am 2026-08-31 fiel beim Ausrollen eines Backup-Fixes auf, dass die
+# prod-Kopie einen Tag alt war; /opt/platform stand da laengst auf dem neuen
+# Commit. Ein gemergter Fix an einer Datei aus diesem Verzeichnis ist ohne
+# diesen Check KEIN Beleg, dass er auf dem Host wirkt
+# (🌀 feedback_hand_distributed_copy_merge_is_not_effect).
+# Erstlauf 2026-08-31: 12 Kopien ueber 7 Hosts, davon 2 driftend.
+HDD_OUT=$(python3 "$PLATFORM_DIR/tools/host_datei_drift.py" --quiet 2>/dev/null | tail -1 || true)
+case "$HDD_OUT" in
+  "RESULT: OK"*)         record "0.7.1b host-kopien" "PASS" "${HDD_OUT#RESULT: OK — }" ;;
+  "RESULT: DRIFT"*)      record "0.7.1b host-kopien" "WARN" "${HDD_OUT#RESULT: DRIFT — }" ;;
+  "RESULT: UNGEPRUEFT"*) record "0.7.1b host-kopien" "WARN" "${HDD_OUT#RESULT: UNGEPRUEFT — }" ;;
+  *)                     record "0.7.1b host-kopien" "WARN" "Host-Kopien-Check nicht auswertbar — manuell: platform/tools/host_datei_drift.py" ;;
 esac
 
 # ── 0.7.2 Blinde Cron-Melder (platform#1508) ────────────────────────────────
@@ -876,6 +914,88 @@ if [ "$SKILLDRIFT_STATUS" = "WARN" ]; then
 else
   record "0.7.13 skill-dist" "PASS" "alle Lanes synchron (${SKILLDRIFT_NOTE% })"
 fi
+
+# ── 0.7.19 Melder-Praezision: wer haeufiger irrt als trifft ─────────────────
+# Am 2026-08-20 waren in EINER Sitzung vier Melder-Befunde falsch: ein DOPPELLAUF
+# ohne laufende Container, drei required-file-Errors fuer Dateien, die es gibt (nur
+# woanders), ein Footer-Hash, der jede korrekte Kopie als Drift meldet, und zwei
+# Melder, die gemergte PRs als offene Referenz lesen. Vier Melder, vier Fehlalarme,
+# null Messung.
+#
+# Ein Melder, der oefter irrt als trifft, erzieht zum Wegsehen — und das trifft dann
+# auch seine RICHTIGEN Befunde. Dieselbe Klasse wie ein rueckfaelliges Gate (0.7.7),
+# nur auf der Erkennungsseite.
+#
+# Die Urteile kommen aus /session-ende (--echt / --falsch). Ohne Urteile bleibt die
+# Zeile still: eine Praezision unter drei Urteilen ist Rauschen, kein Befund.
+PRAEZ_OUT=$(python3 "$PLATFORM_DIR/tools/befund_journal.py" --praezision --kurz 2>/dev/null || true)
+if [ -n "$PRAEZ_OUT" ]; then
+  record "0.7.19 melder-praezision" "WARN" "$(echo "$PRAEZ_OUT" | head -1 | tr '|' '/')"
+  echo "$PRAEZ_OUT" | tail -n +2
+else
+  record "0.7.19 melder-praezision" "PASS" "kein Melder unter der Trefferquote"
+fi
+
+# ── 0.7.21 Alarmweg: erreicht ein Alarm ueberhaupt einen Menschen? ─────────
+# KONZ-054 E4. Ein Kanal gilt erst, wenn er in den letzten Tagen einmal
+# nachweislich benutzt wurde (woechentliche Probe, .github/workflows/alarmweg-
+# probe.yml). Gemessen 2026-08-30: 177 Tage `| mail` ohne MTA, ein Discord-Secret,
+# das drei Workflows nennen und das nicht existiert. Exit 2 = blind, kein PASS.
+ALARM_OUT=$(python3 "$PLATFORM_DIR/tools/alarmweg_probe.py" --pruefen --kurz 2>/dev/null); ALARM_RC=$?
+case "$ALARM_RC" in
+  0) record "0.7.21 alarmweg" "PASS" "${ALARM_OUT:-belegt}" ;;
+  1) record "0.7.21 alarmweg" "WARN" "${ALARM_OUT:-Alarmweg fehlt}" ;;
+  *) record "0.7.21 alarmweg" "SKIP" "${ALARM_OUT:-blind: Probe-Laeufe nicht lesbar}" ;;
+esac
+
+# ── 0.7.22 Flottenbild: liegt ein frisches Systembild vor, und was sagt es? ──
+# KONZ-054, 189. Das Bild rendert ein Timer taeglich (infra/host-maintenance/
+# flottenbild.timer) nach ~/.claude/flottenbild/latest.json; hier wird nur gelesen —
+# ein Volllauf dauert Minuten und gehoert nicht in den Sitzungsstart. Aelter als
+# 30 h oder nicht alle Knoten gemessen = WARN; keine Datei = SKIP (nie PASS).
+FB="$HOME/.claude/flottenbild/latest.json"
+if [ -f "$FB" ]; then
+  FB_OUT=$(python3 - "$FB" <<'PYEOF' 2>/dev/null
+import json, sys, time, os
+p = sys.argv[1]; d = json.load(open(p))
+alter_h = (time.time() - os.stat(p).st_mtime) / 3600
+kn = d.get("knoten", []); gem = [k for k in kn if k["zustand"] == "gemessen"]
+fehlt = [k["knoten"] for k in kn if k["zustand"] not in ("gemessen", "geplant")]
+prom = d.get("prometheus", {}); feuern = [a for a in prom.get("alerts", []) if a.get("state") == "firing"]
+j = d.get("melder", {}).get("journal", {}); aw = d.get("melder", {}).get("alarmwege", {}).get("kanaele", [])
+status = "PASS"
+# Lauf-2-Kritik 2026-08-30: die Phase sagte PASS bei 4 unhealthy Containern und 98 % Swap —
+# ein Bild, das nicht kippt, ist kein Melder. Jetzt kippen auch Knotenwerte.
+unh = [f"{k['knoten']}:{u}" for k in gem for u in k.get("unhealthy", [])]
+rst = [f"{k['knoten']}:{r}" for k in gem for r in k.get("restarting", [])]
+heiss = [k["knoten"] for k in gem if (k.get("swap_pct") or 0) >= 90 or (k.get("disk_pct") or 0) >= 90]
+if alter_h > 30 or fehlt or feuern or unh or rst or heiss: status = "WARN"
+print(status)
+print(f"{len(gem)}/{len(kn)} Knoten · {len(feuern)} Alerts · Journal {j.get('im_gate','?')}/{j.get('gesamt','?')} im Gate · Alarmwege {sum(1 for k in aw if k.get('ok'))}/{len(aw)} · Stand {d.get('stand','?')}"
+      + (f" · FEHLT: {','.join(fehlt)}" if fehlt else "") + (f" · {alter_h:.0f} h alt" if alter_h > 30 else "")
+      + (f" · unhealthy {','.join(unh)}" if unh else "") + (f" · restart {','.join(rst)}" if rst else "")
+      + (f" · Swap/Platte>=90% {','.join(heiss)}" if heiss else ""))
+PYEOF
+)
+  record "0.7.22 flottenbild" "$(echo "$FB_OUT" | head -1)" "$(echo "$FB_OUT" | tail -1)"
+else
+  record "0.7.22 flottenbild" "SKIP" "kein Flottenbild unter ~/.claude/flottenbild/ — Timer flottenbild.timer aktivieren (infra/host-maintenance)"
+fi
+
+# ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
+# Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
+# WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung
+# antwortet. Beides klang zu selbstverstaendlich, um gefragt zu werden, und war
+# am 2026-08-30 viermal falsch: eine Sitzung hielt den Staging-Host fuer einen
+# Entwicklungsrechner, meldete ein vorhandenes Staging als nicht existent, hielt
+# eine fremde App hinter einem 200 fuer writing-hub und las ein E-Mail-Login aus
+# einer OAuth-URL. Ein Statuscode belegt nicht, WER antwortet — der Titel schon.
+UMG_OUT=$(timeout 90 python3 "$PLATFORM_DIR/tools/umgebung.py" --repo "$TARGET_REPO" --kurz 2>/dev/null || true)
+case "$UMG_OUT" in
+  "")            record "0.7.20 umgebung" "WARN" "nicht ausgefuehrt — Standort ungeprueft" ;;
+  *"UNBEKANNT"*) record "0.7.20 umgebung" "WARN" "$UMG_OUT" ;;
+  *)             record "0.7.20 umgebung" "PASS" "$UMG_OUT" ;;
+esac
 
 # ── 0.9 Staging-Health (informativ) ─────────────────────────────────────────
 STAGING=$(python3 - "$STAGING_HOST" <<'PYEOF'

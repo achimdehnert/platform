@@ -158,6 +158,11 @@ repos:
     prod_url: learn.iil.pet
     port: 8100
     health: /livez/
+  news-hub:
+    type: django
+    prod_url: news.iil.pet
+    port: 8113
+    health: /livez/
   learnfw:
     type: library
     pypi: learnfw
@@ -169,7 +174,7 @@ repos:
     note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
       C4:8000)
   meiki-hub:
-    type: django
+    type: static
   nl2cad:
     type: library
     pypi: nl2cad
@@ -231,6 +236,8 @@ repos:
     health: /livez/
     extra_containers:
     - minio
+  robo-lab:
+    type: python
   tax-hub:
     type: django
     prod_url: tax.iil.pet

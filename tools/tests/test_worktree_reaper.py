@@ -319,7 +319,9 @@ def test_should_reap_merged_tree_after_karenz_despite_active_lease(
     """Fertig heisst fertig: PR gemergt, sauber, seit Tagen kein Commit — dann raeumt
     der Reaper, ohne den Lease-Ablauf abzuwarten (Retro 8d6869, Gate-Rueckfall)."""
     repo = _make_repo(tmp_path)
-    wt = _add_worktree(repo, tmp_path, "wt-merged-alt", "feature-merged-alt", days_old=3)
+    wt = _add_worktree(
+        repo, tmp_path, "wt-merged-alt", "feature-merged-alt", days_old=3
+    )
     monkeypatch.setattr(rw, "pr_state", lambda branch, repo: "merged")
     _lease_aktiv(tmp_path, monkeypatch, wt)
     verdict, reason = rw.classify(
@@ -723,7 +725,9 @@ def test_should_keep_the_own_tree_while_a_git_operation_is_running(
     # Linked-Worktree: `.git` ist eine Datei, der Lock liegt im echten gitdir.
     gitdir = subprocess.run(
         ["git", "-C", str(wt), "rev-parse", "--absolute-git-dir"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     with open(os.path.join(gitdir, "index.lock"), "w", encoding="utf-8") as f:
         f.write("")

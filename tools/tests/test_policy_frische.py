@@ -122,4 +122,6 @@ def test_should_survive_a_missing_policy_directory(tmp_path):
 
 
 def test_should_return_zero_even_when_everything_is_missing(tmp_path):
-    assert pf.main(["--policies", str(tmp_path / "x"), "--repo", str(tmp_path / "y")]) == 0
+    assert (
+        pf.main(["--policies", str(tmp_path / "x"), "--repo", str(tmp_path / "y")]) == 0
+    )

@@ -198,6 +198,28 @@ def test_should_drop_boot_partitions_and_keep_data_disks():
     assert [p["mount"] for p in sm.parse_df(text)] == ["/", "/mnt/data"]
 
 
+def test_should_drop_the_second_view_of_a_windows_drive():
+    """gpu-box 2026-09-02: `/usr/lib/wsl/drivers` und `/mnt/c` sind dieselbe
+    Windows-Platte, byte-gleich in Groesse und frei. Beide zu melden macht aus
+    einem Befund zwei; `/mnt/c` ist der ehrliche Blick darauf."""
+    text = (
+        "/ 1081101176832 802632937472\n"
+        "/usr/lib/wsl/drivers 1999340818432 109956247552\n"
+        "/mnt/c 1999340818432 109956247552\n"
+        "/mnt/d 1000201220096 811273994240\n"
+    )
+    assert [p["mount"] for p in sm.parse_df(text)] == ["/", "/mnt/c", "/mnt/d"]
+
+
+def test_should_exclude_snapfuse_images_that_can_never_fill_up():
+    """Unter WSL bindet snapd seine Images als `fuse.snapfuse` ein, nicht als
+    `squashfs`. Acht davon standen auf der gpu-box als „0 GB frei (0 %)" im
+    Bericht — nur lesbare Images, die per Bauart randvoll sind."""
+    befehl = sm.fernbefehl()
+    assert "-x fuse.snapfuse" in befehl
+    assert "-x rootfs" in befehl
+
+
 def test_should_read_ssh_targets_with_trailing_comments(tmp_path):
     """hosts.yaml traegt hinter `ssh:` Kommentare — der Wert endet am Leerzeichen."""
     p = tmp_path / "hosts.yaml"
@@ -261,3 +283,70 @@ def test_should_exit_3_when_hosts_were_left_out(tmp_path):
         ]
     )
     assert rc == 3
+
+
+def test_should_ssh_ueber_den_hop_wenn_ssh_via_gesetzt_ist():
+    """Knoten hinter wg0 (gpu-box, gx10) sind nur vom Hop aus erreichbar.
+
+    Ohne diesen Weg meldete das Werkzeug fuer sie "kein Host erreichbar" und
+    liess sie still aus der Zeitreihe fallen — gemessen am 2026-08-31.
+    """
+    gesehen: list[list[str]] = []
+
+    def laeufer(cmd):
+        gesehen.append(cmd)
+        return 0, ""
+
+    sm.messe(
+        {"gx10": "adehnert@10.99.0.4"},
+        laeufer,
+        hops={"gx10": "root@88.198.191.108"},
+    )
+    assert gesehen[0][-2] == "root@88.198.191.108"
+    assert gesehen[0][-1].startswith("ssh -o BatchMode=yes")
+    assert "adehnert@10.99.0.4" in gesehen[0][-1]
+
+
+def test_should_ohne_ssh_via_direkt_verbinden():
+    """Gegenprobe: ohne Hop bleibt der Aufruf der alte, einfache."""
+    gesehen: list[list[str]] = []
+    sm.messe({"prod": "root@1.2.3.4"}, lambda cmd: (gesehen.append(cmd), (0, ""))[1])
+    assert gesehen[0][-2] == "root@1.2.3.4"
+    assert not gesehen[0][-1].startswith("ssh ")
+
+
+def test_should_send_command_over_stdin_for_windows_hosts():
+    """Windows-Knoten (gpu-box) bekommen den Befehl ueber stdin, nicht als Argument.
+
+    Als Argument landet er in `cmd`, und die Pipe im df wird dort ausgefuehrt statt
+    durchgereicht — deshalb meldete das Werkzeug fuer die gpu-box monatelang
+    "kein Host erreichbar" (platform#2541).
+    """
+    gesehen = []
+
+    def laeufer(cmd, stdin=None):
+        gesehen.append((cmd, stdin))
+        return 0, ""
+
+    sm.messe(
+        {"gpu-box": "achim@10.99.0.2"},
+        laeufer,
+        hops={"gpu-box": "root@prod"},
+        shells={"gpu-box": "wsl -d Ubuntu -u root -e bash -s"},
+    )
+    cmd, stdin = gesehen[0]
+    assert cmd[-2] == "root@prod"
+    assert "wsl -d Ubuntu -u root -e bash -s" in cmd[-1]
+    assert stdin is not None and "df -B1" in stdin, "der Befehl geht ueber stdin"
+    assert "df -B1" not in cmd[-1], "und NICHT als Argument"
+
+
+def test_should_keep_single_argument_call_for_plain_hosts():
+    """Gegenprobe: ohne ssh_shell bleibt der Aufruf einargumentig.
+
+    Ohne diesen Test waere jedes vorhandene Test-Double kaputtgegangen, ohne dass
+    es auffaellt — die Aenderung darf die Aufrufkonvention nicht verschieben.
+    """
+    gesehen = []
+    sm.messe({"prod": "root@1.2.3.4"}, lambda cmd: (gesehen.append(cmd), (0, ""))[1])
+    assert "df -B1" in gesehen[0][-1]

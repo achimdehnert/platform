@@ -471,7 +471,12 @@ def main() -> None:
             if not trash:
                 sys.exit("FEHLER: kein Papierkorb-Ordner gefunden.")
             cmd_move(
-                imap, args.source, trash, args.from_sub, args.subj_sub, args.yes,
+                imap,
+                args.source,
+                trash,
+                args.from_sub,
+                args.subj_sub,
+                args.yes,
                 args.uid,
             )
         elif args.flag or args.unflag:
@@ -494,7 +499,12 @@ def main() -> None:
                     "(Sicherheit: kein Pauschal-Verschieben)"
                 )
             cmd_move(
-                imap, args.source, args.to, args.from_sub, args.subj_sub, args.yes,
+                imap,
+                args.source,
+                args.to,
+                args.from_sub,
+                args.subj_sub,
+                args.yes,
                 args.uid,
             )
     finally:

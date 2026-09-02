@@ -567,7 +567,7 @@ def cmd_show(
     r = _http(
         "GET",
         f"{_basis()}/messages/{urllib.parse.quote(mid, safe='')}"
-        "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+        "?$select=subject,from,toRecipients,ccRecipients,receivedDateTime,body,hasAttachments",
         headers=_auth(tok),
     )
     if r.status_code != 200:
@@ -580,6 +580,13 @@ def cmd_show(
         ((t.get("emailAddress") or {}).get("address", ""))
         for t in m.get("toRecipients", [])
     )
+    # Ohne diese Zeile kann ein Versandbeleg den Cc nicht belegen — er stand nur
+    # im Schreibpfad. Realfall 2026-08-28: ein Issue-Kommentar fuehrte "Versand
+    # belegt ... Cc X", obwohl kein Aufruf dieses Werkzeugs den Cc je zeigte.
+    ccs = ", ".join(
+        ((c.get("emailAddress") or {}).get("address", ""))
+        for c in m.get("ccRecipients", [])
+    )
     body = m.get("body") or {}
     text = body.get("content", "")
     if (body.get("contentType") or "").lower() == "html":
@@ -587,6 +594,8 @@ def cmd_show(
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     print(f"Von:     {em.get('name', '')} <{em.get('address', '')}>")
     print(f"An:      {tos}")
+    if ccs:
+        print(f"Cc:      {ccs}")
     print(f"Datum:   {m.get('receivedDateTime', '')}")
     print(f"Betreff: {m.get('subject', '')}")
     print("--- Body ---")
@@ -676,9 +685,7 @@ def cmd_move(
         for roh in nur_ids:
             mid = (roh or "").strip()
             if not mid or any(z in mid for z in "\r\n\t "):
-                print(
-                    f"  ! Keine brauchbare messageId: {roh!r:.60}", file=sys.stderr
-                )
+                print(f"  ! Keine brauchbare messageId: {roh!r:.60}", file=sys.stderr)
                 continue
             sauber.append(mid)
         if not sauber:
@@ -689,8 +696,7 @@ def cmd_move(
         for mid in nur_ids:
             r = _http(
                 "GET",
-                f"{_basis()}/messages/{mid}"
-                "?$select=id,subject,receivedDateTime,from",
+                f"{_basis()}/messages/{mid}?$select=id,subject,receivedDateTime,from",
                 headers=_auth(tok),
             )
             if r.status_code != 200:
@@ -700,9 +706,9 @@ def cmd_move(
                 )
                 continue
             m = r.json()
-            absender = (
-                (m.get("from") or {}).get("emailAddress", {}).get("address") or "—"
-            )
+            absender = (m.get("from") or {}).get("emailAddress", {}).get(
+                "address"
+            ) or "—"
             hits.append(
                 (
                     m.get("id"),
@@ -721,7 +727,10 @@ def cmd_move(
         if not yes:
             try:
                 if input("Verschieben? [j/N] ").strip().lower() not in (
-                    "j", "ja", "y", "yes",
+                    "j",
+                    "ja",
+                    "y",
+                    "yes",
                 ):
                     sys.exit("Abgebrochen.")
             except EOFError:
@@ -1239,7 +1248,9 @@ def _postfach_pruefen(cfg: dict, args) -> None:
     """
     tok = token(cfg, args.account or cfg["accounts"][0])
     if not tok:
-        sys.exit(f"FEHLER: nicht angemeldet — erst: --login {args.account or cfg['accounts'][0]}")
+        sys.exit(
+            f"FEHLER: nicht angemeldet — erst: --login {args.account or cfg['accounts'][0]}"
+        )
     body = _http("GET", f"{_basis()}/mailFolders?$top=1", headers=_auth(tok)).json()
     if "error" not in body:
         return
@@ -1410,7 +1421,12 @@ def main() -> None:
         if not (args.from_sub or args.id):
             ap.error("--move braucht --from oder --id")
         cmd_move(
-            tok, args.from_sub or "", args.to, args.source, args.yes, args.subject,
+            tok,
+            args.from_sub or "",
+            args.to,
+            args.source,
+            args.yes,
+            args.subject,
             args.id,
         )
     elif args.flag or args.unflag:

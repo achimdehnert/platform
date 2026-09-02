@@ -72,6 +72,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import sys
 import urllib.error
 import urllib.request
@@ -90,6 +91,20 @@ GATE_HEADER = {
 
 DEFAULT_MODELL = "qwen2.5:7b"
 DEFAULT_HOST = "http://127.0.0.1:11434"
+
+#: Die Antwort ist ein kurzes JSON-Objekt. Ohne Deckel laeuft ein Modell im
+#: Zweifel bis zum Kontextende weiter — auf einer Maschine ohne GPU kostet das
+#: Minuten je Segment, ohne dass ein besseres Urteil dabei herauskommt.
+MAX_ANTWORT_TOKEN = 160
+#: Je Segment im Stapel; der Deckel waechst mit der Stapelgroesse.
+STAPEL_ANTWORT_TOKEN = 96
+#: Wie viele Segmente in EINEN Aufruf gehen. 0 schaltet den Stapel ab.
+#: Der Instruktionsteil ist rund 600 Token lang und wird sonst je Segment erneut
+#: durch die Vorverarbeitung geschickt.
+STAPEL_GROESSE = 8
+#: Das 7b-Modell belegt rund 4,8 GB. Faellt es zwischen zwei PRs aus dem
+#: Speicher, zahlt der naechste Lauf das Laden erneut.
+DEFAULT_KEEP_ALIVE = "30m"
 
 KLASSEN = ("vertagung", "restarbeit", "freigabe", "keine")
 # Nur diese Klassen verlangen ein durables Artefakt. `keine` ist der Normalfall.
@@ -234,8 +249,31 @@ Abschnitt:
 ---"""
 
 
+def _nicht_pruefbar(
+    exc: BaseException, *, was: str, host: str, timeout: int, zeichen: int
+) -> "NichtPruefbar":
+    """Trennt Zeitueberschreitung von Nichterreichbarkeit.
+
+    Beides lief bisher in dieselbe Meldung »nicht erreichbar« — und die hat die
+    Diagnose zweimal in die falsche Richtung gefuehrt (#2456, #2436): der Host
+    antwortete, das Modell rechnete nur laenger als der Timeout. Wer »nicht
+    erreichbar« liest, sucht bei ollama; wer die Zeit liest, sucht beim Budget.
+    """
+    reason = getattr(exc, "reason", None)
+    if isinstance(exc, TimeoutError) or isinstance(reason, TimeoutError):
+        return NichtPruefbar(
+            f"{was} auf {host}: Zeitueberschreitung nach {timeout} s bei "
+            f"{zeichen} Zeichen Prompt — der Host antwortet, das Modell rechnet "
+            f"laenger als der Timeout (NICHT »ollama aus«)."
+        )
+    return NichtPruefbar(f"{was} auf {host} nicht erreichbar: {exc}")
+
+
 def ollama_klassifikator(
-    modell: str = DEFAULT_MODELL, host: str = DEFAULT_HOST, timeout: int = 120
+    modell: str = DEFAULT_MODELL,
+    host: str = DEFAULT_HOST,
+    timeout: int = 120,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str], dict]:
     """Klassifikator ueber einen loopback-lokalen Ollama.
 
@@ -251,7 +289,8 @@ def ollama_klassifikator(
                 "prompt": PROMPT % text,
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0},
+                "keep_alive": keep_alive,
+                "options": {"temperature": 0, "num_predict": MAX_ANTWORT_TOKEN},
             }
         ).encode()
         req = urllib.request.Request(
@@ -263,7 +302,13 @@ def ollama_klassifikator(
             with urllib.request.urlopen(req, timeout=timeout) as antwort:
                 roh = json.load(antwort).get("response", "")
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            raise NichtPruefbar(f"{modell} auf {host} nicht erreichbar: {exc}") from exc
+            raise _nicht_pruefbar(
+                exc,
+                was=modell,
+                host=host,
+                timeout=timeout,
+                zeichen=len(PROMPT % text),
+            ) from exc
         except (json.JSONDecodeError, ValueError) as exc:
             raise NichtPruefbar(f"{modell} lieferte kein JSON: {exc}") from exc
         try:
@@ -286,18 +331,21 @@ def ollama_klassifikator(
     return klassifiziere
 
 
-GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage eingestuft
-(Arbeit steht noch aus). Pruefe das nach.
+GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage
+eingestuft. Pruefe das nach.
 
-Frage: Steht die genannte Arbeit zum Zeitpunkt dieses Textes NOCH AUS?
+Frage: Weist der Abschnitt Arbeit als bewusst AUSGELASSEN, VERSCHOBEN oder einem
+eigenen spaeteren Umbau ueberlassen aus — oder benennt er eine Restschuld, die
+hier nicht behoben wird?
 
-"nein" ist richtig, wenn der Abschnitt erledigte Arbeit beschreibt, einen Fix
-berichtet, misst, begruendet oder belegt — auch wenn er dabei Einschraenkungen
-oder Zahlen nennt.
-"ja" ist richtig, wenn die Arbeit ausdruecklich verschoben, ausgelassen oder als
-offene Restschuld benannt wird.
+Wichtig: Es geht NICHT darum, ob jemand die Arbeit eingeplant hat oder ob sie je
+wieder aufgegriffen wird. Eine ausdruecklich NICHT gemachte Arbeit zaehlt als
+"ja", auch wenn der Text sie fuer erledigt-durch-Verzicht haelt.
 
-Antworte NUR mit JSON: {"steht_aus": true|false}
+"nein" nur, wenn der Abschnitt ausschliesslich erledigte Arbeit beschreibt,
+einen Fix berichtet, misst oder belegt.
+
+Antworte NUR mit JSON: {"trifft_zu": true|false}
 
 Eingestuft als: %s
 Zitat: %s
@@ -308,9 +356,20 @@ Abschnitt:
 
 
 def ollama_bestaetiger(
-    modell: str = DEFAULT_MODELL, host: str = DEFAULT_HOST, timeout: int = 120
+    modell: str = DEFAULT_MODELL,
+    host: str = DEFAULT_HOST,
+    timeout: int = 120,
+    keep_alive: str = DEFAULT_KEEP_ALIVE,
 ) -> Callable[[str, str, str], bool]:
     """Zweite, unabhaengige Frage an dasselbe Modell — Gegenprobe je Kandidat.
+
+    Die Frage lautet bewusst NICHT "steht die Arbeit noch aus?". Genau diese
+    Formulierung liess den dokumentierten Zielfall (PR #2007) durchfallen: das
+    Modell antwortete `false` mit der Begruendung "Zusammenlegung ausgeschlagen"
+    — eine abgelehnte Arbeit steht in der Tat nicht mehr aus. Klassifikator und
+    Gegenprobe fragten damit nach verschiedenen Dingen (Typ vs. Zustand), und die
+    zweite Stufe nahm die erste zurueck. Gemessen am 2026-08-28 gegen beide Faelle
+    der Kalibrierdatei: Zielfall wieder gefunden, Fehlalarm #2196 weiter verworfen.
 
     Warum ueberhaupt: der Kalibrierlauf 2026-08-23 zeigte, dass die
     Klassifikation abgeschlossene Arbeit gelegentlich als Zusage liest
@@ -328,7 +387,8 @@ def ollama_bestaetiger(
                 "prompt": GEGENPROBE % (klasse, zitat or "—", text),
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0},
+                "keep_alive": keep_alive,
+                "options": {"temperature": 0, "num_predict": MAX_ANTWORT_TOKEN},
             }
         ).encode()
         req = urllib.request.Request(
@@ -340,11 +400,17 @@ def ollama_bestaetiger(
             with urllib.request.urlopen(req, timeout=timeout) as antwort:
                 d = json.loads(json.load(antwort).get("response", "{}"))
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            raise NichtPruefbar(f"Gegenprobe nicht erreichbar: {exc}") from exc
+            raise _nicht_pruefbar(
+                exc,
+                was=f"Gegenprobe ({modell})",
+                host=host,
+                timeout=timeout,
+                zeichen=len(GEGENPROBE % (klasse, zitat or "—", text)),
+            ) from exc
         except (json.JSONDecodeError, ValueError):
             # Unlesbare Gegenprobe darf einen Fund nicht still schlucken.
             return True
-        return bool(d.get("steht_aus", True))
+        return bool(d.get("trifft_zu", True))
 
     _ = roh  # gemeinsame Fehlerbehandlung oben, Aufruf getrennt gehalten
     return bestaetige
@@ -460,11 +526,26 @@ def pruefe(
     repo: str = "",
     klassen: tuple[str, ...] = ZUSAGE_KLASSEN,
     bestaetiger: Callable[[str, str, str], bool] | None = None,
-) -> tuple[list[Befund], list[Segment]]:
-    """(Befunde, geprüfte Segmente) — Befund = Zusage-Typ ohne gueltigen Anker."""
+    budget_sekunden: float | None = None,
+    uhr: Callable[[], float] = time.monotonic,
+) -> tuple[list[Befund], list[Segment], list[Segment]]:
+    """(Befunde, geprüfte Segmente, ungeprüfte Segmente).
+
+    Befund = Zusage-Typ ohne gueltigen Anker.
+
+    `budget_sekunden` begrenzt den GESAMTEN Lauf, nicht die einzelne Anfrage.
+    Der Pro-Anfrage-Timeout allein genuegt nicht: er gilt je Segment, und ein
+    langer PR-Text hat viele. Gemessen 2026-08-30 (#2469): rund 8 s je Aufruf
+    bei `qwen2.5:7b`, bei 20 Segmenten also Minuten — die Sitzung brach beide
+    Laeufe nach 240 s ab und bekam GAR KEIN Ergebnis. Mit Budget liefert das
+    Werkzeug, was es bis dahin geprueft hat, und sagt, was offen blieb.
+    """
     segmente = segmentiere(normalisiere(text))
     befunde: list[Befund] = []
-    for seg in segmente:
+    start = uhr()
+    for i, seg in enumerate(segmente):
+        if budget_sekunden is not None and uhr() - start >= budget_sekunden:
+            return befunde, segmente[:i], list(segmente[i:])
         urteil = klassifikator(seg.volltext)
         klasse = urteil.get("klasse", "unklar")
         if klasse not in klassen:
@@ -485,15 +566,35 @@ def pruefe(
                 anker=anker,
             )
         )
-    return befunde, segmente
+    return befunde, segmente, []
 
 
 def bericht(
-    befunde: list[Befund], segmente: list[Segment], quelle: str, block: bool
+    befunde: list[Befund],
+    segmente: list[Segment],
+    quelle: str,
+    block: bool,
+    ungeprueft: int = 0,
 ) -> str:
-    if not segmente:
+    if not segmente and not ungeprueft:
         return f"◌ {quelle}: kein pruefbares Segment (Text zu kurz oder nur Code)."
+    # Budget erschoepft ist die dritte Klasse: nicht gruen (es wurde nicht alles
+    # gesehen) und nicht "kein Modell erreichbar" (es lief ja). Sie muss ihren
+    # eigenen Namen haben, sonst liest sich ein Teillauf wie ein Freispruch.
+    rest = (
+        f"\n◌ {ungeprueft} Segment(e) UNGEPRUEFT — Zeitbudget erschoepft. "
+        "Das ist keine Entwarnung: mit --budget-sekunden erhoehen oder "
+        "--modell auf ein kleineres setzen."
+        if ungeprueft
+        else ""
+    )
     if not befunde:
+        if ungeprueft:
+            return (
+                f"◌ Verankerung {quelle}: {len(segmente)} von "
+                f"{len(segmente) + ungeprueft} Segment(en) geprueft, darin keine "
+                "Zusage ohne Tracking-Issue." + rest
+            )
         return (
             f"✅ Verankerung {quelle}: {len(segmente)} Segment(e) geprueft, "
             "jede Zusage traegt ein Tracking-Issue."
@@ -516,7 +617,7 @@ def bericht(
         )
     zeilen.append(
         "\nDer Artefakt-Text zaehlt nicht als Tracking (Hausregel). Billigste Aktion: "
-        "`gh issue create` und die Issue-Nummer IM selben Abschnitt nennen."
+        "`gh issue create` und die Issue-Nummer IM selben Abschnitt nennen." + rest
     )
     return "\n".join(zeilen)
 
@@ -554,6 +655,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Kandidaten nicht zweitpruefen (schneller, ungenauer)",
     )
+    ap.add_argument(
+        "--budget-sekunden",
+        type=float,
+        default=float(os.environ.get("VERANKERUNG_BUDGET", "300")),
+        help=(
+            "Gesamtbudget des Laufs in Sekunden (0 = unbegrenzt). Default 300. "
+            "Der Pro-Anfrage-Timeout begrenzt nur EINE Anfrage; ein langer "
+            "PR-Text hat viele (#2469)."
+        ),
+    )
     ap.add_argument("--block", action="store_true", help="Exit 1 bei Fund")
     ap.add_argument("--json", action="store_true", help="Maschinenlesbare Ausgabe")
     args = ap.parse_args(argv)
@@ -589,15 +700,23 @@ def main(argv: list[str] | None = None) -> int:
                 f"FEHLER: unbekannte Klasse(n): {', '.join(unbekannt)}", file=sys.stderr
             )
             return 2
-        befunde, segmente = pruefe(
+        # Der Pro-Anfrage-Timeout wird auf das Budget gedeckelt: sonst laeuft der
+        # Lauf im schlimmsten Fall Budget + 120 s, weil das Budget nur ZWISCHEN
+        # den Segmenten geprueft wird. Gemessen am 2026-08-30 (PR #2461,
+        # `qwen2.5:7b`): rund 80 s je Segment bei echtem PR-Text, 11 Segmente —
+        # ein vollstaendiger Lauf braucht dort rund 15 Minuten.
+        budget = args.budget_sekunden or None
+        anfrage_timeout = int(min(120, budget)) if budget else 120
+        befunde, segmente, ungeprueft = pruefe(
             text,
-            ollama_klassifikator(args.modell, args.host),
+            ollama_klassifikator(args.modell, args.host, anfrage_timeout),
             mit_github=not args.ohne_github,
             repo=args.repo,
             klassen=klassen,
             bestaetiger=None
             if args.ohne_gegenprobe
-            else ollama_bestaetiger(args.modell, args.host),
+            else ollama_bestaetiger(args.modell, args.host, anfrage_timeout),
+            budget_sekunden=budget,
         )
     except NichtPruefbar as exc:
         # Ehrlichkeits-Sperre: kein Urteil ist NICHT dasselbe wie ein sauberes.
@@ -610,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "quelle": name,
                     "segmente": len(segmente),
+                    "ungeprueft": len(ungeprueft),
                     "befunde": [
                         {
                             "klasse": b.klasse,
@@ -627,7 +747,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
     else:
-        print(bericht(befunde, segmente, name, args.block))
+        print(bericht(befunde, segmente, name, args.block, len(ungeprueft)))
     return 1 if (befunde and args.block) else 0
 
 

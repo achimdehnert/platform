@@ -330,6 +330,12 @@ Danach in fester Reihenfolge:
   **schärfen** (Grenze verschieben), nicht neu raten. So kalibriert sich die Autonomie-Grenze aus
   gemessenen Fehlern statt aus einem Einmal-Entwurf (Realfall 2026-07-03: 3 Secrets + ein grüner
   Nicht-Deploy-Merge als `over_ask` geparkt → Charter daraus entstanden).
+  **Klassen-Slugs Pflicht (seit 2026-09-02, KONZ-025 Art. 2.1a):** je Beleg die Handlungsklasse
+  **eng** benennen (`pr-merge-nicht-deploy-repo`, nicht `merge`) und im Frontmatter als
+  `over_ask_klassen: [...]` / `over_act_klassen: [...]` führen. `retro_kpis.py --nominierung` zählt sie
+  über Retros: Klasse ≥2 ⇒ **NOMINIERT** (Beförderungsvorschlag im Registry-Format, eine Stufe, als
+  „erweitert meine Macht" gekennzeichnet — Ratifikation bleibt Kapitäns-Zug); `over_act` derselben
+  Klasse im Fenster **sperrt** sie (Art. 2.2). Ohne Slug ist der Beleg für den Sensor unsichtbar.
 - **6. Verankerung:** kopierfertige `memory_candidates` + `adr_candidates` (du schreibst sie NICHT selbst).
 - **7. Maßnahmen als Action-Board** (Org-Standard: Buckets 🟢 dein Zug / 🔵 ich sofort / 🟡-⛔ wip / ✅ done;
   Lean-Spalten `# | Item | Repo | PR/Issue/ADR | Status | Next Step`), **abgeleitet aus dem Soll-Ablauf**.

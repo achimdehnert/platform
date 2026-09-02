@@ -28,6 +28,11 @@ import subprocess
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import quote
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from anker import ANKER_DATEI  # noqa: E402
+from referenzen import finde, schluessel_kandidaten, verlauf_eintraege  # noqa: E402
 
 HIER = Path(__file__).resolve().parent
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
@@ -136,50 +141,41 @@ def treffer(text: str, nachrichten: list[dict], bezugsjahr: int) -> dict | None:
     return kandidaten[0]
 
 
-#: Eine adressierbare Mail-Nummer IM TEXT des Eintrags. Der Index liefert sie
-#: nicht: seine `id` ist ein Datenbankschluessel, keine IMAP-UID — ein daraus
-#: gebauter Link ergab 404 (gemessen 2026-08-21). Adressierbar ist nur, was der
-#: Eintrag selbst nennt.
-# Ein blosses `#` reicht NICHT: `platform#2176` und `meiki-hub#146` schrieben sich
-# sonst als Mail-UID, und der Link zeigte auf eine fremde oder gar keine Mail —
-# genau das, was der Kopf dieser Datei ausschliessen will. Reproduziert in der
-# Retro 2026-08-21. Ein `#` allein zaehlt jetzt nur, wenn davor KEIN Wortzeichen
-# und kein Bindestrich steht (also kein Repo-Name).
-_UID_IM_TEXT = re.compile(
-    r"(?:UID\s*|INBOX\s*#|Entw(?:ue|ü)rfe\s*#|Objekte'?\s*\(#|(?<![\w/-])#)(\d{4,6})",
-    re.I,
-)
-#: Steht die Nummer im Umfeld des Sendeordners, liegt die Mail dort.
-_SENDEORDNER_NAH = re.compile(r"gesendet|sendeordner|gesendete", re.I)
-#: Ein Entwurf liegt weder in INBOX noch im Sendeordner — ohne dieses Segment
-#: laeuft der Link gegen INBOX und endet im 404.
-_ENTWURF_NAH = re.compile(r"entw(?:ue|ü)rfe|entwurf", re.I)
-
-
-def url_aus_text(text: str, konto: str, basis: str) -> str:
-    """Link auf die Mail — nur wenn der Eintrag eine adressierbare Nummer nennt.
+# Adressierbar ist nur, was der Eintrag selbst nennt. Der Index liefert keine
+# IMAP-UID: seine `id` ist ein Datenbankschluessel — ein daraus gebauter Link
+# ergab 404 (gemessen 2026-08-21).
+def url_aus_text(
+    text: str, konto: str, basis: str, anker: frozenset[str] | None = None
+) -> str:
+    """Link auf die Mail — nur wenn der Eintrag eine VERANKERTE Nummer nennt.
 
     Kein Link ist besser als ein falscher: ohne Nummer bleibt es bei Betreff und
     Datum in der Kopfzeile, die den Eintrag identifizieren, ohne etwas zu
-    versprechen.
+    versprechen. Bis 2026-09-01 wurde hier `/m/<konto>/<ordner>/<uid>` gebaut —
+    ein Link auf die rohe IMAP-UID, der mit der naechsten Ablage starb
+    (platform#2563). Jetzt zaehlt nur, was `eintrag_anker.py` an eine
+    Message-ID gebunden hat; der Link geht auf `/a/<schluessel>`.
+
+    `anker` ist die Menge der verankerten Schluessel; None liest die Ankerdatei.
     """
-    treffer_ = _UID_IM_TEXT.search(text)
-    if not treffer_ or not konto:
+    if not konto:
         return ""
-    nummer = treffer_.group(1)
-    umfeld = text[max(0, treffer_.start() - 60) : treffer_.end() + 20]
-    if _ENTWURF_NAH.search(umfeld):
-        ordner = "entwuerfe/"
-    elif _SENDEORDNER_NAH.search(umfeld):
-        ordner = "gesendete/"
-    else:
-        ordner = ""
-    return f"{basis.rstrip('/')}/m/{konto}/{ordner}{nummer}"
+    verankert = _anker_schluessel() if anker is None else anker
+    for ref in finde(text):
+        for kandidat in schluessel_kandidaten(konto, ref):
+            if kandidat in verankert:
+                return f"{basis.rstrip('/')}/a/{quote(kandidat, safe='')}"
+    return ""
 
 
-def verlauf_eintraege(v: dict, archiv: dict) -> list[str]:
-    aktiv = [t.strip() for t in str(v.get("notiz") or "").split(" | ") if t.strip()]
-    return [str(e) for e in archiv.get(str(v.get("nr")), [])] + aktiv
+def _anker_schluessel(pfad: Path | None = None) -> frozenset[str]:
+    # Der Pfad wird beim Aufruf aufgeloest, nicht beim Definieren — sonst
+    # liesse er sich im Test nicht ersetzen.
+    try:
+        daten = json.loads((pfad or ANKER_DATEI).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return frozenset()
+    return frozenset(str(k) for k in daten) if isinstance(daten, dict) else frozenset()
 
 
 def zuordnen(ledger: dict, archiv: dict, nachrichten: list[dict], basis: str) -> dict:
@@ -189,6 +185,7 @@ def zuordnen(ledger: dict, archiv: dict, nachrichten: list[dict], basis: str) ->
     oben neue Einträge dazukommen.
     """
     ergebnis: dict[str, dict] = {}
+    anker = _anker_schluessel()
     for v in ledger.get("vorgaenge", []):
         konto = str(v.get("konto") or "")
         eintraege = verlauf_eintraege(v, archiv)
@@ -200,7 +197,7 @@ def zuordnen(ledger: dict, archiv: dict, nachrichten: list[dict], basis: str) ->
             if not m:
                 continue
             je_vorgang[str(i)] = {
-                "url": url_aus_text(text, konto, basis),
+                "url": url_aus_text(text, konto, basis, anker),
                 "betreff": m.get("betreff", ""),
                 "datum": m.get("datum", ""),
             }

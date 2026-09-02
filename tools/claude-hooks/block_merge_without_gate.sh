@@ -22,7 +22,8 @@
 #
 # Verhalten:
 #   - feuert auf `gh pr merge` und auf `publish-package.sh`
-#   - `--admin` passiert: das ist der ausdrueckliche, benannte Bypass eines Menschen
+#   - `--admin` passiert NUR, wenn am PR ein menschlicher Freigabe-Kommentar
+#     steht (s. AUSWEITUNG 2026-08-31)
 #   - blockt, wenn der letzte Lauf auf dem Default-Branch `failure` ist
 #   - blockt, wenn es GAR KEINEN Lauf gibt — das ist der eigentliche Fall
 #   - blockt, wenn der PR SELBST null Check-Runs hat (s.u.)
@@ -36,14 +37,30 @@
 # Ursache war ein GitHub-Actions-Ausfall; der Hook haette es vorher sagen
 # koennen und schwieg, weil er woanders hinsah. Ein Gate, das weniger prueft
 # als sein Name verspricht, ist die Klasse `gate-modul-prueft-weniger-als-sein-name`.
+#
+# AUSWEITUNG 2026-08-31 (Gate-Deckungs-Triage, platform#2234): `--admin` war ein
+# Freifahrschein — "das ist der ausdrueckliche, benannte Bypass eines Menschen".
+# Vier Retro-Faelle widerlegen die Annahme: der Bypass lief auf generische
+# Zustimmung ("go", "mache es autonom") ohne durables Wort am Artefakt
+# (f4a546 #2, dms-hub C4, dev-hub-8f9a23 #4: 10 Dependabot-PRs per --admin auf
+# "1 --admin" im Chat, 62f875 #3). Deckt damit die Slugs
+# `merge-bypass-without-explicit-word` (4x) und `gate-approval-needs-pr-comment`
+# (4x): --admin passiert nur noch, wenn am PR ein Kommentar eines MENSCHEN
+# (Login ohne "bot") steht, der die Freigabe benennt (freigabe/--admin/bypass).
+# Der Kommentar ist das durable Artefakt, das ein Auditor spaeter findet — eine
+# Chat-Freigabe wird also VOR dem Merge einmal an den PR geschrieben, z.B.:
+#   gh pr comment <N> --body "Freigabe --admin (Owner-Wort: '<zitat>')"
+# GRENZE (fail-open, dokumentiert): ist die PR-Nummer aus dem Kommando nicht
+# extrahierbar (Merge per URL/Branch), passiert --admin ungefragt wie zuvor.
 set -uo pipefail
 
 input="$(cat 2>/dev/null)" || exit 0
 cmd="$(printf '%s' "$input" | tr '\n' ' ')"
 
 printf '%s' "$cmd" | grep -qE 'gh pr merge|publish-package\.sh' || exit 0
-# Der benannte Bypass eines Menschen ist kein Fall fuer dieses Gate.
-printf '%s' "$cmd" | grep -q -- '--admin' && exit 0
+# --admin ist erst nach dem Freigabe-Kommentar-Check unten ein Bypass.
+ADMIN=0
+printf '%s' "$cmd" | grep -q -- '--admin' && ADMIN=1
 command -v gh >/dev/null 2>&1 || exit 0
 
 # Repo bestimmen: explizites --repo hat Vorrang, sonst das Verzeichnis.
@@ -56,16 +73,30 @@ if [ -z "$repo" ]; then
 fi
 [ -n "$repo" ] || exit 0
 
-zweig="$(gh repo view "$repo" --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null || true)"
-[ -n "$zweig" ] || exit 0
-
-laeufe="$(gh run list --repo "$repo" --branch "$zweig" --limit 5 --json conclusion,status --jq '[.[]|select(.status=="completed")|.conclusion] | join(",")' 2>/dev/null)" || exit 0
-
 melde() {
   reason="${1//\"/\\\"}"
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
   exit 0
 }
+
+pr="$(printf '%s' "$cmd" | grep -oE 'gh pr merge[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+$')"
+
+# AUSWEITUNG 2026-08-31: --admin nur mit durablem Freigabe-Kommentar am PR.
+if [ "$ADMIN" = "1" ]; then
+  [ -n "$pr" ] || exit 0  # PR-Nummer nicht extrahierbar -> fail-open (Grenze im Header)
+  kommentare="$(gh pr view "$pr" --repo "$repo" --json comments \
+    --jq '.comments[] | "\(.author.login)\t\(.body | gsub("\n"; " "))"' 2>/dev/null)" || exit 0
+  if printf '%s\n' "$kommentare" | awk -F'\t' \
+      'tolower($1) !~ /bot/ && tolower($0) ~ /freigabe|admin|bypass/ {gefunden=1} END{exit gefunden?0:1}'; then
+    exit 0  # benannter, durabel abgelegter Bypass — kein Fall fuer dieses Gate
+  fi
+  melde "⛔ --admin-Merge geblockt: PR #${pr} (${repo}) traegt KEINEN menschlichen Freigabe-Kommentar (Gates merge-bypass-without-explicit-word + gate-approval-needs-pr-comment). Ein Bypass braucht ein benanntes Wort UND ein durables Artefakt am PR — eine Chat-Zustimmung sieht ein Auditor nie (Realfall dev-hub 2026-08-25: 10 Dependabot-PRs per --admin, Freigabe nur im Chat). Erst die Freigabe ablegen: gh pr comment ${pr} --repo ${repo} --body 'Freigabe --admin (Owner-Wort: <zitat>)' — dann erneut mergen. Liegt kein Owner-Wort fuer GENAU diesen Bypass vor, ist der naechste Schritt die Frage an den Owner, nicht die staerkere Flag."
+fi
+
+zweig="$(gh repo view "$repo" --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null || true)"
+[ -n "$zweig" ] || exit 0
+
+laeufe="$(gh run list --repo "$repo" --branch "$zweig" --limit 5 --json conclusion,status --jq '[.[]|select(.status=="completed")|.conclusion] | join(",")' 2>/dev/null)" || exit 0
 
 if [ -z "$laeufe" ]; then
   melde "⛔ Merge/Publish geblockt: ${repo} hat auf ${zweig} KEINEN abgeschlossenen CI-Lauf (Gate no-checks-reported-read-as-green). Eine leere Pruefliste heisst 'hier prueft nichts', nicht 'nichts zu beanstanden' — Realfall aifw#53: sechs Tage tote Workflow-Referenz, in dem Fenster ging 0.13.0 nach PyPI. Pruefen: gh run list --repo ${repo} --branch ${zweig} --limit 3"
@@ -76,7 +107,6 @@ fi
 # Nicht der Rollup (`gh pr checks`), sondern die Zaehlung am Commit — der Rollup
 # antwortet mit einer Prosa-Zeile, die sich als "0 rote, 0 offene" lesen laesst.
 # `total_count` kennt diese Zweideutigkeit nicht.
-pr="$(printf '%s' "$cmd" | grep -oE 'gh pr merge[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+$')"
 if [ -n "$pr" ]; then
   sha="$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid 2>/dev/null || true)"
   if [ -n "$sha" ]; then
