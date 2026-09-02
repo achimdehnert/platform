@@ -361,6 +361,48 @@ wenn ein konkreter Befund von ihr in einem fremden Repo repariert werden musste.
 
 ---
 
+### 0f-verankerung: Neues Gate nur mit Drill, Positivkontrolle, Messpunkt (PFLICHT — NEU 2026-09-02, platform#2690 K4)
+
+> **Ein Gate ohne Positivkontrolle ist ein Melder, der nie beweisen musste, dass er
+> etwas finden kann.** Gemessen am 2026-09-02: 14 von 33 Gates sind rückfällig
+> (#2374, #2678); von 31 Registry-Einträgen trug **keiner** einen Beleg, dass er den
+> Fall, gegen den er gebaut wurde, je getroffen hat. Der Eintrag in
+> `docs/governance/gate-registry.json` ist eine Behauptung über Wirkung — bis hierhin
+> konnte sie jeder aufstellen, der eine Zeile JSON schreibt.
+
+Wird in dieser Sitzung ein Gate verankert **oder ein bestehendes neu verankert**
+(`revised`, neuer `drill`, neues `module`, geänderter `mode`), dann **vor dem Commit**:
+
+```bash
+python3 tools/gate_verankerung_check.py --neu --basis origin/main
+```
+
+- **Exit 0** — der Eintrag trägt alle drei Nachweise, er darf in die Registry.
+- **Exit 1** — der Eintrag wird **NICHT eingetragen**. Er geht als Kandidat in die
+  `kandidaten`-Liste der Registry (Tracking: platform#2234) — das ist der vorgesehene
+  Zwischenzustand zwischen Befund und Gate, kein Liegenlassen.
+- **Exit 2** — Werkzeugfehler (Basis nicht lesbar). Kein Verdikt, also auch kein Eintrag.
+
+Die drei Nachweise, und warum jeder einzelne fehlen kann, ohne dass es auffällt:
+
+| Nachweis | Feld | Was ohne ihn passiert |
+|---|---|---|
+| Drill | `drill` (Datei existiert) | „gebaut" steht in der Registry, geprüft hat es nie jemand |
+| Positivkontrolle | `positivkontrolle: {ref, datum}` | der Melder hat nie gezeigt, dass er trifft |
+| Messpunkt | `slug` in Slug-Form + `built`/`revised` als ISO-Datum | `gate_wirkung.py` findet den Rückfall nie wieder |
+
+**`faengt` ist kein Ersatz für die Positivkontrolle.** Es belegt, dass der Fall im Drill
+**vorkommt** — `gate_namensdeckung.py` schreibt die Grenze in den eigenen Kopf: „Er misst
+NICHT, ob der Test den Fall wirklich abfängt." Die Positivkontrolle belegt, dass das Gate
+bei diesem Fall **rot wurde**.
+
+**Bestandsschutz ist Absicht:** die Alt-Einträge werden nicht rückwirkend eingefordert.
+`--neu` greift nur, was gegenüber `origin/main` neu oder in einem Nicht-Prosa-Feld geändert
+ist; ein Tippfehler-Fix im `note` färbt keinen PR. Die Ist-Zahl steht in `--alle`; das
+Nachziehen der Bestands-Gates ist getrackt in platform#2703.
+
+---
+
 ### 0g: Zusagen dieser Sitzung gegen Tracking-Artefakte prüfen (PFLICHT — NEU 2026-08-23, platform#2211)
 
 > **Der Slug `deferred-item-no-tracking-issue` steht bei 23 Vorkommen und hat seit dem
@@ -868,6 +910,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 19 | `befund_journal.py --offen-cross-repo` gelaufen: Exit 0, oder jeder genannte Befund verankert bzw. mit Grund verzichtet (Phase 0f) | ☐ |
 | 20 | `verankerung_pruefer.py` über die eigenen PR-Texte gelaufen: `✅`, oder je Meldung Issue bzw. dokumentierter Fehlalarm (Phase 0g) | ☐ |
 | 21 | Clear-Freigabe-Zeile ausgegeben — 🟢 JA mit Beleg oder 🔴 NEIN mit konkretem Grund, als letzter Satz der Sitzung (Phase 3.5) | ☐ |
+| 22 | Gate verankert oder neu verankert? `gate_verankerung_check.py --neu` grün — sonst Kandidat in #2234 statt Registry-Eintrag (Phase 0f-verankerung); kein Gate angefasst → n/a | ☐ |
 
 > **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
 > oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
@@ -907,6 +950,15 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 ## Changelog
 
 
+- 2026-09-02: **Phase 0f-verankerung (PFLICHT) + Checklisten-Zeile 22** — platform#2690 K4.
+  Ein neues Gate wird nur noch mit Drill, Positivkontrolle und Messpunkt in
+  `docs/governance/gate-registry.json` eingetragen; `tools/gate_verankerung_check.py --neu`
+  entscheidet, `tools/tests/test_gate_verankerung_check.py` drillt den Prüfer (21 Tests).
+  Gemessen beim Bau (`--alle`): 31 Einträge, 0 ohne Drill, 0 ohne Messpunkt, **31 ohne
+  Positivkontrolle** — das Feld `positivkontrolle: {ref, datum}` ist mit diesem Schritt neu
+  und wird per Bestandsschutz erst beim nächsten Anfassen eingefordert. Anlass sind die
+  14 von 33 rückfälligen Gates (#2374, #2678): der Registry-Eintrag ist eine Behauptung
+  über Wirkung, und bis hierhin konnte sie jeder aufstellen, der eine Zeile JSON schreibt.
 - 2026-08-30: **Phase 3.5 Clear-Freigabe (PFLICHT) + Checklisten-Zeile 21** — Owner-
   Rückmeldung wörtlich: „session-ende liefert häufig keinen sauberen Zustand für clear,
   ich muss immer nachfragen." Ursache: Phase 0e (2026-08-12) beantwortet die Clear-Frage

@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _cf import api, umgebung, zone_und_konto  # noqa: E402
+from _cf import api, pruefe_origin, umgebung, zone_und_konto  # noqa: E402
 
 CF_DIR = Path.home() / ".cloudflared"
 
@@ -37,7 +37,10 @@ CF_DIR = Path.home() / ".cloudflared"
 def main() -> None:
     host, port = umgebung("HOST", "PORT")
     name = os.environ.get("TUNNEL_NAME") or host.split(".")[0]
-    origin = os.environ.get("ORIGIN", "").strip() or f"127.0.0.1:{port}"
+    # Vor dem Schreiben pruefen, nicht danach: die Kette dahinter faengt einen
+    # kaputten Ursprung nicht (veroeffentlichen.sh wertet jedes `nicht 200` als
+    # Erfolg und kann ein 502 nicht von der Access-Abweisung unterscheiden).
+    origin = pruefe_origin(os.environ.get("ORIGIN", "").strip() or f"127.0.0.1:{port}")
     zone, konto = zone_und_konto(host)
     CF_DIR.mkdir(mode=stat.S_IRWXU, exist_ok=True)
     kdatei = CF_DIR / f"{name}.json"
