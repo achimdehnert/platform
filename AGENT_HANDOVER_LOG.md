@@ -3158,3 +3158,21 @@ Nachlauf #2597. Fuenf eigene Fehler gefangen (Messvergleich, Listen-Route-200, B
 Dauer-rot-Glied, Push-Hook blockiert ganzen Befehl → Memory). Zielzustand: erreicht.
 SA-4: 4 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
 
+
+## 2026-09-02 vormittags — #2374 Ziel A: Gate-Bilanz gemessen, Instrument verworfen, Diabolus T4 = T5
+
+Owner „23 A" → Zielzustand = #2374 (Akzeptanzkriterien im Issue, G3 seit 27.08. entschieden —
+die Handover-Zeile „blockierend" war veraltet, korrigiert). Messung `tools/messungen/
+gate_bilanz_2374.py` liest die Befund-Tabellen der 109 Retros (1056 Zeilen mit Verdikt),
+nicht die Frontmatter: **14 von 33 Gates mit Rueckfall auf den eigenen Slug nach `built`**
+(17 inkl. covers), nicht 2. `gate_wirkung.py` fuehrt `worktree-midsession-accumulation`
+und `claim-before-cheapest-check` als „wirksam", beide haben Tabellen-Rueckfaelle nach
+`revised` (fdd368 26.08.; cc4e11 01.09.). Zerfallsrangliste aus Registry-Merkmalen:
+Kill-Gate 3 vs. 5 gegen Alter → **verworfen**; tragend ist Spearman −0,004 vs. 0,557
+und die 624er-Gittersuche des T4-Diabolus (nur „Alter allein" erreicht 5/5). Zwei
+Advocatus-Diabolus-Laeufe mit identischem Auftrag (T4 Opus, T5 Fable): fuenf gemeinsame
+Widerlegungen (Zaehleinheit, gates_caught-Abzug, covers rueckwirkend, Tie-Break,
+Entscheidungstag), T4 fand zusaetzlich 11 Gates ohne Positivkontrolle im Korpus, T5 den
+Punkt „Pruefdatensatz testet die Korpussuche, nicht die Rangliste" — kein Beleg, dass T5
+besser widerlegt. Alle fuenf Fehler in Rev 2 behoben und ausgewiesen. Ziel B (Transkript-
+Fruehindikator, API-Spend) wartet auf Owner-Wort.
