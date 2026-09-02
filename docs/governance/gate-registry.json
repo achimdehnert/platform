@@ -173,7 +173,7 @@
     },
     {
       "slug": "aufschub-anker",
-      "mode": "advisory",
+      "mode": "blocking",
       "owner": "achim",
       "module": "tools/deferral_anchor_check.py",
       "drill": "tools/tests/test_deferral_anchor_check.py",
@@ -190,10 +190,16 @@
         {
           "fall": "Aufschub im PR-Text ohne Anker",
           "probe": "anker"
+        },
+        {
+          "fall": "blocking: Fund macht den Workflow-Job rot statt ihn nur zu kommentieren",
+          "probe": "blocking"
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-10"
+      "erzwungen_seit": "2026-09-02",
+      "revised": "2026-09-02",
+      "revision_note": "SCHARFSCHALTUNG advisory -> blocking am 2026-09-02 (Owner-Entscheid E4, platform#2606, eigener PR gemaess frozen_note). Kalibrierfenster 2026-08-10 bis 2026-09-02: EIN echter Treffer, null Fehlalarme — und der getroffene PR (#2607) wurde drei Minuten spaeter gemergt. Null FP UND null Wirkung: ein Melder, den man ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst den Job in .github/workflows/aufschub-anker-gate.yml jetzt FEHLSCHLAGEN (Exit 1 statt nur Kommentar); der Werkzeugfehler-Zweig (Exit 2) bleibt davon getrennt und bekommt einen eigenen Kommentar, damit ein Absturz nicht als Aufschub-Vorwurf gelesen wird. REICHWEITEN-GRENZE, ausdruecklich: platform hat keinen Aggregator-Check; der rote Job blockt den Merge erst, wenn der Kontext \"Aufgeschobene Arbeit braucht einen Anker\" im Ruleset main-required-checks (ID 17621471, heute drei Kontexte) steht — das ist Owner-Recht und im PR als Owner-Punkt benannt. Bis dahin: roter, sichtbarer Check, kein bindendes Gate."
     },
     {
       "slug": "melder-ohne-leser",

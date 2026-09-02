@@ -40,9 +40,13 @@ from markdown_klartext import normalisiere_zeilen  # noqa: E402
 # Gate (deferred_item_scanner.py, Session-Kontext) — dieses hier greift im PR-Text.
 GATE_HEADER = {
     "slug": "aufschub-anker",
-    "mode": "advisory",  # blocking erst nach 0-FP-Kalibrierfenster, s. Registry-frozen_note
+    # blocking seit 2026-09-02 (E4, platform#2606): Fenster 2026-08-10..09-02 mit
+    # 1 echtem Treffer und 0 Fehlalarmen. Der Modus wirkt im WORKFLOW
+    # (.github/workflows/aufschub-anker-gate.yml), nicht in diesem Modul: hier
+    # entscheidet weiterhin `--block` ueber den Exit-Code.
+    "mode": "blocking",
     "owner": "achim",
-    "last_drill_pass": "2026-08-29",  # Drill am realen Rueckfall writing-hub#851 (s. Tests)
+    "last_drill_pass": "2026-09-02",  # Drill am realen Rueckfall writing-hub#851 (s. Tests)
     "evidence": "tools/tests/test_deferral_anchor_check.py",
     "covers": [
         "workaround-without-tracking-anchor",
