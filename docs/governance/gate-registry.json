@@ -776,6 +776,22 @@
       "expires": "2026-10-02",
       "expires_note": "30 Tage — derselbe Stichtag, an dem platform#2690 K4 die Rueckfallquote gegen die 14/33 vom 2026-09-02 misst. Bis dahin ist zu entscheiden: Check-Name `Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)` ins Ruleset (blocking) ODER Gate streichen. Advisory ist hier bewusst der Zwischenschritt und kein Endzustand — die Required-Frage gehoert an das Ruleset des Owners, nicht in einen Datei-Edit (deshalb eigener Job statt Step im Check `tools-tests`).",
       "note": "Bilanz beim Bau (2026-09-02, `--alle`): 31 Gates, 0 vollstaendig verankert — 0 ohne Drill, 0 ohne Messpunkt, 31 ohne Positivkontrolle. Das Feld `positivkontrolle` ist mit diesem Eintrag neu; die Null misst also die Luecke, die es oeffnet, nicht einen Zerfall. Bestandsschutz ist Absicht (Nachziehen der Bestands-Gates getrackt in platform#2703): `--neu` fordert die drei Nachweise nur fuer Eintraege, die gegenueber origin/main neu oder in einem NICHT-Prosa-Feld geaendert sind (`built`, `revised`, `drill`, `module`, `mode`, `repo`). Ein Tippfehler-Fix im `note` faerbt keinen PR. Verdrahtet als eigener Job in .github/workflows/tools-tests.yml (eigener Check-Name, damit die Required-Frage beim Ruleset des Owners bleibt und nicht per Step-Exit vorentschieden wird)."
+    },
+    {
+      "slug": "ci-beweis-wegwerf-2026-09-02",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/gate_verankerung_check.py",
+      "drill": "tools/tests/test_gate_verankerung_check.py",
+      "built": "2026-09-02",
+      "ref": "platform#2690 K4 — WEGWERF-Eintrag einzig dazu, den Blockierpfad von tools/gate_verankerung_check.py --neu einmal ECHT in CI rot zu sehen (bisher nur lokal belegt). Traegt Drill und Messpunkt (Slug-Form + `built`), bewusst OHNE `positivkontrolle` — genau der Mangel, den der Verankerungs-Check melden soll. Wird nach dem CI-Beweis per PR geschlossen, nicht gemergt.",
+      "faengt": [
+        {
+          "fall": "Eintrag mit Drill und Messpunkt, aber ohne Positivkontrolle",
+          "probe": "ci-beweis"
+        }
+      ],
+      "zustand": "schranke"
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
