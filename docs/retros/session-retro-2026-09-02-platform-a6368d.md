@@ -247,3 +247,63 @@ der eigenen Retrospektive.
 **Numerische Einordnung der Quote:** 0,29 liegt am oberen Rand des bisherigen
 Bands (0,00–0,29 über die vorangehenden acht Retros), nicht darüber. Kein Hinweis
 auf zu laxe Finder (>0,8) und keiner auf Falsifikations-Theater (<0,2).
+
+## Korrektur zu §5a (nachgetragen 2026-09-02, nach Owner-Go zur Umsetzung)
+
+**Die Diagnose in §5a war falsch.** Dort steht, der Scanner des Gates
+`claim-before-cheapest-check` lese nur die Antwort an den Owner und nicht den
+Text, der ins Repo wandert. Beim Bau der empfohlenen Ausweitung stellte sich
+heraus: **er liest PR- und Issue-Texte längst.**
+
+`tools/claude-hooks/evidence_claim_scanner.py` enthält `_published_bodies()` —
+die Funktion sammelt Texte aus `gh`-Kommandos mit `--body`, Heredoc und
+`--body-file` und löst dabei sogar `Write`-Inhalte desselben Zuges auf. Der
+Escrow-Satz aus Befund 2 lief genau über diesen Weg und wurde also **gesehen**.
+
+**Warum er trotzdem durchkam:** Das Gate feuert, wenn eine prüfbare Behauptung
+vorliegt **und** der Zug keinen belegenden Werkzeug-Lauf hat. Beim Escrow lief
+ein Werkzeug — `scp` und `sha256sum` — es belegte nur die falsche Ebene. Das ist
+die Klasse *„Werkzeug lief, trägt aber nicht"*, die die Messung zu #2374 am
+selben Tag auf rund 13 % geschätzt hat, nicht die Klasse *„kein Werkzeug"*.
+
+### Die dafür gebaute Regel existiert bereits — und ist gemessen worden
+
+Der Scanner trägt eine **Subjektbindung**: ein Werkzeug-Lauf entlastet nur, wenn
+er den genannten Gegenstand berührt. Sie steht seit 2026-08-20 in einem
+Kalibrierfenster, protokolliert also nur (`kinds=subjekt-unbelegt-kalibrierung`),
+statt zu blocken. `gate_wirkung.py` meldete die Mindestzahl als erreicht.
+
+Ein fremder Prüfer hat die protokollierten Fälle beurteilt — neutral beauftragt,
+im Zweifel gegen die Regel:
+
+| | |
+|---|---|
+| Protokollierte Fälle | 13 |
+| Als **echt** beurteilt | **1** |
+| Trefferquote | **8 %** |
+| Hausschwelle für ein blockierendes Gate | ~50 % |
+
+Der eine echte Treffer ist inhaltlich einschlägig: ein Lauf von `make test-pg`
+lokal, danach die Aussage, die CI-Tests liefen wieder.
+
+**Empfehlung, geändert gegenüber §5a:** nicht *ausweiten* — die Ausweitung gibt
+es schon — sondern die Subjektbindung in ihrer heutigen Form **herabstufen**. Die
+Erkennung ist zu grob: jede Zeichenkette in Backticks und jede Issue-Nummer gilt
+als Gegenstand, und die bloße Abwesenheit dieser Zeichenkette im Belegtext löst
+aus. Der Prüfer schlägt stattdessen eine Kontextprüfung vor: nur feuern, wenn der
+Belegtext ein **anderes** CI-/Prod-/Repo-Stichwort trägt als der Behauptungssatz —
+genau das Muster des einzigen echten Falls.
+
+Die Registry-Änderung selbst bleibt Owner-Zug (Charta: Gate-Zustände sind nicht
+selbstbetreffend änderbar). Das Kalibrierfenster läuft am **2026-09-03** ab.
+
+### Was diese Korrektur über die Retro selbst sagt
+
+Der Befund in §5a war die **einzige Stelle des Berichts, an der eine Diagnose
+ohne Blick in den Code entstand** — aus dem beobachteten Verhalten geschlossen
+statt an der Quelle geprüft. Er hat den Meta-Review passiert, weil dieser die
+Belegpflicht der Befund-Tabelle prüft, nicht die der Empfehlungen in §5a/§6.
+
+Das ist dieselbe Klasse wie Befund 2 und Befund 3, diesmal in der Retrospektive:
+eine Aussage reichte weiter als ihr Beleg. Der billigste Check wäre ein `grep`
+im Scanner gewesen, vor dem Satz.
