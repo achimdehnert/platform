@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pr_merge_sa import (  # noqa: E402
+    FREIGABE_VERMERK,
     Facts,
     Unklar,
     _paths_ignore_deckt_alles,
@@ -378,3 +379,31 @@ def test_should_merge_clean_doc_pr_that_github_does_not_block():
         REGELN,
     )
     assert u.erlaubt is True
+
+
+# --- M1-Vermerk: Schreibweise darf die Sache nicht verdecken (#2603) ---------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Freigabe: akzeptiert durch Owner 2026-09-01, Kapitäns-Kanal",
+        "**Freigabe:** akzeptiert durch Owner 2026-09-01, Kapitäns-Kanal",
+        "**Freigabe**: akzeptiert durch Owner 2026-09-01",
+        "freigabe:   Akzeptiert Durch Owner heute",
+    ],
+)
+def test_should_read_freigabe_vermerk_in_plain_and_bold(body):
+    assert FREIGABE_VERMERK.search(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Freigabe: noch offen — akzeptiert durch Owner steht aus",
+        "akzeptiert durch Owner",
+        "Freigabe angefragt",
+    ],
+)
+def test_should_not_read_freigabe_vermerk_from_lookalikes(body):
+    assert not FREIGABE_VERMERK.search(body)
