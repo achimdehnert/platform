@@ -60,29 +60,117 @@ def test_should_report_drift_when_host_copy_differs(tmp_path, monkeypatch):
     monkeypatch.setattr(
         hdd,
         "host_hashes",
-        lambda ziel, namen: {"/usr/local/bin/skript.sh": "abweichend"},
+        lambda ziel, namen, ssh_via=None, ssh_shell=None: {
+            "/usr/local/bin/skript.sh": "abweichend"
+        },
     )
-    drift, unpruefbar, gezaehlt = hdd.pruefe(pd)
+    drift, unpruefbar, schlaeft, gezaehlt = hdd.pruefe(pd)
     assert drift == ["prod:/usr/local/bin/skript.sh"]
-    assert (unpruefbar, gezaehlt) == ([], 1)
+    assert (unpruefbar, schlaeft, gezaehlt) == ([], [], 1)
 
 
 def test_should_stay_silent_when_host_copy_matches(tmp_path, monkeypatch):
     pd = _platform(tmp_path)
     soll = hdd.md5(pd / "infra/host-maintenance/skript.sh")
     monkeypatch.setattr(
-        hdd, "host_hashes", lambda ziel, namen: {"/usr/local/bin/skript.sh": soll}
+        hdd,
+        "host_hashes",
+        lambda ziel, namen, ssh_via=None, ssh_shell=None: {
+            "/usr/local/bin/skript.sh": soll
+        },
     )
-    drift, unpruefbar, gezaehlt = hdd.pruefe(pd)
-    assert (drift, unpruefbar, gezaehlt) == ([], [], 1)
+    drift, unpruefbar, schlaeft, gezaehlt = hdd.pruefe(pd)
+    assert (drift, unpruefbar, schlaeft, gezaehlt) == ([], [], [], 1)
 
 
 def test_should_treat_unreadable_host_as_gap_not_as_green(tmp_path, monkeypatch):
     # Ein Host, den wir nicht lesen konnten, ist kein Beleg für "synchron".
     pd = _platform(tmp_path)
-    monkeypatch.setattr(hdd, "host_hashes", lambda ziel, namen: None)
-    drift, unpruefbar, gezaehlt = hdd.pruefe(pd)
-    assert (drift, unpruefbar, gezaehlt) == ([], ["prod"], 0)
+    monkeypatch.setattr(
+        hdd, "host_hashes", lambda ziel, namen, ssh_via=None, ssh_shell=None: None
+    )
+    drift, unpruefbar, schlaeft, gezaehlt = hdd.pruefe(pd)
+    assert (drift, unpruefbar, schlaeft, gezaehlt) == ([], ["prod"], [], 0)
+
+
+# ── ssh_via / ssh_shell / auf_zuruf (platform#2774) ──────────────────────────
+# Die beiden Melder bauten das ssh-Kommando bisher nur aus `ssh` und erklärten
+# GPU-Box/GX10 (Zugang nur über den prod-Hop) fälschlich für "nicht lesbar".
+def test_should_route_command_through_hop_when_ssh_via_is_set(monkeypatch):
+    erfasst = {}
+
+    def fake_run(cmd, **kwargs):
+        erfasst["cmd"] = cmd
+        erfasst["kwargs"] = kwargs
+
+        class R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(hdd.subprocess, "run", fake_run)
+    hdd.host_hashes(
+        "achim@10.99.0.2",
+        ["skript.sh"],
+        ssh_via="root@88.198.191.108",
+        ssh_shell="wsl -d Ubuntu -u root -e bash -s",
+    )
+    cmd = erfasst["cmd"]
+    assert cmd[-2] == "root@88.198.191.108"
+    assert "achim@10.99.0.2" in cmd[-1]
+    assert "wsl -d Ubuntu -u root -e bash -s" in cmd[-1]
+    # Das Skript geht per stdin durch beide Verbindungen, nicht als
+    # Kommandozeilen-Argument durch zwei Shells hindurch zitiert.
+    assert "input" in erfasst["kwargs"]
+
+
+def test_should_call_host_directly_without_ssh_via(monkeypatch):
+    erfasst = {}
+
+    def fake_run(cmd, **kwargs):
+        erfasst["cmd"] = cmd
+        erfasst["kwargs"] = kwargs
+
+        class R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(hdd.subprocess, "run", fake_run)
+    hdd.host_hashes("root@1.2.3.4", ["skript.sh"])
+    cmd = erfasst["cmd"]
+    assert cmd[-2] == "root@1.2.3.4"
+    assert "input" not in erfasst["kwargs"]
+
+
+def test_should_mark_unresponsive_auf_zuruf_host_as_sleeping_not_as_gap(
+    tmp_path, monkeypatch
+):
+    pd = _platform(tmp_path)
+    (pd / "infra/hosts.yaml").write_text(
+        "hosts:\n"
+        "  prod:\n    ssh: root@1.2.3.4\n"
+        "  gpu-box:\n    ssh: achim@10.99.0.2\n"
+        "    ssh_via: root@88.198.191.108\n"
+        "    betrieb: auf_zuruf\n"
+    )
+    soll = hdd.md5(pd / "infra/host-maintenance/skript.sh")
+
+    def fake(ziel, namen, ssh_via=None, ssh_shell=None):
+        if ziel == "root@1.2.3.4":
+            return {"/usr/local/bin/skript.sh": soll}
+        return None  # gpu-box antwortet nicht — schläft, kein Ausfall
+
+    monkeypatch.setattr(hdd, "host_hashes", fake)
+    drift, unpruefbar, schlaeft, gezaehlt = hdd.pruefe(pd)
+    assert drift == []
+    assert unpruefbar == []
+    assert schlaeft == ["gpu-box"]
+    assert gezaehlt == 1
 
 
 # ── Versionsmarker (platform#2529) ───────────────────────────────────────────
@@ -103,12 +191,12 @@ def test_should_name_both_versions_when_a_marked_file_drifts(tmp_path, monkeypat
     pd = _mit_marker(tmp_path, "2026-08-31.1")
     pfad = "/usr/local/bin/skript.sh"
 
-    def fake(ziel, namen):
+    def fake(ziel, namen, ssh_via=None, ssh_shell=None):
         hdd.VERSIONEN[pfad] = "2026-08-25.0"
         return {pfad: "abweichend"}
 
     monkeypatch.setattr(hdd, "host_hashes", fake)
-    drift, _, _ = hdd.pruefe(pd)
+    drift, _, _, _ = hdd.pruefe(pd)
     assert drift == [f"prod:{pfad} (Host 2026-08-25.0 / Repo 2026-08-31.1)"]
 
 
@@ -121,9 +209,13 @@ def test_should_stay_plain_when_the_file_carries_no_marker(tmp_path, monkeypatch
         "hosts:\n  prod:\n    ssh: root@1.2.3.4\n"
     )
     monkeypatch.setattr(
-        hdd, "host_hashes", lambda z, n: {"/usr/local/bin/ohne.sh": "abweichend"}
+        hdd,
+        "host_hashes",
+        lambda z, n, ssh_via=None, ssh_shell=None: {
+            "/usr/local/bin/ohne.sh": "abweichend"
+        },
     )
-    drift, _, _ = hdd.pruefe(tmp_path)
+    drift, _, _, _ = hdd.pruefe(tmp_path)
     assert drift == ["prod:/usr/local/bin/ohne.sh"]
 
 
@@ -132,6 +224,8 @@ def test_should_not_leak_versions_between_runs(tmp_path, monkeypatch):
     # naechsten ein — eine Klasse Fehler, die nur bei Mehrfachlaeufen auftritt.
     pd = _mit_marker(tmp_path, "2026-08-31.1")
     hdd.VERSIONEN["/usr/local/bin/skript.sh"] = "uralt"
-    monkeypatch.setattr(hdd, "host_hashes", lambda z, n: {})
+    monkeypatch.setattr(
+        hdd, "host_hashes", lambda z, n, ssh_via=None, ssh_shell=None: {}
+    )
     hdd.pruefe(pd)
     assert hdd.VERSIONEN == {}

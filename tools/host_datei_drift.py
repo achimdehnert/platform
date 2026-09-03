@@ -79,15 +79,29 @@ def md5(p: Path) -> str:
     return hashlib.md5(p.read_bytes()).hexdigest()
 
 
-def hosts_aus_registry(platform_dir: Path) -> list[tuple[str, str]]:
-    """(Name, ssh-Ziel) je Host aus der Infra-SoT. Nicht hier hartkodieren."""
+def hosts_aus_registry(platform_dir: Path) -> list[dict[str, str | None]]:
+    """Zugangsfelder je Host aus der Infra-SoT. Nicht hier hartkodieren.
+
+    `ssh_via`/`ssh_shell`/`betrieb` fehlten hier bisher komplett — der Melder
+    baute das ssh-Kommando nur aus `ssh` und erklaerte GPU-Box/GX10 (Zugang nur
+    ueber den prod-Hop, kein Schluessel auf dieser Maschine) fuer "nicht lesbar",
+    obwohl sie vom Hop aus antworten (platform#2774 Befund).
+    """
     import yaml
 
     daten = yaml.safe_load((platform_dir / "infra/hosts.yaml").read_text())
     ergebnis = []
     for name, h in (daten.get("hosts") or {}).items():
         if isinstance(h, dict) and h.get("ssh"):
-            ergebnis.append((name, h["ssh"]))
+            ergebnis.append(
+                {
+                    "name": name,
+                    "ssh": h["ssh"],
+                    "ssh_via": h.get("ssh_via"),
+                    "ssh_shell": h.get("ssh_shell"),
+                    "betrieb": h.get("betrieb"),
+                }
+            )
     return ergebnis
 
 
@@ -104,11 +118,23 @@ def quelldateien(platform_dir: Path) -> dict[str, Path]:
     return gefunden
 
 
-def host_hashes(ssh_ziel: str, namen: list[str]) -> dict[str, str] | None:
+def host_hashes(
+    ssh_ziel: str,
+    namen: list[str],
+    ssh_via: str | None = None,
+    ssh_shell: str | None = None,
+) -> dict[str, str] | None:
     """md5 je gefundener Kopie auf einem Host. None = Host nicht lesbar.
 
     Ein einziger ssh-Aufruf fuer alle Dateien: der Melder laeuft in JEDEM
     Sitzungsstart, und ein Call je Datei waere 11 Verbindungen pro Host.
+
+    `ssh_via`: der Schluessel fuer den Knoten liegt nur auf dem Hop (GPU-Box,
+    GX10 — analog tools/flottenbild.py messe_knoten()). Das Kommando geht dann
+    als verschachteltes ssh vom Hop aus; das Skript wandert per stdin durch
+    beide Verbindungen, statt als Kommandozeilen-Argument durch zwei Shells
+    hindurch zitiert zu werden. `ssh_shell` ersetzt die Remote-Shell (WSL bei
+    Windows-Knoten), Vorgabe ist "bash -s".
     """
     muster = " ".join(
         _remote_pfad(ort, n) for n in namen for ort in ABLAGEORTE if SICHER.match(n)
@@ -122,12 +148,21 @@ def host_hashes(ssh_ziel: str, namen: list[str]) -> dict[str, str] | None:
         f'v=$(grep -m1 -oE \'^[A-Z_]+_VERSION="[^"]*"\' "$p" 2>/dev/null); '
         f'[ -n "$v" ] && echo "VER $p $v"; done 2>/dev/null'
     )
+    if ssh_via:
+        shell = ssh_shell or "bash -s"
+        inner = f'ssh -o BatchMode=yes -o ConnectTimeout=8 {ssh_ziel} "{shell}"'
+        cmd = [*SSH, ssh_via, inner]
+        lauf_kwargs: dict = {"input": befehl}
+    else:
+        cmd = [*SSH, ssh_ziel, befehl]
+        lauf_kwargs = {}
     try:
         aus = subprocess.run(
-            [*SSH, ssh_ziel, befehl],
+            cmd,
             capture_output=True,
             text=True,
             timeout=60,
+            **lauf_kwargs,
         )
     except (subprocess.TimeoutExpired, OSError):
         return None
@@ -145,11 +180,11 @@ def host_hashes(ssh_ziel: str, namen: list[str]) -> dict[str, str] | None:
     return treffer
 
 
-def pruefe(platform_dir: Path) -> tuple[list[str], list[str], int]:
-    """(Drift-Zeilen, unpruefbare Hosts, Anzahl gepruefter Kopien)."""
+def pruefe(platform_dir: Path) -> tuple[list[str], list[str], list[str], int]:
+    """(Drift-Zeilen, unpruefbare Hosts, schlafende Hosts, Anzahl gepruefter Kopien)."""
     quellen = quelldateien(platform_dir)
     if not quellen:
-        return [], [], 0
+        return [], [], [], 0
     soll = {name: md5(p) for name, p in quellen.items()}
     soll_versionen = {
         name: m.group(1)
@@ -160,12 +195,22 @@ def pruefe(platform_dir: Path) -> tuple[list[str], list[str], int]:
 
     drift: list[str] = []
     unpruefbar: list[str] = []
+    schlaeft: list[str] = []
     gezaehlt = 0
 
-    for host, ssh_ziel in hosts_aus_registry(platform_dir):
-        treffer = host_hashes(ssh_ziel, list(quellen))
+    for host in hosts_aus_registry(platform_dir):
+        treffer = host_hashes(
+            host["ssh"], list(quellen), host.get("ssh_via"), host.get("ssh_shell")
+        )
         if treffer is None:
-            unpruefbar.append(host)
+            # `betrieb: auf_zuruf` — der Knoten laeuft planmaessig nur, wenn ihn
+            # jemand weckt (GPU-Box, Owner-Entscheid Wake-on-LAN). Das ist kein
+            # Ausfall und kein Scope-Gap, sondern ein erwarteter Zustand — sonst
+            # stuende der Knoten dauerhaft als "nicht pruefbar" da (platform#2545).
+            if host.get("betrieb") == "auf_zuruf":
+                schlaeft.append(host["name"])
+            else:
+                unpruefbar.append(host["name"])
             continue
         for pfad, ist in sorted(treffer.items()):
             name = pfad.rsplit("/", 1)[-1]
@@ -178,8 +223,8 @@ def pruefe(platform_dir: Path) -> tuple[list[str], list[str], int]:
                     if ist_ver and soll_ver and ist_ver != soll_ver
                     else ""
                 )
-                drift.append(f"{host}:{pfad}{zusatz}")
-    return drift, unpruefbar, gezaehlt
+                drift.append(f"{host['name']}:{pfad}{zusatz}")
+    return drift, unpruefbar, schlaeft, gezaehlt
 
 
 def main() -> int:
@@ -189,7 +234,7 @@ def main() -> int:
 
     platform_dir = Path(__file__).resolve().parents[1]
     try:
-        drift, unpruefbar, gezaehlt = pruefe(platform_dir)
+        drift, unpruefbar, schlaeft, gezaehlt = pruefe(platform_dir)
     except Exception as exc:  # noqa: BLE001 — der Runner braucht eine Zeile, keinen Traceback
         print(f"RESULT: UNGEPRUEFT — Drift-Check nicht ausfuehrbar: {exc}")
         return 3
@@ -200,6 +245,8 @@ def main() -> int:
             print(f"  ❌ DRIFT  {d}")
         for h in unpruefbar:
             print(f"  ⚠️  nicht lesbar: {h}")
+        for h in schlaeft:
+            print(f"  😴 schläft (auf_zuruf), kein Befund: {h}")
 
     if drift:
         print(
@@ -213,7 +260,11 @@ def main() -> int:
             f"(die uebrigen {gezaehlt} Kopie(n) sind synchron)"
         )
         return 3
-    print(f"RESULT: OK — {gezaehlt} verteilte Host-Kopie(n) synchron mit dem Repo")
+    schlaf_hinweis = f" — schlaeft (auf_zuruf): {' '.join(schlaeft)}" if schlaeft else ""
+    print(
+        f"RESULT: OK — {gezaehlt} verteilte Host-Kopie(n) synchron mit dem Repo"
+        f"{schlaf_hinweis}"
+    )
     return 0
 
 
