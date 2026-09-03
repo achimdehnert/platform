@@ -811,6 +811,44 @@
         "ref": "platform#2207 — Lauf ueber tools/ und scripts/ am 2026-09-02 fand 39 Stellen, darunter session_start_checks.sh:294/301 (`ss -tlnp | grep -q 15435` als Pruefung des pgvector-Tunnels: der Befehl kann scheitern und die Zeile trotzdem gruen melden). Gegenprobe im Drill: Here-String-Form und Exit-Code-Form werden NICHT gemeldet (test_should_ignore_herestring_and_exit_code_form)",
         "datum": "2026-09-02"
       }
+    },
+    {
+      "slug": "w11-cache-delete-without-content-check",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/w11_cache_clean.py",
+      "drill": "tools/tests/test_w11_cache_clean.py",
+      "built": "2026-09-03",
+      "ref": "platform#2745 (Owner-Go 2026-09-03 'Wortlaut so')",
+      "note": "Gate-1-Allowlist 'Cache-Loeschung auf der GPU-Box' haengt an sechs Bedingungen. Sie stehen NICHT nur im Skill, sondern im Werkzeug — die Disziplin des Agenten hat am Tag der Ratifikation selbst versagt (Empfehlung, den huggingface-Cache als Ganzes zu loeschen, obwohl dort eine Zugangsdatei liegt). Der Wrapper prueft (b) Zugangsdaten, (c) verbotene Pfade, (d) eigener Aufraeumbefehl und (f) Freigabe-an-der-Liste selbst und verweigert sonst den Lauf.",
+      "positivkontrolle": {
+        "ref": "platform#2745 — Trockenlauf gegen die echten Pfade am 2026-09-03 lehnte genau den Fall ab, den der Agent zuvor falsch empfohlen hatte: '⛔ (b) Zugangsdatei `token` im Ordner — nur die Unterordner loeschen' fuer C:\\Users\\achim\\.cache\\huggingface, waehrend der Unterordner ...\\hub im selben Lauf freigegeben wurde (1 freigegeben, 2 abgelehnt; AppData\\Local\\Docker per (c)+(d)). Gegenprobe im Drill: `tokenizer.json` und `keyboard.txt` loesen NICHT aus.",
+        "datum": "2026-09-03"
+      },
+      "faengt": [
+        {
+          "fall": "Loeschvorschlag fuer einen Ordner, der eine Zugangsdatei traegt",
+          "probe": "b-geheim"
+        },
+        {
+          "fall": "Loeschung der WSL-Distribution oder des Docker-Datenordners",
+          "probe": "c-verboten"
+        },
+        {
+          "fall": "rm statt des eigenen Aufraeumbefehls (uv/pip/ollama/docker)",
+          "probe": "d-eigener-befehl"
+        },
+        {
+          "fall": "Loeschen ohne den Wortlaut der Owner-Freigabe",
+          "probe": "f-freigabe"
+        },
+        {
+          "fall": "unerreichbare Box als 'nichts zu tun' gelesen",
+          "probe": "blind-nicht-gruen"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-03"
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
