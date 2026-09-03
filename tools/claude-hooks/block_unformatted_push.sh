@@ -167,7 +167,14 @@ if [ "${lint:-0}" -gt 0 ] && [ "${bad:-0}" -eq 0 ]; then
   exit 0
 fi
 if [ "${bad:-0}" -gt 0 ]; then
-  reason="⛔ git push geblockt: ${bad} geänderte .py-Datei(en) sind nicht ruff-formatiert (Gate lint-failure-no-local-gate, retro d2522c #9)${lint:+ · zusaetzlich ${lint} ruff-check-Verstoss/Verstoesse}. Fix: cd ${root} && ${RUFF} format . (bzw. make fmt), dann erneut pushen."
+  # `${lint:+…}` prueft auf NICHT-LEER, und `lint` ist hier immer gesetzt — bei
+  # sauberem Lint eben auf "0". Die Meldung endete deshalb auf "zusaetzlich 0
+  # ruff-check-Verstoesse". Unsichtbar geblieben, weil dieser Zweig seit ruff 0.16
+  # nie erreicht wurde (platform#2738); mit dem reparierten Gate liest es jeder,
+  # der einen unformatierten Push versucht.
+  zusatz=""
+  [ "${lint:-0}" -gt 0 ] && zusatz=" · zusaetzlich ${lint} ruff-check-Verstoss/Verstoesse"
+  reason="⛔ git push geblockt: ${bad} geänderte .py-Datei(en) sind nicht ruff-formatiert (Gate lint-failure-no-local-gate, retro d2522c #9)${zusatz}. Fix: cd ${root} && ${RUFF} format . (bzw. make fmt), dann erneut pushen."
   reason="${reason//\"/\\\"}"
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
 fi
