@@ -15,19 +15,21 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-03 mittags/nachmittags — Future-Readiness Phase C 56/56, Bewerter-Fix, Melder-Fix gpu-box/gx10)
+## ⚡ Aktueller Stand (2026-09-03 nachmittags/abends — Phase C 56/56 abgeschlossen, Zug A SECURITY.md + Notices: Pilot durch, Welle 9 PRs offen)
 
-**Zeitanker:** HEAD `70db5eac` · `rev-list --count` 4075 · geschrieben 2026-09-03
+**Zeitanker:** HEAD `072f6e7a` · `rev-list --count` 4090 · geschrieben 2026-09-03
 
-**Zielzustand (Owner-Wort 2026-09-03 „21 Vorschlag: Phase C Future-Readiness; 22 go; 23 teste asap gx10 und gpu-box sollten erreichbar sein"): Phase C erreicht — 56/56 Repos deterministisch bewertet, Ablage [dev-hub#321](https://github.com/achimdehnert/dev-hub/pull/321) (offen); gx10/gpu-box antworten vom prod-Hop (SSH, Handshake < 2 Min.) — der Runner-Befund war ein Messfehler der Melder; Handover nachgezogen.**
+**Zielzustand (Owner-Worte 2026-09-03 „21 Vorschlag Phase C · 22 go · 23 teste gx10/gpu-box" → erreicht; „43 A · 44 ausschreibungs-hub + dev-hub raus · 45 go · 56 go" → [#2787](https://github.com/achimdehnert/platform/issues/2787) Zug A: Pilot **erreicht** (trading-hub#202 + writing-hub#1007 gemergt, coach-hub Preflight-Ausfall), Welle **verschoben mit Anker** — 9 PRs offen, Merges gestaffelt beim Owner.**
 
-**Offen, Owner-Zug (W1 verlangt M1, Classifier verweigerte den dev-hub-Merge):** [#2781](https://github.com/achimdehnert/platform/pull/2781) Melder 0.7.1/0.7.1b ehren `ssh_via`/`ssh_shell`/`auf_zuruf` (Positivkontrolle: beide Hosts „ohne Kopie") · [#2782](https://github.com/achimdehnert/platform/pull/2782) Bewerter-Fix D02.1-Locator ([#2780](https://github.com/achimdehnert/platform/issues/2780)) + `tools/future_readiness_render.py` (53/53 Berichte byte-identisch) · dev-hub#321 Berichte (W0/M0 gedeckt). **Kennzahlen Phase C:** Median Readiness 52 (11–74), alle 56 `insufficient-evidence`, 53 P1 in 33 Repos; 11 Repos zunächst am Bewerter-Schema gescheitert, nach Fix nachgezogen.
+**Gemergt (7 PRs, 4 Repos).** Phase C [dev-hub#321](https://github.com/achimdehnert/dev-hub/pull/321) (56/56, Median Readiness 52, 53 P1 in 33 Repos) · Bewerter-Fix + Renderer [#2782](https://github.com/achimdehnert/platform/pull/2782) ([#2780](https://github.com/achimdehnert/platform/issues/2780)) · Melder 0.7.1/0.7.1b über den Hop [#2781](https://github.com/achimdehnert/platform/pull/2781) (gx10/gpu-box antworten; Tab-Kollaps in `bash read`) · Werkzeug `tools/welle_security_notices.py` + `docs/templates/SECURITY.md` [#2788](https://github.com/achimdehnert/platform/pull/2788) · [trading-hub#202](https://github.com/achimdehnert/trading-hub/pull/202) (kein Deploy, `paths-ignore` greift) · [writing-hub#1007](https://github.com/achimdehnert/writing-hub/pull/1007) (**deployte** — Filter fiel offen, [writing-hub#1008](https://github.com/achimdehnert/writing-hub/issues/1008)).
 
-**Befunde:** Melder prüften direkt vom dev-desktop statt über den Hop (4 Läufe falsch rot; `flottenbild.py` konnte es längst) · `pr_merge_sa.py` zählt veraltete Läufe gleichnamiger Checks als rot, Neustart liest den alten PR-Text ([#2784](https://github.com/achimdehnert/platform/issues/2784)) · Hop-Aufbau jetzt dreifach ([#2783](https://github.com/achimdehnert/platform/issues/2783)) · beide Sonnet-Subagenten beendeten den Zug beim Warten auf Monitor/Hintergrundlauf (Memory `feedback_subagent_wait_loop_cutoff`, zweite Form).
+**Welle offen (Owner mergt ≤ 3/h, jeder Merge deployt):** [137-hub#95](https://github.com/achimdehnert/137-hub/pull/95) · [billing-hub#45](https://github.com/achimdehnert/billing-hub/pull/45) · [cad-hub#63](https://github.com/achimdehnert/cad-hub/pull/63) · [decks-hub#80](https://github.com/achimdehnert/decks-hub/pull/80) · [dms-hub#70](https://github.com/achimdehnert/dms-hub/pull/70) · [learn-hub#45](https://github.com/achimdehnert/learn-hub/pull/45) · [tax-hub#133](https://github.com/iilgmbh/tax-hub/pull/133) (iilgmbh) · [weltenhub#74](https://github.com/achimdehnert/weltenhub/pull/74) · [travel-beat#96](https://github.com/achimdehnert/travel-beat/pull/96) **erst nach Runner** (#95). Ausgelassen: bahn-hub, risk-hub (Deploy rot), wedding-hub (Deploy hängt 13 d), recruiting-hub (archiviert). **Zug B (Lockfile) nicht freigegeben** (Zahlen in #2737).
 
-**Nächster Schritt:** Owner mergt #2781/#2782/dev-hub#321 — oder Go im Chat, dann Freigabe-Vermerk in den Issue-Body (#2780 bzw. #2562), `pr_merge_sa.py`; #2781 braucht wegen #2784 einen neuen Head-SHA. Danach v2.4 aus [#2737](https://github.com/achimdehnert/platform/issues/2737) (36 Kandidaten) und Portfolio-Auswertung der 56 Berichte (Flottenmuster: Lockfile, SECURITY.md, Third-Party-Notices fehlen überall).
+**Befunde:** writing-hub-Doku-Filter blind (kein `gh` auf `ci-nonprod`, Fail-open; meine Aussage „Pfadfilter greift" war Definition statt Lauf) · `pr_merge_sa.py` zählt veraltete Läufe, Rerun liest alten PR-Text ([#2784](https://github.com/achimdehnert/platform/issues/2784)) · Hop-Aufbau dreifach ([#2783](https://github.com/achimdehnert/platform/issues/2783)) · Owner mergte Dependabot auf shared-ci v1.1.14 (intern ungepinnt, [shared-ci#73](https://github.com/iilgmbh/shared-ci/issues/73)) · Preflight: Label heißt `deploy-failure-escalation`, Archiv-Status fehlte, tax-hub lebt in iilgmbh · 3 Sonnet-Subagenten brachen beim Monitor-Warten ab (Memory).
 
-**SA-4:** 0 Anwendungen · 0 Merges. Delegation: 2 Sonnet-Subagenten nach Brief (Melder-Fix 151k, Phase C 458k Tokens), Prüfung und Fixes inline (Bewerter, Renderer). Session `session_01Lob9LxJAYX6hGAHGMF29oh`.
+**Nächster Schritt:** Owner mergt die Welle gestaffelt; „57 go" → 36 Repos ohne Prod-Deploy (kein Deploy, keine Staffelung; Brief wie in #2787, Preflight + „archiviert?"). Danach K5-Messung (`future_readiness_score.py` je Repo, D08.4/D11.2 ok) und Vorher/Nachher-Zeile in dev-hub `docs/audits/future-readiness/`. Parallel: writing-hub#1008 (gh auf ci-nonprod ODER urllib), v2.4 aus #2737.
+
+**SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 3 Merges per Mandat (#2788 W1/M1 nach Freigabe-Vermerk im Issue-Body, trading-hub#202 W0, #2781/#2782/dev-hub#321 durch Owner). Delegation: 4 Sonnet-Subagenten nach Brief (Phase C 458k, Melder 151k, Werkzeug 148k, Welle 139k Tokens), Prüfung + Fixes inline. Session `session_01Lob9LxJAYX6hGAHGMF29oh`.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
@@ -70,6 +72,8 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 33. session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name): https://github.com/achimdehnert/platform/issues/2773
 34. Hop-Zugang (ssh_via) dreifach in drei Melder-Werkzeugen, gemeinsamer Helfer: https://github.com/achimdehnert/platform/issues/2783
 35. pr_merge_sa.py zählt veraltete Läufe gleichnamiger Checks als rot: https://github.com/achimdehnert/platform/issues/2784
+36. Zug A SECURITY.md + THIRD_PARTY_NOTICES.md: 9 PRs gestaffelt mergen, 4 ausgelassen, 36 Repos ohne Prod-Deploy warten auf Owner-Wort: https://github.com/achimdehnert/platform/issues/2787
+37. writing-hub Doku-Filter fällt offen (kein gh auf ci-nonprod), jeder Doku-Merge deployt: https://github.com/achimdehnert/writing-hub/issues/1008
 
 ## Konventionen dieser Datei
 

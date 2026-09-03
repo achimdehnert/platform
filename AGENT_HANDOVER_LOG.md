@@ -3353,3 +3353,16 @@ Hintergrundlaeufe verbieten (Memory). pr_merge_sa.py hielt #2781 fuer rot, weil 
 veralteten Lauf desselben Checks mitzaehlt; ein Neustart des Laufs las den alten PR-Text
 (#2784). Merges: W1 verlangt M1, der Classifier verweigerte den dev-hub-Merge — alle drei
 beim Owner.
+
+## 2026-09-03 nachmittags/abends — Zug A SECURITY.md + Notices: Werkzeug, Pilot, Welle (Sitzung 01Lob9, Fortsetzung)
+
+Owner-Frage zur Flottenwelle „wird etwas zerstoert, was gerade laeuft?" mit Zahlen beantwortet:
+14 App-Repos deployen bei jedem Push auf main ohne Gate, 2 hinken in Prod hinterher, 10 Repos
+sind teilgepinnt. Entscheid: nur Zug A (SECURITY.md + THIRD_PARTY_NOTICES.md, docs-only),
+Zug B (Lockfile) nicht; ausschreibungs-hub + dev-hub raus. Werkzeug per Sonnet-Brief gebaut
+(#2788), Pilot in drei Pfadfilter-Repos: trading-hub gemergt ohne Deploy, writing-hub vom
+Owner gemergt — und deployte doch: der Filter im changes-Job fiel offen, weil gh auf dem
+Runner fehlt (writing-hub#1008). Meine Aussage „Pfadfilter greift" war die Definition, nicht
+ein Lauf. Welle ueber 13 Push-Deploy-Repos: 9 PRs, 4 per Preflight ausgelassen, Merges beim
+Owner gestaffelt. Nebenbefunde: pr_merge_sa.py zaehlt alte Laeufe (#2784), Hop-Aufbau
+dreifach (#2783), Owner-Dependabot-Merges auf shared-ci v1.1.14 (shared-ci#73).
