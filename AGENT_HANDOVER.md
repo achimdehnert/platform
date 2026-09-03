@@ -76,6 +76,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 35. pr_merge_sa.py zählt veraltete Läufe gleichnamiger Checks als rot: https://github.com/achimdehnert/platform/issues/2784
 36. Zug A SECURITY.md + THIRD_PARTY_NOTICES.md: 9 PRs gestaffelt mergen, 4 ausgelassen, 36 Repos ohne Prod-Deploy warten auf Owner-Wort: https://github.com/achimdehnert/platform/issues/2787
 37. writing-hub Doku-Filter fällt offen (kein gh auf ci-nonprod), jeder Doku-Merge deployt: https://github.com/achimdehnert/writing-hub/issues/1008
+38. Sitzung 6e320e79 (Mailcheck/DSGVO/EPIC): `load_credentials` beendet den Prozess statt zu werfen — Wurzel hinter #2755; Ledger #185–#188 offen, Papiere `~/shared/retentionsscanner/`: https://github.com/achimdehnert/platform/issues/2752
 
 ## Konventionen dieser Datei
 
