@@ -23,7 +23,11 @@ import pytest
 # Load the hook module from the sibling directory without installing it.
 _HOOK_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(_HOOK_DIR))
-import log_llm_call as hook  # noqa: E402
+# `isort: skip`, nicht `noqa: E402`: der Import MUSS nach dem sys.path-Eingriff
+# stehen, und genau das darf ruff nicht wegsortieren (I001). Das frühere
+# `noqa: E402` war seit ruff 0.16 wirkungslos (E402 nicht mehr im Default-Satz,
+# platform hat keinen eigenen `select`) und wurde als RUF100 gemeldet.
+import log_llm_call as hook  # isort: skip
 
 
 # ---------------------------------------------------------------------------
