@@ -22,8 +22,25 @@ REPO = Path(__file__).resolve().parents[3]
 REGISTRY = REPO / "docs" / "governance" / "gate-registry.json"
 
 _gates = json.loads(REGISTRY.read_text(encoding="utf-8"))["gates"]
+
+
+def _module_pfade(gate: dict) -> list[str]:
+    """`module` als Liste — ein Gate darf mehr als einen Erzwingungspunkt haben.
+
+    `stale-local-clone-as-ground-truth` greift seit 2026-09-03 an zwei Stellen
+    (SessionStart fuer das eigene Repo, PreToolUse fuer ein fremdes Quell-Repo).
+    Beide Dateien werden von settings.json direkt aufgerufen und muessen beide
+    ausfuehrbar sein und eine Shebang tragen — der Vertrag gilt je Datei, nicht
+    je Gate. Erlaubt sind String, kommagetrennte Liste und JSON-Liste.
+    """
+    roh = gate.get("module") or ""
+    teile = [str(x).strip() for x in roh] if isinstance(roh, list) \
+        else [x.strip() for x in str(roh).split(",")]
+    return [x for x in teile if x]
+
+
 _modules = sorted(
-    {g["module"] for g in _gates if g.get("module", "").startswith("tools/")}
+    {m for g in _gates for m in _module_pfade(g) if m.startswith("tools/")}
 )
 
 

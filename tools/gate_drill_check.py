@@ -25,6 +25,21 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_REGISTRY = os.path.join(REPO_ROOT, "docs", "governance", "gate-registry.json")
 
 
+def drill_pfade(gate: dict) -> list[str]:
+    """`drill` als Liste — ein Gate darf mehr als einen Erzwingungspunkt haben.
+
+    `stale-local-clone-as-ground-truth` greift seit 2026-09-03 an zwei Stellen
+    (Sitzungsstart fuer das eigene Repo, vor jedem Bash-Aufruf fuer ein fremdes
+    Quell-Repo). Beide Zweige brauchen ihren Drill, und beide muessen laufen —
+    nur den ersten zu fahren waere ein halber Beleg mit ganzem Haken.
+    Erlaubt sind String, kommagetrennte Liste und JSON-Liste.
+    """
+    roh = gate.get("drill") or ""
+    teile = [str(x).strip() for x in roh] if isinstance(roh, list) \
+        else [x.strip() for x in str(roh).split(",")]
+    return [x for x in teile if x]
+
+
 def pruefe_header(gate: dict) -> list[str]:
     """Befunde zum maschinenlesbaren Kopf des Gate-Moduls (KONZ-038 D8).
 
@@ -38,14 +53,21 @@ def pruefe_header(gate: dict) -> list[str]:
 
     Gibt eine Liste von Befund-Texten zurueck; leer = in Ordnung.
     """
-    modul = gate.get("module", "")
-    if not modul:
+    module = drill_pfade({"drill": gate.get("module", "")})
+    if not module:
         # `meta`-Gates sind absichtlich modul-los: sie drillen quer ueber ALLE
         # registrierten Module (z.B. Executable-Bit + Shebang) und haben deshalb
         # kein eigenes. Kein Befund — aber auch nicht stillschweigend uebergehen.
         if gate.get("mode") == "meta":
             return []
         return ["kein `module` in der Registry — Kopf nicht pruefbar"]
+    # Ein Gate darf an mehreren Stellen greifen; der Kopf-Vertrag gilt je Datei.
+    if len(module) > 1:
+        befunde: list[str] = []
+        for m in module:
+            befunde += [f"{m}: {b}" for b in pruefe_header({**gate, "module": m})]
+        return befunde
+    modul = module[0]
     voll = os.path.join(REPO_ROOT, modul)
     if not os.path.isfile(voll):
         return [f"Modul fehlt: {modul}"]
@@ -110,14 +132,27 @@ def pruefe_fremd(gate: dict) -> list[str]:
         befunde.append(
             "fremd verankert ohne `ref` — kein Beleg, dass das Gate existiert"
         )
-    if not (gate.get("drill") or "").strip():
+    if not drill_pfade(gate):
         befunde.append("fremd verankert ohne `drill` — der Pfad im Ziel-Repo fehlt")
     return befunde
 
 
+
 def run_drill(drill_path: str) -> tuple[bool, str]:
     """True = Drill grün. Fehlende Datei = rot (K4: nicht belegbar = nicht gebaut)."""
-    full = os.path.join(REPO_ROOT, drill_path)
+    pfade = [x.strip() for x in str(drill_path).split(",")] if isinstance(drill_path, str) \
+        else [str(x).strip() for x in drill_path]
+    pfade = [x for x in pfade if x]
+    if not pfade:
+        return False, "Drill-Datei fehlt"
+    if len(pfade) > 1:
+        # Alle Zweige fahren; der erste rote entscheidet.
+        ergebnisse = [run_drill(x) for x in pfade]
+        rote = [d for ok, d in ergebnisse if not ok]
+        if rote:
+            return False, "; ".join(rote)
+        return True, f"{len(pfade)} Drills gruen"
+    full = os.path.join(REPO_ROOT, pfade[0])
     if not os.path.isfile(full):
         return False, "Drill-Datei fehlt"
     try:
@@ -160,7 +195,7 @@ def main() -> int:
                 fremd += 1
                 print(
                     f"  ⌁ {g['slug']} ({g.get('mode', '?')}) — fremd verankert in "
-                    f"{g['repo']}: {g['drill']} (Beleg: {g['ref']})"
+                    f"{g['repo']}: {', '.join(drill_pfade(g))} (Beleg: {g['ref']})"
                 )
             # Kein Kopf-Check: das Modul liegt nicht in diesem Arbeitsbaum.
             continue
