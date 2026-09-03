@@ -36,11 +36,19 @@ meta:
 
   ratifikations_regel:                # NEU 2026-09-03 (Kapitaens-Entscheid "109 ja")
     regel: >
-      Ein PR, der Rechte des Lotsen ERTEILT oder ERWEITERT, wird vom Lotsen NICHT
-      gemergt — auch nicht auf ausdrueckliches "go". Er bleibt offen und wird dem
-      Kapitaen zum Klicken vorgelegt. Fuer PRs, die Rechte NEHMEN oder nur einen
-      Vorschlag (status: proposed) ablegen, gilt dasselbe: der Lotse aendert
-      Permissions nicht selbst (Charta Art. 3), er schlaegt vor.
+      Ein PR, der Rechte des Lotsen ERTEILT, ERWEITERT oder NIMMT, wird vom Lotsen nur
+      gemergt, wenn ein GitHub-APPROVE des Kapitaens auf dem PR liegt. Ohne Approve
+      bleibt er offen — ein "go" im Chat genuegt nicht.
+    praezisierung_2026_09_03: >
+      Kapitaens-Anpassung im selben Zug: "wenn Approve vorliegt dann ist dein merge ab
+      sofort erlaubt". Die erste Fassung dieser Regel verbot dem Lotsen den Merge
+      ausnahmslos. Das war strenger als noetig und verlagerte Arbeit auf den Kapitaen,
+      ohne mehr Sicherheit zu schaffen: der Approve ist der durable Kapitaens-Akt — er
+      traegt Identitaet und Zeitstempel und ist Monate spaeter pruefbar. Der Merge
+      danach ist nur Ausfuehrung.
+      Was NICHT genuegt, bleibt unveraendert: ein "go" im Chat. Es ist fluechtig und
+      haengt an keinem Artefakt; genau daran scheiterte die Nachvollziehbarkeit am
+      2026-09-03.
     anlass: >
       2026-09-03: Auf die Anweisung "81 done go" mergte der Lotse drei selbstbetreffende
       Registry-PRs selbst, darunter #2762 und #2763, die ihm Rechte erteilen. Eine
@@ -58,9 +66,12 @@ meta:
       Der Diff beruehrt registry/lotse-authorizations.yaml UND fuegt einen Eintrag mit
       status: active hinzu, hebt einen mode an, oder erweitert ein scope-Feld.
     werkzeug_statt_vorsatz: >
-      Diese Regel ist als Text so wirksam wie ihre Vorgaenger, also wenig. Ein Gate,
-      das den Merge in diesem Fall blockt, ist der eigentliche Fix — Muster: der
-      bestehende Merge-Gate-Hook. Verfolgt in Issue #2776.
+      Diese Regel ist als Text so wirksam wie ihre Vorgaenger, also wenig. Der
+      eigentliche Fix ist ein Gate — und die Approve-Fassung macht es erst praezise
+      pruefbar: blocke den Merge, wenn der Diff das Erkennungsmerkmal unten trifft UND
+      `gh pr view <n> --json reviewDecision` nicht APPROVED liefert. Die erste Fassung
+      ("nie mergen") waere als Gate ein pauschales Verbot gewesen, das man umgeht statt
+      befolgt. Verfolgt in Issue #2776.
 
 authorizations:
 
