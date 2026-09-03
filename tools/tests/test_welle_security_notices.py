@@ -170,6 +170,14 @@ def test_should_mark_not_on_pypi_when_info_is_none():
     )
 
 
+def test_should_use_direct_url_as_project_for_url_requirements():
+    spec = "@ git+https://github.com/example/mono.git#subdirectory=packages/core"
+    assert wsn.resolve_url("core", None, spec) == spec[2:]
+    assert (
+        wsn.resolve_url("core", None, spec + " ; python_version >= '3.12'") == spec[2:]
+    )
+
+
 def test_should_resolve_url_precedence():
     info = {
         "project_urls": {

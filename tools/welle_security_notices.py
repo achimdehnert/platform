@@ -321,7 +321,12 @@ def resolve_license(info: dict | None) -> str:
     return "unbekannt"
 
 
-def resolve_url(name: str, info: dict | None) -> str:
+def resolve_url(name: str, info: dict | None, spec: str = "") -> str:
+    # Direkt-URL-Abhängigkeit (`pkg @ git+https://…`): das Projekt IST die URL —
+    # ein PyPI-Link daneben behauptete sonst einen Ort, an dem das Paket nicht liegt
+    # (Pilot trading-hub#202: bfagent-core aus dem platform-Monorepo).
+    if spec.startswith("@"):
+        return spec.lstrip("@").strip().split(";", 1)[0].strip()
     fallback = f"https://pypi.org/project/{name}/"
     if info is None:
         return fallback
@@ -349,7 +354,7 @@ def build_notices_table(
     for req in unique_reqs:
         info = lookup.get(req.raw_name)
         license_ = resolve_license(info)
-        url = resolve_url(req.name, info)
+        url = resolve_url(req.name, info, req.spec)
         rows.append(f"| {req.name} | {req.spec} | {license_} | {url} | {req.source} |")
 
     files_str = ", ".join(manifest_files)
