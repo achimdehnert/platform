@@ -51,8 +51,15 @@ GITHUB_ORG = "achimdehnert"  # Fallback-Default für Repos ohne canonical.yaml-E
 # ttz-lif-Repos haben ein eigenes `github:`-Feld in registry/canonical.yaml,
 # das bislang ignoriert wurde (FUNC-1, #1202).
 sys.path.insert(0, str(PLATFORM_ROOT / "tools"))
-import registry_api as reg
-from gh_drossel import DrosselFehler, flotten_sperre, probe
+# Die Unterdrueckung an den beiden Zeilen unten bleibt stehen, auch wenn ein
+# neueres ruff sie fuer ueberfluessig haelt: die CI pinnt ruff==0.15.4
+# (tools-tests.yml), und dort ist E402 hier noch aktiv. Ein lokales
+# `ruff check --fix` mit 0.16.x entfernt sie als "unused" — lokal gruen, in der
+# CI rot (gemessen 2026-09-03, platform#2757). Der Hinweis steht bewusst OHNE die
+# Direktive im Klartext: ruff liest sie sonst auch hier und meldet sie als
+# ungueltig.
+import registry_api as reg  # noqa: E402
+from gh_drossel import DrosselFehler, flotten_sperre, probe  # noqa: E402
 
 
 def _repo_owner(repo: str) -> str:
