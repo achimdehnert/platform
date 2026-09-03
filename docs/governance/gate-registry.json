@@ -898,6 +898,40 @@
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-09-03"
+    },
+    {
+      "slug": "throttled-api-read-as-empty-result",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "tools/gh_drossel.py",
+      "drill": "tools/tests/test_gh_drossel.py",
+      "built": "2026-09-03",
+      "ref": "platform#2735 (Owner-Entscheid 2026-09-03 '6 bauen')",
+      "note": "Ein gedrosselter API-Zugriff liefert 'nichts gefunden' -- und ein Melder, der das als Ergebnis verbucht, meldet einen sauberen Stand. Realfall 2026-09-02: drift_check.py gab fuer denselben Stand 19, dann 10, dann 0 Errors; beim Null-Lauf war KEINES der 26 Repos erreichbar. Das Modul erzwingt vor jedem Flotten-Lauf EINE echte Probe (nicht `gh api rate_limit` -- das meldete im selben Moment 5000 freie Aufrufe, weil sekundaer gedrosselt wird) und eine Sperre gegen gleichzeitige Laeufe, denn drei parallele Flotten-Scans waren der Ausloeser.",
+      "positivkontrolle": {
+        "ref": "platform#2735 -- der Drill fuettert die WOERTLICHE Fehlermeldung des Vorfalls ('API rate limit exceeded for user ID 33293099') und die Probe verweigert; der gesunde Fall wird durchgelassen (Gegenrichtung, sonst waere eine immer-werfende Probe ebenfalls gruen). Am echten System belegt: `python3 tools/gh_drossel.py` -> '✅ GitHub antwortet', und `scripts/drift_check.py coach-hub` lief mit Sperre+Probe durch (1 Error, 3 Warns). Grenze offen benannt: eine echte Drosselung liess sich nicht herbeifuehren, geprueft ist die Antwort auf ihre Signatur.",
+        "datum": "2026-09-03"
+      },
+      "faengt": [
+        {
+          "fall": "Flotten-Melder meldet 0 Befunde, weil kein Repo erreichbar war",
+          "probe": "probe-drossel"
+        },
+        {
+          "fall": "rate_limit als Beleg genommen statt eines echten Aufrufs",
+          "probe": "probe-subjekt"
+        },
+        {
+          "fall": "zwei Flotten-Scans gleichzeitig",
+          "probe": "sperre-zweitlauf"
+        },
+        {
+          "fall": "verwaiste Sperre blockiert die Flotte dauerhaft",
+          "probe": "sperre-verfall"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-03"
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
