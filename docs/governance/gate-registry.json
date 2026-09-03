@@ -108,20 +108,36 @@
       "slug": "stale-local-clone-as-ground-truth",
       "mode": "advisory",
       "owner": "achim",
-      "module": "tools/hooks/stale_clone_check.sh",
-      "drill": "tools/tests/test_stale_clone_check.py",
+      "module": [
+        "tools/hooks/stale_clone_check.sh",
+        "tools/hooks/foreign_clone_check.sh"
+      ],
+      "drill": [
+        "tools/tests/test_stale_clone_check.py",
+        "tools/tests/test_foreign_clone_check.py"
+      ],
       "built": "2026-08-02",
       "ref": "platform#1644",
       "faengt": [
         {
           "fall": "lokaler Klon liegt hinter origin und wird als Wahrheit gelesen",
           "probe": "stalen_klon"
+        },
+        {
+          "fall": "fremdes Repo wird als Inhaltsquelle gelesen, waehrend sein Klon hinter origin liegt",
+          "probe": "frist-hub 3 Commits hinter origin, gelesen aus einer meiki-hub-Sitzung (2026-09-03)"
         }
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-02",
       "expires": "2026-10-31",
-      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "revised": "2026-09-03",
+      "revision_note": "Ausgeweitet auf den Fall 'fremdes Repo als Inhaltsquelle'. Der SessionStart-Hook prueft CLAUDE_PROJECT_DIR und sah damit nur das Repo, in dem gearbeitet wird; ein fremdes Repo, das mitten in der Sitzung gelesen wird, war unsichtbar. Realfall 2026-09-03 (meiki-hub): portiert aus einem frist-hub-Klon drei Commits hinter origin, Spec/Bildschirme/12 Bilder/Handbuch fehlten, gefunden nur durch Zufall. Der Slug stand zu dem Zeitpunkt neunmal in den Retros und hatte bereits ein Gate — also kein neues Muster, sondern ein Gate ohne Sicht auf seinen Fall (platform#2732, Retro platform#2730). Zweiter Hook als PreToolUse(Bash): tools/hooks/foreign_clone_check.sh, je Repo einmal pro Sitzung, immer Exit 0.",
+      "positivkontrolle": {
+        "ref": "platform#2732",
+        "datum": "2026-09-03"
+      }
     },
     {
       "slug": "handover-stale-vor-merge",

@@ -113,19 +113,38 @@ def ist_fremd(gate: dict) -> bool:
     return (gate.get("repo") or EIGENES_REPO).strip() != EIGENES_REPO
 
 
+def drill_pfade(gate: dict) -> list[str]:
+    """`drill` als Liste — ein Gate darf mehr als einen Erzwingungspunkt haben.
+
+    Ein ausgeweitetes Gate greift an zwei Stellen (Beispiel
+    `stale-local-clone-as-ground-truth`: beim Sitzungsstart fuer das eigene Repo,
+    vor jedem Bash-Aufruf fuer ein fremdes Quell-Repo). Beide Zweige brauchen
+    ihren Drill; einen davon aus der Registry zu streichen, damit das Feld ein
+    einzelner String bleibt, waere Buchhaltung gegen die Wirklichkeit.
+    Erlaubt sind daher ein String, eine kommagetrennte Liste und eine JSON-Liste.
+    """
+    roh = gate.get("drill") or ""
+    if isinstance(roh, list):
+        teile = [str(x).strip() for x in roh]
+    else:
+        teile = [x.strip() for x in str(roh).split(",")]
+    return [x for x in teile if x]
+
+
 def pruefe_drill(gate: dict, repo: str = REPO_ROOT) -> str | None:
     """Mangel-Text oder None. Fehlende Datei = Mangel (K4: nicht belegbar = nicht gebaut)."""
-    drill = (gate.get("drill") or "").strip()
-    if not drill:
+    pfade = drill_pfade(gate)
+    if not pfade:
         return "kein `drill` — der Testpfad fehlt"
     if ist_fremd(gate):
         # Der Pfad liegt nicht in diesem Arbeitsbaum; belegen muss ihn die `ref`.
         if not (gate.get("ref") or "").strip():
             return f"fremd verankert ({gate.get('repo')}) ohne `ref` — Drill nicht belegbar"
         return None
-    pfad = drill if os.path.isabs(drill) else os.path.join(repo, drill)
-    if not os.path.isfile(pfad):
-        return f"Drill-Datei fehlt: {drill}"
+    fehlend = [d for d in pfade
+               if not os.path.isfile(d if os.path.isabs(d) else os.path.join(repo, d))]
+    if fehlend:
+        return "Drill-Datei fehlt: " + ", ".join(fehlend)
     return None
 
 

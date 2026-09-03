@@ -427,3 +427,21 @@ def test_should_eigenen_registry_eintrag_verankert_halten():
     eigen = [g for g in gates if g.get("slug") == gvc.GATE_HEADER["slug"]]
     assert eigen, f"{gvc.GATE_HEADER['slug']} fehlt in der Registry"
     assert gvc.pruefe_gate(eigen[0])["maengel"] == []
+
+
+def test_should_mehrere_drill_pfade_akzeptieren(tmp_path):
+    """Ein ausgeweitetes Gate greift an zwei Stellen und braucht zwei Drills."""
+    (tmp_path / "a.py").write_text("", encoding="utf-8")
+    (tmp_path / "b.py").write_text("", encoding="utf-8")
+
+    assert gvc.pruefe_drill({"drill": "a.py, b.py"}, str(tmp_path)) is None
+    assert gvc.pruefe_drill({"drill": ["a.py", "b.py"]}, str(tmp_path)) is None
+
+
+def test_should_fehlenden_zweiten_drill_melden(tmp_path):
+    """Eine vorhandene erste Datei darf eine fehlende zweite nicht verdecken."""
+    (tmp_path / "a.py").write_text("", encoding="utf-8")
+
+    mangel = gvc.pruefe_drill({"drill": "a.py, fehlt.py"}, str(tmp_path))
+
+    assert mangel is not None and "fehlt.py" in mangel
