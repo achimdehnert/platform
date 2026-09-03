@@ -3316,3 +3316,21 @@ die Quote ist die Ursache: 4 der 10 Fehlalarme entstehen, weil Ergebnisse von Su
 Hintergrundlaeufen als user-String oder attachment-Record ankommen und nie in den Belegtext
 fliessen — je mehr eine Sitzung delegiert, desto blinder wird das Gate (vermerkt an #2234
 und #2697). Ausserdem offen: vier Owner-Schritte in #2504.
+
+## 2026-09-03 vormittags — Fable delegiert automatisch, Modellmix-Ledger, Schlüsselrotation (Sitzung 6b7e7e08)
+
+Ausgangsfrage des Owners: kann Fable das Modell selbst wechseln. Antwort: nein, der einzige
+Hebel ist der Subagent mit explizitem `model:`; abgerechnet wird je Nachricht nach dem
+ausfuehrenden Modell. Daraus wurde per Zielzustand-Loop #2750 mit Owner-Go: Routing-Tabelle
+Aufgabenklasse→Tier (K2), SessionStart-Hook nur bei Fable (K3), Messwerkzeug + Ledger-Hook
+am SessionEnd (K1) — drei PRs (#2751 #2753 #2759), zwei davon von Sonnet-Subagenten nach
+Brief gebaut, beide im ersten CI-Lauf am Verankerungs-Gate (fehlende `positivkontrolle`)
+gescheitert und inline nachgezogen. Fremdabnahme: K1–K3 erfuellt, K4/K5 nicht pruefbar
+(Ledger braucht 5 Fable-Sessions, K5-Basis fehlt — Owner-Wort).
+
+**Vorfall:** Beim Bestaetigen eines Settings-Patches pastete der Owner die ganze
+`settings.json` samt Orchestrator-MCP-Bearer in den Kanal. Rotation mit Owner-Ermaechtigung
+fuer Server + Schluessel, Client-Schritte per `! `; die Verbrauchersuche nach `/sse` fand
+nur einen von drei Verbrauchern (`~/.claude.json` User- und Projekt-Scope uebersehen), ein
+Heredoc-Drill mit `< /dev/null` lief leer ohne Fehler. Beides als Lesson (Memory + Outline),
+Restpunkte #2769.
