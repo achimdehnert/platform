@@ -207,6 +207,29 @@
       "expires_note": "Verdrahten (SessionEnd-Hook in ~/.claude/settings.json) oder streichen bis dahin — Owner-Entscheid E4 (platform#2606), gleiche Frist wie `model-change-detection`. Advisory ist ein Zwischenschritt, kein Endzustand."
     },
     {
+      "slug": "fable-session-no-delegation",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/fable_delegation_reminder.sh",
+      "drill": "tools/claude-hooks/tests/test_fable_delegation_reminder.py",
+      "built": "2026-09-03",
+      "ref": "platform#2750 K2/K3",
+      "positivkontrolle": {
+        "ref": "Realer Lauf im Fable-Hauptfaden 2026-09-03 (settings model claude-fable-5-1[1m], POLICY_FILE auf den PR-Stand von policies/session-routing.md): Hook gab Kopfzeile + Tabelle aus, Exit 0; Gegenprobe mit model claude-sonnet-5 gab 0 Bytes. Drill: tools/claude-hooks/tests/test_fable_delegation_reminder.py (Fable-Fall rot ohne Ausgabe, Sonnet-Fall rot bei Ausgabe). Grenze: lokaler Lauf, kein CI-Beleg — der Traeger (SessionStart-Verdrahtung) fehlt noch, s. zustand.",
+        "datum": "2026-09-03"
+      },
+      "faengt": [
+        {
+          "fall": "Fable-Session ohne Delegationserinnerung fuer Umsetzungsarbeit",
+          "probe": "fable"
+        }
+      ],
+      "zustand": "ohne-traeger",
+      "zustand_note": "Kein automatischer Aufrufer: das Modul steht in keiner Hook-Verdrahtung (~/.claude/settings.json) — die Verdrahtung ist in diesem PR bewusst ausgespart, weil ~/.claude/settings.json laut Auftrag nicht editiert werden darf. Abgang: verdrahten (SessionStart-Hook-Liste) ODER streichen.",
+      "expires": "2026-10-31",
+      "expires_note": "verdrahten oder streichen bis dahin — sonst Dekoration wie die anderen ohne-traeger-Gates (platform#2606 E4)."
+    },
+    {
       "slug": "drill-path-not-invocation-path",
       "mode": "meta",
       "owner": "achim",
