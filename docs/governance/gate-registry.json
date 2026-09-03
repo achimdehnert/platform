@@ -183,6 +183,30 @@
       "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
     },
     {
+      "slug": "fable-session-delegation-unmeasured",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/claude-hooks/session_modellmix.py",
+      "drill": "tools/claude-hooks/tests/test_session_modellmix.py",
+      "built": "2026-09-03",
+      "ref": "platform#2750 Kriterium 1",
+      "note": "Misst den Modellmix je Session (Haupt- + Subagenten-Transkript): Anteil Tokens und schreibende Werkzeugaufrufe, die NICHT vom Hauptmodell stammen. `policies/session-routing.md` schreibt seit 2026-05 Tier-Disziplin fest, lief aber ungemessen — ein per Agent-Tool delegierter Subagent ohne eigenes `model:` erbt das teure Hauptmodell.",
+      "positivkontrolle": {
+        "ref": "Realer Lauf 2026-09-03 auf die Fable-Session 6b7e7e08 (Hauptfaden dieses Auftrags): anteil_tokens_nicht_hauptmodell 78.1, anteil_schreibaufrufe_nicht_hauptmodell 83.2, n_subagenten 2 — das Werkzeug trennt Fable- von Sonnet-Anteil auf echten Transkripten; Vorher-Basis ueber 5 Sessions im PR-Text von platform#2753. Drill: tools/claude-hooks/tests/test_session_modellmix.py (Positivkontrolle 100 %-Fall). Grenze: Ledger-Zeile aus dem SessionEnd-Hook noch nie real geschrieben — Traeger folgt nach Merge, s. zustand.",
+        "datum": "2026-09-03"
+      },
+      "faengt": [
+        {
+          "fall": "Subagent ohne model: laeuft unbemerkt auf dem teuren Hauptmodell mit",
+          "probe": "anteil_schreibaufrufe_nicht_hauptmodell"
+        }
+      ],
+      "zustand": "ohne-traeger",
+      "zustand_note": "Modul + Drill gebaut, aber die SessionEnd-Verdrahtung in ~/.claude/settings.json steht noch aus (Owner-Entscheid: Hauptfaden registriert nach Merge dieses PRs). Bis dahin ist der Ledger-Schreibpfad nur per CLI/Handaufruf erreichbar — kein Traeger, kein Zustand `schranke`.",
+      "expires": "2026-10-31",
+      "expires_note": "Verdrahten (SessionEnd-Hook in ~/.claude/settings.json) oder streichen bis dahin — Owner-Entscheid E4 (platform#2606), gleiche Frist wie `model-change-detection`. Advisory ist ein Zwischenschritt, kein Endzustand."
+    },
+    {
       "slug": "fable-session-no-delegation",
       "mode": "advisory",
       "owner": "achim",
