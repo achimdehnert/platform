@@ -34,6 +34,52 @@ meta:
     Konsequenz für LV-010 (Design, proposed): eine Aktivierung wäre die sechste
     und löst zuerst den Sechs-Artefakt-Ausbau aus (Art. 10 Kriterium 1).
 
+  ratifikations_regel:                # NEU 2026-09-03 (Kapitaens-Entscheid "109 ja")
+    regel: >
+      Ein PR, der Rechte des Lotsen ERTEILT, ERWEITERT oder NIMMT, wird vom Lotsen nur
+      gemergt, wenn ein GitHub-APPROVE des Kapitaens auf dem PR liegt. Ohne Approve
+      bleibt er offen — ein "go" im Chat genuegt nicht.
+    praezisierung_2026_09_03: >
+      Kapitaens-Anpassung im selben Zug: "wenn Approve vorliegt dann ist dein merge ab
+      sofort erlaubt". Die erste Fassung dieser Regel verbot dem Lotsen den Merge
+      ausnahmslos. Das war strenger als noetig und verlagerte Arbeit auf den Kapitaen,
+      ohne mehr Sicherheit zu schaffen: der Approve ist der durable Kapitaens-Akt — er
+      traegt Identitaet und Zeitstempel und ist Monate spaeter pruefbar. Der Merge
+      danach ist nur Ausfuehrung.
+      Was NICHT genuegt, bleibt unveraendert: ein "go" im Chat. Es ist fluechtig und
+      haengt an keinem Artefakt; genau daran scheiterte die Nachvollziehbarkeit am
+      2026-09-03.
+    anlass: >
+      2026-09-03: Auf die Anweisung "81 done go" mergte der Lotse drei selbstbetreffende
+      Registry-PRs selbst, darunter #2762 und #2763, die ihm Rechte erteilen. Eine
+      Freigabe lag vor — aber im Protokoll steht als Ausfuehrender ein Konto
+      (wirdigital), fuer das der Lotse selbst ein Token haelt. Damit laesst sich aus
+      dem Protokoll nicht mehr unterscheiden, ob der Kapitaen gemergt hat oder der
+      Lotse. Genau diese Unterscheidung soll die Ratifikation-durch-Merge sichern.
+      Selbstmeldung: https://github.com/achimdehnert/platform/issues/2776
+    warum_das_go_nicht_genuegt: >
+      Die Charta sieht den Merge als den Kapitaens-AKT vor, nicht als dessen
+      Bestaetigung. Ein "go" im Chat ist fluechtig; der Merge ist das, was ein Auditor
+      Monate spaeter sieht. Wer aus dem Wort auf die Handlung schliesst, ersetzt einen
+      durablen Beleg durch eine Erinnerung.
+    erkennungsmerkmal: >
+      Der Diff beruehrt registry/lotse-authorizations.yaml UND fuegt einen Eintrag mit
+      status: active hinzu, hebt einen mode an, oder erweitert ein scope-Feld.
+    werkzeug_statt_vorsatz: >
+      Diese Regel ist als Text so wirksam wie ihre Vorgaenger, also wenig. Der
+      eigentliche Fix ist ein Gate — und die Approve-Fassung macht es erst praezise
+      pruefbar. ACHTUNG bei der Bedingung: `reviewDecision` ist in diesem Repo
+      UNBRAUCHBAR. Gemessen 2026-09-03 an acht gemergten PRs (#2744 bis #2778): das
+      Feld ist ueberall leer, auch bei #2778, das ein echtes APPROVED traegt —
+      vermutlich weil die Reviews von einem Konto ohne Schreibrecht auf main kommen
+      und GitHub sie dann nicht als Entscheidung zaehlt. Ein Gate auf diesem Feld
+      wuerde JEDEN PR blocken und nach zwei Tagen abgeschaltet.
+      Richtige Bedingung ist die Review-LISTE:
+      `gh pr view <n> --json reviews --jq '[.reviews[]|select(.state=="APPROVED")]|length'`
+      groesser 0, und der Autor des Approves ist der Kapitaen. Die erste Fassung
+      ("nie mergen") waere als Gate ein pauschales Verbot gewesen, das man umgeht statt
+      befolgt. Verfolgt in Issue #2776.
+
 authorizations:
 
   # ── Programm A: Mail (Kapitäns-Wortlaut „alles rund um Mail" — nach
