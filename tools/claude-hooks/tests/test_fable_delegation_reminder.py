@@ -75,7 +75,11 @@ def test_should_bei_anderem_modell_schweigen(tmp_path):
 
 
 def test_should_policy_ohne_marker_schweigen(tmp_path):
-    r = _run(tmp_path, "claude-fable-5", policy_body="# Policy ohne Marker\n\nkein Inhalt hier.\n")
+    r = _run(
+        tmp_path,
+        "claude-fable-5",
+        policy_body="# Policy ohne Marker\n\nkein Inhalt hier.\n",
+    )
     assert r.returncode == 0
     assert r.stdout.strip() == ""
 

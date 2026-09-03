@@ -25,7 +25,7 @@ def _tabellen_zeilen() -> list[str]:
     si = text.find(START_MARKER)
     ei = text.find(END_MARKER)
     assert si != -1 and ei != -1 and ei > si, "routing-table Marker fehlen"
-    block = text[si + len(START_MARKER):ei].strip("\n")
+    block = text[si + len(START_MARKER) : ei].strip("\n")
     zeilen = [z for z in block.splitlines() if z.strip().startswith("|")]
     # Kopfzeile + Trennzeile (---) abschneiden, Rest sind Datenzeilen.
     return zeilen[2:]
