@@ -51,28 +51,30 @@ import argparse
 import imaplib
 import json
 import sys
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from anker import (  # noqa: E402
+from anker import (
     ANKER_DATEI,
     Anker,
     betreff_von_uid,
+    datum_von_uid,
     lade,
     message_id_von_uid,
     speichere,
 )
-from mail_view import slugify  # noqa: E402
-from read_mail import (  # noqa: E402
+from mail_view import slugify
+from read_mail import (
     _mailbox_arg,
     _resolve_config,
     alle_ordner,
     connect,
     ordner_klartext,
 )
-from referenzen import (  # noqa: E402
+from referenzen import (
     LEDGER,
     SUCHORDNER,
     VERLAUF_ARCHIV,
@@ -82,7 +84,7 @@ from referenzen import (  # noqa: E402
     schluessel_kandidaten,
     verlauf_eintraege,
 )
-from send_mail import parse_env  # noqa: E402
+from send_mail import parse_env
 
 #: Vorgangs-Konto → IMAP-Konten, in denen seine Nummern liegen koennen. `default`
 #: ist die namenlose mail.env (AD) — so heisst das Konto auch in den Ankern, die
@@ -214,16 +216,23 @@ class Postfach:
                 treffer.append(name)
         return treffer
 
-    def message_id(self, name: str, uid: str) -> tuple[str, str]:
-        """(message_id, betreff) der UID im Ordner — ('', '') wenn sie dort nicht liegt."""
+    def kopfdaten(self, name: str, uid: str) -> tuple[str, str, str]:
+        """(message_id, betreff, datum) der UID im Ordner — ('', '', '') wenn weg.
+
+        Das Datum kommt mit, weil der Betreff allein nicht identifiziert: ein
+        weitergeleiteter Strang traegt in jeder Weiterleitung denselben Betreff
+        (Owner-Befund 2026-09-03, Vorgang 160 — zwei Links, gleicher Betreff).
+        """
         try:
             typ, _ = self.imap.select(_mailbox_arg(name), readonly=True)
             if typ != "OK":
-                return "", ""
+                return "", "", ""
             mid = message_id_von_uid(self.imap, uid)
-            return (mid, betreff_von_uid(self.imap, uid)) if mid else ("", "")
+            if not mid:
+                return "", "", ""
+            return mid, betreff_von_uid(self.imap, uid), datum_von_uid(self.imap, uid)
         except (imaplib.IMAP4.error, OSError):
-            return "", ""
+            return "", "", ""
 
 
 def verankere(fund: Fund, postfaecher: list[Postfach]) -> Ergebnis:
@@ -246,7 +255,7 @@ def verankere(fund: Fund, postfaecher: list[Postfach]) -> Ergebnis:
                     "im Eintrag den Ordner nennen",
                 )
         for name in kandidaten:
-            mid, betreff = pf.message_id(name, ref.uid)
+            mid, betreff, datum = pf.kopfdaten(name, ref.uid)
             if mid:
                 return Ergebnis(
                     fund,
@@ -258,6 +267,7 @@ def verankere(fund: Fund, postfaecher: list[Postfach]) -> Ergebnis:
                         uid=ref.uid,
                         message_id=mid,
                         betreff=betreff,
+                        datum=datum,
                     ),
                 )
     return Ergebnis(
@@ -274,6 +284,40 @@ def _verbinde(konto: str):
     )
 
 
+@contextmanager
+def postfaecher(verbinde=None):
+    """Postfaecher on demand oeffnen, am Ende genau einmal schliessen.
+
+    Zwei Aufrufer brauchen dieselbe Buchfuehrung (verankern und auffrischen);
+    ein zweites Mal hingeschrieben liefe sie irgendwann auseinander.
+    """
+    verbinde = verbinde or _verbinde
+    offene: dict[str, Postfach | None] = {}
+
+    def hole(konto: str) -> Postfach | None:
+        if konto not in offene:
+            try:
+                offene[konto] = Postfach(konto, verbinde(konto))
+            # Breit mit Absicht: Login-Fehler kommen je nach Anbieter als
+            # OSError, IMAP4.error, ssl.SSLError oder ValueError. Ein nicht
+            # erreichbares Konto darf den Lauf der anderen nicht abbrechen.
+            except Exception as fehler:  # noqa: BLE001 — Netz/Login, melden statt raten
+                print(f"  Konto '{konto}' nicht erreichbar: {fehler}", file=sys.stderr)
+                offene[konto] = None
+        return offene[konto]
+
+    try:
+        yield hole
+    finally:
+        for pf in offene.values():
+            if pf is None:
+                continue
+            try:
+                pf.imap.logout()
+            except Exception as fehler:  # noqa: BLE001 — schon getrennt, kein Grund zu scheitern
+                print(f"  Abmeldung '{pf.konto}': {fehler}", file=sys.stderr)
+
+
 def verankere_alle(
     funde: dict[str, Fund],
     anker: dict[str, Anker],
@@ -282,27 +326,15 @@ def verankere_alle(
     """Alle unverankerten Funde aufloesen; ein Konto wird einmal verbunden."""
     # Zur Laufzeit aufgeloest, nicht als Default gebunden — sonst liesse sich
     # die Verbindung im Test nicht ersetzen (dieselbe Falle wie in kettencheck).
-    verbinde = verbinde or _verbinde
     offen = unverankert(funde, anker)
     ergebnisse: list[Ergebnis] = [
         Ergebnis(f, VORHANDEN) for k, f in funde.items() if k not in offen
     ]
-    verbindungen: dict[str, Postfach | None] = {}
-
-    def postfach(konto: str) -> Postfach | None:
-        if konto not in verbindungen:
-            try:
-                verbindungen[konto] = Postfach(konto, verbinde(konto))
-            except Exception as fehler:  # Netz/Login — melden, nicht raten
-                print(f"  Konto '{konto}' nicht erreichbar: {fehler}", file=sys.stderr)
-                verbindungen[konto] = None
-        return verbindungen[konto]
-
-    try:
+    with postfaecher(verbinde) as hole:
         for fund in offen.values():
             konten = IMAP_KONTEN.get(fund.konto, (fund.konto,))
-            postfaecher = [pf for k in konten if (pf := postfach(k)) is not None]
-            if not postfaecher:
+            erreichbar = [pf for k in konten if (pf := hole(k)) is not None]
+            if not erreichbar:
                 ergebnisse.append(
                     Ergebnis(
                         fund,
@@ -311,15 +343,30 @@ def verankere_alle(
                     )
                 )
                 continue
-            ergebnisse.append(verankere(fund, postfaecher))
-    finally:
-        for pf in verbindungen.values():
-            if pf is not None:
-                try:
-                    pf.imap.logout()
-                except Exception:
-                    pass
+            ergebnisse.append(verankere(fund, erreichbar))
     return ergebnisse
+
+
+def auffrische_daten(anker: dict[str, Anker], verbinde=None) -> tuple[int, int]:
+    """Fehlende `datum`-Felder bestehender Anker nachtragen → (gefuellt, offen).
+
+    Anker aus der Zeit vor dem 2026-09-03 tragen kein Datum. Ohne Nachtrag
+    haette die Unterscheidung gleichbetreffter Links erst fuer kuenftige Anker
+    gegriffen — also gerade nicht fuer den Fall, der sie ausgeloest hat.
+    Angefasst wird nur, wem das Feld fehlt; ein vorhandenes Datum bleibt.
+    """
+    ohne_datum = [a for a in anker.values() if not a.datum and a.ordner and a.uid]
+    gefuellt = 0
+    with postfaecher(verbinde) as hole:
+        for a in ohne_datum:
+            pf = hole(a.konto)
+            if pf is None:
+                continue
+            _, _, datum = pf.kopfdaten(a.ordner, a.uid)
+            if datum:
+                anker[a.item] = replace(a, datum=datum)
+                gefuellt += 1
+    return gefuellt, len(ohne_datum) - gefuellt
 
 
 def uebernehme(ergebnisse: list[Ergebnis], anker: dict[str, Anker]) -> int:
@@ -335,9 +382,11 @@ def bericht(ergebnisse: list[Ergebnis]) -> str:
     for e in ergebnisse:
         zaehler[e.zustand] = zaehler.get(e.zustand, 0) + 1
     zeilen = [
-        f"{len(ergebnisse)} Referenzen: {zaehler[NEU]} neu verankert, "
-        f"{zaehler[VORHANDEN]} bereits verankert, {zaehler[NICHT_GEFUNDEN]} nicht "
-        f"gefunden, {zaehler[MEHRDEUTIG]} mehrdeutig, {zaehler[UNPRUEFBAR]} unpruefbar"
+        (
+            f"{len(ergebnisse)} Referenzen: {zaehler[NEU]} neu verankert, "
+            f"{zaehler[VORHANDEN]} bereits verankert, {zaehler[NICHT_GEFUNDEN]} nicht "
+            f"gefunden, {zaehler[MEHRDEUTIG]} mehrdeutig, {zaehler[UNPRUEFBAR]} unpruefbar"
+        )
     ]
     for e in ergebnisse:
         if e.zustand == NEU and e.anker:
@@ -378,6 +427,12 @@ def main() -> int:
         action="store_true",
         help="ohne Postfach: wie viele Referenzen sind (un)verankert",
     )
+    ap.add_argument(
+        "--auffrischen",
+        action="store_true",
+        help="fehlende Mail-Daten bestehender Anker nachtragen (einmaliger "
+        "Nachzug fuer Anker von vor 2026-09-03), dann beenden",
+    )
     ap.add_argument("--json", action="store_true")
     ap.add_argument(
         "--kurz",
@@ -400,6 +455,13 @@ def main() -> int:
             f"{len(funde)} Referenzen, {len(ohne)} ohne Anker, davon "
             f"{len(ohne) - len(noch)} unaufloesbar befundet, {len(noch)} offen"
         )
+        return 0
+
+    if args.auffrischen:
+        gefuellt, rest = auffrische_daten(anker)
+        print(f"Datum nachgetragen: {gefuellt} Anker, {rest} weiterhin ohne Datum")
+        if gefuellt and not args.trocken:
+            speichere(anker, Path(args.anker))
         return 0
 
     ergebnisse = verankere_alle(funde, anker)
@@ -429,7 +491,9 @@ def main() -> int:
         if n:
             speichere(anker, Path(args.anker))
             print(f"Geschrieben: {n} neue Anker → {Path(args.anker).name}")
-        neu_tot = uebernehme_tot(ergebnisse, tot, date.today().isoformat())
+        # Befund-Datum als Kalendertag — es wird als ISO-Tag in die Befundakte
+        # geschrieben und mit anderen Tagen verglichen, nie mit Uhrzeiten.
+        neu_tot = uebernehme_tot(ergebnisse, tot, date.today().isoformat())  # noqa: DTZ011
         if neu_tot != tot:
             Path(args.tot).write_text(
                 json.dumps(neu_tot, ensure_ascii=False, indent=2), encoding="utf-8"
