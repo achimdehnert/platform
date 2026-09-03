@@ -23,11 +23,13 @@ import pytest
 # Load the hook module from the sibling directory without installing it.
 _HOOK_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(_HOOK_DIR))
-# `isort: skip`, nicht `noqa: E402`: der Import MUSS nach dem sys.path-Eingriff
-# stehen, und genau das darf ruff nicht wegsortieren (I001). Das frühere
-# `noqa: E402` war seit ruff 0.16 wirkungslos (E402 nicht mehr im Default-Satz,
-# platform hat keinen eigenen `select`) und wurde als RUF100 gemeldet.
-import log_llm_call as hook  # isort: skip
+# Beide Marker sind noetig, weil zwei ruff-Versionen im Spiel sind: CI pinnt
+# 0.15.4 (E402 im Default-Satz -> `noqa: E402` wird gebraucht), lokal und in
+# requirements-dev.txt steht 0.16.5 (E402 nicht mehr drin -> dasselbe noqa gilt
+# dort als RUF100 "unused", und I001 will den Import wegsortieren). Der Import
+# MUSS nach dem sys.path-Eingriff stehen. RUF100 ist fuer dieses Verzeichnis in
+# pyproject.toml ausgenommen; die Wurzel ist die Versions-Divergenz selbst.
+import log_llm_call as hook  # noqa: E402  # isort: skip
 
 
 # ---------------------------------------------------------------------------
