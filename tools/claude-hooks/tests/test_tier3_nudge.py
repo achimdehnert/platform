@@ -151,13 +151,26 @@ def test_should_nudge_exactly_once_across_calls():
 # ---------------------------------------------------------------------------
 
 
-def test_should_return_none_when_no_env_var_and_no_dev_opt_in(monkeypatch):
+@pytest.fixture
+def ohne_passwortdatei(monkeypatch, tmp_path):
+    """Der Hook liest ``~/.secrets/<name>`` als zweite Quelle. Auf einem Host,
+    auf dem die Datei liegt (jeder Dev-Desktop mit pgvector-Tunnel), sähe ein
+    Test des ENV-Verhaltens sonst immer die Datei — und der Modellwechsel-Smoke
+    (session-start 0.3) könnte dort nie grün werden."""
+    monkeypatch.setattr(hook, "_DB_PASSWORD_FILE", tmp_path / "fehlt")
+
+
+def test_should_return_none_when_no_env_var_and_no_dev_opt_in(
+    monkeypatch, ohne_passwortdatei
+):
     monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
     monkeypatch.delenv("ALLOW_DEV_DB_FALLBACK", raising=False)
     assert hook._resolve_db_url() is None
 
 
-def test_should_use_dev_fallback_only_with_explicit_opt_in(monkeypatch):
+def test_should_use_dev_fallback_only_with_explicit_opt_in(
+    monkeypatch, ohne_passwortdatei
+):
     monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
     monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
     assert hook._resolve_db_url() == hook._DEV_FALLBACK_DB_URL
@@ -166,12 +179,27 @@ def test_should_use_dev_fallback_only_with_explicit_opt_in(monkeypatch):
     )  # documents the known dev-only value
 
 
-def test_should_prefer_explicit_env_var_over_dev_fallback(monkeypatch):
+def test_should_prefer_explicit_env_var_over_dev_fallback(
+    monkeypatch, ohne_passwortdatei
+):
     monkeypatch.setenv(
         "ORCHESTRATOR_DB_URL", "postgresql://real:secret@db.internal/prod"
     )
     monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
     assert hook._resolve_db_url() == "postgresql://real:secret@db.internal/prod"
+
+
+def test_should_read_password_file_before_dev_fallback(monkeypatch, tmp_path):
+    """Positivkontrolle zur Fixture oben: liegt die Datei, gewinnt sie gegen den
+    Dev-Fallback, und das Passwort wird URL-kodiert."""
+    monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
+    monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
+    datei = tmp_path / "pw"
+    datei.write_text("p@ss/wort\n", encoding="utf-8")
+    monkeypatch.setattr(hook, "_DB_PASSWORD_FILE", datei)
+    url = hook._resolve_db_url()
+    assert url != hook._DEV_FALLBACK_DB_URL
+    assert url.startswith(f"postgresql://{hook._DB_USER}:p%40ss%2Fwort@")
 
 
 def test_should_skip_insert_gracefully_when_db_url_is_none(monkeypatch):
