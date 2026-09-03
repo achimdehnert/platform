@@ -439,3 +439,70 @@ def test_should_ignore_removed_lines_and_foreign_file_types():
         "--- /dev/null\n+++ b/notizen.rst\n@@ -0,0 +1 @@\n+.. bleibt vorerst offen\n"
     )
     assert prosa_aus_diff(fremd) == ""
+
+
+# ── Kalibrierung 2026-09-03: Verneinung ≠ Vertagung (platform#2234) ───────────
+#
+# Beide Fehlalarme unten sind GEMESSEN, nicht ausgedacht — sie stammen aus zwei
+# echten PRs desselben Tages. Die Gegenrichtung steht daneben: dieselben Woerter
+# mit einem Arbeitswort MUESSEN weiter feuern, sonst waere aus der Kalibrierung
+# eine Abschwaechung geworden.
+
+
+@pytest.mark.f1
+def test_should_not_flag_a_method_choice():
+    """Realfall platform#2757: die Verneinung benennt ein Werkzeug, keine Arbeit."""
+    zeile = "Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit."
+    assert dac.ist_methodenwahl(zeile) is True
+    assert dac.finde_ankerlose_stellen(zeile) == []
+
+
+@pytest.mark.f1
+def test_should_still_flag_a_bare_negation_heading_known_false_alarm():
+    """BEKANNTE Grenze, festgehalten statt uebergangen (platform#2234).
+
+    Realfall platform#2036: die Ueberschrift »Was bewusst NICHT« grenzt ab, sie
+    vertagt nicht — und feuert trotzdem. Dort fehlt ein Objekt vollstaendig;
+    jede Regel dafuer waere geraten statt gemessen. Dieser Test haelt den
+    Ist-Zustand fest: aendert ihn jemand, soll er es BEWUSST tun.
+    """
+    text = "## Was bewusst NICHT\n\nDer Rest des Skills bleibt mechanisch.\n"
+    assert dac.finde_ankerlose_stellen(text), (
+        "Erwartet ist hier der bekannte Fehlalarm — verschwindet er, wurde die "
+        "Regel erweitert und der Kommentar in platform#2234 gehoert nachgezogen."
+    )
+
+
+@pytest.mark.f2
+@pytest.mark.parametrize(
+    "zeile",
+    [
+        "Bewusst nicht mitgefixt: eigener Vorgang.",
+        "Die 39 Funde sind bewusst nicht behoben.",
+        "Der Backfill ist bewusst ausgelassen und wird spaeter nachgezogen.",
+        "Nicht Teil dieses PR: die Migration wird separat umgesetzt.",
+    ],
+)
+def test_should_still_flag_real_deferrals(zeile):
+    """Gegenrichtung — ohne sie waere ein Gate, das nie feuert, ebenfalls gruen."""
+    assert dac.ist_methodenwahl(zeile) is False
+    assert dac.finde_ankerlose_stellen(zeile), zeile
+
+
+@pytest.mark.f1
+def test_should_still_flag_when_a_specific_phrase_stands_next_to_it():
+    """`bewusst nicht` PLUS eine spezifische Wendung bleibt ein Fund."""
+    zeile = "Bewusst nicht `ruff`: das folgt separat."
+    assert dac.ist_methodenwahl(zeile) is False
+    assert dac.finde_ankerlose_stellen(zeile)
+
+
+@pytest.mark.f1
+def test_should_leave_the_specific_phrases_unconditional():
+    """Die spezifischen Wendungen tragen die Bedeutung im Wortlaut — kein Arbeitswort noetig."""
+    for zeile in (
+        "Das bleibt vorerst so.",
+        "Restschuld: die zweite Haelfte.",
+        "Vertagt.",
+    ):
+        assert dac.finde_ankerlose_stellen(zeile), zeile

@@ -62,8 +62,8 @@
       "drill": "tools/claude-hooks/tests/test_deferred_item_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1645",
-      "revised": "2026-08-29",
-      "revision_note": "UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23. AUSWEITUNG 2026-08-29 (Retro e70d11, Owner-Entscheid 'ausweiten'): zweite Trefferklasse `_board_befund_ohne_anker`. Der sechste Rueckfall nach Gate-Bau trug KEIN Vertagungs-Verb — drei in Prod gemessene Defekte standen als offene Board-Zeilen ('| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |') und existierten nur im Gespraechsverlauf. Ein offener Befund im Board IST die haeufigste Form aufgeschobener Arbeit in diesem Setup; er sagt nicht 'vertagt', sondern zeigt es. Bewusst eng: offener Status-Marker UND Befund-Wort UND kein Anker (URL oder #<nummer>) in derselben Zeile — sonst feuert jedes Statusboard.",
+      "revised": "2026-09-03",
+      "revision_note": "KALIBRIERUNG 2026-09-03 (platform#2234, Owner-Entscheid '6 ja go'): generische Verneinungen feuern nicht mehr, wenn ihr direktes Objekt ein Code-Bezeichner in Backticks ist. Anlass: zwei gemessene Fehlalarme an einem Tag, beide auf dieselbe Wurzel -- das Muster traf VERNEINUNGEN, ohne zu unterscheiden, ob sie Arbeit oder eine technische Entscheidung betreffen ('bewusst nicht `gh api rate_limit`' ist eine Methodenwahl, keine Vertagung). Bewusst SEHR eng: ein erster, breiterer Entwurf verlangte irgendein Arbeitswort im Satz und liess prompt NEUN bestehende Drills durchfallen (deutsche Vertagungen stehen regelmaessig als Substantiv da) -- der Fehlversuch steht als Kommentar im Modul, damit ihn niemand wiederholt. Zweite Falle beim Bau: `normalisiere_zeilen` entfernt die Backticks vor dem Abgleich; die neue Regel prueft deshalb die ORIGINALZEILE. NICHT geloest und als Grenz-Test festgehalten: die objektlose Ueberschrift 'Was bewusst NICHT' (platform#2036) feuert weiter. · UMBAU als eigenes Gate (platform#2216, Owner-Entscheid 'umbauen' zu #2143). Der Wortlaut-Scanner war gegen 'ein Muster mehr' immun — belegt an zwei unabhaengigen Fehlermodi am Realfall PR #2007. Der Nachfolger `zusage-ohne-verankerung` klassifiziert den Zusage-TYP je Segment und prueft den Anker IM Segment; die Klasse `vertagung` deckt genau diesen Slug. Dieser Scanner laeuft advisory weiter (er hat den Befund am 2026-08-21 einmal gefangen), ist aber nicht mehr die Hauptantwort. Messpunkt deshalb ab 2026-08-23. AUSWEITUNG 2026-08-29 (Retro e70d11, Owner-Entscheid 'ausweiten'): zweite Trefferklasse `_board_befund_ohne_anker`. Der sechste Rueckfall nach Gate-Bau trug KEIN Vertagungs-Verb — drei in Prod gemessene Defekte standen als offene Board-Zeilen ('| 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |') und existierten nur im Gespraechsverlauf. Ein offener Befund im Board IST die haeufigste Form aufgeschobener Arbeit in diesem Setup; er sagt nicht 'vertagt', sondern zeigt es. Bewusst eng: offener Status-Marker UND Befund-Wort UND kein Anker (URL oder #<nummer>) in derselben Zeile — sonst feuert jedes Statusboard.",
       "faengt": [
         {
           "fall": "aufgeschobene Arbeit ohne Issue-Nummer im selben Zug",
@@ -77,7 +77,11 @@
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-02",
       "expires": "2026-10-31",
-      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "positivkontrolle": {
+        "ref": "platform#2234 -- beide Richtungen am ECHTEN Wortlaut des Vorfalls geprueft: 'Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit' laeuft jetzt durch (✅), waehrend 'Die 39 Funde sind bewusst nicht mitgefixt: eigener Vorgang' weiter faellt (❌, Zeile 1). 44 Drills gruen, davon 9, die den zu breiten Erstentwurf widerlegt haben.",
+        "datum": "2026-09-03"
+      }
     },
     {
       "slug": "scope-checkpoint-not-durably-recorded",
