@@ -274,3 +274,16 @@ def test_should_read_review_rule_unambiguously(tmp_path):
         ),
     )
     assert ok["scores"]["D05"]["questions"]["D05.2"]["outcome"] == "ok"
+
+
+def test_should_emit_checked_names_as_locator_when_no_manifest(tmp_path):
+    # Phase C 2026-09-03: 11 Repos ohne Manifest brachen am Schema ab, weil der
+    # D02.1-Locator hinter dem dritten `|` leer blieb (#2780).
+    res = _run(
+        tmp_path,
+        _pack(requirements_files_tracked=[], manifests={}, pyproject={"exists": False}),
+    )
+    errs = list(jsonschema.Draft202012Validator(rubric.schema()).iter_errors(res))
+    assert errs == []
+    f = next(f for f in res["findings"] if f["question_id"] == "D02.1")
+    assert f["locator"] == "D02.1|manifest|pyproject.toml;requirements.txt"
