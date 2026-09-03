@@ -50,7 +50,8 @@ GITHUB_ORG = "achimdehnert"  # Fallback-Default für Repos ohne canonical.yaml-E
 # ttz-lif-Repos haben ein eigenes `github:`-Feld in registry/canonical.yaml,
 # das bislang ignoriert wurde (FUNC-1, #1202).
 sys.path.insert(0, str(PLATFORM_ROOT / "tools"))
-import registry_api as reg  # noqa: E402
+import registry_api as reg
+from gh_drossel import DrosselFehler, flotten_sperre, probe
 
 
 def _repo_owner(repo: str) -> str:
@@ -557,7 +558,7 @@ _GUARD_SKRIPTE = {
 # Die Action installiert PyYAML selbst. Der direkte Aufrufer braucht einen
 # eigenen Schritt dafuer — auch der ist Port-Mechanik, kein Verhaltensunterschied.
 _GUARD_VORBEREITUNG_RE = re.compile(
-    r"^\s*(python3?\s+-m\s+)?pip\s+install\b.*\bpyyaml\b", re.I | re.M
+    r"^\s*(python3?\s+-m\s+)?pip\s+install\b.*\bpyyaml\b", re.IGNORECASE | re.MULTILINE
 )
 
 
@@ -972,10 +973,7 @@ def print_github_summary(drifts: list[RepoDrift]) -> None:
         f.write("## Platform Drift Check\n\n")
         f.write("| Repo | Status | Errors | Warnings |\n")
         f.write("|------|--------|--------|----------|\n")
-        for r in sorted(drifts, key=lambda x: -x.drift_score):
-            f.write(
-                f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
-            )
+        f.writelines(f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n" for r in sorted(drifts, key=lambda x: -x.drift_score))
 
 
 def print_json_output(drifts: list[RepoDrift]) -> None:
@@ -1005,6 +1003,19 @@ def print_json_output(drifts: list[RepoDrift]) -> None:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoDrift]:
+    """Der eigentliche Durchlauf — ausgelagert, damit `main` ihn in die Sperre
+    einwickeln kann, ohne dass die Schleife selbst davon weiss."""
+    results: list[RepoDrift] = []
+    for repo, props in targets.items():
+        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
+        print(f"  {repo}...", end="", flush=True)
+        result = check_repo(repo, repo_type, token, iil_latest)
+        print(f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)")
+        results.append(result)
+    return results
 
 
 def main() -> int:
@@ -1057,14 +1068,18 @@ def main() -> int:
         iil_latest = _load_iil_latest()
         print(f" {len(iil_latest)} Packages geladen")
 
-    results: list[RepoDrift] = []
-    for repo, props in targets.items():
-        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
-        print(f"  {repo}...", end="", flush=True)
-        result = check_repo(repo, repo_type, token, iil_latest)
-        icon = result.status_icon
-        print(f" {icon} ({len(result.errors)}E, {len(result.warnings)}W)")
-        results.append(result)
+    # Erst fragen, ob ueberhaupt gemessen werden KANN, dann messen. Ohne diese
+    # zwei Zeilen liefert ein gedrosselter Lauf 26x „Repo nicht gefunden" und
+    # damit eine Bilanz von null — der Lauf sieht am besten aus und hat nichts
+    # gemessen (platform#2735, Realfall 2026-09-02). Die Sperre nimmt dem Problem
+    # zusaetzlich die Ursache: drei gleichzeitige Flotten-Scans hatten es ausgeloest.
+    try:
+        with flotten_sperre("drift-check"):
+            probe()
+            results = _scanne(targets, token, iil_latest)
+    except DrosselFehler as exc:
+        print(f"\nExit 2: {exc}", file=sys.stderr)
+        return 2
 
     if args.format == "json":
         print_json_output(results)
