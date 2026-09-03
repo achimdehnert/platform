@@ -44,6 +44,16 @@ Y = 2
 import re
 
 print(os, re, Y)'
+# Die Regel, die hier gedrillt wird, muss das Fixture-Repo AUSDRUECKLICH waehlen.
+# ruff 0.16 hat seinen Default-Regelsatz umgestellt: E402 ist darin nicht mehr
+# enthalten (gemessen 2026-09-03 an genau diesem Fixture — `ruff check` rc=0,
+# `ruff check --select E402` rc=1). Mit `line-length` als einziger Config drillte
+# T11 also ab 0.16 nicht mehr das Gate, sondern ruffs Voreinstellung. Das Gate
+# laeuft bewusst OHNE --select (massgeblich ist die Repo-Config, damit es genau
+# das prueft, woran die CI scheitert) — dann muss auch das Fixture eine haben.
+printf 'line-length = 120\n[lint]\nselect = ["E4", "E7", "E9", "F"]\n' > "$E/ruff.toml"
+git -C "$E" add -A
+git -C "$E" -c user.email=t@t -c user.name=t commit -q --amend --no-edit
 # Dir C: kein ruff-Repo
 C="$FIX/c"; mkdir -p "$C"; git -C "$C" init -q
 git -C "$C" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
