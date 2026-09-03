@@ -15,6 +15,47 @@ berührt wird).
 
 1. **Irreversibles** — Daten/Branches löschen, force-push, Secret-Rotation,
    destruktive Migrationen.
+
+   **Allowlist (Owner-Go 2026-09-03, Kapitäns-Kanal „4 Wortlaut so", Vorschlag
+   [platform#2745](https://github.com/achimdehnert/platform/issues/2745)):
+   Cache-Löschung auf der GPU-Box (W11).** Der Agent darf auf `gpu-box`
+   Verzeichnisse löschen, **wenn alle sechs Bedingungen erfüllt sind**:
+
+   - **(a) Inhalt gesehen, nicht Größe geraten.** Vor jedem Vorschlag wird die
+     oberste Ebene des Ordners aufgelistet und im Vorschlag gezeigt. Größe oder
+     Name allein begründen nichts.
+   - **(b) Kein Zugang, kein Schlüssel, kein Dokument.** Enthält der Baum eine
+     Datei, die nach Zugangsdaten aussieht (`token`, `id_*`, `*.key`,
+     `credentials*`, `.env`), oder eigene Dokumente — dann nicht dieser Ordner,
+     sondern nur die benannten Unterordner.
+   - **(c) Verboten, auch mit Freigabe:** WSL-Distribution
+     (`AppData\Local\Packages\CanonicalGroupLimited.*`), Docker-Datenordner
+     (`AppData\Local\Docker`), `Users\*\Documents`, `OneDrive`, `github`.
+   - **(d) Eigener Aufräumbefehl vor `rm`** (`uv cache clean`, `pip cache purge`,
+     `ollama rm`, `docker system prune`).
+   - **(e) In den Papierkorb, nicht endgültig** — damit es einen Rückweg gibt.
+     Endgültig nur als eigene Freigabe. **Grenze der Regel, gemessen am ersten
+     Fall:** bei sehr großen Bäumen gibt der Papierkorb den Platz *nicht* frei,
+     die Löschung liefe also am Zweck vorbei. Dann ist die endgültige Löschung
+     der richtige Weg — und braucht ihr eigenes Wort.
+   - **(f) Freigabe gilt der Liste, nicht dem Auftrag.** Exakte Pfade zeigen,
+     Owner sagt go, genau diese löschen — keine Neuableitung, keine
+     Nachbarordner. Danach Messung vorher/nachher als Beleg.
+
+   **Warum diese Klasse mechanische Bedingungen trägt statt „nach klarer
+   Analyse":** Am 2026-09-03 riet der Agent, `.cache\huggingface` als Ganzes zu
+   löschen — im Ordner liegt die Datei `token`, der Hugging-Face-Zugang. Gefunden
+   hat das nicht die Analyse, sondern eine vom Stop-Hook erzwungene Nachprüfung.
+   Bei einem Repo fängt ein Fehlgriff `git revert`; auf einem Arbeitsplatz gibt es
+   das nicht.
+
+   **Harness-Voraussetzung (nicht optional).** Diese Klasse ist ohne Eintrag in
+   `autoMode.allow` wirkungslos — belegt am selben Tag: der erste Löschversuch nach
+   der Ratifikation wurde vom Auto-Mode-Classifier blockiert. Vorbild und Warnung
+   ist SA-1: ab 2026-07-12 ratifiziert, sechs Wochen inert, weil der Eintrag fehlte
+   (`permissions.allow` genügt im Auto-Modus nicht). Der Radius wird vom **Wrapper**
+   `tools/w11_cache_clean.py` begrenzt, nicht von der Disziplin des Agenten — er
+   prüft (a)–(d) und (f) selbst und verweigert den Lauf sonst.
 2. **Prod-Zustandsänderung** — Deploy auslösen, Prod-Dateien/-Container/-DBs
    anfassen. Ausnahme: explizit allowlistete, backup-first Wartungs-Wrapper.
    **Eingegrenzt durch Owner-Weisung 2026-08-27 (org-weit, alle Repos):** Hier
