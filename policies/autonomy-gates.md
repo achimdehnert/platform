@@ -106,6 +106,40 @@ berührt wird).
 3. **Security-/Governance-Config** — Branch-Protection/Rulesets, Tokens,
    Org-Permissions, Workflow-Permissions (`issues:write` etc., deckt sich mit
    Gate `autonomous-no-human-review`).
+
+   **Token-Rotation: zweigeteilt (Owner-Ratifikation 2026-09-03, platform#2748).**
+   Ein Personal Access Token laesst sich nicht per Schnittstelle erzeugen —
+   `POST /user/tokens` antwortet mit 404. Die Aufgabe zerfaellt deshalb ohnehin,
+   und die Teilung wird hier verbindlich:
+
+   | Haelfte | Wer | Warum |
+   |---|---|---|
+   | Token erzeugen, Scopes waehlen, altes widerrufen | **Mensch** | keine Schnittstelle; Scope-Wahl und Widerruf sind Sicherheitsentscheidungen, der Widerruf ist unumkehrbar |
+   | Wert uebernehmen, Secret setzen, Wirkung pruefen, Schleuse leeren | **Agent** | mechanisch, wiederholbar, pruefbar |
+
+   Die zweite Haelfte laeuft **nach Vorstellung und Bestaetigung** ohne erneute
+   Rueckfrage. „Vorstellen" heisst: Zielrepos, Secret-Name, benoetigte Scopes,
+   Fundort des neuen Werts und der Pruefschritt, der die Wirkung belegt — als
+   Liste, vor dem ersten Schreibzugriff.
+
+   Unveraendert und ohne Ausnahme:
+   * **Der Wert erscheint nirgends** — nicht in Chat, Log, Commit, Issue oder
+     Zusammenfassung. Nur Zeiger: Name, Zweck, Zielsystem, Fundort.
+   * **`~/shared/` ist der einzige Ort fuer den Klartext** und wird nach der
+     Uebernahme geleert; von dort nie weiterkopieren.
+   * **Die Wirkung wird gemessen, nicht behauptet:** ein echter Lauf des
+     betroffenen Workflows. Der Exit-Code des Setz-Befehls belegt nichts — und
+     wo ein Fallback auf ein Ersatz-Token existiert, gehoert die Log-Zeile dazu,
+     die zeigt, WELCHER Zweig lief (Realfall 2026-09-03: gruene Laeufe waren mit
+     beiden Token moeglich).
+   * **Nicht enthalten:** Scopes waehlen, Token widerrufen, Org-Permissions
+     aendern, Secrets in fremden Organisationen anlegen. Jede dieser Stufen
+     bliebe einzeln vorzulegen.
+
+   **Beobachtung aus dem ersten Lauf:** der Permission-Classifier blockt einen
+   Sammelbefehl ueber mehrere Repos; einzeln je Repo geht er durch. Eine
+   Rotation ueber N Repos ist also kein Einzeiler, sondern N bestaetigte
+   Schritte — beim Vorstellen so ankuendigen.
 4. **Scope-Eskalation** — drittes Repo, Publish (PyPI/Release), neue
    Automatismen mit Schreibrecht (Scope-Checkpoint, house rule).
 5. **Nennenswerter Spend** — Modell-Tier-Upgrade, Cloud-/Ultra-Runs, bezahlte APIs.
