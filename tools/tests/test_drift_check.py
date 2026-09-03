@@ -14,6 +14,7 @@ nötig); der End-to-End-Test mockt `_get_file_content`.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import re
 import sys
@@ -214,10 +215,40 @@ def _lauf(monkeypatch, capsys, repos, fehler_bei):
     monkeypatch.setattr(dc, "check_repo", fake_check)
     monkeypatch.setattr(dc, "_github_token", lambda *a, **k: "t")
     monkeypatch.setattr(dc, "_load_iil_latest", lambda *a, **k: {})
+    # Probe und Sperre sind nicht der Gegenstand DIESER Tests. Ohne die zwei
+    # Zeilen misst der Test die Erreichbarkeit der Maschine statt der Drift-
+    # Bilanz: in der CI gibt es kein angemeldetes `gh`, die Probe schlaegt fehl,
+    # und `main()` liefert korrekt Exit 2 — lokal gruen, in der CI rot (gemessen
+    # 2026-09-03, platform#2757). Die Verdrahtung selbst hat ihren eigenen Test.
+    monkeypatch.setattr(dc, "probe", lambda *a, **k: True)
+    monkeypatch.setattr(dc, "flotten_sperre", lambda *a, **k: contextlib.nullcontext())
     # Positionsargumente umgehen die Registry-Auswahl: Namen direkt aus dem Test.
     monkeypatch.setattr(sys, "argv", ["drift_check.py", *repos])
     code = dc.main()
     return code, capsys.readouterr()
+
+
+def test_should_exit_2_when_the_probe_says_throttled(monkeypatch, capsys):
+    """Die Verdrahtung selbst: sagt die Probe „gedrosselt", wird NICHT gescannt.
+
+    Das ist der Test, der 2026-09-03 gefehlt hat — die beiden Bilanz-Tests oben
+    haben ihn versehentlich mitgespielt und sind daran in der CI gescheitert.
+    """
+    gescannt = []
+    monkeypatch.setattr(dc, "_github_token", lambda *a, **k: "t")
+    monkeypatch.setattr(dc, "_load_iil_latest", lambda *a, **k: {})
+    monkeypatch.setattr(dc, "flotten_sperre", lambda *a, **k: contextlib.nullcontext())
+    monkeypatch.setattr(dc, "_scanne", lambda *a, **k: gescannt.append(1) or [])
+
+    def wirft(*a, **k):
+        raise dc.DrosselFehler("API rate limit exceeded for user ID 33293099")
+
+    monkeypatch.setattr(dc, "probe", wirft)
+    monkeypatch.setattr(sys, "argv", ["drift_check.py", "a-hub"])
+    code = dc.main()
+    assert code == 2, "gedrosselt ist ein Werkzeugfehler, kein leeres Ergebnis"
+    assert gescannt == [], "bei Drosselung darf gar nicht erst gescannt werden"
+    assert "rate limit" in capsys.readouterr().err
 
 
 def test_should_exit_2_when_not_a_single_repo_was_reachable(monkeypatch, capsys):
