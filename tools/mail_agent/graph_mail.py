@@ -1161,7 +1161,14 @@ def cmd_draft(
     attach: list[str] | None = None,
     cc: list[str] | None = None,
     ist_html: bool = False,
+    kategorien: list[str] | None = None,
 ) -> None:
+    """Entwurf anlegen. `kategorien` ordnet ihn direkt einem Vorgang zu.
+
+    Bis 2026-09-03 brauchte das einen zweiten Aufruf mit `--categorize`, der die
+    Mail ueber Absender/Betreff wiederfinden musste — bei einem Entwurf ohne
+    Absender ist das unnoetig umstaendlich, die Id liegt hier bereits vor.
+    """
     if reply_to:
         r = _http(
             "POST",
@@ -1195,14 +1202,17 @@ def cmd_draft(
             patch["subject"] = subject
         if cc:
             patch["ccRecipients"] = _empfaenger(cc)
+        if kategorien:
+            patch["categories"] = kategorien
         _http(
             "PATCH", f"{_basis()}/messages/{did}", headers=_auth(tok), json_body=patch
         )
         if attach:
             _attach_files(tok, did, attach)
+        zuordnung = f" Vorgang: {', '.join(kategorien)}." if kategorien else ""
         print(
-            f"OK: Antwort-Entwurf im Drafts-Ordner abgelegt (Reply auf {reply_to[:12]}…). "
-            "Prüfe und sende ihn selbst aus Outlook."
+            f"OK: Antwort-Entwurf im Drafts-Ordner abgelegt (Reply auf {reply_to[:12]}…)."
+            f"{zuordnung} Prüfe und sende ihn selbst aus Outlook."
         )
         return
     body_json = {
@@ -1212,6 +1222,8 @@ def cmd_draft(
     }
     if cc:
         body_json["ccRecipients"] = _empfaenger(cc)
+    if kategorien:
+        body_json["categories"] = kategorien
     r = _http("POST", f"{_basis()}/messages", headers=_auth(tok), json_body=body_json)
     if r.status_code not in (200, 201):
         sys.exit(
@@ -1219,8 +1231,10 @@ def cmd_draft(
         )
     if attach:
         _attach_files(tok, r.json()["id"], attach)
+    zuordnung = f" Vorgang: {', '.join(kategorien)}." if kategorien else ""
     print(
-        "OK: Entwurf im Drafts-Ordner abgelegt (NICHT gesendet). Prüfe und sende ihn selbst aus Outlook."
+        f"OK: Entwurf im Drafts-Ordner abgelegt (NICHT gesendet).{zuordnung} "
+        "Prüfe und sende ihn selbst aus Outlook."
     )
 
 
@@ -1332,7 +1346,10 @@ def main() -> None:
     ap.add_argument(
         "--category",
         metavar="VORGANG",
-        help="bei --find: nur Mails dieses Vorgangs",
+        action="append",
+        help="bei --find: nur Mails dieses Vorgangs; bei --draft: den Entwurf diesem "
+        "Vorgang zuordnen (mehrfach moeglich) — spart den zweiten Aufruf mit "
+        "--categorize",
     )
     ap.add_argument(
         "--cc",
@@ -1480,7 +1497,9 @@ def main() -> None:
             "" if args.all else args.subject,
             args.days,
             args.source,
-            category=args.category or "",
+            # --category ist seit 2026-09-03 mehrfach angebbar (fuer --draft);
+            # der Filter kennt weiterhin genau einen Vorgang.
+            category=(args.category or [""])[0],
         )
     elif args.list_categories:
         cmd_kategorien_listen(tok, days=args.days, source_path=args.source)
@@ -1564,6 +1583,7 @@ def main() -> None:
             args.attach,
             args.cc,
             ist_html,
+            args.category,
         )
 
 
