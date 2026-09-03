@@ -13,6 +13,7 @@ Covers:
 
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -21,9 +22,11 @@ from unittest.mock import patch
 import pytest
 
 # Load the hook module from the sibling directory without installing it.
+# importlib statt `import … # noqa: E402`: ruff 0.15 verlangt das noqa (E402 im
+# Standard), ruff 0.16 verwirft es als unbenutzt (RUF100) — platform#2739.
 _HOOK_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(_HOOK_DIR))
-import log_llm_call as hook  # noqa: E402
+hook = importlib.import_module("log_llm_call")
 
 
 # ---------------------------------------------------------------------------
