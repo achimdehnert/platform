@@ -298,10 +298,25 @@ def postfaecher(verbinde=None):
         if konto not in offene:
             try:
                 offene[konto] = Postfach(konto, verbinde(konto))
-            # Breit mit Absicht: Login-Fehler kommen je nach Anbieter als
-            # OSError, IMAP4.error, ssl.SSLError oder ValueError. Ein nicht
-            # erreichbares Konto darf den Lauf der anderen nicht abbrechen.
-            except Exception as fehler:  # noqa: BLE001 — Netz/Login, melden statt raten
+            # Benannt statt blind: das sind die Arten, die wirklich "Konto
+            # unbenutzbar" heissen — Netz und TLS und Zeitueberschreitung als
+            # OSError, Login-Ablehnung als IMAP4.error, fehlender SMTP_HOST oder
+            # unbrauchbarer Port als KeyError/ValueError. Ein AttributeError ist
+            # dagegen ein Fehler im Code und soll auffliegen, statt sich als
+            # "nicht erreichbar" zu tarnen.
+            #
+            # SystemExit eigens: `load_credentials` beendet bei einem fehlenden
+            # Credential-Paar den PROZESS (sys.exit) statt zu werfen. SystemExit
+            # ist keine Exception — bis 2026-09-03 riss genau dieser gewoehnliche
+            # Fall den ganzen Lauf mit, samt der Arbeit aller anderen Konten.
+            # Wurzel (sys.exit in einer Bibliotheksfunktion) siehe platform#2752.
+            except (
+                OSError,
+                imaplib.IMAP4.error,
+                KeyError,
+                ValueError,
+                SystemExit,
+            ) as fehler:
                 print(f"  Konto '{konto}' nicht erreichbar: {fehler}", file=sys.stderr)
                 offene[konto] = None
         return offene[konto]
@@ -314,7 +329,10 @@ def postfaecher(verbinde=None):
                 continue
             try:
                 pf.imap.logout()
-            except Exception as fehler:  # noqa: BLE001 — schon getrennt, kein Grund zu scheitern
+            # Abmelden darf scheitern: der Server kann die Verbindung laengst
+            # geschlossen haben. Nur nicht still — sonst sieht ein haengender
+            # Logout aus wie ein sauberes Ende.
+            except (OSError, imaplib.IMAP4.error) as fehler:
                 print(f"  Abmeldung '{pf.konto}': {fehler}", file=sys.stderr)
 
 

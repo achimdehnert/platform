@@ -329,3 +329,45 @@ def test_should_print_only_the_summary_line_with_kurz(
     assert ea.main() == 0
     zeilen = capsys.readouterr().out.strip().splitlines()
     assert len(zeilen) == 1 and zeilen[0].startswith("2 Referenzen: 1 neu verankert")
+
+
+class TestKontoNichtErreichbar:
+    """Ein unbenutzbares Konto wird gemeldet, ein Codefehler fliegt auf.
+
+    `load_credentials` beendet bei einem fehlenden Credential-Paar den Prozess
+    per `sys.exit` — `SystemExit` ist keine `Exception` und ging deshalb bis zum
+    2026-09-03 an jedem `except Exception` vorbei. Ein einziges Konto ohne Paar
+    riss damit den ganzen Mehrkonten-Lauf mit, samt der Arbeit aller anderen.
+    Wurzel: platform#2752.
+    """
+
+    @staticmethod
+    def _wirft(fehler):
+        def verbinde(_konto):
+            raise fehler
+
+        return verbinde
+
+    @pytest.mark.parametrize(
+        "fehler",
+        [
+            SystemExit("kein Credentials-Paar"),
+            OSError("no route to host"),
+            KeyError("SMTP_HOST"),
+            ValueError("Port unlesbar"),
+        ],
+        ids=["fehlendes-paar", "netz", "smtp-host-fehlt", "port-unlesbar"],
+    )
+    def test_should_report_an_unusable_account_instead_of_aborting(
+        self, fehler, capsys
+    ):
+        with ea.postfaecher(self._wirft(fehler)) as hole:
+            assert hole("hnu") is None
+        assert "nicht erreichbar" in capsys.readouterr().err
+
+    def test_should_let_a_coding_error_surface(self):
+        """Gegenprobe: waere die Liste zu breit, saehe jeder Tippfehler im Code
+        wie ein unerreichbares Konto aus und bliebe unentdeckt."""
+        verbinde = self._wirft(AttributeError("tippfehler"))
+        with pytest.raises(AttributeError), ea.postfaecher(verbinde) as hole:
+            hole("hnu")
