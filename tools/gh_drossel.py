@@ -89,8 +89,9 @@ def _gh(pfad: str, timeout: int = 20) -> tuple[int, str]:
 def probe(repo: str = PROBE_REPO, werfen: bool = True, laeufer=None) -> bool:
     """EIN echter Aufruf. `True` = die API antwortet und liefert Daten.
 
-    Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit und meldete am
+    Warum kein `gh api rate_limit`: das misst das Primaerlimit und meldete am
     2026-09-02 5000 freie Aufrufe, waehrend jeder echte Aufruf abgewiesen wurde.
+    Es beantwortet also eine andere Frage als die, die hier gestellt wird.
     """
     laeufer = laeufer or _gh
     rc, aus = laeufer(f"repos/{repo}")
