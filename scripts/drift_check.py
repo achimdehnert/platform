@@ -973,7 +973,10 @@ def print_github_summary(drifts: list[RepoDrift]) -> None:
         f.write("## Platform Drift Check\n\n")
         f.write("| Repo | Status | Errors | Warnings |\n")
         f.write("|------|--------|--------|----------|\n")
-        f.writelines(f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n" for r in sorted(drifts, key=lambda x: -x.drift_score))
+        f.writelines(
+            f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
+            for r in sorted(drifts, key=lambda x: -x.drift_score)
+        )
 
 
 def print_json_output(drifts: list[RepoDrift]) -> None:
