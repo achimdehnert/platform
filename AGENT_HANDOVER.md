@@ -15,7 +15,23 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-03 vormittags — #2750 Fable-Session delegiert automatisch, Modellmix-Ledger, Gates verdrahtet; Orchestrator-MCP-Schlüssel rotiert)
+## ⚡ Aktueller Stand (2026-09-03 mittags — Future-Readiness-Audit: Prompt v2.3, Bewerter, Pinning-Welle 1, Retro 0f59ce)
+
+**Zeitanker:** HEAD `273f70ca` · `rev-list --count` 4068 · geschrieben 2026-09-03
+
+**Zielzustand (Owner-Frage 2026-09-02 „ist dieser Master-Prompt zukunftstauglich, adaptiere ihn" + Go-Worte 88/95/99/109/128/129/146): erreicht für Prompt, Kalibrierung, Inventur, Canaries, Werkzeug-PR und Welle 1 (Fremdabnahme Sonnet, s. Retro); verschoben mit Anker: Phase C über 56 Repos (#2736/#2737), shared-ci-Tag ([shared-ci#73](https://github.com/iilgmbh/shared-ci/issues/73)), travel-beat#94 ([travel-beat#95](https://github.com/achimdehnert/travel-beat/issues/95)).**
+
+**Gemergt (12 PRs, 7 Repos).** Prompt [#2727](https://github.com/achimdehnert/platform/pull/2727) v2.1 · [#2729](https://github.com/achimdehnert/platform/pull/2729) v2.2 + `tools/future_readiness_rubric.py` · [#2756](https://github.com/achimdehnert/platform/pull/2756) v2.3 (72 Kernfragen, `locator_kind`, Schema oneOf, Render mit Markern + `check`) · Gate-Fix [#2731](https://github.com/achimdehnert/platform/pull/2731) (deploy-sh-gate Merge-Base) · Pinning [#2728](https://github.com/achimdehnert/platform/pull/2728)/[#2734](https://github.com/achimdehnert/platform/pull/2734) (166/166 Third-Party auf SHA) · Welle 1: [shared-ci#67](https://github.com/iilgmbh/shared-ci/pull/67), [dev-hub#318](https://github.com/achimdehnert/dev-hub/pull/318), [aifw#63](https://github.com/achimdehnert/aifw/pull/63), [writing-hub#1001](https://github.com/achimdehnert/writing-hub/pull/1001), [illustration-hub#321](https://github.com/achimdehnert/illustration-hub/pull/321) · Berichte [dev-hub#317](https://github.com/achimdehnert/dev-hub/pull/317) (Inventur T0 56 Repos, Canaries aifw 60 / dev-hub 74 / platform 71) · Retro [#2772](https://github.com/achimdehnert/platform/pull/2772). **Offen:** [#2767](https://github.com/achimdehnert/platform/pull/2767) Evidenz-Generator + deterministischer Bewerter (Δ≤5 zu drei Modell-Läufen; Phase C ohne Modell-Worker).
+
+**Kennzahlen:** Canary-Gleichlauf v2.2: Readiness 67 vs 71, 12 von 13 Finding-Schlüssel identisch; Modell-Worker 150–190k Token je Repo, Bewerter Sekunden. Inventur: 41 von 56 Repos ohne Ruleset, 29/29 lesbare mit Dependabot-Security-Updates aus, SECURITY.md 1/56.
+
+**Retro 0f59ce (14 Befunde, 11 überlebt):** REPORT_DIR-Regel nur als Kommentar (#2737 Regel 11) · shared-ci ohne Tag, Dependabot-Bumps zielen auf v1.1.14 vor der Härtung · ADR-262 `not-started` ([#2770](https://github.com/achimdehnert/platform/issues/2770)) · Checkpoint 58 Min nach Prod-Sync · travel-beat Runner offline · `~/shared` als Ausleitungspfad. Drei Registry-Kandidaten (#2234). Ende-Runner blind für platform: [#2773](https://github.com/achimdehnert/platform/issues/2773).
+
+**Nächster Schritt:** #2767 mergen → `python3 tools/future_readiness_evidence.py <owner/repo> <root> --out DIR && python3 tools/future_readiness_score.py DIR/evidence.json --archetype … --out DIR/result.json` je Repo (Phase C), Ablage dev-hub `docs/audits/future-readiness/<datum>/`; v2.4 aus #2737 (Kandidaten 11–36). Session Resume: `claude --resume 19afc1d5-cb88-4255-b754-df1a630f59ce`.
+
+**SA-4:** 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen (alle Merges mit explizitem Owner-Wort; SA-M-Wrapper verweigerte #2729 mit W1/M0). 0h (Sonnet, nur Artefakte): **0d** K1–K4, K6 ERFÜLLT, K5 NICHT ERFÜLLT (travel-beat#94 offen, Runner offline) → Gesamt **verschoben**, Tracking travel-beat#95 — sein Urteil gilt. **0e** eine Lücke: das in #2767 zitierte Bewerter-Ergebnis für platform lag nur im Scratchpad → dev-hub `repositories/achimdehnert-platform.{json,md}` (dev-hub-PR); Verweise auf `~/shared` in #2727/#2736/#2737 sind als Retro-Befund #14 (Egress) und A12/A13 verankert. Outline: Konzept „Future-Readiness-Audit: Prompt als Messinstrument, Canary-Kalibrierung, deterministischer Bewerter" + Lesson „2026-09-03: Public-Default, Schleusen-Egress, PR-only-Gate, Bot-Tabu". pgvector `session:platform:20260903:fr-0f59ce`.
+
+## ⚡ Vorheriger Stand (2026-09-03 vormittags — #2750 Fable-Session delegiert automatisch, Modellmix-Ledger, Gates verdrahtet; Orchestrator-MCP-Schlüssel rotiert)
 
 **Zeitanker:** HEAD `c018ea06` · `rev-list --count` 4065 · geschrieben 2026-09-03
 
@@ -64,6 +80,12 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690
 26. #2750 K4/K5-Bilanz, sobald das Ledger 5 Fable-Sessions nach 2026-09-03 trägt (Stand 2); K5-Basisdefinition = Owner-Wort: https://github.com/achimdehnert/platform/issues/2750
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
+28. Future-Readiness Phase C (Bewerter über 56 Repos, Ablage dev-hub) + v2.4 aus 36 Regelkandidaten: https://github.com/achimdehnert/platform/issues/2737
+29. Evidenz-Generator als Werkzeug (#2767 offen; Rate-Limit-Vorabcheck, visibility-Check): https://github.com/achimdehnert/platform/issues/2736
+30. shared-ci Band-Tag v1.1.15 nach Pinning-Merge; Dependabot-Bumps nicht auf v1.1.14 mergen (Owner, Prod-Gate): https://github.com/iilgmbh/shared-ci/issues/73
+31. travel-beat: beide self-hosted Runner offline, Pinning-PR #94 hängt: https://github.com/achimdehnert/travel-beat/issues/95
+32. ADR-262 Frontmatter nach Welle 1 (7 Repos umgesetzt, Status not-started): https://github.com/achimdehnert/platform/issues/2770
+33. session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name): https://github.com/achimdehnert/platform/issues/2773
 
 ## Konventionen dieser Datei
 
