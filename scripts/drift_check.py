@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import copy
 import json
 import os
@@ -139,8 +140,10 @@ BANNED_FILE_PATTERNS = [
         "Dockerfile",
         r"^HEALTHCHECK\b",
         "error",
-        "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
-        "docker-compose.prod.yml, nicht ins image-globale Dockerfile)",
+        (
+            "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service "
+            "in docker-compose.prod.yml, nicht ins image-globale Dockerfile)"
+        ),
     ),
 ]
 
@@ -223,9 +226,10 @@ def _api_get(path: str, token: str) -> dict | list | None:
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        return None if e.code == 404 else None
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        # HTTPError ist eine URLError-Unterklasse; 404 und jeder andere Code
+        # fuehrten hier schon immer zu `None` — die alte Fallunterscheidung
+        # unterschied nichts. ValueError deckt kaputtes JSON.
         return None
 
 
@@ -235,7 +239,7 @@ def _get_file_content(repo: str, path: str, token: str) -> str | None:
         return None
     try:
         return base64.b64decode(data["content"]).decode(errors="replace")
-    except Exception:
+    except (ValueError, TypeError, binascii.Error):
         return None
 
 
@@ -252,7 +256,7 @@ def _fetch_pypi_latest(package: str) -> str | None:
             f"https://pypi.org/pypi/{package}/json", timeout=5
         ) as r:
             return json.loads(r.read())["info"]["version"]
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError):
         return None
 
 
@@ -771,7 +775,7 @@ def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | N
         return None
     try:
         return base64.b64decode(data["content"]).decode(errors="replace")
-    except Exception:
+    except (ValueError, TypeError, binascii.Error):
         return None
 
 
