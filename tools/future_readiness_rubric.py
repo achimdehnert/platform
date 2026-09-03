@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
 """future_readiness_rubric.py — EINE Quelle fuer Fragenkatalog, Anwendbarkeitsmatrix und JSON-Schema
-des Future-Readiness-Worker (docs/prompts/future-readiness-audit.md, v2.2).
+des Future-Readiness-Worker (docs/prompts/future-readiness-audit.md, ab v2.2; Stand v2.3).
 
-    python3 tools/future_readiness_rubric.py table   # Artefakt 2, Kernfragen
+    python3 tools/future_readiness_rubric.py table   # Artefakt 2, Kernfragen (mit locator_kind)
     python3 tools/future_readiness_rubric.py matrix  # Artefakt 2, Anwendbarkeit
     python3 tools/future_readiness_rubric.py schema  # Artefakt 3, JSON Schema
-    python3 tools/future_readiness_rubric.py render docs/prompts/future-readiness-audit.md  # {{TABLE}}/{{MATRIX}}/{{SCHEMA}} ersetzen
+    python3 tools/future_readiness_rubric.py render docs/prompts/future-readiness-audit.md
+        # ersetzt die Bloecke zwischen den Markern  <!-- rubric:TABLE -->…<!-- /rubric:TABLE -->
+        # (ebenso MATRIX, SCHEMA); idempotent — mehrfaches Rendern aendert nichts
+    python3 tools/future_readiness_rubric.py check docs/prompts/future-readiness-audit.md
+        # Exit 1, wenn der Prompt nicht dem Generator entspricht (fuer CI/pre-commit)
 
 Ein Rubrik-Edit ohne Neugenerierung ist ungueltig (Anhang des Prompts). Anlass: Canary-Lauf 2
 am 2026-09-02, Review C, Blocker 1-7 — Tabelle, Matrix und Schema liefen in v2.1 auseinander.
+v2.3 (Canary 3, Review B + interner Lauf): locator_kind je Frage, eindeutige Befundwerte
+(D05.2, D06.6, D06.7, D09.2), Frage D06.13 (First-Party-Referenzen), Schema zustandsabhaengig
+(oneOf), Zaehler/Nenner Pflicht bei partial, remediation_prs als Liste.
 """
 
 import json
+import re
 import sys
 
-# (id, slug, weight_dim, frage, ok, partial, fail, na_archetypes)
+SCHEMA_VERSION = "2.3"
+
 DIMS = {
     "D01": ("Runtime-Lifecycle", 10),
     "D02": ("Dependencies/Reproduzierbarkeit", 10),
@@ -30,15 +39,24 @@ DIMS = {
     "D12": ("Cross-Repo-Fit", 3),
 }
 CI, DOCS, PKG, IAC = "ci-workflow", "docs", "python-package", "iac"
+
+#: locator_kind — bestimmt die kanonische Location im Finding-Locator (Artefakt 2):
+#:   setting  → "setting:<controls-Schluessel oder API-Feld>"
+#:   pattern  → ".github/workflows#<finding_type>"  (aggregierte Verhaeltnisfrage ueber Workflows)
+#:   files    → sortierte konkrete Pfade, ";"-verbunden
+#:   absence  → sortierte Liste der GEPRUEFTEN Namen (aus dem Paket), ";"-verbunden
+#:   repo     → "repo" (repo-weiter Befund ohne Datei, z.B. Lifecycle, Konsumenten)
+# (id, slug, frage, ok, partial, fail, n/a-Archetypen, locator_kind)
 Q = [
     (
         "D01.1",
         "runtime-version-belegt",
         "Runtime-Version(en) belegt",
-        "genau eine Version an einer Stelle",
-        "mehrere Stellen, gleiche Version",
+        "genau eine Version an genau einer Stelle",
+        "gleiche Version an mehreren Stellen",
         "widerspruechliche oder keine Version",
         [DOCS],
+        "pattern",
     ),
     (
         "D01.2",
@@ -48,6 +66,7 @@ Q = [
         "-",
         "Quelle liefert nichts (dann unverified)",
         [DOCS],
+        "repo",
     ),
     (
         "D01.3",
@@ -57,6 +76,7 @@ Q = [
         "EOL zwischen RUN_DATE+12M und HORIZON_END",
         "EOL < RUN_DATE+12M",
         [DOCS],
+        "repo",
     ),
     (
         "D01.4",
@@ -66,6 +86,7 @@ Q = [
         "Ziel ohne Termin",
         "nichts",
         [DOCS],
+        "repo",
     ),
     (
         "D01.5",
@@ -75,24 +96,27 @@ Q = [
         "Support-Datum < HORIZON_END",
         "EOL-Image",
         [CI, DOCS, PKG],
+        "files",
     ),
     (
         "D02.1",
         "manifest",
-        "Abhaengigkeits-Manifest vorhanden",
-        "ein Manifest mit Versionsangaben",
-        "Manifest ohne Versionen",
-        "kein Manifest",
+        "Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest)",
+        "alle Eintraege versioniert",
+        "teils versioniert",
+        "kein Manifest oder 0 versioniert",
         [DOCS],
+        "files",
     ),
     (
         "D02.2",
         "lockfile",
-        "Lockfile vorhanden und in CI genutzt",
+        "Lockfile vorhanden und in CI genutzt (uv.lock, poetry.lock, requirements.lock, pdm.lock, Pipfile.lock, package-lock.json; vollstaendig gepinnte requirements*.txt zaehlt NICHT)",
         "Lockfile + CI installiert daraus",
         "Lockfile, CI nutzt es nicht",
         "kein Lockfile",
         [DOCS],
+        "absence",
     ),
     (
         "D02.3",
@@ -102,6 +126,7 @@ Q = [
         "Config fuer einen Teil",
         "keine",
         [DOCS],
+        "files",
     ),
     (
         "D02.4",
@@ -111,6 +136,7 @@ Q = [
         "nur low/medium offen",
         "high/critical offen",
         [DOCS],
+        "repo",
     ),
     (
         "D02.5",
@@ -120,6 +146,7 @@ Q = [
         "eine mit Ersatzplan",
         "eine ohne Plan",
         [DOCS],
+        "repo",
     ),
     (
         "D03.1",
@@ -129,6 +156,7 @@ Q = [
         "Zyklen bekannt und isoliert",
         "Zyklen im Kern",
         [CI, DOCS, IAC],
+        "repo",
     ),
     (
         "D03.2",
@@ -138,6 +166,7 @@ Q = [
         "Version ohne Regel",
         "unversioniert",
         [DOCS, IAC],
+        "repo",
     ),
     (
         "D03.3",
@@ -147,6 +176,7 @@ Q = [
         "additiv mit Ausnahmen",
         "destruktiv",
         [CI, DOCS, PKG, IAC],
+        "files",
     ),
     (
         "D03.4",
@@ -156,6 +186,7 @@ Q = [
         "eines",
         "keines",
         [CI, DOCS, IAC],
+        "repo",
     ),
     (
         "D03.5",
@@ -165,6 +196,7 @@ Q = [
         "teilweise",
         "nein",
         [CI, DOCS, IAC],
+        "repo",
     ),
     (
         "D03.6",
@@ -174,6 +206,7 @@ Q = [
         "einer, getrackt",
         "einer, ungetrackt",
         [DOCS],
+        "repo",
     ),
     (
         "D04.1",
@@ -183,6 +216,7 @@ Q = [
         "1-10 Dateien",
         "keine",
         [DOCS],
+        "files",
     ),
     (
         "D04.2",
@@ -192,6 +226,7 @@ Q = [
         "in_progress/unbekannt (dann unverified)",
         "failure oder kein Test-Workflow",
         [DOCS],
+        "files",
     ),
     (
         "D04.3",
@@ -201,16 +236,27 @@ Q = [
         "teilweise rot, dokumentiert",
         "rot",
         [DOCS],
+        "repo",
     ),
-    ("D04.4", "lint-in-ci", "Lint in CI", "ja", "nur lokal/pre-commit", "nein", [DOCS]),
+    (
+        "D04.4",
+        "lint-in-ci",
+        "Code-Linter (ruff/eslint/shellcheck o.ae.) laeuft in CI FUER DIESES REPO (Operand executed_for_this_repo=true; ein nur exportierter workflow_call zaehlt nicht; Konfig-Linter wie yamllint zaehlen nicht)",
+        "ja, letzter Lauf success",
+        "Job vorhanden, letzter Lauf nicht success",
+        "nein",
+        [DOCS],
+        "files",
+    ),
     (
         "D04.5",
         "typen-in-ci",
-        "Typpruefung in CI",
-        "ja",
-        "nur lokal",
+        "Typpruefung (mypy/pyright/tsc) laeuft in CI FUER DIESES REPO (Operand wie D04.4)",
+        "ja, letzter Lauf success",
+        "Job vorhanden, letzter Lauf nicht success",
         "nein",
         [DOCS, IAC],
+        "files",
     ),
     (
         "D04.6",
@@ -220,24 +266,27 @@ Q = [
         "teilweise",
         "ungetestet",
         [DOCS],
+        "repo",
     ),
     (
         "D05.1",
         "required-checks",
-        "Required Checks vorhanden",
+        "Required Checks im Ruleset des Default-Branch",
         "Tests + Security als Required",
         "nur ein Check",
         "keine",
         [],
+        "setting",
     ),
     (
         "D05.2",
         "review-pflicht",
-        "Ruleset mit Review-Pflicht",
-        "Approvals >= 1 oder Codeowner-Review",
-        "nur Codeowner ohne Approval",
-        "keine",
+        "Ruleset mit Review-Pflicht (Operand: required_approving_review_count, require_code_owner_review)",
+        "required_approving_review_count >= 1",
+        "count == 0 UND require_code_owner_review == true",
+        "beides nicht gesetzt",
         [],
+        "setting",
     ),
     (
         "D05.3",
@@ -247,6 +296,7 @@ Q = [
         "mit manuellen Schritten, dokumentiert",
         "manuell",
         [DOCS],
+        "files",
     ),
     (
         "D05.4",
@@ -256,15 +306,17 @@ Q = [
         "dokumentiert",
         "keiner",
         [DOCS],
+        "repo",
     ),
     (
         "D05.5",
         "dauerrot",
-        "Workflow auf Default-Branch dauerhaft rot (>= 3 Laeufe)",
+        "Workflow auf Default-Branch dauerhaft rot (>= 3 Laeufe in Folge)",
         "keiner",
         "einer, mit Anker/Issue",
         "einer ohne Anker",
         [],
+        "files",
     ),
     (
         "D05.6",
@@ -274,10 +326,38 @@ Q = [
         "ein Band zurueck",
         "> 1 Band oder kein shared-ci",
         [DOCS],
+        "repo",
     ),
-    ("D06.1", "secret-scanning", "Secret Scanning", "enabled", "-", "disabled", []),
-    ("D06.2", "push-protection", "Push Protection", "enabled", "-", "disabled", []),
-    ("D06.3", "dependabot-alerts", "Dependabot-Alerts", "enabled", "-", "disabled", []),
+    (
+        "D06.1",
+        "secret-scanning",
+        "Secret Scanning",
+        "enabled",
+        "-",
+        "disabled",
+        [],
+        "setting",
+    ),
+    (
+        "D06.2",
+        "push-protection",
+        "Push Protection",
+        "enabled",
+        "-",
+        "disabled",
+        [],
+        "setting",
+    ),
+    (
+        "D06.3",
+        "dependabot-alerts",
+        "Dependabot-Alerts (BASIC_SECURITY_CONTROL)",
+        "enabled",
+        "-",
+        "disabled",
+        [],
+        "setting",
+    ),
     (
         "D06.4",
         "dependabot-security-updates",
@@ -286,6 +366,7 @@ Q = [
         "-",
         "disabled",
         [],
+        "setting",
     ),
     (
         "D06.5",
@@ -295,24 +376,27 @@ Q = [
         "configured_no_analysis",
         "disabled/kein Setup",
         [DOCS],
+        "setting",
     ),
     (
         "D06.6",
         "action-pinning",
-        "Action-Pinning (SHA-Anteil externer uses:)",
+        "SHA-Pinning von THIRD-PARTY-Actions (uses-Ziel weder eigenes Repo noch eigene Orgs; Operand: sha_pinned/third_party gesamt)",
         "100 %",
         "> 0 % und < 100 %",
         "0 %",
         [],
+        "pattern",
     ),
     (
         "D06.7",
         "gefaehrliche-trigger",
-        "pull_request_target/workflow_run ohne Checkout von PR-Code",
-        "kein solcher Trigger",
-        "Trigger ohne Checkout",
-        "Trigger mit Checkout",
+        "pull_request_target/workflow_run mit Checkout von PR-Code (Operand: numerator = Workflows mit solchem Trigger UND Checkout des PR-Heads)",
+        "numerator == 0",
+        "-",
+        "numerator > 0",
         [],
+        "pattern",
     ),
     (
         "D06.8",
@@ -322,6 +406,7 @@ Q = [
         "> 50 %",
         "<= 50 %",
         [],
+        "pattern",
     ),
     (
         "D06.9",
@@ -331,6 +416,7 @@ Q = [
         "Vorkommen gezaehlt, Werte nicht bewertet (unverified)",
         "write ohne Bedarf",
         [],
+        "pattern",
     ),
     (
         "D06.10",
@@ -340,6 +426,7 @@ Q = [
         "teils",
         "nur Token",
         [DOCS],
+        "pattern",
     ),
     (
         "D06.11",
@@ -349,9 +436,38 @@ Q = [
         "eines",
         "keines",
         [CI, DOCS],
+        "repo",
     ),
-    ("D06.12", "signierung", "Artefakt-Signierung", "ja", "-", "nein", [CI, DOCS]),
-    ("D07.1", "health", "Health-Endpunkt", "ja", "-", "nein", [CI, DOCS, PKG, IAC]),
+    (
+        "D06.12",
+        "signierung",
+        "Artefakt-Signierung",
+        "ja",
+        "-",
+        "nein",
+        [CI, DOCS],
+        "repo",
+    ),
+    (
+        "D06.13",
+        "first-party-refs-versioniert",
+        "Referenzen auf eigene Repos/Orgs (reusable workflows, composite actions) tragen Tag oder SHA statt @main (Operand: versioned/first_party gesamt)",
+        "100 %",
+        "> 0 % und < 100 %",
+        "0 %",
+        [DOCS],
+        "pattern",
+    ),
+    (
+        "D07.1",
+        "health",
+        "Health-Endpunkt",
+        "ja",
+        "-",
+        "nein",
+        [CI, DOCS, PKG, IAC],
+        "repo",
+    ),
     (
         "D07.2",
         "logs",
@@ -360,10 +476,11 @@ Q = [
         "unstrukturiert",
         "keine",
         [CI, DOCS, PKG, IAC],
+        "repo",
     ),
-    ("D07.3", "metriken", "Metriken", "ja", "-", "nein", [CI, DOCS, PKG, IAC]),
-    ("D07.4", "alarmweg", "Alarmweg belegt", "ja", "-", "nein", [DOCS, PKG]),
-    ("D07.5", "runbook", "Runbook", "ja", "veraltet", "keines", [DOCS, PKG]),
+    ("D07.3", "metriken", "Metriken", "ja", "-", "nein", [CI, DOCS, PKG, IAC], "repo"),
+    ("D07.4", "alarmweg", "Alarmweg belegt", "ja", "-", "nein", [DOCS, PKG], "repo"),
+    ("D07.5", "runbook", "Runbook", "ja", "veraltet", "keines", [DOCS, PKG], "files"),
     (
         "D07.6",
         "backup-restore",
@@ -372,12 +489,31 @@ Q = [
         "dokumentiert",
         "nichts",
         [CI, DOCS, PKG],
+        "repo",
     ),
-    ("D08.1", "readme-zweck", "README nennt Zweck", "ja", "-", "nein", []),
-    ("D08.2", "readme-setup", "README nennt Setup-Weg", "ja", "-", "nein", [DOCS]),
-    ("D08.3", "codeowners", "CODEOWNERS", "ja", "-", "nein", []),
-    ("D08.4", "security-md", "SECURITY.md", "ja", "-", "nein", []),
-    ("D08.5", "changelog", "CHANGELOG", "ja", "-", "nein", []),
+    (
+        "D08.1",
+        "readme-zweck",
+        "README nennt Zweck (Operand: erster Absatz im Paket)",
+        "ja",
+        "-",
+        "nein",
+        [],
+        "files",
+    ),
+    (
+        "D08.2",
+        "readme-setup",
+        "README nennt Setup-Weg (Operand: Setup-Abschnitt im Paket)",
+        "ja",
+        "-",
+        "nein",
+        [DOCS],
+        "files",
+    ),
+    ("D08.3", "codeowners", "CODEOWNERS", "ja", "-", "nein", [], "absence"),
+    ("D08.4", "security-md", "SECURITY.md", "ja", "-", "nein", [], "absence"),
+    ("D08.5", "changelog", "CHANGELOG", "ja", "-", "nein", [], "absence"),
     (
         "D08.6",
         "einschraenkungen",
@@ -386,6 +522,7 @@ Q = [
         "-",
         "nein",
         [],
+        "repo",
     ),
     (
         "D09.1",
@@ -395,17 +532,28 @@ Q = [
         "-",
         "nein",
         [DOCS],
+        "absence",
     ),
     (
         "D09.2",
         "tool-versionen",
-        "Tool-Versionen gepinnt (.python-version o.ae.)",
+        "LOKALE Developer-Toolchain gepinnt: .python-version, .tool-versions, mise.toml, .nvmrc oder requires-python in pyproject (CI-Pins zaehlen NICHT; Paket listet die geprueften Namen)",
         "ja",
         "-",
         "nein",
         [DOCS],
+        "absence",
     ),
-    ("D09.3", "env-example", "Beispiel-Env-Datei", "ja", "-", "nein", [CI, DOCS, PKG]),
+    (
+        "D09.3",
+        "env-example",
+        "Beispiel-Env-Datei",
+        "ja",
+        "-",
+        "nein",
+        [CI, DOCS, PKG],
+        "absence",
+    ),
     (
         "D09.4",
         "beispiele-sicher",
@@ -414,8 +562,9 @@ Q = [
         "-",
         "nein",
         [DOCS],
+        "repo",
     ),
-    ("D09.5", "pre-commit", "pre-commit", "ja", "-", "nein", [DOCS]),
+    ("D09.5", "pre-commit", "pre-commit", "ja", "-", "nein", [DOCS], "absence"),
     (
         "D09.6",
         "frisches-setup",
@@ -424,8 +573,18 @@ Q = [
         "mit Handarbeit",
         "rot",
         [DOCS],
+        "repo",
     ),
-    ("D10.1", "agent-datei", "Agent-Instruktionsdatei", "ja", "-", "nein", []),
+    (
+        "D10.1",
+        "agent-datei",
+        "Agent-Instruktionsdatei (CLAUDE.md/AGENTS.md)",
+        "ja",
+        "-",
+        "nein",
+        [],
+        "absence",
+    ),
     (
         "D10.2",
         "agent-befehle",
@@ -434,8 +593,18 @@ Q = [
         "documented, nicht verified",
         "keine",
         [],
+        "repo",
     ),
-    ("D10.3", "verbotene-pfade", "verbotene Pfade benannt", "ja", "-", "nein", []),
+    (
+        "D10.3",
+        "verbotene-pfade",
+        "verbotene Pfade benannt",
+        "ja",
+        "-",
+        "nein",
+        [],
+        "repo",
+    ),
     (
         "D10.4",
         "generierte-dateien",
@@ -444,8 +613,9 @@ Q = [
         "-",
         "nein",
         [DOCS],
+        "repo",
     ),
-    ("D10.5", "dod", "Definition of Done", "ja", "-", "nein", []),
+    ("D10.5", "dod", "Definition of Done", "ja", "-", "nein", [], "repo"),
     (
         "D10.6",
         "cross-repo-vertraege",
@@ -454,9 +624,19 @@ Q = [
         "-",
         "nein",
         [DOCS],
+        "repo",
     ),
-    ("D11.1", "lizenz", "Lizenz", "ja", "-", "nein", []),
-    ("D11.2", "third-party-notices", "Third-Party-Notices", "ja", "-", "nein", [DOCS]),
+    ("D11.1", "lizenz", "Lizenz", "ja", "-", "nein", [], "absence"),
+    (
+        "D11.2",
+        "third-party-notices",
+        "Third-Party-Notices",
+        "ja",
+        "-",
+        "nein",
+        [DOCS],
+        "absence",
+    ),
     (
         "D11.3",
         "beispieldaten-personenfrei",
@@ -465,15 +645,17 @@ Q = [
         "-",
         "Fund",
         [],
+        "repo",
     ),
     (
         "D12.1",
         "shared-ci-band",
-        "shared-ci-Band aktuell",
+        "shared-ci-Band aktuell (identisch mit D05.6 zu behandeln)",
         "ja",
         "ein Band zurueck",
         "nein",
         [DOCS],
+        "repo",
     ),
     (
         "D12.2",
@@ -483,15 +665,17 @@ Q = [
         "mit Drift-Melder",
         "ohne",
         [DOCS],
+        "repo",
     ),
     (
         "D12.3",
         "unabhaengig-releasbar",
-        "unabhaengig releasbar",
+        "unabhaengig releasbar: Release-Trigger liegt im Repo und haengt von keinem Fremd-Workflow @main ab",
         "ja",
         "-",
         "nein",
         [DOCS],
+        "repo",
     ),
     (
         "D12.4",
@@ -501,6 +685,7 @@ Q = [
         "-",
         "-",
         [],
+        "repo",
     ),
 ]
 ARCHETYPES = [
@@ -515,12 +700,29 @@ ARCHETYPES = [
     "archive-candidate",
     "other",
 ]
+CONTROL_KEYS = [
+    "secret_scanning",
+    "push_protection",
+    "dependabot_alerts",
+    "dependabot_security_updates",
+    "code_scanning",
+    "action_pinning",
+    "first_party_refs",
+    "dangerous_triggers",
+    "permissions_top",
+    "permissions_job",
+    "oidc",
+    "sbom_provenance",
+    "signing",
+    "rulesets_default_branch",
+    "codeowners",
+]
 
 
 def md_table():
     out = []
     cur = None
-    for qid, slug, frage, ok, part, fail, na in Q:
+    for qid, slug, frage, ok, part, fail, na, kind in Q:
         d = qid.split(".")[0]
         if d != cur:
             cur = d
@@ -528,34 +730,25 @@ def md_table():
             out.append(f"\n{d} {name} (Gewicht {w})")
         na_s = ", ".join(na) if na else "-"
         out.append(
-            f"  {qid:<7} {slug:<28} {frage}\n          ok: {ok} | partial: {part} | fail: {fail} | n/a: {na_s}"
+            f"  {qid:<7} {slug:<30} [{kind}] {frage}\n          ok: {ok} | partial: {part} | fail: {fail} | n/a: {na_s}"
         )
     return "\n".join(out)
 
 
+def matrix():
+    out = ["Archetyp        | nicht anwendbare Fragen (alle anderen: anwendbar)"]
+    for a in ARCHETYPES:
+        na = [q[0] for q in Q if a in q[6]]
+        if a in ("template", "experiment", "legacy", "archive-candidate", "other"):
+            out.append(
+                f"{a:<15} | wie der naechstliegende Archetyp; Wahl in archetype_note begruenden"
+            )
+        else:
+            out.append(f"{a:<15} | " + (", ".join(na) if na else "keine"))
+    return "\n".join(out)
+
+
 def schema():
-    control = {
-        "type": "object",
-        "required": ["state", "evidence"],
-        "additionalProperties": False,
-        "properties": {
-            "state": {
-                "enum": [
-                    "enabled",
-                    "partial",
-                    "disabled",
-                    "configured_no_analysis",
-                    "plan_unavailable",
-                    "no_permission",
-                    "not_applicable",
-                    "unknown",
-                ]
-            },
-            "numerator": {"type": "integer", "minimum": 0},
-            "denominator": {"type": "integer", "minimum": 0},
-            "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
-        },
-    }
     evidence = {
         "type": "object",
         "required": ["kind", "ref", "checked_at", "source"],
@@ -577,31 +770,64 @@ def schema():
             "source": {"enum": ["pack", "own-fetch"]},
         },
     }
-    question = {
+    ev_list = {"type": "array", "items": {"$ref": "#/$defs/evidence"}}
+    control = {
         "type": "object",
-        "required": ["state"],
+        "required": ["state", "evidence"],
         "additionalProperties": False,
         "properties": {
             "state": {
-                "enum": ["answered", "unverified", "not_run_at_depth", "not_applicable"]
+                "enum": [
+                    "enabled",
+                    "partial",
+                    "disabled",
+                    "configured_no_analysis",
+                    "plan_unavailable",
+                    "no_permission",
+                    "not_applicable",
+                    "unknown",
+                ]
             },
-            "outcome": {"enum": ["ok", "partial", "fail"]},
-            "question_score": {"enum": [0, 3, 5]},
-            "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
-            "note": {"type": "string"},
+            "numerator": {"type": "integer", "minimum": 0},
+            "denominator": {"type": "integer", "minimum": 1},
+            "evidence": ev_list,
         },
         "allOf": [
             {
-                "if": {"properties": {"state": {"const": "answered"}}},
+                "if": {"properties": {"state": {"const": "partial"}}},
                 "then": {
-                    "required": ["outcome", "question_score", "evidence"],
+                    "required": ["numerator", "denominator"],
                     "properties": {"evidence": {"minItems": 1}},
                 },
             },
             {
-                "if": {"properties": {"state": {"const": "not_applicable"}}},
-                "then": {"required": ["note"]},
+                "if": {
+                    "properties": {
+                        "state": {
+                            "enum": ["enabled", "disabled", "configured_no_analysis"]
+                        }
+                    }
+                },
+                "then": {"properties": {"evidence": {"minItems": 1}}},
             },
+        ],
+    }
+    q_answered = {
+        "type": "object",
+        "required": ["state", "outcome", "question_score", "evidence"],
+        "additionalProperties": False,
+        "properties": {
+            "state": {"const": "answered"},
+            "outcome": {"enum": ["ok", "partial", "fail"]},
+            "question_score": {"enum": [0, 3, 5]},
+            "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"$ref": "#/$defs/evidence"},
+            },
+            "note": {"type": "string"},
+        },
+        "allOf": [
             {
                 "if": {"properties": {"outcome": {"const": "ok"}}},
                 "then": {"properties": {"question_score": {"const": 5}}},
@@ -616,8 +842,23 @@ def schema():
             },
         ],
     }
+    q_open = {
+        "type": "object",
+        "required": ["state", "note"],
+        "additionalProperties": False,
+        "properties": {
+            "state": {"enum": ["unverified", "not_run_at_depth", "not_applicable"]},
+            "note": {"type": "string"},
+        },
+    }
+    question = {
+        "oneOf": [
+            {"$ref": "#/$defs/question_answered"},
+            {"$ref": "#/$defs/question_open"},
+        ]
+    }
     scores_props = {}
-    for d, (name, w) in DIMS.items():
+    for d in DIMS:
         qids = [q[0] for q in Q if q[0].startswith(d + ".")]
         scores_props[d] = {
             "type": "object",
@@ -634,22 +875,6 @@ def schema():
                 },
             },
         }
-    controls_keys = [
-        "secret_scanning",
-        "push_protection",
-        "dependabot_alerts",
-        "dependabot_security_updates",
-        "code_scanning",
-        "action_pinning",
-        "dangerous_triggers",
-        "permissions_top",
-        "permissions_job",
-        "oidc",
-        "sbom_provenance",
-        "signing",
-        "rulesets_default_branch",
-        "codeowners",
-    ]
     slugs = sorted({q[1] for q in Q})
     finding = {
         "type": "object",
@@ -657,11 +882,12 @@ def schema():
         "required": [
             "key",
             "locator",
+            "locator_kind",
             "question_id",
             "finding_type",
             "delta",
             "prior_art",
-            "remediation_pr",
+            "remediation_prs",
             "konflikt_adr",
             "dimension",
             "severity",
@@ -684,11 +910,14 @@ def schema():
         "properties": {
             "key": {
                 "type": "string",
-                "pattern": "^[^/]+/[^/:]+:D(0[1-9]|1[0-2]):[0-9a-f]{8}$",
+                "pattern": "^[^/]+/[^/:]+:D(0[1-9]|1[0-2]):([0-9a-f]{8}|00000000)$",
             },
             "locator": {
                 "type": "string",
                 "pattern": "^D(0[1-9]|1[0-2])\\.[0-9]{1,2}\\|[a-z0-9-]+\\|[^|]+$",
+            },
+            "locator_kind": {
+                "enum": ["setting", "pattern", "files", "absence", "repo"]
             },
             "question_id": {
                 "type": "string",
@@ -696,7 +925,7 @@ def schema():
             },
             "finding_type": {"enum": slugs},
             "delta": {"enum": ["NEW", "UNCHANGED", "CHANGED", "CLOSED"]},
-            "closed_evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+            "closed_evidence": ev_list,
             "prior_art": {
                 "type": "object",
                 "required": ["issues", "adr", "konz", "known_since"],
@@ -711,7 +940,10 @@ def schema():
                     "known_since": {"type": ["string", "null"], "format": "date"},
                 },
             },
-            "remediation_pr": {"type": ["string", "null"], "format": "uri"},
+            "remediation_prs": {
+                "type": "array",
+                "items": {"type": "string", "format": "uri"},
+            },
             "konflikt_adr": {"type": ["string", "null"]},
             "dimension": {"type": "string", "pattern": "^D(0[1-9]|1[0-2])$"},
             "severity": {"enum": ["P0", "P1", "P2", "P3"]},
@@ -776,7 +1008,7 @@ def schema():
             "confidence": {"enum": ["high", "medium", "low"]},
         },
     }
-    s = {
+    return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "future-readiness-worker-result",
         "type": "object",
@@ -812,7 +1044,7 @@ def schema():
             "budget",
         ],
         "properties": {
-            "schema_version": {"const": "2.2"},
+            "schema_version": {"const": SCHEMA_VERSION},
             "repo": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
             "analyzed_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
             "analyzed_at": {"type": "string", "format": "date-time"},
@@ -875,6 +1107,7 @@ def schema():
                     "scored_weight_sum",
                     "readiness_raw",
                     "coverage_by_dimension",
+                    "precision",
                     "rounding",
                 ],
                 "properties": {
@@ -887,6 +1120,7 @@ def schema():
                         "additionalProperties": False,
                         "properties": {d: {"type": ["number", "null"]} for d in DIMS},
                     },
+                    "precision": {"const": 4},
                     "rounding": {"const": "half_up"},
                 },
             },
@@ -898,9 +1132,9 @@ def schema():
             "confidence": {"enum": ["high", "medium", "low"]},
             "controls": {
                 "type": "object",
-                "required": controls_keys,
+                "required": CONTROL_KEYS,
                 "additionalProperties": False,
-                "properties": {k: {"$ref": "#/$defs/control"} for k in controls_keys},
+                "properties": {k: {"$ref": "#/$defs/control"} for k in CONTROL_KEYS},
             },
             "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
             "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
@@ -930,12 +1164,21 @@ def schema():
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "required": ["section", "assumption", "needed_rule"],
+                    "required": [
+                        "section",
+                        "assumption",
+                        "needed_rule",
+                        "affected_questions",
+                    ],
                     "additionalProperties": False,
                     "properties": {
                         "section": {"type": "string"},
                         "assumption": {"type": "string"},
                         "needed_rule": {"type": "string"},
+                        "affected_questions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
                     },
                 },
             },
@@ -953,38 +1196,50 @@ def schema():
             "control": control,
             "evidence": evidence,
             "question": question,
+            "question_answered": q_answered,
+            "question_open": q_open,
             "finding": finding,
             "edge": edge,
         },
     }
-    return s
 
 
-def matrix():
-    out = ["Archetyp        | nicht anwendbare Fragen (alle anderen: anwendbar)"]
-    for a in ARCHETYPES:
-        na = [q[0] for q in Q if a in q[6]]
-        if a in ("template", "experiment", "legacy", "archive-candidate", "other"):
-            out.append(
-                f"{a:<15} | wie der naechstliegende Archetyp; Wahl in archetype_note begruenden"
-            )
-        else:
-            out.append(f"{a:<15} | " + (", ".join(na) if na else "keine"))
-    return "\n".join(out)
+def _blocks():
+    return {
+        "TABLE": md_table(),
+        "MATRIX": matrix(),
+        "SCHEMA": json.dumps(schema(), ensure_ascii=False, indent=1),
+    }
+
+
+def render_text(text):
+    for name, body in _blocks().items():
+        pat = re.compile(
+            rf"(<!-- rubric:{name} -->\n)(?:.*?\n)?(<!-- /rubric:{name} -->)", re.DOTALL
+        )
+        if not pat.search(text):
+            raise SystemExit(f"Marker fuer {name} fehlt im Prompt")
+        text = pat.sub(
+            lambda m, body=body: m.group(1) + body + "\n" + m.group(2), text, count=1
+        )
+    return text
 
 
 if __name__ == "__main__":
-    what = sys.argv[1]
-    if what == "render":
+    what = sys.argv[1] if len(sys.argv) > 1 else ""
+    if what in ("render", "check"):
         path = sys.argv[2]
-        text = open(path, encoding="utf-8").read()
-        text = (
-            text.replace("{{TABLE}}", md_table())
-            .replace("{{MATRIX}}", matrix())
-            .replace("{{SCHEMA}}", json.dumps(schema(), ensure_ascii=False, indent=1))
-        )
-        open(path, "w", encoding="utf-8").write(text)
-        print("rendered")
+        with open(path, encoding="utf-8") as fh:
+            old = fh.read()
+        new = render_text(old)
+        if what == "render":
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(new)
+            print("rendered" if new != old else "unveraendert")
+        else:
+            if new != old:
+                sys.exit(f"{path} entspricht nicht dem Generator — render ausfuehren")
+            print("ok: Prompt == Generator")
     elif what == "table":
         print(md_table())
     elif what == "schema":
@@ -994,4 +1249,4 @@ if __name__ == "__main__":
     elif what == "count":
         print(len(Q))
     else:
-        sys.exit(f"unbekannt: {what} (table|matrix|schema|count|render <datei>)")
+        sys.exit("unbekannt: table|matrix|schema|count|render <datei>|check <datei>")
