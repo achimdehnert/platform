@@ -219,9 +219,25 @@ authorizations:
     program: schreiben
     action: "Bücher, Paper und Fachtexte semiautonom entwerfen und iterieren — als versionierte Manuskript-Artefakte in Repos des Kapitäns"
     scope:
-      repos: ["writing-hub (Inhalt, per ADR-180-Schnitt)", "Manuskript-Repos (z. B. manuskripte/)"]
-      umfang: "initial 3 Buchprojekte + Paper nach Zuruf"
-    forbidden: ["Publikation/Einreichung/Upload zu Verlagen, Plattformen, arXiv o. ä. (= Außenwirkung, D)", "erfundene persönliche Erfahrungen oder Unterschrift des Kapitäns (Art. 7)", "Zitate/Quellen ohne Beleg (Evidenz-Policy — Unbelegtes als Hypothese markieren)"]
+      repos:
+        - "writing-hub (Inhalt, per ADR-180-Schnitt)"
+        - "Manuskript-Repos (z. B. manuskripte/)"
+        # Erweiterung 2026-09-03 auf Kapitaens-Auftrag. Decks sind Fachtexte in anderer
+        # Form — dieselbe Klasse Arbeit (entwerfen, iterieren, git-versioniert), nur ein
+        # anderes Ausgabeformat. Deshalb Erweiterung statt neuer Vollmacht.
+        - "decks-hub (Deck-INHALTE, Slidev-Quellen; platform ADR-253 Schiene 1)"
+      umfang: "initial 3 Buchprojekte + Paper nach Zuruf + Deck-Inhalte nach Zuruf"
+    forbidden: ["Publikation/Einreichung/Upload zu Verlagen, Plattformen, arXiv o. ä. (= Außenwirkung, D)",
+      # AUSDRUECKLICH mitgemeint, damit niemand die Scope-Erweiterung als Freibrief liest:
+      # praes.iil.ai ist ein VEROEFFENTLICHTER Endpunkt (Cloudflare Tunnel), also genau die
+      # Aussenwirkung, die der erste Punkt ausschliesst. Der Kapitaen hat die URL im Auftrag
+      # genannt; ob damit auch das Publizieren gemeint war, ist NICHT entschieden — und eine
+      # selbstbetreffende Vollmacht darf ich nicht zu meinen Gunsten auslegen (Art. 3).
+      # Zusaetzlich: praes-iil-ai steht in platform infra/ports.yaml auf
+      # betriebsstatus: blockiert (laeuft gegen auflage.prod_container=false, platform#2507).
+      # Ein Publikationsrecht auf einen Dienst, den die Registry selbst als regelwidrig
+      # betrieben fuehrt, waere doppelt fragwuerdig.
+      "Deploy/Veroeffentlichung nach praes.iil.ai oder auf einen anderen erreichbaren Endpunkt (bleibt D, eigene Freigabe je Vorgang)", "erfundene persönliche Erfahrungen oder Unterschrift des Kapitäns (Art. 7)", "Zitate/Quellen ohne Beleg (Evidenz-Policy — Unbelegtes als Hypothese markieren)"]
     mode: E
     limits: "nur git-versionierte Entwürfe (vollständig reversibel); Kapitel-/Struktur-Entscheidungen mit Begründung im Commit/PR"
     status: requalifying   # Modellwechsel MAJOR 2026-09-03 (Runbook 3a.1) — ausgesetzt
