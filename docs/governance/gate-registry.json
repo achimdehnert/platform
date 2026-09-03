@@ -1144,6 +1144,33 @@
       "erhoben": "2026-09-02",
       "quelle": "tools/messungen/gate_bilanz_2374.py (SURVIVES-Zeilen der Befund-Tabellen: 4 vor, 3 nach dem Verzicht)",
       "messpunkt": "session-ende: je gemergter Session-PR die referenzierten Issues (Refs|Closes|Fixes #N) abfragen; offene Issues mit gemergter erledigender PR = Befund (Ziel 0)"
+    },
+    {
+      "slug": "deferred-item-owner-zug-prod-gate",
+      "quelle": "Retro 0f59ce §5a (2026-09-03)",
+      "kern": "Ausweitung von deferred-item-no-tracking-issue: ein an den Owner uebergebenes Zug-Item mit Prod-/Publish-Gate (Tag, Release, Deploy) braucht ein Issue im selben Turn; Realfall iilgmbh/shared-ci#67 ohne Band-Tag, Anker nachgezogen als shared-ci#73.",
+      "zustand": "schranke-kandidat",
+      "vorkommen": 1,
+      "letztes_vorkommen": "2026-09-03",
+      "erhoben": "2026-09-03"
+    },
+    {
+      "slug": "handover-stale-cross-repo-merge",
+      "quelle": "Retro 0f59ce §5a (2026-09-03)",
+      "kern": "Ausweitung von handover-stale-vor-merge: Merges per gh pr merge in Fremd-Repos derselben Sitzung zaehlen; Schreibmoment = Scope-Checkpoint. Realfall: 13 Merges in 7 Repos bei AGENT_HANDOVER.md Stand 7902c652.",
+      "zustand": "schranke-kandidat",
+      "vorkommen": 1,
+      "letztes_vorkommen": "2026-09-03",
+      "erhoben": "2026-09-03"
+    },
+    {
+      "slug": "worktree-end-on-merge",
+      "zustand": "schranke-kandidat",
+      "vorkommen": 1,
+      "letztes_vorkommen": "2026-09-03",
+      "erhoben": "2026-09-03",
+      "quelle": "Retro 0f59ce §5a (2026-09-03)",
+      "kern": "Umbau von worktree-midsession-accumulation: repo-session.sh end gehoert in den Merge-Zug (Skill pr-merge), nicht in den SessionEnd-Reaper. Realfall: 6 Worktrees gemergter PRs blieben bis zur Retro offen."
     }
   ]
 }
