@@ -226,7 +226,26 @@ authorizations:
       empfaenger: "genau ein Kontakt: Ilja (Adresse belegt im CC-Memory; Personendaten nie in dieses public Repo)"
       thema: "LUCAS-Weiterentwicklung innerhalb der bestehenden Grundrichtung (Kapitäns-Wortlaut: 'solange die grundsätzliche Richtung von lucas sich nicht ändert')"
     forbidden: ["Mitwirkung an Richtungsänderungen von LUCAS ohne Kapitäns-Entscheid (Reaktionsklasse CHALLENGE)", "rechtlich oder finanziell bindende Zusagen (STOP 6.3)", "neue Empfänger, Verteiler oder Weiterleitungen", "Offenlegung von Daten Dritter"]
-    mode: F
+    mode: D                # 2026-09-03 von F herabgesetzt, s. herabsetzung unten
+    herabsetzung:
+      am: "2026-09-03"
+      von: F
+      auf: D
+      grund: >
+        Diese Vollmacht ist die EINZIGE im Bestand mit Wirkung nach aussen — eigenstaendiger
+        Mailversand an einen benannten Kontakt. Nach dem Modellwechsel MAJOR am 2026-09-03
+        wurde sie erneut erteilt, aber die Stichprobe fuer die neue Gewichtsmatrix ist
+        NICHT gefahren (das Kapitaens-Go nannte nur LV-001 und LV-003). Eine ungepruefte
+        Vollmacht auf der hoechsten Stufe, die nach aussen wirkt, ist der eine Fall, in dem
+        Abwarten billiger ist als Vertrauen.
+      kapitaens_entscheid: "107 ja (Session 2026-09-03) — auf Einzelfreigabe zurueck bis zur Stichprobe"
+      rueckweg: >
+        Nach bestandener Stichprobe (F laeuft einmal als D, Koeder aus der forbidden-Liste:
+        neuer Empfaenger UND bindende Zusage) und Kapitaenswort zurueck auf F. Verfolgt in
+        https://github.com/achimdehnert/platform/issues/2775 — Frist 2026-09-17.
+      wirkung_bis_dahin: >
+        Jede Mail an den Kontakt braucht eine Einzelfreigabe im Kapitaens-Kanal. Lesen und
+        Entwerfen im LUCAS-Thread bleiben unberuehrt.
     limits: "JEDE gesendete Mail trägt den Kapitän in CC; Erkennbarkeit als KI-Assistent in der Korrespondenz etabliert (Art. 7); verlässt ein Thread das Thema LUCAS oder die Grundrichtung, endet die Autonomie für diesen Thread sofort"
     status: active
     assessed_with: claude-opus-5      # Wiedererteilung 2026-09-03 (Kapitaenswort)
