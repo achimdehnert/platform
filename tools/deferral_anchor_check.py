@@ -78,6 +78,57 @@ AUFSCHUB = re.compile(
     re.IGNORECASE,
 )
 
+# ── Kalibrierung 2026-09-03 (platform#2234) ──────────────────────────────────
+#
+# Gemessener Fehlalarm (platform#2757, Kalibrierung platform#2234): der Satz
+#
+#     <generische Verneinung> `gh api rate_limit`: das misst das Primaerlimit ...
+#
+#   Der Wortlaut steht als Pruefmaterial im Drill, nicht hier: eine woertliche
+#   Wiedergabe in diesem Kommentar loest den Waechter selbst aus — gemessen beim
+#   Bau, die Kalibrierung blockierte ihren eigenen PR.
+#
+# ist eine METHODENWAHL, keine Vertagung — »X ist das falsche Werkzeug«, nicht
+# »machen wir spaeter«. Dieselben Woerter, gegensaetzliche Bedeutung.
+#
+# Der Unterschied liegt am direkten Objekt: steht dort ein CODE-BEZEICHNER in
+# Backticks, ist die Verneinung eine technische Entscheidung. Steht dort ein
+# Liefergegenstand (»die Verdrahtung als Hook«, »der Backfill«), bleibt es ein
+# Aufschub.
+#
+# Bewusst SEHR eng gefasst. Ein erster, breiterer Entwurf verlangte irgendein
+# Arbeitswort im Satz — er liess prompt neun bestehende Drills durchfallen,
+# darunter einen Satz, dessen Objekt ein Liefergegenstand war (»die Verdrahtung
+# als Hook«) — auch dieser Wortlaut steht im Drill, nicht hier. Deutsche Vertagungen
+# stehen regelmaessig als Substantiv da; eine Verb-Liste haette das Gate
+# stillgelegt statt kalibriert. Der Fehlversuch steht hier, damit ihn niemand
+# wiederholt.
+#
+# NICHT geloest: der zweite Fehlalarm desselben Tages, die Abschnitts-
+# Ueberschrift »Was bewusst NICHT« (platform#2036). Dort fehlt ein Objekt
+# vollstaendig, und jede Regel dafuer waere geraten statt gemessen. Er bleibt als
+# dokumentierter Fehlalarm in platform#2234 stehen.
+METHODENWAHL = re.compile(
+    r"(bewusst nicht|bewusst ausgelassen|nicht enthalten"
+    r"|nicht Teil dieses PR|nicht in diesem PR)"
+    r"\s*:?\s*`[^`]+`",
+    re.IGNORECASE,
+)
+
+
+def ist_methodenwahl(zeile: str) -> bool:
+    """True, wenn die Verneinung ein Werkzeug benennt statt Arbeit zu vertagen.
+
+    Traegt die Zeile daneben eine SPEZIFISCHE Wendung (»folgt separat«,
+    »Restschuld«, »vertagt«, …), bleibt es ein Fund — die tragen die Bedeutung
+    schon im Wortlaut.
+    """
+    if not METHODENWAHL.search(zeile):
+        return False
+    ohne = METHODENWAHL.sub(" ", zeile)
+    return not AUFSCHUB.search(ohne)
+
+
 # Ein Anker ist eine Issue-Referenz — nicht bloss eine PR-Nummer.
 ANKER = re.compile(
     r"(#\d+|(?:Refs|Closes|Fixes|Tracked in|getrackt (?:in|als))\s*[:#]?\s*\S+"
@@ -116,9 +167,17 @@ def finde_ankerlose_stellen(text: str, fenster: int = FENSTER) -> list[tuple[int
     # als `bewusst **nicht** mitgemacht` da und war fuer AUFSCHUB unsichtbar
     # (gemessen an PR #2007, docs/governance/verankerung-kalibrierung-2026-08-23.md).
     zeilen = normalisiere_zeilen(text).splitlines()
+    # `normalisiere_zeilen` entfernt die Auszeichnung — auch die Backticks. Die
+    # Methodenwahl-Erkennung braucht sie aber: sie unterscheidet gerade daran,
+    # ob das Objekt ein Code-Bezeichner ist. Deshalb wird SIE auf dem Original
+    # geprueft, alles andere weiter auf der entschmueckten Fassung. Beim ersten
+    # Versuch stand hier die entschmueckte Zeile, und die Regel griff nie.
+    roh = text.splitlines()
     funde: list[tuple[int, str]] = []
     for i, zeile in enumerate(zeilen):
         if not AUFSCHUB.search(zeile):
+            continue
+        if ist_methodenwahl(roh[i] if i < len(roh) else zeile):
             continue
         if UEBERSCHRIFT.match(zeile):
             bis = min(len(zeilen), i + 1 + ABSCHNITT_MAX)
