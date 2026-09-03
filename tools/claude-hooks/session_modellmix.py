@@ -235,9 +235,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--projects-dir", default=str(DEFAULT_PROJECTS_DIR))
     p.add_argument("--project", default=None, help="Projekt-Slug (Unterordner)")
     p.add_argument("--json", action="store_true", help="Ausgabe als JSON")
-    p.add_argument(
-        "--ledger", default=None, help="TSV-Pfad; hängt genau eine Zeile an"
-    )
+    p.add_argument("--ledger", default=None, help="TSV-Pfad; hängt genau eine Zeile an")
     p.add_argument(
         "--hook", action="store_true", help="Hook-Modus: liest stdin-JSON (SessionEnd)"
     )
