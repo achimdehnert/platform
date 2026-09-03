@@ -68,8 +68,15 @@ meta:
     werkzeug_statt_vorsatz: >
       Diese Regel ist als Text so wirksam wie ihre Vorgaenger, also wenig. Der
       eigentliche Fix ist ein Gate — und die Approve-Fassung macht es erst praezise
-      pruefbar: blocke den Merge, wenn der Diff das Erkennungsmerkmal unten trifft UND
-      `gh pr view <n> --json reviewDecision` nicht APPROVED liefert. Die erste Fassung
+      pruefbar. ACHTUNG bei der Bedingung: `reviewDecision` ist in diesem Repo
+      UNBRAUCHBAR. Gemessen 2026-09-03 an acht gemergten PRs (#2744 bis #2778): das
+      Feld ist ueberall leer, auch bei #2778, das ein echtes APPROVED traegt —
+      vermutlich weil die Reviews von einem Konto ohne Schreibrecht auf main kommen
+      und GitHub sie dann nicht als Entscheidung zaehlt. Ein Gate auf diesem Feld
+      wuerde JEDEN PR blocken und nach zwei Tagen abgeschaltet.
+      Richtige Bedingung ist die Review-LISTE:
+      `gh pr view <n> --json reviews --jq '[.reviews[]|select(.state=="APPROVED")]|length'`
+      groesser 0, und der Autor des Approves ist der Kapitaen. Die erste Fassung
       ("nie mergen") waere als Gate ein pauschales Verbot gewesen, das man umgeht statt
       befolgt. Verfolgt in Issue #2776.
 
