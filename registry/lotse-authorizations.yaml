@@ -213,6 +213,53 @@ authorizations:
     preconditions: "Art.-7-Ansage-Mail an den Kontakt versendet (Kapitän in CC) — erfolgt 2026-08-06 auf Kapitäns-Anweisung"
     verification: "Sent-Ordner + CC-Kopien beim Kapitän = lückenlose Spur; Quartals-Review (Art. 8)"
 
+  # ── Programm D: Design (Kapitaens-Auftrag 2026-09-03 „neues recht: designs
+  #    entwerfen  design-hub"). Neue KLASSE, deshalb neue Vollmacht statt
+  #    Erweiterung von LV-008: Schrift, Farbe und Marke sind kein Text, und die
+  #    Verbotsliste ist eine voellig andere (Fremdlizenzen statt Zitierpflicht).
+  #    Startet als proposed/B — Art. 2.1: eine neue Klasse beginnt nicht auf der
+  #    Stufe, die eine verwandte Klasse sich erarbeitet hat. LV-008 steht auf E,
+  #    weil es dort ueber Wochen gelebt wurde; Design hat keine Historie.
+
+  - id: LV-010
+    program: design
+    action: >
+      Designs entwerfen und iterieren — Vorlagen, Layouts, Profile und Design-Artefakte
+      als versionierte Artefakte in design-hub (Ausgabe ueber /create-pdf und die
+      nachgelagerten Generatoren)
+    scope:
+      repos: ["design-hub (profiles/, samples/, klickdummy/, docs/)"]
+      umfang: "Vorlagen und Profile nach Zuruf; je Marke ein Kapitaens-Briefing vor dem ersten Entwurf"
+    forbidden:
+      # Der erste Punkt ist der eigentliche Grund, warum diese Vollmacht eng anfaengt:
+      # design-hub traegt lizenzierte Assets der Deutschen Bahn (LICENSE_NOTES.md nennt
+      # ausdruecklich vertragliche Konsequenzen aus dem Auftragsverhaeltnis IIL <-> DB).
+      # Ein Lizenzverstoss ist nicht durch einen git-revert heilbar — anders als jeder
+      # andere Fehler, den diese Vollmacht produzieren koennte.
+      - "Einsatz der DB-Assets (DB Type, Logos, Icons, Pulse) ausserhalb eines DB-Auftragsbezugs — insbesondere NICHT in Vorlagen fuer TTZ, Meiki oder freie Projekte (LICENSE_NOTES.md § 1)"
+      - "Weitergabe lizenzierter Assets an Dritte oder Veroeffentlichung im offenen Internet ohne Auftragsbezug"
+      - "Assets Dritter ohne belegte Lizenz einbringen (Evidenz-Policy: Lizenz belegen, nicht annehmen)"
+      - "Veroeffentlichung/Verbreitung von Design-Artefakten nach aussen (= Aussenwirkung, bleibt D)"
+      - "Aenderung bestehender Konzern-Profile ohne Kapitaens-Review — ein Profil ist Markenwirkung, kein Layout-Detail"
+    mode: B
+    limits: >
+      nur git-versionierte Entwuerfe (vollstaendig reversibel); jede Marken-/CD-Entscheidung mit
+      Begruendung im PR; neue Profile immer additiv, bestehende nie in-place umschreiben
+    status: proposed
+    expires_at: "2027-02-06"
+    invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "Widerruf durch Kapitaen"]
+    preconditions: >
+      LICENSE_NOTES.md gelesen und im ersten PR referenziert; je Marke ein Kapitaens-Briefing
+      (Zielgruppe, Anlass, Auftragsbezug) vor dem ersten Entwurf
+    verification: "git-Historie = lueckenlose Spur; Kapitaens-Review je Vorlage; Lizenz-Bezug je Profil im PR benannt"
+    note: >
+      Zaehlgroesse: dieser Eintrag ist proposed und zaehlt damit NICHT gegen die 5er-Grenze
+      (nur status: active zaehlt). Bei Aktivierung belegt er einen der fuenf Plaetze. Rechnung
+      Stand 2026-09-03: nach der Requalifikation von LV-001 und LV-003 waeren 2 aktiv, mit
+      LV-010 also 3 — die Grenze ist NICHT beruehrt. Sie wird es, wenn zusaetzlich LV-002,
+      LV-008 und LV-009 zurueckkehren (5 + 1 = 6): dann greift zuerst der
+      Sechs-Artefakt-Ausbau (Art. 10 Kriterium 1), bevor aktiviert werden darf.
+
   # ── Programm C: Publikationen ──
 
   - id: LV-008
