@@ -31,6 +31,8 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 3 Merges per Mandat (#2788 W1/M1 nach Freigabe-Vermerk im Issue-Body, trading-hub#202 W0, #2781/#2782/dev-hub#321 durch Owner). Delegation: 4 Sonnet-Subagenten nach Brief (Phase C 458k, Melder 151k, Werkzeug 148k, Welle 139k Tokens), Prüfung + Fixes inline. Session `session_01Lob9LxJAYX6hGAHGMF29oh`.
 
+**0h Fremdabnahme (Sonnet, nur Artefakte):** Zielzustand A (Phase C + gx10/gpu-box) **nicht erreicht → verschoben mit Anker**: Scorecard trug `achimdehnert/platform` zweimal mit Rubrik `2.3-deterministic` (Canary 10:30 P1=1 vs. Phase C P1=0) — Fix [dev-hub#325](https://github.com/achimdehnert/dev-hub/pull/325) (Rubrik `2.3-deterministic/phase-c` für die drei Canary-Zeilen), Merge beim Owner (dev-hub deployt bei jedem Push, Prod-Rückstand); alle übrigen A-Kriterien ERFÜLLT mit Beleg. Zielzustand B (Zug A) **erreicht**, inkl. der selbst dokumentierten Abweichung writing-hub#1008. 0e Clear-Härte: alle drei Fragen NEIN (Freigabe-Wortlaut im #2787-Body, Zug-B-Zahlen in #2737, Klassifikationsregeln in dev-hub 01-scope, „57" im Stand-Block dekodiert). Ende-Runner: E.5 ungeprüft (#2782 #2788), E.6 Werkzeugfehler (GitHub-Drosselung) — beides Lücke, keine Entwarnung; E.7 dirty nur fremde Bäume (dev-hub Haupt-Tree, meiki-hub, risk-hub).
+
 ## Offene Fäden (über den Session-Stand hinaus)
 
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
