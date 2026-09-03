@@ -993,12 +993,23 @@ class Scorer:
                 )
             )
         if qid == "D02.1":
-            return ";".join(
-                sorted(
-                    self.P.get("requirements_files_tracked", [])
-                    + (["pyproject.toml"] if self.P["pyproject"].get("exists") else [])
-                )
-            ).lower()
+            # Ohne Manifest ist die Trefferliste leer; der Locator braucht aber
+            # (Schema 2.3) mindestens ein Zeichen hinter dem dritten `|`. Dann
+            # stehen die GEPRUEFTEN Namen drin — wie bei den absence-Fragen oben.
+            # Phase C 2026-09-03: 11 von 56 Repos scheiterten daran (#2780).
+            return (
+                ";".join(
+                    sorted(
+                        self.P.get("requirements_files_tracked", [])
+                        + (
+                            ["pyproject.toml"]
+                            if self.P["pyproject"].get("exists")
+                            else []
+                        )
+                    )
+                ).lower()
+                or "pyproject.toml;requirements.txt"
+            )
         if qid in ("D08.1", "D08.2"):
             return "readme.md"
         if qid == "D04.1":

@@ -15,20 +15,19 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-03 mittags — Future-Readiness-Audit: Prompt v2.3, Bewerter, Pinning-Welle 1, Retro 0f59ce)
+## ⚡ Aktueller Stand (2026-09-03 mittags/nachmittags — Future-Readiness Phase C 56/56, Bewerter-Fix, Melder-Fix gpu-box/gx10)
 
-**Zeitanker:** HEAD `273f70ca` · `rev-list --count` 4068 · geschrieben 2026-09-03
+**Zeitanker:** HEAD `70db5eac` · `rev-list --count` 4075 · geschrieben 2026-09-03
 
-**Zielzustand (Owner-Frage 2026-09-02 „ist dieser Master-Prompt zukunftstauglich, adaptiere ihn" + Go-Worte 88/95/99/109/128/129/146): erreicht für Prompt, Kalibrierung, Inventur, Canaries, Werkzeug-PR und Welle 1 (Fremdabnahme Sonnet, s. Retro); verschoben mit Anker: Phase C über 56 Repos (#2736/#2737), shared-ci-Tag ([shared-ci#73](https://github.com/iilgmbh/shared-ci/issues/73)), travel-beat#94 ([travel-beat#95](https://github.com/achimdehnert/travel-beat/issues/95)).**
+**Zielzustand (Owner-Wort 2026-09-03 „21 Vorschlag: Phase C Future-Readiness; 22 go; 23 teste asap gx10 und gpu-box sollten erreichbar sein"): Phase C erreicht — 56/56 Repos deterministisch bewertet, Ablage [dev-hub#321](https://github.com/achimdehnert/dev-hub/pull/321) (offen); gx10/gpu-box antworten vom prod-Hop (SSH, Handshake < 2 Min.) — der Runner-Befund war ein Messfehler der Melder; Handover nachgezogen.**
 
-**Gemergt (12 PRs, 7 Repos).** Prompt [#2727](https://github.com/achimdehnert/platform/pull/2727) v2.1 · [#2729](https://github.com/achimdehnert/platform/pull/2729) v2.2 + `tools/future_readiness_rubric.py` · [#2756](https://github.com/achimdehnert/platform/pull/2756) v2.3 (72 Kernfragen, `locator_kind`, Schema oneOf, Render mit Markern + `check`) · Gate-Fix [#2731](https://github.com/achimdehnert/platform/pull/2731) (deploy-sh-gate Merge-Base) · Pinning [#2728](https://github.com/achimdehnert/platform/pull/2728)/[#2734](https://github.com/achimdehnert/platform/pull/2734) (166/166 Third-Party auf SHA) · Welle 1: [shared-ci#67](https://github.com/iilgmbh/shared-ci/pull/67), [dev-hub#318](https://github.com/achimdehnert/dev-hub/pull/318), [aifw#63](https://github.com/achimdehnert/aifw/pull/63), [writing-hub#1001](https://github.com/achimdehnert/writing-hub/pull/1001), [illustration-hub#321](https://github.com/achimdehnert/illustration-hub/pull/321) · Berichte [dev-hub#317](https://github.com/achimdehnert/dev-hub/pull/317) (Inventur T0 56 Repos, Canaries aifw 60 / dev-hub 74 / platform 71) · Retro [#2772](https://github.com/achimdehnert/platform/pull/2772). **Offen:** [#2767](https://github.com/achimdehnert/platform/pull/2767) Evidenz-Generator + deterministischer Bewerter (Δ≤5 zu drei Modell-Läufen; Phase C ohne Modell-Worker).
+**Offen, Owner-Zug (W1 verlangt M1, Classifier verweigerte den dev-hub-Merge):** [#2781](https://github.com/achimdehnert/platform/pull/2781) Melder 0.7.1/0.7.1b ehren `ssh_via`/`ssh_shell`/`auf_zuruf` (Positivkontrolle: beide Hosts „ohne Kopie") · [#2782](https://github.com/achimdehnert/platform/pull/2782) Bewerter-Fix D02.1-Locator ([#2780](https://github.com/achimdehnert/platform/issues/2780)) + `tools/future_readiness_render.py` (53/53 Berichte byte-identisch) · dev-hub#321 Berichte (W0/M0 gedeckt). **Kennzahlen Phase C:** Median Readiness 52 (11–74), alle 56 `insufficient-evidence`, 53 P1 in 33 Repos; 11 Repos zunächst am Bewerter-Schema gescheitert, nach Fix nachgezogen.
 
-**Retro 0f59ce (14 Befunde, 11 überlebt):** REPORT_DIR-Regel nur als Kommentar (#2737 Regel 11) · shared-ci ohne Tag, Dependabot-Bumps zielen auf v1.1.14 vor der Härtung · ADR-262 `not-started` ([#2770](https://github.com/achimdehnert/platform/issues/2770)) · Checkpoint 58 Min nach Prod-Sync · travel-beat Runner offline · `~/shared` als Ausleitungspfad. Drei Registry-Kandidaten (#2234). Ende-Runner blind für platform: [#2773](https://github.com/achimdehnert/platform/issues/2773).
+**Befunde:** Melder prüften direkt vom dev-desktop statt über den Hop (4 Läufe falsch rot; `flottenbild.py` konnte es längst) · `pr_merge_sa.py` zählt veraltete Läufe gleichnamiger Checks als rot, Neustart liest den alten PR-Text ([#2784](https://github.com/achimdehnert/platform/issues/2784)) · Hop-Aufbau jetzt dreifach ([#2783](https://github.com/achimdehnert/platform/issues/2783)) · beide Sonnet-Subagenten beendeten den Zug beim Warten auf Monitor/Hintergrundlauf (Memory `feedback_subagent_wait_loop_cutoff`, zweite Form).
 
-**Nächster Schritt:** #2767 mergen → `python3 tools/future_readiness_evidence.py <owner/repo> <root> --out DIR && python3 tools/future_readiness_score.py DIR/evidence.json --archetype … --out DIR/result.json` je Repo (Phase C), Ablage dev-hub `docs/audits/future-readiness/<datum>/`; v2.4 aus #2737 (Kandidaten 11–36). Session Resume: `claude --resume 19afc1d5-cb88-4255-b754-df1a630f59ce`.
+**Nächster Schritt:** Owner mergt #2781/#2782/dev-hub#321 — oder Go im Chat, dann Freigabe-Vermerk in den Issue-Body (#2780 bzw. #2562), `pr_merge_sa.py`; #2781 braucht wegen #2784 einen neuen Head-SHA. Danach v2.4 aus [#2737](https://github.com/achimdehnert/platform/issues/2737) (36 Kandidaten) und Portfolio-Auswertung der 56 Berichte (Flottenmuster: Lockfile, SECURITY.md, Third-Party-Notices fehlen überall).
 
-**SA-4:** 0 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen (alle Merges mit explizitem Owner-Wort; SA-M-Wrapper verweigerte #2729 mit W1/M0). 0h (Sonnet, nur Artefakte): **0d** K1–K4, K6 ERFÜLLT, K5 NICHT ERFÜLLT (travel-beat#94 offen, Runner offline) → Gesamt **verschoben**, Tracking travel-beat#95 — sein Urteil gilt. **0e** eine Lücke: das in #2767 zitierte Bewerter-Ergebnis für platform lag nur im Scratchpad → dev-hub `repositories/achimdehnert-platform.{json,md}` (dev-hub-PR); Verweise auf `~/shared` in #2727/#2736/#2737 sind als Retro-Befund #14 (Egress) und A12/A13 verankert. Outline: Konzept „Future-Readiness-Audit: Prompt als Messinstrument, Canary-Kalibrierung, deterministischer Bewerter" + Lesson „2026-09-03: Public-Default, Schleusen-Egress, PR-only-Gate, Bot-Tabu". pgvector `session:platform:20260903:fr-0f59ce`.
-
+**SA-4:** 0 Anwendungen · 0 Merges. Delegation: 2 Sonnet-Subagenten nach Brief (Melder-Fix 151k, Phase C 458k Tokens), Prüfung und Fixes inline (Bewerter, Renderer). Session `session_01Lob9LxJAYX6hGAHGMF29oh`.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
@@ -63,12 +62,14 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690
 26. #2750 K4/K5-Bilanz, sobald das Ledger 5 Fable-Sessions nach 2026-09-03 trägt (Stand 2); K5-Basisdefinition = Owner-Wort: https://github.com/achimdehnert/platform/issues/2750
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
-28. Future-Readiness Phase C (Bewerter über 56 Repos, Ablage dev-hub) + v2.4 aus 36 Regelkandidaten: https://github.com/achimdehnert/platform/issues/2737
-29. Evidenz-Generator als Werkzeug (#2767 offen; Rate-Limit-Vorabcheck, visibility-Check): https://github.com/achimdehnert/platform/issues/2736
+28. Future-Readiness: v2.4 aus 36 Regelkandidaten + Portfolio-Auswertung der 56 Phase-C-Berichte (dev-hub#321): https://github.com/achimdehnert/platform/issues/2737
+29. Evidenz-Generator-Rest (Rate-Limit-Vorabcheck, visibility-Check); Werkzeuge #2767 gemergt, #2782 offen: https://github.com/achimdehnert/platform/issues/2736
 30. shared-ci Band-Tag v1.1.15 nach Pinning-Merge; Dependabot-Bumps nicht auf v1.1.14 mergen (Owner, Prod-Gate): https://github.com/iilgmbh/shared-ci/issues/73
 31. travel-beat: beide self-hosted Runner offline, Pinning-PR #94 hängt: https://github.com/achimdehnert/travel-beat/issues/95
 32. ADR-262 Frontmatter nach Welle 1 (7 Repos umgesetzt, Status not-started): https://github.com/achimdehnert/platform/issues/2770
 33. session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name): https://github.com/achimdehnert/platform/issues/2773
+34. Hop-Zugang (ssh_via) dreifach in drei Melder-Werkzeugen, gemeinsamer Helfer: https://github.com/achimdehnert/platform/issues/2783
+35. pr_merge_sa.py zählt veraltete Läufe gleichnamiger Checks als rot: https://github.com/achimdehnert/platform/issues/2784
 
 ## Konventionen dieser Datei
 

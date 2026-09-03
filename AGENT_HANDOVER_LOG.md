@@ -3334,3 +3334,22 @@ fuer Server + Schluessel, Client-Schritte per `! `; die Verbrauchersuche nach `/
 nur einen von drei Verbrauchern (`~/.claude.json` User- und Projekt-Scope uebersehen), ein
 Heredoc-Drill mit `< /dev/null` lief leer ohne Fehler. Beides als Lesson (Memory + Outline),
 Restpunkte #2769.
+
+## 2026-09-03 mittags/nachmittags — Future-Readiness Phase C 56/56, Bewerter-Fix, Melder-Fix gpu-box/gx10 (Sitzung 01Lob9)
+
+Owner-Go auf den Handover-Vorschlag: Phase C. Zwei Sonnet-Subagenten nach Brief: der eine
+bewertete 56 Repos mit dem deterministischen Bewerter (Ablage dev-hub#321), der andere
+brachte die Session-Start-Melder 0.7.1/0.7.1b auf den Hop-Weg aus hosts.yaml (#2781),
+nachdem gx10 und gpu-box vom prod-Hop aus sofort antworteten — vier Runner-Laeufe lang
+hatten die Melder sie falsch als unerreichbar gemeldet, weil sie ssh_via ignorierten.
+11 Repos scheiterten am Bewerter selbst (leerer D02.1-Locator ohne Manifest, #2780); Fix
+inline mit Regressionstest und Positivkontrolle an shared-ci, Nachlauf durch den
+Subagenten, 56/56. Der Renderer, den der Subagent unter docs/ im Zielrepo abgelegt hatte,
+lebt jetzt als tools/future_readiness_render.py (Doc-Health-Gate und ruff schlugen an);
+53/53 Phase-C-Berichte byte-identisch (#2782).
+
+Beide Subagenten beendeten ihren Zug beim Warten auf einen Monitor — Brief muss
+Hintergrundlaeufe verbieten (Memory). pr_merge_sa.py hielt #2781 fuer rot, weil es einen
+veralteten Lauf desselben Checks mitzaehlt; ein Neustart des Laufs las den alten PR-Text
+(#2784). Merges: W1 verlangt M1, der Classifier verweigerte den dev-hub-Merge — alle drei
+beim Owner.
