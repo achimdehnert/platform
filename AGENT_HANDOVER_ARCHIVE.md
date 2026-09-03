@@ -2222,3 +2222,23 @@ auseinanderlaufen. Diese Liste hält nur, was über einen Session-Stand hinaus o
 **Offen aus dieser Sitzung:** [#2719](https://github.com/achimdehnert/platform/issues/2719) Drill-Vorlage mehrdeutig · [#2703](https://github.com/achimdehnert/platform/issues/2703) Backfill Positivkontrolle · [#2688](https://github.com/achimdehnert/platform/issues/2688) Smoke-Test isoliert Passwort-Datei nicht · [#2689](https://github.com/achimdehnert/platform/issues/2689) memory-link-guard schreibt fremde Sitzungen zu · Ruleset: Verankerungs-Check required oder streichen bis 2026-10-02 ([#2701](https://github.com/achimdehnert/platform/pull/2701)) · [#1640](https://github.com/achimdehnert/platform/issues/1640) drei Policies mit `assessed_with: claude-opus-5`.
 
 **SA-4:** 4 autonome Merges nach Mandat (#2693 #2694 #2698 #2699) · 0 Fehlanwendungen · 7 Governance-Pfad-PRs vom Owner gemergt.
+
+---
+
+<!-- ausgelagert 2026-09-03 (Session 0f59ce) aus AGENT_HANDOVER.md, Stand-Block #2750 vom 2026-09-03 vormittags — Rotation: aktueller + ein vorheriger -->
+
+## ⚡ Stand (archiviert) (2026-09-03 vormittags — #2750 Fable-Session delegiert automatisch, Modellmix-Ledger, Gates verdrahtet; Orchestrator-MCP-Schlüssel rotiert)
+
+**Zeitanker:** HEAD `c018ea06` · `rev-list --count` 4065 · geschrieben 2026-09-03
+
+**Zielzustand ([#2750](https://github.com/achimdehnert/platform/issues/2750), Owner-Go „Go für den Auftrag mit dieser Ergänzung"): K1, K2, K3 erreicht (Fremdabnahme Sonnet, nur Artefakte), K4/K5 verschoben mit Anker im Issue (Ledger braucht 5 Fable-Sessions nach Rollout, Stand 2; K5-Basisdefinition wartet auf Owner-Wort).** Ausgangsfrage: kann Fable das Modell selbst wechseln — nein, nur Subagenten mit explizitem `model:`; Abrechnung je Nachricht nach ausführendem Modell (Transkript: `message.model` + `message.usage`).
+
+**Gemergt (3 PRs).** K1 [#2753](https://github.com/achimdehnert/platform/pull/2753) `tools/claude-hooks/session_modellmix.py` (CLI + `--hook`, Ledger `~/.claude/hooks/state/modellmix-ledger.tsv`) + Gate `fable-session-delegation-unmeasured`. K2/K3 [#2751](https://github.com/achimdehnert/platform/pull/2751) Routing-Tabelle Aufgabenklasse→Tier zwischen `<!-- routing-table:start/end -->` in `policies/session-routing.md` + SessionStart-Hook `fable_delegation_reminder.sh` + Gate `fable-session-no-delegation`. [#2759](https://github.com/achimdehnert/platform/pull/2759) beide Gates `ohne-traeger` → `schranke` (Hooks in `~/.claude/settings.json` verdrahtet, je einmal echt gelaufen). Beide Sonnet-PRs fielen im ersten CI-Lauf an der fehlenden `positivkontrolle` (Verankerungs-Gate) — im Brief nicht genannt, inline nachgezogen.
+
+**Kennzahlen:** Vorher-Basis 5 Fable-Sessions: Median 26 % delegierte Schreibaufrufe (zwei bei 0). Diese Sitzung: 64 % Tokens / 71 % Schreibaufrufe außerhalb Fable, 2 Sonnet-Subagenten; Fable liefert 96 % der Output-Tokens, Ersparnis kommt aus den Cache-Reads.
+
+**Sicherheitsvorfall, behoben:** Orchestrator-MCP-Schlüssel stand im Klartext im Kapitäns-Kanal (Owner pastete die ganze `settings.json` als Bestätigung eines Settings-Patches). Rotiert mit Owner-Ermächtigung: hetzner-prod `.env.prod` + Dienst `orchestrator-http`, `~/.secrets`, `~/.claude.json` (User- und Projekt-Scope dev-hub), `settings.json`; alt 403 / neu 200 auf `/sse` und `/mcp/`; Sicherungen gelöscht. Restpunkte [#2769](https://github.com/achimdehnert/platform/issues/2769). Lessons: `feedback_settings_patch_request_triggers_full_file_paste`, `feedback_heredoc_plus_dev_null_runs_nothing_silently`; Outline-Konzept + -Lesson vom 2026-09-03.
+
+**Offen aus dieser Sitzung:** [#2750](https://github.com/achimdehnert/platform/issues/2750) K4/K5-Bilanz · [#2769](https://github.com/achimdehnert/platform/issues/2769) andere Maschinen + toter Orchestrator-Block in `settings.json` · Ende-Runner E.5 ließ drei fremde PRs von heute ungeprüft (#2763 #2764 #2767) · [#2761](https://github.com/achimdehnert/platform/issues/2761) 55 Template-Drift-Errors (E.6, fremd angelegt).
+
+**SA-4:** 3 PRs unter Mandat (#2751 #2753 #2759, alle Governance-Pfad → Owner-Approval, Owner gemergt) · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen. 0h: 0d und 0e von je einem Sonnet-Prüfer gegengelesen; 0e fand zwei Lücken in #2750 (Chat-Verweis, fehlender K4-Anker), beide im Issue geschlossen.
