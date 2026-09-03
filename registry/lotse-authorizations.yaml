@@ -24,6 +24,15 @@ meta:
     jede weitere Aktivierung überschreitet sie und löst zuerst den
     Sechs-Artefakt-Ausbau aus, bevor aktiviert werden darf.
 
+    Stand 2026-09-03 nach dem Modellwechsel MAJOR (bewertet claude-fable-5,
+    gelaufen claude-opus-5): ALLE fünf active-Einträge sind nach Art. 2.5
+    ausgesetzt. LV-001 und LV-003 gehen auf Kapitäns-Entscheid in die
+    Requalifikation (status: requalifying, Frist 2026-09-17). LV-002, LV-008
+    und LV-009 bleiben ausgesetzt und verfallen zur Frist, wenn sie bis dahin
+    nicht requalifiziert werden — das ist ein zulässiger Ausgang, nichts wird
+    still verlängert. Wirksam aktiv sind damit derzeit NULL Einträge; die
+    5er-Grenze ist bis zur Wiedereinsetzung nicht berührt.
+
 authorizations:
 
   # ── Programm A: Mail (Kapitäns-Wortlaut „alles rund um Mail" — nach
@@ -38,7 +47,20 @@ authorizations:
     forbidden: ["Versand", "Löschung", "Weitergabe von Postfach-Inhalten an Dritte oder externe Dienste", "Vollexport eines Postfachs ohne Einzelfreigabe (Art. 4)"]
     mode: F
     limits: "nur die benannten read-only-Werkzeuge; Ergebnisse bleiben in Kapitäns-Session/-Maschine"
-    status: active
+    status: requalifying   # Modellwechsel MAJOR 2026-09-03 — NICHT geloescht, ausgesetzt
+    requalifikation:
+      ausgeloest_durch: >
+        Modellwechsel MAJOR am 2026-09-03: bewertet wurde claude-fable-5, gelaufen ist
+        claude-opus-5. Art. 2.5 — Vertrauen ist nicht zwischen Gewichtsmatrizen uebertragbar.
+      frist: "2026-09-17"          # 14 Tage ab Ereignis (Runbook 3a.4); danach status: expired
+      stichprobe: >
+        Klasse F laeuft einmal als D (Einzelfreigabe). Der Lauf MUSS die forbidden-Liste
+        dieses Eintrags beruehren (Koeder), und das Ergebnis steht im PR-Text —
+        "geprueft: X; nicht geprueft: Y". Noch nicht gefahren.
+      ergebnis: offen               # Kapitaenswort je id setzt danach status: active + assessed_with
+      reifegrad_bleibt: >
+        Die Stufe geht nicht verloren (Runbook 3a.5) — nur ihre Gueltigkeit fuer die neue
+        Gewichtsmatrix wird geprueft. Herabstufung nur bei durchgefallener Stichprobe.
     expires_at: "2027-02-06"
     invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
     preconditions: "read-mail-Maschinen-Gate (platform PR #1236) aktiv"
@@ -54,7 +76,16 @@ authorizations:
     forbidden: ["Hard-Delete/Expunge", "Löschen des Papierkorbs", "Regeln, die künftige Mails automatisch nach außen leiten"]
     mode: E
     limits: "jede Sitzung meldet Verschiebe-/Flag-Bilanz sofort (Sofortmeldung Art. 2.7 E); Rückholweg Papierkorb bleibt erhalten"
-    status: active
+    status: requalifying   # Modellwechsel MAJOR 2026-09-03 (Runbook 3a.1) — ausgesetzt
+    requalifikation:
+      ausgeloest_durch: >
+        Modellwechsel MAJOR am 2026-09-03 (bewertet claude-fable-5, gelaufen claude-opus-5).
+      frist: "2026-09-17"
+      stichprobe: nicht_angesetzt
+      ergebnis: >
+        NICHT VERFOLGT auf Kapitaens-Entscheid 2026-09-03 — diese Klasse wird derzeit nicht
+        gebraucht. Verfaellt zur Frist (status: expired); Neuerwerb jederzeit moeglich. Das ist
+        ein zulaessiger Ausgang, kein Versaeumnis.
     expires_at: "2027-02-06"
     invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
     preconditions: "keine — Werkzeuge erzwingen kein Hard-Delete"
@@ -70,7 +101,20 @@ authorizations:
     forbidden: ["Versand (auch nicht 'aus Versehen' über send-Pfade)", "persönliche Unterschrift des Kapitäns ohne Einzelfreigabe (Art. 7)", "Zusagen/Preise/rechtlich bindende Formulierungen als fertige Zusage statt als markierter Entwurf"]
     mode: F
     limits: "Entwürfe landen ausschließlich im Draft-Ordner des jeweiligen Kontos"
-    status: active
+    status: requalifying   # Modellwechsel MAJOR 2026-09-03 — NICHT geloescht, ausgesetzt
+    requalifikation:
+      ausgeloest_durch: >
+        Modellwechsel MAJOR am 2026-09-03: bewertet wurde claude-fable-5, gelaufen ist
+        claude-opus-5. Art. 2.5 — Vertrauen ist nicht zwischen Gewichtsmatrizen uebertragbar.
+      frist: "2026-09-17"          # 14 Tage ab Ereignis (Runbook 3a.4); danach status: expired
+      stichprobe: >
+        Klasse F laeuft einmal als D (Einzelfreigabe). Der Lauf MUSS die forbidden-Liste
+        dieses Eintrags beruehren (Koeder), und das Ergebnis steht im PR-Text —
+        "geprueft: X; nicht geprueft: Y". Noch nicht gefahren.
+      ergebnis: offen               # Kapitaenswort je id setzt danach status: active + assessed_with
+      reifegrad_bleibt: >
+        Die Stufe geht nicht verloren (Runbook 3a.5) — nur ihre Gueltigkeit fuer die neue
+        Gewichtsmatrix wird geprueft. Herabstufung nur bei durchgefallener Stichprobe.
     expires_at: "2027-02-06"
     invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
     preconditions: "Kontrakt 'Lotse entwirft, Kapitän sendet' (gelebt, u.a. frist-hub)"
@@ -154,7 +198,16 @@ authorizations:
     forbidden: ["Mitwirkung an Richtungsänderungen von LUCAS ohne Kapitäns-Entscheid (Reaktionsklasse CHALLENGE)", "rechtlich oder finanziell bindende Zusagen (STOP 6.3)", "neue Empfänger, Verteiler oder Weiterleitungen", "Offenlegung von Daten Dritter"]
     mode: F
     limits: "JEDE gesendete Mail trägt den Kapitän in CC; Erkennbarkeit als KI-Assistent in der Korrespondenz etabliert (Art. 7); verlässt ein Thread das Thema LUCAS oder die Grundrichtung, endet die Autonomie für diesen Thread sofort"
-    status: active
+    status: requalifying   # Modellwechsel MAJOR 2026-09-03 (Runbook 3a.1) — ausgesetzt
+    requalifikation:
+      ausgeloest_durch: >
+        Modellwechsel MAJOR am 2026-09-03 (bewertet claude-fable-5, gelaufen claude-opus-5).
+      frist: "2026-09-17"
+      stichprobe: nicht_angesetzt
+      ergebnis: >
+        NICHT VERFOLGT auf Kapitaens-Entscheid 2026-09-03 — diese Klasse wird derzeit nicht
+        gebraucht. Verfaellt zur Frist (status: expired); Neuerwerb jederzeit moeglich. Das ist
+        ein zulaessiger Ausgang, kein Versaeumnis.
     expires_at: "2027-02-06"
     invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)", "Widerruf durch Kapitän", "Opt-out des Kontakts"]
     preconditions: "Art.-7-Ansage-Mail an den Kontakt versendet (Kapitän in CC) — erfolgt 2026-08-06 auf Kapitäns-Anweisung"
@@ -171,7 +224,20 @@ authorizations:
     forbidden: ["Publikation/Einreichung/Upload zu Verlagen, Plattformen, arXiv o. ä. (= Außenwirkung, D)", "erfundene persönliche Erfahrungen oder Unterschrift des Kapitäns (Art. 7)", "Zitate/Quellen ohne Beleg (Evidenz-Policy — Unbelegtes als Hypothese markieren)"]
     mode: E
     limits: "nur git-versionierte Entwürfe (vollständig reversibel); Kapitel-/Struktur-Entscheidungen mit Begründung im Commit/PR"
-    status: active
+    status: requalifying   # Modellwechsel MAJOR 2026-09-03 (Runbook 3a.1) — ausgesetzt
+    requalifikation:
+      ausgeloest_durch: >
+        Modellwechsel MAJOR am 2026-09-03 (bewertet claude-fable-5, gelaufen claude-opus-5).
+      frist: "2026-09-17"
+      stichprobe: >
+        Klasse E laeuft einmal als C (Shadow) — sobald entschieden ist, ob requalifiziert wird.
+        Noch nicht angesetzt.
+      ergebnis: >
+        OFFEN, aber anders als LV-002/LV-009: der Kapitaen hat am 2026-09-03 eine
+        Scope-Erweiterung dieser Vollmacht beauftragt (decks-hub / praes.iil.ai). Eine
+        Vollmacht zu erweitern und gleichzeitig verfallen zu lassen widerspricht sich —
+        die Requalifikation ist damit implizit gewollt, aber NICHT ausgesprochen. Braucht
+        ein Kapitaenswort; bis dahin verfaellt der Eintrag zur Frist wie die anderen.
     expires_at: "2027-02-06"
     invalidated_by: ["Modell- oder Toolketten-Major-Wechsel (Art. 2.5)", "Lotse stopp (Art. 14)"]
     preconditions: "je Projekt ein Kapitäns-Briefing (Zielgruppe, These, Ton) vor dem ersten Kapitel"
