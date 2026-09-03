@@ -125,8 +125,20 @@ done <<< "$files"
 #
 # `ruff check` laeuft OHNE --select: massgeblich ist die Repo-Config, damit der Hook
 # genau das prueft, woran die CI scheitert — nicht eine eigene, engere Regelmenge.
+# Auch hier: Urteil am EXIT-CODE (1 = mindestens eine Datei unformatiert), das
+# Ausgabemuster liefert nur die Zahl. ruff 0.16 schreibt `unformatted: File would be
+# reformatted` statt `Would reformat: datei` — der reine Zaehler stand damit bei 0 und
+# das Gate war fuer jeden Dev mit frischem ruff still (Selbsttests T1/T2/T3/T7/T9 rot,
+# gemessen 2026-09-03 mit ruff 0.16.5).
+fmt_rc=0
 # shellcheck disable=SC2086
-bad="$(cd "$root" && $RUFF format --check --force-exclude $existing 2>/dev/null | grep -c 'Would reformat' || true)"
+(cd "$root" && $RUFF format --check --force-exclude $existing >/dev/null 2>&1) || fmt_rc=$?
+bad=0
+if [ "$fmt_rc" = "1" ]; then
+  # shellcheck disable=SC2086
+  bad="$(cd "$root" && $RUFF format --check --force-exclude $existing 2>/dev/null | grep -cE 'Would reformat|would be reformatted' || true)"
+  [ "${bad:-0}" -eq 0 ] && bad=1
+fi
 # Geurteilt wird am EXIT-CODE, nicht an einem geratenen Ausgabemuster: `ruff check`
 # gibt 0 = sauber, 1 = Verstoesse, >1 = Werkzeugfehler. Das erste Muster hier zaehlte
 # Zeilen der Form `datei:zeile:spalte` — ruff 0.15 rueckt die Fundstelle aber als
