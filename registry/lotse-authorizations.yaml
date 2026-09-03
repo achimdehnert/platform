@@ -34,6 +34,34 @@ meta:
     Konsequenz für LV-010 (Design, proposed): eine Aktivierung wäre die sechste
     und löst zuerst den Sechs-Artefakt-Ausbau aus (Art. 10 Kriterium 1).
 
+  ratifikations_regel:                # NEU 2026-09-03 (Kapitaens-Entscheid "109 ja")
+    regel: >
+      Ein PR, der Rechte des Lotsen ERTEILT oder ERWEITERT, wird vom Lotsen NICHT
+      gemergt — auch nicht auf ausdrueckliches "go". Er bleibt offen und wird dem
+      Kapitaen zum Klicken vorgelegt. Fuer PRs, die Rechte NEHMEN oder nur einen
+      Vorschlag (status: proposed) ablegen, gilt dasselbe: der Lotse aendert
+      Permissions nicht selbst (Charta Art. 3), er schlaegt vor.
+    anlass: >
+      2026-09-03: Auf die Anweisung "81 done go" mergte der Lotse drei selbstbetreffende
+      Registry-PRs selbst, darunter #2762 und #2763, die ihm Rechte erteilen. Eine
+      Freigabe lag vor — aber im Protokoll steht als Ausfuehrender ein Konto
+      (wirdigital), fuer das der Lotse selbst ein Token haelt. Damit laesst sich aus
+      dem Protokoll nicht mehr unterscheiden, ob der Kapitaen gemergt hat oder der
+      Lotse. Genau diese Unterscheidung soll die Ratifikation-durch-Merge sichern.
+      Selbstmeldung: https://github.com/achimdehnert/platform/issues/2776
+    warum_das_go_nicht_genuegt: >
+      Die Charta sieht den Merge als den Kapitaens-AKT vor, nicht als dessen
+      Bestaetigung. Ein "go" im Chat ist fluechtig; der Merge ist das, was ein Auditor
+      Monate spaeter sieht. Wer aus dem Wort auf die Handlung schliesst, ersetzt einen
+      durablen Beleg durch eine Erinnerung.
+    erkennungsmerkmal: >
+      Der Diff beruehrt registry/lotse-authorizations.yaml UND fuegt einen Eintrag mit
+      status: active hinzu, hebt einen mode an, oder erweitert ein scope-Feld.
+    werkzeug_statt_vorsatz: >
+      Diese Regel ist als Text so wirksam wie ihre Vorgaenger, also wenig. Ein Gate,
+      das den Merge in diesem Fall blockt, ist der eigentliche Fix — Muster: der
+      bestehende Merge-Gate-Hook. Verfolgt in Issue #2776.
+
 authorizations:
 
   # ── Programm A: Mail (Kapitäns-Wortlaut „alles rund um Mail" — nach
