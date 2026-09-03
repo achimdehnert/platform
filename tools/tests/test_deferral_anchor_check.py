@@ -493,7 +493,8 @@ def test_should_still_flag_real_deferrals(zeile):
 def test_should_still_flag_when_a_specific_phrase_stands_next_to_it():
     """Eine generische Verneinung PLUS spezifische Wendung bleibt ein Fund.
 
-    Refs #2234 — der Beispielsatz unten ist Pruefmaterial, keine Vertagung.
+    Der Beispielsatz unten ist Pruefmaterial, keine Vertagung.
+    Tracking: https://github.com/achimdehnert/platform/issues/2234
     """
     zeile = "Bewusst nicht `ruff`: das folgt separat."
     assert dac.ist_methodenwahl(zeile) is False
