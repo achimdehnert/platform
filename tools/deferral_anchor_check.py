@@ -82,9 +82,11 @@ AUFSCHUB = re.compile(
 #
 # Gemessener Fehlalarm (platform#2757, Kalibrierung platform#2234): der Satz
 #
-#     Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit ...
-#   Tracking: https://github.com/achimdehnert/platform/issues/2234
-#   (das Zitat oben ist der Gegenstand der Regel, keine Vertagung)
+#     <generische Verneinung> `gh api rate_limit`: das misst das Primaerlimit ...
+#
+#   Der Wortlaut steht als Pruefmaterial im Drill, nicht hier: eine woertliche
+#   Wiedergabe in diesem Kommentar loest den Waechter selbst aus — gemessen beim
+#   Bau, die Kalibrierung blockierte ihren eigenen PR.
 #
 # ist eine METHODENWAHL, keine Vertagung — »X ist das falsche Werkzeug«, nicht
 # »machen wir spaeter«. Dieselben Woerter, gegensaetzliche Bedeutung.
@@ -96,10 +98,8 @@ AUFSCHUB = re.compile(
 #
 # Bewusst SEHR eng gefasst. Ein erster, breiterer Entwurf verlangte irgendein
 # Arbeitswort im Satz — er liess prompt neun bestehende Drills durchfallen,
-# darunter »Nicht enthalten: die Verdrahtung als Hook« — Zitat aus dem
-# widerlegten Entwurf, keine Vertagung.
-# Tracking: https://github.com/achimdehnert/platform/issues/2234
-# Deutsche Vertagungen
+# darunter einen Satz, dessen Objekt ein Liefergegenstand war (»die Verdrahtung
+# als Hook«) — auch dieser Wortlaut steht im Drill, nicht hier. Deutsche Vertagungen
 # stehen regelmaessig als Substantiv da; eine Verb-Liste haette das Gate
 # stillgelegt statt kalibriert. Der Fehlversuch steht hier, damit ihn niemand
 # wiederholt.
