@@ -201,10 +201,11 @@
           "probe": "anteil_schreibaufrufe_nicht_hauptmodell"
         }
       ],
-      "zustand": "ohne-traeger",
-      "zustand_note": "Modul + Drill gebaut, aber die SessionEnd-Verdrahtung in ~/.claude/settings.json steht noch aus (Owner-Entscheid: Hauptfaden registriert nach Merge dieses PRs). Bis dahin ist der Ledger-Schreibpfad nur per CLI/Handaufruf erreichbar — kein Traeger, kein Zustand `schranke`.",
+      "zustand": "schranke",
+      "zustand_note": "Traeger seit 2026-09-03: SessionEnd-Eintrag `python3 ~/.claude/hooks/session_modellmix.py --hook` in ~/.claude/settings.json (Owner-Edit nach platform#2753). Erste echte Ledger-Zeile am selben Tag (Session 6b7e7e08: 64.2 % Tokens, 70.6 % Schreibaufrufe ausserhalb Fable, 2 Subagenten). Ledger: ~/.claude/hooks/state/modellmix-ledger.tsv.",
       "expires": "2026-10-31",
-      "expires_note": "Verdrahten (SessionEnd-Hook in ~/.claude/settings.json) oder streichen bis dahin — Owner-Entscheid E4 (platform#2606), gleiche Frist wie `model-change-detection`. Advisory ist ein Zwischenschritt, kein Endzustand."
+      "expires_note": "Verdrahten (SessionEnd-Hook in ~/.claude/settings.json) oder streichen bis dahin — Owner-Entscheid E4 (platform#2606), gleiche Frist wie `model-change-detection`. Advisory ist ein Zwischenschritt, kein Endzustand.",
+      "erzwungen_seit": "2026-09-03"
     },
     {
       "slug": "fable-session-no-delegation",
@@ -224,10 +225,11 @@
           "probe": "fable"
         }
       ],
-      "zustand": "ohne-traeger",
-      "zustand_note": "Kein automatischer Aufrufer: das Modul steht in keiner Hook-Verdrahtung (~/.claude/settings.json) — die Verdrahtung ist in diesem PR bewusst ausgespart, weil ~/.claude/settings.json laut Auftrag nicht editiert werden darf. Abgang: verdrahten (SessionStart-Hook-Liste) ODER streichen.",
+      "zustand": "schranke",
+      "zustand_note": "Traeger seit 2026-09-03: SessionStart-Eintrag `fable_delegation_reminder.sh` in ~/.claude/settings.json (Hauptfaden nach Merge von platform#2751). Echter Lauf gegen die Live-Settings gab die Regel aus (18 Zeilen, Exit 0).",
       "expires": "2026-10-31",
-      "expires_note": "verdrahten oder streichen bis dahin — sonst Dekoration wie die anderen ohne-traeger-Gates (platform#2606 E4)."
+      "expires_note": "verdrahten oder streichen bis dahin — sonst Dekoration wie die anderen ohne-traeger-Gates (platform#2606 E4).",
+      "erzwungen_seit": "2026-09-03"
     },
     {
       "slug": "drill-path-not-invocation-path",
