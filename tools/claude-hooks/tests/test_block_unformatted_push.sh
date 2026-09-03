@@ -44,6 +44,12 @@ Y = 2
 import re
 
 print(os, re, Y)'
+# E402 ausdruecklich waehlen: der Hook prueft gegen die REPO-Config, und ob ruff E402
+# von sich aus fuehrt, ist eine Eigenschaft der ruff-Version (0.16.5: nein) — nicht
+# des Gates. Gemessen 2026-09-03: T11 rot, obwohl das Gate den Fall beherrschte.
+# Nicht committen: der Hook nimmt die geaenderten .py aus dem LETZTEN Commit — ein
+# weiterer Commit ohne .py liesse die Dateiliste leer und das Gate still (fail-open).
+printf 'select = ["E4", "F"]\n' >> "$E/ruff.toml"
 # Dir C: kein ruff-Repo
 C="$FIX/c"; mkdir -p "$C"; git -C "$C" init -q
 git -C "$C" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
