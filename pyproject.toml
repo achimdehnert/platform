@@ -36,6 +36,13 @@ testpaths = ["tests", "tools/tests"]
 extend-exclude = ["_ARCHIVED"]
 
 [tool.ruff.lint.per-file-ignores]
+# Versions-Divergenz, nicht Lint-Schuld (2026-09-03): tools-tests.yml pinnt
+# `ruff==0.15.4`, requirements-dev.txt fuehrt `ruff==0.16.5`. Unter 0.15.4 ist E402
+# im Default-Satz, unter 0.16.5 nicht mehr — dasselbe `# noqa: E402` ist also in CI
+# noetig und lokal "unused" (RUF100). Die Hook-Tests brauchen den spaeten Import
+# (sys.path-Eingriff auf das Hook-Verzeichnis, 8 Dateien). Die Ausnahme faellt weg,
+# sobald der CI-Pin nachzieht — die eigentliche Aufgabe.
+"tools/claude-hooks/tests/*.py" = ["RUF100"]
 # X-9 (repo-optimize 2026-07-03): tools-tests.yml führt jetzt `ruff check tools/ scripts/`
 # als Gate. Diese vier Dateien tragen historische Lint-Schuld, die NICHT trivial (also
 # ohne Verhaltensänderung) fixbar ist — Drive-by-Reformatierung an unbezogenem Code wäre

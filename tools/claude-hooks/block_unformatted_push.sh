@@ -125,8 +125,24 @@ done <<< "$files"
 #
 # `ruff check` laeuft OHNE --select: massgeblich ist die Repo-Config, damit der Hook
 # genau das prueft, woran die CI scheitert — nicht eine eigene, engere Regelmenge.
+# Auch hier wird am EXIT-CODE geurteilt, nicht am Ausgabemuster — dieselbe Lehre
+# wie beim lint-Zweig unten, nur eine Version spaeter gelernt. Bis 2026-09-03 stand
+# hier `grep -c 'Would reformat'`. ruff 0.16 schreibt stattdessen `unformatted: File
+# would be reformatted` (Fundstelle als eingerueckter Diff darunter), also zaehlte
+# der Grep 0, und der Format-Zweig des Gates konnte NICHTS mehr blocken. Gemessen
+# 2026-09-03: 6 der 14 eigenen Selbsttests rot, alle in Richtung "erwartet deny,
+# war silent". Der Zaehler ist nur Kosmetik fuer die Meldung; die Entscheidung
+# haengt am rc. rc>1 = Werkzeugfehler = FAIL-OPEN (s.u.).
+fmt_rc=0
 # shellcheck disable=SC2086
-bad="$(cd "$root" && $RUFF format --check --force-exclude $existing 2>/dev/null | grep -c 'Would reformat' || true)"
+(cd "$root" && $RUFF format --check --force-exclude $existing >/dev/null 2>&1) || fmt_rc=$?
+bad=0
+if [ "$fmt_rc" = "1" ]; then
+  # shellcheck disable=SC2086
+  bad="$(cd "$root" && $RUFF format --check --force-exclude $existing 2>/dev/null \
+        | grep -cE '^(unformatted:|Would reformat:)' || true)"
+  [ "${bad:-0}" -eq 0 ] && bad=1
+fi
 # Geurteilt wird am EXIT-CODE, nicht an einem geratenen Ausgabemuster: `ruff check`
 # gibt 0 = sauber, 1 = Verstoesse, >1 = Werkzeugfehler. Das erste Muster hier zaehlte
 # Zeilen der Form `datei:zeile:spalte` — ruff 0.15 rueckt die Fundstelle aber als
