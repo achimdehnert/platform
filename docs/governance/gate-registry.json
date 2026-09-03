@@ -190,6 +190,10 @@
       "drill": "tools/claude-hooks/tests/test_fable_delegation_reminder.py",
       "built": "2026-09-03",
       "ref": "platform#2750 K2/K3",
+      "positivkontrolle": {
+        "ref": "Realer Lauf im Fable-Hauptfaden 2026-09-03 (settings model claude-fable-5-1[1m], POLICY_FILE auf den PR-Stand von policies/session-routing.md): Hook gab Kopfzeile + Tabelle aus, Exit 0; Gegenprobe mit model claude-sonnet-5 gab 0 Bytes. Drill: tools/claude-hooks/tests/test_fable_delegation_reminder.py (Fable-Fall rot ohne Ausgabe, Sonnet-Fall rot bei Ausgabe). Grenze: lokaler Lauf, kein CI-Beleg — der Traeger (SessionStart-Verdrahtung) fehlt noch, s. zustand.",
+        "datum": "2026-09-03"
+      },
       "faengt": [
         {
           "fall": "Fable-Session ohne Delegationserinnerung fuer Umsetzungsarbeit",
