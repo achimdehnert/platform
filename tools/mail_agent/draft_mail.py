@@ -43,7 +43,7 @@ from pathlib import Path
 # die Account-Aufloesung aus read_mail — nichts davon wird hier dupliziert.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import roles  # noqa: E402
-from read_mail import _resolve_config  # noqa: E402
+from read_mail import _mailbox_arg, _resolve_config  # noqa: E402
 
 # html_to_text kommt aus send_mail — EINE Implementierung. Die frueher hier stehende
 # Kopie hatte den <style>-Fix nicht, und genau das brach am 2026-07-30 die Textform
@@ -285,6 +285,49 @@ def build_draft(
     return msg
 
 
+#: Zeichen, die ein IMAP-Schlagwort nicht tragen darf. Ein Keyword ist ein ATOM
+#: (RFC 3501 §9); Leerzeichen, Klammern und die Sonderzeichen darunter wuerden die
+#: Kommandozeile zerlegen, statt Teil des Wortes zu sein. Sie werden ersetzt, nicht
+#: entfernt — sonst faellt "Loeschung Fischer" mit "LoeschungFischer" zusammen.
+_KEYWORD_VERBOTEN = re.compile(r'[\s()\{\}%*"\\\]]+')
+
+
+#: Umlaute und ss werden umgeschrieben, nicht weggeworfen: ein IMAP-Keyword ist ein
+#: ATOM aus 7-Bit-Zeichen (RFC 3501 §9). "Loeschung" und "Lschung" waeren beide
+#: falsch — das erste ist lesbar, das zweite verstuemmelt.
+_UMSCHRIFT = str.maketrans(
+    {"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"}
+)
+
+
+def schlagwort(vorgang: str) -> str:
+    """Vorgangsname -> IMAP-Schlagwort (ASCII). Leer, wenn nichts Brauchbares bleibt."""
+    roh = vorgang.strip().translate(_UMSCHRIFT)
+    roh = roh.encode("ascii", "ignore").decode("ascii")
+    return _KEYWORD_VERBOTEN.sub("_", roh).strip("_")
+
+
+def erlaubt_eigene_schlagworte(imap, ordner: str) -> bool:
+    """Nimmt der Server eigene Schlagworte dauerhaft an? Antwort des Servers, nicht Vermutung.
+
+    Ein IMAP-Server sagt das im SELECT ueber ``PERMANENTFLAGS``: steht dort ``\\*``,
+    darf der Client beliebige Schlagworte vergeben. Gemessen 2026-09-03: das
+    mittwald-Postfach (AD) sagt ja, das HNU-Postfach sagt nein (nur die
+    Standardflags und ``$MDNSent``). Ohne diese Frage wuerde ein Schlagwort auf
+    HNU stillschweigend verfallen — der Server nimmt STORE an und vergisst es.
+
+    ACHTUNG: Nur ein SCHREIBENDES ``SELECT`` liefert die echte Liste; im
+    Nur-Lese-Modus antworten Server mit ``()`` und das saehe wie ein Nein aus.
+    """
+    typ, _ = imap.select(_mailbox_arg(ordner))
+    if typ != "OK":
+        return False
+    for roh in imap.untagged_responses.get("PERMANENTFLAGS", []):
+        if b"\\*" in (roh if isinstance(roh, bytes) else str(roh).encode()):
+            return True
+    return False
+
+
 def append_draft(
     host: str,
     port: int,
@@ -292,8 +335,14 @@ def append_draft(
     password: str,
     msg: EmailMessage,
     folder: str | None,
-) -> tuple[str, str]:
-    """Nachricht mit \\Draft-Flag anhaengen; gibt (Ordner, APPENDUID-oder-'?') zurueck."""
+    kategorien: list[str] | None = None,
+) -> tuple[str, str, list[str]]:
+    """Nachricht mit \\Draft-Flag anhaengen; gibt (Ordner, APPENDUID, Warnungen) zurueck.
+
+    ``kategorien`` sind Vorgangs-Schlagworte — das IMAP-Gegenstueck zu
+    ``graph_mail --categorize``. Sie gehen als IMAP-Keywords mit in den APPEND.
+    """
+    warnungen: list[str] = []
     with imaplib.IMAP4_SSL(host, port, timeout=30) as imap:
         imap.login(user, password)
         target = find_drafts_folder(imap, folder)
@@ -301,13 +350,26 @@ def append_draft(
             raise RuntimeError(
                 "kein Drafts-Ordner gefunden (LIST lieferte keinen Kandidaten)"
             )
+        flags = ["\\Draft"]
+        if kategorien:
+            if erlaubt_eigene_schlagworte(imap, target):
+                flags += [schlagwort(k) for k in kategorien]
+            else:
+                warnungen.append(
+                    "Server nimmt keine eigenen Schlagworte an (PERMANENTFLAGS ohne "
+                    f"\\*) — {len(kategorien)} Kategorie(n) NICHT gesetzt. Die "
+                    "Vorgangszuordnung bleibt im Ledger."
+                )
         typ, resp = imap.append(
-            target, "\\Draft", imaplib.Time2Internaldate(time.time()), msg.as_bytes()
+            target,
+            "(" + " ".join(flags) + ")",
+            imaplib.Time2Internaldate(time.time()),
+            msg.as_bytes(),
         )
         if typ != "OK":
             raise RuntimeError(f"APPEND fehlgeschlagen: {typ} {resp}")
         uid_match = re.search(rb"APPENDUID \d+ (\d+)", resp[0] or b"")
-        return target, (uid_match.group(1).decode() if uid_match else "?")
+        return target, (uid_match.group(1).decode() if uid_match else "?"), warnungen
 
 
 def _read(path_str: str | None) -> str | None:
@@ -349,6 +411,14 @@ def main() -> None:
     )
     ap.add_argument("--account", help="Postfach-Kuerzel => ~/.claude/mail-<NAME>.env")
     ap.add_argument("--folder", help="Drafts-Ordner erzwingen (sonst Auto-Erkennung)")
+    ap.add_argument(
+        "--kategorie",
+        action="append",
+        default=[],
+        help="Vorgangs-Schlagwort als IMAP-Keyword setzen (mehrfach moeglich) — das "
+        "Gegenstueck zu `graph_mail --categorize`. Server ohne eigene Schlagworte "
+        "(z.B. HNU) bekommen stattdessen eine Warnung.",
+    )
     ap.add_argument(
         "--role",
         default=None,
@@ -502,14 +572,17 @@ def main() -> None:
         ursprung_roh=ursprung_roh,
         ursprung_name=ursprung_name,
     )
-    folder, uid = append_draft(
+    folder, uid, warnungen = append_draft(
         cfg.get("IMAP_HOST", cfg["SMTP_HOST"]),
         int(cfg.get("IMAP_PORT", "993")),
         user,
         password,
         msg,
         args.folder,
+        args.kategorie,
     )
+    for w in warnungen:
+        print(f"⚠ {w}", file=sys.stderr)
     kind = "HTML+Text" if html else "Text"
     rolle = f" Rolle: {profile.role_id} ({profile.display_name})." if profile else ""
     # Konto und Absender gehoeren in die Meldung: die frueher nur genannte Rolle

@@ -584,6 +584,27 @@ def _katalog_zeigen(typ: str | None) -> None:
             print(f"   {kuerzel}  {text}")
 
 
+def kategorie(ledger: dict, nr) -> str:
+    """Vorgangsnummer -> Schlagwort fuer den Mail-Client, z.B. ``Vorgang-114-av-pruefung-2026``.
+
+    Die Nummer steht vorn, weil sie stabil ist und nie wiederverwendet wird — daran
+    findet der Mensch den Vorgang auch, wenn der ``thread_key`` sich aendert. Der
+    Schluessel kommt dahinter, damit die Kategorie im Postfach lesbar bleibt und
+    nicht nur eine Zahl ist.
+
+    Gesetzt wird sie beim Anlegen des Entwurfs: IIL ueber ``graph_mail --categorize``,
+    HNU/AD ueber ``draft_mail --kategorie``. Auf Servern ohne eigene Schlagworte
+    (HNU) warnt ``draft_mail`` und laesst sie weg — die Zuordnung steht ohnehin hier.
+    """
+    from draft_mail import schlagwort  # lokal: nur dieser eine Weg braucht ihn
+
+    treffer = [v for v in ledger.get("vorgaenge", []) if str(v.get("nr")) == str(nr)]
+    if not treffer:
+        raise KeyError(f"kein Vorgang mit Nummer {nr}")
+    key = schlagwort(str(treffer[0].get("thread_key") or ""))
+    return f"Vorgang-{nr}" + (f"-{key}" if key else "")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pruefe", action="store_true", help="Invarianten pruefen")
@@ -612,6 +633,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--grund", default="", metavar="TEXT", help="zu --frist: warum keine / Kontext"
     )
+    parser.add_argument(
+        "--kategorie",
+        metavar="NR",
+        help="Schlagwort eines Vorgangs ausgeben (fuer `draft_mail --kategorie` bzw. "
+        "`graph_mail --categorize`)",
+    )
     args = parser.parse_args(argv)
 
     if args.aktionen is not None:
@@ -620,6 +647,13 @@ def main(argv: list[str] | None = None) -> int:
 
     ledger_pfad = Path(args.ledger) if args.ledger else LEDGER
     ledger = lade(ledger_pfad, {"vorgaenge": []})
+
+    if args.kategorie:
+        try:
+            print(kategorie(ledger, args.kategorie))
+        except KeyError as fehler:
+            parser.error(str(fehler))
+        return 0
 
     if args.frist is not None:
         if not args.datum:

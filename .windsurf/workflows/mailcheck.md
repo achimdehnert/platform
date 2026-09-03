@@ -101,6 +101,19 @@ Ein leeres Ergebnis ohne Deckungsangabe ist ein Fehler, kein Befund (#1820 Krite
 8. **Als Mail-Action-Board ausgeben** (s.u. „Ausgabeformat"). Auf „go":
    den nächsten Draft mit `graph_mail.py --draft` anlegen (IIL) bzw. den HNU-Draft per
    IMAP-Append (siehe `/iil-mail`-Werkzeuglücke: HNU-Drafts nur via IMAP-Append) — **nie senden**.
+   **Jeder Draft zu einem getrackten Vorgang bekommt dessen Schlagwort**, damit die
+   Zuordnung auch im Postfach sichtbar ist und nicht nur im Ledger:
+
+   ```bash
+   KAT="$(python3 tools/mail_agent/board.py --kategorie <nr>)"   # z.B. Vorgang-114-av-pruefung-2026
+   python3 tools/mail_agent/graph_mail.py --draft … --category "$KAT"      # IIL
+   python3 tools/mail_agent/draft_mail.py  --account hnu … --kategorie "$KAT"  # HNU/AD
+   ```
+
+   Die Nummer steht vorn, weil sie stabil ist und nie wiederverwendet wird. **HNU nimmt
+   keine eigenen Schlagworte an** (gemessen 2026-09-03: `PERMANENTFLAGS` ohne `\*`);
+   `draft_mail` warnt dort und legt den Entwurf trotzdem ab — die Zuordnung bleibt im
+   Ledger. Das AD-Postfach (mittwald) nimmt sie an.
 
 ## Ausgabeformat: Mail-Action-Board mit Deckungsblock (#1820 Kriterium 3)
 
