@@ -296,10 +296,25 @@ def cmd_pruefe(args: argparse.Namespace) -> None:
     for konto, liste in sorted(nach_konto.items()):
         try:
             imap = _verbinde(konto)
-        # Breit mit Absicht: Login-Fehler kommen je nach Anbieter als OSError,
-        # IMAP4.error, ssl.SSLError oder ValueError. Ein nicht erreichbares Konto
-        # wird als Befund gemeldet, statt den Lauf der anderen abzubrechen.
-        except Exception as fehler:  # noqa: BLE001
+        # Benannt statt blind: das sind die Arten, die wirklich "Konto
+        # unbenutzbar" heissen — Netz und TLS und Zeitueberschreitung als
+        # OSError, Login-Ablehnung als IMAP4.error, fehlender SMTP_HOST oder
+        # unbrauchbarer Port als KeyError/ValueError. Ein AttributeError ist
+        # dagegen ein Fehler im Code und soll auffliegen, statt sich als
+        # "nicht erreichbar" zu tarnen.
+        #
+        # SystemExit eigens: `load_credentials` beendet bei einem fehlenden
+        # Credential-Paar den PROZESS (sys.exit) statt zu werfen. SystemExit
+        # ist keine Exception — bis 2026-09-03 riss genau dieser gewoehnliche
+        # Fall den ganzen Lauf mit, samt der Arbeit aller anderen Konten.
+        # Wurzel (sys.exit in einer Bibliotheksfunktion) siehe platform#2752.
+        except (
+            OSError,
+            imaplib.IMAP4.error,
+            KeyError,
+            ValueError,
+            SystemExit,
+        ) as fehler:
             befunde += [
                 Befund(
                     a, UNPRUEFBAR, hinweis=f"Konto '{konto}' nicht erreichbar: {fehler}"
