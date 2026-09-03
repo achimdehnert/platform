@@ -80,9 +80,10 @@ AUFSCHUB = re.compile(
 
 # ── Kalibrierung 2026-09-03 (platform#2234) ──────────────────────────────────
 #
-# Gemessener Fehlalarm (platform#2757): der Docstring-Satz
+# Gemessener Fehlalarm (platform#2757, Kalibrierung platform#2234): der Satz
 #
 #     Bewusst nicht `gh api rate_limit`: das misst das Primaerlimit ...
+#   (Refs #2234 — dieses Zitat ist der Gegenstand der Regel, keine Vertagung)
 #
 # ist eine METHODENWAHL, keine Vertagung — »X ist das falsche Werkzeug«, nicht
 # »machen wir spaeter«. Dieselben Woerter, gegensaetzliche Bedeutung.
@@ -94,7 +95,8 @@ AUFSCHUB = re.compile(
 #
 # Bewusst SEHR eng gefasst. Ein erster, breiterer Entwurf verlangte irgendein
 # Arbeitswort im Satz — er liess prompt neun bestehende Drills durchfallen,
-# darunter »Nicht enthalten: die Verdrahtung als Hook«. Deutsche Vertagungen
+# darunter »Nicht enthalten: die Verdrahtung als Hook« (Refs #2234 — Zitat aus
+# dem widerlegten Entwurf, keine Vertagung). Deutsche Vertagungen
 # stehen regelmaessig als Substantiv da; eine Verb-Liste haette das Gate
 # stillgelegt statt kalibriert. Der Fehlversuch steht hier, damit ihn niemand
 # wiederholt.

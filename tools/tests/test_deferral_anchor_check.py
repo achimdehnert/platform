@@ -491,7 +491,10 @@ def test_should_still_flag_real_deferrals(zeile):
 
 @pytest.mark.f1
 def test_should_still_flag_when_a_specific_phrase_stands_next_to_it():
-    """`bewusst nicht` PLUS eine spezifische Wendung bleibt ein Fund."""
+    """Eine generische Verneinung PLUS spezifische Wendung bleibt ein Fund.
+
+    Refs #2234 — der Beispielsatz unten ist Pruefmaterial, keine Vertagung.
+    """
     zeile = "Bewusst nicht `ruff`: das folgt separat."
     assert dac.ist_methodenwahl(zeile) is False
     assert dac.finde_ankerlose_stellen(zeile)
