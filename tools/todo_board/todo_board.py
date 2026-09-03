@@ -48,9 +48,13 @@ from urllib.parse import quote, unquote
 # was hier als Nummer erkannt wird, muss `eintrag_anker.py` unter demselben
 # Schluessel verankern koennen. Das Modul ist reine Text-Analyse — kein IMAP.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mail_agent"))
-from referenzen import (  # noqa: E402
+from referenzen import (
     REF_GITHUB as _REF_GITHUB,
+)
+from referenzen import (
     REF_NUMMER as _REF_NUMMER,
+)
+from referenzen import (
     Referenz,
     ordner_daneben,
     schluessel_kandidaten,
@@ -117,6 +121,67 @@ def _schluessel(pfad: Path) -> frozenset[str]:
     return frozenset(str(k) for k in daten) if isinstance(daten, dict) else frozenset()
 
 
+def _anker_daten(pfad: Path) -> dict[str, dict]:
+    """Die Anker mit ihren Feldern — leer, wenn die Datei fehlt oder bricht.
+
+    `_schluessel` reicht fuer die Frage „verankert?"; fuer die Unterscheidung
+    gleichbetreffter Mails braucht der Verlauf auch `betreff` und `datum`.
+    """
+    try:
+        with pfad.open(encoding="utf-8") as fh:
+            daten = json.load(fh)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    if not isinstance(daten, dict):
+        return {}
+    return {str(k): v for k, v in daten.items() if isinstance(v, dict)}
+
+
+def anker_im_text(text: str, konto: str, verankert) -> list[str]:
+    """Die verankerten Schluessel, die dieser (escapte) Text nennt."""
+    if not konto:
+        return []
+    gefunden: list[str] = []
+    for m in _REF_NUMMER.finditer(text):
+        ref = Referenz(
+            uid=m.group("uid"),
+            ordner=ordner_daneben(text, m.start()),
+            start=m.start(),
+            end=m.end(),
+        )
+        for kandidat in schluessel_kandidaten(konto, ref):
+            if kandidat in verankert:
+                gefunden.append(kandidat)
+                break
+    return gefunden
+
+
+def gleichbetreffte(schluessel_liste, daten: dict[str, dict]) -> dict[str, str]:
+    """Schluessel → Datumsmarke, aber nur wo der Betreff nicht unterscheidet.
+
+    Ein weitergeleiteter Strang heisst in jeder Weiterleitung gleich. Standen
+    zwei solche Mails im selben Verlauf, sahen ihre Links identisch aus und man
+    musste beide oeffnen, um sie zu trennen (Owner-Befund 2026-09-03, Vorgang
+    160: zwei Eintraege nannten je eine Weiterleitung desselben Strangs).
+    Markiert wird darum nur, was der Betreff offen laesst — und nur, wenn ein
+    Datum vorliegt: eine erfundene Marke waere schlimmer als keine.
+    """
+    je_betreff: dict[str, set[str]] = {}
+    for k in schluessel_liste:
+        betreff = str(daten.get(k, {}).get("betreff") or "").strip()
+        if betreff:
+            je_betreff.setdefault(betreff, set()).add(k)
+    marken: dict[str, str] = {}
+    for treffer in je_betreff.values():
+        if len(treffer) < 2:
+            continue
+        for k in treffer:
+            datum = str(daten.get(k, {}).get("datum") or "").strip()
+            if len(datum) == 10:
+                marken[k] = f"{datum[8:10]}.{datum[5:7]}."
+    return marken
+
+
 def aufloesbare_nummern(
     anker_pfad: Path = ANKER_DATEI, registry_pfad: Path = REGISTRY_DATEI
 ) -> dict[str, str]:
@@ -181,7 +246,9 @@ def mail_ziel(
 
 
 def heute() -> date:
-    return date.today()
+    # Kalendertag der Maschine, bewusst ohne Zeitzone: eine Frist laeuft am
+    # Datum ab, nicht zu einer Uhrzeit, und das Ledger schreibt reine ISO-Tage.
+    return date.today()  # noqa: DTZ011
 
 
 def lade(pfad: Path) -> dict:
@@ -225,7 +292,8 @@ def frist_tage(v: dict, stichtag: date) -> int | None:
     if not roh:
         return None
     try:
-        return (datetime.strptime(roh, "%Y-%m-%d").date() - stichtag).days
+        # Reiner ISO-Tag aus dem Ledger — ein %z gaebe es dort nicht zu lesen.
+        return (datetime.strptime(roh, "%Y-%m-%d").date() - stichtag).days  # noqa: DTZ007
     except ValueError:
         # Ein unlesbares Datum ist ein Befund, kein Grund, die Seite abstuerzen zu
         # lassen — es faellt in der Ausgabe als "?" auf.
@@ -282,10 +350,10 @@ def sortschluessel(v: dict, stichtag: date) -> tuple[int, int, str]:
 #: Ein wartender Entwurf im juengsten Verlaufseintrag. Er ist der haeufigste Grund,
 #: warum ein Posten „dein Zug" ist — und stand bisher nur im Verlauf, also einen
 #: Klick entfernt (Owner-Befund 2026-08-21: „MUSS bekannt sein").
-_ENTWURF_REF = re.compile(r"Entw(?:ue|ü)rfe\s*#(?P<uid>\d{3,7})", re.I)
+_ENTWURF_REF = re.compile(r"Entw(?:ue|ü)rfe\s*#(?P<uid>\d{3,7})", re.IGNORECASE)
 #: Woerter, mit denen derselbe Eintrag sagt, dass es den Entwurf nicht mehr gibt.
 _ENTWURF_ERLEDIGT = re.compile(
-    r"gesendet|versendet|verschickt|abgeschickt|verworfen|nicht mehr", re.I
+    r"gesendet|versendet|verschickt|abgeschickt|verworfen|nicht mehr", re.IGNORECASE
 )
 
 
@@ -513,6 +581,8 @@ letter-spacing:.05em;font-weight:600;color:var(--stumm);margin-right:.4rem}
 a.ref{color:inherit;text-decoration:none;border-bottom:1px solid var(--linie);
 font-variant-numeric:tabular-nums}
 a.ref:hover{border-bottom-color:currentColor}
+.ref-datum{font-variant-numeric:tabular-nums;opacity:.7;font-size:.92em;
+           margin-left:.15em}
 .ref.ohne-anker{border-bottom:1px dotted var(--linie);cursor:help;opacity:.85}
 .datei{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
 background:var(--bg);border:1px solid var(--linie);border-radius:4px;padding:0 .25rem}
@@ -531,7 +601,8 @@ def frische_banner(daten: dict, stichtag: date) -> str:
     if not roh:
         return "<p class='alt'>Kein Erhebungsdatum im Ledger — Stand unbekannt.</p>"
     try:
-        alter = (stichtag - datetime.strptime(str(roh), "%Y-%m-%d").date()).days
+        # Reiner ISO-Tag aus dem Ledger, s.o.
+        alter = (stichtag - datetime.strptime(str(roh), "%Y-%m-%d").date()).days  # noqa: DTZ007
     except ValueError:
         return f"<p class='alt'>Erhebungsdatum '{html.escape(str(roh))}' unlesbar.</p>"
     if alter <= FRISCH_TAGE:
@@ -822,11 +893,11 @@ _DECKUNG_WORTE = ("nachgezogen", "restfenster", "db bis", "kein neuer eingang")
 #: offener Punkt hervorgehoben. Bewusst nur der Satzanfang: eine Verneinung
 #: mitten im Satz ("Der Termin steht, nichts weiter offen") laesst sich nicht
 #: mehr regelbasiert zuordnen, und Raten ist hier schlimmer als Nicht-Trennen.
-_KEINE_ACTION = re.compile(r"^(?:nichts|kein|keine|keinerlei|nicht)\b", re.I)
+_KEINE_ACTION = re.compile(r"^(?:nichts|kein|keine|keinerlei|nicht)\b", re.IGNORECASE)
 
 _ACTION_MUSTER = re.compile(
     r"^(?:\w+[\s,]+){0,2}(?:offen\b|zu tun\b|to-?do\b|n(?:ae|ä)chste[rn]? schritt|owner:)",
-    re.I,
+    re.IGNORECASE,
 )
 _ANALYSE_WORTE = (
     "hauptbefund",
@@ -844,7 +915,7 @@ _GITHUB_STANDARD_OWNER = "achimdehnert"
 #: Anhaenge bekommen KEINEN Link: der Dienst liefert sie nur unter `<uid>/anhaenge/<name>`
 #: aus, und die UID steht im Text nicht verlaesslich daneben.
 _DATEI = re.compile(
-    r"\b[\w.\-]{3,60}\.(?:pdf|docx?|xlsx?|pptx?|csv|zip|txt|md)\b", re.I
+    r"\b[\w.\-]{3,60}\.(?:pdf|docx?|xlsx?|pptx?|csv|zip|txt|md)\b", re.IGNORECASE
 )
 
 
@@ -853,6 +924,7 @@ def verweise(
     konto: str,
     mail_basis: str = MAIL_BASIS,
     anker: frozenset[str] | None = None,
+    marken: dict[str, str] | None = None,
 ) -> str:
     """Erkannte Referenzen verlinken. `text` ist bereits HTML-escaped.
 
@@ -870,11 +942,17 @@ def verweise(
 
     Ohne `konto` wird gar nichts verlinkt — der Schluessel traegt das Konto, und
     ohne Konto gibt es keinen.
+
+    `marken` traegt fuer die Schluessel, deren Betreff im Vorgang mehrfach
+    vorkommt, das Datum der Mail (siehe `gleichbetreffte`). Es wird an den
+    Linktext gehaengt, damit zwei Weiterleitungen desselben Strangs
+    auseinanderzuhalten sind, ohne beide zu oeffnen.
     """
     if not konto:
         return text
     basis = mail_basis.rstrip("/")
     verankert = _schluessel(ANKER_DATEI) if anker is None else anker
+    marken = marken or {}
 
     def nummer(m: re.Match, segment: str) -> str:
         roh = m.group(0)
@@ -887,9 +965,24 @@ def verweise(
         for kandidat in schluessel_kandidaten(konto, ref):
             if kandidat in verankert:
                 ziel = f"{basis}/a/{quote(kandidat, safe='')}"
+                marke = marken.get(kandidat, "")
+                # Die Marke steht IM Link, nicht daneben: sie gehoert zu der
+                # Mail, auf die geklickt wird, und ein Zusatz hinter dem Link
+                # laese offen, auf welche der beiden Nummern er sich bezieht.
+                zusatz = (
+                    f" <span class='ref-datum'>{html.escape(marke)}</span>"
+                    if marke
+                    else ""
+                )
+                titel = (
+                    f"Mail vom {marke.rstrip('.')} oeffnen — gleicher Betreff wie "
+                    "eine zweite Mail in diesem Verlauf"
+                    if marke
+                    else "Mail oeffnen (ueber Message-ID verankert)"
+                )
                 return (
                     f"<a class='ref' href='{ziel}' target='_blank' rel='noreferrer'"
-                    f" title='Mail oeffnen (ueber Message-ID verankert)'>{roh}</a>"
+                    f" title='{html.escape(titel)}'>{roh}{zusatz}</a>"
                 )
         return (
             "<span class='ref ohne-anker' title='nicht verankert — "
@@ -988,6 +1081,14 @@ def verlauf(
     links = links if links is not None else _eintrag_links(nr)
     # Einmal je Seite gelesen, nicht je Referenz — der Verlauf nennt Dutzende.
     anker = _schluessel(ANKER_DATEI) if anker is None else anker
+    # Vorlauf ueber ALLE Eintraege: ob ein Betreff unterscheidet, entscheidet
+    # sich am ganzen Verlauf, nicht am einzelnen Eintrag — die beiden Mails, die
+    # sich gleichen, stehen typischerweise in verschiedenen Eintraegen.
+    genannt: list[str] = []
+    for eintrag in eintraege:
+        roh_text = eintrag[1] if isinstance(eintrag, tuple) else eintrag
+        genannt += anker_im_text(html.escape(str(roh_text)), konto, anker)
+    datumsmarken = gleichbetreffte(genannt, _anker_daten(ANKER_DATEI))
     for eintrag in eintraege:
         # Nummer und Text kommen als Paar herein: gezaehlt wird vom AELTESTEN Ende,
         # damit `#132-4` derselbe Eintrag bleibt, wenn oben zehn neue dazukommen.
@@ -996,14 +1097,14 @@ def verlauf(
         t = zerlege_eintrag(roh)
         bezug = links.get(str(nummer), {}) if nummer is not None else {}
 
-        def bahn(schluessel: str, klasse: str, label: str = "") -> str:
+        def bahn(schluessel: str, klasse: str, label: str = "", t=t) -> str:
             wert = t[schluessel]
             if not wert:
                 return ""
             marke = f"<span class='bahn-marke'>{label}</span>" if label else ""
             return (
                 f"<p class='{klasse}'>{marke}"
-                f"{verweise(html.escape(wert), konto, mail_basis, anker)}</p>"
+                f"{verweise(html.escape(wert), konto, mail_basis, anker, datumsmarken)}</p>"
             )
 
         marken = []
@@ -1037,7 +1138,7 @@ def verlauf(
         if t["deckung"]:
             marken.append(
                 "<details class='deckung'><summary>Deckung</summary>"
-                f"<p>{verweise(html.escape(t['deckung']), konto, mail_basis, anker)}</p></details>"
+                f"<p>{verweise(html.escape(t['deckung']), konto, mail_basis, anker, datumsmarken)}</p></details>"
             )
         kopfzeile = (
             f"<header class='eintrag-kopf'>{''.join(marken)}</header>" if marken else ""
@@ -1076,10 +1177,12 @@ def _stille_karte(stille: list) -> list[str]:
         nummer, datum = stille[0]
         marke = f"<span class='eintrag-nr'>#{nummer}</span> " if nummer else ""
         return [
-            f"<article class='eintrag still'>{marke}"
-            f"<time class='eintrag-datum'>{html.escape(datum or '')}</time>"
-            " <span class='kein-ziel'>Nur Erhebung, kein neuer Sachstand.</span>"
-            "</article>"
+            (
+                f"<article class='eintrag still'>{marke}"
+                f"<time class='eintrag-datum'>{html.escape(datum or '')}</time>"
+                " <span class='kein-ziel'>Nur Erhebung, kein neuer Sachstand.</span>"
+                "</article>"
+            )
         ]
     # Chronologisch, nicht in Eingabereihenfolge: die Spanne beschreibt einen
     # Zeitraum, und "12. bis 10." ist keiner.
@@ -1091,10 +1194,12 @@ def _stille_karte(stille: list) -> list[str]:
     )
     nummern = ", ".join(f"#{n}" for n, _ in stille if n)
     return [
-        "<article class='eintrag still'>"
-        f"<time class='eintrag-datum'>{html.escape(spanne)}</time> "
-        f"<span class='kein-ziel'>{len(stille)} Erhebungen ohne neuen Sachstand</span>"
-        f"<span class='eintrag-nr'> {html.escape(nummern)}</span></article>"
+        (
+            "<article class='eintrag still'>"
+            f"<time class='eintrag-datum'>{html.escape(spanne)}</time> "
+            f"<span class='kein-ziel'>{len(stille)} Erhebungen ohne neuen Sachstand</span>"
+            f"<span class='eintrag-nr'> {html.escape(nummern)}</span></article>"
+        )
     ]
 
 
@@ -1259,7 +1364,7 @@ class Handler(BaseHTTPRequestHandler):
             f"{self.address_string()} {self.command} {args[1] if len(args) > 1 else ''}\n"
         )
 
-    def do_HEAD(self) -> None:  # noqa: N802
+    def do_HEAD(self) -> None:
         self.do_GET()
 
     def _vorgang(self, schluessel: str, alt_zuerst: bool = False) -> None:
@@ -1289,7 +1394,7 @@ class Handler(BaseHTTPRequestHandler):
             "text/plain; charset=utf-8",
         )
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         pfad = self.path.split("?", 1)[0].rstrip("/") or "/"
         if pfad == "/healthz":
             self._sende(HTTPStatus.OK, b"ok\n", "text/plain; charset=utf-8")

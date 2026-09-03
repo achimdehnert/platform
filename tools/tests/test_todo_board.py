@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 from datetime import date
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -993,6 +994,75 @@ class TestVerlaufVerweise:
         html = tb.verweise("Anhang Bericht_2026-08-20.docx dabei", "hnu")
         assert "class='datei'" in html
         assert "<a" not in html
+
+
+class TestGleichbetreffteVerweise:
+    """Zwei Weiterleitungen desselben Strangs heissen gleich (Owner 2026-09-03).
+
+    Vorgang 160 nannte in Eintrag 9 und 10 je eine Weiterleitung desselben
+    Strangs — gleicher Betreff, verschiedene Mails. Beide Links waren richtig
+    und sahen identisch aus; man musste beide oeffnen, um zu wissen, welche
+    welche ist. Das Datum im Linktext beendet das.
+    """
+
+    ANKER = frozenset({"hnu-inbox-164222", "hnu-inbox-164313", "hnu-inbox-164400"})
+    DATEN: ClassVar[dict[str, dict[str, str]]] = {
+        "hnu-inbox-164222": {"betreff": "WG: gleicher Strang", "datum": "2026-08-28"},
+        "hnu-inbox-164313": {"betreff": "WG: gleicher Strang", "datum": "2026-09-01"},
+        "hnu-inbox-164400": {"betreff": "Ganz anderer Betreff", "datum": "2026-09-02"},
+    }
+
+    def test_should_mark_two_references_sharing_a_subject(self):
+        marken = tb.gleichbetreffte(
+            ["hnu-inbox-164222", "hnu-inbox-164313"], self.DATEN
+        )
+        assert marken == {
+            "hnu-inbox-164222": "28.08.",
+            "hnu-inbox-164313": "01.09.",
+        }
+
+    def test_should_leave_a_unique_subject_unmarked(self):
+        """Gegenprobe: markiert wird nur, was der Betreff offen laesst — sonst
+        traegt jeder Link im Verlauf eine Marke und keine sagt mehr etwas."""
+        marken = tb.gleichbetreffte(
+            ["hnu-inbox-164222", "hnu-inbox-164400"], self.DATEN
+        )
+        assert marken == {}
+
+    def test_should_not_invent_a_mark_without_a_date(self):
+        """Anker von vor 2026-09-03 tragen kein Datum. Lieber keine Marke als
+        eine erfundene — `--auffrischen` traegt das Datum nach."""
+        daten = {
+            "a": {"betreff": "gleich", "datum": ""},
+            "b": {"betreff": "gleich", "datum": "2026-09-01"},
+        }
+        assert tb.gleichbetreffte(["a", "b"], daten) == {"b": "01.09."}
+
+    def test_should_render_the_mark_inside_the_link(self):
+        html = tb.verweise(
+            "INBOX #164222 und INBOX #164313",
+            "hnu",
+            "https://mail.example",
+            self.ANKER,
+            {"hnu-inbox-164222": "28.08.", "hnu-inbox-164313": "01.09."},
+        )
+        assert "#164222 <span class='ref-datum'>28.08.</span></a>" in html
+        assert "#164313 <span class='ref-datum'>01.09.</span></a>" in html
+
+    def test_should_keep_the_plain_title_without_a_mark(self):
+        html = tb.verweise("INBOX #164400", "hnu", "https://mail.example", self.ANKER)
+        assert "ref-datum" not in html
+        assert "title='Mail oeffnen (ueber Message-ID verankert)'" in html
+
+    def test_should_find_anchored_keys_in_a_text(self):
+        assert tb.anker_im_text("INBOX #164222 kam an", "hnu", self.ANKER) == [
+            "hnu-inbox-164222"
+        ]
+
+    def test_should_ignore_an_unanchored_number_in_the_prepass(self):
+        """Gegenprobe zum Vorlauf: eine nicht verankerte Nummer darf keine
+        Betreff-Gruppe bilden — sonst markiert der Vorlauf ins Leere."""
+        assert tb.anker_im_text("INBOX #999999 kam an", "hnu", self.ANKER) == []
 
 
 class TestFristGrund:
