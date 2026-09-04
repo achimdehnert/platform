@@ -3401,3 +3401,19 @@ ttz-hub nur dispatch, frist-hub `betriebsstatus: blockiert` ohne DNS; der Push-D
 des Preflights war dort dreimal Fehlalarm. Deploy-Kontrolle der Owner-Merges: 8x success,
 Health 200. Nachzug der 8 CI-roten Repos per Subagent: pptx-hub gruen und gemergt (W2), 7
 bleiben rot aus sechs verschiedenen Ursachen, je Issue im Zielrepo. Stand 50/56 (#2787).
+
+## 2026-09-04 vormittags — Zug A Nachzug: CI-Reparaturen, mcp-hub Deploy wieder frei, Endstand gemessen (Sitzung 01Lob9, Fortsetzung)
+
+Owner: „141 loese es autonom". Von 7 CI-roten Repos: zwei waren Einmal-Flakes (lastwar-*),
+news-hub brauchte packages:write (Owner-Merge), meiki-dms einen Token-Fallback statt eines
+neuen Secrets plus ruff-Pin (0.16.6 brachte 78 Alt-Befunde), apo-hub den Deploy-Schalter
+DEPLOY_ENABLED=false (Repo ruhend, Owner). mcp-hub: der erste Fix (#249, Runner-Label) kippte
+den Deploy auf main, weil der shared-ci Runner-Label-Check kein Zusatz-Label kennt
+(ALLOWED_EXTRA leere Konstante, shared-ci#75) — Folge-PR #250 mit Guard, Deploy gruen,
+Orchestrator /livez 200. Bypass-Merges (Ruleset verlangt Review, Owner-Konto kann sich nicht
+selbst approven) je mit Freigabe-Kommentar und Owner-Wort; der Bash-Hook prueft dabei das
+Repo aus dem Arbeitsverzeichnis statt aus -R (#2827), Ausweg GitHub-API bzw. Worktree-cwd.
+
+Eigener Fehler: Zwischenstaende „54/56" und „55/56" waren addiert, nicht gemessen —
+gemessen sind es 50/56 (Korrektur in #2787). v2.4 der Rubrik hatte eine Parallelsitzung
+bereits gebaut (#2803/#2805/#2808) — per Handover erkannt, kein Doppelstrang.
