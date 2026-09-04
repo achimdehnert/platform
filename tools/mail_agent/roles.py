@@ -333,6 +333,34 @@ def text_mit_signatur(profile: Profile, text: str) -> str:
     return "\n\n".join(t for t in teile if t) + "\n"
 
 
+def html_mit_signatur(profile: Profile, html: str) -> str:
+    """Hängt Signatur und ggf. Pflicht-Footer an einen HTML-Körper (ohne --design).
+
+    Realfall 2026-09-04: `draft_mail --role hnu --html-file …` legte vier
+    HNU-Entwürfe ohne Signatur ab, drei davon wurden so gesendet — die Rolle
+    signierte nur Klartext (`text_mit_signatur`) oder das Design, nicht den
+    rohen HTML-Weg. Die Signatur kommt als eigener Block mit `pre-line`, damit
+    ihre Zeilenumbrüche ohne harte <br> erhalten bleiben; Namen und Adressen
+    werden HTML-escaped.
+    """
+    import html as _html
+
+    teile = [html.rstrip()]
+    if profile.signature:
+        teile.append(
+            '<div style="white-space:pre-line;">'
+            + _html.escape(profile.signature.strip())
+            + "</div>"
+        )
+    if profile.legal_footer:
+        teile.append(
+            '<div style="white-space:pre-line;font-size:smaller;">'
+            + _html.escape(profile.legal_footer.strip())
+            + "</div>"
+        )
+    return "\n".join(t for t in teile if t) + "\n"
+
+
 def zerlege_klartext(text: str) -> dict:
     """Klartext-Mail → Bausteine für `render_email_html`.
 

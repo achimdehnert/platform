@@ -526,7 +526,13 @@ def main() -> None:
                 **roles.zerlege_klartext(text or ""),
             )
             text = None  # Text-Teil leitet build_draft aus dem HTML ab (mit Signatur)
-        elif not html:
+        elif html:
+            # Roher HTML-Weg (ohne --design): die Rolle signiert auch hier —
+            # sonst geht der Entwurf ohne Signatur hinaus (Realfall 2026-09-04).
+            html = roles.html_mit_signatur(profile, html)
+            if text:
+                text = roles.text_mit_signatur(profile, text)
+        else:
             text = roles.text_mit_signatur(profile, text or "")
 
     ursprung_roh = None
