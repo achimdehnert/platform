@@ -297,3 +297,9 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.23"
+  - phase: "0.7.24 registry-erreichbarkeit"
+    leser: "Session-Start-Board → Owner (entscheidet ueber ADR-301: zweites Ausfallfenster = Kill-Gate nicht gezogen)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.24"

@@ -1,0 +1,16 @@
+[Unit]
+Description=Registry-Erreichbarkeit alle fuenf Minuten messen
+
+[Timer]
+# Fuenf Minuten: das Fenster am 2026-09-02 dauerte rund zwei Stunden, ein
+# Deploy-Abruf dagegen Sekunden. Fuenf Minuten treffen ein solches Fenster
+# sicher (24 Messpunkte) und kosten zehn Verbindungen je Lauf.
+OnBootSec=3min
+OnUnitActiveSec=5min
+# Kein Persistent: eine verpasste Messung nachzuholen ergibt keinen Sinn — sie
+# wuerde einen Zustand von frueher als aktuellen protokollieren.
+Persistent=false
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

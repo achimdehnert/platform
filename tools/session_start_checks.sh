@@ -1029,6 +1029,22 @@ else
   record "0.7.22 flottenbild" "SKIP" "kein Flottenbild unter ~/.claude/flottenbild/ — Timer flottenbild.timer aktivieren (infra/host-maintenance)"
 fi
 
+# ── 0.7.24 Registry-Erreichbarkeit: die Strecke, an der vier Deploys starben ──
+# Am 2026-09-02 erreichte prod ghcr.io nur in 4 von 10 Versuchen, bei 10 von 10
+# gegen github.com. Vier Deploys scheiterten; zwei Stunden spaeter war der Zustand
+# von selbst vorbei und die Ursache nicht mehr bestimmbar, weil der entscheidende
+# Schritt — ein Mitschnitt WAEHREND eines Fehlschlags — nichts mehr zu fassen hatte.
+# Kein Melder sah diese Strecke: 0.7.11 fragt unsere eigenen Domains ab, keine
+# Registry. registry-probe.sh misst sie jetzt dauerhaft auf prod und prod-b; hier
+# wird nur gelesen. Ein STUMMER Rekorder ist selbst ein Befund — er meldet sonst nie
+# ein Fenster und waere genau der blinde Melder, gegen den er gebaut wurde.
+# Belegt: platform#2685, Kill-Gate-Messung fuer ADR-301.
+if [[ -f "$PLATFORM_DIR/tools/registry_erreichbarkeit_melder.py" ]]; then
+  RE_OUT=$(timeout 120 python3 "$PLATFORM_DIR/tools/registry_erreichbarkeit_melder.py" --quiet 2>&1 | tail -1)
+  RE_STATUS=$(sed -n 's/^RESULT: \([A-Z]*\).*/\1/p' <<< "$RE_OUT")
+  record "0.7.24 registry-erreichbarkeit" "${RE_STATUS:-SKIP}" "$(sed 's/^RESULT: [A-Z]* — //' <<< "$RE_OUT")"
+fi
+
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
 # Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
 # WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung
