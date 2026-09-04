@@ -118,6 +118,18 @@ def test_should_reject_doc_pr_in_prod_repo_without_named_approval():
     assert u.erlaubt is False and "fehlt: M3" in u.grund
 
 
+def test_should_name_the_deploy_vermerk_path_when_w3_lacks_m3():
+    """#2812 (b): die Meldung nennt beide Wege zu M3, nicht nur den generischen
+    Ablehnungssatz."""
+    u = classify(
+        _facts(wirkung="W3", mandat="M0", files=["app/x.py"], checks_total=2), REGELN
+    )
+    assert u.erlaubt is False
+    assert "fehlt: M3" in u.grund
+    assert "#2812" in u.grund
+    assert "verlinkten Issue" in u.grund
+
+
 def test_should_reject_sync_repo_without_mandat():
     u = classify(
         _facts(
@@ -540,3 +552,93 @@ def test_should_not_crash_on_status_contexts_without_started_at(monkeypatch):
     monkeypatch.setattr(pr_merge_sa, "_gh", _gather_fake_gh(_gather_pr(rollup)))
     f = pr_merge_sa.gather(_GATHER_REPO, 2783, _GATHER_REGELN)
     assert f.checks_total == 1
+
+
+# --- #2812 (b): Deploy-Vermerk je PR-Nummer deckt W3 als M3-Aequivalent ------
+#
+# GitHub laesst kein Approve-Review auf einen eigenen PR zu — der M3-Weg per
+# Review ist auf Owner-eigenen PRs strukturell unerreichbar. Owner-Entscheid
+# 2026-09-04: ein Vermerk im verlinkten Issue deckt W3 als M3-Aequivalent, wenn
+# DIESELBE Zeile den Freigabe-Vermerk, ein Deploy-Wort UND diese PR-Nummer
+# traegt. Fehlt eine Bedingung, bleibt es beim bestehenden M1.
+
+
+def _issue_view_fake(body: str):
+    def _fake(args):
+        assert args[:2] == ["issue", "view"]
+        return {"body": body, "state": "OPEN"}
+
+    return _fake
+
+
+def test_should_read_m3_when_vermerk_names_deploy_and_this_pr_number(monkeypatch):
+    import pr_merge_sa
+
+    body = "Freigabe: akzeptiert durch Owner — deploy #2804"
+    monkeypatch.setattr(pr_merge_sa, "_gh", _issue_view_fake(body))
+    pr = {"reviewDecision": None, "latestReviews": [], "body": "Refs #2812"}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M3"
+
+
+def test_should_read_m1_when_vermerk_names_deploy_for_a_different_pr(monkeypatch):
+    import pr_merge_sa
+
+    body = "Freigabe: akzeptiert durch Owner — deploy #99"
+    monkeypatch.setattr(pr_merge_sa, "_gh", _issue_view_fake(body))
+    pr = {"reviewDecision": None, "latestReviews": [], "body": "Refs #2812"}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M1"
+
+
+def test_should_read_m1_when_vermerk_has_number_but_no_deploy_word(monkeypatch):
+    import pr_merge_sa
+
+    body = "Freigabe: akzeptiert durch Owner, betrifft PR #2804"
+    monkeypatch.setattr(pr_merge_sa, "_gh", _issue_view_fake(body))
+    pr = {"reviewDecision": None, "latestReviews": [], "body": "Refs #2812"}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M1"
+
+
+def test_should_not_let_a_number_prefix_match_a_longer_pr_number(monkeypatch):
+    """#280 darf PR 2804 nicht decken — Wortgrenze auf beiden Seiten."""
+    import pr_merge_sa
+
+    body = "Freigabe: akzeptiert durch Owner — deploy #280"
+    monkeypatch.setattr(pr_merge_sa, "_gh", _issue_view_fake(body))
+    pr = {"reviewDecision": None, "latestReviews": [], "body": "Refs #2812"}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M1"
+
+
+def test_should_not_read_m3_from_prod_marker_words_in_the_vermerk(monkeypatch):
+    """Review-Befund zu #2814: PROD_IM_APPROVAL matcht auch "prod"/"release"/
+    "publish" — ein M1-Vermerk, der die PR-Nummer nur im Kontext von
+    "Prod-Rueckstand" nennt, darf NICHT versehentlich M3 werden. Der
+    Vermerk-Pfad prueft ausschliesslich das Wort "deploy"."""
+    import pr_merge_sa
+
+    body = "Freigabe: akzeptiert durch Owner, PR #2804 (Prod-Rueckstand)"
+    monkeypatch.setattr(pr_merge_sa, "_gh", _issue_view_fake(body))
+    pr = {"reviewDecision": None, "latestReviews": [], "body": "Refs #2812"}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M1"
+
+
+def test_should_prefer_review_m3_over_vermerk_and_never_read_the_issue(monkeypatch):
+    """Pruefreihenfolge: Reviews zuerst, dann Vermerke — liegt schon ein
+    Review-M3 vor, wird das verlinkte Issue gar nicht erst gelesen."""
+    import pr_merge_sa
+
+    aufrufe = []
+
+    def _fake(args):
+        aufrufe.append(args)
+        raise AssertionError(
+            "Issue darf bei vorliegendem Review-M3 nicht gelesen werden"
+        )
+
+    monkeypatch.setattr(pr_merge_sa, "_gh", _fake)
+    pr = {
+        "reviewDecision": None,
+        "latestReviews": [{"state": "APPROVED", "body": "ok, deploy nach prod"}],
+        "body": "Refs #2812",
+    }
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M3"
+    assert aufrufe == []
