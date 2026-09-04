@@ -16,7 +16,7 @@ der auch ohne das Secret gruen wird, beweist nichts (AD-4, Realfall meiki-hub
 Die HTTP-Schicht ist eine **injizierbare Funktion**, damit die ganze Kette mit
 Attrappen getestet werden kann, ohne je ein echtes Token zu berühren.
 
-Autorisierung: Installation-Token der GitHub-App „rotation" (eigene App unter
+Autorisierung: Installation-Token der GitHub-App „iil-rotation" (eigene App unter
 ``iilgmbh`` — nicht Profil B, das ein Break-Glass-Mandat ist, AD-8). Der JWT
 wird wie in ``tools/gh-app-token.sh`` per ``openssl`` signiert; die Install-ID
 wird je Org **live** aufgeloest statt hartkodiert.
@@ -118,7 +118,7 @@ def app_jwt(app_id: str, pem: Path, jetzt: int | None = None) -> str:
     """
     if not pem.is_file():
         raise TreiberFehler(
-            f"Privater Schluessel der App 'rotation' nicht lesbar: {pem}\n"
+            f"Privater Schluessel der App 'iil-rotation' nicht lesbar: {pem}\n"
             f"Setzen ueber {APP_KEY_ENV}, oder App anlegen (Owner-Schritt, "
             "GitHub-UI unter iilgmbh: Secrets R/W + Metadata R, Installation auf "
             "iilgmbh und achimdehnert). Siehe Inventar-Eintrag "
@@ -159,7 +159,7 @@ def installation_token(org: str, http: HttpFunktion, jwt: str) -> str:
     if not passend:
         vorhanden = ", ".join(i["account"]["login"] for i in installationen) or "keine"
         raise TreiberFehler(
-            f"App 'rotation' ist auf '{org}' nicht installiert. Installiert auf: {vorhanden}"
+            f"App 'iil-rotation' ist auf '{org}' nicht installiert. Installiert auf: {vorhanden}"
         )
     status, daten = http(
         "POST", f"/app/installations/{passend[0]['id']}/access_tokens", token=jwt
@@ -212,7 +212,7 @@ class GithubTreiber:
         if org not in self._token_je_org:
             if not self.app_id:
                 raise TreiberFehler(
-                    f"{APP_ID_ENV} nicht gesetzt — die App 'rotation' ist noch nicht angelegt "
+                    f"{APP_ID_ENV} nicht gesetzt — die App 'iil-rotation' ist noch nicht angelegt "
                     "(Owner-Schritt, platform#2813)."
                 )
             self._token_je_org[org] = installation_token(
