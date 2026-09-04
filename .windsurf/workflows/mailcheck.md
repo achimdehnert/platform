@@ -269,13 +269,41 @@ Rauschen (Schritt 4) und Erledigtes sind zwei verschiedene Dinge. Rauschen erken
 darf sein Strang aus dem Posteingang. Dafür gibt es ein eigenes Werkzeug:
 
 ```bash
+python3 tools/mail_agent/ablage_erledigt.py --pruefe              # Melder: liegt noch Erledigtes im Posteingang?
 python3 tools/mail_agent/ablage_erledigt.py --straenge            # Trockenlauf: was ginge?
 python3 tools/mail_agent/ablage_erledigt.py --straenge --apply    # bewegen, mit Protokoll
 python3 tools/mail_agent/ablage_erledigt.py --ruecknahme LAUF_ID  # kompletten Lauf zurück
 ```
 
-**Der Trockenlauf ist Pflicht, das Anwenden nicht.** Zeigt er unerwartet viele Nachrichten
-oder einen Zielordner, der nicht passt, wird er dem Owner vorgelegt statt ausgeführt.
+**Ohne `--ordner`** — das Werkzeug holt den Ordnerbestand seit dem 2026-09-04 selbst (Graph
+für `iil`, IMAP für `hnu`/`ad`). Wer die Liste doch mitgeben will (Testfixture, Lauf ohne
+Postfach), kann das weiter mit `--ordner KONTO=DATEI` tun. **Warum das hier steht:** vorher
+war die Liste ein Pflichtargument, das genau dieser Abschnitt nicht mitgab — der Lauf meldete
+dann jeden Zielordner als fehlend, zweimal (27.08., 31.08.) wurde daraus ein Befund über das
+Postfach gemacht, und beide Ordner existierten. Seit dem 27.08. hat deshalb kein `/mailcheck`
+mehr eine Mail abgelegt.
+
+**`konto_nicht_erreichbar` ist kein fehlender Ordner.** Antwortet ein Konto nicht (auf dieser
+Maschine ist `ad` nicht freigegeben — Capability-Profil), sagt der Bericht das in einer eigenen
+Zeile. Über die Ordner dieses Kontos ist dann **nichts** bekannt; seine Vorgänge werden weder
+als bereit noch als „Ordner fehlt" geführt.
+
+**Der Strang kommt aus der Konversation.** Zuerst über den Anker des Vorgangs
+(Message-ID → `References`/`In-Reply-To` bei IMAP, `conversationId` bei Graph), erst dann über
+Betreff-Gleichheit. Der Strangbericht nennt je Zeile die Quelle (`[konversation]`/`[betreff]`);
+was über den Betreff kam, stammt aus dem Index-Schnappschuss von 03:30.
+
+**Der Trockenlauf ist Pflicht — und `--apply` ist es auch**, wenn beides zutrifft:
+der Trockenlauf zeigt **nur** `bereit`, und **jede** Zeile mit einem Personenordner als Ziel
+(`Betreuungen/…`, `IIL.Kunden/…`) ist gegen das `gegenueber` des Vorgangs geprüft. Sonst geht
+die Sache als Vorlage an den Owner, nicht in den scharfen Lauf. Grund für die zweite Bedingung:
+die Ordner-Zuordnung zieht auf **Nachnamen** — eine Verwaltungsmitarbeiterin landete so beinahe
+im Betreuungsordner einer gleichnamigen Person (31.08.). Im Zweifel `ablage_ziel` im Vorgang
+festnageln.
+
+**`--apply` bricht ab**, wenn eine Verlaufs-Referenz sich nicht verankern lässt und im
+Quellordner liegen könnte (`mehrdeutig`/`unpruefbar`). Das ist gewollt: eine UID, die der Umzug
+tötet, lässt sich nachträglich nicht mehr an ihre Message-ID binden.
 
 **Ziel-Reihenfolge** (die erste greifende gewinnt): ausdrückliches `ablage_ziel` im Vorgang →
 Zuordnungstabelle → vorhandener Kunden-/Studenten-/Personenordner → `Archiv/<Jahr>`.
@@ -286,7 +314,13 @@ Kennung einer Nachricht wird vom Verschieben selbst entwertet (Graph vergibt ein
 *jetzigen* Ort neu, über Betreff-Kern und Datum. Bleiben mehrere Kandidaten, bewegt sie
 nichts — eine Fehlanzeige ist besser als die falsche Mail. Nach einem scharfen Lauf gehört
 darum **eine Zählung beider Seiten** ins Board, nicht die Erfolgszeile des Werkzeugs
-(Realfall 2026-08-18: 89 Mails kopiert, nicht entfernt, Werkzeug meldete `OK`).
+(Realfall 2026-08-18: 89 Mails kopiert, nicht entfernt, Werkzeug meldete `OK`). Seit dem
+2026-09-04 zählt `--apply` selbst: `Quelle INBOX: 41 → 33 · Ziel Archiv/2026: 120 → 128`.
+Weicht der Bestand von der Erfolgsmeldung ab, ist das eine `WARNUNG` und **Exit 3** — diese
+Zeilen kommen ins Board, nicht das `OK`.
+
+Danach meldet `--pruefe` je Konto, was noch offen ist; `0` für beide Konten ist das Ziel des
+Schritts. Der Melder läuft auch in `make boards`.
 
 ## Zustandsabhängige Prozesse (der eigentliche Grund für /mailcheck)
 
@@ -395,8 +429,13 @@ Prüfer überlebt.
       Trockenlauf, Ergebnis im Board genannt (auch „0 Nachrichten"). Ein Board, das
       Vorgänge als erledigt führt, während ihre Mails im Posteingang liegen, hat die
       Aufräum-Hälfte seiner Aufgabe nicht erledigt.
-- [ ] Nach einem scharfen Lauf: **beide Seiten gezählt** (Quelle leer, Ziel voll) — nicht
-      die Erfolgsmeldung des Werkzeugs übernommen
+- [ ] **Melder grün** (#2799 K5): `python3 tools/mail_agent/ablage_erledigt.py --pruefe`
+      gelaufen — die Zeile „N Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen" je
+      Konto im Ergebnis nennen, auch bei `0`. Exit 0 = grün; jedes N > 0 ist ein offener
+      Punkt und wird als solcher geführt, nicht weggelassen.
+- [ ] Nach einem scharfen Lauf: **beide Seiten gezählt** (Quelle leer, Ziel voll) — die
+      Zeilen `Quelle … → … · Ziel … → …` aus `--apply` übernommen, NICHT die Erfolgsmeldung
+      des Werkzeugs. Exit 3 heißt: der Bestand widerspricht der Erfolgszeile.
 - [ ] **Jeder Link in der Antwort durch `link_pruefen.py` gelaufen** (Abschnitt „Links
       erzeugen, nicht tippen") — Exit 0, und die Zahl der geprüften Links im Ergebnis
       genannt. Ein getippter Link ist kein Link, sondern eine Behauptung.
@@ -418,6 +457,17 @@ Prüfer überlebt.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog
+
+- **2026-09-04 (#2799):** Schritt 7a legt wieder ab. `ablage_erledigt.py` holt den
+  Ordnerbestand selbst (`--ordner` nur noch Übersteuerung) — die fehlende Liste war der
+  Grund, warum seit dem 27.08. jeder Lauf „Ordner fehlt" meldete und nichts bewegte; ein
+  nicht erreichbares Konto heißt jetzt `konto_nicht_erreichbar`. Der Strang wird zuerst über
+  die Konversation aufgelöst (Message-ID → `References`/`conversationId`), erst dann über den
+  Betreff. `--apply` verankert die Verlaufs-Referenzen vorher, zieht die Anker nachher nach
+  und verweigert den Lauf bei `mehrdeutig`/`unpruefbar`; es zählt Quelle und Ziel vor und
+  nach dem Lauf (Abweichung = Exit 3). Neuer Melder `--pruefe` (0 = grün) in `make boards`
+  und in dieser Checkliste. `--apply` ist Pflicht, wenn der Trockenlauf nur `bereit` zeigt
+  und jede Personenordner-Zeile gegen `gegenueber` geprüft ist.
 
 - **2026-09-01 (#2592 K2/K3):** Verlaufs-Links nur noch auf verankerte Nummern
   (`/a/<schluessel>` ueber Message-ID statt roher UID-Route — 89 von 203 UID-Links

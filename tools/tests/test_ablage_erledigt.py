@@ -567,3 +567,370 @@ def test_should_record_date_in_protocol_for_later_ruecknahme():
         eintrag = json.loads(pfad.read_text(encoding="utf-8").splitlines()[0])
 
     assert eintrag["datum"] == "2026-07-25"
+
+
+# =============================================================================
+# #2799 — Ordner live, Strang ueber die Konversation, Referenzen, Zaehlung, Melder
+#
+# Alle Fixtures sind SYNTHETISCH. Dieses Repo ist oeffentlich; echte Betreffs,
+# Ordner- und Personennamen aus den Postfaechern haben hier nichts zu suchen.
+# =============================================================================
+
+
+class TestOrdnerbestandLive:
+    """K1 — die leere Bestandsliste war eine Aussage ueber das Argument, nicht ueber das Postfach."""
+
+    def test_should_fetch_the_folder_list_itself_when_none_was_given(self):
+        bestand, fehlt = ablage.ordner_je_konto_live(
+            ["iil", "hnu"], hole=lambda k: ["Archiv/2026", f"{k}-Ordner"]
+        )
+        assert bestand["iil"] == ["Archiv/2026", "iil-Ordner"]
+        assert bestand["hnu"] == ["Archiv/2026", "hnu-Ordner"]
+        assert fehlt == {}
+
+    def test_should_report_an_unreachable_account_instead_of_an_empty_inventory(self):
+        """`organize_mail.connect` beendet den Prozess (SystemExit) statt zu werfen."""
+
+        def hole(konto):
+            if konto == "ad":
+                raise SystemExit("Maschine ist fuer Mail nicht freigegeben")
+            return ["Archiv/2026"]
+
+        bestand, fehlt = ablage.ordner_je_konto_live(["hnu", "ad"], hole=hole)
+        assert list(bestand) == ["hnu"]
+        assert "nicht freigegeben" in fehlt["ad"]
+
+    def test_should_mark_the_vorgang_of_an_unreachable_account_as_such(self):
+        (zeile,) = ablage.plane(
+            {"vorgaenge": [_v(konto="ad", gegenueber="Unbekannt")]},
+            {"1": {}},
+            {},
+            {},
+            {},
+            {"ad": "Capability-Profil"},
+        )
+        assert zeile.status == ablage.KONTO_NICHT_ERREICHBAR
+
+    def test_should_never_call_a_missing_account_a_missing_folder(self):
+        (zeile,) = ablage.plane(
+            {"vorgaenge": [_v(konto="ad", gegenueber="Unbekannt")]},
+            {"1": {}},
+            {},
+            {},
+            {},
+            {"ad": "Capability-Profil"},
+        )
+        assert zeile.status != "ordner_fehlt"
+
+    def test_should_give_the_unreachable_account_its_own_line_in_the_report(self):
+        zeilen = ablage.plane(
+            {"vorgaenge": [_v(konto="ad", gegenueber="Unbekannt")]},
+            {"1": {}},
+            {},
+            {},
+            {},
+            {"ad": "Capability-Profil"},
+        )
+        text = ablage.bericht(zeilen, {"ad": "Capability-Profil"})
+        assert "Konto 'ad' nicht erreichbar" in text
+
+    def test_should_ask_only_for_accounts_that_hold_a_closed_vorgang(self):
+        ledger = {
+            "vorgaenge": [
+                _v(konto="hnu"),
+                _v(konto="iil", nr=2),
+                _v(konto="ad", nr=3, bucket="owner"),
+            ]
+        }
+        assert ablage.konten_der_vorgaenge(ledger) == ["hnu", "iil"]
+
+
+def _konversation_attrappe(nachrichten, fehler=None):
+    def konversation(konto, message_id):
+        if fehler is not None:
+            raise fehler
+        return list(nachrichten)
+
+    return konversation
+
+
+class TestStrangUeberKonversation:
+    """K2 — der Betreff ist die schwaechste Art, einen Strang zu bestimmen."""
+
+    VORGANG = {"nr": 1, "konto": "hnu", "thread_key": "Vorgang X"}
+    ANKER = {"1": {"message_id": "<a1@example.invalid>"}}
+
+    def test_should_resolve_the_thread_via_the_conversation_before_the_subject(self):
+        strang = ablage.strang_aufloesen(
+            self.VORGANG,
+            _suche_attrappe({"begriff": [_n(strang="aus-dem-index")]}),
+            _konversation_attrappe([_n(ordner="INBOX")]),
+            self.ANKER,
+        )
+        assert strang.quelle == ablage.KONVERSATION
+        assert strang.kennung == "<a1@example.invalid>"
+
+    def test_should_fall_back_to_the_subject_when_the_conversation_is_empty(self):
+        strang = ablage.strang_aufloesen(
+            self.VORGANG,
+            _suche_attrappe({"begriff": [_n(strang="s1")]}),
+            _konversation_attrappe([]),
+            self.ANKER,
+        )
+        assert (strang.quelle, strang.kennung) == (ablage.BETREFF, "s1")
+
+    def test_should_fall_back_when_the_mailbox_is_unreachable(self):
+        """Ein Netzfehler darf den Lauf nicht abbrechen — nur den besseren Weg kosten."""
+        strang = ablage.strang_aufloesen(
+            self.VORGANG,
+            _suche_attrappe({"begriff": [_n(strang="s1")]}),
+            _konversation_attrappe([], fehler=OSError("Verbindung weg")),
+            self.ANKER,
+        )
+        assert strang.kennung == "s1"
+        assert "nicht abfragbar" in strang.grund
+
+    def test_should_use_the_subject_path_when_no_anchor_holds_a_message_id(self):
+        strang = ablage.strang_aufloesen(
+            self.VORGANG,
+            _suche_attrappe({"begriff": [_n(strang="s1")]}),
+            _konversation_attrappe([_n()]),
+            {},
+        )
+        assert strang.quelle == ablage.BETREFF
+
+    def test_should_read_the_message_id_from_the_graph_registry_too(self):
+        mid = ablage.anker_message_id(
+            self.VORGANG, {}, {"1": {"internet_message_id": "<g1@example.invalid>"}}
+        )
+        assert mid == "<g1@example.invalid>"
+
+    def test_should_move_the_conversation_messages_without_asking_the_index(self):
+        """Der Index kennt diesen Strang nicht — er darf auch nicht gefragt werden."""
+
+        def suche(**_):
+            raise AssertionError("Index wurde trotz Konversation befragt")
+
+        strang = ablage.Strang(
+            "<a1@example.invalid>",
+            ablage.KONVERSATION,
+            nachrichten=[_n(ordner="INBOX"), _n(ordner="Gesendete Objekte")],
+        )
+        bewegungen, liegen = ablage.bewegungen_fuer(
+            {"nr": 1, "konto": "hnu"}, "Archiv/2026", strang, suche
+        )
+        assert len(bewegungen) == 1
+        assert liegen == {"Gesendete Objekte": 1}
+
+    def test_should_name_the_source_of_every_thread_in_the_report(self):
+        zeilen = ablage.plane(
+            {"vorgaenge": [_v(konto="hnu", gegenueber="Unbekannt", thread_key="X")]},
+            {"1": {"message_id": "<a1@example.invalid>"}},
+            {"hnu": HNU_ORDNER},
+        )
+        text = ablage.strang_bericht(
+            zeilen,
+            {"vorgaenge": [_v(konto="hnu", gegenueber="Unbekannt", thread_key="X")]},
+            _suche_attrappe({}),
+            _konversation_attrappe([_n(ordner="INBOX")]),
+            {"1": {"message_id": "<a1@example.invalid>"}},
+        )
+        assert "[konversation]" in text
+        assert "Strang-Quellen: 1x konversation" in text
+
+
+class _FakeImap:
+    """IMAP-Attrappe: beantwortet UID SEARCH je Kopfzeile, sonst nichts."""
+
+    def __init__(self, treffer):
+        self.treffer = treffer
+        self.gefragt = []
+
+    def uid(self, befehl, _none, _header, kopf, wert):
+        self.gefragt.append((befehl, kopf, wert))
+        gefunden = self.treffer.get(kopf, b"")
+        return ("OK", [gefunden]) if gefunden else ("OK", [b""])
+
+
+class TestKonversationsSuche:
+    def test_should_search_all_three_thread_headers(self):
+        imap = _FakeImap({"References": b"7 9"})
+        uids = ablage._uids_der_konversation(imap, "<a1@example.invalid>")
+        assert uids == ["7", "9"]
+        assert [k for _, k, _ in imap.gefragt] == [
+            "References",
+            "In-Reply-To",
+            "Message-ID",
+        ]
+
+    def test_should_report_every_uid_only_once(self):
+        imap = _FakeImap({"References": b"7", "Message-ID": b"7"})
+        assert ablage._uids_der_konversation(imap, "<a1@example.invalid>") == ["7"]
+
+    def test_should_map_graph_messages_onto_their_folder_path(self):
+        werte = [
+            {
+                "id": "AAMkAAA=",
+                "subject": "Beispielbetreff",
+                "receivedDateTime": "2026-09-01T08:00:00Z",
+                "parentFolderId": "F1",
+                "conversationId": "C1",
+            }
+        ]
+        (nachricht,) = ablage.graph_nachrichten_aus_antwort(
+            werte, {"F1": "Posteingang"}
+        )
+        assert nachricht["ordner"] == ["Posteingang"]
+        assert nachricht["datum"] == "2026-09-01"
+        assert nachricht["kennung"] == "AAMkAAA="
+
+
+def _ergebnis(zustand, nr=1, eintrag=1, schluessel="hnu-inbox-1000", hinweis="x"):
+    import types
+
+    return types.SimpleNamespace(
+        fund=types.SimpleNamespace(nr=nr, eintrag=eintrag, schluessel=schluessel),
+        zustand=zustand,
+        hinweis=hinweis,
+    )
+
+
+class TestReferenzenUeberlebenDenUmzug:
+    """K3 — eine tote UID laesst sich nachtraeglich nicht mehr binden."""
+
+    def test_should_refuse_the_run_when_a_reference_stays_ambiguous(self):
+        blockiert = ablage.verankerung_blockiert([_ergebnis("mehrdeutig")])
+        assert len(blockiert) == 1
+        assert "mehrdeutig" in blockiert[0]
+
+    def test_should_refuse_the_run_when_an_account_could_not_be_checked(self):
+        assert ablage.verankerung_blockiert([_ergebnis("unpruefbar")])
+
+    def test_should_not_block_on_a_reference_that_was_already_dead(self):
+        """Die UID lag in keinem Suchordner — also auch nicht im Quellordner."""
+        assert ablage.verankerung_blockiert([_ergebnis("nicht-gefunden")]) == []
+
+    def test_should_not_block_on_a_reference_that_is_anchored(self):
+        assert (
+            ablage.verankerung_blockiert([_ergebnis("neu"), _ergebnis("vorhanden")])
+            == []
+        )
+
+    def test_should_limit_the_follow_up_to_the_anchors_of_moved_vorgaenge(self):
+        import types
+
+        funde = {
+            "hnu-inbox-1000": types.SimpleNamespace(nr=5),
+            "hnu-inbox-2000": types.SimpleNamespace(nr=6),
+        }
+        anker = {"5": "A", "6": "B", "hnu-inbox-1000": "C", "hnu-inbox-2000": "D"}
+        assert ablage.anker_auswahl({5}, funde, anker) == {
+            "5": "A",
+            "hnu-inbox-1000": "C",
+        }
+
+    def test_should_count_followed_and_dead_anchors_from_both_worlds(self):
+        import types
+
+        befunde = [
+            types.SimpleNamespace(zustand="verschoben"),
+            types.SimpleNamespace(zustand="nachgezogen"),
+            types.SimpleNamespace(zustand="geloescht"),
+            types.SimpleNamespace(zustand="tot"),
+            types.SimpleNamespace(zustand="unveraendert"),
+        ]
+        assert ablage.nachzug_bilanz(befunde) == (2, 2)
+
+
+class TestZaehlungBeiderSeiten:
+    """K4 — Realfall 2026-08-18: 89 Mails kopiert statt verschoben, Werkzeug meldete OK."""
+
+    PAARE = [
+        (_b(von="INBOX", nach="Archiv/2026"), "1"),
+        (_b(von="INBOX", nach="Archiv/2026"), "2"),
+    ]
+
+    def test_should_expect_the_source_to_shrink_and_the_target_to_grow(self):
+        deltas = ablage.erwartete_deltas(self.PAARE)
+        assert deltas == {("hnu", "INBOX"): -2, ("hnu", "Archiv/2026"): 2}
+
+    def test_should_print_both_sides_before_and_after(self):
+        deltas = ablage.erwartete_deltas(self.PAARE)
+        zeilen, abweichungen = ablage.zaehl_bericht(
+            {("hnu", "INBOX"): 41, ("hnu", "Archiv/2026"): 120},
+            {("hnu", "INBOX"): 39, ("hnu", "Archiv/2026"): 122},
+            deltas,
+        )
+        assert abweichungen == []
+        assert "Quelle INBOX: 41 → 39" in zeilen[0]
+        assert "Ziel Archiv/2026: 120 → 122" in zeilen[0]
+
+    def test_should_report_a_source_that_did_not_shrink(self):
+        """Kopieren statt Verschieben sieht in der Erfolgszeile genauso aus."""
+        zeilen, abweichungen = ablage.zaehl_bericht(
+            {("hnu", "INBOX"): 41, ("hnu", "Archiv/2026"): 120},
+            {("hnu", "INBOX"): 41, ("hnu", "Archiv/2026"): 122},
+            ablage.erwartete_deltas(self.PAARE),
+        )
+        assert len(abweichungen) == 1
+        assert "erwartet 39, gezaehlt 41" in abweichungen[0]
+
+    def test_should_count_every_folder_exactly_once(self):
+        gezaehlt = []
+
+        def auflisten(konto, ordner):
+            gezaehlt.append((konto, ordner))
+            return [{"kennung": "1"}]
+
+        stand = ablage.zaehle(ablage.erwartete_deltas(self.PAARE), auflisten)
+        assert sorted(gezaehlt) == [("hnu", "Archiv/2026"), ("hnu", "INBOX")]
+        assert stand == {("hnu", "INBOX"): 1, ("hnu", "Archiv/2026"): 1}
+
+
+class TestMelder:
+    """K5 — 0 ist gruen, alles andere ist eine offene Aufraeum-Haelfte."""
+
+    LEDGER = {
+        "vorgaenge": [
+            _v(konto="hnu", nr=1, thread_key="Vorgang X"),
+            _v(konto="iil", nr=2, thread_key="Vorgang Y"),
+        ]
+    }
+    ANKER = {"1": {"message_id": "<a1@example.invalid>"}}
+
+    def test_should_count_inbox_mails_of_closed_vorgaenge_per_account(self):
+        zaehler, quellen = ablage.pruefe_posteingang(
+            self.LEDGER,
+            _suche_attrappe({}),
+            _konversation_attrappe([_n(ordner="INBOX"), _n(ordner="INBOX")]),
+            self.ANKER,
+        )
+        assert zaehler["hnu"] == 2
+        assert quellen["hnu"] == {ablage.KONVERSATION: 1}
+
+    def test_should_be_green_when_the_inbox_holds_nothing_closed(self):
+        zaehler, _ = ablage.pruefe_posteingang(
+            self.LEDGER,
+            _suche_attrappe({}),
+            _konversation_attrappe([_n(ordner="Archiv/2026")]),
+            self.ANKER,
+        )
+        assert sum(zaehler.values()) == 0
+
+    def test_should_use_the_same_thread_resolution_as_the_dry_run(self):
+        """Ohne Konversation bleibt der Index-Weg — dieselbe Funktion, dieselbe Reihenfolge."""
+        zaehler, quellen = ablage.pruefe_posteingang(
+            self.LEDGER,
+            _suche_attrappe(
+                {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
+            ),
+            None,
+            self.ANKER,
+        )
+        assert quellen["hnu"] == {ablage.BETREFF: 1}
+        assert zaehler["hnu"] == 1
+
+    def test_should_name_the_snapshot_the_count_rests_on(self):
+        text = ablage.pruefe_bericht({"hnu": 3}, {"hnu": {ablage.KONVERSATION: 1}})
+        assert "3 Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen" in text
+        assert "03:30" in text
