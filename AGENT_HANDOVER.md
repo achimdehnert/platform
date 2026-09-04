@@ -72,7 +72,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 33. session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name): https://github.com/achimdehnert/platform/issues/2773
 34. Speicher-Melder baut den Hop-Zugang noch selbst, Rest aus #2783: https://github.com/achimdehnert/platform/issues/2802
 35. Mailcheck-Ablage: Rest 3 Vorgänge ohne Anker, 1 ohne Strang, hnu 1 offene Mail; Melder `--pruefe` in `make boards`: https://github.com/achimdehnert/platform/issues/2799
-36. Zug A: 50/56 auf main (17 Bibliotheken per Regel `Bash(gh pr merge:*)`, Welle gestaffelt, Deploys grün); Rest travel-beat#96 (Runner), 7 CI-rote Repos je mit Issue, K5-Messung offen: https://github.com/achimdehnert/platform/issues/2787
+36. Zug A Endstand 50/56 gemessen (SECURITY.md auf default-branch); ohne: coach-hub, bahn-hub, risk-hub, travel-beat#96, infra-deploy#7, dev-hub; K5 dev-hub#331; Folgebefunde shared-ci#75, #2827, mcp-hub#251, meiki-dms#19: https://github.com/achimdehnert/platform/issues/2787
 37. Aufschub-Anker-Gate: Fehlalarm-Klasse „nicht ausgewertet/bewusst nicht“ in Code-Kommentaren, 3× am 2026-09-04: https://github.com/achimdehnert/platform/issues/2606
 38. Sitzung 6e320e79 (Mailcheck/DSGVO/EPIC): `load_credentials` beendet den Prozess statt zu werfen — Wurzel hinter #2755; Ledger #185–#188 offen, Papiere `~/shared/retentionsscanner/`: https://github.com/achimdehnert/platform/issues/2752
 
