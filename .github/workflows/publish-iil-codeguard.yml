@@ -29,12 +29,12 @@ jobs:
       url: https://pypi.org/project/iil-codeguard/
     steps:
       - name: Checkout iil-codeguard
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: achimdehnert/iil-codeguard
           token: ${{ secrets.PROJECT_PAT }}
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
 
@@ -65,7 +65,7 @@ jobs:
 
       - name: Publish to PyPI (OIDC Trusted Publishing)
         if: ${{ !inputs.dry_run }}
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: dist/
           print-hash: true

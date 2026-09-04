@@ -234,7 +234,6 @@ def main() -> None:
         "--cc", action="append", default=[], help="CC-Empfänger (mehrfach möglich)"
     )
     ap.add_argument("--subject", required=True)
-    ap.add_argument("--cc", action="append", help="Cc (mehrfach möglich)")
     ap.add_argument(
         "--in-reply-to",
         dest="in_reply_to",

@@ -36,11 +36,27 @@ _DEV_FALLBACK_DB_URL = (
     "postgresql://orchestrator:change-me-in-production@127.0.0.1:15435/orchestrator_mcp"
 )
 
+# Host/Port/User/DB entsprechen mcp-hub/docker-compose.yml (Service `db`);
+# nur das Passwort ist geheim und liegt als Datei unter ~/.secrets/ — nie im
+# env-Block von settings.json, damit die URL nirgends im Klartext steht.
+# Reihenfolge: Env > Passwort-Datei > Dev-Opt-in.
+_DB_PASSWORD_FILE = Path.home() / ".secrets" / "orchestrator_mcp_db_password"
+_DB_HOST_PORT_DB = "127.0.0.1:15435/orchestrator_mcp"
+_DB_USER = "orchestrator"
+
 
 def _resolve_db_url() -> str | None:
     url = os.environ.get("ORCHESTRATOR_DB_URL")
     if url:
         return url
+    try:
+        password = _DB_PASSWORD_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        password = ""
+    if password:
+        from urllib.parse import quote
+
+        return f"postgresql://{_DB_USER}:{quote(password, safe='')}@{_DB_HOST_PORT_DB}"
     if os.environ.get("ALLOW_DEV_DB_FALLBACK") == "1":
         return _DEV_FALLBACK_DB_URL
     return None
@@ -50,23 +66,38 @@ DB_URL = _resolve_db_url()
 STATE_DIR = Path.home() / ".claude" / "hooks" / "state"
 LOG_FILE = Path.home() / ".claude" / "hooks" / "log_llm_call.log"
 
-# Anthropic pricing per 1M tokens (USD). Source: anthropic.com/pricing 2026-05.
+# Anthropic pricing per 1M tokens (USD). Source: Claude-API-Referenz (Skill
+# `claude-api`, Modelltabelle Stand 2026-06-24) — Opus 4.6/4.7/4.8 kosten seit
+# Opus 4.5 $5/$25, nicht mehr $15/$75 wie Opus 4/4.1.
 # Cache pricing relative to input: write_5m=1.25x, write_1h=2x, read=0.1x.
 PRICING_USD_PER_MTOK: dict[str, dict[str, float]] = {
+    "claude-fable-5-1": {"input": 10.0, "output": 50.0},
+    "claude-fable-5": {"input": 10.0, "output": 50.0},
+    "claude-mythos-5-1": {"input": 10.0, "output": 50.0},
+    "claude-opus-5": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-8": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-7": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-6": {"input": 5.0, "output": 25.0},
+    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
+    "claude-opus-4": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-5": {"input": 2.0, "output": 10.0},
+    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4-5": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4-5-20251022": {"input": 3.0, "output": 15.0},
-    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4": {"input": 3.0, "output": 15.0},
     "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
     "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
-    "claude-opus-4": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-6": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-7": {"input": 15.0, "output": 75.0},
     "gpt-4o": {"input": 2.5, "output": 10.0},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
 }
 DEFAULT_PRICING = {"input": 3.0, "output": 15.0}
+
+
+def _normalize_model(model: str) -> str:
+    # Claude Code hängt die Kontextvariante als Suffix an ("claude-fable-5[1m]");
+    # die Preistabelle kennt nur den nackten Modellnamen.
+    return model.split("[", 1)[0].strip()
+
 
 # Once-per-session Tier-3 nudge thresholds (issue #305).
 TIER3_MIN_TURNS = 8  # need enough signal before suggesting a switch
@@ -83,7 +114,7 @@ def _log(msg: str) -> None:
 
 
 def _compute_cost(model: str, usage: dict) -> float:
-    p = PRICING_USD_PER_MTOK.get(model, DEFAULT_PRICING)
+    p = PRICING_USD_PER_MTOK.get(_normalize_model(model), DEFAULT_PRICING)
     in_full = usage.get("input_tokens") or 0
     cache_read = usage.get("cache_read_input_tokens") or 0
     cache_create = usage.get("cache_creation") or {}
@@ -241,8 +272,20 @@ _INSERT_SQL = """
 """
 
 
-def _insert_rows(rows: list[dict]) -> int:
-    """INSERT rows into llm_calls. Returns number of rows actually inserted.
+def _insert_rows(rows: list[dict]) -> int | None:
+    """INSERT rows into llm_calls.
+
+    Returns the number of rows the transaction actually wrote — or ``None``,
+    wenn der Schreibweg gar nicht gelaufen ist (keine DB-URL, kein psycopg,
+    Verbindungs- oder SQL-Fehler).
+
+    **Warum die Unterscheidung ``0`` vs. ``None`` traegt:** ``0`` heisst
+    „committet, aber alles lief in ``ON CONFLICT DO NOTHING``" — die Zeilen
+    liegen also bereits in der DB und sind fertig protokolliert. ``None`` heisst
+    „nichts geschrieben, Ausgang unbekannt". Nur im zweiten Fall darf der
+    Zustand nicht fortschreiben, sonst gingen Zeilen verloren. Bis 2026-09-02
+    lieferten beide Faelle ``0``, und ``main`` behandelte sie gleich — mit der
+    dort beschriebenen Dauerschleife als Folge.
 
     Direct psycopg connection (no subprocess fork — saves ~150ms/turn).
     Requires the venv-python shebang above to provide psycopg in sys.path.
@@ -253,12 +296,12 @@ def _insert_rows(rows: list[dict]) -> int:
         _log(
             "ORCHESTRATOR_DB_URL fehlt (und ALLOW_DEV_DB_FALLBACK != 1) — DB-Write übersprungen."
         )
-        return 0
+        return None
     try:
         import psycopg  # noqa: PLC0415
     except ImportError:
         _log("psycopg unavailable — hook requires venv-python shebang")
-        return 0
+        return None
     try:
         with psycopg.connect(DB_URL, connect_timeout=5) as conn, conn.cursor() as cur:
             inserted = 0
@@ -269,7 +312,7 @@ def _insert_rows(rows: list[dict]) -> int:
             return inserted
     except Exception as exc:
         _log(f"insert failed: {type(exc).__name__}: {exc!s:.200}")
-        return 0
+        return None
 
 
 def _query_session_total(session_id: str) -> float | None:
@@ -404,13 +447,30 @@ def main() -> int:
             }
         )
 
+    # Zustand fortschreiben, sobald die Transaktion COMMITTET hat — auch bei
+    # `inserted == 0`.
+    #
+    # Gemessen am 2026-09-02 im eigenen Protokoll (`log_llm_call.log`, 47.056
+    # Zeilen): 12.574 Ereignisse „insert returned 0 for N candidate rows", in
+    # Summe 2.686.409 vergebliche INSERT-Roundtrips, Median N=166, Maximum
+    # N=1246; allein in den letzten sieben Tagen 3.397 Ereignisse mit 827.303
+    # Roundtrips. Ursache war diese Bedingung: liefen alle Kandidaten in
+    # `ON CONFLICT DO NOTHING` (Zustandsdatei verloren, Sitzung fortgesetzt,
+    # zweiter Hook-Lauf im Rennen), blieb `inserted` 0, der Zustand wurde NIE
+    # gespeichert — und derselbe Stapel ging bei JEDEM weiteren Stop erneut
+    # ueber die Leitung. Am 14,4-MB-Transkript gemessen: 4.902 ms je Stop
+    # gegenueber 190 ms mit vollstaendigem Zustand (Faktor 26).
+    #
+    # `None` bleibt der Fall, in dem NICHT fortgeschrieben werden darf: dann ist
+    # der Schreibweg gar nicht gelaufen (keine DB-URL, kein psycopg, Fehler) und
+    # die Zeilen fehlen wirklich noch.
     inserted = _insert_rows(rows)
-    if inserted > 0:
+    if inserted is not None:
         state["logged_request_ids"].update(t["request_id"] for t in new)
         _save_state(session_id, state)
         _log(f"inserted {inserted}/{len(new)} rows for session {session_id[:8]}")
     else:
-        _log(f"insert returned 0 for {len(new)} candidate rows")
+        _log(f"insert did not run for {len(new)} candidate rows — state unchanged")
 
     # ADR-201 Phase 1 — Stop-hook session summary to stderr
     # Claude Code surfaces hook stderr to the user.
@@ -454,5 +514,31 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Ein Melder darf einen Turn nie kippen. Bis 2026-09-02 lag um `main()`
+    KEINES der sieben Stop-Hook-Module einen Auffangbogen — jede unerwartete
+    Ausnahme (kaputte Zustandsdatei, unerwartete Transkript-Form, `psycopg`
+    halb installiert) haette als Traceback mit Exit 1 den Hook-Vertrag
+    verlassen.
+
+    Bewusst KEIN geteiltes Hilfsmodul: der Auffangbogen ist genau der Pfad, der
+    auch dann noch tragen muss, wenn die Verteilung der Hook-Kopien unvollstaendig
+    ist (`tools/hook-dist-drift.sh`). Ein Import waere ein neuer Grund zu
+    scheitern an der Stelle, die das Scheitern abfangen soll.
+
+    Bewusstes Blocken bleibt unberuehrt: es laeuft ueber `{"decision": "block"}`
+    auf stdout (bereits gedruckt, bevor irgendetwas werfen koennte) bzw. ueber
+    `sys.exit(2)` — `SystemExit` ist keine `Exception` und wird hier nicht
+    gefangen.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(f"log_llm_call: {type(exc).__name__}: {exc}"[:400], file=sys.stderr)
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())

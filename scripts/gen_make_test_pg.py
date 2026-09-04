@@ -38,7 +38,14 @@ TEST_PG_BLOCK = """\
 # config/settings/test.py needs live Postgres + POSTGRES_* env + SECRET_KEY guard.
 # Reconstructing that by hand is error-prone — use `make test`, never raw pytest.
 TEST_PG_NAME := $(notdir $(CURDIR))-make-test-pg
-TEST_PG_PORT := 5432
+# Port aus dem Arbeitsverzeichnis abgeleitet statt fest 5432 (illustration-hub#248). Fest
+# hiess: jeder zweite gleichzeitige Lauf -- anderes Repo, anderer Worktree, oder ein lokal
+# laufendes Postgres -- scheiterte an einem belegten Port. Das sah aus wie ein Testfehler
+# und war keiner; Docker meldet dabei `Fehler 125`, und den liest niemand als Portkonflikt.
+# Abgeleitet aus dem PFAD, nicht aus dem Repo-Namen: derselbe Baum bekommt so immer
+# denselben Port (ein liegengebliebener Container wird wiedergefunden), zwei Baeume
+# desselben Repos nie denselben. Ueberschreibbar bleibt es: `make test TEST_PG_PORT=5432`.
+TEST_PG_PORT := $(shell echo "$(CURDIR)" | cksum | awk '{print 20000 + ($$1 % 20000)}')
 # Self-sufficient pytest lookup: prefer repo venv, fall back to module run.
 # Avoids depending on a $(VENV_BIN)/$(PYTHON) convention that differs per repo.
 TEST_PYTEST := $(shell [ -x .venv/bin/pytest ] && echo .venv/bin/pytest || echo "python3 -m pytest")

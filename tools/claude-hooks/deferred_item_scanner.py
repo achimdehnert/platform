@@ -82,6 +82,54 @@ DEFERRAL_PATTERNS = re.compile(
     re.I,
 )
 
+# --- Zweite Trefferklasse: die Board-Zeile ---------------------------------
+#
+# Retro e70d11 (2026-08-28): drei in Prod gemessene Defekte -- Dokument-Dubletten,
+# zwei PDFs mit null Zeichen bei fetch_status=ok, ein falsches Quell-Etikett --
+# blieben ohne Tracking-Artefakt und existierten nur im Gespraechsverlauf. Der
+# Scanner schwieg, und zwar zu Recht nach seinem damaligen Wortlaut: die Zeilen
+# lauteten
+#
+#     | 4 | Dubletten | a-hub | — | 🟢 Befund | fixen (ich) |
+#
+# also OHNE jedes Vertagungs-Verb. Ein Befund, der offen im Board steht, IST die
+# haeufigste Form aufgeschobener Arbeit in diesem Setup -- er sagt nur nicht
+# "vertagt", sondern zeigt es. Sechster Rueckfall nach Gate-Bau (gate_wirkung.py).
+#
+# Bewusst eng, drei Bedingungen gleichzeitig, sonst feuert jedes Statusboard:
+#   (a) offener Status-Marker (kein ✅),
+#   (b) ein Wort mit Befund-Charakter,
+#   (c) KEIN Anker in der Zeile -- weder URL noch #<nummer>.
+_BOARD_OFFEN = re.compile(r"[🟢🔵🟡⛔]")
+_BOARD_ERLEDIGT = re.compile(r"✅")
+_BOARD_BEFUND_WORT = re.compile(
+    r"\bBefund\b|\bDefekt\b|\bfehlt\b|\bfalsch\b|\bkaputt\b|\bDublette\b"
+    r"|\bLeck\b|\bbricht\b|\bschl(?:ä|ae)gt\s+fehl\b|\bungetrackt\b",
+    re.I,
+)
+_BOARD_ANKER = re.compile(r"https?://|#\d+")
+
+
+def _board_befund_ohne_anker(text: str) -> str | None:
+    """Die erste Board-Zeile, die einen offenen Befund ohne Anker nennt."""
+    for zeile in text.splitlines():
+        roh = zeile.strip()
+        # Tabellenzeile ODER nummerierte Board-Zeile ("- **[12]** …" / "3. 🟢 …").
+        ist_zeile = (roh.startswith("|") and roh.count("|") >= 4) or bool(
+            re.match(r"^(?:[-*]|\d+\.)\s", roh)
+        )
+        if not ist_zeile:
+            continue
+        if _BOARD_ERLEDIGT.search(roh) or not _BOARD_OFFEN.search(roh):
+            continue
+        if not _BOARD_BEFUND_WORT.search(roh):
+            continue
+        if _BOARD_ANKER.search(roh):
+            continue
+        return roh[:120]
+    return None
+
+
 # Tracking-Artefakt im SELBEN Turn: Issue-Op, Task-Anlage, oder Schreib-Zugriff
 # auf eine Tracking-Fläche (KONZ/Ledger/Handover). Ein blosser Issue-LINK im
 # Text zählt nicht — der Rule-Wortlaut verlangt das Artefakt, nicht die Erwähnung.
@@ -127,7 +175,9 @@ def main() -> int:
     if not assistant_text:
         return 0
     m = DEFERRAL_PATTERNS.search(assistant_text)
-    if not m:
+    marker = m.group(0) if m else _board_befund_ohne_anker(assistant_text)
+    aus_board = m is None and marker is not None
+    if not marker:
         return 0
     if _has_tracking_artifact(evidence_text, tool_inputs):
         return 0
@@ -136,15 +186,20 @@ def main() -> int:
     # FP-Kalibrierung (KONZ-038 D2) spaeter weder belegen noch bestreiten.
     gate_hits.notiere(
         "deferred-item-no-tracking-issue",
-        m.group(0),
+        marker,
         turn=assistant_text,
         session=event.get("session_id", ""),
         modus="advisory",
     )
 
+    was = (
+        "nennt im Board einen offenen Befund ohne Anker"
+        if aus_board
+        else "erklärt Arbeit für vertagt/ausgelassen"
+    )
     msg = (
-        "📌 deferred-item check: dieser Turn erklärt Arbeit für vertagt/ausgelassen "
-        f"(Marker: '{m.group(0)}'), enthält aber kein Tracking-Artefakt. Hausregel: "
+        f"📌 deferred-item check: dieser Turn {was} "
+        f"(Marker: '{marker}'), enthält aber kein Tracking-Artefakt. Hausregel: "
         "Bewusst Ausgelassenes bekommt im SELBEN Turn ein GitHub-Issue oder eine "
         "Ledger-/KONZ-Zeile mit Link — 'steht im PR-Text' zählt nicht. Billigste "
         "Aktion: `gh issue create` oder Kommentar auf dem passenden bestehenden Issue. "
@@ -158,5 +213,21 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Siehe `evidence_claim_scanner.main_sicher` fuer die Begruendung; bewusst
+    dupliziert statt geteilt, damit der Auffangbogen keinen Import braucht.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(
+            f"deferred_item_scanner: {type(exc).__name__}: {exc}"[:400],
+            file=sys.stderr,
+        )
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())

@@ -180,3 +180,254 @@ def test_should_ohne_claim_still_bleiben_auch_im_blocking_mode(
     rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
     assert rc == 0
     assert out == {}, "Kein Claim, aber Hook feuerte — False-Positive-Drill verletzt"
+
+
+# ── Subjektbindung (Ausweitung 2026-08-20, #2143) ───────────────────────────
+# Die Korroboration fragte bisher nur, OB belegartiges Werkzeug lief. Diese Tests
+# halten fest, dass sie nach dem GENANNTEN Gegenstand fragt.
+
+
+def _transcript_mit_evidenz(
+    tmp_path, assistant_text: str, tool_input: dict, ergebnis: str
+):
+    import json as _json
+
+    p = tmp_path / "transcript_ev.jsonl"
+    zeilen = [
+        {"type": "user", "message": {"content": "mach mal"}},
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "name": "Bash", "input": tool_input},
+                    {"type": "text", "text": assistant_text},
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {"content": [{"type": "tool_result", "content": ergebnis}]},
+        },
+    ]
+    p.write_text("\n".join(_json.dumps(z) for z in zeilen), encoding="utf-8")
+    return p
+
+
+def test_should_subjekt_aus_dem_satz_ziehen():
+    gefunden = scanner._subjekte(
+        "Der Fix in tools/mail_agent/mail_view.py ist live, PR #2147 gemergt."
+    )
+    assert "tools/mail_agent/mail_view.py" in gefunden
+    assert "#2147" in gefunden
+
+
+def test_should_ohne_benennbaren_gegenstand_leer_bleiben():
+    """Kein Subjekt heisst: altes Verhalten, kein Block aus dem Nichts."""
+    assert scanner._subjekte("Alles gruen und fertig.") == []
+
+
+def test_should_claim_ueber_fremden_gegenstand_scharf_geschaltet_melden(
+    monkeypatch, capsys, tmp_path
+):
+    """Zwanzig Kommandos zu Thema A belegen keine Behauptung ueber Thema B.
+
+    Scharf geschaltet entwaffnet die fremde Evidenz den Claim nicht mehr.
+    """
+    monkeypatch.setenv("EVIDENCE_SCANNER_SUBJEKTBINDUNG", "scharf")
+    p = _transcript_mit_evidenz(
+        tmp_path,
+        "Die Tests in tools/tests/test_ganz_anderes.py sind 8/8 gruen.",
+        {"command": "pytest tools/tests/test_mail_view.py"},
+        "20 passed in 0.4s",
+    )
+    rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert rc != 0 or out, "unbelegtes Subjekt muss scharf geschaltet gemeldet werden"
+
+
+def test_should_im_kalibrierfenster_nicht_blocken(monkeypatch, capsys, tmp_path):
+    """Ohne Scharfschaltung bleibt derselbe Fall still — er wird nur protokolliert."""
+    monkeypatch.delenv("EVIDENCE_SCANNER_SUBJEKTBINDUNG", raising=False)
+    p = _transcript_mit_evidenz(
+        tmp_path,
+        "Die Tests in tools/tests/test_ganz_anderes.py sind 8/8 gruen.",
+        {"command": "pytest tools/tests/test_mail_view.py"},
+        "20 passed in 0.4s",
+    )
+    rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert rc == 0 and not out
+
+
+def test_should_claim_mit_passendem_beleg_durchlassen(monkeypatch, capsys, tmp_path):
+    """Gegenprobe: nennt die Evidenz denselben Gegenstand, bleibt es still."""
+    p = _transcript_mit_evidenz(
+        tmp_path,
+        "Die Tests in tools/tests/test_mail_view.py sind 8/8 gruen.",
+        {"command": "pytest tools/tests/test_mail_view.py"},
+        "8 passed in 0.4s",
+    )
+    rc, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert rc == 0 and not out
+
+
+# --- ci-status: ordnungsgebundene Korroboration (Retro aa58f9, 2026-08-25) ---------
+# Zwei Rueckfaelle in einer Sitzung: "CI gruen" nach dem Push, der die CI rot
+# machte, und "laeuft im Hintergrund" nach einem Dispatch mit 404. Beide Turns
+# hatten FRUEHER ein `gh pr checks` — die generische Korroboration war erfuellt
+# und belegte den falschen Zeitpunkt.
+
+
+def _transcript_mit_werkzeugen(tmp_path, kommandos: list[str], assistant_text: str):
+    import json as _json
+
+    p = tmp_path / "transcript_ci.jsonl"
+    inhalt = [
+        {"type": "tool_use", "name": "Bash", "input": {"command": k}} for k in kommandos
+    ]
+    inhalt.append({"type": "text", "text": assistant_text})
+    zeilen = [
+        {"type": "user", "message": {"content": "mach mal"}},
+        {"type": "assistant", "message": {"content": inhalt}},
+        {
+            "type": "user",
+            "message": {"content": [{"type": "tool_result", "content": "ok"}]},
+        },
+    ]
+    p.write_text("\n".join(_json.dumps(z) for z in zeilen), encoding="utf-8")
+    return p
+
+
+def test_should_ci_status_nach_push_ohne_check_blocken(monkeypatch, capsys, tmp_path):
+    """Der Realfall: gh pr checks VOR dem Push, dann Push, dann 'CI gruen'."""
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["gh pr checks 2285", "git push origin HEAD"],
+        "Gepusht — CI grün, wartet auf Code-Owner.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") == "block", out
+    assert "ci-status" in out.get("reason", "")
+
+
+def test_should_ci_status_mit_check_nach_push_durchlassen(
+    monkeypatch, capsys, tmp_path
+):
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["git push origin HEAD", "gh pr checks 2285"],
+        "Gepusht — CI grün, wartet auf Code-Owner.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") != "block", out
+
+
+def test_should_check_im_selben_kommando_hinter_dem_push_zaehlen(
+    monkeypatch, capsys, tmp_path
+):
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["git push origin HEAD && gh pr checks 2285"],
+        "Gepusht — CI grün.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") != "block", out
+
+
+def test_should_hintergrundlauf_nach_dispatch_ohne_run_view_blocken(
+    monkeypatch, capsys, tmp_path
+):
+    """Der zweite Realfall: Dispatch lieferte 404, die Schleife lief auf leerer Run-ID."""
+    p = _transcript_mit_werkzeugen(
+        tmp_path,
+        ["gh workflow run backup-deckung.yml --ref session/x"],
+        "Der Beweislauf läuft im Hintergrund.",
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") == "block", out
+    assert "ci-status" in out.get("reason", "")
+
+
+def test_should_ci_status_ohne_push_im_turn_nicht_ordnungsgebunden_feuern(
+    monkeypatch, capsys, tmp_path
+):
+    """Ohne push/dispatch entscheidet die generische Korroboration — hier: gh pr checks lief."""
+    p = _transcript_mit_werkzeugen(
+        tmp_path, ["gh pr checks 2285"], "Stand: CI grün auf #2285."
+    )
+    _, out = _run_main(monkeypatch, capsys, tmp_path, {"transcript_path": str(p)})
+    assert out.get("decision") != "block", out
+
+
+# --- Ausweitung 2026-08-25: Schreibweise und abgeschnittener Beleg ----------------
+# Anlass: Retro fdd368 §5a. Zwei getrennte Luecken im selben Realfall — der Satz
+# „alle sieben Checks gruen" stand in einer Antwort, waehrend zwei Checks rot waren.
+
+
+@pytest.mark.parametrize(
+    "satz",
+    [
+        # Der woertliche Satz vom 2026-08-25. Traf das alte Muster NICHT, weil es
+        # eine Ziffer verlangte.
+        "PR #761 ist MERGEABLE, alle sieben Checks grün, reviewDecision leer.",
+        "alle drei Repos sind sauber",
+        "alle zwölf Sessions laufen noch",
+        # Die Ziffern-Variante muss weiterhin treffen (keine Regression).
+        "alle 7 Checks grün",
+        "alle 3 Repos sind sauber",
+    ],
+)
+def test_should_allaussage_auch_bei_ausgeschriebener_zahl_erkennen(satz: str) -> None:
+    assert "universal-claim" in _klassen(satz), (
+        f"{satz!r} rutscht durch — dieselbe Aussage in Ziffern wuerde treffen "
+        "(gate-matches-spelling-not-substance)"
+    )
+
+
+@pytest.mark.parametrize(
+    "satz",
+    [
+        # Zahlwort ohne Allquantor ist keine Allaussage.
+        "Ich habe sieben Checks angesehen.",
+        "Drei Repos waren betroffen.",
+        # „alle" ohne Zahlwort/Objekt bleibt ausserhalb dieses Musters.
+        "alle weiteren Schritte folgen morgen",
+    ],
+)
+def test_should_zahlwoerter_ohne_allquantor_in_ruhe_lassen(satz: str) -> None:
+    assert "universal-claim" not in _klassen(satz), f"{satz!r} ist ein Fehlalarm"
+
+
+def _bash(cmd: str) -> tuple[str, dict]:
+    return ("Bash", {"command": cmd})
+
+
+def test_should_abgeschnittenes_listen_kommando_als_beleg_verwerfen() -> None:
+    """Der Originalfall: `gh pr checks | tail -12` zeigte nur die gruenen Zeilen."""
+    assert scanner._beleg_abgeschnitten([_bash("gh pr checks 761 | tail -12")])
+
+
+def test_should_gegenprobe_im_selben_zug_gelten_lassen() -> None:
+    """Wer nach dem GEGENTEIL filtert, hat die Liste vollstaendig befragt."""
+    zug = [
+        _bash("gh pr checks 761 | tail -12"),
+        _bash('gh pr checks 761 | awk \'$2!="pass" && $2!="skipping"\''),
+    ]
+    assert not scanner._beleg_abgeschnitten(zug)
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # pytest schreibt seine Summenzeile ans Ende — dort ist `tail` die richtige
+        # Stelle, kein Verlust. Kein Listen-Kommando, also kein Treffer.
+        "make test-pg ARGS='-q' | tail -3",
+        "python3 -m pytest tests/ -q | tail -5",
+        # Listen-Kommando OHNE Anschnitt ist unverdaechtig.
+        "gh pr checks 761",
+        # Anschnitt OHNE Listen-Kommando ebenfalls.
+        "cat CHANGELOG.md | head -20",
+    ],
+)
+def test_should_legitimen_anschnitt_nicht_verwerfen(cmd: str) -> None:
+    assert not scanner._beleg_abgeschnitten([_bash(cmd)]), (
+        f"{cmd!r} ist ein Fehlalarm — hier traegt der Anschnitt die Aussage"
+    )

@@ -10,6 +10,8 @@ import http.client
 import json
 import sys
 import threading
+from http import HTTPStatus
+from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -373,3 +375,316 @@ class TestKontenAufloesung:
         with pytest.raises(SystemExit) as exc:
             mls.konten_aufloesen(["ad"])
         assert "ad=default" in str(exc.value)
+
+
+class TestGraphAnhaenge:
+    """Anhänge einer Graph-Nachricht (IIL) — vorher nur ein Hinweistext.
+
+    Der Satz "im OWA-Deeplink abrufbar" sah wie ein Hinweis aus und wirkte wie
+    eine Wand: auf einem Rechner ohne angemeldetes OWA war der Anhang gar nicht
+    erreichbar. Der IMAP-Zweig konnte das die ganze Zeit.
+    """
+
+    @staticmethod
+    def _graph(monkeypatch, anhaenge):
+        """graph_mail durch eine Attrappe ersetzen, die genau diese Anhänge kennt."""
+        import types
+
+        gesehen: list[str] = []
+        modul = types.SimpleNamespace(
+            GRAPH="https://graph.example",
+            load_cfg=lambda: {},
+            token=lambda cfg, konto: "tok",
+            _auth=lambda tok: {},
+            _http=lambda methode, url, headers=None: (
+                gesehen.append(url),
+                types.SimpleNamespace(
+                    status_code=200, json=lambda: {"value": anhaenge}
+                ),
+            )[1],
+        )
+        monkeypatch.setitem(sys.modules, "graph_mail", modul)
+        return gesehen
+
+    def test_should_list_file_attachment_as_link(self, server, monkeypatch):
+        self._graph(
+            monkeypatch,
+            [
+                {
+                    "name": "01_VVT.pdf",
+                    "size": 2048,
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                },
+            ],
+        )
+        html = mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert "/r/az1/anhaenge/01_VVT.pdf" in html
+        assert "2 kB" in html
+
+    def test_should_name_embedded_message_without_linking_it(self, server, monkeypatch):
+        """Eine eingebettete Mail hat keine Bytes — benennen, nicht verlinken.
+
+        Sie stumm wegzulassen war der Fehler, an dem der weitergeleitete
+        Mailanhang am 2026-08-19 spurlos aus der Ansicht verschwand.
+        """
+        self._graph(
+            monkeypatch,
+            [
+                {
+                    "name": "AW: Unterlagen",
+                    "size": 900,
+                    "@odata.type": "#microsoft.graph.itemAttachment",
+                },
+            ],
+        )
+        html = mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert "AW: Unterlagen" in html
+        assert "anhaenge/AW" not in html
+        assert "eingebettete Nachricht" in html
+
+    def test_should_skip_inline_images(self, server, monkeypatch):
+        """Signaturbilder sind kein Anhang, den jemand herunterladen will."""
+        self._graph(
+            monkeypatch,
+            [
+                {
+                    "name": "image001.png",
+                    "size": 900,
+                    "isInline": True,
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                },
+            ],
+        )
+        html = mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert html == ""
+
+    def test_should_404_attachment_route_for_unknown_short_id(self, server):
+        """Die neue Route darf keine unbekannte Kurz-ID durchreichen."""
+        status, _, _ = _get(server, "/r/kennichnicht/anhaenge/x.pdf")
+        assert status == 404
+
+    def test_should_not_put_odata_type_into_select(self, server, monkeypatch):
+        """`@odata.type` im $select beantwortet Graph mit 400.
+
+        Live gemessen am 2026-08-19: mit der Angabe 400, ohne sie 200 — und die
+        Typangabe kommt ohnehin mit, sie ist eine Annotation. Der erste Anlauf
+        hatte sie drin und ging in Produktion; die damalige Attrappe nahm jede
+        URL an und konnte es darum nicht sehen. Genau diese Luecke schliesst
+        dieser Test.
+        """
+        gesehen = self._graph(monkeypatch, [])
+        mls.MailLinkHandler._graph_anhang_liste(
+            mls.MailLinkHandler, "az1", "AAMkAGY0=", "tok"
+        )
+        assert gesehen, "die Attrappe hat gar keine Anfrage gesehen"
+        assert "@odata.type" not in gesehen[0]
+        assert "$select=" in gesehen[0]
+
+
+class _StubImap:
+    """Minimal-IMAP: kennt je Ordner eine Menge von UIDs.
+
+    Absichtlich kein Mock-Framework — der Test soll lesbar machen, was der
+    Dienst dem Postfach tatsaechlich abverlangt: ein SELECT und ein SEARCH,
+    kein FETCH. Waere ein FETCH noetig, kostete jede Aufloesung einen
+    Nachrichten-Body je durchsuchtem Ordner.
+    """
+
+    def __init__(self, inhalt: dict[str, set[str]], zickig: set[str] = frozenset()):
+        self.inhalt = inhalt
+        self.zickig = zickig
+        self.selektiert: list[str] = []
+        self.gefetcht = 0
+
+    def select(self, mailbox, readonly=True):
+        # Wie ein echter Server: der Dienst schickt den Namen in IMAP-modified-UTF-7
+        # ("Entw&APw-rfe"), der Stub muss ihn zurueckuebersetzen. Ohne diesen
+        # Schritt fand der Test nur ASCII-Ordner und haette die Umlaut-Ordner —
+        # also Entwuerfe und Geloeschte Objekte — stillschweigend nie geprueft.
+        name = mls.ordner_klartext(mailbox.strip('"'))
+        self.selektiert.append(name)
+        if name in self.zickig:
+            raise OSError("Ordner zickt")
+        return ("OK", [b"1"])
+
+    def uid(self, befehl, *args):
+        if befehl == "FETCH":
+            self.gefetcht += 1
+            return ("NO", [None])
+        gesucht = args[-1]
+        aktuell = self.selektiert[-1]
+        treffer = gesucht in self.inhalt.get(aktuell, set())
+        return ("OK", [b"7" if treffer else b""])
+
+
+class TestUidOhneOrdner:
+    """Eine UID ohne Ordnerangabe aufloesen (platform, 2026-08-21).
+
+    Vorher stand `/m/<konto>/<uid>` fest auf INBOX. Damit war jede Referenz auf
+    einen Entwurf, eine gesendete oder geloeschte Nachricht unverlinkbar — und
+    weil ein toter Link schlechter ist als keiner, blieb sie auf der
+    Vorgangsseite stummer Text. Das kostete nicht nur Bequemlichkeit: wer nicht
+    klicken kann, muss im Text erklaeren, was in der Mail steht.
+    """
+
+    def _handler(self, monkeypatch, inhalt, zickig=frozenset()):
+        imap = _StubImap(inhalt, zickig)
+        monkeypatch.setattr(mls, "alle_ordner", lambda _i: (list(inhalt), []))
+        h = mls.MailLinkHandler.__new__(mls.MailLinkHandler)
+        return h, imap
+
+    def test_should_find_the_folder_that_holds_the_uid(self, monkeypatch):
+        h, imap = self._handler(monkeypatch, {"INBOX": set(), "Entwürfe": {"23588"}})
+        assert h._ordner_mit_uid(imap, "23588") == ["Entwürfe"]
+
+    def test_should_not_fetch_any_message_body_while_searching(self, monkeypatch):
+        """SEARCH statt FETCH — sonst kostet jede Aufloesung ein Dutzend Bodies."""
+        h, imap = self._handler(monkeypatch, {"INBOX": {"1"}, "Entwürfe": {"23588"}})
+        h._ordner_mit_uid(imap, "23588")
+        assert imap.gefetcht == 0
+
+    def test_should_collect_every_folder_not_stop_at_the_first(self, monkeypatch):
+        """IMAP vergibt UIDs JE ORDNER — dieselbe Zahl kann zwei Nachrichten sein.
+
+        Beim ersten Treffer abzubrechen waere die bequeme Variante und genau die,
+        die irgendwann die falsche Mail zeigt, ohne dass es auffaellt.
+        """
+        h, imap = self._handler(
+            monkeypatch, {"INBOX": {"42"}, "Entwürfe": {"42"}, "Papierkorb": set()}
+        )
+        assert h._ordner_mit_uid(imap, "42") == ["INBOX", "Entwürfe"]
+
+    def test_should_search_inbox_first(self, monkeypatch):
+        h, imap = self._handler(monkeypatch, {"Entwürfe": set(), "INBOX": {"1"}})
+        h._ordner_mit_uid(imap, "1")
+        assert imap.selektiert[0] == "INBOX"
+
+    def test_should_skip_folders_outside_the_search_set(self, monkeypatch):
+        """Jahresarchive kosten ein SELECT und tragen nichts bei — ein laufender
+        Vorgang verweist nicht auf `Archiv/2019`."""
+        h, imap = self._handler(monkeypatch, {"INBOX": set(), "Archiv/2019": {"5"}})
+        assert h._ordner_mit_uid(imap, "5") == []
+        assert "Archiv/2019" not in imap.selektiert
+
+    def test_should_survive_a_folder_that_refuses_select(self, monkeypatch):
+        """Ein zickiger Ordner darf die Suche nicht abbrechen, sonst haengt die
+        Aufloesung an der Laune des unwichtigsten Kandidaten."""
+        h, imap = self._handler(
+            monkeypatch, {"INBOX": set(), "Papierkorb": {"9"}}, zickig={"INBOX"}
+        )
+        assert h._ordner_mit_uid(imap, "9") == ["Papierkorb"]
+
+    def test_should_raise_not_found_naming_where_it_looked(self, monkeypatch):
+        h, imap = self._handler(monkeypatch, {"INBOX": set()})
+        with pytest.raises(mls.MailNichtGefunden) as fehlt:
+            h._ordner_ohne_angabe(imap, "hnu", "999")
+        assert "inbox" in str(fehlt.value)
+
+    def test_should_explain_that_a_moved_message_changes_its_uid(self, monkeypatch):
+        """Der haeufigste 404 ist kein Defekt, sondern eine bewegte Mail.
+
+        Nachgemessen am 2026-08-21: zwei Entwuerfe, im Ledger als UID 23588/23589
+        notiert, lagen nach dem Verschieben als 104322/104323 im Papierkorb — die
+        alten Nummern gab es nirgends mehr. Ohne diesen Hinweis liest sich die
+        Seite wie ein kaputtes Werkzeug, und der naechste Mensch sucht den Fehler
+        im Dienst statt im Postfach.
+        """
+        h, imap = self._handler(monkeypatch, {"INBOX": set()})
+        with pytest.raises(mls.MailNichtGefunden) as fehlt:
+            h._ordner_ohne_angabe(imap, "hnu", "23588")
+        text = str(fehlt.value)
+        assert "verschoben" in text
+        assert "/a/" in text
+
+    def test_should_ask_instead_of_guessing_when_the_uid_is_ambiguous(
+        self, monkeypatch
+    ):
+        h, imap = self._handler(monkeypatch, {"INBOX": {"42"}, "Entwürfe": {"42"}})
+        with pytest.raises(mls.MailMehrdeutig) as frage:
+            h._ordner_ohne_angabe(imap, "hnu", "42")
+        assert frage.value.ordner == ["INBOX", "Entwürfe"]
+        assert frage.value.uid == "42"
+
+
+class TestOrdneransicht:
+    """`/m/<konto>/<ordner>` ohne Nummer ist eine Frage, kein Tippfehler.
+
+    Bis 2026-08-21 antwortete der Dienst darauf "UID muss eine Zahl sein" — ein
+    Fehler auf eine sinnvolle Frage. Ein Link auf EINE Mail beantwortet "zeig
+    mir diese"; er beantwortet nicht "lass mich hier weitermachen". Wer einen
+    Entwurf pruefen will, will ihn neben den anderen sehen.
+    """
+
+    @pytest.fixture
+    def gerufen(self, tmp_path, registry, monkeypatch):
+        protokoll = []
+        monkeypatch.setattr(
+            mls.MailLinkHandler,
+            "_ordner_liste",
+            lambda self, konto, slug: (
+                protokoll.append((konto, slug)),
+                self._sende(HTTPStatus.OK, b"<h1>Liste</h1>", "text/html"),
+            )[-1],
+        )
+        monkeypatch.setattr(
+            mls.MailLinkHandler,
+            "_rendern",
+            lambda self, konto, uid, ordner=None: (_ for _ in ()).throw(
+                AssertionError("Einzelmail-Pfad haette nicht laufen duerfen")
+            ),
+        )
+        mls.MailLinkHandler.konten = {"hnu": "hnu"}
+        mls.MailLinkHandler.default_konto = "hnu"
+        mls.MailLinkHandler.registry_pfad = registry
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), mls.MailLinkHandler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        yield srv, protokoll
+        srv.shutdown()
+
+    def _hole(self, srv, pfad):
+        c = HTTPConnection("127.0.0.1", srv.server_address[1])
+        c.request("GET", pfad)
+        r = c.getresponse()
+        r.read()
+        return r.status
+
+    def test_should_show_the_folder_instead_of_complaining_about_a_missing_uid(
+        self, gerufen
+    ):
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/hnu/entwuerfe") == 200
+        assert protokoll == [("hnu", "entwuerfe")]
+
+    def test_should_tolerate_a_trailing_slash(self, gerufen):
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/hnu/entwuerfe/") == 200
+        assert protokoll == [("hnu", "entwuerfe")]
+
+    def test_should_keep_rejecting_a_bare_non_uid_without_an_account(self, gerufen):
+        """`/m/kein-uid` bleibt ein sauberer 400.
+
+        Die Ordner-Route gilt nur bei ausdruecklich genanntem Konto. Sonst
+        wuerde jeder vertippte Link zu einer IMAP-Runde auf der Suche nach
+        einem Ordner, den niemand gemeint hat.
+        """
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/kein-uid") == 400
+        assert protokoll == []
+
+    def test_should_still_treat_a_number_as_a_message(self, gerufen):
+        """Die Gegenprobe: die Ordner-Route darf den Einzelmail-Pfad nicht fressen.
+
+        Der Stub oben wirft, sobald `_rendern` liefe — der 502 aus dem
+        Fehlerzweig von `_mail` ist hier also der
+        BEWEIS, dass die Route den Einzelfall weiterhin an die Mail gibt und
+        nicht als Ordner missversteht.
+        """
+        srv, protokoll = gerufen
+        assert self._hole(srv, "/m/hnu/entwuerfe/23612") == 502
+        assert protokoll == []

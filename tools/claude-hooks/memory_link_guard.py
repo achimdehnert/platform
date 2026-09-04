@@ -18,15 +18,26 @@ geschrieben hat — möglich, seit das Verzeichnis versioniert ist. Ist dort nic
 offen, endet er nach einem git-Aufruf. Bewusst ``git status`` und nicht mtime:
 mtime ändert sich auch ohne Inhaltsänderung (siehe Memory ``mtime_not_dirty``).
 
+Seit 2026-09-02 kommt eine zweite, ebenso billige Vorbedingung dazu: der
+Inhalts-Fingerabdruck der offenen Dateien. ``git status`` sagt nur, dass dort
+*etwas* offen ist — nicht, dass dieser Zug es verändert hat. Solange eine
+Memory-Änderung uncommitted liegen blieb, lief der teure Prüfer deshalb bei
+JEDEM Stop erneut (gemessen: 698 ms je Stop, davon 13 ms git und ~685 ms
+Prüfer). Ist der Abdruck unverändert, ist auch der Befund unverändert und war
+beim ersten Mal schon gemeldet — der Lauf entfällt, ohne einen Fund zu
+verlieren.
+
 Vertrag: Stop-Event-JSON auf stdin, **immer Exit 0** — ein Melder darf nie
 blockieren. Funde gehen als ``hookSpecificOutput.additionalContext`` nach stdout.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PROJEKTE = Path.home() / ".claude" / "projects"
@@ -107,14 +118,42 @@ def pruefe(dirs: list[Path], geaendert: set[str]) -> tuple[list[str], int]:
     return eigene, fremd
 
 
+def _abdruck(dirs: list[Path], geaendert: set[str]) -> str:
+    """Inhalts-Fingerabdruck der offenen Memory-Aenderungen.
+
+    Gehasht wird der INHALT der offenen Dateien, nicht ihre mtime — eine
+    Beruehrung ohne Aenderung darf den Pruefer nicht erneut anwerfen, eine
+    Aenderung muss ihn zwingend anwerfen (Memory `mtime_not_dirty`).
+    """
+    h = hashlib.sha256()
+    for d in dirs:
+        h.update(str(d).encode("utf-8", "replace") + b"\0")
+        for name in sorted(geaendert):
+            p = d / name
+            h.update(name.encode("utf-8", "replace") + b"\0")
+            try:
+                h.update(p.read_bytes())
+            except OSError:
+                h.update(b"<weg>")
+            h.update(b"\0")
+    return h.hexdigest()
+
+
+def _abdruck_datei(session_id: str) -> Path:
+    return Path(tempfile.gettempdir()) / f"memory_link_guard_{session_id or 'na'}.txt"
+
+
 def main() -> int:
     # Der Client verlangt hookSpecificOutput.hookEventName ("Stop"|"SubagentStop");
     # ohne das Feld verwirft er die Ausgabe und zeigt den rohen Schema-Dump.
     event = "Stop"
+    daten: dict = {}
     try:
-        daten = json.load(sys.stdin)
-        if isinstance(daten, dict) and daten.get("hook_event_name") == "SubagentStop":
-            event = "SubagentStop"
+        roh = json.load(sys.stdin)
+        if isinstance(roh, dict):
+            daten = roh
+            if daten.get("hook_event_name") == "SubagentStop":
+                event = "SubagentStop"
     except (json.JSONDecodeError, ValueError):
         pass
 
@@ -124,6 +163,32 @@ def main() -> int:
     dirs, geaendert = geaenderte_memory_dirs()
     if not dirs:
         return 0
+
+    # Entprellung gegen den Inhalt, nicht gegen die Zeit.
+    #
+    # `git status` ist der billige Teil (gemessen 2026-09-02: 13 ms). Teuer ist
+    # der Pruefer dahinter: er liest je Verzeichnis den GESAMTEN Bestand, und er
+    # lief bisher bei JEDEM Stop, solange unter `projects/*/memory/` irgendetwas
+    # offen war — auch in Zuegen, die dort nichts geschrieben haben. Am realen
+    # Bestand gemessen: 698 ms je Stop, davon ~685 ms Pruefer.
+    #
+    # Die Vorbedingung ist der Inhalts-Abdruck, nicht die Werkzeug-Evidenz des
+    # Turns: eine Memory-Datei entsteht auch aus einer Bash-Zeile oder einem
+    # Unteragenten, wofuer Werkzeug-Evidenz blind waere. Der Inhalts-Hash
+    # verliert dagegen keinen einzigen Fund: aendert sich eine offene Datei,
+    # aendert sich der Abdruck und der Pruefer laeuft. Bleibt alles gleich, ist
+    # auch der Befund derselbe — und wurde beim ersten Mal schon gemeldet.
+    abdruck = _abdruck(dirs, geaendert)
+    merker = _abdruck_datei(str(daten.get("session_id", "")))
+    try:
+        if merker.read_text(encoding="utf-8").strip() == abdruck:
+            return 0
+    except OSError:
+        pass
+    try:
+        merker.write_text(abdruck, encoding="utf-8")
+    except OSError:
+        pass  # Merker-Verlust heisst schlimmstenfalls ein Lauf mehr — nie blocken
 
     eigene, fremd = pruefe(dirs, geaendert)
     if not eigene:
@@ -160,5 +225,18 @@ def main() -> int:
     return 0
 
 
+def main_sicher() -> int:
+    """`main()` unter dem Hook-Vertrag: Exit 0 immer, ausser bewusstes Blocken.
+
+    Siehe `evidence_claim_scanner.main_sicher` fuer die Begruendung; bewusst
+    dupliziert statt geteilt, damit der Auffangbogen keinen Import braucht.
+    """
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001 — Hook-Vertrag: nie blockieren
+        print(f"memory_link_guard: {type(exc).__name__}: {exc}"[:400], file=sys.stderr)
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_sicher())

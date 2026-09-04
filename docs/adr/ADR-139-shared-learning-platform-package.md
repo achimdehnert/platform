@@ -703,7 +703,7 @@ Das Dashboard zeigt dem eingeloggten Autor:
 ├─────────────────────────────────────────────────────────────┤
 │  📋 Offene Reviews (3)                                      │
 │  → "Schadensregulierung" von M. Müller — wartet auf Review  │
-│  → "Datenschutz-Update" von S. Schmidt — wartet auf Review  │
+│  → "Datenschutz-Update" von Kontakt-F — wartet auf Review  │
 ├─────────────────────────────────────────────────────────────┤
 │  📊 Statistiken                                             │
 │  Aktive Lernende: 142  │  Ø Completion: 67%  │  Ø Score: 78%│

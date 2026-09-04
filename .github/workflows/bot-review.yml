@@ -1,0 +1,79 @@
+# bot-review.yml — Owner-Go 2026-08-25 ("6 bot reviewer").
+#
+# VORSCHLAG, DER MEINE MACHT ERWEITERT (Lotsen-Charta Art. 3): dieser Workflow
+# gibt das Code-Owner-Review, das seit KONZ-032 als menschliche Entscheidung
+# gedacht war, fuer einen Teil der Pfade an ein Bot-Konto. Er wird erst
+# wirksam, wenn der Owner drei Dinge selbst tut (siehe PR-Text): Bot-Konto
+# anlegen, als Collaborator (write) eintragen, dessen PAT als Secret hinterlegen.
+# Bis dahin ist die Datei tot — der Secret-Check unten beendet den Lauf.
+#
+# Was der Bot NIE approvet (bleibt Mensch):
+#   - .github/CODEOWNERS und diese Datei selbst (Regeln ueber die eigene Macht)
+#   - policies/  (Verhaltensregeln des Lotsen)
+#   - docs/adr/  (Architekturentscheidungen)
+# Was er approvet: alles andere im CODEOWNERS-Perimeter, wenn (a) kein Draft,
+# (b) Autor ist der Owner-Account (Sitzungen laufen darunter), (c) ALLE Checks
+# gruen — kein pending, kein fail —, (d) der Context-Reviewer kommentiert hat.
+# Der Bot urteilt nicht inhaltlich; er stellt fest, dass jedes Gate-als-Code
+# gruen ist, und ersetzt den Reflex-Klick, der 400x im Monat gefallen ist.
+name: bot-review
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Bot-Token vorhanden?"
+        id: token
+        env:
+          BOT_REVIEW_TOKEN: ${{ secrets.BOT_REVIEW_TOKEN }}
+        run: |
+          if [ -z "${BOT_REVIEW_TOKEN}" ]; then
+            echo "BOT_REVIEW_TOKEN fehlt — Bot-Review nicht scharf (Owner-Schritt 3 offen)."
+            echo "scharf=nein" >> "$GITHUB_OUTPUT"
+          else
+            echo "scharf=ja" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Seit 2026-09-02 liegt die Auswahl in tools/bot_review_kandidaten.py — dafuer
+      # braucht der Job den Baum. Vorher stand sie als Heredoc hier und war nicht
+      # testbar; der Zwillings-Fehler aus #2676 fiel deshalb erst an einem PR auf,
+      # der unerklaerlich liegenblieb.
+      - name: "Repo auschecken"
+        if: steps.token.outputs.scharf == 'ja'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: "Kandidaten pruefen und approven"
+        if: steps.token.outputs.scharf == 'ja'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_REVIEW_TOKEN }}
+          OWNER_LOGIN: achimdehnert
+        run: |
+          set -euo pipefail
+          # Eigener Login des Bot-Kontos — Grundlage der Wiederholungs-Sperre unten.
+          # Nicht hartkodiert: das Konto haengt am Secret, nicht am Dateitext.
+          BOT_LOGIN="$(gh api user --jq .login)"
+          export BOT_LOGIN
+          echo "Bot-Konto: $BOT_LOGIN"
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,isDraft,author,mergeStateStatus,reviewDecision,reviews,files,statusCheckRollup,url \
+            > /tmp/prs.json
+          python3 tools/bot_review_kandidaten.py /tmp/prs.json /tmp/kandidaten
+          while read -r n || [ -n "$n" ]; do   # Guard gegen fehlendes Zeilenende (#2442)
+            [ -n "$n" ] || continue
+            if ! gh pr view "$n" --repo "$GITHUB_REPOSITORY" --comments --json comments --jq '.comments[].author.login' | grep -q "github-actions"; then
+              echo "#$n: kein Context-Reviewer-Kommentar — kein Approve"; continue
+            fi
+            gh pr review "$n" --repo "$GITHUB_REPOSITORY" --approve \
+              --body "Bot-Review (bot-review.yml): alle Checks gruen, Context-Reviewer hat kommentiert, kein Tabu-Pfad (policies/, docs/adr/, CODEOWNERS). Kein inhaltliches Urteil — Gate-als-Code-Bilanz. Owner-Go 2026-08-25."
+            echo "#$n approved"
+          done < /tmp/kandidaten

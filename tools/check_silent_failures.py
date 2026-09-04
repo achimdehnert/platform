@@ -198,6 +198,62 @@ def pruefe_datei(pfad: Path) -> list[Fund]:
     return funde
 
 
+# ── Zweite Familie: stille Schlucker in Shell-Code (Ausweitung 2026-08-20) ────
+# Der Checker sah bis hierher nur `continue-on-error: true` in Workflows. Der Slug
+# `ci-gate-maskiert-failure` zaehlt aber dieselbe Sache in anderer Gestalt, und die
+# beiden Rueckfaelle, die ihn zuletzt trugen, lagen genau daneben:
+#   * Retro 932035 (02.08.): ein Megatest-Step schob pytest durch `| tee` — die
+#     Pipeline meldet den Exit des LETZTEN Glieds, der rote Lauf blieb unsichtbar.
+#   * Retro c45b39 (10.08.): `reap 2>&1 || true` + `grep -c` meldete jeden Fehler
+#     als gruenes "nichts abzuraeumen"; live mit einem nicht existenten Repo
+#     reproduziert.
+# Beide Formen sind mechanisch dasselbe: der Fehler verschwindet, der Bericht
+# bleibt gruen. Bewusst ADVISORY — die Familie hat keine False-Positive-Baseline,
+# und dieser Checker ist ein blockierendes Gate. Erst messen, dann schaerfen.
+_TEE_PIPE = re.compile(r"\|\s*tee\b")
+_ODER_WAHR = re.compile(r"\|\|\s*true\b")
+_ZAEHL_GREP = re.compile(r"grep\s+-[a-zA-Z]*c")
+
+
+def pruefe_shell(datei: Path) -> list[Fund]:
+    """Stille Schlucker in einer Shell-/Workflow-Datei — advisory."""
+    try:
+        text = datei.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    funde: list[Fund] = []
+    hat_pipefail = "pipefail" in text
+    zeilen = text.splitlines()
+    for nr, zeile in enumerate(zeilen, start=1):
+        if _TEE_PIPE.search(zeile) and not hat_pipefail:
+            funde.append(
+                Fund(
+                    datei=datei,
+                    job=f"Zeile {nr}",
+                    schritt=zeile.strip()[:70],
+                    art="Pipeline schluckt den Exit-Code",
+                    text=(
+                        "`| tee` gibt den Exit des letzten Glieds zurueck; ohne "
+                        "`set -o pipefail` in derselben Datei bleibt ein roter Lauf still."
+                    ),
+                )
+            )
+        if _ODER_WAHR.search(zeile) and _ZAEHL_GREP.search(zeile):
+            funde.append(
+                Fund(
+                    datei=datei,
+                    job=f"Zeile {nr}",
+                    schritt=zeile.strip()[:70],
+                    art="Fehler wird zu einer Zahl",
+                    text=(
+                        "`|| true` neben `grep -c`: ein Fehlschlag wird als 0 gezaehlt "
+                        "und liest sich wie ein gutes Ergebnis."
+                    ),
+                )
+            )
+    return funde
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument(
@@ -210,6 +266,18 @@ def main() -> int:
         "--nur-fehlerpfad",
         action="store_true",
         help="nur 'Absturz bleibt still' melden, Begründungs-Pflicht überspringen",
+    )
+    ap.add_argument(
+        "--shell",
+        nargs="*",
+        default=None,
+        metavar="PFAD",
+        help="zusaetzlich Shell-Dateien auf stille Schlucker pruefen (advisory)",
+    )
+    ap.add_argument(
+        "--shell-strict",
+        action="store_true",
+        help="Shell-Funde zaehlen fuer den Exit-Code (Default: nur Anzeige)",
     )
     args = ap.parse_args()
 
@@ -224,8 +292,29 @@ def main() -> int:
     if args.nur_fehlerpfad:
         alle = [f for f in alle if f.art == "Absturz bleibt still"]
 
+    shell_funde: list[Fund] = []
+    for eintrag in args.shell or []:
+        p = Path(eintrag)
+        ziele = sorted(p.rglob("*.sh")) if p.is_dir() else [p]
+        for ziel in ziele:
+            shell_funde.extend(pruefe_shell(ziel))
+    if shell_funde:
+        print(f"\n🟡 Shell — stille Schlucker ({len(shell_funde)}, advisory):")
+        for f in shell_funde:
+            print(f)
+        if args.shell_strict:
+            alle.extend(shell_funde)
+
     if not alle:
-        print(f"✅ {len(dateien)} Workflow(s) geprüft — kein stiller Fehlschlag.")
+        nachsatz = (
+            f" ({len(shell_funde)} Shell-Hinweis(e) oben, advisory)"
+            if shell_funde
+            else ""
+        )
+        print(
+            f"✅ {len(dateien)} Workflow(s) geprüft — kein stiller Fehlschlag."
+            f"{nachsatz}"
+        )
         return 0
 
     nach_art: dict[str, list[Fund]] = {}

@@ -8,9 +8,10 @@ mode: write
 > **Wann:** Eine Abschlussarbeit (Bachelor/Master) liegt vor der Abgabe vor und du willst
 > eine belastbare **formale** Rückmeldung — Deckblatt, Verzeichnisse, Nummerierung,
 > Abbildungsunterschriften, Belege und Literaturverzeichnis.
-> **Wann NICHT:** Inhaltliche Begutachtung (Methodik, Ergebnisse, Note) — das bleibt
-> Handarbeit und ist ausdrücklich **nicht** Gegenstand dieses Skills. Mail lesen ohne
-> Prüfung → `/read-mail`. Antwort versenden → `/send-mail` (eigenes Versand-Gate).
+> **Wann NICHT:** Inhaltliche Begutachtung (Methodik, Ergebnisse, Punktvergabe) — dafür
+> `/gutachten`, das diesen Skill als **Vorstufe** aufruft und seine Ausgabe weiterverwendet.
+> Mail lesen ohne Prüfung → `/read-mail`. Antwort versenden → `/send-mail` (eigenes
+> Versand-Gate).
 
 **Warum es diesen Skill gibt:** Die Prüfung am 2026-08-05 (Masterarbeit, 127 Seiten) fand
 13 Klassen formaler Mängel. Zwei Zahlen der ersten, rein manuellen Fassung waren **falsch**

@@ -1,0 +1,12 @@
+[Unit]
+Description=Taeglicher Ketten-Check der Mail-/Todo-Strecke
+
+[Timer]
+# Vor dem ersten Sendeabgleich des Tages (07:20): wer die Kette prueft, sollte
+# das tun, bevor der erste automatische Schreibvorgang darauf aufsetzt.
+OnCalendar=*-*-* 06:45:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

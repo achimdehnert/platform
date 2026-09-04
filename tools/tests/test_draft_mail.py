@@ -219,3 +219,71 @@ def test_should_find_account_by_mail_from(tmp_path):
 def test_should_derive_account_label_from_config_filename():
     assert dm.konto_kuerzel(pathlib.Path("/home/u/.claude/mail-hnu.env")) == "hnu"
     assert dm.konto_kuerzel(pathlib.Path("/home/u/.claude/mail.env")) == "default"
+
+
+# --- Vorgangs-Schlagworte (IMAP-Keywords) ------------------------------------
+
+
+class _FakeSelect:
+    """Stub, der nur SELECT und dessen PERMANENTFLAGS-Antwort nachbildet."""
+
+    def __init__(self, permanentflags, typ="OK"):
+        self.untagged_responses = {"PERMANENTFLAGS": [permanentflags]}
+        self._typ = typ
+
+    def select(self, mailbox, readonly=False):
+        return self._typ, [b"1"]
+
+
+class TestSchlagwort:
+    """Ein Vorgangsname muss ein gueltiges IMAP-ATOM werden (RFC 3501 §9)."""
+
+    @pytest.mark.parametrize(
+        ("roh", "erwartet"),
+        [
+            ("av-pruefung-2026", "av-pruefung-2026"),
+            ("Prüfung Übergabe", "Pruefung_Uebergabe"),
+            ("Größe & Maß", "Groesse_&_Mass"),
+            ("a (b) c*", "a_b_c"),
+        ],
+        ids=[
+            "unveraendert",
+            "umlaut-und-leerzeichen",
+            "ss-und-kaufmanns-und",
+            "sonderzeichen",
+        ],
+    )
+    def test_should_produce_a_valid_ascii_keyword(self, roh, erwartet):
+        assert dm.schlagwort(roh) == erwartet
+
+    def test_should_keep_the_result_ascii_only(self):
+        """Gegenprobe: ein Name ganz ohne lateinische Zeichen ergibt nichts —
+        besser leer als ein Wort, das der Server als Syntaxfehler ablehnt."""
+        assert dm.schlagwort("日本語") == ""
+
+    def test_should_not_merge_two_words_into_one(self):
+        """Wuerden Leerzeichen entfernt statt ersetzt, fielen zwei verschiedene
+        Vorgaenge auf dasselbe Schlagwort zusammen."""
+        assert dm.schlagwort("Alpha Beta") != dm.schlagwort("AlphaBeta")
+
+
+class TestEigeneSchlagworteErlaubt:
+    """Ob der Server eigene Schlagworte behaelt, sagt er selbst — \\* in PERMANENTFLAGS.
+
+    Gemessen 2026-09-03: das mittwald-Postfach sagt ja, das HNU-Postfach nein.
+    Ohne diese Frage verfiele ein Schlagwort auf HNU stillschweigend.
+    """
+
+    def test_should_accept_when_the_server_allows_arbitrary_keywords(self):
+        imap = _FakeSelect(rb"(\\Answered \\Flagged \\Deleted \\Seen \\Draft \\*)")
+        assert dm.erlaubt_eigene_schlagworte(imap, "INBOX.Drafts") is True
+
+    def test_should_refuse_when_the_server_lists_only_standard_flags(self):
+        imap = _FakeSelect(rb"(\\Seen \\Answered \\Flagged \\Deleted \\Draft $MDNSent)")
+        assert dm.erlaubt_eigene_schlagworte(imap, "Entwuerfe") is False
+
+    def test_should_refuse_when_select_fails(self):
+        """Ein fehlgeschlagenes SELECT ist kein Ja — sonst schriebe der Aufrufer
+        Schlagworte in einen Ordner, den er nie geoeffnet hat."""
+        imap = _FakeSelect(rb"(\\*)", typ="NO")
+        assert dm.erlaubt_eigene_schlagworte(imap, "Entwuerfe") is False

@@ -23,9 +23,12 @@ muss morgen denselben Vorgang meinen wie heute. Die alte Pflege-Regel („die Li
 wird lueckenlos neu durchgezaehlt") widersprach dem und ist damit aufgehoben —
 Luecken sind der Preis der Stabilitaet und ausdruecklich gewollt.
 
-**Jeder Posten traegt einen Link in seine Mail**, und zwar ueber `/a/<nr>`, das
-ueber die Message-ID aufloest und ein Verschieben ueberlebt. Der Linktext ist der
-naechste Zug, nie Absender oder Betreff.
+**Jeder Posten traegt einen Link in seine Vorgangsansicht** (`/t/<thread_key>`):
+Verlauf mit dem neuesten Eintrag zuerst, Frist, naechster Schritt, naheliegende
+Aktionen. Der Mail-Link `/a/<nr>` bleibt der Rueckfall fuer Vorgaenge ohne
+Schluessel — er zeigt auf die verankerte, also aelteste Mail und beantwortet
+darum die Frage „was ist der Stand?" gerade nicht. Der Linktext ist der naechste
+Zug, nie Absender oder Betreff.
 
 **Jeder Posten schlaegt naheliegende Aktionen vor**, abgeleitet aus `typ` und
 `bucket` des Ledgers. Sie sind adressierbar (`7a`, `7b`), damit eine Anweisung
@@ -47,6 +50,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from urllib.parse import quote
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -70,12 +74,45 @@ REGELN = Path.home() / ".claude" / "mail-board-regeln.md"
 #: `/a/<nr>` loest ueber die Message-ID auf: ein Ordnerwechsel bricht ihn nicht.
 LINK_BASIS = "https://mail.iil.pet"
 
+#: Vorgangsansicht (Verlauf, Stand, Fristen, naheliegende Aktionen).
+TODO_BASIS = "https://todo.iil.pet"
+
+#: Welche Buckets den Stand beschreiben und welche einen Zug verlangen.
+#:
+#: Das ist der Anker, nicht die Liste darunter: Wer einen fuenften Bucket
+#: ergaenzt, muss ihn hier einsortieren, sonst schlaegt der Test fehl. Die
+#: Anzeige-Reihenfolge "erst Stand, dann Zug" folgt daraus und wird nicht
+#: getrennt behauptet.
+#:
+#: Die Regel selbst steht genau einmal, im Antwortformat des Kapitaens-Kanals
+#: (~/.claude/CLAUDE.md, Regel 1). Hier steht nur ihre Umsetzung.
+STAND_BUCKETS = ("erledigt", "warten")
+ZUG_BUCKETS = ("agent", "owner")
+
 #: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
 BUCKETS: list[tuple[str, str]] = [
-    ("owner", "🟢 Offen — dein Zug"),
-    ("agent", "🔵 Offen — ich kann sofort"),
+    ("erledigt", "✅ Erledigt"),
     ("warten", "🟡 Wartend — Ball liegt aussen"),
+    ("agent", "🔵 Offen — ich kann sofort"),
+    ("owner", "🟢 Offen — dein Zug"),
 ]
+
+#: Wie lange ein geschlossener Vorgang im Board sichtbar bleibt.
+#:
+#: Warum es diesen Zustand ueberhaupt gibt: Bis 2026-08-18 kannte der Ledger nur
+#: `owner`, `agent` und `warten`. Ein geschlossener Vorgang wurde deshalb **aus der
+#: Datei entfernt** — obwohl der Mailcheck-Skill seit jeher einen Abschnitt
+#: „✅ Erledigt seit letztem Check" vorsieht und `AKTIONEN_IMMER` die Aktion
+#: „Erledigt — Vorgang schliessen" anbietet. Es gab die Aktion, aber kein Ziel.
+#:
+#: Das Loeschen kostet zweierlei: Man sieht nicht, was fertig wurde, und jede
+#: Nachlogik, die am Abschluss haengt (z. B. die zugehoerigen Mails aus dem
+#: Posteingang raeumen), verliert mit dem Posten auch ihren Ausloeser.
+#:
+#: Sichtbar bleiben heisst nicht ewig: Nach diesem Fenster zaehlt das Board sie nur
+#: noch, statt sie zu zeigen. Der Eintrag selbst bleibt in der Datei — er traegt den
+#: Anker, ueber den die Mails spaeter auffindbar sind.
+ERLEDIGT_FENSTER_TAGE = 14
 
 #: Naheliegende Aktionen je Vorgangstyp.
 #:
@@ -155,9 +192,15 @@ AKTIONEN_WARTEN: list[tuple[str, str]] = [
     ("f", "Frist verlaengern"),
 ]
 
-#: Haengt an jedem Posten, unabhaengig vom Typ.
+#: Haengt an jedem offenen Posten, unabhaengig vom Typ.
 AKTIONEN_IMMER: list[tuple[str, str]] = [
     ("z", "Erledigt — Vorgang schliessen"),
+]
+
+#: Ein geschlossener Vorgang bekommt genau eine Aktion: die Ruecknahme. Ihm
+#: „Nachfassen entwerfen" anzubieten waere sinnlos, „Erledigt schliessen" absurd.
+AKTIONEN_ERLEDIGT: list[tuple[str, str]] = [
+    ("o", "Wieder oeffnen — Bucket zuruecksetzen"),
 ]
 
 #: Greift, wenn ein Typ (noch) nicht im Katalog steht. Bewusst nicht leer: ein
@@ -189,6 +232,8 @@ def aktionen_fuer(vorgang: dict) -> list[tuple[str, str]]:
     maessigen. Ein wartender Vorgang bekommt zusaetzlich das Nachfassen — bei
     einem eigenen Zug waere das sinnlos.
     """
+    if vorgang.get("bucket") == "erledigt":
+        return list(AKTIONEN_ERLEDIGT)
     typ = (vorgang.get("typ") or "").strip()
     aktionen = list(AKTIONEN_JE_TYP.get(typ, AKTIONEN_FALLBACK))
     if vorgang.get("bucket") == "warten":
@@ -211,13 +256,22 @@ def anker_zustand(nr: int, anker: dict, links: dict) -> str:
     return "fehlt"
 
 
-def link_fuer(nr: int, zustand: str) -> str | None:
-    """Eine Linkform fuer alle Konten: `/a/<nr>`.
+def link_fuer(nr: int, zustand: str, vorgang: dict | None = None) -> str | None:
+    """Der Posten fuehrt in die **Vorgangsansicht**, nicht in eine einzelne Mail.
 
-    Der Dienst loest sie fuer IMAP ueber die Message-ID auf und faellt fuer
-    Graph-Konten auf die Kurz-ID-Registry zurueck. Zwei Linkformen im Board
-    waeren eine Unterscheidung, die den Leser nichts angeht.
+    Bis 2026-08-20 zeigte jeder Posten auf `/a/<nr>` — und das ist der **verankerte**
+    Anfang des Strangs, also die aelteste Mail. Wer den Posten anklickt, will aber
+    den Stand sehen, nicht den Anfang (Owner-Weisung: „dieser Link zeigt auf die
+    erste Mail … wenn ueberhaupt eine Mail, dann die letzte").
+
+    `/t/<thread_key>` traegt Verlauf (neueste zuerst), Frist, naechsten Schritt und
+    die naheliegenden Aktionen — und existiert fuer **jeden** Vorgang, auch fuer die
+    ohne verankerte Mail. Nur wenn der Schluessel fehlt, bleibt der alte Mail-Link
+    als Rueckfall.
     """
+    schluessel = (vorgang or {}).get("thread_key")
+    if schluessel:
+        return f"{TODO_BASIS}/t/{quote(str(schluessel), safe='')}"
     if zustand == "fehlt":
         return None
     return f"{LINK_BASIS}/a/{nr}"
@@ -254,6 +308,26 @@ def vergib_nummern(ledger: dict) -> tuple[dict, list[tuple[int, str]]]:
 
     ledger["naechste_nr"] = naechste
     return ledger, neu
+
+
+def tage_seit(datum: str | None, stichtag: str | None = None) -> int | None:
+    """Tage zwischen `datum` (ISO) und dem Stichtag; None, wenn unlesbar oder leer.
+
+    Der Stichtag wird hereingereicht statt aus der Systemuhr gelesen — dieselbe
+    Entscheidung wie bei `render(ledger, heute)`. Ein Board, dessen Ausgabe von der
+    Uhr abhaengt, laesst sich nicht pruefen.
+
+    Bewusst tolerant gegen Unfug im Ledger: ein kaputtes Datum ist ein Befund der
+    Pruefung, kein Absturz der Anzeige.
+    """
+    if not datum:
+        return None
+    try:
+        gemessen = date.fromisoformat(str(datum)[:10])
+        bezug = date.fromisoformat(stichtag[:10]) if stichtag else date.today()
+    except (ValueError, TypeError):
+        return None
+    return (bezug - gemessen).days
 
 
 def pruefe(ledger: dict) -> list[str]:
@@ -301,28 +375,103 @@ def pruefe(ledger: dict) -> list[str]:
                 f"{vorgang.get('bucket')!r} — gehoert in keinen Abschnitt"
             )
 
+    # Ohne Abschlussdatum ist ein erledigter Vorgang nicht einordenbar: Er faellt
+    # weder aus dem Anzeigefenster heraus noch kann eine spaetere Nachlogik sagen,
+    # seit wann er geschlossen ist.
+    for vorgang in posten:
+        if vorgang.get("bucket") != "erledigt":
+            continue
+        if tage_seit(vorgang.get("erledigt_am")) is None:
+            befunde.append(
+                f"#{vorgang.get('nr', '?')} '{vorgang.get('kurz')}': bucket="
+                f"'erledigt', aber erledigt_am fehlt oder ist unlesbar "
+                f"({vorgang.get('erledigt_am')!r})"
+            )
+
     for vorgang in posten:
         nr = vorgang.get("nr")
         if not isinstance(nr, int) or vorgang.get("bucket") not in {"owner", "agent"}:
             continue
-        if anker_zustand(nr, anker, links) == "fehlt":
+        # Seit der Umstellung auf `/t/<thread_key>` traegt ein Posten mit Schluessel
+        # immer einen Link. Ein Befund entsteht nur noch, wenn beides fehlt —
+        # sonst meldete die Pruefung ein Problem, das die Anzeige gar nicht hat.
+        if anker_zustand(nr, anker, links) == "fehlt" and not vorgang.get("thread_key"):
             befunde.append(
-                f"#{nr} '{vorgang.get('kurz')}': keine Mail verankert — "
-                f"der Posten hat keinen Link (anker.py bzw. --register)"
+                f"#{nr} '{vorgang.get('kurz')}': keine Mail verankert und kein "
+                f"thread_key — der Posten hat keinen Link (anker.py bzw. --register)"
             )
 
     for vorgang in posten:
         if not aktionen_fuer(vorgang):
             befunde.append(f"#{vorgang.get('nr', '?')}: keine naheliegende Aktion")
 
+    befunde.extend(pruefe_fristen(posten))
     return befunde
+
+
+def pruefe_fristen(posten: list[dict]) -> list[str]:
+    """Jeder offene Vorgang traegt eine Frist — oder sagt, warum nicht (#2592 K4).
+
+    Gemessen 2026-09-02: 38 von 54 Vorgaengen ohne Frist, davon 22 offen. Eine
+    leere Frist sagt nicht, ob keine existiert oder ob niemand nachgesehen hat;
+    genau in dieser Luecke schliefen AV-Pruefung, Angebotsfrist und die
+    DSGVO-Monatsfrist. Darum: ISO-Datum ODER `frist: null` mit `frist_grund`.
+    Setzen: `board.py --frist <nr> --datum <YYYY-MM-DD|keine> --grund '…'`.
+    """
+    befunde: list[str] = []
+    for vorgang in posten:
+        if vorgang.get("bucket") == "erledigt":
+            continue
+        nr, kurz = vorgang.get("nr", "?"), vorgang.get("kurz")
+        frist = vorgang.get("frist")
+        if frist:
+            try:
+                date.fromisoformat(str(frist))
+            except ValueError:
+                befunde.append(
+                    f"#{nr} '{kurz}': frist={frist!r} ist kein ISO-Datum "
+                    "(board.py --frist)"
+                )
+            continue
+        if not str(vorgang.get("frist_grund") or "").strip():
+            befunde.append(
+                f"#{nr} '{kurz}': keine Frist und kein frist_grund — "
+                "board.py --frist <nr> --datum <YYYY-MM-DD|keine> --grund '…'"
+            )
+    return befunde
+
+
+def setze_frist(ledger: dict, nr: int, datum: str, grund: str) -> dict:
+    """Frist eines Vorgangs setzen. `datum` ist ISO oder 'keine' (dann ist `grund` Pflicht)."""
+    for vorgang in vorgaenge_von(ledger):
+        if vorgang.get("nr") != nr:
+            continue
+        if datum == "keine":
+            if not grund.strip():
+                raise SystemExit("FEHLER: --datum keine braucht --grund.")
+            vorgang["frist"] = None
+            vorgang["frist_grund"] = grund.strip()
+        else:
+            try:
+                date.fromisoformat(datum)
+            except ValueError:
+                raise SystemExit(
+                    f"FEHLER: --datum {datum!r} ist kein ISO-Datum."
+                ) from None
+            vorgang["frist"] = datum
+            if grund.strip():
+                vorgang["frist_grund"] = grund.strip()
+            else:
+                vorgang.pop("frist_grund", None)
+        return vorgang
+    raise SystemExit(f"FEHLER: Vorgang #{nr} gibt es nicht.")
 
 
 def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
     nr = vorgang.get("nr")
     kurz = vorgang.get("kurz") or vorgang.get("next_trigger") or "(ohne Kurztext)"
     zustand = anker_zustand(nr, anker, links) if isinstance(nr, int) else "fehlt"
-    link = link_fuer(nr, zustand) if isinstance(nr, int) else None
+    link = link_fuer(nr, zustand, vorgang) if isinstance(nr, int) else None
 
     # Der Aktionstext IST der Link — keine rohe URL, keine eigene Link-Spalte.
     kopf = f"[{kurz}]({link})" if link else f"{kurz} ⚠️ keine Mail verankert"
@@ -362,8 +511,8 @@ def render(ledger: dict, heute: str) -> str:
         "> **Anrede:** `7` meint den Vorgang, `7a` die Aktion darunter.",
         "> Nummern sind stabil und werden nie wiederverwendet — Lücken sind normal"
         " und gewollt.",
-        "> Der Linktext ist der nächste Zug und führt über `/a/<nr>` in die Mail;"
-        " ein Ordnerwechsel bricht ihn nicht.",
+        "> Der Linktext ist der nächste Zug und führt in die Vorgangsansicht"
+        " (Verlauf neueste zuerst, Frist, Aktionen).",
         "> **Nach außen entsteht immer nur ein Entwurf** — gesendet wird von Hand.",
         "",
     ]
@@ -373,12 +522,32 @@ def render(ledger: dict, heute: str) -> str:
             (v for v in posten if v.get("bucket") == bucket),
             key=lambda v: (v.get("nr") is None, v.get("nr") or 0),
         )
-        if not gruppe:
+        aelter = 0
+        if bucket == "erledigt":
+            # Nur die juengsten Abschluesse zeigen. Alles davor bleibt in der Datei
+            # (der Anker wird gebraucht), verschwindet aber aus der Ansicht — sonst
+            # waechst der Abschnitt, der am wenigsten Aufmerksamkeit braucht, am
+            # staerksten.
+            frisch = []
+            for vorgang in gruppe:
+                tage = tage_seit(vorgang.get("erledigt_am"), heute)
+                if tage is not None and tage > ERLEDIGT_FENSTER_TAGE:
+                    aelter += 1
+                else:
+                    frisch.append(vorgang)
+            gruppe = frisch
+        if not gruppe and not aelter:
             continue
         aus += [f"## {ueberschrift}", ""]
         for vorgang in gruppe:
             aus += _posten_zeile(vorgang, anker, links)
             aus.append("")
+        if aelter:
+            aus += [
+                f"_{aelter} weitere vor mehr als {ERLEDIGT_FENSTER_TAGE} Tagen "
+                f"geschlossen — im Ledger, nicht im Board._",
+                "",
+            ]
 
     ohne = [v for v in posten if v.get("bucket") not in {b for b, _ in BUCKETS}]
     if ohne:
@@ -415,6 +584,27 @@ def _katalog_zeigen(typ: str | None) -> None:
             print(f"   {kuerzel}  {text}")
 
 
+def kategorie(ledger: dict, nr) -> str:
+    """Vorgangsnummer -> Schlagwort fuer den Mail-Client, z.B. ``Vorgang-114-av-pruefung-2026``.
+
+    Die Nummer steht vorn, weil sie stabil ist und nie wiederverwendet wird — daran
+    findet der Mensch den Vorgang auch, wenn der ``thread_key`` sich aendert. Der
+    Schluessel kommt dahinter, damit die Kategorie im Postfach lesbar bleibt und
+    nicht nur eine Zahl ist.
+
+    Gesetzt wird sie beim Anlegen des Entwurfs: IIL ueber ``graph_mail --categorize``,
+    HNU/AD ueber ``draft_mail --kategorie``. Auf Servern ohne eigene Schlagworte
+    (HNU) warnt ``draft_mail`` und laesst sie weg — die Zuordnung steht ohnehin hier.
+    """
+    from draft_mail import schlagwort  # lokal: nur dieser eine Weg braucht ihn
+
+    treffer = [v for v in ledger.get("vorgaenge", []) if str(v.get("nr")) == str(nr)]
+    if not treffer:
+        raise KeyError(f"kein Vorgang mit Nummer {nr}")
+    key = schlagwort(str(treffer[0].get("thread_key") or ""))
+    return f"Vorgang-{nr}" + (f"-{key}" if key else "")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pruefe", action="store_true", help="Invarianten pruefen")
@@ -429,6 +619,26 @@ def main(argv: list[str] | None = None) -> int:
         "--aktionen", nargs="?", const="", metavar="TYP", help="Aktionskatalog zeigen"
     )
     parser.add_argument("--ledger", metavar="DATEI", help="anderer Ledger-Pfad")
+    parser.add_argument(
+        "--stichtag",
+        metavar="YYYY-MM-DD",
+        help="zu --render: Bezugsdatum statt heute (reproduzierbar, #2592 K1)",
+    )
+    parser.add_argument(
+        "--frist", type=int, metavar="NR", help="Frist eines Vorgangs setzen (#2592 K4)"
+    )
+    parser.add_argument(
+        "--datum", metavar="YYYY-MM-DD|keine", help="zu --frist: das Datum oder 'keine'"
+    )
+    parser.add_argument(
+        "--grund", default="", metavar="TEXT", help="zu --frist: warum keine / Kontext"
+    )
+    parser.add_argument(
+        "--kategorie",
+        metavar="NR",
+        help="Schlagwort eines Vorgangs ausgeben (fuer `draft_mail --kategorie` bzw. "
+        "`graph_mail --categorize`)",
+    )
     args = parser.parse_args(argv)
 
     if args.aktionen is not None:
@@ -437,6 +647,30 @@ def main(argv: list[str] | None = None) -> int:
 
     ledger_pfad = Path(args.ledger) if args.ledger else LEDGER
     ledger = lade(ledger_pfad, {"vorgaenge": []})
+
+    if args.kategorie:
+        try:
+            print(kategorie(ledger, args.kategorie))
+        except KeyError as fehler:
+            parser.error(str(fehler))
+        return 0
+
+    if args.frist is not None:
+        if not args.datum:
+            parser.error("--frist braucht --datum <YYYY-MM-DD|keine>")
+        vorgang = setze_frist(ledger, args.frist, args.datum, args.grund)
+        ledger_pfad.write_text(
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            f"#{args.frist} '{vorgang.get('kurz')}': frist={vorgang.get('frist')!r}"
+            + (
+                f", grund='{vorgang['frist_grund']}'"
+                if vorgang.get("frist_grund")
+                else ""
+            )
+        )
+        return 0
 
     if args.vergib_nummern:
         ledger, neu = vergib_nummern(ledger)
@@ -452,7 +686,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.render:
-        text = render(ledger, date.today().isoformat())
+        stichtag = args.stichtag or date.today().isoformat()
+        date.fromisoformat(stichtag)  # frueh scheitern statt halb rendern
+        text = render(ledger, stichtag)
         ziel = Path(args.nach) if args.nach else None
         if ziel:
             ziel.write_text(text, encoding="utf-8")

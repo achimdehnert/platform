@@ -8,6 +8,10 @@ Umgebung:
   HOST         Pflicht, z.B. mail.iil.pet
   PORT         Pflicht, der Loopback-Port des Dienstes
   TUNNEL_NAME  Default: erster Namensteil von HOST
+  ORIGIN       Optional, Ursprung hinter dem Tunnel. Default `127.0.0.1:PORT`.
+               Fuer einen Dienst auf einer ANDEREN Maschine, die nur ueber ein
+               privates Netz erreichbar ist (z.B. `10.99.0.2:11434` ueber wg0):
+               der Tunnel laeuft dann auf dem Gateway, nicht beim Dienst.
 
 Ohne `cert.pem`: Tunnel und Zugangsdatei entstehen über die API, `cloudflared`
 braucht danach nur noch die Datei. Das Tunnel-Geheimnis wird geschrieben, nie
@@ -25,7 +29,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _cf import api, umgebung, zone_und_konto  # noqa: E402
+from _cf import api, pruefe_origin, umgebung, zone_und_konto  # noqa: E402
 
 CF_DIR = Path.home() / ".cloudflared"
 
@@ -33,6 +37,10 @@ CF_DIR = Path.home() / ".cloudflared"
 def main() -> None:
     host, port = umgebung("HOST", "PORT")
     name = os.environ.get("TUNNEL_NAME") or host.split(".")[0]
+    # Vor dem Schreiben pruefen, nicht danach: die Kette dahinter faengt einen
+    # kaputten Ursprung nicht (veroeffentlichen.sh wertet jedes `nicht 200` als
+    # Erfolg und kann ein 502 nicht von der Access-Abweisung unterscheiden).
+    origin = pruefe_origin(os.environ.get("ORIGIN", "").strip() or f"127.0.0.1:{port}")
     zone, konto = zone_und_konto(host)
     CF_DIR.mkdir(mode=stat.S_IRWXU, exist_ok=True)
     kdatei = CF_DIR / f"{name}.json"
@@ -70,13 +78,13 @@ def main() -> None:
 
     cfg = CF_DIR / f"{name}.yml"
     cfg.write_text(
-        f"""# Tunnel für {host} → 127.0.0.1:{port}. Eigener Tunnel, NICHT der Prod-Tunnel.
+        f"""# Tunnel für {host} → {origin}. Eigener Tunnel, NICHT der Prod-Tunnel.
 tunnel: {tid}
 credentials-file: {kdatei}
 no-autoupdate: true
 ingress:
   - hostname: {host}
-    service: http://127.0.0.1:{port}
+    service: http://{origin}
   # Alles andere prallt ab: der Tunnel ist kein allgemeiner Zugang zur Maschine.
   - service: http_status:404
 """

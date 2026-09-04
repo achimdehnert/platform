@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
+import copy
 import json
 import os
 import re
@@ -49,7 +51,15 @@ GITHUB_ORG = "achimdehnert"  # Fallback-Default für Repos ohne canonical.yaml-E
 # ttz-lif-Repos haben ein eigenes `github:`-Feld in registry/canonical.yaml,
 # das bislang ignoriert wurde (FUNC-1, #1202).
 sys.path.insert(0, str(PLATFORM_ROOT / "tools"))
+# Die Unterdrueckung an den beiden Zeilen unten bleibt stehen, auch wenn ein
+# neueres ruff sie fuer ueberfluessig haelt: die CI pinnt ruff==0.15.4
+# (tools-tests.yml), und dort ist E402 hier noch aktiv. Ein lokales
+# `ruff check --fix` mit 0.16.x entfernt sie als "unused" — lokal gruen, in der
+# CI rot (gemessen 2026-09-03, platform#2757). Der Hinweis steht bewusst OHNE die
+# Direktive im Klartext: ruff liest sie sonst auch hier und meldet sie als
+# ungueltig.
 import registry_api as reg  # noqa: E402
+from gh_drossel import DrosselFehler, flotten_sperre, probe  # noqa: E402
 
 
 def _repo_owner(repo: str) -> str:
@@ -137,8 +147,10 @@ BANNED_FILE_PATTERNS = [
         "Dockerfile",
         r"^HEALTHCHECK\b",
         "error",
-        "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
-        "docker-compose.prod.yml, nicht ins image-globale Dockerfile)",
+        (
+            "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service "
+            "in docker-compose.prod.yml, nicht ins image-globale Dockerfile)"
+        ),
     ),
 ]
 
@@ -221,9 +233,10 @@ def _api_get(path: str, token: str) -> dict | list | None:
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        return None if e.code == 404 else None
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        # HTTPError ist eine URLError-Unterklasse; 404 und jeder andere Code
+        # fuehrten hier schon immer zu `None` — die alte Fallunterscheidung
+        # unterschied nichts. ValueError deckt kaputtes JSON.
         return None
 
 
@@ -233,7 +246,7 @@ def _get_file_content(repo: str, path: str, token: str) -> str | None:
         return None
     try:
         return base64.b64decode(data["content"]).decode(errors="replace")
-    except Exception:
+    except (ValueError, TypeError, binascii.Error):
         return None
 
 
@@ -250,7 +263,7 @@ def _fetch_pypi_latest(package: str) -> str | None:
             f"https://pypi.org/pypi/{package}/json", timeout=5
         ) as r:
             return json.loads(r.read())["info"]["version"]
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError):
         return None
 
 
@@ -531,6 +544,106 @@ _SHARED_CI_STATE: dict | None = None
 _SELF_REPO = "<SELF_REPO>"
 _SELF_DIR = "<SELF_DIR>"
 
+# ── Dritte Port-Mechanik: der Waechter-Aufruf ────────────────────────────────
+#
+# Es gibt eine Umschreibung, die beim Portieren zwangslaeufig entsteht und die
+# obige Normalisierung nicht kennt. `shared-ci` besitzt weder
+# `tools/check_silent_failures.py` noch `scripts/checks/publish_gate_invariant.sh`
+# — die liegen in platform. Ein `run:` darauf lief dort ins Leere (exit 127,
+# Gate dauerhaft rot und damit blind, platform#1844). Die Loesung war die
+# Composite-Action `.github/actions/workflow-guards`: shared-ci ruft die Pruefer
+# dort auf, wo sie leben, platform ruft sie direkt auf.
+#
+# Beides TUT dasselbe. Ohne diese Zuordnung meldet der Vergleich zwei Dateien
+# dauerhaft als stale, ohne dass es etwas zu beheben gaebe — und ein Error, der
+# sich nicht schliessen laesst, wird zu Hintergrundrauschen. Genau dann uebersieht
+# man den naechsten, der echt ist (platform#2049).
+#
+# Quelle der Zuordnung ist die Action selbst; `test_should_match_the_guard_action`
+# haelt diese Tabelle dagegen, damit sie nicht still auseinanderlaeuft.
+_GUARD_ACTION_PFAD = ".github/actions/workflow-guards"
+_GUARD_SKRIPTE = {
+    "silent-failures": "tools/check_silent_failures.py",
+    "publish-gate": "scripts/checks/publish_gate_invariant.sh",
+}
+# Die Action installiert PyYAML selbst. Der direkte Aufrufer braucht einen
+# eigenen Schritt dafuer — auch der ist Port-Mechanik, kein Verhaltensunterschied.
+_GUARD_VORBEREITUNG_RE = re.compile(
+    r"^\s*(python3?\s+-m\s+)?pip\s+install\b.*\bpyyaml\b", re.IGNORECASE | re.MULTILINE
+)
+
+
+def _guard_marker(namen: list[str]) -> dict[str, list[str]]:
+    return {"<GUARD>": sorted(set(namen))}
+
+
+def _guard_aus_uses(step: dict) -> dict | None:
+    """Der Waechter als Composite-Action-Aufruf — oder None."""
+    if _GUARD_ACTION_PFAD not in str(step.get("uses", "")):
+        return None
+    mit = step.get("with") or {}
+    checks = str(mit.get("checks", "both")) if isinstance(mit, dict) else "both"
+    return _guard_marker(list(_GUARD_SKRIPTE) if checks == "both" else [checks])
+
+
+def _guard_aus_run(step: dict) -> dict | None:
+    """Derselbe Waechter als direkter Skript-Aufruf — oder None."""
+    run = step.get("run")
+    if not isinstance(run, str):
+        return None
+    treffer = [name for name, skript in _GUARD_SKRIPTE.items() if skript in run]
+    return _guard_marker(treffer) if treffer else None
+
+
+def _ist_guard_vorbereitung(step: dict) -> bool:
+    """Ein Schritt, der NUR PyYAML fuer den Waechter bereitstellt."""
+    run = step.get("run")
+    if not isinstance(run, str) or step.get("uses"):
+        return False
+    zeilen = [z for z in run.splitlines() if z.strip()]
+    return len(zeilen) == 1 and bool(_GUARD_VORBEREITUNG_RE.search(run))
+
+
+def _normalisiere_guards(tree: Any) -> Any:
+    """Ersetzt beide Aufrufformen des Waechters durch denselben Marker.
+
+    Zusaetzlich fallen weg: der reine PyYAML-Vorbereitungsschritt und
+    Pfad-Trigger auf die Waechter-Skripte — beide existieren nur auf der Seite,
+    die die Skripte selbst besitzt.
+    """
+    if not isinstance(tree, dict):
+        return tree
+    tree = copy.deepcopy(tree)
+
+    # `on:` wird von YAML 1.1 als bool True gelesen — beide Schluessel pruefen.
+    for schluessel in ("on", True):
+        ausloeser = tree.get(schluessel)
+        if not isinstance(ausloeser, dict):
+            continue
+        for bedingung in ausloeser.values():
+            if not isinstance(bedingung, dict):
+                continue
+            pfade = bedingung.get("paths")
+            if isinstance(pfade, list):
+                bedingung["paths"] = [
+                    p for p in pfade if str(p) not in _GUARD_SKRIPTE.values()
+                ]
+
+    for job in (tree.get("jobs") or {}).values():
+        if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
+            continue
+        neu = []
+        for step in job["steps"]:
+            if not isinstance(step, dict):
+                neu.append(step)
+                continue
+            if _ist_guard_vorbereitung(step):
+                continue
+            marker = _guard_aus_uses(step) or _guard_aus_run(step)
+            neu.append(marker if marker is not None else step)
+        job["steps"] = neu
+    return tree
+
 
 def _eigenes_checkout_verzeichnis(tree: Any, repo: str) -> str | None:
     """`with.path` des Steps, der `repo` selbst auscheckt (oder None)."""
@@ -599,16 +712,52 @@ def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
         kanon_tree = yaml.safe_load(canonical)
     except yaml.YAMLError:
         return tagged == canonical
-    tag_norm = normalisiere_port(
-        tag_tree,
-        SHARED_CI_REPO,
-        _eigenes_checkout_verzeichnis(tag_tree, SHARED_CI_REPO),
+    return _kanon_normalform(tag_tree, SHARED_CI_REPO) == _kanon_normalform(
+        kanon_tree, f"{GITHUB_ORG}/platform"
     )
-    kanon_repo = f"{GITHUB_ORG}/platform"
-    kanon_norm = normalisiere_port(
-        kanon_tree, kanon_repo, _eigenes_checkout_verzeichnis(kanon_tree, kanon_repo)
+
+
+def _kanon_normalform(tree: Any, repo: str) -> Any:
+    """Beide Port-Mechaniken in einem Zug: Pfade und Waechter-Aufruf."""
+    return normalisiere_port(
+        _normalisiere_guards(tree), repo, _eigenes_checkout_verzeichnis(tree, repo)
     )
-    return tag_norm == kanon_norm
+
+
+def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
+    """(nur im Tag, nur im Kanon) — Zeilen der normalisierten Baeume.
+
+    Der Fix-Hinweis der Regel behauptete jahrelang eine Richtung ("platform nach
+    shared-ci portieren"), die nirgends gemessen wurde. Am 2026-08-17 lag
+    shared-ci in drei von fuenf Dateien VORNE; ein Port in Hinweis-Richtung
+    haette dort echte Fixes geloescht (Docker-Anmeldungs-Isolierung,
+    CF-Access-Kopfzeilen, ein Gate, ein 16 Monate neuerer Action-Pin).
+    Deshalb wird die Richtung jetzt genannt statt geraten.
+    """
+    import difflib
+
+    def zeilen(text: str, repo: str) -> list[str]:
+        return json.dumps(
+            _kanon_normalform(yaml.safe_load(text), repo),
+            indent=1,
+            sort_keys=True,
+            default=str,
+        ).splitlines()
+
+    try:
+        a = zeilen(canonical, f"{GITHUB_ORG}/platform")
+        b = zeilen(tagged, SHARED_CI_REPO)
+    except yaml.YAMLError:
+        return (0, 0)
+    diff = [
+        z
+        for z in difflib.unified_diff(a, b, n=0)
+        if z.startswith(("+", "-")) and not z.startswith(("+++", "---"))
+    ]
+    return (
+        sum(1 for z in diff if z[0] == "+"),
+        sum(1 for z in diff if z[0] == "-"),
+    )
 
 
 def parse_shared_ci_pins(content: str) -> list[tuple[str, str]]:
@@ -633,7 +782,7 @@ def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | N
         return None
     try:
         return base64.b64decode(data["content"]).decode(errors="replace")
-    except Exception:
+    except (ValueError, TypeError, binascii.Error):
         return None
 
 
@@ -646,6 +795,7 @@ def _shared_ci_state(token: str) -> dict:
     tags = [t.get("name", "") for t in tags_data if isinstance(t, dict)]
     latest = latest_shared_ci_tag(tags)
     stale_files: list[str] = []
+    richtungen: dict[str, tuple[int, int]] = {}
     if latest:
         listing = (
             _api_get(
@@ -672,7 +822,12 @@ def _shared_ci_state(token: str) -> dict:
             # und Messung siehe `shared_ci_deckt_kanon`.
             if tagged is not None and not shared_ci_deckt_kanon(tagged, canonical):
                 stale_files.append(name)
-    _SHARED_CI_STATE = {"latest_tag": latest, "stale_files": stale_files}
+                richtungen[name] = kanon_richtung(tagged, canonical)
+    _SHARED_CI_STATE = {
+        "latest_tag": latest,
+        "stale_files": stale_files,
+        "richtungen": richtungen,
+    }
     return _SHARED_CI_STATE
 
 
@@ -708,6 +863,25 @@ def check_shared_ci_tag_drift(
                 )
             )
         if pinned_file in stale_files:
+            nur_tag, nur_kanon = state.get("richtungen", {}).get(pinned_file, (0, 0))
+            if nur_tag > nur_kanon:
+                richtung = (
+                    f"shared-ci ist VORAUS ({nur_tag} zu {nur_kanon} Zeilen) — "
+                    "Kanon nachziehen, NICHT portieren"
+                )
+                hinweis = (
+                    "shared-ci hat den neueren Stand: dessen Aenderungen nach "
+                    "platform/.github/workflows uebernehmen"
+                )
+            elif nur_kanon > nur_tag:
+                richtung = (
+                    f"platform ist voraus ({nur_kanon} zu {nur_tag} Zeilen) — "
+                    "shared-ci nachziehen + neuen Tag schneiden"
+                )
+                hinweis = "platform .github/workflows nach shared-ci portieren + neuen Tag schneiden"
+            else:
+                richtung = "beide Seiten haben Eigenes — Datei fuer Datei entscheiden"
+                hinweis = "keine Seite ist Obermenge: zusammenfuehren, nicht portieren"
             drifts.append(
                 DriftItem(
                     rule="shared-ci-tag-stale",
@@ -715,9 +889,9 @@ def check_shared_ci_tag_drift(
                     file=f".github/workflows/{wf_file}",
                     message=(
                         f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
-                        "Tag ist stale, neuen Tag schneiden (🌀 Tag≠main)"
+                        f"{richtung} (🌀 Tag≠main)"
                     ),
-                    fix_hint="platform .github/workflows nach shared-ci portieren + neuen Tag schneiden",
+                    fix_hint=hinweis,
                 )
             )
     return drifts
@@ -810,10 +984,10 @@ def print_github_summary(drifts: list[RepoDrift]) -> None:
         f.write("## Platform Drift Check\n\n")
         f.write("| Repo | Status | Errors | Warnings |\n")
         f.write("|------|--------|--------|----------|\n")
-        for r in sorted(drifts, key=lambda x: -x.drift_score):
-            f.write(
-                f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
-            )
+        f.writelines(
+            f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
+            for r in sorted(drifts, key=lambda x: -x.drift_score)
+        )
 
 
 def print_json_output(drifts: list[RepoDrift]) -> None:
@@ -843,6 +1017,19 @@ def print_json_output(drifts: list[RepoDrift]) -> None:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoDrift]:
+    """Der eigentliche Durchlauf — ausgelagert, damit `main` ihn in die Sperre
+    einwickeln kann, ohne dass die Schleife selbst davon weiss."""
+    results: list[RepoDrift] = []
+    for repo, props in targets.items():
+        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
+        print(f"  {repo}...", end="", flush=True)
+        result = check_repo(repo, repo_type, token, iil_latest)
+        print(f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)")
+        results.append(result)
+    return results
 
 
 def main() -> int:
@@ -895,14 +1082,18 @@ def main() -> int:
         iil_latest = _load_iil_latest()
         print(f" {len(iil_latest)} Packages geladen")
 
-    results: list[RepoDrift] = []
-    for repo, props in targets.items():
-        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
-        print(f"  {repo}...", end="", flush=True)
-        result = check_repo(repo, repo_type, token, iil_latest)
-        icon = result.status_icon
-        print(f" {icon} ({len(result.errors)}E, {len(result.warnings)}W)")
-        results.append(result)
+    # Erst fragen, ob ueberhaupt gemessen werden KANN, dann messen. Ohne diese
+    # zwei Zeilen liefert ein gedrosselter Lauf 26x „Repo nicht gefunden" und
+    # damit eine Bilanz von null — der Lauf sieht am besten aus und hat nichts
+    # gemessen (platform#2735, Realfall 2026-09-02). Die Sperre nimmt dem Problem
+    # zusaetzlich die Ursache: drei gleichzeitige Flotten-Scans hatten es ausgeloest.
+    try:
+        with flotten_sperre("drift-check"):
+            probe()
+            results = _scanne(targets, token, iil_latest)
+    except DrosselFehler as exc:
+        print(f"\nExit 2: {exc}", file=sys.stderr)
+        return 2
 
     if args.format == "json":
         print_json_output(results)
@@ -910,6 +1101,31 @@ def main() -> int:
         print_report(results, args.severity, args.fix_hints)
 
     print_github_summary(results)
+
+    # Blind ist nicht gruen. Ein unerreichbares Repo liefert 0 Befunde -- sind ALLE
+    # unerreichbar, faellt die Bilanz auf null und der Lauf sieht aus wie der beste,
+    # obwohl gar nichts gemessen wurde. Realfall 2026-09-02: derselbe Stand ergab in
+    # Minuten 19, dann 10, dann 0 Errors; Ursache war das sekundaere GitHub-Ratenlimit
+    # (sechs Sitzungen an einem Token). Tueckisch dabei: `gh api rate_limit` meldete im
+    # selben Moment 5000 freie Aufrufe -- das PRIMAERlimit war unberuehrt.
+    unerreichbar = [r.repo for r in results if r.error]
+    if results and len(unerreichbar) == len(results):
+        print(
+            f"\nExit 2: kein einziges der {len(results)} Repos war erreichbar — "
+            "das ist ein Werkzeugfehler, KEIN drift-freier Stand. Haeufigste Ursache: "
+            "GitHub-Drosselung. Echte Probe statt `rate_limit`: "
+            "`gh api repos/<owner>/<einRepo>`.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if unerreichbar:
+        print(
+            f"\nHinweis: {len(unerreichbar)} von {len(results)} Repo(s) waren nicht "
+            f"erreichbar und sind damit UNGEMESSEN, nicht sauber: "
+            f"{', '.join(unerreichbar)}",
+            file=sys.stderr,
+        )
 
     if args.fail_on_error:
         total_errors = sum(len(r.errors) for r in results)

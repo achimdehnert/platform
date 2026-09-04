@@ -30,7 +30,21 @@ frozen_at: "2026-08-02"
 # (registry_declined + Report-Block). Reine Berichts-Ergaenzung, das Zaehlwerk
 # blieb unangetastet — der Baseline-Lauf mit der neuen Version liefert erneut
 # n=20, 10/7/3, Summen-Rate 1.000. sha 43c29ee8… → fcdb0489….
-tool_sha256: fcdb0489245cc0c41100a9ca715a996e015e2754a67cdecd0a8d085734366bc7
+# Neuberechnung 2026-08-20 (Instrumentenwechsel, platform#2163) — anders als die
+# beiden vorherigen: hier aenderte sich das ZAEHLWERK, nicht nur der Bericht.
+# `parse_frontmatter` las Listen-Keys ausschliesslich in der Inline-Form und verlor
+# jeden Slug in YAML-Block-Form STILL — 62 Vorkommen aus 11 von 84 Retros. Die
+# Baseline im Fenster 2026-07-19..2026-08-01 war damit zu NIEDRIG gemessen:
+#   vorher (defektes Instrument): 10 / 7 / 3, Summen-Rate 1.000
+#   nachher (repariert):          16 / 13 / 3, Summen-Rate 1.600
+# n = 20 unveraendert, Fenster unveraendert — die Differenz ist reine Messfehler-
+# Korrektur, keine Verschiebung des Ziels. sha fcdb0489… -> 5cf0109d….
+# Neuberechnung 2026-09-02 (Instrumentenwechsel, Wachstums-Sensor --nominierung,
+# KONZ-025 Art. 2.1): over_ask/over_act/over_*_klassen/repo_scope werden jetzt
+# geparst, neuer Berichtsblock. Das Zaehlwerk (recurring_findings) blieb
+# unangetastet — Baseline-Lauf mit der neuen Version erneut n=20, 16/13/3,
+# Summen-Rate 1.600 (reproduziert, nicht umdeklariert). sha 5cf0109d… -> d4fea9c6….
+tool_sha256: d4fea9c635936c65ec383062b09cc194b44060f84077d4501ab2283b137c86a6
 
 top3:
   - canonical: claim-before-cheapest-check

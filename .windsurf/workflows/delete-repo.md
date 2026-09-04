@@ -40,9 +40,9 @@ mode: write
 
 | Check | Kommando (Kern) | Blockierend? |
 |---|---|---|
-| Letzter Commit < 90 Tage | `gh api repositories/<id>/commits?per_page=1` → Datum | ⛔ ja |
+| Letzter **Nicht-Bot-**Commit < 90 Tage | `gh api repositories/<id>/commits?per_page=30` → erster Commit, dessen Autor **nicht** `dependabot[bot]`/`github-actions[bot]`/`iil-lotse` ist und der nicht nur `AGENT_HANDOVER*.md`/`NEXT.md` anfasst | ⛔ ja |
 | Offene PRs/Issues (nicht-Bot) | `gh api repositories/<id>/pulls?state=open` + issues | ⛔ ja |
-| Prod-Registrierung | grep in `platform/scripts/repo-registry.yaml`, `infra/ports.yaml`, `registry/canonical.yaml` | ⛔ ja (hart, kein Override im Skill) |
+| Prod-Registrierung | Treffer in `infra/ports.yaml` (`domain_prod`/Deploy-Ziel) oder ein aktiver Deploy-Workflow im Repo | ⛔ ja (hart, kein Override im Skill) |
 | Org-weite Referenzen | `gh search code "<owner>/<repo>" --json path,repository` (uses:, submodule, URLs) | ⛔ ja |
 | GHCR-Packages / Release-Assets | `gh api /orgs/<org>/packages?package_type=container` filter | ⚠️ Report |
 | Webhooks / Deployments / Environments | `gh api repositories/<id>/hooks` etc. | ⚠️ Report |
@@ -77,7 +77,7 @@ Bestätigung muss deshalb das Ziel benennen, nicht nur zustimmen.)
 2. Topic setzen: `scheduled-deletion-<YYYY-MM-DD+30d>` (30 Tage Cooling-off, Default).
 3. **Tombstone-Issue** in `platform` anlegen: Repo, ID, Backup-Pfad+SHAs, Frist-Datum,
    Lebenszeichen-Report, Label `repo-graveyard`.
-4. Registry-Cleanup als **separate Folge-PRs** vorschlagen (repo-registry.yaml,
+4. **Registry-Eintrag ist Pflicht-Folge-PR, kein Blocker:** Treffer in `registry/canonical.yaml`/`scripts/repo-registry.yaml` werden in Phase 1 nur **gemeldet** (jedes Repo der Flotte steht dort) und hier als separater Folge-PR abgearbeitet (`pypi_strategy`/Status, Views per `tools/registry-canonical.py flip`) — Registry-Cleanup als **separate Folge-PRs** vorschlagen (repo-registry.yaml,
    ports.yaml, catalog-info-Referenzen, Nginx) — nicht im selben Atemzug ausführen.
 
 ## Phase 5: DELETE — Human-Only, immer
@@ -113,6 +113,15 @@ im Ausführenden. Änderungen AM Skill (Gates lockern, Schwellwerte, Phase-5-Lin
 Fable/Opus-Arbeit + Review-Pflicht.
 
 ## Changelog
+
+- 2026-08-27: **Deadlock aufgelöst (platform#2364).** Phase 1 blockte hart auf jedem Treffer in
+  `registry/canonical.yaml` — dort steht jedes Repo der Flotte —, während Phase 4.4 den
+  Registry-Cleanup erst *nach* dem Archivieren verlangt: ein registriertes Bibliotheks-Repo
+  war strukturell nie archivierbar (Realfall riskfw, gaeb-toolkit, 2026-08-27). Prod-Registrierung
+  heißt jetzt `infra/ports.yaml`/Deploy-Ziel; der Registry-Eintrag ist Pflicht-Folge-PR. Zweitens
+  zählten Dependabot-/Handover-Commits als Lebenszeichen (riskfw: Handover-Merge 13.08.,
+  gaeb-toolkit: Dependabot 25.08.) — jetzt zählt der letzte Nicht-Bot-Commit. Phase 3
+  (wörtliche Doppel-Bestätigung) und Phase 5 (DELETE Human-Only) sind unverändert.
 
 - 2026-07-08: Initial (Fable-5-Design, Session ausschreibungs-hub). Materialisiert
   Variante (c) aus platform#1012, verschärft um archive-first + Cooling-off + Tombstone.

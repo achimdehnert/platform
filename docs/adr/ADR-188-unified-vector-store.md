@@ -1,7 +1,7 @@
 ---
 status: accepted
 decision_date: 2026-05-07
-amended: 2026-05-08
+amended: 2026-08-31
 deciders:
   - Achim Dehnert
 consulted:
@@ -28,6 +28,7 @@ implementation_evidence:
   - "Recall@1 German legal: 5/5 = 100% ✔️"
   - "Batch throughput: 57 chunks/sec at batch=50 ✔️"
   - "Single-text p50: 114ms (Budget 100ms, akzeptabel für UX) ✔️"
+  - "GX10-Nachmessung 2026-08-31 (NVIDIA GB10, aarch64, cuda:0): p50 9,0ms, 681,6 chunks/sec at batch=50, RAM 1239 MB, Recall@1 5/5 — derselbe Spike, derselbe benchmark.py"
   - "Container: embedder_e5_spike auf 88.198.191.108:9200"
   - "ADR-171 Schema: tenant_id UUID korrigiert (v1.2)"
   - "ADR-087: superseded_by_planned eingetragen"
@@ -150,6 +151,38 @@ Das **ADR-171-Schema** (`rag_collections` / `rag_documents` / `rag_chunks`) wird
 **Entscheidung:** `multilingual-e5-large` (1024 Dimensionen) als **Primärmodell**. OpenAI als **optionaler Fallback** nur für Collections ohne DSGVO-Restriktion (siehe E7).
 
 > **Wichtig:** E5-Modelle erfordern Prefix `"query: "` bei Search-Queries und `"passage: "` bei Ingest-Texten für optimale Retrieval-Qualität. Ohne Prefix: ~15% Recall-Verlust. Die rag-mcp API setzt diese Prefixes automatisch.
+
+#### E2-Nachtrag 2026-08-31: der Latenz-Vorbehalt ist eingelöst
+
+Die Tabelle oben führt die Latenz als den einen Nachteil des lokalen Modells
+(`⚠️ ~50ms/Chunk (CPU)`), und der Spike auf Hetzner-CPU bestätigte das mit
+**114 ms p50** — Budget knapp gerissen, damals als „für UX akzeptabel" abgehakt.
+
+Am 2026-08-31 lief **derselbe Spike, unverändert, mit derselben `benchmark.py`**
+auf dem GX10 (NVIDIA GB10, aarch64, `torch 2.13.0+cu130`, Modell auf `cuda:0`):
+
+| Messwert | Hetzner CPX (CPU) | GX10 (GB10) | Budget |
+|---|---|---|---|
+| Latenz p50 | 114 ms | **9,0 ms** | ≤ 100 ms |
+| Durchsatz (batch=50) | 57 chunks/s | **681,6 chunks/s** | — |
+| RAM | 2.019 MB | **1.239 MB** | ≤ 3.000 MB |
+| Recall@1 (deutsche Rechtstexte) | 5/5 | **5/5** | ≥ 80 % |
+
+**Was das an der Entscheidung ändert: nichts — es räumt ihren einzigen Einwand ab.**
+Die Latenz-Zeile der Tabelle vergleicht 50 ms lokal gegen ~10 ms API; auf dem GX10
+ist das lokale Modell mit 9,0 ms **schneller als der API-Wert** und die Daten bleiben
+im Haus.
+
+**Warum es ein Nachtrag und keine neue Entscheidung ist:** Modell und Dimensionen
+bleiben gleich (`multilingual-e5-large`, 1024). `rag_mcp/embedder.py` spricht den
+Dienst über `RAG_MCP_EMBEDDER_URL` an — ein Ortswechsel ist eine Umgebungsvariable,
+keine Neuberechnung des Vektorbestands.
+
+**Offen und ausdrücklich nicht mitentschieden:** ob der Dienst dorthin *umzieht*.
+Der GX10 ist Owner-Hardware außerhalb des Bürgerdaten-Perimeters
+(`platform:KONZ-platform-053` §4) — für Collections mit Sozial- oder Bürgerdaten
+kommt er nicht in Frage, gleich wie schnell er ist. Gemessen wurde ein Einzeldienst
+ohne Nebenlast.
 
 ### E3: Eine API — rag-mcp als Single Access Point
 

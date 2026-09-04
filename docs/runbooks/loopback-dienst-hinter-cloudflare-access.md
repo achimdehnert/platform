@@ -100,3 +100,53 @@ einmal die Port-Diagnose blind gemacht (platform#1538). `NoNewPrivileges` und
 Dienst selbst läuft weiter und ist über Loopback/SSH-Tunnel unverändert erreichbar.
 Das ist der schnellste Rückweg und braucht keinen API-Zugriff. Danach in Ruhe:
 DNS-Eintrag löschen, Access-Anwendung löschen, Tunnel löschen.
+
+## Variante: der Dienst läuft auf einer **anderen** Maschine (Gegenstelle)
+
+**Erstanwendung** `gpu.iil.pet` (ollama auf der GPU-Box, 2026-09-02, platform#2486
+Punkt 2).
+
+Der Normalfall oben setzt voraus, dass Dienst und Tunnel auf derselben Maschine
+liegen. Das trifft nicht zu, wenn der Dienst auf einem Gerät läuft, das selbst
+keinen Ingress haben soll oder darf — eine Box im Heimnetz, ein Knoten hinter
+wg0, ein Gerät, das nur auf Zuruf läuft. Dann läuft der Tunnel auf dem **Gateway**
+(prod) und zeigt über das private Netz auf den Dienst.
+
+```bash
+HOST=gpu.iil.pet PORT=11434 ORIGIN=10.99.0.2:11434 TUNNEL_NAME=gpu \
+  python3 tools/cf_access/tunnel_anlegen.py
+```
+
+`ORIGIN` ist seit diesem Lauf ein Parameter; ohne ihn bleibt es bei
+`127.0.0.1:PORT`. Die erzeugte Config wird auf das Gateway kopiert, dort mit dem
+Pfad der Zugangsdatei **dieser** Maschine, und als **System**-Unit betrieben —
+`systemctl --user` aus dem Skript passt nur für den lokalen Fall:
+
+```
+/root/.cloudflared/<name>.json    # Zugangsdatei, Modus 0600, nie ausgeben
+/root/.cloudflared/<name>.yml     # credentials-file zeigt auf DIESEN Pfad
+/etc/systemd/system/cloudflared-<name>.service
+```
+
+**Drei Dinge, die diese Variante anders macht:**
+
+1. **Der Schritt-3-Beweis bleibt gültig, der Schritt-4-Beweis nicht ganz.** Die
+   Abweisung (302) misst man wie immer von außen. Dass der *Ursprung* erreichbar
+   ist, misst man dagegen **auf dem Gateway** (`curl http://<origin>/`) — von
+   außen kommt man an Access nicht vorbei und sieht deshalb nie, ob dahinter
+   überhaupt jemand antwortet. Ein 502 nach erfolgreicher Anmeldung ist der
+   späte, teure Weg, das herauszufinden.
+2. **Ein schlafendes Gerät ist kein Ausfall.** Läuft die Maschine nur auf Zuruf,
+   braucht der Eintrag in `infra/ports.yaml` einen `betriebsstatus` mit Grund,
+   sonst meldet Phase `0.7.11 erreichbarkeit` den Namen in jeder Sitzung als tot.
+3. **Die Auflage des Ziel-Knotens gilt weiter.** Trägt er
+   `oeffentlicher_ingress: false`, ist der veröffentlichte Name eine
+   **Ausnahme** im Sinne von `docs/runbooks/neuer-knoten.md` und braucht `grund`,
+   `entschieden` und `bis` — auch dann, wenn der offene Port formal auf dem
+   Gateway liegt und nicht auf dem Gerät.
+
+**Was die Variante nicht leistet:** Sie schützt den Weg von außen, nicht den Weg
+innen. Wer im privaten Netz steht, erreicht den Dienst weiterhin direkt und ohne
+Anmeldung. Wenn auch das zugehen soll, gehört die Anmeldung an den Dienst selbst
+oder ein Proxy auf das Gerät — das ist eine andere Entscheidung mit anderen
+Kosten, und sie gehört benannt statt stillschweigend mitgemeint.

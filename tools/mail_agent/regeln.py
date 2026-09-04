@@ -428,8 +428,15 @@ def ruecknahme(pfad: Path, lauf_id: str) -> list[dict]:
             continue
         aus.append(
             {
+                # Nur ein Hinweis, kein Zugriffsschlüssel: sowohl die IMAP-UID
+                # als auch die Graph-messageId werden vom Umzug selbst
+                # entwertet (gemessen 2026-08-19: ID vorher …AAvAxr8eAAA=,
+                # danach …AAwtgyJyAAA=). Wer eine Nachricht zurückholen will,
+                # muss sie am Zielort neu auflösen — über Betreff und Datum.
                 "id": e.get("id"),
+                "konto": e.get("konto"),
                 "betreff": e.get("betreff", ""),
+                "datum": e.get("datum", ""),
                 "quellordner": e.get("zielordner", ""),
                 "zielordner": e.get("quellordner", ""),
                 "aktion": "verschieben",

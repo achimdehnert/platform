@@ -13,6 +13,7 @@ nur auf Maschinen mit ~/.claude/mail.env (Maschinen-Gate, kein Org-Default).
 from __future__ import annotations
 
 import argparse
+import base64
 import email
 import html
 import imaplib
@@ -153,7 +154,10 @@ def _eingebetteter_name(part: Message) -> str:
     """
     inner = part.get_payload(0) if part.is_multipart() else None
     betreff = decode_hdr(inner.get("Subject")) if inner is not None else ""
-    stamm = re.sub(r"[^\w\s.-]", "", betreff).strip()[:60].strip() or "eingebettete-nachricht"
+    stamm = (
+        re.sub(r"[^\w\s.-]", "", betreff).strip()[:60].strip()
+        or "eingebettete-nachricht"
+    )
     return re.sub(r"\s+", "-", stamm) + ".eml"
 
 
@@ -172,7 +176,9 @@ def attachment_names(msg: Message) -> list[str]:
     return namen + [_eingebetteter_name(p) for p in _rfc822_teile(msg)]
 
 
-def eingebettete_nachrichten(msg: Message, max_chars: int = 4000) -> list[tuple[dict[str, str], str]]:
+def eingebettete_nachrichten(
+    msg: Message, max_chars: int = 4000
+) -> list[tuple[dict[str, str], str]]:
     """Kopfzeilen und Text jeder eingebetteten `message/rfc822`-Nachricht.
 
     Damit eine Weiterleitung im `--fetch` nicht als dreizeiliger Begleittext
@@ -235,9 +241,60 @@ def matches_subject(msg: Message, needle: str | None) -> bool:
     return needle.lower() in decode_hdr(msg.get("Subject")).lower()
 
 
+#: Erkennt einen bereits nach modified UTF-7 kodierten Abschnitt (&…-).
+_IST_KODIERT = re.compile(r"&[A-Za-z0-9+,]*-")
+
+
+def ordner_imap(name: str) -> str:
+    """Klartext → IMAP modified UTF-7 (RFC 3501 §5.1.3): 'Entwürfe' → 'Entw&APw-rfe'.
+
+    Gegenrichtung zu `ordner_klartext`. Ohne diese Umkodierung reicht imaplib den
+    Namen als ASCII weiter und wirft `UnicodeEncodeError` — gemessen 2026-08-20:
+    `read_mail.py --folder "Entwürfe"` brach mit
+    `'ascii' codec can't encode character '\xfc'` ab, und der Ordner war nur
+    erreichbar, wenn man 'Entw&APw-rfe' von Hand eintippte.
+    Ein bereits kodierter Name geht unveraendert durch — Aufrufer, Skills und
+    Runbooks reichen teils die kodierte Form durch, und die darf nicht ein zweites
+    Mal escaped werden ('Entw&APw-rfe' bliebe sonst als 'Entw&-APw-rfe' liegen und
+    der Ordner waere nicht auffindbar).
+    """
+    if not name:
+        return name
+    if _IST_KODIERT.search(name) and name.isascii():
+        return name
+    if all(0x20 <= ord(z) <= 0x7E for z in name):
+        return name.replace("&", "&-")
+    aus: list[str] = []
+    puffer: list[str] = []
+
+    def _leeren() -> None:
+        if not puffer:
+            return
+        roh = "".join(puffer).encode("utf-16-be")
+        aus.append(
+            "&"
+            + base64.b64encode(roh).decode("ascii").rstrip("=").replace("/", ",")
+            + "-"
+        )
+        puffer.clear()
+
+    for z in name:
+        if 0x20 <= ord(z) <= 0x7E:
+            _leeren()
+            aus.append("&-" if z == "&" else z)
+        else:
+            puffer.append(z)
+    _leeren()
+    return "".join(aus)
+
+
 def _mailbox_arg(folder: str) -> str:
-    """Ordnernamen mit Leerzeichen für IMAP quoten (z.B. 'Gesendete Objekte').
-    imaplib quotet nicht selbst — ein unquoted Name mit Space bricht SELECT."""
+    """Ordnernamen für IMAP aufbereiten: Umlaute kodieren, Leerzeichen quoten.
+
+    imaplib macht weder das eine noch das andere — ein unquoted Name mit Space
+    bricht SELECT, ein Name mit Umlaut bricht schon beim Kodieren.
+    """
+    folder = ordner_imap(folder)
     if " " in folder and not (folder.startswith('"') and folder.endswith('"')):
         return '"%s"' % folder
     return folder

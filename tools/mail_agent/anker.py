@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import email
+import email.utils
 import imaplib
 import json
 import re
@@ -38,14 +39,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from read_mail import (  # noqa: E402
+from read_mail import (
     _mailbox_arg,
     _resolve_config,
     alle_ordner,
     connect,
     decode_hdr,
 )
-from send_mail import parse_env  # noqa: E402
+from send_mail import parse_env
 
 #: Ankerspeicher. Schwester von ~/.claude/mail-action-board.md.
 ANKER_DATEI = Path.home() / ".claude" / "mail-anker.json"
@@ -55,7 +56,7 @@ VERSCHOBEN = "verschoben"
 GELOESCHT = "geloescht"
 UNPRUEFBAR = "unpruefbar"
 
-_MSGID = re.compile(rb"Message-ID:\s*(<[^>]+>)", re.I)
+_MSGID = re.compile(rb"Message-ID:\s*(<[^>]+>)", re.IGNORECASE)
 
 
 @dataclass
@@ -68,9 +69,15 @@ class Anker:
     uid: str
     message_id: str
     betreff: str = ""
+    #: Datum der Mail (ISO, ``YYYY-MM-DD``) — leer bei Ankern aus der Zeit vor
+    #: 2026-09-03. Es unterscheidet zwei Mails, die denselben Betreff tragen:
+    #: ein weitergeleiteter Strang heisst in jeder Weiterleitung gleich, und im
+    #: Verlauf standen dann zwei Links, die niemand auseinanderhalten konnte,
+    #: ohne beide zu oeffnen (Owner-Befund 2026-09-03 an Vorgang 160).
+    datum: str = ""
 
     @classmethod
-    def aus_dict(cls, daten: dict) -> "Anker":
+    def aus_dict(cls, daten: dict) -> Anker:
         erlaubt = {f for f in cls.__dataclass_fields__}
         return cls(**{k: v for k, v in daten.items() if k in erlaubt})
 
@@ -130,6 +137,25 @@ def betreff_von_uid(imap: imaplib.IMAP4_SSL, uid: str) -> str:
         return ""
     roh = b"".join(teil[1] for teil in data if isinstance(teil, tuple))
     return decode_hdr(email.message_from_bytes(roh).get("Subject")) or ""
+
+
+def datum_von_uid(imap: imaplib.IMAP4_SSL, uid: str) -> str:
+    """UID → Datum der Mail als ISO-Tag. '' wenn der Kopf keins traegt.
+
+    Nur der Tag, nicht die Uhrzeit: er soll zwei gleichbetreffte Mails im
+    Verlauf unterscheidbar machen, nicht die Zustellung protokollieren.
+    """
+    typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (DATE)])")
+    if typ != "OK" or not data or data[0] is None:
+        return ""
+    roh = b"".join(teil[1] for teil in data if isinstance(teil, tuple))
+    kopf = email.message_from_bytes(roh).get("Date")
+    if not kopf:
+        return ""
+    try:
+        return email.utils.parsedate_to_datetime(kopf).date().isoformat()
+    except (TypeError, ValueError):
+        return ""
 
 
 def suche_message_id(
@@ -270,7 +296,25 @@ def cmd_pruefe(args: argparse.Namespace) -> None:
     for konto, liste in sorted(nach_konto.items()):
         try:
             imap = _verbinde(konto)
-        except Exception as fehler:
+        # Benannt statt blind: das sind die Arten, die wirklich "Konto
+        # unbenutzbar" heissen — Netz und TLS und Zeitueberschreitung als
+        # OSError, Login-Ablehnung als IMAP4.error, fehlender SMTP_HOST oder
+        # unbrauchbarer Port als KeyError/ValueError. Ein AttributeError ist
+        # dagegen ein Fehler im Code und soll auffliegen, statt sich als
+        # "nicht erreichbar" zu tarnen.
+        #
+        # SystemExit eigens: `load_credentials` beendet bei einem fehlenden
+        # Credential-Paar den PROZESS (sys.exit) statt zu werfen. SystemExit
+        # ist keine Exception — bis 2026-09-03 riss genau dieser gewoehnliche
+        # Fall den ganzen Lauf mit, samt der Arbeit aller anderen Konten.
+        # Wurzel (sys.exit in einer Bibliotheksfunktion) siehe platform#2752.
+        except (
+            OSError,
+            imaplib.IMAP4.error,
+            KeyError,
+            ValueError,
+            SystemExit,
+        ) as fehler:
             befunde += [
                 Befund(
                     a, UNPRUEFBAR, hinweis=f"Konto '{konto}' nicht erreichbar: {fehler}"

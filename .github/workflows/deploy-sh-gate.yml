@@ -17,6 +17,7 @@ on:
       - "tools/deploy-script-drift.sh"
       - "tests/test_deploy_migrate_gate.sh"
       - "tests/test_deploy_ghcr_isolation.sh"
+      - "tests/test_deploy_rollback_ziel.sh"
       - ".github/workflows/deploy-sh-gate.yml"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - "tools/deploy-script-drift.sh"
       - "tests/test_deploy_migrate_gate.sh"
       - "tests/test_deploy_ghcr_isolation.sh"
+      - "tests/test_deploy_rollback_ziel.sh"
       - ".github/workflows/deploy-sh-gate.yml"
 
 permissions:
@@ -34,7 +36,12 @@ jobs:
     name: Syntax + Migrations-Vertrag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Der Versionscheck unten braucht die Merge-Base zu base_ref; mit dem
+          # Standard (fetch-depth 1) meldet git 'no merge base' und der Check
+          # hielt jeden PR fuer eine deploy.sh-Aenderung (platform#2728, 2026-09-02).
+          fetch-depth: 0
 
       - name: Syntax (bash -n)
         run: |
@@ -42,6 +49,7 @@ jobs:
           bash -n tools/deploy-script-drift.sh
           bash -n tests/test_deploy_migrate_gate.sh
           bash -n tests/test_deploy_ghcr_isolation.sh
+          bash -n tests/test_deploy_rollback_ziel.sh
 
       - name: ShellCheck
         run: |
@@ -58,7 +66,9 @@ jobs:
         run: |
           set -euo pipefail
           git fetch -q origin "${{ github.base_ref }}"
-          if ! git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- scripts/deploy.sh; then
+          # merge-base explizit: ein Fehler hier ist ein Fehler, keine "Aenderung".
+          base=$(git merge-base "origin/${{ github.base_ref }}" HEAD)
+          if ! git diff --quiet "$base" HEAD -- scripts/deploy.sh; then
             alt=$(git show "origin/${{ github.base_ref }}:scripts/deploy.sh" | grep -m1 '^DEPLOY_SH_VERSION=')
             neu=$(grep -m1 '^DEPLOY_SH_VERSION=' scripts/deploy.sh)
             if [ "$alt" = "$neu" ]; then
@@ -79,3 +89,10 @@ jobs:
       # ~/.docker/config.json schreibt, sieht im Log identisch aus.
       - name: Vertragstest GHCR-Credential-Isolation
         run: bash tests/test_deploy_ghcr_isolation.sh
+
+      # writing-hub#982 / platform#2685: das Rollback hing an einer Zusage
+      # (.env) statt an der Wirklichkeit (laufender Container) und scheiterte
+      # deshalb an derselben Registry wie der Deploy davor. Auch das ist am
+      # Deploy-Log nicht zu sehen — der Deploy war rot, kaputt war der Notausgang.
+      - name: Vertragstest Rollback-Ziel + Registry-Wiederholung
+        run: bash tests/test_deploy_rollback_ziel.sh

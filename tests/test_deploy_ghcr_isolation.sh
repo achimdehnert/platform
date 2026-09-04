@@ -25,7 +25,17 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 BLOCK="$TMP/block.sh"
-sed -n '/^# CREDENTIAL-ISOLATION/,/^fi$/p' "$SRC" > "$BLOCK"
+# Die Anmeldung läuft seit 2026-09-02 über `_mit_wiederholung` (platform#2685) —
+# ein transienter Registry-Aussetzer soll den Deploy nicht mehr kosten. Der Helfer
+# steht im Skript VOR diesem Block und wäre isoliert nicht definiert; ohne ihn
+# liefe der Login hier ins Leere und der Test wäre grün, weil gar nichts passiert.
+# Deshalb wird er mit extrahiert — nicht nachgebaut.
+sed -n '/^: "\${DEPLOY_REGISTRY_RETRIES/,/^}$/p' "$SRC" > "$BLOCK"
+if ! grep -q '_mit_wiederholung()' "$BLOCK"; then
+  echo "FAIL: Wiederholungs-Helfer nicht aus $SRC extrahierbar — Marker geändert?" >&2
+  exit 1
+fi
+sed -n '/^# CREDENTIAL-ISOLATION/,/^fi$/p' "$SRC" >> "$BLOCK"
 
 if [[ ! -s "$BLOCK" ]]; then
   echo "FAIL: Isolations-Block nicht aus $SRC extrahierbar — Marker geändert?" >&2

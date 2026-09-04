@@ -52,6 +52,9 @@ REF_RE = re.compile(
 #: 2026-08-10 **geschlossenen** #1845" als Diskrepanz — und ein Melder, der bei jedem
 #: Sitzungsstart Bekanntes meldet, wird nach drei Tagen überlesen. Genau daran sind die
 #: zwei Cron-Melder aus #1953 gestorben.
+# `|---|---|` bzw. `|:--|--:|` — Trennzeile einer Markdown-Tabelle, nie ein Item.
+TABELLEN_TRENNER_RE = re.compile(r"^\|[\s:|-]+\|?$")
+
 SETTLED_RE = re.compile(
     r"(geschlossen|gemergt|gemerged|erledigt|abgeschlossen|behoben|✅|closed|merged)",
     re.I,
@@ -107,9 +110,24 @@ def prio_items(section: list[str]) -> list[tuple[int, str]]:
     """
     items: list[tuple[int, str]] = []
     started = False
+    tabelle_kopf_gesehen = False
     for offset, line in enumerate(section):
         stripped = line.strip()
         if re.match(r"^\d+\.\s", stripped):
+            started = True
+            items.append((offset, line))
+            continue
+        # Tabellenform: `| 0 | Task ... |`. Bis 2026-08-23 unsichtbar — der Parser
+        # kannte nur nummerierte Listen, und `iil-klickdummy` fuehrt seine Prios als
+        # Tabelle. Der Check meldete `keine_prio_items`, der Runner verbuchte das als
+        # PASS, und eine seit 19 Tagen erledigte Prio stand weiter als offen da.
+        # Kopfzeile und Trennzeile sind keine Items; alles danach schon.
+        if stripped.startswith("|"):
+            if TABELLEN_TRENNER_RE.match(stripped):
+                continue
+            if not tabelle_kopf_gesehen:
+                tabelle_kopf_gesehen = True
+                continue
             started = True
             items.append((offset, line))
             continue

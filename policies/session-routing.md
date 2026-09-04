@@ -111,6 +111,25 @@ The pattern:
 - The label is a **recommendation to the consumer**, not self-routing — see the
   section above on who can switch.
 
+## Aufgabenklasse → Tier (maschinenlesbar, #2750 K2)
+
+Gilt in jeder Fable-Session ohne Zuruf: vor jeder Aufgabe ab Klasse „Umsetzung"
+einen ausführungsreifen Brief schreiben (Dateien, exakte Änderung, Testplan,
+Fallen) und mit **explizitem** `model:` delegieren. Ohne `model:` erbt der
+Subagent das Hauptmodell; ein Fork erbt es immer. Die Prüfung des Ergebnisses
+bleibt inline. Untergrenze: Trivial wird nie delegiert (delegieren kostet mehr
+als tun).
+
+<!-- routing-table:start -->
+| Klasse | Kennzeichen | Beispiel | Tier | model |
+|---|---|---|---|---|
+| Trivial | ≤ 2 Dateien, ≤ 20 Zeilen, Muster bekannt | Tippfehler, Konstante, Einzeiler-Fix | inline | – |
+| Mechanisch | Suchen, Zählen, Umbenennen, Formatieren; kein Urteil | Inventar per grep, Lint-Fixes, Dateiliste | T2 | haiku |
+| Umsetzung | abgegrenzt, Brief mit Dateien + Testplan möglich | neues Tool + Tests, Hook, Migration, Fixture | T3 | sonnet |
+| Schwer | mehrere Module, Design-Review, Orchestrierung | Refactor über 5+ Dateien, Multi-Agent-Lauf | T4 | opus |
+| Urteil | Synthese über Repos/ADRs, Reversibilität, Zielzustand | ADR-Entwurf, Scope-Entscheid, Review des Subagenten-Ergebnisses | T5 | inline |
+<!-- routing-table:end -->
+
 ## What the assistant should do
 
 When the assistant notices a session running on a tier above the queued work
@@ -164,3 +183,5 @@ Do not nag.
   as regular Opus — on Opus 5 it bills at 10 → 50, i.e. T5 pricing for a T4
   model. Prose switched from "Tier-3"/"Tier-4" to T3/T4; the 2026-05 spend
   table keeps its historical `claude-opus-4-7` rows unchanged.
+- 2026-09-03: Aufgabenklasse→Tier-Tabelle (maschinenlesbar) + SessionStart-Hook
+  `fable_delegation_reminder.sh` (#2750 K2/K3).

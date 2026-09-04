@@ -10,6 +10,19 @@ addopts = [
 ]
 markers = [
     "megatest: Platform-weiter Hardcoding-Megatest",
+    # ADR-058-Taxonomie. `--strict-markers` steht oben in addopts, also ist ein
+    # angewandter, hier nicht deklarierter Marker ein Collection-FEHLER, kein
+    # Hinweis. Lokal fiel das nicht auf: das Plugin `iil-testkit` kennt die
+    # Taxonomie und registriert sie mit; die CI installiert nur
+    # `pytest pyyaml pydantic` und kennt sie nicht (tools-tests.yml). Genau diese
+    # Luecke liess einen Test, den das Plugin selbst ANMAHNT, lokal gruen und in
+    # der CI rot durchfallen (2026-09-02, platform#2207).
+    # Bewusst nur die drei angewandten Marker — die Taxonomie kennt mehr
+    # (F4/F5/M/S/T); jeder weitere wird hier deklariert, wenn er zum ersten Mal
+    # wirklich benutzt wird, statt eine Liste auf Vorrat zu pflegen.
+    "f1: ADR-058 F1 — Unit Test: eine Funktion, ein Ergebnis",
+    "f2: ADR-058 F2 — Parametrized Test: gleiche Funktion, viele Eingaben",
+    "f3: ADR-058 F3 — Exception Test: Fehlertyp und Meldung",
 ]
 # tools/tests/ ist die CI-Suite (tools-tests.yml); tests/ enthält megatest + Altbestand.
 # Ohne beide Pfade sähe nacktes `pytest` nur 5 von 40 Testdateien (Blindfleck, repo-optimize L-4).
@@ -23,6 +36,13 @@ testpaths = ["tests", "tools/tests"]
 extend-exclude = ["_ARCHIVED"]
 
 [tool.ruff.lint.per-file-ignores]
+# Versions-Divergenz, nicht Lint-Schuld (2026-09-03): tools-tests.yml pinnt
+# `ruff==0.15.4`, requirements-dev.txt fuehrt `ruff==0.16.5`. Unter 0.15.4 ist E402
+# im Default-Satz, unter 0.16.5 nicht mehr — dasselbe `# noqa: E402` ist also in CI
+# noetig und lokal "unused" (RUF100). Die Hook-Tests brauchen den spaeten Import
+# (sys.path-Eingriff auf das Hook-Verzeichnis, 8 Dateien). Die Ausnahme faellt weg,
+# sobald der CI-Pin nachzieht — die eigentliche Aufgabe.
+"tools/claude-hooks/tests/*.py" = ["RUF100"]
 # X-9 (repo-optimize 2026-07-03): tools-tests.yml führt jetzt `ruff check tools/ scripts/`
 # als Gate. Diese vier Dateien tragen historische Lint-Schuld, die NICHT trivial (also
 # ohne Verhaltensänderung) fixbar ist — Drive-by-Reformatierung an unbezogenem Code wäre

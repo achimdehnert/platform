@@ -148,8 +148,13 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
 
 1. `python3 tools/pypi_fleet_inventory.py` laufen lassen (regeneriert Ground
    Truth; `--offline` ohne Netz). Diff gegen eingecheckten Stand lesen.
+   Seit 2026-09-02: `GH_TOKEN=… python3 tools/pypi_fleet_report.py --earlywarn <json>
+   --coldstart <dir> --out docs/verifications/<datum>-adr266-k2-befund.md` liefert den
+   Befund je Paket mit Beleg je Zelle (Muster: `2026-09-02-adr266-k2-befund.md`).
+   Programm-Anker ist [#2591](https://github.com/achimdehnert/platform/issues/2591)
+   (Zielzustand K1–K5, SA-4), darüber [#2075](https://github.com/achimdehnert/platform/issues/2075).
 2. Offene Owner-Aktionen (nur Mensch kann sie tun):
-   - **PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).
+   - ~~**PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).~~ **Entfallen 2026-08-25:** die PyPI-Org wird bewusst nicht in Betrieb genommen (ADR-255 Rev 5, platform#2291); an ihre Stelle tritt die Härtung des Kontos `iildehnert` (Recovery-Codes im Vault, Firmenadresse).
    - **Trusted-Publisher-Bindings auf pypi.org anlegen/prüfen** für alle 7
      Nicht-pur-OIDC-Repos: iil-codeguard, iil-django-commons, iil-ingest
      (pur Token) + aifw, learnfw, promptfw, weltenfw (hybrid; aifw/learnfw
@@ -167,6 +172,138 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
    globt darauf).
 4. Offender-Issues (K2-Backlog, Stand 2026-06-30): iil-adrfw#14, iil-codeguard#3,
    iil-ingest#3, nl2cad#24, iil-enrichment (Meter-Fund).
+
+## Amendment 2026-08-19 — Vier-Org-Vollerhebung + Strategie-Klassifikation ([#2075](https://github.com/achimdehnert/platform/issues/2075) Kriterium 1)
+
+### Vollerhebungs-Nachweis (kein Sampling, kein Search-Index)
+
+Alle Repos je Org paginiert enumeriert, je Repo `pyproject.toml` + `publish*.yml`
+gezielt gegen die GitHub-API geprüft (Contents-API, authoritativ):
+
+| Org | Repos gesamt | davon privat | Treffer pyproject/publish | davon PyPI-Fleet-relevant |
+|---|---|---|---|---|
+| `achimdehnert` | 58 | 29 | 46 | 20 (Registry) + gpufw, iil-demo-fixture |
+| `iilgmbh` | 15 | 14 | 9 | iil-fieldprefill, iil-klickdummy, illustration-fw (Registry) + django-lms-lite, iil-doc-templates |
+| `ttz-lif` | 1 | 1 | 1 (ttz-hub, App) | 0 |
+| `meiki-lra` | 3 | 3 | 2 (Apps) | 0 |
+
+Messfehler in der Erhebung selbst gefunden und korrigiert: `/users/<login>/repos`
+liefert nur **öffentliche** Repos (35 statt 58) — für das eigene Konto ist
+`/user/repos?affiliation=owner` nötig. Erst damit ist die Erhebung eine Vollerhebung.
+
+### Registry-Lücken (in diesem PR geschlossen → Fleet 20 → 23 Pakete)
+
+| Paket (dist) | Repo | Beleg publiziert | Consumer-Evidenz |
+|---|---|---|---|
+| `iil-gpufw` | iilgmbh/gpufw (Transfer 2026-08-19, s.u.) | PyPI v0.1.1, Upload 2026-08-16, Author iil.gmbh | writing-hub `requirements.txt` |
+| `iil-django-lms-lite` | iilgmbh/django-lms-lite | PyPI v0.1.1, Upload 2026-07-27 | coach-hub `requirements.txt` |
+| `iil-doc-templates` | iilgmbh/iil-doc-templates | PyPI v0.3.1, Upload 2026-07-08 | risk-hub `pyproject.toml` |
+
+Damit ist der Handover-Entscheid „django-lms-lite publizieren oder `pypi:`-Feld
+entfernen" durch die Realität entschieden: es **ist** publiziert und konsumiert.
+
+### Befunde ohne Registry-Änderung (Folge-Issues, je verlinkt)
+
+- **ifc-mcp:** PyPI-Name `ifc-mcp` gehört einem Dritten (Author „Imants",
+  github.com/imants/ifc-mcp) — Namenskollision; unter diesem Namen nie publizieren.
+  (Kein Folge-Issue: reine Dokumentation, keine aufgeschobene Arbeit.)
+- **nl2cad ist eine 6-Dist-Familie** (`iil-nl2cadfw`-Umbrella + `nl2cad-core/
+  -areas/-brandschutz/-gaeb/-nlp`); Registry und Inventar-Tool zählen 1 Zeile
+  pro Repo, nicht pro Dist. risk-hub/cad-hub konsumieren `nl2cad-core` von PyPI.
+  → [platform#2076](https://github.com/achimdehnert/platform/issues/2076)
+- **shared-ci stale:** `install-iil-packages/action.yml` behauptet „iil-fieldprefill
+  not on PyPI" — falsch (auf PyPI, 3 372 Downloads/30d) und installiert per Git+PAT.
+  → [shared-ci#1](https://github.com/achimdehnert/shared-ci/issues/1)
+- **dms-hub vendored `iil-ingest`** (`vendor/iil-ingest/`) statt PyPI-Bezug.
+  → [dms-hub#64](https://github.com/achimdehnert/dms-hub/issues/64)
+- **riskfw doppelt:** risk-hub trägt eine eingebettete Kopie (`src/riskfw/`) und
+  importiert sie; das PyPI-Paket (letzter Upload 2026-03-03) ist umgangen —
+  Doppel-Pflege-Risiko, Konsolidierungsentscheid nötig.
+  → [risk-hub#618](https://github.com/iilgmbh/risk-hub/issues/618)
+- **iil-demo-fixture publish.yml-Rückbau** (Klasse einfrieren, s. Tabelle).
+  → [iil-demo-fixture#4](https://github.com/achimdehnert/iil-demo-fixture/issues/4)
+
+### Strategie-Klassifikation (Stand 2026-08-19)
+
+Downloads = pypistats 30 Tage, enthalten Mirror-Rauschen — nur **relativ** lesen.
+Consumer-Evidenz = Grep über die lokale Fleet (Hinweis, kein Beweis). Klassen:
+**aktiv** = Invest-Ziel für #2075 K2–K4; **einfrieren** = kein Invest, kein
+Publish, Repo bleibt; **archivieren-Kandidat** = Owner-Entscheid, nur Vorschlag.
+
+| Paket | letzter Upload | dl/30d | Consumer | Klasse |
+|---|---|---|---|---|
+| aifw | 2026-08-12 | 4 969 | breit (aifw-Ökosystem) | aktiv |
+| promptfw | 2026-07-19 | 4 640 | writing-hub u.a. | aktiv |
+| authoringfw | 2026-07-31 | 4 559 | writing-hub | aktiv |
+| weltenfw | 2026-08-14 | 4 475 | weltenhub | aktiv |
+| iil-testkit | 2026-05-14 | 3 517 | Test-Fleet | aktiv |
+| iil-fieldprefill | 2026-04-08 | 3 372 | writing-hub, risk-hub, shared-ci | aktiv |
+| iil-reflex | 2026-07-27 | 2 490 | — (jung) | aktiv |
+| iil-adrfw | 2026-08-06 | 1 685 | platform-Tooling | aktiv |
+| iil-klickdummy | 2026-08-02 | 1 018 | KD-Fleet (ADR-211) | aktiv |
+| illustration-fw | 2026-08-04 | 653 | illustration-hub | aktiv |
+| iil-codeguard | 2026-05-10 | 497 | dev-hub, risk-hub, shared-ci | aktiv |
+| iil-ingest | 2026-05-05 | 405 | dms-hub (vendored), ausschreibungs-hub | aktiv |
+| iil-gpufw | 2026-08-16 | 236 | writing-hub | aktiv (NEU) |
+| iil-django-lms-lite | 2026-07-27 | 200 | coach-hub | aktiv (NEU) |
+| learnfw | 2026-04-29 | 177 | coach-hub, onboarding-hub | aktiv |
+| iil-doc-templates | 2026-07-08 | 149 | risk-hub | aktiv (NEU) |
+| outlinefw | 2026-07-19 | 80 | writing-hub (git-Pin) | aktiv |
+| researchfw | 2026-04-17 | 61 | writing-hub (git-Pin) | aktiv |
+| nl2cad-Familie | 2026-06-14 | 21+ | risk-hub, cad-hub | aktiv (Sonderweg uv-Monorepo, ≠ `_ci-pypi`) |
+| iil-django-commons | 2026-03-24 | 35 | keine gefunden | einfrieren |
+| iil-enrichment | nie publiziert | — | keine gefunden | einfrieren |
+| iil-demo-fixture | nie publiziert | — | nur platform-Governance-Refs, kein pip-Consumer | einfrieren (publish.yml zurückbauen) |
+| riskfw | 2026-03-03 | 19 | keine (risk-hub nutzt eigene Kopie) | archivieren-Kandidat |
+| gaeb-toolkit | nie publiziert | — | Funktion lebt in nl2cad-gaeb | archivieren-Kandidat |
+
+Konsequenz für #2075: K2–K4 (Cold-Start, Kontextdateien, Readiness-Score)
+laufen **nur** über die 19 aktiv-Pakete. Archivierung selbst bleibt Owner-Gate
+(Out of Scope #2075); dieses Amendment ist der Klassifikations-Beschluss,
+wirksam mit Merge dieses PRs (Required-Owner-Review = Freigabe).
+
+### Heimat-Regel (Owner-Weisung 2026-08-19, Kapitäns-Kanal)
+
+**„iilgmbh ist die Heimat unserer Pakete"** — als **Zielbild**, nicht als
+Sofort-Fanout: Die Umsetzung je Paket läuft weiter über die ADR-255-Migrationsbahn
+(`registry/iil-migration.yaml`), weil bestehende Trusted-Publisher-Bindings an
+`achimdehnert/<repo>` gebunden sind und ein Transfer ohne Binding-Umzugsplan den
+Publish-Pfad bricht. Erstvollzug: **gpufw** am 2026-08-19 nach `iilgmbh/gpufw`
+transferiert (einziger Fall ohne bestehendes Binding — nichts zu brechen;
+org-weite Code-Search: 1 Doku-Treffer, kein Install-Pfad). Durchsetzungs-Gate:
+der K3-Health-Lauf (#2075) meldet künftig `org != iilgmbh` je aktivem Paket als
+Advisory-Metrik „Heimat-Drift".
+
+## Amendment 2026-09-02 — Fortführung über [#2591](https://github.com/achimdehnert/platform/issues/2591) (K1–K3)
+
+Zielzustand-Issue (Owner-Go 2026-09-01), Anker #2075. Stand nach zwei Tagen:
+
+- **K1 Reproduzierbarkeit ✅** ([#2593](https://github.com/achimdehnert/platform/pull/2593)):
+  Inventar zweimal identisch bis auf Zeitstempel und live gelieferte pypistats-Werte.
+  Befund: pypistats.org antwortet für 20–22/23 Pakete HTTP 429 (auch mit Pause und
+  eigenem User-Agent); das Inventar schluckte das still und hätte 16 `downloads_30d`
+  gelöscht. Jetzt: 429 sichtbar im Report, Vorwert mit `downloads_30d_stale_from`.
+  Zweitbefund: lokaler Scan und `--remote` liefern verschiedene Paketmengen (testkit
+  nur lokal, 24 vs 23); `--remote` ist der CI-Kanon.
+- **K2 Befund je Paket ✅** ([#2602](https://github.com/achimdehnert/platform/pull/2602)):
+  `tools/pypi_fleet_report.py` + `docs/verifications/2026-09-02-adr266-k2-befund.md`.
+  Cold-Start in leerem venv 13/23; 9 Fehlschläge eine Klasse (`make test` ruft
+  `$(PYTHON)=python3` statt `.venv`), die 19/19 vom 2026-08-19 waren in einer Shell mit
+  System-pytest gemessen. 3 Repos publizieren ohne Git-Tag (learnfw, outlinefw,
+  researchfw). Provenance 14 attested / 7 unattested / 2 nicht auf PyPI.
+- **K3 Wirkung 🟡** (Owner-Wort 2026-09-02 „Welle venv-first go, M4 schärfen"):
+  venv-first in 9 Repos gemergt, Cold-Start danach 9/9 grün (Flotte 22/23; Rest
+  gaeb-toolkit, eingefroren). **M4-Semantik geschärft** ([#2607](https://github.com/achimdehnert/platform/pull/2607)):
+  `reusable_lag` nur, wenn die gepinnte shared-ci-Datei samt lokaler Reusable-Aufrufe
+  zwischen Ref und neuestem Tag differiert; identisch → `lag_nominal` als Info, nicht
+  gezählt, nicht emittiert (`_ci-pypi.yml` ist v1.1.11 = v1.1.14). Lokal 43 → 19
+  Findings. Erzwungener CI-Dry-Run: 21, davon 6 × `ORG NICHT AUFLÖSBAR` — der
+  `GITHUB_TOKEN` des Wochenlaufs sieht 6 Paket-Repos nicht ([#2610](https://github.com/achimdehnert/platform/issues/2610)).
+  Vorher-Zahl: Wochenlauf 33366432594 (2026-08-31) = 45. Nachher-Zahl: Montagslauf
+  2026-09-07. Beleg: `docs/verifications/2026-09-02-adr266-k3-venv-first-und-m4-nominal.md`.
+- **Offen (Owner):** Lese-Token für den Wochenlauf (#2610), M2-Floor `>=3.11`
+  (django-lms-lite, iil-klickdummy), K4-Releases gpufw 0.1.1 / iil-reflex 0.6.1, Tags
+  für die 3 tag-losen Repos, Bump-Welle erst bei realer `_ci-pypi.yml`-Änderung.
 
 ## Glossar
 
