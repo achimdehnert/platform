@@ -213,7 +213,9 @@ def test_should_accept_dockerfile_under_docker_root(monkeypatch):
 
 def test_should_accept_requirements_under_requirements_base(monkeypatch):
     """requirements/base.txt erfuellt die Regel — Layout von travel-beat (#2761)."""
-    drifts = _required_files_with({"requirements/base.txt": "django>=5.0\n"}, monkeypatch)
+    drifts = _required_files_with(
+        {"requirements/base.txt": "django>=5.0\n"}, monkeypatch
+    )
     assert not _findings_for(drifts, "requirements.txt")
 
 
@@ -265,7 +267,9 @@ def test_should_accept_requirements_next_to_compose_build_context(monkeypatch):
     assert not _findings_for(drifts, "requirements.txt")
 
 
-def test_should_still_flag_requirements_when_compose_context_has_none_either(monkeypatch):
+def test_should_still_flag_requirements_when_compose_context_has_none_either(
+    monkeypatch,
+):
     """Negativprobe: Compose-Kontext ohne requirements.txt UND ohne pyproject-Deps
     bleibt ein error."""
     drifts = _required_files_with(
@@ -285,9 +289,7 @@ def test_should_ignore_root_compose_context_for_requirements_satisfier(monkeypat
     """Root-Kontext (`.`) zaehlt nicht — dafuer gibt es bereits die Wurzel-
     Kandidaten und den pyproject-Satisfier; sonst wuerde jede Root-Compose
     versehentlich requirements.txt selbst als eigenen Kontext lesen."""
-    compose_root_context = (
-        "services:\n  web:\n    build:\n      context: .\n      dockerfile: Dockerfile\n"
-    )
+    compose_root_context = "services:\n  web:\n    build:\n      context: .\n      dockerfile: Dockerfile\n"
     drifts = _required_files_with(
         {
             "docker-compose.prod.yml": compose_root_context,
@@ -310,7 +312,9 @@ def test_should_ignore_root_compose_context_for_requirements_satisfier(monkeypat
 
 
 def _check_repo_mit_gemockten_subchecks(monkeypatch, repo_type, called):
-    monkeypatch.setattr(dc, "_api_get", lambda *a, **k: {"name": "x", "archived": False})
+    monkeypatch.setattr(
+        dc, "_api_get", lambda *a, **k: {"name": "x", "archived": False}
+    )
     monkeypatch.setattr(
         dc, "check_required_files", lambda *a, **k: called.append("required") or []
     )
@@ -521,8 +525,12 @@ def test_should_skip_repo_marked_archived_in_registry_without_any_api_call(monke
 
 def test_should_skip_repo_archived_on_github_but_not_in_registry(monkeypatch):
     """recruiting-hub: kein `archived:` in der Registry, aber GitHub sagt True."""
-    monkeypatch.setattr(dc, "_api_get", lambda *a, **k: {"name": "recruiting-hub", "archived": True})
-    result = dc.check_repo("recruiting-hub", "django", "tok", {}, registry_archived=False)
+    monkeypatch.setattr(
+        dc, "_api_get", lambda *a, **k: {"name": "recruiting-hub", "archived": True}
+    )
+    result = dc.check_repo(
+        "recruiting-hub", "django", "tok", {}, registry_archived=False
+    )
     assert result.archived
     assert not result.error
     assert result.drifts == []
@@ -530,7 +538,9 @@ def test_should_skip_repo_archived_on_github_but_not_in_registry(monkeypatch):
 
 def test_should_still_scan_repos_that_are_not_archived(monkeypatch):
     """Negativprobe: ein normales Repo bleibt vollstaendig gecheckt."""
-    monkeypatch.setattr(dc, "_api_get", lambda *a, **k: {"name": "x", "archived": False})
+    monkeypatch.setattr(
+        dc, "_api_get", lambda *a, **k: {"name": "x", "archived": False}
+    )
     for name in (
         "check_required_files",
         "check_file_contents",

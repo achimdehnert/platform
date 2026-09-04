@@ -1192,7 +1192,9 @@ def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoD
     results: list[RepoDrift] = []
     for repo, props in targets.items():
         repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
-        registry_archived = bool(props.get("archived")) if isinstance(props, dict) else False
+        registry_archived = (
+            bool(props.get("archived")) if isinstance(props, dict) else False
+        )
         print(f"  {repo}...", end="", flush=True)
         result = check_repo(repo, repo_type, token, iil_latest, registry_archived)
         if result.archived:
