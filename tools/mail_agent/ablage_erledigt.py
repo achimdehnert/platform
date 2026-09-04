@@ -1212,11 +1212,11 @@ def anwenden(
 
 #: Zustaende, bei denen der scharfe Lauf abbricht statt eine lebende UID zu toeten.
 #:
-#: ``nicht-gefunden`` steht bewusst NICHT dabei: die UID lag in keinem Suchordner,
-#: also auch nicht im Quellordner — sie ist schon tot, und dieser Lauf ist nicht
-#: ihre Ursache. ``mehrdeutig`` (UID in zwei Ordnern) und ``unpruefbar`` (Konto
-#: nicht erreichbar) heissen dagegen: wir WISSEN nicht, ob sie im Quellordner
-#: liegt. Nichts raten — abbrechen.
+#: ``nicht-gefunden`` gehoert absichtlich nicht dazu (Entscheidung, keine Restarbeit;
+#: #2799 K3): die UID lag in keinem Suchordner, also auch nicht im Quellordner —
+#: sie ist schon tot, und dieser Lauf ist nicht ihre Ursache. ``mehrdeutig`` (UID in
+#: zwei Ordnern) und ``unpruefbar`` (Konto nicht erreichbar) heissen dagegen: wir
+#: WISSEN nicht, ob sie im Quellordner liegt. Nichts raten — abbrechen.
 BLOCKIERENDE_ZUSTAENDE = ("mehrdeutig", "unpruefbar")
 
 
