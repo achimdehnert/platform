@@ -33,6 +33,8 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **0h Fremdabnahme (Fortsetzung 01Lob9, 2026-09-04):** Zug-A-Rest + 171 **erreicht** (51/56 selbst gezaehlt, Staffelung ≤ 2/h, Deploys success, Vorfall zurueckgesetzt, Tag = #76, Bypass mit Freigabe); Z7 teilweise — zwei Anker im #2787-Text falsch, korrigiert (bahn-hub#19, risk-hub#729). 0e: drei JA, hier nachgezogen (Faeden 31/36/39/40); Faden 38 = Parallelsitzung. Runner: E.1 coach-hub#70, E.5/E.6 Luecke.
 
+**Parallelsitzung e412c7f5 (Lotsen-Tagesbetrieb, 2026-09-04):** MEiKI-Angebotseinholung prodactive über HNU (Maier; Liefergegenstand = Konzept zur Entwicklung der App „Fristenmanagement", 5 PT, max 1.300 €/Tag; Konzept-PDF als Anhang raus) · Omnia Suite (EGovC) vs. Bürgerportal analysiert ([meiki-hub#237](https://github.com/meiki-lra/meiki-hub/pull/237)), fünf Prüffragen an LRA GZ vor Termin 11./14.09. · Ledger: 175 Hoffmann-Löschung komplett (risk-hub prod DR 2 → closed, ohne Mail; Lehre: RLS ohne `set_db_tenant` = 0 Zeilen), 156/168/124/177 gesendet bzw. zu, 185 Anhang 3 fehlt im Postfach (Schmalberger erbeten), 190 Fiverr-Gigs (6 Vorschläge, Owner recherchiert) · Schreibstil-Regel Angebotsanfrage ([#2811](https://github.com/achimdehnert/platform/pull/2811)) · draft_mail-Signatur-Bug ([#2830](https://github.com/achimdehnert/platform/pull/2830), Rest Faden 30) · Paperless: Tag Sozialversicherung als Keyword-Regel, 22 Dokumente nachgetaggt; Dok 2350 auf 2026, Duplikat 2353 gelöscht. 0d fremd: 8/8 erfüllt. Runner: E.1 coach-hub 33237648563 (fremd), E.6 13 Drift-Errors (vorbestehend), E.3 sucht `docs/AGENT_HANDOVER.md` — platform hat sie im Root (Runner-Lücke).
+
 ## Offene Fäden (über den Session-Stand hinaus)
 
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
@@ -68,6 +70,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
 28. Future-Readiness: K5-Bilanz aus v2.4-Neulauf (dev-hub#326), Deltas 27 Repos = Owner-Fragen: https://github.com/achimdehnert/platform/issues/2737
 29. Evidenz-Generator-Rest (Rate-Limit-Vorabcheck, visibility-Check); Werkzeuge #2767 gemergt, #2782 offen: https://github.com/achimdehnert/platform/issues/2736
+30. Mail-Signatur im HTML-Pfad von send_mail/graph_mail (draft_mail gefixt #2830; 3 HNU-Mails am 04.09. ohne Signatur): https://github.com/achimdehnert/platform/issues/2831
 30. shared-ci v1.1.15 gesetzt (#73 zu); 42 Konsumenten bumpen, writing-hub zuerst, Liste mit Versionen: https://github.com/iilgmbh/shared-ci/issues/77
 31. travel-beat: Gate #98 gemergt (App aus); staging-Runner-Unit `actions.runner.achimdehnert-travel-beat.travel-beat-staging-ci.service` (dev-desktop) braucht sudo-Start; #94 jetzt gefahrlos: https://github.com/achimdehnert/travel-beat/issues/95
 32. ADR-262 Frontmatter nach Welle 1 (7 Repos umgesetzt, Status not-started): https://github.com/achimdehnert/platform/issues/2770
