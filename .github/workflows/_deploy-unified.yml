@@ -411,6 +411,21 @@ jobs:
       #    deploy.sh reads this manifest as the CI Intent-Token (§2.20) and verifies
       #    the on-host sha256 matches before running `docker compose up` (§2.17).
       # 4. Atomic sync: copy compose to temp path, verify sha, rename atomically.
+        #
+        # Warum compose_files (platform#2586 K3, 2026-09-01): bisher wurde GENAU EINE
+        # Datei gesynct und im Manifest gefuehrt. deploy.sh nahm daneben nur einen
+        # weiteren, hart benannten Namen in die -f-Kette (docker-compose.override.yml,
+        # platform#1063). Jede andere Overlay-Datei blieb draussen — und
+        # `up --remove-orphans` LOESCHT deren Container.
+        #
+        # Realfall 2026-09-01 (mcp-hub): `mcp_hub_rag` wurde 34 Minuten nach seiner
+        # Erzeugung entfernt, ausgeloest vom selben Merge, der ihn gebaut hatte.
+        # `llm_gateway` und `mcp_hub_grafana` waren aus demselben Grund schon vorher
+        # verschwunden, ohne dass es jemandem auffiel.
+        #
+        # Das Manifest ist die DEKLARATION: deploy.sh baut seine -f-Kette daraus und
+        # nicht aus einem Glob am Host. Eine Host-Datei, die hier nicht steht, faehrt
+        # nicht mit (KONZ-015-Fehlerklasse: undeklarierte Host-Dateien).
       - name: Assert compose + write manifest + atomic sync (ADR-021 §2.17/§2.20)
         id: compose_sync
         run: |
@@ -427,6 +442,46 @@ jobs:
           echo "compose_sha=${COMPOSE_SHA}" >> "$GITHUB_OUTPUT"
           echo "✅ compose sha256: ${COMPOSE_SHA}"
 
+            # Prod-relevante compose-Dateien einsammeln. Ausgeschlossen sind
+            # Dateien anderer Umgebungen und die nackte docker-compose.yml — die
+            # ist neben einer prod.yml die Entwicklungs-Datei, genau wie deploy.sh
+            # sie liest.
+            # --- AUSWAHL-ANFANG (scripts/checks/compose_liste_check.sh fuehrt genau
+            #     diesen Block gegen Fixtures aus — er ist die einzige Quelle der
+            #     Auswahl. Eine Kopie im Test wuerde davon wegdriften und dann nichts
+            #     mehr ueber den echten Deploy belegen.)
+            COMPOSE_LISTE=()
+            for f in docker-compose*.yml docker-compose*.yaml; do
+              [ -f "$f" ] || continue
+              case "$f" in
+                # Andere Umgebungen beschreiben nicht den Prod-Stack.
+                *staging*|*dev*|*test*|*ci*|*local*|*example*) continue ;;
+              esac
+              COMPOSE_LISTE+=("$f")
+            done
+            # Die nackte Datei faellt nur weg, WENN es eine prod-Datei gibt — Repos ohne
+            # prod-Datei haben in ihr ihren einzigen Stack. Spiegelt die Basisdatei-Wahl
+            # in platform/scripts/deploy.sh.
+            if printf '%s\n' "${COMPOSE_LISTE[@]:-}" | grep -qx docker-compose.prod.yml; then
+              _GEFILTERT=()
+              for f in "${COMPOSE_LISTE[@]}"; do
+                case "$f" in docker-compose.yml|docker-compose.yaml) continue ;; esac
+                _GEFILTERT+=("$f")
+              done
+              COMPOSE_LISTE=("${_GEFILTERT[@]}")
+            fi
+            # --- AUSWAHL-ENDE
+            echo "  compose-Dateien: ${COMPOSE_LISTE[*]}"
+
+            COMPOSE_FILES_JSON=$(
+              for f in "${COMPOSE_LISTE[@]}"; do
+                printf '%s %s\n' "$f" "$(sha256sum "$f" | awk '{print $1}')"
+              done | python3 -c 'import json,sys; print(json.dumps(dict(z.split() for z in sys.stdin if z.strip())))'
+            )
+            echo "  compose_files: ${COMPOSE_FILES_JSON}"
+            # Fuer den scp-Schritt (remote runner): Kommaliste ohne Leerzeichen.
+            printf 'compose_list=%s\n' "$(IFS=,; echo "${COMPOSE_LISTE[*]}")" >> "$GITHUB_OUTPUT"
+
           # write intent manifest (§2.20)
           cat > .deploy-manifest.json <<JSON
           {
@@ -434,24 +489,29 @@ jobs:
             "commit":      "${{ github.sha }}",
             "run_id":      "${{ github.run_id }}",
             "compose_sha": "${COMPOSE_SHA}",
+              "compose_files": ${COMPOSE_FILES_JSON},
             "written_at":  "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           JSON
 
           # atomic sync — self-hosted runner runs ON the prod server
           if [ "${{ inputs.runs_on }}" != "ubuntu-latest" ]; then
-            TMP="${{ inputs.app_path }}/docker-compose.prod.yml.tmp$$"
-            cp docker-compose.prod.yml "$TMP"
-            # verify copy is intact before rename
-            COPY_SHA=$(sha256sum "$TMP" | awk '{print $1}')
-            if [ "$COPY_SHA" != "$COMPOSE_SHA" ]; then
-              rm -f "$TMP"
-              echo "::error::sha256 mismatch after copy (corrupt transfer)"
-              exit 1
-            fi
-            mv -f "$TMP" "${{ inputs.app_path }}/docker-compose.prod.yml"
-            cp .deploy-manifest.json "${{ inputs.app_path }}/.deploy-manifest.json"
-            echo "✅ atomic sync complete (self-hosted)"
+              for f in "${COMPOSE_LISTE[@]}"; do
+                QUELL_SHA=$(sha256sum "$f" | awk '{print $1}')
+                TMP="${{ inputs.app_path }}/$f.tmp$$"
+                cp "$f" "$TMP"
+                # verify copy is intact before rename
+                COPY_SHA=$(sha256sum "$TMP" | awk '{print $1}')
+                if [ "$COPY_SHA" != "$QUELL_SHA" ]; then
+                  rm -f "$TMP"
+                  echo "::error::sha256 mismatch after copy ($f — corrupt transfer)"
+                  exit 1
+                fi
+                mv -f "$TMP" "${{ inputs.app_path }}/$f"
+                echo "  synced: $f"
+              done
+              cp .deploy-manifest.json "${{ inputs.app_path }}/.deploy-manifest.json"
+              echo "✅ atomic sync complete (self-hosted, ${#COMPOSE_LISTE[@]} Datei(en))"
           fi
 
       - name: Sync compose + manifest to host (remote runner)
@@ -463,7 +523,9 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
-          source: "docker-compose.prod.yml,.deploy-manifest.json"
+          # Dieselbe Liste wie beim self-hosted-Zweig — sonst haette ein Hub
+          # mit Remote-Runner die Overlay-Dateien weiterhin nicht am Host.
+          source: "${{ steps.compose_sync.outputs.compose_list }},.deploy-manifest.json"
           target: "${{ inputs.app_path }}/"
           overwrite: true
 

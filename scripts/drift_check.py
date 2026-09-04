@@ -34,7 +34,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 try:
     import yaml
@@ -72,15 +72,30 @@ def _repo_owner(repo: str) -> str:
 # ── Drift-Regeln (erweiterbar ohne Code-Änderung) ─────────────────────────────
 
 # Erstes Element ist entweder ein Pfad oder ein Tupel gleichwertiger Kandidaten —
-# erfüllt ist die Regel, sobald EINER existiert. Beide Docker-Layouts sind im
+# erfüllt ist die Regel, sobald EINER existiert. Drei Docker-Layouts sind im
 # Fleet gelebte Praxis (Wurzel: dev-hub, weltenhub, trading-hub · docker/app:
-# risk-hub, odoo-hub, pptx-hub), keines davon ist ein Ausreißer (#1469).
+# risk-hub, odoo-hub, pptx-hub · docker/Dockerfile: travel-beat), keines davon
+# ist ein Ausreißer (#1469, #2761). Ein viertes Layout (ttz-hub: Dockerfile
+# liegt unter services/aifw_service/, von docker-compose.prod.yml per
+# `build.dockerfile` referenziert) passt in kein statisches Tupel — dafür
+# sorgt `_dockerfile_from_compose` als ALTERNATIVE_SATISFIERS-Eintrag (#2761).
+# requirements.txt hat ebenfalls ein zweites Layout (travel-beat:
+# requirements/base.txt) zusätzlich zum bestehenden pyproject-Satisfier — UND
+# denselben Compose-Kontext-Fall wie Dockerfile: ttz-hubs pyproject.toml trägt
+# gar keine `[project].dependencies` (Odoo-Addon-Repo, keine Pip-Deps im
+# Root), das echte Manifest liegt unter services/aifw_service/requirements.txt
+# neben dem dortigen Dockerfile — dafür sorgt
+# `_requirements_from_compose_context` (gemessen 2026-09-04, #2761).
 REQUIRED_FILES_DJANGO = [
-    (("Dockerfile", "docker/app/Dockerfile"), "error", "Docker Build fehlt"),
+    (
+        ("Dockerfile", "docker/app/Dockerfile", "docker/Dockerfile"),
+        "error",
+        "Docker Build fehlt",
+    ),
     ("docker-compose.prod.yml", "error", "Prod-Compose fehlt"),
     (".env.example", "warn", ".env.example fehlt — neue Devs verloren"),
     ("pyproject.toml", "warn", "pyproject.toml fehlt — kein pytest-Config"),
-    ("requirements.txt", "error", "requirements.txt fehlt"),
+    (("requirements.txt", "requirements/base.txt"), "error", "requirements.txt fehlt"),
     ("requirements-test.txt", "warn", "requirements-test.txt fehlt"),
     ("tests/conftest.py", "warn", "Kein Test-Scaffold — run gen_test_scaffold.py"),
     (".github/workflows/ci.yml", "warn", "Kein CI-Workflow"),
@@ -189,6 +204,7 @@ class RepoDrift:
     repo_type: str
     drifts: list[DriftItem] = field(default_factory=list)
     error: str = ""
+    archived: bool = False
 
     @property
     def errors(self) -> list[DriftItem]:
@@ -200,6 +216,8 @@ class RepoDrift:
 
     @property
     def status_icon(self) -> str:
+        if self.archived:
+            return "⏸"
         if self.error:
             return "⚠️"
         if self.errors:
@@ -315,10 +333,85 @@ def _requirements_covered_by_pyproject(repo: str, token: str) -> bool:
     return content is not None and _pyproject_declares_dependencies(content)
 
 
+def _compose_build_contexts(repo: str, token: str) -> list[dict]:
+    """`build:`-Blöcke aller Services aus docker-compose.prod.yml.
+
+    Leer, wenn die Datei fehlt oder nicht als YAML ladbar ist — beide Seiten
+    (Dockerfile- und requirements.txt-Satisfier, #2761) teilen sich diesen
+    einen Fetch+Parse statt ihn zu duplizieren.
+    """
+    content = _get_file_content(repo, "docker-compose.prod.yml", token)
+    if content is None:
+        return []
+    try:
+        tree = yaml.safe_load(content)
+    except yaml.YAMLError:
+        return []
+    if not isinstance(tree, dict):
+        return []
+    return [
+        service["build"]
+        for service in (tree.get("services") or {}).values()
+        if isinstance(service, dict) and isinstance(service.get("build"), dict)
+    ]
+
+
+def _dockerfile_from_compose(repo: str, token: str) -> bool:
+    """Docker-Build-Pflicht ist auch erfüllt, wenn docker-compose.prod.yml einen
+    eigenen ``build.dockerfile``-Pfad referenziert (ttz-hub:
+    ``services/aifw_service/Dockerfile``, relativ zu ``build.context``).
+
+    Weder ``Dockerfile`` noch ``docker/app/Dockerfile`` noch ``docker/Dockerfile``
+    treffen dieses Layout — der Pfad ist frei wählbar und steht nur im Compose-
+    Manifest selbst (#2761).
+    """
+    for build in _compose_build_contexts(repo, token):
+        dockerfile = build.get("dockerfile")
+        if not dockerfile:
+            continue
+        context = build.get("context") or "."
+        path = os.path.normpath(os.path.join(str(context), str(dockerfile)))
+        if _get_file_content(repo, path, token) is not None:
+            return True
+    return False
+
+
+def _requirements_from_compose_context(repo: str, token: str) -> bool:
+    """``requirements.txt`` ist auch erfüllt, wenn das Verzeichnis des Compose-
+    referenzierten Dockerfiles seine eigene requirements.txt trägt (ttz-hub:
+    ``services/aifw_service/requirements.txt`` neben
+    ``services/aifw_service/Dockerfile`` — ``build.context`` ist dort die
+    Repo-Wurzel (``.``), der Unterordner steht komplett im ``dockerfile``-Feld;
+    der Fix geht deshalb vom AUFGELÖSTEN Dockerfile-Pfad aus, nicht vom
+    ``context`` allein, sonst hätte genau dieser reale Fall nicht getroffen
+    — gemessen 2026-09-04, #2761). Ein Root-Dockerfile (Verzeichnis ``.``)
+    zählt nicht: dafür gibt es bereits die Wurzel-Kandidaten und den
+    pyproject-Satisfier.
+    """
+    for build in _compose_build_contexts(repo, token):
+        dockerfile = build.get("dockerfile")
+        if not dockerfile:
+            continue
+        context = build.get("context") or "."
+        dockerfile_path = os.path.normpath(os.path.join(str(context), str(dockerfile)))
+        directory = os.path.dirname(dockerfile_path)
+        if not directory or directory == ".":
+            continue
+        path = os.path.join(directory, "requirements.txt")
+        if _get_file_content(repo, path, token) is not None:
+            return True
+    return False
+
+
 # Regeln, die auch ohne die Datei erfüllt sein können. Schlüssel ist der
-# kanonische (erste) Pfad des Eintrags.
-ALTERNATIVE_SATISFIERS = {
-    "requirements.txt": _requirements_covered_by_pyproject,
+# kanonische (erste) Pfad des Eintrags, Wert eine Liste von Prüfern — erfüllt
+# ist die Regel, sobald EINER True liefert.
+ALTERNATIVE_SATISFIERS: dict[str, list[Callable[[str, str], bool]]] = {
+    "requirements.txt": [
+        _requirements_covered_by_pyproject,
+        _requirements_from_compose_context,
+    ],
+    "Dockerfile": [_dockerfile_from_compose],
 }
 
 
@@ -333,8 +426,8 @@ def check_required_files(repo: str, token: str) -> list[DriftItem]:
         if any(_get_file_content(repo, p, token) is not None for p in candidates):
             continue
 
-        satisfier = ALTERNATIVE_SATISFIERS.get(canonical)
-        if satisfier is not None and satisfier(repo, token):
+        satisfiers = ALTERNATIVE_SATISFIERS.get(canonical, [])
+        if any(fn(repo, token) for fn in satisfiers):
             continue
 
         hint = f"Erstellen: touch {canonical}  (oder gen_test_scaffold.py nutzen)"
@@ -700,6 +793,24 @@ def normalisiere_port(node: Any, repo: str, verzeichnis: str | None) -> Any:
     return out
 
 
+# ── Vierte Port-Mechanik: SHA-Pinning statt Tag (shared-ci#67) ───────────────
+#
+# platform pinnt Actions per SHA mit nachgestelltem Versions-Kommentar
+# (`uses: owner/action@<40-hex-sha> # vX.Y.Z`), reine Haertung ohne
+# Verhaltensunterschied zur getaggten Form (`uses: owner/action@vX.Y.Z`).
+# `yaml.safe_load` verwirft den Kommentar — die Normalisierung muss deshalb auf
+# Textebene VOR dem Parsen passieren, sonst blieben die Pins als `@<sha>` ohne
+# jede Versionsinfo stehen und jeder SHA-Pin waere ein Dauer-Fehlalarm (#2761).
+# Ein echter Versionsunterschied (`# v4.37.6` vs `# v4.37.9`) bleibt Drift —
+# die Normalisierung ersetzt nur die FORM, nicht die Versionsziffer.
+_ACTION_PIN_KOMMENTAR_RE = re.compile(r"@[0-9a-f]{40}\s*#\s*(v[\d.]+)\b")
+
+
+def _normalisiere_pin_kommentare(text: str) -> str:
+    """`@<sha> # vX.Y.Z` → `@vX.Y.Z`, textuell vor dem YAML-Parse."""
+    return _ACTION_PIN_KOMMENTAR_RE.sub(lambda m: "@" + m.group(1), text)
+
+
 def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
     """True, wenn Tag-Inhalt und platform-Kanon dasselbe TUN.
 
@@ -707,6 +818,8 @@ def shared_ci_deckt_kanon(tagged: str, canonical: str) -> bool:
     ladbar ist — lieber ein Fehlalarm als ein stillschweigend uebersehener
     Drift.
     """
+    tagged = _normalisiere_pin_kommentare(tagged)
+    canonical = _normalisiere_pin_kommentare(canonical)
     try:
         tag_tree = yaml.safe_load(tagged)
         kanon_tree = yaml.safe_load(canonical)
@@ -738,7 +851,7 @@ def kanon_richtung(tagged: str, canonical: str) -> tuple[int, int]:
 
     def zeilen(text: str, repo: str) -> list[str]:
         return json.dumps(
-            _kanon_normalform(yaml.safe_load(text), repo),
+            _kanon_normalform(yaml.safe_load(_normalisiere_pin_kommentare(text)), repo),
             indent=1,
             sort_keys=True,
             default=str,
@@ -776,6 +889,19 @@ def latest_shared_ci_tag(tags: list[str]) -> str | None:
     return max(versioned)[1] if versioned else None
 
 
+# Kanon-Abgleich nur fuer Dateien, die auf beiden Seiten IDENTISCH sein SOLLEN:
+# Reusables (`_*.yml`, workflow_call) und die zwei Gate-Workflows, die shared-ci
+# und platform bewusst synchron halten. `validate-workflows.yml` bleibt aussen
+# vor — auf beiden Seiten steht dort repo-eigene CI (platform:
+# publish_gate-Pfade; shared-ci: compose-Auswahl-Job), kein Reusable. Ein
+# Abgleich dagegen waere ein Dauer-Fehlalarm ohne moeglichen Fix (#2761).
+_KANON_ABGLEICH_GATES = frozenset({"handoff-banner-gate.yml", "deploy-config-lint.yml"})
+
+
+def _im_kanon_abgleich(name: str) -> bool:
+    return name.startswith("_") or name in _KANON_ABGLEICH_GATES
+
+
 def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | None:
     data = _api_get(f"/repos/{owner_repo}/contents/{path}?ref={ref}", token)
     if not isinstance(data, dict) or "content" not in data:
@@ -810,6 +936,8 @@ def _shared_ci_state(token: str) -> dict:
             ):
                 continue
             name = item["name"]
+            if not _im_kanon_abgleich(name):
+                continue
             canonical = _get_content_at(
                 f"{GITHUB_ORG}/platform", f".github/workflows/{name}", "main", token
             )
@@ -903,18 +1031,52 @@ SCAFFOLD_TYPES: frozenset[str] = frozenset({"django", "agent", "bot"})
 
 
 def check_repo(
-    repo: str, repo_type: str, token: str, iil_latest: dict[str, str]
+    repo: str,
+    repo_type: str,
+    token: str,
+    iil_latest: dict[str, str],
+    registry_archived: bool = False,
 ) -> RepoDrift:
     drift = RepoDrift(repo=repo, repo_type=repo_type)
 
-    # Repo erreichbar?
-    if _api_get(f"/repos/{_repo_owner(repo)}/{repo}", token) is None:
-        drift.error = "Repo nicht gefunden oder privat"
+    # Archiviert laut Registry? Dann gar keinen API-Call verschwenden — niemand
+    # aendert an einem archivierten Repo noch etwas, ein Fehler dort ist kein
+    # aktionierbarer Befund (wedding-hub, recruiting-hub — #2761).
+    if registry_archived:
+        drift.archived = True
         return drift
 
-    # Docker/requirements checks only apply to deployable scaffold repos
+    # Repo erreichbar? Derselbe Response-Body traegt bereits `archived` — kein
+    # zweiter API-Call noetig, wenn die Registry den Status nicht kennt
+    # (recruiting-hub hat kein `archived:` in repo-registry.yaml, ist aber laut
+    # GitHub archiviert, gemessen 2026-09-04).
+    repo_data = _api_get(f"/repos/{_repo_owner(repo)}/{repo}", token)
+    if not isinstance(repo_data, dict):
+        drift.error = "Repo nicht gefunden oder privat"
+        return drift
+    if repo_data.get("archived"):
+        drift.archived = True
+        return drift
+
+    # Docker/requirements checks only apply to deployable scaffold repos.
+    # REQUIRED_FILES_DJANGO ist trotz des Namens Django-spezifisch (Prod-Compose,
+    # requirements.txt, ...) — ein Bot ohne manage.py-Deployment (lastwar-bot,
+    # type: bot) hat legitim weder Dockerfile noch docker-compose.prod.yml, und
+    # der Registry-Typ gewinnt hier immer, wenn er gesetzt ist (#2761). Die
+    # allgemeineren Inhalts-Checks (check_file_contents) bleiben unverändert auf
+    # SCAFFOLD_TYPES — die prüfen nur Dateien, die ohnehin vorhanden sind.
     if repo_type in SCAFFOLD_TYPES:
-        drift.drifts.extend(check_required_files(repo, token))
+        if repo_type == "django":
+            drift.drifts.extend(check_required_files(repo, token))
+        else:
+            drift.drifts.append(
+                DriftItem(
+                    rule="required-file-skip",
+                    severity="info",
+                    file=f"type={repo_type}",
+                    message="Django-Pflichtdateien übersprungen — Registry-Typ ist nicht django",
+                )
+            )
         drift.drifts.extend(check_file_contents(repo, token))
 
     drift.drifts.extend(check_banned_patterns(repo, token))
@@ -944,6 +1106,10 @@ def print_report(
     clean = sum(1 for r in drifts if r.drift_score == 0 and not r.error)
 
     for repo_drift in sorted(drifts, key=lambda x: -x.drift_score):
+        if repo_drift.archived:
+            print(f"⏸  **{repo_drift.repo}** — archiviert — uebersprungen\n")
+            continue
+
         filtered = [
             d
             for d in repo_drift.drifts
@@ -998,6 +1164,7 @@ def print_json_output(drifts: list[RepoDrift]) -> None:
                 "repo": r.repo,
                 "type": r.repo_type,
                 "status": r.status_icon,
+                "archived": r.archived,
                 "drift_score": r.drift_score,
                 "errors": len(r.errors),
                 "warnings": len(r.warnings),
@@ -1025,9 +1192,15 @@ def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoD
     results: list[RepoDrift] = []
     for repo, props in targets.items():
         repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
+        registry_archived = bool(props.get("archived")) if isinstance(props, dict) else False
         print(f"  {repo}...", end="", flush=True)
-        result = check_repo(repo, repo_type, token, iil_latest)
-        print(f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)")
+        result = check_repo(repo, repo_type, token, iil_latest, registry_archived)
+        if result.archived:
+            print(" ⏸ archiviert — uebersprungen")
+        else:
+            print(
+                f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)"
+            )
         results.append(result)
     return results
 
