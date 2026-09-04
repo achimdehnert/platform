@@ -113,7 +113,9 @@ def secrets(inv: dict[str, Any]) -> list[Secret]:
                     sektion=sektion,
                     name=name,
                     eintrag=eintrag,
-                    konsumenten=tuple(_konsument(k) for k in (eintrag.get("consumers") or [])),
+                    konsumenten=tuple(
+                        _konsument(k) for k in (eintrag.get("consumers") or [])
+                    ),
                 )
             )
     return raus
@@ -130,7 +132,9 @@ def finde(inv: dict[str, Any], secret_name: str) -> Secret:
     treffer = [s for s in secrets(inv) if s.name == secret_name]
     if not treffer:
         bekannt = ", ".join(sorted(s.name for s in secrets(inv))[:8])
-        raise KeyError(f"{secret_name} steht nicht im Inventar. Bekannt u.a.: {bekannt} …")
+        raise KeyError(
+            f"{secret_name} steht nicht im Inventar. Bekannt u.a.: {bekannt} …"
+        )
     if len(treffer) > 1:
         wo = ", ".join(f"{s.sektion}.{s.name}" for s in treffer)
         raise KeyError(f"{secret_name} ist mehrdeutig: {wo}. Sektion angeben.")
@@ -148,7 +152,9 @@ def org_aufloesung(canonical_pfad: Path | None = None):
     Default. Der Default steht bewusst zuletzt — er war die Quelle der
     404-Klasse (frist-hub/bahn-hub, ADR-297).
     """
-    canon = yaml.safe_load((canonical_pfad or CANONICAL_PFAD).read_text(encoding="utf-8"))
+    canon = yaml.safe_load(
+        (canonical_pfad or CANONICAL_PFAD).read_text(encoding="utf-8")
+    )
     meta = canon.get("meta", {})
     repos = canon.get("repos", {})
 
@@ -170,7 +176,9 @@ def org_aufloesung(canonical_pfad: Path | None = None):
 # --------------------------------------------------------------------------
 # Faelligkeit + Altlasten
 # --------------------------------------------------------------------------
-def faellig_seit(secret: Secret, letzter: dict[str, Any] | None, heute: date) -> int | None:
+def faellig_seit(
+    secret: Secret, letzter: dict[str, Any] | None, heute: date
+) -> int | None:
     """Tage ueberfaellig, oder ``None`` wenn nicht faellig / keine Frist.
 
     Ein Lauf mit ``status: offen`` zaehlt NICHT als Lauf — sonst setzte ein
@@ -237,7 +245,9 @@ def formatiere_konsumenten(konsumenten: Iterable[Konsument]) -> list[str]:
     zeilen = []
     for k in konsumenten:
         if k.unvollstaendig:
-            zeilen.append(f"  ? {k.ref:<40} alte String-Form — Org unbekannt, nicht rotierbar")
+            zeilen.append(
+                f"  ? {k.ref:<40} alte String-Form — Org unbekannt, nicht rotierbar"
+            )
         elif not k.proof:
             zeilen.append(f"  – {k.ref:<40} {k.kind}, ohne Beleg — wird NICHT gesetzt")
         else:

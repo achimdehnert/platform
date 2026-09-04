@@ -61,7 +61,9 @@ def test_should_refuse_to_write_a_line_carrying_a_value(tmp_path):
 
 def test_should_find_a_value_in_an_existing_log(tmp_path):
     pfad = tmp_path / "rotation-log.jsonl"
-    pfad.write_text('{"lauf_id": "a"}\n{"lauf_id": "b", "x": "%s"}\n' % OL, encoding="utf-8")
+    pfad.write_text(
+        '{"lauf_id": "a"}\n{"lauf_id": "b", "x": "%s"}\n' % OL, encoding="utf-8"
+    )
     befunde = rotlog.pruefe_datei(pfad)
     assert len(befunde) == 1 and ":2 —" in befunde[0]
 
@@ -80,15 +82,17 @@ def test_should_be_deterministic_and_16_hex():
 
 
 def test_should_differ_for_a_different_value():
-    assert fingerprint.fingerabdruck(b"ATTRAPPE-1234", SCHLUESSEL) != fingerprint.fingerabdruck(
-        b"ATTRAPPE-5678", SCHLUESSEL
-    )
+    assert fingerprint.fingerabdruck(
+        b"ATTRAPPE-1234", SCHLUESSEL
+    ) != fingerprint.fingerabdruck(b"ATTRAPPE-5678", SCHLUESSEL)
 
 
 def test_should_differ_for_a_different_key():
     """Das ist der Punkt von HMAC (MT-8): ohne den Werkzeug-Schluessel laesst
     sich der Fingerabdruck eines schwachen Werts nicht nachrechnen."""
-    assert fingerprint.fingerabdruck(b"deploy", SCHLUESSEL) != fingerprint.fingerabdruck(
+    assert fingerprint.fingerabdruck(
+        b"deploy", SCHLUESSEL
+    ) != fingerprint.fingerabdruck(
         b"deploy", b"ATTRAPPE-anderer-schluessel-fuer-den-drill"
     )
 
@@ -98,7 +102,11 @@ def test_should_never_contain_the_value(tmp_path):
     abdruck = fingerprint.fingerabdruck(wert, SCHLUESSEL)
     pfad = tmp_path / "rotation-log.jsonl"
     rotlog.schreibe(
-        {"lauf_id": "x", "fingerprint_prefix16": abdruck, "fingerprint_alg": fingerprint.ALGORITHMUS},
+        {
+            "lauf_id": "x",
+            "fingerprint_prefix16": abdruck,
+            "fingerprint_alg": fingerprint.ALGORITHMUS,
+        },
         pfad,
     )
     inhalt = pfad.read_text(encoding="utf-8")

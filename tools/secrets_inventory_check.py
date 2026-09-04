@@ -146,7 +146,11 @@ def main(argv: list[str] | None = None) -> int:
     verstoesse = schema_verstoesse(inv, a.schema)
 
     if a.als_json:
-        print(json.dumps({"zahlen": z, "verstoesse": verstoesse}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"zahlen": z, "verstoesse": verstoesse}, ensure_ascii=False, indent=2
+            )
+        )
     elif a.kurz:
         print(kurzzeile(z, verstoesse))
     else:

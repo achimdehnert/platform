@@ -46,7 +46,9 @@ class AttrappenHttp:
     """Minimale GitHub-Attrappe. `laeufe` ist die Folge der Antworten auf die
     Lauf-Abfrage — so laesst sich 'noch nicht fertig' nachstellen."""
 
-    def __init__(self, laeufe=None, logtext="✓ ATTRAPPE_TOKEN gueltig", vorher_rot=True):
+    def __init__(
+        self, laeufe=None, logtext="✓ ATTRAPPE_TOKEN gueltig", vorher_rot=True
+    ):
         self.pfade: list[str] = []
         self.gesetzt: list[dict] = []
         self.vorher = {
@@ -54,9 +56,18 @@ class AttrappenHttp:
             "status": "completed",
             "conclusion": "failure" if vorher_rot else "success",
         }
-        self.laeufe = laeufe if laeufe is not None else [
-            {"id": 2, "status": "completed", "conclusion": "success", "html_url": "u"}
-        ]
+        self.laeufe = (
+            laeufe
+            if laeufe is not None
+            else [
+                {
+                    "id": 2,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "html_url": "u",
+                }
+            ]
+        )
         self._lauf_abfragen = 0
         self.logtext = logtext
 
@@ -89,8 +100,12 @@ class AttrappenHttp:
 
 def _treiber(http, **kwargs):
     return tg.GithubTreiber(
-        http=http, app_id="1", pem=Path("/dev/null"), schlafen=lambda _s: None,
-        wartezeit=0, **kwargs
+        http=http,
+        app_id="1",
+        pem=Path("/dev/null"),
+        schlafen=lambda _s: None,
+        wartezeit=0,
+        **kwargs,
     )
 
 
@@ -174,10 +189,15 @@ def test_should_give_up_after_three_polls():
 def test_should_not_mistake_the_previous_run_for_the_new_one():
     """Der alte Lauf hat den Marker im Log — wer nicht auf eine NEUE Lauf-ID
     achtet, liest ihn und meldet gruen, ohne dass etwas gelaufen ist."""
-    http = AttrappenHttp(laeufe=[{"id": 1, "status": "completed", "conclusion": "failure"}])
+    http = AttrappenHttp(
+        laeufe=[{"id": 1, "status": "completed", "conclusion": "failure"}]
+    )
     treiber = _treiber(http, abfragen=2)
     treiber._token_je_org["iilgmbh"] = "ATTRAPPE"
-    assert treiber.belege("iilgmbh/risk-hub", PROOF, "ATTRAPPE_TOKEN").ergebnis == "ohne_beleg"
+    assert (
+        treiber.belege("iilgmbh/risk-hub", PROOF, "ATTRAPPE_TOKEN").ergebnis
+        == "ohne_beleg"
+    )
 
 
 def test_should_retry_the_dispatch_without_inputs_on_422():

@@ -62,7 +62,11 @@ def cmd_pruefen(a: argparse.Namespace) -> int:
         print("letzter Lauf         : keiner im Log")
     print(
         "HMAC-Schluessel      : "
-        + ("vorhanden" if fingerprint.schluessel_vorhanden() else "FEHLT — `lauf` bricht ab")
+        + (
+            "vorhanden"
+            if fingerprint.schluessel_vorhanden()
+            else "FEHLT — `lauf` bricht ab"
+        )
     )
     print()
     for zeile in inventar.formatiere_konsumenten(secret.konsumenten):
@@ -137,7 +141,9 @@ def cmd_lauf(a: argparse.Namespace, treiber=None) -> int:
                 konsument.ref, konsument.proof or {}, konsument.name or secret.name
             )
         except GovOrgAbgelehnt as fehler:
-            zeile.update(ergebnis="abgelehnt", negativprobe=False, hinweis=str(fehler)[:160])
+            zeile.update(
+                ergebnis="abgelehnt", negativprobe=False, hinweis=str(fehler)[:160]
+            )
             print(f"  ⛔ {konsument.ref}: {fehler}")
             ergebnisse.append(zeile)
             continue
@@ -172,7 +178,9 @@ def cmd_lauf(a: argparse.Namespace, treiber=None) -> int:
             schleuse_geleert = True
             print(f"  Schleuse geleert: {quelle}")
         else:
-            print(f"  ! {quelle} hat sich waehrend des Laufs geaendert — NICHT geloescht.")
+            print(
+                f"  ! {quelle} hat sich waehrend des Laufs geaendert — NICHT geloescht."
+            )
 
     zeile = {
         "lauf_id": lauf_id,
@@ -229,11 +237,19 @@ def cmd_widerruf_geprueft(a: argparse.Namespace, treiber=None) -> int:
                 konsument.ref, konsument.proof or {}, konsument.name or secret.name
             )
         except (TreiberFehler, GovOrgAbgelehnt) as fehler:
-            befunde.append({"ref": konsument.ref, "ergebnis": "unpruefbar", "hinweis": str(fehler)[:160]})
+            befunde.append(
+                {
+                    "ref": konsument.ref,
+                    "ergebnis": "unpruefbar",
+                    "hinweis": str(fehler)[:160],
+                }
+            )
             print(f"  ? {konsument.ref}: {fehler}")
             continue
         befunde.append({"ref": konsument.ref, "ergebnis": beleg.ergebnis})
-        print(f"  {'✓' if beleg.ergebnis == 'ok' else '✗'} {konsument.ref}: {beleg.ergebnis}")
+        print(
+            f"  {'✓' if beleg.ergebnis == 'ok' else '✗'} {konsument.ref}: {beleg.ergebnis}"
+        )
 
     rotlog.schreibe(
         {
@@ -243,7 +259,9 @@ def cmd_widerruf_geprueft(a: argparse.Namespace, treiber=None) -> int:
             "beendet": _jetzt(),
             "ausgefuehrt_von": a.ausgefuehrt_von or getpass.getuser(),
             "kind": "werkzeug",
-            "status": "abgeschlossen" if befunde and all(b["ergebnis"] == "ok" for b in befunde) else "offen",
+            "status": "abgeschlossen"
+            if befunde and all(b["ergebnis"] == "ok" for b in befunde)
+            else "offen",
             "bezug_lauf_id": a.lauf_id,
             "konsumenten": befunde,
             "schleuse_geleert": True,
@@ -273,7 +291,9 @@ def sammle_faelligkeit(
         if not secret.konsumenten:
             ohne_konsumenten.append(secret.name)
         elif secret.ohne_beleg:
-            ohne_beleg.append(f"{secret.name} ({len(secret.ohne_beleg)}/{len(secret.konsumenten)})")
+            ohne_beleg.append(
+                f"{secret.name} ({len(secret.ohne_beleg)}/{len(secret.konsumenten)})"
+            )
         if inventar.faellig_seit(secret, letzter, heute) is not None:
             faellig.append(secret.name)
 
@@ -302,7 +322,9 @@ def kurzzeile(b: dict) -> str:
     if b["altlasten"]:
         teile.append(f"{len(b['altlasten'])} Altlasten in ~/shared")
     if not teile:
-        return f"OK: {b['secrets']} Secrets, nichts faellig, {b['laeufe']} Laeufe im Log"
+        return (
+            f"OK: {b['secrets']} Secrets, nichts faellig, {b['laeufe']} Laeufe im Log"
+        )
     kopf = ", ".join(teile)
     namen = ", ".join((b["faellig"] or b["ohne_beleg"] or b["altlasten"])[:3])
     return f"{kopf} (von {b['secrets']} Secrets) — {namen}"
@@ -345,7 +367,9 @@ def cmd_log_pruefen(a: argparse.Namespace) -> int:
             print(f"    {b}")
         return 1
     anzahl = len(rotlog.lies(a.log))
-    print(f"✓ {anzahl} Log-Zeile(n) wertfrei (Muster: {', '.join(n for n, _ in rotlog.MUSTER)})")
+    print(
+        f"✓ {anzahl} Log-Zeile(n) wertfrei (Muster: {', '.join(n for n, _ in rotlog.MUSTER)})"
+    )
     return 0
 
 
@@ -363,26 +387,38 @@ def baue_parser() -> argparse.ArgumentParser:
     pr.add_argument("secret")
     pr.set_defaults(funktion=cmd_pruefen)
 
-    la = unter.add_parser("lauf", help="die Kette: setzen, belegen, protokollieren, Schleuse leeren")
+    la = unter.add_parser(
+        "lauf", help="die Kette: setzen, belegen, protokollieren, Schleuse leeren"
+    )
     la.add_argument("secret")
-    la.add_argument("--quelle", required=True, help="Datei in der Schleuse mit dem neuen Wert")
+    la.add_argument(
+        "--quelle", required=True, help="Datei in der Schleuse mit dem neuen Wert"
+    )
     la.add_argument("--nur", help="nur diesen Konsumenten (ref)")
     la.add_argument("--ausgefuehrt-von", dest="ausgefuehrt_von")
-    la.add_argument("--hmac-schluessel", type=Path, default=None, help=argparse.SUPPRESS)
+    la.add_argument(
+        "--hmac-schluessel", type=Path, default=None, help=argparse.SUPPRESS
+    )
     la.set_defaults(funktion=cmd_lauf)
 
-    wi = unter.add_parser("widerruf-geprueft", help="Negativprobe nach dem menschlichen Widerruf")
+    wi = unter.add_parser(
+        "widerruf-geprueft", help="Negativprobe nach dem menschlichen Widerruf"
+    )
     wi.add_argument("lauf_id")
     wi.add_argument("--ausgefuehrt-von", dest="ausgefuehrt_von")
     wi.set_defaults(funktion=cmd_widerruf_geprueft)
 
-    fa = unter.add_parser("faellig", help="was ist faellig, ohne Beleg, ohne Konsumenten, Altlast")
+    fa = unter.add_parser(
+        "faellig", help="was ist faellig, ohne Beleg, ohne Konsumenten, Altlast"
+    )
     fa.add_argument("--kurz", action="store_true")
     fa.add_argument("--json", action="store_true", dest="als_json")
     fa.add_argument("--schleuse", type=Path, default=None, help=argparse.SUPPRESS)
     fa.set_defaults(funktion=cmd_faellig)
 
-    lp = unter.add_parser("log-pruefen", help="Ausgabefilter ueber das Log (Leser: PR-Gate)")
+    lp = unter.add_parser(
+        "log-pruefen", help="Ausgabefilter ueber das Log (Leser: PR-Gate)"
+    )
     lp.set_defaults(funktion=cmd_log_pruefen)
 
     return p

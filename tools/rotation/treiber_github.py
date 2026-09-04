@@ -125,10 +125,13 @@ def app_jwt(app_id: str, pem: Path, jetzt: int | None = None) -> str:
             "platform.ROTATION_APP_PRIVATE_KEY."
         )
     jetzt = jetzt or int(time.time())
-    kopf = _b64url(json.dumps({"alg": "RS256", "typ": "JWT"}, separators=(",", ":")).encode())
+    kopf = _b64url(
+        json.dumps({"alg": "RS256", "typ": "JWT"}, separators=(",", ":")).encode()
+    )
     nutzlast = _b64url(
         json.dumps(
-            {"iat": jetzt - 60, "exp": jetzt + 540, "iss": str(app_id)}, separators=(",", ":")
+            {"iat": jetzt - 60, "exp": jetzt + 540, "iss": str(app_id)},
+            separators=(",", ":"),
         ).encode()
     )
     zu_signieren = f"{kopf}.{nutzlast}".encode()
@@ -139,7 +142,9 @@ def app_jwt(app_id: str, pem: Path, jetzt: int | None = None) -> str:
         check=False,
     )
     if lauf.returncode != 0:
-        raise TreiberFehler("openssl konnte den JWT nicht signieren (Schluessel unlesbar?)")
+        raise TreiberFehler(
+            "openssl konnte den JWT nicht signieren (Schluessel unlesbar?)"
+        )
     return f"{kopf}.{nutzlast}.{_b64url(lauf.stdout)}"
 
 
@@ -148,7 +153,9 @@ def installation_token(org: str, http: HttpFunktion, jwt: str) -> str:
     status, installationen = http("GET", "/app/installations", token=jwt)
     if status != 200 or not isinstance(installationen, list):
         raise TreiberFehler(f"/app/installations antwortete {status}")
-    passend = [i for i in installationen if i["account"]["login"].lower() == org.lower()]
+    passend = [
+        i for i in installationen if i["account"]["login"].lower() == org.lower()
+    ]
     if not passend:
         vorhanden = ", ".join(i["account"]["login"] for i in installationen) or "keine"
         raise TreiberFehler(
@@ -158,7 +165,9 @@ def installation_token(org: str, http: HttpFunktion, jwt: str) -> str:
         "POST", f"/app/installations/{passend[0]['id']}/access_tokens", token=jwt
     )
     if status != 201 or "token" not in daten:
-        raise TreiberFehler(f"Installation-Token fuer {org} nicht erhalten (HTTP {status})")
+        raise TreiberFehler(
+            f"Installation-Token fuer {org} nicht erhalten (HTTP {status})"
+        )
     return daten["token"]
 
 
@@ -230,14 +239,20 @@ class GithubTreiber:
             },
         )
         if status not in (201, 204):
-            raise TreiberFehler(f"Setzen von {name} in {ref} fehlgeschlagen (HTTP {status})")
+            raise TreiberFehler(
+                f"Setzen von {name} in {ref} fehlgeschlagen (HTTP {status})"
+            )
 
     # -- Belegen ------------------------------------------------------------
-    def belege(self, ref: str, proof: dict[str, Any], secret_name: str = "") -> Belegergebnis:
+    def belege(
+        self, ref: str, proof: dict[str, Any], secret_name: str = ""
+    ) -> Belegergebnis:
         workflow = proof.get("workflow")
         marker = proof.get("log_marker")
         if not workflow or not marker:
-            return Belegergebnis("ohne_beleg", False, hinweis="proof ohne workflow/log_marker")
+            return Belegergebnis(
+                "ohne_beleg", False, hinweis="proof ohne workflow/log_marker"
+            )
 
         org, repo = ref.split("/", 1)
         token = self.token(org)
@@ -251,7 +266,9 @@ class GithubTreiber:
         zweig = self._standardzweig(org, repo, token)
         pfad = f"/repos/{org}/{repo}/actions/workflows/{workflow}/dispatches"
         status, _ = self.http(
-            "POST", pfad, token=token,
+            "POST",
+            pfad,
+            token=token,
             koerper={"ref": zweig, "inputs": {"secret_name": secret_name}},
         )
         if status == 422:
@@ -260,14 +277,20 @@ class GithubTreiber:
             status, _ = self.http("POST", pfad, token=token, koerper={"ref": zweig})
         if status != 204:
             return Belegergebnis(
-                "ohne_beleg", negativprobe, hinweis=f"workflow_dispatch antwortete {status}"
+                "ohne_beleg",
+                negativprobe,
+                hinweis=f"workflow_dispatch antwortete {status}",
             )
 
         lauf = None
         for versuch in range(self.abfragen):
             self.schlafen(self.wartezeit)
             lauf = self._letzter_lauf(org, repo, workflow, token)
-            if lauf and lauf.get("id") != vorher_id and lauf.get("status") == "completed":
+            if (
+                lauf
+                and lauf.get("id") != vorher_id
+                and lauf.get("status") == "completed"
+            ):
                 break
             lauf = None
         if lauf is None:
@@ -288,7 +311,9 @@ class GithubTreiber:
         status, daten = self.http("GET", f"/repos/{org}/{repo}", token=token)
         return daten.get("default_branch", "main") if status == 200 else "main"
 
-    def _letzter_lauf(self, org: str, repo: str, workflow: str, token: str) -> dict | None:
+    def _letzter_lauf(
+        self, org: str, repo: str, workflow: str, token: str
+    ) -> dict | None:
         status, daten = self.http(
             "GET",
             f"/repos/{org}/{repo}/actions/workflows/{workflow}/runs?per_page=1",
@@ -301,7 +326,10 @@ class GithubTreiber:
 
     def _logtext(self, org: str, repo: str, lauf_id: int, token: str) -> str:
         status, roh = self.http(
-            "GET", f"/repos/{org}/{repo}/actions/runs/{lauf_id}/logs", token=token, roh=True
+            "GET",
+            f"/repos/{org}/{repo}/actions/runs/{lauf_id}/logs",
+            token=token,
+            roh=True,
         )
         if status not in (200, 302) or not isinstance(roh, (bytes, bytearray)):
             return ""

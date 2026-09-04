@@ -82,7 +82,9 @@ class AttrappenTreiber:
 
     def belege(self, ref, proof, secret_name=""):
         self.belegt.append(ref)
-        return Belegergebnis(self.ergebnis, self.negativprobe, "https://example.invalid/lauf")
+        return Belegergebnis(
+            self.ergebnis, self.negativprobe, "https://example.invalid/lauf"
+        )
 
 
 @pytest.fixture
@@ -95,19 +97,25 @@ def umgebung(tmp_path):
     quelle = tmp_path / "shared" / "attrappe-token.txt"
     quelle.parent.mkdir()
     quelle.write_text("ATTRAPPE-1234\n", encoding="utf-8")
-    return argparse.Namespace(
-        inventar=inv,
-        log=log,
-        hmac_schluessel=hmac,
-        quelle=str(quelle),
-        secret="ATTRAPPE_TOKEN",
-        nur=None,
-        ausgefuehrt_von="drill",
-    ), quelle, log
+    return (
+        argparse.Namespace(
+            inventar=inv,
+            log=log,
+            hmac_schluessel=hmac,
+            quelle=str(quelle),
+            secret="ATTRAPPE_TOKEN",
+            nur=None,
+            ausgefuehrt_von="drill",
+        ),
+        quelle,
+        log,
+    )
 
 
 def _zeilen(log: Path) -> list[dict]:
-    return [json.loads(z) for z in log.read_text(encoding="utf-8").splitlines() if z.strip()]
+    return [
+        json.loads(z) for z in log.read_text(encoding="utf-8").splitlines() if z.strip()
+    ]
 
 
 # --------------------------------------------------------------------------
@@ -189,7 +197,11 @@ def test_should_run_all_three_consumers_without_nur(umgebung):
     treiber = AttrappenTreiber("ok")
     cli.cmd_lauf(a, treiber)
     zeile = _zeilen(log)[-1]
-    assert [k["ergebnis"] for k in zeile["konsumenten"]] == ["ok", "ohne_beleg", "abgelehnt"]
+    assert [k["ergebnis"] for k in zeile["konsumenten"]] == [
+        "ok",
+        "ohne_beleg",
+        "abgelehnt",
+    ]
     assert zeile["status"] == "offen"
     assert quelle.exists()
 

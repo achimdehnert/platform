@@ -52,7 +52,10 @@ NEU = {
                     "kind": "github_repo_secret",
                     "ref": "iilgmbh/risk-hub",
                     "name": "NEUFORM",
-                    "proof": {"workflow": "secret-probe.yml", "log_marker": "✓ NEUFORM gueltig"},
+                    "proof": {
+                        "workflow": "secret-probe.yml",
+                        "log_marker": "✓ NEUFORM gueltig",
+                    },
                 }
             ],
         }
@@ -76,7 +79,9 @@ def test_should_reject_a_github_ref_without_org():
         "shared": {
             "X": {
                 "description": "d",
-                "consumers": [{"kind": "github_repo_secret", "ref": "risk-hub", "name": "X"}],
+                "consumers": [
+                    {"kind": "github_repo_secret", "ref": "risk-hub", "name": "X"}
+                ],
             }
         }
     }
@@ -147,18 +152,26 @@ def test_should_count_string_consumers_as_incomplete():
 
 def test_should_count_object_consumers_with_proof():
     z = check.zaehle(NEU)
-    assert (z["vollqualifiziert"], z["mit_proof"], z["konsumenten_ohne_proof"]) == (1, 1, 0)
+    assert (z["vollqualifiziert"], z["mit_proof"], z["konsumenten_ohne_proof"]) == (
+        1,
+        1,
+        0,
+    )
 
 
 def test_should_not_count_the_shaped_sections_as_entries():
     """`local`/`server_side`/`sops` haben eine andere Gestalt. Wuerden sie
     mitgezaehlt, sähe die Inventar-Deckung besser aus, als sie ist."""
-    z = check.zaehle({**NEU, "local": {"files": {"a": {"env": "A"}}}, "sops": {"status": "planned"}})
+    z = check.zaehle(
+        {**NEU, "local": {"files": {"a": {"env": "A"}}}, "sops": {"status": "planned"}}
+    )
     assert z["eintraege"] == 1
 
 
 def test_should_exit_nonzero_on_schema_violation(tmp_path):
-    pfad = _schreibe(tmp_path, {"shared": {"X": {"description": "d", "rotation": "taeglich"}}})
+    pfad = _schreibe(
+        tmp_path, {"shared": {"X": {"description": "d", "rotation": "taeglich"}}}
+    )
     assert check.main(["--inventar", str(pfad), "--schema", str(SCHEMA), "--kurz"]) == 1
 
 
@@ -181,7 +194,9 @@ def test_should_mark_a_consumer_without_proof_as_not_rotatable():
         "shared": {
             "X": {
                 "description": "d",
-                "consumers": [{"kind": "github_repo_secret", "ref": "a/b", "name": "X"}],
+                "consumers": [
+                    {"kind": "github_repo_secret", "ref": "a/b", "name": "X"}
+                ],
             }
         }
     }

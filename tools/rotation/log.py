@@ -18,7 +18,9 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-LOG_PFAD = Path(__file__).resolve().parent.parent.parent / "infra" / "rotation-log.jsonl"
+LOG_PFAD = (
+    Path(__file__).resolve().parent.parent.parent / "infra" / "rotation-log.jsonl"
+)
 
 #: (Name, Muster). Der Name wandert in die Fehlermeldung, das Treffer-Material
 #: NIE — sonst schriebe der Filter selbst den Wert ins Transkript.
@@ -103,7 +105,9 @@ def pruefe_datei(pfad: Path | None = None) -> list[str]:
     return befunde
 
 
-def letzter_lauf(secret: str, eintraege: Iterable[dict[str, Any]]) -> dict[str, Any] | None:
+def letzter_lauf(
+    secret: str, eintraege: Iterable[dict[str, Any]]
+) -> dict[str, Any] | None:
     """Juengster Lauf zu diesem Secret — auch ein `offen` gebliebener zaehlt.
 
     Absicht: ein gescheiterter Lauf darf die Faelligkeit NICHT zuruecksetzen.
@@ -116,7 +120,9 @@ def letzter_lauf(secret: str, eintraege: Iterable[dict[str, Any]]) -> dict[str, 
     return max(passend, key=lambda e: e.get("gestartet") or "")
 
 
-def naechste_lauf_id(secret: str, eintraege: Iterable[dict[str, Any]], heute: str) -> str:
+def naechste_lauf_id(
+    secret: str, eintraege: Iterable[dict[str, Any]], heute: str
+) -> str:
     """``<secret>-<YYYY-MM-DD>-<n>`` — lesbar und im Log eindeutig."""
     praefix = f"{secret}-{heute}"
     belegt = sum(1 for e in eintraege if str(e.get("lauf_id", "")).startswith(praefix))
