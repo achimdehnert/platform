@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """future_readiness_evidence.py — Evidenzpaket (T0/T1) fuer EIN Repo, deterministisch aus Arbeitskopie + GitHub-API.
 
-Artefakt 1 („EVIDENZPAKET") des Prompts docs/prompts/future-readiness-audit.md (v2.3): SHA-gebunden,
+Artefakt 1 („EVIDENZPAKET") des Prompts docs/prompts/future-readiness-audit.md (v2.4): SHA-gebunden,
 JSON-Listen, Pflicht-Tabelle je Workflow, Operanden je Frage, Negativliste je Frage. Der deterministische
 Bewerter (tools/future_readiness_score.py) liest genau dieses Format; ein Modell-Worker bekommt es als
 Markdown-Rendering (`--md`).
@@ -285,6 +285,9 @@ def collect(repo: str, root: str, t2_file: str | None, lifecycle_source: str) ->
             )
         }
         P["repo"]["license"] = (meta.get("license") or {}).get("spdx_id")
+        # Regel 34 (v2.4): der Kontotyp entscheidet, ob ein fehlender
+        # security_and_analysis-Block plan_unavailable oder no_permission bedeutet.
+        P["repo"]["owner_type"] = (meta.get("owner") or {}).get("type")
     else:
         P["repo"] = {"error": str(meta)[:200]}
     P["rules_default_branch"] = gh_api(f"repos/{repo}/rules/branches/{db}")["body"]

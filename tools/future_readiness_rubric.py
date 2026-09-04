@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """future_readiness_rubric.py — EINE Quelle fuer Fragenkatalog, Anwendbarkeitsmatrix und JSON-Schema
-des Future-Readiness-Worker (docs/prompts/future-readiness-audit.md, ab v2.2; Stand v2.3).
+des Future-Readiness-Worker (docs/prompts/future-readiness-audit.md, ab v2.2; Stand v2.4).
 
     python3 tools/future_readiness_rubric.py table   # Artefakt 2, Kernfragen (mit locator_kind)
     python3 tools/future_readiness_rubric.py matrix  # Artefakt 2, Anwendbarkeit
@@ -51,10 +51,10 @@ Q = [
     (
         "D01.1",
         "runtime-version-belegt",
-        "Runtime-Version(en) belegt",
-        "genau eine Version an genau einer Stelle",
-        "gleiche Version an mehreren Stellen",
-        "widerspruechliche oder keine Version",
+        "Runtime-Version(en) belegt (Grundmenge sind nur exakte Angaben: Workflow-Pin, .python-version, .tool-versions, mise.toml, .nvmrc; eine offene untere Grenze im Manifest wie requires-python >=3.11 ist KEINE Fundstelle und steht nur in der note)",
+        "genau eine exakte Version an genau einer Stelle",
+        "gleiche exakte Version an mehreren Stellen",
+        "widerspruechliche exakte Versionen oder keine exakte Version",
         [DOCS],
         "pattern",
     ),
@@ -101,10 +101,10 @@ Q = [
     (
         "D02.1",
         "manifest",
-        "Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest)",
+        "Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest; [project].dependencies aus pyproject.toml zaehlt als Manifest)",
         "alle Eintraege versioniert",
         "teils versioniert",
-        "kein Manifest oder 0 versioniert",
+        "kein Manifest, nur leere Manifeste (entries == 0) oder 0 versioniert",
         [DOCS],
         "files",
     ),
@@ -221,7 +221,7 @@ Q = [
     (
         "D04.2",
         "tests-in-ci",
-        "Testlauf in CI erfolgreich (letzter Lauf des Test-Workflows)",
+        "Testlauf in CI erfolgreich (letzter Lauf des Test-Workflows; das Paket benennt den Pfad des Test-Workflows, auch wenn die Tests ueber einen konsumierten reusable Workflow laufen)",
         "success",
         "in_progress/unbekannt (dann unverified)",
         "failure oder kein Test-Workflow",
@@ -291,9 +291,9 @@ Q = [
     (
         "D05.3",
         "release-automatisiert",
-        "Release/Deploy automatisiert",
-        "vollstaendig",
-        "mit manuellen Schritten, dokumentiert",
+        "Release/Deploy automatisiert (einmalige Bereitstellungs-Workflows ohne wiederkehrenden Trigger, also nur workflow_dispatch, sind manuelle Schritte)",
+        "vollstaendig, wiederkehrender Trigger",
+        "mit manuellen Schritten (auch: nur workflow_dispatch), dokumentiert",
         "manuell",
         [DOCS],
         "files",
@@ -311,7 +311,7 @@ Q = [
     (
         "D05.5",
         "dauerrot",
-        "Workflow auf Default-Branch dauerhaft rot (>= 3 Laeufe in Folge)",
+        "Workflow auf Default-Branch dauerhaft rot (>= 3 Laeufe in Folge; Laufserien je Workflow-PFAD geschluesselt, nicht je Name, mit Zeitraum im Paket)",
         "keiner",
         "einer, mit Anker/Issue",
         "einer ohne Anker",
@@ -381,7 +381,7 @@ Q = [
     (
         "D06.6",
         "action-pinning",
-        "SHA-Pinning von THIRD-PARTY-Actions (uses-Ziel weder eigenes Repo noch eigene Orgs; Operand: sha_pinned/third_party gesamt)",
+        "SHA-Pinning von THIRD-PARTY-Actions (uses-Ziel weder eigenes Repo noch eigene Orgs; Operand: sha_pinned/third_party gesamt; Begriff: unpinned = ohne SHA)",
         "100 %",
         "> 0 % und < 100 %",
         "0 %",
@@ -451,7 +451,7 @@ Q = [
     (
         "D06.13",
         "first-party-refs-versioniert",
-        "Referenzen auf eigene Repos/Orgs (reusable workflows, composite actions) tragen Tag oder SHA statt @main (Operand: versioned/first_party gesamt)",
+        "Referenzen auf eigene Repos/Orgs (reusable workflows, composite actions) tragen Tag oder SHA statt @main (Operand: versioned/first_party gesamt; Begriff: unversioned = @main/Branch, getrennt von unpinned aus D06.6)",
         "100 %",
         "> 0 % und < 100 %",
         "0 %",
@@ -461,10 +461,10 @@ Q = [
     (
         "D07.1",
         "health",
-        "Health-Endpunkt",
-        "ja",
+        "Health-Endpunkt (Beleg: Route/URL-Muster ODER View/Handler im Code; eine blosse Erwaehnung in der Doku genuegt nicht)",
+        "Route oder Handler im Code belegt",
         "-",
-        "nein",
+        "nur Doku-Erwaehnung oder nichts",
         [CI, DOCS, PKG, IAC],
         "repo",
     ),

@@ -287,3 +287,69 @@ def test_should_emit_checked_names_as_locator_when_no_manifest(tmp_path):
     assert errs == []
     f = next(f for f in res["findings"] if f["question_id"] == "D02.1")
     assert f["locator"] == "D02.1|manifest|pyproject.toml;requirements.txt"
+
+
+def _sec_state(res, control):
+    return res["controls"][control]["state"]
+
+
+def test_should_call_missing_security_block_plan_unavailable_for_private_user_repo(
+    tmp_path,
+):
+    # Regel 34 (v2.4): 27 der 56 Phase-C-Repos lieferten security_and_analysis=null.
+    # Privates Repo unter einem Personenkonto -> die Funktion gibt es im Plan nicht.
+    res = _run(
+        tmp_path,
+        _pack(
+            repo={
+                "visibility": "private",
+                "owner_type": "User",
+                "security_and_analysis": None,
+            }
+        ),
+    )
+    assert _sec_state(res, "secret_scanning") == "plan_unavailable"
+    assert _sec_state(res, "push_protection") == "plan_unavailable"
+    q = res["scores"]["D06"]["questions"]["D06.1"]
+    assert q["state"] == "unverified" and "nicht im Plan" in q["note"]
+
+
+def test_should_call_missing_security_block_no_permission_for_org_repo(tmp_path):
+    res = _run(
+        tmp_path,
+        _pack(
+            repo={
+                "visibility": "private",
+                "owner_type": "Organization",
+                "security_and_analysis": None,
+            }
+        ),
+    )
+    assert _sec_state(res, "secret_scanning") == "no_permission"
+
+
+def test_should_stay_unknown_when_owner_type_is_missing_from_the_pack(tmp_path):
+    # Ohne owner_type wird nicht geraten — die alten Pakete bleiben unknown.
+    res = _run(
+        tmp_path,
+        _pack(repo={"visibility": "private", "security_and_analysis": None}),
+    )
+    assert _sec_state(res, "secret_scanning") == "unknown"
+    assert res["scores"]["D06"]["questions"]["D06.1"]["state"] == "unverified"
+
+
+def test_should_fail_d02_1_on_an_empty_manifest_instead_of_unverified(tmp_path):
+    # Regel 25/30 (v2.4): vorhandenes, aber leeres Manifest ist ein Befund.
+    res = _run(
+        tmp_path,
+        _pack(
+            requirements_files_tracked=["requirements.txt"],
+            manifests={"requirements.txt": {"entries": 0, "versioned_entries": 0}},
+            pyproject={"exists": False},
+        ),
+    )
+    q = res["scores"]["D02"]["questions"]["D02.1"]
+    assert q["state"] == "answered" and q["outcome"] == "fail"
+    assert any(f["question_id"] == "D02.1" for f in res["findings"])
+    errs = list(jsonschema.Draft202012Validator(rubric.schema()).iter_errors(res))
+    assert errs == []
