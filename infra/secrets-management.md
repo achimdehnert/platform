@@ -83,6 +83,44 @@ age-keygen -y /etc/secrets/staging.key
     rm /tmp/age.key
 ```
 
+## Rotationslauf (Stufe 1, KONZ-dev-hub-005 / platform#2813)
+
+Die Tabelle darunter sagt, *wie oft*. Sie sagt nicht, *ob es geschehen ist* — bis
+zum 2026-09-04 kannte das Inventar fuer keinen seiner Eintraege einen letzten
+Lauf. Dafuer gibt es jetzt eine Kette mit Nachweis:
+
+| Schritt | Werkzeug | Wer |
+|---|---|---|
+| Was haengt an diesem Secret, womit belegt man es? | `python3 tools/rotate.py pruefen <NAME>` | Agent |
+| Setzen + Belegen + Protokollieren + Schleuse leeren | `python3 tools/rotate.py lauf <NAME> --quelle ~/shared/<datei>` | **Owner** (beruehrt den Wert) |
+| Negativprobe nach dem Widerruf | `python3 tools/rotate.py widerruf-geprueft <LAUF-ID>` | Agent |
+| Was ist faellig / ohne Beleg / Altlast? | `python3 tools/rotate.py faellig` | Runner-Phase 0.7.25 |
+
+Das Lauf-Protokoll ist `infra/rotation-log.jsonl` (append-only, keine Werte, ein
+Fingerabdruck je Lauf). Das Inventar bleibt SSoT — das Werkzeug schreibt nie hinein.
+
+### Pruef-Workflow in einem Zielrepo einrichten
+
+`docs/templates/secret-probe.yml` nach `.github/workflows/secret-probe.yml` im
+Zielrepo kopieren, dann im Inventar beim Konsumenten eintragen:
+
+```yaml
+    consumers:
+      - kind: github_repo_secret
+        ref: iilgmbh/risk-hub
+        name: PROJECT_PAT
+        proof:
+          workflow: secret-probe.yml
+          log_marker: "✓ PROJECT_PAT gueltig"
+```
+
+Einmalige **Negativprobe** beim Anlegen: den Workflow mit dem alten oder ohne
+Wert starten — er muss rot werden. Ein Beleg-Workflow, der nie rot war, belegt
+nichts. Zwei Fallen, die das in der Praxis kaputt machen: ein Rueckfall auf
+`secrets.GITHUB_TOKEN` (macht den Job auch ohne das Secret gruen) und ein
+Beleg, der an einem Deploy-Workflow haengt (wird beim naechsten Mal nicht mehr
+gefahren).
+
 ## Rotation Schedule
 
 | Secret Type | Frequency | Process |
