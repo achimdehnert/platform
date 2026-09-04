@@ -612,6 +612,14 @@ repos:
         web_container: illustration_web
         web_service: web
         port: 8096
+  music-lab:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: python
+      note: Song-/Sprach-Generierung auf der lokalen GPU-Box (ACE-Step, MOSS-TTS,
+        Groq-Textvorschlag); kein Deploy - Box nur via WireGuard/SSH-Tunnel; Cluster-Nachbarn
+        illustration-hub (ComfyUI) und writing-hub (Ollama)
   infra-deploy:
     in_flat: true
     in_rich: false
