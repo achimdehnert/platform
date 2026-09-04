@@ -31,6 +31,8 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 3 Merges per Mandat (#2805 W1/M1, #2808 W1/M1, beide nach Freigabe-Vermerk im Issue-Body #2737), 8 W3-Merges durch den Owner. Delegation: 7 Subagenten nach Brief (4 Sonnet, 3 Opus; Prüfung + Fixes inline), Session `ac4fb7c7`.
 
+**0h Fremdabnahme (Fortsetzung 01Lob9, 2026-09-04):** Zug-A-Rest + 171 **erreicht** (51/56 selbst gezaehlt, Staffelung ≤ 2/h, Deploys success, Vorfall zurueckgesetzt, Tag = #76, Bypass mit Freigabe); Z7 teilweise — zwei Anker im #2787-Text falsch, korrigiert (bahn-hub#19, risk-hub#729). 0e: drei JA, hier nachgezogen (Faeden 31/36/39/40); Faden 38 = Parallelsitzung. Runner: E.1 coach-hub#70, E.5/E.6 Luecke.
+
 ## Offene Fäden (über den Session-Stand hinaus)
 
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
@@ -66,15 +68,17 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
 28. Future-Readiness: K5-Bilanz aus v2.4-Neulauf (dev-hub#326), Deltas 27 Repos = Owner-Fragen: https://github.com/achimdehnert/platform/issues/2737
 29. Evidenz-Generator-Rest (Rate-Limit-Vorabcheck, visibility-Check); Werkzeuge #2767 gemergt, #2782 offen: https://github.com/achimdehnert/platform/issues/2736
-30. shared-ci v1.1.15 gesetzt (9589a6c, #73 zu); Konsumenten von 1.1.14 auf 1.1.15 bumpen (writing-hub#1002/#1004 zuerst), Input `allowed_runner_labels` fuer dedizierte Runner (mcp-hub): https://github.com/iilgmbh/shared-ci/issues/75
-31. travel-beat stillgelegt, aber Deploy ohne Gate — Doku-Merge #96 fuhr die App hoch (zurueckgesetzt); Gate-PR #98 VOR #94 mergen; staging-Runner auf dev-desktop braucht sudo-Start: https://github.com/achimdehnert/travel-beat/pull/98
+30. shared-ci v1.1.15 gesetzt (#73 zu); 42 Konsumenten bumpen, writing-hub zuerst, Liste mit Versionen: https://github.com/iilgmbh/shared-ci/issues/77
+31. travel-beat: Gate #98 gemergt (App aus); staging-Runner-Unit `actions.runner.achimdehnert-travel-beat.travel-beat-staging-ci.service` (dev-desktop) braucht sudo-Start; #94 jetzt gefahrlos: https://github.com/achimdehnert/travel-beat/issues/95
 32. ADR-262 Frontmatter nach Welle 1 (7 Repos umgesetzt, Status not-started): https://github.com/achimdehnert/platform/issues/2770
 33. session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name): https://github.com/achimdehnert/platform/issues/2773
 34. Speicher-Melder baut den Hop-Zugang noch selbst, Rest aus #2783: https://github.com/achimdehnert/platform/issues/2802
 35. Mailcheck-Ablage: Rest 3 Vorgänge ohne Anker, 1 ohne Strang, hnu 1 offene Mail; Melder `--pruefe` in `make boards`: https://github.com/achimdehnert/platform/issues/2799
-36. Zug A Endstand 50/56 gemessen (SECURITY.md auf default-branch); ohne: coach-hub, bahn-hub, risk-hub, travel-beat#96, infra-deploy#7, dev-hub; K5 dev-hub#331; Folgebefunde shared-ci#75, #2827, mcp-hub#251, meiki-dms#19: https://github.com/achimdehnert/platform/issues/2787
+36. Zug A 51/56 gemessen; ohne: coach-hub#70, bahn-hub#19, risk-hub#729, infra-deploy#7, dev-hub (44); Folgebefunde #2827, mcp-hub#251, meiki-dms#19: https://github.com/achimdehnert/platform/issues/2787
 37. Aufschub-Anker-Gate: Fehlalarm-Klasse „nicht ausgewertet/bewusst nicht“ in Code-Kommentaren, 3× am 2026-09-04: https://github.com/achimdehnert/platform/issues/2606
 38. Sitzung 6e320e79 (Mailcheck/DSGVO/EPIC): `load_credentials` beendet den Prozess statt zu werfen — Wurzel hinter #2755; Ledger #185–#188 offen, Papiere `~/shared/retentionsscanner/`: https://github.com/achimdehnert/platform/issues/2752
+39. apo-hub ruhend, DEPLOY_ENABLED=false; Schluesselrotation erst bei Reaktivierung: https://github.com/achimdehnert/apo-hub/issues/82
+40. `Bash(gh pr merge:*)` global in autoMode.allow — zurueckbauen oder als Gate verankern (Owner): https://github.com/achimdehnert/platform/issues/2834
 
 ## Konventionen dieser Datei
 
