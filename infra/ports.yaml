@@ -636,16 +636,14 @@ services:
     prod: 8008
     staging: 8008
     dev: 8008
-    prod_host: dev-desktop
+    prod_host: prod-b
     container_name: chathub_chat_synapse  # 7 Container: synapse, db, element, rtc_{jwt,proxy,livekit}, tunnel
     domain_prod: chat.iil.pet
     domain_staging: null
     domain_aliases:
       - rtc-chat.iil.pet
       - app-chat.iil.pet
-    repo: achimdehnert/chat-hub           # deploy/
-    betriebsstatus: ruhend
-    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+    repo: iilgmbh/chat-hub                # deploy/ (Repo 2026 nach iilgmbh uebertragen, alter Pfad leitet um)
   robo-twin:
     prod: 8790
     staging: 8790
