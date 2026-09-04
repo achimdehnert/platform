@@ -206,11 +206,11 @@ def test_should_compute_readiness_from_question_scores(tmp_path):
             if q["state"] == "answered"
         ]
         appl = [q for q in s["questions"].values() if q["state"] != "not_applicable"]
-        exp = (
-            None
-            if not appl or len(qs) < 0.5 * len(appl)
-            else int(math.floor(sum(qs) / len(qs) + 0.5))
+        gewertet = appl and (
+            len(qs) >= rubric.SCORE_MIN_ANSWERED
+            or len(qs) >= rubric.SCORE_MIN_SHARE * len(appl)
         )
+        exp = int(math.floor(sum(qs) / len(qs) + 0.5)) if gewertet else None
         assert s["score"] == exp, d
         if exp is not None:
             num += W[d] * exp
@@ -353,3 +353,89 @@ def test_should_fail_d02_1_on_an_empty_manifest_instead_of_unverified(tmp_path):
     assert any(f["question_id"] == "D02.1" for f in res["findings"])
     errs = list(jsonschema.Draft202012Validator(rubric.schema()).iter_errors(res))
     assert errs == []
+
+
+def _d06_blind(**over) -> dict:
+    """Paket, in dem die D06-Einstellungsfragen keinen Zustand hergeben.
+
+    security_and_analysis fehlt, Dependabot- und Code-Scanning-Endpunkt antworten mit
+    403 ohne semantischen Body -> D06.1-D06.5 bleiben `unverified`. Uebrig bleiben die
+    Workflow-Fragen. D06 hat 13 anwendbare Fragen; die Faelle unten liegen damit ALLE
+    unter 50 % und trennen die neue 3-answered-Bedingung sauber von der Anteilsregel.
+    """
+    return _pack(
+        repo={"visibility": "private", "security_and_analysis": None},
+        dependabot_alerts_api={
+            "endpoint": "x",
+            "exit_code": 1,
+            "body_head": "",
+            "stderr": "HTTP 403",
+        },
+        code_scanning_api={
+            "endpoint": "x",
+            "exit_code": 1,
+            "body_head": "",
+            "stderr": "HTTP 403",
+        },
+        **over,
+    )
+
+
+def _d06(res: dict) -> tuple[list[str], list[str], object]:
+    s = res["scores"]["D06"]
+    ans = [q for q, v in s["questions"].items() if v["state"] == "answered"]
+    appl = [q for q, v in s["questions"].items() if v["state"] != "not_applicable"]
+    return ans, appl, s["score"]
+
+
+def test_should_score_a_dimension_with_three_answered_questions(tmp_path):
+    # Regel 37a (v2.4, Owner-Wort 2026-09-04): drei beantwortete Fragen oeffnen die
+    # Dimension, auch wenn der Anteil unter 50 % liegt. Anlass: D06 (Gewicht 15) fiel
+    # bei dev-hub mit 6 von 13 answered ganz aus dem Score.
+    assert rubric.SCORE_MIN_ANSWERED == 3 and rubric.SCORE_MIN_SHARE == 0.5
+    ans, appl, score = _d06(_run(tmp_path, _d06_blind()))
+    assert len(ans) == 3 and len(appl) == 13
+    assert len(ans) < rubric.SCORE_MIN_SHARE * len(
+        appl
+    )  # die Anteilsregel traegt nicht
+    assert score is not None
+
+
+def test_should_not_score_a_dimension_with_two_answered_questions(tmp_path):
+    # Zwei answered von 13: weder drei answered noch 50 % — bleibt gesperrt.
+    ohne_third_party = json.loads(json.dumps(_pack()["parts"]["workflow_table"]))
+    ohne_third_party[0]["third_party_uses"] = []
+    ohne_third_party[0]["third_party_sha_pinned"] = []
+    res = _run(
+        tmp_path,
+        _d06_blind(
+            workflow_table=ohne_third_party,
+            uses_summary={
+                "third_party_total": 0,
+                "third_party_sha_pinned": 0,
+                "first_party_total": 0,
+                "first_party_versioned": 0,
+            },
+        ),
+    )
+    ans, appl, score = _d06(res)
+    assert len(ans) == 2 and len(appl) == 13
+    assert score is None
+    assert res["scores"]["D06"]["coverage"] is not None  # Coverage bleibt
+
+
+def test_should_keep_scoring_by_the_share_rule_when_fewer_than_three_are_answered(
+    tmp_path,
+):
+    # Die Anteilsregel bleibt gueltig und ist die einzige, die bei kleinen
+    # Dimensionen (weniger als drei anwendbare Fragen) ueberhaupt greifen kann.
+    res = _run(tmp_path, _pack())
+    geprueft = 0
+    for d, s in res["scores"].items():
+        appl = [q for q in s["questions"].values() if q["state"] != "not_applicable"]
+        ans = [q for q in appl if q["state"] == "answered"]
+        if appl and len(ans) < rubric.SCORE_MIN_ANSWERED:
+            geprueft += 1
+            erwartet = len(ans) >= rubric.SCORE_MIN_SHARE * len(appl)
+            assert (s["score"] is not None) == erwartet, d
+    assert geprueft, "keine Dimension unter der 3-answered-Grenze im Fixture"

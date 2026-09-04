@@ -480,7 +480,11 @@ sind; dann score=null und coverage=null.
 # SCORE (deterministisch — keine Ermessensstufe mehr)
 question_score:  ok=5 · partial=3 · fail=0
 score_d        = round_half_up(mean(question_score über answered-Fragen von d)),
-                 nur wenn answered ≥ 50 % der anwendbaren Fragen; sonst null
+                 nur wenn answered_d ≥ 3 ODER answered_d ≥ 50 % der anwendbaren
+                 Fragen; sonst null. (v2.4, Owner-Wort 2026-09-04: die reine
+                 Anteilsschwelle kippte D06 mit Gewicht 15 bei 6 von 13
+                 beantworteten Fragen ganz aus dem Score. Werte stehen als
+                 SCORE_MIN_ANSWERED/SCORE_MIN_SHARE in der Rubrik.)
 coverage_d     = answered_d / (fragen_d − not_applicable_d)   (null bei 0 Nenner)
 readiness_raw  = Σ_d w_d·score_d / Σ_d w_d   über d mit score_d ≠ null
 readiness      = round_half_up(readiness_raw / 5 · 100)
