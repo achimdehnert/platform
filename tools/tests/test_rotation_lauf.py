@@ -15,6 +15,7 @@ Der dritte und der vierte Fall sind die, die man in einem Werkzeug ohne Drill
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from datetime import date
@@ -121,7 +122,13 @@ def _zeilen(log: Path) -> list[dict]:
 # --------------------------------------------------------------------------
 def test_should_close_the_run_and_empty_the_sluice_when_every_proof_is_green(umgebung):
     a, quelle, log = umgebung
-    a.nur = "iilgmbh/risk-hub"
+    # Ein Secret mit genau einem belegbaren Konsumenten: nach dessen Beleg steht
+    # niemand mehr aus, die Schleuse darf geleert werden.
+    einzeln = copy.deepcopy(INVENTAR)
+    einzeln["shared"]["ATTRAPPE_TOKEN"]["consumers"] = [
+        INVENTAR["shared"]["ATTRAPPE_TOKEN"]["consumers"][0]
+    ]
+    Path(a.inventar).write_text(yaml.safe_dump(einzeln, allow_unicode=True), encoding="utf-8")
     treiber = AttrappenTreiber("ok")
     assert cli.cmd_lauf(a, treiber) == 0
 
@@ -133,6 +140,19 @@ def test_should_close_the_run_and_empty_the_sluice_when_every_proof_is_green(umg
     assert zeile["fingerprint_alg"] == "hmac-sha256/v1"
     assert len(zeile["fingerprint_prefix16"]) == 16
     assert "ATTRAPPE-1234" not in log.read_text(encoding="utf-8")
+
+
+def test_should_keep_the_sluice_when_a_partial_run_leaves_provable_consumers(umgebung, capsys):
+    """#2840: --nur schliesst den Lauf, aber die Schleuse gehoert dem Secret."""
+    a, quelle, log = umgebung
+    a.nur = "iilgmbh/risk-hub"
+    assert cli.cmd_lauf(a, AttrappenTreiber("ok")) == 0
+
+    zeile = _zeilen(log)[-1]
+    assert zeile["status"] == "abgeschlossen"
+    assert zeile["schleuse_geleert"] is False
+    assert quelle.exists(), "Teil-Lauf darf die Schleuse nicht leeren"
+    assert "Schleuse bleibt" in capsys.readouterr().out
 
 
 def test_should_keep_the_run_open_and_the_sluice_full_when_the_proof_is_red(umgebung):

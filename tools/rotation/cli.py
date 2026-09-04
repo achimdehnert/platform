@@ -174,7 +174,16 @@ def cmd_lauf(a: argparse.Namespace, treiber=None) -> int:
     # Schleuse zuletzt — und nur bei Gleichheit: hat sich die Datei seit dem
     # Lesen geaendert, wurde etwas anderes gesetzt als das, was jetzt daliegt.
     schleuse_geleert = False
-    if status == "abgeschlossen":
+    # Teil-Lauf (--nur): die Schleuse gehoert dem Secret, nicht dem Lauf. Solange
+    # weitere belegbare Konsumenten ausstehen, brauchen sie denselben Wert noch
+    # (#2840, Realfall PROJECT_PAT 2026-09-04: sechs Repos standen ohne Wert da).
+    ausstehend = [k for k in secret.konsumenten if k.rotierbar and k not in ziele]
+    if status == "abgeschlossen" and ausstehend:
+        print(
+            f"  Teil-Lauf: {len(ausstehend)} belegbare(r) Konsument(en) stehen noch aus "
+            f"— Schleuse bleibt ({quelle})."
+        )
+    elif status == "abgeschlossen":
         if fingerprint.datei_pruefsumme(quelle) == pruefsumme_start:
             quelle.unlink()
             schleuse_geleert = True
