@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """future_readiness_score.py — deterministischer T1-Bewerter: Evidenzpaket → Worker-Ergebnis (Schema 2.3) ohne Modell.
 
-Setzt Artefakt 2 des Prompts (docs/prompts/future-readiness-audit.md v2.3) fuer alle operanden-getriebenen
+Setzt Artefakt 2 des Prompts (docs/prompts/future-readiness-audit.md v2.4) fuer alle operanden-getriebenen
 Kernfragen in Code um; Urteilsfragen bleiben `unverified` (Negativliste) und koennen von einem Modell-Worker
 nachgezogen werden. Rubrik (Fragen, Matrix, Schema) kommt aus tools/future_readiness_rubric.py — eine Quelle.
 
@@ -123,6 +123,30 @@ class Scorer:
         sa = (self.P.get("repo") or {}).get("security_and_analysis") or {}
         return (sa.get(key) or {}).get("status")
 
+    def sec_unlesbar(self) -> tuple[str, str]:
+        """Regel 34 (v2.4): warum `security_and_analysis` keinen Zustand hergibt.
+
+        Fehlt der Block ganz, entscheidet der Kontotyp des Eigentuemers: bei einem
+        PRIVATEN Repo unter einem Personenkonto gibt es die Funktionen im Plan nicht
+        (`plan_unavailable`); unter einer Organisation ist der Block da, wenn das Token
+        ihn sehen darf — fehlt er dort, ist es ein Rechteproblem (`no_permission`).
+        Ohne `owner_type` im Paket bleibt es `unknown` — nicht geraten.
+        """
+        r = self.P.get("repo") or {}
+        if r.get("security_and_analysis") is not None:
+            return "unknown", "Block vorhanden, Schluessel fehlt"
+        typ = r.get("owner_type")
+        if not typ:
+            return "unknown", "Block fehlt, owner_type nicht im Paket"
+        if r.get("visibility") == "private" and typ == "User":
+            return (
+                "plan_unavailable",
+                "privates Repo eines Personenkontos: nicht im Plan",
+            )
+        if typ == "Organization":
+            return "no_permission", "Org-Repo, Block nicht sichtbar: Recht fehlt"
+        return "unknown", f"Block fehlt, owner_type={typ}"
+
     # ---- Fragen -----------------------------------------------------------
     def evaluate(self) -> None:
         P = self.P
@@ -227,8 +251,14 @@ class Scorer:
                 "manifest",
             )
         elif ents == 0:
-            self.open_(
-                "D02.1", "unverified", "Manifest vorhanden, Eintraege nicht zaehlbar"
+            # Regel 25/30 (v2.4): ein vorhandenes, aber leeres Manifest ist ein Befund,
+            # keine Messluecke — 0 versionierte von 0 Eintraegen ist fail.
+            self.answered(
+                "D02.1",
+                "fail",
+                f"Manifest vorhanden, aber 0 Eintraege ({sorted(mans)}"
+                f"{', pyproject' if pyp else ''})",
+                "manifest",
             )
         else:
             self.answered(
@@ -471,12 +501,13 @@ class Scorer:
                 )
                 self.control(ck, st, f"security_and_analysis.{key}")
             else:
+                zustand, grund = self.sec_unlesbar()
                 self.open_(
                     qid,
                     "unverified",
-                    f"security_and_analysis.{key} nicht lesbar (privat: Plan/Recht) — Regel 34 offen",
+                    f"security_and_analysis.{key} nicht lesbar ({grund})",
                 )
-                self.control(ck, "unknown", "")
+                self.control(ck, zustand, "")
         da = P.get("dependabot_alerts_api", {})
         if da.get("exit_code") == 0:
             self.answered("D06.3", "ok", "GET dependabot/alerts 200", "setting")

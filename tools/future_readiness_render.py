@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""future_readiness_render.py — result.json (Schema 2.3) → Markdown-Repo-Bericht.
+"""future_readiness_render.py — result.json (Schema 2.3, Prompt v2.4) → Markdown-Repo-Bericht.
 
 Dritter Baustein neben future_readiness_evidence.py (Paket) und future_readiness_score.py
 (Bewertung): rendert das Ergebnis in das Format der Canary-Berichte (Kopfzeile, Findings-
