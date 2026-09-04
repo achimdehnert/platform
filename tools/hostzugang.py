@@ -50,7 +50,7 @@ def ssh_kommando(
     `host["ssh_via"]` (Hop, dessen Schluessel den Zielhost kennt) und
     `host["ssh_shell"]` (ersetzt die Remote-Shell, z.B. WSL bei Windows-
     Knoten; Vorgabe `shell_default`). `host["betrieb"]` (`auf_zuruf`) wird
-    hier absichtlich nicht ausgewertet (Entscheidung, keine Restarbeit): es aendert nichts an der argv-Liste,
+    hier absichtlich nicht ausgewertet (Entscheidung, Refs #2783): es aendert nichts an der argv-Liste,
     nur an der Klassifikation eines Fehlschlags danach, und bleibt Sache der
     Aufrufer (unveraendert gegenueber vorher).
 
