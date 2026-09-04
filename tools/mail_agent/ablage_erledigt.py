@@ -46,7 +46,9 @@ seit dem 2026-08-27 keine einzige Mail ablegte:
 * **Beide Seiten werden gezaehlt** (Quelle und Ziel, vorher und nachher). Weicht
   der Bestand von der Erfolgsmeldung ab, ist das eine Warnung und Exit 3.
 * **``--pruefe`` ist der Melder:** wie viele Posteingangs-Mails gehoeren noch zu
-  geschlossenen Vorgaengen. 0 = gruen; laeuft in ``make boards``.
+  geschlossenen Vorgaengen. 0 = gruen; laeuft in ``make boards``. Jeder
+  Index-Treffer wird vor dem Zaehlen im lebenden Quellordner bestaetigt — sonst
+  waere der Melder nach jeder erfolgreichen Ablage bis zum naechsten Ingest rot.
 
 Ordnerkonventionen, die schon bestehen und deshalb nicht neu erfunden werden:
 
@@ -1413,44 +1415,107 @@ def pruefe_posteingang(
     konversation=None,
     anker: dict | None = None,
     links: dict | None = None,
-) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
+    auflisten=None,
+) -> tuple[dict[str, int], dict[str, dict[str, int]], dict[str, int]]:
     """Wie viele Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen?
 
-    Rueckgabe: (Anzahl je Konto, Strang-Quellen je Konto). Der Zielordner spielt
-    hier keine Rolle — gefragt ist nur, ob im Posteingang noch etwas liegt, das
-    laut Ledger abgeschlossen ist.
+    Rueckgabe: (Anzahl je Konto, Strang-Quellen je Konto, veraltete Index-Treffer
+    je Konto). Der Zielordner spielt hier keine Rolle — gefragt ist nur, ob im
+    Posteingang noch etwas liegt, das laut Ledger abgeschlossen ist.
+
+    **Jeder Index-Treffer wird live bestaetigt, bevor er zaehlt.** Der Index ist
+    ein Schnappschuss von 03:30 und fuehrt eine eben abgelegte Mail bis zum
+    naechsten Ingest weiter im Posteingang. Gemessen am 2026-09-04 direkt nach
+    dem ersten scharfen Lauf (18 Mails bewegt, Zaehlung stimmte): der Melder
+    meldete `hnu: 7` und `iil: 1`, obwohl beide Posteingaenge sauber waren. Ein
+    Melder, der nach jeder erfolgreichen Ablage rot ist, wird nicht mehr gelesen
+    — dieselbe Fehlerklasse, gegen die schon `eintrag_anker.TOT_DATEI` gebaut
+    wurde.
+
+    Bestaetigt wird gegen den LEBENDEN Quellordner (`postfach_auflisten` +
+    `abgleichen`, Betreff-Kern und Datum) — derselbe Weg, den `--apply` schon
+    geht, bevor es etwas anfasst. Nachrichten aus der Konversation brauchen das
+    nicht: sie kommen bereits live aus dem Postfach.
     """
+    hole = auflisten or postfach_auflisten
     zaehler: dict[str, int] = {}
     quellen: dict[str, dict[str, int]] = {}
+    veraltet: dict[str, int] = {}
+    rest: dict[tuple[str, str], list[dict] | None] = {}
     for vorgang in ledger.get("vorgaenge") or []:
         if vorgang.get("bucket") != "erledigt":
             continue
         konto = (vorgang.get("konto") or "").lower() or "—"
         zaehler.setdefault(konto, 0)
         quellen.setdefault(konto, {})
+        veraltet.setdefault(konto, 0)
         strang = strang_aufloesen(vorgang, suche, konversation, anker, links)
         if not strang:
             quellen[konto]["kein strang"] = quellen[konto].get("kein strang", 0) + 1
             continue
         quellen[konto][strang.quelle] = quellen[konto].get(strang.quelle, 0) + 1
         bewegungen, _ = bewegungen_fuer(vorgang, "", strang, suche)
-        zaehler[konto] += len(bewegungen)
-    return zaehler, quellen
+        if strang.quelle == KONVERSATION:
+            zaehler[konto] += len(bewegungen)
+            continue
+        for b in bewegungen:
+            schluessel = (b.konto, b.von_ordner)
+            if schluessel not in rest:
+                try:
+                    rest[schluessel] = hole(*schluessel)
+                except (
+                    AblageFehler,
+                    OSError,
+                    ValueError,
+                    KeyError,
+                    json.JSONDecodeError,
+                    SystemExit,
+                ) as fehler:
+                    # Nicht bestaetigbar heisst NICHT bestaetigt-abwesend: der
+                    # Treffer bleibt gezaehlt, damit ein unerreichbares Postfach
+                    # nicht als sauberer Posteingang durchgeht.
+                    print(
+                        f"  Bestaetigung {b.konto}/{b.von_ordner} nicht moeglich: "
+                        f"{fehler}",
+                        file=sys.stderr,
+                    )
+                    rest[schluessel] = None
+            bestand = rest[schluessel]
+            if bestand is None:
+                zaehler[konto] += 1
+                continue
+            paare, _ = abgleichen([b], bestand)
+            if not paare:
+                veraltet[konto] += 1
+                continue
+            benutzt = {k for _, k in paare}
+            rest[schluessel] = [e for e in bestand if e.get("kennung") not in benutzt]
+            zaehler[konto] += len(paare)
+    return zaehler, quellen, veraltet
 
 
-def pruefe_bericht(zaehler: dict[str, int], quellen: dict[str, dict[str, int]]) -> str:
+def pruefe_bericht(
+    zaehler: dict[str, int],
+    quellen: dict[str, dict[str, int]],
+    veraltet: dict[str, int] | None = None,
+) -> str:
+    veraltet = veraltet or {}
     zeilen = []
     for konto, n in sorted(zaehler.items()):
         herkunft = ", ".join(
             f"{a}x {q}" for q, a in sorted(quellen.get(konto, {}).items())
         )
-        zeilen.append(
+        zeile = (
             f"{konto}: {n} Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen"
             + (f"  ({herkunft})" if herkunft else "")
         )
+        if alt := veraltet.get(konto):
+            zeile += f" · davon {alt} im Index veraltet (nicht gezaehlt)"
+        zeilen.append(zeile)
     zeilen.append(
         "Grundlage: Strang ueber die Konversation live, der Rest ueber den "
-        "Index-Schnappschuss von 03:30."
+        "Index-Schnappschuss von 03:30 — jeder Index-Treffer wird vor dem Zaehlen "
+        "im lebenden Quellordner bestaetigt."
     )
     return "\n".join(zeilen)
 
@@ -1534,10 +1599,10 @@ def main() -> None:
         # Quellordner in der Konversationssuche — drei Rundreisen statt
         # zweiundvierzig je Vorgang, damit `make boards` das taeglich aushaelt.
         with Konversationen(nur_quellordner=True) as konversation:
-            zaehler, quellen = pruefe_posteingang(
+            zaehler, quellen, veraltet = pruefe_posteingang(
                 ledger, index_suche, konversation, anker_daten, links_daten
             )
-        print(pruefe_bericht(zaehler, quellen))
+        print(pruefe_bericht(zaehler, quellen, veraltet))
         sys.exit(1 if sum(zaehler.values()) else 0)
 
     ordner_je_konto: dict[str, list[str]] = {}
