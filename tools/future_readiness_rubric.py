@@ -24,6 +24,15 @@ import sys
 
 SCHEMA_VERSION = "2.3"
 
+# Schwelle, ab der eine Dimension in den Score eingeht (Kandidat 37a, Owner-Wort
+# 2026-09-04): eine Dimension wird gewertet, wenn MINDESTENS SCORE_MIN_ANSWERED
+# Fragen beantwortet sind ODER der Anteil beantworteter an anwendbaren Fragen
+# SCORE_MIN_SHARE erreicht. Anlass: bei dev-hub fiel D06 (Gewicht 15) mit 6 von 13
+# beantworteten Fragen knapp unter die reine Anteilsschwelle und ging gar nicht in
+# den Score ein. Der Bewerter liest beide Werte von hier.
+SCORE_MIN_ANSWERED = 3
+SCORE_MIN_SHARE = 0.5
+
 DIMS = {
     "D01": ("Runtime-Lifecycle", 10),
     "D02": ("Dependencies/Reproduzierbarkeit", 10),

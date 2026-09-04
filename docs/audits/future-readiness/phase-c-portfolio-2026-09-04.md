@@ -2,6 +2,11 @@
 
 Quelle: `tools/future_readiness_portfolio.py dev-hub:docs/audits/future-readiness/2026-09-03/repositories/ (origin/main @ b654e20)` über die je Repo abgelegten Ergebnisdateien des Phase-C-Laufs (dev-hub, privat). Auftrag [platform#2737](https://github.com/achimdehnert/platform/issues/2737).
 
+Die Zahlen stammen aus dem Lauf vom 2026-09-03 unter **Rubrik 2.3**. Mit dem Owner-Wort vom
+2026-09-04 senkt v2.4 die Schwelle, ab der eine Dimension in den Score eingeht, auf „≥ 3
+beantwortete Fragen ODER ≥ 50 %" (Kandidat 37a); ein Neulauf über die 56 Repos folgt und wird
+die Readiness-Werte hier verschieben. Bis dahin gilt diese Datei als Stand des v2.3-Laufs.
+
 Diese Datei enthält nur Aggregate, Repo-Namen und Readiness-Bänder — keine Personendaten, keine Secrets, keine Einstellungswerte einzelner privater Repos (platform ist öffentlich; Regel 11* der Regelbilanz).
 
 ## Grundmenge

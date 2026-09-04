@@ -789,7 +789,8 @@ class Scorer:
                 cov = round_half_up(len(ans) / len(appl), 4)
                 score = (
                     int(round_half_up(sum(ans) / len(ans)))
-                    if len(ans) >= 0.5 * len(appl)
+                    if len(ans) >= rubric.SCORE_MIN_ANSWERED
+                    or len(ans) >= rubric.SCORE_MIN_SHARE * len(appl)
                     else None
                 )
             scores[d] = {"score": score, "coverage": cov, "questions": qs}
