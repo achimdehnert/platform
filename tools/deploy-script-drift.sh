@@ -24,6 +24,8 @@
 set -euo pipefail
 
 PLATFORM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=./hostzugang.sh
+source "$(dirname "${BASH_SOURCE[0]}")/hostzugang.sh"
 SRC="$PLATFORM_DIR/scripts/deploy.sh"
 HOSTS_YAML="$PLATFORM_DIR/infra/hosts.yaml"
 REMOTE_PATH="/opt/scripts/deploy.sh"
@@ -126,15 +128,14 @@ for t in "${TARGETS[@]}"; do
   # beide in denselben Topf, und ein Backup-Ziel ohne Deploy-Rolle sah aus wie ein
   # stummer Prod-Host. Kommt gar nichts zurück, ist der Host stumm.
   shell="${ssh_shell:-bash -s}"
-  if [[ -n "$ssh_via" ]]; then
-    # Schlüssel liegt nur auf dem Hop: das Skript wandert per stdin durch beide
-    # ssh-Verbindungen (tools/flottenbild.py messe_knoten), statt als
-    # Kommandozeilen-Argument durch zwei Shells hindurch zitiert zu werden.
-    inner="ssh -o BatchMode=yes -o ConnectTimeout=8 $ssh_target \"$shell -- $REMOTE_PATH\""
-    remote=$(ssh -o ConnectTimeout=10 -o BatchMode=yes "$ssh_via" "$inner" 2>/dev/null <<< "$PROBE_SCRIPT" || true)
-  else
-    remote=$(ssh -o ConnectTimeout=10 -o BatchMode=yes "$ssh_target" $shell -- "$REMOTE_PATH" 2>/dev/null <<< "$PROBE_SCRIPT" || true)
-  fi
+  # Hop-Aufbau (ssh_via/ssh_shell) in tools/hostzugang.sh (platform#2783),
+  # geteilt mit tools/flottenbild.py und tools/host_datei_drift.py. Schlüssel
+  # liegt nur auf dem Hop: das Skript wandert per stdin durch beide
+  # ssh-Verbindungen, statt als Kommandozeilen-Argument durch zwei Shells
+  # hindurch zitiert zu werden.
+  hostzugang_ssh_kommando "$ssh_target" "$ssh_via" "$shell -- $REMOTE_PATH" \
+    -o ConnectTimeout=10 -o BatchMode=yes
+  remote=$("${HOSTZUGANG_CMD[@]}" 2>/dev/null <<< "$PROBE_SCRIPT" || true)
 
   r_da=$(sed -n 's/^DA=//p' <<< "$remote")
   r_md5=$(sed -n 's/^MD5=//p' <<< "$remote")
