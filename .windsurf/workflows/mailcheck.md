@@ -320,7 +320,11 @@ Weicht der Bestand von der Erfolgsmeldung ab, ist das eine `WARNUNG` und **Exit 
 Zeilen kommen ins Board, nicht das `OK`.
 
 Danach meldet `--pruefe` je Konto, was noch offen ist; `0` für beide Konten ist das Ziel des
-Schritts. Der Melder läuft auch in `make boards`.
+Schritts. Der Melder läuft auch in `make boards`. **Er bestätigt jeden Index-Treffer live**,
+bevor er ihn zählt — der Schnappschuss von 03:30 führt eine eben abgelegte Mail sonst bis zum
+nächsten Ingest weiter im Posteingang, und der Melder wäre nach jeder erfolgreichen Ablage rot
+(gemessen 2026-09-04 nach dem ersten scharfen Lauf: gemeldet `hnu: 7`, tatsächlich `hnu: 1`).
+Die Zahl hinter `davon … im Index veraltet` sind genau diese Treffer; sie zählen nicht.
 
 ## Zustandsabhängige Prozesse (der eigentliche Grund für /mailcheck)
 
@@ -457,6 +461,10 @@ Prüfer überlebt.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog
+
+- **2026-09-04 (#2799, Nachtrag nach dem ersten scharfen Lauf):** `--pruefe` bestätigt jeden
+  Index-Treffer im lebenden Quellordner, bevor er zählt, und weist veraltete Treffer getrennt
+  aus. Ohne das war der Melder direkt nach einer erfolgreichen Ablage rot (`hnu: 7` statt `1`).
 
 - **2026-09-04 (#2799):** Schritt 7a legt wieder ab. `ablage_erledigt.py` holt den
   Ordnerbestand selbst (`--ordner` nur noch Übersteuerung) — die fehlende Liste war der

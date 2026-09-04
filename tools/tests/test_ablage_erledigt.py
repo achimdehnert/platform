@@ -898,8 +898,11 @@ class TestMelder:
     }
     ANKER = {"1": {"message_id": "<a1@example.invalid>"}}
 
+    #: Lebender Posteingang, in dem der Index-Treffer noch liegt.
+    BESTAND = [{"kennung": "42", "betreff": "Vorgang X", "datum": "2026-08-18"}]
+
     def test_should_count_inbox_mails_of_closed_vorgaenge_per_account(self):
-        zaehler, quellen = ablage.pruefe_posteingang(
+        zaehler, quellen, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe({}),
             _konversation_attrappe([_n(ordner="INBOX"), _n(ordner="INBOX")]),
@@ -909,7 +912,7 @@ class TestMelder:
         assert quellen["hnu"] == {ablage.KONVERSATION: 1}
 
     def test_should_be_green_when_the_inbox_holds_nothing_closed(self):
-        zaehler, _ = ablage.pruefe_posteingang(
+        zaehler, _, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe({}),
             _konversation_attrappe([_n(ordner="Archiv/2026")]),
@@ -919,18 +922,90 @@ class TestMelder:
 
     def test_should_use_the_same_thread_resolution_as_the_dry_run(self):
         """Ohne Konversation bleibt der Index-Weg — dieselbe Funktion, dieselbe Reihenfolge."""
-        zaehler, quellen = ablage.pruefe_posteingang(
+        zaehler, quellen, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe(
                 {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
             ),
             None,
             self.ANKER,
+            auflisten=lambda *_: list(self.BESTAND),
         )
         assert quellen["hnu"] == {ablage.BETREFF: 1}
         assert zaehler["hnu"] == 1
+
+    def test_should_not_count_index_hits_that_left_the_inbox(self):
+        """Der Index von 03:30 fuehrt eine eben abgelegte Mail weiter im Posteingang.
+
+        Gemessen am 2026-09-04 direkt nach dem ersten scharfen Lauf: 18 Mails
+        bewegt, Zaehlung beider Seiten stimmte — und der Melder meldete trotzdem
+        `hnu: 7` und `iil: 1`. Ein Melder, der nach jeder erfolgreichen Ablage
+        rot ist, wird nicht mehr gelesen.
+        """
+        zaehler, quellen, veraltet = ablage.pruefe_posteingang(
+            self.LEDGER,
+            _suche_attrappe(
+                {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
+            ),
+            None,
+            self.ANKER,
+            auflisten=lambda *_: [],  # der Posteingang ist leer — die Mail ist weg
+        )
+        assert zaehler["hnu"] == 0
+        assert veraltet["hnu"] == 1
+        assert quellen["hnu"] == {ablage.BETREFF: 1}
+
+    def test_should_keep_counting_when_the_mailbox_cannot_confirm(self):
+        """Nicht bestaetigbar ist nicht dasselbe wie bestaetigt-abwesend."""
+
+        def auflisten(*_):
+            raise OSError("Postfach nicht erreichbar")
+
+        zaehler, _, veraltet = ablage.pruefe_posteingang(
+            self.LEDGER,
+            _suche_attrappe(
+                {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
+            ),
+            None,
+            self.ANKER,
+            auflisten=auflisten,
+        )
+        assert zaehler["hnu"] == 1
+        assert veraltet["hnu"] == 0
+
+    def test_should_confirm_the_live_mailbox_only_once_per_folder(self):
+        aufrufe = []
+
+        def auflisten(konto, ordner):
+            aufrufe.append((konto, ordner))
+            return list(self.BESTAND)
+
+        ablage.pruefe_posteingang(
+            {
+                "vorgaenge": [
+                    _v(konto="hnu", nr=1, thread_key="K"),
+                    _v(konto="hnu", nr=2, thread_key="K"),
+                ]
+            },
+            _suche_attrappe(
+                {
+                    "begriff": [_n(betreff="K")],
+                    "strang": [_n(betreff="K", ordner="INBOX")],
+                }
+            ),
+            None,
+            {"1": {}, "2": {}},
+            auflisten=auflisten,
+        )
+        assert aufrufe == [("hnu", "INBOX")]
 
     def test_should_name_the_snapshot_the_count_rests_on(self):
         text = ablage.pruefe_bericht({"hnu": 3}, {"hnu": {ablage.KONVERSATION: 1}})
         assert "3 Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen" in text
         assert "03:30" in text
+
+    def test_should_report_the_stale_index_hits_as_their_own_number(self):
+        text = ablage.pruefe_bericht(
+            {"hnu": 0}, {"hnu": {ablage.BETREFF: 14}}, {"hnu": 7}
+        )
+        assert "davon 7 im Index veraltet" in text
