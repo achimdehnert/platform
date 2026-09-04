@@ -394,3 +394,58 @@ Zwei eigene PR-Texte geprueft: #2531 sauber (2 Segmente, ✅), #2532 eine Meldun
 
 **Stand damit: 26 geprüfte Texte · 16 Meldungen · 1 richtig · 15 Fehlalarme
 (Präzision 0,063).** Zählweise wie „Maßgeblich"-Absatz oben (main-Linie fortgeschrieben).
+
+---
+
+## Lauf 2026-09-04 (11 PR-Texte, iil-voice-agent)
+
+Nachgeholter Lauf: die Phase hatte am Vortag `PASS` gemeldet, **ohne einen einzigen Text
+angesehen zu haben** (falscher Owner + falsches Klassifikator-Ziel, [#2794](https://github.com/achimdehnert/platform/issues/2794)).
+Nachgefahren wurden alle 11 eigenen PR-Texte des 2026-09-03 gegen die GPU-Instanz.
+
+**Ergebnis: 9 sauber, 2 Meldungen — eine richtig, eine Fehlalarm.**
+
+### Richtig: PR #112
+
+Zitat (Abschnitt „Offen"): „**Stufe 2** (`landkreis-guenzburg.de`) und **Stufe 3**
+(Postfach) sind nicht Teil dieses PRs."
+
+Stufe 2 wurde am selben Tag nachgezogen; **Stufe 3 hatte bis zu diesem Lauf kein
+Artefakt** — kein Issue, keine Handover-Zeile, keine Konzept-Datei. Verankert als
+[iil-voice-agent#122](https://github.com/iilgmbh/iil-voice-agent/issues/122), Nummer im
+selben Abschnitt des PR-Textes nachgetragen. **Erster echter Treffer seit dem
+2026-08-31-Lauf** — und einer, der ohne diesen Melder nicht aufgefallen wäre, weil die
+Zeile im PR-Text formal „offen" ausweist und damit erledigt aussieht.
+
+### Fehlalarm: PR #120 — neue Klasse „Zitat aus fremdem Hilfetext"
+
+Zitat: „ist der MCP nicht gebunden, wurde die Session-Summary still übersprungen und nur
+verbal auf ‚später nachziehen' vertagt".
+
+Der Satz ist **keine eigene Vertagung**, sondern ein wörtliches Zitat aus dem Hilfetext des
+Werkzeugs `tools/session-memory` — es beschreibt den **historischen Defekt, den dieses
+Werkzeug behebt**. Der PR-Text zitiert ihn, um zu belegen, dass der Schreibpfad existiert
+und ungenutzt blieb. Der Melder liest die Vergangenheitsform als Ankündigung.
+
+**Fehlalarm-Klasse: Zitat aus fremdem Text.** Anders als die bisherigen Klassen liegt der
+Fehler nicht in der Bewertung des Sachverhalts, sondern darin, dass der zitierte Satz
+**gar nicht der Autor des PR-Textes ist**. Billigste Nachschärfung: Segmente innerhalb von
+Blockquote-Ebenen (`>`) nicht als Zusage des Autors werten.
+
+### Nebenbefund: das gemeldete Zitat ist normalisiert, nicht wörtlich
+
+Bei #112 meldete der Prüfer „Stufe 2 und 3 sind nicht Teil dieses PRs" — im PR-Text steht
+„**Stufe 2** (`landkreis-guenzburg.de`) und **Stufe 3** (Postfach) sind nicht Teil dieses
+PRs." Die Auszeichnung ist entfernt, die Klammereinschübe sind weg.
+
+Wirkung: **die gemeldete Stelle ist per Textsuche im PR nicht auffindbar.** Wer die Meldung
+abarbeiten will, sucht das Zitat, findet nichts und hält die Meldung für einen Fehlalarm
+gegen einen nicht existierenden Satz. Ein `assert`-geschützter Ersetzungsversuch fiel hier
+mit „Treffer=0" durch — hätte er blind ersetzt, wäre nichts passiert und der Anker still
+weggefallen. Billigste Abhilfe: das Zitat **wörtlich** ausgeben, oder Zeilennummer und
+Zeichen-Offset mitgeben.
+
+**Stand damit: 37 geprüfte Texte · 18 Meldungen · 2 richtig · 16 Fehlalarme
+(Präzision 0,111).** Zählweise wie „Maßgeblich"-Absatz oben (main-Linie fortgeschrieben).
+Die Präzision hat sich mit diesem Lauf **verbessert** (0,063 → 0,111) — bei `advisory`-Modus
+und Schwelle 0,50 bleibt sie weit darunter, das Modus-Urteil ändert sich nicht.
