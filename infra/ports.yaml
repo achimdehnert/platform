@@ -440,11 +440,17 @@ services:
     domain_prod: apo.iil.pet
     note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
     repo: achimdehnert/apo-hub
-    betriebsstatus: ruhend
-    betriebsstatus_grund: >
-      Owner-Urteil 2026-09-01 (#2586 K5): nicht in Betrieb, kann aber
-      jederzeit wieder anlaufen. Kein `stillgelegt` — das waere endgueltig —
-      und kein `blockiert`, denn es haelt nichts auf.
+    note: >
+      Laeuft seit 2026-09-02 15:56 UTC auf prod-b — am Knoten geprueft 2026-09-04: drei
+      Container (web/proxy/tunnel) Up 46 h, web healthy, localhost:8120/healthz und
+      /api/health beide HTTP 200. betriebsstatus ist damit `aktiv` (Vorgabe, kein Grund
+      noetig); die 302 von praes.iil.ai ist die Cloudflare-Access-Anmeldung und gilt dem
+      Erreichbarkeits-Melder als in Ordnung (200<=code<400).
+      VORGESCHICHTE: bis 2026-09-04 stand hier `prod_host: dev-desktop` + `blockiert`. Der
+      Dienst war aber am 2026-09-02 nach prod-b umgezogen, ohne dass die Deklaration folgte.
+      Das Hosts-Audit meldete deshalb 10 Laeufe lang einen Auflage-Verstoss auf dev-desktop
+      (platform#2507) — ein reiner DEKLARATIONS-Rueckstand: die Pruefung vergleicht nur
+      hosts.yaml mit ports.yaml und sieht keinen Knoten an.
 
   illustration-hub:
     prod: 8096
@@ -625,7 +631,7 @@ services:
     prod: 8120
     staging: 8120
     dev: 8120
-    prod_host: prod-b               # Owner-Entscheid 2026-09-04: zurueck auf prod-b (war dev-desktop, gegen auflage.prod_container=false)
+    prod_host: prod-b               # Umzug 2026-09-02, Deklaration nachgezogen 2026-09-04 (war dev-desktop, gegen auflage.prod_container=false)
     container_name: praes-iil-ai-web-1
     domain_prod: praes.iil.ai
     domain_staging: null
