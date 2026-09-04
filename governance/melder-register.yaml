@@ -297,6 +297,16 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.23"
+  # Der Leser ist hier nicht "der Agent": faellig heisst, dass ein Mensch einen
+  # neuen Wert erzeugen und widerrufen muss (Gate 1) — der Agent kann nur pruefen
+  # und protokollieren. Runbook-Anker ist das Umsetzungs-Issue, solange die
+  # Rotation Stufe 1 laeuft; mit dem ADR-045-Amendment (REC-9) wandert er dorthin.
+  - phase: "0.7.25 rotation-faelligkeit"
+    leser: "Session-Start-Board → Owner (erzeugt/widerruft den Wert, startet `rotate.py lauf`; Runbook: achimdehnert/platform#2813, Konzept KONZ-dev-hub-005)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.25"
   - phase: "0.7.24 registry-erreichbarkeit"
     leser: "Session-Start-Board → Owner (entscheidet ueber ADR-301: zweites Ausfallfenster = Kill-Gate nicht gezogen)"
     wiedervorlage_tage: 14
