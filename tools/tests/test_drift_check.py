@@ -503,7 +503,7 @@ def test_should_exclude_other_non_reusable_gate_workflows_from_kanon_abgleich():
 
 # ── #2761: archivierte Repos zaehlen nicht ───────────────────────────────────
 #
-# wedding-hub (repo-registry.yaml: archived: true) und recruiting-hub (auf
+# wedding-hub (Registry-Feld `archived: true`) und recruiting-hub (auf
 # GitHub archiviert, aber OHNE `archived:`-Feld in der Registry — gemessen
 # 2026-09-04) lieferten zusammen 5 der 55 Drift-Errors, an denen niemand mehr
 # etwas aendern kann. Registry-Feld gewinnt, wenn gesetzt; sonst entscheidet
