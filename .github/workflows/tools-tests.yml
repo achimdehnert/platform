@@ -138,7 +138,11 @@ jobs:
       - name: Install test deps
         if: steps.relevanz.outputs.relevant == 'true'
         # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
-        run: pip install pytest pyyaml pydantic --quiet --break-system-packages
+        # pynacl + jsonschema: Rotations-Drills (platform#2813). BEWUSST echte
+        # Abhaengigkeit statt skipif — ein skip-gegateter Test rottet still vor
+        # sich hin (Lehre "Skip-guarded tests mask drift"), und gerade der
+        # sealed-box-Drill ist der, der die Verschluesselung wirklich misst.
+        run: pip install pytest pyyaml pydantic pynacl jsonschema --quiet --break-system-packages
 
       - name: Install ruff
         if: steps.relevanz.outputs.relevant == 'true'

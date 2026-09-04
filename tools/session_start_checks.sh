@@ -1045,6 +1045,30 @@ if [[ -f "$PLATFORM_DIR/tools/registry_erreichbarkeit_melder.py" ]]; then
   record "0.7.24 registry-erreichbarkeit" "${RE_STATUS:-SKIP}" "$(sed 's/^RESULT: [A-Z]* — //' <<< "$RE_OUT")"
 fi
 
+# ── 0.7.25 Rotations-Faelligkeit: wann lief das zuletzt, und wer weiss es? ──
+# Bis zum 2026-09-04 kannte das Inventar (47 Eintraege) fuer KEINEN davon einen
+# letzten Rotationslauf — "quarterly" stand in der Tabelle, gemessen hat es nie
+# jemand. Die Outline-Rotation lag seit dem 2026-08-26 offen (#2353), ohne dass
+# irgendein Melder sie genannt haette. Diese Phase liest Inventar + Lauf-Log und
+# gibt IMMER eine Zahl aus, auch bei "nichts zu tun" (MT-5): faellig / ohne
+# Beleg / ohne Konsumenten / Altlasten in ~/shared.
+#
+# Zwei bewusste Entscheidungen: ein Lauf mit Status `offen` zaehlt NICHT als
+# Lauf (sonst setzte ein Fehlschlag die Uhr zurueck), und die Altlasten-Zeile
+# nennt nur DATEINAMEN und Alter aus der Schleuse — nie Inhalte (AD-9).
+# Konzept: KONZ-dev-hub-005 REC-7, Umsetzung platform#2813.
+if [[ -f "$PLATFORM_DIR/tools/rotate.py" ]]; then
+  ROT_OUT=$(timeout 60 python3 "$PLATFORM_DIR/tools/rotate.py" faellig --kurz 2>/dev/null || true)
+  case "$ROT_OUT" in
+    OK:*)            record "0.7.25 rotation-faelligkeit" "PASS" "$ROT_OUT" ;;
+    "WERT IM LOG"*)  record "0.7.25 rotation-faelligkeit" "WARN" "$ROT_OUT" "platform" ;;
+    "")              record "0.7.25 rotation-faelligkeit" "SKIP" "Melder nicht gelaufen — keine Aussage zur Rotationslage" ;;
+    *)               record "0.7.25 rotation-faelligkeit" "WARN" "$ROT_OUT" "platform" ;;
+  esac
+else
+  record "0.7.25 rotation-faelligkeit" "SKIP" "tools/rotate.py fehlt in $PLATFORM_DIR"
+fi
+
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
 # Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
 # WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung
