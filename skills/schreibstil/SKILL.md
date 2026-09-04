@@ -202,6 +202,7 @@ Drei Regeln dazu:
 - 2026-09-01 · hnu · gekürzt: „Käme später eine Fernwartung durch Dritte, eine Auslagerung des Betriebs oder eine Übermittlung nicht-anonymisierter Daten an die Hochschule hinzu" → ohne den dritten Fall · Grund: der eigene Beitrag als Ausnahme im eigenen Vorbehalt liest sich als Hintertür, die man sich offenhält
 - 2026-09-01 · hnu · ersetzt: „und eine Anzeige nach § 80 SGB X ist **auch** für Pilot 2 nicht abzugeben" → „und **damit** ist eine Anzeige nach § 80 SGB X für Pilot 2 nicht abzugeben" · Grund: „auch" reiht auf, „damit" verknüpft — der erste Satz soll die Folge tragen, nicht eine zweite Tatsache danebenstellen
 - 2026-09-01 · hnu · getrennt: „Damit verarbeitet … Und die Hochschule erhält keinen Zugriff …" → eigener Satz ohne „Und" · Grund: zwei tragende Tatsachen in einem Absatz brauchen zwei Sätze; die angehängte wirkt nachgeschoben
+- 2026-09-04 · hnu · ergänzt: Angebotsanfrage an prodactive (über den Vizekanzler) bekam nach Owner-Korrektur einen Block „Umgebung und Schnittstellen" (Fachverfahren, DMS, Zustellung, Identität, Posteingang) und den Technologiestack · Grund: „Infos zum Technologiestack und die Umgebung mit aufnehmen" — eine Angebotsanfrage ohne Systemlandschaft zwingt den Anbieter zur Rückfrage oder zum Blindangebot; Thema und Anschrift allein reichen nicht
 
 ## 7 — Verhältnis zu anderen Regeln
 
