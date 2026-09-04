@@ -26,7 +26,7 @@ INVENTAR_PFAD = WURZEL / "infra" / "secrets-inventory.yaml"
 CANONICAL_PFAD = WURZEL / "registry" / "canonical.yaml"
 SCHLEUSE = Path.home() / "shared"
 
-#: Sektionen mit eigener Gestalt — Stufe 2 (host_env_file) holt sie dazu.
+#: Sektionen mit eigener Gestalt. Ein Treiber dafuer ist Stufe 2 — Refs #2818.
 KEINE_EINTRAEGE = {"server_side", "local", "sops"}
 
 #: Aus ``rotation:`` abgeleitete Frist. ``on_demand`` wird nie von allein faellig.

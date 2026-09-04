@@ -41,7 +41,7 @@ SCHEMA = ROOT / "infra" / "schemas" / "secrets-inventory.schema.json"
 
 #: Diese drei Sektionen haben eine eigene Gestalt (Dateilisten, Serverpfade,
 #: SOPS-Konfiguration) und sind bewusst NICHT Eintraege im Sinne des Schemas.
-#: Sie kommen mit Stufe 2 (host_env_file-Treiber) dazu.
+#: Ein host_env_file-Treiber, der sie erfasst, ist Stufe 2 — Refs #2818.
 KEINE_EINTRAEGE = {"server_side", "local", "sops"}
 
 

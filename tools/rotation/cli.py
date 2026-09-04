@@ -130,9 +130,11 @@ def cmd_lauf(a: argparse.Namespace, treiber=None) -> int:
             zeile.update(
                 ergebnis="ohne_beleg",
                 negativprobe=False,
-                hinweis=f"kein Treiber fuer {konsument.kind} (Stufe 2)",
+                hinweis=f"kein Treiber fuer {konsument.kind} (Refs #2818)",
             )
-            print(f"  – {konsument.ref}: kein Treiber fuer {konsument.kind} — Stufe 2")
+            print(
+                f"  – {konsument.ref}: kein Treiber fuer {konsument.kind} — Refs #2818"
+            )
             ergebnisse.append(zeile)
             continue
         try:
@@ -200,7 +202,8 @@ def cmd_lauf(a: argparse.Namespace, treiber=None) -> int:
     print(f"\nStatus: {status} — Log-Zeile geschrieben ({a.log or rotlog.LOG_PFAD}).")
     if status != "abgeschlossen":
         print(
-            "Kein Rollback: Werte sind nicht zurueckzulesen. Der Lauf bleibt offen, "
+            "Kein Rollback: Werte sind nicht zurueckzulesen. Der Lauf endet als "
+            "`offen`, "
             "die Schleuse bleibt gefuellt."
         )
     return 0 if status == "abgeschlossen" else 1

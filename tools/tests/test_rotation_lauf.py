@@ -6,7 +6,7 @@ echter Wert. Vier Ausgaenge sind die eigentliche Abnahme:
 * Beleg gruen  -> Log-Zeile ``abgeschlossen`` **und** Schleuse geleert
 * Beleg rot    -> Lauf ``offen``, Schleuse bleibt gefuellt (kein Rollback)
 * ohne proof   -> nicht gesetzt, gezaehlt, im Log als ``ohne_beleg``
-* Gov-Org      -> abgelehnt, im Log als ``abgelehnt``, Lauf bleibt offen
+* Gov-Org      -> abgelehnt, im Log als ``abgelehnt``, Lauf endet als ``offen``
 
 Der dritte und der vierte Fall sind die, die man in einem Werkzeug ohne Drill
 "aus Gruenden" still ueberspringt — genau davor warnt AD-3.
