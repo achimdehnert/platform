@@ -444,3 +444,99 @@ def test_should_read_freigabe_vermerk_in_plain_and_bold(body):
 )
 def test_should_not_read_freigabe_vermerk_from_lookalikes(body):
     assert not FREIGABE_VERMERK.search(body)
+
+
+# --- #2784: gather() wertet nur den juengsten Lauf je Check-Name -------------
+#
+# Realfall #2781 (2026-09-03): ein Zwilling aus altem rotem und neuem gruenem
+# Lauf desselben Checks im statusCheckRollup meldete faelschlich "1 rot",
+# obwohl `gh pr checks` und `mergeStateStatus=CLEAN` nichts Rotes zeigten. Die
+# Auswahl ist dieselbe wie beim Review-Bot (#2679, bot_review_kandidaten.
+# juengste_je_name) — keine zweite Kopie.
+
+_GATHER_REPO = "achimdehnert/_test-only-repo"
+_GATHER_REGELN = {**REGELN, "sync_only_repos": [_GATHER_REPO]}
+
+
+def _gather_pr(rollup: list) -> dict:
+    return {
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "CLEAN",
+        "reviewDecision": "APPROVED",
+        "latestReviews": [{"state": "APPROVED", "body": ""}],
+        "files": [{"path": "tools/x.py"}],
+        "baseRefName": "main",
+        "statusCheckRollup": rollup,
+        "state": "OPEN",
+        "isDraft": False,
+        "body": "",
+    }
+
+
+def _gather_fake_gh(pr_dict: dict):
+    def _fake(args):
+        if args[:2] == ["pr", "view"]:
+            return pr_dict
+        if args[0] == "api" and "rules/branches" in args[1]:
+            return []
+        raise AssertionError(f"unerwarteter gh-Aufruf im Test: {args}")
+
+    return _fake
+
+
+def test_should_count_old_red_twin_as_green_when_newer_run_is_green(monkeypatch):
+    import pr_merge_sa
+
+    rollup = [
+        {
+            "name": "guardian",
+            "conclusion": "FAILURE",
+            "startedAt": "2026-09-03T11:09:00Z",
+        },
+        {
+            "name": "guardian",
+            "conclusion": "SUCCESS",
+            "startedAt": "2026-09-03T11:33:00Z",
+        },
+    ]
+    monkeypatch.setattr(pr_merge_sa, "_gh", _gather_fake_gh(_gather_pr(rollup)))
+    f = pr_merge_sa.gather(_GATHER_REPO, 2781, _GATHER_REGELN)
+    assert f.checks_failing == 0
+    assert f.checks_total == 1
+
+
+def test_should_still_count_new_red_twin_when_newer_run_is_red(monkeypatch):
+    """Gegenprobe: bleibt der JUENGSTE Lauf rot, darf die Dedup-Logik das nicht
+    verschlucken — sonst waere der Fix schlimmer als der Fehler."""
+    import pr_merge_sa
+
+    rollup = [
+        {
+            "name": "guardian",
+            "conclusion": "SUCCESS",
+            "startedAt": "2026-09-03T11:09:00Z",
+        },
+        {
+            "name": "guardian",
+            "conclusion": "FAILURE",
+            "startedAt": "2026-09-03T11:33:00Z",
+        },
+    ]
+    monkeypatch.setattr(pr_merge_sa, "_gh", _gather_fake_gh(_gather_pr(rollup)))
+    f = pr_merge_sa.gather(_GATHER_REPO, 2782, _GATHER_REGELN)
+    assert f.checks_failing == 1
+    assert f.checks_total == 1
+
+
+def test_should_not_crash_on_status_contexts_without_started_at(monkeypatch):
+    """Alte Status-Contexts (statt CheckRuns) tragen weder `startedAt` noch
+    `name` — nur `context`/`state`. Die Auswahl darf daran nicht abstuerzen."""
+    import pr_merge_sa
+
+    rollup = [
+        {"context": "ci/legacy", "state": "SUCCESS"},
+        {"context": "ci/legacy", "state": "FAILURE"},
+    ]
+    monkeypatch.setattr(pr_merge_sa, "_gh", _gather_fake_gh(_gather_pr(rollup)))
+    f = pr_merge_sa.gather(_GATHER_REPO, 2783, _GATHER_REGELN)
+    assert f.checks_total == 1

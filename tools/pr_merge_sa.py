@@ -41,6 +41,8 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 
+from bot_review_kandidaten import juengste_je_name
+
 
 class Unklar(Exception):
     """Fail-closed: die Datenlage erlaubt kein Urteil."""
@@ -349,7 +351,11 @@ def gather(repo: str, nummer: int, r: dict) -> Facts:
     if pr.get("mergeable") == "UNKNOWN":
         pr = _gh(["pr", "view", str(nummer), "-R", repo, "--json", felder])
 
-    roll = pr.get("statusCheckRollup") or []
+    # Je Check-Name nur den juengsten Lauf werten (#2784): sonst zaehlt ein
+    # alter roter Zwilling neben einem neuen gruenen Lauf desselben Namens
+    # weiterhin als Fehlschlag. Dieselbe Auswahl wie beim Review-Bot (#2679,
+    # `bot_review_kandidaten.juengste_je_name`) — keine zweite Kopie.
+    roll = juengste_je_name(pr.get("statusCheckRollup") or [])
     failing = pending = 0
     for c in roll:
         zustand = (c.get("conclusion") or c.get("state") or "").upper()
