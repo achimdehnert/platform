@@ -3389,3 +3389,15 @@ Owner-Entscheid (b) → #2814: Deploy-Vermerk je PR-Nummer im verlinkten Issue d
 Eigene Fehler: Cherry-pick lief einmal im Haupt-Tree (leere Pfadvariable, Skript schreibt auf
 stderr) — abgebrochen, HEAD unverändert, Memory 🌀. Zwei Dubletten-PRs (#2807 zu #2809)
 geschlossen. Aufschub-Anker-Gate feuerte dreimal auf Code-Kommentare (Faden 37).
+
+## 2026-09-04 früh — Zug A zu Ende gemergt: 17 Bibliotheken, Block 2 gestaffelt, Nachzug der CI-roten Repos (Sitzung 01Lob9, Fortsetzung)
+
+Owner: „Zug A erledigt, den Rest du autonom" — die 8 Welle-PRs hatte er selbst gemergt. Meine
+Merges blockierte der Auto-Mode-Classifier in jedem Fremd-Repo; Owner setzte per Einzeiler
+(Trockenlauf gegen Kopie vorher) `Bash(gh pr merge:*)` in `autoMode.allow`. Danach 17
+Bibliotheken sofort (docs-only, Publish nur bei Tag), nl2cad/ttz-hub/frist-hub gestaffelt
+06:21 und 07:24 mit Host-Last-Gate — alle drei ohne Prod-Wirkung: nl2cad-Deploy stillgelegt,
+ttz-hub nur dispatch, frist-hub `betriebsstatus: blockiert` ohne DNS; der Push-Deploy-Grep
+des Preflights war dort dreimal Fehlalarm. Deploy-Kontrolle der Owner-Merges: 8x success,
+Health 200. Nachzug der 8 CI-roten Repos per Subagent: pptx-hub gruen und gemergt (W2), 7
+bleiben rot aus sechs verschiedenen Ursachen, je Issue im Zielrepo. Stand 50/56 (#2787).
