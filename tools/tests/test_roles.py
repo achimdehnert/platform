@@ -241,6 +241,44 @@ def test_should_append_signature_and_footer_to_text(tmp_path):
     assert out.index("A. D.") < out.index("HRB 12191")  # Footer zuletzt
 
 
+def test_should_append_signature_and_footer_to_html(tmp_path):
+    sig = tmp_path / "sig.txt"
+    sig.write_text("Prof. Dr. A. Dehnert <HNU>\nWileystr.1\n")
+    foot = tmp_path / "foot.txt"
+    foot.write_text("IIL GmbH · HRB 12191\n")
+    reg = _registry(
+        tmp_path,
+        dehnert_team={
+            "display_name": "KI-Assistent",
+            "from": "ad@dehnert.team",
+            "transport": "smtp",
+            "signature_file": str(sig),
+            "legal_footer_file": str(foot),
+            "requires_legal_footer": True,
+        },
+    )
+    prof = roles.resolve("dehnert_team", reg)
+    out = roles.html_mit_signatur(prof, "<p>Kurzer Text.</p>")
+    assert out.startswith("<p>Kurzer Text.</p>")
+    assert "Prof. Dr. A. Dehnert &lt;HNU&gt;" in out  # escaped, nicht als Tag
+    assert "Wileystr.1" in out and "HRB 12191" in out
+    assert out.index("Wileystr.1") < out.index("HRB 12191")  # Footer zuletzt
+    assert "pre-line" in out  # Zeilenumbrüche der Signatur bleiben ohne <br> erhalten
+
+
+def test_should_keep_html_unchanged_without_signature(tmp_path):
+    reg = _registry(
+        tmp_path,
+        dehnert_team={
+            "display_name": "KI",
+            "from": "ad@dehnert.team",
+            "transport": "smtp",
+        },
+    )
+    prof = roles.resolve("dehnert_team", reg)
+    assert roles.html_mit_signatur(prof, "<p>x</p>") == "<p>x</p>\n"
+
+
 # --- Grußformel-Erkennung (Retro-Befund 2026-07-31) ------------------------
 
 
