@@ -10,13 +10,24 @@ name: Aufschub-Anker-Gate
 # Muster `built-but-never-called`: ein Gate, das nie laeuft, ist Dekoration, und der
 # Gate-Audit in #1650 haette es als "Fundstelle vorhanden" gezaehlt.
 #
-# MODUS: advisory (warn-only). Der Check laeuft OHNE --block und setzt nie setFailed.
-# Das ist keine Zaghaftigkeit, sondern die Konvention aus gate-registry.json
-# ("mode-Aenderungen advisory->blocking nur per eigenem PR nach 0-FP-Kalibrierfenster")
-# — ein Gate mit Fehlalarmen wird umgangen statt befolgt.
+# MODUS: blocking seit 2026-09-02 (Owner-Entscheid E4, platform#2606; eigener PR je
+# Gate, wie es die frozen_note der Registry verlangt). Vorher advisory — und das
+# Kalibrierfenster brachte genau EINEN echten Treffer, dessen PR drei Minuten spaeter
+# gemergt wurde: null Fehlalarme, aber auch null Wirkung. Ein Melder, den man
+# ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst diesen Job
+# jetzt FEHLSCHLAGEN statt nur zu kommentieren.
 #
-# Der Tool-Selbsttest (Step 1) ist bewusst BLOCKIEREND: die Gate-Logik selbst muss
-# korrekt sein, auch wenn ihr Verdikt nur warnt. Muster uebernommen von
+# REICHWEITE, ausdruecklich (sonst waere es "gebaut != feuert"): ein roter Job blockt
+# den Merge nur, wenn sein Check-Kontext im Ruleset `main-required-checks` steht.
+# Dort stehen heute drei Kontexte (guardian, gitleaks secret scan,
+# "pytest tools/tests/ + CI-tote Testorte") und dieser ist keiner davon — platform hat
+# KEINEN Aggregator-Check, in den man sich einhaengen koennte. Das Ruleset zu aendern
+# ist Owner-Recht; bis dahin ist die Wirkung "roter Check, sichtbar im PR", nicht
+# "Merge unmoeglich". Der noetige Kontext-String ist der Job-Name unten:
+# "Aufgeschobene Arbeit braucht einen Anker".
+#
+# Der Tool-Selbsttest (Step 1) bleibt blockierend: die Gate-Logik selbst muss korrekt
+# sein, bevor ihr Verdikt jemanden aufhaelt. Muster uebernommen von
 # test-claim-check.yml.
 
 on:
@@ -44,16 +55,20 @@ jobs:
       !startsWith(github.head_ref, 'renovate/')
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
 
       # Step 1 (blockierend): die Gate-Logik muss korrekt sein.
       - name: Tool-Selbsttest
         run: |
-          pip install pytest --quiet --break-system-packages
+          # pyyaml seit 2026-09-02: der Drill der Scharfschaltung liest den
+          # `run`-Block DIESES Workflows und fuehrt ihn aus. Ohne die Abhaengigkeit
+          # scheitert er hier mit ModuleNotFoundError — gemessen im ersten Lauf
+          # dieses PR, der damit sein eigenes Gate rot gefaerbt hat.
+          pip install pytest pyyaml --quiet --break-system-packages
           python -m pytest tools/tests/test_deferral_anchor_check.py -q
 
       - name: PR-Text sammeln
@@ -61,35 +76,66 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: printf '%s' "$PR_BODY" > /tmp/pr_body.txt
 
-      # --block liefert den Befund als Exit-Code (1 = Fund, 2 = Werkzeugfehler); der
-      # Job bleibt trotzdem gruen, weil das Gate advisory ist. Bewusst NICHT ueber
-      # "Ausgabe nicht leer" entschieden: der saubere Fall druckt ebenfalls eine
-      # Zeile ("✅ Aufschub-Anker: …"), ein -s-Test haette also IMMER "Befund"
-      # gemeldet. Beide Richtungen lokal falsifiziert, bevor das hier stand.
-      # Exit 2 (Werkzeugfehler) wird laut gemeldet statt als "kein Fund" verbucht.
-      - name: Aufschub-Anker-Check (advisory)
+      # Ergaenzt 2026-08-29: eine Vertagung im CODE zaehlt so wenig als Tracking
+      # wie eine im PR-Text. Der Rueckfall, der das ausgeloest hat, stand in
+      # einem Docstring (writing-hub#851) — dort konnte der PR-Text-Scanner ihn
+      # per Konstruktion nicht sehen.
+      - name: Diff des PR holen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" > /tmp/pr.diff || : > /tmp/pr.diff
+          wc -l < /tmp/pr.diff | sed 's/^/Diff-Zeilen: /'
+
+      # --block liefert den Befund als Exit-Code (1 = Fund, 2 = Werkzeugfehler). Seit
+      # der Scharfschaltung (2026-09-02) macht ein Fund den Schritt ROT — vorher wurde
+      # er nur kommentiert. Massgeblich ist der Exit-Code, ausdruecklich nicht die
+      # Frage "Ausgabe nicht leer": der saubere Fall druckt ebenfalls eine Zeile
+      # ("✅ Aufschub-Anker: …"), ein -s-Test haette also IMMER "Befund" gemeldet.
+      # Beide Richtungen lokal falsifiziert, bevor das hier stand.
+      # (Die Umformulierung dieser Zeilen ist selbst ein Messergebnis: in der
+      # vorherigen Fassung fing das nun scharfe Gate seinen eigenen Workflow-
+      # Kommentar als vermeintliche Vertagung — Fehlalarm-Klasse "Entscheidungs-
+      # Prosa", protokolliert im PR-Text und in #2606.)
+      # Exit 2 (Werkzeugfehler) bleibt ein eigener, laut gemeldeter Fall statt als
+      # "kein Fund" verbucht zu werden — ein Melder, der beim Ausfall schweigt, ist
+      # schlimmer als keiner.
+      # `hat_befund` wird VOR dem Fehlschlag geschrieben; der Kommentar-Schritt liest
+      # zusaetzlich `steps.check.outcome`, damit er nicht "sauber" meldet, falls die
+      # Ausgabe eines fehlgeschlagenen Schritts einmal nicht ankommt.
+      - name: Aufschub-Anker-Check (blocking)
         id: check
         run: |
           set +e
-          python tools/deferral_anchor_check.py --block /tmp/pr_body.txt > /tmp/verdict.txt 2>&1
+          python tools/deferral_anchor_check.py --block --diff /tmp/pr.diff /tmp/pr_body.txt > /tmp/verdict.txt 2>&1
           rc=$?
           set -e
           cat /tmp/verdict.txt
           case "$rc" in
             0) echo "hat_befund=false" >> "$GITHUB_OUTPUT" ;;
-            1) echo "hat_befund=true"  >> "$GITHUB_OUTPUT" ;;
+            1) echo "hat_befund=true"  >> "$GITHUB_OUTPUT"
+               echo "::error::Aufgeschobene Arbeit ohne Tracking-Anker im PR-Text oder im Diff — Details im Kommentar am PR. Hausregel: bewusst Ausgelassenes bekommt im SELBEN Zug ein Tracking-Artefakt; der PR-Text zaehlt nicht als Tracking."
+               exit 1 ;;
             *) echo "::error::deferral_anchor_check.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
                exit 1 ;;
           esac
 
-      - name: Kommentar setzen/aktualisieren (warn-only)
+      - name: Kommentar setzen/aktualisieren
         if: always()
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require('fs');
             const MARKER = 'Aufschub-Anker-Gate';
-            const hatBefund = '${{ steps.check.outputs.hat_befund }}' === 'true';
+            // Drei Zustaende, nicht zwei: seit der Scharfschaltung faellt der Schritt
+            // bei einem Fund UND bei einem Werkzeugfehler rot aus. Ein "sauber"-
+            // Kommentar unter einem roten Check waere die schlimmere Fehlrichtung,
+            // ein Aufschub-Vorwurf fuer einen Absturz die falsche Diagnose.
+            const flagge = '${{ steps.check.outputs.hat_befund }}';
+            const rot = '${{ steps.check.outcome }}' === 'failure';
+            const werkzeugfehler = rot && flagge !== 'true';
+            const hatBefund = flagge === 'true' || rot;
             let verdict = '';
             try {
               verdict = fs.readFileSync('/tmp/verdict.txt', 'utf8').trim();
@@ -120,11 +166,26 @@ jobs:
               verdict,
               '```',
               '',
-              '_Advisory — dieses Gate blockiert nicht. Ein Treffer kann ein Fehlalarm sein;',
-              'in dem Fall bitte im PR kurz begründen, damit die FP-Kalibrierung ihn sieht._',
+              '_Blocking seit 2026-09-02 (#2606, E4): dieser Check ist rot, bis entweder',
+              'ein Tracking-Artefakt verlinkt ist oder der Treffer im PR als Fehlalarm',
+              'begründet wird — die Begründung ist zugleich die FP-Messung. Ob der Merge',
+              'dadurch wirklich verhindert wird, hängt am Ruleset `main-required-checks`;',
+              'steht dieser Kontext nicht darin, ist der rote Check sichtbar, aber nicht',
+              'bindend._',
             ].join('\n');
 
-            const body = hatBefund ? warn : ok;
+            const fehler = [
+              `### ⚓ ${MARKER}`,
+              '',
+              '🚨 **Kein Verdikt** — das Gate-Werkzeug ist abgebrochen. Das ist weder',
+              '"sauber" noch "Aufschub ohne Anker": dieser PR ist ungeprüft.',
+              '',
+              '```',
+              verdict,
+              '```',
+            ].join('\n');
+
+            const body = werkzeugfehler ? fehler : (hatBefund ? warn : ok);
 
             if (!hatBefund && !existing) {
               console.log('sauber — kein Kommentar noetig.');

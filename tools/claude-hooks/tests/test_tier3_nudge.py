@@ -23,7 +23,13 @@ import pytest
 # Load the hook module from the sibling directory without installing it.
 _HOOK_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(_HOOK_DIR))
-import log_llm_call as hook  # noqa: E402
+# Beide Marker sind noetig, weil zwei ruff-Versionen im Spiel sind: CI pinnt
+# 0.15.4 (E402 im Default-Satz -> `noqa: E402` wird gebraucht), lokal und in
+# requirements-dev.txt steht 0.16.5 (E402 nicht mehr drin -> dasselbe noqa gilt
+# dort als RUF100 "unused", und I001 will den Import wegsortieren). Der Import
+# MUSS nach dem sys.path-Eingriff stehen. RUF100 ist fuer dieses Verzeichnis in
+# pyproject.toml ausgenommen; die Wurzel ist die Versions-Divergenz selbst.
+import log_llm_call as hook  # noqa: E402  # isort: skip
 
 
 # ---------------------------------------------------------------------------
@@ -151,19 +157,56 @@ def test_should_nudge_exactly_once_across_calls():
 # ---------------------------------------------------------------------------
 
 
-def test_should_return_none_when_no_env_var_and_no_dev_opt_in(monkeypatch):
+@pytest.fixture
+def ohne_passwort_datei(monkeypatch, tmp_path):
+    """Blendet die Passwort-Datei-Stufe von `_resolve_db_url` aus.
+
+    Die Reihenfolge ist Env > Passwort-Datei > Dev-Opt-in. Wer nur die beiden
+    Env-Variablen wegpatcht, misst auf einem Rechner MIT
+    ``~/.secrets/orchestrator_mcp_db_password`` den Host statt den Code: die
+    Datei-Stufe greift vorher. Genau so fiel
+    ``test_should_return_none_when_no_env_var_and_no_dev_opt_in`` am 2026-09-03
+    im Modellwechsel-Smoke (§1) um — nicht am Modell, sondern an einem Test,
+    der eine seiner drei Quellen nicht kannte.
+    """
+    monkeypatch.setattr(hook, "_DB_PASSWORD_FILE", tmp_path / "gibt-es-nicht")
+
+
+def test_should_return_none_when_no_env_var_and_no_dev_opt_in(
+    monkeypatch, ohne_passwort_datei
+):
     monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
     monkeypatch.delenv("ALLOW_DEV_DB_FALLBACK", raising=False)
     assert hook._resolve_db_url() is None
 
 
-def test_should_use_dev_fallback_only_with_explicit_opt_in(monkeypatch):
+def test_should_use_dev_fallback_only_with_explicit_opt_in(
+    monkeypatch, ohne_passwort_datei
+):
     monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
     monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
     assert hook._resolve_db_url() == hook._DEV_FALLBACK_DB_URL
     assert (
         "change-me-in-production" in hook._DEV_FALLBACK_DB_URL
     )  # documents the known dev-only value
+
+
+def test_should_prefer_password_file_over_dev_fallback(monkeypatch, tmp_path):
+    """Die mittlere Stufe hatte bisher gar keinen Test — daher die Luecke.
+
+    Prueft zugleich, dass das Passwort URL-kodiert in die Verbindung geht:
+    ein Sonderzeichen im Secret darf die URL nicht zerlegen.
+    """
+    passwort_datei = tmp_path / "orchestrator_mcp_db_password"
+    passwort_datei.write_text("p@ss wort/mit sonderzeichen\n", encoding="utf-8")
+    monkeypatch.setattr(hook, "_DB_PASSWORD_FILE", passwort_datei)
+    monkeypatch.delenv("ORCHESTRATOR_DB_URL", raising=False)
+    monkeypatch.setenv("ALLOW_DEV_DB_FALLBACK", "1")
+
+    assert hook._resolve_db_url() == (
+        "postgresql://orchestrator:p%40ss%20wort%2Fmit%20sonderzeichen"
+        "@127.0.0.1:15435/orchestrator_mcp"
+    )
 
 
 def test_should_prefer_explicit_env_var_over_dev_fallback(monkeypatch):
@@ -175,9 +218,14 @@ def test_should_prefer_explicit_env_var_over_dev_fallback(monkeypatch):
 
 
 def test_should_skip_insert_gracefully_when_db_url_is_none(monkeypatch):
-    """Hook-Contract (exit 0 immer): fehlendes DB_URL darf nicht crashen."""
+    """Hook-Contract (exit 0 immer): fehlendes DB_URL darf nicht crashen.
+
+    Seit platform#2606 ist der Rueckgabewert `None` statt `0`: „nicht
+    geschrieben" muss von „geschrieben, aber alles war schon da" unterscheidbar
+    sein, sonst schreibt `main()` den Zustand fort, obwohl die Zeilen fehlen.
+    """
     monkeypatch.setattr(hook, "DB_URL", None)
-    assert hook._insert_rows([{"request_id": "r1"}]) == 0
+    assert hook._insert_rows([{"request_id": "r1"}]) is None
 
 
 def test_should_return_none_from_stats_queries_when_db_url_is_none(monkeypatch):

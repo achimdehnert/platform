@@ -1,0 +1,46 @@
+# Handover-Frische an JEDEM PR — advisory.
+#
+# Warum es diese zweite Datei gibt (Ausweitung 2026-08-20, platform#2143):
+# `handoff-banner-gate.yml` prueft dasselbe, laeuft aber nur bei `paths`-Treffern
+# (AGENT_HANDOVER.md, die Checker selbst). Die Verstoss-Klasse hinter dem Slug
+# `handover-stale-vor-merge` ist aber gerade, die Datei GAR NICHT anzufassen —
+# dann greift kein Pfadfilter, und die Pflicht-Phase in `session-ende` laeuft nur,
+# wenn jemand `session-ende` faehrt. Ein paths-gefiltertes Gate kann diese Klasse
+# strukturell nicht sehen; genau das steht seit dem 02.08. im Skill-Changelog.
+#
+# Diese Datei schliesst die Luecke von der anderen Seite: sie laeuft bei jedem PR
+# und sagt, ob der Stand-Block noch zum letzten Commit passt. ADVISORY und bewusst
+# nicht in den Required Checks — ein PR, der mit dem Handover nichts zu tun hat,
+# darf daran nicht scheitern. Der Wert liegt in der Sichtbarkeit vor dem Merge,
+# nicht im Blockieren.
+
+name: Handover-Frische (advisory)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    # continue-on-error mit Absicht: dieser Job meldet, er blockiert nicht. Ein
+    # stale Handover ist ein Hinweis an den, der gerade mergt — kein Grund, einen
+    # unbeteiligten PR anzuhalten. Wird der Hinweis wiederholt ignoriert, ist das
+    # ein Retro-Befund, und ob er scharf gestellt wird, entscheidet die
+    # Gate-Registry (docs/governance/gate-registry.json).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Stand-Block gegen den letzten Commit halten
+        run: |
+          set -o pipefail
+          python3 scripts/checks/agent_handover_freshness_check.py AGENT_HANDOVER.md

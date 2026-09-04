@@ -1,7 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: Hetzner VM Deployment (v2)                             ║
 # ║  Uses deploy-remote.sh on VM — migration gate, healthcheck, auto-rollback ║
-# ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+# ║  Usage: uses: iilgmbh/shared-ci/.github/workflows/_deploy-hetzner.yml@main
 # ║                                                                              ║
 # ║  Caller needs `permissions: { contents: read, packages: read }` — the      ║
 # ║  `deploy` job forwards `github.token` to the remote host as GHCR_TOKEN for ║
@@ -123,7 +123,7 @@ jobs:
     name: "Decrypt & push secrets"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Check SOPS_AGE_KEY available
         id: sops_check
@@ -217,7 +217,41 @@ jobs:
       deployed_tag: ${{ steps.tag.outputs.tag }}
       exit_code: ${{ steps.run.outputs.exit_code }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # ── Deploy-Preflight (platform KONZ-054 E1, Owner-Go 2026-08-30 "77") ──────
+      # Liest infra/ports.yaml + infra/hosts.yaml aus platform (oeffentlich) und
+      # prueft VOR dem Deploy: ist der Dienst `aktiv`, und ist DIESER Runner-Host
+      # der deklarierte prod_host? Hier laeuft der Job auf
+      # ubuntu-latest, Ziel ist secrets.HETZNER_HOST (nicht der Runner). Anlass: coach-hub war stillgelegt deklariert und
+      # wurde trotzdem auf prod deployt, wo es 25 h in einer Fehlerschleife lief.
+      # Exit 1 (Verstoss) / 2 (Datenfehler) = kein Deploy. Exit 3 (Dienst nicht in
+      # ports.yaml) = Warnung, kein Block: eine Scope-Luecke darf nicht 23 Repos
+      # anhalten, sie muss aber sichtbar sein — sie steht in der Job-Summary.
+      - name: "Deploy-Preflight (platform ports.yaml/hosts.yaml)"
+        env:
+          APP: ${{ inputs.app_name }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -u
+          B=https://raw.githubusercontent.com/achimdehnert/platform/main
+          D=$(mktemp -d)
+          for f in tools/deploy_preflight.py infra/ports.yaml infra/hosts.yaml; do
+            curl -fsSL --retry 3 "$B/$f" -o "$D/$(basename "$f")" || { echo "::error::Preflight: $f aus platform nicht ladbar — kein Deploy ohne Deklaration"; exit 2; }
+          done
+          python3 -c "import yaml" 2>/dev/null || pip install -q pyyaml
+          HOST="${{ secrets.HETZNER_HOST }}"
+          set +e
+          OUT=$(python3 "$D/deploy_preflight.py" --app "$APP" --environment "$ENVIRONMENT" --deploy-host "$HOST" --ports "$D/ports.yaml" --hosts "$D/hosts.yaml" 2>&1); rc=$?
+          set -e
+          echo "$OUT"
+          { echo "### Deploy-Preflight (${APP}, ${ENVIRONMENT}, Ziel ${HOST}) — Exit ${rc}"; echo; echo '```'; echo "$OUT"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          case "$rc" in
+            0) ;;
+            3) echo "::warning title=Preflight Scope-Luecke::${OUT}" ;;
+            *) echo "::error title=Preflight blockt Deploy::${OUT}"; exit "$rc" ;;
+          esac
+
 
       - name: Pre-flight lint (ADR-054 M1)
         run: |

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import copy
 import json
 import os
@@ -50,7 +51,15 @@ GITHUB_ORG = "achimdehnert"  # Fallback-Default für Repos ohne canonical.yaml-E
 # ttz-lif-Repos haben ein eigenes `github:`-Feld in registry/canonical.yaml,
 # das bislang ignoriert wurde (FUNC-1, #1202).
 sys.path.insert(0, str(PLATFORM_ROOT / "tools"))
+# Die Unterdrueckung an den beiden Zeilen unten bleibt stehen, auch wenn ein
+# neueres ruff sie fuer ueberfluessig haelt: die CI pinnt ruff==0.15.4
+# (tools-tests.yml), und dort ist E402 hier noch aktiv. Ein lokales
+# `ruff check --fix` mit 0.16.x entfernt sie als "unused" — lokal gruen, in der
+# CI rot (gemessen 2026-09-03, platform#2757). Der Hinweis steht bewusst OHNE die
+# Direktive im Klartext: ruff liest sie sonst auch hier und meldet sie als
+# ungueltig.
 import registry_api as reg  # noqa: E402
+from gh_drossel import DrosselFehler, flotten_sperre, probe  # noqa: E402
 
 
 def _repo_owner(repo: str) -> str:
@@ -138,8 +147,10 @@ BANNED_FILE_PATTERNS = [
         "Dockerfile",
         r"^HEALTHCHECK\b",
         "error",
-        "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
-        "docker-compose.prod.yml, nicht ins image-globale Dockerfile)",
+        (
+            "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service "
+            "in docker-compose.prod.yml, nicht ins image-globale Dockerfile)"
+        ),
     ),
 ]
 
@@ -222,9 +233,10 @@ def _api_get(path: str, token: str) -> dict | list | None:
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        return None if e.code == 404 else None
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        # HTTPError ist eine URLError-Unterklasse; 404 und jeder andere Code
+        # fuehrten hier schon immer zu `None` — die alte Fallunterscheidung
+        # unterschied nichts. ValueError deckt kaputtes JSON.
         return None
 
 
@@ -234,7 +246,7 @@ def _get_file_content(repo: str, path: str, token: str) -> str | None:
         return None
     try:
         return base64.b64decode(data["content"]).decode(errors="replace")
-    except Exception:
+    except (ValueError, TypeError, binascii.Error):
         return None
 
 
@@ -251,7 +263,7 @@ def _fetch_pypi_latest(package: str) -> str | None:
             f"https://pypi.org/pypi/{package}/json", timeout=5
         ) as r:
             return json.loads(r.read())["info"]["version"]
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError):
         return None
 
 
@@ -557,7 +569,7 @@ _GUARD_SKRIPTE = {
 # Die Action installiert PyYAML selbst. Der direkte Aufrufer braucht einen
 # eigenen Schritt dafuer — auch der ist Port-Mechanik, kein Verhaltensunterschied.
 _GUARD_VORBEREITUNG_RE = re.compile(
-    r"^\s*(python3?\s+-m\s+)?pip\s+install\b.*\bpyyaml\b", re.I | re.M
+    r"^\s*(python3?\s+-m\s+)?pip\s+install\b.*\bpyyaml\b", re.IGNORECASE | re.MULTILINE
 )
 
 
@@ -770,7 +782,7 @@ def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | N
         return None
     try:
         return base64.b64decode(data["content"]).decode(errors="replace")
-    except Exception:
+    except (ValueError, TypeError, binascii.Error):
         return None
 
 
@@ -972,10 +984,10 @@ def print_github_summary(drifts: list[RepoDrift]) -> None:
         f.write("## Platform Drift Check\n\n")
         f.write("| Repo | Status | Errors | Warnings |\n")
         f.write("|------|--------|--------|----------|\n")
-        for r in sorted(drifts, key=lambda x: -x.drift_score):
-            f.write(
-                f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
-            )
+        f.writelines(
+            f"| {r.status_icon} {r.repo} | {r.repo_type} | {len(r.errors)} | {len(r.warnings)} |\n"
+            for r in sorted(drifts, key=lambda x: -x.drift_score)
+        )
 
 
 def print_json_output(drifts: list[RepoDrift]) -> None:
@@ -1005,6 +1017,19 @@ def print_json_output(drifts: list[RepoDrift]) -> None:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _scanne(targets: dict, token: str, iil_latest: dict[str, str]) -> list[RepoDrift]:
+    """Der eigentliche Durchlauf — ausgelagert, damit `main` ihn in die Sperre
+    einwickeln kann, ohne dass die Schleife selbst davon weiss."""
+    results: list[RepoDrift] = []
+    for repo, props in targets.items():
+        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
+        print(f"  {repo}...", end="", flush=True)
+        result = check_repo(repo, repo_type, token, iil_latest)
+        print(f" {result.status_icon} ({len(result.errors)}E, {len(result.warnings)}W)")
+        results.append(result)
+    return results
 
 
 def main() -> int:
@@ -1057,14 +1082,18 @@ def main() -> int:
         iil_latest = _load_iil_latest()
         print(f" {len(iil_latest)} Packages geladen")
 
-    results: list[RepoDrift] = []
-    for repo, props in targets.items():
-        repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
-        print(f"  {repo}...", end="", flush=True)
-        result = check_repo(repo, repo_type, token, iil_latest)
-        icon = result.status_icon
-        print(f" {icon} ({len(result.errors)}E, {len(result.warnings)}W)")
-        results.append(result)
+    # Erst fragen, ob ueberhaupt gemessen werden KANN, dann messen. Ohne diese
+    # zwei Zeilen liefert ein gedrosselter Lauf 26x „Repo nicht gefunden" und
+    # damit eine Bilanz von null — der Lauf sieht am besten aus und hat nichts
+    # gemessen (platform#2735, Realfall 2026-09-02). Die Sperre nimmt dem Problem
+    # zusaetzlich die Ursache: drei gleichzeitige Flotten-Scans hatten es ausgeloest.
+    try:
+        with flotten_sperre("drift-check"):
+            probe()
+            results = _scanne(targets, token, iil_latest)
+    except DrosselFehler as exc:
+        print(f"\nExit 2: {exc}", file=sys.stderr)
+        return 2
 
     if args.format == "json":
         print_json_output(results)
@@ -1072,6 +1101,31 @@ def main() -> int:
         print_report(results, args.severity, args.fix_hints)
 
     print_github_summary(results)
+
+    # Blind ist nicht gruen. Ein unerreichbares Repo liefert 0 Befunde -- sind ALLE
+    # unerreichbar, faellt die Bilanz auf null und der Lauf sieht aus wie der beste,
+    # obwohl gar nichts gemessen wurde. Realfall 2026-09-02: derselbe Stand ergab in
+    # Minuten 19, dann 10, dann 0 Errors; Ursache war das sekundaere GitHub-Ratenlimit
+    # (sechs Sitzungen an einem Token). Tueckisch dabei: `gh api rate_limit` meldete im
+    # selben Moment 5000 freie Aufrufe -- das PRIMAERlimit war unberuehrt.
+    unerreichbar = [r.repo for r in results if r.error]
+    if results and len(unerreichbar) == len(results):
+        print(
+            f"\nExit 2: kein einziges der {len(results)} Repos war erreichbar — "
+            "das ist ein Werkzeugfehler, KEIN drift-freier Stand. Haeufigste Ursache: "
+            "GitHub-Drosselung. Echte Probe statt `rate_limit`: "
+            "`gh api repos/<owner>/<einRepo>`.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if unerreichbar:
+        print(
+            f"\nHinweis: {len(unerreichbar)} von {len(results)} Repo(s) waren nicht "
+            f"erreichbar und sind damit UNGEMESSEN, nicht sauber: "
+            f"{', '.join(unerreichbar)}",
+            file=sys.stderr,
+        )
 
     if args.fail_on_error:
         total_errors = sum(len(r.errors) for r in results)

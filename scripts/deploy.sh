@@ -11,7 +11,7 @@ set -euo pipefail
 # tools/deploy-script-drift.sh gegen die Host-Kopien geprüft — die Host-Kopie
 # wird von Hand verteilt und lief messbar auseinander (Prod hing am 2026-07-25
 # eine Revision hinter Git+Staging, u.a. ohne den override-Fix aus platform#1075).
-DEPLOY_SH_VERSION="2026-08-11.1"
+DEPLOY_SH_VERSION="2026-09-02.1"
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
 APP_PATH="${2:?'APP_PATH fehlt'}"
@@ -47,10 +47,38 @@ fi
   echo "FEHLER: Kein Compose-File in $APP_PATH" >&2; exit 3;
 }
 
-# Vorherigen Tag für Rollback speichern
+# Vorherigen Tag für Rollback speichern.
+#
+# Quelle ist der LAUFENDE Container, nicht die `.env` (writing-hub#982,
+# platform#2685). Die `.env` ist eine Zusage, die falsch sein kann, und sie ist
+# genau dann falsch, wenn das Rollback gebraucht wird: sie wird VOR dem Pull auf
+# den neuen Tag gesetzt (s.u.), also trägt sie nach einem gescheiterten Deploy
+# einen Stand, der nie lief. Realfall 2026-09-02 auf prod — zwei Deploys
+# scheiterten nacheinander am Registry-Abruf, der zweite meldete
+# `Prev: main-3abbb31`, während in Wahrheit `main-0ef9843` lief. Das Rollback
+# zog daraufhin ein Abbild, das der Host gar nicht hatte, und scheiterte an
+# derselben Registry wie der Deploy davor ("KRITISCH: Rollback fehlgeschlagen").
+#
+# Der laufende Container trägt sein Abbild per Definition lokal — ein daraus
+# abgeleitetes Rollback braucht das Netz nie. `.env` bleibt Rückfallebene für
+# den Fall, dass nichts läuft (Erstinstallation, Stack gestoppt).
 PREVIOUS_TAG=""
-if [[ -f "$APP_PATH/.env" ]]; then
-  PREVIOUS_TAG=$(grep "^IMAGE_TAG=" "$APP_PATH/.env" | cut -d= -f2 || true)
+_running_image_tag() {
+  local app_image
+  app_image=$(docker ps --format '{{.Image}}' 2>/dev/null \
+    | grep -E "^ghcr\.io/[^/]+/${APP_NAME}:" | sort -u | head -1)
+  [[ -n "$app_image" ]] || return 1
+  printf '%s' "${app_image##*:}"
+}
+if PREVIOUS_TAG=$(_running_image_tag); then
+  echo "Rollback-Ziel aus dem laufenden Container: $PREVIOUS_TAG"
+else
+  PREVIOUS_TAG=""
+  if [[ -f "$APP_PATH/.env" ]]; then
+    PREVIOUS_TAG=$(grep "^IMAGE_TAG=" "$APP_PATH/.env" | cut -d= -f2 || true)
+    [[ -n "$PREVIOUS_TAG" ]] && \
+      echo "⚠️  Kein laufender App-Container — Rollback-Ziel aus .env: $PREVIOUS_TAG (ungeprüft lokal vorhanden)"
+  fi
 fi
 
 # Compose-File nach Umgebung wählen (ADR-022)
@@ -69,18 +97,78 @@ fi
 # und LÖSCHT sie (Realfall 2026-07-10: weltenhub_db + weltenhub_redis entfernt
 # → Login-Ausfall ~15 min). Alle compose-Aufrufe nutzen ab hier
 # "${COMPOSE_ARGS[@]}" statt -f "$COMPOSE_FILE".
+# --- KETTE-ANFANG (tools/tests/test_deploy_compose_kette.py fuehrt genau
+#     diesen Block aus — eine Kopie im Test wuerde davon wegdriften.)
 COMPOSE_ARGS=(-f "$APP_PATH/$COMPOSE_FILE")
-if [[ -f "$APP_PATH/docker-compose.override.yml" ]]; then
-  COMPOSE_ARGS+=(-f "$APP_PATH/docker-compose.override.yml")
-  # Herkunfts-Warnung: Host-Override ohne CI-Manifest-Eintrag = ältere
-  # shared-ci-Version (synct override noch nicht) ODER undeklarierte
-  # Host-Datei (KONZ-015-Fehlerklasse). Heute: laut warnen + mitfahren
-  # (sonst Rezidiv der Container-Löschung); fail-closed folgt, sobald
-  # shared-ci override_sha fleet-weit ins Manifest schreibt.
-  if [[ "$ENVIRONMENT" == "production" ]] && ! python3 -c "import json,sys; d=json.load(open('$APP_PATH/.deploy-manifest.json')); sys.exit(0 if d.get('override_sha') else 1)" 2>/dev/null; then
-    echo "::warning::docker-compose.override.yml am Host ohne override_sha im CI-Manifest — Herkunft ungesichert (platform#1063). Wird mitdeployt; Enforcement folgt."
-  fi
+
+# platform#2586 K2 — die -f-Kette kommt aus dem MANIFEST, nicht aus einem hart
+# benannten Dateinamen und auch nicht aus einem Glob am Host.
+#
+# Warum nicht ein Glob: dann faehrt jede Datei mit, die irgendwann einmal auf
+# dem Host landete. Am 2026-09-01 lagen in /opt/mcp-hub eine
+# docker-compose.rag.yml, die das Repo nicht mehr kennt, und eine
+# .llm-mcp.yml.bak — beide waeren mitgefahren (KONZ-015-Fehlerklasse).
+#
+# Warum ueberhaupt: bis hierher stand genau EIN zusaetzlicher Name in der Kette
+# (docker-compose.override.yml, platform#1063). Jede andere Overlay-Datei blieb
+# draussen, und `up --remove-orphans` LOESCHT deren Container. Realfall
+# 2026-09-01: mcp_hub_rag wurde 34 Minuten nach seiner Erzeugung entfernt;
+# llm_gateway und mcp_hub_grafana waren aus demselben Grund schon vorher weg.
+#
+# Reihenfolge: Basis-Datei zuerst, Overlays danach — spaetere -f gewinnen. Die
+# Manifest-Reihenfolge ist alphabetisch und taugt dafuer NICHT
+# (docker-compose.llm-mcp.yml sortiert vor docker-compose.prod.yml).
+_MANIFEST_PFAD="$APP_PATH/.deploy-manifest.json"
+_DEKLARIERT=()
+if [[ -f "$_MANIFEST_PFAD" ]]; then
+  mapfile -t _DEKLARIERT < <(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$_MANIFEST_PFAD'))
+except Exception:
+    sys.exit(0)
+for name in sorted(d.get('compose_files') or {}):
+    print(name)
+" 2>/dev/null || true)
 fi
+
+if [[ ${#_DEKLARIERT[@]} -gt 0 ]]; then
+  for _f in "${_DEKLARIERT[@]}"; do
+    [[ "$_f" == "$COMPOSE_FILE" ]] && continue          # Basis steht schon drin
+    if [[ ! -f "$APP_PATH/$_f" ]]; then
+      echo "::error::ADR-021 §2.20: '$_f' steht im CI-Manifest, fehlt aber am Host. Der Sync ist unvollstaendig — Abbruch statt Deploy mit halbem Stack."
+      exit 8
+    fi
+    COMPOSE_ARGS+=(-f "$APP_PATH/$_f")
+  done
+  echo "✅ -f-Kette aus dem Manifest: ${#_DEKLARIERT[@]} deklarierte Datei(en)"
+
+  # Undeklarierte compose-Dateien am Host: melden, aber NICHT mitfahren lassen.
+  # Sie sind der Grund, warum die Kette aus dem Manifest kommt.
+  for _h in "$APP_PATH"/docker-compose*.yml "$APP_PATH"/docker-compose*.yaml; do
+    [[ -f "$_h" ]] || continue
+    _n=$(basename "$_h")
+    [[ "$_n" == "$COMPOSE_FILE" ]] && continue
+    if ! printf '%s\n' "${_DEKLARIERT[@]}" | grep -qxF "$_n"; then
+      echo "::warning::$_n liegt am Host, steht aber in keinem CI-Manifest — faehrt NICHT mit (undeklarierte Host-Datei, KONZ-015)."
+    fi
+  done
+else
+  # Rueckfall fuer Hubs, deren Manifest noch von einer aelteren shared-ci-Version
+  # stammt: das Verhalten von platform#1063, unveraendert.
+  if [[ -f "$APP_PATH/docker-compose.override.yml" ]]; then
+    COMPOSE_ARGS+=(-f "$APP_PATH/docker-compose.override.yml")
+    # Herkunfts-Warnung: Host-Override ohne CI-Manifest-Eintrag = aeltere
+    # shared-ci-Version (synct override noch nicht) ODER undeklarierte
+    # Host-Datei (KONZ-015-Fehlerklasse). Heute: laut warnen + mitfahren
+    # (sonst Rezidiv der Container-Loeschung).
+    if [[ "$ENVIRONMENT" == "production" ]] && ! python3 -c "import json,sys; d=json.load(open('$APP_PATH/.deploy-manifest.json')); sys.exit(0 if d.get('override_sha') else 1)" 2>/dev/null; then
+      echo "::warning::docker-compose.override.yml am Host ohne override_sha im CI-Manifest — Herkunft ungesichert (platform#1063). Wird mitdeployt; Enforcement folgt."
+    fi
+  fi
+  echo "::warning::Kein compose_files im Manifest — aeltere shared-ci-Version. -f-Kette faellt auf platform#1063 zurueck (nur docker-compose.override.yml)."
+fi
+# --- KETTE-ENDE
 
 # ADR-021 §2.19 — pin COMPOSE_PROJECT_NAME explicitly for both environments.
 # Previously only staging was pinned; prod relied on Docker Compose's implicit
@@ -142,6 +230,12 @@ rollback() {
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
     export _ROLLBACK_MODE=1  # bypass manifest/sha check during rollback
+    # `.env` VOR dem Hochfahren zurücksetzen, nicht danach: bricht das `up -d`
+    # ab, bliebe sonst der nie gelaufene Tag stehen und der nächste Deploy läse
+    # ihn als "vorherigen Stand" ein (die Kette, die den Realfall 2026-09-02
+    # erzeugt hat). Ein späterer Hand-`docker compose up -d` startete damit eine
+    # Version, die niemand ausgeliefert hat.
+    _restore_image_tag
     docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
       echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose ${COMPOSE_ARGS[*]} up -d" >&2
       exit 10
@@ -166,6 +260,37 @@ if [[ -f "$APP_PATH/.env" ]] && grep -q "^IMAGE_TAG=" "$APP_PATH/.env"; then
 else
   echo "IMAGE_TAG=${IMAGE_TAG}" >> "$APP_PATH/.env"
 fi
+
+# ── Wiederholung an den Registry-Schritten ───────────────────────────────────
+# Die zwei Aufrufe, die dieses Skript gegen ghcr.io macht (Anmeldung und Abruf),
+# sind die einzigen, die von einem fremden Dienst abhängen. Ein Aussetzer dort
+# hat bis 2026-09-02 den gesamten Deploy gekostet: gemessen auf prod erreichten
+# nur 4 von 10 Verbindungen ghcr.io, während github.com 10 von 10 schaffte und
+# ICMP zum selben Rechner verlustfrei lief (writing-hub#982, platform#2685).
+# Vier Läufe scheiterten, der fünfte ging unverändert durch — das ist die
+# Signatur eines transienten Ausfalls, und dagegen ist Wiederholen die richtige
+# und einzige Antwort. Der Geltungsbereich endet hier: ein fehlgeschlagener
+# `migrate` und ein Manifest-Bruch sind deterministisch und wiederholen sich
+# deshalb nicht — ein zweiter Versuch verdeckt dort nur die Ursache.
+: "${DEPLOY_REGISTRY_RETRIES:=4}"   # Gesamtversuche, nicht Nachversuche
+: "${DEPLOY_REGISTRY_BACKOFF:=5}"   # Sekunden, verdoppelt sich je Versuch
+_mit_wiederholung() {
+  local was="$1"; shift
+  local versuch=1 warte="$DEPLOY_REGISTRY_BACKOFF"
+  while :; do
+    if "$@"; then
+      [[ $versuch -gt 1 ]] && echo "✅ $was im Versuch $versuch/$DEPLOY_REGISTRY_RETRIES"
+      return 0
+    fi
+    if [[ $versuch -ge $DEPLOY_REGISTRY_RETRIES ]]; then
+      echo "❌ $was nach $DEPLOY_REGISTRY_RETRIES Versuchen aufgegeben" >&2
+      return 1
+    fi
+    echo "⏳ $was fehlgeschlagen (Versuch $versuch/$DEPLOY_REGISTRY_RETRIES) — neuer Versuch in ${warte}s" >&2
+    sleep "$warte"
+    warte=$(( warte * 2 )); versuch=$(( versuch + 1 ))
+  done
+}
 
 # GHCR Login — bevorzugt kurzlebigen Workflow-Token (GHCR_TOKEN env), sonst Host-Datei.
 # shared-ci _deploy-unified.yml reicht GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }} + GHCR_USER durch
@@ -195,14 +320,16 @@ _ghcr_config_cleanup() {
 }
 trap _ghcr_config_cleanup EXIT
 
+_ghcr_login_env() { echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin; }
+_ghcr_login_datei() { docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token; }
 if [[ -n "${GHCR_TOKEN:-}" ]]; then
   _GHCR_CONFIG_DIR="$(mktemp -d)"
   export DOCKER_CONFIG="$_GHCR_CONFIG_DIR"
-  echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin
+  _mit_wiederholung "GHCR-Anmeldung" _ghcr_login_env
 elif [[ -f "/opt/scripts/.ghcr_token" ]]; then
   _GHCR_CONFIG_DIR="$(mktemp -d)"
   export DOCKER_CONFIG="$_GHCR_CONFIG_DIR"
-  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
+  _mit_wiederholung "GHCR-Anmeldung" _ghcr_login_datei
 fi
 
 # Deploy
@@ -241,6 +368,27 @@ if [[ "$ENVIRONMENT" == "production" && "$_ROLLBACK_MODE" != "1" ]]; then
     # platform#1063 — override-Integrität: sobald das CI-Manifest eine
     # override_sha trägt (neuere shared-ci-Version), gilt für die Override
     # dieselbe fail-closed-Prüfung wie für die Haupt-Datei.
+    # platform#2586 K3 — jede deklarierte Datei wird geprueft, nicht nur die
+    # Basis. Ohne das traegt der Deploy eine Overlay-Datei mit, deren Inhalt
+    # nach dem CI-Sync veraendert wurde.
+    python3 - "$_MANIFEST" "$APP_PATH" <<'PYSHA' || exit 7
+import hashlib, json, pathlib, sys
+
+manifest, app = sys.argv[1], pathlib.Path(sys.argv[2])
+dateien = json.load(open(manifest)).get("compose_files") or {}
+for name, erwartet in sorted(dateien.items()):
+    pfad = app / name
+    if not pfad.exists():
+        print(f"::error::ADR-021 2.17: {name} steht im Manifest, fehlt am Host.")
+        raise SystemExit(1)
+    ist = hashlib.sha256(pfad.read_bytes()).hexdigest()
+    if ist != erwartet:
+        print(f"::error::ADR-021 2.17: sha256 mismatch fuer {name}. "
+              f"expected={erwartet} actual={ist}. Abbruch (fail-closed).")
+        raise SystemExit(1)
+    print(f"OK compose sha256 verified: {name}")
+PYSHA
+
     _EXPECTED_OSHA=$(python3 -c "import json; d=json.load(open('$_MANIFEST')); print(d.get('override_sha',''))" 2>/dev/null || true)
     if [[ -n "$_EXPECTED_OSHA" && -f "$APP_PATH/docker-compose.override.yml" ]]; then
       _ACTUAL_OSHA=$(sha256sum "$APP_PATH/docker-compose.override.yml" | awk '{print $1}')
@@ -265,7 +413,8 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
   docker compose "${COMPOSE_ARGS[@]}" down --remove-orphans 2>&1 || true
 fi
 
-docker compose "${COMPOSE_ARGS[@]}" pull
+_compose_pull() { docker compose "${COMPOSE_ARGS[@]}" pull; }
+_mit_wiederholung "Abbild-Abruf" _compose_pull
 
 # ── Schema-Migrationen — VOR dem Traffic-Switch, fail-closed ──────────────────
 # Root-Cause illustration-hub#66: dieses Skript lief ohne migrate-Schritt →
@@ -327,8 +476,24 @@ if [[ "${DEPLOY_MIGRATE:-1}" == "1" ]]; then
     # Override kommt "python manage.py migrate" nur als dessen ARGUMENT an, der
     # Container antwortet mit Usage-Text und Exit 1 — die Migration liefe nie,
     # der Deploy bräche mit irreführender Meldung ab (gemessen 2026-07-25).
+    #
+    # Der Override hat aber einen Preis, der 2026-08-20 in travel-beat sichtbar
+    # wurde: er umgeht damit AUCH die Logik IM Entrypoint. travel-beat hatte nach
+    # einem Crash-Loop (2026-06-17) genau richtig `DATABASE_URL_MIGRATE` eingebaut
+    # — privilegierte DDL als Migrations-Rolle, Laufzeit weiter als restricted
+    # User — und dieser Mechanismus war auf dem Deploy-Pfad **wirkungslos**, weil
+    # der Entrypoint hier nie läuft. Ergebnis: `migrate_schemas` lief als
+    # restricted Rolle, die auf den Tenant-Schemata kein USAGE hat, und starb mit
+    # "no schema has been selected to create in" — exakt der Fehler, den der
+    # Entrypoint-Kommentar vorhersagt. Der Prod-Stand hing dadurch seit dem
+    # 2026-08-11 zurück (travel-beat#79).
+    #
+    # Deshalb wird die Ableitung hier nachgezogen, mit derselben Semantik wie im
+    # Entrypoint: `DATABASE_URL_MIGRATE` gewinnt, sonst bleibt `DATABASE_URL`.
+    # Repos ohne die Variable verhalten sich damit unverändert — die Zuweisung
+    # wirkt nur für diesen einen Prozess, nicht für den laufenden Stack.
     if ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
-           "$_MIG_SVC" -c 'python manage.py migrate --noinput'; then
+           "$_MIG_SVC" -c 'DATABASE_URL="${DATABASE_URL_MIGRATE:-$DATABASE_URL}" python manage.py migrate --noinput'; then
       _restore_image_tag
       echo "::error::Migration fehlgeschlagen — Deploy abgebrochen. Der ALTE Stack läuft unverändert weiter." >&2
       echo "         DB kann teilmigriert sein: 'manage.py showmigrations' prüfen." >&2
@@ -339,7 +504,7 @@ if [[ "${DEPLOY_MIGRATE:-1}" == "1" ]]; then
     # Teil-Applies und --fake-Artefakte (assets.0002 aus #66), die 'migrate'
     # selbst mit Exit 0 hinterlassen kann.
     if ! docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --entrypoint sh \
-           "$_MIG_SVC" -c 'python manage.py migrate --check --noinput' >/dev/null 2>&1; then
+           "$_MIG_SVC" -c 'DATABASE_URL="${DATABASE_URL_MIGRATE:-$DATABASE_URL}" python manage.py migrate --check --noinput' >/dev/null 2>&1; then
       _restore_image_tag
       echo "::error::Nach 'migrate' sind weiter Migrationen pending — Schema-Drift, Deploy abgebrochen." >&2
       echo "         Kein Auto-Rollback: Teil-Migrationen lassen sich nicht sicher zurückrollen." >&2

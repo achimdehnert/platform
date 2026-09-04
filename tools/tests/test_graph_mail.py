@@ -615,7 +615,9 @@ def test_should_not_search_by_sender_when_an_id_is_given(monkeypatch):
     mod.cmd_move("tok", "", "Archiv/2026", "inbox", True, "", ["m1"])
 
 
-def test_should_report_an_unreadable_message_instead_of_moving_nothing(monkeypatch, capsys):
+def test_should_report_an_unreadable_message_instead_of_moving_nothing(
+    monkeypatch, capsys
+):
     mod = _load()
     monkeypatch.setattr(mod, "_http", lambda *a, **k: mod._Resp(404, "{}"))
     monkeypatch.setattr(mod, "ensure_path", lambda *a, **k: "zielid")
@@ -624,7 +626,9 @@ def test_should_report_an_unreadable_message_instead_of_moving_nothing(monkeypat
     assert "nicht lesbar" in aus.err
 
 
-def test_should_reject_a_message_id_with_whitespace_instead_of_crashing(monkeypatch, capsys):
+def test_should_reject_a_message_id_with_whitespace_instead_of_crashing(
+    monkeypatch, capsys
+):
     """Eine ID aus einer Pipeline trägt gern Zeilenreste mit sich.
 
     Ungeprüft landete das in der URL und endete in

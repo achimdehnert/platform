@@ -1,0 +1,14 @@
+[Unit]
+Description=Sendeabgleich alle zwei Stunden (kein Vorgang steht laenger als 24h im falschen Bucket)
+
+[Timer]
+# Alle zwei Stunden waehrend der Arbeitszeit reicht fuer das Kriterium ("nicht
+# laenger als 24h"), und ein Lauf kostet zwei Postfach-Abfragen. Stuendlich waere
+# Zierde ohne Nutzen, taeglich wuerde das Kriterium knapp verfehlen, sobald ein
+# Lauf ausfaellt.
+OnCalendar=*-*-* 07,09,11,13,15,17,19:20:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

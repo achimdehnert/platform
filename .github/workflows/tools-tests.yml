@@ -70,6 +70,12 @@ on:
       # dort jemand ein Skript um, laeuft die Wache ohne diesen Pfad NICHT —
       # und der Vergleich normalisierte still am falschen Ort (#2049).
       - ".github/actions/**"     # test_shared_ci_tag_drift
+      # 2026-09-02 (#2654): test_pr_merge_sa.py belegt, dass docs/governance/ und
+      # die Charta-Datei review-pflichtig sind. Ohne diese Pfade liefe der Gate
+      # bei einer Aenderung genau dort NICHT — also an den Dateien, deren Schutz
+      # er prueft. Gemessen von test_ci_trigger_covers_test_inputs.py.
+      - "docs/governance/**"     # test_pr_merge_sa
+      - "docs/konzepte/KONZ-platform-025-lotsen-charta.md"  # test_pr_merge_sa
   # #1414: KEIN `paths`-Filter auf pull_request — bewusst.
   #
   # Ein *required* Check mit paths-Filter läuft auf PRs, die keinen der Pfade
@@ -101,11 +107,11 @@ jobs:
     name: pytest tools/tests/ + CI-tote Testorte
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0   # einige Tests bauen Wegwerf-Git-Repos / lesen Refs
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
 
@@ -133,6 +139,20 @@ jobs:
         if: steps.relevanz.outputs.relevant == 'true'
         # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
         run: pip install pytest pyyaml pydantic --quiet --break-system-packages
+
+      - name: Install ruff
+        if: steps.relevanz.outputs.relevant == 'true'
+        # Pin (2026-07-24): unpinned `pip install ruff` zog eine neuere Ruff-Version als der
+        # lokale/pyproject-Stand -> RUF059/RUF100 feuerten repo-weit ueber Alt-Dateien und
+        # faerbten JEDEN tools/-PR rot (belegt: main lokal @0.15.4 = 0 Verstoesse; #1420 mit
+        # ruff-sauberen Eigen-Dateien scheiterte identisch). _ci-python.yml predigt Pinning
+        # bereits -- hier nachgezogen. B) (Ruff-Bump + repo-weiter Fix) folgt separat.
+        run: pip install "ruff==0.15.4" --quiet --break-system-packages
+        # 2026-09-03 VOR den Tests, nicht danach: test_block_unformatted_push_suite.py
+        # skippt ohne ruff auf dem PATH ("ruff nicht installiert"). Der Drill des
+        # Push-Gates lief damit in CI NIE — und genau deshalb blieb unbemerkt, dass
+        # das Gate seit ruff 0.16 nichts mehr blockte (6 von 14 Selbsttests rot).
+        # Der Lint-STEP bleibt bewusst hinter den Tests (X-9: Test-Failures zuerst).
 
       - name: Run all tools tests
         if: steps.relevanz.outputs.relevant == 'true'
@@ -190,15 +210,6 @@ jobs:
         # (oder distribute:false / Allowlist). Struktureller Gate, keine LLM.
         run: python3 tools/check_workflow_index.py
 
-      - name: Install ruff
-        if: steps.relevanz.outputs.relevant == 'true'
-        # Pin (2026-07-24): unpinned `pip install ruff` zog eine neuere Ruff-Version als der
-        # lokale/pyproject-Stand -> RUF059/RUF100 feuerten repo-weit ueber Alt-Dateien und
-        # faerbten JEDEN tools/-PR rot (belegt: main lokal @0.15.4 = 0 Verstoesse; #1420 mit
-        # ruff-sauberen Eigen-Dateien scheiterte identisch). _ci-python.yml predigt Pinning
-        # bereits -- hier nachgezogen. B) (Ruff-Bump + repo-weiter Fix) folgt separat.
-        run: pip install "ruff==0.15.4" --quiet --break-system-packages
-
       - name: Lint (ruff check tools/ scripts/)
         if: steps.relevanz.outputs.relevant == 'true'
         # X-9: eigener Step NACH dem pytest-Step (Test-Failures sollen zuerst sichtbar
@@ -214,3 +225,39 @@ jobs:
           echo "Kein geänderter Pfad trifft on.push.paths dieses Workflows."
           echo "Der Check meldet grün, hat den Code aber NICHT geprüft —"
           echo "genau dafür ist das Zwilling-Muster da (#1414)."
+
+  # Eigener JOB, nicht ein Step im Job oben — mit Absicht (platform#2690 K4).
+  # Ein Step hier drin hätte den Check `tools-tests` rot gefärbt, und der steht
+  # im Ruleset. Damit wäre die Frage „advisory oder required?" durch die
+  # Verdrahtung vorentschieden gewesen statt vom Owner am Ruleset. Als eigener
+  # Job meldet er einen eigenen Check-Namen: heute nicht required, also advisory;
+  # scharf wird er durch einen Ruleset-Eintrag, nicht durch einen Datei-Edit.
+  #
+  # KEIN `paths`-Filter (den gibt es auf Job-Ebene ohnehin nicht) und keine
+  # Relevanz-Weiche: `--neu` vergleicht die Registry gegen die Basis und meldet
+  # bei unveränderter Datei „kein neuer oder geaenderter Gate-Eintrag" (Exit 0).
+  # Der Filter steckt im Werkzeug, nicht in einer zweiten Pfadliste, die mit
+  # `on.push.paths` driften könnte.
+  gate-verankerung:
+    name: Gate-Verankerung (Drill · Positivkontrolle · Messpunkt)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0   # `git show <basis>:<pfad>` braucht die Historie
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      # Exit 1 = Befund (ein neu verankertes Gate ohne Drill/Positivkontrolle/
+      # Messpunkt), Exit 2 = Werkzeugfehler (Basis nicht lesbar). Beides macht
+      # den Check rot: ein Melder, der beim eigenen Ausfall grün meldet, ist
+      # schlimmer als keiner (`fetch-failure-is-not-a-green-state`).
+      - name: Neue Gate-Einträge auf Drill, Positivkontrolle, Messpunkt prüfen
+        run: |
+          set -euo pipefail
+          git fetch -q origin "${{ github.base_ref }}"
+          python3 tools/gate_verankerung_check.py \
+            --neu --basis "origin/${{ github.base_ref }}"

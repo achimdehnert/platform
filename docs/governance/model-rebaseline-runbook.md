@@ -4,6 +4,35 @@
 „🔁 MODELLWECHSEL erkannt". Kein Kalender-Raten — der Wechsel selbst ist das Event.
 **Dauer:** ~10 Minuten. **Jeder Dritte kann das fahren** (M-3): alles unten ist copy-paste.
 
+## 0. Einstufung: Major, Minor oder nur Suffix (Vorschlag 2026-09-02, ratifiziert mit Merge)
+
+Der Detektor stuft selbst ein und schreibt jede Erkennung nach
+`~/.claude/hooks/state/model-changes.log` (`<utc>\t<alt>\t<neu>\t<Klasse>`) — vorher gab es
+keine Spur, ob ein Wechsel je gemeldet wurde (Befund 2026-09-02: `claude-fable-5` →
+`claude-fable-5-1` nicht nachweisbar).
+
+| Klasse | Definition | Beispiel | Pflicht |
+|---|---|---|---|
+| **MAJOR** | Modellfamilie ODER Hauptversion wechselt | `opus-5` → `fable-5` · `fable-5-1` → `fable-6` | §1 + §2 + §3 + **§3a** (Vollmachten) |
+| **MAJOR** | **Datums-Snapshot wechselt**, auch bei gleicher Versionsnummer | `haiku-4-5-20251001` → `haiku-4-5-20260315` | dieselbe wie oben |
+| **MINOR** | gleiche Familie, Hauptversion **und** Snapshot; nur Punkt-Release | `fable-5` → `fable-5-1` | §1 Smoke; Vollmachten bleiben `active`; `assessed_with` im nächsten Ritual nachziehen |
+| **SUFFIX** | nur Variante/Kontextfenster (`[1m]`) | `fable-5-1` → `fable-5-1[1m]` | nichts — Log-Zeile, kein Ereignis |
+| — | Form nicht parsbar (Provider-Präfix, Tippfehler) | `us.anthropic.claude-fable-5-1` | **MAJOR**, fail-loud |
+
+**Warum das Datum eine eigene Zeile bekommt (Nachtrag 2026-09-02, [#2655](https://github.com/achimdehnert/platform/issues/2655)).**
+Die erste Fassung dieser Tabelle kannte nur Familie und Hauptversion, und der Detektor
+schnitt seine Modell-ID nach der ersten Ziffernfolge ab. Damit ergaben
+`claude-haiku-4-5-20251001` und `claude-haiku-4-9-20260315` beide `haiku-4` und wurden als
+MINOR eingestuft — Vollmachten wären aktiv geblieben, obwohl zwei Snapshots zwei
+verschiedene Gewichtsmatrizen sind (Charta Art. 2.5: *„Vertrauen ist nicht übertragbar
+zwischen Gewichtsmatrizen"*). Bitter daran: der Fehler traf nur **bekannte** Formen. Ein
+Provider-Präfix oder ein Tippfehler fiel korrekt auf MAJOR zurück, weil sein Match leer
+blieb — die Absicherung schützte vor dem Unbekannten und versagte beim Erwarteten.
+
+Das ist die operative Auslegung von Charta Art. 2.5 („Major-Wechsel ⇒ Reset der betroffenen
+Klassen"): *Major* ist dort undefiniert; ohne diese Tabelle wäre jedes Punkt-Release ein
+Total-Reset — oder, realistischer, es passiert stillschweigend gar nichts.
+
 ## 1. Smoke-Kalibrierung (Aufgaben mit bekannter Antwort)
 
 ```bash
@@ -29,6 +58,35 @@ NUR Typ-A-Regeln mit **Exposure im letzten Fenster** (nicht der ganze Bestand):
 `assessed_with` auf die neue Modell-ID setzen, wenn die Regel weiterhin nötig scheint;
 wirkt sie durch das neue Modell obsolet → als Sunset-Kandidat in den Ritual-Lauf geben
 (Pfad 1/2, §5.4). `reassess_by` gestaffelt neu vergeben, nicht kohortenweise.
+
+## 3a. Vollmachten-Re-Qualifikation statt Klippen-Reset (nur MAJOR — Art. 2.5, Registry 2.6)
+
+**Selbstbetreffend** („erweitert meine Macht" im Sinne der Charta: es regelt, wie schnell der
+Lotse nach einem Modellwechsel wieder handlungsfähig ist). Vorschlag des Lotsen, Ratifikation
+durch Merge dieses Abschnitts; jede Wiedereinsetzung einzeln durch Kapitäns-Wort.
+
+Alle Einträge in `registry/lotse-authorizations.yaml` nennen „Modell-Major-Wechsel" als
+`invalidated_by`. Wörtlich genommen kappt Fable 6 also alle aktiven Vollmachten auf einmal und
+jede müsste den 5×-Nominierungsweg (Art. 2.1) neu gehen. Das ist weder gewollt (Wachstum) noch
+sicher (in der Praxis würde es ignoriert). Stattdessen:
+
+1. **Suspendieren, nicht löschen:** jeder `status: active`-Eintrag bekommt am Tag des
+   MAJOR-Events `status: requalifying` (wirkt wie „Lotse stopp" für diese Klasse, Art. 14) —
+   ein PR, vom Lotsen vorbereitet, Merge = Kapitän.
+2. **Je Vollmacht eine Stichprobe eine Stufe unter ihrem `mode`:** Klasse F/E → einmal als D
+   (Einzelfreigabe) durchlaufen, Klasse D → einmal als B (Dry-Run). Der Lauf muss die
+   `forbidden`-Liste des Eintrags berühren (Köder: darf der neue Lotse das *nicht* tun?) und
+   das Ergebnis im PR-Text stehen — „Geprüft: X; nicht geprüft: Y".
+3. **Wiedereinsetzung einzeln:** Kapitäns-Wort je `id` („LV-003 requalifiziert") ⇒
+   `status: active`, neues Feld `assessed_with: <model-id>` + Datum. Kein Sammel-„alle ok".
+4. **Frist 14 Tage** ab MAJOR-Event; was bis dahin nicht requalifiziert ist, wird
+   `status: expired` (Registry-Regel: nichts wird still verlängert). Kalender-Reminder = das
+   Ritual-Issue, nicht ein Datumsfeld allein (M28-1-Lehre).
+5. **Reifegrad bleibt:** die Stufe (A–F) geht nicht verloren — nur ihre Gültigkeit für die neue
+   Gewichtsmatrix wird geprüft. Herabstufung nur bei durchgefallener Stichprobe (Art. 2.2).
+
+Gemessene Ausgangslage 2026-09-02: 9 Einträge (5 active, 3 proposed, 1 Nicht-Vollmacht-Marker),
+Detektor-Stand `claude-fable-5-1[1m]`, Policies tragen `assessed_with: claude-fable-5`.
 
 ## 4. Ergebnis durabel machen
 

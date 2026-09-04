@@ -8,14 +8,19 @@
 #
 # Blockierend mit sichtbarem Opt-out: das Label handover-rewrite erlaubt Loeschungen
 # (Archiv-Rotation nach AGENT_HANDOVER_ARCHIVE.md, laut Dateikopf vorgeschrieben).
+#
+# Zweiter Arm seit 2026-09-02 (platform#2606 Stufe 1): der Byte-Deckel auf
+# AGENT_HANDOVER.md. Dafuer ist der frueher hier stehende `paths:`-Filter
+# (AGENT_HANDOVER_LOG.md + Skript + diese Datei) ENTFALLEN und der Workflow laeuft an
+# JEDEM PR. Grund: ein uebersprungener Job meldet „skipped", nicht „success" — mit
+# paths-Filter kann der Deckel nie merge-bindend werden, ohne den Merge hungern zu
+# lassen (Realfall platform#1414, Memory feedback_required_check_paths_filter_blocks).
+# Der Append-only-Arm ist auf einem PR ohne Log-Aenderung ein No-op, der Deckel-Arm
+# misst eine Dateigroesse — beides billig genug fuer jeden PR.
 name: handover-append-only
 
 on:
   pull_request:
-    paths:
-      - "AGENT_HANDOVER_LOG.md"
-      - "scripts/checks/handover_append_only.py"
-      - ".github/workflows/handover-append-only.yml"
 
 permissions:
   contents: read
@@ -26,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Drei-Punkt-Diff braucht die Merge-Base — flacher Checkout hat sie nicht,
           # der Check wuerde dann mit Exit 2 abbrechen statt falsch-gruen zu melden.
@@ -68,3 +73,30 @@ jobs:
             exit 1
           fi
           echo "Golden-Test OK: geaenderte Bestandszeile bleibt FAIL."
+
+  byte-deckel:
+    name: "AGENT_HANDOVER.md unter dem Byte-Deckel"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Der Deckel selbst steht als Konstante DEFAULT_LIMIT im Skript, nicht hier —
+      # damit lokaler Aufruf und CI dieselbe Zahl messen und niemand sie im Workflow
+      # „mal eben" hochsetzt, ohne dass es im Diff der Konvention auffaellt.
+      - name: Byte-Deckel pruefen
+        run: python3 scripts/checks/handover_byte_cap.py
+
+      - name: Golden-Test — eine zu grosse Datei muss FAIL ergeben
+        # Gleiche Begruendung wie oben: ein Gate, das nur gruen gesehen wurde, ist
+        # nicht als Gate belegt. Der Drill deckt zusaetzlich tools/tests/ ab
+        # (test_handover_byte_cap.py, laeuft im Required Check „pytest tools/tests/").
+        run: |
+          set -uo pipefail
+          tmp="$(mktemp -d)"
+          head -c 21000 /dev/zero | tr '\0' 'x' > "$tmp/AGENT_HANDOVER.md"
+          if python3 scripts/checks/handover_byte_cap.py "$tmp/AGENT_HANDOVER.md"; then
+            echo "::error::Golden-Test: 21.000 B wurden faelschlich als PASS gewertet"
+            exit 1
+          fi
+          echo "Golden-Test OK: ueber dem Deckel bleibt FAIL."

@@ -148,8 +148,13 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
 
 1. `python3 tools/pypi_fleet_inventory.py` laufen lassen (regeneriert Ground
    Truth; `--offline` ohne Netz). Diff gegen eingecheckten Stand lesen.
+   Seit 2026-09-02: `GH_TOKEN=… python3 tools/pypi_fleet_report.py --earlywarn <json>
+   --coldstart <dir> --out docs/verifications/<datum>-adr266-k2-befund.md` liefert den
+   Befund je Paket mit Beleg je Zelle (Muster: `2026-09-02-adr266-k2-befund.md`).
+   Programm-Anker ist [#2591](https://github.com/achimdehnert/platform/issues/2591)
+   (Zielzustand K1–K5, SA-4), darüber [#2075](https://github.com/achimdehnert/platform/issues/2075).
 2. Offene Owner-Aktionen (nur Mensch kann sie tun):
-   - **PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).
+   - ~~**PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).~~ **Entfallen 2026-08-25:** die PyPI-Org wird bewusst nicht in Betrieb genommen (ADR-255 Rev 5, platform#2291); an ihre Stelle tritt die Härtung des Kontos `iildehnert` (Recovery-Codes im Vault, Firmenadresse).
    - **Trusted-Publisher-Bindings auf pypi.org anlegen/prüfen** für alle 7
      Nicht-pur-OIDC-Repos: iil-codeguard, iil-django-commons, iil-ingest
      (pur Token) + aifw, learnfw, promptfw, weltenfw (hybrid; aifw/learnfw
@@ -268,6 +273,37 @@ transferiert (einziger Fall ohne bestehendes Binding — nichts zu brechen;
 org-weite Code-Search: 1 Doku-Treffer, kein Install-Pfad). Durchsetzungs-Gate:
 der K3-Health-Lauf (#2075) meldet künftig `org != iilgmbh` je aktivem Paket als
 Advisory-Metrik „Heimat-Drift".
+
+## Amendment 2026-09-02 — Fortführung über [#2591](https://github.com/achimdehnert/platform/issues/2591) (K1–K3)
+
+Zielzustand-Issue (Owner-Go 2026-09-01), Anker #2075. Stand nach zwei Tagen:
+
+- **K1 Reproduzierbarkeit ✅** ([#2593](https://github.com/achimdehnert/platform/pull/2593)):
+  Inventar zweimal identisch bis auf Zeitstempel und live gelieferte pypistats-Werte.
+  Befund: pypistats.org antwortet für 20–22/23 Pakete HTTP 429 (auch mit Pause und
+  eigenem User-Agent); das Inventar schluckte das still und hätte 16 `downloads_30d`
+  gelöscht. Jetzt: 429 sichtbar im Report, Vorwert mit `downloads_30d_stale_from`.
+  Zweitbefund: lokaler Scan und `--remote` liefern verschiedene Paketmengen (testkit
+  nur lokal, 24 vs 23); `--remote` ist der CI-Kanon.
+- **K2 Befund je Paket ✅** ([#2602](https://github.com/achimdehnert/platform/pull/2602)):
+  `tools/pypi_fleet_report.py` + `docs/verifications/2026-09-02-adr266-k2-befund.md`.
+  Cold-Start in leerem venv 13/23; 9 Fehlschläge eine Klasse (`make test` ruft
+  `$(PYTHON)=python3` statt `.venv`), die 19/19 vom 2026-08-19 waren in einer Shell mit
+  System-pytest gemessen. 3 Repos publizieren ohne Git-Tag (learnfw, outlinefw,
+  researchfw). Provenance 14 attested / 7 unattested / 2 nicht auf PyPI.
+- **K3 Wirkung 🟡** (Owner-Wort 2026-09-02 „Welle venv-first go, M4 schärfen"):
+  venv-first in 9 Repos gemergt, Cold-Start danach 9/9 grün (Flotte 22/23; Rest
+  gaeb-toolkit, eingefroren). **M4-Semantik geschärft** ([#2607](https://github.com/achimdehnert/platform/pull/2607)):
+  `reusable_lag` nur, wenn die gepinnte shared-ci-Datei samt lokaler Reusable-Aufrufe
+  zwischen Ref und neuestem Tag differiert; identisch → `lag_nominal` als Info, nicht
+  gezählt, nicht emittiert (`_ci-pypi.yml` ist v1.1.11 = v1.1.14). Lokal 43 → 19
+  Findings. Erzwungener CI-Dry-Run: 21, davon 6 × `ORG NICHT AUFLÖSBAR` — der
+  `GITHUB_TOKEN` des Wochenlaufs sieht 6 Paket-Repos nicht ([#2610](https://github.com/achimdehnert/platform/issues/2610)).
+  Vorher-Zahl: Wochenlauf 33366432594 (2026-08-31) = 45. Nachher-Zahl: Montagslauf
+  2026-09-07. Beleg: `docs/verifications/2026-09-02-adr266-k3-venv-first-und-m4-nominal.md`.
+- **Offen (Owner):** Lese-Token für den Wochenlauf (#2610), M2-Floor `>=3.11`
+  (django-lms-lite, iil-klickdummy), K4-Releases gpufw 0.1.1 / iil-reflex 0.6.1, Tags
+  für die 3 tag-losen Repos, Bump-Welle erst bei realer `_ci-pypi.yml`-Änderung.
 
 ## Glossar
 

@@ -36,7 +36,7 @@ recurring_findings:
 
 - Die Session lieferte, was sie sollte: KONZ-035 angenommen und gemergt, sieben von zehn
   Empfehlungen umgesetzt, ein Referenzpostfach gebaut, ein CI-Gate-Rätsel gelöst und der
-  Zeiner-Sachverhalt vollständig beantwortet. Zielerreichung ist nicht das Problem.
+  Vertragspartner-D-Sachverhalt vollständig beantwortet. Zielerreichung ist nicht das Problem.
 - **Das Problem ist die Beweisführung über die eigene Arbeit.** Vier der vierzehn
   überlebenden Befunde sagen dasselbe: eine Statuszeile, ein Kill-Gate-Häkchen oder ein
   PR-Satz behauptete mehr, als das Artefakt hergibt.

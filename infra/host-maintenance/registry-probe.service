@@ -1,0 +1,16 @@
+[Unit]
+Description=Erreichbarkeit der Container-Registry messen (platform#2685)
+Documentation=https://github.com/achimdehnert/platform/issues/2685
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/registry-probe.sh
+Nice=15
+IOSchedulingClass=idle
+# Der Rekorder endet IMMER mit 0, auch wenn er einen Befund schreibt: ein
+# 'failed'-Dienst alle fuenf Minuten waere Rauschen, in dem der echte Fund
+# untergeht. Gelesen wird das Protokoll, nicht der Dienststatus — dafuer gibt es
+# tools/registry_erreichbarkeit_melder.py (Sitzungsstart 0.7.23).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=registry-probe

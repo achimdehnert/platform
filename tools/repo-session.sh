@@ -61,6 +61,32 @@ reap_repo() {
 }
 
 cmd_reap() {
+  # --alle: jedes Repo abraeumen, das ueberhaupt eine Lease hat — nicht nur das
+  # gerade bearbeitete. Grund (Retro 2026-08-20, Gate `worktree-midsession-accumulation`
+  # als RUECKFAELLIG gemessen): der Reaper funktioniert, wird aber nur fuer das
+  # Start-Repo gerufen. Worktrees entstehen mitten in der Sitzung und werden oft
+  # von jemand anderem gemergt — dann sieht der naechste Start sie nie, weil er
+  # ein anderes Repo betrifft. Ueber die Leases zu gehen schliesst genau diese Luecke.
+  if [ "${1:-}" = "--alle" ]; then
+    [ -d "$LEASE_DIR" ] || { echo "keine Leases."; return 0; }
+    local repos="" name pfad
+    for l in "$LEASE_DIR"/*.json; do
+      [ -e "$l" ] || continue
+      name="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('repo',''))" "$l" 2>/dev/null)"
+      [ -n "$name" ] || continue
+      pfad="${GITHUB_DIR:-$HOME/github}/$name"
+      [ -d "$pfad/.git" ] || continue
+      case " $repos " in *" $pfad "*) continue;; esac
+      repos="$repos $pfad"
+    done
+    [ -n "$repos" ] || { echo "keine Repos mit Leases."; return 0; }
+    local rc=0
+    for pfad in $repos; do
+      echo "── reap $pfad"
+      reap_repo "$pfad" || rc=1
+    done
+    return $rc
+  fi
   local repo="${1:-$PWD}"
   local common
   common="$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
@@ -321,6 +347,6 @@ case "${1:-}" in
   list)  cmd_list;;
   end)   shift; cmd_end "$@";;
   reap)  shift; cmd_reap "$@";;
-  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>]}"; exit 0;;
-  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>]}" >&2; exit 2;;
+  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}"; exit 0;;
+  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--ziel <text>] [--base <ref>] [--ephemeral] | list | abstand [<repo>] | end <wt> | reap [<repo>|--alle]}" >&2; exit 2;;
 esac

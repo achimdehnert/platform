@@ -70,11 +70,17 @@ def _unter_test() -> bool:
 
 
 def _ausschnitt(text: str, marker: str) -> str:
-    if not text or not marker:
-        return ""
+    if not text:
+        # Ohne Turn-Text bleibt nur der Marker — das ist KEIN Beleg, und genau
+        # dieser Fall hat das Kalibrierfenster wertlos gemacht (s. notiere()).
+        return marker[: KONTEXT * 2] if marker else ""
+    if not marker:
+        return text[: KONTEXT * 2].replace("\n", " ").strip()
     stelle = text.find(marker)
     if stelle < 0:
-        return marker[: KONTEXT * 2]
+        # Marker ist ein Label (`kinds=...`), kein Zitat: dann lieber den Anfang
+        # des Turns als gar nichts — beurteilen kann man nur, was dasteht.
+        return text[: KONTEXT * 2].replace("\n", " ").strip()
     start = max(0, stelle - KONTEXT)
     ende = min(len(text), stelle + len(marker) + KONTEXT)
     return text[start:ende].replace("\n", " ").strip()
@@ -85,6 +91,7 @@ def notiere(
     marker: str,
     *,
     turn: str = "",
+    beleg: str = "",
     session: str = "",
     modus: str = "advisory",
     pfad: Path | None = None,
@@ -111,7 +118,7 @@ def notiere(
         "slug": slug,
         "modus": modus,
         "marker": marker[:200],
-        "ausschnitt": _ausschnitt(turn, marker),
+        "ausschnitt": _ausschnitt(turn, beleg or marker),
         "session": session[:64],
     }
     try:

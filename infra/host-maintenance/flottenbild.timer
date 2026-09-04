@@ -1,0 +1,10 @@
+[Unit]
+Description=Flottenbild taeglich 06:10 UTC (nach backup-deckung 05:30 und dem Offsite-Lauf)
+
+[Timer]
+OnCalendar=*-*-* 06:10:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

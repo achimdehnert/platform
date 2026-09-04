@@ -479,7 +479,7 @@ jobs:
 ### Phase 0: Sicherheit (SOFORT, 10 min, kein Risiko)
 
 - Git Remotes auf SSH: bfagent, mcp-hub, pptx-hub
-- PAT Token auf GitHub rotieren (ghp_GFg... revoken)
+- PAT Token auf GitHub rotieren (ghp_… revoken)
 - deployment-mcp settings.py SSH-Key default → id_ed25519
 
 ### Phase 1: Health-Endpoints haerten (30 min, niedriges Risiko)

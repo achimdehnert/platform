@@ -128,7 +128,7 @@ def titel_ist_aussagelos(titel):
 
     Vorher wurde JEDER Titel ueberschrieben. Am 2026-07-30 trugen dadurch
     fuenf von sechs hochgeladenen Angeboten den Titel "Rechnung - ...",
-    obwohl ihre Dateinamen ("Angebot_Marold_20250730.pdf") die richtige
+    obwohl ihre Dateinamen ("Angebot_Kunde_20250730.pdf") die richtige
     Auskunft gaben. Der Dateiname war besser als das Ergebnis.
     """
     t = (titel or "").strip()

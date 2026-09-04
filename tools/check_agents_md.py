@@ -43,6 +43,7 @@ def check_text(text: str) -> list[str]:
     headings = {
         m.group(1).strip() for m in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)
     }
+
     # H2 darf Zusätze in Klammern tragen: "Setup & Test (Einstiegskommando)"
     def has(h: str) -> bool:
         return any(x == h or x.startswith(h + " (") for x in headings)
@@ -62,7 +63,9 @@ def _check_entry_command(text: str) -> list[str]:
     fences = re.findall(r"```bash\n(.*?)```", m.group(1), re.S)
     if not fences:
         return ["'Setup & Test' hat keinen ```bash-Fence mit Einstiegskommando"]
-    cmds = [ln for ln in fences[0].splitlines() if ln.strip() and not ln.startswith("#")]
+    cmds = [
+        ln for ln in fences[0].splitlines() if ln.strip() and not ln.startswith("#")
+    ]
     if len(cmds) != 1:
         return [
             f"Einstiegskommando muss GENAU 1 Zeile sein (gefunden: {len(cmds)}) — "

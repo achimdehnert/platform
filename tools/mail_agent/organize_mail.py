@@ -36,6 +36,7 @@ from email.header import decode_header
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from read_mail import _mailbox_arg as _read_mail_mailbox_arg  # noqa: E402
 from send_mail import CONFIG_FILE, load_credentials, login_name, parse_env  # noqa: E402
 
 TRASH_CANDIDATES = (
@@ -109,13 +110,13 @@ def list_folders(imap: imaplib.IMAP4_SSL) -> list[str]:
 
 
 def _mailbox_arg(folder: str) -> str:
-    """Ordnernamen mit Leerzeichen für IMAP quoten (z.B. 'Gesendete Objekte').
-    imaplib quotet nicht selbst — ein unquoted Name mit Space bricht SELECT und
-    lässt UID MOVE/COPY mit 'BAD Command Argument Error' scheitern.
-    Identisch zu read_mail._mailbox_arg (dort seit jeher vorhanden)."""
-    if " " in folder and not (folder.startswith('"') and folder.endswith('"')):
-        return f'"{folder}"'
-    return folder
+    """Ordnernamen für IMAP aufbereiten — eine Quelle, siehe read_mail.
+
+    Bis 2026-08-20 stand hier eine zweite, eigene Kopie, die nur quotete und nicht
+    kodierte. Zwei Kopien derselben Regel driften; die Umlaut-Kodierung waere sonst
+    an genau einem der beiden Werkzeuge vorbeigegangen.
+    """
+    return _read_mail_mailbox_arg(folder)
 
 
 def resolve_trash(imap: imaplib.IMAP4_SSL) -> str | None:
@@ -470,7 +471,12 @@ def main() -> None:
             if not trash:
                 sys.exit("FEHLER: kein Papierkorb-Ordner gefunden.")
             cmd_move(
-                imap, args.source, trash, args.from_sub, args.subj_sub, args.yes,
+                imap,
+                args.source,
+                trash,
+                args.from_sub,
+                args.subj_sub,
+                args.yes,
                 args.uid,
             )
         elif args.flag or args.unflag:
@@ -493,7 +499,12 @@ def main() -> None:
                     "(Sicherheit: kein Pauschal-Verschieben)"
                 )
             cmd_move(
-                imap, args.source, args.to, args.from_sub, args.subj_sub, args.yes,
+                imap,
+                args.source,
+                args.to,
+                args.from_sub,
+                args.subj_sub,
+                args.yes,
                 args.uid,
             )
     finally:

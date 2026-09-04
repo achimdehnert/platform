@@ -40,7 +40,11 @@ _LITERAL = re.compile(r"""["']([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)["']""")
 # Real existierende Pfade, die trotzdem KEINE Trigger-Deckung brauchen.
 # Schluessel = exakter Literal-Treffer, Wert = Begruendung (wird nie geprueft,
 # steht fuer den naechsten Leser da).
-ALLOWLIST: dict[str, str] = {}
+ALLOWLIST: dict[str, str] = {
+    # Fixture-Schluessel im synthetischen Evidenzpaket (test_future_readiness_score.py) — der Test liest die
+    # Datei nicht, er nennt nur ihren Namen als Dateiexistenz-Marker.
+    ".github/CODEOWNERS": "Fixture-Schluessel, keine Testeingabe (future_readiness_score)",
+}
 
 
 def _uncovered() -> dict[str, set[str]]:

@@ -205,15 +205,32 @@ domains:
     compose: docker-compose.prod.yml
     deploy:
       port: 8100
+  - name: news-hub
+    repo: news-hub
+    description: Hot-Topics-Letter — Newsletter-Postfaecher zu belegten Themen (ADR-299)
+    github: achimdehnert/news-hub
+    deployed: false
+    url: https://news.iil.pet
+    type: django
+    lifecycle: experimental
+    tenancy_mode: none
+    dockerfile: docker/app/Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      port: 8113
   - name: onboarding-hub
     repo: onboarding-hub
-    description: Schulungs-/Onboarding-Plattform (schulungspass.de). Wird laut Session-Memory nicht weiterentwickelt
-      (Auth via Cloudflare Access statt App-OIDC), bleibt aber im Betrieb.
+    description: Schulungs-/Onboarding-Plattform (schulungspass.de). Nicht weiterentwickelt (Auth via
+      Cloudflare Access statt App-OIDC) und seit 2026-08-20 auch nicht mehr im Betrieb.
     github: achimdehnert/onboarding-hub
     deployed: false
     url: https://schulungspass.de
     type: django
-    lifecycle: production
+    lifecycle: archived
+    notes: 'Stillgelegt 2026-08-20 (platform#2123): Repo archiviert, Topic scheduled-deletion-2026-09-19,
+      Runner deaktiviert. Lief zum Zeitpunkt der Archivierung auf keinem Host und hatte nie eine Datenbank;
+      schulungspass.de war bereits nur noch ein 302. Backup verifiziert. DELETE fruehestens 2026-09-19,
+      Human-Only.'
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
@@ -327,10 +344,10 @@ domains:
     repo: coach-hub
     description: Coaching-/Beratungsplattform (Risikoschutz-Themen)
     github: achimdehnert/coach-hub
-    deployed: true
+    deployed: false
     url: https://kiohnerisiko.de
     type: django
-    lifecycle: production
+    lifecycle: frozen
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
@@ -338,7 +355,11 @@ domains:
       web_container: coach_hub_web
       web_service: web
       port: 8007
-    notes: Sekundäre Domain coach-hub.iil.pet ebenfalls live (200) — beide bedienen denselben Container.
+    notes: 'Abgeschaltet 2026-08-20 (Owner-Weisung, platform#2125): alle 5 Container auf prod-b gestoppt
+      (+362 MB RAM frei). Tunnel-CNAMEs fuer kiohnerisiko.de, www.kiohnerisiko.de und coach-hub.iil.pet
+      in Cloudflare entfernt - die Namen loesen nicht mehr auf. Daten gesichert (pgdump: 83 Tabellen,
+      17 auth_user). Repo lebt weiter, Volumes unangetastet - docker start ist der Rueckweg. Letzter Login
+      war 2026-04-17. E-Mail-Records der Domain bleiben aktiv.'
   - name: odoo-hub
     repo: odoo-hub
     description: Odoo management and integration (Odoo 17)
@@ -355,7 +376,7 @@ domains:
     deployed: false
     url: https://recruiting.iil.pet
     type: django
-    lifecycle: production
+    lifecycle: archived
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
@@ -363,9 +384,9 @@ domains:
       web_container: recruiting_hub_web
       web_service: web
       port: 8103
-    notes: 'GEFUNDEN 2026-07-10: prod_url recruiting.iil.pet hat AKTUELL KEINEN DNS-Eintrag (NXDOMAIN)
-      — Container läuft healthy auf dem Server, ist aber öffentlich nicht erreichbar. celery + celery_beat
-      zusätzlich als unhealthy markiert (Docker). Nicht autonom behoben — Owner-Entscheidung nötig.'
+    notes: 'Stillgelegt 2026-08-20 (platform#2121): Repo archiviert, Topic scheduled-deletion-2026-09-19,
+      alle 5 Container gestoppt, Runner deaktiviert. DB war leer (0 Kandidaten, 0 Dokumente, 1 Admin-Konto).
+      Backup inkl. pgdump in ~/backups/repo-graveyard/. DELETE fruehestens 2026-09-19, Human-Only.'
   - name: risk-hub
     repo: risk-hub
     description: Multi-tenant occupational safety SaaS (Schutztat)

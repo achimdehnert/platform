@@ -20,6 +20,7 @@ Secrets sind ausgenommen: sie werden nie archiviert. Sie gehoeren nach der
 Uebernahme sofort geloescht (~/.secrets ist der Zielort) und werden hier nur
 gemeldet — sie liegen ohnehin unter der Aufsicht des Session-Start-Checks 0.5.1.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,24 +37,56 @@ ARCHIV = "_archiv"
 # Frist 0 = gehoert gar nicht in die Schleuse. None = kein Verfall, aber ab
 # MELDE_TAGE als "unentschieden" gemeldet, damit es nicht stumm liegen bleibt.
 REGELN = [
-    ("Werkzeug-Rest", re.compile(r"^(__pycache__|stash-backup-.*|\.pytest_cache)$"),
-     0, "gehoert nicht in die Schleuse — direkt weg"),
-    ("Box-Ergebnis", re.compile(r".*ERGEBNIS.*\.txt$|.*-ERGEBNIS$", re.I),
-     30, "Erkenntnis gehoert in AGENT_HANDOVER / Konzept des Ziel-Repos"),
-    ("Box-Paket", re.compile(r"^(sprache|box-.*|gpu-.*|.*-tunnel-.*)$"),
-     14, "Quelle ist box-setup/ im Repo — die Kopie hier ist Transport"),
-    ("Box-Skript", re.compile(r"^(box-|gpu-|ace-step|msst-|moss-|lokalen-|ollama-|windows-|home-4090).*\.(ps1|sh|cmd)$"),
-     14, "Quelle ist das Repo"),
-    ("ADR-Uebergabe", re.compile(r"^(adr-handoff-|charta-review-).*"),
-     30, "gehoert an den ADR und nach Outline"),
-    ("Bericht", re.compile(r"^(repo-optimize-|platform-audit-|analyse-|review-|branch-cleanup-).*"),
-     30, "gehoert in docs/ des betroffenen Repos"),
-    ("Box-Lane", re.compile(r"^von-box$"),
-     14, "Inhalte ins Ziel-Repo holen, dann leeren (box-schleuse.sh leere von-box)"),
+    (
+        "Werkzeug-Rest",
+        re.compile(r"^(__pycache__|stash-backup-.*|\.pytest_cache)$"),
+        0,
+        "gehoert nicht in die Schleuse — direkt weg",
+    ),
+    (
+        "Box-Ergebnis",
+        re.compile(r".*ERGEBNIS.*\.txt$|.*-ERGEBNIS$", re.I),
+        30,
+        "Erkenntnis gehoert in AGENT_HANDOVER / Konzept des Ziel-Repos",
+    ),
+    (
+        "Box-Paket",
+        re.compile(r"^(sprache|box-.*|gpu-.*|.*-tunnel-.*)$"),
+        14,
+        "Quelle ist box-setup/ im Repo — die Kopie hier ist Transport",
+    ),
+    (
+        "Box-Skript",
+        re.compile(
+            r"^(box-|gpu-|ace-step|msst-|moss-|lokalen-|ollama-|windows-|home-4090).*\.(ps1|sh|cmd)$"
+        ),
+        14,
+        "Quelle ist das Repo",
+    ),
+    (
+        "ADR-Uebergabe",
+        re.compile(r"^(adr-handoff-|charta-review-).*"),
+        30,
+        "gehoert an den ADR und nach Outline",
+    ),
+    (
+        "Bericht",
+        re.compile(
+            r"^(repo-optimize-|platform-audit-|analyse-|review-|branch-cleanup-).*"
+        ),
+        30,
+        "gehoert in docs/ des betroffenen Repos",
+    ),
+    (
+        "Box-Lane",
+        re.compile(r"^von-box$"),
+        14,
+        "Inhalte ins Ziel-Repo holen, dann leeren (box-schleuse.sh leere von-box)",
+    ),
 ]
 
-MELDE_TAGE = 30     # Die Schleuse ist ein Foerderband: was einen Monat liegt,
-                    # ist entweder angekommen oder gehoert woanders hin.
+MELDE_TAGE = 30  # Die Schleuse ist ein Foerderband: was einen Monat liegt,
+# ist entweder angekommen oder gehoert woanders hin.
 SECRETS = "inbox/secrets"
 
 
@@ -79,7 +112,11 @@ def klasse_von(name: str):
     for bezeichnung, muster, frist, ziel in REGELN:
         if muster.match(name):
             return bezeichnung, frist, ziel
-    return "unklassifiziert", None, "Zielort entscheiden (Repo, Outline, Paperless) oder weg"
+    return (
+        "unklassifiziert",
+        None,
+        "Zielort entscheiden (Repo, Outline, Paperless) oder weg",
+    )
 
 
 def mb(b: int) -> str:
@@ -98,10 +135,17 @@ def sammeln(heute: datetime.date):
         tage = alter_tage(p, heute)
         faellig = frist is not None and tage >= frist
         offen = frist is None and tage >= MELDE_TAGE
-        posten.append({
-            "pfad": p, "klasse": bezeichnung, "frist": frist, "ziel": ziel,
-            "tage": tage, "faellig": faellig, "unentschieden": offen,
-        })
+        posten.append(
+            {
+                "pfad": p,
+                "klasse": bezeichnung,
+                "frist": frist,
+                "ziel": ziel,
+                "tage": tage,
+                "faellig": faellig,
+                "unentschieden": offen,
+            }
+        )
     return posten
 
 
@@ -110,23 +154,31 @@ def bericht(posten, zeige_alle: bool) -> int:
     offen = [x for x in posten if x["unentschieden"]]
     ruhig = [x for x in posten if not x["faellig"] and not x["unentschieden"]]
 
-    print(f"Schleuse {SCHLEUSE}: {len(posten)} Eintraege, "
-          f"{mb(sum(groesse(x['pfad']) for x in posten))}")
+    print(
+        f"Schleuse {SCHLEUSE}: {len(posten)} Eintraege, "
+        f"{mb(sum(groesse(x['pfad']) for x in posten))}"
+    )
     print()
 
     if faellig:
         print(f"FAELLIG ({len(faellig)}) — Frist ueberschritten:")
         for x in sorted(faellig, key=lambda y: -y["tage"]):
-            print(f"  {x['tage']:>4} Tage  [{x['klasse']}, Frist {x['frist']}]  "
-                  f"{x['pfad'].name}")
+            print(
+                f"  {x['tage']:>4} Tage  [{x['klasse']}, Frist {x['frist']}]  "
+                f"{x['pfad'].name}"
+            )
             print(f"             -> {x['ziel']}")
         print()
 
     if offen:
-        print(f"UNENTSCHIEDEN ({len(offen)}) — liegt seit >= {MELDE_TAGE} Tagen "
-              f"ohne Regel:")
+        print(
+            f"UNENTSCHIEDEN ({len(offen)}) — liegt seit >= {MELDE_TAGE} Tagen "
+            f"ohne Regel:"
+        )
         for x in sorted(offen, key=lambda y: -y["tage"])[:20]:
-            print(f"  {x['tage']:>4} Tage  {mb(groesse(x['pfad'])):>10}  {x['pfad'].name}")
+            print(
+                f"  {x['tage']:>4} Tage  {mb(groesse(x['pfad'])):>10}  {x['pfad'].name}"
+            )
         if len(offen) > 20:
             print(f"  ... und {len(offen) - 20} weitere")
         print()
@@ -141,12 +193,16 @@ def bericht(posten, zeige_alle: bool) -> int:
     if geheim.is_dir():
         n = len([p for p in geheim.iterdir()])
         if n:
-            print(f"ACHTUNG: {n} Eintrag/Eintraege in {SECRETS} — Secrets werden "
-                  f"NIE archiviert. Nach ~/.secrets uebernehmen und hier loeschen.")
+            print(
+                f"ACHTUNG: {n} Eintrag/Eintraege in {SECRETS} — Secrets werden "
+                f"NIE archiviert. Nach ~/.secrets uebernehmen und hier loeschen."
+            )
             print()
 
-    print(f"Zusammenfassung: {len(faellig)} faellig, {len(offen)} unentschieden, "
-          f"{len(ruhig)} in Frist.")
+    print(
+        f"Zusammenfassung: {len(faellig)} faellig, {len(offen)} unentschieden, "
+        f"{len(ruhig)} in Frist."
+    )
     return 0
 
 
@@ -168,8 +224,10 @@ def aufraeumen(posten, apply: bool, heute: datetime.date) -> int:
     if not apply:
         print("\nNichts geaendert. Mit --apply wirklich verschieben.")
     else:
-        print(f"\n{len(faellig)} Eintraege archiviert. Geloescht wurde NICHTS — "
-              f"dafuer gibt es --endgueltig.")
+        print(
+            f"\n{len(faellig)} Eintraege archiviert. Geloescht wurde NICHTS — "
+            f"dafuer gibt es --endgueltig."
+        )
     return 0
 
 
@@ -183,7 +241,7 @@ def endgueltig(apply: bool, heute: datetime.date, tage: int) -> int:
         try:
             stand = datetime.date.fromisoformat(p.name)
         except ValueError:
-            continue                      # nur datierte Ordner, sonst Finger weg
+            continue  # nur datierte Ordner, sonst Finger weg
         if (heute - stand).days >= tage:
             alt.append(p)
     if not alt:
@@ -200,12 +258,19 @@ def endgueltig(apply: bool, heute: datetime.date, tage: int) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--aufraeumen", action="store_true",
-                    help="Faelliges nach _archiv/<datum>/ verschieben")
-    ap.add_argument("--endgueltig", action="store_true",
-                    help="Archiv-Ordner aelter als --tage loeschen")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--aufraeumen",
+        action="store_true",
+        help="Faelliges nach _archiv/<datum>/ verschieben",
+    )
+    ap.add_argument(
+        "--endgueltig",
+        action="store_true",
+        help="Archiv-Ordner aelter als --tage loeschen",
+    )
     ap.add_argument("--apply", action="store_true", help="wirklich tun")
     ap.add_argument("--alle", action="store_true", help="auch zeigen, was in Frist ist")
     ap.add_argument("--tage", type=int, default=90, help="Aufbewahrung im Archiv")

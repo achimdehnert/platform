@@ -45,9 +45,18 @@ from anker import (  # noqa: E402
     pruefe_anker,
 )
 from anker import lade as anker_lade  # noqa: E402
+from referenzen import SUCHORDNER  # noqa: E402
+import graph_anker  # noqa: E402
+import graph_mail  # noqa: E402
 from anker import speichere as anker_speichere  # noqa: E402
 from anker import uebernehme as anker_uebernehme  # noqa: E402
-from read_mail import alle_ordner, ordner_klartext  # noqa: E402
+from read_mail import (  # noqa: E402
+    alle_ordner,
+    bulk_kopfsaetze,
+    decode_hdr,
+    ordner_klartext,
+    uid_liste,
+)
 from mail_view import (  # noqa: E402
     CACHE_ROOT,
     MailNichtGefunden,
@@ -185,6 +194,22 @@ def sicherer_dateiname(name: str) -> str | None:
     if not rein or rein in (".", "..") or rein.startswith("/"):
         return None
     return rein
+
+
+class MailMehrdeutig(LookupError):
+    """Eine UID ohne Ordnerangabe kommt in mehreren Ordnern vor.
+
+    Kein Fehlerfall im engeren Sinn, sondern eine Frage an den Menschen: IMAP
+    vergibt UIDs je Ordner, dieselbe Zahl steht also fuer verschiedene
+    Nachrichten. Wer hier den ersten Treffer ausliefert, zeigt irgendwann die
+    falsche Mail — und weil sie plausibel aussieht, faellt es niemandem auf.
+    """
+
+    def __init__(self, konto: str, uid: str, ordner: list[str]) -> None:
+        super().__init__(f"UID {uid} kommt in {len(ordner)} Ordnern vor")
+        self.konto = konto
+        self.uid = uid
+        self.ordner = ordner
 
 
 class MailLinkHandler(BaseHTTPRequestHandler):
@@ -431,8 +456,6 @@ verfügbar: {html.escape(konten)}.</p>
                 HTTPStatus.NOT_FOUND, f"Kurz-ID '{kurz}' ist nicht registriert."
             )
         try:
-            import graph_mail  # noqa: PLC0415
-
             cfg = graph_mail.load_cfg()
             tok = graph_mail.token(cfg, self.graph_konto)
         except SystemExit as e:
@@ -442,15 +465,22 @@ verfügbar: {html.escape(konten)}.</p>
                 HTTPStatus.SERVICE_UNAVAILABLE,
                 f"{self.graph_konto} nicht angemeldet — graph_mail.py --login nötig.",
             )
-        r = graph_mail._http(
-            "GET",
-            f"{graph_mail.GRAPH}/me/messages/{quote(ziel['graph_id'], safe='')}"
-            "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
-            headers=graph_mail._auth(tok),
-        )
+        r = self._graph_holen(tok, ziel["graph_id"])
+        if r.status_code == 404 and ziel.get("internet_message_id"):
+            # Die Graph-id stirbt beim Verschieben; die internetMessageId nicht.
+            # Nachziehen und die Registry gleich mitschreiben — wie `_anker()`
+            # es fuer IMAP tut (platform#2563: 5 von 12 /r/-Links waren so tot).
+            neu = graph_anker.finde_per_internet_id(tok, ziel["internet_message_id"])
+            if neu:
+                registry = lade_registry(self.registry_pfad)
+                registry[kurz]["graph_id"] = ziel["graph_id"] = neu["id"]
+                speichere_registry(registry, self.registry_pfad)
+                r = self._graph_holen(tok, ziel["graph_id"])
         if r.status_code != 200:
             return self._fehler(
-                HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}."
+                HTTPStatus.BAD_GATEWAY,
+                f"Graph antwortet {r.status_code}. "
+                "Nachziehen: mail_link_server.py --heile-links",
             )
         m = r.json()
         von = (m.get("from") or {}).get("emailAddress", {})
@@ -462,9 +492,11 @@ verfügbar: {html.escape(konten)}.</p>
         text = body.get("content", "")
         if body.get("contentType", "").lower() == "html":
             text = graph_mail._strip_html(text)
-        anhang = self._graph_anhang_liste(kurz, ziel["graph_id"], tok) if m.get(
-            "hasAttachments"
-        ) else ""
+        anhang = (
+            self._graph_anhang_liste(kurz, ziel["graph_id"], tok)
+            if m.get("hasAttachments")
+            else ""
+        )
         seite = f"""<!doctype html><meta charset=utf-8><title>{html.escape(m.get("subject") or kurz)}</title>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <body style="font:14px/1.55 -apple-system,Segoe UI,sans-serif;max-width:52rem;margin:1rem auto;padding:0 1rem">
@@ -475,6 +507,15 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
 {anhang}<hr>
 <div style="white-space:pre-wrap">{html.escape(text)}</div>"""
         self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
+    @staticmethod
+    def _graph_holen(tok: str, graph_id: str):
+        return graph_mail._http(
+            "GET",
+            f"{graph_mail.GRAPH}/me/messages/{quote(graph_id, safe='')}"
+            "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+            headers=graph_mail._auth(tok),
+        )
 
     def _graph_anhang_liste(self, kurz: str, graph_id: str, tok: str) -> str:
         """Anhänge einer Graph-Nachricht als klickbare Liste.
@@ -540,8 +581,6 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
         if not ziel:
             return self._fehler(HTTPStatus.NOT_FOUND, f"Kurz-ID '{kurz}' unbekannt.")
         try:
-            import graph_mail  # noqa: PLC0415
-
             cfg = graph_mail.load_cfg()
             tok = graph_mail.token(cfg, self.graph_konto)
         except SystemExit as e:
@@ -558,7 +597,9 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             headers=graph_mail._auth(tok),
         )
         if r.status_code != 200:
-            return self._fehler(HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}.")
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Graph antwortet {r.status_code}."
+            )
         for a in r.json().get("value", []):
             if sicherer_dateiname(a.get("name") or "") != rein:
                 continue
@@ -575,23 +616,140 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Anhang nicht gefunden.")
 
+    #: Wie viele Nachrichten die Ordneransicht zeigt. Genug, um einen Entwurf
+    #: oder eine gesendete Mail wiederzufinden; wenig genug, dass ein Aufruf
+    #: nicht in einen Vollscan von 277 Nachrichten laeuft.
+    ORDNER_ANZAHL = 40
+
+    def _ordner_liste(self, konto: str, ordner_slug: str) -> None:
+        """Die neuesten Nachrichten eines Ordners — der Weg zum Weiterarbeiten.
+
+        Ein Link auf EINE Mail beantwortet "zeig mir diese". Er beantwortet
+        nicht "lass mich hier weitermachen": wer einen Entwurf pruefen will,
+        will ihn neben den anderen sehen. Dafuer gab es bis 2026-08-21 keine
+        Adresse — `/m/<konto>/<ordner>` endete in "UID muss eine Zahl sein".
+
+        **Was diese Ansicht ausdruecklich NICHT ist:** ein Mail-Client. Sie ist
+        read-only; Bearbeiten und Senden bleiben im Postfach des Menschen. Ein
+        Deeplink in das HNU-Webmail waere der naheliegende Wunsch und ist
+        geprueft und verworfen — outlook.hnu.de sitzt hinter einem
+        Citrix-Gateway, ein Link dorthin landet auf einer Anmeldemaske ohne
+        Ziel.
+        """
+        cfg = parse_env(_resolve_config(None, self.konten.get(konto, konto)))
+        imap = connect(cfg)
+        try:
+            ordner = self._ordner_aufloesen(imap, ordner_slug)
+            imap.select(_mailbox_arg(ordner), readonly=True)
+            uids = uid_liste(imap)
+            gesamt = len(uids)
+            saetze = bulk_kopfsaetze(imap, uids[-self.ORDNER_ANZAHL :])
+        except MailNichtGefunden as fehlt:
+            return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
+        except Exception as fehler:
+            return self._fehler(
+                HTTPStatus.BAD_GATEWAY, f"Postfach nicht lesbar: {fehler}"
+            )
+        finally:
+            try:
+                imap.close()
+            except Exception:
+                pass
+            imap.logout()
+
+        klartext = ordner_klartext(ordner)
+        slug = slugify(klartext)
+        zeilen = []
+        for uid, msg in reversed(saetze):  # neueste zuerst
+            zeilen.append(
+                "<li>"
+                f"<a href='/m/{html.escape(konto)}/{html.escape(slug)}/{html.escape(uid)}'>"
+                f"{html.escape(decode_hdr(msg.get('Subject')) or '(ohne Betreff)')}</a>"
+                f"<small> · {html.escape(decode_hdr(msg.get('From')) or '—')}"
+                f" · {html.escape((msg.get('Date') or '')[:31])}</small></li>"
+            )
+        gezeigt = len(saetze)
+        rest = (
+            f" (von {gesamt}, neueste zuerst)"
+            if gesamt > gezeigt
+            else " (vollstaendig)"
+        )
+        seite = (
+            "<!doctype html><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            f"<title>{html.escape(klartext)} — {html.escape(konto)}</title>"
+            "<style>body{font:15px/1.5 ui-sans-serif,system-ui,sans-serif;"
+            "max-width:52rem;margin:2rem auto;padding:0 1rem}"
+            "li{margin:.5rem 0}small{color:#666;display:block}"
+            "a{color:inherit}</style>"
+            f"<h1>{html.escape(klartext)}</h1>"
+            f"<p><small>Konto {html.escape(konto)} · {gezeigt} Nachricht(en){rest} · "
+            "read-only, Bearbeiten und Senden im Postfach</small></p>"
+            f"<ol reversed>{''.join(zeilen) or '<li>leer</li>'}</ol>"
+        )
+        self._sende(HTTPStatus.OK, seite.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _auswahl(self, mehrdeutig: MailMehrdeutig) -> None:
+        """Welche der gleichnamigen UIDs war gemeint? — der Mensch entscheidet.
+
+        Die Seite verlinkt jeden Kandidaten auf seine **vollqualifizierte** Route.
+        Wer einmal geklickt hat, hat damit die eindeutige Adresse in der
+        Browserzeile und kann sie zurueck in den Vorgang schreiben.
+        """
+        zeilen = "".join(
+            f"<li><a href='/m/{html.escape(mehrdeutig.konto)}/"
+            f"{html.escape(slugify(o))}/{html.escape(mehrdeutig.uid)}'>"
+            f"{html.escape(o)}</a></li>"
+            for o in mehrdeutig.ordner
+        )
+        seite = (
+            "<!doctype html><meta charset='utf-8'>"
+            "<title>Welche Nachricht?</title>"
+            f"<h1>UID {html.escape(mehrdeutig.uid)} gibt es mehrfach</h1>"
+            "<p>IMAP vergibt Nummern je Ordner — diese Zahl steht in mehreren "
+            "Ordnern fuer verschiedene Nachrichten. Bitte den gemeinten Ordner "
+            "waehlen; der Link darunter ist eindeutig und laesst sich in den "
+            "Vorgang zurueckschreiben.</p>"
+            f"<ul>{zeilen}</ul>"
+        )
+        self._sende(
+            HTTPStatus.MULTIPLE_CHOICES,
+            seite.encode("utf-8"),
+            "text/html; charset=utf-8",
+        )
+
     def _mail(self, teile: list[str]) -> None:
         if not teile:
             return self._fehler(HTTPStatus.BAD_REQUEST, "UID fehlt.")
         konto = self.default_konto
-        if teile[0] in self.konten:
+        # Ob das Konto AUSDRUECKLICH genannt wurde, entscheidet weiter unten
+        # darueber, ob ein einzelnes nicht-numerisches Segment ein Ordner sein
+        # darf. Ohne diese Unterscheidung wuerde `/m/kein-uid` — bisher ein
+        # sauberer 400 — zu einer IMAP-Runde auf der Suche nach einem Ordner,
+        # den niemand gemeint hat.
+        konto_genannt = teile[0] in self.konten
+        if konto_genannt:
             konto, teile = teile[0], teile[1:]
         # Ein nicht-numerisches Segment vor der UID ist der Ordner: /m/hnu/entwuerfe/23254.
         # Ohne diese Route war nur INBOX erreichbar — ein Entwurf lag ausserhalb (404).
         ordner_slug = None
         if len(teile) >= 2 and not _UID.match(teile[0]):
             ordner_slug, teile = teile[0], teile[1:]
+        # `/m/<konto>/<ordner>` ohne Nummer ist keine kaputte Mail-Adresse,
+        # sondern die Frage nach dem Ordner. Vorher endete das in "UID muss eine
+        # Zahl sein" — ein Fehler auf eine sinnvolle Frage.
+        if ordner_slug and not teile:
+            return self._ordner_liste(konto, ordner_slug)
+        if konto_genannt and len(teile) == 1 and not _UID.match(teile[0]):
+            return self._ordner_liste(konto, teile[0])
         if not teile or not _UID.match(teile[0]):
             return self._fehler(HTTPStatus.BAD_REQUEST, "UID muss eine Zahl sein.")
         uid, rest = teile[0], teile[1:]
 
         try:
             datei = self._rendern(konto, uid, ordner_slug)
+        except MailMehrdeutig as mehrdeutig:
+            return self._auswahl(mehrdeutig)
         except MailNichtGefunden as fehlt:
             return self._fehler(HTTPStatus.NOT_FOUND, str(fehlt))
         except Exception as fehler:  # Netz/IMAP — dem Browser sagen, was los ist
@@ -614,6 +772,45 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
                 HTTPStatus.OK, anhang.read_bytes(), "application/octet-stream"
             )
         return self._fehler(HTTPStatus.NOT_FOUND, "Unbekannter Unterpfad.")
+
+    #: Wo eine UID gesucht wird, wenn der Aufruf keinen Ordner nennt — die
+    #: Liste lebt in `referenzen.SUCHORDNER`, weil die Verankerung dieselbe
+    #: Reihenfolge braucht (platform#2592 K2).
+    UID_SUCHORDNER = SUCHORDNER
+
+    def _ordner_mit_uid(self, imap, uid: str) -> list[str]:
+        """Alle Suchordner, die diese UID fuehren — in der Reihenfolge oben.
+
+        IMAP-UIDs sind **je Ordner** vergeben: dieselbe Zahl bezeichnet in
+        INBOX und Entwuerfen zwei verschiedene Nachrichten. Deshalb wird nicht
+        beim ersten Treffer abgebrochen, sondern vollstaendig gesammelt. Ein
+        Treffer heisst rendern, mehrere heissen **fragen** — und keiner heisst
+        sagen, wo gesucht wurde. Stillschweigend den ersten Fund auszuliefern
+        waere die bequeme Variante und genau die, die irgendwann die falsche
+        Mail zeigt, ohne dass es jemandem auffaellt.
+
+        Gesucht wird mit SEARCH, nicht mit FETCH: das kostet keinen Nachrichten-
+        Body und macht die Runde ueber ein Dutzend Ordner bezahlbar.
+        """
+        namen, _ = alle_ordner(imap)
+        nach_slug: dict[str, str] = {}
+        for name in namen:
+            nach_slug.setdefault(slugify(ordner_klartext(name)), name)
+        treffer: list[str] = []
+        for slug in self.UID_SUCHORDNER:
+            name = nach_slug.get(slug)
+            if not name:
+                continue
+            try:
+                typ, _ = imap.select(_mailbox_arg(name), readonly=True)
+                if typ != "OK":
+                    continue
+                typ, data = imap.uid("SEARCH", "UID", str(uid))
+            except Exception:
+                continue  # ein zickiger Ordner darf die Suche nicht abbrechen
+            if typ == "OK" and data and (data[0] or b"").split():
+                treffer.append(name)
+        return treffer
 
     def _ordner_aufloesen(self, imap, slug: str) -> str:
         """URL-Slug → echter (kodierter) Ordnername. Wirft MailNichtGefunden.
@@ -640,15 +837,46 @@ An: {html.escape(an)}<br>Datum: {html.escape(m.get("receivedDateTime") or "")}</
             + ", ".join(sorted(s for s, _ in paare)[:8])
         )
 
+    def _ordner_ohne_angabe(self, imap, konto: str, uid: str) -> str:
+        """Der Ordner einer UID, wenn der Aufruf keinen nennt.
+
+        Bis 2026-08-21 war die Antwort schlicht `self.ordner` (INBOX). Das machte
+        jede Referenz auf einen Entwurf, eine gesendete oder geloeschte Nachricht
+        unverlinkbar — und weil ein toter Link schlechter ist als keiner, blieben
+        auf der Vorgangsseite die meisten Nachrichten-Nummern stummer Text. Der
+        Preis dafuer stand nicht im Renderer, sondern in der Prosa daneben: wer
+        nicht klicken kann, muss erklaeren, was in der Mail steht.
+        """
+        treffer = self._ordner_mit_uid(imap, uid)
+        if len(treffer) == 1:
+            return treffer[0]
+        if not treffer:
+            # Der haeufigste Grund ist KEIN Fehler: eine IMAP-UID gilt nur
+            # innerhalb ihres Ordners. Verschiebt jemand die Nachricht — oder
+            # sendet einen Entwurf —, bekommt sie im Zielordner eine NEUE
+            # Nummer, und die alte existiert nirgends mehr. Real nachgemessen
+            # am 2026-08-21: zwei Entwuerfe, im Ledger als UID 23588/23589
+            # notiert, lagen nach dem Verschieben als 104322/104323 im
+            # Papierkorb. Ohne diesen Satz liest sich der 404 wie ein defektes
+            # Werkzeug statt wie eine bewegte Mail.
+            raise MailNichtGefunden(
+                f"UID {uid} liegt in keinem der durchsuchten Ordner "
+                f"({', '.join(self.UID_SUCHORDNER)}). "
+                "Haeufigster Grund: die Nachricht wurde verschoben oder gesendet "
+                "— eine IMAP-UID gilt nur in ihrem Ordner und wird beim Wechsel "
+                "neu vergeben. Der dauerhafte Weg zu einem Vorgang ist /a/<nummer>, "
+                "das ueber die Message-ID aufloest."
+            )
+        raise MailMehrdeutig(konto, uid, [ordner_klartext(n) for n in treffer])
+
     def _rendern(self, konto: str, uid: str, ordner_slug: str | None = None) -> Path:
         cfg = parse_env(_resolve_config(None, self.konten.get(konto, konto)))
         imap = connect(cfg)
         try:
-            ordner = (
-                self._ordner_aufloesen(imap, ordner_slug)
-                if ordner_slug
-                else self.ordner
-            )
+            if ordner_slug:
+                ordner = self._ordner_aufloesen(imap, ordner_slug)
+            else:
+                ordner = self._ordner_ohne_angabe(imap, konto, uid)
             slug = slugify(ordner_klartext(ordner))
             ziel = self.cache_root / slugify(konto) / slug
             imap.select(_mailbox_arg(ordner), readonly=True)
@@ -672,12 +900,61 @@ def cmd_register(args: argparse.Namespace) -> None:
             "FEHLER: Kurz-ID darf nur A-Z a-z 0-9 _ - enthalten (max. 24 Zeichen)."
         )
     registry = lade_registry()
-    registry[args.register] = {
-        "graph_id": args.graph_id,
-        "notiz": args.notiz or "",
-    }
+    eintrag = {"graph_id": args.graph_id, "notiz": args.notiz or ""}
+    # Die internetMessageId gleich mitnehmen, solange die Graph-id noch gilt —
+    # sonst ist der Link nach der ersten Ablage tot (platform#2563).
+    tok = _graph_token(args.graph_account)
+    if tok:
+        status, nachricht = graph_anker.hole(tok, args.graph_id)
+        if status == 200 and nachricht.get("internetMessageId"):
+            eintrag["internet_message_id"] = nachricht["internetMessageId"]
+        else:
+            print(f"WARNUNG: internetMessageId nicht lesbar (Graph {status}).")
+    registry[args.register] = eintrag
     speichere_registry(registry)
     print(f"/i/{args.register} → {owa_link(args.graph_id)[:60]}…")
+
+
+def _graph_token(konto: str) -> str | None:
+    try:
+        return graph_mail.token(graph_mail.load_cfg(), konto)
+    except SystemExit:
+        return None
+
+
+def cmd_heile_links(args: argparse.Namespace) -> int:
+    """Jeden Kurzlink pruefen, tote ueber internetMessageId oder Betreff nachziehen."""
+    tok = _graph_token(args.graph_account)
+    if not tok:
+        sys.exit(
+            f"FEHLER: {args.graph_account} nicht angemeldet — graph_mail.py --login."
+        )
+    registry = lade_registry()
+    try:
+        ledger = json.loads(Path(args.ledger).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        ledger = {}
+    befunde = graph_anker.heile(
+        registry,
+        graph_anker.betreffe_aus_ledger(ledger),
+        tok,
+        fenster=graph_anker.fenster_aus_ledger(ledger),
+    )
+    print(graph_anker.bericht(befunde))
+    neu = graph_anker.verankere_vorgaenge(ledger, registry, tok)
+    if neu:
+        print("Vorgaenge ohne Kurzlink:")
+        print(graph_anker.bericht(neu))
+    if not args.trocken:
+        speichere_registry(registry)
+    # Exit 1 nur fuer Board-Nummern: die Alt-Kurz-IDs (az1, sb7 …) haengen an
+    # keinem Vorgang und haetten den Aufrufer fuer immer rot gestellt.
+    tot = [
+        b
+        for b in befunde + neu
+        if b.zustand in (graph_anker.TOT, graph_anker.UNPRUEFBAR) and b.kurz.isdigit()
+    ]
+    return 1 if tot else 0
 
 
 def konten_aufloesen(angaben: list[str]) -> dict[str, str | None]:
@@ -746,7 +1023,24 @@ def main() -> None:
     ap.add_argument(
         "--list-links", action="store_true", help="registrierte Kurz-Links zeigen"
     )
+    ap.add_argument(
+        "--heile-links",
+        action="store_true",
+        help="Kurz-Links gegen Graph pruefen und tote ueber internetMessageId/Betreff "
+        "nachziehen (platform#2563); Exit 1, wenn einer tot bleibt",
+    )
+    ap.add_argument(
+        "--trocken", action="store_true", help="zu --heile-links: nicht schreiben"
+    )
+    ap.add_argument(
+        "--ledger",
+        default=str(Path.home() / ".claude" / "mail-vorgaenge.json"),
+        help="zu --heile-links: Betreffs (thread_key) je Board-Nummer",
+    )
     args = ap.parse_args()
+
+    if args.heile_links:
+        return sys.exit(cmd_heile_links(args))
 
     if args.list_links:
         for kurz, ziel in sorted(lade_registry().items()):

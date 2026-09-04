@@ -14,6 +14,7 @@ nötig); der End-to-End-Test mockt `_get_file_content`.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import re
 import sys
@@ -191,3 +192,82 @@ def test_should_name_the_alternative_in_the_fix_hint(monkeypatch):
     drifts = _required_files_with({}, monkeypatch)
     found = _findings_for(drifts, "Dockerfile")
     assert "docker/app/Dockerfile" in found[0].fix_hint
+
+
+# --- Blind ist nicht gruen: unerreichbare Repos ------------------------------
+#
+# Realfall 2026-09-02: derselbe Stand ergab in Minuten 19, dann 10, dann 0 Errors.
+# Der Null-Lauf sah am besten aus und war der wertloseste — hinter jedem der 26
+# Repos stand „Repo nicht gefunden oder privat" (sekundaeres GitHub-Ratenlimit,
+# sechs Sitzungen an einem Token). Ein unerreichbares Repo liefert 0 Befunde;
+# sind ALLE unerreichbar, faellt die Bilanz auf null.
+
+
+def _lauf(monkeypatch, capsys, repos, fehler_bei):
+    """Laesst `main()` ueber `repos` laufen; `fehler_bei` = Repos ohne Zugriff."""
+
+    def fake_check(repo, repo_type, token, iil_latest):
+        d = dc.RepoDrift(repo=repo, repo_type=repo_type)
+        if repo in fehler_bei:
+            d.error = "Repo nicht gefunden oder privat"
+        return d
+
+    monkeypatch.setattr(dc, "check_repo", fake_check)
+    monkeypatch.setattr(dc, "_github_token", lambda *a, **k: "t")
+    monkeypatch.setattr(dc, "_load_iil_latest", lambda *a, **k: {})
+    # Probe und Sperre sind nicht der Gegenstand DIESER Tests. Ohne die zwei
+    # Zeilen misst der Test die Erreichbarkeit der Maschine statt der Drift-
+    # Bilanz: in der CI gibt es kein angemeldetes `gh`, die Probe schlaegt fehl,
+    # und `main()` liefert korrekt Exit 2 — lokal gruen, in der CI rot (gemessen
+    # 2026-09-03, platform#2757). Die Verdrahtung selbst hat ihren eigenen Test.
+    monkeypatch.setattr(dc, "probe", lambda *a, **k: True)
+    monkeypatch.setattr(dc, "flotten_sperre", lambda *a, **k: contextlib.nullcontext())
+    # Positionsargumente umgehen die Registry-Auswahl: Namen direkt aus dem Test.
+    monkeypatch.setattr(sys, "argv", ["drift_check.py", *repos])
+    code = dc.main()
+    return code, capsys.readouterr()
+
+
+def test_should_exit_2_when_the_probe_says_throttled(monkeypatch, capsys):
+    """Die Verdrahtung selbst: sagt die Probe „gedrosselt", wird NICHT gescannt.
+
+    Das ist der Test, der 2026-09-03 gefehlt hat — die beiden Bilanz-Tests oben
+    haben ihn versehentlich mitgespielt und sind daran in der CI gescheitert.
+    """
+    gescannt = []
+    monkeypatch.setattr(dc, "_github_token", lambda *a, **k: "t")
+    monkeypatch.setattr(dc, "_load_iil_latest", lambda *a, **k: {})
+    monkeypatch.setattr(dc, "flotten_sperre", lambda *a, **k: contextlib.nullcontext())
+    monkeypatch.setattr(dc, "_scanne", lambda *a, **k: gescannt.append(1) or [])
+
+    def wirft(*a, **k):
+        raise dc.DrosselFehler("API rate limit exceeded for user ID 33293099")
+
+    monkeypatch.setattr(dc, "probe", wirft)
+    monkeypatch.setattr(sys, "argv", ["drift_check.py", "a-hub"])
+    code = dc.main()
+    assert code == 2, "gedrosselt ist ein Werkzeugfehler, kein leeres Ergebnis"
+    assert gescannt == [], "bei Drosselung darf gar nicht erst gescannt werden"
+    assert "rate limit" in capsys.readouterr().err
+
+
+def test_should_exit_2_when_not_a_single_repo_was_reachable(monkeypatch, capsys):
+    code, aus = _lauf(monkeypatch, capsys, ["a-hub", "b-hub"], {"a-hub", "b-hub"})
+    assert code == 2, (
+        "alle Repos unerreichbar muss ein Werkzeugfehler sein, kein 0-Befund"
+    )
+    assert "Werkzeugfehler" in aus.err
+
+
+def test_should_name_unreachable_repos_as_unmeasured_not_clean(monkeypatch, capsys):
+    """Gegenprobe: bei TEILWEISER Erreichbarkeit kein Exit 2 — aber ein Hinweis."""
+    code, aus = _lauf(monkeypatch, capsys, ["a-hub", "b-hub"], {"b-hub"})
+    assert code == 0
+    assert "UNGEMESSEN" in aus.err and "b-hub" in aus.err
+
+
+def test_should_stay_green_when_every_repo_was_reachable(monkeypatch, capsys):
+    """Positivkontrolle: ohne Fehler kein Exit 2 und kein Hinweis."""
+    code, aus = _lauf(monkeypatch, capsys, ["a-hub", "b-hub"], set())
+    assert code == 0
+    assert "Werkzeugfehler" not in aus.err and "UNGEMESSEN" not in aus.err

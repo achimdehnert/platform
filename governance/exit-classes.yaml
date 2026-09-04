@@ -129,3 +129,4 @@ orgs:
     deviations:
       - "Leitplanke: nur Demo-Daten (keine realen Personendaten)."
       - "REC-9: Push-Protection geht beim Exit aus der Enterprise verloren und ist extern nicht per Toggle reaktivierbar → Exit-Kosten einplanen, keine enterprise-only-Kopplung aufbauen."
+      - "Seit 2026-08-24 nur EIN Owner (achimdehnert): der kundenseitige Co-Owner wurde im Zuge des Sitz-Amendments zu ADR-236 entfernt (3/2 Seats). Bei exit-likely + self-owner ist das ein Single Point. wirdigital ist bereits Mitglied — eine Beförderung waere sitzneutral, gaebe aber einem Entwicklungspartner Owner-Rechte auf einer Kunden-Org. Offene Owner-Entscheidung, faellig zum review_by."

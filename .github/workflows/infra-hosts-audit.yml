@@ -20,6 +20,11 @@ on:
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# seit 2026-08-30 meldet --check auflage die vier dev-desktop-Dienste gegen
+# prod_container=false (platform#2507). Rot heisst hier "Entscheidung offen",
+# nicht "Audit kaputt" — bis der Owner deklariert/umzieht/stoppt.
+
 permissions:
   contents: read
 
@@ -28,14 +33,20 @@ jobs:
     name: hosts.yaml Schema + Frische + Runner-Label-Pins
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
 
       - name: Install PyYAML
         run: pip install pyyaml
 
-      - name: Audit (schema + staleness + labels)
-        run: python3 infra/scripts/hosts_audit.py --check all --workflows .github/workflows
+      # Ausserhalb von main (PR-Lauf UND push auf den Feature-Branch — der Bot-Reviewer
+      # liest beide): deklarierte `blockiert`-Dienste (platform#2507) sind Hinweis, kein
+      # Finding — sonst ist jeder Workflow-PR rot, bis der Owner entschieden hat
+      # (Realfall 2026-08-30: #2519 blockiert). Auf main bleibt der Lauf rot.
+      - name: Audit (schema + staleness + labels + auflage)
+        run: >-
+          python3 infra/scripts/hosts_audit.py --check all --workflows .github/workflows
+          ${{ github.ref != 'refs/heads/main' && '--blockiert-als-hinweis' || '' }}

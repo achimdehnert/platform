@@ -195,8 +195,8 @@ def test_should_save_attachments_and_strip_path_traversal(tmp_path):
 
 
 def test_should_match_from_substring_case_insensitive():
-    m = _msg(frm="Ilja Lerch <Ilja.Lerch@example.com>")
-    assert rm.matches_from(m, "ilja")
+    m = _msg(frm="Ines Absender <ines.absender@example.invalid>")
+    assert rm.matches_from(m, "ines")
     assert not rm.matches_from(m, "achim")
     assert rm.matches_from(m, None)
 
@@ -207,11 +207,11 @@ def test_should_match_from_substring_case_insensitive():
 def test_should_match_to_and_cc_substring_case_insensitive():
     m = EmailMessage()
     m["From"] = "achim@iil.gmbh"  # Gesendete: Absender ist man selbst
-    m["To"] = "Anna Martinkat <A.Martinkat@landkreis-guenzburg.de>"
-    m["Cc"] = "Wibke Michalk <wibke.michalk@th-rosenheim.de>"
+    m["To"] = "Amelie Amtsperson <a.amtsperson@amt.example.invalid>"
+    m["Cc"] = "Hanna Hochschule <h.hochschule@hs.example.invalid>"
     m.set_content("x")
-    assert rm.matches_to(m, "martinkat")  # Treffer im To-Header
-    assert rm.matches_to(m, "michalk")  # Treffer im Cc-Header
+    assert rm.matches_to(m, "amtsperson")  # Treffer im To-Header
+    assert rm.matches_to(m, "hochschule")  # Treffer im Cc-Header
     assert not rm.matches_to(m, "mustermann")
     assert rm.matches_to(m, None)  # kein Filter -> True
 
@@ -1031,7 +1031,9 @@ def test_should_search_by_uid_not_by_sequence():
 # vollstaendig; der Teil mit dem Inhalt fehlte, weil er keinen Dateinamen hat.
 
 
-def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"):
+def _weiterleitung(
+    begleittext="anbei zur Kenntnis", innen_betreff="Die eigentliche Sache"
+):
     """Begleittext + eingebettete Nachricht ohne Dateinamen + Inline-Bild."""
     innen = EmailMessage()
     innen["From"] = "absender@extern.example"
@@ -1044,8 +1046,12 @@ def _weiterleitung(begleittext="anbei zur Kenntnis", innen_betreff="Die eigentli
     aussen["From"] = "absender@extern.example"
     aussen["Subject"] = "AW: Sachstand"
     aussen.set_content(begleittext)
-    aussen.add_attachment(b"\x89PNG", maintype="image", subtype="png", filename="image004.png")
-    aussen.attach(_als_rfc822_teil(innen))  # add_attachment hat bereits multipart/mixed erzeugt
+    aussen.add_attachment(
+        b"\x89PNG", maintype="image", subtype="png", filename="image004.png"
+    )
+    aussen.attach(
+        _als_rfc822_teil(innen)
+    )  # add_attachment hat bereits multipart/mixed erzeugt
     return aussen
 
 
@@ -1099,3 +1105,35 @@ def test_should_not_report_embedded_messages_when_there_are_none():
     schlicht = _msg(attachments=[("bericht.pdf", b"%PDF-1.4")])
     assert rm.eingebettete_nachrichten(schlicht) == []
     assert rm.attachment_names(schlicht) == ["bericht.pdf"]
+
+
+class TestOrdnerImap:
+    """Klartext-Ordnernamen -> IMAP modified UTF-7 (RFC 3501 §5.1.3).
+
+    Anlass 2026-08-20: `read_mail.py --folder "Entwürfe"` brach mit
+    UnicodeEncodeError ab; erreichbar war der Ordner nur ueber die von Hand
+    getippte Form 'Entw&APw-rfe'.
+    """
+
+    def test_should_encode_umlaut_folder(self):
+        assert rm.ordner_imap("Entwürfe") == "Entw&APw-rfe"
+
+    def test_should_encode_umlaut_folder_with_space(self):
+        assert rm.ordner_imap("Gelöschte Objekte") == "Gel&APY-schte Objekte"
+
+    def test_should_leave_pure_ascii_untouched(self):
+        assert rm.ordner_imap("Gesendete Objekte") == "Gesendete Objekte"
+
+    def test_should_escape_literal_ampersand(self):
+        assert rm.ordner_imap("A&B") == "A&-B"
+
+    def test_should_pass_through_already_encoded_name(self):
+        """Aufrufer reichen teils die kodierte Form durch — kein zweites Escaping."""
+        assert rm.ordner_imap("Entw&APw-rfe") == "Entw&APw-rfe"
+
+    def test_should_roundtrip_with_ordner_klartext(self):
+        for name in ("Entwürfe", "Gelöschte Objekte", "INBOX"):
+            assert rm.ordner_klartext(rm.ordner_imap(name)) == name
+
+    def test_should_quote_and_encode_for_select(self):
+        assert rm._mailbox_arg("Gelöschte Objekte") == '"Gel&APY-schte Objekte"'

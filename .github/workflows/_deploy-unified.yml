@@ -1,7 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: Unified Multi-Repo Deployment Pipeline (ADR-120)      ║
 # ║  Staging (main) → Production (promote/tag) mit Health-Check + Rollback    ║
-# ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-unified.yml@v1
+# ║  Usage: uses: iilgmbh/shared-ci/.github/workflows/_deploy-unified.yml@v1
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 # ⚠️ CONSTRAINT: Reusable workflows (workflow_call) support permissions ONLY
 #    at workflow-level, NOT at job-level. Job-level permissions cause
@@ -165,7 +165,7 @@ jobs:
     env:
       IMAGE_NAME: ${{ github.repository_owner }}/${{ inputs.app_name }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Eigene Docker-Anmeldung je Lauf statt der des Runner-Benutzers.
       #
@@ -201,17 +201,17 @@ jobs:
           echo "Docker-Anmeldung dieses Laufs: ${RUNNER_TEMP}/.docker"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Login to GHCR
-        uses: docker/login-action@v4.6.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: ${{ inputs.dockerfile_path }}
@@ -267,7 +267,40 @@ jobs:
       name: staging
       url: https://staging.${{ inputs.app_name }}.iil.pet
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # ── Deploy-Preflight (platform KONZ-054 E1, Owner-Go 2026-08-30 "77") ──────
+      # Liest infra/ports.yaml + infra/hosts.yaml aus platform (oeffentlich) und
+      # prueft VOR dem Deploy: ist der Dienst `aktiv`, und ist DIESER Runner-Host
+      # der deklarierte prod_host? Anlass: coach-hub war stillgelegt deklariert und
+      # wurde trotzdem auf prod deployt, wo es 25 h in einer Fehlerschleife lief.
+      # Exit 1 (Verstoss) / 2 (Datenfehler) = kein Deploy. Exit 3 (Dienst nicht in
+      # ports.yaml) = Warnung, kein Block: eine Scope-Luecke darf nicht 23 Repos
+      # anhalten, sie muss aber sichtbar sein — sie steht in der Job-Summary.
+      - name: "Deploy-Preflight (platform ports.yaml/hosts.yaml)"
+        env:
+          APP: ${{ inputs.app_name }}
+          ENVIRONMENT: staging
+        run: |
+          set -u
+          B=https://raw.githubusercontent.com/achimdehnert/platform/main
+          D=$(mktemp -d)
+          for f in tools/deploy_preflight.py infra/ports.yaml infra/hosts.yaml; do
+            curl -fsSL --retry 3 "$B/$f" -o "$D/$(basename "$f")" || { echo "::error::Preflight: $f aus platform nicht ladbar — kein Deploy ohne Deklaration"; exit 2; }
+          done
+          python3 -c "import yaml" 2>/dev/null || pip install -q pyyaml
+          HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
+          set +e
+          OUT=$(python3 "$D/deploy_preflight.py" --app "$APP" --environment "$ENVIRONMENT" --deploy-host "$HOST" --ports "$D/ports.yaml" --hosts "$D/hosts.yaml" 2>&1); rc=$?
+          set -e
+          echo "$OUT"
+          { echo "### Deploy-Preflight (${APP}, ${ENVIRONMENT}, Ziel ${HOST}) — Exit ${rc}"; echo; echo '```'; echo "$OUT"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          case "$rc" in
+            0) ;;
+            3) echo "::warning title=Preflight Scope-Luecke::${OUT}" ;;
+            *) echo "::error title=Preflight blockt Deploy::${OUT}"; exit "$rc" ;;
+          esac
+
 
       # Sync staging compose file from the consuming repo to the host.
       # Without this, deploy.sh runs `docker compose pull` against
@@ -334,7 +367,40 @@ jobs:
     environment:
       name: production
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # ── Deploy-Preflight (platform KONZ-054 E1, Owner-Go 2026-08-30 "77") ──────
+      # Liest infra/ports.yaml + infra/hosts.yaml aus platform (oeffentlich) und
+      # prueft VOR dem Deploy: ist der Dienst `aktiv`, und ist DIESER Runner-Host
+      # der deklarierte prod_host? Anlass: coach-hub war stillgelegt deklariert und
+      # wurde trotzdem auf prod deployt, wo es 25 h in einer Fehlerschleife lief.
+      # Exit 1 (Verstoss) / 2 (Datenfehler) = kein Deploy. Exit 3 (Dienst nicht in
+      # ports.yaml) = Warnung, kein Block: eine Scope-Luecke darf nicht 23 Repos
+      # anhalten, sie muss aber sichtbar sein — sie steht in der Job-Summary.
+      - name: "Deploy-Preflight (platform ports.yaml/hosts.yaml)"
+        env:
+          APP: ${{ inputs.app_name }}
+          ENVIRONMENT: production
+        run: |
+          set -u
+          B=https://raw.githubusercontent.com/achimdehnert/platform/main
+          D=$(mktemp -d)
+          for f in tools/deploy_preflight.py infra/ports.yaml infra/hosts.yaml; do
+            curl -fsSL --retry 3 "$B/$f" -o "$D/$(basename "$f")" || { echo "::error::Preflight: $f aus platform nicht ladbar — kein Deploy ohne Deklaration"; exit 2; }
+          done
+          python3 -c "import yaml" 2>/dev/null || pip install -q pyyaml
+          HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
+          set +e
+          OUT=$(python3 "$D/deploy_preflight.py" --app "$APP" --environment "$ENVIRONMENT" --deploy-host "$HOST" --ports "$D/ports.yaml" --hosts "$D/hosts.yaml" 2>&1); rc=$?
+          set -e
+          echo "$OUT"
+          { echo "### Deploy-Preflight (${APP}, ${ENVIRONMENT}, Ziel ${HOST}) — Exit ${rc}"; echo; echo '```'; echo "$OUT"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          case "$rc" in
+            0) ;;
+            3) echo "::warning title=Preflight Scope-Luecke::${OUT}" ;;
+            *) echo "::error title=Preflight blockt Deploy::${OUT}"; exit "$rc" ;;
+          esac
+
 
       # ADR-021 §2.17 — fail-loud + atomic sync + compose_sha verify.
       # ADR-021 §2.20 — deploy-intent manifest (Intent-Token).
