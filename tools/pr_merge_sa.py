@@ -180,12 +180,15 @@ def classify(f: Facts, r: dict) -> Verdict:
     if noetig is None:
         raise Unklar(f"Wirkung {f.wirkung} steht nicht in der Deckungstabelle")
     if RANG[f.mandat] < RANG[noetig]:
-        return Verdict(
-            f.wirkung,
-            f.mandat,
-            False,
-            f"fehlt: {noetig} — {f.wirkung} verlangt es, vorliegt {f.mandat}",
-        )
+        if noetig == "M3":
+            grund = (
+                "fehlt: M3 — Approve-Review mit Deploy-Wort ODER Vermerk "
+                "„Freigabe: akzeptiert durch Owner — deploy” mit dieser "
+                "PR-Nummer im verlinkten Issue (#2812)"
+            )
+        else:
+            grund = f"fehlt: {noetig} — {f.wirkung} verlangt es, vorliegt {f.mandat}"
+        return Verdict(f.wirkung, f.mandat, False, grund)
     if f.checks_pending:
         return Verdict(
             f.wirkung,
@@ -284,13 +287,33 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
                 return "M3"
         return "M2"
 
+    # (b) 2026-09-04 (#2812): M3 auf eigenem PR ist per Review unerreichbar
+    # (GitHub laesst kein Approve-Review auf ein eigenes PR zu). Ein Vermerk im
+    # verlinkten Issue deckt W3 als M3-Aequivalent NUR, wenn dieselbe Zeile alle
+    # drei Bedingungen traegt: Freigabe-Vermerk, ein Deploy-Wort, UND diese
+    # PR-Nummer (Wortgrenze, damit #280 nicht #2804 deckt). Fehlt eine davon,
+    # bleibt es beim bestehenden M1 (Vermerk irgendwo im Issue-Body reicht dafuer
+    # weiterhin, unveraendert).
+    pr_nummer_in_zeile = re.compile(rf"(?<!\d)#{nummer}(?!\d)")
+    gefunden_m1 = False
     for treffer in re.findall(r"#(\d+)", pr.get("body") or ""):
         try:
             issue = _gh(["issue", "view", treffer, "-R", repo, "--json", "body,state"])
         except Unklar:
             continue
-        if FREIGABE_VERMERK.search(issue.get("body") or ""):
-            return "M1"
+        issue_body = issue.get("body") or ""
+        if not FREIGABE_VERMERK.search(issue_body):
+            continue
+        gefunden_m1 = True
+        for zeile in issue_body.splitlines():
+            if (
+                FREIGABE_VERMERK.search(zeile)
+                and PROD_IM_APPROVAL.search(zeile)
+                and pr_nummer_in_zeile.search(zeile)
+            ):
+                return "M3"
+    if gefunden_m1:
+        return "M1"
     return "M0"
 
 
