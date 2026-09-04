@@ -3366,3 +3366,26 @@ Runner fehlt (writing-hub#1008). Meine Aussage „Pfadfilter greift" war die Def
 ein Lauf. Welle ueber 13 Push-Deploy-Repos: 9 PRs, 4 per Preflight ausgelassen, Merges beim
 Owner gestaffelt. Nebenbefunde: pr_merge_sa.py zaehlt alte Laeufe (#2784), Hop-Aufbau
 dreifach (#2783), Owner-Dependabot-Merges auf shared-ci v1.1.14 (shared-ci#73).
+
+## 2026-09-04 früh — Mailcheck-Ablage wieder scharf, Zug A Welle, Future-Readiness v2.4 + Neulauf, SA-M Deploy-Vermerk (Sitzung ac4fb7c7)
+
+Owner-Go auf 21–28 mit dem Ziel „mailcheck verschiebt erledigte Mails ins Archiv und bleibt
+mit allen Referenzen aktuell; der Posteingang hat keine erledigten Mails mehr" (#2799).
+Befund vorab: seit dem 27.08. hatte kein Mailcheck eine Mail abgelegt, weil die Ordnerliste
+ein Pflichtargument war, das der Skill-Aufruf nie mitgab — 30 Vorgänge „Ordner fehlt", alle
+Ordner existierten (dritter Vorfall der 🌀-Memory). Opus baute K1–K6 (#2804: Ordner live,
+Strang über Konversation statt Betreff, Referenzen vor dem Lauf verankert und danach
+nachgezogen, Zählung beider Seiten, Melder `--pruefe`); der scharfe Lauf K7 bewegte 18 Mails
+mit stimmiger Zählung, 15 Anker nachgezogen, kein Link neu tot. Der Melder zählte danach
+Index-Leichen — Nachzug #2809 bestätigt jeden Index-Treffer live.
+
+Parallel per Brief: writing-hub#1009 (Doku-Filter ohne `gh`, fail-closed; Gegenprobe #1012
+bestanden), #2798, #2801 (+#2802), #2803/#2805 (v2.4, 37a Owner-Wort), Neulauf 56/56
+(dev-hub#326, 27 Repos verschoben), #2808. Die Welle über 36 Repos ohne Prod-Deploy hatte
+eine Parallelsitzung schon gefahren — der Subagent erkannte es und erzeugte keine Dubletten.
+Acht W3-Merges liefen per Owner-Klick, weil M3 per Review auf eigenen PRs unerreichbar ist;
+Owner-Entscheid (b) → #2814: Deploy-Vermerk je PR-Nummer im verlinkten Issue deckt W3.
+
+Eigene Fehler: Cherry-pick lief einmal im Haupt-Tree (leere Pfadvariable, Skript schreibt auf
+stderr) — abgebrochen, HEAD unverändert, Memory 🌀. Zwei Dubletten-PRs (#2807 zu #2809)
+geschlossen. Aufschub-Anker-Gate feuerte dreimal auf Code-Kommentare (Faden 37).
