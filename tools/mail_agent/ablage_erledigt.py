@@ -28,6 +28,26 @@ Die Zuordnungstabelle traegt Namen von Kunden, Studierenden und Privatpersonen.
 Sie liegt deshalb **lokal** unter ``~/.claude/mail-ablage-ziele.json`` und nie im
 Repo (Charta Art. 2). Dieses Modul liegt versioniert und testbar hier.
 
+Was am 2026-09-04 dazukam (platform#2799), weil der Trockenlauf zwar lief, aber
+seit dem 2026-08-27 keine einzige Mail ablegte:
+
+* **Der Ordnerbestand wird geholt, nicht erwartet.** ``--ordner`` war ein
+  Pflichtargument, das der dokumentierte Aufruf nicht mitgab — Ergebnis: jedes
+  Ziel galt als fehlend. Jetzt fragt das Werkzeug Graph bzw. IMAP selbst; ein
+  Konto, das nicht antwortet, wird als ``konto_nicht_erreichbar`` gemeldet und
+  nicht als fehlender Ordner.
+* **Der Strang kommt aus der Konversation**, nicht aus dem Betreff: die
+  Message-ID des Ankers, dann ``References``/``In-Reply-To`` (IMAP) bzw.
+  ``conversationId`` (Graph). Der Betreff bleibt der zweite Weg.
+* **Referenzen ueberleben den Umzug.** ``--apply`` verankert die Verlaufs-
+  Referenzen der betroffenen Vorgaenge vorher und zieht die Anker nachher nach.
+  Laesst sich eine Referenz nicht verankern, die im Quellordner liegen koennte,
+  bricht der Lauf ab.
+* **Beide Seiten werden gezaehlt** (Quelle und Ziel, vorher und nachher). Weicht
+  der Bestand von der Erfolgsmeldung ab, ist das eine Warnung und Exit 3.
+* **``--pruefe`` ist der Melder:** wie viele Posteingangs-Mails gehoeren noch zu
+  geschlossenen Vorgaengen. 0 = gruen; laeuft in ``make boards``.
+
 Ordnerkonventionen, die schon bestehen und deshalb nicht neu erfunden werden:
 
 * HNU fuehrt ``Betreuungen/<Nachname-Vorname>`` fuer laufende Betreuungen und
@@ -41,12 +61,14 @@ Ordnerkonventionen, die schon bestehen und deshalb nicht neu erfunden werden:
 from __future__ import annotations
 
 import argparse
+import imaplib
 import json
 import re
 import sys
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote
 
 LEDGER = Path.home() / ".claude" / "mail-vorgaenge.json"
 ANKER = Path.home() / ".claude" / "mail-anker.json"
@@ -75,10 +97,20 @@ QUELLORDNER_JE_KONTO: dict[str, tuple[str, ...]] = {
 }
 QUELLORDNER = ("INBOX", "Posteingang")
 
+#: Ein Konto, dessen Ordnerbestand sich nicht holen liess.
+#:
+#: Das ist eine Aussage ueber die VERBINDUNG, nicht ueber das Postfach. Bis zum
+#: 2026-09-04 gab es diesen Status nicht: ein nicht erreichbares Konto fiel als
+#: ``ordner_fehlt`` an — dieselbe Meldung, die auch ein wirklich fehlender Ordner
+#: erzeugt. Genau daran haben sich am 2026-08-27 und am 2026-08-31 zwei Laeufe
+#: verschluckt (Memory `feedback_folder_list_is_a_required_argument_not_a_comfort`).
+KONTO_NICHT_ERREICHBAR = "konto_nicht_erreichbar"
+
 #: Woran die Zeile haengt, wenn sie nicht ``bereit`` ist. Reihenfolge = Dringlichkeit.
 STATUS_REIHENFOLGE = (
     "bereit",
     "ordner_fehlt",
+    KONTO_NICHT_ERREICHBAR,
     "kein_anker",
     "keine_zuordnung",
     "kein_datum",
@@ -230,6 +262,7 @@ def plane(
     ordner_je_konto: dict[str, list[str]],
     zuordnung: dict | None = None,
     links: dict | None = None,
+    nicht_erreichbar: dict[str, str] | None = None,
 ) -> list[Zeile]:
     """Fuer jeden geschlossenen Vorgang eine Zeile mit Ziel und Status.
 
@@ -238,9 +271,15 @@ def plane(
     beiden ihn kennt; ``board.anker_zustand()`` entscheidet genauso. Nur den
     IMAP-Anker zu pruefen haette jeden Graph-Vorgang faelschlich als ungebunden
     gemeldet.
+
+    ``nicht_erreichbar`` ist Konto → Grund. Steht ein Konto darin, ist ueber
+    seine Ordner NICHTS bekannt — dann wird das auch so gesagt, statt jede Zeile
+    als ``ordner_fehlt`` auszuweisen und damit eine Aussage ueber das Postfach
+    vorzutaeuschen, die niemand geprueft hat.
     """
     links = links or {}
     zuordnung = zuordnung or {}
+    nicht_erreichbar = nicht_erreichbar or {}
     zeilen: list[Zeile] = []
     for vorgang in ledger.get("vorgaenge") or []:
         if vorgang.get("bucket") != "erledigt":
@@ -249,7 +288,9 @@ def plane(
         bestand = ordner_je_konto.get(konto, [])
         ziel, herkunft = ziel_fuer(vorgang, bestand, zuordnung)
 
-        if not vorgang.get("erledigt_am"):
+        if konto in nicht_erreichbar:
+            status = KONTO_NICHT_ERREICHBAR
+        elif not vorgang.get("erledigt_am"):
             status = "kein_datum"
         elif ziel is None:
             status = "keine_zuordnung"
@@ -279,8 +320,9 @@ def plane(
     return zeilen
 
 
-def bericht(zeilen: list[Zeile]) -> str:
+def bericht(zeilen: list[Zeile], nicht_erreichbar: dict[str, str] | None = None) -> str:
     """Trockenlauf als Text — Zusammenfassung zuerst, dann die Zeilen."""
+    nicht_erreichbar = nicht_erreichbar or {}
     if not zeilen:
         return "Kein geschlossener Vorgang im Ledger — nichts zu planen."
     zaehler = {s: 0 for s in STATUS_REIHENFOLGE}
@@ -305,7 +347,107 @@ def bericht(zeilen: list[Zeile]) -> str:
         aus.append(
             "Fehlende Ordner werden NICHT angelegt — das ist eine Owner-Handlung."
         )
+    for konto, grund in sorted(nicht_erreichbar.items()):
+        aus.append(
+            f"Konto '{konto}' nicht erreichbar: {grund} — ueber seine Ordner sagt "
+            "dieser Lauf nichts."
+        )
     return "\n".join(aus)
+
+
+# --- Ordnerbestand live ------------------------------------------------------
+#
+# Ohne diesen Abschnitt war die Ordnerliste ein PFLICHTARGUMENT, das der
+# dokumentierte Aufruf nicht mitgab: `ordner_je_konto` blieb leer, `ziel not in
+# bestand` war fuer alles wahr, und der Lauf meldete jeden Zielordner als
+# fehlend. Zweimal (2026-08-27, 2026-08-31) wurde daraus ein Befund ueber das
+# Postfach gemacht und dem Owner vorgelegt; beide Ordner existierten. Seit dem
+# 2026-09-04 holt sich das Werkzeug den Bestand selbst — `--ordner` bleibt als
+# Uebersteuerung erhalten (Testfixtures, Offline-Trockenlauf).
+
+
+class KontoNichtErreichbar(RuntimeError):
+    """Der Ordnerbestand eines Kontos liess sich nicht holen."""
+
+
+def graph_ordner() -> list[str]:
+    """Ordnerpfade des Graph-Kontos ('IIL.Kunden/Talmuehle') — derselbe Weg wie --list-folders."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import graph_mail  # noqa: PLC0415
+
+    cfg = graph_mail.load_cfg()
+    konten = cfg.get("accounts") or []
+    if not konten:
+        raise KontoNichtErreichbar("kein Graph-Konto konfiguriert")
+    tok = graph_mail.token(cfg, konten[0])
+    if not tok:
+        raise KontoNichtErreichbar(f"{konten[0]} nicht fuer Mail angemeldet")
+    return [f["path"] for f in graph_mail._folders(tok)]
+
+
+def imap_ordner(konto: str) -> list[str]:
+    """Ordnernamen eines IMAP-Kontos ueber LIST — derselbe Weg wie --list-folders."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import organize_mail  # noqa: PLC0415
+    from read_mail import ordner_klartext  # noqa: PLC0415
+
+    pfad = None if konto == "default" else Path.home() / ".claude" / f"mail-{konto}.env"
+    imap, _ = organize_mail.connect(pfad)
+    try:
+        return [ordner_klartext(n) for n in organize_mail.list_folders(imap)]
+    finally:
+        try:
+            imap.logout()
+        except (OSError, imaplib.IMAP4.error):
+            pass
+
+
+def ordner_live(konto: str) -> list[str]:
+    """Ordnerbestand eines Kontos — Graph fuer iil, IMAP fuer den Rest."""
+    return graph_ordner() if konto == "iil" else imap_ordner(konto)
+
+
+def ordner_je_konto_live(
+    konten: list[str], hole=None
+) -> tuple[dict[str, list[str]], dict[str, str]]:
+    """(Bestand je Konto, Grund je nicht erreichbarem Konto).
+
+    ``hole`` wird hereingereicht, damit dieser Pfad ohne Postfach pruefbar ist.
+
+    ``SystemExit`` wird mitgefangen: ``organize_mail.connect`` und
+    ``load_credentials`` beenden bei fehlender Konfiguration den PROZESS statt zu
+    werfen (dieselbe Wurzel wie platform#2752). Auf dieser Maschine ist das der
+    Normalfall fuer das ad-Konto — es ist nicht freigegeben, und genau das soll
+    hier stehen und nicht "Ordner fehlt".
+    """
+    hole = hole or ordner_live
+    bestand: dict[str, list[str]] = {}
+    fehlt: dict[str, str] = {}
+    for konto in konten:
+        try:
+            bestand[konto] = hole(konto)
+        except (
+            KontoNichtErreichbar,
+            AblageFehler,
+            OSError,
+            imaplib.IMAP4.error,
+            KeyError,
+            ValueError,
+            SystemExit,
+        ) as fehler:
+            fehlt[konto] = str(fehler)[:160] or type(fehler).__name__
+    return bestand, fehlt
+
+
+def konten_der_vorgaenge(ledger: dict) -> list[str]:
+    """Konten, in denen ueberhaupt ein geschlossener Vorgang liegt — sortiert."""
+    return sorted(
+        {
+            (v.get("konto") or "").lower()
+            for v in ledger.get("vorgaenge") or []
+            if v.get("bucket") == "erledigt" and v.get("konto")
+        }
+    )
 
 
 @dataclass
@@ -374,8 +516,330 @@ def strang_fuer(vorgang: dict, suche) -> tuple[str | None, str]:
     return straenge.pop(), "ueber den Betreff"
 
 
+# --- Strang ueber die Konversation -------------------------------------------
+#
+# Der Betreff ist die SCHWAECHSTE Art, einen Strang zu bestimmen: er kollidiert
+# (zwei Gespraeche, ein Betreff), er wandert (jemand aendert ihn beim Antworten),
+# und der Index sucht ihn im Volltext mit. Gemessen am 2026-09-04: von 27 bereiten
+# Vorgaengen kamen 7 als "Volltexttreffer, aber kein gleicher Betreff" zurueck und
+# 2 als "im Index nicht gefunden".
+#
+# Der Anker eines Vorgangs traegt dagegen die Message-ID — genau die Kennung, an
+# der die Mailprogramme selbst ihre Straenge bilden. Ueber sie fragen wir das
+# Postfach direkt: IMAP nach `References`/`In-Reply-To`/`Message-ID`, Graph ueber
+# `conversationId`. Erst wenn das nichts liefert, greift der Betreff wie bisher.
+#
+# **Warum nicht ueber den Index:** Der Index fuehrt (gemessen 2026-09-04 an einer
+# echten Antwort) je Treffer `id, datum, von, betreff, strang, ordner, anhaenge` —
+# keine `References`, keine `conversationId`, keine Message-ID; `suche.py` reicht
+# auch kein Kriterium dafuer durch. Die Konversation ist dort also nicht zu haben,
+# und der Live-Weg ist nicht Bequemlichkeit, sondern der einzige.
+
+KONVERSATION = "konversation"
+BETREFF = "betreff"
+
+#: Felder, die Graph fuer eine Strang-Nachricht liefern muss.
+GRAPH_FELDER = "id,subject,receivedDateTime,parentFolderId,conversationId"
+
+
+@dataclass
+class Strang:
+    """Der Strang eines Vorgangs — und woher wir wissen, dass es dieser ist."""
+
+    kennung: str | None
+    quelle: str
+    grund: str = ""
+    #: Bei ``quelle == KONVERSATION`` bereits aufgeloest; der Index kennt diesen
+    #: Strang nicht und koennte ihn auch nicht nachschlagen.
+    nachrichten: list[dict] | None = None
+
+    def __bool__(self) -> bool:
+        return bool(self.kennung)
+
+
+def anker_message_id(vorgang: dict, anker: dict, links: dict) -> str:
+    """Die Message-ID, an der der Vorgang haengt — IMAP-Anker oder Graph-Registry.
+
+    Beide Speicher fuehren denselben RFC-Header unter verschiedenem Namen
+    (``message_id`` bzw. ``internet_message_id``); welcher gefuellt ist, haengt am
+    Konto. Ohne ihn gibt es keine Konversation, nur den Betreff.
+    """
+    nr = str(vorgang.get("nr"))
+    imap = (anker.get(nr) or {}).get("message_id") or ""
+    graph = (links.get(nr) or {}).get("internet_message_id") or ""
+    return str(imap or graph).strip()
+
+
+def strang_aufloesen(
+    vorgang: dict,
+    suche,
+    konversation=None,
+    anker: dict | None = None,
+    links: dict | None = None,
+) -> Strang:
+    """Strang zuerst ueber die Konversation, erst dann ueber den Betreff.
+
+    ``konversation`` hat die Signatur ``(konto, message_id) -> list[dict]`` und
+    wird hereingereicht, damit dieser Pfad ohne Postfach pruefbar bleibt. Fehlt
+    sie oder liefert sie nichts, bleibt es beim bisherigen Betreff-Weg — die
+    Reihenfolge ist eine Verbesserung, keine Ersetzung.
+    """
+    mid = anker_message_id(vorgang, anker or {}, links or {})
+    hinweis = ""
+    if mid and konversation is not None:
+        try:
+            nachrichten = konversation((vorgang.get("konto") or "").lower(), mid)
+        except (
+            KontoNichtErreichbar,
+            AblageFehler,
+            OSError,
+            imaplib.IMAP4.error,
+            KeyError,
+            ValueError,
+            SystemExit,
+        ) as fehler:
+            nachrichten, hinweis = [], f"Konversation nicht abfragbar: {fehler}"
+        if nachrichten:
+            return Strang(
+                mid,
+                KONVERSATION,
+                f"{len(nachrichten)} Nachricht(en) ueber die Konversation",
+                nachrichten,
+            )
+        if not hinweis:
+            hinweis = "Konversation leer"
+    kennung, grund = strang_fuer(vorgang, suche)
+    if hinweis:
+        grund = f"{hinweis}; {grund}"
+    return Strang(kennung, BETREFF if kennung else "", grund)
+
+
+def nachrichten_des_strangs(strang, suche) -> list[dict]:
+    """Die Nachrichten eines Strangs — live aufgeloest oder aus dem Index."""
+    if isinstance(strang, Strang):
+        if strang.quelle == KONVERSATION:
+            return list(strang.nachrichten or [])
+        return suche(strang=strang.kennung) if strang.kennung else []
+    return suche(strang=strang)
+
+
+def _uids_der_konversation(imap, message_id: str) -> list[str]:
+    """UIDs im GERADE selektierten Ordner, die zu dieser Message-ID gehoeren.
+
+    Drei Kopfzeilen, weil ein Strang drei Rollen kennt: die Nachricht selbst
+    (``Message-ID``), ihre direkte Antwort (``In-Reply-To``) und alles, was
+    weiter unten im Strang haengt (``References``).
+    """
+    gefunden: list[str] = []
+    for kopf in ("References", "In-Reply-To", "Message-ID"):
+        try:
+            typ, daten = imap.uid("SEARCH", None, "HEADER", kopf, message_id)
+        except (imaplib.IMAP4.error, OSError):
+            continue
+        if typ == "OK" and daten and daten[0]:
+            gefunden += [u.decode() for u in daten[0].split()]
+    return sorted(set(gefunden), key=lambda u: int(u) if u.isdigit() else 0)
+
+
+def _imap_verbinde(konto: str):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from read_mail import _resolve_config, connect  # noqa: PLC0415
+    from send_mail import parse_env  # noqa: PLC0415
+
+    return connect(
+        parse_env(_resolve_config(None, None if konto == "default" else konto))
+    )
+
+
+def imap_konversation(
+    konto: str,
+    message_id: str,
+    nur_ordner: tuple[str, ...] | None = None,
+    imap=None,
+    verbinde=None,
+) -> list[dict]:
+    """Die Konversation im IMAP-Postfach — strikt lesend (``readonly=True``, kein FETCH-Rumpf).
+
+    ``nur_ordner`` verengt die Suche auf die Quellordner. Der Melder (``--pruefe``)
+    fragt nur, was im Posteingang liegt, und braucht dafuer nicht alle vierzehn
+    Suchordner — das ist der Unterschied zwischen drei und zweiundvierzig
+    Rundreisen je Vorgang.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from anker import betreff_von_uid, datum_von_uid  # noqa: PLC0415
+    from mail_view import slugify  # noqa: PLC0415
+    from read_mail import (  # noqa: PLC0415
+        _mailbox_arg,
+        alle_ordner,
+        ordner_klartext,
+    )
+    from referenzen import SUCHORDNER  # noqa: PLC0415
+
+    eigene = imap is None
+    imap = imap or (verbinde or _imap_verbinde)(konto)
+    try:
+        namen, _ = alle_ordner(imap)
+        if nur_ordner:
+            gesucht = {o.lower() for o in nur_ordner}
+            kandidaten = [n for n in namen if ordner_klartext(n).lower() in gesucht]
+        else:
+            nach_slug: dict[str, str] = {}
+            for name in namen:
+                nach_slug.setdefault(slugify(ordner_klartext(name)), name)
+            kandidaten = [nach_slug[s] for s in SUCHORDNER if s in nach_slug]
+        aus: list[dict] = []
+        for name in kandidaten:
+            try:
+                typ, _ = imap.select(_mailbox_arg(name), readonly=True)
+            except (imaplib.IMAP4.error, OSError):
+                continue
+            if typ != "OK":
+                continue
+            for uid in _uids_der_konversation(imap, message_id):
+                aus.append(
+                    {
+                        "kennung": uid,
+                        "betreff": betreff_von_uid(imap, uid),
+                        "datum": datum_von_uid(imap, uid),
+                        "ordner": [ordner_klartext(name)],
+                        "strang": message_id,
+                    }
+                )
+        return aus
+    finally:
+        if eigene:
+            try:
+                imap.logout()
+            except (OSError, imaplib.IMAP4.error):
+                pass
+
+
+def graph_nachrichten_aus_antwort(
+    werte: list[dict], ordner_nach_id: dict[str, str]
+) -> list[dict]:
+    """Graph-Nachrichten in dieselbe Form bringen, die der Index liefert."""
+    return [
+        {
+            "kennung": m.get("id") or "",
+            "betreff": m.get("subject") or "",
+            "datum": str(m.get("receivedDateTime") or "")[:10],
+            "ordner": [ordner_nach_id.get(m.get("parentFolderId") or "", "")],
+            "strang": m.get("conversationId") or "",
+        }
+        for m in werte
+    ]
+
+
+def _graph_token() -> str:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import graph_mail  # noqa: PLC0415
+
+    cfg = graph_mail.load_cfg()
+    konten = cfg.get("accounts") or []
+    if not konten:
+        raise KontoNichtErreichbar("kein Graph-Konto konfiguriert")
+    tok = graph_mail.token(cfg, konten[0])
+    if not tok:
+        raise KontoNichtErreichbar(f"{konten[0]} nicht fuer Mail angemeldet")
+    return tok
+
+
+def graph_ordnerkarte(tok: str) -> dict[str, str]:
+    """Graph-Ordner-ID → Pfad; nur so traegt eine Nachricht ihren Ordnernamen."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import graph_mail  # noqa: PLC0415
+
+    return {f["id"]: f["path"] for f in graph_mail._folders(tok)}
+
+
+def graph_konversation(
+    message_id: str,
+    tok: str | None = None,
+    http=None,
+    ordnerkarte: dict[str, str] | None = None,
+) -> list[dict]:
+    """Die Konversation im Graph-Postfach: internetMessageId → conversationId → Strang."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import graph_anker  # noqa: PLC0415
+    import graph_mail  # noqa: PLC0415
+
+    http = http or graph_anker._http_standard
+    tok = tok or _graph_token()
+    karte = ordnerkarte if ordnerkarte is not None else {}
+
+    def _liste(feld: str, wert: str) -> list[dict]:
+        # Das einfache Anfuehrungszeichen wird in OData verdoppelt, nicht escaped —
+        # dieselbe Regel, die `graph_anker.finde_per_internet_id` anwendet.
+        roh = quote("'" + str(wert).replace("'", "''") + "'", safe="")
+        antwort = http(
+            "GET",
+            f"{graph_mail.GRAPH}/me/messages?$filter={feld} eq {roh}"
+            f"&$select={GRAPH_FELDER}&$top=100",
+            headers=graph_mail._auth(tok),
+        )
+        if antwort.status_code != 200:
+            raise KontoNichtErreichbar(f"Graph antwortet {antwort.status_code}")
+        return antwort.json().get("value") or []
+
+    treffer = _liste("internetMessageId", message_id)
+    if not treffer:
+        return []
+    conv = treffer[0].get("conversationId")
+    werte = _liste("conversationId", conv) if conv else treffer
+    return graph_nachrichten_aus_antwort(werte, karte)
+
+
+class Konversationen:
+    """Live-Aufloeser ``(konto, message_id) -> Nachrichten`` mit EINER Verbindung je Konto.
+
+    Ohne die Wiederverwendung kostete jeder Vorgang eine eigene IMAP-Anmeldung —
+    bei dreissig geschlossenen Vorgaengen dreissig Logins fuer dieselbe Frage.
+    """
+
+    def __init__(self, nur_quellordner: bool = False) -> None:
+        self.nur_quellordner = nur_quellordner
+        self._imap: dict[str, object] = {}
+        self._tok: str | None = None
+        self._karte: dict[str, str] | None = None
+
+    def __call__(self, konto: str, message_id: str) -> list[dict]:
+        if konto == "iil":
+            if self._tok is None:
+                self._tok = _graph_token()
+                self._karte = graph_ordnerkarte(self._tok)
+            nachrichten = graph_konversation(
+                message_id, self._tok, ordnerkarte=self._karte
+            )
+        else:
+            if konto not in self._imap:
+                self._imap[konto] = _imap_verbinde(konto)
+            nachrichten = imap_konversation(
+                konto,
+                message_id,
+                nur_ordner=QUELLORDNER_JE_KONTO.get(konto)
+                if self.nur_quellordner
+                else None,
+                imap=self._imap[konto],
+            )
+        if not self.nur_quellordner:
+            return nachrichten
+        quellen = QUELLORDNER_JE_KONTO.get(konto, QUELLORDNER_JE_KONTO["default"])
+        return [n for n in nachrichten if (n.get("ordner") or [""])[0] in quellen]
+
+    def __enter__(self) -> Konversationen:
+        return self
+
+    def __exit__(self, *_) -> None:
+        for imap in self._imap.values():
+            try:
+                imap.logout()
+            except (OSError, imaplib.IMAP4.error):
+                pass
+        self._imap.clear()
+
+
 def bewegungen_fuer(
-    vorgang: dict, ziel: str, strang: str, suche
+    vorgang: dict, ziel: str, strang, suche
 ) -> tuple[list[Bewegung], dict[str, int]]:
     """Welche Nachrichten des Strangs bewegt wuerden — und was liegen bleibt.
 
@@ -393,7 +857,7 @@ def bewegungen_fuer(
     quellen = QUELLORDNER_JE_KONTO.get(konto, QUELLORDNER_JE_KONTO["default"])
     bewegungen: list[Bewegung] = []
     liegen: dict[str, int] = {}
-    for nachricht in suche(strang=strang):
+    for nachricht in nachrichten_des_strangs(strang, suche):
         ordner = (nachricht.get("ordner") or [""])[0]
         if ordner not in quellen:
             liegen[ordner or "(ohne Ordner)"] = (
@@ -437,33 +901,44 @@ def index_suche(**kriterien) -> list[dict]:
         raise SystemExit("FEHLER: Index lieferte kein JSON")
 
 
-def strang_bericht(zeilen: list[Zeile], ledger: dict, suche) -> str:
+def strang_bericht(
+    zeilen: list[Zeile],
+    ledger: dict,
+    suche,
+    konversation=None,
+    anker: dict | None = None,
+    links: dict | None = None,
+) -> str:
     """Welche Nachrichten je bereitem Vorgang bewegt wuerden — immer noch trocken."""
     nach_nr = {v.get("nr"): v for v in ledger.get("vorgaenge") or []}
     aus = ["Betroffene Nachrichten (Trockenlauf)", ""]
     gesamt = 0
+    quellen: dict[str, int] = {}
     for zeile in zeilen:
         if zeile.status != "bereit":
             continue
         vorgang = nach_nr.get(zeile.nr) or {}
-        strang, grund = strang_fuer(vorgang, suche)
+        strang = strang_aufloesen(vorgang, suche, konversation, anker, links)
         if not strang:
-            aus.append(f"{str(zeile.nr):>4}  — kein Strang: {grund}")
+            aus.append(f"{str(zeile.nr):>4}  — kein Strang: {strang.grund}")
             continue
+        quellen[strang.quelle] = quellen.get(strang.quelle, 0) + 1
         bewegungen, liegen = bewegungen_fuer(vorgang, zeile.ziel or "", strang, suche)
         gesamt += len(bewegungen)
         rest = ", ".join(f"{n}x {o}" for o, n in sorted(liegen.items())) or "nichts"
         aus.append(
-            f"{str(zeile.nr):>4}  {len(bewegungen)} aus dem Posteingang · "
-            f"bleibt liegen: {rest}"
+            f"{str(zeile.nr):>4}  [{strang.quelle}]  {len(bewegungen)} aus dem "
+            f"Posteingang · bleibt liegen: {rest}"
         )
         for b in bewegungen:
             aus.append("      " + b.als_zeile())
+    herkunft = ", ".join(f"{n}x {q}" for q, n in sorted(quellen.items())) or "keine"
     aus += [
         "",
         f"Summe: {gesamt} Nachrichten wuerden bewegt. Es wurde nichts bewegt.",
-        "Der Index ist ein Schnappschuss von 03:30 — was danach umsortiert wurde,",
-        "steht hier moeglicherweise mit dem alten Ordner.",
+        f"Strang-Quellen: {herkunft}.",
+        "Was ueber den Betreff kam, stammt aus dem Index — ein Schnappschuss von",
+        "03:30; was danach umsortiert wurde, steht dort mit dem alten Ordner.",
     ]
     return "\n".join(aus)
 
@@ -727,6 +1202,259 @@ def anwenden(
     return len(paare)
 
 
+# --- Referenzen ueberleben den Umzug (K3) ------------------------------------
+#
+# Ein Verlaufseintrag verweist auf "INBOX #164024". Diese Nummer gilt NUR in
+# INBOX; verschiebt dieser Lauf die Mail, zeigt der Link ins Leere — und zwar
+# unwiederbringlich, denn eine tote UID hat keine Message-ID mehr, die man
+# nachtraeglich lesen koennte (`eintrag_anker`, Abschnitt "Nachtraeglich
+# heilen"). Deshalb verankert der scharfe Lauf VORHER und zieht NACHHER nach.
+
+#: Zustaende, bei denen der scharfe Lauf abbricht statt eine lebende UID zu toeten.
+#:
+#: ``nicht-gefunden`` gehoert absichtlich nicht dazu (Entscheidung, keine Restarbeit;
+#: #2799 K3): die UID lag in keinem Suchordner, also auch nicht im Quellordner —
+#: sie ist schon tot, und dieser Lauf ist nicht ihre Ursache. ``mehrdeutig`` (UID in
+#: zwei Ordnern) und ``unpruefbar`` (Konto nicht erreichbar) heissen dagegen: wir
+#: WISSEN nicht, ob sie im Quellordner liegt. Nichts raten — abbrechen.
+BLOCKIERENDE_ZUSTAENDE = ("mehrdeutig", "unpruefbar")
+
+
+def verankerung_blockiert(ergebnisse) -> list[str]:
+    """Meldungen zu Referenzen, die der Lauf entwerten koennte, ohne verankert zu sein."""
+    return [
+        f"#{e.fund.nr}-{e.fund.eintrag} {e.fund.schluessel}: {e.zustand} — {e.hinweis}"
+        for e in ergebnisse
+        if e.zustand in BLOCKIERENDE_ZUSTAENDE
+    ]
+
+
+def anker_auswahl(nummern, funde: dict, anker: dict) -> dict:
+    """Nur die Anker der genannten Vorgaenge — Vorgangs-Anker UND Verlaufs-Referenzen.
+
+    Der Nachzug nach dem Umzug betrifft genau die bewegten Vorgaenge. Alle Anker
+    zu pruefen waere ein zweiter, langsamer `anker.py --pruefe` an der falschen
+    Stelle und wuerde fremde Befunde diesem Lauf zuschreiben.
+    """
+    erlaubt = {str(n) for n in nummern} | {
+        k for k, f in funde.items() if f.nr in set(nummern)
+    }
+    return {k: a for k, a in anker.items() if k in erlaubt}
+
+
+def nachzug_bilanz(befunde) -> tuple[int, int]:
+    """(nachgezogen, tot) aus IMAP- oder Graph-Befunden — beide nennen ihren Zustand."""
+    nachgezogen = sum(
+        1 for b in befunde if b.zustand in ("verschoben", "nachgezogen", "neu-gesucht")
+    )
+    tot = sum(1 for b in befunde if b.zustand in ("geloescht", "tot"))
+    return nachgezogen, tot
+
+
+def referenzen_verankern(
+    nummern, ledger: dict, ankerdatei: Path | None = None, verbinde=None
+) -> tuple[int, list]:
+    """Verlaufs-Referenzen der genannten Vorgaenge verankern → (neu, Ergebnisse)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import eintrag_anker  # noqa: PLC0415
+    from anker import ANKER_DATEI, lade, speichere  # noqa: PLC0415
+
+    pfad = ankerdatei or ANKER_DATEI
+    anker = lade(pfad)
+    archiv = _lade(Path.home() / ".claude" / "mail-vorgaenge-archiv.json", {})
+    funde = eintrag_anker.referenzen_im_ledger(ledger, archiv)
+    meine = {k: f for k, f in funde.items() if f.nr in set(nummern)}
+    ergebnisse = eintrag_anker.verankere_alle(meine, anker, verbinde)
+    if neu := eintrag_anker.uebernehme(ergebnisse, anker):
+        speichere(anker, pfad)
+    return neu, ergebnisse
+
+
+def anker_nachziehen(
+    nummern, ledger: dict, konten, ankerdatei: Path | None = None, verbinde=None
+) -> tuple[int, int]:
+    """Anker der bewegten Vorgaenge nachziehen → (nachgezogen, tot).
+
+    IMAP ueber ``anker.pruefe_anker`` (Message-ID in einem anderen Ordner
+    wiederfinden), Graph ueber ``graph_anker.heile`` (internetMessageId). Beide
+    Wege gibt es bereits; hier werden sie nur auf die bewegten Vorgaenge verengt.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import anker as anker_modul  # noqa: PLC0415
+    import eintrag_anker  # noqa: PLC0415
+
+    pfad = ankerdatei or anker_modul.ANKER_DATEI
+    archiv = _lade(Path.home() / ".claude" / "mail-vorgaenge-archiv.json", {})
+    alle = anker_modul.lade(pfad)
+    auswahl = anker_auswahl(
+        nummern, eintrag_anker.referenzen_im_ledger(ledger, archiv), alle
+    )
+    nach_konto: dict[str, list] = {}
+    for a in auswahl.values():
+        nach_konto.setdefault(a.konto, []).append(a)
+
+    befunde = []
+    for konto, liste in sorted(nach_konto.items()):
+        try:
+            imap = (verbinde or anker_modul._verbinde)(konto)
+        except (
+            OSError,
+            imaplib.IMAP4.error,
+            KeyError,
+            ValueError,
+            SystemExit,
+        ) as fehler:
+            print(f"  Nachzug '{konto}' uebersprungen: {fehler}", file=sys.stderr)
+            continue
+        try:
+            befunde += [anker_modul.pruefe_anker(imap, a) for a in liste]
+        finally:
+            try:
+                imap.logout()
+            except (OSError, imaplib.IMAP4.error):
+                pass
+    if befunde:
+        anker_modul.speichere(anker_modul.uebernehme(befunde, alle), pfad)
+
+    if "iil" in set(konten):
+        befunde += _graph_nachziehen(nummern, ledger)
+    return nachzug_bilanz(befunde)
+
+
+def _graph_nachziehen(nummern, ledger: dict) -> list:
+    """Graph-Kurzlinks der bewegten Vorgaenge heilen — die Graph-Haelfte von `anker_nachziehen`."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import graph_anker  # noqa: PLC0415
+
+    registry = _lade(LINKS, {})
+    auswahl = {k: v for k, v in registry.items() if k in {str(n) for n in nummern}}
+    if not auswahl:
+        return []
+    try:
+        tok = _graph_token()
+    except (KontoNichtErreichbar, SystemExit) as fehler:
+        print(f"  Graph-Nachzug uebersprungen: {fehler}", file=sys.stderr)
+        return []
+    befunde = graph_anker.heile(
+        auswahl,
+        graph_anker.betreffe_aus_ledger(ledger),
+        tok,
+        fenster=graph_anker.fenster_aus_ledger(ledger),
+    )
+    registry.update(auswahl)
+    LINKS.write_text(
+        json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return befunde
+
+
+# --- Beide Seiten zaehlen (K4) -----------------------------------------------
+#
+# Realfall 2026-08-18: 89 Mails wurden kopiert statt verschoben, das Werkzeug
+# meldete `OK`. Die Erfolgszeile eines Werkzeugs ist eine Absichtserklaerung;
+# Beweis ist der Bestand vorher und nachher — auf BEIDEN Seiten.
+
+
+def erwartete_deltas(paare) -> dict[tuple[str, str], int]:
+    """(Konto, Ordner) → erwartete Bestandsaenderung; Quelle minus, Ziel plus."""
+    deltas: dict[tuple[str, str], int] = {}
+    for b, _ in paare:
+        deltas[(b.konto, b.von_ordner)] = deltas.get((b.konto, b.von_ordner), 0) - 1
+        deltas[(b.konto, b.nach_ordner)] = deltas.get((b.konto, b.nach_ordner), 0) + 1
+    return deltas
+
+
+def zaehle(schluessel, auflisten=None) -> dict[tuple[str, str], int]:
+    """Bestand je (Konto, Ordner) — eine Live-Abfrage, kein Index."""
+    hole = auflisten or postfach_auflisten
+    stand: dict[tuple[str, str], int] = {}
+    for konto, ordner in sorted(schluessel):
+        try:
+            stand[(konto, ordner)] = len(hole(konto, ordner))
+        except (AblageFehler, OSError, ValueError, json.JSONDecodeError) as fehler:
+            print(
+                f"  Zaehlung {konto}/{ordner} fehlgeschlagen: {fehler}", file=sys.stderr
+            )
+    return stand
+
+
+def zaehl_bericht(
+    vorher: dict, nachher: dict, deltas: dict
+) -> tuple[list[str], list[str]]:
+    """(Zeilen je Konto, Abweichungen). Eine Abweichung ist ein Befund, kein Rundungsfehler."""
+    je_konto: dict[str, list[str]] = {}
+    abweichungen: list[str] = []
+    for (konto, ordner), delta in sorted(deltas.items()):
+        v, n = vorher.get((konto, ordner)), nachher.get((konto, ordner))
+        rolle = "Quelle" if delta < 0 else "Ziel"
+        if v is None or n is None:
+            abweichungen.append(
+                f"{konto} {ordner}: nicht zaehlbar (vorher/nachher fehlt)"
+            )
+            continue
+        je_konto.setdefault(konto, []).append(f"{rolle} {ordner}: {v} → {n}")
+        if n != v + delta:
+            abweichungen.append(
+                f"{konto} {ordner}: erwartet {v + delta}, gezaehlt {n} "
+                f"(Differenz {n - (v + delta):+d})"
+            )
+    zeilen = [
+        f"{konto}  " + " · ".join(teile) for konto, teile in sorted(je_konto.items())
+    ]
+    return zeilen, abweichungen
+
+
+# --- Melder (K5) --------------------------------------------------------------
+
+
+def pruefe_posteingang(
+    ledger: dict,
+    suche,
+    konversation=None,
+    anker: dict | None = None,
+    links: dict | None = None,
+) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
+    """Wie viele Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen?
+
+    Rueckgabe: (Anzahl je Konto, Strang-Quellen je Konto). Der Zielordner spielt
+    hier keine Rolle — gefragt ist nur, ob im Posteingang noch etwas liegt, das
+    laut Ledger abgeschlossen ist.
+    """
+    zaehler: dict[str, int] = {}
+    quellen: dict[str, dict[str, int]] = {}
+    for vorgang in ledger.get("vorgaenge") or []:
+        if vorgang.get("bucket") != "erledigt":
+            continue
+        konto = (vorgang.get("konto") or "").lower() or "—"
+        zaehler.setdefault(konto, 0)
+        quellen.setdefault(konto, {})
+        strang = strang_aufloesen(vorgang, suche, konversation, anker, links)
+        if not strang:
+            quellen[konto]["kein strang"] = quellen[konto].get("kein strang", 0) + 1
+            continue
+        quellen[konto][strang.quelle] = quellen[konto].get(strang.quelle, 0) + 1
+        bewegungen, _ = bewegungen_fuer(vorgang, "", strang, suche)
+        zaehler[konto] += len(bewegungen)
+    return zaehler, quellen
+
+
+def pruefe_bericht(zaehler: dict[str, int], quellen: dict[str, dict[str, int]]) -> str:
+    zeilen = []
+    for konto, n in sorted(zaehler.items()):
+        herkunft = ", ".join(
+            f"{a}x {q}" for q, a in sorted(quellen.get(konto, {}).items())
+        )
+        zeilen.append(
+            f"{konto}: {n} Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen"
+            + (f"  ({herkunft})" if herkunft else "")
+        )
+    zeilen.append(
+        "Grundlage: Strang ueber die Konversation live, der Rest ueber den "
+        "Index-Schnappschuss von 03:30."
+    )
+    return "\n".join(zeilen)
+
+
 def _lade(pfad: Path, standard):
     if not pfad.exists():
         return standard
@@ -747,7 +1475,14 @@ def main() -> None:
         "--ordner",
         action="append",
         metavar="KONTO=DATEI",
-        help="Ordnerliste je Konto (eine Zeile je Ordner); mehrfach moeglich",
+        help="Ordnerliste je Konto uebersteuern (eine Zeile je Ordner); ohne diese "
+        "Angabe holt das Werkzeug den Bestand selbst aus dem Postfach",
+    )
+    p.add_argument(
+        "--pruefe",
+        action="store_true",
+        help="Melder: wie viele Posteingangs-Mails gehoeren zu geschlossenen "
+        "Vorgaengen (Exit 0 bei 0, sonst 1)",
     )
     p.add_argument("--ledger", type=Path, default=LEDGER)
     p.add_argument(
@@ -789,6 +1524,22 @@ def main() -> None:
         print(f"OK: {len(paare)} Nachricht(en) zurueckbewegt (Lauf {neue_id}).")
         sys.exit(0)
 
+    ledger = _lade(args.ledger, {})
+    anker_daten = _lade(ANKER, {})
+    links_daten = _lade(LINKS, {})
+
+    if args.pruefe:
+        # Der Melder braucht keine Ordnerliste: gefragt ist nur, ob im Posteingang
+        # noch etwas liegt, nicht wohin es gehoerte. Deshalb auch nur die
+        # Quellordner in der Konversationssuche — drei Rundreisen statt
+        # zweiundvierzig je Vorgang, damit `make boards` das taeglich aushaelt.
+        with Konversationen(nur_quellordner=True) as konversation:
+            zaehler, quellen = pruefe_posteingang(
+                ledger, index_suche, konversation, anker_daten, links_daten
+            )
+        print(pruefe_bericht(zaehler, quellen))
+        sys.exit(1 if sum(zaehler.values()) else 0)
+
     ordner_je_konto: dict[str, list[str]] = {}
     for eintrag in args.ordner or []:
         if "=" not in eintrag:
@@ -805,17 +1556,25 @@ def main() -> None:
             if z.strip()
         ]
 
+    # Was nicht uebersteuert wurde, wird geholt — nicht als leere Liste behandelt.
+    fehlende_konten = [
+        k for k in konten_der_vorgaenge(ledger) if k not in ordner_je_konto
+    ]
+    live, nicht_erreichbar = ordner_je_konto_live(fehlende_konten)
+    ordner_je_konto.update(live)
+
     zeilen = plane(
-        _lade(args.ledger, {}),
-        _lade(ANKER, {}),
+        ledger,
+        anker_daten,
         ordner_je_konto,
         _lade(ZIELE, {}),
-        _lade(LINKS, {}),
+        links_daten,
+        nicht_erreichbar,
     )
     if args.json:
         print(json.dumps([z.__dict__ for z in zeilen], ensure_ascii=False, indent=2))
     else:
-        print(bericht(zeilen))
+        print(bericht(zeilen, nicht_erreichbar))
 
     if args.apply and not args.straenge:
         raise SystemExit(
@@ -823,22 +1582,34 @@ def main() -> None:
             "gibt es nichts zu verschieben."
         )
 
-    if args.straenge:
-        print()
-        print(strang_bericht(zeilen, _lade(args.ledger, {}), index_suche))
+    if not (args.straenge or args.apply):
+        sys.exit(0)
 
-    if args.apply:
-        ledger = _lade(args.ledger, {})
+    with Konversationen() as konversation:
+        if args.straenge:
+            print()
+            print(
+                strang_bericht(
+                    zeilen, ledger, index_suche, konversation, anker_daten, links_daten
+                )
+            )
+
+        if not args.apply:
+            sys.exit(0)
+
         nach_nr = {v.get("nr"): v for v in ledger.get("vorgaenge") or []}
         lauf_id = f"ablage-{max((z.erledigt_am or '') for z in zeilen) or 'lauf'}-{len(zeilen)}"
         alle: list[tuple[Bewegung, str]] = []
         uebersprungen: list[tuple[Bewegung, str]] = []
         bestaende: dict[tuple[str, str], list[dict]] = {}
+        betroffen: set[int] = set()
         for zeile in zeilen:
             if zeile.status != "bereit":
                 continue
             vorgang = nach_nr.get(zeile.nr) or {}
-            strang, _ = strang_fuer(vorgang, index_suche)
+            strang = strang_aufloesen(
+                vorgang, index_suche, konversation, anker_daten, links_daten
+            )
             if not strang:
                 continue
             bewegungen, _ = bewegungen_fuer(
@@ -851,13 +1622,52 @@ def main() -> None:
                 paare, fehlt = abgleichen([b], bestaende[schluessel])
                 alle += paare
                 uebersprungen += fehlt
-        print()
-        print(f"Anwenden — Lauf {lauf_id}")
-        for b, grund in uebersprungen:
-            print(f"  uebersprungen: {b.betreff[:50]} — {grund}")
-        bewegt = anwenden(alle, lauf_id)
-        print(f"OK: {bewegt} Nachricht(en) bewegt, {len(uebersprungen)} uebersprungen.")
-        print(f"Ruecknahme: --ruecknahme {lauf_id}")
+                if paare and zeile.nr is not None:
+                    betroffen.add(zeile.nr)
+
+    print()
+    print(f"Anwenden — Lauf {lauf_id}")
+
+    # K3, erste Haelfte: verankern, BEVOR der Umzug die UIDs entwertet.
+    verankert, ergebnisse = referenzen_verankern(betroffen, ledger)
+    if blockiert := verankerung_blockiert(ergebnisse):
+        for meldung in blockiert:
+            print(f"  BLOCKIERT: {meldung}")
+        raise SystemExit(
+            f"ABBRUCH: {len(blockiert)} Referenz(en) lassen sich nicht verankern und "
+            "koennten im Quellordner liegen. Erst klaeren, dann verschieben — eine "
+            "tote UID laesst sich nachtraeglich nicht mehr binden."
+        )
+
+    for b, grund in uebersprungen:
+        print(f"  uebersprungen: {b.betreff[:50]} — {grund}")
+
+    deltas = erwartete_deltas(alle)
+    vorher = zaehle(deltas)
+    bewegt = anwenden(alle, lauf_id)
+    nachher = zaehle(deltas)
+
+    # K3, zweite Haelfte: Anker der bewegten Vorgaenge auf den neuen Ort ziehen.
+    nachgezogen, tot = anker_nachziehen(
+        betroffen, ledger, {z.konto for z in zeilen if z.nr in betroffen}
+    )
+    print(f"OK: {bewegt} Nachricht(en) bewegt, {len(uebersprungen)} uebersprungen.")
+    print(
+        f"Referenzen: {verankert} verankert vorher · {nachgezogen} nachgezogen "
+        f"nachher · {tot} tot"
+    )
+    zeilen_zaehlung, abweichungen = zaehl_bericht(vorher, nachher, deltas)
+    for zeile_text in zeilen_zaehlung:
+        print(zeile_text)
+    print(f"Ruecknahme: --ruecknahme {lauf_id}")
+    if abweichungen:
+        for a in abweichungen:
+            print(f"WARNUNG: {a}")
+        print(
+            "Die Erfolgszeile oben ist damit NICHT belegt — der Bestand sagt etwas "
+            "anderes (Realfall 2026-08-18: kopiert statt verschoben)."
+        )
+        sys.exit(3)
     sys.exit(0)
 
 
