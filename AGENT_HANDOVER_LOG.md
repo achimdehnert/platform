@@ -3417,3 +3417,14 @@ Repo aus dem Arbeitsverzeichnis statt aus -R (#2827), Ausweg GitHub-API bzw. Wor
 Eigener Fehler: Zwischenstaende „54/56" und „55/56" waren addiert, nicht gemessen —
 gemessen sind es 50/56 (Korrektur in #2787). v2.4 der Rubrik hatte eine Parallelsitzung
 bereits gebaut (#2803/#2805/#2808) — per Handover erkannt, kein Doppelstrang.
+
+## 2026-09-04 mittags — 171: travel-beat-Runner, shared-ci Allowlist-Input + Band-Tag v1.1.15, Vorfall stillgelegte App (Sitzung 01Lob9)
+
+Owner „171 go". Prod-Runner travel-beat stand seit 2026-08-30 (Self-Update, kein Restart)
+— neu gestartet, online; der staging-Runner liegt auf dev-desktop und braucht sudo (Owner).
+shared-ci: Runner-Label-Check bekam den Input allowed_runner_labels (#76, schliesst #75),
+Band-Tag v1.1.15 auf 9589a6c gesetzt und verifiziert (#73 zu). Dann der Fehler: der
+Zug-A-Merge travel-beat#96 loeste den Push-Deploy aus und fuhr die sechs seit 2026-08-30
+stillgelegten Container wieder hoch — betriebsstatus in ports.yaml nicht gelesen. Zustand
+sofort zurueck (stop, restart=no), Vorfall in platform#2480, Gate-PR travel-beat#98
+(vars.DEPLOY_ENABLED), Memory-Drift-Eintrag. Zug A gemessen 51/56.

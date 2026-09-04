@@ -66,8 +66,8 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
 28. Future-Readiness: K5-Bilanz aus v2.4-Neulauf (dev-hub#326), Deltas 27 Repos = Owner-Fragen: https://github.com/achimdehnert/platform/issues/2737
 29. Evidenz-Generator-Rest (Rate-Limit-Vorabcheck, visibility-Check); Werkzeuge #2767 gemergt, #2782 offen: https://github.com/achimdehnert/platform/issues/2736
-30. shared-ci Band-Tag v1.1.15 nach Pinning-Merge; Dependabot-Bumps nicht auf v1.1.14 mergen (Owner, Prod-Gate): https://github.com/iilgmbh/shared-ci/issues/73
-31. travel-beat: beide self-hosted Runner offline, Pinning-PR #94 hängt: https://github.com/achimdehnert/travel-beat/issues/95
+30. shared-ci v1.1.15 gesetzt (9589a6c, #73 zu); Konsumenten von 1.1.14 auf 1.1.15 bumpen (writing-hub#1002/#1004 zuerst), Input `allowed_runner_labels` fuer dedizierte Runner (mcp-hub): https://github.com/iilgmbh/shared-ci/issues/75
+31. travel-beat stillgelegt, aber Deploy ohne Gate — Doku-Merge #96 fuhr die App hoch (zurueckgesetzt); Gate-PR #98 VOR #94 mergen; staging-Runner auf dev-desktop braucht sudo-Start: https://github.com/achimdehnert/travel-beat/pull/98
 32. ADR-262 Frontmatter nach Welle 1 (7 Repos umgesetzt, Status not-started): https://github.com/achimdehnert/platform/issues/2770
 33. session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name): https://github.com/achimdehnert/platform/issues/2773
 34. Speicher-Melder baut den Hop-Zugang noch selbst, Rest aus #2783: https://github.com/achimdehnert/platform/issues/2802
