@@ -625,13 +625,22 @@ services:
     prod: 8120
     staging: 8120
     dev: 8120
-    prod_host: dev-desktop
+    prod_host: prod-b               # Owner-Entscheid 2026-09-04: zurueck auf prod-b (war dev-desktop, gegen auflage.prod_container=false)
     container_name: praes-iil-ai-web-1
     domain_prod: praes.iil.ai
     domain_staging: null
     repo: achimdehnert/decks-hub          # deploy/praes
-    betriebsstatus: blockiert
-    betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
+    betriebsstatus: ruhend
+    betriebsstatus_grund: >
+      Owner-Entscheid 2026-09-04 (platform#2507): Ziel ist prod-b, Deploy dorthin noch offen.
+      Auf dev-desktop laeuft NICHTS mehr — am Knoten selbst geprueft: kein Container unter 37
+      laufenden, auch keiner gestoppt (Positivkontrolle: 20 gestoppte werden gelistet), Port 8120
+      lauscht nicht. Der Tunnel gehoerte zum selben Compose und ist mit ihm weg. Die HTTP 302 von
+      praes.iil.ai ist die Cloudflare-Access-Weiterleitung am Rand und sagt nichts ueber den
+      Ursprung. Damit war der Dauer-Befund des Hosts-Audits (10 Laeufe rot seit 2026-09-02) ein
+      DEKLARATIONS-Fehler, kein Betriebsverstoss. Reste: zwei Images auf dev-desktop entfernt
+      2026-09-04; DNS-Route + Access-Anwendung bei Cloudflare bleiben, bis der Deploy auf prod-b
+      steht (sonst zeigt der Hostname eine Anmeldemaske ohne Dienst dahinter).
   chat-hub:
     prod: 8008
     staging: 8008
