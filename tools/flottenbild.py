@@ -34,6 +34,8 @@ from pathlib import Path
 
 import yaml
 
+import hostzugang
+
 WURZEL = Path(__file__).resolve().parents[1]
 HOSTS_YAML = WURZEL / "infra" / "hosts.yaml"
 PORTS_YAML = WURZEL / "infra" / "ports.yaml"
@@ -105,13 +107,10 @@ def messe_knoten(name: str, h: dict) -> dict:
     # Windows-Knoten fuehren die Probe in ihrer WSL aus: hosts.yaml `ssh_shell`.
     # `ssh_via`: der Schluessel fuer den Knoten liegt NUR auf dem Hop (GPU-Box: root@prod
     # kennt achim@10.99.0.2, die Dev-Maschine nicht) — dann laeuft das ssh vom Hop aus,
-    # das Skript wandert per stdin durch beide Verbindungen.
-    shell = str(h.get("ssh_shell") or "bash -s")
-    if h.get("ssh_via"):
-        inner = f'ssh -o BatchMode=yes -o ConnectTimeout=8 {ziel} "{shell}"'
-        cmd = ["ssh", *SSH_OPTS, str(h["ssh_via"]), inner]
-    else:
-        cmd = ["ssh", *SSH_OPTS, ziel, shell]
+    # das Skript wandert per stdin durch beide Verbindungen. Konstruktion in
+    # tools/hostzugang.py (platform#2783), geteilt mit host_datei_drift.py und
+    # deploy-script-drift.sh.
+    cmd = hostzugang.ssh_kommando({**h, "ssh": ziel}, ssh_opts=SSH_OPTS)
     rc, out = _lauf(cmd, timeout=90, stdin=HOST_KOMMANDO)
     zeile = [z for z in out.splitlines() if z.count("|") >= 10]
     if rc != 0 or not zeile:

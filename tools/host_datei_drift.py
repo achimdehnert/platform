@@ -37,6 +37,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import hostzugang
+
 # Quellverzeichnisse: alles darin gilt als potenziell verteilte Datei.
 QUELLEN = ("infra/host-maintenance",)
 
@@ -148,14 +150,9 @@ def host_hashes(
         f'v=$(grep -m1 -oE \'^[A-Z_]+_VERSION="[^"]*"\' "$p" 2>/dev/null); '
         f'[ -n "$v" ] && echo "VER $p $v"; done 2>/dev/null'
     )
-    if ssh_via:
-        shell = ssh_shell or "bash -s"
-        inner = f'ssh -o BatchMode=yes -o ConnectTimeout=8 {ssh_ziel} "{shell}"'
-        cmd = [*SSH, ssh_via, inner]
-        lauf_kwargs: dict = {"input": befehl}
-    else:
-        cmd = [*SSH, ssh_ziel, befehl]
-        lauf_kwargs = {}
+    host = {"ssh": ssh_ziel, "ssh_via": ssh_via, "ssh_shell": ssh_shell}
+    cmd = hostzugang.ssh_kommando(host, ssh_opts=list(SSH[1:]), kommando_direkt=befehl)
+    lauf_kwargs: dict = {"input": befehl} if ssh_via else {}
     try:
         aus = subprocess.run(
             cmd,
