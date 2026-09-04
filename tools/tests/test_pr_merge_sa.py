@@ -608,6 +608,19 @@ def test_should_not_let_a_number_prefix_match_a_longer_pr_number(monkeypatch):
     assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M1"
 
 
+def test_should_not_read_m3_from_prod_marker_words_in_the_vermerk(monkeypatch):
+    """Review-Befund zu #2814: PROD_IM_APPROVAL matcht auch "prod"/"release"/
+    "publish" — ein M1-Vermerk, der die PR-Nummer nur im Kontext von
+    "Prod-Rueckstand" nennt, darf NICHT versehentlich M3 werden. Der
+    Vermerk-Pfad prueft ausschliesslich das Wort "deploy"."""
+    import pr_merge_sa
+
+    body = "Freigabe: akzeptiert durch Owner, PR #2804 (Prod-Rueckstand)"
+    monkeypatch.setattr(pr_merge_sa, "_gh", _issue_view_fake(body))
+    pr = {"reviewDecision": None, "latestReviews": [], "body": "Refs #2812"}
+    assert pr_merge_sa.mandat_des_prs("owner/repo", 2804, pr) == "M1"
+
+
 def test_should_prefer_review_m3_over_vermerk_and_never_read_the_issue(monkeypatch):
     """Pruefreihenfolge: Reviews zuerst, dann Vermerke — liegt schon ein
     Review-M3 vor, wird das verlinkte Issue gar nicht erst gelesen."""

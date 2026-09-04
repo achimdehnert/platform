@@ -88,6 +88,12 @@ FREIGABE_VERMERK = re.compile(
 PROD_IM_APPROVAL = re.compile(
     r"\b(deploy|prod|production|publish|release)\b", re.IGNORECASE
 )
+# Nur fuer den Issue-Vermerk-Pfad (#2814 Review-Befund): PROD_IM_APPROVAL matcht
+# auch "prod"/"release"/"publish" und wuerde einen M1-Vermerk wie "PR #2804
+# (Prod-Rueckstand)" versehentlich zu M3 machen. Der Owner hat den Vermerk
+# woertlich auf das Wort "deploy" festgelegt (Freigabe: akzeptiert durch Owner
+# — deploy) — der Vermerk-Pfad prueft deshalb ausschliesslich dieses Wort.
+DEPLOY_IM_VERMERK = re.compile(r"\bdeploy\b", re.IGNORECASE)
 
 
 @dataclass
@@ -287,10 +293,12 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
                 return "M3"
         return "M2"
 
-    # (b) 2026-09-04 (#2812): M3 auf eigenem PR ist per Review unerreichbar
-    # (GitHub laesst kein Approve-Review auf ein eigenes PR zu). Ein Vermerk im
-    # verlinkten Issue deckt W3 als M3-Aequivalent NUR, wenn dieselbe Zeile alle
-    # drei Bedingungen traegt: Freigabe-Vermerk, ein Deploy-Wort, UND diese
+    # (b) 2026-09-04 (#2812, praezisiert #2814): M3 auf eigenem PR ist per
+    # Review unerreichbar (GitHub laesst kein Approve-Review auf ein eigenes PR
+    # zu). Ein Vermerk im verlinkten Issue deckt W3 als M3-Aequivalent NUR, wenn
+    # dieselbe Zeile alle drei Bedingungen traegt: Freigabe-Vermerk, das Wort
+    # "deploy" (DEPLOY_IM_VERMERK, bewusst enger als PROD_IM_APPROVAL — sonst
+    # wuerde z.B. "PR #2804 (Prod-Rueckstand)" versehentlich M3), UND diese
     # PR-Nummer (Wortgrenze, damit #280 nicht #2804 deckt). Fehlt eine davon,
     # bleibt es beim bestehenden M1 (Vermerk irgendwo im Issue-Body reicht dafuer
     # weiterhin, unveraendert).
@@ -308,7 +316,7 @@ def mandat_des_prs(repo: str, nummer: int, pr: dict) -> str:
         for zeile in issue_body.splitlines():
             if (
                 FREIGABE_VERMERK.search(zeile)
-                and PROD_IM_APPROVAL.search(zeile)
+                and DEPLOY_IM_VERMERK.search(zeile)
                 and pr_nummer_in_zeile.search(zeile)
             ):
                 return "M3"

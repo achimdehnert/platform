@@ -318,14 +318,17 @@ sa_m:
 ```
 
 **Deploy-Vermerk je PR-Nummer deckt W3 als M3-Äquivalent (2026-09-04, #2812,
-Owner-Entscheid (b)):** Ein Approve-Review auf einen eigenen PR lässt GitHub
-nicht zu — der M3-Weg per Review ist auf Owner-eigenen PRs damit strukturell
-unerreichbar. Ersatzweise deckt ein Vermerk im **verlinkten Issue** W3, wenn
-DIESELBE Zeile den Freigabe-Vermerk, ein Deploy-Wort und diese PR-Nummer trägt
-(Wortgrenze, damit `#280` nicht `#2804` deckt), z. B.: `Freigabe: akzeptiert
-durch Owner — deploy #2804`. Fehlt eine der drei Bedingungen, bleibt es beim
-bestehenden M1-Vermerk (irgendwo im Issue-Body, ohne PR-Bezug); ein Review-M3
-hat weiter Vorrang vor jedem Vermerk.
+präzisiert #2814, Owner-Entscheid (b)):** Ein Approve-Review auf einen eigenen
+PR lässt GitHub nicht zu — der M3-Weg per Review ist auf Owner-eigenen PRs
+damit strukturell unerreichbar. Ersatzweise deckt ein Vermerk im **verlinkten
+Issue** W3, wenn DIESELBE Zeile den Freigabe-Vermerk, ausdrücklich **das Wort
+„deploy"** und diese PR-Nummer trägt (Wortgrenze, damit `#280` nicht `#2804`
+deckt), wörtlich: `Freigabe: akzeptiert durch Owner — deploy #2804`. Bewusst
+enger als der breitere Deploy-Wortsatz beim Review-Approval (`prod`,
+`production`, `publish`, `release`) — sonst würde ein M1-Vermerk wie „PR #2804
+(Prod-Rückstand)" versehentlich zu M3. Fehlt eine der drei Bedingungen, bleibt
+es beim bestehenden M1-Vermerk (irgendwo im Issue-Body, ohne PR-Bezug); ein
+Review-M3 hat weiter Vorrang vor jedem Vermerk.
 
 **Kill-Test (bindend, ADR-267-Reibungs-Kill-Muster):** Muss in >30 %
 der Fälle, die unter eine SA-Klasse fallen, doch ein Einzel-OK eingeholt werden
