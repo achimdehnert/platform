@@ -488,8 +488,16 @@ def test_should_count_old_red_twin_as_green_when_newer_run_is_green(monkeypatch)
     import pr_merge_sa
 
     rollup = [
-        {"name": "guardian", "conclusion": "FAILURE", "startedAt": "2026-09-03T11:09:00Z"},
-        {"name": "guardian", "conclusion": "SUCCESS", "startedAt": "2026-09-03T11:33:00Z"},
+        {
+            "name": "guardian",
+            "conclusion": "FAILURE",
+            "startedAt": "2026-09-03T11:09:00Z",
+        },
+        {
+            "name": "guardian",
+            "conclusion": "SUCCESS",
+            "startedAt": "2026-09-03T11:33:00Z",
+        },
     ]
     monkeypatch.setattr(pr_merge_sa, "_gh", _gather_fake_gh(_gather_pr(rollup)))
     f = pr_merge_sa.gather(_GATHER_REPO, 2781, _GATHER_REGELN)
@@ -503,8 +511,16 @@ def test_should_still_count_new_red_twin_when_newer_run_is_red(monkeypatch):
     import pr_merge_sa
 
     rollup = [
-        {"name": "guardian", "conclusion": "SUCCESS", "startedAt": "2026-09-03T11:09:00Z"},
-        {"name": "guardian", "conclusion": "FAILURE", "startedAt": "2026-09-03T11:33:00Z"},
+        {
+            "name": "guardian",
+            "conclusion": "SUCCESS",
+            "startedAt": "2026-09-03T11:09:00Z",
+        },
+        {
+            "name": "guardian",
+            "conclusion": "FAILURE",
+            "startedAt": "2026-09-03T11:33:00Z",
+        },
     ]
     monkeypatch.setattr(pr_merge_sa, "_gh", _gather_fake_gh(_gather_pr(rollup)))
     f = pr_merge_sa.gather(_GATHER_REPO, 2782, _GATHER_REGELN)
