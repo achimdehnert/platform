@@ -440,7 +440,7 @@ def test_should_ignore_an_absolute_mail_ref_from_the_ledger():
 def test_should_show_the_next_step_as_a_section():
     v = vorgang(thread_key="Foerderaufruf", next_trigger="Owner-Entscheidung")
     html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
-    assert "Naechste Schritte" in html_out
+    assert "Aktionen" in html_out
     assert "Owner-Entscheidung" in html_out
 
 
@@ -1321,3 +1321,16 @@ class TestVerlaufAlsStraenge:
             [(1, "2026-08-20 (/mailcheck): Offen bleibt nur der Termin.")], "iil"
         )
         assert "<ol>" not in seite
+
+
+def test_should_show_strang_title_in_original_case_without_prefix():
+    t = tb.zerlege_eintrag(
+        '2026-09-01 (/mailcheck): Firma Muster, Betreff "AW: Angebot Fristenmanagement" vom 01.09.: liegt vor.'
+    )
+    assert tb.strang_schluessel(t) == "angebot fristenmanagement"
+    assert tb.strang_anzeige(t) == "Angebot Fristenmanagement"
+
+
+def test_should_fall_back_to_event_for_strang_display():
+    t = tb.zerlege_eintrag("2026-09-01 GESENDET (Owner): Antwort raus.")
+    assert tb.strang_anzeige(t) == tb.strang_schluessel(t)
