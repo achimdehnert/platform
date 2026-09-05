@@ -130,7 +130,13 @@ def test_should_resolve_the_installation_id_live():
     assert treiber.token("iilgmbh") == "ATTRAPPE"
 
 
-def test_should_explain_a_missing_app_id():
+def test_should_explain_a_missing_app_id(monkeypatch):
+    # `app_id=""` faellt in der echten Klasse auf `os.environ[ROTATION_GH_APP_ID]`
+    # zurueck (Produktions-Komfort) — ohne dieses `delenv` haengt der Test also
+    # an dem, was auf der jeweiligen Maschine zufaellig exportiert ist, statt am
+    # Fall "wirklich nichts gesetzt" (gefunden #2856: rot auf einer Maschine mit
+    # gesetzter ROTATION_GH_APP_ID, obwohl der Treiber selbst unveraendert war).
+    monkeypatch.delenv(tg.APP_ID_ENV, raising=False)
     treiber = tg.GithubTreiber(http=AttrappenHttp(), app_id="", pem=Path("/dev/null"))
     with pytest.raises(tg.TreiberFehler, match="ROTATION_GH_APP_ID"):
         treiber.token("iilgmbh")
