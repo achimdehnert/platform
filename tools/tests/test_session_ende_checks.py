@@ -305,3 +305,86 @@ def test_should_accept_a_session_id_argument(umgebung):
     ergebnis = _lauf(umgebung, argv=("--session-id", "sitzung-42"))
     assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
     assert "session=sitzung-42" in ergebnis.stdout
+
+
+def test_should_accept_a_repo_path_and_use_its_basename(umgebung):
+    """#2773: der Skill ruft mit einem PFAD auf, nicht mit einem Namen.
+
+    Vorher landete der Pfad selbst als Repo-NAME (`$OWNER/$TARGET_REPO`) und als
+    Pfadsegment (`$GITHUB_DIR/$TARGET_REPO/AGENT_HANDOVER.md`) — beides falsch.
+    """
+    ziel_pfad = umgebung["github"] / "beta"
+    (ziel_pfad / "AGENT_HANDOVER.md").write_text("# Handover\n", encoding="utf-8")
+    ergebnis = _lauf(umgebung, ziel=str(ziel_pfad))
+    ziel_real = ziel_pfad.resolve()
+    assert f"target=beta ({ziel_real})" in ergebnis.stdout, ergebnis.stdout
+    assert "keine AGENT_HANDOVER.md" not in ergebnis.stdout
+
+
+def test_should_derive_owner_from_the_target_remote(umgebung):
+    """#2794: OWNER kommt aus dem Ziel-Repo, nicht aus dem Platform-Remote."""
+    ziel_pfad = umgebung["github"] / "beta"
+    _git(ziel_pfad, "remote", "add", "origin", "git@github.com:andereorg/repo.git")
+    aufrufe = umgebung["bin"] / "gh-aufrufe.log"
+    stub = f"""#!/usr/bin/env bash
+echo "$*" >> "{aufrufe}"
+args="$*"
+case "$args" in
+  *"run list"*)  echo "success completed 12345" ;;
+  *"pr list"*)   : ;;
+  *)             : ;;
+esac
+exit 0
+"""
+    (umgebung["bin"] / "gh").write_text(stub, encoding="utf-8")
+    (umgebung["bin"] / "gh").chmod(0o755)
+    ergebnis = _lauf(umgebung, ziel=str(ziel_pfad))
+    assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
+    inhalt = aufrufe.read_text(encoding="utf-8") if aufrufe.exists() else ""
+    # OWNER kommt aus der Remote-URL (`andereorg`), der Repo-NAME bleibt der
+    # Verzeichnisname (`beta`) — die Remote heisst zwar `.../repo.git`, aber
+    # der Runner nennt das Ziel nach seinem Pfadsegment, nicht nach der URL.
+    assert "andereorg/beta" in inhalt, inhalt
+
+
+def test_should_skip_not_pass_when_gh_fails_in_e2(umgebung):
+    """#2794: ein scheiterndes `gh` darf nicht als leere (= gruene) Liste durchgehen."""
+    fehl_stub = """#!/usr/bin/env bash
+args="$*"
+case "$args" in
+  *"run list"*)  echo "success completed 12345" ;;
+  *"pr list"*)   echo "gh: rate limited" >&2; exit 1 ;;
+  *)             exit 0 ;;
+esac
+"""
+    (umgebung["bin"] / "gh").write_text(fehl_stub, encoding="utf-8")
+    (umgebung["bin"] / "gh").chmod(0o755)
+    ergebnis = _lauf(umgebung)
+    phasen = _summary_zeilen(ergebnis.stdout)
+    assert phasen["E.2"] == "SKIP", ergebnis.stdout
+    assert "[SKIP] E.2" in ergebnis.stdout
+    assert "gh scheiterte" in ergebnis.stdout
+
+
+def test_should_skip_not_pass_when_gh_fails_in_e5(umgebung):
+    """Gleiche Lehre fuer E.5 — zusaetzlich ein `curl`-Stub, damit die
+    Ollama-Erreichbarkeitspruefung nicht schon vorher (mangels Netz) SKIPt."""
+    fehl_stub = """#!/usr/bin/env bash
+args="$*"
+case "$args" in
+  *"run list"*)  echo "success completed 12345" ;;
+  *"pr list"*)   echo "gh: rate limited" >&2; exit 1 ;;
+  *)             exit 0 ;;
+esac
+"""
+    (umgebung["bin"] / "gh").write_text(fehl_stub, encoding="utf-8")
+    (umgebung["bin"] / "gh").chmod(0o755)
+    (umgebung["bin"] / "curl").write_text(
+        "#!/usr/bin/env bash\nexit 0\n", encoding="utf-8"
+    )
+    (umgebung["bin"] / "curl").chmod(0o755)
+    ergebnis = _lauf(umgebung)
+    phasen = _summary_zeilen(ergebnis.stdout)
+    assert phasen["E.5"] == "SKIP", ergebnis.stdout
+    assert "[SKIP] E.5" in ergebnis.stdout
+    assert "gh scheiterte" in ergebnis.stdout
