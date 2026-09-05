@@ -261,3 +261,23 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   ([platform#2462](https://github.com/achimdehnert/platform/issues/2462)),
   Gov-Issue-Dubletten (risk-hub#583/#666/#667) und die K1-Entscheidung
   ([risk-hub#717](https://github.com/iilgmbh/risk-hub/issues/717), Frist 2026-08-31).
+- 2026-09-05: **Manueller Lauf (Session risk-hub).** 172 Entries/25 Repos, R3 PASS
+  (172/172 `ok`, 0 failed). 171→172 durch `klickdummy:achimdehnert:design-hub:sitemap`
+  (Spec seit 2026-09-04 10:28, nach dem Cron-Lauf 03:31). Producer `iil-klickdummy
+  1.35.0`; 172 Zeilen = 172 unique `entry_key`. Discovery jetzt 28 Repos mit
+  `klickdummy/`: **meiki-hub (meiki-lra) neu dabei → gov-ausgeschlossen (E3)**, wie
+  frist-hub und ttz-hub → 28 − 3 = 25, Liste unverändert. Schema-WARNs 177, alle
+  getrackt (pg-hub#8, design-hub#36/#38, nl2iot-hub#5).
+  **`written: true` = 6, davon 4 Falsch-Positive.** Legitim: design-hub:sitemap (neu)
+  und 137-hub:sitemap (Commit 7542675 in der Versions-History). Falsch: sqf-hub:ADR-003,
+  design-hub:ADR-007, #2, #3 — Quelle unverändert, Store-Tail nach dem Subagenten-Upsert
+  `\n` statt `\n\n`. Damit ist das Anti-Pattern vom 2026-08-13 reproduziert und schärfer
+  gefasst: 4 der 6 `\n\n`-Entries waren betroffen, die anderen 2 liefen bei zwei anderen
+  Subagenten sauber durch — der Verlust hängt am **einzelnen Worker**, nicht am Entry.
+  Korrektur inline mit exaktem Content (4× `written: true`), danach lesend verifiziert
+  (Tails byte-genau). Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+  **Konsequenz für Step 3/4:** bei Delegation ist jedes `written: true` ohne
+  Quelländerung **vor** dem Report lesend gegenzuprüfen; die Referenz für „Quelle
+  unverändert" ist `git log --since=<letzter Report>` über `klickdummy/` + `docs/adr/`
+  des Repos, nicht der Changelog.
