@@ -276,9 +276,11 @@ class TestVorgangsKopf:
         assert "Zustand" not in kopf and "Angelegt" not in kopf
 
     def test_should_move_the_rest_into_a_collapsed_block(self):
+        """Seit #2856 zieht `zusammenfassung()` den Zustand als "Stand" nach oben —
+        was im kollabierten Block bleibt, ist "Angelegt"/"Zuletzt geprueft"."""
         seite = tb.detail(vorgang())
         assert '<details class="stammdaten">' in seite
-        assert "Zustand" in seite.split("Stammdaten")[1]
+        assert "Angelegt" in seite.split("Stammdaten")[1]
 
     def test_should_offer_the_other_order(self):
         seite = tb.detail(vorgang(notiz="a | b"))
@@ -1079,8 +1081,11 @@ class TestFristGrund:
         html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
         assert "<th>Frist</th><td>keine — Warten auf Gegenseite</td>" in html_out
 
-    def test_should_keep_the_dash_without_a_reason(self):
-        assert "<th>Frist</th><td>—</td>" in tb.detail(
+    def test_should_drop_the_row_without_a_reason(self):
+        """Seit #2856 wird eine fehlende Frist OHNE Grund gar nicht mehr gezeigt —
+        `zusammenfassung()` laesst fehlende Felder weg statt einen Strich zu
+        raten (kein Rate-Ersatzwert)."""
+        assert "<th>Frist</th>" not in tb.detail(
             vorgang(frist=None), mail_basis="https://mail.example", basis=""
         )
 
@@ -1121,3 +1126,200 @@ class TestReproduzierbar:
         assert tb.detail(v, mail_basis="https://mail.example", basis="") == tb.detail(
             v, mail_basis="https://mail.example", basis=""
         )
+
+
+# --- Zusammenfassung, Straenge, nummerierte Listen (#2856) ---------------------
+#
+# Owner-Zielbild: (1) eine feste Zusammenfassung oben, (2) der Verlauf nach
+# Straengen gruppiert (neueste Karte zuerst), (3) Aufzaehlungen im Verlaufstext
+# als nummerierte Liste. Alle Beispiele hier sind erfunden (Firma Muster /
+# M. Beispiel) — der Ledger selbst enthaelt echte Mandantendaten und wird nie
+# in Tests oder Fixtures kopiert.
+
+
+class TestZusammenfassung:
+    def test_should_list_only_fields_that_are_actually_set(self):
+        zeilen = tb.zusammenfassung(
+            vorgang(
+                zustand="m-beispiel-hat-angebot-bestaetigt",
+                next_trigger="Angebot pruefen",
+                frist="2026-09-30",
+                gegenueber="Firma Muster",
+                konto="iil",
+                typ="Angebot",
+                bucket="owner",
+                nr=185,
+            )
+        )
+        labels = [label for label, _ in zeilen]
+        assert labels == [
+            "Stand",
+            "Naechster Schritt",
+            "Frist",
+            "Gegenueber",
+            "Konto",
+            "Typ",
+            "Bucket",
+            "Nummer",
+        ]
+
+    def test_should_capitalise_and_despace_the_state_slug(self):
+        zeilen = dict(tb.zusammenfassung(vorgang(zustand="m-beispiel-hat-geantwortet")))
+        assert zeilen["Stand"] == "M beispiel hat geantwortet"
+
+    def test_should_drop_fields_that_are_missing_instead_of_guessing(self):
+        """Kein Rate-Ersatzwert: ohne Frist UND ohne Grund fehlt die Zeile ganz."""
+        zeilen = dict(tb.zusammenfassung(vorgang(frist=None, frist_grund=None)))
+        assert "Frist" not in zeilen
+
+    def test_should_show_none_as_the_reason_when_there_is_no_deadline(self):
+        zeilen = dict(
+            tb.zusammenfassung(vorgang(frist=None, frist_grund="Owner-Aufgabe"))
+        )
+        assert zeilen["Frist"] == "keine — Owner-Aufgabe"
+
+    def test_should_return_nothing_for_an_empty_vorgang(self):
+        assert tb.zusammenfassung({}) == []
+
+
+class TestStrangSchluessel:
+    def test_should_key_on_a_quoted_subject(self):
+        t = tb.zerlege_eintrag(
+            '2026-09-01 (/mailcheck): Firma Muster meldet sich zu "Angebot '
+            "Fristenmanagement\" — Rueckfrage zur Laufzeit."
+        )
+        assert tb.strang_schluessel(t) == "angebot fristenmanagement"
+
+    def test_should_normalise_reply_prefixes_onto_the_same_subject(self):
+        t = tb.zerlege_eintrag(
+            '2026-09-02 (/mailcheck): Antwort zu "AW: Angebot Fristenmanagement" '
+            "eingetroffen."
+        )
+        assert tb.strang_schluessel(t) == "angebot fristenmanagement"
+
+    def test_should_fall_back_to_the_event_without_a_subject(self):
+        t = tb.zerlege_eintrag("2026-08-20 13:41 GESENDET (Owner): Angebot raus.")
+        assert tb.strang_schluessel(t) == "GESENDET"
+
+    def test_should_fall_back_to_sonstiges_without_subject_or_event(self):
+        t = tb.zerlege_eintrag("erst dies")
+        assert tb.strang_schluessel(t) == "Sonstiges"
+
+
+class TestGruppiereStraenge:
+    def _t(self, roh: str) -> dict:
+        return tb.zerlege_eintrag(roh)
+
+    def test_should_sort_straenge_newest_first(self):
+        eintraege = [
+            (1, self._t('2026-08-20 (/mailcheck): "Angebot Muster" Start.')),
+            (2, self._t("2026-08-21 TELEFONAT (Owner): M. Beispiel ruft an.")),
+            (3, self._t('2026-08-22 (/mailcheck): "Angebot Muster" Rueckfrage.')),
+        ]
+        straenge = tb.gruppiere_straenge(eintraege)
+        # Der Angebot-Strang traegt den juengsten Eintrag ueberhaupt (#3) — er
+        # steht darum vor dem TELEFONAT-Strang, dessen einziger Eintrag (#2)
+        # aelter ist.
+        assert [s for s, _ in straenge] == ["angebot muster", "TELEFONAT"]
+
+    def test_should_keep_a_single_card_strand_as_its_own_strand(self):
+        eintraege = [(1, self._t("2026-08-20 TELEFONAT (Owner): Kurzer Anruf."))]
+        straenge = tb.gruppiere_straenge(eintraege)
+        assert len(straenge) == 1
+        assert len(straenge[0][1]) == 1
+
+    def test_should_show_the_newest_card_first_within_a_strand(self):
+        eintraege = [
+            (1, self._t('2026-08-20 (/mailcheck): "Angebot Muster" Start.')),
+            (2, self._t('2026-08-21 (/mailcheck): "Angebot Muster" Zwischenstand.')),
+            (3, self._t('2026-08-22 (/mailcheck): "Angebot Muster" Abschluss.')),
+        ]
+        straenge = tb.gruppiere_straenge(eintraege)
+        [(_, karten)] = straenge
+        assert [nummer for nummer, _ in karten] == [3, 2, 1]
+
+
+class TestAlsListe:
+    def test_should_split_a_semicolon_list(self):
+        teile = tb.als_liste("Termin bestaetigt; Vertrag unterschrieben; Rechnung offen.")
+        assert teile == [
+            "Termin bestaetigt",
+            "Vertrag unterschrieben",
+            "Rechnung offen.",
+        ]
+
+    def test_should_split_a_comma_list_of_at_least_three_inside_a_lane(self):
+        teile = tb.als_liste(
+            "Offen: Angebot pruefen, Rueckmeldung an Firma Muster senden, "
+            "Termin abstimmen."
+        )
+        assert teile == [
+            "Angebot pruefen",
+            "Rueckmeldung an Firma Muster senden",
+            "Termin abstimmen.",
+        ]
+
+    def test_should_not_split_a_two_part_comma_sentence(self):
+        """Zwei Haelften sind meistens ein normaler Satz, keine Liste."""
+        assert (
+            tb.als_liste("Naechster Schritt: Angebot pruefen, dann antworten.")
+            is None
+        )
+
+    def test_should_not_tear_a_date_apart(self):
+        assert tb.als_liste("Termin am 04.09.2026 15:05 UTC bestaetigt.") is None
+
+    def test_should_not_tear_a_price_apart(self):
+        assert (
+            tb.als_liste(
+                "Ergebnis: Angebot ueber 10.160,50 EUR/Jahr eingegangen, "
+                "Frist 30.09. gesetzt, Owner informiert."
+            )
+            == [
+                "Angebot ueber 10.160,50 EUR/Jahr eingegangen",
+                "Frist 30.09. gesetzt",
+                "Owner informiert.",
+            ]
+        )
+
+    def test_should_return_none_for_a_single_sentence(self):
+        assert tb.als_liste("Der Bericht ist raus.") is None
+
+    def test_should_return_none_for_empty_text(self):
+        assert tb.als_liste("") is None
+
+
+class TestVerlaufAlsStraenge:
+    """Der Verlauf auf der Vorgangsseite ist jetzt nach Strang gruppiert."""
+
+    def test_should_render_a_strand_heading_with_a_count(self):
+        seite = tb.verlauf(
+            [
+                (1, '2026-08-20 (/mailcheck): "Angebot Muster" Start.'),
+                (2, '2026-08-21 (/mailcheck): "Angebot Muster" Rueckfrage.'),
+            ],
+            "iil",
+        )
+        assert "<section class='strang'>" in seite
+        assert "<h3 class='strang-kopf'>" in seite
+        assert "<span class='zahl'>2</span>" in seite
+
+    def test_should_render_an_enumeration_as_an_ordered_list(self):
+        seite = tb.verlauf(
+            [
+                (
+                    1,
+                    "2026-08-20 (/mailcheck): Offen: Angebot pruefen, Termin "
+                    "abstimmen, Rueckmeldung geben.",
+                )
+            ],
+            "iil",
+        )
+        assert "<ol>" in seite
+        assert seite.count("<li>") == 3
+
+    def test_should_leave_plain_prose_as_a_paragraph(self):
+        seite = tb.verlauf(
+            [(1, "2026-08-20 (/mailcheck): Offen bleibt nur der Termin.")], "iil"
+        )
+        assert "<ol>" not in seite

@@ -558,10 +558,18 @@ a.aktion:hover{border-color:var(--stumm)}
 h2.verlauf-kopf{display:block;margin:1.75rem 0 .6rem}
 h2.verlauf-kopf .zusatz{display:block;font-size:.76rem;font-weight:400;color:var(--stumm);
 margin-top:.15rem}
+table.zusammenfassung{width:100%;border-collapse:collapse;font-size:.9rem;margin:.6rem 0 1rem}
+table.zusammenfassung th{text-align:left;font-weight:600;color:var(--stumm);
+white-space:nowrap;padding:.25rem .9rem .25rem 0;vertical-align:top;width:1%}
+table.zusammenfassung td{padding:.25rem 0;word-break:break-word}
+.strang{margin:0 0 1.1rem}
+.strang:last-child{margin-bottom:0}
+h3.strang-kopf{font-size:.92rem;margin:0 0 .4rem;display:flex;align-items:center;gap:.5rem;
+color:var(--fg)}
 .eintrag{background:var(--karte);border:1px solid var(--linie);border-radius:8px;
-padding:.75rem .9rem;margin:0 0 .6rem;font-size:.88rem;line-height:1.55}
+padding:.55rem .8rem;margin:0 0 .4rem;font-size:.88rem;line-height:1.5}
 .eintrag-kopf{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;
-margin:0 0 .45rem;font-size:.74rem;color:var(--stumm)}
+margin:0 0 .4rem;font-size:.74rem;color:var(--stumm)}
 .eintrag-datum{font-variant-numeric:tabular-nums;font-weight:600}
 .ereignis{text-transform:uppercase;letter-spacing:.05em;font-weight:600;
 border:1px solid var(--linie);border-radius:999px;padding:.02rem .45rem}
@@ -571,8 +579,11 @@ border:1px solid var(--linie);border-radius:999px;padding:.02rem .45rem}
 border-bottom:1px dotted var(--linie)}
 .deckung summary::-webkit-details-marker{display:none}
 .deckung p{margin:.4rem 0 0;max-width:42rem;font-size:.74rem;word-break:break-word}
-.eintrag p{margin:0 0 .35rem;word-break:break-word}
-.eintrag p:last-child{margin-bottom:0}
+.eintrag p,.eintrag div{margin:0 0 .3rem;word-break:break-word}
+.eintrag p:last-child,.eintrag div:last-child{margin-bottom:0}
+.eintrag ol{margin:.15rem 0 .3rem;padding-left:1.15rem}
+.eintrag ol:last-child{margin-bottom:0}
+.eintrag li{margin:0 0 .15rem}
 .bahn-marke{display:inline-block;font-size:.68rem;text-transform:uppercase;
 letter-spacing:.05em;font-weight:600;color:var(--stumm);margin-right:.4rem}
 .bahn-analyse{border-left:2px solid var(--linie);padding-left:.6rem}
@@ -724,29 +735,69 @@ def naechste_schritte(
     return f"<h2>Naechste Schritte</h2>{kopf}{rest}"
 
 
-# Reihenfolge der Detailfelder: erst wer und was, dann Zustand, zuletzt der Verlauf.
-#: Was beim Aufschlagen zaehlt. Alles andere steht unter „Details" —
-#: Beifang-Felder oben kosten 350 Pixel, bevor die erste Information kommt
-#: (gemessen an der Seite von Vorgang 142, Owner-Befund 2026-08-21).
-DETAIL_FELDER = (
-    ("gegenueber", "Gegenueber"),
-    ("frist", "Frist"),
-    # `next_trigger` steht bewusst NICHT hier: der Abschnitt "Naechste Schritte"
-    # zeigt denselben Satz zwei Zeilen tiefer, und eine Seite, die dieselbe
-    # Aussage zweimal macht, kostet Lesezeit ohne etwas hinzuzufuegen.
-)
-
-#: Zweite Reihe: richtig, aber selten gebraucht. Der Zustands-Slug etwa ist eine
-#: Maschinenmarke ("klimm-hat-statusbericht-bestaetigt-2026-08-20-1448") — er
-#: gehoert in die Akte, nicht in den ersten Blick.
+# Was beim Aufschlagen zaehlt, steht jetzt in `zusammenfassung()` (#2856):
+# Stand, Naechster Schritt, Frist, Gegenueber, Konto, Typ, Bucket, Nummer.
+# Was uebrig bleibt, ist selten gebraucht und steht darum unter „Stammdaten" —
+# angelegt/zuletzt geprueft sind Belege, keine Fragen, die man an den Vorgang hat.
 DETAIL_FELDER_ZWEITE_REIHE = (
-    ("konto", "Konto"),
-    ("bucket", "Bucket"),
-    ("typ", "Typ"),
-    ("zustand", "Zustand"),
     ("angelegt", "Angelegt"),
     ("letzte_pruefung", "Zuletzt geprueft"),
 )
+
+
+def zusammenfassung(vorgang: dict) -> list[tuple[str, str]]:
+    """Feste Kurzfassung eines Vorgangs — nur, was tatsaechlich im Ledger steht.
+
+    Reine Funktion, testbar ohne Server: kein Raten, fehlende Felder werden
+    weggelassen statt mit einem Platzhalter aufgefuellt (#2856). Reihenfolge:
+    Stand, Naechster Schritt, Frist, Gegenueber, Konto, Typ, Bucket, Nummer —
+    das ist die Reihenfolge, in der eine Frage an den Vorgang typischerweise
+    beantwortet wird ("wo stehen wir" vor "wer ist das", "wer ist das" vor
+    der Buchhaltungs-Klassifikation).
+    """
+    zeilen: list[tuple[str, str]] = []
+
+    zustand_roh = str(vorgang.get("zustand") or "").strip()
+    if zustand_roh:
+        # Der Zustands-Slug ist eine Maschinenmarke ("klimm-hat-…-bestaetigt").
+        # Bindestriche sind hier Wortgrenzen, keine Trennstriche eines Kompositums.
+        text = zustand_roh.replace("-", " ")
+        zeilen.append(("Stand", text[:1].upper() + text[1:]))
+
+    schritt = str(vorgang.get("next_trigger") or "").strip()
+    if schritt:
+        zeilen.append(("Naechster Schritt", schritt))
+
+    frist = str(vorgang.get("frist") or "").strip()
+    frist_grund = str(vorgang.get("frist_grund") or "").strip()
+    if frist:
+        zeilen.append(("Frist", f"{frist} — {frist_grund}" if frist_grund else frist))
+    elif frist_grund:
+        # Keine Frist ist eine Aussage, wenn ihr Grund dabeisteht (#2592 K4) —
+        # dieselbe Regel wie in `zeile()`, hier fuer die Vorgangsseite gespiegelt.
+        zeilen.append(("Frist", f"keine — {frist_grund}"))
+
+    gegenueber = str(vorgang.get("gegenueber") or "").strip()
+    if gegenueber:
+        zeilen.append(("Gegenueber", gegenueber))
+
+    konto = str(vorgang.get("konto") or "").strip()
+    if konto:
+        zeilen.append(("Konto", KONTO_LABEL.get(konto, konto)))
+
+    typ = str(vorgang.get("typ") or "").strip()
+    if typ:
+        zeilen.append(("Typ", typ))
+
+    bucket = str(vorgang.get("bucket") or "").strip()
+    if bucket:
+        zeilen.append(("Bucket", bucket))
+
+    nr = vorgang.get("nr")
+    if nr not in (None, ""):
+        zeilen.append(("Nummer", f"#{nr}"))
+
+    return zeilen
 
 
 def _erwartung(nr, pfad: Path | None = None) -> dict:
@@ -1014,6 +1065,121 @@ def verweise(
     )
 
 
+#: Ein Komma ZWISCHEN zwei Ziffern ist ein Dezimaltrennzeichen ("10.160,50 EUR"),
+#: kein Listentrenner — es wird beim Split geschuetzt statt zerteilt.
+_ZAHL_KOMMA = re.compile(r"(?<=\d),(?=\d)")
+
+#: Nur INNERHALB dieser Bahnen wird ein Komma ueberhaupt als moeglicher Trenner
+#: gewertet — ein Fliesstext-Satz mit aufzaehlenden Kommas ("Klimm, Meier und
+#: Schulz waren dabei, ...") ist damit ausgenommen; dort ist ein Komma meistens
+#: Grammatik, keine Liste.
+_LISTEN_PRAEFIX = re.compile(r"^(?:Offen|Naechster Schritt|Ergebnis)\s*:\s*", re.IGNORECASE)
+
+
+def als_liste(text: str) -> list[str] | None:
+    """Zerlegt eine Aufzaehlung im Text in Teile — oder None, wenn keine vorliegt.
+
+    Zwei Erkennungswege, beide konservativ (#2856):
+
+    1. `;` als Trenner, ab zwei Teilen — greift ueberall im Text.
+    2. Innerhalb der Bahnen "Offen:"/"Naechster Schritt:"/"Ergebnis:" eine
+       Komma-Trennung, aber erst ab drei Teilen — zwei durch Komma getrennte
+       Haelften sind meistens ein normaler Satz, keine Liste.
+
+    Datums- und Preisangaben ("04.09.2026 15:05 UTC", "10.160,50 EUR/Jahr")
+    werden nicht zerrissen: ein Komma zwischen zwei Ziffern gilt als
+    Dezimaltrennzeichen und wird vor dem Split geschuetzt.
+    """
+    roh = (text or "").strip()
+    if not roh:
+        return None
+    if ";" in roh:
+        teile = [t.strip() for t in roh.split(";") if t.strip()]
+        if len(teile) >= 2:
+            return teile
+    treffer = _LISTEN_PRAEFIX.match(roh)
+    if treffer:
+        rest = roh[treffer.end() :]
+        platzhalter = "\x00"
+        geschuetzt = _ZAHL_KOMMA.sub(platzhalter, rest)
+        teile = [t.replace(platzhalter, ",").strip() for t in geschuetzt.split(",")]
+        teile = [t for t in teile if t]
+        if len(teile) >= 3:
+            return teile
+    return None
+
+
+#: Ein im Eintrag in Anfuehrungszeichen genannter Betreff — beide im Bestand
+#: vorkommenden Schreibweisen: gerade Anfuehrungszeichen ("...") und die
+#: deutsche Form mit unten oeffnender Anfuehrung (%s...").
+_STRANG_ANFUEHRUNG = re.compile(r'["„]([^"„“”]{2,120})["“”]')
+#: Antwort-/Weiterleitungspraefixe vor einem zitierten Betreff — mehrfach
+#: moeglich ("AW: WG: Angebot"), darum in einer Schleife entfernt.
+_STRANG_PRAEFIX = re.compile(r"^(?:AW|RE|WG|FWD)\s*:\s*", re.IGNORECASE)
+
+
+def strang_schluessel(eintrag: dict) -> str:
+    """Gruppierungs-Schluessel eines zerlegten Verlaufseintrags (`zerlege_eintrag`).
+
+    Reihenfolge (#2856): (1) ein im Eintrag in Anfuehrungszeichen genannter
+    Betreff — normalisiert (AW:/Re:/WG:/Fwd:-Praefixe entfernt, Kleinschreibung,
+    Whitespace vereinheitlicht), damit "AW: Angebot" und "Angebot" denselben
+    Strang treffen; (2) sonst das Ereignis bzw. die Quelle aus der Kopfzeile
+    (GESENDET, TELEFONAT, Owner, /mailcheck, …); (3) sonst "Sonstiges".
+    """
+    text = " ".join(eintrag.get("saetze") or [])
+    treffer = _STRANG_ANFUEHRUNG.search(text)
+    if treffer:
+        betreff = treffer.group(1).strip()
+        while True:
+            gekuerzt = _STRANG_PRAEFIX.sub("", betreff)
+            if gekuerzt == betreff:
+                break
+            betreff = gekuerzt
+        norm = re.sub(r"\s+", " ", betreff).strip().lower()
+        if norm:
+            return norm
+    ereignis = str(eintrag.get("ereignis") or "").strip()
+    if ereignis:
+        return ereignis
+    quelle = str(eintrag.get("quelle") or "").strip()
+    if quelle:
+        return quelle
+    return "Sonstiges"
+
+
+def gruppiere_straenge(eintraege: list[tuple]) -> list[tuple[str, list]]:
+    """Verlaufseintraege (bereits zerlegt) nach Strang gruppieren.
+
+    `eintraege` sind (nummer, zerlegt)-Paare in CHRONOLOGISCHER Reihenfolge —
+    dieselbe Zaehlung wie im Rest der Vorgangsseite (aelteste Nummer zuerst).
+    Straenge werden nach ihrem juengsten enthaltenen Eintrag sortiert (neueste
+    zuerst); innerhalb eines Strangs steht die juengste Karte zuerst. Ein
+    Strang mit nur einer Karte bleibt ein Strang — kein Sonderfall (#2856).
+    """
+    gruppen: dict[str, list[tuple]] = {}
+    reihenfolge: list[str] = []
+    for eintrag in eintraege:
+        nummer, t = eintrag
+        schluessel = strang_schluessel(t)
+        if schluessel not in gruppen:
+            gruppen[schluessel] = []
+            reihenfolge.append(schluessel)
+        gruppen[schluessel].append(eintrag)
+    ergebnis = [
+        (schluessel, sorted(gruppen[schluessel], key=lambda p: (p[0] or 0), reverse=True))
+        for schluessel in reihenfolge
+    ]
+    ergebnis.sort(key=lambda kv: max((p[0] or 0) for p in kv[1]), reverse=True)
+    return ergebnis
+
+
+def _strang_titel(schluessel: str) -> str:
+    """Anzeigetitel eines Strangs — Grossschreibung des ersten Buchstabens."""
+    text = schluessel.strip()
+    return text[:1].upper() + text[1:] if text else "Sonstiges"
+
+
 def zerlege_eintrag(roh: str) -> dict:
     """Einen Verlaufseintrag in Kopf, Deckung, Inhalt, Analyse und Action zerlegen.
 
@@ -1069,15 +1235,14 @@ def verlauf(
     links: dict | None = None,
     anker: frozenset[str] | None = None,
 ) -> str:
-    """Der Verlauf als Karten — Beiwerk eingeklappt.
+    """Der Verlauf als nach Strang gruppierte Karten — Beiwerk eingeklappt.
 
     Die Reihenfolge entscheidet der Aufrufer: der Stand steht oben (Default), die
-    Entstehung liest sich von unten (`?alt=1`).
+    Entstehung liest sich von unten (`?alt=1`) — beides gilt jetzt fuer Straenge
+    UND fuer die Karten innerhalb eines Strangs (#2856).
     """
     if not eintraege:
         return "<p class='kein-ziel'>Kein Verlauf.</p>"
-    karten: list[str] = []
-    stille: list = []
     links = links if links is not None else _eintrag_links(nr)
     # Einmal je Seite gelesen, nicht je Referenz — der Verlauf nennt Dutzende.
     anker = _schluessel(ANKER_DATEI) if anker is None else anker
@@ -1089,12 +1254,20 @@ def verlauf(
         roh_text = eintrag[1] if isinstance(eintrag, tuple) else eintrag
         genannt += anker_im_text(html.escape(str(roh_text)), konto, anker)
     datumsmarken = gleichbetreffte(genannt, _anker_daten(ANKER_DATEI))
-    for eintrag in eintraege:
-        # Nummer und Text kommen als Paar herein: gezaehlt wird vom AELTESTEN Ende,
-        # damit `#132-4` derselbe Eintrag bleibt, wenn oben zehn neue dazukommen.
-        # Eine Nummer, die sich mit der Anzeige verschiebt, taugt nicht zum Zeigen.
-        nummer, roh = eintrag if isinstance(eintrag, tuple) else (None, eintrag)
-        t = zerlege_eintrag(roh)
+
+    # Nummer und Text kommen als Paar herein: gezaehlt wird vom AELTESTEN Ende,
+    # damit `#132-4` derselbe Eintrag bleibt, wenn oben zehn neue dazukommen.
+    # Eine Nummer, die sich mit der Anzeige verschiebt, taugt nicht zum Zeigen.
+    geparst: list[tuple] = [
+        (
+            (eintrag[0], zerlege_eintrag(eintrag[1]))
+            if isinstance(eintrag, tuple)
+            else (None, zerlege_eintrag(eintrag))
+        )
+        for eintrag in eintraege
+    ]
+
+    def karte(nummer, t) -> str | None:
         bezug = links.get(str(nummer), {}) if nummer is not None else {}
 
         def bahn(schluessel: str, klasse: str, label: str = "", t=t) -> str:
@@ -1102,10 +1275,17 @@ def verlauf(
             if not wert:
                 return ""
             marke = f"<span class='bahn-marke'>{label}</span>" if label else ""
-            return (
-                f"<p class='{klasse}'>{marke}"
-                f"{verweise(html.escape(wert), konto, mail_basis, anker, datumsmarken)}</p>"
-            )
+            # Nummerierte Liste, wenn der Text eine Aufzaehlung ist — sonst
+            # bleibt es Fliesstext (#2856 K3).
+            teile = als_liste(wert)
+            if teile:
+                rumpf = "<ol>" + "".join(
+                    f"<li>{verweise(html.escape(teil), konto, mail_basis, anker, datumsmarken)}</li>"
+                    for teil in teile
+                ) + "</ol>"
+            else:
+                rumpf = verweise(html.escape(wert), konto, mail_basis, anker, datumsmarken)
+            return f"<div class='{klasse}'>{marke}{rumpf}</div>"
 
         marken = []
         if nummer is not None:
@@ -1133,8 +1313,8 @@ def verlauf(
                 if bezug.get("url")
                 else f"<span class='mail-bezug ohne-link'>✉ {titel}</span>"
             )
-        # Die Deckung sitzt IM Kopf, nicht im Text: sie ist eine Eigenschaft der
-        # Erhebung, keine Aussage ueber den Vorgang.
+        # Die Deckung sitzt IM Kopf, eingeklappt hinter <details>: sie ist eine
+        # Eigenschaft der Erhebung, keine Aussage ueber den Vorgang (#2856 K3).
         if t["deckung"]:
             marken.append(
                 "<details class='deckung'><summary>Deckung</summary>"
@@ -1149,24 +1329,51 @@ def verlauf(
             + bahn("action", "bahn-action", "Offen")
         )
         if not rumpf:
-            # Ein Eintrag, der nur aus Deckung besteht, ist trotzdem ein Eintrag —
-            # er belegt, dass an dem Tag geprueft und nichts gefunden wurde. Aber
-            # vier solche Karten hintereinander sind vier Karten, die dasselbe
-            # sagen: die Erhebung lief, der Vorgang stand still. Sie werden zu
-            # EINER Zeile zusammengefasst (Owner-Befund 2026-08-21, „keine
-            # wiederkehrenden Redundanzen"); die Nummern bleiben nennbar, damit
-            # ein einzelner Tag weiter adressierbar ist.
-            stille.append((nummer, t["datum"]))
-            continue
+            return None
+        return f"<article class='eintrag'>{kopfzeile}{rumpf}</article>"
+
+    def strang_karten(alt_zuerst: list) -> list[str]:
+        """Karten EINES Strangs, chronologisch hereingereicht — Stille kollabiert."""
+        karten: list[str] = []
+        stille: list = []
+        for nummer, t in alt_zuerst:
+            html_karte = karte(nummer, t)
+            if html_karte is None:
+                # Ein Eintrag, der nur aus Deckung besteht, ist trotzdem ein
+                # Eintrag — er belegt, dass an dem Tag geprueft und nichts
+                # gefunden wurde. Aber vier solche Karten hintereinander sind
+                # vier Karten, die dasselbe sagen: die Erhebung lief, der
+                # Vorgang stand still. Sie werden zu EINER Zeile zusammengefasst
+                # (Owner-Befund 2026-08-21, „keine wiederkehrenden
+                # Redundanzen"); die Nummern bleiben nennbar.
+                stille.append((nummer, t["datum"]))
+                continue
+            karten.extend(_stille_karte(stille))
+            stille.clear()
+            karten.append(html_karte)
         karten.extend(_stille_karte(stille))
-        stille.clear()
-        karten.append(f"<article class='eintrag'>{kopfzeile}{rumpf}</article>")
-    karten.extend(_stille_karte(stille))
-    # Gebaut wird IMMER chronologisch, gedreht wird erst am Schluss. Vorher
-    # drehte der Aufrufer die Liste und diese Funktion drehte das Ergebnis noch
-    # einmal — die Karten standen dadurch richtig, die Datumsspanne der
-    # zusammengefassten Erhebungen aber rueckwaerts ("12. bis 10.").
-    return "".join(reversed(karten) if neueste_zuerst else karten)
+        return karten
+
+    # gruppiere_straenge liefert Straenge neueste-zuerst, Karten je Strang
+    # ebenso neueste-zuerst. Fuer `?alt=1` wird beides gedreht.
+    straenge = gruppiere_straenge(geparst)
+    if not neueste_zuerst:
+        straenge = list(reversed(straenge))
+    abschnitte: list[str] = []
+    for schluessel, karten_dieses_strangs in straenge:
+        alt_zuerst = list(reversed(karten_dieses_strangs))
+        karten = strang_karten(alt_zuerst)
+        # `strang_karten` gibt chronologisch (aelteste zuerst) zurueck — das ist
+        # der Fall `?alt=1`. Der Default dreht auf neueste zuerst.
+        if neueste_zuerst:
+            karten = list(reversed(karten))
+        abschnitte.append(
+            "<section class='strang'>"
+            f"<h3 class='strang-kopf'>{html.escape(_strang_titel(schluessel))} "
+            f"<span class='zahl'>{len(karten_dieses_strangs)}</span></h3>"
+            f"{''.join(karten)}</section>"
+        )
+    return "".join(abschnitte)
 
 
 def _stille_karte(stille: list) -> list[str]:
@@ -1219,24 +1426,31 @@ def detail(
             for feld, label in felder
         )
 
-    zeilen = _reihe(DETAIL_FELDER)
+    # Feste Zusammenfassung oben (#2856 Zielbild 1) — Stand, Naechster Schritt,
+    # Frist, Gegenueber, Konto, Typ, Bucket, Nummer. Fehlende Felder fehlen
+    # einfach in der Liste, kein Rate-Ersatzwert.
+    zus_zeilen = zusammenfassung(v)
     # Erwartung statt leerer Frist: bei einem wartenden Vorgang ohne Frist ist
-    # „bis wann ist das normal" die Frage, die man an die Seite hat.
-    erwartung = _erwartung(v.get("nr"))
-    if not v.get("frist"):
-        teile = []
-        if v.get("frist_grund"):
-            teile.append(f"keine — {v['frist_grund']}")
+    # „bis wann ist das normal" die Frage, die man an die Seite hat. Das ist
+    # IO-abhaengig (liest `mail-faelligkeit.json`) und bleibt darum ausserhalb
+    # der reinen Funktion `zusammenfassung()`.
+    if not v.get("frist") and not v.get("frist_grund"):
+        erwartung = _erwartung(v.get("nr"))
         if erwartung.get("spaetestens"):
             wort = (
                 "ueberfaellig seit" if erwartung.get("ueberfaellig") else "erwartet bis"
             )
-            teile.append(f"{wort} {erwartung['spaetestens']}")
-        if teile:
-            zeilen = zeilen.replace(
-                "<th>Frist</th><td>—</td>",
-                f"<th>Frist</th><td>{html.escape(' · '.join(teile))}</td>",
-            )
+            zus_zeilen = [*zus_zeilen, ("Frist", f"{wort} {erwartung['spaetestens']}")]
+    zusammenfassung_html = (
+        "<table class='zusammenfassung'><tbody>"
+        + "".join(
+            f"<tr><th>{html.escape(label)}</th><td>{html.escape(wert)}</td></tr>"
+            for label, wert in zus_zeilen
+        )
+        + "</tbody></table>"
+        if zus_zeilen
+        else ""
+    )
     zweite = _reihe(DETAIL_FELDER_ZWEITE_REIHE)
     schritte = naechste_schritte(v, mail_basis, basis, anker)
     nr = v.get("nr")
@@ -1278,7 +1492,7 @@ def detail(
 <body><main>
 <h1>{nr_marke}{html.escape(v.get("thread_key", "Vorgang"))}</h1>
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
-<table><tbody>{zeilen}</tbody></table>
+{zusammenfassung_html}
 <details class="stammdaten"><summary>Stammdaten</summary>
 <table><tbody>{zweite}</tbody></table></details>
 {schritte}
