@@ -710,10 +710,11 @@ def naechste_schritte(
     basis: str = "",
     anker: dict[str, str] | None = None,
 ) -> str:
-    """Abschnitt 'Naechste Schritte': der Text aus dem Ledger plus erreichbare Ziele."""
-    text = str(v.get("next_trigger") or "").strip()
+    """Abschnitt 'Aktionen': die erreichbaren Ziele zum Vorgang (Text steht oben)."""
+    # Der Text des naechsten Schritts steht seit #2856 in der Zusammenfassung
+    # oben; hier nur noch die erreichbaren Ziele (#2858: Doppelung entfernt).
     ziele = aktionen(v, mail_basis, basis, anker)
-    kopf = f"<p class='schritt-text'>{html.escape(text)}</p>" if text else ""
+    kopf = ""
     # Ohne Ziel bleibt der Vorschlag Text. Ein Knopf ohne Ziel waere genau der tote
     # Link, den `zeile()` beim fehlenden thread_key schon vermeidet.
     if ziele:
@@ -732,7 +733,7 @@ def naechste_schritte(
         # kaputter Link. Der Hinweis trennt "nichts hinterlegt" von "defekt" — und
         # zeigt nebenbei, wo /mailcheck noch nachzutragen hat.
         rest = "<p class='kein-ziel'>keine Mail verknuepft</p>"
-    return f"<h2>Naechste Schritte</h2>{kopf}{rest}"
+    return f"<h2>Aktionen</h2>{kopf}{rest}"
 
 
 # Was beim Aufschlagen zaehlt, steht jetzt in `zusammenfassung()` (#2856):
@@ -1129,18 +1130,30 @@ def strang_schluessel(eintrag: dict) -> str:
     Strang treffen; (2) sonst das Ereignis bzw. die Quelle aus der Kopfzeile
     (GESENDET, TELEFONAT, Owner, /mailcheck, …); (3) sonst "Sonstiges".
     """
+    betreff = _strang_betreff(eintrag)
+    if betreff:
+        return betreff.lower()
+    return _strang_rueckfall(eintrag)
+
+
+def _strang_betreff(eintrag: dict) -> str:
+    """Der in Anfuehrungszeichen genannte Betreff in ORIGINAL-Schreibweise,
+    ohne AW:/Re:/WG:/Fwd:-Praefixe und mit vereinheitlichtem Whitespace —
+    leer, wenn der Eintrag keinen Betreff nennt."""
     text = " ".join(eintrag.get("saetze") or [])
     treffer = _STRANG_ANFUEHRUNG.search(text)
-    if treffer:
-        betreff = treffer.group(1).strip()
-        while True:
-            gekuerzt = _STRANG_PRAEFIX.sub("", betreff)
-            if gekuerzt == betreff:
-                break
-            betreff = gekuerzt
-        norm = re.sub(r"\s+", " ", betreff).strip().lower()
-        if norm:
-            return norm
+    if not treffer:
+        return ""
+    betreff = treffer.group(1).strip()
+    while True:
+        gekuerzt = _STRANG_PRAEFIX.sub("", betreff)
+        if gekuerzt == betreff:
+            break
+        betreff = gekuerzt
+    return re.sub(r"\s+", " ", betreff).strip()
+
+
+def _strang_rueckfall(eintrag: dict) -> str:
     ereignis = str(eintrag.get("ereignis") or "").strip()
     if ereignis:
         return ereignis
@@ -1148,6 +1161,13 @@ def strang_schluessel(eintrag: dict) -> str:
     if quelle:
         return quelle
     return "Sonstiges"
+
+
+def strang_anzeige(eintrag: dict) -> str:
+    """Anzeigetitel eines Strangs aus einem seiner Eintraege: der Betreff in
+    Original-Schreibweise (#2858 — der Schluessel ist kleingeschrieben, damit
+    "AW: Angebot" und "angebot" zusammenfallen; angezeigt wird das Original)."""
+    return _strang_betreff(eintrag) or _strang_rueckfall(eintrag)
 
 
 def gruppiere_straenge(eintraege: list[tuple]) -> list[tuple[str, list]]:
@@ -1377,7 +1397,7 @@ def verlauf(
             karten = list(reversed(karten))
         abschnitte.append(
             "<section class='strang'>"
-            f"<h3 class='strang-kopf'>{html.escape(_strang_titel(schluessel))} "
+            f"<h3 class='strang-kopf'>{html.escape(_strang_titel(strang_anzeige(alt_zuerst[0][1])))} "
             f"<span class='zahl'>{len(karten_dieses_strangs)}</span></h3>"
             f"{''.join(karten)}</section>"
         )
