@@ -660,6 +660,28 @@ def main(argv: list[str] | None = None) -> int:
     if a.echt or a.falsch:
         fid, text = a.echt or a.falsch
         urteil = "echt" if a.echt else "falsch"
+        befunde = daten.get("befunde", {})
+        if fid not in befunde:
+            # Der Runner druckt die ID als `0.7 deploy-scan::x` — der Phasen-
+            # Praefix wirkt wie ein Label, ist aber Teil des Schluessels. Wer
+            # ihn weglaesst, darf trotzdem treffen, wenn GENAU ein Befund passt.
+            treffer = sorted(
+                {
+                    k
+                    for k in befunde
+                    if k.endswith(" " + fid) or k.split(" ", 1)[-1] == fid
+                }
+            )
+            if len(treffer) == 1:
+                print(f"hinweis: ID vervollständigt zu '{treffer[0]}'", file=sys.stderr)
+                fid = treffer[0]
+            elif fid in {u.get("fid") for u in daten.get("urteile", [])}:
+                # Befund geheilt (nicht mehr gemeldet), aber schon einmal
+                # beurteilt — das macht die ID bekannt, kein Phantom.
+                pass
+            else:
+                print(f"Kein Befund mit ID {fid}", file=sys.stderr)
+                return 2
         urteile_dazu(daten, fid, urteil, text)
         sichere(daten, pfad)
         print(f"{urteil}: {fid} — {text}")
@@ -760,6 +782,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"      {e.get('letzte_note', '')}")
             if e.get("kommando"):
                 print(f"      {e.get('knoten') or '?'}$ {e['kommando']}")
+            # Konkrete Schluessel, keine Platzhalter (#2863): sonst nimmt der
+            # naechste Aufruf die ID ohne Phasen-Praefix und trifft ins Leere.
+            print(f"      -> python3 tools/befund_journal.py --echt '{fid}' '<Notiz>'")
+            print(
+                f"      -> python3 tools/befund_journal.py --verankert '{fid}' '<URL>'"
+            )
         print(
             "\nVerankern:  python3 tools/befund_journal.py --verankert '<ID>' '<URL>'"
             "\nVerzichten: python3 tools/befund_journal.py --verzichtet '<ID>' '<Grund>'"

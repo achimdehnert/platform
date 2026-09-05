@@ -485,3 +485,61 @@ def test_should_show_missing_evidence_in_the_text_report(journal: Path) -> None:
     text = bj.bericht(bj.lade(journal), "platform")
     assert "ohne Beleg" in text
     assert "entscheiden bis" in text
+
+
+def test_should_reject_unknown_id_for_echt_and_falsch(journal: Path, capsys) -> None:
+    """#2863: eine erfundene ID darf kein Urteil unter einem Phantom-Schluessel anlegen."""
+    _lauf([ZEILE], journal)
+    vor = journal.read_bytes()
+    rc = bj.main(["--echt", "phantom::nirgendwo", "Notiz", "--datei", str(journal)])
+    assert rc == 2
+    assert "Kein Befund mit ID" in capsys.readouterr().err
+    assert journal.read_bytes() == vor
+
+
+def test_should_complete_id_without_phase_prefix(journal: Path, capsys) -> None:
+    """Der Runner druckt `0.7 deploy-scan::x` — der Praefix ist Teil des Schluessels,
+    aber eine ID ohne ihn darf treffen, wenn GENAU ein Befund passt."""
+    _lauf(["0.7 deploy-scan\tWARN\tx\tfailure"], journal)
+    rc = bj.main(["--echt", "deploy-scan::x", "Notiz", "--datei", str(journal)])
+    assert rc == 0
+    fehler = capsys.readouterr().err
+    assert "vervollständigt" in fehler
+    daten = bj.lade(journal)
+    assert daten["urteile"][0]["fid"] == "0.7 deploy-scan::x"
+    assert daten["befunde"]["0.7 deploy-scan::x"]["urteil"] == "echt"
+
+
+def test_should_accept_id_known_only_from_urteile_history(journal: Path) -> None:
+    """Ein geheilter (nicht mehr gemeldeter) Befund bleibt urteilbar, wenn er
+    schon einmal beurteilt wurde — das macht die ID bekannt, kein Phantom."""
+    fid = "0.7 deploy-scan::x"
+    _lauf(["0.7 deploy-scan\tWARN\tx\tfailure"], journal)
+    bj.main(["--echt", fid, "erste Notiz", "--datei", str(journal)])
+    _lauf(["0.7 deploy-scan\tPASS\tplatform\talles gruen"], journal)  # heilt x
+    daten = bj.lade(journal)
+    assert fid not in daten["befunde"]
+    rc = bj.main(["--falsch", fid, "zweite Notiz", "--datei", str(journal)])
+    assert rc == 0
+    daten = bj.lade(journal)
+    assert daten["urteile"][-1] == {
+        "fid": fid,
+        "phase": "0.7 deploy-scan",
+        "repo": "x",
+        "urteil": "falsch",
+        "grund": "zweite Notiz",
+        "datum": daten["urteile"][-1]["datum"],
+    }
+
+
+def test_should_print_concrete_ids_in_offen_cross_repo_hint(
+    journal: Path, capsys
+) -> None:
+    """Die Hilfe druckt den vollen Schluessel, nicht `<ID>` — sonst trifft der
+    naechste `--echt`-Aufruf ohne Praefix ins Leere."""
+    _lauf(["0.7 deploy-scan\tWARN\tcad-hub\tfailure"], journal)
+    rc = bj.main(["--offen-cross-repo", "--repo", "platform", "--datei", str(journal)])
+    assert rc == 1
+    ausgabe = capsys.readouterr().out
+    assert "--echt '0.7 deploy-scan::cad-hub'" in ausgabe
+    assert "--verankert '0.7 deploy-scan::cad-hub'" in ausgabe
