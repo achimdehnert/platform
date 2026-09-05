@@ -115,10 +115,14 @@ The pattern:
 
 Gilt in jeder Fable-Session ohne Zuruf: vor jeder Aufgabe ab Klasse „Umsetzung"
 einen ausführungsreifen Brief schreiben (Dateien, exakte Änderung, Testplan,
-Fallen) und mit **explizitem** `model:` delegieren. Ohne `model:` erbt der
-Subagent das Hauptmodell; ein Fork erbt es immer. Die Prüfung des Ergebnisses
-bleibt inline. Untergrenze: Trivial wird nie delegiert (delegieren kostet mehr
-als tun).
+Fallen) und mit **explizitem** `model:` delegieren. Der Testplan ist Pflichtteil
+des Briefs: die Required Checks des Ziel-Repos **vor dem Push** lokal fahren
+(`make test` bzw. das Repo-Gate, dazu `ruff check` + `ruff format --check`),
+Exit-Code nicht durch Pipes verdecken, `skipped` zählen, Zahlen in die
+Rückmeldung — K5 (#2750) wurde am 2026-09-05 verfehlt, alle sechs Nachher-
+Fehlschläge lagen am Testlauf. Ohne `model:` erbt der Subagent das Hauptmodell;
+ein Fork erbt es immer. Die Prüfung des Ergebnisses bleibt inline. Untergrenze:
+Trivial wird nie delegiert (delegieren kostet mehr als tun).
 
 <!-- routing-table:start -->
 | Klasse | Kennzeichen | Beispiel | Tier | model |
