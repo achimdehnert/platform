@@ -45,6 +45,31 @@ while [ "$#" -gt 0 ]; do
 done
 TARGET_REPO="${TARGET_REPO:-platform}"
 
+# Normalisierung (#2773): der Skill ruft den Runner mit einem PFAD auf
+# (`session_ende_checks.sh /home/devuser/github/platform`). Ohne diesen Schritt
+# landete der Pfad selbst als Repo-NAME in `$OWNER/$TARGET_REPO` (E.2/E.5) und
+# als Pfadsegment in `$GITHUB_DIR/$TARGET_REPO/...` (E.3) — beides falsch.
+# Ab hier: `$TARGET_DIR` fuer Pfade, `$TARGET_REPO` nur noch als Name.
+case "$TARGET_REPO" in
+  */*)
+    if [ ! -d "$TARGET_REPO" ]; then
+      echo "Pfad nicht gefunden: $TARGET_REPO" >&2
+      exit 2
+    fi
+    TARGET_DIR="$(cd "$TARGET_REPO" && pwd -P)"
+    TARGET_REPO="$(basename "$TARGET_DIR")"
+    ;;
+  *)
+    TARGET_DIR="$GITHUB_DIR/$TARGET_REPO"
+    ;;
+esac
+
+# Fehlerausgaben von `gh` nicht mehr per `2>/dev/null` verschlucken (#2794):
+# ein rate-limitiertes/fehlerhaftes `gh` lieferte bisher eine leere Liste, die
+# wie „keine offenen PRs" aussah (PASS statt SKIP).
+TMP_ERR="$(mktemp)"
+trap 'rm -f "$TMP_ERR"' EXIT
+
 HEUTE="$(date +%Y-%m-%d)"
 # Zeitbudget der Zusagen-Prüfung (E.5) je PR. 80 s je Segment sind gemessen
 # (#2469) — ohne Deckel hält diese eine Phase die ganze Sitzung auf.
@@ -67,7 +92,7 @@ record() {
   printf '  [%s] %s — %s\n' "$2" "$1" "$3"
 }
 
-echo "┌─ session-ende Runner · $(date '+%Y-%m-%d %H:%M') · target=$TARGET_REPO ─┐"
+echo "┌─ session-ende Runner · $(date '+%Y-%m-%d %H:%M') · target=$TARGET_REPO ($TARGET_DIR) ─┐"
 
 # ── E.0 Version-Banner (Skill-Phase −0.1) ───────────────────────────────────
 # Bewusst OHNE die `.bashrc`-Schreiberei der Skill-Phase: `GITHUB_DIR` setzt der
@@ -120,8 +145,17 @@ fi
 _add_touched "$TARGET_REPO"
 TOUCHED="${TOUCHED# }"
 
-OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin 2>/dev/null \
+# Owner je ZIEL-Repo, nicht per Platform-Remote geraten (#2794): bei
+# `iilgmbh/iil-voice-agent` prüfte E.5 sonst unter `achimdehnert/...` und
+# meldete PASS, weil die falsche Repo-URL leer zurückkam.
+OWNER=$(git -C "$TARGET_DIR" remote get-url origin 2>/dev/null \
         | sed -E 's#.*[:/]([^/]+)/[^/]+$#\1#; s#\.git$##')
+if [ -z "$OWNER" ]; then
+  # Fallback nur ohne Remote im Ziel-Repo: bisheriges Verhalten (Platform-Remote).
+  OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin 2>/dev/null \
+          | sed -E 's#.*[:/]([^/]+)/[^/]+$#\1#; s#\.git$##')
+  [ -n "$OWNER" ] && echo "hinweis: Owner geraten aus $PLATFORM_DIR (kein origin-Remote in $TARGET_DIR)" >&2
+fi
 
 # ── E.1 Deploy-Status je berührtem Repo (Skill-Phase 0a-deploy) ─────────────
 # „main grün" ≠ „Prod aktuell" (Lesson 2026-06-22, trading-hub). Zwei Klassen,
@@ -177,28 +211,45 @@ fi
 if ! command -v gh >/dev/null 2>&1 || [ -z "$OWNER" ]; then
   record "E.2 handover-prs" "SKIP" "gh oder Owner nicht verfügbar" "$TARGET_REPO"
 else
+  E2_DONE=0
   HPR=$(timeout 60 gh pr list --repo "$OWNER/$TARGET_REPO" \
         --search "AGENT_HANDOVER.md in:body" --state open \
-        --json number,updatedAt --jq '.[] | "#\(.number)@\(.updatedAt[0:10])"' 2>/dev/null)
-  if [ -z "$HPR" ]; then
+        --json number,updatedAt --jq '.[] | "#\(.number)@\(.updatedAt[0:10])"' 2>"$TMP_ERR")
+  RC=$?
+  if [ "$RC" -ne 0 ]; then
+    record "E.2 handover-prs" "SKIP" \
+      "gh scheiterte (rc=$RC): $(head -c 120 "$TMP_ERR")" "$TARGET_REPO"
+    E2_DONE=1
+  fi
+  # Fallback, wenn die Body-Suche leer ist (keine gh-relevante Aenderung —
+  # ebenfalls rc-geprueft, statt der zweite blinde Fleck zu werden).
+  if [ "$E2_DONE" -eq 0 ] && [ -z "$HPR" ]; then
     HPR=$(timeout 90 gh pr list --repo "$OWNER/$TARGET_REPO" --state open \
           --json number,files \
-          --jq '.[] | select(.files[]?.path == "AGENT_HANDOVER.md") | "#\(.number)"' 2>/dev/null)
+          --jq '.[] | select(.files[]?.path == "AGENT_HANDOVER.md") | "#\(.number)"' 2>"$TMP_ERR")
+    RC=$?
+    if [ "$RC" -ne 0 ]; then
+      record "E.2 handover-prs" "SKIP" \
+        "gh scheiterte (rc=$RC): $(head -c 120 "$TMP_ERR")" "$TARGET_REPO"
+      E2_DONE=1
+    fi
   fi
-  HPR_N=$(printf '%s' "$HPR" | grep -c . || true)
-  if [ "${HPR_N:-0}" -gt 1 ]; then
-    record "E.2 handover-prs" "WARN" \
-      "$HPR_N offene Handover-PRs ($(echo "$HPR" | tr '\n' ' ')) — konkurrierende Stände, vor 0b auflösen" \
-      "$TARGET_REPO"
-  else
-    record "E.2 handover-prs" "PASS" \
-      "${HPR_N:-0} offene(r) Handover-PR ($(echo "${HPR:--}" | tr '\n' ' '))" "$TARGET_REPO"
+  if [ "$E2_DONE" -eq 0 ]; then
+    HPR_N=$(printf '%s' "$HPR" | grep -c . || true)
+    if [ "${HPR_N:-0}" -gt 1 ]; then
+      record "E.2 handover-prs" "WARN" \
+        "$HPR_N offene Handover-PRs ($(echo "$HPR" | tr '\n' ' ')) — konkurrierende Stände, vor 0b auflösen" \
+        "$TARGET_REPO"
+    else
+      record "E.2 handover-prs" "PASS" \
+        "${HPR_N:-0} offene(r) Handover-PR ($(echo "${HPR:--}" | tr '\n' ' '))" "$TARGET_REPO"
+    fi
   fi
 fi
 
 # ── E.3 Handover-Frische (Skill-Phase 0a-freshness, Gate handover-stale-vor-merge) ──
 HO_CHECK="$PLATFORM_DIR/scripts/checks/agent_handover_freshness_check.py"
-HO_FILE="$GITHUB_DIR/$TARGET_REPO/AGENT_HANDOVER.md"
+HO_FILE="$TARGET_DIR/AGENT_HANDOVER.md"
 if [ ! -f "$HO_CHECK" ]; then
   record "E.3 handover-frische" "SKIP" "Werkzeug fehlt: scripts/checks/agent_handover_freshness_check.py" "$TARGET_REPO"
 elif [ ! -f "$HO_FILE" ]; then
@@ -254,8 +305,13 @@ elif ! curl -sf -m 5 "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
   record "E.5 zusagen" "SKIP" "◌ NICHT PRUEFBAR — kein Klassifikator unter $OLLAMA_HOST" "$TARGET_REPO"
 else
   PRS=$(timeout 60 gh pr list --repo "$OWNER/$TARGET_REPO" --author @me --state all \
-        --search "created:>=$HEUTE" --json number --jq '.[].number' 2>/dev/null | head -n "$ZUSAGEN_MAX_PRS")
-  if [ -z "$PRS" ]; then
+        --search "created:>=$HEUTE" --json number --jq '.[].number' 2>"$TMP_ERR")
+  RC=$?
+  PRS=$(printf '%s' "$PRS" | head -n "$ZUSAGEN_MAX_PRS")
+  if [ "$RC" -ne 0 ]; then
+    record "E.5 zusagen" "SKIP" \
+      "◌ gh scheiterte (rc=$RC): $(head -c 120 "$TMP_ERR")" "$TARGET_REPO"
+  elif [ -z "$PRS" ]; then
     record "E.5 zusagen" "PASS" "keine eigenen PRs von heute in $OWNER/$TARGET_REPO" "$TARGET_REPO"
   else
     Z_OK=""; Z_WARN=""; Z_UNKLAR=""
