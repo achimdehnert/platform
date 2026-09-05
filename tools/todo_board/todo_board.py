@@ -1073,7 +1073,9 @@ _ZAHL_KOMMA = re.compile(r"(?<=\d),(?=\d)")
 #: gewertet — ein Fliesstext-Satz mit aufzaehlenden Kommas ("Klimm, Meier und
 #: Schulz waren dabei, ...") ist damit ausgenommen; dort ist ein Komma meistens
 #: Grammatik, keine Liste.
-_LISTEN_PRAEFIX = re.compile(r"^(?:Offen|Naechster Schritt|Ergebnis)\s*:\s*", re.IGNORECASE)
+_LISTEN_PRAEFIX = re.compile(
+    r"^(?:Offen|Naechster Schritt|Ergebnis)\s*:\s*", re.IGNORECASE
+)
 
 
 def als_liste(text: str) -> list[str] | None:
@@ -1167,7 +1169,7 @@ def gruppiere_straenge(eintraege: list[tuple]) -> list[tuple[str, list]]:
             reihenfolge.append(schluessel)
         gruppen[schluessel].append(eintrag)
     ergebnis = [
-        (schluessel, sorted(gruppen[schluessel], key=lambda p: (p[0] or 0), reverse=True))
+        (schluessel, sorted(gruppen[schluessel], key=lambda p: p[0] or 0, reverse=True))
         for schluessel in reihenfolge
     ]
     ergebnis.sort(key=lambda kv: max((p[0] or 0) for p in kv[1]), reverse=True)
@@ -1279,12 +1281,18 @@ def verlauf(
             # bleibt es Fliesstext (#2856 K3).
             teile = als_liste(wert)
             if teile:
-                rumpf = "<ol>" + "".join(
-                    f"<li>{verweise(html.escape(teil), konto, mail_basis, anker, datumsmarken)}</li>"
-                    for teil in teile
-                ) + "</ol>"
+                rumpf = (
+                    "<ol>"
+                    + "".join(
+                        f"<li>{verweise(html.escape(teil), konto, mail_basis, anker, datumsmarken)}</li>"
+                        for teil in teile
+                    )
+                    + "</ol>"
+                )
             else:
-                rumpf = verweise(html.escape(wert), konto, mail_basis, anker, datumsmarken)
+                rumpf = verweise(
+                    html.escape(wert), konto, mail_basis, anker, datumsmarken
+                )
             return f"<div class='{klasse}'>{marke}{rumpf}</div>"
 
         marken = []

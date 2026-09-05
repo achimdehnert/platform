@@ -1186,7 +1186,7 @@ class TestStrangSchluessel:
     def test_should_key_on_a_quoted_subject(self):
         t = tb.zerlege_eintrag(
             '2026-09-01 (/mailcheck): Firma Muster meldet sich zu "Angebot '
-            "Fristenmanagement\" — Rueckfrage zur Laufzeit."
+            'Fristenmanagement" — Rueckfrage zur Laufzeit.'
         )
         assert tb.strang_schluessel(t) == "angebot fristenmanagement"
 
@@ -1241,7 +1241,9 @@ class TestGruppiereStraenge:
 
 class TestAlsListe:
     def test_should_split_a_semicolon_list(self):
-        teile = tb.als_liste("Termin bestaetigt; Vertrag unterschrieben; Rechnung offen.")
+        teile = tb.als_liste(
+            "Termin bestaetigt; Vertrag unterschrieben; Rechnung offen."
+        )
         assert teile == [
             "Termin bestaetigt",
             "Vertrag unterschrieben",
@@ -1262,25 +1264,21 @@ class TestAlsListe:
     def test_should_not_split_a_two_part_comma_sentence(self):
         """Zwei Haelften sind meistens ein normaler Satz, keine Liste."""
         assert (
-            tb.als_liste("Naechster Schritt: Angebot pruefen, dann antworten.")
-            is None
+            tb.als_liste("Naechster Schritt: Angebot pruefen, dann antworten.") is None
         )
 
     def test_should_not_tear_a_date_apart(self):
         assert tb.als_liste("Termin am 04.09.2026 15:05 UTC bestaetigt.") is None
 
     def test_should_not_tear_a_price_apart(self):
-        assert (
-            tb.als_liste(
-                "Ergebnis: Angebot ueber 10.160,50 EUR/Jahr eingegangen, "
-                "Frist 30.09. gesetzt, Owner informiert."
-            )
-            == [
-                "Angebot ueber 10.160,50 EUR/Jahr eingegangen",
-                "Frist 30.09. gesetzt",
-                "Owner informiert.",
-            ]
-        )
+        assert tb.als_liste(
+            "Ergebnis: Angebot ueber 10.160,50 EUR/Jahr eingegangen, "
+            "Frist 30.09. gesetzt, Owner informiert."
+        ) == [
+            "Angebot ueber 10.160,50 EUR/Jahr eingegangen",
+            "Frist 30.09. gesetzt",
+            "Owner informiert.",
+        ]
 
     def test_should_return_none_for_a_single_sentence(self):
         assert tb.als_liste("Der Bericht ist raus.") is None
