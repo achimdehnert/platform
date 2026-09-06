@@ -2262,3 +2262,7 @@ auseinanderlaufen. Diese Liste hält nur, was über einen Session-Stand hinaus o
 ## Archivierte Fäden (2026-09-05, aus AGENT_HANDOVER.md „Offene Fäden")
 
 - Faden 16 (archiviert, weil [#2110](https://github.com/achimdehnert/platform/pull/2110) am 2026-09-04 gemergt wurde): 14 Draft-PRs LLM-Readiness + zwei KONZ-Entwürfe mit Owner-Fragen: https://github.com/achimdehnert/platform/pull/2110
+
+## Archivierte Fäden (2026-09-06, aus AGENT_HANDOVER.md „Offene Fäden")
+
+- Faden 33 (archiviert, weil [#2773](https://github.com/achimdehnert/platform/issues/2773) am 2026-09-05 durch [#2864](https://github.com/achimdehnert/platform/pull/2864) geschlossen wurde): session_ende_checks.sh E.3/E.5 blind für platform (Pfad statt Repo-Name).
