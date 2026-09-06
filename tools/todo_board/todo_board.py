@@ -17,6 +17,12 @@ boards-check` baut beide zweimal mit festem `--stichtag` und vergleicht byteweis
 von Uhrzeit, Laufreihenfolge oder Zufall. Gemessen 2026-09-02: zwei Laeufe
 hintereinander identisch, 0 Zeilen Unterschied.
 
+Die Uebersicht traegt seit #2873 ein clientseitiges Suchfeld (Nummer, Strang,
+Gegenueber, Kurztext) — rein im Browser gefiltert, der Suchtext steht per `?q=`
+in der URL und ist damit verlinkbar. Gefiltert wird nur, was ohnehin auf der
+Seite steht: das 14-Tage-Fenster bleibt unveraendert, es entsteht keine neue
+Abfrage gegen das Ledger.
+
 Bewusst getrennt von `mail_agent/mail_link_server.py`: der rendert Mail-Koerper live
 aus dem Postfach und darf darum nie oeffentlich stehen. Dieser Dienst kennt nur das
 Ledger, spricht kein IMAP und hat genau eine Seite — das ist die Angriffsflaeche, die
@@ -463,8 +469,19 @@ def zeile(
         if ziel
         else ""
     )
+    # Suchtext fuers clientseitige Filterfeld (#2873): kleingeschrieben, escaped,
+    # leerzeichen-getrennt. Bewusst OHNE Notiz-Volltext — Adressen daraus sollen
+    # nicht in einem Attribut landen, wenn sie ohnehin schon sichtbar stehen.
+    such_teile = [
+        str(nr) if nr not in (None, "") else "",
+        schluessel,
+        v.get("gegenueber", "") or "",
+        str(v.get("kurz") or v.get("next_trigger", "") or ""),
+        konto,
+    ]
+    such = html.escape(" ".join(t for t in such_teile if t).lower())
     return (
-        "<tr>"
+        f'<tr data-such="{such}">'
         f"<td class='nr'>{nr_text}</td>"
         f"<td class='sache'>{sache}{mail}{entwurf_marke}"
         f"<span class='wer'>{html.escape(v.get('gegenueber', ''))}</span></td>"
@@ -516,6 +533,11 @@ main{max-width:60rem;margin:0 auto}
 h1{font-size:1.5rem;margin:0 0 .25rem}
 .nr-marke{color:var(--stumm);font-weight:400;font-variant-numeric:tabular-nums}
 .stand{color:var(--stumm);font-size:.85rem;margin:0 0 2rem}
+.suche{display:flex;align-items:center;gap:.6rem;margin:0 0 1.25rem}
+#such{flex:1 1 auto;max-width:28rem;padding:.45rem .7rem;border:1px solid var(--linie);
+border-radius:8px;background:var(--karte);color:var(--fg);font:inherit}
+#such-zaehler{color:var(--stumm);font-size:.78rem;white-space:nowrap}
+tr[hidden]{display:none}
 section{background:var(--karte);border:1px solid var(--linie);border-radius:10px;
 padding:1.1rem 1.25rem;margin-bottom:1.25rem}
 h2{font-size:1.05rem;margin:0;display:flex;align-items:center;gap:.5rem}
@@ -665,6 +687,62 @@ OVERLAY = """
  });
  ovl.addEventListener('click',function(e){if(e.target===ovl)zu();});
  document.addEventListener('keydown',function(e){if(e.key==='Escape')zu();});
+})();
+</script>
+<script>
+(function(){
+ /* Clientseitiges Suchfeld (#2873). Filtert `tr[data-such]`-Zeilen ueber eine
+    UND-Verknuepfung aller eingegebenen Woerter, blendet leer gewordene Bucket-
+    Abschnitte mit aus und spiegelt den Suchtext per replaceState (kein
+    pushState — kein History-Muell) in `?q=`. Eigenes Escape-Handling: es leert
+    nur das Feld und laesst das Overlay-Escape oben unberuehrt — das schliesst
+    ausschliesslich das Overlay und tut sonst nichts, wenn es bereits zu ist. */
+ var eingabe=document.getElementById('such');
+ if(!eingabe)return;
+ var zaehler=document.getElementById('such-zaehler');
+ var zeilen=Array.prototype.slice.call(document.querySelectorAll('tr[data-such]'));
+ var abschnitte=Array.prototype.slice.call(document.querySelectorAll('main section'));
+ function anwenden(){
+  var text=eingabe.value.trim().toLowerCase();
+  var woerter=text?text.split(/\\s+/):[];
+  var sichtbar=0,i,j;
+  for(i=0;i<zeilen.length;i++){
+   var tr=zeilen[i],hay=tr.getAttribute('data-such')||'',treffer=true;
+   for(j=0;j<woerter.length;j++){
+    if(hay.indexOf(woerter[j])<0){treffer=false;break;}
+   }
+   tr.hidden=!treffer;
+   if(treffer)sichtbar++;
+  }
+  for(i=0;i<abschnitte.length;i++){
+   var sec=abschnitte[i];
+   if(!woerter.length){sec.hidden=false;continue;}
+   sec.hidden=sec.querySelectorAll('tr[data-such]:not([hidden])').length===0;
+  }
+  if(zaehler){
+   zaehler.textContent=woerter.length?(sichtbar+' von '+zeilen.length+' Vorgaengen'):'';
+  }
+  var q=eingabe.value.trim();
+  /* file:// und manche Sandboxes verweigern replaceState — der Filter selbst
+     darf daran nicht haengen bleiben. */
+  try{history.replaceState(null,'',q?'?q='+encodeURIComponent(q):location.pathname);}catch(e){}
+ }
+ eingabe.addEventListener('input',anwenden);
+ eingabe.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){eingabe.value='';anwenden();}
+ });
+ document.addEventListener('keydown',function(e){
+  if(e.key==='/'){
+   var ziel=document.activeElement;
+   var imFeld=ziel&&(ziel.tagName==='INPUT'||ziel.tagName==='TEXTAREA'||ziel.isContentEditable);
+   if(!imFeld){e.preventDefault();eingabe.focus();}
+  }
+ });
+ try{
+  var q0=new URLSearchParams(location.search).get('q');
+  if(q0)eingabe.value=q0;
+ }catch(e){}
+ anwenden();
 })();
 </script>"""
 
@@ -1579,6 +1657,9 @@ def baue(
 <body><main>
 <h1>Arbeitsliste</h1>
 <p class="stand">{offen} offene Vorgaenge · Erhebung vom {geprueft}{warnung}</p>
+<div class="suche"><input id="such" type="search" autocomplete="off" spellcheck="false"
+placeholder="Suchen: Nummer, Strang, Gegenüber, Kurztext" aria-label="Vorgänge filtern">
+<span id="such-zaehler" aria-live="polite"></span></div>
 {frische_banner(daten, stichtag)}
 {abschnitte}
 <footer>Quelle: mail-vorgaenge.json · gebaut {html.escape(stichtag.isoformat())} ·
