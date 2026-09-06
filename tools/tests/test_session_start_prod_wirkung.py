@@ -107,6 +107,44 @@ def test_should_pass_when_nothing_is_behind():
     assert repos == ""
 
 
+def test_should_treat_a_docs_only_backlog_as_a_hint_not_a_finding():
+    status, note, repos = _auswerten(
+        [{"repo": "writing-hub", "rueckstand": True, "nur_doku": True, "alter_tage": 1}]
+    )
+    assert status == "PASS"
+    assert "nur Doku hinter main (kein Befund):writing-hub" in note
+    assert repos == ""
+
+
+def test_should_still_report_a_code_backlog_next_to_a_docs_only_one():
+    status, note, repos = _auswerten(
+        [
+            {
+                "repo": "writing-hub",
+                "rueckstand": True,
+                "nur_doku": True,
+                "alter_tage": 1,
+            },
+            {"repo": "foo-hub", "rueckstand": True, "alter_tage": 1},
+        ]
+    )
+    assert status == "WARN"
+    assert "RUECKSTAND:foo-hub" in note
+    assert "writing-hub" not in note.split("RUECKSTAND:")[1].split("·")[0]
+    assert "nur Doku hinter main (kein Befund):writing-hub" in note
+    assert repos == "foo-hub"
+
+
+def test_should_stay_loud_when_the_docs_check_could_not_run():
+    """Fail-open: fehlt `nur_doku` (gh-Fehler, >=300 Dateien), bleibt es RUECKSTAND."""
+    status, note, repos = _auswerten(
+        [{"repo": "writing-hub", "rueckstand": True, "alter_tage": 1}]
+    )
+    assert status == "WARN"
+    assert "RUECKSTAND:writing-hub" in note
+    assert "writing-hub" in repos
+
+
 @pytest.mark.parametrize("kaputt", ["", "kein json", "{"])
 def test_should_not_crash_on_unparseable_meter_output(kaputt: str):
     """Ein halb geparster Melder ist schlimmer als keiner — er darf nicht still sterben."""

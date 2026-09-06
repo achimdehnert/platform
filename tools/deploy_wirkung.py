@@ -20,12 +20,14 @@ mit dem deployten Commit. Dieses Werkzeug liest sie auf allen Hosts und vergleic
 sie mit `origin/main` — und zwar auf dem Host, der den oeffentlichen Namen
 tatsaechlich **bedient**, nicht auf dem, wo der Runner zufaellig steht.
 
-Zwei Befundklassen
-------------------
+Befundklassen
+-------------
 1. RUECKSTAND — der bedienende Host hat einen aelteren Commit als `origin/main`.
 2. DOPPELLAUF — dasselbe Repo hat auf mehreren Hosts ein Manifest. Das Risiko
    benennt ADR-292 selbst: divergierende Datenbanken. Nach einem Host-Umzug bleibt
    der alte Stand als Leiche stehen.
+3. RUECKSTAND mit `nur_doku` — Host hinkt nur um Doku-Pfade hinterher; Repos mit
+   Doku-Filter deployen das bewusst nicht. Hinweis, kein Befund.
 
 Aufruf
 ------
@@ -51,6 +53,7 @@ Grenzen, ausdruecklich
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import subprocess
@@ -63,6 +66,19 @@ CANON_YAML = REPO_ROOT / "registry" / "canonical.yaml"
 SSH = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes"]
 # Nur Hosts, auf denen Anwendungen produktiv laufen.
 PROD_HOSTS = ("prod", "prod-b")
+# Spiegel des Cosmetic-Gates writing-hub `.github/workflows/deploy.yml` /
+# `scripts/deploy_gate.py` (Z. 49-56): diese Pfade werden dort bei push bewusst
+# NICHT deployt. Ein Rueckstand, der ausschliesslich aus diesen Pfaden besteht,
+# ist damit gewollt, nicht vergessen.
+DOKU_MUSTER: tuple[str, ...] = (
+    "docs/*",
+    "docs/**",
+    "*.md",
+    "**/*.md",
+    "klickdummy/**",
+    ".gitignore",
+    "CHANGELOG*",
+)
 
 
 def sh(cmd: list[str], timeout: int = 60) -> tuple[int, str]:
@@ -285,6 +301,56 @@ def hat_prod_gate(repo: str, owner: str) -> bool:
     return bool(re.search(r"target_environment:.*\|\|\s*'staging'", text))
 
 
+def ist_nur_doku(dateien: list[str]) -> bool:
+    """True gdw. ``dateien`` nicht leer ist und JEDER Pfad ein Doku-Muster trifft.
+
+    fnmatch behandelt ``/`` nicht als Grenzzeichen — ``*.md`` matcht bereits
+    ``a/b/c.md``. Trotzdem zusaetzlich gegen den Basenamen geprueft, um nicht
+    von diesem Detail abzuhaengen.
+    """
+    if not dateien:
+        return False
+    for pfad in dateien:
+        basis = pfad.rsplit("/", 1)[-1]
+        if not any(
+            fnmatch.fnmatch(pfad, muster) or fnmatch.fnmatch(basis, muster)
+            for muster in DOKU_MUSTER
+        ):
+            return False
+    return True
+
+
+def rueckstand_dateien(
+    repo: str, owner: str, deployed_sha: str, main_sha_wert: str
+) -> list[str] | None:
+    """Geaenderte Dateien zwischen deploytem Commit und `main`, oder ``None``.
+
+    Fail-OPEN im eigentlichen Sinn: jeder Fehler (gh-Aufruf, Timeout, kaputtes
+    JSON) sowie eine von der Compare-API gekappte Antwort (>=300 Dateien)
+    liefern ``None`` — ein Werkzeugfehler darf nie wie eine Doku-Entwarnung
+    aussehen, der Rueckstand bleibt dann unveraendert laut.
+    """
+    code, out = sh(
+        [
+            "gh",
+            "api",
+            f"repos/{owner}/{repo}/compare/{deployed_sha}...{main_sha_wert}",
+            "--jq",
+            "[.files[].filename]",
+        ],
+        timeout=30,
+    )
+    if code != 0 or not out:
+        return None
+    try:
+        dateien = json.loads(out)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(dateien, list) or len(dateien) >= 300:
+        return None
+    return dateien
+
+
 def main_sha(repo: str, owner: str) -> tuple[str | None, str | None]:
     """(sha, tatsaechlicher_owner) — deckt Org-Umzuege per Redirect auf."""
     code, out = sh(
@@ -422,6 +488,18 @@ def main() -> int:
         if eintrag.get("rueckstand") and hat_prod_gate(repo, owner):
             eintrag["prod_gate"] = True
 
+        # Rueckstand nur aus Doku-Pfaden: writing-hub deployt Doku-Merges per
+        # Cosmetic-Gate bewusst nicht (#2148) — der Melder meldete deshalb nach
+        # jedem Doku-Merge RUECKSTAND bis zum naechsten Code-Deploy. `rueckstand`
+        # bleibt dabei True, es kommt nur eine Kennzeichnung dazu (s. Kommentar
+        # oben zu `prod_gate`: Verstecken kostet Tage). Nur bei Rueckstand
+        # geprueft — spart API-Aufrufe.
+        if eintrag.get("rueckstand") and eintrag.get("deployed") and sha:
+            dateien = rueckstand_dateien(repo, owner, eintrag["deployed"], sha)
+            if dateien is not None:
+                eintrag["nur_doku"] = ist_nur_doku(dateien)
+                eintrag["rueckstand_dateien"] = len(dateien)
+
         eintrag["lifecycle"] = lifecycles.get(repo)
         # Ein stillgelegtes Repo DARF hinterherhinken — das ist der gewollte Zustand,
         # kein Befund. Der Doppellauf bleibt trotzdem einer (divergierende Daten).
@@ -459,6 +537,8 @@ def main() -> int:
         marker = []
         if e.get("rueckstand"):
             marker.append("RUECKSTAND")
+        if e.get("nur_doku"):
+            marker.append("NUR-DOKU")
         if e["doppellauf"]:
             wo = e.get("hosts_mit_container") or e["hosts_mit_manifest"]
             marker.append("DOPPELLAUF:" + ",".join(wo))
