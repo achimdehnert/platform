@@ -449,3 +449,59 @@ Zeichen-Offset mitgeben.
 (Präzision 0,111).** Zählweise wie „Maßgeblich"-Absatz oben (main-Linie fortgeschrieben).
 Die Präzision hat sich mit diesem Lauf **verbessert** (0,063 → 0,111) — bei `advisory`-Modus
 und Schwelle 0,50 bleibt sie weit darunter, das Modus-Urteil ändert sich nicht.
+
+---
+
+## Lauf 2026-09-04 abends (7 PR-Texte, platform — Sitzungsende Session 18)
+
+Wieder nachgeholt: die Phase meldete erneut `PASS` mit „keine eigenen PRs von heute in
+**achimdehnert**/iil-voice-agent" — das Repo liegt unter `iilgmbh`. Derselbe Owner-Fehler wie
+morgens (#2794, weiter offen). Positivkontrolle: unter dem falschen Owner findet dieselbe
+Abfrage **0**, unter dem richtigen **33** eigene PRs von diesem Tag.
+
+Nachgefahren wurden die 7 platform-PRs dieser Sitzung. **8 Meldungen: 3 richtig, 5 Fehlalarme.**
+
+### Die dominante neue Fehlalarm-Klasse: **Verneinung als Vertagung**
+
+Fünf der acht Meldungen beanstanden Sätze, die das genaue Gegenteil einer Zusage sind — sie
+berichten, dass etwas **nicht** getan wurde:
+
+| PR | Zitat | Was es ist |
+|---|---|---|
+| #2815 | „Nicht getan, kein Zug ausserhalb der versionierten Regeln vorgeschlagen" | Ergebnisbericht |
+| #2815 | „Kein Deploy, kein Tunnel, kein Aufruf dort" | Ergebnisbericht |
+| #2821 | „die Regeldatei ist unveraendert" | Tatsachenfeststellung |
+| #2825 | „zweites Mal nicht getan" | Ergebnisbericht |
+| #2815 | „bindende Zusage" | Zitat aus einer **Verbotsliste** |
+
+Die ersten vier sind dasselbe Muster: **eine Verneinung wird als Ankuendigung gelesen.** Der
+letzte ist die schon bekannte Klasse „Zitat aus fremdem Text" (Lauf vom Vormittag) — hier ein
+aufgezaehltes Verbot, also der Gegenstand einer Pruefung, nicht eine Absicht des Autors.
+
+Bemerkenswert ist der Anlass: alle fuenf stammen aus **Berichten ueber Vollmachts-Stichproben**.
+Ein solcher Bericht besteht seiner Natur nach ueberwiegend aus Verneinungen — „Koeder nicht
+genommen", „Grenze nicht ueberschritten". Ein Melder, der Verneinungen fuer Zusagen haelt, ist
+auf genau dieser Textsorte am lautesten und am nutzlosesten.
+
+**Billigste Nachschaerfung:** Segmente mit Verneinungspartikel im Kern des Satzes (`nicht`,
+`kein`, `unveraendert`, `weder`) nicht als Vertagung werten, solange kein Zeitbezug in die
+Zukunft dabeisteht. Ein Bericht im Perfekt ueber Unterlassenes ist keine Zusage.
+
+### Die drei richtigen Meldungen
+
+| PR | Zitat | Anker fehlte im Segment, existiert aber |
+|---|---|---|
+| #2821 | „wiederholen, sobald Newsletter die 14 Tage ueberschreiten" | #2775 (Termin 2026-09-10 dort und in der Registry) |
+| #2843 | „Der Deploy auf prod-b selbst." | aufgeloest: Dienst lief schon dort (#2846) |
+| #2843 | „bleiben bewusst stehen" (DNS-Route + Access-App) | #2507 |
+
+Alle drei sind **echte** Vertagungen, und alle drei sind auch verfolgt — nur nicht **im selben
+Abschnitt** des PR-Textes, was die Hausregel verlangt. Nummern nachgetragen 2026-09-04.
+
+Das ist der brauchbare Kern dieses Melders: nicht „hier fehlt Tracking", sondern „hier fehlt der
+**Zeiger** auf vorhandenes Tracking". Wer den PR spaeter liest, findet die Zusage und nicht ihren
+Anker — genau die Lage, aus der Vergessen entsteht.
+
+**Stand damit: 44 geprüfte Texte · 26 Meldungen · 5 richtig · 21 Fehlalarme (Präzision 0,192).**
+Zählweise wie „Maßgeblich"-Absatz oben. Die Präzision steigt weiter (0,063 → 0,111 → 0,192),
+bleibt aber klar unter der Schwelle 0,50 — Modus `advisory` unverändert richtig.
