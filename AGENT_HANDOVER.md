@@ -15,9 +15,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-06 früh — Nachtrag: Runner E.2/E.3/E.5 sehend (#2864), ausschreibungs-hub-Gate wartet auf Owner; Basis 2026-09-04: Mailcheck-Ablage scharf (#2799 K7), Zug A Welle, Future-Readiness v2.4, SA-M Deploy-Vermerk)
+## ⚡ Aktueller Stand (2026-09-06 abends — Mailcheck 0/0, Suchfeld todo.iil.pet, K5-Bilanz v2.4; früh: Runner E.2/E.3/E.5 sehend (#2864), ausschreibungs-hub-Gate wartet auf Owner; Basis 2026-09-04: Mailcheck-Ablage scharf (#2799 K7), Zug A Welle, Future-Readiness v2.4, SA-M Deploy-Vermerk)
 
-**Zeitanker:** HEAD `b5860b81` · `rev-list --count` 4182 · geschrieben 2026-09-06
+**Zeitanker:** HEAD `d70f45d5` · `rev-list --count` 4185 · geschrieben 2026-09-06
+
+**Sitzung b89bd61d (2026-09-06, Owner „28 29 go“ → „S go“ → „7a/K/A2/156/193“ → „#2737, dann /session-ende“):** Prod-Wirkungs-Melder unterscheidet Doku-Rückstand als Hinweis ([#2871](https://github.com/achimdehnert/platform/pull/2871), writing-hub war 8 Läufe lang Fehl-WARN; mcp-hub war ein Zeitfenster Merge→Deploy) · /mailcheck: Melder `--pruefe` erstmals **hnu 0 / iil 0** — Ursache der Restmails waren geschlossene Vorgänge ohne Anker (`kein_anker`, still übersprungen; Befund + K8-Vorschlag in #2799); 2 neue Vorgänge (156 Bipedal Antwort, 193 fehlgeleitete FR-Beschwerde am DSB-Postfach eines Mandanten), Groq-Rechnung Ende-zu-Ende (Paperless 2363, sevdesk 154416479, Konto 6837) · Suchfeld auf todo.iil.pet live ([#2874](https://github.com/achimdehnert/platform/pull/2874), #2873 zu) · Future-Readiness K5 rubrikbereinigt ([#2877](https://github.com/achimdehnert/platform/pull/2877)): v2.4-Neulauf war kein sauberer Vorher-Wert (20 Repos schon mit Zug A), Phase-C-Evidenz neu gerechnet — Rubrik allein Median 52→51,5, Zug A 51,5→54 (+145 Punkte, 42 Repos, P1 unverändert 53); vier Owner-Fragen in #2737. **Eigener Fehler:** Entwurfslauf mit 5-MB-Anhang brach ab und ließ einen Rest-Entwurf stehen, Owner sendete beide → Empfänger bekam die Weiterleitung dreifach ([#2875](https://github.com/achimdehnert/platform/issues/2875)). Werkzeugbefunde: memory-link-guard meldet fremde Lane (#2870), Rubrik-Etikett im Bewerter (#2876).
 
 **Sitzung e7e18c96 (2026-09-05 abends, Owner „16 und 17 go, Sonnet-Brief"):** Runner `session_ende_checks.sh` war für platform in E.2/E.3/E.5 blind (Pfad als Repo-Name, Owner aus dem platform-Remote, `gh`-Fehler verschluckt) und `befund_journal.py --echt` nahm Phantom-IDs an — beides gefixt und per SA-M W1/M1 gemergt ([#2864](https://github.com/achimdehnert/platform/pull/2864), schließt #2773/#2794/#2863; Faden 33 archiviert). Prod-Run von ausschreibungs-hub hängt seit 2026-09-04 am `production`-Gate und blockiert die Concurrency-Group ([iilgmbh/ausschreibungs-hub#298](https://github.com/iilgmbh/ausschreibungs-hub/issues/298)); Run = main-Head 457a1f7, Freigabe per API vom Permission-Classifier geblockt → **Owner-Klick**. Fehlalarm-Klasse „vertagt beschreibt Fremdverhalten" als vierter Fall auf #2606.
 
@@ -29,9 +31,9 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Befunde:** M3 per Review auf eigenen PRs unerreichbar (GitHub verbietet Self-Approve) → (b) umgesetzt · Aufschub-Anker-Gate feuert auf „nicht ausgewertet"/„bewusst nicht" in Code-Kommentaren (3× heute, Fehlalarm-Klasse für #2606) · zwei PRs mergte der Owner, bevor die Nachbesserung drin war (#2803→#2805, #2804→#2809) · eigener Fehler: leere Worktree-Pfadvariable (Skript schreibt auf stderr) ließ einen Cherry-pick im Haupt-Tree laufen — sofort abgebrochen, HEAD unverändert (Memory 🌀).
 
-**Nächster Schritt:** /mailcheck mit Schritt 7a scharf (Melder `--pruefe` 0/0 anstreben; hnu-Restmail sichten); #2737: K5-Bilanz Vorher/Nachher aus dem v2.4-Stand, Owner-Fragen zu v2.4-Neulauf-Deltas; #2802 Speicher-Melder auf Helfer; travel-beat Runner.
+**Nächster Schritt:** #2737 Owner-Fragen 1–3 (v2.4-Basislinie, leere Manifeste, D11.2 ohne Manifest) · #2799 K8: `--pruefe` nennt `kein_anker`-Vorgänge mit Anker-Kommando · #2875 Upload-Session + Entwurf beim Abbruch wegräumen · #2802 Speicher-Melder auf Helfer · travel-beat Runner.
 
-**SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M: 3 Merges per Mandat (#2805 W1/M1, #2808 W1/M1, beide nach Freigabe-Vermerk im Issue-Body #2737), 8 W3-Merges durch den Owner. Delegation: 7 Subagenten nach Brief (4 Sonnet, 3 Opus; Prüfung + Fixes inline), Session `ac4fb7c7`.
+**SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M 2026-09-06: 3 Merges W1/M1 (#2871, #2874, #2877), 3 Sonnet-Subagenten nach Brief, Prüfung inline. SA-M 2026-09-04: 3 Merges per Mandat (#2805 W1/M1, #2808 W1/M1, beide nach Freigabe-Vermerk im Issue-Body #2737), 8 W3-Merges durch den Owner. Delegation: 7 Subagenten nach Brief (4 Sonnet, 3 Opus; Prüfung + Fixes inline), Session `ac4fb7c7`.
 
 **0h Fremdabnahme (Fortsetzung 01Lob9, 2026-09-04):** Zug-A-Rest + 171 **erreicht** (51/56 selbst gezaehlt, Staffelung ≤ 2/h, Deploys success, Vorfall zurueckgesetzt, Tag = #76, Bypass mit Freigabe); Z7 teilweise — zwei Anker im #2787-Text falsch, korrigiert (bahn-hub#19, risk-hub#729). 0e: drei JA, hier nachgezogen (Faeden 31/36/39/40); Faden 38 = Parallelsitzung. Runner: E.1 coach-hub#70, E.5/E.6 Luecke.
 
@@ -51,7 +53,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 6. Gate-Deckung: 11 ungedeckte Slugs, 28 %: https://github.com/achimdehnert/platform/issues/2234
 7. Wirksamkeits-Bilanz der Gates: gemessen, Konsequenz je Gate offen: https://github.com/achimdehnert/platform/issues/2374
 8. Concurrency je Ziel-Umgebung: 13 gleichlautende PRs in der Flotte offen: https://github.com/achimdehnert/platform/issues/2229
-9. `deploy_wirkung`-Restbefunde: https://github.com/achimdehnert/platform/issues/2148
+9. `deploy_wirkung`-Restbefunde; Doku-Rückstand seit #2871 als Hinweis, ausschreibungs-hub/travel-beat weiter RUECKSTAND: https://github.com/achimdehnert/platform/issues/2148
 10. risk-hub hängt >26 Commits zurück (DSB-Tätigkeitsnachweis), Migrationen additiv geprüft — deployen, sobald auf `main` nicht mehr gearbeitet wird; Repo liegt in `iilgmbh`.
 11. Rollende Melder legen an statt zu aktualisieren, ~38 Kandidaten: https://github.com/achimdehnert/platform/issues/2140
 12. shared-ci-Bänder: App-Repos v1.1.10 ×17 / v1.0.11 ×2, `ttz-lif`+`meiki-lra` ungemessen: https://github.com/achimdehnert/platform/issues/2087
@@ -69,19 +71,22 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690
 26. #2750 K4/K5-Bilanz, sobald das Ledger 5 Fable-Sessions nach 2026-09-03 trägt (Stand 2); K5-Basisdefinition = Owner-Wort: https://github.com/achimdehnert/platform/issues/2750
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
-28. Future-Readiness: K5-Bilanz aus v2.4-Neulauf (dev-hub#326), Deltas 27 Repos = Owner-Fragen: https://github.com/achimdehnert/platform/issues/2737
+28. Future-Readiness: K5-Bilanz gemergt (#2877); offen Owner-Fragen 1–3 (v2.4 als Basislinie, leere Manifeste in 4 Repos, D11.2 ohne Manifest → v2.5-Regel): https://github.com/achimdehnert/platform/issues/2737
 29. Evidenz-Generator-Rest (Rate-Limit-Vorabcheck, visibility-Check); Werkzeuge #2767 gemergt, #2782 offen: https://github.com/achimdehnert/platform/issues/2736
 30. Mail-Signatur im HTML-Pfad von send_mail/graph_mail (draft_mail gefixt #2830; 3 HNU-Mails am 04.09. ohne Signatur): https://github.com/achimdehnert/platform/issues/2831
 31. travel-beat: Gate #98 gemergt (App aus); staging-Runner-Unit `actions.runner.achimdehnert-travel-beat.travel-beat-staging-ci.service` (dev-desktop) braucht sudo-Start; #94 jetzt gefahrlos: https://github.com/achimdehnert/travel-beat/issues/95
 32. ADR-262 Frontmatter nach Welle 1 (7 Repos umgesetzt, Status not-started): https://github.com/achimdehnert/platform/issues/2770
 34. Speicher-Melder baut den Hop-Zugang noch selbst, Rest aus #2783: https://github.com/achimdehnert/platform/issues/2802
-35. Mailcheck-Ablage: Rest 3 Vorgänge ohne Anker, 1 ohne Strang, hnu 1 offene Mail; Melder `--pruefe` in `make boards`: https://github.com/achimdehnert/platform/issues/2799
+35. Mailcheck-Ablage: Melder 0/0 erreicht (06.09.); K8: `kein_anker`-Vorgänge im Melder nennen, 4 geschlossene ohne Anker (146/167/172/179): https://github.com/achimdehnert/platform/issues/2799
 36. Zug A 51/56 gemessen; ohne: coach-hub#70, bahn-hub#19, risk-hub#729, infra-deploy#7, dev-hub (44); Folgebefunde #2827, mcp-hub#251, meiki-dms#19: https://github.com/achimdehnert/platform/issues/2787
 37. Aufschub-Anker-Gate: Fehlalarm-Klasse „nicht ausgewertet/bewusst nicht“ in Code-Kommentaren, 3× am 2026-09-04: https://github.com/achimdehnert/platform/issues/2606
 38. Sitzung 6e320e79 (Mailcheck/DSGVO/EPIC): `load_credentials` beendet den Prozess statt zu werfen — Wurzel hinter #2755; Ledger #185–#188 offen, Papiere `~/shared/retentionsscanner/`: https://github.com/achimdehnert/platform/issues/2752
 39. apo-hub ruhend, DEPLOY_ENABLED=false; Schluesselrotation erst bei Reaktivierung: https://github.com/achimdehnert/apo-hub/issues/82
 40. `Bash(gh pr merge:*)` global in autoMode.allow — zurueckbauen oder als Gate verankern (Owner): https://github.com/achimdehnert/platform/issues/2834
 41. shared-ci v1.1.15 gesetzt (#73 zu); 42 Konsumenten bumpen, writing-hub zuerst, Liste mit Versionen: https://github.com/iilgmbh/shared-ci/issues/77
+42. graph_mail: Entwurfs-Anhänge >3 MB per Upload-Session; Abbruch darf keinen Rest-Entwurf hinterlassen (Dreifach-Zustellung 06.09.): https://github.com/achimdehnert/platform/issues/2875
+43. future_readiness_score: Rubrik-Etikett aus Konstante statt `2.3-<datum>` (K5-Lauf falsch etikettiert): https://github.com/achimdehnert/platform/issues/2876
+44. memory-link-guard prüft alle Memory-Lanes und meldet fremde Sitzung als eigenen Zug: https://github.com/achimdehnert/platform/issues/2870
 
 ## Konventionen dieser Datei
 
