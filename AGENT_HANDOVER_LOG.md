@@ -3428,3 +3428,20 @@ Zug-A-Merge travel-beat#96 loeste den Push-Deploy aus und fuhr die sechs seit 20
 stillgelegten Container wieder hoch — betriebsstatus in ports.yaml nicht gelesen. Zustand
 sofort zurueck (stop, restart=no), Vorfall in platform#2480, Gate-PR travel-beat#98
 (vars.DEPLOY_ENABLED), Memory-Drift-Eintrag. Zug A gemessen 51/56.
+
+## 2026-09-04/06 — Rotation Stufe 1 (aus der risk-hub-Sitzung 48fc38e7): Werkzeug gebaut, PROJECT_PAT in sechs Repos belegt
+
+Konzept KONZ-dev-hub-005 (T3, Owner-Entscheid A5: Werkzeug in platform, App nachgelagert), Umsetzung #2813:
+`infra/schemas/secrets-inventory.schema.json` + PR-Check, `tools/rotate.py` (pruefen/lauf/faellig/widerruf-geprueft),
+Treiber `github_repo_secret` ueber GitHub-App `iil-rotation` (ID 4828181, Installationen iilgmbh + achimdehnert,
+Rechte Secrets write / Metadata read / Actions write — *Actions* fehlte im ersten Manifest, 403 beim Beleg),
+Vorlage `docs/templates/secret-probe.yml`, Runner-Phase 0.7.25 + Melder-Register. PRs #2817, #2833, #2836, #2839,
+#2841, #2842 (Handover-Referenz ausgelagert, Byte-Deckel), #2844 (#2840), #2847/#2848/#2867 (Log).
+
+Laeufe: PROJECT_PAT-2026-09-04-3 (risk-hub), -4 (platform, travel-beat, pptx-hub, risk-hub; weltenhub/mcp-hub ohne Beleg),
+-5 (weltenhub nach Runner-Neustart prod-b), 2026-09-06-1 (mcp-hub nach Gate-Ausnahme mcp-hub#254). Alle sechs Konsumenten
+mit Negativprobe belegt; bfagent aus dem Inventar (archiviert). Befund: platform-Token vom 13.08. war tot (401, #2758).
+
+Offen: #2868 (Teil-Lauf gegen das Log rechnen; Log-PRs brauchen Code-Owner), #2818 (Stufe 2, Outline-Skript als Text),
+zweites Secret fuers Kill-Gate (GENESOR_PROJECT_TOKEN), Widerruf der zwei alten PROJECT_PAT beim Owner.
+Nebenbefund Dev-Desktop: `~/.bashrc` war durch ein Verzeichnis ersetzt — wiederhergestellt (#2813-Kommentar).
