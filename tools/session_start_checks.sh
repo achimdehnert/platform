@@ -796,14 +796,21 @@ def wartet(e):
     return (na(e, "rueckstand") and e.get("prod_gate")
             and (e.get("alter_tage") or 0) < FREIGABE_FRIST_TAGE)
 dop  = [e["repo"] for e in b if e.get("doppellauf")]
-warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e)]
-rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e)]
+warte= ["%s(%sd)" % (e["repo"], e.get("alter_tage", "?")) for e in b if wartet(e) and not e.get("nur_doku")]
+# Rueckstand nur aus Doku-Pfaden (writing-hub deployt Doku-Merges per
+# Cosmetic-Gate #1009 bewusst nicht): kein Befund, `nur_doku` schlaegt daher
+# `wartet` (ein Doku-Rueckstand ist auch mit Prod-Gate ein Doku-Rueckstand).
+# Faellt der Doku-Check aus (gh-Fehler, >=300 Dateien), fehlt `nur_doku` —
+# dann bleibt der Eintrag ganz normal in `rueck`/`warte`, also laut.
+doku = [e["repo"] for e in b if na(e, "rueckstand") and e.get("nur_doku")]
+rueck= [e["repo"] for e in b if na(e, "rueckstand") and not wartet(e) and not e.get("nur_doku")]
 verw = [e["repo"] for e in b if e.get("verwaiste_manifeste")]
 unk  = [e["repo"] for e in b if e.get("zuordnung_unklar") or e.get("container_unklar")]
 teile, betroffen = [], sorted(set(dop + rueck))
 if dop:   teile.append("DOPPELLAUF:" + ",".join(dop))
 if rueck: teile.append("RUECKSTAND:" + ",".join(rueck))
 if warte: teile.append("wartet auf Prod-Freigabe (kein Befund):" + ",".join(warte))
+if doku:  teile.append("nur Doku hinter main (kein Befund):" + ",".join(doku))
 if verw:  teile.append("verwaistes Manifest:" + ",".join(verw))
 if unk:   teile.append("Zuordnung/Container unklar:" + ",".join(unk))
 status = "WARN" if (dop or rueck) else "PASS"

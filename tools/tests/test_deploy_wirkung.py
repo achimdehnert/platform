@@ -11,6 +11,7 @@ darf, an einem Fall, in dem nichts doppelt lief.
 """
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -105,3 +106,48 @@ def test_should_ssh_fehlschlag_als_unbekannt_melden(monkeypatch):
 def test_should_leere_containerliste_von_fehlschlag_unterscheiden(monkeypatch):
     monkeypatch.setattr(dw, "sh", lambda cmd, timeout=60: (0, ""))
     assert dw.laufende_container("root@example") == set()
+
+
+# ── ist_nur_doku(): Rueckstand nur aus Doku-Pfaden (#2148) ───────────────────
+
+
+def test_should_recognize_a_pure_docs_backlog():
+    assert dw.ist_nur_doku(
+        ["docs/a.md", "AGENT_HANDOVER.md", "klickdummy/x.html", ".gitignore"]
+    )
+
+
+def test_should_reject_a_mixed_backlog():
+    assert not dw.ist_nur_doku(["docs/a.md", "app/views.py"])
+
+
+def test_should_treat_an_empty_file_list_as_not_docs_only():
+    assert not dw.ist_nur_doku([])
+
+
+def test_should_match_markdown_in_a_subdirectory():
+    """Belegt das fnmatch-Verhalten: '*.md' matcht auch 'a/b/README.md'."""
+    assert dw.ist_nur_doku(["a/b/README.md"])
+
+
+# ── rueckstand_dateien(): fail-open bei jedem Werkzeugfehler ─────────────────
+
+
+def test_should_treat_a_gh_failure_as_unknown(monkeypatch):
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (1, ""))
+    assert dw.rueckstand_dateien("writing-hub", "achimdehnert", "abc", "def") is None
+
+
+def test_should_treat_a_capped_compare_result_as_unknown(monkeypatch):
+    viele = json.dumps([f"f{i}.py" for i in range(300)])
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (0, viele))
+    assert dw.rueckstand_dateien("writing-hub", "achimdehnert", "abc", "def") is None
+
+
+def test_should_return_the_file_list_on_a_normal_compare(monkeypatch):
+    normal = json.dumps(["AGENT_HANDOVER.md", "AGENT_HANDOVER_ARCHIVE.md"])
+    monkeypatch.setattr(dw, "sh", lambda cmd, timeout=30: (0, normal))
+    assert dw.rueckstand_dateien("writing-hub", "achimdehnert", "abc", "def") == [
+        "AGENT_HANDOVER.md",
+        "AGENT_HANDOVER_ARCHIVE.md",
+    ]
