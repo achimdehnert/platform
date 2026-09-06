@@ -15,9 +15,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-04 früh — Mailcheck-Ablage wieder scharf (#2799 K7: 18 Mails), Zug A Welle gemergt, Future-Readiness v2.4 + Neulauf, SA-M Deploy-Vermerk)
+## ⚡ Aktueller Stand (2026-09-06 früh — Nachtrag: Runner E.2/E.3/E.5 sehend (#2864), ausschreibungs-hub-Gate wartet auf Owner; Basis 2026-09-04: Mailcheck-Ablage scharf (#2799 K7), Zug A Welle, Future-Readiness v2.4, SA-M Deploy-Vermerk)
 
-**Zeitanker:** HEAD `4c36b81e` · `rev-list --count` 4122 · geschrieben 2026-09-04
+**Zeitanker:** HEAD `b5860b81` · `rev-list --count` 4182 · geschrieben 2026-09-06
+
+**Sitzung e7e18c96 (2026-09-05 abends, Owner „16 und 17 go, Sonnet-Brief"):** Runner `session_ende_checks.sh` war für platform in E.2/E.3/E.5 blind (Pfad als Repo-Name, Owner aus dem platform-Remote, `gh`-Fehler verschluckt) und `befund_journal.py --echt` nahm Phantom-IDs an — beides gefixt und per SA-M W1/M1 gemergt ([#2864](https://github.com/achimdehnert/platform/pull/2864), schließt #2773/#2794/#2863; Faden 33 archiviert). Prod-Run von ausschreibungs-hub hängt seit 2026-09-04 am `production`-Gate und blockiert die Concurrency-Group ([iilgmbh/ausschreibungs-hub#298](https://github.com/iilgmbh/ausschreibungs-hub/issues/298)); Run = main-Head 457a1f7, Freigabe per API vom Permission-Classifier geblockt → **Owner-Klick**. Fehlalarm-Klasse „vertagt beschreibt Fremdverhalten" als vierter Fall auf #2606.
 
 **Zielzustand (Owner-Worte 2026-09-04 „21 bis 28 go" — Board-Nummern der Sitzung: 21 writing-hub#1008 · 22 #2784 · 23 #2783 · 24 #2737 v2.4 · 25 Zug-A-Welle · 26 dev-hub#325 · 27 Repos ohne Prod-Deploy · 28 Mailcheck-Archiv; später „24 30 go, 37a ja" = #2803 mergen, Neulauf, Schwelle · „37 (b)" = #2812 — + Ziel 28: „mailcheck verschiebt erledigte Mails ins Archiv und bleibt trotzdem mit allen Referenzen auf Mails aktuell; der Posteingang hat keine erledigten Mails mehr" → [#2799](https://github.com/achimdehnert/platform/issues/2799)): K1–K6 **erreicht** ([#2804](https://github.com/achimdehnert/platform/pull/2804) + Nachzug [#2809](https://github.com/achimdehnert/platform/pull/2809)), K7 **teilweise → verschoben mit Anker** (Fremdabnahme 0h: scharfer Lauf 18 Mails, Quelle/Ziel beidseitig gezählt, 15 Anker nachgezogen, 0 tot, 0 neue tote Links — aber Melder danach hnu 1 / iil 0, nicht 0/0; Rest 3 Vorgänge ohne Anker, 1 ohne Strang, 1 hnu-Mail → Faden 35, nächster /mailcheck). Wurzel: seit 27.08. lief die Ablage nie, weil die Ordnerliste ein Pflichtargument war, das der Skill nicht mitgab (dritter Vorfall).**
 
