@@ -3445,3 +3445,19 @@ mit Negativprobe belegt; bfagent aus dem Inventar (archiviert). Befund: platform
 Offen: #2868 (Teil-Lauf gegen das Log rechnen; Log-PRs brauchen Code-Owner), #2818 (Stufe 2, Outline-Skript als Text),
 zweites Secret fuers Kill-Gate (GENESOR_PROJECT_TOKEN), Widerruf der zwei alten PROJECT_PAT beim Owner.
 Nebenbefund Dev-Desktop: `~/.bashrc` war durch ein Verzeichnis ersetzt — wiederhergestellt (#2813-Kommentar).
+
+## 2026-09-06 — Mailcheck 0/0, Suchfeld, K5-Bilanz v2.4 (Sitzung b89bd61d)
+
+Owner „28 29 go“: Start-Hygiene — Prod-Wirkungs-Melder kannte gewollte Doku-Nicht-Deploys nicht
+(writing-hub 8 Läufe Fehl-WARN), jetzt Hinweis statt Befund (#2871); mcp-hub-Rückstand war das
+Zeitfenster Merge→Deploy. /mailcheck: Melder erstmals hnu 0 / iil 0 — die Restmails hingen an
+geschlossenen Vorgängen ohne Anker, die die Ablage still überspringt (#2799 K8-Vorschlag). Zwei
+neue Vorgänge (156 Bipedal, 193 FR-Gewährleistungsbeschwerde am DSB-Postfach eines Mandanten), beide
+Antworten auf Owner-Wort entworfen und gesendet; Groq-Rechnung Ende-zu-Ende. Suchfeld auf
+todo.iil.pet auf Zuruf gebaut und live (#2874). K5 Future-Readiness: der v2.4-Neulauf enthielt
+schon 20 Zug-A-Repos, deshalb Phase-C-Evidenz mit v2.4 neu gerechnet — Rubrik senkt den Median
+52→51,5, Zug A hebt ihn auf 54 (#2877); vier Owner-Fragen in #2737.
+
+Eigener Fehler: Entwurfslauf brach am 5-MB-Anhang ab und ließ einen Rest-Entwurf stehen, der
+Owner sendete beide — Empfänger dreifach beliefert; Entschuldigung entworfen, Werkzeugfix #2875.
+Drei Sonnet-Subagenten nach Brief (Melder-Fix, Suchfeld, keiner für Urteile), drei SA-M-Merges.
