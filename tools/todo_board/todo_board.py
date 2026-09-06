@@ -723,7 +723,9 @@ OVERLAY = """
    zaehler.textContent=woerter.length?(sichtbar+' von '+zeilen.length+' Vorgaengen'):'';
   }
   var q=eingabe.value.trim();
-  history.replaceState(null,'',q?'?q='+encodeURIComponent(q):location.pathname);
+  /* file:// und manche Sandboxes verweigern replaceState — der Filter selbst
+     darf daran nicht haengen bleiben. */
+  try{history.replaceState(null,'',q?'?q='+encodeURIComponent(q):location.pathname);}catch(e){}
  }
  eingabe.addEventListener('input',anwenden);
  eingabe.addEventListener('keydown',function(e){
