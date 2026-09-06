@@ -281,3 +281,27 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   Quelländerung **vor** dem Report lesend gegenzuprüfen; die Referenz für „Quelle
   unverändert" ist `git log --since=<letzter Report>` über `klickdummy/` + `docs/adr/`
   des Repos, nicht der Changelog.
+- 2026-09-06: **Nightly-Lauf (03:18 UTC) + NEUER BEFUND — der Cron-Pfad pullt die Repos
+  nicht.** 18 der 25 Repos lagen hinter `origin/main`, 14 davon mit Diff in `klickdummy/`
+  oder `docs/adr/` (risk-hub 18 Commits, tax-hub 12, trading-hub 11, billing-hub 10).
+  Vor `git merge --ff-only`: 172 Entries; danach **176** — 4 neu (risk-hub
+  `betroffenenrechte` + `ADR-066`, pg-hub `sitemap` + `ADR-005#2`), 6 geändert
+  (risk-hub `art15-vorgang` + `ADR-064`, pg-hub `pocket-governance-db` + `ADR-005`,
+  dms-hub `sitemap`, billing-hub `sitemap`). Die „0 written"-Reports der Vortage belegten
+  also nur einen unbewegten lokalen Klon, nicht einen aktuellen Store. dev-hub ließ sich
+  nicht fast-forwarden (9 dirty Dateien) → dessen 5 KD/ADR-Diffs bleiben stale. Getrackt:
+  [platform#2865](https://github.com/achimdehnert/platform/issues/2865) (Step 0
+  „fetch + ff-only, Nicht-ff-bare als stale melden"). R3 PASS: 176/176 `ok`, 0 failed,
+  25 Repos, Producer `iil-klickdummy 1.35.0`, 176 unique `entry_key`, Schema-WARNs 177
+  unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28,
+  frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25.
+  **`written: true` = 11, davon 10 legitim** (die 4 neuen + 6 geänderten oben).
+  Der elfte, `ausschreibungs-hub:ADR-005`, ist Fidelity-Verlust — **diesmal kein
+  Trailing-Whitespace, sondern ein Anführungszeichen:** die Quelle schreibt
+  `„…des Bieters"` (U+201E + ASCII `"`), der Sonnet-Worker normalisierte das Schlusszeichen
+  zu U+201C. Konsequenz: nicht nur endständiger Whitespace, sondern jede Stelle, an der
+  die Quelle „falsch aussieht", ist beim Durchreichen gefährdet — der Worker korrigiert
+  still. Korrektur inline (`written: true`), lesend verifiziert (ASCII `"`, Tail `\n`).
+  Die 7 `\n\n`-Entries wurden diesmal von vornherein inline geschrieben: 6× dedup,
+  pg-hub:ADR-005 legitim `true`. Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
