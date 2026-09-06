@@ -8,6 +8,7 @@ Bucket-Angabe fehlt oder unbekannt ist.
 
 from __future__ import annotations
 
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -234,6 +235,43 @@ class TestVerlinkung:
     def test_should_carry_the_overlay_exactly_once(self):
         seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG)
         assert seite.count("id=ovl-frame") == 1
+
+
+class TestSuche:
+    """Clientseitiges Suchfeld (#2873) — Feld auf der Uebersicht, Suchtext je Zeile."""
+
+    def test_should_render_a_search_field_on_the_overview(self):
+        seite = tb.baue({"vorgaenge": [vorgang()]}, STICHTAG)
+        assert 'id="such"' in seite
+        assert 'type="search"' in seite
+
+    def test_should_tag_each_row_with_lowercased_search_text(self):
+        v = vorgang(
+            nr=177,
+            thread_key="Meine Lehrtätigkeit im MBA",
+            gegenueber="Mathias Opp <x@y>",
+            kurz="Opp: erledigt",
+            konto="hnu",
+        )
+        markup = tb.zeile(v, STICHTAG)
+        [such] = re.findall(r'data-such="([^"]*)"', markup)
+        for erwartet in (
+            "177",
+            "meine lehrtätigkeit im mba",
+            "mathias opp",
+            "opp: erledigt",
+            "hnu",
+        ):
+            assert erwartet in such
+        # Kein Grossbuchstabe ueberlebt — sonst haette ein Suchbegriff in
+        # Kleinschreibung eine Zeile verfehlt, die ihn in Grossschreibung traegt.
+        assert not any(z.isupper() for z in such)
+
+    def test_should_escape_html_in_search_text(self):
+        markup = tb.zeile(vorgang(gegenueber="<b>x</b>"), STICHTAG)
+        [such] = re.findall(r'data-such="([^"]*)"', markup)
+        assert "&lt;b&gt;" in such
+        assert "<b>" not in such
 
 
 class TestEntwurfInDerListe:
