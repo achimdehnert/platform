@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """future_readiness_rubric.py — EINE Quelle fuer Fragenkatalog, Anwendbarkeitsmatrix und JSON-Schema
-des Future-Readiness-Worker (docs/prompts/future-readiness-audit.md, ab v2.2; Stand v2.4).
+des Future-Readiness-Worker (docs/prompts/future-readiness-audit.md, ab v2.2; Stand v2.5).
 
     python3 tools/future_readiness_rubric.py table   # Artefakt 2, Kernfragen (mit locator_kind)
     python3 tools/future_readiness_rubric.py matrix  # Artefakt 2, Anwendbarkeit
@@ -16,6 +16,10 @@ am 2026-09-02, Review C, Blocker 1-7 — Tabelle, Matrix und Schema liefen in v2
 v2.3 (Canary 3, Review B + interner Lauf): locator_kind je Frage, eindeutige Befundwerte
 (D05.2, D06.6, D06.7, D09.2), Frage D06.13 (First-Party-Referenzen), Schema zustandsabhaengig
 (oneOf), Zaehler/Nenner Pflicht bei partial, remediation_prs als Liste.
+v2.5 (2026-09-07, Owner-Entscheide zu platform#2737 Fragen 2-4 + #2876): D02.1 zaehlt
+`[project.optional-dependencies]`-Extras mit; D11.2 wird `not_applicable` ohne
+Abhaengigkeits-Manifest (statt fail); Bewerter-Etikett kommt aus einer eigenen
+RUBRIC_VERSION-Konstante (tools/future_readiness_score.py), nicht mehr aus SCHEMA_VERSION.
 """
 
 import json
@@ -110,7 +114,7 @@ Q = [
     (
         "D02.1",
         "manifest",
-        "Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest; [project].dependencies aus pyproject.toml zaehlt als Manifest)",
+        'Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest; [project].dependencies aus pyproject.toml zaehlt als Manifest; [project.optional-dependencies]-Extras zaehlen mit, dedupliziert ueber Gruppen, eigene Extras-Selbstreferenz wie all = ["pkg[a,b]"] ausgenommen; v2.5. Eine pyproject.toml ohne [project]-Tabelle ist KEIN Manifest)',
         "alle Eintraege versioniert",
         "teils versioniert",
         "kein Manifest, nur leere Manifeste (entries == 0) oder 0 versioniert",
@@ -639,7 +643,7 @@ Q = [
     (
         "D11.2",
         "third-party-notices",
-        "Third-Party-Notices",
+        "Third-Party-Notices (not_applicable ohne Abhaengigkeits-Manifest mit entries > 0 ueber alle erkannten Manifeste inkl. pyproject; v2.5)",
         "ja",
         "-",
         "nein",

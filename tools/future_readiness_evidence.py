@@ -150,25 +150,92 @@ def manifest_ops(path: str) -> dict | None:
     return {"entries": len(entries), "versioned_entries": len(versioned)}
 
 
+def _bracket_list_span(text: str, open_idx: int) -> str | None:
+    """Inhalt der TOML-Liste, deren `[` bei `open_idx` liegt — quote-bewusst, damit
+    ein `]` INNERHALB eines Strings (z. B. `"pkg[extra]"`) die Liste nicht vorzeitig
+    schliesst. Gibt None zurueck, wenn keine passende schliessende Klammer folgt."""
+    depth, in_str, i = 0, False, open_idx
+    while i < len(text):
+        c = text[i]
+        if in_str:
+            if c == '"' and text[i - 1] != "\\":
+                in_str = False
+        elif c == '"':
+            in_str = True
+        elif c == "[":
+            depth += 1
+        elif c == "]":
+            depth -= 1
+            if depth == 0:
+                return text[open_idx + 1 : i]
+        i += 1
+    return None
+
+
+def _toml_list_entries(content: str) -> list[str]:
+    """Eintraege einer TOML-Liste als die darin liegenden gequoteten Strings —
+    ein Komma INNERHALB eines Eintrags (z. B. `"pkg>=1.0,<2.0"`) trennt nicht."""
+    return re.findall(r'"([^"]*)"', content)
+
+
 def pyproject_ops(root: str) -> dict:
+    """`pyproject.toml` → Abhaengigkeits-Operanden fuer D02.1 (Rubrik v2.5).
+
+    Nur mit `[project]`-Tabelle ist die Datei ueberhaupt ein Manifest (eine
+    `pyproject.toml`, die ausschliesslich `[tool.*]`/`[build-system]` traegt, ist
+    KEIN Manifest — `dependencies` bleibt dann `None`, wie beim fehlenden File).
+    `[project.optional-dependencies]`-Extras zaehlen zu `entries`/`versioned_entries`
+    mit (dedupliziert ueber Gruppen); eine Extra-Gruppe, die nur eigene Extras
+    referenziert (z. B. `all = ["pkg[a,b]"]`), wird uebersprungen (Eintrag beginnt
+    mit dem eigenen Paketnamen). Anlass: platform#2737 Frage 2/#2876 — iil-enrichment,
+    iil-ingest, nl2cad fuehren alles als Extras, `dependencies` bleibt leer.
+    """
     p = os.path.join(root, "pyproject.toml")
     if not os.path.exists(p):
         return {"exists": False}
     txt = open(p, encoding="utf-8", errors="replace").read()
-    deps = re.search(r"^dependencies\s*=\s*\[(.*?)\]", txt, re.S | re.M)
-    entries = [
-        d.strip().strip("\"',")
-        for d in (deps.group(1).split("\n") if deps else [])
-        if d.strip().strip("\"',")
-    ]
+    project_table = bool(re.search(r"^\[project\]", txt, re.M))
+    deps_dict = None
+    optional_entries = 0
+    if project_table:
+        name_m = re.search(r'^name\s*=\s*"([^"]+)"', txt, re.M)
+        pkg_name = name_m.group(1) if name_m else None
+        deps_m = re.search(r"^dependencies\s*=\s*\[", txt, re.M)
+        base_entries = []
+        if deps_m:
+            content = _bracket_list_span(txt, deps_m.end() - 1)
+            base_entries = _toml_list_entries(content) if content is not None else []
+        opt_block = re.search(
+            r"^\[project\.optional-dependencies\]\s*\n(.*?)(?=^\[|\Z)",
+            txt,
+            re.S | re.M,
+        )
+        optional_all = []
+        if opt_block:
+            block = opt_block.group(1)
+            for group_m in re.finditer(r"^[A-Za-z0-9_.-]+\s*=\s*\[", block, re.M):
+                content = _bracket_list_span(block, group_m.end() - 1)
+                if content is None:
+                    continue
+                for entry in _toml_list_entries(content):
+                    if pkg_name and entry.startswith(pkg_name):
+                        continue  # eigene Extras-Selbstreferenz, z.B. all = ["pkg[a,b]"]
+                    optional_all.append(entry)
+        optional_unique = sorted(set(optional_all))
+        optional_entries = len(optional_unique)
+        all_entries = base_entries + optional_unique
+        deps_dict = {
+            "entries": len(all_entries),
+            "versioned_entries": sum(
+                1 for e in all_entries if re.search(r"[=<>~!]", e)
+            ),
+        }
     return {
         "exists": True,
-        "project_table": bool(re.search(r"^\[project\]", txt, re.M)),
+        "project_table": project_table,
         "requires_python": bool(re.search(r"^requires-python", txt, re.M)),
-        "dependencies": {
-            "entries": len(entries),
-            "versioned_entries": sum(1 for e in entries if re.search(r"[=<>~!]", e)),
-        },
+        "dependencies": deps_dict,
+        "optional_entries": optional_entries,
         "head": "\n".join(txt.splitlines()[:25]),
     }
 
