@@ -100,7 +100,12 @@ DF_AUSSCHLUSS = (
 # dieselbe Windows-Platte, die unter `/mnt/c` schon steht — byte-gleich in Groesse
 # und frei (gemessen gpu-box 2026-09-02). Zweimal dieselbe Platte sind zwei Zeilen
 # im Bericht und ein doppelt gezaehlter Befund; `/mnt/c` ist die ehrliche davon.
-MOUNT_AUSSCHLUSS = ("/boot", "/usr/lib/wsl/")
+# `/mnt/wsl/docker-desktop/`: Docker-Desktop-Image-Mounts unter WSL — schreibgeschuetzt
+# und per Design immer voll (gpu-box 2026-09-07, WARN "0 GB frei (0 %), stabil").
+# `df -B1 --output=target,size,avail` (siehe `fernbefehl()`) liefert kein `ro`-Flag,
+# darum ein Praefix statt eines Mount-Options-Checks — dieselbe Loesung wie bei
+# `/boot` und `/usr/lib/wsl/` oben.
+MOUNT_AUSSCHLUSS = ("/boot", "/usr/lib/wsl/", "/mnt/wsl/docker-desktop/")
 
 
 # --- Eingaben -----------------------------------------------------------------
