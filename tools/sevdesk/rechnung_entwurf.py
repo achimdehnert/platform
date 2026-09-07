@@ -106,7 +106,15 @@ def naechste_nummer(client, datum: str) -> str:
 def entwurf_duplikat(client, kontakt_id: str, datum: str, netto: float) -> str | None:
     """Existiert schon ein ENTWURF (status 100) mit gleichem Kontakt/Datum/Netto?"""
     for rechnung in _seiten(
-        client, "/Invoice", **{"contact[id]": kontakt_id, "status": "100"}
+        client,
+        "/Invoice",
+        **{
+            "contact[id]": kontakt_id,
+            # objectName ist Pflicht: ohne ihn quittiert sevdesk den Objekt-Filter
+            # mit 400 Bad Request (Realfund 2026-09-07, siehe kontakt_finden_oder_anlegen).
+            "contact[objectName]": "Contact",
+            "status": "100",
+        },
     ):
         rechnungsdatum = (rechnung.get("invoiceDate") or "")[:10]
         try:

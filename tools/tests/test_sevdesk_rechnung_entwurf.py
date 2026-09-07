@@ -298,6 +298,9 @@ def test_should_abort_when_draft_with_same_contact_date_and_net_exists():
         pfad = request.url.path
         if request.method == "GET" and pfad == "/api/v1/Invoice":
             if request.url.params.get("status") == "100":
+                # Realfund 2026-09-07: ohne contact[objectName] gibt sevdesk 400
+                # Bad Request auf einen reinen contact[id]-Filter.
+                assert request.url.params.get("contact[objectName]") == "Contact"
                 return httpx.Response(
                     200,
                     json={
