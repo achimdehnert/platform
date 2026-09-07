@@ -64,6 +64,24 @@ CONTROL_OF_QUESTION = {
 }
 QMAP = {q[0]: q for q in rubric.Q}
 
+# D10.2-D10.6 — Auftrag D10-Ausbau (2026-09-07, platform#2944): liest die begrenzte
+# Struktur aus P["agent_docs"] (future_readiness_evidence.py, agent_doc_digest()).
+# Erkennungsregeln sind repo-uebergreifend plausibel (kein Repo-spezifischer Text) und
+# im Zweifel `partial`/`fail` statt eines geratenen `ok` — ein falsches Gruen ist
+# teurer als eine ehrliche Luecke.
+#
+# D10.2: ein dokumentierter Befehl gilt als VERIFIZIERT, wenn er ein real vorhandenes
+# Makefile-Target referenziert (P["make_targets"], bereits unabhaengig erhoben) — die
+# einzige generische Gegenprobe, die statische Evidenz ohne Ausfuehrung hergibt.
+D10_MAKE_TARGET_CMD_RE = re.compile(r"\bmake\s+([a-zA-Z0-9_-]+)")
+# D10.3-D10.6: Marker-Schluessel aus future_readiness_evidence.AGENT_DOC_MARKERS.
+D10_MARKER_KEYS = {
+    "D10.3": "verbotene_pfade",
+    "D10.4": "generierte_dateien",
+    "D10.5": "definition_of_done",
+    "D10.6": "cross_repo_vertraege",
+}
+
 
 def round_half_up(x: float, nd: int = 0) -> float:
     f = 10**nd
@@ -737,6 +755,49 @@ class Scorer:
             "CLAUDE.md/AGENTS.md",
             "file",
         )
+        docs = P.get("agent_docs") or {}
+        doc_files = ";".join(sorted(docs)) or "keine Agent-Doku"
+        all_commands = [
+            c for d in docs.values() for c in d.get("code_block_first_lines", [])
+        ]
+        code_block_total = sum(d.get("code_block_count", 0) for d in docs.values())
+        make_targets = set(P.get("make_targets") or [])
+        verified_cmds = [
+            c
+            for c in all_commands
+            if (m := D10_MAKE_TARGET_CMD_RE.search(c)) and m.group(1) in make_targets
+        ]
+        if verified_cmds:
+            self.answered(
+                "D10.2",
+                "ok",
+                f"{doc_files}: verifiziert gegen Makefile-Targets — {verified_cmds[:5]}",
+                "file",
+            )
+        elif all_commands or code_block_total:
+            self.answered(
+                "D10.2",
+                "partial",
+                f"{doc_files}: {code_block_total} Codebloecke, kein Makefile-Abgleich moeglich",
+                "file",
+                note="documented, nicht verified",
+            )
+        else:
+            self.answered(
+                "D10.2", "fail", f"{doc_files}: keine Codebloecke in Agent-Doku", "file"
+            )
+        for qid, marker_key in D10_MARKER_KEYS.items():
+            hits = [
+                ln
+                for d in docs.values()
+                for ln in d.get("marker_lines", {}).get(marker_key, [])
+            ]
+            self.answered(
+                qid,
+                "ok" if hits else "fail",
+                f"{doc_files}: Marker '{marker_key}' — {hits[:5] if hits else 'keine Treffer'}",
+                "file",
+            )
         if ents == 0:
             # Regel v2.5 (platform#2737 Frage 3/#2876): ohne Abhaengigkeits-Manifest
             # (entries == 0 ueber alle Manifeste inkl. pyproject nach R1) ist die Frage
