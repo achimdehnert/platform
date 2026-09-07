@@ -3461,3 +3461,22 @@ schon 20 Zug-A-Repos, deshalb Phase-C-Evidenz mit v2.4 neu gerechnet — Rubrik 
 Eigener Fehler: Entwurfslauf brach am 5-MB-Anhang ab und ließ einen Rest-Entwurf stehen, der
 Owner sendete beide — Empfänger dreifach beliefert; Entschuldigung entworfen, Werkzeugfix #2875.
 Drei Sonnet-Subagenten nach Brief (Melder-Fix, Suchfeld, keiner für Urteile), drei SA-M-Merges.
+
+## 2026-09-07 — Owner-Items 25–30, Rubrik v2.5, molkerei-landing stillgelegt (Sitzung 54ff62fb)
+
+Owner-Worte „25 ok go", „26 27 28–30 go", „27c/27d go", „e3/e4 go", „ARCHIVIEREN". Acht
+Merges: Upload-Session ≥3 MiB + Draft-Aufräumen (#2896), `--pruefe` nennt `kein_anker`
+(#2897), Rubrik v2.5 (#2898, #2876 zu), v2.5-Rescore (dev-hub#337) und voller Neulauf mit
+frischer Evidenz (dev-hub#338: Median 55, 0 API-Verbrauch). Owner-Fragen 1–4 in #2737
+entschieden — 3 von 4 „leeren Manifesten" waren Extras-only-Pakete, die der Evidenz-
+Generator nicht las; design-hub bekam design-hub#53. ausschreibungs-hub Prod-Run 457a1f7
+freigegeben (#298 zu). molkerei-landing per /delete-repo archiviert (#2914, Frist 07.10.);
+Route molkerei.iil.pet abgebaut — nginx auf staging-dedicated, DNS-CNAME auf bf-staging,
+Access-App; nirgends deklariert (Melder-Lücke → Faden 9). illustration-hub#344 angelegt.
+
+Kollision mit der Cloud-Parallelsitzung: #2888/#2889/#2890 lagen 15 min vor meinem
+Worktree-Start zu denselben Melder-Befunden vor; eigener Zweig verworfen, geprüfte
+Kommentare dort (Lücke 20.08. in #2890 mit dessen Code belegt; prod_host-Rückfall für
+deploy_wirkung live widerlegt). Eigene Fehler: zwei Sonnet-Agenten beendeten den Zug mit
+`make test` im Hintergrund; Item 26 als „ablehnen" statt „freigeben" vorgeschlagen. Zwei
+Memories: Runner-Befund erst gegen offene PRs des Tages prüfen; keine unnötigen Bash-Ausgaben.
