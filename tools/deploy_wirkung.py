@@ -63,9 +63,19 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOSTS_YAML = REPO_ROOT / "infra" / "hosts.yaml"
 CANON_YAML = REPO_ROOT / "registry" / "canonical.yaml"
+PORTS_YAML = REPO_ROOT / "infra" / "ports.yaml"
 SSH = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes"]
 # Nur Hosts, auf denen Anwendungen produktiv laufen.
 PROD_HOSTS = ("prod", "prod-b")
+# Vokabular kommt aus tools/betriebsstatus.py — dieselbe Quelle wie fuer
+# erreichbarkeit_melder.py und waisen_melder.py (#2586 K5, hier #2853).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from betriebsstatus import ERKLAERT  # noqa: E402
+
+# GitHub-Repo-Lifecycle (registry/canonical.yaml), NICHT dasselbe Feld wie
+# `betriebsstatus` in infra/ports.yaml — beide fuehren zu "Rueckstand gewollt",
+# aus zwei unabhaengigen Quellen (s. rueckstand_gewollt()).
+RUHEND = {"archived", "frozen"}
 # Spiegel des Cosmetic-Gates writing-hub `.github/workflows/deploy.yml` /
 # `scripts/deploy_gate.py` (Z. 49-56): diese Pfade werden dort bei push bewusst
 # NICHT deployt. Ein Rueckstand, der ausschliesslich aus diesen Pfaden besteht,
@@ -164,15 +174,25 @@ def _vergleichsform(name: str) -> str:
     return name.replace("_", "-").lower()
 
 
-def laeuft(repo: str, container: set[str] | None) -> bool | None:
+def laeuft(
+    repo: str, container: set[str] | None, container_name: str | None = None
+) -> bool | None:
     """Laeuft ``repo`` auf diesem Host? ``None`` = nicht feststellbar.
 
     Compose haengt Dienst und Nummer an (``trading-hub-web-1``), manche Projekte
     kuerzen. Deshalb Praefix-Vergleich auf der Vergleichsform, nicht Gleichheit.
+
+    ``container_name`` (aus `infra/ports.yaml`, s. `container_namen_aus_ports()`)
+    geht vor dem geratenen Repo-Namen: illustration-hub heisst dort bewusst nur
+    `illustration_web` — kein einziger seiner sechs Container traegt "hub" im
+    Namen. Der Repo-Name-Praefix "illustration-hub" trifft dann NICHTS, das
+    Werkzeug meldet ZUORDNUNG UNKLAR statt den Host zu erkennen (#2853 K2). Die
+    deklarierte Container-ID ist bereits die SoT fuer Health-Checks — dieselbe
+    Zeile entscheidet hier.
     """
     if container is None:
         return None
-    marke = _vergleichsform(repo)
+    marke = _vergleichsform(container_name) if container_name else _vergleichsform(repo)
     return any(_vergleichsform(c).startswith(marke) for c in container)
 
 
@@ -243,6 +263,57 @@ def repo_lifecycle() -> dict[str, str]:
         if lc:
             out[name] = str(lc)
     return out
+
+
+def repo_betriebsstatus() -> dict[str, str]:
+    """{repo: betriebsstatus} aus `infra/ports.yaml`, nur Werte aus ``ERKLAERT``.
+
+    Zweite, unabhaengige Quelle fuer "Rueckstand gewollt" neben `repo_lifecycle()`
+    (#2853): `betriebsstatus: stillgelegt` markiert eine App als absichtlich aus
+    (travel-beat, Owner-Entscheid #120), lange bevor (wenn ueberhaupt) ihr
+    GitHub-Repo als `archived` gilt. Dasselbe Vokabular wie
+    `erreichbarkeit_melder.py`/`waisen_melder.py` — keine vierte Kopie der Liste.
+    """
+    data = load_yaml(PORTS_YAML)
+    out: dict[str, str] = {}
+    for name, cfg in (data.get("services") or {}).items():
+        if not isinstance(cfg, dict):
+            continue
+        status = cfg.get("betriebsstatus", "aktiv")
+        if status in ERKLAERT:
+            out[name] = str(status)
+    return out
+
+
+def container_namen_aus_ports() -> dict[str, str]:
+    """{repo: container_name} aus `infra/ports.yaml` — die deklarierte Web-Container-ID.
+
+    Dieselbe Deklaration, die schon fuer Health-Checks gilt (s. Kommentar im
+    Schema-Kopf von ports.yaml), entscheidet hier, ob ein Host ``repo`` wirklich
+    bedient (s. `laeuft()`).
+    """
+    data = load_yaml(PORTS_YAML)
+    out: dict[str, str] = {}
+    for name, cfg in (data.get("services") or {}).items():
+        if isinstance(cfg, dict) and cfg.get("container_name"):
+            out[name] = str(cfg["container_name"])
+    return out
+
+
+def rueckstand_gewollt(lifecycle: str | None, betriebsstatus: str | None) -> str | None:
+    """Label fuer einen absichtlich hinterherhinkenden Stand, sonst ``None``.
+
+    Zwei unabhaengige Quellen kennen "das ist gewollt": die Repo-Registry
+    (`lifecycle` archived/frozen, `RUHEND`) und `infra/ports.yaml`
+    (`betriebsstatus` stillgelegt/blockiert/ruhend, `ERKLAERT`). Beide fuehren
+    zum selben Effekt — kein RUECKSTAND-Befund, aber sichtbar in der Zeile statt
+    stillschweigend uebersprungen.
+    """
+    if lifecycle in RUHEND:
+        return f"ruhend({lifecycle})"
+    if betriebsstatus in ERKLAERT:
+        return betriebsstatus
+    return None
 
 
 def repo_urls() -> dict[str, list[str]]:
@@ -405,7 +476,8 @@ def main() -> int:
     urls = repo_urls()
     owners = repo_owner()
     lifecycles = repo_lifecycle()
-    RUHEND = {"archived", "frozen"}
+    betriebsstati = repo_betriebsstatus()
+    container_namen = container_namen_aus_ports()
     alle_repos = sorted({r for m in je_host.values() for r in m})
     if args.repo:
         alle_repos = [r for r in alle_repos if r == args.repo]
@@ -435,7 +507,10 @@ def main() -> int:
             ]
             ziel_host = bedient[0] if len(bedient) == 1 else None
 
-        laeuft_je_host = {h: laeuft(repo, je_host_container.get(h)) for h in vorhanden}
+        laeuft_je_host = {
+            h: laeuft(repo, je_host_container.get(h), container_namen.get(repo))
+            for h in vorhanden
+        }
         laufend_hosts, verwaist_hosts, container_unklar = beurteile_hosts(
             sorted(vorhanden), laeuft_je_host
         )
@@ -501,11 +576,15 @@ def main() -> int:
                 eintrag["rueckstand_dateien"] = len(dateien)
 
         eintrag["lifecycle"] = lifecycles.get(repo)
-        # Ein stillgelegtes Repo DARF hinterherhinken — das ist der gewollte Zustand,
-        # kein Befund. Der Doppellauf bleibt trotzdem einer (divergierende Daten).
-        if eintrag["lifecycle"] in RUHEND and eintrag.get("rueckstand"):
-            eintrag["rueckstand"] = False
-            eintrag["ruhend"] = True
+        eintrag["betriebsstatus"] = betriebsstati.get(repo)
+        # Ein stillgelegtes/ruhendes/blockiertes Repo DARF hinterherhinken — das ist
+        # der gewollte Zustand, kein Befund. Der Doppellauf bleibt trotzdem einer
+        # (divergierende Daten).
+        if eintrag.get("rueckstand"):
+            label = rueckstand_gewollt(eintrag["lifecycle"], eintrag["betriebsstatus"])
+            if label:
+                eintrag["rueckstand"] = False
+                eintrag["rueckstand_gewollt"] = label
         if (
             eintrag.get("rueckstand")
             or eintrag["doppellauf"]
@@ -554,8 +633,8 @@ def main() -> int:
             )
         if e.get("prod_gate"):
             marker.append("Prod-Gate (staging-Default) — pruefen ob gewollt")
-        if e.get("ruhend"):
-            marker.append(f"ruhend({e['lifecycle']}) — Rueckstand gewollt")
+        if e.get("rueckstand_gewollt"):
+            marker.append(f"{e['rueckstand_gewollt']} — Rueckstand gewollt")
         alter = f"{e['alter_tage']}d" if e.get("alter_tage") is not None else "-"
         print(
             f"{e['repo']:<20} {(e['bedient_von'] or '?'):<8} {(e['deployed'] or '-'):<10} "

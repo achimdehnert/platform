@@ -44,6 +44,25 @@ def test_should_unbekannte_containerlage_als_unbekannt_durchreichen():
     assert dw.laeuft("trading-hub", None) is None
 
 
+def test_should_fail_repo_name_match_when_container_omits_hub_suffix():
+    """Realfall illustration-hub (#2853 K2): kein Container traegt "hub" im Namen —
+    der Repo-Name-Praefix trifft nichts, ohne dass das Werkzeug es kennzeichnet."""
+    assert dw.laeuft("illustration-hub", {"illustration_web"}) is False
+
+
+def test_should_use_declared_container_name_over_repo_name():
+    """Dieselbe Lage wie oben, jetzt mit der `container_name`-Deklaration aus
+    ports.yaml — das ist der Fix fuer #2853 K2."""
+    assert (
+        dw.laeuft(
+            "illustration-hub",
+            {"illustration_web", "illustration_worker"},
+            container_name="illustration_web",
+        )
+        is True
+    )
+
+
 # ── beurteile_hosts(): der eigentliche Befund ────────────────────────────────
 
 
@@ -151,3 +170,39 @@ def test_should_return_the_file_list_on_a_normal_compare(monkeypatch):
         "AGENT_HANDOVER.md",
         "AGENT_HANDOVER_ARCHIVE.md",
     ]
+
+
+# ── rueckstand_gewollt(): stillgelegt/ruhend/blockiert ist kein Befund (#2853) ─
+
+
+def test_should_treat_stillgelegt_betriebsstatus_as_intended_backlog():
+    """Realfall travel-beat: `betriebsstatus: stillgelegt`, kein GitHub-lifecycle."""
+    assert dw.rueckstand_gewollt(None, "stillgelegt") == "stillgelegt"
+
+
+def test_should_treat_frozen_lifecycle_as_intended_backlog():
+    """Die bestehende Ausnahme (coach-hub, research-hub) bleibt unveraendert gruen."""
+    assert dw.rueckstand_gewollt("frozen", None) == "ruhend(frozen)"
+
+
+def test_should_treat_ruhend_and_blockiert_betriebsstatus_as_intended_backlog():
+    assert dw.rueckstand_gewollt(None, "ruhend") == "ruhend"
+    assert dw.rueckstand_gewollt(None, "blockiert") == "blockiert"
+
+
+def test_should_leave_a_normal_repo_as_a_real_backlog():
+    """Positivkontrolle: ohne Status/Lifecycle bleibt ein Rueckstand ein Befund."""
+    assert dw.rueckstand_gewollt(None, None) is None
+    assert dw.rueckstand_gewollt("production", "aktiv") is None
+
+
+# ── repo_betriebsstatus()/container_namen_aus_ports(): echte ports.yaml ──────
+
+
+def test_should_find_travel_beat_as_stillgelegt_in_real_ports_yaml():
+    """Ohne Naht gegen die reale Datei — sonst kann eine Attrappe alles zusagen."""
+    assert dw.repo_betriebsstatus().get("travel-beat") == "stillgelegt"
+
+
+def test_should_find_illustration_hub_container_name_in_real_ports_yaml():
+    assert dw.container_namen_aus_ports().get("illustration-hub") == "illustration_web"
