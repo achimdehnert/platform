@@ -1408,6 +1408,46 @@ def zaehl_bericht(
 
 # --- Melder (K5) --------------------------------------------------------------
 
+#: Konten, deren Kennung eine Graph-Index-ID ist, keine IMAP-UID. `anker.py
+#: --setze` braucht `--uid`; fuer diese Konten gibt es keine, dieselbe
+#: Unterscheidung wie in `postfach_auflisten`.
+GRAPH_KONTEN = ("iil",)
+
+
+@dataclass
+class KeinAnkerBefund:
+    """Ein geschlossener, ungebundener Vorgang, dessen Mail noch im Posteingang liegt.
+
+    Anders als `Zeile` (Trockenlauf) gibt es diesen Datensatz nur, wenn zwei
+    Dinge zusammentreffen: der Vorgang hat **keinen** Anker (weder IMAP- noch
+    Graph-Registry) UND sein Betreff findet sich, live bestaetigt, noch im
+    Posteingang. Ohne Anker weiss `--apply` nicht, welche Nachrichten gemeint
+    sind, und laesst die Zeile stehen (Status `kein_anker`) — der Melder
+    zaehlt die Mails trotzdem mit, sagt bisher aber nicht, an welchem Vorgang
+    das haengt oder wie er es beheben kann (Issue #2799 K8).
+    """
+
+    nr: int | None
+    konto: str
+    kurz: str
+    kommando: str
+
+    def als_zeile(self) -> str:
+        return f"  #{self.nr}  {self.konto:<4}  {self.kurz[:40]}\n      {self.kommando}"
+
+
+def anker_kommando(nr, konto: str, ordner: str, kennung: str | None) -> str:
+    """Das `anker.py --setze`-Kommando, das den Vorgang verankern wuerde.
+
+    Graph-Konten (siehe `GRAPH_KONTEN`) fuehren keine IMAP-UID — deren
+    Ledger-Nummern sind Index-IDs. Statt eine falsche UID zu erfinden, sagt
+    das Kommando das offen.
+    """
+    basis = f"anker.py --setze {nr} --account {konto} --folder {ordner}"
+    if konto in GRAPH_KONTEN or not kennung:
+        return f"{basis} --uid ??? (UID unbekannt — {konto} laeuft ueber Graph)"
+    return f"{basis} --uid {kennung}"
+
 
 def pruefe_posteingang(
     ledger: dict,
@@ -1416,12 +1456,15 @@ def pruefe_posteingang(
     anker: dict | None = None,
     links: dict | None = None,
     auflisten=None,
-) -> tuple[dict[str, int], dict[str, dict[str, int]], dict[str, int]]:
+) -> tuple[
+    dict[str, int], dict[str, dict[str, int]], dict[str, int], list[KeinAnkerBefund]
+]:
     """Wie viele Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen?
 
     Rueckgabe: (Anzahl je Konto, Strang-Quellen je Konto, veraltete Index-Treffer
-    je Konto). Der Zielordner spielt hier keine Rolle — gefragt ist nur, ob im
-    Posteingang noch etwas liegt, das laut Ledger abgeschlossen ist.
+    je Konto, ungebundene Vorgaenge mit Fund im Posteingang). Der Zielordner
+    spielt hier keine Rolle — gefragt ist nur, ob im Posteingang noch etwas
+    liegt, das laut Ledger abgeschlossen ist.
 
     **Jeder Index-Treffer wird live bestaetigt, bevor er zaehlt.** Der Index ist
     ein Schnappschuss von 03:30 und fuehrt eine eben abgelegte Mail bis zum
@@ -1436,11 +1479,23 @@ def pruefe_posteingang(
     `abgleichen`, Betreff-Kern und Datum) — derselbe Weg, den `--apply` schon
     geht, bevor es etwas anfasst. Nachrichten aus der Konversation brauchen das
     nicht: sie kommen bereits live aus dem Postfach.
+
+    **Ungebundene Vorgaenge (platform#2799 K8):** Ein Vorgang ohne Anker (weder
+    ``anker`` noch ``links`` kennen ihn) kann seinen Strang nur ueber den
+    Betreff finden — genau der Fall, den `plane()` als Status ``kein_anker``
+    fuehrt und den `--apply` deshalb ueberspringt. Landet so ein Strang trotzdem
+    live im Posteingang, zaehlt er hier mit, aber ohne diese Liste bliebe
+    unklar, WELCHER Vorgang das ist und wie er zu loesen waere. Ein Vorgang mit
+    Anker kann diesen Zweig nicht erreichen: `strang_aufloesen` haengt seine
+    Konversationssuche genau an dem Anker, der hier fehlt.
     """
+    anker = anker or {}
+    links = links or {}
     hole = auflisten or postfach_auflisten
     zaehler: dict[str, int] = {}
     quellen: dict[str, dict[str, int]] = {}
     veraltet: dict[str, int] = {}
+    kein_anker: list[KeinAnkerBefund] = []
     rest: dict[tuple[str, str], list[dict] | None] = {}
     for vorgang in ledger.get("vorgaenge") or []:
         if vorgang.get("bucket") != "erledigt":
@@ -1458,6 +1513,9 @@ def pruefe_posteingang(
         if strang.quelle == KONVERSATION:
             zaehler[konto] += len(bewegungen)
             continue
+        nr = vorgang.get("nr")
+        ungebunden = str(nr) not in anker and str(nr) not in links
+        gefunden: tuple[Bewegung, str | None] | None = None
         for b in bewegungen:
             schluessel = (b.konto, b.von_ordner)
             if schluessel not in rest:
@@ -1483,6 +1541,8 @@ def pruefe_posteingang(
             bestand = rest[schluessel]
             if bestand is None:
                 zaehler[konto] += 1
+                if ungebunden and gefunden is None:
+                    gefunden = (b, None)
                 continue
             paare, _ = abgleichen([b], bestand)
             if not paare:
@@ -1491,15 +1551,29 @@ def pruefe_posteingang(
             benutzt = {k for _, k in paare}
             rest[schluessel] = [e for e in bestand if e.get("kennung") not in benutzt]
             zaehler[konto] += len(paare)
-    return zaehler, quellen, veraltet
+            if ungebunden and gefunden is None:
+                gefunden = (paare[0][0], paare[0][1])
+        if ungebunden and gefunden is not None:
+            b, kennung = gefunden
+            kein_anker.append(
+                KeinAnkerBefund(
+                    nr=nr,
+                    konto=konto,
+                    kurz=vorgang.get("kurz") or vorgang.get("thread_key") or "",
+                    kommando=anker_kommando(nr, konto, b.von_ordner, kennung),
+                )
+            )
+    return zaehler, quellen, veraltet, kein_anker
 
 
 def pruefe_bericht(
     zaehler: dict[str, int],
     quellen: dict[str, dict[str, int]],
     veraltet: dict[str, int] | None = None,
+    kein_anker: list[KeinAnkerBefund] | None = None,
 ) -> str:
     veraltet = veraltet or {}
+    kein_anker = kein_anker or []
     zeilen = []
     for konto, n in sorted(zaehler.items()):
         herkunft = ", ".join(
@@ -1517,6 +1591,14 @@ def pruefe_bericht(
         "Index-Schnappschuss von 03:30 — jeder Index-Treffer wird vor dem Zaehlen "
         "im lebenden Quellordner bestaetigt."
     )
+    if kein_anker:
+        zeilen.append("")
+        zeilen.append(
+            f"Davon {len(kein_anker)} ohne Anker — `--apply` ueberspringt sie "
+            "(Status kein_anker), solange keiner gesetzt ist:"
+        )
+        for befund in sorted(kein_anker, key=lambda k: (k.konto, k.nr or 0)):
+            zeilen.append(befund.als_zeile())
     return "\n".join(zeilen)
 
 
@@ -1599,10 +1681,10 @@ def main() -> None:
         # Quellordner in der Konversationssuche — drei Rundreisen statt
         # zweiundvierzig je Vorgang, damit `make boards` das taeglich aushaelt.
         with Konversationen(nur_quellordner=True) as konversation:
-            zaehler, quellen, veraltet = pruefe_posteingang(
+            zaehler, quellen, veraltet, kein_anker = pruefe_posteingang(
                 ledger, index_suche, konversation, anker_daten, links_daten
             )
-        print(pruefe_bericht(zaehler, quellen, veraltet))
+        print(pruefe_bericht(zaehler, quellen, veraltet, kein_anker))
         sys.exit(1 if sum(zaehler.values()) else 0)
 
     ordner_je_konto: dict[str, list[str]] = {}
