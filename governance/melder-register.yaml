@@ -26,7 +26,8 @@
 
 melder:
   - phase: "0.0 env+banner"
-    leser: "UNBENANNT"
+    # record() kennt hier nur PASS (grep -n 'record "0.0 env+banner"' session_start_checks.sh) — kein WARN-Pfad, also kein Owner-Entscheid moeglich.
+    leser: "Sitzungsagent — Runner-Abbruch/Weiterlauf, kein Owner-Entscheid"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -46,6 +47,14 @@ melder:
     mindest_laeufe: 5
     runbook: "0.R#0.2"
 
+  - phase: "0.3 modellwechsel"
+    # Bisher Karteileiche im Register (fehlender Eintrag). WARN-Tabelle session-start.md Zeile 50: MAJOR = Vollmachten weg (Runbook §3a) — Sicherheits-/Vollmachtenfrage, Owner-Entscheid; MINOR bleibt Agent-Smoke.
+    leser: "Owner via Session-Start-Board (session-start.md Zeile 50, MAJOR-Fall: Vollmachten weg)"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.3"
+
   - phase: "0.4.1 reflex"
     leser: "Agent selbst, sofort — BLOCK-Findings vor Weiterarbeit fixen (session-start.md 0.4.1 BLOCK-Findings)"
     wiedervorlage_tage: 14
@@ -61,14 +70,16 @@ melder:
     runbook: "0.R#0.4.2"
 
   - phase: "0.4.4 basis-abstand"
-    leser: "UNBENANNT"
+    # WARN-Tabelle session-start.md Zeile 53: Zug "vor dem ersten Edit git merge origin/main" — Agent fuehrt das selbst aus.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 53: git merge origin/main)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.4.4"
 
   - phase: "0.4.5 auto-reap"
-    leser: "UNBENANNT"
+    # record() kennt hier nur PASS (zwei PASS-Zweige, kein WARN) — kein Owner-Entscheid moeglich; session-ende.md E.8 bestaetigt "immer/keiner".
+    leser: "Sitzungsagent — Runner-Abbruch/Weiterlauf, kein Owner-Entscheid"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -103,14 +114,16 @@ melder:
     runbook: "0.R#0.5.2"
 
   - phase: "0.5 pgvector-tunnel"
-    leser: "UNBENANNT"
+    # record() kennt hier nur PASS/FAIL, kein WARN — Hard-FAIL bricht die Session ab (ADR-154), kein Owner-Ermessen.
+    leser: "Sitzungsagent — Runner-Abbruch/Weiterlauf, kein Owner-Entscheid"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.5"
 
   - phase: "0.6 adr156"
-    leser: "UNBENANNT"
+    # Kein Eintrag in der WARN-Tabelle, aber im Troubleshooting-Absatz session-start.md (Zeile 76f.): "ADR-156 rot -> MCP-Server neustarten, verify-adr156.sh erneut" — Agent-Aktion.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Troubleshooting: MCP-Server neustarten, verify-adr156.sh)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -138,7 +151,8 @@ melder:
     runbook: "0.R#0.7.12"
 
   - phase: "0.7.13 skill-dist"
-    leser: "UNBENANNT"
+    # session-ende.md E.9 dist-drift: "verteilte Skills weichen ab -> cc-skill-dist/generate.py laufen lassen, Diff committen" — Agent-Aktion.
+    leser: "Sitzungsagent via Session-Start-Board (session-ende.md E.9: cc-skill-dist/generate.py)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -173,7 +187,8 @@ melder:
     runbook: "0.R#0.7.17"
 
   - phase: "0.7.18 speicher"
-    leser: "UNBENANNT"
+    # WARN-Tabelle session-start.md Zeile 62: Zug "Platte ins Board, Wachstum abstellen; Offsite zaehlt mit" — Agent hat mit /infra-cleanup das Werkzeug dafuer.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 62: Wachstum abstellen)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -285,7 +300,8 @@ melder:
     runbook: "0.R#0.7"
 
   - phase: "0.9 staging"
-    leser: "UNBENANNT"
+    # record() kennt hier nur PASS (ein einziger Aufruf, kein WARN-Zweig) — kein Owner-Entscheid moeglich.
+    leser: "Sitzungsagent — Runner-Abbruch/Weiterlauf, kein Owner-Entscheid"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
