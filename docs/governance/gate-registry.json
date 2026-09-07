@@ -10,11 +10,15 @@
       "mode": "blocking",
       "owner": "achim",
       "module": "tools/claude-hooks/evidence_claim_scanner.py",
-      "drill": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
+      "drill": [
+        "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
+        "tools/claude-hooks/tests/test_evidence_claim_scanner_bypass.py",
+        "tools/claude-hooks/tests/test_evidence_claim_scanner_vollzug.py"
+      ],
       "built": "2026-08-02",
       "ref": "platform#1643",
-      "revised": "2026-08-28",
-      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt. · Rev 4 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig ×70 → 'ausweiten'): (3) BYPASS-CLAIM: 'Admin-Merge'/'Ruleset-Bypass'/'--admin' in einem publizierten PR-/Issue-Body ist ein eigener Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den Merge-WEG (platform#2397: wirdigital hatte regulaer gemergt, der Bypass-Kommentar stand trotzdem). (4) KOMMENTAR-VOR-MERGE: ein Status-/Bypass-Kommentar, der in derselben Bash-Kette VOR `gh pr merge` abgesetzt wird, kann das Ergebnis nicht kennen — feuert unabhaengig vom Beleg. Drill: tests/test_evidence_claim_scanner_bypass.py (Realfall als Fixture, drei Nicht-Treffer daneben).",
+      "revised": "2026-09-07",
+      "revision_note": "Rev 3, zwei Ausweitungen nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'). (1) SCHREIBWEISE: der Universal-Claim verlangte eine Ziffer — 'alle 7 Checks gruen' traf, 'alle sieben Checks gruen' verfehlte. Genau der zweite Satz stand am 2026-08-25 in einer Antwort, waehrend zwei Checks rot waren; der Owner sah es, das Gate nicht. Zahlwoerter bis zwoelf ergaenzt. Das ist zugleich der bis dahin ungegatete Slug gate-matches-spelling-not-substance (x5). (2) GEFILTERTER BELEG: die Korroboration fragte, OB ein Belegkommando lief, nicht ob dessen Ausgabe die Aussage tragen KONNTE. 'gh pr checks | tail -12' zeigte zwoelf gruene Zeilen, die zwei roten standen oben. Neu entwaffnet ein durch head/tail abgeschnittenes LISTEN-Kommando die Korroboration einer Allaussage; eine Gegenprobe im selben Zug (grep -v/-c, awk !=, wc -l, --jq) hebt das wieder auf. Bewusst eng: 'make test | tail -3' bleibt gueltig, weil pytest seine Summenzeile ans Ende schreibt. · Rev 4 (2026-08-28, Retro 62f875 §5a, Gate rueckfaellig ×70 → 'ausweiten'): (3) BYPASS-CLAIM: 'Admin-Merge'/'Ruleset-Bypass'/'--admin' in einem publizierten PR-/Issue-Body ist ein eigener Claim-Typ, den nur ein mergedBy-Beleg traegt — `state: MERGED` sagt nichts ueber den Merge-WEG (platform#2397: wirdigital hatte regulaer gemergt, der Bypass-Kommentar stand trotzdem). (4) KOMMENTAR-VOR-MERGE: ein Status-/Bypass-Kommentar, der in derselben Bash-Kette VOR `gh pr merge` abgesetzt wird, kann das Ergebnis nicht kennen — feuert unabhaengig vom Beleg. Drill: tests/test_evidence_claim_scanner_bypass.py (Realfall als Fixture, drei Nicht-Treffer daneben). · Rev 5 (2026-09-07, platform#2374, Gate rueckfaellig x4 -> 'schaerfen'): neue Trefferklasse VOLLZUGS-CLAIM im publizierten Body. Der vierte Rueckfall war der Escrow-Satz aus platform#2673 ('Der Escrow ist ausgefuehrt', gesichert war eine Datei mit einem ZEIGER statt dem Schluessel; #2675 belegte das 40 Minuten spaeter). Die Retro a6368d erklaerte den Durchlaeufer damit, dass ein Werkzeug lief, aber die falsche Ebene belegte. Am 2026-09-07 gegen die Muster selbst gegengeprueft: KEIN einziges CLAIM_PATTERN trifft diesen Satz -- weder 'ausgefuehrt' noch 'vollzogen', 'eingerichtet', 'gesichert' oder 'abgeschlossen' standen in der Liste. Der Body-Zweig hat also nie gefeuert, die Korroboration kam gar nicht zum Zug; die Diagnose der Retro war eine Ebene zu tief. Die Messung steht als erster Test im Drill, damit sie auffaellt, falls ein anderes Muster den Fall spaeter doch deckt. Bewusst NUR fuer publizierte Bodies und nur mit WIRKUNGS-GEGENSTAND (Escrow, Backup, Rotation, Migration, Deploy, ...): 'erledigt' und 'abgeschlossen' stehen in jeder zweiten Chat-Antwort, das Action Board fuehrt '✅ Erledigt' als Bucket-Ueberschrift.",
       "faengt": [
         {
           "fall": "pruefbare Behauptung im Turn ohne belegenden Werkzeuglauf",
@@ -35,6 +39,10 @@
         {
           "fall": "gh pr comment mit Statuswort VOR gh pr merge in einer Kette",
           "probe": "comment-before-merge"
+        },
+        {
+          "fall": "Vollzug eines Wirkungsschritts im PR-/Issue-Body ohne Lesen am Ziel (platform#2673)",
+          "probe": "vollzugs-claim"
         }
       ],
       "zustand": "schranke",
@@ -52,6 +60,10 @@
         "beurteilbar_bei_entscheid": 13,
         "wirksam_per": "~/.claude/settings.json env EVIDENCE_SCANNER_SUBJEKTBINDUNG=scharf",
         "entscheid_note": "Zweiter Anlauf erreichte am 2026-09-02 seine Mindestzahl (13 beurteilbare Zeilen seit 2026-08-23, Mindestzahl 10) und wurde vom Owner scharf geschaltet. Datenlage bei der Entscheidung, offen benannt: von den 12 beurteilbaren Zeilen (die erste trug einen leeren Ausschnitt) sehen nach Sichtung der Ausschnitte rund 4 wie Fehlalarme aus — Faelle, in denen der genannte Gegenstand vom Werkzeuglauf sehr wohl beruehrt war (Testlaeufe mit Summenzeile, eine Ankuendigung des Checks statt einer Behauptung). Diese Einstufung ist eine HYPOTHESE aus 230-Zeichen-Ausschnitten; ob ein belegender Lauf im Turn stand, laesst sich daraus nicht entscheiden — der billigste Check dafuer waeren die zugehoerigen Transkripte. Die Entscheidung stuetzt sich stattdessen auf die Messung aus #2374 Ziel B (134 Transkripte): die Klasse 'Werkzeug lief, traegt aber nicht' ist mit 13 % groesser als 'kein Werkzeug', und genau sie ist der Gegenstand der Subjektbindung. Wiedervorlage 2026-09-30: wenn die Fehlalarm-Quote im scharfen Betrieb spuerbar ueber einem Drittel liegt, gehoert der Modus zurueckgestuft."
+      },
+      "positivkontrolle": {
+        "ref": "tools/claude-hooks/tests/test_evidence_claim_scanner_vollzug.py -- der Realfall-Satz aus platform#2673 laeuft durch main() und erzeugt 'vollzugs-claim', solange der Turn nur an der QUELLE liest (Pruefsumme einer lokalen Datei); mit einem Lesen am ZIEL (gh api ... --jq .conclusion) bleibt derselbe Body still. Dazu die Messung, aus der Rev 5 folgt: vor Rev 5 traf kein CLAIM_PATTERN den Satz.",
+        "datum": "2026-09-07"
       }
     },
     {
@@ -91,8 +103,8 @@
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1646",
-      "revised": "2026-08-25",
-      "revision_note": "Rev 4, DRITTER AUSLOESER nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'): eine laufende Ressource beenden, die diese Sitzung nicht gestartet hat (kill/pkill/killall, systemctl stop|restart|disable|mask, docker kill|stop). Anlass: am 2026-08-25 wurde ein seit dem Vortag laufender Dev-Server per 'kill <pid>' beendet, waehrend zwoelf Sitzungen parallel liefen; die Zugehoerigkeit wurde erst DANACH ueber /proc/<pid>/cwd plausibilisiert. Beide bestehenden Ausloeser griffen nicht — kein drittes beschriebenes Repo, kein Prod-Schritt. Der Ausgang war harmlos, und genau das ist der Punkt: der Checkpoint fragt nach dem gewachsenen SCOPE, nicht nach dem entstandenen Schaden; eine Harmlosigkeits-Ausnahme hoehlt ihn aus. Bewusst eng: 'docker compose up/down' auf den eigenen Stack faellt nicht darunter (eigener Drill), lesende Prozess-Sicht (ps, ss) ebenfalls nicht — sie ist das, was VOR einem kill passieren soll.",
+      "revised": "2026-09-07",
+      "revision_note": "Rev 4, DRITTER AUSLOESER nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'): eine laufende Ressource beenden, die diese Sitzung nicht gestartet hat (kill/pkill/killall, systemctl stop|restart|disable|mask, docker kill|stop). Anlass: am 2026-08-25 wurde ein seit dem Vortag laufender Dev-Server per 'kill <pid>' beendet, waehrend zwoelf Sitzungen parallel liefen; die Zugehoerigkeit wurde erst DANACH ueber /proc/<pid>/cwd plausibilisiert. Beide bestehenden Ausloeser griffen nicht — kein drittes beschriebenes Repo, kein Prod-Schritt. Der Ausgang war harmlos, und genau das ist der Punkt: der Checkpoint fragt nach dem gewachsenen SCOPE, nicht nach dem entstandenen Schaden; eine Harmlosigkeits-Ausnahme hoehlt ihn aus. Bewusst eng: 'docker compose up/down' auf den eigenen Stack faellt nicht darunter (eigener Drill), lesende Prozess-Sicht (ps, ss) ebenfalls nicht — sie ist das, was VOR einem kill passieren soll. · Rev 5 (2026-09-07, platform#2374, Gate rueckfaellig x3 -> 'schaerfen'): dritte Fehlerform C `reichweite-gewachsen`. Bis Rev 4 endete die Pflicht mit dem ERSTEN abgelegten Checkpoint -- war `checkpoint_text` gesetzt und ein durables Artefakt gefunden, gab main() fuer den Rest der Sitzung 0 zurueck. Genau das ist der Rueckfall aus Retro 33616e (2026-09-01, Befund #1): 'Scope wuchs von /mcp anzeigen auf 13 PRs in 3 Repos + Staging-Schreibzugriff. Checkpoint einmal abgelegt, danach kein zweiter trotz weiterem Wachstum.' Das Gate hatte gefeuert, die Sitzung hatte geantwortet -- und danach war es blind. Ein Checkpoint ist eine Aussage ueber eine REICHWEITE, nicht ueber eine Sitzung; waechst sie, verfaellt die Aussage. Fehlerform C vergleicht den Stand zum Zeitpunkt des LETZTEN Checkpoints mit dem Jetzt und feuert bei zwei Wachstumsarten: NACHWACHS_SCHWELLE=2 zusaetzliche beschriebene Repos, oder der erste Prod-/Publish-Schritt nach einem Checkpoint, der ohne Prod abgelegt wurde (die Hausregel fuehrt Prod eigenstaendig neben der Repo-Zahl). Die Entprellung haengt an der beobachteten Reichweite, nicht an der Sitzung -- jeder neue Wachstumsstand meldet einmal; sitzungsweit waere Fehlerform C selbst wieder ein Melder, der nach dem ersten Mal verstummt.",
       "faengt": [
         {
           "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
@@ -101,12 +113,20 @@
         {
           "fall": "Reichweite aus der Ausgabe eines wirkenden Kommandos",
           "probe": "reichweite"
+        },
+        {
+          "fall": "Checkpoint abgelegt, Reichweite danach weiter gewachsen (Retro 33616e #1)",
+          "probe": "Fehlerform C"
         }
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-02",
       "expires": "2026-10-31",
-      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "positivkontrolle": {
+        "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py -- test_should_flag_when_two_more_repos_written_after_checkpoint baut den Realfall 33616e #1 nach (Checkpoint + durables Artefakt, danach zwei weitere Repos) und erzeugt Fehlerform C; die identische Sitzung ohne Nachwachsen bleibt still (test_should_stay_silent_when_scope_does_not_grow_after_checkpoint), ein einzelnes weiteres Repo ebenfalls.",
+        "datum": "2026-09-07"
+      }
     },
     {
       "slug": "stale-local-clone-as-ground-truth",
@@ -152,8 +172,8 @@
       "drill": "tools/tests/test_agent_handover_freshness_check.py",
       "built": "2026-08-02",
       "ref": "platform#1648",
-      "revised": "2026-08-20",
-      "revision_note": "Ausweitung (platform#2143): der Pruefer lief nur ueber handoff-banner-gate.yml mit paths-Filter und ueber die session-ende-Phase 0a-freshness. Die Verstoss-Klasse ist aber, AGENT_HANDOVER.md GAR NICHT anzufassen — dann greift kein Pfadfilter, und wer kein session-ende faehrt, sieht den Pruefer nie. Neue Datei .github/workflows/handover-freshness-advisory.yml laeuft bei JEDEM PR, advisory (continue-on-error mit Begruendung, nicht in den Required Checks).",
+      "revised": "2026-09-07",
+      "revision_note": "Rev 2 (2026-09-07, platform#2374, Gate rueckfaellig x2 -> 'schaerfen'). Die bisherige Bedingung vergleicht die datierte Ueberschrift mit dem letzten Commit, der die DATEI beruehrt hat. Sie kann damit strukturell nur eine Fehlform sehen: 'Datei committet, ohne den Stand-Abschnitt mitzuziehen'. Die Fehlform, die den Slug x19 wiederkehren liess, ist die andere -- die Datei wird GAR NICHT angefasst. Realfall Retro 0f59ce #7 (2026-09-03): 13 Merges in 7 Repos, AGENT_HANDOVER.md auf dem Stand des Vortags; Ueberschrift 2026-09-02, letzter Datei-Commit 2026-09-02, Abstand 0 Tage, also PASS. Der Check war gruen, weil er die falsche Groesse mass. Neu zaehlt `--commits-schwelle N` die Commits seit der letzten Beruehrung der Datei (dieses Repo squasht beim Merge, ein Commit ist eine gemergte PR; `--merges` waere hier immer 0, gemessen 2026-09-07). Dependabot-Bumps zaehlen nicht mit, sonst misst die Zahl die Betriebsamkeit des Bots. Die Bedingung ist per Vorgabe AUS und nur dort eingeschaltet, wo das Ergebnis advisory ist (handover-freshness-advisory.yml, Schwelle 12, geeicht an der Realfall-Groesse 13 und an der eigenen Historie: von 24 Handover-Intervallen liegen 8 darueber). Die beiden blockierenden Zweige (handoff-banner-gate, regel-ritual) rufen das Skript unveraendert ohne Schwelle auf.",
       "faengt": [
         {
           "fall": "Handover ohne datierte Ueberschrift",
@@ -162,10 +182,18 @@
         {
           "fall": "Ueberschrift aelter als der letzte Commit der Datei",
           "probe": "stale_vs_last_commit"
+        },
+        {
+          "fall": "Handover gar nicht angefasst, waehrend Merges auflaufen (Retro 0f59ce #7)",
+          "probe": "commits-schwelle"
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-08-02"
+      "erzwungen_seit": "2026-08-02",
+      "positivkontrolle": {
+        "ref": "Echter Lauf am 2026-09-07 gegen den platform-Arbeitsbaum: ohne Schwelle PASS (Altverhalten), mit `--commits-schwelle 12 --basis origin/main` FAIL mit 16 Commits seit der letzten Beruehrung -- derselbe Zustand, denselben Tag, zwei Verdikte. Gegenprobe mit Schwelle 99 wieder PASS. Drill: test_should_pass_without_flag_even_when_many_commits_landed haelt die Blindstelle der ersten Bedingung fest, test_should_fail_when_commits_since_touch_exceed_threshold ist die Positivkontrolle am nachgebauten Realfall (13 Commits).",
+        "datum": "2026-09-07"
+      }
     },
     {
       "slug": "model-change-detection",
@@ -291,8 +319,14 @@
       "slug": "melder-ohne-leser",
       "mode": "advisory",
       "owner": "achim",
-      "module": "tools/hooks/befund_leseflaeche.py",
-      "drill": "tools/tests/test_befund_leseflaeche.py",
+      "module": [
+        "tools/hooks/befund_leseflaeche.py",
+        "tools/melder_register_check.py"
+      ],
+      "drill": [
+        "tools/tests/test_befund_leseflaeche.py",
+        "tools/tests/test_melder_register_check.py"
+      ],
       "built": "2026-08-11",
       "ref": "platform#1908 Etappe 1 / #1894",
       "note": "Leseflaeche: bringt Melder-Befunde an den Sitzungsstart. Deckt L1-L4 aus #1908 Etappe 1. Erweitert KEINE Schreibrechte, haengt deshalb nicht am Pilot-Ausgang.",
@@ -300,12 +334,22 @@
         {
           "fall": "Melder-Befund erreicht den Sitzungsstart nicht",
           "probe": "leseflaeche"
+        },
+        {
+          "fall": "Runner-Phase ohne benannten Leser (leser: UNBENANNT) im Melder-Register",
+          "probe": "UNBENANNT"
         }
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-11",
       "expires": "2026-10-31",
-      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "revised": "2026-09-07",
+      "revision_note": "UMBAU 2026-09-07 (platform#2374, Gate rueckfaellig x2). Das Gate war falsch geschnitten -- ein Name fuer eine KLASSE, ein Modul fuer eine INSTANZ. Registriert war nur `tools/hooks/befund_leseflaeche.py`: die Leseflaeche fuer EINEN Melder (der naechtliche handover-reconcile, platform#1908). Die beiden Rueckfaelle sind zwei verschiedene Fehlerformen: 8d6869 #10 ('mail-vorgaenge-erledigt.json hat keinen Leser, git grep findet die Datei nur im Schreiber') ist die Klasse; effb03 #8 ('lkp_domain-Fehler war in keinem Repo erfasst') ist ein Befund ohne Artefakt im Zielrepo und gehoert zu `cross-repo-befund-ohne-artefakt-im-zielrepo`, nicht hierher. Der Klassen-Erzwingungspunkt existiert seit 2026-09-02 und war nur nicht verbucht: `tools/melder_register_check.py --kurz` prueft `governance/melder-register.yaml` auf `leser: UNBENANNT`, laeuft als Runner-Phase 0.7.23 und endet mit Exit 1 je Treffer. Er traegt jetzt den GATE_HEADER, damit gate_drill_check.py ihn gegen die Registry abgleichen kann -- vorher war er ein Erzwingungspunkt, den die Buchhaltung nicht kannte. Bewusst NICHT geaendert: das Register selbst (parallele Arbeit daran) und die 18 UNBENANNT-Eintraege -- das ist die Ist-Messung, nicht ein Mangel dieses Gates.",
+      "positivkontrolle": {
+        "ref": "`python3 tools/melder_register_check.py --kurz` am 2026-09-07: '18 Melder ohne Leser: 0.1 server-probe, 0.2 platform-sync, 0.4.2 adr-schema (+15 weitere)', Exit 1. Der Erzwingungspunkt der Klasse ist damit rot am echten Bestand belegt, nicht nur an einer Fixture. Drill: tools/tests/test_melder_register_check.py (16 Tests).",
+        "datum": "2026-09-07"
+      }
     },
     {
       "slug": "parallel-session-pr-collision",
@@ -331,13 +375,19 @@
       "slug": "worktree-midsession-accumulation",
       "mode": "process",
       "owner": "achim",
-      "module": "tools/worktree-reaper.py",
-      "drill": "tools/tests/test_worktree_reaper.py",
+      "module": [
+        "tools/worktree-reaper.py",
+        "tools/claude-hooks/hygiene_melder.py"
+      ],
+      "drill": [
+        "tools/tests/test_worktree_reaper.py",
+        "tools/claude-hooks/tests/test_hygiene_melder.py"
+      ],
       "built": "2026-06-01",
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 / Umbau platform Retro 8d6869",
       "note": "Bestand seit cf9ccb48 (Reaper raeumt gemergte+cleane Session-Worktrees, via repo-session.sh reap + session-start 0.4.5), war aber nie registriert. Registriert 2026-08-12. | 2026-08-20 UMGEBAUT (Retro 8d6869, gate_wirkung.py meldete RUECKFAELLIG, 2 Vorkommen nach dem Bau): der Reaper lief nur fuer das Start-Repo. Worktrees entstehen mitten in der Sitzung und werden oft fremd gemergt — der naechste Start betraf dann ein anderes Repo. Zwei Aenderungen: (1) `repo-session.sh reap --alle` raeumt jedes Repo mit Lease, verdrahtet in session_start_checks.sh Phase 0.4.5. (2) Karenzregel im Reaper — die Lease-vor-Merge-Reihenfolge aus #1866 bleibt, gilt aber nicht mehr sieben Tage: ist der Baum sauber, sein PR gemergt und seit 12h (--karenz-stunden) kein Commit gefallen, wird geraeumt. Die eigentliche Ursache des Rueckfalls war (2), nicht (1): gemessen am 2026-08-20 hielt 'Lease aktiv bis +7 Tage' JEDEN gemergten Baum.",
-      "revised": "2026-08-23",
-      "revision_note": "UMBAU (platform#2143). Die Karenz vom 2026-08-20 konnte den Fall, fuer den sie gebaut wurde, strukturell nie erreichen: der SessionEnd-Hook `reap_worktrees.sh` laeuft bei JEDEM Sitzungsende, aber keine Sitzung dauert 12 Stunden — der eigene, gerade gemergte Baum war beim Aufraeumen immer zu jung. Zwei Rueckfaelle danach (chat-hub 2026-08-21: sechs Baeume; ausschreibungs-hub 2026-08-23: drei nach drei Merges). Neu: `--sitzungsende <pfad>` hebt die Karenz fuer den Baum der ENDENDEN Sitzung auf; der Hook liest den Pfad aus dem `cwd` des SessionEnd-Events. Alle anderen Regeln unveraendert (clean, PR gemergt, nicht primaer), und die Karenz gilt fuer fremde Baeume weiter — sie schuetzt parallele Sitzungen (am 2026-08-23 waren es 14). Live belegt am eigenen Baum von PR #2236: ohne Flag KEEP, mit Flag REAP_MERGED, 22 fremde Baeume unberuehrt.",
+      "revised": "2026-09-07",
+      "revision_note": "UMBAU 2026-09-07 (platform#2374, Gate rueckfaellig x3). Das Gate hing an EINEM Modul mit der falschen Messgroesse. Der Reaper misst und entfernt richtig, aber er haelt einen gemergten Baum bewusst zurueck: aktives Lease plus Karenzfrist (12 h), damit niemandem der Boden weggezogen wird. Das ist richtig fuer das ENTFERNEN und falsch fuer das MELDEN. Der Melder daneben (hygiene_melder, SessionStart) zaehlte bis hierhin ABGELAUFENE Leases -- eine Sieben-Tage-Uhr. Die Fehlform spielt sich in Minuten ab: Retro fdd368 (17 Baeume eines Tages ungeraeumt), m1zgqt #14 (zwei Leases nach dem Merge nicht geschlossen), 0f59ce #8 (6 Baeume gemergter PRs offen bis zur Retro) -- alle drei mit GUELTIGEM Lease, fuer die alte Klasse also unsichtbar. Neu misst der Melder dieselbe Wahrheit ohne Karenz und ohne Lease-Uhr: PR gemergt und Baum noch da. Die Merge-Erkennung wird aus dem Reaper IMPORTIERT, nicht nachgebaut. Zwei Fallen beim Bau, beide durch einen echten Lauf gefunden: (a) das Lease traegt nur den nackten Repo-NAMEN ('wedding-hub'), `gh --repo wedding-hub` scheitert -- 85 Leases, 85x 'unknown', 0 Befunde, 3,8 s; der Owner kommt jetzt aus `git remote get-url origin` im Baum. (b) 'unknown' zaehlt seither als NICHT BEURTEILBAR und wird mitgemeldet, nicht als 'in Ordnung' verbucht. Nach der Reparatur: 46 gemergte Baeume offen; mit dem Frischefenster von 3 Tagen (aeltere sind Bestand und Sache des reap-Laufs) 23 Befunde in 12,9 s, innerhalb des Sitzungsstart-Budgets. Der echte Merge-MOMENT bleibt ein Owner-Zug: ein PostToolUse-Hook auf `gh pr merge` braucht eine Zeile in ~/.claude/settings.json, ausserhalb dieses Repos -- gefuehrt als Kandidat `worktree-end-on-merge`.",
       "faengt": [
         {
           "fall": "Baum der endenden Sitzung wird trotz aktiver Lease abgeraeumt",
@@ -346,10 +396,22 @@
         {
           "fall": "geteilter Baum mit laufender git-Operation bleibt stehen",
           "probe": "index.lock"
+        },
+        {
+          "fall": "Arbeitsbaum eines bereits gemergten PR ist noch offen (Retro 0f59ce #8)",
+          "probe": "merged"
+        },
+        {
+          "fall": "Merge-Zustand nicht beurteilbar wird nicht als 'in Ordnung' gewertet",
+          "probe": "unknown"
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-06-01"
+      "erzwungen_seit": "2026-06-01",
+      "positivkontrolle": {
+        "ref": "Echter Lauf am 2026-09-07 gegen 85 offene Leases: vor der Reparatur 0 Befunde (jede gh-Abfrage scheiterte still am nackten Repo-Namen), danach 46 gemergte Baeume offen, mit Frischefenster 23. Drill: test_should_flag_a_merged_branch_whose_worktree_is_still_open (gueltiges Lease, PR gemergt -> Befund) mit Gegenprobe test_should_stay_silent_for_an_open_pr und test_should_count_unknown_pr_state_as_unjudgeable.",
+        "datum": "2026-09-07"
+      }
     },
     {
       "slug": "lint-failure-no-local-gate",
@@ -444,12 +506,26 @@
         {
           "fall": "neu hinzugefuegtes Werkzeug-Modul ohne Test",
           "probe": "flag_new"
+        },
+        {
+          "fall": "neues Modul, dessen Stem nur in Prosa einer Testdatei steht",
+          "probe": "prose"
+        },
+        {
+          "fall": "neuer Gate-Drill ohne dokumentierten Falsifikationslauf (cc4e11 #4)",
+          "probe": "falsification"
         }
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-08-12",
       "expires": "2026-10-31",
-      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet."
+      "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
+      "revised": "2026-09-07",
+      "revision_note": "Rev 2 (2026-09-07, platform#2374, Gate rueckfaellig x4 -> 'ausweiten', wie in Retro cc4e11 Z. 89-91 vorgeschlagen). Zwei Ausweitungen, beide aus den Rueckfaellen selbst. (1) SPUR 2 WAR ZU WEICH: 'Stem kommt woertlich in einer Testdatei vor' traf auch eine blosse Erwaehnung in Prosa -- ein Modul galt als getestet, weil sein NAME irgendwo stand (Rueckfall 4b1399 #4: link_pruefen.py ohne Test und ohne CI-Einbindung). Jetzt zaehlt nur ein Bezug: import/from, ein Pfad <stem>.py oder ein String-Literal. Wirkung gemessen ueber alle 230 pruefpflichtigen Bestandsmodule: GENAU EINES kippt (tools/schleuse.py) -- und das zu Recht, sein Name stand nur in Prosa. Das Gate prueft ohnehin nur Neuzugaenge, der Bestand bleibt unberuehrt. (2) DIE FAMILIE FEHLTE: das Gate adressiert Werkzeug-MODULE, der Rueckfall cc4e11 #4 traf einen TEST, der selbst als Gate dient (das erste Klassen-Gate bestand die eigene Gegenprobe nicht, ein 3000-Zeichen-Fenster griff in die Nachbarfunktion). Eine neu hinzugefuegte Testdatei, die sich selbst als Gate-Drill ausweist, muss ihren Falsifikationslauf dokumentieren. Ehrlich benannte Grenze: erzwungen wird, dass die Gegenprobe DASTEHT, nicht dass sie richtig ist -- gegen das zweite hilft kein Scanner (siehe test-asserts-the-case-in-mind-not-the-harmful-one in declined).",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_check_new_module_tests.py -- TestSpurZweiAlsBezug.test_should_flag_module_only_mentioned_in_prose macht den Realfall 4b1399 #4 rot (vor Rev 2 gruen); TestGateDrillOhneFalsifikation.test_should_flag_gate_drill_without_falsification macht cc4e11 #4 rot. Beide mit Gegenprobe daneben (Import/String-Literal bzw. benannte Gegenprobe bleiben gruen).",
+        "datum": "2026-09-07"
+      }
     },
     {
       "slug": "handover-prio-zeigt-auf-erledigtes",
@@ -936,6 +1012,133 @@
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-09-03"
+    },
+    {
+      "slug": "geschwister-stellen-nicht-mitgezogen",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/geschwister_stellen_check.py",
+      "drill": "tools/tests/test_geschwister_stellen_check.py",
+      "built": "2026-09-07",
+      "ref": "platform#2234 Zeile 1/9, platform#2374",
+      "covers": [
+        "partial-fix-not-generalized-to-sibling-artifacts",
+        "new-format-gate-no-existing-file-sweep"
+      ],
+      "note": "Deckt den Slug mit den meisten offenen Vorkommen (x12) und den, der dieselbe Wurzel hat: eine neue Regel wird nur vorwaerts angewandt, der Bestand bleibt stehen. Mechanik ueber den PR-Diff: fuer jede im Diff ENTFERNTE Zeile werden in der neuen Fassung derselben Datei sehr aehnliche Zeilen gesucht (>=0.90 nach Whitespace-Normalisierung), die NICHT mitgeaendert wurden. Realfall a84f71 Befund 1: ein Default-Flip in record() wurde nur an den WARN-Zweigen nachgezogen, zwei fast identische PASS-Zweige blieben stehen und etikettierten fremde Repos weiter als 'platform'. Vier Deckel halten die Fehlalarmquote unten, alle an 150 echten Commits geeicht: hoechstens 2 Zwillinge (drei und mehr sind eine Tabelle, nicht ein vergessener Fix), Zeilen unter 25 Zeichen raus, Zeilen ohne Klammer und ohne Zuweisung raus (Daten-/Port-/Registry-Zeilen), Test- und Fixture-Dateien raus. Ungefiltert feuerte er auf 18 von 150 Commits, gefiltert auf 7 (10 Zeilen) -- in allen zehn stand neben der stehengebliebenen Zeile die fast gleiche, tatsaechlich geaenderte. Was er NICHT sieht: semantische Geschwister in anderen Dateien; das bleibt Judgment.",
+      "faengt": [
+        {
+          "fall": "geaenderte Stelle, deren fast identische Geschwister in derselben Datei stehenblieben (a84f71 #1)",
+          "probe": "sibling"
+        },
+        {
+          "fall": "wiederholte Datenzeilen sind Struktur, kein vergessener Fix",
+          "probe": "table"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-07",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_geschwister_stellen_check.py::TestPositivkontrolleRealfallA::test_should_report_the_two_untouched_sibling_branches - Fixture mit vier fast identischen record()-Zweigen, zwei geaendert; die zwei stehengebliebenen PASS-Zweige werden gemeldet (Realfall a84f71 (a)). Gegenprobe test_should_be_clean_when_all_four_branches_were_changed bleibt gruen, ebenso der Tabellen-Deckel (test_should_stay_silent_on_table_like_structures).",
+        "datum": "2026-09-07"
+      }
+    },
+    {
+      "slug": "issue-offen-nach-gemergtem-fix",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/session_abgleich.py",
+      "drill": "tools/tests/test_session_abgleich.py",
+      "built": "2026-09-07",
+      "ref": "platform#2234 (Widerruf 2026-09-02), platform#2374",
+      "covers": [
+        "issue-not-reconciled-after-cross-repo-fix",
+        "issue-open-after-its-fix-merged",
+        "dod-reinterpreted-only-in-pr-body"
+      ],
+      "note": "Loest den am 2026-09-02 widerrufenen Verzicht `issue-not-reconciled-after-cross-repo-fix` ein (x8) und deckt zwei Slugs derselben Naht mit: ein Issue bleibt offen, obwohl die erledigende PR gemergt ist (x3), und ein geschlossenes Issue traegt noch unangehakte DoD-Kaestchen (x2). Der Verzicht war mit zwei Praemissen begruendet, beide widerlegt: die drei Vorkommen waren SAME-repo (kein Crawler noetig), und die angeblich deckende Issue-Reconcile-Phase in session-ende gibt es nicht. Messpunkt wie im Widerruf beschrieben: je gemergter Session-PR die referenzierten Issues (Closes|Fixes|Resolves|Refs) abfragen. Erzwingungspunkt: Runner-Phase E.10 in tools/session_ende_checks.sh. Bekanntes Rueckfall-Muster: `Refs #N` statt `Closes #N` (writing-hub, 9 von 10 PR-Texten).",
+      "faengt": [
+        {
+          "fall": "gemergte PR, referenziertes Issue noch OPEN (ausschreibungs-hub #184/#195)",
+          "probe": "still_open"
+        },
+        {
+          "fall": "durch die PR geschlossenes Issue mit unangehakten DoD-Kaestchen (chat-hub #27)",
+          "probe": "unchecked_box"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-07",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_session_abgleich.py::test_should_flag_issue_still_open_after_its_fix_merged (ausschreibungs-hub #184 OPEN neben gemergtem #195), ::test_should_flag_refs_instead_of_closes (writing-hub) und ::test_should_flag_closed_issue_with_unchecked_dod_boxes (chat-hub #27) - je mit gruener Gegenprobe. Dazu ein echter Lauf am 2026-09-07 gegen dieses Repo: Issue #2895 ist OPEN, obwohl der zugehoerige PR #2905 MERGED ist (Refs statt Closes) - ein wahrer Treffer aus dem Bestand, nicht aus einer Fixture.",
+        "datum": "2026-09-07"
+      }
+    },
+    {
+      "slug": "beleg-pr-nicht-gemergt",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/session_abgleich.py",
+      "drill": "tools/tests/test_session_abgleich.py",
+      "built": "2026-09-07",
+      "ref": "platform#2234 Zeile 7, platform#2374",
+      "covers": [
+        "proof-artifact-left-unmerged"
+      ],
+      "note": "Ein PR, der als BELEG genannt wird ('Beleg', 'Nachweis', 'verifiziert', 'Positivkontrolle', 'Drill'), muss gemergt sein - sonst zeigt die Behauptung auf etwas, das im Hauptzweig nicht existiert. CLOSED ohne Merge wird eigens benannt: das ist der schlimmere Fall, weil der Beleg dann nie ankommt. Erzwingungspunkt: Runner-Phase E.10 in tools/session_ende_checks.sh.",
+      "faengt": [
+        {
+          "fall": "als Beleg genannter PR ist OPEN",
+          "probe": "proof"
+        },
+        {
+          "fall": "als Beleg genannter PR ist CLOSED ohne Merge",
+          "probe": "CLOSED"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-07",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_session_abgleich.py::test_should_flag_proof_pr_left_open - 'Nachweis: der Drill laeuft in #2799' bei Zustand OPEN wird rot; ::test_should_name_closed_without_merge_as_the_worse_case liefert die Sonderzeile; Gegenprobe ::test_should_stay_green_when_proof_pr_is_merged.",
+        "datum": "2026-09-07"
+      }
+    },
+    {
+      "slug": "serielle-prs-auf-derselben-datei",
+      "mode": "advisory",
+      "owner": "achim",
+      "module": "tools/session_abgleich.py",
+      "drill": "tools/tests/test_session_abgleich.py",
+      "built": "2026-09-07",
+      "ref": "platform#2234 Zeile 3/2, platform#2374",
+      "covers": [
+        "same-file-serial-prs"
+      ],
+      "note": "x9 aufgetreten. Mindestens zwei gemergte PRs desselben Autors, dieselbe Datei, innerhalb von 24 h. FALSIFIKATION ist Pflicht und im Werkzeug gebaut: sind die beruehrten Zeilenbereiche disjunkt, ist es kein Befund. Stehen die Hunks nicht zur Verfuegung, wird der Fall ausdruecklich als NICHT FALSIFIZIERBAR gefuehrt (Hinweis, nicht Befund) statt still als Treffer verbucht. Advisory bleibt es, weil gate-erzwungene Serien legitim sind: der zweite PR korrigiert dann, was ein Gate am ersten beanstandet hat. Erzwingungspunkt: Runner-Phase E.10.",
+      "faengt": [
+        {
+          "fall": "zwei gemergte PRs desselben Autors auf ueberlappende Zeilen derselben Datei",
+          "probe": "serie"
+        },
+        {
+          "fall": "disjunkte Hunks sind kein Befund",
+          "probe": "disjoint"
+        }
+      ],
+      "zustand": "schranke",
+      "erzwungen_seit": "2026-09-07",
+      "expires": "2026-10-31",
+      "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_session_abgleich.py::test_should_flag_two_merged_prs_touching_the_same_lines (Zeilen 100-140 und 120-160 derselben Datei, 3 h Abstand) - rot; Gegenproben ::test_should_stay_green_when_hunks_are_disjoint und ::test_should_report_hinweis_when_hunks_are_unavailable.",
+        "datum": "2026-09-07"
+      }
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
@@ -1029,6 +1232,34 @@
       ],
       "decided": "2026-09-02",
       "reason": "Selbstheilend wie die Schwester-Lane: Runner-Phase 0.7.13 ruft doctor.py und verteilt neu. Melder bleibt (module/drill unveraendert); als Schranke gestrichen. Die bekannte Grenze aus dem Eintrag (Text hinter dem MANAGED-BY-Footer) bleibt getrackt in platform#2235 — sie ist ein Melder-, kein Gate-Befund."
+    },
+    {
+      "slug": "host-fix-not-mirrored-to-iac",
+      "decided": "2026-09-07",
+      "owner": "achim",
+      "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07) · Anker platform#2907",
+      "reason": "Verzicht auf ein EIGENES Gate, nicht auf die Klasse. Die Pruefstelle waere ein Stop-Hook auf schreibende ssh/docker/systemctl-Kommandos gegen /etc, /opt und Prod-Configs ohne Aenderung unter infra/ im selben Zug — verdrahtet wird ein solcher Hook in ~/.claude/settings.json, also AUSSERHALB dieses Repos. Ein Registry-Eintrag ohne diese Zeile waere ein Gate im Zustand `ohne-traeger`, den _zustand_doc ausdruecklich als Befund fuehrt: das Modul existiert, niemand ruft es auf. Das getragene Restrisiko ist damit benannt und in platform#2907 verankert; jedes neue Vorkommen ist laut _declined_doc Anlass, die Entscheidung zu pruefen. Teilweise gedeckt ist die Klasse heute schon: ein host-veraenderndes Kommando loest den Scope-Checkpoint aus (Rev 4 kennt systemctl/docker/kill, _PROD kennt die Prod-Ziele) — der verlangt ein durables Artefakt, aber nicht ausgerechnet eines unter infra/."
+    },
+    {
+      "slug": "subagent-prod-access-unscoped-prompt",
+      "decided": "2026-09-07",
+      "owner": "achim",
+      "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07) · Anker platform#2907",
+      "reason": "Sicherheitsrelevant und deshalb ausdruecklich NICHT als 'brauchen wir nicht' abgelegt: die Pruefstelle waere ein PreToolUse-Hook auf den Subagent-Spawn, und dessen Verdrahtung liegt in ~/.claude/settings.json ausserhalb dieses Repos (Owner-Zug; ein Agent aendert keine Hook-/Permission-Konfiguration). In platform#2907 als erster der drei Kandidaten priorisiert. Bis dahin gilt der Verzicht mit Wiedervorlage bei JEDEM neuen Vorkommen — nicht erst ab zwei."
+    },
+    {
+      "slug": "prod-as-test-environment",
+      "decided": "2026-09-07",
+      "owner": "achim",
+      "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07) · Anker platform#2907",
+      "reason": "Dieselbe Verdrahtungsgrenze wie oben (platform#2907), plus ein eigener Grund: das Signal ist unscharf. Ein Zug, der sich selbst als Test bezeichnet und dabei ein Prod-Ziel anfaesst, unterscheidet sich textlich kaum von einem legitimen Prod-Check (Health-Probe, Verifikation nach Deploy). platform#2234 hatte den Vorschlag deshalb selbst ans Ende der Reihenfolge gestellt ('FP-Risiko hoch, deshalb hinten trotz 4x'). Die messbare FOLGE — Prod beruehrt ohne vorangegangenen Checkpoint — faengt bereits scope-checkpoint-not-durably-recorded (Ausloeser 'Prod-/Publish-Schritt', seit Rev 5 auch NACH einem Checkpoint)."
+    },
+    {
+      "slug": "pr-body-stale-after-followup-commits",
+      "decided": "2026-09-07",
+      "owner": "achim",
+      "ref": "platform#2895 Items 53+54 (Owner-Go 2026-09-07)",
+      "reason": "Kein billiges Signal. Praezise beantwortbar ist die Frage nur ueber GraphQL `userContentEdits` (wann wurde der Body zuletzt bearbeitet); die REST-Felder, die das Haus benutzt, helfen nicht: `updatedAt` wandert bei JEDEM PR-Ereignis, also auch bei einem Label, einem Kommentar oder einem Check-Ergebnis, und waere als Vergleichsgroesse gegen die Commit-Zeit fast immer 'frisch'. Ein Gate auf einem Feld, das die falsche Frage beantwortet, ist genau die Klasse `gate-matches-spelling-not-substance`. Dazu die Groessenordnung: 2 Vorkommen, beide ohne Folgeschaden — der durable Datensatz, auf den es ankommt (Merge-Commit und verlinktes Issue), wird seit 2026-09-07 von `issue-offen-nach-gemergtem-fix` abgeglichen. Kommt ein drittes Vorkommen, ist der Ort dafuer gebaut: die Runner-Phase E.10 in tools/session_ende_checks.sh hat die PR-Daten bereits in der Hand, es fehlt nur die GraphQL-Abfrage."
     }
   ],
   "_widerrufen_doc": "Verzichte, die zurueckgenommen wurden. Sie stehen NICHT mehr in `declined` — sonst zaehlten `gate_deckung.py` und `retro_kpis.py` sie weiter als getroffene Entscheidung, und der Widerruf waere deklariert statt wirksam. Die Slugs sind damit wieder offen und erscheinen in der GATE-PFLICHT-Liste. Diese Sektion bewahrt, warum der Verzicht einmal galt und woran er gescheitert ist — die Widerlegung ist der wertvollere Teil.",
@@ -1064,87 +1295,6 @@
   "_faengt_doc": "Je Gate die Faelle, gegen die es schuetzt, mit einer `probe` — einem Textfragment, das im Drill vorkommen muss. Ausgewertet von tools/gate_namensdeckung.py. Ein Gate ohne dieses Feld gilt als `ungeprueft`, nicht als gedeckt. `drill_extra` nennt weitere Dateien, in denen die Faelle liegen duerfen (z.B. eine Bash-Suite, die der Python-Drill nur aufruft). ZWEITE GRENZE, gemessen beim Bestandslauf 2026-08-23: die `probe` muss aus dem VOKABULAR des Drills stammen, nicht aus der Beschreibung des Falls. Beim Nachtragen der 20 Bestands-Gates meldete der Pruefer vier Luecken — alle vier waren Wortlaut-Fragen (`drittes` vs. `third_repo`, `hinter` vs. `stalen_klon`, `aelter` vs. `stale_vs_last_commit`, `ohne test` vs. `flag_new`), keine echte fehlte. Daraus folgt die Grenze: wer die probe setzt, kann sie so waehlen, dass sie trifft. Das Gate schuetzt gegen VERGESSEN, nicht gegen Absicht — und der Unterschied liegt im Zeitpunkt: erst pruefen, OB der Fall gedrillt ist, dann die Bezeichnung anpassen. Ist er es nicht (Realfall E402), wird der DRILL ergaenzt, nicht die probe.",
   "_kandidaten_doc": "Zwischenzustand zwischen Befund und Gate: die Gate-Pflicht ist ausgeloest (Slug >= 2x aufgetreten), aber weder ein Gate gebaut noch ein Verzicht eingetragen. Bis 2026-08-28 stand diese Menge ausschliesslich in der Ausgabe von `tools/gate_deckung.py` — die Pflicht wurde gezaehlt, ihre Einloesung nirgends festgehalten. Vorbild fuer den Zustand ist der Drift-Index aus Ilja Lerchs SB-Neu (Lehre -> Schranke-Kandidat -> Schranke, wobei die Schranke das Feld traegt, seit wann sie erzwungen wird). Zulaessige Abgaenge aus dieser Liste: Gate bauen (-> `gates`) ODER Verzicht begruenden (-> `declined`). Liegenlassen ist der dritte Weg und der einzige, der nicht zaehlt. Die Zahlen stammen aus einem `gate_deckung.py`-Lauf und werden mit dem naechsten Lauf fortgeschrieben, nicht von Hand gepflegt.",
   "kandidaten": [
-    {
-      "slug": "partial-fix-not-generalized-to-sibling-artifacts",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 8,
-      "letztes_vorkommen": "2026-08-26",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "same-file-serial-prs",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 6,
-      "letztes_vorkommen": "2026-08-25",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "host-fix-not-mirrored-to-iac",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 4,
-      "letztes_vorkommen": "2026-08-23",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "prod-as-test-environment",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 4,
-      "letztes_vorkommen": "2026-08-23",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "dod-reinterpreted-only-in-pr-body",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 2,
-      "letztes_vorkommen": "2026-07-23",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "new-format-gate-no-existing-file-sweep",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 2,
-      "letztes_vorkommen": "2026-07-23",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "pr-body-stale-after-followup-commits",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 2,
-      "letztes_vorkommen": "2026-08-26",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "subagent-prod-access-unscoped-prompt",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 2,
-      "letztes_vorkommen": "2026-07-31",
-      "erhoben": "2026-08-28",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "proof-artifact-left-unmerged",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 2,
-      "letztes_vorkommen": "2026-08-28",
-      "erhoben": "2026-08-31",
-      "quelle": "tools/gate_deckung.py"
-    },
-    {
-      "slug": "issue-not-reconciled-after-cross-repo-fix",
-      "zustand": "schranke-kandidat",
-      "vorkommen": 7,
-      "letztes_vorkommen": "2026-08-25",
-      "erhoben": "2026-09-02",
-      "quelle": "tools/messungen/gate_bilanz_2374.py (SURVIVES-Zeilen der Befund-Tabellen: 4 vor, 3 nach dem Verzicht)",
-      "messpunkt": "session-ende: je gemergter Session-PR die referenzierten Issues (Refs|Closes|Fixes #N) abfragen; offene Issues mit gemergter erledigender PR = Befund (Ziel 0)"
-    },
     {
       "slug": "deferred-item-owner-zug-prod-gate",
       "quelle": "Retro 0f59ce §5a (2026-09-03)",

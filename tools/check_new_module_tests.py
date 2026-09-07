@@ -13,8 +13,33 @@ umgangen statt befolgt (repo-health-Disziplin: 0-FP-Baseline zuerst).
 
 Ein Modul gilt als getestet, wenn EINE der beiden Spuren existiert:
   1. eine Testdatei test_<stem>.py irgendwo unter tools/ oder tests/, ODER
-  2. sein Stem kommt woertlich in einer Testdatei vor (deckt Suites ab, die
-     mehrere Module in einer Datei testen, z.B. test_block_unformatted_push_suite).
+  2. sein Stem kommt in einer Testdatei als BEZUG vor — Import, Pfad oder
+     String-Literal (deckt Suites ab, die mehrere Module in einer Datei testen,
+     z.B. test_block_unformatted_push_suite).
+
+REV 2 (2026-09-07, platform#2374 — das Gate war rueckfaellig ×4). Zwei
+Ausweitungen, beide aus den Rueckfaellen selbst:
+
+(1) SPUR 2 WAR ZU WEICH. „Stem kommt woertlich vor" traf auch eine blosse
+    Erwaehnung in einem Docstring oder Kommentar. Ein Modul galt damit als
+    getestet, weil sein Name irgendwo in einer Testdatei STAND — genau die
+    Verwechslung von Schreibweise und Sache, gegen die dieses Gate steht.
+    Rueckfall 4b1399 #4: `link_pruefen.py` ohne Test und ohne CI-Einbindung.
+    Jetzt zaehlt nur ein BEZUG: `import <stem>`, `from <stem>`, ein Pfad
+    (`.../<stem>.py`) oder ein String-Literal mit dem Stem.
+
+(2) DIE FAMILIE FEHLTE. Das Gate adressiert Werkzeug-MODULE; der Rueckfall
+    cc4e11 #4 traf einen TEST, der selbst als Gate dient: das erste Klassen-Gate
+    bestand seine eigene Gegenprobe nicht (ein 3000-Zeichen-Fenster griff in die
+    Nachbarfunktion), und niemand haette es gemerkt, weil der Drill gruen war.
+    Eine neu hinzugefuegte Testdatei, die sich im Text selbst als Gate-Drill
+    ausweist (Gate / Klassen-Gate / Positivkontrolle / Drill), muss deshalb
+    ihren FALSIFIKATIONSLAUF dokumentieren — eine Testfunktion oder eine Zeile,
+    die den Gegenprobe-Fall benennt. Ehrlich benannte Grenze: das Gate erzwingt,
+    dass die Gegenprobe DASTEHT, nicht dass sie richtig ist. Das ist der
+    Unterschied zwischen „vergessen" und „falsch gemacht"; gegen das zweite hilft
+    kein Scanner (siehe `test-asserts-the-case-in-mind-not-the-harmful-one` in
+    der declined-Liste).
 
 Exit: 0 = sauber · 1 = Befund (advisory — der CI-Step bleibt gruen, druckt aber
 die Warnung) · 2 = Werkzeugfehler (der CI-Step wird ROT: ein Melder, der beim
@@ -24,6 +49,7 @@ Ausfall schweigt, ist schlimmer als keiner).
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,7 +60,7 @@ GATE_HEADER = {
     "slug": "untested-tool-module-green-gate",
     "mode": "advisory",  # blocking erst nach 0-FP-Kalibrierfenster (Registry-frozen_note)
     "owner": "achim",
-    "last_drill_pass": "2026-08-12",
+    "last_drill_pass": "2026-09-07",
     "evidence": "tools/tests/test_check_new_module_tests.py",
 }
 
@@ -60,25 +86,83 @@ def ist_pruefpflichtig(pfad: str) -> bool:
     return not (name.startswith("test_") or name in ("__init__.py", "conftest.py"))
 
 
+def bezug_muster(stem: str) -> re.Pattern:
+    """Spur 2 als BEZUG statt als blosse Erwaehnung (Rev 2).
+
+    Getroffen wird: `import <stem>`, `from <stem>`, ein Pfad mit `<stem>.py`
+    und ein String-Literal, das den Stem als ganzes Wort traegt (so rufen die
+    Suiten ihre Skripte auf: `SCRIPT = REPO_ROOT / "tools" / "x.py"`,
+    `subprocess.run([... "tools/x.py"])`). NICHT getroffen: der Stem in Prosa —
+    ein Docstring, der ein Modul nur nennt, testet es nicht.
+    """
+    s = re.escape(stem)
+    return re.compile(
+        rf"(?:^|\W)(?:import|from)\s+{s}\b"
+        rf"|{s}\.py\b"
+        rf"|[\"']{s}[\"']"
+        rf"|/{s}\b",
+        re.M,
+    )
+
+
 def hat_test_spur(stem: str, repo_root: Path) -> bool:
-    """Spur 1: test_<stem>.py existiert; Spur 2: Stem steht in einer Testdatei."""
+    """Spur 1: test_<stem>.py existiert; Spur 2: Stem steht als BEZUG in einer Testdatei."""
     for wurzel in TEST_WURZELN:
         basis = repo_root / wurzel
         if not basis.is_dir():
             continue
         if any(basis.rglob(f"test_{stem}.py")):
             return True
+    muster = bezug_muster(stem)
     for wurzel in TEST_WURZELN:
         basis = repo_root / wurzel
         if not basis.is_dir():
             continue
         for testdatei in basis.rglob("test_*.py"):
             try:
-                if stem in testdatei.read_text(encoding="utf-8"):
+                if muster.search(testdatei.read_text(encoding="utf-8")):
                     return True
             except OSError:
                 continue
     return False
+
+
+#: Eine Testdatei weist sich SELBST als Gate-Drill aus, wenn eines dieser Woerter
+#: in ihr steht. Bewusst am Text der Datei und nicht an der Registry: der Drill
+#: entsteht im selben PR wie das Gate, die Registry-Zeile oft erst danach.
+GATE_DRILL_MARKER = re.compile(
+    r"\bKlassen-Gate\b|\bPositivkontrolle\b|\bGate\b|\bDrill\b", re.I
+)
+
+#: Der dokumentierte Falsifikationslauf: eine Testfunktion oder eine Zeile, die
+#: den Gegenprobe-Fall benennt. Die Liste ist die im Haus tatsaechlich benutzte
+#: Wortmenge, nicht eine erratene — sie stammt aus den bestehenden Drills.
+FALSIFIKATION_MARKER = re.compile(
+    r"falsifik\w*|gegenprobe|positivkontrolle|negativkontrolle"
+    r"|def\s+test_should_(?:flag|fail|block|report|warn|refuse|reject|catch|melden|feuern)\w*",
+    re.I,
+)
+
+
+def ist_gate_drill(text: str) -> bool:
+    """Weist die Testdatei sich selbst als Gate-Drill aus?"""
+    return bool(GATE_DRILL_MARKER.search(text))
+
+
+def hat_falsifikationslauf(text: str) -> bool:
+    """Steht die Gegenprobe DA? (nicht: ist sie richtig — s. Modulkopf)"""
+    return bool(FALSIFIKATION_MARKER.search(text))
+
+
+def ist_neue_testdatei(pfad: str) -> bool:
+    """Neu hinzugefuegte Testdatei unter den Test-Wurzeln."""
+    p = Path(pfad)
+    return (
+        pfad.endswith(".py")
+        and p.name.startswith("test_")
+        and p.parts
+        and p.parts[0] in TEST_WURZELN
+    )
 
 
 def hinzugefuegte_dateien(bereich: str, repo_root: Path) -> list[str] | None:
@@ -117,6 +201,22 @@ def befunde_fuer(dateien: list[str], repo_root: Path) -> list[str]:
     return befunde
 
 
+def drill_befunde_fuer(dateien: list[str], repo_root: Path) -> list[str]:
+    """Rev 2, zweite Familie: neue Gate-Drills ohne dokumentierten Falsifikationslauf."""
+    befunde = []
+    for pfad in dateien:
+        if not ist_neue_testdatei(pfad):
+            continue
+        voll = Path(pfad) if Path(pfad).is_absolute() else repo_root / pfad
+        try:
+            text = voll.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if ist_gate_drill(text) and not hat_falsifikationslauf(text):
+            befunde.append(pfad)
+    return befunde
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Neue tools/scripts-Module ohne Test melden (advisory)"
@@ -143,21 +243,34 @@ def main() -> int:
         return 2
 
     befunde = befunde_fuer(dateien, root)
-    if not befunde:
+    drills = drill_befunde_fuer(dateien, root)
+    if not befunde and not drills:
         print(
-            "✅ Neuzugaenge: jedes neue Modul hat eine Test-Spur (oder es gab keine)."
+            "✅ Neuzugaenge: jedes neue Modul hat eine Test-Spur, jeder neue "
+            "Gate-Drill seinen Falsifikationslauf (oder es gab keine)."
         )
         return 0
 
-    print(
-        "⚠ Neue Module OHNE Test-Spur (Retro-Muster untested-tool-module-green-gate):"
-    )
-    for b in befunde:
+    if befunde:
         print(
-            f"   - {b} (weder test_{Path(b).stem}.py noch Erwaehnung in einer Testdatei)"
+            "⚠ Neue Module OHNE Test-Spur (Retro-Muster untested-tool-module-green-gate):"
         )
+        for b in befunde:
+            print(
+                f"   - {b} (weder test_{Path(b).stem}.py noch ein Bezug in einer Testdatei)"
+            )
+    if drills:
+        print(
+            "⚠ Neue Gate-Drills OHNE dokumentierten Falsifikationslauf "
+            "(Rev 2, Realfall cc4e11 #4 — Klassen-Gate bestand die eigene Gegenprobe nicht):"
+        )
+        for d in drills:
+            print(
+                f"   - {d} (weist sich als Gate/Drill aus, nennt aber keine "
+                "Gegenprobe/Positivkontrolle)"
+            )
     print(
-        "   → Testdatei nachliefern ODER im PR kurz begruenden, warum nicht"
+        "   → Testdatei bzw. Gegenprobe nachliefern ODER im PR kurz begruenden, warum nicht"
         " (Fehlalarm-Feedback fliesst in die Kalibrierung, das Gate ist advisory)."
     )
     return 1

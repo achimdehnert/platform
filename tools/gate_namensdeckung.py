@@ -62,6 +62,29 @@ def _lies(repo: str, rel: str) -> str:
         return ""
 
 
+def _quellen(gate: dict) -> list[str]:
+    """Drill-Pfade als flache Liste — `drill` darf ein String ODER eine Liste sein.
+
+    Bis 2026-09-07 stand hier `[gate.get("drill", "")] + drill_extra`, und ein
+    Listen-Eintrag landete als LISTE in `os.path.isabs` — `TypeError`, und zwar
+    beim ERSTEN solchen Gate, also fuer den ganzen Lauf. Ein Gate darf mehr als
+    einen Erzwingungspunkt haben (`gate_verankerung_check.drill_pfade` erlaubt
+    String, Komma-Liste und JSON-Liste seit dem Bau); dieses Werkzeug kannte nur
+    die erste Form und stuerzte auf dem echten Bestand ab, statt zu melden.
+    Gemessen am 2026-09-07: der Absturz lag unveraendert auf `main`. Ein Pruefer,
+    der beim Ausfall gar nichts sagt, ist genau der Melder, gegen den sein eigener
+    Slug (`gate-modul-prueft-weniger-als-sein-name`) gebaut ist.
+    """
+    roh = [gate.get("drill", "")] + list(gate.get("drill_extra") or [])
+    flach: list[str] = []
+    for eintrag in roh:
+        if isinstance(eintrag, (list, tuple)):
+            flach.extend(str(x).strip() for x in eintrag)
+        else:
+            flach.extend(x.strip() for x in str(eintrag).split(","))
+    return [x for x in flach if x]
+
+
 def pruefe_gate(gate: dict, repo: str = REPO_ROOT) -> dict:
     """→ {slug, zustand, gedeckt: [...], fehlend: [...], dateien: n}"""
     faelle = gate.get("faengt")
@@ -75,7 +98,7 @@ def pruefe_gate(gate: dict, repo: str = REPO_ROOT) -> dict:
             "dateien": 0,
         }
 
-    quellen = [gate.get("drill", "")] + list(gate.get("drill_extra") or [])
+    quellen = _quellen(gate)
     text = "\n".join(_lies(repo, q) for q in quellen).lower()
     gelesen = sum(1 for q in quellen if _lies(repo, q))
 

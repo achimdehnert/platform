@@ -144,3 +144,108 @@ def test_should_pass_on_platform_own_agent_handover_dogfood():
     )
     res = _run(str(handover), cwd=REPO_ROOT)
     assert res.returncode == 0, res.stdout + res.stderr
+
+
+# --- Rev 2 (2026-09-07, platform#2374): zweite Pruefbedingung ---------------
+#
+# Die erste Bedingung vergleicht die Ueberschrift mit dem letzten Commit, der die
+# DATEI beruehrt hat, und ist damit blind fuer die Fehlform, die den Slug ×19 hat
+# wiederkehren lassen: die Datei wird gar nicht angefasst (Retro 0f59ce, 13 Merges
+# in 7 Repos, Rezenz-Abstand 0 Tage → gruen). Die Tests hier drillen genau das.
+
+
+def _commit(repo: Path, name: str, betreff: str, datum: str) -> None:
+    (repo / name).write_text(f"# {name}\n", encoding="utf-8")
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_DATE": f"{datum}T12:00:00",
+        "GIT_COMMITTER_DATE": f"{datum}T12:00:00",
+    }
+    subprocess.run(["git", "add", name], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", betreff], cwd=repo, check=True, env=env
+    )
+
+
+def _repo_mit_handover_und_n_commits(tmp_path: Path, n: int, betreff: str) -> Path:
+    """Handover am Tag 1, danach `n` weitere Commits, die es NICHT beruehren."""
+    repo = _git_repo_with_commit(
+        tmp_path,
+        "AGENT_HANDOVER.md",
+        "# T\n\n## Aktueller Stand (2026-09-02)\n\nStand.\n",
+        "2026-09-02",
+    )
+    for i in range(n):
+        _commit(repo, f"datei_{i}.txt", f"{betreff} {i}", "2026-09-03")
+    return repo
+
+
+def test_should_pass_without_flag_even_when_many_commits_landed(tmp_path):
+    # Das ist der Realfall 0f59ce: 13 Merges, Handover unberuehrt — der Rezenz-Check
+    # allein sieht ihn nicht. Der Test haelt diese Blindstelle als BEWUSSTE Grenze
+    # der ersten Bedingung fest, damit ihr Verschwinden auffaellt.
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 13, "feat: irgendwas")
+    res = _run("AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_should_fail_when_commits_since_touch_exceed_threshold(tmp_path):
+    # POSITIVKONTROLLE: derselbe Fall MIT eingeschalteter zweiter Bedingung.
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 13, "feat: irgendwas")
+    res = _run("--commits-schwelle", "12", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 1, res.stdout + res.stderr
+    assert "13 Commits" in res.stdout
+
+
+def test_should_pass_when_commits_stay_below_threshold(tmp_path):
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 5, "feat: irgendwas")
+    res = _run("--commits-schwelle", "12", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_should_not_count_dependabot_bumps(tmp_path):
+    # 20 reine Bumps duerfen die Zahl nicht treiben — sonst misst die Bedingung
+    # die Betriebsamkeit des Bots statt die fehlende Handover-Pflege.
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 20, "deps: Bump ruff from 1 to 2")
+    res = _run("--commits-schwelle", "12", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_should_count_only_non_deps_subjects():
+    sys.path.insert(0, str(SCRIPT.parent))
+    import agent_handover_freshness_check as m
+
+    assert (
+        m.zaehle_sitzungs_commits(
+            [
+                "feat(x): echt",
+                "deps: Bump ruff from 1 to 2",
+                "Bump actions/checkout from 4 to 5",
+                "chore(deps): Bump x",
+                "fix(y): auch echt",
+                "",
+            ]
+        )
+        == 2
+    )
+
+
+def test_should_pass_when_base_ref_is_unknown(tmp_path):
+    # Nicht aufloesbare Basis = keine Historie = PASS, nicht Fehlalarm. Ein Melder,
+    # der bei fehlendem Kontext rot wird, wird abgeschaltet und meldet danach nichts.
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 13, "feat: irgendwas")
+    res = _run(
+        "--commits-schwelle",
+        "12",
+        "--basis",
+        "origin/gibtsnicht",
+        "AGENT_HANDOVER.md",
+        cwd=repo,
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_should_exit_usage_error_for_non_numeric_threshold(tmp_path):
+    repo = _repo_mit_handover_und_n_commits(tmp_path, 1, "feat: x")
+    res = _run("--commits-schwelle", "viel", "AGENT_HANDOVER.md", cwd=repo)
+    assert res.returncode == 2

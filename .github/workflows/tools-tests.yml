@@ -208,6 +208,31 @@ jobs:
           fi
           exit 0
 
+      # Stehengebliebene Geschwister-Stellen — advisory
+      # (geschwister-stellen-nicht-mitgezogen, Retro-Muster
+      # partial-fix-not-generalized-to-sibling-artifacts, 12 Vorkommen). Ein Fix
+      # wird an EINER von mehreren gleichartigen Stellen gemacht, die Zwillinge
+      # bleiben stehen (Realfall a84f71: zwei PASS-Zweige etikettierten fremde
+      # Repos weiter als `platform`). Filter an 150 Nicht-Merge-Commits von main
+      # kalibriert: 7 Commits mit Befund, keiner davon offensichtlich falsch
+      # (0-FP-Baseline zuerst — Begruendung der Deckel im Modul-Docstring).
+      # Exit 1 (Befund) laesst den Job gruen: advisory. Exit >=2 (Werkzeugfehler)
+      # macht ROT — ein Melder, der beim Ausfall schweigt, ist schlimmer als keiner.
+      - name: Geschwister-Stellen nicht mitgezogen (advisory, non-gating)
+        if: github.event_name == 'pull_request' && steps.relevanz.outputs.relevant == 'true'
+        run: |
+          set +e
+          git fetch -q origin "${{ github.base_ref }}"
+          python3 tools/geschwister_stellen_check.py \
+            --range "origin/${{ github.base_ref }}...HEAD"
+          rc=$?
+          set -e
+          if [ "$rc" -ge 2 ]; then
+            echo "::error::geschwister_stellen_check.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
+            exit 1
+          fi
+          exit 0
+
       - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
         if: steps.relevanz.outputs.relevant == 'true'
         # Jeder Skill in .windsurf/workflows/ muss in workflow-index.md stehen

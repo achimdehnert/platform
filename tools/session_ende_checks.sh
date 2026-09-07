@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # session_ende_checks.sh — deterministischer Runner für die mechanischen
-# /session-ende-Phasen (E.0–E.9). Gegenstück zu `session_start_checks.sh`.
+# /session-ende-Phasen (E.0–E.10). Gegenstück zu `session_start_checks.sh`.
 #
 # Motiv (#2690 K1 + K5): `/session-ende` ist 965 Zeilen lang und trägt den
 # mechanischen Bash-Code im Fliesstext — genau die Form, die ein Modell beim
@@ -417,6 +417,47 @@ else
       "${DD_NOTE% } — verteilte Skills weichen von .windsurf/workflows/ ab (Heilung: session-start 0.7.13)"
   else
     record "E.9 dist-drift" "PASS" "alle Lanes synchron (${DD_NOTE% })"
+  fi
+fi
+
+# ── E.10 Sitzungs-Abgleich (Issues / Belege / serielle PRs) ─────────────────
+# Drei registrierte Slugs in EINEM Werkzeug, alle advisory:
+#   issue-offen-nach-gemergtem-fix · beleg-pr-nicht-gemergt ·
+#   serielle-prs-auf-derselben-datei
+# Belegte Muster: chat-hub #27 blieb OPEN trotz "alle fuenf Punkte erledigt",
+# ausschreibungs-hub #184 war durch #195 erfuellt und blieb offen, writing-hub
+# schrieb 9 von 10 mal `Refs` statt `Closes`. Der Runner reicht die RESULT-Zeile
+# durch, er deutet sie nicht: HINWEIS = nicht falsifizierbar, also kein Gruen.
+SAB="$PLATFORM_DIR/tools/session_abgleich.py"
+SAB_BUDGET="${SESSION_ENDE_ABGLEICH_BUDGET:-180}"
+if [ ! -f "$SAB" ]; then
+  record "E.10 session-abgleich" "SKIP" "Werkzeug fehlt: tools/session_abgleich.py" "$TARGET_REPO"
+elif ! command -v gh >/dev/null 2>&1 || [ -z "$OWNER" ]; then
+  record "E.10 session-abgleich" "SKIP" "gh oder Owner nicht verfügbar" "$TARGET_REPO"
+else
+  SAB_OUT=$(timeout "$SAB_BUDGET" python3 "$SAB" --repo "$OWNER/$TARGET_REPO" \
+            --seit "$HEUTE" 2>&1)
+  SAB_RC=$?
+  SAB_RES=$(printf '%s' "$SAB_OUT" | grep -m1 '^RESULT:' || true)
+  if [ "$SAB_RC" -eq 124 ]; then
+    record "E.10 session-abgleich" "SKIP" \
+      "Zeitbudget ${SAB_BUDGET}s erschöpft — keine Entwarnung" "$TARGET_REPO"
+  else
+    case "$SAB_RES" in
+      *"RESULT: BEFUND"*)
+        record "E.10 session-abgleich" "WARN" \
+          "$(printf '%s' "$SAB_OUT" | grep -m2 '^   ⚠' | tr '\n' ' ' | cut -c1-160) — Issue nachziehen ODER Fehlalarm notieren (advisory)" \
+          "$TARGET_REPO" ;;
+      *"RESULT: HINWEIS"*)
+        record "E.10 session-abgleich" "SKIP" \
+          "◌ $(printf '%s' "$SAB_RES" | cut -c1-60) — nicht falsifizierbar, keine Entwarnung" "$TARGET_REPO" ;;
+      *"RESULT: OK"*)
+        record "E.10 session-abgleich" "PASS" \
+          "keine offenen Issues/Belege/Serien aus dieser Sitzung" "$TARGET_REPO" ;;
+      *)
+        record "E.10 session-abgleich" "SKIP" \
+          "session_abgleich.py ohne verwertbare RESULT-Zeile (rc=$SAB_RC): $(printf '%s' "$SAB_OUT" | head -1 | cut -c1-120)" "$TARGET_REPO" ;;
+    esac
   fi
 fi
 

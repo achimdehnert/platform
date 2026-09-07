@@ -46,13 +46,31 @@ from pathlib import Path
 
 import yaml
 
+# Maschinenlesbarer Kopf (KONZ-038 D8) — nachgetragen 2026-09-07 (platform#2374).
+# Bis dahin fuehrte die Registry den Slug `melder-ohne-leser` ausschliesslich auf
+# `tools/hooks/befund_leseflaeche.py`. Das ist die Leseflaeche fuer EINEN Melder
+# (den naechtlichen handover-reconcile, platform#1908) — also die Reparatur einer
+# Instanz, nicht die Pruefstelle der Klasse. Die Klasse misst dieses Modul:
+# `leser: UNBENANNT` im Melder-Register, Runner-Phase 0.7.23, Exit 1 je Treffer.
+# Ohne diesen Kopf konnte `gate_drill_check.py` das Modul nicht gegen die Registry
+# abgleichen — ein Erzwingungspunkt, den die Buchhaltung nicht kannte.
+GATE_HEADER = {
+    "slug": "melder-ohne-leser",
+    "mode": "advisory",
+    "owner": "achim",
+    "last_drill_pass": "2026-09-07",
+    "evidence": "tools/tests/test_melder_register_check.py",
+}
+
 TOOLS_DIR = Path(__file__).resolve().parent
 PLATFORM_DIR = TOOLS_DIR.parent
 
 DEFAULT_REGISTER = PLATFORM_DIR / "governance" / "melder-register.yaml"
 DEFAULT_RUNNER = TOOLS_DIR / "session_start_checks.sh"
 DEFAULT_BEFUND_JOURNAL = TOOLS_DIR / "befund_journal.py"
-DEFAULT_HERABSTUFUNG_DATEI = Path.home() / ".claude" / "hooks" / "state" / "melder-herabgestuft.tsv"
+DEFAULT_HERABSTUFUNG_DATEI = (
+    Path.home() / ".claude" / "hooks" / "state" / "melder-herabgestuft.tsv"
+)
 
 #: Faellt fuer eine Registry-Zeile keine Zahl, gilt dieser Default (siehe
 #: FRIST_VERANKERT_TAGE / PRAEZISION_SCHWELLE / MIN_URTEILE in befund_journal.py —
@@ -111,7 +129,9 @@ def register_pruefen(
     by_phase = register_zuordnung(register)
     fehlend = sorted(runner_phasen - set(by_phase))
     unbenannt = sorted(
-        phase for phase, e in by_phase.items() if str(e.get("leser", "")).strip() == UNBENANNT
+        phase
+        for phase, e in by_phase.items()
+        if str(e.get("leser", "")).strip() == UNBENANNT
     )
     karteileiche = sorted(set(by_phase) - runner_phasen)
     return fehlend, unbenannt, karteileiche
@@ -159,7 +179,9 @@ def _befund_journal_json(
     return daten if isinstance(daten, list) else []
 
 
-def herabstufungen(register: list[dict], praezisions_daten: list[dict], heute: str) -> list[dict]:
+def herabstufungen(
+    register: list[dict], praezisions_daten: list[dict], heute: str
+) -> list[dict]:
     """Melder, die ueber >= mindest_laeufe beurteilte Laeufe unter praezision_min liegen.
 
     ``praezisions_daten`` ist die Ausgabe von ``befund_journal.py --praezision --json``:
@@ -192,7 +214,9 @@ def schreibe_herabstufung_tsv(zeilen: list[dict], ziel: Path) -> None:
             f.write(f"{z['phase']}\t{z['quote']:.4f}\t{z['laeufe']}\t{z['datum']}\n")
 
 
-def ohne_entscheidung_liste(bericht_daten: list[dict], tage: int, heute: date) -> list[dict]:
+def ohne_entscheidung_liste(
+    bericht_daten: list[dict], tage: int, heute: date
+) -> list[dict]:
     """Befunde ohne Verankerung/Verzicht, aelter als ``tage`` Tage (nach ``erstmals``).
 
     ``bericht_daten`` ist die Ausgabe von ``befund_journal.py --bericht --json``.
@@ -238,14 +262,28 @@ def ohne_entscheidung_block(eintraege: list[dict], tage: int) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--kurz", action="store_true", help="fehlende/UNBENANNT/Karteileiche, eine Zeile")
-    p.add_argument("--herabstufung", action="store_true", help="Melder unter Schwelle in TSV schreiben")
-    p.add_argument("--ohne-entscheidung", action="store_true", help="Befunde ohne Entscheidung > --tage")
+    p.add_argument(
+        "--kurz",
+        action="store_true",
+        help="fehlende/UNBENANNT/Karteileiche, eine Zeile",
+    )
+    p.add_argument(
+        "--herabstufung",
+        action="store_true",
+        help="Melder unter Schwelle in TSV schreiben",
+    )
+    p.add_argument(
+        "--ohne-entscheidung",
+        action="store_true",
+        help="Befunde ohne Entscheidung > --tage",
+    )
     p.add_argument("--tage", type=int, default=DEFAULT_OHNE_ENTSCHEIDUNG_TAGE)
     p.add_argument("--register", type=Path, default=DEFAULT_REGISTER)
     p.add_argument("--runner", type=Path, default=DEFAULT_RUNNER)
     p.add_argument("--befund-journal", type=Path, default=DEFAULT_BEFUND_JOURNAL)
-    p.add_argument("--journal-datei", type=Path, default=None, help="Journal-Pfad (Tests)")
+    p.add_argument(
+        "--journal-datei", type=Path, default=None, help="Journal-Pfad (Tests)"
+    )
     p.add_argument("--ziel-datei", type=Path, default=DEFAULT_HERABSTUFUNG_DATEI)
     p.add_argument("--repo", default="platform")
     a = p.parse_args(argv)
@@ -261,15 +299,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.herabstufung:
         praez = _befund_journal_json(
-            a.befund_journal, "--praezision", "--json",
-            journal_datei=a.journal_datei, repo=a.repo,
+            a.befund_journal,
+            "--praezision",
+            "--json",
+            journal_datei=a.journal_datei,
+            repo=a.repo,
         )
         heute = datetime.now(timezone.utc).date().isoformat()
         gefunden = herabstufungen(register, praez, heute)
         schreibe_herabstufung_tsv(gefunden, a.ziel_datei)
         if gefunden:
             teile = ", ".join(
-                f"{z['phase']} ({z['quote']:.0%} ueber {z['laeufe']} Laeufe)" for z in gefunden
+                f"{z['phase']} ({z['quote']:.0%} ueber {z['laeufe']} Laeufe)"
+                for z in gefunden
             )
             print(f"{len(gefunden)} Melder herabgestuft -> {a.ziel_datei}: {teile}")
         else:
@@ -278,8 +320,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.ohne_entscheidung:
         bericht = _befund_journal_json(
-            a.befund_journal, "--bericht", "--json",
-            journal_datei=a.journal_datei, repo=a.repo,
+            a.befund_journal,
+            "--bericht",
+            "--json",
+            journal_datei=a.journal_datei,
+            repo=a.repo,
         )
         heute = datetime.now(timezone.utc).date()
         eintraege = ohne_entscheidung_liste(bericht, a.tage, heute)

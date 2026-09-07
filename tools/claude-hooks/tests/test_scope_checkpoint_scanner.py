@@ -394,3 +394,139 @@ def test_should_alltagskommandos_nicht_als_ausloeser_werten(cmd: str) -> None:
     from scope_checkpoint_scanner import _FREMDE_RESSOURCE
 
     assert not _FREMDE_RESSOURCE.search(cmd), f"{cmd!r} ist ein Fehlalarm"
+
+
+# --- Fehlerform C (Rev 5): der abgelegte Checkpoint ist ueberholt ----------
+#
+# Realfall Retro 33616e (2026-09-01, Befund #1): „Scope wuchs von '/mcp anzeigen'
+# auf 13 PRs in 3 Repos + Staging-Schreibzugriff. Checkpoint einmal abgelegt,
+# danach kein zweiter trotz weiterem Wachstum." Bis Rev 4 gab der Scanner nach dem
+# ersten belegten Checkpoint fuer den Rest der Sitzung 0 zurueck.
+
+
+_CHECKPOINT = _zeile_text(
+    "Scope-Checkpoint: wir sind jetzt in drei Repos — ist das noch gewollt?"
+)
+_ARTEFAKT = _zeile_bash("gh issue comment 151 --body 'Scope-Checkpoint abgelegt'")
+
+
+def test_should_stay_silent_when_scope_does_not_grow_after_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Gegenprobe zur Positivkontrolle unten: identische Sitzung OHNE Nachwachsen.
+    p = _transcript(tmp_path, [*DREI_REPOS, _CHECKPOINT, _ARTEFAKT])
+    rc, antwort = _run(monkeypatch, capsys, p)
+    assert rc == 0
+    assert _kontext(antwort) == ""
+
+
+def test_should_flag_when_two_more_repos_written_after_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # POSITIVKONTROLLE Fehlerform C am Realfall 33616e.
+    p = _transcript(
+        tmp_path,
+        [
+            *DREI_REPOS,
+            _CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/meiki-hub/app/a.py"),
+            _zeile_edit("/home/devuser/github/writing-hub/app/b.py"),
+            _zeile_text("Weiter geht's."),
+        ],
+    )
+    rc, antwort = _run(monkeypatch, capsys, p)
+    assert rc == 0
+    kontext = _kontext(antwort)
+    assert "Fehlerform C" in kontext
+    assert "2 weitere Repos seit dem Checkpoint" in kontext
+
+
+def test_should_not_flag_a_single_additional_repo(tmp_path, monkeypatch, capsys):
+    # Ein einzelnes Nachbar-Repo ist Alltag (Zielrepo + platform) — die Schwelle
+    # ist bewusst 2, sonst gewoehnt das Gate das Weghoeren an.
+    p = _transcript(
+        tmp_path,
+        [
+            *DREI_REPOS,
+            _CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/meiki-hub/app/a.py"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert _kontext(antwort) == ""
+
+
+def test_should_flag_first_prod_step_after_a_repo_only_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    # Die Hausregel fuehrt Prod eigenstaendig neben der Repo-Zahl: ein Checkpoint
+    # ueber drei Repos sagt nichts ueber einen spaeteren Prod-Schritt.
+    p = _transcript(
+        tmp_path,
+        [*DREI_REPOS, _CHECKPOINT, _ARTEFAKT, _zeile_bash("bash deploy.sh risk-hub")],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    kontext = _kontext(antwort)
+    assert "Fehlerform C" in kontext
+    assert "Prod-/Publish-Schritt NACH dem Checkpoint" in kontext
+
+
+def test_should_not_flag_prod_that_already_ran_before_the_checkpoint(
+    tmp_path, monkeypatch, capsys
+):
+    p = _transcript(
+        tmp_path,
+        [*DREI_REPOS, _zeile_bash("bash deploy.sh risk-hub"), _CHECKPOINT, _ARTEFAKT],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert _kontext(antwort) == ""
+
+
+def test_should_reset_the_duty_when_a_second_checkpoint_is_spoken(
+    tmp_path, monkeypatch, capsys
+):
+    # Der zweite Checkpoint beschreibt die neue Reichweite — danach ist wieder Ruhe.
+    p = _transcript(
+        tmp_path,
+        [
+            *DREI_REPOS,
+            _CHECKPOINT,
+            _ARTEFAKT,
+            _zeile_edit("/home/devuser/github/meiki-hub/app/a.py"),
+            _zeile_edit("/home/devuser/github/writing-hub/app/b.py"),
+            _zeile_text("Scope-Checkpoint: jetzt sind es fuenf Repos."),
+            _zeile_bash("gh issue comment 151 --body 'zweiter Checkpoint'"),
+        ],
+    )
+    _, antwort = _run(monkeypatch, capsys, p)
+    assert _kontext(antwort) == ""
+
+
+def test_should_report_each_growth_level_once(tmp_path, monkeypatch, capsys):
+    # Entprellung haengt an der Reichweite, nicht an der Sitzung: derselbe Stand
+    # meldet einmal, ein weiterer Sprung wieder. Waere sie sitzungsweit, waere
+    # Fehlerform C selbst ein Melder, der nach dem ersten Mal verstummt.
+    gewachsen = [
+        *DREI_REPOS,
+        _CHECKPOINT,
+        _ARTEFAKT,
+        _zeile_edit("/home/devuser/github/meiki-hub/app/a.py"),
+        _zeile_edit("/home/devuser/github/writing-hub/app/b.py"),
+    ]
+    p1 = _transcript(tmp_path, gewachsen)
+    _, erste = _run(monkeypatch, capsys, p1)
+    assert "Fehlerform C" in _kontext(erste)
+
+    # Gleicher Stand erneut -> still.
+    _, zweite = _run(monkeypatch, capsys, p1)
+    assert _kontext(zweite) == ""
+
+    # Naechster Sprung -> wieder eine Meldung.
+    p2 = _transcript(
+        tmp_path,
+        [*gewachsen, _zeile_edit("/home/devuser/github/chat-hub/app/c.py")],
+    )
+    _, dritte = _run(monkeypatch, capsys, p2)
+    assert "Fehlerform C" in _kontext(dritte)

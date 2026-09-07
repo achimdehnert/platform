@@ -304,3 +304,173 @@ def test_should_report_the_rest_as_unclassified_when_the_budget_runs_out(tmp_pat
 
     assert k["unklassifiziert"] == 3
     assert k["kandidat"] == []
+
+
+# --- Gemergt, aber offen (Umbau 2026-09-07, platform#2374) -------------------
+#
+# Die Klasse misst absichtlich NICHT die Lease-Uhr: der Realfall 0f59ce hatte
+# sechs Baeume gemergter PRs offen, alle mit gueltigem Lease. Genau deshalb war
+# das Gate blind — die alte Klasse wartet sieben Tage auf einen Ablauf, der
+# Fehler passiert in Minuten.
+
+
+def _lease_gueltig_mit_branch(
+    d: pathlib.Path, name: str, branch: str, baum: pathlib.Path
+) -> None:
+    d.mkdir(exist_ok=True)
+    (d / f"{name}.json").write_text(
+        json.dumps(
+            {
+                "repo": "achimdehnert/platform",
+                "branch": branch,
+                "worktree": str(baum),
+                # Bewusst weit in der Zukunft: ein GUELTIGES Lease.
+                "expires_at": "2099-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_should_flag_a_merged_branch_whose_worktree_is_still_open(tmp_path):
+    # POSITIVKONTROLLE am Realfall 0f59ce: gueltiges Lease, PR gemergt, Baum da.
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    _lease_gueltig_mit_branch(leases, "a", "session/2026-09-03/x/y", baum)
+
+    ergebnis = hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "merged")
+
+    assert ergebnis["offen"] == [("session/2026-09-03/x/y", str(baum))]
+    assert ergebnis["unklar"] == 0
+
+
+def test_should_stay_silent_for_an_open_pr(tmp_path):
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    _lease_gueltig_mit_branch(leases, "a", "session/2026-09-03/x/y", baum)
+
+    assert hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "open")["offen"] == []
+
+
+def test_should_ignore_a_lease_whose_worktree_is_already_gone(tmp_path):
+    # Kein Baum = nichts, was hier offen waere; das ist Sache der Alt-Klasse.
+    leases = tmp_path / "l"
+    _lease_gueltig_mit_branch(leases, "a", "b", tmp_path / "weg")
+
+    assert hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "merged")["offen"] == []
+
+
+def test_should_count_unjudgeable_leases_instead_of_calling_them_healthy(tmp_path):
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    _lease_gueltig_mit_branch(leases, "a", "b", baum)
+
+    def _wirft(branch, repo):
+        raise RuntimeError("gh weg")
+
+    ergebnis = hm.gemergt_aber_offen(leases, pr_state=_wirft)
+    assert ergebnis["offen"] == [] and ergebnis["unklar"] == 1
+
+
+def test_should_count_leases_beyond_the_time_budget_as_unjudgeable(tmp_path):
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    for i in range(3):
+        _lease_gueltig_mit_branch(leases, f"a{i}", f"b{i}", baum)
+
+    uhr = iter([0.0, 1.0, 99.0, 99.0, 99.0, 99.0])
+    ergebnis = hm.gemergt_aber_offen(
+        leases, pr_state=lambda b, r: "merged", zeitbudget=5.0, _uhr=lambda: next(uhr)
+    )
+    assert ergebnis["unklar"] >= 1
+
+
+def test_should_stay_silent_without_a_merge_probe(tmp_path):
+    # Kein pr_state (Reaper nicht importierbar, gh fehlt) = Klasse uebersprungen,
+    # nicht "alles in Ordnung" behauptet und nicht abgestuerzt.
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    _lease_gueltig_mit_branch(leases, "a", "b", baum)
+
+    assert hm.gemergt_aber_offen(leases, pr_state=None)["offen"] == []
+
+
+def test_should_report_merged_open_worktrees_in_the_session_start_output(
+    tmp_path, capsys, stdin_leer, monkeypatch
+):
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    _lease_gueltig_mit_branch(leases, "a", "session/2026-09-03/x/y", baum)
+    monkeypatch.setattr(hm, "_reaper_pr_state", lambda: lambda b, r: "merged")
+
+    rc = hm.main(["--platform", str(tmp_path / "leer"), "--leases", str(leases)])
+    ausgabe = capsys.readouterr().out
+
+    assert rc == 0
+    assert "BEREITS GEMERGTEM PR" in ausgabe
+    assert "repo-session.sh end" in ausgabe
+
+
+def test_should_count_unknown_pr_state_as_unjudgeable(tmp_path):
+    # Der Fehlermodus, an dem die Klasse im ersten Anlauf selbst scheiterte:
+    # `pr_state` antwortet 'unknown' (gh-Aufruf gescheitert), und die Klasse
+    # meldete nichts — 85 Leases, 0 Befunde, 3,8 s. Still gruen ist kein Ergebnis.
+    leases, baum = tmp_path / "l", tmp_path / "baum"
+    baum.mkdir()
+    _lease_gueltig_mit_branch(leases, "a", "b", baum)
+
+    ergebnis = hm.gemergt_aber_offen(leases, pr_state=lambda b, r: "unknown")
+    assert ergebnis["offen"] == [] and ergebnis["unklar"] == 1
+
+
+def test_should_expand_a_bare_repo_name_via_the_worktree_remote(tmp_path):
+    # Realfall: das Lease traegt `wedding-hub`, `gh --repo wedding-hub` scheitert.
+    baum = tmp_path / "baum"
+    baum.mkdir()
+    import subprocess as sp
+
+    sp.run(["git", "init", "-q"], cwd=baum, check=True)
+    sp.run(
+        [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "git@github.com:achimdehnert/wedding-hub.git",
+        ],
+        cwd=baum,
+        check=True,
+    )
+    assert hm.voller_repo_name("wedding-hub", str(baum)) == "achimdehnert/wedding-hub"
+
+
+def test_should_expand_an_https_remote_too(tmp_path):
+    baum = tmp_path / "baum"
+    baum.mkdir()
+    import subprocess as sp
+
+    sp.run(["git", "init", "-q"], cwd=baum, check=True)
+    sp.run(
+        ["git", "remote", "add", "origin", "https://github.com/meiki-lra/meiki-hub"],
+        cwd=baum,
+        check=True,
+    )
+    assert hm.voller_repo_name("meiki-hub", str(baum)) == "meiki-lra/meiki-hub"
+
+
+def test_should_keep_an_already_qualified_repo_name(tmp_path):
+    assert (
+        hm.voller_repo_name("achimdehnert/platform", str(tmp_path))
+        == "achimdehnert/platform"
+    )
+
+
+def test_should_skip_leases_older_than_the_freshness_window(tmp_path):
+    jetzt = dt.datetime(2026, 9, 7, 12, 0, tzinfo=dt.timezone.utc)
+    alt = {"last_touch": "2026-07-08T10:00:00Z"}
+    frisch = {"last_touch": "2026-09-06T10:00:00Z"}
+    assert hm.ist_frisch(alt, jetzt, 3) is False
+    assert hm.ist_frisch(frisch, jetzt, 3) is True
+    # Ohne lesbaren Zeitstempel wird geprueft, nicht uebersprungen.
+    assert hm.ist_frisch({}, jetzt, 3) is True
+    assert hm.ist_frisch({"last_touch": "kaputt"}, jetzt, 3) is True
