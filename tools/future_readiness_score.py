@@ -73,6 +73,15 @@ QMAP = {q[0]: q for q in rubric.Q}
 # D10.2: ein dokumentierter Befehl gilt als VERIFIZIERT, wenn er ein real vorhandenes
 # Makefile-Target referenziert (P["make_targets"], bereits unabhaengig erhoben) — die
 # einzige generische Gegenprobe, die statische Evidenz ohne Ausfuehrung hergibt.
+# D05.4: ein Repo, das nichts ausliefert, hat nichts zurueckzurollen. Statt die
+# Frage per ARCHETYP-Etikett auszuklammern (dann haengt sie an einer Einordnung,
+# die selbst geraten sein kann), wird der Auslieferungspfad GEMESSEN: ein aktiver
+# Workflow, dessen Pfad nach Auslieferung aussieht, oder ein Dockerfile.
+# Findet sich keiner, ist die Frage nicht anwendbar — findet sich einer, bleibt
+# sie offen, bis der Rollback-Weg wirklich erhoben wird (platform#2737).
+D05_DEPLOY_WORKFLOW_RE = re.compile(
+    r"(deploy|release|publish|ship|rollout|cd)[-_.a-z0-9]*\.ya?ml$", re.I
+)
 D10_MAKE_TARGET_CMD_RE = re.compile(r"\bmake\s+([a-zA-Z0-9_-]+)")
 # D10.3-D10.6: Marker-Schluessel aus future_readiness_evidence.AGENT_DOC_MARKERS.
 D10_MARKER_KEYS = {
@@ -585,6 +594,41 @@ class Scorer:
             )
             self.control("code_scanning", "unknown", "")
         us = P.get("uses_summary", {})
+        # D05.4 Rollback-Weg: Anwendbarkeit aus gemessener Evidenz, nicht aus dem
+        # Archetyp. `ci-sichtbarkeit-probe-caller` (5 Dateien, kein Deploy) stand
+        # sonst dauerhaft als unbeantwortet da, obwohl es nichts zurueckzurollen
+        # gibt — und `docs`-Repos wurden nur zufaellig richtig behandelt, weil die
+        # Matrix sie pauschal ausnimmt.
+        deploy_wf = [
+            w
+            for w in (P.get("workflows_active") or [])
+            if D05_DEPLOY_WORKFLOW_RE.search(w)
+        ]
+        # docker-compose.yml zaehlt mit, nicht nur das Dockerfile: gemessen an den
+        # 56 Evidenz-Paketen faellt sonst doc-hub durch (compose ja, Dockerfile
+        # nein) — ein Repo, das nachweislich in Produktion laeuft. Ein falsches
+        # "nicht anwendbar" ist hier teurer als ein offenes "unverified".
+        dateien = P.get("files") or {}
+        container = [
+            n for n in ("Dockerfile", "docker-compose.yml") if dateien.get(n) == "+"
+        ]
+        if deploy_wf or container:
+            self.open_(
+                "D05.4",
+                "unverified",
+                "Auslieferungspfad vorhanden ("
+                + (f"Workflow {deploy_wf[0]}" if deploy_wf else container[0])
+                + "), Rollback-Beleg statisch nicht erhoben",
+            )
+        else:
+            self.open_(
+                "D05.4",
+                "not_applicable",
+                "kein Auslieferungspfad gefunden (kein deploy/release-Workflow, "
+                "kein Dockerfile, kein docker-compose.yml) — es gibt nichts "
+                "zurueckzurollen",
+            )
+
         if us.get("third_party_total", 0) == 0:
             self.open_(
                 "D06.6",
