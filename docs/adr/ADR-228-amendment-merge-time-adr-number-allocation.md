@@ -15,6 +15,31 @@ implementation_status: none
 
 # Amendment: Merge-time ADR number allocation (amends ADR-065)
 
+> [!IMPORTANT]
+> **Diese Regel ist beschlossen, aber NICHT in Kraft — Stand 2026-09-07.**
+>
+> `implementation_status` steht auf `none`: es gibt keinen Allokator, keinen
+> Merge-Queue-Schritt und in der gesamten Repo-Historie keine einzige
+> `ADR-DRAFT-*`-Datei. Der **gating** Schema-Check lehnt die hier
+> vorgeschriebene Form aktiv ab:
+>
+> ```
+> id: 'ADR-DRAFT-<slug>' does not match '^ADR-[0-9]{3,4}$'
+> <root>: Additional properties are not allowed ('draft' was unexpected)
+> ```
+>
+> **Bis zur Umsetzung gilt weiter die Autorenzeit-Vergabe:** Nummer beim
+> Anlegen waehlen (naechste freie aus `docs/adr/INDEX.md`, Zeile
+> „Next free ADR number"), Datei als `ADR-NNN-<slug>.md`, danach
+> `python3 scripts/gen_adr_index.py` laufen lassen und mitcommitten.
+>
+> Wer stattdessen dieser ADR folgt, erzeugt einen PR, der am Pflicht-Gate
+> scheitert. Belegt am 2026-09-07 beim Anlegen von ADR-302
+> ([#2930](https://github.com/achimdehnert/platform/pull/2930)).
+>
+> Entscheidung ueber den weiteren Weg: [#2931](https://github.com/achimdehnert/platform/issues/2931).
+
+
 > **Trigger**: The 2026-05-29 platform PR-backlog sweep had to hand-renumber
 > **seven** ADRs (ADR-194/209/210/212/218/226 collisions → 221..227). The root
 > cause is structural, not accidental: ADR-065 allocates numbers at
