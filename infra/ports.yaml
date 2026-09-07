@@ -611,6 +611,8 @@ services:
     domain_prod: bahn.iil.pet
     domain_staging: staging-bahn.iil.pet
     repo: achimdehnert/bahn-hub
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-09-07 (Kapitaens-Kanal, platform#2895 Item 49). Gemessen am 2026-09-07: bahn.iil.pet antwortet am Cloudflare-Edge 520 (Origin nicht erreichbar), auf prod kein nginx-vhost, kein Tunnel-Ingress in /etc/cloudflared/config.yml, kein Container bahn_hub_* auf prod, prod-b oder odoo; Runner-Phase 0.7.11 meldete route-ohne-backend seit 2026-08-23 (71 Laeufe), 0.7.16 fallback-zertifikat seit 2026-08-31. Reste (DNS-Record, Repo, Deploy-Gate im Repo) offen — siehe platform#2895."
     note: "FastAPI + DuckDB — kein Django"
 
   decks-hub:

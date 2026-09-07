@@ -31,9 +31,16 @@ kanaele:
       - .github/workflows/backup-meter.yml
       - .github/workflows/branch-protection-meter.yml
       - .github/workflows/_deploy-unified.yml
-    probe: workflow
+    probe: zurueckgebaut
+    zurueckgebaut_am: "2026-09-07"
+    ersetzt_durch: "Kanal github-issue-owner (Issue mit Label, Probe gruen) + Sitzungsstart-Board"
     max_alter_tage: 10
     stand: >
+      2026-09-07: Rueckbau auf Owner-Wort (Kapitaens-Kanal, platform#2895).
+      Der Kanal hatte seit dem Erstbeleg nie ein Secret; die drei Nutzer
+      ueberspringen weiter still mit exit 0 - das ist der gewollte Zustand,
+      solange kein Webhook angelegt wird. Rotation-Inventar: DISCORD_WEBHOOK
+      (2 Konsumenten ohne Beleg) faellt damit in "ohne Konsumenten".
       2026-08-30: Secret existiert NICHT (gh secret list). Alle drei Nutzer
       ueberspringen still mit exit 0. Der Kanal war nie da.
 
