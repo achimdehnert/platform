@@ -507,6 +507,16 @@ def render(d: dict) -> str:
 """
 
 
+def _json_default(o: object) -> str:
+    """YAML liefert fuer unquotierte Datumsfelder `date`-Objekte (hosts.yaml
+    `verified`, `auflage.ausnahmen.*.entschieden/bis` seit 2026-09-01). json kann
+    die nicht — der Tageslauf brach seitdem mit TypeError ab, latest.json zeigte
+    ins Leere (Runner-Phase 0.7.22 SKIP). ISO-Text statt Absturz."""
+    if hasattr(o, "isoformat"):
+        return o.isoformat()
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -525,7 +535,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     if a.json:
         a.json.write_text(
-            json.dumps(daten, ensure_ascii=False, indent=1), encoding="utf-8"
+            json.dumps(daten, ensure_ascii=False, indent=1, default=_json_default),
+            encoding="utf-8",
         )
     seite = render(daten)
     if a.out:
