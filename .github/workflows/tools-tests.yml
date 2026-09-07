@@ -142,7 +142,7 @@ jobs:
         # Abhaengigkeit statt skipif — ein skip-gegateter Test rottet still vor
         # sich hin (Lehre "Skip-guarded tests mask drift"), und gerade der
         # sealed-box-Drill ist der, der die Verschluesselung wirklich misst.
-        run: pip install pytest pyyaml pydantic pynacl jsonschema --quiet --break-system-packages
+        run: pip install pytest pyyaml pydantic pynacl jsonschema httpx --quiet --break-system-packages
 
       - name: Install ruff
         if: steps.relevanz.outputs.relevant == 'true'

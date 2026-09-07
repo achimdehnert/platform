@@ -19,3 +19,4 @@ pre-commit==4.6.2
 # ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI. Bewusst
 # ungepinnt gelassen (kein >=-Range-Constraint vorher, anderer Fall als CI-4):
 iil-adrfw
+httpx==0.28.1
