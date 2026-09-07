@@ -902,7 +902,7 @@ class TestMelder:
     BESTAND = [{"kennung": "42", "betreff": "Vorgang X", "datum": "2026-08-18"}]
 
     def test_should_count_inbox_mails_of_closed_vorgaenge_per_account(self):
-        zaehler, quellen, _ = ablage.pruefe_posteingang(
+        zaehler, quellen, _, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe({}),
             _konversation_attrappe([_n(ordner="INBOX"), _n(ordner="INBOX")]),
@@ -912,7 +912,7 @@ class TestMelder:
         assert quellen["hnu"] == {ablage.KONVERSATION: 1}
 
     def test_should_be_green_when_the_inbox_holds_nothing_closed(self):
-        zaehler, _, _ = ablage.pruefe_posteingang(
+        zaehler, _, _, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe({}),
             _konversation_attrappe([_n(ordner="Archiv/2026")]),
@@ -922,7 +922,7 @@ class TestMelder:
 
     def test_should_use_the_same_thread_resolution_as_the_dry_run(self):
         """Ohne Konversation bleibt der Index-Weg — dieselbe Funktion, dieselbe Reihenfolge."""
-        zaehler, quellen, _ = ablage.pruefe_posteingang(
+        zaehler, quellen, _, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe(
                 {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
@@ -942,7 +942,7 @@ class TestMelder:
         `hnu: 7` und `iil: 1`. Ein Melder, der nach jeder erfolgreichen Ablage
         rot ist, wird nicht mehr gelesen.
         """
-        zaehler, quellen, veraltet = ablage.pruefe_posteingang(
+        zaehler, quellen, veraltet, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe(
                 {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
@@ -961,7 +961,7 @@ class TestMelder:
         def auflisten(*_):
             raise OSError("Postfach nicht erreichbar")
 
-        zaehler, _, veraltet = ablage.pruefe_posteingang(
+        zaehler, _, veraltet, _ = ablage.pruefe_posteingang(
             self.LEDGER,
             _suche_attrappe(
                 {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
@@ -1009,3 +1009,110 @@ class TestMelder:
             {"hnu": 0}, {"hnu": {ablage.BETREFF: 14}}, {"hnu": 7}
         )
         assert "davon 7 im Index veraltet" in text
+
+
+class TestKeinAnkerMelder:
+    """K8 (platform#2799): --apply ueberspringt Zeilen im Status kein_anker
+
+    stillschweigend. Der Melder zaehlt ihre Mails trotzdem mit — ohne diese
+    Liste bliebe unklar, welcher Vorgang das ist und wie er zu loesen waere.
+    """
+
+    def test_should_list_a_closed_vorgang_without_an_anchor_whose_mail_is_still_inbound(
+        self,
+    ):
+        ledger = {
+            "vorgaenge": [
+                _v(
+                    konto="hnu",
+                    nr=9,
+                    thread_key="Vorgang Z",
+                    kurz="Kastenmayer Rueckfrage",
+                )
+            ]
+        }
+        _, _, _, kein_anker = ablage.pruefe_posteingang(
+            ledger,
+            _suche_attrappe(
+                {
+                    "begriff": [_n(betreff="Vorgang Z")],
+                    "strang": [_n(betreff="Vorgang Z", ordner="INBOX")],
+                }
+            ),
+            None,
+            {},
+            {},
+            auflisten=lambda *_: [
+                {"kennung": "99", "betreff": "Vorgang Z", "datum": "2026-08-18"}
+            ],
+        )
+        assert len(kein_anker) == 1
+        befund = kein_anker[0]
+        assert befund.nr == 9
+        assert befund.konto == "hnu"
+        assert "Kastenmayer" in befund.kurz
+        assert "anker.py --setze 9" in befund.kommando
+        assert "--account hnu" in befund.kommando
+        assert "--uid 99" in befund.kommando
+
+    def test_should_not_list_a_closed_vorgang_that_already_has_an_anchor(self):
+        """Gegen-test: ein Vorgang MIT Anker gehoert nicht in diese Liste."""
+        zaehler, _, _, kein_anker = ablage.pruefe_posteingang(
+            TestMelder.LEDGER,
+            _suche_attrappe(
+                {"begriff": [_n(betreff="Vorgang X")], "strang": [_n(ordner="INBOX")]}
+            ),
+            None,
+            TestMelder.ANKER,
+            auflisten=lambda *_: list(TestMelder.BESTAND),
+        )
+        assert zaehler["hnu"] == 1
+        assert kein_anker == []
+
+    def test_should_hint_at_the_missing_uid_for_graph_accounts(self):
+        """iil laeuft ueber Graph — Ledger-Nummern sind Index-IDs, keine IMAP-UIDs."""
+        ledger = {
+            "vorgaenge": [
+                _v(konto="iil", nr=11, thread_key="Vorgang Q", kurz="Graph-Vorgang")
+            ]
+        }
+        _, _, _, kein_anker = ablage.pruefe_posteingang(
+            ledger,
+            _suche_attrappe(
+                {
+                    "begriff": [_n(betreff="Vorgang Q")],
+                    "strang": [_n(betreff="Vorgang Q", ordner="Posteingang")],
+                }
+            ),
+            None,
+            {},
+            {},
+            auflisten=lambda *_: [
+                {"kennung": "AAMk=", "betreff": "Vorgang Q", "datum": "2026-08-18"}
+            ],
+        )
+        assert len(kein_anker) == 1
+        assert "UID unbekannt" in kein_anker[0].kommando
+        assert "--account iil" in kein_anker[0].kommando
+
+    def test_should_render_the_findings_in_the_report(self):
+        befund = ablage.KeinAnkerBefund(
+            nr=9,
+            konto="hnu",
+            kurz="Kastenmayer Rueckfrage",
+            kommando="anker.py --setze 9 --account hnu --folder INBOX --uid 99",
+        )
+        text = ablage.pruefe_bericht(
+            {"hnu": 1}, {"hnu": {ablage.BETREFF: 1}}, kein_anker=[befund]
+        )
+        assert "#9" in text
+        assert "Kastenmayer" in text
+        assert "anker.py --setze 9" in text
+
+    def test_should_leave_the_report_unchanged_when_nothing_is_unbound(self):
+        """Die Zaehlwerte bleiben unveraendert — nur die Erklaerung kommt dazu."""
+        ohne = ablage.pruefe_bericht({"hnu": 3}, {"hnu": {ablage.KONVERSATION: 1}})
+        mit = ablage.pruefe_bericht(
+            {"hnu": 3}, {"hnu": {ablage.KONVERSATION: 1}}, kein_anker=[]
+        )
+        assert ohne == mit
