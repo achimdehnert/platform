@@ -1367,12 +1367,18 @@ def cmd_fetch(
     to_filter: str | None = None,
 ) -> None:
     imap.select(_mailbox_arg(folder), readonly=True)
-    typ, data = imap.search(None, "ALL")
-    ids = data[0].split()
+    # Durchgaengig UIDs: die Trefferliste (`--list`) zeigt UIDs an, also muss die
+    # Zahl, die der Mensch von dort abschreibt, hier auch als UID gelesen werden.
+    # Vorher war `--list` UID-basiert und `--fetch` sequenznummer-basiert — dieselbe
+    # Zahl bezeichnete in beiden Befehlen verschiedene Nachrichten, und oberhalb des
+    # Bestands (z.B. UID 163709 bei 229 Nachrichten) brach der Abruf ab.
+    ids = uid_liste(imap)
     target_id = None
     if which == "latest":
         for i in reversed(ids):
-            typ, md = imap.fetch(i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
+            typ, md = imap.uid("FETCH", i, "(BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
+            if typ != "OK" or not md or not md[0]:
+                continue
             hmsg = email.message_from_bytes(md[0][1])
             if matches_from(hmsg, from_filter) and matches_to(hmsg, to_filter):
                 target_id = i
@@ -1381,7 +1387,9 @@ def cmd_fetch(
         target_id = which.encode()
     if target_id is None:
         sys.exit("FEHLER: keine passende Mail gefunden")
-    typ, md = imap.fetch(target_id, "(BODY.PEEK[])")
+    typ, md = imap.uid("FETCH", target_id, "(BODY.PEEK[])")
+    if typ != "OK" or not md or not md[0]:
+        sys.exit(f"FEHLER: UID {which} nicht abrufbar in '{folder}' (typ={typ})")
     msg = email.message_from_bytes(md[0][1])
     print(f"From:    {decode_hdr(msg.get('From'))}")
     print(f"Date:    {decode_hdr(msg.get('Date'))}")
