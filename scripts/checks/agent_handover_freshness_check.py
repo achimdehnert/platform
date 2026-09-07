@@ -81,7 +81,7 @@ HEADING_DATE_RE = re.compile(r"^#{1,6}\s.*?(\d{4}-\d{2}-\d{2})")
 #: 0f59ce: 13 gemergte PRs ohne Handover-Beruehrung) und an der eigenen Historie
 #: gemessen: ueber die letzten 24 Handover-Intervalle dieses Repos liegen 8
 #: darueber, 16 darunter — die Bedingung meldet also eine Minderheit, nicht jeden
-#: PR. Sie wird bewusst NICHT in den blockierenden Zweigen gesetzt.
+#: PR. In den blockierenden Zweigen bleibt sie ungesetzt.
 DEFAULT_COMMIT_SCHWELLE = 0
 
 #: Abhaengigkeits-Bumps sind keine Sitzungsarbeit. Ohne diesen Filter treibt ein

@@ -37,7 +37,7 @@ Arbeitsbaum bleibt offen, und beides faellt erst in der Retro auf:
     Retro 0f59ce (2026-09-03)  6 Baeume gemergter PRs offen bis zur Retro
 
 Der Reaper kennt den Zustand laengst — er ist squash-aware — raeumt einen
-gemergten Baum aber bewusst NICHT sofort ab: ein aktives Lease plus die
+gemergten Baum aber erst verzoegert ab: ein aktives Lease plus die
 Karenzfrist (12 h) halten ihn, damit niemandem der Boden unter den Fuessen
 weggezogen wird. Das ist richtig fuer das ENTFERNEN und falsch fuer das MELDEN.
 Deshalb misst diese Klasse dieselbe Wahrheit ohne Karenz und ohne Lease-Uhr: PR
@@ -52,7 +52,7 @@ still uebersprungen (der Melder darf den Sitzungsstart nie aufhalten).
 **Verteilte Kopien.** Hooks unter `~/.claude/hooks/` sind Kopien aus
 `platform/tools/claude-hooks/` bzw. `platform/tools/hooks/`. Driften sie, wirkt
 ein Fix in platform nicht — und der laufende Hook ist die Kopie. Der
-cc-skill-dist-Generator wird bewusst nicht benutzt: sein `--target` tauscht ein
+cc-skill-dist-Generator bleibt hier ungenutzt: sein `--target` tauscht ein
 ganzes Verzeichnis aus und hat `~/.claude` schon einmal ersetzt.
 
 Vertrag: **immer Exit 0**, Ausgabe nur bei Befund. Ein Melder darf nie blockieren.

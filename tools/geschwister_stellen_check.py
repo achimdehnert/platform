@@ -256,7 +256,7 @@ def diff_parsen(diff_text: str) -> list[DateiDiff]:
 def bereichs_endpunkt(bereich: str) -> str:
     """Der Commit, dessen Fassung "die neue" ist: was hinter dem letzten `..` steht.
 
-    Bewusst NICHT der Arbeitsbaum: gemessen 2026-09-07 an einem Lauf, bei dem
+    Der Index, nie der Arbeitsbaum: gemessen 2026-09-07 an einem Lauf, bei dem
     `origin/main` dem ausgecheckten HEAD voraus war — die Zeilennummern aus dem
     Diff trafen dann auf eine andere Datei und der Melder erfand drei Befunde.
     Ein Gate, das nur stimmt, solange das Ziel zufaellig ausgecheckt ist, misst
