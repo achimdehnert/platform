@@ -65,9 +65,21 @@ class _Resp:
 
 
 def _http(
-    method: str, url: str, *, headers=None, data=None, json_body=None, timeout=30
+    method: str,
+    url: str,
+    *,
+    headers=None,
+    data=None,
+    json_body=None,
+    raw_data: bytes | None = None,
+    timeout=30,
 ) -> _Resp:
-    """stdlib-only HTTP (kein Fremd-Paket, damit die Tools-CI trägt)."""
+    """stdlib-only HTTP (kein Fremd-Paket, damit die Tools-CI trägt).
+
+    `raw_data` reicht Bytes unveraendert durch (kein Encoding, kein
+    Content-Type-Default) — fuer die Chunk-PUTs einer Graph-Upload-Session,
+    deren Header (Content-Range/-Length) der Aufrufer selbst setzt.
+    """
     h = dict(headers or {})
     body = None
     if json_body is not None:
@@ -76,6 +88,8 @@ def _http(
     elif data is not None:
         body = urllib.parse.urlencode(data).encode()
         h.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    elif raw_data is not None:
+        body = raw_data
     url = url.replace(
         " ", "%20"
     )  # OData-Filter enthalten Leerzeichen ('… ge …'); urllib lehnt rohe ab
@@ -892,21 +906,27 @@ def cmd_trash(tok: str, msg_id: str) -> None:
 
 # ---------- Entwurf ----------
 
+#: Ab hier (inklusive) geht ein Anhang per Upload-Session statt inline —
+#: Graph erlaubt inline-`contentBytes` nur unterhalb dieser Grenze.
+LARGE_ATTACHMENT_THRESHOLD = 3 * 1024 * 1024
+#: Graph-Vorgabe fuer die Chunk-Groesse einer Upload-Session-PUT-Anfrage.
+UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024
+
 
 def _file_attachment_payload(path: str) -> dict:
     """Graph-fileAttachment-JSON für eine lokale Datei (netzfrei, unit-testbar).
 
-    Kleine Anhänge (<3 MB) gehen inline als base64 contentBytes — für die
-    TOM-/Report-Dateien dieses Tools reicht das; große Uploads (Upload-Session)
-    sind bewusst nicht abgedeckt.
+    Nur für Inline-Anhänge < 3 MiB — größere laufen über
+    `_upload_large_attachment` (Graph-Upload-Session, siehe dort).
     """
     p = Path(path)
     if not p.is_file():
         sys.exit(f"FEHLER: Anhang nicht gefunden: {path}")
     raw = p.read_bytes()
-    if len(raw) >= 3 * 1024 * 1024:
+    if len(raw) >= LARGE_ATTACHMENT_THRESHOLD:
         sys.exit(
-            f"FEHLER: Anhang {p.name} ist >3 MB — Inline-Anhang nicht unterstützt."
+            f"FEHLER: Anhang {p.name} ist >=3 MiB — gehört über die Upload-Session, "
+            "nicht über _file_attachment_payload."
         )
     ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
     return {
@@ -917,8 +937,71 @@ def _file_attachment_payload(path: str) -> dict:
     }
 
 
+def _upload_large_attachment(tok: str, msg_id: str, path: str) -> None:
+    """Anhang >= 3 MiB per Graph-Upload-Session hochladen (#2875).
+
+    POST .../attachments/createUploadSession legt die Session an (Payload
+    `AttachmentItem` mit Name+Größe), danach folgen PUTs der Bytes in Chunks
+    <= 4 MiB an die zurückgegebene `uploadUrl`, je mit `Content-Range:
+    bytes a-b/size`. Die uploadUrl ist bereits vorautorisiert — KEIN
+    Authorization-Header dort (Graph-Doku: ein zusätzlicher Header auf der
+    uploadUrl schlägt fehl). Erfolg = 200/201 auf dem letzten Chunk.
+    """
+    p = Path(path)
+    if not p.is_file():
+        sys.exit(f"FEHLER: Anhang nicht gefunden: {path}")
+    raw = p.read_bytes()
+    size = len(raw)
+    ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+
+    r = _http(
+        "POST",
+        f"{_basis()}/messages/{msg_id}/attachments/createUploadSession",
+        headers=_auth(tok),
+        json_body={
+            "AttachmentItem": {
+                "attachmentType": "file",
+                "name": p.name,
+                "size": size,
+            }
+        },
+    )
+    if r.status_code not in (200, 201):
+        sys.exit(
+            f"FEHLER: Upload-Session für {p.name} fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}"
+        )
+    upload_url = (r.json() or {}).get("uploadUrl")
+    if not upload_url:
+        sys.exit(f"FEHLER: Upload-Session für {p.name} lieferte keine uploadUrl.")
+
+    for start in range(0, size, UPLOAD_CHUNK_SIZE):
+        end = min(start + UPLOAD_CHUNK_SIZE, size)
+        chunk = raw[start:end]
+        resp = _http(
+            "PUT",
+            upload_url,
+            headers={
+                "Content-Length": str(len(chunk)),
+                "Content-Range": f"bytes {start}-{end - 1}/{size}",
+            },
+            raw_data=chunk,
+        )
+        if resp.status_code not in (200, 201, 202):
+            sys.exit(
+                f"FEHLER: Anhang {p.name} Upload-Chunk {start}-{end - 1} fehlgeschlagen "
+                f"HTTP {resp.status_code} — {resp.text[:150]}"
+            )
+    print(f"  + Anhang: {p.name} ({ctype}, {size} Bytes, Upload-Session)")
+
+
 def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
     for path in paths:
+        p = Path(path)
+        if not p.is_file():
+            sys.exit(f"FEHLER: Anhang nicht gefunden: {path}")
+        if p.stat().st_size >= LARGE_ATTACHMENT_THRESHOLD:
+            _upload_large_attachment(tok, msg_id, path)
+            continue
         payload = _file_attachment_payload(path)
         r = _http(
             "POST",
@@ -931,6 +1014,26 @@ def _attach_files(tok: str, msg_id: str, paths: list[str]) -> None:
                 f"FEHLER: Anhang {payload['name']} fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}"
             )
         print(f"  + Anhang: {payload['name']} ({payload['contentType']})")
+
+
+def _delete_draft_after_failed_attach(tok: str, msg_id: str, fehler: str) -> None:
+    """Halb fertigen Entwurf wieder entfernen, wenn --draft das Anhängen NICHT schafft.
+
+    Realfall 06.09. (#2875): Der Abbruch beim Anhängen ließ einen halb
+    fertigen Entwurf im Drafts-Ordner stehen; der Owner sendete danach beide
+    Fassungen von Hand, der Empfänger bekam die Mail dreifach. Gilt nur für
+    den `--draft`-Pfad (frisch angelegter Entwurf) — `--attach-to` auf einen
+    bestehenden fremden Entwurf löscht NICHT, siehe cmd_attach_to.
+    """
+    r = _http("DELETE", f"{_basis()}/messages/{msg_id}", headers=_auth(tok))
+    if r.status_code in (200, 202, 204):
+        hinweis = "Entwurf wurde aufgeräumt (gelöscht)."
+    else:
+        hinweis = (
+            f"Aufräumen fehlgeschlagen (HTTP {r.status_code}) — Entwurf "
+            f"{msg_id[:12]}… bitte manuell in Outlook prüfen/löschen."
+        )
+    sys.exit(f"{fehler} {hinweis}")
 
 
 #: Schrift wie ein normaler Outlook-Client — unauffaellig, kein Marketing-Look.
@@ -1208,7 +1311,10 @@ def cmd_draft(
             "PATCH", f"{_basis()}/messages/{did}", headers=_auth(tok), json_body=patch
         )
         if attach:
-            _attach_files(tok, did, attach)
+            try:
+                _attach_files(tok, did, attach)
+            except SystemExit as e:
+                _delete_draft_after_failed_attach(tok, did, str(e.code))
         zuordnung = f" Vorgang: {', '.join(kategorien)}." if kategorien else ""
         print(
             f"OK: Antwort-Entwurf im Drafts-Ordner abgelegt (Reply auf {reply_to[:12]}…)."
@@ -1229,8 +1335,12 @@ def cmd_draft(
         sys.exit(
             f"FEHLER: Entwurf anlegen fehlgeschlagen HTTP {r.status_code} — {r.text[:150]}"
         )
+    msg_id = r.json()["id"]
     if attach:
-        _attach_files(tok, r.json()["id"], attach)
+        try:
+            _attach_files(tok, msg_id, attach)
+        except SystemExit as e:
+            _delete_draft_after_failed_attach(tok, msg_id, str(e.code))
     zuordnung = f" Vorgang: {', '.join(kategorien)}." if kategorien else ""
     print(
         f"OK: Entwurf im Drafts-Ordner abgelegt (NICHT gesendet).{zuordnung} "
