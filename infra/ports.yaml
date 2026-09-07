@@ -672,7 +672,7 @@ services:
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
   embedder:
     prod: 8100
-    staging: 8100
+    staging: null                   # nativer GX10-Dienst, keine Staging-Instanz
     dev: 8100
     prod_host: gx10
     container_name: null            # nativer Nutzer-Dienst, kein Container

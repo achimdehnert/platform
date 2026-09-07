@@ -343,3 +343,48 @@ def test_should_keep_c4_id_without_host_so_baseline_waivers_keep_matching(
     assert out.count("C4:9338") == 1
     assert "mon_x auf prod" in out and "mon_x auf prod-b" in out
     assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# C5 ist host-bewusst: derselbe Port auf zwei Hosts ist kein Duplikat
+# (learn-hub 8100 auf prod, Embedder 8100 auf gx10 — Fehlalarm 2026-09-01..07)
+# ---------------------------------------------------------------------------
+
+
+def _decl_zwei_dienste_gleicher_port(zweiter_host):
+    canonical = {
+        "svc-a": {"rich": {"deployed": False}, "flat": {}},
+        "svc-b": {"rich": {"deployed": False}, "flat": {}},
+    }
+    ports_decl = {
+        "svc-a": {"prod": 8100, "staging": None, "dev": 8100},
+        "svc-b": {"prod": 8100, "staging": None, "dev": 8100},
+    }
+    if zweiter_host:
+        ports_decl["svc-b"]["prod_host"] = zweiter_host
+    return canonical, ports_decl
+
+
+def test_should_not_report_c5_when_same_port_lives_on_different_hosts(
+    monkeypatch, capsys
+):
+    canonical, ports_decl = _decl_zwei_dienste_gleicher_port("gx10")
+    _patch_io(monkeypatch, canonical, ports_decl, {}, dns_ok=True)
+
+    _run(monkeypatch, argv=["--skip-dns"])
+
+    assert "C5:prod:8100" not in capsys.readouterr().out
+
+
+def test_should_report_c5_when_same_port_declared_twice_on_one_host(
+    monkeypatch, capsys
+):
+    canonical, ports_decl = _decl_zwei_dienste_gleicher_port(None)
+    _patch_io(monkeypatch, canonical, ports_decl, {}, dns_ok=True)
+
+    rc = _run(monkeypatch, argv=["--skip-dns"])
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "C5:prod:8100" in out
+    assert "svc-a + svc-b" in out
