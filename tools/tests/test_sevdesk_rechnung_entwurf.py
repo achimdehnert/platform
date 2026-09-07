@@ -88,6 +88,28 @@ def test_should_paginate_through_more_invoices_than_one_page():
     assert re_.naechste_nummer(client, "2026-09-07") == "20260907-502"
 
 
+def test_should_ignore_legacy_invoice_numbers_outside_the_date_scheme():
+    """Realfund 2026-09-07: eine Alt-Rechnung 'RE-1000' liegt im selben Bestand.
+
+    Ein naiver Split auf den letzten Bindestrich läse "1000" als aktuell
+    höchste laufende Nummer und würde die nächste Rechnung faelschlich auf
+    ...-1001 statt ...-288 setzen.
+    """
+    bestand = [
+        _rechnung("RE-1000"),
+        _rechnung("20260828-287"),
+        _rechnung("20260702-286"),
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offset = int(request.url.params.get("offset", "0"))
+        objekte = bestand if offset == 0 else []
+        return httpx.Response(200, json={"objects": objekte})
+
+    client = _client(handler)
+    assert re_.naechste_nummer(client, "2026-09-07") == "20260907-288"
+
+
 # ── Kontakt: gefunden vs. neu angelegt ────────────────────────────────────────
 
 

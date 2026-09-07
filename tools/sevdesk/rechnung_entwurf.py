@@ -28,7 +28,13 @@ Richtung:
 - Nummernkreis ``JJJJMMTT-NNN``: die laufende Nummer NNN ist ein einziger,
   fortlaufender Zähler über ALLE Rechnungen (auch Stornorechnungen SR teilen sich
   ihn, siehe 20260702-285/-286) — kein Reset zum Jahreswechsel, kein Reset pro
-  Tag. ``naechste_nummer`` paginiert daher den kompletten Bestand.
+  Tag. ``naechste_nummer`` paginiert daher den kompletten Bestand — und filtert
+  strikt auf das Muster ``JJJJMMTT-NNN`` (8 Ziffern, Bindestrich, Ziffern): der
+  Bestand enthält mindestens eine Alt-Rechnung im Format ``RE-1000`` aus einem
+  anderen, älteren Nummernkreis. Ein naiver Split auf den letzten Bindestrich
+  läse deren "1000" als aktuell höchste laufende Nummer und würde die nächste
+  Rechnung fälschlich auf ``…-1001`` statt ``…-288`` setzen — am 2026-09-07 live
+  im eigenen Dry-Run aufgefallen, deshalb der Regex-Filter statt Freitext-Split.
 - Dedup: ein ENTWURF (status 100) mit gleichem Kontakt, Datum und Netto-Summe
   verhindert eine zweite Rechnung (K5 Idempotenz, wie beim Beleg-Werkzeug).
 - ``invoiceDate`` wird als ``YYYY-MM-DD`` gesendet — dieselbe Konvention, mit der
@@ -47,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -62,6 +69,11 @@ KATEGORIE_ADRESSE_ARBEIT_ID = "43"
 DEUTSCHLAND_ID = "1"
 EMAIL_KEY_ARBEIT_ID = "2"
 STEUERSATZ = 19
+
+#: JJJJMMTT-NNN — exakt 8 Ziffern Datum, Bindestrich, Ziffern laufende Nummer.
+#: Nicht mit einem Freitext-Split auf den letzten Bindestrich verwechseln: der
+#: Bestand enthält auch Alt-Rechnungen wie "RE-1000" aus einem anderen Schema.
+_NUMMERNKREIS = re.compile(r"^\d{8}-(\d+)$")
 
 
 def _seiten(client, pfad: str, **params) -> list[dict]:
@@ -84,13 +96,10 @@ def naechste_nummer(client, datum: str) -> str:
     hoechste = 0
     for rechnung in _seiten(client, "/Invoice"):
         nummer = rechnung.get("invoiceNumber") or ""
-        if "-" not in nummer:
+        treffer = _NUMMERNKREIS.match(nummer)
+        if not treffer:
             continue
-        try:
-            laufend = int(nummer.rsplit("-", 1)[1])
-        except ValueError:
-            continue
-        hoechste = max(hoechste, laufend)
+        hoechste = max(hoechste, int(treffer.group(1)))
     return f"{datum.replace('-', '')}-{hoechste + 1:03d}"
 
 
