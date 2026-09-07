@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sitzungs-Abgleich: was gemergt wurde vs. was danach noch offen dasteht.
+"""Sitzungs-Abgleich: was gemergt wurde und welche Baeume danach noch stehen.
 
 Dieses eine Modul traegt DREI registrierte Slugs. `tools/gate_drill_check.py`
 liest den maschinenlesbaren Kopf (GATE_HEADER) und findet dort den ERSTEN;
