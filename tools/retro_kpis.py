@@ -44,6 +44,11 @@ import subprocess
 from collections import Counter, defaultdict
 
 LIST_KEYS = {"recurring_findings", "gate_candidates", "repo_scope"}
+# D6-Härtung (KONZ-038, EXT2-AD-2/M-1): Listeneinträge müssen slug-förmig sein.
+# Realfall a50bc6: ein Inline-Kommentar HINTER der Liste wurde mitgesplittet und
+# erzeugte 3 Phantom-Slugs im Zähler — strip("[]") erwischt nur String-Enden.
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,}$")
+KNOWN_SCHEMAS = {"", "1"}  # fehlend (Altbestand) oder retro_schema: 1
 SCALAR_KEYS = {
     "date",
     "session_id",
@@ -95,8 +100,19 @@ def parse_frontmatter(text: str) -> dict | None:
         k, v = line.split(":", 1)
         k, v = k.strip(), v.strip()
         if k in LIST_KEYS:
-            v = v.strip("[]")
-            out[k] = [s.strip().strip("'\"") for s in v.split(",") if s.strip()]
+            # Nur den Klammer-Inhalt nehmen — Inline-Kommentare nach "]" bleiben draußen.
+            m_list = re.search(r"\[(.*?)\]", v)
+            inner = m_list.group(1) if m_list else v.split("#", 1)[0].strip("[]")
+            items = [s.strip().strip("'\"") for s in inner.split(",") if s.strip()]
+            good = [it for it in items if SLUG_RE.match(it)]
+            bad = [it for it in items if not SLUG_RE.match(it)]
+            out[k] = good
+            if bad:
+                out.setdefault("_parse_warnings", []).extend(
+                    f"{k}: {b!r} (nicht slug-förmig — NICHT gezählt)" for b in bad
+                )
+        elif k == "retro_schema":
+            out["retro_schema"] = v.strip("'\"")
         elif k in SCALAR_KEYS:
             out[k] = v.strip("'\"")
     return out
@@ -265,6 +281,17 @@ def main() -> int:
         "Default: <repo>/docs/retros (KONZ-010) + ~/shared (Skill-Schreibpfad).",
     )
     ap.add_argument(
+        "--since",
+        default=None,
+        help="YYYY-MM-DD inklusiv — filtert nach Dateinamens-Datum "
+        "(Fallback: date-Frontmatter). Für K1-Fenster-Auswertungen (KONZ-038).",
+    )
+    ap.add_argument(
+        "--until",
+        default=None,
+        help="YYYY-MM-DD inklusiv — Gegenstück zu --since.",
+    )
+    ap.add_argument(
         "--min-band",
         type=int,
         default=3,
@@ -286,11 +313,49 @@ def main() -> int:
 
     dirs = args.dir if args.dir else [_repo_retros, _shared]
     reports = load_reports(dirs)
+
+    # D6: Fenster-Filter (Dateinamens-Datum, Fallback Frontmatter-date; ISO-Stringvergleich)
+    def _rdate(r: dict) -> str:
+        m = re.search(r"session-retro-(\d{4}-\d{2}-\d{2})", r["_path"])
+        return m.group(1) if m else str(r.get("date", ""))
+
+    if args.since:
+        reports = [r for r in reports if _rdate(r) >= args.since]
+    if args.until:
+        reports = [r for r in reports if _rdate(r) <= args.until]
+
+    # D6/M-1: unbekannte Schema-Version wird NICHT still mitgezählt — laut
+    # ausschließen statt leise Phantomdaten liefern (Exit bleibt 0, Report-Tool).
+    schema_bad = [
+        r for r in reports if str(r.get("retro_schema", "")) not in KNOWN_SCHEMAS
+    ]
+    reports = [r for r in reports if str(r.get("retro_schema", "")) in KNOWN_SCHEMAS]
+
     if not reports:
-        print(f"Keine session-retro-Reports in {', '.join(dirs)} gefunden.")
+        print(f"Keine (zählbaren) session-retro-Reports in {', '.join(dirs)} gefunden.")
+        for r in schema_bad:
+            print(f"  ⚠ ausgeschlossen (retro_schema unbekannt): {r['_path']}")
         return 0
 
-    print(f"# Längsschnitt über {len(reports)} Retro-Reports ({', '.join(dirs)})\n")
+    window = ""
+    if args.since or args.until:
+        window = f" · Fenster {args.since or '…'}..{args.until or '…'}"
+    print(
+        f"# Längsschnitt über {len(reports)} Retro-Reports ({', '.join(dirs)}){window}\n"
+    )
+
+    parse_warn = [
+        (r["_path"], w) for r in reports for w in r.get("_parse_warnings", [])
+    ]
+    if parse_warn or schema_bad:
+        print("## ⚠ Parse-Warnungen (NICHT gezählt — Quelldatei fixen)")
+        for path, w in parse_warn:
+            print(f"  {path}: {w}")
+        for r in schema_bad:
+            print(
+                f"  {r['_path']}: retro_schema={r.get('retro_schema')!r} unbekannt — Report ausgeschlossen"
+            )
+        print()
 
     # --- Recurring-Findings-Zähler über Retros → Gate-Eskalation ---
     slug_reports: dict[str, list[str]] = defaultdict(list)
