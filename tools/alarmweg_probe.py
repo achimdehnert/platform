@@ -40,6 +40,10 @@ from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import melder_ergebnis  # noqa: E402
+
+WERKZEUG_VERSION = "alarmweg_probe/1"
 REGISTER = Path(__file__).resolve().parents[1] / "infra" / "alarmwege.yaml"
 WORKFLOW = "alarmweg-probe.yml"
 REPO = "achimdehnert/platform"
@@ -339,6 +343,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pruefen", action="store_true")
     p.add_argument("--kurz", action="store_true")
     p.add_argument("--register", type=Path, default=REGISTER)
+    p.add_argument(
+        "--ergebnis-datei",
+        type=Path,
+        help=(
+            "Urteile zusaetzlich in der gemeinsamen Melder-Huelle ablegen "
+            "(tools/melder_ergebnis.py, platform#2944). Ohne diese Datei meldet "
+            "der Melder und verschwindet — der Future-Readiness-Erheber hat dann "
+            "nichts zum Anschliessen."
+        ),
+    )
     a = p.parse_args(argv)
 
     try:
@@ -359,6 +373,23 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     urteile = beurteile(kanaele, letzte_probe_jobs(), _jetzt())
+    if a.ergebnis_datei:
+        # Nur die drei Urteilsfelder je Kanal — KEINE Webhook-URLs, keine Secrets.
+        # platform ist oeffentlich; was hier landet, kann veroeffentlicht werden.
+        melder_ergebnis.schreibe(
+            a.ergebnis_datei,
+            melder="alarmweg_probe",
+            ergebnis=[
+                {
+                    "kanal": u["kanal"],
+                    "vorhanden": u["vorhanden"],
+                    "grund": u["grund"],
+                    "zurueckgebaut": bool(u.get("zurueckgebaut")),
+                }
+                for u in urteile
+            ],
+            werkzeug_version=WERKZEUG_VERSION,
+        )
     if a.kurz:
         print(kurzzeile(urteile))
     else:

@@ -56,3 +56,49 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ALARMWEG_ASSIGNEE: achimdehnert
         run: python3 tools/alarmweg_probe.py --senden --kanal github-issue-owner
+
+  # Bestand als maschinenlesbares Ergebnis (platform#2944).
+  #
+  # Warum als Artefakt und NICHT als Commit: ein Commit braeuchte `contents: write`
+  # auf einem Workflow, der heute mit `contents: read` auskommt. Rechte auszuweiten,
+  # um eine Messung abzulegen, ist der falsche Preis — das Artefakt reicht fuer den
+  # ersten Anschluss und laesst die Entscheidung ueber eine dauerhafte Ablage offen.
+  #
+  # `needs` mit `if: always()`: der Bestand soll die frischen Proben von oben sehen,
+  # aber auch dann entstehen, wenn eine Probe scheitert — gerade dann ist er
+  # interessant.
+  bestand:
+    name: bestand
+    needs: [discord-owner, github-issue-owner]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Bestand pruefen und ablegen
+        id: pruefen
+        # ROT IST BEFUND: ein fehlender Alarmweg faerbt den Lauf rot. Das Artefakt
+        # muss trotzdem entstehen, deshalb der Exit-Code erst im letzten Schritt.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/alarmweg_probe.py --pruefen \
+            --ergebnis-datei melder-ergebnis/alarmweg.json
+      - name: Ergebnis hochladen
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: melder-ergebnis-alarmweg
+          path: melder-ergebnis/alarmweg.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Befund durchreichen
+        if: steps.pruefen.outcome == 'failure'
+        run: |
+          echo "::error::Alarmweg-Bestand rot — Ergebnis liegt als Artefakt bei."
+          exit 1
