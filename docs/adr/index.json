@@ -1,7 +1,7 @@
 {
-  "generated": "2026-09-02",
-  "total": 247,
-  "next_free": 302,
+  "generated": "2026-09-07",
+  "total": 248,
+  "next_free": 303,
   "adrs": [
     {
       "number": 7,
@@ -5706,6 +5706,30 @@
         "ADR-120",
         "ADR-289",
         "ADR-292"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 302,
+      "id": "ADR-302",
+      "file": "ADR-302-routing-entkoppeln-statt-lernen.md",
+      "title": "Modell-Routing wird entkoppelt, nicht gelernt — Änderung an ADR-068",
+      "status": "proposed",
+      "date": "2026-09-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-068-adaptive-model-routing.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-066",
+        "ADR-068",
+        "ADR-084",
+        "ADR-095",
+        "ADR-108",
+        "ADR-208"
       ],
       "implementation_status": "not_started"
     },
