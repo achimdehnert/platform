@@ -29,6 +29,101 @@ import yaml
 OWN_ORGS = ("achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra")
 SHA40 = re.compile(r"@[0-9a-f]{40}$")
 REDACT = re.compile(r"((?:PASSWORD|TOKEN|SECRET|API_KEY)\s*[=:]\s*)[^\s\"'\\]+", re.I)
+
+# D10-Ausbau (Auftrag 2026-09-07, platform#2944): begrenzte, redigierte Struktur je
+# Agent-Instruktionsdatei (CLAUDE.md/AGENTS.md) fuer D10.2-D10.6. Es wird NIE der
+# Volltext uebernommen — nur Ueberschriften, die erste Zeile jedes Codeblocks (der
+# Befehl) und Zeilen mit den vier Markern unten. Summe aller uebernommenen Zeilen ist
+# auf AGENT_DOC_LINE_CAP gedeckelt (Prioritaet: Ueberschriften vor Befehlen vor Markern);
+# wird gedeckelt, steht "capped": true im Datensatz.
+AGENT_DOC_LINE_CAP = 200
+AGENT_DOC_HEADING_RE = re.compile(r"^#{1,6} ")
+AGENT_DOC_MARKERS = {
+    # D10.3 — verbotene Pfade/Aktionen ("NIE anfassen", "do not touch", ...)
+    #
+    # Die Frage lautet "verbotene PFADE benannt", nicht "irgendwo steht nie".
+    # "nie" und "verboten" sind Alltagswoerter: "wir haben nie Tests geschrieben"
+    # wuerde sonst als benannter verbotener Pfad zaehlen — ein falsches Gruen in
+    # genau dem Werkzeug, das Selbsttaeuschung aufdecken soll. Der Treffer muss
+    # deshalb in derselben Zeile ein pfadartiges Zeichen tragen: Backtick,
+    # Schraegstrich, Dateiendung oder Platzhalter.
+    "verbotene_pfade": re.compile(
+        r"(?=.*(?:`|/|\*|\.(?:py|md|ya?ml|json|toml|sh|lock|txt|cfg|ini)\b))"
+        r"\b(NIE|NEVER|verboten|forbidden|nicht anfassen|do not (edit|touch|modify))\b",
+        re.I,
+    ),
+    # D10.4 — generierte Dateien, die nicht von Hand editiert werden sollen
+    "generierte_dateien": re.compile(
+        r"\b(generiert|generated|auto-?generated|nicht manuell (editieren|bearbeiten|"
+        r"aendern|ändern)|do not edit)\b",
+        re.I,
+    ),
+    # D10.5 — Definition of Done / Akzeptanzkriterien
+    "definition_of_done": re.compile(
+        r"\bdefinition of done\b|\bDoD\b|\bakzeptanzkriterien\b|\bfertig ist\b", re.I
+    ),
+    # D10.6 — Cross-Repo-Vertraege (gemeinsame Schemas/Contracts ueber Repo-Grenzen)
+    "cross_repo_vertraege": re.compile(
+        r"\bcross-repo\b|\bshared[_-]contracts?\b|\banderen? repos?\b|\bcontract\b",
+        re.I,
+    ),
+}
+
+# Negativliste je Frage (Auftrag D10-Ausbau 2026-09-07, platform#2944): drei
+# unterscheidbare Begruendungsklassen statt eines einzigen Pauschalsatzes.
+NEG_JUDGMENT_NOTE = (
+    "Urteilsfrage, statisch nicht redlich bewertbar — bewusst nicht erhoben "
+    "(Entscheid 2026-09-07, platform#2944)"
+)
+NEG_JUDGMENT_QUESTIONS = [f"D03.{i}" for i in range(1, 7)]
+NEG_EXTERNAL_METER_NOTES = {
+    "D07.1": (
+        "wird ausserhalb gemessen (tools/erreichbarkeit_melder.py), "
+        "Anschluss offen — platform#2944"
+    ),
+    "D07.4": (
+        "wird ausserhalb gemessen (tools/alarmweg_probe.py), "
+        "Anschluss offen — platform#2944"
+    ),
+    "D07.6": (
+        "wird ausserhalb gemessen (tools/backup_meter.py), "
+        "Anschluss offen — platform#2944"
+    ),
+    "D12.2": (
+        "wird ausserhalb gemessen (tools/sync_drift_meter.py), "
+        "Anschluss offen — platform#2944"
+    ),
+    # Korrektur 2026-09-07, zweiter Anlauf: erst hiess es handover_fleet_check.py
+    # (misst den Handover-Zustand, nicht Versionsbaender), dann "kein Werkzeug
+    # vorhanden". Beides falsch — tools/sharedci/pin_landschaft.py misst genau
+    # das: welche shared-ci-Version jedes Repo in welcher Datei pinnt. Uebersehen,
+    # weil das Suchmuster nur tools/*.py abdeckte und keine Unterverzeichnisse.
+    "D12.1": (
+        "wird ausserhalb gemessen (tools/sharedci/pin_landschaft.py), "
+        "Anschluss offen — platform#2944"
+    ),
+}
+NEG_NOT_COLLECTED_NOTE = (
+    "statisch lesbar, von future_readiness_evidence.py nicht erhoben"
+)
+NEG_NOT_COLLECTED_QUESTIONS = [
+    "D01.4",
+    "D02.5",
+    "D04.6",
+    "D05.3",
+    "D05.4",
+    "D05.6",
+    "D06.9",
+    "D06.10",
+    "D06.11",
+    "D06.12",
+    "D07.2",
+    "D07.3",
+    "D07.5",
+    "D08.6",
+    "D09.4",
+    "D12.3",
+]
 KEY_FILES = [
     "README.md",
     "CONTRIBUTING.md",
@@ -315,6 +410,64 @@ def workflow_table(root: str) -> tuple[list[dict], list[dict]]:
     return rows, ci_jobs
 
 
+def agent_doc_digest(root: str, name: str) -> dict:
+    """Begrenzte, redigierte Struktur EINER Agent-Instruktionsdatei (D10.2-D10.6).
+
+    Nimmt nie den Volltext auf: nur alle Ueberschriften (Ebene 1-6), die erste Zeile
+    jedes Codeblocks (das ist der dokumentierte Befehl) und Zeilen mit den Markern aus
+    AGENT_DOC_MARKERS. Die Summe der uebernommenen Zeilen ist auf AGENT_DOC_LINE_CAP
+    gedeckelt (Ueberschriften zuerst, dann Befehle, dann Marker); wird gedeckelt, traegt
+    das Ergebnis "capped": true.
+    """
+    with open(os.path.join(root, name), encoding="utf-8", errors="replace") as fh:
+        lines = fh.read().splitlines()
+    headings = [ln for ln in lines if AGENT_DOC_HEADING_RE.match(ln)]
+    command_lines: list[str | None] = []
+    in_block = False
+    for ln in lines:
+        if ln.strip().startswith("```"):
+            in_block = not in_block
+            if in_block:
+                command_lines.append(None)
+            continue
+        if in_block and command_lines and command_lines[-1] is None:
+            command_lines[-1] = ln
+    code_block_count = len(command_lines)
+    command_lines = [ln for ln in command_lines if ln is not None]
+    marker_lines = {
+        key: [ln for ln in lines if pat.search(ln)]
+        for key, pat in AGENT_DOC_MARKERS.items()
+    }
+    # Deckel ueber alle Kategorien zusammen, in fester Prioritaet.
+    ordered = (
+        [("headings", ln) for ln in headings]
+        + [("command_lines", ln) for ln in command_lines]
+        + [(k, ln) for k, v in marker_lines.items() for ln in v]
+    )
+    capped = len(ordered) > AGENT_DOC_LINE_CAP
+    kept = ordered[:AGENT_DOC_LINE_CAP] if capped else ordered
+    out_headings: list[str] = []
+    out_commands: list[str] = []
+    out_markers: dict[str, list[str]] = {k: [] for k in AGENT_DOC_MARKERS}
+    for cat, ln in kept:
+        red = REDACT.sub(r"\1<redigiert>", ln)
+        if cat == "headings":
+            out_headings.append(red)
+        elif cat == "command_lines":
+            out_commands.append(red)
+        else:
+            out_markers[cat].append(red)
+    return {
+        "size_lines": len(lines),
+        "headings": out_headings,
+        "code_block_count": code_block_count,
+        "code_block_first_lines": out_commands,
+        "marker_lines": out_markers,
+        "lines_taken": len(kept),
+        "capped": capped,
+    }
+
+
 def collect(repo: str, root: str, t2_file: str | None, lifecycle_source: str) -> dict:
     root = os.path.abspath(root)
     head = sh("git rev-parse HEAD", root)["stdout"]
@@ -445,9 +598,7 @@ def collect(repo: str, root: str, t2_file: str | None, lifecycle_source: str) ->
         )["stdout"],
     }
     P["agent_docs"] = {
-        n: sh(f"grep -E '^#{{1,2}} ' {n} 2>/dev/null | head -12", root)[
-            "stdout"
-        ].splitlines()
+        n: agent_doc_digest(root, n)
         for n in ("CLAUDE.md", "AGENTS.md")
         if os.path.exists(os.path.join(root, n))
     }
@@ -527,41 +678,9 @@ def collect(repo: str, root: str, t2_file: str | None, lifecycle_source: str) ->
     # Negativliste (was dieses Werkzeug NICHT erhebt)
     P["negative_list"] = {
         "unverified": {
-            q: "statisch lesbar, von future_readiness_evidence.py nicht erhoben"
-            for q in [
-                "D01.4",
-                "D02.5",
-                "D03.1",
-                "D03.2",
-                "D03.3",
-                "D03.4",
-                "D03.5",
-                "D03.6",
-                "D04.6",
-                "D05.3",
-                "D05.4",
-                "D05.6",
-                "D06.9",
-                "D06.10",
-                "D06.11",
-                "D06.12",
-                "D07.1",
-                "D07.2",
-                "D07.3",
-                "D07.4",
-                "D07.5",
-                "D07.6",
-                "D08.6",
-                "D09.4",
-                "D10.2",
-                "D10.3",
-                "D10.4",
-                "D10.5",
-                "D10.6",
-                "D12.1",
-                "D12.2",
-                "D12.3",
-            ]
+            **{q: NEG_JUDGMENT_NOTE for q in NEG_JUDGMENT_QUESTIONS},
+            **NEG_EXTERNAL_METER_NOTES,
+            **{q: NEG_NOT_COLLECTED_NOTE for q in NEG_NOT_COLLECTED_QUESTIONS},
         },
         "not_run_at_depth": {
             "D02.4": "CVE-Scan (Scanner)",

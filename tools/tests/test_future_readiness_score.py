@@ -590,3 +590,234 @@ def test_should_keep_doc_header_version_in_sync_with_rubric_version_constant():
     m = re.search(r"Master-Prompt v(\d+\.\d+)", head)
     assert m, head
     assert m.group(1) == score_mod.RUBRIC_VERSION
+
+
+# ---- D10-Ausbau: D10.2-D10.6 statt Negativliste (Auftrag 2026-09-07, platform#2944) --
+
+_EMPTY_MARKERS = {
+    "verbotene_pfade": [],
+    "generierte_dateien": [],
+    "definition_of_done": [],
+    "cross_repo_vertraege": [],
+}
+
+
+def _agent_doc(**over):
+    d = {
+        "headings": ["# CLAUDE"],
+        "code_block_count": 0,
+        "code_block_first_lines": [],
+        "marker_lines": dict(_EMPTY_MARKERS),
+        "lines_taken": 1,
+        "capped": False,
+        "size_lines": 5,
+    }
+    d.update(over)
+    return d
+
+
+def test_should_mark_d10_2_ok_when_a_documented_command_matches_a_real_make_target(
+    tmp_path,
+):
+    # Gruen: der Befehl "make test" verweist auf ein tatsaechlich vorhandenes
+    # Makefile-Target — die einzige generische Gegenprobe ohne Ausfuehrung.
+    res = _run(
+        tmp_path,
+        _pack(
+            make_targets=["test", "lint"],
+            agent_docs={
+                "CLAUDE.md": _agent_doc(
+                    code_block_count=1, code_block_first_lines=["make test"]
+                )
+            },
+        ),
+    )
+    q = res["scores"]["D10"]["questions"]["D10.2"]
+    assert q["state"] == "answered" and q["outcome"] == "ok"
+    assert "make test" in q["evidence"][0]["ref"]
+
+
+def test_should_mark_d10_2_partial_when_command_documented_but_not_verified(tmp_path):
+    # Gelb: ein Codeblock mit Befehl ist da, aber "make deploy" ist kein reales
+    # Makefile-Target -> dokumentiert, nicht verifiziert. Kein Finding (PARTIAL_NO_FINDING).
+    res = _run(
+        tmp_path,
+        _pack(
+            make_targets=["test"],
+            agent_docs={
+                "CLAUDE.md": _agent_doc(
+                    code_block_count=1, code_block_first_lines=["make deploy"]
+                )
+            },
+        ),
+    )
+    q = res["scores"]["D10"]["questions"]["D10.2"]
+    assert q["state"] == "answered" and q["outcome"] == "partial"
+    assert q["note"] == "documented, nicht verified"
+    assert not any(f["question_id"] == "D10.2" for f in res["findings"])
+
+
+def test_should_mark_d10_2_fail_when_agent_doc_has_no_code_blocks(tmp_path):
+    # Rot: CLAUDE.md existiert, aber keine Codebloecke -> keine Befehle.
+    res = _run(tmp_path, _pack(agent_docs={"CLAUDE.md": _agent_doc()}))
+    q = res["scores"]["D10"]["questions"]["D10.2"]
+    assert q["state"] == "answered" and q["outcome"] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("qid", "marker_key", "hit_line"),
+    [
+        ("D10.3", "verbotene_pfade", "NIE `secrets/` anfassen"),
+        ("D10.4", "generierte_dateien", "docs/api.md ist auto-generated"),
+        ("D10.5", "definition_of_done", "## Definition of Done"),
+        ("D10.6", "cross_repo_vertraege", "Schema-Vertrag mit einem anderen Repo"),
+    ],
+)
+def test_should_mark_d10_3_to_6_ok_on_marker_hit(tmp_path, qid, marker_key, hit_line):
+    markers = dict(_EMPTY_MARKERS)
+    markers[marker_key] = [hit_line]
+    res = _run(
+        tmp_path, _pack(agent_docs={"CLAUDE.md": _agent_doc(marker_lines=markers)})
+    )
+    q = res["scores"]["D10"]["questions"][qid]
+    assert q["state"] == "answered" and q["outcome"] == "ok"
+
+
+@pytest.mark.parametrize("qid", ["D10.3", "D10.4", "D10.5", "D10.6"])
+def test_should_mark_d10_3_to_6_fail_without_marker_hit(tmp_path, qid):
+    res = _run(tmp_path, _pack(agent_docs={"CLAUDE.md": _agent_doc()}))
+    q = res["scores"]["D10"]["questions"][qid]
+    assert q["state"] == "answered" and q["outcome"] == "fail"
+
+
+def test_should_answer_d10_2_to_6_even_without_any_agent_doc(tmp_path):
+    # CLAUDE.md/AGENTS.md fehlen komplett (D10.1 fail) -> D10.2-D10.6 sind trotzdem
+    # beantwortet (fail), nicht mehr in der Negativliste.
+    pack = _pack()
+    pack["parts"]["files"] = {
+        **pack["parts"]["files"],
+        "CLAUDE.md": "-",
+        "AGENTS.md": "-",
+    }
+    res = _run(tmp_path, pack)
+    for qid in ("D10.1", "D10.2", "D10.3", "D10.4", "D10.5", "D10.6"):
+        q = res["scores"]["D10"]["questions"][qid]
+        assert q["state"] == "answered" and q["outcome"] == "fail", qid
+
+
+def test_should_take_d10_2_to_6_off_the_unverified_negative_list_in_evidence():
+    unverified = {
+        **{q: evidence.NEG_JUDGMENT_NOTE for q in evidence.NEG_JUDGMENT_QUESTIONS},
+        **evidence.NEG_EXTERNAL_METER_NOTES,
+        **{
+            q: evidence.NEG_NOT_COLLECTED_NOTE
+            for q in evidence.NEG_NOT_COLLECTED_QUESTIONS
+        },
+    }
+    assert not ({"D10.2", "D10.3", "D10.4", "D10.5", "D10.6"} & unverified.keys())
+
+
+def test_should_distinguish_the_negative_list_reason_classes():
+    """Drei Klassen statt eines Pauschalsatzes — jede mit eigenem Wortlaut.
+
+    Urteilsfrage (D03), externer Melder (mit Werkzeugnamen) und "schlicht nicht
+    erhoben" (Rest). D12.1 brauchte zwei Korrekturen: erst war es faelschlich
+    handover_fleet_check.py (misst den Handover-Zustand), dann "kein Werkzeug
+    vorhanden" — auch falsch, tools/sharedci/pin_landschaft.py misst genau die
+    gepinnte shared-ci-Version je Repo. Uebersehen, weil die Suche nur tools/*.py
+    abdeckte und keine Unterverzeichnisse.
+    """
+    judgment = evidence.NEG_JUDGMENT_NOTE
+    not_collected = evidence.NEG_NOT_COLLECTED_NOTE
+    meter_notes = evidence.NEG_EXTERNAL_METER_NOTES
+    assert judgment != not_collected
+    assert all(judgment != n and not_collected != n for n in meter_notes.values())
+    assert len(set(meter_notes.values())) == len(meter_notes)  # je Frage ihr Werkzeug
+    for qid in evidence.NEG_JUDGMENT_QUESTIONS:
+        assert qid.startswith("D03.")
+    assert "platform#2944" in judgment
+    tool_by_qid = {
+        "D07.1": "erreichbarkeit_melder.py",
+        "D07.4": "alarmweg_probe.py",
+        "D07.6": "backup_meter.py",
+        "D12.2": "sync_drift_meter.py",
+        "D12.1": "sharedci/pin_landschaft.py",
+    }
+    for qid, tool in tool_by_qid.items():
+        assert tool in meter_notes[qid] and "platform#2944" in meter_notes[qid]
+
+    for qid in evidence.NEG_NOT_COLLECTED_QUESTIONS:
+        assert (
+            qid not in evidence.NEG_JUDGMENT_QUESTIONS
+            and qid not in evidence.NEG_EXTERNAL_METER_NOTES
+        )
+
+
+# ---- agent_doc_digest(): begrenzte Struktur je Agent-Doku (D10.2-D10.6) -------------
+
+
+def test_should_extract_all_headings_not_only_the_first_twelve(tmp_path):
+    lines = [f"## Abschnitt {i}" for i in range(1, 20)]
+    (tmp_path / "CLAUDE.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    d = evidence.agent_doc_digest(str(tmp_path), "CLAUDE.md")
+    assert len(d["headings"]) == 19
+    assert d["headings"][-1] == "## Abschnitt 19"
+
+
+def test_should_extract_the_first_line_of_each_code_block_as_the_command(tmp_path):
+    content = (
+        "# Doku\n\n"
+        "```bash\nmake test\necho done\n```\n\n"
+        "```bash\nruff check tools/\n```\n"
+    )
+    (tmp_path / "CLAUDE.md").write_text(content, encoding="utf-8")
+    d = evidence.agent_doc_digest(str(tmp_path), "CLAUDE.md")
+    assert d["code_block_count"] == 2
+    assert d["code_block_first_lines"] == ["make test", "ruff check tools/"]
+
+
+def test_should_redact_secrets_in_extracted_command_lines(tmp_path):
+    content = "# Setup\n```bash\nexport TOKEN=abc123secret\n```\n"
+    (tmp_path / "CLAUDE.md").write_text(content, encoding="utf-8")
+    d = evidence.agent_doc_digest(str(tmp_path), "CLAUDE.md")
+    assert "abc123secret" not in d["code_block_first_lines"][0]
+    assert "<redigiert>" in d["code_block_first_lines"][0]
+
+
+def test_should_cap_total_extracted_lines_and_flag_it(tmp_path):
+    lines = [f"### h{i}" for i in range(500)]
+    (tmp_path / "CLAUDE.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    d = evidence.agent_doc_digest(str(tmp_path), "CLAUDE.md")
+    assert d["size_lines"] == 500
+    assert d["capped"] is True
+    assert d["lines_taken"] == evidence.AGENT_DOC_LINE_CAP
+    assert len(d["headings"]) == evidence.AGENT_DOC_LINE_CAP
+
+
+def test_should_not_cap_a_small_file(tmp_path):
+    (tmp_path / "CLAUDE.md").write_text("# Kurz\n\nEin Satz.\n", encoding="utf-8")
+    d = evidence.agent_doc_digest(str(tmp_path), "CLAUDE.md")
+    assert d["capped"] is False
+    assert d["lines_taken"] == len(d["headings"])
+
+
+def test_should_require_a_path_token_for_forbidden_paths_marker():
+    """D10.3 fragt nach verbotenen PFADEN, nicht nach dem Wort "nie".
+
+    "nie" und "verboten" sind Alltagswoerter. Ohne Pfad-Bedingung zaehlte
+    "wir haben nie Tests geschrieben" als benannter verbotener Pfad — ein
+    falsches Gruen in genau dem Werkzeug, das Selbsttaeuschung aufdecken soll.
+    Die Gegenprobe unten ist der eigentliche Test: die drei Positivfaelle
+    belegen, dass die Regel ueberhaupt greifen KANN.
+    """
+    pat = evidence.AGENT_DOC_MARKERS["verbotene_pfade"]
+
+    # Negativ: Marker-Wort ohne Pfad
+    assert not pat.search("Wir haben nie Tests geschrieben.")
+    assert not pat.search("Das war noch nie ein Problem")
+    assert not pat.search("Diese Praxis ist verboten.")
+
+    # Positiv (Gegenprobe): Marker-Wort MIT Pfad
+    assert pat.search("NIE `infra/ports.yaml` von Hand editieren.")
+    assert pat.search("Do not touch tools/generated/")
+    assert pat.search("verboten: Aenderungen an docs/adr/*.md")
