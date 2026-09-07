@@ -20,8 +20,8 @@ Detection (unzuverlässig) ist `/escalate` ein **expliziter User-Befehl**.
 Aktuelle Session-Modell: <model aus System-Context>
 Empfohlene Aktion:
 
-  • Wenn aktuell Haiku/Sonnet → `/model claude-opus-4-7`  (Tier 4)
-  • Wenn aktuell Opus 4.7    → Aufgabe splitten:
+  • Wenn aktuell Haiku/Sonnet → `/model opus`  (Tier 4)
+  • Wenn aktuell Opus        → Aufgabe splitten:
        1. den Anteil identifizieren, der NICHT konvergiert
        2. ihn extrahieren und neu formulieren
        3. ggf. mit /next neu priorisieren
@@ -35,7 +35,7 @@ Tipps zum Erkennen, dass eine Aufgabe wirklich Tier-4 ist:
 
 ## Anschluss
 
-- Wenn der User nach `/escalate` `/model claude-opus-4-7` ruft und denselben
+- Wenn der User nach `/escalate` `/model opus` ruft und denselben
   Prompt wiederholt: in der neuen Session ist der Kontext frisch — daher den
   bisherigen Stand mit 1–2 Sätzen rekapitulieren (was wurde versucht, wo
   blieb's hängen), bevor die neue Lösung gestartet wird.
