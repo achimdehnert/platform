@@ -102,7 +102,9 @@ Memory-Abgleich (`grep` im Auto-Memory-Index): Für den Slug `owner-methodenents
 
 - **Beleg dafür, dass es wirkt:** In dieser Sitzung hat es zweimal gefeuert und beide Male einen echten Nachweis erzwungen — einmal auf eine CI-Status-Behauptung (Antwort korrigiert, Merge-Status per `gh pr view` belegt), einmal auf eine Aussage über die Gelände-Bibliothek (Suche mit Positivkontrolle nachgezogen, Aussage korrigiert). Deshalb steht der Slug in `gates_caught`.
 - **Beleg für die Lücke:** Derselbe Fehlertyp in einem **Code-Kommentar** (#3) blieb unbemerkt, weil das Gate den Antworttext prüft, nicht Dateien, die in einem Commit dauerhaft eine Behauptung über fremdes Verhalten festschreiben. Ursache **an der Quelle** — das Gate sieht den Fall nicht.
-- **Konsequenz: ausweiten.** Der bestehende Eintrag bekommt `revised` + `revision_note` und eine neue Positivkontrolle; **kein** zweites Gate unter neuem Namen.
+- **Erwogene Konsequenz: ausweiten. Beim Bauen verworfen** — und das ist selbst ein Ergebnis dieser Rückfall-Prüfung: Der Soll-Ablauf zu #3 verlangt, die geprüfte Fundstelle **mit Zeilennummer** in den Kommentar zu schreiben. Ein Scanner auf Kommentare, die eine fremde Datei samt Zeile nennen, träfe damit genau die **richtige** Praxis; die falsche Form, eine Behauptung ohne Fundstelle, ist von normaler Prosa maschinell nicht zu trennen. Ein solches Gate hätte eine hohe Fehlalarmquote am erwünschten Verhalten und würde umgangen statt befolgt.
+- **Gewählte Konsequenz: dokumentierter Verzicht** unter dem engen Slug `behauptung-ueber-fremdcode-im-datei-kommentar`, eingetragen in `declined` mit Begründung — derselbe Weg, den `always-instruction-without-enforcement` bereits geht. Vorschlag zur Ratifikation in platform#2934; Ersatz ist die Memory-Regel aus Paragraf 6.
+- **Das bestehende Gate bleibt unverändert.** Es hat zweimal gefangen, und es wurde am selben Tag von einer anderen Sitzung auf Rev 5 gebracht (platform#2374). Ein Rev 6 ohne Verhaltensänderung wäre reines Zurücksetzen der Wirkungsmessung — genau die Steigerbarkeit durch Neubauen, gegen die `gate_wirkung.py` seine Ehrlichkeits-Sperren hat.
 
 ## 5b. Autonomie-Kalibrierung
 
@@ -174,12 +176,14 @@ nehmen — dann ist er im nächsten Vendor-Update auch prüfbar.
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| M1 | Gate ausweiten auf Datei-Kommentare | platform | [gate-registry](https://github.com/achimdehnert/platform/blob/main/docs/governance/gate-registry.json) | 🔵 | `revised` + Positivkontrolle eintragen (ich) |
+| M1 | Verzicht statt Gate, begründet | platform | [#2934](https://github.com/achimdehnert/platform/pull/2934) | 🟢 | Ratifizieren, Governance-Pfad (du) |
 | M2 | CI-Job für Vendor-Pfad | robo-lab | [#66](https://github.com/achimdehnert/robo-lab/issues/66) | 🟢 | Kosten/Nutzen entscheiden (du) |
 | M3 | Bitgleichheit als Testdatei | robo-lab | [#66](https://github.com/achimdehnert/robo-lab/issues/66) | 🔵 | Selbsttest nach `reach.py`-Muster (ich) |
 | M4 | Vendor-Import-Helfer zusammenführen | robo-lab | [#66](https://github.com/achimdehnert/robo-lab/issues/66) | 🔵 | Helfer in Modul heben (ich) |
 | M5 | Verfallsfristen-Ausgabe kürzen | platform | [gate_wirkung.py](https://github.com/achimdehnert/platform/blob/main/tools/gate_wirkung.py) | 🟢 | Streichung freigeben (du) |
-| M6 | Zwei Memory-Dateien anlegen | platform | [§6 dieses Reports](https://github.com/achimdehnert/platform/tree/main/docs/retros) | 🟢 | Vorschläge annehmen (du) |
+| M6 | Zwei Memory-Dateien anlegen | platform | [#2933](https://github.com/achimdehnert/platform/pull/2933) | 🟢 | Vorschläge annehmen (du) |
+| M7 | Drei Falschaussagen im Repo korrigieren | robo-lab | [#66](https://github.com/achimdehnert/robo-lab/issues/66) | 🟡 | Testzahl, A12, Kill-Gate-Zeile (ich) |
+| M8 | Einseitiges Defizit modellieren | robo-lab | [#66](https://github.com/achimdehnert/robo-lab/issues/66) | 🟢 | Ohne A5 bleibt jede Entlastungszahl ein Vorlauf (du) |
 
 ## 8. Nicht verifiziert (Restlücken)
 
@@ -196,6 +200,7 @@ Ein separater Meta-Prüfer hat den Report gegen die Skill-Regeln geprüft, nicht
 - **Echte Falsifikationsquote fehlte.** Nachgetragen: `phase3_refuted/(findings_total − pre_refuted)` = 1/7 ≈ **0,14**, damit **unter** der 0,2-Schwelle, ab der Falsifikation als Theater gilt; der zusammengesetzte Wert 0,25 verdeckt das. Numerische Lesart: bei acht Befunden und nur einem unabhängig verworfenen trägt die Widerlegungsbahn die Absicherung dieses Reports, nicht der Skeptiker-Pass.
 - **Längsschnitt-Zeilen ohne harten Beleg.** Nachgetragen: Report-Dateiname des Erstvorkommens, Registry-Felder der Gates, Slug-Zähler aus `retro_kpis.py`.
 - **`over_act: 0` stand glatt da, obwohl Paragraf 8 die Annahme dahinter als schwächste Zahl benennt.** Die Unsicherheit steht jetzt am Frontmatter-Feld selbst.
+- **Nachtrag zur Rückfall-Konsequenz:** Der Entwurf trug „ausweiten" ein. Beim tatsächlichen Bau des Registry-Eintrags zeigte sich, dass die Ausweitung das erwünschte Verhalten treffen würde; die Konsequenz wurde zu einem begründeten Verzicht geändert (Paragraf 5a). Das ist kein Ausweichen vor der Drei-Antworten-Regel, sondern der in der Registry vorgesehene vierte Weg — mit Begründung statt mit Schweigen.
 - **Nachtrag nach der Widerlegungsbahn:** Deren Befund #9 hat die Beanstandung des Meta-Prüfers zu `zielerreichung` **im Kern bestätigt**, wenn auch aus einem anderen Grund als von ihm genannt — nicht weil das Entlastungskriterium Sitzungsziel wäre, sondern weil die berichtete Zahl das Kriterium gar nicht misst. Score jetzt 3, `code_konventionstreue` wegen #8 ebenfalls 3.
 - **Falsifikationsquote nach der Widerlegungsbahn: 1/10 = 0,10**, weiter unter der 0,2-Schwelle. Numerische Lesart: der Skeptiker-Pass hat einen von zehn Befunden verworfen, die Widerlegungsbahn dagegen einen verworfenen zurückgeholt und zwei neue erzeugt — die Absicherung dieses Reports liegt fast vollständig in der Widerlegungsbahn. Für den Trend heißt das: der niedrige Wert steht hier nicht für laxe Falsifikation, sondern für einen zu milden Skeptiker-Pass.
 - **Nicht übernommen: Absenkung von `zielerreichung` mit der Begründung des Prüfers.** Der Prüfer las das Entlastungskriterium als Sitzungsziel; es ist ein Programmziel mit Frist 2026-11-30, das Sitzungsziel steht in Issue #66 und ist erfüllt. Die Scorecard benennt die Trennung jetzt ausdrücklich, statt sie mit der zu Recht beanstandeten Formel „ein negatives Ergebnis ist auch Zielerreichung" zu verwischen.
