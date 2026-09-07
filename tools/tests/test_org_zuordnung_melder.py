@@ -200,7 +200,9 @@ def test_should_report_unreachable_productive_repo_as_unchecked():
     """Nicht abrufbar heisst ungeprueft, nicht regelkonform — und muss gezaehlt werden."""
     reg = _registry({"neu-hub": PROD})
     reg.bekannte_konten = ["achimdehnert", "iilgmbh"]
-    funde, unerreichbar = check_c(reg, lambda o, n: None, lambda login: "User", STICHTAG)
+    funde, unerreichbar = check_c(
+        reg, lambda o, n: None, lambda login: "User", STICHTAG
+    )
     assert funde == [] and unerreichbar == ["neu-hub"]
 
 
@@ -212,7 +214,10 @@ def test_should_report_productive_repo_without_creation_date_as_unchecked():
     """
     reg = _registry({"neu-hub": PROD})
     funde, unerreichbar = check_c(
-        reg, lambda o, n: {"owner": {"login": "achimdehnert"}}, lambda login: "User", STICHTAG
+        reg,
+        lambda o, n: {"owner": {"login": "achimdehnert"}},
+        lambda login: "User",
+        STICHTAG,
     )
     assert funde == [] and unerreichbar == ["neu-hub"]
 
