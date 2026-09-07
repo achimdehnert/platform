@@ -543,3 +543,106 @@ def test_should_print_concrete_ids_in_offen_cross_repo_hint(
     ausgabe = capsys.readouterr().out
     assert "--echt '0.7 deploy-scan::cad-hub'" in ausgabe
     assert "--verankert '0.7 deploy-scan::cad-hub'" in ausgabe
+
+
+# --- praezision() mit geschaerft_am (#2895, Folge-PR zu #2890) --------------
+
+
+def _urteil(phase: str, urteil: str, datum: str) -> dict:
+    return {
+        "fid": f"{phase}::x",
+        "phase": phase,
+        "repo": "x",
+        "urteil": urteil,
+        "grund": "Testfixture",
+        "datum": datum,
+    }
+
+
+def _register_mit_nullstellung(phase: str, geschaerft_am: str) -> list[dict]:
+    return [{"phase": phase, "geschaerft_am": geschaerft_am}]
+
+
+def test_should_ignore_urteile_before_geschaerft_am() -> None:
+    """Urteile VOR der Nullstellung zaehlen nicht mehr in die Trefferquote —
+    genau der Fall aus #2895: PR #2890 hat den Melder geschaerft, die alten
+    Fehlalarme sollen die Quote nicht laenger drosseln."""
+    daten = {
+        "urteile": [
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-08-20"),
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-09-04"),
+            _urteil("0.7.4 prio-referenzen", "echt", "2026-09-05"),
+            _urteil("0.7.4 prio-referenzen", "echt", "2026-09-08"),
+        ]
+    }
+    register = _register_mit_nullstellung("0.7.4 prio-referenzen", "2026-09-07")
+    zeilen = bj.praezision(daten, register)
+    z = zeilen[0]
+    assert z["urteile"] == 1
+    assert z["echt"] == 1
+    assert z["falsch"] == 0
+    assert z["geschaerft_am"] == "2026-09-07"
+
+
+def test_should_leave_phases_without_geschaerft_am_unchanged() -> None:
+    """Ohne das Feld zaehlt weiterhin jedes Urteil — kein Verhaltensbruch fuer
+    die anderen Melder-Phasen ohne Nullstellung."""
+    daten = {
+        "urteile": [
+            _urteil("0.7 deploy-scan", "echt", "2026-01-01"),
+            _urteil("0.7 deploy-scan", "falsch", "2026-01-02"),
+        ]
+    }
+    zeilen = bj.praezision(daten, register=[])
+    z = zeilen[0]
+    assert z["urteile"] == 2
+    assert z["echt"] == 1
+    assert z["falsch"] == 1
+    assert z["geschaerft_am"] is None
+
+
+def test_should_mark_nullstellung_as_not_bewertbar_without_new_urteile() -> None:
+    """Ein geschaerfter Melder mit 0 Urteilen SEIT der Nullstellung ist NICHT
+    bewertbar — Regel MIN_URTEILE gilt unveraendert, also kein WARN, sondern
+    sichtbar '0 Urteile seit ...' statt spurlosem Verschwinden."""
+    daten = {
+        "urteile": [
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-08-20"),
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-09-02"),
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-09-04"),
+        ]
+    }
+    register = _register_mit_nullstellung("0.7.4 prio-referenzen", "2026-09-07")
+    zeilen = bj.praezision(daten, register)
+    z = zeilen[0]
+    assert z["urteile"] == 0
+    assert z["bewertbar"] is False
+    assert z["praezision"] is None
+    bericht = bj.praezisions_bericht(daten, register)
+    assert "(seit 2026-09-07, 0 Urteile)" in bericht
+    assert "NICHT bewertbar" in bericht
+    assert "🚨" not in bericht
+
+
+def test_should_still_warn_on_three_false_judgements_after_geschaerft_am() -> None:
+    """Positivkontrolle: schaerft das Feld die Quote nicht kuenstlich weich,
+    bleiben drei Fehlalarme NACH der Nullstellung weiterhin WARN-wuerdig."""
+    daten = {
+        "urteile": [
+            _urteil(
+                "0.7.4 prio-referenzen", "echt", "2026-08-20"
+            ),  # vor Nullstellung, zaehlt nicht
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-09-07"),
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-09-08"),
+            _urteil("0.7.4 prio-referenzen", "falsch", "2026-09-09"),
+        ]
+    }
+    register = _register_mit_nullstellung("0.7.4 prio-referenzen", "2026-09-07")
+    zeilen = bj.praezision(daten, register)
+    z = zeilen[0]
+    assert z["urteile"] == 3
+    assert z["bewertbar"] is True
+    assert z["praezision"] == 0.0
+    bericht = bj.praezisions_bericht(daten, register)
+    assert "🚨" in bericht
+    assert "(seit 2026-09-07, 3 Urteile)" in bericht
