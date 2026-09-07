@@ -10,7 +10,7 @@
 # semver-Klassifizierung (patch/minor/major) wieder funktioniert.
 pytest==9.1.1
 pyyaml==6.0.3
-ruff==0.16.5
+ruff==0.16.6
 # Rotationswerkzeug (platform#2813): jsonschema prueft infra/secrets-inventory.yaml
 # gegen infra/schemas/, pynacl versiegelt Werte fuer die GitHub-Secrets-API.
 jsonschema==4.25.1
