@@ -210,3 +210,31 @@ def test_should_still_flag_an_expected_node_that_is_silent():
     """
     seite = fb.render(_daten())
     assert "unerreichbar" in seite, "netcup schweigt und muss als Ausfall stehen"
+
+
+# ---------------------------------------------------------------------------
+# JSON-Ausgabe uebersteht date-Objekte aus YAML (Tageslauf brach seit 2026-09-01 ab)
+# ---------------------------------------------------------------------------
+
+
+def test_should_serialize_yaml_dates_in_json_output():
+    import datetime
+    import json
+
+    from flottenbild import _json_default  # noqa: PLC0415
+
+    daten = {"verified": datetime.date(2026, 8, 30), "n": 1}
+    text = json.dumps(daten, default=_json_default)
+
+    assert '"2026-08-30"' in text
+
+
+def test_should_still_reject_unknown_objects_in_json_output():
+    import json
+
+    import pytest
+
+    from flottenbild import _json_default  # noqa: PLC0415
+
+    with pytest.raises(TypeError):
+        json.dumps({"x": object()}, default=_json_default)
