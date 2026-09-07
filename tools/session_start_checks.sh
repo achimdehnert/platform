@@ -365,12 +365,38 @@ OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin | sed -E 's#.*[:/]([^/]+)/.
 # ausschreibungs-hub fehlte hier (2026-07-21 ergaenzt) — iilgmbh-Repos loesen
 # ueber den Transfer-Redirect auch unter $OWNER auf, geprueft fuer risk-hub.
 DEPLOY_REPOS="risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub ausschreibungs-hub"
-DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; DEPLOY_CANCELLED=""; N_SCANNED=0
+# Stillgelegte/ruhende Repos (Owner-Entscheid in infra/ports.yaml) deployen nicht
+# mehr und bleiben es auch nach `git log` nie wieder tun — ihr letzter Run bleibt
+# fuer immer `failure`/`waiting`. Kein Befund, analog zur bewusst abgelehnten
+# Freigabe unten (DEPLOY_REJECTED). `blockiert` gehoert NICHT dazu — das soll
+# noch laufen und wartet nur auf eine Entscheidung (infra/ports.yaml §Lebenszyklus).
+# Vokabular + Zuordnung Repo->betriebsstatus kommen aus tools/waisen_melder.py
+# (erklaerte_repos, selbst auf tools/betriebsstatus.py gestuetzt) — keine zweite
+# Kopie der Zuordnung hier.
+DEPLOY_STILLGELEGT_REPOS=$(cd "$PLATFORM_DIR" && python3 -c "
+import sys
+sys.path.insert(0, 'tools')
+import yaml
+from waisen_melder import erklaerte_repos
+ports = yaml.safe_load(open('infra/ports.yaml', encoding='utf-8')) or {}
+erklaert = erklaerte_repos(ports)
+erlaubt = {'stillgelegt', 'ruhend'}
+print(' '.join(sorted(r for r, s in erklaert.items() if s in erlaubt)))
+" 2>/dev/null || true)
+DEPLOY_FAILS=""; DEPLOY_WAITING=""; DEPLOY_REJECTED=""; DEPLOY_SKIPPED=""; DEPLOY_CANCELLED=""; DEPLOY_STILLGELEGT=""; N_SCANNED=0
 # Leerer Cutoff (kein GNU-date) wuerde die waiting-Erkennung still abschalten —
 # das Ergebnis waere ein PASS, das eine nie gelaufene Pruefung als bestanden
 # ausgibt. Deshalb wird der Zustand unten als degraded gemeldet, nicht verschluckt.
 WAIT_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 for r in $DEPLOY_REPOS; do
+  case " $DEPLOY_STILLGELEGT_REPOS " in
+    *" $r "*)
+      # Owner-Entscheid steht in infra/ports.yaml, nicht hier — kein Deploy
+      # erwartet, kein gh-Aufruf noetig, kein Befund.
+      DEPLOY_STILLGELEGT="$DEPLOY_STILLGELEGT $r"
+      continue
+      ;;
+  esac
   # (1) Letzter Run: conclusion + id. `--limit 1` genuegt, seit die waiting-Suche
   #     nicht mehr aus diesem Fenster gesiebt wird.
   OUT=$(gh run list -R "$OWNER/$r" --workflow Deploy --limit 1 --json databaseId,conclusion \
@@ -423,7 +449,9 @@ EOF
 done
 N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
 # Abdeckung immer mitschreiben (gescannt/gesamt) statt nur die Soll-Zahl zu nennen.
-COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfragbar:$DEPLOY_SKIPPED}"
+# Stillgelegte Repos gehen nicht in N_SCANNED ein (kein gh-Aufruf, s.o.) —
+# ohne den Zusatz saehe das wie eine Abdeckungsluecke aus.
+COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfragbar:$DEPLOY_SKIPPED}${DEPLOY_STILLGELEGT:+ · stillgelegt (kein Befund):$DEPLOY_STILLGELEGT}"
 # Betroffene Repos maschinenlesbar mitgeben (K1, platform#2004): failure UND waiting
 # sind Befunde ueber ein FREMDES Repo — sie gehoeren dorthin, nicht in die
 # platform-Prosa. Die nicht abfragbaren stehen getrennt, damit das Journal eine
