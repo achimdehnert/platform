@@ -470,12 +470,27 @@ CAT_SUBST_RE = re.compile(r"^\$\(\s*(?:cat\s+|<\s*)\"?'?([^\"')]+)\"?'?\s*\)$")
 _GH_BODY_CARRIER_RE = re.compile(
     r"\bgh\s+(?:pr|issue)\s+(?:create|edit|comment|close|merge)\b"
 )
+# Mail-Entwurf-Carrier (2026-09-07, Realfall: "At 22 pages and roughly 7,800 words"
+# in einem HNU-Mail-Entwurf, pdfinfo sagte 23 Seiten — der Entwurf wurde abgelegt
+# und vom Owner gesendet). Der `_GH_BODY_CARRIER_RE`-Zweig sieht nur gh-Kommandos;
+# Mail-Entwuerfe laufen ueber tools/mail_agent/draft_mail.py bzw. graph_mail.py
+# --draft und fallen deshalb durch JEDE Body-Extraktion dieses Scanners. Bewusst
+# eng: nur Kommandos, die eines der beiden Skripte UND --body-file im selben
+# Kommando tragen (Reihenfolge egal) — kein Draft-Skript ohne --body-file zaehlt,
+# kein --body-file eines anderen Skripts zaehlt.
+_MAIL_DRAFT_CARRIER_RE = re.compile(
+    r"(?=.*\b(?:draft_mail\.py|graph_mail\.py)\b)(?=.*--body-file\b)", re.I
+)
 
 
-def _published_bodies(tool_inputs: list) -> list:
-    """Sammelt Texte, die als PR-/Issue-Body VERÖFFENTLICHT werden — aus Bash-Kommandos
-    mit gh-create/edit/comment (inline --body, heredoc, --body-file) sowie aus
-    Write-Inhalten, deren Pfad im selben Turn per --body-file referenziert wird."""
+def _koerper_sammeln(tool_inputs: list, carrier_re: re.Pattern) -> list:
+    """Sammelt Texte, die ueber `carrier_re` als Body VERÖFFENTLICHT/ABGELEGT werden
+    — aus Bash-Kommandos mit passendem Carrier (inline --body, heredoc, --body-file)
+    sowie aus Write-Inhalten, deren Pfad im selben Turn per --body-file referenziert
+    wird. Gemeinsame Extraktionslogik fuer `_published_bodies` (gh-Carrier) und
+    `_entwurf_bodies` (Mail-Draft-Carrier) — dieselbe Regex-Kette, nur der Carrier
+    unterscheidet sich; eine Dopplung der Extraktion waere die zweite Wahrheit
+    ueber denselben Mechanismus."""
     bodies: list[str] = []
     write_contents: dict[str, str] = {}
     body_file_paths: list[str] = []
@@ -487,8 +502,8 @@ def _published_bodies(tool_inputs: list) -> list:
             write_contents[fp] = str(inp.get("content", ""))
         elif name == "Bash":
             cmd = str(inp.get("command", ""))
-            if not _GH_BODY_CARRIER_RE.search(cmd):
-                continue  # konservativ: nur Kommandos, die wirklich publizieren
+            if not carrier_re.search(cmd):
+                continue  # konservativ: nur Kommandos, die wirklich publizieren/ablegen
             for _tag, txt in _HEREDOC_RE.findall(cmd):
                 bodies.append(txt)
             for _q, txt in _INLINE_BODY_RE.findall(cmd):
@@ -512,6 +527,67 @@ def _published_bodies(tool_inputs: list) -> list:
             except OSError:
                 pass
     return bodies
+
+
+def _published_bodies(tool_inputs: list) -> list:
+    """Sammelt Texte, die als PR-/Issue-Body VERÖFFENTLICHT werden — aus Bash-Kommandos
+    mit gh-create/edit/comment (inline --body, heredoc, --body-file) sowie aus
+    Write-Inhalten, deren Pfad im selben Turn per --body-file referenziert wird."""
+    return _koerper_sammeln(tool_inputs, _GH_BODY_CARRIER_RE)
+
+
+def _entwurf_bodies(tool_inputs: list) -> list:
+    """Sammelt Texte, die als Mail-ENTWURF abgelegt werden — aus Bash-Kommandos mit
+    draft_mail.py/graph_mail.py --body-file (inline --body-Form kommt in der Praxis
+    dort nicht vor, die Regex deckt sie trotzdem mit ab) sowie aus Write-Inhalten,
+    deren Pfad im selben Turn per --body-file referenziert wird."""
+    return _koerper_sammeln(tool_inputs, _MAIL_DRAFT_CARRIER_RE)
+
+
+# Messzahl im Mail-Entwurf (2026-09-07, derselbe Realfall wie oben). Anders als die
+# uebrigen CLAIM_PATTERNS ist der Fehlsatz kein "verifiziert"/"passed"/Status-Wort —
+# er ist eine schlicht falsche ZAHL vor einer Masseinheit, die ein billiges Kommando
+# nachzaehlen kann. Eng gehalten: nur Zahl+Einheit-Paare, die als Nachricht an einen
+# Dritten typischerweise stehen (Seiten/Woerter/Zeichen/Zeilen/Treffer), Zahl auch
+# mit Tausendertrenner ("7,800"/"7.800").
+_MESSZAHL_RE = re.compile(
+    r"\b\d{1,3}(?:[.,]\d{3})*\s*(?:pages?|Seiten|words?|W(?:ö|oe)rter|characters?|"
+    r"Zeichen|Zeilen|lines?|Treffer)\b",
+    re.I,
+)
+# Hedge-Woerter speziell fuer Messzahlen (nicht dieselbe Liste wie CAUSE_HEDGE_RE —
+# "roughly"/"about"/"etwa"/"circa"/"~" hedgen eine Zahl, sagen aber nichts ueber
+# eine Kausalbehauptung aus).
+_MESSZAHL_HEDGE_RE = re.compile(
+    r"\b(?:etwa|ungef(?:ä|ae)hr|circa|ca\.|rund|roughly|about|approximately)\b|~",
+    re.I,
+)
+#: Zeichen vor dem Zahl-Treffer, in denen ein Hedge-Wort den TREFFER entwaffnet.
+_MESSZAHL_HEDGE_FENSTER = 24
+# Kommando, das eine Messzahl WIRKLICH erzeugt — bewusst eng: ein Werkzeug, das
+# zaehlt, nicht eines, das nur liest.
+_MESS_EVIDENCE_RE = re.compile(
+    r"\bpdfinfo\b|\bpdftotext\b|\bwc\s+-[a-zA-Z]*[wlcm]\b|\bgrep\s+-[a-zA-Z]*c\b", re.I
+)
+
+
+def _messzahl_ungehedgt_fires(text: str) -> bool:
+    """True, wenn mindestens EIN Zahl+Einheit-Treffer nicht unmittelbar von einem
+    Hedge-Wort eingeleitet wird.
+
+    Die Hedge-Pruefung ist LOKAL (Fenster unmittelbar vor dem Treffer), nicht
+    satzweit wie bei `_affirmative_cause_fires`: der Realfall-Satz "At 22 pages and
+    roughly 7,800 words" traegt in EINEM Satz sowohl einen unbehedgten Treffer
+    (22 pages — das war die falsche Zahl) als auch einen behedgten (roughly 7,800
+    words). Eine satzweite Sperre haette den unbehedgten Treffer mitgeloescht und
+    genau den Fall verfehlt, an dem dieses Muster gebaut wurde.
+    """
+    for sentence in _SENTENCE_SPLIT_RE.split(text):
+        for m in _MESSZAHL_RE.finditer(sentence):
+            fenster = sentence[max(0, m.start() - _MESSZAHL_HEDGE_FENSTER) : m.start()]
+            if not _MESSZAHL_HEDGE_RE.search(fenster):
+                return True
+    return False
 
 
 #: Woran ein Satz seinen Gegenstand nennt: Datei, PR/Issue, Lauf-ID, Repo,
@@ -978,6 +1054,38 @@ def main() -> int:
             "comment-before-merge (Status-/Bypass-Kommentar in derselben Befehlskette VOR "
             "`gh pr merge` — das Ergebnis kann der Kommentar noch nicht kennen)"
         )
+
+    # Entwurf-Messzahl (2026-09-07, eng begrenzte Ausweitung platform#2924): eigener
+    # Carrier UND eigene Korroboration, weil Mail-Entwuerfe (draft_mail.py/
+    # graph_mail.py --body-file) durch _GH_BODY_CARRIER_RE und BODY_EVIDENCE_TOKENS
+    # fallen — der Realfall trug weder "verifiziert" noch "passed", sondern eine
+    # falsche Zahl vor einer Masseinheit ("22 pages" statt 23, laut pdfinfo).
+    # ADVISORY-SONDERWEG (Owner-Vorgabe #2924): diese Art blockt NIE, auch nicht im
+    # blocking-Mode — sie landet in `fired_advisory`, nicht in `fired`, und die
+    # Routing-Logik unten gibt fuer einen reinen Advisory-Fall immer die
+    # additionalContext-Form aus. Ein Mail-Entwurf soll trotz Warnzeile abgelegt
+    # werden koennen; blockiert wird nur, wenn eine der uebrigen, haerteren Arten
+    # gleichzeitig feuert.
+    fired_advisory: list[str] = []
+    try:
+        entwurf_bodies = _entwurf_bodies(tool_inputs)
+    except Exception:  # noqa: BLE001 — Scanner darf nie werfen
+        entwurf_bodies = []
+    if entwurf_bodies:
+        entwurf_text = "\n".join(entwurf_bodies)
+        # Selbst-Korroboration verhindern wie im Body-Zweig oben: der Entwurfstext
+        # landet (als Write-/Bash-Input) auch in evidence_text.
+        ev_ohne_entwurf = evidence_text
+        for b in entwurf_bodies:
+            ev_ohne_entwurf = ev_ohne_entwurf.replace(b, "")
+            ev_ohne_entwurf = ev_ohne_entwurf.replace(json.dumps(b)[1:-1], "")
+        if _messzahl_ungehedgt_fires(entwurf_text) and not _MESS_EVIDENCE_RE.search(
+            ev_ohne_entwurf
+        ):
+            fired_advisory.append(
+                "entwurf-messzahl (Maßzahl im Mail-Entwurf ohne zählendes Kommando im Turn)"
+            )
+
     if kalibrier_fall and not subjekt_scharf:
         # Im Kalibrierfenster wird der Fall PROTOKOLLIERT, nicht gemeldet: so
         # entstehen Messdaten, ohne die Sitzung mit Hinweisen zu fluten. Scharf
@@ -995,10 +1103,16 @@ def main() -> int:
         except Exception:  # noqa: BLE001 — Protokoll darf den Hook nie kippen
             pass
 
-    if not fired:
+    if not fired and not fired_advisory:
         return 0
 
-    kinds = ", ".join(sorted(set(fired)))
+    kinds = ", ".join(sorted(set(fired) | set(fired_advisory)))
+    # Reiner Advisory-Fall: nur `fired_advisory` traegt Treffer, keine der
+    # haerteren Arten. Dann protokolliert dieser Zug als advisory, unabhaengig
+    # vom globalen `_mode()` — der Sondereg gilt fuer das PROTOKOLL genauso wie
+    # fuer die Ausgabe weiter unten.
+    nur_advisory = bool(fired_advisory) and not fired
+    modus_fuer_protokoll = "advisory" if nur_advisory else _mode()
 
     # Treffer mitschreiben (Retro 9d861a, Befund #1). Dieser Scanner meldete bis
     # 2026-08-16 ausschliesslich in den Sitzungs-Kontext und schrieb NICHTS auf
@@ -1013,7 +1127,7 @@ def main() -> int:
         turn=assistant_text,
         beleg=erster_beleg,
         session=str(event.get("session_id", "")),
-        modus=_mode(),
+        modus=modus_fuer_protokoll,
     )
 
     msg = (
@@ -1030,11 +1144,15 @@ def main() -> int:
         "auf einem Log, das den Treffer enthielt; ANSI-Codes im Muster). "
         "(Quelle: ~/.claude/policies/evidence-discipline.md; Backstop nach Vorfall 2026-06-01.)"
     )
-    if _mode() == "blocking":
+    if _mode() == "blocking" and not nur_advisory:
         # decision:block statt Exit 2 — bewusst: Exit 2 wird teils als Nutzer-Ablehnung
         # gelesen und würde den Turn stallen statt korrigieren (KONZ-038 EXT2-M28-5).
         # Der stop_hook_active-Guard oben begrenzt auf EINEN erzwungenen Korrektur-Zug
         # pro Turn (kein Block-Loop; Vorfall 2026-07-03: 9 Blocks in Folge).
+        # `nur_advisory` (Owner-Vorgabe #2924): feuert AUSSCHLIESSLICH die
+        # Mail-Entwurf-Messzahl, blockt dieser Zweig nicht — der Entwurf soll trotz
+        # Warnzeile abgelegt werden koennen. Sobald eine haertere Art gleichzeitig
+        # feuert, ist `nur_advisory` False und dieser Zweig blockt wie gewohnt.
         reason = (
             "Automatischer Evidenz-Check (Gate claim-before-cheapest-check, KONZ-038 "
             "§5.2 — dies ist KEINE Nutzer-Ablehnung, sondern Maschinen-Feedback): "
