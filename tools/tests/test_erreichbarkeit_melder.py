@@ -9,6 +9,7 @@ erfuellen, die reale Datei nicht.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import urllib.error
 
@@ -151,3 +152,79 @@ def test_should_nur_erlaubte_betriebsstatus_werte_verwenden():
         d["name"] for d in dienste if d["betriebsstatus"] not in em.STATUS_ERLAUBT
     ]
     assert falsch == [], f"unbekannter betriebsstatus: {falsch}"
+
+
+# ── Gemeinsame Melder-Huelle (platform#2944) ────────────────────────────────
+
+
+def _ergebnis_zeile(name, domain, klasse, grund=None):
+    # Traegt bewusst ein `host`-Feld mit einem internen Namen — die Gegenprobe
+    # unten prueft, dass genau dieses Feld NICHT in die Ausgabe durchsickert.
+    return {
+        "name": name,
+        "domain": domain,
+        "host": "sehr-interner-hostname-01",
+        "klasse": klasse,
+        "grund": grund,
+    }
+
+
+def test_should_map_the_four_buckets_into_the_shared_shape():
+    ergebnis = {
+        "befunde": [
+            _ergebnis_zeile("bahn-hub", "bahn-hub.iil.pet", "route-ohne-backend")
+        ],
+        "geparkt": [
+            _ergebnis_zeile(
+                "frist-hub",
+                "frist-hub.iil.pet",
+                "ziel-loest-nicht-auf",
+                grund="wartet auf Hosting-ADR",
+            )
+        ],
+        "stumme_ausnahme": [],
+        "ok": [_ergebnis_zeile("doc-hub", "doc-hub.iil.pet", "erreichbar")],
+    }
+    liste = em._ergebnis_liste(ergebnis)
+    nach_name = {z["name"]: z for z in liste}
+    assert nach_name["bahn-hub"]["erreichbar"] is False
+    assert nach_name["frist-hub"]["erreichbar"] is False
+    assert nach_name["frist-hub"]["grund"] == "wartet auf Hosting-ADR"
+    assert nach_name["doc-hub"]["erreichbar"] is True
+    # Gegenprobe: der interne Host-Name steht im Eingabe-Dict (oben), darf aber
+    # in keiner Ausgabezeile auftauchen — weder als Feld noch als Wert irgendwo.
+    for z in liste:
+        assert "host" not in z
+        assert "sehr-interner-hostname-01" not in json.dumps(z)
+
+
+def test_should_write_result_via_cli_without_changing_behavior_when_flag_absent(
+    tmp_path,
+):
+    """`--ergebnis-datei` ist rein additiv: ohne sie bleibt der Melder wie vorher."""
+    ports = tmp_path / "ports.yaml"
+    ports.write_text(
+        "services:\n"
+        "  test-hub:\n"
+        "    domain_prod: test-hub.iil.pet\n"
+        "    prod_host: sehr-interner-hostname-01\n",
+        encoding="utf-8",
+    )
+
+    code_ohne = em.main(["--kurz", "--offline", "--ports", str(ports)])
+    assert code_ohne == 0
+
+    ziel = tmp_path / "ergebnis.json"
+    code_mit = em.main(
+        ["--kurz", "--offline", "--ports", str(ports), "--ergebnis-datei", str(ziel)]
+    )
+    assert code_mit == 0
+    assert ziel.exists()
+
+    daten = em.melder_ergebnis.lies(ziel)
+    assert daten is not None
+    assert daten["melder"] == "erreichbarkeit_melder"
+    assert [e["name"] for e in daten["ergebnis"]] == ["test-hub"]
+
+    roh = ziel.read_text(encoding="utf-8")
+    assert "sehr-interner-hostname-01" not in roh

@@ -1,14 +1,18 @@
 """Tests für tools/backup_meter.py (ADR-241 §4)."""
 
+import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import melder_ergebnis  # noqa: E402
 from backup_meter import (  # noqa: E402
+    _ergebnis_liste,
     evaluate_app,
     evaluate_drill,
+    main,
     newest_snapshot_age_hours,
     render_report,
 )
@@ -383,3 +387,98 @@ def test_should_not_claim_freshness_for_a_protocol_without_a_date(tmp_path):
     result = evaluate_drill(tmp_path, NOW, enforce=True)
     assert result["status"] == "violation"
     assert "ohne Datum im Namen" in result["reasons"][0]
+
+
+# ── Gemeinsame Melder-Huelle (platform#2944) ────────────────────────────────
+
+
+def test_should_report_alter_and_frisch_per_app():
+    """`_ergebnis_liste()` greift nur ab, was `evaluate_app()` schon berechnet hat."""
+    entry_ok = {"app": "risk-hub", "tag": "risk-hub", "max_age_hours": 26}
+    entry_missing = {"app": "no-hub", "tag": "no-hub", "max_age_hours": 26}
+    entry_deferred = {"app": "frozen-hub", "deferred": True, "reason": "eingefroren"}
+    snaps = [_snap("risk-hub", 4)]
+    results = [
+        evaluate_app(entry_ok, snaps, NOW),
+        evaluate_app(entry_missing, snaps, NOW),
+        evaluate_app(entry_deferred, snaps, NOW),
+    ]
+    liste = _ergebnis_liste(
+        [entry_ok, entry_missing, entry_deferred], snaps, results, NOW
+    )
+    nach_app = {z["app"]: z for z in liste}
+    assert nach_app["risk-hub"]["frisch"] is True
+    assert abs(nach_app["risk-hub"]["alter_stunden"] - 4.0) < 0.05
+    assert nach_app["no-hub"]["frisch"] is False
+    assert nach_app["no-hub"]["alter_stunden"] is None
+    assert nach_app["frozen-hub"]["frisch"] is None
+    assert nach_app["frozen-hub"]["alter_stunden"] is None
+
+
+def test_should_report_scaffold_mode_as_unmeasured_not_green():
+    """`snapshots=None` (Offsite noch nicht scharf) → `frisch: null`, kein Alter."""
+    entry = {"app": "risk-hub", "tag": "risk-hub"}
+    results = [evaluate_app(entry, None, NOW)]
+    liste = _ergebnis_liste([entry], None, results, NOW)
+    assert liste == [{"app": "risk-hub", "frisch": None, "alter_stunden": None}]
+
+
+def test_should_write_result_via_cli_without_changing_behavior_when_flag_absent(
+    tmp_path,
+):
+    """`--ergebnis-datei` ist additiv: ohne sie bleiben Exit-Code und Report gleich.
+
+    Gegenprobe: der restic-Snapshot traegt einen echten Hetzner-Volume-Pfad (wie
+    in Prod) — der darf in der Ergebnisdatei NICHT auftauchen, nur Zahlen/Booleans.
+    """
+    expected = tmp_path / "expected.json"
+    expected.write_text(
+        json.dumps([{"app": "risk-hub", "tag": "risk-hub", "max_age_hours": 26}])
+    )
+    frisch = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    snapshots = tmp_path / "snapshots.json"
+    snapshots.write_text(
+        json.dumps(
+            [
+                {
+                    "time": frisch,
+                    "tags": ["risk-hub"],
+                    "paths": [
+                        "/mnt/HC_Volume_105908261/docker/volumes/risk_hub_db/_data"
+                    ],
+                }
+            ]
+        )
+    )
+    drills = tmp_path / "drills"
+    drills.mkdir()
+
+    basis_argv = [
+        "--expected",
+        str(expected),
+        "--snapshots",
+        str(snapshots),
+        "--drills-dir",
+        str(drills),
+    ]
+    ziel = tmp_path / "ergebnis.json"
+
+    code_ohne = main(basis_argv)
+    assert not ziel.exists()
+
+    code_mit = main([*basis_argv, "--ergebnis-datei", str(ziel)])
+    assert code_mit == code_ohne
+    assert ziel.exists()
+
+    daten = melder_ergebnis.lies(ziel)
+    assert daten is not None
+    assert daten["melder"] == "backup_meter"
+    assert len(daten["ergebnis"]) == 1
+    zeile = daten["ergebnis"][0]
+    assert zeile["app"] == "risk-hub"
+    assert zeile["frisch"] is True
+    assert 0 <= zeile["alter_stunden"] < 2
+
+    roh = ziel.read_text(encoding="utf-8")
+    assert "HC_Volume_105908261" not in roh
+    assert "/mnt/" not in roh
