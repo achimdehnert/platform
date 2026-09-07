@@ -123,6 +123,7 @@ hosts:
     historie:
       - "2026-07-30: Swap-Anschlag — Ursache sind Nicht-Container-Dienste (ollama, robo-lab-Sims), NICHT Windsurf (Korrektur 2026-08-30)"
       - "2026-08-30: 10 undeklarierte Container / 4 oeffentliche Hostnamen gegen auflage.prod_container (platform#2507); dev-hub laeuft hier als veraltete Kopie neben prod (S2)"
+      - "2026-09-07: docker-prune.timer geplant (infra/host-maintenance/docker-daemon.{json,md} + docker-prune.{sh,service,timer}) — taeglich 05:30, nur dangling Images + Builder-GC; IaC-only, Apply = Owner (Refs #2895)"
     hosts_runners: [staging-ci]
     auflage:
       prod_container: false
