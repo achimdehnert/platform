@@ -339,6 +339,22 @@ Repo-Zugriff** → kritisiere **Methode/Struktur/Blindflecken/Score-Logik/Soll-A
 Evidenz-Recheck bleibt Phase 3/3b/5. **Loop:** wiederkehrende Methoden-Kritik fließt als
 Verbesserung in **diese Skill** (Changelog).
 
+**Rückweg — der Kanal läuft manuell, also braucht die Antwort einen Ort (Owner-Vorgabe
+2026-09-07):** Der Owner holt die Zweitmeinung über seine Flatrate-Oberfläche und kopiert sie
+von Hand zurück; es gibt **keinen** automatischen Rückkanal. Die Antwort wird abgelegt als
+`~/shared/session-retro-extern-<datum>-<repo>-<sid>-extern1.md`, ein zweiter Anbieter als
+`…-extern2.md`. Liegt eine solche Datei vor, ist sie **Pflichtlektüre der nächsten Retro
+desselben Scopes**: jeder Punkt bekommt ein Verdikt **hält / widerlegt / unentscheidbar** mit
+Beleg, Überlebende gehen in den Changelog dieser Skill, der Rest wird mit Grund verworfen.
+Ergebnis als Abschnitt `## Extern-Auswertung` im nächsten Report.
+
+⚠️ **Fehlende `-extern*.md` heißt NICHT „keine Antwort" und NIE „kein Leser".** Genau dieser
+Fehlschluss lief zweimal: am 2026-09-02 gegen `adr-handoff-extern` (platform#2088, 19 von 24
+angeblich „ohne Antwort" — tatsächlich alle beantwortet) und am 2026-09-07 in der Retro
+`c1ba5d`, die Phase 6 deshalb als Streichkandidat führte. Owner-Korrektur beide Male: der
+Handoff wird häufig genutzt, nur eben per Copy-and-paste. Die Abwesenheit einer Datei belegt
+die Abwesenheit einer Handlung nur, wenn die Handlung diese Datei erzeugen **muss**.
+
 ## Phase 7 — Streichbahn (PFLICHT, jeder Footprint; NEU 2026-09-02, platform#2690 K5)
 Genau **eine** Frage, am Ende jeder Retro: *„Welche Phase / welcher Melder / welche Skill-Sektion
 / welches Gate gehört WEG?"* Ohne sie wächst der Loop monoton — jede Retro darf anbauen, keine
@@ -421,6 +437,11 @@ ist selbst ein Befund — dieselbe Regel wie GATE-PFLICHT ≥2.
 
 Vollständige Historie: `docs/governance/session-skills-lehren/retro.md` § Changelog-Historie.
 
+- 2026-09-07: **Phase 6 bekommt einen Rückweg** (Owner-Vorgabe, Retro `c1ba5d`). Externe
+  Antworten liegen als `…-extern1.md`/`-extern2.md` in `~/shared/` und sind Pflichtlektüre der
+  nächsten Retro desselben Scopes (Verdikt je Punkt, Abschnitt `## Extern-Auswertung`). Der
+  Streichkandidat `retro-phase-6-extern-handoff` ist damit **erledigt, nicht gestrichen**: die
+  Belegart „kein Leser" war falsch — der Kanal läuft manuell über den Owner.
 - 2026-09-02: **Kontext-Diät + zwei neue Bahnen** (platform#2690 K5). Lehren, Realfälle und
   Changelog-Historie wörtlich in die Begleitdoku, je ein Verweis im Skill. **Neu:** Phase 3b
   Widerlegungsbahn (T4, PFLICHT ab `full`) + Phase 7 Streichbahn (PFLICHT, jeder Footprint).
