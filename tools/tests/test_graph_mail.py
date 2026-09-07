@@ -200,9 +200,11 @@ def test_should_build_file_attachment_payload(tmp_path):
     assert _b64.b64decode(payload["contentBytes"]) == b"%PDF-1.4 fake bytes"
 
 
-def test_should_attach_files_posts_to_attachments_endpoint(monkeypatch):
+def test_should_attach_files_posts_to_attachments_endpoint(monkeypatch, tmp_path):
     mod = _load()
     calls = []
+    f = tmp_path / "x.pdf"
+    f.write_bytes(b"%PDF-1.4 klein")
     monkeypatch.setattr(
         mod,
         "_file_attachment_payload",
@@ -214,8 +216,136 @@ def test_should_attach_files_posts_to_attachments_endpoint(monkeypatch):
         return mod._Resp(201, "{}")
 
     monkeypatch.setattr(mod, "_http", fake_http)
-    mod._attach_files("tok", "MSG123", ["/tmp/x.pdf"])
+    mod._attach_files("tok", "MSG123", [str(f)])
     assert calls == [("POST", f"{mod.GRAPH}/me/messages/MSG123/attachments")]
+
+
+# --- #2875: große Anhänge (>=3 MiB) über Graph-Upload-Session ----------------
+# Fixture wird generiert (Repo ist öffentlich) — keine echten Dateien/Personendaten.
+
+
+def _grosse_datei(tmp_path, size=3 * 1024 * 1024 + 512 * 1024):
+    """3,5-MiB-Fixture aus generierten Bytes (kein echtes Dokument)."""
+    f = tmp_path / "gross.bin"
+    f.write_bytes(b"\x00" * size)
+    return f, size
+
+
+def test_should_use_upload_session_for_file_over_3mib(monkeypatch, tmp_path):
+    mod = _load()
+    f, size = _grosse_datei(tmp_path)  # 3,5 MiB, generiert
+    # Chunk-Größe fürs Testen verkleinert, damit der Fixture-Auftrag (3,5 MiB,
+    # kleiner als der reale 4-MiB-Chunk) die Mehrfach-Chunk-Logik trotzdem übt.
+    monkeypatch.setattr(mod, "UPLOAD_CHUNK_SIZE", 1 * 1024 * 1024)
+    calls = []
+
+    def fake_http(method, url, **k):
+        calls.append((method, url, k.get("headers") or {}, k.get("raw_data")))
+        if method == "POST" and url.endswith("/attachments/createUploadSession"):
+            assert k["json_body"]["AttachmentItem"] == {
+                "attachmentType": "file",
+                "name": "gross.bin",
+                "size": size,
+            }
+            return mod._Resp(201, '{"uploadUrl": "https://upload.example/session1"}')
+        assert method == "PUT"
+        return mod._Resp(201, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    mod._attach_files("tok", "MSG123", [str(f)])
+
+    session_calls = [c for c in calls if c[1].endswith("createUploadSession")]
+    put_calls = [c for c in calls if c[0] == "PUT"]
+    assert len(session_calls) == 1
+    assert (
+        "Authorization" in session_calls[0][2]
+    )  # createUploadSession braucht das Token
+
+    # Mehrere Chunks (durch die verkleinerte Chunk-Größe erzwungen), jeder <=
+    # UPLOAD_CHUNK_SIZE, Content-Range deckt die Datei lückenlos ab, kein Auth-Header.
+    assert len(put_calls) == 4
+    covered = 0
+    for _, url, headers, raw in put_calls:
+        assert url == "https://upload.example/session1"
+        assert "Authorization" not in headers
+        assert len(raw) <= mod.UPLOAD_CHUNK_SIZE
+        rng = headers["Content-Range"]
+        assert rng.startswith("bytes ")
+        span, total = rng[len("bytes ") :].split("/")
+        start, end = (int(x) for x in span.split("-"))
+        assert int(total) == size
+        assert headers["Content-Length"] == str(len(raw))
+        assert end - start + 1 == len(raw)
+        covered += len(raw)
+    assert covered == size
+
+
+def test_should_keep_inline_path_unchanged_under_3mib(monkeypatch, tmp_path):
+    mod = _load()
+    f = tmp_path / "klein.pdf"
+    f.write_bytes(b"%PDF-1.4 " + b"x" * 1000)
+    calls = []
+
+    def fake_http(method, url, **k):
+        calls.append((method, url))
+        return mod._Resp(201, "{}")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    mod._attach_files("tok", "MSG123", [str(f)])
+    assert calls == [("POST", f"{mod.GRAPH}/me/messages/MSG123/attachments")]
+
+
+def test_should_delete_draft_when_attach_fails_in_draft_path(monkeypatch, tmp_path):
+    mod = _load()
+    calls = []
+
+    def fake_http(method, url, **k):
+        calls.append((method, url))
+        if method == "POST" and url.endswith("/me/messages"):
+            return mod._Resp(201, '{"id": "neuerEntwurf"}')
+        if method == "DELETE":
+            return mod._Resp(204, "")
+        return mod._Resp(500, "kaputt")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    monkeypatch.setattr(
+        mod,
+        "_attach_files",
+        lambda tok, msg_id, attach: (_ for _ in ()).throw(
+            SystemExit("FEHLER: Anhang x.pdf fehlgeschlagen HTTP 500")
+        ),
+    )
+    try:
+        mod.cmd_draft("tok", "a@b.c", "Betreff", "Text", None, attach=["/x.pdf"])
+        assert False, "sys.exit erwartet"
+    except SystemExit as e:
+        assert "FEHLER" in str(e.code)
+        assert "aufgeräumt" in str(e.code)
+    assert ("DELETE", f"{mod.GRAPH}/me/messages/neuerEntwurf") in calls
+
+
+def test_should_not_delete_on_attach_to_failure(monkeypatch):
+    mod = _load()
+    calls = []
+
+    def fake_http(method, url, **k):
+        calls.append((method, url))
+        return mod._Resp(500, "kaputt")
+
+    monkeypatch.setattr(mod, "_http", fake_http)
+    monkeypatch.setattr(
+        mod,
+        "_attach_files",
+        lambda tok, msg_id, attach: (_ for _ in ()).throw(
+            SystemExit("FEHLER: Anhang x.pdf fehlgeschlagen HTTP 500")
+        ),
+    )
+    try:
+        mod.cmd_attach_to("tok", "fremderEntwurf", ["/x.pdf"])
+        assert False, "sys.exit erwartet"
+    except SystemExit:
+        pass
+    assert not any(m == "DELETE" for m, _ in calls)
 
 
 def test_should_strip_html_to_readable_text():
