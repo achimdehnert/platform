@@ -67,11 +67,36 @@ Seit 2026-08-30 (KONZ-platform-054 E2) drei Dinge mehr, alle aus derselben Messu
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+
+def _lade_melder_register_check():
+    """`melder_register_check.py` per Dateipfad laden, nicht per `import`.
+
+    Register-Lader wiederverwenden statt zweite Kopie (#2895): dieselbe
+    `lade_register()` wie `tools/melder_register_check.py --kurz` liest,
+    damit genau eine Stelle YAML->dict versteht. Ein normaler `import
+    melder_register_check` verlaesst sich auf `sys.path` — das traegt beim
+    Skriptaufruf (Python haengt das eigene Verzeichnis automatisch an) und
+    beim `import befund_journal` nach `sys.path.insert(...tools...)`, bricht
+    aber, sobald ein Aufrufer dieses Modul per `importlib.spec_from_file_
+    location` laedt (so tut es `tools/tests/test_befund_praezision.py`) —
+    dann ist `tools/` nirgends in `sys.path`. Der Dateipfad relativ zu
+    `__file__` ist ladeartunabhaengig.
+    """
+    pfad = Path(__file__).resolve().parent / "melder_register_check.py"
+    spec = importlib.util.spec_from_file_location("melder_register_check", pfad)
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul
+
+
+_mrc = _lade_melder_register_check()
 
 #: Nur lokal — die Notizen tragen Ausschnitte des eigenen Laufs (Charta Art. 2).
 JOURNAL = Path(
@@ -403,30 +428,66 @@ def urteile_dazu(daten: dict, fid: str, urteil: str, grund: str) -> dict | None:
     return eintrag
 
 
-def praezision(daten: dict) -> list[dict]:
-    """Je Melder-Phase: wie viele Befunde waren echt, wie viele Fehlalarm."""
+def _geschaerft_je_phase(register: list[dict]) -> dict[str, str]:
+    """Phase -> `geschaerft_am` aus der Registry, nur wo das Feld gesetzt ist."""
+    ergebnis = {}
+    for e in register:
+        if not isinstance(e, dict) or not e.get("phase"):
+            continue
+        datum = str(e.get("geschaerft_am") or "").strip()
+        if datum:
+            ergebnis[e["phase"]] = datum
+    return ergebnis
+
+
+def praezision(daten: dict, register: list[dict] | None = None) -> list[dict]:
+    """Je Melder-Phase: wie viele Befunde waren echt, wie viele Fehlalarm.
+
+    ``geschaerft_am`` aus `governance/melder-register.yaml` ist eine Null-
+    stellung MIT Datum, keine Loeschung: Urteile VOR diesem Datum zaehlen
+    nicht mehr in die Trefferquote — dieselbe Mechanik wie `revised` bei
+    `tools/gate_wirkung.py` (Zeile ~256), nur fuer Melder statt Gates. Ohne
+    das rechnet eine geschaerfte Phase weiter mit Urteilen aus der Zeit VOR
+    der Reparatur und bleibt WARN, obwohl die Ursache behoben ist — genau
+    das Muster, das #2895 fuer 0.7.4 prio-referenzen (PR #2890) meldete.
+
+    ``register`` ist bewusst ein reiner Parameter, keine versteckte Disk-Lesung
+    (dieselbe Trennung wie `herabstufungen()` in melder_register_check.py):
+    ohne Angabe gilt ``[]`` — keine Nullstellung, unveraendertes Verhalten.
+    `main()` laedt die echte Registry und reicht sie durch, damit ein blosser
+    CLI-Aufruf ohne Zusatzflag die Nullstellung sieht; ein Direktaufruf der
+    Funktion (Tests, andere Werkzeuge) bleibt deterministisch ohne Diskzugriff.
+    """
+    geschaerft = _geschaerft_je_phase(register or [])
     je_phase: dict[str, dict] = {}
     for u in daten.get("urteile", []):
-        z = je_phase.setdefault(
-            u["phase"], {"phase": u["phase"], "echt": 0, "falsch": 0}
-        )
+        phase = u["phase"]
+        schwelle = geschaerft.get(phase)
+        if schwelle and str(u.get("datum") or "") < schwelle:
+            continue  # Urteil vor der Nullstellung — zaehlt nicht mehr.
+        z = je_phase.setdefault(phase, {"phase": phase, "echt": 0, "falsch": 0})
         if u["urteil"] == "echt":
             z["echt"] += 1
         elif u["urteil"] == "falsch":
             z["falsch"] += 1
+    # Ein frisch geschaerfter Melder ohne EIN neues Urteil soll sichtbar
+    # "0 Urteile seit ..." zeigen, statt spurlos aus dem Bericht zu fallen.
+    for phase in geschaerft:
+        je_phase.setdefault(phase, {"phase": phase, "echt": 0, "falsch": 0})
     ergebnis = []
     for z in je_phase.values():
         gesamt = z["echt"] + z["falsch"]
         z["urteile"] = gesamt
         z["praezision"] = (z["echt"] / gesamt) if gesamt else None
         z["bewertbar"] = gesamt >= MIN_URTEILE
+        z["geschaerft_am"] = geschaerft.get(z["phase"])
         ergebnis.append(z)
     ergebnis.sort(key=lambda z: (z["praezision"] if z["bewertbar"] else 2, z["phase"]))
     return ergebnis
 
 
-def praezisions_bericht(daten: dict) -> str:
-    zeilen = praezision(daten)
+def praezisions_bericht(daten: dict, register: list[dict] | None = None) -> str:
+    zeilen = praezision(daten, register)
     if not zeilen:
         return (
             "Keine Urteile erfasst. Ein Melder-Befund wird beim Abschluss mit\n"
@@ -437,16 +498,18 @@ def praezisions_bericht(daten: dict) -> str:
     aus = ["Melder-Praezision (echt / Fehlalarm):", ""]
     schwach = []
     for z in zeilen:
+        seit = z.get("geschaerft_am")
+        marke_seit = f" (seit {seit}, {z['urteile']} Urteile)" if seit else ""
         if not z["bewertbar"]:
             aus.append(
-                f"  {z['phase']:<28} {z['echt']} echt / {z['falsch']} falsch  "
+                f"  {z['phase']:<28} {z['echt']} echt / {z['falsch']} falsch{marke_seit}  "
                 f"— unter {MIN_URTEILE} Urteilen, NICHT bewertbar"
             )
             continue
         quote = z["praezision"]
         marke = "🚨" if quote < PRAEZISION_SCHWELLE else "  "
         aus.append(
-            f"{marke}{z['phase']:<28} {z['echt']} echt / {z['falsch']} falsch  "
+            f"{marke}{z['phase']:<28} {z['echt']} echt / {z['falsch']} falsch{marke_seit}  "
             f"= {quote:.0%}"
         )
         if quote < PRAEZISION_SCHWELLE:
@@ -614,6 +677,12 @@ def main(argv: list[str] | None = None) -> int:
         "--repo", default="platform", help="eigenes Repo (Default: platform)"
     )
     p.add_argument("--datei", default=None, help="Journal-Pfad (Tests)")
+    p.add_argument(
+        "--register",
+        type=Path,
+        default=_mrc.DEFAULT_REGISTER,
+        help="Melder-Registry fuer geschaerft_am (Default: governance/melder-register.yaml)",
+    )
     a = p.parse_args(argv)
 
     pfad = Path(a.datei) if a.datei else JOURNAL
@@ -687,12 +756,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{urteil}: {fid} — {text}")
         return 0
 
+    if a.praezision:
+        # Registry nur hier geladen (main-Zeitpunkt), nicht in praezision()
+        # selbst — sonst haengt eine reine Funktion an einer Disk-Lesung und
+        # jeder Direktaufruf (Tests, andere Werkzeuge) wird nicht-deterministisch.
+        register = _mrc.lade_register(a.register)
+
     if a.praezision and a.json:
-        print(json.dumps(praezision(daten), ensure_ascii=False, indent=1))
+        print(json.dumps(praezision(daten, register), ensure_ascii=False, indent=1))
         return 0
 
     if a.praezision:
-        zeilen = praezision(daten)
+        zeilen = praezision(daten, register)
         schwach = [
             z
             for z in zeilen
@@ -710,7 +785,7 @@ def main(argv: list[str] | None = None) -> int:
                 for z in schwach[1:5]:
                     print(f"  · {z['phase']} — {z['praezision']:.0%}")
             return 0
-        print(praezisions_bericht(daten))
+        print(praezisions_bericht(daten, register))
         return 0
 
     if a.verankert:

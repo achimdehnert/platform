@@ -20,6 +20,15 @@
 #                       die Selbst-Herabstufung verlangt mehr Evidenz, bevor sie
 #                       eine Phase leiser macht).
 #   runbook             Anker im Runner-Dokument, Form "0.R#<phase-id>".
+#   geschaerft_am       OPTIONAL, Form "YYYY-MM-DD". Eine Nullstellung MIT Datum,
+#                       keine Loeschung: Urteile VOR diesem Datum zaehlen nicht
+#                       mehr in die Trefferquote (tools/befund_journal.py
+#                       --praezision). Dieselbe Mechanik wie `revised` bei
+#                       tools/gate_wirkung.py (Zeile ~256), nur fuer Melder statt
+#                       Gates — ein geschaerfter Melder soll sich ueber neue
+#                       Urteile erholen koennen, nicht ewig an alten Fehlalarmen
+#                       haengen bleiben. Weniger als MIN_URTEILE=3 Urteile SEIT
+#                       der Nullstellung heisst "NICHT bewertbar", nicht WARN.
 #
 # Karteileichen (Eintrag ohne passende Runner-Phase) und fehlende Eintraege
 # (Runner-Phase ohne Register-Zeile) meldet tools/melder_register_check.py --kurz.
@@ -256,6 +265,8 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.4"
+    # PR #2890: Folge-PR / "ist zu" / Fenster-Kappung
+    geschaerft_am: "2026-09-07"
 
   - phase: "0.7.5 hook-dist"
     leser: "UNBENANNT"
