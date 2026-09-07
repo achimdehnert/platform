@@ -16,9 +16,18 @@ Zwei Stufen, mit Absicht: `--aufraeumen` **verschiebt** Faelliges nach
 und auch das nur mit `--apply`. Ein Werkzeug, das in einem Schritt loescht, wird
 irgendwann versehentlich gestartet.
 
-Secrets sind ausgenommen: sie werden nie archiviert. Sie gehoeren nach der
-Uebernahme sofort geloescht (~/.secrets ist der Zielort) und werden hier nur
-gemeldet — sie liegen ohnehin unter der Aufsicht des Session-Start-Checks 0.5.1.
+Auch "unentschieden" ist kein Dauerzustand: die Schleuse ist ein Foerderband,
+kein Regal. Was seit >= 30 Tagen ohne Regel liegt, wird gemeldet; wer es auch
+nach 90 Tagen nicht einsortiert hat, gilt als faellig und wandert mit
+`--aufraeumen --apply` ins Archiv — reversibel, wie jede andere Klasse auch
+(Owner-Entscheid 2026-09-07, platform#2895 Item 57). Der Bericht weist beide
+Zustaende weiterhin getrennt aus: "unentschieden (in Frist)" vs. "unentschieden,
+faellig".
+
+Secrets sind ausgenommen: sie werden nie archiviert, auch nicht ueber die
+90-Tage-Regel fuer Unentschiedenes. Sie gehoeren nach der Uebernahme sofort
+geloescht (~/.secrets ist der Zielort) und werden hier nur gemeldet — sie
+liegen ohnehin unter der Aufsicht des Session-Start-Checks 0.5.1.
 """
 
 from __future__ import annotations
@@ -87,7 +96,18 @@ REGELN = [
 
 MELDE_TAGE = 30  # Die Schleuse ist ein Foerderband: was einen Monat liegt,
 # ist entweder angekommen oder gehoert woanders hin.
+
+# Owner-Entscheid 2026-09-07 (platform#2895 Item 57): "unentschieden" ist kein
+# Dauerzustand. Ab dieser Frist zaehlt ein unentschiedener Eintrag als faellig
+# und wandert mit --aufraeumen --apply ins Archiv — genau wie jede andere
+# Klasse. Secrets sind davon ausdruecklich ausgenommen (siehe SECRETS_TOP).
+UNENTSCHIEDEN_FRIST_TAGE = 90
+
 SECRETS = "inbox/secrets"
+# Top-level-Ordner, der die Secrets traegt. Er darf durch die
+# Unentschieden-Regel niemals faellig werden — Secrets werden nie archiviert,
+# egal wie alt sie oder ihr umgebender Ordner sind.
+SECRETS_TOP = SECRETS.split("/", 1)[0]
 
 
 def alter_tage(p: pathlib.Path, heute: datetime.date) -> int:
@@ -133,17 +153,26 @@ def sammeln(heute: datetime.date):
             continue
         bezeichnung, frist, ziel = klasse_von(p.name)
         tage = alter_tage(p, heute)
-        faellig = frist is not None and tage >= frist
-        offen = frist is None and tage >= MELDE_TAGE
+        unentschieden = frist is None and tage >= MELDE_TAGE
+        ist_secret_bereich = p.name == SECRETS_TOP
+        if frist is not None:
+            wirksame_frist = frist
+        elif unentschieden and not ist_secret_bereich:
+            # Unentschieden verfaellt nach UNENTSCHIEDEN_FRIST_TAGE genau wie
+            # jede benannte Klasse — Secrets-Ordner ausgenommen (siehe oben).
+            wirksame_frist = UNENTSCHIEDEN_FRIST_TAGE
+        else:
+            wirksame_frist = None
+        faellig = wirksame_frist is not None and tage >= wirksame_frist
         posten.append(
             {
                 "pfad": p,
                 "klasse": bezeichnung,
-                "frist": frist,
+                "frist": wirksame_frist,
                 "ziel": ziel,
                 "tage": tage,
                 "faellig": faellig,
-                "unentschieden": offen,
+                "unentschieden": unentschieden,
             }
         )
     return posten
@@ -151,7 +180,9 @@ def sammeln(heute: datetime.date):
 
 def bericht(posten, zeige_alle: bool) -> int:
     faellig = [x for x in posten if x["faellig"]]
-    offen = [x for x in posten if x["unentschieden"]]
+    unentschieden_alle = [x for x in posten if x["unentschieden"]]
+    unentschieden_faellig = [x for x in unentschieden_alle if x["faellig"]]
+    offen = [x for x in unentschieden_alle if not x["faellig"]]
     ruhig = [x for x in posten if not x["faellig"] and not x["unentschieden"]]
 
     print(
@@ -172,8 +203,8 @@ def bericht(posten, zeige_alle: bool) -> int:
 
     if offen:
         print(
-            f"UNENTSCHIEDEN ({len(offen)}) — liegt seit >= {MELDE_TAGE} Tagen "
-            f"ohne Regel:"
+            f"UNENTSCHIEDEN, IN FRIST ({len(offen)}) — liegt seit >= {MELDE_TAGE} "
+            f"Tagen ohne Regel, wird ab {UNENTSCHIEDEN_FRIST_TAGE} Tagen faellig:"
         )
         for x in sorted(offen, key=lambda y: -y["tage"])[:20]:
             print(
@@ -181,6 +212,15 @@ def bericht(posten, zeige_alle: bool) -> int:
             )
         if len(offen) > 20:
             print(f"  ... und {len(offen) - 20} weitere")
+        print()
+
+    if unentschieden_faellig:
+        print(
+            f"UNENTSCHIEDEN, FAELLIG ({len(unentschieden_faellig)}) — bereits "
+            f"oben unter FAELLIG gelistet, hier nur zur Einordnung:"
+        )
+        for x in sorted(unentschieden_faellig, key=lambda y: -y["tage"]):
+            print(f"  {x['tage']:>4} Tage  {x['pfad'].name}")
         print()
 
     if zeige_alle and ruhig:
@@ -200,7 +240,9 @@ def bericht(posten, zeige_alle: bool) -> int:
             print()
 
     print(
-        f"Zusammenfassung: {len(faellig)} faellig, {len(offen)} unentschieden, "
+        f"Zusammenfassung: {len(faellig)} faellig "
+        f"(davon {len(unentschieden_faellig)} unentschieden > "
+        f"{UNENTSCHIEDEN_FRIST_TAGE} Tage), {len(offen)} unentschieden (in Frist), "
         f"{len(ruhig)} in Frist."
     )
     return 0
