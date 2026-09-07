@@ -194,3 +194,56 @@ def test_should_not_let_decommissioning_turn_a_real_gap_green():
         },
     }
     assert ap.exit_code(ap.beurteile(kanaele, [], _JETZT)) != 0
+
+
+def test_should_write_a_machine_readable_result_without_secrets(tmp_path, monkeypatch):
+    """`--ergebnis-datei` legt die Urteile in der gemeinsamen Huelle ab.
+
+    Anlass platform#2944: der Melder meldete bisher und verschwand — der
+    Future-Readiness-Erheber hatte nichts zum Anschliessen. Der zweite Teil des
+    Tests ist der wichtigere: **platform ist oeffentlich**, also darf in die
+    Datei nur, was veroeffentlicht werden kann. Webhook-URLs und Secrets gehoeren
+    ausdruecklich nicht dazu.
+    """
+    import sys
+    from pathlib import Path as _P
+
+    sys.path.insert(0, str(_P(__file__).resolve().parents[2] / "tools"))
+    import melder_ergebnis as me
+
+    register = tmp_path / "alarmwege.yaml"
+    register.write_text(
+        "kanaele:\n"
+        "  test-kanal:\n"
+        "    art: discord-webhook\n"
+        '    ziel: "GitHub-Secret TEST_WEBHOOK"\n'
+        "    leser: Testlauf\n"
+        "    probe: keine\n"
+        "    max_alter_tage: 30\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TEST_WEBHOOK", "https://example.invalid/geheim/abc123")
+    ziel = tmp_path / "ergebnis.json"
+
+    ap.main(
+        [
+            "--pruefen",
+            "--kurz",
+            "--register",
+            str(register),
+            "--ergebnis-datei",
+            str(ziel),
+        ]
+    )
+
+    daten = me.lies(ziel)
+    assert daten is not None, "frisch geschriebenes Ergebnis muss lesbar sein"
+    assert daten["melder"] == "alarmweg_probe"
+    assert [e["kanal"] for e in daten["ergebnis"]] == ["test-kanal"]
+
+    # Gegenprobe: die Datei darf das Secret NICHT enthalten — und der Test kann
+    # es finden, wenn es drin waere (der Wert steht oben in der Env).
+    roh = ziel.read_text(encoding="utf-8")
+    assert "geheim" not in roh
+    assert "example.invalid" not in roh
+    assert "TEST_WEBHOOK" not in roh
