@@ -449,7 +449,7 @@ EOF
 done
 N_DEPLOY_REPOS=$(echo $DEPLOY_REPOS | wc -w)
 # Abdeckung immer mitschreiben (gescannt/gesamt) statt nur die Soll-Zahl zu nennen.
-# Stillgelegte Repos zaehlen bewusst NICHT in N_SCANNED (kein gh-Aufruf, s.o.) —
+# Stillgelegte Repos gehen nicht in N_SCANNED ein (kein gh-Aufruf, s.o.) —
 # ohne den Zusatz saehe das wie eine Abdeckungsluecke aus.
 COVERAGE="${N_SCANNED}/${N_DEPLOY_REPOS} Repos${DEPLOY_SKIPPED:+ · NICHT abfragbar:$DEPLOY_SKIPPED}${DEPLOY_STILLGELEGT:+ · stillgelegt (kein Befund):$DEPLOY_STILLGELEGT}"
 # Betroffene Repos maschinenlesbar mitgeben (K1, platform#2004): failure UND waiting
