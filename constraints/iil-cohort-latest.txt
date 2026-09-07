@@ -31,7 +31,7 @@ iil-gpufw==0.1.1  # strategy=aktiv, released=2026-08-16
 iil-illustrationfw==0.6.0  # strategy=aktiv, released=2026-08-04
 iil-ingest==0.1.0  # strategy=aktiv, released=2026-05-05
 iil-klickdummy==1.35.0  # strategy=aktiv, released=2026-08-02
-iil-learnfw==0.5.4  # strategy=aktiv, released=2026-04-29
+iil-learnfw==0.6.0  # strategy=aktiv, released=2026-04-29
 iil-nl2cadfw==0.2.1  # strategy=aktiv, released=2026-06-14
 iil-outlinefw==0.3.2  # strategy=aktiv, released=2026-07-19
 iil-promptfw==0.8.1  # strategy=aktiv, released=2026-07-19
