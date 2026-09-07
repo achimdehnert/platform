@@ -47,19 +47,37 @@ bash "${GITHUB_DIR:-$HOME/github}/platform/tools/session_start_checks.sh" \
 
 | Phase | Bedeutung | kein Befund | Zug |
 |---|---|---|---|
+| `0.1 server-probe` | Prod-Server per TCP nicht erreichbar | — | `server_probe.py` direkt; MCP/SSH können hängen |
+| `0.2 platform-sync` | `platform`-Pull fehlgeschlagen (dirty/Netz) | — | dirty/Netz prüfen, Pull erneut |
 | `0.3 modellwechsel` | Modell ≠ `assessed_with` („bewertet ↔ läuft") | Rücksprung **auf** das bewertete Modell | MAJOR: Vollmachten weg (Runbook §3a), §2-Köder, #1640 · MINOR: Smoke §1 |
 | `0.4 GUARD(dirty/branch)` | fremde Session im Haupt-Tree möglich | — | nicht stashen/switchen (ADR-233), read-only weiter |
 | `0.4.1 BLOCK-Findings` | harte Repo-Health-Verstöße | — | zuerst fixen |
+| `0.4.2 adr-schema` | `iil-adrfw` nicht installiert | — | `pip install iil-adrfw>=0.4.0` |
 | `0.4.4 basis-abstand` | Worktree weit hinter `main` | keine Lease über der Schwelle | **vor** dem ersten Edit `git merge origin/main` |
+| `0.5.1 secret-zone` | Secret(s) in `~/shared/inbox/secrets` | Drop-Zone leer | nach `~/.secrets` reconcilen (KONZ-010) |
+| `0.5.2 schleuse` | Schleuse überfällig (KONZ-045) | nichts überfällig | `schleuse.py --aufraeumen --apply` |
 | `0.7 failure:<repos>` | Deploy im Repo rot | `bewusst abgelehnte Freigabe` (docs-only) | Deploy-Log lesen, User informieren; grün ≠ live |
 | `0.7 waiting>24h` | Run hängt am Environment-Gate, belegt die Concurrency-Group | — | Gate des ALTEN Runs via `pending_deployments` schließen, Zustand nach Commit-Blick |
+| `0.7.1 deploy-script` | Host-Kopie von `deploy.sh` weicht von Git ab | synchron | Freigabe: `--sync` ist Prod-Eingriff, Fleet-Blast-Radius |
+| `0.7.1b host-kopien` | verteilte Host-Datei weicht von Git ab | synchron | Freigabe: Host-Sync ist Prod-Eingriff |
+| `0.7.2 cron-melder` | Cron-Workflow dauerhaft rot / `ROT-IST-BEFUND`-Fund | OK | BEFUND reparieren, TRIAGE-Fund einordnen |
+| `0.7.3 opt-platform` | `/opt/platform`-Klon (Mail-Ingest) weicht ab | synchron/hinterher | Freigabe: `--sync` ist bewusster Prod-Eingriff |
+| `0.7.5 hook-dist` | aktive Hook-Kopie weicht ab, Selbstheilung fehlgeschlagen | selbst geheilt | Ursache prüfen, manuell verteilen |
 | `0.7.6 leseflaeche` | Prio-Zeilen zeigen auf Geschlossenes | `◌ NICHT pruefbar` = Abdeckungslücke | **vor** Arbeitsbeginn nachziehen, `befund_leseflaeche.py --alle-gesehen` |
 | `0.7.7 gate-wirkung` | gebautes Gate versagt, Befund 2×+ zurück | `zu-frueh`/`unerprobt` | im Board benennen, Behandlung in Retro 4/5a |
+| `0.7.8 zeitplan-wache` | GitHub hat `schedule`-Trigger still abgeschaltet | keiner abgeschaltet | `gh workflow enable`, Zeitplan reaktivieren |
+| `0.7.9 gate-deckung` | Slug ≥2× ungedeckt, Gate-Pflicht nicht eingelöst | keine offene Pflicht | Gate bauen oder declined-Eintrag mit Begründung |
+| `0.7.10 kennzahl-verfall` | markierte Kennzahl im Dokument veraltet | alle aktuell | Zahl im Dokument nachrechnen und korrigieren |
 | `0.7.11 erreichbarkeit` | **5xx** = Dienst tot · **NXDOMAIN** = Deklaration falsch | 401/403 (Cloudflare Access) | 5xx im Ziel-Repo, NXDOMAIN in `ports.yaml`; Ausnahme braucht `betriebsstatus_grund:` |
 | `0.7.12 prod-wirkung` | `RUECKSTAND:` = live ≠ `main` | `wartet auf Prod-Freigabe` bis 14 Tage | ins Board; nach 14 Tagen kippt die Zeile |
+| `0.7.14 policy-frische` | ausgelieferte Policy weicht von `origin/main` ab | inhaltsgleich | `refresh_pinned_policies.sh` erneut, Diff prüfen |
+| `0.7.15 namensdeckung` | Gate-Name nennt Fall, Drill berührt ihn nicht | keine Lücke | Drill um benannten Fall ergänzen |
 | `0.7.16 origin-tls` | `abgelaufen`/`laeuft-ab` = Renewal kaputt · `fallback-zertifikat` = **kein** Cert | `cloudflare-origin-ca`, `kein-tls-am-origin` | Renewal bzw. vhost/cert am Host reparieren |
 | `0.7.17 backup-deckung` | Volume ohne `pgdump`/`volumes`/`verzicht`/`anonym` = **UNGEDECKT** | `verzicht` **mit** Grund | nach Lage trennen: in Nutzung / Container steht / verwaist |
 | `0.7.18 speicher` | < 7 Tage bis voll oder < 10 % frei | — | Platte ins Board, Wachstum abstellen; Offsite zählt mit |
+| `0.7.20 umgebung` | Standort/antwortende App unklar oder falsch | eindeutig erkannt | vor Arbeitsbeginn klären, `ports.yaml` korrigieren |
+| `0.7.21 alarmweg` | Alarmkanal ungeprüft/erreicht niemand | belegt | Freigabe: Kanal/Secret reparieren |
+| `0.7.22 flottenbild` | Knoten unhealthy/restart/Swap-Platte ≥90% | alles grün | Knoten prüfen, `/infra-cleanup` |
 | `0.7.23 melder-register` | Phase ohne Eintrag / `leser: UNBENANNT` / Karteileiche | — | `melder_register_check.py --kurz`, Leser benennen |
 
 **Jede `◌`/`nicht messbar`/`SAMMELPHASE`-Zeile ist eine Lücke, kein Pass — als solche ins Board.**

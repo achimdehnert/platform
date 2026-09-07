@@ -43,22 +43,24 @@ melder:
     runbook: "0.R#0.0"
 
   - phase: "0.1 server-probe"
-    leser: "UNBENANNT"
+    # Zeile 122 session_start_checks.sh: WARN nur bei fehlgeschlagener TCP-Probe — Diagnose/Retry ist Agent-Handlung, kein Owner-Entscheid.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 50: server_probe.py direkt ausfuehren)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.1"
 
   - phase: "0.2 platform-sync"
-    leser: "UNBENANNT"
+    # Zeile 138 session_start_checks.sh: WARN nur bei fehlgeschlagenem `git pull --rebase` — dirty/Netz pruefen und erneut ziehen ist Agent-Handlung.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 51: dirty/Netz pruefen, Pull erneut)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.2"
 
   - phase: "0.3 modellwechsel"
-    # Bisher Karteileiche im Register (fehlender Eintrag). WARN-Tabelle session-start.md Zeile 50: MAJOR = Vollmachten weg (Runbook §3a) — Sicherheits-/Vollmachtenfrage, Owner-Entscheid; MINOR bleibt Agent-Smoke.
-    leser: "Owner via Session-Start-Board (session-start.md Zeile 50, MAJOR-Fall: Vollmachten weg)"
+    # Bisher Karteileiche im Register (fehlender Eintrag). WARN-Tabelle session-start.md Zeile 52 (verschoben durch #2895-Register-Ergaenzung): MAJOR = Vollmachten weg (Runbook §3a) — Sicherheits-/Vollmachtenfrage, Owner-Entscheid; MINOR bleibt Agent-Smoke.
+    leser: "Owner via Session-Start-Board (session-start.md Zeile 52, MAJOR-Fall: Vollmachten weg)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -72,15 +74,16 @@ melder:
     runbook: "0.R#0.4.1"
 
   - phase: "0.4.2 adr-schema"
-    leser: "UNBENANNT"
+    # Zeile 290 session_start_checks.sh: WARN nur wenn `iil-adrfw` fehlt — Fix ist ein pip-install, mechanische Agent-Handlung.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 55: pip install iil-adrfw>=0.4.0)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.4.2"
 
   - phase: "0.4.4 basis-abstand"
-    # WARN-Tabelle session-start.md Zeile 53: Zug "vor dem ersten Edit git merge origin/main" — Agent fuehrt das selbst aus.
-    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 53: git merge origin/main)"
+    # WARN-Tabelle session-start.md Zeile 56 (verschoben durch #2895-Register-Ergaenzung): Zug "vor dem ersten Edit git merge origin/main" — Agent fuehrt das selbst aus.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 56: git merge origin/main)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -109,14 +112,16 @@ melder:
     runbook: "0.R#0.4"
 
   - phase: "0.5.1 secret-zone"
-    leser: "UNBENANNT"
+    # Zeile 310 session_start_checks.sh: WARN meldet Secrets in der Drop-Zone, Reconcile nach ~/.secrets (KONZ-010) ist mechanische Agent-Handlung, kein Owner-Entscheid.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 57: nach ~/.secrets reconcilen)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.5.1"
 
   - phase: "0.5.2 schleuse"
-    leser: "UNBENANNT"
+    # Zeile 322 session_start_checks.sh: WARN meldet Ueberfaelliges in der Schleuse — `schleuse.py --aufraeumen --apply` ist die vorgesehene Agent-Handlung (KONZ-045).
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 58: schleuse.py --aufraeumen --apply)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -131,7 +136,7 @@ melder:
     runbook: "0.R#0.5"
 
   - phase: "0.6 adr156"
-    # Kein Eintrag in der WARN-Tabelle, aber im Troubleshooting-Absatz session-start.md (Zeile 76f.): "ADR-156 rot -> MCP-Server neustarten, verify-adr156.sh erneut" — Agent-Aktion.
+    # Kein Eintrag in der WARN-Tabelle, aber im Troubleshooting-Absatz session-start.md (Zeile 95f., verschoben durch #2895-Register-Ergaenzung): "ADR-156 rot -> MCP-Server neustarten, verify-adr156.sh erneut" — Agent-Aktion.
     leser: "Sitzungsagent via Session-Start-Board (session-start.md Troubleshooting: MCP-Server neustarten, verify-adr156.sh)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
@@ -139,7 +144,8 @@ melder:
     runbook: "0.R#0.6"
 
   - phase: "0.7.10 kennzahl-verfall"
-    leser: "UNBENANNT"
+    # Zeile 718 session_start_checks.sh: WARN meldet eine veraltete markierte Kennzahl — Nachrechnen/Korrigieren im Dokument ist Agent-Handlung.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 70: Kennzahl im Dokument nachrechnen und korrigieren)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -168,14 +174,16 @@ melder:
     runbook: "0.R#0.7.13"
 
   - phase: "0.7.14 policy-frische"
-    leser: "UNBENANNT"
+    # Zeile 868 session_start_checks.sh: WARN meldet ausgelieferte Policy-Datei != origin/main — Refresh erneut anstossen ist dieselbe Klasse wie 0.7.13 skill-dist (Agent-Handlung).
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 73: refresh_pinned_policies.sh erneut)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.14"
 
   - phase: "0.7.15 namensdeckung"
-    leser: "UNBENANNT"
+    # Zeile 889 session_start_checks.sh: WARN nur bei "luecke" (Fall benannt, Drill beruehrt ihn nicht) — Drill ergaenzen ist Agent-Handlung, kein Owner-Entscheid.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 74: Drill um benannten Fall ergaenzen)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -196,8 +204,8 @@ melder:
     runbook: "0.R#0.7.17"
 
   - phase: "0.7.18 speicher"
-    # WARN-Tabelle session-start.md Zeile 62: Zug "Platte ins Board, Wachstum abstellen; Offsite zaehlt mit" — Agent hat mit /infra-cleanup das Werkzeug dafuer.
-    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 62: Wachstum abstellen)"
+    # WARN-Tabelle session-start.md Zeile 77 (verschoben durch #2895-Register-Ergaenzung): Zug "Platte ins Board, Wachstum abstellen; Offsite zaehlt mit" — Agent hat mit /infra-cleanup das Werkzeug dafuer.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 77: Wachstum abstellen)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -211,49 +219,56 @@ melder:
     runbook: "0.R#0.7.19"
 
   - phase: "0.7.1b host-kopien"
-    leser: "UNBENANNT"
+    # Zeilen 504-506 session_start_checks.sh: WARN bei DRIFT/UNGEPRUEFT — host_datei_drift.py dokumentiert --sync als bewussten Prod-Eingriff, nie beilaeufig; Owner muss die Freigabe geben.
+    leser: "Owner via Session-Start-Board (session-start.md Zeile 62: Freigabe fuer Host-Sync, Prod-Eingriff)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.1b"
 
   - phase: "0.7.1 deploy-script"
-    leser: "UNBENANNT"
+    # Zeilen 487-489 session_start_checks.sh: WARN bei DRIFT/UNGEPRUEFT — deploy-script-drift.sh dokumentiert --sync als Prod-Eingriff mit Fleet-Blast-Radius, nie beilaeufig; Owner-Freigabe noetig.
+    leser: "Owner via Session-Start-Board (session-start.md Zeile 61: Freigabe fuer --sync, Fleet-Blast-Radius)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.1"
 
   - phase: "0.7.20 umgebung"
-    leser: "UNBENANNT"
+    # Zeilen 1117-1118 session_start_checks.sh: WARN bei leerem Output oder "UNBEKANNT" — Standort/Ziel-App vor Arbeitsbeginn klaeren ist Agent-Handlung an sich selbst, kein Owner-Entscheid.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 78: Standort/Ziel-App vor Arbeitsbeginn klaeren)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.20"
 
   - phase: "0.7.21 alarmweg"
-    leser: "UNBENANNT"
+    # Zeile 1029 session_start_checks.sh: WARN bei RC=1 (Alarmweg fehlt/ungeprueft) — Reparatur beruehrt Secret/Workflow, das Alarme an Menschen zustellt (Aussenwirkung, Security-Config) → Owner-Freigabe.
+    leser: "Owner via Session-Start-Board (session-start.md Zeile 79: Freigabe fuer Kanal/Secret-Reparatur)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.21"
 
   - phase: "0.7.22 flottenbild"
-    leser: "UNBENANNT"
+    # Zeile 1062 session_start_checks.sh: record uebernimmt den Status direkt aus dem Python-Block (WARN bei unhealthy/restart/Swap-Platte>=90%) — Knoten pruefen/`/infra-cleanup` ist dieselbe Agent-Klasse wie 0.7.18 speicher.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 80: Knoten pruefen, /infra-cleanup)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.22"
 
   - phase: "0.7.2 cron-melder"
-    leser: "UNBENANNT"
+    # Zeilen 524-527 session_start_checks.sh: WARN bei BEFUND (Melder-Workflow rot, reparieren) / TRIAGE (ROT-IST-BEFUND-Fund einordnen) / UNGEPRUEFT — beides Agent-Handlung, kein Owner-Entscheid.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 63: BEFUND reparieren, TRIAGE-Fund einordnen)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.2"
 
   - phase: "0.7.3 opt-platform"
-    leser: "UNBENANNT"
+    # Zeilen 564-566 session_start_checks.sh: WARN bei DRIFT/HINTERHER/UNGEPRUEFT — opt-platform-drift.sh dokumentiert --sync als bewussten Prod-Eingriff (Mail-Ingest-Werkzeugstand), nie beilaeufig; Owner-Freigabe noetig.
+    leser: "Owner via Session-Start-Board (session-start.md Zeile 64: Freigabe fuer --sync, Prod-Eingriff)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -269,7 +284,8 @@ melder:
     geschaerft_am: "2026-09-07"
 
   - phase: "0.7.5 hook-dist"
-    leser: "UNBENANNT"
+    # Zeile 611 session_start_checks.sh: WARN nur wenn die eingebaute Selbstheilung (cc-skill-dist/generate.py) fehlschlaegt — Ursache pruefen/manuell verteilen ist Agent-Handlung, kein Owner-Entscheid.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 65: Ursache pruefen, manuell verteilen)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
@@ -290,14 +306,16 @@ melder:
     runbook: "0.R#0.7.7"
 
   - phase: "0.7.8 zeitplan-wache"
-    leser: "UNBENANNT"
+    # Zeile 678 session_start_checks.sh: WARN meldet von GitHub still abgeschaltete `schedule`-Trigger — Reaktivierung per `gh workflow enable` ist mechanische Agent-Handlung.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 68: gh workflow enable)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.8"
 
   - phase: "0.7.9 gate-deckung"
-    leser: "UNBENANNT"
+    # Zeile 701 session_start_checks.sh: WARN meldet einen Slug, der >=2x eskaliert ist ohne Gate/declined-Eintrag — Gate bauen oder declined mit Begruendung protokollieren ist Agent-Handlung.
+    leser: "Sitzungsagent via Session-Start-Board (session-start.md Zeile 69: Gate bauen oder declined-Eintrag)"
     wiedervorlage_tage: 14
     praezision_min: 0.6
     mindest_laeufe: 5
