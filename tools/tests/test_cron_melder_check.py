@@ -146,13 +146,21 @@ def test_should_report_cancelled_run_as_not_red():
     assert cmc.rote_serien(runs, 3) == {}
 
 
-def test_should_classify_both_backup_workflows_as_rot_ist_befund():
-    """KONZ-054 E3: seit ein roter Lauf dort ein Fund ist (Scope-Luecke), muss der
-    cron-melder ihn als Befund fuehren, nicht als kaputten Melder."""
+def test_should_have_retired_both_backup_workflows_from_scheduled_scan():
+    """RUECKBAU R2 (2026-09-07, KONZ-054 §12.6, #2506): beide Melder liefen
+    dauerhaft rot per Design ohne neuen Erkenntnisgewinn — backup-meter immer im
+    Scaffold-Modus (nie gemessen), backup-deckung immer nur 1 von 8 Knoten. Beide
+    haben keinen `schedule`-Trigger mehr (nur noch `workflow_dispatch`) und tauchen
+    deshalb in KEINER der beiden Gruppen mehr auf — `geplante_workflows()` filtert
+    auf den Text `schedule:` in der Datei. Ersatz: Sitzungsstart-Phasen 0.7.17/
+    0.7.18 + Flottenbild-Timer (dev-desktop). Vorgaenger-Test (bis hierher):
+    `test_should_classify_both_backup_workflows_as_rot_ist_befund`, als beide noch
+    geplant liefen."""
     from pathlib import Path
 
     from cron_melder_check import geplante_workflows
 
     wf = Path(__file__).resolve().parents[2] / ".github" / "workflows"
-    _, befund = geplante_workflows(wf)
-    assert {"backup-deckung", "ADR-241: Backup Meter"} <= set(befund)
+    melder, befund = geplante_workflows(wf)
+    geplant = set(melder) | set(befund)
+    assert not ({"backup-deckung", "ADR-241: Backup Meter"} & geplant)

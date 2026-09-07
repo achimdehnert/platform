@@ -44,3 +44,50 @@ known_drift:
     owner: achim
     expires_at: 2026-11-08
 
+  # Reconcile-Drift #2506, Triage 2026-09-07 (KONZ-platform-054 §12.6 Rückbau
+  # R2). Prod-Runner hat kein SSH-Vertrauen zu diesen vier Nebenhosts (C0);
+  # dieselben Hosts (C1/C2) werden vom Sitzungsstart-Runner auf dev-desktop
+  # gemessen, der SSH-Zugriff auf alle Knoten hat — die Lücke ist auf dem
+  # Prod-Runner also bekannt und anderswo abgedeckt, kein blinder Fleck.
+  # Ablaufdaten bewusst gestaffelt (s. Warnung oben: ein gemeinsamer Stichtag
+  # war 2026-08-08 schon einmal die Ursache eines mehrtägigen roten Laufs).
+  - id: "C0:dev-desktop"
+    reason: "Prod-Runner hat kein SSH-Vertrauen zu dev-desktop; C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen."
+    owner: achim
+    expires_at: 2026-10-15
+
+  - id: "C0:gx10"
+    reason: "Prod-Runner hat kein SSH-Vertrauen zu gx10 (auch von dev-desktop aus: SSH-Timeout auf 10.99.0.4:22, gemessen 2026-09-07); C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen, sobald erreichbar."
+    owner: achim
+    expires_at: 2026-10-22
+
+  - id: "C0:odoo"
+    reason: "Prod-Runner hat kein SSH-Vertrauen zu odoo; C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen."
+    owner: achim
+    expires_at: 2026-11-05
+
+  - id: "C0:prod-b"
+    reason: "Prod-Runner hat kein SSH-Vertrauen zu prod-b; C1/C2 werden vom Sitzungsstart (dev-desktop) gemessen."
+    owner: achim
+    expires_at: 2026-11-19
+
+  - id: "C4:8001"
+    reason: "ttz_local_aifw auf dev-desktop — lokaler Entwicklungscontainer (ttz-lif-Schulungsanwendung), kein Prod-Dienst; Registrierungs-Entscheid (SSoT ports.yaml vs. Dev-only) offen."
+    owner: achim
+    expires_at: 2026-10-15
+
+  - id: "C4:8072"
+    reason: "ttz_local_web auf dev-desktop — lokaler Entwicklungscontainer (ttz-lif-Schulungsanwendung), kein Prod-Dienst; Registrierungs-Entscheid offen."
+    owner: achim
+    expires_at: 2026-10-22
+
+  - id: "C4:15494"
+    reason: "wh_items_pg auf dev-desktop — Entwicklungs-Postgres (writing-hub), kein Prod-Dienst; Registrierungs-Entscheid offen."
+    owner: achim
+    expires_at: 2026-11-05
+
+  - id: "C4:55432"
+    reason: "taxhub_goldset_pg auf dev-desktop — Entwicklungs-Postgres (tax-hub Goldset), kein Prod-Dienst; Registrierungs-Entscheid offen."
+    owner: achim
+    expires_at: 2026-11-19
+
