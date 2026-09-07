@@ -94,6 +94,19 @@ netcup-Konsole. Derzeit lauscht dort ausschließlich SSH; Regeln werden mit Roll
 | Standing prevention (config + scheduled safe prune) | this bundle |
 | Aggressive reclaim (`image prune -a` no-filter, full `_work`, volumes) | human-driven only, via skill with explicit confirm |
 
+## Docker-Praevention dev-desktop (platform#2895 Item 98)
+
+`/infra-cleanup dev-desktop` Trockenlauf 2026-09-07: 84 GB Images (74 GB
+freigebbar), 8,3 GB Build-Cache, 8 dangling Images, 21 gestoppte Container
+(17 davon bewusst `restart=no` — nicht anfassen). Details, kalibrierte Werte
+und der Owner-Install-Block stehen in
+[`docker-daemon.md`](docker-daemon.md); die Dateien selbst sind
+`docker-daemon.json` (P1 Log-Rotation + P2 Builder-GC) und
+`docker-prune.{sh,service,timer}` (P3, taeglich 05:30, nur dangling Images +
+Builder-GC — nie `container prune`, nie `volume prune`, nie `image prune -a`
+ohne Altersfilter). IaC-only: Apply ist ein bewusster Owner-Schritt (Daemon-
+Neustart bouncet alle Container auf diesem Host).
+
 ## Session-Worktree GC (ADR-233 — separate concern, dev/session host)
 
 Closes the recurring `worktree-orphan-accumulation` slug (≥2× across
@@ -130,6 +143,8 @@ Dry-run first to inspect the plan without removing anything:
 ```
 
 ## Changelog
+- 2026-09-07: Docker-Praevention dev-desktop hinzugefuegt (`docker-daemon.{json,md}`,
+  `docker-prune.{sh,service,timer}`, platform#2895 Item 98). IaC-only, Apply = Owner.
 - 2026-06-28: `runner-nonprod-runbook.md` added (ADR-257 §Folge-Artefakt, REC-5/7) —
   the structural fix (CI off the prod host) behind today's interim cleanup-cadence bump.
   Grounded in verified staging-host capacity (16 CPU / 32 GB / 601 G); travel-beat as pilot.

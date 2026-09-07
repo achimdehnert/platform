@@ -1,0 +1,10 @@
+[Unit]
+Description=Docker-Praevention dev-desktop taeglich 05:30 (vor Flottenbild 06:10)
+
+[Timer]
+OnCalendar=*-*-* 05:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
