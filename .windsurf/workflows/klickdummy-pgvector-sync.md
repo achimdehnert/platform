@@ -305,3 +305,22 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   Die 7 `\n\n`-Entries wurden diesmal von vornherein inline geschrieben: 6× dedup,
   pg-hub:ADR-005 legitim `true`. Beleg als Kommentar an
   [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+- 2026-09-07: **Nightly-Lauf (03:17 UTC), Step 0 erstmals gefahren.** fetch + ff-only
+  über alle 25 Repos: 24 bereits auf `origin/main`, nur dev-hub weiter Nicht-ff
+  (40 Commits hinter, 9 dirty Dateien, 5 KD/ADR-Diffs stale — platform#2865 offen).
+  Quelländerung seit dem 06.09.-Report (`git log --since` über `klickdummy/` +
+  `docs/adr/`, alle 25 Repos): **keine** ⇒ Erwartung 0 `written: true`. R3 PASS:
+  176/176 `ok`, 0 failed, 25 Repos, Producer `iil-klickdummy 1.35.0`, 176 unique
+  `entry_key`, Schema-WARNs 177 unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31,
+  alle getrackt). Discovery 28, frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25.
+  **`written: true` = 1, davon 0 legitim — dritte Fidelity-Variante: Fett-Marker.**
+  `ausschreibungs-hub:ADR-009` kam aus einem Sonnet-Worker mit 2027 statt 2035 Zeichen
+  zurück: die vier `**` um die Phrasen `**„Angebot erstellen"**` und `**„Template
+  erstellen → Dokument erstellen"**` fehlten; Anführungszeichen und Tail waren diesmal
+  korrekt. Der Brief verbot die Quote-Normalisierung ausdrücklich — die Abweichung
+  wanderte auf das nächste Merkmal derselben Stelle (05.09. Newline, 06.09. Glyph,
+  07.09. Marker). **Lehre:** Prompt-Härtung schließt Varianten, nicht die Klasse;
+  byte-genau ist nur Inline-Upsert oder ein Transport ohne LLM (platform#2462).
+  Korrektur inline (`written: true`), lesend verifiziert. Die 7 `\n\n`-Entries von
+  vornherein inline: 7× dedup. Beleg als Kommentar an
+  [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
