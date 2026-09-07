@@ -159,6 +159,68 @@ def test_should_quote_domains_in_remote_command():
     befehl = om.fernbefehl(["a.iil.pet", "b.de"])
     assert "'a.iil.pet'" in befehl and "'b.de'" in befehl
     assert "TLS_TERMINIERT" in befehl
+    assert "TUNNEL_INGRESS" in befehl
+    assert "cloudflared/config.yml" in befehl
+
+
+# --- Tunnel-Ingress ----------------------------------------------------------
+
+
+def test_should_parse_tunnel_ingress_hostnames_from_host_output():
+    out = "TLS_TERMINIERT\t3\t-\nTUNNEL_INGRESS\tdocs.iil.pet,other.iil.pet\t-\n"
+    ergebnis = om.messe_host("root@x", [], _laeufer(out))
+    assert ergebnis["_tunnel_ingress"] == {"docs.iil.pet", "other.iil.pet"}
+
+
+def test_should_leave_tunnel_ingress_empty_when_host_has_no_cloudflared_config():
+    """Host ohne cloudflared-Konfig verhaelt sich wie bisher."""
+    out = "TLS_TERMINIERT\t3\t-\na.iil.pet\tNov 21 09:15:53 2026 GMT\t" + LE + "\n"
+    ergebnis = om.messe_host("root@x", ["a.iil.pet"], _laeufer(out))
+    assert ergebnis["_tunnel_ingress"] == set()
+
+
+def test_should_classify_domain_in_tunnel_ingress_as_tunnel_ingress():
+    """docs.iil.pet: nginx liefert den Fallback-vhost, aber die Domain haengt
+    tatsaechlich am Cloudflare-Tunnel — kein Befund."""
+    out = (
+        "TLS_TERMINIERT\t3\t-\n"
+        "TUNNEL_INGRESS\tdocs.iil.pet\t-\n"
+        "docs.iil.pet\tJan  1 00:00:00 2036 GMT\t" + FALLBACK + "\n"
+    )
+    messung = om.messe(
+        [_dienst("docs")], {"prod": "root@x"}, laeufer=_laeufer(out), jetzt=JETZT
+    )
+    assert messung["docs"][0] == "tunnel-ingress"
+    assert om.KLASSEN["tunnel-ingress"][0] is False
+
+
+def test_should_keep_fallback_zertifikat_when_domain_not_in_tunnel_ingress():
+    """Positivkontrolle: schulungspass.de/bahn.iil.pet stehen NICHT im Tunnel-
+    Ingress von prod — der echte Befund darf nicht verschwinden."""
+    out = (
+        "TLS_TERMINIERT\t3\t-\n"
+        "TUNNEL_INGRESS\tdocs.iil.pet\t-\n"
+        "schulungspass.iil.pet\tJan  1 00:00:00 2036 GMT\t" + FALLBACK + "\n"
+    )
+    messung = om.messe(
+        [_dienst("schulungspass", host="prod")],
+        {"prod": "root@x"},
+        laeufer=_laeufer(out),
+        jetzt=JETZT,
+    )
+    assert messung["schulungspass"][0] == "fallback-zertifikat"
+
+
+def test_should_leave_kein_tls_am_origin_host_wide_unaffected_by_ingress():
+    """kein-tls-am-origin bleibt host-weit, auch wenn (theoretisch) ein
+    TUNNEL_INGRESS-Eintrag vorhanden waere."""
+    out = (
+        "TLS_TERMINIERT\t0\t-\nTUNNEL_INGRESS\ta.iil.pet\t-\na.iil.pet\tKEINS\tKEINS\n"
+    )
+    messung = om.messe(
+        [_dienst("a")], {"prod": "root@x"}, laeufer=_laeufer(out), jetzt=JETZT
+    )
+    assert messung["a"][0] == "kein-tls-am-origin"
 
 
 # --- Bewertung / Lebenszyklus ----------------------------------------------
@@ -216,6 +278,7 @@ def test_should_keep_every_class_in_the_klassen_table():
         "cloudflare-origin-ca",
         "nicht-messbar",
         "kein-tls-am-origin",
+        "tunnel-ingress",
         "nicht-geprueft",
     }
     assert erzeugt <= set(om.KLASSEN)

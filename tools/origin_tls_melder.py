@@ -34,6 +34,16 @@ Host (ADR-292 Long-Tail-Umzug: Ingress per Cloudflare-Tunnel auf HTTP, `nginx` d
 haelt null Zertifikate). Seine Domains sind hier kein Befund, sondern nicht
 zutreffend — und das steht im Report, statt still zu fehlen.
 
+Derselbe Fehlalarm existiert eine Ebene feiner, auf einem Host, der TLS generell
+sehr wohl terminiert: einzelne Domains koennen trotzdem per Cloudflare-Tunnel statt
+per nginx+Zertifikat bedient werden (`docs.iil.pet` auf `prod` — nginx lauscht dort
+nur auf `80`/`127.0.0.1:8999`, `cloudflared` reicht die Domain intern weiter). Fuer
+solche Domains ist das Origin-Zertifikat, das der Handshake auf `:443` sieht, gar
+nicht im Verkehrsweg — deshalb wird auch das **gemessen statt vermutet**: dieselbe
+ssh-Verbindung liest zusaetzlich `/etc/cloudflared/config.yml` und traegt jede
+`ingress[].hostname` in die Klasse `tunnel-ingress` ein, sofern die Domain dort
+steht. Ein Host ohne `cloudflared`-Konfiguration bleibt unveraendert.
+
 ## Warum der Aussteller mitgemessen wird
 
 Der Erstlauf am 2026-08-24 zeigte drei verschiedene Realitaeten hinter derselben
@@ -65,6 +75,8 @@ ist sie von Klasse 2 nicht zu unterscheiden.
 - `kein-zertifikat` — Host terminiert TLS, gibt aber fuer diese Domain keins heraus.
 - `nicht-messbar`   — Handshake/ssh gescheitert; ausdruecklich KEIN "gruen".
 - `kein-tls-am-origin` — Host terminiert generell kein TLS. Kein Befund.
+- `tunnel-ingress`   — Domain steht im Cloudflare-Tunnel-Ingress dieses Hosts;
+                      Origin-Zertifikat liegt nicht im Verkehrsweg. Kein Befund.
 
 ## Aufruf
 
@@ -134,6 +146,10 @@ KLASSEN = {
         "Handshake nicht zustande gekommen — keine Aussage moeglich",
     ),
     "kein-tls-am-origin": (False, "Host terminiert kein TLS (Tunnel-Ingress)"),
+    "tunnel-ingress": (
+        False,
+        "per Cloudflare-Tunnel bedient, Origin-Zertifikat nicht im Verkehrsweg",
+    ),
     "nicht-geprueft": (False, "offline-Lauf"),
 }
 
@@ -197,12 +213,17 @@ def fernbefehl(domains: list[str]) -> str:
     """Skript, das je Domain eine Zeile 'domain<TAB>notAfter<TAB>issuer' schreibt.
 
     Ein Aufruf je HOST statt je Domain: 26 einzelne ssh-Verbindungen waeren die
-    teuerste Art, dieselbe Frage zu stellen.
+    teuerste Art, dieselbe Frage zu stellen. Dieselbe Verbindung liest zusaetzlich
+    `/etc/cloudflared/config.yml` mit — eine Zeile `TUNNEL_INGRESS<TAB>h1,h2,...`
+    mit allen `ingress[].hostname`-Werten. Fehlt die Datei, ist die Liste leer.
     """
     liste = " ".join(f"'{d}'" for d in domains)
     return (
         "n=$(ls /etc/letsencrypt/live 2>/dev/null | grep -vc README || echo 0); "
         'printf "TLS_TERMINIERT\\t%s\\t-\\n" "$n"; '
+        'ing=$(grep -h "hostname:" /etc/cloudflared/config.yml 2>/dev/null '
+        '      | sed "s/^[^:]*hostname:[[:space:]]*//" | tr "\\n" ","); '
+        'printf "TUNNEL_INGRESS\\t%s\\t-\\n" "${ing:-}"; '
         f"for d in {liste}; do "
         '  c=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "$d" 2>/dev/null '
         "      | openssl x509 -noout -enddate -issuer 2>/dev/null); "
@@ -247,17 +268,20 @@ def klassifiziere(
 
 
 def messe_host(ssh_ziel: str, domains: list[str], laeufer=None) -> dict:
-    """{domain: (notAfter-Text|None, issuer)} + Sonderschluessel '_tls_terminiert'.
+    """{domain: (notAfter-Text|None, issuer)} + zwei Sonderschluessel.
 
-    Der Sonderschluessel traegt die Unterscheidung, die den halben Wert ausmacht:
+    '_tls_terminiert' traegt die Unterscheidung, die den halben Wert ausmacht:
     'keine Zertifikate gefunden' heisst auf einem Tunnel-Host 'nicht zustaendig',
     auf einem TLS-Host aber 'kaputt'. Ohne ihn waeren beide dieselbe leere Antwort.
+
+    '_tunnel_ingress' ist die Menge der Domains aus `ingress[].hostname` in
+    `/etc/cloudflared/config.yml` dieses Hosts — leer, wenn die Datei fehlt.
     """
     laeufer = laeufer or (lambda cmd: _sh(cmd, SSH_TIMEOUT_S))
     code, out = laeufer(SSH + [ssh_ziel, fernbefehl(domains)])
     if code != 0 and not out.strip():
         return {"_tls_terminiert": None}
-    ergebnis: dict = {"_tls_terminiert": None}
+    ergebnis: dict = {"_tls_terminiert": None, "_tunnel_ingress": set()}
     for zeile in out.splitlines():
         teile = zeile.split("\t")
         if len(teile) < 2:
@@ -266,6 +290,9 @@ def messe_host(ssh_ziel: str, domains: list[str], laeufer=None) -> dict:
         issuer = teile[2].strip() if len(teile) > 2 else ""
         if name == "TLS_TERMINIERT":
             ergebnis["_tls_terminiert"] = ende not in ("", "0")
+            continue
+        if name == "TUNNEL_INGRESS":
+            ergebnis["_tunnel_ingress"] = {h for h in ende.split(",") if h}
             continue
         ergebnis[name] = (None if ende in ("", "KEINS") else ende, issuer)
     return ergebnis
@@ -303,11 +330,17 @@ def messe(
     for host, gruppe in nach_host.items():
         antwort = roh.get(host, {"_tls_terminiert": None})
         terminiert = antwort.get("_tls_terminiert")
+        ingress = antwort.get("_tunnel_ingress", set())
         for d in gruppe:
             if terminiert is None:
                 raus[d["name"]] = ("nicht-messbar", None)
             elif terminiert is False:
+                # host-weit: der Host terminiert generell kein TLS.
                 raus[d["name"]] = ("kein-tls-am-origin", None)
+            elif d["domain"] in ingress:
+                # domain-weit: der Host terminiert TLS, diese Domain haengt aber
+                # am Cloudflare-Tunnel-Ingress und nicht an nginx+Zertifikat.
+                raus[d["name"]] = ("tunnel-ingress", None)
             else:
                 ende, issuer = antwort.get(d["domain"], (None, ""))
                 raus[d["name"]] = klassifiziere(
@@ -360,11 +393,16 @@ def _kurzzeile(e: dict) -> str:
     if not e["befunde"]:
         n = {
             k: len([z for z in e["ok"] if z["klasse"] == k])
-            for k in ("gueltig", "cloudflare-origin-ca", "kein-tls-am-origin")
+            for k in (
+                "gueltig",
+                "cloudflare-origin-ca",
+                "kein-tls-am-origin",
+                "tunnel-ingress",
+            )
         }
         return (
             f"{n['gueltig']} Zertifikat(e) gueltig, {n['cloudflare-origin-ca']} Cloudflare-Origin-CA, "
-            f"{n['kein-tls-am-origin']} ohne TLS am Origin"
+            f"{n['kein-tls-am-origin']} ohne TLS am Origin, {n['tunnel-ingress']} per Tunnel-Ingress"
         )
     teile = []
     for b in e["befunde"]:
