@@ -20,7 +20,7 @@
 #     statt still gedroppt — Registry und PyPI widersprechen sich hier.
 #
 iil-adrfw==0.8.0  # strategy=aktiv, released=2026-08-06
-iil-aifw==0.13.0  # strategy=aktiv, released=2026-08-25
+iil-aifw==0.14.0  # strategy=aktiv, released=2026-08-25
 iil-authoringfw==0.11.6  # strategy=aktiv, released=2026-07-31
 iil-codeguard==2026.5.1  # strategy=aktiv, released=2026-05-10
 iil-django-commons==0.3.0  # strategy=einfrieren, released=2026-03-24
