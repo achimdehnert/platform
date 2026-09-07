@@ -13,10 +13,9 @@ Datenquellen
    Subagenten-Pfad `<session_id>/subagents/agent-*.jsonl`) folgt den
    Konventionen aus `tools/claude-hooks/session_modellmix.py`;
    `_iter_records` und `DEFAULT_PROJECTS_DIR` werden von dort importiert
-   statt kopiert. `WRITING_TOOLS` aus demselben Modul misst eine ANDERE
-   Kennzahl (Schreibanteil je Modell) und wird hier bewusst NICHT
-   verwendet — die Nachbesserungs-Deckung braucht Dateipfade, keine
-   Werkzeug-Anteile.
+   statt kopiert. `WRITING_TOOLS` aus demselben Modul bleibt aussen vor:
+   es misst eine andere Kennzahl (Schreibanteil je Modell), waehrend die
+   Nachbesserungs-Deckung Dateipfade braucht, keine Werkzeug-Anteile.
 2. Preistabelle `tools/claude-hooks/llm_pricing.py` (ausgelagert aus
    `log_llm_call.py`, siehe dortigen Kommentar — ein reiner Import der
    Konstanten darf keine DB-URL auflösen).
@@ -268,9 +267,9 @@ def _accumulate_session(
                     cmd = tool_input.get("command")
                     if isinstance(cmd, str) and _is_bash_write(cmd):
                         agg.schreibaufrufe_gesamt += 1
-                # Werkzeugname sonst irrelevant für Deckung; WRITING_TOOLS (aus
-                # session_modellmix) wird bewusst NICHT hier verwendet — das ist
-                # eine andere Kennzahl (Modellmix-Schreibanteil), keine Deckung.
+                # Werkzeugname sonst irrelevant für die Deckung. WRITING_TOOLS
+                # (aus session_modellmix) passt hier nicht: es misst den
+                # Modellmix-Schreibanteil, eine andere Kennzahl als die Deckung.
         agg.kaputte_zeilen += max(_raw_nonblank_zeilen(path) - valide, 0)
 
     try:
