@@ -287,21 +287,26 @@ def main() -> int:
         return args.ssh if args.ssh else str(host)
 
     # C5: doppelte Port-Deklaration — prod UND staging getrennt (das bekannte
-    # 8099-Duplikat risk-hub/tax-hub lag auf staging, nicht prod)
+    # 8099-Duplikat risk-hub/tax-hub lag auf staging, nicht prod).
+    # Je HOST gezaehlt (`<env>_host`, Default wie C1/C2): derselbe Port auf zwei
+    # Hosts ist kein Duplikat — learn-hub 8100 auf prod und der Embedder 8100
+    # auf der GX10 (wg0) meldeten sich ab 2026-09-01 als C5, obwohl sie sich
+    # nie begegnen (Fehlalarm, Cron-Melder 10x rot).
     for env in ("prod", "staging"):
-        seen: dict[int, str] = {}
+        seen: dict[tuple[str, int], str] = {}
         for svc, cfg in ports_decl.items():
             p = cfg.get(env)
             if not isinstance(p, int):
                 continue
-            if p in seen:
+            host = str(cfg.get(f"{env}_host") or DEFAULT_PROD_HOST)
+            if (host, p) in seen:
                 drift.append(
                     (
                         f"C5:{env}:{p}",
-                        f"{env}-Port {p} doppelt deklariert: {seen[p]} + {svc}",
+                        f"{env}-Port {p} doppelt deklariert: {seen[(host, p)]} + {svc}",
                     )
                 )
-            seen[p] = svc
+            seen[(host, p)] = svc
 
     # C1 + C2 je deklariertem Service — gegen den ZUSTÄNDIGEN Host
     for svc, cfg in ports_decl.items():
