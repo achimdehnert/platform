@@ -61,6 +61,34 @@ Ist kein Klassifikator erreichbar, meldet das Werkzeug ``NICHT PRUEFBAR`` und
 niemals „keine Zusagen gefunden". „Nichts gefunden" und „nichts pruefen
 koennen" sind zwei Aussagen (Hausregel, Realfall 0.7.6/#2007).
 
+## Host & Provider (platform#2895, Items 107/109)
+
+Default bleibt Ollama **loopback-lokal** (``127.0.0.1:11434``, ``qwen2.5:7b``):
+der geprueft Text ist Sitzungs- und Repo-Inhalt, siehe ``ollama_klassifikator``.
+
+dev-desktop hat **keine GPU** — ein Lauf dort hielt am 2026-09-07 stundenlang
+5 CPU-Kerne und ~4,9 GB RAM und trug zum Swap-Anschlag bei. ``--host``
+(gewinnt) bzw. ``OLLAMA_HOST`` (dieselbe Semantik wie beim Ollama-CLI)
+erlauben einen GPU-Host. dev-desktop hat kein ``wg0``; die GPU-Hosts
+(``gx10`` 10.99.0.4, ``gpu-box`` 10.99.0.2) sind nur von prod aus erreichbar
+(``hosts.yaml``, KONZ-053) — deshalb per Tunnel:
+
+    ssh -f -N -L 127.0.0.1:11435:10.99.0.4:11434 hetzner-prod
+    OLLAMA_HOST=http://127.0.0.1:11435 python3 tools/verankerung_pruefer.py --pr 1234
+
+Faellt der so konfigurierte Host aus (Verbindungsfehler), gibt es **keinen**
+stillen Ruecksprung auf den Loopback-Default (siehe ``resolve_host``,
+``NichtPruefbar``) — die Fehlermeldung nennt den konfigurierten Host. Sonst
+rechnet der naechste Lauf unbemerkt wieder auf der CPU.
+
+``--provider groq`` schickt denselben Klassifikator-Prompt an den
+OpenAI-kompatiblen Groq-Endpunkt statt an Ollama (Schluessel NUR aus der
+Umgebungsvariable ``GROQ_API_KEY``, nie aus einer Datei, nie geloggt) — ein
+externer Dienst, deshalb nicht der Default. Nur fuer Texte OHNE Personendaten
+geeignet: die PR-/Retro-Texte, die dieses Werkzeug prueft, sind interner
+Entwicklungscontent, und der Owner hat den Weg am 2026-09-07 freigegeben
+(platform#2895).
+
 Exit: 0 = sauber, ohne Befund oder advisory-Fund · 1 = Fund im ``--block``-Modus
 · 2 = Werkzeugfehler / nicht pruefbar.
 """
@@ -92,6 +120,14 @@ GATE_HEADER = {
 DEFAULT_MODELL = "qwen2.5:7b"
 DEFAULT_HOST = "http://127.0.0.1:11434"
 
+#: Groq-Endpunkt (OpenAI-kompatibel) fuer ``--provider groq``.
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+#: T1a auf Groq lt. ``~/.claude/policies/llm-routing.md`` (Stand 2026-08-29,
+#: „Verified available"-Abschnitt): die Groq-Katalog-ID lautet
+#: ``openai/gpt-oss-120b`` — NICHT die Cerebras-Schreibweise ``gpt-oss-120b``
+#: (Falle 1 derselben Policy).
+GROQ_DEFAULT_MODELL = "openai/gpt-oss-120b"
+
 #: Die Antwort ist ein kurzes JSON-Objekt. Ohne Deckel laeuft ein Modell im
 #: Zweifel bis zum Kontextende weiter — auf einer Maschine ohne GPU kostet das
 #: Minuten je Segment, ohne dass ein besseres Urteil dabei herauskommt.
@@ -113,6 +149,39 @@ ZUSAGE_KLASSEN = ("vertagung", "restarbeit", "freigabe")
 
 class NichtPruefbar(RuntimeError):
     """Der Klassifikator war nicht erreichbar — kein Urteil moeglich."""
+
+
+def resolve_host(cli_wert: str | None, *, umgebung: dict | None = None) -> str:
+    """Ollama-Host: ``--host`` schlaegt ``OLLAMA_HOST`` schlaegt ``DEFAULT_HOST``.
+
+    Kein stiller Ruecksprung: ist ``cli_wert`` gesetzt, gilt er — sonst
+    ``OLLAMA_HOST`` aus der Umgebung, sonst der Loopback-Default. Ein
+    Verbindungsfehler gegen den so ermittelten Host wird NICHT hier
+    abgefangen (das macht ``ollama_klassifikator``/``_nicht_pruefbar`` mit dem
+    Host im Klartext in der Meldung) — diese Funktion trifft nur die
+    Prioritaet, nie den Rueckfall.
+    """
+    umgebung = os.environ if umgebung is None else umgebung
+    if cli_wert:
+        return cli_wert
+    return umgebung.get("OLLAMA_HOST") or DEFAULT_HOST
+
+
+def resolve_modell(
+    cli_wert: str | None, provider: str, *, umgebung: dict | None = None
+) -> str:
+    """Modell-Default haengt vom Provider ab: Ollama bleibt ``qwen2.5:7b``.
+
+    ``VERANKERUNG_MODELL`` bleibt ein providerunabhaengiger Override (bestehendes
+    Verhalten) und gewinnt vor dem Provider-Default, aber nie vor ``--modell``.
+    """
+    umgebung = os.environ if umgebung is None else umgebung
+    if cli_wert:
+        return cli_wert
+    aus_umgebung = umgebung.get("VERANKERUNG_MODELL")
+    if aus_umgebung:
+        return aus_umgebung
+    return GROQ_DEFAULT_MODELL if provider == "groq" else DEFAULT_MODELL
 
 
 # ── 1. Normalisieren ─────────────────────────────────────────────────────────
@@ -321,14 +390,23 @@ def ollama_klassifikator(
                 "zitat": "",
                 "begruendung": "Antwort nicht parsbar",
             }
-        klasse = str(d.get("klasse", "")).strip().lower()
-        return {
-            "klasse": klasse if klasse in KLASSEN else "unklar",
-            "zitat": str(d.get("zitat", ""))[:200],
-            "begruendung": str(d.get("begruendung", ""))[:200],
-        }
+        return _validiere_urteil(d)
 
     return klassifiziere
+
+
+def _validiere_urteil(d: dict) -> dict:
+    """Rohes Klassifikator-JSON auf die drei erlaubten Felder trimmen.
+
+    Reine Logik, providerunabhaengig — von Ollama- UND Groq-Pfad benutzt,
+    damit beide Provider exakt dasselbe Antwortformat liefern.
+    """
+    klasse = str(d.get("klasse", "")).strip().lower()
+    return {
+        "klasse": klasse if klasse in KLASSEN else "unklar",
+        "zitat": str(d.get("zitat", ""))[:200],
+        "begruendung": str(d.get("begruendung", ""))[:200],
+    }
 
 
 GEGENPROBE = """Ein Abschnitt aus einem Entwickler-Artefakt wurde als Zusage
@@ -413,6 +491,133 @@ def ollama_bestaetiger(
         return bool(d.get("trifft_zu", True))
 
     _ = roh  # gemeinsame Fehlerbehandlung oben, Aufruf getrennt gehalten
+    return bestaetige
+
+
+def _groq_schluessel() -> str:
+    """``GROQ_API_KEY`` aus der Umgebung — nie aus einer Datei, nie geloggt.
+
+    Ohne Schluessel gibt es keinen Ruecksprung auf Ollama: wer ``--provider
+    groq`` waehlt, hat das bewusst getan, und ein stiller Wechsel zurueck
+    waere derselbe Fehler wie ein stiller Host-Ruecksprung (siehe
+    ``resolve_host``).
+    """
+    schluessel = os.environ.get("GROQ_API_KEY", "").strip()
+    if not schluessel:
+        raise NichtPruefbar(
+            "GROQ_API_KEY nicht gesetzt — --provider groq braucht den Schluessel "
+            "in der Umgebung (nie aus einer Datei), kein Ruecksprung auf Ollama."
+        )
+    return schluessel
+
+
+def groq_klassifikator(
+    modell: str = GROQ_DEFAULT_MODELL, timeout: int = 120
+) -> Callable[[str], dict]:
+    """Klassifikator ueber den OpenAI-kompatiblen Groq-Endpunkt.
+
+    Externer Dienst, deshalb nicht der Default (siehe ``ollama_klassifikator``
+    fuer die Begruendung) — nur fuer Texte OHNE Personendaten geeignet. Die
+    PR-/Retro-Texte dieses Werkzeugs sind interner Entwicklungscontent, Owner-
+    Freigabe 2026-09-07 (platform#2895). Antwortformat identisch zum
+    Ollama-Pfad (``_validiere_urteil``), damit der Rest des Werkzeugs nichts
+    vom Provider merkt.
+    """
+    schluessel = _groq_schluessel()
+
+    def klassifiziere(text: str) -> dict:
+        rumpf = json.dumps(
+            {
+                "model": modell,
+                "messages": [{"role": "user", "content": PROMPT % text}],
+                "temperature": 0,
+                "max_tokens": MAX_ANTWORT_TOKEN,
+                "response_format": {"type": "json_object"},
+            }
+        ).encode()
+        req = urllib.request.Request(
+            GROQ_ENDPOINT,
+            data=rumpf,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {schluessel}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as antwort:
+                umschlag = json.load(antwort)
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
+            raise _nicht_pruefbar(
+                exc,
+                was=f"Groq ({modell})",
+                host=GROQ_ENDPOINT,
+                timeout=timeout,
+                zeichen=len(PROMPT % text),
+            ) from exc
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise NichtPruefbar(f"Groq ({modell}) lieferte kein JSON: {exc}") from exc
+        try:
+            roh = umschlag["choices"][0]["message"]["content"]
+            d = json.loads(roh)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValueError):
+            return {
+                "klasse": "unklar",
+                "zitat": "",
+                "begruendung": "Antwort nicht parsbar",
+            }
+        return _validiere_urteil(d)
+
+    return klassifiziere
+
+
+def groq_bestaetiger(
+    modell: str = GROQ_DEFAULT_MODELL, timeout: int = 120
+) -> Callable[[str, str, str], bool]:
+    """Gegenprobe ueber Groq — dieselbe zweite Frage wie ``ollama_bestaetiger``."""
+    schluessel = _groq_schluessel()
+
+    def bestaetige(text: str, klasse: str, zitat: str) -> bool:
+        rumpf = json.dumps(
+            {
+                "model": modell,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": GEGENPROBE % (klasse, zitat or "—", text),
+                    }
+                ],
+                "temperature": 0,
+                "max_tokens": MAX_ANTWORT_TOKEN,
+                "response_format": {"type": "json_object"},
+            }
+        ).encode()
+        req = urllib.request.Request(
+            GROQ_ENDPOINT,
+            data=rumpf,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {schluessel}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as antwort:
+                umschlag = json.load(antwort)
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
+            raise _nicht_pruefbar(
+                exc,
+                was=f"Gegenprobe (Groq {modell})",
+                host=GROQ_ENDPOINT,
+                timeout=timeout,
+                zeichen=len(GEGENPROBE % (klasse, zitat or "—", text)),
+            ) from exc
+        try:
+            roh = umschlag["choices"][0]["message"]["content"]
+            d = json.loads(roh)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValueError):
+            # Unlesbare Gegenprobe darf einen Fund nicht still schlucken.
+            return True
+        return bool(d.get("trifft_zu", True))
+
     return bestaetige
 
 
@@ -635,9 +840,32 @@ def main(argv: list[str] | None = None) -> int:
         help="owner/repo fuer --pr und #N-Aufloesung",
     )
     ap.add_argument(
-        "--modell", default=os.environ.get("VERANKERUNG_MODELL", DEFAULT_MODELL)
+        "--provider",
+        choices=("ollama", "groq"),
+        default="ollama",
+        help=(
+            "Klassifikator-Backend. Default ollama (loopback-lokal). "
+            "groq ist ein externer Dienst — nur fuer Texte ohne Personendaten "
+            "(Owner-Freigabe 2026-09-07, platform#2895)."
+        ),
     )
-    ap.add_argument("--host", default=os.environ.get("OLLAMA_HOST", DEFAULT_HOST))
+    ap.add_argument(
+        "--modell",
+        default=None,
+        help="Default haengt vom Provider ab (qwen2.5:7b / "
+        + GROQ_DEFAULT_MODELL
+        + ").",
+    )
+    ap.add_argument(
+        "--host",
+        default=None,
+        help=(
+            "Nur fuer --provider ollama. Gewinnt vor OLLAMA_HOST, das vor dem "
+            "Loopback-Default gewinnt. Fuer eine GPU-Maschine per Tunnel siehe "
+            "Modul-Docstring (`ssh -f -N -L 127.0.0.1:11435:10.99.0.4:11434 "
+            "hetzner-prod`)."
+        ),
+    )
     ap.add_argument(
         "--ohne-github", action="store_true", help="keine gh-Abfragen (offline)"
     )
@@ -707,15 +935,29 @@ def main(argv: list[str] | None = None) -> int:
         # ein vollstaendiger Lauf braucht dort rund 15 Minuten.
         budget = args.budget_sekunden or None
         anfrage_timeout = int(min(120, budget)) if budget else 120
+        modell = resolve_modell(args.modell, args.provider)
+        if args.provider == "groq":
+            klassifikator = groq_klassifikator(modell, anfrage_timeout)
+            bestaetiger = (
+                None
+                if args.ohne_gegenprobe
+                else groq_bestaetiger(modell, anfrage_timeout)
+            )
+        else:
+            host = resolve_host(args.host)
+            klassifikator = ollama_klassifikator(modell, host, anfrage_timeout)
+            bestaetiger = (
+                None
+                if args.ohne_gegenprobe
+                else ollama_bestaetiger(modell, host, anfrage_timeout)
+            )
         befunde, segmente, ungeprueft = pruefe(
             text,
-            ollama_klassifikator(args.modell, args.host, anfrage_timeout),
+            klassifikator,
             mit_github=not args.ohne_github,
             repo=args.repo,
             klassen=klassen,
-            bestaetiger=None
-            if args.ohne_gegenprobe
-            else ollama_bestaetiger(args.modell, args.host, anfrage_timeout),
+            bestaetiger=bestaetiger,
             budget_sekunden=budget,
         )
     except NichtPruefbar as exc:

@@ -15,6 +15,9 @@ Der wichtigste Test ist ``test_should_realfall_pr2007_finden``: er faehrt den
 Wortlaut, an dem beide bestehenden Muster-Scanner nachweislich vorbeisehen.
 """
 
+import io
+import json
+import os
 import subprocess
 import sys
 import urllib.error
@@ -28,13 +31,21 @@ sys.path.insert(0, str(TOOL_DIR / "claude-hooks"))
 
 import verankerung_pruefer  # noqa: E402
 from verankerung_pruefer import (  # noqa: E402
+    DEFAULT_HOST,
+    DEFAULT_MODELL,
     GATE_HEADER,
     GEGENPROBE,
+    GROQ_DEFAULT_MODELL,
+    GROQ_ENDPOINT,
     Ankerurteil,
     bericht,
+    groq_bestaetiger,
+    groq_klassifikator,
     normalisiere,
     pruefe,
     pruefe_anker,
+    resolve_host,
+    resolve_modell,
     segmentiere,
 )
 
@@ -442,3 +453,198 @@ def test_should_name_the_countercheck_when_it_times_out(monkeypatch):
     meldung = str(fehler.value)
     assert "Gegenprobe" in meldung, meldung
     assert "Zeitueberschreitung nach 45 s" in meldung, meldung
+
+
+# ── Host konfigurierbar (platform#2895, Item 107) ────────────────────────────
+
+
+def test_should_let_cli_host_win_over_ollama_host_env():
+    assert (
+        resolve_host(
+            "http://127.0.0.1:19999", umgebung={"OLLAMA_HOST": "http://127.0.0.1:11435"}
+        )
+        == "http://127.0.0.1:19999"
+    )
+
+
+def test_should_let_ollama_host_env_win_over_default():
+    assert (
+        resolve_host(None, umgebung={"OLLAMA_HOST": "http://127.0.0.1:11435"})
+        == "http://127.0.0.1:11435"
+    )
+
+
+def test_should_default_host_stay_loopback_when_nothing_configured():
+    """Positivkontrolle: der Default-Pfad ist durch die neue Prioritaet unveraendert."""
+    assert resolve_host(None, umgebung={}) == DEFAULT_HOST == "http://127.0.0.1:11434"
+
+
+def test_should_default_modell_stay_qwen_for_ollama():
+    assert resolve_modell(None, "ollama", umgebung={}) == DEFAULT_MODELL
+
+
+def test_should_pick_groq_tier1a_modell_default_for_groq_provider():
+    assert resolve_modell(None, "groq", umgebung={}) == GROQ_DEFAULT_MODELL
+
+
+def test_should_let_verankerung_modell_env_win_over_provider_default():
+    umgebung = {"VERANKERUNG_MODELL": "eigenes-modell"}
+    assert resolve_modell(None, "groq", umgebung=umgebung) == "eigenes-modell"
+
+
+def test_should_name_the_configured_host_on_failure_not_fall_back_silently(
+    monkeypatch,
+):
+    """Ein konfigurierter Nicht-Default-Host, der ausfaellt, bleibt in der Meldung.
+
+    Es gibt KEINEN stillen Ruecksprung auf den Loopback-Default — die Meldung
+    muss den tatsaechlich versuchten Host nennen, nicht 11434 (Item 107).
+    """
+    konfigurierter_host = "http://127.0.0.1:11435"
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request,
+        "urlopen",
+        _urlopen_wirft(urllib.error.URLError(ConnectionRefusedError(111, "refused"))),
+    )
+    klassifiziere = verankerung_pruefer.ollama_klassifikator(host=konfigurierter_host)
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        klassifiziere("Das mache ich spaeter.")
+    meldung = str(fehler.value)
+    assert konfigurierter_host in meldung, meldung
+    assert DEFAULT_HOST not in meldung, meldung
+
+
+# ── Groq als Provider (platform#2895, Item 109) ──────────────────────────────
+
+
+def _urlopen_gibt_umschlag(umschlag: dict, erfassen: dict | None = None):
+    """Ersetzt urlopen durch einen Geber, der einen Groq-Antwort-Umschlag liefert.
+
+    Kein Netz noetig: die Antwort ist vollstaendig gemockt.
+    """
+
+    def geben(req, *_a, **_k):
+        if erfassen is not None:
+            erfassen["req"] = req
+        return io.BytesIO(json.dumps(umschlag).encode())
+
+    return geben
+
+
+def _groq_umschlag(urteil: dict) -> dict:
+    return {"choices": [{"message": {"content": json.dumps(urteil)}}]}
+
+
+def test_should_error_without_key_before_any_request(monkeypatch):
+    """Fehlender Schluessel bricht sofort ab, kein Ruecksprung auf Ollama."""
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        groq_klassifikator()
+    assert "GROQ_API_KEY" in str(fehler.value)
+
+
+def test_should_error_without_key_for_the_countercheck_too(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        groq_bestaetiger()
+    assert "GROQ_API_KEY" in str(fehler.value)
+
+
+def test_should_classify_via_groq_with_mocked_http_no_network(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-schluessel")
+    umschlag = _groq_umschlag(
+        {"klasse": "vertagung", "zitat": "spaeter", "begruendung": "stub"}
+    )
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request, "urlopen", _urlopen_gibt_umschlag(umschlag)
+    )
+    klassifiziere = groq_klassifikator()
+    urteil = klassifiziere("Das mache ich spaeter.")
+    # Antwortformat identisch zum Ollama-Pfad — der Rest des Werkzeugs merkt
+    # nichts vom Provider.
+    assert urteil == {"klasse": "vertagung", "zitat": "spaeter", "begruendung": "stub"}
+
+
+def test_should_send_bearer_key_and_json_mode_to_groq(monkeypatch):
+    """Verdrahtung pruefen: Endpunkt, Bearer-Header, JSON-Modus — nie den Schluessel loggen."""
+    monkeypatch.setenv("GROQ_API_KEY", "geheim-x")
+    erfasst: dict = {}
+    umschlag = _groq_umschlag({"klasse": "keine", "zitat": "", "begruendung": ""})
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request,
+        "urlopen",
+        _urlopen_gibt_umschlag(umschlag, erfasst),
+    )
+    groq_klassifikator(modell="ein-modell")("Text ohne Zusage.")
+    req = erfasst["req"]
+    assert req.full_url == GROQ_ENDPOINT
+    assert req.get_header("Authorization") == "Bearer geheim-x"
+    rumpf = json.loads(req.data)
+    assert rumpf["model"] == "ein-modell"
+    assert rumpf["response_format"] == {"type": "json_object"}
+
+
+def test_should_confirm_via_groq_with_mocked_http(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-schluessel")
+    umschlag = _groq_umschlag({"trifft_zu": False})
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request, "urlopen", _urlopen_gibt_umschlag(umschlag)
+    )
+    bestaetige = groq_bestaetiger()
+    assert bestaetige("Text", "vertagung", "zitat") is False
+
+
+def test_should_name_the_groq_endpoint_on_connection_failure(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-schluessel")
+    monkeypatch.setattr(
+        verankerung_pruefer.urllib.request,
+        "urlopen",
+        _urlopen_wirft(urllib.error.URLError(ConnectionRefusedError(111, "refused"))),
+    )
+    klassifiziere = groq_klassifikator()
+    with pytest.raises(verankerung_pruefer.NichtPruefbar) as fehler:
+        klassifiziere("Text")
+    assert GROQ_ENDPOINT in str(fehler.value)
+
+
+def test_should_fail_end_to_end_via_cli_without_groq_key(monkeypatch):
+    """End-to-End: --provider groq ohne Schluessel scheitert klar, kein Fallback."""
+    umgebung = os.environ.copy()
+    umgebung.pop("GROQ_API_KEY", None)
+    lauf = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_DIR / "verankerung_pruefer.py"),
+            "--provider",
+            "groq",
+            "--ohne-github",
+        ],
+        input=PR2007_ABSATZ,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=umgebung,
+    )
+    assert lauf.returncode == 2, lauf.stdout
+    assert "GROQ_API_KEY" in lauf.stderr
+    assert "✅" not in lauf.stdout
+
+
+def test_should_leave_default_ollama_cli_path_unchanged():
+    """Positivkontrolle: unveraenderter Default-Aufruf (kein --provider/--host)."""
+    lauf = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_DIR / "verankerung_pruefer.py"),
+            "--host",
+            "http://127.0.0.1:1",
+            "--ohne-github",
+        ],
+        input=PR2007_ABSATZ,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert lauf.returncode == 2, lauf.stdout
+    assert "NICHT PRUEFBAR" in lauf.stderr
+    assert "http://127.0.0.1:1" in lauf.stderr
