@@ -821,3 +821,71 @@ def test_should_require_a_path_token_for_forbidden_paths_marker():
     assert pat.search("NIE `infra/ports.yaml` von Hand editieren.")
     assert pat.search("Do not touch tools/generated/")
     assert pat.search("verboten: Aenderungen an docs/adr/*.md")
+
+
+def test_should_measure_deploy_path_instead_of_trusting_the_archetype():
+    """D05.4 haengt am gemessenen Auslieferungspfad, nicht am Archetyp-Etikett.
+
+    Anlass platform#2737: `ci-sichtbarkeit-probe-caller` (5 Dateien, kein Deploy)
+    stand als unbeantwortet da, obwohl es nichts zurueckzurollen gibt. Die
+    naheliegende Loesung — die Frage per Anwendbarkeitsmatrix fuer den Archetyp
+    ausklammern — haette sie an eine Einordnung gehaengt, die selbst geraten sein
+    kann. Gemessen wird stattdessen: Deploy-Workflow oder Dockerfile.
+
+    Die Positivfaelle sind der eigentliche Test. Ohne sie belegte ein
+    `not_applicable` nur, dass die Regel nie greift.
+    """
+    treffer = score_mod.D05_DEPLOY_WORKFLOW_RE
+
+    # Positiv: so sehen Auslieferungs-Workflows in der Flotte wirklich aus
+    assert treffer.search(".github/workflows/deploy.yml")
+    assert treffer.search(".github/workflows/release-please.yaml")
+    assert treffer.search(".github/workflows/publish-iil-ingest.yml")
+    assert treffer.search(".github/workflows/ship-staging.yml")
+
+    # Negativ: Pruef- und Melder-Workflows sind keine Auslieferung
+    assert not treffer.search(".github/workflows/ci.yml")
+    assert not treffer.search(".github/workflows/alarmweg-probe.yml")
+    assert not treffer.search(".github/workflows/call-probe.yml")
+    assert not treffer.search(".github/workflows/tools-tests.yml")
+
+
+def _d05(res):
+    return (
+        ((res.get("scores") or {}).get("D05") or {})
+        .get("questions", {})
+        .get("D05.4", {})
+    )
+
+
+def test_should_count_compose_as_a_deploy_path(tmp_path):
+    """`docker-compose.yml` allein zaehlt als Auslieferungspfad.
+
+    Beim Gegenmessen an den 56 Evidenz-Paketen fiel `doc-hub` durch: compose ja,
+    Dockerfile nein — ein Repo, das nachweislich in Produktion laeuft. Ein
+    falsches "nicht anwendbar" ist hier teurer als ein offenes "unverified",
+    weil es einen Mangel unsichtbar macht statt ihn offen zu lassen.
+    """
+    pack = _pack()
+    pack["parts"]["workflows_active"] = [".github/workflows/ci.yml"]
+    pack["parts"]["files"] = {"Dockerfile": "-", "docker-compose.yml": "+"}
+    assert _d05(_run(tmp_path, pack)).get("state") == "unverified"
+
+
+def test_should_mark_rollback_not_applicable_without_any_deploy_path(tmp_path):
+    """Ohne Auslieferungspfad gibt es nichts zurueckzurollen.
+
+    Gegenprobe zum Test darueber: dieselbe Regel muss auch "nicht anwendbar"
+    sagen koennen, sonst waere sie wirkungslos.
+    """
+    pack = _pack()
+    pack["parts"]["workflows_active"] = [".github/workflows/ci.yml"]
+    pack["parts"]["files"] = {"Dockerfile": "-", "docker-compose.yml": "-"}
+    assert _d05(_run(tmp_path, pack)).get("state") == "not_applicable"
+
+
+def test_should_mark_rollback_open_when_a_deploy_workflow_exists(tmp_path):
+    pack = _pack()
+    pack["parts"]["workflows_active"] = [".github/workflows/deploy.yml"]
+    pack["parts"]["files"] = {"Dockerfile": "-", "docker-compose.yml": "-"}
+    assert _d05(_run(tmp_path, pack)).get("state") == "unverified"
