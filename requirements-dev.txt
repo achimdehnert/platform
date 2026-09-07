@@ -13,7 +13,7 @@ pyyaml==6.0.3
 ruff==0.16.6
 # Rotationswerkzeug (platform#2813): jsonschema prueft infra/secrets-inventory.yaml
 # gegen infra/schemas/, pynacl versiegelt Werte fuer die GitHub-Secrets-API.
-jsonschema==4.25.1
+jsonschema==4.26.0
 pynacl==1.6.2
 pre-commit==4.6.2
 # ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI. Bewusst
