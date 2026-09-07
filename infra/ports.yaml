@@ -602,6 +602,8 @@ services:
     domain_prod: schulungspass.de
     domain_staging: staging-schulungspass.iil.pet
     repo: achimdehnert/onboarding-hub
+    betriebsstatus: stillgelegt
+    betriebsstatus_grund: "Owner-Entscheid 2026-09-07 (Kapitaens-Kanal, platform#2895 Item 50). Gemessen am 2026-09-07: kein Container onboarding_hub_* auf prod, prod-b, odoo, staging-dedicated, netcup (docker ps -a); auf prod kein nginx-vhost und kein Tunnel-Ingress fuer schulungspass.de; die Domain antwortet nur mit dem Cloudflare-Access-Login (302), dahinter kein Origin. Runner-Phase 0.7.16 meldete fallback-zertifikat seit 2026-08-25. Reste (Cloudflare-Access-App, DNS, Repo) offen — siehe platform#2895."
 
   bahn-hub:
     prod: 8110
