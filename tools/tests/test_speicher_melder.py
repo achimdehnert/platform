@@ -220,6 +220,20 @@ def test_should_exclude_snapfuse_images_that_can_never_fill_up():
     assert "-x rootfs" in befehl
 
 
+def test_should_drop_docker_desktop_image_mounts_but_keep_a_full_data_disk():
+    """gpu-box 2026-09-07: `/mnt/wsl/docker-desktop/cli-tools` meldete WARN „0 GB
+    frei (0 %), stabil" — ein schreibgeschuetzter Docker-Desktop-Image-Mount, der
+    per Design immer voll ist. Positivkontrolle im selben Text: `/mnt/data` ist
+    ebenso voll, aber eine echte Platte und bleibt ein Befund."""
+    text = (
+        "/ 150000000000 37000000000\n"
+        "/mnt/wsl/docker-desktop/cli-tools 120000000 0\n"
+        "/mnt/wsl/docker-desktop/docker-desktop-user-distro 120000000 0\n"
+        "/mnt/data 344000000000 0\n"
+    )
+    assert [p["mount"] for p in sm.parse_df(text)] == ["/", "/mnt/data"]
+
+
 def test_should_read_ssh_targets_with_trailing_comments(tmp_path):
     """hosts.yaml traegt hinter `ssh:` Kommentare — der Wert endet am Leerzeichen."""
     p = tmp_path / "hosts.yaml"
