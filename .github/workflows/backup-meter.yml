@@ -11,18 +11,23 @@ name: "ADR-241: Backup Meter"
 # "noch nicht scharf". Sobald die Storage Box + Key-Escrow stehen, liefert
 # `restic snapshots --json` echte Daten und der Meter wird automatisch scharf.
 
+# RÜCKBAU R2 (2026-09-07, KONZ-platform-054 §12.6, Owner-Go platform#2895 Item 52,
+# Anker #2506): den `schedule`-Trigger entfernt — der Melder lief seit Provisionierungs-Beginn
+# ausschliesslich im Scaffold-Modus (kein restic/Env auf dem Runner, s. Schritt
+# "Snapshots erheben" unten) und meldete deshalb IMMER "deferred", nie eine echte
+# Messung. cron_melder_check (0.7.2) fuehrte den taeglichen Exit-1-Lauf seitdem
+# dauerhaft als "rot per Design" — ein Melder ohne Gegenstand, kein Fund.
+# Ersatz: es gibt (noch) keinen — die Backup-Deckung wird durch die
+# Sitzungsstart-Phasen 0.7.17 (backup-deckung, misst alle 8 Knoten) und 0.7.18
+# (speicher) sowie den taeglichen Flottenbild-Timer auf dev-desktop
+# (infra/host-maintenance/flottenbild-daily.sh, schreibt backup-deckung taeglich)
+# abgedeckt. Sobald ADR-241 §2 (Offsite-Repository) provisioniert ist, macht das
+# den Meter scharf — dann den `schedule`-Trigger wieder eintragen (Rueckweg: dieses Diff
+# revertieren, s. R1-Muster #2506).
+# ROT-IST-BEFUND galt bis hier ebenfalls — mit dem Rueckbau entfaellt der Marker,
+# weil ohne den `schedule`-Trigger gar kein geplanter Lauf mehr existiert, den
+# cron_melder_check.py erfassen wuerde (Filter: sucht den Text `schedule` gefolgt von einem Doppelpunkt).
 on:
-  schedule:
-    - cron: "0 5 * * *" # täglich 05:00 UTC (nach den nächtlichen Offsite-Pushes)
-
-# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
-# ein roter Lauf ist hier ein Fund (Verletzung ODER Scope-Luecke), kein Defekt.
-#
-# Seit 2026-08-30 (KONZ-054 E3): `deferred` ist kein Gruen mehr. Der Meter stand
-# 12 Tage auf gruen mit EINER gemessenen von zehn Soll-Apps. Exit 3 (Scope-Luecke)
-# faerbt den Lauf rot, erzeugt aber KEIN Issue — das gibt es nur fuer Verletzungen.
-# Der Leser des roten Laufs ist cron_melder_check (0.7.2), dessen Befund seit E2
-# mit Entscheidungsfrist im Journal steht: einmal entscheiden, dann Ruhe.
   workflow_dispatch:
 
 # Workflow-level default (least privilege, #818 permissions sweep); the

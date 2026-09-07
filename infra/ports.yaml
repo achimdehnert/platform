@@ -725,3 +725,73 @@ services:
     betriebsstatus: blockiert
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
 
+  # --- Reconcile-Drift #2506, Triage 2026-09-07: real laufende, bislang nicht
+  # deklarierte Infra-Ports (C4). `prod_host` ist ein Skalar (kein Listen-Feld,
+  # geprueft gegen alle bestehenden Eintraege) — Dienste auf zwei Hosts bekommen
+  # deshalb je Host einen eigenen Registrierungs-Eintrag statt eines gemeinsamen.
+  mon-cadvisor-prod:
+    prod: 9338
+    staging: null                  # Flotten-Monitor-Exporter (KONZ-054 A2), keine Staging-Instanz
+    dev: null
+    prod_host: prod
+    container_name: mon_cadvisor
+    domain_prod: null              # kein Tunnel, nur Prometheus-Scrape vom odoo-Host
+    domain_staging: null
+    repo: null                     # kein App-Repo — infra/monitoring/docker-compose.exporters.yml
+    note: "cAdvisor-Exporter, je Host ein eigener Eintrag (s. mon-cadvisor-prod-b). Fund: Reconcile-Drift #2506, gemessen 2026-09-07."
+
+  mon-cadvisor-prod-b:
+    prod: 9338
+    staging: null
+    dev: null
+    prod_host: prod-b
+    container_name: mon_cadvisor
+    domain_prod: null
+    domain_staging: null
+    repo: null
+    note: "s. mon-cadvisor-prod — zweite Instanz, gleicher Port, anderer Host."
+
+  odoo-traefik-http:
+    prod: 80
+    staging: null                  # Ingress-Container, keine Staging-Instanz
+    dev: null
+    prod_host: odoo
+    container_name: odoo_traefik
+    domain_prod: null              # Ingress fuer odoo.iil.pet (s. Service 'odoo' oben) — kein eigener Domain-Eintrag
+    domain_staging: null
+    repo: achimdehnert/odoo-hub
+    note: "Traefik-Ingress vor Odoo, zweiter Port s. odoo-traefik-https. Fund: Reconcile-Drift #2506, gemessen 2026-09-07."
+
+  odoo-traefik-https:
+    prod: 443
+    staging: null
+    dev: null
+    prod_host: odoo
+    container_name: odoo_traefik
+    domain_prod: null
+    domain_staging: null
+    repo: achimdehnert/odoo-hub
+    note: "s. odoo-traefik-http — TLS-Port derselben Traefik-Instanz."
+
+  chathub-rtc-livekit-7881:
+    prod: 7881
+    staging: null                  # RTC-Container, keine Staging-Instanz
+    dev: null
+    prod_host: prod-b
+    container_name: chathub_rtc_livekit
+    domain_prod: null              # Teil von chat-hub (s. oben); rtc-chat.iil.pet ist dort als Domain-Alias deklariert
+    domain_staging: null
+    repo: iilgmbh/chat-hub
+    note: "LiveKit-RTC-Container von chat-hub (einer von 7, s. chat-hub-Eintrag oben), zweiter Port s. chathub-rtc-livekit-7882. Fund: Reconcile-Drift #2506, gemessen 2026-09-07."
+
+  chathub-rtc-livekit-7882:
+    prod: 7882
+    staging: null
+    dev: null
+    prod_host: prod-b
+    container_name: chathub_rtc_livekit
+    domain_prod: null
+    domain_staging: null
+    repo: iilgmbh/chat-hub
+    note: "s. chathub-rtc-livekit-7881 — zweiter Port derselben LiveKit-Instanz."
+

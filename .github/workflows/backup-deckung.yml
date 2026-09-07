@@ -30,12 +30,26 @@
 # ungemessenem Gebiet. Der Leser des roten Laufs ist cron_melder_check (0.7.2),
 # dessen Befund seit E2 mit Entscheidungsfrist im Journal steht.
 #
-# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py.
+# RÜCKBAU R2 (2026-09-07, KONZ-platform-054 §12.6, Owner-Go platform#2895 Item 52,
+# Anker #2506): den `schedule`-Trigger entfernt. Der Runner misst hier IMMER nur 1 von 8
+# Knoten (prod lokal, s. SCOPE-GRENZE oben) und faerbte den taeglichen Lauf
+# seit KONZ-054 E3 deshalb dauerhaft rot per Design (Exit 3, "Geprueft 1 von 8
+# Knoten") — cron_melder_check (0.7.2) fuehrte ihn seitdem staendig als Fund,
+# der keine neue Information mehr trug. Die Sitzungsstart-Phase 0.7.17 misst
+# dieselbe Deckung bereits ueber ALLE 8 Knoten (heute: 88 Volumes, PASS) und ist
+# damit der vollstaendigere Leser der beiden Melder aus #2284.
+# Ersatz: Sitzungsstart-Phasen 0.7.17 (backup-deckung, 8 Knoten) + 0.7.18
+# (speicher) sowie der taegliche Flottenbild-Timer auf dev-desktop
+# (infra/host-maintenance/flottenbild-daily.sh, schreibt backup-deckung taeglich).
+# Rueckweg: dieses Diff revertieren (Rueckbau-Muster R1, #2506) — sinnvoll,
+# sobald der Runner-Key auch nach prod-b (und den uebrigen Knoten) reicht und
+# der Lauf hier wirklich die volle Flotte deckt statt nur `prod`.
+# ROT-IST-BEFUND galt bis hier ebenfalls — mit dem Rueckbau entfaellt der Marker,
+# weil ohne den `schedule`-Trigger gar kein geplanter Lauf mehr existiert, den
+# cron_melder_check.py erfassen wuerde (Filter: sucht den Text `schedule` gefolgt von einem Doppelpunkt).
 name: backup-deckung
 
 on:
-  schedule:
-    - cron: "30 5 * * *" # taeglich 05:30 UTC — nach Offsite-Push und backup-meter
   workflow_dispatch:
 
 permissions:
