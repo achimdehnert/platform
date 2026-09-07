@@ -27,6 +27,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import future_readiness_rubric as rubric  # noqa: E402
 
+# Rubrik-Inhaltsversion (Fragenkatalog/Anwendbarkeitsmatrix-Text, docs/prompts/
+# future-readiness-audit.md) — getrennt von rubric.SCHEMA_VERSION (JSON-Envelope-Form,
+# aendert sich seltener). Etikett im Ergebnis ist f"{RUBRIC_VERSION}-{run_date}", solange
+# --rubric-version nicht explizit uebersteuert wird. Anlass: platform#2876 — ohne Flag
+# schrieb der Bewerter versehentlich "2.3-<run-date>" statt der aktuellen Rubrik-Version.
+RUBRIC_VERSION = "2.5"
+
 SCORE = {"ok": 5, "partial": 3, "fail": 0}
 PARTIAL_NO_FINDING = {"D02.3", "D04.3", "D05.3", "D06.8", "D06.9", "D09.6", "D10.2"} | {
     f"D08.{i}" for i in range(1, 7)
@@ -730,14 +737,25 @@ class Scorer:
             "CLAUDE.md/AGENTS.md",
             "file",
         )
-        self.answered(
-            "D11.2",
-            "ok"
-            if files.get("NOTICE") == "+" or files.get("THIRD_PARTY_NOTICES.md") == "+"
-            else "fail",
-            "NOTICE/THIRD_PARTY_NOTICES.md",
-            "file",
-        )
+        if ents == 0:
+            # Regel v2.5 (platform#2737 Frage 3/#2876): ohne Abhaengigkeits-Manifest
+            # (entries == 0 ueber alle Manifeste inkl. pyproject nach R1) ist die Frage
+            # nach Third-Party-Notices nicht anwendbar, nicht fail.
+            self.open_(
+                "D11.2",
+                "not_applicable",
+                "kein Abhaengigkeits-Manifest (v2.5)",
+            )
+        else:
+            self.answered(
+                "D11.2",
+                "ok"
+                if files.get("NOTICE") == "+"
+                or files.get("THIRD_PARTY_NOTICES.md") == "+"
+                else "fail",
+                "NOTICE/THIRD_PARTY_NOTICES.md",
+                "file",
+            )
         # Rest: Matrix, Negativliste, sonst unverified
         for qid in QMAP:
             if qid in self.answers:
@@ -1086,7 +1104,9 @@ def main() -> int:
     ap.add_argument("--horizon-end", default=None)
     ap.add_argument(
         "--rubric-version",
-        default=f"{rubric.SCHEMA_VERSION}-{dt.date.today().isoformat()}",
+        default=None,
+        help=f"Default {RUBRIC_VERSION}-<run-date>; explizit gesetzt = bewusste "
+        "Uebersteuerung (Warnung auf stderr)",
     )
     ap.add_argument(
         "--prior-art", default="{}", help="JSON {finding_type: [issue-url, ...]}"
@@ -1096,6 +1116,14 @@ def main() -> int:
     a.reach = a.reach.lower() == "true"
     a.prior_art = json.loads(a.prior_art)
     a.prior_art_dauerrot = bool(a.prior_art.get("dauerrot"))
+    if a.rubric_version is None:
+        a.rubric_version = f"{RUBRIC_VERSION}-{a.run_date}"
+    else:
+        print(
+            f"WARNUNG: --rubric-version uebersteuert die Konstante "
+            f"RUBRIC_VERSION={RUBRIC_VERSION} -> Etikett bleibt {a.rubric_version!r}",
+            file=sys.stderr,
+        )
     if not a.horizon_end:
         rd = dt.date.fromisoformat(a.run_date)
         a.horizon_end = rd.replace(year=rd.year + 3).isoformat()

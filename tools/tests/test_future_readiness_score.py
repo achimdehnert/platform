@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,8 +18,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCORE = ROOT / "tools" / "future_readiness_score.py"
+AUDIT_PROMPT = ROOT / "docs" / "prompts" / "future-readiness-audit.md"
 sys.path.insert(0, str(ROOT / "tools"))
+import future_readiness_evidence as evidence  # noqa: E402
 import future_readiness_rubric as rubric  # noqa: E402
+import future_readiness_score as score_mod  # noqa: E402
 
 jsonschema = pytest.importorskip("jsonschema")
 
@@ -439,3 +443,150 @@ def test_should_keep_scoring_by_the_share_rule_when_fewer_than_three_are_answere
             erwartet = len(ans) >= rubric.SCORE_MIN_SHARE * len(appl)
             assert (s["score"] is not None) == erwartet, d
     assert geprueft, "keine Dimension unter der 3-answered-Grenze im Fixture"
+
+
+# ---- R1: D02.1 zaehlt [project.optional-dependencies] mit (v2.5, platform#2737 Frage 2) --
+
+
+def test_should_count_optional_dependencies_as_manifest_entries(tmp_path):
+    # iil-enrichment/iil-ingest/nl2cad (#2737): dependencies bleibt leer, alles liegt
+    # in Extras-Gruppen — das darf nicht mehr als "leeres Manifest" durchfallen.
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\n"
+        'name = "iil-enrichment"\n'
+        'requires-python = ">=3.11"\n'
+        "dependencies = []\n"
+        "\n"
+        "[project.optional-dependencies]\n"
+        'core = ["httpx>=0.27", "pydantic>=2.0"]\n'
+        'dev = ["pytest>=8.0", "ruff"]\n'
+        'all = ["iil-enrichment[core,dev]"]\n',
+        encoding="utf-8",
+    )
+    p = evidence.pyproject_ops(str(tmp_path))
+    assert p["exists"] and p["project_table"]
+    assert p["dependencies"]["entries"] == 4  # httpx, pydantic, pytest, ruff
+    assert p["dependencies"]["versioned_entries"] == 3  # ruff ist unversioniert
+    assert p["optional_entries"] == 4
+
+
+def test_should_not_double_count_a_self_referencing_extras_group(tmp_path):
+    # all = ["pkg[a,b]"] referenziert nur eigene Extras — kein zusaetzlicher Eintrag.
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\n"
+        'name = "nl2cad"\n'
+        "dependencies = []\n"
+        "\n"
+        "[project.optional-dependencies]\n"
+        'a = ["requests>=2.0"]\n'
+        'b = ["click"]\n'
+        'all = ["nl2cad[a,b]"]\n',
+        encoding="utf-8",
+    )
+    p = evidence.pyproject_ops(str(tmp_path))
+    assert p["dependencies"]["entries"] == 2  # requests, click — nicht 3
+    assert p["optional_entries"] == 2
+
+
+def test_should_dedupe_optional_entries_repeated_across_groups(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\n"
+        'name = "pkg"\n'
+        "dependencies = []\n"
+        "\n"
+        "[project.optional-dependencies]\n"
+        'dev = ["pytest>=8.0"]\n'
+        'test = ["pytest>=8.0"]\n',
+        encoding="utf-8",
+    )
+    p = evidence.pyproject_ops(str(tmp_path))
+    assert p["dependencies"]["entries"] == 1
+    assert p["optional_entries"] == 1
+
+
+def test_should_treat_pyproject_without_project_table_as_no_manifest(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["setuptools"]\n\n[tool.ruff]\nline-length = 100\n',
+        encoding="utf-8",
+    )
+    p = evidence.pyproject_ops(str(tmp_path))
+    assert p["exists"] and not p["project_table"]
+    assert p["dependencies"] is None  # KEIN Manifest, nicht "leeres Manifest"
+    res = _run(
+        tmp_path,
+        _pack(requirements_files_tracked=[], manifests={}, pyproject=p),
+    )
+    q = res["scores"]["D02"]["questions"]["D02.1"]
+    assert q["state"] == "answered" and q["outcome"] == "fail"
+    assert q["evidence"][0]["ref"].startswith("kein Manifest")
+
+
+# ---- R2: D11.2 not_applicable ohne Abhaengigkeits-Manifest (v2.5, platform#2737 Frage 3) --
+
+
+def test_should_mark_third_party_notices_not_applicable_without_manifest(tmp_path):
+    res = _run(
+        tmp_path,
+        _pack(requirements_files_tracked=[], manifests={}, pyproject={"exists": False}),
+    )
+    q = res["scores"]["D11"]["questions"]["D11.2"]
+    assert q["state"] == "not_applicable"
+    assert "v2.5" in q["note"]
+    assert not any(f["question_id"] == "D11.2" for f in res["findings"])
+    errs = list(jsonschema.Draft202012Validator(rubric.schema()).iter_errors(res))
+    assert errs == []
+
+
+def test_should_keep_third_party_notices_fail_when_manifest_has_entries(tmp_path):
+    # Baseline-Pack: requirements.txt mit 4 Eintraegen, NOTICE/THIRD_PARTY_NOTICES.md
+    # beide abwesend -> D11.2 bleibt ein echter fail, kein n/a.
+    res = _run(tmp_path, _pack())
+    q = res["scores"]["D11"]["questions"]["D11.2"]
+    assert q["state"] == "answered" and q["outcome"] == "fail"
+
+
+# ---- R3: Etikett aus RUBRIC_VERSION-Konstante (platform#2876) -----------------------
+
+
+def test_should_label_result_with_rubric_version_constant_by_default(tmp_path):
+    res = _run(tmp_path, _pack())
+    assert res["rubric_version"] == f"{score_mod.RUBRIC_VERSION}-2026-09-03"
+
+
+def test_should_warn_on_stderr_when_rubric_version_is_overridden(tmp_path):
+    ev = tmp_path / "evidence.json"
+    ev.write_text(json.dumps(_pack()), encoding="utf-8")
+    out = tmp_path / "result.json"
+    r = subprocess.run(
+        [
+            sys.executable,
+            str(SCORE),
+            str(ev),
+            "--out",
+            str(out),
+            "--archetype",
+            "python-package",
+            "--run-date",
+            "2026-09-03",
+            "--prod-deploy",
+            "true",
+            "--rubric-version",
+            "9.9-custom",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    assert "WARNUNG" in r.stderr and "RUBRIC_VERSION" in r.stderr
+    res = json.loads(out.read_text(encoding="utf-8"))
+    assert res["rubric_version"] == "9.9-custom"
+
+
+def test_should_keep_doc_header_version_in_sync_with_rubric_version_constant():
+    # Synchrontest platform#2876: der Kopf von docs/prompts/future-readiness-audit.md
+    # (z.B. "Master-Prompt v2.5") muss dieselbe Versionsnummer tragen wie die
+    # RUBRIC_VERSION-Konstante im Bewerter — sonst laufen Doku und Code auseinander.
+    head = AUDIT_PROMPT.read_text(encoding="utf-8").splitlines()[0]
+    m = re.search(r"Master-Prompt v(\d+\.\d+)", head)
+    assert m, head
+    assert m.group(1) == score_mod.RUBRIC_VERSION

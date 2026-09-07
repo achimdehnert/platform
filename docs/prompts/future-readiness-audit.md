@@ -1,4 +1,4 @@
-# Future-Readiness-Audit über die Flotte — Master-Prompt v2.4
+# Future-Readiness-Audit über die Flotte — Master-Prompt v2.5
 
 > Adaption des eingereichten „Cross-Repository Future-Readiness Audit &
 > Modernization"-Prompts (2026-09-02) auf das IIL-Ökosystem. Die Vorlage war
@@ -13,7 +13,12 @@
 > zustandsabhängiges Schema. **v2.4** (2026-09-04) arbeitet die Kandidaten aus dem
 > Flottenlauf ein (Phase C, 56 Repos): Ablageort, Operanden für die Fragen, die
 > im Lauf unterbestimmt blieben, und die Regel für nicht lesbare
-> Security-Einstellungen. Fragenkatalog, Anwendbarkeitsmatrix und Schema
+> Security-Einstellungen. **v2.5** (2026-09-07) arbeitet die Owner-Entscheide zu
+> platform#2737 (Fragen 2–4) und den Werkzeugbefund platform#2876 ein: D02.1
+> zählt `[project.optional-dependencies]`-Extras mit, D11.2 wird ohne
+> Abhängigkeits-Manifest `not_applicable` statt `fail`, und das Bewerter-Etikett
+> kommt aus einer eigenen `RUBRIC_VERSION`-Konstante statt aus `SCHEMA_VERSION`.
+> Fragenkatalog, Anwendbarkeitsmatrix und Schema
 > stammen aus **einer** Quelle (`tools/future_readiness_rubric.py`, s. Anhang);
 > der Prompt wird zwischen Markern gerendert (`render`), `check` schlägt an,
 > wenn beide auseinanderlaufen.
@@ -26,10 +31,11 @@
 | v2.2 | 2026-09-02 | zweiter Canary, sieben Benchmark-Blocker, Score-Abbildung |
 | v2.3 | 2026-09-03 | dritter Canary + Review B: eindeutige Befundwerte, `locator_kind`, finding-lokale P1-Regel, zustandsabhängiges Schema |
 | v2.4 | 2026-09-04 | Kandidaten 5, 10, 11\*, 21–36 aus Canary 4/5 und Phase C — Bilanz in [`docs/audits/future-readiness/v2.4-regelbilanz.md`](../audits/future-readiness/v2.4-regelbilanz.md) |
+| v2.5 | 2026-09-07 | Owner-Entscheide #2737 Fragen 2–4 + #2876: D02.1 zählt `[project.optional-dependencies]` mit; D11.2 ohne Manifest → `not_applicable`; Bewerter-Etikett aus `RUBRIC_VERSION`-Konstante statt `SCHEMA_VERSION` |
 
-Das JSON-Schema (Artefakt 3) bleibt in v2.4 unverändert bei `schema_version` **2.3** —
+Das JSON-Schema (Artefakt 3) bleibt in v2.5 unverändert bei `schema_version` **2.3** —
 die Regeln präzisieren Erhebung und Befundwerte, nicht die Struktur; die 56
-Phase-C-Ergebnisse bleiben schema-valide. `rubric_version` steigt auf `2.4-<RUN_DATE>`.
+Phase-C-Ergebnisse bleiben schema-valide. `rubric_version` steigt auf `2.5-<RUN_DATE>`.
 
 **Verhältnis zu Bestehendem**
 
@@ -71,7 +77,7 @@ RUN_DATE:                {{ISO-Datum}}                   # Pflicht
 HORIZON_MONTHS:          36
 HORIZON_END:             {{RUN_DATE + HORIZON_MONTHS}}   # Pflicht, ausgerechnet übergeben
 ANALYZED_AT:             {{ISO-Zeit}}                    # Pflicht: Zeitpunkt der HEAD-Aufnahme
-RUBRIC_VERSION:          {{z.B. 2.4-2026-09-04}}         # Pflicht
+RUBRIC_VERSION:          {{z.B. 2.5-2026-09-07}}         # Pflicht
 BUDGET_TOKENS_TOTAL:     {{Pflicht — kein Default}}      # Spend-Gate
 BUDGET_MINUTES_TOTAL:    {{Pflicht — kein Default}}
 MAX_PARALLEL_WORKERS:    4
@@ -305,7 +311,7 @@ D01 Runtime-Lifecycle (Gewicht 10)
           ok: Image mit Support-Datum > HORIZON_END | partial: Support-Datum < HORIZON_END | fail: EOL-Image | n/a: ci-workflow, docs, python-package
 
 D02 Dependencies/Reproduzierbarkeit (Gewicht 10)
-  D02.1   manifest                       [files] Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest; [project].dependencies aus pyproject.toml zaehlt als Manifest)
+  D02.1   manifest                       [files] Abhaengigkeits-Manifest mit Versionsangaben (Operand: versioned_entries/entries je Manifest; [project].dependencies aus pyproject.toml zaehlt als Manifest; [project.optional-dependencies]-Extras zaehlen mit, dedupliziert ueber Gruppen, eigene Extras-Selbstreferenz wie all = ["pkg[a,b]"] ausgenommen; v2.5. Eine pyproject.toml ohne [project]-Tabelle ist KEIN Manifest)
           ok: alle Eintraege versioniert | partial: teils versioniert | fail: kein Manifest, nur leere Manifeste (entries == 0) oder 0 versioniert | n/a: docs
   D02.2   lockfile                       [absence] Lockfile vorhanden und in CI genutzt (uv.lock, poetry.lock, requirements.lock, pdm.lock, Pipfile.lock, package-lock.json; vollstaendig gepinnte requirements*.txt zaehlt NICHT)
           ok: Lockfile + CI installiert daraus | partial: Lockfile, CI nutzt es nicht | fail: kein Lockfile | n/a: docs
@@ -445,7 +451,7 @@ D10 Coding-Agent-Readiness (Gewicht 5)
 D11 Compliance/Lizenz (Gewicht 3)
   D11.1   lizenz                         [absence] Lizenz
           ok: ja | partial: - | fail: nein | n/a: -
-  D11.2   third-party-notices            [absence] Third-Party-Notices
+  D11.2   third-party-notices            [absence] Third-Party-Notices (not_applicable ohne Abhaengigkeits-Manifest mit entries > 0 ueber alle erkannten Manifeste inkl. pyproject; v2.5)
           ok: ja | partial: - | fail: nein | n/a: docs
   D11.3   beispieldaten-personenfrei     [repo] Beispieldaten personenfrei
           ok: belegt (Scanner) | partial: - | fail: Fund | n/a: -
