@@ -25,11 +25,11 @@ Einziger Seiteneffekt ist die **idempotente** Regeneration des lokalen
 2. **Tier-Mismatch-Warnung**: falls eines der Top-Items mit `[Opus]` markiert
    ist und du **nicht** in einer Opus-Session bist (du siehst das im
    System-Reminder: „You are powered by claude-sonnet-…" / „claude-haiku-…"
-   / „claude-opus-4-7"), gib eine klare Vorab-Warnung:
+   / „claude-opus-…"), gib eine klare Vorab-Warnung:
 
    ```
    ⚠️ Top-Item ist Tier-4 (Opus-Klasse). Aktuelle Session: <model>.
-      Empfehlung: `/model claude-opus-4-7` vor Start.
+      Empfehlung: `/model opus` vor Start.
    ```
 
 3. **Output-Format**:
