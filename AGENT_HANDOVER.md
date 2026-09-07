@@ -76,8 +76,6 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 39. apo-hub ruhend, DEPLOY_ENABLED=false; Schluesselrotation erst bei Reaktivierung: https://github.com/achimdehnert/apo-hub/issues/82
 40. `Bash(gh pr merge:*)` global in autoMode.allow — zurueckbauen oder als Gate verankern (Owner): https://github.com/achimdehnert/platform/issues/2834
 41. shared-ci v1.1.15 gesetzt (#73 zu); 42 Konsumenten bumpen, writing-hub zuerst, Liste mit Versionen: https://github.com/iilgmbh/shared-ci/issues/77
-42. graph_mail: Entwurfs-Anhänge >3 MB per Upload-Session; Abbruch darf keinen Rest-Entwurf hinterlassen (Dreifach-Zustellung 06.09.): https://github.com/achimdehnert/platform/issues/2875
-43. future_readiness_score: Rubrik-Etikett aus Konstante statt `2.3-<datum>` (K5-Lauf falsch etikettiert): https://github.com/achimdehnert/platform/issues/2876
 44. memory-link-guard prüft alle Memory-Lanes und meldet fremde Sitzung als eigenen Zug: https://github.com/achimdehnert/platform/issues/2870
 
 ## Konventionen dieser Datei
