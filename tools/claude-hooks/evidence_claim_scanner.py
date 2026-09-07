@@ -41,7 +41,7 @@ GATE_HEADER = {
     "slug": "claim-before-cheapest-check",
     "mode": "blocking",  # Laufzeit-Opt-out: state-Datei, s. _mode()
     "owner": "achim",
-    "last_drill_pass": "2026-08-28",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py
+    "last_drill_pass": "2026-09-07",  # Drill = test_should_block_* in tests/ + test_evidence_claim_scanner_bypass.py + _vollzug.py
     "evidence": "tools/claude-hooks/tests/test_evidence_claim_scanner.py",
 }
 
@@ -531,6 +531,40 @@ BYPASS_CLAIM_RE = re.compile(
 MERGEDBY_EVIDENCE_RE = re.compile(
     r"mergedBy|merged_by|Merged pull request|✓ Merged|merge_commit", re.I
 )
+# Rev 5 (2026-09-07, platform#2374 — das Gate war rueckfaellig ×4). Der vierte
+# Rueckfall war der Escrow-Satz aus platform#2673: „Der Escrow ist **ausgefuehrt**",
+# waehrend gesichert nur `offsite-backup.env` war — eine Datei, die per
+# RESTIC_PASSWORD_FILE einen ZEIGER enthaelt, nicht den Schluessel.
+#
+# Die Retro (a6368d, Korrektur zu §5a) erklaerte den Durchlaeufer damit, dass ein
+# Werkzeug lief (`scp`, `sha256sum`), aber die falsche Ebene belegte. Gegengeprueft
+# am 2026-09-07 gegen die Muster selbst: KEIN einziges CLAIM_PATTERN trifft diesen
+# Satz — weder „ausgefuehrt" noch „vollzogen", „eingerichtet", „gesichert" oder
+# „abgeschlossen" stehen in der Liste. Der Body-Zweig hat also nie gefeuert; die
+# Korroboration kam gar nicht zum Zug. Die Diagnose der Retro war eine Ebene zu tief.
+#
+# Deshalb ein eigener Claim-Typ, und bewusst NUR fuer publizierte Bodies: „erledigt"
+# und „abgeschlossen" stehen in jeder zweiten Chat-Antwort (das Action Board fuehrt
+# „✅ Erledigt" als Bucket-Ueberschrift) — im Chat waere das eine Fehlalarm-Flut.
+# Zweite Verengung: der Satz muss einen WIRKUNGS-GEGENSTAND nennen. Ein „PR ist
+# erledigt" ist eine Statusnotiz, ein „Escrow ist ausgefuehrt" eine Aussage ueber
+# einen Vorgang ausserhalb des Repos, den nur ein Lesen am Ziel belegt.
+_VOLLZUG_GEGENSTAND = (
+    r"escrow|backup|restore|wiederherstellung|rotation|rotiert|secret|schl(?:ü|ue)ssel"
+    r"|token|migration|deploy(?:ment)?|publish|ver(?:ö|oe)ffentlichung|dump|snapshot"
+    r"|cutover|umzug|umstellung|abschaltung|stilllegung|escrow-datei"
+)
+_VOLLZUG_VERB = (
+    r"ausgef(?:ü|ue)hrt|vollzogen|durchgef(?:ü|ue)hrt|eingerichtet|abgeschlossen"
+    r"|gesichert|wiederhergestellt|scharfgeschaltet|aktiviert|erledigt"
+)
+#: Beide Teile im selben Satz, in beiden Reihenfolgen, mit engem Abstand.
+VOLLZUG_CLAIM_RE = re.compile(
+    rf"(?:{_VOLLZUG_GEGENSTAND})[^.!?\n]{{0,60}}(?:{_VOLLZUG_VERB})"
+    rf"|(?:{_VOLLZUG_VERB})[^.!?\n]{{0,60}}(?:{_VOLLZUG_GEGENSTAND})",
+    re.I,
+)
+
 _GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
 _GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
 _STATUS_IN_COMMENT_RE = re.compile(
@@ -919,6 +953,26 @@ def main() -> int:
             "bypass-claim (Admin-/Ruleset-Bypass im PR-/Issue-Kommentar behauptet, "
             "aber kein mergedBy-Beleg im Turn — `state: MERGED` belegt den Merge-WEG nicht)"
         )
+    # Rev 5: Vollzugs-Behauptung ueber einen Wirkungsschritt im publizierten Body.
+    # Korroboration ist BODY_EVIDENCE_TOKENS wie im Body-Zweig darueber — bewusst
+    # NICHT um `sha256sum`/`scp` erweitert: genau die liefen im Realfall und
+    # belegten die falsche Ebene. Ein Werkzeug, das den Vollzug belegen soll, muss
+    # am ZIEL lesen (gh api / gh run / curl / HTTP-Status), nicht an der Quelle.
+    if bodies:
+        _vollzug_text = "\n".join(bodies)
+        _ev_ohne_body = evidence_text
+        for b in bodies:
+            _ev_ohne_body = _ev_ohne_body.replace(b, "")
+            _ev_ohne_body = _ev_ohne_body.replace(json.dumps(b)[1:-1], "")
+        if VOLLZUG_CLAIM_RE.search(_vollzug_text) and not BODY_EVIDENCE_TOKENS.search(
+            _ev_ohne_body
+        ):
+            fired.append(
+                "vollzugs-claim (Vollzug eines Wirkungsschritts im PR-/Issue-Body "
+                "behauptet, ohne dass im Turn am ZIEL gelesen wurde — Realfall "
+                'platform#2673: „Escrow ist ausgefuehrt", gesichert war ein Zeiger)'
+            )
+
     if _kommentar_vor_merge(tool_inputs):
         fired.append(
             "comment-before-merge (Status-/Bypass-Kommentar in derselben Befehlskette VOR "

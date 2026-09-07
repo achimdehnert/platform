@@ -187,3 +187,66 @@ def test_every_gate_with_faengt_in_the_real_registry_is_wellformed():
         for fall in gate.get("faengt", []):
             assert fall.get("fall"), gate["slug"]
             assert fall.get("probe"), gate["slug"]
+
+
+# --- `drill` als Liste (Fix 2026-09-07, platform#2908) ----------------------
+#
+# Ein Gate darf mehr als einen Erzwingungspunkt haben; `gate_verankerung_check`
+# erlaubt String, Komma-Liste und JSON-Liste. Dieses Werkzeug kannte nur die
+# erste Form und reichte die Liste an `os.path.isabs` durch — TypeError beim
+# ERSTEN solchen Gate, also fuer den ganzen Lauf, und zwar unbemerkt auf `main`.
+
+
+def test_should_read_a_drill_given_as_a_json_list(tmp_path):
+    # POSITIVKONTROLLE: vor dem Fix warf genau dieser Aufruf TypeError.
+    (tmp_path / "a.py").write_text("hier steht der erster_fall\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("und hier der zweiter_fall\n", encoding="utf-8")
+    stand = gn.pruefe_gate(
+        {
+            "slug": "g",
+            "drill": ["a.py", "b.py"],
+            "faengt": [
+                {"fall": "eins", "probe": "erster_fall"},
+                {"fall": "zwei", "probe": "zweiter_fall"},
+            ],
+        },
+        str(tmp_path),
+    )
+    assert stand["zustand"] == "gedeckt"
+    assert stand["dateien"] == 2
+
+
+def test_should_read_a_drill_given_as_a_comma_list(tmp_path):
+    _repo(tmp_path, "erster_fall\n", "a.py")
+    (tmp_path / "b.py").write_text("zweiter_fall\n", encoding="utf-8")
+    stand = gn.pruefe_gate(
+        {
+            "slug": "g",
+            "drill": "a.py, b.py",
+            "faengt": [{"fall": "zwei", "probe": "zweiter_fall"}],
+        },
+        str(tmp_path),
+    )
+    assert stand["zustand"] == "gedeckt"
+
+
+def test_should_still_read_a_plain_string_drill(tmp_path):
+    # Gegenprobe: die bisherige Form bleibt unveraendert gueltig.
+    _repo(tmp_path, "erster_fall\n")
+    stand = gn.pruefe_gate(
+        {
+            "slug": "g",
+            "drill": "drill.py",
+            "faengt": [{"fall": "eins", "probe": "erster_fall"}],
+        },
+        str(tmp_path),
+    )
+    assert stand["zustand"] == "gedeckt" and stand["dateien"] == 1
+
+
+def test_should_not_crash_on_the_real_registry():
+    # Der Fall, der das Werkzeug stillgelegt hat: ein Lauf ueber den ECHTEN
+    # Bestand. Ein Pruefer, der nur an Fixtures laeuft, beweist wenig.
+    registry = json.loads((Path(gn.DEFAULT_REGISTRY)).read_text(encoding="utf-8"))
+    staende = [gn.pruefe_gate(g) for g in registry["gates"]]
+    assert len(staende) == len(registry["gates"])

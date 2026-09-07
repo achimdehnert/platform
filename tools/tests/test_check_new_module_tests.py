@@ -115,3 +115,97 @@ class TestHinzugefuegteDateien:
                 "tools/a.py",
                 "scripts/b.py",
             ]
+
+
+class TestSpurZweiAlsBezug:
+    """Rev 2 (platform#2374): Spur 2 verlangt einen BEZUG, keine blosse Erwaehnung.
+
+    Positivkontrolle fuer die Verschaerfung: derselbe Baum, einmal mit dem Stem
+    nur in Prosa (faellt jetzt) und einmal als Import (haelt weiter).
+    """
+
+    def _baum(self, tmp_path: Path, testinhalt: str) -> Path:
+        (tmp_path / "tools" / "tests").mkdir(parents=True)
+        (tmp_path / "tools" / "link_pruefen.py").write_text("x = 1\n")
+        (tmp_path / "tools" / "tests" / "test_sammelsuite.py").write_text(testinhalt)
+        return tmp_path
+
+    def test_should_flag_module_only_mentioned_in_prose(self, tmp_path):
+        # Realfall 4b1399 #4: link_pruefen.py ohne Test und ohne CI-Einbindung —
+        # der Name stand nur in einem Docstring. Vor Rev 2 galt das als getestet.
+        root = self._baum(
+            tmp_path,
+            '"""Suite. Siehe auch link_pruefen, das noch keinen Test hat."""\n',
+        )
+        assert cnm.hat_test_spur("link_pruefen", root) is False
+        assert cnm.befunde_fuer(["tools/link_pruefen.py"], root) == [
+            "tools/link_pruefen.py"
+        ]
+
+    def test_should_accept_import_as_reference(self, tmp_path):
+        root = self._baum(tmp_path, "import link_pruefen\n")
+        assert cnm.hat_test_spur("link_pruefen", root) is True
+
+    def test_should_accept_path_literal_as_reference(self, tmp_path):
+        root = self._baum(tmp_path, 'SCRIPT = "tools/link_pruefen.py"\n')
+        assert cnm.hat_test_spur("link_pruefen", root) is True
+
+    def test_should_accept_string_literal_as_reference(self, tmp_path):
+        root = self._baum(tmp_path, 'MODUL = "link_pruefen"\n')
+        assert cnm.hat_test_spur("link_pruefen", root) is True
+
+
+class TestGateDrillOhneFalsifikation:
+    """Rev 2, zweite Familie: ein neuer Gate-Drill muss seine Gegenprobe nennen.
+
+    Realfall cc4e11 #4: das erste Klassen-Gate bestand die eigene Gegenprobe
+    nicht (3000-Zeichen-Fenster griff in die Nachbarfunktion) — der Drill war
+    gruen, die Gegenprobe stand nirgends.
+    """
+
+    def _drill(self, tmp_path: Path, inhalt: str) -> Path:
+        (tmp_path / "tools" / "tests").mkdir(parents=True)
+        (tmp_path / "tools" / "tests" / "test_klassen_gate.py").write_text(inhalt)
+        return tmp_path
+
+    def test_should_flag_gate_drill_without_falsification(self, tmp_path):
+        root = self._drill(
+            tmp_path,
+            '"""Klassen-Gate fuer die Sperre."""\n\n'
+            "def test_should_accept_valid_input():\n    assert True\n",
+        )
+        assert cnm.drill_befunde_fuer(["tools/tests/test_klassen_gate.py"], root) == [
+            "tools/tests/test_klassen_gate.py"
+        ]
+
+    def test_should_accept_gate_drill_with_named_gegenprobe(self, tmp_path):
+        root = self._drill(
+            tmp_path,
+            '"""Klassen-Gate fuer die Sperre."""\n\n'
+            "# Gegenprobe: Sperre entfernt -> Test muss fallen.\n"
+            "def test_should_accept_valid_input():\n    assert True\n",
+        )
+        assert cnm.drill_befunde_fuer(["tools/tests/test_klassen_gate.py"], root) == []
+
+    def test_should_accept_gate_drill_with_flagging_testname(self, tmp_path):
+        root = self._drill(
+            tmp_path,
+            '"""Drill fuer das Gate."""\n\n'
+            "def test_should_flag_the_bad_case():\n    assert True\n",
+        )
+        assert cnm.drill_befunde_fuer(["tools/tests/test_klassen_gate.py"], root) == []
+
+    def test_should_ignore_ordinary_test_file(self, tmp_path):
+        # Eine Testdatei ohne Gate-Selbstauskunft ist kein Gate-Drill — sonst
+        # traefe die Regel jeden Test im Repo und wuerde umgangen statt befolgt.
+        root = self._drill(
+            tmp_path,
+            '"""Tests fuer die Rechenfunktion."""\n\n'
+            "def test_should_add_two_numbers():\n    assert 1 + 1 == 2\n",
+        )
+        assert cnm.drill_befunde_fuer(["tools/tests/test_klassen_gate.py"], root) == []
+
+    def test_should_ignore_modified_but_not_added_files(self, tmp_path):
+        # Bestandsschutz bleibt: geprueft wird nur, was der PR HINZUFUEGT.
+        root = self._drill(tmp_path, '"""Klassen-Gate."""\n')
+        assert cnm.drill_befunde_fuer(["tools/irgendwas.py"], root) == []

@@ -19,13 +19,39 @@ beschrieben, lief ein Prod-/Publish-Schritt) — die ist sichtbar, egal ob
 jemand den Mund aufmacht. Der Wortlaut wird erst danach geprueft, und zwar
 als ERFUELLUNG, nicht als Ausloeser.
 
-ZWEI FEHLERFORMEN, GETRENNT GEMELDET
+DREI FEHLERFORMEN, GETRENNT GEMELDET
 ------------------------------------
 A ``kein-checkpoint``   Bedingung erfuellt, in der ganzen Sitzung kein
                         Checkpoint ausgesprochen. Das ist der x10-Fehler,
                         fuer den Rev 1 blind war.
 B ``nicht-festgehalten`` Checkpoint ausgesprochen, aber kein durables
                         Artefakt in der Sitzung. Das ist Rev 1, behalten.
+C ``reichweite-gewachsen`` Checkpoint abgelegt — und die Reichweite ist DANACH
+                        weiter gewachsen. Rev 5, 2026-09-07 (platform#2374).
+
+WARUM REV 5 (Gate war rueckfaellig x3)
+--------------------------------------
+Bis Rev 4 endete die Pflicht mit dem ERSTEN abgelegten Checkpoint: sobald
+``checkpoint_text`` gesetzt und ein durables Artefakt gefunden war, gab
+``main()`` fuer den Rest der Sitzung 0 zurueck — egal, wie weit der Scope danach
+noch wuchs. Genau das ist der Rueckfall aus Retro 33616e (2026-09-01, Befund #1):
+„Scope wuchs von '/mcp anzeigen' auf 13 PRs in 3 Repos + Staging-Schreibzugriff.
+Checkpoint einmal abgelegt, danach kein zweiter trotz weiterem Wachstum
+(risk-hub, VVT, Retro)." Das Gate hatte gefeuert, die Sitzung hatte geantwortet —
+und danach war es blind. Ein Checkpoint ist aber eine Aussage ueber eine
+Reichweite, nicht ueber eine Sitzung; waechst die Reichweite, verfaellt die
+Aussage.
+
+Fehlerform C misst deshalb den Stand ZUM ZEITPUNKT des letzten Checkpoints und
+vergleicht ihn mit dem Jetzt. Sie feuert bei zwei Wachstumsarten:
+  * ``NACHWACHS_SCHWELLE`` zusaetzliche beschriebene Repos seit dem Checkpoint
+    (2 statt 1 — ein einzelnes Nachbar-Repo ist Alltag, zwei sind ein Sprung),
+  * der erste Prod-/Publish-Schritt NACH einem Checkpoint, der ohne Prod
+    abgelegt wurde. Die Hausregel nennt Prod ausdruecklich eigenstaendig neben
+    dem dritten Repo; ein Checkpoint ueber Repo-Zahlen deckt ihn nicht.
+Die Entprellung haengt an der beobachteten Reichweite, nicht an der Sitzung:
+jeder neue Wachstumsstand meldet einmal. Eine Entprellung „einmal pro Sitzung"
+waere hier dieselbe Falle eine Ebene hoeher.
 
 MESSGROESSE FUER "DRITTES REPO"
 -------------------------------
@@ -80,6 +106,13 @@ GATE_HEADER = {
 
 # Ab wie vielen beschriebenen Repos die Pflicht entsteht (Hausregel: das dritte).
 REPO_SCHWELLE = 3
+
+#: Rev 5: um wie viele Repos die Reichweite nach einem Checkpoint wachsen darf,
+#: bevor der Checkpoint verfaellt. 2, nicht 1: ein einzelnes weiteres Repo ist in
+#: diesem Setup Alltag (das Zielrepo plus platform), zwei sind ein Sprung. Der
+#: Realfall lag bei +2 (risk-hub und ein drittes) auf einen einmal abgelegten
+#: Checkpoint.
+NACHWACHS_SCHWELLE = 2
 
 # Der Checkpoint-Moment, wie er real formuliert wird. In Rev 2 ist das die
 # ERFUELLUNG, nicht der Ausloeser — deshalb darf er grosszuegig bleiben: ein
@@ -250,6 +283,10 @@ def sammle_evidenz(transcript_path: Path) -> dict:
         "checkpoint_text": "",
         "durables_artefakt": False,
         "fremde_ressource": "",
+        # Rev 5: Stand ZUM ZEITPUNKT des LETZTEN Checkpoints. None = es gab
+        # keinen. Fehlerform C vergleicht diesen Stand mit dem Jetzt.
+        "repos_bei_checkpoint": None,
+        "prod_bei_checkpoint": False,
     }
     # Reihenfolge zaehlt: ein durables Artefakt BELEGT den Checkpoint nur,
     # wenn es nach ihm entstand. Ohne diese Kopplung genuegte irgendein
@@ -284,11 +321,19 @@ def sammle_evidenz(transcript_path: Path) -> dict:
 
                 if typ == "text" and obj.get("type") == "assistant":
                     text = str(c.get("text") or "")
-                    if not ergebnis["checkpoint_text"]:
-                        m = CHECKPOINT_PATTERNS.search(text)
-                        if m:
+                    m = CHECKPOINT_PATTERNS.search(text)
+                    if m:
+                        # Fehlerform A/B haengen unveraendert am ERSTEN Checkpoint
+                        # (dort entsteht die Belegpflicht fuer das Artefakt).
+                        if not ergebnis["checkpoint_text"]:
                             ergebnis["checkpoint_text"] = m.group(0)
                             checkpoint_bei = schritt
+                        # Fehlerform C haengt am LETZTEN: sie fragt, ob die
+                        # Reichweite seit der juengsten Aussage gewachsen ist.
+                        ergebnis["repos_bei_checkpoint"] = len(
+                            ergebnis["repos_beschrieben"]
+                        )
+                        ergebnis["prod_bei_checkpoint"] = bool(ergebnis["prod"])
                     continue
 
                 if typ == "tool_result":
@@ -421,6 +466,48 @@ def main() -> int:
             "gewachsenen Scope spiegeln, bevor weitergemacht wird. (Gate "
             "scope-checkpoint-not-durably-recorded Rev 2, Fehlerform A, advisory.)"
         )
+        return 0
+
+    if ev["durables_artefakt"]:
+        # Fehlerform C (Rev 5): Checkpoint da, Artefakt da — aber die Reichweite
+        # ist seither gewachsen. `zuwachs`/`prod_neu` sind ausdruecklich getrennt,
+        # weil die Hausregel Prod eigenstaendig neben der Repo-Zahl fuehrt.
+        stand = ev["repos_bei_checkpoint"]
+        zuwachs = len(repos) - stand if stand is not None else 0
+        prod_neu = ev["prod"] and not ev["prod_bei_checkpoint"]
+        if zuwachs >= NACHWACHS_SCHWELLE or prod_neu:
+            gruende = []
+            if zuwachs >= NACHWACHS_SCHWELLE:
+                gruende.append(
+                    f"{zuwachs} weitere Repos seit dem Checkpoint "
+                    f"(damals {stand}, jetzt {len(repos)}: {', '.join(repos)})"
+                )
+            if prod_neu:
+                gruende.append("erster Prod-/Publish-Schritt NACH dem Checkpoint")
+            # Entprellung an der Reichweite, nicht an der Sitzung: jeder neue
+            # Wachstumsstand meldet einmal. Sonst waere Fehlerform C selbst
+            # wieder ein Melder, der nach dem ersten Mal verstummt — genau der
+            # Fehler, gegen den sie gebaut ist.
+            form = f"reichweite-gewachsen:{len(repos)}:{int(ev['prod'])}"
+            if _schon_gemeldet(session, form):
+                return 0
+            _merken(session, form)
+            gate_hits.notiere(
+                GATE_HEADER["slug"],
+                " + ".join(gruende),
+                turn=grund,
+                session=session,
+                modus="advisory",
+            )
+            _melde(
+                "🧭 scope-checkpoint: der abgelegte Checkpoint ist ueberholt — "
+                + " und ".join(gruende)
+                + ". Ein Checkpoint gilt fuer die Reichweite, die er beschreibt; "
+                "waechst sie weiter, gehoert der gewachsene Stand erneut gespiegelt "
+                "und durabel festgehalten. (Gate "
+                "scope-checkpoint-not-durably-recorded Rev 5, Fehlerform C, advisory.)"
+            )
+            return 0
         return 0
 
     if not ev["durables_artefakt"]:

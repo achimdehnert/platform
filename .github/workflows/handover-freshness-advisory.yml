@@ -43,4 +43,14 @@ jobs:
       - name: Stand-Block gegen den letzten Commit halten
         run: |
           set -o pipefail
-          python3 scripts/checks/agent_handover_freshness_check.py AGENT_HANDOVER.md
+          # --commits-schwelle 12 schaltet die ZWEITE Bedingung ein (Rev 2,
+          # platform#2374): Commits seit der letzten Beruehrung der Datei, ohne
+          # Dependabot-Bumps. Sie sieht die Fehlform, gegen die der Rezenz-Check
+          # blind ist — die Datei wird gar nicht angefasst, waehrend die Sitzung
+          # weiterlaeuft (Realfall Retro 0f59ce: 13 Merges, Handover vom Vortag,
+          # Rezenz-Abstand 0 Tage, also gruen). Bewusst NUR hier: dieser Job ist
+          # continue-on-error, die blockierenden Zweige (handoff-banner-gate,
+          # regel-ritual) rufen das Skript unveraendert ohne Schwelle auf.
+          python3 scripts/checks/agent_handover_freshness_check.py \
+            --commits-schwelle 12 --basis "origin/${{ github.base_ref }}" \
+            AGENT_HANDOVER.md
