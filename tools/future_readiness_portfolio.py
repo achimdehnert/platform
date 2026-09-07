@@ -76,6 +76,19 @@ def quantil(werte: list[int], p: float) -> float | None:
     )
 
 
+def anteil(x: float | None) -> str:
+    """Deckungsanteile mit zwei Stellen.
+
+    ``zahl()`` rundet auf eine Stelle — bei Readiness-Punkten (0-100) richtig,
+    bei einem Anteil zwischen 0 und 1 nicht: 0,348 und 0,426 waeren dort beide
+    "0,3" bzw. "0,4" und der Unterschied zwischen schlechtester und mittlerer
+    Deckung verschwaende (platform#2737).
+    """
+    if x is None:
+        return "—"
+    return f"{x:.2f}"
+
+
 def zahl(x: float | None) -> str:
     """Ganze Zahlen ohne Nachkomma, interpolierte mit einer Stelle."""
     if x is None:
@@ -178,10 +191,39 @@ def auswerten(ergebnisse: list[dict]) -> dict:
         for feld in TRACKED_FIELDS
     }
 
+    # Evidenz-Deckung als WERT, nicht nur als Feldpraesenz (platform#2737).
+    # Ohne diese Zahl liest sich der Readiness-Median wie eine Gesamtnote,
+    # obwohl er ueber den beantworteten Teil des Katalogs gerechnet ist.
+    deckung = [
+        d["evidence_coverage"]
+        for d in ergebnisse
+        if isinstance(d.get("evidence_coverage"), (int, float))
+    ]
+    dim_deckung: dict[str, list[float]] = {}
+    for d in ergebnisse:
+        for dim, sd in (d.get("scores") or {}).items():
+            c = sd.get("coverage") if isinstance(sd, dict) else None
+            if isinstance(c, (int, float)):
+                dim_deckung.setdefault(dim, []).append(c)
+
     return {
         "repos": len(ergebnisse),
         "readiness_n": len(readiness),
         "readiness_ohne_feld": len(ergebnisse) - len(readiness),
+        "deckung_n": len(deckung),
+        "deckung": {
+            "min": min(deckung) if deckung else None,
+            "median": quantil(deckung, 0.5),
+            "max": max(deckung) if deckung else None,
+        },
+        "deckung_je_dimension": {
+            dim: {
+                "median": quantil(v, 0.5),
+                "max": max(v),
+                "n": len(v),
+            }
+            for dim, v in sorted(dim_deckung.items())
+        },
         "readiness": {
             "min": min(readiness) if readiness else None,
             "q1": quantil(readiness, 0.25),
@@ -277,6 +319,54 @@ def markdown(
         'wie `statistics.quantiles(..., method="inclusive")`); bei geradem n ist der Median '
         "das Mittel der beiden mittleren Werte.",
         "",
+    ]
+
+    # Deckung MUSS neben der Readiness stehen, nicht in einem Anhang: die Readiness
+    # ist ueber den beantworteten Teil des Katalogs gerechnet. Ohne die Deckung
+    # daneben liest sich der Median als Gesamtnote (platform#2737, 2026-09-07).
+    dk = a["deckung"]
+    z += ["## Evidenz-Deckung — wie viel des Katalogs die Readiness abdeckt", ""]
+    if a["deckung_n"] == 0:
+        z += ["Keine Ergebnisdatei trug `evidence_coverage`.", ""]
+    else:
+        z += _tab(
+            ["Kennzahl", "Wert"],
+            [
+                ["Berichte mit Deckungsangabe", a["deckung_n"]],
+                ["Minimum", anteil(dk["min"])],
+                ["Median", anteil(dk["median"])],
+                ["Maximum", anteil(dk["max"])],
+            ],
+        )
+        z += [
+            f"**Die Readiness oben ist ueber im Median {anteil(dk['median'])} des "
+            "Fragenkatalogs gerechnet, nicht ueber den ganzen.** Ein Repo kann bei "
+            "hoher Readiness in einer nicht erhobenen Dimension beliebig schlecht "
+            "stehen. Dimensionen mit Deckung 0 gehen gar nicht in die Zahl ein.",
+            "",
+        ]
+    if a["deckung_je_dimension"]:
+        z += ["### Deckung je Dimension", ""]
+        z += _tab(
+            ["Dimension", "Median", "Maximum", "Berichte"],
+            [
+                [dim, anteil(v["median"]), anteil(v["max"]), v["n"]]
+                for dim, v in a["deckung_je_dimension"].items()
+            ],
+        )
+        leer = [
+            dim
+            for dim, v in a["deckung_je_dimension"].items()
+            if isinstance(v["max"], (int, float)) and v["max"] == 0
+        ]
+        if leer:
+            z += [
+                f"**Vollstaendig leer (Median und Maximum 0): {', '.join(leer)}.** "
+                "Diese Dimensionen tragen nichts zur Readiness bei — weder positiv "
+                "noch negativ.",
+                "",
+            ]
+    z += [
         "## Repos nach Readiness-Band",
         "",
     ]

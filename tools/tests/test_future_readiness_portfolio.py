@@ -165,3 +165,69 @@ def test_should_render_markdown_without_breaking_the_table_on_pipes(tmp_path):
     for zeile in schluessel_zeilen:
         assert zeile.count("|") == 5, zeile  # 4 Spalten + Rand: keine rohe Pipe im Text
     assert "D02.2 · lockfile" in md
+
+
+def test_should_report_coverage_value_not_just_field_presence(tmp_path):
+    """Die Deckung muss als WERT erscheinen, nicht nur als Feldpraesenz.
+
+    Anlass platform#2737 (2026-09-07): die Auswertung wies bisher nur aus, wie
+    viele Berichte ein Feld `evidence_coverage` TRAGEN — nie, wie hoch es ist.
+    Der Readiness-Median las sich dadurch wie eine Gesamtnote, obwohl er ueber
+    im Median 0,43 des Fragenkatalogs gerechnet war.
+    """
+    lauf = _lauf(
+        tmp_path,
+        {
+            "a.json": _bericht("o/a", 40, [], evidence_coverage=0.30),
+            "b.json": _bericht("o/b", 50, [], evidence_coverage=0.40),
+            "c.json": _bericht("o/c", 60, [], evidence_coverage=0.50),
+        },
+    )
+    ergebnisse, _, _ = fp.lade(str(lauf))
+    a = fp.auswerten(ergebnisse)
+
+    assert a["deckung_n"] == 3
+    assert a["deckung"]["min"] == 0.30
+    assert a["deckung"]["median"] == 0.40
+    assert a["deckung"]["max"] == 0.50
+
+
+def test_should_name_fully_empty_dimensions(tmp_path):
+    """Eine Dimension mit Median UND Maximum 0 wird ausdruecklich benannt.
+
+    Median allein reicht nicht: er kann 0 sein, waehrend einzelne Repos Deckung
+    haben. Erst Maximum 0 belegt, dass die Dimension fleetweit nichts beitraegt
+    — bei D03/D07/D12 war genau das der Fall.
+    """
+    lauf = _lauf(
+        tmp_path,
+        {
+            "a.json": _bericht(
+                "o/a",
+                40,
+                [],
+                evidence_coverage=0.30,
+                scores={"D01": {"coverage": 0.6}, "D07": {"coverage": 0.0}},
+            ),
+            "b.json": _bericht(
+                "o/b",
+                50,
+                [],
+                evidence_coverage=0.40,
+                scores={"D01": {"coverage": 0.8}, "D07": {"coverage": 0.0}},
+            ),
+        },
+    )
+    ergebnisse, _, _ = fp.lade(str(lauf))
+    a = fp.auswerten(ergebnisse)
+
+    assert a["deckung_je_dimension"]["D07"]["max"] == 0
+    assert a["deckung_je_dimension"]["D01"]["max"] == 0.8
+
+
+def test_should_format_coverage_with_two_decimals(tmp_path):
+    """`anteil()` haelt zwei Stellen — `zahl()` wuerde 0,35 und 0,43 einebnen."""
+    assert fp.anteil(0.348) == "0.35"
+    assert fp.anteil(0.426) == "0.43"
+    assert fp.anteil(None) == "—"
+    assert fp.zahl(0.348) == "0.3"
