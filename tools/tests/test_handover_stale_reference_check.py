@@ -79,6 +79,55 @@ def test_should_not_flag_a_reference_that_is_described_as_settled(
     assert result["geprueft"] == 1  # nur #1078 wurde überhaupt abgefragt
 
 
+def test_should_not_flag_a_folge_pr_as_a_pointer(tmp_path, monkeypatch):
+    """Praezisions-Fehlalarm 1/3 (Journal 2026-09-02, Klasse #2054): eine „Folge-PR"
+    dokumentiert bereits erledigte Arbeit, sie ist kein Arbeitsauftrag der Prio-Zeile.
+
+    Realtext: „Folge-PR [#2647](...): `gate_wirkung.py` liest die Befund-Tabellen"."""
+    doc = _write(
+        tmp_path,
+        "## Nächste Schritte\n\n"
+        f"1. **[#2374]({GH}/issues/2374) Wirksamkeits-Bilanz.** Ziel A und B ausgeführt.\n"
+        f"   Folge-PR [#2647]({GH}/pull/2647): `gate_wirkung.py` liest die\n"
+        "   Befund-Tabellen (5 statt 2 rückfällig).\n",
+    )
+    _states(monkeypatch, {2374: "open", 2647: "merged"})
+    result = hsrc.check(doc)
+    assert result["findings"] == []
+    assert result["geprueft"] == 1  # nur #2374 wurde abgefragt, #2647 gilt als Kontext
+
+
+def test_should_not_flag_the_colloquial_ist_zu_closure(tmp_path, monkeypatch):
+    """Praezisions-Fehlalarm 3/3 (Journal 2026-09-04, illustration-hub#298): „ist zu"
+    schliesst den Vorgaenger ab und leitet daraus die offenen Nachfolger her — kein
+    Zeiger auf Erledigtes als Arbeitsauftrag."""
+    doc = _write(
+        tmp_path,
+        "## Nächste Schritte\n\n"
+        f"1. **[#298]({GH}/issues/298) ist zu, [#291]({GH}/issues/291)/"
+        f"[#292]({GH}/issues/292)/[#293]({GH}/issues/293) offen** — die drei Lücken.\n",
+    )
+    _states(monkeypatch, {298: "closed", 291: "open", 292: "open", 293: "open"})
+    result = hsrc.check(doc)
+    assert result["findings"] == []
+    assert result["geprueft"] == 3  # #291/#292/#293 geprueft, #298 gilt als Kontext
+
+
+def test_should_still_flag_ist_zu_klaeren_as_an_open_infinitive(tmp_path, monkeypatch):
+    """Gegenprobe zur 'ist zu'-Ausnahme: die deutsche Infinitiv-Konstruktion „ist zu
+    klären/prüfen/erledigen" bedeutet das GEGENTEIL von geschlossen — offene Arbeit.
+    Faellt die Ausnahme hierauf ebenfalls herein, verschluckt sie echte Befunde."""
+    doc = _write(
+        tmp_path,
+        "## Nächste Schritte\n\n"
+        f"1. **[#1650]({GH}/issues/1650)** ist zu klären, bevor weitergemacht wird.\n",
+    )
+    _states(monkeypatch, {1650: "closed"})
+    result = hsrc.check(doc)
+    assert len(result["findings"]) == 1
+    assert result["findings"][0]["ref"] == "achimdehnert/platform#1650"
+
+
 def test_should_not_let_a_far_away_word_suppress_a_real_finding(tmp_path, monkeypatch):
     """Die Erledigt-Erkennung schaut in ein Fenster um die Referenz, nicht auf die Zeile.
 
@@ -169,6 +218,21 @@ def test_should_parse_owner_and_kind_from_url():
         "pr",
         7,
     )
+
+
+def test_should_not_let_a_settled_word_bleed_into_a_neighbouring_reference():
+    """Das Fenster eines Erledigt-Worts darf nicht über die naechste Referenz hinaus
+    reichen — sonst faerbt „ist zu" auch #291/#292/#293 als bewusst erwaehnt ein und
+    sie werden nie geprueft (illustration-hub#298, Journal-Urteil 2026-09-04)."""
+    line = (
+        f"1. [#298]({GH}/issues/298) ist zu, [#291]({GH}/issues/291)/"
+        f"[#292]({GH}/issues/292)/[#293]({GH}/issues/293) offen"
+    )
+    refs = hsrc.refs_in([line])
+    by_number = {r["number"]: r for r in refs}
+    assert "zu" not in by_number[291]["umfeld"].lower()
+    assert "zu" not in by_number[292]["umfeld"].lower()
+    assert "zu" not in by_number[293]["umfeld"].lower()
 
 
 def test_should_register_the_gate_header_slug_in_the_registry():

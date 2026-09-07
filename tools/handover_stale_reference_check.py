@@ -52,13 +52,31 @@ REF_RE = re.compile(
 #: 2026-08-10 **geschlossenen** #1845" als Diskrepanz — und ein Melder, der bei jedem
 #: Sitzungsstart Bekanntes meldet, wird nach drei Tagen überlesen. Genau daran sind die
 #: zwei Cron-Melder aus #1953 gestorben.
+#:
+#: „Folge-PR" gehört seit der Praezisions-Messung 0.7.19 (Journal-Urteile 2026-08-20 und
+#: 2026-09-02, Fehlalarmquote 40 %) dazu: der eigene Handover-Wortschatz nennt eine PR, die
+#: aus abgeschlossener Arbeit HERVORGEGANGEN ist, so — z. B. „Folge-PR [#2647](...):
+#: `gate_wirkung.py` liest die Befund-Tabellen" — und meint damit dieselbe bewusste
+#: Nach-Erwaehnung wie „gemergt"/„erledigt", nicht einen offenen Arbeitsauftrag.
 # `|---|---|` bzw. `|:--|--:|` — Trennzeile einer Markdown-Tabelle, nie ein Item.
 TABELLEN_TRENNER_RE = re.compile(r"^\|[\s:|-]+\|?$")
 
 SETTLED_RE = re.compile(
-    r"(geschlossen|gemergt|gemerged|erledigt|abgeschlossen|behoben|✅|closed|merged)",
+    r"(geschlossen|gemergt|gemerged|erledigt|abgeschlossen|behoben|✅|closed|merged"
+    r"|Folge-PR)",
     re.I,
 )
+
+#: Umgangssprachlicher Verschluss „ist zu" (= „ist geschlossen"), z. B.
+#: „[#298](...) ist zu, [#291](...)/[#292](...)/[#293](...) offen" (illustration-hub,
+#: Journal-Urteil 2026-09-04): die Zeile leitet aus dem geschlossenen Vorgänger die
+#: offenen Nachfolger her, sie zeigt nicht auf Erledigtes als Arbeitsauftrag.
+#:
+#: Die Fallgrube: „ist zu" ist im Deutschen auch der Anfang einer Infinitiv-Konstruktion
+#: — „ist zu klären", „ist zu prüfen", „ist zu erledigen" — und DIE meint gerade das
+#: Gegenteil, naemlich offene Arbeit. Deshalb nur, wenn auf „zu" KEIN weiteres Wort folgt
+#: (Komma, Punkt, Gedankenstrich, Zeilenende) — nie vor einem Verb.
+SETTLED_ZU_RE = re.compile(r"\bist\s+zu\b(?!\s+\w)", re.I)
 
 
 def _load_next_sync_helpers():
@@ -143,11 +161,28 @@ def prio_items(section: list[str]) -> list[tuple[int, str]]:
 
 
 def refs_in(lines: list[str]) -> list[dict]:
-    """Alle GitHub-Referenzen der Sektion, je mit ihrer Zeile und Zeilennummer."""
+    """Alle GitHub-Referenzen der Sektion, je mit ihrer Zeile und Zeilennummer.
+
+    Das 90/40-Fenster einer Referenz reicht nie über die Mitte der Lücke zu einer
+    NACHBAR-Referenz auf derselben Zeile hinaus. Ohne diese Kappung faerbt ein
+    Erledigt-Wort zwischen zwei Referenzen (z. B. „[#298](...) ist zu, [#291](...)/
+    [#292](...)/[#293](...) offen", illustration-hub, Journal-Urteil 2026-09-04) auch
+    die NAECHSTE Referenz als bewusst erwaehnt ein — die drei offenen Nachfolger
+    würden dann nie geprüft, statt richtig als offen gemeldet zu werden.
+    """
     found = []
     for offset, line in enumerate(lines):
-        for m in REF_RE.finditer(line):
+        matches = list(REF_RE.finditer(line))
+        for i, m in enumerate(matches):
             owner, repo, kind, num = m.groups()
+            luecke_davor = (matches[i - 1].end() + m.start()) // 2 if i > 0 else 0
+            luecke_danach = (
+                (m.end() + matches[i + 1].start()) // 2
+                if i + 1 < len(matches)
+                else len(line)
+            )
+            fenster_start = max(0, m.start() - 90, luecke_davor)
+            fenster_ende = min(len(line), m.end() + 40, luecke_danach)
             found.append(
                 {
                     "owner": owner,
@@ -156,7 +191,7 @@ def refs_in(lines: list[str]) -> list[dict]:
                     "number": int(num),
                     "line_offset": offset,
                     "line": line.strip(),
-                    "umfeld": line[max(0, m.start() - 90) : m.end() + 40],
+                    "umfeld": line[fenster_start:fenster_ende],
                 }
             )
     return found
@@ -172,9 +207,12 @@ def is_settled_mention(ref: dict) -> bool:
     und sah dabei grün aus. Genau die Sorte Fehlbefund, die er selbst finden soll.
 
     Trägt: „dem am 2026-08-10 **geschlossenen** #1845" (davor) und „ist erst mit #1868
-    **gemergt**" (danach) — beide sind bewusste Erwähnungen, keine Zeiger.
+    **gemergt**" (danach) — beide sind bewusste Erwähnungen, keine Zeiger. Ebenso
+    „Folge-PR [#2647](...)" und „[#298](...) ist zu, [#291](...) offen" — dieselbe
+    Klasse in anderem Wortlaut (SETTLED_RE bzw. SETTLED_ZU_RE).
     """
-    return bool(SETTLED_RE.search(ref.get("umfeld") or ref["line"]))
+    fenster = ref.get("umfeld") or ref["line"]
+    return bool(SETTLED_RE.search(fenster) or SETTLED_ZU_RE.search(fenster))
 
 
 def state_of(ref: dict) -> str | None:
