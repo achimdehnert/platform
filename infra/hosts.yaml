@@ -163,7 +163,7 @@ hosts:
                                        # (Wake-on-LAN). Ein schlafender Knoten ist KEIN Ausfall —
                                        # flottenbild.py zeigt ihn als 'schlaeft' (platform#2545).
     provider: owner-desktop            # keine Cloud, kein IaC — laeuft nur, wenn die Box an ist
-    server_type: rtx4090               # RTX 4090 24 GB; WSL2: 8 vCPU / 12 GB / 4 GB Swap (.wslconfig)
+    server_type: rtx4090               # RTX 4090 24 GB; WSL2: 24 vCPU / 64 GB / 4 GB Swap (.wslconfig, 2026-09-08)
     role: >
       GPU-Box des Owners (RTX 4090, Windows 11 + WSL2) fuer lokale LLM-Inferenz
       (illustration-hub-Render ueber wg0) und CI-Runner ci-gpu fuer writing-hub
@@ -250,6 +250,16 @@ hosts:
             (sudo verlangt Passwort) — Owner-Sitzung.
           entschieden: 2026-09-02
           bis: 2026-12-01
+        vllm:
+          grund: >
+            Durchsatz-Motor neben ollama, eingerichtet 2026-09-08 nach Messung
+            (platform#2544): 3.526 gegen 2.632 tok/s Prefill bei 8 gleichzeitigen
+            Anfragen. Gebunden auf 10.99.0.4:8000, NICHT 0.0.0.0 — gleiche Bindung
+            wie ollama.service, damit `oeffentlicher_ingress: false` gilt.
+            Kein Container, kein App-Hub: systemd-Nutzerdienst.
+            Haelt rund 36 GB Grafikspeicher; vor grossen Trainingslaeufen anhalten.
+          entschieden: 2026-09-08
+          bis: 2026-12-08
     historie:
       - "2026-09-02: ollama als systemd-Nutzerdienst (~/.config/systemd/user/ollama.service, OLLAMA_HOST=10.99.0.4:11434) eingerichtet, manueller Prozess (127.0.0.1) beendet, llama3.1:8b (+4,9 GB) gezogen; iil-voice-agent Issue-#90-Gate gegen diesen Dienst gefahren (siehe Issue). Firewall-Stand nicht verifizierbar (kein Root)"
     betrieb: 7/24                      # Owner-Angabe 2026-09-01 — der Knoten
