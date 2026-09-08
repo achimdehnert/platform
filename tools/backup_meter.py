@@ -48,6 +48,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import melder_ergebnis  # noqa: E402
+
+WERKZEUG_VERSION = "backup_meter/1"
 DEFAULT_MAX_AGE_HOURS = 26
 DRILL_MAX_AGE_DAYS = 100
 
@@ -348,7 +352,48 @@ def load_expected(paths: list) -> list:
     return merged
 
 
-def main() -> int:
+def _alter_stunden_je_app(entry: dict, snapshots, now: datetime) -> float | None:
+    """Aelteste (schlechteste) Snapshot-Alter der App, in Stunden — oder `None`.
+
+    Reiner Lesezugriff auf dieselben Snapshot-Daten wie `evaluate_app()`, ueber
+    dieselbe Hilfsfunktion (`newest_snapshot_age_hours`). Die Bewertung selbst
+    (ok/violation/deferred) bleibt ausschliesslich in `evaluate_app()` — hier
+    wird nur die Zahl fuer die gemeinsame Melder-Huelle abgegriffen, damit
+    "frisch: false" auch eine Groessenordnung traegt.
+    """
+    if snapshots is None or entry.get("deferred"):
+        return None
+    alter = [
+        newest_snapshot_age_hours(snapshots, c["tag"], now, c.get("paths_contain"))
+        for c in _checks_aus(entry)
+    ]
+    alter = [a for a in alter if a is not None]
+    return round(max(alter), 1) if alter else None
+
+
+def _ergebnis_liste(
+    expected: list, snapshots, results: list, now: datetime
+) -> list[dict]:
+    """Fasst die (bereits fertigen) App-Urteile fuer die gemeinsame Huelle zusammen.
+
+    Der Restore-Feuerübungs-Eintrag zaehlt hier nicht mit — er ist keine Soll-App
+    (s. `deckungszeile()`/`render_report()`, dieselbe Trennung).
+    """
+    frisch_je_status = {"ok": True, "violation": False, "deferred": None}
+    status_je_app = {
+        r["app"]: r["status"] for r in results if r["app"] != "restore-drill"
+    }
+    return [
+        {
+            "app": entry["app"],
+            "frisch": frisch_je_status.get(status_je_app.get(entry["app"])),
+            "alter_stunden": _alter_stunden_je_app(entry, snapshots, now),
+        }
+        for entry in expected
+    ]
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--expected", required=True, nargs="+", help="Pfad(e) zur Soll-App-Liste (JSON)"
@@ -373,7 +418,17 @@ def main() -> int:
         "werten (erst nach erfolgter G3-Erstübung setzen)",
     )
     parser.add_argument("--report", help="Markdown-Report in Datei schreiben")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--ergebnis-datei",
+        type=Path,
+        help=(
+            "Urteile zusaetzlich in der gemeinsamen Melder-Huelle ablegen "
+            "(tools/melder_ergebnis.py, platform#2944). Ohne diese Datei meldet "
+            "der Melder und verschwindet — der Future-Readiness-Erheber hat dann "
+            "nichts zum Anschliessen."
+        ),
+    )
+    args = parser.parse_args(argv)
 
     try:
         expected = load_expected(args.expected)
@@ -400,6 +455,14 @@ def main() -> int:
             drill_app=args.drill_app,
         )
     )
+
+    if args.ergebnis_datei:
+        melder_ergebnis.schreibe(
+            args.ergebnis_datei,
+            melder="backup_meter",
+            ergebnis=_ergebnis_liste(expected, snapshots, results, now),
+            werkzeug_version=WERKZEUG_VERSION,
+        )
 
     report = render_report(results)
     print(report)

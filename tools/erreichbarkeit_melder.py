@@ -83,7 +83,9 @@ from pathlib import Path  # noqa: E402
 # sind drei Gelegenheiten, dass sie auseinanderlaufen (#2586 K5).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from betriebsstatus import STATUS_ERLAUBT  # noqa: E402
+import melder_ergebnis  # noqa: E402
 
+WERKZEUG_VERSION = "erreichbarkeit_melder/1"
 TIMEOUT_S = 12
 PARALLEL = 10
 UA = "iil-erreichbarkeit-melder/1.0 (+platform/tools)"
@@ -97,6 +99,19 @@ KLASSEN = {
     "keine-antwort": (True, "keine Antwort (Timeout/abgelehnt/TLS)"),
     "unklar": (True, "unerwarteter Statuscode"),
     "nicht-geprueft": (False, "offline-Lauf"),
+}
+
+# Fuer die gemeinsame Melder-Huelle: erreichbar ja/nein/unbekannt je Klasse.
+# "nicht-geprueft" (offline-Lauf ODER bewusst geparkter Dienst) ist WEDER ja
+# noch nein — es wurde schlicht nicht gefragt.
+ERREICHBAR_JE_KLASSE: dict[str, bool | None] = {
+    "erreichbar": True,
+    "auth": True,
+    "route-ohne-backend": False,
+    "ziel-loest-nicht-auf": False,
+    "keine-antwort": False,
+    "unklar": False,
+    "nicht-geprueft": None,
 }
 
 
@@ -221,7 +236,33 @@ def _kurzzeile(e: dict) -> str:
     )
 
 
-def main() -> int:
+def _ergebnis_liste(ergebnis: dict) -> list[dict]:
+    """Bildet die vier Eimer aus `bewerte()` in der gemeinsamen Melder-Huelle ab.
+
+    Nur veroeffentlichbare Felder (platform ist oeffentlich): Name, Domain,
+    erreichbar ja/nein/unbekannt, Grund. KEIN `host` — der Feld-Wert traegt
+    interne Host-Kennungen, die hier nichts zu suchen haben.
+    """
+    aus = []
+    for schluessel in ("befunde", "geparkt", "stumme_ausnahme", "ok"):
+        for z in ergebnis[schluessel]:
+            grund = (
+                z.get("warum")
+                or z.get("grund")
+                or KLASSEN.get(z["klasse"], ("", ""))[1]
+            )
+            aus.append(
+                {
+                    "name": z["name"],
+                    "domain": z["domain"],
+                    "erreichbar": ERREICHBAR_JE_KLASSE.get(z["klasse"]),
+                    "grund": grund,
+                }
+            )
+    return aus
+
+
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument(
         "--kurz", action="store_true", help="eine Zeile fuer den Session-Start"
@@ -233,10 +274,28 @@ def main() -> int:
     p.add_argument(
         "--ports", default=None, help="Pfad zu ports.yaml (Vorgabe: infra/ports.yaml)"
     )
-    a = p.parse_args()
+    p.add_argument(
+        "--ergebnis-datei",
+        type=Path,
+        help=(
+            "Urteile zusaetzlich in der gemeinsamen Melder-Huelle ablegen "
+            "(tools/melder_ergebnis.py, platform#2944). Ohne diese Datei meldet "
+            "der Melder und verschwindet — der Future-Readiness-Erheber hat dann "
+            "nichts zum Anschliessen."
+        ),
+    )
+    a = p.parse_args(argv)
 
     dienste = lade_dienste(a.ports or _ports_yaml_pfad())
     ergebnis = bewerte(dienste, messe(dienste, offline=a.offline))
+
+    if a.ergebnis_datei:
+        melder_ergebnis.schreibe(
+            a.ergebnis_datei,
+            melder="erreichbarkeit_melder",
+            ergebnis=_ergebnis_liste(ergebnis),
+            werkzeug_version=WERKZEUG_VERSION,
+        )
 
     if a.als_json:
         json.dump(ergebnis, sys.stdout, ensure_ascii=False, indent=2)
