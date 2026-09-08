@@ -4,7 +4,7 @@ decision_date: 2026-07-02
 deciders: Achim Dehnert
 consulted: –
 informed: –
-implementation_status: not-started
+implementation_status: none
 domains: [security, ci-cd, supply-chain, infra]
 scope: platform
 amends: []

@@ -4,7 +4,7 @@ decision_date: 2026-06-29
 revision: 2
 deciders: [Achim Dehnert]
 scope: platform
-implementation_status: in-progress
+implementation_status: in_progress
 related: [ADR-230, ADR-233, ADR-234, ADR-257]
 supersedes: []
 ---

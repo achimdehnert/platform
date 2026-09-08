@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-139-shared-learning-platform-package.md", "ADR-137-tenant-manager-rls.md", "ADR-131-shared-backend-services.md", "ADR-134-module-monetization-strategy.md", "ADR-120-ci-cd-reusable-workflows.md"]
-implementation_status: not_started
+implementation_status: none
 implementation_evidence: []
 ---
 

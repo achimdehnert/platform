@@ -4,7 +4,7 @@ decision_date: 2026-07-09
 deciders: [Achim Dehnert]
 consulted: –
 informed: –
-implementation_status: not-started
+implementation_status: none
 domains: [architecture, ci-cd, governance]
 scope: platform
 related: [ADR-046, ADR-234, ADR-264, ADR-242]

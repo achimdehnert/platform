@@ -4,7 +4,7 @@ decision_date: 2026-06-30
 revision: 2
 deciders: [Achim Dehnert]
 scope: platform
-implementation_status: not-started
+implementation_status: none
 related: [ADR-138]
 supersedes: []
 repo: platform

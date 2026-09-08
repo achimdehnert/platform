@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: [ADR-101, ADR-112, ADR-186]
 related: [ADR-010, ADR-075, ADR-080, ADR-086, ADR-176, ADR-197, ADR-224, ADR-238, ADR-256, ADR-280, ADR-285]
-implementation_status: not_started
+implementation_status: none
 last_reviewed: 2026-09-02
 staleness_months: 6
 ---

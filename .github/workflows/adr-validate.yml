@@ -9,6 +9,7 @@ on:
       - "tools/adr_evidence_paths.py"
       - "tools/adr_allocate.py"
       - "tools/adr_draft_guard.py"
+      - "tools/adr_umsetzungsstand_check.py"
       - "scripts/gen_adr_index.py"
       # Diese Datei selbst — sonst ist der Workflow gegen Aenderungen an sich
       # blind: ein PR, der NUR hier editiert, laeuft nie, und die Aenderung
@@ -24,6 +25,7 @@ on:
       - "tools/adr_evidence_paths.py"
       - "tools/adr_allocate.py"
       - "tools/adr_draft_guard.py"
+      - "tools/adr_umsetzungsstand_check.py"
       - "scripts/gen_adr_index.py"
       - ".github/workflows/adr-validate.yml"
   schedule:
@@ -88,6 +90,16 @@ jobs:
       # required_status_checks + pull_request), daher ist dies die letzte Instanz:
       # der Autor vergibt die Nummer als letzten Schritt vor dem Merge, dieser
       # Check bestaetigt es unmittelbar danach auf main.
+      # implementation_status — SUGGEST, nicht gating (repo-health-rule-discipline:
+      # neue Regeln starten advisory). Basislinie am 2026-09-08 nach der
+      # mechanischen Bereinigung: 3 Werte ausserhalb des Schemas (brauchen ein
+      # Urteil) + 14 ADRs, die sich als geltend lesen, ohne gebaut zu sein.
+      - name: implementation_status pruefen (SUGGEST, non-gating)
+        run: |
+          set +e
+          python3 tools/adr_umsetzungsstand_check.py --adr-dir docs/adr
+          exit 0
+
       - name: ADR-Entwurf darf main nicht erreichen (ADR-228, gating auf main)
         run: |
           # Gaten, wo es noch etwas verhindert: im PR gegen main (vor dem Merge)
