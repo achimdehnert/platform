@@ -118,7 +118,7 @@
 | 143 | Knowledge-Hub — Outline Wiki + research-hub Integration | Accepted | 🔶 | [ADR-143](ADR-143-knowledge-hub-outline-integration.md) |
 | 144 | doc-hub — Paperless-ngx als Dokumentenmanagement-System | Accepted | ✅ | [ADR-144](ADR-144-doc-hub-paperless-ngx.md) |
 | 145 | Knowledge Management — Cascade ↔ Outline Anti-Knowledge-Drain | Accepted | 🔶 | [ADR-145](ADR-145-knowledge-management-cascade-outline.md) |
-| 146 | Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts | Accepted | ⬜ | [ADR-146](ADR-146-hub-prompt-management.md) |
+| 146 | Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts | Accepted | 🔶 | [ADR-146](ADR-146-hub-prompt-management.md) |
 | 147 | `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen | Superseded | — | [ADR-147](ADR-147-concept-templates-package.md) |
 | 148 | Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub | Accepted | ⬜ | [ADR-148](ADR-148-recruiting-hub-architecture.md) |
 | 149 | Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub) | Accepted | 🔶 | [ADR-149](ADR-149-dms-hub-dvelop-platform-service.md) |
@@ -166,7 +166,7 @@
 | 193 | Automated Deployment Configuration Compliance Audit | Accepted | ✅✅ | [ADR-193](ADR-193-deployment-configuration-compliance-audit.md) |
 | 194 | Universal LLM Call Logging via Gateway Choke-Point | Superseded | — | [ADR-194](ADR-194-universal-llm-call-logging-via-gateway.md) |
 | 195 | LiteLLM-Proxy as Logging Engine + Anthropic Admin API as Truth Anchor | Proposed | ⬜ | [ADR-195](ADR-195-litellm-proxy-engine-plus-admin-api-truth.md) |
-| 196 | Adaptive Erweiterung zu ADR-116 — Outcome-Telemetrie, Drift-Report, Bandit | Accepted | ⬜ | [ADR-196](ADR-196-adaptive-extensions-to-adr-116.md) |
+| 196 | Adaptive Erweiterung zu ADR-116 — Outcome-Telemetrie, Drift-Report, Bandit | Accepted | 🔶 | [ADR-196](ADR-196-adaptive-extensions-to-adr-116.md) |
 | 197 | Repo-aware MCP Tool Pruning for Cascade | Proposed | ⬜ | [ADR-197](ADR-197-repo-aware-mcp-tool-pruning.md) |
 | 198 | ADR-198: Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention | Accepted | ⬜ | [ADR-198](ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md) |
 | 200 | iil-ui v1 (Draft, superseded by v2) | Superseded | — | [ADR-200](ADR-200-iil-ui-django-component-package.md) |
@@ -225,7 +225,7 @@
 | 257 | CI läuft nicht auf dem Produktions-Host — dedizierter Non-Prod-Runner | Accepted | 🔶 | [ADR-257](ADR-257-ci-host-isolation-non-prod-runner.md) |
 | 258 | Org-weite Verteilung von Claude-Code-Hooks (Reaper-Gate als Erstfall) | Accepted | 🔶 | [ADR-258](ADR-258-cc-hook-distribution.md) |
 | 259 | Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz | Accepted | ⬜ | [ADR-259](ADR-259-repo-scoped-adr-ids.md) |
-| 260 | Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs | Accepted | ⬜ | [ADR-260](ADR-260-per-host-litellm-proxy-central-keys.md) |
+| 260 | Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs | Accepted | 🔶 | [ADR-260](ADR-260-per-host-litellm-proxy-central-keys.md) |
 | 261 | CMIS-first DMS-Abstraktion mit optionaler native-REST-Veredelung | Proposed | ⬜ | [ADR-261](ADR-261-cmis-first-dms-abstraktion-rest-veredelung.md) |
 | 262 | — GitHub-Actions per SHA pinnen (Supply-Chain-Härtung, fleet-weit) | Proposed | ⬜ | [ADR-262](ADR-262-sha-pin-github-actions.md) |
 | 263 | — `receive-windsurf-rules.yml`: PR statt Push-to-main, Typ-Filter, Least-Privilege | Proposed | ⬜ | [ADR-263](ADR-263-windsurf-rules-distributor-hardening.md) |

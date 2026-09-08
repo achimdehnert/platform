@@ -2183,7 +2183,7 @@
         "ADR-134-module-monetization-strategy.md",
         "ADR-137-tenant-manager-rls.md"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 140,
@@ -2204,7 +2204,7 @@
         "ADR-137-tenant-manager-rls.md",
         "ADR-139-shared-learning-platform-package.md"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 141,
@@ -2230,7 +2230,7 @@
         "ADR-116-dynamic-model-router.md",
         "ADR-120-unified-deployment-pipeline.md"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 142,
@@ -2352,7 +2352,7 @@
         "ADR-121",
         "ADR-133"
       ],
-      "implementation_status": "phase_1_3_complete"
+      "implementation_status": "partial"
     },
     {
       "number": 147,
@@ -2372,7 +2372,7 @@
         "ADR-130-content-store-shared-persistence.md",
         "ADR-146-package-consolidation-strategy.md"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 148,
@@ -3316,7 +3316,7 @@
         "ADR-194",
         "ADR-195"
       ],
-      "implementation_status": "stufe-1-2-implemented"
+      "implementation_status": "partial"
     },
     {
       "number": 197,
@@ -3430,7 +3430,7 @@
         "ADR-208",
         "dev-hub#39"
       ],
-      "implementation_status": "in-progress"
+      "implementation_status": "in_progress"
     },
     {
       "number": 202,
@@ -3584,7 +3584,7 @@
         "platform#190",
         "platform#193"
       ],
-      "implementation_status": "in-progress"
+      "implementation_status": "in_progress"
     },
     {
       "number": 210,
@@ -4223,7 +4223,7 @@
         "ADR-137",
         "ADR-219"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "none"
     },
     {
       "number": 238,
@@ -4309,7 +4309,7 @@
         "ADR-231",
         "ADR-239"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 241,
@@ -4722,7 +4722,7 @@
         "ADR-222",
         "KONZ-risk-hub-004"
       ],
-      "implementation_status": "in-progress"
+      "implementation_status": "in_progress"
     },
     {
       "number": 258,
@@ -4742,7 +4742,7 @@
         "ADR-234",
         "ADR-257"
       ],
-      "implementation_status": "in-progress"
+      "implementation_status": "in_progress"
     },
     {
       "number": 259,
@@ -4759,7 +4759,7 @@
       "related": [
         "ADR-138"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "none"
     },
     {
       "number": 260,
@@ -4780,7 +4780,7 @@
         "ADR-178 (LLM Gateway Consolidation)",
         "ADR-223 (LLM Model Screener — Option D LiteLLM Proxy dort verworfen; siehe „Abgrenzung\")"
       ],
-      "implementation_status": "pilot"
+      "implementation_status": "partial"
     },
     {
       "number": 261,
@@ -4824,7 +4824,7 @@
         "ADR-226",
         "ADR-229"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "none"
     },
     {
       "number": 263,
@@ -4848,7 +4848,7 @@
       "related": [
         "ADR-230"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "none"
     },
     {
       "number": 264,
@@ -4989,7 +4989,7 @@
         "ADR-137",
         "ADR-237"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "none"
     },
     {
       "number": 270,
@@ -5013,7 +5013,7 @@
         "ADR-242",
         "ADR-264"
       ],
-      "implementation_status": "not-started"
+      "implementation_status": "none"
     },
     {
       "number": 271,
@@ -5549,7 +5549,7 @@
       "amends": [],
       "amended_by": [],
       "related": [],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 295,
@@ -5657,7 +5657,7 @@
         "ADR-294",
         "ADR-295"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 300,
@@ -5688,7 +5688,7 @@
         "ADR-280",
         "ADR-285"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 301,
@@ -5707,7 +5707,7 @@
         "ADR-289",
         "ADR-292"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 302,
@@ -5731,7 +5731,7 @@
         "ADR-108",
         "ADR-208"
       ],
-      "implementation_status": "not_started"
+      "implementation_status": "none"
     },
     {
       "number": 400,
