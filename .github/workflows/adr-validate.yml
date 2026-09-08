@@ -92,8 +92,10 @@ jobs:
       # Check bestaetigt es unmittelbar danach auf main.
       # implementation_status — SUGGEST, nicht gating (repo-health-rule-discipline:
       # neue Regeln starten advisory). Basislinie am 2026-09-08 nach der
-      # mechanischen Bereinigung: 3 Werte ausserhalb des Schemas (brauchen ein
-      # Urteil) + 14 ADRs, die sich als geltend lesen, ohne gebaut zu sein.
+      # vollstaendigen Bereinigung: 0 Werte ausserhalb des Schemas
+      # + 14 ADRs, die sich als geltend lesen, ohne gebaut zu sein.
+      # Pruefung 1 startet also GRUEN — jeder kuenftige Fund ist neu und
+      # gehoert dem, der ihn erzeugt hat.
       - name: implementation_status pruefen (SUGGEST, non-gating)
         run: |
           set +e

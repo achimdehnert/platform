@@ -12,7 +12,7 @@ related:
   - ADR-223 (LLM Model Screener — Option D LiteLLM Proxy dort verworfen; siehe „Abgrenzung")
   - ADR-072 (Multi-Tenancy)
 repo: platform
-implementation_status: pilot
+implementation_status: partial
 staleness_months: 6
 drift_check_paths:
   - packages/aifw/aifw/service.py
