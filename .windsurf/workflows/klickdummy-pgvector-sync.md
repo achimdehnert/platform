@@ -324,3 +324,43 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   Korrektur inline (`written: true`), lesend verifiziert. Die 7 `\n\n`-Entries von
   vornherein inline: 7× dedup. Beleg als Kommentar an
   [platform#1733](https://github.com/achimdehnert/platform/issues/1733).
+- 2026-09-08: **Manueller Lauf (Session risk-hub), Step 0 gefahren.** fetch + ff-only
+  über alle 25 Repos: 20 bereits auf `origin/main`, 4 fast-forwarded (travel-beat,
+  writing-hub, weltenhub, pptx-hub — keiner davon mit Diff in `klickdummy/` oder
+  `docs/adr/`), dev-hub weiter Nicht-ff (45 Commits hinter, 9 dirty Dateien,
+  platform#2865 offen). Quelländerung seit dem 07.09.-Report (`git log --since`
+  über `klickdummy/` + `docs/adr/`, alle 25 Repos): **keine** ⇒ Erwartung
+  0 `written: true`. R3 PASS: 176/176 `ok`, 0 failed, 25 Repos, Producer
+  `iil-klickdummy 1.35.0`, 176 Zeilen = 176 unique `entry_key`, Schema-WARNs 177
+  unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28,
+  frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25. Keine Verteilungs-Drift
+  (Quelle und verteilte Kopie unterscheiden sich nur im MANAGED-BY-Footer).
+  **`written: true` = 0 — erster Lauf seit dem 04.09. ohne Fidelity-Verlust.**
+  Geändert gegenüber den drei Vornächten: der Worker-Brief benannte die
+  **Fehlerklasse** statt der drei Einzelvarianten („sieht im content etwas falsch
+  aus — Typografie, Marker, Whitespace, Rechtschreibung —, ist es Absicht und wird
+  unverändert reproduziert"), und die 7 `\n\n`-Entries liefen von vornherein inline.
+  **Das ist ein Indiz, kein Beweis:** bei 0 Quelländerungen ist dieser Lauf der
+  leichteste denkbare Fall, und ein einzelner sauberer Lauf falsifiziert die
+  Fehlerklasse nicht. Die Entscheidung in platform#2462 (Transport ohne LLM) bleibt
+  offen — der Upsert-Schema-Check dieses Laufs bestätigt sie: `agent_memory_upsert`
+  nimmt nur `content` als String, es gibt keinen Datei- oder Hash-Parameter.
+- 2026-09-08 **NEUER BEFUND — der Store lowercased ADR-Tags.** Der Producer emittiert
+  `klickdummy:adr:ADR-009`, gespeichert ist `klickdummy:adr:adr-009` (lesend an
+  `ausschreibungs-hub:ADR-009` und `risk-hub:ADR-065` verifiziert; drei Worker
+  unabhängig gemeldet). Betrifft **nur** `tags` — `content`, `entry_key` und `title`
+  kommen unverändert zurück. Konsequenz: ein case-sensitiver Tag-Filter auf
+  `klickdummy:adr:ADR-*` findet **nie** einen Treffer und meldet das als leeres
+  Ergebnis, nicht als Fehler — dasselbe Muster wie der unzuverlässige `agent`-Filter
+  (Eintrag 2026-08-17, iil-klickdummy#221). Getrackt:
+  [iilgmbh/iil-klickdummy#243](https://github.com/iilgmbh/iil-klickdummy/issues/243).
+- 2026-09-08 **Beantwortet, damit es nicht jeder Lauf neu fragt: die Dedup ist
+  content-basiert, nicht key-basiert.** Vier von sechs Workern hielten ihr eigenes
+  `written: false` für mehrdeutig („könnte auch heißen, es wurde gar nichts
+  geschrieben") und baten um einen Test. Der Beleg liegt bereits vor: am 05., 06.
+  und 07.09. kamen genau die **korrumpierten** Entries unter **unverändertem**
+  `entry_key` mit `written: true` zurück. Bei key-basierter Dedup wäre das unmöglich
+  gewesen. `written: false` ist damit der Fidelity-Beleg, den Step 4 unterstellt —
+  ein absichtlich verfälschender Probe-Upsert ist dafür **nicht** nötig und würde
+  gegen das Anti-Pattern vom 2026-08-13 verstoßen (der Test überschreibt sein
+  eigenes Prüfobjekt).
