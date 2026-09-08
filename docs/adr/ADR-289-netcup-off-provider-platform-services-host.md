@@ -17,9 +17,9 @@ ai_sparring_by:
     summary: "Externes LLM (Runde 2) auf ADR-289: Verdikt ueberarbeiten. Kern: das ADR wiederholt den Fehler, den es an ADR-241 diagnostiziert (eine belegte Entscheidung an drei unfertige gebunden); ungestellte Frage warum ADR-241 sechs Wochen nicht gebaut wurde; Kapazitaetsargument gegen Option B und D gegenlaeufig verwendet; ADR-257-Lehre nur auf R3 statt auch auf R2 angewandt; Append-only ist unterverkauft (SFTP kann es nicht erzwingen, rest-server schon). Tag-Tabelle Paragraph 11."
 related: [ADR-059, ADR-098, ADR-142, ADR-157, ADR-164, ADR-248, ADR-257]
 implementation_status: none
-last_reviewed: 2026-07-30
+last_reviewed: 2026-09-08
 staleness_months: 6
-tags: [infrastructure, hosts, backup, disaster-recovery, provider-diversity, netcup]
+tags: [infrastructure, hosts, backup, disaster-recovery, provider-diversity, netcup, object-storage]
 ---
 
 # ADR-289: Adopt netcup as Off-Provider Backup Target — Further Platform Roles Deferred
@@ -221,6 +221,75 @@ BX11") durch netcup ersetzt und `implementation_status` von `none` auf `partial`
 Der Zuschnitt folgt einem Befund, den zwei externe Reviews unabhängig fanden (§11): die
 erste Fassung band diese eine belegte Entscheidung an drei Rollen ohne tragenden Treiber und
 machte sich damit un-fertigstellbar — genau der Fehler, den dieses ADR an ADR-241 diagnostiziert.
+
+### 3.1a Revision 2026-09-08 — netcup ist ausgefallen, Option E tritt in Kraft
+
+**Auslöser, gemessen:** Am 2026-09-08 waren alle vier `ci-nonprod`-Runner auf netcup
+offline, und der Host war weder von der Dev-Maschine noch von `hetzner-prod` erreichbar
+(Ports 22, 443, 8000, 8080 — je mit Positivkontrolle gegen `hetzner-prod:22`, dreimal über
+den Tag wiederholt, gleiches Ergebnis). Owner-Feststellung am selben Tag: „der netcup
+server ist nicht (mehr) verfügbar".
+
+**Schaden am Offsite-Ziel:** Letzter erfolgreicher restic-Snapshot 2026-09-07 03:30; der
+Lauf vom 2026-09-08 02:34 endete durchgehend mit `error`/`unable`
+(`/var/log/offsite-backup.log`, 32 662 Zeilen, Positivkontrolle: 7 102 `snapshot`-Treffer).
+Die Kette selbst ist intakt — Cron (`/etc/cron.d/offsite-backup`, täglich 02:30) und Skript
+(`/usr/local/bin/prod-offsite-daily.sh`) existieren und laufen; es fehlt ausschließlich das
+Ziel. Zwei Gegenverdachte wurden am Bestand widerlegt: die Datei
+`/root/prod-offsite-daily.sh.vor-2026-08-31` ist eine geparkte Kopie, kein abgebrochener
+Umbau, und der Cron ruft ein existierendes Skript.
+
+**Entscheidung (Owner, 2026-09-08):** Das Offsite-Ziel wird **Hetzner Object Storage,
+Standort Helsinki, mit Object Lock**. Damit tritt genau der Fall ein, den §2 Option E
+vorgesehen hatte — dort steht: „**Bleibt die erste Alternative**, falls Kosten/Laufzeit von
+netcup ungünstig ausfallen." Ungünstig heißt hier: nicht mehr vorhanden.
+
+**Was diese Revision NICHT beibehält — ausdrücklich benannt, nicht stillschweigend:**
+
+Die tragende Begründung des ursprünglichen Beschlusses war der **einzige Speicherort
+außerhalb der Hetzner-Fehlerdomäne**. Hetzner Object Storage gibt diese Eigenschaft auf:
+`hetzner-prod` und das Backup liegen beim selben Anbieter, unter demselben Konto. Ein
+Anbieter-, Konto- oder Abrechnungsvorfall trifft ab jetzt beides.
+
+Erhalten bleibt die **geografische** Trennung, und sie wurde bewusst gewählt: `hetzner-prod`
+läuft in Nürnberg (`ubuntu-8gb-nbg1-1`), das Backup geht nach **Helsinki** — anderes Land,
+andere Strom- und Netzanbindung, weiterhin EU und damit DSGVO-unverändert. Ein Bucket in
+Nürnberg war erwogen und verworfen: er hätte im selben Rechenzentrum gelegen wie das, was er
+sichert, und wäre damit schwächer gewesen als jede zuvor betrachtete Option.
+
+**Was besser wird:** Append-only war auf netcup ein Dienst (`rest-server --append-only`) auf
+einer Maschine, die ausfallen kann — und ausgefallen ist. Object Lock ist eine Eigenschaft
+des Buckets. Die Unveränderlichkeit hängt damit nicht mehr an einem laufenden Prozess. §2
+Option E hatte das bereits so bewertet: „Object Lock ist härter als ein
+Append-only-Schlüssel."
+
+**Umsetzungsauflagen:**
+
+1. **Object Lock muss beim Anlegen des Buckets aktiviert werden** — nachträglich ist es laut
+   Hetzner-Doku nicht möglich. Modus `Compliance`, nicht `Governance`: `Governance` lässt
+   sich mit ausreichenden Rechten umgehen, und genau davor soll die Sperre schützen.
+2. Standort **Helsinki**, nicht Nürnberg (siehe oben).
+3. Zweiter AVV nötig — derselbe Punkt, den Option E schon als Con führte; hier entfällt er
+   nicht, sondern wird nur beim bereits bekannten Anbieter fällig.
+4. Der Löschpfad bleibt offen und ist damit weiterhin der Hinderungsgrund für
+   personenbezogene Daten (platform#2504): `restic forget`/Prune laufen nirgends. Object
+   Lock im Compliance-Modus verschärft das — was gesperrt ist, lässt sich bis zum Ablauf der
+   Frist auch nicht löschen. Die Retention-Dauer muss deshalb zum Löschkonzept passen und
+   nicht umgekehrt.
+
+**Folgen für R2/R3/R4:** R3 (CI-/Build-Runner) ist mit dem Host verschwunden. Die CI von
+`achimdehnert/writing-hub` läuft seit 2026-09-08 auf GitHub-hosted Läufern
+(achimdehnert/writing-hub#1082); dort stieg die Coverage von 87,71 % auf 87,73 %, weil die
+Umgebung seither im Workflow steht statt auf einer Maschine vorgefunden zu werden. Die
+Vorbedingungen aus §3.2 für ein eigenes R3-ADR sind damit gegenstandslos, solange kein neuer
+Host existiert. R2 und R4 bleiben unverändert zurückgestellt.
+
+**Offen:** `infra/hosts.yaml` führt den netcup-Block samt
+`hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]` (drei — registriert waren vier). Der
+Block gehört auf den Ist-Stand gezogen, sobald entschieden ist, ob der Vertrag endet.
+Getrackt in achimdehnert/platform#2956.
+
+---
 
 ### 3.2 Erwogen und zurückgestellt — je mit auslösendem Treiber
 
