@@ -889,3 +889,119 @@ def test_should_mark_rollback_open_when_a_deploy_workflow_exists(tmp_path):
     pack["parts"]["workflows_active"] = [".github/workflows/deploy.yml"]
     pack["parts"]["files"] = {"Dockerfile": "-", "docker-compose.yml": "-"}
     assert _d05(_run(tmp_path, pack)).get("state") == "unverified"
+
+
+def _frage(res, qid):
+    """Eine Einzelfrage aus dem Ergebnis, unabhaengig von ihrer Dimension."""
+    return res["scores"][qid.split(".")[0]]["questions"][qid]
+
+
+# --- Drei systematische Fehlurteile, gefunden ueber den Eich-Bogen 2026-09-08 ---
+#
+# Der Bogen kam mit 15 von 15 Positionen `unklar` zurueck. Das war kein Ausweichen des
+# Lesers, sondern ein Befund ueber den Bogen: er zeigte den SUCHSCHLUESSEL statt des
+# gefundenen Zustands. Nach dem Neubau aus den Evidenzpaketen fielen drei Klassen auf,
+# alle drei hier mit dem gemessenen Bestand vom 2026-09-07 im Ruecken.
+
+
+def test_should_lockfile_frage_ohne_manifest_nicht_anwendbar_nennen(tmp_path):
+    """D02.2: ohne ein einziges Abhaengigkeits-Manifest gibt es nichts zu sperren.
+
+    34 von 56 Repos trugen deshalb ein `fail`, das eine Nachlaessigkeit behauptete,
+    die es nicht gibt. Dieselbe Verwechslung wie bei D05.4 vor ihrer Korrektur.
+    """
+    pack = _pack()
+    pack["parts"]["manifests"] = {}
+    for n in ("uv.lock", "poetry.lock", "package-lock.json", "pdm.lock"):
+        pack["parts"]["files"][n] = "-"
+    res = _run(tmp_path, pack)
+    a = _frage(res, "D02.2")
+    assert a["state"] == "not_applicable", a
+    assert "Manifest" in a["note"]
+
+
+def test_should_lockfile_frage_mit_manifest_weiter_hart_bewerten(tmp_path):
+    """Gegenprobe: sobald ein Manifest da ist, bleibt das fehlende Lockfile ein Befund."""
+    pack = _pack()
+    pack["parts"]["manifests"] = {
+        "requirements.txt": {"entries": 4, "versioned_entries": 4}
+    }
+    for n in ("uv.lock", "poetry.lock", "package-lock.json", "pdm.lock"):
+        pack["parts"]["files"][n] = "-"
+    res = _run(tmp_path, pack)
+    a = _frage(res, "D02.2")
+    assert a.get("outcome") == "fail", a
+
+
+def test_should_typpruefung_hinter_wiederverwendbarem_workflow_offen_lassen(tmp_path):
+    """D04.4/D04.5: ein Job, der delegiert, meldet `tools: []`.
+
+    Die Werkzeuge laufen im wiederverwendbaren Workflow, und dorthin schaut die
+    Erhebung nicht. `fail` waere die Behauptung „laeuft nicht"; belegt ist nur
+    „von hier aus nicht sichtbar". 40 von 56 Repos delegieren so.
+    """
+    pack = _pack()
+    pack["parts"]["ci_jobs"] = [
+        {
+            "workflow": ".github/workflows/ci.yml",
+            "job": "ci",
+            "tools": [],
+            "calls_reusable": "iilgmbh/shared-ci/.github/workflows/_ci-python.yml@v1.1.12",
+            "executed_for_this_repo": True,
+            "on": ["pull_request"],
+        }
+    ]
+    res = _run(tmp_path, pack)
+    for qid in ("D04.4", "D04.5"):
+        a = _frage(res, qid)
+        assert a["state"] == "unverified", (qid, a)
+        assert "shared-ci" in a["note"], (qid, a)
+
+
+def test_should_ohne_delegation_weiter_hart_bewerten(tmp_path):
+    """Gegenprobe: ein eigener Job ohne Typpruefer bleibt ein Befund."""
+    pack = _pack()
+    pack["parts"]["ci_jobs"] = [
+        {
+            "workflow": ".github/workflows/ci.yml",
+            "job": "ci",
+            "tools": ["pytest"],
+            "calls_reusable": None,
+            "executed_for_this_repo": True,
+            "on": ["pull_request"],
+        }
+    ]
+    res = _run(tmp_path, pack)
+    assert _frage(res, "D04.5").get("outcome") == "fail"
+
+
+def test_should_alten_agent_doc_bestand_nicht_zerlegen(tmp_path):
+    """Vor dem 2026-09-08 lieferte der Sammler je Agent-Datei nur eine Liste.
+
+    Der Bewerter stuerzte darauf ab — und zwar genau bei den 26 von 56 Paketen, die
+    eine Agent-Datei HABEN. Ein Vorher-Nachher-Vergleich mass danach still nur den
+    Rest. Alter Bestand muss bewertbar bleiben, aber als `unverified`, nicht als
+    Aussage ueber einen Inhalt, der nie gelesen wurde.
+    """
+    pack = _pack()
+    pack["parts"]["agent_docs"] = {"CLAUDE.md": ["# Titel", "## Setup", "## Tests"]}
+    res = _run(tmp_path, pack)
+    for qid in ("D10.2", "D10.3"):
+        a = _frage(res, qid)
+        assert a["state"] == "unverified", (qid, a)
+        assert "2026-09-08" in a["note"], (qid, a)
+
+
+def test_should_neuen_agent_doc_bestand_weiter_hart_bewerten(tmp_path):
+    """Gegenprobe: das neue Verzeichnis-Format wird unveraendert bewertet."""
+    pack = _pack()
+    pack["parts"]["agent_docs"] = {
+        "CLAUDE.md": {
+            "headings": ["# Titel"],
+            "code_block_first_lines": [],
+            "code_block_count": 0,
+            "marker_lines": {},
+        }
+    }
+    res = _run(tmp_path, pack)
+    assert _frage(res, "D10.2").get("outcome") == "fail"

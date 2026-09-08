@@ -313,7 +313,17 @@ class Scorer:
             )
             if files.get(n) == "+"
         ]
-        if not locks:
+        if not locks and not (P.get("manifests") or {}):
+            # Ohne ein einziges Abhaengigkeits-Manifest gibt es nichts zu sperren.
+            # `fail` waere hier eine Aussage ueber eine Nachlaessigkeit, die nicht
+            # existiert — dieselbe Verwechslung wie bei D05.4 vor der Korrektur.
+            # Gemessen am Bestand vom 2026-09-07: 34 von 56 Repos.
+            self.open_(
+                "D02.2",
+                "not_applicable",
+                "kein Abhaengigkeits-Manifest im Repo — ohne Manifest kein Lockfile",
+            )
+        elif not locks:
             self.answered(
                 "D02.2",
                 "fail",
@@ -413,12 +423,39 @@ class Scorer:
                 if j["executed_for_this_repo"] and set(j["tools"]) & set(tools)
             ]
             if not jobs:
-                self.answered(
-                    qid,
-                    "fail",
-                    "kein CI-Job mit " + "/".join(tools) + " (executed_for_this_repo)",
-                    "workflow",
+                # Ein Job, der an einen wiederverwendbaren Workflow delegiert, meldet
+                # `tools: []` — die Werkzeuge laufen dort drin, und dorthin schaut die
+                # Erhebung nicht. `fail` waere die Behauptung „laeuft nicht", belegt ist
+                # nur „von hier aus nicht sichtbar". Gemessen am Bestand vom 2026-09-07:
+                # 40 von 56 Repos delegieren so.
+                delegiert = sorted(
+                    {
+                        j["calls_reusable"]
+                        for j in P.get("ci_jobs", [])
+                        if j.get("executed_for_this_repo")
+                        and not j.get("tools")
+                        and j.get("calls_reusable")
+                    }
                 )
+                if delegiert:
+                    self.open_(
+                        qid,
+                        "unverified",
+                        "CI delegiert an "
+                        + ";".join(delegiert)
+                        + " — "
+                        + "/".join(tools)
+                        + " laeuft moeglicherweise dort; von diesem Repo aus nicht entscheidbar",
+                    )
+                else:
+                    self.answered(
+                        qid,
+                        "fail",
+                        "kein CI-Job mit "
+                        + "/".join(tools)
+                        + " (executed_for_this_repo)",
+                        "workflow",
+                    )
             else:
                 last = next(
                     (r for j in jobs for r in runs.get(j["workflow"], [])[:1]), None
@@ -801,10 +838,18 @@ class Scorer:
         )
         docs = P.get("agent_docs") or {}
         doc_files = ";".join(sorted(docs)) or "keine Agent-Doku"
+        # Vor dem 2026-09-08 lieferte der Sammler je Agent-Datei nur eine LISTE von
+        # Ueberschriften; seit `agent_doc_digest()` ist es ein Verzeichnis mit
+        # Ueberschriften, Befehlszeilen und Markern. Ein alter Bestand darf den
+        # Bewerter nicht zerlegen: sonst faellt genau die Menge aus, die eine
+        # Agent-Datei HAT (gemessen am Bestand vom 2026-09-07: 26 von 56 Paketen),
+        # und ein Vorher-Nachher-Vergleich misst still nur den Rest.
+        digests = {n: d for n, d in docs.items() if isinstance(d, dict)}
+        veraltet = sorted(n for n, d in docs.items() if not isinstance(d, dict))
         all_commands = [
-            c for d in docs.values() for c in d.get("code_block_first_lines", [])
+            c for d in digests.values() for c in d.get("code_block_first_lines", [])
         ]
-        code_block_total = sum(d.get("code_block_count", 0) for d in docs.values())
+        code_block_total = sum(d.get("code_block_count", 0) for d in digests.values())
         make_targets = set(P.get("make_targets") or [])
         verified_cmds = [
             c
@@ -827,21 +872,43 @@ class Scorer:
                 note="documented, nicht verified",
             )
         else:
-            self.answered(
-                "D10.2", "fail", f"{doc_files}: keine Codebloecke in Agent-Doku", "file"
-            )
+            if veraltet:
+                self.open_(
+                    "D10.2",
+                    "unverified",
+                    f"{';'.join(veraltet)}: Evidenz aus einem Sammler-Stand vor dem "
+                    "2026-09-08 — Codebloecke nicht erhoben",
+                )
+            else:
+                self.answered(
+                    "D10.2",
+                    "fail",
+                    f"{doc_files}: keine Codebloecke in Agent-Doku",
+                    "file",
+                )
         for qid, marker_key in D10_MARKER_KEYS.items():
             hits = [
                 ln
-                for d in docs.values()
+                for d in digests.values()
                 for ln in d.get("marker_lines", {}).get(marker_key, [])
             ]
-            self.answered(
-                qid,
-                "ok" if hits else "fail",
-                f"{doc_files}: Marker '{marker_key}' — {hits[:5] if hits else 'keine Treffer'}",
-                "file",
-            )
+            if not hits and veraltet:
+                # Kein Treffer, aber die Datei wurde nie auf Marker hin erhoben.
+                # `fail` waere hier eine Aussage ueber den Inhalt, gelesen wurde nur
+                # die Ueberschriftenliste eines aelteren Sammler-Standes.
+                self.open_(
+                    qid,
+                    "unverified",
+                    f"{';'.join(veraltet)}: Evidenz aus einem Sammler-Stand vor dem "
+                    "2026-09-08, der nur Ueberschriften ablegte — Marker nicht erhoben",
+                )
+            else:
+                self.answered(
+                    qid,
+                    "ok" if hits else "fail",
+                    f"{doc_files}: Marker '{marker_key}' — {hits[:5] if hits else 'keine Treffer'}",
+                    "file",
+                )
         if ents == 0:
             # Regel v2.5 (platform#2737 Frage 3/#2876): ohne Abhaengigkeits-Manifest
             # (entries == 0 ueber alle Manifeste inkl. pyproject nach R1) ist die Frage
