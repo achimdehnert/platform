@@ -2,7 +2,7 @@
 status: accepted
 decision_date: 2026-04-04
 deciders: Achim Dehnert
-implementation_status: phase_1_3_complete
+implementation_status: partial
 implementation_evidence:
   - promptfw/src/promptfw/contrib/django/ (models, admin, resolution, CLI, 36 tests)
   - writing-hub commit 3b3ea12 (Phase 2 — 46 prompts seeded)
