@@ -727,7 +727,8 @@ services:
       Harnisch: 3.526 tok/s Prefill bei 8 gleichzeitigen Anfragen gegen 2.632
       tok/s bei ollama. Haelt rund 36 GB Grafikspeicher — vor grossen
       Trainingslaeufen anhalten (`systemctl --user stop vllm`, Wrapper
-      `~/training-mit-speicher.sh` auf dem Knoten, robo-lab#58).
+      `infra/scripts/training-mit-speicher.sh` — im Repo, auf dem Knoten als
+      `~/training-mit-speicher.sh` ausgerollt, robo-lab#58).
       Port 8000 liegt im Band 8000-8019 (Infra-APIs); auf gx10 frei, die
       Belegung auf gpu-box (ComfyUI) ist ein anderer Knoten.
 
