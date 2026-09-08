@@ -22,17 +22,25 @@
 #      ueberhaupt etwas haengt. Kein Dauerlaerm, aber auch kein Gruen ueber einem
 #      liegengebliebenen Dokument (dieselbe Trennung wie KONZ-054 E3).
 #
+# ZWEITE HAELFTE seit 2026-09-08: der Melder fuehrt ein Inventar und meldet auch,
+# was aus dem Consume-Baum VERSCHWINDET, ohne ein Dokument zu werden (Exit 4).
+# Das war der Fall, den die erste Fassung nicht sah. Ein Verlust ist ein Ereignis
+# und steht nur in EINEM Lauf — er alarmiert deshalb sofort, ohne Alarm-Fenster.
+#
 # ROT IST BEFUND: eine haengende Datei ist Arbeit, kein kaputter Melder.
 #
 # WARUM `--kurz` UND NICHT DER VOLLBERICHT: dieses Repo ist oeffentlich, also sind es
 # die Actions-Logs und die Issues auch. Die Kurzzeile nennt nur Zahlen; Ordner- und
 # Dateinamen holt der Owner lokal (`python3 tools/scan_melder.py --ssh hetzner-prod`).
 #
-# SCOPE-GRENZE, bewusst: der Melder sieht, was zu lange LIEGT. Eine Datei, die aus dem
-# Consume-Baum verschwindet, ohne ein Dokument zu werden, sieht er NICHT — genau das
-# ist am 2026-09-08 mit ebenjener Datei passiert (doc-hub#3). Dafuer braeuchte es ein
-# Protokoll der SFTP-Eingaenge (`internal-sftp -l INFO`), also eine sshd-Aenderung auf
-# prod: Security-Config und damit Owner-Sache.
+# SCOPE-GRENZE, was jetzt noch fehlt: eine Datei, die zwischen zwei Laeufen kommt UND
+# wieder geht, faellt durch — bei stuendlichem Takt ein Fenster von unter einer Stunde.
+# Der reale Fall (doc-hub#3) lag 23 Stunden auseinander. Lueckenlos waere nur ein
+# Schreibprotokoll der Samba-Freigabe (`vfs objects = full_audit`); das ist ein Eingriff
+# in eine Dienst-Konfiguration auf prod und bleibt Owner-Sache.
+#
+# NICHT der Weg: `internal-sftp -l INFO`. Am 2026-09-08 eingeschaltet und gemessen
+# wirkungslos — die Lieferung laeuft ueber Samba, nicht ueber SFTP (doc-hub#3).
 
 name: scan-melder
 
@@ -72,12 +80,15 @@ jobs:
         id: neu
         run: |
           set +e
-          python3 tools/scan_melder.py --kurz --neu-seit 60 > /dev/null
+          # --inventar '' : die Verlust-Erkennung gehoert in den ERSTEN Lauf.
+          # Zweimal pro Durchgang zu vergleichen wuerde nur das eben geschriebene
+          # Inventar gegen sich selbst halten.
+          python3 tools/scan_melder.py --kurz --neu-seit 60 --inventar '' > /dev/null
           echo "rc=$?" >> "$GITHUB_OUTPUT"
           set -e
 
       - name: "Alarm: Issue an den Owner — nur beim ersten Mal je Datei"
-        if: steps.neu.outputs.rc == '1'
+        if: steps.neu.outputs.rc == '1' || steps.alles.outputs.rc == '4'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -115,6 +126,11 @@ jobs:
       - name: "Gate: Ergebnis durchreichen"
         run: |
           rc="${{ steps.alles.outputs.rc }}"
+          if [ "${rc}" = "4" ]; then
+            echo "❌ ${{ steps.alles.outputs.zeile }}"
+            echo "Verlust: etwas ist aus dem Consume-Baum verschwunden, ohne ein Dokument zu werden."
+            exit 1
+          fi
           if [ "${rc}" = "2" ]; then
             echo "❌ Consume-Baum nicht lesbar — blind ist nicht grün"
             exit 1

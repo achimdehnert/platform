@@ -93,3 +93,49 @@ def test_should_keep_folder_and_file_names_out_of_short_line():
 
 def test_should_stay_silent_when_nothing_hangs():
     assert sm.haengende([_datei("achim/frisch.pdf", 2)], jetzt=JETZT) == []
+
+
+# --- Verlust-Erkennung (doc-hub#3, zweite Haelfte) ---------------------------
+
+
+def test_should_not_call_a_consumed_file_a_loss():
+    """Der Normalfall: die Datei verschwindet, WEIL Paperless sie aufgenommen hat."""
+    vorher = [_datei("achim/08092026172132.pdf", 5)]
+    weg = sm.verschwundene(vorher, jetzt=[])
+    assert [w["pfad"] for w in weg] == ["achim/08092026172132.pdf"]
+    # Erst die Antwort von Paperless entscheidet — hier: Dokument existiert.
+    gefunden = {"08092026172132.pdf"}
+    verluste = [w for w in weg if Path(w["pfad"]).name not in gefunden]
+    assert verluste == []
+
+
+def test_should_call_a_vanished_file_without_document_a_loss():
+    """Der Realfall vom 2026-09-08: verschwunden, ohne je ein Dokument zu werden."""
+    vorher = [_datei("achim/07092026101932.pdf", 23 * 60)]
+    weg = sm.verschwundene(vorher, jetzt=[])
+    verluste = [w for w in weg if Path(w["pfad"]).name not in set()]
+    assert [v["pfad"] for v in verluste] == ["achim/07092026101932.pdf"]
+    zeile = sm.kurzzeile([], geprueft=0, gemessene_ignoranz=True, verluste=verluste)
+    assert "VERLOREN" in zeile
+    assert "07092026101932" not in zeile  # oeffentliches Repo: keine Namen
+
+
+def test_should_not_report_a_file_that_is_still_there():
+    bleibt = _datei("achim/liegt-noch.pdf", 90)
+    assert sm.verschwundene([bleibt], jetzt=[bleibt]) == []
+
+
+def test_should_survive_a_missing_or_broken_inventory(tmp_path):
+    """Erstlauf und beschaedigtes Inventar duerfen keinen Verlust erfinden."""
+    fehlt = tmp_path / "gibtsnicht.json"
+    assert sm.lade_inventar(fehlt) == []
+    kaputt = tmp_path / "kaputt.json"
+    kaputt.write_text("{kein json", encoding="utf-8")
+    assert sm.lade_inventar(kaputt) == []
+
+
+def test_should_round_trip_the_inventory(tmp_path):
+    pfad = tmp_path / "unter" / "inventar.json"
+    dateien = [_datei("achim/a.pdf", 1), _datei("tilly/b.pdf", 2)]
+    sm.schreibe_inventar(pfad, dateien)
+    assert [d["pfad"] for d in sm.lade_inventar(pfad)] == ["achim/a.pdf", "tilly/b.pdf"]
