@@ -1,0 +1,127 @@
+# scan-melder.yml — doc-hub#3: ein Scan, der nicht ankommt, darf nicht still bleiben.
+#
+# Anlass: `achim/07092026101932.pdf` lag am 2026-09-07 seit 23 Stunden im
+# Consume-Baum (abgeschnittene PDF, `InputFileError`). Paperless liess sie liegen und
+# meldete nichts. Fuer den Menschen am Geraet sieht ein verlorener Scan genau aus wie
+# ein Scan, den er nie gemacht hat.
+#
+# WARUM ISSUE UND NICHT DISCORD: der erste Entwurf dieses Workflows alarmierte ueber
+# den Discord-Webhook — und waere damit ins Leere gelaufen. Das Secret hat nie
+# existiert, der Kanal wurde am 2026-09-07 auf Owner-Wort zurueckgebaut
+# (infra/alarmwege.yaml, platform#2895); jeder Nutzer ueberspringt still mit exit 0.
+# Ein Melder mit totem Alarmweg ist schlimmer als keiner, weil er beruhigt.
+# Gewaehlt ist deshalb `github-issue-owner`, der einzige belegte Kanal —
+# `--assignee achimdehnert` IST die Zustellung.
+#
+# LESER, beide benannt (kein Melder ohne Leser, #2284 K5):
+#   1. Der Owner ueber ein zugewiesenes Issue — aber nur beim ERSTEN Mal je Datei
+#      (`--neu-seit 60`). Ein stuendlicher Kommentar ueber dieselbe haengende Datei
+#      waere Rauschen; genau daran ist der taegliche backup-deckung-Kommentar
+#      gestorben.
+#   2. `cron_melder_check.py` ueber den roten Lauf — der Job bleibt rot, solange
+#      ueberhaupt etwas haengt. Kein Dauerlaerm, aber auch kein Gruen ueber einem
+#      liegengebliebenen Dokument (dieselbe Trennung wie KONZ-054 E3).
+#
+# ROT IST BEFUND: eine haengende Datei ist Arbeit, kein kaputter Melder.
+#
+# WARUM `--kurz` UND NICHT DER VOLLBERICHT: dieses Repo ist oeffentlich, also sind es
+# die Actions-Logs und die Issues auch. Die Kurzzeile nennt nur Zahlen; Ordner- und
+# Dateinamen holt der Owner lokal (`python3 tools/scan_melder.py --ssh hetzner-prod`).
+#
+# SCOPE-GRENZE, bewusst: der Melder sieht, was zu lange LIEGT. Eine Datei, die aus dem
+# Consume-Baum verschwindet, ohne ein Dokument zu werden, sieht er NICHT — genau das
+# ist am 2026-09-08 mit ebenjener Datei passiert (doc-hub#3). Dafuer braeuchte es ein
+# Protokoll der SFTP-Eingaenge (`internal-sftp -l INFO`), also eine sshd-Aenderung auf
+# prod: Security-Config und damit Owner-Sache.
+
+name: scan-melder
+
+on:
+  schedule:
+    - cron: "25 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: scan-melder
+  cancel-in-progress: false
+
+jobs:
+  haengende:
+    name: "Haengende Scans im Consume-Baum"
+    runs-on: [self-hosted, prod]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: "Alles Haengende messen"
+        id: alles
+        run: |
+          set +e
+          zeile=$(python3 tools/scan_melder.py --kurz)
+          rc=$?
+          set -e
+          echo "$zeile"
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          echo "zeile=${zeile}" >> "$GITHUB_OUTPUT"
+          echo "${zeile}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Frisch Haengendes messen (Alarm-Fenster)"
+        id: neu
+        run: |
+          set +e
+          python3 tools/scan_melder.py --kurz --neu-seit 60 > /dev/null
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: "Alarm: Issue an den Owner — nur beim ersten Mal je Datei"
+        if: steps.neu.outputs.rc == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="scan-haengt" -f color="b60205" \
+            -f description="scan-melder: Scan liegt im Consume-Baum, ohne Dokument zu werden" \
+            >/dev/null 2>&1 || true
+
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          {
+            echo "${{ steps.alles.outputs.zeile }}"
+            echo
+            echo "Lauf: ${run_url}"
+            echo
+            echo "Ordner- und Dateinamen stehen bewusst nicht hier (dieses Repo ist oeffentlich)."
+            echo "Details: \`python3 tools/scan_melder.py --ssh hetzner-prod\`"
+            echo "Ursache je Datei: \`ssh hetzner-prod \"docker logs iil_dochub_web --since 48h\"\`"
+          } > /tmp/scan-melder-alarm.md
+
+          existing=$(gh issue list --label scan-haengt --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/scan-melder-alarm.md
+            echo "Kommentar an bestehendes Issue #$existing"
+          else
+            # --assignee IST die Zustellung — ohne sie benachrichtigt das Issue niemanden.
+            gh issue create \
+              --title "[scan-haengt] Ein Scan ist nicht in Paperless angekommen ($(date -u +%Y-%m-%d))" \
+              --label scan-haengt \
+              --assignee "achimdehnert" \
+              --body-file /tmp/scan-melder-alarm.md
+          fi
+
+      - name: "Gate: Ergebnis durchreichen"
+        run: |
+          rc="${{ steps.alles.outputs.rc }}"
+          if [ "${rc}" = "2" ]; then
+            echo "❌ Consume-Baum nicht lesbar — blind ist nicht grün"
+            exit 1
+          fi
+          if [ "${rc}" = "1" ]; then
+            echo "❌ ${{ steps.alles.outputs.zeile }}"
+            echo "Rot ist Befund: die Datei liegt noch, das Dokument fehlt."
+            exit 1
+          fi
+          echo "✅ ${{ steps.alles.outputs.zeile }}"
