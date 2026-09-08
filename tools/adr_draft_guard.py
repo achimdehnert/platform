@@ -23,10 +23,10 @@ Ein roter Check waehrend der Arbeit am Entwurf ist dabei kein Defekt, sondern
 das Signal "noch nicht mergebar". Er wird gruen, sobald der Autor die Nummer
 vergibt — und genau das ist ADR-228: die Nummer faellt zuletzt.
 
-Die Unterscheidung "PR-Zweig ok, main verboten" liegt bewusst NICHT in diesem
-Skript, sondern im aufrufenden Workflow-Schritt (Ereignistyp + Ziel-Branch,
+Die Unterscheidung "PR-Zweig ok, main verboten" gehoert nicht in dieses
+Skript, sondern in den aufrufenden Workflow-Schritt (Ereignistyp + Ziel-Branch,
 siehe .github/workflows/adr-validate.yml) — das Skript selbst kennt nur den
-Dateibestand, nicht den Kontext, in dem er gepueft wird.
+Dateibestand, nicht den Kontext, in dem er geprueft wird.
 
 Findet zwei Verstoss-Arten:
   * eine Datei `ADR-DRAFT-*.md`
