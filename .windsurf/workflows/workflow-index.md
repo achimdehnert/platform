@@ -59,6 +59,7 @@ mode: read-only
 | Gutachten zur Abschlussarbeit (Punkteschema, Kritik-Tabelle, Note als Vorschlag) | `/gutachten` |
 | Memory-Lane D4-klassifizieren (A/B/C, Regel-Extraktion, KONZ-038) | `/d4-lane` |
 | Rechnungs-Mails → Paperless + sevdesk-Entwurf (nie buchen) | `/rechnungsstrecke` |
+| Scan-Stapel zerlegen → Paperless (Leerseiten, Dubletten, Rechte) | `/scan` |
 
 ### Repo-Onboarding & Setup
 
