@@ -2,7 +2,7 @@
 status: accepted
 decision_date: 2026-05-14
 deciders: [Achim Dehnert]
-implementation_status: in-progress
+implementation_status: in_progress
 related: [ADR-199-rejected, ADR-203, ADR-208, dev-hub#39]
 ---
 

@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: [ADR-120, ADR-289, ADR-292]
-implementation_status: not_started
+implementation_status: none
 last_reviewed: 2026-09-02
 staleness_months: 6
 ---

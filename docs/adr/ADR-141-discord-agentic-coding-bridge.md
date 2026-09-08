@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-114-discord-ide-like-communication-gateway.md", "ADR-116-dynamic-model-router.md", "ADR-079-temporal-workflow-engine.md", "ADR-080-multi-agent-coding-team-pattern.md", "ADR-081-agent-guardrails-code-safety.md", "ADR-082-llm-tool-integration-autonomous-coding.md", "ADR-045-secrets-management.md", "ADR-120-unified-deployment-pipeline.md"]
-implementation_status: not_started
+implementation_status: none
 implementation_evidence: []
 ---
 

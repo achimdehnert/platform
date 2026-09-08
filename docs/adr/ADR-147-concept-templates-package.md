@@ -8,7 +8,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-130-content-store-shared-persistence.md", "ADR-146-package-consolidation-strategy.md", "ADR-041-django-component-pattern.md", "ADR-022-platform-consistency-standard.md"]
-implementation_status: not_started
+implementation_status: none
 implementation_evidence: []
 ---
 

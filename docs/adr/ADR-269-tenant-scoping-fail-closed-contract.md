@@ -4,7 +4,7 @@ decision_date: 2026-07-02
 deciders: [Achim Dehnert]
 consulted: –
 informed: –
-implementation_status: not-started
+implementation_status: none
 domains: [architecture, multi-tenancy, security, data-sovereignty]
 scope: platform
 amends: [ADR-109]

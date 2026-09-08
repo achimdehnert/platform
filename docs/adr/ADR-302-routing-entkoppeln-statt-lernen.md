@@ -8,7 +8,7 @@ informed: []
 supersedes: []
 amends: [ADR-068-adaptive-model-routing.md]
 related: [ADR-066, ADR-068, ADR-084, ADR-095, ADR-108, ADR-208]
-implementation_status: not_started
+implementation_status: none
 last_reviewed: 2026-09-07
 staleness_months: 6
 ---

@@ -5,6 +5,7 @@ decision_date: YYYY-MM-DD
 deciders: Achim Dehnert
 consulted: –
 informed: –
+implementation_status: none
 ---
 
 <!--
@@ -14,6 +15,13 @@ informed: –
   Strategie: techdocs-first, dev-hub-sync, Drift-Detector-kompatibel
   SPRACHE (ADR-271 §3.2): Abschnitts-Überschriften kanonisch Englisch, fleet-weit;
   Prosa-Sprache frei — Deutsch ist in LRA-/Behörden-Repos üblich und erwünscht.
+
+  implementation_status — NUR diese acht Werte (Schema iil-adrfw):
+    none · planned · in_progress · partial · implemented · complete · verified · rolled_back
+  Freie Varianten wie "not_started" oder "in-progress" werden vom Schema-Pruefer
+  NICHT abgelehnt (gemessen 2026-09-08) und machen jede Auswertung still falsch —
+  23 ADRs trugen so einen Wert, entstanden durch Abschreiben von Nachbardateien.
+  Geprueft von tools/adr_umsetzungsstand_check.py (platform#2931).
 
   PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §9 Confirmation
   OPTIONALE FELDER: consulted, informed, §6 Migration Tracking (nur bei Transitions)

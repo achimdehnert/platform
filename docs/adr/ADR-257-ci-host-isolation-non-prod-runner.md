@@ -4,7 +4,7 @@ decision_date: 2026-06-26
 revision: 3
 deciders: [Achim Dehnert]
 scope: platform
-implementation_status: in-progress
+implementation_status: in_progress
 related: [ADR-222, ADR-156, KONZ-risk-hub-004]
 supersedes: []
 ---

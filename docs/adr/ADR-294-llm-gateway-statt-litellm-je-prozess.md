@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: []
-implementation_status: not_started
+implementation_status: none
 last_reviewed: 2026-08-11
 staleness_months: 6
 tags: [llm, aifw, speicher, architektur, gateway]
