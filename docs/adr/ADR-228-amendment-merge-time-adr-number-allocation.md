@@ -10,34 +10,40 @@ domains: [governance, ci, adr]
 supersedes: []
 amends: [ADR-065]
 related: [ADR-059, ADR-107]
-implementation_status: none
+implementation_status: partial
 ---
 
 # Amendment: Merge-time ADR number allocation (amends ADR-065)
 
-> [!IMPORTANT]
-> **Diese Regel ist beschlossen, aber NICHT in Kraft — Stand 2026-09-07.**
+> [!NOTE]
+> **In Kraft seit 2026-09-08 ([#2931](https://github.com/achimdehnert/platform/issues/2931)) — ohne die Merge-Queue-Variante aus OQ-1.**
 >
-> `implementation_status` steht auf `none`: es gibt keinen Allokator, keinen
-> Merge-Queue-Schritt und in der gesamten Repo-Historie keine einzige
-> `ADR-DRAFT-*`-Datei. Der **gating** Schema-Check lehnt die hier
-> vorgeschriebene Form aktiv ab:
+> `implementation_status: partial`, weil die in diesem ADR urspruenglich
+> vorgesehene Merge-Queue-Allokation (Bot committet auf `main`) **nicht**
+> gebaut wurde — es gibt im Repo keine Merge-Queue
+> (`main-required-checks` kennt nur `required_status_checks` +
+> `pull_request`). Gebaut ist stattdessen die Autor-getriebene Variante mit
+> demselben Effekt (die Nummer faellt als letzter Schritt vor dem Merge):
 >
-> ```
-> id: 'ADR-DRAFT-<slug>' does not match '^ADR-[0-9]{3,4}$'
-> <root>: Additional properties are not allowed ('draft' was unexpected)
-> ```
+> 1. **Entwurf anlegen:** ADR-PR legt `docs/adr/ADR-DRAFT-<slug>.md` an,
+>    Frontmatter `id: ADR-000` (reservierter Platzhalter — validiert sauber
+>    gegen das `iil-adrfw`-Schema, siehe unten). Keine Nummer waehlen.
+> 2. **Vor dem Merge:** `python3 tools/adr_allocate.py --apply` ausfuehren —
+>    benennt die Datei per `git mv` in `ADR-NNN-<slug>.md` um, ersetzt
+>    `id: ADR-000` durch die vergebene Nummer, die H1 und alle
+>    `ADR-DRAFT`-Selbstverweise, regeneriert `INDEX.md` + `index.json`
+>    (`scripts/gen_adr_index.py`). Ergebnis committen und pushen.
+> 3. **Gate:** `tools/adr_draft_guard.py` (verdrahtet in
+>    `.github/workflows/adr-validate.yml`) erzwingt, dass auf `main` weder
+>    eine `ADR-DRAFT-*.md`-Datei noch ein liegen gebliebenes `id: ADR-000`
+>    existiert — gating auf dem `push`-Lauf gegen `main`, SUGGEST auf einem
+>    PR-Zweig (dort ist ein Entwurf der vorgesehene Zustand waehrend der
+>    Arbeit).
 >
-> **Bis zur Umsetzung gilt weiter die Autorenzeit-Vergabe:** Nummer beim
-> Anlegen waehlen (naechste freie aus `docs/adr/INDEX.md`, Zeile
-> „Next free ADR number"), Datei als `ADR-NNN-<slug>.md`, danach
-> `python3 scripts/gen_adr_index.py` laufen lassen und mitcommitten.
->
-> Wer stattdessen dieser ADR folgt, erzeugt einen PR, der am Pflicht-Gate
-> scheitert. Belegt am 2026-09-07 beim Anlegen von ADR-302
-> ([#2930](https://github.com/achimdehnert/platform/pull/2930)).
->
-> Entscheidung ueber den weiteren Weg: [#2931](https://github.com/achimdehnert/platform/issues/2931).
+> Die Nummernlogik selbst bleibt in `scripts/adr_next_number.py` (ADR-065,
+> `max+1`) — `tools/adr_allocate.py` ruft sie auf, dupliziert sie nicht.
+> `/adr` (`.windsurf/workflows/adr.md`) legt neue ADRs seither ebenfalls als
+> Entwurf an, statt selbst eine Nummer zu waehlen.
 
 
 > **Trigger**: The 2026-05-29 platform PR-backlog sweep had to hand-renumber
@@ -256,3 +262,4 @@ folded in, this ADR is Accept-ready (acceptance pending the decider).
   at merge time to eliminate the in-flight open-PR collision race.
 * 2026-05-29: External cross-provider review incorporated (10/10 valid) — OQ-1 resolved (pre-merge/merge-queue allocation), OQ-2 resolved (reusable CLI, staged); tested-CLI + security/CODEOWNERS + multi-draft + ref-convention refinements folded in.
 * 2026-05-29: Accepted — external + internal review complete, OQ-1/OQ-2 resolved.
+* 2026-09-08: Implemented (partial, [#2931](https://github.com/achimdehnert/platform/issues/2931)) — `tools/adr_allocate.py` (Autor-getriebene Vergabe vor dem Merge) + `tools/adr_draft_guard.py` (Gate: kein Entwurf/Platzhalter auf `main`) + `.windsurf/workflows/adr.md` auf Entwurfsform umgestellt. Die Merge-Queue-Variante aus OQ-1 bleibt ungebaut (keine Merge-Queue im Repo) — daher `partial`, nicht `implemented`.

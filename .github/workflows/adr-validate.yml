@@ -7,6 +7,8 @@ on:
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
       - "tools/adr_evidence_paths.py"
+      - "tools/adr_allocate.py"
+      - "tools/adr_draft_guard.py"
       - "scripts/gen_adr_index.py"
       # Diese Datei selbst — sonst ist der Workflow gegen Aenderungen an sich
       # blind: ein PR, der NUR hier editiert, laeuft nie, und die Aenderung
@@ -20,6 +22,8 @@ on:
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
       - "tools/adr_evidence_paths.py"
+      - "tools/adr_allocate.py"
+      - "tools/adr_draft_guard.py"
       - "scripts/gen_adr_index.py"
       - ".github/workflows/adr-validate.yml"
   schedule:
@@ -74,6 +78,32 @@ jobs:
           set +e
           python3 tools/check_deploy_adr_supersession.py
           exit 0
+
+      # ADR-228 — ein ADR-Entwurf (ADR-DRAFT-*.md, id: ADR-000) darf main nie
+      # erreichen; die Nummer faellt beim Merge ueber `tools/adr_allocate.py --apply`.
+      # Gating NUR auf dem push-Lauf gegen main (Ereignistyp + Ziel-Branch) — auf
+      # einem PR-Zweig ist ein Entwurf der vorgesehene Zustand waehrend der Arbeit
+      # und darf den Check nicht roeten (sonst waere jeder WIP-Push auf einem
+      # ADR-PR rot). Es gibt keine Merge-Queue (main-required-checks kennt nur
+      # required_status_checks + pull_request), daher ist dies die letzte Instanz:
+      # der Autor vergibt die Nummer als letzten Schritt vor dem Merge, dieser
+      # Check bestaetigt es unmittelbar danach auf main.
+      - name: ADR-Entwurf darf main nicht erreichen (ADR-228, gating auf main)
+        run: |
+          # Gaten, wo es noch etwas verhindert: im PR gegen main (vor dem Merge)
+          # und beim push auf main (Netz, falls doch etwas durchrutscht). Nur auf
+          # push zu gaten waere Obduktion — der Entwurf waere dann schon drin.
+          # Ein roter Check am Entwurfs-PR ist das Signal "noch nicht mergebar";
+          # er wird gruen, sobald der Autor `adr_allocate.py --apply` laeuft.
+          if [ "${{ github.event_name }}" = "pull_request" ] \
+             && [ "${{ github.base_ref }}" = "main" ]; then
+            python3 tools/adr_draft_guard.py --adr-dir docs/adr --gate
+          elif [ "${{ github.event_name }}" = "push" ] \
+             && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            python3 tools/adr_draft_guard.py --adr-dir docs/adr --gate
+          else
+            python3 tools/adr_draft_guard.py --adr-dir docs/adr
+          fi
 
       # ADR-211 C5/I4 — Cross-Repo-Ref-Format-Gate (gating).
       # Qualifizierte Refs müssen ^[a-z][a-z0-9-]+:ADR-[0-9]{3}$ matchen.
