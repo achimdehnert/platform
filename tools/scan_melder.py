@@ -57,9 +57,37 @@ einem liegengebliebenen Dokument.
 Vollbericht, denn dieses Repo ist oeffentlich — und damit sind es auch die
 Actions-Logs. Der Workflow ruft nur `--kurz` auf; Details holt sich der Owner lokal.
 
+## Die zweite Haelfte: was verschwindet, ohne ein Dokument zu werden
+
+Am 2026-09-08 verschwand genau die Datei, die den Melder ausgeloest hatte, aus dem
+Consume-Baum — ohne dass ein Dokument daraus wurde und ohne eine Zeile im Log
+(doc-hub#3). Der Melder oben haette das NICHT gesehen: er misst, was zu lange liegt.
+
+Der naheliegende Weg — den Lieferweg protokollieren — ging ins Leere: die Lieferung
+laeuft ueber Samba, nicht ueber SFTP, und ein Protokoll dort waere erneut ein Eingriff
+in eine Dienst-Konfiguration auf prod gewesen. Der Melder loest es stattdessen ohne
+jeden Host-Eingriff, indem er sich merkt, was er zuletzt gesehen hat.
+
+Jeder Lauf legt ein Inventar der nicht-ignorierten Dateien ab. Im naechsten Lauf gilt:
+was im Inventar stand und jetzt fehlt, ist entweder aufgenommen worden — dann gibt es
+ein Dokument mit genau diesem `original_filename` — oder es ist **verloren**.
+
+Zwei Dinge machen das belastbar:
+  * Gefragt wird nach `original_filename`, nicht nach dem Titel. Paperless benennt
+    Dokumente nach Inhalt um (aus einem Blatt wurde "2020-02-01 08092026160835");
+    der Originalname bleibt daneben stehen und ist der einzige verlaessliche Schluessel.
+  * Ein Verlust ist ein Ereignis, kein Zustand. Er steht nur in EINEM Lauf im Bericht
+    (danach ist die Datei aus dem Inventar) — deshalb braucht er kein Alarm-Fenster
+    wie die haengenden Dateien, sondern meldet immer sofort.
+
+Grenze, offen benannt: eine Datei, die zwischen zwei Laeufen kommt UND geht, faellt
+durch. Bei stuendlichem Lauf ist das ein Fenster von unter einer Stunde; der reale Fall
+lag 23 Stunden auseinander.
+
 Exit-Codes
 ----------
 0 = nichts haengt · 1 = mindestens eine Datei haengt · 2 = blind (Wurzel nicht lesbar)
+4 = Verlust: etwas ist verschwunden, ohne ein Dokument zu werden (schlaegt 1)
 
 Usage
 -----
@@ -83,6 +111,9 @@ from pathlib import Path
 WURZEL = "/opt/paperless-consume"
 CONTAINER = "iil_dochub_web"
 SCHWELLE_MIN = 30
+# Liegt auf dem Host, auf dem gemessen wird (prod). Der Actions-Runner checkt je
+# Lauf frisch aus; ein Inventar im Arbeitsverzeichnis waere nach jedem Lauf weg.
+INVENTAR = "/var/lib/scan-melder/inventar.json"
 
 # Nur Rueckfallposition, wenn der Container nicht antwortet — die Wahrheit steht
 # in der Container-Env (siehe Modul-Docstring).
@@ -166,27 +197,65 @@ def _stunden(sekunden: float) -> str:
     return f"{sekunden / 3600:.1f} h"
 
 
-def kurzzeile(treffer: list[dict], *, geprueft: int, gemessene_ignoranz: bool) -> str:
+def verschwundene(vorher: list[dict], jetzt: list[dict]) -> list[dict]:
+    """Was im letzten Inventar stand und jetzt fehlt — noch ohne Urteil.
+
+    Ob das ein Verlust ist, entscheidet erst die Frage an Paperless: der Normalfall
+    ist, dass eine Datei verschwindet, WEIL sie aufgenommen wurde.
+    """
+    da = {d["pfad"] for d in jetzt}
+    return [v for v in vorher if v["pfad"] not in da]
+
+
+def kurzzeile(
+    treffer: list[dict],
+    *,
+    geprueft: int,
+    gemessene_ignoranz: bool,
+    verluste: list[dict] | None = None,
+) -> str:
     """Eine Zeile ohne Ordner- und Dateinamen (Repo und Actions-Log sind oeffentlich)."""
     nachsatz = "" if gemessene_ignoranz else " [Ignoranz-Liste nicht gemessen]"
+    verlust_teil = ""
+    if verluste:
+        verlust_teil = (
+            f"{len(verluste)} Datei(en) VERLOREN (verschwunden ohne Dokument), "
+        )
     if not treffer:
-        return f"scan-melder: 0 haengende Dateien ({geprueft} geprueft){nachsatz}"
+        return (
+            f"scan-melder: {verlust_teil}0 haengende Dateien "
+            f"({geprueft} geprueft){nachsatz}"
+        )
     return (
-        f"scan-melder: {len(treffer)} haengende Datei(en), aeltester Eingang vor "
-        f"{_stunden(treffer[0]['alter_s'])} ({geprueft} geprueft) — "
+        f"scan-melder: {verlust_teil}{len(treffer)} haengende Datei(en), "
+        f"aeltester Eingang vor {_stunden(treffer[0]['alter_s'])} "
+        f"({geprueft} geprueft) — "
         f"Details lokal: python3 tools/scan_melder.py --ssh hetzner-prod{nachsatz}"
     )
 
 
-def bericht(treffer: list[dict], *, geprueft: int, gemessene_ignoranz: bool) -> str:
+def bericht(
+    treffer: list[dict],
+    *,
+    geprueft: int,
+    gemessene_ignoranz: bool,
+    verluste: list[dict] | None = None,
+) -> str:
     zeilen = [
-        kurzzeile(treffer, geprueft=geprueft, gemessene_ignoranz=gemessene_ignoranz)
+        kurzzeile(
+            treffer,
+            geprueft=geprueft,
+            gemessene_ignoranz=gemessene_ignoranz,
+            verluste=verluste,
+        )
     ]
+    for v in verluste or []:
+        zeilen.append(f"  VERLOREN  {v['groesse']:>10} B  {v['pfad']}")
     for t in treffer:
         zeilen.append(
             f"  {_stunden(t['alter_s']):>8}  {t['groesse']:>10} B  {t['pfad']}"
         )
-    if treffer:
+    if treffer or verluste:
         zeilen.append("")
         zeilen.append(
             f'  Ursache je Datei: ssh hetzner-prod "docker logs {CONTAINER} --since 48h'
@@ -221,6 +290,58 @@ def lies_ignoranz(ssh: str | None) -> tuple[list[str], bool]:
     return ignorierte_ordner(out)
 
 
+def aufgenommene(namen: list[str], ssh: str | None) -> tuple[set[str], bool]:
+    """Welche dieser Dateinamen sind in Paperless als `original_filename` bekannt?
+
+    Zweiter Rueckgabewert: ob die Frage ueberhaupt beantwortet wurde. Ein stummer
+    Container darf NICHT als "kein Dokument gefunden" durchgehen — daraus wuerde der
+    Melder einen Verlust erfinden.
+    """
+    if not namen:
+        return set(), True
+    skript = (
+        "from documents.models import Document\n"
+        f"namen = {namen!r}\n"
+        "for n in Document.objects.filter(original_filename__in=namen)"
+        ".values_list('original_filename', flat=True):\n"
+        "    print('TREFFER', n)\n"
+    )
+    argv = ["docker", "exec", "-i", CONTAINER, "python3", "manage.py", "shell"]
+    if ssh:
+        argv = [
+            "ssh",
+            "-o",
+            "ConnectTimeout=8",
+            ssh,
+            " ".join(shlex.quote(a) for a in argv),
+        ]
+    p = subprocess.run(argv, input=skript, capture_output=True, text=True, timeout=120)
+    if p.returncode != 0:
+        return set(), False
+    return {
+        z.split(" ", 1)[1] for z in p.stdout.splitlines() if z.startswith("TREFFER ")
+    }, True
+
+
+def lade_inventar(pfad: Path) -> list[dict]:
+    try:
+        return json.loads(pfad.read_text(encoding="utf-8"))["dateien"]
+    except (OSError, json.JSONDecodeError, KeyError):
+        return []
+
+
+def schreibe_inventar(pfad: Path, dateien: list[dict]) -> None:
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(
+        json.dumps(
+            {"gemessen_am": time.time(), "dateien": dateien},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--wurzel", default=WURZEL)
@@ -237,6 +358,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="MINUTEN",
         help="nur Dateien melden, die die Schwelle im letzten Laufabstand ueberschritten haben",
     )
+    p.add_argument(
+        "--inventar",
+        default=INVENTAR,
+        help="Pfad des Bestandsvergleichs; leer ('') schaltet die Verlust-Erkennung ab",
+    )
     p.add_argument("--kurz", action="store_true")
     a = p.parse_args(argv)
 
@@ -249,6 +375,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     ignore_dirs, gemessen = lies_ignoranz(a.ssh)
+    beobachtet = [d for d in dateien if not _ignoriert(d["pfad"], ignore_dirs)]
     treffer = haengende(
         dateien,
         jetzt=time.time(),
@@ -256,11 +383,46 @@ def main(argv: list[str] | None = None) -> int:
         ignore_dirs=ignore_dirs,
         neu_seit_min=a.neu_seit,
     )
-    geprueft = sum(1 for d in dateien if not _ignoriert(d["pfad"], ignore_dirs))
+
+    verluste: list[dict] = []
+    if a.inventar:
+        pfad = Path(a.inventar)
+        weg = verschwundene(lade_inventar(pfad), beobachtet)
+        namen = [Path(v["pfad"]).name for v in weg]
+        gefunden, beantwortet = aufgenommene(namen, a.ssh)
+        if not beantwortet:
+            print(
+                "scan-melder: Paperless antwortet nicht — Verlust-Frage unbeantwortet, "
+                "kein Urteil",
+                file=sys.stderr,
+            )
+        else:
+            verluste = [v for v in weg if Path(v["pfad"]).name not in gefunden]
+        # Nur schreiben, wenn beurteilt wurde: sonst faellt ein unbeantworteter Lauf
+        # das Inventar zurueck und der naechste Lauf haelt den Verlust fuer erledigt.
+        if beantwortet:
+            schreibe_inventar(pfad, beobachtet)
+
     if a.kurz:
-        print(kurzzeile(treffer, geprueft=geprueft, gemessene_ignoranz=gemessen))
+        print(
+            kurzzeile(
+                treffer,
+                geprueft=len(beobachtet),
+                gemessene_ignoranz=gemessen,
+                verluste=verluste,
+            )
+        )
     else:
-        print(bericht(treffer, geprueft=geprueft, gemessene_ignoranz=gemessen))
+        print(
+            bericht(
+                treffer,
+                geprueft=len(beobachtet),
+                gemessene_ignoranz=gemessen,
+                verluste=verluste,
+            )
+        )
+    if verluste:
+        return 4
     return 1 if treffer else 0
 
 
