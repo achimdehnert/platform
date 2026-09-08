@@ -53,6 +53,7 @@ kanaele:
       - .github/workflows/backup-meter.yml
       - .github/workflows/prod-uptime-canary.yml
       - .github/workflows/approve-queue.yml
+      - .github/workflows/scan-melder.yml
     probe: workflow
     max_alter_tage: 10
     stand: >
