@@ -74,6 +74,39 @@ jobs:
           fi
           echo "Golden-Test OK: geaenderte Bestandszeile bleibt FAIL."
 
+  auslagerung:
+    name: "Auslagern verschluckt keine offenen Vorgaenge"
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0   # der Check vergleicht gegen origin/main
+
+      # Warum es diesen Job gibt: am 2026-09-08 nahm eine Auslagerung sechs offene
+      # Punkte mit ins Archiv, darunter eine Frist zum 30.11. Byte-Deckel,
+      # Append-only und Frische waren dabei alle gruen (platform#2974).
+      - name: Auslagerung pruefen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
+
+      - name: Golden-Test — eine verschluckte offene Nummer muss FAIL ergeben
+        # Ohne Netz und deterministisch: nur die reine Vergleichsfunktion. Der echte
+        # Lauf oben deckt den gh-Pfad ab, den dieser Test umgeht.
+        run: |
+          set -uo pipefail
+          python3 -c "
+          import sys; sys.path.insert(0, 'scripts/checks')
+          from handover_auslagerung_check import verschwundene
+          alt = '## Stand\n\nAlt: https://github.com/achimdehnert/robo-lab/issues/66\n'
+          neu = '## Stand\n\nAusgelagert.\n'
+          weg = verschwundene(alt, neu)
+          assert weg == ['achimdehnert/robo-lab#66'], weg
+          assert verschwundene(alt, alt) == []
+          print('Golden-Test OK: verschluckte Nummer wird erkannt, unveraendert bleibt still.')
+          "
+
   byte-deckel:
     name: "AGENT_HANDOVER.md unter dem Byte-Deckel"
     runs-on: ubuntu-latest

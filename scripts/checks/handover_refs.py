@@ -88,11 +88,44 @@ def open_section_lines(text: str) -> tuple[list[tuple[int, str]], list[str]]:
     return collected, skipped_titles
 
 
+def alle_refs(text: str, default_owner: str, default_repo: str) -> list[Ref]:
+    """Referenzen aus dem GANZEN Text, nicht nur aus den offenen Abschnitten.
+
+    Gebraucht vom Auslagerungs-Gate (platform#2974): dort ist die Frage nicht
+    „was steht in den offenen Abschnitten", sondern „welche Referenz war vorher
+    irgendwo in der Datei und ist jetzt nirgends mehr". Bewusst derselbe Parser —
+    ein zweiter waere genau die Doppelung, vor der der Modul-Kopf warnt.
+    """
+    return _refs_aus_zeilen(
+        list(enumerate(_ohne_linktext(text).splitlines(), 1)),
+        default_owner,
+        default_repo,
+    )
+
+
+#: `[#66](https://github.com/achimdehnert/robo-lab/issues/66)` enthaelt ZWEI Treffer:
+#: das Label `#66` (Owner/Repo geraten) und die URL daneben (Owner/Repo gelesen).
+#: Genau diese Verwechslung hat am 2026-08-16 vier falsche Owner erzeugt (s. `Ref`).
+#: Fuer `alle_refs` faellt das Label weg — bewusst nur hier, damit der Nightly-Pfad
+#: ueber `extract_refs` unveraendert bleibt.
+_MD_LINK = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
+
+
+def _ohne_linktext(text: str) -> str:
+    return _MD_LINK.sub(lambda m: m.group(2), text)
+
+
 def extract_refs(
     text: str, default_owner: str, default_repo: str
 ) -> tuple[list[Ref], list[str]]:
     """Alle Referenzen der offenen Abschnitte, dedupliziert nach (owner, repo, number)."""
     lines, skipped = open_section_lines(text)
+    return _refs_aus_zeilen(lines, default_owner, default_repo), skipped
+
+
+def _refs_aus_zeilen(
+    lines: list[tuple[int, str]], default_owner: str, default_repo: str
+) -> list[Ref]:
     seen: set[tuple[str, str, int]] = set()
     refs: list[Ref] = []
     for line_no, line in lines:
@@ -121,4 +154,4 @@ def extract_refs(
                 continue
             seen.add(key)
             refs.append(Ref(owner, repo, int(num), line_no, line.strip(), explizit))
-    return refs, skipped
+    return refs
