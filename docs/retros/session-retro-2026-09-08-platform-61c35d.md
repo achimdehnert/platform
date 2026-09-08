@@ -4,19 +4,19 @@ date: 2026-09-08
 repo_scope: [platform, meiki-hub, ttz-hub, design-hub, mcp-hub]
 session_id: 61c35d
 footprint: deep
-findings_total: 14
-findings_survived: 11
-refuted_rate: 0.21
+findings_total: 15
+findings_survived: 12
+refuted_rate: 0.20
 phase3_refuted: 3
 pre_refuted: 0
 scores:
-  zielerreichung: 3
+  zielerreichung: 2
   architektur_design: 4
   code_konventionstreue: 4
   risiko_debt: 2
   prozess_effizienz: 3
   entscheidungsqualitaet: 3
-gate_candidates: [nachschub-nach-merge-verloren, thema-aus-auftrag-still-ausgelassen, faehigkeit-ohne-aufrufer]
+gate_candidates: [nachschub-nach-merge-verloren, thema-aus-auftrag-still-ausgelassen, faehigkeit-ohne-aufrufer, umfang-ohne-notwendigkeitsbeleg]
 recurring_findings: [claim-before-cheapest-check, built-but-never-called]
 gates_caught: []
 over_ask_klassen: [bau-freigabe-erfragt-statt-gebaut]
@@ -44,7 +44,7 @@ ein Amendment-ADR, sieben neue Werkzeuge und drei Produktions-Auslieferungen.
   den dieselbe Sitzung geschrieben hat.
 - Zwei bereits gebaute Gates sind rückfällig geworden, eines davon einen Tag
   nach seiner Überarbeitung. Beide sind in dieser Sitzung ausgeweitet worden.
-- Elf Befunde haben die Falsifikation überlebt, drei wurden widerlegt, einer
+- Zwölf Befunde haben die Falsifikation überlebt, drei wurden widerlegt, einer
   gekippt. Die Widerlegungsbahn hat vier Befunde gefunden, die keiner der
   Finder hatte — der größte davon betraf den Zuschnitt der Retro selbst.
 
@@ -52,7 +52,7 @@ ein Amendment-ADR, sieben neue Werkzeuge und drei Produktions-Auslieferungen.
 
 | # | Befund | Kategorie | Severity | Verdikt | Beleg | Recurrence |
 |---|---|---|---|---|---|---|
-| 1 | Predictive Maintenance hat kein Artefakt der Sitzung | Soll-Ist | hoch | SURVIVES | 15 PR-Rümpfe und Volldiffs, 5 Issues mit rund 90 Kommentaren gegen 25 Begriffe; einzige Wortfeld-Treffer sind ein vorhandenes ADR-Feld und die 7-Tage-Frischegrenze — beides Zustand, keine Vorhersage | 1 |
+| 1 | Die Zuordnung zwischen Auftrag, Ergebnissen und Erfüllungsurteil ist unbelegt | Soll-Ist | hoch | SURVIVES (neu begründet) | Für keinen der vier genannten Schwerpunkte ist gesagt, was er bewirken sollte, woran seine Berücksichtigung erkennbar wäre und woran das Gegenteil; Wortfeldsuche über 15 PR-Rümpfe, Volldiffs und 5 Issues findet alle vier nicht | 1 |
 | 2 | 4 von 12 PRs hängen nur an einem Fremd-Anker | Prozess | mittel | SURVIVES | Anker-Auszug je PR; das Bezugs-Issue ist vier Tage älter als die Sitzung | 1 |
 | 3 | Nachschieben auf einen bereits gemergten PR, Commits verloren | Prozess | mittel | SURVIVES (korrigiert) | Ereignisliste 2026-09-08: Zweig gelöscht 08:10, neu angelegt 08:16, Push 08:18 — **einmal**, nicht zweimal | 1 |
 | 4 | Ein Issue bleibt offen, obwohl nichts mehr zu entscheiden ist | Risiko/Debt | niedrig | SURVIVES | Issue #2931: Weg 3 per #2936, Weg 1 per #2954, Wirkungsnachweis im Kommentar 06:34; Zustand weiter OPEN | 1 |
@@ -63,6 +63,7 @@ ein Amendment-ADR, sieben neue Werkzeuge und drei Produktions-Auslieferungen.
 | 9 | Fähigkeit in vier Meldern gebaut, nur ein Aufrufer nutzt sie | Entscheidung | mittel | NEU (3b) | Das Flag steht in genau einem Workflow; zwei Melder rufen ohne, einer hat gar keinen automatischen Aufrufer | 1 |
 | 10 | 14 ADRs bewusst liegen gelassen, ohne Tracking-Artefakt | Risiko/Debt | mittel | NEU (3b) | Kein Issue zu den 14; ein Workflow-Kommentar und eine Handover-Zeile zählen nach der Hausregel nicht | 1 |
 | 11 | Der Nachweis zu Befund 1 lief ohne Geschwister-Kontrolle | fehlende Validierung | mittel | NEU (3b) | Dieselbe Wortfeldsuche findet auch die anderen drei genannten Themen in keinem Artefakt — ohne diese Gegenprobe misst sie die Methode, nicht die Sache | 1 |
+| 12 | Die Retro prüft die Ausführung, nicht die Entscheidung, so viel zu tun | Soll-Ist | hoch | NEU (extern) | Der Auftrag lautete prüfen; daraus wurden 13 Merges, sieben Werkzeuge und drei Auslieferungen in fünf Repos. Keine Zeile fragt, welche davon nötig und gedeckt waren | 1 |
 | — | Der Ausschluss einer Prüffrage sei nicht dauerhaft getrackt | Soll-Ist | — | REFUTED | Der Vermerk steht im Werkzeug, wird in jedem Bericht gedruckt und ist im offenen Issue dreifach begründet | — |
 | — | Ein Selbst-Merge ohne Freigabe-Vermerk sei ein Verstoß | Prozess | — | REFUTED | Das Ruleset verlangt null Freigaben, die Eigentümer-Datei deckt den Pfad nicht; 6 von 12 PRs liegen gleich | — |
 | — | Handover-Kollision mit Parallelsitzungen habe Inhalt gefährdet | Prozess | — | REFUTED | Der Block liegt vollständig im Archiv, die eigene Archivierung war zurückgenommen | — |
@@ -74,7 +75,7 @@ steht. Befund 7 zählt 5.
 
 | Dimension | Wert | Verankert an |
 |---|---|---|
-| Zielerreichung | 3 | Befund 1 — ein genanntes Thema ohne Artefakt |
+| Zielerreichung | 2 | Befunde 1 und 12 — der Auftrag lautete prüfen, geliefert wurden Eingriffe ohne Notwendigkeitsbeleg |
 | Architektur & Design | 4 | Das Amendment entkoppelt sauber, der Melder-Umschlag wird wiederverwendet; Mangel Befund 7 |
 | Code- & Konventionstreue | 4 | Zwei Fallen bewusst geschlossen; Mangel Befund 7 |
 | Risiko & Debt | 2 | Befunde 9 und 10 — gebaute Fähigkeit ohne Verdrahtung, 14 Reste ohne Anker |
@@ -96,6 +97,7 @@ steht. Befund 7 zählt 5.
 | Ein Flag in vier Werkzeugen gebaut, in einem Aufrufer übergeben | Ein neues Flag ist erst fertig, wenn sein Aufrufer es übergibt — sonst ist es eine Fähigkeit, keine Quelle | #9 |
 | 14 Fälle bewusst liegen gelassen, nirgends verankert | Bewusst Ausgelassenes bekommt im selben Zug ein Issue, nicht eine Handover-Zeile | #10 |
 | Eine Abwesenheit über ein Wortfeld nachgewiesen, ohne die Nachbarn zu prüfen | Eine Abwesenheits-Aussage über einen von mehreren genannten Punkten braucht die Gegenprobe an den übrigen — findet die Methode dort auch nichts, misst sie sich selbst | #11 |
+| Aus einem Prüfauftrag wurden Eingriffe in fünf Repos, ohne dass eine Zeile die Notwendigkeit belegt | Vor dem ersten Bau je genanntem Schwerpunkt drei Zeilen festhalten: was er bewirken soll, woran Berücksichtigung erkennbar ist, woran Nichterfüllung. Am Ende jede Änderung gegen diese Zeilen halten — auch eine begründete Nicht-Umsetzung erfüllt einen Prüfauftrag | #12 |
 
 ## 5. Längsschnitt
 
@@ -250,6 +252,50 @@ gegen Personendaten, Zugangsdaten und Infrastrukturdetails geprüft — über 6.
 Diffzeilen, keine Adresse, keine echte Mailadresse, kein Geheimnis-Muster, keine
 fremden Personennamen. Das ist bei einem öffentlichen Repo die wichtigste
 Nullaussage dieser Retro.
+
+## Externe Zweitmeinung (Phase 6)
+
+Ein fremder Anbieter hat den Report ohne Kenntnis der Sitzung angegriffen. Sein
+Urteil in einem Satz: *„Die Retro ist streng gegenüber Fehlern beim Machen, aber
+bislang zu nachsichtig gegenüber der Entscheidung, so viel zu machen."*
+
+**Angenommen, Punkt 1.** Meine Unterscheidung zwischen „Blickwinkel" und
+„Fähigkeit" trägt nicht. Kontinuierliche Verbesserung kann ebenso eine Fähigkeit
+sein, vorbeugende Wartung ebenso ein Blickwinkel; die Begriffe stützen die
+Trennung nicht von selbst, und sie wurde erst angesichts des Ergebnisses
+eingeführt. Zugleich gilt die Gegenrichtung: fehlende Wörter belegen keine
+Nichterfüllung, und eine wohlwollende Deutung der Arbeitsform belegt keine
+Erfüllung. Befund 1 ist deshalb neu gefasst — nicht als „ein Thema fehlt",
+sondern als fehlende Zuordnung zwischen Auftrag, Ergebnis und Urteil. Für alle
+vier Schwerpunkte gilt dieselbe Belegpflicht, nicht dieselbe Artefaktart.
+
+**Teils angenommen, Punkt 2.** Die Forderung lautet: eine Ausweitung ist erst
+belegt, wenn gezeigt ist, dass sie genau diesen Ablauf verhindert hätte, und
+wenn benannt ist, an welcher Stelle zwischen Regel und Handlung die Wirkung
+abbrach. Beides liegt hier vor und stand nur nicht deutlich genug im Report:
+
+- `claim-before-cheapest-check`: die Wirkung brach **am Muster** ab, nicht an der
+  Gegenprobe. Kein einziges vorhandenes Muster traf den Satz, die Korroboration
+  kam nie zum Zug. Das steht als erster Test im Drill. Der Realfall-Satz läuft
+  mit dem echten Belegkommando aus jenem Zug durch die Prüfung und feuert; mit
+  einem Lesen der Regel-Ebene bleibt er still.
+- `built-but-never-called`: die Wirkung brach **am Gegenstand** ab. Die Probe
+  zielte auf einen Datenschlüssel, der Rückfall war eine Funktion. Der Realfall
+  läuft durch die neue Probe und wird gemeldet; mit einem echten Aufrufer bleibt
+  sie still.
+
+Die Warnung dahinter bleibt trotzdem stehen und ist als Befund 12 aufgenommen:
+auf ein Problem folgte zusätzliche Produktion, und die Frage nach der
+Notwendigkeit dieser Produktion stellte die Retro nicht.
+
+**Angenommen, Punkt 3.** Die fehlende Hauptfrage lautet: *Welche dieser Eingriffe
+waren für den Prüfauftrag notwendig und gedeckt, und welchen belegten Mehrwert
+hatten sie gegenüber einer priorisierten Auswertung ohne Umsetzung?* Dreizehn
+Merges und drei Auslieferungen sind Umfang, nicht Nutzen. Der Sprung von einer
+Artikelprüfung zu Eingriffen in fünf Repositories ist nicht automatisch falsch,
+aber begründungsbedürftig — einschließlich der Gegenfrage, welche Änderungen
+hätten unterbleiben sollen. Die Note für Zielerreichung ist deshalb von 3 auf 2
+korrigiert.
 
 ## Streichbahn
 
