@@ -15,16 +15,15 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-08 — Sitzung 136735: GX10 traegt jetzt zwei Rollen, zwei Konfigurationszeilen schlugen ein drittes Geraet)
-**Zeitanker:** geschrieben 2026-09-08, parallel zur Sitzung 61c35d
+## ⚡ Aktueller Stand (2026-09-08 — Sitzung 136735: GX10 traegt zwei Rollen, zwei Konfigurationszeilen schlugen ein drittes Geraet)
 
-**Ausgangspunkt war eine Kaufberatung** (Amazon-Mini-PC gegen den vorhandenen GX10). Ergebnis: **nicht kaufen** — der vorhandene Knoten war nicht ausgereizt. Antwort samt Zahlen in [#2978](https://github.com/achimdehnert/platform/issues/2978).
+**Kaufberatung Mini-PC gegen GX10:** nicht kaufen, der Knoten war nicht ausgereizt ([#2978](https://github.com/achimdehnert/platform/issues/2978)).
 
-**Gemessen (platform#2544):** Der Inferenzdienst bediente mehrere Nutzer **gar nicht parallel** — 1.906 tok/s Prefill bei 1 wie bei 8 gleichzeitigen Anfragen, nur die Wartezeit wuchs (1,7 → 13,2 s). Mit `OLLAMA_NUM_PARALLEL=4` (gesetzt, Owner-Freigabe): **2.632 tok/s**, laengste Wartezeit 9,6 s. **vLLM** laeuft seit heute als zweiter Dienst (`vllm.service`, Autostart, Port 8000 auf wg0): **3.526 tok/s**, Skalierung 3,3x gegen 1,5x bei Ollama. Kein Verbraucher umgestellt — [mcp-hub#262](https://github.com/achimdehnert/mcp-hub/pull/262) ist der Provider-Vorschlag, blockiert weil alle drei `ci-nonprod`-Runner offline sind.
+**Inferenz ([#2544](https://github.com/achimdehnert/platform/issues/2544)):** Ollama bediente mehrere Nutzer gar nicht parallel (1.906 tok/s bei 1 wie bei 8). Mit `OLLAMA_NUM_PARALLEL=4`: 2.632. vLLM laeuft seit heute als zweiter Dienst (Port 8000, wg0): 3.526, Skalierung 3,3x. Kein Verbraucher umgestellt — [mcp-hub#262](https://github.com/achimdehnert/mcp-hub/pull/262) blockiert, alle `ci-nonprod`-Runner offline.
 
-**Gemessen (robo-lab#58):** Trainingsvergleich in drei Stufen. Bis 16.384 Umgebungen ist die 4090 **3,3x schneller** (108 s gegen 353 s); bei 20.480 bricht sie mit `Warp CUDA error 2: out of memory` ab, der GX10 rechnet sie in 8:37 durch. Die 4090 blieb vorher unter Wert: ihre WSL-Maschine durfte nur 12 von 128 GB nutzen — jetzt 64 GB / 24 Kerne. Betriebswissen in `robo-lab:docs/gx10-training.md`, Wrapper `~/training-mit-speicher.sh` auf dem Knoten haelt vLLM waehrend grosser Laeufe an.
+**Training ([robo-lab#58](https://github.com/achimdehnert/robo-lab/issues/58)):** Bis 16.384 Umgebungen ist die 4090 3,3x schneller; bei 20.480 bricht sie am VRAM ab, der GX10 rechnet durch. Ihre WSL-Maschine durfte vorher nur 12 von 128 GB nutzen — jetzt 64.
 
-**Retro 136735** ([#2975](https://github.com/achimdehnert/platform/pull/2975), gemergt): 14 Befunde, 11 ueberlebt. Zwei tun weh: die eigene SoT (`infra/hosts.yaml:166`) wurde im Code zitiert, aber nicht gelesen — dort stand der 12-GB-Deckel; und der Melder liest `ports.yaml`, nicht `hosts.yaml`, weshalb **drei** Dienst-Ausnahmen ungelesen waren. Behoben in [#2977](https://github.com/achimdehnert/platform/pull/2977) (offen), mit Positivkontrolle.
+**Retro 136735** ([#2975](https://github.com/achimdehnert/platform/pull/2975)): 14 Befunde, 11 ueberlebt, 7 ohne Artefakt in [#2982](https://github.com/achimdehnert/platform/issues/2982). Zwei Lehren: SoT zitiert statt gelesen (`hosts.yaml:166`); der Melder liest `ports.yaml` — drei Ausnahmen waren tot ([#2977](https://github.com/achimdehnert/platform/pull/2977)).
 
 ## ⚡ Aktueller Stand (2026-09-08 — Retro 61c35d: zwei Gates ausgeweitet; Eich-Bogen 15/15 unklar deckte drei Fehlurteile des Readiness-Bewerters auf, Basislinie 07.09. ungueltig)
 **Zeitanker:** HEAD `9f26db88` · `rev-list --count` 4265 · geschrieben 2026-09-08
@@ -80,10 +79,10 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 15. Public→Private Welle 1: Owner-Freigabe fehlt, F entsperrt ADR-255: https://github.com/achimdehnert/platform/issues/2119
 17. ADR-242 Wave 3: Phase-2-Rest, Apply-Artefakt fehlt: https://github.com/achimdehnert/platform/issues/811
 18. CI-Runner `ci-gpu` auf eigenen Server (braucht keine GPU), Kosten = Owner-Wort: https://github.com/achimdehnert/platform/issues/2543
-19. GX10: Mehrbenutzer gemessen, `NUM_PARALLEL=4` gesetzt, vLLM laeuft als Dienst; offen: Verbraucher umhaengen (mcp-hub#262 blockiert, netcup-Runner offline): https://github.com/achimdehnert/platform/issues/2544
-20. GX10-Training: Vergleich gefahren, Grenze der 4090 liegt zwischen 16.384 und 20.480 Umgebungen (VRAM); 4090 bleibt fuehrend, GX10 traegt darueber: https://github.com/achimdehnert/robo-lab/issues/58
-52. Port-Register: drei Dienst-Ausnahmen waren ungelesen, PR offen (mit Positivkontrolle): https://github.com/achimdehnert/platform/pull/2977
-53. Kaufberatung zweites KI-Geraet — Empfehlung abgelegt, Owner-Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
+19. GX10: gemessen, `NUM_PARALLEL=4` + vLLM-Dienst stehen; offen: Verbraucher umhaengen (mcp-hub#262 blockiert): https://github.com/achimdehnert/platform/issues/2544
+20. GX10-Training: 4090 bleibt fuehrend bis 16.384 Umgebungen, darueber traegt nur der GX10: https://github.com/achimdehnert/robo-lab/issues/58
+52. Port-Register: drei Dienst-Ausnahmen waren ungelesen, PR offen: https://github.com/achimdehnert/platform/pull/2977
+53. Kaufberatung zweites Geraet — Empfehlung abgelegt, Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
 21. Mail-Ansicht: leerer Körper braucht „Inhalt im Anhang": https://github.com/achimdehnert/platform/issues/2597
 22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert.
 23. Megatest-Erstlauf, 15 Befunde unbearbeitet und ohne Tracking-Issue ([Lauf 30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656), 2026-08-02) — vor Wiederaufnahme neu messen.
