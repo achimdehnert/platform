@@ -144,7 +144,7 @@ def test_should_weitergabe_als_wert_als_verwendung_zaehlen(tmp_path) -> None:
     assert probe.scanne(wurzel) == []
 
 
-# --- Verengungen: was die Probe bewusst NICHT meldet ----------------------
+# --- Verengungen: die Grenzen der Probe --------------------------------
 
 
 def test_should_private_funktionen_und_main_auslassen(tmp_path) -> None:
