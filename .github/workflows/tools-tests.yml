@@ -239,6 +239,15 @@ jobs:
         # (oder distribute:false / Allowlist). Struktureller Gate, keine LLM.
         run: python3 tools/check_workflow_index.py
 
+      - name: Funktionen ohne Verwendung im Produktivpfad (Gate built-but-never-called)
+        if: steps.relevanz.outputs.relevant == 'true'
+        # Ausweitung des Gates nach Retro 61c35d §5a: eine oeffentliche Funktion in
+        # tools/, die nur Tests nennen, ist gebauter gruener Code ohne Wirkung.
+        # Gatend und bewusst in DIESEM Job — sein Name steht in den Required Checks
+        # des Rulesets, ein eigener Job stuende dort nicht und wuerde nichts sperren.
+        # Ausnahmen brauchen einen Anker (tools/aufruferlose_funktionen_ausnahmen.tsv).
+        run: python3 tools/aufruferlose_funktionen.py
+
       - name: Lint (ruff check tools/ scripts/)
         if: steps.relevanz.outputs.relevant == 'true'
         # X-9: eigener Step NACH dem pytest-Step (Test-Failures sollen zuerst sichtbar

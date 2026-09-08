@@ -1,0 +1,8 @@
+# Funktionen, die bewusst (noch) keine Verwendung im Produktivpfad haben.
+# Zweite Spalte ist PFLICHT und braucht einen Anker — ein Grund ohne Issue,
+# ADR oder Datei zaehlt nicht als Ausnahme, sondern als unsichtbarer Rest.
+# Funktion	Grund mit Anker
+tools/melder_ergebnis.py::lies	Lese-Adapter noch nicht abgebildet, Entscheid offen — platform#2944
+tools/registry_api.py::repo	Bibliotheks-Schnittstelle, Geschwister von repos(); verdrahten oder streichen — platform#2961
+tools/mail_agent/bodystructure.py::hat_anhaenge	Fuer has_attachments gebaut, Setzer fehlt — platform#2961
+tools/mail_agent/regeln.py::aus_graph	Im Modul-Docstring als Weg beschrieben, ohne Aufrufer — platform#2961

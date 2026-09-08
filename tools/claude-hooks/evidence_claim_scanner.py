@@ -641,6 +641,48 @@ VOLLZUG_CLAIM_RE = re.compile(
     re.I,
 )
 
+# --- Rev 7 (2026-09-08, Retro 61c35d §5a, Gate rueckfaellig): WIRKUNGS-CLAIM ---
+#
+# platform#2954 schrieb in den PR-Body: „ein Gate erzwingt, dass sie stattgefunden
+# hat". Der Job war gebaut, lief und wurde am Drill-PR #2955 auch wirklich rot —
+# nur stand er nicht in `required_status_checks` des Rulesets. Ein roter Check, der
+# nicht required ist, blockiert keinen Merge. Die Behauptung war also nicht „das
+# Werkzeug fehlt", sondern „das Werkzeug hat eine Wirkung, die es nicht hat".
+#
+# Warum die vorhandenen Arten das nicht fangen: der Turn war voll von Belegen — ein
+# CI-Lauf, ein roter Check, ein Testlauf. `BODY_EVIDENCE_TOKENS` waeren also
+# zufrieden gewesen. Genau das ist die Falle: dass ein Check FEUERT, belegt nie,
+# dass er SPERRT. Der einzige Beleg dafuer ist das Ruleset selbst.
+#
+# Deshalb eine eigene Art mit eigener, engerer Korroboration: nur ein Lesen der
+# Regel-Ebene entwaffnet sie. Bewusst nur fuer publizierte Bodies — im Chat ist
+# „der Check blockiert" oft eine Frage oder eine Absicht, im PR-Text ist es eine
+# Zusage an den Leser.
+_GATE_WIRKUNG_SUBJEKT = (
+    r"gate|check|ruleset|regelsatz|required[- _]?status|branch[- _]?protection"
+    r"|schranke|schutzregel|workflow|job"
+)
+_GATE_WIRKUNG_VERB = (
+    r"erzwingt|erzwungen|blockiert|blockieren|verhindert|sperrt|gesperrt"
+    r"|ist required|als required|required check|h(?:ä|ae)lt den merge"
+    r"|macht (?:den )?merge unm(?:ö|oe)glich|nicht mergebar"
+)
+#: Beide Teile im selben Satz, in beiden Reihenfolgen, mit engem Abstand.
+GATE_WIRKUNG_CLAIM_RE = re.compile(
+    rf"(?:{_GATE_WIRKUNG_SUBJEKT})[^.!?\n]{{0,60}}(?:{_GATE_WIRKUNG_VERB})"
+    rf"|(?:{_GATE_WIRKUNG_VERB})[^.!?\n]{{0,60}}(?:{_GATE_WIRKUNG_SUBJEKT})",
+    re.I,
+)
+#: Entwaffnend ist NUR ein Lesen der Regel-Ebene. Ein gruener oder roter Lauf,
+#: ein Testergebnis, ein `gh pr checks` reichen ausdruecklich nicht — sie belegen,
+#: dass der Check laeuft, nicht dass er sperrt.
+RULESET_READ_RE = re.compile(
+    r"rules/branches|/rulesets|required_status_checks|required-status-checks"
+    r"|branch[_-]protection|branches/[^/\s]+/protection",
+    re.I,
+)
+
+
 _GH_COMMENT_RE = re.compile(r"\bgh\s+(?:pr|issue)\s+comment\b")
 _GH_MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
 _STATUS_IN_COMMENT_RE = re.compile(
@@ -1047,6 +1089,21 @@ def main() -> int:
                 "vollzugs-claim (Vollzug eines Wirkungsschritts im PR-/Issue-Body "
                 "behauptet, ohne dass im Turn am ZIEL gelesen wurde — Realfall "
                 'platform#2673: „Escrow ist ausgefuehrt", gesichert war ein Zeiger)'
+            )
+
+    # Rev 7: Wirkungs-Behauptung ueber ein Gate/Ruleset im publizierten Body.
+    # Eigene Korroboration (RULESET_READ_RE) statt BODY_EVIDENCE_TOKENS — im
+    # Realfall platform#2954 lagen reichlich Belege im Turn, nur eben keiner ueber
+    # die Regel-Ebene. `_ev_ohne_body` wird oben im Vollzugs-Zweig gebildet.
+    if bodies:
+        if GATE_WIRKUNG_CLAIM_RE.search(
+            "\n".join(bodies)
+        ) and not RULESET_READ_RE.search(_ev_ohne_body):
+            fired.append(
+                "gate-wirkungs-claim (Sperrwirkung eines Gates/Checks im PR-/Issue-Body "
+                "behauptet, ohne dass im Turn das Ruleset gelesen wurde — ein roter "
+                "Check belegt, dass er laeuft, nicht dass er sperrt; Realfall "
+                "platform#2954: der Job stand nicht in required_status_checks)"
             )
 
     if _kommentar_vor_merge(tool_inputs):
