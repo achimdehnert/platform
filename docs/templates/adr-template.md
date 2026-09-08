@@ -1,4 +1,5 @@
 ---
+id: ADR-000
 status: proposed
 decision_date: YYYY-MM-DD
 deciders: Achim Dehnert
@@ -17,11 +18,20 @@ informed: –
   PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §9 Confirmation
   OPTIONALE FELDER: consulted, informed, §6 Migration Tracking (nur bei Transitions)
 
+  NUMMERNVERGABE (ADR-228, seit 2026-09-08): ein neues ADR startet als ENTWURF.
+  Datei heisst `ADR-DRAFT-<kebab-slug>.md`, Frontmatter `id: ADR-000`
+  (reservierter Platzhalter) bleibt stehen, die H1 unten bleibt `# ADR-DRAFT: ...`.
+  Keine Nummer waehlen, keine `docs/adr/INDEX.md` von Hand ergaenzen. Kurz vor
+  dem Merge: `python3 tools/adr_allocate.py --apply` — vergibt die naechste
+  freie Nummer, benennt die Datei um, ersetzt `id:`/H1/Selbstverweise und
+  regeneriert den Index. `tools/adr_draft_guard.py` verhindert, dass ein
+  Entwurf auf `main` landet.
+
   HINWEIS: Dieses Template wird via techdocs in dev-hub synchronisiert.
   Änderungen an diesem Template → /adr Workflow ausführen.
 -->
 
-# ADR-NNN: [Entscheidung als aktiver Satz — "Adopt X for Y" nicht "X Architecture"]
+# ADR-DRAFT: [Entscheidung als aktiver Satz — "Adopt X for Y" nicht "X Architecture"]
 
 ## Metadaten
 

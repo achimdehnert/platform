@@ -80,7 +80,7 @@ MCP: mcp2_adr_propose(
     rationale_summary="<Warum diese Entscheidung? Min. 20 Zeichen.>"
 )
 → Liefert:
-  - proposed_id: nächste freie Nummer
+  - proposed_id: informativ nur (Nummer faellt erst beim Merge, ADR-228 — siehe Step 3)
   - conflicts: Duplikate, verpasste Supersessions
   - closes_open_questions: welche bestehenden Open Questions dieser ADR beantwortet
   - blocks_publish: True wenn HIGH-confidence Konflikte existieren
@@ -100,80 +100,37 @@ Thema: "[User's topic]"
 Scope-Erkennung:
    → [scope] ([range])
 
-Nächste Nummer: ADR-[NNN] (aus mcp2_adr_propose oder Step 3)
-Datei: {ADR_PATH}/ADR-[NNN]-[title-slug].md
+Entwurfs-Slug: <kebab-slug> (Nummer faellt beim Merge — ADR-228, siehe Step 3)
+Datei: {ADR_PATH}/ADR-DRAFT-<kebab-slug>.md
 Pre-Validation: ✅ keine Konflikte / ⚠️ [N] Konflikte
 
 Scope korrekt? [Ja/Nein]
 ```
 
-## Step 3: Nächste ADR-Nummer ermitteln (PFLICHT — nie aus Gedächtnis!)
+## Step 3: Entwurfsdatei statt Nummer (ADR-228 — Nummer faellt erst beim Merge)
 
-### 3.1 Primär: adr_next_number.py (falls im Repo vorhanden)
+> Seit 2026-09-08 vergibt der Autor **keine** Nummer mehr beim Anlegen
+> (platform#2931 setzt ADR-228 um). Ein neues ADR startet als Entwurf:
+> `id: ADR-000` im Frontmatter (reservierter Platzhalter, validiert sauber),
+> Dateiname `ADR-DRAFT-<kebab-slug>.md`. Kurz vor dem Merge vergibt
+> `tools/adr_allocate.py --apply` die echte Nummer — siehe Step 6.
 
-```bash
-python3 scripts/adr_next_number.py
-```
+### 3.1 Slug bilden
 
-Ausgabe: `ADR-NNN` — diese Nummer direkt verwenden.
+Kebab-Case aus dem Titel ableiten (z.B. "Adopt X for Y" → `adopt-x-for-y`).
+Keine Nummer wählen, `scripts/adr_next_number.py` NICHT für die eigene Datei
+aufrufen — das Skript liefert nur die Sicht auf `main` zum jetzigen Zeitpunkt,
+die beim Merge längst veraltet sein kann (genau die Race Condition, die
+ADR-228 beseitigt).
 
-**Konflikt-Check:**
-```bash
-python3 scripts/adr_next_number.py --check
-```
+### 3.2 Index NICHT anfassen — auch nicht generieren
 
-### 3.2 Fallback: GitHub API (wenn Script nicht vorhanden — ERLAUBT)
-
-Wenn `scripts/adr_next_number.py` nicht existiert (z.B. Docs-Repos, externe Repos):
-
-```
-{GH_PREFIX}_get_file_contents(
-  owner: "{REPO_OWNER}",   ← aus project-facts.md
-  repo:  "{REPO_NAME}",    ← aus project-facts.md
-  path:  "{ADR_PATH}"      ← aus project-facts.md
-)
-→ Alle Einträge mit Pattern ADR-NNN-*.md auflisten
-→ Höchste Zahl bestimmen
-→ Nächste Nummer = max + 1 (dreistellig: 009, 010, ...)
-```
-
-> **NIEMALS** manuelle Zählung oder Schätzung aus Gedächtnis.
-> Script-Fallback auf GitHub API ist explizit erlaubt wenn Script fehlt.
-
-### 3.3 Index NEU GENERIEREN — niemals von Hand ergänzen
-
-> ⛔ **`docs/adr/INDEX.md` ist eine generierte Datei** (Zeile 1: `AUTO-GENERATED
-> by scripts/gen_adr_index.py — do not edit manually`). Eine Zeile von Hand
-> einzutragen ist **kein** gültiger Abschluss — der CI-Gate „ADR index freshness
-> (gating)" regeneriert den Index und diffed gegen den Commit.
-
-Nach dem Erstellen der ADR-Datei (Step 4), **nicht davor** — der Generator liest
-die fertige Datei:
-
-```bash
-python3 scripts/gen_adr_index.py
-```
-
-Erzeugt **zwei** Artefakte, beide gehören in den Commit:
-
-| Datei | Inhalt |
-|---|---|
-| `docs/adr/INDEX.md` | Tabellenzeile, Kopfzeile „Next free ADR number", Datum |
-| `docs/adr/index.json` | maschinenlesbar; trägt Rückreferenzen `superseded_by` / `amended_by` automatisch in die *referenzierten* ADRs nach |
-
-**Warum Handarbeit hier zuverlässig fehlschlägt** (Realfall ADR-280, 2026-07-21 —
-alle drei Abweichungen in einem einzigen handgepflegten Eintrag):
-
-1. Der Titel in der Index-Zeile wird aus der **H1-Überschrift** des ADR abgeleitet.
-   Eine sinngemäß gleiche, aber nicht zeichengleiche Formulierung ⇒ Diff ⇒ rot.
-2. `> **Next free ADR number:**` im Index-Kopf wird **nicht** mitgezählt.
-3. `docs/adr/index.json` wird komplett vergessen — sie steht in keiner Anleitung,
-   die von „INDEX.md ergänzen" spricht.
-
-**Fallback ohne Generator** (Docs-/Fremd-Repos ohne `scripts/gen_adr_index.py`):
-dort ist der Index handgepflegt und Handarbeit korrekt. Vorher prüfen:
-`ls scripts/gen_adr_index.py` bzw. Zeile 1 von `INDEX.md` auf den
-`AUTO-GENERATED`-Marker lesen.
+> ⛔ **`docs/adr/INDEX.md` ist eine generierte Datei.** Eine Entwurfsdatei
+> (`ADR-DRAFT-*.md`) wird von `scripts/gen_adr_index.py` **bewusst
+> übersprungen** (Dateiname matcht nicht `ADR-\d{3}`) — ein Lauf beim Anlegen
+> des Entwurfs wäre ein No-Op und ändert nichts am Commit. Die Index-Zeile
+> entsteht automatisch, wenn `tools/adr_allocate.py --apply` beim Merge
+> läuft (Step 6). Nichts von Hand in `INDEX.md` eintragen.
 
 ### 3.4 Frontmatter lokal validieren (vor dem Push)
 
@@ -181,34 +138,30 @@ dort ist der Index handgepflegt und Handarbeit korrekt. Vorher prüfen:
 iil-adrfw validate docs/adr
 ```
 
-Erwartet: `N/N (100.0%) ✓ All ADRs valid`.
+Erwartet: `N/N (100.0%) ✓ All ADRs valid` — die Entwurfsdatei mit `id: ADR-000`
+validiert sauber (reservierter Platzhalter, ADR-228).
 
 > Der Validator scannt **alle** ADRs, nicht nur den neuen. Ein einziger Alt-Key
 > (`date:`, `decision-makers:`, `relates_to:`) in irgendeiner Datei rötet die
 > **gesamte** ADR-Pipeline — der Fehler sieht dann so aus, als läge er am neuen
 > ADR. Schema aus einer aktuellen Nachbar-ADR abschauen, nicht aus dem Gedächtnis.
 
-**Merge-Konflikt in `INDEX.md`/`index.json`?** Nicht von Hand mergen — auf
-`origin/main` rebasen, `gen_adr_index.py` erneut laufen lassen, das Ergebnis
-committen. Zwei parallele ADR-PRs kollidieren in diesen generierten Dateien
-zwangsläufig; die Auflösung ist immer Neugenerierung, nie Hand-Merge.
-
 ## Step 4: Create ADR File
 
-Nach Nummern-Bestimmung:
+Nach Slug-Bestimmung (Step 3.1) — **keine Nummer**, siehe ADR-228:
 
 **Option A — lokal (wenn Git-Checkout vorhanden):**
-Datei `{ADR_PATH}/ADR-NNN-[title-slug].md` erstellen.
+Datei `{ADR_PATH}/ADR-DRAFT-[kebab-slug].md` erstellen.
 
 **Option B — via GitHub MCP (wenn kein lokaler Checkout):**
 ```
 {GH_PREFIX}_create_or_update_file(
   owner:   "{REPO_OWNER}",
   repo:    "{REPO_NAME}",
-  path:    "{ADR_PATH}/ADR-[NNN]-[slug].md",
+  path:    "{ADR_PATH}/ADR-DRAFT-[slug].md",
   content: "<Template unten>",
-  message: "docs(ADR-[NNN]): create [Titel]",
-  branch:  "main"
+  message: "docs(adr): draft [Titel]",
+  branch:  "<Feature-Branch, NICHT main>"
 )
 ```
 
@@ -232,19 +185,21 @@ nicht kennt.
 
 ## Step 5: pgvector Memory sichern (PFLICHT — jede neue ADR, alle Repos)
 
-Nach dem Erstellen der ADR-Datei **sofort** in pgvector speichern:
+Nach dem Erstellen der Entwurfsdatei **sofort** in pgvector speichern — die
+Nummer existiert noch nicht (ADR-228), daher ein **Entwurfs-entry_id** mit dem
+Slug statt der Nummer:
 
 ```
 {ORC_PREFIX}agent_memory(
   operation: "upsert",
   agent: "cascade",
   entry: {
-    entry_id:   "ADR-{REPO-UPPERCASE}-[NNN]",       // muss [A-Z][A-Z0-9\-]+ matchen
-    entry_type: "agent_decision",                   // enum: solved_problem|repo_context|open_task|agent_decision|error_pattern
+    entry_id:   "ADR-{REPO-UPPERCASE}-DRAFT-[slug]",  // muss [A-Z][A-Z0-9\-]+ matchen
+    entry_type: "agent_decision",                     // enum: solved_problem|repo_context|open_task|agent_decision|error_pattern
     agent:      "cascade",
-    title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Proposed)",
-    content:    "Repo: {REPO_NAME}\nPfad: {ADR_PATH}/ADR-[NNN]-[slug].md\nThema: [Thema]\nScope: [scope]\nStatus: Proposed\nErstellt: [YYYY-MM-DD]\nKern-Entscheidung: [1-2 Sätze]\nAlternativen verworfen: [kurz]",
-    tags:       ["adr", "{REPO_NAME}", "proposed", "[scope]"]
+    title:      "ADR-DRAFT: [Titel] — {REPO_NAME} (Status: Proposed)",
+    content:    "Repo: {REPO_NAME}\nPfad: {ADR_PATH}/ADR-DRAFT-[slug].md\nThema: [Thema]\nScope: [scope]\nStatus: Proposed (Entwurf, Nummer faellt beim Merge)\nErstellt: [YYYY-MM-DD]\nKern-Entscheidung: [1-2 Sätze]\nAlternativen verworfen: [kurz]",
+    tags:       ["adr", "{REPO_NAME}", "proposed", "draft", "[scope]"]
   }
 )
 ```
@@ -252,14 +207,52 @@ Nach dem Erstellen der ADR-Datei **sofort** in pgvector speichern:
 > **Warum Pflicht?** pgvector ist der zentrale Memory-Store für ALLE Repos.
 > Jede ADR die hier gespeichert ist, kann jede künftige Session überall finden
 > via `{ORC_PREFIX}agent_memory(operation: "query", filter_type: "agent_decision", filter_tag: "adr")` — repobergreifend.
+>
+> **Nach der Nummernvergabe (Step 6) nachziehen:** einen zweiten Eintrag mit
+> `entry_id: "ADR-{REPO-UPPERCASE}-[NNN]"` (echte Nummer) upserten und den
+> `DRAFT`-Eintrag als erledigt markieren (Tag `draft` entfernen oder Eintrag
+> löschen) — sonst bleiben zwei parallele Erinnerungen an dieselbe Entscheidung
+> stehen.
 
-## Step 6: Post-ADR Workflow
+## Step 6: Vor dem Merge — Nummer vergeben (ADR-228, PFLICHT)
+
+> Es gibt keine Merge-Queue im Repo (`main-required-checks` kennt nur
+> `required_status_checks` + `pull_request`) — die Vergabe läuft deshalb als
+> **letzter Schritt vor dem Merge**, ausgelöst vom Autor. Das Gate
+> `tools/adr_draft_guard.py` (gating auf dem `push`-Lauf gegen `main`)
+> erzwingt, dass sie passiert ist — ein Entwurf, der `main` erreicht, macht
+> den nächsten Lauf rot.
+
+```bash
+python3 tools/adr_allocate.py --apply
+```
+
+Das Werkzeug (Trockenlauf ohne `--apply` zeigt die geplante Nummer vorab):
+
+* benennt `ADR-DRAFT-[slug].md` per `git mv` in `ADR-NNN-[slug].md` um
+  (Historie bleibt erhalten),
+* ersetzt `id: ADR-000` → `id: ADR-NNN`, die H1 und übrige `ADR-DRAFT`-Selbstverweise,
+* regeneriert `docs/adr/INDEX.md` + `docs/adr/index.json`
+  (`scripts/gen_adr_index.py`) — **beide** gehören in den Commit.
+
+**Warum Handarbeit hier zuverlässig fehlschlägt** (Realfall ADR-280, 2026-07-21
+— drei Abweichungen in einem einzigen handgepflegten Eintrag): Index-Titel muss
+zeichengleich zur H1 sein, die Kopfzeile „Next free ADR number" wird beim
+Zählen leicht vergessen, `index.json` wird komplett übersehen. Deshalb: nie von
+Hand, immer über `tools/adr_allocate.py --apply`.
+
+**Merge-Konflikt in `INDEX.md`/`index.json`?** Nicht von Hand mergen — auf
+`origin/main` rebasen, `tools/adr_allocate.py --apply` erneut laufen lassen
+(idempotent, siehe REC-4/ADR-228), das Ergebnis committen.
+
+Danach `iil-adrfw validate docs/adr` erneut grün bestätigen (Step 3.4), Step 5
+mit der echten Nummer nachziehen, dann erst mergen:
 
 ```text
-ADR-[NNN] erstellt: [Title]
-Index regeneriert: INDEX.md + index.json (gen_adr_index.py)
+ADR-[NNN] vergeben: [Title]
+Index regeneriert: INDEX.md + index.json (tools/adr_allocate.py --apply)
 Frontmatter validiert: N/N gültig (iil-adrfw validate docs/adr)
-pgvector Memory: gespeichert unter adr:{REPO_NAME}:ADR-[NNN]
+pgvector Memory: nachgezogen unter adr:{REPO_NAME}:ADR-[NNN]
 
 Status: Proposed → Review erforderlich
 
@@ -307,7 +300,7 @@ Changelog-Eintrag ergänzen, dann:
 python3 scripts/gen_adr_index.py     # INDEX.md + index.json ziehen den Status nach
 ```
 
-> ⛔ **`INDEX.md` nicht von Hand anfassen** — siehe Step 3.3. Die Status-Spalte
+> ⛔ **`INDEX.md` nicht von Hand anfassen** — siehe Step 3.2/6. Die Status-Spalte
 > im Index ist abgeleitet, keine eigene Wahrheit.
 
 **Regel für Supersession/Amendment — Relation ≠ Statuswechsel:**
@@ -368,30 +361,40 @@ Diese Liste existiert, weil ein langes Schritt-für-Schritt-Dokument beim Lesen
 überflogen statt abgearbeitet wird. Jede Zeile einmal aktiv gegenprüfen; ein
 bewusstes „übersprungen, weil X" ist in Ordnung, ein stilles Auslassen nicht.
 
-- [ ] Nummer aus `scripts/adr_next_number.py` (Step 3.1) — **nicht** geschätzt
+- [ ] Entwurfsdatei `ADR-DRAFT-<slug>.md` mit `id: ADR-000` angelegt (Step 3/4) — **keine** Nummer selbst gewählt
 - [ ] ADR-Datei aus `docs/templates/adr-template.md` (Step 4), Struktur nicht neu erfunden
-- [ ] `python3 scripts/gen_adr_index.py` gelaufen — **`INDEX.md` UND `index.json`** im Commit (Step 3.3)
-- [ ] `iil-adrfw validate docs/adr` grün, `N/N (100.0%)` (Step 3.4)
+- [ ] `iil-adrfw validate docs/adr` grün, `N/N (100.0%)` (Step 3.4) — auch für die Entwurfsdatei
+- [ ] pgvector-Entwurfs-Upsert abgesetzt (Step 5, `entry_id` mit `-DRAFT-<slug>`)
+- [ ] Vor dem Merge: `python3 tools/adr_allocate.py --apply` gelaufen — **`INDEX.md` UND `index.json`** im Commit (Step 6)
 - [ ] Alle im ADR referenzierten `ADR-NNN` existieren wirklich (`ls docs/adr/ADR-NNN-*`)
 - [ ] Bei `supersedes:`/`amends:` — Statuswechsel des Vorgängers bewusst **jetzt oder aufgeschoben**, und wenn aufgeschoben: als Zeile im Migration Tracking (Step 8.1)
 - [ ] §8 Confirmation hat mindestens 2 **prüfbare** Mechanismen, kein „wird beachtet"
-- [ ] pgvector-Upsert abgesetzt (Step 5)
+- [ ] pgvector-Eintrag mit der echten Nummer nachgezogen, Entwurfs-Eintrag aufgeräumt (Step 5/6)
+- [ ] `tools/adr_draft_guard.py --adr-dir docs/adr` lokal grün, bevor der PR auf `main` gemerged wird (kein `ADR-DRAFT-*` mehr, kein `id: ADR-000`)
 
 ---
 
 ## Anti-Patterns
 
+- ❌ Selbst eine Nummer wählen statt `ADR-DRAFT-<slug>.md` + `id: ADR-000` (ADR-228)
+- ❌ Einen Entwurf ohne `id: ADR-000` anlegen — Schema lehnt jede andere Platzhalterform ab
+- ❌ Einen Entwurf ungewandelt mergen (`ADR-DRAFT-*` oder `id: ADR-000` auf `main`) — `tools/adr_draft_guard.py` rötet den nächsten Lauf
 - ❌ `INDEX.md` von Hand ergänzen — sie ist generiert, der CI-Gate diffed dagegen
-- ❌ `index.json` vergessen — sie ist Teil desselben Generator-Laufs
-- ❌ ADR-Nummer aus dem Gedächtnis oder aus einem älteren Branch übernehmen
+- ❌ `index.json` vergessen — sie ist Teil desselben `tools/adr_allocate.py --apply`-Laufs
 - ❌ Vorgänger-ADR auf `superseded` setzen, während der Nachfolger noch `proposed` ist
-- ❌ Merge-Konflikt in `INDEX.md`/`index.json` von Hand auflösen statt neu generieren
+- ❌ Merge-Konflikt in `INDEX.md`/`index.json` von Hand auflösen statt `tools/adr_allocate.py --apply` neu laufen zu lassen
 - ❌ §8 Confirmation mit unprüfbaren Zusagen füllen („wird im Review beachtet")
 
 ---
 
 ## Changelog
 
+- 2026-09-08: **ADR-228 umgesetzt (platform#2931)** — Schritte 2–6 auf die
+  Entwurfsform umgestellt: neue ADRs starten als `ADR-DRAFT-<slug>.md` mit
+  `id: ADR-000`, die Nummer fällt erst kurz vor dem Merge über
+  `tools/adr_allocate.py --apply` (Step 6, ersetzt das alte `scripts/adr_next_number.py`-Vorgehen
+  am Autorenzeitpunkt); `tools/adr_draft_guard.py` verhindert, dass ein Entwurf
+  `main` erreicht. pgvector-Entry-ID nutzt bis zur Vergabe einen `-DRAFT-<slug>`-Platzhalter.
 - 2026-07-21: **Step 3.3 korrigiert** — „INDEX.md ergänzen" war irreführend und
   führte direkt in den roten Gate „ADR index freshness (gating)". Jetzt:
   `gen_adr_index.py` als Pflichtschritt, mit den drei konkreten Fehlerarten aus
