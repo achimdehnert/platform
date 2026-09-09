@@ -139,3 +139,27 @@ def test_should_round_trip_the_inventory(tmp_path):
     dateien = [_datei("achim/a.pdf", 1), _datei("tilly/b.pdf", 2)]
     sm.schreibe_inventar(pfad, dateien)
     assert [d["pfad"] for d in sm.lade_inventar(pfad)] == ["achim/a.pdf", "tilly/b.pdf"]
+
+
+# --- Eingang des Stapel-Zerlegers (doc-hub#4, A6) ---------------------------
+
+
+def test_should_watch_the_splitter_input_although_paperless_ignores_it():
+    """`schleuse` ist fuer Paperless ignoriert - der Eingang darin nicht."""
+    dateien = [
+        _datei("schleuse/scan-eingang/stapel.pdf", 60),
+        _datei("schleuse/von-box/buch.pdf", 60),
+    ]
+    treffer = sm.haengende(
+        dateien,
+        jetzt=JETZT,
+        ignore_dirs=["schleuse"],
+        beobachtet_trotz=("schleuse/scan-eingang",),
+    )
+    assert [t["pfad"] for t in treffer] == ["schleuse/scan-eingang/stapel.pdf"]
+
+
+def test_should_still_ignore_the_splitter_input_without_the_exception():
+    """Positivkontrolle: ohne die Ausnahme greift die Ignoranz wie zuvor."""
+    dateien = [_datei("schleuse/scan-eingang/stapel.pdf", 60)]
+    assert sm.haengende(dateien, jetzt=JETZT, ignore_dirs=["schleuse"]) == []
