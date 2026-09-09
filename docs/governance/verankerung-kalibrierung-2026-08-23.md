@@ -505,3 +505,52 @@ Anker — genau die Lage, aus der Vergessen entsteht.
 **Stand damit: 44 geprüfte Texte · 26 Meldungen · 5 richtig · 21 Fehlalarme (Präzision 0,192).**
 Zählweise wie „Maßgeblich"-Absatz oben. Die Präzision steigt weiter (0,063 → 0,111 → 0,192),
 bleibt aber klar unter der Schwelle 0,50 — Modus `advisory` unverändert richtig.
+
+---
+
+## Nachtrag 2026-09-09 (writing-hub, 4 PRs geprueft)
+
+Vier PR-Texte einer writing-hub-Sitzung durch den Melder gefahren
+(`--budget-sekunden 1000`, lokales `qwen2.5:7b`):
+
+| PR | Ergebnis |
+|---|---|
+| writing-hub#1095 | 15 von 16 Segmenten geprueft, keine Meldung |
+| writing-hub#1096 | ✅ 14 Segmente, jede Zusage traegt ein Tracking-Issue |
+| writing-hub#1098 | **1 Meldung — Fehlalarm, siehe unten** · 2 Segmente ungeprueft |
+| writing-hub#1100 | Zeitbudget erschoepft, kein Ergebnis |
+
+### Der Fehlalarm
+
+```
+[vertagung] Zeile 36 · „Lösung"
+    Zitat: „Eine Sperre statt einer je View"
+    Anker: keine Issue-Referenz im Segment
+```
+
+Das Zitat ist die **Ueberschrift des Loesungsabschnitts** eines PRs, der genau diese
+Aenderung enthaelt und ausliefert — kein Vorhaben, sondern die Beschreibung des Diffs.
+Der volle Satz lautet: »**1. Eine Sperre statt einer je View.** Beide Routen liegen in
+`DEV_ANMELDUNG` und werden nur bei `DEBUG or TESTING` angehaengt.« Praesens, kein
+Zeitbezug in die Zukunft, und der Beleg steht als Code im selben PR.
+
+**Muster:** Eine Ueberschrift im Nominalstil (»X statt Y«, »Eine Sperre statt …«) liest
+sich fuer den Klassifikator wie eine Absichtserklaerung, weil ihr das Verb fehlt, an dem
+sich Perfekt von Futur unterscheiden liesse. Das ist verwandt mit dem
+Verneinungs-Muster oben, aber nicht dasselbe: dort taeuscht die Verneinung, hier die
+fehlende Zeitform.
+
+**Billigste Nachschaerfung:** Segmente, die eine Abschnitts-Ueberschrift ohne finites
+Verb sind, nicht allein als Vertagung werten — der Satz **darunter** entscheidet. Im
+gemeldeten Fall haette der Folgesatz (»liegen in `DEV_ANMELDUNG`«, Praesens Indikativ)
+die Meldung verhindert.
+
+**Stand damit: 48 geprüfte Texte · 27 Meldungen · 5 richtig · 22 Fehlalarme (Präzision 0,185).**
+Zaehlweise wie oben. Modus `advisory` unveraendert richtig.
+
+**Nebenbefund zum Betrieb:** Auf einem lokalen 7B-Modell braucht der Melder rund eine
+Minute je Segment; vier PR-Texte kosteten ueber 40 Minuten und zwei davon liefen ins
+Zeitbudget. Der `--provider groq`-Weg verlangt den Schluessel in der Umgebung und
+faellt nicht auf Ollama zurueck — in einer Shell ohne gesetzten Schluessel meldet er
+`NICHT PRUEFBAR` statt langsam zu rechnen. Das ist richtig so, macht den Melder aber
+in genau den Sitzungen unbenutzbar, in denen mehrere PRs entstehen.
