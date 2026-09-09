@@ -45,6 +45,9 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.
 
+0. Scan-Strecke: lueckenloses Lieferprotokoll offen, nach vier Anlaeufen gestoppt: https://github.com/achimdehnert/doc-hub/issues/3
+0. Auslagern verlor drei Faeden nach #2967 — Befund zum Gate selbst: https://github.com/achimdehnert/platform/issues/2974
+0. Gate-Registry-Eintrag `handover-auslagerung-verschluckt-offenes` wartet auf Owner-Wort (`docs/governance/`): https://github.com/achimdehnert/platform/pull/2984
 0. Morgen-Zeitung laeuft, aber stumm: Matrix-Bot fehlt, NIS2/Voice/Robotik ohne Quelle: https://github.com/achimdehnert/news-hub/issues/19
 1. KONZ-054 Systembild, Kill-Gate 2026-10-15; Owner-Punkte #2486/#2504/#2507, Reste #2480: https://github.com/achimdehnert/platform/issues/2516
 2. KONZ-051 ux-review-agent, Kill-Gate 2026-09-30; K1 3/9, K3 offen: https://github.com/achimdehnert/writing-hub/issues/766
