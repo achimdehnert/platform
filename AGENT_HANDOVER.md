@@ -23,9 +23,9 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Sieben Anlaeufe, fuenf echte Ursachen:** gesperrte Deklaration · `secrets: inherit` ueber die Org-Grenze · falsche Secret-Namen (`DEPLOY_*` → `HETZNER_*`, ADR-022) · fehlende `deployment/scripts/deploy-remote.sh` · fehlendes `gunicorn` (news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#27](https://github.com/achimdehnert/news-hub/pull/27)). Lehre: CI baut das Image, sie startet es nicht.
 
-**Eigene Fehler:** automerge nahm news-hub#24, waehrend ich noch einen Commit nachschob — der Push meldete Erfolg, der Stand fehlte auf `main`, zwei Deploy-Fehlschlaege. Und ich hielt den Team-Chat fuer Discord; `chat.iil.pet` ist Matrix/Synapse, die Melde-Schicht musste neu geschrieben werden.
+**Eigene Fehler:** Der Owner mergte news-hub#24 (08:23:45), waehrend ich noch einen Commit nachschob (08:27:23) — der Push meldete Erfolg, der Stand fehlte auf `main`, zwei Deploy-Fehlschlaege. **Korrektur 2026-09-09:** ich hatte das zuerst automerge angelastet und daraus eine Governance-Luecke abgeleitet; `mergedBy: achimdehnert`, `autoMergeRequest: null` und `allow_auto_merge: false` widerlegen das. news-hub hat keinen automerge — es gab keine Luecke. Und ich hielt den Team-Chat fuer Discord; `chat.iil.pet` ist Matrix/Synapse, die Melde-Schicht musste neu geschrieben werden.
 
-**Offen (Owner):** Matrix-Bot-Konto + Raum, danach `DIGEST_CHAT_RAUM`/`DIGEST_CHAT_TOKEN` in der Umgebungsdatei auf dem Prod-Host — bis dahin meldet der Lauf „kein Chat-Token gesetzt". Keine Quelle fuer NIS2, Voice, Robotik ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)). Governance-Luecke: automerge liess #24 ohne Approval durch, waehrend #25–#27 auf demselben Pfad ein Owner-Wort verlangten.
+**Offen (Owner):** Matrix-Bot-Konto + Raum, danach `DIGEST_CHAT_RAUM`/`DIGEST_CHAT_TOKEN` in der Umgebungsdatei auf dem Prod-Host — bis dahin meldet der Lauf „kein Chat-Token gesetzt". Keine Quelle fuer NIS2, Voice, Robotik ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)). Themenauswahl kuert generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)).
 
 **Clear-Haerte (0e):** F1 nein — Betriebswissen steht im Outline-Runbook „Morgen-Zeitung … Betrieb auf news.iil.pet" und in news-hub#3. F2 nein — das Schluesselpaar in `/tmp` ist bewusst fluechtig. F3 nein.
 
