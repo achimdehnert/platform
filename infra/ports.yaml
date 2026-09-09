@@ -200,8 +200,8 @@ services:
     dev: 8113
     container_name: news_hub_web
     domain_prod: news.iil.pet
-    betriebsstatus: blockiert
-    betriebsstatus_grund: "noch nicht deployt — Artefakte stehen (news-hub#18), der Deploy haengt bewusst an workflow_dispatch, weil es noch keinen Bestand gibt; DNS/SSL/Deploy-Secrets sind Owner-Schritte. news.iil.pet hat bewusst keinen DNS-Eintrag"
+    betriebsstatus: aktiv
+    betriebsstatus_grund: "Owner-Freigabe 2026-09-09 (news-hub#3): DNS-CNAME news.iil.pet auf den Prod-Tunnel gesetzt (wie knowledge.iil.pet), nginx-Vhost auf 127.0.0.1:8113, Umgebungsdatei auf dem Server angelegt, Deploy-Secrets DEPLOY_HOST/USER/SSH_KEY im Repo, eigener CI-Schluessel news-hub-ci-deploy auf dem Prod-Host. Deploy bleibt auf workflow_dispatch, bis der erste echte Tageslauf steht"
     note: "ADR-299 · Digest liest den Mail-Agent-Bestand ueber die Lesenaht (dev-hub#307)"
 
   coach-hub:
