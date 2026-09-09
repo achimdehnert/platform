@@ -3480,3 +3480,21 @@ Kommentare dort (Lücke 20.08. in #2890 mit dessen Code belegt; prod_host-Rückf
 deploy_wirkung live widerlegt). Eigene Fehler: zwei Sonnet-Agenten beendeten den Zug mit
 `make test` im Hintergrund; Item 26 als „ablehnen" statt „freigeben" vorgeschlagen. Zwei
 Memories: Runner-Befund erst gegen offene PRs des Tages prüfen; keine unnötigen Bash-Ausgaben.
+
+## 2026-09-09 — Mailcheck, Board-Kopfzeile, Morgen-Zeitung live (platform + news-hub)
+
+Mailcheck ueber drei Konten gegen den Inbox-Brief eines fremden Postfach-Assistenten
+gestellt: dessen zwei Top-Empfehlungen waren erledigt, bevor er sie schrieb, und die
+folgenreichste Nachricht des Tages (Abwesenheit bis 25.09.) hatte er als Rauschen
+verworfen. Uebernommen wurde nur die Form — Board-Kopfzeile und eine Spur „nur zur
+Kenntnis" (#2987).
+
+Die vom Owner vorgeschlagene „Morgen-Zeitung" existierte bereits als ADR-299 und war in
+news-hub fertig gebaut; es fehlte der Betrieb. KONZ-platform-057 (#2991) ordnet das ein,
+#2993 zog die Deklaration nach, news-hub #24-#27 die Verdrahtung. Seit heute laeuft
+news.iil.pet mit taeglichem Timer um 06:15 UTC.
+
+Sieben Deploy-Anlaeufe fuer ein Image, das nie jemand gestartet hatte — zuletzt fehlte
+gunicorn. Eigene Fehler: automerge nahm #24 waehrend ich nachschob (zwei Fixes gingen
+verloren), und ich hielt chat.iil.pet fuer Discord statt Matrix. Drei Memories, zwei
+Outline-Lessons, ein Outline-Runbook.

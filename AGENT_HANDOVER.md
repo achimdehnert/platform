@@ -15,6 +15,20 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
+## ⚡ Aktueller Stand (2026-09-09 — die Morgen-Zeitung laeuft: news.iil.pet live, sieben Deploy-Anlaeufe fuer ein nie gestartetes Image)
+
+**Mailcheck + Fremdvergleich:** Drei Konten, beide Richtungen. Der Inbox-Brief eines fremden Postfach-Assistenten empfahl zwei Schritte, die schon erledigt waren, und uebersah den einzigen Terminbruch des Tages — er liest nur den IIL-Posteingang, kein Gesendetes, kein HNU, und verwirft Abwesenheitsantworten. Uebernommen wurde die Form: Board-Kopfzeile und eine Spur „nur zur Kenntnis" ([#2987](https://github.com/achimdehnert/platform/pull/2987)).
+
+**Morgen-Zeitung (KONZ-platform-057, [#2991](https://github.com/achimdehnert/platform/pull/2991)):** Die Idee existierte seit dem 29.08. als ADR-299 und war in `news-hub` fertig gebaut — es fehlte nur der Betrieb. Jetzt live: DNS, nginx-Vhost, drei Deploy-Secrets, eigener CI-Schluessel, Deploy-Lauf 34335818067 gruen, `https://news.iil.pet/livez/` = 200. Tageslauf `news-hub-tageslauf.timer` 06:15 UTC, erster echter Lauf `Result=success`, Ausgabe mit 5 Themen. Deklaration nachgezogen ([#2993](https://github.com/achimdehnert/platform/pull/2993)).
+
+**Sieben Anlaeufe, fuenf echte Ursachen:** gesperrte Deklaration · `secrets: inherit` ueber die Org-Grenze · falsche Secret-Namen (`DEPLOY_*` → `HETZNER_*`, ADR-022) · fehlende `deployment/scripts/deploy-remote.sh` · fehlendes `gunicorn` (news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#27](https://github.com/achimdehnert/news-hub/pull/27)). Lehre: CI baut das Image, sie startet es nicht.
+
+**Eigene Fehler:** automerge nahm news-hub#24, waehrend ich noch einen Commit nachschob — der Push meldete Erfolg, der Stand fehlte auf `main`, zwei Deploy-Fehlschlaege. Und ich hielt den Team-Chat fuer Discord; `chat.iil.pet` ist Matrix/Synapse, die Melde-Schicht musste neu geschrieben werden.
+
+**Offen (Owner):** Matrix-Bot-Konto + Raum, danach `DIGEST_CHAT_RAUM`/`DIGEST_CHAT_TOKEN` in der Umgebungsdatei auf dem Prod-Host — bis dahin meldet der Lauf „kein Chat-Token gesetzt". Keine Quelle fuer NIS2, Voice, Robotik ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)). Governance-Luecke: automerge liess #24 ohne Approval durch, waehrend #25–#27 auf demselben Pfad ein Owner-Wort verlangten.
+
+**Clear-Haerte (0e):** F1 nein — Betriebswissen steht im Outline-Runbook „Morgen-Zeitung … Betrieb auf news.iil.pet" und in news-hub#3. F2 nein — das Schluesselpaar in `/tmp` ist bewusst fluechtig. F3 nein.
+
 ## ⚡ Aktueller Stand (2026-09-08 — Sitzung 136735: GX10 traegt zwei Rollen, zwei Konfigurationszeilen schlugen ein drittes Geraet)
 
 **Kaufberatung Mini-PC gegen GX10:** nicht kaufen, der Knoten war nicht ausgereizt ([#2978](https://github.com/achimdehnert/platform/issues/2978)).
@@ -25,36 +39,16 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Retro 136735** ([#2975](https://github.com/achimdehnert/platform/pull/2975)): 14 Befunde, 11 ueberlebt, 7 ohne Artefakt in [#2982](https://github.com/achimdehnert/platform/issues/2982). Zwei Lehren: SoT zitiert statt gelesen (`hosts.yaml:166`); der Melder liest `ports.yaml` — drei Ausnahmen waren tot ([#2977](https://github.com/achimdehnert/platform/pull/2977)).
 
-## ⚡ Aktueller Stand (2026-09-08 — Retro 61c35d: zwei Gates ausgeweitet; Eich-Bogen 15/15 unklar deckte drei Fehlurteile des Readiness-Bewerters auf, Basislinie 07.09. ungueltig)
-**Zeitanker:** HEAD `9f26db88` · `rev-list --count` 4265 · geschrieben 2026-09-08
-
-
-**Sitzung 8661c35d (HydraFusion-Auswertung, 2026-09-07/08):** nach [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md) ausgelagert (2026-09-08).
-
-**Sitzung c1ba5d (Mail-Arbeitsliste + Retro, 2026-09-07):** nach [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md) ausgelagert (2026-09-08); Offenes als Faden 46-51.
-
-**Sitzung 61952dd7 (2026-09-08, Scan-Strecke):** Aus der Owner-Frage nach acht Seiten in einem Dokument wurde ein Melder: ein Scan, der im Consume-Baum liegen bleibt, und einer, der daraus verschwindet, ohne ein Dokument zu werden, melden sich jetzt selbst ([#2966](https://github.com/achimdehnert/platform/pull/2966), [#2970](https://github.com/achimdehnert/platform/pull/2970); stuendlich auf dem prod-Runner, Alarm als zugewiesenes Issue `scan-haengt`), dazu `/scan` ([#2971](https://github.com/achimdehnert/platform/pull/2971)) und ein Gate, das beim Auslagern keine offenen Vorgaenge mehr verschlucken laesst ([#2980](https://github.com/achimdehnert/platform/pull/2980), Befund [#2974](https://github.com/achimdehnert/platform/issues/2974), sechs Faeden nachgetragen in [#2976](https://github.com/achimdehnert/platform/pull/2976)). Anlass war ein realer Verlust ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3)).
-
-**Eigene Fehler (vier, alle gemessen widerlegt):** (1) Memory-Notiz „ScanSnap liefert per SFTP“ ungeprueft als Basis fuer einen sshd-Eingriff genommen — der Lieferweg ist Samba (592 Logzeilen, alle `smbd:`); Eingriff wirkungslos, zurueckgenommen, Notiz als drift korrigiert. (2) Protokoll auf die Freigabe `scans` gelegt, waehrend der Scanner `paperless-consume` benutzt. (3) Ordnerrechte uebersehen: rsyslog darf in `/var/log/samba` keine Datei anlegen. (4) **Vier `smbd`-Neustarts fuer ein Nebenziel** — der letzte legte die Freigabe des Owners lahm. **Samba-Schreibprotokoll vollstaendig zurueckgebaut** (`cmp -s` gegen die Sicherung gruen); danach Scan 2422 in 10 s aufgenommen. Der Melder haengt nicht daran und lief durchgehend. Verankert als Abbruchregel im Memory + Outline-Lesson `…-IFP1qb5KvO`.
-
-**Doppelarbeit:** [#2972](https://github.com/achimdehnert/platform/pull/2972) lief parallel zu [#2967](https://github.com/achimdehnert/platform/pull/2967) an derselben Datei — geschlossen; zweiter Vorfall dieser Klasse in zwei Tagen.
-
-**Abnahme 61952dd7, von zwei fremden Pruefern gegengelesen (0h):** *Zielzustand* (Owner-Frage, ad hoc): acht Seiten in ein Dokument scannen und dort suchen koennen — **erreicht**, aber erst nach Korrektur meines Belegs. Der 0d-Pruefer verwarf ihn zu Recht: ich hatte auf den 27-Seiten-Stapel vom 06.09. verwiesen, der im selben Zug als **13** Dokumente beschrieben ist — das Gegenteil der Behauptung. Nachgemessen: `pdfinfo` ueber die heutigen Dokumente zeigt 2417 und 2418 mit je **16 Seiten als EIN Dokument**; Volltextsuche `content__icontains` liefert 55 Treffer fuer „Meldebescheinigung“ und 0 fuer ein Unsinnswort (Positiv- und Negativkontrolle). K1 und K2 sind damit gemessen, nicht geschlossen. **K3 (Verluste werden bemerkt): teilweise** — Urteil des Pruefers, uebernommen: der Melder laeuft stuendlich und fand eine reale 0-Byte-Datei, die Verlust-Erkennung selbst ist aber nur an einer erfundenen Datei plus einem echten Gegenbeispiel gezeigt; der Ausloeserfall blieb verloren, weil er vor dem Bau verschwand. **Zweiter Pruefer-Befund, uebernommen:** die Owner-Bitte „Chat-Raum fuers Scannen“ wurde **nicht gebaut** — bewusst, weil Suche (docs.iil.pet) und Meldung (Issue) vorhanden sind und ein dritter Ort eine Dopplung waere; der Owner hat dem gefolgt (Punkte 33/59/83). Das stand bisher nur im Kapitaenskanal und ist hiermit verankert. **Verschoben mit Tracking:** lueckenloses Lieferprotokoll, gestoppt nach vier Anlaeufen (doc-hub#3). *0e (fremd geprueft):* alle drei Fragen NEIN, nichts lebt nur im Chat oder im Scratchpad. *SA-4:* 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. *SA-M:* 5 eigene Merges (#2966, #2970, #2980, #2983 W1; #2984 bleibt offen — `docs/governance/` braucht Owner-Wort). *Runner:* `RESULT: OK`; `E.1`/`E.7` betreffen Parallelsitzungen, `E.5` `◌ SKIP` (3 PR-Texte von Hand gesichtet), `E.10` (#2974 offen) ist richtig so.
-
-**SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen (alle Merges per SA-M-Mandat oder Owner-Bypass mit Wort am PR). **Clear-Haerte (0e, fremder Pruefer):** zwei Luecken geschlossen — wg0-Restschritte und Rohdaten-Verzicht in #2895 nachgetragen.
-
-**Befunde:** M3 per Review auf eigenen PRs unerreichbar (GitHub verbietet Self-Approve) → (b) umgesetzt · Aufschub-Anker-Gate feuert auf „nicht ausgewertet"/„bewusst nicht" in Code-Kommentaren (3× heute, Fehlalarm-Klasse für #2606) · zwei PRs mergte der Owner, bevor die Nachbesserung drin war (#2803→#2805, #2804→#2809) · eigener Fehler: leere Worktree-Pfadvariable (Skript schreibt auf stderr) ließ einen Cherry-pick im Haupt-Tree laufen — sofort abgebrochen, HEAD unverändert (Memory 🌀).
-
-**Nächster Schritt:** #2737 Owner-Fragen 1–3 (v2.4-Basislinie, leere Manifeste, D11.2 ohne Manifest) · #2799 K8: `--pruefe` nennt `kein_anker`-Vorgänge mit Anker-Kommando · #2875 Upload-Session + Entwurf beim Abbruch wegräumen · #2802 Speicher-Melder auf Helfer · travel-beat Runner.
-
-**SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. SA-M 2026-09-06: 3 Merges W1/M1 (#2871, #2874, #2877), 3 Sonnet-Subagenten nach Brief, Prüfung inline. SA-M 2026-09-04: 3 Merges per Mandat (#2805 W1/M1, #2808 W1/M1, beide nach Freigabe-Vermerk im Issue-Body #2737), 8 W3-Merges durch den Owner. Delegation: 7 Subagenten nach Brief (4 Sonnet, 3 Opus; Prüfung + Fixes inline), Session `ac4fb7c7`.
-
 ## Offene Fäden (über den Session-Stand hinaus)
 
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.
 
+0. Scan-Strecke: lueckenloses Lieferprotokoll offen, nach vier Anlaeufen gestoppt: https://github.com/achimdehnert/doc-hub/issues/3
+0. Auslagern verlor drei Faeden nach #2967 — Befund zum Gate selbst: https://github.com/achimdehnert/platform/issues/2974
+0. Gate-Registry-Eintrag `handover-auslagerung-verschluckt-offenes` wartet auf Owner-Wort (`docs/governance/`): https://github.com/achimdehnert/platform/pull/2984
+0. Morgen-Zeitung laeuft, aber stumm: Matrix-Bot fehlt, NIS2/Voice/Robotik ohne Quelle: https://github.com/achimdehnert/news-hub/issues/19
 1. KONZ-054 Systembild, Kill-Gate 2026-10-15; Owner-Punkte #2486/#2504/#2507, Reste #2480: https://github.com/achimdehnert/platform/issues/2516
 2. KONZ-051 ux-review-agent, Kill-Gate 2026-09-30; K1 3/9, K3 offen: https://github.com/achimdehnert/writing-hub/issues/766
 3. Volume-Deckung prod (40 Volumes), K2 = Owner-Gate, Löschliste #2258: https://github.com/achimdehnert/platform/issues/2300
