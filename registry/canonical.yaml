@@ -33,6 +33,13 @@ meta:
     # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
     # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
     frist-hub: meiki-lra
+    # 2026-09-09 (meiki-hub#374): chat-hub liegt real unter iilgmbh — verifiziert
+    # ueber `gh api repos/iilgmbh/chat-hub -q .owner.login` (nicht ueber den
+    # angefragten Pfad, s. ADR-297 unten). Es steht nicht in `repos` und matcht
+    # keine owner_prefix_rules, weshalb owner() bisher None lieferte: kein falscher
+    # Owner, aber auch keine Antwort — und ein Werkzeug, das None bekommt, faellt
+    # entweder aus oder raet. Gefunden beim Gegenlesen von project-facts.md.
+    chat-hub: iilgmbh
     # ADR-297 (2026-08-24, platform#2264): der neue Org-Zuordnungs-Melder
     # (tools/org_zuordnung_melder.py) hat acht Repos gefunden, deren realer Owner
     # dem hier deklarierten widersprach — verifiziert ueber `.owner.login` der
