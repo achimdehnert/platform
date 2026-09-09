@@ -195,6 +195,21 @@ def _distribution_allowed(repo_path: Path) -> bool:
         return False
 
 
+def _registry_quellen() -> list[Path]:
+    """Dateien, aus denen der Generator seine Fakten zieht.
+
+    Aendert sich eine davon, ist jedes aeltere Generat veraltet — unabhaengig
+    davon, ob es existiert. Bewusst eine kleine, benannte Liste statt eines
+    Verzeichnis-Scans: eine Datei, die hier fehlt, macht den Melder blind, und
+    ein zu weiter Scan macht ihn bei jedem Commit laut.
+    """
+    wurzel = Path(__file__).resolve().parent.parent
+    return [
+        wurzel / "registry" / "canonical.yaml",
+        wurzel / "scripts" / "repo-registry.yaml",
+    ]
+
+
 def _is_tracked(repo_path: Path, relpath: str) -> bool:
     """Tracked-Guard (ADR-265): True wenn `relpath` im Ziel-Repo-Index steht —
     eine getrackte Datei darf nie durch einen Symlink ersetzt werden (das
@@ -277,7 +292,27 @@ def gen_facts(
                 link.symlink_to(src)
 
     if facts_file.exists() and not force:
-        return f"SKIP (exists): {repo}"
+        # "Vorhanden" ist nicht "aktuell". Bis 2026-09-09 hat dieser Zweig jedes
+        # bestehende Generat uebersprungen — auch eines, dessen Inhalt einer
+        # zwischenzeitlich geaenderten Registry widersprach. Realfall
+        # (meiki-hub#374): meiki-hub/.windsurf/rules/project-facts.md trug
+        # `achimdehnert/meiki-hub`, waehrend `registry_api.owner()` laengst
+        # `meiki-lra` lieferte. Der Lauf meldete "0 generated, 1 skipped", und
+        # "skipped" liest sich wie "ist aktuell" — heisst aber nur "ist da".
+        # Die Datei traegt `trigger: always_on`, war also in jedem Kontext
+        # geladen und lieferte eine PLAUSIBLE falsche Antwort. Bei vier Orgs in
+        # der Flotte faellt so etwas erst beim 404 auf.
+        #
+        # Deshalb wird jetzt gegen die EINGABE geprueft, nicht gegen die
+        # Existenz der Ausgabe: ist die Registry juenger als das Generat, ist
+        # das Generat veraltet und wird neu geschrieben.
+        quellen = [pfad for pfad in (_registry_quellen() or []) if pfad.exists()]
+        generat_alter = facts_file.stat().st_mtime
+        veraltet = [q for q in quellen if q.stat().st_mtime > generat_alter]
+        if not veraltet:
+            return f"SKIP (aktuell): {repo}"
+        namen = ", ".join(q.name for q in veraltet)
+        print(f"  ↻ {repo}: Generat aelter als {namen} — wird neu geschrieben")
 
     # Read registry values (take precedence)
     rtype = reg_entry.get("type", "")
