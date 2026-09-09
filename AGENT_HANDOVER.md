@@ -44,16 +44,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
 
-## ⚡ Aktueller Stand (2026-09-08 — Sitzung 136735: GX10 traegt zwei Rollen, zwei Konfigurationszeilen schlugen ein drittes Geraet)
-
-**Kaufberatung Mini-PC gegen GX10:** nicht kaufen, der Knoten war nicht ausgereizt ([#2978](https://github.com/achimdehnert/platform/issues/2978)).
-
-**Inferenz ([#2544](https://github.com/achimdehnert/platform/issues/2544)):** Ollama bediente mehrere Nutzer gar nicht parallel (1.906 tok/s bei 1 wie bei 8). Mit `OLLAMA_NUM_PARALLEL=4`: 2.632. vLLM laeuft seit heute als zweiter Dienst (Port 8000, wg0): 3.526, Skalierung 3,3x. Kein Verbraucher umgestellt — [mcp-hub#262](https://github.com/achimdehnert/mcp-hub/pull/262) blockiert, alle `ci-nonprod`-Runner offline.
-
-**Training ([robo-lab#58](https://github.com/achimdehnert/robo-lab/issues/58)):** Bis 16.384 Umgebungen ist die 4090 3,3x schneller; bei 20.480 bricht sie am VRAM ab, der GX10 rechnet durch. Ihre WSL-Maschine durfte vorher nur 12 von 128 GB nutzen — jetzt 64.
-
-**Retro 136735** ([#2975](https://github.com/achimdehnert/platform/pull/2975)): 14 Befunde, 11 ueberlebt, 7 ohne Artefakt in [#2982](https://github.com/achimdehnert/platform/issues/2982). Zwei Lehren: SoT zitiert statt gelesen (`hosts.yaml:166`); der Melder liest `ports.yaml` — drei Ausnahmen waren tot ([#2977](https://github.com/achimdehnert/platform/pull/2977)).
-
 ## Offene Fäden (über den Session-Stand hinaus)
 
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
