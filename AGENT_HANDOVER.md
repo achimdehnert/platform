@@ -25,7 +25,9 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Offen und dein Zug:** (1) Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — drei Eingriffe dieser Sitzung haben keinen eigenen Vermerk. (2) Traeger fuer den Host-Eingriff-Hook entscheiden ([#2907](https://github.com/achimdehnert/platform/issues/2907)); der Zerleger braucht `tesseract-ocr-deu`, das nur von Hand auf prod liegt. (3) `PAPERLESS_FILENAME_DATE_ORDER` setzen ([doc-hub#15](https://github.com/achimdehnert/doc-hub/issues/15)).
 
-**Zielzustand:** erreicht — A1 bis A6 einzeln gegen Code und Tests geprueft (Report §2, Befund 13 nennt die eine Teil-Luecke: Korrespondent und Dokumenttyp sind an Paperless delegiert und nie gemessen).
+**Zielzustand:** erreicht mit einer Einschraenkung — **Urteil des fremden Abnahme-Agenten, nicht meines**: A1, A3, A4, A6 sind durch Code und Tests belegt; A5 im Kern erfuellt, aber ohne Test fuer Korrespondent/Dokumenttyp; **A2 ist aus den Artefakten NICHT PRUEFBAR**, weil der Beleg nur auf dem Server lebt (billigster Check: Trockenlauf dort gegen die Owner-Liste). Ich hatte „A1 bis A6 geprueft" geschrieben — das war zu weit.
+
+**Clear-Haerte (fremder Blick):** Drei Prod-Freigaben stehen nur als Frage und Ergebnis im Verlauf, die Zustimmung in keinem Artefakt. Acht der zehn Retro-Massnahmen hatten kein Tracking-Issue (nachgeholt). Der README-Beispielpfad wich vom echten Prod-Pfad ab (behoben).
 **SA-4:** 11 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
 
 ## ⚡ Stand (2026-09-09 vormittags — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)

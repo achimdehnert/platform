@@ -232,6 +232,8 @@ Abgeleitet aus dem Soll-Ablauf (§4), nicht frei erfunden.
 | 4 | Systemabhängigkeiten deklarieren | doc-hub | [tests.yml](https://github.com/achimdehnert/doc-hub/blob/main/.github/workflows/tests.yml) | 🔵 offen | Datei + CI-Job (ich) |
 | 5 | README auf Modulköpfe zeigen | doc-hub | [README](https://github.com/achimdehnert/doc-hub/blob/main/splitter/README.md) | 🔵 offen | Dublette auflösen (ich) |
 | 6 | Hook für Host-Eingriffe ohne IaC | — | [platform#2907](https://github.com/achimdehnert/platform/issues/2907) | 🟢 offen | Träger entscheiden (du) |
+
+Sammel-Tracking der offenen Maßnahmen: [doc-hub#16](https://github.com/achimdehnert/doc-hub/issues/16) — ohne Issue existieren sie nur im Report, und das ist kein Tracking (Befund des fremden Clear-Härte-Blicks am Sitzungsende).
 | 7 | Rechte der Ablagen einengen | doc-hub | [splitter](https://github.com/achimdehnert/doc-hub/tree/main/splitter) | 🔵 offen | `mkdir(mode=0o750)` (ich) |
 | 8 | Datums-Fix in Paperless | doc-hub | [#15](https://github.com/achimdehnert/doc-hub/issues/15) | 🟢 offen | Container-Neustart (du) |
 | 9 | OCR-Sprache als Argument | doc-hub | [zerlege.py](https://github.com/achimdehnert/doc-hub/blob/main/splitter/zerlege.py) | 🔵 offen | ein Argument (ich) |
