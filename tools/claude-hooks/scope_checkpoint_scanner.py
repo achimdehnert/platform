@@ -162,11 +162,17 @@ _WIRKUNGS_FLAGGE = re.compile(
 #: gewachsenen SCOPE, nicht nach dem entstandenen Schaden. Genau diese
 #: Harmlosigkeits-Ausnahme hoehlt ihn aus, und genau so kam der Slug wieder.
 #:
-#: Bewusst eng: nur das Beenden fremder Prozesse und Dienste. `docker compose
+#: Rev 5 (2026-09-09): `enable` und `start` kamen dazu. Das Muster kannte nur das
+#: Abschalten -- als in der Zerleger-Sitzung ein Dienst auf einem Produktivhost
+#: SCHARFgeschaltet wurde (`systemctl enable --now`), schwieg es. Scharfschalten
+#: ist mindestens so weitreichend wie Stilllegen: danach laeuft etwas dauerhaft,
+#: das vorher nicht lief. Beleg: platform#2374 (Gate RUECKFAELLIG), Retro
+#: `session-retro-2026-09-09-doc-hub-a6edc6.md` Befund 11.
+#: Bewusst eng: nur das An- und Abschalten fremder Prozesse und Dienste. `docker compose
 #: up/down` auf den eigenen Stack ist Alltag und faellt absichtlich nicht darunter.
 _FREMDE_RESSOURCE = re.compile(
     r"\bkill\s+(?:-\w+\s+)?\d{2,}\b|\bpkill\b|\bkillall\b"
-    r"|\bsystemctl\s+(?:stop|restart|disable|mask)\b"
+    r"|\bsystemctl\s+(?:stop|restart|disable|mask|enable|start)\b"
     r"|\bdocker\s+(?:kill|stop)\s+\S",
     re.I,
 )

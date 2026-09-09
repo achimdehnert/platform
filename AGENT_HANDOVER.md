@@ -15,7 +15,22 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-09 — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
+## ⚡ Aktueller Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
+
+**Zielzustand erreicht** ([doc-hub#4](https://github.com/achimdehnert/doc-hub/issues/4)): Ein Scan mit mehreren Dokumenten wird auf dem Weg in Paperless automatisch zerlegt, verschlagwortet und abgelegt; das Original wandert aus dem Eingang, wird aber nie geloescht. Code `/opt/doc-hub/splitter/` auf hetzner-prod, eigenes venv, Timer `doc-hub-splitter.timer` alle 3 Minuten (aktiviert nach Owner-Wort). Eingang `/opt/paperless-consume/schleuse/scan-eingang` — den ignoriert Paperless ohnehin, deshalb war kein Samba-Eingriff noetig. Personen-Muster `/etc/doc-hub/zuordnung.json` (0640, nicht im Repo).
+
+**Zwei echte Betriebsscans, beide auf die Owner-Zahl gebracht:** 18 Seiten → 4 Dokumente, 26 Seiten → 5 Dokumente. Zehn PRs in doc-hub ([#5](https://github.com/achimdehnert/doc-hub/pull/5)–[#14](https://github.com/achimdehnert/doc-hub/pull/14)), einer in platform ([#2999](https://github.com/achimdehnert/platform/pull/2999), Waechter sieht den neuen Eingang). Der teuerste gefundene Fehler: eine Parkhaus-Quittung wurde als Leerseite verworfen — ein kleiner Beleg auf A4 traegt weniger Tinte als eine leere Rueckseite mit Falzkante; die *Form* trennt sie, nicht die Menge ([#13](https://github.com/achimdehnert/doc-hub/pull/13)).
+
+**Retro** (`docs/retros/session-retro-2026-09-09-doc-hub-a6edc6.md`, Footprint `full`): 16 Befunde, 15 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — eine Severity war zu hoch (der Waechter sah den Ordner damals gar nicht), und ein verworfener Befund musste zurueck (A5 nennt vier Merkmale, nicht zwei). **Drei Gates haben gefangen** und je eine Handlung ausgeloest. Rueckfaellig war `scope-checkpoint-not-durably-recorded`: sein Muster kannte nur das Abschalten von Diensten — als hier einer scharfgeschaltet wurde, schwieg es. Ausgeweitet in diesem PR.
+
+**Offen und dein Zug:** (1) Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — drei Eingriffe dieser Sitzung haben keinen eigenen Vermerk. (2) Traeger fuer den Host-Eingriff-Hook entscheiden ([#2907](https://github.com/achimdehnert/platform/issues/2907)); der Zerleger braucht `tesseract-ocr-deu`, das nur von Hand auf prod liegt. (3) `PAPERLESS_FILENAME_DATE_ORDER` setzen ([doc-hub#15](https://github.com/achimdehnert/doc-hub/issues/15)).
+
+**Zielzustand:** erreicht mit einer Einschraenkung — **Urteil des fremden Abnahme-Agenten, nicht meines**: A1, A3, A4, A6 sind durch Code und Tests belegt; A5 im Kern erfuellt, aber ohne Test fuer Korrespondent/Dokumenttyp; **A2 ist aus den Artefakten NICHT PRUEFBAR**, weil der Beleg nur auf dem Server lebt (billigster Check: Trockenlauf dort gegen die Owner-Liste). Ich hatte „A1 bis A6 geprueft" geschrieben — das war zu weit.
+
+**Clear-Haerte (fremder Blick):** Drei Prod-Freigaben stehen nur als Frage und Ergebnis im Verlauf, die Zustimmung in keinem Artefakt. Acht der zehn Retro-Massnahmen hatten kein Tracking-Issue (nachgeholt). Der README-Beispielpfad wich vom echten Prod-Pfad ab (behoben).
+**SA-4:** 11 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+## ⚡ Stand (2026-09-09 vormittags — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
 
 **Morgen-Zeitung live** ([KONZ-platform-057](docs/konzepte/KONZ-platform-057-morgenzeitung-aus-dem-hot-topics-letter.md)): `news.iil.pet` bedient, Timer 06:15 UTC, Ausgabe erscheint als aufklappbare Artikel im Matrix-Raum `#news:chat.iil.pet` (Oberflaeche: **app-chat.iil.pet**). Kette: `mail_lesenaht` (devhub_web) → `digest_taeglich` (news_hub_web) → Chat. Betriebs-Runbook in Outline („Morgen-Zeitung … Betrieb auf news.iil.pet").
 
@@ -29,18 +44,9 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
 
-## ⚡ Aktueller Stand (2026-09-08 — Sitzung 136735: GX10 traegt zwei Rollen, zwei Konfigurationszeilen schlugen ein drittes Geraet)
-
-**Kaufberatung Mini-PC gegen GX10:** nicht kaufen, der Knoten war nicht ausgereizt ([#2978](https://github.com/achimdehnert/platform/issues/2978)).
-
-**Inferenz ([#2544](https://github.com/achimdehnert/platform/issues/2544)):** Ollama bediente mehrere Nutzer gar nicht parallel (1.906 tok/s bei 1 wie bei 8). Mit `OLLAMA_NUM_PARALLEL=4`: 2.632. vLLM laeuft seit heute als zweiter Dienst (Port 8000, wg0): 3.526, Skalierung 3,3x. Kein Verbraucher umgestellt — [mcp-hub#262](https://github.com/achimdehnert/mcp-hub/pull/262) blockiert, alle `ci-nonprod`-Runner offline.
-
-**Training ([robo-lab#58](https://github.com/achimdehnert/robo-lab/issues/58)):** Bis 16.384 Umgebungen ist die 4090 3,3x schneller; bei 20.480 bricht sie am VRAM ab, der GX10 rechnet durch. Ihre WSL-Maschine durfte vorher nur 12 von 128 GB nutzen — jetzt 64.
-
-**Retro 136735** ([#2975](https://github.com/achimdehnert/platform/pull/2975)): 14 Befunde, 11 ueberlebt, 7 ohne Artefakt in [#2982](https://github.com/achimdehnert/platform/issues/2982). Zwei Lehren: SoT zitiert statt gelesen (`hosts.yaml:166`); der Melder liest `ports.yaml` — drei Ausnahmen waren tot ([#2977](https://github.com/achimdehnert/platform/pull/2977)).
-
 ## Offene Fäden (über den Session-Stand hinaus)
 
+- **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.

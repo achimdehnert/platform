@@ -163,3 +163,31 @@ def test_should_still_ignore_the_splitter_input_without_the_exception():
     """Positivkontrolle: ohne die Ausnahme greift die Ignoranz wie zuvor."""
     dateien = [_datei("schleuse/scan-eingang/stapel.pdf", 60)]
     assert sm.haengende(dateien, jetzt=JETZT, ignore_dirs=["schleuse"]) == []
+
+
+# --- Ablagen ausserhalb des Consume-Baums (Retro 2026-09-09, Befund 12) -----
+
+
+def test_should_watch_an_extra_root_outside_the_consume_tree():
+    """Was der Zerleger nicht trennen konnte, darf nicht still liegen bleiben."""
+    dateien = [_datei("/opt/doc-hub/unklar/stapel.pdf", 600)]
+    treffer = sm.haengende(dateien, jetzt=JETZT, ignore_dirs=["schleuse"])
+    assert [t["pfad"] for t in treffer] == ["/opt/doc-hub/unklar/stapel.pdf"]
+
+
+def test_should_prefix_extra_root_files_with_their_absolute_path(monkeypatch):
+    """Der absolute Pfad bleibt stehen - sonst kollidiert er mit dem Baum."""
+    monkeypatch.setattr(
+        sm, "sammle", lambda wurzel, ssh: ([{"pfad": "a.pdf", "mtime": 0, "groesse": 1}], True)
+    )
+    dateien, blind = sm.sammle_zusatz(("/opt/doc-hub/unklar",), None)
+    assert [d["pfad"] for d in dateien] == ["/opt/doc-hub/unklar/a.pdf"]
+    assert blind == []
+
+
+def test_should_report_an_unreadable_extra_root_as_blind_not_green(monkeypatch):
+    """Positivkontrolle: nicht lesbar ist kein leeres Ergebnis."""
+    monkeypatch.setattr(sm, "sammle", lambda wurzel, ssh: ([], False))
+    dateien, blind = sm.sammle_zusatz(("/opt/doc-hub/unklar",), None)
+    assert dateien == []
+    assert blind == ["/opt/doc-hub/unklar"]

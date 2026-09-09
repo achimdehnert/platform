@@ -126,6 +126,13 @@ IGNORE_DIRS_FALLBACK = ["schleuse", ".thumbs"]
 # Melder sah ihn bis dahin auch nicht.
 BEOBACHTET_TROTZ_IGNORANZ = ("schleuse/scan-eingang",)
 
+# Ablagen ausserhalb des Consume-Baums, die trotzdem beaufsichtigt gehoeren.
+# `/opt/doc-hub/unklar` nimmt die Stapel auf, die der Zerleger NICHT trennen
+# konnte (doc-hub#4). Dort landet etwas genau dann, wenn ein Mensch hinsehen
+# muss -- und bis 2026-09-09 sah niemand hin: eine Datei lag dort einen halben
+# Tag, ohne dass ein Melder davon wusste.
+ZUSATZ_WURZELN = ("/opt/doc-hub/unklar",)
+
 
 def _lauf(argv: list[str], ssh: str | None) -> tuple[int, str]:
     """Kommando lokal oder ueber ssh ausfuehren. Gibt (rc, stdout) zurueck."""
@@ -286,6 +293,27 @@ def bericht(
 # --- Messung ---------------------------------------------------------------
 
 
+def sammle_zusatz(
+    wurzeln: tuple[str, ...], ssh: str | None
+) -> tuple[list[dict], list[str]]:
+    """Ablagen ausserhalb des Consume-Baums einsammeln.
+
+    Rueckgabe: (Dateien mit absolutem Pfad, nicht lesbare Wurzeln). Der Pfad
+    bleibt absolut, damit er sich nicht mit den relativen Pfaden des
+    Consume-Baums vermischt und im Bericht sofort erkennbar ist.
+    """
+    dateien: list[dict] = []
+    blind: list[str] = []
+    for wurzel in wurzeln:
+        teil, lesbar = sammle(wurzel, ssh)
+        if not lesbar:
+            blind.append(wurzel)
+            continue
+        for d in teil:
+            dateien.append({**d, "pfad": f"{wurzel.rstrip('/')}/{d['pfad']}"})
+    return dateien, blind
+
+
 def sammle(wurzel: str, ssh: str | None) -> tuple[list[dict], bool]:
     """Alle Dateien unter der Wurzel mit mtime und Groesse. Zweiter Wert: lesbar?"""
     rc, out = _lauf(["find", wurzel, "-type", "f", "-printf", "%T@\\t%s\\t%P\\n"], ssh)
@@ -392,10 +420,24 @@ def main(argv: list[str] | None = None) -> int:
             f"(Default: {', '.join(BEOBACHTET_TROTZ_IGNORANZ)})"
         ),
     )
+    p.add_argument(
+        "--zusatz-wurzel",
+        action="append",
+        default=list(ZUSATZ_WURZELN),
+        metavar="PFAD",
+        help=(
+            "Ablage ausserhalb des Consume-Baums, die mitbeaufsichtigt wird "
+            f"(Default: {', '.join(ZUSATZ_WURZELN)})"
+        ),
+    )
     p.add_argument("--kurz", action="store_true")
     a = p.parse_args(argv)
 
     dateien, lesbar = sammle(a.wurzel, a.ssh)
+    zusatz, blinde_wurzeln = sammle_zusatz(tuple(a.zusatz_wurzel), a.ssh)
+    dateien += zusatz
+    for w in blinde_wurzeln:
+        print(f"scan-melder: {w} nicht lesbar — blind, nicht gruen", file=sys.stderr)
     if not lesbar:
         print(
             f"scan-melder: {a.wurzel} nicht lesbar — blind, nicht gruen",
@@ -425,9 +467,8 @@ def main(argv: list[str] | None = None) -> int:
     # Bestandsvergleich fuehrt der Zerleger selbst in seinem Ledger.
     bestand = [
         d for d in beobachtet
-        if not any(
-            d["pfad"].startswith(t.rstrip("/") + "/") for t in trotz
-        )
+        if not any(d["pfad"].startswith(t.rstrip("/") + "/") for t in trotz)
+        and not any(d["pfad"].startswith(w.rstrip("/") + "/") for w in a.zusatz_wurzel)
     ]
 
     verluste: list[dict] = []
