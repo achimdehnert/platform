@@ -3498,3 +3498,18 @@ Sieben Deploy-Anlaeufe fuer ein Image, das nie jemand gestartet hatte — zuletz
 gunicorn. Eigene Fehler: automerge nahm #24 waehrend ich nachschob (zwei Fixes gingen
 verloren), und ich hielt chat.iil.pet fuer Discord statt Matrix. Drei Memories, zwei
 Outline-Lessons, ein Outline-Runbook.
+
+## 2026-09-09 (Abschluss) — Morgen-Zeitung im Betrieb, Retro deep
+
+Der zweite Teil des Tages: Chat-Anbindung (Matrix-Bot, Raum, aufklappbare Artikel),
+Themenqualitaet (Adressen, englische Funktionswoerter, Dubletten, Modell-Bewertung,
+Einordnung) und der Betriebs-Melder. 21 PRs in zwei Repos.
+
+Die Retro lief als `deep` mit drei Findern, einem Skeptiker und der Widerlegungsbahn auf
+Tier 4. Sie kippte zwei meiner eigenen Urteile und fand eine Dimension, die keiner der drei
+Finder hatte: der Ausfall des Tageslaufs war auf allen drei Ebenen unsichtbar. Der Melder
+misst jetzt das Ergebnis statt des Transports.
+
+Zwei Owner-Korrekturen an mir: Konten und Raeume in der eigenen Infrastruktur sind Bauarbeit,
+keine Entscheidung — und die selbst geschriebene Freigabe-Zeile ist zulaessig, solange sie das
+Owner-Wort zitiert.

@@ -15,19 +15,19 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-09 — die Morgen-Zeitung laeuft: news.iil.pet live, sieben Deploy-Anlaeufe fuer ein nie gestartetes Image)
+## ⚡ Aktueller Stand (2026-09-09 — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
 
-**Mailcheck + Fremdvergleich:** Drei Konten, beide Richtungen. Der Inbox-Brief eines fremden Postfach-Assistenten empfahl zwei Schritte, die schon erledigt waren, und uebersah den einzigen Terminbruch des Tages — er liest nur den IIL-Posteingang, kein Gesendetes, kein HNU, und verwirft Abwesenheitsantworten. Uebernommen wurde die Form: Board-Kopfzeile und eine Spur „nur zur Kenntnis" ([#2987](https://github.com/achimdehnert/platform/pull/2987)).
+**Morgen-Zeitung live** ([KONZ-platform-057](docs/konzepte/KONZ-platform-057-morgenzeitung-aus-dem-hot-topics-letter.md)): `news.iil.pet` bedient, Timer 06:15 UTC, Ausgabe erscheint als aufklappbare Artikel im Matrix-Raum `#news:chat.iil.pet` (Oberflaeche: **app-chat.iil.pet**). Kette: `mail_lesenaht` (devhub_web) → `digest_taeglich` (news_hub_web) → Chat. Betriebs-Runbook in Outline („Morgen-Zeitung … Betrieb auf news.iil.pet").
 
-**Morgen-Zeitung (KONZ-platform-057, [#2991](https://github.com/achimdehnert/platform/pull/2991)):** Die Idee existierte seit dem 29.08. als ADR-299 und war in `news-hub` fertig gebaut — es fehlte nur der Betrieb. Jetzt live: DNS, nginx-Vhost, drei Deploy-Secrets, eigener CI-Schluessel, Deploy-Lauf 34335818067 gruen, `https://news.iil.pet/livez/` = 200. Tageslauf `news-hub-tageslauf.timer` 06:15 UTC, erster echter Lauf `Result=success`, Ausgabe mit 5 Themen. Deklaration nachgezogen ([#2993](https://github.com/achimdehnert/platform/pull/2993)).
+**Was der Tag ergab:** Aus einem Mailcheck wurden sieben Owner-Zurufe und 21 gemergte PRs in zwei Repos — [#2987](https://github.com/achimdehnert/platform/pull/2987) (Board-Kopfzeile, Bucket `kenntnis`), [#2991](https://github.com/achimdehnert/platform/pull/2991) (Konzept), [#2993](https://github.com/achimdehnert/platform/pull/2993) (Deklaration), [#2998](https://github.com/achimdehnert/platform/pull/2998), [#3002](https://github.com/achimdehnert/platform/pull/3002) (Retro) sowie news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#41](https://github.com/achimdehnert/news-hub/pull/41).
 
-**Sieben Anlaeufe, fuenf echte Ursachen:** gesperrte Deklaration · `secrets: inherit` ueber die Org-Grenze · falsche Secret-Namen (`DEPLOY_*` → `HETZNER_*`, ADR-022) · fehlende `deployment/scripts/deploy-remote.sh` · fehlendes `gunicorn` (news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#27](https://github.com/achimdehnert/news-hub/pull/27)). Lehre: CI baut das Image, sie startet es nicht.
+**Retro** ([#3002](https://github.com/achimdehnert/platform/pull/3002), Footprint `deep`): 20 Befunde, 13 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — die Rework-Quote (50 % → 21 %, vier PRs korrigierten Arbeit vom 29.08.) und den Staging-Befund (news-hub hat gar kein Staging, es war eine Dublette). Ein verworfener Befund kehrte zurueck: KONZ-057 traegt eine Ledger-Zeile `belegt`, deren Beleg derselbe Tag umschrieb. **Neu und keinem Finder aufgefallen:** ein Ausfall des Tageslaufs war unsichtbar — behoben in [news-hub#41](https://github.com/achimdehnert/news-hub/pull/41) (`digest_frische`, Units im Repo, `OnFailure` meldet in den Chat-Raum).
 
-**Eigene Fehler:** Der Owner mergte news-hub#24 (08:23:45), waehrend ich noch einen Commit nachschob (08:27:23) — der Push meldete Erfolg, der Stand fehlte auf `main`, zwei Deploy-Fehlschlaege. **Korrektur 2026-09-09:** ich hatte das zuerst automerge angelastet und daraus eine Governance-Luecke abgeleitet; `mergedBy: achimdehnert`, `autoMergeRequest: null` und `allow_auto_merge: false` widerlegen das. news-hub hat keinen automerge — es gab keine Luecke. Und ich hielt den Team-Chat fuer Discord; `chat.iil.pet` ist Matrix/Synapse, die Melde-Schicht musste neu geschrieben werden.
+**Eigene Fehler:** Ein Filter ohne Untergrenze leerte das Blatt, und der zugehoerige Test schrieb genau dieses Verhalten als richtig fest (Outline-Lesson, [news-hub#36](https://github.com/achimdehnert/news-hub/pull/36)). Ich meldete 14 selbst geschriebene Freigabe-Zeilen als Regelverstoss — der Owner wies das zurueck („kein Regelverstoss, sondern sinnvolles miteinander arbeiten"); die Memory-Regel ist ersetzt. Eine PR-Nummer war erfunden (#3001 statt #3002).
 
-**Offen (Owner):** Matrix-Bot-Konto + Raum, danach `DIGEST_CHAT_RAUM`/`DIGEST_CHAT_TOKEN` in der Umgebungsdatei auf dem Prod-Host — bis dahin meldet der Lauf „kein Chat-Token gesetzt". Keine Quelle fuer NIS2, Voice, Robotik ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)). Themenauswahl kuert generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)).
+**Offen (Owner):** Themenauswahl kuert weiter generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)) · Smoke-Lauf im CI, Entwurf steht ([news-hub#40](https://github.com/achimdehnert/news-hub/issues/40)) · NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)) · drei Memory-Kandidaten aus der Retro.
 
-**Clear-Haerte (0e):** F1 nein — Betriebswissen steht im Outline-Runbook „Morgen-Zeitung … Betrieb auf news.iil.pet" und in news-hub#3. F2 nein — das Schluesselpaar in `/tmp` ist bewusst fluechtig. F3 nein.
+**Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
 
 ## ⚡ Aktueller Stand (2026-09-08 — Sitzung 136735: GX10 traegt zwei Rollen, zwei Konfigurationszeilen schlugen ein drittes Geraet)
 
@@ -48,7 +48,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 0. Scan-Strecke: lueckenloses Lieferprotokoll offen, nach vier Anlaeufen gestoppt: https://github.com/achimdehnert/doc-hub/issues/3
 0. Auslagern verlor drei Faeden nach #2967 — Befund zum Gate selbst: https://github.com/achimdehnert/platform/issues/2974
 0. Gate-Registry-Eintrag `handover-auslagerung-verschluckt-offenes` wartet auf Owner-Wort (`docs/governance/`): https://github.com/achimdehnert/platform/pull/2984
-0. Morgen-Zeitung laeuft, aber stumm: Matrix-Bot fehlt, NIS2/Voice/Robotik ohne Quelle: https://github.com/achimdehnert/news-hub/issues/19
+0. Morgen-Zeitung: Themenauswahl kuert generische Woerter, Smoke-Lauf offen: https://github.com/achimdehnert/news-hub/issues/33
 1. KONZ-054 Systembild, Kill-Gate 2026-10-15; Owner-Punkte #2486/#2504/#2507, Reste #2480: https://github.com/achimdehnert/platform/issues/2516
 2. KONZ-051 ux-review-agent, Kill-Gate 2026-09-30; K1 3/9, K3 offen: https://github.com/achimdehnert/writing-hub/issues/766
 3. Volume-Deckung prod (40 Volumes), K2 = Owner-Gate, Löschliste #2258: https://github.com/achimdehnert/platform/issues/2300
