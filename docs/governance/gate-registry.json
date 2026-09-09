@@ -113,8 +113,8 @@
       "drill": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py",
       "built": "2026-08-02",
       "ref": "platform#1646",
-      "revised": "2026-09-07",
-      "revision_note": "Rev 4, DRITTER AUSLOESER nach Retro fdd368 §5a (Owner-Entscheid 'ausweiten'): eine laufende Ressource beenden, die diese Sitzung nicht gestartet hat (kill/pkill/killall, systemctl stop|restart|disable|mask, docker kill|stop). Anlass: am 2026-08-25 wurde ein seit dem Vortag laufender Dev-Server per 'kill <pid>' beendet, waehrend zwoelf Sitzungen parallel liefen; die Zugehoerigkeit wurde erst DANACH ueber /proc/<pid>/cwd plausibilisiert. Beide bestehenden Ausloeser griffen nicht — kein drittes beschriebenes Repo, kein Prod-Schritt. Der Ausgang war harmlos, und genau das ist der Punkt: der Checkpoint fragt nach dem gewachsenen SCOPE, nicht nach dem entstandenen Schaden; eine Harmlosigkeits-Ausnahme hoehlt ihn aus. Bewusst eng: 'docker compose up/down' auf den eigenen Stack faellt nicht darunter (eigener Drill), lesende Prozess-Sicht (ps, ss) ebenfalls nicht — sie ist das, was VOR einem kill passieren soll. · Rev 5 (2026-09-07, platform#2374, Gate rueckfaellig x3 -> 'schaerfen'): dritte Fehlerform C `reichweite-gewachsen`. Bis Rev 4 endete die Pflicht mit dem ERSTEN abgelegten Checkpoint -- war `checkpoint_text` gesetzt und ein durables Artefakt gefunden, gab main() fuer den Rest der Sitzung 0 zurueck. Genau das ist der Rueckfall aus Retro 33616e (2026-09-01, Befund #1): 'Scope wuchs von /mcp anzeigen auf 13 PRs in 3 Repos + Staging-Schreibzugriff. Checkpoint einmal abgelegt, danach kein zweiter trotz weiterem Wachstum.' Das Gate hatte gefeuert, die Sitzung hatte geantwortet -- und danach war es blind. Ein Checkpoint ist eine Aussage ueber eine REICHWEITE, nicht ueber eine Sitzung; waechst sie, verfaellt die Aussage. Fehlerform C vergleicht den Stand zum Zeitpunkt des LETZTEN Checkpoints mit dem Jetzt und feuert bei zwei Wachstumsarten: NACHWACHS_SCHWELLE=2 zusaetzliche beschriebene Repos, oder der erste Prod-/Publish-Schritt nach einem Checkpoint, der ohne Prod abgelegt wurde (die Hausregel fuehrt Prod eigenstaendig neben der Repo-Zahl). Die Entprellung haengt an der beobachteten Reichweite, nicht an der Sitzung -- jeder neue Wachstumsstand meldet einmal; sitzungsweit waere Fehlerform C selbst wieder ein Melder, der nach dem ersten Mal verstummt.",
+      "revised": "2026-09-09",
+      "revision_note": "Rev 5, VIERTER AUSLOESER nach Retro a6edc6 Befund 11 (Gate RUECKFAELLIG, Ursache an der QUELLE): das Muster kannte nur das Abschalten fremder Dienste (stop|restart|disable|mask). Als in derselben Sitzung auf hetzner-prod ein Dienst SCHARFgeschaltet wurde (systemctl enable --now doc-hub-splitter.timer), schwieg es. Scharfschalten ist mindestens so weitreichend wie Stilllegen -- danach laeuft dauerhaft etwas, das vorher nicht lief. Ergaenzt: enable|start. BEKANNTE RESTLUECKE (nicht geschlossen): 'install ... /etc/systemd/system/', 'apt install' auf einem Fremdhost und 'docker exec ... manage.py' bleiben unsichtbar -- der Traeger dafuer waere ein Stop-Hook in ~/.claude/settings.json, siehe declined-Eintrag host-fix-not-mirrored-to-iac.",
       "faengt": [
         {
           "fall": "drittes Repo beruehrt, Scope nicht durabel abgelegt",
@@ -127,6 +127,10 @@
         {
           "fall": "Checkpoint abgelegt, Reichweite danach weiter gewachsen (Retro 33616e #1)",
           "probe": "Fehlerform C"
+        },
+        {
+          "fall": "fremden Dienst scharfschalten (enable/start) ohne durablen Scope-Vermerk",
+          "probe": "fremde_ressource"
         }
       ],
       "zustand": "schranke",
@@ -134,8 +138,8 @@
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin — Owner-Entscheid E4 (platform#2606). Ein Gate, das dauerhaft nur meldet, wird gelesen wie eines, das nie meldet.",
       "positivkontrolle": {
-        "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py -- test_should_flag_when_two_more_repos_written_after_checkpoint baut den Realfall 33616e #1 nach (Checkpoint + durables Artefakt, danach zwei weitere Repos) und erzeugt Fehlerform C; die identische Sitzung ohne Nachwachsen bleibt still (test_should_stay_silent_when_scope_does_not_grow_after_checkpoint), ein einzelnes weiteres Repo ebenfalls.",
-        "datum": "2026-09-07"
+        "ref": "tools/claude-hooks/tests/test_scope_checkpoint_scanner.py -- test_should_flag_enabling_a_service_on_a_foreign_host baut den Realfall a6edc6 nach (systemctl enable --now auf hetzner-prod); test_should_not_flag_reading_a_service_state ist die Gegenprobe, dass reines Nachsehen (is-active/list-timers/cat) NICHT feuert",
+        "datum": "2026-09-09"
       }
     },
     {

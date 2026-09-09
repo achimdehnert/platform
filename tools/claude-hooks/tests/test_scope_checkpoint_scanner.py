@@ -530,3 +530,29 @@ def test_should_report_each_growth_level_once(tmp_path, monkeypatch, capsys):
     )
     _, dritte = _run(monkeypatch, capsys, p2)
     assert "Fehlerform C" in _kontext(dritte)
+
+
+# --- Rev 5: Scharfschalten zaehlt wie Stilllegen (Retro 2026-09-09, Befund 11)
+
+
+def test_should_flag_enabling_a_service_on_a_foreign_host():
+    """`systemctl enable --now` auf prod ist ein Scope-Schritt wie `stop`."""
+    treffer = scanner._FREMDE_RESSOURCE.search(
+        "ssh hetzner-prod 'systemctl enable --now doc-hub-splitter.timer'"
+    )
+    assert treffer is not None
+
+
+def test_should_flag_starting_a_service_on_a_foreign_host():
+    treffer = scanner._FREMDE_RESSOURCE.search("ssh hetzner-prod 'systemctl start doc-hub-splitter'")
+    assert treffer is not None
+
+
+def test_should_not_flag_reading_a_service_state():
+    """Positivkontrolle: Nachsehen ist kein Eingriff."""
+    for harmlos in (
+        "systemctl is-active doc-hub-splitter.timer",
+        "systemctl list-timers --no-pager",
+        "systemctl cat doc-hub-splitter.service",
+    ):
+        assert scanner._FREMDE_RESSOURCE.search(harmlos) is None, harmlos
