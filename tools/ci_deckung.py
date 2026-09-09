@@ -51,11 +51,12 @@ Segment `konformitaet`. Ein zweites, generalisierbares Kriterium (`ZIEL_SCHLUESS
 unten) erkennt darum zusaetzlich Ziele, deren NAME (durch `-`/`_` getrennt) ein
 Pruef-Schluesselwort traegt (`test`, `check`, `lint`, `verify`, `konformitaet`,
 `selbsttest`, `gegenprobe`, `gate` — Wortgrenze, nicht Teilstring: `latest` matcht
-nicht). Das ist bewusst WEITER als die acht Werkzeugnamen und bewusst NICHT auf
-robo-lab zugeschnitten (kein `konformitaet`-Sonderfall im Code, nur ein Wort in
-einer Menge) — mit der Konsequenz, dass es fleet-weit mehr NAMEN als
-Pruef-Kommando einstuft, darunter legitime Ausnahmen wie ein `chat-verify`-Ziel,
-das echten Serverzugriff braucht. Genau dafuer existiert der Verzicht
+nicht). Das ist bewusst WEITER als die acht Werkzeugnamen und absichtlich
+generisch gehalten (kein `konformitaet`-Sonderfall im Code, nur ein Wort in
+einer Menge, die auch fuer andere Repos gilt) — mit der Konsequenz, dass es
+fleet-weit mehr NAMEN als Pruef-Kommando einstuft, darunter legitime
+Ausnahmen wie ein `chat-verify`-Ziel, das echten Serverzugriff braucht.
+Genau dafuer existiert der Verzicht
 (`governance/ci-deckung-verzicht.yaml`) — ein Treffer aus diesem zweiten
 Kriterium ist ein Befund, der entweder gedeckt, verzichtet oder tatsaechlich eine
 Luecke ist, nicht automatisch falsch. Shell-Fuellwoerter innerhalb eines so
