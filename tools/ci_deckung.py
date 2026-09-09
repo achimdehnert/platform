@@ -101,7 +101,6 @@ import argparse
 import json
 import os
 import re
-import sys
 from dataclasses import asdict, dataclass
 
 # Maschinenlesbarer Kopf (KONZ-038 D8)
@@ -304,7 +303,9 @@ def parse_makefile(text: str) -> list[Kommando]:
                     norm = _normalize_one(sub)
                     if norm and (is_pruef_kommando(norm) or kandidat):
                         for ziel in aktuelle_ziele:
-                            ergebnisse.append(Kommando(ziel=ziel, roh=sub, normalisiert=norm))
+                            ergebnisse.append(
+                                Kommando(ziel=ziel, roh=sub, normalisiert=norm)
+                            )
             i += 1
             continue
         if not raw or raw[0].isspace() or raw.lstrip().startswith("#"):
@@ -430,7 +431,9 @@ def lade_verzicht(pfad: str) -> tuple[dict[tuple[str, str], str], list[str]]:
     return eintraege, fehler
 
 
-def scan_repo(repo_pfad: str, verzicht: dict[tuple[str, str], str] | None = None) -> dict:
+def scan_repo(
+    repo_pfad: str, verzicht: dict[tuple[str, str], str] | None = None
+) -> dict:
     verzicht = verzicht or {}
     repo_pfad = os.path.abspath(os.path.expanduser(repo_pfad))
     repo_name = os.path.basename(repo_pfad.rstrip("/"))
@@ -522,7 +525,11 @@ def main() -> int:
     ergebnis["verzicht_fehler"] = verzicht_fehler
 
     if args.als_json:
-        print(json.dumps(ergebnis, ensure_ascii=False, indent=2, default=lambda o: asdict(o)))
+        print(
+            json.dumps(
+                ergebnis, ensure_ascii=False, indent=2, default=lambda o: asdict(o)
+            )
+        )
         return 0
 
     befunde = ergebnis["befunde"]
@@ -542,7 +549,9 @@ def main() -> int:
         if verzicht_fehler:
             teile.append(f"{len(verzicht_fehler)} Verzicht-Eintrag(e) ungueltig")
         if not teile:
-            print(f"keine offene Deckungsluecke ({ergebnis['repo']}, {ergebnis['geprueft']} Kommando(s) geprueft)")
+            print(
+                f"keine offene Deckungsluecke ({ergebnis['repo']}, {ergebnis['geprueft']} Kommando(s) geprueft)"
+            )
         else:
             print(" · ".join(teile))
         return 0

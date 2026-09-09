@@ -41,7 +41,9 @@ sys.modules["ci_deckung"] = cd  # dataclass-Introspektion braucht den Registry-E
 _spec.loader.exec_module(cd)
 
 
-def _repo(tmp_path: Path, makefile: str, workflow: str | None = None, name: str = "repo") -> Path:
+def _repo(
+    tmp_path: Path, makefile: str, workflow: str | None = None, name: str = "repo"
+) -> Path:
     repo = tmp_path / name
     repo.mkdir(exist_ok=True)
     (repo / "Makefile").write_text(makefile, encoding="utf-8")
@@ -62,15 +64,13 @@ def _gedeckt_ziele(ergebnis: dict) -> set[str]:
 
 # ─────────────────────────── Realfall 1: robo-lab stream-gate ──────────────
 
+
 def test_should_catch_realfall_1_robo_lab_stream_gate(tmp_path):
     """robo-lab 2026-08-28: `sim/test_stream_gate.py` steht im Makefile, CI installiert
     nur `mujoco numpy` und ruft es nie auf (Retro Zeile 40). Entscheidet ueber die
     Pfad-Granularitaet: CI faehrt an anderer Stelle durchaus pytest-artige Skripte,
     aber nicht DIESES."""
-    makefile = (
-        "stream-gate: venv\n"
-        "\t$(PYTHON) sim/test_stream_gate.py\n"
-    )
+    makefile = "stream-gate: venv\n\t$(PYTHON) sim/test_stream_gate.py\n"
     ci_ohne_fix = (
         "on: [push]\n"
         "jobs:\n"
@@ -93,6 +93,7 @@ def test_should_catch_realfall_1_robo_lab_stream_gate(tmp_path):
 
 
 # ───────────────── Realfall 2: robo-lab exo-konformitaet-myoassist ─────────
+
 
 def test_should_catch_realfall_2_robo_lab_exo_konformitaet_myoassist(tmp_path):
     """robo-lab 2026-09-07: der vendor-abhaengige Exo-Pfad laeuft nie in CI — nur
@@ -126,7 +127,8 @@ def test_should_catch_realfall_2_robo_lab_exo_konformitaet_myoassist(tmp_path):
 
     # gruen mit Fix
     (repo / ".github" / "workflows" / "ci.yml").write_text(
-        ci_ohne_fix + "      - run: python exo/konformitaet.py --adapter myoassist --journal\n",
+        ci_ohne_fix
+        + "      - run: python exo/konformitaet.py --adapter myoassist --journal\n",
         encoding="utf-8",
     )
     ergebnis2 = cd.scan_repo(str(repo))
@@ -135,6 +137,7 @@ def test_should_catch_realfall_2_robo_lab_exo_konformitaet_myoassist(tmp_path):
 
 
 # ─────────────── Realfall 3: chat-hub #79, Form nachgebaut (siehe Docstring) ─
+
 
 def test_should_catch_realfall_3_chat_hub_ruff_format_shape(tmp_path):
     """Repraesentative Fixture fuer die FORM von chat-hub#79 — siehe Modul-Docstring
@@ -158,7 +161,10 @@ def test_should_catch_realfall_3_chat_hub_ruff_format_shape(tmp_path):
     ergebnis = cd.scan_repo(str(repo))
     befunde = _befund_ziele(ergebnis)
     assert "lint" in befunde
-    assert any(b["kommando"] == "ruff format --check deploy/ tests/" for b in ergebnis["befunde"])
+    assert any(
+        b["kommando"] == "ruff format --check deploy/ tests/"
+        for b in ergebnis["befunde"]
+    )
     # shellcheck + ruff check sind gedeckt, nur ruff format fehlt
     gedeckte_kommandos = {g["kommando"] for g in ergebnis["gedeckt"]}
     assert "shellcheck deploy/*.sh" in gedeckte_kommandos
@@ -166,7 +172,8 @@ def test_should_catch_realfall_3_chat_hub_ruff_format_shape(tmp_path):
 
     # gruen mit Fix (das echte #81 hat genau das getan: Schritt ergaenzt)
     (repo / ".github" / "workflows" / "ci.yml").write_text(
-        ci_ohne_fix + "      - run: ruff format --check deploy/ tests/\n", encoding="utf-8"
+        ci_ohne_fix + "      - run: ruff format --check deploy/ tests/\n",
+        encoding="utf-8",
     )
     ergebnis2 = cd.scan_repo(str(repo))
     assert not ergebnis2["befunde"]
@@ -187,18 +194,20 @@ def test_should_find_nothing_on_real_current_chat_hub():
     verzicht, fehler = cd.lade_verzicht(cd.DEFAULT_VERZICHT)
     ergebnis = cd.scan_repo(str(pfad), verzicht)
     assert ergebnis["befunde"] == []
-    assert {v["ziel"] for v in ergebnis["verzicht"]} == {"chat-verify", "chat-verify-init"}
+    assert {v["ziel"] for v in ergebnis["verzicht"]} == {
+        "chat-verify",
+        "chat-verify-init",
+    }
 
 
 # ───────────────────────────── Gegenproben (duerfen NICHT anschlagen) ──────
+
 
 def test_should_not_flag_a_target_covered_via_make_invocation(tmp_path):
     """Gegenprobe: `make lint` im CI deckt das Ziel, ohne dass das Kommando
     literal im Workflow steht."""
     makefile = "lint:\n\truff check src/\n"
-    workflow = (
-        "on: [push]\njobs:\n  ci:\n    steps:\n      - run: make lint\n"
-    )
+    workflow = "on: [push]\njobs:\n  ci:\n    steps:\n      - run: make lint\n"
     repo = _repo(tmp_path, makefile, workflow)
     ergebnis = cd.scan_repo(str(repo))
     assert ergebnis["befunde"] == []
@@ -217,6 +226,7 @@ def test_should_not_flag_a_non_check_target(tmp_path):
 
 
 # ───────────────────────── Normalisierung (Kernregeln aus dem Docstring) ───
+
 
 def test_should_normalize_make_variable_and_output_flag_away():
     assert cd.normalize_command("$(TEST_PY) -m pytest tests/ -q") == ["pytest tests/"]
@@ -245,16 +255,21 @@ def test_should_not_treat_latest_as_a_test_keyword():
 
 # ───────────────────────────── Falsifikation ────────────────────────────────
 
+
 def test_should_mark_repo_not_pruefbar_when_makefile_has_no_tab_recipes(tmp_path):
     repo = tmp_path / "seltsam"
     repo.mkdir()
-    (repo / "Makefile").write_text("lint:\n    ruff check src/\n", encoding="utf-8")  # Leerzeichen statt TAB
+    (repo / "Makefile").write_text(
+        "lint:\n    ruff check src/\n", encoding="utf-8"
+    )  # Leerzeichen statt TAB
     ergebnis = cd.scan_repo(str(repo))
     assert ergebnis["befunde"] == []
     assert any("Tab-Rezeptzeile" in n["grund"] for n in ergebnis["nicht_pruefbar"])
 
 
-def test_should_mark_finding_not_pruefbar_when_a_reusable_workflow_is_referenced(tmp_path):
+def test_should_mark_finding_not_pruefbar_when_a_reusable_workflow_is_referenced(
+    tmp_path,
+):
     makefile = "test:\n\tpytest tests/\n"
     workflow = (
         "on: [push]\n"
@@ -268,7 +283,9 @@ def test_should_mark_finding_not_pruefbar_when_a_reusable_workflow_is_referenced
     assert any(n["ziel"] == "test" for n in ergebnis["nicht_pruefbar"])
 
 
-def test_should_mark_finding_not_pruefbar_when_command_uses_a_matrix_expression(tmp_path):
+def test_should_mark_finding_not_pruefbar_when_command_uses_a_matrix_expression(
+    tmp_path,
+):
     makefile = "test:\n\tpytest tests/\n"
     workflow = (
         "on: [push]\n"
@@ -288,9 +305,12 @@ def test_should_mark_finding_not_pruefbar_when_command_uses_a_matrix_expression(
 
 # ───────────────────────────── Verzicht ─────────────────────────────────────
 
+
 def test_should_apply_a_valid_verzicht_entry(tmp_path):
     makefile = "chat-verify:\n\tpython3 deploy/chat_verify.py\n"
-    repo = _repo(tmp_path, makefile, "on: [push]\njobs:\n  ci:\n    steps: []\n", name="chat-hub")
+    repo = _repo(
+        tmp_path, makefile, "on: [push]\njobs:\n  ci:\n    steps: []\n", name="chat-hub"
+    )
     verzicht = {("chat-hub", "chat-verify"): "Prod-Zugriff"}
     ergebnis = cd.scan_repo(str(repo), verzicht)
     assert ergebnis["befunde"] == []
