@@ -40,6 +40,11 @@ meta:
     # Owner, aber auch keine Antwort — und ein Werkzeug, das None bekommt, faellt
     # entweder aus oder raet. Gefunden beim Gegenlesen von project-facts.md.
     chat-hub: iilgmbh
+    # 2026-09-09 (frist-hub#142): Produktkoerper von FristAssist, angelegt am
+    # selben Tag unter iilgmbh. Kein "iil-"-Prefix-Rule vorhanden (s. iil-voice-
+    # agent oben), deshalb Override statt Automatik — sonst faellt es auf den
+    # achimdehnert-Default zurueck, bevor das erste Werkzeug es sucht.
+    iil-fristassist: iilgmbh
     # ADR-297 (2026-08-24, platform#2264): der neue Org-Zuordnungs-Melder
     # (tools/org_zuordnung_melder.py) hat acht Repos gefunden, deren realer Owner
     # dem hier deklarierten widersprach — verifiziert ueber `.owner.login` der
