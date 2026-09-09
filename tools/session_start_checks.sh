@@ -1104,6 +1104,20 @@ else
   record "0.7.25 rotation-faelligkeit" "SKIP" "tools/rotate.py fehlt in $PLATFORM_DIR"
 fi
 
+# ── 0.7.26 CI-Deckung: laeuft eine lokale Pruefung auch im CI, oder nie? ────
+# Slug `ci-gate-narrower-than-local-test`, dreimal aufgetreten (robo-lab x2,
+# chat-hub #79) und bis 2026-09-09 ohne Gate. Vergleicht die Makefile-Ziele des
+# TARGET_REPO mit den Workflows: laeuft ein Ziel, das lokal ein Pruefwerkzeug
+# ausfuehrt, niemals im CI, ist das der Befund. Advisory, Report-Werkzeug —
+# Exit 0 immer, siehe tools/ci_deckung.py.
+DECKUNG_CI_DIR="$GITHUB_DIR/$TARGET_REPO"
+DECKUNG_CI_OUT=$(python3 "$PLATFORM_DIR/tools/ci_deckung.py" --repo "$DECKUNG_CI_DIR" --kurz 2>/dev/null || true)
+case "$DECKUNG_CI_OUT" in
+  "keine offene Deckungsluecke"*) record "0.7.26 ci-deckung" "PASS" "$DECKUNG_CI_OUT" "$TARGET_REPO" ;;
+  "") record "0.7.26 ci-deckung" "WARN" "Melder nicht auswertbar — manuell: platform/tools/ci_deckung.py --repo $DECKUNG_CI_DIR" "$TARGET_REPO" ;;
+  *) record "0.7.26 ci-deckung" "WARN" "$DECKUNG_CI_OUT" "$TARGET_REPO" ;;
+esac
+
 # ── 0.7.20 Umgebung: wo stehe ich, und wer antwortet unter den Namen? ─────
 # Alle anderen Phasen vergleichen Zusagen miteinander. Diese sagt der Sitzung,
 # WO sie steht — und ob hinter einem deklarierten Namen die richtige Anwendung

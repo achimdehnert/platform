@@ -358,3 +358,9 @@ melder:
     praezision_min: 0.6
     mindest_laeufe: 5
     runbook: "0.R#0.7.24"
+  - phase: "0.7.26 ci-deckung"
+    leser: "Session-Start-Board → Agent (Ziel gedeckt/verzichtet nachziehen, dann `make <ziel>` in den Workflow oder Grund in governance/ci-deckung-verzicht.yaml); Owner bei Scope-Fragen ueber Repo-Grenzen"
+    wiedervorlage_tage: 14
+    praezision_min: 0.6
+    mindest_laeufe: 5
+    runbook: "0.R#0.7.26"
