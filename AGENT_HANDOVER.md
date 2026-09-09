@@ -46,6 +46,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
+- **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.
