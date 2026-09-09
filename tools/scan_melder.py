@@ -119,6 +119,13 @@ INVENTAR = "/var/lib/scan-melder/inventar.json"
 # in der Container-Env (siehe Modul-Docstring).
 IGNORE_DIRS_FALLBACK = ["schleuse", ".thumbs"]
 
+# Ordner, die Paperless ignoriert, die aber trotzdem beaufsichtigt gehoeren.
+# `schleuse/scan-eingang` ist der Eingang des Stapel-Zerlegers (doc-hub#4): dort
+# legt der Scanner ab, dort arbeitet ein Timer, und was der liegen laesst,
+# faellt sonst durch beide Netze - Paperless sieht den Ordner nicht, und dieser
+# Melder sah ihn bis dahin auch nicht.
+BEOBACHTET_TROTZ_IGNORANZ = ("schleuse/scan-eingang",)
+
 
 def _lauf(argv: list[str], ssh: str | None) -> tuple[int, str]:
     """Kommando lokal oder ueber ssh ausfuehren. Gibt (rc, stdout) zurueck."""
@@ -155,7 +162,18 @@ def ignorierte_ordner(env_text: str) -> tuple[list[str], bool]:
     return [str(w) for w in werte], True
 
 
-def _ignoriert(relpfad: str, ignore_dirs: list[str]) -> bool:
+def _ignoriert(
+    relpfad: str, ignore_dirs: list[str], beobachtet_trotz: tuple[str, ...] = ()
+) -> bool:
+    # Ein Ordner kann fuer Paperless ignoriert und trotzdem beaufsichtigt sein:
+    # im Eingang des Zerlegers arbeitet ein anderer Dienst, und was der liegen
+    # laesst, ist genauso ein Befund wie eine haengende Datei im Consume-Baum
+    # (doc-hub#4, A6). Deshalb sticht diese Liste die Ignoranz.
+    if any(
+        relpfad == p or relpfad.startswith(p.rstrip("/") + "/")
+        for p in beobachtet_trotz
+    ):
+        return False
     teile = Path(relpfad).parts
     ordner = set(teile[:-1])
     if ordner & set(ignore_dirs):
@@ -171,6 +189,7 @@ def haengende(
     schwelle_min: int = SCHWELLE_MIN,
     ignore_dirs: list[str] | None = None,
     neu_seit_min: int | None = None,
+    beobachtet_trotz: tuple[str, ...] = (),
 ) -> list[dict]:
     """Dateien, die laenger als die Schwelle im Consume-Baum liegen.
 
@@ -182,7 +201,7 @@ def haengende(
     oben = (schwelle_min + neu_seit_min) * 60 if neu_seit_min is not None else None
     treffer = []
     for d in dateien:
-        if _ignoriert(d["pfad"], ignore_dirs):
+        if _ignoriert(d["pfad"], ignore_dirs, beobachtet_trotz):
             continue
         alter = jetzt - d["mtime"]
         if alter < unten:
@@ -363,6 +382,16 @@ def main(argv: list[str] | None = None) -> int:
         default=INVENTAR,
         help="Pfad des Bestandsvergleichs; leer ('') schaltet die Verlust-Erkennung ab",
     )
+    p.add_argument(
+        "--auch",
+        action="append",
+        default=None,
+        metavar="RELPFAD",
+        help=(
+            "Ordner, der trotz PAPERLESS_CONSUMER_IGNORE_DIRS beaufsichtigt wird "
+            f"(Default: {', '.join(BEOBACHTET_TROTZ_IGNORANZ)})"
+        ),
+    )
     p.add_argument("--kurz", action="store_true")
     a = p.parse_args(argv)
 
@@ -375,19 +404,36 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     ignore_dirs, gemessen = lies_ignoranz(a.ssh)
-    beobachtet = [d for d in dateien if not _ignoriert(d["pfad"], ignore_dirs)]
+    trotz = tuple(a.auch if a.auch is not None else BEOBACHTET_TROTZ_IGNORANZ)
+    beobachtet = [
+        d for d in dateien if not _ignoriert(d["pfad"], ignore_dirs, trotz)
+    ]
     treffer = haengende(
         dateien,
         jetzt=time.time(),
         schwelle_min=a.schwelle,
         ignore_dirs=ignore_dirs,
         neu_seit_min=a.neu_seit,
+        beobachtet_trotz=trotz,
     )
+
+    # Im Eingang des Zerlegers ist Verschwinden der NORMALFALL - er nimmt die
+    # Stapel weg und legt statt ihrer die Einzeldokumente ab, unter anderen
+    # Namen. Die Frage an Paperless ("gibt es ein Dokument dieses Namens?")
+    # wuerde dort jedes Mal Nein sagen und einen Verlust melden, der keiner
+    # ist. Fuer den Eingang gilt deshalb nur "liegt zu lange"; sein
+    # Bestandsvergleich fuehrt der Zerleger selbst in seinem Ledger.
+    bestand = [
+        d for d in beobachtet
+        if not any(
+            d["pfad"].startswith(t.rstrip("/") + "/") for t in trotz
+        )
+    ]
 
     verluste: list[dict] = []
     if a.inventar:
         pfad = Path(a.inventar)
-        weg = verschwundene(lade_inventar(pfad), beobachtet)
+        weg = verschwundene(lade_inventar(pfad), bestand)
         namen = [Path(v["pfad"]).name for v in weg]
         gefunden, beantwortet = aufgenommene(namen, a.ssh)
         if not beantwortet:
@@ -401,7 +447,7 @@ def main(argv: list[str] | None = None) -> int:
         # Nur schreiben, wenn beurteilt wurde: sonst faellt ein unbeantworteter Lauf
         # das Inventar zurueck und der naechste Lauf haelt den Verlust fuer erledigt.
         if beantwortet:
-            schreibe_inventar(pfad, beobachtet)
+            schreibe_inventar(pfad, bestand)
 
     if a.kurz:
         print(
