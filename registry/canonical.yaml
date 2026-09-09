@@ -26,7 +26,12 @@ meta:
     # iil-voice-agent liegt real unter iilgmbh (verifiziert: git@github.com:iilgmbh/
     # iil-voice-agent.git); kein "iil-"-owner_prefix_rule → ohne Override fiele es auf
     # achimdehnert-Default zurück (gleiche Klasse wie frist-hub unten).
+    #
+    # Am 2026-09-09 in `iil-assist-voice` umbenannt (Schema iil-assist-<domaene>).
+    # Der alte Name bleibt eingetragen, solange Dokumente und Issues ihn nennen —
+    # GitHub leitet weiter, die Registry soll die Weiterleitung nicht verstecken.
     iil-voice-agent: iilgmbh
+    iil-assist-voice: iilgmbh
     # C-11 (repo-optimize 2026-07-03): frist-hub liegt real unter meiki-lra
     # (verifiziert: gh api repos/meiki-lra/frist-hub → 200; achimdehnert/
     # iilgmbh → 404). Der Name matcht KEINE owner_prefix_rules (kein
