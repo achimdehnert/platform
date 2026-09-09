@@ -1,0 +1,24 @@
+# governance/ci-deckung-verzicht.yaml — bewusster Verzicht fuer tools/ci_deckung.py
+#
+# Ein Makefile-Ziel, das lokal ein Pruefwerkzeug ausfuehrt, aber NIE im CI laeuft,
+# ist normalerweise ein Befund (Slug `ci-gate-narrower-than-local-test`). Hier
+# stehen die Ausnahmen, die legitim sind — GPU, echte Hardware, Prod-Zugriff —
+# statt als Ausnahmeliste im Code zu leben.
+#
+# Schema je Eintrag, alle drei Felder Pflicht:
+#   repo    Verzeichnisname unter ~/github/ (Basisname des --repo-Pfads)
+#   ziel    Makefile-Ziel exakt wie im Report/JSON von ci_deckung.py
+#   grund   PFLICHT. Ein Eintrag ohne Grund ist ungueltig — ci_deckung.py meldet
+#           ihn als Fehler und wendet ihn NICHT an (kein stiller Verzicht).
+#
+# ci_deckung.py liest diese Datei OHNE PyYAML (stdlib-only Pflicht) — Format
+# bewusst flach halten: eine Ebene Liste, drei Skalarfelder je Eintrag, JE FELD
+# EINE ZEILE (kein Blockskalar `>`/`|` — der Handparser liest nur `key: value`).
+
+- repo: chat-hub
+  ziel: chat-verify
+  grund: "Prod-Zugriff — braucht laufenden Homeserver+SFU, chat-hub CLAUDE.md: nur gegen den echten Server pruefbar, steht auf dem Dev-Host statt im Runner. Verifiziert per Hand-Lauf."
+
+- repo: chat-hub
+  ziel: chat-verify-init
+  grund: "Prod-Zugriff — legt per docker exec einen echten Matrix-Nutzer an einem laufenden Homeserver an, dieselbe Begruendung wie chat-verify."
