@@ -1372,3 +1372,38 @@ def test_should_show_strang_title_in_original_case_without_prefix():
 def test_should_fall_back_to_event_for_strang_display():
     t = tb.zerlege_eintrag("2026-09-01 GESENDET (Owner): Antwort raus.")
     assert tb.strang_anzeige(t) == tb.strang_schluessel(t)
+
+
+class TestKenntnisSpur:
+    """Post, die nichts verlangt, hat eine eigene Spur (2026-09-09)."""
+
+    def test_should_show_kenntnis_in_its_own_section(self):
+        daten = {
+            "vorgaenge": [
+                vorgang(bucket="kenntnis", thread_key="Statusbericht", angelegt="2026-08-05")
+            ]
+        }
+        seite = tb.baue(daten, STICHTAG)
+        assert "Nur zur Kenntnis" in seite
+        assert "Statusbericht" in seite
+
+    def test_should_drop_kenntnis_after_the_window(self):
+        daten = {
+            "vorgaenge": [
+                vorgang(bucket="kenntnis", thread_key="Uralt", angelegt="2026-07-01")
+            ]
+        }
+        assert "Uralt" not in tb.baue(daten, STICHTAG)
+
+    def test_should_keep_kenntnis_without_a_date_visible(self):
+        daten = {"vorgaenge": [vorgang(bucket="kenntnis", thread_key="Undatiert")]}
+        assert "Undatiert" in tb.baue(daten, STICHTAG)
+
+    def test_should_not_count_kenntnis_as_open_work(self):
+        daten = {
+            "vorgaenge": [
+                vorgang(bucket="owner", thread_key="Echt"),
+                vorgang(bucket="kenntnis", thread_key="Info", angelegt="2026-08-05"),
+            ]
+        }
+        assert "1 offene Vorgaenge" in tb.baue(daten, STICHTAG)

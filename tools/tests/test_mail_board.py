@@ -421,3 +421,84 @@ class TestReproduzierbar:
             board.main(
                 ["--ledger", str(ledger), "--render", "--stichtag", "02.09.2026"]
             )
+
+
+class TestKopfzeile:
+    """Eine Zeile beantwortet den Tag, bevor der Leser scrollt (2026-09-09)."""
+
+    def test_should_open_with_a_rollup_line(self, pfade):
+        text = board.render(
+            _ledger(
+                _v(nr=3, bucket="owner", kurz="Meiner", frist="2026-09-20"),
+                _v(nr=4, bucket="warten", kurz="Deiner", frist="2026-09-30"),
+            ),
+            "2026-09-09",
+        )
+        assert "**Heute:**" in text
+        assert text.index("**Heute:**") < text.index("Meiner")
+        assert "1 dein Zug" in text and "1 wartend" in text
+
+    def test_should_name_the_nearest_deadline(self, pfade):
+        text = board.kopfzeile(
+            [
+                _v(nr=3, bucket="owner", frist="2026-09-20"),
+                _v(nr=4, bucket="warten", frist="2026-09-11"),
+            ],
+            "2026-09-09",
+        )
+        assert "nächste Frist 2026-09-11 (#4)" in text
+
+    def test_should_count_overdue_items(self, pfade):
+        text = board.kopfzeile(
+            [_v(nr=3, bucket="owner", frist="2026-09-01")], "2026-09-09"
+        )
+        assert "1 überfällig" in text
+
+    def test_should_stay_silent_about_deadlines_when_there_are_none(self, pfade):
+        assert "Frist" not in board.kopfzeile(
+            [_v(nr=3, bucket="owner")], "2026-09-09"
+        )
+
+    def test_should_not_depend_on_the_clock(self, pfade):
+        posten = [_v(nr=3, bucket="owner", frist="2026-09-20")]
+        assert board.kopfzeile(posten, "2026-09-09") == board.kopfzeile(
+            posten, "2026-09-09"
+        )
+
+
+class TestKenntnis:
+    """Post, die nichts verlangt, bleibt sichtbar — ohne Frist und ohne Zug."""
+
+    def test_should_render_a_kenntnis_item_in_its_own_section(self, pfade):
+        text = board.render(
+            _ledger(_v(nr=3, bucket="kenntnis", kurz="Statusbericht", angelegt="2026-09-08")),
+            "2026-09-09",
+        )
+        assert "Nur zur Kenntnis" in text
+        assert text.index("Nur zur Kenntnis") < text.index("Statusbericht")
+
+    def test_should_hide_an_old_kenntnis_item_but_still_count_it(self, pfade):
+        text = board.render(
+            _ledger(_v(nr=3, bucket="kenntnis", kurz="Uralt", angelegt="2026-08-01")),
+            "2026-09-09",
+        )
+        assert "Uralt" not in text
+        assert f"{board.KENNTNIS_FENSTER_TAGE} Tagen angelegt" in text
+
+    def test_should_not_demand_a_deadline_for_kenntnis(self, pfade):
+        befunde = board.pruefe(
+            _ledger(_v(nr=1, bucket="kenntnis", angelegt="2026-09-09"), naechste=2)
+        )
+        assert not [b for b in befunde if "frist" in b.lower()]
+
+    def test_should_offer_promoting_a_kenntnis_item(self, pfade):
+        kuerzel = [k for k, _ in board.aktionen_fuer(_v(bucket="kenntnis"))]
+        assert "v" in kuerzel and "z" in kuerzel
+
+    def test_should_not_offer_follow_up_on_a_kenntnis_item(self, pfade):
+        kuerzel = [k for k, _ in board.aktionen_fuer(_v(bucket="kenntnis"))]
+        assert "n" not in kuerzel
+
+    def test_should_count_as_stand_not_as_zug(self, pfade):
+        assert "kenntnis" in board.STAND_BUCKETS
+        assert "kenntnis" not in board.ZUG_BUCKETS

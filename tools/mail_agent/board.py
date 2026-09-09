@@ -86,13 +86,14 @@ TODO_BASIS = "https://todo.iil.pet"
 #:
 #: Die Regel selbst steht genau einmal, im Antwortformat des Kapitaens-Kanals
 #: (~/.claude/CLAUDE.md, Regel 1). Hier steht nur ihre Umsetzung.
-STAND_BUCKETS = ("erledigt", "warten")
+STAND_BUCKETS = ("erledigt", "warten", "kenntnis")
 ZUG_BUCKETS = ("agent", "owner")
 
 #: Ledger-Bucket -> Abschnitt im Board. Die Reihenfolge ist die Anzeige-Reihenfolge.
 BUCKETS: list[tuple[str, str]] = [
     ("erledigt", "✅ Erledigt"),
     ("warten", "🟡 Wartend — Ball liegt aussen"),
+    ("kenntnis", "📰 Nur zur Kenntnis"),
     ("agent", "🔵 Offen — ich kann sofort"),
     ("owner", "🟢 Offen — dein Zug"),
 ]
@@ -113,6 +114,20 @@ BUCKETS: list[tuple[str, str]] = [
 #: noch, statt sie zu zeigen. Der Eintrag selbst bleibt in der Datei — er traegt den
 #: Anker, ueber den die Mails spaeter auffindbar sind.
 ERLEDIGT_FENSTER_TAGE = 14
+
+#: Wie lange ein Posten "nur zur Kenntnis" im Board sichtbar bleibt.
+#:
+#: Warum es diesen Bucket gibt: Post, die nichts verlangt — Statusberichte,
+#: Fortschrittsmeldungen Dritter, angekuendigte Unterlagen — hatte bisher genau
+#: zwei Ausgaenge: Sie wurde ein Vorgang mit Frist, den niemand braucht, oder sie
+#: verschwand. Ein dritter Ausgang fehlte: sichtbar bleiben, ohne einen Zug zu
+#: verlangen. Der Vergleich mit einem fremden Postfach-Assistenten am 2026-09-09
+#: (Kategorien "FYI" und "Read later") machte die Luecke sichtbar.
+#:
+#: Anders als beim Abschluss gibt es hier kein eigenes Datum: Kenntnis-Post altert
+#: ab dem Tag, an dem sie angelegt wurde, und faellt danach aus der Ansicht — sie
+#: bleibt im Ledger, wird aber nur noch gezaehlt.
+KENNTNIS_FENSTER_TAGE = 7
 
 #: Naheliegende Aktionen je Vorgangstyp.
 #:
@@ -197,6 +212,12 @@ AKTIONEN_IMMER: list[tuple[str, str]] = [
     ("z", "Erledigt — Vorgang schliessen"),
 ]
 
+#: Kenntnis-Post verlangt keinen Zug. Die eine sinnvolle Aktion ist die
+#: Befoerderung: Wenn doch etwas zu tun ist, wird ein Vorgang daraus.
+AKTIONEN_KENNTNIS: list[tuple[str, str]] = [
+    ("v", "Vorgang daraus machen — Bucket setzen"),
+]
+
 #: Ein geschlossener Vorgang bekommt genau eine Aktion: die Ruecknahme. Ihm
 #: „Nachfassen entwerfen" anzubieten waere sinnlos, „Erledigt schliessen" absurd.
 AKTIONEN_ERLEDIGT: list[tuple[str, str]] = [
@@ -234,6 +255,8 @@ def aktionen_fuer(vorgang: dict) -> list[tuple[str, str]]:
     """
     if vorgang.get("bucket") == "erledigt":
         return list(AKTIONEN_ERLEDIGT)
+    if vorgang.get("bucket") == "kenntnis":
+        return list(AKTIONEN_KENNTNIS) + list(AKTIONEN_IMMER)
     typ = (vorgang.get("typ") or "").strip()
     aktionen = list(AKTIONEN_JE_TYP.get(typ, AKTIONEN_FALLBACK))
     if vorgang.get("bucket") == "warten":
@@ -420,7 +443,9 @@ def pruefe_fristen(posten: list[dict]) -> list[str]:
     """
     befunde: list[str] = []
     for vorgang in posten:
-        if vorgang.get("bucket") == "erledigt":
+        # Erledigtes hat keine Zukunft mehr, Kenntnis-Post hat keinen Termin:
+        # beides braucht keine Frist, und eine erzwungene waere gelogen.
+        if vorgang.get("bucket") in ("erledigt", "kenntnis"):
             continue
         nr, kurz = vorgang.get("nr", "?"), vorgang.get("kurz")
         frist = vorgang.get("frist")
@@ -495,6 +520,44 @@ def _posten_zeile(vorgang: dict, anker: dict, links: dict) -> list[str]:
     return zeilen
 
 
+def kopfzeile(posten: list[dict], heute: str) -> str:
+    """Eine Zeile, die den Tag beantwortet, bevor der Leser scrollt.
+
+    Warum sie existiert: Das Board sagt genau, was zu tun ist, aber erst nach dem
+    ersten Abschnitt — wie viel ueberhaupt ansteht und was als naechstes faellig
+    ist, musste man sich zusammenzaehlen. Ein fremder Postfach-Assistent machte
+    das am 2026-09-09 mit einem einzigen Satz vor; uebernommen ist die Form, nicht
+    die Datenlage.
+
+    Deterministisch wie das ganze Board: alles kommt aus `posten` und `heute`,
+    nichts aus der Systemuhr — sonst waere `make boards-check` nicht mehr
+    byteweise reproduzierbar.
+    """
+
+    def zaehle(bucket: str) -> int:
+        return sum(1 for v in posten if v.get("bucket") == bucket)
+
+    faellig = [
+        (str(v.get("frist")), v.get("nr"))
+        for v in posten
+        if v.get("bucket") in ZUG_BUCKETS + ("warten",) and v.get("frist")
+    ]
+    teile = [
+        f"{zaehle('owner')} dein Zug",
+        f"{zaehle('agent')} ich",
+        f"{zaehle('warten')} wartend",
+    ]
+    if zaehle("kenntnis"):
+        teile.append(f"{zaehle('kenntnis')} zur Kenntnis")
+    if faellig:
+        naechste, nr = min(faellig)
+        ueberfaellig = sum(1 for datum, _ in faellig if datum < heute)
+        teile.append(f"nächste Frist {naechste} (#{nr})")
+        if ueberfaellig:
+            teile.append(f"**{ueberfaellig} überfällig**")
+    return "> **Heute:** " + " · ".join(teile) + "."
+
+
 def render(ledger: dict, heute: str) -> str:
     posten = vorgaenge_von(ledger)
     anker = lade(ANKER, {})
@@ -502,6 +565,8 @@ def render(ledger: dict, heute: str) -> str:
 
     aus: list[str] = [
         "# Mail-Action-Board",
+        "",
+        kopfzeile(posten, heute),
         "",
         f"> **Stand:** {heute} · erzeugt von `{TOOL_VERSION}` aus"
         " `mail-vorgaenge.json`.",
@@ -523,6 +588,17 @@ def render(ledger: dict, heute: str) -> str:
             key=lambda v: (v.get("nr") is None, v.get("nr") or 0),
         )
         aelter = 0
+        if bucket == "kenntnis":
+            # Dieselbe Mechanik wie beim Abschluss, nur mit dem Anlegedatum:
+            # Kenntnis-Post veraltet, ohne dass jemand etwas tut.
+            frisch = []
+            for vorgang in gruppe:
+                tage = tage_seit(vorgang.get("angelegt"), heute)
+                if tage is not None and tage > KENNTNIS_FENSTER_TAGE:
+                    aelter += 1
+                else:
+                    frisch.append(vorgang)
+            gruppe = frisch
         if bucket == "erledigt":
             # Nur die juengsten Abschluesse zeigen. Alles davor bleibt in der Datei
             # (der Anker wird gebraucht), verschwindet aber aus der Ansicht — sonst
@@ -544,8 +620,10 @@ def render(ledger: dict, heute: str) -> str:
             aus.append("")
         if aelter:
             aus += [
-                f"_{aelter} weitere vor mehr als {ERLEDIGT_FENSTER_TAGE} Tagen "
-                f"geschlossen — im Ledger, nicht im Board._",
+                f"_{aelter} weitere vor mehr als "
+                f"{KENNTNIS_FENSTER_TAGE if bucket == 'kenntnis' else ERLEDIGT_FENSTER_TAGE}"
+                f" Tagen {'angelegt' if bucket == 'kenntnis' else 'geschlossen'} — "
+                f"im Ledger, nicht im Board._",
                 "",
             ]
 
