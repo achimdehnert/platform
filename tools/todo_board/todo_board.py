@@ -770,6 +770,36 @@ OVERLAY = """
 </script>"""
 
 
+def verlaufs_ziele(v: dict, mail_basis: str = MAIL_BASIS) -> list[tuple]:
+    """Erste und letzte im Verlauf verankerte Mail als Ziele — aelteste zuerst.
+
+    Der Verlauf nennt seine Mails als `<Ordner> #<uid>`, und `verweise()` verlinkt
+    sie dort schon. Hier landet dasselbe oben bei den Aktionen, damit ein Vorgang
+    ohne Nummern-Anker nicht "keine Mail verknuepft" zeigt, waehrend zwei Links
+    tragen. Die Reihenfolge ist die des Verlaufs (Eintraege werden angehaengt),
+    also steht die aelteste Mail vorn. Nennen alle Eintraege dieselbe Mail, gibt
+    es ein Ziel, nicht zwei gleiche.
+    """
+    konto = str(v.get("konto") or "")
+    if not konto:
+        return []
+    verankert = _schluessel(ANKER_DATEI)
+    genannt: list[str] = []
+    for eintrag in str(v.get("notiz") or "").split(" | "):
+        for schl in anker_im_text(html.escape(eintrag.strip()), konto, verankert):
+            if schl not in genannt:
+                genannt.append(schl)
+    if not genannt:
+        return []
+    basis = mail_basis.rstrip("/")
+    ziele = [("Erste Mail des Strangs", f"{basis}/a/{quote(genannt[0], safe='')}")]
+    if len(genannt) > 1:
+        ziele.append(
+            ("Letzte Mail des Strangs", f"{basis}/a/{quote(genannt[-1], safe='')}")
+        )
+    return ziele
+
+
 def aktionen(
     v: dict,
     mail_basis: str = MAIL_BASIS,
@@ -796,6 +826,12 @@ def aktionen(
         # "Mail oeffnen" las sich wie "die aktuelle" (Owner-Befund 2026-08-20);
         # die juengste Mail kann der Dienst noch nicht (platform#2160).
         ziele.append(("Erste Mail des Strangs", ziel))
+    else:
+        # Rueckfall: seit 2026-09-01 verankert `eintrag_anker.py` per
+        # Message-ID-Schluessel (`hnu-inbox-<uid>`), nicht mehr je Nummer. Solche
+        # Vorgaenge zeigten oben "keine Mail verknuepft", waehrend der Verlauf zwei
+        # tragende Links hatte (Owner-Befund 2026-09-10 an #189, platform#3015).
+        ziele.extend(verlaufs_ziele(v, mail_basis))
     # Bewusst KEIN Selbstlink auf `/t/<thread_key>`: die Vorgangsseite ist genau das
     # Ziel, auf dem dieser Abschnitt steht. Er waere ausserdem der einzige Grund,
     # warum Bestandsvorgaenge ohne `mail_ref` ploetzlich einen Knopf trugen.

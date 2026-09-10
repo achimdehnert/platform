@@ -467,6 +467,65 @@ def test_should_not_render_a_dead_link_without_a_mail_reference():
     assert "keine Mail verknuepft" in html_out
 
 
+class TestVerlaufsZiele:
+    """Kopf-Aktion fuer Vorgaenge, die nur per Message-ID-Schluessel verankert sind
+    (Owner-Befund 2026-09-10 an #189: oben "keine Mail verknuepft", unten zwei Links)."""
+
+    def _anker(self, tmp_path, monkeypatch, *schluessel):
+        datei = tmp_path / "anker.json"
+        datei.write_text(
+            "{" + ", ".join(f'"{s}": {{}}' for s in schluessel) + "}", encoding="utf-8"
+        )
+        monkeypatch.setattr(tb, "ANKER_DATEI", datei)
+
+    def test_should_offer_first_and_last_anchored_mail_without_number_anchor(
+        self, tmp_path, monkeypatch
+    ):
+        self._anker(
+            tmp_path, monkeypatch, "hnu-inbox-164379", "hnu-gesendete-objekte-34548"
+        )
+        v = vorgang(
+            konto="hnu",
+            nr=189,
+            notiz="2026-09-04: Antwort (INBOX #164379) | "
+            "2026-09-07: gesendet (Gesendete Objekte #34548)",
+        )
+        assert tb.aktionen(v, "https://mail.example", "") == [
+            ("Erste Mail des Strangs", "https://mail.example/a/hnu-inbox-164379"),
+            (
+                "Letzte Mail des Strangs",
+                "https://mail.example/a/hnu-gesendete-objekte-34548",
+            ),
+        ]
+
+    def test_should_offer_one_target_when_all_entries_name_the_same_mail(
+        self, tmp_path, monkeypatch
+    ):
+        self._anker(tmp_path, monkeypatch, "hnu-inbox-164379")
+        v = vorgang(
+            konto="hnu", nr=189, notiz="A (INBOX #164379) | B nochmal INBOX #164379"
+        )
+        assert tb.aktionen(v, "https://mail.example", "") == [
+            ("Erste Mail des Strangs", "https://mail.example/a/hnu-inbox-164379"),
+        ]
+
+    def test_should_stay_empty_when_the_mentioned_mail_is_not_anchored(
+        self, tmp_path, monkeypatch
+    ):
+        self._anker(tmp_path, monkeypatch, "hnu-inbox-1")
+        v = vorgang(konto="hnu", nr=189, notiz="Antwort (INBOX #164379)")
+        assert tb.aktionen(v, "https://mail.example", "") == []
+
+    def test_should_render_the_fallback_target_in_the_actions_block(
+        self, tmp_path, monkeypatch
+    ):
+        self._anker(tmp_path, monkeypatch, "hnu-inbox-164379")
+        v = vorgang(konto="hnu", nr=189, notiz="Antwort (INBOX #164379)")
+        html_out = tb.detail(v, mail_basis="https://mail.example", basis="")
+        assert "keine Mail verknuepft" not in html_out
+        assert "href='https://mail.example/a/hnu-inbox-164379'" in html_out
+
+
 def test_should_ignore_an_absolute_mail_ref_from_the_ledger():
     """Der Ledger speist sich aus fremden Mails — ein absoluter Wert waere ein
     offener Weiterleitungspunkt und darf nicht zum Ziel werden."""
@@ -1380,7 +1439,9 @@ class TestKenntnisSpur:
     def test_should_show_kenntnis_in_its_own_section(self):
         daten = {
             "vorgaenge": [
-                vorgang(bucket="kenntnis", thread_key="Statusbericht", angelegt="2026-08-05")
+                vorgang(
+                    bucket="kenntnis", thread_key="Statusbericht", angelegt="2026-08-05"
+                )
             ]
         }
         seite = tb.baue(daten, STICHTAG)
