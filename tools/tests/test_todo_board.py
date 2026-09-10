@@ -526,6 +526,17 @@ class TestVerlaufsZiele:
         assert "href='https://mail.example/a/hnu-inbox-164379'" in html_out
 
 
+def test_should_link_back_to_the_list_from_a_thread_page():
+    """Jede aufgerufene Seite traegt den Weg zu ihrer Herkunft (Owner 2026-09-10)."""
+    v = vorgang(thread_key="Rueckweg")
+    lokal = tb.detail(v, mail_basis="https://mail.example", basis="")
+    assert '<nav class="rueckweg"><a href="/">' in lokal
+    entfernt = tb.detail(
+        v, mail_basis="https://mail.example", basis="https://todo.example/"
+    )
+    assert '<a href="https://todo.example/">' in entfernt
+
+
 def test_should_ignore_an_absolute_mail_ref_from_the_ledger():
     """Der Ledger speist sich aus fremden Mails — ein absoluter Wert waere ein
     offener Weiterleitungspunkt und darf nicht zum Ziel werden."""

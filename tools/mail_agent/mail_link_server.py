@@ -107,6 +107,74 @@ def board_pfad(name: str, wurzel: Path = BOARD_ROOT) -> Path | None:
     return ziel if ziel.is_file() else None
 
 
+TODO_BASIS = "https://todo.iil.pet"  # Arbeitsliste (todo-board.service, 8789)
+_UID_IM_PFAD = re.compile(r"(\d{3,7})$")
+_BODY_TAG = re.compile(rb"<body[^>]*>", re.IGNORECASE)
+_TITLE_ENDE = re.compile(rb"</title>", re.IGNORECASE)
+_DOCTYPE = re.compile(rb"<!doctype[^>]*>", re.IGNORECASE)
+
+
+def vorgaenge_zu_pfad(pfad: str, ledger: dict | list) -> list[dict]:
+    """Welche Vorgaenge des Ledgers zu dieser Mail-Adresse gehoeren.
+
+    `/r/<nr>`, `/a/<nr>` und `/i/<nr>` nennen die Board-Nummer selbst.
+    `/a/<konto-ordner-uid>` und `/m/…/<uid>` nennen nur die Mail; dann zaehlt jeder
+    Vorgang, dessen Verlauf die Nummer als `#<uid>` fuehrt — dieselbe Schreibweise,
+    die die Vorgangsseite verlinkt. Nichts wird geraten: ohne Treffer bleibt nur
+    der Weg zur Liste (Owner-Weisung 2026-09-10: jede aufgerufene Seite traegt
+    den Weg zu ihrer Herkunft).
+    """
+    items = ledger if isinstance(ledger, list) else ledger.get("vorgaenge", [])
+    teile = [t for t in pfad.split("?", 1)[0].split("/") if t]
+    if len(teile) < 2 or teile[0] not in ("a", "m", "r", "i"):
+        return []
+    letzter = unquote(teile[-1])
+    if len(teile) == 2 and letzter.isdigit() and teile[0] in ("r", "a", "i"):
+        return [v for v in items if str(v.get("nr")) == letzter]
+    m = _UID_IM_PFAD.search(letzter)
+    if not m:
+        return []
+    muster = re.compile(r"#" + re.escape(m.group(1)) + r"\b")
+    return [v for v in items if muster.search(str(v.get("notiz") or ""))]
+
+
+def rueckweg_html(vorgaenge: list[dict], todo_basis: str = TODO_BASIS) -> str:
+    """Die Leiste: Arbeitsliste, dazu je zugehoerigem Vorgang seine Seite."""
+    basis = todo_basis.rstrip("/")
+    teile = [f"<a href='{basis}/'>Arbeitsliste</a>"]
+    for v in vorgaenge:
+        nr = html.escape(str(v.get("nr") or "?"))
+        key = str(v.get("thread_key") or "")
+        text = f"Vorgang #{nr}" + (f": {html.escape(key)}" if key else "")
+        if key:
+            teile.append(f"<a href='{basis}/t/{quote(key, safe='')}'>{text}</a>")
+        else:
+            teile.append(f"<span>{text}</span>")
+    return (
+        "<nav class='rueckweg' style='font:14px/1.5 -apple-system,Segoe UI,sans-serif;"
+        "padding:.4rem .8rem;border-bottom:1px solid #d0d0d0;background:#f6f6f4'>"
+        "<style>@media (prefers-color-scheme:dark){.rueckweg{background:#23262c!important;"
+        "border-color:#333!important;color:#e6e6e6}.rueckweg a{color:#7ab7ff}}</style>"
+        + " · ".join(teile)
+        + "</nav>"
+    )
+
+
+def mit_rueckweg(body: bytes, nav: str) -> bytes:
+    """Die Leiste an den Anfang des sichtbaren Inhalts setzen.
+
+    Nach `<body>`, sonst nach `</title>`, sonst nach dem Doctype — die gerenderten
+    Mails (`mail_view`, Graph) tragen keinen `<body>`, und vor dem Doctype waere
+    die Leiste ein Quirks-Mode-Ausloeser.
+    """
+    einschub = nav.encode("utf-8")
+    for muster in (_BODY_TAG, _TITLE_ENDE, _DOCTYPE):
+        m = muster.search(body)
+        if m:
+            return body[: m.end()] + einschub + body[m.end() :]
+    return einschub + body
+
+
 def board_als_html(text: str, titel: str) -> str:
     """Markdown → HTML. Fällt ohne die Bibliothek auf lesbaren Rohtext zurück."""
     try:
@@ -224,12 +292,30 @@ class MailLinkHandler(BaseHTTPRequestHandler):
     cache_root: Path = CACHE_ROOT
     registry_pfad: Path = LINK_REGISTRY
     anker_pfad: Path = ANKER_DATEI
+    ledger_pfad: Path = Path.home() / ".claude" / "mail-vorgaenge.json"
 
     board_root: Path = BOARD_ROOT
 
     # --- Antwort-Helfer ----------------------------------------------------
 
+    def _rueckweg(self) -> str:
+        """Leiste fuer diese Anfrage; ohne lesbares Ledger nur der Weg zur Liste."""
+        try:
+            ledger = json.loads(self.ledger_pfad.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            ledger = {}
+        return rueckweg_html(vorgaenge_zu_pfad(self.path, ledger))
+
     def _sende(self, status: HTTPStatus, body: bytes, ctype: str) -> None:
+        # Jede Mail-Seite (auch 404/410) traegt den Weg zurueck: Arbeitsliste und
+        # der Vorgang, zu dem die Mail gehoert (Owner-Weisung 2026-09-10).
+        erster = self.path.split("?", 1)[0].split("/")[1:2]
+        if (
+            ctype.startswith("text/html")
+            and erster
+            and erster[0] in ("a", "m", "r", "i")
+        ):
+            body = mit_rueckweg(body, self._rueckweg())
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -1068,6 +1154,7 @@ def main() -> None:
     MailLinkHandler.default_konto = args.default_account
     MailLinkHandler.ordner = args.folder
     MailLinkHandler.graph_konto = args.graph_account
+    MailLinkHandler.ledger_pfad = Path(args.ledger)
 
     with ThreadingHTTPServer((args.host, args.port), MailLinkHandler) as srv:
         print(
