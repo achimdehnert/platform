@@ -91,6 +91,18 @@ def test_should_use_batchmode_so_it_never_waits_for_a_password():
     assert "BatchMode=yes" in befehl
 
 
+def test_should_reuse_one_ssh_connection_across_repeated_calls(monkeypatch, tmp_path):
+    """#3069: `ablage_erledigt.py --pruefe` ruft dieses Skript bis zu 75x je
+    Lauf auf; gemessen kostete jeder einzelne Aufruf 2-6,6s, fast nur
+    Verbindungsaufbau. ControlMaster haengt Folgeaufrufe an eine schon
+    offene Verbindung an, statt sie neu aufzubauen."""
+    monkeypatch.setattr(su, "CONTROL_DIR", tmp_path / "control")
+    befehl = su.befehl_bauen(["--json"], "hetzner-prod")
+    assert "ControlMaster=auto" in befehl
+    assert any(o.startswith("ControlPath=") for o in befehl)
+    assert (tmp_path / "control").is_dir()
+
+
 # --- Weiterreichen der Filter ----------------------------------------------
 
 

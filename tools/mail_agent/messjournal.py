@@ -36,6 +36,14 @@ einmal, ihr Ergebnis geht in beide Journalzeilen ein.
 Kommandos durch feste Werte — fuer Tests, ganz ohne Postfach oder Netz. Bei
 `--anwendung alle` deckt ein einzelnes `--eingabe`-JSON beide Anwendungen ab:
 jede Zeile liest daraus nur die fuer sie benannten Kennzahlen.
+
+`--ablage-ausgabe DATEI` (#3069, Folge von #3076) ersetzt NUR den eigenen Lauf
+von `ablage_erledigt.py --pruefe`: die Datei enthaelt dessen bereits erzeugte
+Textausgabe (stdout+stderr), z. B. weil `make boards` den Melder ohnehin schon
+einmal aufgerufen hat. Gemessen am 2026-09-10 kostet dieser Lauf allein 253s
+(75 Abfragen gegen den Mail-Index) — ein zweiter Aufruf allein fuer das
+Messjournal verdoppelte die Laufzeit von `make boards`, ohne ein zweites
+Ergebnis zu liefern.
 """
 
 from __future__ import annotations
@@ -175,11 +183,12 @@ def _link_pruefen_vorgangsseiten() -> dict[str, int | None]:
     }
 
 
-def _mailcheck_ablage() -> dict[str, int | None]:
-    out, err, _rc = _run(
-        [sys.executable, str(MAIL_AGENT_DIR / "ablage_erledigt.py"), "--pruefe"]
-    )
-    text = out + err
+def _mailcheck_ablage_aus_text(text: str) -> dict[str, int | None]:
+    """Die Kennzahl aus der `--pruefe`-Textausgabe von `ablage_erledigt.py` lesen.
+
+    Eigene Funktion (#3069), damit sowohl der echte Lauf (`_mailcheck_ablage`)
+    als auch eine bereits anderswo erzeugte Ausgabe (`--ablage-ausgabe`)
+    denselben Text gleich auswerten."""
     treffer = re.findall(
         r":\s*(\d+)\s+Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen", text
     )
@@ -190,6 +199,13 @@ def _mailcheck_ablage() -> dict[str, int | None]:
     else:
         wert = None
     return {"posteingang_geschlossene_vorgaenge": wert}
+
+
+def _mailcheck_ablage() -> dict[str, int | None]:
+    out, err, _rc = _run(
+        [sys.executable, str(MAIL_AGENT_DIR / "ablage_erledigt.py"), "--pruefe"]
+    )
+    return _mailcheck_ablage_aus_text(out + err)
 
 
 def _mailcheck_index_alter() -> int | None:
@@ -210,9 +226,11 @@ def _mailcheck_index_alter() -> int | None:
 
 def _mailcheck_erheben(
     links: dict[str, int | None] | None = None,
+    ablage: dict[str, int | None] | None = None,
 ) -> dict[str, int | None]:
-    """Mailcheck-Rohwerte. `links` optional vorgegeben (#3067) — sonst wird
-    `link_pruefen.py --vorgangsseiten` hier selbst aufgerufen."""
+    """Mailcheck-Rohwerte. `links` optional vorgegeben (#3067), `ablage`
+    ebenso (#3069) — sonst werden `link_pruefen.py --vorgangsseiten` bzw.
+    `ablage_erledigt.py --pruefe` hier selbst aufgerufen."""
     roh: dict[str, int | None] = {}
     roh.update(_mailcheck_board())
     roh.update(_mailcheck_referenzen())
@@ -221,7 +239,7 @@ def _mailcheck_erheben(
         links = _link_pruefen_vorgangsseiten()
     roh["vorgangsseiten_geprueft"] = links.get("geprueft")
     roh["vorgangsseiten_tot"] = links.get("tot")
-    roh.update(_mailcheck_ablage())
+    roh.update(ablage if ablage is not None else _mailcheck_ablage())
     roh["index_alter_tage"] = _mailcheck_index_alter()
     return roh
 
@@ -292,14 +310,17 @@ def _todo_erheben(
     return roh
 
 
-def _erheben_gemeinsam() -> tuple[dict[str, int | None], dict[str, int | None]]:
+def _erheben_gemeinsam(
+    ablage: dict[str, int | None] | None = None,
+) -> tuple[dict[str, int | None], dict[str, int | None]]:
     """Mailcheck- und Todo-Rohwerte in EINEM Prozess erheben (#3067).
 
     `link_pruefen.py --vorgangsseiten` ist die einzige Quelle, die beide
     Anwendungen teilen — sie laeuft hier genau einmal, ihr Ergebnis geht in
-    beide Rueckgaben ein."""
+    beide Rueckgaben ein. `ablage` (#3069) betrifft nur `mailcheck`; ist sie
+    vorgegeben, entfaellt der eigene Lauf von `ablage_erledigt.py --pruefe`."""
     links = _link_pruefen_vorgangsseiten()
-    return _mailcheck_erheben(links=links), _todo_erheben(links=links)
+    return _mailcheck_erheben(links=links, ablage=ablage), _todo_erheben(links=links)
 
 
 # --- Sammeln, unabhaengig von der Quelle ---------------------------------
@@ -354,6 +375,7 @@ def schreiben(
     modell: str,
     journal_pfad: Path,
     eingabe: dict[str, Any] | None,
+    ablage_text: str | None = None,
 ) -> list[dict[str, Any]]:
     """Eine Journalzeile je Anwendung erheben und anhaengen.
 
@@ -361,15 +383,25 @@ def schreiben(
     alle`) laufen geteilte Quellen — aktuell `link_pruefen.py
     --vorgangsseiten` — genau einmal (#3067); ihr Ergebnis geht in jede
     betroffene Zeile ein. `--eingabe` (Tests) ueberspringt jede Erhebung und
-    deckt alle angefragten Anwendungen aus demselben JSON."""
+    deckt alle angefragten Anwendungen aus demselben JSON. `ablage_text`
+    (#3069) ist die bereits erzeugte `--pruefe`-Ausgabe von
+    `ablage_erledigt.py` — vorgegeben, entfaellt deren eigener, teurer Lauf
+    hier (75 Index-Abfragen, gemessen 253s)."""
+    ablage = (
+        _mailcheck_ablage_aus_text(ablage_text) if ablage_text is not None else None
+    )
     if eingabe is not None:
         roh_je_anwendung = {a: eingabe for a in anwendungen}
     elif set(anwendungen) == {"mailcheck", "todo"}:
-        roh_mailcheck, roh_todo = _erheben_gemeinsam()
+        roh_mailcheck, roh_todo = _erheben_gemeinsam(ablage=ablage)
         roh_je_anwendung = {"mailcheck": roh_mailcheck, "todo": roh_todo}
     else:
         roh_je_anwendung = {
-            a: (_mailcheck_erheben() if a == "mailcheck" else _todo_erheben())
+            a: (
+                _mailcheck_erheben(ablage=ablage)
+                if a == "mailcheck"
+                else _todo_erheben()
+            )
             for a in anwendungen
         }
 
@@ -473,6 +505,11 @@ def main() -> int:
     ap.add_argument(
         "--eingabe", help="Inline-JSON oder Pfad zu einer JSON-Datei (Tests)"
     )
+    ap.add_argument(
+        "--ablage-ausgabe",
+        help="Pfad zu einer bereits erzeugten `ablage_erledigt.py --pruefe`-"
+        "Textausgabe (#3069) — spart deren zweiten, teuren Lauf hier",
+    )
     ap.add_argument("--n", type=int, default=7)
     args = ap.parse_args()
 
@@ -496,8 +533,23 @@ def main() -> int:
         anwendungen = list(dict.fromkeys(anwendungen))  # Reihenfolge, ohne Duplikate
 
         eingabe = _eingabe_lesen(args.eingabe) if args.eingabe else None
+        ablage_text = None
+        if args.ablage_ausgabe:
+            try:
+                ablage_text = (
+                    Path(args.ablage_ausgabe).expanduser().read_text(encoding="utf-8")
+                )
+            except OSError as fehler:
+                # Nicht lesbar heisst nicht abbrechen — dann erhebt
+                # `schreiben()` `ablage_erledigt.py --pruefe` einfach selbst
+                # (derselbe Weg wie ohne die Option).
+                print(
+                    f"  ({args.ablage_ausgabe} nicht lesbar ({fehler}) — "
+                    "ablage_erledigt.py laeuft selbst)",
+                    file=sys.stderr,
+                )
         modell = args.modell or os.environ.get("CLAUDE_MODEL") or "unbekannt"
-        zeilen = schreiben(anwendungen, modell, journal_pfad, eingabe)
+        zeilen = schreiben(anwendungen, modell, journal_pfad, eingabe, ablage_text)
         for zeile in zeilen:
             print(
                 f"Journal geschrieben: {journal_pfad} ({zeile['anwendung']}, "

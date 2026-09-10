@@ -202,3 +202,74 @@ def test_should_link_pruefen_bei_alle_genau_einmal_laufen_und_beide_zeilen_fuell
     todo = next(z for z in zeilen if z["anwendung"] == "todo")
     assert mailcheck["kennzahlen"]["vorgangsseiten_tot"] == 2
     assert todo["kennzahlen"]["mail_links_tot"] == 2
+
+
+def _mailcheck_grundmocks(monkeypatch, ablage=None) -> None:
+    """Alle Mailcheck-Quellen ausser `link_pruefen`/`ablage` auf feste Werte legen."""
+    monkeypatch.setattr(
+        mj, "_mailcheck_board", lambda: {"vorgaenge_gesamt": 1, "ohne_frist": 0}
+    )
+    monkeypatch.setattr(
+        mj, "_mailcheck_referenzen", lambda: {"referenzen_ohne_ordner": 0}
+    )
+    monkeypatch.setattr(mj, "_mailcheck_anker", lambda: {"unverankert": 0})
+    monkeypatch.setattr(mj, "_mailcheck_index_alter", lambda: 0)
+    monkeypatch.setattr(mj, "_link_pruefen_vorgangsseiten", lambda: {})
+    monkeypatch.setattr(
+        mj, "_todo_direkt", lambda: {"geschlossen_7_tage": 0, "ohne_kopf_aktion": 0}
+    )
+    monkeypatch.setattr(mj, "_quelle_version", lambda: "test")
+    if ablage is not None:
+        monkeypatch.setattr(mj, "_mailcheck_ablage", ablage)
+
+
+def test_should_ablage_bei_alle_genau_einmal_selbst_laufen_ohne_vorgabe(
+    monkeypatch, tmp_path
+):
+    """`ablage_erledigt.py --pruefe` laeuft bei `--anwendung alle` genau einmal
+    — nicht je Anwendung —, solange keine bereits erzeugte Ausgabe vorliegt."""
+    aufrufe = {"n": 0}
+
+    def gezaehlt() -> dict[str, int | None]:
+        aufrufe["n"] += 1
+        return {"posteingang_geschlossene_vorgaenge": 5}
+
+    _mailcheck_grundmocks(monkeypatch, ablage=gezaehlt)
+
+    zeilen = mj.schreiben(
+        ["mailcheck", "todo"], "test-modell", tmp_path / "journal.jsonl", None
+    )
+    assert aufrufe["n"] == 1
+    mailcheck = next(z for z in zeilen if z["anwendung"] == "mailcheck")
+    assert mailcheck["kennzahlen"]["posteingang_geschlossene_vorgaenge"] == 5
+
+
+def test_should_ablage_ausgabe_vorgegeben_den_eigenen_lauf_ueberspringen(
+    monkeypatch, tmp_path
+):
+    """#3069: liegt die `--pruefe`-Ausgabe von `ablage_erledigt.py` schon vor
+    (Makefile hat sie fuer den Melder bereits erzeugt), ruft messjournal den
+    teuren Melder (gemessen 253s, 75 Index-Abfragen) NICHT ein zweites Mal
+    auf — das war die eigentliche Ursache der 9,3-Minuten-Laufzeit."""
+    aufrufe = {"n": 0}
+
+    def nicht_erwartet() -> dict[str, int | None]:
+        aufrufe["n"] += 1
+        return {"posteingang_geschlossene_vorgaenge": 99}
+
+    _mailcheck_grundmocks(monkeypatch, ablage=nicht_erwartet)
+
+    text = (
+        "ad: 3 Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen\n"
+        "Grundlage: Strang ueber die Konversation live, ..."
+    )
+    zeilen = mj.schreiben(
+        ["mailcheck", "todo"],
+        "test-modell",
+        tmp_path / "journal.jsonl",
+        None,
+        ablage_text=text,
+    )
+    assert aufrufe["n"] == 0
+    mailcheck = next(z for z in zeilen if z["anwendung"] == "mailcheck")
+    assert mailcheck["kennzahlen"]["posteingang_geschlossene_vorgaenge"] == 3

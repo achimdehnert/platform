@@ -38,6 +38,13 @@ from pathlib import Path
 HOST_SCHLUESSEL = "hetzner-prod"
 CONTAINER = os.environ.get("MAIL_INDEX_CONTAINER", "devhub_web")
 
+#: Multiplex-Verbindung (#3069) — ein Verzeichnis mit kurzen Socket-Pfaden
+#: (`%C` ist der OpenSSH-Hash aus lokalem User, Ziel und Port, damit der Pfad
+#: unter dem Limit von ~104 Zeichen bleibt) und wie lange die Verbindung nach
+#: dem letzten Aufruf offen bleibt, bevor ssh sie von selbst schliesst.
+CONTROL_DIR = Path.home() / ".ssh" / "control-mail-index"
+CONTROL_PERSIST = int(os.environ.get("MAIL_INDEX_CONTROL_PERSIST", "120"))
+
 #: Argumente, die unveraendert an den Management-Befehl durchgereicht werden.
 DURCHREICHEN = (
     "--begriff",
@@ -93,10 +100,34 @@ def befehl_bauen(argv: list[str], ziel: str) -> list[str]:
     Der frueher hier stehende Kommentar beschrieb genau diese Gefahr — und die
     Umsetzung schuetzte trotzdem nur lokal. Der zugehoerige Test pruefte
     ebenfalls die lokale Seite und war deshalb gruen.
+
+    **ControlMaster (#3069):** `ablage_erledigt.py --pruefe` ruft dieses Skript
+    bis zu 75x in einem Lauf auf — gemessen 2026-09-10 kostete jeder einzelne
+    Aufruf 2-6,6s, fast ausschliesslich SSH-Verbindungsaufbau plus
+    Docker/Django-Start. Mit einer gemultiplexten Verbindung (`ControlMaster`)
+    baut nur der erste Aufruf die Verbindung neu auf; jeder folgende Aufruf
+    innerhalb von `CONTROL_PERSIST` Sekunden haengt sich an dieselbe an. Das
+    Ergebnis der entfernten Abfrage aendert das nicht — nur, wie oft die
+    Leitung neu aufgebaut wird.
     """
+    CONTROL_DIR.mkdir(parents=True, exist_ok=True)
     fern = ["docker", "exec", CONTAINER, "python", "manage.py", "mail_suche", *argv]
     gequotet = " ".join(shlex.quote(teil) for teil in fern)
-    return ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", ziel, gequotet]
+    return [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=15",
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        f"ControlPersist={CONTROL_PERSIST}",
+        "-o",
+        f"ControlPath={CONTROL_DIR}/%C",
+        ziel,
+        gequotet,
+    ]
 
 
 def _durchgereichte(args: argparse.Namespace) -> list[str]:
