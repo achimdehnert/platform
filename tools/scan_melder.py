@@ -3,9 +3,12 @@
 
 ## Anlass (2026-09-08, doc-hub#3)
 
-Der ScanSnap iX1600 schreibt per SFTP direkt in den Paperless-Consume-Baum
-(`Match User scansnap`, home = `/opt/paperless-consume`, `ForceCommand internal-sftp`).
-Am 2026-09-07 um 10:19 landete dort `achim/07092026101932.pdf` — eine abgeschnittene
+Korrektur (2026-09-10): hier stand bis heute, der ScanSnap iX1600 schreibe per SFTP
+direkt in den Paperless-Consume-Baum. Das war falsch und ist am 2026-09-08 widerlegt
+worden (`smbstatus -b` zeigt die Sitzung, `auth.log` kennt keinen `scansnap`-Login) —
+die Lieferung laeuft ueber **Samba**, siehe "Die dritte Messung" unten.
+
+Am 2026-09-07 um 10:19 landete im Consume-Baum `achim/07092026101932.pdf` — eine abgeschnittene
 PDF ohne Trailer. Paperless brach die Aufnahme ab (`InputFileError`), **liess die Datei
 liegen** und meldete nach aussen nichts. Der Scan davor (10:10) ging durch. Gemerkt hat
 es 23 Stunden lang niemand.
@@ -26,7 +29,7 @@ nur die eine Richtung, die er wirklich belegt.
 
 ## Warum eine Altersschwelle und keine blosse Anwesenheit
 
-Waehrend der SFTP-Uebertragung liegt die Datei ebenfalls im Ordner. Ein Melder ohne
+Waehrend der Samba-Uebertragung liegt die Datei ebenfalls im Ordner. Ein Melder ohne
 Schwelle wuerde jeden laufenden Scan als Befund melden — und damit binnen einer Woche
 ignoriert. Paperless nimmt normal in 10-30 s auf (`PAPERLESS_CONSUMER_POLLING_INTERVAL=10`);
 30 Minuten Schwelle ist reichlich Luft und trotzdem am selben Tag ein Befund.
@@ -80,14 +83,46 @@ Zwei Dinge machen das belastbar:
     (danach ist die Datei aus dem Inventar) — deshalb braucht er kein Alarm-Fenster
     wie die haengenden Dateien, sondern meldet immer sofort.
 
-Grenze, offen benannt: eine Datei, die zwischen zwei Laeufen kommt UND geht, faellt
-durch. Bei stuendlichem Lauf ist das ein Fenster von unter einer Stunde; der reale Fall
-lag 23 Stunden auseinander.
+Grenze, frueher offen benannt, jetzt enger: eine Datei, die zwischen zwei Laeufen kommt
+UND geht, faellt durch den Bestandsvergleich durch — aber nicht mehr blind, solange der
+Consumer sie ueberhaupt gesehen hat: dann steht sie im Consumer-Log, und die dritte
+Messung (naechster Abschnitt) sieht sie unabhaengig vom Lauf-Abstand.
+
+## Die dritte Messung: der Consumer-Log kennt den Fehlschlag sofort
+
+Eine haengende Datei (oben) braucht die Altersschwelle, um sicher zu sein — sie koennte
+gerade erst ankommen. Der Consumer-Log weiss es sofort: zu jeder aufgenommenen Datei
+schreibt Paperless eine `Consuming <dateiname>`-Zeile mit einer Task-ID in eckigen
+Klammern, und zu deren Abschluss entweder `ConsumeTaskPlugin completed with:
+{'document_id': N}` oder `ConsumeTaskPlugin failed: ...: <Fehlerklasse>: ` — beide mit
+derselben ID. `aufnahmen()` verkettet Start und Abschluss ueber diese ID; eine Datei ohne
+Abschluss im selben Log gilt als `offen`, nicht als Fehlschlag.
+
+Der Melder holt dafuer `docker logs iil_dochub_web --since <Fenster>m` (Default siehe
+`--log-fenster`, deckt den stuendlichen Takt mit Luft ab) — rein lesend, kein
+Host-Eingriff. Eine gescheiterte Beschaffung zaehlt NICHT als "keine Fehlschlaege" (der
+gleiche Fehler wie bei der Ignoranz-Liste oben: ein stummer Container darf nicht gruen
+aussehen) und steht im Bericht ausdruecklich als nicht gemessen. `--log-fenster 0`
+schaltet die Messung bewusst ab (Tests, ein Lauf ohne Docker-Zugriff).
+
+Restluecke, offen benannt: eine Datei, die ankommt und wieder verschwindet, OHNE dass
+je eine `Consuming`-Zeile fuer sie im Log erschien, sieht keine der drei Messungen. Nur
+ein Schreibprotokoll der Samba-Freigabe (`vfs objects = full_audit`) wuerde das
+schliessen — das ist der Eingriff in eine Dienst-Konfiguration auf prod, der am
+2026-09-08 nach vier Anlaeufen gescheitert und vollstaendig zurueckgebaut wurde, und
+bleibt Owner-Sache.
 
 Exit-Codes
 ----------
-0 = nichts haengt · 1 = mindestens eine Datei haengt · 2 = blind (Wurzel nicht lesbar)
-4 = Verlust: etwas ist verschwunden, ohne ein Dokument zu werden (schlaegt 1)
+Rangfolge, wenn mehrere Befunde gleichzeitig zutreffen (hoechster Exit-Code gewinnt —
+Reihenfolge bewusst so: ein Messfehler geht vor jedem Inhalt, ein endgueltiger Verlust
+vor einem noch korrigierbaren Fehlschlag, der wiederum vor dem traegsten Signal steht,
+einer bloss lange liegenden Datei):
+    2 = blind: eine Wurzel ist nicht lesbar, der Lauf misst nichts Verlaessliches
+    4 = Verlust: etwas ist aus dem Inventar verschwunden, ohne ein Dokument zu werden
+    5 = Aufnahme fehlgeschlagen: der Consumer-Log zeigt einen Fehlschlag im Fenster
+    1 = haengt: mindestens eine Datei liegt laenger als die Schwelle
+    0 = sauber: nichts von alledem
 
 Usage
 -----
@@ -95,6 +130,7 @@ Usage
     python3 tools/scan_melder.py --kurz               # eine Zeile, ohne Namen
     python3 tools/scan_melder.py --ssh hetzner-prod   # von der Dev-Maschine
     python3 tools/scan_melder.py --neu-seit 60        # nur frisch haengende melden
+    python3 tools/scan_melder.py --log-fenster 0      # Aufnahme-Fehlschlaege nicht messen
 """
 
 from __future__ import annotations
@@ -111,6 +147,9 @@ from pathlib import Path
 WURZEL = "/opt/paperless-consume"
 CONTAINER = "iil_dochub_web"
 SCHWELLE_MIN = 30
+# Muss den stuendlichen Takt sicher ueberlappen (sonst Luecke zwischen zwei Laeufen);
+# 90 min laesst dem Consumer zusaetzlich Luft fuer einen verspaeteten Lauf.
+LOG_FENSTER_MIN = 90
 # Liegt auf dem Host, auf dem gemessen wird (prod). Der Actions-Runner checkt je
 # Lauf frisch aus; ein Inventar im Arbeitsverzeichnis waere nach jedem Lauf weg.
 INVENTAR = "/var/lib/scan-melder/inventar.json"
@@ -135,7 +174,17 @@ ZUSATZ_WURZELN = ("/opt/doc-hub/unklar",)
 
 
 def _lauf(argv: list[str], ssh: str | None) -> tuple[int, str]:
-    """Kommando lokal oder ueber ssh ausfuehren. Gibt (rc, stdout) zurueck."""
+    """Kommando lokal oder ueber ssh ausfuehren. Gibt (rc, stdout+stderr) zurueck.
+
+    Kombiniert bewusst beide Stroeme (2026-09-10, real gemessen gegen prod):
+    `docker logs` spiegelt STDOUT des Containers auf sein eigenes STDOUT und
+    STDERR des Containers auf sein eigenes STDERR -- Paperless schreibt seinen
+    Consumer-Log aber auf STDERR. Ein Melder, der nur STDOUT liest, waere fuer
+    `lies_consumer_log` blind, ohne dass rc!=0 das anzeigt (der Container laeuft
+    ja, nur die Zeilen landen im falschen Topf). `find`/`docker exec ... env`
+    schreiben im Erfolgsfall ohnehin nur auf STDOUT, das Zusammenlegen aendert
+    dort nichts.
+    """
     if ssh:
         argv = [
             "ssh",
@@ -145,7 +194,7 @@ def _lauf(argv: list[str], ssh: str | None) -> tuple[int, str]:
             " ".join(shlex.quote(a) for a in argv),
         ]
     p = subprocess.run(argv, capture_output=True, text=True, timeout=120)
-    return p.returncode, p.stdout
+    return p.returncode, p.stdout + p.stderr
 
 
 # --- reine Auswertung (testbar ohne Host) ----------------------------------
@@ -233,27 +282,99 @@ def verschwundene(vorher: list[dict], jetzt: list[dict]) -> list[dict]:
     return [v for v in vorher if v["pfad"] not in da]
 
 
+# Consumer-Log-Zeilenmuster (real beobachtet 2026-09-10, siehe Modul-Docstring).
+# Verkettet ueber die Task-ID in eckigen Klammern, die Start und Abschluss verbindet.
+_CONSUMING_RE = re.compile(
+    r"\[(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})\] \[INFO\] "
+    r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Consuming (?P<datei>.+?)\s*$"
+)
+_ABSCHLUSS_TEXT_RE = re.compile(
+    r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Document .* consumption finished"
+)
+_ABSCHLUSS_ID_RE = re.compile(
+    r"\[paperless\.tasks\] \[(?P<tid>[0-9a-f]+)\] ConsumeTaskPlugin completed with: "
+    r"\{'document_id': (?P<doc>\d+)\}"
+)
+_FEHLSCHLAG_RE = re.compile(
+    r"\[ERROR\] \[paperless\.tasks\] \[(?P<tid>[0-9a-f]+)\] ConsumeTaskPlugin failed: "
+    r"(?P<datei>[^:]+):"
+)
+_FEHLERKLASSE_RE = re.compile(r"\b([A-Za-z]+Error)\b")
+
+
+def aufnahmen(log_text: str) -> list[dict]:
+    """Consumer-Log in Aufnahme-Datensaetze zerlegen, verkettet ueber die Task-ID.
+
+    Reine Funktion ohne Seiteneffekte (testbar ohne Host). Ein Datensatz je Task-ID
+    mit `dateiname`, `start` und `ergebnis`:
+      * `fertig`        — mit `document_id`, wenn die maschinenlesbare Abschlusszeile
+                           vorkam; sonst ohne (nur die Textzeile war da).
+      * `fehlgeschlagen` — mit `fehlerklasse` (z.B. `InputFileError`).
+      * `offen`          — `Consuming` gesehen, kein Abschluss im selben Log
+                           (Fenster zu knapp oder Log rotiert; kein Fehlschlag).
+    """
+    eintraege: dict[str, dict] = {}
+    reihenfolge: list[str] = []
+    for zeile in log_text.splitlines():
+        m = _CONSUMING_RE.search(zeile)
+        if m:
+            tid = m.group("tid")
+            if tid not in eintraege:
+                reihenfolge.append(tid)
+            eintraege[tid] = {
+                "dateiname": m.group("datei"),
+                "start": m.group("ts"),
+                "ergebnis": "offen",
+            }
+            continue
+        m = _ABSCHLUSS_TEXT_RE.search(zeile)
+        if m and m.group("tid") in eintraege:
+            eintraege[m.group("tid")]["ergebnis"] = "fertig"
+            continue
+        m = _ABSCHLUSS_ID_RE.search(zeile)
+        if m and m.group("tid") in eintraege:
+            eintraege[m.group("tid")]["ergebnis"] = "fertig"
+            eintraege[m.group("tid")]["document_id"] = int(m.group("doc"))
+            continue
+        m = _FEHLSCHLAG_RE.search(zeile)
+        if m and m.group("tid") in eintraege:
+            klassen = _FEHLERKLASSE_RE.findall(zeile)
+            eintraege[m.group("tid")]["ergebnis"] = "fehlgeschlagen"
+            eintraege[m.group("tid")]["fehlerklasse"] = (
+                klassen[-1] if klassen else "unbekannt"
+            )
+    return [eintraege[tid] for tid in reihenfolge]
+
+
 def kurzzeile(
     treffer: list[dict],
     *,
     geprueft: int,
     gemessene_ignoranz: bool,
     verluste: list[dict] | None = None,
+    fehlgeschlagene: list[dict] | None = None,
+    log_gemessen: bool | None = None,
 ) -> str:
-    """Eine Zeile ohne Ordner- und Dateinamen (Repo und Actions-Log sind oeffentlich)."""
+    """Eine Zeile ohne Ordner- und Dateinamen (Repo und Actions-Log sind oeffentlich).
+
+    `log_gemessen`: None = Log-Messung bewusst abgeschaltet (kein Vermerk), False =
+    Beschaffung gescheitert (Vermerk), True = gemessen.
+    """
     nachsatz = "" if gemessene_ignoranz else " [Ignoranz-Liste nicht gemessen]"
-    verlust_teil = ""
+    if log_gemessen is False:
+        nachsatz += " [Aufnahme-Log nicht gemessen]"
+    vorspann = ""
     if verluste:
-        verlust_teil = (
-            f"{len(verluste)} Datei(en) VERLOREN (verschwunden ohne Dokument), "
-        )
+        vorspann += f"{len(verluste)} Datei(en) VERLOREN (verschwunden ohne Dokument), "
+    if fehlgeschlagene:
+        vorspann += f"{len(fehlgeschlagene)} Aufnahme(n) FEHLGESCHLAGEN, "
     if not treffer:
         return (
-            f"scan-melder: {verlust_teil}0 haengende Dateien "
+            f"scan-melder: {vorspann}0 haengende Dateien "
             f"({geprueft} geprueft){nachsatz}"
         )
     return (
-        f"scan-melder: {verlust_teil}{len(treffer)} haengende Datei(en), "
+        f"scan-melder: {vorspann}{len(treffer)} haengende Datei(en), "
         f"aeltester Eingang vor {_stunden(treffer[0]['alter_s'])} "
         f"({geprueft} geprueft) — "
         f"Details lokal: python3 tools/scan_melder.py --ssh hetzner-prod{nachsatz}"
@@ -266,6 +387,8 @@ def bericht(
     geprueft: int,
     gemessene_ignoranz: bool,
     verluste: list[dict] | None = None,
+    fehlgeschlagene: list[dict] | None = None,
+    log_gemessen: bool | None = None,
 ) -> str:
     zeilen = [
         kurzzeile(
@@ -273,15 +396,22 @@ def bericht(
             geprueft=geprueft,
             gemessene_ignoranz=gemessene_ignoranz,
             verluste=verluste,
+            fehlgeschlagene=fehlgeschlagene,
+            log_gemessen=log_gemessen,
         )
     ]
     for v in verluste or []:
-        zeilen.append(f"  VERLOREN  {v['groesse']:>10} B  {v['pfad']}")
+        zeilen.append(f"  VERLOREN         {v['groesse']:>10} B  {v['pfad']}")
+    for f in fehlgeschlagene or []:
+        zeilen.append(
+            f"  FEHLGESCHLAGEN   {f.get('fehlerklasse', 'unbekannt'):>10}    "
+            f"{f['dateiname']}"
+        )
     for t in treffer:
         zeilen.append(
             f"  {_stunden(t['alter_s']):>8}  {t['groesse']:>10} B  {t['pfad']}"
         )
-    if treffer or verluste:
+    if treffer or verluste or fehlgeschlagene:
         zeilen.append("")
         zeilen.append(
             f'  Ursache je Datei: ssh hetzner-prod "docker logs {CONTAINER} --since 48h'
@@ -337,6 +467,18 @@ def lies_ignoranz(ssh: str | None) -> tuple[list[str], bool]:
     return ignorierte_ordner(out)
 
 
+def lies_consumer_log(fenster_min: int, ssh: str | None) -> tuple[str, bool]:
+    """Consumer-Log der letzten `fenster_min` Minuten holen. Zweiter Wert: gemessen?
+
+    Ein Fehlschlag ist KEIN "keine Fehlschlaege im Fenster" — sonst wuerde ein
+    stummer Container als sauber durchgehen (dieselbe Falle wie `lies_ignoranz`).
+    """
+    rc, out = _lauf(["docker", "logs", CONTAINER, "--since", f"{fenster_min}m"], ssh)
+    if rc != 0:
+        return "", False
+    return out, True
+
+
 def aufgenommene(namen: list[str], ssh: str | None) -> tuple[set[str], bool]:
     """Welche dieser Dateinamen sind in Paperless als `original_filename` bekannt?
 
@@ -377,16 +519,28 @@ def lade_inventar(pfad: Path) -> list[dict]:
         return []
 
 
-def schreibe_inventar(pfad: Path, dateien: list[dict]) -> None:
-    pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(
-        json.dumps(
-            {"gemessen_am": time.time(), "dateien": dateien},
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+def schreibe_inventar(pfad: Path, dateien: list[dict]) -> bool:
+    """Inventar fortschreiben. False, wenn der Ort nicht beschreibbar ist.
+
+    Der im Workflow dokumentierte Owner-Weg (`--ssh hetzner-prod`) laeuft auf
+    einem Rechner, der `/var/lib/scan-melder` nicht anlegen darf. Bis 2026-09-10
+    brach der Lauf dort mit `PermissionError` ab -- BEVOR der Bericht gedruckt
+    war. Der Melder verschwieg damit genau das, wofuer er gebaut ist. Ein nicht
+    beschreibbares Inventar ist ein Hinweis, kein Grund, den Befund zu verlieren.
+    """
+    try:
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        pfad.write_text(
+            json.dumps(
+                {"gemessen_am": time.time(), "dateien": dateien},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        return False
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -430,6 +584,17 @@ def main(argv: list[str] | None = None) -> int:
             f"(Default: {', '.join(ZUSATZ_WURZELN)})"
         ),
     )
+    p.add_argument(
+        "--log-fenster",
+        type=int,
+        default=LOG_FENSTER_MIN,
+        metavar="MINUTEN",
+        help=(
+            "Consumer-Log der letzten MINUTEN auf Aufnahme-Fehlschlaege pruefen "
+            f"(Default {LOG_FENSTER_MIN}, ueberlappt den stuendlichen Takt); "
+            "0 schaltet die Messung ab"
+        ),
+    )
     p.add_argument("--kurz", action="store_true")
     a = p.parse_args(argv)
 
@@ -447,9 +612,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ignore_dirs, gemessen = lies_ignoranz(a.ssh)
     trotz = tuple(a.auch if a.auch is not None else BEOBACHTET_TROTZ_IGNORANZ)
-    beobachtet = [
-        d for d in dateien if not _ignoriert(d["pfad"], ignore_dirs, trotz)
-    ]
+    beobachtet = [d for d in dateien if not _ignoriert(d["pfad"], ignore_dirs, trotz)]
     treffer = haengende(
         dateien,
         jetzt=time.time(),
@@ -466,7 +629,8 @@ def main(argv: list[str] | None = None) -> int:
     # ist. Fuer den Eingang gilt deshalb nur "liegt zu lange"; sein
     # Bestandsvergleich fuehrt der Zerleger selbst in seinem Ledger.
     bestand = [
-        d for d in beobachtet
+        d
+        for d in beobachtet
         if not any(d["pfad"].startswith(t.rstrip("/") + "/") for t in trotz)
         and not any(d["pfad"].startswith(w.rstrip("/") + "/") for w in a.zusatz_wurzel)
     ]
@@ -487,8 +651,28 @@ def main(argv: list[str] | None = None) -> int:
             verluste = [v for v in weg if Path(v["pfad"]).name not in gefunden]
         # Nur schreiben, wenn beurteilt wurde: sonst faellt ein unbeantworteter Lauf
         # das Inventar zurueck und der naechste Lauf haelt den Verlust fuer erledigt.
-        if beantwortet:
-            schreibe_inventar(pfad, bestand)
+        if beantwortet and not schreibe_inventar(pfad, bestand):
+            print(
+                f"scan-melder: Inventar {pfad} nicht beschreibbar — der naechste "
+                "Lauf kann keinen Verlust erkennen",
+                file=sys.stderr,
+            )
+
+    fehlgeschlagene: list[dict] = []
+    log_gemessen: bool | None = None
+    if a.log_fenster:
+        log_text, log_ok = lies_consumer_log(a.log_fenster, a.ssh)
+        log_gemessen = log_ok
+        if not log_ok:
+            print(
+                "scan-melder: Consumer-Log nicht erreichbar — Aufnahme-Fehlschlaege "
+                "nicht gemessen, kein Urteil",
+                file=sys.stderr,
+            )
+        else:
+            fehlgeschlagene = [
+                e for e in aufnahmen(log_text) if e["ergebnis"] == "fehlgeschlagen"
+            ]
 
     if a.kurz:
         print(
@@ -497,6 +681,8 @@ def main(argv: list[str] | None = None) -> int:
                 geprueft=len(beobachtet),
                 gemessene_ignoranz=gemessen,
                 verluste=verluste,
+                fehlgeschlagene=fehlgeschlagene,
+                log_gemessen=log_gemessen,
             )
         )
     else:
@@ -506,10 +692,15 @@ def main(argv: list[str] | None = None) -> int:
                 geprueft=len(beobachtet),
                 gemessene_ignoranz=gemessen,
                 verluste=verluste,
+                fehlgeschlagene=fehlgeschlagene,
+                log_gemessen=log_gemessen,
             )
         )
+    # Rangfolge siehe Modul-Docstring: 2 (frueher return) > 4 > 5 > 1 > 0.
     if verluste:
         return 4
+    if fehlgeschlagene:
+        return 5
     return 1 if treffer else 0
 
 
