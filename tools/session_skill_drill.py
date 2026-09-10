@@ -258,6 +258,16 @@ def parse_skill(path: Path, skill: str = "custom") -> SkillParse:
 
 STATUS_PLACEHOLDER = "<erfüllt\\|bewusst übersprungen: <grund>\\|fehlt>"
 BELEG_PLACEHOLDER = "<beleg>"
+GRUND_MINDESTWOERTER = 3
+TROCKENLAUF_REGEL = (
+    "Trockenlauf-Regel (#2719): Eine Einheit gilt als `erfüllt`, wenn du die "
+    "konkrete Handlung beschreibst, die du ausführen würdest (Befehl, Datei, "
+    "Subagent). `bewusst übersprungen` nur, wenn der Skill selbst das Überspringen "
+    "für diesen Fall vorsieht (Footprint, Right-Sizing, Bedingung). Ein "
+    "Werkzeugverbot des Drills ist kein Grund. Der Grund hinter "
+    f"`bewusst übersprungen:` braucht mindestens {GRUND_MINDESTWOERTER} Wörter, "
+    "kürzer zählt als still übersprungen."
+)
 
 
 def parse_protokoll(path: Path) -> dict:
@@ -287,7 +297,9 @@ def parse_protokoll(path: Path) -> dict:
                     if sep_cells and all(SEP_CELL_RE.match(c) for c in sep_cells):
                         idx_id = lowered.index("id")
                         idx_status = lowered.index("status")
-                        idx_beleg = lowered.index("beleg") if "beleg" in lowered else None
+                        idx_beleg = (
+                            lowered.index("beleg") if "beleg" in lowered else None
+                        )
                         j = i + 2
                         while j < n:
                             rl = lines[j]
@@ -321,8 +333,9 @@ def classify_status(status_text: str) -> str:
     """Klassifiziert eine Status-Zelle: erfuellt | bewusst_uebersprungen | still.
 
     "still" deckt sowohl fehlende/leere Angaben als auch unbekannten Text und
-    "bewusst uebersprungen" mit zu duennem Grund (< 3 Woerter) ab — all das
-    ist im Sinn von K1 ein stillschweigendes Ueberspringen.
+    "bewusst uebersprungen" mit zu duennem Grund (< GRUND_MINDESTWOERTER
+    Woerter) ab — all das ist im Sinn von K1 ein stillschweigendes
+    Ueberspringen. Warum genau, sagt ``still_grund`` (#2719).
     """
     s = status_text.strip()
     if not s:
@@ -332,13 +345,53 @@ def classify_status(status_text: str) -> str:
     low = s.lower()
     if low.startswith("erfüllt") or low.startswith("erfuellt"):
         return "erfuellt"
-    if low.startswith("bewusst übersprungen") or low.startswith("bewusst uebersprungen"):
+    if low.startswith("bewusst übersprungen") or low.startswith(
+        "bewusst uebersprungen"
+    ):
         grund = s.split(":", 1)[1].strip() if ":" in s else ""
         wortzahl = len([w for w in re.split(r"\s+", grund) if w])
-        return "bewusst_uebersprungen" if wortzahl >= 3 else "still"
+        return "bewusst_uebersprungen" if wortzahl >= GRUND_MINDESTWOERTER else "still"
     if low == "fehlt":
         return "still"
     return "still"  # unbekannter Status zaehlt konservativ als still
+
+
+def still_grund(status_text: str, vorhanden: bool = True) -> str | None:
+    """Warum eine Einheit als ``still`` zaehlt — fuer die Ausgabe von --protokoll.
+
+    Instrument-Effekte von Skill-Befunden trennen (#2719): ``grund_zu_kurz``
+    (bewusst uebersprungen, aber < GRUND_MINDESTWOERTER Woerter) ist etwas
+    anderes als ``einheit_fehlt`` (keine Protokollzeile). Weitere Klassen:
+    ``status_leer``, ``platzhalter``, ``fehlt_markiert``, ``unbekannt``.
+    ``None`` = nicht still.
+    """
+    if not vorhanden:
+        return "einheit_fehlt"
+    if classify_status(status_text) != "still":
+        return None
+    s = status_text.strip()
+    if not s:
+        return "status_leer"
+    if "<" in s and ">" in s:
+        return "platzhalter"
+    low = s.lower()
+    if low.startswith("bewusst übersprungen") or low.startswith(
+        "bewusst uebersprungen"
+    ):
+        return "grund_zu_kurz"
+    if low == "fehlt":
+        return "fehlt_markiert"
+    return "unbekannt"
+
+
+STILL_GRUND_TEXT = {
+    "grund_zu_kurz": f"Grund zu kurz (< {GRUND_MINDESTWOERTER} Woerter)",
+    "einheit_fehlt": "Einheit fehlt im Protokoll",
+    "status_leer": "Status leer",
+    "platzhalter": "Platzhalter nicht ausgefuellt",
+    "fehlt_markiert": "als 'fehlt' markiert",
+    "unbekannt": "unbekannter Status",
+}
 
 
 # --- CLI ---------------------------------------------------------------
@@ -378,7 +431,9 @@ def cmd_erwartung(args, parser) -> int:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
         print(f"Skill: {name} ({path})")
-        print(f"Ueberschriften: {len(sp.headings)} (davon Pflicht: {n_pflicht}, davon NEU: {n_neu})")
+        print(
+            f"Ueberschriften: {len(sp.headings)} (davon Pflicht: {n_pflicht}, davon NEU: {n_neu})"
+        )
         if sp.checklist_present:
             print(f"Checklisten-Zeilen: {len(sp.checklist)}")
         else:
@@ -389,7 +444,14 @@ def cmd_erwartung(args, parser) -> int:
 def cmd_vorlage(args, parser) -> int:
     path, name = _resolve_skill(args, parser)
     sp = parse_skill(path, skill=name)
-    out = [f"# Drill-Protokoll: {name} ({path})", "", "| ID | Status | Beleg |", "|---|---|---|"]
+    out = [
+        f"# Drill-Protokoll: {name} ({path})",
+        "",
+        f"> {TROCKENLAUF_REGEL}",
+        "",
+        "| ID | Status | Beleg |",
+        "|---|---|---|",
+    ]
     for e in sp.einheiten():
         out.append(f"| {e.id} | {STATUS_PLACEHOLDER} | {BELEG_PLACEHOLDER} |")
     print("\n".join(out))
@@ -404,16 +466,23 @@ def cmd_protokoll(args, parser) -> int:
     ergebnisse = []
     still_total = 0
     still_pflicht = 0
+    still_grund_zu_kurz = 0
+    still_einheit_fehlt = 0
     for e in einheiten:
         row = proto.get(e.id)
         status_raw = row["status"] if row else ""
         beleg = row["beleg"] if row else ""
         klasse = classify_status(status_raw) if row else "still"
         still = klasse == "still"
+        grund = still_grund(status_raw, vorhanden=row is not None)
         if still:
             still_total += 1
             if e.pflicht:
                 still_pflicht += 1
+            if grund == "grund_zu_kurz":
+                still_grund_zu_kurz += 1
+            elif grund == "einheit_fehlt":
+                still_einheit_fehlt += 1
         ergebnisse.append(
             {
                 "id": e.id,
@@ -422,6 +491,7 @@ def cmd_protokoll(args, parser) -> int:
                 "status_raw": status_raw,
                 "klasse": klasse,
                 "still": still,
+                "still_grund": grund,
                 "beleg": beleg,
             }
         )
@@ -435,6 +505,8 @@ def cmd_protokoll(args, parser) -> int:
                     "einheiten_gesamt": len(einheiten),
                     "still_uebersprungen": still_total,
                     "still_uebersprungen_pflicht": still_pflicht,
+                    "still_grund_zu_kurz": still_grund_zu_kurz,
+                    "still_einheit_fehlt": still_einheit_fehlt,
                     "ergebnisse": ergebnisse,
                 },
                 ensure_ascii=False,
@@ -445,10 +517,17 @@ def cmd_protokoll(args, parser) -> int:
         print(f"Skill: {name} — Protokoll: {args.protokoll}")
         print(f"Einheiten gesamt: {len(einheiten)}")
         print(f"Still uebersprungen: {still_total} (davon Pflicht: {still_pflicht})")
+        print(
+            f"  davon Grund zu kurz: {still_grund_zu_kurz} — Einheit fehlt: {still_einheit_fehlt}"
+        )
         for r in ergebnisse:
             if r["still"]:
                 marker = " PFLICHT" if r["pflicht"] else ""
-                print(f"  - {r['id']}{marker}: still uebersprungen (status={r['status_raw']!r})")
+                warum = STILL_GRUND_TEXT.get(r["still_grund"], r["still_grund"])
+                print(
+                    f"  - {r['id']}{marker}: still uebersprungen — {warum} "
+                    f"(status={r['status_raw']!r})"
+                )
     return 1 if still_pflicht > 0 else 0
 
 
@@ -471,9 +550,13 @@ def cmd_vergleich(args) -> int:
         ra = a.get(uid)
         rb = b.get(uid)
         if ra is None:
-            abweichungen.append({"id": uid, "grund": "nur in B", "a": None, "b": rb["status"]})
+            abweichungen.append(
+                {"id": uid, "grund": "nur in B", "a": None, "b": rb["status"]}
+            )
         elif rb is None:
-            abweichungen.append({"id": uid, "grund": "nur in A", "a": ra["status"], "b": None})
+            abweichungen.append(
+                {"id": uid, "grund": "nur in A", "a": ra["status"], "b": None}
+            )
         else:
             klasse_a = classify_status(ra["status"])
             klasse_b = classify_status(rb["status"])
@@ -523,16 +606,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--skill", choices=SKILL_ORDER, help="Kanonischer Skill-Name.")
     p.add_argument("--datei", type=Path, help="Skill-Datei-Pfad ueberschreiben.")
-    p.add_argument("--erwartung", action="store_true", help="Erwartungseinheiten listen.")
-    p.add_argument("--vorlage", action="store_true", help="Drill-Protokoll-Vorlage ausgeben.")
-    p.add_argument("--protokoll", type=Path, help="Ausgefuelltes Protokoll gegen die Erwartung bewerten.")
+    p.add_argument(
+        "--erwartung", action="store_true", help="Erwartungseinheiten listen."
+    )
+    p.add_argument(
+        "--vorlage", action="store_true", help="Drill-Protokoll-Vorlage ausgeben."
+    )
+    p.add_argument(
+        "--protokoll",
+        type=Path,
+        help="Ausgefuelltes Protokoll gegen die Erwartung bewerten.",
+    )
     p.add_argument(
         "--vergleich",
         nargs=2,
         metavar=("PROTOKOLL_A", "PROTOKOLL_B"),
         help="Zwei Protokolle auf Reproduzierbarkeit vergleichen.",
     )
-    p.add_argument("--kurz", action="store_true", help="Eine Zeile fuer alle drei Skills.")
+    p.add_argument(
+        "--kurz", action="store_true", help="Eine Zeile fuer alle drei Skills."
+    )
     p.add_argument("--json", action="store_true", help="Maschinenlesbare Ausgabe.")
     return p
 
