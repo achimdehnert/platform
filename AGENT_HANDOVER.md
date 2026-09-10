@@ -15,7 +15,19 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 nachmittags — Scan-Strecke geschlossen, Archiv aufgeraeumt)
+## ⚡ Aktueller Stand (2026-09-10 nachmittags — Auftrag #3015: K1–K3 gebaut, drei Gates revidiert, Token nach ADR-238)
+
+**Zeitanker:** HEAD `78900e91` · `rev-list --count` 4379 · geschrieben 2026-09-10
+
+**Auftrag [#3015](https://github.com/achimdehnert/platform/issues/3015) (Mailcheck / To-do-Liste / Morgen-Zeitung selbstmessend):** K1 Betriebsakten fuer alle drei Anwendungen ([#3054](https://github.com/achimdehnert/platform/pull/3054), [news-hub#42](https://github.com/achimdehnert/news-hub/pull/42)); K2 Messjournal je Lauf mit Trend ([#3061](https://github.com/achimdehnert/platform/pull/3061)); K3 Verfallsmelder mit zehn Signalen, Schwellen und Positivkontrolle ([#3064](https://github.com/achimdehnert/platform/pull/3064), Fehlalarm-Fix [#3065](https://github.com/achimdehnert/platform/pull/3065)). Offen: K4 Pruefskript fuer Gegenrede, K5 Drill, Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Vorgang schliessen per Kommando [#3049](https://github.com/achimdehnert/platform/issues/3049). Sachstand mit 19 Punkten und Checkliste im Issue.
+
+**Retro der Sitzung** ([#3048](https://github.com/achimdehnert/platform/pull/3048), Footprint full, 22 Befunde, 19 ueberlebt, 4 gekippt / 4 neu in der Widerlegungsbahn): drei Gates revidiert statt neu gebaut ([#3063](https://github.com/achimdehnert/platform/pull/3063)) — aufschub-anker liest Issue-Kommentare ([#3059](https://github.com/achimdehnert/platform/pull/3059)), repo-session start zeigt offene PRs des Tages ([#3057](https://github.com/achimdehnert/platform/pull/3057)), serielle-prs-Abgleich beim PR ([#3062](https://github.com/achimdehnert/platform/pull/3062)). Das Anker-Gate fing am selben Tag zwei eigene PRs. Token im Auslagerungs-Gate von PROJECT_PAT auf App-Token nach ADR-238 ([#3056](https://github.com/achimdehnert/platform/pull/3056)), Positivkontrolle gruen; Wirkungsnachweis im Echtfall bleibt [#3027](https://github.com/achimdehnert/platform/issues/3027).
+
+**Eigene Fehler, korrigiert:** Alias statt Dienst (#3024→#3039), Betreff in Fixture (#3054), Melder-Fehlalarm (#3065).
+
+**Offen (Owner):** nichts Neues — alle Governance-PRs des Tages sind approved und gemergt.
+
+## ⚡ Stand (2026-09-10 nachmittags — Scan-Strecke geschlossen, Archiv aufgeraeumt)
 
 **Scan-Strecke** ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3), geschlossen): der Melder deckt jetzt drei Faelle ab — liegt zu lange (Exit 1), verschwindet ohne Dokument (Exit 4), Aufnahme scheitert (Exit 5, [#3017](https://github.com/achimdehnert/platform/pull/3017)); eine Dublette meldet sichtbar, aber stumm ([#3029](https://github.com/achimdehnert/platform/pull/3029)). **Nicht** ueber `full_audit` auf der Samba-Freigabe — der Weg blieb nach der Vier-Neustarts-Episode zurueckgebaut. Exit 4 hat erstmals an einem echten Ereignis gefeuert ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert).
 
