@@ -286,7 +286,7 @@ def verschwundene(vorher: list[dict], jetzt: list[dict]) -> list[dict]:
 # Verkettet ueber die Task-ID in eckigen Klammern, die Start und Abschluss verbindet.
 _CONSUMING_RE = re.compile(
     r"\[(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})\] \[INFO\] "
-    r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Consuming (?P<datei>\S+)"
+    r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Consuming (?P<datei>.+?)\s*$"
 )
 _ABSCHLUSS_TEXT_RE = re.compile(
     r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Document .* consumption finished"

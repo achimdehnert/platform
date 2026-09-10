@@ -275,3 +275,23 @@ def test_should_keep_filenames_out_of_short_line_for_failed_ingestions():
     assert "07092026101932.pdf" in sm.bericht(
         [], geprueft=1, gemessene_ignoranz=True, fehlgeschlagene=fehlgeschlagene
     )
+
+
+# Der Stapel-Zerleger legt Dateien mit sprechenden Namen ab ("2026-09-09 - Ablage.pdf",
+# gemessen 2026-09-10). Ein Muster, das am ersten Leerzeichen endet, meldet im
+# Vollbericht einen Namen, den es auf der Platte nicht gibt — und schickt den Owner
+# zum falschen Blatt.
+LEERZEICHEN_LOG = (
+    "[2026-09-10 09:28:57,618] [INFO] [paperless.consumer] [c79ae46d] "
+    "Consuming 2026-09-09 - Ablage Musterstelle.pdf\n"
+    "[2026-09-10 09:29:05,344] [ERROR] [paperless.tasks] [c79ae46d] "
+    "ConsumeTaskPlugin failed: 2026-09-09 - Ablage Musterstelle.pdf: Error "
+    "occurred while consuming document: InputFileError: \n"
+)
+
+
+def test_should_keep_the_full_filename_when_it_contains_spaces():
+    treffer = sm.aufnahmen(LEERZEICHEN_LOG)
+    assert len(treffer) == 1
+    assert treffer[0]["dateiname"] == "2026-09-09 - Ablage Musterstelle.pdf"
+    assert treffer[0]["ergebnis"] == "fehlgeschlagen"
