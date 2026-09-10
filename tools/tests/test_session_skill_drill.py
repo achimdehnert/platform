@@ -239,6 +239,57 @@ def test_should_classify_fehlt_as_still():
     assert drill.classify_status("fehlt") == "still"
 
 
+# --- #2719: Trockenlauf-Regel + Grund-Klassen ------------------------------
+
+
+def test_should_print_trockenlauf_regel_in_vorlage(skill_datei, capsys):
+    drill.main(["--vorlage", "--datei", str(skill_datei)])
+    out = capsys.readouterr().out
+    assert "Trockenlauf-Regel" in out
+    assert "Werkzeugverbot des Drills ist kein Grund" in out
+    assert f"mindestens {drill.GRUND_MINDESTWOERTER} Wörter" in out
+
+
+def test_should_distinguish_grund_zu_kurz_from_einheit_fehlt():
+    assert drill.still_grund("bewusst übersprungen: zu kurz") == "grund_zu_kurz"
+    assert drill.still_grund("", vorhanden=False) == "einheit_fehlt"
+    assert drill.still_grund("erfüllt") is None
+    assert drill.still_grund("bewusst übersprungen: Skill sieht das vor") is None
+
+
+def test_should_count_grund_zu_kurz_and_einheit_fehlt_in_json(skill_datei, tmp_path):
+    proto = tmp_path / "proto.md"
+    sp = drill.parse_skill(skill_datei, skill="fixture")
+    zeilen = [
+        (e.id, "bewusst übersprungen: kurz", "")
+        for e in sp.einheiten()
+        if e.id != "2.7"
+    ]
+    _schreibe_protokoll(proto, zeilen)
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        drill.main(["--protokoll", str(proto), "--datei", str(skill_datei), "--json"])
+    data = json.loads(buf.getvalue())
+    assert data["still_grund_zu_kurz"] == len(sp.einheiten()) - 1
+    assert data["still_einheit_fehlt"] == 1
+    by_id = {r["id"]: r for r in data["ergebnisse"]}
+    assert by_id["2.7"]["still_grund"] == "einheit_fehlt"
+
+
+def test_should_name_grund_zu_kurz_in_text_output(skill_datei, tmp_path, capsys):
+    proto = tmp_path / "proto.md"
+    sp = drill.parse_skill(skill_datei, skill="fixture")
+    zeilen = [(e.id, "bewusst übersprungen: kurz", "") for e in sp.einheiten()]
+    _schreibe_protokoll(proto, zeilen)
+    drill.main(["--protokoll", str(proto), "--datei", str(skill_datei)])
+    out = capsys.readouterr().out
+    assert "Grund zu kurz" in out
+    assert "Einheit fehlt im Protokoll" not in out
+
+
 # --- CLI: --protokoll -----------------------------------------------------
 
 
