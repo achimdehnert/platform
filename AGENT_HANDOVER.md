@@ -15,7 +15,20 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 vormittags — Scan-Strecke: der Melder sieht jetzt auch den Fehlschlag)
+## ⚡ Aktueller Stand (2026-09-10 mittags — iil-assist: Konzept, Katalog und MVP 1 in Produktion)
+
+**Auftrag** [#3011](https://github.com/achimdehnert/platform/issues/3011) (Owner-Go, vier Fassungen): Dienste der Hubs einmal bauen, zweimal anbieten — App und Chat (chat-hub, künftig iil-assist-hub). **Erreicht heute:** Inventar-Werkzeug (1575 Kandidaten in 63 Repos, byte-gleich, [#3012](https://github.com/achimdehnert/platform/pull/3012)) · [KONZ-platform-058](docs/konzepte/KONZ-platform-058-iil-assist-ein-dienst-zwei-zugaenge.md) mit Zustandsdatei, `tools/iil_assist_katalog.py` (validate, briefing, naechster-schritt, vier Bahnen) und bestandener Probe eines frischen Modells ([#3013](https://github.com/achimdehnert/platform/pull/3013)) · Katalog 15 Dienste, fünf MVPs vom Owner bestätigt · **MVP 1 Plattform-Status in Produktion**: Vertragspaket `packages/iil-dienst` ([#3018](https://github.com/achimdehnert/platform/pull/3018)), Dienst in dev-hub ([#346](https://github.com/achimdehnert/dev-hub/pull/346), [#347](https://github.com/achimdehnert/dev-hub/pull/347) Wheel-Fix), Gateway `dienst_katalog`/`dienst_aufruf` im Orchestrator ([mcp-hub#263](https://github.com/achimdehnert/mcp-hub/pull/263), Prod-Vermerk [mcp-hub#264](https://github.com/achimdehnert/mcp-hub/issues/264)).
+
+**Nebenbei erledigt:** zwei Scan-Hänger geklärt (BMW-Konfiguration = Paperless 2499, Stapel 2429 ins Archiv) · netcup antwortet mit fremdem Host-Key, Sachstand in [#2950](https://github.com/achimdehnert/platform/issues/2950) · Ersatz-Runner `mcp-hub-staging-ci` auf dev-desktop (Owner führte das Runbook aus), Deklaration [#3028](https://github.com/achimdehnert/platform/pull/3028).
+
+**Abweichungen, ehrlich:** dev-hub deployt bei Push direkt nach Prod, sein Staging-Weg ist seit 07.09. kaputt ([dev-hub#348](https://github.com/achimdehnert/dev-hub/issues/348)); mcp-hub hat kein Staging. Beide Prod-Schritte gingen auf ausdrückliches Owner-Wort. Der **Rundlauf im Chat (Stufe A) ist nicht belegt** — die Sitzung kannte die neuen Orchestrator-Werkzeuge nicht (Werkzeugliste ist sitzungsstarr), der REST-Weg braucht den RUN-Schlüssel. Erste Handlung der nächsten Sitzung: `dienst_katalog(repo=dev-hub)`, `dienst_aufruf(name=plattform-status)`, Antwort als Lotse in den Infra-Raum; dann MVP 2 Dokument-Suche (Raum-Bindung).
+
+**Eigene Fehler:** netcup zuerst als „fehlender Alias" gedeutet (war ein fremder Host) · `iil-assist` als „in keinem Repo" behauptet (Familie existiert, `iil-assist-core`) · git+-URL statt Wheel-Konvention (Prod-Deploy einmal rot) · zwei Erwartungslisten im Orchestrator übersehen · Tests nach einem `tail`-Pipe für grün gehalten und zu früh committet.
+
+**Zielzustand #3011:** *nicht erreicht* — K1, K2, K3, K4, K6, K7, K8 erfüllt (Konzept-PR, Probe, Werkzeuge); K5 zu einem Fünftel (MVP 1 prod statt Staging, Chat-Rundlauf offen als O5). Programm läuft, Phase `bau`, Kill-Gate 2026-10-24.
+**SA-4:** 9 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+## ⚡ Stand (2026-09-10 vormittags — Scan-Strecke: der Melder sieht jetzt auch den Fehlschlag)
 
 **Anlass war eine Owner-Bitte am Geraet:** die Netzwerk-Freigabe fuer Scans sei tot. War sie nicht — `smbd` lief, alle drei Freigaben antworteten, es fehlte nur die Verbindung des Owner-Rechners (nach dem `restart` vom 2026-09-08). Belegt mit einer Testanmeldung, die binnen Sekunden als offene Sitzung erschien; `cmdkey /delete:10.99.0.1` plus neu verbinden hat es geloest. **Kein Eingriff am laufenden Dateidienst** — die Abbruchregel aus der Vier-Neustarts-Episode hat gehalten. Danach acht Scans sauber durch (Dokumente 2491–2498).
 
@@ -27,24 +40,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Offen und dein Zug:** Dublette meldet wie ein Verlust und die Fehlerklasse bleibt „unbekannt" ([#3023](https://github.com/achimdehnert/platform/issues/3023)) — Fix liegt als [#3029](https://github.com/achimdehnert/platform/pull/3029) vor, gegen prod abgenommen, nicht gemergt.
 
-## ⚡ Stand (2026-09-10 — Auftrag #3015: drei Tagesroutinen selbstmessend; Drill-Vorlage repariert)
-
-**Zeitanker:** HEAD `2461135f` · `rev-list --count` 4330 · geschrieben 2026-09-10
-
-**Auftrag angelegt** ([#3015](https://github.com/achimdehnert/platform/issues/3015), Freigabe-Zeile im Issue, SA-4): Mailcheck, To-do-Liste (`todo.iil.pet`) und Morgen-Zeitung bekommen je ein Einstiegskommando (K1), Kennzahlen je Lauf (K2), Verfallsmelder mit Vorlauf (K3), eine Verbesserungsschleife mit Advocatus Diaboli und Out-of-the-Box als Pflichtabschnitten (K4) und einen Modellfest-Drill in frischer Sitzung (K5). Reihenfolge: To-do-Deklaration, Mailcheck, Zeitung.
-
-**Drill-Vorlage repariert** ([#3016](https://github.com/achimdehnert/platform/pull/3016) gemergt, [#2719](https://github.com/achimdehnert/platform/issues/2719) geschlossen): Trockenlauf-Regel als Kopfzeile, „Grund zu kurz" von „Einheit fehlt" getrennt. Nachmessung 9 Kaltstart-Laeufe: start 0·1·1 Abweichungen (vorher 2·24·24), ende 5·3·6, retro 1·1·2, keine stille Pflicht-Auslassung — Zahlen in #2719.
-
-**Erster Bauschritt K3** ([#3024](https://github.com/achimdehnert/platform/pull/3024)): To-do-Server in `infra/ports.yaml` dem Repo platform zugeordnet (Muster Embedder); Erreichbarkeits- und TLS-Melder vor/nach identisch, Registry-Validatoren gruen. Drei Backlog-Befunde im Issue: Vorgang schliessen hat kein Kommando, To-do-Seite zeigt Geschlossenes nicht, Waisen-Zuordnung je Repo kippt still (platform: gx10 → dev-desktop).
-
-**Owner-Zurufe:** Vorgaenge 202, 205, 206 im Ledger geschlossen (per Hand, Sicherung `mail-vorgaenge.json.bak-20260910`); `board.py --pruefe` 87 Vorgaenge gruen.
-
-**Offen (Owner):** nichts Neues; #3024 mergt nach gruenem CI per Mandat (ich).
-
-**Aus der meiki-hub-Sitzung (Zielarchitektur Assist-Familie), Owner-Entscheid 2026-09-10:** Ausnahmezeile für `frist-hub` in `ADR-109` nachgezogen ([#3025](https://github.com/achimdehnert/platform/pull/3025)) — `single` je LRA bleibt Pilot-Default, die Mandanten-Basis kommt aus `iil-assist-core` ≥ 0.4.0 statt aus einem `django_tenancy`-Rollout; Gegenstück [meiki-hub#390](https://github.com/meiki-lra/meiki-hub/pull/390). Zwei Hypothesen für die nächste Platform-Sitzung, hier nicht verifiziert: (1) KONZ-platform-058 „iil-assist" (ein Dienst, [#3013](https://github.com/achimdehnert/platform/pull/3013)) und die MEiKI-Pakete `iil-assist-core/-frist/-voice` tragen denselben Namen — vor einer PyPI-Vergabe klären; (2) `risk-hub/packages/django-tenancy` `enable_rls` ist fail-open (drei OR-Zweige, `enable_rls.py:69-74`), Memory 🌀 `django-tenancy-enable-rls-fail-open` in der meiki-hub-Lane.
-
 ## Offene Fäden (über den Session-Stand hinaus)
 
+0. iil-assist (KONZ-058): Rundlauf im Chat belegen (O5), dann MVP 2 Dokument-Suche; Nebenissues #3019 PyPI, #3020 Regelkreis, #3021 Routing, #3022 ADR-036: https://github.com/achimdehnert/platform/issues/3011
+0. netcup antwortet mit fremdem Host-Key, Backup-Cron zielt weiter dorthin, Vertrag offen: https://github.com/achimdehnert/platform/issues/2950
+0. dev-hub Staging-Deploy vorbestehend kaputt (Kein Compose-File): https://github.com/achimdehnert/dev-hub/issues/348
 0. Paperless `PAPERLESS_FILENAME_DATE_ORDER` setzen: https://github.com/achimdehnert/doc-hub/issues/15
 0. Stapel-Zerleger im Betrieb, Zielzustand-Issue noch offen: https://github.com/achimdehnert/doc-hub/issues/4 — Bauteile gemergt (doc-hub#5, doc-hub#13, doc-hub#14).
 0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
