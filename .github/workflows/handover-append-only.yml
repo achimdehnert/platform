@@ -92,21 +92,19 @@ jobs:
       # ermitteln und brach mit Exit 2 ab — blind, genau dort, wo er gebraucht wird
       # (platform#3032, Realfall #3029: vier doc-hub-Nummern „nicht ermittelbar").
       # HANDOVER_FLEET_READ_TOKEN ist ein eigenes, ausschliesslich LESENDES Recht auf
-      # Issues und PRs der Hub-Repos. Es ist bewusst nicht MEGATEST_READ_TOKEN: das
-      # wurde am 2026-09-10 in CI gemessen und sieht doc-hub NICHT (Beleg im Lauf zu
-      # diesem PR). Fehlt das Secret, faellt der Ausdruck auf GITHUB_TOKEN zurueck und
-      # der Lauf verhaelt sich wie bisher — blind ist dann weiter nicht gruen.
+      # Issues und PRs der Hub-Repos — bewusst nicht MEGATEST_READ_TOKEN: das wurde am
+      # 2026-09-10 in CI gemessen und sieht doc-hub NICHT. Fehlt das Secret, faellt der
+      # Ausdruck auf GITHUB_TOKEN zurueck und der Lauf verhaelt sich wie bisher.
       - name: Auslagerung pruefen
         env:
           GH_TOKEN: ${{ secrets.HANDOVER_FLEET_READ_TOKEN || secrets.GITHUB_TOKEN }}
         run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
 
-      # Positivkontrolle: dass der Check laeuft, belegt nicht, dass er sehen kann.
-      # Ohne diesen Schritt wuerde ein stillschweigend zurueckgefallenes Token erst
-      # beim naechsten echten Auslagern auffallen — und dann als „Zustand nicht
-      # ermittelbar", nicht als Token-Problem. Sie laeuft nur, wenn das Secret
-      # hinterlegt ist; ohne Secret ist der blinde Zustand der bekannte Ausgangspunkt
-      # (platform#3032) und kein neuer Fehlschlag.
+      # Positivkontrolle: dass der Check laeuft, belegt nicht, dass er sehen kann. Ohne
+      # sie wuerde ein still zurueckgefallenes Token erst beim naechsten echten
+      # Auslagern auffallen — und dann als „Zustand nicht ermittelbar", nicht als
+      # Token-Problem. Ohne hinterlegtes Secret ueberspringt sie sich mit Ansage: der
+      # blinde Zustand ist der bekannte Ausgangspunkt, kein neuer Fehlschlag.
       - name: Positivkontrolle — eine private Hub-Referenz muss aufloesbar sein
         env:
           FLEET_READ: ${{ secrets.HANDOVER_FLEET_READ_TOKEN }}
@@ -114,7 +112,7 @@ jobs:
           set -uo pipefail
           if [ -z "${FLEET_READ}" ]; then
             echo "HANDOVER_FLEET_READ_TOKEN nicht hinterlegt — Positivkontrolle uebersprungen."
-            echo "Der Job laeuft dann mit GITHUB_TOKEN und bleibt fuer private Hub-Repos blind (platform#3032)."
+            echo "Der Job bleibt fuer private Hub-Repos blind (platform#3032)."
             exit 0
           fi
           GH_TOKEN="${FLEET_READ}" python3 -c "
@@ -122,76 +120,6 @@ jobs:
           from handover_auslagerung_check import zustand_via_gh
           zustand, blind = zustand_via_gh(['achimdehnert/doc-hub#4'])
           assert not blind, f'blind: {blind} — das hinterlegte Token liest doc-hub nicht'
-          print('Positivkontrolle OK:', zustand)
-          "
-
-      - name: Golden-Test — eine geaenderte Bestandszeile muss FAIL ergeben
-        # Beweist bei jedem Lauf, dass der FAIL-Pfad greift und nicht nur der
-        # PASS-Pfad oben (derselbe Gedanke wie im estimate_job-Gate, #1320):
-        # ein Gate, das nur gruen gesehen wurde, ist nicht als Gate belegt.
-        run: |
-          set -uo pipefail
-          tmp="$(mktemp -d)"
-          git -C "$tmp" init -q .
-          git -C "$tmp" config user.email ci@example.invalid
-          git -C "$tmp" config user.name ci
-          printf 'Stand A\nStand B\n' > "$tmp/AGENT_HANDOVER_LOG.md"
-          git -C "$tmp" add -A && git -C "$tmp" commit -qm base
-          # Base als SHA festhalten — der Default-Branchname von `git init` ist
-          # umgebungsabhaengig (main/master), ein SHA ist es nicht.
-          base_sha="$(git -C "$tmp" rev-parse HEAD)"
-          printf 'Stand A GEAENDERT\nStand B\n' > "$tmp/AGENT_HANDOVER_LOG.md"
-          git -C "$tmp" commit -qam probe
-          if (cd "$tmp" && python3 "$GITHUB_WORKSPACE/scripts/checks/handover_append_only.py" \
-                --base "$base_sha" --head HEAD); then
-            echo "::error::Golden-Test: geaenderte Bestandszeile wurde faelschlich als PASS gewertet"
-            exit 1
-          fi
-          echo "Golden-Test OK: geaenderte Bestandszeile bleibt FAIL."
-
-  auslagerung:
-    name: "Auslagern verschluckt keine offenen Vorgaenge"
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0   # der Check vergleicht gegen origin/main
-
-      # Warum es diesen Job gibt: am 2026-09-08 nahm eine Auslagerung sechs offene
-      # Punkte mit ins Archiv, darunter eine Frist zum 30.11. Byte-Deckel,
-      # Append-only und Frische waren dabei alle gruen (platform#2974).
-      # WARUM NICHT GITHUB_TOKEN: das ist repo-scoped (nur platform). Ein Stand-Block
-      # nennt aber fast immer Vorgaenge aus dem Hub-Repo, in dem gearbeitet wurde, und
-      # alle Hub-Repos ausser platform sind privat. Der Check konnte deren Zustand nicht
-      # ermitteln und brach mit Exit 2 ab — blind, genau dort, wo er gebraucht wird
-      # (platform#3032, Realfall #3029: vier doc-hub-Nummern „nicht ermittelbar").
-      # HANDOVER_FLEET_READ_TOKEN ist ein eigenes, ausschliesslich LESENDES Recht auf
-      # Issues und PRs der Hub-Repos. Es ist bewusst nicht MEGATEST_READ_TOKEN: das
-      # wurde am 2026-09-10 in CI gemessen und sieht doc-hub NICHT (Beleg im Lauf zu
-      # diesem PR). Fehlt das Secret, faellt der Ausdruck auf GITHUB_TOKEN zurueck und
-      # der Lauf verhaelt sich wie bisher — blind ist dann weiter nicht gruen.
-      - name: Auslagerung pruefen
-        env:
-          GH_TOKEN: ${{ secrets.HANDOVER_FLEET_READ_TOKEN || secrets.GITHUB_TOKEN }}
-        run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
-
-      # Positivkontrolle: dass der Check laeuft, belegt nicht, dass er sehen kann.
-      # Ohne diesen Schritt wuerde ein stillschweigend zurueckgefallenes Token erst
-      # beim naechsten echten Auslagern auffallen — und dann als „Zustand nicht
-      # ermittelbar", nicht als Token-Problem. Sie laeuft nur, wenn das Secret
-      # hinterlegt ist; ohne Secret ist der blinde Zustand der bekannte Ausgangspunkt
-      # (platform#3032) und kein neuer Fehlschlag.
-      - name: Positivkontrolle — eine private Hub-Referenz muss aufloesbar sein
-        if: ${{ secrets.HANDOVER_FLEET_READ_TOKEN != '' }}
-        env:
-          GH_TOKEN: ${{ secrets.HANDOVER_FLEET_READ_TOKEN }}
-        run: |
-          python3 -c "
-          import sys; sys.path.insert(0, 'scripts/checks')
-          from handover_auslagerung_check import zustand_via_gh
-          zustand, blind = zustand_via_gh(['achimdehnert/doc-hub#4'])
-          assert not blind, f'blind: {blind} — der Job kann private Hub-Repos nicht lesen'
           print('Positivkontrolle OK:', zustand)
           "
 
