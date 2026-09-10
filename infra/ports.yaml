@@ -624,7 +624,7 @@ services:
     container_name: decks_hub_web
     domain_prod: decks-hub.iil.pet
     repo: achimdehnert/decks-hub
-    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true."
+    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. LIVE seit 2026-07-10; deploy.yml triggert auf push:main, also deployt JEDER main-Merge nach Prod (kein Staging, obwohl hier 8112 steht). Deckt sich mit canonical.yaml deployed:true. Seit 2026-09-10 hinter Cloudflare Access (Owner-Weisung: Decks sind nicht oeffentlich, Verteilung persoenlich) — Anwendung decks-hub.iil.pet, Bypass nur /healthz. Erreichbarkeits-Melder sieht deshalb 302 statt 200; das ist kein Befund."
   # ── dev-desktop-Workloads (164, 2026-08-30) ────────────────────────────────
   # Vier Dienste mit oeffentlichen Namen liefen auf dem Dev-Desktop, ohne dass eine
   # SoT sie kannte. Sie stehen hier als `blockiert`: der Auflage-Check (hosts_audit)
