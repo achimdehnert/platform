@@ -8,6 +8,8 @@ hier nachzubauen hiesse, dieselbe Regel zweimal zu pflegen.
 from __future__ import annotations
 
 import importlib.util
+import io
+import json
 import pathlib
 
 import pytest
@@ -140,3 +142,104 @@ def test_should_not_pass_empty_filters():
     """Ein leeres --ordner '' filterte auf den leeren Ordnernamen — also auf nichts."""
     aus = su._durchgereichte(_args(ordner="", begriff=""))
     assert "--ordner" not in aus and "--begriff" not in aus
+
+
+# --- --batch (platform#3067) -------------------------------------------------
+
+
+def test_should_build_the_batch_command_with_stdin_open():
+    """`docker exec -i` haelt stdin offen — sonst kommt die JSON-Liste nie an."""
+    befehl = su.batch_befehl_bauen("hetzner-prod")
+    assert befehl[0] == "ssh"
+    fern = befehl[-1]
+    assert fern.endswith("python manage.py mail_suche --batch")
+    assert fern.startswith(f"docker exec -i {su.CONTAINER} ")
+
+
+def test_should_read_the_list_from_stdin_when_the_source_is_a_dash(monkeypatch):
+    aufrufe = []
+
+    class _Antwort:
+        returncode = 0
+        stdout = json.dumps([{"index": 0, "treffer": [], "deckung": {}}])
+        stderr = ""
+
+    def _run(befehl, input=None, **kw):  # noqa: A002
+        aufrufe.append(input)
+        return _Antwort()
+
+    monkeypatch.setattr(su.subprocess, "run", _run)
+    monkeypatch.setenv("MAIL_INDEX_SSH", "hetzner-prod")
+    monkeypatch.setattr(
+        su.sys, "stdin", io.StringIO(json.dumps([{"begriff": "Vertrag"}]))
+    )
+    aus = io.StringIO()
+    monkeypatch.setattr(su.sys, "stdout", aus)
+
+    code = su._batch_ausfuehren("-")
+
+    assert code == 0
+    assert json.loads(aufrufe[0]) == [{"begriff": "Vertrag"}]
+
+
+def test_should_call_run_exactly_once_for_a_batch(monkeypatch, tmp_path):
+    """Der ganze Witz von --batch: EINE Verbindung statt einer je Abfrage."""
+    aufrufe = []
+
+    class _Antwort:
+        returncode = 0
+        stdout = json.dumps([{"index": 0, "treffer": [], "deckung": {}}])
+        stderr = ""
+
+    def _run(befehl, input=None, **kw):  # noqa: A002
+        aufrufe.append(input)
+        return _Antwort()
+
+    monkeypatch.setattr(su.subprocess, "run", _run)
+    monkeypatch.setenv("MAIL_INDEX_SSH", "hetzner-prod")
+    datei = tmp_path / "anfragen.json"
+    datei.write_text(json.dumps([{"begriff": "Vertrag"}]), encoding="utf-8")
+    aus = io.StringIO()
+    monkeypatch.setattr(su.sys, "stdout", aus)
+
+    code = su._batch_ausfuehren(str(datei))
+
+    assert code == 0
+    assert len(aufrufe) == 1
+    assert json.loads(aufrufe[0]) == [{"begriff": "Vertrag"}]
+
+
+def test_should_fall_back_to_single_queries_when_the_remote_batch_is_unknown(
+    monkeypatch, tmp_path
+):
+    """Vor Merge/Deploy von dev-hub#351 kennt der entfernte Befehl --batch nicht."""
+    rufe = []
+
+    class _Batch:
+        returncode = 2
+        stdout = ""
+        stderr = "manage.py mail_suche: error: unrecognized arguments: --batch"
+
+    class _Einzeln:
+        returncode = 0
+        stdout = json.dumps({"treffer": [], "deckung": {}})
+        stderr = ""
+
+    def _run(befehl, input=None, **kw):  # noqa: A002
+        rufe.append(befehl)
+        return _Batch() if input is not None else _Einzeln()
+
+    monkeypatch.setattr(su.subprocess, "run", _run)
+    monkeypatch.setenv("MAIL_INDEX_SSH", "hetzner-prod")
+    datei = tmp_path / "anfragen.json"
+    datei.write_text(json.dumps([{"begriff": "Vertrag"}]), encoding="utf-8")
+    aus = io.StringIO()
+    fehler = io.StringIO()
+    monkeypatch.setattr(su.sys, "stdout", aus)
+    monkeypatch.setattr(su.sys, "stderr", fehler)
+
+    code = su._batch_ausfuehren(str(datei))
+
+    assert code == 0
+    assert "Einzelabfragen" in fehler.getvalue()
+    assert json.loads(aus.getvalue()) == [{"index": 0, "treffer": [], "deckung": {}}]
