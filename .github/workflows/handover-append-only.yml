@@ -86,36 +86,34 @@ jobs:
       # Warum es diesen Job gibt: am 2026-09-08 nahm eine Auslagerung sechs offene
       # Punkte mit ins Archiv, darunter eine Frist zum 30.11. Byte-Deckel,
       # Append-only und Frische waren dabei alle gruen (platform#2974).
-      # WARUM NICHT GITHUB_TOKEN: das ist repo-scoped (nur platform). Ein Stand-Block
-      # nennt aber fast immer Vorgaenge aus dem Hub-Repo, in dem gearbeitet wurde, und
-      # alle Hub-Repos ausser platform sind privat. Der Check konnte deren Zustand nicht
-      # ermitteln und brach mit Exit 2 ab — blind, genau dort, wo er gebraucht wird
-      # (platform#3032, Realfall #3029: vier doc-hub-Nummern „nicht ermittelbar").
-      # HANDOVER_FLEET_READ_TOKEN ist ein eigenes, ausschliesslich LESENDES Recht auf
-      # Issues und PRs der Hub-Repos — bewusst nicht MEGATEST_READ_TOKEN: das wurde am
-      # 2026-09-10 in CI gemessen und sieht doc-hub NICHT. Fehlt das Secret, faellt der
-      # Ausdruck auf GITHUB_TOKEN zurueck und der Lauf verhaelt sich wie bisher.
       - name: Auslagerung pruefen
         env:
-          GH_TOKEN: ${{ secrets.HANDOVER_FLEET_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          # PROJECT_PAT statt GITHUB_TOKEN: der Check fragt den Zustand jeder
+          # verschwundenen Referenz ab, auch in privaten Schwester-Repos
+          # (news-hub, ...). Der repo-eigene Token sieht die nicht, der Check
+          # meldet dann "Zustand nicht ermittelbar" (Exit 2) — gewollt blind
+          # statt gruen, aber damit war jede Auslagerung mit Fremd-Refs in CI
+          # unmergebar (platform#3027, Owner-Entscheid Option 1, 2026-09-10).
+          # Rein lesend, wie in gen-project-facts / branch-protection-meter.
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
         run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
 
-      # Positivkontrolle: dass der Check laeuft, belegt nicht, dass er sehen kann. Ohne
-      # sie wuerde ein still zurueckgefallenes Token erst beim naechsten echten
-      # Auslagern auffallen — und dann als „Zustand nicht ermittelbar", nicht als
-      # Token-Problem. Ohne hinterlegtes Secret ueberspringt sie sich mit Ansage: der
-      # blinde Zustand ist der bekannte Ausgangspunkt, kein neuer Fehlschlag.
+      # WARUM EIN EIGENER SCHRITT: dass der Check laeuft, belegt nicht, dass er sehen
+      # kann. Verliert das Token sein Leserecht auf ein Hub-Repo, faellt das sonst erst
+      # beim naechsten echten Auslagern auf — und dann als „Zustand nicht ermittelbar",
+      # also als Inhaltsbefund statt als Rechte-Problem. Am 2026-09-10 wurde genau das
+      # zweimal gemessen: erst mit GITHUB_TOKEN (platform#3032, Realfall #3029), dann
+      # mit MEGATEST_READ_TOKEN, dessen Name Flotten-Leserecht nahelegt, das aber
+      # doc-hub-Vorgaenge NICHT lesen kann. Ein Name ist kein Recht.
+      #
+      # doc-hub#4 ist der Anker: privat, offen, in Stand-Bloecken haeufig zitiert.
+      # Geprueft wird nur die Aufloesbarkeit, nicht der Zustand — ein geschlossenes
+      # Issue waere hier genauso gut.
       - name: Positivkontrolle — eine private Hub-Referenz muss aufloesbar sein
         env:
-          FLEET_READ: ${{ secrets.HANDOVER_FLEET_READ_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
         run: |
-          set -uo pipefail
-          if [ -z "${FLEET_READ}" ]; then
-            echo "HANDOVER_FLEET_READ_TOKEN nicht hinterlegt — Positivkontrolle uebersprungen."
-            echo "Der Job bleibt fuer private Hub-Repos blind (platform#3032)."
-            exit 0
-          fi
-          GH_TOKEN="${FLEET_READ}" python3 -c "
+          python3 -c "
           import sys; sys.path.insert(0, 'scripts/checks')
           from handover_auslagerung_check import zustand_via_gh
           zustand, blind = zustand_via_gh(['achimdehnert/doc-hub#4'])
