@@ -183,11 +183,14 @@ cmd_start() {
     echo "  ⚠ Auto-Reap fehlgeschlagen — best-effort, 'start' läuft weiter (letzte Zeile: $(printf '%s\n' "$reap_out" | tail -1))" >&2
   fi
 
-  local owner date_s rname branch wt sid
+  local owner date_s rname branch wt sid slug_repo_start
   owner="$(slug "$(git -C "$repo" config user.name 2>/dev/null || echo agent)")"; owner="${owner:-agent}"
   date_s="$(date -u +%Y-%m-%d)"
   rname="$(basename "$repo")"
   task="$(slug "$task")"
+  # owner/repo-Slug fuer gh-Aufrufe (Kollisionscheck + Anzeige offener PRs unten) —
+  # gleiche Ableitung wie in check_pr_collision().
+  slug_repo_start="$(git -C "$repo" remote get-url origin 2>/dev/null | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#')"
 
   # ADR-233 R-6: vor dem Abzweigen auf offene PRs desselben Task-Slugs prüfen (Retro-Gate).
   check_pr_collision "$repo" "$task"
@@ -237,6 +240,17 @@ JSON
     [ -n "$ziel" ] && echo "  Ziel   : $ziel"
     echo "  Lease  : $lease  (expires $exp, ephemeral=$ephemeral)"
     echo "  cd \"$wt\""
+  } >&2
+
+  # Offene PRs des Tages zeigen (Retro 2026-09-10, Gate parallel-session-pr-collision):
+  # #3030/#3033 kollidierten acht Minuten auseinander, weil nichts vor dem Start
+  # die offenen PRs des Zieltags anzeigte — check_pr_collision() oben blockt nur
+  # bei exaktem Task-Slug-Treffer, nicht bei thematischer Überlappung. Advisory,
+  # daher `|| true`: darf 'start' nie scheitern lassen (fail-open, s. Skript-Kopf).
+  {
+    echo ""
+    echo "Offene PRs heute (Kollisionen vermeiden, Gate parallel-session-pr-collision):"
+    ( cd "$repo" && python3 "$SCRIPT_DIR/repo_session_offene_prs.py" ${slug_repo_start:+--repo "$slug_repo_start"} ) 2>&1 || true
   } >&2
 }
 
