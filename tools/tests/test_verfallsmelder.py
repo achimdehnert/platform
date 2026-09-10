@@ -86,6 +86,22 @@ def test_should_report_zero_warnungen_when_all_values_are_within_thresholds():
     assert ergebnis.returncode == 0
 
 
+def test_should_accept_skill_kopie_when_quelle_commit_is_an_ancestor():
+    """Merge-Commit auf der Kopie, Datei-Commit in der Quelle: gleicher Stand, kein Alarm."""
+    eingabe = json.dumps(
+        {
+            "journal": [],
+            "skill_kopie_commit": "1c0e20978c23",
+            "quelle_commit": "d868fa66d3a876239ebda87afafdfd8faeae885b",
+            "quelle_ist_vorfahr": True,
+        }
+    )
+    ergebnis = _lauf("--anwendung", "mailcheck", "--json", "--eingabe", eingabe)
+    daten = json.loads(ergebnis.stdout)
+    signal = _signal(daten, "mailcheck", "Skill-Kopie")
+    assert signal["zustand"] == "ok"
+
+
 def test_should_warn_when_skill_kopie_commit_differs_from_quelle():
     eingabe = json.dumps(
         {

@@ -332,7 +332,21 @@ def signal_skill_kopie_alter(eingabe: dict[str, Any] | None) -> Signal:
                 "nicht pruefbar",
                 "git log gegen origin/main nicht auswertbar",
             )
+    # Gleicher Stand heisst nicht gleicher Commit: cc-skill-dist stempelt den
+    # Merge-Commit von main (z.B. 1c0e2097), `git log -1 -- <datei>` nennt den
+    # Datei-Commit darunter (d868fa66). Ist der Datei-Commit Vorfahr des
+    # gestempelten, traegt die Kopie den aktuellen Text (Echtfall 2026-09-10:
+    # Fehlalarm im ersten Lauf nach #3064). Erst ein Datei-Commit, der NICHT im
+    # gestempelten Stand enthalten ist, macht die Kopie aelter als die Quelle.
     gleich = quelle.startswith(kopie) or kopie.startswith(quelle)
+    if not gleich:
+        if eingabe is not None:
+            gleich = bool(eingabe.get("quelle_ist_vorfahr"))
+        else:
+            _out, _err, rc_anc = _run(
+                ["git", "merge-base", "--is-ancestor", quelle, kopie]
+            )
+            gleich = rc_anc == 0
     zustand = "ok" if gleich else "WARNUNG"
     hinweis = (
         "ok" if gleich else "Kopie aelter als Quelle — cc-skill-dist neu verteilen"
