@@ -6,339 +6,491 @@
 schema: iil-assist/1
 auftrag: https://github.com/achimdehnert/platform/issues/3011
 konzept: docs/konzepte/KONZ-platform-058-iil-assist-ein-dienst-zwei-zugaenge.md
-phase: bau              # konzept -> auswahl -> bau -> staging -> bilanz (Owner-Go 2026-09-10: 'go, bau MVP 1')
-stand: 2026-09-10
-
+phase: bau
+stand: '2026-09-10'
 name:
   produkt: iil-assist-hub
-  repo: chat-hub                       # iilgmbh/chat-hub — keine Umbenennung
-  kern: iil-assist-core                # PyPI 0.2.0, Fachkern (Mandant, Fristen)
+  repo: chat-hub
+  kern: iil-assist-core
   alias_route: assist.iil.pet
-  alias_status: nicht-angelegt         # DNS = Prod-Aenderung, Owner-Zug
-  regel: >
-    iil-assist-hub ist der Produktname des Dienst-Zugangs im Chat. Das Repo bleibt
-    chat-hub, der Fachkern bleibt iil-assist-core. Ein Hub-Dienst gehoert dem Hub,
-    nicht der Familie; die Familie stellt Vertrag, Gateway und Chat-Zugang.
+  alias_status: nicht-angelegt
+  regel: 'iil-assist-hub ist der Produktname des Dienst-Zugangs im Chat. Das Repo bleibt chat-hub, der
+    Fachkern bleibt iil-assist-core. Ein Hub-Dienst gehoert dem Hub, nicht der Familie; die Familie stellt
+    Vertrag, Gateway und Chat-Zugang.
 
+    '
 architektur:
-  kern: >
-    Ein Dienst ist eine reine Funktion im Service-Layer des Hubs mit einem
-    deklarierten Vertrag (Name, Eingabe, Ausgabe, Datenklasse, Gate). Die App ruft
-    die Funktion direkt. Der Chat ruft sie ueber ein Gateway, das den Vertrag liest
-    und den Aufruf auf dem Host des Hubs ausfuehrt. Der Vertrag wird einmal
+  kern: 'Ein Dienst ist eine reine Funktion im Service-Layer des Hubs mit einem deklarierten Vertrag (Name,
+    Eingabe, Ausgabe, Datenklasse, Gate). Die App ruft die Funktion direkt. Der Chat ruft sie ueber ein
+    Gateway, das den Vertrag liest und den Aufruf auf dem Host des Hubs ausfuehrt. Der Vertrag wird einmal
     geschrieben und zweimal gelesen.
+
+    '
   schichten:
-    - id: vertrag
-      wo: Hub-Repo, Paket iil-dienst (neu, klein)
-      was: "@dienst-Dekorator, dienste_export (JSON), dienst_aufruf <name> --json"
-    - id: zugang_app
-      wo: Hub-Repo, views (ADR-009)
-      was: View ruft dieselbe Funktion; data-dienst-Marker fuer den Zugangstest
-    - id: gateway
-      wo: mcp-hub, orchestrator_mcp
-      was: "zwei MCP-Werkzeuge: dienst_katalog, dienst_aufruf; Routing ueber ports.yaml (prod_host, container_name); Protokoll nach ADR-037"
-    - id: zugang_chat
-      wo: chat-hub, chat_lotse.py
-      was: "Stufe A (Session) heute: Kapitaen ruft das Gateway; Stufe B (Live-Bot) nur mit Owner-Grant (chat-hub#48)"
+  - id: vertrag
+    wo: Hub-Repo, Paket iil-dienst (neu, klein)
+    was: '@dienst-Dekorator, dienste_export (JSON), dienst_aufruf <name> --json'
+  - id: zugang_app
+    wo: Hub-Repo, views (ADR-009)
+    was: View ruft dieselbe Funktion; data-dienst-Marker fuer den Zugangstest
+  - id: gateway
+    wo: mcp-hub, orchestrator_mcp
+    was: 'zwei MCP-Werkzeuge: dienst_katalog, dienst_aufruf; Routing ueber ports.yaml (prod_host, container_name);
+      Protokoll nach ADR-037'
+  - id: zugang_chat
+    wo: chat-hub, chat_lotse.py
+    was: 'Stufe A (Session) heute: Kapitaen ruft das Gateway; Stufe B (Live-Bot) nur mit Owner-Grant (chat-hub#48)'
   entscheide:
-    - id: D1
-      text: Gateway statt Direktaufruf je Hub — eine Auth-Grenze, kein Tool-Wachstum (ADR-101 Budget +2)
-      status: entschieden
-      evidenz: C5, C9
-    - id: D2
-      text: Aufruf auf dem Host des Hubs per Management-Command, nicht per neuer HTTP-Schnittstelle je Hub — Cloudflare Access sperrt externe API-Aufrufe
-      status: entschieden
-      evidenz: C10
-    - id: D3
-      text: Vertrag als kleines eigenes Paket iil-dienst, weil iil-django-commons eingefroren ist und iil-assist-core Fachkern bleibt
-      status: entschieden
-      evidenz: C11, ADR-044
-    - id: D4
-      text: MVP-Abnahme des Chat-Zugangs in Stufe A (Session); der Live-Bot ist ein Gate, kein Kriterium
-      status: entschieden
-      evidenz: C3
-    - id: D5
-      text: Das chat-agent-Paket (ADR-034/036) wird nicht wiederbelebt; Toolkits werden als Dienste deklariert
-      status: entschieden
-      evidenz: C2
+  - id: D1
+    text: Gateway statt Direktaufruf je Hub — eine Auth-Grenze, kein Tool-Wachstum (ADR-101 Budget +2)
+    status: entschieden
+    evidenz: C5, C9
+  - id: D2
+    text: Aufruf auf dem Host des Hubs per Management-Command, nicht per neuer HTTP-Schnittstelle je Hub
+      — Cloudflare Access sperrt externe API-Aufrufe
+    status: entschieden
+    evidenz: C10
+  - id: D3
+    text: Vertrag als kleines eigenes Paket iil-dienst, weil iil-django-commons eingefroren ist und iil-assist-core
+      Fachkern bleibt
+    status: entschieden
+    evidenz: C11, ADR-044
+  - id: D4
+    text: MVP-Abnahme des Chat-Zugangs in Stufe A (Session); der Live-Bot ist ein Gate, kein Kriterium
+    status: entschieden
+    evidenz: C3
+  - id: D5
+    text: Das chat-agent-Paket (ADR-034/036) wird nicht wiederbelebt; Toolkits werden als Dienste deklariert
+    status: entschieden
+    evidenz: C2
   konflikte:
-    - adr: ADR-036
-      was: implementation_status implemented, Paket liegt im Archiv
-      folge: Status auf superseded setzen, sobald der erste MVP steht
-    - adr: ADR-101
-      was: Tool-Budget 100
-      folge: Gateway traegt genau zwei Werkzeuge; Dienste sind Daten, nicht Tools
-    - adr: ADR-044
-      was: kein fuenftes Paket ohne zweiten Abnehmer
-      folge: iil-dienst hat beim MVP fuenf Abnehmer; Vertragsformat ist kein Fachpaket
-    - adr: ADR-009
-      was: kein ORM in Views
-      folge: bestaetigt — der Vertrag sitzt genau im Service-Layer
-    - adr: ADR-037
-      was: Chat-Protokollierung
-      folge: gilt fuer jeden Gateway-Aufruf; Datenklasse entscheidet ueber Protokolltiefe
-    - adr: KONZ-platform-025
-      was: Charta Art. 1/2
-      folge: Nachricht ist Anfrage an den Katalog, nie Befehl an die Session; Aussenwirkung bleibt Entwurf
-
+  - adr: ADR-036
+    was: implementation_status implemented, Paket liegt im Archiv
+    folge: Status auf superseded setzen, sobald der erste MVP steht
+  - adr: ADR-101
+    was: Tool-Budget 100
+    folge: Gateway traegt genau zwei Werkzeuge; Dienste sind Daten, nicht Tools
+  - adr: ADR-044
+    was: kein fuenftes Paket ohne zweiten Abnehmer
+    folge: iil-dienst hat beim MVP fuenf Abnehmer; Vertragsformat ist kein Fachpaket
+  - adr: ADR-009
+    was: kein ORM in Views
+    folge: bestaetigt — der Vertrag sitzt genau im Service-Layer
+  - adr: ADR-037
+    was: Chat-Protokollierung
+    folge: gilt fuer jeden Gateway-Aufruf; Datenklasse entscheidet ueber Protokolltiefe
+  - adr: KONZ-platform-025
+    was: Charta Art. 1/2
+    folge: Nachricht ist Anfrage an den Katalog, nie Befehl an die Session; Aussenwirkung bleibt Entwurf
 dienste:
-  - id: plattform-status
-    name: Plattform-Status
-    repo: dev-hub
-    reifegrad: vorhanden
-    basis: [apps/mail_agent/management/commands/mail_lesenaht.py, "Health-Dashboard (deployment_mcp)"]
-    datenklasse: intern
-    chat_eignung: ja
-    gate: keins
-    aufwand: S
-    prio: 1
-    mvp: true
-    status: prod           # 2026-09-10: dev-hub 34457448899 + mcp-hub 34457924358 gruen; Staging von dev-hub vorbestehend kaputt (dev-hub#348)
-    begruendung: reiner Lesedienst ohne Datenrisiko; prueft Gateway und beide Zugaenge zuerst
-    artefakte:
-      vertrag: https://github.com/achimdehnert/platform/pull/3018
-      pypi: https://github.com/achimdehnert/platform/issues/3019
-      dienst: https://github.com/achimdehnert/dev-hub/pull/346
-      gateway: https://github.com/achimdehnert/mcp-hub/pull/263
-    zugaenge:
-      app: GET /health/status.json (health:status), data-dienst am Grid
-      chat: dienst_aufruf(repo=dev-hub, name=plattform-status) im Orchestrator, Antwort per chat_lotse send
-    kill_gate:
-      frist: 2026-10-24
-      kriterium: Test je Zugang gruen auf Staging, sonst Dienst zurueck auf vorgeschlagen
-    kennzahlen:
-      test_app: 1
-      test_chat: 1
-      prod_route: 302 auf Login (2026-09-10)
-      chat_rundlauf: offen
-      antwortzeit_s: null
-      nutzungen_30d: null
-  - id: dokument-suche
-    name: Dokument-Suche (Paperless)
-    repo: doc-hub
-    reifegrad: teilweise
-    basis: [mcp-hub/paperless_mcp, "docs.iil.pet manage.py shell"]
-    datenklasse: personenbezogen
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: S
-    prio: 1
-    mvp: true
-    status: gewaehlt
-    begruendung: hoher Tageswert; beweist die Raum-Bindung fuer personenbezogene Daten
-  - id: fristen-auskunft
-    name: Fristen-Auskunft (Ampel, naechste Fristen)
-    repo: frist-hub
-    reifegrad: teilweise
-    basis: [iil-assist-core assist_core/models.py, apps/fristen/services]
-    datenklasse: mandant
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: M
-    prio: 1
-    mvp: true
-    status: gewaehlt
-    begruendung: Fachkern der Familie; frist-hub ist blockiert, Abnahme auf Staging
-  - id: thema-nachfragen
-    name: Thema nachfragen (Morgen-Zeitung)
-    repo: news-hub
-    reifegrad: vorhanden
-    basis: [apps/digest/services, apps/digest/management/commands/digest_taeglich.py]
-    datenklasse: intern
-    chat_eignung: ja
-    gate: keins
-    aufwand: S
-    prio: 2
-    mvp: true
-    status: gewaehlt
-    begruendung: die Zeitung liegt schon im Chat; Rueckfrage ist der natuerliche zweite Zugang
-  - id: bild-erzeugen
-    name: Bild erzeugen
-    repo: illustration-hub
-    reifegrad: vorhanden
-    basis: [mcp-hub/illustration_mcp, apps services]
-    datenklasse: intern
-    chat_eignung: ja
-    gate: budget
-    aufwand: S
-    prio: 2
-    mvp: true
-    status: gewaehlt
-    begruendung: sichtbarer Nutzen im Chat; erster Dienst mit Kosten-Gate
-  - id: verarbeitungs-auskunft
-    name: Verarbeitungs-Auskunft (VVT je Organisation)
-    repo: risk-hub
-    reifegrad: vorhanden
-    basis: [apps services 209, "RLS je Mandant"]
-    datenklasse: mandant
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: M
-    prio: 2
-    mvp: false
-    status: vorgeschlagen
-    begruendung: Mandantenbindung ueber RLS vorhanden; zweite Welle
-  - id: adr-auskunft
-    name: ADR-Auskunft
-    repo: iil-adrfw
-    reifegrad: vorhanden
-    basis: [12 MCP-Werkzeuge]
-    datenklasse: oeffentlich
-    chat_eignung: ja
-    gate: keins
-    aufwand: S
-    prio: 2
-    mvp: false
-    status: vorgeschlagen
-    begruendung: platform ist oeffentlich; Werkzeuge existieren
-  - id: mailcheck-kurz
-    name: Mailcheck-Zusammenfassung
-    repo: dev-hub
-    reifegrad: vorhanden
-    basis: [apps/mail_agent]
-    datenklasse: personenbezogen
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: S
-    prio: 2
-    mvp: false
-    status: vorgeschlagen
-    begruendung: Postfach ist personenbezogen; nur Owner-Raum
-  - id: rechnungsstand
-    name: Rechnungsstand / offene Posten
-    repo: billing-hub
-    reifegrad: teilweise
-    basis: [production, billing.iil.pet]
-    datenklasse: mandant
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: M
-    prio: 3
-    mvp: false
-    status: vorgeschlagen
-    begruendung: Finanzdaten; erst nach Raum-Bindungs-Nachweis
-  - id: steuer-auskunft
-    name: Steuer-Auskunft (Rate, Frist)
-    repo: tax-hub
-    reifegrad: vorhanden
-    basis: [apps services 25, tenancy subdomain]
-    datenklasse: mandant
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: M
-    prio: 3
-    mvp: false
-    status: vorgeschlagen
-    begruendung: Mandantenfaehig, aber zweite Welle
-  - id: text-dienste
-    name: Text-Dienste (Deck-PDF, Modulbeschreibung)
-    repo: writing-hub
-    reifegrad: vorhanden
-    basis: [apps services 286]
-    datenklasse: intern
-    chat_eignung: ja
-    gate: keins
-    aufwand: S
-    prio: 3
-    mvp: false
-    status: vorgeschlagen
-    begruendung: viele Funktionen, aber experimentell im Betrieb
-  - id: cad-abfrage
-    name: CAD/IFC-Abfrage
-    repo: cad-hub
-    reifegrad: vorhanden
-    basis: [apps/ifc/toolkit.py CADToolkit, mcp-hub/ifc_mcp]
-    datenklasse: intern
-    chat_eignung: ja
-    gate: keins
-    aufwand: M
-    prio: 3
-    mvp: false
-    status: vorgeschlagen
-    begruendung: einziges lebendes Toolkit nach ADR-036; Sonderfall-Server
-  - id: wohngeld-assistent
-    name: Wohngeld-Assistent (MEiKI)
-    repo: meiki-hub
-    reifegrad: neu
-    basis: [chat-hub#77, meiki-hub Prozesshandbuch]
-    datenklasse: personenbezogen
-    chat_eignung: raum-gebunden
-    gate: raum-bindung
-    aufwand: L
-    prio: 2
-    mvp: false
-    status: eigener-auftrag
-    begruendung: bereits als chat-hub#77 beauftragt; laeuft auf derselben Architektur, nicht hier gebaut
-  - id: mail-antwort-entwurf
-    name: Mail inhaltlich beantworten (Entwurf zu einem Ledger-Vorgang)
-    repo: dev-hub
-    reifegrad: teilweise
-    basis: [apps/mail_agent, "draft_mail (Draft-first, kein Versand)", "Ledger ~/.claude/mail-vorgaenge.json"]
-    datenklasse: personenbezogen
-    chat_eignung: raum-gebunden
-    gate: entwurf-freigabe
-    aufwand: M
-    prio: 2
-    mvp: false
-    status: vorgeschlagen
-    begruendung: >
-      Owner-Vorschlag 2026-09-10 ("beantworte die Mail #207"). Passt in die Architektur
-      (Dienst liefert einen Entwurf in den Raum, Owner gibt frei — Charta Art. 2), aber
-      noch zu frueh als MVP: braucht Raum-Bindung (MVP 2) UND das Gate entwurf-freigabe,
-      das noch kein Dienst nutzt. Kandidat fuer die zweite Welle direkt nach MVP 2.
-  - id: reise-story
-    name: Reise/Story-Dienste
-    repo: travel-beat
-    reifegrad: vorhanden
-    basis: [TravelBeatToolkit, StoryToolkit]
-    datenklasse: intern
-    chat_eignung: ja
-    gate: keins
-    aufwand: S
-    prio: 4
-    mvp: false
-    status: ruhend
-    begruendung: App abgeschaltet (travel-beat#98); erst mit Reaktivierung
+- id: plattform-status
+  name: Plattform-Status
+  repo: dev-hub
+  reifegrad: vorhanden
+  basis:
+  - apps/mail_agent/management/commands/mail_lesenaht.py
+  - Health-Dashboard (deployment_mcp)
+  datenklasse: intern
+  chat_eignung: ja
+  gate: keins
+  aufwand: S
+  prio: 1
+  mvp: true
+  status: prod
+  begruendung: reiner Lesedienst ohne Datenrisiko; prueft Gateway und beide Zugaenge zuerst
+  artefakte:
+    vertrag: https://github.com/achimdehnert/platform/pull/3018
+    pypi: https://github.com/achimdehnert/platform/issues/3019
+    dienst: https://github.com/achimdehnert/dev-hub/pull/346
+    gateway: https://github.com/achimdehnert/mcp-hub/pull/263
+  zugaenge:
+    app: GET /health/status.json (health:status), data-dienst am Grid
+    chat: dienst_aufruf(repo=dev-hub, name=plattform-status) im Orchestrator, Antwort per chat_lotse send
+  kill_gate:
+    frist: 2026-10-24
+    kriterium: Test je Zugang gruen auf Staging, sonst Dienst zurueck auf vorgeschlagen
+  kennzahlen:
+    test_app: 1
+    test_chat: 1
+    prod_route: 302 auf Login (2026-09-10)
+    chat_rundlauf: offen
+    antwortzeit_s: null
+    nutzungen_30d: null
+- id: dokument-suche
+  name: Dokument-Suche (Paperless)
+  repo: doc-hub
+  reifegrad: teilweise
+  basis:
+  - mcp-hub/paperless_mcp
+  - docs.iil.pet manage.py shell
+  datenklasse: personenbezogen
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: S
+  prio: 1
+  mvp: true
+  status: gewaehlt
+  begruendung: hoher Tageswert; beweist die Raum-Bindung fuer personenbezogene Daten
+- id: fristen-auskunft
+  name: Fristen-Auskunft (Ampel, naechste Fristen)
+  repo: frist-hub
+  reifegrad: teilweise
+  basis:
+  - iil-assist-core assist_core/models.py
+  - apps/fristen/services
+  datenklasse: mandant
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: M
+  prio: 1
+  mvp: true
+  status: gewaehlt
+  begruendung: Fachkern der Familie; frist-hub ist blockiert, Abnahme auf Staging
+- id: thema-nachfragen
+  name: Thema nachfragen (Morgen-Zeitung)
+  repo: news-hub
+  reifegrad: vorhanden
+  basis:
+  - apps/digest/services
+  - apps/digest/management/commands/digest_taeglich.py
+  datenklasse: intern
+  chat_eignung: ja
+  gate: keins
+  aufwand: S
+  prio: 2
+  mvp: true
+  status: gewaehlt
+  begruendung: die Zeitung liegt schon im Chat; Rueckfrage ist der natuerliche zweite Zugang
+- id: bild-erzeugen
+  name: Bild erzeugen
+  repo: illustration-hub
+  reifegrad: vorhanden
+  basis:
+  - mcp-hub/illustration_mcp
+  - apps services
+  datenklasse: intern
+  chat_eignung: ja
+  gate: budget
+  aufwand: S
+  prio: 2
+  mvp: true
+  status: gewaehlt
+  begruendung: sichtbarer Nutzen im Chat; erster Dienst mit Kosten-Gate
+- id: verarbeitungs-auskunft
+  name: Verarbeitungs-Auskunft (VVT je Organisation)
+  repo: risk-hub
+  reifegrad: vorhanden
+  basis:
+  - apps services 209
+  - RLS je Mandant
+  datenklasse: mandant
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: M
+  prio: 2
+  mvp: false
+  status: vorgeschlagen
+  begruendung: Mandantenbindung ueber RLS vorhanden; zweite Welle
+- id: adr-auskunft
+  name: ADR-Auskunft
+  repo: iil-adrfw
+  reifegrad: vorhanden
+  basis:
+  - 12 MCP-Werkzeuge
+  datenklasse: oeffentlich
+  chat_eignung: ja
+  gate: keins
+  aufwand: S
+  prio: 2
+  mvp: false
+  status: vorgeschlagen
+  begruendung: platform ist oeffentlich; Werkzeuge existieren
+- id: mailcheck-kurz
+  name: Mailcheck-Zusammenfassung
+  repo: dev-hub
+  reifegrad: vorhanden
+  basis:
+  - apps/mail_agent
+  datenklasse: personenbezogen
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: S
+  prio: 2
+  mvp: false
+  status: vorgeschlagen
+  begruendung: Postfach ist personenbezogen; nur Owner-Raum
+- id: rechnungsstand
+  name: Rechnungsstand / offene Posten
+  repo: billing-hub
+  reifegrad: teilweise
+  basis:
+  - production
+  - billing.iil.pet
+  datenklasse: mandant
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: M
+  prio: 3
+  mvp: false
+  status: vorgeschlagen
+  begruendung: Finanzdaten; erst nach Raum-Bindungs-Nachweis
+- id: steuer-auskunft
+  name: Steuer-Auskunft (Rate, Frist)
+  repo: tax-hub
+  reifegrad: vorhanden
+  basis:
+  - apps services 25
+  - tenancy subdomain
+  datenklasse: mandant
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: M
+  prio: 3
+  mvp: false
+  status: vorgeschlagen
+  begruendung: Mandantenfaehig, aber zweite Welle
+- id: text-dienste
+  name: Text-Dienste (Deck-PDF, Modulbeschreibung)
+  repo: writing-hub
+  reifegrad: vorhanden
+  basis:
+  - apps services 286
+  datenklasse: intern
+  chat_eignung: ja
+  gate: keins
+  aufwand: S
+  prio: 3
+  mvp: false
+  status: vorgeschlagen
+  begruendung: viele Funktionen, aber experimentell im Betrieb
+- id: cad-abfrage
+  name: CAD/IFC-Abfrage
+  repo: cad-hub
+  reifegrad: vorhanden
+  basis:
+  - apps/ifc/toolkit.py CADToolkit
+  - mcp-hub/ifc_mcp
+  datenklasse: intern
+  chat_eignung: ja
+  gate: keins
+  aufwand: M
+  prio: 3
+  mvp: false
+  status: vorgeschlagen
+  begruendung: einziges lebendes Toolkit nach ADR-036; Sonderfall-Server
+- id: wohngeld-assistent
+  name: Wohngeld-Assistent (MEiKI)
+  repo: meiki-hub
+  reifegrad: neu
+  basis:
+  - chat-hub#77
+  - meiki-hub Prozesshandbuch
+  datenklasse: personenbezogen
+  chat_eignung: raum-gebunden
+  gate: raum-bindung
+  aufwand: L
+  prio: 2
+  mvp: false
+  status: eigener-auftrag
+  begruendung: bereits als chat-hub#77 beauftragt; laeuft auf derselben Architektur, nicht hier gebaut
+- id: mail-antwort-entwurf
+  name: Mail inhaltlich beantworten (Entwurf zu einem Ledger-Vorgang)
+  repo: dev-hub
+  reifegrad: teilweise
+  basis:
+  - apps/mail_agent
+  - draft_mail (Draft-first, kein Versand)
+  - Ledger ~/.claude/mail-vorgaenge.json
+  datenklasse: personenbezogen
+  chat_eignung: raum-gebunden
+  gate: entwurf-freigabe
+  aufwand: M
+  prio: 2
+  mvp: false
+  status: vorgeschlagen
+  begruendung: 'Owner-Vorschlag 2026-09-10 ("beantworte die Mail #207"). Passt in die Architektur (Dienst
+    liefert einen Entwurf in den Raum, Owner gibt frei — Charta Art. 2), aber noch zu frueh als MVP: braucht
+    Raum-Bindung (MVP 2) UND das Gate entwurf-freigabe, das noch kein Dienst nutzt. Kandidat fuer die
+    zweite Welle direkt nach MVP 2.
 
+    '
+- id: reise-story
+  name: Reise/Story-Dienste
+  repo: travel-beat
+  reifegrad: vorhanden
+  basis:
+  - TravelBeatToolkit
+  - StoryToolkit
+  datenklasse: intern
+  chat_eignung: ja
+  gate: keins
+  aufwand: S
+  prio: 4
+  mvp: false
+  status: ruhend
+  begruendung: App abgeschaltet (travel-beat#98); erst mit Reaktivierung
 top3:
-  - plattform-status
-  - dokument-suche
-  - fristen-auskunft
-
-offen:            # O1 (Auswahl der fuenf MVPs) am 2026-09-10 vom Owner bestaetigt — erledigt
-  - id: O5
-    frage: Rundlauf Stufe A im Chat belegen — neue Sitzung, dienst_katalog/dienst_aufruf gegen den Orchestrator, Antwort als Lotse im Infra-Raum
-    wer: ich
-  - id: O2
-    frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
-    wer: owner
-  - id: O3
-    frage: 15 von 39 Diensten in ports.yaml ohne prod_host — Routing-Tabelle des Gateways unvollstaendig (Issue 3021)
-    wer: ich
-  - id: O4
-    frage: Zustellweg der Morgen-Zeitung in den Chat ist im Repo nicht belegt (Hypothese Host-Unit)
-    wer: ich
-
-proben:             # K6: frisches Modell bekommt nur das Briefing
-  - datum: 2026-09-10
-    modell: claude-sonnet (Subagent, nur Read auf briefing.md)
-    top3_korrekt: true
-    mvps_korrekt: true
-    naechster_schritt_korrekt: true
-    name_korrekt: true
-    bemerkung: "Fund: O1 endete mit 'Kommentar in' — das '#3011' war in YAML ein Kommentar geworden; behoben (Issue 3011 ausgeschrieben)"
-
+- plattform-status
+- dokument-suche
+- fristen-auskunft
+offen:
+- id: O5
+  frage: Rundlauf Stufe A im Chat belegen — neue Sitzung, dienst_katalog/dienst_aufruf gegen den Orchestrator,
+    Antwort als Lotse im Infra-Raum
+  wer: ich
+- id: O2
+  frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
+  wer: owner
+- id: O3
+  frage: 15 von 39 Diensten in ports.yaml ohne prod_host — Routing-Tabelle des Gateways unvollstaendig
+    (Issue 3021)
+  wer: ich
+- id: O4
+  frage: Zustellweg der Morgen-Zeitung in den Chat ist im Repo nicht belegt (Hypothese Host-Unit)
+  wer: ich
+proben:
+- datum: 2026-09-10
+  modell: claude-sonnet (Subagent, nur Read auf briefing.md)
+  top3_korrekt: true
+  mvps_korrekt: true
+  naechster_schritt_korrekt: true
+  name_korrekt: true
+  bemerkung: 'Fund: O1 endete mit ''Kommentar in'' — das ''#3011'' war in YAML ein Kommentar geworden;
+    behoben (Issue 3011 ausgeschrieben)'
 bahnen:
   verbesserung:
     takt: taeglich
     kommando: python3 tools/iil_assist_katalog.py bahn verbesserung --inventar <json>
     frage: Was ist je Dienst besser geworden (Tests je Zugang, Antwortzeit, Nutzung)?
-    laeufe: []
+    laeufe:
+    - datum: '2026-09-10'
+      inventar: /tmp/claude-1000/-home-devuser-github-platform/445ece0e-cefc-45ae-a5fd-763132f5ad77/scratchpad/inv-heute.json
+      dienste:
+      - dienst: plattform-status
+        status: prod
+        fundstellen_repo: 163
+        test_app: 1
+        test_chat: 1
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: dokument-suche
+        status: gewaehlt
+        fundstellen_repo: 0
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: fristen-auskunft
+        status: gewaehlt
+        fundstellen_repo: 13
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: thema-nachfragen
+        status: gewaehlt
+        fundstellen_repo: 19
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: bild-erzeugen
+        status: gewaehlt
+        fundstellen_repo: 46
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: verarbeitungs-auskunft
+        status: vorgeschlagen
+        fundstellen_repo: 264
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: adr-auskunft
+        status: vorgeschlagen
+        fundstellen_repo: 12
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: mailcheck-kurz
+        status: vorgeschlagen
+        fundstellen_repo: 163
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: rechnungsstand
+        status: vorgeschlagen
+        fundstellen_repo: 22
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: steuer-auskunft
+        status: vorgeschlagen
+        fundstellen_repo: 34
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: text-dienste
+        status: vorgeschlagen
+        fundstellen_repo: 359
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: cad-abfrage
+        status: vorgeschlagen
+        fundstellen_repo: 57
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: wohngeld-assistent
+        status: eigener-auftrag
+        fundstellen_repo: 0
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: mail-antwort-entwurf
+        status: vorgeschlagen
+        fundstellen_repo: 163
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
+      - dienst: reise-story
+        status: ruhend
+        fundstellen_repo: 89
+        test_app: null
+        test_chat: null
+        antwortzeit_s: null
+        nutzungen_30d: null
   wartung:
     takt: taeglich
     kommando: python3 tools/iil_assist_katalog.py bahn wartung
     frage: Welcher Dienst kippt als naechstes (Betriebsstatus, Alter des letzten Commits, Lebenszyklus)?
-    laeufe: []
+    laeufe:
+    - datum: '2026-09-10'
+      kippt_als_naechstes:
+      - dienst: fristen-auskunft
+        punkte: 3
+        gruende:
+        - betriebsstatus=blockiert
+      - dienst: text-dienste
+        punkte: 2
+        gruende:
+        - lifecycle=experimental
+      - dienst: thema-nachfragen
+        punkte: 2
+        gruende:
+        - lifecycle=experimental
+      gemessen: 13
   diabolus:
     takt: woechentlich
     kommando: python3 tools/iil_assist_katalog.py bahn diabolus
