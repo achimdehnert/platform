@@ -88,7 +88,14 @@ jobs:
       # Append-only und Frische waren dabei alle gruen (platform#2974).
       - name: Auslagerung pruefen
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PROJECT_PAT statt GITHUB_TOKEN: der Check fragt den Zustand jeder
+          # verschwundenen Referenz ab, auch in privaten Schwester-Repos
+          # (news-hub, ...). Der repo-eigene Token sieht die nicht, der Check
+          # meldet dann "Zustand nicht ermittelbar" (Exit 2) — gewollt blind
+          # statt gruen, aber damit war jede Auslagerung mit Fremd-Refs in CI
+          # unmergebar (platform#3027, Owner-Entscheid Option 1, 2026-09-10).
+          # Rein lesend, wie in gen-project-facts / branch-protection-meter.
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
         run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
 
       - name: Golden-Test — eine verschluckte offene Nummer muss FAIL ergeben
