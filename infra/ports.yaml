@@ -694,6 +694,61 @@ services:
       nicht angenommen. Verbraucher: `rag-mcp` auf prod (siehe unten), seit
       2026-09-01 im Betrieb; dessen /healthz/ prueft diesen Dienst mit.
 
+  ollama:
+    prod: 11434
+    staging: null                   # nativer GX10-Dienst, keine Staging-Instanz
+    dev: 11434
+    prod_host: gx10
+    container_name: null            # systemd --user ollama.service, kein Container
+    domain_prod: null               # NUR wg0 — 10.99.0.4:11434, kein Tunnel
+    domain_staging: null
+    repo: achimdehnert/platform
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Inferenzdienst auf der GB10, gebunden auf 10.99.0.4:11434 (nicht 0.0.0.0).
+      Bis 2026-09-08 stand er nur als `auflage.ausnahmen`-Eintrag in hosts.yaml —
+      und blieb damit ungelesen: `hosts_audit.check_auflage` iteriert
+      `ports["services"]`, `_ausnahme_fuer` matcht den Dienstnamen. Ohne diesen
+      Eintrag greift die Ausnahme nicht. Verbraucher: mcp-hub (llm_mcp,
+      orchestrator_mcp), iil-voice-agent.
+
+  vllm:
+    prod: 8000
+    staging: null                   # nativer GX10-Dienst, keine Staging-Instanz
+    dev: 8000
+    prod_host: gx10
+    container_name: null            # systemd --user vllm.service, kein Container
+    domain_prod: null               # NUR wg0 — 10.99.0.4:8000, kein Tunnel
+    domain_staging: null
+    repo: achimdehnert/platform
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      Durchsatz-Motor neben ollama, seit 2026-09-08 (platform#2544). Gebunden auf
+      10.99.0.4:8000, gleiche Bindung wie ollama.service. Gemessen mit demselben
+      Harnisch: 3.526 tok/s Prefill bei 8 gleichzeitigen Anfragen gegen 2.632
+      tok/s bei ollama. Haelt rund 36 GB Grafikspeicher — vor grossen
+      Trainingslaeufen anhalten (`systemctl --user stop vllm`, Wrapper
+      `infra/scripts/training-mit-speicher.sh` — im Repo, auf dem Knoten als
+      `~/training-mit-speicher.sh` ausgerollt, robo-lab#58).
+      Port 8000 liegt im Band 8000-8019 (Infra-APIs); auf gx10 frei, die
+      Belegung auf gpu-box (ComfyUI) ist ein anderer Knoten.
+
+  gpu-ollama:
+    prod: 11434
+    staging: null
+    dev: 11434
+    prod_host: gpu-box
+    container_name: null            # Windows-Dienst ollama.exe, kein Container
+    domain_prod: gpu.iil.pet        # Tunnel laeuft auf prod, nicht auf der Box
+    domain_staging: null
+    repo: achimdehnert/platform
+    betriebsstatus: aktiv
+    betriebsstatus_grund: >
+      ollama auf der RTX-4090-Box, veroeffentlicht ueber gpu.iil.pet hinter
+      Cloudflare Access (Owner-Entscheid 2026-09-02, platform#2486 Punkt 2).
+      Nachgetragen 2026-09-08 aus demselben Grund wie `ollama`: die Ausnahme
+      `gpu-ollama` in hosts.yaml war ohne diesen Eintrag unlesbar fuer den Melder.
+
   rag-mcp:
     prod: 8200
     staging: 8200

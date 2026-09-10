@@ -2381,3 +2381,12 @@ Der **Eich-Bogen kam 15/15 `unklar`** — Befund ueber den Bogen selbst (Suchsch
 **Training ([robo-lab#58](https://github.com/achimdehnert/robo-lab/issues/58)):** Bis 16.384 Umgebungen ist die 4090 3,3x schneller; bei 20.480 bricht sie am VRAM ab, der GX10 rechnet durch. Ihre WSL-Maschine durfte vorher nur 12 von 128 GB nutzen — jetzt 64.
 
 **Retro 136735** ([#2975](https://github.com/achimdehnert/platform/pull/2975)): 14 Befunde, 11 ueberlebt, 7 ohne Artefakt in [#2982](https://github.com/achimdehnert/platform/issues/2982). Zwei Lehren: SoT zitiert statt gelesen (`hosts.yaml:166`); der Melder liest `ports.yaml` — drei Ausnahmen waren tot ([#2977](https://github.com/achimdehnert/platform/pull/2977)).
+
+## 2026-09-10 — Faden 5 (PyPI-Org `iil`) aus "Offene Fäden" ausgelagert
+
+Herkunft: `AGENT_HANDOVER.md`, Abschnitt "Offene Fäden". Grund: Melder 0.7.4 meldete die
+Zeile als Verweis auf Geschlossenes — [#2291](https://github.com/achimdehnert/platform/issues/2291)
+ist seit 2026-09-07 als COMPLETED zu. Der Rest (Owner sendet die PyPI-Support-Anfrage,
+Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommentar.
+
+- 5. PyPI-Org `iil`: nur noch Owner-Klicks (Org löschen, `iildehnert` härten, Konto `achimdehnert` prüfen); Org antwortete 07.09. noch 200, Ledger 152 Wiedervorlage 14.09.: https://github.com/achimdehnert/platform/issues/2291
