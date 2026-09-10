@@ -13,6 +13,14 @@
 > 07-15/07-13→07-20/21; ausgelagert im Zuge des Tools-Strang-Nachzugs, siehe Text unten).
 
 
+<!-- Ausgelagert 2026-09-10 nachmittags (Prio-Referenzen auf Erledigtes, Runner 0.7.4) -->
+
+**Abgeschlossene Faeden aus `## Offene Fäden`, 2026-09-10 nachmittags:**
+- Faden 5 — PyPI-Konto `achimdehnert`: [#2291](https://github.com/achimdehnert/platform/issues/2291) ist seit 2026-09-07 geschlossen (Org `iil` geloescht, Kontoloeschung scheitert an PyPI). Der einzige offene Zug ist Owner-Arbeit und lebt in der Mail-Arbeitsliste: Support-Entwurf senden, Ledger-Vorgang 196, Wiedervorlage 2026-09-14. #3009 hatte die Zeile am Vormittag nur umformuliert; das Issue blieb zu, der Melder feuerte weiter.
+- Faden 52 — Port-Register, drei Dienst-Ausnahmen: [#2977](https://github.com/achimdehnert/platform/pull/2977) gemergt 2026-09-10.
+- Faden 0 — Scan-Strecke: [doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3) geschlossen 2026-09-10; Restluecke steht im Stand-Block vom 2026-09-10 nachmittags.
+- Dublette entfernt: news-hub#33 stand zweimal (Bullet **[news-hub#33]** bleibt).
+
 <!-- Ausgelagert 2026-08-09 (Handover-Refresh 08-07→08-09) -->
 
 
