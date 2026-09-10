@@ -86,7 +86,26 @@ Erst die letzte Zahl ist eine Liste, die man lesen kann.
 4. **Die Katalognummer mitnehmen** (`DE-604.BV…`). Der Link `https://bibkat.hnu.de/vufind/Record/<ID>` führt nach
    Anmeldung direkt zum Volltext und ist die stabile Referenz für Literaturlisten.
 
-## 5 — Fallen
+## 5 — Die wichtigste Prüfung: gehört die Lizenz uns?
+
+**Der Katalog zeigt auch E-Books anderer bayerischer Hochschulen.** Sie sehen aus wie jeder andere Treffer, tragen
+dieselbe Formatangabe und dieselbe Katalognummer — aber Angehörige der HNU kommen nicht hinein. Sie landen vor der
+Anmeldemaske einer fremden Hochschule.
+
+**So erkennt man es:** Auf der Datensatzseite steht der Volltext-Weg als `…/login?qurl=<Ziel>`. Zeigt das Ziel auf
+`ebookcentral.proquest.com/lib/<kürzel>/`, gehört die Lizenz der Einrichtung hinter diesem Kürzel — `hwr`, `fhws`,
+`th-wildau`, `viadrina-ebooks`, `fh-rosenheim`, `hmtmde` und so weiter. Nur `doi.org`, `search.ebscohost.com`,
+`www.wiso-net.de`, `link.springer.com`, `elibrary.kohlhammer.de` und vergleichbare Verlagsadressen sind unsere.
+
+**Warum das zählt:** Bei einer Auswahl von zwanzig Titeln für eine Vorlesung waren am 2026-09-10 **sechs** davon
+betroffen — knapp ein Drittel, darunter drei bekannte Standardwerke. Ohne diese Prüfung wäre die Leseliste erst
+aufgefallen, wenn ein Teilnehmender einen Titel öffnen wollte.
+
+**Prüfe jeden Titel einzeln, bevor er in eine Liste kommt.** Der Test ist ein Aufruf der Datensatzseite und ein
+Blick auf den Pfad des Ziels; das kostet Sekunden und ist der Unterschied zwischen einer Leseliste und einer
+Enttäuschung.
+
+## 6 — Weitere Fallen
 
 - **302 ist keine Null.** Eine Suche ohne Treffer ist erst dann ein Ergebnis, wenn dieselbe Suche ohne Filter Treffer
   liefert. Sonst ist die abgelaufene Sitzung der Filter, nicht die Welt.
@@ -100,13 +119,13 @@ Erst die letzte Zahl ist eine Liste, die man lesen kann.
 - **Zugangsdaten nie ausgeben.** Kein `env`-Dump, kein `cat` der Geheimnisdatei; die Werte gehören über die
   Standardeingabe ins Kommando, nie in die Kommandozeile.
 
-## 6 — Urheberrecht bei Folien und Skripten
+## 7 — Urheberrecht bei Folien und Skripten
 
 Abbildungen aus Büchern und Aufsätzen dürfen in Lehrmaterial, wenn der Teilnehmerkreis abgegrenzt ist und die Quelle
 genannt wird. Liegt das Material auf einer offen erreichbaren Webseite, trägt diese Schranke nicht. Vor dem Übernehmen
 einer fremden Abbildung also prüfen, wo das fertige Deck landet — und im Zweifel eine eigene Grafik zeichnen.
 
-## 7 — Werkzeuge
+## 8 — Werkzeuge
 
 Neben diesem Skill liegen drei Skripte, die zusammenarbeiten:
 
