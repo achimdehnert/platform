@@ -29,6 +29,8 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Offen (Owner):** nichts Neues; #3024 mergt nach gruenem CI per Mandat (ich).
 
+**Aus der meiki-hub-Sitzung (Zielarchitektur Assist-Familie), Owner-Entscheid 2026-09-10:** Ausnahmezeile für `frist-hub` in `ADR-109` nachgezogen ([#3025](https://github.com/achimdehnert/platform/pull/3025)) — `single` je LRA bleibt Pilot-Default, die Mandanten-Basis kommt aus `iil-assist-core` ≥ 0.4.0 statt aus einem `django_tenancy`-Rollout; Gegenstück [meiki-hub#390](https://github.com/meiki-lra/meiki-hub/pull/390). Zwei Hypothesen für die nächste Platform-Sitzung, hier nicht verifiziert: (1) KONZ-platform-058 „iil-assist" (ein Dienst, [#3013](https://github.com/achimdehnert/platform/pull/3013)) und die MEiKI-Pakete `iil-assist-core/-frist/-voice` tragen denselben Namen — vor einer PyPI-Vergabe klären; (2) `risk-hub/packages/django-tenancy` `enable_rls` ist fail-open (drei OR-Zweige, `enable_rls.py:69-74`), Memory 🌀 `django-tenancy-enable-rls-fail-open` in der meiki-hub-Lane.
+
 ## ⚡ Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
 
 **Zielzustand erreicht** ([doc-hub#4](https://github.com/achimdehnert/doc-hub/issues/4)): Ein Scan mit mehreren Dokumenten wird auf dem Weg in Paperless automatisch zerlegt, verschlagwortet und abgelegt; das Original wandert aus dem Eingang, wird aber nie geloescht. Code `/opt/doc-hub/splitter/` auf hetzner-prod, eigenes venv, Timer `doc-hub-splitter.timer` alle 3 Minuten (aktiviert nach Owner-Wort). Eingang `/opt/paperless-consume/schleuse/scan-eingang` — den ignoriert Paperless ohnehin, deshalb war kein Samba-Eingriff noetig. Personen-Muster `/etc/doc-hub/zuordnung.json` (0640, nicht im Repo).
