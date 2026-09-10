@@ -122,7 +122,7 @@ dienste:
     aufwand: S
     prio: 1
     mvp: true
-    status: vorgeschlagen
+    status: gewaehlt
     begruendung: hoher Tageswert; beweist die Raum-Bindung fuer personenbezogene Daten
   - id: fristen-auskunft
     name: Fristen-Auskunft (Ampel, naechste Fristen)
@@ -135,7 +135,7 @@ dienste:
     aufwand: M
     prio: 1
     mvp: true
-    status: vorgeschlagen
+    status: gewaehlt
     begruendung: Fachkern der Familie; frist-hub ist blockiert, Abnahme auf Staging
   - id: thema-nachfragen
     name: Thema nachfragen (Morgen-Zeitung)
@@ -148,7 +148,7 @@ dienste:
     aufwand: S
     prio: 2
     mvp: true
-    status: vorgeschlagen
+    status: gewaehlt
     begruendung: die Zeitung liegt schon im Chat; Rueckfrage ist der natuerliche zweite Zugang
   - id: bild-erzeugen
     name: Bild erzeugen
@@ -161,7 +161,7 @@ dienste:
     aufwand: S
     prio: 2
     mvp: true
-    status: vorgeschlagen
+    status: gewaehlt
     begruendung: sichtbarer Nutzen im Chat; erster Dienst mit Kosten-Gate
   - id: verarbeitungs-auskunft
     name: Verarbeitungs-Auskunft (VVT je Organisation)
@@ -267,6 +267,23 @@ dienste:
     mvp: false
     status: eigener-auftrag
     begruendung: bereits als chat-hub#77 beauftragt; laeuft auf derselben Architektur, nicht hier gebaut
+  - id: mail-antwort-entwurf
+    name: Mail inhaltlich beantworten (Entwurf zu einem Ledger-Vorgang)
+    repo: dev-hub
+    reifegrad: teilweise
+    basis: [apps/mail_agent, "draft_mail (Draft-first, kein Versand)", "Ledger ~/.claude/mail-vorgaenge.json"]
+    datenklasse: personenbezogen
+    chat_eignung: raum-gebunden
+    gate: entwurf-freigabe
+    aufwand: M
+    prio: 2
+    mvp: false
+    status: vorgeschlagen
+    begruendung: >
+      Owner-Vorschlag 2026-09-10 ("beantworte die Mail #207"). Passt in die Architektur
+      (Dienst liefert einen Entwurf in den Raum, Owner gibt frei — Charta Art. 2), aber
+      noch zu frueh als MVP: braucht Raum-Bindung (MVP 2) UND das Gate entwurf-freigabe,
+      das noch kein Dienst nutzt. Kandidat fuer die zweite Welle direkt nach MVP 2.
   - id: reise-story
     name: Reise/Story-Dienste
     repo: travel-beat
@@ -286,10 +303,7 @@ top3:
   - dokument-suche
   - fristen-auskunft
 
-offen:
-  - id: O1
-    frage: Auswahl der fuenf MVPs bestaetigen oder kippen (Kommentar im Issue 3011); Owner-Go fuer MVP 1 liegt vor
-    wer: owner
+offen:            # O1 (Auswahl der fuenf MVPs) am 2026-09-10 vom Owner bestaetigt — erledigt
   - id: O2
     frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
     wer: owner
