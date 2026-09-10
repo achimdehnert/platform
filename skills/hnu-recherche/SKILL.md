@@ -89,21 +89,31 @@ Erst die letzte Zahl ist eine Liste, die man lesen kann.
 ## 5 — Die wichtigste Prüfung: gehört die Lizenz uns?
 
 **Der Katalog zeigt auch E-Books anderer bayerischer Hochschulen.** Sie sehen aus wie jeder andere Treffer, tragen
-dieselbe Formatangabe und dieselbe Katalognummer — aber Angehörige der HNU kommen nicht hinein. Sie landen vor der
-Anmeldemaske einer fremden Hochschule.
+dieselbe Formatangabe und dieselbe Katalognummer — aber Angehörige der HNU kommen nicht hinein. Bei einer Auswahl von
+zwanzig Titeln für eine Vorlesung waren am 2026-09-10 **fünf** davon betroffen, darunter drei bekannte Standardwerke.
+Ohne die Prüfung fällt das erst auf, wenn ein Teilnehmender den Titel öffnen will.
 
-**So erkennt man es:** Auf der Datensatzseite steht der Volltext-Weg als `…/login?qurl=<Ziel>`. Zeigt das Ziel auf
-`ebookcentral.proquest.com/lib/<kürzel>/`, gehört die Lizenz der Einrichtung hinter diesem Kürzel — `hwr`, `fhws`,
-`th-wildau`, `viadrina-ebooks`, `fh-rosenheim`, `hmtmde` und so weiter. Nur `doi.org`, `search.ebscohost.com`,
-`www.wiso-net.de`, `link.springer.com`, `elibrary.kohlhammer.de` und vergleichbare Verlagsadressen sind unsere.
+**Der Beleg ist die Zielseite, nicht der Link.** Auf der Datensatzseite stehen die Volltext-Wege als
+`ezproxy.hnu.de/login?qurl=<Ziel>` — oft **mehrere, bis zu neun**, und die meisten davon gehören anderen Häusern.
+Ein Titel ist verfügbar, sobald **ein einziges** Ziel durchgeht. Also jedes Ziel über den Proxy aufrufen und auf der
+geladenen Seite nach dem Satz **„Access provided by Hochschule für angewandte Wissenschaften Neu-Ulm"** suchen.
+Steht er da, gehört die Lizenz uns.
 
-**Warum das zählt:** Bei einer Auswahl von zwanzig Titeln für eine Vorlesung waren am 2026-09-10 **sechs** davon
-betroffen — knapp ein Drittel, darunter drei bekannte Standardwerke. Ohne diese Prüfung wäre die Leseliste erst
-aufgefallen, wenn ein Teilnehmender einen Titel öffnen wollte.
+**Am Pfad allein darf man es nicht entscheiden.** Ein Pfad `ebookcentral.proquest.com/lib/<kürzel>/` mit fremdem
+Kürzel — `hwr`, `fhws`, `th-wildau`, `erlangen`, `fuberlin-ebooks` — ist ein Warnzeichen, aber kein Urteil: Baines,
+*Servitization Strategy*, trägt genau so einen fremden Pfad **und** einen Springer-Weg, über den die HNU-Kennung
+sauber durchkommt. Wer nur den Pfad liest, wirft das Buch zu Unrecht raus.
 
-**Prüfe jeden Titel einzeln, bevor er in eine Liste kommt.** Der Test ist ein Aufruf der Datensatzseite und ein
-Blick auf den Pfad des Ziels; das kostet Sekunden und ist der Unterschied zwischen einer Leseliste und einer
-Enttäuschung.
+**Umgekehrt ist auch eine Verlagsadresse kein Freibrief.** Bei EBSCO (`search.ebscohost.com`) landet man nach dem
+Proxy auf einer Seite, die die Hochschule nennt, ihren Inhalt aber erst per Nachladen aufbaut — ob der Volltext
+freigeschaltet ist, steht dort nicht im Quelltext. Solche Fälle sind **ungeklärt**, nicht bestätigt: entweder von
+Hand im Browser ansehen oder einen Titel nehmen, der eindeutig durchgeht.
+
+Eindeutig unsere sind erfahrungsgemäß `doi.org` (Springer, Haufe), `www.wiso-net.de`, `link.springer.com`,
+`beck-online.beck.de` und `elibrary.kohlhammer.de`.
+
+**Prüfe jeden Titel einzeln, bevor er in eine Liste kommt.** Ein Aufruf je Ziel, ein Blick auf den Zugangssatz —
+Sekunden, und der Unterschied zwischen einer Leseliste und einer Enttäuschung.
 
 ## 6 — Weitere Fallen
 
