@@ -86,6 +86,8 @@ dieses Signalsatzes — der Melder deckt ihn für `todo-board.service` und
 
 ## Verbesserungs-Backlog (K4: jeder Vorschlag mit Gegenrede und Alternative, bevor er gebaut wird)
 
+Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative wird abgewiesen (K4).
+
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
 | 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, [PR #3061](https://github.com/achimdehnert/platform/pull/3061) |
