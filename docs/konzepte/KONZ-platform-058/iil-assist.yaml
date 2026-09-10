@@ -93,7 +93,7 @@ dienste:
     aufwand: S
     prio: 1
     mvp: true
-    status: gebaut
+    status: prod           # 2026-09-10: dev-hub 34457448899 + mcp-hub 34457924358 gruen; Staging von dev-hub vorbestehend kaputt (dev-hub#348)
     begruendung: reiner Lesedienst ohne Datenrisiko; prueft Gateway und beide Zugaenge zuerst
     artefakte:
       vertrag: https://github.com/achimdehnert/platform/pull/3018
@@ -109,6 +109,8 @@ dienste:
     kennzahlen:
       test_app: 1
       test_chat: 1
+      prod_route: 302 auf Login (2026-09-10)
+      chat_rundlauf: offen
       antwortzeit_s: null
       nutzungen_30d: null
   - id: dokument-suche
@@ -304,6 +306,9 @@ top3:
   - fristen-auskunft
 
 offen:            # O1 (Auswahl der fuenf MVPs) am 2026-09-10 vom Owner bestaetigt — erledigt
+  - id: O5
+    frage: Rundlauf Stufe A im Chat belegen — neue Sitzung, dienst_katalog/dienst_aufruf gegen den Orchestrator, Antwort als Lotse im Infra-Raum
+    wer: ich
   - id: O2
     frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
     wer: owner
