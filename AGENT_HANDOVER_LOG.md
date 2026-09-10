@@ -3513,3 +3513,19 @@ misst jetzt das Ergebnis statt des Transports.
 Zwei Owner-Korrekturen an mir: Konten und Raeume in der eigenen Infrastruktur sind Bauarbeit,
 keine Entscheidung — und die selbst geschriebene Freigabe-Zeile ist zulaessig, solange sie das
 Owner-Wort zitiert.
+
+## 2026-09-10 (mittags) — iil-assist: vom Auftrag bis MVP 1 in Produktion
+
+Ein Auftrag in vier Fassungen (#3011), dann in einer Sitzung: Inventar-Werkzeug ueber
+63 Repos, Konzept KONZ-platform-058 mit maschinenlesbarer Zustandsdatei, Katalog mit
+15 Diensten, fuenf MVPs bestaetigt, und der erste Dienst — Plattform-Status — ueber
+App-Route und Gateway in Produktion (platform#3018, dev-hub#346/#347, mcp-hub#263).
+
+Was quer lag: netcup ist ein fremder Host geworden (vier Melder, eine Ursache), die
+mcp-hub-CI stand seit dem 8.9. ohne Runner (Owner registrierte den Ersatz auf
+dev-desktop), dev-hub deployt bei Push nach Prod und sein Staging ist seit dem 7.9. tot.
+Der Chat-Rundlauf blieb unbelegt: die Werkzeugliste der Sitzung ist starr.
+
+Zwei Owner-Ergaenzungen: Mail inhaltlich beantworten ist als Dienst-Kandidat mit
+Entwurfs-Gate eingeordnet (zweite Welle), und chat-hub darf kuenftig iil-assist-hub heissen.
+
