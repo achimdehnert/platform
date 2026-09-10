@@ -52,6 +52,13 @@ und wird ausdruecklich als HINWEIS gefuehrt, nie als Befund und nie als sauber.
 Ausserdem sind gate-erzwungene Serien legitim (der zweite PR korrigiert, was
 ein Gate am ersten beanstandet hat) — deshalb ist dieses Gate advisory.
 
+`--pr N` (Retro 2026-09-10): der Sitzungs-Lauf oben kommt erst NACH allen
+Merges — #3034 und #3042 gingen nacheinander auf `test_todo_board.py`
+(ueberlappende Hunks), ohne dass das Gate vorher lief. `--pr` prueft
+`befunde_serien_fuer_pr()` GENAU EINEN PR gegen offene + heute gemergte PRs
+desselben Autors und laeuft als Advisory-Kommentar beim PR selbst (Workflow
+`.github/workflows/serielle-prs-advisory.yml`), nicht erst am Sitzungsende.
+
 BAUFORM
 -------
 Jede Kernlogik ist eine REINE Funktion ueber einfachen Python-Datenstrukturen
@@ -139,6 +146,24 @@ def _befund(slug: str, ref: str, text: str) -> dict:
 
 def _hinweis(slug: str, ref: str, text: str) -> dict:
     return {"slug": slug, "art": "hinweis", "ref": ref, "text": text}
+
+
+def _sauber(slug: str, ref: str, text: str) -> dict:
+    """Informations-Zeile fuer eine gepruefte, aber falsifizierte Stelle.
+
+    Kein Befund und kein Hinweis: die Falsifikation LIEF und war erfolgreich
+    (Hunks disjunkt) — das gehoert in die Zusammenfassung, sonst wirkt ein
+    sauberer --pr-Lauf ununterscheidbar von einem, der nichts geprueft hat.
+    """
+    return {"slug": slug, "art": "sauber", "ref": ref, "text": text}
+
+
+def _autor_von(pr: dict) -> str:
+    """Login aus `pr["author"]` (dict `{"login": ...}` oder bereits String)."""
+    autor = pr.get("author")
+    if isinstance(autor, dict):
+        autor = autor.get("login") or ""
+    return str(autor or "")
 
 
 def _repo_von(eintrag: dict) -> str:
@@ -447,10 +472,7 @@ def befunde_serien(prs: list[dict], stunden: int = 24) -> list[dict]:
     for pr in prs or []:
         if not ist_gemergt(pr):
             continue
-        autor = pr.get("author")
-        if isinstance(autor, dict):
-            autor = autor.get("login") or ""
-        autor = str(autor or "")
+        autor = _autor_von(pr)
         repo = _repo_von(pr)
         zeit = _zeitpunkt(pr.get("mergedAt"))
         for datei in pr.get("files") or []:
@@ -514,6 +536,118 @@ def befunde_serien(prs: list[dict], stunden: int = 24) -> list[dict]:
                     "daher Hinweis statt Befund",
                 )
             )
+    return ergebnisse
+
+
+def befunde_serien_fuer_pr(
+    ziel_nummer: int, prs: list[dict], heute: str | None = None
+) -> list[dict]:
+    """--pr-Modus: EIN PR gegen offene + heute gemergte PRs desselben Autors.
+
+    Retro 2026-09-10: der Sitzungs-Lauf von befunde_serien() kommt erst NACH
+    allen Merges — #3034 und #3042 liefen nacheinander auf `test_todo_board.py`
+    (Hunks 467-531 vs 526-542, ueberlappend), ohne dass das Gate vorher lief.
+    Dieser Modus soll beim PR selbst laufen (Advisory-Kommentar), also VOR dem
+    Merge — die Population ist deshalb nicht "gemergt binnen X Stunden",
+    sondern "offen ODER heute gemergt" (Autor + Repo wie beim Ziel-PR).
+
+    Rein: `prs` in der Form von `gh pr list --json
+    number,author,state,mergedAt,files,repo`, Hunks je Datei optional unter
+    `files[].hunks`. `heute` ist ein YYYY-MM-DD-Stichtag (Default: UTC-heute).
+
+    Dieselbe Falsifikationsregel wie befunde_serien():
+      - Hunks auf beiden Seiten bekannt und ueberlappend → Befund.
+      - Hunks auf beiden Seiten bekannt und disjunkt → "sauber"-Zeile
+        ("gleiche Datei, disjunkte Bereiche — kein Befund"), NIE ein Befund.
+      - Hunks fehlen → Hinweis, nie Befund und nie Entwarnung.
+    Kein zweiter PR desselben Autors/Repos auf einer gemeinsamen Datei →
+    leere Liste (kein Ballast im PR-Kommentar).
+    """
+    heute = heute or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ziel = next(
+        (p for p in prs or [] if int(p.get("number") or -1) == ziel_nummer), None
+    )
+    if ziel is None:
+        return []
+
+    ziel_autor = _autor_von(ziel)
+    ziel_repo = _repo_von(ziel)
+    ziel_ref = _ref_text(ziel_repo, ziel_nummer)
+
+    ziel_dateien: dict[str, list[tuple[int, int]] | None] = {}
+    for datei in ziel.get("files") or []:
+        pfad = str(datei.get("path") or "")
+        if not pfad:
+            continue
+        hunks = datei.get("hunks")
+        ziel_dateien[pfad] = (
+            [(int(h[0]), int(h[1])) for h in hunks] if hunks is not None else None
+        )
+
+    def ist_population(pr: dict) -> bool:
+        if int(pr.get("number") or -1) == ziel_nummer:
+            return False
+        if _autor_von(pr) != ziel_autor or _repo_von(pr) != ziel_repo:
+            return False
+        zustand = str(pr.get("state") or "").upper()
+        if zustand == "OPEN":
+            return True
+        if zustand == "MERGED":
+            zeit = _zeitpunkt(pr.get("mergedAt"))
+            return bool(zeit) and zeit.strftime("%Y-%m-%d") == heute
+        return False
+
+    ueberlappend: list[tuple[str, str]] = []
+    unklar: list[tuple[str, str]] = []
+    disjunkt: list[tuple[str, str]] = []
+    for pr in prs or []:
+        if not ist_population(pr):
+            continue
+        ref = _ref_text(_repo_von(pr), int(pr.get("number")))
+        for datei in pr.get("files") or []:
+            pfad = str(datei.get("path") or "")
+            if pfad not in ziel_dateien:
+                continue
+            ziel_bereich = ziel_dateien[pfad]
+            hunks = datei.get("hunks")
+            andere_bereich = (
+                [(int(h[0]), int(h[1])) for h in hunks] if hunks is not None else None
+            )
+            if ziel_bereich is None or andere_bereich is None:
+                unklar.append((ref, pfad))
+            elif bereiche_ueberlappen(ziel_bereich, andere_bereich):
+                ueberlappend.append((ref, pfad))
+            else:
+                disjunkt.append((ref, pfad))
+
+    ergebnisse: list[dict] = []
+    for ref, pfad in sorted(set(ueberlappend)):
+        ergebnisse.append(
+            _befund(
+                SLUG_SERIEN,
+                pfad,
+                f"{ziel_ref} + {ref} (Autor {ziel_autor or '?'}) beruehren "
+                f"`{pfad}` an ueberlappenden Zeilen — Falsifikation gescheitert",
+            )
+        )
+    for ref, pfad in sorted(set(unklar)):
+        ergebnisse.append(
+            _hinweis(
+                SLUG_SERIEN,
+                pfad,
+                f"{ziel_ref} + {ref} beruehren `{pfad}`, aber Hunk-Angabe fehlt "
+                "— NICHT falsifizierbar",
+            )
+        )
+    for ref, pfad in sorted(set(disjunkt)):
+        ergebnisse.append(
+            _sauber(
+                SLUG_SERIEN,
+                pfad,
+                f"{ziel_ref} + {ref} beruehren `{pfad}` — gleiche Datei, "
+                "disjunkte Bereiche — kein Befund",
+            )
+        )
     return ergebnisse
 
 
@@ -671,6 +805,76 @@ def sammle_via_gh(repo: str, autor: str, seit: str, mit_hunks: bool) -> dict:
     }
 
 
+def gh_pr_einzel(repo: str, nummer: int) -> dict | None:
+    """Ein einzelner PR — Fallback, falls `gh_sitzungs_prs` ihn nicht erfasst
+    (z.B. `--seit` liegt nach seinem letzten `updated`-Zeitpunkt)."""
+    try:
+        roh = _gh(
+            [
+                "pr",
+                "view",
+                str(nummer),
+                "--repo",
+                repo,
+                "--json",
+                "number,author,body,state,mergedAt,files",
+            ]
+        )
+    except GhFehler:
+        return None
+    try:
+        daten = json.loads(roh)
+    except json.JSONDecodeError:
+        return None
+    daten["repo"] = repo
+    return daten
+
+
+def sammle_serien_fuer_pr_via_gh(
+    repo: str, ziel_nummer: int, autor: str, seit: str
+) -> list[dict]:
+    """Population fuer den --pr-Modus, mit Hunks fuer alle relevanten PRs.
+
+    Holt die Sitzungs-PRs des Autors (Fallback: Einzelabruf, falls der Ziel-PR
+    darin fehlt) und laedt Hunks NUR fuer den Ziel-PR sowie fuer offene bzw.
+    heute gemergte PRs desselben Autors (Deckel MAX_DETAIL_ABRUFE) — genau die
+    Population, die befunde_serien_fuer_pr() auch bewertet.
+    """
+    prs = gh_sitzungs_prs(repo, autor, seit)
+    if not any(int(p.get("number") or -1) == ziel_nummer for p in prs):
+        einzel = gh_pr_einzel(repo, ziel_nummer)
+        if einzel is not None:
+            prs.append(einzel)
+
+    heute = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    abgerufen = 0
+    for pr in prs:
+        if abgerufen >= MAX_DETAIL_ABRUFE:
+            break
+        nummer = int(pr.get("number") or -1)
+        zustand = str(pr.get("state") or "").upper()
+        if nummer == ziel_nummer:
+            relevant = True
+        elif zustand == "OPEN":
+            relevant = True
+        elif zustand == "MERGED":
+            zeit = _zeitpunkt(pr.get("mergedAt"))
+            relevant = bool(zeit) and zeit.strftime("%Y-%m-%d") == heute
+        else:
+            relevant = False
+        if not relevant:
+            continue
+        hunks = gh_hunks(repo, nummer)
+        abgerufen += 1
+        if hunks is None:
+            continue
+        for datei in pr.get("files") or []:
+            pfad = str(datei.get("path") or "")
+            if pfad in hunks:
+                datei["hunks"] = [list(h) for h in hunks[pfad]]
+    return prs
+
+
 def lade_eingabe(pfad: str) -> dict:
     daten = json.loads(Path(pfad).read_text(encoding="utf-8"))
     if not isinstance(daten, dict):
@@ -686,8 +890,81 @@ def lade_eingabe(pfad: str) -> dict:
 
 
 def _ausgabe_zeile(eintrag: dict) -> str:
-    marke = "⚠" if eintrag["art"] == "befund" else "◌"
+    marke = {"befund": "⚠", "hinweis": "◌", "sauber": "✓"}.get(eintrag["art"], "◌")
     return f"   {marke} [{eintrag['slug']}] {eintrag['ref']}: {eintrag['text']}"
+
+
+def _lauf_pr_modus(args) -> int:
+    """--pr-Modus: kurze, Markdown-taugliche Ausgabe fuer einen PR-Kommentar."""
+    if args.eingabe:
+        try:
+            daten = lade_eingabe(args.eingabe)
+        except (OSError, ValueError) as exc:
+            print(f"⚠ Eingabe nicht lesbar: {exc}", file=sys.stderr)
+            print("RESULT: FEHLER")
+            return 2
+        prs = daten["prs"]
+    else:
+        if not args.repo:
+            print("⚠ ohne --eingabe wird --repo owner/repo gebraucht.", file=sys.stderr)
+            print("RESULT: FEHLER")
+            return 2
+        try:
+            prs = sammle_serien_fuer_pr_via_gh(
+                args.repo, args.pr, args.autor, args.seit
+            )
+        except GhFehler as exc:
+            print(
+                f"⚠ {exc} — NICHT bewertbar (nie als sauber werten).", file=sys.stderr
+            )
+            print("RESULT: FEHLER")
+            return 2
+
+    ergebnisse = befunde_serien_fuer_pr(args.pr, prs, heute=args.heute)
+    befunde = [e for e in ergebnisse if e["art"] == "befund"]
+    hinweise = [e for e in ergebnisse if e["art"] == "hinweis"]
+    sauber = [e for e in ergebnisse if e["art"] == "sauber"]
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "befunde": befunde,
+                    "hinweise": hinweise,
+                    "sauber": sauber,
+                    "result": "BEFUND"
+                    if befunde
+                    else ("HINWEIS" if hinweise else "OK"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(f"**Serielle-PRs-Abgleich fuer #{args.pr}** ({SLUG_SERIEN}, advisory)")
+        if befunde:
+            for e in befunde:
+                print(_ausgabe_zeile(e))
+        if hinweise:
+            for e in hinweise:
+                print(_ausgabe_zeile(e))
+        if sauber:
+            for e in sauber:
+                print(_ausgabe_zeile(e))
+        if not befunde and not hinweise and not sauber:
+            print(
+                "   ✅ kein weiterer offener/heute gemergter PR desselben Autors "
+                "auf denselben Dateien."
+            )
+
+    if befunde:
+        print(f"RESULT: BEFUND {len(befunde)} (hinweise={len(hinweise)})")
+        return 1
+    if hinweise:
+        print(f"RESULT: HINWEIS {len(hinweise)}")
+        return 0
+    print("RESULT: OK")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -725,8 +1002,27 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="keine Patches abrufen — die Serien-Pruefung wird dann nicht falsifizierbar",
     )
+    ap.add_argument(
+        "--pr",
+        type=int,
+        help=(
+            f"Nur DIESEN PR gegen offene + heute gemergte PRs desselben Autors "
+            f"vergleichen ({SLUG_SERIEN}, kurze Ausgabe fuer einen PR-Kommentar) "
+            "— ersetzt den Drei-Gates-Lauf, ignoriert --issues/--belege/--serien"
+        ),
+    )
+    ap.add_argument(
+        "--heute",
+        help=(
+            "Stichtag YYYY-MM-DD fuer 'heute gemergt' im --pr-Modus "
+            "(Default: UTC-heute)"
+        ),
+    )
     ap.add_argument("--json", action="store_true", help="Ergebnis als JSON")
     args = ap.parse_args(argv)
+
+    if args.pr is not None:
+        return _lauf_pr_modus(args)
 
     keiner_gewaehlt = not (args.issues or args.belege or args.serien)
     will_issues = args.issues or keiner_gewaehlt
