@@ -57,15 +57,23 @@ Schlaegt ein Quellkommando fehl oder liefert unlesbare Ausgabe (Timeout 120 s), 
 python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
 ```
 
-## Verfallsignale (K3, Soll)
+## Verfallsignale (K3, Ist)
 
-| Signal | Schwelle | Vorlauf | Heute |
+`python3 tools/mail_agent/verfallsmelder.py --anwendung mailcheck` (angeschlossen an
+`make boards` und als Glied „Verfall" in `kettencheck.py`). Fünf Signale, je eine
+Zeile `mailcheck | Signal | Ist | Schwelle | Zustand | Vorlauf/Konsequenz`:
+
+| Signal | Schwelle | Vorlauf | Ist |
 |---|---|---|---|
-| Index älter als | 36 h | ein Tag vor dem sichtbaren Ausfall | nicht als Melder verdrahtet |
-| Offener Vorgang ohne Frist | 1 | sofort | gedeckt durch `board.py --pruefe` |
-| Tote Links auf Vorgangsseiten | > 3 | bevor der Owner klickt | Kandidat [#3051](https://github.com/achimdehnert/platform/issues/3051) |
-| Verteilte Skill-Kopie älter als Quelle | 1 Commit | Sitzungsstart | Kandidat [#3052](https://github.com/achimdehnert/platform/issues/3052) |
-| Dienst läuft mit altem Code (Unit älter als letzter Code-Commit) | 1 Commit | nach jedem Merge | nicht verdrahtet |
+| Index älter als (`index_alter_tage`) | > 1,5 Tage (36 h) | ein Tag vor dem sichtbaren Ausfall | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) |
+| Offener Vorgang ohne Frist (`ohne_frist`) | ≥ 1 | sofort | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) |
+| Tote Links auf Vorgangsseiten (`vorgangsseiten_tot`) | > 3 | bevor der Owner klickt | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064), Closes [#3051](https://github.com/achimdehnert/platform/issues/3051) |
+| Verteilte Skill-Kopie älter als Quelle | `source_commit` aus der MANAGED-BY-Kopfzeile ≠ `git log` auf `origin/main` | Sitzungsstart | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064), Closes [#3052](https://github.com/achimdehnert/platform/issues/3052) |
+| Journal-Alter (kein Lauf) | > 2 Tage seit der jüngsten Journalzeile | vor dem nächsten erwarteten Lauf | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) (neu, kein Soll-Eintrag vorher) |
+
+„Dienst läuft mit altem Code" (Unit-Start vs. letzter Code-Commit) ist NICHT Teil
+dieses Signalsatzes — der Melder deckt ihn für `todo-board.service` und
+`mail-links.service` unter der To-do-Anwendung ab, siehe `todo-liste.md`.
 
 ## Bekannte Fallen
 
@@ -81,9 +89,9 @@ python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
 | 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, [PR #3061](https://github.com/achimdehnert/platform/pull/3061) |
-| 2 | Index-Alter auf die Arbeitsliste | Eine Zahl mehr im Kopf; sie erklärt nur, was fehlt, nicht was da ist | Statt Alter anzeigen: Post-Ingest-Fenster automatisch live nachziehen, wenn die Liste geöffnet wird | offen, K3 |
+| 2 | Index-Alter auf die Arbeitsliste | Eine Zahl mehr im Kopf; sie erklärt nur, was fehlt, nicht was da ist | Statt Alter anzeigen: Post-Ingest-Fenster automatisch live nachziehen, wenn die Liste geöffnet wird | offen, K3 (Melder-Signal `index_alter_tage` ist gebaut, Anzeige auf der Arbeitsliste selbst nicht) |
 | 3 | `board.py --erledigt` | Ein Kommando mehr, das der Owner nicht tippt; er sagt „#206 erledigt" im Chat | Schließen direkt aus der Arbeitsliste per Klick, mit Charta-Grenze (kein Senden) | [#3049](https://github.com/achimdehnert/platform/issues/3049) |
-| 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | [#3051](https://github.com/achimdehnert/platform/issues/3051) |
+| 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064), Closes [#3051](https://github.com/achimdehnert/platform/issues/3051) — Ursache (Anker beim Ablegen) bleibt offen |
 
 ## Modellfest-Drill (K5, Soll)
 

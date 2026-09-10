@@ -49,14 +49,21 @@ Journal-Pfad: gemeinsam mit dem Mailcheck (`~/.claude/mail-messjournal.jsonl`), 
 python3 tools/mail_agent/messjournal.py --trend --anwendung todo --n 7
 ```
 
-## Verfallsignale (K3, Soll)
+## Verfallsignale (K3, Ist)
 
-| Signal | Schwelle | Heute |
+`python3 tools/mail_agent/verfallsmelder.py --anwendung todo` (angeschlossen an
+`make boards` und als Glied „Verfall" in `kettencheck.py`). Fünf Signale, je eine
+Zeile `todo | Signal | Ist | Schwelle | Zustand | Vorlauf/Konsequenz`:
+
+| Signal | Schwelle | Ist |
 |---|---|---|
-| Tote Mail-Links | > 3 | 5, kein Melder → [#3051](https://github.com/achimdehnert/platform/issues/3051) |
-| Dienst nicht in `ports.yaml` | 1 | behoben mit #3039 |
-| Dienst läuft mit altem Code | Unit-Start älter als letzter Commit an `todo_board.py` | nicht verdrahtet (Realfall 2026-09-10: 4 Tage alt) |
-| Waisen-Zuordnung je Repo kippt | 2 Hosts je Repo | [#3050](https://github.com/achimdehnert/platform/issues/3050) |
+| Tote Mail-Links (`mail_links_tot`) | > 3 | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064), Closes [#3051](https://github.com/achimdehnert/platform/issues/3051) |
+| Ohne Kopf-Aktion (`ohne_kopf_aktion`) | > 5 | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) (neu, kein Soll-Eintrag vorher) |
+| Dienst läuft mit altem Code (`todo-board.service` vs. `todo_board.py`) | Unit-Start < letzter Code-Commit | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) |
+| Dienst läuft mit altem Code (`mail-links.service` vs. `mail_link_server.py`) | Unit-Start < letzter Code-Commit | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) (neu, kein Soll-Eintrag vorher) |
+| Journal-Alter (kein Lauf) | > 2 Tage seit der jüngsten Journalzeile | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064) (neu, kein Soll-Eintrag vorher) |
+| Dienst nicht in `ports.yaml` | 1 | behoben mit #3039 (unverändert, kein Melder-Signal) |
+| Waisen-Zuordnung je Repo kippt | 2 Hosts je Repo | [#3050](https://github.com/achimdehnert/platform/issues/3050) (unverändert, außerhalb dieses Auftrags) |
 
 ## Bekannte Fallen
 
@@ -71,7 +78,7 @@ python3 tools/mail_agent/messjournal.py --trend --anwendung todo --n 7
 |---|---|---|---|---|
 | 1 | Index-Alter in der Kopfzeile | Erklärt nur das Fehlen; der Owner will die Mail, nicht das Alter | Liste zieht das Post-Ingest-Fenster beim Öffnen selbst live nach | offen |
 | 2 | „Geschlossen in 7 Tagen" als Kopfzahl | Motivationszahl ohne Handlung | Geschlossene Vorgänge als eigenen, eingeklappten Abschnitt zeigen | offen |
-| 3 | Melder „Dienst läuft mit altem Code" | Ein Melder mehr, der den Owner zum Neustart auffordert, den er ohnehin nach jedem Merge macht | Neustart durch den Merge-Workflow (braucht Deploy-Recht, das der Dienst bewusst nicht hat) | offen, Owner-Entscheid #2507 |
+| 3 | Melder „Dienst läuft mit altem Code" | Ein Melder mehr, der den Owner zum Neustart auffordert, den er ohnehin nach jedem Merge macht | Neustart durch den Merge-Workflow (braucht Deploy-Recht, das der Dienst bewusst nicht hat) | gebaut (Melder), PR [#3064](https://github.com/achimdehnert/platform/pull/3064) — Auto-Neustart bleibt Owner-Entscheid #2507 |
 
 ## Modellfest-Drill (K5, Soll)
 
