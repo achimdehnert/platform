@@ -6,7 +6,7 @@
 schema: iil-assist/1
 auftrag: https://github.com/achimdehnert/platform/issues/3011
 konzept: docs/konzepte/KONZ-platform-058-iil-assist-ein-dienst-zwei-zugaenge.md
-phase: konzept          # konzept -> auswahl -> bau -> staging -> bilanz
+phase: bau              # konzept -> auswahl -> bau -> staging -> bilanz (Owner-Go 2026-09-10: 'go, bau MVP 1')
 stand: 2026-09-10
 
 name:
@@ -93,8 +93,23 @@ dienste:
     aufwand: S
     prio: 1
     mvp: true
-    status: vorgeschlagen
+    status: gebaut
     begruendung: reiner Lesedienst ohne Datenrisiko; prueft Gateway und beide Zugaenge zuerst
+    artefakte:
+      vertrag: https://github.com/achimdehnert/platform/pull/3018
+      dienst: https://github.com/achimdehnert/dev-hub/pull/346
+      gateway: https://github.com/achimdehnert/mcp-hub/pull/263
+    zugaenge:
+      app: GET /health/status.json (health:status), data-dienst am Grid
+      chat: dienst_aufruf(repo=dev-hub, name=plattform-status) im Orchestrator, Antwort per chat_lotse send
+    kill_gate:
+      frist: 2026-10-24
+      kriterium: Test je Zugang gruen auf Staging, sonst Dienst zurueck auf vorgeschlagen
+    kennzahlen:
+      test_app: 1
+      test_chat: 1
+      antwortzeit_s: null
+      nutzungen_30d: null
   - id: dokument-suche
     name: Dokument-Suche (Paperless)
     repo: doc-hub
@@ -272,7 +287,7 @@ top3:
 
 offen:
   - id: O1
-    frage: Auswahl der fuenf MVPs bestaetigen oder kippen (Kommentar im Issue 3011)
+    frage: Auswahl der fuenf MVPs bestaetigen oder kippen (Kommentar im Issue 3011); Owner-Go fuer MVP 1 liegt vor
     wer: owner
   - id: O2
     frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
