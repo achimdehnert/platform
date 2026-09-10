@@ -86,10 +86,34 @@ jobs:
       # Warum es diesen Job gibt: am 2026-09-08 nahm eine Auslagerung sechs offene
       # Punkte mit ins Archiv, darunter eine Frist zum 30.11. Byte-Deckel,
       # Append-only und Frische waren dabei alle gruen (platform#2974).
+      # WARUM NICHT GITHUB_TOKEN: das ist repo-scoped (nur platform). Ein Stand-Block
+      # nennt aber fast immer Vorgaenge aus dem Hub-Repo, in dem gearbeitet wurde, und
+      # alle Hub-Repos ausser platform sind privat. Der Check konnte deren Zustand nicht
+      # ermitteln und brach mit Exit 2 ab — blind, genau dort, wo er gebraucht wird
+      # (platform#3032, Realfall #3029: vier doc-hub-Nummern „nicht ermittelbar").
+      # MEGATEST_READ_TOKEN ist das bereits freigegebene Flotten-Leserecht
+      # (platform#1682). Fehlt es, faellt der Ausdruck auf GITHUB_TOKEN zurueck und der
+      # Lauf verhaelt sich wie bisher — blind ist dann weiter nicht gruen.
       - name: Auslagerung pruefen
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.MEGATEST_READ_TOKEN || secrets.GITHUB_TOKEN }}
         run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
+
+      # Positivkontrolle: dass der Check laeuft, belegt nicht, dass er sehen kann.
+      # Ohne diesen Schritt wuerde ein stillschweigend zurueckgefallenes Token erst
+      # beim naechsten echten Auslagern auffallen — und dann als „Zustand nicht
+      # ermittelbar", nicht als Token-Problem.
+      - name: Positivkontrolle — eine private Hub-Referenz muss aufloesbar sein
+        env:
+          GH_TOKEN: ${{ secrets.MEGATEST_READ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          python3 -c "
+          import sys; sys.path.insert(0, 'scripts/checks')
+          from handover_auslagerung_check import zustand_via_gh
+          zustand, blind = zustand_via_gh(['achimdehnert/doc-hub#4'])
+          assert not blind, f'blind: {blind} — der Job kann private Hub-Repos nicht lesen'
+          print('Positivkontrolle OK:', zustand)
+          "
 
       - name: Golden-Test — eine verschluckte offene Nummer muss FAIL ergeben
         # Ohne Netz und deterministisch: nur die reine Vergleichsfunktion. Der echte
