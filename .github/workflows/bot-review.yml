@@ -70,7 +70,10 @@ jobs:
           python3 tools/bot_review_kandidaten.py /tmp/prs.json /tmp/kandidaten
           while read -r n || [ -n "$n" ]; do   # Guard gegen fehlendes Zeilenende (#2442)
             [ -n "$n" ] || continue
-            if ! gh pr view "$n" --repo "$GITHUB_REPOSITORY" --comments --json comments --jq '.comments[].author.login' | grep -q "github-actions"; then
+            # Context-Reviewer-Kommentar vorhanden? Seit gh 2.9x schliessen sich --comments und
+            # --json aus; der alte Aufruf brach mit Usage-Fehler ab und zaehlte als "kein
+            # Kommentar" — der Bot approvte dann nichts mehr (Run 34463044567, 2026-09-10).
+            if ! gh api "repos/$GITHUB_REPOSITORY/issues/$n/comments" --jq '.[].user.login' | grep -q "github-actions"; then
               echo "#$n: kein Context-Reviewer-Kommentar — kein Approve"; continue
             fi
             gh pr review "$n" --repo "$GITHUB_REPOSITORY" --approve \
