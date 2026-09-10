@@ -74,10 +74,12 @@ Zeile `todo | Signal | Ist | Schwelle | Zustand | Vorlauf/Konsequenz`:
 
 ## Verbesserungs-Backlog (K4)
 
+Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative wird abgewiesen (K4).
+
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
 | 1 | Index-Alter in der Kopfzeile | Erklärt nur das Fehlen; der Owner will die Mail, nicht das Alter | Liste zieht das Post-Ingest-Fenster beim Öffnen selbst live nach | offen |
-| 2 | „Geschlossen in 7 Tagen" als Kopfzahl | Motivationszahl ohne Handlung | Geschlossene Vorgänge als eigenen, eingeklappten Abschnitt zeigen | offen |
+| 2 | „Geschlossen in 7 Tagen" als Kopfzahl | Eine Motivationszahl ohne Handlung; sie zeigt Tempo, aber der Owner kann daraus nichts anklicken oder öffnen | Geschlossene Vorgänge als eigenen, eingeklappten Abschnitt zeigen | offen |
 | 3 | Melder „Dienst läuft mit altem Code" | Ein Melder mehr, der den Owner zum Neustart auffordert, den er ohnehin nach jedem Merge macht | Neustart durch den Merge-Workflow (braucht Deploy-Recht, das der Dienst bewusst nicht hat) | gebaut (Melder), PR [#3064](https://github.com/achimdehnert/platform/pull/3064) — Auto-Neustart bleibt Owner-Entscheid #2507 |
 
 ## Modellfest-Drill (K5, Soll)
