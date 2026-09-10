@@ -698,7 +698,7 @@ class TestRueckweg:
             {"nr": 173, "thread_key": "IIL-Entwuerfe unversendet", "notiz": ""},
             {
                 "nr": 189,
-                "thread_key": "Submission of Chapters",
+                "thread_key": "Testvorgang Gutachten",
                 "notiz": "Antwort (INBOX #4711)",
             },
             {"nr": 5, "thread_key": "", "notiz": "nennt #4711 auch"},
@@ -730,7 +730,7 @@ class TestRueckweg:
         nav = mls.rueckweg_html(self.LEDGER["vorgaenge"][:2], "https://todo.example")
         assert "href='https://todo.example/'" in nav
         assert "href='https://todo.example/t/IIL-Entwuerfe%20unversendet'" in nav
-        assert "Vorgang #189: Submission of Chapters" in nav
+        assert "Vorgang #189: Testvorgang Gutachten" in nav
 
     def test_should_insert_after_body_else_after_title_else_after_doctype(self):
         nav = "<nav>x</nav>"
@@ -755,5 +755,5 @@ class TestRueckweg:
         text = koerper.decode("utf-8")
         assert "class='rueckweg'" in text
         assert "href='https://todo.iil.pet/'" in text
-        assert "/t/Submission%20of%20Chapters" in text
+        assert "/t/Testvorgang%20Gutachten" in text
         assert text.index("rueckweg") < text.index("Testmail")
