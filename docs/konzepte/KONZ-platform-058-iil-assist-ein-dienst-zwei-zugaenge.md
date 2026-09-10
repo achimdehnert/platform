@@ -51,7 +51,7 @@ Doppelbau. Alles, was heute schon als Service-Funktion, Management-Command oder 
 | A7 | Die Morgen-Zeitung erreicht den Chat bereits täglich | Annahme | Handover 2026-09-09; der Zustellweg ist in news-hub nicht belegt | Hypothese, Befund O4 |
 | D1 | Chat → Gateway → Hub, nicht Chat → jeder Hub einzeln | Entscheidung | eine Auth-Grenze, Protokoll an einer Stelle (ADR-037), Tool-Budget +2 statt +N (C9) | entschieden |
 | D2 | Das Gateway ruft den Dienst als Management-Command auf dem Host des Hubs auf (`docker exec`, Routing aus `ports.yaml`), nicht über eine neue HTTP-Schnittstelle je Hub | Entscheidung | A4, A6; Latenz ~1–2 s pro Aufruf ist für Chat tragbar | entschieden |
-| D3 | Der Vertrag lebt in einem kleinen neuen Paket `iil-dienst` (Dekorator, `dienste_export`, `dienst_aufruf`) | Entscheidung | A5; ADR-044 verlangt den zweiten Abnehmer — hier sind es fünf; Veröffentlichung über die bestehende PyPI-Strecke (ADR-266) | entschieden |
+| D3 | Der Vertrag lebt in einem kleinen neuen Paket `iil-dienst` (Dekorator, `dienste_export`, `dienst_aufruf`) | Entscheidung | A5; ADR-044 verlangt den zweiten Abnehmer — hier sind es fünf; Veröffentlichung über die bestehende PyPI-Strecke (ADR-266, [#3019](https://github.com/achimdehnert/platform/issues/3019)) | entschieden |
 | D4 | Der Chat-Zugang wird in Stufe A abgenommen: der Kapitän ruft das Gateway, die Antwort steht als Lotse im Raum. Der Live-Bot ist ein Gate (#48 Stufe B), kein Kriterium | Entscheidung | A3; sonst hinge jeder MVP am Owner-Grant | entschieden |
 | D5 | chat-agent wird nicht wiederbelebt; die drei lebenden Toolkits werden als Dienste deklariert | Entscheidung | A2; ADR-036 wird bei erstem MVP auf `superseded` gesetzt | entschieden |
 | D6 | `iil-assist-hub` ist der Produktname des Chat-Zugangs; Repo bleibt `chat-hub`, Fachkern bleibt `iil-assist-core`; der Alias `assist.iil.pet` wird als `alias_status: nicht-angelegt` geführt, DNS ist Owner-Zug | Entscheidung | C4 (Paket-Topologie), Kriterium 8; kein Eintrag in `domain_aliases`, sonst meldet 0.7.11 NXDOMAIN | entschieden |
@@ -146,7 +146,7 @@ Vier Bahnen, ein Werkzeug (`tools/iil_assist_katalog.py bahn <bahn>`), eine Date
 | ootb | wöchentlich | Welcher Dienst fehlt, den keiner nannte? | wie diabolus; Kandidaten landen als `vorgeschlagen` im Katalog |
 
 Ohne `--apply` ist jeder Lauf ein Trockenlauf. Der Takt wird erst mit dem ersten MVP verdrahtet
-(Workflow + Eintrag im Melder-Register mit Leser, Phase 0.7.23) — bis dahin läuft er von Hand. Anschluss
+(Workflow + Eintrag im Melder-Register mit Leser, Phase 0.7.23; [#3020](https://github.com/achimdehnert/platform/issues/3020)) — bis dahin läuft er von Hand. Anschluss
 an den Skill-Fitness-Lauf (#2855): dieselben vier Namen, dieselbe Datei; wer zuerst gebaut wird, nimmt
 den anderen als Konsumenten mit.
 
@@ -179,9 +179,9 @@ Zustandsdatei (`status` je MVP). Prüfdatum 2026-10-24.
 
 | # | Befund | Konsequenz |
 |---|---|---|
-| B1 | ADR-036 steht auf `implemented`, das Paket liegt im Archiv | Status korrigieren mit dem ersten MVP (D5) |
+| B1 | ADR-036 steht auf `implemented`, das Paket liegt im Archiv | Status korrigieren mit dem ersten MVP (D5) — [#3022](https://github.com/achimdehnert/platform/issues/3022) |
 | B2 | `chat-hub` und `iil-assist-core` fehlen in der kanonischen Registry (andere Org) | Inventar führt sie als `ZUSATZ`; Registry-Eintrag ist Owner-Frage (Org-Grenze) |
-| B3 | 15 von 39 Diensten in `ports.yaml` ohne `prod_host` | O3 — vor dem Gateway-Bau nachziehen |
+| B3 | 15 von 39 Diensten in `ports.yaml` ohne `prod_host` | O3 — [#3021](https://github.com/achimdehnert/platform/issues/3021) |
 | B4 | Zustellweg der Morgen-Zeitung in den Chat ist in news-hub nicht belegt | O4 — Hypothese Host-Unit; billigster Check: `systemctl list-units` auf dem Host |
 | B5 | `iil-django-commons` ist eingefroren und ohne Abnehmer | D3 — neues kleines Paket statt Wiederbelebung |
 | B6 | Sechs Registry-Repos archiviert, darunter bfagent mit 56 MCP-Werkzeugen und einem Toolkit | nicht im Katalog; wer bfagent reaktiviert, deklariert dort Dienste |

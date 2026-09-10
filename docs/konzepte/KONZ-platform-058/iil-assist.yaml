@@ -97,6 +97,7 @@ dienste:
     begruendung: reiner Lesedienst ohne Datenrisiko; prueft Gateway und beide Zugaenge zuerst
     artefakte:
       vertrag: https://github.com/achimdehnert/platform/pull/3018
+      pypi: https://github.com/achimdehnert/platform/issues/3019
       dienst: https://github.com/achimdehnert/dev-hub/pull/346
       gateway: https://github.com/achimdehnert/mcp-hub/pull/263
     zugaenge:
@@ -293,7 +294,7 @@ offen:
     frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
     wer: owner
   - id: O3
-    frage: 15 von 39 Diensten in ports.yaml ohne prod_host — Routing-Tabelle des Gateways unvollstaendig
+    frage: 15 von 39 Diensten in ports.yaml ohne prod_host — Routing-Tabelle des Gateways unvollstaendig (Issue 3021)
     wer: ich
   - id: O4
     frage: Zustellweg der Morgen-Zeitung in den Chat ist im Repo nicht belegt (Hypothese Host-Unit)
@@ -330,3 +331,4 @@ bahnen:
     frage: Welcher Dienst fehlt, den keiner nannte? Kandidaten landen als vorgeschlagen im Katalog
     laeufe: []
   anschluss: https://github.com/achimdehnert/platform/issues/2855
+  verdrahtung: https://github.com/achimdehnert/platform/issues/3020
