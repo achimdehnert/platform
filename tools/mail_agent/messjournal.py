@@ -1,0 +1,437 @@
+#!/usr/bin/env python3
+"""Messjournal je Lauf fuer Mailcheck und To-do-Liste (K2, #3015).
+
+Jeder Lauf von Mailcheck oder To-do-Liste haengt eine Zeile an ein
+maschinenlesbares Journal: Zeitpunkt, Anwendung, Modellkennung und die
+Kennzahlen, die `docs/betrieb/mailcheck.md` bzw. `docs/betrieb/todo-liste.md`
+im Abschnitt "Kennzahlen je Lauf" nennen. Die Kennzahlen kommen aus den dort
+genannten Quellkommandos (je eines ein `subprocess.run` mit Timeout) — schlaegt
+eines fehl oder liefert unlesbare Ausgabe, wird der Wert `null` und die
+Kennzahl landet im Feld `fehler`. Ein einzelnes scheiterndes Kommando bricht
+den Lauf nie ab.
+
+**Nie Personendaten.** Die Journalzeile enthaelt ausschliesslich Zahlen, Daten
+und Bezeichner — nie Adressen, Betreffs oder Namen aus dem Vorgangs-Ledger
+(`~/.claude/mail-vorgaenge.json`). Wo dieses Werkzeug das Ledger liest (fuer
+`ohne_kopf_aktion` und `geschlossen_7_tage`), zaehlt es nur — der Inhalt
+einzelner Vorgaenge verlaesst diese Funktion nie.
+
+Kommandos::
+
+    python3 tools/mail_agent/messjournal.py --schreiben --anwendung mailcheck
+    python3 tools/mail_agent/messjournal.py --schreiben --anwendung todo
+    python3 tools/mail_agent/messjournal.py --trend
+    python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
+
+`--eingabe JSON` (Inline-JSON oder Pfad zu einer JSON-Datei) ersetzt die
+Kommandos durch feste Werte — fuer Tests, ganz ohne Postfach oder Netz.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any
+
+TOOL_VERSION = "messjournal.py/1"
+
+REPO = Path(__file__).resolve().parents[2]
+MAIL_AGENT_DIR = Path(__file__).resolve().parent
+TODO_BOARD_DIR = REPO / "tools" / "todo_board"
+
+JOURNAL_DEFAULT = Path.home() / ".claude" / "mail-messjournal.jsonl"
+
+TIMEOUT = 120
+
+#: Reihenfolge und Namen der Kennzahlen je Anwendung — bestimmt sowohl, was
+#: `--schreiben` real erhebt, als auch, welche Schluessel `--eingabe` kennt.
+KENNZAHLEN_MAILCHECK = (
+    "vorgaenge_gesamt",
+    "ohne_frist",
+    "referenzen_ohne_ordner",
+    "unverankert",
+    "vorgangsseiten_geprueft",
+    "vorgangsseiten_tot",
+    "posteingang_geschlossene_vorgaenge",
+    "index_alter_tage",
+)
+
+KENNZAHLEN_TODO = (
+    "vorgangsseiten",
+    "mail_links",
+    "mail_links_tot",
+    "geschlossen_7_tage",
+    "ohne_kopf_aktion",
+)
+
+_FEHLT = object()
+
+
+def _run(args: list[str], timeout: int = TIMEOUT) -> tuple[str, str, int | None]:
+    """Kommando ausfuehren. Rueckgabe (stdout, stderr, returncode).
+
+    `returncode` ist `None` bei Timeout oder wenn das Kommando gar nicht
+    starten konnte (fehlendes Binary, kaputter Pfad) — nie eine Ausnahme.
+    """
+    try:
+        lauf = subprocess.run(
+            args, capture_output=True, text=True, timeout=timeout, cwd=REPO
+        )
+        return lauf.stdout, lauf.stderr, lauf.returncode
+    except subprocess.TimeoutExpired:
+        return "", f"Timeout nach {timeout}s", None
+    except OSError as exc:
+        return "", str(exc), None
+
+
+def _zahl(pattern: str, text: str, gruppe: int = 1) -> int | None:
+    treffer = re.search(pattern, text)
+    if not treffer:
+        return None
+    try:
+        return int(treffer.group(gruppe))
+    except (ValueError, IndexError):
+        return None
+
+
+# --- Mailcheck: echte Erhebung je Kennzahl -------------------------------
+
+
+def _mailcheck_board() -> dict[str, int | None]:
+    out, err, _rc = _run([sys.executable, str(MAIL_AGENT_DIR / "board.py"), "--pruefe"])
+    text = out + "\n" + err
+    gesamt = _zahl(r"(\d+)\s+Vorgaenge:", text)
+    if gesamt is None:
+        gesamt = _zahl(r"bei\s+(\d+)\s+Vorgaengen\.", text)
+    ohne_frist: int | None = None
+    if gesamt is not None:
+        ohne_frist = len(re.findall(r"keine Frist und kein frist_grund", text))
+    return {"vorgaenge_gesamt": gesamt, "ohne_frist": ohne_frist}
+
+
+def _mailcheck_referenzen() -> dict[str, int | None]:
+    out, _err, _rc = _run(
+        [
+            sys.executable,
+            str(MAIL_AGENT_DIR / "referenzen.py"),
+            "--pruefe-ordner",
+            "--json",
+        ]
+    )
+    try:
+        daten = json.loads(out)
+        return {"referenzen_ohne_ordner": len(daten.get("ab_stichtag", []))}
+    except (ValueError, TypeError, AttributeError):
+        return {"referenzen_ohne_ordner": None}
+
+
+def _mailcheck_anker() -> dict[str, int | None]:
+    out, err, _rc = _run(
+        [sys.executable, str(MAIL_AGENT_DIR / "eintrag_anker.py"), "--nur-zaehlen"]
+    )
+    text = out + err
+    return {"unverankert": _zahl(r"(\d+)\s+ohne Anker", text)}
+
+
+def _link_pruefen_vorgangsseiten() -> dict[str, int | None]:
+    """`link_pruefen.py --vorgangsseiten` — Netz, kann fehlen (Dienst lokal)."""
+    out, err, _rc = _run(
+        [sys.executable, str(MAIL_AGENT_DIR / "link_pruefen.py"), "--vorgangsseiten"]
+    )
+    text = out + err
+    return {
+        "seiten": _zahl(r"(\d+)\s+Vorgangsseiten,", text),
+        "links": _zahl(r"Vorgangsseiten,\s*(\d+)\s+Links", text),
+        "geprueft": _zahl(r"(\d+)\s+geprueft,", text),
+        "tot": _zahl(r"geprueft,\s*(\d+)\s+nicht in Ordnung", text),
+    }
+
+
+def _mailcheck_ablage() -> dict[str, int | None]:
+    out, err, _rc = _run(
+        [sys.executable, str(MAIL_AGENT_DIR / "ablage_erledigt.py"), "--pruefe"]
+    )
+    text = out + err
+    treffer = re.findall(
+        r":\s*(\d+)\s+Posteingangs-Mails gehoeren zu geschlossenen Vorgaengen", text
+    )
+    if treffer:
+        wert: int | None = sum(int(n) for n in treffer)
+    elif "Grundlage:" in text:
+        wert = 0  # Lauf durchgelaufen, kein Konto mit Treffern
+    else:
+        wert = None
+    return {"posteingang_geschlossene_vorgaenge": wert}
+
+
+def _mailcheck_index_alter() -> int | None:
+    out, err, _rc = _run(
+        [sys.executable, str(MAIL_AGENT_DIR / "suche.py"), "--nur-deckung"]
+    )
+    text = out + err
+    daten = re.findall(r"\d{4}-\d{2}-\d{2}", text)
+    if not daten:
+        return None
+    try:
+        letztes = date.fromisoformat(daten[-1])
+    except ValueError:
+        return None
+    heute = datetime.now(timezone.utc).date()
+    return (heute - letztes).days
+
+
+def _mailcheck_erheben() -> dict[str, int | None]:
+    roh: dict[str, int | None] = {}
+    roh.update(_mailcheck_board())
+    roh.update(_mailcheck_referenzen())
+    roh.update(_mailcheck_anker())
+    links = _link_pruefen_vorgangsseiten()
+    roh["vorgangsseiten_geprueft"] = links.get("geprueft")
+    roh["vorgangsseiten_tot"] = links.get("tot")
+    roh.update(_mailcheck_ablage())
+    roh["index_alter_tage"] = _mailcheck_index_alter()
+    return roh
+
+
+# --- To-do-Liste: echte Erhebung je Kennzahl -----------------------------
+
+
+def _todo_direkt() -> dict[str, int | None]:
+    """`ohne_kopf_aktion` und `geschlossen_7_tage` — lokale Zaehlung ueber das
+    Ledger, kein eigenes Kommando existiert dafuer (Auftrag #3015). Importiert
+    `todo_board` statt es aufzurufen — reine Zaehlung, nie Vorgangsinhalt."""
+    pfad_alt = list(sys.path)
+    try:
+        if str(TODO_BOARD_DIR) not in sys.path:
+            sys.path.insert(0, str(TODO_BOARD_DIR))
+        import todo_board  # type: ignore[import-not-found]
+    except Exception:
+        return {"geschlossen_7_tage": None, "ohne_kopf_aktion": None}
+    finally:
+        sys.path[:] = pfad_alt
+
+    try:
+        daten = todo_board.lade(todo_board.LEDGER)
+    except Exception:
+        return {"geschlossen_7_tage": None, "ohne_kopf_aktion": None}
+
+    posten = daten.get("vorgaenge", [])
+    heute = date.today()
+    geschlossen = 0
+    for vorgang in posten:
+        if vorgang.get("bucket") != "erledigt":
+            continue
+        try:
+            erledigt_am = date.fromisoformat(str(vorgang.get("erledigt_am")))
+        except (ValueError, TypeError):
+            continue
+        if 0 <= (heute - erledigt_am).days <= 7:
+            geschlossen += 1
+
+    try:
+        anker = todo_board.aufloesbare_nummern()
+    except Exception:
+        anker = {}
+    ohne_aktion = 0
+    for vorgang in posten:
+        try:
+            ziele = todo_board.aktionen(vorgang, todo_board.MAIL_BASIS, "", anker)
+        except Exception:
+            continue
+        if not ziele:
+            ohne_aktion += 1
+
+    return {"geschlossen_7_tage": geschlossen, "ohne_kopf_aktion": ohne_aktion}
+
+
+def _todo_erheben() -> dict[str, int | None]:
+    roh: dict[str, int | None] = {}
+    links = _link_pruefen_vorgangsseiten()
+    roh["vorgangsseiten"] = links.get("seiten")
+    roh["mail_links"] = links.get("links")
+    roh["mail_links_tot"] = links.get("tot")
+    roh.update(_todo_direkt())
+    return roh
+
+
+# --- Sammeln, unabhaengig von der Quelle ---------------------------------
+
+
+def _eingabe_lesen(wert: str) -> dict[str, Any]:
+    try:
+        geladen = json.loads(wert)
+    except ValueError:
+        pfad = Path(wert).expanduser()
+        geladen = json.loads(pfad.read_text(encoding="utf-8"))
+    if not isinstance(geladen, dict):
+        raise SystemExit("FEHLER: --eingabe muss ein JSON-Objekt sein.")
+    return geladen
+
+
+def sammeln(
+    anwendung: str, eingabe: dict[str, Any] | None
+) -> tuple[dict[str, int | None], list[str]]:
+    """Kennzahlen einer Anwendung sammeln. Rueckgabe (Kennzahlen, Fehlerliste)."""
+    namen = KENNZAHLEN_MAILCHECK if anwendung == "mailcheck" else KENNZAHLEN_TODO
+
+    if eingabe is not None:
+        roh = eingabe
+    elif anwendung == "mailcheck":
+        roh = _mailcheck_erheben()
+    else:
+        roh = _todo_erheben()
+
+    kennzahlen: dict[str, int | None] = {}
+    fehler: list[str] = []
+    for name in namen:
+        wert = roh.get(name, _FEHLT)
+        if wert is _FEHLT or wert is None or isinstance(wert, bool):
+            kennzahlen[name] = None
+            fehler.append(name)
+        elif isinstance(wert, int):
+            kennzahlen[name] = wert
+        else:
+            kennzahlen[name] = None
+            fehler.append(name)
+    return kennzahlen, fehler
+
+
+def _quelle_version() -> str:
+    out, _err, rc = _run(
+        ["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"], timeout=10
+    )
+    wert = out.strip()
+    return wert if wert and rc == 0 else "unbekannt"
+
+
+def schreiben(
+    anwendung: str, modell: str, journal_pfad: Path, eingabe: dict[str, Any] | None
+) -> dict[str, Any]:
+    kennzahlen, fehler = sammeln(anwendung, eingabe)
+    zeile = {
+        "zeit": datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
+        "anwendung": anwendung,
+        "modell": modell,
+        "kennzahlen": kennzahlen,
+        "fehler": fehler,
+        "quelle_version": _quelle_version(),
+    }
+    journal_pfad.parent.mkdir(parents=True, exist_ok=True)
+    with journal_pfad.open("a", encoding="utf-8") as datei:
+        datei.write(json.dumps(zeile, ensure_ascii=False, sort_keys=True) + "\n")
+    return zeile
+
+
+# --- Trend ----------------------------------------------------------------
+
+
+def _journal_lesen(journal_pfad: Path, anwendung: str | None) -> list[dict[str, Any]]:
+    if not journal_pfad.exists():
+        return []
+    eintraege: list[dict[str, Any]] = []
+    for zeile in journal_pfad.read_text(encoding="utf-8").splitlines():
+        zeile = zeile.strip()
+        if not zeile:
+            continue
+        try:
+            eintrag = json.loads(zeile)
+        except ValueError:
+            continue
+        if anwendung and eintrag.get("anwendung") != anwendung:
+            continue
+        eintraege.append(eintrag)
+    return eintraege
+
+
+def trend(anwendung: str | None, n: int, journal_pfad: Path) -> str:
+    eintraege = _journal_lesen(journal_pfad, anwendung)
+    if not eintraege:
+        return "Journal leer"
+    eintraege = eintraege[-n:]
+
+    alle_kennzahlen: list[str] = []
+    for eintrag in eintraege:
+        for name in eintrag.get("kennzahlen", {}):
+            if name not in alle_kennzahlen:
+                alle_kennzahlen.append(name)
+
+    kopf = ["zeit", "anwendung", "modell", *alle_kennzahlen]
+    zeilen_text = ["\t".join(kopf)]
+    vorher: dict[str, int | None] = {}
+    for eintrag in eintraege:
+        werte = eintrag.get("kennzahlen", {})
+        spalten = [
+            str(eintrag.get("zeit", "")),
+            str(eintrag.get("anwendung", "")),
+            str(eintrag.get("modell", "")),
+        ]
+        for name in alle_kennzahlen:
+            wert = werte.get(name)
+            text = "null" if wert is None else str(wert)
+            if name in vorher and vorher[name] is not None and wert is not None:
+                delta = wert - vorher[name]
+                text += f" ({'+' if delta >= 0 else ''}{delta})"
+            spalten.append(text)
+        vorher = {**vorher, **werte}
+        zeilen_text.append("\t".join(spalten))
+    return "\n".join(zeilen_text)
+
+
+# --- CLI --------------------------------------------------------------
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0] if __doc__ else "")
+    ap.add_argument(
+        "--schreiben",
+        action="store_true",
+        help="eine Journalzeile erheben und anhaengen",
+    )
+    ap.add_argument(
+        "--trend", action="store_true", help="Tabelle der letzten n Laeufe zeigen"
+    )
+    ap.add_argument("--anwendung", choices=["mailcheck", "todo"])
+    ap.add_argument("--modell", help="Default: $CLAUDE_MODEL oder 'unbekannt'")
+    ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))
+    ap.add_argument(
+        "--eingabe", help="Inline-JSON oder Pfad zu einer JSON-Datei (Tests)"
+    )
+    ap.add_argument("--n", type=int, default=7)
+    args = ap.parse_args()
+
+    journal_pfad = Path(args.journal).expanduser()
+
+    if args.trend:
+        print(trend(args.anwendung, args.n, journal_pfad))
+        return 0
+
+    if args.schreiben:
+        if not args.anwendung:
+            print(
+                "FEHLER: --schreiben braucht --anwendung mailcheck|todo",
+                file=sys.stderr,
+            )
+            return 2
+        eingabe = _eingabe_lesen(args.eingabe) if args.eingabe else None
+        modell = args.modell or os.environ.get("CLAUDE_MODEL") or "unbekannt"
+        zeile = schreiben(args.anwendung, modell, journal_pfad, eingabe)
+        print(
+            f"Journal geschrieben: {journal_pfad} ({args.anwendung}, "
+            f"{len(zeile['fehler'])} Fehler von {len(zeile['kennzahlen'])} Kennzahlen)"
+        )
+        return 0
+
+    ap.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

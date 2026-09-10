@@ -30,17 +30,24 @@ Prod: `systemd --user todo-board.service` auf dev-desktop (Port 8789), Tunnel `c
 | Rückweg | Vorgangsseite → „← Arbeitsliste"; Mail-Seiten auf mail.iil.pet → „Arbeitsliste · Vorgang #N" | seit #3042 |
 | Suche | `?q=` auf der Liste | seit #2874 |
 
-## Kennzahlen je Lauf (K2, Soll)
+## Kennzahlen je Lauf (K2)
 
-| Kennzahl | Quelle | Heute |
-|---|---|---|
-| Vorgangsseiten | `link_pruefen.py --vorgangsseiten` | 75 |
-| Mail-Links auf Vorgangsseiten / davon tot | dito | 184 / 5 |
-| Vorgänge ohne Kopf-Aktion („keine Mail verknuepft") | Zählung über `aktionen()` je Vorgang (Kommando fehlt) | nicht erhoben |
-| Geschlossen in den letzten 7 Tagen | Ledger `erledigt_am` | nicht erhoben |
-| Öffnungen der Liste je Tag | Cloudflare-Access-Log oder Dienst-Log | nicht erhoben |
+`tools/mail_agent/messjournal.py --schreiben --anwendung todo` erhebt fünf Kennzahlen und haengt sie als JSON-Zeile ans Journal an:
 
-Journal-Pfad (Soll): gemeinsam mit dem Mailcheck (`~/.claude/mail-messjournal.jsonl`), Feld `anwendung: todo`.
+| Kennzahl | Quelle |
+|---|---|
+| `vorgangsseiten` | `link_pruefen.py --vorgangsseiten` (Netz, kann fehlen) |
+| `mail_links` / `mail_links_tot` | dito |
+| `ohne_kopf_aktion` (Vorgänge ohne Kopf-Aktion, „keine Mail verknuepft") | Zählung über `todo_board.aktionen()` je Vorgang (Direktimport, kein eigenes Kommando) |
+| `geschlossen_7_tage` | Ledger `erledigt_am`, Zählung über die letzten 7 Tage |
+
+„Öffnungen der Liste je Tag" (Cloudflare-Access-Log oder Dienst-Log) ist weiterhin Backlog — kein Quellkommando, nicht Teil dieses Baus.
+
+Journal-Pfad: gemeinsam mit dem Mailcheck (`~/.claude/mail-messjournal.jsonl`), Feld `anwendung: "todo"`. Trend über die letzten sieben Läufe:
+
+```bash
+python3 tools/mail_agent/messjournal.py --trend --anwendung todo --n 7
+```
 
 ## Verfallsignale (K3, Soll)
 
