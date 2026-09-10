@@ -277,6 +277,42 @@ def pruefe_timer(einheit: str = "sendeabgleich.timer") -> Befund:
     return Befund("Timer", True, f"{einheit} aktiv")
 
 
+def pruefe_verfall() -> Befund:
+    """Verfallsmelder (K3, #3015) als eigenes Glied — er sagt, was demnaechst bricht,
+    nicht nur, was schon gebrochen ist."""
+    try:
+        roh = subprocess.run(
+            [sys.executable, str(HIER / "verfallsmelder.py"), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return Befund(
+            "Verfall",
+            False,
+            "Verfallsmelder nicht aufrufbar",
+            "python3 tools/mail_agent/verfallsmelder.py",
+        )
+    try:
+        daten = json.loads(roh.stdout)
+    except json.JSONDecodeError:
+        return Befund(
+            "Verfall",
+            False,
+            "Antwort ist kein JSON",
+            "python3 tools/mail_agent/verfallsmelder.py",
+        )
+    warnungen = daten.get("warnungen", 0)
+    nicht_pruefbar = daten.get("nicht_pruefbar", 0)
+    ort = f"{warnungen} Warnung(en), {nicht_pruefbar} nicht pruefbar"
+    if warnungen:
+        return Befund(
+            "Verfall", False, ort, "python3 tools/mail_agent/verfallsmelder.py"
+        )
+    return Befund("Verfall", True, ort)
+
+
 def alle(heute: date, mit_index: bool = True) -> list[Befund]:
     seit = (heute - timedelta(days=3)).isoformat()
     befunde = [
@@ -305,6 +341,7 @@ def alle(heute: date, mit_index: bool = True) -> list[Befund]:
             "systemctl --user restart mail-links.service",
         ),
         pruefe_timer(),
+        pruefe_verfall(),
     ]
     return befunde
 
