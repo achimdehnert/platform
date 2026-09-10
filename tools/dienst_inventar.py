@@ -75,7 +75,7 @@ def registry_repos() -> list[str]:
 
 
 def archivierte_repos() -> set[str]:
-    """Registry-Repos mit ``lifecycle: archived`` — bewusst nicht gescannt, aber genannt."""
+    """Registry-Repos mit ``lifecycle: archived`` — sie werden nicht gescannt und im Ergebnis genannt (Design, kein Aufschub)."""
     canon = reg.load_canonical()["repos"]
     return {
         n for n, e in canon.items()
