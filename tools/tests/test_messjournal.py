@@ -7,6 +7,7 @@ Kein Test liest das echte Ledger oder ruft ein Mail-Kommando auf.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -22,6 +23,17 @@ def _lauf(*args: str) -> subprocess.CompletedProcess[str]:
         text=True,
         timeout=30,
     )
+
+
+def _modul():
+    spec = importlib.util.spec_from_file_location("messjournal", SKRIPT)
+    modul = importlib.util.module_from_spec(spec)
+    sys.modules["messjournal"] = modul
+    spec.loader.exec_module(modul)
+    return modul
+
+
+mj = _modul()
 
 
 def test_should_schreiben_eine_journalzeile_mit_pflichtfeldern(tmp_path):
@@ -123,3 +135,70 @@ def test_should_trend_auf_leerem_journal_journal_leer_melden(tmp_path):
     ergebnis = _lauf("--trend", "--journal", str(journal))
     assert ergebnis.returncode == 0
     assert ergebnis.stdout.strip() == "Journal leer"
+
+
+def test_should_anwendung_alle_zwei_zeilen_je_eigener_anwendung_schreiben(tmp_path):
+    """#3067: ein Lauf, zwei Journalzeilen — eine je Anwendung."""
+    journal = tmp_path / "journal.jsonl"
+    eingabe = json.dumps(
+        {
+            "vorgaenge_gesamt": 5,
+            "vorgangsseiten_geprueft": 3,
+            "vorgangsseiten_tot": 1,
+            "vorgangsseiten": 3,
+            "mail_links_tot": 1,
+        }
+    )
+    ergebnis = _lauf(
+        "--schreiben",
+        "--anwendung",
+        "alle",
+        "--journal",
+        str(journal),
+        "--eingabe",
+        eingabe,
+    )
+    assert ergebnis.returncode == 0
+    zeilen = journal.read_text(encoding="utf-8").strip().splitlines()
+    assert len(zeilen) == 2
+    anwendungen = {json.loads(z)["anwendung"] for z in zeilen}
+    assert anwendungen == {"mailcheck", "todo"}
+
+
+def test_should_link_pruefen_bei_alle_genau_einmal_laufen_und_beide_zeilen_fuellen(
+    monkeypatch, tmp_path
+):
+    """#3067: geteilte Quelle (link_pruefen) wird bei --anwendung alle einmal
+    erhoben; ihr Ergebnis landet identisch in der mailcheck- UND der
+    todo-Zeile."""
+    aufrufe = {"n": 0}
+
+    def gezaehlt() -> dict[str, int | None]:
+        aufrufe["n"] += 1
+        return {"seiten": 3, "links": 5, "geprueft": 5, "tot": 2}
+
+    monkeypatch.setattr(mj, "_link_pruefen_vorgangsseiten", gezaehlt)
+    monkeypatch.setattr(
+        mj, "_mailcheck_board", lambda: {"vorgaenge_gesamt": 1, "ohne_frist": 0}
+    )
+    monkeypatch.setattr(
+        mj, "_mailcheck_referenzen", lambda: {"referenzen_ohne_ordner": 0}
+    )
+    monkeypatch.setattr(mj, "_mailcheck_anker", lambda: {"unverankert": 0})
+    monkeypatch.setattr(
+        mj, "_mailcheck_ablage", lambda: {"posteingang_geschlossene_vorgaenge": 0}
+    )
+    monkeypatch.setattr(mj, "_mailcheck_index_alter", lambda: 0)
+    monkeypatch.setattr(
+        mj, "_todo_direkt", lambda: {"geschlossen_7_tage": 0, "ohne_kopf_aktion": 0}
+    )
+    monkeypatch.setattr(mj, "_quelle_version", lambda: "test")
+
+    journal = tmp_path / "journal.jsonl"
+    zeilen = mj.schreiben(["mailcheck", "todo"], "test-modell", journal, None)
+
+    assert aufrufe["n"] == 1
+    mailcheck = next(z for z in zeilen if z["anwendung"] == "mailcheck")
+    todo = next(z for z in zeilen if z["anwendung"] == "todo")
+    assert mailcheck["kennzahlen"]["vorgangsseiten_tot"] == 2
+    assert todo["kennzahlen"]["mail_links_tot"] == 2
