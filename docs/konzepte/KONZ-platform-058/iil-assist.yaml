@@ -272,7 +272,7 @@ top3:
 
 offen:
   - id: O1
-    frage: Auswahl der fuenf MVPs bestaetigen oder kippen (Kommentar in #3011)
+    frage: Auswahl der fuenf MVPs bestaetigen oder kippen (Kommentar im Issue 3011)
     wer: owner
   - id: O2
     frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
@@ -284,7 +284,14 @@ offen:
     frage: Zustellweg der Morgen-Zeitung in den Chat ist im Repo nicht belegt (Hypothese Host-Unit)
     wer: ich
 
-proben: []          # K6: {datum, modell, top3_korrekt, mvps_korrekt, bemerkung}
+proben:             # K6: frisches Modell bekommt nur das Briefing
+  - datum: 2026-09-10
+    modell: claude-sonnet (Subagent, nur Read auf briefing.md)
+    top3_korrekt: true
+    mvps_korrekt: true
+    naechster_schritt_korrekt: true
+    name_korrekt: true
+    bemerkung: "Fund: O1 endete mit 'Kommentar in' — das '#3011' war in YAML ein Kommentar geworden; behoben (Issue 3011 ausgeschrieben)"
 
 bahnen:
   verbesserung:
