@@ -15,7 +15,17 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
+## ⚡ Aktueller Stand (2026-09-10 — ADR-109-Ausnahme frist-hub nachgezogen; 20 Commits aus Parallel-Sitzungen seit dem letzten Stand)
+
+**Diese Sitzung (meiki-hub, Zielarchitektur Assist-Familie):** nur ein Platform-Schritt — die Ausnahmezeile für `frist-hub` in `ADR-109` ([#3025](https://github.com/achimdehnert/platform/pull/3025)): `single` je LRA bleibt Pilot-Default, die Mandanten-Basis kommt aus `iil-assist-core` ≥ 0.4.0 (TenantModel fail-closed, RLS ohne Ausweich-Zweige) statt aus einem `django_tenancy`-Rollout. Owner-Entscheid 2026-09-10, Gegenstück [meiki-hub#390](https://github.com/meiki-lra/meiki-hub/pull/390) (ADR-025 v1.1). Plattform-Standard (BigInteger, kein FK, row-level) unverändert.
+
+**Seit dem Stand vom 09.09. abends sind 20 Commits aus anderen Sitzungen gelandet, hier NICHT geprüft** — ihr Stand steht in ihren PRs: Register-Nachzug [#2977](https://github.com/achimdehnert/platform/pull/2977) · Handover-Prio [#3009](https://github.com/achimdehnert/platform/pull/3009) · KONZ-platform-058 „iil-assist — ein Dienst, zwei Zugaenge" [#3013](https://github.com/achimdehnert/platform/pull/3013) · Scan-Lieferprotokoll [#3017](https://github.com/achimdehnert/platform/pull/3017) · `iil-dienst` 0.1.0 MVP 1 [#3018](https://github.com/achimdehnert/platform/pull/3018) · zwei scan-melder-Fixes.
+
+**Zwei Befunde für die nächste Platform-Sitzung (Hypothesen, hier nicht verifiziert):**
+1. **Namensnähe:** KONZ-platform-058 spricht von „iil-assist" (ein Dienst); die MEiKI-Assist-Familie führt seit 2026-09-09 die Pakete `iil-assist-core`, `iil-assist-frist`, `iil-assist-voice` (meiki:ADR-043/044). Ob dasselbe gemeint ist oder zwei Dinge denselben Namen tragen, gehört geprüft, bevor ein PyPI-Name vergeben wird.
+2. **`risk-hub/packages/django-tenancy` `enable_rls` ist fail-open:** Policy mit drei OR-Zweigen lässt ohne gesetzten GUC alles durch (`enable_rls.py:69-74`); der GUC wird sessionweit per `SET` gesetzt. Für die Assist-Familie umgangen (eigener Generator); für risk-hub selbst offen, ob die Middleware den GUC in jedem Pfad setzt. Memory 🌀 `django-tenancy-enable-rls-fail-open` (meiki-hub-Lane).
+
+## ⚡ Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
 
 **Zielzustand erreicht** ([doc-hub#4](https://github.com/achimdehnert/doc-hub/issues/4)): Ein Scan mit mehreren Dokumenten wird auf dem Weg in Paperless automatisch zerlegt, verschlagwortet und abgelegt; das Original wandert aus dem Eingang, wird aber nie geloescht. Code `/opt/doc-hub/splitter/` auf hetzner-prod, eigenes venv, Timer `doc-hub-splitter.timer` alle 3 Minuten (aktiviert nach Owner-Wort). Eingang `/opt/paperless-consume/schleuse/scan-eingang` — den ignoriert Paperless ohnehin, deshalb war kein Samba-Eingriff noetig. Personen-Muster `/etc/doc-hub/zuordnung.json` (0640, nicht im Repo).
 
@@ -29,20 +39,6 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Clear-Haerte (fremder Blick):** Drei Prod-Freigaben stehen nur als Frage und Ergebnis im Verlauf, die Zustimmung in keinem Artefakt. Acht der zehn Retro-Massnahmen hatten kein Tracking-Issue (nachgeholt). Der README-Beispielpfad wich vom echten Prod-Pfad ab (behoben).
 **SA-4:** 11 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
-
-## ⚡ Stand (2026-09-09 vormittags — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
-
-**Morgen-Zeitung live** ([KONZ-platform-057](docs/konzepte/KONZ-platform-057-morgenzeitung-aus-dem-hot-topics-letter.md)): `news.iil.pet` bedient, Timer 06:15 UTC, Ausgabe erscheint als aufklappbare Artikel im Matrix-Raum `#news:chat.iil.pet` (Oberflaeche: **app-chat.iil.pet**). Kette: `mail_lesenaht` (devhub_web) → `digest_taeglich` (news_hub_web) → Chat. Betriebs-Runbook in Outline („Morgen-Zeitung … Betrieb auf news.iil.pet").
-
-**Was der Tag ergab:** Aus einem Mailcheck wurden sieben Owner-Zurufe und 21 gemergte PRs in zwei Repos — [#2987](https://github.com/achimdehnert/platform/pull/2987) (Board-Kopfzeile, Bucket `kenntnis`), [#2991](https://github.com/achimdehnert/platform/pull/2991) (Konzept), [#2993](https://github.com/achimdehnert/platform/pull/2993) (Deklaration), [#2998](https://github.com/achimdehnert/platform/pull/2998), [#3002](https://github.com/achimdehnert/platform/pull/3002) (Retro) sowie news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#41](https://github.com/achimdehnert/news-hub/pull/41).
-
-**Retro** ([#3002](https://github.com/achimdehnert/platform/pull/3002), Footprint `deep`): 20 Befunde, 13 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — die Rework-Quote (50 % → 21 %, vier PRs korrigierten Arbeit vom 29.08.) und den Staging-Befund (news-hub hat gar kein Staging, es war eine Dublette). Ein verworfener Befund kehrte zurueck: KONZ-057 traegt eine Ledger-Zeile `belegt`, deren Beleg derselbe Tag umschrieb. **Neu und keinem Finder aufgefallen:** ein Ausfall des Tageslaufs war unsichtbar — behoben in [news-hub#41](https://github.com/achimdehnert/news-hub/pull/41) (`digest_frische`, Units im Repo, `OnFailure` meldet in den Chat-Raum).
-
-**Eigene Fehler:** Ein Filter ohne Untergrenze leerte das Blatt, und der zugehoerige Test schrieb genau dieses Verhalten als richtig fest (Outline-Lesson, [news-hub#36](https://github.com/achimdehnert/news-hub/pull/36)). Ich meldete 14 selbst geschriebene Freigabe-Zeilen als Regelverstoss — der Owner wies das zurueck („kein Regelverstoss, sondern sinnvolles miteinander arbeiten"); die Memory-Regel ist ersetzt. Eine PR-Nummer war erfunden (#3001 statt #3002).
-
-**Offen (Owner):** Themenauswahl kuert weiter generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)) · Smoke-Lauf im CI, Entwurf steht ([news-hub#40](https://github.com/achimdehnert/news-hub/issues/40)) · NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)) · drei Memory-Kandidaten aus der Retro.
-
-**Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
