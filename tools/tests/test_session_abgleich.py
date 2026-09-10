@@ -323,6 +323,86 @@ class TestBefundeSerien:
         assert sa.befunde_serien([a, b], stunden=24) == []
 
 
+def _pr(nummer, autor, zustand, mergedat, pfad, hunks, repo="achimdehnert/platform"):
+    datei = {"path": pfad}
+    if hunks is not None:
+        datei["hunks"] = hunks
+    return {
+        "number": nummer,
+        "repo": repo,
+        "author": {"login": autor},
+        "state": zustand,
+        "mergedAt": mergedat,
+        "files": [datei],
+    }
+
+
+class TestBefundeSerienFuerPr:
+    def test_should_flag_overlapping_hunks_against_another_open_pr(self):
+        """POSITIVKONTROLLE 2026-09-10: #3034 (bereits heute gemergt) und
+        #3042 (offen) beruehren test_todo_board.py an ueberlappenden Zeilen
+        (467-531 vs 526-542)."""
+        prs = [
+            _pr(
+                3042,
+                "achimdehnert",
+                "OPEN",
+                None,
+                "tools/tests/test_todo_board.py",
+                [[467, 531]],
+            ),
+            _pr(
+                3034,
+                "achimdehnert",
+                "MERGED",
+                "2026-09-10T08:00:00Z",
+                "tools/tests/test_todo_board.py",
+                [[526, 542]],
+            ),
+        ]
+        befunde = sa.befunde_serien_fuer_pr(3042, prs, heute="2026-09-10")
+        assert len(befunde) == 1
+        assert befunde[0]["art"] == "befund"
+        assert "#3034" in befunde[0]["text"] and "#3042" in befunde[0]["text"]
+
+    def test_should_report_clean_line_when_hunks_are_disjoint(self):
+        """GEGENPROBE (Pflicht-Falsifikation): disjunkte Bereiche sind kein
+        Befund, aber eine eigene Zeile belegt, dass geprueft wurde."""
+        prs = [
+            _pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]]),
+            _pr(11, "achimdehnert", "OPEN", None, "tools/x.py", [[50, 60]]),
+        ]
+        ergebnis = sa.befunde_serien_fuer_pr(10, prs, heute="2026-09-10")
+        assert [e["art"] for e in ergebnis] == ["sauber"]
+        assert "disjunkte Bereiche — kein Befund" in ergebnis[0]["text"]
+
+    def test_should_compare_only_the_named_pr_via_eingabe(self, tmp_path, capsys):
+        """--pr mit --eingabe vergleicht NUR den benannten PR — ein dritter PR
+        desselben Autors auf einer anderen Datei bleibt aussen vor."""
+        daten = {
+            "prs": [
+                _pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]]),
+                _pr(11, "achimdehnert", "OPEN", None, "tools/x.py", [[5, 15]]),
+                _pr(12, "achimdehnert", "OPEN", None, "tools/y.py", [[1, 10]]),
+            ]
+        }
+        pfad = tmp_path / "eingabe.json"
+        pfad.write_text(json.dumps(daten), encoding="utf-8")
+        rc = sa.main(["--eingabe", str(pfad), "--pr", "10", "--heute", "2026-09-10"])
+        out = capsys.readouterr().out
+        assert rc == 1
+        assert "#11" in out and "#12" not in out
+
+    def test_should_stay_clean_without_a_second_pr_of_the_same_author(self):
+        """(d) Ziel-PR ohne zweiten PR desselben Autors → kein Befund."""
+        prs = [_pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]])]
+        assert sa.befunde_serien_fuer_pr(10, prs, heute="2026-09-10") == []
+
+    def test_should_ignore_pr_not_found_in_the_population(self):
+        prs = [_pr(10, "achimdehnert", "OPEN", None, "tools/x.py", [[1, 10]])]
+        assert sa.befunde_serien_fuer_pr(999, prs, heute="2026-09-10") == []
+
+
 class TestBereicheUeberlappen:
     def test_should_detect_touching_ranges(self):
         assert sa.bereiche_ueberlappen([(1, 10)], [(10, 12)]) is True

@@ -1,0 +1,111 @@
+name: Serielle-PRs-Advisory
+
+# Anlass (Retro 2026-09-10): der Sitzungs-Melder tools/session_abgleich.py
+# (Slug serielle-prs-auf-derselben-datei) lief bisher erst am Sitzungsende,
+# NACH allen Merges — #3034 und #3042 gingen nacheinander auf
+# tools/tests/test_todo_board.py (Hunks 467-531 vs 526-542, ueberlappend),
+# ohne dass das Gate vorher lief. Dieser Workflow zieht den `--pr`-Modus des
+# Melders auf den PR selbst vor.
+#
+# ADVISORY, nicht blockierend: der Check-Schritt hat `continue-on-error:
+# true` und faerbt den Merge nie rot. Ein Befund landet als Kommentar am PR
+# (Kopfzeile `<!-- serielle-prs-advisory -->`, wird bei Folge-Laeufen
+# aktualisiert statt verdoppelt); ohne Befund bleibt es beim Eintrag im
+# Step-Summary.
+#
+# Falsifikationsregel (im Werkzeug, hier nur referenziert): zwei PRs
+# desselben Autors auf derselben Datei sind nur dann ein Befund, wenn ihre
+# Zeilenbereiche (Hunks aus `gh pr diff`) sich ueberlappen — disjunkte
+# Bereiche sind der Normalfall einer aktiven Datei und werden ausdruecklich
+# NICHT gemeldet (session_abgleich.py::befunde_serien_fuer_pr).
+#
+# Registry-Eintrag folgt gesondert (docs/governance/gate-registry.json ist
+# in diesem PR bewusst nicht angefasst).
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: serielle-prs-advisory-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  serielle-prs-advisory:
+    name: Serielle-PRs-Abgleich (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      # continue-on-error: ein Werkzeugfehler oder ein Befund faerbt diesen
+      # Schritt rot (sichtbar im PR), blockt aber nichts — advisory.
+      - name: Sitzungs-Abgleich --pr
+        id: check
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          python3 tools/session_abgleich.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --autor "${{ github.event.pull_request.user.login }}" \
+            > /tmp/verdict.txt 2>&1
+          rc=$?
+          cat /tmp/verdict.txt >> "$GITHUB_STEP_SUMMARY"
+          if grep -q '^RESULT: BEFUND' /tmp/verdict.txt; then
+            echo "hat_befund=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hat_befund=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit $rc
+
+      # Fehlerpfad zum weichgestellten Schritt oben (sonst waere ein Absturz
+      # von `check` still: leere Outputs, kein Folge-Schritt feuert, Workflow
+      # bleibt gruen — genau das Muster aus tools/check_silent_failures.py).
+      # `hat_befund` triggert den PR-Kommentar; Werkzeugfehler/Absturz landen
+      # NUR hier im Step-Summary, absichtlich nie als PR-Kommentar (advisory
+      # heisst: nur ein echter Befund geht an den PR).
+      - name: Werkzeugfehler sichtbar machen (kein PR-Kommentar, nur Summary)
+        if: always() && steps.check.outcome == 'failure' && steps.check.outputs.hat_befund != 'true'
+        run: |
+          echo "⚠ Sitzungs-Abgleich --pr abgebrochen (Werkzeugfehler oder Absturz) — ungeprueft, kein Verdikt." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PR-Kommentar setzen/aktualisieren (nur bei Befund)
+        if: steps.check.outputs.hat_befund == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER='<!-- serielle-prs-advisory -->'
+          BODY_FILE=$(mktemp)
+          {
+            echo "$MARKER"
+            echo "### 🧭 Serielle-PRs-Abgleich (advisory)"
+            echo
+            echo '```'
+            cat /tmp/verdict.txt
+            echo '```'
+            echo
+            echo "_Advisory, nicht blockierend — Retro 2026-09-10. Falsifikationsregel: disjunkte Zeilenbereiche sind kein Befund._"
+          } > "$BODY_FILE"
+
+          COMMENTS_JSON=$(gh api "repos/$GITHUB_REPOSITORY/issues/${{ github.event.pull_request.number }}/comments" --paginate)
+          EXISTING_ID=$(echo "$COMMENTS_JSON" | jq -r --arg marker "$MARKER" \
+            '[.[] | select(.body | startswith($marker))] | if length > 0 then .[0].id else empty end')
+
+          if [ -n "$EXISTING_ID" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_ID" \
+              -f body=@"$BODY_FILE"
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/${{ github.event.pull_request.number }}/comments" \
+              -f body=@"$BODY_FILE"
+          fi
