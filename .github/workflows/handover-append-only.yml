@@ -98,6 +98,29 @@ jobs:
           GH_TOKEN: ${{ secrets.PROJECT_PAT }}
         run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
 
+      # WARUM EIN EIGENER SCHRITT: dass der Check laeuft, belegt nicht, dass er sehen
+      # kann. Verliert das Token sein Leserecht auf ein Hub-Repo, faellt das sonst erst
+      # beim naechsten echten Auslagern auf — und dann als „Zustand nicht ermittelbar",
+      # also als Inhaltsbefund statt als Rechte-Problem. Am 2026-09-10 wurde genau das
+      # zweimal gemessen: erst mit GITHUB_TOKEN (platform#3032, Realfall #3029), dann
+      # mit MEGATEST_READ_TOKEN, dessen Name Flotten-Leserecht nahelegt, das aber
+      # doc-hub-Vorgaenge NICHT lesen kann. Ein Name ist kein Recht.
+      #
+      # doc-hub#4 ist der Anker: privat, offen, in Stand-Bloecken haeufig zitiert.
+      # Geprueft wird nur die Aufloesbarkeit, nicht der Zustand — ein geschlossenes
+      # Issue waere hier genauso gut.
+      - name: Positivkontrolle — eine private Hub-Referenz muss aufloesbar sein
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+        run: |
+          python3 -c "
+          import sys; sys.path.insert(0, 'scripts/checks')
+          from handover_auslagerung_check import zustand_via_gh
+          zustand, blind = zustand_via_gh(['achimdehnert/doc-hub#4'])
+          assert not blind, f'blind: {blind} — das hinterlegte Token liest doc-hub nicht'
+          print('Positivkontrolle OK:', zustand)
+          "
+
       - name: Golden-Test — eine verschluckte offene Nummer muss FAIL ergeben
         # Ohne Netz und deterministisch: nur die reine Vergleichsfunktion. Der echte
         # Lauf oben deckt den gh-Pfad ab, den dieser Test umgeht.
