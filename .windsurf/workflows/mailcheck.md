@@ -135,6 +135,19 @@ Struktur, die im Text **steht** — sie erfindet keine. Wer beim Schreiben drei
 Konventionen einhaelt, bekommt eine lesbare Seite; wer sie nicht einhaelt, bekommt
 die alte Textwand. Nichts geht verloren, es wird nur nicht getrennt.
 
+0. **Inhalt, nicht Arbeitsprotokoll (Owner-Weisung 2026-09-10, Vorgang 116).** Der
+   Verlauf ist die Akte der Korrespondenz: **wer** hat **was** gesagt, was ist
+   **entschieden**, was ist **offen**. Was der Agent dabei getan hat, gehoert nicht
+   hinein — keine Wortzahlen („210 auf 90 Woerter"), keine Umlaut- oder
+   Signatur-Korrekturen, keine Classifier-, Zeitzonen- oder Werkzeugnotizen, keine
+   DB-Zaehlstaende im Sachstand-Satz, kein „Owner-Zuruf … noch nicht ausgewertet".
+   Eine eingegangene Mail wird **gelesen und ihr Inhalt eingetragen**; ein Entwurf
+   wird erst beim Senden zum Eintrag, mit dem, was die gesendete Fassung sagt. Der
+   Massstab: Der Owner liest den Verlauf ohne den Agenten und weiss danach den
+   Stand des Vorgangs. Anlass: 116 trug 15 Eintraege, davon sieben reine
+   Arbeitsprotokolle; nach dem Umschreiben blieben acht Sachstands-Eintraege, kein
+   Inhalt ging verloren. Was an Prozess belegt werden muss, gehoert in PR, Issue
+   oder Session-Log, nicht in die Akte des Mandanten.
 1. **Kopf zuerst:** `YYYY-MM-DD[ HH:MM] [EREIGNIS] (Quelle): …` — z.B.
    `2026-08-21 (/mailcheck):` oder `2026-08-20 13:41 GESENDET (Owner):`.
    Datum, Uhrzeit, Ereignis und Quelle werden zur Kopfzeile der Karte.
@@ -458,9 +471,16 @@ Prüfer überlebt.
 - [ ] **Ordner-Pflicht geprueft** (#2592 K3): `python3 tools/mail_agent/referenzen.py
       --pruefe-ordner` — Exit 0. Ein Verstoss wird im selben Lauf im Ledger
       korrigiert (Ordner nachtragen), nicht notiert.
+- [ ] **Verlauf traegt Inhalt** (Owner 2026-09-10, Abschnitt „Wie ein Verlaufseintrag
+      geschrieben wird", Regel 0): jeder neue Eintrag sagt, wer was gesagt oder entschieden
+      hat und was offen ist. Kein Eintrag nennt Wortzahlen, Umlaut-, Classifier-,
+      Zeitzonen- oder Werkzeugnotizen; keine eingegangene Mail steht als „noch nicht
+      ausgewertet" — sie ist gelesen, ihr Inhalt steht drin.
 - [ ] Kein Senden, kein Hard-Delete; Drafts nur auf „go"
 
 ## Changelog
+
+- **2026-09-10** — Regel 0 „Inhalt, nicht Arbeitsprotokoll" fuer Verlaufseintraege + Checklistenzeile (Owner-Befund an Vorgang 116: „keine prompts, sondern Inhalt"; platform#3015 K4).
 
 - **2026-09-04 (#2799, Nachtrag nach dem ersten scharfen Lauf):** `--pruefe` bestätigt jeden
   Index-Treffer im lebenden Quellordner, bevor er zählt, und weist veraltete Treffer getrennt
