@@ -115,6 +115,19 @@ führt einen fremden ProQuest-Pfad **und** einen Springer-Weg, über den die HNU
 Springer-Satz taugt nicht als allgemeiner Maßstab: De Gruyter kennt ihn nicht, ein Titel dort fiel deshalb erst
 fälschlich durch. **Je Plattform den passenden Hinweis lesen, nicht einen Hinweis über alle Plattformen legen.**
 
+**Zwei Prüfungen tragen über alle Plattformen.** Sie kosten je einen Aufruf und sind mehr wert als jeder Marker-Text:
+
+1. **Schreibt der Proxy die Adresse um?** Endet der Aufruf auf einer Adresse mit `.ezproxy.hnu.de`, kennt die
+   Hochschule diese Plattform. Landet er auf der nackten Verlagsadresse — `direct.mit.edu`,
+   `elibrary.duncker-humblot.com` —, gibt es dort keinen Zugang. Adner, *Winning the Right Game*, fällt genau so durch.
+2. **Kommt eine PDF-Datei zurück?** Den Volltext direkt anfordern und auf den Inhaltstyp sehen. Bei Springer etwa
+   `link-springer-com.ezproxy.hnu.de/content/pdf/<DOI>.pdf`: Baines liefert `application/pdf`, 6,7 MB — Voigt,
+   *Handbuch KI-Verordnung*, liefert `text/html`, also die Bezahlschranke. **Das ist der schärfste Test**, denn er
+   fragt nach dem, was der Studierende am Ende braucht.
+
+Hilfsweise verrät sich die Zielseite auch selbst: sichtbare Schlosssymbole an den Kapiteln heißen gesperrt (Lingens,
+*Business-Ökosysteme*, zeigt achtzehn davon).
+
 **EBSCO bleibt offen.** Der Aufruf landet auf einer Seite, die die Hochschule im Kopf nennt, ihren Inhalt aber
 nachlädt; im Quelltext steht nichts über die Freischaltung, und einen Datenzugang dahinter gibt es nicht. Solche
 Titel sind **ungeklärt**, nicht bestätigt — einmal im Browser öffnen oder einen Titel nehmen, der eindeutig durchgeht.
