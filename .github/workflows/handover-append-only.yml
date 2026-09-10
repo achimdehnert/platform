@@ -86,16 +86,31 @@ jobs:
       # Warum es diesen Job gibt: am 2026-09-08 nahm eine Auslagerung sechs offene
       # Punkte mit ins Archiv, darunter eine Frist zum 30.11. Byte-Deckel,
       # Append-only und Frische waren dabei alle gruen (platform#2974).
+      # Kurzlebiger App-Token statt PROJECT_PAT (ADR-238 C5; platform#3046,
+      # Owner-Entscheid Option 1, 2026-09-10): dieser Job laeuft auf
+      # `pull_request` und fuehrt damit Code aus dem PR-Branch aus. PROJECT_PAT
+      # ist der Flotten-Token, mit dem apply-branch-protection.yml Schutzregeln
+      # SCHREIBT — er gehoert nicht in einen Job, dessen Code ein PR bestimmt.
+      # Die Reconcile-App (vars.RECONCILE_APP_ID, secrets.RECONCILE_APP_PRIVATE_KEY,
+      # wie in handover-reconcile.yml) liefert ein Token, das nur liest und nach
+      # dem Job verfaellt. Ohne App faellt der Job auf GITHUB_TOKEN zurueck und
+      # meldet Fremd-Refs dann als "nicht ermittelbar" — blind, nicht gruen.
+      - id: app_token
+        name: App-Token fuer Lesezugriff auf die Hub-Repos (ADR-238)
+        if: ${{ vars.RECONCILE_APP_ID != '' }}
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ vars.RECONCILE_APP_ID }}
+          private-key: ${{ secrets.RECONCILE_APP_PRIVATE_KEY }}
+          owner: achimdehnert
+
       - name: Auslagerung pruefen
         env:
-          # PROJECT_PAT statt GITHUB_TOKEN: der Check fragt den Zustand jeder
-          # verschwundenen Referenz ab, auch in privaten Schwester-Repos
-          # (news-hub, ...). Der repo-eigene Token sieht die nicht, der Check
-          # meldet dann "Zustand nicht ermittelbar" (Exit 2) — gewollt blind
-          # statt gruen, aber damit war jede Auslagerung mit Fremd-Refs in CI
-          # unmergebar (platform#3027, Owner-Entscheid Option 1, 2026-09-10).
-          # Rein lesend, wie in gen-project-facts / branch-protection-meter.
-          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+          # Der Check fragt den Zustand jeder verschwundenen Referenz ab, auch in
+          # privaten Schwester-Repos (news-hub, doc-hub, ...). Token: App-Token von
+          # oben, sonst GITHUB_TOKEN (sieht nur dieses Repo; platform#3027).
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: python3 scripts/checks/handover_auslagerung_check.py --basis origin/main
 
       # WARUM EIN EIGENER SCHRITT: dass der Check laeuft, belegt nicht, dass er sehen
@@ -111,7 +126,9 @@ jobs:
       # Issue waere hier genauso gut.
       - name: Positivkontrolle — eine private Hub-Referenz muss aufloesbar sein
         env:
-          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+          # Dasselbe Token wie der Check darueber: beweist auf jedem PR, dass die
+          # App die Hub-Repos lesen darf — oder dass sie dort nicht installiert ist.
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           python3 -c "
           import sys; sys.path.insert(0, 'scripts/checks')
