@@ -515,7 +515,7 @@ def test_should_leave_the_specific_phrases_unconditional():
 
 # ── Ausweitung 2026-09-10: Issue-Kommentare (Retro-Anlass platform#3015) ─────
 #
-# Am 2026-09-10 standen sechs Folgearbeiten als Aufschub-Prosa ohne Anker in
+# Am 2026-09-10 standen sechs Folgearbeiten (platform#3015, Retro oqu6Z6) als Aufschub-Prosa ohne Anker in
 # einem Sachstands-KOMMENTAR des Auftrags-Issues #3015 — eine Quelle, die der
 # bisherige PR-Text-Scanner per Konstruktion nicht sieht. `--eingabe DATEI`
 # ersetzt den `gh api`-Aufruf durch eine lokale JSON-Fixture, damit die
