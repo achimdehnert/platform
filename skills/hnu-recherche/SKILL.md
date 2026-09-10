@@ -134,6 +134,12 @@ Titel sind **ungeklärt**, nicht bestätigt — einmal im Browser öffnen oder e
 
 ## 6 — Weitere Fallen
 
+- **Die Verfügbarkeitsangabe im Katalog sagt nichts.** „Verfügbar", „Online-Ressource", „Zugang" stehen wörtlich
+  gleich auf dem Datensatz eines lizenzierten Titels und auf dem eines fremden. Gemessen am 2026-09-10 an vier
+  Datensätzen: identische Zählung, entgegengesetzte Wirklichkeit. Nur die Zielseite entscheidet (§ 5).
+- **Fremdlizenzen sind kein Randfall.** In zwei unabhängigen Stichproben zu Strategie- und KI-Themen gehörte
+  jeweils rund ein Drittel bis die Hälfte der E-Book-Treffer anderen bayerischen Hochschulen. Wer ohne Prüfung
+  auswählt, baut eine Liste, die zum guten Teil nicht aufgeht.
 - **302 ist keine Null.** Eine Suche ohne Treffer ist erst dann ein Ergebnis, wenn dieselbe Suche ohne Filter Treffer
   liefert. Sonst ist die abgelaufene Sitzung der Filter, nicht die Welt.
 - **`rtype:"books"` im Verbundindex bringt fast nichts** — er ist ein Aufsatzindex. Bücher gehören in den Katalog.
