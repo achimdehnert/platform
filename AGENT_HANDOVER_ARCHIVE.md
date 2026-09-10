@@ -2404,3 +2404,24 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 **Offen (Owner):** Themenauswahl kuert weiter generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)) · Smoke-Lauf im CI, Entwurf steht ([news-hub#40](https://github.com/achimdehnert/news-hub/issues/40)) · NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)) · drei Memory-Kandidaten aus der Retro.
 
 **Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
+
+---
+
+<!-- Ausgelagert 2026-09-10 aus AGENT_HANDOVER.md, weil ein dritter Stand-Block die
+     Konvention (aktuell + hoechstens EIN vorheriger) sprengt. Offene Punkte daraus
+     stehen als Kurzzeilen unter "## Offene Fäden". -->
+
+## ⚡ Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
+
+**Zielzustand erreicht** ([doc-hub#4](https://github.com/achimdehnert/doc-hub/issues/4)): Ein Scan mit mehreren Dokumenten wird auf dem Weg in Paperless automatisch zerlegt, verschlagwortet und abgelegt; das Original wandert aus dem Eingang, wird aber nie geloescht. Code `/opt/doc-hub/splitter/` auf hetzner-prod, eigenes venv, Timer `doc-hub-splitter.timer` alle 3 Minuten (aktiviert nach Owner-Wort). Eingang `/opt/paperless-consume/schleuse/scan-eingang` — den ignoriert Paperless ohnehin, deshalb war kein Samba-Eingriff noetig. Personen-Muster `/etc/doc-hub/zuordnung.json` (0640, nicht im Repo).
+
+**Zwei echte Betriebsscans, beide auf die Owner-Zahl gebracht:** 18 Seiten → 4 Dokumente, 26 Seiten → 5 Dokumente. Zehn PRs in doc-hub ([#5](https://github.com/achimdehnert/doc-hub/pull/5)–[#14](https://github.com/achimdehnert/doc-hub/pull/14)), einer in platform ([#2999](https://github.com/achimdehnert/platform/pull/2999), Waechter sieht den neuen Eingang). Der teuerste gefundene Fehler: eine Parkhaus-Quittung wurde als Leerseite verworfen — ein kleiner Beleg auf A4 traegt weniger Tinte als eine leere Rueckseite mit Falzkante; die *Form* trennt sie, nicht die Menge ([#13](https://github.com/achimdehnert/doc-hub/pull/13)).
+
+**Retro** (`docs/retros/session-retro-2026-09-09-doc-hub-a6edc6.md`, Footprint `full`): 16 Befunde, 15 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — eine Severity war zu hoch (der Waechter sah den Ordner damals gar nicht), und ein verworfener Befund musste zurueck (A5 nennt vier Merkmale, nicht zwei). **Drei Gates haben gefangen** und je eine Handlung ausgeloest. Rueckfaellig war `scope-checkpoint-not-durably-recorded`: sein Muster kannte nur das Abschalten von Diensten — als hier einer scharfgeschaltet wurde, schwieg es. Ausgeweitet in diesem PR.
+
+**Offen und dein Zug:** (1) Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — drei Eingriffe dieser Sitzung haben keinen eigenen Vermerk. (2) Traeger fuer den Host-Eingriff-Hook entscheiden ([#2907](https://github.com/achimdehnert/platform/issues/2907)); der Zerleger braucht `tesseract-ocr-deu`, das nur von Hand auf prod liegt. (3) `PAPERLESS_FILENAME_DATE_ORDER` setzen ([doc-hub#15](https://github.com/achimdehnert/doc-hub/issues/15)).
+
+**Zielzustand:** erreicht mit einer Einschraenkung — **Urteil des fremden Abnahme-Agenten, nicht meines**: A1, A3, A4, A6 sind durch Code und Tests belegt; A5 im Kern erfuellt, aber ohne Test fuer Korrespondent/Dokumenttyp; **A2 ist aus den Artefakten NICHT PRUEFBAR**, weil der Beleg nur auf dem Server lebt (billigster Check: Trockenlauf dort gegen die Owner-Liste). Ich hatte „A1 bis A6 geprueft" geschrieben — das war zu weit.
+
+**Clear-Haerte (fremder Blick):** Drei Prod-Freigaben stehen nur als Frage und Ergebnis im Verlauf, die Zustimmung in keinem Artefakt. Acht der zehn Retro-Massnahmen hatten kein Tracking-Issue (nachgeholt). Der README-Beispielpfad wich vom echten Prod-Pfad ab (behoben).
+**SA-4:** 11 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.

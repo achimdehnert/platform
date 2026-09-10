@@ -15,7 +15,19 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 — Auftrag #3015: drei Tagesroutinen selbstmessend; Drill-Vorlage repariert)
+## ⚡ Aktueller Stand (2026-09-10 vormittags — Scan-Strecke: der Melder sieht jetzt auch den Fehlschlag)
+
+**Anlass war eine Owner-Bitte am Geraet:** die Netzwerk-Freigabe fuer Scans sei tot. War sie nicht — `smbd` lief, alle drei Freigaben antworteten, es fehlte nur die Verbindung des Owner-Rechners (nach dem `restart` vom 2026-09-08). Belegt mit einer Testanmeldung, die binnen Sekunden als offene Sitzung erschien; `cmdkey /delete:10.99.0.1` plus neu verbinden hat es geloest. **Kein Eingriff am laufenden Dateidienst** — die Abbruchregel aus der Vier-Neustarts-Episode hat gehalten. Danach acht Scans sauber durch (Dokumente 2491–2498).
+
+**Die Luecke aus [doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3) ist geschlossen** ([#3017](https://github.com/achimdehnert/platform/pull/3017), gemergt): `scan_melder.py` liest zusaetzlich den Paperless-Consumer-Log und meldet einen Aufnahme-Fehlschlag sofort (Exit 5) — auch wenn die Datei zwischen zwei stuendlichen Laeufen kommt UND wieder geht. **Nicht** ueber `full_audit` auf der Samba-Freigabe: dieser Weg ist am 2026-09-08 nach vier Neustarts gescheitert und bleibt zurueckgebaut. Positivkontrolle gegen prod: mit weitem Fenster findet der Melder den historischen Fall vom 2026-09-07 (`InputFileError`).
+
+**Zwei Fehler im Werkzeug selbst gefunden und behoben** (im selben PR): der Vollbericht schnitt Dateinamen am ersten Leerzeichen ab, und der in Workflow und Issue dokumentierte Owner-Weg (`--ssh hetzner-prod`) starb mit `PermissionError` am Inventar-Pfad, **bevor** er den Bericht druckte.
+
+**Exit 4 hat zum ersten Mal an einem echten Ereignis gefeuert:** der Lauf nach dem Merge meldete die vom Owner freigegebene Loeschung einer 17-seitigen Fassung als Verlust ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert und geschlossen). Vor dem Loeschen lag ein Seitenvergleich beider Fassungen vor; die behaltene 16-seitige liegt als Dokument 2500 im Archiv. Folgelauf gruen.
+
+**Offen und dein Zug:** Dublette meldet wie ein Verlust und die Fehlerklasse bleibt „unbekannt" ([#3023](https://github.com/achimdehnert/platform/issues/3023)) — Fix liegt als [#3029](https://github.com/achimdehnert/platform/pull/3029) vor, gegen prod abgenommen, nicht gemergt.
+
+## ⚡ Stand (2026-09-10 — Auftrag #3015: drei Tagesroutinen selbstmessend; Drill-Vorlage repariert)
 
 **Zeitanker:** HEAD `2461135f` · `rev-list --count` 4330 · geschrieben 2026-09-10
 
@@ -31,22 +43,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Aus der meiki-hub-Sitzung (Zielarchitektur Assist-Familie), Owner-Entscheid 2026-09-10:** Ausnahmezeile für `frist-hub` in `ADR-109` nachgezogen ([#3025](https://github.com/achimdehnert/platform/pull/3025)) — `single` je LRA bleibt Pilot-Default, die Mandanten-Basis kommt aus `iil-assist-core` ≥ 0.4.0 statt aus einem `django_tenancy`-Rollout; Gegenstück [meiki-hub#390](https://github.com/meiki-lra/meiki-hub/pull/390). Zwei Hypothesen für die nächste Platform-Sitzung, hier nicht verifiziert: (1) KONZ-platform-058 „iil-assist" (ein Dienst, [#3013](https://github.com/achimdehnert/platform/pull/3013)) und die MEiKI-Pakete `iil-assist-core/-frist/-voice` tragen denselben Namen — vor einer PyPI-Vergabe klären; (2) `risk-hub/packages/django-tenancy` `enable_rls` ist fail-open (drei OR-Zweige, `enable_rls.py:69-74`), Memory 🌀 `django-tenancy-enable-rls-fail-open` in der meiki-hub-Lane.
 
-## ⚡ Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
-
-**Zielzustand erreicht** ([doc-hub#4](https://github.com/achimdehnert/doc-hub/issues/4)): Ein Scan mit mehreren Dokumenten wird auf dem Weg in Paperless automatisch zerlegt, verschlagwortet und abgelegt; das Original wandert aus dem Eingang, wird aber nie geloescht. Code `/opt/doc-hub/splitter/` auf hetzner-prod, eigenes venv, Timer `doc-hub-splitter.timer` alle 3 Minuten (aktiviert nach Owner-Wort). Eingang `/opt/paperless-consume/schleuse/scan-eingang` — den ignoriert Paperless ohnehin, deshalb war kein Samba-Eingriff noetig. Personen-Muster `/etc/doc-hub/zuordnung.json` (0640, nicht im Repo).
-
-**Zwei echte Betriebsscans, beide auf die Owner-Zahl gebracht:** 18 Seiten → 4 Dokumente, 26 Seiten → 5 Dokumente. Zehn PRs in doc-hub ([#5](https://github.com/achimdehnert/doc-hub/pull/5)–[#14](https://github.com/achimdehnert/doc-hub/pull/14)), einer in platform ([#2999](https://github.com/achimdehnert/platform/pull/2999), Waechter sieht den neuen Eingang). Der teuerste gefundene Fehler: eine Parkhaus-Quittung wurde als Leerseite verworfen — ein kleiner Beleg auf A4 traegt weniger Tinte als eine leere Rueckseite mit Falzkante; die *Form* trennt sie, nicht die Menge ([#13](https://github.com/achimdehnert/doc-hub/pull/13)).
-
-**Retro** (`docs/retros/session-retro-2026-09-09-doc-hub-a6edc6.md`, Footprint `full`): 16 Befunde, 15 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — eine Severity war zu hoch (der Waechter sah den Ordner damals gar nicht), und ein verworfener Befund musste zurueck (A5 nennt vier Merkmale, nicht zwei). **Drei Gates haben gefangen** und je eine Handlung ausgeloest. Rueckfaellig war `scope-checkpoint-not-durably-recorded`: sein Muster kannte nur das Abschalten von Diensten — als hier einer scharfgeschaltet wurde, schwieg es. Ausgeweitet in diesem PR.
-
-**Offen und dein Zug:** (1) Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — drei Eingriffe dieser Sitzung haben keinen eigenen Vermerk. (2) Traeger fuer den Host-Eingriff-Hook entscheiden ([#2907](https://github.com/achimdehnert/platform/issues/2907)); der Zerleger braucht `tesseract-ocr-deu`, das nur von Hand auf prod liegt. (3) `PAPERLESS_FILENAME_DATE_ORDER` setzen ([doc-hub#15](https://github.com/achimdehnert/doc-hub/issues/15)).
-
-**Zielzustand:** erreicht mit einer Einschraenkung — **Urteil des fremden Abnahme-Agenten, nicht meines**: A1, A3, A4, A6 sind durch Code und Tests belegt; A5 im Kern erfuellt, aber ohne Test fuer Korrespondent/Dokumenttyp; **A2 ist aus den Artefakten NICHT PRUEFBAR**, weil der Beleg nur auf dem Server lebt (billigster Check: Trockenlauf dort gegen die Owner-Liste). Ich hatte „A1 bis A6 geprueft" geschrieben — das war zu weit.
-
-**Clear-Haerte (fremder Blick):** Drei Prod-Freigaben stehen nur als Frage und Ergebnis im Verlauf, die Zustimmung in keinem Artefakt. Acht der zehn Retro-Massnahmen hatten kein Tracking-Issue (nachgeholt). Der README-Beispielpfad wich vom echten Prod-Pfad ab (behoben).
-**SA-4:** 11 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
-
 ## Offene Fäden (über den Session-Stand hinaus)
+
+0. Paperless `PAPERLESS_FILENAME_DATE_ORDER` setzen: https://github.com/achimdehnert/doc-hub/issues/15
+0. Stapel-Zerleger im Betrieb, Zielzustand-Issue noch offen: https://github.com/achimdehnert/doc-hub/issues/4 — Bauteile gemergt (doc-hub#5, doc-hub#13, doc-hub#14).
+0. Freigabe-Zeile je Prod-Schritt als Regel bestaetigen — aus dem Stand vom 2026-09-09 abends gerettet (Owner-Entscheid).
 
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
 - **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
