@@ -121,6 +121,7 @@ einer bloss lange liegenden Datei):
     2 = blind: eine Wurzel ist nicht lesbar, der Lauf misst nichts Verlaessliches
     4 = Verlust: etwas ist aus dem Inventar verschwunden, ohne ein Dokument zu werden
     5 = Aufnahme fehlgeschlagen: der Consumer-Log zeigt einen Fehlschlag im Fenster
+        (eine Dublette zaehlt NICHT dazu — kein Verlust, siehe aufnahmen())
     1 = haengt: mindestens eine Datei liegt laenger als die Schwelle
     0 = sauber: nichts von alledem
 
@@ -288,6 +289,13 @@ _CONSUMING_RE = re.compile(
     r"\[(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})\] \[INFO\] "
     r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Consuming (?P<datei>.+?)\s*$"
 )
+# `Consuming duplicate` steht dem eigentlichen `Consuming` immer eine Zeile voraus
+# und traegt dieselbe Task-ID (issue #3023, real beobachtet doc-hub#3).
+_DUPLIKAT_RE = re.compile(
+    r"\[WARNING\] \[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] "
+    r"Consuming duplicate (?P<datei>.+?): \d+ existing document\(s\) "
+    r"share the same content\.\s*$"
+)
 _ABSCHLUSS_TEXT_RE = re.compile(
     r"\[paperless\.consumer\] \[(?P<tid>[0-9a-f]+)\] Document .* consumption finished"
 )
@@ -300,6 +308,15 @@ _FEHLSCHLAG_RE = re.compile(
     r"(?P<datei>[^:]+):"
 )
 _FEHLERKLASSE_RE = re.compile(r"\b([A-Za-z]+Error)\b")
+# Kopf einer regulaeren Logzeile (Zeitstempel + Level + mindestens ein weiterer
+# Klammerblock). Eine Zeile OHNE diesen Kopf ist eine Traceback-Fortsetzung ohne
+# eigene Task-ID (z.B. eine nackte `FileNotFoundError: ...`-Zeile) und gehoert
+# zum zuletzt gesehenen Vorgang, siehe aufnahmen().
+_KOPF_RE = re.compile(r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\] \[[A-Z]+\] \[")
+_KOPF_TID_RE = re.compile(
+    r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\] \[[A-Z]+\] \[[^\]]*\] "
+    r"\[(?P<tid>[0-9a-f]+)\]"
+)
 
 
 def aufnahmen(log_text: str) -> list[dict]:
@@ -310,12 +327,32 @@ def aufnahmen(log_text: str) -> list[dict]:
       * `fertig`        — mit `document_id`, wenn die maschinenlesbare Abschlusszeile
                            vorkam; sonst ohne (nur die Textzeile war da).
       * `fehlgeschlagen` — mit `fehlerklasse` (z.B. `InputFileError`).
+      * `dublette`       — ein Vorgang, dem eine `Consuming duplicate`-Zeile vorausging
+                           und der danach scheiterte: der Inhalt liegt schon im Archiv,
+                           der Fehlschlag beim Ablegen ist Folge, nicht Ursache — kein
+                           Verlust. Laeuft dieselbe Dublette sauber durch, bleibt sie
+                           `fertig` wie jeder andere Erfolg. Ein Melder, der Dubletten
+                           rot meldet, wird nach der zweiten ignoriert — dieselbe
+                           Todesursache wie beim taeglichen `backup-deckung`-Kommentar
+                           — deshalb eigener Zustand statt `fehlgeschlagen`, aber weiter
+                           sichtbar im Bericht statt stillschweigend zu verschwinden.
       * `offen`          — `Consuming` gesehen, kein Abschluss im selben Log
                            (Fenster zu knapp oder Log rotiert; kein Fehlschlag).
+
+    Die Fehlerklasse steht nicht immer in der `ConsumeTaskPlugin failed:`-Zeile
+    selbst (z.B. `InputFileError`) — manchmal erst in einer Traceback-Zeile ohne
+    eigenen Kopf dazwischen (z.B. `FileNotFoundError`). Um das nicht zu erraten:
+    eine Zeile ohne Kopf gehoert zum zuletzt gesehenen Vorgang, weiter nichts.
     """
     eintraege: dict[str, dict] = {}
     reihenfolge: list[str] = []
+    dublette_tids: set[str] = set()
+    letzte_tid: str | None = None
     for zeile in log_text.splitlines():
+        kopf = _KOPF_TID_RE.match(zeile)
+        if kopf:
+            letzte_tid = kopf.group("tid")
+
         m = _CONSUMING_RE.search(zeile)
         if m:
             tid = m.group("tid")
@@ -326,6 +363,10 @@ def aufnahmen(log_text: str) -> list[dict]:
                 "start": m.group("ts"),
                 "ergebnis": "offen",
             }
+            continue
+        m = _DUPLIKAT_RE.search(zeile)
+        if m:
+            dublette_tids.add(m.group("tid"))
             continue
         m = _ABSCHLUSS_TEXT_RE.search(zeile)
         if m and m.group("tid") in eintraege:
@@ -338,11 +379,23 @@ def aufnahmen(log_text: str) -> list[dict]:
             continue
         m = _FEHLSCHLAG_RE.search(zeile)
         if m and m.group("tid") in eintraege:
+            tid = m.group("tid")
             klassen = _FEHLERKLASSE_RE.findall(zeile)
-            eintraege[m.group("tid")]["ergebnis"] = "fehlgeschlagen"
-            eintraege[m.group("tid")]["fehlerklasse"] = (
-                klassen[-1] if klassen else "unbekannt"
+            eintraege[tid]["ergebnis"] = "fehlgeschlagen"
+            eintraege[tid]["fehlerklasse"] = (
+                klassen[-1] if klassen else eintraege[tid].get("_kandidat", "unbekannt")
             )
+            continue
+        if not _KOPF_RE.match(zeile) and letzte_tid in eintraege:
+            klassen = _FEHLERKLASSE_RE.findall(zeile)
+            if klassen:
+                eintraege[letzte_tid]["_kandidat"] = klassen[-1]
+
+    for tid, eintrag in eintraege.items():
+        eintrag.pop("_kandidat", None)
+        if tid in dublette_tids and eintrag["ergebnis"] == "fehlgeschlagen":
+            eintrag["ergebnis"] = "dublette"
+
     return [eintraege[tid] for tid in reihenfolge]
 
 
@@ -353,12 +406,14 @@ def kurzzeile(
     gemessene_ignoranz: bool,
     verluste: list[dict] | None = None,
     fehlgeschlagene: list[dict] | None = None,
+    dubletten: list[dict] | None = None,
     log_gemessen: bool | None = None,
 ) -> str:
     """Eine Zeile ohne Ordner- und Dateinamen (Repo und Actions-Log sind oeffentlich).
 
     `log_gemessen`: None = Log-Messung bewusst abgeschaltet (kein Vermerk), False =
-    Beschaffung gescheitert (Vermerk), True = gemessen.
+    Beschaffung gescheitert (Vermerk), True = gemessen. `dubletten` bleibt zahlenrein
+    wie alles andere hier — nur die Anzahl, kein Dateiname.
     """
     nachsatz = "" if gemessene_ignoranz else " [Ignoranz-Liste nicht gemessen]"
     if log_gemessen is False:
@@ -368,6 +423,8 @@ def kurzzeile(
         vorspann += f"{len(verluste)} Datei(en) VERLOREN (verschwunden ohne Dokument), "
     if fehlgeschlagene:
         vorspann += f"{len(fehlgeschlagene)} Aufnahme(n) FEHLGESCHLAGEN, "
+    if dubletten:
+        vorspann += f"{len(dubletten)} Dublette(n), "
     if not treffer:
         return (
             f"scan-melder: {vorspann}0 haengende Dateien "
@@ -388,6 +445,7 @@ def bericht(
     gemessene_ignoranz: bool,
     verluste: list[dict] | None = None,
     fehlgeschlagene: list[dict] | None = None,
+    dubletten: list[dict] | None = None,
     log_gemessen: bool | None = None,
 ) -> str:
     zeilen = [
@@ -397,6 +455,7 @@ def bericht(
             gemessene_ignoranz=gemessene_ignoranz,
             verluste=verluste,
             fehlgeschlagene=fehlgeschlagene,
+            dubletten=dubletten,
             log_gemessen=log_gemessen,
         )
     ]
@@ -407,11 +466,16 @@ def bericht(
             f"  FEHLGESCHLAGEN   {f.get('fehlerklasse', 'unbekannt'):>10}    "
             f"{f['dateiname']}"
         )
+    for d in dubletten or []:
+        zeilen.append(
+            f"  DUBLETTE         {d.get('fehlerklasse', 'unbekannt'):>10}    "
+            f"{d['dateiname']}"
+        )
     for t in treffer:
         zeilen.append(
             f"  {_stunden(t['alter_s']):>8}  {t['groesse']:>10} B  {t['pfad']}"
         )
-    if treffer or verluste or fehlgeschlagene:
+    if treffer or verluste or fehlgeschlagene or dubletten:
         zeilen.append("")
         zeilen.append(
             f'  Ursache je Datei: ssh hetzner-prod "docker logs {CONTAINER} --since 48h'
@@ -659,6 +723,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     fehlgeschlagene: list[dict] = []
+    dubletten: list[dict] = []
     log_gemessen: bool | None = None
     if a.log_fenster:
         log_text, log_ok = lies_consumer_log(a.log_fenster, a.ssh)
@@ -670,9 +735,11 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
         else:
+            vorgaenge = aufnahmen(log_text)
             fehlgeschlagene = [
-                e for e in aufnahmen(log_text) if e["ergebnis"] == "fehlgeschlagen"
+                e for e in vorgaenge if e["ergebnis"] == "fehlgeschlagen"
             ]
+            dubletten = [e for e in vorgaenge if e["ergebnis"] == "dublette"]
 
     if a.kurz:
         print(
@@ -682,6 +749,7 @@ def main(argv: list[str] | None = None) -> int:
                 gemessene_ignoranz=gemessen,
                 verluste=verluste,
                 fehlgeschlagene=fehlgeschlagene,
+                dubletten=dubletten,
                 log_gemessen=log_gemessen,
             )
         )
@@ -693,10 +761,12 @@ def main(argv: list[str] | None = None) -> int:
                 gemessene_ignoranz=gemessen,
                 verluste=verluste,
                 fehlgeschlagene=fehlgeschlagene,
+                dubletten=dubletten,
                 log_gemessen=log_gemessen,
             )
         )
     # Rangfolge siehe Modul-Docstring: 2 (frueher return) > 4 > 5 > 1 > 0.
+    # Eine Dublette zaehlt NICHT als Fehlschlag (kein Exit 5) — siehe aufnahmen().
     if verluste:
         return 4
     if fehlgeschlagene:

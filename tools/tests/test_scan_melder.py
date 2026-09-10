@@ -297,6 +297,90 @@ def test_should_keep_the_full_filename_when_it_contains_spaces():
     assert treffer[0]["ergebnis"] == "fehlgeschlagen"
 
 
+# --- Dublette (issue #3023, Realfall 2026-09-07, doc-hub#3) -----------------
+#
+# Eine Dublette liegt bereits im Archiv; der Fehlschlag beim Ablegen danach ist
+# Folge, nicht Ursache — kein Verlust. Die Fehlerklasse steht hier zudem nicht
+# in der `ConsumeTaskPlugin failed:`-Zeile selbst, sondern eine Zeile davor,
+# ohne eigenen Kopf (Traceback). Zeilen wortgleich aus dem Issue kopiert
+# (Scanner-Nummerndateiname, kein Personenbezug).
+
+DUBLETTE_LOG = (
+    "[2026-09-07 09:19:07,922] [WARNING] [paperless.consumer] [ad6f45d8] "
+    "Consuming duplicate 19072026135513.pdf: 1 existing document(s) share "
+    "the same content.\n"
+    "[2026-09-07 09:19:07,951] [INFO] [paperless.consumer] [ad6f45d8] "
+    "Consuming 19072026135513.pdf\n"
+    "[2026-09-07 09:19:21,047] [ERROR] [paperless.consumer] [ad6f45d8] "
+    "The following error occurred while storing document "
+    "19072026135513.pdf after parsing: [Errno 2] No such file or directory: "
+    "'/usr/src/paperless/consume/achim/old_shared/19072026135513.pdf'\n"
+    "FileNotFoundError: [Errno 2] No such file or directory: "
+    "'/usr/src/paperless/consume/achim/old_shared/19072026135513.pdf'\n"
+    "[2026-09-07 09:19:21,057] [ERROR] [paperless.tasks] [ad6f45d8] "
+    "ConsumeTaskPlugin failed: 19072026135513.pdf: The following error "
+    "occurred while storing document 19072026135513.pdf after parsing: "
+    "[Errno 2] No such file or directory: "
+    "'/usr/src/paperless/consume/achim/old_shared/19072026135513.pdf'\n"
+)
+
+
+def test_should_flag_a_duplicate_that_then_fails_as_dublette_not_fehlgeschlagen():
+    """Der Dublettenfall aus #3023: der Inhalt liegt schon im Archiv, kein Verlust."""
+    treffer = sm.aufnahmen(DUBLETTE_LOG)
+    assert len(treffer) == 1
+    assert treffer[0]["ergebnis"] == "dublette"
+    fehlgeschlagene = [t for t in treffer if t["ergebnis"] == "fehlgeschlagen"]
+    assert fehlgeschlagene == []
+
+
+def test_should_read_the_error_class_from_a_headerless_traceback_line():
+    """Die Fehlerklasse steht eine Zeile vor `ConsumeTaskPlugin failed:`, ohne
+    eigenen Kopf — muss trotzdem gefunden werden, nicht 'unbekannt' bleiben."""
+    treffer = sm.aufnahmen(DUBLETTE_LOG)
+    assert treffer[0]["fehlerklasse"] == "FileNotFoundError"
+
+
+def test_should_not_exit_5_when_only_a_duplicate_failed(monkeypatch):
+    """Eine Dublette darf keinen Aufnahme-Fehlschlag-Exit (5) ausloesen."""
+    monkeypatch.setattr(sm, "_lauf", lambda argv, ssh: (0, DUBLETTE_LOG))
+    log_text, log_ok = sm.lies_consumer_log(90, None)
+    assert log_ok is True
+    vorgaenge = sm.aufnahmen(log_text)
+    fehlgeschlagene = [e for e in vorgaenge if e["ergebnis"] == "fehlgeschlagen"]
+    assert fehlgeschlagene == []
+
+
+def test_should_keep_a_cleanly_ingested_duplicate_as_fertig():
+    """Sonderfall bewusst entschieden: eine Dublette, die sauber durchlaeuft,
+    bleibt `fertig` — der Zustand `dublette` gilt nur, wenn danach etwas scheitert."""
+    log = (
+        "[2026-09-10 09:30:00,000] [WARNING] [paperless.consumer] [aa11bb22] "
+        "Consuming duplicate 10092026093000.pdf: 1 existing document(s) share "
+        "the same content.\n"
+        "[2026-09-10 09:30:00,050] [INFO] [paperless.consumer] [aa11bb22] "
+        "Consuming 10092026093000.pdf\n"
+        "[2026-09-10 09:30:05,000] [INFO] [paperless.consumer] [aa11bb22] "
+        "Document 2026-09-10 Dublette consumption finished\n"
+        "[2026-09-10 09:30:05,010] [INFO] [paperless.tasks] [aa11bb22] "
+        "ConsumeTaskPlugin completed with: {'document_id': 2500}\n"
+    )
+    treffer = sm.aufnahmen(log)
+    assert len(treffer) == 1
+    assert treffer[0]["ergebnis"] == "fertig"
+    assert treffer[0]["document_id"] == 2500
+
+
+def test_should_show_dublette_as_its_own_line_in_full_report_but_only_a_count_in_short_line():
+    dubletten = [t for t in sm.aufnahmen(DUBLETTE_LOG) if t["ergebnis"] == "dublette"]
+    zeile = sm.kurzzeile([], geprueft=1, gemessene_ignoranz=True, dubletten=dubletten)
+    assert "19072026135513" not in zeile
+    assert "1 Dublette(n)" in zeile
+    voll = sm.bericht([], geprueft=1, gemessene_ignoranz=True, dubletten=dubletten)
+    assert "DUBLETTE" in voll
+    assert "19072026135513.pdf" in voll
+
+
 def test_should_report_instead_of_crashing_when_inventory_is_unwritable(tmp_path):
     """Der dokumentierte Owner-Weg lief auf einem Rechner ohne Schreibrecht.
 
