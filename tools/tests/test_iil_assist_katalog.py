@@ -51,10 +51,16 @@ def test_should_require_exactly_five_mvps_over_three_repos(katalog):
 
 def test_should_derive_next_step_from_state_not_history(katalog):
     d = copy.deepcopy(katalog)
+    d["phase"] = "konzept"
     assert ik.naechster_schritt(d)[0] == "owner"
     d["phase"] = "bau"
+    for x in d["dienste"]:
+        if x["mvp"]:
+            x["status"] = "vorgeschlagen"
     wer, was = ik.naechster_schritt(d)
-    assert wer == "ich" and "Plattform-Status" in was
+    assert wer == "ich" and "Plattform-Status" in was and "bauen" in was
+    next(x for x in d["dienste"] if x["id"] == "plattform-status")["status"] = "gebaut"
+    assert "Staging" in ik.naechster_schritt(d)[1]
     for x in d["dienste"]:
         if x["mvp"]:
             x["status"] = "staging"
