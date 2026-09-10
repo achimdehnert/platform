@@ -1,0 +1,129 @@
+# rueckstau-melder.yml — waechst ein Stapel im Archiv, ohne dass es jemand sieht?
+#
+# ANLASS (2026-09-10): im Archiv (Paperless auf hetzner-prod) sammeln sich
+# Dokumente unter den Stichwoertern `Posteingang` (331 am 2026-09-10) und
+# `pruefen` (57), die jemand von Hand durchsehen muss. Niemand sah bisher, ob
+# diese Stapel wachsen oder schrumpfen. Owner-Freigabe liegt vor (Wort
+# 2026-09-10). Details siehe `tools/rueckstau_melder.py` (Modul-Docstring).
+#
+# WACHSTUM IST DAS SIGNAL, NICHT DIE ABSOLUTE ZAHL: ein Stapel mit 331
+# Dokumenten, der schrumpft, ist kein Befund — jemand arbeitet ihn ab. Ein
+# Melder, der die absolute Zahl bewertet, meldete ab Tag eins dauerhaft rot
+# und waere binnen Wochen ignoriert — genau daran ist der taegliche
+# `backup-deckung`-Kommentar gestorben. Deshalb vergleicht der Melder gegen
+# den letzten Lauf, nicht gegen einen festen Schwellwert.
+#
+# LESER, beide benannt (kein Melder ohne Leser, #2284 K5):
+#   1. Der Owner ueber ein zugewiesenes Issue — nur, wenn ein Stapel
+#      tatsaechlich gewachsen ist. Ein woechentlicher Kommentar ueber
+#      denselben, weiter offenen Rueckstau waere Rauschen; genau daran ist
+#      der taegliche backup-deckung-Kommentar gestorben (siehe scan-melder.yml).
+#   2. `cron_melder_check.py` ueber den Lauf-Zustand des Workflows. ROT IST
+#      BEFUND (unten markiert): waechst ein Stapel weiterhin, bleibt der Lauf
+#      rot — kein Dauerlaerm, aber auch kein Gruen ueber einem wachsenden
+#      Rueckstau (dieselbe Trennung wie beim scan-melder).
+#
+# WARUM ISSUE UND NICHT DISCORD: derselbe belegte Kanal wie beim scan-melder
+# (`github-issue-owner`) — der Discord-Webhook existiert nicht (platform#2895).
+# `--assignee achimdehnert` IST die Zustellung.
+#
+# ABWEICHUNG VOM VORBILD (scan-melder.yml): dieser Workflow traegt den Marker
+# ROT-IST-BEFUND, scan-melder.yml (noch) nicht. Ohne den Marker wuerde
+# `cron_melder_check.py` einen mehrere Wochen in Folge wachsenden Rueckstau
+# nach der dritten roten Woche als KAPUTTEN Melder statt als offenen Fund
+# einstufen — beim woechentlichen Takt hier deutlich schneller relevant als
+# beim stuendlichen Takt des Vorbilds. Kein Fix an scan-melder.yml in diesem
+# PR (ausserhalb des Auftrags), aber hier bewusst mit Marker gebaut.
+#
+# WARUM `--kurz` UND NICHT DER VOLLBERICHT: dieses Repo ist oeffentlich, also
+# sind es die Actions-Logs und Issues auch. Stapelnamen wie `posteingang` sind
+# unkritisch (siehe Modul-Docstring) — Dokumenttitel waeren es nicht, und die
+# Kurzzeile enthaelt sowieso nur Stapelnamen und Zahlen.
+#
+# ROT-IST-BEFUND — maschinenlesbarer Marker fuer tools/cron_melder_check.py:
+# dieser Workflow ist absichtlich rot, wenn er ein Wachstum gefunden hat (oder
+# blind ist), und wird deshalb nicht als kaputter Melder gezaehlt, sondern als
+# TRIAGE ausgewiesen.
+
+name: rueckstau-melder
+
+on:
+  schedule:
+    - cron: "45 6 * * 1" # montags 06:45 UTC — versetzt zu allen anderen Montags-Meldern
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: rueckstau-melder
+  cancel-in-progress: false
+
+jobs:
+  stapel:
+    name: "Rueckstau in Posteingang/pruefen"
+    # Runner steht auf demselben Host wie Paperless — kein --ssh noetig.
+    runs-on: [self-hosted, prod]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: "Stapelgroessen messen"
+        id: messung
+        run: |
+          set +e
+          zeile=$(python3 tools/rueckstau_melder.py --kurz)
+          rc=$?
+          set -e
+          echo "$zeile"
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          echo "zeile=${zeile}" >> "$GITHUB_OUTPUT"
+          echo "${zeile}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Alarm: Issue an den Owner — nur bei Wachstum"
+        if: steps.messung.outputs.rc == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/labels" \
+            -f name="rueckstau-gewachsen" -f color="b60205" \
+            -f description="rueckstau-melder: ein Archiv-Stapel ist gegenueber dem letzten Lauf gewachsen" \
+            >/dev/null 2>&1 || true
+
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          {
+            echo "${{ steps.messung.outputs.zeile }}"
+            echo
+            echo "Lauf: ${run_url}"
+            echo
+            echo "Archiv pruefen: https://docs.iil.pet"
+          } > /tmp/rueckstau-melder-alarm.md
+
+          existing=$(gh issue list --label rueckstau-gewachsen --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/rueckstau-melder-alarm.md
+            echo "Kommentar an bestehendes Issue #$existing"
+          else
+            # --assignee IST die Zustellung — ohne sie benachrichtigt das Issue niemanden.
+            gh issue create \
+              --title "[rueckstau-gewachsen] Ein Archiv-Stapel waechst ($(date -u +%Y-%m-%d))" \
+              --label rueckstau-gewachsen \
+              --assignee "achimdehnert" \
+              --body-file /tmp/rueckstau-melder-alarm.md
+          fi
+
+      - name: "Gate: Ergebnis durchreichen"
+        run: |
+          rc="${{ steps.messung.outputs.rc }}"
+          if [ "${rc}" = "2" ]; then
+            echo "❌ Messung gescheitert — blind ist nicht gruen"
+            exit 1
+          fi
+          if [ "${rc}" = "1" ]; then
+            echo "❌ ${{ steps.messung.outputs.zeile }}"
+            echo "Rot ist Befund: mindestens ein Stapel ist gegenueber dem letzten Lauf gewachsen."
+            exit 1
+          fi
+          echo "✅ ${{ steps.messung.outputs.zeile }}"
