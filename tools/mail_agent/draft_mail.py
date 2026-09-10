@@ -36,7 +36,7 @@ import sys
 import time
 from email import message_from_bytes
 from email.message import EmailMessage
-from email.utils import formatdate
+from email.utils import formatdate, make_msgid, parseaddr, parsedate_to_datetime
 from pathlib import Path
 
 # Config-/Credentials-Parsing und LIST-Zeilen-Regex kommen aus send_mail (eine SSoT),
@@ -258,6 +258,13 @@ def build_draft(
         msg["Cc"] = ", ".join(cc)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
+    if "Message-ID" not in msg:
+        # Ein per APPEND abgelegter Entwurf traegt sonst KEINE Message-ID — der
+        # Server vergibt sie erst beim Senden. Ohne sie hat `anker.py` nichts, an
+        # dem es die Mail nach einem Outlook-Umzug (neue UID) wiederfinden koennte
+        # (#3015 K1). Domain vom Absender, nicht vom Empfaenger — es ist unsere Mail.
+        domain = parseaddr(sender)[1].rsplit("@", 1)[-1] or None
+        msg["Message-ID"] = make_msgid(domain=domain)
     if in_reply_to:
         msg["In-Reply-To"] = in_reply_to
         # References traegt die ganze Kette; fehlt sie, genuegt die eine ID.
@@ -369,7 +376,109 @@ def append_draft(
         if typ != "OK":
             raise RuntimeError(f"APPEND fehlgeschlagen: {typ} {resp}")
         uid_match = re.search(rb"APPENDUID \d+ (\d+)", resp[0] or b"")
-        return target, (uid_match.group(1).decode() if uid_match else "?"), warnungen
+        uid = uid_match.group(1).decode() if uid_match else ""
+        if not uid:
+            # Kein RFC-4315-APPENDUID vom Server (aeltere Exchange-Versionen) — die
+            # Message-ID im selben Ordner nachsuchen, statt die UID als "?" zu melden
+            # und den Anker gleich unmoeglich zu machen.
+            uid = _finde_uid_per_message_id(imap, target, msg["Message-ID"])
+        return target, uid or "?", warnungen
+
+
+def _finde_uid_per_message_id(
+    imap: imaplib.IMAP4_SSL, ordner: str, message_id: str | None
+) -> str:
+    """Fallback fuer `append_draft`, wenn der Server keine APPENDUID liefert.
+
+    Bewusst NUR im Zielordner gesucht (nicht ueber `anker.suche_message_id` mit
+    seinem Vollscan ueber alle Ordner) — der frisch abgelegte Entwurf kann nur
+    dort liegen.
+    """
+    if not message_id:
+        return ""
+    try:
+        typ, _ = imap.select(_mailbox_arg(ordner), readonly=True)
+        if typ != "OK":
+            return ""
+        typ, data = imap.uid("SEARCH", None, "HEADER", "Message-ID", message_id)
+    except (imaplib.IMAP4.error, OSError):
+        return ""
+    if typ != "OK" or not data or not data[0]:
+        return ""
+    uids = data[0].split()
+    return uids[-1].decode() if uids else ""
+
+
+def verankere_entwurf(
+    cfg_file: Path,
+    folder: str,
+    uid: str,
+    msg: EmailMessage,
+    subject: str,
+    anker_pfad: Path | None = None,
+) -> tuple[str | None, str | None]:
+    """Entwurf im Anker-Speicher verankern. Rueckgabe: (Schluessel, Warnung).
+
+    Der Schluessel folgt derselben Form wie `referenzen.schluessel()`:
+    `<konto>-<ordner-slug>-<uid>`, z.B. "hnu-entwuerfe-24049".
+
+    Wirft NIE — ein Fehler beim Verankern darf den bereits per APPEND abgelegten
+    Entwurf nicht zunichtemachen, deshalb kommt jeder Fehler als Warnung zurueck,
+    nie als Ausnahme (#3015 K1).
+    """
+    message_id = msg["Message-ID"]
+    if not message_id or not uid or uid == "?":
+        return None, "Anker nicht geschrieben: Message-ID oder UID fehlt"
+    try:
+        from anker import ANKER_DATEI, Anker
+        from anker import lade as anker_lade
+        from anker import speichere as anker_speichere
+        from mail_view import slugify
+        from read_mail import ordner_klartext
+
+        konto = konto_kuerzel(cfg_file)
+        ordner_name = ordner_klartext(folder)
+        item = f"{konto}-{slugify(ordner_name)}-{uid}"
+        datum = ""
+        try:
+            datum = parsedate_to_datetime(msg["Date"]).date().isoformat()
+        except (TypeError, ValueError, AttributeError):
+            pass
+        pfad = anker_pfad if anker_pfad is not None else ANKER_DATEI
+        bestand = anker_lade(pfad)
+        bestand[item] = Anker(
+            item=item,
+            konto=konto,
+            ordner=ordner_name,
+            uid=uid,
+            message_id=message_id,
+            betreff=subject,
+            datum=datum,
+        )
+        anker_speichere(bestand, pfad)
+        return item, None
+    except Exception as fehler:  # noqa: BLE001 — Verankern darf nie den Entwurf kosten
+        return None, f"Anker nicht geschrieben: {fehler}"
+
+
+def nach_dem_ablegen(
+    cfg_file: Path,
+    folder: str,
+    uid: str,
+    msg: EmailMessage,
+    subject: str,
+    *,
+    ohne_anker: bool = False,
+    anker_pfad: Path | None = None,
+) -> tuple[str | None, str | None]:
+    """Nach dem APPEND: verankern, ausser `--ohne-anker` ist gesetzt.
+
+    Eigene Funktion statt Inline-Code in `main()`, damit sich der Schalter ohne
+    Netz-/IMAP-Mocking testen laesst.
+    """
+    if ohne_anker:
+        return None, None
+    return verankere_entwurf(cfg_file, folder, uid, msg, subject, anker_pfad=anker_pfad)
 
 
 def _read(path_str: str | None) -> str | None:
@@ -448,6 +557,13 @@ def main() -> None:
         action="store_true",
         help="Ursprungsmail zusaetzlich als message/rfc822 anhaengen (zum Gegenlesen "
         "vor dem Senden). Braucht --zitat-message-id.",
+    )
+    ap.add_argument(
+        "--ohne-anker",
+        dest="ohne_anker",
+        action="store_true",
+        help="Keinen Message-ID-Anker schreiben (Standard: verankern) — fuer Tests "
+        "oder Konten ausserhalb des Anker-Systems (#3015 K1)",
     )
     args = ap.parse_args()
     if args.ursprung_anhaengen and not args.zitat_message_id:
@@ -589,6 +705,11 @@ def main() -> None:
     )
     for w in warnungen:
         print(f"⚠ {w}", file=sys.stderr)
+    schluessel, anker_warnung = nach_dem_ablegen(
+        cfg_file, folder, uid, msg, args.subject, ohne_anker=args.ohne_anker
+    )
+    if anker_warnung:
+        print(f"⚠ {anker_warnung}", file=sys.stderr)
     kind = "HTML+Text" if html else "Text"
     rolle = f" Rolle: {profile.role_id} ({profile.display_name})." if profile else ""
     # Konto und Absender gehoeren in die Meldung: die frueher nur genannte Rolle
@@ -599,6 +720,8 @@ def main() -> None:
         f"in '{folder}' abgelegt, UID {uid} — NICHT gesendet.{rolle} "
         f"Pruefen und selbst aus dem Mail-Client senden."
     )
+    if schluessel:
+        print(f"verankert: {schluessel}")
 
 
 if __name__ == "__main__":
