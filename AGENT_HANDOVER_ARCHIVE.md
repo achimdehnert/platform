@@ -2455,3 +2455,22 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 **Exit 4 hat zum ersten Mal an einem echten Ereignis gefeuert:** der Lauf nach dem Merge meldete die vom Owner freigegebene Loeschung einer 17-seitigen Fassung als Verlust ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert und geschlossen). Vor dem Loeschen lag ein Seitenvergleich beider Fassungen vor; die behaltene 16-seitige liegt als Dokument 2500 im Archiv. Folgelauf gruen.
 
 **Offen und dein Zug:** Dublette meldet wie ein Verlust und die Fehlerklasse bleibt „unbekannt" ([#3023](https://github.com/achimdehnert/platform/issues/3023)) — Fix liegt als [#3029](https://github.com/achimdehnert/platform/pull/3029) vor, gegen prod abgenommen, nicht gemergt.
+
+---
+
+<!-- Ausgelagert 2026-09-10 nachmittags aus AGENT_HANDOVER.md (Stand-Block vom Mittag),
+     weil der neue Stand sonst den Byte-Deckel sprengt. Offene Punkte daraus stehen als
+     Kurzzeilen unter "## Offene Fäden". -->
+
+## ⚡ Stand (2026-09-10 mittags — iil-assist: Konzept, Katalog und MVP 1 in Produktion)
+
+**Auftrag** [#3011](https://github.com/achimdehnert/platform/issues/3011) (Owner-Go, vier Fassungen): Dienste der Hubs einmal bauen, zweimal anbieten — App und Chat (chat-hub, künftig iil-assist-hub). **Erreicht heute:** Inventar-Werkzeug (1575 Kandidaten in 63 Repos, byte-gleich, [#3012](https://github.com/achimdehnert/platform/pull/3012)) · [KONZ-platform-058](docs/konzepte/KONZ-platform-058-iil-assist-ein-dienst-zwei-zugaenge.md) mit Zustandsdatei, `tools/iil_assist_katalog.py` (validate, briefing, naechster-schritt, vier Bahnen) und bestandener Probe eines frischen Modells ([#3013](https://github.com/achimdehnert/platform/pull/3013)) · Katalog 15 Dienste, fünf MVPs vom Owner bestätigt · **MVP 1 Plattform-Status in Produktion**: Vertragspaket `packages/iil-dienst` ([#3018](https://github.com/achimdehnert/platform/pull/3018)), Dienst in dev-hub ([#346](https://github.com/achimdehnert/dev-hub/pull/346), [#347](https://github.com/achimdehnert/dev-hub/pull/347) Wheel-Fix), Gateway `dienst_katalog`/`dienst_aufruf` im Orchestrator ([mcp-hub#263](https://github.com/achimdehnert/mcp-hub/pull/263), Prod-Vermerk [mcp-hub#264](https://github.com/achimdehnert/mcp-hub/issues/264)).
+
+**Nebenbei:** zwei Scan-Hänger geklärt (Paperless 2499, Original 2429 archiviert) · netcup = fremder Host, Sachstand [#2950](https://github.com/achimdehnert/platform/issues/2950) · Ersatz-Runner `mcp-hub-staging-ci` auf dev-desktop, Deklaration [#3028](https://github.com/achimdehnert/platform/pull/3028).
+
+**Abweichungen, ehrlich:** dev-hub deployt bei Push direkt nach Prod, sein Staging-Weg ist seit 07.09. kaputt ([dev-hub#348](https://github.com/achimdehnert/dev-hub/issues/348)); mcp-hub hat kein Staging. Beide Prod-Schritte gingen auf ausdrückliches Owner-Wort. Der **Rundlauf im Chat (Stufe A) ist nicht belegt** — die Sitzung kannte die neuen Orchestrator-Werkzeuge nicht (Werkzeugliste ist sitzungsstarr), der REST-Weg braucht den RUN-Schlüssel. Erste Handlung der nächsten Sitzung: `dienst_katalog(repo=dev-hub)`, `dienst_aufruf(name=plattform-status)`, Antwort als Lotse in den Infra-Raum; dann MVP 2 Dokument-Suche (Raum-Bindung).
+
+**Eigene Fehler:** netcup als „fehlender Alias“ gedeutet (fremder Host) · `iil-assist` als „nirgends“ behauptet (`iil-assist-core` existiert) · git+-URL statt Wheel (Prod-Deploy einmal rot) · zweite Erwartungsliste übersehen · Tests hinter `tail` für grün gehalten. Lessons in Outline.
+
+**Zielzustand #3011:** *nicht erreicht* — **Urteil des fremden Abnahme-Agenten, nicht meines:** K1, K2, K3, K4, K6, K8 erfüllt mit Beleg; **K5 nicht erfüllt** (ein MVP von fünf, in Prod statt Staging, Chat-Rundlauf offen als O5); **K7 nicht erfüllt** — die vier Bahnen existierten nur als Code ohne einen einzigen Lauf. Danach nachgeholt: Bahnen `wartung` und `verbesserung` einmal ausgeführt, Läufe stehen in der Zustandsdatei; Takt und Melder-Register bleiben #3020. Ich hatte K7 als erfüllt geführt — das war zu weit. Programm läuft, Phase `bau`, Kill-Gate 2026-10-24.
+**SA-4:** 9 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.

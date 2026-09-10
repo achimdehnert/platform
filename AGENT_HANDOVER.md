@@ -15,20 +15,21 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 mittags — iil-assist: Konzept, Katalog und MVP 1 in Produktion)
+## ⚡ Aktueller Stand (2026-09-10 nachmittags — Scan-Strecke geschlossen, Archiv aufgeraeumt)
 
-**Auftrag** [#3011](https://github.com/achimdehnert/platform/issues/3011) (Owner-Go, vier Fassungen): Dienste der Hubs einmal bauen, zweimal anbieten — App und Chat (chat-hub, künftig iil-assist-hub). **Erreicht heute:** Inventar-Werkzeug (1575 Kandidaten in 63 Repos, byte-gleich, [#3012](https://github.com/achimdehnert/platform/pull/3012)) · [KONZ-platform-058](docs/konzepte/KONZ-platform-058-iil-assist-ein-dienst-zwei-zugaenge.md) mit Zustandsdatei, `tools/iil_assist_katalog.py` (validate, briefing, naechster-schritt, vier Bahnen) und bestandener Probe eines frischen Modells ([#3013](https://github.com/achimdehnert/platform/pull/3013)) · Katalog 15 Dienste, fünf MVPs vom Owner bestätigt · **MVP 1 Plattform-Status in Produktion**: Vertragspaket `packages/iil-dienst` ([#3018](https://github.com/achimdehnert/platform/pull/3018)), Dienst in dev-hub ([#346](https://github.com/achimdehnert/dev-hub/pull/346), [#347](https://github.com/achimdehnert/dev-hub/pull/347) Wheel-Fix), Gateway `dienst_katalog`/`dienst_aufruf` im Orchestrator ([mcp-hub#263](https://github.com/achimdehnert/mcp-hub/pull/263), Prod-Vermerk [mcp-hub#264](https://github.com/achimdehnert/mcp-hub/issues/264)).
+**Scan-Strecke** ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3), geschlossen): der Melder deckt jetzt drei Faelle ab — liegt zu lange (Exit 1), verschwindet ohne Dokument (Exit 4), Aufnahme scheitert (Exit 5, [#3017](https://github.com/achimdehnert/platform/pull/3017)); eine Dublette meldet sichtbar, aber stumm ([#3029](https://github.com/achimdehnert/platform/pull/3029)). **Nicht** ueber `full_audit` auf der Samba-Freigabe — der Weg blieb nach der Vier-Neustarts-Episode zurueckgebaut. Exit 4 hat erstmals an einem echten Ereignis gefeuert ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert).
 
-**Nebenbei:** zwei Scan-Hänger geklärt (Paperless 2499, Original 2429 archiviert) · netcup = fremder Host, Sachstand [#2950](https://github.com/achimdehnert/platform/issues/2950) · Ersatz-Runner `mcp-hub-staging-ci` auf dev-desktop, Deklaration [#3028](https://github.com/achimdehnert/platform/pull/3028).
+**Archiv aufgeraeumt** (Owner-Auftrag „Vorschlaege zur Optimierung"): ohne Besitzer 546 -> 0, ohne Absender 1149 -> 829, Titel nur Scannernummer 244 -> 91, Absender 30 -> 49, Stichwoerter 114 -> 99. Ursachen: das Ablage-Skript suchte ein Konto `achim`, das es nie gab; und 28 gepflegte Suchbegriffe standen auf „automatisch", wo der Klassifikator bei 30 Absendern auf 211 Beispielen nichts liefert (Gegenprobe ueber Stichwoerter liefert Treffer). Die Skript-Aenderungen liegen NUR auf prod (`/opt/doc-hub/scripts/auto-title.py`, Sicherung `.bak-20260910`) — bekannte Luecke.
 
-**Abweichungen, ehrlich:** dev-hub deployt bei Push direkt nach Prod, sein Staging-Weg ist seit 07.09. kaputt ([dev-hub#348](https://github.com/achimdehnert/dev-hub/issues/348)); mcp-hub hat kein Staging. Beide Prod-Schritte gingen auf ausdrückliches Owner-Wort. Der **Rundlauf im Chat (Stufe A) ist nicht belegt** — die Sitzung kannte die neuen Orchestrator-Werkzeuge nicht (Werkzeugliste ist sitzungsstarr), der REST-Weg braucht den RUN-Schlüssel. Erste Handlung der nächsten Sitzung: `dienst_katalog(repo=dev-hub)`, `dienst_aufruf(name=plattform-status)`, Antwort als Lotse in den Infra-Raum; dann MVP 2 Dokument-Suche (Raum-Bindung).
+**Zwei eigene Fehler, behoben:** `docker exec` ohne `-u paperless` legte 153 Dateien als root an (Suchindex + Ablage), danach scheiterte jeder Einzug und ein echter Scan blieb liegen. Und `scan-melder.yml` schrieb seinen Marker mit Leerzeichen, waehrend `cron_melder_check.py` exakt `ROT-IST-BEFUND` sucht — er wirkte dort nie. Beides in [#3055](https://github.com/achimdehnert/platform/pull/3055), zusammen mit dem woechentlichen Rueckstau-Melder (Posteingang 331, Pruefstapel 57, meldet nur Wachstum).
 
-**Eigene Fehler:** netcup als „fehlender Alias“ gedeutet (fremder Host) · `iil-assist` als „nirgends“ behauptet (`iil-assist-core` existiert) · git+-URL statt Wheel (Prod-Deploy einmal rot) · zweite Erwartungsliste übersehen · Tests hinter `tail` für grün gehalten. Lessons in Outline.
+**Zugang:** Access-Liste fuer `docs.iil.pet` traegt jetzt Firmen- und Hochschul-Adresse plus zwei weitere Personen. Analysen und Rueckweg-Listen liegen in `~/shared/docs-hub/`; offen bleibt [doc-hub#18](https://github.com/achimdehnert/doc-hub/issues/18) (zwei Konten anderer Personen).
 
-**Zielzustand #3011:** *nicht erreicht* — **Urteil des fremden Abnahme-Agenten, nicht meines:** K1, K2, K3, K4, K6, K8 erfüllt mit Beleg; **K5 nicht erfüllt** (ein MVP von fünf, in Prod statt Staging, Chat-Rundlauf offen als O5); **K7 nicht erfüllt** — die vier Bahnen existierten nur als Code ohne einen einzigen Lauf. Danach nachgeholt: Bahnen `wartung` und `verbesserung` einmal ausgeführt, Läufe stehen in der Zustandsdatei; Takt und Melder-Register bleiben #3020. Ich hatte K7 als erfüllt geführt — das war zu weit. Programm läuft, Phase `bau`, Kill-Gate 2026-10-24.
-**SA-4:** 9 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+**Zielzustand:** erreicht fuer alle freigegebenen Punkte. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
 
 ## Offene Fäden (über den Session-Stand hinaus)
+
+0. iil-assist Gateway MVP 1: Prod-Freigabe fuer PR #263 offen: https://github.com/achimdehnert/mcp-hub/issues/264
 
 0. Auftrag #3015 (Mailcheck, To-do, Morgen-Zeitung selbstmessend) laeuft, Stand im Archiv vom 2026-09-10: https://github.com/achimdehnert/platform/issues/3015
 0. iil-assist (KONZ-058): Rundlauf im Chat belegen (O5), dann MVP 2 Dokument-Suche; Nebenissues #3019 PyPI, #3020 Regelkreis, #3021 Routing, #3022 ADR-036: https://github.com/achimdehnert/platform/issues/3011
@@ -49,7 +50,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.
 
-0. Scan-Strecke: lueckenloses Lieferprotokoll offen, nach vier Anlaeufen gestoppt: https://github.com/achimdehnert/doc-hub/issues/3
+0. Scan-Strecke: Melder deckt liegengeblieben, verschwunden und fehlgeschlagen ab; Restluecke benannt, Vorgang geschlossen: https://github.com/achimdehnert/doc-hub/issues/3
 0. Auslagern verlor drei Faeden nach #2967 — Befund zum Gate selbst: https://github.com/achimdehnert/platform/issues/2974
 0. Gate-Registry-Eintrag `handover-auslagerung-verschluckt-offenes` wartet auf Owner-Wort (`docs/governance/`): https://github.com/achimdehnert/platform/pull/2984
 0. Morgen-Zeitung: Themenauswahl kuert generische Woerter, Smoke-Lauf offen: https://github.com/achimdehnert/news-hub/issues/33
