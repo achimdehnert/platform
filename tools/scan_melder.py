@@ -519,16 +519,28 @@ def lade_inventar(pfad: Path) -> list[dict]:
         return []
 
 
-def schreibe_inventar(pfad: Path, dateien: list[dict]) -> None:
-    pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(
-        json.dumps(
-            {"gemessen_am": time.time(), "dateien": dateien},
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+def schreibe_inventar(pfad: Path, dateien: list[dict]) -> bool:
+    """Inventar fortschreiben. False, wenn der Ort nicht beschreibbar ist.
+
+    Der im Workflow dokumentierte Owner-Weg (`--ssh hetzner-prod`) laeuft auf
+    einem Rechner, der `/var/lib/scan-melder` nicht anlegen darf. Bis 2026-09-10
+    brach der Lauf dort mit `PermissionError` ab -- BEVOR der Bericht gedruckt
+    war. Der Melder verschwieg damit genau das, wofuer er gebaut ist. Ein nicht
+    beschreibbares Inventar ist ein Hinweis, kein Grund, den Befund zu verlieren.
+    """
+    try:
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        pfad.write_text(
+            json.dumps(
+                {"gemessen_am": time.time(), "dateien": dateien},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        return False
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -639,8 +651,12 @@ def main(argv: list[str] | None = None) -> int:
             verluste = [v for v in weg if Path(v["pfad"]).name not in gefunden]
         # Nur schreiben, wenn beurteilt wurde: sonst faellt ein unbeantworteter Lauf
         # das Inventar zurueck und der naechste Lauf haelt den Verlust fuer erledigt.
-        if beantwortet:
-            schreibe_inventar(pfad, bestand)
+        if beantwortet and not schreibe_inventar(pfad, bestand):
+            print(
+                f"scan-melder: Inventar {pfad} nicht beschreibbar — der naechste "
+                "Lauf kann keinen Verlust erkennen",
+                file=sys.stderr,
+            )
 
     fehlgeschlagene: list[dict] = []
     log_gemessen: bool | None = None

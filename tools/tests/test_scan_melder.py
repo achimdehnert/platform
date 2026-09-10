@@ -295,3 +295,22 @@ def test_should_keep_the_full_filename_when_it_contains_spaces():
     assert len(treffer) == 1
     assert treffer[0]["dateiname"] == "2026-09-09 - Ablage Musterstelle.pdf"
     assert treffer[0]["ergebnis"] == "fehlgeschlagen"
+
+
+def test_should_report_instead_of_crashing_when_inventory_is_unwritable(tmp_path):
+    """Der dokumentierte Owner-Weg lief auf einem Rechner ohne Schreibrecht.
+
+    Bis 2026-09-10 brach der Lauf mit PermissionError ab, bevor der Bericht
+    gedruckt war — ein Melder, der am Nebenweg stirbt, meldet nichts.
+    """
+    gesperrt = tmp_path / "gesperrt"
+    gesperrt.mkdir(mode=0o500)
+    assert sm.schreibe_inventar(gesperrt / "tief" / "inventar.json", []) is False
+
+
+def test_should_confirm_a_writable_inventory_path():
+    """Positivkontrolle: derselbe Aufruf muss auf einem freien Pfad True liefern."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        assert sm.schreibe_inventar(Path(d) / "tief" / "inventar.json", []) is True
