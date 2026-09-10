@@ -27,13 +27,13 @@
 # (`github-issue-owner`) — der Discord-Webhook existiert nicht (platform#2895).
 # `--assignee achimdehnert` IST die Zustellung.
 #
-# ABWEICHUNG VOM VORBILD (scan-melder.yml): dieser Workflow traegt den Marker
-# ROT-IST-BEFUND, scan-melder.yml (noch) nicht. Ohne den Marker wuerde
-# `cron_melder_check.py` einen mehrere Wochen in Folge wachsenden Rueckstau
-# nach der dritten roten Woche als KAPUTTEN Melder statt als offenen Fund
-# einstufen — beim woechentlichen Takt hier deutlich schneller relevant als
-# beim stuendlichen Takt des Vorbilds. Kein Fix an scan-melder.yml in diesem
-# PR (ausserhalb des Auftrags), aber hier bewusst mit Marker gebaut.
+# ROT-IST-BEFUND, und warum die Schreibweise zaehlt: ohne diesen Marker haelt
+# `cron_melder_check.py` einen mehrere Wochen in Folge wachsenden Rueckstau ab
+# der dritten roten Woche fuer einen KAPUTTEN Melder statt fuer einen offenen
+# Fund — beim woechentlichen Takt hier schneller relevant als beim stuendlichen
+# Takt des Vorbilds. Beim Bau fiel auf, dass scan-melder.yml den Marker mit
+# Leerzeichen schrieb und deshalb nicht erkannt wurde; das ist in diesem PR
+# gleich mit korrigiert.
 #
 # WARUM `--kurz` UND NICHT DER VOLLBERICHT: dieses Repo ist oeffentlich, also
 # sind es die Actions-Logs und Issues auch. Stapelnamen wie `posteingang` sind

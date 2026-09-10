@@ -33,7 +33,10 @@
 # unabhaengig vom stuendlichen Lauf-Abstand. Auch das ist ein Ereignis, kein
 # Zustand, und alarmiert deshalb sofort, aus demselben Grund wie Exit 4.
 #
-# ROT IST BEFUND: eine haengende Datei ist Arbeit, kein kaputter Melder.
+# ROT-IST-BEFUND: eine haengende Datei ist Arbeit, kein kaputter Melder.
+# (Schreibweise mit Bindestrichen ist Pflicht -- `cron_melder_check.py` sucht
+# genau diese Zeichenkette. Bis 2026-09-10 stand hier 'ROT IST BEFUND' mit
+# Leerzeichen, und der Marker wirkte deshalb nicht.)
 #
 # WARUM `--kurz` UND NICHT DER VOLLBERICHT: dieses Repo ist oeffentlich, also sind es
 # die Actions-Logs und die Issues auch. Die Kurzzeile nennt nur Zahlen; Ordner- und
