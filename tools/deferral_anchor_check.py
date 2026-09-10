@@ -16,13 +16,27 @@ Bewusst eng gehalten: nur Formulierungen, die eine Auslassung ANKUENDIGEN, nicht
 jedes Vorkommen von "offen". Ein Gate mit Fehlalarmen wird umgangen statt befolgt.
 
 Exit: 0 = sauber oder nur Warnung, 1 = Fund im --block-Modus, 2 = Werkzeugfehler.
+
+── Modus `--issue N` (2026-09-10, Retro-Anlass platform#3015) ───────────────
+
+Bisher las dieses Gate ausschliesslich den PR-Text. Am 2026-09-10 standen
+sechs Folgearbeiten als Aufschub-Prosa ohne Anker in einem SACHSTANDS-
+KOMMENTAR des Auftrags-Issues (#3015) — eine Quelle, die der PR-Text-Scanner
+per Konstruktion nicht sieht, genau wie 2026-08-29 der Docstring im Code.
+`--issue N [--repo owner/repo]` laedt Issue-Body + alle Kommentare (`gh api`,
+paginiert) und wendet dieselbe Funktion `finde_ankerlose_stellen` auf jeden
+Kommentar-Body einzeln an. Bewusst ADVISORY in CI (kein neuer Required
+Check): ein Sachstand-Kommentar entsteht oft NACH dem PR und soll den PR
+nicht rueckwirkend blockieren.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -248,6 +262,137 @@ def prosa_aus_diff(diff: str) -> str:
     return "\n".join(zeilen)
 
 
+def _parse_verkettete_json_arrays(ausgabe: str) -> list:
+    """`gh api ... --paginate` haengt eine JSON-Liste pro Seite aneinander.
+
+    Ohne `--slurp` (nicht auf jeder gh-Version vorhanden) liefert die
+    Ausgabe mehrere top-level JSON-Arrays hintereinander statt eines
+    gemeinsamen — Standardverhalten von `gh api --paginate` bei
+    Listen-Endpunkten. `json.loads` scheitert daran; ein
+    `JSONDecoder.raw_decode`-Loop liest sie einzeln und haengt sie zu einer
+    Liste zusammen.
+    """
+    dec = json.JSONDecoder()
+    text = ausgabe.strip()
+    ergebnis: list = []
+    idx = 0
+    laenge = len(text)
+    while idx < laenge:
+        while idx < laenge and text[idx].isspace():
+            idx += 1
+        if idx >= laenge:
+            break
+        obj, ende = dec.raw_decode(text, idx)
+        ergebnis.extend(obj if isinstance(obj, list) else [obj])
+        idx = ende
+    return ergebnis
+
+
+def _issue_stoff_per_gh(issue: int, repo: str) -> tuple[str, list[dict]]:
+    """Issue-Body + alle Kommentare ueber `gh api` (paginiert)."""
+    body_lauf = subprocess.run(
+        ["gh", "api", f"repos/{repo}/issues/{issue}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    body = json.loads(body_lauf.stdout).get("body") or ""
+
+    kommentare_lauf = subprocess.run(
+        ["gh", "api", f"repos/{repo}/issues/{issue}/comments", "--paginate"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    kommentare = _parse_verkettete_json_arrays(kommentare_lauf.stdout)
+    return body, kommentare
+
+
+def _issue_stoff_aus_datei(pfad: str) -> tuple[str, list[dict]]:
+    """`--eingabe DATEI`: JSON `{"body": "...", "comments": [{"id", "html_url", "body"}]}`.
+
+    Ersetzt den `gh`-Aufruf fuer Tests — kein Netzwerk, kein Token noetig.
+    """
+    with open(pfad, encoding="utf-8") as f:
+        daten = json.load(f)
+    return daten.get("body") or "", daten.get("comments") or []
+
+
+def _berichte(funde: list[tuple], block: bool) -> int:
+    """Gemeinsame Ausgabe/Exit-Logik fuer PR-Text-, Diff- und Issue-Modus.
+
+    `funde` ist entweder eine Liste aus (Zeile, Text) — PR-Text/Diff-Modus —
+    oder aus (Ort, Zeile, Text) — Issue-Modus, wo `Ort` den Kommentar
+    benennt (Issue-Body oder Kommentar-URL).
+    """
+    if not funde:
+        print(
+            "✅ Aufschub-Anker: jede angekuendigte Auslassung hat eine Issue-Referenz."
+        )
+        return 0
+
+    kopf = "❌ Aufschub ohne Anker" if block else "⚠️  Aufschub ohne Anker"
+    print(
+        f"{kopf}: {len(funde)} Stelle(n) kuendigen Arbeit an, ohne ein Issue zu nennen:"
+    )
+    for eintrag in funde:
+        if len(eintrag) == 3:
+            ort, nr, zeile = eintrag
+            print(f"  {ort} — Zeile {nr}: {zeile[:110]}")
+        else:
+            nr, zeile = eintrag
+            print(f"  Zeile {nr}: {zeile[:110]}")
+    print(
+        "\nDer PR-Text zaehlt nicht als Tracking. Lege ein Issue an und nenne es in "
+        "der Naehe der Stelle (`Refs #N`), oder streiche die Ankuendigung."
+    )
+    return 1 if block else 0
+
+
+def _pruefe_issue(args: argparse.Namespace) -> int:
+    """`--issue`/`--eingabe`-Modus: Issue-Body + Kommentare statt PR-Text."""
+    try:
+        if args.eingabe:
+            body, kommentare = _issue_stoff_aus_datei(args.eingabe)
+        else:
+            if args.issue is None:
+                print(
+                    "FEHLER: --eingabe ohne --issue braucht keine Issue-Nummer, "
+                    "aber --issue ohne --eingabe schon.",
+                    file=sys.stderr,
+                )
+                return 2
+            repo = args.repo or os.environ.get("GITHUB_REPOSITORY")
+            if not repo:
+                print(
+                    "FEHLER: --repo fehlt (oder $GITHUB_REPOSITORY setzen)",
+                    file=sys.stderr,
+                )
+                return 2
+            body, kommentare = _issue_stoff_per_gh(args.issue, repo)
+    except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+        print(f"FEHLER: {exc}", file=sys.stderr)
+        return 2
+
+    # Abdeckungsauskunft: wie viele Kommentare wurden ueberhaupt gesehen —
+    # sonst bleibt ein leerer Fund ("0 Stellen") nicht von "Issue hatte gar
+    # keine Kommentare" unterscheidbar.
+    print(f"Geprueft: Issue-Body + {len(kommentare)} Kommentar(e).")
+
+    funde: list[tuple[str, int, str]] = [
+        ("Issue-Body", nr, zeile)
+        for nr, zeile in finde_ankerlose_stellen(body, args.fenster)
+    ]
+    for kommentar in kommentare:
+        ort = kommentar.get("html_url") or f"Kommentar {kommentar.get('id', '?')}"
+        for nr, zeile in finde_ankerlose_stellen(
+            kommentar.get("body") or "", args.fenster
+        ):
+            funde.append((ort, nr, zeile))
+
+    return _berichte(funde, args.block)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--block", action="store_true", help="Exit 1 bei Fund")
@@ -259,7 +404,26 @@ def main(argv: list[str] | None = None) -> int:
         help="Zusaetzlich die hinzugefuegten Kommentar-/Docstring-Zeilen eines "
         "Unified Diff pruefen (Vertagung im Code zaehlt wie eine im PR-Text)",
     )
+    ap.add_argument(
+        "--issue",
+        type=int,
+        help="Issue-Nummer: prueft Issue-Body + alle Kommentare statt PR-Text "
+        "(gh api, paginiert)",
+    )
+    ap.add_argument(
+        "--repo",
+        help="owner/repo fuer --issue (Default: $GITHUB_REPOSITORY)",
+    )
+    ap.add_argument(
+        "--eingabe",
+        metavar="DATEI",
+        help='JSON {"body": "...", "comments": [{"id","html_url","body"}]} '
+        "statt gh-Aufruf — ersetzt --issue in Tests",
+    )
     args = ap.parse_args(argv)
+
+    if args.issue is not None or args.eingabe:
+        return _pruefe_issue(args)
 
     try:
         if args.datei:
@@ -288,23 +452,8 @@ def main(argv: list[str] | None = None) -> int:
             (nr, f"[Code] {zeile}")
             for nr, zeile in finde_ankerlose_stellen(prosa, args.fenster)
         ]
-    if not funde:
-        print(
-            "✅ Aufschub-Anker: jede angekuendigte Auslassung hat eine Issue-Referenz."
-        )
-        return 0
 
-    kopf = "❌ Aufschub ohne Anker" if args.block else "⚠️  Aufschub ohne Anker"
-    print(
-        f"{kopf}: {len(funde)} Stelle(n) kuendigen Arbeit an, ohne ein Issue zu nennen:"
-    )
-    for nr, zeile in funde:
-        print(f"  Zeile {nr}: {zeile[:110]}")
-    print(
-        "\nDer PR-Text zaehlt nicht als Tracking. Lege ein Issue an und nenne es in "
-        "der Naehe der Stelle (`Refs #N`), oder streiche die Ankuendigung."
-    )
-    return 1 if args.block else 0
+    return _berichte(funde, args.block)
 
 
 if __name__ == "__main__":

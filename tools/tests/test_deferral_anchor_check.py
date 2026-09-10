@@ -9,6 +9,7 @@ harmloser Text darf es NICHT.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -510,3 +511,148 @@ def test_should_leave_the_specific_phrases_unconditional():
         "Vertagt.",
     ):
         assert dac.finde_ankerlose_stellen(zeile), zeile
+
+
+# ── Ausweitung 2026-09-10: Issue-Kommentare (Retro-Anlass platform#3015) ─────
+#
+# Am 2026-09-10 standen sechs Folgearbeiten als Aufschub-Prosa ohne Anker in
+# einem Sachstands-KOMMENTAR des Auftrags-Issues #3015 — eine Quelle, die der
+# bisherige PR-Text-Scanner per Konstruktion nicht sieht. `--eingabe DATEI`
+# ersetzt den `gh api`-Aufruf durch eine lokale JSON-Fixture, damit die
+# Faelle ohne Netzwerk/Token pruefbar sind.
+
+
+def _eingabe_datei(tmp_path, daten: dict) -> str:
+    pfad = tmp_path / "issue_stoff.json"
+    pfad.write_text(json.dumps(daten), encoding="utf-8")
+    return str(pfad)
+
+
+def test_should_flag_a_deferral_in_an_issue_comment_without_an_anchor(tmp_path, capsys):
+    """(a) Kommentar mit "bleibt offen ... Kandidat" ohne Anker → Fund."""
+    daten = {
+        "body": "Auftrags-Issue, keine eigene Vertagung.",
+        "comments": [
+            {
+                "id": 1,
+                "html_url": "https://github.com/achimdehnert/platform/issues/3015#issuecomment-1",
+                "body": "Kandidat fuer eine Umstellung — bleibt vorerst offen.",
+            }
+        ],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+    out = capsys.readouterr().out
+
+    assert rc == 1
+    assert "issuecomment-1" in out
+
+
+def test_should_accept_the_same_comment_with_an_issue_anchor(tmp_path, capsys):
+    """(b) derselbe Satz mit #3051 → kein Fund."""
+    daten = {
+        "body": "Auftrags-Issue, keine eigene Vertagung.",
+        "comments": [
+            {
+                "id": 1,
+                "html_url": "https://github.com/achimdehnert/platform/issues/3015#issuecomment-1",
+                "body": "Kandidat fuer eine Umstellung — bleibt vorerst offen. Refs #3051",
+            }
+        ],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "✅" in out
+
+
+def test_should_report_how_many_comments_were_checked(tmp_path, capsys):
+    """(c) --eingabe mit zwei Kommentaren, Kopfzeile nennt 2."""
+    daten = {
+        "body": "Sauber.",
+        "comments": [
+            {"id": 1, "html_url": "https://x/1", "body": "Alles erledigt."},
+            {"id": 2, "html_url": "https://x/2", "body": "Nichts offen."},
+        ],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    dac.main(["--eingabe", pfad])
+    out = capsys.readouterr().out
+
+    assert "Geprueft: Issue-Body + 2 Kommentar(e)." in out
+
+
+def test_should_exit_0_for_a_clean_issue_and_comments(tmp_path, capsys):
+    """(d) Body ohne Aufschub-Prosa → 0 Funde, Exit 0."""
+    daten = {
+        "body": "Dieses Issue beschreibt nur Arbeit, die schon erledigt ist.",
+        "comments": [
+            {"id": 1, "html_url": "https://x/1", "body": "Erledigt, nichts offen."}
+        ],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "✅" in out
+
+
+def test_should_flag_the_issue_body_via_main(tmp_path, capsys):
+    """Der Issue-Body wird wie ein eigener Kommentar geprueft, nicht nur die Antworten."""
+    daten = {"body": "Der Rest bleibt offen.", "comments": []}
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+    out = capsys.readouterr().out
+
+    assert rc == 1
+    assert "Issue-Body" in out
+
+
+def test_should_treat_a_checkbox_line_with_an_anchor_as_covered(tmp_path):
+    """Falsch-positiv-Bremse: Checkbox-Zeile mit Anker in derselben Zeile gilt als verankert."""
+    daten = {
+        "body": "- [ ] Folge-PR fuer die Migration, Refs #42",
+        "comments": [],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+
+    assert rc == 0
+
+
+def test_should_still_flag_a_checkbox_line_without_an_anchor(tmp_path, capsys):
+    """Gegenprobe: dieselbe Checkbox ohne Anker bleibt ein Fund."""
+    daten = {
+        "body": "- [ ] Folge-PR fuer die Migration, noch offen.",
+        "comments": [],
+    }
+    pfad = _eingabe_datei(tmp_path, daten)
+
+    rc = dac.main(["--eingabe", pfad, "--block"])
+
+    assert rc == 1
+
+
+def test_should_error_on_issue_without_repo_or_eingabe(monkeypatch):
+    """`--issue` ohne `--repo` und ohne `$GITHUB_REPOSITORY` ist ein Werkzeugfehler, kein Fund."""
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+
+    assert dac.main(["--issue", "3015"]) == 2
+
+
+def test_should_parse_concatenated_json_pages():
+    """`gh api --paginate` haengt JSON-Arrays aneinander — der Parser muss das koennen."""
+    ausgabe = '[{"id": 1}, {"id": 2}][{"id": 3}]'
+
+    ergebnis = dac._parse_verkettete_json_arrays(ausgabe)
+
+    assert [e["id"] for e in ergebnis] == [1, 2, 3]
