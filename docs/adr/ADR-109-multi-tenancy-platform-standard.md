@@ -167,10 +167,15 @@ Rollback: `python manage.py migrate core 0001` (vollständig reversibel via `rev
 
 - `billing-hub`: `TENANCY_MODE=disabled` + `TENANT_ISOLATION_MODE=disabled` interim bis separates ADR
 - `dev-hub`: `TENANCY_MODE=disabled`, kein Rollout geplant
-- `frist-hub`: `TENANCY_MODE=single` je LRA, **separate gehostete Instanz statt geteilter
-  Multi-Tenant-DB** (Sozialdaten/Citizen-facing, kein Cross-Tenant-Reporting gewünscht —
-  Betriebstopologie-Klärung 2026-07-06, s. `frist-hub:docs/konzepte/KONZ-frist-hub-001` §8.5).
-  Kein `django_tenancy`-Rollout vorgesehen.
+- `frist-hub`: `TENANCY_MODE=single` je LRA als **Pilot-Default** (Sozialdaten/Citizen-facing,
+  kein Cross-Tenant-Reporting gewünscht — Betriebstopologie-Klärung 2026-07-06,
+  s. `frist-hub:docs/konzepte/KONZ-frist-hub-001` §8.5). **Nachgezogen 2026-09-10
+  (meiki:ADR-025 v1.1, meiki:KONZ-meiki-009 A7):** die Mandanten-Basis (`TenantModel` mit
+  fail-closed Manager, RLS-Policies ohne Ausweich-Zweige, Gate `assist_rls --check`) kommt aus
+  dem Produkt-Kern `iil-assist-core` ≥ 0.4.0 statt aus einem `django_tenancy`-Rollout;
+  `multi` (Shared Schema + RLS, ADR-025) ist gebaut und in CI geprüft, aber nicht aktiviert,
+  bis das Sozialdaten-Hosting entschieden ist. Die geerbte `enable_rls`-Policy aus
+  `django_tenancy` ist fail-open (drei OR-Zweige) und wird dort **nicht** übernommen.
 
 ## Konsequenzen
 
