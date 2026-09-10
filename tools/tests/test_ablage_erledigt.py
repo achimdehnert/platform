@@ -1116,3 +1116,98 @@ class TestKeinAnkerMelder:
             {"hnu": 3}, {"hnu": {ablage.KONVERSATION: 1}}, kein_anker=[]
         )
         assert ohne == mit
+
+
+class TestSucheGebuendelt:
+    """platform#3067: --pruefe buendelt die Index-Abfragen statt sie je Vorgang zu stellen.
+
+    Zwei Vorgaenge ohne Konversation (Betreff-Weg) brauchten vorher bis zu vier
+    Einzelaufrufe (Betreff + Strang je Vorgang) — gemessen an einem echten Lauf
+    mit ~40 Vorgaengen waren es bis zu 75. `suche_gebuendelt` fasst das in ZWEI
+    Rundreisen: Runde 1 (alle Betreffe) und Runde 2 (die daraus ermittelten
+    Straenge) — nicht in EINER, weil Runde 2 erst aus der Antwort von Runde 1
+    hervorgeht (siehe Docstring von `suche_gebuendelt`). Die Zaehlfunktion
+    (`--pruefe`) selbst bedient sich danach ausschliesslich aus dem Cache.
+    """
+
+    LEDGER = {
+        "vorgaenge": [
+            _v(konto="hnu", nr=1, thread_key="Vorgang X"),
+            _v(konto="hnu", nr=2, thread_key="Vorgang Y"),
+        ]
+    }
+
+    @staticmethod
+    def _batch_attrappe(rufe: list[int]):
+        def batch(anfragen: list[dict]) -> list[list[dict]]:
+            rufe.append(len(anfragen))
+            ergebnisse = []
+            for a in anfragen:
+                if "begriff" in a:
+                    schluessel = "X" if "X" in a["begriff"] else "Y"
+                    ergebnisse.append(
+                        [_n(betreff=f"Vorgang {schluessel}", strang=f"s{schluessel}")]
+                    )
+                else:
+                    ergebnisse.append([_n(ordner="INBOX")])
+            return ergebnisse
+
+        return batch
+
+    def test_should_call_the_batch_function_a_constant_number_of_times(self):
+        """2 Vorgaenge, beide ueber den Betreff aufgeloest: 2 Rundreisen fuer den
+        ganzen Lauf — nicht 4 Einzelabfragen (2 je Vorgang) und erst recht nicht
+        die bis zu 75 aus dem gemessenen Fall."""
+        rufe: list[int] = []
+        suche, konv = ablage.suche_gebuendelt(
+            self.LEDGER, {}, {}, konversation=None, batch=self._batch_attrappe(rufe)
+        )
+        assert len(rufe) == 2
+
+        ablage.pruefe_posteingang(
+            self.LEDGER, suche, konv, {}, {}, auflisten=lambda *_: []
+        )
+        # Der echte Zaehl-Lauf bedient sich vollstaendig aus dem Cache — keine
+        # weitere Rundreise.
+        assert len(rufe) == 2
+
+    def test_should_match_the_per_account_result_of_the_single_query_path(self):
+        """Dieselbe Eingabe muss ueber beide Wege dasselbe Ergebnis liefern —
+        Logik unveraendert, nur die Beschaffung gebuendelt (platform#3067 Punkt 2)."""
+        ein_vorgang = {"vorgaenge": [self.LEDGER["vorgaenge"][0]]}
+
+        alt = ablage.pruefe_posteingang(
+            ein_vorgang,
+            _suche_attrappe(
+                {
+                    "begriff": [_n(betreff="Vorgang X", strang="sX")],
+                    "strang": [_n(ordner="INBOX")],
+                }
+            ),
+            None,
+            {},
+            {},
+            auflisten=lambda *_: [],
+        )
+
+        rufe: list[int] = []
+        suche, konv = ablage.suche_gebuendelt(
+            ein_vorgang, {}, {}, konversation=None, batch=self._batch_attrappe(rufe)
+        )
+        neu = ablage.pruefe_posteingang(
+            ein_vorgang, suche, konv, {}, {}, auflisten=lambda *_: []
+        )
+
+        assert neu[0] == alt[0]  # Zaehler je Konto
+        assert neu[1] == alt[1]  # Quellen je Konto
+
+    def test_should_not_query_the_index_a_third_time_for_ordinary_criteria(self):
+        """Eine bereits gecachte Abfrage (dieselben Kriterien) kostet keine
+        weitere Rundreise — auch nicht ausserhalb von `--pruefe`."""
+        rufe: list[int] = []
+        suche, _ = ablage.suche_gebuendelt(
+            self.LEDGER, {}, {}, konversation=None, batch=self._batch_attrappe(rufe)
+        )
+        suche(begriff="Vorgang X")
+        suche(begriff="Vorgang X")
+        assert len(rufe) == 2  # nur die zwei Rundreisen aus dem Vorladen

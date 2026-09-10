@@ -21,6 +21,16 @@ Beispiele::
     python3 suche.py --nur-deckung
     python3 suche.py --von offner@hnu.de --seit 2026-06-01
     python3 suche.py --begriff Rechnung --ordner Lieferanten --json
+    echo '[{"begriff": "Vertrag"}, {"strang": "abc123"}]' | python3 suche.py --batch -
+
+**--batch (platform#3067):** ``ablage_erledigt.py --pruefe`` rief dieses Skript
+bis zu 75x je Lauf auf, jeder Aufruf bootete Django neu (2-6,6s gemessen,
+2026-09-10). ``--batch DATEI|-`` reicht stattdessen EINE Liste von
+Abfrage-Objekten ueber EINE SSH-Verbindung an ``mail_suche --batch`` durch, der
+sie in einem einzigen Prozess abarbeitet. Kennt der entfernte dev-hub den Modus
+noch nicht (vor Merge/Deploy von dev-hub#351), fallen wir laut auf
+Einzelabfragen zurueck — damit ein noch nicht ausgerollter dev-hub nichts
+bricht.
 """
 
 from __future__ import annotations
@@ -44,6 +54,9 @@ CONTAINER = os.environ.get("MAIL_INDEX_CONTAINER", "devhub_web")
 #: dem letzten Aufruf offen bleibt, bevor ssh sie von selbst schliesst.
 CONTROL_DIR = Path.home() / ".ssh" / "control-mail-index"
 CONTROL_PERSIST = int(os.environ.get("MAIL_INDEX_CONTROL_PERSIST", "120"))
+#: Ein --batch-Aufruf traegt viele Abfragen in einem Prozess — grosszuegiger
+#: als die 120s der Einzelabfrage, aber immer noch ein hartes Limit.
+BATCH_TIMEOUT = int(os.environ.get("MAIL_INDEX_BATCH_TIMEOUT", "300"))
 
 #: Argumente, die unveraendert an den Management-Befehl durchgereicht werden.
 DURCHREICHEN = (
@@ -110,11 +123,15 @@ def befehl_bauen(argv: list[str], ziel: str) -> list[str]:
     Ergebnis der entfernten Abfrage aendert das nicht — nur, wie oft die
     Leitung neu aufgebaut wird.
     """
-    CONTROL_DIR.mkdir(parents=True, exist_ok=True)
     fern = ["docker", "exec", CONTAINER, "python", "manage.py", "mail_suche", *argv]
     gequotet = " ".join(shlex.quote(teil) for teil in fern)
+    return ["ssh", *_ssh_optionen(), ziel, gequotet]
+
+
+def _ssh_optionen() -> list[str]:
+    """SSH-Optionen fuer Einzel- UND Batch-Aufruf — ControlMaster, siehe oben (#3069)."""
+    CONTROL_DIR.mkdir(parents=True, exist_ok=True)
     return [
-        "ssh",
         "-o",
         "BatchMode=yes",
         "-o",
@@ -125,9 +142,134 @@ def befehl_bauen(argv: list[str], ziel: str) -> list[str]:
         f"ControlPersist={CONTROL_PERSIST}",
         "-o",
         f"ControlPath={CONTROL_DIR}/%C",
-        ziel,
-        gequotet,
     ]
+
+
+def batch_befehl_bauen(ziel: str) -> list[str]:
+    """SSH-Aufruf fuer ``--batch``: die Anfragen kommen ueber stdin, nicht als Argumente.
+
+    ``docker exec -i`` haelt stdin des entfernten Prozesses offen — ohne ``-i``
+    kommt die JSON-Liste nie beim Management-Befehl an.
+    """
+    fern = [
+        "docker",
+        "exec",
+        "-i",
+        CONTAINER,
+        "python",
+        "manage.py",
+        "mail_suche",
+        "--batch",
+    ]
+    gequotet = " ".join(shlex.quote(teil) for teil in fern)
+    return ["ssh", *_ssh_optionen(), ziel, gequotet]
+
+
+#: Kriterien-Feldnamen -> CLI-Flag, fuer den Einzelabfrage-Fallback von --batch
+#: (dev-hub kennt den Batch-Modus noch nicht) und um Namen an einer Stelle zu halten.
+_FELD_ZU_FLAG = {
+    "begriff": "--begriff",
+    "von": "--von",
+    "an": "--an",
+    "seit": "--seit",
+    "bis": "--bis",
+    "ordner": "--ordner",
+    "strang": "--strang",
+    "limit": "--limit",
+    "tenant": "--tenant",
+}
+
+
+def _kriterien_zu_argv(anfrage: dict) -> list[str]:
+    aus: list[str] = []
+    for feld, flag in _FELD_ZU_FLAG.items():
+        wert = anfrage.get(feld)
+        if wert not in (None, "", 0):
+            aus += [flag, str(wert)]
+    return aus
+
+
+def _unbekanntes_argument(stderr: str) -> bool:
+    """Erkennt, dass der entfernte ``mail_suche`` ``--batch`` noch nicht kennt.
+
+    Vor dem Merge/Deploy von dev-hub#351 (platform#3067) antwortet argparse auf
+    der Gegenseite mit ``error: unrecognized arguments: --batch`` — genau der
+    Fall, in dem wir laut auf Einzelabfragen zurueckfallen, statt zu brechen.
+    """
+    return "unrecognized arguments" in (stderr or "") and "--batch" in (stderr or "")
+
+
+def _batch_ausfuehren(quelle: str) -> int:
+    """``--batch DATEI|-``: eine JSON-Liste von Abfragen in EINER SSH-Verbindung.
+
+    Faellt auf Einzelabfragen zurueck, wenn der entfernte dev-hub ``--batch``
+    (noch) nicht kennt (platform#3067 Punkt 3) — mit einer Hinweiszeile auf
+    stderr, damit der Rueckfall nicht unbemerkt bleibt.
+    """
+    text = (
+        sys.stdin.read() if quelle == "-" else Path(quelle).read_text(encoding="utf-8")
+    )
+    try:
+        anfragen = json.loads(text)
+    except json.JSONDecodeError as e:
+        sys.stderr.write(f"--batch erwartet eine JSON-Liste: {e}\n")
+        return 2
+    if not isinstance(anfragen, list):
+        sys.stderr.write("--batch erwartet eine JSON-LISTE von Abfrage-Objekten\n")
+        return 2
+
+    ziel = ssh_ziel()
+    lauf = subprocess.run(
+        batch_befehl_bauen(ziel),
+        input=json.dumps(anfragen, ensure_ascii=False),
+        capture_output=True,
+        text=True,
+        timeout=BATCH_TIMEOUT,
+    )
+    if lauf.returncode != 0 and _unbekanntes_argument(lauf.stderr):
+        sys.stderr.write(
+            "Hinweis: dev-hub kennt --batch noch nicht (dev-hub#351 nicht "
+            "deployed) — falle auf Einzelabfragen zurueck.\n"
+        )
+        return _einzeln_ausfuehren(anfragen, ziel)
+    if lauf.returncode != 0:
+        sys.stderr.write(lauf.stderr or "SSH-Aufruf (--batch) fehlgeschlagen\n")
+        return lauf.returncode
+
+    aus = lauf.stdout
+    if (start := aus.find("[")) >= 0:
+        aus = aus[start:]
+    try:
+        json.loads(aus)
+    except ValueError:
+        sys.stderr.write("Antwort ist kein gueltiges JSON:\n" + lauf.stdout)
+        return 2
+    sys.stdout.write(aus)
+    return 0
+
+
+def _einzeln_ausfuehren(anfragen: list[dict], ziel: str) -> int:
+    """Fallback fuer ``--batch``: jede Abfrage einzeln, ueber dieselbe (gemultiplexten) Verbindung."""
+    ergebnisse = []
+    for i, anfrage in enumerate(anfragen):
+        argv = [*_kriterien_zu_argv(anfrage), "--json"]
+        einzel = subprocess.run(
+            befehl_bauen(argv, ziel), capture_output=True, text=True, timeout=120
+        )
+        if einzel.returncode != 0:
+            sys.stderr.write(einzel.stderr or "SSH-Aufruf fehlgeschlagen\n")
+            return einzel.returncode
+        roh = einzel.stdout
+        if (start := roh.find("{")) >= 0:
+            roh = roh[start:]
+        try:
+            ergebnis = json.loads(roh)
+        except ValueError:
+            sys.stderr.write("Antwort ist kein gueltiges JSON:\n" + einzel.stdout)
+            return 2
+        ergebnisse.append({"index": i, **ergebnis})
+    sys.stdout.write(json.dumps(ergebnisse, ensure_ascii=False, indent=2))
+    return 0
 
 
 def _durchgereichte(args: argparse.Namespace) -> list[str]:
@@ -161,7 +303,20 @@ def main() -> int:
         action="store_true",
         help="nur den Aufruf ausgeben, nichts ausfuehren",
     )
+    p.add_argument(
+        "--batch",
+        metavar="DATEI",
+        default=None,
+        help=(
+            "JSON-Liste von Abfrage-Objekten aus DATEI oder '-' (stdin) in EINER "
+            "SSH-Verbindung ausfuehren, statt je Abfrage neu zu verbinden "
+            "(platform#3067); schliesst die uebrigen Filter-Optionen aus"
+        ),
+    )
     args = p.parse_args()
+
+    if args.batch is not None:
+        return _batch_ausfuehren(args.batch)
 
     befehl = befehl_bauen(_durchgereichte(args), ssh_ziel())
     if args.zeige_befehl:
