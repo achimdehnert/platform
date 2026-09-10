@@ -326,8 +326,12 @@
       ],
       "zustand": "schranke",
       "erzwungen_seit": "2026-09-02",
-      "revised": "2026-09-02",
-      "revision_note": "SCHARFSCHALTUNG advisory -> blocking am 2026-09-02 (Owner-Entscheid E4, platform#2606, eigener PR gemaess frozen_note). Kalibrierfenster 2026-08-10 bis 2026-09-02: EIN echter Treffer, null Fehlalarme — und der getroffene PR (#2607) wurde drei Minuten spaeter gemergt. Null FP UND null Wirkung: ein Melder, den man ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst den Job in .github/workflows/aufschub-anker-gate.yml jetzt FEHLSCHLAGEN (Exit 1 statt nur Kommentar); der Werkzeugfehler-Zweig (Exit 2) bleibt davon getrennt und bekommt einen eigenen Kommentar, damit ein Absturz nicht als Aufschub-Vorwurf gelesen wird. REICHWEITEN-GRENZE, ausdruecklich: platform hat keinen Aggregator-Check; der rote Job blockt den Merge erst, wenn der Kontext \"Aufgeschobene Arbeit braucht einen Anker\" im Ruleset main-required-checks (ID 17621471, heute drei Kontexte) steht — das ist Owner-Recht und im PR als Owner-Punkt benannt. Bis dahin: roter, sichtbarer Check, kein bindendes Gate."
+      "revised": "2026-09-10",
+      "revision_note": "AUSWEITUNG (Quelle) am 2026-09-10 (Retro oqu6Z6 Befund 3, Owner-Wort '51 go autonom', platform#3060): das Gate las nur PR-Text; sechs Aufschuebe standen als Prosa in Sachstand-Kommentaren des Auftrags-Issues #3015 ('Kandidat', 'bleibt offen', 'Folge-PR') — kein Anker, kein Alarm. Neu: deferral_anchor_check.py --issue N [--repo] prueft Body + alle Kommentare mit derselben ANKER-Regex (Checkbox-Zeilen mit Anker gelten als gedeckt), plus Advisory-Schritt in aufschub-anker-gate.yml, der die erste 'Refs #N' des PR-Bodys nachprueft (continue-on-error, Step-Summary). Umsetzung platform#3059 (Governance-Pfad, Owner-Approval). Das Gate hat am selben Tag auf zwei der Umsetzungs-PRs selbst gefeuert (#3057, #3059: 'Registry-Eintrag folgt gesondert' ohne Anker) — behoben durch #3060 als Anker. | VORHER: SCHARFSCHALTUNG advisory -> blocking am 2026-09-02 (Owner-Entscheid E4, platform#2606, eigener PR gemaess frozen_note). Kalibrierfenster 2026-08-10 bis 2026-09-02: EIN echter Treffer, null Fehlalarme — und der getroffene PR (#2607) wurde drei Minuten spaeter gemergt. Null FP UND null Wirkung: ein Melder, den man ueberholen kann, waehrend er meldet, ist keine Schranke. Ein Fund laesst den Job in .github/workflows/aufschub-anker-gate.yml jetzt FEHLSCHLAGEN (Exit 1 statt nur Kommentar); der Werkzeugfehler-Zweig (Exit 2) bleibt davon getrennt und bekommt einen eigenen Kommentar, damit ein Absturz nicht als Aufschub-Vorwurf gelesen wird. REICHWEITEN-GRENZE, ausdruecklich: platform hat keinen Aggregator-Check; der rote Job blockt den Merge erst, wenn der Kontext \"Aufgeschobene Arbeit braucht einen Anker\" im Ruleset main-required-checks (ID 17621471, heute drei Kontexte) steht — das ist Owner-Recht und im PR als Owner-Punkt benannt. Bis dahin: roter, sichtbarer Check, kein bindendes Gate.",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_deferral_anchor_check.py::test_should_flag_a_deferral_in_an_issue_comment_without_an_anchor (Kommentar mit 'bleibt offen' ohne Anker -> Fund); Gegenproben ::test_should_accept_the_same_comment_with_an_issue_anchor und ::test_should_treat_a_checkbox_line_with_an_anchor_as_covered. Echtfall 2026-09-10: PR #3057 Zeile 10 'Registry-Eintrag folgt gesondert' -> Required Check rot (Run 34478380848).",
+        "datum": "2026-09-10"
+      }
     },
     {
       "slug": "melder-ohne-leser",
@@ -370,12 +374,12 @@
       "mode": "process",
       "owner": "achim",
       "module": "tools/repo-session.sh",
-      "drill": "tools/tests/test_repo_session_pr_collision.py",
+      "drill": "tools/tests/test_repo_session_offene_prs.py",
       "built": "2026-07-03",
       "ref": "platform#1650 Nachmessung 2026-08-10 / ADR-233 R-6",
       "note": "Bestand seit 5cefbb0a (harter Block bei offenem PR mit gleichem Task-Slug), war aber nie registriert — ein unregistriertes Gate drillt niemand, es kann still kaputtgehen. Registriert 2026-08-12.",
-      "revised": "2026-08-12",
-      "revision_note": "check_pr_collision in repo-session.sh (Commit 1ba83e91) — harter Block beim Abzweigen, wenn zum selben Task-Slug schon ein offener PR existiert. Kam NACH dem letzten gemessenen Rueckfall (2026-07-31).",
+      "revised": "2026-09-10",
+      "revision_note": "UMBAU Regel -> Werkzeug am 2026-09-10 (Retro oqu6Z6 Befund 10, Owner-Wort '51 go autonom', platform#3060): #3030 und #3033 loesten dieselbe Ursache im selben Workflow acht Minuten auseinander; check_pr_collision blockt nur bei identischem Task-Slug, thematische Ueberlappung sah niemand. Neu: tools/repo_session_offene_prs.py, von repo-session.sh start nach Branch/Pfad/Lease aufgerufen — offene PRs seit heute mit Titel, Autor und bis zu fuenf Pfaden, --pfade markiert gleiche Dateien; advisory, fail-open. Umsetzung platform#3057 (gemergt 2026-09-10). Grenze: zeigt Kandidaten, entscheidet nicht — die Falsifikation (gleiche Datei, disjunkte Bereiche) liegt beim Gate serielle-prs-auf-derselben-datei. | VORHER: check_pr_collision in repo-session.sh (Commit 1ba83e91) — harter Block beim Abzweigen, wenn zum selben Task-Slug schon ein offener PR existiert. Kam NACH dem letzten gemessenen Rueckfall (2026-07-31).",
       "faengt": [
         {
           "fall": "zweiter Worktree zum selben Task-Slug bei offenem PR",
@@ -383,7 +387,11 @@
         }
       ],
       "zustand": "schranke",
-      "erzwungen_seit": "2026-07-03"
+      "erzwungen_seit": "2026-07-03",
+      "positivkontrolle": {
+        "ref": "tools/tests/test_repo_session_offene_prs.py::test_should_mark_pr_with_shared_path (zwei PRs, gemeinsamer Pfad -> Markierung 'gleiche Datei'); Gegenprobe ::test_should_report_keine_for_empty_list. Echtprobe 2026-09-10: 'Offene PRs seit 2026-09-10: 2' (#3056, #3041) mit Pfaden.",
+        "datum": "2026-09-10"
+      }
     },
     {
       "slug": "worktree-midsession-accumulation",
@@ -1166,9 +1174,11 @@
       "expires": "2026-10-31",
       "expires_note": "blocking oder gestrichen bis dahin - Owner-Entscheid E4 (platform#2606).",
       "positivkontrolle": {
-        "ref": "tools/tests/test_session_abgleich.py::test_should_flag_two_merged_prs_touching_the_same_lines (Zeilen 100-140 und 120-160 derselben Datei, 3 h Abstand) - rot; Gegenproben ::test_should_stay_green_when_hunks_are_disjoint und ::test_should_report_hinweis_when_hunks_are_unavailable.",
-        "datum": "2026-09-07"
-      }
+        "ref": "tools/tests/test_session_abgleich.py::TestBefundeSerienFuerPr::test_should_flag_overlapping_hunks_against_another_open_pr (rot); Gegenprobe ::test_should_report_clean_line_when_hunks_are_disjoint. Echtprobe 2026-09-10: --pr 3042 --autor achimdehnert --seit 2026-09-10 -> Befund #3042+#3034 auf tools/tests/test_todo_board.py.",
+        "datum": "2026-09-10"
+      },
+      "revised": "2026-09-10",
+      "revision_note": "UMBAU zu spaet -> beim PR am 2026-09-10 (Retro oqu6Z6 §5a, Owner-Wort '51 go autonom', platform#3060): der Melder lief nur am Sitzungsende (Runner-Phase E.10), also nach allen Merges; #3034 und #3042 gingen nacheinander auf tools/tests/test_todo_board.py (Hunks 467-531 vs 526-542, ueberlappend), ohne dass er lief. Neu: session_abgleich.py --pr N vergleicht nur diesen PR gegen offene + heute gemergte PRs desselben Autors; Workflow serielle-prs-advisory.yml (pull_request, continue-on-error) schreibt Step-Summary und bei Befund einen aktualisierten PR-Kommentar. Falsifikationsregel (disjunkte Hunks -> 'kein Befund'-Zeile) unveraendert. Umsetzung platform#3062 (Governance-Pfad, Owner-Approval). Der Sitzungsende-Lauf bleibt."
     },
     {
       "slug": "ci-gate-narrower-than-local-test",
