@@ -33,21 +33,29 @@ Der interaktive Lauf ist `/mailcheck` in der Kapitäns-Sitzung; die drei Kommand
 | Anker (Mail ↔ Vorgang) | `~/.claude/mail-anker.json` (Message-ID-Schlüssel `konto-ordner-uid`), `eintrag_anker.py` schreibt | am Ende jedes Laufs und täglich über `make boards` |
 | Ausgaben | Action-Board (Markdown), Arbeitsliste `todo.iil.pet` (Dienst `todo-board`, 8789), Mail-Ansicht `mail.iil.pet` (Dienst `mail-links`, 8787) | beide Dienste lesen das Ledger live; Code laden sie erst nach `systemctl --user restart` |
 
-## Kennzahlen je Lauf (K2, Soll)
+## Kennzahlen je Lauf (K2)
 
-Das Messjournal existiert noch nicht. Bis es existiert, sind dies die Zahlen, die jeder Lauf ohnehin erzeugt und die ein Journal aufnehmen soll (nur Zahlen und Bezeichner, keine Adressen, keine Betreffs):
+`tools/mail_agent/messjournal.py --schreiben --anwendung mailcheck` erhebt acht Kennzahlen (nur Zahlen und Bezeichner, keine Adressen, keine Betreffs) und haengt sie als JSON-Zeile ans Journal an:
 
-| Kennzahl | Quelle | Heute (2026-09-10) |
-|---|---|---|
-| Vorgänge gesamt / offen / geschlossen im 14-Tage-Fenster | `board.py --pruefe` | 87 gesamt |
-| Offene Vorgänge ohne Frist und ohne `frist_grund` | `board.py --pruefe` | 0 |
-| Referenzen ohne Ordner ab Stichtag | `referenzen.py --pruefe-ordner` | 0 (70 Altbestand) |
-| Unverankerte Referenzen | `eintrag_anker.py --nur-zaehlen` | nicht erhoben |
-| Tote Links auf Vorgangsseiten | `link_pruefen.py --vorgangsseiten` | 5 von 184 |
-| Posteingangs-Mails zu geschlossenen Vorgängen | `ablage_erledigt.py --pruefe` | nicht erhoben |
-| Index-Alter zum Laufzeitpunkt | `suche.py --nur-deckung` | Index bis 2026-09-09 |
+| Kennzahl | Quelle |
+|---|---|
+| `vorgaenge_gesamt` | `board.py --pruefe` |
+| `ohne_frist` | `board.py --pruefe` (Zeilen "keine Frist und kein frist_grund") |
+| `referenzen_ohne_ordner` | `referenzen.py --pruefe-ordner --json` (`ab_stichtag`) |
+| `unverankert` | `eintrag_anker.py --nur-zaehlen` |
+| `vorgangsseiten_geprueft` / `vorgangsseiten_tot` | `link_pruefen.py --vorgangsseiten` (Netz, kann fehlen) |
+| `posteingang_geschlossene_vorgaenge` | `ablage_erledigt.py --pruefe` |
+| `index_alter_tage` | `suche.py --nur-deckung`, Alter in Tagen ab Laufzeitpunkt |
 
-Journal-Pfad (Soll): `~/.claude/mail-messjournal.jsonl`, eine Zeile je Lauf mit Datum, Modellkennung und den sieben Zahlen; `board.py --trend` zeigt die letzten sieben Läufe. Beides ist Backlog (unten).
+Schlaegt ein Quellkommando fehl oder liefert unlesbare Ausgabe (Timeout 120 s), wird die Kennzahl `null` und landet im Feld `fehler` — der Lauf bricht nie ab.
+
+## Journal-Pfad
+
+`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `kennzahlen`, `fehler`, `quelle_version`. `make boards` haengt nach jedem Board-Bau je eine Zeile für `mailcheck` und `todo` an. Trend über die letzten sieben Läufe:
+
+```bash
+python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
+```
 
 ## Verfallsignale (K3, Soll)
 
@@ -72,7 +80,7 @@ Journal-Pfad (Soll): `~/.claude/mail-messjournal.jsonl`, eine Zeile je Lauf mit 
 
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
-| 1 | Messjournal + `board.py --trend` | Sieben Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | offen, K2 |
+| 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, PR #PR_NUMMER |
 | 2 | Index-Alter auf die Arbeitsliste | Eine Zahl mehr im Kopf; sie erklärt nur, was fehlt, nicht was da ist | Statt Alter anzeigen: Post-Ingest-Fenster automatisch live nachziehen, wenn die Liste geöffnet wird | offen, K3 |
 | 3 | `board.py --erledigt` | Ein Kommando mehr, das der Owner nicht tippt; er sagt „#206 erledigt" im Chat | Schließen direkt aus der Arbeitsliste per Klick, mit Charta-Grenze (kein Senden) | [#3049](https://github.com/achimdehnert/platform/issues/3049) |
 | 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | [#3051](https://github.com/achimdehnert/platform/issues/3051) |
