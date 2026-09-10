@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from bibkat_suche import hole  # noqa: E402
 
 BASIS = "https://bibkat-hnu-de.ezproxy.hnu.de/vufind/Search/Results"
-FILTER = 'filter%5B%5D=%7Eformat%3A%22eBook%22'
+FILTER = "filter%5B%5D=%7Eformat%3A%22eBook%22"
 JAHR_AB = 2023
 
 ABFRAGEN = {
@@ -32,14 +32,20 @@ ABFRAGEN = {
 
 
 def suche(lookfor: str, limit: int = 20) -> tuple[int, list[dict]]:
-    q = urllib.parse.urlencode({"lookfor": lookfor, "type": "AllFields", "limit": limit, "sort": "year"})
+    q = urllib.parse.urlencode(
+        {"lookfor": lookfor, "type": "AllFields", "limit": limit, "sort": "year"}
+    )
     seite = hole(f"{BASIS}?{q}&{FILTER}")
     m = re.search(r"(\d[\d.]*)\s*Treffer", seite)
     gesamt = int(m.group(1).replace(".", "")) if m else 0
     treffer = []
     for block in re.split(r'<div class="result-body">', seite)[1:]:
         block = block[:8000]
-        t = re.search(r'class="title getFull"[^>]*>\s*<div>\s*(?:<span[^>]*></span>)?\s*(.*?)\s*</div>', block, re.S)
+        t = re.search(
+            r'class="title getFull"[^>]*>\s*<div>\s*(?:<span[^>]*></span>)?\s*(.*?)\s*</div>',
+            block,
+            re.S,
+        )
         j = re.search(r"Veröffentlicht\s*(\d{4})", block)
         rid = re.search(r"Record&#x2F;([A-Za-z0-9.\-]+)", block)
         autoren = re.findall(r'class="result-author">([^<]+)<', block)
@@ -72,7 +78,9 @@ def main() -> None:
                 zeilen.append(t)
             time.sleep(0.8)
         zeilen.sort(key=lambda t: (-int(t["jahr"]), t["titel"]))
-        print(f"\n### {session} — {len(zeilen)} E-Books ab {JAHR_AB} (aus {gesamt_summe} Treffern)")
+        print(
+            f"\n### {session} — {len(zeilen)} E-Books ab {JAHR_AB} (aus {gesamt_summe} Treffern)"
+        )
         for t in zeilen[:22]:
             autoren = ", ".join(t["autoren"])[:38] or "—"
             print(f"  {t['jahr']} | {t['titel'][:74]:74} | {autoren:38} | {t['id']}")

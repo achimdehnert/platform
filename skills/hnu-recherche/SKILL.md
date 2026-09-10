@@ -90,30 +90,34 @@ Erst die letzte Zahl ist eine Liste, die man lesen kann.
 
 **Der Katalog zeigt auch E-Books anderer bayerischer Hochschulen.** Sie sehen aus wie jeder andere Treffer, tragen
 dieselbe Formatangabe und dieselbe Katalognummer — aber Angehörige der HNU kommen nicht hinein. Bei einer Auswahl von
-zwanzig Titeln für eine Vorlesung waren am 2026-09-10 **fünf** davon betroffen, darunter drei bekannte Standardwerke.
+zwanzig Titeln für eine Vorlesung waren am 2026-09-10 **fünf** sicher nicht verfügbar und einer blieb ungeklärt.
 Ohne die Prüfung fällt das erst auf, wenn ein Teilnehmender den Titel öffnen will.
 
-**Der Beleg ist die Zielseite, nicht der Link.** Auf der Datensatzseite stehen die Volltext-Wege als
-`ezproxy.hnu.de/login?qurl=<Ziel>` — oft **mehrere, bis zu neun**, und die meisten davon gehören anderen Häusern.
-Ein Titel ist verfügbar, sobald **ein einziges** Ziel durchgeht. Also jedes Ziel über den Proxy aufrufen und auf der
-geladenen Seite nach dem Satz **„Access provided by Hochschule für angewandte Wissenschaften Neu-Ulm"** suchen.
-Steht er da, gehört die Lizenz uns.
+**Ein Datensatz führt oft mehrere Volltext-Wege** — bis zu neun, als `ezproxy.hnu.de/login?qurl=<Ziel>`. Ein einziger
+funktionierender genügt. Deshalb immer alle ansehen, nie nur den ersten.
 
-**Am Pfad allein darf man es nicht entscheiden.** Ein Pfad `ebookcentral.proquest.com/lib/<kürzel>/` mit fremdem
-Kürzel — `hwr`, `fhws`, `th-wildau`, `erlangen`, `fuberlin-ebooks` — ist ein Warnzeichen, aber kein Urteil: Baines,
-*Servitization Strategy*, trägt genau so einen fremden Pfad **und** einen Springer-Weg, über den die HNU-Kennung
-sauber durchkommt. Wer nur den Pfad liest, wirft das Buch zu Unrecht raus.
+**Das sichere Nein:** Führen *alle* Wege auf `ebookcentral.proquest.com/lib/<kürzel>/` mit einem fremden Kürzel —
+`hwr`, `fhws`, `th-wildau`, `ub-bayreuth`, `uni-passau`, `erlangen`, `fuberlin-ebooks` —, gehört der Titel anderen
+Häusern. Das ist der eine Test, der ohne Nachsehen trägt.
 
-**Umgekehrt ist auch eine Verlagsadresse kein Freibrief.** Bei EBSCO (`search.ebscohost.com`) landet man nach dem
-Proxy auf einer Seite, die die Hochschule nennt, ihren Inhalt aber erst per Nachladen aufbaut — ob der Volltext
-freigeschaltet ist, steht dort nicht im Quelltext. Solche Fälle sind **ungeklärt**, nicht bestätigt: entweder von
-Hand im Browser ansehen oder einen Titel nehmen, der eindeutig durchgeht.
+**Das Ja muss man sich auf der Zielseite holen, und die sieht überall anders aus.** Den Weg über den Proxy aufrufen
+und dort lesen, was die Plattform selbst sagt:
 
-Eindeutig unsere sind erfahrungsgemäß `doi.org` (Springer, Haufe), `www.wiso-net.de`, `link.springer.com`,
-`beck-online.beck.de` und `elibrary.kohlhammer.de`.
+| Plattform | Woran man das Ja erkennt |
+|---|---|
+| Springer (`doi.org/10.1007…`) | Zeile „Access provided by Hochschule für angewandte Wissenschaften Neu-Ulm" |
+| De Gruyter (`doi.org/10.1515…`) | der Block mit „Licensed" ist sichtbar, `itemNotAuthorized` trägt `d-none` |
+| wiso-net, Kohlhammer, Beck-Online, Haufe (`doi.org/10.34157…`) | die Seite baut den Inhalt auf, keine Kaufaufforderung |
+| **EBSCO** (`search.ebscohost.com`) | **statisch nicht entscheidbar** — siehe unten |
 
-**Prüfe jeden Titel einzeln, bevor er in eine Liste kommt.** Ein Aufruf je Ziel, ein Blick auf den Zugangssatz —
-Sekunden, und der Unterschied zwischen einer Leseliste und einer Enttäuschung.
+**Zwei Fehlschlüsse, beide selbst gemacht:** Der Pfad allein verurteilt zu Unrecht — Baines, *Servitization Strategy*,
+führt einen fremden ProQuest-Pfad **und** einen Springer-Weg, über den die HNU-Kennung durchkommt. Und der
+Springer-Satz taugt nicht als allgemeiner Maßstab: De Gruyter kennt ihn nicht, ein Titel dort fiel deshalb erst
+fälschlich durch. **Je Plattform den passenden Hinweis lesen, nicht einen Hinweis über alle Plattformen legen.**
+
+**EBSCO bleibt offen.** Der Aufruf landet auf einer Seite, die die Hochschule im Kopf nennt, ihren Inhalt aber
+nachlädt; im Quelltext steht nichts über die Freischaltung, und einen Datenzugang dahinter gibt es nicht. Solche
+Titel sind **ungeklärt**, nicht bestätigt — einmal im Browser öffnen oder einen Titel nehmen, der eindeutig durchgeht.
 
 ## 6 — Weitere Fallen
 

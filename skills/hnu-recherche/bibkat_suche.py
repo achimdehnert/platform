@@ -20,13 +20,25 @@ BASIS = "https://bibkat-hnu-de.ezproxy.hnu.de/vufind/Search/Results"
 
 ABFRAGEN = {
     # Beispielstruktur; für einen konkreten Auftrag die eigenen Blöcke eintragen.
-    "Block A": [("digital strategy", "AllFields"), ("Digital Business Strategy", "Title")],
+    "Block A": [
+        ("digital strategy", "AllFields"),
+        ("Digital Business Strategy", "Title"),
+    ],
 }
 
 
 def hole(url: str) -> str:
     r = subprocess.run(
-        ["curl", "-s", "-L", "-b", str(S / "hnu-cookies.txt"), "-c", str(S / "hnu-cookies.txt"), url],
+        [
+            "curl",
+            "-s",
+            "-L",
+            "-b",
+            str(S / "hnu-cookies.txt"),
+            "-c",
+            str(S / "hnu-cookies.txt"),
+            url,
+        ],
         capture_output=True,
         text=True,
         timeout=60,
@@ -40,19 +52,29 @@ def parse(seite: str) -> tuple[int, list[dict]]:
     treffer = []
     for blk in re.split(r'<div class="result-body">', seite)[1:]:
         blk = blk[:6000]
-        t = re.search(r'class="title getFull"[^>]*>\s*<div>\s*(?:<span[^>]*></span>)?\s*(.*?)\s*</div>', blk, re.S)
-        rid = re.search(r'Record&#x2F;([A-Za-z0-9.\-]+)', blk)
+        t = re.search(
+            r'class="title getFull"[^>]*>\s*<div>\s*(?:<span[^>]*></span>)?\s*(.*?)\s*</div>',
+            blk,
+            re.S,
+        )
+        rid = re.search(r"Record&#x2F;([A-Za-z0-9.\-]+)", blk)
         autoren = re.findall(r'class="result-author">([^<]+)<', blk)
         jahr = re.search(r"Veröffentlicht\s*(\d{4})", blk)
-        formate = re.findall(r'class="[^"]*(?:format|label)[^"]*"[^>]*>\s*([^<]{2,40})<', blk)
+        formate = re.findall(
+            r'class="[^"]*(?:format|label)[^"]*"[^>]*>\s*([^<]{2,40})<', blk
+        )
         volltext = 'class="fulltext' in blk
         treffer.append(
             {
                 "id": rid.group(1) if rid else "",
-                "titel": html.unescape(re.sub(r"<[^>]+>", "", t.group(1))).strip() if t else "",
+                "titel": html.unescape(re.sub(r"<[^>]+>", "", t.group(1))).strip()
+                if t
+                else "",
                 "autoren": [html.unescape(a) for a in autoren],
                 "jahr": jahr.group(1) if jahr else "",
-                "formate": sorted({html.unescape(f).strip() for f in formate if f.strip()}),
+                "formate": sorted(
+                    {html.unescape(f).strip() for f in formate if f.strip()}
+                ),
                 "volltext": volltext,
             }
         )
@@ -66,10 +88,16 @@ def main(ausgabe: str) -> None:
         for lookfor, typ in abfragen:
             url = f"{BASIS}?{urllib.parse.urlencode({'lookfor': lookfor, 'type': typ, 'limit': 20, 'sort': 'year'})}"
             gesamt, treffer = parse(hole(url))
-            ergebnis[session].append({"abfrage": lookfor, "typ": typ, "gesamt": gesamt, "treffer": treffer})
-            print(f"{session[:4]} | {lookfor:45} | {gesamt:5} Treffer | {len(treffer):2} geparst | Volltext {sum(t['volltext'] for t in treffer):2}")
+            ergebnis[session].append(
+                {"abfrage": lookfor, "typ": typ, "gesamt": gesamt, "treffer": treffer}
+            )
+            print(
+                f"{session[:4]} | {lookfor:45} | {gesamt:5} Treffer | {len(treffer):2} geparst | Volltext {sum(t['volltext'] for t in treffer):2}"
+            )
             time.sleep(1.0)
-    Path(ausgabe).write_text(json.dumps(ergebnis, ensure_ascii=False, indent=1), encoding="utf-8")
+    Path(ausgabe).write_text(
+        json.dumps(ergebnis, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
 
 
 if __name__ == "__main__":
