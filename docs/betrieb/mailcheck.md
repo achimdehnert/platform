@@ -83,6 +83,7 @@ dieses Signalsatzes — der Melder deckt ihn für `todo-board.service` und
 - Das Ledger enthält Personendaten. Nichts daraus in Repo, Issue, PR-Text oder Test-Fixture — auch keine Betreffs (Realfall #3042, korrigiert).
 - IIL hat keine IMAP-UIDs; Referenzen dort per Betreff in Anführungszeichen plus Datum.
 - `graph_mail.py --find` schließt `--all` und `--from` gegenseitig aus; `--login` und `--find` ebenfalls.
+- Seit [#3072](https://github.com/achimdehnert/platform/pull/3072) verankert `draft_mail.py` jeden Entwurf beim Anlegen per Message-ID; Outlook-Umzug ändert die UID, der Link hält.
 
 ## Verbesserungs-Backlog (K4: jeder Vorschlag mit Gegenrede und Alternative, bevor er gebaut wird)
 
