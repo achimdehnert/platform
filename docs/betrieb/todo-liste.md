@@ -43,7 +43,7 @@ Prod: `systemd --user todo-board.service` auf dev-desktop (Port 8789), Tunnel `c
 
 „Öffnungen der Liste je Tag" (Cloudflare-Access-Log oder Dienst-Log) ist weiterhin Backlog — kein Quellkommando, nicht Teil dieses Baus.
 
-Journal-Pfad: gemeinsam mit dem Mailcheck (`~/.claude/mail-messjournal.jsonl`), Feld `anwendung: "todo"`. Trend über die letzten sieben Läufe:
+Journal-Pfad: gemeinsam mit dem Mailcheck (`~/.claude/mail-messjournal.jsonl`), Feld `anwendung: "todo"`. `make boards` ruft `messjournal.py --schreiben --anwendung alle` einmal auf, statt Mailcheck und To-do getrennt zu erheben — die geteilte Quelle `link_pruefen.py --vorgangsseiten` laeuft dabei nur einmal (#3067). Trend über die letzten sieben Läufe:
 
 ```bash
 python3 tools/mail_agent/messjournal.py --trend --anwendung todo --n 7

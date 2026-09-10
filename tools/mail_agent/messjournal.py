@@ -20,11 +20,22 @@ Kommandos::
 
     python3 tools/mail_agent/messjournal.py --schreiben --anwendung mailcheck
     python3 tools/mail_agent/messjournal.py --schreiben --anwendung todo
+    python3 tools/mail_agent/messjournal.py --schreiben --anwendung alle
     python3 tools/mail_agent/messjournal.py --trend
     python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
 
+`--anwendung alle` (oder zweimal `--anwendung`) erhebt mailcheck UND todo in
+einem Prozess und schreibt zwei Zeilen. Grund (#3067): beide Anwendungen
+teilen sich eine teure Quelle — `link_pruefen.py --vorgangsseiten` (184 Links,
+ueber zwei Minuten Laufzeit, gemessen). Zwei getrennte Prozesse (wie bis
+#3067 in `make boards`) liessen sie zweimal laufen und rissen den
+10-Minuten-Timeout von `make boards`. Mit `--anwendung alle` laeuft sie genau
+einmal, ihr Ergebnis geht in beide Journalzeilen ein.
+
 `--eingabe JSON` (Inline-JSON oder Pfad zu einer JSON-Datei) ersetzt die
-Kommandos durch feste Werte — fuer Tests, ganz ohne Postfach oder Netz.
+Kommandos durch feste Werte — fuer Tests, ganz ohne Postfach oder Netz. Bei
+`--anwendung alle` deckt ein einzelnes `--eingabe`-JSON beide Anwendungen ab:
+jede Zeile liest daraus nur die fuer sie benannten Kennzahlen.
 """
 
 from __future__ import annotations
@@ -48,6 +59,13 @@ TODO_BOARD_DIR = REPO / "tools" / "todo_board"
 JOURNAL_DEFAULT = Path.home() / ".claude" / "mail-messjournal.jsonl"
 
 TIMEOUT = 120
+
+#: `link_pruefen.py --vorgangsseiten` allein: 184 Links, gemessen 2m24s
+#: (#3067) — der allgemeine TIMEOUT=120s reichte nicht und liess
+#: `vorgangsseiten_geprueft`/`_tot`/`mail_links_tot` regelmaessig auf `null`
+#: fallen. Eigener, groesserer Timeout mit Marge statt am generischen Wert
+#: zu drehen (der fuer die schnellen Quellen passt).
+LINK_PRUEFEN_TIMEOUT = 240
 
 #: Reihenfolge und Namen der Kennzahlen je Anwendung — bestimmt sowohl, was
 #: `--schreiben` real erhebt, als auch, welche Schluessel `--eingabe` kennt.
@@ -140,9 +158,13 @@ def _mailcheck_anker() -> dict[str, int | None]:
 
 
 def _link_pruefen_vorgangsseiten() -> dict[str, int | None]:
-    """`link_pruefen.py --vorgangsseiten` — Netz, kann fehlen (Dienst lokal)."""
+    """`link_pruefen.py --vorgangsseiten` — Netz, kann fehlen (Dienst lokal).
+
+    Eigener Timeout `LINK_PRUEFEN_TIMEOUT` statt des allgemeinen `TIMEOUT`
+    (#3067) — 184 Links brauchen gemessen ueber zwei Minuten."""
     out, err, _rc = _run(
-        [sys.executable, str(MAIL_AGENT_DIR / "link_pruefen.py"), "--vorgangsseiten"]
+        [sys.executable, str(MAIL_AGENT_DIR / "link_pruefen.py"), "--vorgangsseiten"],
+        timeout=LINK_PRUEFEN_TIMEOUT,
     )
     text = out + err
     return {
@@ -186,12 +208,17 @@ def _mailcheck_index_alter() -> int | None:
     return (heute - letztes).days
 
 
-def _mailcheck_erheben() -> dict[str, int | None]:
+def _mailcheck_erheben(
+    links: dict[str, int | None] | None = None,
+) -> dict[str, int | None]:
+    """Mailcheck-Rohwerte. `links` optional vorgegeben (#3067) — sonst wird
+    `link_pruefen.py --vorgangsseiten` hier selbst aufgerufen."""
     roh: dict[str, int | None] = {}
     roh.update(_mailcheck_board())
     roh.update(_mailcheck_referenzen())
     roh.update(_mailcheck_anker())
-    links = _link_pruefen_vorgangsseiten()
+    if links is None:
+        links = _link_pruefen_vorgangsseiten()
     roh["vorgangsseiten_geprueft"] = links.get("geprueft")
     roh["vorgangsseiten_tot"] = links.get("tot")
     roh.update(_mailcheck_ablage())
@@ -250,14 +277,29 @@ def _todo_direkt() -> dict[str, int | None]:
     return {"geschlossen_7_tage": geschlossen, "ohne_kopf_aktion": ohne_aktion}
 
 
-def _todo_erheben() -> dict[str, int | None]:
+def _todo_erheben(
+    links: dict[str, int | None] | None = None,
+) -> dict[str, int | None]:
+    """Todo-Rohwerte. `links` optional vorgegeben (#3067) — sonst wird
+    `link_pruefen.py --vorgangsseiten` hier selbst aufgerufen."""
     roh: dict[str, int | None] = {}
-    links = _link_pruefen_vorgangsseiten()
+    if links is None:
+        links = _link_pruefen_vorgangsseiten()
     roh["vorgangsseiten"] = links.get("seiten")
     roh["mail_links"] = links.get("links")
     roh["mail_links_tot"] = links.get("tot")
     roh.update(_todo_direkt())
     return roh
+
+
+def _erheben_gemeinsam() -> tuple[dict[str, int | None], dict[str, int | None]]:
+    """Mailcheck- und Todo-Rohwerte in EINEM Prozess erheben (#3067).
+
+    `link_pruefen.py --vorgangsseiten` ist die einzige Quelle, die beide
+    Anwendungen teilen — sie laeuft hier genau einmal, ihr Ergebnis geht in
+    beide Rueckgaben ein."""
+    links = _link_pruefen_vorgangsseiten()
+    return _mailcheck_erheben(links=links), _todo_erheben(links=links)
 
 
 # --- Sammeln, unabhaengig von der Quelle ---------------------------------
@@ -275,17 +317,14 @@ def _eingabe_lesen(wert: str) -> dict[str, Any]:
 
 
 def sammeln(
-    anwendung: str, eingabe: dict[str, Any] | None
+    anwendung: str, roh: dict[str, Any]
 ) -> tuple[dict[str, int | None], list[str]]:
-    """Kennzahlen einer Anwendung sammeln. Rueckgabe (Kennzahlen, Fehlerliste)."""
-    namen = KENNZAHLEN_MAILCHECK if anwendung == "mailcheck" else KENNZAHLEN_TODO
+    """Kennzahlen einer Anwendung aus bereits erhobenen Rohwerten filtern.
 
-    if eingabe is not None:
-        roh = eingabe
-    elif anwendung == "mailcheck":
-        roh = _mailcheck_erheben()
-    else:
-        roh = _todo_erheben()
+    Rueckgabe (Kennzahlen, Fehlerliste). `roh` ist entweder eine `--eingabe`
+    (Tests) oder das Ergebnis einer echten Erhebung — welche Quelle das war,
+    entscheidet `schreiben()`, nicht diese Funktion (#3067)."""
+    namen = KENNZAHLEN_MAILCHECK if anwendung == "mailcheck" else KENNZAHLEN_TODO
 
     kennzahlen: dict[str, int | None] = {}
     fehler: list[str] = []
@@ -311,23 +350,47 @@ def _quelle_version() -> str:
 
 
 def schreiben(
-    anwendung: str, modell: str, journal_pfad: Path, eingabe: dict[str, Any] | None
-) -> dict[str, Any]:
-    kennzahlen, fehler = sammeln(anwendung, eingabe)
-    zeile = {
-        "zeit": datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z"),
-        "anwendung": anwendung,
-        "modell": modell,
-        "kennzahlen": kennzahlen,
-        "fehler": fehler,
-        "quelle_version": _quelle_version(),
-    }
+    anwendungen: list[str],
+    modell: str,
+    journal_pfad: Path,
+    eingabe: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Eine Journalzeile je Anwendung erheben und anhaengen.
+
+    Bei mehreren Anwendungen (typischerweise mailcheck+todo, `--anwendung
+    alle`) laufen geteilte Quellen — aktuell `link_pruefen.py
+    --vorgangsseiten` — genau einmal (#3067); ihr Ergebnis geht in jede
+    betroffene Zeile ein. `--eingabe` (Tests) ueberspringt jede Erhebung und
+    deckt alle angefragten Anwendungen aus demselben JSON."""
+    if eingabe is not None:
+        roh_je_anwendung = {a: eingabe for a in anwendungen}
+    elif set(anwendungen) == {"mailcheck", "todo"}:
+        roh_mailcheck, roh_todo = _erheben_gemeinsam()
+        roh_je_anwendung = {"mailcheck": roh_mailcheck, "todo": roh_todo}
+    else:
+        roh_je_anwendung = {
+            a: (_mailcheck_erheben() if a == "mailcheck" else _todo_erheben())
+            for a in anwendungen
+        }
+
     journal_pfad.parent.mkdir(parents=True, exist_ok=True)
-    with journal_pfad.open("a", encoding="utf-8") as datei:
-        datei.write(json.dumps(zeile, ensure_ascii=False, sort_keys=True) + "\n")
-    return zeile
+    zeilen: list[dict[str, Any]] = []
+    for anwendung in anwendungen:
+        kennzahlen, fehler = sammeln(anwendung, roh_je_anwendung[anwendung])
+        zeile = {
+            "zeit": datetime.now(timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "anwendung": anwendung,
+            "modell": modell,
+            "kennzahlen": kennzahlen,
+            "fehler": fehler,
+            "quelle_version": _quelle_version(),
+        }
+        with journal_pfad.open("a", encoding="utf-8") as datei:
+            datei.write(json.dumps(zeile, ensure_ascii=False, sort_keys=True) + "\n")
+        zeilen.append(zeile)
+    return zeilen
 
 
 # --- Trend ----------------------------------------------------------------
@@ -398,7 +461,13 @@ def main() -> int:
     ap.add_argument(
         "--trend", action="store_true", help="Tabelle der letzten n Laeufe zeigen"
     )
-    ap.add_argument("--anwendung", choices=["mailcheck", "todo"])
+    ap.add_argument(
+        "--anwendung",
+        action="append",
+        choices=["mailcheck", "todo", "alle"],
+        help="mailcheck, todo oder alle (beide in einem Lauf, #3067); "
+        "fuer --schreiben mehrfach angebbar",
+    )
     ap.add_argument("--modell", help="Default: $CLAUDE_MODEL oder 'unbekannt'")
     ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))
     ap.add_argument(
@@ -410,23 +479,30 @@ def main() -> int:
     journal_pfad = Path(args.journal).expanduser()
 
     if args.trend:
-        print(trend(args.anwendung, args.n, journal_pfad))
+        anwendung_filter = args.anwendung[0] if args.anwendung else None
+        print(trend(anwendung_filter, args.n, journal_pfad))
         return 0
 
     if args.schreiben:
         if not args.anwendung:
             print(
-                "FEHLER: --schreiben braucht --anwendung mailcheck|todo",
+                "FEHLER: --schreiben braucht --anwendung mailcheck|todo|alle",
                 file=sys.stderr,
             )
             return 2
+        anwendungen: list[str] = []
+        for a in args.anwendung:
+            anwendungen.extend(["mailcheck", "todo"] if a == "alle" else [a])
+        anwendungen = list(dict.fromkeys(anwendungen))  # Reihenfolge, ohne Duplikate
+
         eingabe = _eingabe_lesen(args.eingabe) if args.eingabe else None
         modell = args.modell or os.environ.get("CLAUDE_MODEL") or "unbekannt"
-        zeile = schreiben(args.anwendung, modell, journal_pfad, eingabe)
-        print(
-            f"Journal geschrieben: {journal_pfad} ({args.anwendung}, "
-            f"{len(zeile['fehler'])} Fehler von {len(zeile['kennzahlen'])} Kennzahlen)"
-        )
+        zeilen = schreiben(anwendungen, modell, journal_pfad, eingabe)
+        for zeile in zeilen:
+            print(
+                f"Journal geschrieben: {journal_pfad} ({zeile['anwendung']}, "
+                f"{len(zeile['fehler'])} Fehler von {len(zeile['kennzahlen'])} Kennzahlen)"
+            )
         return 0
 
     ap.print_help()

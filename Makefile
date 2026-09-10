@@ -41,8 +41,7 @@ boards: ## Mail-Action-Board und Todo-Board neu bauen (beide Ausgaben)
 	@python3 tools/mail_agent/eintrag_mails.py --schreibe | tail -1 || echo "  (Eintrag-Mail-Zuordnung uebersprungen — Mail-Index nicht erreichbar)"
 	@python3 tools/mail_agent/board.py --render --nach $(HOME)/.claude/mail-action-board.md
 	@python3 tools/todo_board/todo_board.py build
-	@python3 tools/mail_agent/messjournal.py --schreiben --anwendung mailcheck || { echo "  (Messjournal mailcheck uebersprungen)"; true; }
-	@python3 tools/mail_agent/messjournal.py --schreiben --anwendung todo || { echo "  (Messjournal todo uebersprungen)"; true; }
+	@python3 tools/mail_agent/messjournal.py --schreiben --anwendung alle || { echo "  (Messjournal uebersprungen)"; true; }
 	@python3 tools/mail_agent/verfallsmelder.py || true
 
 boards-check: ## K1-Beleg (#2592): beide Renderer zweimal mit festem Stichtag bauen, byteweise vergleichen

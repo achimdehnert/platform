@@ -51,7 +51,7 @@ Schlaegt ein Quellkommando fehl oder liefert unlesbare Ausgabe (Timeout 120 s), 
 
 ## Journal-Pfad
 
-`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `kennzahlen`, `fehler`, `quelle_version`. `make boards` haengt nach jedem Board-Bau je eine Zeile für `mailcheck` und `todo` an. Trend über die letzten sieben Läufe:
+`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `kennzahlen`, `fehler`, `quelle_version`. `make boards` ruft `messjournal.py --schreiben --anwendung alle` einmal auf und haengt je eine Zeile für `mailcheck` und `todo` an — die geteilte Quelle `link_pruefen.py --vorgangsseiten` laeuft dabei nur einmal (#3067). Trend über die letzten sieben Läufe:
 
 ```bash
 python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
