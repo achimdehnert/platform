@@ -307,44 +307,6 @@ hosts:
     hosts_runners: []
     verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
 
-  netcup:
-    ip: 152.53.136.219
-    arch: amd64                        # uname -m 2026-08-30: x86_64
-    ssh: root@152.53.136.219
-    hostname: v2202604344838448611     # DNS: v2202604344838448611.goodsrv.de
-    provider: netcup (Nürnberg, DE)    # ERSTER Nicht-Hetzner-Host im Bestand
-    os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
-    server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
-    role: >
-      Off-Provider-Backup-Ziel (ADR-289 R1): restic rest-server, append-only. Einziger
-      Host ausserhalb der Hetzner-Fehlerdomaene, groesste Platte (1 TB). Firewall liegt
-      im netcup-Panel, nicht am Host.
-      R3 CI-/Build-Runner AKTIV seit 2026-09-01 (Owner-Beschluss 2026-08-30 „R3 auf
-      netcup aktivieren", Ausfuehrung nach platform#2543) — ausschliesslich ROOTLESS,
-      siehe auflage. R2 Monitoring und R4 DR bleiben vertagt.
-    historie:
-      - "2026-07-30: Speicherklasse per fio als SSD/NVMe belegt (Panel sagte HDD)"
-      - "2026-08-30: CI-Runner laeuft entgegen R3 mit github-ci in Gruppe docker (platform#2486 Punkt 1); kein restic check, kein Prune, Schluessel ohne Escrow (platform#2504)"
-      - "2026-09-01: AVV nach Art. 28 DSGVO liegt vor, unterzeichnet 30.07.2026 — der Befund 'AVV fehlt' war falsch; das Dokument war nur nicht abgelegt (platform#2486 Punkt 4)"
-      - "2026-09-01: R3 aktiviert, aber ROOTLESS — github-ci hat einen eigenen Daemon (/run/user/1000/docker.sock) und ist NICHT in der Gruppe docker. Gegenprobe am Host: Zugriff auf /var/run/docker.sock = permission denied"
-    hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]
-    auflage:
-      datenklassen_verboten: [personenbezogen]
-      app_hubs: false
-      runner: true                     # seit 2026-09-01, NUR rootless — s. grund
-      grund: >
-        ADR-289 R1 + §4.6 (nur Off-Provider-Backup) mit einer benannten Ausnahme:
-        R3 CI-/Build-Runner ist seit 2026-09-01 erlaubt, ABER ausschliesslich rootless
-        (eigener Nutzer-Daemon, KEINE Mitgliedschaft in der Gruppe `docker`) — sonst
-        waere jeder CI-Job root-aequivalent auf dem Host, der die einzige Kopie
-        ausserhalb der Hetzner-Fehlerdomaene haelt (platform#2486 Punkt 1).
-        `datenklassen_verboten: [personenbezogen]` bleibt bestehen, obwohl der AVV
-        seit 2026-07-30 vorliegt: der Hinderungsgrund ist jetzt nicht mehr der
-        Vertrag, sondern der fehlende Loeschpfad — `restic forget`/Prune laufen
-        nirgends (platform#2504), und ohne Loeschpfad kein Art. 17.
-        Belege: platform#2543, platform#2486.
-    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
-
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
 # ─────────────────────────────────────────────────────────────────────────────
@@ -406,7 +368,7 @@ runners:
     verified: 2026-08-28               # Box-Fakten; Runner-Status offen
   netcup-ci:
     host: netcup                       # 152.53.136.219
-    status: online                     # 2026-09-01 registriert (id 25), Dienst enabled+active.
+    status: deleted                    # 2026-09-10 Registrierung geloescht (mcp-hub ids 22-24), Host gekuendigt — s. ehemalige_hosts.netcup
                                        # Reihenfolge eingehalten: Deklaration (platform#2568)
                                        # vor der Registrierung. Am selben Tag war es einmal
                                        # umgekehrt und wurde zurueckgebaut (platform#2543).
@@ -467,7 +429,7 @@ runners:
 
   netcup-ci-2:
     host: netcup
-    status: online                     # 2026-09-01 registriert (id 26)
+    status: deleted                    # 2026-09-10 Registrierung geloescht (mcp-hub ids 22-24), Host gekuendigt — s. ehemalige_hosts.netcup
     labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
     scope: per-repo
     install: /opt/actions-runner-<repo>-2
@@ -486,7 +448,7 @@ runners:
 
   netcup-ci-3:
     host: netcup
-    status: online                     # 2026-09-01 registriert (id 27)
+    status: deleted                    # 2026-09-10 Registrierung geloescht (mcp-hub ids 22-24), Host gekuendigt — s. ehemalige_hosts.netcup
     labels: [self-hosted, Linux, X64, ci-nonprod, netcup]
     scope: per-repo
     install: /opt/actions-runner-<repo>-3
@@ -525,3 +487,52 @@ dead_label_refs:
     file: .github/workflows/runner-diag.yml
     was: "[self-hosted, dev]"
     fixed_in: "PR #210 (Workflow entfernt — diente nur dev-hetzner-2)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ehemalige Hosts — nicht mehr im Bestand. Kein Melder liest diesen Block
+# (alle lesen `hosts:`); er bleibt als datierte Historie stehen.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ehemalige_hosts:
+  netcup:
+    gekuendigt: 2026-09-10             # Owner-Wort im Kapitaens-Kanal: "netcup server ist gekuendigt, nicht mehr noetig" (platform#2950)
+    gekuendigt_grund: >
+      Seit 2026-09-08 antwortet die Adresse mit fremdem Host-Key, Runner offline,
+      Offsite-Cron rot (platform#2950). Offsite-Ziel wird Hetzner Object Storage
+      (ADR-289 Revision, platform#2968); Runner-Ersatz mcp-hub-staging-ci auf dev-desktop.
+    ip: 152.53.136.219
+    arch: amd64                        # uname -m 2026-08-30: x86_64
+    ssh: root@152.53.136.219
+    hostname: v2202604344838448611     # DNS: v2202604344838448611.goodsrv.de
+    provider: netcup (Nürnberg, DE)    # ERSTER Nicht-Hetzner-Host im Bestand
+    os: Debian GNU/Linux 13 (trixie), Kernel 6.12.74
+    server_type: 12 vCPU / 31 GiB RAM / 1007 GB Disk
+    role: >
+      Off-Provider-Backup-Ziel (ADR-289 R1): restic rest-server, append-only. Einziger
+      Host ausserhalb der Hetzner-Fehlerdomaene, groesste Platte (1 TB). Firewall liegt
+      im netcup-Panel, nicht am Host.
+      R3 CI-/Build-Runner AKTIV seit 2026-09-01 (Owner-Beschluss 2026-08-30 „R3 auf
+      netcup aktivieren", Ausfuehrung nach platform#2543) — ausschliesslich ROOTLESS,
+      siehe auflage. R2 Monitoring und R4 DR bleiben vertagt.
+    historie:
+      - "2026-07-30: Speicherklasse per fio als SSD/NVMe belegt (Panel sagte HDD)"
+      - "2026-08-30: CI-Runner laeuft entgegen R3 mit github-ci in Gruppe docker (platform#2486 Punkt 1); kein restic check, kein Prune, Schluessel ohne Escrow (platform#2504)"
+      - "2026-09-01: AVV nach Art. 28 DSGVO liegt vor, unterzeichnet 30.07.2026 — der Befund 'AVV fehlt' war falsch; das Dokument war nur nicht abgelegt (platform#2486 Punkt 4)"
+      - "2026-09-01: R3 aktiviert, aber ROOTLESS — github-ci hat einen eigenen Daemon (/run/user/1000/docker.sock) und ist NICHT in der Gruppe docker. Gegenprobe am Host: Zugriff auf /var/run/docker.sock = permission denied"
+    hosts_runners: [netcup-ci, netcup-ci-2, netcup-ci-3]
+    auflage:
+      datenklassen_verboten: [personenbezogen]
+      app_hubs: false
+      runner: true                     # seit 2026-09-01, NUR rootless — s. grund
+      grund: >
+        ADR-289 R1 + §4.6 (nur Off-Provider-Backup) mit einer benannten Ausnahme:
+        R3 CI-/Build-Runner ist seit 2026-09-01 erlaubt, ABER ausschliesslich rootless
+        (eigener Nutzer-Daemon, KEINE Mitgliedschaft in der Gruppe `docker`) — sonst
+        waere jeder CI-Job root-aequivalent auf dem Host, der die einzige Kopie
+        ausserhalb der Hetzner-Fehlerdomaene haelt (platform#2486 Punkt 1).
+        `datenklassen_verboten: [personenbezogen]` bleibt bestehen, obwohl der AVV
+        seit 2026-07-30 vorliegt: der Hinderungsgrund ist jetzt nicht mehr der
+        Vertrag, sondern der fehlende Loeschpfad — `restic forget`/Prune laufen
+        nirgends (platform#2504), und ohne Loeschpfad kein Art. 17.
+        Belege: platform#2543, platform#2486.
+    verified: 2026-08-30                # Vollmessung 13 Agenten + Nachmessung, KONZ-054
