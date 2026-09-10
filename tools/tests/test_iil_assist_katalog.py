@@ -92,5 +92,8 @@ def test_should_write_run_into_catalog_and_keep_header(katalog, tmp_path):
     ik.speichere(d, ziel)
     text = ziel.read_text(encoding="utf-8")
     assert text.startswith("# iil-assist")
-    assert yaml.safe_load(text)["bahnen"]["wartung"]["laeufe"][0]["gemessen"] == 1
+    # Der ANGEHAENGTE Lauf, nicht der erste: sobald der ausgelieferte Katalog echte
+    # Laeufe traegt (seit MVP 1 in Produktion, gemessen 13), ist [0] der echte und
+    # der Test bricht ohne Codeaenderung — so geschehen am 2026-09-10 in jedem PR.
+    assert yaml.safe_load(text)["bahnen"]["wartung"]["laeufe"][-1]["gemessen"] == 1
     assert ik.pruefe(yaml.safe_load(text)) == []
