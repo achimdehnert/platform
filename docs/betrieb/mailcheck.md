@@ -87,15 +87,24 @@ dieses Signalsatzes — der Melder deckt ihn für `todo-board.service` und
 
 ## Verbesserungs-Backlog (K4: jeder Vorschlag mit Gegenrede und Alternative, bevor er gebaut wird)
 
-Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative wird abgewiesen (K4).
+Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative wird abgewiesen (K4). Die Zeitungs-Akte in news-hub prüft man mit `python3 tools/betrieb_backlog_check.py ~/github/news-hub/docs/betrieb/morgen-zeitung.md`.
 
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
 | 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, [PR #3061](https://github.com/achimdehnert/platform/pull/3061) |
 | 2 | Index-Alter auf die Arbeitsliste | Eine Zahl mehr im Kopf; sie erklärt nur, was fehlt, nicht was da ist | Statt Alter anzeigen: Post-Ingest-Fenster automatisch live nachziehen, wenn die Liste geöffnet wird | offen, K3 (Melder-Signal `index_alter_tage` ist gebaut, Anzeige auf der Arbeitsliste selbst nicht) |
 | 3 | `board.py --erledigt` | Ein Kommando mehr, das der Owner nicht tippt; er sagt „#206 erledigt" im Chat | Schließen direkt aus der Arbeitsliste per Klick, mit Charta-Grenze (kein Senden) | [#3049](https://github.com/achimdehnert/platform/issues/3049) |
-| 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064), Closes [#3051](https://github.com/achimdehnert/platform/issues/3051) — Ursache (Anker beim Ablegen) bleibt offen |
+| 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | gebaut, PR #3064 (#3051 zu) — Ursache (Anker beim Ablegen) bleibt offen |
+## Modellfest-Drill (K5)
 
-## Modellfest-Drill (K5, Soll)
+Gefahren am 2026-09-10 mit zwei frischen Sitzungen (Sonnet), Vorlage aus dieser Akte (`python3 tools/session_skill_drill.py --vorlage --datei docs/betrieb/mailcheck.md`): beide Läufe 9/9 erfüllt, 0 Abweichungen im Vergleich (`--vergleich`), Kennzahlen in beiden Läufen identisch (87 Vorgänge, 0 ohne Frist, 116 unverankert, 185 Links / 5 tot, Index 1 Tag alt). Beide Läufe schlugen dasselbe vor (Index-Alter auf die Arbeitsliste, Backlog 2). Protokolle liegen im Sitzungs-Scratchpad; die Zahlen stehen im Messjournal.
 
-Eine frische Sitzung bekommt nur diese Akte, führt die drei Einstiegskommandos aus, nennt die sieben Kennzahlen und einen Backlog-Vorschlag mit Gegenrede. Protokoll nach der Drill-Vorlage (`tools/session_skill_drill.py --vorlage`, Trockenlauf-Regel seit #3016). Noch nicht gefahren.
+## Betriebs-Checkliste
+
+| # | Check | Status |
+|---|---|---|
+| 1 | `python3 tools/mail_agent/kettencheck.py` gelaufen, gebrochene Glieder genannt | ☐ |
+| 2 | `make boards` gelaufen, Messjournal hat eine neue Zeile (`messjournal.py --trend --n 1`) | ☐ |
+| 3 | `python3 tools/mail_agent/verfallsmelder.py` — Warnungen genannt, auch bei 0 | ☐ |
+| 4 | `make betrieb-check` grün (K4) | ☐ |
+| 5 | Jeder neue Verlaufseintrag ist Akte, nicht Arbeitsprotokoll (Regel 0 im Mailcheck-Skill) | ☐ |

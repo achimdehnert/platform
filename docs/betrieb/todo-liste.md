@@ -11,8 +11,8 @@ Die Arbeitsliste zeigt dem Owner die offenen Mail-Vorgänge aus dem Ledger als S
 ```bash
 # Seite einmal bauen (reproduzierbar, --stichtag für gleiche Ausgabe)
 python3 tools/todo_board/todo_board.py build
-# Dienst lokal
-python3 tools/todo_board/todo_board.py serve --port 8789 --bind 127.0.0.1
+# Dienst lokal — Port 8789 ist auf dev-desktop vom Prod-Dienst belegt, lokal einen freien Port nehmen
+python3 tools/todo_board/todo_board.py serve --port 8799 --bind 127.0.0.1
 # Kettenprobe: alle Mail-Links aller Vorgangsseiten
 python3 tools/mail_agent/link_pruefen.py --vorgangsseiten
 ```
@@ -82,6 +82,16 @@ Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative 
 | 2 | „Geschlossen in 7 Tagen" als Kopfzahl | Eine Motivationszahl ohne Handlung; sie zeigt Tempo, aber der Owner kann daraus nichts anklicken oder öffnen | Geschlossene Vorgänge als eigenen, eingeklappten Abschnitt zeigen | offen |
 | 3 | Melder „Dienst läuft mit altem Code" | Ein Melder mehr, der den Owner zum Neustart auffordert, den er ohnehin nach jedem Merge macht | Neustart durch den Merge-Workflow (braucht Deploy-Recht, das der Dienst bewusst nicht hat) | gebaut (Melder), PR [#3064](https://github.com/achimdehnert/platform/pull/3064) — Auto-Neustart bleibt Owner-Entscheid #2507 |
 
-## Modellfest-Drill (K5, Soll)
+## Modellfest-Drill (K5)
 
-Frische Sitzung, nur diese Akte: Seite bauen, Linkprüfer laufen lassen, fünf Kennzahlen nennen, einen Backlog-Vorschlag mit Gegenrede. Noch nicht gefahren.
+Gefahren am 2026-09-10 mit zwei frischen Sitzungen (Sonnet): beide Läufe 8/8 erfüllt, 0 Abweichungen, Kennzahlen identisch (75 Seiten, 185 Links / 5 tot, 4 ohne Kopf-Aktion, 23 geschlossen in 7 Tagen). Beide Läufe stolperten über denselben Punkt — der Einstiegsbefehl `serve` nannte den belegten Prod-Port — seit diesem Stand korrigiert. Vorschlag beider Läufe: „geschlossen in 7 Tagen" als Kopfzahl (Backlog 2).
+
+## Betriebs-Checkliste
+
+| # | Check | Status |
+|---|---|---|
+| 1 | `python3 tools/todo_board/todo_board.py build` reproduzierbar (zweimal gleiche Bytezahl) | ☐ |
+| 2 | `python3 tools/mail_agent/link_pruefen.py --vorgangsseiten` — tote Links genannt, auch bei 0 | ☐ |
+| 3 | `python3 tools/mail_agent/verfallsmelder.py --anwendung todo` — Warnungen genannt | ☐ |
+| 4 | Dienst läuft mit aktuellem Code (Melder-Signal „Dienst-Code" ok) | ☐ |
+| 5 | `make betrieb-check` grün (K4) | ☐ |
