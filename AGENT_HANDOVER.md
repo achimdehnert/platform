@@ -15,7 +15,21 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
+## ⚡ Aktueller Stand (2026-09-10 — Auftrag #3015: drei Tagesroutinen selbstmessend; Drill-Vorlage repariert)
+
+**Zeitanker:** HEAD `2461135f` · `rev-list --count` 4330 · geschrieben 2026-09-10
+
+**Auftrag angelegt** ([#3015](https://github.com/achimdehnert/platform/issues/3015), Freigabe-Zeile im Issue, SA-4): Mailcheck, To-do-Liste (`todo.iil.pet`) und Morgen-Zeitung bekommen je ein Einstiegskommando (K1), Kennzahlen je Lauf (K2), Verfallsmelder mit Vorlauf (K3), eine Verbesserungsschleife mit Advocatus Diaboli und Out-of-the-Box als Pflichtabschnitten (K4) und einen Modellfest-Drill in frischer Sitzung (K5). Reihenfolge: To-do-Deklaration, Mailcheck, Zeitung.
+
+**Drill-Vorlage repariert** ([#3016](https://github.com/achimdehnert/platform/pull/3016) gemergt, [#2719](https://github.com/achimdehnert/platform/issues/2719) geschlossen): Trockenlauf-Regel als Kopfzeile, „Grund zu kurz" von „Einheit fehlt" getrennt. Nachmessung 9 Kaltstart-Laeufe: start 0·1·1 Abweichungen (vorher 2·24·24), ende 5·3·6, retro 1·1·2, keine stille Pflicht-Auslassung — Zahlen in #2719.
+
+**Erster Bauschritt K3** ([#3024](https://github.com/achimdehnert/platform/pull/3024)): To-do-Server in `infra/ports.yaml` dem Repo platform zugeordnet (Muster Embedder); Erreichbarkeits- und TLS-Melder vor/nach identisch, Registry-Validatoren gruen. Drei Backlog-Befunde im Issue: Vorgang schliessen hat kein Kommando, To-do-Seite zeigt Geschlossenes nicht, Waisen-Zuordnung je Repo kippt still (platform: gx10 → dev-desktop).
+
+**Owner-Zurufe:** Vorgaenge 202, 205, 206 im Ledger geschlossen (per Hand, Sicherung `mail-vorgaenge.json.bak-20260910`); `board.py --pruefe` 87 Vorgaenge gruen.
+
+**Offen (Owner):** nichts Neues; #3024 mergt nach gruenem CI per Mandat (ich).
+
+## ⚡ Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
 
 **Zielzustand erreicht** ([doc-hub#4](https://github.com/achimdehnert/doc-hub/issues/4)): Ein Scan mit mehreren Dokumenten wird auf dem Weg in Paperless automatisch zerlegt, verschlagwortet und abgelegt; das Original wandert aus dem Eingang, wird aber nie geloescht. Code `/opt/doc-hub/splitter/` auf hetzner-prod, eigenes venv, Timer `doc-hub-splitter.timer` alle 3 Minuten (aktiviert nach Owner-Wort). Eingang `/opt/paperless-consume/schleuse/scan-eingang` — den ignoriert Paperless ohnehin, deshalb war kein Samba-Eingriff noetig. Personen-Muster `/etc/doc-hub/zuordnung.json` (0640, nicht im Repo).
 
@@ -30,23 +44,13 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Clear-Haerte (fremder Blick):** Drei Prod-Freigaben stehen nur als Frage und Ergebnis im Verlauf, die Zustimmung in keinem Artefakt. Acht der zehn Retro-Massnahmen hatten kein Tracking-Issue (nachgeholt). Der README-Beispielpfad wich vom echten Prod-Pfad ab (behoben).
 **SA-4:** 11 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
 
-## ⚡ Stand (2026-09-09 vormittags — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
-
-**Morgen-Zeitung live** ([KONZ-platform-057](docs/konzepte/KONZ-platform-057-morgenzeitung-aus-dem-hot-topics-letter.md)): `news.iil.pet` bedient, Timer 06:15 UTC, Ausgabe erscheint als aufklappbare Artikel im Matrix-Raum `#news:chat.iil.pet` (Oberflaeche: **app-chat.iil.pet**). Kette: `mail_lesenaht` (devhub_web) → `digest_taeglich` (news_hub_web) → Chat. Betriebs-Runbook in Outline („Morgen-Zeitung … Betrieb auf news.iil.pet").
-
-**Was der Tag ergab:** Aus einem Mailcheck wurden sieben Owner-Zurufe und 21 gemergte PRs in zwei Repos — [#2987](https://github.com/achimdehnert/platform/pull/2987) (Board-Kopfzeile, Bucket `kenntnis`), [#2991](https://github.com/achimdehnert/platform/pull/2991) (Konzept), [#2993](https://github.com/achimdehnert/platform/pull/2993) (Deklaration), [#2998](https://github.com/achimdehnert/platform/pull/2998), [#3002](https://github.com/achimdehnert/platform/pull/3002) (Retro) sowie news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#41](https://github.com/achimdehnert/news-hub/pull/41).
-
-**Retro** ([#3002](https://github.com/achimdehnert/platform/pull/3002), Footprint `deep`): 20 Befunde, 13 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — die Rework-Quote (50 % → 21 %, vier PRs korrigierten Arbeit vom 29.08.) und den Staging-Befund (news-hub hat gar kein Staging, es war eine Dublette). Ein verworfener Befund kehrte zurueck: KONZ-057 traegt eine Ledger-Zeile `belegt`, deren Beleg derselbe Tag umschrieb. **Neu und keinem Finder aufgefallen:** ein Ausfall des Tageslaufs war unsichtbar — behoben in [news-hub#41](https://github.com/achimdehnert/news-hub/pull/41) (`digest_frische`, Units im Repo, `OnFailure` meldet in den Chat-Raum).
-
-**Eigene Fehler:** Ein Filter ohne Untergrenze leerte das Blatt, und der zugehoerige Test schrieb genau dieses Verhalten als richtig fest (Outline-Lesson, [news-hub#36](https://github.com/achimdehnert/news-hub/pull/36)). Ich meldete 14 selbst geschriebene Freigabe-Zeilen als Regelverstoss — der Owner wies das zurueck („kein Regelverstoss, sondern sinnvolles miteinander arbeiten"); die Memory-Regel ist ersetzt. Eine PR-Nummer war erfunden (#3001 statt #3002).
-
-**Offen (Owner):** Themenauswahl kuert weiter generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)) · Smoke-Lauf im CI, Entwurf steht ([news-hub#40](https://github.com/achimdehnert/news-hub/issues/40)) · NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)) · drei Memory-Kandidaten aus der Retro.
-
-**Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
-
 ## Offene Fäden (über den Session-Stand hinaus)
 
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
+- **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
+- **[news-hub#40]** Morgen-Zeitung: Smoke-Lauf im CI, Entwurf steht — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/40
+- **[news-hub#19]** Morgen-Zeitung: NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/19
+- **[3001]** memory-link-guard meldet einen intakten Wikilink als tot (Lane-Verwechslung) — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/platform/issues/3001
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.

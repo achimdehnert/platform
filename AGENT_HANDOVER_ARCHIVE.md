@@ -2390,3 +2390,17 @@ ist seit 2026-09-07 als COMPLETED zu. Der Rest (Owner sendet die PyPI-Support-An
 Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommentar.
 
 - 5. PyPI-Org `iil`: nur noch Owner-Klicks (Org löschen, `iildehnert` härten, Konto `achimdehnert` prüfen); Org antwortete 07.09. noch 200, Ledger 152 Wiedervorlage 14.09.: https://github.com/achimdehnert/platform/issues/2291
+
+## ⚡ Stand (2026-09-09 vormittags — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
+
+**Morgen-Zeitung live** ([KONZ-platform-057](docs/konzepte/KONZ-platform-057-morgenzeitung-aus-dem-hot-topics-letter.md)): `news.iil.pet` bedient, Timer 06:15 UTC, Ausgabe erscheint als aufklappbare Artikel im Matrix-Raum `#news:chat.iil.pet` (Oberflaeche: **app-chat.iil.pet**). Kette: `mail_lesenaht` (devhub_web) → `digest_taeglich` (news_hub_web) → Chat. Betriebs-Runbook in Outline („Morgen-Zeitung … Betrieb auf news.iil.pet").
+
+**Was der Tag ergab:** Aus einem Mailcheck wurden sieben Owner-Zurufe und 21 gemergte PRs in zwei Repos — [#2987](https://github.com/achimdehnert/platform/pull/2987) (Board-Kopfzeile, Bucket `kenntnis`), [#2991](https://github.com/achimdehnert/platform/pull/2991) (Konzept), [#2993](https://github.com/achimdehnert/platform/pull/2993) (Deklaration), [#2998](https://github.com/achimdehnert/platform/pull/2998), [#3002](https://github.com/achimdehnert/platform/pull/3002) (Retro) sowie news-hub [#24](https://github.com/achimdehnert/news-hub/pull/24)–[#41](https://github.com/achimdehnert/news-hub/pull/41).
+
+**Retro** ([#3002](https://github.com/achimdehnert/platform/pull/3002), Footprint `deep`): 20 Befunde, 13 ueberlebt. Die Widerlegungsbahn kippte **zwei eigene Urteile** — die Rework-Quote (50 % → 21 %, vier PRs korrigierten Arbeit vom 29.08.) und den Staging-Befund (news-hub hat gar kein Staging, es war eine Dublette). Ein verworfener Befund kehrte zurueck: KONZ-057 traegt eine Ledger-Zeile `belegt`, deren Beleg derselbe Tag umschrieb. **Neu und keinem Finder aufgefallen:** ein Ausfall des Tageslaufs war unsichtbar — behoben in [news-hub#41](https://github.com/achimdehnert/news-hub/pull/41) (`digest_frische`, Units im Repo, `OnFailure` meldet in den Chat-Raum).
+
+**Eigene Fehler:** Ein Filter ohne Untergrenze leerte das Blatt, und der zugehoerige Test schrieb genau dieses Verhalten als richtig fest (Outline-Lesson, [news-hub#36](https://github.com/achimdehnert/news-hub/pull/36)). Ich meldete 14 selbst geschriebene Freigabe-Zeilen als Regelverstoss — der Owner wies das zurueck („kein Regelverstoss, sondern sinnvolles miteinander arbeiten"); die Memory-Regel ist ersetzt. Eine PR-Nummer war erfunden (#3001 statt #3002).
+
+**Offen (Owner):** Themenauswahl kuert weiter generische Woerter ([news-hub#33](https://github.com/achimdehnert/news-hub/issues/33)) · Smoke-Lauf im CI, Entwurf steht ([news-hub#40](https://github.com/achimdehnert/news-hub/issues/40)) · NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt ([news-hub#19](https://github.com/achimdehnert/news-hub/issues/19)) · drei Memory-Kandidaten aus der Retro.
+
+**Clear-Haerte (0e):** F1 nein — Betrieb im Outline-Runbook, Befunde im Retro-Bericht, Restarbeit in Issues. F2 nein. F3 nein.
