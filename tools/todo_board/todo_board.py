@@ -556,6 +556,7 @@ main{max-width:60rem;margin:0 auto}
 h1{font-size:1.5rem;margin:0 0 .25rem}
 .nr-marke{color:var(--stumm);font-weight:400;font-variant-numeric:tabular-nums}
 .stand{color:var(--stumm);font-size:.85rem;margin:0 0 2rem}
+.rueckweg{font-size:.85rem;margin:0 0 .5rem}
 .suche{display:flex;align-items:center;gap:.6rem;margin:0 0 1.25rem}
 #such{flex:1 1 auto;max-width:28rem;padding:.45rem .7rem;border:1px solid var(--linie);
 border-radius:8px;background:var(--karte);color:var(--fg);font:inherit}
@@ -1655,6 +1656,7 @@ def detail(
 <meta name="robots" content="noindex,nofollow">
 <title>{html.escape(v.get("thread_key", "Vorgang"))}</title><style>{CSS}</style></head>
 <body><main>
+<nav class="rueckweg"><a href="{html.escape(basis.rstrip("/")) if basis else ""}/">← Arbeitsliste</a></nav>
 <h1>{nr_marke}{html.escape(v.get("thread_key", "Vorgang"))}</h1>
 <p class="stand">{html.escape(v.get("kurz") or "")}</p>
 {zusammenfassung_html}

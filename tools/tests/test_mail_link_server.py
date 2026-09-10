@@ -688,3 +688,72 @@ class TestOrdneransicht:
         srv, protokoll = gerufen
         assert self._hole(srv, "/m/hnu/entwuerfe/23612") == 502
         assert protokoll == []
+
+
+class TestRueckweg:
+    """Jede Mail-Seite traegt den Weg zurueck (Owner-Weisung 2026-09-10)."""
+
+    LEDGER = {
+        "vorgaenge": [
+            {"nr": 173, "thread_key": "IIL-Entwuerfe unversendet", "notiz": ""},
+            {
+                "nr": 189,
+                "thread_key": "Submission of Chapters",
+                "notiz": "Antwort (INBOX #4711)",
+            },
+            {"nr": 5, "thread_key": "", "notiz": "nennt #4711 auch"},
+        ]
+    }
+
+    def test_should_resolve_board_number_from_short_and_anchor_routes(self):
+        assert [v["nr"] for v in mls.vorgaenge_zu_pfad("/r/173", self.LEDGER)] == [173]
+        assert [v["nr"] for v in mls.vorgaenge_zu_pfad("/a/173", self.LEDGER)] == [173]
+
+    def test_should_resolve_uid_routes_via_history_mentions(self):
+        assert [v["nr"] for v in mls.vorgaenge_zu_pfad("/m/4711", self.LEDGER)] == [
+            189,
+            5,
+        ]
+        assert [
+            v["nr"] for v in mls.vorgaenge_zu_pfad("/a/hnu-inbox-4711", self.LEDGER)
+        ] == [
+            189,
+            5,
+        ]
+        assert mls.vorgaenge_zu_pfad("/m/hnu/inbox/9999", self.LEDGER) == []
+
+    def test_should_ignore_non_mail_routes(self):
+        assert mls.vorgaenge_zu_pfad("/", self.LEDGER) == []
+        assert mls.vorgaenge_zu_pfad("/board/x", self.LEDGER) == []
+
+    def test_should_link_list_and_each_thread_page(self):
+        nav = mls.rueckweg_html(self.LEDGER["vorgaenge"][:2], "https://todo.example")
+        assert "href='https://todo.example/'" in nav
+        assert "href='https://todo.example/t/IIL-Entwuerfe%20unversendet'" in nav
+        assert "Vorgang #189: Submission of Chapters" in nav
+
+    def test_should_insert_after_body_else_after_title_else_after_doctype(self):
+        nav = "<nav>x</nav>"
+        assert mls.mit_rueckweg(b"<html><body class='a'><p>1", nav) == (
+            b"<html><body class='a'><nav>x</nav><p>1"
+        )
+        assert mls.mit_rueckweg(b"<!doctype html><title>t</title><p>", nav) == (
+            b"<!doctype html><title>t</title><nav>x</nav><p>"
+        )
+        assert (
+            mls.mit_rueckweg(b"<!doctype html><p>", nav)
+            == b"<!doctype html><nav>x</nav><p>"
+        )
+        assert mls.mit_rueckweg(b"<p>", nav) == b"<nav>x</nav><p>"
+
+    def test_should_serve_mail_page_with_back_links(self, server, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        ledger.write_text(json.dumps(self.LEDGER), encoding="utf-8")
+        mls.MailLinkHandler.ledger_pfad = ledger
+        status, _kopf, koerper = _get(server, "/m/4711")
+        assert status == 200
+        text = koerper.decode("utf-8")
+        assert "class='rueckweg'" in text
+        assert "href='https://todo.iil.pet/'" in text
+        assert "/t/Submission%20of%20Chapters" in text
+        assert text.index("rueckweg") < text.index("Testmail")
