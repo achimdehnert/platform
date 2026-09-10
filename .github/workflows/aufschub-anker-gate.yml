@@ -37,6 +37,10 @@ on:
 permissions:
   pull-requests: write
   contents: read
+  # issues: read seit 2026-09-10 fuer den Advisory-Schritt unten (`gh api
+  # repos/.../issues/N` + `.../comments`) — ohne diesen Eintrag verengt der
+  # explizite permissions-Block ihn implizit auf "none".
+  issues: read
 
 concurrency:
   group: aufschub-anker-${{ github.event.pull_request.number }}
@@ -120,6 +124,34 @@ jobs:
             *) echo "::error::deferral_anchor_check.py brach mit Exit $rc ab (Werkzeugfehler, kein Verdikt)"
                exit 1 ;;
           esac
+
+      # Advisory-Erweiterung 2026-09-10 (Retro-Anlass): am 2026-09-10 standen sechs
+      # Folgearbeiten als Aufschub-Prosa ohne Anker in einem SACHSTANDS-KOMMENTAR des
+      # Auftrags-Issues (platform#3015) — eine Quelle, die der Check oben (PR-Text +
+      # Diff) per Konstruktion nicht sieht: ein Sachstands-Kommentar entsteht oft NACH
+      # dem PR-Text und steht in einem anderen Objekt (Issue statt PR). Bewusst
+      # ADVISORY, kein neuer Required Check (`continue-on-error: true`): das
+      # Auftrags-Issue wird aus der ersten "Refs #N"-Angabe im PR-Text gelesen und ist
+      # damit auf die Konvention angewiesen, nicht auf ein verlaessliches Feld — ein
+      # rot blockierender Check auf dieser Grundlage waere zu bruechig.
+      - name: Aufschub-Anker (Issue-Kommentare, advisory)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          issue_nr=$(grep -oiP 'refs\s*#\K[0-9]+' /tmp/pr_body.txt | head -1 || true)
+          {
+            echo "### 🗂️ Aufschub-Anker: Issue-Kommentare (advisory)"
+            echo
+            if [ -z "$issue_nr" ]; then
+              echo "Kein \`Refs #N\` im PR-Text gefunden — Issue-Kommentar-Check uebersprungen."
+            else
+              echo "Auftrags-Issue: #$issue_nr"
+              echo '```'
+              python3 tools/deferral_anchor_check.py --issue "$issue_nr" || true
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Kommentar setzen/aktualisieren
         if: always()
