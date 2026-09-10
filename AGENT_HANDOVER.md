@@ -25,7 +25,7 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 **Eigene Fehler:** netcup zuerst als „fehlender Alias" gedeutet (war ein fremder Host) · `iil-assist` als „in keinem Repo" behauptet (Familie existiert, `iil-assist-core`) · git+-URL statt Wheel-Konvention (Prod-Deploy einmal rot) · zwei Erwartungslisten im Orchestrator übersehen · Tests nach einem `tail`-Pipe für grün gehalten und zu früh committet.
 
-**Zielzustand #3011:** *nicht erreicht* — K1, K2, K3, K4, K6, K7, K8 erfüllt (Konzept-PR, Probe, Werkzeuge); K5 zu einem Fünftel (MVP 1 prod statt Staging, Chat-Rundlauf offen als O5). Programm läuft, Phase `bau`, Kill-Gate 2026-10-24.
+**Zielzustand #3011:** *nicht erreicht* — **Urteil des fremden Abnahme-Agenten, nicht meines:** K1, K2, K3, K4, K6, K8 erfüllt mit Beleg; **K5 nicht erfüllt** (ein MVP von fünf, in Prod statt Staging, Chat-Rundlauf offen als O5); **K7 nicht erfüllt** — die vier Bahnen existierten nur als Code ohne einen einzigen Lauf. Danach nachgeholt: Bahnen `wartung` und `verbesserung` einmal ausgeführt, Läufe stehen in der Zustandsdatei; Takt und Melder-Register bleiben #3020. Ich hatte K7 als erfüllt geführt — das war zu weit. Programm läuft, Phase `bau`, Kill-Gate 2026-10-24.
 **SA-4:** 9 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
 
 ## ⚡ Stand (2026-09-10 vormittags — Scan-Strecke: der Melder sieht jetzt auch den Fehlschlag)
