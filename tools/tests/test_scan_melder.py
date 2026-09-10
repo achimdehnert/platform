@@ -178,7 +178,9 @@ def test_should_watch_an_extra_root_outside_the_consume_tree():
 def test_should_prefix_extra_root_files_with_their_absolute_path(monkeypatch):
     """Der absolute Pfad bleibt stehen - sonst kollidiert er mit dem Baum."""
     monkeypatch.setattr(
-        sm, "sammle", lambda wurzel, ssh: ([{"pfad": "a.pdf", "mtime": 0, "groesse": 1}], True)
+        sm,
+        "sammle",
+        lambda wurzel, ssh: ([{"pfad": "a.pdf", "mtime": 0, "groesse": 1}], True),
     )
     dateien, blind = sm.sammle_zusatz(("/opt/doc-hub/unklar",), None)
     assert [d["pfad"] for d in dateien] == ["/opt/doc-hub/unklar/a.pdf"]
@@ -191,3 +193,85 @@ def test_should_report_an_unreadable_extra_root_as_blind_not_green(monkeypatch):
     dateien, blind = sm.sammle_zusatz(("/opt/doc-hub/unklar",), None)
     assert dateien == []
     assert blind == ["/opt/doc-hub/unklar"]
+
+
+# --- Aufnahme-Protokoll (doc-hub#3, dritte Messung) -------------------------
+#
+# Realfall 2026-09-07: `07092026101932.pdf` (Scanner-Nummerndateiname, kein
+# Personenbezug) scheiterte in Paperless mit `InputFileError`. Zeilen wortgleich
+# aus dem Prod-Log kopiert (2026-09-10 gemessen) - nur der Erfolgsfall unten
+# traegt einen erfundenen Ablagenamen statt des echten (oeffentliches Repo).
+
+FEHLSCHLAG_LOG = (
+    "[2026-09-07 10:19:50,174] [INFO] [paperless.consumer] [e3fc54dc] "
+    "Consuming 07092026101932.pdf\n"
+    "[2026-09-07 10:19:50,686] [ERROR] [paperless.tasks] [e3fc54dc] "
+    "ConsumeTaskPlugin failed: 07092026101932.pdf: Error occurred while "
+    "consuming document 07092026101932.pdf: InputFileError: \n"
+    "[2026-09-07 10:19:50,738] [ERROR] [celery.app.trace] Task "
+    "documents.tasks.consume_file[e3fc54dc-6f28-4963-8fe3-c5e5b3173dfb] "
+    "raised unexpected: ConsumerError(...)\n"
+)
+
+ERFOLG_LOG = (
+    "[2026-09-10 09:28:10,001] [INFO] [paperless.consumer] [20271811] "
+    "Consuming 10092026092800.pdf\n"
+    "[2026-09-10 09:28:36,952] [INFO] [paperless.consumer] [20271811] "
+    "Document 2026-09-10 Testablage consumption finished\n"
+    "[2026-09-10 09:28:36,959] [INFO] [paperless.tasks] [20271811] "
+    "ConsumeTaskPlugin completed with: {'document_id': 2491}\n"
+)
+
+OFFEN_LOG = (
+    "[2026-09-10 09:15:00,000] [INFO] [paperless.consumer] [abc12345] "
+    "Consuming 10092026091500.pdf\n"
+)
+
+
+def test_should_recognize_the_real_2026_09_07_ingestion_failure():
+    """Positivkontrolle: der Parser muss den echten historischen Fall finden."""
+    treffer = sm.aufnahmen(FEHLSCHLAG_LOG)
+    assert len(treffer) == 1
+    assert treffer[0]["dateiname"] == "07092026101932.pdf"
+    assert treffer[0]["ergebnis"] == "fehlgeschlagen"
+    assert treffer[0]["fehlerklasse"] == "InputFileError"
+
+
+def test_should_not_flag_a_successful_ingestion_as_a_finding():
+    treffer = sm.aufnahmen(ERFOLG_LOG)
+    assert len(treffer) == 1
+    assert treffer[0]["ergebnis"] == "fertig"
+    assert treffer[0]["document_id"] == 2491
+    fehlgeschlagene = [t for t in treffer if t["ergebnis"] == "fehlgeschlagen"]
+    assert fehlgeschlagene == []
+
+
+def test_should_track_an_unfinished_ingestion_as_open_not_failed():
+    treffer = sm.aufnahmen(OFFEN_LOG)
+    assert len(treffer) == 1
+    assert treffer[0]["ergebnis"] == "offen"
+
+
+def test_should_flag_ingestion_log_as_unmeasured_when_fetch_fails(monkeypatch):
+    """Ein stummer Container ist KEIN 'keine Fehlschlaege' — dieselbe Falle wie Ignoranz."""
+    monkeypatch.setattr(sm, "_lauf", lambda argv, ssh: (1, ""))
+    log_text, gemessen = sm.lies_consumer_log(90, None)
+    assert gemessen is False
+    zeile = sm.kurzzeile([], geprueft=0, gemessene_ignoranz=True, log_gemessen=gemessen)
+    assert "Aufnahme-Log nicht gemessen" in zeile
+
+
+def test_should_keep_filenames_out_of_short_line_for_failed_ingestions():
+    """`--kurz` bleibt zahlenrein — auch bei Aufnahme-Fehlschlaegen."""
+    fehlgeschlagene = [
+        t for t in sm.aufnahmen(FEHLSCHLAG_LOG) if t["ergebnis"] == "fehlgeschlagen"
+    ]
+    zeile = sm.kurzzeile(
+        [], geprueft=1, gemessene_ignoranz=True, fehlgeschlagene=fehlgeschlagene
+    )
+    assert "07092026101932" not in zeile
+    assert "FEHLGESCHLAGEN" in zeile
+    # Der Vollbericht darf den Dateinamen nennen — er laeuft nur lokal.
+    assert "07092026101932.pdf" in sm.bericht(
+        [], geprueft=1, gemessene_ignoranz=True, fehlgeschlagene=fehlgeschlagene
+    )

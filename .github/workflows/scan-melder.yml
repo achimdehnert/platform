@@ -27,17 +27,27 @@
 # Das war der Fall, den die erste Fassung nicht sah. Ein Verlust ist ein Ereignis
 # und steht nur in EINEM Lauf — er alarmiert deshalb sofort, ohne Alarm-Fenster.
 #
+# DRITTE MESSUNG seit 2026-09-10: der Melder liest zusaetzlich `docker logs
+# iil_dochub_web` und erkennt einen Aufnahme-Fehlschlag (`InputFileError` & Co.)
+# direkt aus dem Consumer-Log (Exit 5) — ohne auf die Altersschwelle zu warten und
+# unabhaengig vom stuendlichen Lauf-Abstand. Auch das ist ein Ereignis, kein
+# Zustand, und alarmiert deshalb sofort, aus demselben Grund wie Exit 4.
+#
 # ROT IST BEFUND: eine haengende Datei ist Arbeit, kein kaputter Melder.
 #
 # WARUM `--kurz` UND NICHT DER VOLLBERICHT: dieses Repo ist oeffentlich, also sind es
 # die Actions-Logs und die Issues auch. Die Kurzzeile nennt nur Zahlen; Ordner- und
 # Dateinamen holt der Owner lokal (`python3 tools/scan_melder.py --ssh hetzner-prod`).
 #
-# SCOPE-GRENZE, was jetzt noch fehlt: eine Datei, die zwischen zwei Laeufen kommt UND
-# wieder geht, faellt durch — bei stuendlichem Takt ein Fenster von unter einer Stunde.
-# Der reale Fall (doc-hub#3) lag 23 Stunden auseinander. Lueckenlos waere nur ein
-# Schreibprotokoll der Samba-Freigabe (`vfs objects = full_audit`); das ist ein Eingriff
-# in eine Dienst-Konfiguration auf prod und bleibt Owner-Sache.
+# SCOPE-GRENZE, aktueller Stand: die fruehere Luecke "eine Datei kommt und geht
+# zwischen zwei stuendlichen Laeufen" ist geschlossen, SOLANGE der Consumer die Datei
+# ueberhaupt geloggt hat — die dritte Messung sieht sie unabhaengig vom Lauf-Abstand
+# (`--log-fenster`, Default 90 min). Verbleibende Restluecke: eine Datei, die ankommt
+# und wieder verschwindet, OHNE dass je eine `Consuming`-Zeile fuer sie im Log
+# erschien. Lueckenlos waere nur ein Schreibprotokoll der Samba-Freigabe
+# (`vfs objects = full_audit`); das ist ein Eingriff in eine Dienst-Konfiguration auf
+# prod, der am 2026-09-08 nach vier Anlaeufen gescheitert und vollstaendig
+# zurueckgebaut wurde, und bleibt Owner-Sache.
 #
 # NICHT der Weg: `internal-sftp -l INFO`. Am 2026-09-08 eingeschaltet und gemessen
 # wirkungslos — die Lieferung laeuft ueber Samba, nicht ueber SFTP (doc-hub#3).
@@ -82,13 +92,17 @@ jobs:
           set +e
           # --inventar '' : die Verlust-Erkennung gehoert in den ERSTEN Lauf.
           # Zweimal pro Durchgang zu vergleichen wuerde nur das eben geschriebene
-          # Inventar gegen sich selbst halten.
-          python3 tools/scan_melder.py --kurz --neu-seit 60 --inventar '' > /dev/null
+          # Inventar gegen sich selbst halten. --log-fenster 0 aus demselben Grund:
+          # der "alles"-Lauf hat den Consumer-Log gerade erst gelesen und dessen
+          # Exit-Code 5 bereits durchgereicht.
+          python3 tools/scan_melder.py --kurz --neu-seit 60 --inventar '' --log-fenster 0 > /dev/null
           echo "rc=$?" >> "$GITHUB_OUTPUT"
           set -e
 
       - name: "Alarm: Issue an den Owner — nur beim ersten Mal je Datei"
-        if: steps.neu.outputs.rc == '1' || steps.alles.outputs.rc == '4'
+        if: >-
+          steps.neu.outputs.rc == '1' || steps.alles.outputs.rc == '4' ||
+          steps.alles.outputs.rc == '5'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -129,6 +143,11 @@ jobs:
           if [ "${rc}" = "4" ]; then
             echo "❌ ${{ steps.alles.outputs.zeile }}"
             echo "Verlust: etwas ist aus dem Consume-Baum verschwunden, ohne ein Dokument zu werden."
+            exit 1
+          fi
+          if [ "${rc}" = "5" ]; then
+            echo "❌ ${{ steps.alles.outputs.zeile }}"
+            echo "Aufnahme fehlgeschlagen: der Consumer-Log zeigt einen Fehlschlag im Fenster."
             exit 1
           fi
           if [ "${rc}" = "2" ]; then
