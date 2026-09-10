@@ -779,7 +779,7 @@ services:
     domain_aliases:
       - lotse.iil.pet
       - todo.iil.pet
-    repo: owner-home                      # kein Repo bekannt — Owner
+    repo: achimdehnert/platform     # tools/mail_agent/mail_link_server.py (#3015)
     betriebsstatus: blockiert
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
 
