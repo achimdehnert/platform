@@ -778,11 +778,22 @@ services:
     domain_staging: null
     domain_aliases:
       - lotse.iil.pet
-      - todo.iil.pet
     repo: achimdehnert/platform     # tools/mail_agent/mail_link_server.py (#3015)
     betriebsstatus: blockiert
     betriebsstatus_grund: "laeuft auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292). Bis 2026-08-30 in keiner SoT — unsichtbar fuer jeden Melder. Deklariert als blockiert (platform#2507, Owner-Go 164): deklarieren/umziehen/stoppen je Zeile noch offen; blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung."
 
+
+  todo-board:
+    prod: 8789
+    staging: 8789
+    dev: 8789
+    prod_host: dev-desktop
+    container_name: null                  # systemd --user todo-board.service (Loopback), Tunnel cloudflared-mail-links
+    domain_prod: todo.iil.pet
+    domain_staging: null
+    repo: achimdehnert/platform     # tools/todo_board/todo_board.py (#3015 K3, Befund 4)
+    betriebsstatus: blockiert
+    betriebsstatus_grund: "Arbeitsliste aus dem Vorgangs-Ledger, laeuft wie mail-links auf dev-desktop gegen auflage.prod_container=false (Owner-Entscheid ADR-257/ADR-292); bis 2026-09-10 in keiner SoT — todo.iil.pet war als Alias von mail-links (8787) gefuehrt, der Tunnel leitet aber auf 8789. blockiert = laeuft, aber ohne Deploy-Recht und ausserhalb der Erreichbarkeits-Pruefung (platform#3015)."
   # --- Reconcile-Drift #2506, Triage 2026-09-07: real laufende, bislang nicht
   # deklarierte Infra-Ports (C4). `prod_host` ist ein Skalar (kein Listen-Feld,
   # geprueft gegen alle bestehenden Eintraege) — Dienste auf zwei Hosts bekommen
