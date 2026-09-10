@@ -658,6 +658,7 @@ services:
     prod_host: prod-b
     container_name: chathub_chat_synapse  # 7 Container: synapse, db, element, rtc_{jwt,proxy,livekit}, tunnel
     domain_prod: chat.iil.pet
+    note: "Produktname des Dienst-Zugangs: iil-assist-hub (KONZ-platform-058 D6). Alias assist.iil.pet bewusst NICHT als domain_aliases gefuehrt, solange kein DNS existiert (0.7.11 wuerde NXDOMAIN melden) — DNS ist Owner-Zug."
     domain_staging: null
     domain_aliases:
       - rtc-chat.iil.pet
