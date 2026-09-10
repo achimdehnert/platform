@@ -123,6 +123,7 @@ hosts:
     historie:
       - "2026-07-30: Swap-Anschlag — Ursache sind Nicht-Container-Dienste (ollama, robo-lab-Sims), NICHT Windsurf (Korrektur 2026-08-30)"
       - "2026-08-30: 10 undeklarierte Container / 4 oeffentliche Hostnamen gegen auflage.prod_container (platform#2507); dev-hub laeuft hier als veraltete Kopie neben prod (S2)"
+      - "2026-09-10: mcp-hub-staging-ci registriert (Label ci-nonprod) — Ersatz fuer die netcup-Runner, damit die mcp-hub-CI wieder laeuft (platform#3011 MVP 1, #2956)"
       - "2026-09-07: docker-prune.timer geplant (infra/host-maintenance/docker-daemon.{json,md} + docker-prune.{sh,service,timer}) — taeglich 05:30, nur dangling Images + Builder-GC; IaC-only, Apply = Owner (Refs #2895)"
     hosts_runners: [staging-ci]
     auflage:
@@ -379,7 +380,11 @@ runners:
       `runs_on: ci-nonprod` hierher gelenkt werden; host-gebundene Deploys bleiben
       via `deploy_runs_on: prod-server` auf dem Prod-Host. Pilot-Repo: travel-beat
       (`travel-beat-staging-ci`). Weitere Hubs gestaffelt via ADR-222-Familie.
-    verified: 2026-06-28
+      Registriert: travel-beat (`travel-beat-staging-ci`, 2026-06-28) · mcp-hub
+      (`mcp-hub-staging-ci`, 2026-09-10 — Ersatz fuer die drei netcup-Runner mit
+      demselben Label, offline seit 2026-09-08, platform#2956; Owner hat das Runbook
+      §3 selbst ausgefuehrt, Runner online per gh api, Dienst active).
+    verified: 2026-09-10                # mcp-hub-staging-ci online (gh api runners), Dienst active
 
   gpu-box:
     host: gpu-box                      # Host-Block oben; wg0 10.99.0.2, nur von prod erreichbar
