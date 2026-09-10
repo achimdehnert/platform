@@ -15,15 +15,21 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 — ADR-109-Ausnahme frist-hub nachgezogen; 20 Commits aus Parallel-Sitzungen seit dem letzten Stand)
+## ⚡ Aktueller Stand (2026-09-10 — Auftrag #3015: drei Tagesroutinen selbstmessend; Drill-Vorlage repariert)
 
-**Diese Sitzung (meiki-hub, Zielarchitektur Assist-Familie):** nur ein Platform-Schritt — die Ausnahmezeile für `frist-hub` in `ADR-109` ([#3025](https://github.com/achimdehnert/platform/pull/3025)): `single` je LRA bleibt Pilot-Default, die Mandanten-Basis kommt aus `iil-assist-core` ≥ 0.4.0 (TenantModel fail-closed, RLS ohne Ausweich-Zweige) statt aus einem `django_tenancy`-Rollout. Owner-Entscheid 2026-09-10, Gegenstück [meiki-hub#390](https://github.com/meiki-lra/meiki-hub/pull/390) (ADR-025 v1.1). Plattform-Standard (BigInteger, kein FK, row-level) unverändert.
+**Zeitanker:** HEAD `2461135f` · `rev-list --count` 4330 · geschrieben 2026-09-10
 
-**Seit dem Stand vom 09.09. abends sind 20 Commits aus anderen Sitzungen gelandet, hier NICHT geprüft** — ihr Stand steht in ihren PRs: Register-Nachzug [#2977](https://github.com/achimdehnert/platform/pull/2977) · Handover-Prio [#3009](https://github.com/achimdehnert/platform/pull/3009) · KONZ-platform-058 „iil-assist — ein Dienst, zwei Zugaenge" [#3013](https://github.com/achimdehnert/platform/pull/3013) · Scan-Lieferprotokoll [#3017](https://github.com/achimdehnert/platform/pull/3017) · `iil-dienst` 0.1.0 MVP 1 [#3018](https://github.com/achimdehnert/platform/pull/3018) · zwei scan-melder-Fixes.
+**Auftrag angelegt** ([#3015](https://github.com/achimdehnert/platform/issues/3015), Freigabe-Zeile im Issue, SA-4): Mailcheck, To-do-Liste (`todo.iil.pet`) und Morgen-Zeitung bekommen je ein Einstiegskommando (K1), Kennzahlen je Lauf (K2), Verfallsmelder mit Vorlauf (K3), eine Verbesserungsschleife mit Advocatus Diaboli und Out-of-the-Box als Pflichtabschnitten (K4) und einen Modellfest-Drill in frischer Sitzung (K5). Reihenfolge: To-do-Deklaration, Mailcheck, Zeitung.
 
-**Zwei Befunde für die nächste Platform-Sitzung (Hypothesen, hier nicht verifiziert):**
-1. **Namensnähe:** KONZ-platform-058 spricht von „iil-assist" (ein Dienst); die MEiKI-Assist-Familie führt seit 2026-09-09 die Pakete `iil-assist-core`, `iil-assist-frist`, `iil-assist-voice` (meiki:ADR-043/044). Ob dasselbe gemeint ist oder zwei Dinge denselben Namen tragen, gehört geprüft, bevor ein PyPI-Name vergeben wird.
-2. **`risk-hub/packages/django-tenancy` `enable_rls` ist fail-open:** Policy mit drei OR-Zweigen lässt ohne gesetzten GUC alles durch (`enable_rls.py:69-74`); der GUC wird sessionweit per `SET` gesetzt. Für die Assist-Familie umgangen (eigener Generator); für risk-hub selbst offen, ob die Middleware den GUC in jedem Pfad setzt. Memory 🌀 `django-tenancy-enable-rls-fail-open` (meiki-hub-Lane).
+**Drill-Vorlage repariert** ([#3016](https://github.com/achimdehnert/platform/pull/3016) gemergt, [#2719](https://github.com/achimdehnert/platform/issues/2719) geschlossen): Trockenlauf-Regel als Kopfzeile, „Grund zu kurz" von „Einheit fehlt" getrennt. Nachmessung 9 Kaltstart-Laeufe: start 0·1·1 Abweichungen (vorher 2·24·24), ende 5·3·6, retro 1·1·2, keine stille Pflicht-Auslassung — Zahlen in #2719.
+
+**Erster Bauschritt K3** ([#3024](https://github.com/achimdehnert/platform/pull/3024)): To-do-Server in `infra/ports.yaml` dem Repo platform zugeordnet (Muster Embedder); Erreichbarkeits- und TLS-Melder vor/nach identisch, Registry-Validatoren gruen. Drei Backlog-Befunde im Issue: Vorgang schliessen hat kein Kommando, To-do-Seite zeigt Geschlossenes nicht, Waisen-Zuordnung je Repo kippt still (platform: gx10 → dev-desktop).
+
+**Owner-Zurufe:** Vorgaenge 202, 205, 206 im Ledger geschlossen (per Hand, Sicherung `mail-vorgaenge.json.bak-20260910`); `board.py --pruefe` 87 Vorgaenge gruen.
+
+**Offen (Owner):** nichts Neues; #3024 mergt nach gruenem CI per Mandat (ich).
+
+**Aus der meiki-hub-Sitzung (Zielarchitektur Assist-Familie), Owner-Entscheid 2026-09-10:** Ausnahmezeile für `frist-hub` in `ADR-109` nachgezogen ([#3025](https://github.com/achimdehnert/platform/pull/3025)) — `single` je LRA bleibt Pilot-Default, die Mandanten-Basis kommt aus `iil-assist-core` ≥ 0.4.0 statt aus einem `django_tenancy`-Rollout; Gegenstück [meiki-hub#390](https://github.com/meiki-lra/meiki-hub/pull/390). Zwei Hypothesen für die nächste Platform-Sitzung, hier nicht verifiziert: (1) KONZ-platform-058 „iil-assist" (ein Dienst, [#3013](https://github.com/achimdehnert/platform/pull/3013)) und die MEiKI-Pakete `iil-assist-core/-frist/-voice` tragen denselben Namen — vor einer PyPI-Vergabe klären; (2) `risk-hub/packages/django-tenancy` `enable_rls` ist fail-open (drei OR-Zweige, `enable_rls.py:69-74`), Memory 🌀 `django-tenancy-enable-rls-fail-open` in der meiki-hub-Lane.
 
 ## ⚡ Stand (2026-09-09 abends — Stapel-Zerleger im Betrieb; Retro kippte zwei eigene Urteile)
 
@@ -42,16 +48,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
-
-**Aus dem ausgelagerten Stand 09.09. vormittags (Zustand 2026-09-10 geprüft):**
-- [achimdehnert/platform#3001](https://github.com/achimdehnert/platform/issues/3001) — OPEN: memory-link-guard meldet einen intakten Wikilink als tot (Lane-Verwech
-- [achimdehnert/news-hub#19](https://github.com/achimdehnert/news-hub/issues/19) — OPEN: NIS2 und Voice Agents haben im aktuellen Umfang keine Quelle (0 von 39
-- [achimdehnert/news-hub#24](https://github.com/achimdehnert/news-hub/issues/24) — MERGED: fix(deploy)+feat(melden): Secrets explizit, shared-ci v1.1.17, Ausgabe
-- [achimdehnert/news-hub#36](https://github.com/achimdehnert/news-hub/issues/36) — MERGED: fix(themen): symmetrisches Mass, erst bewerten dann zusammenlegen
-- [achimdehnert/news-hub#40](https://github.com/achimdehnert/news-hub/issues/40) — OPEN: CI baut das Image, startet es nie — Smoke-Lauf fehlt
-- [achimdehnert/news-hub#41](https://github.com/achimdehnert/news-hub/issues/41) — MERGED: feat(betrieb): der Ausfall des Tageslaufs meldet sich selbst
-
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
+- **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
+- **[news-hub#40]** Morgen-Zeitung: Smoke-Lauf im CI, Entwurf steht — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/40
+- **[news-hub#19]** Morgen-Zeitung: NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/19
+- **[3001]** memory-link-guard meldet einen intakten Wikilink als tot (Lane-Verwechslung) — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/platform/issues/3001
 Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Historie in
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md). Jede Zeile zeigt auf ein
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.

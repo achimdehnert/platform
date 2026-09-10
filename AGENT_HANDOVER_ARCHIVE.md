@@ -2391,11 +2391,6 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 
 - 5. PyPI-Org `iil`: nur noch Owner-Klicks (Org löschen, `iildehnert` härten, Konto `achimdehnert` prüfen); Org antwortete 07.09. noch 200, Ledger 152 Wiedervorlage 14.09.: https://github.com/achimdehnert/platform/issues/2291
 
-
-## 2026-09-10 — Stand-Block 2026-09-09 vormittags ausgelagert
-
-Herkunft: `AGENT_HANDOVER.md`, zweiter Stand-Block. Grund: Byte-Deckel 20.000 (neuer Stand 2026-09-10, #3025); offene Nummern als Kurzzeilen unter "Offene Fäden" gerettet.
-
 ## ⚡ Stand (2026-09-09 vormittags — die Morgen-Zeitung laeuft; Retro kippte zwei eigene Urteile)
 
 **Morgen-Zeitung live** ([KONZ-platform-057](docs/konzepte/KONZ-platform-057-morgenzeitung-aus-dem-hot-topics-letter.md)): `news.iil.pet` bedient, Timer 06:15 UTC, Ausgabe erscheint als aufklappbare Artikel im Matrix-Raum `#news:chat.iil.pet` (Oberflaeche: **app-chat.iil.pet**). Kette: `mail_lesenaht` (devhub_web) → `digest_taeglich` (news_hub_web) → Chat. Betriebs-Runbook in Outline („Morgen-Zeitung … Betrieb auf news.iil.pet").
