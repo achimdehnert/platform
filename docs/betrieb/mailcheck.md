@@ -80,7 +80,7 @@ python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
 
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
-| 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, PR #PR_NUMMER |
+| 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, [PR #3061](https://github.com/achimdehnert/platform/pull/3061) |
 | 2 | Index-Alter auf die Arbeitsliste | Eine Zahl mehr im Kopf; sie erklärt nur, was fehlt, nicht was da ist | Statt Alter anzeigen: Post-Ingest-Fenster automatisch live nachziehen, wenn die Liste geöffnet wird | offen, K3 |
 | 3 | `board.py --erledigt` | Ein Kommando mehr, das der Owner nicht tippt; er sagt „#206 erledigt" im Chat | Schließen direkt aus der Arbeitsliste per Klick, mit Charta-Grenze (kein Senden) | [#3049](https://github.com/achimdehnert/platform/issues/3049) |
 | 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | [#3051](https://github.com/achimdehnert/platform/issues/3051) |
