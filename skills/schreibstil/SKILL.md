@@ -204,6 +204,8 @@ Drei Regeln dazu:
 - 2026-09-01 · hnu · getrennt: „Damit verarbeitet … Und die Hochschule erhält keinen Zugriff …" → eigener Satz ohne „Und" · Grund: zwei tragende Tatsachen in einem Absatz brauchen zwei Sätze; die angehängte wirkt nachgeschoben
 - 2026-09-04 · hnu · ergänzt: Angebotsanfrage an prodactive (über den Vizekanzler) bekam nach Owner-Korrektur einen Block „Umgebung und Schnittstellen" (Fachverfahren, DMS, Zustellung, Identität, Posteingang) und den Technologiestack · Grund: „Infos zum Technologiestack und die Umgebung mit aufnehmen" — eine Angebotsanfrage ohne Systemlandschaft zwingt den Anbieter zur Rückfrage oder zum Blindangebot; Thema und Anschrift allein reichen nicht
 
+- 2026-09-11 · hnu · gestrichen: „Was ocos von uns zurückbekommt: Vorgangs-ID, Status und Zeitstempel, sobald das Dokument einer Akte zugeordnet und im DMS abgelegt ist." (ganzer Absatz, Schnittstellen-Anfrage an ocos) · Grund (Hypothese, Owner nannte keinen): die erste Anfrage legt nur fest, was wir **brauchen**; ein Rückkanal ist eine eigene Zusage an die Gegenseite und gehört erst in die Mail, wenn er entschieden ist — **eine Anfrage, eine Richtung**
+
 ## 7 — Verhältnis zu anderen Regeln
 
 Dieser Skill ist die **kanonische Quelle für den Stil**. Die vier Repo-Memories
