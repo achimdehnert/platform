@@ -80,6 +80,10 @@ repos:
     type: django
     port: 8111
     health: /livez/
+  post-hub:
+    type: django
+    port: 11435
+    health: /livez/
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
