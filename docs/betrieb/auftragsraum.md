@@ -28,7 +28,7 @@ Der Raum selbst (`chat_lotse.py room-create`) und die Morgen-Meldung (`digest_ta
 | Raumnachrichten | `chat_lotse.py sync` (iilgmbh/chat-hub), JSON-Zeilen: `room_id, room_name, sender, ts, event_id, body[, undecryptable, audio]` | führt nichts aus (Charta Art. 1) |
 | Owner-Konto | `~/.claude/auftragsraum.env`, Zeile `OWNER_MXID=@…` | Owner-gepflegt, nicht im Repo; fehlt sie, gilt jede Nachricht als `fremd` |
 | Journal | `~/.claude/auftragsraum-journal.jsonl` | eine Zeile je Nachricht: `zeit, klasse, konto_hash, nachricht_id, vorschlag, artefakt, korrektur, bearbeitet_am, tokens` — nie `sender` oder `body` |
-| Kurzbefehl-Übernahme | `board.py --frist` bzw. `board.py --erledigt` (seit [#3049](https://github.com/achimdehnert/platform/issues/3049)) | `anwenden` protokolliert einen abgewiesenen Aufruf (unbekannte Nummer) als „abgewiesen", lässt den Vorschlag offen, bricht nicht ab |
+| Kurzbefehl-Übernahme | `board.py --frist` bzw. `board.py --erledigt` (seit [#3049](https://github.com/achimdehnert/platform/issues/3049)) | `anwenden` protokolliert einen abgewiesenen Aufruf (unbekannte Nummer) als „abgewiesen", markiert den Vorschlag nicht als bearbeitet, bricht nicht ab |
 | Auftrag-Zustand | GitHub-Issue, live per `gh issue view --json state` gelesen | Journal spiegelt den Zustand nie (D8) |
 | Regel-Artefakt | `~/.claude/auftragsraum-regeln/<datum>-<id>.md` | lokal, NICHT im Repo — Nachrichtentext darf dort stehen |
 

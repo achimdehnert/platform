@@ -46,7 +46,7 @@ ganz ohne Chat-Lotse oder Netz.
 `#N erledigt` -> `board.py --erledigt N` (seit #3049); `#N Frist D` ->
 `board.py --frist N --datum D --grund 'Owner im Auftragsraum'`. Weist
 `board.py` ein Kommando ab (unbekannte Nummer, Exit 2), protokolliert
-`anwenden` das als "abgewiesen", laesst den Vorschlag offen und bricht nicht
+`anwenden` das als "abgewiesen", markiert den Vorschlag nicht als bearbeitet und bricht nicht
 ab (Exit 0). `--ledger DATEI` reicht einen anderen Ledger-Pfad an `board.py`
 durch — fuer Tests und Trockenlaeufe, damit nie das echte Ledger beruehrt wird.
 
@@ -496,7 +496,7 @@ def anwenden(
             status = "angewendet"
         elif rc == 2:
             # board.py weist das Kommando ab (unbekannte Nummer, kaputtes Datum):
-            # der Vorschlag bleibt offen, der Grund steht im Protokoll.
+            # der Vorschlag wird nicht als bearbeitet markiert, der Grund steht im Protokoll.
             grund = (err.strip().splitlines() or ["ohne Meldung"])[-1]
             status = f"abgewiesen (board.py: {grund})"
         else:
