@@ -364,3 +364,41 @@ Bei Nightly-Läufen: Report nur bei FAIL oder Abweichung >10 % zum Vortag eskali
   ein absichtlich verfälschender Probe-Upsert ist dafür **nicht** nötig und würde
   gegen das Anti-Pattern vom 2026-08-13 verstoßen (der Test überschreibt sein
   eigenes Prüfobjekt).
+- 2026-09-11: **Nightly-Lauf (03:17 UTC), Step 0 gefahren.** fetch + ff-only über alle
+  25 Repos: 24 bereits auf `origin/main`, writing-hub 4 Commits fast-forwarded (kein
+  Diff in `klickdummy/` oder `docs/adr/`), dev-hub weiter Nicht-ff (47 Commits hinter,
+  9 dirty Dateien, platform#2865 offen). Quelländerung seit dem 10.09.-Report
+  (`git log --since` über `klickdummy/` + `docs/adr/`, alle 25 Repos): **keine** ⇒
+  Erwartung 0 `written: true`. R3 PASS: 176/176 `ok`, 0 failed, 25 Repos, Producer
+  `iil-klickdummy 1.35.0`, 176 Zeilen = 176 unique `entry_key`, Schema-WARNs 177
+  unverändert (pg-hub 110, design-hub 36, nl2iot-hub 31, alle getrackt). Discovery 28,
+  frist-hub/meiki-hub/ttz-hub gov-ausgeschlossen (E3) → 25. 6 Sonnet-Worker à 27–29
+  Entries (Brief mit Fehlerklasse wie am 08.09.), die 7 `\n\n`-Entries inline: 7× dedup.
+  **`written: true` = 1, davon 0 legitim — vierte Fidelity-Variante: Zeilenumbruch-
+  Position.** `writing-hub:ADR-190` kam aus einem Worker mit gleicher Zeichenfolge,
+  aber drei verschobenen Umbrüchen zurück — alle an der Anführungszeichen-Stelle
+  `„Charaktere" und` / `„Welten"`: Quelle bricht nach `und`, nach `Weltenbau der`
+  und nach `hinweg — ein`; der Worker brach jeweils ein Wort früher. Anführungs-
+  zeichen, Marker und Tail waren korrekt. Damit ist die Reihe geschlossen: 05.09.
+  Newline, 06.09. Glyph, 07.09. Marker, 11.09. Umbruch — **dieselbe Stelle** (das
+  „falsch aussehende" `„…"`), viertes Merkmal. Korrektur inline (`written: true`),
+  lesend verifiziert (Umbrüche und Tail byte-genau). Bestätigt platform#2462:
+  der Brief mit Fehlerklasse (08.09., 10.09. sauber) hält nicht unter jedem Worker.
+- 2026-09-11 **NEUER BEFUND — die Läufe vom 09.09. und 10.09. fehlen hier, und der
+  10.09.-Lauf meldete einen Entwurf, den es nicht gibt.** Der Log-Block vom 10.09.
+  trägt zweimal die Überschrift „manueller Lauf, Session risk-hub", Log-Datei-mtime
+  03:34 — es war der Nightly-Lauf (Wiederholung der Fehldiagnose vom 23.08.). Sein
+  Zug-Item [5] verwies per `file://` auf einen Entwurf im Worktree
+  `…/2026-09-10-…-kd-sync-changelog-2026-09-10-033318`; der Worktree ist **leer**
+  (0 Commits vor `origin/main`, sauberer Tree, keine 09-09/09-10-Zeile in der
+  Datei). Der 09.09.-Nightly hinterließ gar keinen Eintrag. Ursache (Hypothese, mit
+  Gegenprobe heute): der Cron-Aufruf erlaubt nur `Bash`/`ToolSearch`/`Read`/
+  `upsert` — `Write`/`Edit` werden im `-p`-Modus abgelehnt, der Lauf meldete das
+  aber als „Entwurf liegt bereit". Gegenprobe: dieser Eintrag wurde aus dem
+  Nightly-Prozess selbst (Prozess-Ahnenkette `cron → sh → claude`) per Bash-Append
+  geschrieben, committed und als PR eingereicht — der Weg existiert also. Die
+  Report-Blöcke der beiden Läufe liegen in `~/logs/klickdummy-pgvector-sync.log`
+  (Zeilen 1756 und 1806/1832): beide R3 PASS, 176/176, 0 written.
+  **Konsequenz:** ein Nightly-Report, der ein Artefakt nennt, muss dessen Existenz
+  im selben Lauf belegen (`git diff --stat` ≠ leer), sonst ist der Zug-Eintrag
+  eine Behauptung ohne Objekt.
