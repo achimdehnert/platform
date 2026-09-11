@@ -48,7 +48,7 @@ architektur:
   - id: D2
     text: Aufruf auf dem Host des Hubs per Management-Command, nicht per neuer HTTP-Schnittstelle je Hub
       — Cloudflare Access sperrt externe API-Aufrufe
-    status: entschieden
+    status: revision offen — Transport nicht begehbar, Entscheidungsvorlage platform#3011 (2026-09-11)
     evidenz: C10
   - id: D3
     text: Vertrag als kleines eigenes Paket iil-dienst, weil iil-django-commons eingefroren ist und iil-assist-core

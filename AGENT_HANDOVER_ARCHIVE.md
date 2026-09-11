@@ -13,6 +13,21 @@
 > 07-15/07-13→07-20/21; ausgelagert im Zuge des Tools-Strang-Nachzugs, siehe Text unten).
 
 
+<!-- Ausgelagert 2026-09-11 vormittags (Stand-Block 2026-09-10 nachmittags; offene Punkte daraus: doc-hub#18 steht in Offene Faeden nicht — Zugang zweier Konten, siehe Block) -->
+
+**Abgeschlossene Faeden 2026-09-11 vormittags:** Gate-Registry-Eintrag `handover-auslagerung-verschluckt-offenes` — #2984 gemergt 2026-09-10 (Owner-Go „27 go“). Faden 60 Melder-Ergebnisdatei — #2969 gemergt 2026-09-11.
+## ⚡ Stand (2026-09-10 nachmittags — Auftrag #3015: K1–K3 gebaut, drei Gates revidiert, Token nach ADR-238)
+
+**Zeitanker:** HEAD `78900e91` · `rev-list --count` 4379 · geschrieben 2026-09-10
+
+**Auftrag [#3015](https://github.com/achimdehnert/platform/issues/3015) (Mailcheck / To-do-Liste / Morgen-Zeitung selbstmessend):** K1 Betriebsakten fuer alle drei Anwendungen ([#3054](https://github.com/achimdehnert/platform/pull/3054), [news-hub#42](https://github.com/achimdehnert/news-hub/pull/42)); K2 Messjournal je Lauf mit Trend ([#3061](https://github.com/achimdehnert/platform/pull/3061)); K3 Verfallsmelder mit zehn Signalen, Schwellen und Positivkontrolle ([#3064](https://github.com/achimdehnert/platform/pull/3064), Fehlalarm-Fix [#3065](https://github.com/achimdehnert/platform/pull/3065)). Offen: K4 Pruefskript fuer Gegenrede, K5 Drill, Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Vorgang schliessen per Kommando [#3049](https://github.com/achimdehnert/platform/issues/3049). Sachstand mit 19 Punkten und Checkliste im Issue.
+
+**Retro der Sitzung** ([#3048](https://github.com/achimdehnert/platform/pull/3048), Footprint full, 22 Befunde, 19 ueberlebt, 4 gekippt / 4 neu in der Widerlegungsbahn): drei Gates revidiert statt neu gebaut ([#3063](https://github.com/achimdehnert/platform/pull/3063)) — aufschub-anker liest Issue-Kommentare ([#3059](https://github.com/achimdehnert/platform/pull/3059)), repo-session start zeigt offene PRs des Tages ([#3057](https://github.com/achimdehnert/platform/pull/3057)), serielle-prs-Abgleich beim PR ([#3062](https://github.com/achimdehnert/platform/pull/3062)). Das Anker-Gate fing am selben Tag zwei eigene PRs. Token im Auslagerungs-Gate von PROJECT_PAT auf App-Token nach ADR-238 ([#3056](https://github.com/achimdehnert/platform/pull/3056)), Positivkontrolle gruen; Wirkungsnachweis im Echtfall bleibt [#3027](https://github.com/achimdehnert/platform/issues/3027).
+
+**Eigene Fehler, korrigiert:** Alias statt Dienst (#3024→#3039), Betreff in Fixture (#3054), Melder-Fehlalarm (#3065).
+
+**Offen (Owner):** nichts Neues — alle Governance-PRs des Tages sind approved und gemergt.
+
 <!-- Ausgelagert 2026-09-10 nachmittags (Prio-Referenzen auf Erledigtes, Runner 0.7.4) -->
 
 **Abgeschlossene Faeden aus `## Offene Fäden`, 2026-09-10 nachmittags:**

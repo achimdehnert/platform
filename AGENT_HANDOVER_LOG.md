@@ -3542,3 +3542,21 @@ Entwurfs-Gate eingeordnet (zweite Welle), und chat-hub darf kuenftig iil-assist-
 **Zugang:** Access-Liste fuer `docs.iil.pet` traegt jetzt Firmen- und Hochschul-Adresse plus zwei weitere Personen. Analysen und Rueckweg-Listen liegen in `~/shared/docs-hub/`; offen bleibt [doc-hub#18](https://github.com/achimdehnert/doc-hub/issues/18) (zwei Konten anderer Personen).
 
 **Zielzustand:** erreicht fuer alle freigegebenen Punkte. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
+
+## 2026-09-11 (vormittags) — Go-Liste, Gateway-Transport gemessen, netcup gekuendigt
+
+Die Sitzung begann als Session-Start mit 16 Runner-Befunden und einer Go-Liste des Owners.
+Sechs Punkte ausgefuehrt (zwei Merges, zwei Dienst-Neustarts, Journal-Anker, risk-hub-Prod),
+zwei vom Freigabe-Filter geblockt und per `!` an den Owner uebergeben. netcup ist gekuendigt:
+Runner geloescht, Host in hosts.yaml als ehemalig gefuehrt — der Push haengt an einem
+vorbestehenden Audit-Befund (todo-board), fuer den ein Ausnahme-Wort fehlt.
+
+Das Sitzungsziel (Chat- und App-Funktionen, iil-assist) endete mit dem ersten echten Messwert:
+der Gateway erreicht keinen Hub. Kein SSH im Container, kein Zugang prod → prod-b, Routing-Datei
+nicht gemountet. Die Tests hatten den Transport gemockt. Entscheidungsvorlage mit drei Wegen in
+#3011, Empfehlung Dienst-Route je Hub mit Access-Dienst-Token. Eine Memory-Datei dazu
+(„deployt heisst nicht Transport begehbar"), eine Ergaenzung zur autoMode-Regel-Falle.
+
+Zwei Werkzeugbefunde: `repo-session.sh start` gibt den Pfad nicht als letzte Zeile aus
+(`tail -1` traf eine PR-Zeile); beide Worktrees der Sitzung waren am Morgen entfernt, obwohl
+ein PR offen und Commits ungepusht waren — Branches blieben, Ursache offen.
