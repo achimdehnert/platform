@@ -143,6 +143,14 @@ hosts:
             in 7 Tagen — er belastet den Knoten nicht.
           entschieden: 2026-09-01
           bis: 2026-12-01
+        todo-board:
+          grund: >
+            Werkzeug des Owners (To-do-Liste todo.iil.pet, Port 8789, nur
+            Loopback + cloudflared, systemd --user). Kein Prod-Workload,
+            keine Nutzerdaten Dritter. Derselbe Fall wie mail-links.
+            Owner-Wort 2026-09-11 (Kapitaens-Kanal): "Ausnahme todo-board go".
+          entschieden: 2026-09-11
+          bis: 2026-12-01
         mail-links:
           grund: >
             Werkzeug des Owners (Mail-/Lotse-/Todo-Links, fester Port 8787, nur
