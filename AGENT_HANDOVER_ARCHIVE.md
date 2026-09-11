@@ -2497,3 +2497,15 @@ Wiedervorlage 14.09.) bleibt oben als Kurzzeile mit Anker auf den Schluss-Kommen
 
 **Zielzustand #3011:** *nicht erreicht* — **Urteil des fremden Abnahme-Agenten, nicht meines:** K1, K2, K3, K4, K6, K8 erfüllt mit Beleg; **K5 nicht erfüllt** (ein MVP von fünf, in Prod statt Staging, Chat-Rundlauf offen als O5); **K7 nicht erfüllt** — die vier Bahnen existierten nur als Code ohne einen einzigen Lauf. Danach nachgeholt: Bahnen `wartung` und `verbesserung` einmal ausgeführt, Läufe stehen in der Zustandsdatei; Takt und Melder-Register bleiben #3020. Ich hatte K7 als erfüllt geführt — das war zu weit. Programm läuft, Phase `bau`, Kill-Gate 2026-10-24.
 **SA-4:** 9 Anwendungen · 0 Einzel-OK trotz Klassen-Deckung · 0 Fehlanwendungen.
+
+<!-- ausgelagert 2026-09-11 aus AGENT_HANDOVER.md (Byte-Deckel, #3096) -->
+## ⚡ Stand (2026-09-11 frueh — Auftrag #3015 K1–K5 fertig, Auftragsraum Stufe 1 in Bau)
+
+**Zeitanker:** HEAD `63b09690` · `rev-list --count` 4401 · geschrieben 2026-09-11
+
+**Auftrag [#3015](https://github.com/achimdehnert/platform/issues/3015) abgeschlossen:** K4 Pruefskript fuer Backlog-Gegenrede ([#3070](https://github.com/achimdehnert/platform/pull/3070), `make betrieb-check`), K5 Drill in frischer Sitzung fuer alle drei Anwendungen, 0/0/1 Abweichungen ([#3078](https://github.com/achimdehnert/platform/pull/3078)), Messjournal-Nachschaerfungen ([#3076](https://github.com/achimdehnert/platform/pull/3076), [#3077](https://github.com/achimdehnert/platform/pull/3077), [#3082](https://github.com/achimdehnert/platform/pull/3082)). `make boards` von 9,3 auf 4,5 Minuten durch Stapel-Suche im dev-hub ([dev-hub#351](https://github.com/achimdehnert/dev-hub/pull/351), [#3067](https://github.com/achimdehnert/platform/issues/3067) zu). Vorgang schliessen per Kommando ([#3085](https://github.com/achimdehnert/platform/pull/3085), schliesst [#3049](https://github.com/achimdehnert/platform/issues/3049)). Rest: Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Backlog-Check zaehlt nacktes „offen" als Anker [#3080](https://github.com/achimdehnert/platform/issues/3080).
+
+**Auftragsraum „Auftraege Achim / Lotse"** ([#3079](https://github.com/achimdehnert/platform/issues/3079), Konzept KONZ-platform-059 gemergt [#3081](https://github.com/achimdehnert/platform/pull/3081)): Raum und Lotsen-Konto waren vorhanden, Testnachricht gesendet, lokale Umgebung angelegt. Stufe 1 (Sortierer, Journal, Regel-Artefakt, Kennzahlen, Betriebsakte) in Bau; der erste Abgleich verbrauchte einen mehrtaegigen Rueckstau ohne Ablage → Verlaufs-Modus [#3086](https://github.com/achimdehnert/platform/issues/3086). Die Skill-Zeilen fuer Sitzungsstart und -ende folgen als Governance-PR (Owner-Approval).
+
+**Offen (Owner):** Skill-Zeilen-PR approven, sobald er steht; Morgen-Zeitung in den Raum senden ist eine news-hub-Aenderung (Deploy nur per Dispatch).
+
