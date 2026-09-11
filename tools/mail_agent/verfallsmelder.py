@@ -30,8 +30,21 @@ systemctl oder Netz. Schema::
       "skill_kopie_commit": "1c0e20978c23",
       "quelle_commit": "d868fa66d3a8",
       "dienst_start": "2026-09-10T10:31:17+00:00",
-      "code_commit_zeit": "2026-09-10T12:24:20+02:00"
+      "code_commit_zeit": "2026-09-10T12:24:20+02:00",
+      "auftragsraum_journal": [<rohe Journalzeilen wie in
+                                auftragsraum-journal.jsonl>]
     }
+
+`--anwendung auftragsraum` (KONZ-platform-059, #3079) liest NICHT das
+aggregierte Mailcheck-Journal, sondern das rohe Ereignis-Journal des
+Auftragsraums direkt (`~/.claude/auftragsraum-journal.jsonl` oder, in
+Tests, der Schluessel `auftragsraum_journal` in `--eingabe`) — drei
+Signale: Nachricht ohne Bearbeitung > 24 h, Korrektur ohne Artefakt > 24 h,
+Journal-Alter (kein Eintrag seit 7 Tagen = „Raum still" — dieses Signal
+feuert als `HINWEIS`, NIE als `WARNUNG`: ein stiller Raum ist laut Konzept
+B3 kein Fehler und blockiert `--block` deshalb nie). Ein komplett leeres
+Journal (Datei fehlt oder ohne Zeilen) macht alle drei Signale `nicht
+pruefbar`, nie eine Warnung.
 
 `--schwellen JSON` ueberschreibt einzelne Default-Schwellen, z. B.
 `{"mailcheck.index_alter_tage": 0}`.
@@ -55,6 +68,11 @@ JOURNAL_DEFAULT = Path.home() / ".claude" / "mail-messjournal.jsonl"
 SKILL_KOPIE_MAILCHECK = Path.home() / ".claude" / "commands" / "mailcheck.md"
 QUELLE_MAILCHECK = ".windsurf/workflows/mailcheck.md"
 
+#: Rohes Ereignis-Journal des Auftragsraums (KONZ-platform-059, #3079) —
+#: eigene Datei, eigenes Format, gelesen ohne den Umweg ueber das
+#: aggregierte Mailcheck-Journal.
+AUFTRAGSRAUM_JOURNAL_DEFAULT = Path.home() / ".claude" / "auftragsraum-journal.jsonl"
+
 TIMEOUT = 15
 
 #: Schluessel "<anwendung>.<signal>" -> Default-Schwelle. `--schwellen`
@@ -67,6 +85,9 @@ SCHWELLEN_DEFAULT: dict[str, float] = {
     "todo.mail_links_tot": 3,
     "todo.ohne_kopf_aktion": 5,
     "todo.journal_alter_tage": 2,
+    "auftragsraum.nachricht_ohne_bearbeitung_stunden": 24,
+    "auftragsraum.korrektur_ohne_artefakt_stunden": 24,
+    "auftragsraum.journal_alter_tage": 7,
 }
 
 
@@ -527,6 +548,171 @@ def signale_todo(
     ]
 
 
+# --- Auftragsraum: rohes Ereignis-Journal direkt -------------------------
+
+
+def _auftragsraum_journal_lesen(pfad: Path) -> list[dict[str, Any]]:
+    if not pfad.exists():
+        return []
+    try:
+        text = pfad.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    eintraege: list[dict[str, Any]] = []
+    for zeile in text.splitlines():
+        zeile = zeile.strip()
+        if not zeile:
+            continue
+        try:
+            eintrag = json.loads(zeile)
+        except ValueError:
+            continue
+        if isinstance(eintrag, dict):
+            eintraege.append(eintrag)
+    return eintraege
+
+
+def _auftragsraum_eintraege(eingabe: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Leere Liste heisst in JEDEM Fall (Datei fehlt, Datei leer, `--eingabe`
+    ohne den Schluessel) 'nicht pruefbar' fuer alle drei Signale — nie eine
+    Warnung (Auftrag #3079: leeres Journal = nicht pruefbar)."""
+    if eingabe is not None:
+        rohe = eingabe.get("auftragsraum_journal") or []
+        return [e for e in rohe if isinstance(e, dict)]
+    return _auftragsraum_journal_lesen(AUFTRAGSRAUM_JOURNAL_DEFAULT)
+
+
+def signal_ar_nachricht_ohne_bearbeitung(
+    eintraege: list[dict[str, Any]], schwellen: dict[str, float]
+) -> Signal:
+    anwendung = "auftragsraum"
+    name = "Nachricht ohne Bearbeitung"
+    schwelle = _schwelle(schwellen, "auftragsraum.nachricht_ohne_bearbeitung_stunden")
+    if not eintraege:
+        return Signal(
+            anwendung,
+            name,
+            "kein Wert",
+            f"> {schwelle} h",
+            "nicht pruefbar",
+            "Journal leer — kein Eintrag zum Pruefen",
+        )
+    jetzt = datetime.now(timezone.utc)
+    ueberfaellig = 0
+    for eintrag in eintraege:
+        if eintrag.get("bearbeitet_am"):
+            continue
+        zeit = _zeit_parsen(eintrag.get("zeit"))
+        if zeit is None:
+            continue
+        if (jetzt - zeit).total_seconds() / 3600 > schwelle:
+            ueberfaellig += 1
+    zustand = "WARNUNG" if ueberfaellig > 0 else "ok"
+    hinweis = (
+        f"{ueberfaellig} Nachricht(en) laenger als {schwelle} h unbearbeitet — "
+        "auftragsraum.py offen"
+        if zustand == "WARNUNG"
+        else "ok"
+    )
+    return Signal(
+        anwendung, name, str(ueberfaellig), f"> {schwelle} h", zustand, hinweis
+    )
+
+
+def signal_ar_korrektur_ohne_artefakt(
+    eintraege: list[dict[str, Any]], schwellen: dict[str, float]
+) -> Signal:
+    anwendung = "auftragsraum"
+    name = "Korrektur ohne Artefakt"
+    schwelle = _schwelle(schwellen, "auftragsraum.korrektur_ohne_artefakt_stunden")
+    if not eintraege:
+        return Signal(
+            anwendung,
+            name,
+            "kein Wert",
+            f"> {schwelle} h",
+            "nicht pruefbar",
+            "Journal leer — kein Eintrag zum Pruefen",
+        )
+    jetzt = datetime.now(timezone.utc)
+    ueberfaellig = 0
+    for eintrag in eintraege:
+        if not eintrag.get("korrektur") or eintrag.get("artefakt"):
+            continue
+        zeit = _zeit_parsen(eintrag.get("zeit"))
+        if zeit is None:
+            continue
+        if (jetzt - zeit).total_seconds() / 3600 > schwelle:
+            ueberfaellig += 1
+    zustand = "WARNUNG" if ueberfaellig > 0 else "ok"
+    hinweis = (
+        f"{ueberfaellig} Korrektur(en) laenger als {schwelle} h ohne "
+        "Regel-Artefakt — auftragsraum.py regel <nachricht_id>"
+        if zustand == "WARNUNG"
+        else "ok"
+    )
+    return Signal(
+        anwendung, name, str(ueberfaellig), f"> {schwelle} h", zustand, hinweis
+    )
+
+
+def signal_ar_journal_alter(
+    eintraege: list[dict[str, Any]], schwellen: dict[str, float]
+) -> Signal:
+    """Kein Eintrag seit `schwelle` Tagen = „Raum still" — Zustand `HINWEIS`,
+    NIE `WARNUNG` (B3: gewollt moeglich, kein Fehler des Konzepts) und blockt
+    `--block` deshalb nie."""
+    anwendung = "auftragsraum"
+    name = "Journal-Alter (Raum still)"
+    schwelle = _schwelle(schwellen, "auftragsraum.journal_alter_tage")
+    if not eintraege:
+        return Signal(
+            anwendung,
+            name,
+            "kein Wert",
+            f"> {schwelle} Tage",
+            "nicht pruefbar",
+            "Journal leer — kein Eintrag zum Pruefen",
+        )
+    zeiten = [
+        z for z in (_zeit_parsen(e.get("zeit")) for e in eintraege) if z is not None
+    ]
+    if not zeiten:
+        return Signal(
+            anwendung,
+            name,
+            "kein Datum",
+            f"> {schwelle} Tage",
+            "nicht pruefbar",
+            "keine lesbaren Zeitfelder im Journal",
+        )
+    juengste = max(zeiten)
+    alter_tage = (datetime.now(timezone.utc) - juengste).total_seconds() / 86400
+    if alter_tage > schwelle:
+        return Signal(
+            anwendung,
+            name,
+            f"{alter_tage:.1f} Tage",
+            f"> {schwelle} Tage",
+            "HINWEIS",
+            f"Raum still seit {alter_tage:.1f} Tagen — kein Fehler (B3), nur Hinweis",
+        )
+    return Signal(
+        anwendung, name, f"{alter_tage:.1f} Tage", f"> {schwelle} Tage", "ok", "ok"
+    )
+
+
+def signale_auftragsraum(
+    eingabe: dict[str, Any] | None, schwellen: dict[str, float]
+) -> list[Signal]:
+    eintraege = _auftragsraum_eintraege(eingabe)
+    return [
+        signal_ar_nachricht_ohne_bearbeitung(eintraege, schwellen),
+        signal_ar_korrektur_ohne_artefakt(eintraege, schwellen),
+        signal_ar_journal_alter(eintraege, schwellen),
+    ]
+
+
 # --- Sammeln, ausgeben ---------------------------------------------------
 
 
@@ -548,6 +734,8 @@ def sammeln(
         signale += signale_mailcheck(eintraege, eingabe, schwellen)
     if anwendung in ("todo", "alle"):
         signale += signale_todo(eintraege, eingabe, schwellen)
+    if anwendung in ("auftragsraum", "alle"):
+        signale += signale_auftragsraum(eingabe, schwellen)
     return signale
 
 
@@ -593,7 +781,9 @@ def bericht(signale: list[Signal], als_json: bool) -> tuple[str, int, int]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0] if __doc__ else "")
     ap.add_argument(
-        "--anwendung", choices=["mailcheck", "todo", "alle"], default="alle"
+        "--anwendung",
+        choices=["mailcheck", "todo", "auftragsraum", "alle"],
+        default="alle",
     )
     ap.add_argument("--journal", default=str(JOURNAL_DEFAULT))
     ap.add_argument(

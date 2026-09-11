@@ -48,7 +48,7 @@ architektur:
   - id: D2
     text: Aufruf auf dem Host des Hubs per Management-Command, nicht per neuer HTTP-Schnittstelle je Hub
       — Cloudflare Access sperrt externe API-Aufrufe
-    status: entschieden
+    status: revision offen — Transport nicht begehbar, Entscheidungsvorlage platform#3011 (2026-09-11)
     evidenz: C10
   - id: D3
     text: Vertrag als kleines eigenes Paket iil-dienst, weil iil-django-commons eingefroren ist und iil-assist-core
@@ -113,7 +113,7 @@ dienste:
     test_app: 1
     test_chat: 1
     prod_route: 302 auf Login (2026-09-10)
-    chat_rundlauf: offen
+    chat_rundlauf: fehlgeschlagen 2026-09-10 — Gateway erreicht keinen Hub, drei Transport-Ursachen (mcp-hub#264)
     antwortzeit_s: null
     nutzungen_30d: null
 - id: dokument-suche
@@ -337,7 +337,11 @@ offen:
 - id: O5
   frage: Rundlauf Stufe A im Chat belegen — neue Sitzung, dienst_katalog/dienst_aufruf gegen den Orchestrator,
     Antwort als Lotse im Infra-Raum
-  wer: ich
+  befund: 'Gemessen 2026-09-10: dienst_katalog(dev-hub) -> "kein container_name" (Routing). Ursachen: ports.yaml nicht
+    im Container (Symlink ins Runner-Verzeichnis, /opt/platform/infra nicht gemountet); kein ssh-Programm und keine
+    Schluessel im Container; prod erreicht prod-b nicht (Permission denied), _SSH_HOST fest auf prod. Beleg mcp-hub#264.'
+  folge: D2 (ssh + docker exec) ist so nicht ausfuehrbar — Entscheidungsvorlage mit drei Wegen in platform#3011
+  wer: owner
 - id: O2
   frage: Owner-Grant fuer den Live-Bot (chat-hub#48 Stufe B) — Zeitpunkt
   wer: owner

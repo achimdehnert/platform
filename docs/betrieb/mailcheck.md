@@ -51,7 +51,7 @@ Schlaegt ein Quellkommando fehl oder liefert unlesbare Ausgabe (Timeout 120 s), 
 
 ## Journal-Pfad
 
-`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `kennzahlen`, `fehler`, `quelle_version`. `make boards` haengt nach jedem Board-Bau je eine Zeile für `mailcheck` und `todo` an. Trend über die letzten sieben Läufe:
+`~/.claude/mail-messjournal.jsonl` (Default, überschreibbar per `--journal`), eine JSON-Zeile je Lauf mit `zeit`, `anwendung`, `modell`, `kennzahlen`, `fehler`, `quelle_version`. `make boards` ruft `messjournal.py --schreiben --anwendung alle` einmal auf und haengt je eine Zeile für `mailcheck` und `todo` an — die geteilte Quelle `link_pruefen.py --vorgangsseiten` laeuft dabei nur einmal (#3067). `ablage_erledigt.py --pruefe` (75 Index-Abfragen, gemessen 253 s) ruft `make boards` ebenfalls nur einmal auf: die Textausgabe des eigenen Melder-Schritts geht per `--ablage-ausgabe DATEI` ins Messjournal, statt dort ein zweites Mal zu laufen (#3069). Trend über die letzten sieben Läufe:
 
 ```bash
 python3 tools/mail_agent/messjournal.py --trend --anwendung mailcheck --n 7
@@ -79,20 +79,32 @@ dieses Signalsatzes — der Melder deckt ihn für `todo-board.service` und
 
 - Der Index ist gestern: Antworten nach 03:30 sieht nur der Live-Fallback. Frage „nicht erkannt oder zu neu?" (Owner, 2026-09-10) ist ohne Blick auf das Index-Alter nicht beantwortbar.
 - Verlaufseinträge sind die Akte des Vorgangs, nicht das Arbeitsprotokoll des Agenten (Regel 0 im Skill seit #3037). Eingegangene Mails werden gelesen und eingetragen, nicht als „noch nicht ausgewertet" vermerkt.
-- Vorgang schließen geht nur per Hand im JSON (`bucket: erledigt`, `erledigt_am`); Kommando fehlt → [#3049](https://github.com/achimdehnert/platform/issues/3049).
+- Vorgang schließen: `python3 tools/mail_agent/board.py --erledigt <nr> [--am YYYY-MM-DD] [--grund '…']` setzt `bucket: erledigt`, `erledigt_am`, `zustand` und den Verlaufseintrag in einem Zug; Gegenstück `--wiedereroeffnen <nr>` ([#3049](https://github.com/achimdehnert/platform/issues/3049)).
 - Das Ledger enthält Personendaten. Nichts daraus in Repo, Issue, PR-Text oder Test-Fixture — auch keine Betreffs (Realfall #3042, korrigiert).
 - IIL hat keine IMAP-UIDs; Referenzen dort per Betreff in Anführungszeichen plus Datum.
 - `graph_mail.py --find` schließt `--all` und `--from` gegenseitig aus; `--login` und `--find` ebenfalls.
+- Seit [#3072](https://github.com/achimdehnert/platform/pull/3072) verankert `draft_mail.py` jeden Entwurf beim Anlegen per Message-ID; Outlook-Umzug ändert die UID, der Link hält.
 
 ## Verbesserungs-Backlog (K4: jeder Vorschlag mit Gegenrede und Alternative, bevor er gebaut wird)
+
+Prüfung: `make betrieb-check` — ein Vorschlag ohne Gegenrede und Alternative wird abgewiesen (K4). Die Zeitungs-Akte in news-hub prüft man mit `python3 tools/betrieb_backlog_check.py ~/github/news-hub/docs/betrieb/morgen-zeitung.md`.
 
 | # | Vorschlag | Advocatus Diaboli | Out of the Box | Anker |
 |---|---|---|---|---|
 | 1 | Messjournal + `messjournal.py --trend` | Acht Zahlen, die niemand liest, sind ein Melder ohne Leser; erst der Trend macht sie lesbar, und den schaut sich der Owner nur an, wenn das Board ihn zeigt | Kennzahlen nicht in eine Datei, sondern als Kopfzeile auf die Arbeitsliste, die der Owner ohnehin öffnet | gebaut, [PR #3061](https://github.com/achimdehnert/platform/pull/3061) |
 | 2 | Index-Alter auf die Arbeitsliste | Eine Zahl mehr im Kopf; sie erklärt nur, was fehlt, nicht was da ist | Statt Alter anzeigen: Post-Ingest-Fenster automatisch live nachziehen, wenn die Liste geöffnet wird | offen, K3 (Melder-Signal `index_alter_tage` ist gebaut, Anzeige auf der Arbeitsliste selbst nicht) |
-| 3 | `board.py --erledigt` | Ein Kommando mehr, das der Owner nicht tippt; er sagt „#206 erledigt" im Chat | Schließen direkt aus der Arbeitsliste per Klick, mit Charta-Grenze (kein Senden) | [#3049](https://github.com/achimdehnert/platform/issues/3049) |
-| 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | gebaut, PR [#3064](https://github.com/achimdehnert/platform/pull/3064), Closes [#3051](https://github.com/achimdehnert/platform/issues/3051) — Ursache (Anker beim Ablegen) bleibt offen |
+| 3 | `board.py --erledigt` | Ein Kommando mehr, das der Owner nicht tippt; er sagt „#206 erledigt" im Chat | Schließen direkt aus der Arbeitsliste per Klick, mit Charta-Grenze (kein Senden) | gebaut, [PR #3085](https://github.com/achimdehnert/platform/pull/3085) |
+| 4 | Melder „tote Links" | Tote Links entstehen durch Ablage; der Melder meldet die Folge, nicht die Ursache | Anker beim Ablegen mitziehen (`ablage_erledigt.py` kennt die Bewegung) | gebaut, PR #3064 (#3051 zu) — Ursache (Anker beim Ablegen) bleibt offen |
+## Modellfest-Drill (K5)
 
-## Modellfest-Drill (K5, Soll)
+Gefahren am 2026-09-10 mit zwei frischen Sitzungen (Sonnet), Vorlage aus dieser Akte (`python3 tools/session_skill_drill.py --vorlage --datei docs/betrieb/mailcheck.md`): beide Läufe 9/9 erfüllt, 0 Abweichungen im Vergleich (`--vergleich`), Kennzahlen in beiden Läufen identisch (87 Vorgänge, 0 ohne Frist, 116 unverankert, 185 Links / 5 tot, Index 1 Tag alt). Beide Läufe schlugen dasselbe vor (Index-Alter auf die Arbeitsliste, Backlog 2). Protokolle liegen im Sitzungs-Scratchpad; die Zahlen stehen im Messjournal.
 
-Eine frische Sitzung bekommt nur diese Akte, führt die drei Einstiegskommandos aus, nennt die sieben Kennzahlen und einen Backlog-Vorschlag mit Gegenrede. Protokoll nach der Drill-Vorlage (`tools/session_skill_drill.py --vorlage`, Trockenlauf-Regel seit #3016). Noch nicht gefahren.
+## Betriebs-Checkliste
+
+| # | Check | Status |
+|---|---|---|
+| 1 | `python3 tools/mail_agent/kettencheck.py` gelaufen, gebrochene Glieder genannt | ☐ |
+| 2 | `make boards` gelaufen, Messjournal hat eine neue Zeile (`messjournal.py --trend --n 1`) | ☐ |
+| 3 | `python3 tools/mail_agent/verfallsmelder.py` — Warnungen genannt, auch bei 0 | ☐ |
+| 4 | `make betrieb-check` grün (K4) | ☐ |
+| 5 | Jeder neue Verlaufseintrag ist Akte, nicht Arbeitsprotokoll (Regel 0 im Mailcheck-Skill) | ☐ |

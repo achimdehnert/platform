@@ -15,37 +15,37 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 **Archiv älterer Stände und ausgelagerter Sektionen:**
 [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
-## ⚡ Aktueller Stand (2026-09-10 nachmittags — Auftrag #3015: K1–K3 gebaut, drei Gates revidiert, Token nach ADR-238)
+## ⚡ Aktueller Stand (2026-09-11 vormittags — Go-Liste abgearbeitet, Gateway-Transport gemessen: nicht begehbar, netcup gekuendigt)
 
-**Zeitanker:** HEAD `78900e91` · `rev-list --count` 4379 · geschrieben 2026-09-10
+**Zeitanker:** HEAD `a987852f` · `rev-list --count` 4403 · geschrieben 2026-09-11
 
-**Auftrag [#3015](https://github.com/achimdehnert/platform/issues/3015) (Mailcheck / To-do-Liste / Morgen-Zeitung selbstmessend):** K1 Betriebsakten fuer alle drei Anwendungen ([#3054](https://github.com/achimdehnert/platform/pull/3054), [news-hub#42](https://github.com/achimdehnert/news-hub/pull/42)); K2 Messjournal je Lauf mit Trend ([#3061](https://github.com/achimdehnert/platform/pull/3061)); K3 Verfallsmelder mit zehn Signalen, Schwellen und Positivkontrolle ([#3064](https://github.com/achimdehnert/platform/pull/3064), Fehlalarm-Fix [#3065](https://github.com/achimdehnert/platform/pull/3065)). Offen: K4 Pruefskript fuer Gegenrede, K5 Drill, Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Vorgang schliessen per Kommando [#3049](https://github.com/achimdehnert/platform/issues/3049). Sachstand mit 19 Punkten und Checkliste im Issue.
+**iil-assist O5 gemessen — negativ:** erste Sitzung mit sichtbaren Gateway-Werkzeugen; `dienst_katalog(repo=dev-hub)` scheitert am Routing, obwohl `ports.yaml` den Eintrag traegt. Drei Ursachen, jede einzeln belegt ([mcp-hub#264](https://github.com/achimdehnert/mcp-hub/issues/264)): Routing-Datei nicht im Container (`/root/github/platform` auf prod ist ein Symlink ins Runner-Verzeichnis, `/opt/platform/infra` nicht gemountet), kein `ssh` und keine Schluessel im Image, prod erreicht prod-b nicht (dort laeuft dev-hub). D2 (ssh + docker exec) ist so nicht umsetzbar; Entscheidungsvorlage mit drei Wegen, Empfehlung Dienst-Route je Hub mit Cloudflare-Access-Dienst-Token, in [#3011](https://github.com/achimdehnert/platform/issues/3011). Zustandsdatei `chat_rundlauf: fehlgeschlagen`, Befund B4 ([#3071](https://github.com/achimdehnert/platform/pull/3071)). MVP 2 wartet auf die Entscheidung.
 
-**Retro der Sitzung** ([#3048](https://github.com/achimdehnert/platform/pull/3048), Footprint full, 22 Befunde, 19 ueberlebt, 4 gekippt / 4 neu in der Widerlegungsbahn): drei Gates revidiert statt neu gebaut ([#3063](https://github.com/achimdehnert/platform/pull/3063)) — aufschub-anker liest Issue-Kommentare ([#3059](https://github.com/achimdehnert/platform/pull/3059)), repo-session start zeigt offene PRs des Tages ([#3057](https://github.com/achimdehnert/platform/pull/3057)), serielle-prs-Abgleich beim PR ([#3062](https://github.com/achimdehnert/platform/pull/3062)). Das Anker-Gate fing am selben Tag zwei eigene PRs. Token im Auslagerungs-Gate von PROJECT_PAT auf App-Token nach ADR-238 ([#3056](https://github.com/achimdehnert/platform/pull/3056)), Positivkontrolle gruen; Wirkungsnachweis im Echtfall bleibt [#3027](https://github.com/achimdehnert/platform/issues/3027).
+**Owner-Go-Liste ausgefuehrt:** #3068 (Handover, 4 Faeden auf Erledigtes) und #2984 (Gate-Registry) gemergt; `mail-links.service`/`todo-board.service` neu gestartet; risk-hub Prod per Owner-Dispatch + Owner-Klick auf `e8c64cd7` = main ([risk-hub#729](https://github.com/iilgmbh/risk-hub/issues/729)); fuenf Journal-Befunde verankert (#2908, #2990, #2950). Freigabe-Filter blockte Prod-Dispatch und Gate-Freigabe zweimal trotz Go — Kommando per `!` an den Owner, nicht umgangen; die vom Owner eingetragene autoMode-Regel traegt ein Doppel-Leerzeichen und greift nicht.
 
-**Eigene Fehler, korrigiert:** Alias statt Dienst (#3024→#3039), Betreff in Fixture (#3054), Melder-Fehlalarm (#3065).
+**netcup gekuendigt (Owner-Wort):** drei tote Runner-Registrierungen in mcp-hub geloescht; `hosts.yaml` mit netcup unter `ehemalige_hosts:` und Test liegt als [#3093](https://github.com/achimdehnert/platform/pull/3093) vor (Push ging am 2026-09-11 durch); `hosts_audit` meldet dort nur den vorbestehenden Befund `todo-board auf dev-desktop` ([#2507](https://github.com/achimdehnert/platform/issues/2507)), der nicht Teil der Aenderung ist. Offsite-Cron zielt weiter auf netcup → [#2968](https://github.com/achimdehnert/platform/pull/2968). Stand in [#2950](https://github.com/achimdehnert/platform/issues/2950).
 
-**Offen (Owner):** nichts Neues — alle Governance-PRs des Tages sind approved und gemergt.
+**Befund Werkzeug:** beide Session-Worktrees dieser Sitzung wurden ueber Nacht entfernt (Leases `.closed`), obwohl ein PR offen (#3071) bzw. Commits ungepusht waren; Branches blieben erhalten, kein Verlust. Ursache nicht ermittelt — Reaper-Log ohne Eintrag.
 
-## ⚡ Stand (2026-09-10 nachmittags — Scan-Strecke geschlossen, Archiv aufgeraeumt)
+**Zielzustand:** Sitzungsziel „weiter mit Chat- und App-Funktionen" — **nicht erreicht** (Chat-Rundlauf negativ), **verschoben mit Tracking** (#3011 Entscheidung, mcp-hub#264 Befund). Go-Punkte: erreicht bis auf 39/40/41/28 (Owner-Zug). **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen. **SA-M:** 3 eigene Merges (#3068 M1 mit Owner-Zitat, #2984 M2, alle W1). **Scope-Checkpoint:** in #3011 festgehalten. **0h fremder Blick:** 0d — alle fünf Kriterien ERFÜLLT mit Beleg (Grauton: D2 stand formal noch auf „entschieden“, jetzt „revision offen“); 0e — drei JA (0h-Ergebnis fehlte im Log, Sitzungs-ID ohne Anker, Fäden 22/24 ohne Link), alle drei im selben Zug behoben ([#3090](https://github.com/achimdehnert/platform/issues/3090)). **Dauerhafte Anker der Sitzung:** pgvector `session:platform:20260911:577a8b8c`, Outline-Lesson `2026-09-10-gateway-galt-als-deployt-…-ZqOAZ2fog7`, Konzept `…-058-spbZ8iixmq` (Stand 2026-09-11).
 
-**Scan-Strecke** ([doc-hub#3](https://github.com/achimdehnert/doc-hub/issues/3), geschlossen): der Melder deckt jetzt drei Faelle ab — liegt zu lange (Exit 1), verschwindet ohne Dokument (Exit 4), Aufnahme scheitert (Exit 5, [#3017](https://github.com/achimdehnert/platform/pull/3017)); eine Dublette meldet sichtbar, aber stumm ([#3029](https://github.com/achimdehnert/platform/pull/3029)). **Nicht** ueber `full_audit` auf der Samba-Freigabe — der Weg blieb nach der Vier-Neustarts-Episode zurueckgebaut. Exit 4 hat erstmals an einem echten Ereignis gefeuert ([#3026](https://github.com/achimdehnert/platform/issues/3026), aufgeklaert).
+## ⚡ Stand (2026-09-11 frueh — Auftrag #3015 K1–K5 fertig, Auftragsraum Stufe 1 in Bau)
 
-**Archiv aufgeraeumt** (Owner-Auftrag „Vorschlaege zur Optimierung"): ohne Besitzer 546 -> 0, ohne Absender 1149 -> 829, Titel nur Scannernummer 244 -> 91, Absender 30 -> 49, Stichwoerter 114 -> 99. Ursachen: das Ablage-Skript suchte ein Konto `achim`, das es nie gab; und 28 gepflegte Suchbegriffe standen auf „automatisch", wo der Klassifikator bei 30 Absendern auf 211 Beispielen nichts liefert (Gegenprobe ueber Stichwoerter liefert Treffer). Die Skript-Aenderungen liegen NUR auf prod (`/opt/doc-hub/scripts/auto-title.py`, Sicherung `.bak-20260910`) — bekannte Luecke.
+**Zeitanker:** HEAD `63b09690` · `rev-list --count` 4401 · geschrieben 2026-09-11
 
-**Zwei eigene Fehler, behoben:** `docker exec` ohne `-u paperless` legte 153 Dateien als root an (Suchindex + Ablage), danach scheiterte jeder Einzug und ein echter Scan blieb liegen. Und `scan-melder.yml` schrieb seinen Marker mit Leerzeichen, waehrend `cron_melder_check.py` exakt `ROT-IST-BEFUND` sucht — er wirkte dort nie. Beides in [#3055](https://github.com/achimdehnert/platform/pull/3055), zusammen mit dem woechentlichen Rueckstau-Melder (Posteingang 331, Pruefstapel 57, meldet nur Wachstum).
+**Auftrag [#3015](https://github.com/achimdehnert/platform/issues/3015) abgeschlossen:** K4 Pruefskript fuer Backlog-Gegenrede ([#3070](https://github.com/achimdehnert/platform/pull/3070), `make betrieb-check`), K5 Drill in frischer Sitzung fuer alle drei Anwendungen, 0/0/1 Abweichungen ([#3078](https://github.com/achimdehnert/platform/pull/3078)), Messjournal-Nachschaerfungen ([#3076](https://github.com/achimdehnert/platform/pull/3076), [#3077](https://github.com/achimdehnert/platform/pull/3077), [#3082](https://github.com/achimdehnert/platform/pull/3082)). `make boards` von 9,3 auf 4,5 Minuten durch Stapel-Suche im dev-hub ([dev-hub#351](https://github.com/achimdehnert/dev-hub/pull/351), [#3067](https://github.com/achimdehnert/platform/issues/3067) zu). Vorgang schliessen per Kommando ([#3085](https://github.com/achimdehnert/platform/pull/3085), schliesst [#3049](https://github.com/achimdehnert/platform/issues/3049)). Rest: Waisen-Zuordnung [#3050](https://github.com/achimdehnert/platform/issues/3050), Backlog-Check zaehlt nacktes „offen" als Anker [#3080](https://github.com/achimdehnert/platform/issues/3080).
 
-**Zugang:** Access-Liste fuer `docs.iil.pet` traegt jetzt Firmen- und Hochschul-Adresse plus zwei weitere Personen. Analysen und Rueckweg-Listen liegen in `~/shared/docs-hub/`; offen bleibt [doc-hub#18](https://github.com/achimdehnert/doc-hub/issues/18) (zwei Konten anderer Personen).
+**Auftragsraum „Auftraege Achim / Lotse"** ([#3079](https://github.com/achimdehnert/platform/issues/3079), Konzept KONZ-platform-059 gemergt [#3081](https://github.com/achimdehnert/platform/pull/3081)): Raum und Lotsen-Konto waren vorhanden, Testnachricht gesendet, lokale Umgebung angelegt. Stufe 1 (Sortierer, Journal, Regel-Artefakt, Kennzahlen, Betriebsakte) in Bau; der erste Abgleich verbrauchte einen mehrtaegigen Rueckstau ohne Ablage → Verlaufs-Modus [#3086](https://github.com/achimdehnert/platform/issues/3086). Die Skill-Zeilen fuer Sitzungsstart und -ende folgen als Governance-PR (Owner-Approval).
 
-**Zielzustand:** erreicht fuer alle freigegebenen Punkte. **SA-4:** 0 Anwendungen · 0 Einzel-OK · 0 Fehlanwendungen.
+**Offen (Owner):** Skill-Zeilen-PR approven, sobald er steht; Morgen-Zeitung in den Raum senden ist eine news-hub-Aenderung (Deploy nur per Dispatch).
 
 ## Offene Fäden (über den Session-Stand hinaus)
 
-0. iil-assist Gateway MVP 1: Prod-Freigabe fuer PR #263 offen: https://github.com/achimdehnert/mcp-hub/issues/264
+0. iil-assist Gateway: Transport (D2) nicht begehbar — drei Ursachen belegt, Fix haengt an der Transport-Entscheidung: https://github.com/achimdehnert/mcp-hub/issues/264
 
 0. Auftrag #3015 (Mailcheck, To-do, Morgen-Zeitung selbstmessend) laeuft, Stand im Archiv vom 2026-09-10: https://github.com/achimdehnert/platform/issues/3015
-0. iil-assist (KONZ-058): Rundlauf im Chat belegen (O5), dann MVP 2 Dokument-Suche; Nebenissues #3019 PyPI, #3020 Regelkreis, #3021 Routing, #3022 ADR-036: https://github.com/achimdehnert/platform/issues/3011
-0. netcup antwortet mit fremdem Host-Key, Backup-Cron zielt weiter dorthin, Vertrag offen: https://github.com/achimdehnert/platform/issues/2950
+0. iil-assist (KONZ-058): O5 gemessen (negativ); Transport-Entscheidung Weg 1–3 = Owner-Wort, dann MVP 2 Dokument-Suche; Nebenissues #3019 PyPI, #3020 Regelkreis, #3021 Routing, #3022 ADR-036: https://github.com/achimdehnert/platform/issues/3011
+0. netcup gekuendigt (Owner 2026-09-10): hosts.yaml-PR #3093 offen; Offsite-Cron via #2968: https://github.com/achimdehnert/platform/issues/2950
 0. dev-hub Staging-Deploy vorbestehend kaputt (Kein Compose-File): https://github.com/achimdehnert/dev-hub/issues/348
 0. Paperless `PAPERLESS_FILENAME_DATE_ORDER` setzen: https://github.com/achimdehnert/doc-hub/issues/15
 0. Stapel-Zerleger im Betrieb, Zielzustand-Issue noch offen: https://github.com/achimdehnert/doc-hub/issues/4 — Bauteile gemergt (doc-hub#5, doc-hub#13, doc-hub#14).
@@ -54,6 +54,11 @@ jedes Byte hier kostet Kontext in *jeder* Sitzung.
 - **[2982]** Retro 136735: sieben ueberlebende Befunde ohne Umsetzungsartefakt — beim Auslagern der Sektion vom 2026-09-08 hierher gerettet — https://github.com/achimdehnert/platform/issues/2982
 - **[3015]** Auftrag Mailcheck/To-do/Zeitung selbstmessend (SA-4): Sachstand mit 12 Befunden im Issue; nach Merge von #3042 `mail-links.service` und `todo-board.service` neu starten (Owner) — https://github.com/achimdehnert/platform/issues/3015
 - **[3027]** Auslagerungs-Gate liest Fremd-Repos jetzt per Flotten-Token; schliesst erst, wenn eine Auslagerung mit Fremd-Refs im Gate gruen laeuft — https://github.com/achimdehnert/platform/issues/3027
+- **[3079]** Auftragsraum Stufe 1 in Bau; Skill-Zeilen als Governance-PR (Owner-Approval) — https://github.com/achimdehnert/platform/issues/3079
+- **[3086]** Sortierer muss den Raumverlauf nach Zeitstempel lesen (Abgleich verschluckt Rueckstau) — https://github.com/achimdehnert/platform/issues/3086
+- **[3080]** Backlog-Check zaehlt nacktes offen als Anker — https://github.com/achimdehnert/platform/issues/3080
+- **[3073]** 20 Dateien Format-Schuld (ruff format) — https://github.com/achimdehnert/platform/issues/3073
+- **[doc-hub#18]** Zwei Konten anderer Personen in der Access-Liste docs.iil.pet; Skript-Aenderungen an `auto-title.py` liegen NUR auf prod (Sicherung `.bak-20260910`) — aus dem Stand vom 2026-09-10 gerettet — https://github.com/achimdehnert/doc-hub/issues/18
 - **[news-hub#33]** Morgen-Zeitung: Themenauswahl kuert generische Woerter — beim Auslagern der Sektion vom 2026-09-09 vormittags hierher gerettet — https://github.com/achimdehnert/news-hub/issues/33
 - **[news-hub#40]** Morgen-Zeitung: Smoke-Lauf im CI, Entwurf steht — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/40
 - **[news-hub#19]** Morgen-Zeitung: NIS2 und Voice Agents ohne Quelle, Robotik und IoT belegt — beim Auslagern gerettet — https://github.com/achimdehnert/news-hub/issues/19
@@ -63,7 +68,6 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 **offenes** Issue — ist es geschlossen, gehört sie ins Archiv, nicht hierher.
 
 0. Auslagern verlor drei Faeden nach #2967 — Befund zum Gate selbst: https://github.com/achimdehnert/platform/issues/2974
-0. Gate-Registry-Eintrag `handover-auslagerung-verschluckt-offenes` wartet auf Owner-Wort (`docs/governance/`): https://github.com/achimdehnert/platform/pull/2984
 1. KONZ-054 Systembild, Kill-Gate 2026-10-15; Owner-Punkte #2486/#2504/#2507, Reste #2480: https://github.com/achimdehnert/platform/issues/2516
 2. KONZ-051 ux-review-agent, Kill-Gate 2026-09-30; K1 3/9, K3 offen: https://github.com/achimdehnert/writing-hub/issues/766
 3. Volume-Deckung prod (40 Volumes), K2 = Owner-Gate, Löschliste #2258: https://github.com/achimdehnert/platform/issues/2300
@@ -72,7 +76,7 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 7. Wirksamkeits-Bilanz der Gates: 6 rückfällige per #2909 behandelt, Hook-Verdrahtung #2907: https://github.com/achimdehnert/platform/issues/2374
 8. Concurrency je Ziel-Umgebung: 13 gleichlautende PRs in der Flotte offen: https://github.com/achimdehnert/platform/issues/2229
 9. `deploy_wirkung`-Restbefunde; travel-beat weiter RUECKSTAND (gewollt), illustration-hub → illustration-hub#344; NEU: Route ohne Deklaration (molkerei.iil.pet lief undeklariert auf staging-dedicated) — Cloudflare-DNS gegen ports.yaml abgleichen: https://github.com/achimdehnert/platform/issues/2148
-10. risk-hub: Staging grün nach litellm-OOM-Fix (#743), Prod-Gate des Dispatch-Laufs 34101567220 = Owner-Klick; Repo liegt in `iilgmbh`: https://github.com/iilgmbh/risk-hub/issues/729
+10. risk-hub: Prod auf `main` seit 2026-09-11 (Dispatch + Owner-Klick); Rest im Issue, Repo liegt in `iilgmbh`: https://github.com/iilgmbh/risk-hub/issues/729
 11. Rollende Melder legen an statt zu aktualisieren, ~38 Kandidaten: https://github.com/achimdehnert/platform/issues/2140
 12. shared-ci-Bänder: App-Repos v1.1.10 ×17 / v1.0.11 ×2, `ttz-lif`+`meiki-lra` ungemessen: https://github.com/achimdehnert/platform/issues/2087
 13. ADR-Zweitmeinungen ohne Rückkanal, 19 von 24 ohne Antwort: https://github.com/achimdehnert/platform/issues/2088
@@ -84,9 +88,9 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 20. GX10-Training: 4090 bleibt fuehrend bis 16.384 Umgebungen, darueber traegt nur der GX10: https://github.com/achimdehnert/robo-lab/issues/58
 53. Kaufberatung zweites Geraet — Empfehlung abgelegt, Kenntnisnahme offen: https://github.com/achimdehnert/platform/issues/2978
 21. Mail-Ansicht: leerer Körper braucht „Inhalt im Anhang": https://github.com/achimdehnert/platform/issues/2597
-22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert.
+22. Owner: die 20 mechanisch gesetzten `frist_grund`-Texte auf `todo.iil.pet` sichten (Spalte Frist) — mechanisch je Bucket gesetzt, nicht redigiert: https://github.com/achimdehnert/platform/issues/3015
 23. Megatest-Erstlauf, 15 Befunde unbearbeitet und ohne Tracking-Issue ([Lauf 30619024656](https://github.com/achimdehnert/platform/actions/runs/30619024656), 2026-08-02) — vor Wiederaufnahme neu messen.
-24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen (kein Issue).
+24. Gegenprobe Wochenlauf `ttz-hub`: beim nächsten Lauf, der ttz-hub wirklich ändert, müssen Checks am erzeugten PR erscheinen: https://github.com/achimdehnert/platform/issues/3090
 25. Session-Skills modellfest (#2690): Drill-Vorlage #2719, Backfill Positivkontrolle #2703, Ruleset-Entscheid bis 2026-10-02: https://github.com/achimdehnert/platform/issues/2690
 26. #2750 K4/K5-Bilanz, sobald das Ledger 5 Fable-Sessions nach 2026-09-03 trägt (Stand 2); K5-Basisdefinition = Owner-Wort: https://github.com/achimdehnert/platform/issues/2750
 27. Orchestrator-MCP-Schlüssel rotiert 2026-09-03: andere Maschinen prüfen, toter Block in settings.json: https://github.com/achimdehnert/platform/issues/2769
@@ -117,7 +121,6 @@ Je eine Zeile mit Link, kein Verlauf. Frisches steht oben im Stand-Block, Histor
 57. Future-Readiness an vorhandene Melder anschliessen: https://github.com/achimdehnert/platform/issues/2944
 58. Vier Funktionen ohne Verwendung im Produktivpfad: https://github.com/achimdehnert/platform/issues/2961
 59. 14 accepted-ADRs ohne Umsetzungsvermerk: https://github.com/achimdehnert/platform/issues/2962
-60. Melder-Ergebnisdatei wird nicht uebergeben: https://github.com/achimdehnert/platform/issues/2969
 
 ## Konventionen dieser Datei
 

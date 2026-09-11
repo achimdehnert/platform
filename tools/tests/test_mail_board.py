@@ -263,6 +263,90 @@ class TestErledigt:
         assert any("erledigt_am" in b for b in befunde)
 
 
+class TestErledigtKommando:
+    """`board.py --erledigt` schliesst einen Vorgang per Kommando statt per Hand (#3049)."""
+
+    def test_should_close_an_open_item_and_set_the_three_fields(self, pfade, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(_ledger(_v(nr=7, bucket="owner", kurz="K"), naechste=8)),
+            "utf-8",
+        )
+        rc = board.main(
+            [
+                "--ledger",
+                str(ledger),
+                "--erledigt",
+                "7",
+                "--am",
+                "2026-09-11",
+                "--grund",
+                "Antwort erhalten",
+            ]
+        )
+        v = json.loads(ledger.read_text())["vorgaenge"][0]
+        assert rc == 0
+        assert (v["bucket"], v["erledigt_am"], v["zustand"]) == (
+            "erledigt",
+            "2026-09-11",
+            "erledigt: Antwort erhalten",
+        )
+        assert "ERLEDIGT (Owner): Antwort erhalten" in v["notiz"]
+
+    def test_should_refuse_an_unknown_number(self, pfade, tmp_path):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(json.dumps(_ledger(_v(nr=7), naechste=8)), "utf-8")
+        with pytest.raises(SystemExit) as fehler:
+            board.main(
+                ["--ledger", str(ledger), "--erledigt", "99", "--am", "2026-09-11"]
+            )
+        assert fehler.value.code == 2
+
+    def test_should_leave_an_already_closed_item_unchanged_on_a_second_close(
+        self, pfade, tmp_path
+    ):
+        ledger = tmp_path / "l.json"
+        ledger.write_text(
+            json.dumps(
+                _ledger(
+                    _v(
+                        nr=7,
+                        bucket="erledigt",
+                        erledigt_am="2026-09-01",
+                        zustand="erledigt",
+                        notiz="2026-09-01 ERLEDIGT (Owner): x",
+                    ),
+                    naechste=8,
+                )
+            ),
+            "utf-8",
+        )
+        vorher = ledger.read_text()
+        rc = board.main(
+            ["--ledger", str(ledger), "--erledigt", "7", "--am", "2026-09-11"]
+        )
+        assert rc == 0
+        assert ledger.read_text() == vorher
+
+    def test_should_reverse_a_closure_on_reopen(self, pfade):
+        ledger = _ledger(_v(nr=7, bucket="owner", kurz="K"))
+        vorgang, status = board.schliesse_vorgang(
+            ledger, 7, "2026-09-11", "", "2026-09-11"
+        )
+        assert status == "geschlossen"
+        wieder, status2 = board.wiedereroeffne_vorgang(ledger, 7, "2026-09-12")
+        assert status2 == "geoeffnet"
+        assert wieder["bucket"] == "owner"
+        assert "erledigt_am" not in wieder
+        assert "WIEDER GEOEFFNET (Owner)" in wieder["notiz"]
+
+    def test_should_report_a_closing_date_without_the_closed_bucket(self, pfade):
+        befunde = board.pruefe(
+            _ledger(_v(nr=7, bucket="owner", erledigt_am="2026-09-01"), naechste=8)
+        )
+        assert any("erledigt_am" in b and "!= 'erledigt'" in b for b in befunde)
+
+
 class TestLinkZiel:
     """Der Posten fuehrt in die Vorgangsansicht, nicht in die aelteste Mail."""
 
@@ -455,9 +539,7 @@ class TestKopfzeile:
         assert "1 überfällig" in text
 
     def test_should_stay_silent_about_deadlines_when_there_are_none(self, pfade):
-        assert "Frist" not in board.kopfzeile(
-            [_v(nr=3, bucket="owner")], "2026-09-09"
-        )
+        assert "Frist" not in board.kopfzeile([_v(nr=3, bucket="owner")], "2026-09-09")
 
     def test_should_not_depend_on_the_clock(self, pfade):
         posten = [_v(nr=3, bucket="owner", frist="2026-09-20")]
@@ -471,7 +553,9 @@ class TestKenntnis:
 
     def test_should_render_a_kenntnis_item_in_its_own_section(self, pfade):
         text = board.render(
-            _ledger(_v(nr=3, bucket="kenntnis", kurz="Statusbericht", angelegt="2026-09-08")),
+            _ledger(
+                _v(nr=3, bucket="kenntnis", kurz="Statusbericht", angelegt="2026-09-08")
+            ),
             "2026-09-09",
         )
         assert "Nur zur Kenntnis" in text

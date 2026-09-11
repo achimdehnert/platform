@@ -1220,6 +1220,31 @@
         "ref": "tools/tests/test_ci_deckung.py::test_should_catch_realfall_1_robo_lab_stream_gate, ::test_should_catch_realfall_2_robo_lab_exo_konformitaet_myoassist, ::test_should_catch_realfall_3_chat_hub_ruff_format_shape (je rot ohne Fix, gruen mit) - 16 Tests gruen. Am echten Repo: `python3 tools/ci_deckung.py --repo ~/github/robo-lab` findet 7 Befunde inkl. stream-gate und exo-konformitaet-myoassist, 3 gedeckt (u.a. exo-konformitaet, exo-konformitaet-selbsttest); `python3 tools/ci_deckung.py --repo ~/github/chat-hub` findet 0 Befunde (3 gedeckt, 4 verzichtet: chat-verify/chat-verify-init, Prod-Zugriff) - der reale #79-Gap lag ausserhalb des Makefile-Scopes, siehe Drill-Docstring.",
         "datum": "2026-09-09"
       }
+    },
+    {
+      "slug": "handover-auslagerung-verschluckt-offenes",
+      "mode": "blocking",
+      "owner": "achim",
+      "module": "scripts/checks/handover_auslagerung_check.py",
+      "drill": [
+        "tools/tests/test_handover_auslagerung_check.py"
+      ],
+      "built": "2026-09-08",
+      "ref": "platform#2980",
+      "faengt": [
+        {
+          "fall": "Stand-Block wandert ins Archiv, eine darin genannte OFFENE Issue-Nummer steht danach nirgends mehr im Handover",
+          "probe": "verschwundene-offene-referenz"
+        },
+        {
+          "fall": "Referenz nur im Markdown-Label statt in der URL gelesen (falscher Owner)",
+          "probe": "linktext-normalisierung"
+        }
+      ],
+      "positivkontrolle": {
+        "ref": "Zwei unabhaengige Belege. (1) RUECKWIRKEND: gegen den Commit von platform#2967 gerechnet (`verschwundene(git show 093a6aed^:AGENT_HANDOVER.md, git show 093a6aed:AGENT_HANDOVER.md)`) nennt der Check achimdehnert/robo-lab#66 und #81 - genau die beiden offenen Punkte, die dort wirklich verloren gingen (Befund platform#2974). (2) IM ECHTBETRIEB, wenige Stunden spaeter in platform#2983: beim Auslagern von Sitzung 8661c35d meldete er 19 verschwundene Referenzen, davon SIEBEN OPEN (billing-hub#52, odoo-hub#32, platform#2931/#2944/#2961/#2962/#2969); alle sieben wurden daraufhin als Faden 54-60 nachgetragen. Ohne den Check waeren sie still verschwunden. Gegenprobe: eine unveraenderte Datei und eine in die Fadenliste VERSCHOBENE Referenz erzeugen keinen Befund (test_should_stay_silent_when_the_reference_was_rescued_into_the_threads), und eine geschlossene Nummer darf mit dem Block gehen (test_should_let_a_closed_reference_go).",
+        "datum": "2026-09-08"
+      }
     }
   ],
   "_positivkontrolle_doc": "`positivkontrolle: {ref, datum}` je Gate: der Beleg, dass das Gate den Fall, gegen den es gebaut wurde, auch WIRKLICH getroffen hat — ein roter Lauf am Realfall, ein gefangener Fixture-Fall, eine benannte Fundstelle. Eingefuehrt 2026-09-02 (platform#2690 K4), gelesen von tools/gate_verankerung_check.py. ABGRENZUNG zu `faengt`: dessen Pruefer (gate_namensdeckung.py) zieht die Grenze im eigenen Kopf woertlich — 'Er misst NICHT, ob der Test den Fall wirklich abfaengt'. `faengt` belegt, dass der namensgebende Fall im Drill VORKOMMT; die Positivkontrolle belegt, dass das Gate bei diesem Fall ROT wurde. Zwei Aussagen, und die zweite fehlte im Schema. Ein Gate ohne sie ist ein Melder, der nie beweisen musste, dass er etwas finden kann. KEIN eigenes Feld bekommt dagegen der Messpunkt: gate_wirkung.py misst auf `slug` (gesucht in recurring_findings/gates_caught/SURVIVES-Zeilen) und `revised or built` — ein drittes Feld waere eine zweite Wahrheit ueber denselben Messpunkt. Bestandsschutz: die 30 am 2026-09-02 registrierten Alt-Gates tragen das Feld nicht; es wird beim naechsten Anfassen eingefordert (`--neu`), nicht per Sammel-Rot — das aktive Nachziehen ist getrackt in platform#2703.",
@@ -1346,8 +1371,8 @@
       "slug": "behauptung-ueber-fremdcode-im-datei-kommentar",
       "decided": "2026-09-07",
       "owner": "achim",
-      "ref": "platform#2933 Retro robo-lab 6972fc Befund #3, Vorschlag zur Ratifikation",
-      "reason": "Vorgeschlagen als Ausweitung von claim-before-cheapest-check auf Behauptungen ueber fremdes Verhalten in Datei-Kommentaren (Realfall robo-lab#68: ein Kommentar behauptete das Verhalten des Vendor-Trainers aus Beobachtung statt aus dem Quellcode, Fehlstart mit IndexError, Korrektur erst in robo-lab#70). Beim Bauen verworfen: die gute und die schlechte Form sind maschinell nicht trennbar. Der Soll-Ablauf derselben Retro verlangt ausdruecklich, die geprueft Fundstelle MIT Zeilennummer in den Kommentar zu schreiben — ein Scanner auf 'Kommentar nennt fremde Datei plus Zeile' wuerde also genau die richtige Praxis treffen und die falsche (Behauptung ohne Fundstelle) nur dann, wenn sie zufaellig dieselben Woerter benutzt. Hohe Fehlalarm-Quote am erwuenschten Verhalten; das Gate wuerde umgangen statt befolgt. Stattdessen Memory-Regel feedback_behauptung_ueber_fremdcode_im_kommentar_braucht_dieselbe_pruefung (Vorschlag in platform#2933 Paragraf 6). Das bestehende Gate bleibt unveraendert — es hat in derselben Sitzung zweimal gefangen (gates_caught) und wurde am selben Tag von einer anderen Sitzung auf Rev 5 gebracht; ein Rev 6 ohne Verhaltensaenderung waere reines Zuruecksetzen der Messung."
+      "ref": "platform#2933 Retro robo-lab 6972fc Befund #3; Owner-Entscheid 2026-09-07, ratifiziert und gemergt in platform#2934",
+      "reason": "Erwogen als Ausweitung von claim-before-cheapest-check auf Behauptungen ueber fremdes Verhalten in Datei-Kommentaren (Realfall robo-lab#68: ein Kommentar behauptete das Verhalten des Vendor-Trainers aus Beobachtung statt aus dem Quellcode, Fehlstart mit IndexError, Korrektur erst in robo-lab#70). Beim Bauen verworfen: die gute und die schlechte Form sind maschinell nicht trennbar. Der Soll-Ablauf derselben Retro verlangt ausdruecklich, die geprueft Fundstelle MIT Zeilennummer in den Kommentar zu schreiben — ein Scanner auf 'Kommentar nennt fremde Datei plus Zeile' wuerde also genau die richtige Praxis treffen und die falsche (Behauptung ohne Fundstelle) nur dann, wenn sie zufaellig dieselben Woerter benutzt. Hohe Fehlalarm-Quote am erwuenschten Verhalten; das Gate wuerde umgangen statt befolgt. Stattdessen Memory-Regel feedback_behauptung_ueber_fremdcode_im_kommentar_braucht_dieselbe_pruefung (Vorschlag in platform#2933 Paragraf 6). Das bestehende Gate bleibt unveraendert — es hat in derselben Sitzung zweimal gefangen (gates_caught) und wurde am selben Tag von einer anderen Sitzung auf Rev 5 gebracht; ein Rev 6 ohne Verhaltensaenderung waere reines Zuruecksetzen der Messung."
     }
   ],
   "_widerrufen_doc": "Verzichte, die zurueckgenommen wurden. Sie stehen NICHT mehr in `declined` — sonst zaehlten `gate_deckung.py` und `retro_kpis.py` sie weiter als getroffene Entscheidung, und der Widerruf waere deklariert statt wirksam. Die Slugs sind damit wieder offen und erscheinen in der GATE-PFLICHT-Liste. Diese Sektion bewahrt, warum der Verzicht einmal galt und woran er gescheitert ist — die Widerlegung ist der wertvollere Teil.",

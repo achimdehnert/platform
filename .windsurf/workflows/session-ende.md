@@ -230,6 +230,16 @@ Sitzungsende** dieser Klasse. Deshalb der Footprint-Schalter statt „immer". �
 
 ---
 
+### 0i: Auftragsraum — keine Korrektur ohne Artefakt (PFLICHT — NEU 2026-09-11, KONZ-platform-059 / #3079)
+
+`python3 tools/chat_agent/auftragsraum.py offen --block` (nur platform-Sessions). Exit 1 heißt:
+eine Owner-Korrektur aus dem Chat-Raum hat noch kein Regel-Artefakt — je Zeile `regel
+<nachricht_id> --why …` ausführen oder den Verzicht mit Grund im Stand-Block nennen. Offene
+Aufträge ohne Issue werden hier gemeldet, nicht angelegt (das bleibt Phase 1.8 des Starts).
+Betriebsakte: `docs/betrieb/auftragsraum.md`.
+
+---
+
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren (PFLICHT)
 
 Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation, Cross-Repo-Tagging und
@@ -326,9 +336,17 @@ Letzter Output der Sitzung, nach der Abschluss-Checkliste, **genau eine** der be
 
 - **🟢 CLEAR-FREIGABE: JA** — Checkliste vollständig grün UND alle drei 0e-Fragen mit „nein"
   beantwortet oder ihr Fix verankert (Issue/Handover/Memory, nicht nur Chat).
-- **🔴 CLEAR-FREIGABE: NEIN — <konkreter Grund>** — mindestens ein Punkt offen (dirty Repo,
-  offene Checkliste-Zeile, unbeantwortete oder ungefixte 0e-Frage). Der Grund benennt das
-  fehlende Ding, nicht nur „nicht grün".
+- **🔴 CLEAR-FREIGABE: NEIN — <konkreter Grund>** — mindestens ein Punkt **aus dieser
+  Sitzung** offen (selbst dirty gemachtes Repo, offene Checkliste-Zeile, unbeantwortete oder
+  ungefixte 0e-Frage). Der Grund benennt das fehlende Ding, nicht nur „nicht grün".
+
+**Fremder Stand hemmt die Freigabe nicht** (Owner-Weisung 2026-09-10): ein dirty Repo aus
+einer anderen Sitzung, ein rotes Deploy fremder Herkunft, ein konkurrierender Handover-PR —
+das wird **gemeldet** (Board-Zeile) und blockiert die Zeile **nicht**. Die Freigabe misst
+ausschließlich, ob **diese** Sitzung etwas Ungesichertes zurücklässt. Prüffrage: „habe ich
+das dirty gemacht?" — beantwortet mit einem Blick auf Änderungszeit und Turn-Historie, nicht
+per Vermutung. Wer fremden Stand zur eigenen Bremse macht, liefert eine Freigabe, die
+nie 🟢 wird, und trainiert damit das Überlesen der Zeile.
 
 Keine dritte Formulierung, kein Weglassen dieser Zeile. → `LEHREN#3.5`
 
@@ -366,7 +384,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 3 | Error-Patterns erfasst (falls Bug-Fix) | ☐ |
 | 4 | Alle Repos committed + pushed | ☐ |
 | 5 | Platform gepusht → Workflows sync → Skill-Lanes synchron (E.9) | ☐ |
-| 6 | Kein eigenes Repo dirty (E.7) | ☐ |
+| 6 | Kein Repo aus DIESER Sitzung dirty; fremd dirty nur gemeldet (E.7) | ☐ |
 | 7 | Keine .fixed/.updated Dateien übrig | ☐ |
 | 8 | Blockierte Arbeit dokumentiert (0a) | ☐ |
 | 9 | Doku-Lücke aus 3.1 als Issue im betroffenen Repo (1b) | ☐ |
@@ -384,6 +402,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 21 | Clear-Freigabe-Zeile als letzter Satz — 🟢 JA oder 🔴 NEIN + Grund (3.5) | ☐ |
 | 22 | Gate verankert? `gate_verankerung_check.py --neu` grün, sonst Kandidat (0f-verankerung) | ☐ |
 | 23 | Ab `full`: 0d und 0e von je einem fremden Agenten gegengelesen (0h) | ☐ |
+| 24 | Auftragsraum: `offen --block` Exit 0, oder je Korrektur `regel` bzw. Verzicht mit Grund (0i) | ☐ |
 
 **Neue Pflicht-Phase ⇒ Checklisten-Zeile im selben PR**; Auswahl über
 `grep -n "^## \|^### "` und Einzelbeurteilung, **nicht** über das Wort „PFLICHT".
@@ -392,6 +411,15 @@ Memory-Upserts deduplizieren per `content_hash`.
 ---
 
 ## Changelog
+
+- 2026-09-11: **Phase 0i Auftragsraum + Checklisten-Zeile 24** (KONZ-platform-059, #3079) —
+  `offen --block` schließt die Lernschleife: eine Owner-Korrektur aus dem Chat-Raum ohne
+  Regel-Artefakt hemmt das Sitzungsende, bis `regel` das Artefakt anlegt oder der Verzicht
+  begründet ist. Gegenstück zu Start 1.8.
+- 2026-09-10: **3.5 misst nur die eigene Sitzung + Checklisten-Zeile 6 gescharft** —
+  Owner wörtlich: „fremde dirty sollten kein clear hemmen !! -> mehr fokus auf eigenen
+  sitzung !". Anlass: eine Sitzung ohne jede Repo-Änderung lieferte 🔴, weil drei fremde
+  Repos seit Tagen dirty lagen. Fremder Stand wird gemeldet, nicht zur eigenen Bremse.
 
 - 2026-09-02: **Phase 0h Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 23** (#2036) —
   Owner-Freigabe für Subagenten in den Session-Skills, ausdrücklich **selbstbetreffend**.
@@ -410,6 +438,3 @@ Memory-Upserts deduplizieren per `content_hash`.
 - 2026-09-02: **Phase 0f-verankerung (PFLICHT) + Checklisten-Zeile 22** (#2690 K4) — ein Gate
   kommt nur mit Drill, Positivkontrolle und Messpunkt in die Registry. Anlass: 14 von 33
   Gates rückfällig, 0 von 31 Einträgen mit Beleg eines echten Treffers (#2374, #2678).
-- 2026-08-30: **Phase 3.5 Clear-Freigabe (PFLICHT) + Checklisten-Zeile 21** — Owner wörtlich:
-  „session-ende liefert häufig keinen sauberen Zustand für clear." Die Antwort auf die
-  0e-Frage wird laut ausgesprochen statt in einem Häkchen verborgen.
