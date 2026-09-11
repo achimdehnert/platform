@@ -326,9 +326,17 @@ Letzter Output der Sitzung, nach der Abschluss-Checkliste, **genau eine** der be
 
 - **🟢 CLEAR-FREIGABE: JA** — Checkliste vollständig grün UND alle drei 0e-Fragen mit „nein"
   beantwortet oder ihr Fix verankert (Issue/Handover/Memory, nicht nur Chat).
-- **🔴 CLEAR-FREIGABE: NEIN — <konkreter Grund>** — mindestens ein Punkt offen (dirty Repo,
-  offene Checkliste-Zeile, unbeantwortete oder ungefixte 0e-Frage). Der Grund benennt das
-  fehlende Ding, nicht nur „nicht grün".
+- **🔴 CLEAR-FREIGABE: NEIN — <konkreter Grund>** — mindestens ein Punkt **aus dieser
+  Sitzung** offen (selbst dirty gemachtes Repo, offene Checkliste-Zeile, unbeantwortete oder
+  ungefixte 0e-Frage). Der Grund benennt das fehlende Ding, nicht nur „nicht grün".
+
+**Fremder Stand hemmt die Freigabe nicht** (Owner-Weisung 2026-09-10): ein dirty Repo aus
+einer anderen Sitzung, ein rotes Deploy fremder Herkunft, ein konkurrierender Handover-PR —
+das wird **gemeldet** (Board-Zeile) und blockiert die Zeile **nicht**. Die Freigabe misst
+ausschließlich, ob **diese** Sitzung etwas Ungesichertes zurücklässt. Prüffrage: „habe ich
+das dirty gemacht?" — beantwortet mit einem Blick auf Änderungszeit und Turn-Historie, nicht
+per Vermutung. Wer fremden Stand zur eigenen Bremse macht, liefert eine Freigabe, die
+nie 🟢 wird, und trainiert damit das Überlesen der Zeile.
 
 Keine dritte Formulierung, kein Weglassen dieser Zeile. → `LEHREN#3.5`
 
@@ -366,7 +374,7 @@ Memory-Upserts deduplizieren per `content_hash`.
 | 3 | Error-Patterns erfasst (falls Bug-Fix) | ☐ |
 | 4 | Alle Repos committed + pushed | ☐ |
 | 5 | Platform gepusht → Workflows sync → Skill-Lanes synchron (E.9) | ☐ |
-| 6 | Kein eigenes Repo dirty (E.7) | ☐ |
+| 6 | Kein Repo aus DIESER Sitzung dirty; fremd dirty nur gemeldet (E.7) | ☐ |
 | 7 | Keine .fixed/.updated Dateien übrig | ☐ |
 | 8 | Blockierte Arbeit dokumentiert (0a) | ☐ |
 | 9 | Doku-Lücke aus 3.1 als Issue im betroffenen Repo (1b) | ☐ |
@@ -393,6 +401,11 @@ Memory-Upserts deduplizieren per `content_hash`.
 
 ## Changelog
 
+- 2026-09-10: **3.5 misst nur die eigene Sitzung + Checklisten-Zeile 6 gescharft** —
+  Owner wörtlich: „fremde dirty sollten kein clear hemmen !! -> mehr fokus auf eigenen
+  sitzung !". Anlass: eine Sitzung ohne jede Repo-Änderung lieferte 🔴, weil drei fremde
+  Repos seit Tagen dirty lagen. Fremder Stand wird gemeldet, nicht zur eigenen Bremse.
+
 - 2026-09-02: **Phase 0h Fremder Blick (PFLICHT ab `full`) + Checklisten-Zeile 23** (#2036) —
   Owner-Freigabe für Subagenten in den Session-Skills, ausdrücklich **selbstbetreffend**.
   Nur 0d und 0e bekommen fremden Kontext; der mechanische Rest bleibt Skript. Der Zweig
@@ -410,6 +423,3 @@ Memory-Upserts deduplizieren per `content_hash`.
 - 2026-09-02: **Phase 0f-verankerung (PFLICHT) + Checklisten-Zeile 22** (#2690 K4) — ein Gate
   kommt nur mit Drill, Positivkontrolle und Messpunkt in die Registry. Anlass: 14 von 33
   Gates rückfällig, 0 von 31 Einträgen mit Beleg eines echten Treffers (#2374, #2678).
-- 2026-08-30: **Phase 3.5 Clear-Freigabe (PFLICHT) + Checklisten-Zeile 21** — Owner wörtlich:
-  „session-ende liefert häufig keinen sauberen Zustand für clear." Die Antwort auf die
-  0e-Frage wird laut ausgesprochen statt in einem Häkchen verborgen.
